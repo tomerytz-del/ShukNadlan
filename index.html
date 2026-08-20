@@ -997,6 +997,42 @@ const TYPE_LABELS = {
   interior_designer:'מעצב/ת פנים', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל/ת מקצוע',
 };
 
+/* רוטציה הוגנת בין בעלי-מקצוע באותה קטגוריה.
+   בכוונה חסרת-state: התצוגה קורית לגולשים אנונימיים שאין להם הרשאת כתיבה,
+   ורישום שורת רוטציה בכל צפיית עמוד גם היה מייצר עומס כתיבה מיותר. במקום
+   זה הסדר נגזר משעת השעון — כל שעה עולה לראש כל קטגוריה מפרסם אחר, כך
+   שלאורך זמן החשיפה מתחלקת שווה בשווה בלי לשמור כלום.
+   (priority_rotation_state נשאר בשימוש לרוטציה של Promote, שם יש סוכן
+   מזוהה ומדובר בבחירה חד-פעמית ולא בכל rendering.)                       */
+function rotateProfessionalsFairly(list){
+  const bucket = Math.floor(Date.now() / 3600000); // דלי של שעה
+  const byType = new Map();
+  list.forEach(p=>{
+    const key = p.advertiser_type || 'general';
+    if (!byType.has(key)) byType.set(key, []);
+    byType.get(key).push(p);
+  });
+
+  const groups = Array.from(byType.keys()).sort().map(key=>{
+    // סדר בסיס יציב, כדי שהרוטציה תהיה צפויה ולא תלויה בסדר שהגיע מה-DB
+    const items = byType.get(key).slice().sort((a, b)=>
+      String(a.id || a.advertiser_name).localeCompare(String(b.id || b.advertiser_name)));
+    const offset = bucket % items.length;
+    return items.slice(offset).concat(items.slice(0, offset));
+  });
+
+  // שזירה בין הקטגוריות — אחרת שלושה שמאים היו תופסים את כל השורה הראשונה
+  const out = [];
+  for (let i = 0; groups.some(g => g[i]); i++){
+    groups.forEach(g => { if (g[i]) out.push(g[i]); });
+  }
+  return out;
+}
+
+function isPlacementLive(p, today){
+  return (!p.starts_at || p.starts_at <= today) && (!p.ends_at || p.ends_at >= today);
+}
+
 (async function initProfessionals(){
   const el = document.getElementById('prosGrid');
   let pros = FALLBACK_PROS;
@@ -1004,11 +1040,15 @@ const TYPE_LABELS = {
     if (sb){
       const { data, error } = await sb
         .from('ad_placements')
-        .select('advertiser_name, advertiser_type, target_region, click_url')
+        .select('id, advertiser_name, advertiser_type, target_region, click_url, starts_at, ends_at')
         .eq('placement_type', 'professional_card')
         .eq('status', 'active')
-        .limit(10);
-      if (!error && data && data.length > 0) pros = data;
+        .limit(50);
+      // status לבדו לא מספיק: כרטיסייה שתקופת הפרסום שלה הסתיימה נשארת
+      // active בטבלה, ובלי הסינון הזה היא המשיכה להופיע באתר.
+      const today = new Date().toISOString().slice(0, 10);
+      const live = (data || []).filter(p => isPlacementLive(p, today));
+      if (!error && live.length > 0) pros = rotateProfessionalsFairly(live).slice(0, 10);
     }
   } catch(e){ console.warn('טעינת בעלי מקצוע נכשלה, מציג ברירת מחדל:', e); }
 
