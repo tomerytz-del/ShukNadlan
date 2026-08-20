@@ -39,6 +39,12 @@
 
   .hero-media{height:280px;background-size:cover;background-position:center;position:relative}
   .promo-ribbon{position:absolute;top:14px;right:14px;background:var(--gold);color:#241505;font-size:.72rem;font-weight:800;padding:4px 11px;border-radius:6px}
+  .gallery-strip{display:flex;gap:8px;overflow-x:auto;padding:10px 18px 0;max-width:1180px;margin:0 auto}
+  .gallery-strip:empty{display:none}
+  .gallery-strip button{padding:0;border:2px solid transparent;border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0;background:none;cursor:pointer;line-height:0}
+  .gallery-strip button.active{border-color:var(--gold)}
+  .gallery-strip img{width:84px;height:62px;object-fit:cover;display:block}
+  .img-count{position:absolute;bottom:14px;right:14px;background:rgba(27,31,38,.7);color:#fff;font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:6px}
   .content-grid{display:grid;grid-template-columns:1fr;gap:20px;padding:22px 0 40px}
   @media(min-width:760px){.content-grid{grid-template-columns:1.6fr 1fr;align-items:start}}
 
@@ -97,6 +103,7 @@
 
 <div id="propertyContent">
   <div class="hero-media" id="heroMedia"></div>
+  <div class="gallery-strip" id="galleryStrip"></div>
   <div class="wrap content-grid">
     <div class="main-col">
       <div class="price-row">
@@ -225,9 +232,52 @@ async function loadProperty(){
   }
 }
 
+/* גלריית תמונות (2.1): התמונה הראשית היא images[0], והרצועה מתחתיה מחליפה
+   אותה. נכס בלי תמונות נשאר עם הגרדיאנט שהיה כאן קודם.                    */
+function renderGallery(p){
+  const hero = document.getElementById('heroMedia');
+  const strip = document.getElementById('galleryStrip');
+  strip.innerHTML = '';
+  const images = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
+
+  if (!images.length){
+    hero.style.background = CARD_GRADIENTS[0];
+    return;
+  }
+
+  const show = (url)=>{
+    hero.style.backgroundImage = `url('${url}')`;
+    hero.style.backgroundSize = 'cover';
+    hero.style.backgroundPosition = 'center';
+  };
+  show(images[0]);
+
+  if (images.length > 1){
+    const count = document.createElement('span');
+    count.className = 'img-count';
+    count.textContent = `1 / ${images.length}`;
+    hero.appendChild(count);
+
+    images.forEach((url, i)=>{
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = i === 0 ? 'active' : '';
+      btn.setAttribute('aria-label', `תמונה ${i+1} מתוך ${images.length}`);
+      btn.innerHTML = `<img src="${url}" alt="" loading="lazy">`;
+      btn.addEventListener('click', ()=>{
+        show(url);
+        count.textContent = `${i+1} / ${images.length}`;
+        strip.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+      strip.appendChild(btn);
+    });
+  }
+}
+
 function renderProperty(p){
   document.title = p.title + ' | שוק נדל״ן';
-  document.getElementById('heroMedia').style.background = CARD_GRADIENTS[0];
+  renderGallery(p);
   if (p.is_promoted){
     const ribbon = document.createElement('span');
     ribbon.className = 'promo-ribbon';

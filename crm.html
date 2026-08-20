@@ -70,6 +70,33 @@
   .lead-actions{display:flex;gap:8px;margin-top:4px}
   .empty-state{padding:32px;text-align:center;color:var(--ink-soft);font-size:.88rem}
   .toast{position:fixed;bottom:20px;right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:var(--radius-sm);font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;z-index:200}
+
+  /* ---------- Property images (2.1) ---------- */
+  .img-dropzone{border:1.5px dashed var(--line);border-radius:var(--radius-sm);padding:14px;text-align:center;background:#fff}
+  .img-dropzone input[type=file]{display:none}
+  .img-dropzone .pick{display:inline-block;font-size:.85rem;font-weight:700;color:var(--teal);cursor:pointer}
+  .img-dropzone .hint{font-size:.72rem;color:var(--ink-soft);margin-top:4px}
+  .img-preview{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .img-thumb{position:relative;width:78px;height:78px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--line);background:var(--paper)}
+  .img-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .img-thumb .main-tag{position:absolute;bottom:0;right:0;left:0;background:rgba(28,58,94,.85);color:#fff;font-size:.6rem;font-weight:800;text-align:center;padding:1px 0}
+  .img-thumb .x{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:rgba(27,31,38,.72);color:#fff;font-size:.75rem;line-height:20px;text-align:center;padding:0}
+  .img-thumb .star{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:rgba(27,31,38,.72);color:#fff;font-size:.65rem;line-height:20px;text-align:center;padding:0}
+  .prop-thumb-mini{width:52px;height:52px;border-radius:var(--radius-sm);object-fit:cover;flex-shrink:0;border:1px solid var(--line)}
+
+  /* ---------- Notification bell (2.2) ---------- */
+  .bell-wrap{position:relative}
+  .bell-btn{background:transparent;border:1.5px solid var(--line);border-radius:999px;width:40px;height:40px;font-size:1.1rem;line-height:1;display:flex;align-items:center;justify-content:center;position:relative}
+  .bell-badge{position:absolute;top:-4px;left:-4px;min-width:19px;height:19px;border-radius:999px;background:var(--gold);color:#fff;font-size:.66rem;font-weight:800;display:none;align-items:center;justify-content:center;padding:0 5px}
+  .bell-panel{position:absolute;top:48px;left:0;width:290px;max-height:340px;overflow-y:auto;background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:0 10px 30px rgba(0,0,0,.18);display:none;z-index:150}
+  .bell-panel header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line);font-size:.8rem;font-weight:700}
+  .bell-panel .mark-all{background:transparent;color:var(--teal);font-size:.72rem;font-weight:700;padding:0}
+  .notif-item{padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+  .notif-item:last-child{border-bottom:none}
+  .notif-item.unread{background:var(--gold-tint)}
+  .notif-item .t{font-size:.83rem;font-weight:700}
+  .notif-item .b{font-size:.75rem;color:var(--ink-soft);margin-top:2px}
+  .notif-item .when{font-size:.68rem;color:var(--ink-soft);margin-top:3px}
 </style>
 </head>
 <body>
@@ -120,7 +147,21 @@
           <span class="tier-badge" id="tierBadge">—</span>
         </div>
       </div>
-      <button class="btn btn-ghost" id="logoutBtn">יציאה</button>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="bell-wrap">
+          <button class="bell-btn" id="bellBtn" aria-label="התראות" aria-expanded="false">
+            🔔<span class="bell-badge" id="bellBadge">0</span>
+          </button>
+          <div class="bell-panel" id="bellPanel">
+            <header>
+              <span>התראות</span>
+              <button type="button" class="mark-all" id="markAllRead">סימון הכל כנקרא</button>
+            </header>
+            <div id="notifList"><div class="empty-state" style="padding:18px">טוען…</div></div>
+          </div>
+        </div>
+        <button class="btn btn-ghost" id="logoutBtn">יציאה</button>
+      </div>
     </div>
   </header>
 
@@ -204,6 +245,15 @@
       <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="field"><label>קו רוחב (lat, לא חובה)</label><input type="number" id="npLat" step="0.0001" placeholder="32.6078"></div>
         <div class="field"><label>קו אורך (lng, לא חובה)</label><input type="number" id="npLng" step="0.0001" placeholder="35.2897"></div>
+      </div>
+      <div class="field">
+        <label>תמונות הנכס</label>
+        <div class="img-dropzone">
+          <label class="pick" for="npImages">+ בחירת תמונות מהמכשיר</label>
+          <input type="file" id="npImages" accept="image/jpeg,image/png,image/webp" multiple>
+          <div class="hint">עד 8 תמונות · התמונה הראשונה היא הראשית · הקבצים מוקטנים אוטומטית לפני ההעלאה</div>
+        </div>
+        <div class="img-preview" id="npImagePreview"></div>
       </div>
       <button type="submit" class="btn btn-gold btn-block" id="addPropertyBtn">פרסום הנכס</button>
       <div id="addPropertyFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
@@ -398,7 +448,7 @@ async function loadDashboard(){
 
   const { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select('id, agency_id, display_name, tier, credit_balance, free_quota_used, agencies(name)')
+    .select('id, agency_id, display_name, role, tier, credit_balance, free_quota_used, agencies(name)')
     .eq('user_id', user.id)
     .single();
 
@@ -426,6 +476,7 @@ async function loadDashboard(){
 
   await loadProperties(agent.id);
   await loadLeads(agent.id);
+  await loadNotifications(agent.id);
   await loadPreferences(agent.id);
 
   if (agent.role === 'manager'){
@@ -792,6 +843,119 @@ async function updateMemberField(memberId, changes, agencyId, callerId){
 }
 
 /* ---------- My Properties ---------- */
+/* ---------- Property images (2.1) ----------
+   ההקטנה נעשית בצד הלקוח לפני ההעלאה: תמונה מהטלפון היא 3-6MB, ואחרי
+   resize ל-1600px ו-JPEG q=0.82 היא יורדת לכ-200-400KB. ה-bucket חוסם
+   מעל 3MB ממילא, אז בלי ההקטנה העלאות מהמובייל היו נכשלות.                */
+const IMAGES_BUCKET = 'property-images';
+const MAX_IMAGES = 8;
+const MAX_IMAGE_DIM = 1600;
+
+// רשימה מסודרת אחת, כי הסדר הוא נתון בפני עצמו (איבר 0 = התמונה הראשית).
+// כל איבר הוא { url } לתמונה ששמורה כבר, או { blob, previewUrl } לקובץ חדש.
+let imageSlots = [];
+
+function fileToResizedBlob(file, maxDim = MAX_IMAGE_DIM, quality = 0.82){
+  return new Promise((resolve, reject)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = ()=>{
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('encode failed')), 'image/jpeg', quality);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('לא ניתן לקרוא את הקובץ')); };
+    img.src = url;
+  });
+}
+
+function renderImagePreview(){
+  const wrap = document.getElementById('npImagePreview');
+  wrap.innerHTML = '';
+  imageSlots.forEach((slot, i)=>{
+    const el = document.createElement('div');
+    el.className = 'img-thumb';
+    el.innerHTML = `<img src="${slot.url || slot.previewUrl}" alt="">
+      <button type="button" class="x" title="הסרה">✕</button>
+      ${i === 0 ? '<div class="main-tag">ראשית</div>' : '<button type="button" class="star" title="הפוך לראשית">★</button>'}`;
+    el.querySelector('.x').addEventListener('click', ()=> removeImage(i));
+    const star = el.querySelector('.star');
+    if (star) star.addEventListener('click', ()=> makeImageMain(i));
+    wrap.appendChild(el);
+  });
+}
+
+function removeImage(i){
+  const [slot] = imageSlots.splice(i, 1);
+  if (!slot) return;
+  if (slot.previewUrl) URL.revokeObjectURL(slot.previewUrl);
+  if (slot.url){
+    // ניקוי best-effort מה-Storage; גם אם נכשל, הנכס כבר לא מצביע על הקובץ
+    const path = storagePathFromPublicUrl(slot.url);
+    if (path) sb.storage.from(IMAGES_BUCKET).remove([path]).catch(()=>{});
+  }
+  renderImagePreview();
+}
+
+function makeImageMain(i){
+  const [slot] = imageSlots.splice(i, 1);
+  if (slot) imageSlots.unshift(slot);
+  renderImagePreview();
+}
+
+function storagePathFromPublicUrl(url){
+  const marker = '/storage/v1/object/public/' + IMAGES_BUCKET + '/';
+  const i = String(url).indexOf(marker);
+  return i === -1 ? null : decodeURIComponent(String(url).slice(i + marker.length));
+}
+
+function resetImageState(){
+  imageSlots.forEach(s => { if (s.previewUrl) URL.revokeObjectURL(s.previewUrl); });
+  imageSlots = [];
+  document.getElementById('npImages').value = '';
+  renderImagePreview();
+}
+
+document.getElementById('npImages').addEventListener('change', async (e)=>{
+  const files = Array.from(e.target.files || []);
+  e.target.value = ''; // מאפשר לבחור שוב את אותו קובץ אחרי הסרה
+  const room = MAX_IMAGES - imageSlots.length;
+  if (room <= 0){ showToast(`אפשר עד ${MAX_IMAGES} תמונות לנכס`); return; }
+  for (const file of files.slice(0, room)){
+    try{
+      const blob = await fileToResizedBlob(file);
+      imageSlots.push({ blob, previewUrl: URL.createObjectURL(blob) });
+    } catch(err){
+      console.warn('resize failed', file.name, err);
+      showToast('קובץ אחד לא נטען: ' + file.name);
+    }
+  }
+  if (files.length > room) showToast(`נוספו ${room} תמונות בלבד — המקסימום הוא ${MAX_IMAGES}`);
+  renderImagePreview();
+});
+
+// מעלה את הקבצים החדשים ומחזיר את רשימת ה-URLs המלאה לפי סדר התצוגה.
+async function resolveImageUrls(propertyId){
+  const urls = [];
+  for (const slot of imageSlots){
+    if (slot.url){ urls.push(slot.url); continue; }
+    const name = `${currentAgent.id}/${propertyId}/${crypto.randomUUID()}.jpg`;
+    const { error } = await sb.storage.from(IMAGES_BUCKET).upload(name, slot.blob, {
+      contentType:'image/jpeg', cacheControl:'31536000', upsert:false,
+    });
+    if (error) throw error;
+    const url = sb.storage.from(IMAGES_BUCKET).getPublicUrl(name).data.publicUrl;
+    slot.url = url; // כדי שניסיון שמירה חוזר לא יעלה את אותו קובץ פעמיים
+    urls.push(url);
+  }
+  return urls;
+}
+
 const toggleBtn = document.getElementById('toggleAddProperty');
 const addForm = document.getElementById('addPropertyForm');
 toggleBtn.addEventListener('click', ()=>{
@@ -802,6 +966,7 @@ toggleBtn.addEventListener('click', ()=>{
     editingPropertyId = null;
     document.getElementById('addPropertyForm').reset();
     document.getElementById('npCity').value = 'עפולה';
+    resetImageState();
     document.getElementById('addPropertyBtn').textContent = 'פרסום הנכס';
   }
 });
@@ -828,14 +993,35 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   if (lat) payload.lat = parseFloat(lat);
   if (lng) payload.lng = parseFloat(lng);
 
-  let error;
+  // שומרים קודם את הנכס ורק אז מעלים תמונות: הנתיב ב-Storage מכיל את
+  // property_id, שקיים רק אחרי ה-insert. אם ההעלאה תיכשל, הנכס עצמו כבר
+  // שמור והסוכן יכול לנסות שוב דרך "עריכה" במקום לאבד את כל הטופס.
+  let error, savedId = editingPropertyId;
   if (editingPropertyId){
     ({ error } = await sb.from('properties').update(payload).eq('id', editingPropertyId));
   } else {
     payload.agency_id = currentAgent.agency_id;
     payload.agent_id = currentAgent.id;
     payload.status = 'active';
-    ({ error } = await sb.from('properties').insert(payload));
+    const { data: inserted, error: insertErr } = await sb.from('properties').insert(payload).select('id').single();
+    error = insertErr;
+    savedId = inserted?.id;
+  }
+
+  if (!error && savedId){
+    try{
+      btn.textContent = 'מעלה תמונות…';
+      const urls = await resolveImageUrls(savedId);
+      const { error: imgErr } = await sb.from('properties').update({ images: urls }).eq('id', savedId);
+      if (imgErr) throw imgErr;
+    } catch(imgError){
+      console.error(imgError);
+      btn.disabled = false; btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
+      feedback.style.color = 'var(--brick)';
+      feedback.textContent = 'הנכס נשמר, אך העלאת התמונות נכשלה: ' + (imgError.message || 'שגיאה');
+      await loadProperties(currentAgent.id);
+      return;
+    }
   }
 
   btn.disabled = false; btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
@@ -849,6 +1035,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   feedback.textContent = editingPropertyId ? 'הנכס עודכן בהצלחה!' : 'הנכס פורסם בהצלחה!';
   document.getElementById('addPropertyForm').reset();
   document.getElementById('npCity').value = 'עפולה';
+  resetImageState();
   editingPropertyId = null;
   await loadProperties(currentAgent.id);
   setTimeout(()=>{
@@ -864,7 +1051,7 @@ async function loadProperties(agentId){
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   const { data: props, error } = await sb
     .from('properties')
-    .select('id, title, price, deal_type, rooms, property_type, status, created_at, is_promoted, promoted_until, last_free_bump_at')
+    .select('id, title, price, deal_type, rooms, property_type, status, created_at, is_promoted, promoted_until, last_free_bump_at, images')
     .eq('agent_id', agentId)
     .order('created_at', { ascending:false });
 
@@ -888,11 +1075,17 @@ async function loadProperties(agentId){
     const isCurrentlyPromoted = p.is_promoted && p.promoted_until && new Date(p.promoted_until) >= new Date(new Date().toDateString());
     const el = document.createElement('div');
     el.className = 'card lead-card';
+    const thumbHtml = (p.images && p.images.length)
+      ? `<img class="prop-thumb-mini" src="${p.images[0]}" alt="">`
+      : '';
     el.innerHTML = `
       <div class="lead-top">
-        <div>
-          <div class="lead-name">${p.title}${isCurrentlyPromoted ? ' 🌟' : ''}</div>
-          <div class="lead-meta">${priceLabel} · ${p.rooms || '—'} חדרים · ${p.property_type} · ${viewCounts[p.id]||0} צפיות${isCurrentlyPromoted ? ' · מקודם עד ' + p.promoted_until : ''}</div>
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          ${thumbHtml}
+          <div>
+            <div class="lead-name">${p.title}${isCurrentlyPromoted ? ' 🌟' : ''}</div>
+            <div class="lead-meta">${priceLabel} · ${p.rooms || '—'} חדרים · ${p.property_type} · ${viewCounts[p.id]||0} צפיות${isCurrentlyPromoted ? ' · מקודם עד ' + p.promoted_until : ''}${(!p.images || !p.images.length) ? ' · <span style="color:var(--brick)">ללא תמונות</span>' : ''}</div>
+          </div>
         </div>
         <span class="status-pill status-unlocked">${statusLabels[p.status] || p.status}</span>
       </div>
@@ -995,6 +1188,9 @@ function openEditProperty(p){
   document.getElementById('npDeal').value = p.deal_type;
   document.getElementById('npPrice').value = p.price;
   document.getElementById('npRooms').value = p.rooms || '';
+  resetImageState();
+  imageSlots = (p.images || []).map(url => ({ url }));
+  renderImagePreview();
   addForm.style.display = 'block';
   document.getElementById('addPropertyBtn').textContent = 'שמירת שינויים';
   toggleBtn.textContent = '✕ ביטול';
@@ -1101,6 +1297,79 @@ async function claimLead(leadId, btn, agentId){
     btn.disabled = false; btn.textContent = original;
   }
 }
+
+/* ---------- Notifications bell (2.2) ----------
+   ההתראות נוצרות בטריגר על leads, כך שגם ליד שנכנס דרך Edge Function
+   (owner-lead-intake / property-inquiry-intake) מייצר שורה כאן.
+   הגוף של ההתראה לעולם לא מכיל שם/טלפון — הליד עשוי להיות עדיין masked. */
+async function loadNotifications(agentId){
+  const listEl = document.getElementById('notifList');
+  const badge = document.getElementById('bellBadge');
+  const { data, error } = await sb
+    .from('notifications')
+    .select('id, type, title, body, read, related_lead_id, created_at')
+    .eq('agent_id', agentId)
+    .order('created_at', { ascending:false })
+    .limit(20);
+
+  if (error){
+    listEl.innerHTML = '<div class="empty-state" style="padding:18px">שגיאה בטעינת התראות</div>';
+    return;
+  }
+  const items = data || [];
+  const unread = items.filter(n => !n.read).length;
+  badge.textContent = unread > 9 ? '9+' : String(unread);
+  badge.style.display = unread ? 'flex' : 'none';
+
+  if (!items.length){
+    listEl.innerHTML = '<div class="empty-state" style="padding:18px">אין התראות חדשות.</div>';
+    return;
+  }
+  listEl.innerHTML = '';
+  items.forEach(n=>{
+    const el = document.createElement('div');
+    el.className = 'notif-item' + (n.read ? '' : ' unread');
+    el.innerHTML = `<div class="t">${n.title}</div>
+      ${n.body ? `<div class="b">${n.body}</div>` : ''}
+      <div class="when">${new Date(n.created_at).toLocaleString('he-IL')}</div>`;
+    el.addEventListener('click', async ()=>{
+      if (!n.read){
+        await sb.from('notifications').update({ read:true }).eq('id', n.id);
+        await loadNotifications(agentId);
+      }
+      document.getElementById('bellPanel').style.display = 'none';
+      document.getElementById('bellBtn').setAttribute('aria-expanded','false');
+      document.querySelector('#leadsList')?.scrollIntoView({ behavior:'smooth' });
+    });
+    listEl.appendChild(el);
+  });
+}
+
+document.getElementById('bellBtn').addEventListener('click', (e)=>{
+  e.stopPropagation();
+  const panel = document.getElementById('bellPanel');
+  const open = panel.style.display === 'block';
+  panel.style.display = open ? 'none' : 'block';
+  document.getElementById('bellBtn').setAttribute('aria-expanded', String(!open));
+  if (!open && currentAgent) loadNotifications(currentAgent.id);
+});
+
+document.getElementById('bellPanel').addEventListener('click', e => e.stopPropagation());
+document.addEventListener('click', ()=>{
+  const panel = document.getElementById('bellPanel');
+  if (panel.style.display === 'block'){
+    panel.style.display = 'none';
+    document.getElementById('bellBtn').setAttribute('aria-expanded','false');
+  }
+});
+
+document.getElementById('markAllRead').addEventListener('click', async ()=>{
+  if (!currentAgent) return;
+  const { error } = await sb.from('notifications').update({ read:true })
+    .eq('agent_id', currentAgent.id).eq('read', false);
+  if (error){ showToast('שגיאה בסימון ההתראות'); return; }
+  await loadNotifications(currentAgent.id);
+});
 
 /* ---------- Boot: restore existing session if present (handles Google OAuth redirect too) ---------- */
 // onAuthStateChange כאן כי אחרי חזרה מ-Google OAuth redirect, ה-session מוכן רק

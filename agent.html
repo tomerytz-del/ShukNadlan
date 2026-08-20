@@ -114,6 +114,12 @@ function priceLabel(price, dealType){
   return dealType === 'rent' ? ('₪' + Number(price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(price).toLocaleString('he-IL'));
 }
 
+/* התמונה הראשית של הנכס; בלי תמונות נשאר גרדיאנט ברירת המחדל של .thumb */
+function thumbStyle(p){
+  const img = p.images && p.images[0];
+  return img ? ` style="background-image:url('${img}');background-size:cover;background-position:center"` : '';
+}
+
 async function loadAgentProfile(){
   const slug = new URLSearchParams(window.location.search).get('slug');
   if (!slug || !window.supabase){
@@ -151,14 +157,14 @@ async function loadAgentProfile(){
 
 async function loadAgentProperties(sb, agentId){
   const el = document.getElementById('agentProps');
-  const { data: props } = await sb.from('properties').select('id, title, price, deal_type, rooms, property_type')
+  const { data: props } = await sb.from('properties').select('id, title, price, deal_type, rooms, property_type, images')
     .eq('agent_id', agentId).eq('status', 'active').order('created_at', { ascending:false });
   if (!props || props.length === 0){ el.innerHTML = '<div class="empty-state">אין כרגע נכסים פעילים לסוכן זה.</div>'; return; }
   el.innerHTML = '';
   props.forEach(p=>{
     const card = document.createElement('div');
     card.className = 'prop-card';
-    card.innerHTML = `<div class="thumb"></div><div class="body">
+    card.innerHTML = `<div class="thumb"${thumbStyle(p)}></div><div class="body">
       <div class="price">${priceLabel(p.price, p.deal_type)}</div>
       <div class="meta">${p.rooms||'—'} חדרים · ${p.property_type}</div></div>`;
     card.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
