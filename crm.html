@@ -5,7 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>איזור סוכנים | שוק נדל״ן</title>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <style>
   :root{
     --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
@@ -37,6 +39,13 @@
   .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
   .field input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
   .field input:focus{border-color:var(--teal);outline:none}
+  .pill-group{display:flex;flex-wrap:wrap;gap:6px}
+  .pill-group button{padding:7px 14px;border-radius:999px;border:1.5px solid var(--line);background:#fff;font-size:.8rem;color:var(--ink-soft);font-weight:600}
+  .pill-group button.active{background:var(--teal);border-color:var(--teal);color:#fff}
+  .checkbox-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .checkbox-item{display:flex;align-items:center;gap:7px;font-size:.82rem;font-weight:400;color:var(--ink)}
+  .checkbox-item input{margin:0;width:auto}
+  .form-subheading{font-size:.78rem;font-weight:700;color:var(--gold-dark);margin:14px 0 8px;text-transform:uppercase;letter-spacing:.03em}
   #loginError{color:var(--brick);font-size:.82rem;margin-top:10px;text-align:center;min-height:1.2em}
   .test-creds{margin-top:20px;padding:12px;background:var(--teal-tint);border-radius:var(--radius-sm);font-size:.74rem;color:var(--ink-soft)}
   .test-creds b{color:var(--teal-dark)}
@@ -104,6 +113,23 @@
     <div class="field"><label>שם המשרד</label><input type="text" id="caAgencyName" required></div>
     <div class="field"><label>השם המלא שלך</label><input type="text" id="caManagerName" required></div>
     <div class="field"><label>מספר רישיון תיווך</label><input type="text" id="caLicense" required placeholder="לדוגמה: 123456"></div>
+    <div class="field">
+      <label>מסלול מנוי</label>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:.85rem;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;cursor:pointer">
+          <input type="radio" name="caTier" value="free" checked style="margin:0">
+          <span><b>חינמי</b> — 10 לידי קונה/שוכר בחודש, ₪10 לליד נוסף</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:.85rem;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;cursor:pointer">
+          <input type="radio" name="caTier" value="mid" style="margin:0">
+          <span><b>משודרג</b> — לידי קונה/שוכר ללא הגבלה, כלים טכנולוגיים, מידע תכנוני</span>
+        </label>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:.85rem;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;cursor:pointer">
+          <input type="radio" name="caTier" value="premium" style="margin:0">
+          <span><b>פרימיום</b> — הכל כלול, כולל לידי בעל-נכס ללא עלות</span>
+        </label>
+      </div>
+    </div>
     <button type="button" class="btn btn-gold btn-block" id="createAgencyBtn">פתיחת המשרד שלי</button>
     <div id="createAgencyFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
     <button type="button" class="btn btn-ghost btn-block" id="cancelCreateAgency" style="margin-top:8px">יציאה</button>
@@ -151,6 +177,18 @@
       <div id="billingHistoryList" style="display:none;margin-top:10px"></div>
     </div>
 
+    <div id="platformAdminSection" style="display:none">
+      <h2 class="section-title">ניהול שכונות (מנהל פלטפורמה)</h2>
+      <p style="font-size:.8rem;color:var(--ink-soft);margin-top:-8px;margin-bottom:12px">רשימה סגורה — רק כאן ניתן להוסיף/לערוך/למחוק. סוכנים בוחרים מהרשימה בלבד.</p>
+      <div class="card" style="padding:18px;margin-bottom:18px">
+        <div style="display:flex;gap:8px;margin-bottom:14px">
+          <input type="text" id="newNeighborhoodAdminName" placeholder="שם שכונה חדשה" style="flex:1;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px">
+          <button type="button" class="btn btn-gold" id="addNeighborhoodAdminBtn" style="white-space:nowrap">+ הוספה</button>
+        </div>
+        <div id="neighborhoodsAdminList"></div>
+      </div>
+    </div>
+
     <div id="managerSection" style="display:none">
       <h2 class="section-title">צוות המשרד</h2>
       <button class="btn btn-ghost btn-block" id="toggleAddMember" style="margin-bottom:12px">+ הוספת סוכן/ת לצוות</button>
@@ -179,14 +217,17 @@
     <button class="btn btn-ghost btn-block" id="toggleAddProperty" style="margin-bottom:12px">+ הוספת נכס חדש</button>
     <form id="addPropertyForm" class="card" style="display:none;padding:18px;margin-bottom:18px">
       <div class="field"><label>כותרת</label><input type="text" id="npTitle" required placeholder="לדוגמה: דירת 3 חדרים, שכונת רמת דוד"></div>
+
+      <div class="field"><label>קטגוריה</label>
+        <div class="deal-toggle" style="max-width:280px">
+          <button type="button" class="active" data-category="residential">מגורים</button>
+          <button type="button" data-category="commercial">מסחרי</button>
+        </div>
+      </div>
+
       <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="field"><label>סוג נכס</label>
-          <select id="npType" required>
-            <option value="דירה">דירה</option>
-            <option value="בית פרטי">בית פרטי</option>
-            <option value="דירת גן">דירת גן</option>
-            <option value="מגרש">מגרש</option>
-          </select>
+          <select id="npType" required></select>
         </div>
         <div class="field"><label>סוג עסקה</label>
           <select id="npDeal" required>
@@ -200,22 +241,73 @@
         <div class="field"><label>חדרים</label><input type="number" id="npRooms" step="0.5"></div>
       </div>
       <div class="field"><label>עיר</label><input type="text" id="npCity" value="עפולה" required></div>
-      <div class="field"><label>כתובת (לא חובה)</label><input type="text" id="npAddress"></div>
+      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field"><label>רחוב (לא חובה)</label><input type="text" id="npStreet" placeholder="לדוגמה: דפנה"></div>
+        <div class="field"><label>מספר בית (לא חובה)</label><input type="text" id="npHouseNumber"></div>
+      </div>
+      <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">אם מולאו רחוב+מספר, מידע תכנוני (גוש/חלקה/ייעוד) ייקלט אוטומטית ברקע (מסלולי Mid/Premium בלבד)</p>
       <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="field"><label>קו רוחב (lat, לא חובה)</label><input type="number" id="npLat" step="0.0001" placeholder="32.6078"></div>
         <div class="field"><label>קו אורך (lng, לא חובה)</label><input type="number" id="npLng" step="0.0001" placeholder="35.2897"></div>
       </div>
-      <button type="submit" class="btn btn-gold btn-block" id="addPropertyBtn">פרסום הנכס</button>
+
+      <div class="form-subheading">פרטים נוספים — לצורך הופעה בחיפוש המתקדם</div>
+      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field"><label>קומה (לא חובה)</label><input type="number" id="npFloor"></div>
+        <div class="field"><label>גודל נכס במ״ר (לא חובה)</label><input type="number" id="npSizeSqm"></div>
+      </div>
+      <div class="field"><label>מ״ר בנוי (לא חובה)</label><input type="number" id="npBuiltSizeSqm"></div>
+
+      <div class="field" id="npConditionField"><label>מצב הנכס (לא חובה)</label>
+        <select id="npCondition">
+          <option value="">— לא צוין —</option>
+          <option value="new_from_contractor">חדש מקבלן (לא גרו בכלל)</option>
+          <option value="new">חדש (נכס בן עד 10 שנים)</option>
+          <option value="renovated">משופץ (שופץ ב-5 שנים האחרונות)</option>
+          <option value="maintained">במצב שמור (במצב טוב, לא שופץ)</option>
+          <option value="needs_renovation">דרוש שיפוץ (זקוק לעבודת שיפוץ)</option>
+        </select>
+      </div>
+
+      <div class="field"><label>סטטוס הפרויקט (לא חובה — לנכסים חדשים/בבנייה)</label>
+        <select id="npProjectStatus">
+          <option value="">— לא צוין —</option>
+          <option value="planning">תכנון ראשוני</option>
+          <option value="permit_requested">הוגשה בקשה להיתר</option>
+          <option value="permit_issued">ניתן היתר בנייה</option>
+          <option value="construction_complete">הבנייה הסתיימה</option>
+        </select>
+      </div>
+
+      <div class="field"><label>תאריך כניסה (לא חובה)</label><input type="date" id="npMoveInDate"></div>
+      <div class="field"><label class="checkbox-item"><input type="checkbox" id="npMoveInSoon"> כניסה קרובה (מיידית עד שנה)</label></div>
+
+      <div class="field" id="npCommercialLocFields" style="display:none">
+        <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
+          <div><label>שירותים</label><select id="npRestrooms"><option value="">—</option><option value="building">בבניין</option><option value="unit">בנכס</option></select></div>
+          <div><label>מחסן</label><select id="npStorageLoc"><option value="">—</option><option value="building">בבניין</option><option value="unit">בנכס</option></select></div>
+          <div><label>ממ"ד</label><select id="npMamadLoc"><option value="">—</option><option value="building">בבניין</option><option value="unit">בנכס</option></select></div>
+        </div>
+      </div>
+
+      <div class="form-subheading">מאפייני מודעה</div>
+      <div class="checkbox-grid" id="npListingFeatures"></div>
+
+      <div class="form-subheading">מאפייני הנכס</div>
+      <div class="checkbox-grid" id="npPropertyFeatures"></div>
+
+      <button type="submit" class="btn btn-gold btn-block" id="addPropertyBtn" style="margin-top:16px">פרסום הנכס</button>
       <div id="addPropertyFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+      <div id="addPropertyPlanningStatus" style="font-size:.75rem;text-align:center;margin-top:4px;color:var(--ink-soft)"></div>
     </form>
     <div id="propertiesList"></div>
 
     <h2 class="section-title">הלידים שלי</h2>
     <div id="leadsList"></div>
 
-    <h2 class="section-title">בדיקת מידע תכנוני (עפולה) — בדיקה</h2>
+    <h2 class="section-title">מידע תכנוני על נכס (עפולה)</h2>
     <div class="card" style="padding:18px;margin-bottom:18px">
-      <p style="font-size:.8rem;color:var(--ink-soft);margin:0 0 12px">כלי בדיקה למנוע התכנון/קדסטר — הזינו כתובת או גוש/חלקה</p>
+      <p style="font-size:.8rem;color:var(--ink-soft);margin:0 0 12px">גוש/חלקה, ייעוד קרקע, תוכניות תכנון ומפת חלקה — הזינו כתובת או גוש/חלקה</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <input type="text" id="planStreet" placeholder="רחוב (למשל: דפנה)">
         <input type="text" id="planHouseNum" placeholder="מספר בית">
@@ -225,7 +317,18 @@
         <input type="text" id="planHelka" placeholder="חלקה">
       </div>
       <button type="button" class="btn btn-gold btn-block" id="planLookupBtn">בדיקת מידע תכנוני</button>
-      <div id="planResult" style="font-size:.82rem;margin-top:12px;white-space:pre-wrap"></div>
+      <div id="planFeedback" style="font-size:.82rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+
+      <div id="planUpgradeNotice" style="display:none;margin-top:14px;padding:16px;background:var(--gold-tint);border-radius:var(--radius-sm);text-align:center">
+        <p style="font-weight:700;color:var(--red-dark);margin:0 0 6px">מידע תכנוני זמין רק במסלולים בתשלום</p>
+        <p style="font-size:.82rem;color:var(--ink-soft);margin:0">שדרג למנוי Mid או Premium כדי לקבל מידע על נכסים ללא הגבלה</p>
+      </div>
+
+      <div id="planResultPanel" style="display:none;margin-top:16px">
+        <div id="planFields" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px"></div>
+        <div id="planPlansList" style="margin-bottom:14px"></div>
+        <div id="planMap" style="height:280px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--line)"></div>
+      </div>
     </div>
 
     <h2 class="section-title">העדפות לידים אישיות</h2>
@@ -235,11 +338,8 @@
     <form id="prefsForm" class="card" style="padding:18px;margin-bottom:18px">
       <div class="field">
         <label>שכונות מועדפות</label>
-        <div id="neighborhoodCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
-        <div style="display:flex;gap:8px">
-          <input type="text" id="newNeighborhoodName" placeholder="הוספת שכונה חדשה" style="flex:1">
-          <button type="button" class="btn btn-ghost" id="addNeighborhoodBtn" style="white-space:nowrap">+ הוספה</button>
-        </div>
+        <div id="neighborhoodCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+        <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">הרשימה מנוהלת על ידי הנהלת הפלטפורמה בלבד</p>
       </div>
       <div class="field">
         <label>סוגי נכס</label>
@@ -337,6 +437,7 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
   const agencyName = document.getElementById('caAgencyName').value.trim();
   const managerName = document.getElementById('caManagerName').value.trim();
   const license = document.getElementById('caLicense').value.trim();
+  const selectedTier = document.querySelector('input[name="caTier"]:checked').value;
   const feedback = document.getElementById('createAgencyFeedback');
   const btn = document.getElementById('createAgencyBtn');
   if (!agencyName || !managerName || !license){
@@ -350,7 +451,7 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
     const res = await fetch(SUPABASE_URL + '/functions/v1/create-own-agency', {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
-      body: JSON.stringify({ agency_name: agencyName, manager_name: managerName, license_number: license }),
+      body: JSON.stringify({ agency_name: agencyName, manager_name: managerName, license_number: license, initial_tier: selectedTier }),
     });
     const data = await res.json();
     if (!res.ok || data.error){
@@ -398,7 +499,7 @@ async function loadDashboard(){
 
   const { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select('id, agency_id, display_name, tier, credit_balance, free_quota_used, agencies(name)')
+    .select('id, agency_id, role, display_name, tier, credit_balance, free_quota_used, is_platform_admin, agencies(name)')
     .eq('user_id', user.id)
     .single();
 
@@ -433,7 +534,63 @@ async function loadDashboard(){
     await loadTeam(agent.agency_id, agent.id);
     await loadPendingReviews(agent.agency_id);
   }
+
+  if (agent.is_platform_admin){
+    document.getElementById('platformAdminSection').style.display = 'block';
+    await loadNeighborhoodsAdmin();
+  }
 }
+
+/* ---------- Neighborhoods admin (platform admin only) ---------- */
+async function loadNeighborhoodsAdmin(){
+  const listEl = document.getElementById('neighborhoodsAdminList');
+  listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+  const { data, error } = await sb.from('neighborhoods').select('id, city, name').order('name');
+  if (error){ listEl.innerHTML = '<div class="empty-state">שגיאה: ' + error.message + '</div>'; return; }
+  listEl.innerHTML = '';
+  (data||[]).forEach(n=>{
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line)';
+    row.innerHTML = `<span style="font-size:.88rem">${n.name} <span style="color:var(--ink-soft);font-size:.74rem">(${n.city})</span></span>`;
+    const delBtn = document.createElement('button');
+    delBtn.className = 'btn btn-ghost';
+    delBtn.style.padding = '5px 12px';
+    delBtn.textContent = 'מחיקה';
+    delBtn.addEventListener('click', async ()=>{
+      if (!confirm(`למחוק את "${n.name}"? נכסים/העדפות שמשויכים אליה יאבדו את השיוך (לא יימחקו).`)) return;
+      // ניקוי הפניות לפני מחיקה, כדי לא להיתקל ב-FK constraint
+      await sb.from('properties').update({ neighborhood_id: null }).eq('neighborhood_id', n.id);
+      const { data: prefRows } = await sb.from('agent_lead_preferences').select('agent_id, preferred_neighborhoods');
+      for (const row of (prefRows||[])){
+        if ((row.preferred_neighborhoods||[]).includes(n.id)){
+          await sb.from('agent_lead_preferences').update({
+            preferred_neighborhoods: row.preferred_neighborhoods.filter(id => id !== n.id)
+          }).eq('agent_id', row.agent_id);
+        }
+      }
+      const { error: delErr } = await sb.from('neighborhoods').delete().eq('id', n.id);
+      if (delErr){ showToast('שגיאה במחיקה: ' + delErr.message); return; }
+      showToast('השכונה נמחקה');
+      await loadNeighborhoodsAdmin();
+    });
+    row.appendChild(delBtn);
+    listEl.appendChild(row);
+  });
+}
+
+document.getElementById('addNeighborhoodAdminBtn').addEventListener('click', async ()=>{
+  const input = document.getElementById('newNeighborhoodAdminName');
+  const name = input.value.trim();
+  if (!name) return;
+  const { error } = await sb.from('neighborhoods').insert({ city: 'עפולה', name });
+  if (error){
+    showToast(error.code === '23505' ? 'השכונה כבר קיימת ברשימה' : ('שגיאה: ' + error.message));
+    return;
+  }
+  input.value = '';
+  showToast('השכונה נוספה בהצלחה');
+  await loadNeighborhoodsAdmin();
+});
 
 /* ---------- Lead preferences (module 2 §3 — every agent, regardless of role) ---------- */
 let allNeighborhoods = [];
@@ -468,22 +625,6 @@ function renderNeighborhoodCheckboxes(selectedIds){
     el.appendChild(label);
   });
 }
-
-document.getElementById('addNeighborhoodBtn').addEventListener('click', async ()=>{
-  const nameInput = document.getElementById('newNeighborhoodName');
-  const name = nameInput.value.trim();
-  if (!name) return;
-  const { data, error } = await sb.from('neighborhoods').insert({ city: 'עפולה', name }).select().single();
-  if (error){
-    // כפילות אפשרית (unique city+name) — טוענים מחדש כדי לוודא שהשכונה בכל זאת מופיעה ברשימה
-    if (error.code !== '23505'){ showToast('שגיאה בהוספת שכונה: ' + error.message); return; }
-  }
-  nameInput.value = '';
-  const { data: neighborhoods } = await sb.from('neighborhoods').select('id, city, name').order('name');
-  allNeighborhoods = neighborhoods || [];
-  const currentlyChecked = Array.from(document.querySelectorAll('.prefNeighborhood:checked')).map(cb=>cb.value);
-  renderNeighborhoodCheckboxes(currentlyChecked);
-});
 
 document.getElementById('prefsForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
@@ -640,23 +781,30 @@ async function loadBillingHistory(){
     </div>`).join('');
 }
 
-/* ---------- Planning lookup test tool ---------- */
+/* ---------- Planning lookup tool: clean fields + parcel map (not raw JSON) ---------- */
+let planningMap = null;
 document.getElementById('planLookupBtn').addEventListener('click', async ()=>{
   const street = document.getElementById('planStreet').value.trim();
   const houseNum = document.getElementById('planHouseNum').value.trim();
   const gush = document.getElementById('planGush').value.trim();
   const helka = document.getElementById('planHelka').value.trim();
-  const resultEl = document.getElementById('planResult');
+  const feedback = document.getElementById('planFeedback');
   const btn = document.getElementById('planLookupBtn');
+  const upgradeNotice = document.getElementById('planUpgradeNotice');
+  const resultPanel = document.getElementById('planResultPanel');
+
+  upgradeNotice.style.display = 'none';
+  resultPanel.style.display = 'none';
+  feedback.textContent = '';
 
   const body = (gush && helka) ? { gush, helka } : { street, house_number: houseNum };
   if (!(gush && helka) && !(street && houseNum)){
-    resultEl.style.color = 'var(--red)';
-    resultEl.textContent = 'נא למלא כתובת (רחוב+מספר) או גוש+חלקה';
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'נא למלא כתובת (רחוב+מספר) או גוש+חלקה';
     return;
   }
 
-  btn.disabled = true; btn.textContent = 'בודק…'; resultEl.textContent = ''; resultEl.style.color = 'var(--ink)';
+  btn.disabled = true; btn.textContent = 'בודק…';
   try{
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/afula-planning-lookup', {
@@ -665,20 +813,83 @@ document.getElementById('planLookupBtn').addEventListener('click', async ()=>{
       body: JSON.stringify(body),
     });
     const data = await res.json();
-    if (!res.ok || data.error){
-      resultEl.style.color = 'var(--red)';
-      resultEl.textContent = 'שגיאה: ' + (data.detail || data.error);
-    } else {
-      resultEl.textContent = JSON.stringify(data, null, 2);
+
+    if (res.status === 402 || data.error === 'upgrade_required'){
+      upgradeNotice.style.display = 'block';
+      return;
     }
+    if (!res.ok || data.error){
+      const messages = {
+        address_not_found: 'לא נמצאה כתובת מתאימה במערכת ה-GIS של העירייה',
+        parcel_not_found: 'לא נמצאה חלקה תואמת לגוש/חלקה שהוזנו',
+      };
+      feedback.style.color = 'var(--red)';
+      feedback.textContent = messages[data.error] || ('שגיאה: ' + (data.detail || data.error));
+      return;
+    }
+
+    renderPlanningResult(data.data);
   } catch(err){
     console.error(err);
-    resultEl.style.color = 'var(--red)';
-    resultEl.textContent = 'שגיאת רשת — נסו שוב';
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'שגיאת רשת — נסו שוב';
   } finally {
     btn.disabled = false; btn.textContent = 'בדיקת מידע תכנוני';
   }
 });
+
+function renderPlanningResult(d){
+  const fieldsEl = document.getElementById('planFields');
+  const plansEl = document.getElementById('planPlansList');
+  const resultPanel = document.getElementById('planResultPanel');
+
+  const fields = [
+    ['גוש', d.gush || '—'],
+    ['חלקה', d.helka || '—'],
+    ['שטח חלקה (מ"ר)', d.parcel_area_sqm ? Math.round(d.parcel_area_sqm).toLocaleString('he-IL') : '—'],
+    ['סטטוס חלקה', d.parcel_status || '—'],
+    ['ייעוד קרקע', d.land_use_designation || '—'],
+    ['עדכון אחרון', d.looked_up_at ? new Date(d.looked_up_at).toLocaleDateString('he-IL') : '—'],
+  ];
+  fieldsEl.innerHTML = fields.map(([label, value]) => `
+    <div style="background:var(--paper);border-radius:var(--radius-sm);padding:10px 12px">
+      <div style="font-size:.7rem;color:var(--ink-soft);font-weight:700">${label}</div>
+      <div style="font-size:.9rem;margin-top:2px">${value}</div>
+    </div>`).join('');
+
+  const plans = d.applicable_plans || [];
+  plansEl.innerHTML = plans.length
+    ? `<div style="font-size:.75rem;font-weight:700;color:var(--ink-soft);margin-bottom:6px">תוכניות תכנון החלות על החלקה (${plans.length})</div>` +
+      plans.map(p => `<div style="font-size:.82rem;padding:6px 0;border-bottom:1px solid var(--line)">${p.number || '—'}${p.description ? ' · ' + p.description : ''}</div>`).join('')
+    : '<div style="font-size:.8rem;color:var(--ink-soft)">לא נמצאו תוכניות תכנון החלות על החלקה</div>';
+
+  resultPanel.style.display = 'block';
+
+  // מפת החלקה — נבנית מחדש בכל חיפוש (Leaflet לא תומך ביצירה כפולה על אותו div)
+  const mapEl = document.getElementById('planMap');
+  if (planningMap){ planningMap.remove(); planningMap = null; }
+  if (!window.L || !d.lat || !d.lng){ mapEl.style.display = 'none'; return; }
+  mapEl.style.display = 'block';
+
+  planningMap = L.map('planMap').setView([d.lat, d.lng], 18);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution:'&copy; OpenStreetMap &copy; CARTO', maxZoom:20
+  }).addTo(planningMap);
+
+  if (d.geometry_wgs84){
+    try{
+      const geoLayer = L.geoJSON(d.geometry_wgs84, {
+        style: { color:'#8B2332', weight:2, fillColor:'#8B2332', fillOpacity:0.15 }
+      }).addTo(planningMap);
+      planningMap.fitBounds(geoLayer.getBounds(), { padding:[20,20] });
+    } catch(e){
+      console.warn('לא ניתן היה לצייר את גבולות החלקה:', e);
+      L.marker([d.lat, d.lng]).addTo(planningMap);
+    }
+  } else {
+    L.marker([d.lat, d.lng]).addTo(planningMap);
+  }
+}
 
 /* ---------- Team management (manager only) ---------- */
 const toggleMemberBtn = document.getElementById('toggleAddMember');
@@ -792,6 +1003,64 @@ async function updateMemberField(memberId, changes, agencyId, callerId){
 }
 
 /* ---------- My Properties ---------- */
+/* ---------- Property intake vocabulary (mirrors index.html's search filters —
+   kept in sync manually since these are separate static files, no shared module) ---------- */
+const RESIDENTIAL_PTYPE_OPTIONS = [
+  'דירה','דירת גן','גג/פנטהאוז','דופלקס','מרתף/פרטר','טריפלקס','יחידת דיור','סטודיו/לופט',
+  'בית פרטי/קוטג\'','דו משפחתי','משק חקלאי/נחלה','משק עזר',
+  'מגרש','בניין מגורים','מחסן','חניה','קב\' רכישה/זכות לנכס',
+];
+const COMMERCIAL_PTYPE_OPTIONS = ['משרדים','חנויות/שטח מסחרי','מבני תעשייה','אולמות','חלל עבודה משותף','בניין משרדים','מגרשים','מחסנים','סטודיו','כללי','מרתף','חניון','בית מלון','קליניקות'];
+const LISTING_FEATURES = [
+  ['has_photo','עם תמונה'], ['moshav_kibbutz_only','במושב/קיבוץ'],
+  ['price_dropped','המחיר ירד לאחרונה'], ['tour_3d','יש סיור 3D'],
+];
+const RESIDENTIAL_PROPERTY_FEATURES = [
+  ['parking','חניה'],['elevator','מעלית'],['balcony','מרפסת'],['ac','מיזוג'],['bars','סורגים'],
+  ['accessible','גישה לנכים'],['renovated_feature','משופצת'],['furnished','מרוהטת'],['mamad','ממ״ד'],
+  ['exclusive','בבלעדיות'],['building_shelter','מקלט בבניין'],['mamak','ממ״ק'],['storage','מחסן'],
+];
+const COMMERCIAL_PROPERTY_FEATURES = [
+  ['parking','נכס עם חניה'],['elevator','מעלית'],['balcony','מרפסת'],['ac','מזגן'],['high_ceiling','תקרה גבוהה'],
+  ['cameras','מצלמות'],['kitchenette','מטבחון'],['alarm','אזעקה'],['meeting_room','חדר ישיבות'],
+  ['loading_ramp','רמפת העמסה'],['comms','תקשורת'],['cold_room','חדר קירור'],
+];
+
+function populatePropertyTypeSelect(category){
+  const select = document.getElementById('npType');
+  const options = category === 'commercial' ? COMMERCIAL_PTYPE_OPTIONS : RESIDENTIAL_PTYPE_OPTIONS;
+  select.innerHTML = options.map(o => `<option value="${o}">${o}</option>`).join('');
+}
+function renderFeatureCheckboxes(containerId, items, preselected){
+  const container = document.getElementById(containerId);
+  container.innerHTML = items.map(([value,label]) => `
+    <label class="checkbox-item"><input type="checkbox" value="${value}" ${preselected.includes(value)?'checked':''}> ${label}</label>
+  `).join('');
+}
+function getCheckedValues(containerId){
+  return Array.from(document.querySelectorAll(`#${containerId} input:checked`)).map(el => el.value);
+}
+function updateFormForCategory(category, preselectedFeatures){
+  preselectedFeatures = preselectedFeatures || [];
+  populatePropertyTypeSelect(category);
+  const isCommercial = category === 'commercial';
+  document.getElementById('npConditionField').style.display = isCommercial ? 'none' : 'block';
+  document.getElementById('npCommercialLocFields').style.display = isCommercial ? 'block' : 'none';
+  renderFeatureCheckboxes('npListingFeatures', LISTING_FEATURES, preselectedFeatures);
+  renderFeatureCheckboxes('npPropertyFeatures', isCommercial ? COMMERCIAL_PROPERTY_FEATURES : RESIDENTIAL_PROPERTY_FEATURES, preselectedFeatures);
+}
+
+let currentCategory = 'residential';
+document.querySelectorAll('[data-category]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('[data-category]').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentCategory = btn.dataset.category;
+    updateFormForCategory(currentCategory);
+  });
+});
+updateFormForCategory('residential'); // אתחול ראשוני כשהעמוד נטען
+
 const toggleBtn = document.getElementById('toggleAddProperty');
 const addForm = document.getElementById('addPropertyForm');
 toggleBtn.addEventListener('click', ()=>{
@@ -800,9 +1069,13 @@ toggleBtn.addEventListener('click', ()=>{
   toggleBtn.textContent = showing ? '+ הוספת נכס חדש' : '✕ ביטול';
   if (showing){
     editingPropertyId = null;
+    editingPropertyOriginalAddress = null;
     document.getElementById('addPropertyForm').reset();
     document.getElementById('npCity').value = 'עפולה';
     document.getElementById('addPropertyBtn').textContent = 'פרסום הנכס';
+    currentCategory = 'residential';
+    document.querySelectorAll('[data-category]').forEach(b=> b.classList.toggle('active', b.dataset.category === 'residential'));
+    updateFormForCategory('residential');
   }
 });
 
@@ -811,31 +1084,55 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   if (!currentAgent) return;
   const btn = document.getElementById('addPropertyBtn');
   const feedback = document.getElementById('addPropertyFeedback');
-  btn.disabled = true; btn.textContent = editingPropertyId ? 'שומר…' : 'מפרסם…'; feedback.textContent = '';
+  const planningStatus = document.getElementById('addPropertyPlanningStatus');
+  btn.disabled = true; btn.textContent = editingPropertyId ? 'שומר…' : 'מפרסם…'; feedback.textContent = ''; planningStatus.textContent = '';
 
   const lat = document.getElementById('npLat').value;
   const lng = document.getElementById('npLng').value;
+  const street = document.getElementById('npStreet').value.trim();
+  const houseNumber = document.getElementById('npHouseNumber').value.trim();
 
   const payload = {
     title: document.getElementById('npTitle').value,
+    category: currentCategory,
     property_type: document.getElementById('npType').value,
     deal_type: document.getElementById('npDeal').value,
     price: parseFloat(document.getElementById('npPrice').value),
     rooms: document.getElementById('npRooms').value ? parseFloat(document.getElementById('npRooms').value) : null,
     city: document.getElementById('npCity').value,
-    address: document.getElementById('npAddress').value || null,
+    street: street || null,
+    house_number: houseNumber || null,
+    address: (street || houseNumber) ? (street + (houseNumber ? ' ' + houseNumber : '')) : null,
+    floor: document.getElementById('npFloor').value ? parseInt(document.getElementById('npFloor').value) : null,
+    size_sqm: document.getElementById('npSizeSqm').value ? parseFloat(document.getElementById('npSizeSqm').value) : null,
+    built_size_sqm: document.getElementById('npBuiltSizeSqm').value ? parseFloat(document.getElementById('npBuiltSizeSqm').value) : null,
+    condition: currentCategory === 'commercial' ? null : (document.getElementById('npCondition').value || null),
+    project_status: document.getElementById('npProjectStatus').value || null,
+    move_in_date: document.getElementById('npMoveInDate').value || null,
+    move_in_soon: document.getElementById('npMoveInSoon').checked,
+    restrooms_location: currentCategory === 'commercial' ? (document.getElementById('npRestrooms').value || null) : null,
+    storage_location: currentCategory === 'commercial' ? (document.getElementById('npStorageLoc').value || null) : null,
+    mamad_location: currentCategory === 'commercial' ? (document.getElementById('npMamadLoc').value || null) : null,
+    features: [...getCheckedValues('npListingFeatures'), ...getCheckedValues('npPropertyFeatures')],
   };
   if (lat) payload.lat = parseFloat(lat);
   if (lng) payload.lng = parseFloat(lng);
 
-  let error;
+  // בעריכה: האם הכתובת בפועל השתנתה? רק אז נקלוט מידע תכנוני מחדש — לא בכל שמירה,
+  // כדי לא לבזבז קריאות WFS מיותרות על שינויים שלא נוגעים לכתובת (מחיר, תיאור וכו').
+  const addressActuallyChanged = editingPropertyId && editingPropertyOriginalAddress &&
+    (editingPropertyOriginalAddress.street !== street || editingPropertyOriginalAddress.house_number !== houseNumber);
+
+  let error, newPropertyId = editingPropertyId;
   if (editingPropertyId){
     ({ error } = await sb.from('properties').update(payload).eq('id', editingPropertyId));
   } else {
     payload.agency_id = currentAgent.agency_id;
     payload.agent_id = currentAgent.id;
     payload.status = 'active';
-    ({ error } = await sb.from('properties').insert(payload));
+    const { data: inserted, error: insertErr } = await sb.from('properties').insert(payload).select().single();
+    error = insertErr;
+    newPropertyId = inserted?.id;
   }
 
   btn.disabled = false; btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
@@ -847,9 +1144,53 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   }
   feedback.style.color = 'var(--teal)';
   feedback.textContent = editingPropertyId ? 'הנכס עודכן בהצלחה!' : 'הנכס פורסם בהצלחה!';
+
+  // קליטת/עדכון מידע תכנוני: (א) פעם ראשונה בקליטת נכס חדש, או (ב) כשהכתובת השתנתה
+  // בעריכה — כדי לשמור על דיוק המידע. לא נשלף מחדש בשמירות שלא נוגעות לכתובת.
+  const shouldFetchPlanning = (!editingPropertyId && newPropertyId && street && houseNumber) ||
+    (addressActuallyChanged && street && houseNumber);
+
+  if (shouldFetchPlanning){
+    planningStatus.textContent = editingPropertyId ? 'הכתובת השתנתה — מעדכן מידע תכנוני…' : 'קולט מידע תכנוני ברקע…';
+    try{
+      const { data: { session } } = await sb.auth.getSession();
+      const res = await fetch(SUPABASE_URL + '/functions/v1/afula-planning-lookup', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+        body: JSON.stringify({ street, house_number: houseNumber }),
+      });
+      const planData = await res.json();
+      if (res.ok && planData.data){
+        const d = planData.data;
+        await sb.from('property_planning_info').upsert({
+          property_id: newPropertyId,
+          gush: d.gush, helka: d.helka,
+          parcel_area_sqm: d.parcel_area_sqm, parcel_status: d.parcel_status,
+          land_use_designation: d.land_use_designation,
+          applicable_plans: d.applicable_plans,
+          geometry_wgs84: d.geometry_wgs84,
+          lat: d.lat, lng: d.lng,
+          looked_up_at: new Date().toISOString(),
+        }, { onConflict: 'property_id' });
+        planningStatus.textContent = 'מידע תכנוני עודכן ונשמר לנכס ✓';
+      } else if (planData.error === 'upgrade_required'){
+        planningStatus.textContent = 'מידע תכנוני לא נקלט — זמין רק במסלולי Mid/Premium';
+      } else {
+        planningStatus.textContent = 'לא נמצא מידע תכנוני לכתובת זו';
+      }
+    } catch(err){
+      console.warn('planning auto-fetch failed:', err);
+      planningStatus.textContent = '';
+    }
+  }
+
   document.getElementById('addPropertyForm').reset();
   document.getElementById('npCity').value = 'עפולה';
   editingPropertyId = null;
+  editingPropertyOriginalAddress = null;
+  currentCategory = 'residential';
+  document.querySelectorAll('[data-category]').forEach(b=> b.classList.toggle('active', b.dataset.category === 'residential'));
+  updateFormForCategory('residential');
   await loadProperties(currentAgent.id);
   setTimeout(()=>{
     addForm.style.display='none';
@@ -864,7 +1205,7 @@ async function loadProperties(agentId){
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   const { data: props, error } = await sb
     .from('properties')
-    .select('id, title, price, deal_type, rooms, property_type, status, created_at, is_promoted, promoted_until, last_free_bump_at')
+    .select('id, title, price, deal_type, rooms, property_type, status, created_at, is_promoted, promoted_until, last_free_bump_at, city, street, house_number, lat, lng, category, features, condition, project_status, floor, size_sqm, built_size_sqm, move_in_date, move_in_soon, restrooms_location, storage_location, mamad_location')
     .eq('agent_id', agentId)
     .order('created_at', { ascending:false });
 
@@ -882,17 +1223,22 @@ async function loadProperties(agentId){
   const viewCounts = {};
   (viewRows||[]).forEach(v => { viewCounts[v.property_id] = (viewCounts[v.property_id]||0) + 1; });
 
+  const { data: planningRows } = await sb.from('property_planning_info').select('*').in('property_id', propertyIds);
+  const planningByProperty = {};
+  (planningRows||[]).forEach(pl => { planningByProperty[pl.property_id] = pl; });
+
   listEl.innerHTML = '';
   props.forEach(p=>{
     const priceLabel = p.deal_type === 'rent' ? ('₪' + Number(p.price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(p.price).toLocaleString('he-IL'));
     const isCurrentlyPromoted = p.is_promoted && p.promoted_until && new Date(p.promoted_until) >= new Date(new Date().toDateString());
+    const planning = planningByProperty[p.id];
     const el = document.createElement('div');
     el.className = 'card lead-card';
     el.innerHTML = `
       <div class="lead-top">
         <div>
           <div class="lead-name">${p.title}${isCurrentlyPromoted ? ' 🌟' : ''}</div>
-          <div class="lead-meta">${priceLabel} · ${p.rooms || '—'} חדרים · ${p.property_type} · ${viewCounts[p.id]||0} צפיות${isCurrentlyPromoted ? ' · מקודם עד ' + p.promoted_until : ''}</div>
+          <div class="lead-meta">${priceLabel} · ${p.rooms || '—'} חדרים · ${p.property_type} · ${viewCounts[p.id]||0} צפיות${isCurrentlyPromoted ? ' · מקודם עד ' + p.promoted_until : ''}${planning ? ' · 📍 גוש ' + (planning.gush||'—') + ' חלקה ' + (planning.helka||'—') : ''}</div>
         </div>
         <span class="status-pill status-unlocked">${statusLabels[p.status] || p.status}</span>
       </div>
@@ -905,6 +1251,17 @@ async function loadProperties(agentId){
     editBtn.textContent = 'עריכה';
     editBtn.addEventListener('click', ()=> openEditProperty(p));
     actions.appendChild(editBtn);
+
+    if (planning){
+      const planBtn = document.createElement('button');
+      planBtn.className = 'btn btn-ghost';
+      planBtn.textContent = 'מידע תכנוני שמור';
+      planBtn.addEventListener('click', ()=>{
+        document.getElementById('planResultPanel').scrollIntoView({ behavior:'smooth', block:'start' });
+        renderPlanningResult(planning);
+      });
+      actions.appendChild(planBtn);
+    }
 
     if (p.status === 'active'){
       const dealLabel = p.deal_type === 'rent' ? 'סמן כהושכר' : 'סמן כנמכר';
@@ -988,13 +1345,33 @@ async function markPropertyStatus(propertyId, newStatus, agentId){
 }
 
 let editingPropertyId = null;
+let editingPropertyOriginalAddress = null; // לזיהוי "האם הכתובת השתנתה" בעריכה
 function openEditProperty(p){
   editingPropertyId = p.id;
   document.getElementById('npTitle').value = p.title;
+  currentCategory = p.category || 'residential';
+  document.querySelectorAll('[data-category]').forEach(b=> b.classList.toggle('active', b.dataset.category === currentCategory));
+  updateFormForCategory(currentCategory, p.features || []);
   document.getElementById('npType').value = p.property_type;
   document.getElementById('npDeal').value = p.deal_type;
   document.getElementById('npPrice').value = p.price;
   document.getElementById('npRooms').value = p.rooms || '';
+  document.getElementById('npCity').value = p.city || 'עפולה';
+  document.getElementById('npStreet').value = p.street || '';
+  document.getElementById('npHouseNumber').value = p.house_number || '';
+  document.getElementById('npLat').value = p.lat || '';
+  document.getElementById('npLng').value = p.lng || '';
+  document.getElementById('npFloor').value = p.floor ?? '';
+  document.getElementById('npSizeSqm').value = p.size_sqm ?? '';
+  document.getElementById('npBuiltSizeSqm').value = p.built_size_sqm ?? '';
+  document.getElementById('npCondition').value = p.condition || '';
+  document.getElementById('npProjectStatus').value = p.project_status || '';
+  document.getElementById('npMoveInDate').value = p.move_in_date || '';
+  document.getElementById('npMoveInSoon').checked = !!p.move_in_soon;
+  document.getElementById('npRestrooms').value = p.restrooms_location || '';
+  document.getElementById('npStorageLoc').value = p.storage_location || '';
+  document.getElementById('npMamadLoc').value = p.mamad_location || '';
+  editingPropertyOriginalAddress = { street: p.street || '', house_number: p.house_number || '' };
   addForm.style.display = 'block';
   document.getElementById('addPropertyBtn').textContent = 'שמירת שינויים';
   toggleBtn.textContent = '✕ ביטול';

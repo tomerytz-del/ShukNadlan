@@ -158,6 +158,44 @@
   .deal-toggle button.active{background:var(--teal);color:#fff}
   .search-submit{margin-top:12px}
 
+  /* ====== New unified search bar + filter modals ====== */
+  .deal-tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .deal-tabs::-webkit-scrollbar{display:none}
+  .deal-tab{flex:0 0 auto;padding:9px 20px;border-radius:999px;font-weight:700;font-size:.85rem;color:var(--ink-soft);border:1.5px solid var(--line);background:#fff;white-space:nowrap}
+  .deal-tab.active{background:var(--teal);color:#fff;border-color:var(--teal)}
+  .search-actions-row{display:flex;gap:8px;margin-top:10px}
+  .search-actions-row .btn-ghost{position:relative;white-space:nowrap;background:#fff}
+  .filter-count-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:999px;background:var(--gold);color:#241505;font-size:.68rem;font-weight:800;margin-right:6px;padding:0 4px}
+
+  .filter-modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,52,53,.55);z-index:300;align-items:flex-end;justify-content:center}
+  .filter-modal-overlay.open{display:flex}
+  .filter-modal{background:var(--paper-raised);width:100%;max-width:560px;max-height:88vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;overflow:hidden}
+  @media(min-width:640px){
+    .filter-modal-overlay{align-items:center}
+    .filter-modal{border-radius:var(--radius-lg);max-height:80vh}
+  }
+  .filter-modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line);flex:0 0 auto}
+  .filter-modal-header h3{font-size:1.05rem}
+  .filter-modal-close{width:32px;height:32px;border-radius:50%;background:var(--paper);font-size:1rem;color:var(--ink-soft)}
+  .filter-modal-body{padding:16px 18px;overflow-y:auto;flex:1 1 auto}
+  .filter-modal-footer{display:flex;gap:10px;padding:14px 18px;border-top:1px solid var(--line);flex:0 0 auto}
+  .filter-section{margin-bottom:20px}
+  .filter-section h4{font-size:.85rem;font-weight:700;margin-bottom:8px;color:var(--ink)}
+  .filter-hint{font-size:.72rem;font-weight:400;color:var(--ink-soft)}
+  .range-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .range-row input,.filter-select{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;font-size:.88rem;background:#fff}
+  .pill-group{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+  .pill-group button{padding:7px 14px;border-radius:999px;border:1.5px solid var(--line);background:#fff;font-size:.8rem;color:var(--ink-soft);font-weight:600}
+  .pill-group button.active{background:var(--teal);border-color:var(--teal);color:#fff}
+  .ptype-group{margin-bottom:10px}
+  .ptype-group::before{content:attr(data-label);display:block;font-size:.72rem;font-weight:700;color:var(--gold-dark);margin-bottom:5px}
+  .checkbox-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .checkbox-item{display:flex;align-items:center;gap:7px;font-size:.82rem;font-weight:400;color:var(--ink)}
+  .checkbox-item input{margin:0}
+  .tri-toggle{display:flex;border:1.5px solid var(--line);border-radius:999px;overflow:hidden;max-width:280px}
+  .tri-toggle button{flex:1;padding:8px;font-size:.78rem;font-weight:600;color:var(--ink-soft)}
+  .tri-toggle button.active{background:var(--teal);color:#fff}
+
   .map-wrap{margin-top:22px;border-radius:var(--radius-lg) var(--radius-lg) 0 0;overflow:hidden;position:relative}
   #hero-map{height:280px;width:100%}
   .map-count{
@@ -357,37 +395,201 @@
       <p class="lede">מפסיקים לרוץ בין לוחות מודעות — כל המתווכים המובילים בעיר מחכים לך כאן.</p>
 
       <div class="search-card">
+        <div class="deal-tabs" role="tablist" aria-label="סוג עסקה">
+          <button class="deal-tab active" data-mode="sale" role="tab" aria-selected="true">קנייה</button>
+          <button class="deal-tab" data-mode="rent" role="tab" aria-selected="false">השכרה</button>
+          <button class="deal-tab" data-mode="commercial" role="tab" aria-selected="false">מסחרי</button>
+        </div>
         <div class="search-row">
           <input type="text" class="search-input" placeholder="עיר, שכונה, רחוב או קוד נכס…" id="searchFreeText">
         </div>
-        <div class="filters-row">
-          <div class="deal-toggle" role="group" aria-label="סוג עסקה">
-            <button class="active" data-deal="sale">למכירה</button>
-            <button data-deal="rent">להשכרה</button>
-          </div>
-          <select aria-label="סוג נכס">
-            <option>סוג נכס</option>
-            <option>דירה</option>
-            <option>בית פרטי</option>
-            <option>דירת גן</option>
-            <option>מגרש</option>
-          </select>
-          <select aria-label="טווח מחיר">
-            <option>טווח מחיר</option>
-            <option>עד ₪800,000</option>
-            <option>עד ₪1,200,000</option>
-            <option>עד ₪1,800,000</option>
-            <option>ללא הגבלה</option>
-          </select>
-          <select aria-label="מספר חדרים">
-            <option>חדרים</option>
-            <option>2+</option>
-            <option>3+</option>
-            <option>4+</option>
-            <option>5+</option>
-          </select>
+        <div class="search-actions-row">
+          <button type="button" class="btn btn-ghost" id="openFiltersBtn">⚙️ סינונים<span id="filterCountBadge" class="filter-count-badge" style="display:none">0</span></button>
+          <button type="button" class="btn btn-gold" id="searchSubmitBtn" style="flex:1">חיפוש נכסים</button>
         </div>
-        <button class="btn btn-gold btn-block search-submit">חיפוש נכסים</button>
+      </div>
+    </div>
+
+    <!-- ====== Residential filters modal ====== -->
+    <div class="filter-modal-overlay" id="residentialFilterModal">
+      <div class="filter-modal">
+        <div class="filter-modal-header">
+          <h3>סינונים</h3>
+          <button type="button" class="filter-modal-close" data-close-modal="residentialFilterModal">✕</button>
+        </div>
+        <div class="filter-modal-body">
+          <div class="filter-section">
+            <h4>מחיר</h4>
+            <div class="range-row">
+              <input type="number" id="rPriceMin" placeholder="מ-₪">
+              <input type="number" id="rPriceMax" placeholder="עד ₪">
+            </div>
+          </div>
+          <div class="filter-section">
+            <h4>חדרים</h4>
+            <div class="pill-group" id="rRoomsPills"></div>
+          </div>
+          <div class="filter-section">
+            <h4>סוג נכס <span class="filter-hint">(ניתן לבחור מספר סוגים)</span></h4>
+            <div class="ptype-group" data-label="דירות">
+              <div class="pill-group" data-ptype-cat="apt"></div>
+            </div>
+            <div class="ptype-group" data-label="בתים">
+              <div class="pill-group" data-ptype-cat="house"></div>
+            </div>
+            <div class="ptype-group" data-label="אחר">
+              <div class="pill-group" data-ptype-cat="other"></div>
+            </div>
+          </div>
+          <div class="filter-section">
+            <h4>מאפייני מודעה</h4>
+            <div class="checkbox-grid" id="rListingFeatures"></div>
+          </div>
+          <div class="filter-section">
+            <h4>מאפייני הנכס</h4>
+            <div class="checkbox-grid" id="rPropertyFeatures"></div>
+          </div>
+          <div class="filter-section">
+            <h4>מצב הנכס</h4>
+            <select id="rCondition" class="filter-select">
+              <option value="">הכל</option>
+              <option value="new_from_contractor">חדש מקבלן (לא גרו בכלל)</option>
+              <option value="new">חדש (נכס בן עד 10 שנים)</option>
+              <option value="renovated">משופץ (שופץ ב-5 שנים האחרונות)</option>
+              <option value="maintained">במצב שמור (במצב טוב, לא שופץ)</option>
+              <option value="needs_renovation">דרוש שיפוץ (זקוק לעבודת שיפוץ)</option>
+            </select>
+          </div>
+          <div class="filter-section">
+            <h4>סטטוס הפרויקט</h4>
+            <select id="rProjectStatus" class="filter-select">
+              <option value="">הכל</option>
+              <option value="planning">תכנון ראשוני</option>
+              <option value="permit_requested">הוגשה בקשה להיתר</option>
+              <option value="permit_issued">ניתן היתר בנייה</option>
+              <option value="construction_complete">הבנייה הסתיימה</option>
+            </select>
+          </div>
+          <div class="filter-section">
+            <h4>קומה</h4>
+            <div class="range-row">
+              <input type="number" id="rFloorMin" placeholder="מקומה">
+              <input type="number" id="rFloorMax" placeholder="עד קומה">
+            </div>
+          </div>
+          <div class="filter-section">
+            <h4>גודל דירה (במ"ר)</h4>
+            <div class="range-row">
+              <input type="number" id="rSizeMin" placeholder="מ-מ״ר">
+              <input type="number" id="rSizeMax" placeholder="עד מ״ר">
+            </div>
+            <label class="checkbox-item" style="margin-top:6px"><input type="checkbox" id="rBuiltSizeToggle"> הצג לפי מ"ר בנוי בלבד</label>
+          </div>
+          <div class="filter-section">
+            <h4>תאריך כניסה</h4>
+            <input type="date" id="rMoveInDate" class="filter-select" style="margin-bottom:8px">
+            <label class="checkbox-item"><input type="checkbox" id="rMoveInSoon"> כניסה קרובה (מיידית עד שנה)</label>
+          </div>
+          <div class="filter-section">
+            <h4>חיפוש חופשי</h4>
+            <input type="text" id="rFreeText" class="filter-select" placeholder="מילות חיפוש נוספות">
+          </div>
+        </div>
+        <div class="filter-modal-footer">
+          <button type="button" class="btn btn-ghost" id="rClearFilters">איפוס</button>
+          <button type="button" class="btn btn-gold" data-close-modal="residentialFilterModal" style="flex:1">הצגת תוצאות</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== Commercial filters modal ====== -->
+    <div class="filter-modal-overlay" id="commercialFilterModal">
+      <div class="filter-modal">
+        <div class="filter-modal-header">
+          <h3>נדל"ן מסחרי — סינונים</h3>
+          <button type="button" class="filter-modal-close" data-close-modal="commercialFilterModal">✕</button>
+        </div>
+        <div class="filter-modal-body">
+          <div class="filter-section">
+            <h4>סוג עסקה</h4>
+            <div class="deal-toggle" role="group" aria-label="סוג עסקה מסחרי" style="max-width:260px">
+              <button type="button" class="active" data-cdeal="sale">מכירה</button>
+              <button type="button" data-cdeal="rent">השכרה</button>
+            </div>
+          </div>
+          <div class="filter-section">
+            <h4>סוג נכס <span class="filter-hint">(ניתן לבחור מספר סוגים)</span></h4>
+            <div class="pill-group" id="cPtypePills"></div>
+          </div>
+          <div class="filter-section">
+            <h4>מחיר</h4>
+            <div class="range-row">
+              <input type="number" id="cPriceMin" placeholder="מ-₪">
+              <input type="number" id="cPriceMax" placeholder="עד ₪">
+            </div>
+          </div>
+          <div class="filter-section">
+            <h4>חדרים</h4>
+            <div class="pill-group" id="cRoomsPills"></div>
+          </div>
+          <div class="filter-section">
+            <h4>מאפייני מודעה</h4>
+            <div class="checkbox-grid" id="cListingFeatures"></div>
+          </div>
+          <div class="filter-section">
+            <h4>מאפייני הנכס</h4>
+            <div class="checkbox-grid" id="cPropertyFeatures"></div>
+          </div>
+          <div class="filter-section">
+            <h4>סטטוס הפרויקט</h4>
+            <select id="cProjectStatus" class="filter-select">
+              <option value="">הכל</option>
+              <option value="planning">תכנון ראשוני</option>
+              <option value="permit_requested">הוגשה בקשה להיתר</option>
+              <option value="permit_issued">ניתן היתר בנייה</option>
+              <option value="construction_complete">הבנייה הסתיימה</option>
+            </select>
+          </div>
+          <div class="filter-section">
+            <h4>קומה</h4>
+            <div class="range-row">
+              <input type="number" id="cFloorMin" placeholder="מקומה">
+              <input type="number" id="cFloorMax" placeholder="עד קומה">
+            </div>
+          </div>
+          <div class="filter-section">
+            <h4>גודל נכס (במ"ר)</h4>
+            <div class="range-row">
+              <input type="number" id="cSizeMin" placeholder="מ-מ״ר">
+              <input type="number" id="cSizeMax" placeholder="עד מ״ר">
+            </div>
+          </div>
+          <div class="filter-section">
+            <h4>שירותים</h4>
+            <div class="tri-toggle" data-tri="cRestrooms"><button data-val="">הכל</button><button data-val="building">בבניין</button><button data-val="unit">בנכס</button></div>
+          </div>
+          <div class="filter-section">
+            <h4>מחסן</h4>
+            <div class="tri-toggle" data-tri="cStorage"><button data-val="">הכל</button><button data-val="building">בבניין</button><button data-val="unit">בנכס</button></div>
+          </div>
+          <div class="filter-section">
+            <h4>ממ"ד</h4>
+            <div class="tri-toggle" data-tri="cMamad"><button data-val="">הכל</button><button data-val="building">בבניין</button><button data-val="unit">בנכס</button></div>
+          </div>
+          <div class="filter-section">
+            <h4>תאריך כניסה</h4>
+            <input type="date" id="cMoveInDate" class="filter-select" style="margin-bottom:8px">
+            <label class="checkbox-item"><input type="checkbox" id="cMoveInSoon"> כניסה קרובה (מיידית עד שנה)</label>
+          </div>
+          <div class="filter-section">
+            <h4>חיפוש חופשי</h4>
+            <input type="text" id="cFreeText" class="filter-select" placeholder="מילות חיפוש נוספות">
+          </div>
+        </div>
+        <div class="filter-modal-footer">
+          <button type="button" class="btn btn-ghost" id="cClearFilters">איפוס</button>
+          <button type="button" class="btn btn-gold" data-close-modal="commercialFilterModal" style="flex:1">הצגת תוצאות</button>
+        </div>
       </div>
     </div>
 
@@ -947,32 +1149,279 @@ try {
     });
 
     const propertyGrid = document.getElementById('propertyGrid');
-    properties.forEach((p, i)=>{
-      const el = document.createElement('div');
-      el.className = 'prop-card';
-      el.style.cursor = 'pointer';
-      el.innerHTML = `
-        <div class="thumb" style="background:${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}">${p.is_promoted ? '<span class="ribbon">מקודם</span>' : ''}</div>
-        <div class="body">
-          <div class="price">${priceLabel(p)}</div>
-          <div class="title">${p.title}</div>
-          <div class="meta"><span>${p.rooms || '—'} חדרים</span><span>${p.property_type}</span><span>${p.agency_name||''}</span></div>
-        </div>`;
-      el.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
-      propertyGrid.appendChild(el);
-      if (i === 1){
-        const ad = document.createElement('div');
-        ad.className = 'infeed-ad';
-        ad.textContent = 'פרסומת — באנר רוחבי בין אריחי הנכסים';
-        propertyGrid.appendChild(ad);
-      }
-    });
+    renderPropertyGrid(properties);
   })();
 } catch(e){
   console.warn('אתחול המפה/הנכסים נכשל, ממשיכים בלי הסקשן הזה:', e);
   const mapWrap = document.querySelector('.map-wrap');
   if (mapWrap) mapWrap.innerHTML = '<div style="padding:24px;text-align:center;color:#565C63;font-size:.85rem">המפה לא נטענה (בעיית רשת) — ניתן עדיין למלא את הטופס למעלה ולשלוח פנייה.</div>';
 }
+
+/* ============================================================
+   Advanced search: property types, features, filter modals,
+   and the actual Supabase query that powers "חיפוש נכסים".
+   ============================================================ */
+const RESIDENTIAL_PTYPES = {
+  apt: ['דירה','דירת גן','גג/פנטהאוז','דופלקס','מרתף/פרטר','טריפלקס','יחידת דיור','סטודיו/לופט'],
+  house: ['בית פרטי/קוטג\'','דו משפחתי','משק חקלאי/נחלה','משק עזר'],
+  other: ['מגרש','בניין מגורים','מחסן','חניה','קב\' רכישה/זכות לנכס'],
+};
+const COMMERCIAL_PTYPES = ['משרדים','חנויות/שטח מסחרי','מבני תעשייה','אולמות','חלל עבודה משותף','בניין משרדים','מגרשים','מחסנים','סטודיו','כללי','מרתף','חניון','בית מלון','קליניקות'];
+const LISTING_FEATURES = [
+  ['has_photo','עם תמונה'], ['moshav_kibbutz_only','רק מושבים וקיבוצים'],
+  ['has_price','עם מחיר'], ['price_dropped','נכסים שמחירם ירד'], ['tour_3d','סיור 3D'],
+];
+const RESIDENTIAL_PROPERTY_FEATURES = [
+  ['parking','חניה'],['elevator','מעלית'],['balcony','מרפסת'],['ac','מיזוג'],['bars','סורגים'],
+  ['accessible','גישה לנכים'],['renovated_feature','משופצת'],['furnished','מרוהטת'],['mamad','ממ״ד'],
+  ['exclusive','בבלעדיות'],['building_shelter','מקלט בבניין'],['mamak','ממ״ק'],['storage','מחסן'],
+];
+const COMMERCIAL_PROPERTY_FEATURES = [
+  ['parking','נכס עם חניה'],['elevator','מעלית'],['balcony','מרפסת'],['ac','מזגן'],['high_ceiling','תקרה גבוהה'],
+  ['cameras','מצלמות'],['kitchenette','מטבחון'],['alarm','אזעקה'],['meeting_room','חדר ישיבות'],
+  ['loading_ramp','רמפת העמסה'],['comms','תקשורת'],['cold_room','חדר קירור'],
+];
+const ROOM_OPTIONS = ['1','1.5','2','2.5','3','3.5','4','4.5','5','5.5','+6'];
+
+const searchState = {
+  activeTab: 'sale', // 'sale' | 'rent' | 'commercial'
+  freeText: '',
+  r: { priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), condition:'', projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, moveInDate:'', moveInSoon:false, freeText:'' },
+  c: { deal:'sale', priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, restrooms:'', storage:'', mamad:'', moveInDate:'', moveInSoon:false, freeText:'' },
+};
+
+function renderPills(container, options, selectedSet, labelFn){
+  container.innerHTML = '';
+  options.forEach(opt=>{
+    const value = Array.isArray(opt) ? opt[0] : opt;
+    const label = Array.isArray(opt) ? opt[1] : opt;
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.textContent = label;
+    btn.className = selectedSet.has(value) ? 'active' : '';
+    btn.addEventListener('click', ()=>{
+      if (selectedSet.has(value)) selectedSet.delete(value); else selectedSet.add(value);
+      btn.classList.toggle('active');
+    });
+    container.appendChild(btn);
+  });
+}
+function renderCheckboxes(container, items, selectedSet){
+  container.innerHTML = '';
+  items.forEach(([value, label])=>{
+    const wrap = document.createElement('label');
+    wrap.className = 'checkbox-item';
+    wrap.innerHTML = `<input type="checkbox" value="${value}" ${selectedSet.has(value)?'checked':''}> ${label}`;
+    wrap.querySelector('input').addEventListener('change', (e)=>{
+      if (e.target.checked) selectedSet.add(value); else selectedSet.delete(value);
+    });
+    container.appendChild(wrap);
+  });
+}
+
+function initFilterModals(){
+  renderPills(document.getElementById('rRoomsPills'), ROOM_OPTIONS, searchState.r.rooms);
+  Object.entries(RESIDENTIAL_PTYPES).forEach(([cat, list])=>{
+    renderPills(document.querySelector(`[data-ptype-cat="${cat}"]`), list, searchState.r.ptypes);
+  });
+  renderCheckboxes(document.getElementById('rListingFeatures'), LISTING_FEATURES, searchState.r.listingFeatures);
+  renderCheckboxes(document.getElementById('rPropertyFeatures'), RESIDENTIAL_PROPERTY_FEATURES, searchState.r.propertyFeatures);
+
+  renderPills(document.getElementById('cPtypePills'), COMMERCIAL_PTYPES, searchState.c.ptypes);
+  renderPills(document.getElementById('cRoomsPills'), ROOM_OPTIONS, searchState.c.rooms);
+  renderCheckboxes(document.getElementById('cListingFeatures'), LISTING_FEATURES, searchState.c.listingFeatures);
+  renderCheckboxes(document.getElementById('cPropertyFeatures'), COMMERCIAL_PROPERTY_FEATURES, searchState.c.propertyFeatures);
+
+  document.querySelectorAll('.tri-toggle').forEach(group=>{
+    const key = group.dataset.tri.replace('c','').toLowerCase(); // cRestrooms -> restrooms
+    group.querySelectorAll('button').forEach(btn=>{
+      btn.addEventListener('click', ()=>{
+        group.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+        btn.classList.add('active');
+        searchState.c[key] = btn.dataset.val;
+      });
+    });
+    group.querySelector('button[data-val=""]')?.classList.add('active');
+  });
+
+  document.querySelectorAll('.deal-toggle[aria-label="סוג עסקה מסחרי"] button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      document.querySelectorAll('.deal-toggle[aria-label="סוג עסקה מסחרי"] button').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      searchState.c.deal = btn.dataset.cdeal;
+    });
+  });
+}
+
+document.querySelectorAll('.deal-tab').forEach(tab=>{
+  tab.addEventListener('click', ()=>{
+    document.querySelectorAll('.deal-tab').forEach(t=>{ t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
+    tab.classList.add('active'); tab.setAttribute('aria-selected','true');
+    searchState.activeTab = tab.dataset.mode;
+  });
+});
+
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+document.querySelectorAll('[data-close-modal]').forEach(el=>{
+  el.addEventListener('click', ()=> closeModal(el.dataset.closeModal));
+});
+document.querySelectorAll('.filter-modal-overlay').forEach(overlay=>{
+  overlay.addEventListener('click', (e)=>{ if (e.target === overlay) overlay.classList.remove('open'); });
+});
+
+document.getElementById('openFiltersBtn').addEventListener('click', ()=>{
+  openModal(searchState.activeTab === 'commercial' ? 'commercialFilterModal' : 'residentialFilterModal');
+});
+
+document.getElementById('rClearFilters').addEventListener('click', ()=>{
+  searchState.r = { priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), condition:'', projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, moveInDate:'', moveInSoon:false, freeText:'' };
+  ['rPriceMin','rPriceMax','rFloorMin','rFloorMax','rSizeMin','rSizeMax','rMoveInDate','rFreeText'].forEach(id=> document.getElementById(id).value='');
+  document.getElementById('rCondition').value=''; document.getElementById('rProjectStatus').value='';
+  document.getElementById('rMoveInSoon').checked=false; document.getElementById('rBuiltSizeToggle').checked=false;
+  initFilterModals();
+});
+document.getElementById('cClearFilters').addEventListener('click', ()=>{
+  searchState.c = { deal:'sale', priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, restrooms:'', storage:'', mamad:'', moveInDate:'', moveInSoon:false, freeText:'' };
+  ['cPriceMin','cPriceMax','cFloorMin','cFloorMax','cSizeMin','cSizeMax','cMoveInDate','cFreeText'].forEach(id=> document.getElementById(id).value='');
+  document.getElementById('cProjectStatus').value='';
+  document.getElementById('cMoveInSoon').checked=false;
+  initFilterModals();
+});
+
+function collectFormValues(){
+  searchState.r.priceMin = document.getElementById('rPriceMin').value || null;
+  searchState.r.priceMax = document.getElementById('rPriceMax').value || null;
+  searchState.r.condition = document.getElementById('rCondition').value;
+  searchState.r.projectStatus = document.getElementById('rProjectStatus').value;
+  searchState.r.floorMin = document.getElementById('rFloorMin').value || null;
+  searchState.r.floorMax = document.getElementById('rFloorMax').value || null;
+  searchState.r.sizeMin = document.getElementById('rSizeMin').value || null;
+  searchState.r.sizeMax = document.getElementById('rSizeMax').value || null;
+  searchState.r.moveInDate = document.getElementById('rMoveInDate').value;
+  searchState.r.moveInSoon = document.getElementById('rMoveInSoon').checked;
+  searchState.r.freeText = document.getElementById('rFreeText').value;
+
+  searchState.c.priceMin = document.getElementById('cPriceMin').value || null;
+  searchState.c.priceMax = document.getElementById('cPriceMax').value || null;
+  searchState.c.projectStatus = document.getElementById('cProjectStatus').value;
+  searchState.c.floorMin = document.getElementById('cFloorMin').value || null;
+  searchState.c.floorMax = document.getElementById('cFloorMax').value || null;
+  searchState.c.sizeMin = document.getElementById('cSizeMin').value || null;
+  searchState.c.sizeMax = document.getElementById('cSizeMax').value || null;
+  searchState.c.moveInDate = document.getElementById('cMoveInDate').value;
+  searchState.c.moveInSoon = document.getElementById('cMoveInSoon').checked;
+  searchState.c.freeText = document.getElementById('cFreeText').value;
+}
+
+function countActiveFilters(){
+  const s = searchState.activeTab === 'commercial' ? searchState.c : searchState.r;
+  let n = 0;
+  if (s.priceMin || s.priceMax) n++;
+  if (s.rooms.size) n++;
+  if (s.ptypes.size) n++;
+  if (s.listingFeatures.size) n++;
+  if (s.propertyFeatures.size) n++;
+  if (s.floorMin || s.floorMax) n++;
+  if (s.sizeMin || s.sizeMax) n++;
+  if (s.moveInDate || s.moveInSoon) n++;
+  if ('condition' in s && s.condition) n++;
+  if (s.projectStatus) n++;
+  if (s.freeText) n++;
+  return n;
+}
+
+async function runSearch(){
+  collectFormValues();
+  const badge = document.getElementById('filterCountBadge');
+  const count = countActiveFilters();
+  badge.style.display = count ? 'inline-flex' : 'none';
+  badge.textContent = count;
+
+  document.querySelectorAll('.filter-modal-overlay').forEach(m=>m.classList.remove('open'));
+
+  const freeTextMain = document.getElementById('searchFreeText').value.trim();
+  const isCommercial = searchState.activeTab === 'commercial';
+  const s = isCommercial ? searchState.c : searchState.r;
+  const dealType = isCommercial ? s.deal : searchState.activeTab;
+
+  try{
+    if (!sb) throw new Error('no supabase client');
+    let query = sb.from('properties').select('id, price, title, rooms, property_type, deal_type, lat, lng, is_promoted, agencies(name)')
+      .eq('status', 'active')
+      .eq('category', isCommercial ? 'commercial' : 'residential')
+      .eq('deal_type', dealType);
+
+    if (s.priceMin) query = query.gte('price', s.priceMin);
+    if (s.priceMax) query = query.lte('price', s.priceMax);
+    if (s.rooms.size) query = query.in('rooms', Array.from(s.rooms).map(r=>r === '+6' ? 6 : parseFloat(r)));
+    if (s.ptypes.size) query = query.in('property_type', Array.from(s.ptypes));
+    if (s.floorMin) query = query.gte('floor', s.floorMin);
+    if (s.floorMax) query = query.lte('floor', s.floorMax);
+    if (s.sizeMin) query = query.gte('size_sqm', s.sizeMin);
+    if (s.sizeMax) query = query.lte('size_sqm', s.sizeMax);
+    if (!isCommercial && s.condition) query = query.eq('condition', s.condition);
+    if (s.projectStatus) query = query.eq('project_status', s.projectStatus);
+    if (s.moveInSoon) query = query.eq('move_in_soon', true);
+    if (s.moveInDate) query = query.gte('move_in_date', s.moveInDate);
+    if (isCommercial){
+      if (s.restrooms) query = query.eq('restrooms_location', s.restrooms);
+      if (s.storage) query = query.eq('storage_location', s.storage);
+      if (s.mamad) query = query.eq('mamad_location', s.mamad);
+    }
+    const allFeatures = [...s.listingFeatures, ...s.propertyFeatures];
+    if (allFeatures.length) query = query.contains('features', allFeatures);
+    const freeText = s.freeText || freeTextMain;
+    if (freeText) query = query.ilike('title', `%${freeText}%`);
+
+    const { data, error } = await query.limit(30);
+    if (error) throw error;
+    const results = (data||[]).map(p => ({...p, agency_name: p.agencies?.name || ''}));
+    renderPropertyGrid(results, true);
+  } catch(e){
+    console.warn('חיפוש נכשל:', e);
+    showSearchError();
+  }
+}
+
+function showSearchError(){
+  const grid = document.getElementById('propertyGrid');
+  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--ink-soft)">שגיאה בחיפוש — נסו שוב</div>';
+}
+
+function renderPropertyGrid(properties, isSearchResult){
+  const grid = document.getElementById('propertyGrid');
+  const heading = document.querySelector('#listings h2');
+  if (heading) heading.textContent = isSearchResult ? `תוצאות חיפוש (${properties.length})` : 'כל הנכסים הפעילים';
+  grid.innerHTML = '';
+  if (isSearchResult && properties.length === 0){
+    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--ink-soft)">לא נמצאו נכסים התואמים את החיפוש</div>';
+    return;
+  }
+  properties.forEach((p, i)=>{
+    const el = document.createElement('div');
+    el.className = 'prop-card';
+    el.style.cursor = 'pointer';
+    el.innerHTML = `
+      <div class="thumb" style="background:${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}">${p.is_promoted ? '<span class="ribbon">מקודם</span>' : ''}</div>
+      <div class="body">
+        <div class="price">${priceLabel(p)}</div>
+        <div class="title">${p.title}</div>
+        <div class="meta"><span>${p.rooms || '—'} חדרים</span><span>${p.property_type}</span><span>${p.agency_name||''}</span></div>
+      </div>`;
+    el.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
+    grid.appendChild(el);
+    if (i === 1){
+      const ad = document.createElement('div');
+      ad.className = 'infeed-ad';
+      ad.textContent = 'פרסומת — באנר רוחבי בין אריחי הנכסים';
+      grid.appendChild(ad);
+    }
+  });
+}
+
+initFilterModals();
+document.getElementById('searchSubmitBtn').addEventListener('click', runSearch);
 </script>
 </body>
 </html>
