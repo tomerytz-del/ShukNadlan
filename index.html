@@ -339,12 +339,53 @@
   }
   @media(min-width:760px){.footer-grid{grid-template-columns:repeat(4,1fr)}}
 
-  /* ====== Accessibility FAB ====== */
+  /* ====== Accessibility FAB + panel ====== */
   .a11y-fab{
     position:fixed;bottom:18px;left:18px;z-index:150;width:48px;height:48px;border-radius:50%;
     background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;
     box-shadow:var(--shadow);font-size:1.1rem;
   }
+  .a11y-panel{
+    position:fixed;bottom:76px;left:18px;z-index:151;width:266px;background:var(--paper-raised);
+    border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:0 12px 34px rgba(0,0,0,.22);
+    padding:14px;display:none;
+  }
+  .a11y-panel[data-open="true"]{display:block}
+  .a11y-panel h3{font-size:.95rem;margin-bottom:10px}
+  .a11y-panel button.opt{
+    display:flex;align-items:center;justify-content:space-between;width:100%;text-align:right;
+    border:1.5px solid var(--line);border-radius:var(--radius-sm);background:#fff;
+    padding:9px 11px;margin-bottom:7px;font-size:.83rem;font-weight:600;color:var(--ink);
+  }
+  .a11y-panel button.opt[aria-pressed="true"]{border-color:var(--teal);background:var(--teal-tint);color:var(--teal-dark)}
+  .a11y-panel .state{font-size:.72rem;color:var(--ink-soft)}
+  .a11y-panel .reset{width:100%;border:none;background:var(--gold);color:#fff;border-radius:999px;padding:9px;font-weight:700;font-size:.82rem;margin-top:4px}
+  .a11y-font-row{display:flex;gap:7px;margin-bottom:7px}
+  .a11y-font-row button{
+    flex:1;border:1.5px solid var(--line);border-radius:var(--radius-sm);background:#fff;
+    padding:9px;font-weight:700;font-size:.9rem;color:var(--ink);
+  }
+
+  /* מצבי הנגישות עצמם — מוחלים על אלמנט השורש כדי שיחולו על כל העמוד */
+  html.a11y-links a{text-decoration:underline !important;font-weight:700 !important}
+  html.a11y-readable, html.a11y-readable *{font-family:Arial, Helvetica, sans-serif !important}
+  html.a11y-nomotion *{animation:none !important;transition:none !important;scroll-behavior:auto !important}
+  html.a11y-contrast body{background:#000 !important;color:#fff !important}
+  html.a11y-contrast .card,
+  html.a11y-contrast .search-card,
+  html.a11y-contrast .a11y-panel,
+  html.a11y-contrast header.site,
+  html.a11y-contrast .mobile-menu,
+  html.a11y-contrast .hero,
+  html.a11y-contrast .ad-leaderboard,
+  html.a11y-contrast .ad-slot .tag,
+  html.a11y-contrast footer{background:#000 !important;border-color:#fff !important;color:#fff !important}
+  html.a11y-contrast h1, html.a11y-contrast h2, html.a11y-contrast h3,
+  html.a11y-contrast .display, html.a11y-contrast a, html.a11y-contrast p,
+  html.a11y-contrast span, html.a11y-contrast div, html.a11y-contrast label{color:#fff !important}
+  html.a11y-contrast .btn, html.a11y-contrast button.opt, html.a11y-contrast input,
+  html.a11y-contrast select, html.a11y-contrast .deal-toggle button,
+  html.a11y-contrast .owner-toggle button{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
 </style>
 </head>
 <body>
@@ -762,7 +803,28 @@
   </div>
 </footer>
 
-<button class="a11y-fab" aria-label="פתיחת תפריט נגישות" title="נגישות">♿</button>
+<button class="a11y-fab" id="a11yFab" aria-label="פתיחת תפריט נגישות" aria-expanded="false" aria-controls="a11yPanel" title="נגישות">♿</button>
+<div class="a11y-panel" id="a11yPanel" data-open="false" role="dialog" aria-label="תפריט נגישות">
+  <h3>נגישות</h3>
+  <div class="a11y-font-row">
+    <button type="button" id="a11yFontDown" aria-label="הקטנת גודל הטקסט">א−</button>
+    <button type="button" id="a11yFontReset" aria-label="גודל טקסט רגיל">100%</button>
+    <button type="button" id="a11yFontUp" aria-label="הגדלת גודל הטקסט">א+</button>
+  </div>
+  <button type="button" class="opt" data-a11y="a11y-contrast" aria-pressed="false">
+    ניגודיות גבוהה <span class="state">כבוי</span>
+  </button>
+  <button type="button" class="opt" data-a11y="a11y-links" aria-pressed="false">
+    הדגשת קישורים <span class="state">כבוי</span>
+  </button>
+  <button type="button" class="opt" data-a11y="a11y-readable" aria-pressed="false">
+    גופן קריא <span class="state">כבוי</span>
+  </button>
+  <button type="button" class="opt" data-a11y="a11y-nomotion" aria-pressed="false">
+    עצירת אנימציות <span class="state">כבוי</span>
+  </button>
+  <button type="button" class="reset" id="a11yReset">איפוס הגדרות</button>
+</div>
 
 <script>
 /* ============================================================
@@ -788,6 +850,15 @@ const FALLBACK_TICKER = [
   {text:'עדכון: ריבית הפריים נותרה יציבה לחודש השני ברציפות'},
 ];
 const CARD_GRADIENTS = ['linear-gradient(155deg,#8B2332,#1C3A5E)','linear-gradient(155deg,#1C3A5E,#8B2332)','linear-gradient(155deg,#6B1A26,#1C3A5E)','linear-gradient(155deg,#8B2332,#6B1A26)','linear-gradient(155deg,#1C3A5E,#6B1A26)','linear-gradient(155deg,#6B1A26,#8B2332)'];
+
+/* התמונה הראשית של נכס היא images[0]; נכס בלי תמונות נופל חזרה לגרדיאנט
+   הצבעוני שהיה כאן קודם, כדי שהכרטיס לא ייראה שבור.                     */
+function thumbStyle(p, i){
+  const img = p.images && p.images[0];
+  return img
+    ? `background-image:url('${img}');background-size:cover;background-position:center`
+    : `background:${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}`;
+}
 function priceLabel(p){
   return p.deal_type === 'rent' ? ('₪' + Number(p.price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(p.price).toLocaleString('he-IL'));
 }
@@ -795,6 +866,82 @@ function priceLabel(p){
 /* ============================================================
    PART 1 — core UI. No external dependency. Always works.
    ============================================================ */
+
+/* ---------- Accessibility panel ----------
+   חלק מ-PART 1 בכוונה: ההגדרות חייבות לעבוד גם כשה-CDN של Supabase/Leaflet
+   נכשל. ההעדפה נשמרת ב-localStorage ומוחלת מיד בטעינה הבאה.            */
+const A11Y_MODES = ['a11y-contrast', 'a11y-links', 'a11y-readable', 'a11y-nomotion'];
+const A11Y_KEY = 'shuknadlan_a11y';
+const A11Y_FONT_MIN = 90, A11Y_FONT_MAX = 160, A11Y_FONT_STEP = 10;
+
+function readA11y(){
+  try{
+    const raw = localStorage.getItem(A11Y_KEY);
+    const saved = raw ? JSON.parse(raw) : {};
+    return { fontPct: Number(saved.fontPct) || 100, modes: Array.isArray(saved.modes) ? saved.modes : [] };
+  } catch(e){ return { fontPct:100, modes:[] }; }
+}
+
+function applyA11y(prefs){
+  document.documentElement.style.fontSize = prefs.fontPct === 100 ? '' : prefs.fontPct + '%';
+  A11Y_MODES.forEach(m => document.documentElement.classList.toggle(m, prefs.modes.includes(m)));
+
+  const label = document.getElementById('a11yFontReset');
+  if (label) label.textContent = prefs.fontPct + '%';
+  document.querySelectorAll('.a11y-panel .opt').forEach(btn=>{
+    const on = prefs.modes.includes(btn.dataset.a11y);
+    btn.setAttribute('aria-pressed', String(on));
+    btn.querySelector('.state').textContent = on ? 'פועל' : 'כבוי';
+  });
+
+  try{ localStorage.setItem(A11Y_KEY, JSON.stringify(prefs)); } catch(e){}
+}
+
+let a11yPrefs = readA11y();
+applyA11y(a11yPrefs);
+
+const a11yFab = document.getElementById('a11yFab');
+const a11yPanel = document.getElementById('a11yPanel');
+
+function setA11yPanel(open){
+  a11yPanel.dataset.open = String(open);
+  a11yFab.setAttribute('aria-expanded', String(open));
+  if (open) a11yPanel.querySelector('button').focus();
+}
+
+a11yFab.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  setA11yPanel(a11yPanel.dataset.open !== 'true');
+});
+a11yPanel.addEventListener('click', e => e.stopPropagation());
+document.addEventListener('click', ()=>{ if (a11yPanel.dataset.open === 'true') setA11yPanel(false); });
+document.addEventListener('keydown', (e)=>{
+  if (e.key === 'Escape' && a11yPanel.dataset.open === 'true'){ setA11yPanel(false); a11yFab.focus(); }
+});
+
+document.querySelectorAll('.a11y-panel .opt').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const mode = btn.dataset.a11y;
+    a11yPrefs.modes = a11yPrefs.modes.includes(mode)
+      ? a11yPrefs.modes.filter(m => m !== mode)
+      : a11yPrefs.modes.concat(mode);
+    applyA11y(a11yPrefs);
+  });
+});
+
+function stepA11yFont(delta){
+  a11yPrefs.fontPct = Math.min(A11Y_FONT_MAX, Math.max(A11Y_FONT_MIN, a11yPrefs.fontPct + delta));
+  applyA11y(a11yPrefs);
+}
+document.getElementById('a11yFontUp').addEventListener('click', ()=> stepA11yFont(A11Y_FONT_STEP));
+document.getElementById('a11yFontDown').addEventListener('click', ()=> stepA11yFont(-A11Y_FONT_STEP));
+document.getElementById('a11yFontReset').addEventListener('click', ()=>{
+  a11yPrefs.fontPct = 100; applyA11y(a11yPrefs);
+});
+document.getElementById('a11yReset').addEventListener('click', ()=>{
+  a11yPrefs = { fontPct:100, modes:[] };
+  applyA11y(a11yPrefs);
+});
 
 /* ---------- Mobile menu ---------- */
 const menuToggle = document.getElementById('menuToggle');
@@ -926,7 +1073,7 @@ async function loadProperties(){
   try{
     const { data, error } = await sb
       .from('properties')
-      .select('id, price, title, rooms, property_type, deal_type, lat, lng, is_promoted, agencies(name)')
+      .select('id, price, title, rooms, property_type, deal_type, lat, lng, is_promoted, images, agencies(name)')
       .eq('status', 'active')
       .limit(12);
     if (error || !data || data.length === 0) throw error || new Error('empty');
@@ -1052,6 +1199,42 @@ const TYPE_LABELS = {
   interior_designer:'מעצב/ת פנים', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל/ת מקצוע',
 };
 
+/* רוטציה הוגנת בין בעלי-מקצוע באותה קטגוריה.
+   בכוונה חסרת-state: התצוגה קורית לגולשים אנונימיים שאין להם הרשאת כתיבה,
+   ורישום שורת רוטציה בכל צפיית עמוד גם היה מייצר עומס כתיבה מיותר. במקום
+   זה הסדר נגזר משעת השעון — כל שעה עולה לראש כל קטגוריה מפרסם אחר, כך
+   שלאורך זמן החשיפה מתחלקת שווה בשווה בלי לשמור כלום.
+   (priority_rotation_state נשאר בשימוש לרוטציה של Promote, שם יש סוכן
+   מזוהה ומדובר בבחירה חד-פעמית ולא בכל rendering.)                       */
+function rotateProfessionalsFairly(list){
+  const bucket = Math.floor(Date.now() / 3600000); // דלי של שעה
+  const byType = new Map();
+  list.forEach(p=>{
+    const key = p.advertiser_type || 'general';
+    if (!byType.has(key)) byType.set(key, []);
+    byType.get(key).push(p);
+  });
+
+  const groups = Array.from(byType.keys()).sort().map(key=>{
+    // סדר בסיס יציב, כדי שהרוטציה תהיה צפויה ולא תלויה בסדר שהגיע מה-DB
+    const items = byType.get(key).slice().sort((a, b)=>
+      String(a.id || a.advertiser_name).localeCompare(String(b.id || b.advertiser_name)));
+    const offset = bucket % items.length;
+    return items.slice(offset).concat(items.slice(0, offset));
+  });
+
+  // שזירה בין הקטגוריות — אחרת שלושה שמאים היו תופסים את כל השורה הראשונה
+  const out = [];
+  for (let i = 0; groups.some(g => g[i]); i++){
+    groups.forEach(g => { if (g[i]) out.push(g[i]); });
+  }
+  return out;
+}
+
+function isPlacementLive(p, today){
+  return (!p.starts_at || p.starts_at <= today) && (!p.ends_at || p.ends_at >= today);
+}
+
 (async function initProfessionals(){
   const el = document.getElementById('prosGrid');
   let pros = FALLBACK_PROS;
@@ -1059,11 +1242,15 @@ const TYPE_LABELS = {
     if (sb){
       const { data, error } = await sb
         .from('ad_placements')
-        .select('advertiser_name, advertiser_type, target_region, click_url')
+        .select('id, advertiser_name, advertiser_type, target_region, click_url, starts_at, ends_at')
         .eq('placement_type', 'professional_card')
         .eq('status', 'active')
-        .limit(10);
-      if (!error && data && data.length > 0) pros = data;
+        .limit(50);
+      // status לבדו לא מספיק: כרטיסייה שתקופת הפרסום שלה הסתיימה נשארת
+      // active בטבלה, ובלי הסינון הזה היא המשיכה להופיע באתר.
+      const today = new Date().toISOString().slice(0, 10);
+      const live = (data || []).filter(p => isPlacementLive(p, today));
+      if (!error && live.length > 0) pros = rotateProfessionalsFairly(live).slice(0, 10);
     }
   } catch(e){ console.warn('טעינת בעלי מקצוע נכשלה, מציג ברירת מחדל:', e); }
 
@@ -1118,7 +1305,7 @@ try {
       el.className = 'mini-card';
       el.dataset.id = p.id;
       el.innerHTML = `
-        <div class="thumb" style="background:${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}"></div>
+        <div class="thumb" style="${thumbStyle(p, i)}"></div>
         <div class="body">
           <div class="price">${priceLabel(p)}</div>
           <div class="meta">${p.rooms || '—'} חדרים · ${p.property_type}</div>
@@ -1138,7 +1325,7 @@ try {
       el.className = 'prop-card';
       el.style.cursor = 'pointer';
       el.innerHTML = `
-        <div class="thumb" style="background:${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}"><span class="ribbon">מקודם</span></div>
+        <div class="thumb" style="${thumbStyle(p, i)}"><span class="ribbon">מקודם</span></div>
         <div class="body">
           <div class="price">${priceLabel(p)}</div>
           <div class="title">${p.title}</div>
@@ -1403,7 +1590,7 @@ function renderPropertyGrid(properties, isSearchResult){
     el.className = 'prop-card';
     el.style.cursor = 'pointer';
     el.innerHTML = `
-      <div class="thumb" style="background:${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}">${p.is_promoted ? '<span class="ribbon">מקודם</span>' : ''}</div>
+      <div class="thumb" style="${thumbStyle(p, i)}">${p.is_promoted ? '<span class="ribbon">מקודם</span>' : ''}</div>
       <div class="body">
         <div class="price">${priceLabel(p)}</div>
         <div class="title">${p.title}</div>

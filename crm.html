@@ -79,6 +79,63 @@
   .lead-actions{display:flex;gap:8px;margin-top:4px}
   .empty-state{padding:32px;text-align:center;color:var(--ink-soft);font-size:.88rem}
   .toast{position:fixed;bottom:20px;right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:var(--radius-sm);font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;z-index:200}
+
+  /* ---------- Property images (2.1) ---------- */
+  .img-dropzone{border:1.5px dashed var(--line);border-radius:var(--radius-sm);padding:14px;text-align:center;background:#fff}
+  .img-dropzone input[type=file]{display:none}
+  .img-dropzone .pick{display:inline-block;font-size:.85rem;font-weight:700;color:var(--teal);cursor:pointer}
+  .img-dropzone .hint{font-size:.72rem;color:var(--ink-soft);margin-top:4px}
+  .img-preview{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+  .img-thumb{position:relative;width:78px;height:78px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--line);background:var(--paper)}
+  .img-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .img-thumb .main-tag{position:absolute;bottom:0;right:0;left:0;background:rgba(28,58,94,.85);color:#fff;font-size:.6rem;font-weight:800;text-align:center;padding:1px 0}
+  .img-thumb .x{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:rgba(27,31,38,.72);color:#fff;font-size:.75rem;line-height:20px;text-align:center;padding:0}
+  .img-thumb .star{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:rgba(27,31,38,.72);color:#fff;font-size:.65rem;line-height:20px;text-align:center;padding:0}
+  .prop-thumb-mini{width:52px;height:52px;border-radius:var(--radius-sm);object-fit:cover;flex-shrink:0;border:1px solid var(--line)}
+
+  /* ---------- Notification bell (2.2) ---------- */
+  .bell-wrap{position:relative}
+  .bell-btn{background:transparent;border:1.5px solid var(--line);border-radius:999px;width:40px;height:40px;font-size:1.1rem;line-height:1;display:flex;align-items:center;justify-content:center;position:relative}
+  .bell-badge{position:absolute;top:-4px;left:-4px;min-width:19px;height:19px;border-radius:999px;background:var(--gold);color:#fff;font-size:.66rem;font-weight:800;display:none;align-items:center;justify-content:center;padding:0 5px}
+  .bell-panel{position:absolute;top:48px;left:0;width:290px;max-height:340px;overflow-y:auto;background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:0 10px 30px rgba(0,0,0,.18);display:none;z-index:150}
+  .bell-panel header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line);font-size:.8rem;font-weight:700}
+  .bell-panel .mark-all{background:transparent;color:var(--teal);font-size:.72rem;font-weight:700;padding:0}
+  .notif-item{padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer}
+  .notif-item:last-child{border-bottom:none}
+  .notif-item.unread{background:var(--gold-tint)}
+  .notif-item .t{font-size:.83rem;font-weight:700}
+  .notif-item .b{font-size:.75rem;color:var(--ink-soft);margin-top:2px}
+  .notif-item .when{font-size:.68rem;color:var(--ink-soft);margin-top:3px}
+
+  /* ---------- CMA report (2.3) ---------- */
+  #cmaOverlay{position:fixed;inset:0;background:rgba(18,40,64,.55);z-index:300;display:none;overflow-y:auto;padding:20px 12px}
+  .cma-sheet{max-width:760px;margin:0 auto;background:#fff;border-radius:var(--radius-md);padding:26px 24px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+  .cma-actions{display:flex;gap:8px;justify-content:flex-end;margin-bottom:16px}
+  .cma-head{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:2px solid var(--teal);padding-bottom:12px;margin-bottom:18px}
+  .cma-head .brand{display:flex;align-items:center;gap:8px;font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark);font-size:1.05rem}
+  .cma-head .when{font-size:.72rem;color:var(--ink-soft)}
+  .cma-sheet h2{font-size:1.25rem;margin-bottom:2px}
+  .cma-sub{font-size:.84rem;color:var(--ink-soft);margin-bottom:18px}
+  .cma-section-title{font-size:.78rem;font-weight:800;color:var(--teal);letter-spacing:.04em;margin:20px 0 8px}
+  .cma-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  @media(min-width:560px){.cma-stats{grid-template-columns:repeat(4,1fr)}}
+  .cma-stat{border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px;text-align:center}
+  .cma-stat .n{font-family:'Frank Ruhl Libre',serif;font-size:1.1rem;color:var(--teal-dark)}
+  .cma-stat .l{font-size:.68rem;color:var(--ink-soft);margin-top:2px}
+  .cma-table{width:100%;border-collapse:collapse;font-size:.8rem}
+  .cma-table th,.cma-table td{border-bottom:1px solid var(--line);padding:7px 6px;text-align:right}
+  .cma-table th{font-size:.72rem;color:var(--ink-soft);font-weight:700}
+  .cma-note{font-size:.75rem;color:var(--ink-soft);background:var(--teal-tint);border-radius:var(--radius-sm);padding:9px 11px;margin-top:8px}
+  .cma-foot{margin-top:22px;padding-top:12px;border-top:1px solid var(--line);font-size:.68rem;color:var(--ink-soft);line-height:1.6}
+
+  @media print{
+    body{background:#fff}
+    body > *{display:none !important}
+    body > #cmaOverlay{display:block !important;position:static;background:#fff;padding:0;overflow:visible}
+    .cma-sheet{box-shadow:none;max-width:none;padding:0;border-radius:0}
+    .cma-actions{display:none !important}
+    .cma-table{font-size:.72rem}
+  }
 </style>
 </head>
 <body>
@@ -146,7 +203,21 @@
           <span class="tier-badge" id="tierBadge">—</span>
         </div>
       </div>
-      <button class="btn btn-ghost" id="logoutBtn">יציאה</button>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="bell-wrap">
+          <button class="bell-btn" id="bellBtn" aria-label="התראות" aria-expanded="false">
+            🔔<span class="bell-badge" id="bellBadge">0</span>
+          </button>
+          <div class="bell-panel" id="bellPanel">
+            <header>
+              <span>התראות</span>
+              <button type="button" class="mark-all" id="markAllRead">סימון הכל כנקרא</button>
+            </header>
+            <div id="notifList"><div class="empty-state" style="padding:18px">טוען…</div></div>
+          </div>
+        </div>
+        <button class="btn btn-ghost" id="logoutBtn">יציאה</button>
+      </div>
     </div>
   </header>
 
@@ -296,6 +367,15 @@
       <div class="form-subheading">מאפייני הנכס</div>
       <div class="checkbox-grid" id="npPropertyFeatures"></div>
 
+      <div class="field">
+        <label>תמונות הנכס</label>
+        <div class="img-dropzone">
+          <label class="pick" for="npImages">+ בחירת תמונות מהמכשיר</label>
+          <input type="file" id="npImages" accept="image/jpeg,image/png,image/webp" multiple>
+          <div class="hint">עד 8 תמונות · התמונה הראשונה היא הראשית · הקבצים מוקטנים אוטומטית לפני ההעלאה</div>
+        </div>
+        <div class="img-preview" id="npImagePreview"></div>
+      </div>
       <button type="submit" class="btn btn-gold btn-block" id="addPropertyBtn" style="margin-top:16px">פרסום הנכס</button>
       <div id="addPropertyFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
       <div id="addPropertyPlanningStatus" style="font-size:.75rem;text-align:center;margin-top:4px;color:var(--ink-soft)"></div>
@@ -368,6 +448,16 @@
 
 <div class="field-label-fix"></div>
 <style>.field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}</style>
+
+<div id="cmaOverlay">
+  <div class="cma-sheet">
+    <div class="cma-actions">
+      <button type="button" class="btn btn-gold" id="cmaPrintBtn">הדפסה / שמירה כ-PDF</button>
+      <button type="button" class="btn btn-ghost" id="cmaCloseBtn">סגירה</button>
+    </div>
+    <div id="cmaBody"></div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -499,7 +589,7 @@ async function loadDashboard(){
 
   const { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select('id, agency_id, role, display_name, tier, credit_balance, free_quota_used, is_platform_admin, agencies(name)')
+    .select('id, agency_id, display_name, role, tier, credit_balance, free_quota_used, is_platform_admin, agencies(name)')
     .eq('user_id', user.id)
     .single();
 
@@ -527,6 +617,7 @@ async function loadDashboard(){
 
   await loadProperties(agent.id);
   await loadLeads(agent.id);
+  await loadNotifications(agent.id);
   await loadPreferences(agent.id);
 
   if (agent.role === 'manager'){
@@ -1061,6 +1152,119 @@ document.querySelectorAll('[data-category]').forEach(btn=>{
 });
 updateFormForCategory('residential'); // אתחול ראשוני כשהעמוד נטען
 
+/* ---------- Property images (2.1) ----------
+   ההקטנה נעשית בצד הלקוח לפני ההעלאה: תמונה מהטלפון היא 3-6MB, ואחרי
+   resize ל-1600px ו-JPEG q=0.82 היא יורדת לכ-200-400KB. ה-bucket חוסם
+   מעל 3MB ממילא, אז בלי ההקטנה העלאות מהמובייל היו נכשלות.                */
+const IMAGES_BUCKET = 'property-images';
+const MAX_IMAGES = 8;
+const MAX_IMAGE_DIM = 1600;
+
+// רשימה מסודרת אחת, כי הסדר הוא נתון בפני עצמו (איבר 0 = התמונה הראשית).
+// כל איבר הוא { url } לתמונה ששמורה כבר, או { blob, previewUrl } לקובץ חדש.
+let imageSlots = [];
+
+function fileToResizedBlob(file, maxDim = MAX_IMAGE_DIM, quality = 0.82){
+  return new Promise((resolve, reject)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = ()=>{
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('encode failed')), 'image/jpeg', quality);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('לא ניתן לקרוא את הקובץ')); };
+    img.src = url;
+  });
+}
+
+function renderImagePreview(){
+  const wrap = document.getElementById('npImagePreview');
+  wrap.innerHTML = '';
+  imageSlots.forEach((slot, i)=>{
+    const el = document.createElement('div');
+    el.className = 'img-thumb';
+    el.innerHTML = `<img src="${slot.url || slot.previewUrl}" alt="">
+      <button type="button" class="x" title="הסרה">✕</button>
+      ${i === 0 ? '<div class="main-tag">ראשית</div>' : '<button type="button" class="star" title="הפוך לראשית">★</button>'}`;
+    el.querySelector('.x').addEventListener('click', ()=> removeImage(i));
+    const star = el.querySelector('.star');
+    if (star) star.addEventListener('click', ()=> makeImageMain(i));
+    wrap.appendChild(el);
+  });
+}
+
+function removeImage(i){
+  const [slot] = imageSlots.splice(i, 1);
+  if (!slot) return;
+  if (slot.previewUrl) URL.revokeObjectURL(slot.previewUrl);
+  if (slot.url){
+    // ניקוי best-effort מה-Storage; גם אם נכשל, הנכס כבר לא מצביע על הקובץ
+    const path = storagePathFromPublicUrl(slot.url);
+    if (path) sb.storage.from(IMAGES_BUCKET).remove([path]).catch(()=>{});
+  }
+  renderImagePreview();
+}
+
+function makeImageMain(i){
+  const [slot] = imageSlots.splice(i, 1);
+  if (slot) imageSlots.unshift(slot);
+  renderImagePreview();
+}
+
+function storagePathFromPublicUrl(url){
+  const marker = '/storage/v1/object/public/' + IMAGES_BUCKET + '/';
+  const i = String(url).indexOf(marker);
+  return i === -1 ? null : decodeURIComponent(String(url).slice(i + marker.length));
+}
+
+function resetImageState(){
+  imageSlots.forEach(s => { if (s.previewUrl) URL.revokeObjectURL(s.previewUrl); });
+  imageSlots = [];
+  document.getElementById('npImages').value = '';
+  renderImagePreview();
+}
+
+document.getElementById('npImages').addEventListener('change', async (e)=>{
+  const files = Array.from(e.target.files || []);
+  e.target.value = ''; // מאפשר לבחור שוב את אותו קובץ אחרי הסרה
+  const room = MAX_IMAGES - imageSlots.length;
+  if (room <= 0){ showToast(`אפשר עד ${MAX_IMAGES} תמונות לנכס`); return; }
+  for (const file of files.slice(0, room)){
+    try{
+      const blob = await fileToResizedBlob(file);
+      imageSlots.push({ blob, previewUrl: URL.createObjectURL(blob) });
+    } catch(err){
+      console.warn('resize failed', file.name, err);
+      showToast('קובץ אחד לא נטען: ' + file.name);
+    }
+  }
+  if (files.length > room) showToast(`נוספו ${room} תמונות בלבד — המקסימום הוא ${MAX_IMAGES}`);
+  renderImagePreview();
+});
+
+// מעלה את הקבצים החדשים ומחזיר את רשימת ה-URLs המלאה לפי סדר התצוגה.
+async function resolveImageUrls(propertyId){
+  const urls = [];
+  for (const slot of imageSlots){
+    if (slot.url){ urls.push(slot.url); continue; }
+    const name = `${currentAgent.id}/${propertyId}/${crypto.randomUUID()}.jpg`;
+    const { error } = await sb.storage.from(IMAGES_BUCKET).upload(name, slot.blob, {
+      contentType:'image/jpeg', cacheControl:'31536000', upsert:false,
+    });
+    if (error) throw error;
+    const url = sb.storage.from(IMAGES_BUCKET).getPublicUrl(name).data.publicUrl;
+    slot.url = url; // כדי שניסיון שמירה חוזר לא יעלה את אותו קובץ פעמיים
+    urls.push(url);
+  }
+  return urls;
+}
+
 const toggleBtn = document.getElementById('toggleAddProperty');
 const addForm = document.getElementById('addPropertyForm');
 toggleBtn.addEventListener('click', ()=>{
@@ -1072,6 +1276,7 @@ toggleBtn.addEventListener('click', ()=>{
     editingPropertyOriginalAddress = null;
     document.getElementById('addPropertyForm').reset();
     document.getElementById('npCity').value = 'עפולה';
+    resetImageState();
     document.getElementById('addPropertyBtn').textContent = 'פרסום הנכס';
     currentCategory = 'residential';
     document.querySelectorAll('[data-category]').forEach(b=> b.classList.toggle('active', b.dataset.category === 'residential'));
@@ -1123,6 +1328,9 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   const addressActuallyChanged = editingPropertyId && editingPropertyOriginalAddress &&
     (editingPropertyOriginalAddress.street !== street || editingPropertyOriginalAddress.house_number !== houseNumber);
 
+  // שומרים קודם את הנכס ורק אז מעלים תמונות: הנתיב ב-Storage מכיל את
+  // property_id, שקיים רק אחרי ה-insert. אם ההעלאה תיכשל, הנכס עצמו כבר
+  // שמור והסוכן יכול לנסות שוב דרך "עריכה" במקום לאבד את כל הטופס.
   let error, newPropertyId = editingPropertyId;
   if (editingPropertyId){
     ({ error } = await sb.from('properties').update(payload).eq('id', editingPropertyId));
@@ -1130,9 +1338,25 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     payload.agency_id = currentAgent.agency_id;
     payload.agent_id = currentAgent.id;
     payload.status = 'active';
-    const { data: inserted, error: insertErr } = await sb.from('properties').insert(payload).select().single();
+    const { data: inserted, error: insertErr } = await sb.from('properties').insert(payload).select('id').single();
     error = insertErr;
     newPropertyId = inserted?.id;
+  }
+
+  if (!error && newPropertyId){
+    try{
+      btn.textContent = 'מעלה תמונות…';
+      const urls = await resolveImageUrls(newPropertyId);
+      const { error: imgErr } = await sb.from('properties').update({ images: urls }).eq('id', newPropertyId);
+      if (imgErr) throw imgErr;
+    } catch(imgError){
+      console.error(imgError);
+      btn.disabled = false; btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
+      feedback.style.color = 'var(--brick)';
+      feedback.textContent = 'הנכס נשמר, אך העלאת התמונות נכשלה: ' + (imgError.message || 'שגיאה');
+      await loadProperties(currentAgent.id);
+      return;
+    }
   }
 
   btn.disabled = false; btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
@@ -1186,6 +1410,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
 
   document.getElementById('addPropertyForm').reset();
   document.getElementById('npCity').value = 'עפולה';
+  resetImageState();
   editingPropertyId = null;
   editingPropertyOriginalAddress = null;
   currentCategory = 'residential';
@@ -1205,7 +1430,7 @@ async function loadProperties(agentId){
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   const { data: props, error } = await sb
     .from('properties')
-    .select('id, title, price, deal_type, rooms, property_type, status, created_at, is_promoted, promoted_until, last_free_bump_at, city, street, house_number, lat, lng, category, features, condition, project_status, floor, size_sqm, built_size_sqm, move_in_date, move_in_soon, restrooms_location, storage_location, mamad_location')
+    .select('id, title, price, deal_type, rooms, property_type, status, created_at, is_promoted, promoted_until, last_free_bump_at, images, city, street, house_number, lat, lng, category, features, condition, project_status, floor, size_sqm, built_size_sqm, move_in_date, move_in_soon, restrooms_location, storage_location, mamad_location')
     .eq('agent_id', agentId)
     .order('created_at', { ascending:false });
 
@@ -1234,11 +1459,17 @@ async function loadProperties(agentId){
     const planning = planningByProperty[p.id];
     const el = document.createElement('div');
     el.className = 'card lead-card';
+    const thumbHtml = (p.images && p.images.length)
+      ? `<img class="prop-thumb-mini" src="${p.images[0]}" alt="">`
+      : '';
     el.innerHTML = `
       <div class="lead-top">
-        <div>
-          <div class="lead-name">${p.title}${isCurrentlyPromoted ? ' 🌟' : ''}</div>
-          <div class="lead-meta">${priceLabel} · ${p.rooms || '—'} חדרים · ${p.property_type} · ${viewCounts[p.id]||0} צפיות${isCurrentlyPromoted ? ' · מקודם עד ' + p.promoted_until : ''}${planning ? ' · 📍 גוש ' + (planning.gush||'—') + ' חלקה ' + (planning.helka||'—') : ''}</div>
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          ${thumbHtml}
+          <div>
+            <div class="lead-name">${p.title}${isCurrentlyPromoted ? ' 🌟' : ''}</div>
+            <div class="lead-meta">${priceLabel} · ${p.rooms || '—'} חדרים · ${p.property_type} · ${viewCounts[p.id]||0} צפיות${isCurrentlyPromoted ? ' · מקודם עד ' + p.promoted_until : ''}${(!p.images || !p.images.length) ? ' · <span style="color:var(--brick)">ללא תמונות</span>' : ''}${planning ? ' · 📍 גוש ' + (planning.gush||'—') + ' חלקה ' + (planning.helka||'—') : ''}</div>
+          </div>
         </div>
         <span class="status-pill status-unlocked">${statusLabels[p.status] || p.status}</span>
       </div>
@@ -1261,6 +1492,15 @@ async function loadProperties(agentId){
         renderPlanningResult(planning);
       });
       actions.appendChild(planBtn);
+    }
+
+    // הכפתור מוצג רק ל-mid/premium; ה-gating עצמו נאכף ב-cma_report ב-DB
+    if (currentAgent && (currentAgent.tier === 'mid' || currentAgent.tier === 'premium')){
+      const cmaBtn = document.createElement('button');
+      cmaBtn.className = 'btn btn-ghost';
+      cmaBtn.textContent = '📊 דוח CMA';
+      cmaBtn.addEventListener('click', ()=> openCmaReport(p.id, cmaBtn));
+      actions.appendChild(cmaBtn);
     }
 
     if (p.status === 'active'){
@@ -1372,6 +1612,9 @@ function openEditProperty(p){
   document.getElementById('npStorageLoc').value = p.storage_location || '';
   document.getElementById('npMamadLoc').value = p.mamad_location || '';
   editingPropertyOriginalAddress = { street: p.street || '', house_number: p.house_number || '' };
+  resetImageState();
+  imageSlots = (p.images || []).map(url => ({ url }));
+  renderImagePreview();
   addForm.style.display = 'block';
   document.getElementById('addPropertyBtn').textContent = 'שמירת שינויים';
   toggleBtn.textContent = '✕ ביטול';
@@ -1478,6 +1721,210 @@ async function claimLead(leadId, btn, agentId){
     btn.disabled = false; btn.textContent = original;
   }
 }
+
+/* ---------- CMA report (2.3) ----------
+   כל החישוב (רדיוס מתרחב, מחיר למ"ר, השוואות) נעשה בפונקציית cma_report
+   ב-DB, שם גם ה-gating ל-mid/premium — כדי שלא יהיה מסלול לעקוף אותו מהלקוח.
+   כאן רק התצוגה: עמוד ממותג שהסוכן מדפיס/שומר כ-PDF מהדפדפן.            */
+function esc(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => (
+    { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]
+  ));
+}
+const shekel = n => (n === null || n === undefined) ? '—' : '₪' + Number(n).toLocaleString('he-IL');
+const hebDate = d => d ? new Date(d).toLocaleDateString('he-IL') : '—';
+
+async function openCmaReport(propertyId, btn){
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'מפיק…';
+  const { data, error } = await sb.rpc('cma_report', { p_property_id: propertyId });
+  btn.disabled = false; btn.textContent = original;
+
+  if (error){ showToast('שגיאה בהפקת הדוח: ' + error.message); return; }
+  if (data?.error){
+    const messages = {
+      upgrade_required: data.detail || 'דוח CMA זמין רק למנוי Mid/Premium',
+      property_not_found: 'הנכס לא נמצא',
+      no_matching_agent_profile: 'שגיאת הרשאה',
+    };
+    showToast(messages[data.error] || 'שגיאה בהפקת הדוח');
+    return;
+  }
+  renderCmaReport(data);
+}
+
+function renderCmaReport(r){
+  const s = r.subject || {};
+  const st = r.stats || {};
+  const comps = r.comparables || [];
+  const cityComps = r.city_comparables || [];
+
+  let gapNote = '';
+  if (st.avg_price && s.price){
+    const pct = Math.round(((Number(s.price) - Number(st.avg_price)) / Number(st.avg_price)) * 100);
+    if (pct !== 0){
+      gapNote = `<div class="cma-note">המחיר המבוקש ${pct > 0 ? 'גבוה' : 'נמוך'} ב-${Math.abs(pct)}% מממוצע העסקאות בסביבה.</div>`;
+    } else {
+      gapNote = '<div class="cma-note">המחיר המבוקש תואם את ממוצע העסקאות בסביבה.</div>';
+    }
+  }
+
+  const compRows = comps.map(c => `<tr>
+      <td>${esc(c.property_type)}</td>
+      <td>${c.rooms ?? '—'}</td>
+      <td>${shekel(c.sale_price)}</td>
+      <td>${c.price_per_sqm ? shekel(c.price_per_sqm) : '—'}</td>
+      <td>${esc(c.distance_meters)} מ׳</td>
+      <td>${hebDate(c.sold_at)}</td>
+    </tr>`).join('');
+
+  const cityRows = cityComps.map(c => `<tr>
+      <td>${esc(c.property_type)}</td>
+      <td>${c.rooms ?? '—'}</td>
+      <td>${shekel(c.sale_price)}</td>
+      <td>${hebDate(c.sold_at)}</td>
+    </tr>`).join('');
+
+  const plans = (r.planning && Array.isArray(r.planning.applicable_plans)) ? r.planning.applicable_plans : [];
+
+  document.getElementById('cmaBody').innerHTML = `
+    <div class="cma-head">
+      <div class="brand"><span class="logo-mark">ש</span> שוק נדל״ן — דוח השוואת שוק</div>
+      <div class="when">הופק ב-${new Date(r.generated_at).toLocaleDateString('he-IL')}</div>
+    </div>
+
+    <h2>${esc(s.title)}</h2>
+    <div class="cma-sub">
+      ${esc(s.address || s.city)} · ${esc(s.property_type)} · ${s.rooms ?? '—'} חדרים ·
+      ${s.deal_type === 'rent' ? 'להשכרה' : 'למכירה'} · מחיר מבוקש ${shekel(s.price)}
+      ${s.price_per_sqm ? ' · ' + shekel(s.price_per_sqm) + ' למ״ר' : ''}
+    </div>
+
+    <div class="cma-section-title">תמונת השוק</div>
+    <div class="cma-stats">
+      <div class="cma-stat"><div class="n">${st.comparables_count || 0}</div><div class="l">עסקאות להשוואה</div></div>
+      <div class="cma-stat"><div class="n">${shekel(st.avg_price)}</div><div class="l">מחיר ממוצע</div></div>
+      <div class="cma-stat"><div class="n">${shekel(st.median_price)}</div><div class="l">מחיר חציוני</div></div>
+      <div class="cma-stat"><div class="n">${st.avg_price_per_sqm ? shekel(st.avg_price_per_sqm) : '—'}</div><div class="l">ממוצע למ״ר</div></div>
+    </div>
+    ${gapNote}
+    ${r.radius_meters_used
+      ? `<div class="cma-note">ההשוואה נערכה ברדיוס ${esc(r.radius_meters_used)} מ׳ מהנכס${r.radius_exhausted ? ' — גם לאחר הרחבת הרדיוס לא נמצאו די עסקאות, ויש להתייחס לנתונים בזהירות' : ''}.</div>`
+      : '<div class="cma-note">לנכס אין קואורדינטות במערכת, ולכן לא ניתן היה לחשב השוואה לפי רדיוס.</div>'}
+    ${st.comparables_count > 0 && !st.avg_price_per_sqm
+      ? '<div class="cma-note">לא נמצאו נתוני שטח לעסקאות ההשוואה, ולכן אין ממוצע מחיר למ״ר.</div>' : ''}
+
+    ${comps.length ? `
+      <div class="cma-section-title">עסקאות בסביבת הנכס</div>
+      <table class="cma-table">
+        <thead><tr><th>סוג</th><th>חדרים</th><th>מחיר</th><th>למ״ר</th><th>מרחק</th><th>תאריך</th></tr></thead>
+        <tbody>${compRows}</tbody>
+      </table>` : ''}
+
+    ${cityComps.length ? `
+      <div class="cma-section-title">עסקאות נוספות ב${esc(s.city)} (ללא מיקום מדויק)</div>
+      <table class="cma-table">
+        <thead><tr><th>סוג</th><th>חדרים</th><th>מחיר</th><th>תאריך</th></tr></thead>
+        <tbody>${cityRows}</tbody>
+      </table>` : ''}
+
+    ${r.planning ? `
+      <div class="cma-section-title">מידע תכנוני</div>
+      <table class="cma-table">
+        <tbody>
+          <tr><th>גוש / חלקה</th><td>${esc(r.planning.gush || '—')} / ${esc(r.planning.helka || '—')}</td></tr>
+          <tr><th>שטח החלקה</th><td>${r.planning.parcel_area_sqm ? esc(r.planning.parcel_area_sqm) + ' מ״ר' : '—'}</td></tr>
+          <tr><th>ייעוד קרקע</th><td>${esc(r.planning.land_use_designation || '—')}</td></tr>
+          ${plans.length ? `<tr><th>תוכניות חלות</th><td>${plans.map(p => esc(p.number || p.description)).join(', ')}</td></tr>` : ''}
+        </tbody>
+      </table>` : ''}
+
+    <div class="cma-foot">
+      הדוח הופק אוטומטית ממאגר העסקאות של שוק נדל״ן ומנתוני התכנון של עיריית עפולה,
+      נכון למועד ההפקה. הנתונים מוצגים לצורך התרשמות כללית בלבד ואינם מהווים שומת
+      מקרקעין, ייעוץ מקצועי או תחליף לבדיקה פרטנית.
+    </div>`;
+
+  document.getElementById('cmaOverlay').style.display = 'block';
+}
+
+document.getElementById('cmaCloseBtn').addEventListener('click', ()=>{
+  document.getElementById('cmaOverlay').style.display = 'none';
+});
+document.getElementById('cmaPrintBtn').addEventListener('click', ()=> window.print());
+
+/* ---------- Notifications bell (2.2) ----------
+   ההתראות נוצרות בטריגר על leads, כך שגם ליד שנכנס דרך Edge Function
+   (owner-lead-intake / property-inquiry-intake) מייצר שורה כאן.
+   הגוף של ההתראה לעולם לא מכיל שם/טלפון — הליד עשוי להיות עדיין masked. */
+async function loadNotifications(agentId){
+  const listEl = document.getElementById('notifList');
+  const badge = document.getElementById('bellBadge');
+  const { data, error } = await sb
+    .from('notifications')
+    .select('id, type, title, body, read, related_lead_id, created_at')
+    .eq('agent_id', agentId)
+    .order('created_at', { ascending:false })
+    .limit(20);
+
+  if (error){
+    listEl.innerHTML = '<div class="empty-state" style="padding:18px">שגיאה בטעינת התראות</div>';
+    return;
+  }
+  const items = data || [];
+  const unread = items.filter(n => !n.read).length;
+  badge.textContent = unread > 9 ? '9+' : String(unread);
+  badge.style.display = unread ? 'flex' : 'none';
+
+  if (!items.length){
+    listEl.innerHTML = '<div class="empty-state" style="padding:18px">אין התראות חדשות.</div>';
+    return;
+  }
+  listEl.innerHTML = '';
+  items.forEach(n=>{
+    const el = document.createElement('div');
+    el.className = 'notif-item' + (n.read ? '' : ' unread');
+    el.innerHTML = `<div class="t">${n.title}</div>
+      ${n.body ? `<div class="b">${n.body}</div>` : ''}
+      <div class="when">${new Date(n.created_at).toLocaleString('he-IL')}</div>`;
+    el.addEventListener('click', async ()=>{
+      if (!n.read){
+        await sb.from('notifications').update({ read:true }).eq('id', n.id);
+        await loadNotifications(agentId);
+      }
+      document.getElementById('bellPanel').style.display = 'none';
+      document.getElementById('bellBtn').setAttribute('aria-expanded','false');
+      document.querySelector('#leadsList')?.scrollIntoView({ behavior:'smooth' });
+    });
+    listEl.appendChild(el);
+  });
+}
+
+document.getElementById('bellBtn').addEventListener('click', (e)=>{
+  e.stopPropagation();
+  const panel = document.getElementById('bellPanel');
+  const open = panel.style.display === 'block';
+  panel.style.display = open ? 'none' : 'block';
+  document.getElementById('bellBtn').setAttribute('aria-expanded', String(!open));
+  if (!open && currentAgent) loadNotifications(currentAgent.id);
+});
+
+document.getElementById('bellPanel').addEventListener('click', e => e.stopPropagation());
+document.addEventListener('click', ()=>{
+  const panel = document.getElementById('bellPanel');
+  if (panel.style.display === 'block'){
+    panel.style.display = 'none';
+    document.getElementById('bellBtn').setAttribute('aria-expanded','false');
+  }
+});
+
+document.getElementById('markAllRead').addEventListener('click', async ()=>{
+  if (!currentAgent) return;
+  const { error } = await sb.from('notifications').update({ read:true })
+    .eq('agent_id', currentAgent.id).eq('read', false);
+  if (error){ showToast('שגיאה בסימון ההתראות'); return; }
+  await loadNotifications(currentAgent.id);
+});
 
 /* ---------- Boot: restore existing session if present (handles Google OAuth redirect too) ---------- */
 // onAuthStateChange כאן כי אחרי חזרה מ-Google OAuth redirect, ה-session מוכן רק
