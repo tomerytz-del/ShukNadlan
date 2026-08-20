@@ -97,6 +97,36 @@
   .notif-item .t{font-size:.83rem;font-weight:700}
   .notif-item .b{font-size:.75rem;color:var(--ink-soft);margin-top:2px}
   .notif-item .when{font-size:.68rem;color:var(--ink-soft);margin-top:3px}
+
+  /* ---------- CMA report (2.3) ---------- */
+  #cmaOverlay{position:fixed;inset:0;background:rgba(18,40,64,.55);z-index:300;display:none;overflow-y:auto;padding:20px 12px}
+  .cma-sheet{max-width:760px;margin:0 auto;background:#fff;border-radius:var(--radius-md);padding:26px 24px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
+  .cma-actions{display:flex;gap:8px;justify-content:flex-end;margin-bottom:16px}
+  .cma-head{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:2px solid var(--teal);padding-bottom:12px;margin-bottom:18px}
+  .cma-head .brand{display:flex;align-items:center;gap:8px;font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark);font-size:1.05rem}
+  .cma-head .when{font-size:.72rem;color:var(--ink-soft)}
+  .cma-sheet h2{font-size:1.25rem;margin-bottom:2px}
+  .cma-sub{font-size:.84rem;color:var(--ink-soft);margin-bottom:18px}
+  .cma-section-title{font-size:.78rem;font-weight:800;color:var(--teal);letter-spacing:.04em;margin:20px 0 8px}
+  .cma-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  @media(min-width:560px){.cma-stats{grid-template-columns:repeat(4,1fr)}}
+  .cma-stat{border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px;text-align:center}
+  .cma-stat .n{font-family:'Frank Ruhl Libre',serif;font-size:1.1rem;color:var(--teal-dark)}
+  .cma-stat .l{font-size:.68rem;color:var(--ink-soft);margin-top:2px}
+  .cma-table{width:100%;border-collapse:collapse;font-size:.8rem}
+  .cma-table th,.cma-table td{border-bottom:1px solid var(--line);padding:7px 6px;text-align:right}
+  .cma-table th{font-size:.72rem;color:var(--ink-soft);font-weight:700}
+  .cma-note{font-size:.75rem;color:var(--ink-soft);background:var(--teal-tint);border-radius:var(--radius-sm);padding:9px 11px;margin-top:8px}
+  .cma-foot{margin-top:22px;padding-top:12px;border-top:1px solid var(--line);font-size:.68rem;color:var(--ink-soft);line-height:1.6}
+
+  @media print{
+    body{background:#fff}
+    body > *{display:none !important}
+    body > #cmaOverlay{display:block !important;position:static;background:#fff;padding:0;overflow:visible}
+    .cma-sheet{box-shadow:none;max-width:none;padding:0;border-radius:0}
+    .cma-actions{display:none !important}
+    .cma-table{font-size:.72rem}
+  }
 </style>
 </head>
 <body>
@@ -318,6 +348,16 @@
 
 <div class="field-label-fix"></div>
 <style>.field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}</style>
+
+<div id="cmaOverlay">
+  <div class="cma-sheet">
+    <div class="cma-actions">
+      <button type="button" class="btn btn-gold" id="cmaPrintBtn">הדפסה / שמירה כ-PDF</button>
+      <button type="button" class="btn btn-ghost" id="cmaCloseBtn">סגירה</button>
+    </div>
+    <div id="cmaBody"></div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -1099,6 +1139,15 @@ async function loadProperties(agentId){
     editBtn.addEventListener('click', ()=> openEditProperty(p));
     actions.appendChild(editBtn);
 
+    // הכפתור מוצג רק ל-mid/premium; ה-gating עצמו נאכף ב-cma_report ב-DB
+    if (currentAgent && (currentAgent.tier === 'mid' || currentAgent.tier === 'premium')){
+      const cmaBtn = document.createElement('button');
+      cmaBtn.className = 'btn btn-ghost';
+      cmaBtn.textContent = '📊 דוח CMA';
+      cmaBtn.addEventListener('click', ()=> openCmaReport(p.id, cmaBtn));
+      actions.appendChild(cmaBtn);
+    }
+
     if (p.status === 'active'){
       const dealLabel = p.deal_type === 'rent' ? 'סמן כהושכר' : 'סמן כנמכר';
       const dealStatus = p.deal_type === 'rent' ? 'rented' : 'sold';
@@ -1297,6 +1346,137 @@ async function claimLead(leadId, btn, agentId){
     btn.disabled = false; btn.textContent = original;
   }
 }
+
+/* ---------- CMA report (2.3) ----------
+   כל החישוב (רדיוס מתרחב, מחיר למ"ר, השוואות) נעשה בפונקציית cma_report
+   ב-DB, שם גם ה-gating ל-mid/premium — כדי שלא יהיה מסלול לעקוף אותו מהלקוח.
+   כאן רק התצוגה: עמוד ממותג שהסוכן מדפיס/שומר כ-PDF מהדפדפן.            */
+function esc(s){
+  return String(s ?? '').replace(/[&<>"']/g, c => (
+    { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]
+  ));
+}
+const shekel = n => (n === null || n === undefined) ? '—' : '₪' + Number(n).toLocaleString('he-IL');
+const hebDate = d => d ? new Date(d).toLocaleDateString('he-IL') : '—';
+
+async function openCmaReport(propertyId, btn){
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'מפיק…';
+  const { data, error } = await sb.rpc('cma_report', { p_property_id: propertyId });
+  btn.disabled = false; btn.textContent = original;
+
+  if (error){ showToast('שגיאה בהפקת הדוח: ' + error.message); return; }
+  if (data?.error){
+    const messages = {
+      upgrade_required: data.detail || 'דוח CMA זמין רק למנוי Mid/Premium',
+      property_not_found: 'הנכס לא נמצא',
+      no_matching_agent_profile: 'שגיאת הרשאה',
+    };
+    showToast(messages[data.error] || 'שגיאה בהפקת הדוח');
+    return;
+  }
+  renderCmaReport(data);
+}
+
+function renderCmaReport(r){
+  const s = r.subject || {};
+  const st = r.stats || {};
+  const comps = r.comparables || [];
+  const cityComps = r.city_comparables || [];
+
+  let gapNote = '';
+  if (st.avg_price && s.price){
+    const pct = Math.round(((Number(s.price) - Number(st.avg_price)) / Number(st.avg_price)) * 100);
+    if (pct !== 0){
+      gapNote = `<div class="cma-note">המחיר המבוקש ${pct > 0 ? 'גבוה' : 'נמוך'} ב-${Math.abs(pct)}% מממוצע העסקאות בסביבה.</div>`;
+    } else {
+      gapNote = '<div class="cma-note">המחיר המבוקש תואם את ממוצע העסקאות בסביבה.</div>';
+    }
+  }
+
+  const compRows = comps.map(c => `<tr>
+      <td>${esc(c.property_type)}</td>
+      <td>${c.rooms ?? '—'}</td>
+      <td>${shekel(c.sale_price)}</td>
+      <td>${c.price_per_sqm ? shekel(c.price_per_sqm) : '—'}</td>
+      <td>${esc(c.distance_meters)} מ׳</td>
+      <td>${hebDate(c.sold_at)}</td>
+    </tr>`).join('');
+
+  const cityRows = cityComps.map(c => `<tr>
+      <td>${esc(c.property_type)}</td>
+      <td>${c.rooms ?? '—'}</td>
+      <td>${shekel(c.sale_price)}</td>
+      <td>${hebDate(c.sold_at)}</td>
+    </tr>`).join('');
+
+  const plans = (r.planning && Array.isArray(r.planning.applicable_plans)) ? r.planning.applicable_plans : [];
+
+  document.getElementById('cmaBody').innerHTML = `
+    <div class="cma-head">
+      <div class="brand"><span class="logo-mark">ש</span> שוק נדל״ן — דוח השוואת שוק</div>
+      <div class="when">הופק ב-${new Date(r.generated_at).toLocaleDateString('he-IL')}</div>
+    </div>
+
+    <h2>${esc(s.title)}</h2>
+    <div class="cma-sub">
+      ${esc(s.address || s.city)} · ${esc(s.property_type)} · ${s.rooms ?? '—'} חדרים ·
+      ${s.deal_type === 'rent' ? 'להשכרה' : 'למכירה'} · מחיר מבוקש ${shekel(s.price)}
+      ${s.price_per_sqm ? ' · ' + shekel(s.price_per_sqm) + ' למ״ר' : ''}
+    </div>
+
+    <div class="cma-section-title">תמונת השוק</div>
+    <div class="cma-stats">
+      <div class="cma-stat"><div class="n">${st.comparables_count || 0}</div><div class="l">עסקאות להשוואה</div></div>
+      <div class="cma-stat"><div class="n">${shekel(st.avg_price)}</div><div class="l">מחיר ממוצע</div></div>
+      <div class="cma-stat"><div class="n">${shekel(st.median_price)}</div><div class="l">מחיר חציוני</div></div>
+      <div class="cma-stat"><div class="n">${st.avg_price_per_sqm ? shekel(st.avg_price_per_sqm) : '—'}</div><div class="l">ממוצע למ״ר</div></div>
+    </div>
+    ${gapNote}
+    ${r.radius_meters_used
+      ? `<div class="cma-note">ההשוואה נערכה ברדיוס ${esc(r.radius_meters_used)} מ׳ מהנכס${r.radius_exhausted ? ' — גם לאחר הרחבת הרדיוס לא נמצאו די עסקאות, ויש להתייחס לנתונים בזהירות' : ''}.</div>`
+      : '<div class="cma-note">לנכס אין קואורדינטות במערכת, ולכן לא ניתן היה לחשב השוואה לפי רדיוס.</div>'}
+    ${st.comparables_count > 0 && !st.avg_price_per_sqm
+      ? '<div class="cma-note">לא נמצאו נתוני שטח לעסקאות ההשוואה, ולכן אין ממוצע מחיר למ״ר.</div>' : ''}
+
+    ${comps.length ? `
+      <div class="cma-section-title">עסקאות בסביבת הנכס</div>
+      <table class="cma-table">
+        <thead><tr><th>סוג</th><th>חדרים</th><th>מחיר</th><th>למ״ר</th><th>מרחק</th><th>תאריך</th></tr></thead>
+        <tbody>${compRows}</tbody>
+      </table>` : ''}
+
+    ${cityComps.length ? `
+      <div class="cma-section-title">עסקאות נוספות ב${esc(s.city)} (ללא מיקום מדויק)</div>
+      <table class="cma-table">
+        <thead><tr><th>סוג</th><th>חדרים</th><th>מחיר</th><th>תאריך</th></tr></thead>
+        <tbody>${cityRows}</tbody>
+      </table>` : ''}
+
+    ${r.planning ? `
+      <div class="cma-section-title">מידע תכנוני</div>
+      <table class="cma-table">
+        <tbody>
+          <tr><th>גוש / חלקה</th><td>${esc(r.planning.gush || '—')} / ${esc(r.planning.helka || '—')}</td></tr>
+          <tr><th>שטח החלקה</th><td>${r.planning.parcel_area_sqm ? esc(r.planning.parcel_area_sqm) + ' מ״ר' : '—'}</td></tr>
+          <tr><th>ייעוד קרקע</th><td>${esc(r.planning.land_use_designation || '—')}</td></tr>
+          ${plans.length ? `<tr><th>תוכניות חלות</th><td>${plans.map(p => esc(p.number || p.description)).join(', ')}</td></tr>` : ''}
+        </tbody>
+      </table>` : ''}
+
+    <div class="cma-foot">
+      הדוח הופק אוטומטית ממאגר העסקאות של שוק נדל״ן ומנתוני התכנון של עיריית עפולה,
+      נכון למועד ההפקה. הנתונים מוצגים לצורך התרשמות כללית בלבד ואינם מהווים שומת
+      מקרקעין, ייעוץ מקצועי או תחליף לבדיקה פרטנית.
+    </div>`;
+
+  document.getElementById('cmaOverlay').style.display = 'block';
+}
+
+document.getElementById('cmaCloseBtn').addEventListener('click', ()=>{
+  document.getElementById('cmaOverlay').style.display = 'none';
+});
+document.getElementById('cmaPrintBtn').addEventListener('click', ()=> window.print());
 
 /* ---------- Notifications bell (2.2) ----------
    ההתראות נוצרות בטריגר על leads, כך שגם ליד שנכנס דרך Edge Function
