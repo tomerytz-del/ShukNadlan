@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>סוכן | שוק נדל״ן</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
+    --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
+    --gold:#8B2332; --gold-dark:#6B1A26; --gold-tint:#F1DFE1; --brick:#6B1A26;
+    --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(15,52,53,.08); --maxw:900px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55}
+  h1,h2,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark);margin:0}
+  a{color:inherit;text-decoration:none}
+  button{font-family:inherit;cursor:pointer;border:none}
+  input,textarea{font-family:inherit;font-size:1rem}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
+  .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:999px;font-weight:700;font-size:.95rem}
+  .btn-gold{background:var(--gold);color:#241505}
+  .btn-block{width:100%}
+  header.site{background:var(--paper-raised);border-bottom:1px solid var(--line);padding:14px 0}
+  .header-inner{display:flex;align-items:center;justify-content:space-between}
+  .logo{display:flex;align-items:center;gap:8px}
+  .logo-mark{width:34px;height:34px;border-radius:8px;background:linear-gradient(155deg,var(--gold),var(--teal) 65%);display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:900}
+  .logo-word{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.1rem;color:var(--teal-dark)}
+  .back-link{font-size:.85rem;font-weight:700;color:var(--teal)}
+
+  #loadingState,#notFoundState{padding:60px 18px;text-align:center;color:var(--ink-soft)}
+  #notFoundState{display:none}
+  #agentContent{display:none}
+
+  .profile-strip{display:flex;align-items:center;gap:16px;padding:26px 0}
+  .profile-avatar{width:84px;height:84px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Frank Ruhl Libre',serif;font-size:1.8rem;flex-shrink:0}
+  .profile-name{font-size:1.35rem}
+  .profile-agency{font-size:.85rem;color:var(--ink-soft);margin-top:3px}
+  .profile-bio{font-size:.9rem;color:var(--ink-soft);max-width:55ch;margin-top:10px}
+
+  .content-grid{display:grid;grid-template-columns:1fr;gap:20px;padding-bottom:40px}
+  @media(min-width:760px){.content-grid{grid-template-columns:1.6fr 1fr;align-items:start}}
+  .section h2{font-size:1.05rem;margin-bottom:12px}
+  .prop-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .prop-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;cursor:pointer}
+  .prop-card .thumb{height:100px;background:linear-gradient(155deg,#8B2332,#1C3A5E)}
+  .prop-card .body{padding:10px}
+  .prop-card .price{font-weight:800;color:var(--teal-dark);font-size:.9rem}
+  .prop-card .meta{font-size:.72rem;color:var(--ink-soft);margin-top:4px}
+
+  .inquiry-card{padding:20px}
+  .field{margin-bottom:10px}
+  .field input,.field textarea{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
+  .field textarea{resize:vertical;min-height:70px}
+  #inquiryFeedback{font-size:.8rem;margin-top:8px;text-align:center;min-height:1.2em}
+  .empty-state{padding:24px;text-align:center;color:var(--ink-soft);font-size:.85rem}
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap header-inner">
+    <a href="index.html" class="logo"><span class="logo-mark">ש</span><span class="logo-word">שוק נדל״ן</span></a>
+    <a href="index.html" class="back-link">← דף הבית</a>
+  </div>
+</header>
+
+<div id="loadingState">טוען פרופיל…</div>
+<div id="notFoundState" class="wrap">
+  <h1 style="font-size:1.3rem">הסוכן לא נמצא</h1>
+  <a href="index.html" class="card" style="display:inline-block;margin-top:16px;padding:12px 20px">חזרה לדף הבית</a>
+</div>
+
+<div id="agentContent" class="wrap">
+  <div class="profile-strip">
+    <div class="profile-avatar" id="profileAvatar">·</div>
+    <div>
+      <div class="profile-name" id="profileName">—</div>
+      <div class="profile-agency" id="profileAgency"></div>
+      <p class="profile-bio" id="profileBio"></p>
+    </div>
+  </div>
+
+  <div class="content-grid">
+    <div class="section">
+      <h2>נכסים של <span id="agentFirstName">הסוכן</span></h2>
+      <div class="prop-grid" id="agentProps"></div>
+    </div>
+
+    <div class="card inquiry-card">
+      <h2>פנייה ישירה</h2>
+      <p style="font-size:.8rem;color:var(--ink-soft);margin:4px 0 14px">הפנייה תגיע ישירות לסוכן זה בלבד</p>
+      <form id="inquiryForm">
+        <div class="field"><input type="text" id="inqName" placeholder="שם מלא" required></div>
+        <div class="field"><input type="tel" id="inqPhone" placeholder="טלפון" required></div>
+        <div class="field"><textarea id="inqMessage" placeholder="הודעה (לא חובה)"></textarea></div>
+        <button type="submit" class="btn btn-gold btn-block" id="inquirySubmit">שליחת פנייה</button>
+      </form>
+      <div id="inquiryFeedback"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+const INQUIRY_FUNCTION_URL = SUPABASE_URL + '/functions/v1/agent-direct-inquiry-intake';
+let currentAgentProfile = null;
+
+function priceLabel(price, dealType){
+  return dealType === 'rent' ? ('₪' + Number(price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(price).toLocaleString('he-IL'));
+}
+
+async function loadAgentProfile(){
+  const slug = new URLSearchParams(window.location.search).get('slug');
+  if (!slug || !window.supabase){
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('notFoundState').style.display = 'block';
+    return;
+  }
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  try{
+    let query = sb.from('agency_members_public').select('id, display_name, bio, photo_url, slug, agencies(name, slug)');
+    // slug יכול להיות ה-slug הקריא או ה-id הגולמי (fallback), לפי מה שנשלח מ-agency.html
+    const isUuid = /^[0-9a-f-]{36}$/i.test(slug);
+    query = isUuid ? query.eq('id', slug) : query.eq('slug', slug);
+    const { data: agent, error } = await query.single();
+    if (error || !agent) throw error || new Error('not found');
+
+    currentAgentProfile = agent;
+    document.title = agent.display_name + ' | שוק נדל״ן';
+    document.getElementById('profileAvatar').textContent = (agent.display_name||'?')[0];
+    document.getElementById('profileName').textContent = agent.display_name;
+    document.getElementById('agentFirstName').textContent = (agent.display_name||'').split(' ')[0] || 'הסוכן';
+    document.getElementById('profileAgency').textContent = agent.agencies?.name || '';
+    document.getElementById('profileBio').textContent = agent.bio || 'סוכן/ת נדל״ן פעיל/ה באזור עפולה והעמק.';
+
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('agentContent').style.display = 'block';
+
+    loadAgentProperties(sb, agent.id);
+  } catch(e){
+    console.warn('טעינת פרופיל סוכן נכשלה:', e);
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('notFoundState').style.display = 'block';
+  }
+}
+
+async function loadAgentProperties(sb, agentId){
+  const el = document.getElementById('agentProps');
+  const { data: props } = await sb.from('properties').select('id, title, price, deal_type, rooms, property_type')
+    .eq('agent_id', agentId).eq('status', 'active').order('created_at', { ascending:false });
+  if (!props || props.length === 0){ el.innerHTML = '<div class="empty-state">אין כרגע נכסים פעילים לסוכן זה.</div>'; return; }
+  el.innerHTML = '';
+  props.forEach(p=>{
+    const card = document.createElement('div');
+    card.className = 'prop-card';
+    card.innerHTML = `<div class="thumb"></div><div class="body">
+      <div class="price">${priceLabel(p.price, p.deal_type)}</div>
+      <div class="meta">${p.rooms||'—'} חדרים · ${p.property_type}</div></div>`;
+    card.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
+    el.appendChild(card);
+  });
+}
+
+document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  if (!currentAgentProfile){ return; }
+  const btn = document.getElementById('inquirySubmit');
+  const feedback = document.getElementById('inquiryFeedback');
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'שולח…'; feedback.textContent = '';
+  try{
+    const res = await fetch(INQUIRY_FUNCTION_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({
+        agent_id: currentAgentProfile.id,
+        name: document.getElementById('inqName').value,
+        phone: document.getElementById('inqPhone').value,
+        message: document.getElementById('inqMessage').value || null,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'שגיאה');
+    feedback.style.color = 'var(--teal)';
+    feedback.textContent = 'הפנייה נשלחה בהצלחה!';
+    document.getElementById('inquiryForm').reset();
+  } catch(err){
+    console.error(err);
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = 'שגיאה בשליחה — נסו שוב';
+  } finally {
+    setTimeout(()=>{ btn.disabled = false; btn.textContent = original; }, 400);
+  }
+});
+
+loadAgentProfile();
+</script>
+</body>
+</html>

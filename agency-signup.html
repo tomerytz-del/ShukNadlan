@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>פתיחת משרד תיווך | שוק נדל״ן</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
+    --line:#C5C3BC; --blue:#1C3A5E; --blue-dark:#122840; --blue-tint:#E0E7ED;
+    --red:#8B2332; --red-dark:#6B1A26;
+    --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(18,40,64,.1);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  h1,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--blue-dark);margin:0}
+  a{color:inherit}
+  button{font-family:inherit;cursor:pointer;border:none}
+  input{font-family:inherit;font-size:1rem}
+  .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line);max-width:440px;width:100%;padding:32px 26px}
+  .logo-mark{width:34px;height:34px;border-radius:8px;background:linear-gradient(155deg,var(--red),var(--blue) 65%);display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:900;margin:0 auto 16px}
+  h1{font-size:1.25rem;text-align:center;margin-bottom:6px}
+  p.sub{text-align:center;color:var(--ink-soft);font-size:.85rem;margin:0 0 22px}
+  .field{margin-bottom:12px}
+  .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
+  .field input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
+  .field input:focus{border-color:var(--blue);outline:none}
+  .section-divider{font-size:.72rem;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 10px;padding-top:14px;border-top:1px solid var(--line)}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:999px;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff;margin-top:6px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  #feedback{font-size:.82rem;text-align:center;margin-top:12px;min-height:1.2em}
+  .back-link{display:block;text-align:center;font-size:.8rem;color:var(--blue);margin-top:16px;text-decoration:none}
+  .note{font-size:.72rem;color:var(--ink-soft);background:var(--blue-tint);border-radius:var(--radius-sm);padding:10px 12px;margin-top:16px}
+  #stateDone{display:none;text-align:center}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div id="stateForm">
+    <div class="logo-mark">ש</div>
+    <h1>פתיחת משרד תיווך</h1>
+    <p class="sub">הצטרפות למרכזי — כמנהל/ת המשרד</p>
+
+    <div class="note">הצטרפות למערכת אפשרית רק דרך פתיחת משרד. סוכנים בודדים אינם יכולים להירשם עצמאית — לאחר פתיחת המשרד תוכל/י להוסיף סוכנים מתוך איזור הניהול.</div>
+
+    <div class="section-divider">פרטי המשרד</div>
+    <div class="field"><label>שם המשרד</label><input type="text" id="agencyName" required></div>
+
+    <div class="section-divider">הפרטים שלך (כמנהל/ת)</div>
+    <div class="field"><label>שם מלא</label><input type="text" id="managerName" required></div>
+    <div class="field"><label>מספר רישיון תיווך</label><input type="text" id="licenseNumber" required placeholder="לדוגמה: 123456"></div>
+    <div class="field"><label>אימייל</label><input type="email" id="managerEmail" required autocomplete="username"></div>
+    <div class="field"><label>סיסמה (8 תווים לפחות)</label><input type="password" id="managerPassword" required minlength="8" autocomplete="new-password"></div>
+
+    <button class="btn" id="submitBtn">פתיחת המשרד</button>
+    <div id="feedback"></div>
+    <a href="crm.html" class="back-link">כבר יש לך חשבון? כניסה</a>
+  </div>
+
+  <div id="stateDone">
+    <h1>המשרד נפתח בהצלחה!</h1>
+    <p class="sub">אפשר להתחבר עכשיו עם הפרטים שהזנת</p>
+    <a href="crm.html" class="btn" style="display:flex;text-decoration:none;margin-top:16px">מעבר לכניסת מתווכים</a>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+const SIGNUP_FUNCTION_URL = SUPABASE_URL + '/functions/v1/agency-signup';
+
+document.getElementById('submitBtn').addEventListener('click', async ()=>{
+  const agencyName = document.getElementById('agencyName').value.trim();
+  const managerName = document.getElementById('managerName').value.trim();
+  const licenseNumber = document.getElementById('licenseNumber').value.trim();
+  const managerEmail = document.getElementById('managerEmail').value.trim();
+  const managerPassword = document.getElementById('managerPassword').value;
+  const feedback = document.getElementById('feedback');
+  const btn = document.getElementById('submitBtn');
+
+  if (!agencyName || !managerName || !licenseNumber || !managerEmail || !managerPassword){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'נא למלא את כל השדות';
+    return;
+  }
+  if (managerPassword.length < 8){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'הסיסמה צריכה להכיל לפחות 8 תווים';
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'פותח משרד…'; feedback.textContent = '';
+  try{
+    const res = await fetch(SIGNUP_FUNCTION_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({
+        agency_name: agencyName,
+        manager_name: managerName,
+        manager_email: managerEmail,
+        manager_password: managerPassword,
+        license_number: licenseNumber,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      const messages = {
+        weak_password: 'הסיסמה קצרה מדי',
+        auth_error: 'שגיאה ביצירת החשבון — ייתכן שהאימייל כבר בשימוש',
+      };
+      feedback.style.color = 'var(--red)';
+      feedback.textContent = messages[data.error] || ('שגיאה: ' + (data.detail || data.error));
+      btn.disabled = false; btn.textContent = 'פתיחת המשרד';
+      return;
+    }
+    document.getElementById('stateForm').style.display = 'none';
+    document.getElementById('stateDone').style.display = 'block';
+  } catch(err){
+    console.error(err);
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'שגיאת רשת — נסו שוב';
+    btn.disabled = false; btn.textContent = 'פתיחת המשרד';
+  }
+});
+</script>
+</body>
+</html>

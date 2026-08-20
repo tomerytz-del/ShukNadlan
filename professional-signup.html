@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>הרשמת בעל מקצוע | שוק נדל״ן</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
+    --line:#C5C3BC; --blue:#1C3A5E; --blue-dark:#122840; --blue-tint:#E0E7ED;
+    --red:#8B2332; --red-dark:#6B1A26; --gold-tint:#F1DFE1;
+    --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(18,40,64,.1);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  h1,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--blue-dark);margin:0}
+  a{color:inherit}
+  button{font-family:inherit;cursor:pointer;border:none}
+  input,select{font-family:inherit;font-size:1rem}
+  .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line);max-width:440px;width:100%;padding:32px 26px}
+  .logo-mark{width:34px;height:34px;border-radius:8px;background:linear-gradient(155deg,var(--red),var(--blue) 65%);display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:900;margin:0 auto 16px}
+  h1{font-size:1.25rem;text-align:center;margin-bottom:6px}
+  p.sub{text-align:center;color:var(--ink-soft);font-size:.85rem;margin:0 0 18px}
+  .price-badge{display:block;text-align:center;background:var(--blue-tint);color:var(--blue-dark);font-weight:800;font-size:.85rem;padding:8px;border-radius:var(--radius-sm);margin-bottom:18px}
+  .field{margin-bottom:12px}
+  .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
+  .field input,.field select{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
+  .field input:focus,.field select:focus{border-color:var(--blue);outline:none}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:999px;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff;margin-top:8px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  #feedback{font-size:.82rem;text-align:center;margin-top:12px;min-height:1.2em}
+  .note{font-size:.72rem;color:var(--ink-soft);background:var(--gold-tint);border-radius:var(--radius-sm);padding:10px 12px;margin-top:16px;text-align:center}
+  #stateDone{display:none;text-align:center}
+  .back-link{display:block;text-align:center;font-size:.8rem;color:var(--blue);margin-top:16px;text-decoration:none}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div id="stateForm">
+    <div class="logo-mark">ש</div>
+    <h1>כרטיסיית בעל מקצוע</h1>
+    <p class="sub">חשיפה לקהל רחב באזור עפולה והעמק</p>
+    <span class="price-badge">₪350 לחודש · ביטול בכל עת</span>
+
+    <div class="field"><label>שם מלא / שם עסק</label><input type="text" id="advName" required></div>
+    <div class="field">
+      <label>תחום עיסוק</label>
+      <select id="advType" required>
+        <option value="mortgage_advisor">יועץ/ת משכנתאות</option>
+        <option value="appraiser">שמאי/ת מקרקעין</option>
+        <option value="architect">אדריכל/ית</option>
+        <option value="interior_designer">מעצב/ת פנים</option>
+        <option value="real_estate_lawyer">עו״ד מקרקעין</option>
+        <option value="general">אחר</option>
+      </select>
+    </div>
+    <div class="field"><label>אימייל ליצירת קשר</label><input type="email" id="advEmail" required></div>
+    <div class="field"><label>קישור לאתר / פרופיל (לא חובה)</label><input type="url" id="advUrl" placeholder="https://"></div>
+
+    <button type="button" class="btn" id="submitBtn">הרשמה — ₪350/חודש</button>
+    <div id="feedback"></div>
+    <div class="note">מצב בדיקה — לא מתבצע חיוב אמיתי כרגע. הכרטיסייה תופיע מיד בדף הבית לאחר ההרשמה.</div>
+    <a href="index.html" class="back-link">חזרה לדף הבית</a>
+  </div>
+
+  <div id="stateDone">
+    <div class="logo-mark">ש</div>
+    <h1>נרשמת בהצלחה!</h1>
+    <p class="sub">הכרטיסייה שלך פעילה כעת בדף הבית של שוק נדל״ן</p>
+    <a href="index.html" class="btn" style="display:flex;text-decoration:none;margin-top:16px">צפייה בדף הבית</a>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+const SIGNUP_FUNCTION_URL = SUPABASE_URL + '/functions/v1/professional-signup';
+
+document.getElementById('submitBtn').addEventListener('click', async ()=>{
+  const advertiser_name = document.getElementById('advName').value.trim();
+  const advertiser_type = document.getElementById('advType').value;
+  const contact_email = document.getElementById('advEmail').value.trim();
+  const click_url = document.getElementById('advUrl').value.trim();
+  const feedback = document.getElementById('feedback');
+  const btn = document.getElementById('submitBtn');
+
+  if (!advertiser_name || !contact_email){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'נא למלא שם ואימייל';
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'נרשם…'; feedback.textContent = '';
+  try{
+    const res = await fetch(SIGNUP_FUNCTION_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({ advertiser_name, advertiser_type, contact_email, click_url: click_url || null, target_region: 'עפולה' }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      feedback.style.color = 'var(--red)';
+      feedback.textContent = 'שגיאה בהרשמה — נסו שוב';
+      btn.disabled = false; btn.textContent = 'הרשמה — ₪350/חודש';
+      return;
+    }
+    document.getElementById('stateForm').style.display = 'none';
+    document.getElementById('stateDone').style.display = 'block';
+  } catch(err){
+    console.error(err);
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'שגיאת רשת — נסו שוב';
+    btn.disabled = false; btn.textContent = 'הרשמה — ₪350/חודש';
+  }
+});
+</script>
+</body>
+</html>

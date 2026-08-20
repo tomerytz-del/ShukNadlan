@@ -1,0 +1,1118 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>איזור סוכנים | שוק נדל״ן</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
+    --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
+    --gold:#8B2332; --gold-dark:#6B1A26; --gold-tint:#F1DFE1; --brick:#6B1A26;
+    --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(15,52,53,.08);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.5}
+  h1,h2,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark);margin:0}
+  button{font-family:inherit;cursor:pointer;border:none}
+  input{font-family:inherit;font-size:1rem}
+  .wrap{max-width:760px;margin:0 auto;padding:0 18px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;border-radius:999px;font-weight:700;font-size:.9rem}
+  .btn-gold{background:var(--gold);color:#241505}
+  .btn-gold:disabled{opacity:.5;cursor:not-allowed}
+  .btn-ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
+  .btn-block{width:100%}
+  .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line)}
+
+  /* ---------- Login screen ---------- */
+  #loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .login-card{max-width:380px;width:100%;padding:32px 26px}
+  .login-card .logo{display:flex;align-items:center;gap:8px;margin-bottom:22px;justify-content:center}
+  .logo-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(155deg,var(--gold),var(--teal) 65%);display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:900}
+  .login-card h1{font-size:1.3rem;text-align:center;margin-bottom:6px}
+  .login-card p.sub{text-align:center;color:var(--ink-soft);font-size:.85rem;margin-bottom:22px}
+  .field{margin-bottom:12px}
+  .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
+  .field input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
+  .field input:focus{border-color:var(--teal);outline:none}
+  #loginError{color:var(--brick);font-size:.82rem;margin-top:10px;text-align:center;min-height:1.2em}
+  .test-creds{margin-top:20px;padding:12px;background:var(--teal-tint);border-radius:var(--radius-sm);font-size:.74rem;color:var(--ink-soft)}
+  .test-creds b{color:var(--teal-dark)}
+
+  /* ---------- Dashboard ---------- */
+  #dashboard{display:none}
+  header.crm{background:var(--paper-raised);border-bottom:1px solid var(--line);padding:16px 0}
+  .crm-header-inner{display:flex;align-items:center;justify-content:space-between}
+  .agent-id{display:flex;align-items:center;gap:10px}
+  .avatar{width:38px;height:38px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Frank Ruhl Libre',serif}
+  .agent-name{font-weight:700;font-size:.95rem}
+  .tier-badge{font-size:.68rem;font-weight:800;padding:2px 9px;border-radius:5px;display:inline-block;margin-top:2px}
+  .tier-free{background:#E4E1D2;color:#6B6450}
+  .tier-mid{background:var(--teal-tint);color:var(--teal)}
+  .tier-premium{background:var(--gold-tint);color:var(--gold-dark)}
+
+  .stats-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:20px 0}
+  .stat-card{padding:16px;text-align:center}
+  .stat-card .num{font-family:'Frank Ruhl Libre',serif;font-size:1.5rem;color:var(--teal-dark)}
+  .stat-card .lbl{font-size:.72rem;color:var(--ink-soft);margin-top:2px}
+
+  .section-title{font-size:1.1rem;margin:26px 0 12px}
+  .lead-card{padding:16px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px}
+  .lead-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
+  .lead-name{font-weight:700;font-size:.95rem}
+  .lead-phone{font-size:.85rem;color:var(--ink-soft);direction:ltr;text-align:right}
+  .lead-meta{font-size:.78rem;color:var(--ink-soft)}
+  .status-pill{font-size:.68rem;font-weight:800;padding:2px 9px;border-radius:5px}
+  .status-masked{background:var(--gold-tint);color:var(--gold-dark)}
+  .status-unlocked{background:var(--teal-tint);color:var(--teal)}
+  .lead-actions{display:flex;gap:8px;margin-top:4px}
+  .empty-state{padding:32px;text-align:center;color:var(--ink-soft);font-size:.88rem}
+  .toast{position:fixed;bottom:20px;right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:var(--radius-sm);font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;z-index:200}
+</style>
+</head>
+<body>
+
+<div id="loginScreen">
+  <div class="card login-card" id="loginCardMain">
+    <div class="logo"><span class="logo-mark">ש</span></div>
+    <h1>איזור סוכנים</h1>
+    <p class="sub">שוק נדל״ן — עפולה והעמק</p>
+    <button type="button" class="btn btn-ghost btn-block" id="googleLoginBtn" style="margin-bottom:14px;gap:10px">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.94v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.94A9 9 0 0 0 0 9c0 1.45.35 2.83.94 4.03l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .94 4.97l3.01 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
+      התחברות עם Google
+    </button>
+    <div style="text-align:center;font-size:.75rem;color:var(--ink-soft);margin-bottom:14px">— או —</div>
+    <form id="loginForm">
+      <div class="field"><label for="email">אימייל</label><input type="email" id="email" required autocomplete="username"></div>
+      <div class="field"><label for="password">סיסמה</label><input type="password" id="password" required autocomplete="current-password"></div>
+      <button type="submit" class="btn btn-gold btn-block" id="loginBtn">כניסה</button>
+      <div id="loginError"></div>
+    </form>
+    <a href="agency-signup.html" style="display:block;text-align:center;font-size:.82rem;color:var(--teal);margin-top:14px">עדיין אין לך משרד? פתיחת משרד חדש ←</a>
+    <div class="test-creds">
+      <b>סביבת בדיקה:</b> dana@test.shuknadlan.co.il · roi@test.shuknadlan.co.il · michal@test.shuknadlan.co.il<br>
+      סיסמה לכולם: <b>Test1234!</b>
+    </div>
+  </div>
+
+  <div class="card login-card" id="createAgencyScreen" style="display:none">
+    <div class="logo"><span class="logo-mark">ש</span></div>
+    <h1>ברוך/ה הבא/ה!</h1>
+    <p class="sub">עדיין לא פתחת משרד תיווך במערכת. כל סוכן יכול להיות בעלים של משרד אחד בלבד — בואו נקים אותו.</p>
+    <div class="field"><label>שם המשרד</label><input type="text" id="caAgencyName" required></div>
+    <div class="field"><label>השם המלא שלך</label><input type="text" id="caManagerName" required></div>
+    <div class="field"><label>מספר רישיון תיווך</label><input type="text" id="caLicense" required placeholder="לדוגמה: 123456"></div>
+    <button type="button" class="btn btn-gold btn-block" id="createAgencyBtn">פתיחת המשרד שלי</button>
+    <div id="createAgencyFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
+    <button type="button" class="btn btn-ghost btn-block" id="cancelCreateAgency" style="margin-top:8px">יציאה</button>
+  </div>
+</div>
+
+<div id="dashboard">
+  <header class="crm">
+    <div class="wrap crm-header-inner">
+      <div class="agent-id">
+        <div class="avatar" id="avatarInitial">·</div>
+        <div>
+          <div class="agent-name" id="agentName">—</div>
+          <span class="tier-badge" id="tierBadge">—</span>
+        </div>
+      </div>
+      <button class="btn btn-ghost" id="logoutBtn">יציאה</button>
+    </div>
+  </header>
+
+  <div class="wrap" style="padding-top:20px">
+    <div class="stats-row">
+      <div class="card stat-card"><div class="num" id="creditBalance">—</div><div class="lbl">יתרת ארנק (₪)</div></div>
+      <div class="card stat-card"><div class="num" id="quotaUsed">—</div><div class="lbl">לידים חינמיים נוצלו החודש</div></div>
+    </div>
+
+    <div class="card" style="padding:18px;margin-bottom:20px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px">
+        <h2 class="section-title" style="margin:0">טעינת ארנק</h2>
+        <span style="font-size:.68rem;font-weight:800;background:var(--gold-tint);color:var(--gold-dark);padding:3px 9px;border-radius:5px">מצב בדיקה — ללא חיוב אמיתי</span>
+      </div>
+      <p style="font-size:.8rem;color:var(--ink-soft);margin:0 0 12px">טרם חובר ספק סליקה אמיתי — הטעינה כאן להדגמה/בדיקה בלבד, לא כרטיס אשראי אמיתי.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <select id="topupAmount" style="flex:1;min-width:120px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px">
+          <option value="100">₪100</option>
+          <option value="200">₪200</option>
+          <option value="300">₪300</option>
+          <option value="400">₪400</option>
+          <option value="500">₪500</option>
+        </select>
+        <button class="btn btn-gold" id="topupBtn" style="white-space:nowrap">טעינת הארנק</button>
+      </div>
+      <div id="topupFeedback" style="font-size:.8rem;text-align:center;min-height:1.2em"></div>
+      <button type="button" class="btn btn-ghost btn-block" id="toggleBillingHistory" style="margin-top:10px">הצגת היסטוריית חיובים</button>
+      <div id="billingHistoryList" style="display:none;margin-top:10px"></div>
+    </div>
+
+    <div id="managerSection" style="display:none">
+      <h2 class="section-title">צוות המשרד</h2>
+      <button class="btn btn-ghost btn-block" id="toggleAddMember" style="margin-bottom:12px">+ הוספת סוכן/ת לצוות</button>
+      <form id="addMemberForm" class="card" style="display:none;padding:18px;margin-bottom:18px">
+        <div class="field"><label>שם מלא</label><input type="text" id="nmName" required></div>
+        <div class="field"><label>מספר רישיון תיווך (שדה חובה)</label><input type="text" id="nmLicense" required placeholder="לדוגמה: 123456"></div>
+        <div class="field"><label>אימייל</label><input type="email" id="nmEmail" required></div>
+        <div class="field"><label>סיסמה זמנית (8 תווים לפחות)</label><input type="password" id="nmPassword" required minlength="8"></div>
+        <div class="field"><label>מסלול התחלתי</label>
+          <select id="nmTier" style="width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px">
+            <option value="free">חינמי</option>
+            <option value="mid">משודרג</option>
+            <option value="premium">פרימיום</option>
+          </select>
+        </div>
+        <button type="submit" class="btn btn-gold btn-block" id="addMemberBtn">הוספת הסוכן/ת</button>
+        <div id="addMemberFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+      </form>
+      <div id="teamList"></div>
+
+      <h2 class="section-title" style="margin-top:22px">ביקורות ממתינות לאישור</h2>
+      <div id="reviewModerationList"></div>
+    </div>
+
+    <h2 class="section-title">הנכסים שלי</h2>
+    <button class="btn btn-ghost btn-block" id="toggleAddProperty" style="margin-bottom:12px">+ הוספת נכס חדש</button>
+    <form id="addPropertyForm" class="card" style="display:none;padding:18px;margin-bottom:18px">
+      <div class="field"><label>כותרת</label><input type="text" id="npTitle" required placeholder="לדוגמה: דירת 3 חדרים, שכונת רמת דוד"></div>
+      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field"><label>סוג נכס</label>
+          <select id="npType" required>
+            <option value="דירה">דירה</option>
+            <option value="בית פרטי">בית פרטי</option>
+            <option value="דירת גן">דירת גן</option>
+            <option value="מגרש">מגרש</option>
+          </select>
+        </div>
+        <div class="field"><label>סוג עסקה</label>
+          <select id="npDeal" required>
+            <option value="sale">מכירה</option>
+            <option value="rent">השכרה</option>
+          </select>
+        </div>
+      </div>
+      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field"><label>מחיר (₪)</label><input type="number" id="npPrice" required></div>
+        <div class="field"><label>חדרים</label><input type="number" id="npRooms" step="0.5"></div>
+      </div>
+      <div class="field"><label>עיר</label><input type="text" id="npCity" value="עפולה" required></div>
+      <div class="field"><label>כתובת (לא חובה)</label><input type="text" id="npAddress"></div>
+      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field"><label>קו רוחב (lat, לא חובה)</label><input type="number" id="npLat" step="0.0001" placeholder="32.6078"></div>
+        <div class="field"><label>קו אורך (lng, לא חובה)</label><input type="number" id="npLng" step="0.0001" placeholder="35.2897"></div>
+      </div>
+      <button type="submit" class="btn btn-gold btn-block" id="addPropertyBtn">פרסום הנכס</button>
+      <div id="addPropertyFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+    </form>
+    <div id="propertiesList"></div>
+
+    <h2 class="section-title">הלידים שלי</h2>
+    <div id="leadsList"></div>
+
+    <h2 class="section-title">בדיקת מידע תכנוני (עפולה) — בדיקה</h2>
+    <div class="card" style="padding:18px;margin-bottom:18px">
+      <p style="font-size:.8rem;color:var(--ink-soft);margin:0 0 12px">כלי בדיקה למנוע התכנון/קדסטר — הזינו כתובת או גוש/חלקה</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <input type="text" id="planStreet" placeholder="רחוב (למשל: דפנה)">
+        <input type="text" id="planHouseNum" placeholder="מספר בית">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <input type="text" id="planGush" placeholder="גוש (אופציונלי, במקום כתובת)">
+        <input type="text" id="planHelka" placeholder="חלקה">
+      </div>
+      <button type="button" class="btn btn-gold btn-block" id="planLookupBtn">בדיקת מידע תכנוני</button>
+      <div id="planResult" style="font-size:.82rem;margin-top:12px;white-space:pre-wrap"></div>
+    </div>
+
+    <h2 class="section-title">העדפות לידים אישיות</h2>
+    <p style="font-size:.82rem;color:var(--ink-soft);margin-top:-8px;margin-bottom:14px">
+      קובע לאילו לידי בעל-נכס (מוכר/משכיר) תתאים ותקבל התראה. ללא הגדרה כאן, לא תקבל לידים כאלה כלל.
+    </p>
+    <form id="prefsForm" class="card" style="padding:18px;margin-bottom:18px">
+      <div class="field">
+        <label>שכונות מועדפות</label>
+        <div id="neighborhoodCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:8px"></div>
+        <div style="display:flex;gap:8px">
+          <input type="text" id="newNeighborhoodName" placeholder="הוספת שכונה חדשה" style="flex:1">
+          <button type="button" class="btn btn-ghost" id="addNeighborhoodBtn" style="white-space:nowrap">+ הוספה</button>
+        </div>
+      </div>
+      <div class="field">
+        <label>סוגי נכס</label>
+        <div style="display:flex;flex-wrap:wrap;gap:12px">
+          <label style="font-weight:400;font-size:.85rem"><input type="checkbox" class="prefPropertyType" value="דירה"> דירה</label>
+          <label style="font-weight:400;font-size:.85rem"><input type="checkbox" class="prefPropertyType" value="בית פרטי"> בית פרטי</label>
+          <label style="font-weight:400;font-size:.85rem"><input type="checkbox" class="prefPropertyType" value="דירת גן"> דירת גן</label>
+          <label style="font-weight:400;font-size:.85rem"><input type="checkbox" class="prefPropertyType" value="מגרש"> מגרש</label>
+        </div>
+      </div>
+      <div class="field">
+        <label>סוגי עסקה</label>
+        <div style="display:flex;gap:12px">
+          <label style="font-weight:400;font-size:.85rem"><input type="checkbox" class="prefDealType" value="sale"> מכירה</label>
+          <label style="font-weight:400;font-size:.85rem"><input type="checkbox" class="prefDealType" value="rent"> השכרה</label>
+        </div>
+      </div>
+      <div class="field">
+        <label style="font-weight:400;font-size:.85rem"><input type="checkbox" id="prefsActive" checked> פעיל — קבלת לידי בעל-נכס מופעלת</label>
+      </div>
+      <button type="submit" class="btn btn-gold btn-block" id="savePrefsBtn">שמירת העדפות</button>
+      <div id="prefsFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+    </form>
+  </div>
+</div>
+
+<div class="field-label-fix"></div>
+<style>.field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}</style>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+const CLAIM_FUNCTION_URL = SUPABASE_URL + '/functions/v1/lead-claim';
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+const loginScreen = document.getElementById('loginScreen');
+const dashboard = document.getElementById('dashboard');
+const createAgencyScreen = document.getElementById('createAgencyScreen');
+const toastEl = document.getElementById('toast');
+let currentAgent = null;
+const SUPPORT_EMAIL = 'support@shuknadlan.co.il'; // כתובת placeholder — תוקם בפועל בהמשך
+
+function showToast(msg, ms=3200){
+  toastEl.textContent = msg;
+  toastEl.style.display = 'block';
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(()=> toastEl.style.display='none', ms);
+}
+
+/* ---------- Auth ---------- */
+document.getElementById('googleLoginBtn').addEventListener('click', async ()=>{
+  await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin + window.location.pathname }
+  });
+  // הדפדפן מנותב ל-Google ואז חוזר לכאן — הטיפול בפועל קורה ב-boot() למטה
+});
+
+document.getElementById('loginForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const btn = document.getElementById('loginBtn');
+  const errEl = document.getElementById('loginError');
+  errEl.textContent = '';
+  btn.disabled = true; btn.textContent = 'מתחבר…';
+  const { error } = await sb.auth.signInWithPassword({ email, password });
+  btn.disabled = false; btn.textContent = 'כניסה';
+  if (error){
+    errEl.textContent = error.message === 'Invalid login credentials'
+      ? 'אימייל או סיסמה שגויים'
+      : 'שגיאת התחברות: ' + error.message;
+    return;
+  }
+  await routeAfterAuth();
+});
+
+document.getElementById('logoutBtn').addEventListener('click', async ()=>{
+  await sb.auth.signOut();
+  dashboard.style.display = 'none';
+  createAgencyScreen.style.display = 'none';
+  document.getElementById('loginCardMain').style.display = 'block';
+  loginScreen.style.display = 'flex';
+});
+
+document.getElementById('cancelCreateAgency').addEventListener('click', async ()=>{
+  await sb.auth.signOut();
+  createAgencyScreen.style.display = 'none';
+  document.getElementById('loginCardMain').style.display = 'block';
+});
+
+document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
+  const agencyName = document.getElementById('caAgencyName').value.trim();
+  const managerName = document.getElementById('caManagerName').value.trim();
+  const license = document.getElementById('caLicense').value.trim();
+  const feedback = document.getElementById('createAgencyFeedback');
+  const btn = document.getElementById('createAgencyBtn');
+  if (!agencyName || !managerName || !license){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'נא למלא את כל השדות';
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'פותח משרד…'; feedback.textContent = '';
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/create-own-agency', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      body: JSON.stringify({ agency_name: agencyName, manager_name: managerName, license_number: license }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      if (data.error === 'already_has_agency'){
+        feedback.style.color = 'var(--red)';
+        feedback.textContent = data.agency_name
+          ? `כבר יש לך משרד רשום במערכת — "${data.agency_name}". לא ניתן לפתוח יותר ממשרד אחד.`
+          : 'כבר יש לך משרד רשום במערכת — לא ניתן לפתוח יותר מאחד.';
+        btn.disabled = false; btn.textContent = 'פתיחת המשרד שלי';
+        return;
+      }
+      feedback.style.color = 'var(--red)';
+      feedback.textContent = 'שגיאה: ' + (data.detail || data.error);
+      btn.disabled = false; btn.textContent = 'פתיחת המשרד שלי';
+      return;
+    }
+    createAgencyScreen.style.display = 'none';
+    await loadDashboard();
+  } catch(err){
+    console.error(err);
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'שגיאת רשת — נסו שוב';
+    btn.disabled = false; btn.textContent = 'פתיחת המשרד שלי';
+  }
+});
+
+/* ---------- Post-auth routing: decide dashboard vs "create your agency" ---------- */
+async function routeAfterAuth(){
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) return;
+  const { data: agent } = await sb.from('agency_members').select('id').eq('user_id', user.id).maybeSingle();
+  if (agent){
+    await loadDashboard();
+  } else {
+    loginScreen.style.display = 'flex';
+    document.getElementById('loginCardMain').style.display = 'none';
+    createAgencyScreen.style.display = 'block';
+  }
+}
+
+/* ---------- Dashboard ---------- */
+async function loadDashboard(){
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user){ return; }
+
+  const { data: agent, error: agentErr } = await sb
+    .from('agency_members')
+    .select('id, agency_id, display_name, tier, credit_balance, free_quota_used, agencies(name)')
+    .eq('user_id', user.id)
+    .single();
+
+  if (agentErr || !agent){
+    // אין agency_members לחשבון הזה — הנתיב הרגיל דרך routeAfterAuth() כבר אמור למנוע
+    // הגעה לכאן, אבל אם בכל זאת קרה (למשל loadDashboard נקרא ישירות), מפנים לאותו מסך יצירה
+    loginScreen.style.display = 'flex';
+    document.getElementById('loginCardMain').style.display = 'none';
+    createAgencyScreen.style.display = 'block';
+    return;
+  }
+  currentAgent = agent;
+
+  loginScreen.style.display = 'none';
+  dashboard.style.display = 'block';
+
+  document.getElementById('avatarInitial').textContent = (agent.display_name || '?')[0];
+  document.getElementById('agentName').textContent = agent.display_name + (agent.agencies?.name ? ' · ' + agent.agencies.name : '');
+  const badge = document.getElementById('tierBadge');
+  const tierLabels = { free:'מסלול חינמי', mid:'מסלול משודרג', premium:'מסלול פרימיום' };
+  badge.textContent = tierLabels[agent.tier] || agent.tier;
+  badge.className = 'tier-badge tier-' + agent.tier;
+  document.getElementById('creditBalance').textContent = '₪' + Number(agent.credit_balance).toLocaleString('he-IL');
+  document.getElementById('quotaUsed').textContent = agent.tier === 'free' ? (agent.free_quota_used + ' / 10') : '—';
+
+  await loadProperties(agent.id);
+  await loadLeads(agent.id);
+  await loadPreferences(agent.id);
+
+  if (agent.role === 'manager'){
+    document.getElementById('managerSection').style.display = 'block';
+    await loadTeam(agent.agency_id, agent.id);
+    await loadPendingReviews(agent.agency_id);
+  }
+}
+
+/* ---------- Lead preferences (module 2 §3 — every agent, regardless of role) ---------- */
+let allNeighborhoods = [];
+async function loadPreferences(agentId){
+  const { data: neighborhoods } = await sb.from('neighborhoods').select('id, city, name').order('name');
+  allNeighborhoods = neighborhoods || [];
+
+  const { data: prefs } = await sb
+    .from('agent_lead_preferences')
+    .select('preferred_neighborhoods, preferred_property_types, preferred_deal_types, active')
+    .eq('agent_id', agentId)
+    .maybeSingle();
+
+  renderNeighborhoodCheckboxes(prefs?.preferred_neighborhoods || []);
+
+  document.querySelectorAll('.prefPropertyType').forEach(cb=>{
+    cb.checked = (prefs?.preferred_property_types || []).includes(cb.value);
+  });
+  document.querySelectorAll('.prefDealType').forEach(cb=>{
+    cb.checked = (prefs?.preferred_deal_types || []).includes(cb.value);
+  });
+  document.getElementById('prefsActive').checked = prefs ? prefs.active : true;
+}
+
+function renderNeighborhoodCheckboxes(selectedIds){
+  const el = document.getElementById('neighborhoodCheckboxes');
+  el.innerHTML = '';
+  allNeighborhoods.forEach(n=>{
+    const label = document.createElement('label');
+    label.style.cssText = 'font-weight:400;font-size:.8rem;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:5px 12px;display:inline-flex;align-items:center;gap:5px;cursor:pointer';
+    label.innerHTML = `<input type="checkbox" class="prefNeighborhood" value="${n.id}" style="margin:0" ${selectedIds.includes(n.id) ? 'checked' : ''}> ${n.name}`;
+    el.appendChild(label);
+  });
+}
+
+document.getElementById('addNeighborhoodBtn').addEventListener('click', async ()=>{
+  const nameInput = document.getElementById('newNeighborhoodName');
+  const name = nameInput.value.trim();
+  if (!name) return;
+  const { data, error } = await sb.from('neighborhoods').insert({ city: 'עפולה', name }).select().single();
+  if (error){
+    // כפילות אפשרית (unique city+name) — טוענים מחדש כדי לוודא שהשכונה בכל זאת מופיעה ברשימה
+    if (error.code !== '23505'){ showToast('שגיאה בהוספת שכונה: ' + error.message); return; }
+  }
+  nameInput.value = '';
+  const { data: neighborhoods } = await sb.from('neighborhoods').select('id, city, name').order('name');
+  allNeighborhoods = neighborhoods || [];
+  const currentlyChecked = Array.from(document.querySelectorAll('.prefNeighborhood:checked')).map(cb=>cb.value);
+  renderNeighborhoodCheckboxes(currentlyChecked);
+});
+
+document.getElementById('prefsForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  if (!currentAgent) return;
+  const btn = document.getElementById('savePrefsBtn');
+  const feedback = document.getElementById('prefsFeedback');
+  btn.disabled = true; btn.textContent = 'שומר…'; feedback.textContent = '';
+
+  const preferred_neighborhoods = Array.from(document.querySelectorAll('.prefNeighborhood:checked')).map(cb=>cb.value);
+  const preferred_property_types = Array.from(document.querySelectorAll('.prefPropertyType:checked')).map(cb=>cb.value);
+  const preferred_deal_types = Array.from(document.querySelectorAll('.prefDealType:checked')).map(cb=>cb.value);
+  const active = document.getElementById('prefsActive').checked;
+
+  const { error } = await sb.from('agent_lead_preferences').upsert({
+    agent_id: currentAgent.id,
+    preferred_neighborhoods,
+    preferred_property_types,
+    preferred_deal_types,
+    active,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'agent_id' });
+
+  btn.disabled = false; btn.textContent = 'שמירת העדפות';
+  if (error){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'שגיאה: ' + error.message;
+    return;
+  }
+  feedback.style.color = 'var(--blue)';
+  feedback.textContent = 'ההעדפות נשמרו בהצלחה!';
+  setTimeout(()=>{ feedback.textContent=''; }, 2500);
+});
+
+/* ---------- Review moderation (manager only) ---------- */
+async function loadPendingReviews(agencyId){
+  const el = document.getElementById('reviewModerationList');
+  el.innerHTML = '<div class="empty-state">טוען…</div>';
+  const { data: reviews, error } = await sb
+    .from('reviews')
+    .select('id, rating, text, reviewer_display_name, created_at')
+    .eq('agency_id', agencyId)
+    .eq('status', 'pending')
+    .order('created_at', { ascending:false });
+
+  if (error){ el.innerHTML = '<div class="empty-state">שגיאה: ' + error.message + '</div>'; return; }
+  if (!reviews || reviews.length === 0){ el.innerHTML = '<div class="empty-state">אין ביקורות הממתינות לאישור.</div>'; return; }
+
+  el.innerHTML = '';
+  reviews.forEach(r=>{
+    const card = document.createElement('div');
+    card.className = 'card lead-card';
+    card.innerHTML = `
+      <div class="lead-top">
+        <div>
+          <div class="lead-name">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div>
+          <div class="lead-meta">${r.reviewer_display_name || 'לקוח מאומת'}</div>
+        </div>
+      </div>
+      ${r.text ? `<div class="lead-meta" style="margin-top:4px">${r.text}</div>` : ''}
+      <div class="lead-actions"></div>
+    `;
+    const actions = card.querySelector('.lead-actions');
+
+    const approveBtn = document.createElement('button');
+    approveBtn.className = 'btn btn-gold';
+    approveBtn.textContent = 'אישור ופרסום';
+    approveBtn.addEventListener('click', ()=> moderateReview(r.id, 'published', agencyId));
+    actions.appendChild(approveBtn);
+
+    const rejectBtn = document.createElement('button');
+    rejectBtn.className = 'btn btn-ghost';
+    rejectBtn.textContent = 'דחייה';
+    rejectBtn.addEventListener('click', ()=> moderateReview(r.id, 'rejected', agencyId));
+    actions.appendChild(rejectBtn);
+
+    el.appendChild(card);
+  });
+}
+
+async function moderateReview(reviewId, newStatus, agencyId){
+  // חשוב: אין כאן עריכת תוכן הביקורת עצמה (רק אישור/דחייה) — כדי לשמור על אמינות
+  // האימות (מודול 3 §3.4). ה-RLS policy "manager moderate own agency reviews" כבר
+  // קיים ומגביל את זה לשורות של המשרד שלו בלבד.
+  const { error } = await sb.from('reviews').update({ status: newStatus }).eq('id', reviewId);
+  if (error){ showToast('שגיאה: ' + error.message); return; }
+  showToast(newStatus === 'published' ? 'הביקורת פורסמה' : 'הביקורת נדחתה');
+  await loadPendingReviews(agencyId);
+}
+
+/* ---------- Wallet top-up ---------- */
+document.getElementById('topupBtn').addEventListener('click', async ()=>{
+  const amount = document.getElementById('topupAmount').value;
+  const btn = document.getElementById('topupBtn');
+  const feedback = document.getElementById('topupFeedback');
+  btn.disabled = true; btn.textContent = 'טוען…'; feedback.textContent = '';
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/wallet-topup', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      body: JSON.stringify({ amount: Number(amount) }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      feedback.style.color = 'var(--red)';
+      feedback.textContent = 'שגיאה בטעינה — נסו שוב';
+      btn.disabled = false; btn.textContent = 'טעינת הארנק';
+      return;
+    }
+    feedback.style.color = 'var(--blue)';
+    feedback.textContent = `נטענו ₪${data.amount} בהצלחה (מצב בדיקה)`;
+    // מרענן את היתרה המוצגת בלי לטעון את כל הדשבורד מחדש
+    const { data: agent } = await sb.from('agency_members').select('credit_balance').eq('id', currentAgent.id).single();
+    if (agent){
+      currentAgent.credit_balance = agent.credit_balance;
+      document.getElementById('creditBalance').textContent = '₪' + Number(agent.credit_balance).toLocaleString('he-IL');
+    }
+  } catch(err){
+    console.error(err);
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'שגיאת רשת — נסו שוב';
+  } finally {
+    btn.disabled = false; btn.textContent = 'טעינת הארנק';
+  }
+});
+
+const toggleBillingBtn = document.getElementById('toggleBillingHistory');
+const billingHistoryList = document.getElementById('billingHistoryList');
+toggleBillingBtn.addEventListener('click', async ()=>{
+  const showing = billingHistoryList.style.display !== 'none';
+  billingHistoryList.style.display = showing ? 'none' : 'block';
+  toggleBillingBtn.textContent = showing ? 'הצגת היסטוריית חיובים' : 'הסתרת היסטוריית חיובים';
+  if (!showing) await loadBillingHistory();
+});
+
+async function loadBillingHistory(){
+  billingHistoryList.innerHTML = '<div class="empty-state">טוען…</div>';
+  const [{ data: charges }, { data: promotions }, { data: topups }] = await Promise.all([
+    sb.from('lead_charges').select('amount, status, created_at').eq('agent_id', currentAgent.id).order('created_at', { ascending:false }).limit(10),
+    sb.from('promotion_charges').select('amount, status, created_at').eq('agent_id', currentAgent.id).order('created_at', { ascending:false }).limit(10),
+    sb.from('wallet_topups').select('amount, status, test_mode, created_at').eq('agent_id', currentAgent.id).order('created_at', { ascending:false }).limit(10),
+  ]);
+  const items = [
+    ...(charges||[]).map(c=>({ label:'פתיחת ליד', amount: -c.amount, status: c.status, date: c.created_at })),
+    ...(promotions||[]).map(p=>({ label:'קידום נכס', amount: -p.amount, status: p.status, date: p.created_at })),
+    ...(topups||[]).map(t=>({ label:'טעינת ארנק' + (t.test_mode ? ' (בדיקה)' : ''), amount: t.amount, status: t.status, date: t.created_at })),
+  ].sort((a,b)=> new Date(b.date) - new Date(a.date));
+
+  if (items.length === 0){ billingHistoryList.innerHTML = '<div class="empty-state">אין עדיין היסטוריית חיובים.</div>'; return; }
+  billingHistoryList.innerHTML = items.map(it => `
+    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:.82rem">
+      <span>${it.label}</span>
+      <span style="font-weight:700;color:${it.amount<0?'var(--red)':'var(--blue)'}">${it.amount<0?'-':'+'}₪${Math.abs(it.amount)}</span>
+    </div>`).join('');
+}
+
+/* ---------- Planning lookup test tool ---------- */
+document.getElementById('planLookupBtn').addEventListener('click', async ()=>{
+  const street = document.getElementById('planStreet').value.trim();
+  const houseNum = document.getElementById('planHouseNum').value.trim();
+  const gush = document.getElementById('planGush').value.trim();
+  const helka = document.getElementById('planHelka').value.trim();
+  const resultEl = document.getElementById('planResult');
+  const btn = document.getElementById('planLookupBtn');
+
+  const body = (gush && helka) ? { gush, helka } : { street, house_number: houseNum };
+  if (!(gush && helka) && !(street && houseNum)){
+    resultEl.style.color = 'var(--red)';
+    resultEl.textContent = 'נא למלא כתובת (רחוב+מספר) או גוש+חלקה';
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'בודק…'; resultEl.textContent = ''; resultEl.style.color = 'var(--ink)';
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/afula-planning-lookup', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      resultEl.style.color = 'var(--red)';
+      resultEl.textContent = 'שגיאה: ' + (data.detail || data.error);
+    } else {
+      resultEl.textContent = JSON.stringify(data, null, 2);
+    }
+  } catch(err){
+    console.error(err);
+    resultEl.style.color = 'var(--red)';
+    resultEl.textContent = 'שגיאת רשת — נסו שוב';
+  } finally {
+    btn.disabled = false; btn.textContent = 'בדיקת מידע תכנוני';
+  }
+});
+
+/* ---------- Team management (manager only) ---------- */
+const toggleMemberBtn = document.getElementById('toggleAddMember');
+const addMemberForm = document.getElementById('addMemberForm');
+toggleMemberBtn.addEventListener('click', ()=>{
+  const showing = addMemberForm.style.display !== 'none';
+  addMemberForm.style.display = showing ? 'none' : 'block';
+  toggleMemberBtn.textContent = showing ? '+ הוספת סוכן/ת לצוות' : '✕ ביטול';
+});
+
+document.getElementById('addMemberForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const btn = document.getElementById('addMemberBtn');
+  const feedback = document.getElementById('addMemberFeedback');
+  btn.disabled = true; btn.textContent = 'מוסיף…'; feedback.textContent = '';
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/add-team-member', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      body: JSON.stringify({
+        member_name: document.getElementById('nmName').value,
+        license_number: document.getElementById('nmLicense').value,
+        member_email: document.getElementById('nmEmail').value,
+        member_password: document.getElementById('nmPassword').value,
+        initial_tier: document.getElementById('nmTier').value,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      const messages = {
+        managers_only: 'רק מנהל/ת משרד יכול/ה להוסיף סוכנים.',
+        weak_password: 'הסיסמה קצרה מדי.',
+      };
+      feedback.style.color = 'var(--red)';
+      feedback.innerHTML = messages[data.error]
+        ? messages[data.error]
+        : `הקמת דף הסוכן לא הצליחה, אנא נסה שוב.<br>לתמיכה: <a href="mailto:${SUPPORT_EMAIL}" style="color:var(--blue)">${SUPPORT_EMAIL}</a>`;
+      btn.disabled = false; btn.textContent = 'הוספת הסוכן/ת';
+      return;
+    }
+    feedback.style.color = 'var(--blue)';
+    feedback.textContent = 'הסוכן/ת נוסף/ה בהצלחה!';
+    document.getElementById('addMemberForm').reset();
+    await loadTeam(currentAgent.agency_id, currentAgent.id);
+    setTimeout(()=>{ addMemberForm.style.display='none'; toggleMemberBtn.textContent='+ הוספת סוכן/ת לצוות'; feedback.textContent=''; }, 1800);
+  } catch(err){
+    console.error(err);
+    feedback.style.color = 'var(--red)';
+    feedback.innerHTML = `הקמת דף הסוכן לא הצליחה, אנא נסה שוב.<br>לתמיכה: <a href="mailto:${SUPPORT_EMAIL}" style="color:var(--blue)">${SUPPORT_EMAIL}</a>`;
+    btn.disabled = false; btn.textContent = 'הוספת הסוכן/ת';
+  }
+});
+
+async function loadTeam(agencyId, callerId){
+  const el = document.getElementById('teamList');
+  el.innerHTML = '<div class="empty-state">טוען…</div>';
+  const { data: members, error } = await sb
+    .from('agency_members')
+    .select('id, display_name, role, tier, active, license_number')
+    .eq('agency_id', agencyId)
+    .order('role', { ascending:false });
+
+  if (error){ el.innerHTML = '<div class="empty-state">שגיאה: ' + error.message + '</div>'; return; }
+  const roleLabels = { manager:'מנהל/ת', agent:'סוכן/ת' };
+  const tierLabels = { free:'חינמי', mid:'משודרג', premium:'פרימיום' };
+  el.innerHTML = '';
+  members.forEach(m=>{
+    const el2 = document.createElement('div');
+    el2.className = 'card lead-card';
+    el2.innerHTML = `
+      <div class="lead-top">
+        <div>
+          <div class="lead-name">${m.display_name}${m.id === callerId ? ' (את/ה)' : ''}</div>
+          <div class="lead-meta">${roleLabels[m.role]} · מסלול ${tierLabels[m.tier]} · רישיון ${m.license_number}</div>
+        </div>
+        <span class="status-pill status-${m.active ? 'unlocked' : 'masked'}">${m.active ? 'פעיל' : 'לא פעיל'}</span>
+      </div>
+      <div class="lead-actions"></div>
+    `;
+    if (m.id !== callerId){
+      // עריכת תפקיד/סטטוס זמינה רק לחברי צוות אחרים — לא לעצמך (הטריגר ב-DB חוסם
+      // עריכה-עצמית של role/active בכל מקרה, כדי שאף אחד לא "יקדם את עצמו" בעצמו)
+      const actions = el2.querySelector('.lead-actions');
+
+      const roleBtn = document.createElement('button');
+      roleBtn.className = 'btn btn-ghost';
+      const newRole = m.role === 'manager' ? 'agent' : 'manager';
+      roleBtn.textContent = m.role === 'manager' ? 'הורדה לסוכן/ת' : 'קידום למנהל/ת';
+      roleBtn.addEventListener('click', ()=> updateMemberField(m.id, { role: newRole }, agencyId, callerId));
+      actions.appendChild(roleBtn);
+
+      const statusBtn = document.createElement('button');
+      statusBtn.className = m.active ? 'btn btn-ghost' : 'btn btn-gold';
+      statusBtn.textContent = m.active ? 'השעיה' : 'הפעלה מחדש';
+      statusBtn.addEventListener('click', ()=> updateMemberField(m.id, { active: !m.active }, agencyId, callerId));
+      actions.appendChild(statusBtn);
+    }
+    el.appendChild(el2);
+  });
+}
+
+async function updateMemberField(memberId, changes, agencyId, callerId){
+  const label = 'role' in changes ? (changes.role === 'manager' ? 'לקדם את הסוכן/ת למנהל/ת?' : 'להוריד את הסוכן/ת ממנהל לסוכן רגיל?')
+    : (changes.active ? 'להפעיל מחדש את הסוכן/ת?' : 'להשעות את הסוכן/ת? לא יוכל/תוכל להתחבר עד הפעלה מחדש.');
+  if (!confirm(label)) return;
+  const { error } = await sb.from('agency_members').update(changes).eq('id', memberId);
+  if (error){ showToast('שגיאה: ' + error.message); return; }
+  showToast('העדכון בוצע בהצלחה');
+  await loadTeam(agencyId, callerId);
+}
+
+/* ---------- My Properties ---------- */
+const toggleBtn = document.getElementById('toggleAddProperty');
+const addForm = document.getElementById('addPropertyForm');
+toggleBtn.addEventListener('click', ()=>{
+  const showing = addForm.style.display !== 'none';
+  addForm.style.display = showing ? 'none' : 'block';
+  toggleBtn.textContent = showing ? '+ הוספת נכס חדש' : '✕ ביטול';
+  if (showing){
+    editingPropertyId = null;
+    document.getElementById('addPropertyForm').reset();
+    document.getElementById('npCity').value = 'עפולה';
+    document.getElementById('addPropertyBtn').textContent = 'פרסום הנכס';
+  }
+});
+
+document.getElementById('addPropertyForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  if (!currentAgent) return;
+  const btn = document.getElementById('addPropertyBtn');
+  const feedback = document.getElementById('addPropertyFeedback');
+  btn.disabled = true; btn.textContent = editingPropertyId ? 'שומר…' : 'מפרסם…'; feedback.textContent = '';
+
+  const lat = document.getElementById('npLat').value;
+  const lng = document.getElementById('npLng').value;
+
+  const payload = {
+    title: document.getElementById('npTitle').value,
+    property_type: document.getElementById('npType').value,
+    deal_type: document.getElementById('npDeal').value,
+    price: parseFloat(document.getElementById('npPrice').value),
+    rooms: document.getElementById('npRooms').value ? parseFloat(document.getElementById('npRooms').value) : null,
+    city: document.getElementById('npCity').value,
+    address: document.getElementById('npAddress').value || null,
+  };
+  if (lat) payload.lat = parseFloat(lat);
+  if (lng) payload.lng = parseFloat(lng);
+
+  let error;
+  if (editingPropertyId){
+    ({ error } = await sb.from('properties').update(payload).eq('id', editingPropertyId));
+  } else {
+    payload.agency_id = currentAgent.agency_id;
+    payload.agent_id = currentAgent.id;
+    payload.status = 'active';
+    ({ error } = await sb.from('properties').insert(payload));
+  }
+
+  btn.disabled = false; btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
+  if (error){
+    console.error(error);
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = 'שגיאה: ' + error.message;
+    return;
+  }
+  feedback.style.color = 'var(--teal)';
+  feedback.textContent = editingPropertyId ? 'הנכס עודכן בהצלחה!' : 'הנכס פורסם בהצלחה!';
+  document.getElementById('addPropertyForm').reset();
+  document.getElementById('npCity').value = 'עפולה';
+  editingPropertyId = null;
+  await loadProperties(currentAgent.id);
+  setTimeout(()=>{
+    addForm.style.display='none';
+    toggleBtn.textContent='+ הוספת נכס חדש';
+    document.getElementById('addPropertyBtn').textContent = 'פרסום הנכס';
+    feedback.textContent='';
+  }, 1500);
+});
+
+async function loadProperties(agentId){
+  const listEl = document.getElementById('propertiesList');
+  listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+  const { data: props, error } = await sb
+    .from('properties')
+    .select('id, title, price, deal_type, rooms, property_type, status, created_at, is_promoted, promoted_until, last_free_bump_at')
+    .eq('agent_id', agentId)
+    .order('created_at', { ascending:false });
+
+  if (error){
+    listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת נכסים: ' + error.message + '</div>';
+    return;
+  }
+  if (!props || props.length === 0){
+    listEl.innerHTML = '<div class="empty-state">עדיין לא פרסמת נכסים.</div>';
+    return;
+  }
+  const statusLabels = { active:'פעיל', sold:'נמכר', rented:'הושכר', archived:'הוסר' };
+  const propertyIds = props.map(p=>p.id);
+  const { data: viewRows } = await sb.from('property_views').select('property_id').in('property_id', propertyIds);
+  const viewCounts = {};
+  (viewRows||[]).forEach(v => { viewCounts[v.property_id] = (viewCounts[v.property_id]||0) + 1; });
+
+  listEl.innerHTML = '';
+  props.forEach(p=>{
+    const priceLabel = p.deal_type === 'rent' ? ('₪' + Number(p.price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(p.price).toLocaleString('he-IL'));
+    const isCurrentlyPromoted = p.is_promoted && p.promoted_until && new Date(p.promoted_until) >= new Date(new Date().toDateString());
+    const el = document.createElement('div');
+    el.className = 'card lead-card';
+    el.innerHTML = `
+      <div class="lead-top">
+        <div>
+          <div class="lead-name">${p.title}${isCurrentlyPromoted ? ' 🌟' : ''}</div>
+          <div class="lead-meta">${priceLabel} · ${p.rooms || '—'} חדרים · ${p.property_type} · ${viewCounts[p.id]||0} צפיות${isCurrentlyPromoted ? ' · מקודם עד ' + p.promoted_until : ''}</div>
+        </div>
+        <span class="status-pill status-unlocked">${statusLabels[p.status] || p.status}</span>
+      </div>
+      <div class="lead-actions"></div>
+    `;
+    const actions = el.querySelector('.lead-actions');
+
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn btn-ghost';
+    editBtn.textContent = 'עריכה';
+    editBtn.addEventListener('click', ()=> openEditProperty(p));
+    actions.appendChild(editBtn);
+
+    if (p.status === 'active'){
+      const dealLabel = p.deal_type === 'rent' ? 'סמן כהושכר' : 'סמן כנמכר';
+      const dealStatus = p.deal_type === 'rent' ? 'rented' : 'sold';
+      const soldBtn = document.createElement('button');
+      soldBtn.className = 'btn btn-gold';
+      soldBtn.textContent = dealLabel;
+      soldBtn.addEventListener('click', ()=> markPropertyStatus(p.id, dealStatus, agentId));
+      actions.appendChild(soldBtn);
+
+      const bumpBtn = document.createElement('button');
+      bumpBtn.className = 'btn btn-ghost';
+      bumpBtn.textContent = 'הקפצה חינם';
+      bumpBtn.addEventListener('click', ()=> bumpProperty(p.id, bumpBtn, agentId));
+      actions.appendChild(bumpBtn);
+
+      if (!isCurrentlyPromoted){
+        const promoteBtn = document.createElement('button');
+        promoteBtn.className = 'btn btn-ghost';
+        promoteBtn.textContent = 'קידום — ₪20/חודש';
+        promoteBtn.addEventListener('click', ()=> promoteProperty(p.id, promoteBtn, agentId));
+        actions.appendChild(promoteBtn);
+      }
+    }
+    listEl.appendChild(el);
+  });
+}
+
+async function bumpProperty(propertyId, btn, agentId){
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'מקפיץ…';
+  const { data, error } = await sb.rpc('bump_property', { p_property_id: propertyId });
+  if (error || data?.error){
+    const messages = { cooldown_active: 'כבר הקפצת את הנכס הזה ב-24 השעות האחרונות', not_your_property: 'שגיאת הרשאה' };
+    showToast(messages[data?.error] || 'שגיאה בהקפצה');
+    btn.disabled = false; btn.textContent = original;
+    return;
+  }
+  showToast('הנכס הוקפץ בהצלחה!');
+  btn.disabled = false; btn.textContent = original;
+  await loadProperties(agentId);
+}
+
+async function promoteProperty(propertyId, btn, agentId){
+  if (!confirm('לקדם את הנכס תמורת ₪20 שינוכו מהארנק שלך לחודש הקרוב?')) return;
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'מקדם…';
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/promote-property', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      body: JSON.stringify({ property_id: propertyId }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      const messages = {
+        insufficient_balance: `יתרה לא מספיקה — נדרש ₪${data.required}. טענו קרדיט ונסו שוב`,
+        already_promoted: 'הנכס כבר מקודם',
+      };
+      showToast(messages[data.error] || 'שגיאה בקידום');
+      btn.disabled = false; btn.textContent = original;
+      return;
+    }
+    showToast(`הנכס קודם בהצלחה! חויבת ₪${data.price_charged}, בתוקף עד ${data.promoted_until}`);
+    await loadProperties(agentId);
+  } catch(err){
+    console.error(err);
+    showToast('שגיאת רשת — נסו שוב');
+    btn.disabled = false; btn.textContent = original;
+  }
+}
+
+async function markPropertyStatus(propertyId, newStatus, agentId){
+  const confirmLabel = newStatus === 'sold' ? 'לסמן את הנכס כנמכר? הוא יוסר מרשימת הנכסים הפעילים.' : 'לסמן את הנכס כהושכר?';
+  if (!confirm(confirmLabel)) return;
+  const { error } = await sb.from('properties').update({ status: newStatus }).eq('id', propertyId);
+  if (error){ showToast('שגיאה בעדכון: ' + error.message); return; }
+  showToast(newStatus === 'sold' ? 'הנכס סומן כנמכר — נוסף אוטומטית ל"עסקאות אחרונות" באתר' : 'הנכס סומן כהושכר');
+  await loadProperties(agentId);
+}
+
+let editingPropertyId = null;
+function openEditProperty(p){
+  editingPropertyId = p.id;
+  document.getElementById('npTitle').value = p.title;
+  document.getElementById('npType').value = p.property_type;
+  document.getElementById('npDeal').value = p.deal_type;
+  document.getElementById('npPrice').value = p.price;
+  document.getElementById('npRooms').value = p.rooms || '';
+  addForm.style.display = 'block';
+  document.getElementById('addPropertyBtn').textContent = 'שמירת שינויים';
+  toggleBtn.textContent = '✕ ביטול';
+  addForm.scrollIntoView({ behavior:'smooth' });
+}
+
+async function loadLeads(agentId){
+  const listEl = document.getElementById('leadsList');
+  listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+
+  const { data: leads, error } = await sb
+    .from('leads_masked')
+    .select('*')
+    .eq('agent_id', agentId)
+    .order('created_at', { ascending:false });
+
+  if (error){
+    listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת לידים: ' + error.message + '</div>';
+    return;
+  }
+  if (!leads || leads.length === 0){
+    listEl.innerHTML = '<div class="empty-state">אין עדיין לידים משויכים אליך.<br>ברגע שמתעניין יפנה על אחד הנכסים שלך, הוא יופיע כאן.</div>';
+    return;
+  }
+
+  const typeLabels = { property_inquiry:'התעניינות בנכס', owner_inbound:'בעל נכס', agent_direct_inquiry:'פנייה ישירה' };
+  listEl.innerHTML = '';
+  leads.forEach(lead=>{
+    const el = document.createElement('div');
+    el.className = 'card lead-card';
+    const statusLabel = lead.status === 'unlocked' ? 'פתוח' : (lead.status === 'pending_charge' ? 'בתהליך פתיחה' : 'מוסתר');
+    el.innerHTML = `
+      <div class="lead-top">
+        <div>
+          <div class="lead-name">${lead.display_name || '—'}</div>
+          <div class="lead-meta">${typeLabels[lead.lead_type] || lead.lead_type} · ${lead.city || ''}</div>
+        </div>
+        <span class="status-pill status-${lead.status === 'unlocked' ? 'unlocked' : 'masked'}">${statusLabel}</span>
+      </div>
+      <div class="lead-phone">${lead.display_phone || '—'}</div>
+      <div class="lead-actions"></div>
+    `;
+    const actions = el.querySelector('.lead-actions');
+    if (lead.status !== 'unlocked'){
+      const claimBtn = document.createElement('button');
+      claimBtn.className = 'btn btn-gold';
+      claimBtn.textContent = 'פתיחת ליד';
+      claimBtn.addEventListener('click', ()=> claimLead(lead.id, claimBtn, agentId));
+      actions.appendChild(claimBtn);
+    } else {
+      const reviewBtn = document.createElement('button');
+      reviewBtn.className = 'btn btn-ghost';
+      reviewBtn.textContent = '📋 קישור לבקשת חוות דעת';
+      reviewBtn.addEventListener('click', ()=> copyReviewLink(lead.id, reviewBtn));
+      actions.appendChild(reviewBtn);
+    }
+    listEl.appendChild(el);
+  });
+}
+
+function copyReviewLink(leadId, btn){
+  const link = window.location.origin + window.location.pathname.replace('crm.html','') + 'review-request.html?lead=' + leadId;
+  const original = btn.textContent;
+  const finish = (msg)=>{ btn.textContent = msg; setTimeout(()=> btn.textContent = original, 2000); };
+  if (navigator.clipboard && window.isSecureContext){
+    navigator.clipboard.writeText(link).then(()=> finish('✓ הקישור הועתק')).catch(()=>{
+      showToast('לא ניתן להעתיק אוטומטית — הקישור: ' + link);
+    });
+  } else {
+    // navigator.clipboard דורש HTTPS/localhost — כשפותחים file:// ישירות זה לא זמין,
+    // אז מציגים את הקישור ב-toast כדי שאפשר יהיה להעתיק ידנית ולשלוח ללקוח
+    showToast('העתיקו ידנית: ' + link, 8000);
+  }
+}
+
+async function claimLead(leadId, btn, agentId){
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'פותח…';
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(CLAIM_FUNCTION_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      body: JSON.stringify({ lead_id: leadId }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      const errorMessages = {
+        exclusive_to_another_agent: 'הליד עדיין בבלעדיות לסוכן אחר',
+        insufficient_balance: `יתרה לא מספיקה — נדרש ₪${data.required}. טענו קרדיט ונסו שוב`,
+        free_tier_not_eligible_owner_lead: 'לידי בעל-נכס לא זמינים במסלול החינמי',
+        lead_already_claimed_by_someone_else: 'הליד כבר נתפס',
+        already_unlocked: 'הליד כבר פתוח',
+      };
+      showToast(errorMessages[data.error] || ('שגיאה: ' + (data.error || 'לא ידועה')));
+      btn.disabled = false; btn.textContent = original;
+      return;
+    }
+    showToast(data.price_charged > 0 ? `הליד נפתח! חויבת ₪${data.price_charged}` : 'הליד נפתח בהצלחה, ללא עלות');
+    await loadDashboard();
+  } catch(err){
+    console.error(err);
+    showToast('שגיאת רשת — נסו שוב');
+    btn.disabled = false; btn.textContent = original;
+  }
+}
+
+/* ---------- Boot: restore existing session if present (handles Google OAuth redirect too) ---------- */
+// onAuthStateChange כאן כי אחרי חזרה מ-Google OAuth redirect, ה-session מוכן רק
+// אחרי שה-client מעבד את ה-hash שבכתובת — לא בטוח שזה כבר קרה בזמן ש-boot() רץ.
+sb.auth.onAuthStateChange((event, session)=>{
+  if (event === 'SIGNED_IN' && session){ routeAfterAuth(); }
+});
+
+(async function boot(){
+  const { data: { session } } = await sb.auth.getSession();
+  if (session){ await routeAfterAuth(); }
+})();
+</script>
+</body>
+</html>

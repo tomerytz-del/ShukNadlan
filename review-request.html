@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>שיתוף חוות דעת | שוק נדל״ן</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
+    --line:#C5C3BC; --blue:#1C3A5E; --blue-dark:#122840; --blue-tint:#E0E7ED;
+    --red:#8B2332; --red-dark:#6B1A26; --red-tint:#F1DFE1;
+    --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(18,40,64,.1);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  h1,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--blue-dark);margin:0}
+  button{font-family:inherit;cursor:pointer;border:none}
+  textarea,input{font-family:inherit;font-size:1rem}
+  .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line);max-width:420px;width:100%;padding:30px 26px}
+  .logo-mark{width:34px;height:34px;border-radius:8px;background:linear-gradient(155deg,var(--red),var(--blue) 65%);display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:900;margin:0 auto 16px}
+  h1{font-size:1.25rem;text-align:center;margin-bottom:6px}
+  p.sub{text-align:center;color:var(--ink-soft);font-size:.85rem;margin:0 0 22px}
+
+  .stars{display:flex;justify-content:center;gap:6px;margin-bottom:20px;direction:ltr}
+  .star{font-size:2.2rem;color:var(--line);cursor:pointer;transition:color .1s}
+  .star.active{color:var(--red)}
+
+  .field{margin-bottom:14px}
+  .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
+  .field input,.field textarea{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
+  .field textarea{resize:vertical;min-height:90px}
+
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:999px;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+
+  #feedback{font-size:.82rem;text-align:center;margin-top:12px;min-height:1.2em}
+  #stateLoading,#stateError,#stateDone{display:none;text-align:center}
+  #stateForm{display:none}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="logo-mark">ש</div>
+
+  <div id="stateLoading">
+    <p style="color:var(--ink-soft)">טוען…</p>
+  </div>
+
+  <div id="stateError">
+    <h1>הקישור לא תקין</h1>
+    <p class="sub" id="errorDetail">ייתכן שהקישור פג תוקף, כבר נעשה בו שימוש, או שהוא שגוי.</p>
+  </div>
+
+  <div id="stateDone">
+    <h1>תודה!</h1>
+    <p class="sub">חוות הדעת שלך התקבלה ותפורסם לאחר בדיקה קצרה.</p>
+  </div>
+
+  <div id="stateForm">
+    <h1>איך היה הניסיון שלך?</h1>
+    <p class="sub">חוות הדעת שלך תעזור ללקוחות אחרים לבחור נכון</p>
+    <div class="stars" id="stars">
+      <span class="star" data-val="5">★</span>
+      <span class="star" data-val="4">★</span>
+      <span class="star" data-val="3">★</span>
+      <span class="star" data-val="2">★</span>
+      <span class="star" data-val="1">★</span>
+    </div>
+    <form id="reviewForm">
+      <div class="field"><label>ספרו לנו בכמה מילים (לא חובה)</label><textarea id="reviewText" placeholder="איך הייתה החוויה?"></textarea></div>
+      <div class="field"><label>שם לתצוגה (לא חובה)</label><input type="text" id="reviewerName" placeholder="לדוגמה: משפחת כהן"></div>
+      <button type="submit" class="btn" id="submitBtn">שליחת חוות דעת</button>
+      <div id="feedback"></div>
+    </form>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+const SUBMIT_FUNCTION_URL = SUPABASE_URL + '/functions/v1/submit-review';
+
+function showState(id){
+  ['stateLoading','stateError','stateDone','stateForm'].forEach(s=>{
+    document.getElementById(s).style.display = (s === id) ? 'block' : 'none';
+  });
+}
+
+let selectedRating = 0;
+document.querySelectorAll('.star').forEach(star=>{
+  star.addEventListener('click', ()=>{
+    selectedRating = parseInt(star.dataset.val, 10);
+    document.querySelectorAll('.star').forEach(s=>{
+      s.classList.toggle('active', parseInt(s.dataset.val,10) <= selectedRating);
+    });
+  });
+});
+
+/* ---------- Validate the lead up front (client-side UX only — the Edge Function
+   re-validates server-side regardless, this is just to avoid showing a form
+   that will fail on submit) ---------- */
+async function init(){
+  const leadId = new URLSearchParams(window.location.search).get('lead');
+  if (!leadId || !window.supabase){ showState('stateError'); return; }
+
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // הערה: אין ל-anon גישת SELECT ל-leads בכלל (RLS חוסם — זה מכוון, ראו מודול 6 §2.2).
+  // לכן לא ניתן "לבדוק מראש" בצד הלקוח אם הליד תקין — עוברים ישר לטופס,
+  // וה-Edge Function היא זו שבאמת מאמתת (status=unlocked, לא כבר יש ביקורת).
+  showState('stateForm');
+}
+
+document.getElementById('reviewForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const leadId = new URLSearchParams(window.location.search).get('lead');
+  if (!leadId){ showState('stateError'); return; }
+  if (selectedRating === 0){
+    document.getElementById('feedback').style.color = 'var(--red)';
+    document.getElementById('feedback').textContent = 'נא לבחור דירוג בכוכבים';
+    return;
+  }
+  const btn = document.getElementById('submitBtn');
+  const feedback = document.getElementById('feedback');
+  btn.disabled = true; btn.textContent = 'שולח…'; feedback.textContent = '';
+  try{
+    const res = await fetch(SUBMIT_FUNCTION_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({
+        lead_id: leadId,
+        rating: selectedRating,
+        text: document.getElementById('reviewText').value || null,
+        reviewer_display_name: document.getElementById('reviewerName').value || null,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      const messages = {
+        lead_not_found: 'הקישור לא תקין',
+        lead_not_eligible: 'לא ניתן להשאיר חוות דעת עבור פנייה זו',
+        review_already_submitted: 'כבר נשלחה חוות דעת עבור הפנייה הזו',
+      };
+      document.getElementById('errorDetail').textContent = messages[data.error] || 'שגיאה בשליחה';
+      showState('stateError');
+      return;
+    }
+    showState('stateDone');
+  } catch(err){
+    console.error(err);
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'שגיאת רשת — נסו שוב';
+    btn.disabled = false; btn.textContent = 'שליחת חוות דעת';
+  }
+});
+
+init();
+</script>
+</body>
+</html>

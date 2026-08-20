@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>שוק נדל״ן | עפולה והעמק</title>
+<meta name="description" content="העסקה הבאה שלך בעפולה מתחילה בשוק הנדל״ן — כל הדירות, כל המתווכים, בכתובת אחת.">
+<meta property="og:description" content="העסקה הבאה שלך בעפולה מתחילה בשוק הנדל״ן.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  /* ====== Design tokens — grounded in Jezreel Valley (עמק יזרעאל): wheat gold + cultivated-land teal + Gilboa dusk ====== */
+  :root{
+    --ink:        #1B1F26;
+    --ink-soft:   #565C63;
+    --paper:      #DEDCD6;
+    --paper-raised:#F4F3F0;
+    --line:       #C5C3BC;
+    --teal:       #1C3A5E;
+    --teal-dark:  #122840;
+    --teal-tint:  #E0E7ED;
+    --gold:       #8B2332;
+    --gold-dark:  #6B1A26;
+    --gold-tint:  #F1DFE1;
+    --brick:      #6B1A26;
+    --live:       #8B2332;
+    --radius-sm:  6px;
+    --radius-md:  12px;
+    --radius-lg:  20px;
+    --shadow:     0 4px 20px rgba(15,52,53,0.10);
+    --shadow-sm:  0 2px 8px rgba(15,52,53,0.08);
+    --maxw:       1180px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Heebo',sans-serif;
+    font-weight:400;
+    line-height:1.55;
+    -webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{
+    font-family:'Frank Ruhl Libre',serif;
+    font-weight:700;
+    line-height:1.15;
+    margin:0;
+    color:var(--teal-dark);
+  }
+  a{color:inherit;text-decoration:none}
+  img{max-width:100%;display:block}
+  button{font-family:inherit;cursor:pointer;border:none;background:none}
+  input,select{font-family:inherit;font-size:1rem}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
+  .eyebrow{
+    font-size:.72rem;letter-spacing:.08em;font-weight:700;color:var(--gold-dark);
+    text-transform:uppercase;display:flex;align-items:center;gap:8px;margin-bottom:8px;
+  }
+  .eyebrow::before{content:"";width:18px;height:2px;background:var(--gold-dark);display:inline-block}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:13px 22px;border-radius:999px;font-weight:700;font-size:.95rem;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn-gold{background:var(--gold);color:#241505}
+  .btn-gold:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(201,138,44,.35)}
+  .btn-teal{background:var(--teal);color:#fff}
+  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(23,73,74,.3)}
+  .btn-ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
+  .btn-block{width:100%}
+  .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line)}
+  .section{padding:44px 0}
+  .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
+  .section-head h2{font-size:1.5rem}
+  .see-all{font-size:.85rem;font-weight:700;color:var(--teal);border-bottom:1.5px solid var(--gold);padding-bottom:2px;white-space:nowrap}
+  .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+  .skip-link{position:absolute;right:-999px;top:0;background:var(--teal);color:#fff;padding:10px 16px;z-index:200;border-radius:0 0 0 8px}
+  .skip-link:focus{right:0}
+  :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+
+  /* ====== Header ====== */
+  header.site{
+    position:sticky;top:0;z-index:100;background:var(--paper-raised);
+    border-bottom:1px solid var(--line);
+  }
+  .header-inner{display:flex;align-items:center;justify-content:space-between;padding:14px 0}
+  .logo{display:flex;align-items:center;gap:8px}
+  .logo-mark{
+    width:34px;height:34px;border-radius:8px;background:linear-gradient(155deg,var(--gold),var(--teal) 65%);
+    display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:900;
+  }
+  .logo-word{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.15rem;color:var(--teal-dark)}
+  .logo-word span{color:var(--gold-dark)}
+  nav.primary{display:none;gap:26px;font-weight:600;font-size:.92rem;color:var(--ink-soft)}
+  nav.primary a:hover{color:var(--teal)}
+  .header-actions{display:flex;align-items:center;gap:10px}
+  .hamburger{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
+  .hamburger span,.hamburger span::before,.hamburger span::after{
+    content:"";display:block;width:18px;height:2px;background:var(--ink);position:relative;
+  }
+  .hamburger span::before{position:absolute;top:-6px}
+  .hamburger span::after{position:absolute;top:6px}
+  .mobile-menu{display:none;flex-direction:column;gap:2px;padding:10px 18px 18px;border-bottom:1px solid var(--line);background:var(--paper-raised)}
+  .mobile-menu.open{display:flex}
+  .mobile-menu a{padding:12px 6px;font-weight:600;border-bottom:1px solid var(--line)}
+
+  @media(min-width:900px){
+    nav.primary{display:flex}
+    .hamburger{display:none}
+    #cta-desktop{display:inline-flex !important}
+  }
+
+  /* ====== Leaderboard ad ====== */
+  .ad-leaderboard{
+    background:var(--teal-tint);border-bottom:1px solid var(--line);
+  }
+  .ad-slot{
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    padding:10px 0;font-size:.78rem;color:var(--ink-soft);text-align:center;
+  }
+  .ad-slot .tag{background:var(--paper-raised);border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-weight:700;font-size:.68rem}
+
+  /* ====== Hero ====== */
+  .hero{
+    background:
+      radial-gradient(ellipse at 20% 0%, rgba(201,138,44,.14), transparent 55%),
+      var(--teal-dark);
+    color:#fff;padding:34px 0 0;position:relative;overflow:hidden;
+  }
+  .hero-ridge{
+    position:absolute;bottom:0;right:0;left:0;height:64px;opacity:.35;pointer-events:none;
+  }
+  .hero-inner{position:relative;z-index:1}
+  .hero-inner h1{color:#fff;font-size:1.7rem;max-width:20ch}
+  .hero-inner p.lede{color:#DCE6E4;margin-top:10px;font-size:.98rem;max-width:42ch}
+  .search-card{
+    margin-top:22px;background:var(--paper-raised);border-radius:var(--radius-lg);
+    padding:16px;box-shadow:0 18px 40px rgba(0,0,0,.25);
+  }
+  .search-row{display:flex;gap:10px;margin-bottom:10px}
+  .search-input{
+    flex:1;border:1.5px solid var(--line);border-radius:var(--radius-md);
+    padding:13px 14px;background:#fff;font-size:.95rem;color:var(--ink);
+  }
+  .search-input:focus{border-color:var(--teal)}
+  .filters-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .filters-row select{
+    border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 8px;
+    background:#fff;font-size:.85rem;color:var(--ink-soft);
+  }
+  .deal-toggle{display:flex;border:1.5px solid var(--line);border-radius:999px;overflow:hidden;grid-column:1/-1}
+  .deal-toggle button{flex:1;padding:9px;font-weight:700;font-size:.85rem;color:var(--ink-soft)}
+  .deal-toggle button.active{background:var(--teal);color:#fff}
+  .search-submit{margin-top:12px}
+
+  .map-wrap{margin-top:22px;border-radius:var(--radius-lg) var(--radius-lg) 0 0;overflow:hidden;position:relative}
+  #hero-map{height:280px;width:100%}
+  .map-count{
+    position:absolute;top:12px;right:12px;z-index:400;background:var(--paper-raised);
+    padding:7px 12px;border-radius:999px;font-size:.78rem;font-weight:700;box-shadow:var(--shadow-sm);color:var(--ink)
+  }
+  .listing-strip{background:var(--paper-raised);padding:14px;display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory}
+  .mini-card{
+    flex:0 0 210px;scroll-snap-align:start;border:1px solid var(--line);border-radius:var(--radius-md);
+    overflow:hidden;background:#fff;cursor:pointer;transition:box-shadow .15s;
+  }
+  .mini-card:hover,.mini-card.hovered{box-shadow:var(--shadow)}
+  .mini-card .thumb{height:110px;background-size:cover;background-position:center}
+  .mini-card .body{padding:10px}
+  .mini-card .price{font-weight:800;color:var(--teal-dark);font-size:.95rem}
+  .mini-card .meta{font-size:.76rem;color:var(--ink-soft);margin-top:2px}
+  .mini-card .badge{
+    display:inline-block;font-size:.65rem;font-weight:700;background:var(--gold-tint);color:var(--gold-dark);
+    padding:2px 7px;border-radius:5px;margin-top:6px;
+  }
+
+  @media(min-width:760px){
+    .filters-row{grid-template-columns:1fr 1fr 1fr 1fr}
+    .deal-toggle{grid-column:auto;max-width:220px}
+    .hero-inner h1{font-size:2.3rem}
+    #hero-map{height:340px}
+  }
+
+  /* ====== Newsflash ticker ====== */
+  .ticker{
+    background:var(--gold-tint);border-bottom:1px solid var(--line);
+    display:flex;align-items:center;gap:10px;padding:9px 0;overflow:hidden;
+  }
+  .ticker .wrap{display:flex;align-items:center;gap:12px;width:100%}
+  .ticker-flag{
+    display:flex;align-items:center;gap:6px;background:var(--brick);color:#fff;
+    font-size:.7rem;font-weight:800;padding:4px 9px;border-radius:6px;flex:0 0 auto;
+  }
+  .live-dot{width:7px;height:7px;border-radius:50%;background:#fff;animation:pulse 1.4s infinite}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  .ticker-text{font-size:.85rem;font-weight:600;color:var(--teal-dark);cursor:pointer;flex:1;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ticker-more{font-size:.75rem;font-weight:700;color:var(--gold-dark);flex:0 0 auto;white-space:nowrap}
+
+  /* ====== Owner-lead banner ====== */
+  .owner-banner{
+    background:var(--teal);color:#fff;border-radius:var(--radius-lg);
+    padding:26px 20px;display:flex;flex-direction:column;gap:16px;
+  }
+  .owner-banner h2{color:#fff;font-size:1.35rem;max-width:26ch}
+  .owner-banner p{color:#CFE1DF;font-size:.9rem;max-width:38ch}
+  .owner-toggle{display:flex;gap:8px}
+  .owner-toggle button{
+    flex:1;padding:9px;border-radius:999px;font-weight:700;font-size:.82rem;
+    border:1.5px solid rgba(255,255,255,.35);color:#fff;
+  }
+  .owner-toggle button.active{background:var(--gold);border-color:var(--gold);color:#241505}
+  .owner-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .owner-form input{grid-column:span 2;border:none;border-radius:var(--radius-sm);padding:12px;font-size:.9rem}
+  .owner-form input:nth-child(3),.owner-form input:nth-child(4){grid-column:span 1}
+  .owner-form .btn{grid-column:span 2}
+  @media(min-width:640px){
+    .owner-banner{flex-direction:row;align-items:center;padding:32px}
+    .owner-banner > div:first-child{flex:1}
+    .owner-form{flex:1;min-width:320px}
+  }
+
+  /* ====== Featured / grid ====== */
+  .featured-scroll{display:flex;gap:14px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x mandatory}
+  .prop-card{
+    background:#fff;border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;
+    flex:0 0 250px;scroll-snap-align:start;
+  }
+  .prop-card .thumb{height:150px;background-size:cover;background-position:center;position:relative}
+  .prop-card .ribbon{
+    position:absolute;top:10px;right:10px;background:var(--gold);color:#241505;font-size:.68rem;
+    font-weight:800;padding:3px 9px;border-radius:5px;
+  }
+  .prop-card .body{padding:12px}
+  .prop-card .price{font-weight:800;color:var(--teal-dark);font-size:1.02rem}
+  .prop-card .title{font-size:.85rem;color:var(--ink);margin-top:3px}
+  .prop-card .meta{font-size:.76rem;color:var(--ink-soft);margin-top:6px;display:flex;gap:10px}
+
+  .agency-card{
+    background:#fff;border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;
+    flex:0 0 200px;scroll-snap-align:start;padding:16px;text-align:center;cursor:pointer;transition:box-shadow .15s;
+  }
+  .agency-card:hover{box-shadow:var(--shadow)}
+  .agency-card .rank-badge{
+    width:32px;height:32px;border-radius:50%;background:var(--gold-tint);color:var(--gold-dark);
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem;margin:0 auto 10px;
+  }
+  .agency-card .logo{
+    width:52px;height:52px;border-radius:14px;margin:0 auto 10px;
+    background:linear-gradient(155deg,var(--gold),var(--teal) 65%);color:#fff;
+    display:flex;align-items:center;justify-content:center;font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.3rem;
+  }
+  .agency-card .name{font-weight:700;font-size:.88rem}
+  .agency-card .stat{font-size:.72rem;color:var(--ink-soft);margin-top:6px}
+
+  .property-grid{display:grid;grid-template-columns:1fr;gap:16px}
+  .infeed-ad{
+    grid-column:1/-1;background:var(--gold-tint);border:1px dashed var(--gold-dark);border-radius:var(--radius-md);
+    padding:16px;display:flex;align-items:center;justify-content:center;font-size:.8rem;color:var(--gold-dark);font-weight:700;
+  }
+  @media(min-width:640px){.property-grid{grid-template-columns:1fr 1fr}}
+  @media(min-width:960px){.property-grid{grid-template-columns:1fr 1fr 1fr}}
+
+  /* ====== Mortgage calculator teaser ====== */
+  .calc-card{padding:24px 20px;display:flex;flex-direction:column;gap:16px}
+  .calc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .calc-field label{font-size:.75rem;color:var(--ink-soft);font-weight:700;display:block;margin-bottom:5px}
+  .calc-field input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px}
+  .calc-result{
+    background:var(--teal-tint);border-radius:var(--radius-md);padding:16px;text-align:center;
+  }
+  .calc-result .num{font-family:'Frank Ruhl Libre',serif;font-size:1.9rem;color:var(--teal-dark);font-weight:700}
+  .calc-result .lbl{font-size:.78rem;color:var(--ink-soft);margin-top:2px}
+  @media(min-width:640px){.calc-grid{grid-template-columns:repeat(4,1fr)}}
+
+  /* ====== Professionals ====== */
+  .pros-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .pro-card{padding:16px;text-align:center}
+  .pro-avatar{
+    width:52px;height:52px;border-radius:50%;margin:0 auto 10px;
+    background:linear-gradient(155deg,var(--gold-tint),var(--teal-tint));
+    display:flex;align-items:center;justify-content:center;font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal)
+  }
+  .pro-card h3{font-size:.88rem;font-family:'Heebo',sans-serif;font-weight:700}
+  .pro-card .role{font-size:.72rem;color:var(--gold-dark);font-weight:700;margin-top:2px}
+  @media(min-width:760px){.pros-grid{grid-template-columns:repeat(5,1fr)}}
+
+  /* ====== Footer ====== */
+  footer.site{background:var(--teal-dark);color:#CFE1DF;padding:38px 0 22px;margin-top:30px}
+  .footer-grid{display:grid;grid-template-columns:1fr;gap:26px}
+  .footer-col h4{color:#fff;font-size:.85rem;margin-bottom:10px}
+  .footer-col a{display:block;font-size:.82rem;color:#AFC7C4;padding:4px 0}
+  .footer-bottom{
+    border-top:1px solid rgba(255,255,255,.12);margin-top:26px;padding-top:16px;
+    font-size:.72rem;color:#8FADA9;display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;
+  }
+  @media(min-width:760px){.footer-grid{grid-template-columns:repeat(4,1fr)}}
+
+  /* ====== Accessibility FAB ====== */
+  .a11y-fab{
+    position:fixed;bottom:18px;left:18px;z-index:150;width:48px;height:48px;border-radius:50%;
+    background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;
+    box-shadow:var(--shadow);font-size:1.1rem;
+  }
+</style>
+</head>
+<body>
+<a href="#main" class="skip-link">דלג לתוכן הראשי</a>
+
+<header class="site">
+  <div class="wrap header-inner">
+    <a href="#" class="logo" aria-label="שוק נדל״ן — לדף הבית">
+      <span class="logo-mark">ש</span>
+      <span class="logo-word">שוק <span>נדל״ן</span></span>
+    </a>
+    <nav class="primary" aria-label="ניווט ראשי">
+      <a href="#listings">נכסים</a>
+      <a href="#featured">משרדי תיווך מובילים</a>
+      <a href="#pros">בעלי מקצוע</a>
+      <a href="#calc">מחשבון משכנתא</a>
+    </nav>
+    <div class="header-actions">
+      <a href="crm.html" class="btn btn-teal" style="display:none" id="cta-desktop">כניסת מתווכים</a>
+      <button class="hamburger" id="menuToggle" aria-expanded="false" aria-controls="mobileMenu" aria-label="פתיחת תפריט">
+        <span></span>
+      </button>
+    </div>
+  </div>
+  <nav id="mobileMenu" class="mobile-menu" aria-label="ניווט למובייל">
+    <a href="#listings">נכסים</a>
+    <a href="#featured">משרדי תיווך מובילים</a>
+    <a href="#pros">בעלי מקצוע</a>
+    <a href="#calc">מחשבון משכנתא</a>
+    <a href="crm.html" class="btn btn-teal btn-block" style="margin-top:10px">כניסת מתווכים</a>
+  </nav>
+</header>
+
+<div class="ad-leaderboard">
+  <div class="wrap ad-slot">
+    <span class="tag">פרסומת</span>
+    <span>מיקום פרסום — Leaderboard עליון</span>
+  </div>
+</div>
+
+<main id="main">
+
+  <!-- ====== HERO: search + map ====== -->
+  <section class="hero">
+    <div class="wrap hero-inner">
+      <p class="eyebrow" style="color:#E8C88A">עפולה והעמק · מרקטפלייס מקומי</p>
+      <h1>כל הדירות, כל המתווכים, בכתובת אחת בעפולה</h1>
+      <p class="lede">מפסיקים לרוץ בין לוחות מודעות — כל המתווכים המובילים בעיר מחכים לך כאן.</p>
+
+      <div class="search-card">
+        <div class="search-row">
+          <input type="text" class="search-input" placeholder="עיר, שכונה, רחוב או קוד נכס…" id="searchFreeText">
+        </div>
+        <div class="filters-row">
+          <div class="deal-toggle" role="group" aria-label="סוג עסקה">
+            <button class="active" data-deal="sale">למכירה</button>
+            <button data-deal="rent">להשכרה</button>
+          </div>
+          <select aria-label="סוג נכס">
+            <option>סוג נכס</option>
+            <option>דירה</option>
+            <option>בית פרטי</option>
+            <option>דירת גן</option>
+            <option>מגרש</option>
+          </select>
+          <select aria-label="טווח מחיר">
+            <option>טווח מחיר</option>
+            <option>עד ₪800,000</option>
+            <option>עד ₪1,200,000</option>
+            <option>עד ₪1,800,000</option>
+            <option>ללא הגבלה</option>
+          </select>
+          <select aria-label="מספר חדרים">
+            <option>חדרים</option>
+            <option>2+</option>
+            <option>3+</option>
+            <option>4+</option>
+            <option>5+</option>
+          </select>
+        </div>
+        <button class="btn btn-gold btn-block search-submit">חיפוש נכסים</button>
+      </div>
+    </div>
+
+    <div class="wrap" style="padding-top:22px;position:relative;z-index:1">
+      <div class="map-wrap card" style="border:1px solid rgba(255,255,255,.12)">
+        <div id="hero-map"></div>
+        <span class="map-count" id="mapCount">מציג 6 נכסים על המפה</span>
+      </div>
+      <div class="listing-strip" id="listingStrip"><!-- populated by JS --></div>
+    </div>
+  </section>
+
+  <!-- ====== Newsflash ticker ====== -->
+  <div class="ticker">
+    <div class="wrap">
+      <span class="ticker-flag"><span class="live-dot"></span> מבזק</span>
+      <span class="ticker-text" id="tickerText" role="status" aria-live="polite"></span>
+      <button class="ticker-more" id="tickerMore">כל העדכונים ←</button>
+    </div>
+  </div>
+
+  <!-- ====== Owner-lead banner ====== -->
+  <div class="section wrap">
+    <div class="owner-banner">
+      <div>
+        <p class="eyebrow" style="color:#E8C88A">בעלי נכסים</p>
+        <h2 id="ownerHeadline">חושבים למכור את הדירה?</h2>
+        <p>קבלו הערכת שוק מקצועית ללא עלות ממתווך מומלץ באזורכם.</p>
+        <div class="owner-toggle" style="margin-top:14px;max-width:260px">
+          <button class="active" data-owner="sale">רוצה למכור</button>
+          <button data-owner="rent">רוצה להשכיר</button>
+        </div>
+      </div>
+      <form class="owner-form" onsubmit="event.preventDefault()">
+        <input type="text" placeholder="כתובת הנכס" required>
+        <input type="number" placeholder="מספר חדרים" required>
+        <input type="text" placeholder="שם מלא" required>
+        <input type="tel" placeholder="טלפון" required>
+        <button class="btn btn-gold">קבלת הערכת שווי חינם</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ====== Leading Agencies (module 3 §5.2) ====== -->
+  <section class="section wrap" id="leadingAgencies">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">מריטוקרטי, לא תלוי-מנוי</p>
+        <h2>משרדי תיווך מובילים בעפולה</h2>
+      </div>
+    </div>
+    <div class="featured-scroll" id="leadingAgenciesScroll"><!-- populated by JS --></div>
+  </section>
+
+  <!-- ====== Leading Agents (module 3 §5.1) ====== -->
+  <section class="section wrap" id="leadingAgents">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">מריטוקרטי, לא תלוי-מנוי</p>
+        <h2>מתווכים מובילים בעפולה והעמק</h2>
+      </div>
+    </div>
+    <div class="featured-scroll" id="leadingAgentsScroll"><!-- populated by JS --></div>
+  </section>
+
+  <!-- ====== Featured (Premium rotation) ====== -->
+  <section class="section wrap" id="featured">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">נכסים מקודמים</p>
+        <h2>מומלצים השבוע בעמק</h2>
+      </div>
+      <a href="#" class="see-all">כל הנכסים ←</a>
+    </div>
+    <div class="featured-scroll" id="featuredScroll"><!-- populated by JS --></div>
+  </section>
+
+  <!-- ====== Property grid ====== -->
+  <section class="section wrap" id="listings">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">נכסים באזור</p>
+        <h2>כל הנכסים הפעילים</h2>
+      </div>
+      <a href="#" class="see-all">סינון מתקדם ←</a>
+    </div>
+    <div class="property-grid" id="propertyGrid"><!-- populated by JS --></div>
+  </section>
+
+  <!-- ====== Mortgage calculator ====== -->
+  <section class="section wrap" id="calc">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">כלי שימושי</p>
+        <h2>מחשבון משכנתא</h2>
+      </div>
+    </div>
+    <div class="card calc-card">
+      <div class="calc-grid">
+        <div class="calc-field">
+          <label for="calcPrice">מחיר הנכס (₪)</label>
+          <input type="number" id="calcPrice" value="1250000">
+        </div>
+        <div class="calc-field">
+          <label for="calcEquity">הון עצמי (₪)</label>
+          <input type="number" id="calcEquity" value="350000">
+        </div>
+        <div class="calc-field">
+          <label for="calcRate">ריבית שנתית (%)</label>
+          <input type="number" id="calcRate" value="4.8" step="0.1">
+        </div>
+        <div class="calc-field">
+          <label for="calcYears">שנות החזר</label>
+          <input type="number" id="calcYears" value="25">
+        </div>
+      </div>
+      <div class="calc-result">
+        <div class="num" id="calcMonthly">—</div>
+        <div class="lbl">החזר חודשי משוער</div>
+        <div class="lbl" id="calcLtvWarning" style="color:var(--brick);font-weight:700;margin-top:8px"></div>
+      </div>
+      <p style="font-size:.74rem;color:var(--ink-soft)">* הערכה בלבד ואינה מהווה הצעת מימון מחייבת. אחוזי המימון המקסימליים כפופים לנהלי בנק ישראל ועשויים להשתנות.</p>
+    </div>
+  </section>
+
+  <!-- ====== Professionals ====== -->
+  <section class="section wrap" id="pros">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">בעלי מקצוע נבחרים</p>
+        <h2>מי שילווה אתכם בדרך</h2>
+      </div>
+      <a href="professional-signup.html" class="see-all">הצטרפות כבעל מקצוע ←</a>
+    </div>
+    <div class="pros-grid" id="prosGrid"><!-- populated by JS, fallback to static below on failure --></div>
+  </section>
+
+</main>
+
+<footer class="site">
+  <div class="wrap footer-grid">
+    <div class="footer-col">
+      <h4>שוק נדל״ן</h4>
+      <a href="#">אודות</a>
+      <a href="#">צור קשר</a>
+      <a href="#">הצטרפות כמשרד תיווך</a>
+    </div>
+    <div class="footer-col">
+      <h4>נכסים</h4>
+      <a href="#">למכירה בעפולה</a>
+      <a href="#">להשכרה בעפולה</a>
+      <a href="#">ישובי העמק</a>
+    </div>
+    <div class="footer-col">
+      <h4>כלים</h4>
+      <a href="#">מחשבון משכנתא</a>
+      <a href="#">מתווכים מובילים</a>
+      <a href="#">בעלי מקצוע</a>
+    </div>
+    <div class="footer-col">
+      <h4>משפטי ונגישות</h4>
+      <a href="#">תנאי שימוש</a>
+      <a href="#">פרטיות</a>
+      <a href="#">הצהרת נגישות</a>
+    </div>
+  </div>
+  <div class="wrap footer-bottom">
+    <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
+    <span>העסקה הבאה שלך בעפולה מתחילה בשוק הנדל״ן.</span>
+  </div>
+</footer>
+
+<button class="a11y-fab" aria-label="פתיחת תפריט נגישות" title="נגישות">♿</button>
+
+<script>
+/* ============================================================
+   Live Supabase connection — shuknadlan-marketplace project.
+   IMPORTANT STRUCTURE NOTE: all core UI wiring (menu, toggles,
+   calculator, owner-lead form submit) is set up FIRST, with zero
+   dependency on external scripts loading successfully. Supabase/
+   Leaflet-dependent code runs after, wrapped in try/catch, so a
+   blocked CDN (ad-blocker, corporate proxy, file:// restrictions)
+   degrades to fallback content instead of breaking the whole page.
+   ============================================================ */
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+const OWNER_LEAD_FUNCTION_URL = SUPABASE_URL + '/functions/v1/owner-lead-intake';
+
+const FALLBACK_PROPERTIES = [
+  {id:'m1', price:1180000, title:'דירת 4 חדרים, שכונת רמת דוד', rooms:4, property_type:'דירה', deal_type:'sale', lat:32.6078, lng:35.2897, agency_name:'משרד תיווך העמק', is_promoted:true},
+  {id:'m2', price:4200, title:'דירת 3 חדרים להשכרה, מרכז העיר', rooms:3, property_type:'דירה', deal_type:'rent', lat:32.6100, lng:35.2950, agency_name:'נדל״ן גלבוע', is_promoted:false},
+  {id:'m3', price:2350000, title:'בית פרטי, שכונת גבעת המורה', rooms:6, property_type:'בית פרטי', deal_type:'sale', lat:32.6020, lng:35.2830, agency_name:'בית ונחלה', is_promoted:true},
+];
+const FALLBACK_TICKER = [
+  {text:'חם מהשטח: דירת 4 חדרים בעפולה נמכרה ב-1,350,000 ₪'},
+  {text:'עדכון: ריבית הפריים נותרה יציבה לחודש השני ברציפות'},
+];
+const CARD_GRADIENTS = ['linear-gradient(155deg,#8B2332,#1C3A5E)','linear-gradient(155deg,#1C3A5E,#8B2332)','linear-gradient(155deg,#6B1A26,#1C3A5E)','linear-gradient(155deg,#8B2332,#6B1A26)','linear-gradient(155deg,#1C3A5E,#6B1A26)','linear-gradient(155deg,#6B1A26,#8B2332)'];
+function priceLabel(p){
+  return p.deal_type === 'rent' ? ('₪' + Number(p.price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(p.price).toLocaleString('he-IL'));
+}
+
+/* ============================================================
+   PART 1 — core UI. No external dependency. Always works.
+   ============================================================ */
+
+/* ---------- Mobile menu ---------- */
+const menuToggle = document.getElementById('menuToggle');
+const mobileMenu = document.getElementById('mobileMenu');
+menuToggle.addEventListener('click', () => {
+  const open = mobileMenu.classList.toggle('open');
+  menuToggle.setAttribute('aria-expanded', open);
+});
+
+/* ---------- Deal toggle (hero search) ---------- */
+document.querySelectorAll('.deal-toggle button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+/* ---------- Owner banner toggle: sale/rent copy switch + state for submit ---------- */
+const ownerHeadline = document.getElementById('ownerHeadline');
+let currentOwnerDeal = 'sale';
+document.querySelectorAll('.owner-toggle button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    currentOwnerDeal = btn.dataset.owner;
+    ownerHeadline.textContent = btn.dataset.owner === 'sale'
+      ? 'חושבים למכור את הדירה?'
+      : 'יש לכם נכס פנוי להשכרה?';
+  });
+});
+
+/* ---------- Newsflash ticker rotation (starts with fallback text immediately) ---------- */
+let TICKER_ITEMS = FALLBACK_TICKER;
+let tickerIndex = 0;
+const tickerText = document.getElementById('tickerText');
+function renderTicker(){
+  tickerText.textContent = TICKER_ITEMS[tickerIndex].text;
+  tickerIndex = (tickerIndex + 1) % TICKER_ITEMS.length;
+}
+renderTicker();
+setInterval(renderTicker, 5000);
+document.getElementById('tickerMore').addEventListener('click', ()=>{
+  alert('כאן ייפתח מודאל עם רשימת כל העדכונים (ראו מודול 0 §2.3 / מודול 2 §5.3)');
+});
+
+/* ---------- Mortgage calculator (pure JS, live, amortization formula) ---------- */
+const LTV_THRESHOLDS = { single:0.75, replacement:0.70, investment:0.50 }; // מודול 2 §5.5 — קונפיגורבילי
+function updateCalculator(){
+  const price = parseFloat(document.getElementById('calcPrice').value) || 0;
+  const equity = parseFloat(document.getElementById('calcEquity').value) || 0;
+  const annualRate = parseFloat(document.getElementById('calcRate').value) || 0;
+  const years = parseFloat(document.getElementById('calcYears').value) || 1;
+
+  const loan = Math.max(price - equity, 0);
+  const monthlyRate = (annualRate/100)/12;
+  const n = years*12;
+  let monthly = 0;
+  if (loan > 0 && monthlyRate > 0){
+    monthly = loan * (monthlyRate*Math.pow(1+monthlyRate,n)) / (Math.pow(1+monthlyRate,n)-1);
+  }
+  document.getElementById('calcMonthly').textContent = monthly ? ('₪' + Math.round(monthly).toLocaleString('he-IL')) : '—';
+
+  const ltv = price > 0 ? loan/price : 0;
+  const warn = document.getElementById('calcLtvWarning');
+  if (ltv > LTV_THRESHOLDS.single){
+    warn.textContent = `אחוז המימון הנדרש (${Math.round(ltv*100)}%) חורג מהתקרה המקובלת לדירה יחידה (75%) — כדאי לבדוק מול יועץ משכנתאות`;
+  } else {
+    warn.textContent = '';
+  }
+}
+['calcPrice','calcEquity','calcRate','calcYears'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', updateCalculator);
+});
+updateCalculator();
+
+/* ---------- Owner-lead banner: live submit to owner-lead-intake Edge Function.
+   Pure fetch() — no dependency on the supabase-js SDK at all, so this works
+   even if the CDN script below fails to load. ---------- */
+const ownerForm = document.querySelector('.owner-form');
+ownerForm.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const [addressEl, roomsEl, nameEl, phoneEl] = ownerForm.querySelectorAll('input');
+  const submitBtn = ownerForm.querySelector('button');
+  const originalLabel = submitBtn.textContent;
+  submitBtn.textContent = 'שולח…';
+  submitBtn.disabled = true;
+  try{
+    const res = await fetch(OWNER_LEAD_FUNCTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({
+        city: 'עפולה',
+        property_type: 'דירה', // הטופס נשאר קצר (4 שדות) לפי מודול 2 §5.1 — לא נוסף שדה סוג-נכס
+        deal_type: currentOwnerDeal,
+        address: addressEl.value,
+        rooms: roomsEl.value,
+        name: nameEl.value,
+        phone: phoneEl.value,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'שגיאה');
+    submitBtn.textContent = data.matched_agent_id ? 'הבקשה נשלחה! מתווך יחזור אליך בקרוב' : 'הבקשה נשמרה, מחפשים מתווך מתאים';
+    ownerForm.reset();
+  } catch(err){
+    console.error('owner-lead-intake failed:', err);
+    submitBtn.textContent = 'שגיאה בשליחה — בדקו חיבור לאינטרנט ונסו שוב';
+  } finally {
+    setTimeout(()=>{ submitBtn.textContent = originalLabel; submitBtn.disabled = false; }, 3500);
+  }
+});
+
+/* ============================================================
+   PART 2 — Supabase-backed content (map, live listings, live
+   ticker). Everything here is wrapped so a failure never
+   touches Part 1 above.
+   ============================================================ */
+let sb = null;
+try {
+  if (window.supabase) {
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  } else {
+    console.warn('supabase-js לא נטען (CDN חסום/נכשל) — עובד במצב fallback בלבד.');
+  }
+} catch(e){ console.warn('יצירת Supabase client נכשלה:', e); }
+
+async function loadProperties(){
+  if (!sb) return FALLBACK_PROPERTIES;
+  try{
+    const { data, error } = await sb
+      .from('properties')
+      .select('id, price, title, rooms, property_type, deal_type, lat, lng, is_promoted, agencies(name)')
+      .eq('status', 'active')
+      .limit(12);
+    if (error || !data || data.length === 0) throw error || new Error('empty');
+    return data.map(p => ({...p, agency_name: p.agencies?.name || ''}));
+  } catch(e){
+    console.warn('נכשל טעינת נכסים מה-DB, משתמש בנתוני fallback:', e);
+    return FALLBACK_PROPERTIES;
+  }
+}
+
+async function loadTicker(){
+  if (!sb) return FALLBACK_TICKER;
+  try{
+    const { data: deals } = await sb.from('market_deals').select('property_type, rooms, city, sale_price, sold_at').order('sold_at', {ascending:false}).limit(3);
+    const { data: news } = await sb.from('news_items').select('headline, published_at').order('published_at', {ascending:false}).limit(3);
+    const items = [
+      ...(deals||[]).map(d => ({text:`חם מהשטח: דירת ${d.rooms} חדרים ב${d.city} נמכרה ב-${Number(d.sale_price).toLocaleString('he-IL')} ₪`})),
+      ...(news||[]).map(n => ({text: n.headline})),
+    ];
+    return items.length ? items : FALLBACK_TICKER;
+  } catch(e){
+    console.warn('נכשל טעינת מבזק מה-DB, משתמש בנתוני fallback:', e);
+    return FALLBACK_TICKER;
+  }
+}
+async function loadLeadingAgencies(){
+  try{
+    if (!sb) return [];
+    const { data, error } = await sb
+      .from('agency_rankings')
+      .select('agency_id, composite_score, active_properties_count, deal_count_6mo, agencies(name, slug)')
+      .order('composite_score', { ascending:false })
+      .limit(6);
+    if (error || !data) throw error;
+    return data;
+  } catch(e){
+    console.warn('טעינת משרדים מובילים נכשלה:', e);
+    return [];
+  }
+}
+
+(async function initLeadingAgencies(){
+  const rankings = await loadLeadingAgencies();
+  const el = document.getElementById('leadingAgenciesScroll');
+  const section = document.getElementById('leadingAgencies');
+  if (!rankings.length){ section.style.display = 'none'; return; }
+  rankings.forEach((r, i)=>{
+    const card = document.createElement('div');
+    card.className = 'agency-card';
+    const name = r.agencies?.name || 'משרד תיווך';
+    card.innerHTML = `
+      <div class="rank-badge">#${i+1}</div>
+      <div class="logo">${name[0]}</div>
+      <div class="name">${name}</div>
+      <div class="stat">${r.active_properties_count} נכסים פעילים</div>
+    `;
+    if (r.agencies?.slug) card.addEventListener('click', ()=> window.location.href = 'agency.html?slug=' + r.agencies.slug);
+    el.appendChild(card);
+  });
+})();
+
+async function loadLeadingAgents(){
+  try{
+    if (!sb) return [];
+    // הערה: "באזורך" בהנחיה המקורית מרמז על התאמה גיאוגרפית לפי מיקום הגולש —
+    // עדיין אין זיהוי מיקום בדף הבית, אז מוצגים כאן המובילים הכלליים בכל האזור
+    // (עפולה + סביבה), לא מסוננים לפי שכונה ספציפית. תיוג הכותרת שיקף את זה בכוונה.
+    const { data: rankings, error } = await sb
+      .from('agent_rankings')
+      .select('agent_id, composite_score, deal_count_6mo')
+      .order('composite_score', { ascending:false })
+      .limit(6);
+    if (error || !rankings || rankings.length === 0) throw error || new Error('empty');
+
+    // שאילתה שנייה נפרדת ולא embed חוצה-שם (agent_rankings -> agency_members_public) —
+    // FK בפועל מצביע ל-agency_members, לא ל-view; embed ישיר לא מובטח להיפתר נכון ב-PostgREST.
+    const ids = rankings.map(r => r.agent_id);
+    const { data: members } = await sb
+      .from('agency_members_public')
+      .select('id, display_name, slug, agencies(name)')
+      .in('id', ids);
+    const byId = {};
+    (members||[]).forEach(m => byId[m.id] = m);
+
+    return rankings.map(r => ({ ...r, agency_members: byId[r.agent_id] || null }));
+  } catch(e){
+    console.warn('טעינת מתווכים מובילים נכשלה:', e);
+    return [];
+  }
+}
+
+(async function initLeadingAgents(){
+  const rankings = await loadLeadingAgents();
+  const el = document.getElementById('leadingAgentsScroll');
+  const section = document.getElementById('leadingAgents');
+  if (!rankings.length){ section.style.display = 'none'; return; }
+  rankings.forEach((r, i)=>{
+    const agent = r.agency_members;
+    const card = document.createElement('div');
+    card.className = 'agency-card';
+    const name = agent?.display_name || 'מתווך/ת';
+    card.innerHTML = `
+      <div class="rank-badge">#${i+1}</div>
+      <div class="logo">${name[0]}</div>
+      <div class="name">${name}</div>
+      <div class="stat">${agent?.agencies?.name || ''}</div>
+    `;
+    if (agent?.slug) card.addEventListener('click', ()=> window.location.href = 'agent.html?slug=' + agent.slug);
+    el.appendChild(card);
+  });
+})();
+
+/* ---------- Professionals (module 2 §5.6) — live ad_placements, static fallback ---------- */
+const FALLBACK_PROS = [
+  {advertiser_name:'יועץ משכנתאות', advertiser_type:'mortgage_advisor', target_region:'מומלץ באזור עפולה'},
+  {advertiser_name:'שמאי מקרקעין', advertiser_type:'appraiser', target_region:'הערכות שווי'},
+  {advertiser_name:'אדריכל', advertiser_type:'architect', target_region:'תכנון ועיצוב'},
+  {advertiser_name:'מעצבת פנים', advertiser_type:'interior_designer', target_region:"שיפוצים והום סטייג'ינג"},
+  {advertiser_name:'עו״ד מקרקעין', advertiser_type:'real_estate_lawyer', target_region:'ליווי עסקאות'},
+];
+const TYPE_LABELS = {
+  mortgage_advisor:'יועץ/ת משכנתאות', appraiser:'שמאי/ת מקרקעין', architect:'אדריכל/ית',
+  interior_designer:'מעצב/ת פנים', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל/ת מקצוע',
+};
+
+(async function initProfessionals(){
+  const el = document.getElementById('prosGrid');
+  let pros = FALLBACK_PROS;
+  try{
+    if (sb){
+      const { data, error } = await sb
+        .from('ad_placements')
+        .select('advertiser_name, advertiser_type, target_region, click_url')
+        .eq('placement_type', 'professional_card')
+        .eq('status', 'active')
+        .limit(10);
+      if (!error && data && data.length > 0) pros = data;
+    }
+  } catch(e){ console.warn('טעינת בעלי מקצוע נכשלה, מציג ברירת מחדל:', e); }
+
+  el.innerHTML = '';
+  pros.forEach(p=>{
+    const initials = p.advertiser_name.split(' ').map(w=>w[0]).slice(0,2).join('');
+    const card = document.createElement(p.click_url ? 'a' : 'div');
+    card.className = 'card pro-card';
+    if (p.click_url){ card.href = p.click_url; card.target = '_blank'; card.rel = 'noopener'; card.style.textDecoration = 'none'; card.style.color = 'inherit'; }
+    card.innerHTML = `<div class="pro-avatar">${initials}</div><h3>${p.advertiser_name}</h3><p class="role">${p.target_region || TYPE_LABELS[p.advertiser_type] || ''}</p>`;
+    el.appendChild(card);
+  });
+})();
+
+try {
+  if (!window.L) throw new Error('Leaflet לא נטען (CDN חסום/נכשל)');
+
+  const map = L.map('hero-map', { scrollWheelZoom:false }).setView([32.6078, 35.2897], 13);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution:'&copy; OpenStreetMap &copy; CARTO', maxZoom:19
+  }).addTo(map);
+  map.on('focus', ()=> map.scrollWheelZoom.enable());
+  map.on('blur', ()=> map.scrollWheelZoom.disable());
+
+  (async function initPropertyUI(){
+    const properties = await loadProperties();
+    const markers = {};
+
+    properties.forEach((p) => {
+      if (!p.lat || !p.lng) return;
+      const icon = L.divIcon({
+        className:'',
+        html:`<div style="background:${p.deal_type==='sale'?'#1C3A5E':'#8B2332'};color:#fff;padding:4px 8px;border-radius:8px;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.3);white-space:nowrap;font-family:Heebo,sans-serif">${priceLabel(p)}</div>`,
+        iconSize:[0,0]
+      });
+      const m = L.marker([p.lat, p.lng], {icon}).addTo(map);
+      m.bindPopup(`<strong>${p.title}</strong><br>${priceLabel(p)}<br><span style="color:#565C63">${p.agency_name||''}</span>`);
+      m.on('click', ()=> highlightCard(p.id));
+      markers[p.id] = m;
+    });
+    document.getElementById('mapCount').textContent = `מציג ${properties.length} נכסים על המפה`;
+
+    function highlightCard(id){
+      document.querySelectorAll('.mini-card').forEach(c=>c.classList.remove('hovered'));
+      const card = document.querySelector(`.mini-card[data-id="${id}"]`);
+      if (card) card.classList.add('hovered');
+    }
+
+    const listingStrip = document.getElementById('listingStrip');
+    properties.forEach((p, i)=>{
+      const el = document.createElement('div');
+      el.className = 'mini-card';
+      el.dataset.id = p.id;
+      el.innerHTML = `
+        <div class="thumb" style="background:${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}"></div>
+        <div class="body">
+          <div class="price">${priceLabel(p)}</div>
+          <div class="meta">${p.rooms || '—'} חדרים · ${p.property_type}</div>
+          <span class="badge">${p.agency_name||''}</span>
+        </div>`;
+      el.addEventListener('click', ()=>{
+        if (markers[p.id]){ map.panTo([p.lat,p.lng]); markers[p.id].openPopup(); }
+      });
+      el.addEventListener('mouseenter', ()=> markers[p.id] && markers[p.id]._icon && markers[p.id]._icon.style.setProperty('transform','scale(1.15)'));
+      el.addEventListener('mouseleave', ()=> markers[p.id] && markers[p.id]._icon && markers[p.id]._icon.style.setProperty('transform','scale(1)'));
+      listingStrip.appendChild(el);
+    });
+
+    const featuredScroll = document.getElementById('featuredScroll');
+    properties.filter(p=>p.is_promoted).forEach((p,i)=>{
+      const el = document.createElement('div');
+      el.className = 'prop-card';
+      el.style.cursor = 'pointer';
+      el.innerHTML = `
+        <div class="thumb" style="background:${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}"><span class="ribbon">מקודם</span></div>
+        <div class="body">
+          <div class="price">${priceLabel(p)}</div>
+          <div class="title">${p.title}</div>
+          <div class="meta"><span>${p.rooms || '—'} חדרים</span><span>${p.property_type}</span></div>
+        </div>`;
+      el.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
+      featuredScroll.appendChild(el);
+    });
+
+    const propertyGrid = document.getElementById('propertyGrid');
+    properties.forEach((p, i)=>{
+      const el = document.createElement('div');
+      el.className = 'prop-card';
+      el.style.cursor = 'pointer';
+      el.innerHTML = `
+        <div class="thumb" style="background:${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}">${p.is_promoted ? '<span class="ribbon">מקודם</span>' : ''}</div>
+        <div class="body">
+          <div class="price">${priceLabel(p)}</div>
+          <div class="title">${p.title}</div>
+          <div class="meta"><span>${p.rooms || '—'} חדרים</span><span>${p.property_type}</span><span>${p.agency_name||''}</span></div>
+        </div>`;
+      el.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
+      propertyGrid.appendChild(el);
+      if (i === 1){
+        const ad = document.createElement('div');
+        ad.className = 'infeed-ad';
+        ad.textContent = 'פרסומת — באנר רוחבי בין אריחי הנכסים';
+        propertyGrid.appendChild(ad);
+      }
+    });
+  })();
+} catch(e){
+  console.warn('אתחול המפה/הנכסים נכשל, ממשיכים בלי הסקשן הזה:', e);
+  const mapWrap = document.querySelector('.map-wrap');
+  if (mapWrap) mapWrap.innerHTML = '<div style="padding:24px;text-align:center;color:#565C63;font-size:.85rem">המפה לא נטענה (בעיית רשת) — ניתן עדיין למלא את הטופס למעלה ולשלוח פנייה.</div>';
+}
+</script>
+</body>
+</html>
