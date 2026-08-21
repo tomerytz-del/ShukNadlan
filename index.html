@@ -10,6 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   /* ====== Design tokens — grounded in Jezreel Valley (עמק יזרעאל): wheat gold + cultivated-land teal + Gilboa dusk ====== */
@@ -1269,33 +1270,48 @@ function isPlacementLive(p, today){
   });
 })();
 
+/* המפה היא שכבה אופציונלית ולא תנאי להצגת הנכסים.
+   קודם כל רינדור הנכסים ישב בתוך אותו try של המפה, ולכן ברגע ש-Leaflet
+   לא נטען — נעלמו איתו גם גריד הנכסים, הנכסים המקודמים ורצועת המפה,
+   והמבקר ראה עמוד בית כמעט ריק. עכשיו כישלון של המפה מוריד רק את המפה. */
+let heroMap = null;
 try {
   if (!window.L) throw new Error('Leaflet לא נטען (CDN חסום/נכשל)');
 
-  const map = L.map('hero-map', { scrollWheelZoom:false }).setView([32.6078, 35.2897], 13);
+  heroMap = L.map('hero-map', { scrollWheelZoom:false }).setView([32.6078, 35.2897], 13);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     attribution:'&copy; OpenStreetMap &copy; CARTO', maxZoom:19
-  }).addTo(map);
-  map.on('focus', ()=> map.scrollWheelZoom.enable());
-  map.on('blur', ()=> map.scrollWheelZoom.disable());
+  }).addTo(heroMap);
+  heroMap.on('focus', ()=> heroMap.scrollWheelZoom.enable());
+  heroMap.on('blur', ()=> heroMap.scrollWheelZoom.disable());
+} catch(e){
+  console.warn('אתחול המפה נכשל, ממשיכים בלי המפה:', e);
+  const mapWrap = document.querySelector('.map-wrap');
+  if (mapWrap) mapWrap.innerHTML = '<div style="padding:24px;text-align:center;color:#565C63;font-size:.85rem">המפה לא נטענה (בעיית רשת) — רשימת הנכסים למטה עדיין זמינה.</div>';
+}
 
+try {
   (async function initPropertyUI(){
     const properties = await loadProperties();
     const markers = {};
 
-    properties.forEach((p) => {
-      if (!p.lat || !p.lng) return;
-      const icon = L.divIcon({
-        className:'',
-        html:`<div style="background:${p.deal_type==='sale'?'#1C3A5E':'#8B2332'};color:#fff;padding:4px 8px;border-radius:8px;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.3);white-space:nowrap;font-family:Heebo,sans-serif">${priceLabel(p)}</div>`,
-        iconSize:[0,0]
+    if (heroMap){
+      properties.forEach((p) => {
+        if (!p.lat || !p.lng) return;
+        const icon = L.divIcon({
+          className:'',
+          html:`<div style="background:${p.deal_type==='sale'?'#1C3A5E':'#8B2332'};color:#fff;padding:4px 8px;border-radius:8px;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.3);white-space:nowrap;font-family:Heebo,sans-serif">${priceLabel(p)}</div>`,
+          iconSize:[0,0]
+        });
+        const m = L.marker([p.lat, p.lng], {icon}).addTo(heroMap);
+        m.bindPopup(`<strong>${p.title}</strong><br>${priceLabel(p)}<br><span style="color:#565C63">${p.agency_name||''}</span>`);
+        m.on('click', ()=> highlightCard(p.id));
+        markers[p.id] = m;
       });
-      const m = L.marker([p.lat, p.lng], {icon}).addTo(map);
-      m.bindPopup(`<strong>${p.title}</strong><br>${priceLabel(p)}<br><span style="color:#565C63">${p.agency_name||''}</span>`);
-      m.on('click', ()=> highlightCard(p.id));
-      markers[p.id] = m;
-    });
-    document.getElementById('mapCount').textContent = `מציג ${properties.length} נכסים על המפה`;
+    }
+    // ה-fallback של המפה מחליף את תוכן .map-wrap, ולכן mapCount עשוי לא להתקיים
+    const mapCount = document.getElementById('mapCount');
+    if (mapCount) mapCount.textContent = `מציג ${properties.length} נכסים על המפה`;
 
     function highlightCard(id){
       document.querySelectorAll('.mini-card').forEach(c=>c.classList.remove('hovered'));
@@ -1316,7 +1332,7 @@ try {
           <span class="badge">${p.agency_name||''}</span>
         </div>`;
       el.addEventListener('click', ()=>{
-        if (markers[p.id]){ map.panTo([p.lat,p.lng]); markers[p.id].openPopup(); }
+        if (heroMap && markers[p.id]){ heroMap.panTo([p.lat,p.lng]); markers[p.id].openPopup(); }
       });
       el.addEventListener('mouseenter', ()=> markers[p.id] && markers[p.id]._icon && markers[p.id]._icon.style.setProperty('transform','scale(1.15)'));
       el.addEventListener('mouseleave', ()=> markers[p.id] && markers[p.id]._icon && markers[p.id]._icon.style.setProperty('transform','scale(1)'));
@@ -1343,9 +1359,7 @@ try {
     renderPropertyGrid(properties);
   })();
 } catch(e){
-  console.warn('אתחול המפה/הנכסים נכשל, ממשיכים בלי הסקשן הזה:', e);
-  const mapWrap = document.querySelector('.map-wrap');
-  if (mapWrap) mapWrap.innerHTML = '<div style="padding:24px;text-align:center;color:#565C63;font-size:.85rem">המפה לא נטענה (בעיית רשת) — ניתן עדיין למלא את הטופס למעלה ולשלוח פנייה.</div>';
+  console.warn('טעינת הנכסים נכשלה:', e);
 }
 
 /* ============================================================
