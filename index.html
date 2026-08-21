@@ -37,6 +37,9 @@
   }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
+  /* כללי display מפורשים (flex/inline-flex) גוברים על ה-display:none של
+     ה-UA עבור [hidden] — בלי זה כפתורים ורשימות מסומנים hidden נשארים גלויים. */
+  [hidden]{display:none !important}
   body{
     margin:0;
     background:var(--paper);
@@ -71,7 +74,10 @@
     padding:13px 22px;border-radius:999px;font-weight:700;font-size:.95rem;
     transition:transform .15s ease, box-shadow .15s ease;
   }
-  .btn-gold{background:var(--gold);color:#241505}
+  /* #241505 היה מתאים ל---gold כשהוא באמת היה זהב; מאז הפלטה עברה לאדום עמוק
+     (#8B2332) והטקסט החום־כהה נשאר — יחס ניגודיות ~1.9:1, כלומר תווית כמעט
+     בלתי קריאה בכל הכפתורים הראשיים. לבן על אותו רקע נותן 8.8:1. */
+  .btn-gold{background:var(--gold);color:#fff}
   .btn-gold:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(201,138,44,.35)}
   .btn-teal{background:var(--teal);color:#fff}
   .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(23,73,74,.3)}
@@ -170,7 +176,7 @@
   .deal-tab.active{background:var(--teal);color:#fff;border-color:var(--teal)}
   .search-actions-row{display:flex;gap:8px;margin-top:10px}
   .search-actions-row .btn-ghost{position:relative;white-space:nowrap;background:#fff}
-  .filter-count-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:999px;background:var(--gold);color:#241505;font-size:.68rem;font-weight:800;margin-right:6px;padding:0 4px}
+  .filter-count-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:999px;background:var(--gold);color:#fff;font-size:.68rem;font-weight:800;margin-right:6px;padding:0 4px}
 
   .filter-modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,52,53,.55);z-index:300;align-items:flex-end;justify-content:center}
   .filter-modal-overlay.open{display:flex}
@@ -259,19 +265,58 @@
     flex:1;padding:9px;border-radius:999px;font-weight:700;font-size:.82rem;
     border:1.5px solid rgba(255,255,255,.35);color:#fff;
   }
-  .owner-toggle button.active{background:var(--gold);border-color:var(--gold);color:#241505}
+  .owner-toggle button.active{background:var(--gold);border-color:var(--gold);color:#fff}
   /* minmax(0,1fr) ולא 1fr: ל-input יש רוחב מינימלי מובנה (size=20 כברירת
      מחדל), ו-1fr פירושו minmax(auto,1fr) — כלומר הרצועה לא יורדת מתחתיו.
      שני שדות זה לצד זה הכתיבו כך רוחב של ~451px, שהרחיב את הפריסה של כל
      העמוד בטלפון וגרם לגלילה הצידה. min-width:0 על ה-input משלים את זה. */
-  .owner-form{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
-  .owner-form input{grid-column:span 2;min-width:0;border:none;border-radius:var(--radius-sm);padding:12px;font-size:.9rem}
-  .owner-form input:nth-child(3),.owner-form input:nth-child(4){grid-column:span 1}
-  .owner-form .btn{grid-column:span 2}
+
+  /* ---- אשף הערכת נכס (3 שלבים) ---- */
+  .owner-wizard{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);
+    border-radius:var(--radius-lg);padding:16px}
+  .wiz-steps{display:flex;gap:6px;list-style:none;margin:0 0 16px;padding:0}
+  .wiz-steps li{flex:1;display:flex;align-items:center;gap:6px;font-size:.7rem;font-weight:700;
+    color:rgba(255,255,255,.5);padding-bottom:8px;border-bottom:2px solid rgba(255,255,255,.18)}
+  .wiz-steps li.active{color:#fff;border-bottom-color:var(--gold)}
+  .wiz-steps li.done{color:#E8C88A;border-bottom-color:var(--gold)}
+  .wiz-steps .dot{width:19px;height:19px;border-radius:50%;background:rgba(255,255,255,.18);
+    display:flex;align-items:center;justify-content:center;font-size:.68rem;flex:0 0 auto}
+  .wiz-steps li.active .dot{background:var(--gold);color:#fff}
+  .wiz-steps li.done .dot{background:var(--gold);color:#fff}
+
+  .wiz-panel{display:none}
+  .wiz-panel.active{display:block;animation:wizIn .22s ease}
+  @keyframes wizIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .wiz-q{color:#fff;font-weight:700;font-size:1rem;margin:0 0 12px;max-width:none}
+  .wiz-label{display:block;font-size:.74rem;font-weight:700;color:#CFE1DF;margin:14px 0 6px}
+  .wiz-input{width:100%;min-width:0;border:none;border-radius:var(--radius-sm);padding:12px;font-size:.9rem}
+  .wiz-input.invalid{box-shadow:0 0 0 2px var(--gold)}
+  .wiz-err{color:#F4C9B0;font-size:.78rem;margin:8px 0 0;min-height:1.1em}
+  .wiz-nav{display:flex;gap:8px;margin-top:14px}
+  .wiz-nav .btn{flex:1}
+  .btn-ghost-light{background:transparent;border:1.5px solid rgba(255,255,255,.35);color:#fff}
+
+  .chip-row{display:flex;flex-wrap:wrap;gap:7px}
+  .chip{padding:8px 14px;border-radius:999px;font-size:.82rem;font-weight:600;
+    background:transparent;border:1.5px solid rgba(255,255,255,.3);color:#fff}
+  .chip[aria-checked="true"]{background:var(--gold);border-color:var(--gold);color:#fff}
+  .wiz-checks{display:flex;flex-wrap:wrap;gap:10px}
+  .wiz-checks label{display:flex;align-items:center;gap:7px;font-size:.85rem;color:#fff;
+    background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.22);
+    border-radius:999px;padding:8px 14px;cursor:pointer}
+  .wiz-checks input{margin:0;accent-color:var(--gold)}
+  .wiz-checks label:has(input:checked){background:rgba(201,138,44,.3);border-color:var(--gold)}
+
+  .wiz-done{text-align:center;padding:10px 0}
+  .wiz-done-mark{width:52px;height:52px;border-radius:50%;background:var(--gold);color:#fff;
+    font-size:1.6rem;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
+  .wiz-done h3{color:#fff;font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;margin:0 0 6px}
+  .wiz-done p{color:#CFE1DF;font-size:.88rem;margin:0 auto 14px;max-width:34ch}
+
   @media(min-width:640px){
-    .owner-banner{flex-direction:row;align-items:center;padding:32px}
+    .owner-banner{flex-direction:row;align-items:flex-start;padding:32px}
     .owner-banner > div:first-child{flex:1}
-    .owner-form{flex:1;min-width:320px}
+    .owner-wizard{flex:1;min-width:340px}
   }
 
   /* ====== Featured / grid ====== */
@@ -282,7 +327,7 @@
   }
   .prop-card .thumb{height:150px;background-size:cover;background-position:center;position:relative}
   .prop-card .ribbon{
-    position:absolute;top:10px;right:10px;background:var(--gold);color:#241505;font-size:.68rem;
+    position:absolute;top:10px;right:10px;background:var(--gold);color:#fff;font-size:.68rem;
     font-weight:800;padding:3px 9px;border-radius:5px;
   }
   .prop-card .body{padding:12px}
@@ -669,20 +714,95 @@
     <div class="owner-banner">
       <div>
         <p class="eyebrow" style="color:#E8C88A">בעלי נכסים</p>
-        <h2 id="ownerHeadline">חושבים למכור את הדירה?</h2>
-        <p>קבלו הערכת שוק מקצועית ללא עלות ממתווך מומלץ באזורכם.</p>
-        <div class="owner-toggle" style="margin-top:14px;max-width:260px">
-          <button class="active" data-owner="sale">רוצה למכור</button>
-          <button data-owner="rent">רוצה להשכיר</button>
+        <h2 id="ownerHeadline">מוכר/משכיר?</h2>
+        <p>קבלו הערכת נכס ב-3 קליקים — ללא עלות, ממתווך מומלץ באזורכם.</p>
+        <button type="button" class="btn btn-gold" id="ownerStartBtn" style="margin-top:16px">בואו נתחיל ←</button>
+      </div>
+
+      <!-- אשף 3 שלבים; נפתח בלחיצה על "בואו נתחיל" ומחליף את הטופס הישן -->
+      <div class="owner-wizard" id="ownerWizard" hidden>
+        <ol class="wiz-steps" id="wizSteps" aria-label="שלבי ההערכה">
+          <li class="active" data-step="1"><span class="dot">1</span>עסקה וכתובת</li>
+          <li data-step="2"><span class="dot">2</span>על הנכס</li>
+          <li data-step="3"><span class="dot">3</span>פרטי קשר</li>
+        </ol>
+
+        <form id="ownerWizardForm" novalidate>
+          <!-- שלב 1 -->
+          <section class="wiz-panel active" data-panel="1">
+            <p class="wiz-q">מה תרצו לעשות עם הנכס?</p>
+            <div class="owner-toggle">
+              <button type="button" class="active" data-owner="sale">רוצה למכור</button>
+              <button type="button" data-owner="rent">רוצה להשכיר</button>
+            </div>
+            <label class="wiz-label" for="wizAddress">כתובת מדויקת</label>
+            <input type="text" id="wizAddress" class="wiz-input" placeholder="לדוגמה: הרצל 24, עפולה" autocomplete="street-address">
+            <p class="wiz-err" id="wizErr1"></p>
+            <div class="wiz-nav">
+              <button type="button" class="btn btn-gold" data-next="2">להמשך ←</button>
+            </div>
+          </section>
+
+          <!-- שלב 2 -->
+          <section class="wiz-panel" data-panel="2">
+            <p class="wiz-q">ספרו לנו על הנכס</p>
+
+            <span class="wiz-label">מצב הנכס</span>
+            <div class="chip-row" role="radiogroup" aria-label="מצב הנכס">
+              <button type="button" class="chip" role="radio" aria-checked="false" data-condition="renovated">משופץ</button>
+              <button type="button" class="chip" role="radio" aria-checked="false" data-condition="partly_renovated">משופץ חלקית</button>
+              <button type="button" class="chip" role="radio" aria-checked="false" data-condition="needs_renovation">דרוש שיפוץ</button>
+            </div>
+
+            <span class="wiz-label">מספר חדרים</span>
+            <div class="chip-row" role="radiogroup" aria-label="מספר חדרים">
+              <button type="button" class="chip" role="radio" aria-checked="false" data-rooms="2">2</button>
+              <button type="button" class="chip" role="radio" aria-checked="false" data-rooms="2.5">2.5</button>
+              <button type="button" class="chip" role="radio" aria-checked="false" data-rooms="3">3</button>
+              <button type="button" class="chip" role="radio" aria-checked="false" data-rooms="3.5">3.5</button>
+              <button type="button" class="chip" role="radio" aria-checked="false" data-rooms="4">4</button>
+              <button type="button" class="chip" role="radio" aria-checked="false" data-rooms="4.5">4.5</button>
+              <button type="button" class="chip" role="radio" aria-checked="false" data-rooms="5">5</button>
+              <button type="button" class="chip" role="radio" aria-checked="false" data-rooms="6">6+</button>
+            </div>
+
+            <span class="wiz-label">מה יש בנכס?</span>
+            <div class="wiz-checks">
+              <label><input type="checkbox" value="ממ״ד"> ממ״ד</label>
+              <label><input type="checkbox" value="מרפסת"> מרפסת</label>
+              <label><input type="checkbox" value="מעלית"> מעלית</label>
+            </div>
+
+            <p class="wiz-err" id="wizErr2"></p>
+            <div class="wiz-nav">
+              <button type="button" class="btn btn-ghost-light" data-back="1">→ חזרה</button>
+              <button type="button" class="btn btn-gold" data-next="3">להמשך ←</button>
+            </div>
+          </section>
+
+          <!-- שלב 3 -->
+          <section class="wiz-panel" data-panel="3">
+            <p class="wiz-q">לאן נחזור אליכם?</p>
+            <label class="wiz-label" for="wizName">שם מלא</label>
+            <input type="text" id="wizName" class="wiz-input" autocomplete="name">
+            <label class="wiz-label" for="wizPhone">טלפון</label>
+            <input type="tel" id="wizPhone" class="wiz-input" placeholder="050-0000000" autocomplete="tel">
+            <p class="wiz-err" id="wizErr3"></p>
+            <div class="wiz-nav">
+              <button type="button" class="btn btn-ghost-light" data-back="2">→ חזרה</button>
+              <button type="submit" class="btn btn-gold" id="wizSubmitBtn">קבלת הערכת שווי חינם</button>
+            </div>
+          </section>
+        </form>
+
+        <!-- מסך סיום -->
+        <div class="wiz-done" id="wizDone" hidden>
+          <div class="wiz-done-mark" aria-hidden="true">✓</div>
+          <h3>הפרטים נשלחו לבדיקה</h3>
+          <p>סוכן מקומי יצור איתכם קשר תוך זמן קצר עם הערכת המחיר המדויקת לנכס.</p>
+          <button type="button" class="btn btn-ghost-light" id="wizRestart">שליחת נכס נוסף</button>
         </div>
       </div>
-      <form class="owner-form" onsubmit="event.preventDefault()">
-        <input type="text" placeholder="כתובת הנכס" required>
-        <input type="number" placeholder="מספר חדרים" required>
-        <input type="text" placeholder="שם מלא" required>
-        <input type="tel" placeholder="טלפון" required>
-        <button class="btn btn-gold">קבלת הערכת שווי חינם</button>
-      </form>
     </div>
   </div>
 
@@ -971,19 +1091,6 @@ document.querySelectorAll('.deal-toggle button').forEach(btn=>{
   });
 });
 
-/* ---------- Owner banner toggle: sale/rent copy switch + state for submit ---------- */
-const ownerHeadline = document.getElementById('ownerHeadline');
-let currentOwnerDeal = 'sale';
-document.querySelectorAll('.owner-toggle button').forEach(btn=>{
-  btn.addEventListener('click', ()=>{
-    btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
-    btn.classList.add('active');
-    currentOwnerDeal = btn.dataset.owner;
-    ownerHeadline.textContent = btn.dataset.owner === 'sale'
-      ? 'חושבים למכור את הדירה?'
-      : 'יש לכם נכס פנוי להשכרה?';
-  });
-});
 
 /* ---------- Newsflash ticker rotation (starts with fallback text immediately) ---------- */
 let TICKER_ITEMS = FALLBACK_TICKER;
@@ -1029,14 +1136,139 @@ function updateCalculator(){
 });
 updateCalculator();
 
-/* ---------- Owner-lead banner: live submit to owner-lead-intake Edge Function.
-   Pure fetch() — no dependency on the supabase-js SDK at all, so this works
-   even if the CDN script below fails to load. ---------- */
-const ownerForm = document.querySelector('.owner-form');
-ownerForm.addEventListener('submit', async (e)=>{
+/* ---------- Owner-lead wizard (3 steps) ----------
+   שלב 1 עסקה+כתובת, שלב 2 מאפייני הנכס, שלב 3 פרטי קשר. השליחה בסוף היא
+   fetch() טהור אל owner-lead-intake — בלי תלות ב-SDK, כך שהאשף עובד גם אם
+   סקריפט ה-CDN של supabase-js נכשל בטעינה.                                */
+const CONDITION_LABELS = {
+  renovated: 'משופץ',
+  partly_renovated: 'משופץ חלקית',
+  needs_renovation: 'דרוש שיפוץ',
+};
+
+const ownerWizard = document.getElementById('ownerWizard');
+const ownerStartBtn = document.getElementById('ownerStartBtn');
+const ownerHeadline = document.getElementById('ownerHeadline');
+const wizForm = document.getElementById('ownerWizardForm');
+const wizDone = document.getElementById('wizDone');
+
+const wizState = { deal:'sale', address:'', condition:null, rooms:null, features:[], name:'', phone:'' };
+
+// כל הקלדה מנקה את השגיאה ואת סימון השדה, כדי שלא תישאר אדומה אחרי תיקון
+[['wizAddress',1], ['wizName',3], ['wizPhone',3]].forEach(([id, step])=>{
+  document.getElementById(id).addEventListener('input', (e)=>{
+    e.target.classList.remove('invalid');
+    setError(step, '');
+  });
+});
+
+ownerStartBtn.addEventListener('click', ()=>{
+  ownerWizard.hidden = false;
+  ownerStartBtn.hidden = true;
+  goToStep(1);
+  document.getElementById('wizAddress').focus();
+});
+
+function goToStep(n){
+  wizForm.querySelectorAll('.wiz-panel').forEach(p=>{
+    p.classList.toggle('active', Number(p.dataset.panel) === n);
+  });
+  document.querySelectorAll('#wizSteps li').forEach(li=>{
+    const step = Number(li.dataset.step);
+    li.classList.toggle('active', step === n);
+    li.classList.toggle('done', step < n);
+  });
+}
+
+function setError(step, message){
+  document.getElementById('wizErr' + step).textContent = message || '';
+}
+
+/* --- שלב 1: סוג עסקה + כתובת --- */
+document.querySelectorAll('.owner-toggle button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    wizState.deal = btn.dataset.owner;
+    ownerHeadline.textContent = wizState.deal === 'sale' ? 'מוכר?' : 'משכיר?';
+  });
+});
+
+/* --- שלב 2: צ'יפים של בחירה יחידה (מצב הנכס, חדרים) --- */
+function bindSingleChoice(attr, onPick){
+  document.querySelectorAll(`.chip[data-${attr}]`).forEach(chip=>{
+    chip.addEventListener('click', ()=>{
+      chip.parentElement.querySelectorAll('.chip').forEach(c=> c.setAttribute('aria-checked','false'));
+      chip.setAttribute('aria-checked','true');
+      onPick(chip.dataset[attr]);
+    });
+  });
+}
+// ניקוי השגיאה מיד עם הבחירה, ולא רק בניסיון המעבר הבא — אחרת ההודעה
+// "נא לבחור מספר חדרים" נשארת על המסך אחרי שהמשתמש כבר בחר.
+bindSingleChoice('condition', v => { wizState.condition = v; setError(2, ''); });
+bindSingleChoice('rooms', v => { wizState.rooms = v; setError(2, ''); });
+
+document.querySelectorAll('.wiz-checks input').forEach(cb=>{
+  cb.addEventListener('change', ()=>{
+    wizState.features = Array.from(document.querySelectorAll('.wiz-checks input:checked')).map(i=>i.value);
+  });
+});
+
+/* --- ניווט בין השלבים, עם ולידציה לפני מעבר קדימה --- */
+wizForm.querySelectorAll('[data-next]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const from = Number(btn.closest('.wiz-panel').dataset.panel);
+    if (!validateStep(from)) return;
+    goToStep(Number(btn.dataset.next));
+  });
+});
+wizForm.querySelectorAll('[data-back]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    setError(Number(btn.closest('.wiz-panel').dataset.panel), '');
+    goToStep(Number(btn.dataset.back));
+  });
+});
+
+function validateStep(step){
+  if (step === 1){
+    const el = document.getElementById('wizAddress');
+    wizState.address = el.value.trim();
+    if (wizState.address.length < 3){
+      setError(1, 'נא להזין כתובת מדויקת — רחוב ומספר');
+      el.classList.add('invalid'); el.focus();
+      return false;
+    }
+    el.classList.remove('invalid'); setError(1, '');
+    return true;
+  }
+  if (step === 2){
+    if (!wizState.condition){ setError(2, 'נא לבחור את מצב הנכס'); return false; }
+    if (!wizState.rooms){ setError(2, 'נא לבחור מספר חדרים'); return false; }
+    setError(2, '');
+    return true;
+  }
+  if (step === 3){
+    const nameEl = document.getElementById('wizName');
+    const phoneEl = document.getElementById('wizPhone');
+    wizState.name = nameEl.value.trim();
+    wizState.phone = phoneEl.value.trim();
+    const digits = wizState.phone.replace(/\D/g, '');
+    nameEl.classList.toggle('invalid', wizState.name.length < 2);
+    phoneEl.classList.toggle('invalid', digits.length < 9);
+    if (wizState.name.length < 2){ setError(3, 'נא להזין שם מלא'); nameEl.focus(); return false; }
+    if (digits.length < 9){ setError(3, 'נא להזין מספר טלפון תקין'); phoneEl.focus(); return false; }
+    setError(3, '');
+    return true;
+  }
+  return true;
+}
+
+/* --- שליחה --- */
+wizForm.addEventListener('submit', async (e)=>{
   e.preventDefault();
-  const [addressEl, roomsEl, nameEl, phoneEl] = ownerForm.querySelectorAll('input');
-  const submitBtn = ownerForm.querySelector('button');
+  if (!validateStep(3)) return;
+  const submitBtn = document.getElementById('wizSubmitBtn');
   const originalLabel = submitBtn.textContent;
   submitBtn.textContent = 'שולח…';
   submitBtn.disabled = true;
@@ -1046,24 +1278,42 @@ ownerForm.addEventListener('submit', async (e)=>{
       headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
       body: JSON.stringify({
         city: 'עפולה',
-        property_type: 'דירה', // הטופס נשאר קצר (4 שדות) לפי מודול 2 §5.1 — לא נוסף שדה סוג-נכס
-        deal_type: currentOwnerDeal,
-        address: addressEl.value,
-        rooms: roomsEl.value,
-        name: nameEl.value,
-        phone: phoneEl.value,
+        property_type: 'דירה', // האשף מיועד לדירות; סוג-נכס מלא נשאר בטופס הסוכן
+        deal_type: wizState.deal,
+        address: wizState.address,
+        rooms: wizState.rooms,
+        condition: CONDITION_LABELS[wizState.condition] || null,
+        features: wizState.features,
+        name: wizState.name,
+        phone: wizState.phone,
       }),
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'שגיאה');
-    submitBtn.textContent = data.matched_agent_id ? 'הבקשה נשלחה! מתווך יחזור אליך בקרוב' : 'הבקשה נשמרה, מחפשים מתווך מתאים';
-    ownerForm.reset();
+    wizForm.hidden = true;
+    document.getElementById('wizSteps').hidden = true;
+    wizDone.hidden = false;
   } catch(err){
     console.error('owner-lead-intake failed:', err);
-    submitBtn.textContent = 'שגיאה בשליחה — בדקו חיבור לאינטרנט ונסו שוב';
-  } finally {
-    setTimeout(()=>{ submitBtn.textContent = originalLabel; submitBtn.disabled = false; }, 3500);
+    setError(3, 'השליחה נכשלה — בדקו חיבור לאינטרנט ונסו שוב');
+    submitBtn.textContent = originalLabel;
+    submitBtn.disabled = false;
   }
+});
+
+document.getElementById('wizRestart').addEventListener('click', ()=>{
+  wizForm.reset();
+  wizForm.querySelectorAll('.chip').forEach(c=> c.setAttribute('aria-checked','false'));
+  wizForm.querySelectorAll('.wiz-input').forEach(i=> i.classList.remove('invalid'));
+  [1,2,3].forEach(s => setError(s, ''));
+  Object.assign(wizState, { address:'', condition:null, rooms:null, features:[], name:'', phone:'' });
+  const submitBtn = document.getElementById('wizSubmitBtn');
+  submitBtn.textContent = 'קבלת הערכת שווי חינם';
+  submitBtn.disabled = false;
+  wizDone.hidden = true;
+  wizForm.hidden = false;
+  document.getElementById('wizSteps').hidden = false;
+  goToStep(1);
 });
 
 /* ============================================================

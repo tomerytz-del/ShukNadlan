@@ -2181,6 +2181,8 @@ async function loadLeads(agentId){
         <span class="status-pill status-${lead.status === 'unlocked' ? 'unlocked' : 'masked'}">${statusLabel}</span>
       </div>
       <div class="lead-phone">${lead.display_phone || '—'}</div>
+      ${lead.property_details ? `<div class="lead-meta">🏠 ${lead.property_details}</div>` : ''}
+      ${lead.display_message ? `<div class="lead-meta">📍 ${lead.display_message}</div>` : ''}
       <div class="lead-actions"></div>
     `;
     const actions = el.querySelector('.lead-actions');
