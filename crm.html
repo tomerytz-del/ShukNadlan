@@ -19,7 +19,10 @@
   body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.5}
   h1,h2,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark);margin:0}
   button{font-family:inherit;cursor:pointer;border:none}
-  input{font-family:inherit;font-size:1rem}
+  /* min-width:0 מבטל את ה-min-width:auto המובנה של form controls, שמונע
+     מרצועת grid עם 1fr להתכווץ מתחת לרוחב התוכן שלהם — זה מה שגרם לשדות
+     בטופס המידע התכנוני (ולכל שאר ה-field-row-ים) לגלוש מחוץ למסך בטלפון. */
+  input{font-family:inherit;font-size:1rem;min-width:0}
   .wrap{max-width:760px;margin:0 auto;padding:0 18px}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;border-radius:999px;font-weight:700;font-size:.9rem}
   .btn-gold{background:var(--gold);color:#241505}

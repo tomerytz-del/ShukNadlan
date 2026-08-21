@@ -56,7 +56,10 @@
   a{color:inherit;text-decoration:none}
   img{max-width:100%;display:block}
   button{font-family:inherit;cursor:pointer;border:none;background:none}
-  input,select{font-family:inherit;font-size:1rem}
+  /* min-width:0 מבטל את ה-min-width:auto המובנה של form controls, שמונע
+     מרצועת grid עם 1fr להתכווץ מתחת לרוחב התוכן שלהם — אותה סיבה שגרמה
+     ל-.owner-form לגלוש מחוץ למסך בטלפון, אבל כאן לכל השדות בעמוד. */
+  input,select{font-family:inherit;font-size:1rem;min-width:0}
   .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
   .eyebrow{
     font-size:.72rem;letter-spacing:.08em;font-weight:700;color:var(--gold-dark);
