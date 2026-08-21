@@ -200,32 +200,32 @@
   .tri-toggle button{flex:1;padding:8px;font-size:.78rem;font-weight:600;color:var(--ink-soft)}
   .tri-toggle button.active{background:var(--teal);color:#fff}
 
-  .map-wrap{margin-top:22px;border-radius:var(--radius-lg) var(--radius-lg) 0 0;overflow:hidden;position:relative}
-  #hero-map{height:280px;width:100%}
+  /* המפה תמיד משקפת בדיוק את מה שמוצג ב-#propertyGrid למטה בעמוד (נכסים
+     באזור, או תוצאות חיפוש) — ראו renderMap() ב-JS. כברירת מחדל היא
+     מוקטנת ואסתטית; "הצג נכסים על המפה" מרחיב אותה במקום, בלי לנווט
+     לעמוד/מודאל נפרד. */
+  .map-wrap{margin-top:22px;border-radius:var(--radius-lg);overflow:hidden;position:relative}
+  /* overflow:hidden כאן במכוון, בנוסף לזה שכבר קיים ב-leaflet.min.css:
+     ה-panes הפנימיים של Leaflet גדולים בהרבה מהקונטיינר הנראה (buffer
+     של אריחים לגלילה חלקה), ובלי חיתוך הם "בולעים" קליקים על כפתור
+     ההרחבה שמתחת למפה — גם אם leaflet.min.css נכשל לטעון בעוד ה-JS הצליח. */
+  #hero-map{height:130px;width:100%;transition:height .25s ease;overflow:hidden}
+  .map-wrap.expanded #hero-map{height:280px}
   .map-count{
     position:absolute;top:12px;right:12px;z-index:400;background:var(--paper-raised);
     padding:7px 12px;border-radius:999px;font-size:.78rem;font-weight:700;box-shadow:var(--shadow-sm);color:var(--ink)
   }
-  .listing-strip{background:var(--paper-raised);padding:14px;display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory}
-  .mini-card{
-    flex:0 0 210px;scroll-snap-align:start;border:1px solid var(--line);border-radius:var(--radius-md);
-    overflow:hidden;background:#fff;cursor:pointer;transition:box-shadow .15s;
+  .map-expand-btn{
+    display:block;width:100%;text-align:center;padding:10px;font-weight:700;font-size:.83rem;
+    background:var(--paper-raised);color:var(--teal);border-top:1px solid var(--line);
   }
-  .mini-card:hover,.mini-card.hovered{box-shadow:var(--shadow)}
-  .mini-card .thumb{height:110px;background-size:cover;background-position:center}
-  .mini-card .body{padding:10px}
-  .mini-card .price{font-weight:800;color:var(--teal-dark);font-size:.95rem}
-  .mini-card .meta{font-size:.76rem;color:var(--ink-soft);margin-top:2px}
-  .mini-card .badge{
-    display:inline-block;font-size:.65rem;font-weight:700;background:var(--gold-tint);color:var(--gold-dark);
-    padding:2px 7px;border-radius:5px;margin-top:6px;
-  }
+  .map-expand-btn:hover{color:var(--teal-dark)}
 
   @media(min-width:760px){
     .filters-row{grid-template-columns:1fr 1fr 1fr 1fr}
     .deal-toggle{grid-column:auto;max-width:220px}
     .hero-inner h1{font-size:2.3rem}
-    #hero-map{height:340px}
+    .map-wrap.expanded #hero-map{height:340px}
   }
 
   /* ====== Newsflash ticker ====== */
@@ -393,7 +393,8 @@
   html.a11y-contrast span, html.a11y-contrast div, html.a11y-contrast label{color:#fff !important}
   html.a11y-contrast .btn, html.a11y-contrast button.opt, html.a11y-contrast input,
   html.a11y-contrast select, html.a11y-contrast .deal-toggle button,
-  html.a11y-contrast .owner-toggle button{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
+  html.a11y-contrast .owner-toggle button, html.a11y-contrast .deal-tab,
+  html.a11y-contrast .map-expand-btn{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
 </style>
 </head>
 <body>
@@ -646,8 +647,8 @@
       <div class="map-wrap card" style="border:1px solid rgba(255,255,255,.12)">
         <div id="hero-map"></div>
         <span class="map-count" id="mapCount">מציג 6 נכסים על המפה</span>
+        <button type="button" class="map-expand-btn" id="mapExpandBtn" aria-expanded="false">הצג נכסים על המפה ↓</button>
       </div>
-      <div class="listing-strip" id="listingStrip"><!-- populated by JS --></div>
     </div>
   </section>
 
@@ -1293,54 +1294,50 @@ try {
   if (mapWrap) mapWrap.innerHTML = '<div style="padding:24px;text-align:center;color:#565C63;font-size:.85rem">המפה לא נטענה (בעיית רשת) — רשימת הנכסים למטה עדיין זמינה.</div>';
 }
 
+const mapMarkers = {};
+
+// המפה מוקטנת כברירת מחדל, ותמיד משקפת בדיוק את מה שמוצג ב-#propertyGrid
+// למטה בעמוד — הפונקציה הזו נקראת מתוך renderPropertyGrid() עצמה (לא רק
+// מהטעינה הראשונית), כך ש-runSearch() מסנכרן אליה אוטומטית בלי צורך
+// לזכור לעדכן את המפה בנפרד בכל מקום שמרנדר את הגריד.
+function renderMap(properties){
+  Object.values(mapMarkers).forEach(m => heroMap && heroMap.removeLayer(m));
+  Object.keys(mapMarkers).forEach(id => delete mapMarkers[id]);
+
+  if (heroMap){
+    properties.forEach((p) => {
+      if (!p.lat || !p.lng) return;
+      const icon = L.divIcon({
+        className:'',
+        html:`<div style="background:${p.deal_type==='sale'?'#1C3A5E':'#8B2332'};color:#fff;padding:4px 8px;border-radius:8px;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.3);white-space:nowrap;font-family:Heebo,sans-serif">${priceLabel(p)}</div>`,
+        iconSize:[0,0]
+      });
+      const m = L.marker([p.lat, p.lng], {icon}).addTo(heroMap);
+      m.bindPopup(`<strong>${p.title}</strong><br>${priceLabel(p)}<br><span style="color:#565C63">${p.agency_name||''}</span>`);
+      mapMarkers[p.id] = m;
+    });
+  }
+  // ה-fallback של המפה מחליף את תוכן .map-wrap, ולכן mapCount עשוי לא להתקיים
+  const mapCount = document.getElementById('mapCount');
+  if (mapCount) mapCount.textContent = `מציג ${properties.length} נכסים על המפה`;
+}
+
+const mapExpandBtn = document.getElementById('mapExpandBtn');
+if (mapExpandBtn){
+  mapExpandBtn.addEventListener('click', ()=>{
+    const expanded = document.querySelector('.map-wrap').classList.toggle('expanded');
+    mapExpandBtn.textContent = expanded ? 'הקטן את המפה ↑' : 'הצג נכסים על המפה ↓';
+    mapExpandBtn.setAttribute('aria-expanded', String(expanded));
+    // הגובה של #hero-map משתנה ע"י מעבר קלאס עם transition; Leaflet לא
+    // מזהה שינוי גודל של ה-container לבד, ובלי invalidateSize() האריחים
+    // נשארים חתוכים בגודל הישן עד לפעולת משתמש נוספת (כמו גרירה)
+    if (heroMap) setTimeout(()=> heroMap.invalidateSize(), 260);
+  });
+}
+
 try {
   (async function initPropertyUI(){
     const properties = await loadProperties();
-    const markers = {};
-
-    if (heroMap){
-      properties.forEach((p) => {
-        if (!p.lat || !p.lng) return;
-        const icon = L.divIcon({
-          className:'',
-          html:`<div style="background:${p.deal_type==='sale'?'#1C3A5E':'#8B2332'};color:#fff;padding:4px 8px;border-radius:8px;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.3);white-space:nowrap;font-family:Heebo,sans-serif">${priceLabel(p)}</div>`,
-          iconSize:[0,0]
-        });
-        const m = L.marker([p.lat, p.lng], {icon}).addTo(heroMap);
-        m.bindPopup(`<strong>${p.title}</strong><br>${priceLabel(p)}<br><span style="color:#565C63">${p.agency_name||''}</span>`);
-        m.on('click', ()=> highlightCard(p.id));
-        markers[p.id] = m;
-      });
-    }
-    // ה-fallback של המפה מחליף את תוכן .map-wrap, ולכן mapCount עשוי לא להתקיים
-    const mapCount = document.getElementById('mapCount');
-    if (mapCount) mapCount.textContent = `מציג ${properties.length} נכסים על המפה`;
-
-    function highlightCard(id){
-      document.querySelectorAll('.mini-card').forEach(c=>c.classList.remove('hovered'));
-      const card = document.querySelector(`.mini-card[data-id="${id}"]`);
-      if (card) card.classList.add('hovered');
-    }
-
-    const listingStrip = document.getElementById('listingStrip');
-    properties.forEach((p, i)=>{
-      const el = document.createElement('div');
-      el.className = 'mini-card';
-      el.dataset.id = p.id;
-      el.innerHTML = `
-        <div class="thumb" style="${thumbStyle(p, i)}"></div>
-        <div class="body">
-          <div class="price">${priceLabel(p)}</div>
-          <div class="meta">${p.rooms || '—'} חדרים · ${p.property_type}</div>
-          <span class="badge">${p.agency_name||''}</span>
-        </div>`;
-      el.addEventListener('click', ()=>{
-        if (heroMap && markers[p.id]){ heroMap.panTo([p.lat,p.lng]); markers[p.id].openPopup(); }
-      });
-      el.addEventListener('mouseenter', ()=> markers[p.id] && markers[p.id]._icon && markers[p.id]._icon.style.setProperty('transform','scale(1.15)'));
-      el.addEventListener('mouseleave', ()=> markers[p.id] && markers[p.id]._icon && markers[p.id]._icon.style.setProperty('transform','scale(1)'));
-      listingStrip.appendChild(el);
-    });
 
     const featuredScroll = document.getElementById('featuredScroll');
     properties.filter(p=>p.is_promoted).forEach((p,i)=>{
@@ -1358,7 +1355,6 @@ try {
       featuredScroll.appendChild(el);
     });
 
-    const propertyGrid = document.getElementById('propertyGrid');
     renderPropertyGrid(properties);
   })();
 } catch(e){
@@ -1598,6 +1594,10 @@ function showSearchError(){
 }
 
 function renderPropertyGrid(properties, isSearchResult){
+  // נקודת הסנכרון היחידה בין המפה לגריד: כל קריאה לפונקציה הזו — טעינה
+  // ראשונית או runSearch() — מעדכנת גם את המפה לאותם נכסים בדיוק.
+  renderMap(properties);
+
   const grid = document.getElementById('propertyGrid');
   const heading = document.querySelector('#listings h2');
   if (heading) heading.textContent = isSearchResult ? `תוצאות חיפוש (${properties.length})` : 'כל הנכסים הפעילים';
