@@ -253,8 +253,12 @@
     border:1.5px solid rgba(255,255,255,.35);color:#fff;
   }
   .owner-toggle button.active{background:var(--gold);border-color:var(--gold);color:#241505}
-  .owner-form{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  .owner-form input{grid-column:span 2;border:none;border-radius:var(--radius-sm);padding:12px;font-size:.9rem}
+  /* minmax(0,1fr) ולא 1fr: ל-input יש רוחב מינימלי מובנה (size=20 כברירת
+     מחדל), ו-1fr פירושו minmax(auto,1fr) — כלומר הרצועה לא יורדת מתחתיו.
+     שני שדות זה לצד זה הכתיבו כך רוחב של ~451px, שהרחיב את הפריסה של כל
+     העמוד בטלפון וגרם לגלילה הצידה. min-width:0 על ה-input משלים את זה. */
+  .owner-form{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px}
+  .owner-form input{grid-column:span 2;min-width:0;border:none;border-radius:var(--radius-sm);padding:12px;font-size:.9rem}
   .owner-form input:nth-child(3),.owner-form input:nth-child(4){grid-column:span 1}
   .owner-form .btn{grid-column:span 2}
   @media(min-width:640px){
