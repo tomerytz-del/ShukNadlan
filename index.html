@@ -134,7 +134,8 @@
     background:
       radial-gradient(ellipse at 20% 0%, rgba(201,138,44,.14), transparent 55%),
       var(--teal-dark);
-    color:#fff;padding:34px 0 0;position:relative;overflow:hidden;
+    /* ריפוד תחתון: בלעדיו המפה נצמדת לקצה ה-section ונדבקת לטיקר המבזקים */
+    color:#fff;padding:34px 0 24px;position:relative;overflow:hidden;
   }
   .hero-ridge{
     position:absolute;bottom:0;right:0;left:0;height:64px;opacity:.35;pointer-events:none;
@@ -204,7 +205,9 @@
      באזור, או תוצאות חיפוש) — ראו renderMap() ב-JS. כברירת מחדל היא
      מוקטנת ואסתטית; "הצג נכסים על המפה" מרחיב אותה במקום, בלי לנווט
      לעמוד/מודאל נפרד. */
-  .map-wrap{margin-top:22px;border-radius:var(--radius-lg);overflow:hidden;position:relative}
+  /* צמוד לתיבת החיפוש (10px בלבד) אבל בלי לדרוס אותה — הצל של .search-card
+     נופל על המפה, ומרווח קטן מדי היה נראה כאילו הכרטיס יושב עליה. */
+  .map-wrap{margin-top:10px;border-radius:var(--radius-lg);overflow:hidden;position:relative}
   /* overflow:hidden כאן במכוון, בנוסף לזה שכבר קיים ב-leaflet.min.css:
      ה-panes הפנימיים של Leaflet גדולים בהרבה מהקונטיינר הנראה (buffer
      של אריחים לגלילה חלקה), ובלי חיתוך הם "בולעים" קליקים על כפתור
@@ -643,7 +646,7 @@
       </div>
     </div>
 
-    <div class="wrap" style="padding-top:22px;position:relative;z-index:1">
+    <div class="wrap" style="position:relative;z-index:1">
       <div class="map-wrap card" style="border:1px solid rgba(255,255,255,.12)">
         <div id="hero-map"></div>
         <span class="map-count" id="mapCount">מציג 6 נכסים על המפה</span>
