@@ -7,11 +7,25 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
+  /* ---------- ערכת הצבעים של המשרד ----------
+     ארבעת ה־brand tokens למטה הם היחידים שדף הניהול דורס (setProperty על :root)
+     לפי הצבעים שמנהל המשרד בחר. כל שאר המשתנים נגזרים מהם, כך שהחלפת ערכה
+     צובעת את הדף כולו — לא רק את הכותרת. */
   :root{
-    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
-    --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
-    --gold:#8B2332; --gold-dark:#6B1A26; --gold-tint:#F1DFE1;
+    --brand:#1C3A5E; --brand-dark:#122840; --accent:#8B2332; --accent-dark:#6B1A26;
+    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0; --line:#C5C3BC;
+    /* נפילה־לאחור לדפדפנים בלי color-mix: גוונים ניטרליים במקום גוון המותג */
+    --teal-tint:#E0E7ED; --gold-tint:#F1DFE1;
+    /* צבע הטקסט שיושב על גבי --brand; נדרס ל-כהה אם המשרד בחר גוון בהיר */
+    --on-brand:#fff;
+    --teal:var(--brand); --teal-dark:var(--brand-dark); --gold:var(--accent); --gold-dark:var(--accent-dark);
     --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(15,52,53,.08); --maxw:1000px;
+  }
+  @supports (color: color-mix(in srgb, red 50%, white)){
+    :root{
+      --teal-tint:color-mix(in srgb, var(--brand) 14%, #fff);
+      --gold-tint:color-mix(in srgb, var(--accent) 14%, #fff);
+    }
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55}
@@ -20,20 +34,30 @@
   button{font-family:inherit;cursor:pointer;border:none}
   .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
   .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line)}
-  header.site{background:var(--paper-raised);border-bottom:1px solid var(--line);padding:14px 0}
+  /* הכותרת היא של הפלטפורמה, לא של המשרד — לכן צבעיה קבועים ולא נגזרים
+     מ-var(--brand), אחרת המיתוג של "שוק נדל״ן" היה מתחלף בין משרד למשרד. */
+  header.site{background:#F4F3F0;border-bottom:1px solid #C5C3BC;padding:14px 0}
   .header-inner{display:flex;align-items:center;justify-content:space-between}
   .logo{display:flex;align-items:center;gap:8px}
-  .logo-mark{width:34px;height:34px;border-radius:8px;background:linear-gradient(155deg,var(--gold),var(--teal) 65%);display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:900}
-  .logo-word{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.1rem;color:var(--teal-dark)}
-  .back-link{font-size:.85rem;font-weight:700;color:var(--teal)}
+  .logo-mark{width:34px;height:34px;border-radius:8px;background:linear-gradient(155deg,#8B2332,#1C3A5E 65%);display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:900}
+  .logo-word{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.1rem;color:#122840}
+  .back-link{font-size:.85rem;font-weight:700;color:#1C3A5E}
 
   #loadingState,#notFoundState{padding:60px 18px;text-align:center;color:var(--ink-soft)}
   #notFoundState{display:none}
   #agencyContent{display:none}
 
-  .cover{height:150px;background:linear-gradient(120deg,var(--teal-dark),var(--teal));position:relative}
-  .brand-strip{display:flex;align-items:flex-end;gap:16px;margin-top:-46px;position:relative;z-index:1;padding-bottom:16px}
-  .brand-logo{width:88px;height:88px;border-radius:20px;background:linear-gradient(155deg,var(--gold),var(--teal) 65%);border:4px solid var(--paper);display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:2rem;flex-shrink:0}
+  .cover{height:150px;background:linear-gradient(120deg,var(--brand-dark),var(--brand));position:relative}
+  /* עם תמונת נושא: התמונה ממלאת את הרצועה, ומעליה שכבת כהות בגוון המותג כדי
+     שהלוגו והשם שנשענים על הקצה התחתון יישארו קריאים על כל תמונה. */
+  .cover.has-image{height:210px;background-size:cover;background-position:center}
+  .cover.has-image::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45),rgba(0,0,0,.05) 55%)}
+  @media(max-width:640px){.cover.has-image{height:150px}}
+  /* רק הלוגו נכנס אל תוך רצועת הנושא; שם המשרד יושב כולו על רקע הדף, אחרת
+     טקסט כהה על גבי תמונת נושא כהה היה בלתי קריא. */
+  .brand-strip{display:flex;align-items:flex-start;gap:16px;position:relative;z-index:1;padding:10px 0 16px}
+  .brand-logo{width:88px;height:88px;margin-top:-58px;border-radius:20px;background:linear-gradient(155deg,var(--accent),var(--brand) 65%);border:4px solid var(--paper);display:flex;align-items:center;justify-content:center;color:var(--on-brand);font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:2rem;flex-shrink:0;overflow:hidden}
+  .brand-logo img{width:100%;height:100%;object-fit:cover;display:block}
   .brand-name{font-size:1.5rem}
   .brand-areas{font-size:.82rem;color:var(--ink-soft);margin-top:4px}
   .brand-desc{color:var(--ink-soft);font-size:.92rem;max-width:60ch;margin-top:14px}
@@ -48,7 +72,7 @@
   @media(min-width:640px){.prop-grid{grid-template-columns:1fr 1fr}}
   @media(min-width:900px){.prop-grid{grid-template-columns:1fr 1fr 1fr}}
   .prop-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;cursor:pointer}
-  .prop-card .thumb{height:130px;background:linear-gradient(155deg,#8B2332,#1C3A5E)}
+  .prop-card .thumb{height:130px;background:linear-gradient(155deg,var(--accent),var(--brand))}
   .prop-card .body{padding:12px}
   .prop-card .price{font-weight:800;color:var(--teal-dark)}
   .prop-card .title{font-size:.85rem;margin-top:3px}
@@ -61,11 +85,34 @@
   .agent-grid{display:grid;grid-template-columns:1fr;gap:14px}
   @media(min-width:640px){.agent-grid{grid-template-columns:1fr 1fr}}
   .agent-card{padding:16px;display:flex;align-items:center;gap:12px;cursor:pointer}
-  .agent-avatar{width:52px;height:52px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Frank Ruhl Libre',serif;flex-shrink:0}
+  .agent-avatar{width:52px;height:52px;border-radius:50%;background:var(--brand);color:var(--on-brand);display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Frank Ruhl Libre',serif;flex-shrink:0}
   .agent-card .name{font-weight:700;font-size:.92rem}
   .agent-card .role{font-size:.76rem;color:var(--ink-soft)}
 
   .empty-state{padding:32px;text-align:center;color:var(--ink-soft);font-size:.88rem}
+
+  /* ---------- גלריית המשרד ----------
+     רצועה נגללת אופקית ולא רשת: הגלריה יושבת מעל הטאבים ("דף הבית" של המשרד)
+     ואסור לה לדחוף את הנכסים אל מתחת לקיפול, גם כשיש 24 תמונות. */
+  .gallery-sec{margin-top:22px;display:none}
+  .gallery-head{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
+  .gallery-head h2{font-size:1.05rem}
+  .gallery-head span{font-size:.78rem;color:var(--ink-soft)}
+  .gallery-strip{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x mandatory}
+  .gallery-item{position:relative;flex:0 0 auto;width:210px;height:145px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--line);cursor:pointer;scroll-snap-align:start;background:var(--paper-raised)}
+  .gallery-item img{width:100%;height:100%;object-fit:cover;display:block}
+  .gallery-item .cap{position:absolute;inset:auto 0 0 0;background:linear-gradient(to top,rgba(0,0,0,.72),transparent);color:#fff;font-size:.74rem;font-weight:600;padding:16px 10px 7px;line-height:1.3}
+  @media(max-width:640px){.gallery-item{width:168px;height:118px}}
+
+  .lightbox{position:fixed;inset:0;background:rgba(12,14,18,.9);display:none;align-items:center;justify-content:center;z-index:300;padding:20px}
+  .lightbox.open{display:flex}
+  .lightbox figure{margin:0;max-width:min(920px,100%);max-height:100%;display:flex;flex-direction:column;gap:10px}
+  .lightbox img{max-width:100%;max-height:76vh;object-fit:contain;border-radius:var(--radius-md);display:block;margin:0 auto}
+  .lightbox figcaption{color:#F2F1EE;font-size:.86rem;text-align:center}
+  .lightbox .nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;font-size:1.3rem;line-height:44px;text-align:center;padding:0}
+  .lightbox .prev{right:14px}
+  .lightbox .next{left:14px}
+  .lightbox .close{position:absolute;top:14px;left:14px;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;font-size:1rem;padding:0}
 </style>
 </head>
 <body>
@@ -95,6 +142,14 @@
     </div>
     <p class="brand-desc" id="brandDesc"></p>
 
+    <section class="gallery-sec" id="gallerySec">
+      <div class="gallery-head">
+        <h2>הגלריה של המשרד</h2>
+        <span id="galleryCount"></span>
+      </div>
+      <div class="gallery-strip" id="galleryStrip"></div>
+    </section>
+
     <div class="tabs">
       <button class="tab-btn active" data-tab="active">נכסים פעילים</button>
       <button class="tab-btn" data-tab="sold">נכסים שנמכרו</button>
@@ -107,6 +162,16 @@
     <div class="tab-panel" id="panel-agents"><div class="agent-grid" id="agentRoster"></div></div>
     <div class="tab-panel" id="panel-reviews"><div id="reviewsList"></div></div>
   </div>
+</div>
+
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="תמונה מוגדלת">
+  <button type="button" class="close" id="lbClose" aria-label="סגירה">✕</button>
+  <button type="button" class="nav prev" id="lbPrev" aria-label="הקודמת">›</button>
+  <button type="button" class="nav next" id="lbNext" aria-label="הבאה">‹</button>
+  <figure>
+    <img id="lbImage" src="" alt="">
+    <figcaption id="lbCaption"></figcaption>
+  </figure>
 </div>
 
 <script>
@@ -132,6 +197,143 @@ function thumbStyle(p){
   return img ? ` style="background-image:url('${img}');background-size:cover;background-position:center"` : '';
 }
 
+/* ---------- מיתוג המשרד ----------
+   מנהל המשרד קובע ב-CRM צבעים, לוגו ותמונת נושא; כאן רק מיישמים. כל שדה
+   אופציונלי — משרד שלא הגדיר דבר מקבל את עיצוב ברירת המחדל של הפלטפורמה. */
+const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+
+// הצבעים מגיעים מ-DB שמנהל המשרד כותב אליו, ונכנסים ל-CSS — בלי הסינון הזה
+// ערך כמו "red;background:url(...)" היה מוזרק כפשוטו אל תוך גיליון הסגנון.
+function safeHex(value, fallback){
+  return typeof value === 'string' && HEX_RE.test(value.trim()) ? value.trim() : fallback;
+}
+
+// יחס הניגודיות (WCAG) בין צבע לבין לבן — קובע אם טקסט לבן עליו יהיה קריא
+function contrastWithWhite(hex){
+  const full = hex.length === 4 ? '#' + hex.slice(1).split('').map(c=>c+c).join('') : hex;
+  const lum = [1,3,5].map(i=>{
+    const ch = parseInt(full.slice(i, i+2), 16) / 255;
+    return ch <= 0.03928 ? ch/12.92 : Math.pow((ch+0.055)/1.055, 2.4);
+  }).reduce((acc, ch, i)=> acc + [0.2126,0.7152,0.0722][i] * ch, 0);
+  return 1.05 / (lum + 0.05);
+}
+
+function safeImageUrl(url){
+  if (typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  return /^https:\/\//i.test(trimmed) ? trimmed : null;
+}
+
+function applyBranding(agency){
+  const c = agency.colors || {};
+  const root = document.documentElement.style;
+  const brand = safeHex(c.primary, null);
+  const accent = safeHex(c.accent, null);
+  if (brand){
+    root.setProperty('--brand', brand);
+    root.setProperty('--brand-dark', safeHex(c.primary_dark, brand));
+    // אם המשרד בחר גוון בהיר, טקסט לבן עליו לא יהיה קריא
+    root.setProperty('--on-brand', contrastWithWhite(brand) >= 3.2 ? '#fff' : '#1B1F26');
+  }
+  if (accent){
+    root.setProperty('--accent', accent);
+    root.setProperty('--accent-dark', safeHex(c.accent_dark, accent));
+  }
+  if (safeHex(c.paper, null)) root.setProperty('--paper', c.paper.trim());
+  if (safeHex(c.paper_raised, null)) root.setProperty('--paper-raised', c.paper_raised.trim());
+  if (safeHex(c.line, null)) root.setProperty('--line', c.line.trim());
+
+  const cover = safeImageUrl(agency.cover_url);
+  if (cover){
+    const el = document.querySelector('.cover');
+    el.classList.add('has-image');
+    el.style.backgroundImage = `url("${encodeURI(cover)}")`;
+  }
+
+  const logo = safeImageUrl(agency.logo_url);
+  const logoEl = document.getElementById('brandLogo');
+  if (logo){
+    const img = document.createElement('img');
+    img.src = logo;
+    img.alt = 'הלוגו של ' + agency.name;
+    logoEl.textContent = '';
+    logoEl.appendChild(img);
+  } else {
+    logoEl.textContent = agency.name[0];
+  }
+}
+
+/* ---------- גלריית המשרד (תמונות עסקאות/אירועים — לא נכסים) ---------- */
+let galleryItems = [];
+
+function renderGallery(gallery){
+  galleryItems = (Array.isArray(gallery) ? gallery : [])
+    .map(item => ({ url: safeImageUrl(item && item.url), caption: (item && item.caption) || '' }))
+    .filter(item => item.url);
+  if (galleryItems.length === 0) return;
+
+  const strip = document.getElementById('galleryStrip');
+  strip.textContent = '';
+  galleryItems.forEach((item, i)=>{
+    const fig = document.createElement('button');
+    fig.type = 'button';
+    fig.className = 'gallery-item';
+    const img = document.createElement('img');
+    img.src = item.url;
+    img.loading = 'lazy';
+    img.alt = item.caption || 'תמונה מהמשרד';
+    fig.appendChild(img);
+    if (item.caption){
+      const cap = document.createElement('div');
+      cap.className = 'cap';
+      cap.textContent = item.caption;
+      fig.appendChild(cap);
+    }
+    fig.addEventListener('click', ()=> openLightbox(i));
+    strip.appendChild(fig);
+  });
+  document.getElementById('galleryCount').textContent = galleryItems.length + ' תמונות';
+  document.getElementById('gallerySec').style.display = 'block';
+}
+
+let lightboxIndex = 0;
+const lightboxEl = document.getElementById('lightbox');
+
+function openLightbox(i){
+  lightboxIndex = i;
+  showLightboxImage();
+  lightboxEl.classList.add('open');
+  document.body.style.overflow = 'hidden'; // שלא ייגלל הדף מתחת לתמונה
+}
+function showLightboxImage(){
+  const item = galleryItems[lightboxIndex];
+  if (!item) return;
+  document.getElementById('lbImage').src = item.url;
+  document.getElementById('lbImage').alt = item.caption || '';
+  document.getElementById('lbCaption').textContent = item.caption || '';
+}
+function stepLightbox(delta){
+  if (galleryItems.length === 0) return;
+  lightboxIndex = (lightboxIndex + delta + galleryItems.length) % galleryItems.length;
+  showLightboxImage();
+}
+function closeLightbox(){
+  lightboxEl.classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+document.getElementById('lbClose').addEventListener('click', closeLightbox);
+document.getElementById('lbPrev').addEventListener('click', ()=> stepLightbox(-1));
+document.getElementById('lbNext').addEventListener('click', ()=> stepLightbox(1));
+lightboxEl.addEventListener('click', (e)=>{ if (e.target === lightboxEl) closeLightbox(); });
+document.addEventListener('keydown', (e)=>{
+  if (!lightboxEl.classList.contains('open')) return;
+  if (e.key === 'Escape') closeLightbox();
+  // ה-RTL הופך את משמעות החצים: "קדימה" בגלריה עברית הוא שמאלה
+  if (e.key === 'ArrowLeft') stepLightbox(1);
+  if (e.key === 'ArrowRight') stepLightbox(-1);
+});
+
 async function loadAgency(){
   const slug = new URLSearchParams(window.location.search).get('slug');
   if (!slug || !window.supabase){
@@ -145,14 +347,11 @@ async function loadAgency(){
     if (error || !agency) throw error || new Error('not found');
 
     document.title = agency.name + ' | שוק נדל״ן';
-    document.getElementById('brandLogo').textContent = agency.name[0];
     document.getElementById('brandName').textContent = agency.name;
     document.getElementById('brandAreas').textContent = (agency.specialty_areas||[]).join(' · ');
     document.getElementById('brandDesc').textContent = agency.description || 'משרד תיווך פעיל בעפולה והעמק.';
-    if (agency.colors?.primary){
-      document.querySelector('.cover').style.background = `linear-gradient(120deg, ${agency.colors.primary}, ${agency.colors.accent||agency.colors.primary})`;
-      document.getElementById('brandLogo').style.background = `linear-gradient(155deg, ${agency.colors.accent||'#8B2332'}, ${agency.colors.primary} 65%)`;
-    }
+    applyBranding(agency);
+    renderGallery(agency.gallery);
 
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('agencyContent').style.display = 'block';

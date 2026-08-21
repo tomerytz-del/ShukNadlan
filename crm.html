@@ -96,6 +96,50 @@
   .img-thumb .star{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:rgba(27,31,38,.72);color:#fff;font-size:.65rem;line-height:20px;text-align:center;padding:0}
   .prop-thumb-mini{width:52px;height:52px;border-radius:var(--radius-sm);object-fit:cover;flex-shrink:0;border:1px solid var(--line)}
 
+  /* ---------- מיתוג דף המשרד (מנהל בלבד) ---------- */
+  .palette-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(min-width:560px){.palette-grid{grid-template-columns:repeat(4,1fr)}}
+  .palette-card{border:2px solid var(--line);border-radius:var(--radius-md);padding:10px;background:#fff;text-align:right;display:flex;flex-direction:column;gap:8px}
+  .palette-card.active{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-tint)}
+  .palette-swatches{display:flex;height:34px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--line)}
+  .palette-swatches span{flex:1}
+  .palette-card .pname{font-size:.78rem;font-weight:700;color:var(--ink)}
+  .palette-card .pdesc{font-size:.68rem;color:var(--ink-soft);line-height:1.35}
+
+  .color-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+  @media(min-width:560px){.color-row{grid-template-columns:repeat(4,1fr)}}
+  .color-input{display:flex;flex-direction:column;gap:5px}
+  .color-input label{font-size:.72rem;font-weight:700;color:var(--ink-soft)}
+  .color-input input[type=color]{width:100%;height:38px;padding:2px;border:1.5px solid var(--line);border-radius:var(--radius-sm);background:#fff;cursor:pointer}
+
+  /* תצוגה מקדימה — מחקה את ראש דף המשרד כדי שהמנהל יראה את הבחירה לפני שמירה */
+  .brand-preview{border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;margin-top:14px}
+  .brand-preview .bp-cover{height:92px;background-size:cover;background-position:center;position:relative}
+  .brand-preview .bp-body{padding:8px 14px 14px;display:flex;align-items:flex-start;gap:12px;position:relative}
+  .brand-preview .bp-logo{width:56px;height:56px;margin-top:-34px;border-radius:14px;border:3px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.3rem;overflow:hidden;flex-shrink:0}
+  .brand-preview .bp-logo img{width:100%;height:100%;object-fit:cover}
+  .brand-preview .bp-name{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1rem}
+  .brand-preview .bp-chip{display:inline-block;font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:5px;color:#fff;margin-top:3px}
+
+  .single-img-row{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
+  .single-img-box{position:relative;width:104px;height:76px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--line);background:var(--paper);flex-shrink:0}
+  .single-img-box img{width:100%;height:100%;object-fit:cover;display:block}
+  .single-img-box .x{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:rgba(27,31,38,.72);color:#fff;font-size:.72rem;line-height:20px;text-align:center;padding:0}
+  .single-img-box.logo-box{width:76px}
+
+  .gallery-admin{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}
+  @media(min-width:560px){.gallery-admin{grid-template-columns:repeat(3,1fr)}}
+  .gallery-admin-item{border:1px solid var(--line);border-radius:var(--radius-sm);overflow:hidden;background:#fff}
+  .gallery-admin-item .ph{position:relative;height:96px;background:var(--paper)}
+  .gallery-admin-item .ph img{width:100%;height:100%;object-fit:cover;display:block}
+  .gallery-admin-item .ph .x{position:absolute;top:4px;left:4px;width:22px;height:22px;border-radius:50%;background:rgba(27,31,38,.75);color:#fff;font-size:.75rem;line-height:22px;text-align:center;padding:0}
+  .gallery-admin-item .ph .move{position:absolute;bottom:4px;width:22px;height:22px;border-radius:50%;background:rgba(27,31,38,.6);color:#fff;font-size:.72rem;line-height:22px;text-align:center;padding:0}
+  .gallery-admin-item .ph .move-right{right:4px}
+  .gallery-admin-item .ph .move-left{right:30px}
+  .gallery-admin-item .ph .pending{position:absolute;bottom:4px;left:4px;background:var(--gold);color:#fff;font-size:.6rem;font-weight:800;padding:1px 6px;border-radius:4px}
+  .gallery-admin-item input{width:100%;border:none;border-top:1px solid var(--line);padding:7px 8px;font-size:.75rem;background:transparent}
+  .gallery-admin-item input:focus{outline:none;background:var(--teal-tint)}
+
   /* ---------- Notification bell (2.2) ---------- */
   .bell-wrap{position:relative}
   .bell-btn{background:transparent;border:1.5px solid var(--line);border-radius:999px;width:40px;height:40px;font-size:1.1rem;line-height:1;display:flex;align-items:center;justify-content:center;position:relative}
@@ -264,6 +308,77 @@
     </div>
 
     <div id="managerSection" style="display:none">
+      <h2 class="section-title">מיתוג ועיצוב דף המשרד</h2>
+      <p style="font-size:.82rem;color:var(--ink-soft);margin-top:-8px;margin-bottom:12px">
+        כך ייראה דף המשרד שלכם ללקוחות. אפשר לשנות כאן בכל עת — השינוי נכנס לתוקף מיד לאחר השמירה.
+      </p>
+      <div class="card" style="padding:18px;margin-bottom:18px">
+
+        <div class="form-subheading" style="margin-top:0">ערכת צבעים</div>
+        <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">בחרו אחת מארבע הערכות המקובלות בענף, או התאימו ידנית לצבעי המותג שלכם.</p>
+        <div class="palette-grid" id="paletteGrid"></div>
+        <div class="color-row">
+          <div class="color-input"><label for="brColorPrimary">צבע ראשי</label><input type="color" id="brColorPrimary"></div>
+          <div class="color-input"><label for="brColorPrimaryDark">ראשי כהה</label><input type="color" id="brColorPrimaryDark"></div>
+          <div class="color-input"><label for="brColorAccent">צבע משני (הדגשות)</label><input type="color" id="brColorAccent"></div>
+          <div class="color-input"><label for="brColorAccentDark">משני כהה</label><input type="color" id="brColorAccentDark"></div>
+        </div>
+        <div class="color-row">
+          <div class="color-input"><label for="brColorPaper">רקע הדף</label><input type="color" id="brColorPaper"></div>
+          <div class="color-input"><label for="brColorPaperRaised">רקע כרטיסים</label><input type="color" id="brColorPaperRaised"></div>
+          <div class="color-input"><label for="brColorLine">קווי הפרדה</label><input type="color" id="brColorLine"></div>
+        </div>
+
+        <div id="brContrastWarn" style="display:none;font-size:.76rem;color:var(--gold-dark);background:var(--gold-tint);border-radius:var(--radius-sm);padding:8px 10px;margin-top:10px"></div>
+
+        <div class="brand-preview" id="brandPreview">
+          <div class="bp-cover" id="bpCover"></div>
+          <div class="bp-body">
+            <div class="bp-logo" id="bpLogo">·</div>
+            <div>
+              <div class="bp-name" id="bpName">המשרד שלי</div>
+              <span class="bp-chip" id="bpChip">נכסים פעילים</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="form-subheading">לוגו ותמונת נושא</div>
+        <div class="single-img-row">
+          <div>
+            <div class="img-dropzone" style="padding:10px 14px">
+              <label class="pick" for="brLogoInput">+ העלאת לוגו</label>
+              <input type="file" id="brLogoInput" accept="image/jpeg,image/png,image/webp">
+              <div class="hint">מרובע · יוצג בראש דף המשרד</div>
+            </div>
+            <div class="img-preview" id="brLogoPreview"></div>
+          </div>
+          <div>
+            <div class="img-dropzone" style="padding:10px 14px">
+              <label class="pick" for="brCoverInput">+ העלאת תמונת נושא</label>
+              <input type="file" id="brCoverInput" accept="image/jpeg,image/png,image/webp">
+              <div class="hint">רצועה רחבה · מומלץ 1600×600</div>
+            </div>
+            <div class="img-preview" id="brCoverPreview"></div>
+          </div>
+        </div>
+
+        <div class="form-subheading">גלריית המשרד</div>
+        <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">
+          תמונות מחיי המשרד — עסקאות שנסגרו, מסירת מפתחות, צוות ואירועים. <b>לא</b> תמונות של נכסים (אלה נוספות דרך "הנכסים שלי").
+        </p>
+        <div class="img-dropzone">
+          <label class="pick" for="brGalleryInput">+ הוספת תמונות לגלריה</label>
+          <input type="file" id="brGalleryInput" accept="image/jpeg,image/png,image/webp" multiple>
+          <div class="hint">עד 24 תמונות · אפשר להוסיף כיתוב לכל תמונה · הקבצים מוקטנים אוטומטית</div>
+        </div>
+        <div class="gallery-admin" id="brGalleryGrid"></div>
+        <div id="brGalleryEmpty" class="empty-state" style="padding:18px">עדיין אין תמונות בגלריה.</div>
+
+        <button type="button" class="btn btn-gold btn-block" id="brSaveBtn" style="margin-top:16px">שמירת המיתוג</button>
+        <div id="brFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+        <a href="#" id="brViewPageLink" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:.8rem;color:var(--teal);margin-top:8px">צפייה בדף המשרד ←</a>
+      </div>
+
       <h2 class="section-title">צוות המשרד</h2>
       <button class="btn btn-ghost btn-block" id="toggleAddMember" style="margin-bottom:12px">+ הוספת סוכן/ת לצוות</button>
       <form id="addMemberForm" class="card" style="display:none;padding:18px;margin-bottom:18px">
@@ -625,6 +740,7 @@ async function loadDashboard(){
 
   if (agent.role === 'manager'){
     document.getElementById('managerSection').style.display = 'block';
+    await loadBranding(agent.agency_id);
     await loadTeam(agent.agency_id, agent.id);
     await loadPendingReviews(agent.agency_id);
   }
@@ -984,6 +1100,413 @@ function renderPlanningResult(d){
     L.marker([d.lat, d.lng]).addTo(planningMap);
   }
 }
+
+/* ---------- Office branding (manager only) ----------
+   מנהל המשרד שולט כאן על מה שלקוח רואה ב-agency.html: ערכת צבעים, לוגו,
+   תמונת נושא וגלריית תמונות המשרד. הכל נשמר בשורת ה-agencies של המשרד
+   (colors / logo_url / cover_url / gallery), שה-RLS מרשה רק למנהל לעדכן.  */
+
+const BRANDING_BUCKET = 'property-images'; // אותו bucket ציבורי; הנתיב מפריד בין נכסים למיתוג
+const MAX_GALLERY_IMAGES = 24;
+
+// ארבע ערכות שגורות בענף הנדל״ן. כל ערכה מגדירה את מלוא הטוקנים שדף המשרד
+// צורך, כדי שהחלפה תיתן עיצוב שלם ולא רק כותרת בצבע אחר.
+const BRAND_PALETTES = [
+  { id:'navy_gold', name:'נייבי וזהב', desc:'קלאסי ויוקרתי — ברירת המחדל של הענף',
+    primary:'#1c3a5e', primary_dark:'#122840', accent:'#c0912f', accent_dark:'#8e6a1e',
+    paper:'#edeae3', paper_raised:'#fbfaf7', line:'#d6d1c6' },
+  { id:'emerald_stone', name:'אמרלד ואבן', desc:'בוטיק ירוק — נכסי יוקרה ופרויקטים',
+    primary:'#14513f', primary_dark:'#0c3729', accent:'#a97f45', accent_dark:'#7e5d2e',
+    paper:'#e9ede9', paper_raised:'#f8faf8', line:'#cbd5cc' },
+  { id:'terracotta_sand', name:'טרהקוטה וחול', desc:'ים־תיכוני וחם — וילות ובתים פרטיים',
+    primary:'#8f3d22', primary_dark:'#6b2b16', accent:'#2c6e6b', accent_dark:'#1d504e',
+    paper:'#f0e9e1', paper_raised:'#fdfaf6', line:'#dfd1c2' },
+  { id:'graphite_copper', name:'גרפיט ונחושת', desc:'אורבני ומודרני — דירות בעיר ומשרדים',
+    primary:'#2e3440', primary_dark:'#1d222b', accent:'#b35c31', accent_dark:'#8a4522',
+    paper:'#eaeaec', paper_raised:'#fafafb', line:'#d2d3d8' },
+];
+
+const BRAND_COLOR_KEYS = ['primary','primary_dark','accent','accent_dark','paper','paper_raised','line'];
+const BRAND_COLOR_INPUTS = {
+  primary:'brColorPrimary', primary_dark:'brColorPrimaryDark',
+  accent:'brColorAccent', accent_dark:'brColorAccentDark',
+  paper:'brColorPaper', paper_raised:'brColorPaperRaised', line:'brColorLine',
+};
+
+let brandingState = null; // { agencyName, agencySlug, palette, colors, logo, cover, gallery, pendingDeletes }
+
+// תמיד מחזיר hex באותיות קטנות — matchPalette משווה מחרוזות, ו-input[type=color]
+// ממילא מחזיר ערכים בכתיב קטן, אז ערבוב רישיות היה מפספס התאמות
+function normalizeHex(value, fallback){
+  const fb = typeof fallback === 'string' ? fallback.toLowerCase() : fallback;
+  if (typeof value !== 'string') return fb;
+  let v = value.trim();
+  if (/^#[0-9a-fA-F]{3}$/.test(v)) v = '#' + v.slice(1).split('').map(c=>c+c).join('');
+  return /^#[0-9a-fA-F]{6}$/.test(v) ? v.toLowerCase() : fb;
+}
+
+// יחס ניגודיות WCAG — משמש רק לאזהרה למנהל, לא לחסימה
+function relativeLuminance(hex){
+  const channels = [1,3,5].map(i=>{
+    const c = parseInt(hex.slice(i, i+2), 16) / 255;
+    return c <= 0.03928 ? c/12.92 : Math.pow((c+0.055)/1.055, 2.4);
+  });
+  return 0.2126*channels[0] + 0.7152*channels[1] + 0.0722*channels[2];
+}
+function contrastRatio(a, b){
+  const la = relativeLuminance(a), lb = relativeLuminance(b);
+  return (Math.max(la,lb) + 0.05) / (Math.min(la,lb) + 0.05);
+}
+function readableOn(hex){
+  return contrastRatio(hex, '#ffffff') >= 3.2 ? '#ffffff' : '#1b1f26';
+}
+
+async function loadBranding(agencyId){
+  const { data: agency, error } = await sb.from('agencies')
+    .select('name, slug, logo_url, cover_url, colors, gallery').eq('id', agencyId).single();
+  if (error || !agency){
+    document.getElementById('brFeedback').textContent = 'לא ניתן לטעון את הגדרות המיתוג.';
+    return;
+  }
+  const stored = agency.colors || {};
+  const base = BRAND_PALETTES[0];
+  const colors = {};
+  BRAND_COLOR_KEYS.forEach(k => { colors[k] = normalizeHex(stored[k], base[k]); });
+
+  brandingState = {
+    agencyName: agency.name,
+    agencySlug: agency.slug,
+    palette: stored.palette || matchPalette(colors) || 'custom',
+    colors,
+    logo:  agency.logo_url  ? { url: agency.logo_url }  : null,
+    cover: agency.cover_url ? { url: agency.cover_url } : null,
+    gallery: (Array.isArray(agency.gallery) ? agency.gallery : [])
+      .filter(g => g && g.url)
+      .map(g => ({ url: g.url, caption: g.caption || '' })),
+    pendingDeletes: [],
+  };
+
+  document.getElementById('brViewPageLink').href = 'agency.html?slug=' + encodeURIComponent(agency.slug);
+  renderPaletteGrid();
+  syncColorInputs();
+  renderBrandImages();
+  renderGalleryAdmin();
+  renderBrandPreview();
+}
+
+// ערכה נחשבת "נבחרת" רק אם כל הטוקנים תואמים — אחרת זו התאמה אישית
+function matchPalette(colors){
+  const hit = BRAND_PALETTES.find(p => BRAND_COLOR_KEYS.every(k => p[k] === colors[k]));
+  return hit ? hit.id : null;
+}
+
+function renderPaletteGrid(){
+  const grid = document.getElementById('paletteGrid');
+  grid.textContent = '';
+  BRAND_PALETTES.forEach(p=>{
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'palette-card' + (brandingState.palette === p.id ? ' active' : '');
+    card.innerHTML = `<div class="palette-swatches">
+        <span style="background:${p.primary_dark}"></span>
+        <span style="background:${p.primary}"></span>
+        <span style="background:${p.accent}"></span>
+        <span style="background:${p.paper}"></span>
+      </div>
+      <div><div class="pname">${p.name}</div><div class="pdesc">${p.desc}</div></div>`;
+    card.addEventListener('click', ()=> applyPalette(p.id));
+    grid.appendChild(card);
+  });
+}
+
+function applyPalette(paletteId){
+  const p = BRAND_PALETTES.find(x => x.id === paletteId);
+  if (!p) return;
+  brandingState.palette = p.id;
+  BRAND_COLOR_KEYS.forEach(k => { brandingState.colors[k] = p[k]; });
+  renderPaletteGrid();
+  syncColorInputs();
+  renderBrandPreview();
+}
+
+function syncColorInputs(){
+  BRAND_COLOR_KEYS.forEach(k=>{
+    document.getElementById(BRAND_COLOR_INPUTS[k]).value = brandingState.colors[k];
+  });
+}
+
+BRAND_COLOR_KEYS.forEach(k=>{
+  document.getElementById(BRAND_COLOR_INPUTS[k]).addEventListener('input', (e)=>{
+    if (!brandingState) return;
+    brandingState.colors[k] = normalizeHex(e.target.value, brandingState.colors[k]);
+    // שינוי ידני מנתק מהערכה המוכנה — אחרת נשמור שם ערכה שכבר לא מתאר את הצבעים
+    brandingState.palette = matchPalette(brandingState.colors) || 'custom';
+    renderPaletteGrid();
+    renderBrandPreview();
+  });
+});
+
+function renderBrandPreview(){
+  if (!brandingState) return;
+  const c = brandingState.colors;
+  const preview = document.getElementById('brandPreview');
+  preview.style.background = c.paper_raised;
+  preview.style.borderColor = c.line;
+
+  const cover = document.getElementById('bpCover');
+  const coverSrc = brandingState.cover ? (brandingState.cover.previewUrl || brandingState.cover.url) : null;
+  cover.style.background = coverSrc
+    ? `linear-gradient(to top, rgba(0,0,0,.45), rgba(0,0,0,.05) 55%), url("${coverSrc}") center/cover`
+    : `linear-gradient(120deg, ${c.primary_dark}, ${c.primary})`;
+
+  const logo = document.getElementById('bpLogo');
+  const logoSrc = brandingState.logo ? (brandingState.logo.previewUrl || brandingState.logo.url) : null;
+  logo.textContent = '';
+  if (logoSrc){
+    logo.style.background = 'transparent';
+    const img = document.createElement('img');
+    img.src = logoSrc;
+    img.alt = '';
+    logo.appendChild(img);
+  } else {
+    logo.style.background = `linear-gradient(155deg, ${c.accent}, ${c.primary} 65%)`;
+    logo.style.color = readableOn(c.primary);
+    logo.textContent = (brandingState.agencyName || '?')[0];
+  }
+
+  const nameEl = document.getElementById('bpName');
+  nameEl.textContent = brandingState.agencyName || 'המשרד שלי';
+  nameEl.style.color = c.primary_dark;
+  const chip = document.getElementById('bpChip');
+  chip.style.background = c.accent;
+  chip.style.color = readableOn(c.accent);
+
+  renderContrastWarning();
+}
+
+// צבע ראשי בהיר מדי הופך כותרות בדף המשרד לבלתי קריאות — מזהירים במקום לחסום.
+function renderContrastWarning(){
+  const c = brandingState.colors;
+  const el = document.getElementById('brContrastWarn');
+  const headingContrast = contrastRatio(c.primary_dark, c.paper);
+  if (headingContrast < 4.5){
+    el.textContent = `שימו לב: הניגודיות בין "ראשי כהה" לרקע הדף נמוכה (${headingContrast.toFixed(1)}:1, מומלץ 4.5 ומעלה) — הכותרות בדף המשרד יהיו קשות לקריאה.`;
+    el.style.display = 'block';
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+/* ---------- לוגו ותמונת נושא ---------- */
+function renderBrandImages(){
+  renderSingleImage('brLogoPreview', brandingState.logo, 'logo', ()=> clearBrandImage('logo'));
+  renderSingleImage('brCoverPreview', brandingState.cover, 'cover', ()=> clearBrandImage('cover'));
+}
+
+function renderSingleImage(containerId, slot, kind, onRemove){
+  const wrap = document.getElementById(containerId);
+  wrap.textContent = '';
+  if (!slot) return;
+  const box = document.createElement('div');
+  box.className = 'single-img-box' + (kind === 'logo' ? ' logo-box' : '');
+  const img = document.createElement('img');
+  img.src = slot.previewUrl || slot.url;
+  img.alt = '';
+  const x = document.createElement('button');
+  x.type = 'button'; x.className = 'x'; x.title = 'הסרה'; x.textContent = '✕';
+  x.addEventListener('click', onRemove);
+  box.appendChild(img); box.appendChild(x);
+  wrap.appendChild(box);
+}
+
+function clearBrandImage(kind){
+  const slot = brandingState[kind];
+  if (!slot) return;
+  if (slot.previewUrl) URL.revokeObjectURL(slot.previewUrl);
+  // מוחקים מה-Storage רק אחרי שהשמירה ל-DB הצליחה, כדי לא לאבד תמונה שעדיין מוצגת בדף
+  if (slot.url) queueDelete(slot.url);
+  brandingState[kind] = null;
+  renderBrandImages();
+  renderBrandPreview();
+}
+
+function queueDelete(url){
+  const path = storagePathFromPublicUrl(url);
+  if (path) brandingState.pendingDeletes.push(path);
+}
+
+document.getElementById('brLogoInput').addEventListener('change', (e)=> pickSingleImage(e, 'logo', 512));
+document.getElementById('brCoverInput').addEventListener('change', (e)=> pickSingleImage(e, 'cover', 1920));
+
+async function pickSingleImage(e, kind, maxDim){
+  const file = (e.target.files || [])[0];
+  e.target.value = '';
+  if (!file || !brandingState) return;
+  try{
+    const blob = await fileToResizedBlob(file, maxDim);
+    const previous = brandingState[kind];
+    if (previous){
+      if (previous.previewUrl) URL.revokeObjectURL(previous.previewUrl);
+      if (previous.url) queueDelete(previous.url);
+    }
+    brandingState[kind] = { blob, previewUrl: URL.createObjectURL(blob) };
+    renderBrandImages();
+    renderBrandPreview();
+  } catch(err){
+    console.warn('branding image resize failed', err);
+    showToast('לא ניתן לקרוא את הקובץ');
+  }
+}
+
+/* ---------- גלריית המשרד ---------- */
+document.getElementById('brGalleryInput').addEventListener('change', async (e)=>{
+  const files = Array.from(e.target.files || []);
+  e.target.value = '';
+  if (!brandingState) return;
+  const room = MAX_GALLERY_IMAGES - brandingState.gallery.length;
+  if (room <= 0){ showToast(`אפשר עד ${MAX_GALLERY_IMAGES} תמונות בגלריה`); return; }
+  for (const file of files.slice(0, room)){
+    try{
+      const blob = await fileToResizedBlob(file, 1600);
+      brandingState.gallery.push({ blob, previewUrl: URL.createObjectURL(blob), caption: '' });
+    } catch(err){
+      console.warn('gallery resize failed', file.name, err);
+      showToast('קובץ אחד לא נטען: ' + file.name);
+    }
+  }
+  if (files.length > room) showToast(`נוספו ${room} תמונות בלבד — המקסימום הוא ${MAX_GALLERY_IMAGES}`);
+  renderGalleryAdmin();
+});
+
+function renderGalleryAdmin(){
+  const grid = document.getElementById('brGalleryGrid');
+  const empty = document.getElementById('brGalleryEmpty');
+  grid.textContent = '';
+  const items = brandingState ? brandingState.gallery : [];
+  empty.style.display = items.length === 0 ? 'block' : 'none';
+
+  items.forEach((item, i)=>{
+    const cell = document.createElement('div');
+    cell.className = 'gallery-admin-item';
+
+    const ph = document.createElement('div');
+    ph.className = 'ph';
+    const img = document.createElement('img');
+    img.src = item.previewUrl || item.url;
+    img.alt = '';
+    ph.appendChild(img);
+
+    const x = document.createElement('button');
+    x.type = 'button'; x.className = 'x'; x.title = 'מחיקה'; x.textContent = '✕';
+    x.addEventListener('click', ()=> removeGalleryImage(i));
+    ph.appendChild(x);
+
+    if (i > 0){
+      const right = document.createElement('button');
+      right.type = 'button'; right.className = 'move move-right'; right.title = 'הזזה ימינה'; right.textContent = '›';
+      right.addEventListener('click', ()=> moveGalleryImage(i, -1));
+      ph.appendChild(right);
+    }
+    if (i < items.length - 1){
+      const left = document.createElement('button');
+      left.type = 'button'; left.className = 'move move-left'; left.title = 'הזזה שמאלה'; left.textContent = '‹';
+      left.addEventListener('click', ()=> moveGalleryImage(i, 1));
+      ph.appendChild(left);
+    }
+    if (!item.url){
+      const tag = document.createElement('span');
+      tag.className = 'pending';
+      tag.textContent = 'ממתין לשמירה';
+      ph.appendChild(tag);
+    }
+
+    const caption = document.createElement('input');
+    caption.type = 'text';
+    caption.placeholder = 'כיתוב (לא חובה)';
+    caption.maxLength = 90;
+    caption.value = item.caption || '';
+    caption.addEventListener('input', ()=> { item.caption = caption.value; });
+
+    cell.appendChild(ph);
+    cell.appendChild(caption);
+    grid.appendChild(cell);
+  });
+}
+
+function removeGalleryImage(i){
+  const [item] = brandingState.gallery.splice(i, 1);
+  if (!item) return;
+  if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+  if (item.url) queueDelete(item.url);
+  renderGalleryAdmin();
+}
+
+function moveGalleryImage(i, delta){
+  const target = i + delta;
+  if (target < 0 || target >= brandingState.gallery.length) return;
+  const [item] = brandingState.gallery.splice(i, 1);
+  brandingState.gallery.splice(target, 0, item);
+  renderGalleryAdmin();
+}
+
+/* ---------- שמירה ---------- */
+async function uploadBrandingBlob(blob, prefix){
+  const name = `${currentAgent.id}/branding/${prefix}-${crypto.randomUUID()}.jpg`;
+  const { error } = await sb.storage.from(BRANDING_BUCKET).upload(name, blob, {
+    contentType:'image/jpeg', cacheControl:'31536000', upsert:false,
+  });
+  if (error) throw error;
+  return sb.storage.from(BRANDING_BUCKET).getPublicUrl(name).data.publicUrl;
+}
+
+document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
+  if (!brandingState || !currentAgent) return;
+  const btn = document.getElementById('brSaveBtn');
+  const feedback = document.getElementById('brFeedback');
+  btn.disabled = true; btn.textContent = 'שומר…';
+  feedback.style.color = 'var(--ink-soft)';
+  feedback.textContent = 'מעלה תמונות…';
+  try{
+    // מעלים קודם, ורק אז כותבים ל-DB: אם העלאה נכשלת, השורה נשארת עקבית עם ה-Storage
+    if (brandingState.logo && !brandingState.logo.url){
+      brandingState.logo.url = await uploadBrandingBlob(brandingState.logo.blob, 'logo');
+    }
+    if (brandingState.cover && !brandingState.cover.url){
+      brandingState.cover.url = await uploadBrandingBlob(brandingState.cover.blob, 'cover');
+    }
+    for (const item of brandingState.gallery){
+      if (!item.url) item.url = await uploadBrandingBlob(item.blob, 'gallery');
+    }
+
+    const colors = { palette: brandingState.palette };
+    BRAND_COLOR_KEYS.forEach(k => { colors[k] = brandingState.colors[k]; });
+
+    feedback.textContent = 'שומר…';
+    const { error } = await sb.from('agencies').update({
+      colors,
+      logo_url:  brandingState.logo  ? brandingState.logo.url  : null,
+      cover_url: brandingState.cover ? brandingState.cover.url : null,
+      gallery: brandingState.gallery.map(g => ({ url: g.url, caption: (g.caption || '').trim() })),
+    }).eq('id', currentAgent.agency_id);
+    if (error) throw error;
+
+    // ניקוי best-effort: השורה כבר לא מצביעה על הקבצים האלה
+    if (brandingState.pendingDeletes.length){
+      sb.storage.from(BRANDING_BUCKET).remove(brandingState.pendingDeletes).catch(()=>{});
+      brandingState.pendingDeletes = [];
+    }
+    renderGalleryAdmin(); // התגית "ממתין לשמירה" יורדת מהתמונות שהועלו
+    feedback.style.color = 'var(--teal)';
+    feedback.textContent = 'המיתוג נשמר — דף המשרד מעודכן.';
+    showToast('המיתוג של המשרד עודכן');
+  } catch(err){
+    console.error('branding save failed', err);
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = 'שמירה נכשלה: ' + (err.message || 'שגיאה לא צפויה');
+  } finally{
+    btn.disabled = false; btn.textContent = 'שמירת המיתוג';
+  }
+});
 
 /* ---------- Team management (manager only) ---------- */
 const toggleMemberBtn = document.getElementById('toggleAddMember');
