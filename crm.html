@@ -24,7 +24,7 @@
      בטופס המידע התכנוני (ולכל שאר ה-field-row-ים) לגלוש מחוץ למסך בטלפון. */
   input{font-family:inherit;font-size:1rem;min-width:0}
   .wrap{max-width:760px;margin:0 auto;padding:0 18px}
-  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;border-radius:999px;font-weight:700;font-size:.9rem}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;border-radius:999px;font-weight:700;font-size:.9rem;white-space:nowrap}
   .btn-gold{background:var(--gold);color:#241505}
   .btn-gold:disabled{opacity:.5;cursor:not-allowed}
   .btn-ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
@@ -79,7 +79,10 @@
   .status-pill{font-size:.68rem;font-weight:800;padding:2px 9px;border-radius:5px}
   .status-masked{background:var(--gold-tint);color:var(--gold-dark)}
   .status-unlocked{background:var(--teal-tint);color:var(--teal)}
-  .lead-actions{display:flex;gap:8px;margin-top:4px}
+  /* flex-wrap כדי שברוחב טלפון הכפתורים יעברו לשורה נוספת במקום להתכווץ —
+     בלי wrap הטקסט שלהם עצמו נשבר לשתי שורות בתוך כפתור מכווץ, ובגלל
+     ה-border-radius:999px זה נראה כמו עיגול, וגם דוחף את העמוד לרוחב. */
+  .lead-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
   .empty-state{padding:32px;text-align:center;color:var(--ink-soft);font-size:.88rem}
   .toast{position:fixed;bottom:20px;right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:var(--radius-sm);font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;z-index:200}
 
