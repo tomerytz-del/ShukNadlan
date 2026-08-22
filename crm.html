@@ -131,6 +131,22 @@
   .cma-note{font-size:.75rem;color:var(--ink-soft);background:var(--teal-tint);border-radius:var(--radius-sm);padding:9px 11px;margin-top:8px}
   .cma-foot{margin-top:22px;padding-top:12px;border-top:1px solid var(--line);font-size:.68rem;color:var(--ink-soft);line-height:1.6}
 
+  /* ---------- Test menu (מצב בדיקה) — מוצג רק למנהל פלטפורמה ---------- */
+  #devMenu{position:fixed;bottom:16px;left:16px;z-index:300;display:none;font-size:.8rem}
+  #devMenuToggle{background:var(--teal-dark);color:#fff;border-radius:999px;padding:9px 16px;font-weight:700;font-size:.8rem;box-shadow:0 6px 18px rgba(0,0,0,.28)}
+  #devMenuPanel{display:none;background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:0 10px 30px rgba(0,0,0,.22);padding:14px;width:270px;max-width:calc(100vw - 32px);margin-bottom:8px}
+  #devMenu.open #devMenuPanel{display:block}
+  .dev-title{font-size:.72rem;font-weight:800;color:var(--ink-soft);margin:0 0 6px;letter-spacing:.02em}
+  .dev-section+.dev-section{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
+  .dev-pills{display:flex;flex-wrap:wrap;gap:6px}
+  .dev-pills button{padding:6px 12px;border-radius:999px;border:1.5px solid var(--line);background:#fff;font-size:.76rem;font-weight:600;color:var(--ink-soft)}
+  .dev-pills button.active{background:var(--teal);border-color:var(--teal);color:#fff}
+  .dev-pills button:disabled{opacity:.55;cursor:wait}
+  .dev-links{display:flex;flex-direction:column;gap:4px}
+  .dev-links a{font-size:.78rem;color:var(--teal);text-decoration:none;padding:3px 0}
+  .dev-links a:hover{text-decoration:underline}
+  .dev-note{font-size:.68rem;color:var(--ink-soft);margin:8px 0 0;line-height:1.45}
+
   @media print{
     body{background:#fff}
     body > *{display:none !important}
@@ -462,12 +478,49 @@
   </div>
 </div>
 
+<!-- תפריט בדיקה: מעבר בין מסלולים/תפקידים ובין מסכי האתר. מוצג רק ל-is_platform_admin -->
+<div id="devMenu">
+  <div id="devMenuPanel">
+    <div class="dev-section">
+      <p class="dev-title">מסלול מנוי</p>
+      <div class="dev-pills" id="devTierPills">
+        <button type="button" data-tier="free">חינמי</button>
+        <button type="button" data-tier="mid">משודרג</button>
+        <button type="button" data-tier="premium">פרימיום</button>
+      </div>
+    </div>
+    <div class="dev-section">
+      <p class="dev-title">תפקיד</p>
+      <div class="dev-pills" id="devRolePills">
+        <button type="button" data-role="agent">סוכן/ת (user)</button>
+        <button type="button" data-role="manager">מנהל/ת משרד</button>
+      </div>
+      <p class="dev-note">שינוי המסלול/התפקיד נשמר בפועל בבסיס הנתונים, כך שגם הבדיקות שנאכפות בשרת (דוח CMA, פתיחת לידים) מתנהגות כמו במסלול שנבחר.</p>
+    </div>
+    <div class="dev-section">
+      <p class="dev-title">מעבר בין מסכים</p>
+      <div class="dev-links">
+        <a href="index.html">האתר הציבורי</a>
+        <a href="agency-signup.html">הרשמת משרד תיווך</a>
+        <a href="professional-signup.html">הרשמת בעל מקצוע</a>
+        <a href="agency.html">עמוד משרד תיווך</a>
+        <a href="agent.html">עמוד סוכן/ת</a>
+        <a href="property.html">עמוד נכס</a>
+        <a href="review-request.html">בקשת חוות דעת</a>
+      </div>
+      <p class="dev-note">עמודי משרד/סוכן/נכס דורשים פרמטר (slug או id) — נוח להגיע אליהם מהאתר הציבורי.</p>
+    </div>
+  </div>
+  <button type="button" id="devMenuToggle">🧪 מצב בדיקה</button>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const CLAIM_FUNCTION_URL = SUPABASE_URL + '/functions/v1/lead-claim';
+const DEV_SWITCH_FUNCTION_URL = SUPABASE_URL + '/functions/v1/dev-switch-mode';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const loginScreen = document.getElementById('loginScreen');
@@ -515,6 +568,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e)=>{
 document.getElementById('logoutBtn').addEventListener('click', async ()=>{
   await sb.auth.signOut();
   dashboard.style.display = 'none';
+  document.getElementById('devMenu').style.display = 'none';
   createAgencyScreen.style.display = 'none';
   document.getElementById('loginCardMain').style.display = 'block';
   loginScreen.style.display = 'flex';
@@ -623,8 +677,10 @@ async function loadDashboard(){
   await loadNotifications(agent.id);
   await loadPreferences(agent.id);
 
+  // display נקבע בשני הכיוונים ולא רק ל-block, כדי שהחלפת תפקיד מתפריט הבדיקה
+  // (מנהל/ת → סוכן/ת) באמת תסתיר את אזור הניהול בלי לרענן את העמוד
+  document.getElementById('managerSection').style.display = agent.role === 'manager' ? 'block' : 'none';
   if (agent.role === 'manager'){
-    document.getElementById('managerSection').style.display = 'block';
     await loadTeam(agent.agency_id, agent.id);
     await loadPendingReviews(agent.agency_id);
   }
@@ -633,7 +689,70 @@ async function loadDashboard(){
     document.getElementById('platformAdminSection').style.display = 'block';
     await loadNeighborhoodsAdmin();
   }
+
+  renderDevMenu(agent);
 }
+
+/* ---------- Test menu (מצב בדיקה) ----------
+   מאפשר למנהל הפלטפורמה לעבור בין מסלולים (free/mid/premium) ובין תפקידים
+   (סוכן/ת רגיל/ה ↔ מנהל/ת משרד) בלי לפתוח חשבון נפרד לכל צירוף.
+   השינוי עצמו נעשה ב-Edge Function dev-switch-mode, כי הטריגר
+   protect_sensitive_agency_member_fields נועל את tier/role מול הדפדפן. */
+function renderDevMenu(agent){
+  const menu = document.getElementById('devMenu');
+  if (!agent.is_platform_admin){ menu.style.display = 'none'; return; }
+  menu.style.display = 'block';
+  document.querySelectorAll('#devTierPills button').forEach(b =>
+    b.classList.toggle('active', b.dataset.tier === agent.tier));
+  document.querySelectorAll('#devRolePills button').forEach(b =>
+    b.classList.toggle('active', b.dataset.role === agent.role));
+}
+
+document.getElementById('devMenuToggle').addEventListener('click', ()=>{
+  document.getElementById('devMenu').classList.toggle('open');
+});
+
+async function devSwitch(changes, pills){
+  pills.forEach(b => b.disabled = true);
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(DEV_SWITCH_FUNCTION_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      body: JSON.stringify(changes),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      const messages = {
+        not_platform_admin: 'תפריט הבדיקה זמין רק למנהל פלטפורמה',
+        no_matching_agent_profile: 'לא נמצא פרופיל סוכן/ת לחשבון הזה',
+      };
+      showToast(messages[data.error] || ('שגיאה: ' + (data.error || 'לא ידועה')));
+      return;
+    }
+    const tierLabels = { free:'חינמי', mid:'משודרג', premium:'פרימיום' };
+    const roleLabels = { agent:'סוכן/ת', manager:'מנהל/ת משרד' };
+    showToast(`מצב בדיקה: ${roleLabels[data.role]} · מסלול ${tierLabels[data.tier]}`);
+    await loadDashboard();
+  } catch(err){
+    console.error(err);
+    showToast('שגיאת רשת — נסו שוב');
+  } finally {
+    pills.forEach(b => b.disabled = false);
+  }
+}
+
+document.getElementById('devTierPills').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-tier]');
+  if (!btn || btn.classList.contains('active')) return;
+  devSwitch({ tier: btn.dataset.tier }, [...document.querySelectorAll('#devTierPills button')]);
+});
+
+document.getElementById('devRolePills').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-role]');
+  if (!btn || btn.classList.contains('active')) return;
+  devSwitch({ role: btn.dataset.role }, [...document.querySelectorAll('#devRolePills button')]);
+});
 
 /* ---------- Neighborhoods admin (platform admin only) ---------- */
 async function loadNeighborhoodsAdmin(){
