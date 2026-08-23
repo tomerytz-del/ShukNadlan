@@ -348,8 +348,8 @@
       </div>
       <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">אם מולאו רחוב+מספר, מידע תכנוני (גוש/חלקה/ייעוד) ייקלט אוטומטית ברקע (מסלולי Mid/Premium בלבד)</p>
       <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field"><label>קו רוחב (lat, לא חובה)</label><input type="number" id="npLat" step="0.0001" placeholder="32.6078"></div>
-        <div class="field"><label>קו אורך (lng, לא חובה)</label><input type="number" id="npLng" step="0.0001" placeholder="35.2897"></div>
+        <div class="field"><label>קו רוחב (lat, לא חובה — מתמלא אוטומטית מהכתובת אם ריק)</label><input type="number" id="npLat" step="0.0001" placeholder="32.6078"></div>
+        <div class="field"><label>קו אורך (lng, לא חובה — מתמלא אוטומטית מהכתובת אם ריק)</label><input type="number" id="npLng" step="0.0001" placeholder="35.2897"></div>
       </div>
 
       <div class="form-subheading">פרטים נוספים — לצורך הופעה בחיפוש המתקדם</div>
@@ -532,6 +532,7 @@ const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const CLAIM_FUNCTION_URL = SUPABASE_URL + '/functions/v1/lead-claim';
 const DEV_SWITCH_FUNCTION_URL = SUPABASE_URL + '/functions/v1/dev-switch-mode';
+const GEOCODE_FUNCTION_URL = SUPABASE_URL + '/functions/v1/geocode-address';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const loginScreen = document.getElementById('loginScreen');
@@ -1429,6 +1430,31 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   const lng = document.getElementById('npLng').value;
   const street = document.getElementById('npStreet').value.trim();
   const houseNumber = document.getElementById('npHouseNumber').value.trim();
+  const city = document.getElementById('npCity').value.trim();
+
+  // lat/lng לא חובה בטופס, אבל בלעדיהם הנכס לא מקבל פין במפת עמוד הבית
+  // (renderMap שם מדלגת על נכסים בלי lat/lng) — אז כשיש כתובת בעפולה
+  // וטרם הוזנו קואורדינטות ידנית, מנסים לגאוקד אותה אוטומטית ברקע דרך
+  // geocode-address (זמין לכל סוכן/ת, בלי הגבלת מנוי). אם זה נכשל
+  // (כתובת לא נמצאה / בעיית רשת) פשוט ממשיכים בלי lat/lng כמו קודם.
+  let resolvedLat = lat, resolvedLng = lng;
+  if (!resolvedLat && !resolvedLng && street && houseNumber && city === 'עפולה'){
+    try{
+      const { data: { session } } = await sb.auth.getSession();
+      const geoRes = await fetch(GEOCODE_FUNCTION_URL, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+        body: JSON.stringify({ street, house_number: houseNumber }),
+      });
+      const geoData = await geoRes.json();
+      if (geoRes.ok && geoData.success){
+        resolvedLat = geoData.lat;
+        resolvedLng = geoData.lng;
+      }
+    } catch(err){
+      console.warn('גיאוקוד אוטומטי נכשל, הנכס יישמר בלי מיקום על המפה:', err);
+    }
+  }
 
   const payload = {
     title: document.getElementById('npTitle').value,
@@ -1453,8 +1479,8 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     mamad_location: currentCategory === 'commercial' ? (document.getElementById('npMamadLoc').value || null) : null,
     features: [...getCheckedValues('npListingFeatures'), ...getCheckedValues('npPropertyFeatures')],
   };
-  if (lat) payload.lat = parseFloat(lat);
-  if (lng) payload.lng = parseFloat(lng);
+  if (resolvedLat) payload.lat = parseFloat(resolvedLat);
+  if (resolvedLng) payload.lng = parseFloat(resolvedLng);
 
   // בעריכה: האם הכתובת בפועל השתנתה? רק אז נקלוט מידע תכנוני מחדש — לא בכל שמירה,
   // כדי לא לבזבז קריאות WFS מיותרות על שינויים שלא נוגעים לכתובת (מחיר, תיאור וכו').
