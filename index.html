@@ -254,12 +254,19 @@
   .ticker-more{font-size:.75rem;font-weight:700;color:var(--gold-dark);flex:0 0 auto;white-space:nowrap}
 
   /* ====== Owner-lead banner ====== */
+  /* הבאנר הוא עמודה אחת ממורכזת ולא שתי עמודות: במצב הסגור הוא צריך לקרוא
+     כמו הזמנה שיווקית קצרה — כותרת, שורת הסבר, וכפתור אחד בולט מתחת. */
   .owner-banner{
     background:var(--teal);color:#fff;border-radius:var(--radius-lg);
-    padding:26px 20px;display:flex;flex-direction:column;gap:16px;
+    padding:30px 20px;text-align:center;
   }
-  .owner-banner h2{color:#fff;font-size:1.35rem;max-width:26ch}
-  .owner-banner p{color:#CFE1DF;font-size:.9rem;max-width:38ch}
+  .owner-banner h2{color:#fff;font-size:1.5rem;max-width:22ch;margin:2px auto 0}
+  .owner-banner p{color:#CFE1DF;font-size:.94rem;max-width:40ch;margin:10px auto 0}
+  .owner-cta{
+    margin-top:20px;font-size:1rem;padding:15px 32px;
+    box-shadow:0 12px 26px rgba(0,0,0,.28);
+  }
+  .owner-cta-note{font-size:.75rem !important;color:rgba(255,255,255,.6) !important;margin-top:10px !important}
   .owner-toggle{display:flex;gap:8px}
   .owner-toggle button{
     flex:1;padding:9px;border-radius:999px;font-weight:700;font-size:.82rem;
@@ -272,8 +279,11 @@
      העמוד בטלפון וגרם לגלילה הצידה. min-width:0 על ה-input משלים את זה. */
 
   /* ---- אשף הערכת נכס (3 שלבים) ---- */
+  /* text-align:right מחזיר את תוכן האשף ליישור RTL רגיל — רק ההודעה הסגורה
+     ממורכזת; תוויות ושדות טופס ממורכזים היו נקראים גרוע. */
   .owner-wizard{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);
-    border-radius:var(--radius-lg);padding:16px}
+    border-radius:var(--radius-lg);padding:16px;text-align:right;
+    max-width:520px;margin:20px auto 0}
   .wiz-steps{display:flex;gap:6px;list-style:none;margin:0 0 16px;padding:0}
   .wiz-steps li{flex:1;display:flex;align-items:center;gap:6px;font-size:.7rem;font-weight:700;
     color:rgba(255,255,255,.5);padding-bottom:8px;border-bottom:2px solid rgba(255,255,255,.18)}
@@ -314,9 +324,8 @@
   .wiz-done p{color:#CFE1DF;font-size:.88rem;margin:0 auto 14px;max-width:34ch}
 
   @media(min-width:640px){
-    .owner-banner{flex-direction:row;align-items:flex-start;padding:32px}
-    .owner-banner > div:first-child{flex:1}
-    .owner-wizard{flex:1;min-width:340px}
+    .owner-banner{padding:44px 32px}
+    .owner-banner h2{font-size:1.9rem}
   }
 
   /* ====== Featured / grid ====== */
@@ -712,11 +721,12 @@
   <!-- ====== Owner-lead banner ====== -->
   <div class="section wrap">
     <div class="owner-banner">
-      <div>
+      <div class="owner-intro">
         <p class="eyebrow" style="color:#E8C88A">בעלי נכסים</p>
         <h2 id="ownerHeadline">מוכר/משכיר?</h2>
-        <p>קבלו הערכת נכס ב-3 קליקים — ללא עלות, ממתווך מומלץ באזורכם.</p>
-        <button type="button" class="btn btn-gold" id="ownerStartBtn" style="margin-top:16px">בואו נתחיל ←</button>
+        <p>קבלו הערכת שווי מקצועית לנכס שלכם ב-3 קליקים, ממתווך מומלץ באזורכם.</p>
+        <button type="button" class="btn btn-gold owner-cta" id="ownerStartBtn">קבלת הערכת שווי חינם ←</button>
+        <p class="owner-cta-note" id="ownerCtaNote">ללא עלות · ללא התחייבות · פחות מדקה</p>
       </div>
 
       <!-- אשף 3 שלבים; נפתח בלחיצה על "בואו נתחיל" ומחליף את הטופס הישן -->
@@ -1165,6 +1175,7 @@ const wizState = { deal:'sale', address:'', condition:null, rooms:null, features
 ownerStartBtn.addEventListener('click', ()=>{
   ownerWizard.hidden = false;
   ownerStartBtn.hidden = true;
+  document.getElementById('ownerCtaNote').hidden = true;
   goToStep(1);
   document.getElementById('wizAddress').focus();
 });
