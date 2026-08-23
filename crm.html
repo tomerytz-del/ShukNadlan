@@ -71,6 +71,30 @@
   .stat-card .lbl{font-size:.72rem;color:var(--ink-soft);margin-top:2px}
 
   .section-title{font-size:1.1rem;margin:26px 0 12px}
+
+  /* ---------- Accordion: כל נושא בדשבורד מקופל לשורה אחת עם חץ פתיחה ----------
+     <details>/<summary> נבחרו במכוון: הפתיחה/סגירה עובדת גם בלי JS, נגישה
+     במקלדת, וה-JS רק מוסיף שמירת מצב, מונים בכותרת ופתיחה יזומה מקישורים. */
+  .acc{background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:var(--shadow-sm);margin-bottom:10px;overflow:hidden}
+  .acc>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:10px;padding:14px 16px;
+    font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark);font-size:1.02rem;user-select:none}
+  .acc>summary::-webkit-details-marker{display:none}
+  .acc>summary::marker{content:''}
+  .acc>summary:hover{background:rgba(28,58,94,.04)}
+  .acc>summary:focus-visible{outline:2px solid var(--teal);outline-offset:-2px}
+  .acc-title{flex:1;min-width:0}
+  .acc-count{font-family:'Heebo',sans-serif;font-size:.68rem;font-weight:800;padding:2px 9px;border-radius:5px;
+    background:var(--teal-tint);color:var(--teal);white-space:nowrap}
+  .acc-count:empty{display:none}
+  .acc-count.hot{background:var(--gold-tint);color:var(--gold-dark)}
+  .acc-chev{width:20px;height:20px;flex-shrink:0;color:var(--ink-soft);transition:transform .18s ease}
+  .acc[open]>summary .acc-chev{transform:rotate(180deg)}
+  .acc[open]>summary{border-bottom:1px solid var(--line)}
+  .acc-body{padding:16px}
+  .acc-body>:last-child{margin-bottom:0}
+  .acc-sub{font-size:.8rem;color:var(--ink-soft);margin:0 0 12px}
+  /* כרטיסים פנימיים בלבנים, כדי שייבדלו מרקע הקטגוריה */
+  .acc-body .card{background:#fff}
   .lead-card{padding:16px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px}
   .lead-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
   .lead-name{font-weight:700;font-size:.95rem}
@@ -301,12 +325,17 @@
       <div class="card stat-card"><div class="num" id="quotaUsed">—</div><div class="lbl">לידים חינמיים נוצלו החודש</div></div>
     </div>
 
-    <div class="card" style="padding:18px;margin-bottom:20px">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:12px">
-        <h2 class="section-title" style="margin:0">טעינת ארנק</h2>
+    <details class="acc" id="accWallet">
+      <summary>
+        <span class="acc-title">טעינת ארנק</span>
+        <span class="acc-count" id="accWalletCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+      <div style="margin-bottom:10px">
         <span style="font-size:.68rem;font-weight:800;background:var(--gold-tint);color:var(--gold-dark);padding:3px 9px;border-radius:5px">מצב בדיקה — ללא חיוב אמיתי</span>
       </div>
-      <p style="font-size:.8rem;color:var(--ink-soft);margin:0 0 12px">טרם חובר ספק סליקה אמיתי — הטעינה כאן להדגמה/בדיקה בלבד, לא כרטיס אשראי אמיתי.</p>
+      <p class="acc-sub">טרם חובר ספק סליקה אמיתי — הטעינה כאן להדגמה/בדיקה בלבד, לא כרטיס אשראי אמיתי.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
         <select id="topupAmount" style="flex:1;min-width:120px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px">
           <option value="100">₪100</option>
@@ -320,26 +349,35 @@
       <div id="topupFeedback" style="font-size:.8rem;text-align:center;min-height:1.2em"></div>
       <button type="button" class="btn btn-ghost btn-block" id="toggleBillingHistory" style="margin-top:10px">הצגת היסטוריית חיובים</button>
       <div id="billingHistoryList" style="display:none;margin-top:10px"></div>
-    </div>
+      </div>
+    </details>
 
     <div id="platformAdminSection" style="display:none">
-      <h2 class="section-title">ניהול שכונות (מנהל פלטפורמה)</h2>
-      <p style="font-size:.8rem;color:var(--ink-soft);margin-top:-8px;margin-bottom:12px">רשימה סגורה — רק כאן ניתן להוסיף/לערוך/למחוק. סוכנים בוחרים מהרשימה בלבד.</p>
-      <div class="card" style="padding:18px;margin-bottom:18px">
-        <div style="display:flex;gap:8px;margin-bottom:14px">
-          <input type="text" id="newNeighborhoodAdminName" placeholder="שם שכונה חדשה" style="flex:1;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px">
-          <button type="button" class="btn btn-gold" id="addNeighborhoodAdminBtn" style="white-space:nowrap">+ הוספה</button>
+      <details class="acc" id="accNeighborhoods">
+        <summary>
+          <span class="acc-title">ניהול שכונות (מנהל פלטפורמה)</span>
+          <span class="acc-count" id="accNeighborhoodsCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <p class="acc-sub">רשימה סגורה — רק כאן ניתן להוסיף/לערוך/למחוק. סוכנים בוחרים מהרשימה בלבד.</p>
+          <div style="display:flex;gap:8px;margin-bottom:14px">
+            <input type="text" id="newNeighborhoodAdminName" placeholder="שם שכונה חדשה" style="flex:1;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px">
+            <button type="button" class="btn btn-gold" id="addNeighborhoodAdminBtn" style="white-space:nowrap">+ הוספה</button>
+          </div>
+          <div id="neighborhoodsAdminList"></div>
         </div>
-        <div id="neighborhoodsAdminList"></div>
-      </div>
+      </details>
     </div>
 
     <div id="managerSection" style="display:none">
-      <h2 class="section-title">מיתוג ועיצוב דף המשרד</h2>
-      <p style="font-size:.82rem;color:var(--ink-soft);margin-top:-8px;margin-bottom:12px">
-        כך ייראה דף המשרד שלכם ללקוחות. אפשר לשנות כאן בכל עת — השינוי נכנס לתוקף מיד לאחר השמירה.
-      </p>
-      <div class="card" style="padding:18px;margin-bottom:18px">
+      <details class="acc" id="accBranding">
+        <summary>
+          <span class="acc-title">מיתוג ועיצוב דף המשרד</span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+        <p class="acc-sub">כך ייראה דף המשרד שלכם ללקוחות. אפשר לשנות כאן בכל עת — השינוי נכנס לתוקף מיד לאחר השמירה.</p>
 
         <div class="form-subheading" style="margin-top:0">ערכת צבעים</div>
         <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">בחרו אחת מארבע הערכות המקובלות בענף, או התאימו ידנית לצבעי המותג שלכם.</p>
@@ -404,9 +442,16 @@
         <button type="button" class="btn btn-gold btn-block" id="brSaveBtn" style="margin-top:16px">שמירת המיתוג</button>
         <div id="brFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
         <a href="#" id="brViewPageLink" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:.8rem;color:var(--teal);margin-top:8px">צפייה בדף המשרד ←</a>
-      </div>
+        </div>
+      </details>
 
-      <h2 class="section-title">צוות המשרד</h2>
+      <details class="acc" id="accTeam">
+        <summary>
+          <span class="acc-title">צוות המשרד</span>
+          <span class="acc-count" id="accTeamCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
       <button class="btn btn-ghost btn-block" id="toggleAddMember" style="margin-bottom:12px">+ הוספת סוכן/ת לצוות</button>
       <form id="addMemberForm" class="card" style="display:none;padding:18px;margin-bottom:18px">
         <div class="field"><label>שם מלא</label><input type="text" id="nmName" required></div>
@@ -424,12 +469,28 @@
         <div id="addMemberFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
       </form>
       <div id="teamList"></div>
+        </div>
+      </details>
 
-      <h2 class="section-title" style="margin-top:22px">ביקורות ממתינות לאישור</h2>
-      <div id="reviewModerationList"></div>
+      <details class="acc" id="accReviews">
+        <summary>
+          <span class="acc-title">ביקורות ממתינות לאישור</span>
+          <span class="acc-count hot" id="accReviewsCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <div id="reviewModerationList"></div>
+        </div>
+      </details>
     </div>
 
-    <h2 class="section-title">הנכסים שלי</h2>
+    <details class="acc" id="accProperties" open>
+      <summary>
+        <span class="acc-title">הנכסים שלי</span>
+        <span class="acc-count" id="accPropertiesCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
     <button class="btn btn-ghost btn-block" id="toggleAddProperty" style="margin-bottom:12px">+ הוספת נכס חדש</button>
     <form id="addPropertyForm" class="card" style="display:none;padding:18px;margin-bottom:18px">
       <div class="field"><label>כותרת</label><input type="text" id="npTitle" required placeholder="לדוגמה: דירת 3 חדרים, שכונת רמת דוד"></div>
@@ -526,13 +587,27 @@
       <div id="addPropertyPlanningStatus" style="font-size:.75rem;text-align:center;margin-top:4px;color:var(--ink-soft)"></div>
     </form>
     <div id="propertiesList"></div>
+      </div>
+    </details>
 
-    <h2 class="section-title">הלידים שלי</h2>
-    <div id="leadsList"></div>
+    <details class="acc" id="accLeads" open>
+      <summary>
+        <span class="acc-title">הלידים שלי</span>
+        <span class="acc-count hot" id="accLeadsCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <div id="leadsList"></div>
+      </div>
+    </details>
 
-    <h2 class="section-title">מידע תכנוני על נכס (עפולה)</h2>
-    <div class="card" style="padding:18px;margin-bottom:18px">
-      <p style="font-size:.8rem;color:var(--ink-soft);margin:0 0 12px">גוש/חלקה, ייעוד קרקע, תוכניות תכנון ומפת חלקה — הזינו כתובת או גוש/חלקה</p>
+    <details class="acc" id="accPlanning">
+      <summary>
+        <span class="acc-title">מידע תכנוני על נכס (עפולה)</span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+      <p class="acc-sub">גוש/חלקה, ייעוד קרקע, תוכניות תכנון ומפת חלקה — הזינו כתובת או גוש/חלקה</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
         <input type="text" id="planStreet" placeholder="רחוב (למשל: דפנה)">
         <input type="text" id="planHouseNum" placeholder="מספר בית">
@@ -554,13 +629,18 @@
         <div id="planPlansList" style="margin-bottom:14px"></div>
         <div id="planMap" style="height:280px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--line)"></div>
       </div>
-    </div>
+      </div>
+    </details>
 
-    <h2 class="section-title">העדפות לידים אישיות</h2>
-    <p style="font-size:.82rem;color:var(--ink-soft);margin-top:-8px;margin-bottom:14px">
-      קובע לאילו לידי בעל-נכס (מוכר/משכיר) תתאים ותקבל התראה. ללא הגדרה כאן, לא תקבל לידים כאלה כלל.
-    </p>
-    <form id="prefsForm" class="card" style="padding:18px;margin-bottom:18px">
+    <details class="acc" id="accPrefs">
+      <summary>
+        <span class="acc-title">העדפות לידים אישיות</span>
+        <span class="acc-count" id="accPrefsCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+    <p class="acc-sub">קובע לאילו לידי בעל-נכס (מוכר/משכיר) תתאים ותקבל התראה. ללא הגדרה כאן, לא תקבל לידים כאלה כלל.</p>
+    <form id="prefsForm" style="margin-bottom:0">
       <div class="field">
         <label>שכונות מועדפות</label>
         <div id="neighborhoodCheckboxes" style="display:flex;flex-wrap:wrap;gap:8px"></div>
@@ -588,6 +668,8 @@
       <button type="submit" class="btn btn-gold btn-block" id="savePrefsBtn">שמירת העדפות</button>
       <div id="prefsFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
     </form>
+      </div>
+    </details>
   </div>
 </div>
 
@@ -663,6 +745,54 @@ function showToast(msg, ms=3200){
   clearTimeout(showToast._t);
   showToast._t = setTimeout(()=> toastEl.style.display='none', ms);
 }
+
+/* ---------- Accordion sections ----------
+   כל נושא בדשבורד הוא <details class="acc"> מקופל. מצב הפתיחה נשמר ב-localStorage
+   כדי שהסוכן/ת יחזרו לאותה תצוגה, ו-openAcc() פותח קטגוריה כשמגיעים אליה מקישור
+   (התראה על ליד, עריכת נכס) כדי שהתוכן לא "ייעלם" בתוך קטגוריה סגורה. */
+const ACC_STATE_KEY = 'crmAccordionState';
+
+function accReadState(){
+  try{ return JSON.parse(localStorage.getItem(ACC_STATE_KEY) || '{}'); }
+  catch(e){ return {}; }
+}
+
+function accWriteState(state){
+  try{ localStorage.setItem(ACC_STATE_KEY, JSON.stringify(state)); }catch(e){}
+}
+
+function accSetCount(accId, value){
+  const el = document.getElementById(accId + 'Count');
+  if (el) el.textContent = (value === 0 || value == null || value === '') ? '' : String(value);
+}
+
+function openAcc(accId){
+  const el = document.getElementById(accId);
+  if (!el) return null;
+  if (!el.open){
+    el.open = true;
+    const state = accReadState();
+    state[accId] = true;
+    accWriteState(state);
+  }
+  return el;
+}
+
+function initAccordions(){
+  const state = accReadState();
+  document.querySelectorAll('#dashboard details.acc').forEach(acc=>{
+    if (Object.prototype.hasOwnProperty.call(state, acc.id)) acc.open = !!state[acc.id];
+    acc.addEventListener('toggle', ()=>{
+      const s = accReadState();
+      s[acc.id] = acc.open;
+      accWriteState(s);
+      // Leaflet מחשב את גודל המפה בזמן היצירה — אם היא נוצרה בזמן שהקטגוריה
+      // הייתה סגורה (רוחב 0), צריך לרענן את המידות ברגע הפתיחה.
+      if (acc.open && acc.id === 'accPlanning' && planningMap) planningMap.invalidateSize();
+    });
+  });
+}
+initAccordions();
 
 /* ---------- Auth ---------- */
 document.getElementById('googleLoginBtn').addEventListener('click', async ()=>{
@@ -797,6 +927,7 @@ async function loadDashboard(){
   badge.textContent = tierLabels[agent.tier] || agent.tier;
   badge.className = 'tier-badge tier-' + agent.tier;
   document.getElementById('creditBalance').textContent = '₪' + Number(agent.credit_balance).toLocaleString('he-IL');
+  accSetCount('accWallet', '₪' + Number(agent.credit_balance).toLocaleString('he-IL'));
   document.getElementById('quotaUsed').textContent = agent.tier === 'free' ? (agent.free_quota_used + ' / 10') : '—';
 
   await loadProperties(agent.id);
@@ -888,6 +1019,7 @@ async function loadNeighborhoodsAdmin(){
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   const { data, error } = await sb.from('neighborhoods').select('id, city, name').order('name');
   if (error){ listEl.innerHTML = '<div class="empty-state">שגיאה: ' + error.message + '</div>'; return; }
+  accSetCount('accNeighborhoods', (data||[]).length);
   listEl.innerHTML = '';
   (data||[]).forEach(n=>{
     const row = document.createElement('div');
@@ -954,6 +1086,7 @@ async function loadPreferences(agentId){
     cb.checked = (prefs?.preferred_deal_types || []).includes(cb.value);
   });
   document.getElementById('prefsActive').checked = prefs ? prefs.active : true;
+  accSetCount('accPrefs', (prefs && prefs.active) ? 'פעיל' : 'כבוי');
 }
 
 function renderNeighborhoodCheckboxes(selectedIds){
@@ -996,6 +1129,7 @@ document.getElementById('prefsForm').addEventListener('submit', async (e)=>{
   }
   feedback.style.color = 'var(--blue)';
   feedback.textContent = 'ההעדפות נשמרו בהצלחה!';
+  accSetCount('accPrefs', active ? 'פעיל' : 'כבוי');
   setTimeout(()=>{ feedback.textContent=''; }, 2500);
 });
 
@@ -1011,6 +1145,7 @@ async function loadPendingReviews(agencyId){
     .order('created_at', { ascending:false });
 
   if (error){ el.innerHTML = '<div class="empty-state">שגיאה: ' + error.message + '</div>'; return; }
+  accSetCount('accReviews', (reviews||[]).length);
   if (!reviews || reviews.length === 0){ el.innerHTML = '<div class="empty-state">אין ביקורות הממתינות לאישור.</div>'; return; }
 
   el.innerHTML = '';
@@ -1082,6 +1217,7 @@ document.getElementById('topupBtn').addEventListener('click', async ()=>{
     if (agent){
       currentAgent.credit_balance = agent.credit_balance;
       document.getElementById('creditBalance').textContent = '₪' + Number(agent.credit_balance).toLocaleString('he-IL');
+      accSetCount('accWallet', '₪' + Number(agent.credit_balance).toLocaleString('he-IL'));
     }
   } catch(err){
     console.error(err);
@@ -1702,6 +1838,7 @@ async function loadTeam(agencyId, callerId){
     .order('role', { ascending:false });
 
   if (error){ el.innerHTML = '<div class="empty-state">שגיאה: ' + error.message + '</div>'; return; }
+  accSetCount('accTeam', (members||[]).length);
   const roleLabels = { manager:'מנהל/ת', agent:'סוכן/ת' };
   const tierLabels = { free:'חינמי', mid:'משודרג', premium:'פרימיום' };
   el.innerHTML = '';
@@ -2120,6 +2257,7 @@ async function loadProperties(agentId){
     listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת נכסים: ' + error.message + '</div>';
     return;
   }
+  accSetCount('accProperties', (props||[]).length);
   if (!props || props.length === 0){
     listEl.innerHTML = '<div class="empty-state">עדיין לא פרסמת נכסים.</div>';
     return;
@@ -2300,6 +2438,7 @@ function openEditProperty(p){
   addForm.style.display = 'block';
   document.getElementById('addPropertyBtn').textContent = 'שמירת שינויים';
   toggleBtn.textContent = '✕ ביטול';
+  openAcc('accProperties');
   addForm.scrollIntoView({ behavior:'smooth' });
 }
 
@@ -2317,6 +2456,8 @@ async function loadLeads(agentId){
     listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת לידים: ' + error.message + '</div>';
     return;
   }
+  // המונה בכותרת מציג לידים שעדיין לא נפתחו — זה מה שדורש טיפול
+  accSetCount('accLeads', (leads||[]).filter(l => l.status !== 'unlocked').length);
   if (!leads || leads.length === 0){
     listEl.innerHTML = '<div class="empty-state">אין עדיין לידים משויכים אליך.<br>ברגע שמתעניין יפנה על אחד הנכסים שלך, הוא יופיע כאן.</div>';
     return;
@@ -2578,6 +2719,7 @@ async function loadNotifications(agentId){
       }
       document.getElementById('bellPanel').style.display = 'none';
       document.getElementById('bellBtn').setAttribute('aria-expanded','false');
+      openAcc('accLeads');
       document.querySelector('#leadsList')?.scrollIntoView({ behavior:'smooth' });
     });
     listEl.appendChild(el);
