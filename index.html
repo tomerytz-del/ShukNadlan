@@ -661,6 +661,22 @@
     </div>
   </section>
 
+  <!-- ====== Property grid ====== -->
+  <!-- מוצג מיד מתחת למפה, לפני שאר סקציות עמוד הבית: כשמחפשים נכסים
+       (runSearch) התוצאות מתעדכנות כאן ובמפה יחד (ראו renderPropertyGrid),
+       וכך רואים אותן בלי לגלול קודם דרך המבזק/באנר בעלי-נכסים/מתווכים
+       מובילים/נכסים מקודמים. -->
+  <section class="section wrap" id="listings">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">נכסים באזור</p>
+        <h2>כל הנכסים הפעילים</h2>
+      </div>
+      <a href="#" class="see-all">סינון מתקדם ←</a>
+    </div>
+    <div class="property-grid" id="propertyGrid"><!-- populated by JS --></div>
+  </section>
+
   <!-- ====== Newsflash ticker ====== -->
   <div class="ticker">
     <div class="wrap">
@@ -724,18 +740,6 @@
       <a href="#" class="see-all">כל הנכסים ←</a>
     </div>
     <div class="featured-scroll" id="featuredScroll"><!-- populated by JS --></div>
-  </section>
-
-  <!-- ====== Property grid ====== -->
-  <section class="section wrap" id="listings">
-    <div class="section-head">
-      <div>
-        <p class="eyebrow">נכסים באזור</p>
-        <h2>כל הנכסים הפעילים</h2>
-      </div>
-      <a href="#" class="see-all">סינון מתקדם ←</a>
-    </div>
-    <div class="property-grid" id="propertyGrid"><!-- populated by JS --></div>
   </section>
 
   <!-- ====== Mortgage calculator ====== -->
