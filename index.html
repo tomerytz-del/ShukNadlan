@@ -173,7 +173,12 @@
   .deal-tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
   .deal-tabs::-webkit-scrollbar{display:none}
   .deal-tab{flex:0 0 auto;padding:9px 20px;border-radius:999px;font-weight:700;font-size:.85rem;color:var(--ink-soft);border:1.5px solid var(--line);background:#fff;white-space:nowrap}
+  /* צבע פעיל שונה לכל טאב, תואם לצבעי הפינים במפה (renderMap ב-JS):
+     קנייה כחול, השכרה אדום, מסחרי אפור בטון — כך שהמשתמש מזהה מיד
+     איזה סוג נכסים מוצג על המפה גם בלי להסתכל על הפינים עצמם. */
   .deal-tab.active{background:var(--teal);color:#fff;border-color:var(--teal)}
+  .deal-tab[data-mode="rent"].active{background:var(--gold);border-color:var(--gold)}
+  .deal-tab[data-mode="commercial"].active{background:var(--ink-soft);border-color:var(--ink-soft)}
   .search-actions-row{display:flex;gap:8px;margin-top:10px}
   .search-actions-row .btn-ghost{position:relative;white-space:nowrap;background:#fff}
   .filter-count-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:999px;background:var(--gold);color:#fff;font-size:.68rem;font-weight:800;margin-right:6px;padding:0 4px}
@@ -212,7 +217,9 @@
      מוקטנת ואסתטית; "הצג נכסים על המפה" מרחיב אותה במקום, בלי לנווט
      לעמוד/מודאל נפרד. */
   /* צמוד לתיבת החיפוש (10px בלבד) אבל בלי לדרוס אותה — הצל של .search-card
-     נופל על המפה, ומרווח קטן מדי היה נראה כאילו הכרטיס יושב עליה. */
+     נופל על המפה, ומרווח קטן מדי היה נראה כאילו הכרטיס יושב עליה. ההפרדה
+     מהמבזק שמתחת מגיעה מ-padding-bottom של .hero, ולא מ-margin-bottom כאן —
+     שני הפתרונות יחד היו מכפילים את הרווח. */
   .map-wrap{margin-top:10px;border-radius:var(--radius-lg);overflow:hidden;position:relative}
   /* overflow:hidden כאן במכוון, בנוסף לזה שכבר קיים ב-leaflet.min.css:
      ה-panes הפנימיים של Leaflet גדולים בהרבה מהקונטיינר הנראה (buffer
@@ -508,7 +515,7 @@
           <button class="deal-tab" data-mode="commercial" role="tab" aria-selected="false">מסחרי</button>
         </div>
         <div class="search-row">
-          <input type="text" class="search-input" placeholder="עיר, שכונה, רחוב או קוד נכס…" id="searchFreeText">
+          <input type="text" class="search-input" placeholder="עיר, שכונה, רחוב או סוג נכס…" id="searchFreeText">
         </div>
         <div class="search-actions-row">
           <button type="button" class="btn btn-ghost" id="openFiltersBtn">⚙️ סינונים<span id="filterCountBadge" class="filter-count-badge" style="display:none">0</span></button>
@@ -709,6 +716,22 @@
     </div>
   </section>
 
+  <!-- ====== Property grid ====== -->
+  <!-- מוצג מיד מתחת למפה, לפני שאר סקציות עמוד הבית: כשמחפשים נכסים
+       (runSearch) התוצאות מתעדכנות כאן ובמפה יחד (ראו renderPropertyGrid),
+       וכך רואים אותן בלי לגלול קודם דרך המבזק/באנר בעלי-נכסים/מתווכים
+       מובילים/נכסים מקודמים. -->
+  <section class="section wrap" id="listings">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">נכסים באזור</p>
+        <h2>כל הנכסים הפעילים</h2>
+      </div>
+      <a href="#" class="see-all">סינון מתקדם ←</a>
+    </div>
+    <div class="property-grid" id="propertyGrid"><!-- populated by JS --></div>
+  </section>
+
   <!-- ====== Newsflash ticker ====== -->
   <div class="ticker">
     <div class="wrap">
@@ -850,18 +873,6 @@
     <div class="featured-scroll" id="featuredScroll"><!-- populated by JS --></div>
   </section>
 
-  <!-- ====== Property grid ====== -->
-  <section class="section wrap" id="listings">
-    <div class="section-head">
-      <div>
-        <p class="eyebrow">נכסים באזור</p>
-        <h2>כל הנכסים הפעילים</h2>
-      </div>
-      <a href="#" class="see-all">סינון מתקדם ←</a>
-    </div>
-    <div class="property-grid" id="propertyGrid"><!-- populated by JS --></div>
-  </section>
-
   <!-- ====== Mortgage calculator ====== -->
   <section class="section wrap" id="calc">
     <div class="section-head">
@@ -983,9 +994,9 @@ const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const OWNER_LEAD_FUNCTION_URL = SUPABASE_URL + '/functions/v1/owner-lead-intake';
 
 const FALLBACK_PROPERTIES = [
-  {id:'m1', price:1180000, title:'דירת 4 חדרים, שכונת רמת דוד', rooms:4, property_type:'דירה', deal_type:'sale', lat:32.6078, lng:35.2897, agency_name:'משרד תיווך העמק', is_promoted:true},
-  {id:'m2', price:4200, title:'דירת 3 חדרים להשכרה, מרכז העיר', rooms:3, property_type:'דירה', deal_type:'rent', lat:32.6100, lng:35.2950, agency_name:'נדל״ן גלבוע', is_promoted:false},
-  {id:'m3', price:2350000, title:'בית פרטי, שכונת גבעת המורה', rooms:6, property_type:'בית פרטי', deal_type:'sale', lat:32.6020, lng:35.2830, agency_name:'בית ונחלה', is_promoted:true},
+  {id:'m1', price:1180000, title:'דירת 4 חדרים, שכונת רמת דוד', rooms:4, property_type:'דירה', deal_type:'sale', category:'residential', lat:32.6078, lng:35.2897, agency_name:'משרד תיווך העמק', is_promoted:true},
+  {id:'m2', price:4200, title:'דירת 3 חדרים להשכרה, מרכז העיר', rooms:3, property_type:'דירה', deal_type:'rent', category:'residential', lat:32.6100, lng:35.2950, agency_name:'נדל״ן גלבוע', is_promoted:false},
+  {id:'m3', price:2350000, title:'בית פרטי, שכונת גבעת המורה', rooms:6, property_type:'בית פרטי', deal_type:'sale', category:'residential', lat:32.6020, lng:35.2830, agency_name:'בית ונחלה', is_promoted:true},
 ];
 const FALLBACK_TICKER = [
   {text:'חם מהשטח: דירת 4 חדרים בעפולה נמכרה ב-1,350,000 ₪'},
@@ -1346,7 +1357,7 @@ async function loadProperties(){
   try{
     const { data, error } = await sb
       .from('properties')
-      .select('id, price, title, rooms, property_type, deal_type, lat, lng, is_promoted, images, agencies(name)')
+      .select('id, price, title, rooms, property_type, deal_type, category, lat, lng, is_promoted, images, agencies(name)')
       .eq('status', 'active')
       .limit(12);
     if (error || !data || data.length === 0) throw error || new Error('empty');
@@ -1571,9 +1582,12 @@ function renderMap(properties){
   if (heroMap){
     properties.forEach((p) => {
       if (!p.lat || !p.lng) return;
+      // צבע הפין לפי סוג הנכס — תואם לצבעי כפתורי הטאב (קנייה/השכרה/מסחרי)
+      // מעל המפה, כדי שאפשר יהיה לזהות סוג נכס במבט חטוף גם בלי לפתוח פופאפ
+      const pinColor = p.category === 'commercial' ? 'var(--ink-soft)' : (p.deal_type === 'sale' ? 'var(--teal)' : 'var(--gold)');
       const icon = L.divIcon({
         className:'',
-        html:`<div style="background:${p.deal_type==='sale'?'#1C3A5E':'#8B2332'};color:#fff;padding:4px 8px;border-radius:8px;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.3);white-space:nowrap;font-family:Heebo,sans-serif">${priceLabel(p)}</div>`,
+        html:`<div style="background:${pinColor};color:#fff;padding:4px 8px;border-radius:8px;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.3);white-space:nowrap;font-family:Heebo,sans-serif">${priceLabel(p)}</div>`,
         iconSize:[0,0]
       });
       const m = L.marker([p.lat, p.lng], {icon}).addTo(heroMap);
@@ -1726,6 +1740,9 @@ document.querySelectorAll('.deal-tab').forEach(tab=>{
     document.querySelectorAll('.deal-tab').forEach(t=>{ t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
     tab.classList.add('active'); tab.setAttribute('aria-selected','true');
     searchState.activeTab = tab.dataset.mode;
+    // מריצים חיפוש מיידית עם מעבר טאב, כדי שהמפה (וגם הגריד) יסננו
+    // מיד לסוג הרלוונטי בלבד, בלי לחכות שהמשתמש ילחץ "חיפוש נכסים"
+    runSearch();
   });
 });
 
@@ -1815,7 +1832,7 @@ async function runSearch(){
 
   try{
     if (!sb) throw new Error('no supabase client');
-    let query = sb.from('properties').select('id, price, title, rooms, property_type, deal_type, lat, lng, is_promoted, agencies(name)')
+    let query = sb.from('properties').select('id, price, title, rooms, property_type, deal_type, category, lat, lng, is_promoted, agencies(name)')
       .eq('status', 'active')
       .eq('category', isCommercial ? 'commercial' : 'residential')
       .eq('deal_type', dealType);
