@@ -111,7 +111,8 @@ create table if not exists public.rss_leads (
   teaser_title       text,
   teaser_description text,
 
-  -- מסחר (Pay-per-lead)
+  -- מסחר (Pay-per-lead) — המחיר, יומן הרכישות והפונקציה האטומית שמזיזה את
+  -- הכסף יושבים במיגרציה 20260824120000_rss_lead_purchase.sql
   status        text not null default 'new'
                 check (status in ('new','sold','archived')),
   sold_at       timestamptz,

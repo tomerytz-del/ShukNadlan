@@ -15,11 +15,14 @@
 | `lead_engine/store.py` | Supabase — מקורות, מניעת כפילויות, שמירה |
 | `schema.sql` | טבלאות `rss_sources` ו-`rss_leads` + RLS + view פומבי |
 | `.github/workflows/rss_scraper.yml` | תזמון והרצה ידנית |
+| `supabase/migrations/20260824120000_rss_lead_purchase.sql` | מדף הרכישה: מחיר, יומן חיובים ופונקציית הרכישה האטומית |
+| `supabase/functions/rss-lead-purchase/index.ts` | ה-Edge Function שדרכה עוברת כל רכישה |
 
 ## שלב 1 — מסד הנתונים
 
 `schema.sql` כבר הורץ על פרויקט `shuknadlan-marketplace` (מיגרציות
-`rss_lead_engine` ו-`rss_leads_revoke_anon`). הקובץ אידמפוטנטי — אפשר להריץ
+`rss_lead_engine` ו-`rss_leads_revoke_anon`), וכך גם מיגרציית הרכישה
+`rss_lead_purchase`. הקובץ אידמפוטנטי — אפשר להריץ
 אותו שוב אחרי שינויים (SQL Editor → New query → הדבקה → Run).
 
 הוא יוצר:
@@ -74,6 +77,39 @@ Settings → Secrets and variables → Actions → **Secrets**:
 pip install -r requirements.txt
 cp .env.example .env      # ומלאו את שלושת המפתחות
 python scraper.py --dry-run --limit 3 --verbose
+```
+
+## מדף הלידים — רכישה ב-₪50
+
+באזור האישי (`crm.html`) → **מדף לידים — רכישה**. כל סוכן/ת מחובר/ת רואה שם את
+הלידים הפנויים, ממוינים לפי ציון האיכות, עם תקציר שיווקי בלבד: עיר, שכונה, סוג
+נכס, חדרים, תקציב, דחיפות וציון. אין שם קישור לפוסט המקורי ואין טקסט גולמי —
+אלה בדיוק מה שנקנה.
+
+לחיצה על **רכישה — ₪50** מנכה את הסכום מיתרת הארנק, מסמנת את הליד כ-`sold`
+ומשייכת אותו לקונה. מאותו רגע הליד מופיע למטה תחת "הלידים שרכשתי" עם קישור
+לפוסט המקורי, והחיוב נרשם בהיסטוריית החיובים שבתוך "טעינת ארנק".
+
+- **המחיר** יושב ב-`pricing_config` תחת `rss_lead_price` (ברירת מחדל 50). שינוי
+  שם משנה מיד את המחיר בממשק — אין מספר קשיח בקוד.
+- **ליד נמכר פעם אחת.** `for update` על שורת הליד מסדר רכישות מקבילות בטור,
+  ו-`unique(lead_id)` ב-`rss_lead_purchases` הוא רשת הביטחון. סוכן/ת שניגש/ת
+  לליד שכבר נמכר מקבל/ת "הליד כבר נמכר לסוכן/ת אחר/ת" ולא מחויב/ת.
+- **לחיצה כפולה לא מחייבת פעמיים** — רכישה חוזרת של אותו/ה קונה מחזירה את
+  הקישור בלי חיוב נוסף.
+- **יתרה לא מספיקה** עוצרת את הרכישה לפני כל שינוי: הליד נשאר `new` והארנק לא
+  נוגע.
+
+הרכישה עוברת דרך ה-Edge Function ‏`rss-lead-purchase` ולא ישירות מהדפדפן, כי
+הטריגר `protect_sensitive_agency_member_fields` מבטל שינוי `credit_balance`
+שלא הגיע מ-`service_role` — חיוב ישיר מהדפדפן היה נבלע בשקט והליד היה נמכר
+בחינם. אותה תבנית בדיוק כמו `lead-claim` של הלידים הפנימיים: הסוכן/ת נגזר/ת
+מה-JWT המאומת, ופונקציית ה-DB ‏`purchase_rss_lead` נעולה ל-`service_role`.
+
+פריסה מחדש של הפונקציה:
+
+```bash
+supabase functions deploy rss-lead-purchase --project-ref obookujgolazrwycsiyn
 ```
 
 ## איך נמנעות כפילויות

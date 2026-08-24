@@ -103,6 +103,34 @@
   .status-pill{font-size:.68rem;font-weight:800;padding:2px 9px;border-radius:5px}
   .status-masked{background:var(--gold-tint);color:var(--gold-dark)}
   .status-unlocked{background:var(--teal-tint);color:var(--teal)}
+
+  /* ---------- צד הליד: מוכר מול קונה ----------
+     שני הצדדים נראו זהים בכרטיס, והשורה "בעל נכס · עפולה" הייתה הרמז היחיד.
+     עכשיו הצבע עושה את העבודה: ליד של מוכר/משכיר (הליד היקר) בזהב חם, ליד של
+     קונה/שוכר בכחול-נייבי — ובראש הכרטיס תגית מפורשת עם הצד וסוג העסקה.
+     ‏border-inline-start ולא border-right: בעמוד RTL זהו הפס בצד ההתחלה. */
+  .lead-card{border-inline-start:4px solid transparent}
+  .acc-body .card.kind-owner{background:linear-gradient(180deg,#FCF8EF,#F7EFDD);border-inline-start-color:#B08A2E}
+  .acc-body .card.kind-buyer{background:linear-gradient(180deg,#F3F6FA,#E7EEF6);border-inline-start-color:var(--teal)}
+  .lead-kind{display:inline-flex;align-items:center;gap:5px;font-size:.7rem;font-weight:800;padding:3px 10px;border-radius:999px;margin-bottom:5px}
+  .kind-owner .lead-kind{background:#8A6A18;color:#FDF8EC}
+  .kind-buyer .lead-kind{background:var(--teal);color:#EDF2F8}
+
+  /* ---------- אישור רכישה ----------
+     ‏confirm() של הדפדפן לא הבהיר שמדובר בחיוב אמיתי. כאן הסכום מוצג בגדול,
+     ונדרש סימון מפורש של "אני מבין/ה" לפני שכפתור החיוב בכלל נדלק. */
+  .pm-overlay{position:fixed;inset:0;background:rgba(27,31,38,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:400}
+  .pm-card{background:#fff;border-radius:var(--radius-md);max-width:420px;width:100%;padding:22px;box-shadow:0 18px 48px rgba(0,0,0,.28)}
+  .pm-title{font-weight:800;font-size:1.05rem;margin-bottom:10px}
+  .pm-body{font-size:.86rem;color:var(--ink-soft);line-height:1.6}
+  .pm-body div{margin-bottom:4px}
+  .pm-body div:first-child{color:var(--ink);font-weight:700;font-size:.92rem}
+  .pm-price{margin:14px 0;padding:12px 14px;border-radius:var(--radius-sm);background:var(--gold-tint);color:var(--gold-dark);font-weight:800;text-align:center;font-size:.95rem}
+  .pm-price.free{background:var(--teal-tint);color:var(--teal)}
+  .pm-ack{display:flex;align-items:flex-start;gap:9px;font-size:.83rem;line-height:1.45;background:var(--paper-raised);border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;cursor:pointer}
+  .pm-actions{display:flex;gap:8px;margin-top:16px}
+  .pm-actions .btn{flex:1}
+  .pm-actions .btn:disabled{opacity:.45;cursor:not-allowed}
   /* flex-wrap כדי שברוחב טלפון הכפתורים יעברו לשורה נוספת במקום להתכווץ —
      בלי wrap הטקסט שלהם עצמו נשבר לשתי שורות בתוך כפתור מכווץ, ובגלל
      ה-border-radius:999px זה נראה כמו עיגול, וגם דוחף את העמוד לרוחב. */
@@ -631,6 +659,36 @@
       </div>
     </details>
 
+    <details class="acc" id="accLeadShelf">
+      <summary>
+        <span class="acc-title">מדף לידים — רכישה</span>
+        <span class="acc-count" id="accLeadShelfCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">לידים שמנוע ה-RSS אסף מקבוצות ומלוחות וסיווג אוטומטית. הרכישה מנכה <b id="shelfPriceLabel">₪50</b> מיתרת הארנק וחושפת את הפוסט המקורי ואת פרטי הפונה. כל ליד נמכר לסוכן/ת אחד/ת בלבד.</p>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <select id="shelfSideFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
+            <option value="">כל סוגי הפונים</option>
+            <option value="מוכר פרטי">מוכר פרטי</option>
+            <option value="משכיר">משכיר</option>
+            <option value="קונה פרטי">קונה פרטי</option>
+            <option value="שוכר">שוכר</option>
+          </select>
+          <select id="shelfCityFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
+            <option value="">כל הערים</option>
+          </select>
+          <button type="button" class="btn btn-ghost" id="shelfRefreshBtn" style="white-space:nowrap">רענון</button>
+        </div>
+
+        <div id="leadShelfList"></div>
+
+        <div class="form-subheading">הלידים שרכשתי</div>
+        <div id="purchasedLeadsList"></div>
+      </div>
+    </details>
+
     <details class="acc" id="accPlanning">
       <summary>
         <span class="acc-title">מידע תכנוני על נכס (עפולה)</span>
@@ -781,6 +839,23 @@
   <button type="button" id="devMenuToggle">🧪 מצב בדיקה</button>
 </div>
 
+<!-- אישור רכישה: כל פעולה שמוציאה כסף מהארנק עוברת דרך כאן -->
+<div class="pm-overlay" id="purchaseModal" role="dialog" aria-modal="true" aria-labelledby="pmTitle" style="display:none">
+  <div class="pm-card">
+    <div class="pm-title" id="pmTitle">אישור רכישה</div>
+    <div class="pm-body" id="pmBody"></div>
+    <div class="pm-price" id="pmPrice"></div>
+    <label class="pm-ack" id="pmAckWrap">
+      <input type="checkbox" id="pmAck">
+      <span id="pmAckText"></span>
+    </label>
+    <div class="pm-actions">
+      <button type="button" class="btn btn-ghost" id="pmCancel">ביטול</button>
+      <button type="button" class="btn btn-gold" id="pmConfirm">אישור וחיוב</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -852,6 +927,97 @@ function initAccordions(){
   });
 }
 initAccordions();
+
+/* ---------- Pricing config ----------
+   המחירים יושבים ב-pricing_config ב-DB (עם policy קריאה פומבית) ולא מקודדים
+   כאן, כדי שדיאלוג האישור יציג בדיוק את הסכום שהשרת עומד לגבות.          */
+let pricingConfig = {};
+async function loadPricing(){
+  const { data } = await sb.from('pricing_config').select('key, value');
+  pricingConfig = Object.fromEntries((data||[]).map(r => [r.key, Number(r.value)]));
+}
+function priceOf(key, fallback){
+  const v = pricingConfig[key];
+  return (v === undefined || v === null || Number.isNaN(v)) ? fallback : v;
+}
+
+/* ---------- צד הליד ----------
+   מוכר/משכיר (בעל/ת הנכס) מול קונה/שוכר (מתעניין/ת). מחזיר את התגית שמוצגת
+   בראש הכרטיס ואת מחלקת הצבע של הרקע — אותה שפה בלידים הפנימיים ובמדף. */
+function leadKind(lead){
+  const rent = lead.deal_type === 'rent';
+  if (lead.lead_type === 'owner_inbound'){
+    return { cls:'kind-owner', icon:'🔑', label: rent ? 'ליד משכיר · בעל/ת נכס' : 'ליד מוכר · בעל/ת נכס' };
+  }
+  if (lead.lead_type === 'agent_direct_inquiry'){
+    return { cls:'kind-buyer', icon:'✉️', label:'פנייה ישירה · מתעניין/ת' };
+  }
+  return { cls:'kind-buyer', icon:'🔎', label: rent ? 'ליד שוכר · מתעניין/ת' : 'ליד קונה · מתעניין/ת' };
+}
+
+// במדף ה-RSS הצד מגיע כטקסט מהסיווג של Claude, לא כ-lead_type
+const SHELF_KIND = {
+  'מוכר פרטי': { cls:'kind-owner', icon:'🔑' },
+  'משכיר':     { cls:'kind-owner', icon:'🔑' },
+  'קונה פרטי': { cls:'kind-buyer', icon:'🔎' },
+  'שוכר':      { cls:'kind-buyer', icon:'🔎' },
+};
+function shelfKind(side){
+  const k = SHELF_KIND[side] || { cls:'kind-buyer', icon:'•' };
+  return { ...k, label: (side || 'ליד') + (k.cls === 'kind-owner' ? ' · בעל/ת נכס' : ' · מתעניין/ת') };
+}
+
+/* ---------- דיאלוג אישור רכישה ----------
+   כל פעולה שמוציאה כסף מהארנק עוברת כאן. הסכום מוצג בגדול, ונדרש סימון
+   מפורש של "אני מבין/ה שזו רכישה" לפני שכפתור החיוב נדלק — הקריאה לשרת
+   יוצאת רק אחרי לחיצה עליו. השורה הראשונה ב-lines היא הכותרת המודגשת. */
+function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel }){
+  const overlay   = document.getElementById('purchaseModal');
+  const ackBox    = document.getElementById('pmAck');
+  const ackWrap   = document.getElementById('pmAckWrap');
+  const confirmBtn= document.getElementById('pmConfirm');
+  const cancelBtn = document.getElementById('pmCancel');
+  const priceEl   = document.getElementById('pmPrice');
+  const paid = Number(price) > 0;
+
+  document.getElementById('pmTitle').textContent = title;
+  document.getElementById('pmBody').innerHTML = lines.map(l => `<div>${esc(l)}</div>`).join('');
+  priceEl.textContent = paid ? `לחיוב עכשיו: ${shekel(price)} מיתרת הארנק` : 'ללא עלות — לא ייגבה תשלום';
+  priceEl.className = 'pm-price' + (paid ? '' : ' free');
+  document.getElementById('pmAckText').textContent = ackText ||
+    `אני מבין/ה שזו רכישה, ושאישור הפעולה יחייב את הארנק שלי ב-${shekel(price)}.`;
+
+  ackWrap.style.display = paid ? 'flex' : 'none';
+  ackBox.checked = false;
+  confirmBtn.textContent = confirmLabel || (paid ? `אישור רכישה וחיוב ${shekel(price)}` : 'אישור');
+  confirmBtn.disabled = paid;              // נדלק רק אחרי סימון ה"אני מבין/ה"
+  overlay.style.display = 'flex';
+
+  return new Promise(resolve => {
+    const onAck     = ()=> { confirmBtn.disabled = paid && !ackBox.checked; };
+    const onConfirm = ()=> { if (!confirmBtn.disabled) done(true); };
+    const onCancel  = ()=> done(false);
+    const onKey     = (e)=> { if (e.key === 'Escape') done(false); };
+    const onBackdrop= (e)=> { if (e.target === overlay) done(false); };
+
+    function done(value){
+      ackBox.removeEventListener('change', onAck);
+      confirmBtn.removeEventListener('click', onConfirm);
+      cancelBtn.removeEventListener('click', onCancel);
+      overlay.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKey);
+      overlay.style.display = 'none';
+      resolve(value);
+    }
+
+    ackBox.addEventListener('change', onAck);
+    confirmBtn.addEventListener('click', onConfirm);
+    cancelBtn.addEventListener('click', onCancel);
+    overlay.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKey);
+    (paid ? ackBox : confirmBtn).focus();
+  });
+}
 
 /* ---------- Auth ---------- */
 document.getElementById('googleLoginBtn').addEventListener('click', async ()=>{
@@ -962,7 +1128,7 @@ async function loadDashboard(){
 
   const { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select('id, agency_id, display_name, role, tier, credit_balance, free_quota_used, is_platform_admin, phone, agencies(name)')
+    .select('id, agency_id, display_name, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, phone, agencies(name)')
     .eq('user_id', user.id)
     .single();
 
@@ -987,10 +1153,16 @@ async function loadDashboard(){
   badge.className = 'tier-badge tier-' + agent.tier;
   document.getElementById('creditBalance').textContent = '₪' + Number(agent.credit_balance).toLocaleString('he-IL');
   accSetCount('accWallet', '₪' + Number(agent.credit_balance).toLocaleString('he-IL'));
-  document.getElementById('quotaUsed').textContent = agent.tier === 'free' ? (agent.free_quota_used + ' / 10') : '—';
+
+  // המחירים נטענים לפני הלידים, כי דיאלוג האישור מציג את הסכום שייגבה בפועל
+  await loadPricing();
+  const freeQuota = priceOf('free_lead_quota_monthly', 10);
+  document.getElementById('quotaUsed').textContent =
+    agent.tier === 'free' ? (quotaUsedThisCycle() + ' / ' + freeQuota) : '—';
 
   await loadProperties(agent.id);
   await loadLeads(agent.id);
+  await loadLeadShelf(agent.id);
   await loadNotifications(agent.id);
   await loadPreferences(agent.id);
   loadWhatsappSettings(agent);
@@ -1507,15 +1679,17 @@ toggleBillingBtn.addEventListener('click', async ()=>{
 
 async function loadBillingHistory(){
   billingHistoryList.innerHTML = '<div class="empty-state">טוען…</div>';
-  const [{ data: charges }, { data: promotions }, { data: topups }] = await Promise.all([
+  const [{ data: charges }, { data: promotions }, { data: topups }, { data: shelfPurchases }] = await Promise.all([
     sb.from('lead_charges').select('amount, status, created_at').eq('agent_id', currentAgent.id).order('created_at', { ascending:false }).limit(10),
     sb.from('promotion_charges').select('amount, status, created_at').eq('agent_id', currentAgent.id).order('created_at', { ascending:false }).limit(10),
     sb.from('wallet_topups').select('amount, status, test_mode, created_at').eq('agent_id', currentAgent.id).order('created_at', { ascending:false }).limit(10),
+    sb.from('rss_lead_purchases').select('amount, status, created_at').eq('agent_id', currentAgent.id).order('created_at', { ascending:false }).limit(10),
   ]);
   const items = [
     ...(charges||[]).map(c=>({ label:'פתיחת ליד', amount: -c.amount, status: c.status, date: c.created_at })),
     ...(promotions||[]).map(p=>({ label:'קידום נכס', amount: -p.amount, status: p.status, date: p.created_at })),
     ...(topups||[]).map(t=>({ label:'טעינת ארנק' + (t.test_mode ? ' (בדיקה)' : ''), amount: t.amount, status: t.status, date: t.created_at })),
+    ...(shelfPurchases||[]).map(p=>({ label:'רכישת ליד מהמדף', amount: -p.amount, status: p.status, date: p.created_at })),
   ].sort((a,b)=> new Date(b.date) - new Date(a.date));
 
   if (items.length === 0){ billingHistoryList.innerHTML = '<div class="empty-state">אין עדיין היסטוריית חיובים.</div>'; return; }
@@ -2731,31 +2905,34 @@ async function loadLeads(agentId){
     return;
   }
 
-  const typeLabels = { property_inquiry:'התעניינות בנכס', owner_inbound:'בעל נכס', agent_direct_inquiry:'פנייה ישירה' };
   listEl.innerHTML = '';
   leads.forEach(lead=>{
+    const kind = leadKind(lead);
     const el = document.createElement('div');
-    el.className = 'card lead-card';
+    el.className = 'card lead-card ' + kind.cls;
     const statusLabel = lead.status === 'unlocked' ? 'פתוח' : (lead.status === 'pending_charge' ? 'בתהליך פתיחה' : 'מוסתר');
+    const dealLabel = lead.deal_type === 'rent' ? 'השכרה' : (lead.deal_type === 'sale' ? 'מכירה' : '');
     el.innerHTML = `
       <div class="lead-top">
         <div>
-          <div class="lead-name">${lead.display_name || '—'}</div>
-          <div class="lead-meta">${typeLabels[lead.lead_type] || lead.lead_type} · ${lead.city || ''}</div>
+          <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
+          <div class="lead-name">${esc(lead.display_name || '—')}</div>
+          <div class="lead-meta">${[dealLabel, lead.city, lead.property_type].filter(Boolean).map(esc).join(' · ')}</div>
         </div>
         <span class="status-pill status-${lead.status === 'unlocked' ? 'unlocked' : 'masked'}">${statusLabel}</span>
       </div>
-      <div class="lead-phone">${lead.display_phone || '—'}</div>
-      ${lead.property_details ? `<div class="lead-meta">🏠 ${lead.property_details}</div>` : ''}
-      ${lead.display_message ? `<div class="lead-meta">📍 ${lead.display_message}</div>` : ''}
+      <div class="lead-phone">${esc(lead.display_phone || '—')}</div>
+      ${lead.property_details ? `<div class="lead-meta">🏠 ${esc(lead.property_details)}</div>` : ''}
+      ${lead.display_message ? `<div class="lead-meta">📍 ${esc(lead.display_message)}</div>` : ''}
       <div class="lead-actions"></div>
     `;
     const actions = el.querySelector('.lead-actions');
     if (lead.status !== 'unlocked'){
       const claimBtn = document.createElement('button');
       claimBtn.className = 'btn btn-gold';
-      claimBtn.textContent = 'פתיחת ליד';
-      claimBtn.addEventListener('click', ()=> claimLead(lead.id, claimBtn, agentId));
+      const cost = claimCost(lead);
+      claimBtn.textContent = cost.price > 0 ? `פתיחת ליד — ${shekel(cost.price)}` : 'פתיחת ליד';
+      claimBtn.addEventListener('click', ()=> claimLead(lead, claimBtn, agentId));
       actions.appendChild(claimBtn);
     } else {
       const reviewBtn = document.createElement('button');
@@ -2783,7 +2960,50 @@ function copyReviewLink(leadId, btn){
   }
 }
 
-async function claimLead(leadId, btn, agentId){
+/* המחיר מחושב כאן באותה לוגיקה של claim_lead ב-DB, רק כדי להציג אותו לפני
+   האישור — השרת נשאר הסמכות, והטוסט אחרי ההצלחה מציג את מה שנגבה בפועל. */
+function quotaUsedThisCycle(){
+  const start = currentAgent?.free_quota_cycle_start;
+  if (start){
+    const d = new Date(start), now = new Date();
+    // מכסה חודשית: מחזור שהתחיל בחודש קודם כבר התאפס בשרת בפתיחה הבאה
+    if (d.getFullYear() < now.getFullYear() ||
+        (d.getFullYear() === now.getFullYear() && d.getMonth() < now.getMonth())) return 0;
+  }
+  return currentAgent?.free_quota_used || 0;
+}
+
+function claimCost(lead){
+  const tier = currentAgent?.tier || 'free';
+  if (lead.lead_type === 'owner_inbound'){
+    if (tier === 'free')    return { price:0, blocked:'לידי בעל-נכס לא זמינים במסלול החינמי' };
+    if (tier === 'premium') return { price:0, note:'לידי בעל-נכס כלולים במסלול פרימיום' };
+    return { price: priceOf('ppl_price_owner_mid', 50) };
+  }
+  if (tier === 'mid' || tier === 'premium') return { price:0, note:'לידי קונה/שוכר כלולים במסלול שלך, ללא הגבלה' };
+  const quota = priceOf('free_lead_quota_monthly', 10);
+  const used = quotaUsedThisCycle();
+  if (used < quota) return { price:0, note:`נכלל במכסה החינמית — ${used + 1} מתוך ${quota} החודש` };
+  return { price: priceOf('ppl_price_buyer_renter', 10), note:`המכסה החינמית (${quota} לחודש) נוצלה` };
+}
+
+async function claimLead(lead, btn, agentId){
+  const cost = claimCost(lead);
+  if (cost.blocked){ showToast(cost.blocked); return; }
+
+  const kind = leadKind(lead);
+  const approved = await confirmPurchase({
+    title: cost.price > 0 ? 'אישור רכישת ליד' : 'אישור פתיחת ליד',
+    lines: [
+      `${kind.icon} ${kind.label}${lead.city ? ' · ' + lead.city : ''}`,
+      'פתיחת הליד חושפת את השם המלא ואת מספר הטלפון של הפונה, ומשייכת אותו אליך.',
+      cost.note || '',
+    ].filter(Boolean),
+    price: cost.price,
+    confirmLabel: cost.price > 0 ? `אישור רכישה וחיוב ${shekel(cost.price)}` : 'פתיחת הליד',
+  });
+  if (!approved) return;
+
   const original = btn.textContent;
   btn.disabled = true; btn.textContent = 'פותח…';
   try{
@@ -2791,7 +3011,7 @@ async function claimLead(leadId, btn, agentId){
     const res = await fetch(CLAIM_FUNCTION_URL, {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
-      body: JSON.stringify({ lead_id: leadId }),
+      body: JSON.stringify({ lead_id: lead.id }),
     });
     const data = await res.json();
     if (!res.ok || data.error){
@@ -2826,6 +3046,210 @@ function esc(s){
 }
 const shekel = n => (n === null || n === undefined) ? '—' : '₪' + Number(n).toLocaleString('he-IL');
 const hebDate = d => d ? new Date(d).toLocaleDateString('he-IL') : '—';
+
+/* ---------- Lead shelf: רכישת לידי RSS ----------
+   המדף עצמו נקרא מ-rss_leads_public — ה-view השיווקי, בלי source_url ובלי
+   הטקסט הגולמי. הרכישה עוברת ב-Edge Function ‏rss-lead-purchase (ולא ב-rpc
+   ישיר), כי הטריגר protect_sensitive_agency_member_fields מבטל שינוי
+   credit_balance שלא הגיע מ-service_role — חיוב מהדפדפן היה נבלע בשקט.
+   אחרי הרכישה השורה המלאה נקראת ישירות מ-rss_leads: ה-policy
+   "buyer reads purchased rss lead" מחזירה אותה לקונה בלבד.                */
+let rssLeadPrice = 50;
+let shelfLeads = [];
+
+async function loadLeadShelf(agentId){
+  const listEl = document.getElementById('leadShelfList');
+  listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+
+  const { data: leads, error } = await sb
+    .from('rss_leads_public')
+    .select('*')
+    .eq('status', 'new')
+    .order('lead_quality_score', { ascending:false, nullsFirst:false })
+    .order('created_at', { ascending:false })
+    .limit(60);
+
+  rssLeadPrice = priceOf('rss_lead_price', 50);
+  document.getElementById('shelfPriceLabel').textContent = shekel(rssLeadPrice);
+
+  if (error){
+    // הטבלאות נוצרות ב-schema.sql + מיגרציית הרכישה; עד שהן קיימות אין טעם להבהיל
+    const missing = /does not exist|schema cache/i.test(error.message || '');
+    listEl.innerHTML = '<div class="empty-state">' +
+      (missing ? 'מדף הלידים לא הופעל עדיין בפרויקט הזה.' : 'שגיאה בטעינת המדף: ' + esc(error.message)) +
+      '</div>';
+    accSetCount('accLeadShelf', '');
+    return;
+  }
+
+  shelfLeads = leads || [];
+  accSetCount('accLeadShelf', shelfLeads.length ? shelfLeads.length + ' זמינים' : '');
+  syncShelfCityFilter();
+  renderLeadShelf();
+  await loadPurchasedLeads(agentId);
+}
+
+// רשימת הערים נבנית מהמדף עצמו — אין רשימה קבועה, הפידים מביאים מה שהם מביאים
+function syncShelfCityFilter(){
+  const select = document.getElementById('shelfCityFilter');
+  const previous = select.value;
+  const cities = [...new Set(shelfLeads.map(l => l.city).filter(Boolean))].sort((a,b)=> a.localeCompare(b,'he'));
+  select.innerHTML = '<option value="">כל הערים</option>' +
+    cities.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if (cities.includes(previous)) select.value = previous;
+}
+
+function renderLeadShelf(){
+  const listEl = document.getElementById('leadShelfList');
+  const side = document.getElementById('shelfSideFilter').value;
+  const city = document.getElementById('shelfCityFilter').value;
+  const filtered = shelfLeads.filter(l =>
+    (!side || l.lead_side === side) && (!city || l.city === city));
+
+  if (filtered.length === 0){
+    listEl.innerHTML = '<div class="empty-state">' +
+      (shelfLeads.length === 0
+        ? 'אין כרגע לידים פנויים במדף.<br>המנוע סורק את המקורות כל 30 דקות.'
+        : 'אין לידים שמתאימים לסינון הנוכחי.') +
+      '</div>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  filtered.forEach(lead => {
+    const kind = shelfKind(lead.lead_side);
+    const el = document.createElement('div');
+    el.className = 'card lead-card ' + kind.cls;
+    el.innerHTML = `
+      <div class="lead-top">
+        <div>
+          <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
+          <div class="lead-name">${esc(lead.teaser_title || lead.lead_side || 'ליד')}</div>
+          <div class="lead-meta">${shelfMetaLine(lead)}</div>
+        </div>
+        <span class="status-pill status-masked">${shekel(rssLeadPrice)}</span>
+      </div>
+      ${lead.teaser_description ? `<div class="lead-meta">${esc(lead.teaser_description)}</div>` : ''}
+      <div class="lead-meta">איכות ${lead.lead_quality_score ?? '—'}/10${lead.urgency_level ? ' · דחיפות ' + esc(lead.urgency_level) : ''} · נוסף ${hebDate(lead.created_at)}</div>
+      <div class="lead-actions"></div>
+    `;
+    const buyBtn = document.createElement('button');
+    buyBtn.className = 'btn btn-gold';
+    buyBtn.textContent = `רכישה — ${shekel(rssLeadPrice)}`;
+    buyBtn.addEventListener('click', ()=> buyRssLead(lead, buyBtn));
+    el.querySelector('.lead-actions').appendChild(buyBtn);
+    listEl.appendChild(el);
+  });
+}
+
+// ‏Parts הוא טקסט גולמי (לדיאלוג, שמבריח בעצמו), Line הוא HTML מוברח לכרטיס
+function shelfMetaParts(lead){
+  return [
+    lead.city, lead.neighborhood, lead.property_type,
+    lead.rooms ? lead.rooms + ' חדרים' : null,
+    lead.floor != null ? 'קומה ' + lead.floor : null,
+    lead.price_budget ? shekel(lead.price_budget) : null,
+  ].filter(Boolean);
+}
+function shelfMetaLine(lead){
+  return shelfMetaParts(lead).map(esc).join(' · ') || '—';
+}
+
+async function loadPurchasedLeads(agentId){
+  const listEl = document.getElementById('purchasedLeadsList');
+  const { data: leads, error } = await sb
+    .from('rss_leads')
+    .select('id, source_url, source_name, raw_title, raw_content, lead_side, city, neighborhood, property_type, rooms, floor, price_budget, urgency_level, lead_quality_score, teaser_title, sold_at')
+    .eq('sold_to_agent_id', agentId)
+    .order('sold_at', { ascending:false });
+
+  if (error){
+    listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת הלידים שנרכשו: ' + esc(error.message) + '</div>';
+    return;
+  }
+  if (!leads || leads.length === 0){
+    listEl.innerHTML = '<div class="empty-state">עוד לא רכשת לידים מהמדף.</div>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  leads.forEach(lead => {
+    const kind = shelfKind(lead.lead_side);
+    const el = document.createElement('div');
+    el.className = 'card lead-card ' + kind.cls;
+    el.innerHTML = `
+      <div class="lead-top">
+        <div>
+          <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
+          <div class="lead-name">${esc(lead.teaser_title || lead.raw_title || lead.lead_side || 'ליד')}</div>
+          <div class="lead-meta">${shelfMetaLine(lead)}</div>
+        </div>
+        <span class="status-pill status-unlocked">נרכש ${hebDate(lead.sold_at)}</span>
+      </div>
+      ${lead.raw_content ? `<div class="lead-meta" style="white-space:pre-wrap">${esc(lead.raw_content.slice(0, 600))}${lead.raw_content.length > 600 ? '…' : ''}</div>` : ''}
+      <div class="lead-actions">
+        <a class="btn btn-gold" href="${esc(lead.source_url)}" target="_blank" rel="noopener noreferrer">פתיחת הפוסט המקורי</a>
+      </div>
+      ${lead.source_name ? `<div class="lead-meta">מקור: ${esc(lead.source_name)}</div>` : ''}
+    `;
+    listEl.appendChild(el);
+  });
+}
+
+async function buyRssLead(lead, btn){
+  const kind = shelfKind(lead.lead_side);
+  const approved = await confirmPurchase({
+    title: 'אישור רכישת ליד',
+    lines: [
+      `${kind.icon} ${kind.label}`,
+      lead.teaser_title || 'ליד ממדף הלידים',
+      shelfMetaParts(lead).join(' · '),
+      'הרכישה חושפת את הפוסט המקורי ואת פרטי הפונה, ומשייכת את הליד אליך בלבד.',
+    ].filter(Boolean),
+    price: rssLeadPrice,
+  });
+  if (!approved) return;
+
+  const leadId = lead.id;
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'רוכש…';
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/rss-lead-purchase', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      body: JSON.stringify({ lead_id: leadId }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      const errorMessages = {
+        insufficient_balance: `יתרה לא מספיקה — נדרש ${shekel(data.required)}. טענו את הארנק ונסו שוב`,
+        lead_already_sold: 'הליד כבר נמכר לסוכן/ת אחר/ת',
+        lead_not_available: 'הליד כבר לא זמין למכירה',
+        lead_not_found: 'הליד לא נמצא',
+        agent_inactive: 'החשבון אינו פעיל',
+        no_matching_agent_profile: 'שגיאת הרשאה — אין פרופיל סוכן/ת מקושר',
+      };
+      showToast(errorMessages[data.error] || ('שגיאה: ' + (data.error || 'לא ידועה')));
+      btn.disabled = false; btn.textContent = original;
+      return;
+    }
+    showToast(data.already_purchased
+      ? 'הליד כבר שלך — מופיע למטה תחת "הלידים שרכשתי"'
+      : `הליד נרכש! חויבת ${shekel(data.price_charged)}. הפוסט המקורי מופיע תחת "הלידים שרכשתי"`);
+    await loadDashboard();
+  } catch(err){
+    console.error(err);
+    showToast('שגיאת רשת — נסו שוב');
+    btn.disabled = false; btn.textContent = original;
+  }
+}
+
+document.getElementById('shelfSideFilter').addEventListener('change', renderLeadShelf);
+document.getElementById('shelfCityFilter').addEventListener('change', renderLeadShelf);
+document.getElementById('shelfRefreshBtn').addEventListener('click', ()=> {
+  if (currentAgent) loadLeadShelf(currentAgent.id);
+});
 
 async function openCmaReport(propertyId, btn){
   const original = btn.textContent;
