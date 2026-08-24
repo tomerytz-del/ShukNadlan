@@ -13,6 +13,7 @@ import logging
 import re
 from datetime import datetime, timezone
 from typing import Iterable, Iterator, Optional
+from urllib.parse import parse_qs, urlencode, urlsplit, urlunsplit
 
 import feedparser
 import requests
@@ -21,23 +22,82 @@ from .models import FeedEntry
 
 log = logging.getLogger(__name__)
 
+# תגיות שסוגרות בלוק — הופכות לשורה חדשה. כל שאר התגיות נמחקות בלי להשאיר
+# רווח, כי Google Alerts עוטפת את מילות החיפוש ב-<b> באמצע מילה
+# ("ב<b>עפולה</b>"), והחלפה ברווח הייתה שוברת את זה ל"ב עפולה".
+_BLOCK_RE = re.compile(r"<br\s*/?>|</p>|</div>|</li>|</h[1-6]>", re.IGNORECASE)
 _TAG_RE = re.compile(r"<[^>]+>")
 _WS_RE = re.compile(r"[ \t ]+")
 _BLANK_RE = re.compile(r"\n{3,}")
 _MAX_CONTENT_CHARS = 4000
+
+# פרמטרים שגוגל ורשתות חברתיות מייצרות מחדש בכל משיכה — הם שוברים את זיהוי
+# הכפילויות, שמשווה מחרוזות.
+_TRACKING_PARAMS = frozenset({
+    "utm_source", "utm_medium", "utm_campaign", "utm_term", "utm_content",
+    "fbclid", "gclid", "mc_cid", "mc_eid", "igshid", "ref_src",
+    "usg", "cd", "ct", "rct", "sa", "ved", "sqi",  # Google Alerts / חיפוש
+})
+_REDIRECT_HOSTS = frozenset({
+    "www.google.com", "google.com", "news.google.com",
+    "www.google.co.il", "google.co.il",
+})
 
 
 def clean_text(raw: str | None) -> str:
     """מנקה HTML, ישויות ורווחים כפולים מתוכן הפריט."""
     if not raw:
         return ""
-    text = re.sub(r"<br\s*/?>|</p>|</div>", "\n", raw, flags=re.IGNORECASE)
-    text = _TAG_RE.sub(" ", text)
+    text = _BLOCK_RE.sub("\n", raw)
+    text = _TAG_RE.sub("", text)
     text = html.unescape(text)
     text = _WS_RE.sub(" ", text)
     text = _BLANK_RE.sub("\n\n", text)
     text = "\n".join(line.strip() for line in text.splitlines())
     return text.strip()[:_MAX_CONTENT_CHARS]
+
+
+def canonical_url(url: str) -> str:
+    """
+    מחזיר את הכתובת האמיתית והיציבה של הפוסט.
+
+    שני תיקונים שקריטיים גם למניעת כפילויות וגם למוצר שנמכר:
+
+    1. פתיחת עטיפת ההפניה של Google Alerts. הפיד של גוגל לא מחזיר את קישור
+       המקור אלא ‎google.com/url?...&url=<היעד>&usg=<חתימה>‎. החתימה מתחדשת
+       בכל משיכה, ולכן אותה מודעה נראית כקישור חדש בכל הרצה — הליד היה נכנס
+       שוב ושוב, ועולה עוד קריאה ל-Claude בכל פעם. לא פחות חשוב: קישור כזה
+       אינו מה שהסוכן/ת קנה/תה — הוא מסגיר שהמקור הוא התראת Google,
+       והחתימה שבתוכו פגה אחרי זמן מה.
+
+    2. הסרת פרמטרי מעקב (utm_*, fbclid וכו') שנוספים לאותו פוסט בין משיכות.
+
+    כתובת שאינה עטופה ואין בה פרמטרי מעקב מוחזרת כפי שהיא.
+    """
+    if not url:
+        return url
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return url
+
+    if parts.netloc.lower() in _REDIRECT_HOSTS:
+        params = parse_qs(parts.query)
+        # ‏/url?url=<יעד> בהתראות, /url?q=<יעד> בתוצאות חיפוש
+        target = (params.get("url") or params.get("q") or [None])[0]
+        if target and target.startswith(("http://", "https://")):
+            return canonical_url(target)
+
+    kept = [
+        (key, item)
+        for key, values in parse_qs(parts.query, keep_blank_values=True).items()
+        if key.lower() not in _TRACKING_PARAMS
+        for item in values
+    ]
+    query = urlencode(kept)
+    if query == parts.query:
+        return url
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, query, parts.fragment))
 
 
 def _published_at(entry) -> Optional[datetime]:
@@ -92,7 +152,7 @@ def parse_entries(
 ) -> Iterator[FeedEntry]:
     """הופך פיד מפורסר לרצף FeedEntry, מדלג על פריטים בלי קישור או בלי טקסט."""
     for entry in (parsed.entries or [])[:limit]:
-        link = (getattr(entry, "link", "") or "").strip()
+        link = canonical_url((getattr(entry, "link", "") or "").strip())
         if not link:
             continue
         title = clean_text(getattr(entry, "title", ""))

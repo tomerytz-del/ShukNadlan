@@ -385,6 +385,7 @@
             <div style="display:flex;gap:8px">
               <select id="newRssSourceType" style="flex:1;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px">
                 <option value="facebook_group">קבוצת פייסבוק</option>
+                <option value="google_alert">התראת Google</option>
                 <option value="yad2">יד2</option>
                 <option value="board">לוח מודעות</option>
                 <option value="telegram">טלגרם</option>
@@ -1133,6 +1134,7 @@ document.getElementById('addNeighborhoodAdminBtn').addEventListener('click', asy
    rss_sources מתיר INSERT/UPDATE/DELETE רק ל-is_platform_admin. */
 const RSS_SOURCE_TYPE_LABELS = {
   facebook_group: 'קבוצת פייסבוק',
+  google_alert: 'התראת Google',
   yad2: 'יד2',
   board: 'לוח מודעות',
   telegram: 'טלגרם',

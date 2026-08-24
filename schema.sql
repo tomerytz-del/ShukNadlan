@@ -40,7 +40,8 @@ create table if not exists public.rss_sources (
   name          text not null,
   url           text not null unique,
   source_type   text not null default 'other'
-                check (source_type in ('facebook_group','yad2','board','telegram','other')),
+                check (source_type in
+                  ('facebook_group','google_alert','yad2','board','telegram','other')),
   active        boolean not null default true,
   notes         text,
 
