@@ -115,6 +115,9 @@
   .lead-kind{display:inline-flex;align-items:center;gap:5px;font-size:.7rem;font-weight:800;padding:3px 10px;border-radius:999px;margin-bottom:5px}
   .kind-owner .lead-kind{background:#8A6A18;color:#FDF8EC}
   .kind-buyer .lead-kind{background:var(--teal);color:#EDF2F8}
+  /* נכס מקודם: אותה שפה זהובה, כדי שיהיה ברור במבט שהקידום בתוקף */
+  .acc-body .card.is-promoted{background:linear-gradient(180deg,#FCF8EF,#F7EFDD);border-inline-start-color:#B08A2E}
+  .is-promoted .lead-kind{background:#8A6A18;color:#FDF8EC}
 
   /* ---------- אישור רכישה ----------
      ‏confirm() של הדפדפן לא הבהיר שמדובר בחיוב אמיתי. כאן הסכום מוצג בגדול,
@@ -2717,10 +2720,11 @@ async function loadProperties(agentId){
   listEl.innerHTML = '';
   props.forEach(p=>{
     const priceLabel = p.deal_type === 'rent' ? ('₪' + Number(p.price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(p.price).toLocaleString('he-IL'));
-    const isCurrentlyPromoted = p.is_promoted && p.promoted_until && new Date(p.promoted_until) >= new Date(new Date().toDateString());
+    const promoDaysLeft = p.is_promoted ? daysUntil(p.promoted_until) : null;
+    const isCurrentlyPromoted = promoDaysLeft !== null && promoDaysLeft >= 0;
     const planning = planningByProperty[p.id];
     const el = document.createElement('div');
-    el.className = 'card lead-card';
+    el.className = 'card lead-card' + (isCurrentlyPromoted ? ' is-promoted' : '');
     const thumbHtml = (p.images && p.images.length)
       ? `<img class="prop-thumb-mini" src="${p.images[0]}" alt="">`
       : '';
@@ -2729,8 +2733,10 @@ async function loadProperties(agentId){
         <div style="display:flex;gap:10px;align-items:flex-start">
           ${thumbHtml}
           <div>
-            <div class="lead-name">${p.title}${isCurrentlyPromoted ? ' 🌟' : ''}</div>
-            <div class="lead-meta">${priceLabel} · ${p.rooms || '—'} חדרים · ${p.property_type} · ${viewCounts[p.id]||0} צפיות${isCurrentlyPromoted ? ' · מקודם עד ' + p.promoted_until : ''}${(!p.images || !p.images.length) ? ' · <span style="color:var(--brick)">ללא תמונות</span>' : ''}${planning ? ' · 📍 גוש ' + (planning.gush||'—') + ' חלקה ' + (planning.helka||'—') : ''}</div>
+            ${isCurrentlyPromoted ? `<span class="lead-kind">🌟 מקודם · ${esc(timeLeftLabel(promoDaysLeft))}</span>` : ''}
+            <div class="lead-name">${p.title}</div>
+            <div class="lead-meta">${priceLabel} · ${p.rooms || '—'} חדרים · ${p.property_type} · ${viewCounts[p.id]||0} צפיות${(!p.images || !p.images.length) ? ' · <span style="color:var(--brick)">ללא תמונות</span>' : ''}${planning ? ' · 📍 גוש ' + (planning.gush||'—') + ' חלקה ' + (planning.helka||'—') : ''}</div>
+            ${isCurrentlyPromoted ? `<div class="lead-meta">הקידום בתוקף עד ${hebDate(p.promoted_until)}</div>` : ''}
           </div>
         </div>
         <span class="status-pill status-unlocked">${statusLabels[p.status] || p.status}</span>
@@ -2842,7 +2848,7 @@ async function promoteProperty(property, btn, agentId){
       btn.disabled = false; btn.textContent = original;
       return;
     }
-    showToast(`הנכס קודם בהצלחה! חויבת ₪${data.price_charged}, בתוקף עד ${data.promoted_until}`);
+    showToast(`הנכס מקודם! חויבת ${shekel(data.price_charged)} · ${timeLeftLabel(daysUntil(data.promoted_until))}, עד ${hebDate(data.promoted_until)}`);
     await loadProperties(agentId);
   } catch(err){
     console.error(err);
@@ -3060,6 +3066,25 @@ function esc(s){
 }
 const shekel = n => (n === null || n === undefined) ? '—' : '₪' + Number(n).toLocaleString('he-IL');
 const hebDate = d => d ? new Date(d).toLocaleDateString('he-IL') : '—';
+
+/* ימים שנותרו עד תאריך. עמודת date ב-Postgres חוזרת כ-'YYYY-MM-DD', ולכן
+   נפרסת לחצות מקומי — new Date('2026-09-23') הוא חצות UTC ומזיז יום שלם
+   בחישוב. מחזיר null כשאין תאריך, שלילי כשהתאריך עבר.                   */
+function daysUntil(dateStr){
+  if (!dateStr) return null;
+  const [y, m, d] = String(dateStr).slice(0, 10).split('-').map(Number);
+  if (!y || !m || !d) return null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  return Math.round((new Date(y, m - 1, d) - today) / 86400000);
+}
+
+function timeLeftLabel(days){
+  if (days === null || days === undefined) return '';
+  if (days <= 0)  return 'מסתיים היום';
+  if (days === 1) return 'נותר יום אחד';
+  if (days === 2) return 'נותרו יומיים';
+  return `נותרו ${days} ימים`;
+}
 
 /* ---------- Lead shelf: רכישת לידי RSS ----------
    המדף עצמו נקרא מ-rss_leads_public — ה-view השיווקי, בלי source_url ובלי
