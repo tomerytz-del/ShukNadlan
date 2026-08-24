@@ -670,6 +670,35 @@
     </form>
       </div>
     </details>
+
+    <details class="acc" id="accWhatsapp">
+      <summary>
+        <span class="acc-title">ניהול נכסים בוואטסאפ</span>
+        <span class="acc-count" id="accWhatsappCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+    <p class="acc-sub">שולחים הודעה, תמונות או הקלטה קולית למספר של שוק נדל"ן — והנכס נכנס למערכת. הבוט מזהה אתכם לפי מספר הטלפון, אז הוא חייב להיות מעודכן כאן ולהיות המספר שממנו אתם שולחים.</p>
+    <form id="whatsappForm" style="margin-bottom:0">
+      <div class="field">
+        <label for="waPhone">מספר הוואטסאפ שלי</label>
+        <input type="tel" id="waPhone" dir="ltr" style="text-align:right" placeholder="050-1234567" autocomplete="tel">
+        <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">אפשר להזין בכל פורמט (050-1234567 או ‎+972501234567) — המערכת מנרמלת בעצמה. מספר ריק מכבה את הגישה מוואטסאפ.</p>
+      </div>
+      <button type="submit" class="btn btn-gold btn-block" id="saveWhatsappBtn">שמירת המספר</button>
+      <div id="whatsappFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+    </form>
+    <div style="margin-top:14px;padding:12px;background:var(--paper);border:1px solid var(--line);border-radius:10px">
+      <p style="font-size:.78rem;font-weight:700;margin:0 0 6px">מה אפשר לבקש מהבוט</p>
+      <ul style="font-size:.78rem;color:var(--ink-soft);margin:0;padding-inline-start:18px;line-height:1.7">
+        <li>"תעלה נכס חדש באבן גבירול 10, 3 חדרים, 1.8 מליון"</li>
+        <li>לצלם את הדירה ולשלוח את התמונות — הן יתחברו לנכס אוטומטית</li>
+        <li>להקליט הודעה קולית עם הפרטים במקום להקליד</li>
+        <li>"תוריד מהאתר את הדירה בהרצל 5" / "תעדכן את המחיר ל-1.6 מליון"</li>
+      </ul>
+    </div>
+      </div>
+    </details>
   </div>
 </div>
 
@@ -903,7 +932,7 @@ async function loadDashboard(){
 
   const { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select('id, agency_id, display_name, role, tier, credit_balance, free_quota_used, is_platform_admin, agencies(name)')
+    .select('id, agency_id, display_name, role, tier, credit_balance, free_quota_used, is_platform_admin, phone, agencies(name)')
     .eq('user_id', user.id)
     .single();
 
@@ -934,6 +963,7 @@ async function loadDashboard(){
   await loadLeads(agent.id);
   await loadNotifications(agent.id);
   await loadPreferences(agent.id);
+  loadWhatsappSettings(agent);
 
   // display נקבע בשני הכיוונים ולא רק ל-block, כדי שהחלפת תפקיד מתפריט הבדיקה
   // (מנהל/ת → סוכן/ת) באמת תסתיר את אזור הניהול בלי לרענן את העמוד
@@ -1131,6 +1161,53 @@ document.getElementById('prefsForm').addEventListener('submit', async (e)=>{
   feedback.textContent = 'ההעדפות נשמרו בהצלחה!';
   accSetCount('accPrefs', active ? 'פעיל' : 'כבוי');
   setTimeout(()=>{ feedback.textContent=''; }, 2500);
+});
+
+/* ---------- WhatsApp ----------
+   מספר הטלפון כאן הוא מפתח הזיהוי של הבוט: ה-Edge Function ‏whatsapp-webhook
+   מחפש את הסוכן/ת לפי agency_members.phone_e164, שנגזרת אוטומטית מ-phone.
+   בלי מספר מעודכן — הבוט יענה "איני מזהה את מספר הטלפון שלך". */
+function loadWhatsappSettings(agent){
+  document.getElementById('waPhone').value = agent.phone || '';
+  accSetCount('accWhatsapp', agent.phone ? 'מחובר' : 'לא מוגדר');
+}
+
+document.getElementById('whatsappForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  if (!currentAgent) return;
+  const btn = document.getElementById('saveWhatsappBtn');
+  const feedback = document.getElementById('whatsappFeedback');
+  const phone = document.getElementById('waPhone').value.trim();
+
+  // בדיקה מקדימה בצד הלקוח מול אותו כלל של normalize_msisdn בשרת — עדיף להגיד
+  // "המספר לא נראה תקין" מאשר לשמור מספר שהבוט לעולם לא יזהה
+  if (phone && phone.replace(/\D/g, '').length < 9){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'המספר לא נראה תקין — צריך מספר ישראלי מלא.';
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'שומר…'; feedback.textContent = '';
+
+  const { error } = await sb.from('agency_members')
+    .update({ phone: phone || null, updated_at: new Date().toISOString() })
+    .eq('id', currentAgent.id);
+
+  btn.disabled = false; btn.textContent = 'שמירת המספר';
+  if (error){
+    feedback.style.color = 'var(--red)';
+    // 23505 = מספר הוואטסאפ כבר משויך לסוכן/ת אחר/ת (אינדקס ייחודי על phone_e164)
+    feedback.textContent = error.code === '23505'
+      ? 'המספר הזה כבר רשום אצל סוכן/ת אחר/ת במערכת.'
+      : 'שגיאה: ' + error.message;
+    return;
+  }
+
+  currentAgent.phone = phone || null;
+  accSetCount('accWhatsapp', phone ? 'מחובר' : 'לא מוגדר');
+  feedback.style.color = 'var(--blue)';
+  feedback.textContent = phone ? 'המספר נשמר — אפשר להתחיל לשלוח הודעות.' : 'הגישה מוואטסאפ כובתה.';
+  setTimeout(()=>{ feedback.textContent=''; }, 3000);
 });
 
 /* ---------- Review moderation (manager only) ---------- */
