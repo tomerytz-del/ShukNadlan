@@ -163,6 +163,14 @@ create trigger rss_leads_set_updated_at
 alter table public.rss_sources enable row level security;
 alter table public.rss_leads   enable row level security;
 
+-- ‏Supabase מעניקה כברירת מחדל SELECT לכל התפקידים על כל טבלה ב-public.
+-- ב-rss_leads יושב source_url — המוצר שנמכר — ולכן מסירים את ההרשאה מ-anon
+-- לגמרי ולא נשענים על RLS בלבד. מבקרים לא מזוהים קוראים רק את
+-- ‏rss_leads_public. תפקיד authenticated נשאר, כי עליו נשענות ה-policies של
+-- מנהל/ת הפלטפורמה ושל קונה הליד.
+revoke select on public.rss_leads   from anon;
+revoke select on public.rss_sources from anon;
+
 drop policy if exists "platform admin manage rss sources" on public.rss_sources;
 create policy "platform admin manage rss sources"
   on public.rss_sources for all
@@ -199,8 +207,14 @@ create policy "buyer reads purchased rss lead"
 -- 4. מדף הלידים הפומבי
 --
 -- ‏View ללא security_invoker (כלומר רץ בהרשאות הבעלים ועוקף את ה-RLS של
--- הטבלה) — בדיוק כמו leads_masked בפרויקט. זו הדרך לחשוף את התקציר השיווקי
--- לכל מבקר/ת באתר בלי לחשוף את source_url, את הטקסט הגולמי או את הניתוח.
+-- הטבלה) — בדיוק כמו leads_masked, agency_members_public ו-planning_lookups_public
+-- בפרויקט. זו הדרך לחשוף את התקציר השיווקי לכל מבקר/ת באתר בלי לחשוף את
+-- ‏source_url, את הטקסט הגולמי או את הניתוח.
+--
+-- ה-linter של Supabase מסמן את התבנית הזו כ-"Security Definer View" ברמת
+-- ‏ERROR. כאן זה מכוון: זו בדיוק המטרה. אם נעביר את ה-view ל-security_invoker,
+-- ‏anon יזדקק להרשאת SELECT על rss_leads עצמה — בדיוק מה שנמנע למעלה —
+-- וה-view יחזיר אפס שורות.
 -- ---------------------------------------------------------------------------
 create or replace view public.rss_leads_public as
 select

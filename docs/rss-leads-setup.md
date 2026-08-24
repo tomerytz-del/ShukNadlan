@@ -18,8 +18,9 @@
 
 ## שלב 1 — מסד הנתונים
 
-הריצו את `schema.sql` ב-Supabase (SQL Editor → New query → הדבקה → Run).
-הקובץ אידמפוטנטי, אפשר להריץ אותו שוב אחרי שינויים.
+`schema.sql` כבר הורץ על פרויקט `shuknadlan-marketplace` (מיגרציות
+`rss_lead_engine` ו-`rss_leads_revoke_anon`). הקובץ אידמפוטנטי — אפשר להריץ
+אותו שוב אחרי שינויים (SQL Editor → New query → הדבקה → Run).
 
 הוא יוצר:
 
@@ -28,6 +29,11 @@
 - `rss_leads_public` — view לאתר: תקציר שיווקי בלבד, בלי `source_url` ובלי הטקסט הגולמי.
 
 > טבלת `leads` הקיימת (לידים מטופסי האתר) לא מושפעת — לידי ה-RSS יושבים בטבלה נפרדת.
+
+הרשאת ה-SELECT של `anon` הוסרה מ-`rss_leads` ומ-`rss_sources`: מבקר לא מזוהה
+לא יכול לגעת בטבלאות עצמן, אלא רק ב-view `rss_leads_public`. ה-linter של
+Supabase מסמן את ה-view כ-"Security Definer View" — זה מכוון, אותה תבנית של
+`leads_masked` ו-`agency_members_public` הקיימים בפרויקט.
 
 ## שלב 2 — סודות ב-GitHub
 
