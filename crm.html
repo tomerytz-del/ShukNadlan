@@ -368,6 +368,36 @@
           <div id="neighborhoodsAdminList"></div>
         </div>
       </details>
+
+      <details class="acc" id="accRssSources">
+        <summary>
+          <span class="acc-title">ניהול מקורות RSS (מנהל פלטפורמה)</span>
+          <span class="acc-count" id="accRssSourcesCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <p class="acc-sub">הפידים שמנוע הלידים האוטומטי קורא כל 30 דקות. הוספה כאן נכנסת לתוקף בהרצה הבאה — אין צורך לגעת בקוד.</p>
+
+          <div class="form-subheading" style="margin-top:0">הוספת מקור</div>
+          <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:14px">
+            <input type="text" id="newRssSourceName" placeholder="שם המקור (למשל: נדל&quot;ן עפולה — פייסבוק)" style="border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px">
+            <input type="url" id="newRssSourceUrl" placeholder="https://rss.app/feeds/xxxxx.xml" dir="ltr" style="border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;text-align:left">
+            <div style="display:flex;gap:8px">
+              <select id="newRssSourceType" style="flex:1;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px">
+                <option value="facebook_group">קבוצת פייסבוק</option>
+                <option value="yad2">יד2</option>
+                <option value="board">לוח מודעות</option>
+                <option value="telegram">טלגרם</option>
+                <option value="other">אחר</option>
+              </select>
+              <button type="button" class="btn btn-gold" id="addRssSourceBtn" style="white-space:nowrap">+ הוספה</button>
+            </div>
+          </div>
+
+          <div class="form-subheading">מקורות קיימים</div>
+          <div id="rssSourcesAdminList"></div>
+        </div>
+      </details>
     </div>
 
     <div id="managerSection" style="display:none">
@@ -977,6 +1007,7 @@ async function loadDashboard(){
   if (agent.is_platform_admin){
     document.getElementById('platformAdminSection').style.display = 'block';
     await loadNeighborhoodsAdmin();
+    await loadRssSourcesAdmin();
   }
 
   renderDevMenu(agent);
@@ -1093,6 +1124,166 @@ document.getElementById('addNeighborhoodAdminBtn').addEventListener('click', asy
   input.value = '';
   showToast('השכונה נוספה בהצלחה');
   await loadNeighborhoodsAdmin();
+});
+
+/* ---------- RSS sources admin (platform admin only) ----------
+   מזין את מנוע הלידים האוטומטי (scraper.py) שרץ ב-GitHub Actions כל 30 דקות.
+   הסקרייפר קורא את הטבלה הזו בתחילת כל הרצה, ולכן הוספה/כיבוי כאן נכנסים
+   לתוקף בהרצה הבאה בלי לגעת בקוד. הכתיבה מוגנת ב-RLS: policy של
+   rss_sources מתיר INSERT/UPDATE/DELETE רק ל-is_platform_admin. */
+const RSS_SOURCE_TYPE_LABELS = {
+  facebook_group: 'קבוצת פייסבוק',
+  yad2: 'יד2',
+  board: 'לוח מודעות',
+  telegram: 'טלגרם',
+  other: 'אחר',
+};
+
+function rssLastRunLabel(source){
+  if (!source.last_fetched_at) return 'טרם נקרא';
+  const when = new Date(source.last_fetched_at).toLocaleString('he-IL', { dateStyle:'short', timeStyle:'short' });
+  if (source.last_status === 'error') return 'שגיאה · ' + when;
+  return 'נקרא לאחרונה ' + when;
+}
+
+async function loadRssSourcesAdmin(){
+  const listEl = document.getElementById('rssSourcesAdminList');
+  listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+
+  const { data, error } = await sb
+    .from('rss_sources')
+    .select('id, name, url, source_type, active, last_fetched_at, last_status, last_error, items_seen, leads_created')
+    .order('created_at');
+
+  if (error){
+    // 42P01 = הטבלה לא קיימת עדיין — כלומר schema.sql טרם הורץ בפרויקט
+    listEl.innerHTML = '<div class="empty-state">' +
+      (error.code === '42P01'
+        ? 'טבלת rss_sources לא קיימת עדיין — הריצו את schema.sql ב-Supabase.'
+        : 'שגיאה: ' + error.message) + '</div>';
+    return;
+  }
+
+  const sources = data || [];
+  accSetCount('accRssSources', sources.filter(s => s.active).length + ' פעילים');
+
+  if (!sources.length){
+    listEl.innerHTML = '<div class="empty-state">אין עדיין מקורות. הוסיפו פיד RSS ראשון למעלה.</div>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  sources.forEach(source => {
+    const row = document.createElement('div');
+    row.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--line)';
+
+    const head = document.createElement('div');
+    head.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+
+    const name = document.createElement('span');
+    name.style.cssText = 'font-size:.88rem;font-weight:700';
+    name.textContent = source.name;
+    head.appendChild(name);
+
+    const type = document.createElement('span');
+    type.style.cssText = 'font-size:.66rem;font-weight:800;background:var(--teal-tint);color:var(--ink-soft);padding:2px 7px;border-radius:5px';
+    type.textContent = RSS_SOURCE_TYPE_LABELS[source.source_type] || source.source_type;
+    head.appendChild(type);
+
+    if (!source.active){
+      const paused = document.createElement('span');
+      paused.style.cssText = 'font-size:.66rem;font-weight:800;background:var(--gold-tint);color:var(--gold-dark);padding:2px 7px;border-radius:5px';
+      paused.textContent = 'מושהה';
+      head.appendChild(paused);
+    }
+    row.appendChild(head);
+
+    const url = document.createElement('div');
+    url.dir = 'ltr';
+    url.style.cssText = 'font-size:.72rem;color:var(--ink-soft);text-align:left;word-break:break-all;margin-top:2px';
+    url.textContent = source.url;
+    row.appendChild(url);
+
+    const meta = document.createElement('div');
+    meta.style.cssText = 'font-size:.72rem;color:var(--ink-soft);margin-top:2px';
+    meta.textContent = rssLastRunLabel(source) +
+      ' · ' + (source.items_seen || 0) + ' פריטים · ' + (source.leads_created || 0) + ' לידים';
+    row.appendChild(meta);
+
+    if (source.last_status === 'error' && source.last_error){
+      const err = document.createElement('div');
+      err.style.cssText = 'font-size:.72rem;color:var(--gold);margin-top:2px;word-break:break-word';
+      err.textContent = source.last_error;
+      row.appendChild(err);
+    }
+
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:8px;margin-top:8px';
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'btn btn-ghost';
+    toggleBtn.style.padding = '5px 12px';
+    toggleBtn.textContent = source.active ? 'השהיה' : 'הפעלה';
+    toggleBtn.addEventListener('click', async ()=>{
+      toggleBtn.disabled = true;
+      const { error: updErr } = await sb.from('rss_sources')
+        .update({ active: !source.active }).eq('id', source.id);
+      if (updErr){ showToast('שגיאה: ' + updErr.message); toggleBtn.disabled = false; return; }
+      showToast(source.active ? 'המקור הושהה' : 'המקור הופעל');
+      await loadRssSourcesAdmin();
+    });
+    actions.appendChild(toggleBtn);
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'btn btn-ghost';
+    delBtn.style.padding = '5px 12px';
+    delBtn.textContent = 'מחיקה';
+    delBtn.addEventListener('click', async ()=>{
+      if (!confirm(`למחוק את המקור "${source.name}"? הלידים שכבר נאספו ממנו יישארו במערכת.`)) return;
+      delBtn.disabled = true;
+      const { error: delErr } = await sb.from('rss_sources').delete().eq('id', source.id);
+      if (delErr){ showToast('שגיאה במחיקה: ' + delErr.message); delBtn.disabled = false; return; }
+      showToast('המקור נמחק');
+      await loadRssSourcesAdmin();
+    });
+    actions.appendChild(delBtn);
+
+    row.appendChild(actions);
+    listEl.appendChild(row);
+  });
+}
+
+document.getElementById('addRssSourceBtn').addEventListener('click', async ()=>{
+  const nameInput = document.getElementById('newRssSourceName');
+  const urlInput  = document.getElementById('newRssSourceUrl');
+  const typeInput = document.getElementById('newRssSourceType');
+  const name = nameInput.value.trim();
+  const url  = urlInput.value.trim();
+
+  if (!name || !url){ showToast('נדרשים שם וכתובת פיד'); return; }
+  let parsed;
+  try { parsed = new URL(url); } catch { showToast('כתובת הפיד אינה תקינה'); return; }
+  if (parsed.protocol !== 'https:' && parsed.protocol !== 'http:'){
+    showToast('כתובת הפיד חייבת להתחיל ב-http או https'); return;
+  }
+
+  const btn = document.getElementById('addRssSourceBtn');
+  btn.disabled = true;
+  const { error } = await sb.from('rss_sources').insert({
+    name, url, source_type: typeInput.value, active: true,
+  });
+  btn.disabled = false;
+
+  if (error){
+    showToast(error.code === '23505' ? 'הפיד הזה כבר קיים ברשימה' : ('שגיאה: ' + error.message));
+    return;
+  }
+  nameInput.value = '';
+  urlInput.value = '';
+  showToast('המקור נוסף — ייקרא בהרצה הבאה של המנוע');
+  await loadRssSourcesAdmin();
 });
 
 /* ---------- Lead preferences (module 2 §3 — every agent, regardless of role) ---------- */

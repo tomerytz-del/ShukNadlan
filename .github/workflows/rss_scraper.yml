@@ -1,0 +1,66 @@
+name: מנוע לידים RSS
+
+# תזמון: כל 30 דקות (cron של GitHub פועל לפי UTC), וגם הרצה ידנית מלשונית
+# Actions. הרצות מתוזמנות ב-GitHub עשויות להידחות בדקות בודדות בשעות עומס —
+# זה תקין, מנגנון מניעת הכפילויות מבוסס source_url ולא על חלון זמן.
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "הרצת יבש — לנתח בלי לשמור ל-Supabase"
+        type: boolean
+        default: false
+      limit:
+        description: "מקסימום פוסטים חדשים בהרצה (ריק = ברירת המחדל)"
+        type: string
+        default: ""
+
+# הרצה אחת בכל רגע נתון: אם הרצה קודמת עוד לא הסתיימה, החדשה ממתינה
+# במקום לרוץ במקביל ולנתח את אותם פוסטים פעמיים.
+concurrency:
+  group: rss-scraper
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: משיכת הקוד
+        uses: actions/checkout@v4
+
+      - name: התקנת Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: התקנת תלויות
+        run: pip install -r requirements.txt
+
+      - name: הרצת הסקרייפר
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # אופציונלי — מוגדרים כ-Repository Variables, לא כסודות
+          CLAUDE_MODEL: ${{ vars.CLAUDE_MODEL }}
+          RSS_FEED_URLS: ${{ vars.RSS_FEED_URLS }}
+          MAX_NEW_LEADS_PER_RUN: ${{ vars.MAX_NEW_LEADS_PER_RUN }}
+          MIN_SCORE_TO_PUBLISH: ${{ vars.MIN_SCORE_TO_PUBLISH }}
+          # קלטי ההרצה הידנית מועברים כמשתני סביבה ולא משורשרים לתוך הפקודה,
+          # כדי שערך זדוני בשדה הטקסט לא יורץ כשל shell
+          DRY_RUN: ${{ inputs.dry_run }}
+          RUN_LIMIT: ${{ inputs.limit }}
+        run: |
+          ARGS=""
+          if [ "$DRY_RUN" = "true" ]; then ARGS="--dry-run"; fi
+          if [ -n "$RUN_LIMIT" ]; then ARGS="$ARGS --limit $RUN_LIMIT"; fi
+          python scraper.py $ARGS
