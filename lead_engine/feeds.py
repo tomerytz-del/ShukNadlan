@@ -127,6 +127,57 @@ def _entry_content(entry) -> str:
     return clean_text("\n".join(blocks))
 
 
+def _json_feed_to_parsed(payload: dict) -> feedparser.FeedParserDict:
+    """
+    ממיר JSON Feed למבנה שנראה ל-parse_entries בדיוק כמו פיד XML מפורסר.
+
+    ‏rss.app מציעה כל פיד בשתי גרסאות — ‎/feeds/XXXX.xml‎ ו-‎/feeds/v1.1/XXXX.json‎ —
+    ו-feedparser יודע לקרוא רק את הראשונה (על JSON היא מחזירה SAXParseException
+    ואפס פריטים). במקום לדרוש שתמיד תועתק דווקא כתובת ה-XML, ההמרה כאן מיישרת
+    את שתי הגרסאות לאותו מבנה, וכל שאר השרשרת נשארת ללא שינוי.
+
+    מיפוי לפי jsonfeed.org/version/1.1.
+    """
+    entries = []
+    for item in payload.get("items") or []:
+        if not isinstance(item, dict):
+            continue
+        entry = feedparser.FeedParserDict(
+            link=(item.get("url") or item.get("external_url") or "").strip(),
+            title=item.get("title") or "",
+        )
+        body = item.get("content_html") or item.get("content_text") or item.get("summary")
+        if body:
+            entry["content"] = [{"value": body}]
+        stamp = item.get("date_published") or item.get("date_modified")
+        if stamp:
+            parsed_stamp = _iso_to_struct(stamp)
+            if parsed_stamp:
+                entry["published_parsed"] = parsed_stamp
+        entries.append(entry)
+
+    return feedparser.FeedParserDict(
+        bozo=False,
+        version="json1",
+        feed=feedparser.FeedParserDict(
+            title=payload.get("title") or "",
+            link=payload.get("home_page_url") or "",
+        ),
+        entries=entries,
+    )
+
+
+def _iso_to_struct(stamp: str):
+    """‏RFC3339 (הפורמט של JSON Feed) לטאפל תאריך ב-UTC, כמו שfeedparser מייצר."""
+    try:
+        moment = datetime.fromisoformat(stamp.replace("Z", "+00:00"))
+    except (AttributeError, ValueError):
+        return None
+    if moment.tzinfo is None:
+        moment = moment.replace(tzinfo=timezone.utc)
+    return moment.astimezone(timezone.utc).timetuple()
+
+
 def fetch_feed(
     url: str,
     *,
@@ -137,9 +188,25 @@ def fetch_feed(
     response = requests.get(
         url,
         timeout=timeout,
-        headers={"User-Agent": user_agent, "Accept": "application/rss+xml, application/xml, text/xml, */*"},
+        headers={
+            "User-Agent": user_agent,
+            "Accept": "application/rss+xml, application/xml, text/xml, application/json, */*",
+        },
     )
     response.raise_for_status()
+
+    # זיהוי לפי התוכן עצמו ולא לפי סיומת הכתובת — יש שרתים שמגישים JSON Feed
+    # מכתובת בלי סיומת, או מכריזים content-type כללי.
+    body = response.content.lstrip()
+    if body.startswith(b"{"):
+        try:
+            return _json_feed_to_parsed(response.json())
+        except ValueError as err:
+            log.error("הפיד %s נראה כמו JSON אך אינו תקין: %s", url, err)
+            return feedparser.FeedParserDict(
+                bozo=True, bozo_exception=err, feed=feedparser.FeedParserDict(), entries=[]
+            )
+
     return feedparser.parse(response.content)
 
 
