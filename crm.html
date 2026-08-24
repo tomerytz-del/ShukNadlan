@@ -631,6 +631,36 @@
       </div>
     </details>
 
+    <details class="acc" id="accLeadShelf">
+      <summary>
+        <span class="acc-title">מדף לידים — רכישה</span>
+        <span class="acc-count" id="accLeadShelfCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">לידים שמנוע ה-RSS אסף מקבוצות ומלוחות וסיווג אוטומטית. הרכישה מנכה <b id="shelfPriceLabel">₪50</b> מיתרת הארנק וחושפת את הפוסט המקורי ואת פרטי הפונה. כל ליד נמכר לסוכן/ת אחד/ת בלבד.</p>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <select id="shelfSideFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
+            <option value="">כל סוגי הפונים</option>
+            <option value="מוכר פרטי">מוכר פרטי</option>
+            <option value="משכיר">משכיר</option>
+            <option value="קונה פרטי">קונה פרטי</option>
+            <option value="שוכר">שוכר</option>
+          </select>
+          <select id="shelfCityFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
+            <option value="">כל הערים</option>
+          </select>
+          <button type="button" class="btn btn-ghost" id="shelfRefreshBtn" style="white-space:nowrap">רענון</button>
+        </div>
+
+        <div id="leadShelfList"></div>
+
+        <div class="form-subheading">הלידים שרכשתי</div>
+        <div id="purchasedLeadsList"></div>
+      </div>
+    </details>
+
     <details class="acc" id="accPlanning">
       <summary>
         <span class="acc-title">מידע תכנוני על נכס (עפולה)</span>
@@ -991,6 +1021,7 @@ async function loadDashboard(){
 
   await loadProperties(agent.id);
   await loadLeads(agent.id);
+  await loadLeadShelf(agent.id);
   await loadNotifications(agent.id);
   await loadPreferences(agent.id);
   loadWhatsappSettings(agent);
@@ -1507,15 +1538,17 @@ toggleBillingBtn.addEventListener('click', async ()=>{
 
 async function loadBillingHistory(){
   billingHistoryList.innerHTML = '<div class="empty-state">טוען…</div>';
-  const [{ data: charges }, { data: promotions }, { data: topups }] = await Promise.all([
+  const [{ data: charges }, { data: promotions }, { data: topups }, { data: shelfPurchases }] = await Promise.all([
     sb.from('lead_charges').select('amount, status, created_at').eq('agent_id', currentAgent.id).order('created_at', { ascending:false }).limit(10),
     sb.from('promotion_charges').select('amount, status, created_at').eq('agent_id', currentAgent.id).order('created_at', { ascending:false }).limit(10),
     sb.from('wallet_topups').select('amount, status, test_mode, created_at').eq('agent_id', currentAgent.id).order('created_at', { ascending:false }).limit(10),
+    sb.from('rss_lead_purchases').select('amount, status, created_at').eq('agent_id', currentAgent.id).order('created_at', { ascending:false }).limit(10),
   ]);
   const items = [
     ...(charges||[]).map(c=>({ label:'פתיחת ליד', amount: -c.amount, status: c.status, date: c.created_at })),
     ...(promotions||[]).map(p=>({ label:'קידום נכס', amount: -p.amount, status: p.status, date: p.created_at })),
     ...(topups||[]).map(t=>({ label:'טעינת ארנק' + (t.test_mode ? ' (בדיקה)' : ''), amount: t.amount, status: t.status, date: t.created_at })),
+    ...(shelfPurchases||[]).map(p=>({ label:'רכישת ליד מהמדף', amount: -p.amount, status: p.status, date: p.created_at })),
   ].sort((a,b)=> new Date(b.date) - new Date(a.date));
 
   if (items.length === 0){ billingHistoryList.innerHTML = '<div class="empty-state">אין עדיין היסטוריית חיובים.</div>'; return; }
@@ -2826,6 +2859,196 @@ function esc(s){
 }
 const shekel = n => (n === null || n === undefined) ? '—' : '₪' + Number(n).toLocaleString('he-IL');
 const hebDate = d => d ? new Date(d).toLocaleDateString('he-IL') : '—';
+
+/* ---------- Lead shelf: רכישת לידי RSS ----------
+   המדף עצמו נקרא מ-rss_leads_public — ה-view השיווקי, בלי source_url ובלי
+   הטקסט הגולמי. הרכישה עוברת ב-Edge Function ‏rss-lead-purchase (ולא ב-rpc
+   ישיר), כי הטריגר protect_sensitive_agency_member_fields מבטל שינוי
+   credit_balance שלא הגיע מ-service_role — חיוב מהדפדפן היה נבלע בשקט.
+   אחרי הרכישה השורה המלאה נקראת ישירות מ-rss_leads: ה-policy
+   "buyer reads purchased rss lead" מחזירה אותה לקונה בלבד.                */
+let rssLeadPrice = 50;
+let shelfLeads = [];
+
+const SIDE_BADGE = {
+  'מוכר פרטי': 'status-unlocked', 'משכיר': 'status-unlocked',
+  'קונה פרטי': 'status-masked',   'שוכר': 'status-masked',
+};
+
+async function loadLeadShelf(agentId){
+  const listEl = document.getElementById('leadShelfList');
+  listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+
+  const [{ data: priceRow }, { data: leads, error }] = await Promise.all([
+    sb.from('pricing_config').select('value').eq('key', 'rss_lead_price').maybeSingle(),
+    sb.from('rss_leads_public')
+      .select('*')
+      .eq('status', 'new')
+      .order('lead_quality_score', { ascending:false, nullsFirst:false })
+      .order('created_at', { ascending:false })
+      .limit(60),
+  ]);
+
+  if (priceRow?.value != null) rssLeadPrice = Number(priceRow.value);
+  document.getElementById('shelfPriceLabel').textContent = shekel(rssLeadPrice);
+
+  if (error){
+    // הטבלאות נוצרות ב-schema.sql + מיגרציית הרכישה; עד שהן קיימות אין טעם להבהיל
+    const missing = /does not exist|schema cache/i.test(error.message || '');
+    listEl.innerHTML = '<div class="empty-state">' +
+      (missing ? 'מדף הלידים לא הופעל עדיין בפרויקט הזה.' : 'שגיאה בטעינת המדף: ' + esc(error.message)) +
+      '</div>';
+    accSetCount('accLeadShelf', '');
+    return;
+  }
+
+  shelfLeads = leads || [];
+  accSetCount('accLeadShelf', shelfLeads.length ? shelfLeads.length + ' זמינים' : '');
+  syncShelfCityFilter();
+  renderLeadShelf();
+  await loadPurchasedLeads(agentId);
+}
+
+// רשימת הערים נבנית מהמדף עצמו — אין רשימה קבועה, הפידים מביאים מה שהם מביאים
+function syncShelfCityFilter(){
+  const select = document.getElementById('shelfCityFilter');
+  const previous = select.value;
+  const cities = [...new Set(shelfLeads.map(l => l.city).filter(Boolean))].sort((a,b)=> a.localeCompare(b,'he'));
+  select.innerHTML = '<option value="">כל הערים</option>' +
+    cities.map(c => `<option value="${esc(c)}">${esc(c)}</option>`).join('');
+  if (cities.includes(previous)) select.value = previous;
+}
+
+function renderLeadShelf(){
+  const listEl = document.getElementById('leadShelfList');
+  const side = document.getElementById('shelfSideFilter').value;
+  const city = document.getElementById('shelfCityFilter').value;
+  const filtered = shelfLeads.filter(l =>
+    (!side || l.lead_side === side) && (!city || l.city === city));
+
+  if (filtered.length === 0){
+    listEl.innerHTML = '<div class="empty-state">' +
+      (shelfLeads.length === 0
+        ? 'אין כרגע לידים פנויים במדף.<br>המנוע סורק את המקורות כל 30 דקות.'
+        : 'אין לידים שמתאימים לסינון הנוכחי.') +
+      '</div>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  filtered.forEach(lead => {
+    const el = document.createElement('div');
+    el.className = 'card lead-card';
+    el.innerHTML = `
+      <div class="lead-top">
+        <div>
+          <div class="lead-name">${esc(lead.teaser_title || lead.lead_side || 'ליד')}</div>
+          <div class="lead-meta">${shelfMetaLine(lead)}</div>
+        </div>
+        <span class="status-pill ${SIDE_BADGE[lead.lead_side] || 'status-masked'}">${esc(lead.lead_side || '—')}</span>
+      </div>
+      ${lead.teaser_description ? `<div class="lead-meta">${esc(lead.teaser_description)}</div>` : ''}
+      <div class="lead-meta">איכות ${lead.lead_quality_score ?? '—'}/10${lead.urgency_level ? ' · דחיפות ' + esc(lead.urgency_level) : ''} · נוסף ${hebDate(lead.created_at)}</div>
+      <div class="lead-actions"></div>
+    `;
+    const buyBtn = document.createElement('button');
+    buyBtn.className = 'btn btn-gold';
+    buyBtn.textContent = `רכישה — ${shekel(rssLeadPrice)}`;
+    buyBtn.addEventListener('click', ()=> buyRssLead(lead.id, buyBtn));
+    el.querySelector('.lead-actions').appendChild(buyBtn);
+    listEl.appendChild(el);
+  });
+}
+
+function shelfMetaLine(lead){
+  return [
+    lead.city, lead.neighborhood, lead.property_type,
+    lead.rooms ? lead.rooms + ' חדרים' : null,
+    lead.floor != null ? 'קומה ' + lead.floor : null,
+    lead.price_budget ? shekel(lead.price_budget) : null,
+  ].filter(Boolean).map(esc).join(' · ') || '—';
+}
+
+async function loadPurchasedLeads(agentId){
+  const listEl = document.getElementById('purchasedLeadsList');
+  const { data: leads, error } = await sb
+    .from('rss_leads')
+    .select('id, source_url, source_name, raw_title, raw_content, lead_side, city, neighborhood, property_type, rooms, floor, price_budget, urgency_level, lead_quality_score, teaser_title, sold_at')
+    .eq('sold_to_agent_id', agentId)
+    .order('sold_at', { ascending:false });
+
+  if (error){
+    listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת הלידים שנרכשו: ' + esc(error.message) + '</div>';
+    return;
+  }
+  if (!leads || leads.length === 0){
+    listEl.innerHTML = '<div class="empty-state">עוד לא רכשת לידים מהמדף.</div>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  leads.forEach(lead => {
+    const el = document.createElement('div');
+    el.className = 'card lead-card';
+    el.innerHTML = `
+      <div class="lead-top">
+        <div>
+          <div class="lead-name">${esc(lead.teaser_title || lead.raw_title || lead.lead_side || 'ליד')}</div>
+          <div class="lead-meta">${shelfMetaLine(lead)}</div>
+        </div>
+        <span class="status-pill status-unlocked">נרכש ${hebDate(lead.sold_at)}</span>
+      </div>
+      ${lead.raw_content ? `<div class="lead-meta" style="white-space:pre-wrap">${esc(lead.raw_content.slice(0, 600))}${lead.raw_content.length > 600 ? '…' : ''}</div>` : ''}
+      <div class="lead-actions">
+        <a class="btn btn-gold" href="${esc(lead.source_url)}" target="_blank" rel="noopener noreferrer">פתיחת הפוסט המקורי</a>
+      </div>
+      ${lead.source_name ? `<div class="lead-meta">מקור: ${esc(lead.source_name)}</div>` : ''}
+    `;
+    listEl.appendChild(el);
+  });
+}
+
+async function buyRssLead(leadId, btn){
+  if (!confirm(`לרכוש את הליד תמורת ${shekel(rssLeadPrice)} שינוכו מיתרת הארנק?`)) return;
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'רוכש…';
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/rss-lead-purchase', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      body: JSON.stringify({ lead_id: leadId }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      const errorMessages = {
+        insufficient_balance: `יתרה לא מספיקה — נדרש ${shekel(data.required)}. טענו את הארנק ונסו שוב`,
+        lead_already_sold: 'הליד כבר נמכר לסוכן/ת אחר/ת',
+        lead_not_available: 'הליד כבר לא זמין למכירה',
+        lead_not_found: 'הליד לא נמצא',
+        agent_inactive: 'החשבון אינו פעיל',
+        no_matching_agent_profile: 'שגיאת הרשאה — אין פרופיל סוכן/ת מקושר',
+      };
+      showToast(errorMessages[data.error] || ('שגיאה: ' + (data.error || 'לא ידועה')));
+      btn.disabled = false; btn.textContent = original;
+      return;
+    }
+    showToast(data.already_purchased
+      ? 'הליד כבר שלך — מופיע למטה תחת "הלידים שרכשתי"'
+      : `הליד נרכש! חויבת ${shekel(data.price_charged)}. הפוסט המקורי מופיע תחת "הלידים שרכשתי"`);
+    await loadDashboard();
+  } catch(err){
+    console.error(err);
+    showToast('שגיאת רשת — נסו שוב');
+    btn.disabled = false; btn.textContent = original;
+  }
+}
+
+document.getElementById('shelfSideFilter').addEventListener('change', renderLeadShelf);
+document.getElementById('shelfCityFilter').addEventListener('change', renderLeadShelf);
+document.getElementById('shelfRefreshBtn').addEventListener('click', ()=> {
+  if (currentAgent) loadLeadShelf(currentAgent.id);
+});
 
 async function openCmaReport(propertyId, btn){
   const original = btn.textContent;
