@@ -1,0 +1,369 @@
+/* ============================================================================
+   שוק נדל״ן — שכבת תנועה ועידון UI משותפת לכל עמודי האתר הציבוריים.
+   נטענת ע"י index / property / agency / agent, ומלווה ב-assets/motion.js.
+
+   הקונספט: מרקטפלייס מקומי של עפולה והעמק — טיפוגרפיה עיתונאית (Frank Ruhl
+   Libre על רקע נייר), לא אפליקציית SaaS. לכן כל התנועה כאן היא "דפוס שנוחת":
+   מרחק קצר (10-16px), תמיד כלפי מעלה כמו קו רכס שעולה מהאופק, easing רך בלי
+   קפיצה, בלי סיבוב ובלי scale דרמטי. אנימציה אמורה להיות מורגשת ולא נראית.
+
+   שלוש מוסכמות שמחזיקות את הקובץ:
+
+   1. ברירת המחדל היא תוכן גלוי. מצב ההתחלה המוסתר של [data-reveal] תלוי
+      ב-html.motion-ready, קלאס ש-motion.js מוסיף רק אחרי שווידא ש-
+      IntersectionObserver קיים. JS חסום/נכשל => שום דבר לא נעלם. זו אותה
+      גישה הגנתית של PART 1 / PART 2 ב-index.html.
+   2. העדפת "מעט תנועה" נבדקת פעמיים: גם prefers-reduced-motion של מערכת
+      ההפעלה, וגם html.a11y-nomotion של פאנל הנגישות באתר. הראשון לא היה
+      קיים בשום עמוד לפני השכבה הזו.
+   3. הכל RTL-first. האתר כולו dir="rtl", ולכן "התחלה" = ימין ו"סוף" = שמאל,
+      וכך נכתבו המסכות והתנועות האופקיות.
+   ========================================================================== */
+
+:root{
+  /* עקומות: ease-out בלבד — התוכן "מתיישב" ולא נזרק */
+  --mo-ease:      cubic-bezier(.22,.61,.36,1);
+  --mo-ease-soft: cubic-bezier(.33,1,.68,1);
+  --mo-fast:      .18s;
+  --mo-base:      .42s;
+  --mo-slow:      .62s;
+  --mo-rise:      14px;
+  --mo-stagger:   55ms;
+}
+
+/* ============================================================
+   1. חשיפה בגלילה — המנגנון המרכזי
+   ============================================================ */
+
+/* ה-selector דורש .motion-ready על <html>: בלי JS אין הסתרה כלל. */
+.motion-ready [data-reveal]{
+  opacity:0;
+  transform:translate3d(0,var(--mo-rise),0);
+  transition:
+    opacity   var(--mo-slow) var(--mo-ease),
+    transform var(--mo-slow) var(--mo-ease);
+  /* ההשהיה נגזרת מ---mo-i שנקבע ב-JS לפי מיקום הפריט בקבוצה */
+  transition-delay:calc(var(--mo-i, 0) * var(--mo-stagger));
+  will-change:opacity, transform;
+}
+.motion-ready [data-reveal="fade"]{ transform:none }
+.motion-ready [data-reveal="scale"]{ transform:translate3d(0,var(--mo-rise),0) scale(.985) }
+/* בגלריות אופקיות התוכן נכנס מכיוון ההתחלה (ימין ב-RTL) */
+.motion-ready [data-reveal="side"]{ transform:translate3d(var(--mo-rise),0,0) }
+
+.motion-ready [data-reveal].is-revealed{
+  opacity:1;
+  transform:none;
+}
+/* after the entrance finished there is nothing left to composite */
+.motion-ready [data-reveal].is-settled{ will-change:auto; transition-delay:0s }
+
+/* ============================================================
+   2. כותרת דביקה שמגיבה לגלילה
+   ============================================================ */
+/* position:relative נחוץ כדי ש-::after למטה יעגון לכותרת עצמה. ב-index.html
+   הכותרת ממילא sticky (שגם הוא יוצר containing block), וההצהרה שלה מנצחת
+   כי ה-<style> של העמוד בא אחרי ה-<link> לקובץ הזה. בשאר העמודים לכותרת
+   אין position כלל, ובלי השורה הזו הקו היה נצמד ל-viewport. */
+header.site{
+  position:relative;
+  transition:
+    box-shadow var(--mo-base) var(--mo-ease),
+    background-color var(--mo-base) var(--mo-ease);
+}
+.is-scrolled header.site{
+  box-shadow:0 6px 22px rgba(18,40,64,.13);
+}
+/* קו מבטא דק בתחתית הכותרת שנפתח מהמרכז כשמתחילים לגלול —
+   רומז "יצאת מראש העמוד" בלי להזיז את הפריסה. */
+header.site::after{
+  content:"";position:absolute;bottom:-1px;right:0;left:0;height:2px;
+  background:linear-gradient(to left, var(--gold, #8B2332), var(--teal, #1C3A5E));
+  transform:scaleX(0);transform-origin:center;
+  transition:transform var(--mo-slow) var(--mo-ease);
+  pointer-events:none;
+}
+.is-scrolled header.site::after{ transform:scaleX(1) }
+
+/* ============================================================
+   3. פס התקדמות קריאה
+   רק בדפדפנים עם scroll-driven animations — אין fallback ב-JS
+   בכוונה: זו קישוטיות טהורה, לא כדאי להריץ עליה scroll listener.
+   ============================================================ */
+.read-progress{
+  position:fixed;top:0;right:0;left:0;height:3px;z-index:300;
+  background:linear-gradient(to left, var(--gold, #8B2332), var(--teal, #1C3A5E));
+  transform:scaleX(0);transform-origin:right center; /* RTL: מתמלא מימין */
+  pointer-events:none;display:none;
+}
+@supports (animation-timeline: scroll()){
+  .read-progress{
+    display:block;
+    animation:mo-progress linear;
+    animation-timeline:scroll(root block);
+  }
+}
+@keyframes mo-progress{ from{transform:scaleX(0)} to{transform:scaleX(1)} }
+
+/* ============================================================
+   4. רכס העמק בתחתית ה-hero
+   ה-CSS ל-.hero-ridge היה קיים ב-index.html בלי אלמנט תואם ב-HTML —
+   כאן הוא מקבל גוף אמיתי: שתי שכבות סילואטה שנעות בקצב שונה, כך
+   שהאופק "נפתח" בזמן שגוללים אל תוך העמוד.
+   ============================================================ */
+.hero-ridge{
+  position:absolute;bottom:0;right:0;left:0;height:78px;
+  pointer-events:none;overflow:hidden;line-height:0;
+}
+.hero-ridge svg{width:130%;height:100%;display:block;margin-right:-15%}
+.hero-ridge .ridge-far { fill:rgba(255,255,255,.07) }
+.hero-ridge .ridge-near{ fill:rgba(255,255,255,.11) }
+.hero-ridge .ridge-rows{ stroke:rgba(255,255,255,.16);stroke-width:1;fill:none }
+
+@supports (animation-timeline: view()){
+  .hero-ridge .ridge-far,
+  .hero-ridge .ridge-near{
+    animation:mo-ridge linear both;
+    animation-timeline:view(block);
+    animation-range:entry 0% exit 100%;
+  }
+  .hero-ridge .ridge-near{ --mo-drift:26px }
+}
+@keyframes mo-ridge{
+  from{ transform:translate3d(0,0,0) }
+  to  { transform:translate3d(calc(var(--mo-drift, 12px) * -1), 0, 0) }
+}
+
+/* ============================================================
+   5. כרטיסים — ריחוף, מיקוד ותנועת תמונה
+   .prop-card היה לגמרי חסר מצב hover למרות שהוא לחיץ; וכיוון שהוא <div>
+   עם onclick, הוא גם לא היה נגיש למקלדת. ה-JS הופך אותו ל-focusable
+   וכאן מגיע הסימון הוויזואלי לשני המצבים גם יחד.
+   ============================================================ */
+.prop-card,
+.agency-card,
+.agent-card,
+.pro-card{
+  transition:
+    transform  var(--mo-base) var(--mo-ease),
+    box-shadow var(--mo-base) var(--mo-ease),
+    border-color var(--mo-base) var(--mo-ease);
+}
+.prop-card:hover,
+.prop-card:focus-visible,
+.agency-card:hover,
+.agency-card:focus-visible,
+.agent-card:hover,
+.agent-card:focus-visible,
+.pro-card:hover,
+.pro-card:focus-visible{
+  transform:translateY(-4px);
+  box-shadow:0 14px 30px rgba(18,40,64,.16);
+  border-color:var(--teal, #1C3A5E);
+}
+.prop-card:active{ transform:translateY(-1px);transition-duration:var(--mo-fast) }
+
+/* התמונה מתקרבת לאט בריחוף — "בוא תסתכל מקרוב", הקלישאה הנכונה לנדל״ן.
+   ה-overflow:hidden כבר קיים על .prop-card עצמו. */
+.prop-card .thumb{
+  transition:transform var(--mo-slow) var(--mo-ease-soft);
+  transform-origin:center;
+}
+.prop-card:hover .thumb,
+.prop-card:focus-visible .thumb{ transform:scale(1.055) }
+
+/* הסרט "מקודם" נכנס אחרי שהכרטיס נחת */
+.motion-ready [data-reveal] .ribbon{
+  opacity:0;transform:translateY(-6px);
+  transition:opacity var(--mo-base) var(--mo-ease) .22s,
+             transform var(--mo-base) var(--mo-ease) .22s;
+}
+.motion-ready [data-reveal].is-revealed .ribbon{ opacity:1;transform:none }
+
+/* ============================================================
+   6. שלדי טעינה (skeletons)
+   קודם הגריד היה ריק עד ש-Supabase החזיר תשובה ואז הכל "קפץ" פנימה.
+   ============================================================ */
+.sk{
+  position:relative;overflow:hidden;
+  background:var(--paper-raised, #F4F3F0);
+  border:1px solid var(--line, #C5C3BC);
+  border-radius:var(--radius-md, 12px);
+}
+.sk::after{
+  content:"";position:absolute;inset:0;
+  /* ב-RTL הברק נע מימין לשמאל, בכיוון הקריאה */
+  background:linear-gradient(to left, transparent, rgba(255,255,255,.85), transparent);
+  transform:translateX(100%);
+  animation:mo-shimmer 1.35s infinite;
+}
+@keyframes mo-shimmer{ to{ transform:translateX(-100%) } }
+
+.sk-card{ height:232px }
+.sk-card.is-wide{ flex:0 0 250px }
+.sk-agency{ flex:0 0 200px;height:158px }
+.sk-pro{ height:132px;border-radius:var(--radius-lg, 20px) }
+.sk-line{ height:12px;border-radius:6px;border:none;background:rgba(27,31,38,.09) }
+
+/* ============================================================
+   7. גלילה אופקית — סימון שיש עוד תוכן
+   הרצועות (.featured-scroll) לא רמזו בשום צורה שאפשר לגרור אותן.
+   המסכה נמוגה רק בקצה שבו באמת נשאר תוכן; המחלקות מנוהלות ב-JS.
+   ============================================================ */
+/* custom properties אינן ניתנות למעבר אלא אם רשמו אותן עם טיפוס — בלי
+   @property המסכה הייתה מחליפה מצב בקפיצה. דפדפן ללא תמיכה פשוט מדלג
+   על הבלוקים ומקבל את אותה מסכה בלי ההנפשה. */
+@property --mo-fade-s{ syntax:"<length>"; inherits:false; initial-value:0px }
+@property --mo-fade-e{ syntax:"<length>"; inherits:false; initial-value:0px }
+
+.mo-scroller{
+  --mo-fade-s:0px; --mo-fade-e:0px;
+  -webkit-mask-image:linear-gradient(to left,
+      transparent 0, #000 var(--mo-fade-s),
+      #000 calc(100% - var(--mo-fade-e)), transparent 100%);
+          mask-image:linear-gradient(to left,
+      transparent 0, #000 var(--mo-fade-s),
+      #000 calc(100% - var(--mo-fade-e)), transparent 100%);
+  transition:--mo-fade-s var(--mo-base) linear, --mo-fade-e var(--mo-base) linear;
+  scroll-behavior:smooth;
+}
+.mo-scroller.can-scroll-start{ --mo-fade-s:34px }
+.mo-scroller.can-scroll-end  { --mo-fade-e:34px }
+
+/* ============================================================
+   8. טיקר המבזקים
+   הטקסט הוחלף ב-textContent כל 5 שניות — החלפה חדה שקוטעת את הקריאה.
+   עכשיו הישן יוצא כלפי מעלה והחדש עולה מלמטה, כמו לוח מבזקים.
+   ============================================================ */
+.ticker-text{ display:block;position:relative }
+.ticker-text.mo-out{
+  animation:mo-ticker-out .26s var(--mo-ease) forwards;
+}
+.ticker-text.mo-in{
+  animation:mo-ticker-in .34s var(--mo-ease) both;
+}
+@keyframes mo-ticker-out{
+  to{ opacity:0;transform:translateY(-9px) }
+}
+@keyframes mo-ticker-in{
+  from{ opacity:0;transform:translateY(9px) }
+  to  { opacity:1;transform:none }
+}
+
+/* ============================================================
+   9. מודאלי הסינון
+   .filter-modal-overlay.open עבר מ-display:none ל-flex בלי שום מעבר —
+   גיליון ענק שמופיע פתאום. עכשיו הרקע נמוג והגיליון עולה מלמטה, כמו
+   bottom-sheet במובייל (וזו בדיוק הפריסה שכבר הוגדרה לו).
+   ============================================================ */
+.filter-modal-overlay.open{ animation:mo-fade var(--mo-base) var(--mo-ease) }
+.filter-modal-overlay.open .filter-modal{
+  animation:mo-sheet-up var(--mo-slow) var(--mo-ease);
+}
+@keyframes mo-fade{ from{opacity:0} to{opacity:1} }
+@keyframes mo-sheet-up{
+  from{ transform:translateY(22px);opacity:.6 }
+  to  { transform:none;opacity:1 }
+}
+
+/* ============================================================
+   10. אשף הערכת השווי — מעבר מכוון-כיוון
+   ה-keyframe הקיים (wizIn) הזיז כל פאנל למעלה, גם בחזרה אחורה. ב-RTL
+   "קדימה" נכנס משמאל ו"אחורה" מימין, וזה מה שמסמן למשתמש לאן הוא נע.
+   ============================================================ */
+.wiz-panel.active[data-dir="fwd"]{ animation:mo-wiz-fwd .3s var(--mo-ease) }
+.wiz-panel.active[data-dir="back"]{ animation:mo-wiz-back .3s var(--mo-ease) }
+@keyframes mo-wiz-fwd{  from{opacity:0;transform:translateX(-18px)} to{opacity:1;transform:none} }
+@keyframes mo-wiz-back{ from{opacity:0;transform:translateX(18px)}  to{opacity:1;transform:none} }
+
+/* סימון שלב שהושלם */
+.wiz-steps li .dot{ transition:background var(--mo-base) var(--mo-ease), transform var(--mo-base) var(--mo-ease) }
+.wiz-steps li.active .dot{ transform:scale(1.14) }
+
+/* ============================================================
+   11. פידבק ללחיצה על כפתורים
+   ============================================================ */
+.btn{ transition:transform var(--mo-fast) var(--mo-ease), box-shadow var(--mo-base) var(--mo-ease), background-color var(--mo-base) var(--mo-ease) }
+.btn:active{ transform:translateY(1px) }
+
+/* מצב "שולח…" — פעימה עדינה שמאשרת שמשהו קורה */
+.btn[data-busy="true"]{ animation:mo-pulse 1.3s ease-in-out infinite;cursor:progress }
+@keyframes mo-pulse{ 50%{ opacity:.68 } }
+
+/* ============================================================
+   12. סימון הצלחה באשף
+   ============================================================ */
+.wiz-done:not([hidden]) .wiz-done-mark{ animation:mo-stamp .5s var(--mo-ease) }
+@keyframes mo-stamp{
+  from{ transform:scale(.55);opacity:0 }
+  60% { transform:scale(1.06);opacity:1 }
+  to  { transform:scale(1);opacity:1 }
+}
+
+/* ============================================================
+   13. פיני המפה — נחיתה מדורגת
+   ============================================================ */
+.mo-pin{ animation:mo-pin-drop .42s var(--mo-ease) both;animation-delay:var(--mo-pin-delay, 0ms) }
+@keyframes mo-pin-drop{
+  from{ opacity:0;transform:translateY(-12px) }
+  to  { opacity:1;transform:none }
+}
+
+/* ============================================================
+   14. עמוד הנכס — החלפת תמונה ראשית והודעת toast
+   ============================================================ */
+/* background-image לא ניתן למעבר, ולכן ההחלפה בגלריה הייתה חדה לגמרי.
+   הבהוב קצר של האלמנט עצמו קורא כמו dissolve בלי לשכפל שכבות. */
+.hero-media.mo-swap{ animation:mo-media-in .42s var(--mo-ease) }
+@keyframes mo-media-in{ from{opacity:.25} to{opacity:1} }
+
+.gallery-strip button{ transition:border-color var(--mo-base) var(--mo-ease), transform var(--mo-base) var(--mo-ease) }
+.gallery-strip button:hover{ transform:translateY(-2px) }
+
+/* ה-toast הופיע ונעלם ב-display:block/none — קופץ למסך בלי שום כניסה */
+.toast{ transition:opacity var(--mo-base) var(--mo-ease), transform var(--mo-base) var(--mo-ease) }
+.toast[data-state="enter"]{ opacity:0;transform:translateY(14px) }
+.toast[data-state="shown"]{ opacity:1;transform:none }
+
+/* ============================================================
+   15. עמוד המשרד — מעבר בין לשוניות
+   ============================================================ */
+.tab-panel.active{ animation:mo-tab-in .32s var(--mo-ease) }
+@keyframes mo-tab-in{ from{opacity:0;transform:translateY(8px)} to{opacity:1;transform:none} }
+.tab-btn{ transition:color var(--mo-base) var(--mo-ease), border-color var(--mo-base) var(--mo-ease), background-color var(--mo-base) var(--mo-ease) }
+
+/* ============================================================
+   16. כיבוד העדפות תנועה — שתי הדרכים
+   כל מה שלמעלה מתבטל כאן. שימו לב שהחשיפה חוזרת ל-opacity:1 מלא ולא
+   רק "בלי אנימציה": אחרת תוכן שה-observer עוד לא הגיע אליו היה נשאר
+   בלתי נראה לצמיתות.
+   ============================================================ */
+@media (prefers-reduced-motion: reduce){
+  .motion-ready [data-reveal],
+  .motion-ready [data-reveal] .ribbon{
+    opacity:1 !important;transform:none !important;transition:none !important;
+  }
+  .hero-ridge svg *,
+  .read-progress,
+  .sk::after,
+  .mo-pin,
+  .hero-media.mo-swap,
+  .tab-panel.active,
+  .btn[data-busy="true"]{ animation:none !important }
+  .toast{ transition:none !important }
+  .sk::after{ display:none }
+  .prop-card:hover, .agency-card:hover, .pro-card:hover{ transform:none }
+  .prop-card:hover .thumb, .prop-card:focus-visible .thumb{ transform:none }
+  .mo-scroller{ scroll-behavior:auto }
+  *{ scroll-behavior:auto !important }
+}
+
+/* פאנל הנגישות של האתר — html.a11y-nomotion מכבה animation/transition
+   גורף, אבל לא מחזיר את מצב הפתיחה של [data-reveal]. בלי השורות האלה
+   הפעלת "עצירת אנימציות" הייתה מסתירה כל תוכן שעוד לא נחשף. */
+html.a11y-nomotion [data-reveal],
+html.a11y-nomotion [data-reveal] .ribbon{
+  opacity:1 !important;transform:none !important;
+}
+html.a11y-nomotion .sk::after{ display:none }
+html.a11y-nomotion .mo-scroller{ scroll-behavior:auto }

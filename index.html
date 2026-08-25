@@ -12,6 +12,10 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- שכבת התנועה המשותפת. ה-link בא לפני ה-<style> של העמוד בכוונה, כדי
+     שהגדרות מקומיות (למשל position:sticky של הכותרת) ימשיכו לנצח. -->
+<link rel="stylesheet" href="assets/motion.css">
+<script defer src="assets/motion.js"></script>
 <style>
   /* ====== Design tokens — grounded in Jezreel Valley (עמק יזרעאל): wheat gold + cultivated-land teal + Gilboa dusk ====== */
   :root{
@@ -28,11 +32,18 @@
     --gold-tint:  #F1DFE1;
     --brick:      #6B1A26;
     --live:       #8B2332;
+    /* --gold כבר מזמן אינו זהב אלא אדום־יין (#8B2332); השמות נשמרים כי הם
+       פרושים על פני כל קבצי האתר, ולצידם כינויים כנים לקוד חדש. */
+    --accent:     #8B2332;
+    --accent-dark:#6B1A26;
+    --accent-tint:#F1DFE1;
     --radius-sm:  6px;
     --radius-md:  12px;
     --radius-lg:  20px;
-    --shadow:     0 4px 20px rgba(15,52,53,0.10);
-    --shadow-sm:  0 2px 8px rgba(15,52,53,0.08);
+    /* הצללים נגזרו פעם מ---teal ישן (#0F3435) שכבר לא בפלטה, ולכן נפלו
+       בגוון ירקרק על עמוד כחול־נייבי. עכשיו הם נגזרים מ---teal-dark. */
+    --shadow:     0 4px 20px rgba(18,40,64,0.12);
+    --shadow-sm:  0 2px 8px rgba(18,40,64,0.09);
     --maxw:       1180px;
   }
   *{box-sizing:border-box}
@@ -78,15 +89,28 @@
      (#8B2332) והטקסט החום־כהה נשאר — יחס ניגודיות ~1.9:1, כלומר תווית כמעט
      בלתי קריאה בכל הכפתורים הראשיים. לבן על אותו רקע נותן 8.8:1. */
   .btn-gold{background:var(--gold);color:#fff}
-  .btn-gold:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(201,138,44,.35)}
+  /* הזוהר בריחוף היה כתום (201,138,44) מתחת לכפתור אדום־יין, ובכחול ישן
+     (23,73,74) מתחת לכפתור נייבי — שתי הילות בגוון שאינו על הכפתור. */
+  .btn-gold:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(139,35,50,.38)}
   .btn-teal{background:var(--teal);color:#fff}
-  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(23,73,74,.3)}
+  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(28,58,94,.34)}
   .btn-ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
   .btn-block{width:100%}
   .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line)}
-  .section{padding:44px 0}
+  /* קצב אנכי: קודם כל הסקציות היו 44px זהים, כך שעמוד הבית נקרא כרשימה
+     שטוחה של רצועות שוות-משקל בלי שום היררכיה. עכשיו הריווח גדל עם רוחב
+     המסך, ו-.band מקבץ סקציות שקשורות זו לזו על קרקע משותפת. */
+  .section{padding:clamp(34px, 5vw, 58px) 0}
   .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
-  .section-head h2{font-size:1.5rem}
+  .section-head h2{font-size:clamp(1.35rem, 3.4vw, 1.7rem)}
+
+  /* רצועת רקע מלאת-רוחב שמאגדת כמה סקציות לגוש אחד */
+  .band{background:var(--paper-raised);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+  .band > .section{padding-bottom:0}
+  .band > .section:last-child{padding-bottom:clamp(34px, 5vw, 58px)}
+  /* בתוך רצועה הכרטיסים יושבים על --paper-raised, ולכן הרקע הלבן שלהם
+     כמעט לא נבדל ממנה — גבול מעט כהה יותר מחזיר להם קצה. */
+  .band .agency-card{border-color:#B4B2AA}
   .see-all{font-size:.85rem;font-weight:700;color:var(--teal);border-bottom:1.5px solid var(--gold);padding-bottom:2px;white-space:nowrap}
   .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
   .skip-link{position:absolute;right:-999px;top:0;background:var(--teal);color:#fff;padding:10px 16px;z-index:200;border-radius:0 0 0 8px}
@@ -137,14 +161,14 @@
 
   /* ====== Hero ====== */
   .hero{
+    /* הגרדיאנט העליון היה כתום־זהב, שריד לפלטה קודמת; מעל הנייבי הוא יצא
+       בוצי. הגוון האדום־יין הוא זה שבאמת נמצא על הכפתורים והתגיות. */
     background:
-      radial-gradient(ellipse at 20% 0%, rgba(201,138,44,.14), transparent 55%),
+      radial-gradient(ellipse at 20% 0%, rgba(139,35,50,.30), transparent 58%),
       var(--teal-dark);
-    /* ריפוד תחתון: בלעדיו המפה נצמדת לקצה ה-section ונדבקת לטיקר המבזקים */
-    color:#fff;padding:34px 0 24px;position:relative;overflow:hidden;
-  }
-  .hero-ridge{
-    position:absolute;bottom:0;right:0;left:0;height:64px;opacity:.35;pointer-events:none;
+    /* ריפוד תחתון: בלעדיו המפה נצמדת לקצה ה-section ונדבקת לטיקר המבזקים.
+       הוגדל כדי לפנות מקום לרכס בתחתית (.hero-ridge). */
+    color:#fff;padding:34px 0 64px;position:relative;overflow:hidden;
   }
   .hero-inner{position:relative;z-index:1}
   .hero-inner h1{color:#fff;font-size:1.7rem;max-width:20ch}
@@ -183,7 +207,7 @@
   .search-actions-row .btn-ghost{position:relative;white-space:nowrap;background:#fff}
   .filter-count-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:999px;background:var(--gold);color:#fff;font-size:.68rem;font-weight:800;margin-right:6px;padding:0 4px}
 
-  .filter-modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,52,53,.55);z-index:300;align-items:flex-end;justify-content:center}
+  .filter-modal-overlay{display:none;position:fixed;inset:0;background:rgba(18,40,64,.58);z-index:300;align-items:flex-end;justify-content:center}
   .filter-modal-overlay.open{display:flex}
   .filter-modal{background:var(--paper-raised);width:100%;max-width:560px;max-height:88vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;overflow:hidden}
   @media(min-width:640px){
@@ -242,6 +266,19 @@
     .deal-toggle{grid-column:auto;max-width:220px}
     .hero-inner h1{font-size:2.3rem}
     .map-wrap.expanded #hero-map{height:340px}
+  }
+
+  /* במסכים רחבים הכותרת נשארה צמודה לימין (RTL) ותיבת החיפוש מתחתיה,
+     כך שכמחצית מה-hero היה שטח ריק והמפה נדחפה מתחת לקו הקיפול. שתי
+     עמודות פותרות את שניהם בבת אחת: הטקסט מימין, פעולת החיפוש משמאל. */
+  @media(min-width:980px){
+    .hero-inner{
+      display:grid;grid-template-columns:1fr minmax(420px,510px);
+      gap:40px;align-items:center;
+    }
+    .hero-inner .search-card{margin-top:0}
+    .hero-inner h1{font-size:2.7rem;max-width:15ch}
+    .hero-inner p.lede{font-size:1.05rem;max-width:34ch}
   }
 
   /* ====== Newsflash ticker ====== */
@@ -322,7 +359,7 @@
     background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.22);
     border-radius:999px;padding:8px 14px;cursor:pointer}
   .wiz-checks input{margin:0;accent-color:var(--gold)}
-  .wiz-checks label:has(input:checked){background:rgba(201,138,44,.3);border-color:var(--gold)}
+  .wiz-checks label:has(input:checked){background:rgba(139,35,50,.42);border-color:var(--gold)}
 
   .wiz-done{text-align:center;padding:10px 0}
   .wiz-done-mark{width:52px;height:52px;border-radius:50%;background:var(--gold);color:#fff;
@@ -504,9 +541,13 @@
   <!-- ====== HERO: search + map ====== -->
   <section class="hero">
     <div class="wrap hero-inner">
-      <p class="eyebrow" style="color:#E8C88A">עפולה והעמק · מרקטפלייס מקומי</p>
-      <h1>כל הדירות, כל המתווכים, בכתובת אחת בעפולה</h1>
-      <p class="lede">מפסיקים לרוץ בין לוחות מודעות — כל המתווכים המובילים בעיר מחכים לך כאן.</p>
+      <!-- הכותרת עטופה ב-.hero-copy כדי שתוכל לשבת כעמודה נפרדת ליד תיבת
+           החיפוש במסכים רחבים (ראו ה-media query של .hero-inner). -->
+      <div class="hero-copy">
+        <p class="eyebrow" style="color:#E8C88A">עפולה והעמק · מרקטפלייס מקומי</p>
+        <h1>כל הדירות, כל המתווכים, בכתובת אחת בעפולה</h1>
+        <p class="lede">מפסיקים לרוץ בין לוחות מודעות — כל המתווכים המובילים בעיר מחכים לך כאן.</p>
+      </div>
 
       <div class="search-card">
         <div class="deal-tabs" role="tablist" aria-label="סוג עסקה">
@@ -714,7 +755,38 @@
         <button type="button" class="map-expand-btn" id="mapExpandBtn" aria-expanded="false">הצג נכסים על המפה ↓</button>
       </div>
     </div>
+
+    <!-- קו הרכס של העמק. ה-CSS ל-.hero-ridge היה קיים מלכתחילה בלי אלמנט
+         תואם בעמוד, כלומר הכוונה הייתה שם אבל הציור מעולם לא הגיע. שתי
+         שכבות סילואטה + קווי שדות חרושים, בגוון לבן שקוף מעל הנייבי, והן
+         נעות בקצבים שונים בגלילה (mo-ridge ב-motion.css) — האופק נפתח
+         בזמן שיורדים אל תוך הנכסים. -->
+    <div class="hero-ridge" aria-hidden="true">
+      <svg viewBox="0 0 1200 90" preserveAspectRatio="none" focusable="false">
+        <path class="ridge-far" d="M0,62 L120,44 L232,58 L358,30 L470,52 L604,26 L742,50 L870,34 L1000,56 L1110,42 L1200,58 L1200,90 L0,90 Z"/>
+        <path class="ridge-near" d="M0,76 L96,64 L210,74 L332,56 L452,72 L586,54 L716,70 L852,60 L988,74 L1104,64 L1200,74 L1200,90 L0,90 Z"/>
+        <g class="ridge-rows">
+          <path d="M40,88 C220,80 420,80 600,86"/>
+          <path d="M300,90 C480,82 700,82 900,88"/>
+          <path d="M640,88 C820,81 1020,81 1180,87"/>
+        </g>
+      </svg>
+    </div>
   </section>
+
+  <!-- ====== Newsflash ticker ======
+       הועבר לכאן מתוך אמצע העמוד (בין הגריד לבאנר בעלי-הנכסים). הטיקר הוא
+       רצועה מלאת-רוחב עם border-bottom, בדיוק כמו ה-Leaderboard שמעל
+       הכותרת — באמצע טור התוכן הוא נראה כמו קו ששבר את הפריסה. כאן הוא
+       מצטרף לגוש הכותרת שבראש העמוד, וגם קורא נכון: "מה קורה עכשיו" לפני
+       "אלה הנכסים". הצמידות בין החיפוש לתוצאות נשמרת — הרצועה נמוכה. -->
+  <div class="ticker">
+    <div class="wrap">
+      <span class="ticker-flag"><span class="live-dot"></span> מבזק</span>
+      <span class="ticker-text" id="tickerText" role="status" aria-live="polite"></span>
+      <button class="ticker-more" id="tickerMore">כל העדכונים ←</button>
+    </div>
+  </div>
 
   <!-- ====== Property grid ====== -->
   <!-- מוצג מיד מתחת למפה, לפני שאר סקציות עמוד הבית: כשמחפשים נכסים
@@ -722,7 +794,7 @@
        וכך רואים אותן בלי לגלול קודם דרך המבזק/באנר בעלי-נכסים/מתווכים
        מובילים/נכסים מקודמים. -->
   <section class="section wrap" id="listings">
-    <div class="section-head">
+    <div class="section-head" data-reveal>
       <div>
         <p class="eyebrow">נכסים באזור</p>
         <h2>כל הנכסים הפעילים</h2>
@@ -732,18 +804,9 @@
     <div class="property-grid" id="propertyGrid"><!-- populated by JS --></div>
   </section>
 
-  <!-- ====== Newsflash ticker ====== -->
-  <div class="ticker">
-    <div class="wrap">
-      <span class="ticker-flag"><span class="live-dot"></span> מבזק</span>
-      <span class="ticker-text" id="tickerText" role="status" aria-live="polite"></span>
-      <button class="ticker-more" id="tickerMore">כל העדכונים ←</button>
-    </div>
-  </div>
-
   <!-- ====== Owner-lead banner ====== -->
   <div class="section wrap">
-    <div class="owner-banner">
+    <div class="owner-banner" data-reveal="scale">
       <div class="owner-intro">
         <p class="eyebrow" style="color:#E8C88A">בעלי נכסים</p>
         <h2 id="ownerHeadline">מוכר/משכיר?</h2>
@@ -839,31 +902,42 @@
     </div>
   </div>
 
-  <!-- ====== Leading Agencies (module 3 §5.2) ====== -->
-  <section class="section wrap" id="leadingAgencies">
-    <div class="section-head">
-      <div>
-        <p class="eyebrow">מריטוקרטי, לא תלוי-מנוי</p>
-        <h2>משרדי תיווך מובילים בעפולה</h2>
+  <!-- ====== Leading agencies + agents (module 3 §5.1-5.2) ======
+       שתי הסקציות אוגדו לרצועה אחת: שתיהן אותו מסר בדיוק ("הדירוג נקבע
+       בביצועים, לא בתשלום"), ובעבר הן הופיעו כשתי רצועות זהות עם אותו
+       eyebrow מילה במילה, אחת אחרי השנייה. עכשיו הכותרת נאמרת פעם אחת
+       מעל הגוש, וכל סקציה מקבלת כותרת משנה קצרה משלה. -->
+  <div class="band" id="rankings">
+    <section class="section wrap">
+      <div class="section-head" data-reveal>
+        <div>
+          <p class="eyebrow">מריטוקרטי, לא תלוי-מנוי</p>
+          <h2>מי מוביל באמת בעפולה והעמק</h2>
+          <p style="color:var(--ink-soft);font-size:.9rem;margin:8px 0 0;max-width:52ch">
+            הדירוג מחושב מנתוני עסקאות ונכסים פעילים — אי אפשר לקנות בו מקום.
+          </p>
+        </div>
       </div>
-    </div>
-    <div class="featured-scroll" id="leadingAgenciesScroll"><!-- populated by JS --></div>
-  </section>
+    </section>
 
-  <!-- ====== Leading Agents (module 3 §5.1) ====== -->
-  <section class="section wrap" id="leadingAgents">
-    <div class="section-head">
-      <div>
-        <p class="eyebrow">מריטוקרטי, לא תלוי-מנוי</p>
-        <h2>מתווכים מובילים בעפולה והעמק</h2>
+    <section class="section wrap" id="leadingAgencies" style="padding-top:0">
+      <div class="section-head" data-reveal>
+        <div><p class="eyebrow">משרדי תיווך</p></div>
       </div>
-    </div>
-    <div class="featured-scroll" id="leadingAgentsScroll"><!-- populated by JS --></div>
-  </section>
+      <div class="featured-scroll" id="leadingAgenciesScroll"><!-- populated by JS --></div>
+    </section>
+
+    <section class="section wrap" id="leadingAgents" style="padding-top:clamp(20px,3vw,30px)">
+      <div class="section-head" data-reveal>
+        <div><p class="eyebrow">מתווכים</p></div>
+      </div>
+      <div class="featured-scroll" id="leadingAgentsScroll"><!-- populated by JS --></div>
+    </section>
+  </div>
 
   <!-- ====== Featured (Premium rotation) ====== -->
   <section class="section wrap" id="featured">
-    <div class="section-head">
+    <div class="section-head" data-reveal>
       <div>
         <p class="eyebrow">נכסים מקודמים</p>
         <h2>מומלצים השבוע בעמק</h2>
@@ -875,13 +949,13 @@
 
   <!-- ====== Mortgage calculator ====== -->
   <section class="section wrap" id="calc">
-    <div class="section-head">
+    <div class="section-head" data-reveal>
       <div>
         <p class="eyebrow">כלי שימושי</p>
         <h2>מחשבון משכנתא</h2>
       </div>
     </div>
-    <div class="card calc-card">
+    <div class="card calc-card" data-reveal>
       <div class="calc-grid">
         <div class="calc-field">
           <label for="calcPrice">מחיר הנכס (₪)</label>
@@ -911,7 +985,7 @@
 
   <!-- ====== Professionals ====== -->
   <section class="section wrap" id="pros">
-    <div class="section-head">
+    <div class="section-head" data-reveal>
       <div>
         <p class="eyebrow">בעלי מקצוע נבחרים</p>
         <h2>מי שילווה אתכם בדרך</h2>
@@ -1017,6 +1091,59 @@ function priceLabel(p){
 }
 
 /* ============================================================
+   גשר אל שכבת התנועה (assets/motion.js).
+   כל קריאה עוברת דרך העטיפות האלה ולא ישירות אל window.ShukMotion,
+   כי הקובץ נטען עם defer: אם הוא נחסם או נכשל, הפונקציות כאן פשוט לא
+   עושות כלום והעמוד מתנהג כמו קודם. חשוב במיוחד ב-revealCards — הוא זה
+   שמוסיף את data-reveal, ולכן בלי מנוע התנועה הכרטיסים כלל לא מוסתרים.
+   ============================================================ */
+function revealCards(container, selector){
+  if (!container) return;
+  if (window.ShukMotion){
+    try{ window.ShukMotion.stagger(container, selector); } catch(e){}
+    try{ window.ShukMotion.makeCardsAccessible(container); } catch(e){}
+  } else {
+    // motion.js נטען עם defer ועדיין לא רץ — נשמור את הבקשה, הוא ירוקן
+    // את התור באתחול. אם הוא לא ייטען כלל, שום דבר לא הוסתר ממילא.
+    (window.__shukMotionQueue = window.__shukMotionQueue || []).push([container, selector]);
+  }
+}
+function motionCountUp(el, to, format){
+  if (window.ShukMotion){ window.ShukMotion.countUp(el, to, format); }
+  else if (el){ el.textContent = format ? format(to) : String(to); }
+}
+function motionReduced(){
+  try{ return window.ShukMotion ? window.ShukMotion.reducedMotion() : false; } catch(e){ return false; }
+}
+
+/* ---------- שלדי טעינה ----------
+   קודם כל אזור תוכן היה ריק לגמרי עד ש-Supabase החזיר תשובה, ואז הכל
+   הופיע בבת אחת וקפץ את הפריסה. השלד תופס מראש את המקום הנכון, כך
+   שהעין יודעת לאן להסתכל וגובה העמוד לא משתנה בזמן הטעינה. */
+function showSkeletons(el, count, className){
+  if (!el) return;
+  el.innerHTML = '';
+  for (let i = 0; i < count; i++){
+    const s = document.createElement('div');
+    s.className = 'sk ' + className;
+    s.setAttribute('aria-hidden', 'true');
+    el.appendChild(s);
+  }
+  el.setAttribute('aria-busy', 'true');
+}
+function clearSkeletons(el){
+  if (!el) return;
+  el.innerHTML = '';
+  el.removeAttribute('aria-busy');
+}
+
+showSkeletons(document.getElementById('propertyGrid'), 6, 'sk-card');
+showSkeletons(document.getElementById('featuredScroll'), 4, 'sk-card is-wide');
+showSkeletons(document.getElementById('leadingAgenciesScroll'), 4, 'sk-agency');
+showSkeletons(document.getElementById('leadingAgentsScroll'), 4, 'sk-agency');
+showSkeletons(document.getElementById('prosGrid'), 5, 'sk-pro');
+
+/* ============================================================
    PART 1 — core UI. No external dependency. Always works.
    ============================================================ */
 
@@ -1117,12 +1244,29 @@ document.querySelectorAll('.deal-toggle button').forEach(btn=>{
 let TICKER_ITEMS = FALLBACK_TICKER;
 let tickerIndex = 0;
 const tickerText = document.getElementById('tickerText');
-function renderTicker(){
-  tickerText.textContent = TICKER_ITEMS[tickerIndex].text;
+
+/* ההחלפה הייתה textContent חד כל 5 שניות — מבזק שמתחלף באמצע קריאה בלי
+   שום סימן. עכשיו הישן נשמט כלפי מעלה והחדש עולה מלמטה, כמו לוח מבזקים
+   אמיתי, וההחלפה עצמה מסמנת שהגיע פריט חדש. הכתיבה ל-textContent קורית
+   כשהטקסט הישן כבר שקוף, כדי ש-aria-live לא יכריז על מחרוזת חצי-מונפשת. */
+function setTickerText(text){
+  if (motionReduced()){ tickerText.textContent = text; return; }
+  tickerText.classList.remove('mo-in');
+  tickerText.classList.add('mo-out');
+  setTimeout(()=>{
+    tickerText.textContent = text;
+    tickerText.classList.remove('mo-out');
+    tickerText.classList.add('mo-in');
+  }, 260);
+}
+
+function renderTicker(animate){
+  const text = TICKER_ITEMS[tickerIndex].text;
+  if (animate) setTickerText(text); else tickerText.textContent = text;
   tickerIndex = (tickerIndex + 1) % TICKER_ITEMS.length;
 }
-renderTicker();
-setInterval(renderTicker, 5000);
+renderTicker(false); // הפריט הראשון מופיע מיד, בלי אנימציית כניסה
+setInterval(()=> renderTicker(true), 5000);
 document.getElementById('tickerMore').addEventListener('click', ()=>{
   alert('כאן ייפתח מודאל עם רשימת כל העדכונים (ראו מודול 0 §2.3 / מודול 2 §5.3)');
 });
@@ -1142,7 +1286,16 @@ function updateCalculator(){
   if (loan > 0 && monthlyRate > 0){
     monthly = loan * (monthlyRate*Math.pow(1+monthlyRate,n)) / (Math.pow(1+monthlyRate,n)-1);
   }
-  document.getElementById('calcMonthly').textContent = monthly ? ('₪' + Math.round(monthly).toLocaleString('he-IL')) : '—';
+  /* התוצאה נספרת אל הערך החדש במקום להתחלף בקפיצה: זה הנתון שכל הכלי
+     קיים בשבילו, והתנועה היא מה שמושך אליו את העין אחרי שינוי בשדות.
+     ההשוואה למספר הקודם קורית בתוך countUp, כך שגרירת מחוון או הקלדה
+     רצופה מתגלגלות ברצף אחד ולא מתחילות כל פעם מאפס. */
+  const monthlyEl = document.getElementById('calcMonthly');
+  if (monthly){
+    motionCountUp(monthlyEl, Math.round(monthly), v => '₪' + Math.round(v).toLocaleString('he-IL'));
+  } else {
+    monthlyEl.textContent = '—';
+  }
 
   const ltv = price > 0 ? loan/price : 0;
   const warn = document.getElementById('calcLtvWarning');
@@ -1191,9 +1344,18 @@ ownerStartBtn.addEventListener('click', ()=>{
   document.getElementById('wizAddress').focus();
 });
 
+/* הפאנל הפעיל מסומן בכיוון התנועה, ו-motion.css מנפיש אותו בהתאם: ב-RTL
+   "קדימה" נכנס משמאל ו"חזרה" מימין. ה-keyframe המקורי (wizIn) הזיז כל
+   פאנל מלמטה למעלה — גם בלחיצה על "חזרה", כך שכל מעבר הרגיש זהה ולא סימן
+   למשתמש לאן הוא נע בתוך האשף. */
+let wizCurrentStep = 1;
 function goToStep(n){
+  const dir = n < wizCurrentStep ? 'back' : 'fwd';
+  wizCurrentStep = n;
   wizForm.querySelectorAll('.wiz-panel').forEach(p=>{
-    p.classList.toggle('active', Number(p.dataset.panel) === n);
+    const isActive = Number(p.dataset.panel) === n;
+    p.classList.toggle('active', isActive);
+    if (isActive) p.dataset.dir = dir; else delete p.dataset.dir;
   });
   document.querySelectorAll('#wizSteps li').forEach(li=>{
     const step = Number(li.dataset.step);
@@ -1294,6 +1456,7 @@ wizForm.addEventListener('submit', async (e)=>{
   const originalLabel = submitBtn.textContent;
   submitBtn.textContent = 'שולח…';
   submitBtn.disabled = true;
+  submitBtn.dataset.busy = 'true'; // פעימה עדינה כל עוד הבקשה בדרך
   try{
     const res = await fetch(OWNER_LEAD_FUNCTION_URL, {
       method: 'POST',
@@ -1312,11 +1475,13 @@ wizForm.addEventListener('submit', async (e)=>{
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || 'שגיאה');
+    delete submitBtn.dataset.busy;
     wizForm.hidden = true;
     document.getElementById('wizSteps').hidden = true;
     wizDone.hidden = false;
   } catch(err){
     console.error('owner-lead-intake failed:', err);
+    delete submitBtn.dataset.busy;
     setError(3, 'השליחה נכשלה — בדקו חיבור לאינטרנט ונסו שוב');
     submitBtn.textContent = originalLabel;
     submitBtn.disabled = false;
@@ -1399,11 +1564,22 @@ async function loadLeadingAgencies(){
   }
 }
 
+/* שתי סקציות הדירוג יושבות עכשיו בתוך רצועה משותפת (.band#rankings) עם
+   כותרת אחת מעליהן. כשאין נתונים לאף אחת מהן צריך להעלים את כל הרצועה,
+   אחרת נשארת כותרת "מי מוביל באמת" מרחפת מעל שני אזורים ריקים. */
+let rankingSectionsShown = 0;
+function settleRankingsBand(){
+  const band = document.getElementById('rankings');
+  if (band && rankingSectionsShown === 0) band.style.display = 'none';
+}
+
 (async function initLeadingAgencies(){
   const rankings = await loadLeadingAgencies();
   const el = document.getElementById('leadingAgenciesScroll');
   const section = document.getElementById('leadingAgencies');
-  if (!rankings.length){ section.style.display = 'none'; return; }
+  clearSkeletons(el);
+  if (!rankings.length){ section.style.display = 'none'; settleRankingsBand(); return; }
+  rankingSectionsShown++;
   rankings.forEach((r, i)=>{
     const card = document.createElement('div');
     card.className = 'agency-card';
@@ -1414,9 +1590,13 @@ async function loadLeadingAgencies(){
       <div class="name">${name}</div>
       <div class="stat">${r.active_properties_count} נכסים פעילים</div>
     `;
-    if (r.agencies?.slug) card.addEventListener('click', ()=> window.location.href = 'agency.html?slug=' + r.agencies.slug);
+    if (r.agencies?.slug){
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', ()=> window.location.href = 'agency.html?slug=' + r.agencies.slug);
+    }
     el.appendChild(card);
   });
+  revealCards(el);
 })();
 
 async function loadLeadingAgents(){
@@ -1462,7 +1642,9 @@ async function loadLeadingAgents(){
   const rankings = await loadLeadingAgents();
   const el = document.getElementById('leadingAgentsScroll');
   const section = document.getElementById('leadingAgents');
-  if (!rankings.length){ section.style.display = 'none'; return; }
+  clearSkeletons(el);
+  if (!rankings.length){ section.style.display = 'none'; settleRankingsBand(); return; }
+  rankingSectionsShown++;
   rankings.forEach((r, i)=>{
     const agent = r.agency_members;
     const card = document.createElement('div');
@@ -1474,9 +1656,13 @@ async function loadLeadingAgents(){
       <div class="name">${name}</div>
       <div class="stat">${agent?.agencies?.name || ''}</div>
     `;
-    if (agent?.slug) card.addEventListener('click', ()=> window.location.href = 'agent.html?slug=' + agent.slug);
+    if (agent?.slug){
+      card.style.cursor = 'pointer';
+      card.addEventListener('click', ()=> window.location.href = 'agent.html?slug=' + agent.slug);
+    }
     el.appendChild(card);
   });
+  revealCards(el);
 })();
 
 /* ---------- Professionals (module 2 §5.6) — live ad_placements, static fallback ---------- */
@@ -1547,7 +1733,7 @@ function isPlacementLive(p, today){
     }
   } catch(e){ console.warn('טעינת בעלי מקצוע נכשלה, מציג ברירת מחדל:', e); }
 
-  el.innerHTML = '';
+  clearSkeletons(el);
   pros.forEach(p=>{
     const initials = p.advertiser_name.split(' ').map(w=>w[0]).slice(0,2).join('');
     const card = document.createElement(p.click_url ? 'a' : 'div');
@@ -1556,6 +1742,7 @@ function isPlacementLive(p, today){
     card.innerHTML = `<div class="pro-avatar">${initials}</div><h3>${p.advertiser_name}</h3><p class="role">${p.target_region || TYPE_LABELS[p.advertiser_type] || ''}</p>`;
     el.appendChild(card);
   });
+  revealCards(el);
 })();
 
 /* המפה היא שכבה אופציונלית ולא תנאי להצגת הנכסים.
@@ -1589,14 +1776,22 @@ function renderMap(properties){
   Object.keys(mapMarkers).forEach(id => delete mapMarkers[id]);
 
   if (heroMap){
+    let pinIndex = 0; // נספר רק נכסים שבאמת יש להם קואורדינטות
     properties.forEach((p) => {
       if (!p.lat || !p.lng) return;
       // צבע הפין לפי סוג הנכס — תואם לצבעי כפתורי הטאב (קנייה/השכרה/מסחרי)
       // מעל המפה, כדי שאפשר יהיה לזהות סוג נכס במבט חטוף גם בלי לפתוח פופאפ
       const pinColor = p.category === 'commercial' ? 'var(--ink-soft)' : (p.deal_type === 'sale' ? 'var(--teal)' : 'var(--gold)');
+      // הפינים נוחתים בזה אחר זה במקום להופיע בבת אחת — אחרי חיפוש זה
+      // מראה בבירור שהמפה התעדכנה, גם כשמספר התוצאות דומה לקודם.
+      // התקרה של 12 שומרת על משך כולל סביר גם ברשימה ארוכה.
+      // ה-class והמשתנה יושבים על ה-div הפנימי ולא על העטיפה של Leaflet:
+      // divIcon מקבל רק className כמחרוזת, ואי אפשר לתלות עליו inline style
+      // שיישא את ההשהיה הפרטנית של כל פין.
+      const pinDelay = Math.min(pinIndex++, 12) * 45;
       const icon = L.divIcon({
         className:'',
-        html:`<div style="background:${pinColor};color:#fff;padding:4px 8px;border-radius:8px;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.3);white-space:nowrap;font-family:Heebo,sans-serif">${priceLabel(p)}</div>`,
+        html:`<div class="mo-pin" style="--mo-pin-delay:${pinDelay}ms;background:${pinColor};color:#fff;padding:4px 8px;border-radius:8px;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.3);white-space:nowrap;font-family:Heebo,sans-serif">${priceLabel(p)}</div>`,
         iconSize:[0,0]
       });
       const m = L.marker([p.lat, p.lng], {icon}).addTo(heroMap);
@@ -1627,7 +1822,11 @@ try {
     const properties = await loadProperties();
 
     const featuredScroll = document.getElementById('featuredScroll');
-    properties.filter(p=>p.is_promoted).forEach((p,i)=>{
+    clearSkeletons(featuredScroll);
+    const promoted = properties.filter(p=>p.is_promoted);
+    // סקציה בלי נכסים מקודמים הציגה כותרת מעל רצועה ריקה
+    if (!promoted.length) document.getElementById('featured').style.display = 'none';
+    promoted.forEach((p,i)=>{
       const el = document.createElement('div');
       el.className = 'prop-card';
       el.style.cursor = 'pointer';
@@ -1641,6 +1840,7 @@ try {
       el.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
       featuredScroll.appendChild(el);
     });
+    revealCards(featuredScroll);
 
     renderPropertyGrid(properties);
   })();
@@ -1891,9 +2091,10 @@ function renderPropertyGrid(properties, isSearchResult){
   const grid = document.getElementById('propertyGrid');
   const heading = document.querySelector('#listings h2');
   if (heading) heading.textContent = isSearchResult ? `תוצאות חיפוש (${properties.length})` : 'כל הנכסים הפעילים';
-  grid.innerHTML = '';
+  clearSkeletons(grid);
   if (isSearchResult && properties.length === 0){
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--ink-soft)">לא נמצאו נכסים התואמים את החיפוש</div>';
+    grid.innerHTML = '<div data-reveal="fade" style="grid-column:1/-1;text-align:center;padding:30px;color:var(--ink-soft)">לא נמצאו נכסים התואמים את החיפוש</div>';
+    revealCards(grid);
     return;
   }
   properties.forEach((p, i)=>{
@@ -1916,6 +2117,9 @@ function renderPropertyGrid(properties, isSearchResult){
       grid.appendChild(ad);
     }
   });
+  // חשיפה מדורגת + הנגשת הכרטיסים למקלדת. חייב לרוץ אחרי שכל האריחים
+  // כבר בתוך ה-DOM, ולכן כאן ולא בתוך הלולאה.
+  revealCards(grid);
 }
 
 initFilterModals();

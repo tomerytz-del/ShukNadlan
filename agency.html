@@ -6,6 +6,8 @@
 <title>משרד תיווך | שוק נדל״ן</title>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<link rel="stylesheet" href="assets/motion.css">
+<script defer src="assets/motion.js"></script>
 <style>
   /* ---------- ערכת הצבעים של המשרד ----------
      ארבעת ה־brand tokens למטה הם היחידים שדף הניהול דורס (setProperty על :root)
@@ -19,7 +21,7 @@
     /* צבע הטקסט שיושב על גבי --brand; נדרס ל-כהה אם המשרד בחר גוון בהיר */
     --on-brand:#fff;
     --teal:var(--brand); --teal-dark:var(--brand-dark); --gold:var(--accent); --gold-dark:var(--accent-dark);
-    --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(15,52,53,.08); --maxw:1000px;
+    --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(18,40,64,.09); --maxw:1000px;
   }
   @supports (color: color-mix(in srgb, red 50%, white)){
     :root{
@@ -383,6 +385,7 @@ async function loadActiveProperties(sb, agencyId){
     card.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
     el.appendChild(card);
   });
+  revealCards(el);
 }
 
 async function loadSoldDeals(sb, agencyId){
@@ -398,6 +401,7 @@ async function loadSoldDeals(sb, agencyId){
     row.innerHTML = `<span>${d.property_type} · ${d.rooms||'—'} חדרים</span><span class="deal-price">₪${Number(d.sale_price).toLocaleString('he-IL')}</span>`;
     el.appendChild(row);
   });
+  revealCards(el);
 }
 
 async function loadAgentRoster(sb, agencyId){
@@ -415,6 +419,7 @@ async function loadAgentRoster(sb, agencyId){
     card.addEventListener('click', ()=> window.location.href = 'agent.html?slug=' + (a.slug || a.id));
     el.appendChild(card);
   });
+  revealCards(el);
 }
 
 async function loadReviews(sb, agencyId){
@@ -433,6 +438,22 @@ async function loadReviews(sb, agencyId){
       <div style="font-size:.75rem;color:var(--ink-soft);margin-top:6px">${r.reviewer_display_name||'לקוח מאומת'}</div>`;
     el.appendChild(card);
   });
+  revealCards(el);
+}
+
+/* ---------- גשר אל שכבת התנועה (assets/motion.js) ----------
+   עטיפה שקטה: הקובץ נטען עם defer ועלול להיחסם, ואז כאן פשוט לא קורה
+   כלום — הכרטיסים נשארים גלויים ולחיצים בדיוק כמו קודם. */
+function revealCards(container, selector){
+  if (!container) return;
+  if (window.ShukMotion){
+    try{ window.ShukMotion.stagger(container, selector); } catch(e){}
+    try{ window.ShukMotion.makeCardsAccessible(container); } catch(e){}
+  } else {
+    // motion.js נטען עם defer ועדיין לא רץ — נשמור את הבקשה, הוא ירוקן
+    // את התור באתחול. אם הוא לא ייטען כלל, שום דבר לא הוסתר ממילא.
+    (window.__shukMotionQueue = window.__shukMotionQueue || []).push([container, selector]);
+  }
 }
 
 loadAgency();
