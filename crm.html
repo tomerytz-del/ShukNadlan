@@ -356,6 +356,17 @@
     <div id="createAgencyFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
     <button type="button" class="btn btn-ghost btn-block" id="cancelCreateAgency" style="margin-top:8px">יציאה</button>
   </div>
+
+  <!-- מסך שגיאה לטעינת החשבון. קיים כדי שכשל בשאילתה (רשת/סכימה) לא יוצג
+       כ"עדיין לא פתחת משרד" — מסך פתיחת המשרד שמור למי שבאמת אין לו שורה. -->
+  <div class="card login-card" id="loadErrorScreen" style="display:none">
+    <div class="logo"><span class="logo-mark">ש</span></div>
+    <h1>לא הצלחנו לטעון את החשבון</h1>
+    <p class="sub">ההתחברות הצליחה, אבל טעינת פרטי המשרד נכשלה. זו לא עדות לכך שאין לך משרד — נסו שוב בעוד רגע.</p>
+    <div id="loadErrorDetail" style="font-size:.78rem;color:var(--red);text-align:center;margin-bottom:12px;min-height:1.2em"></div>
+    <button type="button" class="btn btn-gold btn-block" id="retryLoadBtn">נסיון נוסף</button>
+    <button type="button" class="btn btn-ghost btn-block" id="loadErrorLogoutBtn" style="margin-top:8px">יציאה</button>
+  </div>
 </div>
 
 <div id="dashboard">
@@ -1114,6 +1125,7 @@ document.getElementById('logoutBtn').addEventListener('click', async ()=>{
   dashboard.style.display = 'none';
   document.getElementById('devMenu').style.display = 'none';
   createAgencyScreen.style.display = 'none';
+  document.getElementById('loadErrorScreen').style.display = 'none';
   document.getElementById('loginCardMain').style.display = 'block';
   loginScreen.style.display = 'flex';
 });
@@ -1169,17 +1181,49 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
   }
 });
 
-/* ---------- Post-auth routing: decide dashboard vs "create your agency" ---------- */
+/* ---------- Post-auth routing: decide dashboard vs "create your agency" ----------
+   הפרדה מפורשת בין שלושה מצבים: יש שורת חבר/ה במשרד → דשבורד; אין שורה → מסך
+   פתיחת משרד; שאילתה שנכשלה → מסך שגיאה. בלי ההפרדה הזו, כל תקלה זמנית נראית
+   לסוכן/ת ותיק/ה כאילו המערכת לא מזהה אותם ומבקשת מהם לפתוח משרד חדש. */
+function showCreateAgencyScreen(){
+  loginScreen.style.display = 'flex';
+  dashboard.style.display = 'none';
+  document.getElementById('loginCardMain').style.display = 'none';
+  document.getElementById('loadErrorScreen').style.display = 'none';
+  createAgencyScreen.style.display = 'block';
+}
+
+function showAuthLoadError(detail){
+  loginScreen.style.display = 'flex';
+  dashboard.style.display = 'none';
+  document.getElementById('loginCardMain').style.display = 'none';
+  createAgencyScreen.style.display = 'none';
+  document.getElementById('loadErrorScreen').style.display = 'block';
+  document.getElementById('loadErrorDetail').textContent = detail || '';
+}
+
+document.getElementById('retryLoadBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('retryLoadBtn');
+  btn.disabled = true; btn.textContent = 'טוען…';
+  await routeAfterAuth();
+  btn.disabled = false; btn.textContent = 'נסיון נוסף';
+});
+
+document.getElementById('loadErrorLogoutBtn').addEventListener('click', async ()=>{
+  await sb.auth.signOut();
+  document.getElementById('loadErrorScreen').style.display = 'none';
+  document.getElementById('loginCardMain').style.display = 'block';
+});
+
 async function routeAfterAuth(){
   const { data: { user } } = await sb.auth.getUser();
   if (!user) return;
-  const { data: agent } = await sb.from('agency_members').select('id').eq('user_id', user.id).maybeSingle();
+  const { data: agent, error } = await sb.from('agency_members').select('id').eq('user_id', user.id).maybeSingle();
+  if (error){ showAuthLoadError('שגיאה: ' + error.message); return; }
   if (agent){
     await loadDashboard();
   } else {
-    loginScreen.style.display = 'flex';
-    document.getElementById('loginCardMain').style.display = 'none';
-    createAgencyScreen.style.display = 'block';
+    showCreateAgencyScreen();
   }
 }
 
@@ -1188,19 +1232,27 @@ async function loadDashboard(){
   const { data: { user } } = await sb.auth.getUser();
   if (!user){ return; }
 
+  // שם המשרד נטען בשאילתה נפרדת ולא ב-embed‏ (agencies(name)): מאז ש-property_shares
+  // מחזיקה שני מפתחות זרים ל-agencies, PostgREST לא יודע לבחור נתיב יחיד בין
+  // agency_members ל-agencies ומחזיר PGRST201 (HTTP 300) על כל embed כזה.
   const { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select('id, agency_id, display_name, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, phone, agencies(name)')
+    .select('id, agency_id, display_name, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, phone')
     .eq('user_id', user.id)
-    .single();
+    .maybeSingle();
 
-  if (agentErr || !agent){
+  if (agentErr){ showAuthLoadError('שגיאה: ' + agentErr.message); return; }
+  if (!agent){
     // אין agency_members לחשבון הזה — הנתיב הרגיל דרך routeAfterAuth() כבר אמור למנוע
     // הגעה לכאן, אבל אם בכל זאת קרה (למשל loadDashboard נקרא ישירות), מפנים לאותו מסך יצירה
-    loginScreen.style.display = 'flex';
-    document.getElementById('loginCardMain').style.display = 'none';
-    createAgencyScreen.style.display = 'block';
+    showCreateAgencyScreen();
     return;
+  }
+
+  let agencyName = '';
+  if (agent.agency_id){
+    const { data: agency } = await sb.from('agencies').select('name').eq('id', agent.agency_id).maybeSingle();
+    agencyName = agency?.name || '';
   }
   currentAgent = agent;
 
@@ -1208,7 +1260,7 @@ async function loadDashboard(){
   dashboard.style.display = 'block';
 
   document.getElementById('avatarInitial').textContent = (agent.display_name || '?')[0];
-  document.getElementById('agentName').textContent = agent.display_name + (agent.agencies?.name ? ' · ' + agent.agencies.name : '');
+  document.getElementById('agentName').textContent = agent.display_name + (agencyName ? ' · ' + agencyName : '');
   const badge = document.getElementById('tierBadge');
   const tierLabels = { free:'מסלול חינמי', mid:'מסלול משודרג', premium:'מסלול פרימיום' };
   badge.textContent = tierLabels[agent.tier] || agent.tier;

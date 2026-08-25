@@ -203,7 +203,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   // ש-Meta שולחת ב-from, כך שההשוואה היא שוויון פשוט ומאונדקס.
   const { data: agent } = await supabase
     .from("agency_members")
-    .select("id, agency_id, display_name, tier, active, agencies(name)")
+    .select("id, agency_id, display_name, tier, active")
     .eq("phone_e164", from)
     .maybeSingle();
 
@@ -214,6 +214,19 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   if (!agent.active) {
     await reply(from, INACTIVE_AGENT_MSG, agent.id);
     return;
+  }
+
+  // שם המשרד נטען בשאילתה נפרדת ולא ב-embed‏ (agencies(name)): מאז ש-property_shares
+  // מחזיקה שני מפתחות זרים ל-agencies, PostgREST מחזיר PGRST201 (HTTP 300) על embed
+  // מ-agency_members ל-agencies — מה שהיה מפיל כאן את זיהוי הסוכן/ת לגמרי.
+  const agentRow = { ...agent, agencies: null as { name?: string } | null };
+  if (agent.agency_id) {
+    const { data: agency } = await supabase
+      .from("agencies")
+      .select("name")
+      .eq("id", agent.agency_id)
+      .maybeSingle();
+    agentRow.agencies = agency ?? null;
   }
 
   await supabase.from("whatsapp_messages")
@@ -335,7 +348,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   try {
     answer = await runAgentTurn({
       supabase,
-      agent: agent as unknown as AgentRow,
+      agent: agentRow as unknown as AgentRow,
       conv,
       userContent: content,
       userSummary: newImageUrl ? `[תמונה] ${userText}` : userText,
