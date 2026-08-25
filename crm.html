@@ -177,6 +177,27 @@
   .empty-state{padding:32px;text-align:center;color:var(--ink-soft);font-size:.88rem}
   .toast{position:fixed;bottom:20px;right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:var(--radius-sm);font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;z-index:200}
 
+  /* ---------- מסך תקלה חוסמת ----------
+     מוצג רק כש-supabase-js לא נטען. ה-CRM כולו נשען על ה-DB (התחברות,
+     לידים, נכסים), ואין לו מצב עבודה חלקי — לכן זה מסך מלא שמסביר מה קרה,
+     ולא toast חולף שאפשר לפספס. */
+  .fatal-overlay{
+    position:fixed;inset:0;z-index:500;background:var(--paper);
+    display:flex;align-items:center;justify-content:center;padding:24px;
+  }
+  .fatal-card{
+    background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-lg);
+    box-shadow:0 12px 34px rgba(18,40,64,.18);padding:30px 26px;max-width:440px;text-align:center;
+  }
+  .fatal-card .mark{
+    width:52px;height:52px;border-radius:50%;background:var(--gold-tint);color:var(--gold-dark);
+    display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:800;margin:0 auto 14px;
+  }
+  .fatal-card h2{font-size:1.2rem;margin-bottom:8px}
+  .fatal-card p{font-size:.88rem;color:var(--ink-soft);margin:0 0 8px}
+  .fatal-card ul{text-align:right;font-size:.83rem;color:var(--ink-soft);margin:12px 0 18px;padding-right:20px}
+  .fatal-card li{margin-bottom:5px}
+
   /* ---------- Property images (2.1) ---------- */
   .img-dropzone{border:1.5px dashed var(--line);border-radius:var(--radius-sm);padding:14px;text-align:center;background:#fff}
   .img-dropzone input[type=file]{display:none}
@@ -937,7 +958,86 @@ const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const CLAIM_FUNCTION_URL = SUPABASE_URL + '/functions/v1/lead-claim';
 const DEV_SWITCH_FUNCTION_URL = SUPABASE_URL + '/functions/v1/dev-switch-mode';
 const GEOCODE_FUNCTION_URL = SUPABASE_URL + '/functions/v1/geocode-address';
-const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+/* ============================================================
+   יצירת ה-client, בהגנה.
+   קודם השורה הזו הייתה window.supabase.createClient(...) חשופה. כש-CDN של
+   supabase-js לא נטען (חוסם פרסומות, פרוקסי ארגוני, נפילת רשת רגעית) היא
+   זרקה TypeError בשורה הראשונה של הסקריפט — וכיוון שזה סקריפט אחד ארוך
+   ברמת ה-top level, *כל* השאר מעולם לא רץ. התוצאה: מסך התחברות שנראה
+   תקין לחלוטין שבו אף כפתור לא מגיב, בלי הודעה ובלי רמז מה קרה.
+
+   בניגוד לעמודים הציבוריים, ל-CRM אין מצב fallback אמיתי — התחברות,
+   לידים ונכסים כולם מגיעים מה-DB. לכן המטרה כאן אינה "להמשיך לעבוד" אלא
+   "להיכשל בגלוי": מסך שמסביר מה קרה ומאפשר לנסות שוב, ובמקביל client
+   מדומה שמחזיר error מסודר לכל קריאה, כך ששאר הקוד ממשיך להיטען ולא
+   מתפוצץ בשרשרת חריגות.
+   ============================================================ */
+const SB_OFFLINE_ERROR = { message: 'אין חיבור לשרת — רכיב ההתחברות לא נטען', code: 'client_unavailable' };
+
+function createOfflineClient(){
+  const fail = () => Promise.resolve({ data: null, error: SB_OFFLINE_ERROR });
+  // בונה שרשרת: כל מתודה מחזירה את עצמה, וה-await בסוף מחזיר error מסודר
+  const builder = () => {
+    const b = { then: (resolve) => resolve({ data: null, error: SB_OFFLINE_ERROR }) };
+    ['select','insert','update','upsert','delete','eq','neq','in','is','or','not','match','filter',
+     'order','limit','range','contains','gte','lte','lt','gt','ilike','like'].forEach(m => { b[m] = () => b; });
+    b.single = b.maybeSingle = () => b;
+    return b;
+  };
+  return {
+    from: builder,
+    rpc: fail,
+    storage: { from: () => ({
+      upload: fail, remove: fail,
+      // getPublicUrl סינכרוני במקור ולכן חייב להחזיר את אותו מבנה
+      getPublicUrl: () => ({ data: { publicUrl: '' } }),
+    }) },
+    auth: {
+      getSession: () => Promise.resolve({ data: { session: null }, error: SB_OFFLINE_ERROR }),
+      getUser:    () => Promise.resolve({ data: { user: null },    error: SB_OFFLINE_ERROR }),
+      signInWithPassword: () => Promise.resolve({ data: { user:null, session:null }, error: SB_OFFLINE_ERROR }),
+      signInWithOAuth:    () => Promise.resolve({ data: null, error: SB_OFFLINE_ERROR }),
+      signOut:            () => Promise.resolve({ error: null }),
+      onAuthStateChange:  () => ({ data: { subscription: { unsubscribe(){} } } }),
+    },
+  };
+}
+
+function showFatalScreen(){
+  if (document.getElementById('fatalOverlay')) return;
+  const el = document.createElement('div');
+  el.className = 'fatal-overlay';
+  el.id = 'fatalOverlay';
+  el.setAttribute('role', 'alertdialog');
+  el.setAttribute('aria-labelledby', 'fatalTitle');
+  el.innerHTML = `
+    <div class="fatal-card">
+      <div class="mark" aria-hidden="true">!</div>
+      <h2 id="fatalTitle">לא הצלחנו לטעון את המערכת</h2>
+      <p>רכיב ההתחברות של שוק נדל״ן לא נטען, ולכן איזור הסוכנים לא יכול לעבוד כרגע.</p>
+      <ul>
+        <li>בדקו את חיבור האינטרנט</li>
+        <li>כבו זמנית חוסם פרסומות או תוסף פרטיות בעמוד הזה</li>
+        <li>ברשת ארגונית — ייתכן שהגישה ל-cdn.jsdelivr.net חסומה</li>
+      </ul>
+      <button type="button" class="btn btn-gold btn-block" id="fatalRetry">רענון הדף</button>
+    </div>`;
+  document.body.appendChild(el);
+  document.getElementById('fatalRetry').addEventListener('click', ()=> window.location.reload());
+}
+
+let sb;
+try{
+  if (!window.supabase) throw new Error('supabase-js לא נטען (CDN חסום/נכשל)');
+  sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+} catch(e){
+  console.error('אתחול Supabase נכשל — ה-CRM עובר למצב תקלה:', e);
+  sb = createOfflineClient();
+  // ה-<script> יושב בסוף ה-body, כך ש-document.body כבר קיים; ה-fallback
+  // נשאר למקרה שהסקריפט יוזז בעתיד לתוך ה-head.
+  if (document.body) showFatalScreen();
+  else document.addEventListener('DOMContentLoaded', showFatalScreen);
+}
 
 const loginScreen = document.getElementById('loginScreen');
 const dashboard = document.getElementById('dashboard');
