@@ -2720,8 +2720,8 @@ async function loadProperties(agentId){
   listEl.innerHTML = '';
   props.forEach(p=>{
     const priceLabel = p.deal_type === 'rent' ? ('₪' + Number(p.price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(p.price).toLocaleString('he-IL'));
-    const promoDaysLeft = p.is_promoted ? daysUntil(p.promoted_until) : null;
-    const isCurrentlyPromoted = promoDaysLeft !== null && promoDaysLeft >= 0;
+    // ‏promoted_until ריק = קידום ידני/היסטורי בלי מועד סיום, נחשב פעיל
+    const isCurrentlyPromoted = !!p.is_promoted && (!p.promoted_until || msLeft(p.promoted_until) > 0);
     const planning = planningByProperty[p.id];
     const el = document.createElement('div');
     el.className = 'card lead-card' + (isCurrentlyPromoted ? ' is-promoted' : '');
@@ -2733,10 +2733,10 @@ async function loadProperties(agentId){
         <div style="display:flex;gap:10px;align-items:flex-start">
           ${thumbHtml}
           <div>
-            ${isCurrentlyPromoted ? `<span class="lead-kind">🌟 מקודם · ${esc(timeLeftLabel(promoDaysLeft))}</span>` : ''}
+            ${isCurrentlyPromoted && p.promoted_until ? `<span class="lead-kind">🌟 מקודם · ${esc(timeLeftLabel(p.promoted_until))}</span>` : (isCurrentlyPromoted ? '<span class="lead-kind">🌟 מקודם</span>' : '')}
             <div class="lead-name">${p.title}</div>
             <div class="lead-meta">${priceLabel} · ${p.rooms || '—'} חדרים · ${p.property_type} · ${viewCounts[p.id]||0} צפיות${(!p.images || !p.images.length) ? ' · <span style="color:var(--brick)">ללא תמונות</span>' : ''}${planning ? ' · 📍 גוש ' + (planning.gush||'—') + ' חלקה ' + (planning.helka||'—') : ''}</div>
-            ${isCurrentlyPromoted ? `<div class="lead-meta">הקידום בתוקף עד ${hebDate(p.promoted_until)}</div>` : ''}
+            ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
           </div>
         </div>
         <span class="status-pill status-unlocked">${statusLabels[p.status] || p.status}</span>
@@ -2789,7 +2789,7 @@ async function loadProperties(agentId){
       if (!isCurrentlyPromoted){
         const promoteBtn = document.createElement('button');
         promoteBtn.className = 'btn btn-ghost';
-        promoteBtn.textContent = `קידום — ${shekel(priceOf('promote_price_monthly', 20))}/חודש`;
+        promoteBtn.textContent = `קידום — ${shekel(priceOf('promote_price', 20))} ל-${priceOf('promote_duration_hours', 72)} שעות`;
         promoteBtn.addEventListener('click', ()=> promoteProperty(p, promoteBtn, agentId));
         actions.appendChild(promoteBtn);
       }
@@ -2814,16 +2814,17 @@ async function bumpProperty(propertyId, btn, agentId){
 }
 
 async function promoteProperty(property, btn, agentId){
-  const price = priceOf('promote_price_monthly', 20);
+  const price = priceOf('promote_price', 20);
+  const hours = priceOf('promote_duration_hours', 72);
   const approved = await confirmPurchase({
     title: 'אישור קידום נכס',
     lines: [
       `📣 קידום מודעה · ${property.title || 'הנכס שלך'}`,
-      'הנכס יופיע בסלוטים המקודמים בתוצאות החיפוש למשך חודש.',
-      'החיוב חד-פעמי לחודש הקרוב, ולא מתחדש אוטומטית.',
+      `הנכס יופיע בסלוטים המקודמים בתוצאות החיפוש למשך ${hours} שעות מרגע האישור.`,
+      'בתום החלון הקידום נגמר מעצמו ולא מתחדש אוטומטית — מי שרוצה להמשיך מקדם שוב בתשלום נוסף.',
     ],
     price,
-    ackText: `אני מבין/ה שזו רכישה, ושאישור הפעולה יחייב את הארנק שלי ב-${shekel(price)}.`,
+    ackText: `אני מבין/ה שזו רכישה, ושאישור הפעולה יחייב את הארנק שלי ב-${shekel(price)} עבור ${hours} שעות קידום.`,
     confirmLabel: `אישור קידום וחיוב ${shekel(price)}`,
   });
   if (!approved) return;
@@ -2848,7 +2849,7 @@ async function promoteProperty(property, btn, agentId){
       btn.disabled = false; btn.textContent = original;
       return;
     }
-    showToast(`הנכס מקודם! חויבת ${shekel(data.price_charged)} · ${timeLeftLabel(daysUntil(data.promoted_until))}, עד ${hebDate(data.promoted_until)}`);
+    showToast(`הנכס מקודם ל-${data.duration_hours || hours} השעות הקרובות! חויבת ${shekel(data.price_charged)} · עד ${hebDateTime(data.promoted_until)}`);
     await loadProperties(agentId);
   } catch(err){
     console.error(err);
@@ -3067,22 +3068,29 @@ function esc(s){
 const shekel = n => (n === null || n === undefined) ? '—' : '₪' + Number(n).toLocaleString('he-IL');
 const hebDate = d => d ? new Date(d).toLocaleDateString('he-IL') : '—';
 
-/* ימים שנותרו עד תאריך. עמודת date ב-Postgres חוזרת כ-'YYYY-MM-DD', ולכן
-   נפרסת לחצות מקומי — new Date('2026-09-23') הוא חצות UTC ומזיז יום שלם
-   בחישוב. מחזיר null כשאין תאריך, שלילי כשהתאריך עבר.                   */
-function daysUntil(dateStr){
-  if (!dateStr) return null;
-  const [y, m, d] = String(dateStr).slice(0, 10).split('-').map(Number);
-  if (!y || !m || !d) return null;
-  const today = new Date(); today.setHours(0, 0, 0, 0);
-  return Math.round((new Date(y, m - 1, d) - today) / 86400000);
+const hebDateTime = ts => ts ? new Date(ts).toLocaleString('he-IL',
+  { day:'numeric', month:'numeric', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
+
+/* זמן שנותר עד חותמת זמן. הקידום נמכר לחלון של 72 שעות, ולכן הספירה
+   בשעות ובדקות — "נותרו 3 ימים" לא אומר לסוכן/ת מתי בדיוק זה נגמר.
+   ‏קידומים היסטוריים (חלון של 30 יום) עדיין מוצגים בימים.             */
+function msLeft(ts){
+  if (!ts) return null;
+  const t = new Date(ts).getTime();
+  return Number.isNaN(t) ? null : t - Date.now();
 }
 
-function timeLeftLabel(days){
-  if (days === null || days === undefined) return '';
-  if (days <= 0)  return 'מסתיים היום';
-  if (days === 1) return 'נותר יום אחד';
-  if (days === 2) return 'נותרו יומיים';
+function timeLeftLabel(ts){
+  const ms = msLeft(ts);
+  if (ms === null) return '';
+  if (ms <= 0) return 'הסתיים';
+  const minutes = Math.round(ms / 60000);
+  if (minutes < 2)  return 'נותרה פחות מדקה';
+  if (minutes < 60) return `נותרו ${minutes} דקות`;
+  const hours = Math.floor(minutes / 60);
+  if (hours === 1)  return 'נותרה שעה';
+  if (hours <= 72)  return `נותרו ${hours} שעות`;
+  const days = Math.round(hours / 24);
   return `נותרו ${days} ימים`;
 }
 
