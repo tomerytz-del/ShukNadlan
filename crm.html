@@ -151,6 +151,21 @@
   .img-thumb .star{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:rgba(27,31,38,.72);color:#fff;font-size:.65rem;line-height:20px;text-align:center;padding:0}
   .prop-thumb-mini{width:52px;height:52px;border-radius:var(--radius-sm);object-fit:cover;flex-shrink:0;border:1px solid var(--line)}
 
+  /* ---------- שת"פ בין משרדי תיווך ----------
+     ירוק, כדי שלא יתחרה בזהב (ליד של בעל נכס) ובכחול (ליד של קונה) — נכס
+     בשת"פ הוא לא ליד וגם לא חיוב, אלא ערוץ שלישי לגמרי.
+     ‏pill-row: בשורת הנכס יושבות עכשיו שתי תגיות (סטטוס + שיתוף), וברוחב
+     טלפון הן חייבות לרדת שורה במקום לדחוס את הכותרת. */
+  .status-shared{background:#DFEDE3;color:#2A5B36}
+  .pill-row{display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end}
+  .acc-body .card.kind-shared{background:linear-gradient(180deg,#F4F9F5,#E8F2EA);border-inline-start-color:#2A5B36}
+  .kind-shared .lead-kind{background:#2A5B36;color:#EAF4EC}
+  .share-partner-list{display:grid;grid-template-columns:1fr;gap:6px;max-height:280px;overflow-y:auto;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px;background:#fff}
+  @media(min-width:560px){.share-partner-list{grid-template-columns:1fr 1fr}}
+  .share-partner-list label{padding:6px 4px;border-radius:var(--radius-sm);cursor:pointer}
+  .share-partner-list label:hover{background:var(--paper)}
+  .filter-input{border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;background:#fff}
+
   /* ---------- מיתוג דף המשרד (מנהל בלבד) ---------- */
   .palette-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   @media(min-width:560px){.palette-grid{grid-template-columns:repeat(4,1fr)}}
@@ -788,6 +803,60 @@
     </div>
       </div>
     </details>
+
+    <details class="acc" id="accSharePartners">
+      <summary>
+        <span class="acc-title">משרדי שיתוף פעולה</span>
+        <span class="acc-count" id="accSharePartnersCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">בחירה חד-פעמית: אלה המשרדים שאליהם יופץ כל נכס שתפתחו לשת״פ מרשימת הנכסים שלכם. ברירת המחדל היא כל משרדי התיווך במערכת — כולל משרדים שיצטרפו בעתיד — והסרת סימון מוציאה משרד מהשת״פ שלכם.</p>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <input type="search" id="partnerSearch" class="filter-input" placeholder="חיפוש משרד…" style="flex:1;min-width:150px">
+          <button type="button" class="btn btn-ghost" id="partnerSelectAll" style="white-space:nowrap">סימון הכל</button>
+          <button type="button" class="btn btn-ghost" id="partnerClearAll" style="white-space:nowrap">ניקוי הכל</button>
+        </div>
+
+        <div class="share-partner-list" id="sharePartnerList"></div>
+
+        <button type="button" class="btn btn-gold btn-block" id="savePartnersBtn" style="margin-top:12px">שמירת רשימת השת״פ</button>
+        <div id="partnersFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+        <p style="font-size:.72rem;color:var(--ink-soft);margin:8px 0 0">הרשימה חלה על ההפצה הבאה. נכס שכבר הופץ מסתנכרן מחדש בלחיצה על "עדכון הפצה" בשורת הנכס — משרד שהוסר יאבד אז את הגישה אליו.</p>
+      </div>
+    </details>
+
+    <details class="acc" id="accSharedWithMe" open>
+      <summary>
+        <span class="acc-title">נכסים ששותפו איתי</span>
+        <span class="acc-count hot" id="accSharedWithMeCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">נכסים שמשרדי תיווך אחרים פתחו לשת״פ מולכם. ליד כל נכס מופיע המשרד המשתף ופרטי הקשר של הסוכן/ת שאחראי/ת עליו.</p>
+
+        <div style="display:grid;gap:8px;margin-bottom:12px">
+          <input type="search" id="sharedSearch" class="filter-input" placeholder="חיפוש חופשי — כותרת, עיר, רחוב, משרד או סוכן/ת">
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <select id="sharedAgencyFilter" class="filter-input" style="flex:1;min-width:140px">
+              <option value="">כל המשרדים</option>
+            </select>
+            <select id="sharedDealFilter" class="filter-input" style="flex:1;min-width:120px">
+              <option value="">מכירה והשכרה</option>
+              <option value="sale">מכירה</option>
+              <option value="rent">השכרה</option>
+            </select>
+            <select id="sharedCityFilter" class="filter-input" style="flex:1;min-width:120px">
+              <option value="">כל הערים</option>
+            </select>
+            <button type="button" class="btn btn-ghost" id="sharedRefreshBtn" style="white-space:nowrap">רענון</button>
+          </div>
+        </div>
+
+        <div id="sharedWithMeList"></div>
+      </div>
+    </details>
   </div>
 </div>
 
@@ -1161,9 +1230,13 @@ async function loadDashboard(){
   document.getElementById('quotaUsed').textContent =
     agent.tier === 'free' ? (quotaUsedThisCycle() + ' / ' + freeQuota) : '—';
 
+  // רשימת השת"פ נטענת לפני הנכסים: היא מזינה את ספירת המשרדים שמוצגת
+  // בדיאלוג האישור של "פתיחה לשת״פ" בשורת הנכס
+  await loadSharePartners(agent);
   await loadProperties(agent.id);
   await loadLeads(agent.id);
   await loadLeadShelf(agent.id);
+  await loadSharedWithMe();
   await loadNotifications(agent.id);
   await loadPreferences(agent.id);
   loadWhatsappSettings(agent);
@@ -2693,7 +2766,7 @@ async function loadProperties(agentId){
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   const { data: props, error } = await sb
     .from('properties')
-    .select('id, title, price, deal_type, rooms, property_type, status, created_at, is_promoted, promoted_until, last_free_bump_at, images, city, street, house_number, lat, lng, category, features, condition, project_status, floor, size_sqm, built_size_sqm, move_in_date, move_in_soon, restrooms_location, storage_location, mamad_location')
+    .select('id, title, price, deal_type, rooms, property_type, status, created_at, is_promoted, promoted_until, last_free_bump_at, images, city, street, house_number, lat, lng, category, features, condition, project_status, floor, size_sqm, built_size_sqm, move_in_date, move_in_soon, restrooms_location, storage_location, mamad_location, shared_with_partners, shared_at')
     .eq('agent_id', agentId)
     .order('created_at', { ascending:false });
 
@@ -2716,6 +2789,15 @@ async function loadProperties(agentId){
   const planningByProperty = {};
   (planningRows||[]).forEach(pl => { planningByProperty[pl.property_id] = pl; });
 
+  // כמה משרדים קיבלו בפועל כל נכס — ה-policy על property_shares מחזירה לבעל
+  // הנכס את השורות שלו, ולכן אפשר לספור מכאן בלי לעבור דרך פונקציה
+  propertyShareCounts = {};
+  const { data: shareRows } = await sb.from('property_shares')
+    .select('property_id').in('property_id', propertyIds);
+  (shareRows||[]).forEach(s => {
+    propertyShareCounts[s.property_id] = (propertyShareCounts[s.property_id]||0) + 1;
+  });
+
   listEl.innerHTML = '';
   props.forEach(p=>{
     const priceLabel = p.deal_type === 'rent' ? ('₪' + Number(p.price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(p.price).toLocaleString('he-IL'));
@@ -2735,7 +2817,12 @@ async function loadProperties(agentId){
             <div class="lead-meta">${priceLabel} · ${p.rooms || '—'} חדרים · ${p.property_type} · ${viewCounts[p.id]||0} צפיות${isCurrentlyPromoted ? ' · מקודם עד ' + p.promoted_until : ''}${(!p.images || !p.images.length) ? ' · <span style="color:var(--brick)">ללא תמונות</span>' : ''}${planning ? ' · 📍 גוש ' + (planning.gush||'—') + ' חלקה ' + (planning.helka||'—') : ''}</div>
           </div>
         </div>
-        <span class="status-pill status-unlocked">${statusLabels[p.status] || p.status}</span>
+        <div class="pill-row">
+          <span class="status-pill status-unlocked">${statusLabels[p.status] || p.status}</span>
+          ${p.shared_with_partners
+            ? `<span class="status-pill status-shared" title="הופץ ${hebDate(p.shared_at)}">🤝 שת״פ · ${propertyShareCounts[p.id] || 0} משרדים</span>`
+            : ''}
+        </div>
       </div>
       <div class="lead-actions"></div>
     `;
@@ -2788,6 +2875,21 @@ async function loadProperties(agentId){
         promoteBtn.textContent = 'קידום — ₪20/חודש';
         promoteBtn.addEventListener('click', ()=> promoteProperty(p.id, promoteBtn, agentId));
         actions.appendChild(promoteBtn);
+      }
+
+      // סימון הנכס כפתוח לשת"פ — ההפצה יוצאת מיד למשרדים שברשימת השת"פ
+      const shareBtn = document.createElement('button');
+      shareBtn.className = p.shared_with_partners ? 'btn btn-ghost' : 'btn btn-gold';
+      shareBtn.textContent = p.shared_with_partners ? '🤝 עדכון הפצה' : '🤝 פתיחה לשת״פ';
+      shareBtn.addEventListener('click', ()=> shareProperty(p, shareBtn, agentId));
+      actions.appendChild(shareBtn);
+
+      if (p.shared_with_partners){
+        const unshareBtn = document.createElement('button');
+        unshareBtn.className = 'btn btn-ghost';
+        unshareBtn.textContent = 'ביטול שת״פ';
+        unshareBtn.addEventListener('click', ()=> unshareProperty(p, unshareBtn, agentId));
+        actions.appendChild(unshareBtn);
       }
     }
     listEl.appendChild(el);
@@ -3252,6 +3354,347 @@ document.getElementById('shelfCityFilter').addEventListener('change', renderLead
 document.getElementById('shelfRefreshBtn').addEventListener('click', ()=> {
   if (currentAgent) loadLeadShelf(currentAgent.id);
 });
+
+/* ---------- שת"פ בין משרדי תיווך ----------
+   שני צדדים לאותו מנגנון:
+   • רשימת השת"פ — בחירה חד-פעמית של המשרדים שאיתם משתפים פעולה. נשמרת ב-DB
+     כרשימת *הסרות* (agent_share_exclusions) ולא כרשימת בחירות, ולכן משרד חדש
+     שנרשם לפלטפורמה מצטרף אוטומטית ואיש לא צריך לחזור להגדרות בשבילו.
+   • ההפצה — "שיתוף" בשורת הנכס קורא ל-share_property_with_partners, שמסנכרנת
+     את property_shares מול הרשימה העדכנית ומתריעה למי שקיבל את הנכס עכשיו.
+   הרשימה "ששותפו איתי" נקראת מה-view shared_properties_for_me, שמסנן בעצמו
+   לפי המשרד של המשתמש/ת המחובר/ת — ולכן הוא לא מקבל פרמטר של מזהה.        */
+let sharePartnerAgencies = [];      // כל המשרדים בפלטפורמה חוץ מהמשרד שלי
+let shareExcludedIds = new Set();   // המשרדים שהוסרו מהשת"פ שלי
+let sharedWithMeRows = [];
+let propertyShareCounts = {};       // property_id → כמה משרדים קיבלו את הנכס
+let shareFeatureReady = false;      // false כל עוד המיגרציה לא רצה בפרויקט
+
+const missingSchema = err => /does not exist|schema cache|could not find/i.test(err?.message || '');
+
+const shareErrorMessages = {
+  agent_not_found:      'שגיאת הרשאה — אין פרופיל סוכן/ת מקושר',
+  agent_without_agency: 'החשבון אינו משויך למשרד תיווך',
+  property_not_found:   'הנכס לא נמצא',
+  not_your_property:    'אפשר לשתף רק נכס שפורסם על ידך',
+  property_not_active:  'רק נכס פעיל אפשר לפתוח לשת״פ',
+};
+
+function sharePartnerCount(){
+  return sharePartnerAgencies.filter(a => !shareExcludedIds.has(a.id)).length;
+}
+
+async function loadSharePartners(agent){
+  const listEl = document.getElementById('sharePartnerList');
+  listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+
+  const [agenciesRes, exclusionsRes] = await Promise.all([
+    sb.from('agencies').select('id, name'),
+    sb.from('agent_share_exclusions').select('agency_id').eq('agent_id', agent.id),
+  ]);
+
+  if (exclusionsRes.error){
+    shareFeatureReady = false;
+    listEl.innerHTML = '<div class="empty-state">' +
+      (missingSchema(exclusionsRes.error)
+        ? 'שיתוף נכסים בין משרדים לא הופעל עדיין בפרויקט הזה.'
+        : 'שגיאה בטעינת רשימת השת״פ: ' + esc(exclusionsRes.error.message)) + '</div>';
+    accSetCount('accSharePartners', '');
+    return;
+  }
+  if (agenciesRes.error){
+    listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת רשימת המשרדים: ' + esc(agenciesRes.error.message) + '</div>';
+    return;
+  }
+
+  shareFeatureReady = true;
+  sharePartnerAgencies = (agenciesRes.data || [])
+    .filter(a => a.id !== agent.agency_id)
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), 'he'));
+  shareExcludedIds = new Set((exclusionsRes.data || []).map(r => r.agency_id));
+  renderSharePartners();
+}
+
+function renderSharePartners(){
+  const listEl = document.getElementById('sharePartnerList');
+  const q = document.getElementById('partnerSearch').value.trim().toLowerCase();
+  const total = sharePartnerAgencies.length;
+  accSetCount('accSharePartners', total ? sharePartnerCount() + ' מתוך ' + total : '');
+
+  if (total === 0){
+    listEl.innerHTML = '<div class="empty-state">אין עדיין משרד תיווך נוסף במערכת לשיתוף פעולה.</div>';
+    return;
+  }
+  const shown = sharePartnerAgencies.filter(a => !q || String(a.name).toLowerCase().includes(q));
+  if (shown.length === 0){
+    listEl.innerHTML = '<div class="empty-state">אין משרד שמתאים לחיפוש.</div>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  shown.forEach(a => {
+    const label = document.createElement('label');
+    label.className = 'checkbox-item';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !shareExcludedIds.has(a.id);
+    // מצב הסימון חי ב-Set ולא ב-DOM: כשהחיפוש מסנן, חלק מהתיבות לא מרונדרות
+    // בכלל, וקריאה מה-DOM בזמן השמירה הייתה מוחקת את הבחירה שלהן
+    cb.addEventListener('change', ()=>{
+      if (cb.checked) shareExcludedIds.delete(a.id); else shareExcludedIds.add(a.id);
+      accSetCount('accSharePartners', sharePartnerCount() + ' מתוך ' + total);
+    });
+    label.appendChild(cb);
+    label.appendChild(document.createTextNode(' ' + a.name));
+    listEl.appendChild(label);
+  });
+}
+
+async function saveSharePartners(){
+  if (!currentAgent) return;
+  const btn = document.getElementById('savePartnersBtn');
+  const feedback = document.getElementById('partnersFeedback');
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'שומר…';
+  feedback.textContent = '';
+
+  // סדר הפעולות מכוון: קודם מוסיפים את ההסרות ורק אחר כך מוחקים את מי שחזר
+  // לשת"פ. אם השלב השני נכשל, המצב שנשאר הוא המחמיר — לא משתפים עם מי
+  // שהוסר — ולא הפוך.
+  const excluded = [...shareExcludedIds];
+  const included = sharePartnerAgencies.map(a => a.id).filter(id => !shareExcludedIds.has(id));
+  let error = null;
+
+  if (excluded.length){
+    ({ error } = await sb.from('agent_share_exclusions').upsert(
+      excluded.map(id => ({ agent_id: currentAgent.id, agency_id: id })),
+      { onConflict: 'agent_id,agency_id', ignoreDuplicates: true }));
+  }
+  if (!error && included.length){
+    ({ error } = await sb.from('agent_share_exclusions')
+      .delete().eq('agent_id', currentAgent.id).in('agency_id', included));
+  }
+
+  btn.disabled = false; btn.textContent = original;
+  if (error){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = 'שגיאה בשמירה: ' + error.message;
+    return;
+  }
+  feedback.style.color = 'var(--teal)';
+  feedback.textContent = 'נשמר — ' + sharePartnerCount() + ' משרדי שת״פ.';
+  showToast('רשימת השת״פ עודכנה');
+}
+
+async function shareProperty(p, btn, agentId){
+  if (!shareFeatureReady){
+    showToast('שיתוף נכסים בין משרדים לא הופעל עדיין בפרויקט הזה');
+    return;
+  }
+  const targets = sharePartnerCount();
+  if (targets === 0){
+    showToast('לא נבחרו משרדי שת״פ — בחרו משרדים בקטגוריית "משרדי שיתוף פעולה"');
+    const acc = openAcc('accSharePartners');
+    if (acc) acc.scrollIntoView({ behavior:'smooth', block:'start' });
+    return;
+  }
+
+  const question = p.shared_with_partners
+    ? `לסנכרן מחדש את "${p.title}" מול ${targets} משרדי השת״פ שלך? משרד שהוסר מהרשימה יאבד את הגישה לנכס.`
+    : `להפיץ את "${p.title}" ל-${targets} משרדי תיווך? כל סוכן/ת במשרדים האלה יראה את הנכס ואת פרטי הקשר שלך.`;
+  if (!confirm(question)) return;
+
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'מפיץ…';
+  const { data, error } = await sb.rpc('share_property_with_partners', { p_property_id: p.id });
+  if (error || data?.error){
+    showToast(shareErrorMessages[data?.error] || ('שגיאה בשיתוף' + (error ? ': ' + error.message : '')));
+    btn.disabled = false; btn.textContent = original;
+    return;
+  }
+  showToast(data.newly_shared
+    ? `הנכס הופץ ל-${data.newly_shared} משרדים חדשים — סה״כ ${data.shared_count} משרדים`
+    : `ההפצה מסונכרנת — הנכס משותף עם ${data.shared_count} משרדים`);
+  await loadProperties(agentId);
+}
+
+async function unshareProperty(p, btn, agentId){
+  if (!confirm(`להסיר את "${p.title}" מכל משרדי השת״פ? הנכס ייעלם מהרשימה "נכסים ששותפו איתי" אצלם.`)) return;
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'מסיר…';
+  const { data, error } = await sb.rpc('unshare_property', { p_property_id: p.id });
+  if (error || data?.error){
+    showToast(shareErrorMessages[data?.error] || ('שגיאה בביטול השיתוף' + (error ? ': ' + error.message : '')));
+    btn.disabled = false; btn.textContent = original;
+    return;
+  }
+  showToast('השיתוף בוטל — הנכס הוסר מ-' + (data.removed || 0) + ' משרדים');
+  await loadProperties(agentId);
+}
+
+async function loadSharedWithMe(){
+  const listEl = document.getElementById('sharedWithMeList');
+  listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+
+  const { data, error } = await sb
+    .from('shared_properties_for_me')
+    .select('*')
+    .order('shared_at', { ascending:false });
+
+  if (error){
+    listEl.innerHTML = '<div class="empty-state">' +
+      (missingSchema(error)
+        ? 'שיתוף נכסים בין משרדים לא הופעל עדיין בפרויקט הזה.'
+        : 'שגיאה בטעינת הנכסים ששותפו: ' + esc(error.message)) + '</div>';
+    accSetCount('accSharedWithMe', '');
+    return;
+  }
+
+  sharedWithMeRows = data || [];
+  accSetCount('accSharedWithMe', sharedWithMeRows.length);
+  syncSharedFilters();
+  renderSharedWithMe();
+}
+
+// רשימות הסינון נבנות ממה ששותף בפועל, לא מרשימה קבועה
+function syncSharedFilters(){
+  const fill = (selectId, options, allLabel) => {
+    const select = document.getElementById(selectId);
+    const previous = select.value;
+    select.innerHTML = `<option value="">${allLabel}</option>` +
+      options.map(o => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join('');
+    if (options.some(o => o.value === previous)) select.value = previous;
+  };
+
+  const agencies = [];
+  const seenAgency = new Set();
+  sharedWithMeRows.forEach(r => {
+    if (r.owner_agency_id && !seenAgency.has(r.owner_agency_id)){
+      seenAgency.add(r.owner_agency_id);
+      agencies.push({ value: r.owner_agency_id, label: r.owner_agency_name || 'משרד' });
+    }
+  });
+  agencies.sort((a, b) => a.label.localeCompare(b.label, 'he'));
+  fill('sharedAgencyFilter', agencies, 'כל המשרדים');
+
+  const cities = [...new Set(sharedWithMeRows.map(r => r.city).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'he'))
+    .map(c => ({ value:c, label:c }));
+  fill('sharedCityFilter', cities, 'כל הערים');
+}
+
+function sharedAddressLine(r){
+  return [r.city, [r.street, r.house_number].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+}
+
+// ‏wa.me דורש מספר בינלאומי בלי + ובלי האפס המוביל
+function waLink(phone){
+  const digits = String(phone || '').replace(/\D/g, '');
+  if (digits.length < 9) return null;
+  return 'https://wa.me/' + (digits.startsWith('972') ? digits : '972' + digits.replace(/^0+/, ''));
+}
+
+function renderSharedWithMe(){
+  const listEl = document.getElementById('sharedWithMeList');
+  const q = document.getElementById('sharedSearch').value.trim().toLowerCase();
+  const agencyId = document.getElementById('sharedAgencyFilter').value;
+  const deal = document.getElementById('sharedDealFilter').value;
+  const city = document.getElementById('sharedCityFilter').value;
+
+  const filtered = sharedWithMeRows.filter(r => {
+    if (agencyId && r.owner_agency_id !== agencyId) return false;
+    if (deal && r.deal_type !== deal) return false;
+    if (city && r.city !== city) return false;
+    if (!q) return true;
+    return [r.title, r.city, r.street, r.property_type, r.owner_agency_name, r.owner_agent_name]
+      .filter(Boolean).join(' ').toLowerCase().includes(q);
+  });
+
+  if (filtered.length === 0){
+    listEl.innerHTML = '<div class="empty-state">' +
+      (sharedWithMeRows.length === 0
+        ? 'עדיין לא שותפו איתך נכסים ממשרדי תיווך אחרים.'
+        : 'אין נכס שמתאים לסינון הנוכחי.') + '</div>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  filtered.forEach(r => {
+    const meta = [
+      r.deal_type === 'rent' ? shekel(r.price) + '/חוד׳' : shekel(r.price),
+      r.rooms ? r.rooms + ' חדרים' : null,
+      r.property_type,
+      r.size_sqm ? r.size_sqm + ' מ״ר' : null,
+      r.floor != null ? 'קומה ' + r.floor : null,
+      sharedAddressLine(r) || null,
+    ].filter(Boolean);
+
+    const el = document.createElement('div');
+    el.className = 'card lead-card kind-shared';
+    const thumbHtml = (r.images && r.images.length)
+      ? `<img class="prop-thumb-mini" src="${esc(r.images[0])}" alt="">` : '';
+    el.innerHTML = `
+      <div class="lead-top">
+        <div style="display:flex;gap:10px;align-items:flex-start">
+          ${thumbHtml}
+          <div>
+            <span class="lead-kind">🤝 ${esc(r.owner_agency_name || 'משרד שותף')}</span>
+            <div class="lead-name">${esc(r.title)}</div>
+            <div class="lead-meta">${meta.map(esc).join(' · ')}</div>
+          </div>
+        </div>
+        <div class="pill-row">
+          <span class="status-pill status-shared">${r.deal_type === 'rent' ? 'השכרה' : 'מכירה'}</span>
+        </div>
+      </div>
+      <div class="lead-meta">שותף ${hebDate(r.shared_at)} · אחראי/ת: ${esc(r.owner_agent_name || '—')}${
+        r.owner_agent_phone ? ' · <span class="lead-phone">' + esc(r.owner_agent_phone) + '</span>' : ''}</div>
+      <div class="lead-actions"></div>
+    `;
+
+    const actions = el.querySelector('.lead-actions');
+    if (r.owner_agent_phone){
+      const callBtn = document.createElement('a');
+      callBtn.className = 'btn btn-gold';
+      callBtn.href = 'tel:' + String(r.owner_agent_phone).replace(/[^\d+]/g, '');
+      callBtn.textContent = '📞 התקשרות לסוכן/ת';
+      actions.appendChild(callBtn);
+
+      const wa = waLink(r.owner_agent_phone);
+      if (wa){
+        const waBtn = document.createElement('a');
+        waBtn.className = 'btn btn-ghost';
+        waBtn.href = wa; waBtn.target = '_blank'; waBtn.rel = 'noopener noreferrer';
+        waBtn.textContent = 'וואטסאפ';
+        actions.appendChild(waBtn);
+      }
+    }
+    const viewBtn = document.createElement('a');
+    viewBtn.className = 'btn btn-ghost';
+    viewBtn.href = 'property.html?id=' + encodeURIComponent(r.property_id);
+    viewBtn.target = '_blank'; viewBtn.rel = 'noopener noreferrer';
+    viewBtn.textContent = 'עמוד הנכס';
+    actions.appendChild(viewBtn);
+
+    listEl.appendChild(el);
+  });
+}
+
+document.getElementById('partnerSearch').addEventListener('input', renderSharePartners);
+document.getElementById('partnerSelectAll').addEventListener('click', ()=>{
+  shareExcludedIds.clear();
+  renderSharePartners();
+});
+document.getElementById('partnerClearAll').addEventListener('click', ()=>{
+  shareExcludedIds = new Set(sharePartnerAgencies.map(a => a.id));
+  renderSharePartners();
+});
+document.getElementById('savePartnersBtn').addEventListener('click', saveSharePartners);
+
+document.getElementById('sharedSearch').addEventListener('input', renderSharedWithMe);
+['sharedAgencyFilter','sharedDealFilter','sharedCityFilter'].forEach(id =>
+  document.getElementById(id).addEventListener('change', renderSharedWithMe));
+document.getElementById('sharedRefreshBtn').addEventListener('click', ()=> loadSharedWithMe());
 
 async function openCmaReport(propertyId, btn){
   const original = btn.textContent;
