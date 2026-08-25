@@ -131,6 +131,45 @@
   .pm-actions{display:flex;gap:8px;margin-top:16px}
   .pm-actions .btn{flex:1}
   .pm-actions .btn:disabled{opacity:.45;cursor:not-allowed}
+
+  /* ‏אשף ייבוא הנכסים מקובץ. כרטיס רחב יותר מ-pm-card כי שלב הבדיקה מציג
+     טבלת תצוגה מקדימה, ועם max-height + overflow פנימי כדי שהכותרת
+     והכפתורים יישארו קבועים כשגוללים בטבלה. */
+  .imp-overlay{position:fixed;inset:0;background:rgba(27,31,38,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:420}
+  .imp-card{background:#fff;border-radius:var(--radius-md);max-width:920px;width:100%;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 18px 48px rgba(0,0,0,.28)}
+  .imp-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:18px 22px 12px;border-bottom:1.5px solid var(--line)}
+  .imp-title{font-weight:800;font-size:1.05rem}
+  .imp-close{background:transparent;font-size:1.2rem;line-height:1;color:var(--ink-soft);padding:4px 8px}
+  .imp-steps{display:flex;gap:6px;padding:12px 22px 0;font-size:.72rem;color:var(--ink-soft);flex-wrap:wrap}
+  .imp-steps span{padding:4px 10px;border-radius:999px;background:var(--paper-raised);border:1.5px solid var(--line)}
+  .imp-steps span.done{background:var(--teal-tint);border-color:var(--teal-tint);color:var(--teal)}
+  .imp-steps span.active{background:var(--teal);border-color:var(--teal);color:#fff;font-weight:700}
+  .imp-body{padding:16px 22px;overflow:auto;flex:1;font-size:.85rem;line-height:1.6}
+  .imp-foot{display:flex;gap:8px;padding:14px 22px;border-top:1.5px solid var(--line)}
+  .imp-foot .btn{flex:1}
+  .imp-foot .btn:disabled{opacity:.45;cursor:not-allowed}
+  .imp-drop{border:2px dashed var(--line);border-radius:var(--radius-md);padding:26px;text-align:center;background:var(--paper-raised)}
+  .imp-drop.over{border-color:var(--teal);background:var(--teal-tint)}
+  .imp-note{font-size:.76rem;color:var(--ink-soft);margin-top:8px}
+  .imp-map{width:100%;border-collapse:collapse;font-size:.8rem}
+  .imp-map td{padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+  .imp-map td:first-child{white-space:nowrap;font-weight:700;width:38%}
+  .imp-map select{width:100%;padding:7px 8px;border:1.5px solid var(--line);border-radius:var(--radius-sm);background:#fff}
+  .imp-req{color:var(--brick)}
+  .imp-tablewrap{overflow:auto;max-height:44vh;border:1.5px solid var(--line);border-radius:var(--radius-sm)}
+  .imp-prev{width:100%;border-collapse:collapse;font-size:.76rem;white-space:nowrap}
+  .imp-prev th{position:sticky;top:0;background:var(--paper-raised);padding:7px 8px;text-align:right;border-bottom:1.5px solid var(--line);font-weight:700}
+  .imp-prev td{padding:6px 8px;border-bottom:1px solid var(--line)}
+  .imp-prev tr.bad td{background:var(--gold-tint)}
+  .imp-prev tr.warn td{background:#FAF2DF}
+  .imp-prev td.imp-msg{white-space:normal;font-size:.72rem;min-width:200px;max-width:300px}
+  .imp-prev td.imp-msg.bad{color:var(--brick);font-weight:700}
+  .imp-sum{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .imp-chip{padding:7px 12px;border-radius:999px;font-weight:700;font-size:.78rem;background:var(--paper-raised);border:1.5px solid var(--line)}
+  .imp-chip.ok{background:var(--teal-tint);color:var(--teal);border-color:var(--teal-tint)}
+  .imp-chip.bad{background:var(--gold-tint);color:var(--gold-dark);border-color:var(--gold-tint)}
+  .imp-bar{height:10px;border-radius:999px;background:var(--paper-raised);overflow:hidden;margin:14px 0}
+  .imp-bar i{display:block;height:100%;background:var(--teal);width:0;transition:width .25s}
   /* flex-wrap כדי שברוחב טלפון הכפתורים יעברו לשורה נוספת במקום להתכווץ —
      בלי wrap הטקסט שלהם עצמו נשבר לשתי שורות בתוך כפתור מכווץ, ובגלל
      ה-border-radius:999px זה נראה כמו עיגול, וגם דוחף את העמוד לרוחב. */
@@ -550,7 +589,10 @@
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-    <button class="btn btn-ghost btn-block" id="toggleAddProperty" style="margin-bottom:12px">+ הוספת נכס חדש</button>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <button class="btn btn-ghost" id="toggleAddProperty" style="flex:1">+ הוספת נכס חדש</button>
+      <button class="btn btn-ghost" id="openImportProperties" style="flex:1">⭳ ייבוא מקובץ</button>
+    </div>
     <form id="addPropertyForm" class="card" style="display:none;padding:18px;margin-bottom:18px">
       <div class="field"><label>כותרת</label><input type="text" id="npTitle" required placeholder="לדוגמה: דירת 3 חדרים, שכונת רמת דוד"></div>
 
@@ -854,6 +896,25 @@
       <button type="button" class="btn btn-ghost" id="pmCancel">ביטול</button>
       <button type="button" class="btn btn-gold" id="pmConfirm">אישור וחיוב</button>
     </div>
+  </div>
+</div>
+
+<!-- אשף ייבוא נכסים מקובץ חיצוני (xlsx/csv). גוף החלון והכפתורים נבנים
+     ב-JS לפי השלב, כי כל שלב הוא מסך אחר לגמרי. -->
+<div class="imp-overlay" id="importModal" role="dialog" aria-modal="true" aria-labelledby="impTitle" style="display:none">
+  <div class="imp-card">
+    <div class="imp-head">
+      <div class="imp-title" id="impTitle">ייבוא נכסים מקובץ</div>
+      <button type="button" class="imp-close" id="impClose" aria-label="סגירת החלון">✕</button>
+    </div>
+    <div class="imp-steps" id="impSteps">
+      <span data-step="1">1 · קובץ</span>
+      <span data-step="2">2 · התאמת עמודות</span>
+      <span data-step="3">3 · בדיקה</span>
+      <span data-step="4">4 · ייבוא</span>
+    </div>
+    <div class="imp-body" id="impBody"></div>
+    <div class="imp-foot" id="impFoot"></div>
   </div>
 </div>
 
@@ -2885,6 +2946,735 @@ function openEditProperty(p){
   openAcc('accProperties');
   addForm.scrollIntoView({ behavior:'smooth' });
 }
+
+/* ---------- ייבוא נכסים מקובץ חיצוני (שלב א') ----------
+   כל העיבוד קורה בדפדפן: הקובץ נקרא, ממופה, מנורמל ונבדק כאן, וההכנסה היא
+   ‏insert רגיל בסשן של המשתמש/ת. לכן ה-policy הקיימת על properties היא
+   שמירת הגבול — "agent insert own properties" מחייבת
+   ‏agent_id = current_agent_id() וגם agency_id = current_agency_id().
+   מכאן נובעת המגבלה של השלב הזה: אפשר לייבא רק לעצמך. ייבוא של מנהל/ת
+   עבור סוכן/ת אחר/ת במשרד דורש policy נוספת, ולכן נדחה לשלב הבא.
+
+   ‏property_type ב-DB הוא טקסט חופשי בלי CHECK — הוא נבדק כאן מול אותן
+   רשימות שמזינות את הטופס הידני, אחרת ייכנסו סוגים שלא יתפסו בפילטרים
+   של החיפוש באתר. condition/project_status/*_location הם enum באנגלית,
+   ולכן מתורגמים מהעברית שבקובץ.                                          */
+
+const IMPORT_MAX_ROWS = 500;
+const IMPORT_MAX_BYTES = 5 * 1024 * 1024;
+const IMPORT_CHUNK = 50;   // גודל מנת ה-insert
+
+/* ‏SheetJS נטענת רק בפתיחת האשף (כ-900KB) כדי לא להאט את טעינת ה-CRM.
+   ‏cdn.sheetjs.com היא הכתובת הרשמית והמעודכנת; jsdelivr הוא גיבוי אם
+   הראשונה חסומה/לא זמינה, ומשם ממילא נטענת כבר supabase-js.            */
+const IMPORT_LIB_URLS = [
+  'https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js',
+  'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js',
+];
+let importLibPromise = null;
+function loadImportLib(){
+  if (window.XLSX) return Promise.resolve(window.XLSX);
+  if (importLibPromise) return importLibPromise;
+  importLibPromise = new Promise((resolve, reject)=>{
+    let i = 0;
+    (function tryNext(){
+      if (i >= IMPORT_LIB_URLS.length){
+        importLibPromise = null;
+        reject(new Error('טעינת רכיב קריאת הקבצים נכשלה — בדקו את חיבור האינטרנט ונסו שוב'));
+        return;
+      }
+      const s = document.createElement('script');
+      s.src = IMPORT_LIB_URLS[i++];
+      s.onload = ()=> window.XLSX ? resolve(window.XLSX) : tryNext();
+      s.onerror = ()=>{ s.remove(); tryNext(); };
+      document.head.appendChild(s);
+    })();
+  });
+  return importLibPromise;
+}
+
+/* השדות שניתן לייבא. aliases = כותרות שהמיפוי האוטומטי מזהה בקובץ. */
+const IMPORT_FIELDS = [
+  { key:'title', label:'כותרת', required:true, aliases:['כותרת','שם','שם הנכס','כותרת המודעה','title','name'] },
+  { key:'category', label:'קטגוריה', hint:'מגורים / מסחרי — ברירת מחדל: מגורים', aliases:['קטגוריה','category'] },
+  { key:'property_type', label:'סוג נכס', required:true, aliases:['סוג נכס','סוג הנכס','סוג','property_type','type'] },
+  { key:'deal_type', label:'סוג עסקה', required:true, hint:'מכירה / השכרה', aliases:['סוג עסקה','עסקה','deal_type','deal','מכירה השכרה'] },
+  { key:'price', label:'מחיר', required:true, aliases:['מחיר','מחיר מבוקש','price','מחיר בשח'] },
+  { key:'city', label:'עיר', required:true, aliases:['עיר','ישוב','יישוב','city'] },
+  { key:'rooms', label:'חדרים', aliases:['חדרים','מספר חדרים','חד','rooms'] },
+  { key:'street', label:'רחוב', aliases:['רחוב','כתובת','street','address'] },
+  { key:'house_number', label:'מספר בית', aliases:['מספר בית','מס בית','מספר','house number','house_number'] },
+  { key:'floor', label:'קומה', aliases:['קומה','floor'] },
+  { key:'size_sqm', label:'גודל במ"ר', aliases:['גודל','שטח','מ"ר','גודל במ"ר','שטח במ"ר','size','size_sqm'] },
+  { key:'built_size_sqm', label:'מ"ר בנוי', aliases:['מ"ר בנוי','שטח בנוי','בנוי','built_size_sqm'] },
+  { key:'description', label:'תיאור', aliases:['תיאור','פירוט','הערות','description','notes'] },
+  { key:'condition', label:'מצב הנכס', hint:'מגורים בלבד', aliases:['מצב','מצב הנכס','condition'] },
+  { key:'project_status', label:'סטטוס הפרויקט', aliases:['סטטוס פרויקט','סטטוס הפרויקט','project_status'] },
+  { key:'move_in_date', label:'תאריך כניסה', aliases:['תאריך כניסה','כניסה','תאריך פינוי','move_in_date'] },
+  { key:'move_in_soon', label:'כניסה קרובה', hint:'כן / לא', aliases:['כניסה קרובה','כניסה מיידית','move_in_soon'] },
+  { key:'features', label:'מאפיינים', hint:'מופרדים בפסיק', aliases:['מאפיינים','תוספות','מאפייני הנכס','features'] },
+  { key:'restrooms_location', label:'שירותים', hint:'מסחרי בלבד · בבניין / בנכס', aliases:['שירותים','restrooms_location'] },
+  { key:'storage_location', label:'מחסן', hint:'מסחרי בלבד · בבניין / בנכס', aliases:['מחסן','storage_location'] },
+  { key:'mamad_location', label:'ממ"ד', hint:'מסחרי בלבד · בבניין / בנכס', aliases:['ממ"ד','ממד','mamad_location'] },
+  { key:'lat', label:'קו רוחב (lat)', aliases:['lat','קו רוחב','latitude'] },
+  { key:'lng', label:'קו אורך (lng)', aliases:['lng','קו אורך','longitude'] },
+  { key:'images', label:'קישורי תמונות', hint:'כתובות מלאות, מופרדות בפסיק', aliases:['תמונות','תמונה','קישורי תמונות','images','image'] },
+];
+
+/* נרמול לצורך השוואה: גרשיים בכל הווריאציות, סימני כיווניות, מפרידים
+   וכוכביות (בתבנית שדה חובה מסומן ב-*) — כדי ש-"מ״ר", "מ\"ר" ו-"מר"
+   ייחשבו לאותו דבר. */
+function impNorm(v){
+  return String(v == null ? '' : v)
+    .replace(/["'`״׳“”‘’*]/g, '')
+    .replace(/[\u200e\u200f\u202a-\u202e]/g, '')
+    .replace(/[_\-\/\\.]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim().toLowerCase();
+}
+
+function impText(v){
+  if (v === null || v === undefined) return '';
+  if (v instanceof Date) return v.toLocaleDateString('he-IL');
+  return String(v).replace(/[\u200e\u200f]/g, '').trim();
+}
+
+/* מספרים מגיעים מהגיליון גם כ-"₪ 1,250,000" או "‎3.5 חד'". */
+function impNumber(v){
+  if (typeof v === 'number') return isFinite(v) ? v : null;
+  const s = impText(v);
+  if (!s) return null;
+  const cleaned = s.replace(/[^\d.,\-]/g, '').replace(/,/g, '');
+  if (!cleaned || cleaned === '-' || cleaned === '.') return null;
+  const n = Number(cleaned);
+  return isFinite(n) ? n : null;
+}
+
+const IMP_TRUE_WORDS = ['כן','true','yes','1','v','✓','y','נכון','כן!'];
+const IMP_FALSE_WORDS = ['לא','false','no','0','n','שגוי'];
+function impBool(v){
+  if (typeof v === 'boolean') return v;
+  const s = impNorm(v);
+  if (!s) return null;
+  if (IMP_TRUE_WORDS.includes(s)) return true;
+  if (IMP_FALSE_WORDS.includes(s)) return false;
+  return undefined;   // לא ניתן לפענוח — מבדיל מ-null ("ריק")
+}
+
+function impPad(n){ return String(n).padStart(2, '0'); }
+/* מחזירה 'yyyy-mm-dd', או null אם ריק, או undefined אם לא ניתן לפענוח. */
+function impDate(v){
+  if (v === null || v === undefined || v === '') return null;
+  if (v instanceof Date && !isNaN(v)){
+    // ‏getters מקומיים ולא toISOString — SheetJS בונה את התאריך בשעון המקומי,
+    // ו-toISOString היה מזיז יום אחורה בישראל.
+    return `${v.getFullYear()}-${impPad(v.getMonth() + 1)}-${impPad(v.getDate())}`;
+  }
+  const s = impText(v);
+  if (!s) return null;
+  let m = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);          // dd/mm/yyyy
+  if (m){
+    const year = m[3].length === 2 ? '20' + m[3] : m[3];
+    return `${year}-${impPad(m[2])}-${impPad(m[1])}`;
+  }
+  m = s.match(/^(\d{4})[./-](\d{1,2})[./-](\d{1,2})/);                  // yyyy-mm-dd
+  if (m) return `${m[1]}-${impPad(m[2])}-${impPad(m[3])}`;
+  return undefined;
+}
+
+const IMP_CATEGORY = { 'מגורים':'residential','residential':'residential','מסחרי':'commercial','מסחר':'commercial','עסקי':'commercial','commercial':'commercial' };
+const IMP_DEAL = {
+  'מכירה':'sale','למכירה':'sale','מכר':'sale','sale':'sale','sell':'sale',
+  'השכרה':'rent','להשכרה':'rent','שכירות':'rent','rent':'rent','rental':'rent',
+};
+const IMP_CONDITION = {
+  'חדש מקבלן':'new_from_contractor','מקבלן':'new_from_contractor','new_from_contractor':'new_from_contractor',
+  'חדש':'new','new':'new',
+  'משופץ':'renovated','משופצת':'renovated','renovated':'renovated',
+  'שמור':'maintained','במצב שמור':'maintained','maintained':'maintained',
+  'דרוש שיפוץ':'needs_renovation','זקוק לשיפוץ':'needs_renovation','needs_renovation':'needs_renovation',
+};
+const IMP_PROJECT_STATUS = {
+  'תכנון':'planning','תכנון ראשוני':'planning','planning':'planning',
+  'הוגשה בקשה להיתר':'permit_requested','בקשה להיתר':'permit_requested','permit_requested':'permit_requested',
+  'ניתן היתר בנייה':'permit_issued','יש היתר':'permit_issued','היתר':'permit_issued','permit_issued':'permit_issued',
+  'הבנייה הסתיימה':'construction_complete','הסתיימה':'construction_complete','construction_complete':'construction_complete',
+};
+const IMP_LOCATION = { 'בבניין':'building','בניין':'building','building':'building','בנכס':'unit','בדירה':'unit','unit':'unit' };
+
+/* שמות מקובלים שאינם מופיעים מילה במילה ברשימות הסגורות של הטופס. */
+const IMP_PTYPE_SYNONYMS = {
+  'פנטהאוז':'גג/פנטהאוז','דירת גג':'גג/פנטהאוז','גג':'גג/פנטהאוז',
+  'בית פרטי':"בית פרטי/קוטג'",'קוטג':"בית פרטי/קוטג'",'וילה':"בית פרטי/קוטג'",
+  'לופט':'סטודיו/לופט','סטודיו':'סטודיו/לופט',
+  'פרטר':'מרתף/פרטר','מרתף':'מרתף/פרטר',
+  'יחידה':'יחידת דיור','יחידת דיור':'יחידת דיור',
+  'חנייה':'חניה','חניון':'חניה',
+  'נחלה':'משק חקלאי/נחלה','משק חקלאי':'משק חקלאי/נחלה',
+  'בניין':'בניין מגורים',
+  'קבוצת רכישה':"קב' רכישה/זכות לנכס",
+};
+const IMP_PTYPE_SYNONYMS_COMMERCIAL = {
+  'משרד':'משרדים','חנות':'חנויות/שטח מסחרי','שטח מסחרי':'חנויות/שטח מסחרי','מסחרי':'חנויות/שטח מסחרי',
+  'מחסן':'מחסנים','מגרש':'מגרשים','אולם':'אולמות','קליניקה':'קליניקות',
+  'תעשייה':'מבני תעשייה','מבנה תעשייה':'מבני תעשייה','מלון':'בית מלון','חלל עבודה':'חלל עבודה משותף',
+};
+
+function impMatchPropertyType(value, category){
+  const v = impNorm(value);
+  if (!v) return null;
+  const options = category === 'commercial' ? COMMERCIAL_PTYPE_OPTIONS : RESIDENTIAL_PTYPE_OPTIONS;
+  const exact = options.find(o => impNorm(o) === v);
+  if (exact) return exact;
+  const synonyms = category === 'commercial' ? IMP_PTYPE_SYNONYMS_COMMERCIAL : IMP_PTYPE_SYNONYMS;
+  for (const key of Object.keys(synonyms)){
+    if (impNorm(key) === v) return synonyms[key];
+  }
+  // התאמה חלקית מתקבלת רק אם היא חד-משמעית ("דירת גן" מול "דירה" תיפסל)
+  const partial = options.filter(o => { const n = impNorm(o); return n.includes(v) || v.includes(n); });
+  return partial.length === 1 ? partial[0] : null;
+}
+
+/* מפת מאפיינים: גם התווית בעברית וגם הקוד עצמו מובילים לאותו ערך. */
+let impFeatureMapCache = null;
+function impFeatureMap(){
+  if (impFeatureMapCache) return impFeatureMapCache;
+  const map = Object.create(null);
+  [...LISTING_FEATURES, ...RESIDENTIAL_PROPERTY_FEATURES, ...COMMERCIAL_PROPERTY_FEATURES]
+    .forEach(([code, label])=>{ map[impNorm(label)] = code; map[impNorm(code)] = code; });
+  impFeatureMapCache = map;
+  return map;
+}
+
+/* ---------- מצב האשף ---------- */
+const importModal = document.getElementById('importModal');
+const impBodyEl = document.getElementById('impBody');
+const impFootEl = document.getElementById('impFoot');
+let importState = null;
+
+function impInitState(){
+  importState = {
+    step: 1, fileName: '', headers: [], rows: [],
+    mapping: Object.create(null),   // fieldKey -> אינדקס עמודה, או -1
+    parsed: [], failed: [], busy: false,
+  };
+}
+
+function impOpen(){
+  if (!currentAgent) return;
+  impInitState();
+  importModal.style.display = 'flex';
+  impSetStep(1);
+}
+function impClose(){
+  if (importState && importState.busy) return;   // לא סוגרים באמצע insert
+  importModal.style.display = 'none';
+  impBodyEl.innerHTML = '';
+  impFootEl.innerHTML = '';
+}
+
+function impSetStep(step){
+  importState.step = step;
+  document.querySelectorAll('#impSteps span').forEach(el=>{
+    const n = Number(el.dataset.step);
+    el.classList.toggle('done', n < step);
+    el.classList.toggle('active', n === step);
+  });
+  ({ 1: impRenderStep1, 2: impRenderStep2, 3: impRenderStep3, 4: impRenderStep4 })[step]();
+  impBodyEl.scrollTop = 0;
+}
+
+function impEscape(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* ---------- שלב 1: בחירת קובץ ---------- */
+function impRenderStep1(){
+  impBodyEl.innerHTML = `
+    <div class="imp-drop" id="impDrop">
+      <div style="font-weight:700;margin-bottom:8px">גררו לכאן קובץ, או בחרו מהמחשב</div>
+      <label class="btn btn-ghost" for="impFile" style="cursor:pointer">בחירת קובץ</label>
+      <input type="file" id="impFile" accept=".xlsx,.xls,.csv,text/csv" style="display:none">
+      <div class="imp-note">Excel ‏(xlsx/xls) או CSV · עד ${IMPORT_MAX_ROWS} שורות · עד 5MB</div>
+    </div>
+    <p class="imp-note">אין לכם קובץ מוכן? <a href="#" id="impTemplate">הורידו את קובץ התבנית</a> — הכותרות בו כבר מזוהות אוטומטית, וגיליון נוסף מפרט את הערכים החוקיים לכל שדה.</p>
+    <p class="imp-note">כל הנכסים ייקלטו כפעילים ויסומנו על שמך. ייבוא של מנהל/ת משרד עבור סוכנים אחרים יתווסף בשלב הבא.</p>
+    <div class="imp-note" id="impStatus" style="min-height:1.4em"></div>`;
+  impFootEl.innerHTML = '<button type="button" class="btn btn-ghost" id="impCancel">סגירה</button>';
+  document.getElementById('impCancel').addEventListener('click', impClose);
+  document.getElementById('impTemplate').addEventListener('click', (e)=>{ e.preventDefault(); impDownloadTemplate(); });
+  document.getElementById('impFile').addEventListener('change', (e)=>{
+    if (e.target.files && e.target.files[0]) impReadFile(e.target.files[0]);
+  });
+  const drop = document.getElementById('impDrop');
+  ['dragenter','dragover'].forEach(ev => drop.addEventListener(ev, (e)=>{ e.preventDefault(); drop.classList.add('over'); }));
+  ['dragleave','drop'].forEach(ev => drop.addEventListener(ev, (e)=>{ e.preventDefault(); drop.classList.remove('over'); }));
+  drop.addEventListener('drop', (e)=>{
+    const file = e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file) impReadFile(file);
+  });
+}
+
+async function impReadFile(file){
+  const status = document.getElementById('impStatus');
+  const fail = (msg)=>{ status.style.color = 'var(--brick)'; status.textContent = msg; };
+  status.style.color = 'var(--ink-soft)';
+  status.textContent = 'קורא את הקובץ…';
+
+  if (file.size > IMPORT_MAX_BYTES){ fail('הקובץ גדול מ-5MB. פצלו אותו לקבצים קטנים יותר.'); return; }
+
+  let XLSX;
+  try { XLSX = await loadImportLib(); }
+  catch(err){ fail(err.message); return; }
+
+  try{
+    const buffer = await file.arrayBuffer();
+    let workbook;
+    if (/\.csv$/i.test(file.name)){
+      // ‏CSV שנשמר מאקסל בעברית יוצא ב-Windows-1255 ולא ב-UTF-8. מפענחים
+      // בעצמנו עם TextDecoder של הדפדפן במקום לתת לספרייה לנחש קידוד.
+      let text;
+      try { text = new TextDecoder('utf-8', { fatal:true }).decode(buffer); }
+      catch(e){ text = new TextDecoder('windows-1255').decode(buffer); }
+      workbook = XLSX.read(text.replace(/^\uFEFF/, ''), { type:'string', raw:false });
+    } else {
+      workbook = XLSX.read(buffer, { type:'array', cellDates:true });
+    }
+
+    const sheetName = workbook.SheetNames[0];
+    if (!sheetName){ fail('לא נמצא גיליון בקובץ'); return; }
+    const matrix = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], { header:1, blankrows:false, defval:'' });
+    // ‏header:1 ולא אובייקטים לפי כותרת — קובץ עם שתי עמודות באותו שם היה
+    // מאבד אחת מהן, וכאן העמודה מזוהה לפי מיקום.
+    if (!matrix.length){ fail('הגיליון ריק'); return; }
+
+    const headers = (matrix[0] || []).map((h, i) => impText(h) || `עמודה ${i + 1}`);
+    const rows = matrix.slice(1).filter(r => r.some(cell => impText(cell) !== ''));
+    if (!rows.length){ fail('לא נמצאו שורות נתונים מתחת לשורת הכותרות'); return; }
+    if (rows.length > IMPORT_MAX_ROWS){
+      fail(`הקובץ מכיל ${rows.length} שורות — המקסימום הוא ${IMPORT_MAX_ROWS}. פצלו אותו לכמה קבצים.`);
+      return;
+    }
+
+    importState.fileName = file.name;
+    importState.headers = headers;
+    importState.rows = rows;
+    importState.mapping = impAutoMap(headers);
+    impSetStep(2);
+  } catch(err){
+    console.error(err);
+    fail('לא ניתן לקרוא את הקובץ. אם הוא נוצר בתוכנה אחרת, נסו לשמור אותו מחדש כ-xlsx או csv.');
+  }
+}
+
+/* ---------- שלב 2: התאמת עמודות ---------- */
+function impAutoMap(headers){
+  const normalized = headers.map(impNorm);
+  const mapping = Object.create(null);
+  const taken = new Set();
+  IMPORT_FIELDS.forEach(field=>{
+    const wanted = [field.label, field.key, ...(field.aliases || [])].map(impNorm);
+    let idx = normalized.findIndex((h, i) => !taken.has(i) && h && wanted.includes(h));
+    if (idx === -1){
+      // התאמה רכה: כותרת שמכילה את שם השדה ("מחיר מבוקש בש\"ח")
+      idx = normalized.findIndex((h, i) => !taken.has(i) && h && wanted.some(w => w.length > 2 && h.includes(w)));
+    }
+    mapping[field.key] = idx;
+    if (idx > -1) taken.add(idx);
+  });
+  return mapping;
+}
+
+function impRenderStep2(){
+  const options = importState.headers
+    .map((h, i) => `<option value="${i}">${impEscape(h)}</option>`).join('');
+  const rows = IMPORT_FIELDS.map(field=>{
+    const selected = importState.mapping[field.key];
+    return `<tr>
+      <td>${impEscape(field.label)}${field.required ? ' <span class="imp-req">*</span>' : ''}
+        ${field.hint ? `<div class="imp-note" style="margin:0;font-weight:400">${impEscape(field.hint)}</div>` : ''}</td>
+      <td><select data-field="${field.key}">
+        <option value="-1">— לא לייבא —</option>${options}
+      </select></td>
+    </tr>`;
+  }).join('');
+
+  impBodyEl.innerHTML = `
+    <p>נקראו <strong>${importState.rows.length}</strong> שורות מתוך <strong>${impEscape(importState.fileName)}</strong>.
+       זיהינו את העמודות אוטומטית — עברו ותקנו במידת הצורך. שדות עם <span class="imp-req">*</span> הם חובה.</p>
+    <table class="imp-map">${rows}</table>`;
+  impFootEl.innerHTML = `
+    <button type="button" class="btn btn-ghost" id="impBack">חזרה</button>
+    <button type="button" class="btn btn-gold" id="impNext">בדיקת הנתונים</button>`;
+
+  impBodyEl.querySelectorAll('select[data-field]').forEach(sel=>{
+    sel.value = String(importState.mapping[sel.dataset.field] ?? -1);
+    sel.addEventListener('change', ()=>{ importState.mapping[sel.dataset.field] = Number(sel.value); });
+  });
+  document.getElementById('impBack').addEventListener('click', ()=> impSetStep(1));
+  document.getElementById('impNext').addEventListener('click', ()=>{
+    const missing = IMPORT_FIELDS.filter(f => f.required && (importState.mapping[f.key] ?? -1) < 0);
+    if (missing.length){
+      showToast('חסרה התאמה לשדות חובה: ' + missing.map(f => f.label).join(', '));
+      return;
+    }
+    impSetStep(3);
+  });
+}
+
+/* ---------- שלב 3: נרמול, ולידציה ותצוגה מקדימה ---------- */
+function impBuildRow(rawRow, rowNumber){
+  const errors = [], warnings = [];
+  const cell = (key)=>{
+    const idx = importState.mapping[key] ?? -1;
+    return idx < 0 ? '' : rawRow[idx];
+  };
+  const payload = {};
+
+  const title = impText(cell('title'));
+  if (!title) errors.push('חסרה כותרת');
+  else payload.title = title.slice(0, 200);
+
+  let category = 'residential';
+  const rawCategory = impNorm(cell('category'));
+  if (rawCategory){
+    if (IMP_CATEGORY[rawCategory]) category = IMP_CATEGORY[rawCategory];
+    else warnings.push(`קטגוריה "${impText(cell('category'))}" לא זוהתה — נקלט כמגורים`);
+  }
+  payload.category = category;
+
+  const ptype = impMatchPropertyType(cell('property_type'), category);
+  if (!ptype) errors.push(`סוג נכס "${impText(cell('property_type')) || '(ריק)'}" אינו ברשימת הסוגים ל${category === 'commercial' ? 'נכס מסחרי' : 'מגורים'}`);
+  else payload.property_type = ptype;
+
+  const deal = IMP_DEAL[impNorm(cell('deal_type'))];
+  if (!deal) errors.push(`סוג עסקה "${impText(cell('deal_type')) || '(ריק)'}" — יש לרשום מכירה או השכרה`);
+  else payload.deal_type = deal;
+
+  const price = impNumber(cell('price'));
+  if (price === null) errors.push('חסר מחיר או שאינו מספר');
+  else if (price <= 0) errors.push('המחיר חייב להיות גדול מאפס');
+  else {
+    payload.price = price;
+    if (deal === 'sale' && price < 10000) warnings.push('מחיר נמוך במיוחד למכירה — ודאו שהמחיר בשקלים ולא באלפים');
+  }
+
+  const city = impText(cell('city'));
+  if (!city) errors.push('חסרה עיר');
+  else payload.city = city;
+
+  const rooms = impNumber(cell('rooms'));
+  if (rooms !== null){
+    if (rooms <= 0) warnings.push('מספר חדרים לא תקין — לא נקלט');
+    else payload.rooms = rooms;
+  }
+
+  const street = impText(cell('street'));
+  const houseNumber = impText(cell('house_number'));
+  payload.street = street || null;
+  payload.house_number = houseNumber || null;
+  payload.address = (street || houseNumber) ? (street + (houseNumber ? ' ' + houseNumber : '')) : null;
+
+  const rawFloor = impNorm(cell('floor'));
+  if (rawFloor){
+    if (rawFloor.includes('קרקע')) payload.floor = 0;
+    else if (rawFloor.includes('מרתף')) payload.floor = -1;
+    else {
+      const floor = impNumber(cell('floor'));
+      if (floor === null) warnings.push('קומה לא זוהתה — לא נקלטה');
+      else payload.floor = Math.round(floor);
+    }
+  }
+
+  [['size_sqm','גודל במ"ר'], ['built_size_sqm','מ"ר בנוי']].forEach(([key, label])=>{
+    const n = impNumber(cell(key));
+    if (n !== null){
+      if (n <= 0) warnings.push(`${label} לא תקין — לא נקלט`);
+      else payload[key] = n;
+    }
+  });
+
+  const description = impText(cell('description'));
+  if (description) payload.description = description;
+
+  // ‏condition שייך למגורים בלבד, וה-*_location למסחרי בלבד — בדיוק כמו
+  // שהטופס הידני שולח null בצד השני.
+  if (category === 'commercial'){
+    payload.condition = null;
+    ['restrooms_location','storage_location','mamad_location'].forEach(key=>{
+      const raw = impNorm(cell(key));
+      if (!raw) return;
+      const value = IMP_LOCATION[raw];
+      if (value) payload[key] = value;
+      else warnings.push(`הערך "${impText(cell(key))}" אינו בבניין/בנכס — לא נקלט`);
+    });
+  } else {
+    const raw = impNorm(cell('condition'));
+    if (raw){
+      const value = IMP_CONDITION[raw];
+      if (value) payload.condition = value;
+      else warnings.push(`מצב הנכס "${impText(cell('condition'))}" לא זוהה — לא נקלט`);
+    }
+  }
+
+  const rawStatus = impNorm(cell('project_status'));
+  if (rawStatus){
+    const value = IMP_PROJECT_STATUS[rawStatus];
+    if (value) payload.project_status = value;
+    else warnings.push(`סטטוס פרויקט "${impText(cell('project_status'))}" לא זוהה — לא נקלט`);
+  }
+
+  const moveIn = impDate(cell('move_in_date'));
+  if (moveIn === undefined) warnings.push('תאריך כניסה לא זוהה — לא נקלט');
+  else if (moveIn) payload.move_in_date = moveIn;
+
+  const soon = impBool(cell('move_in_soon'));
+  if (soon === undefined) warnings.push('"כניסה קרובה" לא זוהה — יש לרשום כן/לא');
+  else if (soon !== null) payload.move_in_soon = soon;
+
+  const rawFeatures = impText(cell('features'));
+  if (rawFeatures){
+    const map = impFeatureMap();
+    const codes = [], unknown = [];
+    rawFeatures.split(/[,;|]/).forEach(part=>{
+      const key = impNorm(part);
+      if (!key) return;
+      if (map[key]){ if (!codes.includes(map[key])) codes.push(map[key]); }
+      else unknown.push(part.trim());
+    });
+    if (codes.length) payload.features = codes;
+    if (unknown.length) warnings.push('מאפיינים שלא זוהו ולא נקלטו: ' + unknown.join(', '));
+  }
+
+  const lat = impNumber(cell('lat')), lng = impNumber(cell('lng'));
+  if (lat !== null && lng !== null){
+    if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180){ payload.lat = lat; payload.lng = lng; }
+    else warnings.push('קואורדינטות לא תקינות — לא נקלטו');
+  } else if (lat !== null || lng !== null){
+    warnings.push('נדרשים גם קו רוחב וגם קו אורך — לא נקלטו');
+  }
+
+  const rawImages = impText(cell('images'));
+  if (rawImages){
+    const urls = [], bad = [];
+    rawImages.split(/[,;|\s]+/).forEach(part=>{
+      const url = part.trim();
+      if (!url) return;
+      if (/^https?:\/\/\S+$/i.test(url)) urls.push(url);
+      else bad.push(url);
+    });
+    if (urls.length > MAX_IMAGES) warnings.push(`נמצאו ${urls.length} תמונות — ייקלטו ${MAX_IMAGES} הראשונות`);
+    if (bad.length) warnings.push('קישורי תמונה לא תקינים (נדרשת כתובת מלאה עם http): ' + bad.slice(0, 3).join(', '));
+    if (urls.length) payload.images = urls.slice(0, MAX_IMAGES);
+  }
+
+  payload.agency_id = currentAgent.agency_id;
+  payload.agent_id = currentAgent.id;
+  payload.status = 'active';
+
+  return { rowNumber, raw: rawRow, payload, errors, warnings };
+}
+
+async function impRenderStep3(){
+  impBodyEl.innerHTML = '<div class="empty-state">בודק את הנתונים…</div>';
+  impFootEl.innerHTML = '';
+
+  importState.parsed = importState.rows.map((row, i) => impBuildRow(row, i + 2)); // +2: שורה 1 היא הכותרות
+
+  // כפילויות בתוך הקובץ עצמו
+  const seen = new Map();
+  importState.parsed.forEach(row=>{
+    if (row.errors.length) return;
+    const key = `${impNorm(row.payload.title)}|${row.payload.price}|${impNorm(row.payload.address || '')}`;
+    if (seen.has(key)) row.warnings.push(`שורה זהה לשורה ${seen.get(key)} בקובץ`);
+    else seen.set(key, row.rowNumber);
+  });
+
+  // כפילויות מול נכסים שכבר קיימים אצל הסוכן/ת
+  try{
+    const { data: existing } = await sb.from('properties')
+      .select('title, price').eq('agent_id', currentAgent.id).eq('status', 'active');
+    if (existing && existing.length){
+      const existingKeys = new Set(existing.map(p => `${impNorm(p.title)}|${Number(p.price)}`));
+      importState.parsed.forEach(row=>{
+        if (row.errors.length) return;
+        if (existingKeys.has(`${impNorm(row.payload.title)}|${Number(row.payload.price)}`)){
+          row.warnings.push('נכס עם אותה כותרת ומחיר כבר קיים אצלך — ייתכן שזו כפילות');
+        }
+      });
+    }
+  } catch(err){ console.warn('duplicate check failed', err); }
+
+  const valid = importState.parsed.filter(r => !r.errors.length);
+  const invalid = importState.parsed.filter(r => r.errors.length);
+  const warned = valid.filter(r => r.warnings.length);
+  const previewFields = IMPORT_FIELDS.filter(f => (importState.mapping[f.key] ?? -1) > -1).slice(0, 7);
+
+  const body = importState.parsed.map(row=>{
+    const cls = row.errors.length ? 'bad' : (row.warnings.length ? 'warn' : '');
+    const cells = previewFields.map(f=>{
+      const idx = importState.mapping[f.key];
+      return `<td>${impEscape(impText(row.raw[idx]).slice(0, 40))}</td>`;
+    }).join('');
+    const messages = [...row.errors, ...row.warnings];
+    return `<tr class="${cls}">
+      <td>${row.rowNumber}</td>${cells}
+      <td class="imp-msg ${row.errors.length ? 'bad' : ''}">${impEscape(messages.join(' · ')) || '✓'}</td>
+    </tr>`;
+  }).join('');
+
+  impBodyEl.innerHTML = `
+    <div class="imp-sum">
+      <span class="imp-chip ok">${valid.length} מוכנים לייבוא</span>
+      ${invalid.length ? `<span class="imp-chip bad">${invalid.length} עם שגיאה — ידולגו</span>` : ''}
+      ${warned.length ? `<span class="imp-chip">${warned.length} עם אזהרה — ייובאו חלקית</span>` : ''}
+    </div>
+    <div class="imp-tablewrap">
+      <table class="imp-prev">
+        <thead><tr><th>שורה</th>${previewFields.map(f => `<th>${impEscape(f.label)}</th>`).join('')}<th>הערות</th></tr></thead>
+        <tbody>${body}</tbody>
+      </table>
+    </div>
+    <p class="imp-note">שורה אדומה לא תיובא כלל. שורה צהובה תיובא, אך השדה שצוין בהערה יישאר ריק.</p>`;
+  impFootEl.innerHTML = `
+    <button type="button" class="btn btn-ghost" id="impBack">חזרה למיפוי</button>
+    ${invalid.length ? '<button type="button" class="btn btn-ghost" id="impErrors">הורדת השגיאות</button>' : ''}
+    <button type="button" class="btn btn-gold" id="impRun" ${valid.length ? '' : 'disabled'}>ייבוא ${valid.length} נכסים</button>`;
+
+  document.getElementById('impBack').addEventListener('click', ()=> impSetStep(2));
+  const errBtn = document.getElementById('impErrors');
+  if (errBtn) errBtn.addEventListener('click', ()=> impDownloadErrors(invalid.map(r => ({ raw:r.raw, message:r.errors.join(' · ') }))));
+  document.getElementById('impRun').addEventListener('click', ()=> impSetStep(4));
+}
+
+/* ---------- שלב 4: ההכנסה עצמה ---------- */
+async function impRenderStep4(){
+  const queue = importState.parsed.filter(r => !r.errors.length);
+  importState.busy = true;
+  importState.failed = [];
+  let done = 0, ok = 0;
+
+  impBodyEl.innerHTML = `
+    <div style="font-weight:700">מייבא ${queue.length} נכסים…</div>
+    <div class="imp-bar"><i id="impProgress"></i></div>
+    <div class="imp-note" id="impProgressText">0 מתוך ${queue.length}</div>
+    <p class="imp-note">אל תסגרו את החלון עד לסיום.</p>`;
+  impFootEl.innerHTML = '<button type="button" class="btn btn-ghost" disabled>מייבא…</button>';
+
+  const bar = document.getElementById('impProgress');
+  const text = document.getElementById('impProgressText');
+  const tick = ()=>{
+    bar.style.width = queue.length ? Math.round(done / queue.length * 100) + '%' : '100%';
+    text.textContent = `${done} מתוך ${queue.length}`;
+  };
+
+  for (let i = 0; i < queue.length; i += IMPORT_CHUNK){
+    const chunk = queue.slice(i, i + IMPORT_CHUNK);
+    const { error } = await sb.from('properties').insert(chunk.map(r => r.payload));
+    if (error){
+      // ‏insert קבוצתי נכשל כולו בגלל שורה אחת פגומה, ולכן חוזרים על המנה
+      // שורה-שורה כדי לבודד את הנופלות ולהציל את השאר.
+      for (const row of chunk){
+        const { error: rowError } = await sb.from('properties').insert(row.payload);
+        if (rowError) importState.failed.push({ raw: row.raw, message: rowError.message });
+        else ok++;
+        done++; tick();
+      }
+    } else {
+      ok += chunk.length; done += chunk.length; tick();
+    }
+  }
+
+  importState.busy = false;
+  const invalid = importState.parsed.filter(r => r.errors.length);
+  const failedTotal = importState.failed.length + invalid.length;
+
+  impBodyEl.innerHTML = `
+    <div class="imp-sum">
+      <span class="imp-chip ok">${ok} נכסים נקלטו</span>
+      ${failedTotal ? `<span class="imp-chip bad">${failedTotal} לא נקלטו</span>` : ''}
+    </div>
+    <p>${ok ? 'הנכסים מפורסמים באתר ומופיעים ברשימת "הנכסים שלי".' : 'לא נקלט אף נכס.'}</p>
+    ${importState.failed.length ? `<p class="imp-note">${importState.failed.length} שורות נדחו על ידי המערכת בעת השמירה. הורידו את קובץ השגיאות כדי לראות את הסיבה לכל שורה.</p>` : ''}
+    <p class="imp-note">נכסים ללא קו רוחב/אורך לא יופיעו כסימון על מפת עמוד הבית. אפשר להשלים מיקום וכתובת דרך "עריכה" בכל נכס, ואז גם ייקלט המידע התכנוני.</p>
+    ${ok ? '<p class="imp-note">מומלץ לעבור על הנכסים החדשים ולהוסיף תמונות — מודעה עם תמונות מקבלת פניות רבות יותר.</p>' : ''}`;
+  impFootEl.innerHTML = `
+    ${failedTotal ? '<button type="button" class="btn btn-ghost" id="impErrors">הורדת קובץ השגיאות</button>' : ''}
+    <button type="button" class="btn btn-gold" id="impDone">סיום</button>`;
+
+  const errBtn = document.getElementById('impErrors');
+  if (errBtn) errBtn.addEventListener('click', ()=>{
+    impDownloadErrors([
+      ...invalid.map(r => ({ raw:r.raw, message:r.errors.join(' · ') })),
+      ...importState.failed,
+    ]);
+  });
+  document.getElementById('impDone').addEventListener('click', impClose);
+
+  if (ok){
+    showToast(`${ok} נכסים נוספו בהצלחה`);
+    await loadProperties(currentAgent.id);
+  }
+}
+
+/* ---------- קבצים להורדה: תבנית וקובץ שגיאות ---------- */
+async function impDownloadTemplate(){
+  let XLSX;
+  try { XLSX = await loadImportLib(); }
+  catch(err){ showToast(err.message); return; }
+
+  const headers = IMPORT_FIELDS.map(f => f.label + (f.required ? ' *' : ''));
+  const sample = [
+    ['דירת 4 חדרים משופצת, שכונת רמת דוד','מגורים','דירה','מכירה',1650000,'עפולה',4,'דפנה','12',2,95,'','דירה מוארת עם מרפסת שמש','משופץ','','2026-10-01','כן','מעלית, חניה, ממ"ד','','','','','',''],
+    ['חנות 60 מ"ר במרכז העיר','מסחרי','חנויות/שטח מסחרי','השכרה',6500,'עפולה','','הנשיא','7','',60,'','חזית לרחוב ראשי','','','','לא','מזגן, מצלמות','בנכס','בבניין','','','',''],
+  ];
+  const sheet = XLSX.utils.aoa_to_sheet([headers, ...sample]);
+  sheet['!cols'] = headers.map(()=> ({ wch: 18 }));
+
+  const vocabulary = [
+    ['שדה','ערכים חוקיים'],
+    ['קטגוריה','מגורים · מסחרי'],
+    ['סוג עסקה','מכירה · השכרה'],
+    ['סוג נכס (מגורים)', RESIDENTIAL_PTYPE_OPTIONS.join(' · ')],
+    ['סוג נכס (מסחרי)', COMMERCIAL_PTYPE_OPTIONS.join(' · ')],
+    ['מצב הנכס','חדש מקבלן · חדש · משופץ · שמור · דרוש שיפוץ'],
+    ['סטטוס הפרויקט','תכנון ראשוני · הוגשה בקשה להיתר · ניתן היתר בנייה · הבנייה הסתיימה'],
+    ['שירותים / מחסן / ממ"ד','בבניין · בנכס (נכסים מסחריים בלבד)'],
+    ['כניסה קרובה','כן · לא'],
+    ['תאריך כניסה','dd/mm/yyyy או yyyy-mm-dd'],
+    ['מאפייני מודעה', LISTING_FEATURES.map(([, l]) => l).join(' · ')],
+    ['מאפייני נכס (מגורים)', RESIDENTIAL_PROPERTY_FEATURES.map(([, l]) => l).join(' · ')],
+    ['מאפייני נכס (מסחרי)', COMMERCIAL_PROPERTY_FEATURES.map(([, l]) => l).join(' · ')],
+    ['מאפיינים בקובץ','כמה ערכים בתא אחד, מופרדים בפסיק'],
+    ['קישורי תמונות',`עד ${MAX_IMAGES} כתובות מלאות (https://…), מופרדות בפסיק`],
+  ];
+  const vocabSheet = XLSX.utils.aoa_to_sheet(vocabulary);
+  vocabSheet['!cols'] = [{ wch: 24 }, { wch: 110 }];
+
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, sheet, 'נכסים');
+  XLSX.utils.book_append_sheet(book, vocabSheet, 'ערכים חוקיים');
+  XLSX.writeFile(book, 'תבנית-ייבוא-נכסים.xlsx');
+}
+
+/* קובץ השגיאות הוא הקובץ המקורי + עמודת סיבה, כדי שאפשר יהיה לתקן בו
+   ולהעלות אותו שוב כמו שהוא. */
+async function impDownloadErrors(rows){
+  let XLSX;
+  try { XLSX = await loadImportLib(); }
+  catch(err){ showToast(err.message); return; }
+  const header = [...importState.headers, 'סיבת הדחייה'];
+  const data = rows.map(r => [...importState.headers.map((_, i) => impText(r.raw[i])), r.message]);
+  const sheet = XLSX.utils.aoa_to_sheet([header, ...data]);
+  sheet['!cols'] = header.map((_, i) => ({ wch: i === header.length - 1 ? 60 : 18 }));
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, sheet, 'שורות שנדחו');
+  XLSX.writeFile(book, 'שגיאות-ייבוא-נכסים.xlsx');
+}
+
+document.getElementById('openImportProperties').addEventListener('click', impOpen);
+document.getElementById('impClose').addEventListener('click', impClose);
 
 async function loadLeads(agentId){
   const listEl = document.getElementById('leadsList');
