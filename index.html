@@ -1437,10 +1437,19 @@ async function loadLeadingAgents(){
     const ids = rankings.map(r => r.agent_id);
     const { data: members } = await sb
       .from('agency_members_public')
-      .select('id, display_name, slug, agencies(name)')
+      .select('id, display_name, slug, agency_id')
       .in('id', ids);
+
+    // גם שם המשרד נטען בשאילתה נפרדת: מאז ש-property_shares מחזיקה שני מפתחות
+    // זרים ל-agencies, embed מ-agency_members ל-agencies מחזיר PGRST201 (HTTP 300).
+    const agencyIds = [...new Set((members||[]).map(m => m.agency_id).filter(Boolean))];
+    const agencyById = {};
+    if (agencyIds.length){
+      const { data: agencies } = await sb.from('agencies').select('id, name').in('id', agencyIds);
+      (agencies||[]).forEach(a => agencyById[a.id] = a);
+    }
     const byId = {};
-    (members||[]).forEach(m => byId[m.id] = m);
+    (members||[]).forEach(m => byId[m.id] = { ...m, agencies: agencyById[m.agency_id] || null });
 
     return rankings.map(r => ({ ...r, agency_members: byId[r.agent_id] || null }));
   } catch(e){

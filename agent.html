@@ -129,12 +129,20 @@ async function loadAgentProfile(){
   }
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   try{
-    let query = sb.from('agency_members_public').select('id, display_name, bio, photo_url, slug, agencies(name, slug)');
+    // שם המשרד נטען בשאילתה נפרדת ולא ב-embed: מאז ש-property_shares מחזיקה שני
+    // מפתחות זרים ל-agencies, PostgREST מחזיר PGRST201 (HTTP 300) על embed
+    // מ-agency_members ל-agencies במקום את השורה.
+    let query = sb.from('agency_members_public').select('id, display_name, bio, photo_url, slug, agency_id');
     // slug יכול להיות ה-slug הקריא או ה-id הגולמי (fallback), לפי מה שנשלח מ-agency.html
     const isUuid = /^[0-9a-f-]{36}$/i.test(slug);
     query = isUuid ? query.eq('id', slug) : query.eq('slug', slug);
     const { data: agent, error } = await query.single();
     if (error || !agent) throw error || new Error('not found');
+
+    if (agent.agency_id){
+      const { data: agency } = await sb.from('agencies').select('name, slug').eq('id', agent.agency_id).maybeSingle();
+      agent.agencies = agency || null;
+    }
 
     currentAgentProfile = agent;
     document.title = agent.display_name + ' | שוק נדל״ן';
