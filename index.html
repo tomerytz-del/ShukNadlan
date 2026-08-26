@@ -1352,12 +1352,18 @@ try {
   }
 } catch(e){ console.warn('יצירת Supabase client נכשלה:', e); }
 
+/* קידום נמכר לחלון של 72 שעות. ‏expire_promotions ב-DB מכבה את is_promoted
+   כל רבע שעה, והבדיקה מול promoted_until כאן סוגרת גם את הפער הזה, כדי
+   שנכס לא יישאר עם סרט "מקודם" אחרי שהחלון נגמר. ‏promoted_until ריק =
+   קידום ידני/היסטורי בלי מועד סיום.                                     */
+const isPromoted = p => !!p.is_promoted && (!p.promoted_until || new Date(p.promoted_until) > new Date());
+
 async function loadProperties(){
   if (!sb) return FALLBACK_PROPERTIES;
   try{
     const { data, error } = await sb
       .from('properties')
-      .select('id, price, title, rooms, property_type, deal_type, category, lat, lng, is_promoted, images, agencies(name)')
+      .select('id, price, title, rooms, property_type, deal_type, category, lat, lng, is_promoted, promoted_until, images, agencies(name)')
       .eq('status', 'active')
       .limit(12);
     if (error || !data || data.length === 0) throw error || new Error('empty');
@@ -1627,7 +1633,7 @@ try {
     const properties = await loadProperties();
 
     const featuredScroll = document.getElementById('featuredScroll');
-    properties.filter(p=>p.is_promoted).forEach((p,i)=>{
+    properties.filter(isPromoted).forEach((p,i)=>{
       const el = document.createElement('div');
       el.className = 'prop-card';
       el.style.cursor = 'pointer';
@@ -1841,7 +1847,7 @@ async function runSearch(){
 
   try{
     if (!sb) throw new Error('no supabase client');
-    let query = sb.from('properties').select('id, price, title, rooms, property_type, deal_type, category, lat, lng, is_promoted, agencies(name)')
+    let query = sb.from('properties').select('id, price, title, rooms, property_type, deal_type, category, lat, lng, is_promoted, promoted_until, agencies(name)')
       .eq('status', 'active')
       .eq('category', isCommercial ? 'commercial' : 'residential')
       .eq('deal_type', dealType);
@@ -1901,7 +1907,7 @@ function renderPropertyGrid(properties, isSearchResult){
     el.className = 'prop-card';
     el.style.cursor = 'pointer';
     el.innerHTML = `
-      <div class="thumb" style="${thumbStyle(p, i)}">${p.is_promoted ? '<span class="ribbon">מקודם</span>' : ''}</div>
+      <div class="thumb" style="${thumbStyle(p, i)}">${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
       <div class="body">
         <div class="price">${priceLabel(p)}</div>
         <div class="title">${p.title}</div>
