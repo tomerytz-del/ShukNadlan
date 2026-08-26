@@ -436,11 +436,16 @@
   .hot-head .hot-sub{font-size:.76rem;color:var(--ink-soft);margin-top:5px}
   .hot-head .see-all{display:inline-block;margin-top:8px}
 
-  /* הריפוד האופקי הוא חצי הרוחב של הקונטיינר פחות חצי כרטיס — בלי זה
-     scroll-snap-align:center לא יכול למרכז את הכרטיס הראשון והאחרון. */
+  /* ריפוד קבוע וצנוע בצדדים, כמו כל קרוסלה רגילה בעמוד (לא חצי-קונטיינר
+     פחות חצי-כרטיס) — הגרסה הקודמת נתנה לכרטיס הראשון/האחרון להגיע
+     למרכז מוחלט, אבל זה הצריך ריפוד ענק בשני הקצוות שנראה כמו חתיכת
+     "רקע ריק" מיותרת לפני שגוללים בכלל. scroll-snap-align:center על
+     הכרטיסים עדיין ממרכז כל כרטיס תוך כדי גלילה; הראשון/האחרון פשוט
+     נעצרים הכי קרוב שאפשר למרכז בלי לחרוג מגבול התוכן — בדיוק כמו כל
+     קרוסלת "שורה" רגילה (נטפליקס וכו'). */
   .coverflow{
     display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;
-    padding:14px calc(50% - 106px) 10px;
+    padding:14px 18px 10px;
     scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch;
   }
   .coverflow::-webkit-scrollbar{display:none}
@@ -484,7 +489,7 @@
   @media(min-width:760px){
     .hot-band{margin-top:-20px;padding:26px 0 26px}
     .hot-head h2{font-size:1.4rem}
-    .coverflow{gap:16px;padding:16px calc(50% - 124px) 12px}
+    .coverflow{gap:16px;padding:16px 24px 12px}
     .cf-card{flex:0 0 248px}
     .cf-thumb{height:150px}
   }
