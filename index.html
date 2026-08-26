@@ -135,30 +135,74 @@
   }
   .ad-slot .tag{background:var(--paper-raised);border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-weight:700;font-size:.68rem}
 
-  /* ====== Hero ====== */
+  /* ====== Hero: המפה היא הבמה, החיפוש צף מעליה ======
+     קודם המפה הייתה רצועה נמוכה מתחת לכרטיס חיפוש גדול; עכשיו היא נפרסת
+     על כל תחילת העמוד, וכרטיס החיפוש הצטמצם לשורה אחת שצפה מעליה על גבי
+     scrim כהה (הצל שמתחתיו הוא מה שמפריד אותו מהאריחים ונותן לו "מקום").
+     תוצאות החיפוש (#listings) יושבות מיד מתחת ל-section הזה. */
   .hero{
-    background:
+    position:relative;overflow:hidden;color:#fff;background:var(--teal-dark);
+    height:clamp(340px,56vh,540px);transition:height .3s ease;
+  }
+  .hero.map-expanded{height:clamp(460px,84vh,860px)}
+  /* מצב נפילה: אם Leaflet לא נטען, ה-section חוזר להיות בלוק תוכן רגיל
+     במקום קופסה בגובה קבוע עם חור באמצע (ראו catch באתחול המפה) */
+  .hero.map-failed{height:auto;padding:30px 0 26px;background:
       radial-gradient(ellipse at 20% 0%, rgba(201,138,44,.14), transparent 55%),
-      var(--teal-dark);
-    /* ריפוד תחתון: בלעדיו המפה נצמדת לקצה ה-section ונדבקת לטיקר המבזקים */
-    color:#fff;padding:34px 0 24px;position:relative;overflow:hidden;
+      var(--teal-dark)}
+  #hero-map{position:absolute;inset:0;width:100%;height:100%;z-index:0;background:var(--teal-dark)}
+  .hero.map-failed #hero-map{position:static;height:auto}
+  .hero.map-failed .map-toolbar{display:none}
+
+  .hero-overlay{
+    position:absolute;top:0;right:0;left:0;z-index:2;pointer-events:none;
+    padding:20px 0 56px;
+    background:linear-gradient(180deg, rgba(10,28,46,.88) 0%, rgba(10,28,46,.6) 46%, rgba(10,28,46,0) 100%);
   }
-  .hero-ridge{
-    position:absolute;bottom:0;right:0;left:0;height:64px;opacity:.35;pointer-events:none;
+  .hero.map-failed .hero-overlay{position:static;background:none;padding:0}
+  .hero-inner h1{color:#fff;font-size:1.45rem;max-width:24ch;text-shadow:0 2px 14px rgba(6,20,34,.55)}
+  .hero-inner p.lede{display:none;color:#DCE6E4;margin-top:8px;font-size:.95rem;max-width:46ch;text-shadow:0 2px 10px rgba(6,20,34,.5)}
+
+  /* ====== סרגל חיפוש בשורה אחת ====== */
+  /* max-width: בלי זה הסרגל נמתח על כל רוחב ה-wrap בדסקטופ ותיבת הטקסט
+     נראית כמו שדה ריק ענק. ב-RTL הבלוק נצמד מעצמו לימין, מתחת לכותרת. */
+  .search-shell{position:relative;margin-top:16px;max-width:720px;pointer-events:auto}
+  /* הילה מטושטשת מתחת לסרגל: מפרידה אותו מהמפה גם כשמתחתיו אזור בהיר */
+  .search-shell::before{
+    content:"";position:absolute;inset:-16px -8px -22px;pointer-events:none;
+    background:radial-gradient(58% 120% at 50% 55%, rgba(6,20,34,.5), rgba(6,20,34,0) 72%);
   }
-  .hero-inner{position:relative;z-index:1}
-  .hero-inner h1{color:#fff;font-size:1.7rem;max-width:20ch}
-  .hero-inner p.lede{color:#DCE6E4;margin-top:10px;font-size:.98rem;max-width:42ch}
   .search-card{
-    margin-top:22px;background:var(--paper-raised);border-radius:var(--radius-lg);
-    padding:16px;box-shadow:0 18px 40px rgba(0,0,0,.25);
+    position:relative;display:flex;align-items:center;gap:6px;
+    background:rgba(255,255,255,.97);border-radius:999px;padding:6px;
+    box-shadow:0 22px 44px -16px rgba(6,20,34,.7), 0 4px 14px rgba(6,20,34,.3);
   }
-  .search-row{display:flex;gap:10px;margin-bottom:10px}
+  .search-card:focus-within{box-shadow:0 22px 44px -16px rgba(6,20,34,.7), 0 0 0 2px var(--gold)}
+  /* בחירת סוג העסקה כקונטיינר נפתח במקום שלושה טאבים — הצבע שלו משתנה לפי
+     הבחירה ותואם לצבע הפינים במפה (renderMap ב-JS) */
+  .deal-select{
+    flex:0 0 auto;-webkit-appearance:none;appearance:none;border:none;cursor:pointer;
+    font-family:inherit;font-weight:700;font-size:.86rem;color:#fff;
+    background:var(--teal);border-radius:999px;padding:12px 15px 12px 30px;
+    background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.6 6 6.4l5-4.8' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:left 11px center;background-size:11px;
+  }
+  .deal-select[data-mode="rent"]{background-color:var(--gold)}
+  .deal-select[data-mode="commercial"]{background-color:var(--ink-soft)}
   .search-input{
-    flex:1;border:1.5px solid var(--line);border-radius:var(--radius-md);
-    padding:13px 14px;background:#fff;font-size:.95rem;color:var(--ink);
+    flex:1 1 auto;min-width:0;border:none;background:transparent;
+    padding:12px 6px;font-size:.95rem;color:var(--ink);
   }
-  .search-input:focus{border-color:var(--teal)}
+  .search-input:focus{outline:none}
+  .search-card .icon-btn,.search-card .search-go{
+    flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+    border-radius:999px;font-weight:700;font-size:.85rem;padding:11px 13px;
+  }
+  .search-card .icon-btn{background:var(--paper);color:var(--ink-soft);border:1.5px solid var(--line)}
+  .search-card .search-go{background:var(--gold);color:#fff;padding:11px 16px}
+  .btn-label{display:none}
+  @media(min-width:560px){ .btn-label{display:inline} }
+  .map-fallback-note{margin-top:16px;font-size:.85rem;color:#DCE6E4}
   .filters-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .filters-row select{
     border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 8px;
@@ -167,21 +211,9 @@
   .deal-toggle{display:flex;border:1.5px solid var(--line);border-radius:999px;overflow:hidden;grid-column:1/-1}
   .deal-toggle button{flex:1;padding:9px;font-weight:700;font-size:.85rem;color:var(--ink-soft)}
   .deal-toggle button.active{background:var(--teal);color:#fff}
-  .search-submit{margin-top:12px}
 
-  /* ====== New unified search bar + filter modals ====== */
-  .deal-tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:12px;-webkit-overflow-scrolling:touch;scrollbar-width:none}
-  .deal-tabs::-webkit-scrollbar{display:none}
-  .deal-tab{flex:0 0 auto;padding:9px 20px;border-radius:999px;font-weight:700;font-size:.85rem;color:var(--ink-soft);border:1.5px solid var(--line);background:#fff;white-space:nowrap}
-  /* צבע פעיל שונה לכל טאב, תואם לצבעי הפינים במפה (renderMap ב-JS):
-     קנייה כחול, השכרה אדום, מסחרי אפור בטון — כך שהמשתמש מזהה מיד
-     איזה סוג נכסים מוצג על המפה גם בלי להסתכל על הפינים עצמם. */
-  .deal-tab.active{background:var(--teal);color:#fff;border-color:var(--teal)}
-  .deal-tab[data-mode="rent"].active{background:var(--gold);border-color:var(--gold)}
-  .deal-tab[data-mode="commercial"].active{background:var(--ink-soft);border-color:var(--ink-soft)}
-  .search-actions-row{display:flex;gap:8px;margin-top:10px}
-  .search-actions-row .btn-ghost{position:relative;white-space:nowrap;background:#fff}
-  .filter-count-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:999px;background:var(--gold);color:#fff;font-size:.68rem;font-weight:800;margin-right:6px;padding:0 4px}
+  /* ====== Filter modals ====== */
+  .filter-count-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:999px;background:var(--gold);color:#fff;font-size:.68rem;font-weight:800;padding:0 4px}
 
   .filter-modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,52,53,.55);z-index:300;align-items:flex-end;justify-content:center}
   .filter-modal-overlay.open{display:flex}
@@ -213,35 +245,59 @@
   .tri-toggle button.active{background:var(--teal);color:#fff}
 
   /* המפה תמיד משקפת בדיוק את מה שמוצג ב-#propertyGrid למטה בעמוד (נכסים
-     באזור, או תוצאות חיפוש) — ראו renderMap() ב-JS. כברירת מחדל היא
-     מוקטנת ואסתטית; "הצג נכסים על המפה" מרחיב אותה במקום, בלי לנווט
-     לעמוד/מודאל נפרד. */
-  /* צמוד לתיבת החיפוש (10px בלבד) אבל בלי לדרוס אותה — הצל של .search-card
-     נופל על המפה, ומרווח קטן מדי היה נראה כאילו הכרטיס יושב עליה. ההפרדה
-     מהמבזק שמתחת מגיעה מ-padding-bottom של .hero, ולא מ-margin-bottom כאן —
-     שני הפתרונות יחד היו מכפילים את הרווח. */
-  .map-wrap{margin-top:10px;border-radius:var(--radius-lg);overflow:hidden;position:relative}
-  /* overflow:hidden כאן במכוון, בנוסף לזה שכבר קיים ב-leaflet.min.css:
-     ה-panes הפנימיים של Leaflet גדולים בהרבה מהקונטיינר הנראה (buffer
-     של אריחים לגלילה חלקה), ובלי חיתוך הם "בולעים" קליקים על כפתור
-     ההרחבה שמתחת למפה — גם אם leaflet.min.css נכשל לטעון בעוד ה-JS הצליח. */
-  #hero-map{height:130px;width:100%;transition:height .25s ease;overflow:hidden}
-  .map-wrap.expanded #hero-map{height:280px}
-  .map-count{
-    position:absolute;top:12px;right:12px;z-index:400;background:var(--paper-raised);
-    padding:7px 12px;border-radius:999px;font-size:.78rem;font-weight:700;box-shadow:var(--shadow-sm);color:var(--ink)
+     באזור, או תוצאות חיפוש) — ראו renderMap() ב-JS. */
+  /* סרגל צף אחד בתחתית המפה: מונה נכסים, בורר סגנון והגדלה. הסרגל עצמו
+     pointer-events:none חוץ מהפקדים שבו, כדי שאפשר יהיה לגרור את המפה גם
+     "דרכו". במובייל הוא נצמד לימין (תחילת השורה ב-RTL) ומשאיר פנויה את
+     הפינה השמאלית התחתונה, שבה יושבים הקרדיטים של Leaflet וכפתור הנגישות
+     הצף (.a11y-fab); בדסקטופ יש מספיק רוחב והוא ממורכז. */
+  .map-toolbar{
+    position:absolute;bottom:22px;right:0;left:0;z-index:3;pointer-events:none;
+    display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:6px;
+    padding:0 10px 0 76px;
   }
+  .map-toolbar > *{pointer-events:auto}
+  .map-count{
+    background:rgba(255,255,255,.94);padding:7px 10px;border-radius:999px;
+    font-size:.72rem;font-weight:700;box-shadow:var(--shadow-sm);color:var(--ink);white-space:nowrap;
+  }
+  .map-style-switch{display:flex;background:rgba(255,255,255,.94);border-radius:999px;padding:3px;box-shadow:var(--shadow-sm)}
+  .map-style-switch button{padding:6px 10px;border-radius:999px;font-size:.72rem;font-weight:700;color:var(--ink-soft);white-space:nowrap}
+  .map-style-switch button.active{background:var(--teal);color:#fff}
   .map-expand-btn{
-    display:block;width:100%;text-align:center;padding:10px;font-weight:700;font-size:.83rem;
-    background:var(--paper-raised);color:var(--teal);border-top:1px solid var(--line);
+    background:rgba(255,255,255,.94);color:var(--teal);padding:7px 12px;border-radius:999px;
+    font-size:.74rem;font-weight:700;box-shadow:var(--shadow-sm);white-space:nowrap;
   }
   .map-expand-btn:hover{color:var(--teal-dark)}
+  /* פקדי הזום מיותרים במגע (פינץ' עושה את העבודה) ורק גוזלים רוחב מהסרגל */
+  @media(max-width:759px){ .leaflet-control-zoom{display:none !important} }
+  /* מרימים את הפקדים של Leaflet מעל הסרגל הצף */
+  .leaflet-bottom.leaflet-right{bottom:44px}
+
+  /* שכבת הגוון "טבע": pane של Leaflet ב-z-index 250, כלומר מעל אריחי המפה
+     (tilePane=200) ומתחת לפינים (markerPane=600) — כך פני השטח מוריקים אבל
+     צבעי הפינים ותוויות המחיר נשארים מדויקים. חייבת להיות pane בתוך
+     .leaflet-map-pane דווקא: אלמנט אח לו בתוך הקונטיינר היה נצבע *מתחת*
+     למפה כולה, כי ל-.leaflet-map-pane עצמו יש z-index 400.
+     הריבוע ענק ובצבע אחיד כדי שגרירה/זום לא יחשפו את הקצה שלו; ב-moveend
+     הוא ממורכז מחדש מול פינת הקונטיינר (ראו recenterMapTint ב-JS). */
+  .leaflet-pane.map-tint{
+    z-index:250;pointer-events:none;
+    left:-4000px;top:-4000px;width:8000px;height:8000px;
+    background:#2E7D5B;mix-blend-mode:multiply;opacity:0;transition:opacity .3s ease;
+  }
+  body[data-map-style="nature"] .leaflet-pane.map-tint{opacity:.32}
+  body[data-map-style="nature"] #hero-map .leaflet-tile-pane{filter:saturate(1.1) contrast(1.02)}
+  .leaflet-control-attribution{font-size:.62rem !important;background:rgba(255,255,255,.7) !important}
 
   @media(min-width:760px){
     .filters-row{grid-template-columns:1fr 1fr 1fr 1fr}
     .deal-toggle{grid-column:auto;max-width:220px}
-    .hero-inner h1{font-size:2.3rem}
-    .map-wrap.expanded #hero-map{height:340px}
+    .hero{height:clamp(420px,64vh,620px)}
+    .hero-overlay{padding:26px 0 64px}
+    .hero-inner h1{font-size:2rem}
+    .hero-inner p.lede{display:block}
+    .map-toolbar{bottom:16px;justify-content:center;flex-wrap:nowrap;padding:0 14px}
   }
 
   /* ====== Newsflash ticker ====== */
@@ -457,8 +513,16 @@
   html.a11y-contrast span, html.a11y-contrast div, html.a11y-contrast label{color:#fff !important}
   html.a11y-contrast .btn, html.a11y-contrast button.opt, html.a11y-contrast input,
   html.a11y-contrast select, html.a11y-contrast .deal-toggle button,
-  html.a11y-contrast .owner-toggle button, html.a11y-contrast .deal-tab,
+  html.a11y-contrast .owner-toggle button, html.a11y-contrast .deal-select,
+  html.a11y-contrast .map-count, html.a11y-contrast .map-style-switch button,
+  html.a11y-contrast .search-card .icon-btn, html.a11y-contrast .search-card .search-go,
   html.a11y-contrast .map-expand-btn{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
+  html.a11y-contrast .map-style-switch{background:#000 !important}
+  /* במצב ניגודיות גבוהה המפה מעומעמת: אריחים צבעוניים מתחת לטקסט צהוב על
+     שחור הורסים את יחס הניגודיות שכל המצב הזה נועד להבטיח */
+  html.a11y-contrast .hero-overlay{background:#000 !important}
+  html.a11y-contrast #hero-map{opacity:.25}
+  html.a11y-contrast .map-tint{display:none}
 </style>
 </head>
 <body>
@@ -502,25 +566,32 @@
 <main id="main">
 
   <!-- ====== HERO: search + map ====== -->
-  <section class="hero">
-    <div class="wrap hero-inner">
-      <p class="eyebrow" style="color:#E8C88A">עפולה והעמק · מרקטפלייס מקומי</p>
-      <h1>כל הדירות, כל המתווכים, בכתובת אחת בעפולה</h1>
-      <p class="lede">מפסיקים לרוץ בין לוחות מודעות — כל המתווכים המובילים בעיר מחכים לך כאן.</p>
+  <section class="hero" id="heroSection">
+    <div id="hero-map" role="region" aria-label="מפת הנכסים המוצגים"></div>
 
-      <div class="search-card">
-        <div class="deal-tabs" role="tablist" aria-label="סוג עסקה">
-          <button class="deal-tab active" data-mode="sale" role="tab" aria-selected="true">קנייה</button>
-          <button class="deal-tab" data-mode="rent" role="tab" aria-selected="false">השכרה</button>
-          <button class="deal-tab" data-mode="commercial" role="tab" aria-selected="false">מסחרי</button>
+    <div class="hero-overlay">
+      <div class="wrap hero-inner">
+        <p class="eyebrow" style="color:#F0D9A8">עפולה והעמק · מרקטפלייס מקומי</p>
+        <h1>כל הדירות, כל המתווכים, בכתובת אחת בעפולה</h1>
+        <p class="lede">מפסיקים לרוץ בין לוחות מודעות — כל המתווכים המובילים בעיר מחכים לך כאן.</p>
+
+        <div class="search-shell">
+          <div class="search-card">
+            <select id="dealTypeSelect" class="deal-select" data-mode="sale" aria-label="סוג עסקה">
+              <option value="sale">מכירה</option>
+              <option value="rent">השכרה</option>
+              <option value="commercial">מסחרי</option>
+            </select>
+            <input type="text" class="search-input" placeholder="עיר, שכונה או רחוב…" id="searchFreeText">
+            <button type="button" class="icon-btn" id="openFiltersBtn" aria-label="סינונים">
+              <span aria-hidden="true">⚙️</span><span class="btn-label">סינונים</span><span id="filterCountBadge" class="filter-count-badge" style="display:none">0</span>
+            </button>
+            <button type="button" class="search-go" id="searchSubmitBtn" aria-label="חיפוש נכסים">
+              <span aria-hidden="true">🔍</span><span class="btn-label">חיפוש</span>
+            </button>
+          </div>
         </div>
-        <div class="search-row">
-          <input type="text" class="search-input" placeholder="עיר, שכונה, רחוב או סוג נכס…" id="searchFreeText">
-        </div>
-        <div class="search-actions-row">
-          <button type="button" class="btn btn-ghost" id="openFiltersBtn">⚙️ סינונים<span id="filterCountBadge" class="filter-count-badge" style="display:none">0</span></button>
-          <button type="button" class="btn btn-gold" id="searchSubmitBtn" style="flex:1">חיפוש נכסים</button>
-        </div>
+        <p class="map-fallback-note" id="mapFallbackNote" hidden>המפה לא נטענה (בעיית רשת) — רשימת הנכסים למטה עדיין זמינה.</p>
       </div>
     </div>
 
@@ -707,12 +778,14 @@
       </div>
     </div>
 
-    <div class="wrap" style="position:relative;z-index:1">
-      <div class="map-wrap card" style="border:1px solid rgba(255,255,255,.12)">
-        <div id="hero-map"></div>
-        <span class="map-count" id="mapCount">מציג 6 נכסים על המפה</span>
-        <button type="button" class="map-expand-btn" id="mapExpandBtn" aria-expanded="false">הצג נכסים על המפה ↓</button>
+    <div class="map-toolbar">
+      <span class="map-count" id="mapCount">6 נכסים במפה</span>
+      <div class="map-style-switch" role="group" aria-label="סגנון המפה">
+        <button type="button" data-map-style="nature" class="active">טבע</button>
+        <button type="button" data-map-style="classic">קלאסי</button>
+        <button type="button" data-map-style="light">בהיר</button>
       </div>
+      <button type="button" class="map-expand-btn" id="mapExpandBtn" aria-expanded="false">הגדל מפה ↓</button>
     </div>
   </section>
 
@@ -1569,27 +1642,100 @@ function isPlacementLive(p, today){
    לא נטען — נעלמו איתו גם גריד הנכסים, הנכסים המקודמים ורצועת המפה,
    והמבקר ראה עמוד בית כמעט ריק. עכשיו כישלון של המפה מוריד רק את המפה. */
 let heroMap = null;
+let heroTiles = null;
+
+// שני סגנונות אריחים + שכבת גוון ירוקה (ראו .map-tint ב-CSS). ברירת המחדל
+// "טבע" מוריקה את פני השטח בלי להחליף ספק אריחים, ולכן היא גם הזולה ביותר
+// מבחינת רשת — אותם אריחים בדיוק, רק עם שכבת multiply מעליהם.
+const MAP_TILE_URLS = {
+  voyager:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+  light:  'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+};
+function applyMapStyle(style){
+  if (!['nature','classic','light'].includes(style)) style = 'nature';
+  document.body.dataset.mapStyle = style;
+  document.querySelectorAll('.map-style-switch button').forEach(b=>{
+    b.classList.toggle('active', b.dataset.mapStyle === style);
+  });
+  if (heroTiles) heroTiles.setUrl(style === 'light' ? MAP_TILE_URLS.light : MAP_TILE_URLS.voyager);
+  try { localStorage.setItem('shuk_map_style', style); } catch(e){ /* מצב פרטי/חסום */ }
+}
+
 try {
   if (!window.L) throw new Error('Leaflet לא נטען (CDN חסום/נכשל)');
 
-  heroMap = L.map('hero-map', { scrollWheelZoom:false }).setView([32.6078, 35.2897], 13);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+  heroMap = L.map('hero-map', { scrollWheelZoom:false, zoomControl:false }).setView([32.6078, 35.2897], 13);
+  heroTiles = L.tileLayer(MAP_TILE_URLS.voyager, {
     attribution:'&copy; OpenStreetMap &copy; CARTO', maxZoom:19
   }).addTo(heroMap);
+  // כל החלק העליון של המפה מוסתר ע"י סרגל החיפוש הצף, ולכן פקדי הזום יורדים
+  // לתחתית: הזום בצד אחד, הקרדיטים בשני, ו-.map-toolbar במרכז ביניהם
+  L.control.zoom({ position:'bottomright' }).addTo(heroMap);
+  heroMap.attributionControl.setPosition('bottomleft');
   heroMap.on('focus', ()=> heroMap.scrollWheelZoom.enable());
   heroMap.on('blur', ()=> heroMap.scrollWheelZoom.disable());
+
+  const tintPane = heroMap.createPane('tintPane');
+  tintPane.classList.add('map-tint');
+  const recenterMapTint = ()=> L.DomUtil.setPosition(tintPane, heroMap.containerPointToLayerPoint([0,0]));
+  heroMap.on('moveend zoomend viewreset resize', recenterMapTint);
+  recenterMapTint();
 } catch(e){
   console.warn('אתחול המפה נכשל, ממשיכים בלי המפה:', e);
-  const mapWrap = document.querySelector('.map-wrap');
-  if (mapWrap) mapWrap.innerHTML = '<div style="padding:24px;text-align:center;color:#565C63;font-size:.85rem">המפה לא נטענה (בעיית רשת) — רשימת הנכסים למטה עדיין זמינה.</div>';
+  const hero = document.getElementById('heroSection');
+  if (hero) hero.classList.add('map-failed');
+  const mapEl = document.getElementById('hero-map');
+  if (mapEl) mapEl.innerHTML = '';
+  const note = document.getElementById('mapFallbackNote');
+  if (note) note.hidden = false;
 }
+
+let savedMapStyle = 'nature';
+try { savedMapStyle = localStorage.getItem('shuk_map_style') || 'nature'; } catch(e){ /* מצב פרטי/חסום */ }
+applyMapStyle(savedMapStyle);
+document.querySelectorAll('.map-style-switch button').forEach(btn=>{
+  btn.addEventListener('click', ()=> applyMapStyle(btn.dataset.mapStyle));
+});
 
 const mapMarkers = {};
 
-// המפה מוקטנת כברירת מחדל, ותמיד משקפת בדיוק את מה שמוצג ב-#propertyGrid
-// למטה בעמוד — הפונקציה הזו נקראת מתוך renderPropertyGrid() עצמה (לא רק
-// מהטעינה הראשונית), כך ש-runSearch() מסנכרן אליה אוטומטית בלי צורך
-// לזכור לעדכן את המפה בנפרד בכל מקום שמרנדר את הגריד.
+// כמה מהמפה באמת פנוי לפינים: החלק העליון חסום ע"י סרגל החיפוש הצף והחלק
+// התחתון ע"י סרגל הפקדים. נמדד מה-DOM ולא מקובע במספרים, כי הגובה משתנה בין
+// מובייל לדסקטופ, במצב "הגדל מפה" וכשהכותרת נשברת לשתי שורות. התקרות (45%/25%)
+// שומרות שתמיד יישאר חלון סביר למרכוז גם במפה נמוכה.
+function visibleMapPadding(){
+  const fallback = { top:150, bottom:60 };
+  if (!heroMap) return fallback;
+  const hero = document.getElementById('heroSection');
+  const card = document.querySelector('.search-card');
+  const bar = document.querySelector('.map-toolbar');
+  if (!hero || !card || !bar) return fallback;
+  const heroRect = hero.getBoundingClientRect();
+  const height = heroMap.getSize().y || heroRect.height;
+  return {
+    top: Math.round(Math.min(card.getBoundingClientRect().bottom - heroRect.top + 18, height * 0.45)),
+    bottom: Math.round(Math.min(heroRect.bottom - bar.getBoundingClientRect().top + 18, height * 0.25)),
+  };
+}
+
+// ממרכזת את המפה על הפינים המוצגים כרגע בתוך החלק הנראה שלה. נקראת גם אחרי
+// הגדלה/הקטנה של המפה, כי החלון הנראה משתנה ואיתו הריפוד הנכון.
+function fitMapToMarkers(){
+  if (!heroMap) return;
+  const points = Object.values(mapMarkers).map(m => m.getLatLng());
+  if (!points.length) return;
+  try {
+    const pad = visibleMapPadding();
+    heroMap.fitBounds(L.latLngBounds(points), {
+      paddingTopLeft:[24, pad.top], paddingBottomRight:[24, pad.bottom], maxZoom:15, animate:true
+    });
+  } catch(e){ /* גבולות לא תקינים — משאירים את התצוגה הנוכחית */ }
+}
+
+// המפה תמיד משקפת בדיוק את מה שמוצג ב-#propertyGrid למטה בעמוד — הפונקציה
+// הזו נקראת מתוך renderPropertyGrid() עצמה (לא רק מהטעינה הראשונית), כך
+// ש-runSearch() מסנכרן אליה אוטומטית בלי צורך לזכור לעדכן את המפה בנפרד
+// בכל מקום שמרנדר את הגריד.
 function renderMap(properties){
   Object.values(mapMarkers).forEach(m => heroMap && heroMap.removeLayer(m));
   Object.keys(mapMarkers).forEach(id => delete mapMarkers[id]);
@@ -1597,8 +1743,8 @@ function renderMap(properties){
   if (heroMap){
     properties.forEach((p) => {
       if (!p.lat || !p.lng) return;
-      // צבע הפין לפי סוג הנכס — תואם לצבעי כפתורי הטאב (קנייה/השכרה/מסחרי)
-      // מעל המפה, כדי שאפשר יהיה לזהות סוג נכס במבט חטוף גם בלי לפתוח פופאפ
+      // צבע הפין לפי סוג הנכס — תואם לצבע של בורר סוג העסקה בסרגל החיפוש
+      // (מכירה/השכרה/מסחרי), כדי לזהות סוג נכס במבט חטוף בלי לפתוח פופאפ
       const pinColor = p.category === 'commercial' ? 'var(--ink-soft)' : (p.deal_type === 'sale' ? 'var(--teal)' : 'var(--gold)');
       const icon = L.divIcon({
         className:'',
@@ -1609,22 +1755,23 @@ function renderMap(properties){
       m.bindPopup(`<strong>${p.title}</strong><br>${priceLabel(p)}<br><span style="color:#565C63">${p.agency_name||''}</span>`);
       mapMarkers[p.id] = m;
     });
+    fitMapToMarkers();
   }
-  // ה-fallback של המפה מחליף את תוכן .map-wrap, ולכן mapCount עשוי לא להתקיים
+  // ה-fallback של המפה מסתיר את .map-toolbar, ולכן mapCount עשוי לא להיות גלוי
   const mapCount = document.getElementById('mapCount');
-  if (mapCount) mapCount.textContent = `מציג ${properties.length} נכסים על המפה`;
+  if (mapCount) mapCount.textContent = `${properties.length} נכסים במפה`;
 }
 
 const mapExpandBtn = document.getElementById('mapExpandBtn');
 if (mapExpandBtn){
   mapExpandBtn.addEventListener('click', ()=>{
-    const expanded = document.querySelector('.map-wrap').classList.toggle('expanded');
-    mapExpandBtn.textContent = expanded ? 'הקטן את המפה ↑' : 'הצג נכסים על המפה ↓';
+    const expanded = document.getElementById('heroSection').classList.toggle('map-expanded');
+    mapExpandBtn.textContent = expanded ? 'הקטן מפה ↑' : 'הגדל מפה ↓';
     mapExpandBtn.setAttribute('aria-expanded', String(expanded));
-    // הגובה של #hero-map משתנה ע"י מעבר קלאס עם transition; Leaflet לא
-    // מזהה שינוי גודל של ה-container לבד, ובלי invalidateSize() האריחים
-    // נשארים חתוכים בגודל הישן עד לפעולת משתמש נוספת (כמו גרירה)
-    if (heroMap) setTimeout(()=> heroMap.invalidateSize(), 260);
+    // גובה ה-hero (ואיתו המפה שממלאת אותו) משתנה ע"י מעבר קלאס עם transition;
+    // Leaflet לא מזהה שינוי גודל של ה-container לבד, ובלי invalidateSize()
+    // האריחים נשארים חתוכים בגודל הישן עד לפעולת משתמש נוספת (כמו גרירה)
+    if (heroMap) setTimeout(()=>{ heroMap.invalidateSize({ pan:false }); fitMapToMarkers(); }, 320);
   });
 }
 
@@ -1750,15 +1897,23 @@ function initFilterModals(){
   });
 }
 
-document.querySelectorAll('.deal-tab').forEach(tab=>{
-  tab.addEventListener('click', ()=>{
-    document.querySelectorAll('.deal-tab').forEach(t=>{ t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
-    tab.classList.add('active'); tab.setAttribute('aria-selected','true');
-    searchState.activeTab = tab.dataset.mode;
-    // מריצים חיפוש מיידית עם מעבר טאב, כדי שהמפה (וגם הגריד) יסננו
-    // מיד לסוג הרלוונטי בלבד, בלי לחכות שהמשתמש ילחץ "חיפוש נכסים"
+// סוג העסקה נבחר מקונטיינר נפתח בתוך סרגל החיפוש (במקום שלושה טאבים).
+// data-mode על ה-select צובע אותו לפי הבחירה, בהתאמה לצבעי הפינים במפה.
+const dealTypeSelect = document.getElementById('dealTypeSelect');
+if (dealTypeSelect){
+  dealTypeSelect.addEventListener('change', ()=>{
+    searchState.activeTab = dealTypeSelect.value;
+    dealTypeSelect.dataset.mode = dealTypeSelect.value;
+    // מריצים חיפוש מיידית עם שינוי הבחירה, כדי שהמפה (וגם הגריד) יסננו
+    // מיד לסוג הרלוונטי בלבד, בלי לחכות שהמשתמש ילחץ "חיפוש"
     runSearch();
   });
+}
+
+// אנטר בתיבת החיפוש = לחיצה על כפתור החיפוש; במסכים צרים הכפתור מוצג
+// כאייקון בלבד, ובלי זה לא היה ברור איך מריצים חיפוש מהמקלדת
+document.getElementById('searchFreeText').addEventListener('keydown', (e)=>{
+  if (e.key === 'Enter'){ e.preventDefault(); runSearch(); }
 });
 
 function openModal(id){ document.getElementById(id).classList.add('open'); }
