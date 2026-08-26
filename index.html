@@ -293,44 +293,58 @@
     left:-4000px;top:-4000px;width:8000px;height:8000px;
     background:#2E7D5B;mix-blend-mode:multiply;opacity:0;transition:opacity .3s ease;
   }
-  body[data-map-style="nature"] .leaflet-pane.map-tint{opacity:.32}
-  body[data-map-style="nature"] #hero-map .leaflet-tile-pane{filter:saturate(1.15) contrast(1.02)}
+  /* כל כללי הפילטר/הילה/גוון שמתחת שייכים לפולבק OSM גולמי בלבד
+     ([data-map-source="osm"]) — הם "מציירים" סגנון על אריח לא-מעוצב.
+     כשיש מפתח MapTiler מוגדר (data-map-source="maptiler") האריח כבר
+     מגיע מעוצב מראש לכל סגנון, וכל הכללים האלה פשוט לא תופסים — ראו
+     ההסבר המלא ב-tileUrlFor/MAPTILER_KEY ב-JS. */
+  body[data-map-source="osm"][data-map-style="nature"] .leaflet-pane.map-tint{opacity:.32}
+  body[data-map-source="osm"][data-map-style="nature"] #hero-map .leaflet-tile-pane{filter:saturate(1.15) contrast(1.02)}
   /* "בהיר": קנבס אפור-רך מאותם אריחים — הצבעים יורדים כמעט לגמרי והמפה
      נסוגה לרקע, כך שהפינים והכרטיסים הם מה שבולט. */
-  body[data-map-style="light"] #hero-map .leaflet-tile-pane{filter:saturate(.16) brightness(1.06)}
+  body[data-map-source="osm"][data-map-style="light"] #hero-map .leaflet-tile-pane{filter:saturate(.16) brightness(1.06)}
 
-  /* ---- סגנון "לילה" (ברירת המחדל): מפה כהה עם רשת כבישים זוהרת ----
+  /* ---- סגנון "לילה" (ברירת המחדל) בפולבק OSM: מפה כהה עם רשת כבישים לבנה ----
      נגזר מאותם אריחי OSM כמו שאר הסגנונות, בשלוש שכבות:
      1) פילטר "חלון צר" על אריחי המפה. במפת OSM בהירה הכבישים הם הדבר
         הבהיר ביותר (לבן, 255) והיבשה ממש מתחתיהם (~240) — הפרש של 6%
         בלבד. brightness(.508) מציב את הלבן ממש מעל ציר ה-contrast ואת
         היבשה מתחתיו, ואז contrast(30) פותח את הפער לקצוות: יבשה נמחצת
-        לשחור, כבישים נשארים כקווים בהירים. sepia+hue-rotate+saturate
-        צובעים את הקווים בתכלת. חשוב: הערך .508 יושב בתוך חלון צר
-        (~.50–.515) — מעליו היבשה עצמה מתחילה להאיר והמפה נשטפת בתכלת.
-     2) .map-glow — אותה שכבת אריחים, מטושטשת ובמיזוג screen, שיוצרת את
-        ההילה סביב הקווים. אותה כתובת URL, כלומר פגיעת מטמון ולא בקשת רשת.
+        לשחור, כבישים נשארים כקווים בהירים. אין כאן צביעה (לא sepia/
+        hue-rotate) — הכבישים נשארים בגוון אפור-לבן טבעי. brightness(1.5)
+        הנוסף בסוף השרשרת מכפיל את כל הערכים: יבשה שכבר אופסה ל-0 נשארת 0
+        (0 כפול כל מספר הוא 0, כך שהיא לא "נפתחת" מחדש), בעוד שהכבישים
+        שנותרו עם ערך חיובי נדחפים כמעט עד לבן טהור (255) — כך הרקע נשאר
+        אפל וקטום לגמרי אבל הכבישים בהירים משמעותית מהגרסה בלי הכפל הזה.
+        חשוב: הערך .508 יושב בתוך חלון צר (~.50–.515) — מעליו היבשה עצמה
+        מתחילה להאיר והמפה נשטפת בלבן.
+     2) .map-glow — אותה שכבת אריחים, מטושטשת ובמיזוג screen, שיוצרת הילה
+        לבנה-רכה סביב הקווים. אותה כתובת URL, כלומר פגיעת מטמון ולא בקשת
+        רשת.
      3) .map-tint במיזוג lighten — מרימה את השחור לכחול-לילה. הצבע כאן הוא
         מה שקובע כמה הרקע כהה: ככל שהוא בהיר יותר כך המפה פחות "חור שחור",
-        וכל עוד הוא נשאר מתחת לתכלת של הקווים ההילה לא נפגעת.
+        וכל עוד הוא נשאר כהה משמעותית מהכבישים הלבנים הניגוד לא נפגע.
      הפינים יושבים ב-markerPane (z-index 600) מעל כל אלה, ולכן צבעי המחירים
      נשארים מדויקים. */
-  body[data-map-style="night"] #hero-map{background:#1E3050}
-  body[data-map-style="night"] #hero-map .leaflet-tile-pane{
-    filter:grayscale(1) brightness(.508) contrast(30) sepia(1) hue-rotate(158deg) saturate(8);
+  /* הרקע הכהה של #hero-map (הצבע שנראה רגע לפני שהאריחים נטענים, ומתחת
+     לשוליים השקופים שלהם) לא מסויג ל-osm בלבד — הוא נכון גם תחת MapTiler,
+     ש-dark-matter שלו כהה בדיוק באותו טווח. */
+  body[data-map-style="night"] #hero-map{background:#2C4570}
+  body[data-map-source="osm"][data-map-style="night"] #hero-map .leaflet-tile-pane{
+    filter:grayscale(1) brightness(.508) contrast(30) brightness(1.5);
   }
   .leaflet-pane.map-glow{z-index:240;pointer-events:none;display:none}
-  body[data-map-style="night"] .leaflet-pane.map-glow{
-    display:block;mix-blend-mode:screen;opacity:.65;
-    filter:grayscale(1) brightness(.508) contrast(30) sepia(1) hue-rotate(158deg) saturate(8) blur(5px);
+  body[data-map-source="osm"][data-map-style="night"] .leaflet-pane.map-glow{
+    display:block;mix-blend-mode:screen;opacity:.6;
+    filter:grayscale(1) brightness(.508) contrast(30) brightness(1.5) blur(5px);
   }
-  body[data-map-style="night"] .leaflet-pane.map-tint{
-    background:#1E3050;mix-blend-mode:lighten;opacity:1;
+  body[data-map-source="osm"][data-map-style="night"] .leaflet-pane.map-tint{
+    background:#2C4570;mix-blend-mode:lighten;opacity:1;
   }
   body[data-map-style="night"] .leaflet-control-attribution{
-    background:rgba(30,48,80,.75) !important;color:#B9CDE4 !important;
+    background:rgba(44,69,112,.75) !important;color:#D7E0EC !important;
   }
-  body[data-map-style="night"] .leaflet-control-attribution a{color:#B9CDE4 !important}
+  body[data-map-style="night"] .leaflet-control-attribution a{color:#D7E0EC !important}
 
   /* תווית המחיר על המפה.
      position:absolute הוא לא קישוט: ל-divIcon יש iconSize של 0×0, ולכן
@@ -1993,23 +2007,51 @@ function isPlacementLive(p, today){
 let heroMap = null;
 let heroTiles = null;
 
-/* ספק אריחים אחד לכל ארבעת הסגנונות.
+/* ספק האריחים.
    קודם כל סגנון משך אריחים משלו מ-CARTO; מאז ש-CARTO דורשים מפתח API הם
-   חוזרים עם הכיתוב "API KEY REQUIRED" חרוט על כל אריח. כאן כל הסגנונות
-   נגזרים מאריחי OpenStreetMap הסטנדרטיים בעזרת פילטרים ב-CSS בלבד, ולכן:
-   (1) אין תלות במפתח, (2) מעבר בין סגנונות לא עולה ולו בקשת רשת אחת —
-   אלה בדיוק אותם אריחים, רק עיבוד אחר מעליהם.
-   להחלפת ספק בעתיד (CARTO/MapTiler/Stadia עם מפתח) — זו השורה היחידה
-   שצריך לשנות, בתוספת ה-attribution שלו. שימו לב שמדיניות השימוש של שרת
-   האריחים הציבורי של OSM מיועדת לתעבורה צנועה. */
-const MAP_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-const MAP_TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+   חוזרים עם הכיתוב "API KEY REQUIRED" חרוט על כל אריח.
+
+   שני מצבים אפשריים, לפי MAPTILER_KEY למטה:
+
+   • MAPTILER_KEY ריק (ברירת המחדל) — כל הסגנונות נגזרים מאריחי
+     OpenStreetMap הגולמיים בעזרת פילטרים ב-CSS בלבד (ראו .map-tint/
+     .map-glow/הפילטרים לפי data-map-style ב-<style>). אין תלות במפתח,
+     אבל שמות הרחובות על האריח עצמו לא ממש קריאים בסגנון "לילה": האותיות
+     כהות מכדי לשרוד את פילטר הניגודיות שמבודד את קווי הכביש, ונשארת רק
+     הילה בהירה סביבן. שימו לב גם ששרת האריחים הציבורי של OSM מיועד
+     לתעבורה צנועה.
+
+   • MAPTILER_KEY מוגדר — המפה עוברת לאריחים מעוצבים מראש מ-MapTiler
+     (הוסטינג רשמי, כולל חינמי, לאותם סגנונות "Positron"/"Dark Matter"/
+     "Voyager" ש-CARTO תכנן במקור) — כולל שמות רחובות קריאים בצבע בהיר,
+     מובנים בעיצוב הסגנון הכהה עצמו. במצב הזה כל הפילטרים/הילה/גוון
+     ב-CSS מנוטרלים (מסוננים לפי [data-map-source="osm"]) כדי לא "לעבד
+     יתר על המידה" אריח שכבר מעוצב מקצועית.
+     קבלת מפתח חינמי: cloud.maptiler.com → הרשמה → Account → Keys, והדבקה
+     כאן. המכסה החינמית (כ-100,000 טעינות אריח/חודש בזמן כתיבת השורות
+     האלה) מספיקה בנוחות לאתר מקומי כמו זה. */
+const MAPTILER_KEY = '';
+
+const OSM_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const OSM_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+// המיפוי בין הסגנון באתר לסגנון המקביל אצל MapTiler
+const MAPTILER_STYLE_ID = { night:'dark-matter', nature:'voyager', classic:'voyager', light:'positron' };
+const MAPTILER_ATTRIBUTION = '&copy; <a href="https://www.maptiler.com/copyright/" target="_blank">MapTiler</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors';
 const MAP_TILE_MAX_ZOOM = 19;
+const MAP_TILE_SOURCE = MAPTILER_KEY ? 'maptiler' : 'osm';
+
+function tileUrlFor(style){
+  if (MAP_TILE_SOURCE === 'maptiler'){
+    return `https://api.maptiler.com/maps/${MAPTILER_STYLE_ID[style]}/{z}/{x}/{y}.png?key=${MAPTILER_KEY}`;
+  }
+  return OSM_TILE_URL; // אותה כתובת לכל הסגנונות — ההבדל הוא פילטר ב-CSS בלבד
+}
 
 const MAP_STYLES = ['night','nature','classic','light'];
 const DEFAULT_MAP_STYLE = 'night';
-// שכבת ההילה של סגנון "לילה" — אותה כתובת אריחים כמו השכבה הראשית, ולכן
-// היא נשענת על מטמון הדפדפן ולא מכפילה את תעבורת המפה בפועל.
+// שכבת ההילה של סגנון "לילה" בפולבק — קיימת רק כשהמקור הוא OSM גולמי,
+// ראו ההסבר למעלה. אותה כתובת אריחים כמו השכבה הראשית, ולכן היא נשענת
+// על מטמון הדפדפן ולא מכפילה את תעבורת המפה בפועל.
 let glowTiles = null;
 
 function applyMapStyle(style){
@@ -2018,11 +2060,13 @@ function applyMapStyle(style){
   document.querySelectorAll('.map-style-switch button').forEach(b=>{
     b.classList.toggle('active', b.dataset.mapStyle === style);
   });
+  if (heroTiles) heroTiles.setUrl(tileUrlFor(style));
   // מוסיפים/מסירים את שכבת ההילה בפועל ולא רק מסתירים אותה ב-CSS, כדי
-  // שסגנון שאינו "לילה" לא ימשיך למשוך אריחים שאיש לא רואה.
-  if (heroMap && window.L){
+  // שסגנון שאינו "לילה" לא ימשיך למשוך אריחים שאיש לא רואה. לא רלוונטי
+  // כשהמקור הוא MapTiler — האריח כבר מעוצב, בלי הצורך בהילה סינתטית.
+  if (heroMap && window.L && MAP_TILE_SOURCE === 'osm'){
     if (style === 'night'){
-      if (!glowTiles) glowTiles = L.tileLayer(MAP_TILE_URL, { pane:'glowPane', maxZoom:MAP_TILE_MAX_ZOOM });
+      if (!glowTiles) glowTiles = L.tileLayer(OSM_TILE_URL, { pane:'glowPane', maxZoom:MAP_TILE_MAX_ZOOM });
       if (!heroMap.hasLayer(glowTiles)) glowTiles.addTo(heroMap);
     } else if (glowTiles && heroMap.hasLayer(glowTiles)){
       heroMap.removeLayer(glowTiles);
@@ -2038,9 +2082,11 @@ if (!MAP_STYLES.includes(savedMapStyle)) savedMapStyle = DEFAULT_MAP_STYLE;
 try {
   if (!window.L) throw new Error('Leaflet לא נטען (CDN חסום/נכשל)');
 
+  document.body.dataset.mapSource = MAP_TILE_SOURCE;
   heroMap = L.map('hero-map', { scrollWheelZoom:false, zoomControl:false }).setView([32.6078, 35.2897], 13);
-  heroTiles = L.tileLayer(MAP_TILE_URL, {
-    attribution:MAP_TILE_ATTRIBUTION, maxZoom:MAP_TILE_MAX_ZOOM
+  heroTiles = L.tileLayer(tileUrlFor(savedMapStyle), {
+    attribution: MAP_TILE_SOURCE === 'maptiler' ? MAPTILER_ATTRIBUTION : OSM_ATTRIBUTION,
+    maxZoom:MAP_TILE_MAX_ZOOM,
   }).addTo(heroMap);
   // כל החלק העליון של המפה מוסתר ע"י סרגל החיפוש הצף, ולכן פקדי הזום יורדים
   // לתחתית: הזום בצד אחד, הקרדיטים בשני, ו-.map-toolbar במרכז ביניהם
@@ -2050,8 +2096,9 @@ try {
   heroMap.on('blur', ()=> heroMap.scrollWheelZoom.disable());
 
   // שכבת ההילה של "לילה" יושבת בין האריחים (200) לשכבת הגוון (250) — ראו
-  // ה-z-index של .map-glow ב-CSS. היא נוצרת תמיד, אבל אריחים נטענים אליה
-  // רק כשהסגנון הפעיל הוא "לילה" (applyMapStyle).
+  // ה-z-index של .map-glow ב-CSS. היא נוצרת תמיד (זול, pane ריק), אבל
+  // אריחים נטענים אליה רק כשהמקור הוא OSM והסגנון הפעיל הוא "לילה"
+  // (applyMapStyle).
   heroMap.createPane('glowPane').classList.add('map-glow');
 
   const tintPane = heroMap.createPane('tintPane');
