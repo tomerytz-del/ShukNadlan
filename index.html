@@ -299,38 +299,44 @@
      נסוגה לרקע, כך שהפינים והכרטיסים הם מה שבולט. */
   body[data-map-style="light"] #hero-map .leaflet-tile-pane{filter:saturate(.16) brightness(1.06)}
 
-  /* ---- סגנון "לילה" (ברירת המחדל): מפה כהה עם רשת כבישים זוהרת ----
+  /* ---- סגנון "לילה" (ברירת המחדל): מפה כהה עם רשת כבישים לבנה ----
      נגזר מאותם אריחי OSM כמו שאר הסגנונות, בשלוש שכבות:
      1) פילטר "חלון צר" על אריחי המפה. במפת OSM בהירה הכבישים הם הדבר
         הבהיר ביותר (לבן, 255) והיבשה ממש מתחתיהם (~240) — הפרש של 6%
         בלבד. brightness(.508) מציב את הלבן ממש מעל ציר ה-contrast ואת
         היבשה מתחתיו, ואז contrast(30) פותח את הפער לקצוות: יבשה נמחצת
-        לשחור, כבישים נשארים כקווים בהירים. sepia+hue-rotate+saturate
-        צובעים את הקווים בתכלת. חשוב: הערך .508 יושב בתוך חלון צר
-        (~.50–.515) — מעליו היבשה עצמה מתחילה להאיר והמפה נשטפת בתכלת.
-     2) .map-glow — אותה שכבת אריחים, מטושטשת ובמיזוג screen, שיוצרת את
-        ההילה סביב הקווים. אותה כתובת URL, כלומר פגיעת מטמון ולא בקשת רשת.
+        לשחור, כבישים נשארים כקווים בהירים. אין כאן צביעה (לא sepia/
+        hue-rotate) — הכבישים נשארים בגוון אפור-לבן טבעי. brightness(1.5)
+        הנוסף בסוף השרשרת מכפיל את כל הערכים: יבשה שכבר אופסה ל-0 נשארת 0
+        (0 כפול כל מספר הוא 0, כך שהיא לא "נפתחת" מחדש), בעוד שהכבישים
+        שנותרו עם ערך חיובי נדחפים כמעט עד לבן טהור (255) — כך הרקע נשאר
+        אפל וקטום לגמרי אבל הכבישים בהירים משמעותית מהגרסה בלי הכפל הזה.
+        חשוב: הערך .508 יושב בתוך חלון צר (~.50–.515) — מעליו היבשה עצמה
+        מתחילה להאיר והמפה נשטפת בלבן.
+     2) .map-glow — אותה שכבת אריחים, מטושטשת ובמיזוג screen, שיוצרת הילה
+        לבנה-רכה סביב הקווים. אותה כתובת URL, כלומר פגיעת מטמון ולא בקשת
+        רשת.
      3) .map-tint במיזוג lighten — מרימה את השחור לכחול-לילה. הצבע כאן הוא
         מה שקובע כמה הרקע כהה: ככל שהוא בהיר יותר כך המפה פחות "חור שחור",
-        וכל עוד הוא נשאר מתחת לתכלת של הקווים ההילה לא נפגעת.
+        וכל עוד הוא נשאר כהה משמעותית מהכבישים הלבנים הניגוד לא נפגע.
      הפינים יושבים ב-markerPane (z-index 600) מעל כל אלה, ולכן צבעי המחירים
      נשארים מדויקים. */
-  body[data-map-style="night"] #hero-map{background:#1E3050}
+  body[data-map-style="night"] #hero-map{background:#2C4570}
   body[data-map-style="night"] #hero-map .leaflet-tile-pane{
-    filter:grayscale(1) brightness(.508) contrast(30) sepia(1) hue-rotate(158deg) saturate(8);
+    filter:grayscale(1) brightness(.508) contrast(30) brightness(1.5);
   }
   .leaflet-pane.map-glow{z-index:240;pointer-events:none;display:none}
   body[data-map-style="night"] .leaflet-pane.map-glow{
-    display:block;mix-blend-mode:screen;opacity:.65;
-    filter:grayscale(1) brightness(.508) contrast(30) sepia(1) hue-rotate(158deg) saturate(8) blur(5px);
+    display:block;mix-blend-mode:screen;opacity:.6;
+    filter:grayscale(1) brightness(.508) contrast(30) brightness(1.5) blur(5px);
   }
   body[data-map-style="night"] .leaflet-pane.map-tint{
-    background:#1E3050;mix-blend-mode:lighten;opacity:1;
+    background:#2C4570;mix-blend-mode:lighten;opacity:1;
   }
   body[data-map-style="night"] .leaflet-control-attribution{
-    background:rgba(30,48,80,.75) !important;color:#B9CDE4 !important;
+    background:rgba(44,69,112,.75) !important;color:#D7E0EC !important;
   }
-  body[data-map-style="night"] .leaflet-control-attribution a{color:#B9CDE4 !important}
+  body[data-map-style="night"] .leaflet-control-attribution a{color:#D7E0EC !important}
 
   /* תווית המחיר על המפה.
      position:absolute הוא לא קישוט: ל-divIcon יש iconSize של 0×0, ולכן
