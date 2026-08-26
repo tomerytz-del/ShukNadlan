@@ -779,6 +779,32 @@
       </div>
     </details>
 
+    <!-- מוצג רק ל-is_mortgage_advisor. ראו loadDashboard() -->
+    <details class="acc" id="accMortgageShelf" style="display:none">
+      <summary>
+        <span class="acc-title">מדף לידי משכנתאות — רכישה</span>
+        <span class="acc-count" id="accMortgageShelfCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">פניות שהושארו במחשבון המשכנתא בדף הבית. הרכישה מנכה <b id="mortgageShelfPriceLabel">₪50</b> מיתרת הארנק וחושפת שם, טלפון ואימייל. כל ליד נמכר ליועצ/ת אחד/ת בלבד.</p>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <select id="mortgageOwnsFilter" style="flex:1;min-width:150px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
+            <option value="">כל הפונים</option>
+            <option value="no">דירה יחידה (אין דירה בבעלות)</option>
+            <option value="yes">יש דירה בבעלות</option>
+          </select>
+          <button type="button" class="btn btn-ghost" id="mortgageShelfRefreshBtn" style="white-space:nowrap">רענון</button>
+        </div>
+
+        <div id="mortgageShelfList"></div>
+
+        <div class="form-subheading">הלידים שרכשתי</div>
+        <div id="purchasedMortgageList"></div>
+      </div>
+    </details>
+
     <details class="acc" id="accPlanning">
       <summary>
         <span class="acc-title">מידע תכנוני על נכס (עפולה)</span>
@@ -1408,7 +1434,7 @@ async function loadDashboard(){
   // agency_members ל-agencies ומחזיר PGRST201 (HTTP 300) על כל embed כזה.
   const { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select('id, agency_id, display_name, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, phone')
+    .select('id, agency_id, display_name, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, is_mortgage_advisor, phone')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -1470,6 +1496,14 @@ async function loadDashboard(){
     document.getElementById('platformAdminSection').style.display = 'block';
     await loadNeighborhoodsAdmin();
     await loadRssSourcesAdmin();
+  }
+
+  // מדף לידי המשכנתאות פתוח רק ליועצ/ת משכנתאות. כמו managerSection, ה-display
+  // נקבע בשני הכיוונים כדי שהסרת הדגל תסתיר את המדף בלי לרענן את העמוד.
+  const mortgageAcc = document.getElementById('accMortgageShelf');
+  mortgageAcc.style.display = agent.is_mortgage_advisor ? 'block' : 'none';
+  if (agent.is_mortgage_advisor){
+    await loadMortgageShelf(agent.id);
   }
 
   renderDevMenu(agent);
@@ -1970,17 +2004,19 @@ toggleBillingBtn.addEventListener('click', async ()=>{
 
 async function loadBillingHistory(){
   billingHistoryList.innerHTML = '<div class="empty-state">טוען…</div>';
-  const [{ data: charges }, { data: promotions }, { data: topups }, { data: shelfPurchases }] = await Promise.all([
+  const [{ data: charges }, { data: promotions }, { data: topups }, { data: shelfPurchases }, { data: mortgagePurchases }] = await Promise.all([
     sb.from('lead_charges').select('amount, status, created_at').eq('agent_id', currentAgent.id).order('created_at', { ascending:false }).limit(10),
     sb.from('promotion_charges').select('amount, status, created_at').eq('agent_id', currentAgent.id).order('created_at', { ascending:false }).limit(10),
     sb.from('wallet_topups').select('amount, status, test_mode, created_at').eq('agent_id', currentAgent.id).order('created_at', { ascending:false }).limit(10),
     sb.from('rss_lead_purchases').select('amount, status, created_at').eq('agent_id', currentAgent.id).order('created_at', { ascending:false }).limit(10),
+    sb.from('mortgage_lead_purchases').select('amount, status, created_at').eq('agent_id', currentAgent.id).order('created_at', { ascending:false }).limit(10),
   ]);
   const items = [
     ...(charges||[]).map(c=>({ label:'פתיחת ליד', amount: -c.amount, status: c.status, date: c.created_at })),
     ...(promotions||[]).map(p=>({ label:'קידום נכס', amount: -p.amount, status: p.status, date: p.created_at })),
     ...(topups||[]).map(t=>({ label:'טעינת ארנק' + (t.test_mode ? ' (בדיקה)' : ''), amount: t.amount, status: t.status, date: t.created_at })),
     ...(shelfPurchases||[]).map(p=>({ label:'רכישת ליד מהמדף', amount: -p.amount, status: p.status, date: p.created_at })),
+    ...(mortgagePurchases||[]).map(p=>({ label:'רכישת ליד משכנתאות', amount: -p.amount, status: p.status, date: p.created_at })),
   ].sort((a,b)=> new Date(b.date) - new Date(a.date));
 
   if (items.length === 0){ billingHistoryList.innerHTML = '<div class="empty-state">אין עדיין היסטוריית חיובים.</div>'; return; }
@@ -4342,6 +4378,206 @@ document.getElementById('shelfSideFilter').addEventListener('change', renderLead
 document.getElementById('shelfCityFilter').addEventListener('change', renderLeadShelf);
 document.getElementById('shelfRefreshBtn').addEventListener('click', ()=> {
   if (currentAgent) loadLeadShelf(currentAgent.id);
+});
+
+/* ---------- Mortgage lead shelf: רכישת לידי ייעוץ משכנתאות ----------
+   אותה מכונה בדיוק כמו מדף ה-RSS למעלה, על מלאי אחר: הפניות שהושארו בטופס
+   של מחשבון המשכנתא בדף הבית. המדף נקרא מ-mortgage_leads_public — נתוני
+   המחשבון בלבד, בלי שם/טלפון/אימייל — והרכישה עוברת ב-Edge Function
+   mortgage-lead-purchase, כי גם כאן הטריגר protect_sensitive_agency_member_fields
+   מבטל שינוי credit_balance שלא הגיע מ-service_role.
+
+   הסקציה מוצגת רק ל-is_mortgage_advisor, וגם purchase_mortgage_lead עצמה
+   מסרבת לקונה שאינו מסומן כך — ה-gating בתצוגה הוא נוחות, לא הגנה.      */
+let mortgageLeadPrice = 50;
+let mortgageShelfLeads = [];
+
+async function loadMortgageShelf(agentId){
+  const listEl = document.getElementById('mortgageShelfList');
+  listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+
+  const { data: leads, error } = await sb
+    .from('mortgage_leads_public')
+    .select('*')
+    .eq('status', 'new')
+    .order('created_at', { ascending:false })
+    .limit(60);
+
+  mortgageLeadPrice = priceOf('mortgage_lead_price', 50);
+  document.getElementById('mortgageShelfPriceLabel').textContent = shekel(mortgageLeadPrice);
+
+  if (error){
+    const missing = /does not exist|schema cache/i.test(error.message || '');
+    listEl.innerHTML = '<div class="empty-state">' +
+      (missing ? 'מדף לידי המשכנתאות לא הופעל עדיין בפרויקט הזה.' : 'שגיאה בטעינת המדף: ' + esc(error.message)) +
+      '</div>';
+    accSetCount('accMortgageShelf', '');
+    return;
+  }
+
+  mortgageShelfLeads = leads || [];
+  accSetCount('accMortgageShelf', mortgageShelfLeads.length ? mortgageShelfLeads.length + ' זמינים' : '');
+  renderMortgageShelf();
+  await loadPurchasedMortgageLeads(agentId);
+}
+
+// מה שיועצ/ת צריכ/ה כדי להחליט אם הליד שווה ₪50, בלי לחשוף מי הפונה
+function mortgageMetaParts(lead){
+  return [
+    lead.property_price ? 'נכס ' + shekel(lead.property_price) : null,
+    lead.equity != null ? 'הון עצמי ' + shekel(lead.equity) : null,
+    lead.ltv_pct != null ? Math.round(lead.ltv_pct) + '% מימון' : null,
+    lead.years ? lead.years + ' שנים' : null,
+    lead.interest_rate != null ? 'ריבית ' + lead.interest_rate + '%' : null,
+  ].filter(Boolean);
+}
+
+// הסימון "יש ברשותי דירה" הוא ההבדל המקצועי המרכזי בליד: דירה יחידה מול
+// משפר/ת דיור או משקיע/ה — שתי תקרות מימון שונות לגמרי.
+function mortgageKind(lead){
+  return lead.owns_property
+    ? { cls:'kind-owner', icon:'🏘️', label:'יש דירה בבעלות · משפר/ת דיור או משקיע/ה' }
+    : { cls:'kind-buyer', icon:'🔑', label:'דירה יחידה' };
+}
+
+function renderMortgageShelf(){
+  const listEl = document.getElementById('mortgageShelfList');
+  const owns = document.getElementById('mortgageOwnsFilter').value;
+  const filtered = mortgageShelfLeads.filter(l =>
+    !owns || (owns === 'yes' ? l.owns_property === true : l.owns_property !== true));
+
+  if (filtered.length === 0){
+    listEl.innerHTML = '<div class="empty-state">' +
+      (mortgageShelfLeads.length === 0
+        ? 'אין כרגע לידים פנויים במדף.<br>לידים חדשים נכנסים מטופס מחשבון המשכנתא בדף הבית.'
+        : 'אין לידים שמתאימים לסינון הנוכחי.') +
+      '</div>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  filtered.forEach(lead => {
+    const kind = mortgageKind(lead);
+    const el = document.createElement('div');
+    el.className = 'card lead-card ' + kind.cls;
+    el.innerHTML = `
+      <div class="lead-top">
+        <div>
+          <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
+          <div class="lead-name">החזר חודשי מבוקש ${shekel(lead.monthly_payment)}</div>
+          <div class="lead-meta">${mortgageMetaParts(lead).map(esc).join(' · ') || '—'}</div>
+        </div>
+        <span class="status-pill status-masked">${shekel(mortgageLeadPrice)}</span>
+      </div>
+      <div class="lead-meta">${lead.has_email ? 'שם, טלפון ואימייל' : 'שם וטלפון'} · נוסף ${hebDate(lead.created_at)}</div>
+      <div class="lead-actions"></div>
+    `;
+    const buyBtn = document.createElement('button');
+    buyBtn.className = 'btn btn-gold';
+    buyBtn.textContent = `רכישה — ${shekel(mortgageLeadPrice)}`;
+    buyBtn.addEventListener('click', ()=> buyMortgageLead(lead, buyBtn));
+    el.querySelector('.lead-actions').appendChild(buyBtn);
+    listEl.appendChild(el);
+  });
+}
+
+async function loadPurchasedMortgageLeads(agentId){
+  const listEl = document.getElementById('purchasedMortgageList');
+  const { data: leads, error } = await sb
+    .from('mortgage_leads')
+    .select('id, full_name, phone, email, owns_property, property_price, equity, loan_amount, interest_rate, years, monthly_payment, ltv_pct, sold_at')
+    .eq('sold_to_agent_id', agentId)
+    .order('sold_at', { ascending:false });
+
+  if (error){
+    listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת הלידים שנרכשו: ' + esc(error.message) + '</div>';
+    return;
+  }
+  if (!leads || leads.length === 0){
+    listEl.innerHTML = '<div class="empty-state">עוד לא רכשת לידים מהמדף.</div>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  leads.forEach(lead => {
+    const kind = mortgageKind(lead);
+    const el = document.createElement('div');
+    el.className = 'card lead-card ' + kind.cls;
+    // ‏wa.me דורש מספר בינלאומי בלי + ובלי האפס המוביל
+    const waDigits = String(lead.phone).replace(/\D/g, '').replace(/^0/, '972');
+    el.innerHTML = `
+      <div class="lead-top">
+        <div>
+          <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
+          <div class="lead-name">${esc(lead.full_name)}</div>
+          <div class="lead-meta">${mortgageMetaParts(lead).map(esc).join(' · ') || '—'}</div>
+        </div>
+        <span class="status-pill status-unlocked">נרכש ${hebDate(lead.sold_at)}</span>
+      </div>
+      <div class="lead-meta">החזר חודשי מבוקש ${shekel(lead.monthly_payment)}${lead.loan_amount != null ? ' · סכום הלוואה ' + shekel(lead.loan_amount) : ''}</div>
+      <div class="lead-actions">
+        <a class="btn btn-gold" href="tel:${esc(lead.phone)}">${esc(lead.phone)}</a>
+        <a class="btn btn-ghost" href="https://wa.me/${esc(waDigits)}" target="_blank" rel="noopener noreferrer">וואטסאפ</a>
+        ${lead.email ? `<a class="btn btn-ghost" href="mailto:${esc(lead.email)}">${esc(lead.email)}</a>` : ''}
+      </div>
+    `;
+    listEl.appendChild(el);
+  });
+}
+
+async function buyMortgageLead(lead, btn){
+  const kind = mortgageKind(lead);
+  const approved = await confirmPurchase({
+    title: 'אישור רכישת ליד משכנתאות',
+    lines: [
+      `${kind.icon} ${kind.label}`,
+      `החזר חודשי מבוקש ${shekel(lead.monthly_payment)}`,
+      mortgageMetaParts(lead).join(' · '),
+      `הרכישה חושפת שם, טלפון${lead.has_email ? ' ואימייל' : ''}, ומשייכת את הליד אליך בלבד.`,
+    ].filter(Boolean),
+    price: mortgageLeadPrice,
+  });
+  if (!approved) return;
+
+  const leadId = lead.id;
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'רוכש…';
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/mortgage-lead-purchase', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      body: JSON.stringify({ lead_id: leadId }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      const errorMessages = {
+        insufficient_balance: `יתרה לא מספיקה — נדרש ${shekel(data.required)}. טענו את הארנק ונסו שוב`,
+        lead_already_sold: 'הליד כבר נמכר ליועצ/ת אחר/ת',
+        lead_not_available: 'הליד כבר לא זמין למכירה',
+        lead_not_found: 'הליד לא נמצא',
+        agent_inactive: 'החשבון אינו פעיל',
+        not_a_mortgage_advisor: 'החשבון אינו מסומן כיועצ/ת משכנתאות — פנו למנהל/ת הפלטפורמה',
+        no_matching_agent_profile: 'שגיאת הרשאה — אין פרופיל מקושר',
+      };
+      showToast(errorMessages[data.error] || ('שגיאה: ' + (data.error || 'לא ידועה')));
+      btn.disabled = false; btn.textContent = original;
+      return;
+    }
+    showToast(data.already_purchased
+      ? 'הליד כבר שלך — מופיע למטה תחת "הלידים שרכשתי"'
+      : `הליד נרכש! חויבת ${shekel(data.price_charged)}. פרטי הקשר מופיעים תחת "הלידים שרכשתי"`);
+    await loadDashboard();
+  } catch(err){
+    console.error(err);
+    showToast('שגיאת רשת — נסו שוב');
+    btn.disabled = false; btn.textContent = original;
+  }
+}
+
+document.getElementById('mortgageOwnsFilter').addEventListener('change', renderMortgageShelf);
+document.getElementById('mortgageShelfRefreshBtn').addEventListener('click', ()=> {
+  if (currentAgent) loadMortgageShelf(currentAgent.id);
 });
 
 /* ---------- שת"פ בין משרדי תיווך ----------
