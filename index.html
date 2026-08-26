@@ -252,7 +252,7 @@
      הפינה השמאלית התחתונה, שבה יושבים הקרדיטים של Leaflet וכפתור הנגישות
      הצף (.a11y-fab); בדסקטופ יש מספיק רוחב והוא ממורכז. */
   .map-toolbar{
-    position:absolute;bottom:22px;right:0;left:0;z-index:3;pointer-events:none;
+    position:absolute;bottom:34px;right:0;left:0;z-index:3;pointer-events:none;
     display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:6px;
     padding:0 10px 0 76px;
   }
@@ -262,7 +262,9 @@
     font-size:.72rem;font-weight:700;box-shadow:var(--shadow-sm);color:var(--ink);white-space:nowrap;
   }
   .map-style-switch{display:flex;background:rgba(255,255,255,.94);border-radius:999px;padding:3px;box-shadow:var(--shadow-sm)}
-  .map-style-switch button{padding:6px 10px;border-radius:999px;font-size:.72rem;font-weight:700;color:var(--ink-soft);white-space:nowrap}
+  /* ארבעה סגנונות במקום שלושה — הריפוד והפונט ירדו כדי שהסרגל ימשיך להיכנס
+     בשורה אחת לצד מונה הנכסים גם במסך טלפון צר */
+  .map-style-switch button{padding:6px 9px;border-radius:999px;font-size:.7rem;font-weight:700;color:var(--ink-soft);white-space:nowrap}
   .map-style-switch button.active{background:var(--teal);color:#fff}
   .map-expand-btn{
     background:rgba(255,255,255,.94);color:var(--teal);padding:7px 12px;border-radius:999px;
@@ -271,8 +273,10 @@
   .map-expand-btn:hover{color:var(--teal-dark)}
   /* פקדי הזום מיותרים במגע (פינץ' עושה את העבודה) ורק גוזלים רוחב מהסרגל */
   @media(max-width:759px){ .leaflet-control-zoom{display:none !important} }
-  /* מרימים את הפקדים של Leaflet מעל הסרגל הצף */
-  .leaflet-bottom.leaflet-right{bottom:44px}
+  /* מרימים את הפקדים של Leaflet מעל הסרגל הצף, ואת שניהם מעל הקצה המעוגל
+     של רצועת הקרוסלה שנכנסת מתחת למפה (.hot-band) */
+  .leaflet-bottom{bottom:18px}
+  .leaflet-bottom.leaflet-right{bottom:58px}
 
   /* שכבת הגוון "טבע": pane של Leaflet ב-z-index 250, כלומר מעל אריחי המפה
      (tilePane=200) ומתחת לפינים (markerPane=600) — כך פני השטח מוריקים אבל
@@ -288,6 +292,53 @@
   }
   body[data-map-style="nature"] .leaflet-pane.map-tint{opacity:.32}
   body[data-map-style="nature"] #hero-map .leaflet-tile-pane{filter:saturate(1.1) contrast(1.02)}
+
+  /* ---- סגנון "לילה" (ברירת המחדל): מפה כהה עם רשת כבישים זוהרת ----
+     אין ספק אריחים שמספק את המראה הזה מוכן, אז הוא מורכב משלוש שכבות מעל
+     אותם אריחי dark_matter:
+     1) פילטר צביעה על אריחי המפה — grayscale מנרמל את הגוונים, ואז
+        sepia+hue-rotate+saturate הופכים את הכבישים (שהם הפיקסלים הבהירים
+        באריח הכהה) לתכלת זוהר. זהו ה"קו הזורם" שבעיצוב.
+     2) .map-glow — אותה שכבת אריחים בדיוק, מטושטשת ובמיזוג screen, שיוצרת
+        את ההילה סביב הקווים. אותן כתובות URL כמו האריחים הרגילים, כלומר
+        פגיעות מטמון ולא בקשות רשת נוספות.
+     3) .map-tint במיזוג lighten — מרימה את השחור של הרקע לכחול-לילה עמוק
+        בלי לגעת בקווים הבהירים שמעליו.
+     הפינים יושבים ב-markerPane (z-index 600) מעל כל אלה, ולכן צבעי המחירים
+     נשארים מדויקים. */
+  body[data-map-style="night"] #hero-map{background:#07172B}
+  /* סדר הפילטרים חשוב: brightness *לפני* contrast. אריחי dark_matter כהים
+     מאוד (רקע ~#12151a, כבישים ~#3a3f46), ו-contrast לפני הבהרה היה מוחץ
+     גם את הכבישים אל השחור — מפה כחולה אחידה בלי קווים בכלל. ההבהרה מרימה
+     קודם את הכבישים לאמצע הטווח, ורק אז ה-contrast מרחיק אותם מהרקע. */
+  body[data-map-style="night"] #hero-map .leaflet-tile-pane{
+    filter:grayscale(1) brightness(2.3) contrast(1.6) sepia(1) hue-rotate(158deg) saturate(6);
+  }
+  .leaflet-pane.map-glow{z-index:240;pointer-events:none;display:none}
+  body[data-map-style="night"] .leaflet-pane.map-glow{
+    display:block;mix-blend-mode:screen;opacity:.5;
+    filter:grayscale(1) brightness(2.6) contrast(1.8) sepia(1) hue-rotate(158deg) saturate(7) blur(5px);
+  }
+  body[data-map-style="night"] .leaflet-pane.map-tint{
+    background:#0A1E38;mix-blend-mode:lighten;opacity:1;
+  }
+  body[data-map-style="night"] .leaflet-control-attribution{
+    background:rgba(7,23,43,.72) !important;color:#8FB6D6 !important;
+  }
+  body[data-map-style="night"] .leaflet-control-attribution a{color:#8FB6D6 !important}
+
+  /* תווית המחיר על המפה. הייתה inline ב-divIcon; כאן היא מקבלת גם הילה
+     תואמת בסגנון "לילה", שבלעדיה הפינים נראים כמו מדבקות שטוחות על רקע כהה. */
+  .map-pin{
+    background:var(--teal);color:#fff;padding:4px 8px;border-radius:8px;
+    font:700 11px/1.35 'Heebo',sans-serif;white-space:nowrap;
+    box-shadow:0 2px 6px rgba(0,0,0,.3);
+  }
+  /* על רקע כחול-לילה פין בצבע --teal כמעט נבלע במפה; טבעת לבנה דקה מחזירה
+     לו את ההפרדה בלי לשנות את צבעי הפינים עצמם (שמסמנים סוג עסקה). */
+  body[data-map-style="night"] .map-pin{
+    box-shadow:0 4px 14px rgba(0,0,0,.6), 0 0 0 1.5px rgba(255,255,255,.45);
+  }
   .leaflet-control-attribution{font-size:.62rem !important;background:rgba(255,255,255,.7) !important}
 
   @media(min-width:760px){
@@ -297,7 +348,7 @@
     .hero-overlay{padding:26px 0 64px}
     .hero-inner h1{font-size:2rem}
     .hero-inner p.lede{display:block}
-    .map-toolbar{bottom:16px;justify-content:center;flex-wrap:nowrap;padding:0 14px}
+    .map-toolbar{bottom:28px;justify-content:center;flex-wrap:nowrap;padding:0 14px}
   }
 
   /* ====== Newsflash ticker ====== */
@@ -390,6 +441,102 @@
     .owner-banner{padding:44px 32px}
     .owner-banner h2{font-size:1.9rem}
   }
+
+  /* ====== "נכסים חמים מהמפה" — קרוסלת coverflow מתחת למפה ======
+     הרצועה נכנסת 16px מתחת לקצה התחתון של המפה עם פינות מעוגלות, כך
+     שהמפה נראית כמו במה שהקרוסלה יושבת עליה (ולא כמו שתי קופסאות נפרדות).
+     z-index:4 מציב אותה מעל .map-toolbar (z-index:3), שהורחק כלפי מעלה
+     בדיוק בשביל החפיפה הזו. */
+  .hot-band{
+    position:relative;z-index:4;margin-top:-16px;
+    background:var(--paper-raised);border-radius:26px 26px 0 0;
+    padding:20px 0 22px;box-shadow:0 -12px 30px rgba(6,20,34,.20);
+  }
+  .hot-head{text-align:center;padding:0 16px;margin-bottom:6px}
+  .hot-head h2{font-size:1.16rem;line-height:1.35}
+  .hot-head .hot-sub{font-size:.76rem;color:var(--ink-soft);margin-top:5px}
+  .hot-head .see-all{display:inline-block;margin-top:8px}
+
+  /* הריפוד האופקי הוא חצי הרוחב של הקונטיינר פחות חצי כרטיס — בלי זה
+     scroll-snap-align:center לא יכול למרכז את הכרטיס הראשון והאחרון. */
+  .coverflow{
+    display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;
+    padding:14px calc(50% - 106px) 10px;
+    scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch;
+  }
+  .coverflow::-webkit-scrollbar{display:none}
+  .cf-card{
+    flex:0 0 212px;scroll-snap-align:center;cursor:pointer;
+    background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;
+    box-shadow:var(--shadow-sm);transform:scale(.9);opacity:.72;
+    transition:transform .28s ease, opacity .28s ease, box-shadow .28s ease, border-color .28s ease;
+  }
+  .cf-card.is-active{
+    transform:scale(1);opacity:1;border-color:#C9A227;
+    box-shadow:0 16px 34px -12px rgba(6,20,34,.36), 0 0 0 2px rgba(201,162,39,.5);
+  }
+  .cf-thumb{height:128px;background-size:cover;background-position:center;position:relative}
+  .cf-badge{
+    position:absolute;top:9px;right:9px;background:var(--teal);color:#fff;
+    font-size:.66rem;font-weight:800;padding:3px 10px;border-radius:6px;
+  }
+  .cf-card[data-deal="rent"] .cf-badge{background:var(--gold)}
+  .cf-card[data-deal="commercial"] .cf-badge{background:var(--ink-soft)}
+  .cf-body{padding:10px 12px 14px;text-align:center}
+  /* בכרטיס הפעיל המחיר הוא הגיבור ומחליף את הכותרת; בכרטיסים שבצדדים
+     הכותרת היא שמזהה את הנכס. אותו markup, רק תצוגה שונה. */
+  .cf-price{display:none;font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.3rem;color:var(--teal-dark)}
+  .cf-card.is-active .cf-price{display:block}
+  .cf-title{font-size:.83rem;color:var(--ink);line-height:1.35}
+  .cf-card.is-active .cf-title{display:none}
+  .cf-meta{
+    font-size:.74rem;color:var(--ink-soft);margin-top:5px;
+    display:flex;align-items:center;justify-content:center;gap:5px;
+  }
+  .cf-empty{width:100%;text-align:center;padding:26px 10px;color:var(--ink-soft);font-size:.85rem}
+
+  .cf-dots{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;padding:0 16px}
+  .cf-dots button{
+    width:7px;height:7px;border-radius:999px;background:var(--line);padding:0;
+    transition:width .25s ease, background .25s ease;
+  }
+  .cf-dots button.active{width:22px;background:var(--teal-dark)}
+
+  @media(min-width:760px){
+    .hot-band{margin-top:-20px;padding:26px 0 26px}
+    .hot-head h2{font-size:1.4rem}
+    .coverflow{gap:16px;padding:16px calc(50% - 124px) 12px}
+    .cf-card{flex:0 0 248px}
+    .cf-thumb{height:150px}
+  }
+
+  /* ====== שורת פרסומת בין הסקציות ====== */
+  .ad-strip{
+    display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;
+    background:var(--teal-tint);border:1px dashed var(--teal);border-radius:var(--radius-md);
+    padding:16px;font-size:.8rem;font-weight:700;color:var(--teal-dark);text-align:center;
+  }
+  .ad-strip .tag{
+    background:var(--paper-raised);border:1px solid var(--line);border-radius:6px;
+    padding:2px 8px;font-size:.68rem;
+  }
+  .ad-row{padding:14px 0}
+
+  /* ====== כתבות ובלוגים ====== */
+  .article-scroll{display:flex;gap:14px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x mandatory}
+  .article-card{
+    flex:0 0 250px;scroll-snap-align:start;background:#fff;border:1px solid var(--line);
+    border-radius:var(--radius-md);overflow:hidden;display:flex;flex-direction:column;
+  }
+  .article-card .cover{height:130px;background-size:cover;background-position:center}
+  .article-card .body{padding:12px;display:flex;flex-direction:column;gap:6px;flex:1}
+  .article-card .kicker{
+    align-self:flex-start;background:var(--gold-tint);color:var(--gold-dark);
+    font-size:.66rem;font-weight:800;padding:3px 9px;border-radius:6px;
+  }
+  .article-card h3{font-family:'Heebo',sans-serif;font-size:.9rem;font-weight:700;line-height:1.4;color:var(--ink)}
+  .article-card p{font-size:.78rem;color:var(--ink-soft);margin:0}
+  .article-card .stamp{font-size:.7rem;color:var(--ink-soft);margin-top:auto}
 
   /* ====== Featured / grid ====== */
   .featured-scroll{display:flex;gap:14px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x mandatory}
@@ -522,7 +669,16 @@
      שחור הורסים את יחס הניגודיות שכל המצב הזה נועד להבטיח */
   html.a11y-contrast .hero-overlay{background:#000 !important}
   html.a11y-contrast #hero-map{opacity:.25}
-  html.a11y-contrast .map-tint{display:none}
+  html.a11y-contrast .map-tint,
+  html.a11y-contrast .map-glow{display:none !important}
+  html.a11y-contrast #hero-map .leaflet-tile-pane{filter:none !important}
+  html.a11y-contrast .hot-band,
+  html.a11y-contrast .ad-strip,
+  html.a11y-contrast .cf-card,
+  html.a11y-contrast .article-card{background:#000 !important;border-color:#fff !important;color:#fff !important}
+  html.a11y-contrast .cf-badge,
+  html.a11y-contrast .article-card .kicker,
+  html.a11y-contrast .cf-dots button{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
 </style>
 </head>
 <body>
@@ -536,8 +692,9 @@
     </a>
     <nav class="primary" aria-label="ניווט ראשי">
       <a href="#listings">נכסים</a>
-      <a href="#featured">משרדי תיווך מובילים</a>
-      <a href="#pros">בעלי מקצוע</a>
+      <a href="#leadingAgencies">משרדי תיווך מובילים</a>
+      <a href="#commercialProps">מסחרי</a>
+      <a href="#articles">כתבות</a>
       <a href="#calc">מחשבון משכנתא</a>
     </nav>
     <div class="header-actions">
@@ -549,7 +706,10 @@
   </div>
   <nav id="mobileMenu" class="mobile-menu" aria-label="ניווט למובייל">
     <a href="#listings">נכסים</a>
-    <a href="#featured">משרדי תיווך מובילים</a>
+    <a href="#leadingAgencies">משרדי תיווך מובילים</a>
+    <a href="#commercialProps">נכסים מסחריים</a>
+    <a href="#leadingAgents">מתווכים מומלצים</a>
+    <a href="#articles">כתבות ובלוגים</a>
     <a href="#pros">בעלי מקצוע</a>
     <a href="#calc">מחשבון משכנתא</a>
     <a href="crm.html" class="btn btn-teal btn-block" style="margin-top:10px">כניסת מתווכים</a>
@@ -781,7 +941,8 @@
     <div class="map-toolbar">
       <span class="map-count" id="mapCount">6 נכסים במפה</span>
       <div class="map-style-switch" role="group" aria-label="סגנון המפה">
-        <button type="button" data-map-style="nature" class="active">טבע</button>
+        <button type="button" data-map-style="night" class="active">לילה</button>
+        <button type="button" data-map-style="nature">טבע</button>
         <button type="button" data-map-style="classic">קלאסי</button>
         <button type="button" data-map-style="light">בהיר</button>
       </div>
@@ -789,11 +950,122 @@
     </div>
   </section>
 
+  <!-- ====== קרוסלת "נכסים חמים מהמפה" ======
+       מוזנת מאותה רשימת נכסים שמזינה את המפה ואת גריד הנכסים: renderPropertyGrid()
+       קורא ל-renderMap() ול-renderHotCarousel() יחד, כך שחיפוש מעדכן את שלושתם
+       באותו רגע והקרוסלה תמיד מציגה בדיוק את מה שמסומן על המפה שמעליה. -->
+  <section class="hot-band" id="hotFromMap" aria-labelledby="hotFromMapTitle">
+    <div class="wrap">
+      <div class="hot-head">
+        <h2 id="hotFromMapTitle">נכסים חמים מהמפה — מהדורת פרימיום 2026</h2>
+        <p class="hot-sub" id="hotFromMapSub">גללו בין הנכסים המסומנים על המפה</p>
+        <a href="#listings" class="see-all" id="hotFromMapAll" hidden>כל התוצאות ברשימה ←</a>
+      </div>
+      <div class="coverflow" id="hotCarousel" role="region" aria-label="נכסים חמים מהמפה"></div>
+      <div class="cf-dots" id="hotCarouselDots" aria-label="מעבר בין נכסים"></div>
+    </div>
+  </section>
+
+  <!-- ====== שורת פרסומת ====== -->
+  <div class="ad-row wrap">
+    <div class="ad-strip"><span class="tag">פרסומת</span> מיקום פרסום — באנר רוחבי מתחת לנכסים החמים</div>
+  </div>
+
+  <!-- ====== Leading Agencies (module 3 §5.2) ====== -->
+  <section class="section wrap" id="leadingAgencies">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">מריטוקרטי, לא תלוי-מנוי</p>
+        <h2>משרדי תיווך מובילים בעפולה</h2>
+      </div>
+    </div>
+    <div class="featured-scroll" id="leadingAgenciesScroll"><!-- populated by JS --></div>
+  </section>
+
+  <!-- ====== נכסים מסחריים ====== -->
+  <section class="section wrap" id="commercialProps">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">משרדים, חנויות ומבני תעשייה</p>
+        <h2>נכסים מסחריים בעמק</h2>
+      </div>
+      <a href="#hotFromMap" class="see-all" id="commercialSeeAll">כל הנכסים המסחריים ←</a>
+    </div>
+    <div class="featured-scroll" id="commercialScroll"><!-- populated by JS --></div>
+  </section>
+
+  <!-- ====== Mortgage calculator ====== -->
+  <section class="section wrap" id="calc">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">כלי שימושי</p>
+        <h2>מחשבון משכנתא</h2>
+      </div>
+    </div>
+    <div class="card calc-card">
+      <div class="calc-grid">
+        <div class="calc-field">
+          <label for="calcPrice">מחיר הנכס (₪)</label>
+          <input type="number" id="calcPrice" value="1250000">
+        </div>
+        <div class="calc-field">
+          <label for="calcEquity">הון עצמי (₪)</label>
+          <input type="number" id="calcEquity" value="350000">
+        </div>
+        <div class="calc-field">
+          <label for="calcRate">ריבית שנתית (%)</label>
+          <input type="number" id="calcRate" value="4.8" step="0.1">
+        </div>
+        <div class="calc-field">
+          <label for="calcYears">שנות החזר</label>
+          <input type="number" id="calcYears" value="25">
+        </div>
+      </div>
+      <div class="calc-result">
+        <div class="num" id="calcMonthly">—</div>
+        <div class="lbl">החזר חודשי משוער</div>
+        <div class="lbl" id="calcLtvWarning" style="color:var(--brick);font-weight:700;margin-top:8px"></div>
+      </div>
+      <p style="font-size:.74rem;color:var(--ink-soft)">* הערכה בלבד ואינה מהווה הצעת מימון מחייבת. אחוזי המימון המקסימליים כפופים לנהלי בנק ישראל ועשויים להשתנות.</p>
+    </div>
+  </section>
+
+  <!-- ====== שורת פרסומת ====== -->
+  <div class="ad-row wrap">
+    <div class="ad-strip"><span class="tag">פרסומת</span> מיקום פרסום — באנר רוחבי מתחת למחשבון המשכנתא</div>
+  </div>
+
+  <!-- ====== Leading Agents (module 3 §5.1) ====== -->
+  <section class="section wrap" id="leadingAgents">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">מריטוקרטי, לא תלוי-מנוי</p>
+        <h2>מתווכים מומלצים בעפולה והעמק</h2>
+      </div>
+    </div>
+    <div class="featured-scroll" id="leadingAgentsScroll"><!-- populated by JS --></div>
+  </section>
+
+  <!-- ====== כתבות ובלוגים ====== -->
+  <section class="section wrap" id="articles">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">מגזין שוק נדל״ן</p>
+        <h2>כתבות ובלוגים</h2>
+      </div>
+    </div>
+    <div class="article-scroll" id="articlesScroll"><!-- populated by JS --></div>
+  </section>
+
+  <!-- ====== שורת פרסומת ====== -->
+  <div class="ad-row wrap">
+    <div class="ad-strip"><span class="tag">פרסומת</span> מיקום פרסום — באנר רוחבי מתחת לכתבות</div>
+  </div>
+
   <!-- ====== Property grid ====== -->
-  <!-- מוצג מיד מתחת למפה, לפני שאר סקציות עמוד הבית: כשמחפשים נכסים
-       (runSearch) התוצאות מתעדכנות כאן ובמפה יחד (ראו renderPropertyGrid),
-       וכך רואים אותן בלי לגלול קודם דרך המבזק/באנר בעלי-נכסים/מתווכים
-       מובילים/נכסים מקודמים. -->
+  <!-- הרשימה המלאה. תוצאות חיפוש (runSearch) מתעדכנות כאן, במפה ובקרוסלה
+       שמתחתיה יחד (ראו renderPropertyGrid); הקישור "כל התוצאות ברשימה"
+       שנפתח בקרוסלה בזמן חיפוש מוביל לכאן. -->
   <section class="section wrap" id="listings">
     <div class="section-head">
       <div>
@@ -912,28 +1184,6 @@
     </div>
   </div>
 
-  <!-- ====== Leading Agencies (module 3 §5.2) ====== -->
-  <section class="section wrap" id="leadingAgencies">
-    <div class="section-head">
-      <div>
-        <p class="eyebrow">מריטוקרטי, לא תלוי-מנוי</p>
-        <h2>משרדי תיווך מובילים בעפולה</h2>
-      </div>
-    </div>
-    <div class="featured-scroll" id="leadingAgenciesScroll"><!-- populated by JS --></div>
-  </section>
-
-  <!-- ====== Leading Agents (module 3 §5.1) ====== -->
-  <section class="section wrap" id="leadingAgents">
-    <div class="section-head">
-      <div>
-        <p class="eyebrow">מריטוקרטי, לא תלוי-מנוי</p>
-        <h2>מתווכים מובילים בעפולה והעמק</h2>
-      </div>
-    </div>
-    <div class="featured-scroll" id="leadingAgentsScroll"><!-- populated by JS --></div>
-  </section>
-
   <!-- ====== Featured (Premium rotation) ====== -->
   <section class="section wrap" id="featured">
     <div class="section-head">
@@ -944,42 +1194,6 @@
       <a href="#" class="see-all">כל הנכסים ←</a>
     </div>
     <div class="featured-scroll" id="featuredScroll"><!-- populated by JS --></div>
-  </section>
-
-  <!-- ====== Mortgage calculator ====== -->
-  <section class="section wrap" id="calc">
-    <div class="section-head">
-      <div>
-        <p class="eyebrow">כלי שימושי</p>
-        <h2>מחשבון משכנתא</h2>
-      </div>
-    </div>
-    <div class="card calc-card">
-      <div class="calc-grid">
-        <div class="calc-field">
-          <label for="calcPrice">מחיר הנכס (₪)</label>
-          <input type="number" id="calcPrice" value="1250000">
-        </div>
-        <div class="calc-field">
-          <label for="calcEquity">הון עצמי (₪)</label>
-          <input type="number" id="calcEquity" value="350000">
-        </div>
-        <div class="calc-field">
-          <label for="calcRate">ריבית שנתית (%)</label>
-          <input type="number" id="calcRate" value="4.8" step="0.1">
-        </div>
-        <div class="calc-field">
-          <label for="calcYears">שנות החזר</label>
-          <input type="number" id="calcYears" value="25">
-        </div>
-      </div>
-      <div class="calc-result">
-        <div class="num" id="calcMonthly">—</div>
-        <div class="lbl">החזר חודשי משוער</div>
-        <div class="lbl" id="calcLtvWarning" style="color:var(--brick);font-weight:700;margin-top:8px"></div>
-      </div>
-      <p style="font-size:.74rem;color:var(--ink-soft)">* הערכה בלבד ואינה מהווה הצעת מימון מחייבת. אחוזי המימון המקסימליים כפופים לנהלי בנק ישראל ועשויים להשתנות.</p>
-    </div>
   </section>
 
   <!-- ====== Professionals ====== -->
@@ -1436,7 +1650,7 @@ async function loadProperties(){
   try{
     const { data, error } = await sb
       .from('properties')
-      .select('id, price, title, rooms, property_type, deal_type, category, lat, lng, is_promoted, promoted_until, images, agencies(name)')
+      .select('id, price, title, rooms, size_sqm, city, property_type, deal_type, category, lat, lng, is_promoted, promoted_until, images, agencies(name)')
       .eq('status', 'active')
       .limit(12);
     if (error || !data || data.length === 0) throw error || new Error('empty');
@@ -1558,6 +1772,124 @@ async function loadLeadingAgents(){
   });
 })();
 
+/* ---------- נכסים מסחריים ---------- */
+/* אותה מדיניות כמו FALLBACK_PROPERTIES: תוכן הדגמה נכנס רק כשה-DB לא זמין
+   או מחזיר ריק, כדי שהעמוד לא ייראה שבור בהדגמה/במצב לא מקוון.          */
+const FALLBACK_COMMERCIAL = [
+  {id:'c1', price:8500, title:'משרד 85 מ״ר במרכז העסקים, עפולה', rooms:3, size_sqm:85, city:'עפולה', property_type:'משרדים', deal_type:'rent', category:'commercial', agency_name:'נדל״ן גלבוע'},
+  {id:'c2', price:1750000, title:'חנות ברחוב הראשי, חזית לרחוב', rooms:null, size_sqm:64, city:'עפולה', property_type:'חנויות/שטח מסחרי', deal_type:'sale', category:'commercial', agency_name:'משרד תיווך העמק'},
+  {id:'c3', price:12000, title:'מבנה תעשייה באזור התעסוקה', rooms:null, size_sqm:320, city:'עפולה עילית', property_type:'מבני תעשייה', deal_type:'rent', category:'commercial', agency_name:'בית ונחלה'},
+  {id:'c4', price:640000, title:'קליניקה מרווחת עם חניה צמודה', rooms:2, size_sqm:52, city:'עפולה', property_type:'קליניקות', deal_type:'sale', category:'commercial', agency_name:'נדל״ן גלבוע'},
+];
+
+async function loadCommercialProperties(){
+  if (!sb) return FALLBACK_COMMERCIAL;
+  try{
+    const { data, error } = await sb
+      .from('properties')
+      .select('id, price, title, rooms, size_sqm, city, property_type, deal_type, category, images, is_promoted, promoted_until, agencies(name)')
+      .eq('status', 'active')
+      .eq('category', 'commercial')
+      .limit(10);
+    if (error || !data || data.length === 0) throw error || new Error('empty');
+    return data.map(p => ({...p, agency_name: p.agencies?.name || ''}));
+  } catch(e){
+    console.warn('טעינת נכסים מסחריים נכשלה, משתמש בנתוני fallback:', e);
+    return FALLBACK_COMMERCIAL;
+  }
+}
+
+(async function initCommercialProperties(){
+  const el = document.getElementById('commercialScroll');
+  if (!el) return;
+  const items = await loadCommercialProperties();
+  items.forEach((p, i)=>{
+    const card = document.createElement('div');
+    card.className = 'prop-card';
+    card.style.cursor = 'pointer';
+    card.innerHTML = `
+      <div class="thumb" style="${thumbStyle(p, i)}">${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
+      <div class="body">
+        <div class="price">${priceLabel(p)}</div>
+        <div class="title">${p.title}</div>
+        <div class="meta"><span>${p.property_type}</span><span>${p.size_sqm ? p.size_sqm + ' מ״ר' : (p.city || '')}</span></div>
+      </div>`;
+    card.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
+    el.appendChild(card);
+  });
+})();
+
+/* "כל הנכסים המסחריים" מריץ את החיפוש הרגיל במצב מסחרי במקום לקשר לעמוד
+   שעדיין לא קיים — כך המפה, הקרוסלה והרשימה מסתננים יחד למסחרי בלבד. */
+document.getElementById('commercialSeeAll')?.addEventListener('click', (e)=>{
+  const select = document.getElementById('dealTypeSelect');
+  if (!select) return;
+  e.preventDefault();
+  select.value = 'commercial';
+  select.dispatchEvent(new Event('change'));
+  document.getElementById('hotFromMap')?.scrollIntoView({ behavior:'smooth', block:'start' });
+});
+
+/* ---------- כתבות ובלוגים ---------- */
+const FALLBACK_ARTICLES = [
+  {title:'מדריך: כמה הון עצמי באמת צריך לדירה ראשונה בעפולה', kicker:'מדריכים', excerpt:'הכללים של בנק ישראל, העלויות הנלוות שאף אחד לא מספר עליהן, ואיך מחשבים נכון.'},
+  {title:'שכונת גבעת המורה — לאן הולכים המחירים ב-2026', kicker:'ניתוח שוק', excerpt:'שלוש שנים של עסקאות, פרויקטים בבנייה והשפעת הרכבת על הביקוש.'},
+  {title:'בלעדיות מול פרסום פתוח: מה באמת משתלם למוכרים', kicker:'בלוג המתווכים', excerpt:'מה אומרים הנתונים על זמן מכירה ועל הפער בין מחיר מבוקש למחיר בפועל.'},
+  {title:'חמישה דברים לבדוק לפני שחותמים על חוזה שכירות', kicker:'שוכרים', excerpt:'ערבויות, תיקונים, מדד וצמדות — הסעיפים ששווה לקרוא פעמיים.'},
+];
+
+async function loadArticles(){
+  if (!sb) return FALLBACK_ARTICLES;
+  try{
+    // select('*') בכוונה: הטבלה משותפת עם המבזק ועשויה להכיל שדות תוכן
+    // נוספים (תקציר, תמונה, קישור) שלא כולם קיימים בכל סביבה — קוראים
+    // מה שיש ונופלים חזרה לברירות מחדל על מה שאין.
+    const { data, error } = await sb
+      .from('news_items')
+      .select('*')
+      .order('published_at', { ascending:false })
+      .limit(8);
+    if (error || !data || data.length === 0) throw error || new Error('empty');
+    return data.map(n => ({
+      title: n.headline || n.title || 'כתבה',
+      kicker: n.category || n.source_name || 'חדשות הנדל״ן',
+      excerpt: n.summary || n.description || '',
+      url: n.url || n.link || '',
+      image: n.image_url || n.image || '',
+      published_at: n.published_at,
+    }));
+  } catch(e){
+    console.warn('טעינת כתבות נכשלה, משתמש בנתוני fallback:', e);
+    return FALLBACK_ARTICLES;
+  }
+}
+
+(async function initArticles(){
+  const el = document.getElementById('articlesScroll');
+  if (!el) return;
+  const articles = await loadArticles();
+  articles.forEach((a, i)=>{
+    const card = document.createElement(a.url ? 'a' : 'article');
+    card.className = 'article-card';
+    if (a.url){ card.href = a.url; card.target = '_blank'; card.rel = 'noopener'; }
+    const cover = a.image
+      ? `background-image:url('${a.image}')`
+      : `background:${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}`;
+    const stamp = a.published_at
+      ? new Date(a.published_at).toLocaleDateString('he-IL', { day:'numeric', month:'long', year:'numeric' })
+      : 'מגזין שוק נדל״ן';
+    card.innerHTML = `
+      <div class="cover" style="${cover}"></div>
+      <div class="body">
+        <span class="kicker">${a.kicker}</span>
+        <h3>${a.title}</h3>
+        ${a.excerpt ? `<p>${a.excerpt}</p>` : ''}
+        <span class="stamp">${stamp}</span>
+      </div>`;
+    el.appendChild(card);
+  });
+})();
+
 /* ---------- Professionals (module 2 §5.6) — live ad_placements, static fallback ---------- */
 const FALLBACK_PROS = [
   {advertiser_name:'יועץ משכנתאות', advertiser_type:'mortgage_advisor', target_region:'מומלץ באזור עפולה'},
@@ -1644,28 +1976,58 @@ function isPlacementLive(p, today){
 let heroMap = null;
 let heroTiles = null;
 
-// שני סגנונות אריחים + שכבת גוון ירוקה (ראו .map-tint ב-CSS). ברירת המחדל
-// "טבע" מוריקה את פני השטח בלי להחליף ספק אריחים, ולכן היא גם הזולה ביותר
-// מבחינת רשת — אותם אריחים בדיוק, רק עם שכבת multiply מעליהם.
+// שלושה מקורות אריחים + שכבות עיבוד ב-CSS (ראו .map-tint ו-.map-glow).
+// "טבע" ו"קלאסי" חולקים את אותם אריחי voyager ונבדלים רק בשכבת ה-multiply
+// הירוקה שמעליהם, ולכן המעבר ביניהם לא עולה ולו בקשת רשת אחת.
+// "לילה" — ברירת המחדל — בונה את המראה הזוהר מעל אריחי dark_matter.
 const MAP_TILE_URLS = {
   voyager:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
   light:  'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+  dark:   'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
 };
+const MAP_STYLES = ['night','nature','classic','light'];
+const DEFAULT_MAP_STYLE = 'night';
+// שכבת ההילה של סגנון "לילה" — אותן כתובות אריחים כמו השכבה הראשית, ולכן
+// היא נשענת על מטמון הדפדפן ולא מכפילה את תעבורת המפה בפועל.
+let glowTiles = null;
+
+function tileUrlFor(style){
+  if (style === 'light') return MAP_TILE_URLS.light;
+  if (style === 'night') return MAP_TILE_URLS.dark;
+  return MAP_TILE_URLS.voyager;
+}
+
 function applyMapStyle(style){
-  if (!['nature','classic','light'].includes(style)) style = 'nature';
+  if (!MAP_STYLES.includes(style)) style = DEFAULT_MAP_STYLE;
   document.body.dataset.mapStyle = style;
   document.querySelectorAll('.map-style-switch button').forEach(b=>{
     b.classList.toggle('active', b.dataset.mapStyle === style);
   });
-  if (heroTiles) heroTiles.setUrl(style === 'light' ? MAP_TILE_URLS.light : MAP_TILE_URLS.voyager);
+  if (heroTiles) heroTiles.setUrl(tileUrlFor(style));
+  // מוסיפים/מסירים את שכבת ההילה בפועל ולא רק מסתירים אותה ב-CSS, כדי
+  // שסגנון שאינו "לילה" לא ימשיך למשוך אריחים שאיש לא רואה.
+  if (heroMap && window.L){
+    if (style === 'night'){
+      if (!glowTiles) glowTiles = L.tileLayer(MAP_TILE_URLS.dark, { pane:'glowPane', maxZoom:19 });
+      if (!heroMap.hasLayer(glowTiles)) glowTiles.addTo(heroMap);
+    } else if (glowTiles && heroMap.hasLayer(glowTiles)){
+      heroMap.removeLayer(glowTiles);
+    }
+  }
   try { localStorage.setItem('shuk_map_style', style); } catch(e){ /* מצב פרטי/חסום */ }
 }
+
+// נקרא לפני אתחול המפה, כדי שהאריחים הראשונים שיימשכו יהיו כבר של הסגנון
+// הנכון ולא של voyager שמיד אחריו מוחלף ב-setUrl
+let savedMapStyle = DEFAULT_MAP_STYLE;
+try { savedMapStyle = localStorage.getItem('shuk_map_style') || DEFAULT_MAP_STYLE; } catch(e){ /* מצב פרטי/חסום */ }
+if (!MAP_STYLES.includes(savedMapStyle)) savedMapStyle = DEFAULT_MAP_STYLE;
 
 try {
   if (!window.L) throw new Error('Leaflet לא נטען (CDN חסום/נכשל)');
 
   heroMap = L.map('hero-map', { scrollWheelZoom:false, zoomControl:false }).setView([32.6078, 35.2897], 13);
-  heroTiles = L.tileLayer(MAP_TILE_URLS.voyager, {
+  heroTiles = L.tileLayer(tileUrlFor(savedMapStyle), {
     attribution:'&copy; OpenStreetMap &copy; CARTO', maxZoom:19
   }).addTo(heroMap);
   // כל החלק העליון של המפה מוסתר ע"י סרגל החיפוש הצף, ולכן פקדי הזום יורדים
@@ -1674,6 +2036,11 @@ try {
   heroMap.attributionControl.setPosition('bottomleft');
   heroMap.on('focus', ()=> heroMap.scrollWheelZoom.enable());
   heroMap.on('blur', ()=> heroMap.scrollWheelZoom.disable());
+
+  // שכבת ההילה של "לילה" יושבת בין האריחים (200) לשכבת הגוון (250) — ראו
+  // ה-z-index של .map-glow ב-CSS. היא נוצרת תמיד, אבל אריחים נטענים אליה
+  // רק כשהסגנון הפעיל הוא "לילה" (applyMapStyle).
+  heroMap.createPane('glowPane').classList.add('map-glow');
 
   const tintPane = heroMap.createPane('tintPane');
   tintPane.classList.add('map-tint');
@@ -1690,8 +2057,6 @@ try {
   if (note) note.hidden = false;
 }
 
-let savedMapStyle = 'nature';
-try { savedMapStyle = localStorage.getItem('shuk_map_style') || 'nature'; } catch(e){ /* מצב פרטי/חסום */ }
 applyMapStyle(savedMapStyle);
 document.querySelectorAll('.map-style-switch button').forEach(btn=>{
   btn.addEventListener('click', ()=> applyMapStyle(btn.dataset.mapStyle));
@@ -1748,7 +2113,7 @@ function renderMap(properties){
       const pinColor = p.category === 'commercial' ? 'var(--ink-soft)' : (p.deal_type === 'sale' ? 'var(--teal)' : 'var(--gold)');
       const icon = L.divIcon({
         className:'',
-        html:`<div style="background:${pinColor};color:#fff;padding:4px 8px;border-radius:8px;font-size:11px;font-weight:700;box-shadow:0 2px 6px rgba(0,0,0,.3);white-space:nowrap;font-family:Heebo,sans-serif">${priceLabel(p)}</div>`,
+        html:`<div class="map-pin" style="background:${pinColor}">${priceLabel(p)}</div>`,
         iconSize:[0,0]
       });
       const m = L.marker([p.lat, p.lng], {icon}).addTo(heroMap);
@@ -1760,6 +2125,112 @@ function renderMap(properties){
   // ה-fallback של המפה מסתיר את .map-toolbar, ולכן mapCount עשוי לא להיות גלוי
   const mapCount = document.getElementById('mapCount');
   if (mapCount) mapCount.textContent = `${properties.length} נכסים במפה`;
+}
+
+/* ---------- קרוסלת "נכסים חמים מהמפה" (coverflow) ----------
+   הכרטיס שמרכזו הכי קרוב למרכז המסלול מקבל .is-active: בו המחיר מחליף את
+   הכותרת ומסגרת הזהב מדגישה אותו, בדיוק כמו בעיצוב. הזיהוי נעשה מול
+   getBoundingClientRect ולא מול scrollLeft בכוונה — ב-RTL הסימן והאפס של
+   scrollLeft שונים בין דפדפנים, בעוד שמרכז מלבן במרחב התצוגה תמיד מדויק
+   (וגם לא מושפע מה-scale() שעל הכרטיסים, שממורכז ממילא). */
+const hotTrack = document.getElementById('hotCarousel');
+const hotDots = document.getElementById('hotCarouselDots');
+let hotCards = [];
+let hotActiveIndex = -1;
+
+function trackCenter(el){
+  const r = el.getBoundingClientRect();
+  return r.left + r.width / 2;
+}
+
+function syncHotActive(){
+  if (!hotTrack || !hotCards.length) return;
+  const mid = trackCenter(hotTrack);
+  let best = 0, bestDist = Infinity;
+  hotCards.forEach((card, i)=>{
+    const dist = Math.abs(trackCenter(card) - mid);
+    if (dist < bestDist){ bestDist = dist; best = i; }
+  });
+  if (best === hotActiveIndex) return;
+  hotActiveIndex = best;
+  hotCards.forEach((c, i)=> c.classList.toggle('is-active', i === best));
+  hotDots.querySelectorAll('button').forEach((d, i)=> d.classList.toggle('active', i === best));
+}
+
+// scrollBy עם הפרש יחסי, ולא scrollLeft מוחלט או scrollIntoView: הראשון
+// שובר ב-RTL, והשני גורר גם את גלילת העמוד עצמו כשהקרוסלה בקצה המסך.
+function scrollHotTo(index){
+  const card = hotCards[index];
+  if (!card || !hotTrack) return;
+  hotTrack.scrollBy({ left: trackCenter(card) - trackCenter(hotTrack), behavior:'smooth' });
+}
+
+function dealBadge(p){
+  if (p.category === 'commercial') return 'מסחרי';
+  return p.deal_type === 'rent' ? 'השכרה' : 'מכירה';
+}
+
+function renderHotCarousel(properties, isSearchResult){
+  if (!hotTrack || !hotDots) return;
+  hotTrack.innerHTML = '';
+  hotDots.innerHTML = '';
+  hotCards = [];
+  hotActiveIndex = -1;
+
+  const sub = document.getElementById('hotFromMapSub');
+  const seeAll = document.getElementById('hotFromMapAll');
+  if (sub){
+    sub.textContent = isSearchResult
+      ? `${properties.length} נכסים תואמים לחיפוש שלכם`
+      : 'גללו בין הנכסים המסומנים על המפה';
+  }
+  // בזמן חיפוש הרשימה המלאה יושבת הרחק למטה בעמוד, ולכן נפתח קיצור אליה
+  if (seeAll) seeAll.hidden = !isSearchResult;
+
+  if (!properties.length){
+    hotTrack.innerHTML = '<p class="cf-empty">אין נכסים להצגה כרגע</p>';
+    return;
+  }
+
+  properties.forEach((p, i)=>{
+    const card = document.createElement('article');
+    card.className = 'cf-card';
+    card.dataset.deal = p.category === 'commercial' ? 'commercial' : (p.deal_type || 'sale');
+    card.innerHTML = `
+      <div class="cf-thumb" style="${thumbStyle(p, i)}"><span class="cf-badge">${dealBadge(p)}</span></div>
+      <div class="cf-body">
+        <div class="cf-price">${priceLabel(p)}</div>
+        <div class="cf-title">${p.title}</div>
+        <div class="cf-meta"><span>${p.rooms ? p.rooms + ' חדרים' : p.property_type}</span></div>
+        <div class="cf-meta"><span aria-hidden="true">📍</span><span>${p.size_sqm ? p.size_sqm + ' מ״ר' : (p.city || 'עפולה והעמק')}</span></div>
+      </div>`;
+    // לחיצה על כרטיס צדדי ממרכזת אותו במקום לנווט: כך המחיר נחשף לפני
+    // שהמשתמש מתחייב למעבר לעמוד הנכס, וגם לא "בורחים" מהעמוד בטעות במגע
+    card.addEventListener('click', ()=>{
+      if (!card.classList.contains('is-active')) scrollHotTo(i);
+      else window.location.href = 'property.html?id=' + p.id;
+    });
+    hotTrack.appendChild(card);
+    hotCards.push(card);
+
+    const dot = document.createElement('button');
+    dot.type = 'button';
+    dot.setAttribute('aria-label', `מעבר לנכס ${i + 1} מתוך ${properties.length}`);
+    dot.addEventListener('click', ()=> scrollHotTo(i));
+    hotDots.appendChild(dot);
+  });
+
+  requestAnimationFrame(syncHotActive);
+}
+
+if (hotTrack){
+  let hotRaf = null;
+  const queueHotSync = ()=>{
+    if (hotRaf) return;
+    hotRaf = requestAnimationFrame(()=>{ hotRaf = null; syncHotActive(); });
+  };
+  hotTrack.addEventListener('scroll', queueHotSync, { passive:true });
+  window.addEventListener('resize', queueHotSync);
 }
 
 const mapExpandBtn = document.getElementById('mapExpandBtn');
@@ -2002,7 +2473,10 @@ async function runSearch(){
 
   try{
     if (!sb) throw new Error('no supabase client');
-    let query = sb.from('properties').select('id, price, title, rooms, property_type, deal_type, category, lat, lng, is_promoted, promoted_until, agencies(name)')
+    // אותן עמודות כמו loadProperties: תוצאות חיפוש מרונדרות באותם כרטיסים
+    // (גריד + קרוסלה), וכשחסרו כאן images/size_sqm/city הן ירדו לגרדיאנט
+    // ולטקסט ברירת המחדל ברגע שהמשתמש חיפש
+    let query = sb.from('properties').select('id, price, title, rooms, size_sqm, city, property_type, deal_type, category, lat, lng, is_promoted, promoted_until, images, agencies(name)')
       .eq('status', 'active')
       .eq('category', isCommercial ? 'commercial' : 'residential')
       .eq('deal_type', dealType);
@@ -2045,9 +2519,11 @@ function showSearchError(){
 }
 
 function renderPropertyGrid(properties, isSearchResult){
-  // נקודת הסנכרון היחידה בין המפה לגריד: כל קריאה לפונקציה הזו — טעינה
-  // ראשונית או runSearch() — מעדכנת גם את המפה לאותם נכסים בדיוק.
+  // נקודת הסנכרון היחידה בין המפה, הקרוסלה שמתחתיה והגריד: כל קריאה
+  // לפונקציה הזו — טעינה ראשונית או runSearch() — מעדכנת את שלושתם
+  // לאותם נכסים בדיוק.
   renderMap(properties);
+  renderHotCarousel(properties, isSearchResult);
 
   const grid = document.getElementById('propertyGrid');
   const heading = document.querySelector('#listings h2');
