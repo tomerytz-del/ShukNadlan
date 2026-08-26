@@ -596,17 +596,104 @@
   @media(min-width:640px){.property-grid{grid-template-columns:1fr 1fr}}
   @media(min-width:960px){.property-grid{grid-template-columns:1fr 1fr 1fr}}
 
-  /* ====== Mortgage calculator teaser ====== */
-  .calc-card{padding:24px 20px;display:flex;flex-direction:column;gap:16px}
-  .calc-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .calc-field label{font-size:.75rem;color:var(--ink-soft);font-weight:700;display:block;margin-bottom:5px}
-  .calc-field input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px}
-  .calc-result{
-    background:var(--teal-tint);border-radius:var(--radius-md);padding:16px;text-align:center;
+  /* ====== Mortgage calculator teaser ======
+     האקסנט של הסקציה הוא גרדיאנט חם שנגזר מ---gold של הפלטה ומתחמם לטרקוטה,
+     כדי שהסליידרים וה-CTA יבלטו מול הכחול-כהה בלי לייבא צבע זר לאתר.        */
+  .calc-card{
+    --calc-accent:#8B2332; --calc-accent-warm:#C25B34;
+    --calc-fill:linear-gradient(to left,var(--calc-accent),var(--calc-accent-warm));
+    padding:26px 20px 22px;display:flex;flex-direction:column;gap:20px;
+    background:linear-gradient(165deg,#FBFAF8 0%,var(--paper-raised) 55%,var(--teal-tint) 100%);
+    border:1px solid var(--line);
   }
-  .calc-result .num{font-family:'Frank Ruhl Libre',serif;font-size:1.9rem;color:var(--teal-dark);font-weight:700}
-  .calc-result .lbl{font-size:.78rem;color:var(--ink-soft);margin-top:2px}
-  @media(min-width:640px){.calc-grid{grid-template-columns:repeat(4,1fr)}}
+  .calc-hero{text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
+  .calc-hero-icon{
+    width:64px;height:64px;border-radius:18px;display:grid;place-items:center;
+    background:linear-gradient(150deg,var(--teal) 0%,var(--teal-dark) 55%,var(--calc-accent) 100%);
+    box-shadow:0 8px 22px rgba(27,58,94,.28);
+  }
+  .calc-hero-icon svg{width:34px;height:34px;display:block}
+  .calc-hero h3{font-size:1.35rem;line-height:1.25;max-width:22ch}
+  .calc-hero p{font-size:.8rem;color:var(--ink-soft);margin:0}
+
+  .calc-controls{display:flex;flex-direction:column;gap:18px}
+  .calc-slider-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:8px}
+  .calc-slider-head .lbl{font-size:.82rem;font-weight:700;color:var(--ink-soft)}
+  .calc-slider-head .val{font-family:'Frank Ruhl Libre',serif;font-size:1.28rem;font-weight:700;color:var(--teal-dark);white-space:nowrap}
+
+  /* הרקע נצבע על ה-input עצמו (ולא רק על ::-webkit-slider-runnable-track)
+     כדי שמילוי המסלול יעבוד גם בפיירפוקס, שם ::-moz-range-track שקוף.      */
+  .calc-range{
+    -webkit-appearance:none;appearance:none;width:100%;height:14px;border-radius:999px;margin:0;
+    background:linear-gradient(to left,var(--teal-dark) 0%,var(--calc-accent-warm) var(--p,50%),#CFCDC7 var(--p,50%),#CFCDC7 100%);
+    cursor:pointer;
+  }
+  .calc-range:focus-visible{outline:3px solid var(--teal);outline-offset:3px}
+  .calc-range::-moz-range-track{background:transparent;height:14px}
+  .calc-range::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;width:26px;height:26px;border-radius:50%;
+    background:var(--teal-dark);border:3px solid #fff;box-shadow:0 3px 10px rgba(15,52,53,.35);
+  }
+  .calc-range::-moz-range-thumb{
+    width:26px;height:26px;border-radius:50%;box-sizing:border-box;
+    background:var(--teal-dark);border:3px solid #fff;box-shadow:0 3px 10px rgba(15,52,53,.35);
+  }
+  .calc-ltv{display:flex;align-items:center;gap:7px;margin-top:10px;font-size:.76rem;font-weight:700;color:var(--gold-dark)}
+  .calc-ltv .arrow{color:var(--calc-accent);font-size:.9rem;line-height:1}
+  .calc-ltv-track{flex:0 0 58px;height:4px;border-radius:999px;background:#CFCDC7;overflow:hidden}
+  .calc-ltv-fill{display:block;height:100%;width:0;background:var(--calc-fill);transition:width .18s ease}
+
+  .calc-steppers{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .calc-step .lbl{display:block;font-size:.82rem;font-weight:700;color:var(--ink-soft);text-align:center;margin-bottom:7px}
+  .calc-step-ctl{
+    display:flex;align-items:center;background:var(--paper-raised);border:1.5px solid var(--line);
+    border-radius:14px;padding:4px;gap:4px;
+  }
+  .calc-step-ctl button{
+    width:38px;height:38px;flex:none;border-radius:10px;font-size:1.3rem;font-weight:700;line-height:1;
+    color:var(--teal-dark);display:grid;place-items:center;transition:background .15s ease;
+  }
+  .calc-step-ctl button:hover{background:var(--teal-tint)}
+  .calc-step-ctl input{
+    flex:1;min-width:0;width:100%;text-align:center;border:none;background:#fff;border-radius:10px;
+    padding:8px 2px;font-size:1.35rem;font-weight:800;color:var(--teal-dark);
+    font-family:'Frank Ruhl Libre',serif;
+  }
+  /* חצי ה-spinner של הדפדפן מיותרים — יש כפתורי ‎−/+‎ משלנו */
+  .calc-step-ctl input::-webkit-outer-spin-button,
+  .calc-step-ctl input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+  .calc-step-ctl input[type=number]{-moz-appearance:textfield;appearance:textfield}
+
+  .calc-result{
+    display:flex;align-items:center;justify-content:space-between;gap:14px;
+    background:linear-gradient(120deg,var(--teal-dark) 0%,var(--teal) 100%);
+    border-radius:var(--radius-md);padding:18px 20px;box-shadow:0 10px 26px rgba(18,40,64,.25);
+  }
+  .calc-result .side{text-align:right}
+  .calc-result .ttl{font-size:1rem;font-weight:800;color:#fff}
+  .calc-result .lbl{font-size:.74rem;color:rgba(255,255,255,.72);margin-top:2px;max-width:14ch}
+  .calc-result .num{
+    font-family:'Frank Ruhl Libre',serif;font-size:2.5rem;font-weight:900;line-height:1;
+    color:#F0B07A;text-shadow:0 0 22px rgba(194,91,52,.55);white-space:nowrap;
+  }
+  .calc-warn{font-size:.78rem;color:var(--brick);font-weight:700;margin:0;text-align:center}
+  .calc-warn:empty{display:none}
+  .calc-cta{
+    display:flex;align-items:center;justify-content:center;gap:10px;padding:15px 20px;border-radius:14px;
+    background:linear-gradient(to right,var(--teal-dark),var(--calc-accent) 55%,var(--calc-accent-warm));
+    color:#fff;font-weight:800;font-size:1rem;box-shadow:0 8px 20px rgba(139,35,50,.28);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .calc-cta:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(139,35,50,.34)}
+  .calc-cta svg{width:22px;height:22px;flex:none}
+  .calc-fine{font-size:.72rem;color:var(--ink-soft);margin:0;text-align:center}
+  @media(min-width:640px){
+    /* הכרטיס נשאר צר וממורכז גם במסך רחב — סליידר באורך 1100px הוא בלתי-שמיש,
+       והמסר של הכלי הוא "כרטיס אחד ממוקד", לא טופס רוחבי. */
+    .calc-card{padding:34px 34px 28px;max-width:620px;margin-inline:auto}
+    .calc-hero h3{font-size:1.7rem}
+    .calc-result .num{font-size:3rem}
+  }
 
   /* ====== Professionals ====== */
   .pros-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -1020,30 +1107,74 @@
       </div>
     </div>
     <div class="card calc-card">
-      <div class="calc-grid">
-        <div class="calc-field">
-          <label for="calcPrice">מחיר הנכס (₪)</label>
-          <input type="number" id="calcPrice" value="1250000">
+      <div class="calc-hero">
+        <span class="calc-hero-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 10.5 12 3l9 7.5"></path>
+            <path d="M5.5 9.5V20h13V9.5"></path>
+            <path d="M9.5 17.5v-3.2M12 17.5v-5.4M14.5 17.5v-2"></path>
+          </svg>
+        </span>
+        <h3>כלי פשוט ומתקדם: גלו כמה משכנתא תוכלו לקבל</h3>
+        <p>מזיזים את הסליידרים ורואים מיד את ההחזר החודשי המשוער</p>
+      </div>
+
+      <div class="calc-controls">
+        <div class="calc-slider">
+          <div class="calc-slider-head">
+            <label class="lbl" for="calcPrice">מחיר הנכס</label>
+            <span class="val"><span id="calcPriceOut">1,250,000</span> ₪</span>
+          </div>
+          <input type="range" class="calc-range" id="calcPrice" min="300000" max="5000000" step="10000" value="1250000" aria-label="מחיר הנכס בשקלים">
+          <div class="calc-ltv">
+            <span><span id="calcLtvPct">—</span> מימון</span>
+            <span class="arrow" aria-hidden="true">←</span>
+            <span class="calc-ltv-track"><span class="calc-ltv-fill" id="calcLtvFill"></span></span>
+          </div>
         </div>
-        <div class="calc-field">
-          <label for="calcEquity">הון עצמי (₪)</label>
-          <input type="number" id="calcEquity" value="350000">
+
+        <div class="calc-slider">
+          <div class="calc-slider-head">
+            <label class="lbl" for="calcEquity">הון עצמי</label>
+            <span class="val"><span id="calcEquityOut">350,000</span> ₪</span>
+          </div>
+          <input type="range" class="calc-range" id="calcEquity" min="0" max="3000000" step="10000" value="350000" aria-label="הון עצמי בשקלים">
         </div>
-        <div class="calc-field">
-          <label for="calcRate">ריבית שנתית (%)</label>
-          <input type="number" id="calcRate" value="4.8" step="0.1">
-        </div>
-        <div class="calc-field">
-          <label for="calcYears">שנות החזר</label>
-          <input type="number" id="calcYears" value="25">
+
+        <div class="calc-steppers">
+          <div class="calc-step">
+            <label class="lbl" for="calcRate">ריבית (%)</label>
+            <!-- ‎+‎ ראשון ב-DOM כדי שב-RTL הוא ייפול לימין השדה ו-‎−‎ לשמאלו -->
+            <div class="calc-step-ctl">
+              <button type="button" data-step="calcRate" data-dir="1" aria-label="הגדלת ריבית">+</button>
+              <input type="number" id="calcRate" value="4.8" step="0.1" min="0.1" max="15" inputmode="decimal">
+              <button type="button" data-step="calcRate" data-dir="-1" aria-label="הפחתת ריבית">−</button>
+            </div>
+          </div>
+          <div class="calc-step">
+            <label class="lbl" for="calcYears">תקופה (שנים)</label>
+            <div class="calc-step-ctl">
+              <button type="button" data-step="calcYears" data-dir="1" aria-label="הארכת התקופה">+</button>
+              <input type="number" id="calcYears" value="25" step="1" min="1" max="30" inputmode="numeric">
+              <button type="button" data-step="calcYears" data-dir="-1" aria-label="קיצור התקופה">−</button>
+            </div>
+          </div>
         </div>
       </div>
+
       <div class="calc-result">
+        <div class="side">
+          <div class="ttl">החזר חודשי</div>
+          <div class="lbl">זה ההחזר המשוער שלך</div>
+        </div>
         <div class="num" id="calcMonthly">—</div>
-        <div class="lbl">החזר חודשי משוער</div>
-        <div class="lbl" id="calcLtvWarning" style="color:var(--brick);font-weight:700;margin-top:8px"></div>
       </div>
-      <p style="font-size:.74rem;color:var(--ink-soft)">* הערכה בלבד ואינה מהווה הצעת מימון מחייבת. אחוזי המימון המקסימליים כפופים לנהלי בנק ישראל ועשויים להשתנות.</p>
+      <p class="calc-warn" id="calcLtvWarning"></p>
+      <a class="calc-cta" href="#pros">
+        <svg viewBox="0 0 24 24" fill="#25D366" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>
+        בדיקת זכאות מיידית וייעוץ אישי
+      </a>
+      <p class="calc-fine">* הערכה בלבד ואינה מהווה הצעת מימון מחייבת. אחוזי המימון המקסימליים כפופים לנהלי בנק ישראל ועשויים להשתנות.</p>
     </div>
   </section>
 
@@ -1433,11 +1564,26 @@ document.getElementById('tickerMore').addEventListener('click', ()=>{
 
 /* ---------- Mortgage calculator (pure JS, live, amortization formula) ---------- */
 const LTV_THRESHOLDS = { single:0.75, replacement:0.70, investment:0.50 }; // מודול 2 §5.5 — קונפיגורבילי
+const nis = n => Math.round(n).toLocaleString('he-IL');
+
+/* מילוי המסלול של סליידר: --p הוא האחוז שהגרדיאנט ב-CSS נעצר בו. */
+function paintRange(el){
+  const min = parseFloat(el.min) || 0, max = parseFloat(el.max) || 100;
+  const pct = max > min ? ((parseFloat(el.value) - min) / (max - min)) * 100 : 0;
+  el.style.setProperty('--p', pct.toFixed(2) + '%');
+}
+
 function updateCalculator(){
-  const price = parseFloat(document.getElementById('calcPrice').value) || 0;
-  const equity = parseFloat(document.getElementById('calcEquity').value) || 0;
+  const priceEl = document.getElementById('calcPrice');
+  const equityEl = document.getElementById('calcEquity');
+  const price = parseFloat(priceEl.value) || 0;
+  const equity = parseFloat(equityEl.value) || 0;
   const annualRate = parseFloat(document.getElementById('calcRate').value) || 0;
   const years = parseFloat(document.getElementById('calcYears').value) || 1;
+
+  [priceEl, equityEl].forEach(paintRange);
+  document.getElementById('calcPriceOut').textContent = nis(price);
+  document.getElementById('calcEquityOut').textContent = nis(equity);
 
   const loan = Math.max(price - equity, 0);
   const monthlyRate = (annualRate/100)/12;
@@ -1446,9 +1592,12 @@ function updateCalculator(){
   if (loan > 0 && monthlyRate > 0){
     monthly = loan * (monthlyRate*Math.pow(1+monthlyRate,n)) / (Math.pow(1+monthlyRate,n)-1);
   }
-  document.getElementById('calcMonthly').textContent = monthly ? ('₪' + Math.round(monthly).toLocaleString('he-IL')) : '—';
+  document.getElementById('calcMonthly').textContent = monthly ? (nis(monthly) + ' ₪') : '—';
 
   const ltv = price > 0 ? loan/price : 0;
+  document.getElementById('calcLtvPct').textContent = Math.round(ltv*100) + '%';
+  document.getElementById('calcLtvFill').style.width = Math.min(ltv*100, 100) + '%';
+
   const warn = document.getElementById('calcLtvWarning');
   if (ltv > LTV_THRESHOLDS.single){
     warn.textContent = `אחוז המימון הנדרש (${Math.round(ltv*100)}%) חורג מהתקרה המקובלת לדירה יחידה (75%) — כדאי לבדוק מול יועץ משכנתאות`;
@@ -1458,6 +1607,20 @@ function updateCalculator(){
 }
 ['calcPrice','calcEquity','calcRate','calcYears'].forEach(id=>{
   document.getElementById(id).addEventListener('input', updateCalculator);
+});
+/* כפתורי ‎−/+‎ של הריבית והתקופה. clamp ל-min/max של השדה, ועיגול לפי ה-step
+   כדי שלא ייווצרו שאריות float כמו 4.800000000000001. */
+document.querySelectorAll('.calc-step-ctl button[data-step]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const input = document.getElementById(btn.dataset.step);
+    const step = parseFloat(input.step) || 1;
+    const min = parseFloat(input.min), max = parseFloat(input.max);
+    const decimals = (String(step).split('.')[1] || '').length;
+    let next = (parseFloat(input.value) || 0) + step * Number(btn.dataset.dir);
+    next = Math.min(Math.max(next, min), max);
+    input.value = next.toFixed(decimals);
+    updateCalculator();
+  });
 });
 updateCalculator();
 
