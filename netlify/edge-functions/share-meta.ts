@@ -1,5 +1,3 @@
-import type { Config, Context } from "https://edge.netlify.com";
-
 // ============================================================================
 // תצוגה מקדימה אמיתית לכל נכס / משרד / מתווך.
 //
@@ -162,7 +160,13 @@ async function agentMeta(slug: string): Promise<Meta | null> {
   };
 }
 
-export default async function handler(request: Request, context: Context) {
+/* הטיפוסים מוגדרים כאן במקום להיות מיובאים מ-"https://edge.netlify.com" או
+   מ-"@netlify/edge-functions". רק ה-shape הזה נחוץ בפועל, טיפוסים נמחקים
+   ממילא בזמן ה-build, וכל ייבוא חיצוני הוא עוד דבר שיכול לא להיפתר ולהפיל
+   את הפריסה כולה. פחות תלויות = פחות מצבי כישלון. */
+type EdgeContext = { next: () => Promise<Response> };
+
+export default async function handler(request: Request, context: EdgeContext) {
   const response = await context.next();
 
   try {
@@ -219,6 +223,6 @@ export default async function handler(request: Request, context: Context) {
   }
 }
 
-export const config: Config = {
+export const config = {
   path: ["/property.html", "/agency.html", "/agent.html"],
 };

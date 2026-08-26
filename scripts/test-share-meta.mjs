@@ -1,7 +1,11 @@
 /**
- * בדיקות ל-share-meta.ts.
+ * בדיקות ל-netlify/edge-functions/share-meta.ts.
  *
- *   node --experimental-strip-types netlify/edge-functions/share-meta.test.mjs
+ * הקובץ יושב כאן ולא ליד הפונקציה בכוונה: Netlify מתייחסת לכל קובץ ברמה
+ * העליונה של netlify/edge-functions/ כאל edge function בפני עצמה, וקובץ
+ * בדיקות עם import ל-node:fs ובלי handler מפיל את ה-bundle ואיתו כל הפריסה.
+ *
+ *   node --experimental-strip-types scripts/test-share-meta.mjs
  *
  * מריץ את הפונקציה האמיתית תחת הסרת הטיפוסים של Node, עם Deno ו-fetch
  * מדומים. Node לא יכול להריץ את סביבת ה-edge של Netlify, אבל הלוגיקה של
@@ -17,7 +21,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const root = path.resolve(here, '..', '..');
+const root = path.resolve(here, '..');
 
 globalThis.Deno = { env: { get: () => undefined } };
 
@@ -34,7 +38,7 @@ globalThis.fetch = async (url) => {
   return { ok: true, status: 200, json: async () => nextRows };
 };
 
-const { default: handler } = await import(path.join(here, 'share-meta.ts'));
+const { default: handler } = await import(path.join(root, 'netlify', 'edge-functions', 'share-meta.ts'));
 
 const makeCtx = (body = HTML, type = 'text/html; charset=utf-8') => ({
   next: async () => new Response(body, { status: 200, headers: { 'content-type': type, 'content-length': String(body.length) } }),

@@ -100,11 +100,11 @@ export-design          PNG/JPG/PDF, כולל width/height מותאמים
 - **כל כשל מחזיר את העמוד כמו שהוא.** Supabase איטי או נופל ⇒ תצוגה כללית,
   לא עמוד שבור.
 
-בדיקות: `netlify/edge-functions/share-meta.test.mjs` (12 מקרים, כולל בריחת
+בדיקות: `scripts/test-share-meta.mjs` (12 מקרים, כולל בריחת
 תווים בכותרות ונפילות של Supabase):
 
 ```
-node --experimental-strip-types netlify/edge-functions/share-meta.test.mjs
+node --experimental-strip-types scripts/test-share-meta.mjs
 ```
 
 לא נדרש `netlify.toml` — הנתיבים מוצהרים ב‑`export const config` בתוך הפונקציה,
