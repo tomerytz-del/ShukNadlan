@@ -142,7 +142,10 @@
      תוצאות החיפוש (#listings) יושבות מיד מתחת ל-section הזה. */
   .hero{
     position:relative;overflow:hidden;color:#fff;background:var(--teal-dark);
-    height:clamp(340px,56vh,540px);transition:height .3s ease;
+    /* גובה המפה במובייל: סרגל החיפוש חוסם ~190px בראש וסרגל הפקדים ~110px
+       בתחתית, ולכן ב-56vh נשארו לפינים פחות מ-200px — צר מדי אפילו לאשכול
+       נכסים של שכונה אחת, והפינים בקצוות נחתכו ע"י הסרגלים. */
+    height:clamp(380px,64vh,560px);transition:height .3s ease;
   }
   .hero.map-expanded{height:clamp(460px,84vh,860px)}
   /* מצב נפילה: אם Leaflet לא נטען, ה-section חוזר להיות בלוק תוכן רגיל
@@ -291,48 +294,62 @@
     background:#2E7D5B;mix-blend-mode:multiply;opacity:0;transition:opacity .3s ease;
   }
   body[data-map-style="nature"] .leaflet-pane.map-tint{opacity:.32}
-  body[data-map-style="nature"] #hero-map .leaflet-tile-pane{filter:saturate(1.1) contrast(1.02)}
+  body[data-map-style="nature"] #hero-map .leaflet-tile-pane{filter:saturate(1.15) contrast(1.02)}
+  /* "בהיר": קנבס אפור-רך מאותם אריחים — הצבעים יורדים כמעט לגמרי והמפה
+     נסוגה לרקע, כך שהפינים והכרטיסים הם מה שבולט. */
+  body[data-map-style="light"] #hero-map .leaflet-tile-pane{filter:saturate(.16) brightness(1.06)}
 
   /* ---- סגנון "לילה" (ברירת המחדל): מפה כהה עם רשת כבישים זוהרת ----
-     אין ספק אריחים שמספק את המראה הזה מוכן, אז הוא מורכב משלוש שכבות מעל
-     אותם אריחי dark_matter:
-     1) פילטר צביעה על אריחי המפה — grayscale מנרמל את הגוונים, ואז
-        sepia+hue-rotate+saturate הופכים את הכבישים (שהם הפיקסלים הבהירים
-        באריח הכהה) לתכלת זוהר. זהו ה"קו הזורם" שבעיצוב.
-     2) .map-glow — אותה שכבת אריחים בדיוק, מטושטשת ובמיזוג screen, שיוצרת
-        את ההילה סביב הקווים. אותן כתובות URL כמו האריחים הרגילים, כלומר
-        פגיעות מטמון ולא בקשות רשת נוספות.
-     3) .map-tint במיזוג lighten — מרימה את השחור של הרקע לכחול-לילה עמוק
-        בלי לגעת בקווים הבהירים שמעליו.
+     נגזר מאותם אריחי OSM כמו שאר הסגנונות, בשלוש שכבות:
+     1) פילטר "חלון צר" על אריחי המפה. במפת OSM בהירה הכבישים הם הדבר
+        הבהיר ביותר (לבן, 255) והיבשה ממש מתחתיהם (~240) — הפרש של 6%
+        בלבד. brightness(.508) מציב את הלבן ממש מעל ציר ה-contrast ואת
+        היבשה מתחתיו, ואז contrast(30) פותח את הפער לקצוות: יבשה נמחצת
+        לשחור, כבישים נשארים כקווים בהירים. sepia+hue-rotate+saturate
+        צובעים את הקווים בתכלת. חשוב: הערך .508 יושב בתוך חלון צר
+        (~.50–.515) — מעליו היבשה עצמה מתחילה להאיר והמפה נשטפת בתכלת.
+     2) .map-glow — אותה שכבת אריחים, מטושטשת ובמיזוג screen, שיוצרת את
+        ההילה סביב הקווים. אותה כתובת URL, כלומר פגיעת מטמון ולא בקשת רשת.
+     3) .map-tint במיזוג lighten — מרימה את השחור לכחול-לילה. הצבע כאן הוא
+        מה שקובע כמה הרקע כהה: ככל שהוא בהיר יותר כך המפה פחות "חור שחור",
+        וכל עוד הוא נשאר מתחת לתכלת של הקווים ההילה לא נפגעת.
      הפינים יושבים ב-markerPane (z-index 600) מעל כל אלה, ולכן צבעי המחירים
      נשארים מדויקים. */
-  body[data-map-style="night"] #hero-map{background:#07172B}
-  /* סדר הפילטרים חשוב: brightness *לפני* contrast. אריחי dark_matter כהים
-     מאוד (רקע ~#12151a, כבישים ~#3a3f46), ו-contrast לפני הבהרה היה מוחץ
-     גם את הכבישים אל השחור — מפה כחולה אחידה בלי קווים בכלל. ההבהרה מרימה
-     קודם את הכבישים לאמצע הטווח, ורק אז ה-contrast מרחיק אותם מהרקע. */
+  body[data-map-style="night"] #hero-map{background:#1E3050}
   body[data-map-style="night"] #hero-map .leaflet-tile-pane{
-    filter:grayscale(1) brightness(2.3) contrast(1.6) sepia(1) hue-rotate(158deg) saturate(6);
+    filter:grayscale(1) brightness(.508) contrast(30) sepia(1) hue-rotate(158deg) saturate(8);
   }
   .leaflet-pane.map-glow{z-index:240;pointer-events:none;display:none}
   body[data-map-style="night"] .leaflet-pane.map-glow{
-    display:block;mix-blend-mode:screen;opacity:.5;
-    filter:grayscale(1) brightness(2.6) contrast(1.8) sepia(1) hue-rotate(158deg) saturate(7) blur(5px);
+    display:block;mix-blend-mode:screen;opacity:.65;
+    filter:grayscale(1) brightness(.508) contrast(30) sepia(1) hue-rotate(158deg) saturate(8) blur(5px);
   }
   body[data-map-style="night"] .leaflet-pane.map-tint{
-    background:#0A1E38;mix-blend-mode:lighten;opacity:1;
+    background:#1E3050;mix-blend-mode:lighten;opacity:1;
   }
   body[data-map-style="night"] .leaflet-control-attribution{
-    background:rgba(7,23,43,.72) !important;color:#8FB6D6 !important;
+    background:rgba(30,48,80,.75) !important;color:#B9CDE4 !important;
   }
-  body[data-map-style="night"] .leaflet-control-attribution a{color:#8FB6D6 !important}
+  body[data-map-style="night"] .leaflet-control-attribution a{color:#B9CDE4 !important}
 
-  /* תווית המחיר על המפה. הייתה inline ב-divIcon; כאן היא מקבלת גם הילה
-     תואמת בסגנון "לילה", שבלעדיה הפינים נראים כמו מדבקות שטוחות על רקע כהה. */
+  /* תווית המחיר על המפה.
+     position:absolute הוא לא קישוט: ל-divIcon יש iconSize של 0×0, ולכן
+     אלמנט בלוק רגיל בתוכו מקבל רוחב 0 — הרקע התכווץ לרוחב הריפוד בלבד
+     (עיגול כהה קטן) בזמן שהטקסט גלש החוצה בלי רקע. מיקום אבסולוטי מחזיר
+     חישוב shrink-to-fit לפי התוכן, וה-translate ממרכז את הבועה על נקודת
+     הנכס במקום לתלות אותה מהפינה השמאלית-עליונה שלה. */
   .map-pin{
+    position:absolute;top:0;left:0;transform:translate(-50%,-50%);
     background:var(--teal);color:#fff;padding:4px 8px;border-radius:8px;
     font:700 11px/1.35 'Heebo',sans-serif;white-space:nowrap;
     box-shadow:0 2px 6px rgba(0,0,0,.3);
+  }
+  /* אשכול נכסים באותה שכונה: תוויות שנחתכות זו בזו יורדות לנקודה, והמחיר
+     נשאר זמין בלחיצה (ראו relayoutMapPins ב-JS). בלי זה שלושה נכסים באותו
+     רחוב נראים כערימת מלבנים שאי אפשר לקרוא אף אחד מהם. */
+  .map-pin.is-dot{
+    width:13px;height:13px;padding:0;border-radius:50%;
+    font-size:0;overflow:hidden;box-shadow:0 0 0 2px rgba(255,255,255,.8), 0 2px 6px rgba(0,0,0,.4);
   }
   /* על רקע כחול-לילה פין בצבע --teal כמעט נבלע במפה; טבעת לבנה דקה מחזירה
      לו את ההפרדה בלי לשנות את צבעי הפינים עצמם (שמסמנים סוג עסקה). */
@@ -1976,26 +1993,24 @@ function isPlacementLive(p, today){
 let heroMap = null;
 let heroTiles = null;
 
-// שלושה מקורות אריחים + שכבות עיבוד ב-CSS (ראו .map-tint ו-.map-glow).
-// "טבע" ו"קלאסי" חולקים את אותם אריחי voyager ונבדלים רק בשכבת ה-multiply
-// הירוקה שמעליהם, ולכן המעבר ביניהם לא עולה ולו בקשת רשת אחת.
-// "לילה" — ברירת המחדל — בונה את המראה הזוהר מעל אריחי dark_matter.
-const MAP_TILE_URLS = {
-  voyager:'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-  light:  'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-  dark:   'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-};
+/* ספק אריחים אחד לכל ארבעת הסגנונות.
+   קודם כל סגנון משך אריחים משלו מ-CARTO; מאז ש-CARTO דורשים מפתח API הם
+   חוזרים עם הכיתוב "API KEY REQUIRED" חרוט על כל אריח. כאן כל הסגנונות
+   נגזרים מאריחי OpenStreetMap הסטנדרטיים בעזרת פילטרים ב-CSS בלבד, ולכן:
+   (1) אין תלות במפתח, (2) מעבר בין סגנונות לא עולה ולו בקשת רשת אחת —
+   אלה בדיוק אותם אריחים, רק עיבוד אחר מעליהם.
+   להחלפת ספק בעתיד (CARTO/MapTiler/Stadia עם מפתח) — זו השורה היחידה
+   שצריך לשנות, בתוספת ה-attribution שלו. שימו לב שמדיניות השימוש של שרת
+   האריחים הציבורי של OSM מיועדת לתעבורה צנועה. */
+const MAP_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+const MAP_TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
+const MAP_TILE_MAX_ZOOM = 19;
+
 const MAP_STYLES = ['night','nature','classic','light'];
 const DEFAULT_MAP_STYLE = 'night';
-// שכבת ההילה של סגנון "לילה" — אותן כתובות אריחים כמו השכבה הראשית, ולכן
+// שכבת ההילה של סגנון "לילה" — אותה כתובת אריחים כמו השכבה הראשית, ולכן
 // היא נשענת על מטמון הדפדפן ולא מכפילה את תעבורת המפה בפועל.
 let glowTiles = null;
-
-function tileUrlFor(style){
-  if (style === 'light') return MAP_TILE_URLS.light;
-  if (style === 'night') return MAP_TILE_URLS.dark;
-  return MAP_TILE_URLS.voyager;
-}
 
 function applyMapStyle(style){
   if (!MAP_STYLES.includes(style)) style = DEFAULT_MAP_STYLE;
@@ -2003,12 +2018,11 @@ function applyMapStyle(style){
   document.querySelectorAll('.map-style-switch button').forEach(b=>{
     b.classList.toggle('active', b.dataset.mapStyle === style);
   });
-  if (heroTiles) heroTiles.setUrl(tileUrlFor(style));
   // מוסיפים/מסירים את שכבת ההילה בפועל ולא רק מסתירים אותה ב-CSS, כדי
   // שסגנון שאינו "לילה" לא ימשיך למשוך אריחים שאיש לא רואה.
   if (heroMap && window.L){
     if (style === 'night'){
-      if (!glowTiles) glowTiles = L.tileLayer(MAP_TILE_URLS.dark, { pane:'glowPane', maxZoom:19 });
+      if (!glowTiles) glowTiles = L.tileLayer(MAP_TILE_URL, { pane:'glowPane', maxZoom:MAP_TILE_MAX_ZOOM });
       if (!heroMap.hasLayer(glowTiles)) glowTiles.addTo(heroMap);
     } else if (glowTiles && heroMap.hasLayer(glowTiles)){
       heroMap.removeLayer(glowTiles);
@@ -2017,8 +2031,6 @@ function applyMapStyle(style){
   try { localStorage.setItem('shuk_map_style', style); } catch(e){ /* מצב פרטי/חסום */ }
 }
 
-// נקרא לפני אתחול המפה, כדי שהאריחים הראשונים שיימשכו יהיו כבר של הסגנון
-// הנכון ולא של voyager שמיד אחריו מוחלף ב-setUrl
 let savedMapStyle = DEFAULT_MAP_STYLE;
 try { savedMapStyle = localStorage.getItem('shuk_map_style') || DEFAULT_MAP_STYLE; } catch(e){ /* מצב פרטי/חסום */ }
 if (!MAP_STYLES.includes(savedMapStyle)) savedMapStyle = DEFAULT_MAP_STYLE;
@@ -2027,8 +2039,8 @@ try {
   if (!window.L) throw new Error('Leaflet לא נטען (CDN חסום/נכשל)');
 
   heroMap = L.map('hero-map', { scrollWheelZoom:false, zoomControl:false }).setView([32.6078, 35.2897], 13);
-  heroTiles = L.tileLayer(tileUrlFor(savedMapStyle), {
-    attribution:'&copy; OpenStreetMap &copy; CARTO', maxZoom:19
+  heroTiles = L.tileLayer(MAP_TILE_URL, {
+    attribution:MAP_TILE_ATTRIBUTION, maxZoom:MAP_TILE_MAX_ZOOM
   }).addTo(heroMap);
   // כל החלק העליון של המפה מוסתר ע"י סרגל החיפוש הצף, ולכן פקדי הזום יורדים
   // לתחתית: הזום בצד אחד, הקרדיטים בשני, ו-.map-toolbar במרכז ביניהם
@@ -2047,6 +2059,10 @@ try {
   const recenterMapTint = ()=> L.DomUtil.setPosition(tintPane, heroMap.containerPointToLayerPoint([0,0]));
   heroMap.on('moveend zoomend viewreset resize', recenterMapTint);
   recenterMapTint();
+
+  // מה שנחתך בזום נמוך מתפרש יפה אחרי התקרבות, ולהפך — הפריסה מחושבת מחדש
+  // בכל שינוי תצוגה ולא רק בעת רינדור הפינים
+  heroMap.on('zoomend moveend resize', ()=> relayoutMapPins());
 } catch(e){
   console.warn('אתחול המפה נכשל, ממשיכים בלי המפה:', e);
   const hero = document.getElementById('heroSection');
@@ -2066,10 +2082,13 @@ const mapMarkers = {};
 
 // כמה מהמפה באמת פנוי לפינים: החלק העליון חסום ע"י סרגל החיפוש הצף והחלק
 // התחתון ע"י סרגל הפקדים. נמדד מה-DOM ולא מקובע במספרים, כי הגובה משתנה בין
-// מובייל לדסקטופ, במצב "הגדל מפה" וכשהכותרת נשברת לשתי שורות. התקרות (45%/25%)
-// שומרות שתמיד יישאר חלון סביר למרכוז גם במפה נמוכה.
+// מובייל לדסקטופ, במצב "הגדל מפה" וכשהכותרת נשברת לשתי שורות.
+// הריפוד הוא החסימה בפועל — כמה שסרגל החיפוש וסרגל הפקדים מכסים — בלי
+// תקרות מלאכותיות. התקרות שהיו כאן קודם (45%/25%) קיצצו אותו, וכתוצאה מכך
+// הפין העליון נחת מתחת לסרגל החיפוש. את הריסון של הזום עושה עכשיו
+// fitMapToMarkers עצמו, שלא נותן לריפוד לגנוב יותר מרמת זום אחת.
 function visibleMapPadding(){
-  const fallback = { top:150, bottom:60 };
+  const fallback = { top:150, bottom:70 };
   if (!heroMap) return fallback;
   const hero = document.getElementById('heroSection');
   const card = document.querySelector('.search-card');
@@ -2077,24 +2096,70 @@ function visibleMapPadding(){
   if (!hero || !card || !bar) return fallback;
   const heroRect = hero.getBoundingClientRect();
   const height = heroMap.getSize().y || heroRect.height;
+  const top = card.getBoundingClientRect().bottom - heroRect.top + 16;
+  const bottom = heroRect.bottom - bar.getBoundingClientRect().top + 16;
+  // רשת ביטחון בלבד, למקרה קיצון שבו החסימות גבוהות מהמפה עצמה
+  const cap = height * 0.8;
+  const total = top + bottom;
+  const scale = total > cap && total > 0 ? cap / total : 1;
   return {
-    top: Math.round(Math.min(card.getBoundingClientRect().bottom - heroRect.top + 18, height * 0.45)),
-    bottom: Math.round(Math.min(heroRect.bottom - bar.getBoundingClientRect().top + 18, height * 0.25)),
+    top: Math.max(0, Math.round(top * scale)),
+    bottom: Math.max(0, Math.round(bottom * scale)),
   };
 }
 
 // ממרכזת את המפה על הפינים המוצגים כרגע בתוך החלק הנראה שלה. נקראת גם אחרי
 // הגדלה/הקטנה של המפה, כי החלון הנראה משתנה ואיתו הריפוד הנכון.
+const MAP_FIT_MAX_ZOOM = 16;
 function fitMapToMarkers(){
   if (!heroMap) return;
   const points = Object.values(mapMarkers).map(m => m.getLatLng());
   if (!points.length) return;
   try {
     const pad = visibleMapPadding();
-    heroMap.fitBounds(L.latLngBounds(points), {
-      paddingTopLeft:[24, pad.top], paddingBottomRight:[24, pad.bottom], maxZoom:15, animate:true
-    });
+    const bounds = L.latLngBounds(points);
+
+    // fitBounds רגיל היה מרחיק את הזום עד שכל הגבולות נכנסים לחלון הפנוי
+    // בין סרגל החיפוש לסרגל הפקדים — ובמפה נמוכה זה אומר שאשכול נכסים של
+    // 1.5 ק"מ בעפולה נדחס לכתם אחד שכל תוויות המחיר בו נערמות. הכלל כאן:
+    // החסימות מותר להן לעלות רמת זום אחת לכל היותר. גבולות שבאמת רחבים
+    // (חיפוש על פני כל העמק) עדיין מתרחקים כרגיל, אבל אשכול צפוף נשאר קריא
+    // וגולש קלות אל מתחת לסרגלים במקום להתכווץ.
+    const withChrome = heroMap.getBoundsZoom(bounds, false, L.point(48, pad.top + pad.bottom));
+    const withoutChrome = heroMap.getBoundsZoom(bounds, false, L.point(48, 48));
+    const zoom = Math.min(MAP_FIT_MAX_ZOOM, Math.max(withChrome, withoutChrome - 1));
+
+    // מרכוז על מרכז החלון הפנוי ולא על מרכז הקונטיינר, אחרת האשכול יושב
+    // גבוה מדי ונחתך ע"י סרגל החיפוש
+    const center = heroMap.project(bounds.getCenter(), zoom).subtract([0, (pad.top - pad.bottom) / 2]);
+    heroMap.setView(heroMap.unproject(center, zoom), zoom, { animate:true });
   } catch(e){ /* גבולות לא תקינים — משאירים את התצוגה הנוכחית */ }
+}
+
+/* תוויות מחיר שנחתכות זו בזו יורדות לנקודה קטנה (.is-dot), והמחיר נשאר
+   זמין בלחיצה. סדר העדיפויות קובע מי נשאר עם תווית מלאה: קודם נכסים
+   מקודמים, ואחריהם המחיר הגבוה — כלומר מה שנשאר קריא הוא גם מה שהכי
+   שווה להציג. נקרא מחדש בכל שינוי זום, כי מה שנחתך בזום 14 מתפרש יפה
+   בזום 16. */
+function relayoutMapPins(){
+  if (!heroMap) return;
+  const items = Object.values(mapMarkers)
+    .map(m => ({ m, pin: m.getElement() && m.getElement().querySelector('.map-pin') }))
+    .filter(x => x.pin);
+  items.sort((a, b) => b.m.options.pinRank - a.m.options.pinRank);
+
+  const placed = [];
+  items.forEach(({ m, pin })=>{
+    pin.classList.remove('is-dot');
+    const pt = heroMap.latLngToContainerPoint(m.getLatLng());
+    // התווית ממורכזת על הנקודה (ראו .map-pin ב-CSS), ולכן חצי רוחב/גובה לכל צד
+    const halfW = pin.offsetWidth / 2 + 3;
+    const halfH = pin.offsetHeight / 2 + 3;
+    const box = { l:pt.x - halfW, r:pt.x + halfW, t:pt.y - halfH, b:pt.y + halfH };
+    const collides = placed.some(o => box.l < o.r && box.r > o.l && box.t < o.b && box.b > o.t);
+    if (collides) pin.classList.add('is-dot');
+    else placed.push(box);
+  });
 }
 
 // המפה תמיד משקפת בדיוק את מה שמוצג ב-#propertyGrid למטה בעמוד — הפונקציה
@@ -2116,11 +2181,17 @@ function renderMap(properties){
         html:`<div class="map-pin" style="background:${pinColor}">${priceLabel(p)}</div>`,
         iconSize:[0,0]
       });
-      const m = L.marker([p.lat, p.lng], {icon}).addTo(heroMap);
+      // pinRank מכריע מי שומר על תווית מלאה כשפינים נחתכים (relayoutMapPins):
+      // נכס מקודם תמיד גובר, ובין השאר מנצח המחיר הגבוה
+      const m = L.marker([p.lat, p.lng], {
+        icon,
+        pinRank: (isPromoted(p) ? 1e12 : 0) + (Number(p.price) || 0),
+      }).addTo(heroMap);
       m.bindPopup(`<strong>${p.title}</strong><br>${priceLabel(p)}<br><span style="color:#565C63">${p.agency_name||''}</span>`);
       mapMarkers[p.id] = m;
     });
     fitMapToMarkers();
+    relayoutMapPins();
   }
   // ה-fallback של המפה מסתיר את .map-toolbar, ולכן mapCount עשוי לא להיות גלוי
   const mapCount = document.getElementById('mapCount');
