@@ -344,7 +344,11 @@ function renderGallery(p){
 function renderProperty(p){
   document.title = p.title + ' | שוק נדל״ן';
   renderGallery(p);
-  if (p.is_promoted){
+  // הקידום נמכר לחלון של 72 שעות. ‏expire_promotions ב-DB מכבה את is_promoted
+  // כל רבע שעה, ובדיקת promoted_until כאן סוגרת גם את הפער הזה.
+  // ‏promoted_until ריק = קידום ידני/היסטורי בלי מועד סיום.
+  const promotionActive = p.is_promoted && (!p.promoted_until || new Date(p.promoted_until) > new Date());
+  if (promotionActive){
     const ribbon = document.createElement('span');
     ribbon.className = 'promo-ribbon';
     ribbon.textContent = 'מקודם';
