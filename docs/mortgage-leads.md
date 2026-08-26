@@ -92,6 +92,12 @@ update public.agency_members
 הדגל נבדק פעמיים: פעם ב-`crm.html` (הצגת הסקציה) ופעם ב-`purchase_mortgage_lead`
 עצמה — ה-gating בתצוגה הוא נוחות, ההגנה היא בפונקציה.
 
+> ה-`update` הזה חייב לרוץ מה-SQL Editor (או מ-Edge Function ב-service_role).
+> המיגרציה מוסיפה את `is_mortgage_advisor` ל-`protect_sensitive_agency_member_fields`,
+> ולכן עדכון מהדפדפן נבלע בשקט — בדיוק כמו `is_platform_admin`. בלי זה כל
+> סוכן/ת יכול/ה להעניק לעצמו/ה גישה לפרטי הקשר של הפונים, כי ה-policy
+> `agent or manager update agency_members` מתירה לכל חבר/ה לעדכן את השורה שלו/ה.
+
 > יועצ/ת משכנתאות היא בעל/ת מקצוע ולא סוכן/ת תיווך, אבל כל מנגנון הרכישה
 > (ארנק `credit_balance`, `current_agent_id()`, טריגר השדות הרגישים) בנוי סביב
 > `agency_members`. הדגל מאפשר לרכוב על הארנק הקיים במקום לשכפל ארנק שני.

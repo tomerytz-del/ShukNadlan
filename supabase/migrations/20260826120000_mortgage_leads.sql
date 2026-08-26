@@ -319,3 +319,45 @@ revoke all on function public.purchase_mortgage_lead(uuid, uuid) from public;
 revoke all on function public.purchase_mortgage_lead(uuid, uuid) from anon;
 revoke all on function public.purchase_mortgage_lead(uuid, uuid) from authenticated;
 grant execute on function public.purchase_mortgage_lead(uuid, uuid) to service_role;
+
+-- ---------------------------------------------------------------------------
+-- 6. נעילת הדגל מול הדפדפן
+--
+-- ה-policy "agent or manager update agency_members" מתירה לכל חבר/ה לעדכן את
+-- השורה של עצמו/ה. בלי השורה שנוספת כאן, סוכן/ת תיווך יכול/ה להעניק לעצמו/ה
+-- is_mortgage_advisor=true מהקונסולה ולקנות גישה לשם, לטלפון ולאימייל של
+-- אנשים פרטיים שהשאירו פרטים ליועצ/ת משכנתאות. הדגל נעול לחלוטין, כמו
+-- is_platform_admin — רק service_role (כלומר מנהל/ת הפלטפורמה דרך SQL או
+-- Edge Function) יכול/ה לשנות אותו.
+--
+-- שאר גוף הפונקציה מועתק כלשונו מההגדרה הקיימת; משתנה רק השורה החדשה.
+-- ---------------------------------------------------------------------------
+create or replace function public.protect_sensitive_agency_member_fields()
+ returns trigger
+ language plpgsql
+ set search_path to 'public'
+as $function$
+begin
+  if auth.role() = 'service_role' then
+    return new;
+  end if;
+  new.credit_balance := old.credit_balance;
+  new.tier := old.tier;
+  new.free_quota_used := old.free_quota_used;
+  new.free_quota_cycle_start := old.free_quota_cycle_start;
+  new.license_number := old.license_number;
+  new.payment_token_id := old.payment_token_id;
+  new.billing_status := old.billing_status;
+  new.pending_tier_change := old.pending_tier_change;
+  new.pending_tier_change_at := old.pending_tier_change_at;
+  new.subscription_id := old.subscription_id;
+  new.is_platform_admin := old.is_platform_admin; -- נעול לחלוטין, גם למנהל משרד רגיל
+  new.is_mortgage_advisor := old.is_mortgage_advisor; -- נעול לחלוטין — מנהל/ת הפלטפורמה בלבד
+  if old.user_id = (select auth.uid()) then
+    new.role := old.role;
+    new.active := old.active;
+    new.agency_id := old.agency_id;
+  end if;
+  return new;
+end;
+$function$;
