@@ -439,47 +439,61 @@
   .hot-head .hot-sub{font-size:.76rem;color:var(--ink-soft);margin-top:5px}
   .hot-head .see-all{display:inline-block;margin-top:8px}
 
-  /* ריפוד קבוע וצנוע בצדדים, כמו כל קרוסלה רגילה בעמוד (לא חצי-קונטיינר
-     פחות חצי-כרטיס) — הגרסה הקודמת נתנה לכרטיס הראשון/האחרון להגיע
-     למרכז מוחלט, אבל זה הצריך ריפוד ענק בשני הקצוות שנראה כמו חתיכת
-     "רקע ריק" מיותרת לפני שגוללים בכלל. scroll-snap-align:center על
-     הכרטיסים עדיין ממרכז כל כרטיס תוך כדי גלילה; הראשון/האחרון פשוט
-     נעצרים הכי קרוב שאפשר למרכז בלי לחרוג מגבול התוכן — בדיוק כמו כל
-     קרוסלת "שורה" רגילה (נטפליקס וכו'). */
+  /* שלושה כרטיסים בתצוגה בכל רגע: רוחב הכרטיס נגזר מרוחב המסלול עצמו
+     (‎(100% − הרווחים)/3‎), כך שגם במסך צר רואים את הנכס הפעיל במרכז ואת
+     שכניו משני צדדיו — במקום כרטיס בודד שממלא את המסך. הריפוד בצדדים
+     הוא ה"הצצה" לכרטיס הרביעי/החמישי ורומז שאפשר להמשיך לגלול.
+     min() חוסם את הכרטיס מלהימתח במסכים רחבים: שם 3 כרטיסים כאלה היו
+     יוצאים ענקיים, ולכן הרוחב נעצר והתצוגה פשוט מציגה עוד כרטיסים.
+     scroll-snap-align:center עדיין ממרכז כל כרטיס תוך כדי גלילה;
+     הראשון/האחרון נעצרים הכי קרוב שאפשר למרכז בלי לחרוג מגבול התוכן. */
   .coverflow{
-    display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;
-    padding:14px 18px 10px;
+    --cf-gap:9px; --cf-peek:14px; --cf-max-card:248px;
+    display:flex;gap:var(--cf-gap);overflow-x:auto;scroll-snap-type:x mandatory;
+    padding:14px var(--cf-peek) 10px;
     scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch;
   }
   .coverflow::-webkit-scrollbar{display:none}
   .cf-card{
-    flex:0 0 212px;scroll-snap-align:center;cursor:pointer;
-    background:#fff;border:1px solid var(--line);border-radius:16px;overflow:hidden;
-    box-shadow:var(--shadow-sm);transform:scale(.9);opacity:.72;
+    flex:0 0 min(var(--cf-max-card), calc((100% - var(--cf-gap) * 2) / 3));
+    scroll-snap-align:center;cursor:pointer;
+    background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+    box-shadow:var(--shadow-sm);transform:scale(.93);opacity:.82;
     transition:transform .28s ease, opacity .28s ease, box-shadow .28s ease, border-color .28s ease;
   }
   .cf-card.is-active{
     transform:scale(1);opacity:1;border-color:#C9A227;
     box-shadow:0 16px 34px -12px rgba(6,20,34,.36), 0 0 0 2px rgba(201,162,39,.5);
   }
-  .cf-thumb{height:128px;background-size:cover;background-position:center;position:relative}
+  .cf-thumb{height:94px;background-size:cover;background-position:center;position:relative}
   .cf-badge{
-    position:absolute;top:9px;right:9px;background:var(--teal);color:#fff;
-    font-size:.66rem;font-weight:800;padding:3px 10px;border-radius:6px;
+    position:absolute;top:6px;right:6px;background:var(--teal);color:#fff;
+    font-size:.6rem;font-weight:800;padding:2px 7px;border-radius:5px;
   }
   .cf-card[data-deal="rent"] .cf-badge{background:var(--gold)}
   .cf-card[data-deal="commercial"] .cf-badge{background:var(--ink-soft)}
-  .cf-body{padding:10px 12px 14px;text-align:center}
+  .cf-body{padding:8px 8px 11px;text-align:center}
   /* בכרטיס הפעיל המחיר הוא הגיבור ומחליף את הכותרת; בכרטיסים שבצדדים
      הכותרת היא שמזהה את הנכס. אותו markup, רק תצוגה שונה. */
-  .cf-price{display:none;font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.3rem;color:var(--teal-dark)}
+  .cf-price{
+    display:none;font-family:'Frank Ruhl Libre',serif;font-weight:700;
+    font-size:1.02rem;color:var(--teal-dark);white-space:nowrap;
+  }
   .cf-card.is-active .cf-price{display:block}
-  .cf-title{font-size:.83rem;color:var(--ink);line-height:1.35}
+  /* הגבלה לשתי שורות שומרת על גובה אחיד לשלושת הכרטיסים גם כשהכותרות
+     באורכים שונים (הכרטיסים צרים יותר עכשיו, ולכן טקסט נשבר מהר). */
+  .cf-title{
+    font-size:.73rem;color:var(--ink);line-height:1.3;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
   .cf-card.is-active .cf-title{display:none}
   .cf-meta{
-    font-size:.74rem;color:var(--ink-soft);margin-top:5px;
-    display:flex;align-items:center;justify-content:center;gap:5px;
+    font-size:.67rem;color:var(--ink-soft);margin-top:4px;
+    display:flex;align-items:center;justify-content:center;gap:4px;
   }
+  /* פחות משלושה נכסים (בעיקר בתוצאות חיפוש ממוקדות) — אין גלילה בכלל,
+     ולכן ממרכזים את מה שיש במקום להשאיר אותו נצמד לצד אחד. */
+  .coverflow.is-sparse{justify-content:center}
   .cf-empty{width:100%;text-align:center;padding:26px 10px;color:var(--ink-soft);font-size:.85rem}
 
   .cf-dots{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;padding:0 16px}
@@ -489,12 +503,32 @@
   }
   .cf-dots button.active{width:22px;background:var(--teal-dark)}
 
+  /* במובייל המסלול פורץ את ריפוד ה-.wrap ומשתמש בכל רוחב המסך, כדי
+     שהשלישייה תקבל כמה שיותר רוחב וההצצה לכרטיס הבא תיגע בקצה המסך. */
+  @media(max-width:759px){
+    .coverflow{margin-inline:-18px}
+  }
+
+  /* במסכים בינוניים יש מקום לכרטיסים גדולים יותר בלי לוותר על השלישייה */
+  @media(min-width:480px){
+    .coverflow{--cf-gap:12px;--cf-peek:18px}
+    .cf-thumb{height:112px}
+    .cf-price{font-size:1.16rem}
+    .cf-title{font-size:.79rem}
+    .cf-meta{font-size:.72rem}
+  }
+
   @media(min-width:760px){
     .hot-band{margin-top:-20px;padding:26px 0 26px}
     .hot-head h2{font-size:1.4rem}
-    .coverflow{gap:16px;padding:16px 24px 12px}
-    .cf-card{flex:0 0 248px}
+    .coverflow{--cf-gap:16px;--cf-peek:24px;padding:16px var(--cf-peek) 12px}
+    .cf-card{border-radius:16px}
     .cf-thumb{height:150px}
+    .cf-body{padding:10px 12px 14px}
+    .cf-price{font-size:1.3rem}
+    .cf-title{font-size:.83rem}
+    .cf-badge{top:9px;right:9px;font-size:.66rem;padding:3px 10px}
+    .cf-meta{font-size:.74rem;margin-top:5px}
   }
 
   /* ====== שורת פרסומת בין הסקציות ====== */
@@ -2560,6 +2594,8 @@ function renderHotCarousel(properties, isSearchResult){
   }
   // בזמן חיפוש הרשימה המלאה יושבת הרחק למטה בעמוד, ולכן נפתח קיצור אליה
   if (seeAll) seeAll.hidden = !isSearchResult;
+
+  hotTrack.classList.toggle('is-sparse', properties.length < 3);
 
   if (!properties.length){
     hotTrack.innerHTML = '<p class="cf-empty">אין נכסים להצגה כרגע</p>';
