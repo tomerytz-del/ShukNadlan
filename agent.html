@@ -35,11 +35,18 @@
   #notFoundState{display:none}
   #agentContent{display:none}
 
+  /* תמונת הנושא מוצגת רק כשהסוכן/ת העלה/תה אחת — אחרת הרצועה פשוט לא קיימת */
+  .profile-cover{height:170px;border-radius:0 0 var(--radius-lg) var(--radius-lg);background-size:cover;background-position:center;border:1px solid var(--line);border-top:none;display:none}
+  @media(min-width:760px){.profile-cover{height:230px}}
   .profile-strip{display:flex;align-items:center;gap:16px;padding:26px 0}
-  .profile-avatar{width:84px;height:84px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Frank Ruhl Libre',serif;font-size:1.8rem;flex-shrink:0}
+  .profile-strip.has-cover{padding-top:0;margin-top:-34px;align-items:flex-end}
+  .profile-avatar{width:84px;height:84px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Frank Ruhl Libre',serif;font-size:1.8rem;flex-shrink:0;overflow:hidden;border:3px solid var(--paper)}
+  .profile-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+  .profile-strip.has-cover .profile-text{padding-bottom:6px}
   .profile-name{font-size:1.35rem}
   .profile-agency{font-size:.85rem;color:var(--ink-soft);margin-top:3px}
-  .profile-bio{font-size:.9rem;color:var(--ink-soft);max-width:55ch;margin-top:10px}
+  .profile-license{font-size:.78rem;color:var(--ink-soft);margin-top:3px}
+  .profile-bio{font-size:.9rem;color:var(--ink-soft);max-width:55ch;margin-top:10px;white-space:pre-wrap}
 
   .content-grid{display:grid;grid-template-columns:1fr;gap:20px;padding-bottom:40px}
   @media(min-width:760px){.content-grid{grid-template-columns:1.6fr 1fr;align-items:start}}
@@ -75,11 +82,13 @@
 </div>
 
 <div id="agentContent" class="wrap">
-  <div class="profile-strip">
+  <div class="profile-cover" id="profileCover"></div>
+  <div class="profile-strip" id="profileStrip">
     <div class="profile-avatar" id="profileAvatar">·</div>
-    <div>
+    <div class="profile-text">
       <div class="profile-name" id="profileName">—</div>
       <div class="profile-agency" id="profileAgency"></div>
+      <div class="profile-license" id="profileLicense"></div>
       <p class="profile-bio" id="profileBio"></p>
     </div>
   </div>
@@ -120,6 +129,34 @@ function thumbStyle(p){
   return img ? ` style="background-image:url('${img}');background-size:cover;background-position:center"` : '';
 }
 
+/* ראש הפרופיל — התמונות והפרטים שהסוכן/ת מעדכן/ת ב-CRM ("עדכון פרטי הסוכן/ת").
+   כשאין תמונת נושא הרצועה לא מוצגת בכלל, וכשאין תמונת סוכן/ת נשארת האות הראשונה. */
+function renderProfileHeader(agent){
+  const cover = document.getElementById('profileCover');
+  if (agent.cover_url){
+    cover.style.backgroundImage = `url("${agent.cover_url}")`;
+    cover.style.display = 'block';
+    document.getElementById('profileStrip').classList.add('has-cover');
+  }
+
+  const avatar = document.getElementById('profileAvatar');
+  if (agent.photo_url){
+    const img = document.createElement('img');
+    img.src = agent.photo_url;
+    img.alt = agent.display_name || '';
+    avatar.textContent = '';
+    avatar.appendChild(img);
+  } else {
+    avatar.textContent = (agent.display_name||'?')[0];
+  }
+
+  document.getElementById('profileName').textContent = agent.display_name;
+  document.getElementById('profileAgency').textContent = agent.agencies?.name || '';
+  document.getElementById('profileLicense').textContent =
+    agent.license_number ? ('רישיון תיווך ' + agent.license_number) : '';
+  document.getElementById('profileBio').textContent = agent.bio || 'סוכן/ת נדל״ן פעיל/ה באזור עפולה והעמק.';
+}
+
 async function loadAgentProfile(){
   const slug = new URLSearchParams(window.location.search).get('slug');
   if (!slug || !window.supabase){
@@ -132,7 +169,7 @@ async function loadAgentProfile(){
     // שם המשרד נטען בשאילתה נפרדת ולא ב-embed: מאז ש-property_shares מחזיקה שני
     // מפתחות זרים ל-agencies, PostgREST מחזיר PGRST201 (HTTP 300) על embed
     // מ-agency_members ל-agencies במקום את השורה.
-    let query = sb.from('agency_members_public').select('id, display_name, bio, photo_url, slug, agency_id');
+    let query = sb.from('agency_members_public').select('id, display_name, bio, photo_url, cover_url, license_number, slug, agency_id');
     // slug יכול להיות ה-slug הקריא או ה-id הגולמי (fallback), לפי מה שנשלח מ-agency.html
     const isUuid = /^[0-9a-f-]{36}$/i.test(slug);
     query = isUuid ? query.eq('id', slug) : query.eq('slug', slug);
@@ -146,11 +183,8 @@ async function loadAgentProfile(){
 
     currentAgentProfile = agent;
     document.title = agent.display_name + ' | שוק נדל״ן';
-    document.getElementById('profileAvatar').textContent = (agent.display_name||'?')[0];
-    document.getElementById('profileName').textContent = agent.display_name;
+    renderProfileHeader(agent);
     document.getElementById('agentFirstName').textContent = (agent.display_name||'').split(' ')[0] || 'הסוכן';
-    document.getElementById('profileAgency').textContent = agent.agencies?.name || '';
-    document.getElementById('profileBio').textContent = agent.bio || 'סוכן/ת נדל״ן פעיל/ה באזור עפולה והעמק.';
 
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('agentContent').style.display = 'block';

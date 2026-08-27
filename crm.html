@@ -42,6 +42,9 @@
   .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
   .field input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
   .field input:focus{border-color:var(--teal);outline:none}
+  /* textarea קיבל עד היום את ברירת המחדל של הדפדפן ולכן נראה זר לשאר השדות */
+  .field textarea{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;font-family:inherit;font-size:1rem;line-height:1.5;background:#fff;color:inherit;resize:vertical}
+  .field textarea:focus{border-color:var(--teal);outline:none}
   .pill-group{display:flex;flex-wrap:wrap;gap:6px}
   .pill-group button{padding:7px 14px;border-radius:999px;border:1.5px solid var(--line);background:#fff;font-size:.8rem;color:var(--ink-soft);font-weight:600}
   .pill-group button.active{background:var(--teal);border-color:var(--teal);color:#fff}
@@ -251,6 +254,17 @@
   .brand-preview .bp-name{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1rem}
   .brand-preview .bp-chip{display:inline-block;font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:5px;color:#fff;margin-top:3px}
 
+  /* אותה תצוגה מקדימה, הפעם לראש דף הסוכן/ת — התמונה עגולה ולא מרובעת */
+  .profile-preview{border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;margin-top:14px;background:#fff}
+  .profile-preview .pp-cover{height:92px;background:linear-gradient(120deg,#122840,#1C3A5E);background-size:cover;background-position:center}
+  .profile-preview .pp-body{padding:8px 14px 14px;display:flex;align-items:flex-start;gap:12px}
+  .profile-preview .pp-avatar{width:62px;height:62px;margin-top:-34px;border-radius:50%;border:3px solid #fff;background:linear-gradient(150deg,#1C3A5E,#122840 70%);display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.4rem;overflow:hidden;flex-shrink:0}
+  .profile-preview .pp-avatar img{width:100%;height:100%;object-fit:cover}
+  .profile-preview .pp-text{min-width:0;padding-top:4px}
+  .profile-preview .pp-name{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1rem}
+  .profile-preview .pp-license{font-size:.7rem;color:var(--ink-soft);margin-top:2px}
+  .profile-preview .pp-bio{font-size:.78rem;color:var(--ink-soft);margin:6px 0 0;white-space:pre-wrap}
+
   .single-img-row{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
   .single-img-box{position:relative;width:104px;height:76px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--line);background:var(--paper);flex-shrink:0}
   .single-img-box img{width:100%;height:100%;object-fit:cover;display:block}
@@ -377,7 +391,14 @@
     color:#fff;display:flex;align-items:center;justify-content:center;
     font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.15rem;
     box-shadow:0 4px 12px rgba(28,58,94,.26);
+    /* האווטאר הוא כפתור — האיפוסים כאן שומרים שייראה בדיוק כמו קודם */
+    padding:0;border:none;overflow:hidden;position:relative;
+    transition:transform .16s ease,box-shadow .16s ease;
   }
+  #dashboard .avatar img{width:100%;height:100%;object-fit:cover;display:block}
+  #dashboard .avatar:hover{transform:translateY(-1px);box-shadow:0 6px 16px rgba(28,58,94,.34)}
+  #dashboard .avatar:active{transform:scale(.96)}
+  #dashboard .avatar:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
   .agent-id-text{min-width:0}
   #dashboard .agent-name{font-weight:700;font-size:1rem;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .agent-id-meta{display:flex;align-items:center;gap:7px;margin-top:3px;min-width:0}
@@ -730,7 +751,13 @@
   <header class="crm">
     <div class="dash-wrap crm-header-inner">
       <div class="agent-id">
-        <div class="avatar" id="avatarInitial">·</div>
+        <!-- האווטאר הוא הכניסה לעדכון הפרופיל: לחיצה פותחת וגוללת לקטגוריית
+             "עדכון פרטי הסוכן/ת" דרך אותו מנגנון data-goto של שאר הדשבורד -->
+        <button type="button" class="avatar" id="avatarBtn" data-goto="accProfile"
+                aria-label="עדכון פרטי הסוכן/ת" title="עדכון פרטי הסוכן/ת">
+          <span id="avatarInitial">·</span>
+          <img id="avatarPhoto" alt="" hidden>
+        </button>
         <div class="agent-id-text">
           <div class="agent-name" id="agentName">—</div>
           <div class="agent-id-meta">
@@ -1221,6 +1248,74 @@
         </span>
         <h2 class="section-h">כלים ניהוליים</h2>
       </div>
+
+    <!-- ---------- עדכון פרטי הסוכן/ת ----------
+         היעד של הלחיצה על האווטאר בכותרת. כותב ישירות ל-agency_members, ולכן
+         כל מה שנשמר כאן מופיע מיד בדף הסוכן/ת הציבורי (agent.html) ובכל מקום
+         שמציג את השם או התמונה. -->
+    <details class="acc" id="accProfile">
+      <summary>
+        <span class="acc-title">עדכון פרטי הסוכן/ת</span>
+        <span class="acc-count" id="accProfileCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">כך אתם מוצגים ללקוחות בדף הסוכן/ת שלכם. השינוי נכנס לתוקף מיד לאחר השמירה.</p>
+
+        <div class="profile-preview" id="profilePreview">
+          <div class="pp-cover" id="ppCover"></div>
+          <div class="pp-body">
+            <div class="pp-avatar" id="ppAvatar">·</div>
+            <div class="pp-text">
+              <div class="pp-name" id="ppName">—</div>
+              <div class="pp-license" id="ppLicense"></div>
+              <p class="pp-bio" id="ppBio"></p>
+            </div>
+          </div>
+        </div>
+
+        <form id="profileForm" style="margin-bottom:0">
+          <div class="field">
+            <label for="pfName">שם מלא</label>
+            <input type="text" id="pfName" maxlength="80" autocomplete="name" required>
+          </div>
+          <div class="field">
+            <label for="pfLicense">מספר רישיון תיווך</label>
+            <input type="text" id="pfLicense" maxlength="30" dir="ltr" style="text-align:right" required>
+            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">מספר הרישיון מוצג ללקוחות בדף הסוכן/ת. אפשר לתקן אותו כאן, אבל לא להשאיר ריק.</p>
+          </div>
+          <div class="field">
+            <label for="pfBio">תיאור</label>
+            <textarea id="pfBio" rows="4" maxlength="600" placeholder="כמה מילים על עצמך: ותק, אזורי פעילות, סוגי נכסים והתמחות."></textarea>
+            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0"><span id="pfBioCount">0</span>/600 תווים</p>
+          </div>
+
+          <div class="form-subheading">תמונת סוכן/ת ותמונת נושא</div>
+          <div class="single-img-row">
+            <div>
+              <div class="img-dropzone" style="padding:10px 14px">
+                <label class="pick" for="pfPhotoInput">+ העלאת תמונת סוכן/ת</label>
+                <input type="file" id="pfPhotoInput" accept="image/jpeg,image/png,image/webp">
+                <div class="hint">פורטרט מרובע · מוצג בעיגול</div>
+              </div>
+              <div class="img-preview" id="pfPhotoPreview"></div>
+            </div>
+            <div>
+              <div class="img-dropzone" style="padding:10px 14px">
+                <label class="pick" for="pfCoverInput">+ העלאת תמונת נושא</label>
+                <input type="file" id="pfCoverInput" accept="image/jpeg,image/png,image/webp">
+                <div class="hint">רצועה רחבה בראש דף הסוכן/ת · מומלץ 1600×600</div>
+              </div>
+              <div class="img-preview" id="pfCoverPreview"></div>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-gold btn-block" id="pfSaveBtn" style="margin-top:16px">שמירת הפרטים</button>
+          <div id="pfFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+          <a href="#" id="pfViewPageLink" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:.8rem;color:var(--teal);margin-top:8px">צפייה בדף הסוכן/ת שלי ←</a>
+        </form>
+      </div>
+    </details>
 
     <details class="acc" id="accWallet">
       <summary>
@@ -1933,7 +2028,7 @@ async function loadDashboard(){
   // agency_members ל-agencies ומחזיר PGRST201 (HTTP 300) על כל embed כזה.
   const { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select('id, agency_id, display_name, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, is_mortgage_advisor, phone')
+    .select('id, agency_id, slug, display_name, bio, photo_url, cover_url, license_number, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, is_mortgage_advisor, phone')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -1958,7 +2053,7 @@ async function loadDashboard(){
   // הגריד נבנה לפני הטעינות, כדי שהמונים שמגיעים מהן ימצאו תגית לכתוב אליה
   renderQuickActions();
 
-  document.getElementById('avatarInitial').textContent = (agent.display_name || '?')[0];
+  renderHeaderAvatar(agent);
   document.getElementById('agentName').textContent = agent.display_name;
   document.getElementById('agentAgency').textContent = agencyName;
   const badge = document.getElementById('tierBadge');
@@ -1986,6 +2081,7 @@ async function loadDashboard(){
   await loadNotifications(agent.id);
   await loadPreferences(agent.id);
   loadWhatsappSettings(agent);
+  loadProfileSettings(agent);
 
   // display נקבע בשני הכיוונים ולא רק ל-block, כדי שהחלפת תפקיד מתפריט הבדיקה
   // (מנהל/ת → סוכן/ת) באמת תסתיר את אזור הניהול בלי לרענן את העמוד
@@ -2400,6 +2496,220 @@ document.getElementById('whatsappForm').addEventListener('submit', async (e)=>{
   feedback.style.color = 'var(--blue)';
   feedback.textContent = phone ? 'המספר נשמר — אפשר להתחיל לשלוח הודעות.' : 'הגישה מוואטסאפ כובתה.';
   setTimeout(()=>{ feedback.textContent=''; }, 3000);
+});
+
+/* ==========================================================================
+   עדכון פרטי הסוכן/ת
+   --------------------------------------------------------------------------
+   הקטגוריה שנפתחת בלחיצה על האווטאר בכותרת. עורכת את שורת agency_members של
+   הסוכן/ת עצמו/ה — שם, מספר רישיון, תיאור, תמונת סוכן/ת ותמונת נושא — ואלה
+   בדיוק השדות שדף הסוכן/ת הציבורי (agent.html) קורא מה-view.
+
+   התמונות נשמרות ב-Storage לפני הכתיבה ל-DB, ותמונה שהוחלפה נמחקת רק אחרי
+   שהשמירה הצליחה — אותה תבנית של מיתוג המשרד, כדי לא לאבד תמונה שעדיין
+   מוצגת באתר אם השמירה נכשלת באמצע.
+   ========================================================================== */
+const PROFILE_BUCKET = 'property-images'; // אותו bucket ציבורי; הנתיב מפריד בין נכסים לפרופיל
+let profileState = null;
+
+/* האווטאר בכותרת מציג את התמונה אם יש, ואת האות הראשונה אם אין */
+function renderHeaderAvatar(agent){
+  const initial = document.getElementById('avatarInitial');
+  const photo = document.getElementById('avatarPhoto');
+  const url = agent && agent.photo_url;
+  initial.textContent = ((agent && agent.display_name) || '?')[0];
+  initial.hidden = !!url;
+  photo.hidden = !url;
+  if (url) photo.src = url; else photo.removeAttribute('src');
+}
+
+/* פרופיל בלי תמונה או בלי תיאור נראה חצי-ריק ללקוח, ולכן הקטגוריה מסומנת
+   "להשלמה" עד שיש שניהם */
+function profileComplete(agent){
+  return !!(agent && agent.photo_url && (agent.bio || '').trim());
+}
+
+function loadProfileSettings(agent){
+  // טעינה חוזרת (החלפת תפקיד בתפריט הבדיקה, למשל) לא אמורה להשאיר blob URL תלוי באוויר
+  if (profileState){
+    ['photo','cover'].forEach(k=>{
+      const slot = profileState[k];
+      if (slot && slot.previewUrl) URL.revokeObjectURL(slot.previewUrl);
+    });
+  }
+  profileState = {
+    photo: agent.photo_url ? { url: agent.photo_url } : null,
+    cover: agent.cover_url ? { url: agent.cover_url } : null,
+    pendingDeletes: [],
+  };
+  document.getElementById('pfName').value = agent.display_name || '';
+  document.getElementById('pfLicense').value = agent.license_number || '';
+  document.getElementById('pfBio').value = agent.bio || '';
+  // slug יכול להיות ריק לסוכנים ותיקים — agent.html יודע לקבל גם id גולמי
+  document.getElementById('pfViewPageLink').href = 'agent.html?slug=' + encodeURIComponent(agent.slug || agent.id);
+  accSetCount('accProfile', profileComplete(agent) ? '' : 'להשלמה');
+  renderProfileImages();
+  renderProfilePreview();
+}
+
+function renderProfileImages(){
+  if (!profileState) return;
+  renderSingleImage('pfPhotoPreview', profileState.photo, 'logo', ()=> clearProfileImage('photo'));
+  renderSingleImage('pfCoverPreview', profileState.cover, 'cover', ()=> clearProfileImage('cover'));
+}
+
+function queueProfileDelete(url){
+  const path = storagePathFromPublicUrl(url);
+  if (path) profileState.pendingDeletes.push(path);
+}
+
+function clearProfileImage(kind){
+  const slot = profileState[kind];
+  if (!slot) return;
+  if (slot.previewUrl) URL.revokeObjectURL(slot.previewUrl);
+  if (slot.url) queueProfileDelete(slot.url);
+  profileState[kind] = null;
+  renderProfileImages();
+  renderProfilePreview();
+}
+
+async function pickProfileImage(e, kind, maxDim){
+  const file = (e.target.files || [])[0];
+  e.target.value = '';
+  if (!file || !profileState) return;
+  try{
+    const blob = await fileToResizedBlob(file, maxDim);
+    const previous = profileState[kind];
+    if (previous){
+      if (previous.previewUrl) URL.revokeObjectURL(previous.previewUrl);
+      if (previous.url) queueProfileDelete(previous.url);
+    }
+    profileState[kind] = { blob, previewUrl: URL.createObjectURL(blob) };
+    renderProfileImages();
+    renderProfilePreview();
+  } catch(err){
+    console.warn('profile image resize failed', err);
+    showToast('לא ניתן לקרוא את הקובץ');
+  }
+}
+
+document.getElementById('pfPhotoInput').addEventListener('change', (e)=> pickProfileImage(e, 'photo', 640));
+document.getElementById('pfCoverInput').addEventListener('change', (e)=> pickProfileImage(e, 'cover', 1920));
+
+/* התצוגה המקדימה מחקה את ראש דף הסוכן/ת, ומתעדכנת מהטופס בזמן הקלדה */
+function renderProfilePreview(){
+  const nameEl = document.getElementById('pfName');
+  const bioEl = document.getElementById('pfBio');
+  const name = nameEl.value.trim();
+  const license = document.getElementById('pfLicense').value.trim();
+  const bio = bioEl.value.trim();
+
+  document.getElementById('ppName').textContent = name || 'השם שלך';
+  document.getElementById('ppLicense').textContent = license ? ('רישיון תיווך ' + license) : '';
+  document.getElementById('ppBio').textContent = bio || 'התיאור שתכתבו כאן יופיע בראש דף הסוכן/ת.';
+  document.getElementById('pfBioCount').textContent = String(bioEl.value.length);
+
+  const coverSrc = profileState && profileState.cover ? (profileState.cover.previewUrl || profileState.cover.url) : null;
+  // ריק מחזיר את הגרדיאנט שמוגדר ב-CSS במקום להשאיר תמונה ישנה
+  document.getElementById('ppCover').style.backgroundImage = coverSrc ? `url("${coverSrc}")` : '';
+
+  const avatar = document.getElementById('ppAvatar');
+  const photoSrc = profileState && profileState.photo ? (profileState.photo.previewUrl || profileState.photo.url) : null;
+  avatar.textContent = '';
+  if (photoSrc){
+    const img = document.createElement('img');
+    img.src = photoSrc; img.alt = '';
+    avatar.appendChild(img);
+  } else {
+    avatar.textContent = (name || '?')[0];
+  }
+}
+
+['pfName','pfLicense','pfBio'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', renderProfilePreview);
+});
+
+async function uploadProfileBlob(blob, prefix){
+  const name = `${currentAgent.id}/profile/${prefix}-${crypto.randomUUID()}.jpg`;
+  const { error } = await sb.storage.from(PROFILE_BUCKET).upload(name, blob, {
+    contentType:'image/jpeg', cacheControl:'31536000', upsert:false,
+  });
+  if (error) throw error;
+  return sb.storage.from(PROFILE_BUCKET).getPublicUrl(name).data.publicUrl;
+}
+
+document.getElementById('profileForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  if (!currentAgent || !profileState) return;
+  const btn = document.getElementById('pfSaveBtn');
+  const feedback = document.getElementById('pfFeedback');
+  const name = document.getElementById('pfName').value.trim();
+  const license = document.getElementById('pfLicense').value.trim();
+  const bio = document.getElementById('pfBio').value.trim();
+
+  if (!name || !license){
+    feedback.style.color = 'var(--wine)';
+    feedback.textContent = 'שם מלא ומספר רישיון הם שדות חובה.';
+    return;
+  }
+
+  const uploading = (profileState.photo && !profileState.photo.url) || (profileState.cover && !profileState.cover.url);
+  btn.disabled = true; btn.textContent = 'שומר…';
+  feedback.style.color = 'var(--ink-soft)';
+  feedback.textContent = uploading ? 'מעלה תמונות…' : 'שומר…';
+
+  try{
+    // מעלים קודם ורק אז כותבים ל-DB: אם ההעלאה נכשלת, השורה נשארת עקבית עם ה-Storage
+    if (profileState.photo && !profileState.photo.url){
+      profileState.photo.url = await uploadProfileBlob(profileState.photo.blob, 'photo');
+    }
+    if (profileState.cover && !profileState.cover.url){
+      profileState.cover.url = await uploadProfileBlob(profileState.cover.blob, 'cover');
+    }
+
+    feedback.textContent = 'שומר…';
+    // קוראים את השורה חזרה במקום להניח מה נשמר: טריגר ההגנה על agency_members
+    // מחזיר שדות נעולים לערכם הישן בשקט, ועדיף להציג את מה שבאמת יושב ב-DB
+    const { data: saved, error } = await sb.from('agency_members').update({
+      display_name: name,
+      license_number: license,
+      bio: bio || null,
+      photo_url: profileState.photo ? profileState.photo.url : null,
+      cover_url: profileState.cover ? profileState.cover.url : null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', currentAgent.id)
+      .select('display_name, license_number, bio, photo_url, cover_url')
+      .single();
+    if (error) throw error;
+
+    // ניקוי best-effort: השורה כבר לא מצביעה על הקבצים האלה
+    if (profileState.pendingDeletes.length){
+      sb.storage.from(PROFILE_BUCKET).remove(profileState.pendingDeletes).catch(()=>{});
+      profileState.pendingDeletes = [];
+    }
+
+    Object.assign(currentAgent, saved);
+    document.getElementById('pfName').value = saved.display_name || '';
+    document.getElementById('pfLicense').value = saved.license_number || '';
+    document.getElementById('pfBio').value = saved.bio || '';
+    renderHeaderAvatar(currentAgent);
+    document.getElementById('agentName').textContent = saved.display_name || '';
+    accSetCount('accProfile', profileComplete(currentAgent) ? '' : 'להשלמה');
+    renderProfileImages();
+    renderProfilePreview();
+
+    feedback.style.color = 'var(--green)';
+    feedback.textContent = saved.license_number === license
+      ? 'הפרטים נשמרו — דף הסוכן/ת שלך מעודכן.'
+      : 'הפרטים נשמרו, אך מספר הרישיון לא עודכן — פנו להנהלת הפלטפורמה.';
+    showToast('פרטי הסוכן/ת עודכנו');
+  } catch(err){
+    console.error('profile save failed', err);
+    feedback.style.color = 'var(--wine)';
+    feedback.textContent = 'שמירה נכשלה: ' + (err.message || 'שגיאה לא צפויה');
+  } finally{
+    btn.disabled = false; btn.textContent = 'שמירת הפרטים';
+  }
 });
 
 /* ---------- Review moderation (manager only) ---------- */
