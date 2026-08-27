@@ -4417,8 +4417,37 @@ async function loadMortgageShelf(agentId){
 
   mortgageShelfLeads = leads || [];
   accSetCount('accMortgageShelf', mortgageShelfLeads.length ? mortgageShelfLeads.length + ' זמינים' : '');
+  await loadMortgageLeadProperties(mortgageShelfLeads);
   renderMortgageShelf();
   await loadPurchasedMortgageLeads(agentId);
+}
+
+/* הנכס שממנו נולד הליד. ‏mortgage_leads_public מחזירה property_id בלבד, ולכן
+   הכותרות נמשכות בשאילתה אחת מרוכזת אחרי טעינת המדף — ‏properties פתוחה
+   לקריאה למודעות פעילות, וליד עם נכס מוגדר שווה ליועצ/ת אחרת מליד כללי. */
+// המפה נצברת ולא מוחלפת: היא מתמלאת פעם מהמדף ופעם מהלידים שנרכשו, ואיפוס
+// בקריאה השנייה היה מרוקן את הכותרות של המדף בכל סינון מחדש.
+let mortgagePropertyTitles = {};
+
+async function loadMortgageLeadProperties(leads){
+  const ids = [...new Set(leads.map(l => l.property_id)
+    .filter(id => id && !mortgagePropertyTitles[id]))];
+  if (ids.length === 0) return;
+  const { data } = await sb.from('properties').select('id, title, city, price').in('id', ids);
+  (data||[]).forEach(p => { mortgagePropertyTitles[p.id] = p; });
+}
+
+/* ‏Text הוא טקסט גולמי (לדיאלוג, שמבריח בעצמו), Line הוא HTML מוברח לכרטיס —
+   אותה הפרדה כמו shelfMetaParts/shelfMetaLine במדף ה-RSS. */
+function mortgageSourceText(lead){
+  const prop = lead.property_id ? mortgagePropertyTitles[lead.property_id] : null;
+  if (prop) return `מנכס: ${prop.title || 'מודעה'}${prop.city ? ' · ' + prop.city : ''}`;
+  if (lead.property_id) return 'מנכס שהוסר מהאתר';
+  return 'ממחשבון דף הבית';
+}
+function mortgageSourceLine(lead){
+  const icon = lead.property_id ? '🏠' : '🧮';
+  return icon + ' ' + esc(mortgageSourceText(lead));
 }
 
 // מה שיועצ/ת צריכ/ה כדי להחליט אם הליד שווה ₪50, בלי לחשוף מי הפונה
@@ -4469,6 +4498,7 @@ function renderMortgageShelf(){
         </div>
         <span class="status-pill status-masked">${shekel(mortgageLeadPrice)}</span>
       </div>
+      <div class="lead-meta">${mortgageSourceLine(lead)}</div>
       <div class="lead-meta">${lead.has_email ? 'שם, טלפון ואימייל' : 'שם וטלפון'} · נוסף ${hebDate(lead.created_at)}</div>
       <div class="lead-actions"></div>
     `;
@@ -4485,7 +4515,7 @@ async function loadPurchasedMortgageLeads(agentId){
   const listEl = document.getElementById('purchasedMortgageList');
   const { data: leads, error } = await sb
     .from('mortgage_leads')
-    .select('id, full_name, phone, email, owns_property, property_price, equity, loan_amount, interest_rate, years, monthly_payment, ltv_pct, sold_at')
+    .select('id, full_name, phone, email, owns_property, property_price, equity, loan_amount, interest_rate, years, monthly_payment, ltv_pct, property_id, source, sold_at')
     .eq('sold_to_agent_id', agentId)
     .order('sold_at', { ascending:false });
 
@@ -4497,6 +4527,9 @@ async function loadPurchasedMortgageLeads(agentId){
     listEl.innerHTML = '<div class="empty-state">עוד לא רכשת לידים מהמדף.</div>';
     return;
   }
+
+  // הכותרות של הנכסים בלידים שנרכשו לא בהכרח נטענו במדף (ליד שנמכר יורד ממנו)
+  await loadMortgageLeadProperties(leads);
 
   listEl.innerHTML = '';
   leads.forEach(lead => {
@@ -4514,11 +4547,14 @@ async function loadPurchasedMortgageLeads(agentId){
         </div>
         <span class="status-pill status-unlocked">נרכש ${hebDate(lead.sold_at)}</span>
       </div>
+      <div class="lead-meta">${mortgageSourceLine(lead)}</div>
       <div class="lead-meta">החזר חודשי מבוקש ${shekel(lead.monthly_payment)}${lead.loan_amount != null ? ' · סכום הלוואה ' + shekel(lead.loan_amount) : ''}</div>
       <div class="lead-actions">
         <a class="btn btn-gold" href="tel:${esc(lead.phone)}">${esc(lead.phone)}</a>
         <a class="btn btn-ghost" href="https://wa.me/${esc(waDigits)}" target="_blank" rel="noopener noreferrer">וואטסאפ</a>
         ${lead.email ? `<a class="btn btn-ghost" href="mailto:${esc(lead.email)}">${esc(lead.email)}</a>` : ''}
+        ${lead.property_id && mortgagePropertyTitles[lead.property_id]
+          ? `<a class="btn btn-ghost" href="property.html?id=${esc(lead.property_id)}" target="_blank" rel="noopener noreferrer">הנכס</a>` : ''}
       </div>
     `;
     listEl.appendChild(el);
@@ -4531,6 +4567,7 @@ async function buyMortgageLead(lead, btn){
     title: 'אישור רכישת ליד משכנתאות',
     lines: [
       `${kind.icon} ${kind.label}`,
+      mortgageSourceText(lead),
       `החזר חודשי מבוקש ${shekel(lead.monthly_payment)}`,
       mortgageMetaParts(lead).join(' · '),
       `הרכישה חושפת שם, טלפון${lead.has_email ? ' ואימייל' : ''}, ומשייכת את הליד אליך בלבד.`,

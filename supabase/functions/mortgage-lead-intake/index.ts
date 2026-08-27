@@ -69,6 +69,19 @@ Deno.serve(async (req: Request) => {
 
   const years = num(body.years, 40);
 
+  // ‏source הוא תווית סגורה ולא טקסט חופשי מהדפדפן — היא מוצגת ליועצ/ת במדף
+  // ומשמשת לפילוח, ואין סיבה לתת ללקוח לכתוב לתוכה מה שירצה.
+  const SOURCES = ["homepage_calculator", "property_page"];
+  const source = SOURCES.includes(body.source) ? body.source : "homepage_calculator";
+
+  // ‏property_id נכתב רק אם הוא UUID תקין. ערך שגוי היה מפיל את ה-insert על
+  // ה-FK ומחזיר לפונה כישלון על משהו שאינו באשמתו.
+  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  const propertyId =
+    typeof body.property_id === "string" && uuidRe.test(body.property_id)
+      ? body.property_id
+      : null;
+
   const row = {
     full_name: fullName,
     phone,
@@ -81,7 +94,8 @@ Deno.serve(async (req: Request) => {
     years: years === null ? null : Math.max(1, Math.round(years)),
     monthly_payment: num(body.monthly_payment, 10_000_000),
     ltv_pct: ltvPct,
-    source: "homepage_calculator",
+    property_id: propertyId,
+    source,
   };
 
   const serviceClient = createClient(supabaseUrl, serviceRoleKey);

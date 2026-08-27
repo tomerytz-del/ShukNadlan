@@ -1676,12 +1676,15 @@ function updateCalculator(){
   document.getElementById('calcMonthly').textContent = monthly ? (nis(monthly) + ' ₪') : '—';
 
   const ltv = price > 0 ? loan/price : 0;
-  document.getElementById('calcLtvPct').textContent = Math.round(ltv*100) + '%';
+  // ההשוואה על הערך המעוגל — אותו מספר שמוצג. עם ההשוואה על הערך הגולמי,
+  // מימון של 75.1% הציג "אחוז המימון הנדרש (75%) חורג מהתקרה (75%)".
+  const ltvPct = Math.round(ltv*100);
+  document.getElementById('calcLtvPct').textContent = ltvPct + '%';
   document.getElementById('calcLtvFill').style.width = Math.min(ltv*100, 100) + '%';
 
   const warn = document.getElementById('calcLtvWarning');
-  if (ltv > LTV_THRESHOLDS.single){
-    warn.textContent = `אחוז המימון הנדרש (${Math.round(ltv*100)}%) חורג מהתקרה המקובלת לדירה יחידה (75%) — כדאי לבדוק מול יועץ משכנתאות`;
+  if (ltvPct > LTV_THRESHOLDS.single*100){
+    warn.textContent = `אחוז המימון הנדרש (${ltvPct}%) חורג מהתקרה המקובלת לדירה יחידה (75%) — כדאי לבדוק מול יועץ משכנתאות`;
   } else {
     warn.textContent = '';
   }
