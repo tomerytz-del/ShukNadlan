@@ -321,6 +321,18 @@
     width:13px;height:13px;padding:0;border-radius:50%;
     font-size:0;overflow:hidden;box-shadow:0 0 0 2px rgba(255,255,255,.8), 0 2px 6px rgba(0,0,0,.4);
   }
+  /* פין שמייצג כמה נכסים על אותה קואורדינטה בדיוק — טבעת לבנה מבדילה אותו
+     מפין של נכס בודד, כדי שיהיה ברור שיש מאחוריו רשימה. */
+  .map-pin.is-group{box-shadow:0 0 0 2px rgba(255,255,255,.9), 0 2px 8px rgba(0,0,0,.4)}
+  .map-group{max-height:210px;overflow-y:auto}
+  .map-group strong{display:block;margin-bottom:6px;font-size:.78rem}
+  .map-group-item{
+    display:flex;justify-content:space-between;gap:10px;align-items:baseline;
+    padding:5px 0;border-top:1px solid #E4E7EB;color:inherit;text-decoration:none;
+  }
+  .map-group-item:hover{color:var(--teal)}
+  .map-group-item .mg-title{font-size:.74rem;line-height:1.35}
+  .map-group-item .mg-price{font-size:.74rem;font-weight:800;white-space:nowrap}
   .leaflet-control-attribution{font-size:.62rem !important;background:rgba(255,255,255,.7) !important}
 
   @media(min-width:760px){
@@ -664,6 +676,11 @@
   }
 
   .property-grid{display:grid;grid-template-columns:1fr;gap:16px}
+  .btn-more-props{
+    grid-column:1/-1;background:transparent;border:1.5px solid var(--line);border-radius:var(--radius-md);
+    padding:13px;font:800 .85rem 'Heebo',sans-serif;color:var(--teal);cursor:pointer;
+  }
+  .btn-more-props:hover{background:var(--paper-raised)}
   .infeed-ad{
     grid-column:1/-1;background:var(--gold-tint);border:1px dashed var(--gold-dark);border-radius:var(--radius-md);
     padding:16px;display:flex;align-items:center;justify-content:center;font-size:.8rem;color:var(--gold-dark);font-weight:700;
@@ -2087,6 +2104,13 @@ try {
    קידום ידני/היסטורי בלי מועד סיום.                                     */
 const isPromoted = p => !!p.is_promoted && (!p.promoted_until || new Date(p.promoted_until) > new Date());
 
+/* ‏PROPERTY_FETCH_MAX הוא תקרת השליפה — המפה מקבלת את כולם, והגריד והקרוסלה
+   מציגים מנה ראשונה בגודל GRID_PAGE_SIZE (ראו renderPropertyGrid). קודם עמד
+   כאן limit(12) אחד שהזין את שלושתם, ולכן משרד עם 60 נכסים ראה 12 פינים.
+   ‏order מפורש: בלי סדר, ה-12 שנבחרו היו שרירותיים ומשתנים בין טעינות. */
+const PROPERTY_FETCH_MAX = 500;
+const GRID_PAGE_SIZE = 12;
+
 async function loadProperties(){
   if (!sb) return FALLBACK_PROPERTIES;
   try{
@@ -2094,7 +2118,8 @@ async function loadProperties(){
       .from('properties')
       .select('id, price, title, rooms, size_sqm, city, property_type, deal_type, category, lat, lng, is_promoted, promoted_until, images, agencies(name)')
       .eq('status', 'active')
-      .limit(12);
+      .order('created_at', { ascending:false })
+      .limit(PROPERTY_FETCH_MAX);
     if (error || !data || data.length === 0) throw error || new Error('empty');
     return data.map(p => ({...p, agency_name: p.agencies?.name || ''}));
   } catch(e){
@@ -2574,36 +2599,84 @@ function relayoutMapPins(){
 // הזו נקראת מתוך renderPropertyGrid() עצמה (לא רק מהטעינה הראשונית), כך
 // ש-runSearch() מסנכרן אליה אוטומטית בלי צורך לזכור לעדכן את המפה בנפרד
 // בכל מקום שמרנדר את הגריד.
+/* נכסים שיושבים על אותה נקודה בדיוק מקובצים לפין אחד. הגיאוקודינג של רוב
+   המקורות נופל למרכז העיר כשאין התאמה מדויקת לכתובת, ולכן עשרות נכסים
+   יכולים לחלוק קואורדינטה — ובלי הקיבוץ הזה כולם היו מצוירים זה על גבי זה,
+   ‏relayoutMapPins היה מוריד את כולם חוץ מאחד לנקודה, והם היו נעלמים
+   מהמפה בלי שום סימן לכך שהם קיימים.                                      */
+function mapPointKey(p){
+  return `${Number(p.lat).toFixed(6)},${Number(p.lng).toFixed(6)}`;
+}
+
+function groupPropertiesByPoint(properties){
+  const groups = new Map();
+  properties.forEach(p=>{
+    if (!p.lat || !p.lng) return;
+    const key = mapPointKey(p);
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(p);
+  });
+  return groups;
+}
+
+function mapGroupPopup(items){
+  if (items.length === 1){
+    const p = items[0];
+    return `<strong>${p.title}</strong><br>${priceLabel(p)}<br><span style="color:#565C63">${p.agency_name||''}</span>`;
+  }
+  // ‏max-height + גלילה: אשכול של 12 נכסים היה יוצר פופאפ גבוה מהמפה עצמה
+  const rows = items.map(p => `<a class="map-group-item" href="property.html?id=${p.id}">
+      <span class="mg-title">${p.title}</span><span class="mg-price">${priceLabel(p)}</span></a>`).join('');
+  return `<div class="map-group"><strong>${items.length} נכסים בנקודה הזו</strong>${rows}</div>`;
+}
+
 function renderMap(properties){
   Object.values(mapMarkers).forEach(m => heroMap && heroMap.removeLayer(m));
   Object.keys(mapMarkers).forEach(id => delete mapMarkers[id]);
 
   if (heroMap){
-    properties.forEach((p) => {
-      if (!p.lat || !p.lng) return;
+    const pad = visibleMapPadding();
+    groupPropertiesByPoint(properties).forEach((items, key)=>{
+      // הפין מייצג את הנכס הבולט באשכול (מקודם, ואז המחיר הגבוה), כדי שגם
+      // הצבע וגם התווית יתארו את מה שהכי שווה להציג בנקודה
+      const rank = p => (isPromoted(p) ? 1e12 : 0) + (Number(p.price) || 0);
+      const lead = items.reduce((a, b) => rank(b) > rank(a) ? b : a);
       // צבע הפין לפי סוג הנכס — תואם לצבע של בורר סוג העסקה בסרגל החיפוש
       // (מכירה/השכרה/מסחרי), כדי לזהות סוג נכס במבט חטוף בלי לפתוח פופאפ
-      const pinColor = p.category === 'commercial' ? 'var(--ink-soft)' : (p.deal_type === 'sale' ? 'var(--teal)' : 'var(--gold)');
+      const pinColor = lead.category === 'commercial' ? 'var(--ink-soft)' : (lead.deal_type === 'sale' ? 'var(--teal)' : 'var(--gold)');
+      const label = items.length > 1 ? `${items.length} נכסים` : priceLabel(lead);
       const icon = L.divIcon({
         className:'',
-        html:`<div class="map-pin" style="background:${pinColor}">${priceLabel(p)}</div>`,
+        html:`<div class="map-pin${items.length > 1 ? ' is-group' : ''}" style="background:${pinColor}">${label}</div>`,
         iconSize:[0,0]
       });
       // pinRank מכריע מי שומר על תווית מלאה כשפינים נחתכים (relayoutMapPins):
-      // נכס מקודם תמיד גובר, ובין השאר מנצח המחיר הגבוה
-      const m = L.marker([p.lat, p.lng], {
+      // נכס מקודם תמיד גובר, ובין השאר מנצח המחיר הגבוה. לאשכול מגיע גם
+      // בונוס על מספר הנכסים, כדי שפין שמייצג רבים לא ייעלם מול פין בודד.
+      const m = L.marker([lead.lat, lead.lng], {
         icon,
-        pinRank: (isPromoted(p) ? 1e12 : 0) + (Number(p.price) || 0),
+        pinRank: rank(lead) + (items.length - 1) * 1e9,
       }).addTo(heroMap);
-      m.bindPopup(`<strong>${p.title}</strong><br>${priceLabel(p)}<br><span style="color:#565C63">${p.agency_name||''}</span>`);
-      mapMarkers[p.id] = m;
+      // ‏autoPan לתוך החלק הפנוי של המפה בלבד: פופאפ של אשכול גבוה בהרבה
+      // מפופאפ של נכס בודד, ובלי הריפוד הזה ראשו נפתח מתחת לסרגל החיפוש הצף
+      m.bindPopup(mapGroupPopup(items), {
+        maxWidth:300,
+        autoPanPaddingTopLeft: L.point(20, pad.top),
+        autoPanPaddingBottomRight: L.point(20, pad.bottom),
+      });
+      mapMarkers[key] = m;
     });
     fitMapToMarkers();
     relayoutMapPins();
   }
   // ה-fallback של המפה מסתיר את .map-toolbar, ולכן mapCount עשוי לא להיות גלוי
   const mapCount = document.getElementById('mapCount');
-  if (mapCount) mapCount.textContent = `${properties.length} נכסים במפה`;
+  if (mapCount){
+    const withCoords = properties.filter(p => p.lat && p.lng).length;
+    const missing = properties.length - withCoords;
+    // נכס בלי קואורדינטות לא ניתן לצייר, ולכן הוא נספר בנפרד ולא נבלע בשקט
+    mapCount.textContent = `${withCoords} נכסים במפה` + (missing ? ` · ${missing} בלי מיקום` : '');
+  }
 }
 
 /* ---------- קרוסלת "נכסים חמים מהמפה" (coverflow) ----------
@@ -2984,7 +3057,7 @@ async function runSearch(){
     const freeText = s.freeText || freeTextMain;
     if (freeText) query = query.ilike('title', `%${freeText}%`);
 
-    const { data, error } = await query.limit(30);
+    const { data, error } = await query.order('created_at', { ascending:false }).limit(PROPERTY_FETCH_MAX);
     if (error) throw error;
     const results = (data||[]).map(p => ({...p, agency_name: p.agencies?.name || ''}));
     renderPropertyGrid(results, true);
@@ -2999,22 +3072,28 @@ function showSearchError(){
   grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--ink-soft)">שגיאה בחיפוש — נסו שוב</div>';
 }
 
-function renderPropertyGrid(properties, isSearchResult){
-  // נקודת הסנכרון היחידה בין המפה, הקרוסלה שמתחתיה והגריד: כל קריאה
-  // לפונקציה הזו — טעינה ראשונית או runSearch() — מעדכנת את שלושתם
-  // לאותם נכסים בדיוק.
+function renderPropertyGrid(properties, isSearchResult, showAll){
+  // נקודת הסנכרון בין המפה, הקרוסלה שמתחתיה והגריד: כל קריאה לפונקציה הזו
+  // — טעינה ראשונית או runSearch() — מעדכנת את שלושתם לאותה קבוצת נכסים.
+  // המפה מקבלת את כולם; הגריד והקרוסלה מציגים מנה ראשונה, כי דף הבית לא
+  // אמור להימתח לאורך של מאות כרטיסים.
   renderMap(properties);
-  renderHotCarousel(properties, isSearchResult);
+  const shown = showAll ? properties : properties.slice(0, GRID_PAGE_SIZE);
+  renderHotCarousel(shown, isSearchResult);
 
   const grid = document.getElementById('propertyGrid');
   const heading = document.querySelector('#listings h2');
-  if (heading) heading.textContent = isSearchResult ? `תוצאות חיפוש (${properties.length})` : 'כל הנכסים הפעילים';
+  if (heading){
+    heading.textContent = isSearchResult
+      ? `תוצאות חיפוש (${properties.length})`
+      : `כל הנכסים הפעילים (${properties.length})`;
+  }
   grid.innerHTML = '';
   if (isSearchResult && properties.length === 0){
     grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--ink-soft)">לא נמצאו נכסים התואמים את החיפוש</div>';
     return;
   }
-  properties.forEach((p, i)=>{
+  shown.forEach((p, i)=>{
     const el = document.createElement('div');
     el.className = 'prop-card';
     el.style.cursor = 'pointer';
@@ -3034,6 +3113,17 @@ function renderPropertyGrid(properties, isSearchResult){
       grid.appendChild(ad);
     }
   });
+
+  // כל מה שלא נכנס לגריד עדיין מצויר על המפה, ולכן הכפתור מדבר על הגריד
+  // בלבד — ולא מרמז שמשהו חסר במפה.
+  if (!showAll && properties.length > shown.length){
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'btn-more-props';
+    more.textContent = `הצגת כל ${properties.length} הנכסים`;
+    more.addEventListener('click', ()=> renderPropertyGrid(properties, isSearchResult, true));
+    grid.appendChild(more);
+  }
 }
 
 initFilterModals();
