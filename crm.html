@@ -4215,11 +4215,15 @@ const IMPORT_AREA_PREFIXES = [
 ];
 
 /* קטע הכתובת בכותרת בנוסח "משרד, יהושע חנקין 2 — 160 מ״ר": מה שאחרי הפסיק
-   הראשון ולפני המקף המפריד. בלי פסיק לא מנחשים — כותרת חופשית אינה כתובת. */
+   הראשון ולפני המקף המפריד. בלי פסיק לא מנחשים — כותרת חופשית אינה כתובת.
+   נדרש גם מספר בתוך הקטע: עמודת כתובת בלי מספר היא עדיין כתובת (ומקבלת
+   מספר בית 1 כברירת מחדל), אבל קטע כותרת בלי מספר הוא בדרך כלל שם אזור
+   ("בית פרטי, שכונת גבעת המורה") ולא רחוב, ואסור לרשום אותו כרחוב. */
 function impTitleAddress(title){
   const head = impText(title).split(/[—–]/)[0];
   const comma = head.indexOf(',');
-  return comma > -1 ? head.slice(comma + 1).trim() : '';
+  const segment = comma > -1 ? head.slice(comma + 1).trim() : '';
+  return /\d/.test(segment) ? segment : '';
 }
 
 /* השוואה סלחנית לשמות שכונות בלבד: קידומת ה' הידיעה וכפל יו"ד משתנים בין
@@ -4247,6 +4251,11 @@ function impSplitAddress(text, city){
   const parse = (segment)=>{
     let words = segment.split(' ').filter(Boolean);
     if (!words.length) return null;
+
+    // "שכונת גבעת המורה" — המילה מצהירה שכל מה שאחריה הוא שם שכונה ולא רחוב.
+    // אין כאן כתובת לפצל, ועדיף להשאיר את הנכס בלי רחוב מאשר לרשום שם שכונה
+    // בשדה הרחוב ולשלוח את הגיאוקוד לחפש רחוב שאינו קיים.
+    if (/^שכונ(ת|ה)$/.test(words[0])) return null;
 
     let area = '';
     for (const p of prefixes){
