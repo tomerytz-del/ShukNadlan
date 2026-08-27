@@ -218,11 +218,14 @@
   /* ====== Filter modals ====== */
   .filter-count-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:999px;background:var(--gold);color:#fff;font-size:.68rem;font-weight:800;padding:0 4px}
 
-  .filter-modal-overlay{display:none;position:fixed;inset:0;background:rgba(15,52,53,.55);z-index:300;align-items:flex-end;justify-content:center}
-  .filter-modal-overlay.open{display:flex}
+  /* ‏.mlead-overlay חולק את המעטפת של מודאל הסינונים אבל לא את המחלקה שלו
+     בכוונה: ‏runSearch() סוגר כל ‎.filter-modal-overlay‎ פתוח, ובלון הליד אינו
+     מודאל סינון — אסור שחיפוש יסגור טופס שממלאים באמצע. */
+  .filter-modal-overlay,.mlead-overlay{display:none;position:fixed;inset:0;background:rgba(15,52,53,.55);z-index:300;align-items:flex-end;justify-content:center}
+  .filter-modal-overlay.open,.mlead-overlay.open{display:flex}
   .filter-modal{background:var(--paper-raised);width:100%;max-width:560px;max-height:88vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;overflow:hidden}
   @media(min-width:640px){
-    .filter-modal-overlay{align-items:center}
+    .filter-modal-overlay,.mlead-overlay{align-items:center}
     .filter-modal{border-radius:var(--radius-lg);max-height:80vh}
   }
   .filter-modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line);flex:0 0 auto}
@@ -654,6 +657,37 @@
   .calc-cta:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(139,35,50,.34)}
   .calc-cta svg{width:22px;height:22px;flex:none}
   .calc-fine{font-size:.72rem;color:var(--ink-soft);margin:0;text-align:center}
+
+  /* ====== בלון ליד ייעוץ משכנתאות ======
+     נשען על מבנה ה-.filter-modal הקיים; כאן רק שדות הטופס. */
+  .mlead-intro{font-size:.84rem;color:var(--ink-soft);margin:0 0 14px}
+  .mlead-recap{
+    background:var(--teal-tint);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:14px;
+    font-size:.78rem;color:var(--teal-dark);font-weight:600;
+  }
+  .mlead-field{margin-bottom:12px}
+  .mlead-field label{font-size:.76rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
+  .mlead-field input[type=text],
+  .mlead-field input[type=tel],
+  .mlead-field input[type=email]{
+    width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;background:#fff;
+  }
+  .mlead-field input:focus{border-color:var(--teal);outline:none}
+  .mlead-field input.invalid{border-color:var(--brick);background:var(--gold-tint)}
+  .mlead-check{
+    display:flex;align-items:center;gap:10px;background:var(--paper);border:1.5px solid var(--line);
+    border-radius:var(--radius-sm);padding:12px;cursor:pointer;font-size:.86rem;font-weight:600;
+  }
+  .mlead-check input{width:20px;height:20px;flex:none;accent-color:var(--teal);cursor:pointer}
+  .mlead-error{font-size:.78rem;color:var(--brick);font-weight:700;margin:8px 0 0;min-height:1.2em}
+  .mlead-privacy{font-size:.7rem;color:var(--ink-soft);margin:12px 0 0;text-align:center}
+  .mlead-done{text-align:center;padding:8px 0}
+  .mlead-done .mark{
+    width:56px;height:56px;border-radius:50%;margin:0 auto 12px;display:grid;place-items:center;
+    background:var(--teal-tint);color:var(--teal-dark);font-size:1.7rem;
+  }
+  .mlead-done h4{font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;color:var(--teal-dark);margin:0 0 6px}
+  .mlead-done p{font-size:.85rem;color:var(--ink-soft);margin:0}
   @media(min-width:640px){
     /* הכרטיס נשאר צר וממורכז גם במסך רחב — סליידר באורך 1100px הוא בלתי-שמיש,
        והמסר של הכלי הוא "כרטיס אחד ממוקד", לא טופס רוחבי. */
@@ -1135,11 +1169,58 @@
         <div class="num" id="calcMonthly">—</div>
       </div>
       <p class="calc-warn" id="calcLtvWarning"></p>
-      <a class="calc-cta" href="#pros">
+      <button type="button" class="calc-cta" id="mleadOpenBtn">
         <svg viewBox="0 0 24 24" fill="#25D366" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>
         בדיקת זכאות מיידית וייעוץ אישי
-      </a>
+      </button>
       <p class="calc-fine">* הערכה בלבד ואינה מהווה הצעת מימון מחייבת. אחוזי המימון המקסימליים כפופים לנהלי בנק ישראל ועשויים להשתנות.</p>
+    </div>
+
+    <!-- ====== בלון איסוף ליד ייעוץ משכנתאות ====== -->
+    <div class="mlead-overlay" id="mleadModal" role="dialog" aria-modal="true" aria-labelledby="mleadTitle">
+      <div class="filter-modal">
+        <div class="filter-modal-header">
+          <h3 id="mleadTitle">בדיקת זכאות וייעוץ אישי</h3>
+          <button type="button" class="filter-modal-close" id="mleadCloseBtn" aria-label="סגירה">✕</button>
+        </div>
+
+        <!-- novalidate: הוולידציה נעשית ב-JS כדי שההודעות יהיו בעברית ובמקום
+             אחד (‎#mleadError), ולא בבועה של הדפדפן בשפת המערכת. -->
+        <form id="mleadForm" novalidate>
+          <div class="filter-modal-body">
+            <p class="mlead-intro">משאירים פרטים ויועצ/ת משכנתאות מהאזור חוזר/ת אליכם עם בדיקת זכאות ומסלולי מימון אפשריים.</p>
+            <div class="mlead-recap" id="mleadRecap"></div>
+
+            <div class="mlead-field">
+              <label for="mleadName">שם מלא</label>
+              <input type="text" id="mleadName" name="name" autocomplete="name" required>
+            </div>
+            <div class="mlead-field">
+              <label for="mleadPhone">טלפון</label>
+              <input type="tel" id="mleadPhone" name="tel" autocomplete="tel" inputmode="tel" placeholder="050-1234567" required>
+            </div>
+            <div class="mlead-field">
+              <label for="mleadEmail">אימייל</label>
+              <input type="email" id="mleadEmail" name="email" autocomplete="email" inputmode="email" dir="ltr" style="text-align:left" required>
+            </div>
+            <label class="mlead-check" for="mleadOwns">
+              <input type="checkbox" id="mleadOwns">
+              <span>יש ברשותי דירה</span>
+            </label>
+            <p class="mlead-error" id="mleadError" role="alert"></p>
+            <p class="mlead-privacy">הפרטים מועברים ליועצ/ת משכנתאות אחד/ת בלבד לצורך חזרה אליכם.</p>
+          </div>
+          <div class="filter-modal-footer">
+            <button type="submit" class="btn btn-gold" id="mleadSubmitBtn" style="flex:1">שליחה</button>
+          </div>
+        </form>
+
+        <div class="filter-modal-body mlead-done" id="mleadDone" hidden>
+          <div class="mark">✓</div>
+          <h4>הפרטים נשלחו</h4>
+          <p>יועצ/ת משכנתאות יחזור/תחזור אליכם בהקדם.</p>
+        </div>
+      </div>
     </div>
   </section>
 
@@ -1560,12 +1641,15 @@ function updateCalculator(){
   document.getElementById('calcMonthly').textContent = monthly ? (nis(monthly) + ' ₪') : '—';
 
   const ltv = price > 0 ? loan/price : 0;
-  document.getElementById('calcLtvPct').textContent = Math.round(ltv*100) + '%';
+  // ההשוואה על הערך המעוגל — אותו מספר שמוצג. עם ההשוואה על הערך הגולמי,
+  // מימון של 75.1% הציג "אחוז המימון הנדרש (75%) חורג מהתקרה (75%)".
+  const ltvPct = Math.round(ltv*100);
+  document.getElementById('calcLtvPct').textContent = ltvPct + '%';
   document.getElementById('calcLtvFill').style.width = Math.min(ltv*100, 100) + '%';
 
   const warn = document.getElementById('calcLtvWarning');
-  if (ltv > LTV_THRESHOLDS.single){
-    warn.textContent = `אחוז המימון הנדרש (${Math.round(ltv*100)}%) חורג מהתקרה המקובלת לדירה יחידה (75%) — כדאי לבדוק מול יועץ משכנתאות`;
+  if (ltvPct > LTV_THRESHOLDS.single*100){
+    warn.textContent = `אחוז המימון הנדרש (${ltvPct}%) חורג מהתקרה המקובלת לדירה יחידה (75%) — כדאי לבדוק מול יועץ משכנתאות`;
   } else {
     warn.textContent = '';
   }
@@ -1588,6 +1672,114 @@ document.querySelectorAll('.calc-step-ctl button[data-step]').forEach(btn=>{
   });
 });
 updateCalculator();
+
+/* ---------- בלון ליד ייעוץ משכנתאות ----------
+   נמצא כאן ולא ליד שאר המודאלים בכוונה: כמו המחשבון עצמו, הוא חייב לעבוד גם
+   כשה-CDN של supabase-js/leaflet חסום. לכן הוא לא נשען על openModal/closeModal
+   שמוגדרות בהמשך הקובץ, ולא על ה-SDK — השליחה היא fetch() טהור אל
+   mortgage-lead-intake, בדיוק כמו אשף בעלי הנכסים.
+
+   הליד שנוצר נכנס ל-mortgage_leads ונמכר ליועצ/ת משכנתאות אחד/ת ב-₪50
+   דרך מדף הלידים ב-CRM (מיגרציה 20260826120000_mortgage_leads.sql).      */
+const MORTGAGE_LEAD_FUNCTION_URL = SUPABASE_URL + '/functions/v1/mortgage-lead-intake';
+
+const mleadModal  = document.getElementById('mleadModal');
+const mleadForm   = document.getElementById('mleadForm');
+const mleadDone   = document.getElementById('mleadDone');
+const mleadErrorEl= document.getElementById('mleadError');
+
+// צילום של מצב המחשבון ברגע פתיחת הבלון. נלכד בפתיחה ולא בשליחה, כדי
+// שהסיכום שהמשתמש/ת רואה בטופס יהיה בדיוק מה שיישלח.
+let mleadSnapshot = {};
+
+function mleadCaptureSnapshot(){
+  const price  = parseFloat(document.getElementById('calcPrice').value) || 0;
+  const equity = parseFloat(document.getElementById('calcEquity').value) || 0;
+  const loan   = Math.max(price - equity, 0);
+  mleadSnapshot = {
+    property_price: price,
+    equity: equity,
+    interest_rate: parseFloat(document.getElementById('calcRate').value) || null,
+    years: parseInt(document.getElementById('calcYears').value, 10) || null,
+    monthly_payment: mleadMonthlyFromDisplay(),
+  };
+  const ltv = price > 0 ? Math.round((loan/price)*100) : 0;
+  document.getElementById('mleadRecap').textContent =
+    `מהמחשבון: נכס ${nis(price)} ₪ · הון עצמי ${nis(equity)} ₪ · ${ltv}% מימון · ` +
+    `${mleadSnapshot.years} שנים בריבית ${mleadSnapshot.interest_rate}%`;
+}
+
+// ההחזר כבר חושב ומוצג; קריאה חוזרת לנוסחה כאן רק תפתח פתח לסטייה בין
+// המספר שעל המסך למספר שנשלח.
+function mleadMonthlyFromDisplay(){
+  const digits = document.getElementById('calcMonthly').textContent.replace(/[^\d]/g, '');
+  return digits ? Number(digits) : null;
+}
+
+function mleadOpen(){
+  mleadCaptureSnapshot();
+  mleadErrorEl.textContent = '';
+  mleadModal.classList.add('open');
+  document.getElementById('mleadName').focus();
+}
+function mleadClose(){ mleadModal.classList.remove('open'); }
+
+document.getElementById('mleadOpenBtn').addEventListener('click', mleadOpen);
+document.getElementById('mleadCloseBtn').addEventListener('click', mleadClose);
+mleadModal.addEventListener('click', (e)=>{ if (e.target === mleadModal) mleadClose(); });
+document.addEventListener('keydown', (e)=>{
+  if (e.key === 'Escape' && mleadModal.classList.contains('open')) mleadClose();
+});
+
+mleadForm.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const nameEl  = document.getElementById('mleadName');
+  const phoneEl = document.getElementById('mleadPhone');
+  const emailEl = document.getElementById('mleadEmail');
+  const full_name = nameEl.value.trim();
+  const phone     = phoneEl.value.trim();
+  const email     = emailEl.value.trim();
+
+  // אותן בדיקות רצות שוב ב-Edge Function — כאן הן רק כדי לחסוך למשתמש/ת
+  // הלוך-ושוב לשרת.
+  const bad = {
+    name:  full_name.length < 2,
+    phone: phone.replace(/\D/g, '').length < 9,
+    email: !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email),
+  };
+  nameEl.classList.toggle('invalid', bad.name);
+  phoneEl.classList.toggle('invalid', bad.phone);
+  emailEl.classList.toggle('invalid', bad.email);
+  if (bad.name)  { mleadErrorEl.textContent = 'נא להזין שם מלא'; nameEl.focus(); return; }
+  if (bad.phone) { mleadErrorEl.textContent = 'נא להזין מספר טלפון תקין'; phoneEl.focus(); return; }
+  if (bad.email) { mleadErrorEl.textContent = 'נא להזין כתובת אימייל תקינה'; emailEl.focus(); return; }
+  mleadErrorEl.textContent = '';
+
+  const btn = document.getElementById('mleadSubmitBtn');
+  const originalLabel = btn.textContent;
+  btn.textContent = 'שולח…';
+  btn.disabled = true;
+  try{
+    const res = await fetch(MORTGAGE_LEAD_FUNCTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({
+        full_name, phone, email,
+        owns_property: document.getElementById('mleadOwns').checked,
+        ...mleadSnapshot,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'שגיאה');
+    mleadForm.hidden = true;
+    mleadDone.hidden = false;
+  } catch(err){
+    console.error('mortgage-lead-intake failed:', err);
+    mleadErrorEl.textContent = 'השליחה נכשלה — בדקו חיבור לאינטרנט ונסו שוב';
+    btn.textContent = originalLabel;
+    btn.disabled = false;
+  }
+});
 
 /* ---------- Owner-lead wizard (3 steps) ----------
    שלב 1 עסקה+כתובת, שלב 2 מאפייני הנכס, שלב 3 פרטי קשר. השליחה בסוף היא
