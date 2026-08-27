@@ -168,8 +168,32 @@
   .imp-prev td{padding:6px 8px;border-bottom:1px solid var(--line)}
   .imp-prev tr.bad td{background:var(--gold-tint)}
   .imp-prev tr.warn td{background:#FAF2DF}
+  .imp-prev tr.fixed td{background:var(--teal-tint)}
   .imp-prev td.imp-msg{white-space:normal;font-size:.72rem;min-width:200px;max-width:300px}
   .imp-prev td.imp-msg.bad{color:var(--brick);font-weight:700}
+  /* שורת התיקון הידני שנפתחת מתחת לשורה שנכשלה בשלב הבדיקה. white-space
+     חוזר ל-normal כי ‏.imp-prev כולה nowrap, ובלי זה הפקדים לא היו נשברים
+     לשורה נוספת ברוחב טלפון. */
+  .imp-prev tr.imp-fixrow td{padding:8px;background:#fff;border-bottom:1.5px solid var(--line);white-space:normal}
+  /* התא משתרע על כל רוחב הטבלה, שרחבה מהחלון — ולכן הפקדים לא יורשים את
+     רוחבו (fit-content) ונדבקים לקצה הימני של אזור הגלילה, כדי שיהיו
+     גלויים בלי לגלול הצידה. */
+  /* ‏--imp-fixw = הרוחב הגלוי של אזור הגלילה, נכתב מ-impSyncFixWidth. בלעדיו
+     ‏fit-content היה מייצר שורת פקדים רחבה מהמסך, ו-sticky גורר אותה עם
+     הגלילה — כלומר החלק השמאלי שלה לא היה נגיש כלל בטלפון. */
+  .imp-fix{display:flex;flex-wrap:wrap;gap:8px;align-items:flex-end;position:sticky;right:0;width:fit-content;max-width:var(--imp-fixw,100%)}
+  .imp-fix .fix-field{display:flex;flex-direction:column;gap:3px;width:170px;max-width:100%}
+  .imp-fix .fix-label{font-size:.7rem;font-weight:700;color:var(--ink-soft)}
+  .imp-fix select,.imp-fix input{padding:6px 8px;border:1.5px solid var(--brick);border-radius:var(--radius-sm);background:#fff;font-size:.78rem;font-family:inherit;width:100%}
+  .imp-fix .fix-field.done select,.imp-fix .fix-field.done input{border-color:var(--teal)}
+  /* הצעה שהושלמה מהכותרת: ענבר — לא שגיאה ולא ערך מאושר. ערכים קבועים ולא
+     ‏var(--gold), שהוא אדום בפלטה הנוכחית ולא היה נבדל מסימון השגיאה. */
+  .imp-fix .fix-field.guess select,.imp-fix .fix-field.guess input{border-color:#C0952B}
+  .imp-fix .fix-field.guess .fix-label{color:#8A6A18}
+  .imp-fixall{font-size:.68rem;font-weight:700;color:var(--teal);background:var(--teal-tint);border:1.5px solid var(--teal-tint);border-radius:var(--radius-sm);padding:6px 9px;white-space:nowrap;cursor:pointer}
+  .imp-fixall:disabled{opacity:.45;cursor:not-allowed}
+  .imp-chip.fix{background:var(--teal);color:#fff;border-color:var(--teal)}
+  .imp-chip.guess{background:#FAF2DF;color:#8A6A18;border-color:#E3CE94}
   .imp-sum{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
   .imp-chip{padding:7px 12px;border-radius:999px;font-weight:700;font-size:.78rem;background:var(--paper-raised);border:1.5px solid var(--line)}
   .imp-chip.ok{background:var(--teal-tint);color:var(--teal);border-color:var(--teal-tint)}
@@ -4269,7 +4293,9 @@ const IMPORT_FIELDS = [
   { key:'neighborhood', label:'שכונה', hint:'חייבת להיות שכונה שקיימת ברשימת הפלטפורמה', aliases:['שכונה','neighborhood'] },
   { key:'sales_area', label:'איזור מכירה', aliases:['איזור מכירה','אזור מכירה','איזור','אזור','sales_area','area'] },
   { key:'street', label:'רחוב', aliases:['רחוב','כתובת','street','address'] },
-  { key:'house_number', label:'מספר בית', aliases:['מספר בית','מס בית','מספר','house number','house_number'] },
+  // בלי הכינוי "מספר" לבדו: בקבצי ייצוא הוא כמעט תמיד "מספר מודעה"/"מספר נכס",
+  // וההתאמה הרכה הייתה מכניסה מזהה מודעה לתוך הכתובת.
+  { key:'house_number', label:'מספר בית', aliases:['מספר בית','מס בית','house number','house_number'] },
   { key:'floor', label:'קומה', aliases:['קומה','floor'] },
   { key:'total_floors', label:'מספר קומות', aliases:['מספר קומות','קומות','סה"כ קומות','total_floors','floors'] },
   { key:'size_sqm', label:'גודל במ"ר', aliases:['גודל','שטח','מ"ר','גודל במ"ר','שטח במ"ר','size','size_sqm'] },
@@ -4292,7 +4318,9 @@ const IMPORT_FIELDS = [
   // ‏marketing_image לפני images בכוונה: המיפוי האוטומטי תופס כל כותרת פעם
   // אחת בלבד, והתאמה רכה של "תמונה" הייתה חוטפת את "תמונה שיווקית" לגלריה.
   { key:'marketing_image', label:'תמונה שיווקית', hint:'כתובת מלאה אחת', aliases:['תמונה שיווקית','marketing_image'] },
-  { key:'images', label:'קישורי תמונות', hint:'כתובות מלאות, מופרדות בפסיק', aliases:['כל התמונות (קישורים)','כל התמונות','קישורי תמונות','תמונות','תמונה ראשית','תמונה','images','image'] },
+  // סדר הכינויים הוא סדר עדיפות: עמודת הגלריה חייבת להופיע לפני "תמונה
+  // ראשית", אחרת בקובץ שיש בו את שתיהן הגלריה נשארת בלי מיפוי והתמונות אובדות.
+  { key:'images', label:'קישורי תמונות', hint:'כתובות מלאות, מופרדות בפסיק', aliases:['כל התמונות (קישורים)','תמונות (כל הקישורים)','כל התמונות','קישורי תמונות','תמונות','תמונה ראשית','תמונה','images','image'] },
   { key:'marketing_description', label:'תיאור שיווקי', aliases:['תיאור שיווקי','marketing_description'] },
   { key:'post_text', label:'טקסט פוסט', aliases:['טקסט פוסט','פוסט','post','post_text'] },
   { key:'agent2_name', label:'סוכן 2', aliases:['סוכן 2','סוכן שני','agent2','agent2_name'] },
@@ -4362,7 +4390,10 @@ function impDate(v){
   return undefined;
 }
 
-const IMP_CATEGORY = { 'מגורים':'residential','residential':'residential','מסחרי':'commercial','מסחר':'commercial','עסקי':'commercial','commercial':'commercial' };
+const IMP_CATEGORY = {
+  'מגורים':'residential','residential':'residential','פרטי':'residential','private':'residential',
+  'מסחרי':'commercial','מסחר':'commercial','עסקי':'commercial','commercial':'commercial',
+};
 const IMP_DEAL = {
   'מכירה':'sale','למכירה':'sale','מכר':'sale','sale':'sale','sell':'sale',
   'השכרה':'rent','להשכרה':'rent','שכירות':'rent','rent':'rent','rental':'rent',
@@ -4393,6 +4424,8 @@ const IMP_PROPERTY_STATUS = {
 
 /* שמות מקובלים שאינם מופיעים מילה במילה ברשימות הסגורות של הטופס. */
 const IMP_PTYPE_SYNONYMS = {
+  // צורות רבים: בכותרות של קבצי ייצוא נפוץ "דירות, רחוב X" ולא "דירה"
+  'דירות':'דירה','דירות גן':'דירת גן','קוטגים':"בית פרטי/קוטג'",'וילות':"בית פרטי/קוטג'",
   'פנטהאוז':'גג/פנטהאוז','דירת גג':'גג/פנטהאוז','גג':'גג/פנטהאוז',
   'בית פרטי':"בית פרטי/קוטג'",'קוטג':"בית פרטי/קוטג'",'וילה':"בית פרטי/קוטג'",
   'לופט':'סטודיו/לופט','סטודיו':'סטודיו/לופט',
@@ -4422,6 +4455,56 @@ function impMatchPropertyType(value, category){
   // התאמה חלקית מתקבלת רק אם היא חד-משמעית ("דירת גן" מול "דירה" תיפסל)
   const partial = options.filter(o => { const n = impNorm(o); return n.includes(v) || v.includes(n); });
   return partial.length === 1 ? partial[0] : null;
+}
+
+/* ניחוש סוג הנכס מתוך הכותרת, כשאין עמודה לסוג או שהערך שבה לא זוהה —
+   בקבצי ייצוא רבים הסוג יושב רק בכותרת ("משרד, יהושע חנקין 2 — 160 מ״ר").
+
+   ההתאמה היא על רצף מילים שלם ולא על תת-מחרוזת, כדי ש"דירות" לא ייקרא
+   כ"דירה"; ומכיוון שכותרת יכולה להזכיר כמה סוגים ("משרד/חנות", "דירה עם
+   מרתף"), מנצח המוקדם ביותר בכותרת — הסוג הראשי נכתב ראשון — ובאותו
+   מיקום, השם הארוך ביותר ("בית פרטי" לפני "בית").
+
+   הניחוש לעולם אינו שקט: הוא מוסיף אזהרה, צובע את השורה בצהוב ומשאיר את
+   פקד התיקון פתוח עם הערך המוצע.                                          */
+/* פיצול למילים על כל תו שאינו אות או ספרה — לא רק על רווח. כותרת אמיתית
+   נראית "משרד, יהושע חנקין 2 — 160 מ״ר", ופסיק דבוק היה מונע כל התאמה.
+   ‏impNorm עצמה נשארת כמות שהיא: היא משמשת גם להשוואות מדויקות. */
+function impWords(text){
+  return impNorm(text).split(/[^\p{L}\p{N}]+/u).filter(Boolean);
+}
+
+function impWordSpanIndex(words, target){
+  for (let i = 0; i + target.length <= words.length; i++){
+    if (target.every((w, k) => words[i + k] === w)) return i;
+  }
+  return -1;
+}
+
+function impGuessPropertyType(text, category){
+  const words = impWords(text);
+  if (!words.length) return null;
+  const options = category === 'commercial' ? COMMERCIAL_PTYPE_OPTIONS : RESIDENTIAL_PTYPE_OPTIONS;
+  const synonyms = category === 'commercial' ? IMP_PTYPE_SYNONYMS_COMMERCIAL : IMP_PTYPE_SYNONYMS;
+
+  // כל אגף של אופציה מורכבת הוא מועמד בפני עצמו: "גג/פנטהאוז" נמצא גם
+  // כשבכותרת כתוב רק "פנטהאוז".
+  const candidates = [];
+  options.forEach(o => String(o).split('/').forEach(part => candidates.push([part, o])));
+  Object.entries(synonyms).forEach(([key, value]) => candidates.push([key, value]));
+
+  let best = null;
+  candidates.forEach(([name, value])=>{
+    const target = impWords(name);
+    if (!target.length) return;
+    // שמות בני שתי אותיות ("גג") שכיחים מדי בטקסט חופשי מכדי לנחש לפיהם
+    const length = target.join(' ').length;
+    if (length < 3) return;
+    const at = impWordSpanIndex(words, target);
+    if (at < 0) return;
+    if (!best || at < best.at || (at === best.at && length > best.length)) best = { at, length, value };
+  });
+  return best ? best.value : null;
 }
 
 /* מפת מאפיינים: גם התווית בעברית וגם הקוד עצמו מובילים לאותו ערך. */
@@ -4456,6 +4539,12 @@ function impInitState(){
   importState = {
     step: 1, fileName: '', headers: [], rows: [],
     mapping: Object.create(null),   // fieldKey -> אינדקס עמודה, או -1
+    // תיקונים ידניים שנעשו בשלב הבדיקה: rowNumber -> { fieldKey: ערך }.
+    // הם גוברים על התא שבקובץ, ולכן שורה מתוקנת נבנית מחדש כאילו הערך
+    // הגיע מהקובץ מלכתחילה — בלי מסלול ולידציה נפרד.
+    overrides: Object.create(null),
+    existingKeys: null,             // כותרת|מחיר של נכסים קיימים, לבדיקת כפילות
+    forceStep3: false,              // אישור מעבר לבדיקה בלי מיפוי שדה חובה
     parsed: [], failed: [], busy: false,
   };
 }
@@ -4573,8 +4662,16 @@ function impAutoMap(headers){
   const normalized = headers.map(impNorm);
   const mapping = Object.create(null);
   const taken = new Set();
+  // כל השמות המוכרים של כל השדות. כותרת שהיא שם מדויק של שדה אחר לא תיתפס
+  // בהתאמה הרכה: "סוג עסקה" נחטפה קודם לשדה "סוג נכס" דרך הכינוי "סוג",
+  // ואז נפלו כל השורות גם על סוג הנכס וגם על סוג העסקה שנשאר בלי עמודה.
+  const allNames = new Set();
+  IMPORT_FIELDS.forEach(f=>{
+    [f.label, f.key, ...(f.aliases || [])].forEach(n=>{ const v = impNorm(n); if (v) allNames.add(v); });
+  });
   IMPORT_FIELDS.forEach(field=>{
     const wanted = [field.label, field.key, ...(field.aliases || [])].map(impNorm);
+    const wantedSet = new Set(wanted.filter(Boolean));
     // התאמה מדויקת לפי סדר הכינויים ולא לפי סדר העמודות בקובץ: כשיש גם
     // "ריהוט" וגם "פירוט ריהוט", הכינוי הספציפי (הראשון ברשימה) מנצח.
     let idx = -1;
@@ -4585,7 +4682,9 @@ function impAutoMap(headers){
     }
     if (idx === -1){
       // התאמה רכה: כותרת שמכילה את שם השדה ("מחיר מבוקש בש\"ח")
-      idx = normalized.findIndex((h, i) => !taken.has(i) && h && wanted.some(w => w.length > 2 && h.includes(w)));
+      idx = normalized.findIndex((h, i) => !taken.has(i) && h
+        && !(allNames.has(h) && !wantedSet.has(h))
+        && wanted.some(w => w.length > 2 && h.includes(w)));
     }
     mapping[field.key] = idx;
     if (idx > -1) taken.add(idx);
@@ -4630,19 +4729,40 @@ function impRenderStep2(){
        זיהינו את העמודות אוטומטית — עברו ותקנו במידת הצורך. שדות עם <span class="imp-req">*</span> הם חובה.</p>
     ${featureColumns.length ? `<div class="imp-note">עמודות מאפיין (כן/לא) שייקלטו אוטומטית כמאפייני נכס:
        <strong>${featureColumns.map(c => impEscape(c.label)).join(' · ')}</strong></div>` : ''}
+    <div class="imp-note" id="impMapWarn" style="min-height:1.2em"></div>
     <table class="imp-map">${rows}</table>`;
   impFootEl.innerHTML = `
     <button type="button" class="btn btn-ghost" id="impBack">חזרה</button>
     <button type="button" class="btn btn-gold" id="impNext">בדיקת הנתונים</button>`;
 
+  const nextBtn = document.getElementById('impNext');
+  const warnEl = document.getElementById('impMapWarn');
   impBodyEl.querySelectorAll('select[data-field]').forEach(sel=>{
     sel.value = String(importState.mapping[sel.dataset.field] ?? -1);
-    sel.addEventListener('change', ()=>{ importState.mapping[sel.dataset.field] = Number(sel.value); });
+    sel.addEventListener('change', ()=>{
+      importState.mapping[sel.dataset.field] = Number(sel.value);
+      // כל שינוי במיפוי מבטל אישור קודם על שדה חובה חסר, אחרת לחיצה אחת
+      // על "המשך בכל זאת" הייתה מדלגת על האזהרה גם אחרי שהמיפוי השתנה.
+      importState.forceStep3 = false;
+      // התיקונים הידניים נעשו מול המיפוי הקודם — עמודה חדשה לשדה שתוקן
+      // הייתה נשארת מוסתרת מאחורי התיקון הישן.
+      importState.overrides = Object.create(null);
+      warnEl.textContent = '';
+      nextBtn.textContent = 'בדיקת הנתונים';
+    });
   });
   document.getElementById('impBack').addEventListener('click', ()=> impSetStep(1));
-  document.getElementById('impNext').addEventListener('click', ()=>{
+  nextBtn.addEventListener('click', ()=>{
+    // שדה חובה בלי עמודה בקובץ אינו חוסם יותר: יש קבצים שבהם הערך פשוט לא
+    // קיים כעמודה (סוג הנכס בתוך הכותרת, למשל). ממשיכים לשלב הבדיקה, שם
+    // כל שורה מקבלת פקד תיקון ידני לשדה החסר — כולל החלה על כל השורות.
     const missing = IMPORT_FIELDS.filter(f => f.required && (importState.mapping[f.key] ?? -1) < 0);
-    if (missing.length){
+    if (missing.length && !importState.forceStep3){
+      importState.forceStep3 = true;
+      warnEl.style.color = 'var(--brick)';
+      warnEl.innerHTML = `<strong>אין עמודה לשדות חובה: ${impEscape(missing.map(f => f.label).join(', '))}.</strong>
+        אפשר להמשיך ולמלא אותם ידנית בשלב הבדיקה (גם לכל השורות בבת אחת) — או לחזור ולמפות עמודה.`;
+      nextBtn.textContent = 'המשך ומילוי ידני';
       showToast('חסרה התאמה לשדות חובה: ' + missing.map(f => f.label).join(', '));
       return;
     }
@@ -4653,7 +4773,19 @@ function impRenderStep2(){
 /* ---------- שלב 3: נרמול, ולידציה ותצוגה מקדימה ---------- */
 function impBuildRow(rawRow, rowNumber){
   const errors = [], warnings = [];
+  // ‏errorFields: השדות שהפילו את השורה, לפי מפתח. שלב הבדיקה מציג לפיהם
+  // פקד תיקון ידני, ולכן כל errors.push על שדה שניתן לתקן עובר דרך fail().
+  const errorFields = [];
+  // שדות שהושלמו בניחוש (ולא מהקובץ ולא מתיקון ידני) — שלב הבדיקה מציג
+  // אותם בפקד התיקון עם הערך המוצע, כדי שאפשר יהיה לאשר או להחליף.
+  const guessed = Object.create(null);
+  const fail = (key, message)=>{
+    errors.push(message);
+    if (!errorFields.includes(key)) errorFields.push(key);
+  };
+  const overrides = importState.overrides[rowNumber] || null;
   const cell = (key)=>{
+    if (overrides && key in overrides) return overrides[key];
     const idx = importState.mapping[key] ?? -1;
     return idx < 0 ? '' : rawRow[idx];
   };
@@ -4675,24 +4807,44 @@ function impBuildRow(rawRow, rowNumber){
   }
   payload.category = category;
 
-  const ptype = impMatchPropertyType(cell('property_type'), category);
-  if (!ptype) errors.push(`סוג נכס "${impText(cell('property_type')) || '(ריק)'}" אינו ברשימת הסוגים ל${category === 'commercial' ? 'נכס מסחרי' : 'מגורים'}`);
+  let ptype = impMatchPropertyType(cell('property_type'), category);
+  if (!ptype && title){
+    // ניחוש מהכותרת, קודם ברשימת הקטגוריה שבקובץ ואז בשנייה. סוג מהקטגוריה
+    // השנייה גורר גם את הקטגוריה — כמו בבחירה ידנית — אחרת הוא היה נפסל שוב
+    // מיד. הבדיקה חייבת לקרות כאן, לפני ש-category משמש להמשך השורה.
+    let guess = impGuessPropertyType(title, category);
+    let flipped = false;
+    if (!guess){
+      const other = category === 'commercial' ? 'residential' : 'commercial';
+      const crossGuess = impGuessPropertyType(title, other);
+      if (crossGuess){ guess = crossGuess; category = other; payload.category = other; flipped = true; }
+    }
+    if (guess){
+      ptype = guess;
+      guessed.property_type = guess;
+      const had = impText(cell('property_type'));
+      warnings.push(`${had ? `סוג נכס "${had}" לא זוהה` : 'אין ערך לסוג נכס'} — הושלם מהכותרת: "${guess}"`
+        + (flipped ? ` (והקטגוריה שונתה ל${category === 'commercial' ? 'מסחרי' : 'מגורים'})` : '')
+        + '. בדקו ותקנו במידת הצורך.');
+    }
+  }
+  if (!ptype) fail('property_type', `סוג נכס "${impText(cell('property_type')) || '(ריק)'}" אינו ברשימת הסוגים ל${category === 'commercial' ? 'נכס מסחרי' : 'מגורים'}`);
   else payload.property_type = ptype;
 
   const deal = IMP_DEAL[impNorm(cell('deal_type'))];
-  if (!deal) errors.push(`סוג עסקה "${impText(cell('deal_type')) || '(ריק)'}" — יש לרשום מכירה או השכרה`);
+  if (!deal) fail('deal_type', `סוג עסקה "${impText(cell('deal_type')) || '(ריק)'}" — יש לרשום מכירה או השכרה`);
   else payload.deal_type = deal;
 
   const price = impNumber(cell('price'));
-  if (price === null) errors.push('חסר מחיר או שאינו מספר');
-  else if (price <= 0) errors.push('המחיר חייב להיות גדול מאפס');
+  if (price === null) fail('price', 'חסר מחיר או שאינו מספר');
+  else if (price <= 0) fail('price', 'המחיר חייב להיות גדול מאפס');
   else {
     payload.price = price;
     if (deal === 'sale' && price < 10000) warnings.push('מחיר נמוך במיוחד למכירה — ודאו שהמחיר בשקלים ולא באלפים');
   }
 
   const city = impText(cell('city'));
-  if (!city) errors.push('חסרה עיר');
+  if (!city) fail('city', 'חסרה עיר');
   else payload.city = city;
 
   const rooms = impNumber(cell('rooms'));
@@ -4856,7 +5008,7 @@ function impBuildRow(rawRow, rowNumber){
       payload.title = parts.join(', ').slice(0, 200);
       warnings.push('אין עמודת כותרת — נוצרה כותרת אוטומטית: ' + payload.title);
     } else {
-      errors.push('חסרה כותרת ואי אפשר לבנות אותה (אין סוג נכס, כתובת או עיר)');
+      fail('title', 'חסרה כותרת ואי אפשר לבנות אותה (אין סוג נכס, כתובת או עיר)');
     }
   }
 
@@ -4879,21 +5031,45 @@ function impBuildRow(rawRow, rowNumber){
   };
 
   return {
-    rowNumber, raw: rawRow, payload, errors, warnings,
+    rowNumber, raw: rawRow, payload, errors, warnings, errorFields, guessed,
+    fixedFields: overrides ? Object.keys(overrides) : [],
     owner: (owner.owner_name || owner.owner_phone) ? owner : null,
   };
 }
 
-async function impRenderStep3(){
-  impBodyEl.innerHTML = '<div class="empty-state">בודק את הנתונים…</div>';
-  impFootEl.innerHTML = '';
+/* השדות שאפשר לתקן ידנית בשלב הבדיקה — בדיוק אלה שיכולים להפיל שורה
+   (ראו fail() ב-impBuildRow). התיקון נכתב ל-importState.overrides, השורה
+   נבנית מחדש דרך אותה ולידציה, ואם היא נקייה היא נכנסת לספירת "מוכנים
+   לייבוא" — בלי לצאת מהאשף ובלי קובץ תיקונים נפרד.                        */
+const IMPORT_FIX_FIELDS = {
+  property_type: { label:'סוג נכס' },
+  deal_type:     { label:'סוג עסקה' },
+  price:         { label:'מחיר' },
+  city:          { label:'עיר' },
+  title:         { label:'כותרת' },
+};
 
-  // ‏impBuildRow ממפה שם שכונה מהקובץ ל-neighborhood_id מול הרשימה הזו
-  await ensureNeighborhoodsLoaded();
-  importState.featureColumns = impDetectFeatureColumns(importState.headers, importState.mapping);
-  importState.parsed = importState.rows.map((row, i) => impBuildRow(row, i + 2)); // +2: שורה 1 היא הכותרות
+function impSetOverride(rowNumber, field, value){
+  const bag = importState.overrides[rowNumber] || (importState.overrides[rowNumber] = Object.create(null));
+  const text = String(value == null ? '' : value).trim();
+  if (!text){
+    delete bag[field];
+    if (field === 'property_type') delete bag.category;
+  } else {
+    bag[field] = text;
+    // בחירת סוג נכס מרשימת הקטגוריה השנייה גוררת גם את הקטגוריה, אחרת הסוג
+    // שנבחר היה נופל שוב מול הרשימה של הקטגוריה שהגיעה מהקובץ.
+    if (field === 'property_type'){
+      if (RESIDENTIAL_PTYPE_OPTIONS.includes(text)) bag.category = 'מגורים';
+      else if (COMMERCIAL_PTYPE_OPTIONS.includes(text)) bag.category = 'מסחרי';
+    }
+  }
+  if (!Object.keys(bag).length) delete importState.overrides[rowNumber];
+}
 
-  // כפילויות בתוך הקובץ עצמו
+/* אזהרות הכפילות נמחקות עם כל בנייה מחדש של השורה, ולכן הן מסומנות תמיד
+   על כל הקובץ ביחד ואחרי impRevalidate — ולא שורה-שורה. */
+function impMarkDuplicates(){
   const seen = new Map();
   importState.parsed.forEach(row=>{
     if (row.errors.length) return;
@@ -4901,29 +5077,100 @@ async function impRenderStep3(){
     if (seen.has(key)) row.warnings.push(`שורה זהה לשורה ${seen.get(key)} בקובץ`);
     else seen.set(key, row.rowNumber);
   });
-
-  // כפילויות מול נכסים שכבר קיימים אצל הסוכן/ת
-  try{
-    const { data: existing } = await sb.from('properties')
-      .select('title, price').eq('agent_id', currentAgent.id).eq('status', 'active');
-    if (existing && existing.length){
-      const existingKeys = new Set(existing.map(p => `${impNorm(p.title)}|${Number(p.price)}`));
-      importState.parsed.forEach(row=>{
-        if (row.errors.length) return;
-        if (existingKeys.has(`${impNorm(row.payload.title)}|${Number(row.payload.price)}`)){
-          row.warnings.push('נכס עם אותה כותרת ומחיר כבר קיים אצלך — ייתכן שזו כפילות');
-        }
-      });
+  const existingKeys = importState.existingKeys;
+  if (!existingKeys || !existingKeys.size) return;
+  importState.parsed.forEach(row=>{
+    if (row.errors.length) return;
+    if (existingKeys.has(`${impNorm(row.payload.title)}|${Number(row.payload.price)}`)){
+      row.warnings.push('נכס עם אותה כותרת ומחיר כבר קיים אצלך — ייתכן שזו כפילות');
     }
-  } catch(err){ console.warn('duplicate check failed', err); }
+  });
+}
 
+/* בנייה מחדש של *כל* השורות אחרי תיקון ידני. יקר פחות מלנהל עדכון נקודתי:
+   תיקון בשורה אחת יכול לשנות גם אזהרות כפילות בשורות אחרות. */
+function impRevalidate(){
+  importState.parsed = importState.rows.map((row, i) => impBuildRow(row, i + 2)); // +2: שורה 1 היא הכותרות
+  impMarkDuplicates();
+}
+
+function impFixRowHtml(row, colspan, pendingCount){
+  const keys = [...row.errorFields, ...row.fixedFields, ...Object.keys(row.guessed)]
+    .filter((k, i, arr) => IMPORT_FIX_FIELDS[k] && arr.indexOf(k) === i);
+  if (!keys.length) return '';
+
+  const controls = keys.map(key=>{
+    const override = (importState.overrides[row.rowNumber] || {})[key];
+    const done = override !== undefined && String(override) !== '';
+    // ערך שנוחש מוצג בפקד אבל אינו נחשב תיקון: הוא נשאר מסומן כהצעה עד
+    // שבוחרים בו (או בערך אחר) במפורש.
+    const guess = done ? undefined : row.guessed[key];
+    const value = done ? override : guess;
+    const attrs = `data-fix-row="${row.rowNumber}" data-fix-field="${key}"`;
+    const current = impNorm(value || '');
+    let control;
+    if (key === 'property_type'){
+      const opts = (list)=> list.map(o =>
+        `<option value="${impEscape(o)}"${impNorm(o) === current ? ' selected' : ''}>${impEscape(o)}</option>`).join('');
+      control = `<select ${attrs}><option value="">— בחרו סוג —</option>
+        <optgroup label="מגורים">${opts(RESIDENTIAL_PTYPE_OPTIONS)}</optgroup>
+        <optgroup label="מסחרי">${opts(COMMERCIAL_PTYPE_OPTIONS)}</optgroup></select>`;
+    } else if (key === 'deal_type'){
+      control = `<select ${attrs}><option value="">— בחרו —</option>` +
+        ['מכירה','השכרה'].map(o => `<option value="${o}"${impNorm(o) === current ? ' selected' : ''}>${o}</option>`).join('') +
+        `</select>`;
+    } else if (key === 'price'){
+      control = `<input type="number" min="1" step="1000" placeholder="מחיר בשקלים" value="${impEscape(value ?? '')}" ${attrs}>`;
+    } else if (key === 'city'){
+      control = `<input type="text" list="impCityList" placeholder="שם היישוב" value="${impEscape(value ?? '')}" ${attrs}>`;
+    } else {
+      control = `<input type="text" maxlength="200" placeholder="כותרת המודעה" value="${impEscape(value ?? '')}" ${attrs}>`;
+    }
+    // כמה שורות *אחרות* עדיין נכשלות על אותו שדה — כדי שקובץ שבו חסרה
+    // עמודה שלמה ייפתר בלחיצה אחת ולא בחמישים בחירות זהות.
+    const others = (pendingCount[key] || 0) - (row.errorFields.includes(key) ? 1 : 0);
+    // הכפתור מוחל את מה שמופיע בפקד — גם ערך שנוחש, ולכן הוא פעיל גם כשעדיין
+    // אין override, ובלבד שיש בפקד ערך כלשהו.
+    const all = others > 0
+      ? `<button type="button" class="imp-fixall" data-fixall-row="${row.rowNumber}" data-fixall-field="${key}"
+           ${(done || guess) ? '' : 'disabled'}>↧ גם ב-${others} שורות שנכשלו</button>`
+      : '';
+    const state = done ? ' done' : (guess ? ' guess' : '');
+    const mark = done ? ' ✓' : (guess ? ' · הושלם מהכותרת' : '');
+    return `<div class="fix-field${state}">
+        <span class="fix-label">${IMPORT_FIX_FIELDS[key].label}${mark}</span>${control}
+      </div>${all}`;
+  }).join('');
+
+  return `<tr class="imp-fixrow"><td colspan="${colspan}"><div class="imp-fix">${controls}</div></td></tr>`;
+}
+
+/* שורת התיקון יושבת בתא שמשתרע על כל רוחב הטבלה, שרחבה מהמסך. הרוחב הגלוי
+   נמדד כאן ונכתב כמשתנה CSS, כדי שהפקדים יישברו לשורות במקום לגלוש. */
+function impSyncFixWidth(){
+  const wrap = document.getElementById('impTableWrap');
+  if (wrap) wrap.style.setProperty('--imp-fixw', Math.max(140, wrap.clientWidth - 20) + 'px');
+}
+window.addEventListener('resize', ()=>{
+  if (importState && importState.step === 3) impSyncFixWidth();
+});
+
+/* ציור מחדש של הסיכום, הטבלה והכפתורים בלבד — הקליפה של שלב 3 (כולל
+   ה-datalist של הערים) נשארת, כדי שתיקון לא יאפס את הגלילה בטבלה. */
+function impPaintPreview(focus){
+  const previewFields = importState.previewFields || [];
+  const colspan = previewFields.length + 2;
   const valid = importState.parsed.filter(r => !r.errors.length);
   const invalid = importState.parsed.filter(r => r.errors.length);
   const warned = valid.filter(r => r.warnings.length);
-  const previewFields = IMPORT_FIELDS.filter(f => (importState.mapping[f.key] ?? -1) > -1).slice(0, 7);
+  const fixed = valid.filter(r => r.fixedFields.length);
+  const guessedRows = valid.filter(r => Object.keys(r.guessed).length && !r.fixedFields.includes('property_type'));
+
+  const pendingCount = Object.create(null);
+  invalid.forEach(r => r.errorFields.forEach(k => { pendingCount[k] = (pendingCount[k] || 0) + 1; }));
 
   const body = importState.parsed.map(row=>{
-    const cls = row.errors.length ? 'bad' : (row.warnings.length ? 'warn' : '');
+    const cls = row.errors.length ? 'bad' : (row.fixedFields.length ? 'fixed' : (row.warnings.length ? 'warn' : ''));
     const cells = previewFields.map(f=>{
       const idx = importState.mapping[f.key];
       return `<td>${impEscape(impText(row.raw[idx]).slice(0, 40))}</td>`;
@@ -4932,32 +5179,103 @@ async function impRenderStep3(){
     return `<tr class="${cls}">
       <td>${row.rowNumber}</td>${cells}
       <td class="imp-msg ${row.errors.length ? 'bad' : ''}">${impEscape(messages.join(' · ')) || '✓'}</td>
-    </tr>`;
+    </tr>${impFixRowHtml(row, colspan, pendingCount)}`;
   }).join('');
 
-  impBodyEl.innerHTML = `
-    <div class="imp-sum">
-      <span class="imp-chip ok">${valid.length} מוכנים לייבוא</span>
-      ${invalid.length ? `<span class="imp-chip bad">${invalid.length} עם שגיאה — ידולגו</span>` : ''}
-      ${warned.length ? `<span class="imp-chip">${warned.length} עם אזהרה — ייובאו חלקית</span>` : ''}
-    </div>
-    <div class="imp-tablewrap">
-      <table class="imp-prev">
-        <thead><tr><th>שורה</th>${previewFields.map(f => `<th>${impEscape(f.label)}</th>`).join('')}<th>הערות</th></tr></thead>
-        <tbody>${body}</tbody>
-      </table>
-    </div>
-    <p class="imp-note">שורה אדומה לא תיובא כלל. שורה צהובה תיובא, אך השדה שצוין בהערה יישאר ריק.</p>`;
+  document.getElementById('impSum').innerHTML = `
+    <span class="imp-chip ok">${valid.length} מוכנים לייבוא</span>
+    ${invalid.length ? `<span class="imp-chip bad">${invalid.length} עם שגיאה — תקנו כאן או שידולגו</span>` : ''}
+    ${fixed.length ? `<span class="imp-chip fix">${fixed.length} תוקנו ידנית</span>` : ''}
+    ${guessedRows.length ? `<span class="imp-chip guess">${guessedRows.length} סוג נכס הושלם מהכותרת — בדקו</span>` : ''}
+    ${warned.length ? `<span class="imp-chip">${warned.length} עם אזהרה — ייובאו חלקית</span>` : ''}`;
+
+  const wrap = document.getElementById('impTableWrap');
+  const scroll = wrap ? wrap.scrollTop : 0;
+  document.getElementById('impRows').innerHTML = body;
+  impSyncFixWidth();
+
   impFootEl.innerHTML = `
     <button type="button" class="btn btn-ghost" id="impBack">חזרה למיפוי</button>
     ${invalid.length ? '<button type="button" class="btn btn-ghost" id="impErrors">הורדת השגיאות</button>' : ''}
     <button type="button" class="btn btn-gold" id="impRun" ${valid.length ? '' : 'disabled'}>ייבוא ${valid.length} נכסים</button>`;
-
   document.getElementById('impBack').addEventListener('click', ()=> impSetStep(2));
   const errBtn = document.getElementById('impErrors');
   if (errBtn) errBtn.addEventListener('click', ()=> impDownloadErrors(invalid.map(r => ({ raw:r.raw, message:r.errors.join(' · ') }))));
   document.getElementById('impRun').addEventListener('click', ()=> impSetStep(4));
+
+  if (focus){
+    const el = impBodyEl.querySelector(`[data-fix-row="${focus.row}"][data-fix-field="${focus.field}"]`);
+    if (el) el.focus();
+  }
+  if (wrap) wrap.scrollTop = scroll;
 }
+
+async function impRenderStep3(){
+  impBodyEl.innerHTML = '<div class="empty-state">בודק את הנתונים…</div>';
+  impFootEl.innerHTML = '';
+
+  // ‏impBuildRow ממפה שם שכונה מהקובץ ל-neighborhood_id מול הרשימה הזו,
+  // ומאותה רשימה נבנית גם השלמת הערים בתיקון הידני.
+  await ensureNeighborhoodsLoaded();
+  importState.featureColumns = impDetectFeatureColumns(importState.headers, importState.mapping);
+  importState.previewFields = IMPORT_FIELDS.filter(f => (importState.mapping[f.key] ?? -1) > -1).slice(0, 7);
+
+  // כפילויות מול נכסים שכבר קיימים אצל הסוכן/ת — נשלף פעם אחת ונשמר,
+  // כי כל תיקון ידני מריץ את בדיקת הכפילות מחדש.
+  if (!importState.existingKeys){
+    importState.existingKeys = new Set();
+    try{
+      const { data: existing } = await sb.from('properties')
+        .select('title, price').eq('agent_id', currentAgent.id).eq('status', 'active');
+      (existing || []).forEach(p => importState.existingKeys.add(`${impNorm(p.title)}|${Number(p.price)}`));
+    } catch(err){ console.warn('duplicate check failed', err); }
+  }
+
+  impRevalidate();
+
+  const cities = [...new Set(allNeighborhoods.map(n => n.city).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'he'));
+
+  impBodyEl.innerHTML = `
+    <div class="imp-sum" id="impSum"></div>
+    <div class="imp-tablewrap" id="impTableWrap">
+      <table class="imp-prev">
+        <thead><tr><th>שורה</th>${importState.previewFields.map(f => `<th>${impEscape(f.label)}</th>`).join('')}<th>הערות</th></tr></thead>
+        <tbody id="impRows"></tbody>
+      </table>
+    </div>
+    <datalist id="impCityList">${cities.map(c => `<option value="${impEscape(c)}"></option>`).join('')}</datalist>
+    <p class="imp-note">שורה אדומה לא תיובא — מלאו את השדה החסר בשורה שמתחתיה והיא תהפוך לירוקה ותיכנס לספירת המוכנים לייבוא.
+       שורה צהובה תיובא, אך השדה שצוין בהערה יישאר ריק.
+       סוג נכס שהושלם מהכותרת מסומן בפקד כהצעה — אשרו אותו או החליפו אותו לפני הייבוא.</p>`;
+
+  impPaintPreview();
+}
+
+/* מאזינים מוצמדים לגוף האשף פעם אחת, ולא לכל פקד בכל ציור מחדש. */
+impBodyEl.addEventListener('change', (e)=>{
+  const el = e.target.closest && e.target.closest('[data-fix-field]');
+  if (!el || !importState || importState.step !== 3) return;
+  impSetOverride(Number(el.dataset.fixRow), el.dataset.fixField, el.value);
+  impRevalidate();
+  impPaintPreview({ row: el.dataset.fixRow, field: el.dataset.fixField });
+});
+
+impBodyEl.addEventListener('click', (e)=>{
+  const btn = e.target.closest && e.target.closest('[data-fixall-field]');
+  if (!btn || !importState || importState.step !== 3) return;
+  const field = btn.dataset.fixallField;
+  // הערך נלקח מהפקד עצמו ולא מ-overrides, כדי שגם ערך שנוחש מהכותרת
+  // ניתן להחלה על שאר השורות שנכשלו.
+  const control = impBodyEl.querySelector(`[data-fix-row="${btn.dataset.fixallRow}"][data-fix-field="${field}"]`);
+  const source = control ? control.value.trim() : '';
+  if (!source) return;
+  const targets = importState.parsed.filter(r => r.errors.length && r.errorFields.includes(field));
+  targets.forEach(r => impSetOverride(r.rowNumber, field, source));
+  impRevalidate();
+  impPaintPreview({ row: btn.dataset.fixallRow, field });
+  showToast(`הערך "${source}" הוחל על ${targets.length} שורות`);
+});
 
 /* ---------- שלב 4: ההכנסה עצמה ---------- */
 async function impRenderStep4(){
