@@ -186,6 +186,40 @@
   .mlead-done p{font-size:.85rem;color:var(--ink-soft);margin:0}
 
   .toast{position:fixed;bottom:20px;right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:var(--radius-sm);font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;z-index:200}
+
+  /* ====== בועת וואטסאפ צפה לסוכן/ת המטפל/ת ======
+     נשארת על המסך לכל אורך הגלילה: הפנייה בוואטסאפ היא הדרך המהירה ביותר
+     ליצור קשר, ולא צריך לחזור בשבילה לטופס שבעמודת הצד. הצבע הוא הירוק של
+     וואטסאפ ולא צבע המותג — האייקון צריך להיות מזוהה מיד. */
+  .wa-bubble{
+    position:fixed;bottom:18px;right:18px;z-index:210;
+    display:flex;align-items:center;padding:9px;padding-inline-end:16px;
+    background:#25D366;color:#fff;border-radius:999px;font-weight:700;font-size:.88rem;
+    box-shadow:0 8px 22px rgba(37,211,102,.42);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  /* גובר על ‎[hidden]‎ של הדפדפן, שאחרת מפסיד ל-display:flex שלמעלה */
+  .wa-bubble[hidden]{display:none}
+  .wa-bubble:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(37,211,102,.52)}
+  .wa-bubble:focus-visible{outline:3px solid var(--teal-dark);outline-offset:3px}
+  .wa-ico{width:38px;height:38px;flex:none;border-radius:50%;display:grid;place-items:center}
+  .wa-ico svg{width:30px;height:30px;display:block;fill:#fff}
+  .wa-label{padding-inline-start:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(46vw,220px)}
+  @keyframes wa-pulse{
+    0%{box-shadow:0 0 0 0 rgba(37,211,102,.55)}
+    70%{box-shadow:0 0 0 15px rgba(37,211,102,0)}
+    100%{box-shadow:0 0 0 0 rgba(37,211,102,0)}
+  }
+  .wa-ico{animation:wa-pulse 2.8s ease-out infinite}
+  @media(prefers-reduced-motion:reduce){.wa-ico{animation:none}}
+  /* בטלפון בועה עם שם הסוכן/ת תופסת חצי מרוחב המסך ומסתירה תוכן — האייקון
+     לבדו מזוהה מספיק, והשם ממילא מופיע ברצועת המשרד. */
+  @media(max-width:479px){
+    .wa-bubble{padding-inline-end:9px}
+    .wa-label{display:none}
+  }
+  /* במסך צר ההודעה הצפה רחבה כמעט כמו המסך ויושבת בדיוק על הבועה */
+  @media(max-width:520px){body.has-wa-bubble .toast{bottom:86px}}
 </style>
 </head>
 <body>
@@ -353,6 +387,15 @@
   </div>
 </div>
 
+<!-- ====== בועת וואטסאפ לסוכן/ת המטפל/ת ======
+     מוסתרת עד שהנכס נטען ומתברר שלסוכן/ת יש מספר טלפון. -->
+<a class="wa-bubble" id="waBubble" href="#" target="_blank" rel="noopener noreferrer" hidden>
+  <span class="wa-ico" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>
+  </span>
+  <span class="wa-label" id="waBubbleLabel">וואטסאפ לסוכן</span>
+</a>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -415,7 +458,7 @@ async function loadProperty(){
     // agent_id -> agency_members_public בשאילתה נפרדת, מאותה סיבה שכבר תועדה
     // ב-index.html: embed חוצה-שם (properties -> agency_members_public) לא מובטח.
     if (data.agent_id){
-      const { data: agentRow } = await sb.from('agency_members_public').select('display_name, slug').eq('id', data.agent_id).maybeSingle();
+      const { data: agentRow } = await sb.from('agency_members_public').select('display_name, slug, phone_e164').eq('id', data.agent_id).maybeSingle();
       data.agency_members = agentRow || null;
     }
 
@@ -494,6 +537,7 @@ function renderProperty(p){
   document.getElementById('agencyName').textContent = p.agencies?.name || 'משרד תיווך';
   document.getElementById('agencyAvatar').textContent = (p.agencies?.name || '?')[0];
   document.getElementById('agentName').textContent = p.agency_members?.display_name ? 'סוכן: ' + p.agency_members.display_name : '';
+  renderWhatsappBubble(p);
   document.getElementById('agencyStrip').addEventListener('click', ()=>{
     if (p.agencies?.slug) window.location.href = 'agency.html?slug=' + p.agencies.slug;
   });
@@ -521,6 +565,32 @@ function renderProperty(p){
     syncEquityRangeToProperty();
     updateCalculator();
   }
+}
+
+/* ---------- בועת הוואטסאפ של הסוכן/ת המטפל/ת ----------
+   הסוכן/ת המטפל/ת הוא ‎properties.agent_id, ו-phone_e164 מגיע מהמסד כספרות
+   בלבד בפורמט 972521112222 — בדיוק מה ש-wa.me מצפה לו, ולכן אין כאן נרמול
+   בצד הלקוח. אין טלפון (או שאין סוכן/ת משויך/ת) = אין בועה: קישור וואטסאפ
+   לשום מקום גרוע מהיעדר כפתור.
+   ההודעה נפתחת מוכנה עם שם הנכס, המחיר וקישור לעמוד, כדי שהסוכן/ת יידע/תדע
+   על איזה נכס מדובר עוד לפני שהגולש/ת מקליד/ה מילה.                        */
+function renderWhatsappBubble(p){
+  const phone = p.agency_members?.phone_e164;
+  if (!phone) return;
+
+  const agentName = p.agency_members?.display_name || '';
+  const text = [
+    'היי' + (agentName ? ' ' + agentName : '') + ',',
+    `ראיתי בשוק נדל״ן את הנכס "${p.title}" (${priceLabel(p)}) ואשמח לקבל פרטים נוספים.`,
+    window.location.href,
+  ].join('\n');
+
+  const bubble = document.getElementById('waBubble');
+  bubble.href = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
+  bubble.setAttribute('aria-label', agentName ? 'שליחת הודעת וואטסאפ ל' + agentName : 'שליחת הודעת וואטסאפ לסוכן המטפל');
+  document.getElementById('waBubbleLabel').textContent = agentName ? 'וואטסאפ · ' + agentName : 'וואטסאפ לסוכן';
+  bubble.hidden = false;
+  document.body.classList.add('has-wa-bubble');
 }
 
 /* ---------- Mortgage calculator, price pre-filled from this property ----------
