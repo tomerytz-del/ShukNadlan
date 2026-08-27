@@ -113,6 +113,38 @@
   .lightbox .prev{right:14px}
   .lightbox .next{left:14px}
   .lightbox .close{position:absolute;top:14px;left:14px;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;font-size:1rem;padding:0}
+
+  /* ====== בועת וואטסאפ צפה למנהל/ת המשרד ======
+     אותה בועה בדיוק כמו בעמוד הנכס ובעמוד הסוכן: פינה שמאלית-תחתונה, הירוק
+     של וואטסאפ, והאייקון בקצה השמאלי (‏row-reverse ב-RTL) — הצד שצמוד לשולי
+     המסך. ‏z-index נמוך מזה של הלייטבוקס, כדי שהבועה לא תרחף מעל תמונה מוגדלת. */
+  .wa-bubble{
+    position:fixed;bottom:18px;left:18px;z-index:210;
+    display:flex;flex-direction:row-reverse;align-items:center;gap:10px;
+    padding:9px;padding-inline-start:16px;
+    background:#25D366;color:#fff;border-radius:999px;font-weight:700;font-size:.88rem;
+    box-shadow:0 8px 22px rgba(37,211,102,.42);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  /* גובר על ‎[hidden]‎ של הדפדפן, שאחרת מפסיד ל-display:flex שלמעלה */
+  .wa-bubble[hidden]{display:none}
+  .wa-bubble:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(37,211,102,.52)}
+  .wa-bubble:focus-visible{outline:3px solid var(--teal-dark);outline-offset:3px}
+  .wa-ico{width:38px;height:38px;flex:none;border-radius:50%;display:grid;place-items:center}
+  .wa-ico svg{width:30px;height:30px;display:block;fill:#fff}
+  .wa-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(46vw,220px)}
+  @keyframes wa-pulse{
+    0%{box-shadow:0 0 0 0 rgba(37,211,102,.55)}
+    70%{box-shadow:0 0 0 15px rgba(37,211,102,0)}
+    100%{box-shadow:0 0 0 0 rgba(37,211,102,0)}
+  }
+  .wa-ico{animation:wa-pulse 2.8s ease-out infinite}
+  @media(prefers-reduced-motion:reduce){.wa-ico{animation:none}}
+  /* בטלפון הבועה מתכווצת לאייקון בלבד כדי לא להסתיר תוכן */
+  @media(max-width:479px){
+    .wa-bubble{padding-inline-start:9px}
+    .wa-label{display:none}
+  }
 </style>
 </head>
 <body>
@@ -173,6 +205,15 @@
     <figcaption id="lbCaption"></figcaption>
   </figure>
 </div>
+
+<!-- ====== בועת וואטסאפ למנהל/ת המשרד ======
+     מוסתרת עד שנבחרת הסוכנים נטענת ומתברר שיש איש/אשת קשר עם טלפון. -->
+<a class="wa-bubble" id="waBubble" href="#" target="_blank" rel="noopener noreferrer" hidden>
+  <span class="wa-ico" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>
+  </span>
+  <span class="wa-label" id="waBubbleLabel">וואטסאפ</span>
+</a>
 
 <script>
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
@@ -358,7 +399,7 @@ async function loadAgency(){
 
     loadActiveProperties(sb, agency.id);
     loadSoldDeals(sb, agency.id);
-    loadAgentRoster(sb, agency.id);
+    loadAgentRoster(sb, agency.id, agency.name);
     loadReviews(sb, agency.id);
   } catch(e){
     console.warn('טעינת משרד נכשלה:', e);
@@ -400,10 +441,37 @@ async function loadSoldDeals(sb, agencyId){
   });
 }
 
-async function loadAgentRoster(sb, agencyId){
+/* ---------- בועת הוואטסאפ של מנהל/ת המשרד ----------
+   ברירת המחדל היא מנהל/ת המשרד (‏role='manager'), כי זו כתובת הפנייה של
+   המשרד כולו. משרד בלי מנהל/ת רשום/ה או בלי טלפון אצלו/ה נופל לסוכן/ת
+   הפעיל/ה הראשון/ה שיש לו/ה טלפון — עדיף איש/אשת קשר אמיתי/ת על פני בועה
+   שלא מוצגת. אין אף אחד עם טלפון = אין בועה.
+   ‏phone_e164 מגיע מהמסד כספרות בלבד בפורמט 972521112222, בדיוק מה ש-wa.me
+   מצפה לו, ולכן אין כאן נרמול בצד הלקוח.                                   */
+function renderWhatsappBubble(members, agencyName){
+  const withPhone = (members || []).filter(m => m.phone_e164);
+  const contact = withPhone.find(m => m.role === 'manager') || withPhone[0];
+  if (!contact) return;
+
+  const name = contact.display_name || '';
+  const text = [
+    'היי' + (name ? ' ' + name : '') + ',',
+    `הגעתי לעמוד של ${agencyName || 'המשרד'} בשוק נדל״ן ואשמח לפרטים.`,
+    window.location.href,
+  ].join('\n');
+
+  const bubble = document.getElementById('waBubble');
+  bubble.href = 'https://wa.me/' + contact.phone_e164 + '?text=' + encodeURIComponent(text);
+  bubble.setAttribute('aria-label', name ? 'שליחת הודעת וואטסאפ ל' + name : 'שליחת הודעת וואטסאפ למשרד');
+  document.getElementById('waBubbleLabel').textContent = name ? 'וואטסאפ · ' + name : 'וואטסאפ';
+  bubble.hidden = false;
+}
+
+async function loadAgentRoster(sb, agencyId, agencyName){
   const el = document.getElementById('agentRoster');
-  const { data: agents } = await sb.from('agency_members_public').select('id, slug, display_name, role')
+  const { data: agents } = await sb.from('agency_members_public').select('id, slug, display_name, role, phone_e164')
     .eq('agency_id', agencyId);
+  renderWhatsappBubble(agents, agencyName);
   if (!agents || agents.length === 0){ el.innerHTML = '<div class="empty-state">אין כרגע סוכנים פעילים.</div>'; return; }
   el.innerHTML = '';
   const roleLabels = { manager:'מנהל/ת משרד', agent:'סוכן/ת' };

@@ -190,10 +190,14 @@
   /* ====== בועת וואטסאפ צפה לסוכן/ת המטפל/ת ======
      נשארת על המסך לכל אורך הגלילה: הפנייה בוואטסאפ היא הדרך המהירה ביותר
      ליצור קשר, ולא צריך לחזור בשבילה לטופס שבעמודת הצד. הצבע הוא הירוק של
-     וואטסאפ ולא צבע המותג — האייקון צריך להיות מזוהה מיד. */
+     וואטסאפ ולא צבע המותג — האייקון צריך להיות מזוהה מיד.
+     הבועה בפינה השמאלית-התחתונה, זהה בכל עמודי האתר.
+     ‏row-reverse: ב-RTL הוא מציב את האייקון בקצה השמאלי של הבועה — הצד שצמוד
+     לשולי המסך — והטקסט מימינו. */
   .wa-bubble{
-    position:fixed;bottom:18px;right:18px;z-index:210;
-    display:flex;align-items:center;padding:9px;padding-inline-end:16px;
+    position:fixed;bottom:18px;left:18px;z-index:210;
+    display:flex;flex-direction:row-reverse;align-items:center;gap:10px;
+    padding:9px;padding-inline-start:16px;
     background:#25D366;color:#fff;border-radius:999px;font-weight:700;font-size:.88rem;
     box-shadow:0 8px 22px rgba(37,211,102,.42);
     transition:transform .15s ease, box-shadow .15s ease;
@@ -204,7 +208,7 @@
   .wa-bubble:focus-visible{outline:3px solid var(--teal-dark);outline-offset:3px}
   .wa-ico{width:38px;height:38px;flex:none;border-radius:50%;display:grid;place-items:center}
   .wa-ico svg{width:30px;height:30px;display:block;fill:#fff}
-  .wa-label{padding-inline-start:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(46vw,220px)}
+  .wa-label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(46vw,220px)}
   @keyframes wa-pulse{
     0%{box-shadow:0 0 0 0 rgba(37,211,102,.55)}
     70%{box-shadow:0 0 0 15px rgba(37,211,102,0)}
@@ -215,7 +219,7 @@
   /* בטלפון בועה עם שם הסוכן/ת תופסת חצי מרוחב המסך ומסתירה תוכן — האייקון
      לבדו מזוהה מספיק, והשם ממילא מופיע ברצועת המשרד. */
   @media(max-width:479px){
-    .wa-bubble{padding-inline-end:9px}
+    .wa-bubble{padding-inline-start:9px}
     .wa-label{display:none}
   }
   /* במסך צר ההודעה הצפה רחבה כמעט כמו המסך ויושבת בדיוק על הבועה */
