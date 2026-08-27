@@ -56,6 +56,13 @@
   .meta-row span{display:flex;align-items:center;gap:5px}
 
   .section{margin-top:26px}
+  .spec-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px}
+  .spec{padding:11px 14px}
+  .spec .k{font-size:.72rem;font-weight:700;color:var(--ink-soft)}
+  .spec .v{font-family:'Frank Ruhl Libre',serif;font-size:1.02rem;font-weight:700;color:var(--teal-dark);margin-top:2px}
+  .feature-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+  .feature-chip{font-size:.78rem;font-weight:600;background:var(--teal-tint);color:var(--teal);padding:5px 11px;border-radius:999px}
+  .prop-desc{white-space:pre-wrap;font-size:.92rem;margin:0}
   .section h2{font-size:1.05rem;margin-bottom:10px}
   .agency-strip{display:flex;align-items:center;gap:12px;padding:14px;margin-top:26px}
   .agency-avatar{width:44px;height:44px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Frank Ruhl Libre',serif;flex-shrink:0}
@@ -253,6 +260,18 @@
         <span id="propRooms">—</span>
         <span id="propType">—</span>
         <span id="propCity">—</span>
+        <span id="propPricePerSqm"></span>
+      </div>
+
+      <div class="section" id="specSection" style="display:none">
+        <h2>פרטי הנכס</h2>
+        <div class="spec-grid" id="specGrid"></div>
+        <div class="feature-chips" id="featureChips"></div>
+      </div>
+
+      <div class="section" id="descSection" style="display:none">
+        <h2>תיאור</h2>
+        <p class="prop-desc" id="propDescription"></p>
       </div>
 
       <div class="card agency-strip" id="agencyStrip" style="cursor:pointer">
@@ -405,6 +424,21 @@ const INQUIRY_FUNCTION_URL = SUPABASE_URL + '/functions/v1/property-inquiry-inta
 const CARD_GRADIENTS = ['linear-gradient(155deg,#8B2332,#1C3A5E)','linear-gradient(155deg,#1C3A5E,#8B2332)','linear-gradient(155deg,#6B1A26,#1C3A5E)'];
 const LTV_THRESHOLDS = { single:0.75 }; // מודול 2 §5.5
 
+/* תוויות המאפיינים — עותק של הרשימות ב-crm.html וב-index.html. שלושת הקבצים
+   סטטיים ובלי מודול משותף, ולכן הסנכרון ידני (כמו שכבר מתועד שם).          */
+const FEATURE_LABELS = {
+  has_photo:'עם תמונה', moshav_kibbutz_only:'במושב/קיבוץ', price_dropped:'המחיר ירד לאחרונה', tour_3d:'סיור 3D',
+  parking:'חניה', elevator:'מעלית', balcony:'מרפסת', sun_balcony:'מרפסת שמש', ac:'מיזוג', bars:'סורגים',
+  accessible:'גישה לנכים', renovated_feature:'משופצת', furnished:'מרוהטת', mamad:'ממ״ד', exclusive:'בבלעדיות',
+  building_shelter:'מקלט בבניין', mamak:'ממ״ק', storage:'מחסן', high_ceiling:'תקרה גבוהה', cameras:'מצלמות',
+  kitchenette:'מטבחון', alarm:'אזעקה', meeting_room:'חדר ישיבות', loading_ramp:'רמפת העמסה',
+  comms:'תקשורת', cold_room:'חדר קירור',
+};
+const CONDITION_LABELS = {
+  new_from_contractor:'חדש מקבלן', new:'חדש', renovated:'משופץ',
+  maintained:'שמור', needs_renovation:'דרוש שיפוץ',
+};
+
 function showToast(msg){
   const t = document.getElementById('toast');
   t.textContent = msg; t.style.display = 'block';
@@ -515,6 +549,43 @@ function renderGallery(p){
   }
 }
 
+/* "פרטי הנכס": רק שדות שבאמת מולאו. שדה ריק לא מקבל כרטיס, ואם אין אף שדה
+   הבלוק כולו לא מוצג — מודעה דלילה לא צריכה להיראות כמו טבלה של מקפים.   */
+function renderSpecs(p){
+  const specs = [
+    ['קומה', p.floor === null || p.floor === undefined ? '' : (p.floor === 0 ? 'קרקע' : p.floor)],
+    ['מתוך קומות', p.total_floors],
+    ['שטח', p.size_sqm ? p.size_sqm + ' מ״ר' : ''],
+    ['שטח בנוי', p.built_size_sqm ? p.built_size_sqm + ' מ״ר' : ''],
+    ['גינה', p.garden_sqm ? p.garden_sqm + ' מ״ר' : ''],
+    ['מצב הנכס', CONDITION_LABELS[p.condition] || ''],
+    ['תאריך כניסה', p.move_in_date ? new Date(p.move_in_date).toLocaleDateString('he-IL') : (p.move_in_soon ? 'כניסה מיידית' : '')],
+    ['ריהוט', p.furniture_details || ''],
+    ['מספר מודעה', p.listing_number],
+  ].filter(([, value]) => value !== '' && value !== null && value !== undefined);
+
+  const grid = document.getElementById('specGrid');
+  grid.innerHTML = specs.map(([key, value]) =>
+    `<div class="card spec"><div class="k">${key}</div><div class="v">${escapeHtml(String(value))}</div></div>`).join('');
+
+  const chips = (p.features || [])
+    .map(code => FEATURE_LABELS[code])
+    .filter(Boolean);
+  document.getElementById('featureChips').innerHTML =
+    chips.map(label => `<span class="feature-chip">${escapeHtml(label)}</span>`).join('');
+
+  document.getElementById('specSection').style.display = (specs.length || chips.length) ? 'block' : 'none';
+
+  // ‏marketing_description הוא נוסח פרסומי פנימי — משמש רק כשאין תיאור מודעה
+  const description = p.description || p.marketing_description || '';
+  document.getElementById('propDescription').textContent = description;
+  document.getElementById('descSection').style.display = description ? 'block' : 'none';
+}
+
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
+}
+
 function renderProperty(p){
   document.title = p.title + ' | שוק נדל״ן';
   renderGallery(p);
@@ -534,9 +605,18 @@ function renderProperty(p){
   document.getElementById('propRooms').textContent = (p.rooms || '—') + ' חדרים';
   document.getElementById('propType').textContent = p.property_type;
   document.getElementById('propCity').textContent = p.city;
+  document.getElementById('propPricePerSqm').textContent =
+    p.price_per_sqm ? '₪' + Number(p.price_per_sqm).toLocaleString('he-IL') + ' למ״ר' : '';
+  renderSpecs(p);
   document.getElementById('agencyName').textContent = p.agencies?.name || 'משרד תיווך';
   document.getElementById('agencyAvatar').textContent = (p.agencies?.name || '?')[0];
-  document.getElementById('agentName').textContent = p.agency_members?.display_name ? 'סוכן: ' + p.agency_members.display_name : '';
+  // הטלפון של סוכן/ת 2 לא מוצג באתר, בדיוק כמו של סוכן/ת 1 — הפנייה עוברת
+  // בטופס או בבועת הוואטסאפ של הסוכן/ת הראשי/ת
+  const agentLine = [
+    p.agency_members?.display_name ? 'סוכן: ' + p.agency_members.display_name : '',
+    p.agent2_name ? 'בשיתוף: ' + p.agent2_name : '',
+  ].filter(Boolean).join(' · ');
+  document.getElementById('agentName').textContent = agentLine;
   renderWhatsappBubble(p);
   document.getElementById('agencyStrip').addEventListener('click', ()=>{
     if (p.agencies?.slug) window.location.href = 'agency.html?slug=' + p.agencies.slug;

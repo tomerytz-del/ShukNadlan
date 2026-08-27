@@ -909,6 +909,12 @@
       </div>
       <div class="field"><label>עיר</label><input type="text" id="npCity" value="עפולה" required></div>
       <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field"><label>שכונה (לא חובה)</label>
+          <select id="npNeighborhood"><option value="">— לא צוין —</option></select>
+        </div>
+        <div class="field"><label>איזור מכירה (לא חובה)</label><input type="text" id="npSalesArea" placeholder="לדוגמה: צפון העיר"></div>
+      </div>
+      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="field"><label>רחוב (לא חובה)</label><input type="text" id="npStreet" placeholder="לדוגמה: דפנה"></div>
         <div class="field"><label>מספר בית (לא חובה)</label><input type="text" id="npHouseNumber"></div>
       </div>
@@ -921,9 +927,13 @@
       <div class="form-subheading">פרטים נוספים — לצורך הופעה בחיפוש המתקדם</div>
       <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="field"><label>קומה (לא חובה)</label><input type="number" id="npFloor"></div>
-        <div class="field"><label>גודל נכס במ״ר (לא חובה)</label><input type="number" id="npSizeSqm"></div>
+        <div class="field"><label>מספר קומות בבניין (לא חובה)</label><input type="number" id="npTotalFloors" min="1"></div>
       </div>
-      <div class="field"><label>מ״ר בנוי (לא חובה)</label><input type="number" id="npBuiltSizeSqm"></div>
+      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field"><label>גודל נכס במ״ר (לא חובה)</label><input type="number" id="npSizeSqm"></div>
+        <div class="field"><label>מ״ר בנוי (לא חובה)</label><input type="number" id="npBuiltSizeSqm"></div>
+      </div>
+      <div class="field"><label>מ״ר גינה (לא חובה)</label><input type="number" id="npGardenSqm" min="0"></div>
 
       <div class="field" id="npConditionField"><label>מצב הנכס (לא חובה)</label>
         <select id="npCondition">
@@ -946,7 +956,10 @@
         </select>
       </div>
 
-      <div class="field"><label>תאריך כניסה (לא חובה)</label><input type="date" id="npMoveInDate"></div>
+      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field"><label>תאריך כניסה (לא חובה)</label><input type="date" id="npMoveInDate"></div>
+        <div class="field"><label>תוקף המודעה (לא חובה)</label><input type="date" id="npExpiresAt"></div>
+      </div>
       <div class="field"><label class="checkbox-item"><input type="checkbox" id="npMoveInSoon"> כניסה קרובה (מיידית עד שנה)</label></div>
 
       <div class="field" id="npCommercialLocFields" style="display:none">
@@ -962,6 +975,33 @@
 
       <div class="form-subheading">מאפייני הנכס</div>
       <div class="checkbox-grid" id="npPropertyFeatures"></div>
+      <div class="field" style="margin-top:10px"><label>פירוט ריהוט (לא חובה)</label>
+        <input type="text" id="npFurnitureDetails" placeholder="לדוגמה: מטבח מלא, ארונות, מזגנים בכל חדר">
+      </div>
+
+      <div class="form-subheading">תיאור ושיווק</div>
+      <div class="field"><label>תיאור המודעה (לא חובה — מוצג בדף הנכס)</label>
+        <textarea id="npDescription" rows="4" placeholder="מה חשוב שיידעו על הנכס: מצב, נוף, שכנים, קרבה לשירותים…"></textarea>
+      </div>
+      <div class="field"><label>תיאור שיווקי (לא חובה — נוסח פרסומי לשימוש פנימי)</label>
+        <textarea id="npMarketingDescription" rows="3"></textarea>
+      </div>
+      <div class="field"><label>טקסט פוסט (לא חובה — מוכן להעתקה לרשתות/וואטסאפ)</label>
+        <textarea id="npPostText" rows="3"></textarea>
+      </div>
+
+      <div class="form-subheading">סוכן/ת נוסף/ת על המודעה</div>
+      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field"><label>סוכן 2 (לא חובה)</label><input type="text" id="npAgent2Name"></div>
+        <div class="field"><label>טלפון 2 (לא חובה)</label><input type="tel" id="npAgent2Phone"></div>
+      </div>
+
+      <div class="form-subheading">פרטי בעל/ת הנכס — פנימי</div>
+      <p style="font-size:.72rem;color:var(--ink-soft);margin:-6px 0 10px">גלוי רק לך ולמנהל/ת המשרד. לא מוצג באתר, לא נחשף למשרדים אחרים ולא נכלל בהפצת שת״פ.</p>
+      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field"><label>שם הבעלים</label><input type="text" id="npOwnerName"></div>
+        <div class="field"><label>טלפון הבעלים</label><input type="tel" id="npOwnerPhone"></div>
+      </div>
 
       <div class="field">
         <label>תמונות הנכס</label>
@@ -971,6 +1011,16 @@
           <div class="hint">עד 8 תמונות · התמונה הראשונה היא הראשית · הקבצים מוקטנים אוטומטית לפני ההעלאה</div>
         </div>
         <div class="img-preview" id="npImagePreview"></div>
+      </div>
+
+      <div class="field">
+        <label>תמונה שיווקית (לא חובה)</label>
+        <div class="img-dropzone">
+          <label class="pick" for="npMarketingImage">+ בחירת תמונה שיווקית</label>
+          <input type="file" id="npMarketingImage" accept="image/jpeg,image/png,image/webp">
+          <div class="hint">תמונה מעוצבת אחת (לוגו/מחיר/טקסט) לשימוש בפרסום — נפרדת מגלריית הנכס</div>
+        </div>
+        <div class="img-preview" id="npMarketingImagePreview"></div>
       </div>
       <button type="submit" class="btn btn-gold btn-block" id="addPropertyBtn" style="margin-top:16px">פרסום הנכס</button>
       <div id="addPropertyFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
@@ -3124,7 +3174,7 @@ const LISTING_FEATURES = [
   ['price_dropped','המחיר ירד לאחרונה'], ['tour_3d','יש סיור 3D'],
 ];
 const RESIDENTIAL_PROPERTY_FEATURES = [
-  ['parking','חניה'],['elevator','מעלית'],['balcony','מרפסת'],['ac','מיזוג'],['bars','סורגים'],
+  ['parking','חניה'],['elevator','מעלית'],['balcony','מרפסת'],['sun_balcony','מרפסת שמש'],['ac','מיזוג'],['bars','סורגים'],
   ['accessible','גישה לנכים'],['renovated_feature','משופצת'],['furnished','מרוהטת'],['mamad','ממ״ד'],
   ['exclusive','בבלעדיות'],['building_shelter','מקלט בבניין'],['mamak','ממ״ק'],['storage','מחסן'],
 ];
@@ -3245,6 +3295,79 @@ function resetImageState(){
   imageSlots = [];
   document.getElementById('npImages').value = '';
   renderImagePreview();
+  resetMarketingImage();
+}
+
+/* התמונה השיווקית היא נכס נפרד מהגלריה — תמונה מעוצבת אחת לפרסום. אותו
+   מנגנון הקטנה והעלאה, אבל סלוט יחיד ולא רשימה מסודרת.                     */
+let marketingImageSlot = null;
+
+function resetMarketingImage(){
+  if (marketingImageSlot?.previewUrl) URL.revokeObjectURL(marketingImageSlot.previewUrl);
+  marketingImageSlot = null;
+  document.getElementById('npMarketingImage').value = '';
+  renderMarketingImagePreview();
+}
+
+function renderMarketingImagePreview(){
+  const wrap = document.getElementById('npMarketingImagePreview');
+  wrap.innerHTML = '';
+  if (!marketingImageSlot) return;
+  const el = document.createElement('div');
+  el.className = 'img-thumb';
+  el.innerHTML = `<img src="${marketingImageSlot.url || marketingImageSlot.previewUrl}" alt="">
+    <button type="button" class="x" title="הסרה">✕</button>`;
+  el.querySelector('.x').addEventListener('click', ()=>{
+    // בניגוד לגלריה לא מוחקים כאן מה-Storage: הקובץ מוסר מהנכס בשמירה עצמה
+    // (marketing_image נשמר null), ומחיקה מוקדמת הייתה שוברת "ביטול" באמצע עריכה
+    resetMarketingImage();
+  });
+  wrap.appendChild(el);
+}
+
+document.getElementById('npMarketingImage').addEventListener('change', async (e)=>{
+  const file = (e.target.files || [])[0];
+  e.target.value = '';
+  if (!file) return;
+  try{
+    const blob = await fileToResizedBlob(file);
+    if (marketingImageSlot?.previewUrl) URL.revokeObjectURL(marketingImageSlot.previewUrl);
+    marketingImageSlot = { blob, previewUrl: URL.createObjectURL(blob) };
+    renderMarketingImagePreview();
+  } catch(err){
+    console.warn('resize failed', file.name, err);
+    showToast('התמונה השיווקית לא נטענה: ' + file.name);
+  }
+});
+
+// מעלה את התמונה השיווקית אם היא חדשה, ומחזיר את ה-URL (או null כשאין).
+async function resolveMarketingImageUrl(propertyId){
+  if (!marketingImageSlot) return null;
+  if (marketingImageSlot.url) return marketingImageSlot.url;
+  const name = `${currentAgent.id}/${propertyId}/marketing-${crypto.randomUUID()}.jpg`;
+  const { error } = await sb.storage.from(IMAGES_BUCKET).upload(name, marketingImageSlot.blob, {
+    contentType:'image/jpeg', cacheControl:'31536000', upsert:false,
+  });
+  if (error) throw error;
+  const url = sb.storage.from(IMAGES_BUCKET).getPublicUrl(name).data.publicUrl;
+  marketingImageSlot.url = url;
+  return url;
+}
+
+/* ‏allNeighborhoods נטענת ב-loadPreferences, שרצה אחרי loadProperties. הטופס
+   נפתח רק בלחיצה, ולכן מספיק לוודא כאן שהרשימה קיימת לפני שמאכלסים את הבורר. */
+async function ensureNeighborhoodsLoaded(){
+  if (allNeighborhoods.length) return;
+  const { data } = await sb.from('neighborhoods').select('id, city, name').order('name');
+  allNeighborhoods = data || [];
+}
+
+async function populateNeighborhoodSelect(selectedId){
+  await ensureNeighborhoodsLoaded();
+  const select = document.getElementById('npNeighborhood');
+  select.innerHTML = '<option value="">— לא צוין —</option>' +
+    allNeighborhoods.map(n => `<option value="${n.id}">${esc(n.name)}</option>`).join('');
+  select.value = selectedId || '';
 }
 
 document.getElementById('npImages').addEventListener('change', async (e)=>{
@@ -3293,6 +3416,7 @@ toggleBtn.addEventListener('click', ()=>{
     editingPropertyOriginalAddress = null;
     document.getElementById('addPropertyForm').reset();
     document.getElementById('npCity').value = 'עפולה';
+    populateNeighborhoodSelect('');
     resetImageState();
     document.getElementById('addPropertyBtn').textContent = 'פרסום הנכס';
     currentCategory = 'residential';
@@ -3350,9 +3474,20 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     street: street || null,
     house_number: houseNumber || null,
     address: (street || houseNumber) ? (street + (houseNumber ? ' ' + houseNumber : '')) : null,
+    neighborhood_id: document.getElementById('npNeighborhood').value || null,
+    sales_area: document.getElementById('npSalesArea').value.trim() || null,
     floor: document.getElementById('npFloor').value ? parseInt(document.getElementById('npFloor').value) : null,
+    total_floors: document.getElementById('npTotalFloors').value ? parseInt(document.getElementById('npTotalFloors').value) : null,
     size_sqm: document.getElementById('npSizeSqm').value ? parseFloat(document.getElementById('npSizeSqm').value) : null,
     built_size_sqm: document.getElementById('npBuiltSizeSqm').value ? parseFloat(document.getElementById('npBuiltSizeSqm').value) : null,
+    garden_sqm: document.getElementById('npGardenSqm').value ? parseFloat(document.getElementById('npGardenSqm').value) : null,
+    description: document.getElementById('npDescription').value.trim() || null,
+    marketing_description: document.getElementById('npMarketingDescription').value.trim() || null,
+    post_text: document.getElementById('npPostText').value.trim() || null,
+    furniture_details: document.getElementById('npFurnitureDetails').value.trim() || null,
+    listing_expires_at: document.getElementById('npExpiresAt').value || null,
+    agent2_name: document.getElementById('npAgent2Name').value.trim() || null,
+    agent2_phone: document.getElementById('npAgent2Phone').value.trim() || null,
     condition: currentCategory === 'commercial' ? null : (document.getElementById('npCondition').value || null),
     project_status: document.getElementById('npProjectStatus').value || null,
     move_in_date: document.getElementById('npMoveInDate').value || null,
@@ -3385,11 +3520,32 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     newPropertyId = inserted?.id;
   }
 
+  // פרטי הבעלים יושבים בטבלה נפרדת (property_owners) כי properties נקראת
+  // על ידי כל גולש/ת. השמירה נפרדת, ולכן כישלון כאן לא מפיל את שמירת הנכס.
+  if (!error && newPropertyId){
+    const ownerName = document.getElementById('npOwnerName').value.trim();
+    const ownerPhone = document.getElementById('npOwnerPhone').value.trim();
+    const { error: ownerErr } = (ownerName || ownerPhone)
+      ? await sb.from('property_owners').upsert({
+          property_id: newPropertyId,
+          owner_name: ownerName || null,
+          owner_phone: ownerPhone || null,
+        }, { onConflict: 'property_id' })
+      : await sb.from('property_owners').delete().eq('property_id', newPropertyId);
+    if (ownerErr){
+      console.error(ownerErr);
+      showToast('הנכס נשמר, אך פרטי הבעלים לא נשמרו: ' + ownerErr.message);
+    }
+  }
+
   if (!error && newPropertyId){
     try{
       btn.textContent = 'מעלה תמונות…';
       const urls = await resolveImageUrls(newPropertyId);
-      const { error: imgErr } = await sb.from('properties').update({ images: urls }).eq('id', newPropertyId);
+      const marketingUrl = await resolveMarketingImageUrl(newPropertyId);
+      const { error: imgErr } = await sb.from('properties')
+        .update({ images: urls, marketing_image: marketingUrl })
+        .eq('id', newPropertyId);
       if (imgErr) throw imgErr;
     } catch(imgError){
       console.error(imgError);
@@ -3472,7 +3628,7 @@ async function loadProperties(agentId){
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   const { data: props, error } = await sb
     .from('properties')
-    .select('id, title, price, deal_type, rooms, property_type, status, created_at, is_promoted, promoted_until, last_free_bump_at, images, city, street, house_number, lat, lng, category, features, condition, project_status, floor, size_sqm, built_size_sqm, move_in_date, move_in_soon, restrooms_location, storage_location, mamad_location, shared_with_partners, shared_at')
+    .select('id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, post_text, furniture_details, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, restrooms_location, storage_location, mamad_location, shared_with_partners, shared_at, property_owners(owner_name, owner_phone)')
     .eq('agent_id', agentId)
     .order('created_at', { ascending:false });
 
@@ -3511,6 +3667,12 @@ async function loadProperties(agentId){
     const priceLabel = p.deal_type === 'rent' ? ('₪' + Number(p.price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(p.price).toLocaleString('he-IL'));
     // ‏promoted_until ריק = קידום ידני/היסטורי בלי מועד סיום, נחשב פעיל
     const isCurrentlyPromoted = !!p.is_promoted && (!p.promoted_until || msLeft(p.promoted_until) > 0);
+    // תוקף המודעה הוא תזכורת לסוכן/ת בלבד — הוא לא מוריד את הנכס מהאתר
+    const expired = !!p.listing_expires_at && new Date(p.listing_expires_at) < new Date(new Date().toDateString());
+    // ‏property_owners מוגן ב-RLS, ולכן השורה הזו מגיעה רק לסוכן/ת של הנכס
+    // ולמנהל/ת המשרד — ולכל האחרים היא פשוט לא קיימת בתשובה.
+    const ownerRow = Array.isArray(p.property_owners) ? p.property_owners[0] : p.property_owners;
+    const ownerLine = [ownerRow?.owner_name, ownerRow?.owner_phone].filter(Boolean).join(' · ');
     const planning = planningByProperty[p.id];
     const el = document.createElement('div');
     el.className = 'card lead-card' + (isCurrentlyPromoted ? ' is-promoted' : '');
@@ -3525,6 +3687,8 @@ async function loadProperties(agentId){
             ${isCurrentlyPromoted && p.promoted_until ? `<span class="lead-kind">🌟 מקודם · ${esc(timeLeftLabel(p.promoted_until))}</span>` : (isCurrentlyPromoted ? '<span class="lead-kind">🌟 מקודם</span>' : '')}
             <div class="lead-name">${p.title}</div>
             <div class="lead-meta">${priceLabel} · ${p.rooms || '—'} חדרים · ${p.property_type} · ${viewCounts[p.id]||0} צפיות${(!p.images || !p.images.length) ? ' · <span style="color:var(--brick)">ללא תמונות</span>' : ''}${planning ? ' · 📍 גוש ' + (planning.gush||'—') + ' חלקה ' + (planning.helka||'—') : ''}</div>
+            <div class="lead-meta">מודעה #${p.listing_number ?? '—'}${p.price_per_sqm ? ' · ₪' + Number(p.price_per_sqm).toLocaleString('he-IL') + ' למ״ר' : ''}${expired ? ' · <span style="color:var(--brick)">פג תוקף ' + hebDate(p.listing_expires_at) + '</span>' : (p.listing_expires_at ? ' · בתוקף עד ' + hebDate(p.listing_expires_at) : '')}</div>
+            ${ownerLine ? `<div class="lead-meta">בעלים: ${esc(ownerLine)}</div>` : ''}
             ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
           </div>
         </div>
@@ -3693,9 +3857,25 @@ function openEditProperty(p){
   document.getElementById('npHouseNumber').value = p.house_number || '';
   document.getElementById('npLat').value = p.lat || '';
   document.getElementById('npLng').value = p.lng || '';
+  document.getElementById('npSalesArea').value = p.sales_area || '';
+  populateNeighborhoodSelect(p.neighborhood_id || '');
   document.getElementById('npFloor').value = p.floor ?? '';
+  document.getElementById('npTotalFloors').value = p.total_floors ?? '';
   document.getElementById('npSizeSqm').value = p.size_sqm ?? '';
   document.getElementById('npBuiltSizeSqm').value = p.built_size_sqm ?? '';
+  document.getElementById('npGardenSqm').value = p.garden_sqm ?? '';
+  document.getElementById('npDescription').value = p.description || '';
+  document.getElementById('npMarketingDescription').value = p.marketing_description || '';
+  document.getElementById('npPostText').value = p.post_text || '';
+  document.getElementById('npFurnitureDetails').value = p.furniture_details || '';
+  document.getElementById('npExpiresAt').value = p.listing_expires_at || '';
+  document.getElementById('npAgent2Name').value = p.agent2_name || '';
+  document.getElementById('npAgent2Phone').value = p.agent2_phone || '';
+  // ‏property_owners הוא יחס 1:1, אבל PostgREST מחזיר אותו כאובייקט או כמערך
+  // בן איבר אחד לפי גרסה — מטפלים בשניהם.
+  const owner = Array.isArray(p.property_owners) ? p.property_owners[0] : p.property_owners;
+  document.getElementById('npOwnerName').value = owner?.owner_name || '';
+  document.getElementById('npOwnerPhone').value = owner?.owner_phone || '';
   document.getElementById('npCondition').value = p.condition || '';
   document.getElementById('npProjectStatus').value = p.project_status || '';
   document.getElementById('npMoveInDate').value = p.move_in_date || '';
@@ -3707,6 +3887,10 @@ function openEditProperty(p){
   resetImageState();
   imageSlots = (p.images || []).map(url => ({ url }));
   renderImagePreview();
+  if (p.marketing_image){
+    marketingImageSlot = { url: p.marketing_image };
+    renderMarketingImagePreview();
+  }
   addForm.style.display = 'block';
   document.getElementById('addPropertyBtn').textContent = 'שמירת שינויים';
   toggleBtn.textContent = '✕ ביטול';
@@ -3762,30 +3946,49 @@ function loadImportLib(){
 
 /* השדות שניתן לייבא. aliases = כותרות שהמיפוי האוטומטי מזהה בקובץ. */
 const IMPORT_FIELDS = [
-  { key:'title', label:'כותרת', required:true, aliases:['כותרת','שם','שם הנכס','כותרת המודעה','title','name'] },
+  // כותרת אינה חובה בקובץ: קבצי ייצוא רבים מזהים מודעה לפי כתובת ולא לפי
+  // כותרת, ולכן כשהעמודה חסרה נבנית כותרת מסוג הנכס, החדרים והכתובת.
+  { key:'title', label:'כותרת', hint:'אם ריק — תיווצר כותרת אוטומטית מסוג הנכס והכתובת', aliases:['כותרת','שם','שם הנכס','כותרת המודעה','title','name'] },
+  { key:'status', label:'סטטוס', hint:'פעיל / נמכר / הושכר / לא פעיל — ברירת מחדל: פעיל', aliases:['סטטוס','מצב מודעה','status'] },
   { key:'category', label:'קטגוריה', hint:'מגורים / מסחרי — ברירת מחדל: מגורים', aliases:['קטגוריה','category'] },
   { key:'property_type', label:'סוג נכס', required:true, aliases:['סוג נכס','סוג הנכס','סוג','property_type','type'] },
   { key:'deal_type', label:'סוג עסקה', required:true, hint:'מכירה / השכרה', aliases:['סוג עסקה','עסקה','deal_type','deal','מכירה השכרה'] },
   { key:'price', label:'מחיר', required:true, aliases:['מחיר','מחיר מבוקש','price','מחיר בשח'] },
   { key:'city', label:'עיר', required:true, aliases:['עיר','ישוב','יישוב','city'] },
   { key:'rooms', label:'חדרים', aliases:['חדרים','מספר חדרים','חד','rooms'] },
+  { key:'neighborhood', label:'שכונה', hint:'חייבת להיות שכונה שקיימת ברשימת הפלטפורמה', aliases:['שכונה','neighborhood'] },
+  { key:'sales_area', label:'איזור מכירה', aliases:['איזור מכירה','אזור מכירה','איזור','אזור','sales_area','area'] },
   { key:'street', label:'רחוב', aliases:['רחוב','כתובת','street','address'] },
   { key:'house_number', label:'מספר בית', aliases:['מספר בית','מס בית','מספר','house number','house_number'] },
   { key:'floor', label:'קומה', aliases:['קומה','floor'] },
+  { key:'total_floors', label:'מספר קומות', aliases:['מספר קומות','קומות','סה"כ קומות','total_floors','floors'] },
   { key:'size_sqm', label:'גודל במ"ר', aliases:['גודל','שטח','מ"ר','גודל במ"ר','שטח במ"ר','size','size_sqm'] },
   { key:'built_size_sqm', label:'מ"ר בנוי', aliases:['מ"ר בנוי','שטח בנוי','בנוי','built_size_sqm'] },
-  { key:'description', label:'תיאור', aliases:['תיאור','פירוט','הערות','description','notes'] },
+  { key:'garden_sqm', label:'מ"ר גינה', aliases:['מ"ר גינה','שטח גינה','גינה','garden_sqm','garden'] },
+  { key:'description', label:'תיאור המודעה', aliases:['תיאור','תיאור המודעה','פירוט','הערות','description','notes'] },
   { key:'condition', label:'מצב הנכס', hint:'מגורים בלבד', aliases:['מצב','מצב הנכס','condition'] },
   { key:'project_status', label:'סטטוס הפרויקט', aliases:['סטטוס פרויקט','סטטוס הפרויקט','project_status'] },
   { key:'move_in_date', label:'תאריך כניסה', aliases:['תאריך כניסה','כניסה','תאריך פינוי','move_in_date'] },
   { key:'move_in_soon', label:'כניסה קרובה', hint:'כן / לא', aliases:['כניסה קרובה','כניסה מיידית','move_in_soon'] },
+  { key:'listing_expires_at', label:'תוקף המודעה', aliases:['תוקף','תוקף המודעה','תפוגה','listing_expires_at','expires'] },
   { key:'features', label:'מאפיינים', hint:'מופרדים בפסיק', aliases:['מאפיינים','תוספות','מאפייני הנכס','features'] },
+  // בלי הכינוי "ריהוט" לבדו: בקבצים רבים זו עמודת כן/לא שנקראת כמאפיין
+  { key:'furniture_details', label:'פירוט ריהוט', aliases:['פירוט ריהוט','furniture_details'] },
   { key:'restrooms_location', label:'שירותים', hint:'מסחרי בלבד · בבניין / בנכס', aliases:['שירותים','restrooms_location'] },
   { key:'storage_location', label:'מחסן', hint:'מסחרי בלבד · בבניין / בנכס', aliases:['מחסן','storage_location'] },
   { key:'mamad_location', label:'ממ"ד', hint:'מסחרי בלבד · בבניין / בנכס', aliases:['ממ"ד','ממד','mamad_location'] },
   { key:'lat', label:'קו רוחב (lat)', aliases:['lat','קו רוחב','latitude'] },
   { key:'lng', label:'קו אורך (lng)', aliases:['lng','קו אורך','longitude'] },
-  { key:'images', label:'קישורי תמונות', hint:'כתובות מלאות, מופרדות בפסיק', aliases:['תמונות','תמונה','קישורי תמונות','images','image'] },
+  // ‏marketing_image לפני images בכוונה: המיפוי האוטומטי תופס כל כותרת פעם
+  // אחת בלבד, והתאמה רכה של "תמונה" הייתה חוטפת את "תמונה שיווקית" לגלריה.
+  { key:'marketing_image', label:'תמונה שיווקית', hint:'כתובת מלאה אחת', aliases:['תמונה שיווקית','marketing_image'] },
+  { key:'images', label:'קישורי תמונות', hint:'כתובות מלאות, מופרדות בפסיק', aliases:['כל התמונות (קישורים)','כל התמונות','קישורי תמונות','תמונות','תמונה ראשית','תמונה','images','image'] },
+  { key:'marketing_description', label:'תיאור שיווקי', aliases:['תיאור שיווקי','marketing_description'] },
+  { key:'post_text', label:'טקסט פוסט', aliases:['טקסט פוסט','פוסט','post','post_text'] },
+  { key:'agent2_name', label:'סוכן 2', aliases:['סוכן 2','סוכן שני','agent2','agent2_name'] },
+  { key:'agent2_phone', label:'טלפון 2', aliases:['טלפון 2','נייד 2','agent2_phone'] },
+  { key:'owner_name', label:'בעלים — שם', hint:'פנימי · לא מוצג באתר', aliases:['בעלים','שם בעלים','owner','owner_name'] },
+  { key:'owner_phone', label:'בעלים — טלפון', hint:'פנימי · לא מוצג באתר', aliases:['טלפון בעלים','נייד בעלים','owner_phone'] },
 ];
 
 /* נרמול לצורך השוואה: גרשיים בכל הווריאציות, סימני כיווניות, מפרידים
@@ -3869,6 +4072,15 @@ const IMP_PROJECT_STATUS = {
 };
 const IMP_LOCATION = { 'בבניין':'building','בניין':'building','building':'building','בנכס':'unit','בדירה':'unit','unit':'unit' };
 
+/* סטטוס המודעה בקובץ. "נמכר"/"הושכר" נכנסים כמו שהם — הטריגר שמייצר
+   "עסקאות אחרונות" רץ על UPDATE בלבד, ולכן ייבוא היסטורי לא מזייף עסקאות. */
+const IMP_PROPERTY_STATUS = {
+  'פעיל':'active','פעילה':'active','active':'active','מפורסם':'active',
+  'נמכר':'sold','נמכרה':'sold','sold':'sold',
+  'הושכר':'rented','הושכרה':'rented','rented':'rented',
+  'לא פעיל':'archived','לא פעילה':'archived','ארכיון':'archived','הוסר':'archived','archived':'archived',
+};
+
 /* שמות מקובלים שאינם מופיעים מילה במילה ברשימות הסגורות של הטופס. */
 const IMP_PTYPE_SYNONYMS = {
   'פנטהאוז':'גג/פנטהאוז','דירת גג':'גג/פנטהאוז','גג':'גג/פנטהאוז',
@@ -3904,11 +4116,22 @@ function impMatchPropertyType(value, category){
 
 /* מפת מאפיינים: גם התווית בעברית וגם הקוד עצמו מובילים לאותו ערך. */
 let impFeatureMapCache = null;
+/* כתיבים נפוצים שאינם התווית המדויקת שבטופס ("חנייה" מול "חניה",
+   "ריהוט" מול "מרוהטת") — גם בעמודת "תוספות" וגם ככותרת עמודה. */
+const IMP_FEATURE_SYNONYMS = {
+  'חנייה':'parking','חניית נכים':'parking','מיזוג אוויר':'ac','מזגנים':'ac',
+  'ריהוט':'furnished','מרוהט':'furnished','סורג':'bars','נגישות':'accessible',
+  'נגיש לנכים':'accessible','משופץ':'renovated_feature','שופץ':'renovated_feature',
+  'בלעדיות':'exclusive','ממד':'mamad','ממק':'mamak','מקלט':'building_shelter',
+  'מרפסת שמש':'sun_balcony','מרפסות שמש':'sun_balcony','מעליות':'elevator',
+};
+
 function impFeatureMap(){
   if (impFeatureMapCache) return impFeatureMapCache;
   const map = Object.create(null);
   [...LISTING_FEATURES, ...RESIDENTIAL_PROPERTY_FEATURES, ...COMMERCIAL_PROPERTY_FEATURES]
     .forEach(([code, label])=>{ map[impNorm(label)] = code; map[impNorm(code)] = code; });
+  Object.entries(IMP_FEATURE_SYNONYMS).forEach(([label, code])=>{ map[impNorm(label)] = code; });
   impFeatureMapCache = map;
   return map;
 }
@@ -4042,7 +4265,14 @@ function impAutoMap(headers){
   const taken = new Set();
   IMPORT_FIELDS.forEach(field=>{
     const wanted = [field.label, field.key, ...(field.aliases || [])].map(impNorm);
-    let idx = normalized.findIndex((h, i) => !taken.has(i) && h && wanted.includes(h));
+    // התאמה מדויקת לפי סדר הכינויים ולא לפי סדר העמודות בקובץ: כשיש גם
+    // "ריהוט" וגם "פירוט ריהוט", הכינוי הספציפי (הראשון ברשימה) מנצח.
+    let idx = -1;
+    for (const w of wanted){
+      if (!w) continue;
+      const found = normalized.findIndex((h, i) => !taken.has(i) && h === w);
+      if (found > -1){ idx = found; break; }
+    }
     if (idx === -1){
       // התאמה רכה: כותרת שמכילה את שם השדה ("מחיר מבוקש בש\"ח")
       idx = normalized.findIndex((h, i) => !taken.has(i) && h && wanted.some(w => w.length > 2 && h.includes(w)));
@@ -4051,6 +4281,23 @@ function impAutoMap(headers){
     if (idx > -1) taken.add(idx);
   });
   return mapping;
+}
+
+/* עמודות מאפיין בוליאניות: הרבה מערכות מייצאות עמודה נפרדת לכל מאפיין
+   ("מזגן", "מעלית", "מרפסת שמש") עם כן/לא, במקום עמודת "תוספות" אחת.
+   כל כותרת שנשארה בלי שדה ומזוהה כשם מאפיין נקראת ככה — כדי שלא צריך יהיה
+   למפות עשרים עמודות ביד. חישוב מחדש בכל כניסה לשלב 3, כי המיפוי הידני
+   בשלב 2 יכול לתפוס או לשחרר כותרות.                                       */
+function impDetectFeatureColumns(headers, mapping){
+  const taken = new Set(Object.values(mapping).filter(i => i > -1));
+  const featureMap = impFeatureMap();
+  const columns = [];
+  headers.forEach((header, index)=>{
+    if (taken.has(index)) return;
+    const code = featureMap[impNorm(header)];
+    if (code) columns.push({ index, code, label: header });
+  });
+  return columns;
 }
 
 function impRenderStep2(){
@@ -4067,9 +4314,12 @@ function impRenderStep2(){
     </tr>`;
   }).join('');
 
+  const featureColumns = impDetectFeatureColumns(importState.headers, importState.mapping);
   impBodyEl.innerHTML = `
     <p>נקראו <strong>${importState.rows.length}</strong> שורות מתוך <strong>${impEscape(importState.fileName)}</strong>.
        זיהינו את העמודות אוטומטית — עברו ותקנו במידת הצורך. שדות עם <span class="imp-req">*</span> הם חובה.</p>
+    ${featureColumns.length ? `<div class="imp-note">עמודות מאפיין (כן/לא) שייקלטו אוטומטית כמאפייני נכס:
+       <strong>${featureColumns.map(c => impEscape(c.label)).join(' · ')}</strong></div>` : ''}
     <table class="imp-map">${rows}</table>`;
   impFootEl.innerHTML = `
     <button type="button" class="btn btn-ghost" id="impBack">חזרה</button>
@@ -4098,10 +4348,14 @@ function impBuildRow(rawRow, rowNumber){
     return idx < 0 ? '' : rawRow[idx];
   };
   const payload = {};
+  // המאפיינים מתנקזים מכמה מקורות (עמודת "תוספות", עמודות כן/לא, ועמודות
+  // מחסן/ממ״ד בנוסח בוליאני), ולכן נאספים לסט אחד ונכתבים ל-payload בסוף.
+  const featureCodes = new Set();
 
+  // הכותרת נבנית בסוף הפונקציה כשהעמודה ריקה — היא מסתמכת על סוג הנכס,
+  // החדרים והכתובת, שכולם מנורמלים בהמשך.
   const title = impText(cell('title'));
-  if (!title) errors.push('חסרה כותרת');
-  else payload.title = title.slice(0, 200);
+  if (title) payload.title = title.slice(0, 200);
 
   let category = 'residential';
   const rawCategory = impNorm(cell('category'));
@@ -4137,6 +4391,17 @@ function impBuildRow(rawRow, rowNumber){
     else payload.rooms = rooms;
   }
 
+  // השכונות מנוהלות על ידי הפלטפורמה, ולכן שם שלא ברשימה לא נקלט אלא מתריע
+  const rawNeighborhood = impNorm(cell('neighborhood'));
+  if (rawNeighborhood){
+    const match = allNeighborhoods.find(n => impNorm(n.name) === rawNeighborhood);
+    if (match) payload.neighborhood_id = match.id;
+    else warnings.push(`השכונה "${impText(cell('neighborhood'))}" אינה ברשימת השכונות — לא נקלטה`);
+  }
+
+  const salesArea = impText(cell('sales_area'));
+  if (salesArea) payload.sales_area = salesArea.slice(0, 100);
+
   const street = impText(cell('street'));
   const houseNumber = impText(cell('house_number'));
   payload.street = street || null;
@@ -4154,7 +4419,13 @@ function impBuildRow(rawRow, rowNumber){
     }
   }
 
-  [['size_sqm','גודל במ"ר'], ['built_size_sqm','מ"ר בנוי']].forEach(([key, label])=>{
+  const totalFloors = impNumber(cell('total_floors'));
+  if (totalFloors !== null){
+    if (totalFloors <= 0 || totalFloors > 200) warnings.push('מספר קומות לא תקין — לא נקלט');
+    else payload.total_floors = Math.round(totalFloors);
+  }
+
+  [['size_sqm','גודל במ"ר'], ['built_size_sqm','מ"ר בנוי'], ['garden_sqm','מ"ר גינה']].forEach(([key, label])=>{
     const n = impNumber(cell(key));
     if (n !== null){
       if (n <= 0) warnings.push(`${label} לא תקין — לא נקלט`);
@@ -4162,20 +4433,36 @@ function impBuildRow(rawRow, rowNumber){
     }
   });
 
-  const description = impText(cell('description'));
-  if (description) payload.description = description;
+  [['description', 5000], ['marketing_description', 5000], ['post_text', 5000],
+   ['furniture_details', 300], ['agent2_name', 100], ['agent2_phone', 40]].forEach(([key, max])=>{
+    const value = impText(cell(key));
+    if (value) payload[key] = value.slice(0, max);
+  });
+
+  const expires = impDate(cell('listing_expires_at'));
+  if (expires === undefined) warnings.push('תוקף המודעה לא זוהה — לא נקלט');
+  else if (expires) payload.listing_expires_at = expires;
 
   // ‏condition שייך למגורים בלבד, וה-*_location למסחרי בלבד — בדיוק כמו
   // שהטופס הידני שולח null בצד השני.
+  //
+  // עמודות "מחסן"/"ממ״ד" מגיעות בשני נוסחים: מיקום (בבניין/בנכס) בקבצים
+  // מסחריים, וכן/לא בקבצים של דירות. ערך בוליאני נקלט כמאפיין ולא כמיקום,
+  // כדי שקובץ מגורים לא יאבד את המחסן והממ״ד ולא יקבל אזהרה מיותרת.
+  const LOCATION_FEATURE_CODES = { storage_location:'storage', mamad_location:'mamad' };
+  ['restrooms_location','storage_location','mamad_location'].forEach(key=>{
+    const raw = impNorm(cell(key));
+    if (!raw) return;
+    const value = IMP_LOCATION[raw];
+    if (value && category === 'commercial'){ payload[key] = value; return; }
+    const bool = impBool(cell(key));
+    if (bool === true && LOCATION_FEATURE_CODES[key]){ featureCodes.add(LOCATION_FEATURE_CODES[key]); return; }
+    if (bool === false || (value && category !== 'commercial')) return;
+    warnings.push(`הערך "${impText(cell(key))}" אינו בבניין/בנכס ואינו כן/לא — לא נקלט`);
+  });
+
   if (category === 'commercial'){
     payload.condition = null;
-    ['restrooms_location','storage_location','mamad_location'].forEach(key=>{
-      const raw = impNorm(cell(key));
-      if (!raw) return;
-      const value = IMP_LOCATION[raw];
-      if (value) payload[key] = value;
-      else warnings.push(`הערך "${impText(cell(key))}" אינו בבניין/בנכס — לא נקלט`);
-    });
   } else {
     const raw = impNorm(cell('condition'));
     if (raw){
@@ -4203,16 +4490,22 @@ function impBuildRow(rawRow, rowNumber){
   const rawFeatures = impText(cell('features'));
   if (rawFeatures){
     const map = impFeatureMap();
-    const codes = [], unknown = [];
+    const unknown = [];
     rawFeatures.split(/[,;|]/).forEach(part=>{
       const key = impNorm(part);
       if (!key) return;
-      if (map[key]){ if (!codes.includes(map[key])) codes.push(map[key]); }
+      if (map[key]) featureCodes.add(map[key]);
       else unknown.push(part.trim());
     });
-    if (codes.length) payload.features = codes;
     if (unknown.length) warnings.push('מאפיינים שלא זוהו ולא נקלטו: ' + unknown.join(', '));
   }
+
+  // עמודה נפרדת לכל מאפיין (כן/לא) — ראו impDetectFeatureColumns
+  (importState.featureColumns || []).forEach(col=>{
+    if (impBool(rawRow[col.index]) === true) featureCodes.add(col.code);
+  });
+
+  if (featureCodes.size) payload.features = [...featureCodes];
 
   const lat = impNumber(cell('lat')), lng = impNumber(cell('lng'));
   if (lat !== null && lng !== null){
@@ -4236,17 +4529,58 @@ function impBuildRow(rawRow, rowNumber){
     if (urls.length) payload.images = urls.slice(0, MAX_IMAGES);
   }
 
+  const marketingImage = impText(cell('marketing_image'));
+  if (marketingImage){
+    if (/^https?:\/\/\S+$/i.test(marketingImage)) payload.marketing_image = marketingImage;
+    else warnings.push('קישור התמונה השיווקית אינו כתובת מלאה — לא נקלט');
+  }
+
+  if (!payload.title){
+    const parts = [
+      payload.property_type || '',
+      payload.rooms ? payload.rooms + ' חדרים' : '',
+      payload.address || '',
+      payload.city || '',
+    ].filter(Boolean);
+    if (parts.length){
+      payload.title = parts.join(', ').slice(0, 200);
+      warnings.push('אין עמודת כותרת — נוצרה כותרת אוטומטית: ' + payload.title);
+    } else {
+      errors.push('חסרה כותרת ואי אפשר לבנות אותה (אין סוג נכס, כתובת או עיר)');
+    }
+  }
+
   payload.agency_id = currentAgent.agency_id;
   payload.agent_id = currentAgent.id;
-  payload.status = 'active';
 
-  return { rowNumber, raw: rawRow, payload, errors, warnings };
+  const rawPropertyStatus = impNorm(cell('status'));
+  if (!rawPropertyStatus) payload.status = 'active';
+  else if (IMP_PROPERTY_STATUS[rawPropertyStatus]) payload.status = IMP_PROPERTY_STATUS[rawPropertyStatus];
+  else {
+    payload.status = 'active';
+    warnings.push(`סטטוס "${impText(cell('status'))}" לא זוהה — הנכס נקלט כפעיל`);
+  }
+
+  // פרטי הבעלים לא יושבים ב-properties אלא ב-property_owners, ולכן הם נשמרים
+  // בצד ה-row ולא ב-payload, ונכנסים בשלב נפרד אחרי שנוצר ה-property_id.
+  const owner = {
+    owner_name: impText(cell('owner_name')).slice(0, 100) || null,
+    owner_phone: impText(cell('owner_phone')).slice(0, 40) || null,
+  };
+
+  return {
+    rowNumber, raw: rawRow, payload, errors, warnings,
+    owner: (owner.owner_name || owner.owner_phone) ? owner : null,
+  };
 }
 
 async function impRenderStep3(){
   impBodyEl.innerHTML = '<div class="empty-state">בודק את הנתונים…</div>';
   impFootEl.innerHTML = '';
 
+  // ‏impBuildRow ממפה שם שכונה מהקובץ ל-neighborhood_id מול הרשימה הזו
+  await ensureNeighborhoodsLoaded();
+  importState.featureColumns = impDetectFeatureColumns(importState.headers, importState.mapping);
   importState.parsed = importState.rows.map((row, i) => impBuildRow(row, i + 2)); // +2: שורה 1 היא הכותרות
 
   // כפילויות בתוך הקובץ עצמו
@@ -4336,19 +4670,40 @@ async function impRenderStep4(){
     text.textContent = `${done} מתוך ${queue.length}`;
   };
 
+  // פרטי הבעלים נכנסים ל-property_owners אחרי שהנכסים נוצרו. ‏select('id')
+  // על insert מרובה-שורות מחזיר את השורות בסדר ההכנסה (‏INSERT … RETURNING),
+  // ולכן אפשר לזווג לפי אינדקס. כישלון כאן לא פוסל את הנכס עצמו — הוא כבר
+  // נשמר — אלא נרשם כאזהרה בקובץ השגיאות.
+  const saveOwners = async (rows, ids)=>{
+    const owners = rows
+      .map((row, idx) => (row.owner && ids[idx]) ? { property_id: ids[idx], ...row.owner } : null)
+      .filter(Boolean);
+    if (!owners.length) return;
+    const { error } = await sb.from('property_owners').insert(owners);
+    if (error){
+      console.error(error);
+      rows.forEach(row=>{
+        if (row.owner) importState.failed.push({ raw: row.raw, message: 'הנכס נקלט אך פרטי הבעלים לא נשמרו: ' + error.message });
+      });
+    }
+  };
+
   for (let i = 0; i < queue.length; i += IMPORT_CHUNK){
     const chunk = queue.slice(i, i + IMPORT_CHUNK);
-    const { error } = await sb.from('properties').insert(chunk.map(r => r.payload));
+    const { data: insertedRows, error } = await sb.from('properties')
+      .insert(chunk.map(r => r.payload)).select('id');
     if (error){
       // ‏insert קבוצתי נכשל כולו בגלל שורה אחת פגומה, ולכן חוזרים על המנה
       // שורה-שורה כדי לבודד את הנופלות ולהציל את השאר.
       for (const row of chunk){
-        const { error: rowError } = await sb.from('properties').insert(row.payload);
+        const { data: insertedRow, error: rowError } = await sb.from('properties')
+          .insert(row.payload).select('id').single();
         if (rowError) importState.failed.push({ raw: row.raw, message: rowError.message });
-        else ok++;
+        else { ok++; await saveOwners([row], [insertedRow?.id]); }
         done++; tick();
       }
     } else {
+      await saveOwners(chunk, (insertedRows || []).map(r => r.id));
       ok += chunk.length; done += chunk.length; tick();
     }
   }
@@ -4392,10 +4747,27 @@ async function impDownloadTemplate(){
   catch(err){ showToast(err.message); return; }
 
   const headers = IMPORT_FIELDS.map(f => f.label + (f.required ? ' *' : ''));
-  const sample = [
-    ['דירת 4 חדרים משופצת, שכונת רמת דוד','מגורים','דירה','מכירה',1650000,'עפולה',4,'דפנה','12',2,95,'','דירה מוארת עם מרפסת שמש','משופץ','','2026-10-01','כן','מעלית, חניה, ממ"ד','','','','','',''],
-    ['חנות 60 מ"ר במרכז העיר','מסחרי','חנויות/שטח מסחרי','השכרה',6500,'עפולה','','הנשיא','7','',60,'','חזית לרחוב ראשי','','','','לא','מזגן, מצלמות','בנכס','בבניין','','','',''],
+  // השורות לדוגמה נבנות לפי מפתח ולא לפי מיקום, כדי שהוספת שדה ל-IMPORT_FIELDS
+  // לא תזיז אותן מהעמודות שלהן.
+  const sampleRows = [
+    {
+      title:'דירת 4 חדרים משופצת, שכונת רמת דוד', category:'מגורים', property_type:'דירה',
+      deal_type:'מכירה', price:1650000, city:'עפולה', rooms:4, neighborhood:'רמת דוד',
+      sales_area:'צפון העיר', street:'דפנה', house_number:'12', floor:2, total_floors:6,
+      size_sqm:95, garden_sqm:'', description:'דירה מוארת עם מרפסת שמש', condition:'משופץ',
+      move_in_date:'2026-10-01', move_in_soon:'כן', listing_expires_at:'2026-12-31',
+      features:'מעלית, חניה, ממ"ד, מרפסת שמש', furniture_details:'מטבח מלא, ארונות',
+      marketing_description:'הזדמנות נדירה בלב השכונה', post_text:'🏡 חדש אצלנו! דירת 4 חדרים…',
+      agent2_name:'', agent2_phone:'', owner_name:'ישראל ישראלי', owner_phone:'050-0000000',
+    },
+    {
+      title:'חנות 60 מ"ר במרכז העיר', category:'מסחרי', property_type:'חנויות/שטח מסחרי',
+      deal_type:'השכרה', price:6500, city:'עפולה', street:'הנשיא', house_number:'7',
+      size_sqm:60, description:'חזית לרחוב ראשי', move_in_soon:'לא',
+      features:'מזגן, מצלמות', restrooms_location:'בנכס', storage_location:'בבניין',
+    },
   ];
+  const sample = sampleRows.map(row => IMPORT_FIELDS.map(f => row[f.key] ?? ''));
   const sheet = XLSX.utils.aoa_to_sheet([headers, ...sample]);
   sheet['!cols'] = headers.map(()=> ({ wch: 18 }));
 
@@ -4405,6 +4777,7 @@ async function impDownloadTemplate(){
     ['סוג עסקה','מכירה · השכרה'],
     ['סוג נכס (מגורים)', RESIDENTIAL_PTYPE_OPTIONS.join(' · ')],
     ['סוג נכס (מסחרי)', COMMERCIAL_PTYPE_OPTIONS.join(' · ')],
+    ['סטטוס','פעיל · נמכר · הושכר · לא פעיל (ריק = פעיל)'],
     ['מצב הנכס','חדש מקבלן · חדש · משופץ · שמור · דרוש שיפוץ'],
     ['סטטוס הפרויקט','תכנון ראשוני · הוגשה בקשה להיתר · ניתן היתר בנייה · הבנייה הסתיימה'],
     ['שירותים / מחסן / ממ"ד','בבניין · בנכס (נכסים מסחריים בלבד)'],
@@ -4415,6 +4788,13 @@ async function impDownloadTemplate(){
     ['מאפייני נכס (מסחרי)', COMMERCIAL_PROPERTY_FEATURES.map(([, l]) => l).join(' · ')],
     ['מאפיינים בקובץ','כמה ערכים בתא אחד, מופרדים בפסיק'],
     ['קישורי תמונות',`עד ${MAX_IMAGES} כתובות מלאות (https://…), מופרדות בפסיק`],
+    ['תמונה שיווקית','כתובת מלאה אחת (https://…) — תמונה מעוצבת, נפרדת מהגלריה'],
+    ['תוקף המודעה','dd/mm/yyyy או yyyy-mm-dd'],
+    ['שכונה','חייבת להיות שכונה מרשימת הפלטפורמה, אחרת לא תיקלט'],
+    ['בעלים','שם וטלפון בעל/ת הנכס — מידע פנימי, לא מוצג באתר ולא במסך של משרד אחר'],
+    ['מספר מודעה','נוצר אוטומטית במערכת — אין צורך בעמודה בקובץ'],
+    ['כותרת','אם אין עמודה כזו, תיווצר כותרת מסוג הנכס, החדרים והכתובת'],
+    ['עמודת מאפיין','אפשר גם עמודה לכל מאפיין ("מזגן", "מעלית") עם כן/לא — היא תזוהה לבד'],
   ];
   const vocabSheet = XLSX.utils.aoa_to_sheet(vocabulary);
   vocabSheet['!cols'] = [{ wch: 24 }, { wch: 110 }];
