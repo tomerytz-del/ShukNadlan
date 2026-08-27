@@ -543,24 +543,47 @@
   }
   .ad-row{padding:14px 0}
 
-  /* ====== כתבות ובלוגים ====== */
-  .article-scroll{display:flex;gap:14px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x mandatory}
+  /* ====== כתבות ובלוגים ======
+     אותה שיטת מידוד כמו קרוסלת "נכסים חמים מהמפה": רוחב הכרטיס נגזר
+     מרוחב המסלול עצמו כך שתמיד רואים שלושה כרטיסים (עם הצצה לרביעי),
+     ובמובייל המסלול פורץ את ריפוד ה-.wrap כדי לנצל את מלוא רוחב המסך. */
+  .article-scroll{
+    --row-gap:9px; --row-peek:14px;
+    display:flex;gap:var(--row-gap);overflow-x:auto;scroll-snap-type:x mandatory;
+    padding:0 var(--row-peek) 6px;
+  }
   .article-card{
-    flex:0 0 250px;scroll-snap-align:start;background:#fff;border:1px solid var(--line);
+    flex:0 0 min(250px, calc((100% - var(--row-gap) * 2) / 3));
+    scroll-snap-align:start;background:#fff;border:1px solid var(--line);
     border-radius:var(--radius-md);overflow:hidden;display:flex;flex-direction:column;
   }
-  .article-card .cover{height:130px;background-size:cover;background-position:center}
-  .article-card .body{padding:12px;display:flex;flex-direction:column;gap:6px;flex:1}
+  .article-card .cover{height:88px;background-size:cover;background-position:center}
+  .article-card .body{padding:9px;display:flex;flex-direction:column;gap:5px;flex:1}
   .article-card .kicker{
     align-self:flex-start;background:var(--gold-tint);color:var(--gold-dark);
-    font-size:.66rem;font-weight:800;padding:3px 9px;border-radius:6px;
+    font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:5px;
   }
-  .article-card h3{font-family:'Heebo',sans-serif;font-size:.9rem;font-weight:700;line-height:1.4;color:var(--ink)}
-  .article-card p{font-size:.78rem;color:var(--ink-soft);margin:0}
-  .article-card .stamp{font-size:.7rem;color:var(--ink-soft);margin-top:auto}
+  /* הגבלה לשתי שורות: הכרטיסים צרים יותר עכשיו, וכותרת ארוכה לא תמתח
+     כרטיס אחד מעל שכניו. */
+  .article-card h3{
+    font-family:'Heebo',sans-serif;font-size:.78rem;font-weight:700;line-height:1.35;color:var(--ink);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .article-card p{
+    font-size:.72rem;color:var(--ink-soft);margin:0;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .article-card .stamp{font-size:.66rem;color:var(--ink-soft);margin-top:auto}
 
-  /* ====== Featured / grid ====== */
-  .featured-scroll{display:flex;gap:14px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x mandatory}
+  /* ====== Featured / grid ======
+     .prop-card משמש גם ברשימת הנכסים המלאה (.property-grid, גריד ולא
+     גלילה) — ולכן שינויי המידוד לשלושה-בתצוגה מוגבלים ל-.featured-scroll
+     .prop-card בלבד, כדי לא להשפיע על אריחי הגריד הרגילים. */
+  .featured-scroll{
+    --row-gap:9px; --row-peek:14px;
+    display:flex;gap:var(--row-gap);overflow-x:auto;scroll-snap-type:x mandatory;
+    padding:0 var(--row-peek) 6px;
+  }
   .prop-card{
     background:#fff;border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;
     flex:0 0 250px;scroll-snap-align:start;
@@ -575,22 +598,70 @@
   .prop-card .title{font-size:.85rem;color:var(--ink);margin-top:3px}
   .prop-card .meta{font-size:.76rem;color:var(--ink-soft);margin-top:6px;display:flex;gap:10px}
 
+  .featured-scroll .prop-card{
+    flex-basis:min(250px, calc((100% - var(--row-gap) * 2) / 3));
+  }
+  .featured-scroll .prop-card .thumb{height:94px}
+  .featured-scroll .prop-card .ribbon{top:6px;right:6px;font-size:.6rem;padding:2px 7px}
+  .featured-scroll .prop-card .body{padding:9px}
+  .featured-scroll .prop-card .price{font-size:.86rem}
+  .featured-scroll .prop-card .title{
+    font-size:.73rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .featured-scroll .prop-card .meta{font-size:.66rem;margin-top:5px;gap:8px;flex-wrap:wrap}
+
   .agency-card{
     background:#fff;border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;
-    flex:0 0 200px;scroll-snap-align:start;padding:16px;text-align:center;cursor:pointer;transition:box-shadow .15s;
+    flex:0 0 min(200px, calc((100% - var(--row-gap) * 2) / 3));
+    scroll-snap-align:start;padding:12px 8px;text-align:center;cursor:pointer;transition:box-shadow .15s;
   }
   .agency-card:hover{box-shadow:var(--shadow)}
   .agency-card .rank-badge{
-    width:32px;height:32px;border-radius:50%;background:var(--gold-tint);color:var(--gold-dark);
-    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.85rem;margin:0 auto 10px;
+    width:26px;height:26px;border-radius:50%;background:var(--gold-tint);color:var(--gold-dark);
+    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.74rem;margin:0 auto 8px;
   }
   .agency-card .logo{
-    width:52px;height:52px;border-radius:14px;margin:0 auto 10px;
+    width:42px;height:42px;border-radius:12px;margin:0 auto 8px;
     background:linear-gradient(155deg,var(--gold),var(--teal) 65%);color:#fff;
-    display:flex;align-items:center;justify-content:center;font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.3rem;
+    display:flex;align-items:center;justify-content:center;font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.08rem;
   }
-  .agency-card .name{font-weight:700;font-size:.88rem}
-  .agency-card .stat{font-size:.72rem;color:var(--ink-soft);margin-top:6px}
+  .agency-card .name{font-weight:700;font-size:.76rem}
+  .agency-card .stat{font-size:.64rem;color:var(--ink-soft);margin-top:5px}
+
+  /* במובייל המסלולים פורצים את ריפוד ה-.wrap, בדיוק כמו .coverflow */
+  @media(max-width:759px){
+    .featured-scroll,.article-scroll{margin-inline:-18px}
+  }
+  @media(min-width:480px){
+    .featured-scroll,.article-scroll{--row-gap:12px;--row-peek:18px}
+    .featured-scroll .prop-card .thumb{height:112px}
+    .featured-scroll .prop-card .price{font-size:.94rem}
+    .featured-scroll .prop-card .title{font-size:.78rem}
+    .article-card .cover{height:106px}
+    .article-card h3{font-size:.84rem}
+    .agency-card .logo{width:48px;height:48px;font-size:1.2rem}
+    .agency-card .name{font-size:.82rem}
+  }
+  @media(min-width:760px){
+    .featured-scroll,.article-scroll{--row-gap:16px;--row-peek:24px}
+    .featured-scroll .prop-card .thumb{height:150px}
+    .featured-scroll .prop-card .ribbon{top:10px;right:10px;font-size:.68rem;padding:3px 9px}
+    .featured-scroll .prop-card .body{padding:12px}
+    .featured-scroll .prop-card .price{font-size:1.02rem}
+    .featured-scroll .prop-card .title{font-size:.85rem}
+    .featured-scroll .prop-card .meta{font-size:.76rem;margin-top:6px}
+    .article-card .cover{height:130px}
+    .article-card .body{padding:12px;gap:6px}
+    .article-card h3{font-size:.9rem}
+    .article-card p{font-size:.78rem}
+    .article-card .kicker{font-size:.66rem;padding:3px 9px}
+    .article-card .stamp{font-size:.7rem}
+    .agency-card{padding:16px}
+    .agency-card .rank-badge{width:32px;height:32px;font-size:.85rem;margin-bottom:10px}
+    .agency-card .logo{width:52px;height:52px;border-radius:14px;font-size:1.3rem;margin-bottom:10px}
+    .agency-card .name{font-size:.88rem}
+    .agency-card .stat{font-size:.72rem;margin-top:6px}
+  }
 
   .property-grid{display:grid;grid-template-columns:1fr;gap:16px}
   .infeed-ad{

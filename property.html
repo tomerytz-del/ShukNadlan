@@ -57,6 +57,51 @@
 
   .section{margin-top:26px}
   .section h2{font-size:1.05rem;margin-bottom:10px}
+
+  /* ====== נכסים דומים ======
+     אותה שיטת מידוד כמו קרוסלות ה-featured-scroll בדף הבית: רוחב הכרטיס
+     נגזר מרוחב המסלול עצמו כך שתמיד רואים שלושה כרטיסים (עם הצצה לרביעי),
+     ובמובייל המסלול פורץ את ריפוד ה-.wrap כדי לנצל את מלוא רוחב המסך. */
+  .featured-scroll{
+    --row-gap:9px; --row-peek:14px;
+    display:flex;gap:var(--row-gap);overflow-x:auto;scroll-snap-type:x mandatory;
+    padding:0 var(--row-peek) 6px;
+  }
+  .prop-card{
+    background:#fff;border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;
+    flex:0 0 min(250px, calc((100% - var(--row-gap) * 2) / 3));scroll-snap-align:start;cursor:pointer;
+  }
+  .prop-card .thumb{height:94px;background-size:cover;background-position:center;position:relative}
+  .prop-card .ribbon{
+    position:absolute;top:6px;right:6px;background:var(--gold);color:#fff;font-size:.6rem;
+    font-weight:800;padding:2px 7px;border-radius:5px;
+  }
+  .prop-card .body{padding:9px}
+  .prop-card .price{font-weight:800;color:var(--teal-dark);font-size:.86rem}
+  .prop-card .title{
+    font-size:.73rem;color:var(--ink);margin-top:3px;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .prop-card .meta{font-size:.66rem;color:var(--ink-soft);margin-top:5px;display:flex;gap:8px;flex-wrap:wrap}
+
+  @media(max-width:759px){
+    .featured-scroll{margin-inline:-18px}
+  }
+  @media(min-width:480px){
+    .featured-scroll{--row-gap:12px;--row-peek:18px}
+    .prop-card .thumb{height:112px}
+    .prop-card .price{font-size:.94rem}
+    .prop-card .title{font-size:.78rem}
+  }
+  @media(min-width:760px){
+    .featured-scroll{--row-gap:16px;--row-peek:24px}
+    .prop-card .thumb{height:150px}
+    .prop-card .body{padding:12px}
+    .prop-card .price{font-size:1.02rem}
+    .prop-card .title{font-size:.85rem}
+    .prop-card .meta{font-size:.76rem;margin-top:6px}
+    .prop-card .ribbon{top:10px;right:10px;font-size:.68rem;padding:3px 9px}
+  }
   .agency-strip{display:flex;align-items:center;gap:12px;padding:14px;margin-top:26px}
   .agency-avatar{width:44px;height:44px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Frank Ruhl Libre',serif;flex-shrink:0}
   .agency-name{font-weight:700;font-size:.92rem}
@@ -339,6 +384,15 @@
       </div>
     </div>
   </div>
+
+  <!-- ====== נכסים דומים ======
+       אותה שיטת מידוד כמו קרוסלות דף הבית: שלושה כרטיסים בתצוגה בכל רגע,
+       עם הצצה לרביעי. מוסתרת לגמרי כשאין מספיק נכסים דומים, כמו הקרוסלות
+       המקבילות בדף הבית (משרדי תיווך מובילים וכו'). -->
+  <section class="wrap section" id="similarSection" hidden>
+    <h2>נכסים דומים שעשויים לעניין אתכם</h2>
+    <div class="featured-scroll" id="similarScroll"></div>
+  </section>
 </div>
 
 <!-- ====== בלון איסוף ליד ייעוץ משכנתאות ====== -->
@@ -416,6 +470,18 @@ function priceLabel(p){
   return p.deal_type === 'rent' ? ('₪' + Number(p.price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(p.price).toLocaleString('he-IL'));
 }
 
+/* התמונה הראשית של נכס היא images[0]; נכס בלי תמונות נופל חזרה לגרדיאנט
+   הצבעוני, כדי שהכרטיס לא ייראה שבור — בדיוק כמו ב-index.html. */
+function thumbStyle(p, i){
+  const img = p.images && p.images[0];
+  return img
+    ? `background-image:url('${img}');background-size:cover;background-position:center`
+    : `background:${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}`;
+}
+// הקידום נמכר לחלון של 72 שעות (כמו renderProperty למעלה) — אותה בדיקה
+// כאן כדי שסרט "מקודם" לא יישאר על כרטיס בקרוסלה אחרי שהחלון נגמר.
+const isPromoted = p => !!p.is_promoted && (!p.promoted_until || new Date(p.promoted_until) > new Date());
+
 function getPropertyIdFromUrl(){
   return new URLSearchParams(window.location.search).get('id');
 }
@@ -465,6 +531,9 @@ async function loadProperty(){
     currentProperty = data;
     renderProperty(data);
     logPropertyView(id);
+    // לא חוסם את רינדור הנכס: הקרוסלה נטענת ומתמלאת ברקע, ותופיע ברגע
+    // שהיא מוכנה.
+    loadSimilarProperties(data).then(renderSimilarProperties);
   } catch(e){
     console.warn('טעינת נכס נכשלה:', e);
     document.getElementById('loadingState').style.display = 'none';
@@ -513,6 +582,58 @@ function renderGallery(p){
       strip.appendChild(btn);
     });
   }
+}
+
+/* ---------- נכסים דומים ----------
+   אותה מדיניות כמו קרוסלות ה-featured-scroll בדף הבית: מוצגים נכסים
+   פעילים מלבד הנכס הנוכחי, קודם מאותה עיר; ואם יש בה פחות משלושה, מורחב
+   לפי סוג הנכס כדי שהקרוסלה לא תיראה ריקה/דלה בערים קטנות. אין תוצאות
+   בכלל — הסקציה כולה מוסתרת, בדיוק כמו "משרדי תיווך מובילים" ריק בדף
+   הבית. */
+async function loadSimilarProperties(p){
+  if (!window.supabase) return [];
+  try{
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const base = () => sb.from('properties').select('*').eq('status', 'active').neq('id', p.id);
+
+    const { data: sameCity, error } = await base().eq('city', p.city)
+      .order('is_promoted', { ascending:false }).order('created_at', { ascending:false }).limit(10);
+    if (error) throw error;
+
+    const results = [...(sameCity || [])];
+    if (results.length < 3 && p.property_type){
+      const { data: sameType } = await base().eq('property_type', p.property_type)
+        .order('is_promoted', { ascending:false }).limit(10);
+      const seen = new Set(results.map(r => r.id));
+      (sameType || []).forEach(r => { if (!seen.has(r.id)){ results.push(r); seen.add(r.id); } });
+    }
+    return results.slice(0, 8);
+  } catch(e){
+    console.warn('טעינת נכסים דומים נכשלה:', e);
+    return [];
+  }
+}
+
+function renderSimilarProperties(list){
+  const section = document.getElementById('similarSection');
+  const scroll = document.getElementById('similarScroll');
+  if (!list.length){ section.hidden = true; return; }
+
+  scroll.innerHTML = '';
+  list.forEach((sp, i)=>{
+    const card = document.createElement('div');
+    card.className = 'prop-card';
+    card.innerHTML = `
+      <div class="thumb" style="${thumbStyle(sp, i)}">${isPromoted(sp) ? '<span class="ribbon">מקודם</span>' : ''}</div>
+      <div class="body">
+        <div class="price">${priceLabel(sp)}</div>
+        <div class="title">${sp.title}</div>
+        <div class="meta"><span>${sp.rooms ? sp.rooms + ' חדרים' : sp.property_type}</span><span>${sp.city || ''}</span></div>
+      </div>`;
+    card.addEventListener('click', ()=> window.location.href = 'property.html?id=' + sp.id);
+    scroll.appendChild(card);
+  });
+  section.hidden = false;
 }
 
 function renderProperty(p){
