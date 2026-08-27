@@ -3982,7 +3982,10 @@ const IMPORT_FIELDS = [
   { key:'rooms', label:'חדרים', aliases:['חדרים','מספר חדרים','חד','rooms'] },
   { key:'neighborhood', label:'שכונה', hint:'חייבת להיות שכונה שקיימת ברשימת הפלטפורמה', aliases:['שכונה','neighborhood'] },
   { key:'sales_area', label:'איזור מכירה', aliases:['איזור מכירה','אזור מכירה','איזור','אזור','sales_area','area'] },
-  { key:'street', label:'רחוב', aliases:['רחוב','כתובת','street','address'] },
+  // ‏"כתובת/אזור" במפורש: בלעדיו ההתאמה הרכה על "אזור" הייתה שולחת עמודת
+  // כתובת מלאה ל"איזור מכירה", והנכס נשאר בלי רחוב ובלי מספר בית — ולכן גם
+  // בלי אפשרות לגאוקד אותו.
+  { key:'street', label:'רחוב', aliases:['רחוב','כתובת','כתובת/אזור','כתובת / אזור','street','address'] },
   // בלי הכינוי "מספר" לבדו: בקבצי ייצוא הוא כמעט תמיד "מספר מודעה"/"מספר נכס",
   // וההתאמה הרכה הייתה מכניסה מזהה מודעה לתוך הכתובת.
   { key:'house_number', label:'מספר בית', aliases:['מספר בית','מס בית','house number','house_number'] },
@@ -4195,6 +4198,93 @@ function impGuessPropertyType(text, category){
     if (!best || at < best.at || (at === best.at && length > best.length)) best = { at, length, value };
   });
   return best ? best.value : null;
+}
+
+/* ---------- פיצול כתובת לרחוב ומספר בית ----------
+   שכבת הכתובות של העירייה (‏Edge Function ‏geocode-address) נשאלת על שם רחוב
+   ומספר בית בשני שדות נפרדים, ובלי הפיצול הזה נכס מיובא נשאר בלי קואורדינטות
+   ונופל לקואורדינטת ברירת המחדל של המקור — כלומר לערימה אחת במרכז העיר.
+
+   בקבצי ייצוא הכתובת מגיעה כמחרוזת אחת ולעיתים קרובות עם קידומת אזור:
+   "מרכז העיר החשמל 3", "אזור תעשיה א המלאכה 21". הקידומת נגזרת קודם כול
+   מרשימת השכונות של הפלטפורמה, ורק מה שאינו שכונה רשומה יושב ברשימה כאן. */
+const IMPORT_AREA_PREFIXES = [
+  'אזור תעשיה','אזור תעשייה','אזור התעשיה','אזור התעשייה',
+  'מרכז העיר','מרכז עפולה עלית','שאר העיר','שכון עובדים','שיכון עובדים',
+  'בנה ביתך','יוקה פארק',
+];
+
+/* קטע הכתובת בכותרת בנוסח "משרד, יהושע חנקין 2 — 160 מ״ר": מה שאחרי הפסיק
+   הראשון ולפני המקף המפריד. בלי פסיק לא מנחשים — כותרת חופשית אינה כתובת. */
+function impTitleAddress(title){
+  const head = impText(title).split(/[—–]/)[0];
+  const comma = head.indexOf(',');
+  return comma > -1 ? head.slice(comma + 1).trim() : '';
+}
+
+/* השוואה סלחנית לשמות שכונות בלבד: קידומת ה' הידיעה וכפל יו"ד משתנים בין
+   מקורות ("אזור תעשיה" מול "אזור התעשייה" הרשומה). אותה הקלה שהגיאוקודר
+   עושה על שמות רחובות. משמשת רק להשלמת שכונה מתוך קידומת הכתובת — התאמת
+   עמודת שכונה מפורשת נשארת מדויקת, כדי שלא ייקלט שם שגוי בשקט. */
+function impLooseHood(s){
+  return impNorm(s).replace(/יי/g, 'י').split(' ').map(w => w.replace(/^ה/, '')).join(' ');
+}
+
+/* מחזירה { street, houseNumber, area, guessed } או null אם אין ממה לפצל.
+   ‏guessed=true כשלא נמצא מספר בית והוא נקבע ל-1 כברירת מחדל — נקודת הכתובת
+   הראשונה ברחוב עדיין ממקמת את הנכס ברחוב הנכון, וזה עדיף על בלי מיקום. */
+function impSplitAddress(text, city){
+  const raw = impText(text).replace(/\s+/g, ' ').trim();
+  if (!raw) return null;
+
+  // הקידומת הארוכה ביותר מנצחת, אחרת "מרכז העיר" היה חוטף את
+  // "מרכז עפולה עלית" ומשאיר "עלית" בתוך שם הרחוב
+  const prefixes = [
+    ...IMPORT_AREA_PREFIXES,
+    ...allNeighborhoods.filter(n => !city || impNorm(n.city) === impNorm(city)).map(n => n.name),
+  ].map(impWords).filter(p => p.length).sort((a, b) => b.length - a.length);
+
+  const parse = (segment)=>{
+    let words = segment.split(' ').filter(Boolean);
+    if (!words.length) return null;
+
+    let area = '';
+    for (const p of prefixes){
+      const head = words.slice(0, p.length).map(impNorm);
+      if (head.length === p.length && p.every((w, i) => head[i] === w)){
+        area = words.slice(0, p.length).join(' ');
+        words = words.slice(p.length);
+        // אזורי תעשייה ממוספרים באות ("אזור תעשיה א") — האות אינה שם הרחוב
+        if (words.length > 1 && /^[א-ת]$/.test(words[0])){
+          area += ' ' + words[0];
+          words = words.slice(1);
+        }
+        break;
+      }
+    }
+
+    // מספר בית = המספר בסוף המקטע. טווח ("12-14") נקלט לפי הקצה הראשון,
+    // ואות צמודה ("12א") נשמרת כפי שהיא.
+    let houseNumber = '', guessed = false;
+    const last = words.length > 1 ? words[words.length - 1] : '';
+    const m = last.match(/^(\d+[א-ת]?)(?:[-–]\d+[א-ת]?)?$/);
+    if (m){
+      houseNumber = m[1];
+      words = words.slice(0, -1);
+    } else {
+      houseNumber = '1';
+      guessed = true;
+    }
+
+    const street = words.join(' ').trim();
+    return street ? { street, houseNumber, area, guessed } : null;
+  };
+
+  // מה שאחרי הפסיק הראשון הוא בדרך כלל פירוט ולא כתובת ("העליה 52, קומה 7"),
+  // ולכן המקטע הראשון קודם. אבל יש גם קבצים שבהם הפסיק מפריד בין האזור
+  // לרחוב ("מרכז העיר, החשמל 3") — ושם המקטע הראשון לבדו הוא אזור בלי רחוב
+  // ולא מניב כלום, ואז מנסים את המחרוזת המלאה.
+  return parse(raw.split(',')[0].trim()) || parse(raw.replace(/,/g, ' ').replace(/\s+/g, ' ').trim());
 }
 
 /* מפת מאפיינים: גם התווית בעברית וגם הקוד עצמו מובילים לאותו ערך. */
@@ -4554,8 +4644,33 @@ function impBuildRow(rawRow, rowNumber){
   const salesArea = impText(cell('sales_area'));
   if (salesArea) payload.sales_area = salesArea.slice(0, 100);
 
-  const street = impText(cell('street'));
-  const houseNumber = impText(cell('house_number'));
+  let street = impText(cell('street'));
+  let houseNumber = impText(cell('house_number'));
+  // בלי עמודת מספר בית נפרדת, המספר יושב בתוך מחרוזת הכתובת ("יהושע חנקין 2")
+  // ולפעמים גם קידומת אזור ("מרכז העיר החשמל 3"). כשאין עמודת כתובת בכלל,
+  // הכתובת נלקחת מקטע הכתובת שבכותרת. ראו impSplitAddress.
+  if (!houseNumber){
+    const source = street || salesArea || impTitleAddress(title);
+    const parts = impSplitAddress(source, payload.city);
+    if (parts){
+      street = parts.street;
+      houseNumber = parts.houseNumber;
+      if (parts.guessed) warnings.push(`לא נמצא מספר בית ב"${source}" — נקבע 1 כברירת מחדל`);
+      // כשעמודת האזור היא בעצם הכתובת המלאה, נשמר בה רק חלק האזור
+      if (parts.area && (!salesArea || impNorm(salesArea) === impNorm(source))){
+        payload.sales_area = parts.area.slice(0, 100);
+      }
+      // הקידומת שהוסרה היא לעיתים קרובות שכונה רשומה — הזדמנות למלא שדה
+      // שאחרת נשאר ריק ומוציא את הנכס מפילטר השכונות באתר
+      if (!payload.neighborhood_id && parts.area){
+        const loose = impLooseHood(parts.area);
+        const hits = allNeighborhoods.filter(n => impLooseHood(n.name) === loose);
+        // רק התאמה חד-משמעית — שתי שכונות שנראות זהות בהשוואה הסלחנית
+        // עדיפות להשאיר ריקות מאשר לבחור אחת מהן בניחוש
+        if (hits.length === 1) payload.neighborhood_id = hits[0].id;
+      }
+    }
+  }
   payload.street = street || null;
   payload.house_number = houseNumber || null;
   payload.address = (street || houseNumber) ? (street + (houseNumber ? ' ' + houseNumber : '')) : null;
