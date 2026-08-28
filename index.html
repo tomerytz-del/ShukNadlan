@@ -33,7 +33,9 @@
        בכל מקום בעמוד */
     --deal-sale:      #1C3A5E;
     --deal-rent:      #8B2332;
-    --deal-commercial:#2E7D5B;
+    /* כתום כהה ולא בהיר: על הפין יושב טקסט לבן ב-11px מודגש, ורק בגוון הזה
+       יחס הניגודיות מולו עובר 4.5:1 */
+    --deal-commercial:#B85C00;
     --radius-sm:  6px;
     --radius-md:  12px;
     --radius-lg:  20px;
@@ -261,42 +263,64 @@
   /* סרגל צף אחד בתחתית המפה, מקצה לקצה. הסרגל עצמו pointer-events:none חוץ
      מהפקדים שבו, כדי שאפשר יהיה לגרור את המפה גם "דרכו".
      justify-content:space-between מחלק אותו לשתי פינות: בפינה הימנית־תחתונה
-     (תחילת השורה ב-RTL) המקרא, מונה הנכסים וכפתור ההגדלה, ובפינה
-     השמאלית־תחתונה בורר סגנון המפה. החלוקה נעשית ב-flex ולא במיקום אבסולוטי
-     של כל פינה בנפרד, כך שגם במסך צר שתי הקבוצות לא נדרסות זו על זו.
+     (תחילת השורה ב-RTL) כפתור ההגדלה, ובפינה השמאלית־תחתונה .map-corner —
+     בורר סגנון המפה ומתחתיו מקרא הצבעים. החלוקה נעשית ב-flex ולא במיקום
+     אבסולוטי של כל פינה בנפרד, כך שגם במסך צר השתיים לא נדרסות זו על זו.
      bottom:38px משאיר מתחתיו בדיוק את הקרדיטים של Leaflet (bottom:18px), שגם
-     הם יושבים בפינה השמאלית — בגובה נמוך יותר הבורר נחת עליהם. */
+     הם יושבים בפינה השמאלית — בגובה נמוך יותר המקרא נוחת עליהם. */
   .map-toolbar{
     position:absolute;bottom:38px;right:0;left:0;z-index:3;pointer-events:none;
     display:flex;align-items:flex-end;justify-content:space-between;gap:8px;
     padding:0 10px;
   }
   .map-toolbar > *{pointer-events:auto}
-  /* המקרא יושב מעל מונה הנכסים ולא לצדו: שורה אחת עם ארבעה פקדים לא נכנסת
-     ברוחב טלפון, ושבירה של flex-wrap הייתה מפזרת אותם בין שתי הפינות */
-  .map-toolbar-main{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0;pointer-events:none}
-  .map-toolbar-main > *{pointer-events:auto}
-  .map-toolbar-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+  /* align-items:flex-end בעמודה ב-RTL = הצמדה לקצה השמאלי, כלומר שתי
+     השורות נשארות מיושרות לפינה שהן יושבות בה */
+  .map-corner{display:flex;flex-direction:column;align-items:flex-end;gap:6px;pointer-events:none}
+  .map-corner > *{pointer-events:auto}
+  /* מונה הנכסים לא יושב על המפה אלא צמוד לפינה השמאלית-תחתונה של שורת
+     החיפוש: שם הוא נקרא כתשובה לחיפוש ("כמה נכסים מוצגים כרגע") במקום
+     להתחרות על תחתית המפה עם בורר הסגנון והמקרא. */
+  .search-shell-foot{display:flex;justify-content:flex-end;margin-top:6px;pointer-events:none}
   .map-count{
-    background:rgba(255,255,255,.94);padding:7px 10px;border-radius:999px;
+    background:rgba(255,255,255,.94);padding:6px 11px;border-radius:999px;
     font-size:.72rem;font-weight:700;box-shadow:var(--shadow-sm);color:var(--ink);white-space:nowrap;
   }
-  /* מקרא צבעי הפינים — בלי זה שלושת הצבעים על המפה הם חידה */
+  .hero.map-failed .search-shell-foot{display:none}
+  /* המקרא הוא גם המסנן: כל כפתור מכבה/מדליק את הפינים של סוג העסקה שלו
+     (ראו applyDealFilter ב-JS). aria-pressed הוא מקור האמת גם לעיצוב וגם
+     להקראה, כדי שלא יהיו שני מצבים שצריך לסנכרן. */
   .map-legend{
-    display:flex;align-items:center;gap:8px;
-    background:rgba(255,255,255,.94);padding:5px 9px;border-radius:999px;
-    font-size:.66rem;font-weight:700;color:var(--ink);box-shadow:var(--shadow-sm);white-space:nowrap;
+    display:flex;align-items:center;gap:2px;
+    background:rgba(255,255,255,.94);padding:3px;border-radius:999px;
+    box-shadow:var(--shadow-sm);
   }
-  .map-legend span{display:inline-flex;align-items:center;gap:4px}
-  .map-legend i{width:9px;height:9px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 0 1.5px rgba(255,255,255,.9)}
+  .map-legend button{
+    display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;
+    font-size:.66rem;font-weight:700;color:var(--ink);white-space:nowrap;
+  }
+  .map-legend i{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
   .map-legend i.sale{background:var(--deal-sale)}
   .map-legend i.rent{background:var(--deal-rent)}
   .map-legend i.commercial{background:var(--deal-commercial)}
-  .map-style-switch{display:flex;background:rgba(255,255,255,.94);border-radius:999px;padding:3px;box-shadow:var(--shadow-sm)}
-  /* ריפוד ופונט קטנים כדי שכל שלושת הסגנונות ייכנסו בשורה אחת בפינה
-     השמאלית התחתונה גם במסך טלפון צר */
-  .map-style-switch button{padding:6px 9px;border-radius:999px;font-size:.7rem;font-weight:700;color:var(--ink-soft);white-space:nowrap}
-  .map-style-switch button.active{background:var(--teal);color:#fff}
+  /* כבוי: הנקודה מאפירה והטקסט מקווקו — סימון חד יותר מהעמעום לבדו,
+     שנקרא בטעות כ"לא זמין" */
+  .map-legend button[aria-pressed="false"]{color:var(--ink-soft);text-decoration:line-through}
+  .map-legend button[aria-pressed="false"] i{background:var(--line)}
+  /* בורר סגנון המפה: אותו קונטיינר בדיוק כמו בורר סוג העסקה שבשורת החיפוש
+     (‎.deal-select‎) — גלולה סגורה עם חץ פתיחה — רק בקנה מידה קטן, כי כאן
+     מדובר בפקד משני שיושב על המפה מעל המקרא. שלושת הסגנונות היו קודם שלושה
+     כפתורים פרושים בשורה, שגזלו רוחב והתחרו עם המקרא על אותו מבט. */
+  .map-style-select{
+    -webkit-appearance:none;appearance:none;border:none;cursor:pointer;
+    font-family:inherit;font-weight:700;font-size:.68rem;color:#fff;
+    background:var(--teal);border-radius:999px;padding:6px 12px 6px 26px;
+    box-shadow:var(--shadow-sm);
+    background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.6 6 6.4l5-4.8' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:left 9px center;background-size:9px;
+  }
+  /* רשימת האפשריות הנפתחת מצוירת ע"י המערכת ולא יורשת את הגלולה הכהה */
+  .map-style-select option{background:#fff;color:var(--ink)}
   .map-expand-btn{
     background:rgba(255,255,255,.94);color:var(--teal);padding:7px 12px;border-radius:999px;
     font-size:.74rem;font-weight:700;box-shadow:var(--shadow-sm);white-space:nowrap;
@@ -351,6 +375,35 @@
   }
   .leaflet-control-attribution{font-size:.62rem !important;background:rgba(255,255,255,.7) !important}
 
+  /* ====== בלון המידע של פין במפה ======
+     כולו קישור אחד לדף הנכס — לחיצה על הפין פותחת את הבלון, ולחיצה על
+     הבלון ממשיכה לנכס עצמו.
+     רוחב קבוע ל-.map-pop, ומידות קבועות ל-.map-pop-thumb עם object-fit:
+     בלי זה תמונה בפרופורציה חריגה הייתה מותחת את הבלון, וכל בלון היה יוצא
+     ברוחב אחר. כך הבלון נראה זהה בדיוק עם תמונה ובלעדיה. */
+  .leaflet-popup-content{margin:10px 12px}
+  /* כפתור הסגירה יורד לפינה השמאלית-עליונה — ב-RTL הפינה הימנית היא תחילת
+     הכותרת, ושם הוא היה יושב עליה. הריפוד ב-.map-pop שומר לו את המקום. */
+  .leaflet-popup-close-button{left:0;right:auto !important;padding:4px 0 0 4px !important}
+  .map-pop{
+    display:flex;gap:9px;align-items:flex-start;
+    width:228px;padding-left:14px;color:var(--ink);text-decoration:none;
+  }
+  .map-pop-thumb{
+    flex:0 0 58px;width:58px;height:58px;border-radius:8px;
+    object-fit:cover;background:var(--paper);display:block;
+  }
+  .map-pop-body{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
+  .map-pop-title{
+    font-weight:700;font-size:.8rem;line-height:1.32;color:var(--ink);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .map-pop-price{font-weight:700;font-size:.78rem;color:var(--teal-dark);display:flex;align-items:center;gap:5px}
+  .map-pop-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+  .map-pop-meta{font-size:.7rem;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .map-pop-cta{font-size:.7rem;font-weight:700;color:var(--gold-dark);margin-top:3px}
+  .map-pop:hover .map-pop-cta,.map-pop:focus-visible .map-pop-cta{text-decoration:underline}
+
   @media(min-width:760px){
     .filters-row{grid-template-columns:1fr 1fr 1fr 1fr}
     .deal-toggle{grid-column:auto;max-width:220px}
@@ -359,7 +412,6 @@
     .hero-inner h1{font-size:2rem}
     .hero-inner p.lede{display:block}
     .map-toolbar{padding:0 16px}
-    .map-toolbar-main{flex-direction:row;align-items:center;gap:8px}
   }
 
   /* ====== Newsflash ticker ====== */
@@ -957,10 +1009,9 @@
   html.a11y-contrast .btn, html.a11y-contrast button.opt, html.a11y-contrast input,
   html.a11y-contrast select, html.a11y-contrast .deal-toggle button,
   html.a11y-contrast .owner-toggle button, html.a11y-contrast .deal-select,
-  html.a11y-contrast .map-count, html.a11y-contrast .map-style-switch button,
+  html.a11y-contrast .map-count, html.a11y-contrast .map-legend button,
   html.a11y-contrast .search-card .icon-btn, html.a11y-contrast .search-card .search-go,
   html.a11y-contrast .map-expand-btn{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
-  html.a11y-contrast .map-style-switch{background:#000 !important}
   /* במצב ניגודיות גבוהה המפה מעומעמת: אריחים צבעוניים מתחת לטקסט צהוב על
      שחור הורסים את יחס הניגודיות שכל המצב הזה נועד להבטיח */
   html.a11y-contrast .hero-overlay{background:#000 !important}
@@ -977,6 +1028,12 @@
   html.a11y-contrast .sr-price,
   html.a11y-contrast .sr-deal,
   html.a11y-contrast .sr-clear{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
+  /* בלון הפין: הרקע הלבן של Leaflet מול הכלל הגורף שצובע span/div בלבן
+     השאיר טקסט לבן על לבן */
+  html.a11y-contrast .leaflet-popup-content-wrapper{background:#000 !important;color:#fff !important;border:1.5px solid #fff}
+  /* ל-tip אין מסגרת: הוא ריבוע מסובב, וכל ארבע הפאות שלו היו נצבעות */
+  html.a11y-contrast .leaflet-popup-tip{background:#000 !important}
+  html.a11y-contrast .map-pop-cta{color:#FFD84D !important}
   html.a11y-contrast .cf-badge,
   html.a11y-contrast .article-card .kicker,
   html.a11y-contrast .cf-dots button{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
@@ -1050,6 +1107,9 @@
             <button type="button" class="search-go" id="searchSubmitBtn" aria-label="חיפוש נכסים">
               <span aria-hidden="true">🔍</span><span class="btn-label">חיפוש</span>
             </button>
+          </div>
+          <div class="search-shell-foot">
+            <span class="map-count" id="mapCount" aria-live="polite">טוען נכסים…</span>
           </div>
         </div>
         <p class="map-fallback-note" id="mapFallbackNote" hidden>המפה לא נטענה (בעיית רשת) — רשימת הנכסים למטה עדיין זמינה.</p>
@@ -1240,23 +1300,20 @@
     </div>
 
     <div class="map-toolbar">
-      <div class="map-toolbar-main">
-        <div class="map-legend" role="list" aria-label="מקרא צבעי הפינים במפה">
-          <span role="listitem"><i class="sale" aria-hidden="true"></i>מכירה</span>
-          <span role="listitem"><i class="rent" aria-hidden="true"></i>השכרה</span>
-          <span role="listitem"><i class="commercial" aria-hidden="true"></i>מסחרי</span>
+      <button type="button" class="map-expand-btn" id="mapExpandBtn" aria-expanded="false">הגדל מפה ↓</button>
+      <!-- הפינה השמאלית־תחתונה: בורר סגנון המפה, ומתחתיו מקרא הצבעים שהוא
+           גם המסנן — לחיצה על סוג עסקה מסתירה/מחזירה את הפינים שלו -->
+      <div class="map-corner">
+        <select id="mapStyleSelect" class="map-style-select" aria-label="סגנון המפה">
+          <option value="nature">טבע</option>
+          <option value="classic" selected>קלאסי</option>
+          <option value="light">בהיר</option>
+        </select>
+        <div class="map-legend" role="group" aria-label="סינון הפינים לפי סוג עסקה">
+          <button type="button" data-deal-kind="sale" aria-pressed="true"><i class="sale" aria-hidden="true"></i>מכירה</button>
+          <button type="button" data-deal-kind="rent" aria-pressed="true"><i class="rent" aria-hidden="true"></i>השכרה</button>
+          <button type="button" data-deal-kind="commercial" aria-pressed="true"><i class="commercial" aria-hidden="true"></i>מסחרי</button>
         </div>
-        <div class="map-toolbar-row">
-          <span class="map-count" id="mapCount">טוען נכסים…</span>
-          <button type="button" class="map-expand-btn" id="mapExpandBtn" aria-expanded="false">הגדל מפה ↓</button>
-        </div>
-      </div>
-      <!-- בורר סגנון המפה יושב בפינה השמאלית־תחתונה, הרחק מהמונה ומכפתור
-           ההגדלה שבפינה הנגדית — ראו .map-toolbar ב-CSS -->
-      <div class="map-style-switch" role="group" aria-label="סגנון המפה">
-        <button type="button" data-map-style="nature">טבע</button>
-        <button type="button" data-map-style="classic" class="active">קלאסי</button>
-        <button type="button" data-map-style="light">בהיר</button>
       </div>
     </div>
   </section>
@@ -2575,9 +2632,8 @@ const DEFAULT_MAP_STYLE = 'classic';
 function applyMapStyle(style){
   if (!MAP_STYLES.includes(style)) style = DEFAULT_MAP_STYLE;
   document.body.dataset.mapStyle = style;
-  document.querySelectorAll('.map-style-switch button').forEach(b=>{
-    b.classList.toggle('active', b.dataset.mapStyle === style);
-  });
+  const select = document.getElementById('mapStyleSelect');
+  if (select) select.value = style;
   try { localStorage.setItem('shuk_map_style', style); } catch(e){ /* מצב פרטי/חסום */ }
 }
 
@@ -2619,11 +2675,21 @@ try {
 }
 
 applyMapStyle(savedMapStyle);
-document.querySelectorAll('.map-style-switch button').forEach(btn=>{
-  btn.addEventListener('click', ()=> applyMapStyle(btn.dataset.mapStyle));
-});
+const mapStyleSelect = document.getElementById('mapStyleSelect');
+if (mapStyleSelect){
+  mapStyleSelect.addEventListener('change', ()=> applyMapStyle(mapStyleSelect.value));
+}
 
 const mapMarkers = {};
+
+/* המקרא שמתחת למפה הוא גם מסנן: כל סוג עסקה שכבוי כאן — הפינים שלו יורדים
+   מהמפה. הסינון הזה חי רק בשכבת התצוגה ולא נוגע ברשימת הנכסים עצמה, ולכן
+   הוא לא מתנגש עם החיפוש: חיפוש קובע *אילו* נכסים יש, והמקרא קובע אילו מהם
+   מצוירים כרגע. mapMarkers מחזיק תמיד את כולם, ו-applyDealFilter מוסיף
+   ומוריד מהמפה בהתאם. */
+const MAP_DEAL_KINDS = ['sale','rent','commercial'];
+const activeDealKinds = new Set(MAP_DEAL_KINDS);
+const visibleMarkers = ()=> Object.values(mapMarkers).filter(m => activeDealKinds.has(m.options.dealKind));
 
 // טעינת הנכסים הראשונית היא אסינכרונית, ולכן משתמש שהספיק ללחוץ "חיפוש"
 // לפני שהיא חזרה ראה את תוצאות החיפוש נדרסות שנייה אחר כך ע"י הרשימה
@@ -2641,12 +2707,14 @@ function visibleMapPadding(){
   const fallback = { top:150, bottom:70 };
   if (!heroMap) return fallback;
   const hero = document.getElementById('heroSection');
-  const card = document.querySelector('.search-card');
+  // ה-shell ולא ה-card: מונה הנכסים תלוי מתחת לשורת החיפוש ובתוך ה-shell,
+  // ומדידה עד תחתית ה-card בלבד הייתה מניחה פינים מתחתיו
+  const shell = document.querySelector('.search-shell');
   const bar = document.querySelector('.map-toolbar');
-  if (!hero || !card || !bar) return fallback;
+  if (!hero || !shell || !bar) return fallback;
   const heroRect = hero.getBoundingClientRect();
   const height = heroMap.getSize().y || heroRect.height;
-  const top = card.getBoundingClientRect().bottom - heroRect.top + 16;
+  const top = shell.getBoundingClientRect().bottom - heroRect.top + 16;
   const bottom = heroRect.bottom - bar.getBoundingClientRect().top + 16;
   // רשת ביטחון בלבד, למקרה קיצון שבו החסימות גבוהות מהמפה עצמה
   const cap = height * 0.8;
@@ -2663,7 +2731,7 @@ function visibleMapPadding(){
 const MAP_FIT_MAX_ZOOM = 16;
 function fitMapToMarkers(){
   if (!heroMap) return;
-  const points = Object.values(mapMarkers).map(m => m.getLatLng());
+  const points = visibleMarkers().map(m => m.getLatLng());
   if (!points.length) return;
   try {
     const pad = visibleMapPadding();
@@ -2731,6 +2799,26 @@ function locationLabel(p){
   return p.address || p.street || p.neighborhood_name || p.city || 'עפולה והעמק';
 }
 
+const escAttr = s => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+
+/* בלון המידע של הפין. הבלון כולו <a> לדף הנכס: קודם הוא היה טקסט מת, ולחיצה
+   עליו לא הובילה לשום מקום — הדרך היחידה להגיע לנכס מהמפה הייתה לאתר אותו
+   שוב ברשימה שמתחת. התמונה מוצגת רק כשיש כזו, ומידותיה קבועות ב-CSS כדי
+   שהיא לא תמתח את הבלון (ראו .map-pop). */
+function mapPopupHtml(p, kind){
+  const img = p.images && p.images[0];
+  const meta = [locationLabel(p), p.agency_name].filter(Boolean).join(' · ');
+  return `<a class="map-pop" href="property.html?id=${encodeURIComponent(p.id)}">` +
+    (img ? `<img class="map-pop-thumb" src="${escAttr(img)}" alt="" loading="lazy" onerror="this.remove()">` : '') +
+    `<span class="map-pop-body">` +
+      `<span class="map-pop-title">${p.title}</span>` +
+      `<span class="map-pop-price"><i class="map-pop-dot" style="background:${DEAL_COLORS[kind]}"></i>` +
+        `${DEAL_LABELS[kind]} · ${priceLabel(p)}</span>` +
+      `<span class="map-pop-meta">${meta}</span>` +
+      `<span class="map-pop-cta">לצפייה בנכס ←</span>` +
+    `</span></a>`;
+}
+
 // המפה תמיד משקפת בדיוק את מה שמוצג ברשימת הנכסים למטה בעמוד — הפונקציה
 // הזו נקראת מתוך renderPropertyGrid() עצמה (לא רק מהטעינה הראשונית), כך
 // ש-runSearch() מסנכרן אליה אוטומטית בלי צורך לזכור לעדכן את המפה בנפרד
@@ -2755,22 +2843,70 @@ function renderMap(properties){
       // נכס מקודם תמיד גובר, ובין השאר מנצח המחיר הגבוה
       const m = L.marker([p.lat, p.lng], {
         icon,
+        dealKind: kind,
         pinRank: (isPromoted(p) ? 1e12 : 0) + (Number(p.price) || 0),
-      }).addTo(heroMap);
-      m.bindPopup(
-        `<strong>${p.title}</strong><br>${DEAL_LABELS[kind]} · ${priceLabel(p)}<br>` +
-        `<span style="color:#565C63">${locationLabel(p)}${p.agency_name ? ' · ' + p.agency_name : ''}</span>`
-      );
+      });
+      m.bindPopup(mapPopupHtml(p, kind));
       mapMarkers[p.id] = m;
     });
-    fitMapToMarkers();
+  }
+  // מצב מבלבל: חיפוש החזיר נכסים, אבל כולם מסוג עסקה שכבוי במקרא — המפה
+  // הייתה נראית ריקה כאילו החיפוש נכשל. רשימה חדשה שאין לה ולו פין אחד
+  // להציג פותחת מחדש את המסנן.
+  if (Object.keys(mapMarkers).length && !visibleMarkers().length) resetDealFilter();
+  // ההוספה בפועל למפה נעשית כאן ולא ב-forEach: כך מסנן המקרא נאכף גם על
+  // רשימה חדשה, ולא רק על לחיצה על המקרא עצמו
+  applyDealFilter({ fit:true });
+}
+
+function syncLegendButtons(){
+  document.querySelectorAll('.map-legend button').forEach(b =>
+    b.setAttribute('aria-pressed', String(activeDealKinds.has(b.dataset.dealKind))));
+}
+
+function resetDealFilter(){
+  MAP_DEAL_KINDS.forEach(k => activeDealKinds.add(k));
+  syncLegendButtons();
+}
+
+/* מוסיף ומוריד פינים מהמפה לפי מצב המקרא. fit רק כשהתצוגה באמת השתנתה
+   (רשימה חדשה או לחיצה על המקרא) — הפונקציה נקראת גם ממקומות שרק צריכים
+   לרענן את המונה. */
+function applyDealFilter({ fit = false } = {}){
+  if (heroMap){
+    Object.values(mapMarkers).forEach(m => {
+      const on = activeDealKinds.has(m.options.dealKind);
+      if (on && !heroMap.hasLayer(m)) m.addTo(heroMap);
+      else if (!on && heroMap.hasLayer(m)) heroMap.removeLayer(m);
+    });
+    if (fit) fitMapToMarkers();
     relayoutMapPins();
   }
-  // ה-fallback של המפה מסתיר את .map-toolbar, ולכן mapCount עשוי לא להיות גלוי
-  const mapCount = document.getElementById('mapCount');
-  const shown = Object.keys(mapMarkers).length;
-  if (mapCount) mapCount.textContent = shown === 1 ? 'נכס אחד במפה' : `${shown} נכסים במפה`;
+  updateMapCount();
 }
+
+// ה-fallback של המפה מסתיר את המונה, ולכן הוא עשוי לא להיות גלוי בכלל
+function updateMapCount(){
+  const el = document.getElementById('mapCount');
+  if (!el) return;
+  const shown = visibleMarkers().length;
+  const total = Object.keys(mapMarkers).length;
+  // כשמסננים לפי סוג עסקה המונה מציג גם את הסך הכול, אחרת הוא נראה כאילו
+  // נכסים נעלמו מהמאגר ולא רק הוסתרו
+  el.textContent = shown === total
+    ? (shown === 1 ? 'נכס אחד במפה' : `${shown} נכסים במפה`)
+    : `${shown} מתוך ${total} נכסים במפה`;
+}
+
+document.querySelectorAll('.map-legend button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const kind = btn.dataset.dealKind;
+    if (activeDealKinds.has(kind)) activeDealKinds.delete(kind);
+    else activeDealKinds.add(kind);
+    syncLegendButtons();
+    applyDealFilter({ fit:true });
+  });
+});
 
 /* ---------- קרוסלת "נכסים חמים מהמפה" (coverflow) ----------
    הכרטיס שמרכזו הכי קרוב למרכז המסלול מקבל .is-active: בו המחיר מחליף את
