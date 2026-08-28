@@ -211,7 +211,7 @@
   .img-dropzone{border:1.5px dashed var(--line);border-radius:var(--radius-sm);padding:14px;text-align:center;background:#fff}
   .img-dropzone input[type=file]{display:none}
   .img-dropzone .pick{display:inline-block;font-size:.85rem;font-weight:700;color:var(--teal);cursor:pointer}
-  .img-dropzone .hint{font-size:.72rem;color:var(--ink-soft);margin-top:4px}
+  .img-dropzone .hint,.field .hint{font-size:.72rem;color:var(--ink-soft);margin-top:4px}
   .img-preview{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
   .img-thumb{position:relative;width:78px;height:78px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--line);background:var(--paper)}
   .img-thumb img{width:100%;height:100%;object-fit:cover;display:block}
@@ -1039,6 +1039,19 @@
       </div>
       <div class="field"><label>טקסט פוסט (לא חובה — מוכן להעתקה לרשתות/וואטסאפ)</label>
         <textarea id="npPostText" rows="3"></textarea>
+      </div>
+
+      <!-- כתובות חיצוניות ולא העלאת קבצים: הסיור והסרטון מתארחים אצל הספק
+           שיצר אותם (Matterport, יוטיוב), ומודעה עם סיור או סרטון מקבלת
+           כפתור ותגית בדף הנכס. -->
+      <div class="form-subheading">מדיה נוספת</div>
+      <div class="field"><label>קישור לסיור וירטואלי (לא חובה)</label>
+        <input type="url" id="npTour3dUrl" dir="ltr" placeholder="https://my.matterport.com/show/?m=…">
+        <div class="hint">Matterport, Kuula, סיור 360 — כתובת מלאה שמתחילה ב-https</div>
+      </div>
+      <div class="field"><label>קישור לסרטון הנכס (לא חובה)</label>
+        <input type="url" id="npVideoUrl" dir="ltr" placeholder="https://www.youtube.com/watch?v=…">
+        <div class="hint">יוטיוב, וימאו או צילומי רחפן — כתובת מלאה שמתחילה ב-https</div>
       </div>
 
       <div class="form-subheading">סוכן/ת נוסף/ת על המודעה</div>
@@ -3797,6 +3810,26 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     }
   }
 
+  /* קישורי מדיה: ה-check במסד דורש ‎http(s)‎, ושגיאת constraint חוזרת כטקסט
+     פוסטגרס לא קריא — לכן נבדק כאן, עם הודעה בעברית ליד השדה עצמו. */
+  const mediaUrl = (id, label)=>{
+    const value = document.getElementById(id).value.trim();
+    if (!value) return null;
+    if (!/^https?:\/\/\S+$/i.test(value)) throw new Error(`${label} חייב להיות כתובת מלאה שמתחילה ב-http`);
+    return value.slice(0, 1000);
+  };
+  let tour3dUrl, videoUrl;
+  try{
+    tour3dUrl = mediaUrl('npTour3dUrl', 'הקישור לסיור הווירטואלי');
+    videoUrl  = mediaUrl('npVideoUrl', 'הקישור לסרטון');
+  } catch(err){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = err.message;
+    btn.disabled = false;
+    btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
+    return;
+  }
+
   const payload = {
     title: document.getElementById('npTitle').value,
     category: currentCategory,
@@ -3819,6 +3852,8 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     marketing_description: document.getElementById('npMarketingDescription').value.trim() || null,
     post_text: document.getElementById('npPostText').value.trim() || null,
     furniture_details: document.getElementById('npFurnitureDetails').value.trim() || null,
+    tour_3d_url: tour3dUrl,
+    video_url: videoUrl,
     listing_expires_at: document.getElementById('npExpiresAt').value || null,
     agent2_name: document.getElementById('npAgent2Name').value.trim() || null,
     agent2_phone: document.getElementById('npAgent2Phone').value.trim() || null,
@@ -3962,7 +3997,7 @@ async function loadProperties(agentId){
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   const { data: props, error } = await sb
     .from('properties')
-    .select('id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, post_text, furniture_details, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, restrooms_location, storage_location, mamad_location, shared_with_partners, shared_at, property_owners(owner_name, owner_phone)')
+    .select('id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, post_text, furniture_details, tour_3d_url, video_url, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, restrooms_location, storage_location, mamad_location, shared_with_partners, shared_at, property_owners(owner_name, owner_phone)')
     .eq('agent_id', agentId)
     .order('created_at', { ascending:false });
 
@@ -4202,6 +4237,8 @@ function openEditProperty(p){
   document.getElementById('npMarketingDescription').value = p.marketing_description || '';
   document.getElementById('npPostText').value = p.post_text || '';
   document.getElementById('npFurnitureDetails').value = p.furniture_details || '';
+  document.getElementById('npTour3dUrl').value = p.tour_3d_url || '';
+  document.getElementById('npVideoUrl').value = p.video_url || '';
   document.getElementById('npExpiresAt').value = p.listing_expires_at || '';
   document.getElementById('npAgent2Name').value = p.agent2_name || '';
   document.getElementById('npAgent2Phone').value = p.agent2_phone || '';
@@ -4321,6 +4358,8 @@ const IMPORT_FIELDS = [
   // סדר הכינויים הוא סדר עדיפות: עמודת הגלריה חייבת להופיע לפני "תמונה
   // ראשית", אחרת בקובץ שיש בו את שתיהן הגלריה נשארת בלי מיפוי והתמונות אובדות.
   { key:'images', label:'קישורי תמונות', hint:'כתובות מלאות, מופרדות בפסיק', aliases:['כל התמונות (קישורים)','תמונות (כל הקישורים)','כל התמונות','קישורי תמונות','תמונות','תמונה ראשית','תמונה','images','image'] },
+  { key:'tour_3d_url', label:'קישור לסיור וירטואלי', hint:'כתובת מלאה אחת', aliases:['קישור לסיור וירטואלי','סיור וירטואלי','סיור 3d','tour_3d_url','tour_url'] },
+  { key:'video_url', label:'קישור לסרטון', hint:'כתובת מלאה אחת', aliases:['קישור לסרטון','סרטון','וידאו','video','video_url'] },
   { key:'marketing_description', label:'תיאור שיווקי', aliases:['תיאור שיווקי','marketing_description'] },
   { key:'post_text', label:'טקסט פוסט', aliases:['טקסט פוסט','פוסט','post','post_text'] },
   { key:'agent2_name', label:'סוכן 2', aliases:['סוכן 2','סוכן שני','agent2','agent2_name'] },
@@ -4997,6 +5036,15 @@ function impBuildRow(rawRow, rowNumber){
     else warnings.push('קישור התמונה השיווקית אינו כתובת מלאה — לא נקלט');
   }
 
+  // קישורי מדיה: ‏check במסד דוחה כל דבר שאינו http(s), ולכן קישור פגום
+  // נופל כאן עם אזהרה במקום להפיל את כל שורת הייבוא
+  [['tour_3d_url','הקישור לסיור הווירטואלי'], ['video_url','הקישור לסרטון']].forEach(([key, label])=>{
+    const url = impText(cell(key));
+    if (!url) return;
+    if (/^https?:\/\/\S+$/i.test(url)) payload[key] = url.slice(0, 1000);
+    else warnings.push(`${label} אינו כתובת מלאה — לא נקלט`);
+  });
+
   if (!payload.title){
     const parts = [
       payload.property_type || '',
@@ -5386,6 +5434,7 @@ async function impDownloadTemplate(){
       move_in_date:'2026-10-01', move_in_soon:'כן', listing_expires_at:'2026-12-31',
       features:'מעלית, חניה, ממ"ד, מרפסת שמש', furniture_details:'מטבח מלא, ארונות',
       marketing_description:'הזדמנות נדירה בלב השכונה', post_text:'🏡 חדש אצלנו! דירת 4 חדרים…',
+      tour_3d_url:'https://my.matterport.com/show/?m=example', video_url:'https://www.youtube.com/watch?v=example',
       agent2_name:'', agent2_phone:'', owner_name:'ישראל ישראלי', owner_phone:'050-0000000',
     },
     {
