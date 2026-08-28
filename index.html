@@ -112,13 +112,18 @@
     position:sticky;top:0;z-index:100;background:var(--paper-raised);
     border-bottom:1px solid var(--line);
   }
-  .header-inner{display:flex;align-items:center;justify-content:space-between;padding-block:14px}
-  .logo{display:flex;align-items:center;gap:8px}
-  .logo-mark{
-    width:34px;height:34px;border-radius:8px;background:linear-gradient(155deg,var(--gold),var(--teal) 65%);
-    display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:900;
+  .header-inner{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:10px}
+  .logo{display:flex;align-items:center;gap:9px;min-width:0}
+  /* לוגו העיר במקום ריבוע האות "ש": קובץ אחד ברוחב 360px שמוקטן כאן לפי
+     הגובה, ויחס הצדדים שלו (~1.45:1) נשמר ע"י width:auto. */
+  .logo-img{height:38px;width:auto;display:block;flex:0 0 auto}
+  /* המשפט שהיה ה-eyebrow מעל המפה עבר לכאן והוא עכשיו שם האתר בכותרת.
+     הוא ארוך בהרבה מ"שוק נדל״ן" שהיה כאן, ולכן הוא נשבר לשתי שורות במסך
+     צר במקום לדחוק את ההמבורגר החוצה. */
+  .logo-word{
+    font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark);
+    font-size:.82rem;line-height:1.25;min-width:0;
   }
-  .logo-word{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.15rem;color:var(--teal-dark)}
   .logo-word span{color:var(--gold-dark)}
   nav.primary{display:none;gap:26px;font-weight:600;font-size:.92rem;color:var(--ink-soft)}
   nav.primary a:hover{color:var(--teal)}
@@ -137,6 +142,8 @@
     nav.primary{display:flex}
     .hamburger{display:none}
     #cta-desktop{display:inline-flex !important}
+    .logo-img{height:44px}
+    .logo-word{font-size:.95rem;white-space:nowrap}
   }
 
   /* ====== Leaderboard ad ====== */
@@ -149,6 +156,14 @@
   }
   .ad-slot .tag{background:var(--paper-raised);border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-weight:700;font-size:.68rem}
 
+  /* ====== כל מקומות הפרסום מוסתרים בשלב ההתחלתי ======
+     הסימון (Leaderboard, הבאנרים בין הסקציות והפרסומות ה-in-feed) נשאר
+     במקומו בקוד כדי שאפשר יהיה להדליק אותו ביום שיהיו מפרסמים בפועל:
+     מוסיפים ‎class="ads-on"‎ ל-<html> וכל הכלל הזה מתבטל. */
+  html:not(.ads-on) .ad-leaderboard,
+  html:not(.ads-on) .ad-row,
+  html:not(.ads-on) .infeed-ad{display:none !important}
+
   /* ====== Hero: המפה היא הבמה, החיפוש צף מעליה ======
      קודם המפה הייתה רצועה נמוכה מתחת לכרטיס חיפוש גדול; עכשיו היא נפרסת
      על כל תחילת העמוד, וכרטיס החיפוש הצטמצם לשורה אחת שצפה מעליה על גבי
@@ -156,12 +171,13 @@
      תוצאות החיפוש (#listings) יושבות מיד מתחת ל-section הזה. */
   .hero{
     position:relative;overflow:hidden;color:#fff;background:var(--teal-dark);
-    /* גובה המפה במובייל: סרגל החיפוש חוסם ~190px בראש וסרגל הפקדים ~110px
-       בתחתית, ולכן ב-56vh נשארו לפינים פחות מ-200px — צר מדי אפילו לאשכול
-       נכסים של שכונה אחת, והפינים בקצוות נחתכו ע"י הסרגלים. */
-    height:clamp(380px,64vh,560px);transition:height .3s ease;
+    /* גובה המפה: מה שסרגל החיפוש חוסם בראש והפאנל בתחתית יורד מהשטח שנשאר
+       לפינים, ולכן הגובה נמדד במה שנשאר ולא במה שהוגדר. אחרי שה-eyebrow עבר
+       לכותרת העליונה, מונה הנכסים ירד לפאנל שבתחתית ובאנר ה-Leaderboard
+       כובה — החסימה בראש ירדה מ-~190px ל-~120px, והמפה לוקחת את ההפרש. */
+    height:clamp(500px,80vh,760px);transition:height .3s ease;
   }
-  .hero.map-expanded{height:clamp(460px,84vh,860px)}
+  .hero.map-expanded{height:clamp(580px,92vh,940px)}
   /* מצב נפילה: אם Leaflet לא נטען, ה-section חוזר להיות בלוק תוכן רגיל
      במקום קופסה בגובה קבוע עם חור באמצע (ראו catch באתחול המפה) */
   .hero.map-failed{height:auto;padding:30px 0 26px;background:
@@ -173,19 +189,13 @@
 
   .hero-overlay{
     position:absolute;top:0;right:0;left:0;z-index:2;pointer-events:none;
-    padding:20px 0 56px;
+    padding:12px 0 40px;
     /* הסקרים מתחיל כמעט אטום בראש המפה: הכותרת הלבנה יושבת דווקא מעל אריחי
        הרחובות הבהירים של עפולה, ובלי זה היא נבלעה בהם. הדעיכה ל-0 מסתיימת
        מתחת לסרגל החיפוש כדי שהמפה עצמה תישאר קריאה. */
     background:linear-gradient(180deg, rgba(6,20,34,.92) 0%, rgba(6,20,34,.74) 34%, rgba(6,20,34,.36) 66%, rgba(6,20,34,0) 100%);
   }
   .hero.map-failed .hero-overlay{position:static;background:none;padding:0}
-  .hero-inner .eyebrow{
-    color:#F0D9A8;font-size:.8rem;letter-spacing:.12em;margin-bottom:10px;
-    text-shadow:0 2px 8px rgba(0,0,0,.6);justify-content:center;text-align:center;
-  }
-  /* בלי הקו המקדים של .eyebrow — על המפה הוא נקרא כמקף תלוש בתחילת המשפט */
-  .hero-inner .eyebrow::before{display:none}
   /* הכותרת יושבת על שורה אחת בכל רוחב מסך. הטקסט ב-Frank Ruhl Libre רחב
      פי ~14.26 מגודל הגופן, כלומר הוא נכנס לרוחב ה-wrap (100vw פחות 36px
      padding) עד 7.01vw−2.5px; ה-calc כאן משאיר ~6% ביטחון מתחת לגבול הזה,
@@ -194,14 +204,14 @@
     color:#fff;font-size:min(1.35rem, calc(6.6vw - 2.4px));font-weight:700;
     white-space:nowrap;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,.6);
   }
-  .hero-inner p.lede{display:none;color:#DCE6E4;margin:8px auto 0;font-size:.95rem;max-width:46ch;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,.6)}
+  .hero-inner p.lede{display:none;color:#DCE6E4;margin:6px auto 0;font-size:.9rem;max-width:46ch;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,.6)}
 
   /* ====== סרגל חיפוש בשורה אחת ====== */
   /* max-width: בלי זה הסרגל נמתח על כל רוחב ה-wrap בדסקטופ ותיבת הטקסט
      נראית כמו שדה ריק ענק. ב-RTL הבלוק נצמד מעצמו לימין, מתחת לכותרת. */
   /* margin-inline:auto — הכותרות מעליו ממורכזות, וסרגל צמוד־ימין מתחתן נראה
      שבור בדסקטופ (במובייל הוא ממילא ברוחב מלא ולא זז). */
-  .search-shell{position:relative;margin:22px auto 0;max-width:720px;pointer-events:auto}
+  .search-shell{position:relative;margin:12px auto 0;max-width:720px;pointer-events:auto}
   /* הילה מטושטשת מתחת לסרגל: מפרידה אותו מהמפה גם כשמתחתיו אזור בהיר */
   .search-shell::before{
     content:"";position:absolute;inset:-16px -8px -22px;pointer-events:none;
@@ -229,14 +239,21 @@
     padding:12px 6px;font-size:.95rem;color:var(--ink);
   }
   .search-input:focus{outline:none}
+  /* שני הפקדים שבקצה השורה הם אייקונים בלבד — עיגול מלא לחיפוש ואייקון
+     סינון לצדו. התוויות ("חיפוש"/"סינונים") ירדו: בשורה אחת ברוחב טלפון הן
+     גזלו מהשדה עצמו את מרבית הרוחב, והמשמעות של זכוכית מגדלת ושל פסי סינון
+     מוכרת ממילא. הן נשמרות ב-aria-label לקוראי מסך. */
   .search-card .icon-btn,.search-card .search-go{
-    flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
-    border-radius:999px;font-weight:700;font-size:.85rem;padding:11px 13px;
+    flex:0 0 auto;position:relative;display:inline-flex;align-items:center;justify-content:center;
+    width:42px;height:42px;padding:0;border-radius:50%;
   }
-  .search-card .icon-btn{background:var(--paper);color:var(--ink-soft);border:1.5px solid var(--line)}
-  .search-card .search-go{background:var(--gold);color:#fff;padding:11px 16px}
-  .btn-label{display:none}
-  @media(min-width:560px){ .btn-label{display:inline} }
+  .search-card .icon-btn{background:transparent;color:var(--ink);border:none}
+  .search-card .icon-btn:hover{background:var(--paper)}
+  .search-card .search-go{background:var(--gold);color:#fff}
+  .search-card .icon-btn svg,.search-card .search-go svg{width:21px;height:21px;display:block}
+  /* מונה הסינונים הפעילים ישב קודם בתוך הכפתור לצד התווית; בכפתור עגול
+     בגודל אייקון אין לו מקום פנימי, ולכן הוא נתלה על הפינה שלו. */
+  .search-card .filter-count-badge{position:absolute;top:-1px;inset-inline-start:-1px}
   .map-fallback-note{margin-top:16px;font-size:.85rem;color:#DCE6E4}
   .filters-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .filters-row select{
@@ -284,45 +301,43 @@
 
   /* המפה תמיד משקפת בדיוק את מה שמוצג ברשימת הנכסים שמתחתיה — כל הנכסים
      הפעילים במאגר, או תוצאות החיפוש — ראו renderMap() ב-JS. */
-  /* סרגל צף אחד בתחתית המפה, מקצה לקצה. הסרגל עצמו pointer-events:none חוץ
-     מהפקדים שבו, כדי שאפשר יהיה לגרור את המפה גם "דרכו".
-     justify-content:space-between מחלק אותו לשתי פינות: בפינה הימנית־תחתונה
-     (תחילת השורה ב-RTL) כפתור ההגדלה, ובפינה השמאלית־תחתונה .map-corner —
-     בורר סגנון המפה ומתחתיו מקרא הצבעים. החלוקה נעשית ב-flex ולא במיקום
-     אבסולוטי של כל פינה בנפרד, כך שגם במסך צר השתיים לא נדרסות זו על זו.
+  /* סרגל צף אחד בתחתית המפה. הסרגל עצמו pointer-events:none חוץ מהפקדים
+     שבו, כדי שאפשר יהיה לגרור את המפה גם "דרכו".
+     קודם הוא היה מחולק לשתי פינות (כפתור ההגדלה מימין, בורר הסגנון והמקרא
+     משמאל) ומונה הנכסים ישב בכלל מתחת לשורת החיפוש — ארבעה איים נפרדים
+     שאכלו יחד את כל תחתית המפה. עכשיו המקרא, המונה וכפתור ההגדלה מאוחדים
+     לפאנל אחד ממורכז, ובורר הסגנון נשאר לבדו בפינה השמאלית מעליו.
      bottom:38px משאיר מתחתיו בדיוק את הקרדיטים של Leaflet (bottom:18px), שגם
-     הם יושבים בפינה השמאלית — בגובה נמוך יותר המקרא נוחת עליהם. */
+     הם יושבים בפינה השמאלית — בגובה נמוך יותר הפאנל נוחת עליהם. */
   .map-toolbar{
     position:absolute;bottom:38px;right:0;left:0;z-index:3;pointer-events:none;
-    display:flex;align-items:flex-end;justify-content:space-between;gap:8px;
+    display:flex;flex-direction:column;align-items:center;gap:6px;
     padding:0 10px;
   }
   .map-toolbar > *{pointer-events:auto}
-  /* align-items:flex-end בעמודה ב-RTL = הצמדה לקצה השמאלי, כלומר שתי
-     השורות נשארות מיושרות לפינה שהן יושבות בה */
-  .map-corner{display:flex;flex-direction:column;align-items:flex-end;gap:6px;pointer-events:none}
-  .map-corner > *{pointer-events:auto}
-  /* מונה הנכסים לא יושב על המפה אלא צמוד לפינה השמאלית-תחתונה של שורת
-     החיפוש: שם הוא נקרא כתשובה לחיפוש ("כמה נכסים מוצגים כרגע") במקום
-     להתחרות על תחתית המפה עם בורר הסגנון והמקרא. */
-  .search-shell-foot{display:flex;justify-content:flex-end;margin-top:6px;pointer-events:none}
-  .map-count{
-    background:rgba(255,255,255,.94);padding:6px 11px;border-radius:999px;
-    font-size:.72rem;font-weight:700;box-shadow:var(--shadow-sm);color:var(--ink);white-space:nowrap;
-  }
-  .hero.map-failed .search-shell-foot{display:none}
-  /* המקרא הוא גם המסנן: כל כפתור מכבה/מדליק את הפינים של סוג העסקה שלו
-     (ראו applyDealFilter ב-JS). aria-pressed הוא מקור האמת גם לעיצוב וגם
-     להקראה, כדי שלא יהיו שני מצבים שצריך לסנכרן. */
-  .map-legend{
-    display:flex;align-items:center;gap:2px;
-    background:rgba(255,255,255,.94);padding:3px;border-radius:999px;
+  /* בעמודה ב-RTL: flex-end = הקצה השמאלי, כלומר הבורר נשאר בפינה שלו
+     בעוד שהפאנל שמתחתיו ממורכז */
+  .map-toolbar .map-style-select{align-self:flex-end}
+  /* הפאנל המאוחד: שורת המקרא + ההגדלה, ומתחתיה מונה הנכסים */
+  .map-panel{
+    display:flex;flex-direction:column;align-items:center;gap:1px;max-width:100%;
+    background:rgba(255,255,255,.94);padding:4px 8px;border-radius:16px;
     box-shadow:var(--shadow-sm);
   }
+  .map-panel-row{display:flex;align-items:center;gap:2px;flex-wrap:wrap;justify-content:center}
+  .map-panel-count{font-size:.66rem;font-weight:700;color:var(--ink-soft);white-space:nowrap}
+  /* המקרא הוא גם המסנן: כל כפתור מכבה/מדליק את הפינים של סוג העסקה שלו
+     (ראו applyDealFilter ב-JS). aria-pressed הוא מקור האמת גם לעיצוב וגם
+     להקראה, כדי שלא יהיו שני מצבים שצריך לסנכרן.
+     הגלולה הלבנה של המקרא ירדה — הוא יושב עכשיו בתוך .map-panel. */
+  .map-legend{display:flex;align-items:center;gap:2px}
   .map-legend button{
-    display:inline-flex;align-items:center;gap:5px;padding:4px 9px;border-radius:999px;
+    display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border-radius:999px;
     font-size:.66rem;font-weight:700;color:var(--ink);white-space:nowrap;
   }
+  /* מספר הנכסים מכל סוג עסקה, בסוגריים לצד שם הסוג — כך רואים מה יש על
+     המפה בלי לספור פינים, וגם מה בדיוק ייעלם בלחיצה על הכפתור */
+  .legend-count{font-variant-numeric:tabular-nums;color:var(--ink-soft);font-weight:700}
   .map-legend i{width:9px;height:9px;border-radius:50%;flex:0 0 auto}
   .map-legend i.sale{background:var(--deal-sale)}
   .map-legend i.rent{background:var(--deal-rent)}
@@ -345,11 +360,27 @@
   }
   /* רשימת האפשריות הנפתחת מצוירת ע"י המערכת ולא יורשת את הגלולה הכהה */
   .map-style-select option{background:#fff;color:var(--ink)}
+  /* בתוך הפאנל המאוחד הכפתור אינו עוד גלולה עצמאית אלא פריט אחרון בשורת
+     המקרא, מופרד ממנה בקו דק. הקו הוא ::before ולא border — border על אלמנט
+     עם border-radius:999px מתעקם לקשת. */
   .map-expand-btn{
-    background:rgba(255,255,255,.94);color:var(--teal);padding:7px 12px;border-radius:999px;
-    font-size:.74rem;font-weight:700;box-shadow:var(--shadow-sm);white-space:nowrap;
+    position:relative;display:inline-flex;align-items:center;gap:4px;
+    background:none;color:var(--teal);
+    padding:4px 8px;margin-inline-start:7px;border-radius:999px;
+    font-size:.66rem;font-weight:700;white-space:nowrap;
   }
+  .map-expand-btn::before{
+    content:"";position:absolute;inset-block:3px;inset-inline-start:-4px;
+    width:1px;background:var(--line);
+  }
+  .map-expand-btn svg{width:13px;height:13px;flex:0 0 auto}
   .map-expand-btn:hover{color:var(--teal-dark)}
+  /* במסך צר במיוחד הכפתור יורד לשורה שנייה בתוך הפאנל, ואז הקו המפריד
+     תלוי באוויר בתחילת השורה במקום להפריד בין שני דברים */
+  @media(max-width:379px){
+    .map-expand-btn{margin-inline-start:0}
+    .map-expand-btn::before{display:none}
+  }
   /* פקדי הזום מיותרים במגע (פינץ' עושה את העבודה) ורק גוזלים רוחב מהסרגל */
   @media(max-width:759px){ .leaflet-control-zoom{display:none !important} }
   /* מרימים את הפקדים של Leaflet מעל הסרגל הצף, ואת שניהם מעל הקצה המעוגל
@@ -431,12 +462,11 @@
   @media(min-width:760px){
     .filters-row{grid-template-columns:1fr 1fr 1fr 1fr}
     .deal-toggle{grid-column:auto;max-width:220px}
-    .hero{height:clamp(420px,64vh,620px)}
-    .hero-overlay{padding:26px 0 64px}
-    .hero-inner .eyebrow{font-size:.85rem}
+    .hero{height:clamp(540px,80vh,820px)}
+    .hero-overlay{padding:16px 0 48px}
     .hero-inner h1{font-size:2rem}
     .hero-inner p.lede{display:block}
-    .search-shell{margin-top:26px}
+    .search-shell{margin-top:14px}
     .map-toolbar{padding:0 16px}
   }
 
@@ -1079,7 +1109,7 @@
   html.a11y-contrast .btn, html.a11y-contrast button.opt, html.a11y-contrast input,
   html.a11y-contrast select, html.a11y-contrast .deal-toggle button,
   html.a11y-contrast .owner-toggle button, html.a11y-contrast .deal-select,
-  html.a11y-contrast .map-count, html.a11y-contrast .map-legend button,
+  html.a11y-contrast .map-legend button,
   html.a11y-contrast .search-card .icon-btn, html.a11y-contrast .search-card .search-go,
   html.a11y-contrast .map-expand-btn{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
   /* במצב ניגודיות גבוהה המפה מעומעמת: אריחים צבעוניים מתחת לטקסט צהוב על
@@ -1091,7 +1121,7 @@
   html.a11y-contrast .hot-band,
   html.a11y-contrast .search-results,
   html.a11y-contrast .sr-row,
-  html.a11y-contrast .map-legend,
+  html.a11y-contrast .map-panel,
   html.a11y-contrast .ad-strip,
   html.a11y-contrast .cf-card,
   html.a11y-contrast .article-card{background:#000 !important;border-color:#fff !important;color:#fff !important}
@@ -1115,8 +1145,8 @@
 <header class="site">
   <div class="wrap header-inner">
     <a href="#" class="logo" aria-label="שוק נדל״ן — לדף הבית">
-      <span class="logo-mark">ש</span>
-      <span class="logo-word">שוק <span>נדל״ן</span></span>
+      <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="360" height="249">
+      <span class="logo-word">מרקטפלייס הנדל״ן של <span>עפולה והסביבה</span></span>
     </a>
     <nav class="primary" aria-label="ניווט ראשי">
       <a href="#listings">נכסים</a>
@@ -1159,7 +1189,6 @@
 
     <div class="hero-overlay">
       <div class="wrap hero-inner">
-        <p class="eyebrow">מרקטפלייס הנדל״ן של עפולה והסביבה</p>
         <h1>כל הדירות וכל המתווכים בכתובת אחת</h1>
         <p class="lede">מפסיקים לרוץ בין לוחות מודעות — כל המתווכים המובילים בעיר מחכים לך כאן.</p>
 
@@ -1171,15 +1200,20 @@
               <option value="commercial">מסחרי</option>
             </select>
             <input type="text" class="search-input" placeholder="עיר, שכונה או רחוב…" id="searchFreeText">
-            <button type="button" class="icon-btn" id="openFiltersBtn" aria-label="סינונים">
-              <span aria-hidden="true">⚙️</span><span class="btn-label">סינונים</span><span id="filterCountBadge" class="filter-count-badge" style="display:none">0</span>
+            <button type="button" class="icon-btn" id="openFiltersBtn" aria-label="סינונים" title="סינונים">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                <path d="M3 7h13M19 7h2M3 12h4M10 12h11M3 17h9M15 17h6"/>
+                <circle cx="17.5" cy="7" r="2.2" fill="currentColor" stroke="none"/>
+                <circle cx="8.5" cy="12" r="2.2" fill="currentColor" stroke="none"/>
+                <circle cx="13.5" cy="17" r="2.2" fill="currentColor" stroke="none"/>
+              </svg>
+              <span id="filterCountBadge" class="filter-count-badge" style="display:none">0</span>
             </button>
-            <button type="button" class="search-go" id="searchSubmitBtn" aria-label="חיפוש נכסים">
-              <span aria-hidden="true">🔍</span><span class="btn-label">חיפוש</span>
+            <button type="button" class="search-go" id="searchSubmitBtn" aria-label="חיפוש נכסים" title="חיפוש">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+                <circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>
+              </svg>
             </button>
-          </div>
-          <div class="search-shell-foot">
-            <span class="map-count" id="mapCount" aria-live="polite">טוען נכסים…</span>
           </div>
         </div>
         <p class="map-fallback-note" id="mapFallbackNote" hidden>המפה לא נטענה (בעיית רשת) — רשימת הנכסים למטה עדיין זמינה.</p>
@@ -1370,20 +1404,29 @@
     </div>
 
     <div class="map-toolbar">
-      <button type="button" class="map-expand-btn" id="mapExpandBtn" aria-expanded="false">הגדל מפה ↓</button>
-      <!-- הפינה השמאלית־תחתונה: בורר סגנון המפה, ומתחתיו מקרא הצבעים שהוא
-           גם המסנן — לחיצה על סוג עסקה מסתירה/מחזירה את הפינים שלו -->
-      <div class="map-corner">
-        <select id="mapStyleSelect" class="map-style-select" aria-label="סגנון המפה">
-          <option value="nature">טבע</option>
-          <option value="classic" selected>קלאסי</option>
-          <option value="light">בהיר</option>
-        </select>
-        <div class="map-legend" role="group" aria-label="סינון הפינים לפי סוג עסקה">
-          <button type="button" data-deal-kind="sale" aria-pressed="true"><i class="sale" aria-hidden="true"></i>מכירה</button>
-          <button type="button" data-deal-kind="rent" aria-pressed="true"><i class="rent" aria-hidden="true"></i>השכרה</button>
-          <button type="button" data-deal-kind="commercial" aria-pressed="true"><i class="commercial" aria-hidden="true"></i>מסחרי</button>
+      <select id="mapStyleSelect" class="map-style-select" aria-label="סגנון המפה">
+        <option value="nature">טבע</option>
+        <option value="classic" selected>קלאסי</option>
+        <option value="light">בהיר</option>
+      </select>
+      <!-- פאנל אחד לתחתית המפה: מקרא הצבעים שהוא גם המסנן (לחיצה על סוג
+           עסקה מסתירה/מחזירה את הפינים שלו) עם מונה לכל סוג, כפתור הגדלת
+           המפה, ומתחתיהם מונה הנכסים המוצגים -->
+      <div class="map-panel">
+        <div class="map-panel-row">
+          <div class="map-legend" role="group" aria-label="סינון הפינים לפי סוג עסקה">
+            <button type="button" data-deal-kind="sale" aria-pressed="true"><i class="sale" aria-hidden="true"></i>מכירה <span class="legend-count" data-legend-count="sale"></span></button>
+            <button type="button" data-deal-kind="rent" aria-pressed="true"><i class="rent" aria-hidden="true"></i>השכרה <span class="legend-count" data-legend-count="rent"></span></button>
+            <button type="button" data-deal-kind="commercial" aria-pressed="true"><i class="commercial" aria-hidden="true"></i>מסחרי <span class="legend-count" data-legend-count="commercial"></span></button>
+          </div>
+          <button type="button" class="map-expand-btn" id="mapExpandBtn" aria-expanded="false" aria-label="הגדלת המפה">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6"/>
+            </svg>
+            <span class="map-expand-label">הגדל</span>
+          </button>
         </div>
+        <span class="map-panel-count" id="mapCount" aria-live="polite">טוען נכסים…</span>
       </div>
     </div>
   </section>
@@ -2792,8 +2835,8 @@ function visibleMapPadding(){
   const fallback = { top:150, bottom:70 };
   if (!heroMap) return fallback;
   const hero = document.getElementById('heroSection');
-  // ה-shell ולא ה-card: מונה הנכסים תלוי מתחת לשורת החיפוש ובתוך ה-shell,
-  // ומדידה עד תחתית ה-card בלבד הייתה מניחה פינים מתחתיו
+  // ה-shell ולא ה-card: ההילה המטושטשת של ה-shell גולשת מתחת לכרטיס,
+  // ומדידה עד תחתית ה-card בלבד הייתה מניחה פינים בתוכה
   const shell = document.querySelector('.search-shell');
   const bar = document.querySelector('.map-toolbar');
   if (!hero || !shell || !bar) return fallback;
@@ -2970,7 +3013,7 @@ function applyDealFilter({ fit = false } = {}){
   updateMapCount();
 }
 
-// ה-fallback של המפה מסתיר את המונה, ולכן הוא עשוי לא להיות גלוי בכלל
+// ה-fallback של המפה מסתיר את הפאנל, ולכן המונה עשוי לא להיות גלוי בכלל
 function updateMapCount(){
   const el = document.getElementById('mapCount');
   if (!el) return;
@@ -2981,6 +3024,18 @@ function updateMapCount(){
   el.textContent = shown === total
     ? (shown === 1 ? 'נכס אחד במפה' : `${shown} נכסים במפה`)
     : `${shown} מתוך ${total} נכסים במפה`;
+  updateLegendCounts();
+}
+
+/* המונה שבסוגריים לצד כל סוג עסקה במקרא. הוא סופר תמיד את כל הפינים מאותו
+   סוג ברשימה הנוכחית — גם כשהסוג כבוי — כי זו בדיוק המשמעות של הכפתור:
+   "יש כאן N נכסים כאלה, לחצו כדי להסתיר/להציג אותם". */
+function updateLegendCounts(){
+  const counts = Object.fromEntries(MAP_DEAL_KINDS.map(k => [k, 0]));
+  Object.values(mapMarkers).forEach(m => { counts[m.options.dealKind]++; });
+  document.querySelectorAll('[data-legend-count]').forEach(el => {
+    el.textContent = `(${counts[el.dataset.legendCount] || 0})`;
+  });
 }
 
 document.querySelectorAll('.map-legend button').forEach(btn=>{
@@ -3116,7 +3171,10 @@ const mapExpandBtn = document.getElementById('mapExpandBtn');
 if (mapExpandBtn){
   mapExpandBtn.addEventListener('click', ()=>{
     const expanded = document.getElementById('heroSection').classList.toggle('map-expanded');
-    mapExpandBtn.textContent = expanded ? 'הקטן מפה ↑' : 'הגדל מפה ↓';
+    // רק התווית מתחלפת — האייקון (חיצי הפינות) נשאר, ולכן אסור להחליף כאן
+    // את כל תוכן הכפתור כמו קודם
+    mapExpandBtn.querySelector('.map-expand-label').textContent = expanded ? 'הקטן' : 'הגדל';
+    mapExpandBtn.setAttribute('aria-label', expanded ? 'הקטנת המפה' : 'הגדלת המפה');
     mapExpandBtn.setAttribute('aria-expanded', String(expanded));
     // גובה ה-hero (ואיתו המפה שממלאת אותו) משתנה ע"י מעבר קלאס עם transition;
     // Leaflet לא מזהה שינוי גודל של ה-container לבד, ובלי invalidateSize()
