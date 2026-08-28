@@ -351,6 +351,35 @@
   }
   .leaflet-control-attribution{font-size:.62rem !important;background:rgba(255,255,255,.7) !important}
 
+  /* ====== בלון המידע של פין במפה ======
+     כולו קישור אחד לדף הנכס — לחיצה על הפין פותחת את הבלון, ולחיצה על
+     הבלון ממשיכה לנכס עצמו.
+     רוחב קבוע ל-.map-pop, ומידות קבועות ל-.map-pop-thumb עם object-fit:
+     בלי זה תמונה בפרופורציה חריגה הייתה מותחת את הבלון, וכל בלון היה יוצא
+     ברוחב אחר. כך הבלון נראה זהה בדיוק עם תמונה ובלעדיה. */
+  .leaflet-popup-content{margin:10px 12px}
+  /* כפתור הסגירה יורד לפינה השמאלית-עליונה — ב-RTL הפינה הימנית היא תחילת
+     הכותרת, ושם הוא היה יושב עליה. הריפוד ב-.map-pop שומר לו את המקום. */
+  .leaflet-popup-close-button{left:0;right:auto !important;padding:4px 0 0 4px !important}
+  .map-pop{
+    display:flex;gap:9px;align-items:flex-start;
+    width:228px;padding-left:14px;color:var(--ink);text-decoration:none;
+  }
+  .map-pop-thumb{
+    flex:0 0 58px;width:58px;height:58px;border-radius:8px;
+    object-fit:cover;background:var(--paper);display:block;
+  }
+  .map-pop-body{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
+  .map-pop-title{
+    font-weight:700;font-size:.8rem;line-height:1.32;color:var(--ink);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .map-pop-price{font-weight:700;font-size:.78rem;color:var(--teal-dark);display:flex;align-items:center;gap:5px}
+  .map-pop-dot{width:8px;height:8px;border-radius:50%;flex:0 0 auto}
+  .map-pop-meta{font-size:.7rem;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .map-pop-cta{font-size:.7rem;font-weight:700;color:var(--gold-dark);margin-top:3px}
+  .map-pop:hover .map-pop-cta,.map-pop:focus-visible .map-pop-cta{text-decoration:underline}
+
   @media(min-width:760px){
     .filters-row{grid-template-columns:1fr 1fr 1fr 1fr}
     .deal-toggle{grid-column:auto;max-width:220px}
@@ -977,6 +1006,12 @@
   html.a11y-contrast .sr-price,
   html.a11y-contrast .sr-deal,
   html.a11y-contrast .sr-clear{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
+  /* בלון הפין: הרקע הלבן של Leaflet מול הכלל הגורף שצובע span/div בלבן
+     השאיר טקסט לבן על לבן */
+  html.a11y-contrast .leaflet-popup-content-wrapper{background:#000 !important;color:#fff !important;border:1.5px solid #fff}
+  /* ל-tip אין מסגרת: הוא ריבוע מסובב, וכל ארבע הפאות שלו היו נצבעות */
+  html.a11y-contrast .leaflet-popup-tip{background:#000 !important}
+  html.a11y-contrast .map-pop-cta{color:#FFD84D !important}
   html.a11y-contrast .cf-badge,
   html.a11y-contrast .article-card .kicker,
   html.a11y-contrast .cf-dots button{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
@@ -2731,6 +2766,26 @@ function locationLabel(p){
   return p.address || p.street || p.neighborhood_name || p.city || 'עפולה והעמק';
 }
 
+const escAttr = s => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+
+/* בלון המידע של הפין. הבלון כולו <a> לדף הנכס: קודם הוא היה טקסט מת, ולחיצה
+   עליו לא הובילה לשום מקום — הדרך היחידה להגיע לנכס מהמפה הייתה לאתר אותו
+   שוב ברשימה שמתחת. התמונה מוצגת רק כשיש כזו, ומידותיה קבועות ב-CSS כדי
+   שהיא לא תמתח את הבלון (ראו .map-pop). */
+function mapPopupHtml(p, kind){
+  const img = p.images && p.images[0];
+  const meta = [locationLabel(p), p.agency_name].filter(Boolean).join(' · ');
+  return `<a class="map-pop" href="property.html?id=${encodeURIComponent(p.id)}">` +
+    (img ? `<img class="map-pop-thumb" src="${escAttr(img)}" alt="" loading="lazy" onerror="this.remove()">` : '') +
+    `<span class="map-pop-body">` +
+      `<span class="map-pop-title">${p.title}</span>` +
+      `<span class="map-pop-price"><i class="map-pop-dot" style="background:${DEAL_COLORS[kind]}"></i>` +
+        `${DEAL_LABELS[kind]} · ${priceLabel(p)}</span>` +
+      `<span class="map-pop-meta">${meta}</span>` +
+      `<span class="map-pop-cta">לצפייה בנכס ←</span>` +
+    `</span></a>`;
+}
+
 // המפה תמיד משקפת בדיוק את מה שמוצג ברשימת הנכסים למטה בעמוד — הפונקציה
 // הזו נקראת מתוך renderPropertyGrid() עצמה (לא רק מהטעינה הראשונית), כך
 // ש-runSearch() מסנכרן אליה אוטומטית בלי צורך לזכור לעדכן את המפה בנפרד
@@ -2757,10 +2812,7 @@ function renderMap(properties){
         icon,
         pinRank: (isPromoted(p) ? 1e12 : 0) + (Number(p.price) || 0),
       }).addTo(heroMap);
-      m.bindPopup(
-        `<strong>${p.title}</strong><br>${DEAL_LABELS[kind]} · ${priceLabel(p)}<br>` +
-        `<span style="color:#565C63">${locationLabel(p)}${p.agency_name ? ' · ' + p.agency_name : ''}</span>`
-      );
+      m.bindPopup(mapPopupHtml(p, kind));
       mapMarkers[p.id] = m;
     });
     fitMapToMarkers();
