@@ -42,7 +42,16 @@
     --shadow:     0 4px 20px rgba(15,52,53,0.10);
     --shadow-sm:  0 2px 8px rgba(15,52,53,0.08);
     --maxw:       1180px;
+    /* גובה אחיד לכל אריחי הרצועות הנגללות בעמוד — קרוסלות ה-coverflow
+       (נכסים, משרדי תיווך, מתווכים) ורצועות הנכסים המומלצים/המסחריים.
+       הערך נגזר מהאריח התובעני ביותר (כרטיס נכס ברצועה: מחיר, כותרת בשתי
+       שורות ושורת מטא), וכל השאר מתיישרים אליו כלפי מעלה במקום שכל רצועה
+       תקבל גובה משלה. שלושת הערכים תואמים לנקודות השבירה של התמונונת
+       (94px‏ / 112px‏ / 150px). */
+    --card-h:     196px;
   }
+  @media(min-width:480px){ :root{--card-h:219px} }
+  @media(min-width:760px){ :root{--card-h:272px} }
   *{box-sizing:border-box}
   html{scroll-behavior:smooth}
   /* כללי display מפורשים (flex/inline-flex) גוברים על ה-display:none של
@@ -502,6 +511,12 @@
     background:var(--teal);color:#fff;border-radius:var(--radius-lg);
     padding:30px 20px;text-align:center;
   }
+  /* הכותרת הקטנה בבאנר הזה יושבת ממורכזת מעל "מוכר/משכיר?" ולא נצמדת לצד:
+     ‎.eyebrow‎ הוא flex שמתחיל בקצה, ובתוך באנר ממורכז זה נראה תלוש. המקף
+     שמלווה אותו בשאר הסקציות מוסר כאן מאותה סיבה — במרכז הוא לא מוביל
+     לשום דבר אלא רק תולה קו באוויר. */
+  .owner-banner .eyebrow{justify-content:center}
+  .owner-banner .eyebrow::before{display:none}
   .owner-banner h2{color:#fff;font-size:1.5rem;max-width:22ch;margin:2px auto 0}
   .owner-banner p{color:#CFE1DF;font-size:.94rem;max-width:40ch;margin:10px auto 0}
   /* אותה שפה של ה-CTA במחשבון המשכנתא (.calc-cta): מלבן מעוגל רחב עם
@@ -669,6 +684,10 @@
   .coverflow::-webkit-scrollbar{display:none}
   .cf-card{
     flex:0 0 min(var(--cf-max-card), calc((100% - var(--cf-gap) * 2) / 3));
+    /* ‎min-height‎ ולא ‎height‎: הגובה המשותף הוא רצפה, וכרטיס שתוכנו חורג
+       ממנו (כותרת יוצאת דופן) עדיין גדל — ומותח איתו את שאר הכרטיסים
+       במסלול, במקום לחתוך טקסט. */
+    min-height:var(--card-h);display:flex;flex-direction:column;
     scroll-snap-align:center;cursor:pointer;
     background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;
     box-shadow:var(--shadow-sm);transform:scale(.93);opacity:.82;
@@ -678,14 +697,17 @@
     transform:scale(1);opacity:1;border-color:#C9A227;
     box-shadow:0 16px 34px -12px rgba(6,20,34,.36), 0 0 0 2px rgba(201,162,39,.5);
   }
-  .cf-thumb{height:94px;background-size:cover;background-position:center;position:relative}
+  .cf-thumb{height:94px;flex:none;background-size:cover;background-position:center;position:relative}
   .cf-badge{
     position:absolute;top:6px;right:6px;background:var(--teal);color:#fff;
     font-size:.6rem;font-weight:800;padding:2px 7px;border-radius:5px;
   }
   .cf-card[data-deal="rent"] .cf-badge{background:var(--deal-rent)}
   .cf-card[data-deal="commercial"] .cf-badge{background:var(--deal-commercial)}
-  .cf-body{padding:8px 8px 11px;text-align:center}
+  /* הגובה של הכרטיס קבוע עכשיו, ולכן הגוף לוקח את כל מה שנשאר מתחת
+     לתמונונת וממרכז בתוכו את התוכן — גם כשיש פחות טקסט (כותרת בשורה
+     אחת, או המחיר שמחליף אותה בכרטיס הפעיל) הוא לא נתלה בראש הכרטיס. */
+  .cf-body{padding:8px 8px 11px;text-align:center;flex:1;display:flex;flex-direction:column;justify-content:center}
   /* בכרטיס הפעיל המחיר הוא הגיבור ומחליף את הכותרת; בכרטיסים שבצדדים
      הכותרת היא שמזהה את הנכס. אותו markup, רק תצוגה שונה. */
   .cf-price{
@@ -797,9 +819,12 @@
   .cf-card.agent-card{background:linear-gradient(155deg,var(--gold),var(--teal) 65%)}
   /* הריפוד התחתון ממרכז את אות ההתחלה בשטח *שמעל* רצועת השם ולא באמצע
      האריח (התמונה והרצועה מרחפות ולכן לא מושפעות ממנו), כדי שהאות לא
-     תיחתך מאחורי הרצועה. */
+     תיחתך מאחורי הרצועה.
+     האריח ממלא את גובה הכרטיס המשותף (‎--card-h‎) במקום להיות ריבוע:
+     ריבוע ברוחב הכרטיס יצא נמוך משמעותית מכרטיס הנכס, והרצועה נראתה
+     קטנה משאר הקרוסלות. כך התמונה גם מקבלת את כל השטח שיש. */
   .agent-tile{
-    position:relative;aspect-ratio:1/1;overflow:hidden;padding-bottom:38px;
+    position:relative;flex:1;overflow:hidden;padding-bottom:38px;
     display:flex;align-items:center;justify-content:center;
   }
   .agent-initial{
@@ -988,8 +1013,11 @@
   .prop-card .title{font-size:.85rem;color:var(--ink);margin-top:3px}
   .prop-card .meta{font-size:.76rem;color:var(--ink-soft);margin-top:6px;display:flex;gap:10px}
 
+  /* אותו גובה אריח כמו בקרוסלות ה-coverflow, כדי שכל הרצועות הנגללות
+     בעמוד ייקראו כמידה אחת ולא כשלושה גדלים שונים. */
   .featured-scroll .prop-card{
     flex-basis:min(250px, calc((100% - var(--row-gap) * 2) / 3));
+    min-height:var(--card-h);
   }
   .featured-scroll .prop-card .thumb{height:94px}
   .featured-scroll .prop-card .ribbon{top:6px;right:6px;font-size:.6rem;padding:2px 7px}
