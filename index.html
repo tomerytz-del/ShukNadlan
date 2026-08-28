@@ -92,8 +92,14 @@
   .btn-ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
   .btn-block{width:100%}
   .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line)}
-  .section{padding:44px 0}
+  /* padding-block ולא ‎padding:44px 0‎ — כל הסקציות נושאות גם .wrap, ו-‎
+     shorthand מאוחר יותר עם אותה ספציפיות היה מאפס את ‎padding:0 18px‎ שלו.
+     בלי המרווח הצדדי הזה מסלולי הגלילה עם ‎margin-inline:-18px‎ (שנועדו
+     לפרוץ בדיוק עד קצה המסך) חרגו 18px מעבר לו והדף נגלל הצידה במובייל.
+     אותו כלל בדיוק חל על ‎.header-inner‎, ‎.ad-slot‎ ו-‎.ad-row‎ למטה. */
+  .section{padding-block:44px}
   .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
+  .section-head.is-centered{justify-content:center;text-align:center}
   .section-head h2{font-size:1.5rem}
   .see-all{font-size:.85rem;font-weight:700;color:var(--teal);border-bottom:1.5px solid var(--gold);padding-bottom:2px;white-space:nowrap}
   .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
@@ -106,7 +112,7 @@
     position:sticky;top:0;z-index:100;background:var(--paper-raised);
     border-bottom:1px solid var(--line);
   }
-  .header-inner{display:flex;align-items:center;justify-content:space-between;padding:14px 0}
+  .header-inner{display:flex;align-items:center;justify-content:space-between;padding-block:14px}
   .logo{display:flex;align-items:center;gap:8px}
   .logo-mark{
     width:34px;height:34px;border-radius:8px;background:linear-gradient(155deg,var(--gold),var(--teal) 65%);
@@ -139,7 +145,7 @@
   }
   .ad-slot{
     display:flex;align-items:center;justify-content:center;gap:10px;
-    padding:10px 0;font-size:.78rem;color:var(--ink-soft);text-align:center;
+    padding-block:10px;font-size:.78rem;color:var(--ink-soft);text-align:center;
   }
   .ad-slot .tag{background:var(--paper-raised);border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-weight:700;font-size:.68rem}
 
@@ -669,6 +675,44 @@
     .cf-meta{font-size:.74rem;margin-top:5px}
   }
 
+  /* ====== קרוסלת משרדי תיווך מובילים ======
+     גרסת "משרד" לכרטיס ה-coverflow: ריבוע הלוגו תופס את מקום התמונה
+     והדירוג יושב עליו, כך שגוף הכרטיס נשאר לשם המשרד ולמספר הנכסים
+     הפעילים. הכותרת כאן לא מתחלפת בין כרטיס פעיל לצדדי (אין "מחיר"
+     שיחליף אותה), ולכן .ag-name ולא .cf-title. */
+  .cf-card.ag-card .cf-thumb{
+    display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(155deg,var(--gold),var(--teal) 65%);color:#fff;
+    font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.7rem;line-height:1;
+  }
+  .ag-rank{
+    position:absolute;top:6px;right:6px;background:rgba(255,255,255,.94);color:var(--gold-dark);
+    font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:999px;
+    box-shadow:0 2px 6px rgba(6,20,34,.22);
+  }
+  .ag-name{
+    font-weight:700;font-size:.76rem;color:var(--ink);line-height:1.3;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .ag-stat{font-size:.64rem;color:var(--ink-soft);margin-top:4px}
+  @media(min-width:480px){
+    .cf-card.ag-card .cf-thumb{font-size:2rem}
+    .ag-name{font-size:.82rem}
+    .ag-stat{font-size:.7rem}
+  }
+  @media(min-width:760px){
+    .cf-card.ag-card .cf-thumb{font-size:2.5rem}
+    .ag-rank{top:9px;right:9px;font-size:.7rem;padding:3px 10px}
+    .ag-name{font-size:.9rem}
+    .ag-stat{font-size:.76rem}
+  }
+
+  /* הרצועה יושבת בין באנר פרסומת לסקציית הנכסים המסחריים; ריפוד סקציה
+     מלא משני הצדדים יצר שם חלל ריק גדול, ולכן היא מהודקת בנפרד. */
+  #leadingAgencies{padding-block:18px 12px}
+  #leadingAgencies .section-head{margin-bottom:10px}
+  #commercialProps{padding-top:22px}
+
   /* ====== שורת פרסומת בין הסקציות ====== */
   .ad-strip{
     display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;
@@ -679,7 +723,7 @@
     background:var(--paper-raised);border:1px solid var(--line);border-radius:6px;
     padding:2px 8px;font-size:.68rem;
   }
-  .ad-row{padding:14px 0}
+  .ad-row{padding-block:14px}
 
   /* ====== כתבות ובלוגים ======
      אותה שיטת מידוד כמו קרוסלת "נכסים חמים מהמפה": רוחב הכרטיס נגזר
@@ -1352,15 +1396,18 @@
     <div class="ad-strip"><span class="tag">פרסומת</span> מיקום פרסום — באנר רוחבי מתחת לנכסים החמים</div>
   </div>
 
-  <!-- ====== Leading Agencies (module 3 §5.2) ====== -->
+  <!-- ====== Leading Agencies (module 3 §5.2) ======
+       קרוסלה על אותו מנוע coverflow של "נכסים חמים מהמפה": כל משרדי
+       התיווך בפלטפורמה נמצאים במסלול אחד שאפשר לדפדף בו, והדירוג יושב
+       על ריבוע הלוגו במקום כשורה נפרדת מעליו. -->
   <section class="section wrap" id="leadingAgencies">
-    <div class="section-head">
+    <div class="section-head is-centered">
       <div>
-        <p class="eyebrow">מריטוקרטי, לא תלוי-מנוי</p>
         <h2>משרדי תיווך מובילים בעפולה</h2>
       </div>
     </div>
-    <div class="featured-scroll" id="leadingAgenciesScroll"><!-- populated by JS --></div>
+    <div class="coverflow" id="leadingAgenciesScroll" role="region" aria-label="משרדי תיווך מובילים"><!-- populated by JS --></div>
+    <div class="cf-dots" id="leadingAgenciesDots" aria-label="מעבר בין משרדי תיווך"></div>
   </section>
 
   <!-- ====== נכסים מסחריים ====== -->
@@ -2319,7 +2366,9 @@ async function loadLeadingAgencies(){
       .from('agency_rankings')
       .select('agency_id, composite_score, active_properties_count, deal_count_6mo, agencies(name, slug)')
       .order('composite_score', { ascending:false })
-      .limit(6);
+      // הקרוסלה נועדה להציג את כל משרדי התיווך שבפלטפורמה ולא שישייה
+      // מובילה בלבד; התקרה כאן היא רק גבול בטיחות לגודל התשובה.
+      .limit(60);
     if (error || !data) throw error;
     return data;
   } catch(e){
@@ -2330,22 +2379,33 @@ async function loadLeadingAgencies(){
 
 (async function initLeadingAgencies(){
   const rankings = await loadLeadingAgencies();
-  const el = document.getElementById('leadingAgenciesScroll');
+  const track = document.getElementById('leadingAgenciesScroll');
+  const dots = document.getElementById('leadingAgenciesDots');
   const section = document.getElementById('leadingAgencies');
+  if (!track || !dots) return;
   if (!rankings.length){ section.style.display = 'none'; return; }
+
+  const flow = createCoverflow(track, dots);
+  flow.reset();
   rankings.forEach((r, i)=>{
-    const card = document.createElement('div');
-    card.className = 'agency-card';
     const name = r.agencies?.name || 'משרד תיווך';
+    const card = document.createElement('article');
+    card.className = 'cf-card ag-card';
     card.innerHTML = `
-      <div class="rank-badge">#${i+1}</div>
-      <div class="logo">${name[0]}</div>
-      <div class="name">${name}</div>
-      <div class="stat">${r.active_properties_count} נכסים פעילים</div>
-    `;
-    if (r.agencies?.slug) card.addEventListener('click', ()=> window.location.href = 'agency.html?slug=' + r.agencies.slug);
-    el.appendChild(card);
+      <div class="cf-thumb"><span class="ag-rank">#${i+1}</span>${name[0]}</div>
+      <div class="cf-body">
+        <div class="ag-name">${name}</div>
+        <div class="ag-stat">${r.active_properties_count} נכסים פעילים</div>
+      </div>`;
+    // כמו בקרוסלת הנכסים: לחיצה על כרטיס צדדי ממרכזת אותו, ורק לחיצה על
+    // הכרטיס הפעיל מנווטת לעמוד המשרד — כדי לא "לברוח" מהעמוד בטעות במגע.
+    card.addEventListener('click', ()=>{
+      if (!flow.isActive(i)){ flow.goTo(i); return; }
+      if (r.agencies?.slug) window.location.href = 'agency.html?slug=' + r.agencies.slug;
+    });
+    flow.add(card, `מעבר למשרד ${i+1} מתוך ${rankings.length}`);
   });
+  flow.done();
 })();
 
 async function loadLeadingAgents(){
@@ -2908,52 +2968,85 @@ document.querySelectorAll('.map-legend button').forEach(btn=>{
   });
 });
 
-/* ---------- קרוסלת "נכסים חמים מהמפה" (coverflow) ----------
+/* ---------- מנוע קרוסלת coverflow ----------
    הכרטיס שמרכזו הכי קרוב למרכז המסלול מקבל .is-active: בו המחיר מחליף את
    הכותרת ומסגרת הזהב מדגישה אותו, בדיוק כמו בעיצוב. הזיהוי נעשה מול
    getBoundingClientRect ולא מול scrollLeft בכוונה — ב-RTL הסימן והאפס של
    scrollLeft שונים בין דפדפנים, בעוד שמרכז מלבן במרחב התצוגה תמיד מדויק
-   (וגם לא מושפע מה-scale() שעל הכרטיסים, שממורכז ממילא). */
-const hotTrack = document.getElementById('hotCarousel');
-const hotDots = document.getElementById('hotCarouselDots');
-let hotCards = [];
-let hotActiveIndex = -1;
-
+   (וגם לא מושפע מה-scale() שעל הכרטיסים, שממורכז ממילא).
+   שני מסלולים משתמשים במנוע — "נכסים חמים מהמפה" ו"משרדי תיווך מובילים" —
+   ולכן המצב (הכרטיסים והאינדקס הפעיל) יושב במופע ולא במשתנים גלובליים. */
 function trackCenter(el){
   const r = el.getBoundingClientRect();
   return r.left + r.width / 2;
 }
 
-function syncHotActive(){
-  if (!hotTrack || !hotCards.length) return;
-  const mid = trackCenter(hotTrack);
-  let best = 0, bestDist = Infinity;
-  hotCards.forEach((card, i)=>{
-    const dist = Math.abs(trackCenter(card) - mid);
-    if (dist < bestDist){ bestDist = dist; best = i; }
-  });
-  if (best === hotActiveIndex) return;
-  hotActiveIndex = best;
-  hotCards.forEach((c, i)=> c.classList.toggle('is-active', i === best));
-  hotDots.querySelectorAll('button').forEach((d, i)=> d.classList.toggle('active', i === best));
+function createCoverflow(track, dots){
+  let cards = [];
+  let activeIndex = -1;
+
+  function sync(){
+    if (!cards.length) return;
+    const mid = trackCenter(track);
+    let best = 0, bestDist = Infinity;
+    cards.forEach((card, i)=>{
+      const dist = Math.abs(trackCenter(card) - mid);
+      if (dist < bestDist){ bestDist = dist; best = i; }
+    });
+    if (best === activeIndex) return;
+    activeIndex = best;
+    cards.forEach((c, i)=> c.classList.toggle('is-active', i === best));
+    dots.querySelectorAll('button').forEach((d, i)=> d.classList.toggle('active', i === best));
+  }
+
+  // scrollBy עם הפרש יחסי, ולא scrollLeft מוחלט או scrollIntoView: הראשון
+  // שובר ב-RTL, והשני גורר גם את גלילת העמוד עצמו כשהקרוסלה בקצה המסך.
+  function goTo(index){
+    const card = cards[index];
+    if (!card) return;
+    track.scrollBy({ left: trackCenter(card) - trackCenter(track), behavior:'smooth' });
+  }
+
+  let raf = null;
+  const queueSync = ()=>{
+    if (raf) return;
+    raf = requestAnimationFrame(()=>{ raf = null; sync(); });
+  };
+  track.addEventListener('scroll', queueSync, { passive:true });
+  window.addEventListener('resize', queueSync);
+
+  return {
+    goTo,
+    isActive(index){ return index === activeIndex; },
+    reset(){ track.innerHTML = ''; dots.innerHTML = ''; cards = []; activeIndex = -1; },
+    add(card, dotLabel){
+      const index = cards.length;
+      track.appendChild(card);
+      cards.push(card);
+      const dot = document.createElement('button');
+      dot.type = 'button';
+      dot.setAttribute('aria-label', dotLabel);
+      dot.addEventListener('click', ()=> goTo(index));
+      dots.appendChild(dot);
+    },
+    // פחות משלושה כרטיסים — אין גלילה בכלל, ולכן ממרכזים את מה שיש
+    done(){
+      track.classList.toggle('is-sparse', cards.length < 3);
+      requestAnimationFrame(sync);
+    },
+  };
 }
 
-// scrollBy עם הפרש יחסי, ולא scrollLeft מוחלט או scrollIntoView: הראשון
-// שובר ב-RTL, והשני גורר גם את גלילת העמוד עצמו כשהקרוסלה בקצה המסך.
-function scrollHotTo(index){
-  const card = hotCards[index];
-  if (!card || !hotTrack) return;
-  hotTrack.scrollBy({ left: trackCenter(card) - trackCenter(hotTrack), behavior:'smooth' });
-}
+/* ---------- קרוסלת "נכסים חמים מהמפה" ---------- */
+const hotTrack = document.getElementById('hotCarousel');
+const hotDots = document.getElementById('hotCarouselDots');
+const hotFlow = (hotTrack && hotDots) ? createCoverflow(hotTrack, hotDots) : null;
 
 function dealBadge(p){ return DEAL_LABELS[dealKind(p)]; }
 
 function renderHotCarousel(properties, isSearchResult){
-  if (!hotTrack || !hotDots) return;
-  hotTrack.innerHTML = '';
-  hotDots.innerHTML = '';
-  hotCards = [];
-  hotActiveIndex = -1;
+  if (!hotFlow) return;
+  hotFlow.reset();
 
   const sub = document.getElementById('hotFromMapSub');
   if (sub){
@@ -2964,9 +3057,8 @@ function renderHotCarousel(properties, isSearchResult){
       : 'גללו בין הנכסים המסומנים על המפה';
   }
 
-  hotTrack.classList.toggle('is-sparse', properties.length < 3);
-
   if (!properties.length){
+    hotTrack.classList.add('is-sparse');
     hotTrack.innerHTML = '<p class="cf-empty">אין נכסים להצגה כרגע</p>';
     return;
   }
@@ -2986,30 +3078,13 @@ function renderHotCarousel(properties, isSearchResult){
     // לחיצה על כרטיס צדדי ממרכזת אותו במקום לנווט: כך המחיר נחשף לפני
     // שהמשתמש מתחייב למעבר לעמוד הנכס, וגם לא "בורחים" מהעמוד בטעות במגע
     card.addEventListener('click', ()=>{
-      if (!card.classList.contains('is-active')) scrollHotTo(i);
+      if (!hotFlow.isActive(i)) hotFlow.goTo(i);
       else window.location.href = 'property.html?id=' + p.id;
     });
-    hotTrack.appendChild(card);
-    hotCards.push(card);
-
-    const dot = document.createElement('button');
-    dot.type = 'button';
-    dot.setAttribute('aria-label', `מעבר לנכס ${i + 1} מתוך ${properties.length}`);
-    dot.addEventListener('click', ()=> scrollHotTo(i));
-    hotDots.appendChild(dot);
+    hotFlow.add(card, `מעבר לנכס ${i + 1} מתוך ${properties.length}`);
   });
 
-  requestAnimationFrame(syncHotActive);
-}
-
-if (hotTrack){
-  let hotRaf = null;
-  const queueHotSync = ()=>{
-    if (hotRaf) return;
-    hotRaf = requestAnimationFrame(()=>{ hotRaf = null; syncHotActive(); });
-  };
-  hotTrack.addEventListener('scroll', queueHotSync, { passive:true });
-  window.addEventListener('resize', queueHotSync);
+  hotFlow.done();
 }
 
 const mapExpandBtn = document.getElementById('mapExpandBtn');
