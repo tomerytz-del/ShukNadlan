@@ -307,11 +307,20 @@
      שנקרא בטעות כ"לא זמין" */
   .map-legend button[aria-pressed="false"]{color:var(--ink-soft);text-decoration:line-through}
   .map-legend button[aria-pressed="false"] i{background:var(--line)}
-  .map-style-switch{display:flex;background:rgba(255,255,255,.94);border-radius:999px;padding:2px;box-shadow:var(--shadow-sm)}
-  /* קונטיינר קטן: הבורר הוא פקד משני מול המקרא שמתחתיו, ולכן הריפוד והפונט
-     קטנים משלו */
-  .map-style-switch button{padding:4px 8px;border-radius:999px;font-size:.64rem;font-weight:700;color:var(--ink-soft);white-space:nowrap}
-  .map-style-switch button.active{background:var(--teal);color:#fff}
+  /* בורר סגנון המפה: אותו קונטיינר בדיוק כמו בורר סוג העסקה שבשורת החיפוש
+     (‎.deal-select‎) — גלולה סגורה עם חץ פתיחה — רק בקנה מידה קטן, כי כאן
+     מדובר בפקד משני שיושב על המפה מעל המקרא. שלושת הסגנונות היו קודם שלושה
+     כפתורים פרושים בשורה, שגזלו רוחב והתחרו עם המקרא על אותו מבט. */
+  .map-style-select{
+    -webkit-appearance:none;appearance:none;border:none;cursor:pointer;
+    font-family:inherit;font-weight:700;font-size:.68rem;color:#fff;
+    background:var(--teal);border-radius:999px;padding:6px 12px 6px 26px;
+    box-shadow:var(--shadow-sm);
+    background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.6 6 6.4l5-4.8' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:left 9px center;background-size:9px;
+  }
+  /* רשימת האפשריות הנפתחת מצוירת ע"י המערכת ולא יורשת את הגלולה הכהה */
+  .map-style-select option{background:#fff;color:var(--ink)}
   .map-expand-btn{
     background:rgba(255,255,255,.94);color:var(--teal);padding:7px 12px;border-radius:999px;
     font-size:.74rem;font-weight:700;box-shadow:var(--shadow-sm);white-space:nowrap;
@@ -1000,11 +1009,9 @@
   html.a11y-contrast .btn, html.a11y-contrast button.opt, html.a11y-contrast input,
   html.a11y-contrast select, html.a11y-contrast .deal-toggle button,
   html.a11y-contrast .owner-toggle button, html.a11y-contrast .deal-select,
-  html.a11y-contrast .map-count, html.a11y-contrast .map-style-switch button,
-  html.a11y-contrast .map-legend button,
+  html.a11y-contrast .map-count, html.a11y-contrast .map-legend button,
   html.a11y-contrast .search-card .icon-btn, html.a11y-contrast .search-card .search-go,
   html.a11y-contrast .map-expand-btn{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
-  html.a11y-contrast .map-style-switch{background:#000 !important}
   /* במצב ניגודיות גבוהה המפה מעומעמת: אריחים צבעוניים מתחת לטקסט צהוב על
      שחור הורסים את יחס הניגודיות שכל המצב הזה נועד להבטיח */
   html.a11y-contrast .hero-overlay{background:#000 !important}
@@ -1297,11 +1304,11 @@
       <!-- הפינה השמאלית־תחתונה: בורר סגנון המפה, ומתחתיו מקרא הצבעים שהוא
            גם המסנן — לחיצה על סוג עסקה מסתירה/מחזירה את הפינים שלו -->
       <div class="map-corner">
-        <div class="map-style-switch" role="group" aria-label="סגנון המפה">
-          <button type="button" data-map-style="nature">טבע</button>
-          <button type="button" data-map-style="classic" class="active">קלאסי</button>
-          <button type="button" data-map-style="light">בהיר</button>
-        </div>
+        <select id="mapStyleSelect" class="map-style-select" aria-label="סגנון המפה">
+          <option value="nature">טבע</option>
+          <option value="classic" selected>קלאסי</option>
+          <option value="light">בהיר</option>
+        </select>
         <div class="map-legend" role="group" aria-label="סינון הפינים לפי סוג עסקה">
           <button type="button" data-deal-kind="sale" aria-pressed="true"><i class="sale" aria-hidden="true"></i>מכירה</button>
           <button type="button" data-deal-kind="rent" aria-pressed="true"><i class="rent" aria-hidden="true"></i>השכרה</button>
@@ -2625,9 +2632,8 @@ const DEFAULT_MAP_STYLE = 'classic';
 function applyMapStyle(style){
   if (!MAP_STYLES.includes(style)) style = DEFAULT_MAP_STYLE;
   document.body.dataset.mapStyle = style;
-  document.querySelectorAll('.map-style-switch button').forEach(b=>{
-    b.classList.toggle('active', b.dataset.mapStyle === style);
-  });
+  const select = document.getElementById('mapStyleSelect');
+  if (select) select.value = style;
   try { localStorage.setItem('shuk_map_style', style); } catch(e){ /* מצב פרטי/חסום */ }
 }
 
@@ -2669,9 +2675,10 @@ try {
 }
 
 applyMapStyle(savedMapStyle);
-document.querySelectorAll('.map-style-switch button').forEach(btn=>{
-  btn.addEventListener('click', ()=> applyMapStyle(btn.dataset.mapStyle));
-});
+const mapStyleSelect = document.getElementById('mapStyleSelect');
+if (mapStyleSelect){
+  mapStyleSelect.addEventListener('change', ()=> applyMapStyle(mapStyleSelect.value));
+}
 
 const mapMarkers = {};
 
