@@ -185,7 +185,14 @@
     text-shadow:0 2px 8px rgba(0,0,0,.6);
   }
   .hero-inner .eyebrow::before{background:#F0D9A8}
-  .hero-inner h1{color:#fff;font-size:1.35rem;font-weight:700;max-width:24ch;text-shadow:0 2px 8px rgba(0,0,0,.6)}
+  /* הכותרת יושבת על שורה אחת בכל רוחב מסך. הטקסט ב-Frank Ruhl Libre רחב
+     פי ~14.26 מגודל הגופן, כלומר הוא נכנס לרוחב ה-wrap (100vw פחות 36px
+     padding) עד 7.01vw−2.5px; ה-calc כאן משאיר ~6% ביטחון מתחת לגבול הזה,
+     וה-min מקבע 21.6px מ-~368px ומעלה כדי שהמסכים הרגילים לא ינפחו אותה. */
+  .hero-inner h1{
+    color:#fff;font-size:min(1.35rem, calc(6.6vw - 2.4px));font-weight:700;
+    white-space:nowrap;text-shadow:0 2px 8px rgba(0,0,0,.6);
+  }
   .hero-inner p.lede{display:none;color:#DCE6E4;margin-top:8px;font-size:.95rem;max-width:46ch;text-shadow:0 2px 8px rgba(0,0,0,.6)}
 
   /* ====== סרגל חיפוש בשורה אחת ====== */
