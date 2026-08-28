@@ -143,6 +143,11 @@
      התמונות, שהוא פעולה שקיימת בכל נכס */
   .media-btn.accent{background:rgba(180,83,9,.8);border-color:rgba(255,255,255,.36)}
   .media-btn.accent:hover{background:rgba(180,83,9,.95)}
+  /* ההדמיה היא לא עוד פריט מדיה אלא הזמנה לדמיין — זכוכית בהירה כדי שתיקרא
+     כשונה משתי תגיות המדיה הכהות שמתחתיה, בלי לכסות את התמונה עצמה. */
+  .media-btn.magic{background:rgba(255,255,255,.88);color:var(--teal-dark);border-color:rgba(255,255,255,.95)}
+  .media-btn.magic:hover{background:#fff}
+  .media-btn.magic svg{color:var(--bronze)}
   @media(min-width:640px){
     .bento{grid-template-columns:1.9fr 1fr;grid-template-rows:1fr 1fr;height:min(58vh,430px)}
     .bento-main{grid-column:1;grid-row:1/3;aspect-ratio:auto;height:100%}
@@ -530,7 +535,6 @@
   /* הריווח והכותרת עברו ל-#vizSection: מחלקת ‎.section‎ שהבלוק הזה נשען
      עליה הוחלפה ב-.panel, ובלעדיהן הסקציה נצמדת לרצועת המשרד וכותרתה
      נשארת בגודל ברירת המחדל של הדפדפן — גדולה מכל כותרת אחרת בדף. */
-  #vizSection{margin-top:26px;padding-bottom:34px}
   #vizSection h2{font-size:1.05rem}
   .viz-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
   .viz-head .viz-sub{font-size:.82rem;color:var(--ink-soft)}
@@ -591,6 +595,7 @@
         <div class="sub" id="heroPriceSub"></div>
       </div>
       <div class="hero-actions" id="heroActions">
+        <button type="button" class="media-btn magic" id="vizJumpBtn" hidden></button>
         <a class="media-btn accent" id="tourBtn" href="#" target="_blank" rel="noopener noreferrer" hidden></a>
         <a class="media-btn accent" id="videoBtn" href="#" target="_blank" rel="noopener noreferrer" hidden></a>
         <button type="button" class="media-btn" id="photoCountBtn" hidden></button>
@@ -613,6 +618,36 @@
         <section class="panel" id="descSection" hidden>
           <h2>תיאור הנכס</h2>
           <p class="prop-desc" id="propDescription"></p>
+        </section>
+
+        <!-- ====== הדמיות AI ======
+             מוצגת רק בנכסי Premium שיש להם הדמיות בסיס, ולכן היא hidden
+             כברירת מחדל ונפתחת רק אחרי ש-loadVisualizations מצא משהו להראות.
+             מקומה כאן ולא בסוף העמוד: אחרי רשת התוכן היא נחתה מתחת לכל
+             עמודת הצד, ובמובייל זה עומק שגולש/ת כמעט לא מגיע/ה אליו. -->
+        <section class="panel" id="vizSection" hidden>
+          <div class="viz-head">
+            <h2>איך זה יכול להיראות</h2>
+            <span class="viz-sub">הדמיות AI על בסיס התמונות האמיתיות של הנכס</span>
+          </div>
+
+          <div class="viz-styles" id="vizStyles"></div>
+          <div class="viz-grid" id="vizGrid"></div>
+
+          <div class="viz-cta" id="vizCta" hidden>
+            <button type="button" class="btn btn-gold" id="vizOpenBtn">לראות את הנכס בסגנון הזה</button>
+            <form class="viz-form" id="vizForm" novalidate>
+              <div class="field"><input type="text" id="vizName" placeholder="שם מלא" autocomplete="name"></div>
+              <div class="field"><input type="tel" id="vizPhone" placeholder="טלפון" autocomplete="tel" inputmode="tel"></div>
+              <button type="submit" class="btn btn-gold" id="vizSubmit">יצירת ההדמיה</button>
+            </form>
+            <p class="viz-error" id="vizError" role="alert"></p>
+          </div>
+
+          <p class="viz-note">
+            התמונות בסקציה זו הן הדמיות ממוחשבות שנוצרו מהתמונות האמיתיות של הנכס, ונועדו להמחשת פוטנציאל עיצובי בלבד.
+            אין בהן התחייבות לביצוע עבודות, לחומרים או לתוצאה בפועל, והן אינן מתעדות את מצב הנכס כיום.
+          </p>
         </section>
 
         <section class="panel" id="specSection" hidden>
@@ -737,34 +772,6 @@
       </div>
     </div>
   </div>
-
-  <!-- ====== הדמיות AI ======
-       מוצגת רק בנכסי Premium שיש להם הדמיות בסיס, ולכן היא hidden כברירת
-       מחדל ונפתחת רק אחרי ש-loadVisualizations מצא משהו להראות. -->
-  <section class="wrap" id="vizSection" hidden>
-    <div class="viz-head">
-      <h2>איך זה יכול להיראות</h2>
-      <span class="viz-sub">הדמיות AI על בסיס התמונות האמיתיות של הנכס</span>
-    </div>
-
-    <div class="viz-styles" id="vizStyles"></div>
-    <div class="viz-grid" id="vizGrid"></div>
-
-    <div class="viz-cta" id="vizCta" hidden>
-      <button type="button" class="btn btn-gold" id="vizOpenBtn">לראות את הנכס בסגנון הזה</button>
-      <form class="viz-form" id="vizForm" novalidate>
-        <div class="field"><input type="text" id="vizName" placeholder="שם מלא" autocomplete="name"></div>
-        <div class="field"><input type="tel" id="vizPhone" placeholder="טלפון" autocomplete="tel" inputmode="tel"></div>
-        <button type="submit" class="btn btn-gold" id="vizSubmit">יצירת ההדמיה</button>
-      </form>
-      <p class="viz-error" id="vizError" role="alert"></p>
-    </div>
-
-    <p class="viz-note">
-      התמונות בסקציה זו הן הדמיות ממוחשבות שנוצרו מהתמונות האמיתיות של הנכס, ונועדו להמחשת פוטנציאל עיצובי בלבד.
-      אין בהן התחייבות לביצוע עבודות, לחומרים או לתוצאה בפועל, והן אינן מתעדות את מצב הנכס כיום.
-    </p>
-  </section>
 
   <!-- ====== נכסים דומים ======
        אותה שיטת מידוד כמו קרוסלות דף הבית: שלושה כרטיסים בתצוגה בכל רגע,
@@ -1134,6 +1141,23 @@ function renderMediaButtons(p){
   link('videoBtn', p.video_url, ICON.play, 'סרטון הנכס');
 }
 
+/* ---------- קיצור הדרך להדמיות ----------
+   שלט על התמונה הראשית ולא הטופס עצמו: הטופס דורש שם וטלפון, וטופס שצף על
+   תמונת הנכס גם מכסה את מה שבאו לראות וגם מבטיח תוצאה מיידית שלא תגיע בלי
+   מסירת פרטים. הכפתור רק מוביל לסקציה — שנמצאת ממילא גבוה בעמוד.
+   נדלק רק אחרי ש-loadVisualizations אישרה שיש מה להראות. */
+function revealVizJumpButton(){
+  const btn = document.getElementById('vizJumpBtn');
+  if (!btn || !btn.hidden) return;
+  btn.innerHTML = `${ICON.sparkle}<span>הדמיית AI לנכס</span>`;
+  btn.addEventListener('click', ()=>{
+    const section = document.getElementById('vizSection');
+    if (!section || section.hidden) return;
+    section.scrollIntoView({ behavior:'smooth', block:'start' });
+  });
+  btn.hidden = false;
+}
+
 const lb = document.getElementById('lightbox');
 let lbIndex = 0;
 
@@ -1244,6 +1268,7 @@ async function loadVisualizations(p){
     // ייראה כאן העסק שלך") היא המוצר. נכס פרטי בלי סט בסיס כן מוצג, כי
     // ארבעת הסגנונות זמינים לפי דרישה.
     section.hidden = false;
+    revealVizJumpButton();
     if (vizState.isPrivate) renderVizStyles();
     else renderVizCommercial();
 
