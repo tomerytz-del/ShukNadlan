@@ -85,6 +85,13 @@
   .brand-logo img{width:100%;height:100%;object-fit:cover;display:block}
   .brand-name{font-size:1.55rem;line-height:1.25}
   @media(min-width:640px){.brand-name{font-size:1.85rem}}
+  /* המוטו יושב בין השם לאזורי הפעילות ובגופן הכותרות — הוא אמירה של המשרד
+     ולא עוד שורת מידע, ולכן הוא לא מקבל את הצבע האפור של הטקסט המשני. */
+  .brand-tagline{
+    font-family:'Frank Ruhl Libre',serif;font-size:1rem;font-weight:500;font-style:italic;
+    color:var(--brand);margin:6px 0 0;max-width:46ch;line-height:1.4;
+  }
+  @media(min-width:640px){.brand-tagline{font-size:1.1rem}}
   .brand-areas{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
   .area-chip{
     display:inline-flex;align-items:center;gap:5px;font-size:.74rem;font-weight:700;
@@ -170,6 +177,26 @@
   .tab-btn.active:hover{background:var(--brand)}
   .tab-panel{display:none;padding:20px 0 40px}
   .tab-panel.active{display:block}
+
+  .prop-search{
+    display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--hair);
+    border-radius:999px;padding:4px 6px 4px 14px;box-shadow:var(--shadow-xs);margin-bottom:14px;
+    transition:border-color .15s ease,box-shadow .15s ease;
+  }
+  .prop-search:focus-within{border-color:var(--brand);box-shadow:var(--shadow-md)}
+  .prop-search .ic{width:34px;height:34px;flex:none;display:grid;place-items:center;color:var(--ink-soft)}
+  .prop-search .ic svg{width:18px;height:18px}
+  .prop-search input{
+    flex:1;min-width:0;border:none;background:none;padding:9px 0;font-size:.92rem;color:var(--ink);
+  }
+  .prop-search input:focus{outline:none}
+  .prop-search input::-webkit-search-cancel-button{display:none}
+  .prop-search .clear{
+    width:28px;height:28px;flex:none;border-radius:50%;background:var(--surface-soft);
+    color:var(--ink-soft);font-size:.8rem;display:grid;place-items:center;
+  }
+  .prop-search .clear:hover{background:var(--teal-tint);color:var(--brand-dark)}
+  .search-count{font-size:.8rem;color:var(--ink-soft);margin:0 0 12px;font-weight:600}
 
   .prop-grid{display:grid;grid-template-columns:1fr;gap:14px}
   @media(min-width:640px){.prop-grid{grid-template-columns:1fr 1fr}}
@@ -282,6 +309,7 @@
       <div class="brand-logo" id="brandLogo">·</div>
       <div style="min-width:0">
         <h1 class="brand-name" id="brandName">—</h1>
+        <p class="brand-tagline" id="brandTagline" hidden></p>
         <div class="brand-areas" id="brandAreas"></div>
       </div>
     </div>
@@ -304,7 +332,17 @@
       <button class="tab-btn" data-tab="reviews">ביקורות</button>
     </div>
 
-    <div class="tab-panel active" id="panel-active"><div class="prop-grid" id="activeProps"></div></div>
+    <div class="tab-panel active" id="panel-active">
+      <!-- החיפוש מסנן את מה שכבר נטען לזיכרון ולא יורה שאילתה חדשה: כל הנכסים
+           הפעילים של המשרד מגיעים ממילא בטעינת הדף, וסינון מקומי מגיב מיד. -->
+      <div class="prop-search" id="propSearchBar" hidden>
+        <span class="ic" aria-hidden="true"></span>
+        <input type="search" id="propSearch" placeholder="חיפוש בנכסי המשרד — רחוב, סוג נכס, עיר" aria-label="חיפוש בנכסי המשרד">
+        <button type="button" class="clear" id="propSearchClear" aria-label="ניקוי החיפוש" hidden>✕</button>
+      </div>
+      <p class="search-count" id="propSearchCount" hidden></p>
+      <div class="prop-grid" id="activeProps"></div>
+    </div>
     <div class="tab-panel" id="panel-sold"><div class="panel" id="soldDeals"></div></div>
     <div class="tab-panel" id="panel-agents"><div class="agent-grid" id="agentRoster"></div></div>
     <div class="tab-panel" id="panel-reviews"><div id="reviewsList"></div></div>
@@ -338,6 +376,7 @@ const ICON = {
   play:    S('<circle cx="12" cy="12" r="9.5"/><path d="M10 8.5v7l6-3.5Z"/>'),
   check:   S('<path d="M20 6 9 17l-5-5"/>'),
   chevron: S('<path d="m14 6-6 6 6 6"/>'),
+  search:  S('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'),
 };
 
 document.querySelectorAll('.tab-btn').forEach(btn=>{
@@ -460,7 +499,11 @@ function applyBranding(agency){
    מוצגות עד חמש תמונות ברשת; השאר נגישות דרך הלייטבוקס, שנפתח על התמונה
    הראשונה שלא נראית ברשת בלחיצה על שכבת ה-"‎+N‎". */
 let galleryItems = [];
-const GALLERY_VISIBLE = 5;
+/* שתי שורות תמונות ותו לא. במסך רחב זה 2 גדולות + 3 קטנות; במסך צר הרשת היא
+   שתי עמודות, ולכן חמש תמונות היו נערמות לשלוש שורות ודוחפות את הנכסים —
+   שהם הסיבה שנכנסו לדף — אל מתחת לקיפול. */
+const galleryVisibleCount = () =>
+  (window.matchMedia && window.matchMedia('(min-width: 640px)').matches) ? 5 : 3;
 
 function renderGallery(gallery){
   galleryItems = (Array.isArray(gallery) ? gallery : [])
@@ -470,7 +513,7 @@ function renderGallery(gallery){
 
   const grid = document.getElementById('galleryBento');
   grid.textContent = '';
-  const shown = Math.min(galleryItems.length, GALLERY_VISIBLE);
+  const shown = Math.min(galleryItems.length, galleryVisibleCount());
   grid.setAttribute('data-count', String(shown));
   const rest = galleryItems.length - shown;
 
@@ -559,6 +602,10 @@ async function loadAgency(){
 
     document.title = agency.name + ' | שוק נדל״ן';
     document.getElementById('brandName').textContent = agency.name;
+    const tagline = (agency.tagline || '').trim();
+    const taglineEl = document.getElementById('brandTagline');
+    taglineEl.textContent = tagline;
+    taglineEl.hidden = !tagline;
     document.getElementById('brandAreas').innerHTML = (agency.specialty_areas || [])
       .map(a => `<span class="area-chip">${ICON.pin}${escapeHtml(a)}</span>`).join('');
     document.getElementById('brandDesc').textContent = agency.description || 'משרד תיווך פעיל בעפולה והעמק.';
@@ -579,46 +626,100 @@ async function loadAgency(){
   }
 }
 
+let agencyProperties = [];
+
 async function loadActiveProperties(sb, agencyId){
   const el = document.getElementById('activeProps');
   const { data: props } = await sb.from('properties')
-    .select('id, title, price, deal_type, rooms, property_type, size_sqm, city, images, tour_3d_url, video_url')
+    .select('id, title, price, deal_type, rooms, property_type, size_sqm, city, street, images, tour_3d_url, video_url')
     .eq('agency_id', agencyId).eq('status', 'active').order('created_at', { ascending:false });
   if (!props || props.length === 0){ el.innerHTML = '<div class="empty-state">אין כרגע נכסים פעילים במשרד זה.</div>'; return; }
 
+  agencyProperties = props;
   setStat('props', props.length, 'נכסים פעילים', 'building');
-  el.innerHTML = '';
-  props.forEach(p=>{
-    // רק נתונים שמולאו נכנסים לשורת המטא — מודעה דלילה לא צריכה מקפים
-    const meta = [
-      p.rooms ? p.rooms + ' חדרים' : '',
-      p.size_sqm ? p.size_sqm + ' מ״ר' : '',
-      p.property_type || '',
-      p.city || '',
-    ].filter(Boolean);
-    // המדיה מגיעה מהעמודות שנוספו לנכס — תגית עולה רק כשיש קישור אמיתי
-    const media = [
-      p.tour_3d_url ? `<span>${ICON.cube}סיור וירטואלי</span>` : '',
-      p.video_url ? `<span>${ICON.play}סרטון</span>` : '',
-    ].filter(Boolean).join('');
+  renderPropertyCards(props);
+  // סרגל החיפוש מופיע רק כשיש בו טעם: בארבעה נכסים העין מהירה ממנו
+  if (props.length >= 5) initPropertySearch();
+}
 
+function propertyCardHtml(p){
+  // רק נתונים שמולאו נכנסים לשורת המטא — מודעה דלילה לא צריכה מקפים
+  const meta = [
+    p.rooms ? p.rooms + ' חדרים' : '',
+    p.size_sqm ? p.size_sqm + ' מ״ר' : '',
+    p.property_type || '',
+    p.city || '',
+  ].filter(Boolean);
+  // המדיה מגיעה מהעמודות שנוספו לנכס — תגית עולה רק כשיש קישור אמיתי
+  const media = [
+    p.tour_3d_url ? `<span>${ICON.cube}סיור וירטואלי</span>` : '',
+    p.video_url ? `<span>${ICON.play}סרטון</span>` : '',
+  ].filter(Boolean).join('');
+
+  return `
+    <div class="thumb"${thumbStyle(p)}>
+      <div class="card-tags">
+        <span class="card-tag${p.deal_type === 'rent' ? ' rent' : ''}">${p.deal_type === 'rent' ? 'להשכרה' : 'למכירה'}</span>
+      </div>
+      ${media ? `<div class="card-media">${media}</div>` : ''}
+    </div>
+    <div class="body">
+      <div class="price">${priceLabel(p.price, p.deal_type)}</div>
+      <div class="title">${escapeHtml(p.title || '')}</div>
+      <div class="meta">${meta.map(m => `<span>${escapeHtml(m)}</span>`).join('')}</div>
+    </div>`;
+}
+
+function renderPropertyCards(list){
+  const el = document.getElementById('activeProps');
+  if (!list.length){
+    el.innerHTML = '<div class="empty-state">לא נמצאו נכסים שתואמים לחיפוש.</div>';
+    return;
+  }
+  el.innerHTML = '';
+  list.forEach(p=>{
     const card = document.createElement('div');
     card.className = 'prop-card';
-    card.innerHTML = `
-      <div class="thumb"${thumbStyle(p)}>
-        <div class="card-tags">
-          <span class="card-tag${p.deal_type === 'rent' ? ' rent' : ''}">${p.deal_type === 'rent' ? 'להשכרה' : 'למכירה'}</span>
-        </div>
-        ${media ? `<div class="card-media">${media}</div>` : ''}
-      </div>
-      <div class="body">
-        <div class="price">${priceLabel(p.price, p.deal_type)}</div>
-        <div class="title">${escapeHtml(p.title || '')}</div>
-        <div class="meta">${meta.map(m => `<span>${escapeHtml(m)}</span>`).join('')}</div>
-      </div>`;
+    card.innerHTML = propertyCardHtml(p);
     card.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
     el.appendChild(card);
   });
+}
+
+/* ---------- חיפוש בנכסי המשרד ----------
+   סינון מקומי על מה שכבר בזיכרון. השדות שנסרקים הם מה שגולש/ת באמת מקליד/ה:
+   רחוב, עיר, סוג נכס וכותרת. מספרים (מחיר, שטח) לא נסרקים — "230" היה מחזיר
+   גם נכס ב-230 מ״ר וגם נכס ב-230,000 ₪ ומבלבל יותר משהוא עוזר. */
+function initPropertySearch(){
+  const bar = document.getElementById('propSearchBar');
+  const input = document.getElementById('propSearch');
+  const clear = document.getElementById('propSearchClear');
+  const count = document.getElementById('propSearchCount');
+  bar.querySelector('.ic').innerHTML = ICON.search;
+  bar.hidden = false;
+
+  const apply = ()=>{
+    const q = input.value.trim().toLowerCase();
+    clear.hidden = !q;
+    if (!q){
+      renderPropertyCards(agencyProperties);
+      count.hidden = true;
+      return;
+    }
+    const terms = q.split(/\s+/);
+    const matches = agencyProperties.filter(p=>{
+      const haystack = [p.title, p.street, p.city, p.property_type].filter(Boolean).join(' ').toLowerCase();
+      return terms.every(t => haystack.includes(t));
+    });
+    renderPropertyCards(matches);
+    count.textContent = matches.length === 1
+      ? 'נכס אחד תואם'
+      : `${matches.length} נכסים תואמים מתוך ${agencyProperties.length}`;
+    count.hidden = false;
+  };
+
+  input.addEventListener('input', apply);
+  clear.addEventListener('click', ()=>{ input.value = ''; apply(); input.focus(); });
 }
 
 async function loadSoldDeals(sb, agencyId){
