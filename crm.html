@@ -59,6 +59,14 @@
   #loginError{color:var(--brick);font-size:.82rem;margin-top:10px;text-align:center;min-height:1.2em}
   .test-creds{margin-top:20px;padding:12px;background:var(--teal-tint);border-radius:var(--radius-sm);font-size:.74rem;color:var(--ink-soft)}
   .test-creds b{color:var(--teal-dark)}
+  /* ---------- מסך המתנה ----------
+     זה המסך הראשון שנצבע בכל טעינה, במקום כרטיס הכניסה. בלעדיו כל כניסה —
+     גם של מי שכבר מחובר/ת וגם החזרה מ-Google — התחילה בהבזק של טופס הסיסמה,
+     כי בדיקת ה-session היא אסינכרונית ומסתיימת רק אחרי הציור הראשון. */
+  .boot-card{text-align:center}
+  .boot-spinner{width:34px;height:34px;margin:4px auto 16px;border-radius:50%;border:3px solid var(--line);border-top-color:var(--teal);animation:bootSpin .9s linear infinite}
+  @keyframes bootSpin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){ .boot-spinner{animation-duration:2.4s} }
 
   /* ---------- Dashboard ---------- */
   #dashboard{display:none}
@@ -822,13 +830,21 @@
 <body>
 
 <div id="loginScreen">
-  <div class="card login-card" id="loginCardMain">
+  <!-- כרטיס ההמתנה מוצג ראשון בכל טעינה; showScreen() מחליף אותו בכרטיס הנכון
+       ברגע שידוע אם יש חיבור פעיל. ראו "ניהול מסכים" בסקריפט. -->
+  <div class="card login-card boot-card" id="bootCard">
+    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
+    <div class="boot-spinner" role="status" aria-live="polite"></div>
+    <p class="sub" id="bootMessage">בודקים אם כבר יש חיבור פעיל…</p>
+  </div>
+
+  <div class="card login-card" id="loginCardMain" style="display:none">
     <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
     <h1>איזור סוכנים</h1>
     <p class="sub">שוק נדל״ן — עפולה והעמק</p>
     <button type="button" class="btn btn-ghost btn-block" id="googleLoginBtn" style="margin-bottom:14px;gap:10px">
       <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.94v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.94A9 9 0 0 0 0 9c0 1.45.35 2.83.94 4.03l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .94 4.97l3.01 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
-      התחברות עם Google
+      <span class="gl-label">התחברות עם Google</span>
     </button>
     <div style="text-align:center;font-size:.75rem;color:var(--ink-soft);margin-bottom:14px">— או —</div>
     <form id="loginForm">
@@ -2173,13 +2189,125 @@ function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel }
   });
 }
 
+/* ---------- ניהול מסכים ----------
+   כל המסכים של הדף (המתנה / כניסה / פתיחת משרד / שגיאת טעינה / דשבורד) חיים
+   באותו קובץ, והמעבר ביניהם עובר דרך פונקציה אחת: מה שנדלק כאן מכבה את כל
+   השאר. קודם כל מסך כיבה והדליק display בעצמו, ומספיק היה לשכוח מסך אחד כדי
+   ששניים יוצגו יחד או שאף אחד לא יוצג — זה מקור לא קטן ל"קפיצות" במסך. */
+const SCREEN_CARDS = {
+  boot:         'bootCard',
+  login:        'loginCardMain',
+  createAgency: 'createAgencyScreen',
+  loadError:    'loadErrorScreen',
+};
+
+function showScreen(name){
+  const onDashboard = name === 'dashboard';
+  dashboard.style.display = onDashboard ? 'block' : 'none';
+  document.body.classList.toggle('dash-active', onDashboard);
+  loginScreen.style.display = onDashboard ? 'none' : 'flex';
+  for (const [key, id] of Object.entries(SCREEN_CARDS)){
+    const el = document.getElementById(id);
+    if (el) el.style.display = (key === name) ? 'block' : 'none';
+  }
+  // תפריט הבדיקה שייך לדשבורד בלבד; renderDevMenu() מדליק אותו מחדש בעת הצורך
+  if (!onDashboard) document.getElementById('devMenu').style.display = 'none';
+}
+
+/* הודעה שממתינה למסך הכניסה. נחוצה כי כשחוזרים מ-Google עם שגיאה, המסך שמוצג
+   בסוף הוא מסך הכניסה — ובלי זה הסוכן/ת פשוט "מוצא/ת את עצמו/ה" מול טופס
+   הסיסמה בלי שום הסבר למה ההתחברות לא עבדה. */
+let pendingAuthMessage = '';
+
+function showLoginCard(message){
+  clearTimeout(bootWatchdog);
+  cleanAuthParamsFromUrl();
+  const alreadyOnLogin = document.getElementById('loginCardMain').style.display === 'block';
+  const text = message || pendingAuthMessage;
+  pendingAuthMessage = '';
+  // הגעה למסך ממסך אחר מנקה הודעה ישנה; קריאה חוזרת כשכבר עומדים כאן (המאזין
+  // ו-boot() יכולים שניהם להגיע לכאן על אותה טעינה) לא מוחקת הודעה שכבר מוצגת
+  if (text || !alreadyOnLogin) document.getElementById('loginError').textContent = text || '';
+  resetGoogleButton();
+  showScreen('login');
+}
+
+function showBootCard(message){
+  document.getElementById('bootMessage').textContent = message;
+  showScreen('boot');
+}
+
+/* ---------- ניקוי תשובת Google מהכתובת ----------
+   Google מחזיר את התשובה בכתובת עצמה: בהצלחה כ-#access_token=… (או ?code=…),
+   בכישלון כ-error/error_description. supabase-js קורא אותה בעצמו בזמן האתחול,
+   ומרגע שסיים היא חייבת לרדת מהכתובת — אחרת האסימון נשאר בהיסטוריית הדפדפן,
+   ורענון או "חזור" מנסים לעבד שוב תשובה שכבר נוצלה ומחזירים את המשתמש/ת
+   למסך הכניסה. הקריאה לפונקציה נעשית רק אחרי שה-session בידינו. */
+const AUTH_HASH_KEYS  = ['access_token','refresh_token','provider_token','provider_refresh_token','expires_in','expires_at','token_type','error','error_code','error_description'];
+const AUTH_QUERY_KEYS = ['code','state','error','error_code','error_description'];
+
+function cleanAuthParamsFromUrl(){
+  if (!window.history || !window.history.replaceState) return;
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const query = new URLSearchParams(window.location.search);
+  const dropHash = AUTH_HASH_KEYS.some(k => hashParams.has(k));
+  let dropped = false;
+  for (const key of AUTH_QUERY_KEYS){
+    if (query.has(key)){ query.delete(key); dropped = true; }
+  }
+  if (!dropHash && !dropped) return;
+  const search = query.toString();
+  history.replaceState(null, '',
+    window.location.pathname + (search ? '?' + search : '') + (dropHash ? '' : window.location.hash));
+}
+
+// קריאת שגיאת OAuth מהכתובת. נעשית בטעינה, לפני שהכתובת מנוקה.
+const oauthError = (()=>{
+  const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
+  const query = new URLSearchParams(window.location.search);
+  const pick = (key)=> hashParams.get(key) || query.get(key) || '';
+  // ‏code הוא הקוד היבש (access_denied וכו') ו-description הוא הטקסט לבני אדם;
+  // הביטול מזוהה לפי הקוד, אבל ההודעה שמוצגת היא התיאור אם הגיע כזה
+  return { code: pick('error') || pick('error_code'), description: pick('error_description') };
+})();
+if (oauthError.code || oauthError.description){
+  pendingAuthMessage = /access_denied|cancel/i.test(oauthError.code)
+    ? 'ההתחברות עם Google בוטלה. אפשר לנסות שוב, או להיכנס עם אימייל וסיסמה.'
+    : 'ההתחברות עם Google נכשלה: ' + (oauthError.description || oauthError.code);
+}
+
+/* רשת ביטחון: אם בדיקת ההתחברות נתקעת (רשת איטית, שרת שלא עונה), לא נשאיר את
+   הסוכן/ת מול ספינר אינסופי — נציג את מסך הכניסה עם הסבר. */
+const bootWatchdog = setTimeout(()=>{
+  showLoginCard('בדיקת ההתחברות מתעכבת. אפשר להתחבר כאן, או לרענן את הדף.');
+}, 15000);
+
 /* ---------- Auth ---------- */
-document.getElementById('googleLoginBtn').addEventListener('click', async ()=>{
-  await sb.auth.signInWithOAuth({
+const googleLoginBtn = document.getElementById('googleLoginBtn');
+
+function resetGoogleButton(){
+  googleLoginBtn.disabled = false;
+  googleLoginBtn.querySelector('.gl-label').textContent = 'התחברות עם Google';
+}
+
+googleLoginBtn.addEventListener('click', async ()=>{
+  document.getElementById('loginError').textContent = '';
+  // נעילה וחיווי: הניתוב ל-Google לוקח רגע, ובלי זה נראה היה שהלחיצה לא נקלטה —
+  // ולחיצה נוספת פתחה ניתוב שני באמצע הראשון (שם נולדות חלק מה"קפיצות")
+  googleLoginBtn.disabled = true;
+  googleLoginBtn.querySelector('.gl-label').textContent = 'מעבירים ל-Google…';
+  // redirectTo נשאר origin+pathname בלי query, כדי שיתאים בדיוק לכתובת שמוגדרת
+  // ברשימת ה-Redirect URLs של Supabase. כתובת שלא ברשימה מוחלפת ב-Site URL,
+  // ואז החזרה מ-Google נוחתת בדף הבית במקום כאן.
+  const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: window.location.origin + window.location.pathname }
   });
-  // הדפדפן מנותב ל-Google ואז חוזר לכאן — הטיפול בפועל קורה ב-boot() למטה
+  if (error){
+    resetGoogleButton();
+    document.getElementById('loginError').textContent = 'לא הצלחנו לפתוח את החיבור ל-Google: ' + error.message;
+  }
+  // בהצלחה הדפדפן מנותב ל-Google; החזרה מטופלת ב-onAuthStateChange למטה
 });
 
 document.getElementById('loginForm').addEventListener('submit', async (e)=>{
@@ -2190,7 +2318,7 @@ document.getElementById('loginForm').addEventListener('submit', async (e)=>{
   const errEl = document.getElementById('loginError');
   errEl.textContent = '';
   btn.disabled = true; btn.textContent = 'מתחבר…';
-  const { error } = await sb.auth.signInWithPassword({ email, password });
+  const { data, error } = await sb.auth.signInWithPassword({ email, password });
   btn.disabled = false; btn.textContent = 'כניסה';
   if (error){
     errEl.textContent = error.message === 'Invalid login credentials'
@@ -2198,23 +2326,19 @@ document.getElementById('loginForm').addEventListener('submit', async (e)=>{
       : 'שגיאת התחברות: ' + error.message;
     return;
   }
-  await routeAfterAuth();
+  await routeAfterAuth(data.session);
 });
 
 document.getElementById('logoutBtn').addEventListener('click', async ()=>{
   await sb.auth.signOut();
-  dashboard.style.display = 'none';
-  document.getElementById('devMenu').style.display = 'none';
-  createAgencyScreen.style.display = 'none';
-  document.getElementById('loadErrorScreen').style.display = 'none';
-  document.getElementById('loginCardMain').style.display = 'block';
-  loginScreen.style.display = 'flex';
+  routedUserId = null;
+  showLoginCard();
 });
 
 document.getElementById('cancelCreateAgency').addEventListener('click', async ()=>{
   await sb.auth.signOut();
-  createAgencyScreen.style.display = 'none';
-  document.getElementById('loginCardMain').style.display = 'block';
+  routedUserId = null;
+  showLoginCard();
 });
 
 document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
@@ -2252,10 +2376,15 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
       btn.disabled = false; btn.textContent = 'פתיחת המשרד שלי';
       return;
     }
-    createAgencyScreen.style.display = 'none';
-    await loadDashboard();
+    // מסך ההמתנה במקום כיבוי ידני של הכרטיס: כך אין רגע ריק בין סגירת מסך
+    // פתיחת המשרד לבין הופעת הדשבורד. showScreen() מכבה את הכרטיס בעצמו.
+    showBootCard('טוענים את איזור הסוכנים…');
+    await loadDashboard(session.user);
   } catch(err){
     console.error(err);
+    // חוזרים למסך פתיחת המשרד — אחרת ההודעה נכתבת לכרטיס שכבר לא מוצג
+    // והמסך נשאר תקוע על ההמתנה
+    showScreen('createAgency');
     feedback.style.color = 'var(--red)';
     feedback.textContent = 'שגיאת רשת — נסו שוב';
     btn.disabled = false; btn.textContent = 'פתיחת המשרד שלי';
@@ -2267,51 +2396,89 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
    פתיחת משרד; שאילתה שנכשלה → מסך שגיאה. בלי ההפרדה הזו, כל תקלה זמנית נראית
    לסוכן/ת ותיק/ה כאילו המערכת לא מזהה אותם ומבקשת מהם לפתוח משרד חדש. */
 function showCreateAgencyScreen(){
-  loginScreen.style.display = 'flex';
-  dashboard.style.display = 'none';
-  document.getElementById('loginCardMain').style.display = 'none';
-  document.getElementById('loadErrorScreen').style.display = 'none';
-  createAgencyScreen.style.display = 'block';
+  showScreen('createAgency');
 }
 
 function showAuthLoadError(detail){
-  loginScreen.style.display = 'flex';
-  dashboard.style.display = 'none';
-  document.getElementById('loginCardMain').style.display = 'none';
-  createAgencyScreen.style.display = 'none';
-  document.getElementById('loadErrorScreen').style.display = 'block';
+  // הניתוב לא הושלם, ולכן routedUserId מתאפס — כך "נסיון נוסף" (או אירוע
+  // התחברות חדש) באמת יריץ את הטעינה שוב ולא ייחשב כמי שכבר נטען
+  routedUserId = null;
   document.getElementById('loadErrorDetail').textContent = detail || '';
+  showScreen('loadError');
 }
 
 document.getElementById('retryLoadBtn').addEventListener('click', async ()=>{
   const btn = document.getElementById('retryLoadBtn');
   btn.disabled = true; btn.textContent = 'טוען…';
-  await routeAfterAuth();
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) showLoginCard('פג תוקף החיבור — יש להתחבר מחדש.');
+  else await routeAfterAuth(session, { force:true });
   btn.disabled = false; btn.textContent = 'נסיון נוסף';
 });
 
 document.getElementById('loadErrorLogoutBtn').addEventListener('click', async ()=>{
   await sb.auth.signOut();
-  document.getElementById('loadErrorScreen').style.display = 'none';
-  document.getElementById('loginCardMain').style.display = 'block';
+  routedUserId = null;
+  showLoginCard();
 });
 
-async function routeAfterAuth(){
-  const { data: { user } } = await sb.auth.getUser();
-  if (!user) return;
-  const { data: agent, error } = await sb.from('agency_members').select('id').eq('user_id', user.id).maybeSingle();
-  if (error){ showAuthLoadError('שגיאה: ' + error.message); return; }
-  if (agent){
-    await loadDashboard();
-  } else {
-    showCreateAgencyScreen();
-  }
+/* ---------- ניתוב אחרי התחברות ----------
+   נקודת כניסה אחת לכל המצבים: טעינת הדף, חזרה מ-Google, כניסה עם סיסמה
+   ו"נסיון נוסף". שני שומרים כאן, ושניהם נועדו למנוע את אותה תופעה — המסך
+   שנבנה מחדש מתחת לידיים:
+   ‏authRouting  — ניתוב שכבר רץ; קריאה נוספת מצטרפת אליו במקום להתחיל ניתוב
+                   מקביל. קודם לכן boot() וגם onAuthStateChange קראו לכאן על
+                   אותה כניסה עצמה, ושתי טעינות דשבורד רצו זו על זו.
+   ‏routedUserId — מי כבר מוצג/ת על המסך. ‏supabase-js משדר SIGNED_IN מחדש גם
+                   בחזרה ללשונית ובחידוש אסימון, ובלי הבדיקה הזו כל חזרה
+                   ללשונית טענה את כל הדשבורד מחדש באמצע העבודה. */
+let authRouting = null;
+let routedUserId = null;
+
+function routeAfterAuth(session, { force = false } = {}){
+  const userId = session?.user?.id;
+  if (!userId) return Promise.resolve();
+  if (authRouting) return authRouting;
+  if (!force && routedUserId === userId) return Promise.resolve();
+  authRouting = (async ()=>{
+    try { await routeAfterAuthOnce(session.user); }
+    catch(err){
+      // תקלה בבניית המסך היא לא "אינך מחובר/ת". בלי הגבול הזה כל חריגה בטעינת
+      // הדשבורד גלשה החוצה והחזירה את הסוכן/ת לטופס הסיסמה אחרי שההתחברות
+      // כבר הצליחה — בדיוק ההרגשה של "פתאום חוזרים למסך הכניסה".
+      console.error(err);
+      if (dashboard.style.display === 'block'){
+        // הדשבורד כבר על המסך: כשל בטעינת קטגוריה בודדת לא מוחק את מה שכבר נטען
+        showToast('חלק מהנתונים לא נטענו. נסו לרענן את הדף.');
+      } else {
+        showAuthLoadError('שגיאה בטעינת המסך: ' + (err?.message || err));
+      }
+    }
+    finally { authRouting = null; }
+  })();
+  return authRouting;
+}
+
+async function routeAfterAuthOnce(user){
+  clearTimeout(bootWatchdog);
+  cleanAuthParamsFromUrl();
+  routedUserId = user.id;
+  showBootCard('טוענים את איזור הסוכנים…');
+  // אין כאן שאילתת agency_members נפרדת: loadDashboard() ממילא שולף את השורה
+  // ומבדיל בעצמו בין שגיאה (מסך שגיאה) לבין אין-שורה (מסך פתיחת משרד).
+  // השאילתה הכפולה הוסיפה סיבוב רשת שלם לכל כניסה, לפני שמשהו הופיע על המסך.
+  await loadDashboard(user);
 }
 
 /* ---------- Dashboard ---------- */
-async function loadDashboard(){
-  const { data: { user } } = await sb.auth.getUser();
-  if (!user){ return; }
+async function loadDashboard(user){
+  // ה-user מגיע מה-session שכבר בידינו. קריאה ל-getUser() כאן הייתה סיבוב רשת
+  // נוסף לפני שמשהו מוצג על המסך — עוד שנייה של "מסך שלא ברור מה קורה בו".
+  if (!user){
+    const { data: { session } } = await sb.auth.getSession();
+    user = session?.user;
+  }
+  if (!user){ showLoginCard('פג תוקף החיבור — יש להתחבר מחדש.'); return; }
 
   // שם המשרד נטען בשאילתה נפרדת ולא ב-embed‏ (agencies(name)): מאז ש-property_shares
   // מחזיקה שני מפתחות זרים ל-agencies, PostgREST לא יודע לבחור נתיב יחיד בין
@@ -2324,8 +2491,9 @@ async function loadDashboard(){
 
   if (agentErr){ showAuthLoadError('שגיאה: ' + agentErr.message); return; }
   if (!agent){
-    // אין agency_members לחשבון הזה — הנתיב הרגיל דרך routeAfterAuth() כבר אמור למנוע
-    // הגעה לכאן, אבל אם בכל זאת קרה (למשל loadDashboard נקרא ישירות), מפנים לאותו מסך יצירה
+    // אין agency_members לחשבון הזה — למשל חשבון Google חדש שנכנס בפעם הראשונה.
+    // זה המקום היחיד שמחליט על כך, ולכן חשוב שהוא יבחין בין "אין שורה" (מסך
+    // פתיחת משרד) לבין agentErr למעלה (מסך שגיאה) ולא יערבב ביניהם.
     showCreateAgencyScreen();
     return;
   }
@@ -2337,9 +2505,7 @@ async function loadDashboard(){
   }
   currentAgent = agent;
 
-  loginScreen.style.display = 'none';
-  dashboard.style.display = 'block';
-  document.body.classList.add('dash-active');
+  showScreen('dashboard');
   // הגריד נבנה לפני הטעינות, כדי שהמונים שמגיעים מהן ימצאו תגית לכתוב אליה
   renderQuickActions();
 
@@ -8739,16 +8905,44 @@ document.addEventListener('keydown', (e)=>{
 /* ---------- חיווט ---------- */
 document.getElementById('quickEditToggle').addEventListener('click', ()=> setQuickEditing(!quickEditing));
 
-/* ---------- Boot: restore existing session if present (handles Google OAuth redirect too) ---------- */
-// onAuthStateChange כאן כי אחרי חזרה מ-Google OAuth redirect, ה-session מוכן רק
-// אחרי שה-client מעבד את ה-hash שבכתובת — לא בטוח שזה כבר קרה בזמן ש-boot() רץ.
+/* ---------- Boot: restore existing session if present (handles Google OAuth redirect too) ----------
+   אחרי החזרה מ-Google ה-session מוכן רק כשה-client סיים לקרוא את התשובה
+   מהכתובת, ולכן המאזין הוא הנתיב העיקרי ו-boot() הוא רשת הביטחון שלו.
+   ‏שני דגשים שבלעדיהם הכניסה מרגישה "קופצת":
+   1. אין await של supabase בתוך ה-callback עצמו. הוא רץ בתוך הנעילה הפנימית
+      של הלקוח, וקריאה כזו מתוכו עלולה לתקוע את הדף עד ל-timeout. לכן העבודה
+      נדחית ב-setTimeout(0) והמאזין עצמו מסתיים מיד.
+   2. ‏SIGNED_IN מגיע גם בחזרה ללשונית ובחידוש אסימון, לא רק בהתחברות. הסינון
+      בפועל נעשה ב-routeAfterAuth() מול routedUserId. */
 sb.auth.onAuthStateChange((event, session)=>{
-  if (event === 'SIGNED_IN' && session){ routeAfterAuth(); }
+  if (event === 'SIGNED_OUT'){
+    routedUserId = null;
+    setTimeout(()=> showLoginCard(), 0);
+    return;
+  }
+  if (event !== 'INITIAL_SESSION' && event !== 'SIGNED_IN') return;
+  setTimeout(()=>{
+    if (session) routeAfterAuth(session);
+    else if (event === 'INITIAL_SESSION') showLoginCard();
+  }, 0);
 });
 
 (async function boot(){
-  const { data: { session } } = await sb.auth.getSession();
-  if (session){ await routeAfterAuth(); }
+  // ‏INITIAL_SESSION אמור לכסות את המקרה הזה, אבל אם הוא לא הגיע (גרסת
+  // supabase-js ישנה יותר, או כשל באתחול) חשוב לא להשאיר את המסך על ההמתנה.
+  let session = null;
+  // ה-try עוטף רק את בדיקת ה-session, לא את הניתוב שאחריה: כשל בבדיקה באמת
+  // אומר "לא ידוע אם יש חיבור" ומצדיק מסך כניסה, אבל כשל בטעינת הדשבורד הוא
+  // סיפור אחר לגמרי — routeAfterAuth() כבר מטפל בו ומציג את מסך השגיאה.
+  try{
+    ({ data: { session } } = await sb.auth.getSession());
+  } catch(err){
+    console.error(err);
+    showLoginCard('לא הצלחנו לבדוק את מצב ההתחברות. נסו לרענן את הדף.');
+    return;
+  }
+  if (session) await routeAfterAuth(session);
+  else showLoginCard();
 })();
 </script>
 </body>
