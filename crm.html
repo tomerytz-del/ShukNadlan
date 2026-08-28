@@ -24,7 +24,9 @@
      בטופס המידע התכנוני (ולכל שאר ה-field-row-ים) לגלוש מחוץ למסך בטלפון. */
   input{font-family:inherit;font-size:1rem;min-width:0}
   .wrap{max-width:760px;margin:0 auto;padding:0 18px}
-  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;border-radius:999px;font-weight:700;font-size:.9rem;white-space:nowrap}
+  /* ‏text-decoration:none — חלק מהפעולות בכרטיסים הן <a> (חיוג, וואטסאפ,
+     עמוד הנכס), והקו התחתון של הקישור הפך אותן לזרות לשאר הכפתורים */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;border-radius:999px;font-weight:700;font-size:.9rem;white-space:nowrap;text-decoration:none;color:inherit}
   .btn-gold{background:var(--gold);color:#241505}
   .btn-gold:disabled{opacity:.5;cursor:not-allowed}
   .btn-ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
@@ -101,7 +103,8 @@
   .lead-card{padding:16px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px}
   .lead-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
   .lead-name{font-weight:700;font-size:.95rem}
-  .lead-phone{font-size:.85rem;color:var(--ink-soft);direction:ltr;text-align:right}
+  /* ‏nowrap: מספר טלפון שנשבר באמצע לשתי שורות נקרא כמו שני מספרים */
+  .lead-phone{font-size:.85rem;color:var(--ink-soft);direction:ltr;text-align:right;white-space:nowrap}
   .lead-meta{font-size:.78rem;color:var(--ink-soft)}
   .status-pill{font-size:.68rem;font-weight:800;padding:2px 9px;border-radius:5px}
   .status-masked{background:var(--gold-tint);color:var(--gold-dark)}
@@ -200,10 +203,6 @@
   .imp-chip.bad{background:var(--gold-tint);color:var(--gold-dark);border-color:var(--gold-tint)}
   .imp-bar{height:10px;border-radius:999px;background:var(--paper-raised);overflow:hidden;margin:14px 0}
   .imp-bar i{display:block;height:100%;background:var(--teal);width:0;transition:width .25s}
-  /* flex-wrap כדי שברוחב טלפון הכפתורים יעברו לשורה נוספת במקום להתכווץ —
-     בלי wrap הטקסט שלהם עצמו נשבר לשתי שורות בתוך כפתור מכווץ, ובגלל
-     ה-border-radius:999px זה נראה כמו עיגול, וגם דוחף את העמוד לרוחב. */
-  .lead-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
   .empty-state{padding:32px;text-align:center;color:var(--ink-soft);font-size:.88rem}
   .toast{position:fixed;bottom:20px;right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:var(--radius-sm);font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;z-index:200}
 
@@ -219,6 +218,48 @@
   .img-thumb .x{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:rgba(27,31,38,.72);color:#fff;font-size:.75rem;line-height:20px;text-align:center;padding:0}
   .img-thumb .star{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:rgba(27,31,38,.72);color:#fff;font-size:.65rem;line-height:20px;text-align:center;padding:0}
   .prop-thumb-mini{width:52px;height:52px;border-radius:var(--radius-sm);object-fit:cover;flex-shrink:0;border:1px solid var(--line)}
+
+  /* ---------- שפת הכרטיסים: תגיות ורשת פעולות ----------
+     בכל רשימות הדשבורד (נכסים, לידים, מדף הלידים, צוות, לקוחות, התאמות)
+     הנתונים היו שורות טקסט ארוכות מופרדות בנקודות, והפעולות היו רצף
+     כפתורים שנשבר לשורות באורכים שונים — "מדרגות" שקשה לסרוק בעין.
+     עכשיו כל הרשימות מדברות אותה שפה: כל נתון הוא תגית קצרה משלו, וכל
+     הפעולות יושבות ברשת עמודות שוות. */
+  .prop-price{font-weight:800;font-size:.92rem;color:var(--teal-dark);margin-top:2px}
+  .prop-price .per{font-weight:600;font-size:.78rem;color:var(--ink-soft)}
+  .card-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+  .card-tag{display:inline-flex;align-items:center;gap:4px;font-size:.71rem;font-weight:600;line-height:1.7;
+    color:var(--ink-soft);background:#fff;border:1px solid var(--line);border-radius:999px;padding:1px 9px;white-space:nowrap}
+  .card-tag b{font-weight:800;color:var(--ink)}
+  /* ‏tag-key = המזהה שמוסרים בטלפון (מספר מודעה) או הפרט שמגדיר את הכרטיס.
+     צבע מלא, תמיד ראשון — ולא עוד פרט אפור באמצע השורה. */
+  .card-tag.tag-key{background:var(--teal);border-color:var(--teal);color:#EDF2F8;font-weight:800;letter-spacing:.02em}
+  .card-tag.tag-warn{background:var(--gold-tint);border-color:#E1C7CB;color:var(--brick);font-weight:700}
+  .card-tag.tag-info{background:var(--teal-tint);border-color:var(--teal-tint);color:var(--teal)}
+  .card-tag.tag-good{background:#DFEDE3;border-color:#C9E0D0;color:#2A5B36;font-weight:700}
+  /* נכס שאינו פעיל מקבל תגית אפורה — צבע שמור למה שחי באתר עכשיו */
+  .status-pill.status-off{background:#E4E1D2;color:#6B6450}
+
+  /* רשת פעולות: auto-fit נותן שתי עמודות בטלפון וארבע בדסקטופ, בלי media
+     query — הכפתורים תמיד מתיישרים לרשת במקום להיערם בקצוות שונים.
+     ‏act-wide שמור לפעולה הראשית (סימון עסקה / שת"פ / רכישה), ברוחב מלא. */
+  .lead-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:8px;
+    margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+  .lead-actions:empty{display:none}
+  .lead-actions .btn{width:100%;padding:10px 12px;font-size:.81rem;gap:6px;min-width:0}
+  .lead-actions .btn-ghost{background:#fff}
+  /* שת"פ בירוק — אותה שפת צבע של תגית השת"פ בכרטיס, כך שהזהב נשאר שמור
+     לפעולה היחידה שסוגרת את המודעה (סימון כנמכר/הושכר) */
+  .lead-actions .btn-share{background:#2A5B36;color:#EAF4EC}
+  .lead-actions .btn-share:disabled{opacity:.5;cursor:not-allowed}
+  .lead-actions .act-wide{grid-column:1/-1}
+  .is-promoted .lead-actions .btn-ghost{background:rgba(255,255,255,.75)}
+  /* כרטיס ההתאמה יושב בתוך כרטיס הלקוח/ה — שם קו מפריד נוסף הוא רעש,
+     והעמודות צרות יותר כדי שגם ברוחב המקונן ייכנסו שתיים בשורה */
+  .match-card .lead-actions{margin-top:9px;padding-top:0;border-top:none;
+    grid-template-columns:repeat(auto-fit,minmax(112px,1fr))}
+  .match-card .lead-actions .btn{padding:8px 10px;font-size:.78rem}
+  .match-card .card-tags{margin-top:5px}
 
   /* ---------- שת"פ בין משרדי תיווך ----------
      ירוק, כדי שלא יתחרה בזהב (ליד של בעל נכס) ובכחול (ליד של קונה) — נכס
@@ -2962,25 +3003,26 @@ async function loadPendingReviews(agencyId){
       <div class="lead-top">
         <div>
           <div class="lead-name">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div>
-          <div class="lead-meta">${r.reviewer_display_name || 'לקוח מאומת'}</div>
         </div>
       </div>
-      ${r.text ? `<div class="lead-meta" style="margin-top:4px">${r.text}</div>` : ''}
+      ${tagsHtml([
+        { text:'👤 ' + (r.reviewer_display_name || 'לקוח מאומת'), cls:'tag-key' },
+        { text:`⭐ ${r.rating}/5`, cls: r.rating >= 4 ? 'tag-good' : 'tag-warn' },
+        { text:'📅 ' + hebDate(r.created_at) },
+      ])}
+      ${r.text ? `<div class="lead-meta" style="margin-top:6px">${esc(r.text)}</div>` : ''}
       <div class="lead-actions"></div>
     `;
     const actions = card.querySelector('.lead-actions');
 
-    const approveBtn = document.createElement('button');
-    approveBtn.className = 'btn btn-gold';
-    approveBtn.textContent = 'אישור ופרסום';
-    approveBtn.addEventListener('click', ()=> moderateReview(r.id, 'published', agencyId));
-    actions.appendChild(approveBtn);
-
-    const rejectBtn = document.createElement('button');
-    rejectBtn.className = 'btn btn-ghost';
-    rejectBtn.textContent = 'דחייה';
-    rejectBtn.addEventListener('click', ()=> moderateReview(r.id, 'rejected', agencyId));
-    actions.appendChild(rejectBtn);
+    addCardAction(actions, {
+      label:'✅ אישור ופרסום', cls:'btn-gold',
+      onClick:()=> moderateReview(r.id, 'published', agencyId),
+    });
+    addCardAction(actions, {
+      label:'✖ דחייה',
+      onClick:()=> moderateReview(r.id, 'rejected', agencyId),
+    });
 
     el.appendChild(card);
   });
@@ -3660,30 +3702,33 @@ async function loadTeam(agencyId, callerId){
     el2.innerHTML = `
       <div class="lead-top">
         <div>
-          <div class="lead-name">${m.display_name}${m.id === callerId ? ' (את/ה)' : ''}</div>
-          <div class="lead-meta">${roleLabels[m.role]} · מסלול ${tierLabels[m.tier]} · רישיון ${m.license_number}</div>
+          <div class="lead-name">${esc(m.display_name)}${m.id === callerId ? ' (את/ה)' : ''}</div>
         </div>
         <span class="status-pill status-${m.active ? 'unlocked' : 'masked'}">${m.active ? 'פעיל' : 'לא פעיל'}</span>
       </div>
+      ${tagsHtml([
+        { text:roleLabels[m.role], cls: m.role === 'manager' ? 'tag-key' : '' },
+        { text:'מסלול ' + tierLabels[m.tier], cls: m.tier === 'free' ? '' : 'tag-info' },
+        { text:'🪪 רישיון ' + m.license_number },
+      ])}
       <div class="lead-actions"></div>
     `;
     if (m.id !== callerId){
       // עריכת תפקיד/סטטוס זמינה רק לחברי צוות אחרים — לא לעצמך (הטריגר ב-DB חוסם
       // עריכה-עצמית של role/active בכל מקרה, כדי שאף אחד לא "יקדם את עצמו" בעצמו)
       const actions = el2.querySelector('.lead-actions');
-
-      const roleBtn = document.createElement('button');
-      roleBtn.className = 'btn btn-ghost';
       const newRole = m.role === 'manager' ? 'agent' : 'manager';
-      roleBtn.textContent = m.role === 'manager' ? 'הורדה לסוכן/ת' : 'קידום למנהל/ת';
-      roleBtn.addEventListener('click', ()=> updateMemberField(m.id, { role: newRole }, agencyId, callerId));
-      actions.appendChild(roleBtn);
 
-      const statusBtn = document.createElement('button');
-      statusBtn.className = m.active ? 'btn btn-ghost' : 'btn btn-gold';
-      statusBtn.textContent = m.active ? 'השעיה' : 'הפעלה מחדש';
-      statusBtn.addEventListener('click', ()=> updateMemberField(m.id, { active: !m.active }, agencyId, callerId));
-      actions.appendChild(statusBtn);
+      addCardAction(actions, {
+        label: m.role === 'manager' ? '↓ הורדה לסוכן/ת' : '↑ קידום למנהל/ת',
+        onClick: ()=> updateMemberField(m.id, { role: newRole }, agencyId, callerId),
+      });
+
+      addCardAction(actions, {
+        label: m.active ? '⏸ השעיה' : '▶ הפעלה מחדש',
+        cls: m.active ? 'btn-ghost' : 'btn-gold',
+        onClick: ()=> updateMemberField(m.id, { active: !m.active }, agencyId, callerId),
+      });
     }
     el.appendChild(el2);
   });
@@ -4404,7 +4449,7 @@ function renderPropertyCards(listEl, props, agentId){
 
   listEl.innerHTML = '';
   props.forEach(p=>{
-    const priceLabel = p.deal_type === 'rent' ? ('₪' + Number(p.price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(p.price).toLocaleString('he-IL'));
+    const priceHtml = shekel(p.price) + (p.deal_type === 'rent' ? ' <span class="per">לחודש</span>' : '');
     // ‏promoted_until ריק = קידום ידני/היסטורי בלי מועד סיום, נחשב פעיל
     const isCurrentlyPromoted = propertyIsPromoted(p);
     // תוקף המודעה הוא תזכורת לסוכן/ת בלבד — הוא לא מוריד את הנכס מהאתר
@@ -4419,110 +4464,113 @@ function renderPropertyCards(listEl, props, agentId){
     const thumbHtml = (p.images && p.images.length)
       ? `<img class="prop-thumb-mini" src="${p.images[0]}" alt="">`
       : '';
+    // כל פרט הוא תגית קצרה משלו: קודם המזהה שהסוכן/ת מוסר/ת בטלפון, אחר כך
+    // מאפייני הנכס, ובסוף התגיות שדורשות פעולה (פג תוקף / ללא תמונות) בגוון
+    // אזהרה — כדי שהעין תתפוס אותן בסריקה מהירה של הרשימה.
+    const tags = tagsHtml([
+      { text:`מודעה #${p.listing_number ?? '—'}`, cls:'tag-key' },
+      p.rooms && { html:`🛏 <b>${esc(p.rooms)}</b> חדרים` },
+      p.property_type && { text:'🏠 ' + p.property_type },
+      { html:`👁 <b>${viewCounts[p.id]||0}</b> צפיות` },
+      p.price_per_sqm && { text:`📐 ${shekel(p.price_per_sqm)} למ״ר` },
+      planning && { text:`📍 גוש ${planning.gush||'—'} · חלקה ${planning.helka||'—'}`, cls:'tag-info' },
+      expired ? { text:`⏳ פג תוקף ${hebDate(p.listing_expires_at)}`, cls:'tag-warn' }
+              : p.listing_expires_at && { text:`⏳ בתוקף עד ${hebDate(p.listing_expires_at)}` },
+      (!p.images || !p.images.length) && { text:'📷 ללא תמונות', cls:'tag-warn' },
+    ]);
+
     el.innerHTML = `
       <div class="lead-top">
-        <div style="display:flex;gap:10px;align-items:flex-start">
+        <div style="display:flex;gap:10px;align-items:flex-start;min-width:0">
           ${thumbHtml}
-          <div>
+          <div style="min-width:0">
             ${isCurrentlyPromoted && p.promoted_until ? `<span class="lead-kind">🌟 מקודם · ${esc(timeLeftLabel(p.promoted_until))}</span>` : (isCurrentlyPromoted ? '<span class="lead-kind">🌟 מקודם</span>' : '')}
-            <div class="lead-name">${p.title}</div>
-            <div class="lead-meta">${priceLabel} · ${p.rooms || '—'} חדרים · ${p.property_type} · ${viewCounts[p.id]||0} צפיות${(!p.images || !p.images.length) ? ' · <span style="color:var(--brick)">ללא תמונות</span>' : ''}${planning ? ' · 📍 גוש ' + (planning.gush||'—') + ' חלקה ' + (planning.helka||'—') : ''}</div>
-            <div class="lead-meta">מודעה #${p.listing_number ?? '—'}${p.price_per_sqm ? ' · ₪' + Number(p.price_per_sqm).toLocaleString('he-IL') + ' למ״ר' : ''}${expired ? ' · <span style="color:var(--brick)">פג תוקף ' + hebDate(p.listing_expires_at) + '</span>' : (p.listing_expires_at ? ' · בתוקף עד ' + hebDate(p.listing_expires_at) : '')}</div>
-            ${ownerLine ? `<div class="lead-meta">בעלים: ${esc(ownerLine)}</div>` : ''}
-            ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
+            <div class="lead-name">${esc(p.title)}</div>
+            <div class="prop-price">${priceHtml}</div>
           </div>
         </div>
         <div class="pill-row">
-          <span class="status-pill status-unlocked">${statusLabels[p.status] || p.status}</span>
+          <span class="status-pill ${p.status === 'active' ? 'status-unlocked' : 'status-off'}">${statusLabels[p.status] || p.status}</span>
           ${p.shared_with_partners
-            ? `<span class="status-pill status-shared" title="הופץ ${hebDate(p.shared_at)}">🤝 שת״פ · ${propertyShareCounts[p.id] || 0} משרדים</span>`
+            ? `<span class="status-pill status-shared" title="בשת״פ · הופץ ${hebDate(p.shared_at)}">🤝 ${propertyShareCounts[p.id] || 0} משרדים</span>`
             : ''}
         </div>
       </div>
+      ${tags}
+      ${ownerLine ? `<div class="lead-meta">בעלים: ${esc(ownerLine)}</div>` : ''}
+      ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
       <div class="lead-actions"></div>
     `;
     const actions = el.querySelector('.lead-actions');
 
-    const editBtn = document.createElement('button');
-    editBtn.className = 'btn btn-ghost';
-    editBtn.textContent = 'עריכה';
-    editBtn.addEventListener('click', ()=> openEditProperty(p));
-    actions.appendChild(editBtn);
+    // סדר הפעולות: קודם כלי העבודה היומיומיים ברשת עמודות שוות, ורק בסוף
+    // הפעולות שמשנות את מצב הנכס (שת"פ / סגירת עסקה) ברוחב מלא.
+    addCardAction(actions, { label:'✏️ עריכה', onClick:()=> openEditProperty(p) });
 
     if (planning){
-      const planBtn = document.createElement('button');
-      planBtn.className = 'btn btn-ghost';
-      planBtn.textContent = 'מידע תכנוני שמור';
-      planBtn.addEventListener('click', ()=>{
-        document.getElementById('planResultPanel').scrollIntoView({ behavior:'smooth', block:'start' });
-        renderPlanningResult(planning);
+      addCardAction(actions, {
+        label:'🗺️ מידע תכנוני', title:'המידע התכנוני השמור של הנכס',
+        onClick:()=>{
+          document.getElementById('planResultPanel').scrollIntoView({ behavior:'smooth', block:'start' });
+          renderPlanningResult(planning);
+        },
       });
-      actions.appendChild(planBtn);
     }
 
     // הכפתור מוצג רק ל-mid/premium; ה-gating עצמו נאכף ב-cma_report ב-DB
     if (currentAgent && (currentAgent.tier === 'mid' || currentAgent.tier === 'premium')){
-      const cmaBtn = document.createElement('button');
-      cmaBtn.className = 'btn btn-ghost';
-      cmaBtn.textContent = '📊 דוח CMA';
-      cmaBtn.addEventListener('click', ()=> openCmaReport(p.id, cmaBtn));
-      actions.appendChild(cmaBtn);
+      addCardAction(actions, { label:'📊 דוח CMA', onClick:btn => openCmaReport(p.id, btn) });
     }
 
     if (p.status === 'active'){
-      const dealLabel = p.deal_type === 'rent' ? 'סמן כהושכר' : 'סמן כנמכר';
-      const dealStatus = p.deal_type === 'rent' ? 'rented' : 'sold';
-      const soldBtn = document.createElement('button');
-      soldBtn.className = 'btn btn-gold';
-      soldBtn.textContent = dealLabel;
-      soldBtn.addEventListener('click', ()=> markPropertyStatus(p.id, dealStatus, agentId));
-      actions.appendChild(soldBtn);
-
       // מדבקה להדבקה על השלט בשטח — עמוד הנכס באתר מוצג רק לנכס פעיל,
       // ולכן גם הכפתור נמצא כאן ולא לצד "עריכה"
-      const qrBtn = document.createElement('button');
-      qrBtn.className = 'btn btn-ghost';
-      qrBtn.textContent = '🏷️ הפק מדבקת QR להדבקה על השלט';
-      qrBtn.addEventListener('click', ()=> openQrSticker(p, qrBtn));
-      actions.appendChild(qrBtn);
+      addCardAction(actions, {
+        label:'🏷️ מדבקת QR', title:'הפקת מדבקת QR להדבקה על השלט',
+        onClick:btn => openQrSticker(p, btn),
+      });
 
-      const bumpBtn = document.createElement('button');
-      bumpBtn.className = 'btn btn-ghost';
-      bumpBtn.textContent = 'הקפצה חינם';
-      bumpBtn.addEventListener('click', ()=> bumpProperty(p.id, bumpBtn, agentId));
-      actions.appendChild(bumpBtn);
+      addCardAction(actions, {
+        label:'⬆️ הקפצה חינם', title:'העלאת הנכס לראש התוצאות · פעם ב-24 שעות',
+        onClick:btn => bumpProperty(p.id, btn, agentId),
+      });
 
       if (!isCurrentlyPromoted){
-        const promoteBtn = document.createElement('button');
-        promoteBtn.className = 'btn btn-ghost';
-        promoteBtn.textContent = `קידום — ${shekel(priceOf('promote_price', 20))} ל-${priceOf('promote_duration_hours', 72)} שעות`;
-        promoteBtn.addEventListener('click', ()=> promoteProperty(p, promoteBtn, agentId));
-        actions.appendChild(promoteBtn);
+        const price = shekel(priceOf('promote_price', 20));
+        const hours = priceOf('promote_duration_hours', 72);
+        addCardAction(actions, {
+          label:`📣 קידום · ${price}`,
+          title:`קידום בתשלום — ${price} ל-${hours} שעות בסלוטים המקודמים`,
+          onClick:btn => promoteProperty(p, btn, agentId),
+        });
       }
-
-      // סימון הנכס כפתוח לשת"פ — ההפצה יוצאת מיד למשרדים שברשימת השת"פ
-      const shareBtn = document.createElement('button');
-      shareBtn.className = p.shared_with_partners ? 'btn btn-ghost' : 'btn btn-gold';
-      shareBtn.textContent = p.shared_with_partners ? '🤝 עדכון הפצה' : '🤝 פתיחה לשת״פ';
-      shareBtn.addEventListener('click', ()=> shareProperty(p, shareBtn, agentId));
-      actions.appendChild(shareBtn);
 
       if (p.shared_with_partners){
-        const unshareBtn = document.createElement('button');
-        unshareBtn.className = 'btn btn-ghost';
-        unshareBtn.textContent = 'ביטול שת״פ';
-        unshareBtn.addEventListener('click', ()=> unshareProperty(p, unshareBtn, agentId));
-        actions.appendChild(unshareBtn);
+        addCardAction(actions, { label:'✖ ביטול שת״פ', onClick:btn => unshareProperty(p, btn, agentId) });
       }
+
+      // סימון הנכס כפתוח לשת"פ — ההפצה יוצאת מיד למשרדים שברשימת השת"פ.
+      // ירוק ולא זהוב: זו שפת הצבע של השת"פ בכל הכרטיס, והיא משאירה את
+      // הזהב לפעולה היחידה שסוגרת את המודעה.
+      addCardAction(actions, {
+        label: p.shared_with_partners ? '🤝 עדכון הפצה' : '🤝 פתיחה לשת״פ',
+        cls: (p.shared_with_partners ? 'btn-ghost' : 'btn-share') + ' act-wide',
+        onClick: btn => shareProperty(p, btn, agentId),
+      });
+
+      const isRent = p.deal_type === 'rent';
+      addCardAction(actions, {
+        label: isRent ? '✅ סמן כהושכר' : '✅ סמן כנמכר', cls:'btn-gold act-wide',
+        onClick:()=> markPropertyStatus(p.id, isRent ? 'rented' : 'sold', agentId),
+      });
     } else {
       // נכס שסומן כהושכר/נמכר/הוסר לא נעלם — עסקה שהתבטלה או שוכר שעזב מחזירים
       // אותו לפרסום מאותו כרטיס, בלי לפתוח מודעה חדשה ולאבד את מספר המודעה,
       // הצפיות והמידע התכנוני שכבר נצברו עליו.
-      const republishBtn = document.createElement('button');
-      republishBtn.className = 'btn btn-gold';
-      republishBtn.textContent = '↩ החזרה לפרסום';
-      republishBtn.addEventListener('click', ()=> republishProperty(p, republishBtn, agentId));
-      actions.appendChild(republishBtn);
+      addCardAction(actions, {
+        label:'↩ החזרה לפרסום', cls:'btn-gold act-wide',
+        onClick:btn => republishProperty(p, btn, agentId),
+      });
     }
     listEl.appendChild(el);
   });
@@ -6448,29 +6496,34 @@ async function loadLeads(agentId){
         <div>
           <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
           <div class="lead-name">${esc(lead.display_name || '—')}</div>
-          <div class="lead-meta">${[dealLabel, lead.city, lead.property_type].filter(Boolean).map(esc).join(' · ')}</div>
+          <div class="lead-phone">${esc(lead.display_phone || '—')}</div>
         </div>
         <span class="status-pill status-${lead.status === 'unlocked' ? 'unlocked' : 'masked'}">${statusLabel}</span>
       </div>
-      <div class="lead-phone">${esc(lead.display_phone || '—')}</div>
+      ${tagsHtml([
+        dealLabel && { text:dealLabel, cls:'tag-key' },
+        lead.city && { text:'📍 ' + lead.city },
+        lead.property_type && { text:'🏠 ' + lead.property_type },
+        { text:'📅 ' + hebDate(lead.created_at) },
+      ])}
       ${lead.property_details ? `<div class="lead-meta">🏠 ${esc(lead.property_details)}</div>` : ''}
       ${lead.display_message ? `<div class="lead-meta">📍 ${esc(lead.display_message)}</div>` : ''}
       <div class="lead-actions"></div>
     `;
     const actions = el.querySelector('.lead-actions');
     if (lead.status !== 'unlocked'){
-      const claimBtn = document.createElement('button');
-      claimBtn.className = 'btn btn-gold';
       const cost = claimCost(lead);
-      claimBtn.textContent = cost.price > 0 ? `פתיחת ליד — ${shekel(cost.price)}` : 'פתיחת ליד';
-      claimBtn.addEventListener('click', ()=> claimLead(lead, claimBtn, agentId));
-      actions.appendChild(claimBtn);
+      addCardAction(actions, {
+        label: cost.price > 0 ? `🔓 פתיחת ליד · ${shekel(cost.price)}` : '🔓 פתיחת ליד',
+        cls:'btn-gold act-wide',
+        title: cost.note || cost.blocked || undefined,
+        onClick: btn => claimLead(lead, btn, agentId),
+      });
     } else {
-      const reviewBtn = document.createElement('button');
-      reviewBtn.className = 'btn btn-ghost';
-      reviewBtn.textContent = '📋 קישור לבקשת חוות דעת';
-      reviewBtn.addEventListener('click', ()=> copyReviewLink(lead.id, reviewBtn));
-      actions.appendChild(reviewBtn);
+      addCardAction(actions, {
+        label:'📋 קישור לחוות דעת', title:'העתקת קישור לבקשת חוות דעת מהלקוח/ה',
+        onClick: btn => copyReviewLink(lead.id, btn),
+      });
     }
     listEl.appendChild(el);
   });
@@ -6575,6 +6628,37 @@ function esc(s){
     { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]
   ));
 }
+/* שורת התגיות של כל כרטיס בדשבורד. פריט הוא מחרוזת (תוברח כאן), או
+   ‏{text, cls} כשצריך גוון — tag-key למזהה, tag-info להדגשה, tag-warn למה
+   שדורש טיפול, tag-good לחיובי — או {html} כשהתגית כבר בנויה כ-HTML.
+   ‏null/undefined נופלים החוצה, כדי שהקורא יוכל לכתוב תנאים בתוך המערך. */
+function tagsHtml(items){
+  const inner = (items || []).filter(Boolean).map(item => {
+    const t = typeof item === 'string' ? { text:item } : item;
+    const body = t.html ?? esc(t.text);
+    // תגית ריקה (ערך חסר בשורה) היא בועה לבנה בלי תוכן — עדיף בלעדיה
+    return body ? `<span class="card-tag ${t.cls || ''}">${body}</span>` : '';
+  }).join('');
+  return inner ? `<div class="card-tags">${inner}</div>` : '';
+}
+
+/* כפתור פעולה בכרטיס. ‏cls בוחר את הגוון (btn-ghost ברירת מחדל, btn-gold
+   לפעולה ראשית, btn-share לשת"פ), ‏act-wide מותח לרוחב מלא ברשת, ו-href
+   הופך את הפעולה ל-<a> (חיוג / וואטסאפ / עמוד הנכס) בלי לשנות את המראה. */
+function addCardAction(actions, opts){
+  const el = document.createElement(opts.href ? 'a' : 'button');
+  el.className = 'btn ' + (opts.cls || 'btn-ghost');
+  el.textContent = opts.label;
+  if (opts.title) el.title = opts.title;
+  if (opts.href){
+    el.href = opts.href;
+    if (opts.blank){ el.target = '_blank'; el.rel = 'noopener noreferrer'; }
+  }
+  if (opts.onClick) el.addEventListener('click', ()=> opts.onClick(el));
+  actions.appendChild(el);
+  return el;
+}
+
 const shekel = n => (n === null || n === undefined) ? '—' : '₪' + Number(n).toLocaleString('he-IL');
 const hebDate = d => d ? new Date(d).toLocaleDateString('he-IL') : '—';
 
@@ -6682,34 +6766,38 @@ function renderLeadShelf(){
         <div>
           <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
           <div class="lead-name">${esc(lead.teaser_title || lead.lead_side || 'ליד')}</div>
-          <div class="lead-meta">${shelfMetaLine(lead)}</div>
         </div>
         <span class="status-pill status-masked">${shekel(rssLeadPrice)}</span>
       </div>
+      ${tagsHtml([
+        // ציון האיכות הוא השיקול הראשון ברכישה — ולכן הוא התגית הפותחת
+        { text:`⭐ איכות ${lead.lead_quality_score ?? '—'}/10`,
+          cls: lead.lead_quality_score >= 8 ? 'tag-good' : 'tag-key' },
+        lead.urgency_level && { text:'⚡ דחיפות ' + lead.urgency_level, cls:'tag-info' },
+        ...shelfMetaParts(lead),
+        { text:'📅 נוסף ' + hebDate(lead.created_at) },
+      ])}
       ${lead.teaser_description ? `<div class="lead-meta">${esc(lead.teaser_description)}</div>` : ''}
-      <div class="lead-meta">איכות ${lead.lead_quality_score ?? '—'}/10${lead.urgency_level ? ' · דחיפות ' + esc(lead.urgency_level) : ''} · נוסף ${hebDate(lead.created_at)}</div>
       <div class="lead-actions"></div>
     `;
-    const buyBtn = document.createElement('button');
-    buyBtn.className = 'btn btn-gold';
-    buyBtn.textContent = `רכישה — ${shekel(rssLeadPrice)}`;
-    buyBtn.addEventListener('click', ()=> buyRssLead(lead, buyBtn));
-    el.querySelector('.lead-actions').appendChild(buyBtn);
+    addCardAction(el.querySelector('.lead-actions'), {
+      label:`🛒 רכישה · ${shekel(rssLeadPrice)}`, cls:'btn-gold act-wide',
+      onClick: btn => buyRssLead(lead, btn),
+    });
     listEl.appendChild(el);
   });
 }
 
-// ‏Parts הוא טקסט גולמי (לדיאלוג, שמבריח בעצמו), Line הוא HTML מוברח לכרטיס
+// טקסט גולמי — הדיאלוג מבריח בעצמו, ובכרטיס tagsHtml מבריח כל תגית
 function shelfMetaParts(lead){
   return [
-    lead.city, lead.neighborhood, lead.property_type,
-    lead.rooms ? lead.rooms + ' חדרים' : null,
-    lead.floor != null ? 'קומה ' + lead.floor : null,
-    lead.price_budget ? shekel(lead.price_budget) : null,
+    lead.city && '📍 ' + lead.city,
+    lead.neighborhood,
+    lead.property_type && '🏠 ' + lead.property_type,
+    lead.rooms ? '🛏 ' + lead.rooms + ' חדרים' : null,
+    lead.floor != null ? '🏢 קומה ' + lead.floor : null,
+    lead.price_budget ? '💰 ' + shekel(lead.price_budget) : null,
   ].filter(Boolean);
-}
-function shelfMetaLine(lead){
-  return shelfMetaParts(lead).map(esc).join(' · ') || '—';
 }
 
 async function loadPurchasedLeads(agentId){
@@ -6739,15 +6827,17 @@ async function loadPurchasedLeads(agentId){
         <div>
           <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
           <div class="lead-name">${esc(lead.teaser_title || lead.raw_title || lead.lead_side || 'ליד')}</div>
-          <div class="lead-meta">${shelfMetaLine(lead)}</div>
         </div>
         <span class="status-pill status-unlocked">נרכש ${hebDate(lead.sold_at)}</span>
       </div>
+      ${tagsHtml([
+        ...shelfMetaParts(lead),
+        lead.source_name && { text:'🔗 ' + lead.source_name, cls:'tag-info' },
+      ])}
       ${lead.raw_content ? `<div class="lead-meta" style="white-space:pre-wrap">${esc(lead.raw_content.slice(0, 600))}${lead.raw_content.length > 600 ? '…' : ''}</div>` : ''}
       <div class="lead-actions">
-        <a class="btn btn-gold" href="${esc(lead.source_url)}" target="_blank" rel="noopener noreferrer">פתיחת הפוסט המקורי</a>
+        <a class="btn btn-gold act-wide" href="${esc(lead.source_url)}" target="_blank" rel="noopener noreferrer">🔗 פתיחת הפוסט המקורי</a>
       </div>
-      ${lead.source_name ? `<div class="lead-meta">מקור: ${esc(lead.source_name)}</div>` : ''}
     `;
     listEl.appendChild(el);
   });
@@ -6865,8 +6955,7 @@ async function loadMortgageLeadProperties(leads){
   (data||[]).forEach(p => { mortgagePropertyTitles[p.id] = p; });
 }
 
-/* ‏Text הוא טקסט גולמי (לדיאלוג, שמבריח בעצמו), Line הוא HTML מוברח לכרטיס —
-   אותה הפרדה כמו shelfMetaParts/shelfMetaLine במדף ה-RSS. */
+/* ‏Text הוא טקסט גולמי (לדיאלוג, שמבריח בעצמו), Line הוא HTML מוברח לכרטיס */
 function mortgageSourceText(lead){
   const prop = lead.property_id ? mortgagePropertyTitles[lead.property_id] : null;
   if (prop) return `מנכס: ${prop.title || 'מודעה'}${prop.city ? ' · ' + prop.city : ''}`;
@@ -6922,19 +7011,21 @@ function renderMortgageShelf(){
         <div>
           <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
           <div class="lead-name">החזר חודשי מבוקש ${shekel(lead.monthly_payment)}</div>
-          <div class="lead-meta">${mortgageMetaParts(lead).map(esc).join(' · ') || '—'}</div>
         </div>
         <span class="status-pill status-masked">${shekel(mortgageLeadPrice)}</span>
       </div>
+      ${tagsHtml([
+        ...mortgageMetaParts(lead),
+        { text: lead.has_email ? '📇 שם, טלפון ואימייל' : '📇 שם וטלפון', cls:'tag-info' },
+        { text:'📅 נוסף ' + hebDate(lead.created_at) },
+      ])}
       <div class="lead-meta">${mortgageSourceLine(lead)}</div>
-      <div class="lead-meta">${lead.has_email ? 'שם, טלפון ואימייל' : 'שם וטלפון'} · נוסף ${hebDate(lead.created_at)}</div>
       <div class="lead-actions"></div>
     `;
-    const buyBtn = document.createElement('button');
-    buyBtn.className = 'btn btn-gold';
-    buyBtn.textContent = `רכישה — ${shekel(mortgageLeadPrice)}`;
-    buyBtn.addEventListener('click', ()=> buyMortgageLead(lead, buyBtn));
-    el.querySelector('.lead-actions').appendChild(buyBtn);
+    addCardAction(el.querySelector('.lead-actions'), {
+      label:`🛒 רכישה · ${shekel(mortgageLeadPrice)}`, cls:'btn-gold act-wide',
+      onClick: btn => buyMortgageLead(lead, btn),
+    });
     listEl.appendChild(el);
   });
 }
@@ -6971,18 +7062,21 @@ async function loadPurchasedMortgageLeads(agentId){
         <div>
           <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
           <div class="lead-name">${esc(lead.full_name)}</div>
-          <div class="lead-meta">${mortgageMetaParts(lead).map(esc).join(' · ') || '—'}</div>
         </div>
         <span class="status-pill status-unlocked">נרכש ${hebDate(lead.sold_at)}</span>
       </div>
+      ${tagsHtml([
+        { text:`💳 החזר חודשי ${shekel(lead.monthly_payment)}`, cls:'tag-key' },
+        lead.loan_amount != null && { text:'🏦 הלוואה ' + shekel(lead.loan_amount) },
+        ...mortgageMetaParts(lead),
+      ])}
       <div class="lead-meta">${mortgageSourceLine(lead)}</div>
-      <div class="lead-meta">החזר חודשי מבוקש ${shekel(lead.monthly_payment)}${lead.loan_amount != null ? ' · סכום הלוואה ' + shekel(lead.loan_amount) : ''}</div>
       <div class="lead-actions">
-        <a class="btn btn-gold" href="tel:${esc(lead.phone)}">${esc(lead.phone)}</a>
-        <a class="btn btn-ghost" href="https://wa.me/${esc(waDigits)}" target="_blank" rel="noopener noreferrer">וואטסאפ</a>
-        ${lead.email ? `<a class="btn btn-ghost" href="mailto:${esc(lead.email)}">${esc(lead.email)}</a>` : ''}
+        <a class="btn btn-gold" href="tel:${esc(lead.phone)}">📞 ${esc(lead.phone)}</a>
+        <a class="btn btn-ghost" href="https://wa.me/${esc(waDigits)}" target="_blank" rel="noopener noreferrer">💬 וואטסאפ</a>
+        ${lead.email ? `<a class="btn btn-ghost" href="mailto:${esc(lead.email)}">✉️ אימייל</a>` : ''}
         ${lead.property_id && mortgagePropertyTitles[lead.property_id]
-          ? `<a class="btn btn-ghost" href="property.html?id=${esc(lead.property_id)}" target="_blank" rel="noopener noreferrer">הנכס</a>` : ''}
+          ? `<a class="btn btn-ghost" href="property.html?id=${esc(lead.property_id)}" target="_blank" rel="noopener noreferrer">🏠 הנכס</a>` : ''}
       </div>
     `;
     listEl.appendChild(el);
@@ -7334,14 +7428,14 @@ function renderSharedWithMe(){
 
   listEl.innerHTML = '';
   filtered.forEach(r => {
-    const meta = [
-      r.deal_type === 'rent' ? shekel(r.price) + '/חוד׳' : shekel(r.price),
-      r.rooms ? r.rooms + ' חדרים' : null,
-      r.property_type,
-      r.size_sqm ? r.size_sqm + ' מ״ר' : null,
-      r.floor != null ? 'קומה ' + r.floor : null,
-      sharedAddressLine(r) || null,
-    ].filter(Boolean);
+    const address = sharedAddressLine(r);
+    const tags = tagsHtml([
+      r.rooms && { html:`🛏 <b>${esc(r.rooms)}</b> חדרים` },
+      r.property_type && { text:'🏠 ' + r.property_type },
+      r.size_sqm && { text:`📐 ${r.size_sqm} מ״ר` },
+      r.floor != null && { text:'🏢 קומה ' + r.floor },
+      address && { text:'📍 ' + address, cls:'tag-info' },
+    ]);
 
     const el = document.createElement('div');
     el.className = 'card lead-card kind-shared';
@@ -7349,18 +7443,19 @@ function renderSharedWithMe(){
       ? `<img class="prop-thumb-mini" src="${esc(r.images[0])}" alt="">` : '';
     el.innerHTML = `
       <div class="lead-top">
-        <div style="display:flex;gap:10px;align-items:flex-start">
+        <div style="display:flex;gap:10px;align-items:flex-start;min-width:0">
           ${thumbHtml}
-          <div>
+          <div style="min-width:0">
             <span class="lead-kind">🤝 ${esc(r.owner_agency_name || 'משרד שותף')}</span>
             <div class="lead-name">${esc(r.title)}</div>
-            <div class="lead-meta">${meta.map(esc).join(' · ')}</div>
+            <div class="prop-price">${shekel(r.price)}${r.deal_type === 'rent' ? ' <span class="per">לחודש</span>' : ''}</div>
           </div>
         </div>
         <div class="pill-row">
           <span class="status-pill status-shared">${r.deal_type === 'rent' ? 'השכרה' : 'מכירה'}</span>
         </div>
       </div>
+      ${tags}
       <div class="lead-meta">שותף ${hebDate(r.shared_at)} · אחראי/ת: ${esc(r.owner_agent_name || '—')}${
         r.owner_agent_phone ? ' · <span class="lead-phone">' + esc(r.owner_agent_phone) + '</span>' : ''}</div>
       <div class="lead-actions"></div>
@@ -7368,27 +7463,17 @@ function renderSharedWithMe(){
 
     const actions = el.querySelector('.lead-actions');
     if (r.owner_agent_phone){
-      const callBtn = document.createElement('a');
-      callBtn.className = 'btn btn-gold';
-      callBtn.href = 'tel:' + String(r.owner_agent_phone).replace(/[^\d+]/g, '');
-      callBtn.textContent = '📞 התקשרות לסוכן/ת';
-      actions.appendChild(callBtn);
-
+      addCardAction(actions, {
+        label:'📞 התקשרות לסוכן/ת', cls:'btn-gold',
+        href:'tel:' + String(r.owner_agent_phone).replace(/[^\d+]/g, ''),
+      });
       const wa = waLink(r.owner_agent_phone);
-      if (wa){
-        const waBtn = document.createElement('a');
-        waBtn.className = 'btn btn-ghost';
-        waBtn.href = wa; waBtn.target = '_blank'; waBtn.rel = 'noopener noreferrer';
-        waBtn.textContent = 'וואטסאפ';
-        actions.appendChild(waBtn);
-      }
+      if (wa) addCardAction(actions, { label:'💬 וואטסאפ', href:wa, blank:true });
     }
-    const viewBtn = document.createElement('a');
-    viewBtn.className = 'btn btn-ghost';
-    viewBtn.href = 'property.html?id=' + encodeURIComponent(r.property_id);
-    viewBtn.target = '_blank'; viewBtn.rel = 'noopener noreferrer';
-    viewBtn.textContent = 'עמוד הנכס';
-    actions.appendChild(viewBtn);
+    addCardAction(actions, {
+      label:'🏠 עמוד הנכס', blank:true,
+      href:'property.html?id=' + encodeURIComponent(r.property_id),
+    });
 
     listEl.appendChild(el);
   });
@@ -7584,23 +7669,13 @@ function renderClients(){
     const actions = el.querySelector('.lead-actions');
     const panel = el.querySelector('.match-panel');
 
-    const matchBtn = document.createElement('button');
-    matchBtn.className = 'btn btn-gold';
-    matchBtn.textContent = matches ? `הצגת ${matches} התאמות` : 'חיפוש התאמות';
-    matchBtn.addEventListener('click', ()=> toggleClientMatches(c, matchBtn, panel));
-    actions.appendChild(matchBtn);
-
-    const editBtn = document.createElement('button');
-    editBtn.className = 'btn btn-ghost';
-    editBtn.textContent = 'עריכה';
-    editBtn.addEventListener('click', ()=> openEditClient(c));
-    actions.appendChild(editBtn);
-
-    const delBtn = document.createElement('button');
-    delBtn.className = 'btn btn-ghost';
-    delBtn.textContent = 'מחיקה';
-    delBtn.addEventListener('click', ()=> deleteClient(c));
-    actions.appendChild(delBtn);
+    addCardAction(actions, { label:'✏️ עריכה', onClick:()=> openEditClient(c) });
+    addCardAction(actions, { label:'🗑 מחיקה', onClick:()=> deleteClient(c) });
+    addCardAction(actions, {
+      label: matches ? `🔍 הצגת ${matches} התאמות` : '🔍 חיפוש התאמות',
+      cls:'btn-gold act-wide',
+      onClick: btn => toggleClientMatches(c, btn, panel),
+    });
 
     listEl.appendChild(el);
   });
@@ -7610,7 +7685,7 @@ async function toggleClientMatches(client, btn, panel){
   if (panel.style.display !== 'none'){
     panel.style.display = 'none';
     btn.textContent = clientMatchCounts[client.id]
-      ? `הצגת ${clientMatchCounts[client.id]} התאמות` : 'חיפוש התאמות';
+      ? `🔍 הצגת ${clientMatchCounts[client.id]} התאמות` : '🔍 חיפוש התאמות';
     return;
   }
 
@@ -7629,7 +7704,7 @@ async function toggleClientMatches(client, btn, panel){
   clientMatchCounts[client.id] = rows.length;
   renderClientMatches(panel, rows);
   panel.style.display = 'block';
-  btn.textContent = 'הסתרת ההתאמות';
+  btn.textContent = '🔍 הסתרת ההתאמות';
 }
 
 function renderClientMatches(panel, rows){
@@ -7641,14 +7716,14 @@ function renderClientMatches(panel, rows){
   panel.innerHTML = '';
   rows.forEach(m => {
     const address = [m.city, [m.street, m.house_number].filter(Boolean).join(' ')].filter(Boolean).join(', ');
-    const meta = [
-      m.deal_type === 'rent' ? shekel(m.price) + '/חוד׳' : shekel(m.price),
-      m.rooms ? m.rooms + ' חדרים' : null,
-      m.property_type,
-      m.size_sqm ? m.size_sqm + ' מ״ר' : null,
-      m.floor != null ? 'קומה ' + m.floor : null,
-      address || null,
-    ].filter(Boolean);
+    const matchTags = tagsHtml([
+      { text: m.deal_type === 'rent' ? shekel(m.price) + ' לחודש' : shekel(m.price), cls:'tag-key' },
+      m.rooms && { html:`🛏 <b>${esc(m.rooms)}</b> חדרים` },
+      m.property_type && { text:'🏠 ' + m.property_type },
+      m.size_sqm && { text:`📐 ${m.size_sqm} מ״ר` },
+      m.floor != null && { text:'🏢 קומה ' + m.floor },
+      address && { text:'📍 ' + address },
+    ]);
 
     const gaps = [
       ...(m.reasons || []),
@@ -7668,28 +7743,25 @@ function renderClientMatches(panel, rows){
         <div>
           <span class="src-tag src-${esc(m.source)}">${esc(sourceLabel)}</span>
           <div class="match-title">${esc(m.title)}</div>
-          <div class="lead-meta">${meta.map(esc).join(' · ')}</div>
         </div>
         <span class="score-pill ${m.score >= 85 ? 'score-high' : 'score-mid'}">${m.score}%</span>
       </div>
+      ${matchTags}
       ${gaps.length ? `<div class="match-gap">${gaps.map(esc).join(' · ')}</div>` : ''}
       <div class="lead-actions"></div>
     `;
 
     const actions = card.querySelector('.lead-actions');
-    const viewBtn = document.createElement('a');
-    viewBtn.className = 'btn btn-ghost';
-    viewBtn.href = 'property.html?id=' + encodeURIComponent(m.property_id);
-    viewBtn.target = '_blank'; viewBtn.rel = 'noopener noreferrer';
-    viewBtn.textContent = 'עמוד הנכס';
-    actions.appendChild(viewBtn);
+    addCardAction(actions, {
+      label:'🏠 עמוד הנכס', blank:true,
+      href:'property.html?id=' + encodeURIComponent(m.property_id),
+    });
 
     if (m.source !== 'own' && m.listing_agent_phone){
-      const callBtn = document.createElement('a');
-      callBtn.className = 'btn btn-ghost';
-      callBtn.href = 'tel:' + String(m.listing_agent_phone).replace(/[^\d+]/g, '');
-      callBtn.textContent = '📞 ' + (m.listing_agent_name || 'הסוכן/ת');
-      actions.appendChild(callBtn);
+      addCardAction(actions, {
+        label:'📞 ' + (m.listing_agent_name || 'הסוכן/ת'),
+        href:'tel:' + String(m.listing_agent_phone).replace(/[^\d+]/g, ''),
+      });
     }
 
     panel.appendChild(card);
