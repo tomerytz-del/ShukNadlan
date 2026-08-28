@@ -450,6 +450,8 @@
     flex:0 0 58px;width:58px;height:58px;border-radius:8px;
     object-fit:cover;background:var(--paper);display:block;
   }
+  /* לוגו משרד במקום תמונת נכס — contain ולא cover, אחרת הלוגו נחתך */
+  .map-pop-thumb.is-logo{object-fit:contain;background:#fff;border:1px solid var(--line);padding:4px}
   .map-pop-body{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1 1 auto}
   .map-pop-title{
     font-weight:700;font-size:.8rem;line-height:1.32;color:var(--ink);
@@ -720,6 +722,12 @@
     .coverflow{--cf-gap:16px;--cf-peek:24px;padding:16px var(--cf-peek) 12px}
     .cf-card{border-radius:16px}
     .cf-thumb{height:150px}
+    /* ברוחב הזה אריח ה-coverflow חוזר לגובה מלא, ולכן גם ממלא המקום חוזר
+       למידות הרגילות שלו ולא לגרסה המוקטנת */
+    .cf-thumb .thumb-fallback{gap:6px;padding:10px}
+    .cf-thumb .tf-logo{width:48px;height:48px;border-radius:12px;font-size:1.15rem}
+    .cf-thumb .tf-agency{font-size:.74rem}
+    .cf-thumb .tf-note{font-size:.68rem}
     .cf-body{padding:10px 12px 14px}
     .cf-price{font-size:1.3rem}
     .cf-title{font-size:.83rem}
@@ -828,6 +836,62 @@
     flex:0 0 250px;scroll-snap-align:start;
   }
   .prop-card .thumb{height:150px;background-size:cover;background-position:center;position:relative}
+
+  /* ====== ממלא מקום לנכס בלי תמונות ======
+     במקום גרדיאנט אדום שנראה כמו תמונה שבורה: לוגו המשרד שהנכס שייך אליו
+     והבטחה שהתמונות בדרך. אותה שכבה משמשת בכל אריחי הנכסים בעמוד
+     (קרוסלה, גריד, שורות תוצאות, זרם "חם עכשיו"), ולכן היא נפרשת על כל
+     שטח ההורה (שכולם position:relative). */
+  .thumb-fallback{
+    position:absolute;inset:0;z-index:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:6px;padding:10px;text-align:center;
+    /* איור הרקע של הפלטפורמה, ומעליו צעיף לבן שמנמיך אותו כדי שהלוגו
+       והטקסט ייקראו מעליו. השכבה האחרונה היא צבע גיבוי אם האיור לא נטען. */
+    background:
+      linear-gradient(180deg,rgba(255,255,255,.66),rgba(255,255,255,.36) 55%,rgba(255,255,255,.56)),
+      url('assets/property-placeholder.jpg') center/cover no-repeat,
+      linear-gradient(160deg,#F4F3F0 0%,#E0E7ED 100%);
+  }
+  .thumb-fallback .tf-logo{
+    width:48px;height:48px;flex:0 0 auto;border-radius:12px;background:#fff;
+    border:1px solid var(--line);object-fit:contain;padding:4px;
+    box-shadow:0 4px 14px rgba(18,40,64,.18);
+  }
+  .thumb-fallback .tf-initial{
+    display:flex;align-items:center;justify-content:center;padding:0;
+    background:linear-gradient(155deg,var(--gold),var(--teal) 65%);color:#fff;border-color:transparent;
+    font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.15rem;line-height:1;
+  }
+  .thumb-fallback .tf-agency{
+    font-size:.74rem;font-weight:700;color:var(--teal-dark);line-height:1.25;
+    max-width:100%;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .thumb-fallback .tf-note{font-size:.68rem;color:var(--ink-soft);line-height:1.25}
+  /* אריחים נמוכים (94px ומטה) — אותו מסר בקנה מידה קטן */
+  .featured-scroll .prop-card .thumb .thumb-fallback,
+  .cf-thumb .thumb-fallback,
+  .sr-thumb .thumb-fallback{gap:4px;padding:6px}
+  .featured-scroll .prop-card .thumb .tf-logo,
+  .cf-thumb .tf-logo,
+  .sr-thumb .tf-logo{width:32px;height:32px;border-radius:9px;font-size:.9rem}
+  .featured-scroll .prop-card .thumb .tf-agency,
+  .cf-thumb .tf-agency,
+  .sr-thumb .tf-agency{font-size:.64rem}
+  .featured-scroll .prop-card .thumb .tf-note,
+  .cf-thumb .tf-note,
+  .sr-thumb .tf-note{font-size:.6rem}
+  /* בתמונונת של שורת תוצאה (104px) אין מקום לשם המשרד — הוא ממילא מופיע
+     בשורת המטא של אותה שורה, ובלעדיו נשאר מקום להודעה עצמה. הצעיף הלבן
+     חזק יותר כאן: הטקסט קטן, והאיור מתחתיו היה בולע אותו. */
+  .sr-thumb .tf-agency{display:none}
+  .sr-thumb .thumb-fallback{
+    background:
+      linear-gradient(180deg,rgba(255,255,255,.84),rgba(255,255,255,.7)),
+      url('assets/property-placeholder.jpg') center/cover no-repeat,
+      linear-gradient(160deg,#F4F3F0 0%,#E0E7ED 100%);
+  }
+
   .prop-card .ribbon{
     position:absolute;top:10px;right:10px;background:var(--gold);color:#fff;font-size:.68rem;
     font-weight:800;padding:3px 9px;border-radius:5px;
@@ -1883,10 +1947,12 @@ const FALLBACK_TICKER = [
   {text:'חם מהשטח: דירת 4 חדרים בעפולה נמכרה ב-1,350,000 ₪'},
   {text:'עדכון: ריבית הפריים נותרה יציבה לחודש השני ברציפות'},
 ];
+/* גרדיאנטים לכיסויי כתבות שאין להן תמונה (הנכסים עברו לממלא מקום ממותג) */
 const CARD_GRADIENTS = ['linear-gradient(155deg,#8B2332,#1C3A5E)','linear-gradient(155deg,#1C3A5E,#8B2332)','linear-gradient(155deg,#6B1A26,#1C3A5E)','linear-gradient(155deg,#8B2332,#6B1A26)','linear-gradient(155deg,#1C3A5E,#6B1A26)','linear-gradient(155deg,#6B1A26,#8B2332)'];
 
 /* ניקוי ערך שמגיע מה-DB לפני הזרקה ל-innerHTML (גם בתוך מאפיין src/alt).
-   מוגדר כאן, למעלה, כי הוא משמש גם את קרוסלת המשרדים וגם את בלון המפה. */
+   מוגדר כאן, למעלה, כי הוא משמש גם את קרוסלת המשרדים, גם את בלון המפה
+   וגם את ממלא המקום של נכס בלי תמונות. */
 const escAttr = s => String(s ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
 
 /* יש לנכס תמונה ראשית אמיתית? (מערך ריק, null או מחרוזת ריקה — אין) */
@@ -1895,13 +1961,32 @@ function hasPhoto(p){
   return typeof img === 'string' && img.trim() !== '';
 }
 
-/* התמונה הראשית של נכס היא images[0]; נכס בלי תמונות נופל חזרה לגרדיאנט
-   הצבעוני שהיה כאן קודם, כדי שהכרטיס לא ייראה שבור.                     */
+/* לוגו הפלטפורמה משמש כברירת מחדל אחרונה בממלא המקום — כשלנכס אין תמונות
+   וגם למשרד שלו אין לוגו או שם. */
+const SITE_LOGO = 'assets/logo-shuknadlan.png';
+const NO_PHOTOS_NOTE = 'תמונות של הנכס יעלו בקרוב';
+
+/* התמונה הראשית של נכס היא images[0]. נכס בלי תמונות מקבל את
+   thumbFallback: לוגו המשרד שהנכס שייך אליו + "תמונות של הנכס יעלו בקרוב",
+   במקום הגרדיאנט האדום שנראה כמו תמונה שבורה. */
 function thumbStyle(p, i){
-  const img = p.images && p.images[0];
-  return img
-    ? `background-image:url('${img}');background-size:cover;background-position:center`
-    : `background:${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}`;
+  return hasPhoto(p)
+    ? `background-image:url('${p.images[0]}');background-size:cover;background-position:center`
+    : '';
+}
+
+function thumbFallback(p){
+  if (hasPhoto(p)) return '';
+  const name = (p && p.agency_name) || '';
+  const logo = (p && p.agency_logo) || (name ? '' : SITE_LOGO);
+  const mark = logo
+    ? `<img class="tf-logo" src="${escAttr(logo)}" alt="${escAttr(name)}" loading="lazy" onerror="this.remove()">`
+    : `<span class="tf-logo tf-initial" aria-hidden="true">${escAttr(name.trim()[0] || '?')}</span>`;
+  return `<div class="thumb-fallback">
+      ${mark}
+      ${name ? `<span class="tf-agency">${escAttr(name)}</span>` : ''}
+      <span class="tf-note">${NO_PHOTOS_NOTE}</span>
+    </div>`;
 }
 function priceLabel(p){
   return p.deal_type === 'rent' ? ('₪' + Number(p.price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(p.price).toLocaleString('he-IL'));
@@ -2398,11 +2483,13 @@ const isPromoted = p => !!p.is_promoted && (!p.promoted_until || new Date(p.prom
    "עפולה והעמק" במקום הכתובת) ברגע שהמשתמש חיפש. */
 const PROPERTY_SELECT =
   'id, price, title, rooms, size_sqm, city, street, address, property_type, deal_type, category, ' +
-  'lat, lng, is_promoted, promoted_until, images, agencies(name), neighborhoods(name)';
+  'lat, lng, is_promoted, promoted_until, images, agencies(name, logo_url), neighborhoods(name)';
 
 const shapeProperty = p => ({
   ...p,
   agency_name: p.agencies?.name || '',
+  // הלוגו נטען כדי שנכס בלי תמונות יציג את מיתוג המשרד שלו במקום אריח ריק
+  agency_logo: p.agencies?.logo_url || '',
   neighborhood_name: p.neighborhoods?.name || '',
 });
 
@@ -2614,12 +2701,12 @@ async function loadCommercialProperties(){
   try{
     const { data, error } = await sb
       .from('properties')
-      .select('id, price, title, rooms, size_sqm, city, property_type, deal_type, category, images, is_promoted, promoted_until, agencies(name)')
+      .select('id, price, title, rooms, size_sqm, city, property_type, deal_type, category, images, is_promoted, promoted_until, agencies(name, logo_url)')
       .eq('status', 'active')
       .eq('category', 'commercial')
       .limit(10);
     if (error || !data || data.length === 0) throw error || new Error('empty');
-    return data.map(p => ({...p, agency_name: p.agencies?.name || ''}));
+    return data.map(p => ({...p, agency_name: p.agencies?.name || '', agency_logo: p.agencies?.logo_url || ''}));
   } catch(e){
     console.warn('טעינת נכסים מסחריים נכשלה, משתמש בנתוני fallback:', e);
     return FALLBACK_COMMERCIAL;
@@ -2635,7 +2722,7 @@ async function loadCommercialProperties(){
     card.className = 'prop-card';
     card.style.cursor = 'pointer';
     card.innerHTML = `
-      <div class="thumb" style="${thumbStyle(p, i)}">${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
+      <div class="thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
       <div class="body">
         <div class="price">${priceLabel(p)}</div>
         <div class="title">${p.title}</div>
@@ -2997,8 +3084,12 @@ function locationLabel(p){
 function mapPopupHtml(p, kind){
   const img = p.images && p.images[0];
   const meta = [locationLabel(p), p.agency_name].filter(Boolean).join(' · ');
+  // בלי תמונה מוצג לוגו המשרד באותה מסגרת (object-fit:contain כדי שהלוגו לא
+  // ייחתך) — כך הבלון שומר על אותו מבנה גם למודעה שהתמונות שלה עוד לא הועלו.
+  const logo = !img && p.agency_logo ? p.agency_logo : '';
   return `<a class="map-pop" href="property.html?id=${encodeURIComponent(p.id)}">` +
     (img ? `<img class="map-pop-thumb" src="${escAttr(img)}" alt="" loading="lazy" onerror="this.remove()">` : '') +
+    (logo ? `<img class="map-pop-thumb is-logo" src="${escAttr(logo)}" alt="" loading="lazy" onerror="this.remove()">` : '') +
     `<span class="map-pop-body">` +
       `<span class="map-pop-title">${p.title}</span>` +
       `<span class="map-pop-price"><i class="map-pop-dot" style="background:${DEAL_COLORS[kind]}"></i>` +
@@ -3216,7 +3307,7 @@ function renderHotCarousel(properties, isSearchResult){
     card.className = 'cf-card';
     card.dataset.deal = p.category === 'commercial' ? 'commercial' : (p.deal_type || 'sale');
     card.innerHTML = `
-      <div class="cf-thumb" style="${thumbStyle(p, i)}"><span class="cf-badge">${dealBadge(p)}</span></div>
+      <div class="cf-thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}<span class="cf-badge">${dealBadge(p)}</span></div>
       <div class="cf-body">
         <div class="cf-price">${priceLabel(p)}</div>
         <div class="cf-title">${p.title}</div>
@@ -3261,7 +3352,7 @@ try {
       el.className = 'prop-card';
       el.style.cursor = 'pointer';
       el.innerHTML = `
-        <div class="thumb" style="${thumbStyle(p, i)}"><span class="ribbon">מקודם</span></div>
+        <div class="thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}<span class="ribbon">מקודם</span></div>
         <div class="body">
           <div class="price">${priceLabel(p)}</div>
           <div class="title">${p.title}</div>
@@ -3626,7 +3717,7 @@ function renderSearchRows(properties, isSearchResult){
     row.tabIndex = 0;
     row.setAttribute('role', 'link');
     row.innerHTML = `
-      <div class="sr-thumb" style="${thumbStyle(p, i)}">${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
+      <div class="sr-thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
       <div class="sr-body">
         <div class="sr-title">${p.title}</div>
         <div class="sr-meta"><span>${locationLabel(p)}</span></div>
@@ -3679,7 +3770,7 @@ function renderPropertyGrid(properties, isSearchResult){
     el.className = 'prop-card';
     el.style.cursor = 'pointer';
     el.innerHTML = `
-      <div class="thumb" style="${thumbStyle(p, i)}">${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
+      <div class="thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
       <div class="body">
         <div class="price">${priceLabel(p)}</div>
         <div class="title">${p.title}</div>
