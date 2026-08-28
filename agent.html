@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>סוכן | שוק נדל״ן</title>
-<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
@@ -26,9 +26,17 @@
   .btn-block{width:100%}
   header.site{background:var(--paper-raised);border-bottom:1px solid var(--line);padding:14px 0}
   .header-inner{display:flex;align-items:center;justify-content:space-between}
-  .logo{display:flex;align-items:center;gap:8px}
-  .logo-mark{width:34px;height:34px;border-radius:8px;background:linear-gradient(155deg,var(--gold),var(--teal) 65%);display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:900}
-  .logo-word{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.1rem;color:var(--teal-dark)}
+  .logo{display:flex;align-items:center;gap:10px;min-width:0}
+  .logo-img{height:46px;width:46px;display:block;flex:0 0 auto;border-radius:50%}
+  .logo-word{
+    font-family:'Rubik','Heebo',sans-serif;font-weight:500;color:var(--teal-dark);
+    font-size:.82rem;line-height:1.3;letter-spacing:-.012em;min-width:0;text-align:center;
+  }
+  .logo-word span{color:var(--gold-dark);font-weight:700}
+  @media(min-width:900px){
+    .logo-img{height:54px;width:54px}
+    .logo-word{font-size:.95rem;white-space:nowrap}
+  }
   .back-link{font-size:.85rem;font-weight:700;color:var(--teal)}
 
   #loadingState,#notFoundState{padding:60px 18px;text-align:center;color:var(--ink-soft)}
@@ -70,7 +78,10 @@
 
 <header class="site">
   <div class="wrap header-inner">
-    <a href="index.html" class="logo"><span class="logo-mark">ש</span><span class="logo-word">שוק נדל״ן</span></a>
+    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+      <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256">
+      <span class="logo-word">מרקטפלייס הנדל״ן של <span>עפולה והסביבה</span></span>
+    </a>
     <a href="index.html" class="back-link">← דף הבית</a>
   </div>
 </header>

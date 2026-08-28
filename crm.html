@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>איזור סוכנים | שוק נדל״ן</title>
-<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
@@ -37,7 +37,9 @@
   #loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
   .login-card{max-width:380px;width:100%;padding:32px 26px}
   .login-card .logo{display:flex;align-items:center;gap:8px;margin-bottom:22px;justify-content:center}
-  .logo-mark{width:32px;height:32px;border-radius:8px;background:linear-gradient(155deg,var(--gold),var(--teal) 65%);display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:900}
+  /* לוגו האתר — בכל מקום שהוא מופיע בו הוא גם הקישור לדף הבית */
+  .logo-link{display:block;line-height:0}
+  .logo-img{width:64px;height:64px;display:block;border-radius:50%}
   .login-card h1{font-size:1.3rem;text-align:center;margin-bottom:6px}
   .login-card p.sub{text-align:center;color:var(--ink-soft);font-size:.85rem;margin-bottom:22px}
   .field{margin-bottom:12px}
@@ -391,6 +393,7 @@
   }
   .cma-head{display:flex;align-items:center;justify-content:space-between;gap:12px;border-bottom:2px solid var(--teal);padding-bottom:12px;margin-bottom:18px}
   .cma-head .brand{display:flex;align-items:center;gap:8px;font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark);font-size:1.05rem}
+  .cma-head .brand .logo-img{width:32px;height:32px}
   .cma-head .when{font-size:.72rem;color:var(--ink-soft)}
   .cma-sheet h2{font-size:1.25rem;margin-bottom:2px}
   .cma-sub{font-size:.84rem;color:var(--ink-soft);margin-bottom:18px}
@@ -475,6 +478,10 @@
   .dash-wrap{max-width:1240px;margin:0 auto;padding:0 18px}
   #dashboard .crm-header-inner{display:flex;align-items:center;justify-content:space-between;gap:12px}
   #dashboard .agent-id{display:flex;align-items:center;gap:11px;min-width:0}
+  /* בדשבורד הלוגו קטן מזה שבמסך ההתחברות — הוא יושב לצד האווטאר ולא צריך
+     לגבור עליו, ובמסך צר הוא נעלם כדי להשאיר מקום לשם הסוכן/ת */
+  #dashboard .crm-home .logo-img{width:38px;height:38px}
+  @media(max-width:520px){#dashboard .crm-home{display:none}}
   #dashboard .avatar{
     width:44px;height:44px;border-radius:14px;flex-shrink:0;
     background:linear-gradient(150deg,var(--navy-2),var(--navy) 70%);
@@ -808,7 +815,7 @@
 
 <div id="loginScreen">
   <div class="card login-card" id="loginCardMain">
-    <div class="logo"><span class="logo-mark">ש</span></div>
+    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
     <h1>איזור סוכנים</h1>
     <p class="sub">שוק נדל״ן — עפולה והעמק</p>
     <button type="button" class="btn btn-ghost btn-block" id="googleLoginBtn" style="margin-bottom:14px;gap:10px">
@@ -830,7 +837,7 @@
   </div>
 
   <div class="card login-card" id="createAgencyScreen" style="display:none">
-    <div class="logo"><span class="logo-mark">ש</span></div>
+    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
     <h1>ברוך/ה הבא/ה!</h1>
     <p class="sub">עדיין לא פתחת משרד תיווך במערכת. כל סוכן יכול להיות בעלים של משרד אחד בלבד — בואו נקים אותו.</p>
     <div class="field"><label>שם המשרד</label><input type="text" id="caAgencyName" required></div>
@@ -861,7 +868,7 @@
   <!-- מסך שגיאה לטעינת החשבון. קיים כדי שכשל בשאילתה (רשת/סכימה) לא יוצג
        כ"עדיין לא פתחת משרד" — מסך פתיחת המשרד שמור למי שבאמת אין לו שורה. -->
   <div class="card login-card" id="loadErrorScreen" style="display:none">
-    <div class="logo"><span class="logo-mark">ש</span></div>
+    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
     <h1>לא הצלחנו לטעון את החשבון</h1>
     <p class="sub">ההתחברות הצליחה, אבל טעינת פרטי המשרד נכשלה. זו לא עדות לכך שאין לך משרד — נסו שוב בעוד רגע.</p>
     <div id="loadErrorDetail" style="font-size:.78rem;color:var(--red);text-align:center;margin-bottom:12px;min-height:1.2em"></div>
@@ -874,6 +881,10 @@
   <header class="crm">
     <div class="dash-wrap crm-header-inner">
       <div class="agent-id">
+        <!-- לוגו הפלטפורמה מוביל תמיד חזרה לדף הבית, כמו בשאר הדפים -->
+        <a href="index.html" class="logo-link crm-home" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית" title="לדף הבית">
+          <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256">
+        </a>
         <!-- האווטאר הוא הכניסה לעדכון הפרופיל: לחיצה פותחת וגוללת לקטגוריית
              "עדכון פרטי הסוכן/ת" דרך אותו מנגנון data-goto של שאר הדשבורד -->
         <button type="button" class="avatar" id="avatarBtn" data-goto="accProfile"
@@ -7970,7 +7981,7 @@ function renderCmaReport(r){
 
   document.getElementById('cmaBody').innerHTML = `
     <div class="cma-head">
-      <div class="brand"><span class="logo-mark">ש</span> שוק נדל״ן — דוח השוואת שוק</div>
+      <div class="brand"><img class="logo-img" src="assets/logo-shuknadlan.png" alt="" width="256" height="256"> שוק נדל״ן — דוח השוואת שוק</div>
       <div class="when">הופק ב-${new Date(r.generated_at).toLocaleDateString('he-IL')}</div>
     </div>
 
