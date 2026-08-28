@@ -567,12 +567,24 @@
     position:sticky; top:0; z-index:120;
   }
   .dash-wrap{max-width:1240px;margin:0 auto;padding:0 18px}
-  #dashboard .crm-header-inner{display:flex;align-items:center;justify-content:space-between;gap:12px}
-  #dashboard .agent-id{display:flex;align-items:center;gap:11px;min-width:0}
-  /* בדשבורד הלוגו קטן מזה שבמסך ההתחברות — הוא יושב לצד האווטאר ולא צריך
-     לגבור עליו, ובמסך צר הוא נעלם כדי להשאיר מקום לשם הסוכן/ת */
+  #dashboard .crm-header-inner{display:flex;align-items:center;justify-content:space-between;gap:12px;position:relative}
+  #dashboard .agent-id{
+    display:flex;align-items:center;gap:11px;min-width:0;
+    /* משאיר את מרכז הכותרת פנוי ללוגו: שם ארוך נחתך ב-ellipsis במקום
+       לרוץ מתחתיו */
+    max-width:calc(50% - 34px);
+  }
+  /* הלוגו ממורכז מול הכותרת כולה ולא "בין" שני הצדדים, ולכן absolute ולא
+     פריט flex — כך הוא לא זז כששם הסוכן/ת ארוך או קצר. בדשבורד הוא קטן
+     מזה שבמסך ההתחברות. */
+  #dashboard .crm-home{
+    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+    border-radius:50%;transition:transform .16s ease;
+  }
+  #dashboard .crm-home:hover{transform:translate(-50%,-50%) scale(1.06)}
+  #dashboard .crm-home:focus-visible{outline:2px solid var(--navy);outline-offset:3px}
   #dashboard .crm-home .logo-img{width:38px;height:38px}
-  @media(max-width:520px){#dashboard .crm-home{display:none}}
+  @media(max-width:520px){#dashboard .crm-home .logo-img{width:32px;height:32px}}
   #dashboard .avatar{
     width:44px;height:44px;border-radius:14px;flex-shrink:0;
     background:linear-gradient(150deg,var(--navy-2),var(--navy) 70%);
@@ -590,10 +602,15 @@
   .agent-id-text{min-width:0}
   #dashboard .agent-name{font-weight:700;font-size:1rem;color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .agent-id-meta{display:flex;align-items:center;gap:7px;margin-top:3px;min-width:0}
+  /* inline-block ולא inline-flex: כך text-overflow עובד על הטקסט עצמו.
+     במסך צר אין מקום מלא לתגית לצד הלוגו שבמרכז הכותרת, ועדיף
+     "מסלול פרימי…" מאשר תגית שרצה מתחת ללוגו */
   #dashboard .tier-badge{
     font-size:.66rem;font-weight:800;padding:3px 10px;border-radius:999px;margin-top:0;
-    display:inline-flex;align-items:center;gap:4px;white-space:nowrap;
+    display:inline-block;vertical-align:middle;white-space:nowrap;
+    min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;
   }
+  @media(max-width:430px){#dashboard .tier-word{display:none}}
   #dashboard .tier-free{background:var(--surface-2);color:var(--txt-soft)}
   #dashboard .tier-mid{background:var(--navy-tint);color:var(--navy)}
   /* פרימיום מקבל טיפול "יוקרתי" — גרדיאנט זהוב-בורדו עם נצנוץ עדין */
@@ -601,7 +618,7 @@
     background:linear-gradient(120deg,#7d1d2b,#a8344a 45%,#c9a227);
     color:#fff;box-shadow:0 3px 10px rgba(139,35,50,.3);
   }
-  #dashboard .tier-premium::before{content:'★';font-size:.7rem;line-height:1}
+  #dashboard .tier-premium::before{content:'★';font-size:.7rem;line-height:1;margin-inline-end:4px}
   /* במסך צר אין מקום גם לתגית המסלול וגם לשם המשרד — השם נשאר, המשרד יורד */
   .agent-agency{display:none;font-size:.75rem;color:var(--txt-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   @media(min-width:560px){.agent-agency{display:inline}}
@@ -1076,10 +1093,6 @@
   <header class="crm">
     <div class="dash-wrap crm-header-inner">
       <div class="agent-id">
-        <!-- לוגו הפלטפורמה מוביל תמיד חזרה לדף הבית, כמו בשאר הדפים -->
-        <a href="index.html" class="logo-link crm-home" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית" title="לדף הבית">
-          <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256">
-        </a>
         <!-- האווטאר הוא הכניסה לעדכון הפרופיל: לחיצה פותחת וגוללת לקטגוריית
              "עדכון פרטי הסוכן/ת" דרך אותו מנגנון data-goto של שאר הדשבורד -->
         <button type="button" class="avatar" id="avatarBtn" data-goto="accProfile"
@@ -1095,6 +1108,15 @@
           </div>
         </div>
       </div>
+
+      <!-- לוגו הפלטפורמה במרכז הכותרת, מוביל תמיד חזרה לדף הבית כמו בשאר
+           הדפים. יושב בין שני צידי הכותרת ב-DOM כדי שסדר ה-Tab יהיה
+           פרופיל ← לוגו ← פעולות, אבל ממורכז ב-absolute ולא כפריט flex —
+           ראו .crm-home ב-CSS. -->
+      <a href="index.html" class="logo-link crm-home" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית" title="לדף הבית">
+        <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256">
+      </a>
+
       <div class="header-actions">
         <div class="bell-wrap">
           <button class="icon-btn bell-btn" id="bellBtn" aria-label="התראות" aria-expanded="false">
@@ -2689,8 +2711,10 @@ async function loadDashboard(user){
   document.getElementById('agentName').textContent = agent.display_name;
   document.getElementById('agentAgency').textContent = agencyName;
   const badge = document.getElementById('tierBadge');
-  const tierLabels = { free:'מסלול חינמי', mid:'מסלול משודרג', premium:'מסלול פרימיום' };
-  badge.textContent = tierLabels[agent.tier] || agent.tier;
+  // המילה "מסלול" יורדת במסך צר (ראו .tier-word ב-CSS) — שם אין מקום גם לה
+  // וגם ללוגו שבמרכז הכותרת, ו"פרימיום" לבדו נושא את כל המידע
+  const tierLabels = { free:'חינמי', mid:'משודרג', premium:'פרימיום' };
+  badge.innerHTML = '<span class="tier-word">מסלול </span>' + esc(tierLabels[agent.tier] || agent.tier);
   badge.className = 'tier-badge tier-' + agent.tier;
   document.getElementById('creditBalance').textContent = '₪' + Number(agent.credit_balance).toLocaleString('he-IL');
   accSetCount('accWallet', '₪' + Number(agent.credit_balance).toLocaleString('he-IL'));
