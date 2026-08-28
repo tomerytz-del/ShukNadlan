@@ -30,6 +30,12 @@ import {
 // אותה תבנית אבטחה כמו rss-lead-purchase: verify_jwt=true, והסוכן/ת נגזר/ת
 // מה-JWT המאומת בלבד — לעולם לא מה-body. אחרת כל אחד יכול להעלות חשבון
 // Gemini על נכס של מישהו אחר.
+//
+// יש מסלול כניסה שני: הטריגר ב-DB שרץ עם פרסום נכס (מיגרציה
+// 20260827190000). לטריגר אין JWT של משתמש/ת, ולכן הוא מזדהה עם ה-service
+// role key. במסלול הזה בדיקת הבעלות מדולגת — אין "בעלים" לקריאה שהמערכת
+// יזמה — אבל בדיקת הזכאות (property_visualizations_enabled) נאכפת בדיוק
+// כמו במסלול הרגיל, כי היא זו ששומרת שלא נוציא כסף על נכס לא זכאי.
 // ============================================================================
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -58,18 +64,26 @@ Deno.serve(async (req: Request) => {
   const styleKey: StyleKey = isStyleKey(style) ? style : DEFAULT_STYLE;
 
   // ---- מי מבקש/ת -------------------------------------------------------
-  const authed = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
-  const { data: userData, error: userErr } = await authed.auth.getUser();
-  if (userErr || !userData?.user) return json({ error: "unauthorized" }, 401);
-
+  // הטריגר של פרסום הנכס שולח את ה-service role key. מי שמחזיק/ה בו ממילא
+  // יכול/ה לכתוב ישירות לכל טבלה, ולכן אין כאן הרחבת הרשאות — רק ויתור על
+  // שאלת הבעלות, שאין לה משמעות בקריאה שהמערכת יזמה.
   const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const isInternalCall = authHeader === `Bearer ${serviceRoleKey}`;
 
-  const { data: agent } = await supabase
-    .from("agency_members")
-    .select("id, active, tier, is_platform_admin")
-    .eq("user_id", userData.user.id)
-    .maybeSingle();
-  if (!agent || !agent.active) return json({ error: "agent_not_found" }, 403);
+  let agent: { id: string; active: boolean; is_platform_admin: boolean } | null = null;
+  if (!isInternalCall) {
+    const authed = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
+    const { data: userData, error: userErr } = await authed.auth.getUser();
+    if (userErr || !userData?.user) return json({ error: "unauthorized" }, 401);
+
+    const { data: agentRow } = await supabase
+      .from("agency_members")
+      .select("id, active, tier, is_platform_admin")
+      .eq("user_id", userData.user.id)
+      .maybeSingle();
+    if (!agentRow || !agentRow.active) return json({ error: "agent_not_found" }, 403);
+    agent = agentRow;
+  }
 
   const { data: property } = await supabase
     .from("properties")
@@ -78,7 +92,7 @@ Deno.serve(async (req: Request) => {
     .maybeSingle();
   if (!property) return json({ error: "property_not_found" }, 404);
 
-  if (property.agent_id !== agent.id && !agent.is_platform_admin) {
+  if (agent && property.agent_id !== agent.id && !agent.is_platform_admin) {
     return json({ error: "forbidden", message: "אפשר ליצור הדמיות רק לנכסים שלך" }, 403);
   }
 
@@ -159,7 +173,8 @@ Deno.serve(async (req: Request) => {
       kind: "private_room",
       trigger_source: "base",
       style_key: styleKey,
-      requested_by_agent_id: agent.id,
+      // בקריאה פנימית אין סוכן/ת שיזם/ה — הטריגר הוא המערכת עצמה
+      requested_by_agent_id: agent ? agent.id : null,
       status: "processing",
     })
     .select("id")

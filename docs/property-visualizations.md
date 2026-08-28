@@ -129,6 +129,59 @@ POST { property_id, style?, force? }   Authorization: Bearer <agent JWT>
 נכס פרטי בלבד. מסמן `is_base = true` — אלה ההדמיות שמופיעות בדף הנכס לכל
 מבקר/ת. `force: true` מייצר מחדש גם מה שכבר קיים.
 
+**מסלול כניסה שני — קריאה פנימית.** כשה-`Authorization` הוא ה-service role key,
+הפונקציה מזהה קריאה של המערכת עצמה ומדלגת על בדיקת הבעלות (אין "בעלים" לקריאה
+שהטריגר יזם), אבל **בדיקת הזכאות נאכפת בדיוק כמו במסלול הרגיל** — היא זו
+ששומרת שלא יוצא כסף על נכס לא זכאי. מי שמחזיק/ה במפתח הזה ממילא יכול/ה לכתוב
+לכל טבלה, ולכן אין כאן הרחבת הרשאות.
+
+---
+
+## יצירה אוטומטית עם פרסום הנכס
+
+מיגרציה `20260827190000_visualization_publish_trigger.sql` מוסיפה טריגר על
+`properties` שמפעיל את `property-visualize-base` דרך `pg_net`.
+
+**מתי הוא יורה** — נכס `residential`, `status='active'`, יש תמונות, והסוכן/ת
+Premium פעיל/ה, ובנוסף מתקיים אחד משניים:
+
+1. הנכס **נעשה** `active` (פרסום), או
+2. נכס פעיל **קיבל תמונות בפעם הראשונה**.
+
+המקרה השני אינו קצה: בפועל לא מעט נכסים נפתחים ריקים והתמונות מועלות אחר כך,
+ובלעדיו הם לא היו מקבלים הדמיות לעולם. עדכון מחיר או תיאור בנכס פעיל שכבר יש
+לו תמונות **לא** מפעיל כלום.
+
+**שלוש הגנות:**
+
+- **`AFTER` ולא `BEFORE`** — הטריגר קורא ל-`property_visualizations_enabled`
+  שדורשת `status='active'`; ב-`BEFORE` השורה עוד לא נראית בתמונת המצב.
+- **לא יכול להפיל שמירת נכס** — כל גופו עטוף ב-exception handler שבולע הכול.
+  תקלה במנגנון ההדמיות היא תקלה בפיצ'ר שיווקי, ואסור לה למנוע מסוכן/ת לפרסם.
+- **בלי הסודות — no-op שקט** — אפשר להריץ את המיגרציה לפני שהפונקציות נפרסו
+  בכלל, בלי שאף בקשה תצא לדרך.
+
+`pg_net` שולח אסינכרונית ואחרי commit, ולכן ההמתנה ל-Gemini אינה מתרחשת בתוך
+הטרנזקציה של שמירת הנכס.
+
+### הפעלת הטריגר
+
+הטריגר קיים ב-DB אבל **רדום** עד ששני סודות ה-Vault יוגדרו. להריץ פעם אחת:
+
+```sql
+select vault.create_secret('<SERVICE_ROLE_KEY>', 'visualization_service_key',
+                           'מפתח service_role לקריאות פנימיות ממנגנון ההדמיות');
+select vault.create_secret('https://obookujgolazrwycsiyn.supabase.co/functions/v1',
+                           'edge_functions_base_url',
+                           'כתובת הבסיס של ה-Edge Functions');
+```
+
+לכיבוי זמני בלי לגעת בקוד:
+
+```sql
+alter table public.properties disable trigger properties_enqueue_base_visualization;
+```
+
 ### `classify-property-images` — `verify_jwt = false`
 
 ```
@@ -145,18 +198,44 @@ POST { property_id }   |   POST { limit: 100 }
 
 ## התקנה
 
-1. **מיגרציה:** `supabase/migrations/20260827180000_property_visualizations.sql`
-2. **סוד:** ב-Supabase → Edge Functions → Secrets להוסיף `GEMINI_API_KEY`.
+שתי המיגרציות **כבר הורצו** על `shuknadlan-marketplace`. מה שנשאר:
+
+1. **סוד Gemini:** Supabase → Edge Functions → Secrets → `GEMINI_API_KEY`.
    אופציונלי: `GEMINI_IMAGE_MODEL`, `GEMINI_VISION_MODEL`.
-3. **פריסה:**
+2. **פריסת הפונקציות:**
    ```
    supabase functions deploy classify-property-images --no-verify-jwt
    supabase functions deploy property-visualize        --no-verify-jwt
    supabase functions deploy property-visualize-base
    ```
-4. **מילוי לאחור:** `POST /functions/v1/classify-property-images { "limit": 200 }`
-5. **סט בסיס לנכס:** `POST /functions/v1/property-visualize-base { "property_id": "..." }`
-   עם JWT של הסוכן/ת.
+3. **מילוי לאחור של הסיווג** (אופציונלי — חוסך המתנה לגולש/ת הראשון/ה):
+   ```
+   POST /functions/v1/classify-property-images { "limit": 200 }
+   ```
+4. **הרצה ידנית ראשונה** על הנכסים הפרטיים הקיימים — הטריגר מטפל רק בפרסום
+   חדש, ולכן הנכסים שכבר מפורסמים צריכים דחיפה אחת:
+   ```sql
+   -- הרשימה להרצה
+   select p.id, p.property_type, array_length(p.images,1) as images
+   from public.properties p join public.agency_members m on m.id=p.agent_id
+   where p.category='residential' and p.status='active' and m.tier='premium'
+     and coalesce(array_length(p.images,1),0) > 0;
+   ```
+   ולכל `id`: `POST /functions/v1/property-visualize-base { "property_id": "<id>" }`
+   עם ה-service role key ב-`Authorization`.
+5. **הפעלת האוטומציה:** שני סודות ה-Vault (ראו "הפעלת הטריגר" למעלה). מרגע
+   זה כל נכס פרטי חדש מקבל סט בסיס מעצמו.
+
+### מצב הנכסים הזכאים כיום
+
+| סוג | תמונות | מטרות שייווצרו |
+|---|---|---|
+| בית פרטי/קוטג' | 6 | חוץ, סלון, מטבח |
+| דו משפחתי | 8 | חוץ, סלון, מטבח |
+| דירה × 2 | 10 סה״כ | סלון, מטבח |
+
+בפועל מספר המטרות תלוי בסיווג — מטרה בלי תמונת מקור מתאימה פשוט יורדת, כי
+עדיף שתי הדמיות אמיתיות מאשר שלוש כשאחת נגזרה מתמונה של חדר אחר.
 
 ---
 
