@@ -1301,6 +1301,9 @@
     <a href="#articles">כתבות ובלוגים</a>
     <a href="#pros">בעלי מקצוע</a>
     <a href="#calc">מחשבון משכנתא</a>
+    <!-- הדירוג לא מוצג ככותרת בדף הבית אלא נשאר כאן, בתפריט: מי שרוצה להבין
+         מה עומד מאחורי הכוכבים על כרטיס המתווך/ת מוצא/ת את ההסבר בלחיצה. -->
+    <a href="#" id="ratingInfoLink">איך עובד הדירוג?</a>
     <a href="crm.html" class="btn btn-teal btn-block" style="margin-top:10px">כניסת מתווכים</a>
   </nav>
 </header>
@@ -1707,6 +1710,43 @@
         בדיקת זכאות מיידית וייעוץ אישי
       </button>
       <p class="calc-fine">* הערכה בלבד ואינה מהווה הצעת מימון מחייבת. אחוזי המימון המקסימליים כפופים לנהלי בנק ישראל ועשויים להשתנות.</p>
+    </div>
+
+    <!-- ====== איך עובד הדירוג (נפתח מתפריט ההמבורגר) ======
+         משתמש ב-mlead-overlay ולא ב-filter-modal-overlay מאותה סיבה שמתועדת
+         למעלה: חיפוש סוגר כל מודאל סינון פתוח, וזה אינו מודאל סינון. -->
+    <div class="mlead-overlay" id="ratingInfoModal" role="dialog" aria-modal="true" aria-labelledby="ratingInfoTitle">
+      <div class="filter-modal">
+        <div class="filter-modal-header">
+          <h3 id="ratingInfoTitle">איך עובד הדירוג?</h3>
+          <button type="button" class="filter-modal-close" id="ratingInfoClose" aria-label="סגירה">✕</button>
+        </div>
+        <div class="filter-modal-body">
+          <div class="filter-section">
+            <h4>רק לקוחות אמיתיים</h4>
+            <p class="filter-hint">אי אפשר לכתוב כאן חוות דעת מטופס פתוח. כל ביקורת מקושרת לפנייה קונקרטית
+            שטופלה בפועל דרך הפלטפורמה, וכל פנייה יכולה להניב ביקורת אחת בלבד.</p>
+          </div>
+          <div class="filter-section">
+            <h4>חמישה כוכבים, ובדיקה לפני פרסום</h4>
+            <p class="filter-hint">הדירוג הוא 1–5 כוכבים. כל חוות דעת עוברת אישור של משרד התיווך לפני
+            שהיא מתפרסמת, ודירוג של כוכב אחד נבדק במקביל גם על ידי הנהלת הפלטפורמה.</p>
+          </div>
+          <div class="filter-section">
+            <h4>מה הדירוג משפיע</h4>
+            <p class="filter-hint">הדירוג נלקח בחשבון בסדר התצוגה של המתווכים והמשרדים באתר. הוא לא חוסם
+            אף מתווך/ת ולא משנה את כמות הפניות שכל אחד/ת מקבל/ת — רק את הסדר שבו הם מוצגים.</p>
+          </div>
+          <div class="filter-section">
+            <h4>מתווך/ת חדש/ה לא נענש/ת</h4>
+            <p class="filter-hint">הציון משוקלל מול ממוצע הפלטפורמה, כך שביקורת בודדת — טובה או רעה —
+            לא קובעת תמונה מלאה. ככל שנצברות יותר חוות דעת, הציון מתקרב לדירוג האמיתי.</p>
+          </div>
+        </div>
+        <div class="filter-modal-footer">
+          <button type="button" class="btn btn-teal" style="flex:1" id="ratingInfoDone">הבנתי</button>
+        </div>
+      </div>
     </div>
 
     <!-- ====== בלון איסוף ליד ייעוץ משכנתאות ====== -->
@@ -2148,6 +2188,24 @@ const mobileMenu = document.getElementById('mobileMenu');
 menuToggle.addEventListener('click', () => {
   const open = mobileMenu.classList.toggle('open');
   menuToggle.setAttribute('aria-expanded', open);
+});
+
+/* ---------- "איך עובד הדירוג?" (מתוך תפריט ההמבורגר) ----------
+   שאר הפריטים בתפריט הם עוגנים שסוגרים אותו מעצמם בניווט; זה פותח מודאל
+   ולכן צריך לסגור את התפריט במפורש. */
+const ratingInfoModal = document.getElementById('ratingInfoModal');
+function ratingInfoClose(){ ratingInfoModal.classList.remove('open'); }
+document.getElementById('ratingInfoLink').addEventListener('click', (e)=>{
+  e.preventDefault();
+  mobileMenu.classList.remove('open');
+  menuToggle.setAttribute('aria-expanded', false);
+  ratingInfoModal.classList.add('open');
+});
+document.getElementById('ratingInfoClose').addEventListener('click', ratingInfoClose);
+document.getElementById('ratingInfoDone').addEventListener('click', ratingInfoClose);
+ratingInfoModal.addEventListener('click', (e)=>{ if (e.target === ratingInfoModal) ratingInfoClose(); });
+document.addEventListener('keydown', (e)=>{
+  if (e.key === 'Escape' && ratingInfoModal.classList.contains('open')) ratingInfoClose();
 });
 
 /* ---------- Deal toggle (hero search) ---------- */
