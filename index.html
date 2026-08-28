@@ -174,16 +174,34 @@
   .hero-overlay{
     position:absolute;top:0;right:0;left:0;z-index:2;pointer-events:none;
     padding:20px 0 56px;
-    background:linear-gradient(180deg, rgba(10,28,46,.88) 0%, rgba(10,28,46,.6) 46%, rgba(10,28,46,0) 100%);
+    /* הסקרים מתחיל כמעט אטום בראש המפה: הכותרת הלבנה יושבת דווקא מעל אריחי
+       הרחובות הבהירים של עפולה, ובלי זה היא נבלעה בהם. הדעיכה ל-0 מסתיימת
+       מתחת לסרגל החיפוש כדי שהמפה עצמה תישאר קריאה. */
+    background:linear-gradient(180deg, rgba(6,20,34,.92) 0%, rgba(6,20,34,.74) 34%, rgba(6,20,34,.36) 66%, rgba(6,20,34,0) 100%);
   }
   .hero.map-failed .hero-overlay{position:static;background:none;padding:0}
-  .hero-inner h1{color:#fff;font-size:1.45rem;max-width:24ch;text-shadow:0 2px 14px rgba(6,20,34,.55)}
-  .hero-inner p.lede{display:none;color:#DCE6E4;margin-top:8px;font-size:.95rem;max-width:46ch;text-shadow:0 2px 10px rgba(6,20,34,.5)}
+  .hero-inner .eyebrow{
+    color:#F0D9A8;font-size:.8rem;letter-spacing:.12em;margin-bottom:10px;
+    text-shadow:0 2px 8px rgba(0,0,0,.6);justify-content:center;text-align:center;
+  }
+  /* בלי הקו המקדים של .eyebrow — על המפה הוא נקרא כמקף תלוש בתחילת המשפט */
+  .hero-inner .eyebrow::before{display:none}
+  /* הכותרת יושבת על שורה אחת בכל רוחב מסך. הטקסט ב-Frank Ruhl Libre רחב
+     פי ~14.26 מגודל הגופן, כלומר הוא נכנס לרוחב ה-wrap (100vw פחות 36px
+     padding) עד 7.01vw−2.5px; ה-calc כאן משאיר ~6% ביטחון מתחת לגבול הזה,
+     וה-min מקבע 21.6px מ-~368px ומעלה כדי שהמסכים הרגילים לא ינפחו אותה. */
+  .hero-inner h1{
+    color:#fff;font-size:min(1.35rem, calc(6.6vw - 2.4px));font-weight:700;
+    white-space:nowrap;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,.6);
+  }
+  .hero-inner p.lede{display:none;color:#DCE6E4;margin:8px auto 0;font-size:.95rem;max-width:46ch;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,.6)}
 
   /* ====== סרגל חיפוש בשורה אחת ====== */
   /* max-width: בלי זה הסרגל נמתח על כל רוחב ה-wrap בדסקטופ ותיבת הטקסט
      נראית כמו שדה ריק ענק. ב-RTL הבלוק נצמד מעצמו לימין, מתחת לכותרת. */
-  .search-shell{position:relative;margin-top:16px;max-width:720px;pointer-events:auto}
+  /* margin-inline:auto — הכותרות מעליו ממורכזות, וסרגל צמוד־ימין מתחתן נראה
+     שבור בדסקטופ (במובייל הוא ממילא ברוחב מלא ולא זז). */
+  .search-shell{position:relative;margin:22px auto 0;max-width:720px;pointer-events:auto}
   /* הילה מטושטשת מתחת לסרגל: מפרידה אותו מהמפה גם כשמתחתיו אזור בהיר */
   .search-shell::before{
     content:"";position:absolute;inset:-16px -8px -22px;pointer-events:none;
@@ -415,8 +433,10 @@
     .deal-toggle{grid-column:auto;max-width:220px}
     .hero{height:clamp(420px,64vh,620px)}
     .hero-overlay{padding:26px 0 64px}
+    .hero-inner .eyebrow{font-size:.85rem}
     .hero-inner h1{font-size:2rem}
     .hero-inner p.lede{display:block}
+    .search-shell{margin-top:26px}
     .map-toolbar{padding:0 16px}
   }
 
@@ -1133,8 +1153,8 @@
 
     <div class="hero-overlay">
       <div class="wrap hero-inner">
-        <p class="eyebrow" style="color:#F0D9A8">עפולה והעמק · מרקטפלייס מקומי</p>
-        <h1>כל הדירות, כל המתווכים, בכתובת אחת בעפולה</h1>
+        <p class="eyebrow">מרקטפלייס הנדל״ן של עפולה והסביבה</p>
+        <h1>כל הדירות וכל המתווכים בכתובת אחת</h1>
         <p class="lede">מפסיקים לרוץ בין לוחות מודעות — כל המתווכים המובילים בעיר מחכים לך כאן.</p>
 
         <div class="search-shell">
