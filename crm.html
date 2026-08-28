@@ -410,11 +410,19 @@
   .cma-foot{margin-top:22px;padding-top:12px;border-top:1px solid var(--line);font-size:.68rem;color:var(--ink-soft);line-height:1.6}
 
   /* ---------- מדבקת QR לשלט ---------- */
-  .qr-card{max-width:520px;max-height:calc(100vh - 40px);overflow-y:auto}
+  /* השכבה עצמה היא הגוללת, ולא הכרטיס: בטלפון גובה הכרטיס עלה על מה
+     שנראה בפועל על המסך (‏100vh בנייד כולל את שורת הכתובת), וכפתורי
+     הסגירה ירדו מתחת לקצה בלי שום דרך להגיע אליהם. */
+  .qr-overlay{align-items:flex-start;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:14px 12px 28px}
+  .qr-card{max-width:520px;margin:auto}
+  /* הכותרת נדבקת לראש החלון, כך שה-✕ נשאר על המסך גם באמצע גלילה */
+  .qr-head{position:sticky;top:0;z-index:2;background:#fff;display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin:-22px -22px 0;padding:22px 22px 10px;border-radius:var(--radius-md) var(--radius-md) 0 0}
+  .qr-head .pm-title{margin:0}
+  .qr-close{flex:none;width:34px;height:34px;border-radius:50%;background:var(--paper-raised);border:1.5px solid var(--line);color:var(--ink-soft);font-size:1rem;line-height:1;display:flex;align-items:center;justify-content:center}
   .qr-sub{font-size:.84rem;color:var(--ink-soft);margin:0 0 14px;line-height:1.5}
   .qr-preview{background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-sm);padding:12px;display:flex;justify-content:center;min-height:120px}
-  /* ה-canvas עצמו בגודל הדפסה (‏1240×1748), וכאן הוא רק מוקטן לתצוגה */
-  .qr-preview canvas{width:100%;max-width:290px;height:auto;border-radius:4px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+  /* ה-canvas עצמו בגודל הדפסה (300dpi), וכאן הוא רק מוקטן לתצוגה */
+  .qr-preview canvas{width:100%;max-width:250px;height:auto;border-radius:4px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
   .qr-link{font-size:.7rem;color:var(--ink-soft);word-break:break-all;direction:ltr;text-align:center;margin:10px 0 0}
   .qr-warn{font-size:.78rem;color:var(--brick);background:var(--gold-tint);border-radius:var(--radius-sm);padding:9px 11px;margin:10px 0 0;line-height:1.45}
   .qr-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
@@ -1962,9 +1970,12 @@
 </div>
 
 <!-- מדבקת QR לשלט: תצוגה מקדימה של המדבקה, והורדה כ-PDF להדפסה -->
-<div class="pm-overlay" id="qrModal" role="dialog" aria-modal="true" aria-labelledby="qrTitle" style="display:none">
+<div class="pm-overlay qr-overlay" id="qrModal" role="dialog" aria-modal="true" aria-labelledby="qrTitle" style="display:none">
   <div class="pm-card qr-card">
-    <div class="pm-title" id="qrTitle">מדבקת QR להדבקה על השלט</div>
+    <div class="qr-head">
+      <div class="pm-title" id="qrTitle">מדבקת QR להדבקה על השלט</div>
+      <button type="button" class="qr-close" id="qrCloseX" aria-label="סגירת החלון">✕</button>
+    </div>
     <p class="qr-sub" id="qrSub"></p>
     <div class="qr-preview"><canvas id="qrCanvas" aria-label="תצוגה מקדימה של המדבקה"></canvas></div>
     <p class="qr-link" id="qrLink"></p>
@@ -5097,7 +5108,7 @@ async function openQrSticker(property, btn){
     } else {
       warn.style.display = 'none';
     }
-    document.getElementById('qrModal').style.display = 'flex';
+    openQrModal();
   } catch(err){
     console.error(err);
     showToast('שגיאה בהפקת המדבקה — נסו שוב');
@@ -5111,11 +5122,40 @@ function qrStickerFilename(ext){
   return 'qr-sticker-' + (id || 'property') + '.' + ext;
 }
 
-document.getElementById('qrCloseBtn').addEventListener('click', ()=>{
-  document.getElementById('qrModal').style.display = 'none';
-});
+/* פתיחה וסגירה של החלון. יש חמש דרכים לצאת ממנו — ה-✕ שנשאר דבוק לראש
+   החלון, כפתור "סגירה", לחיצה על הרקע, מקש Escape, וכפתור "חזור" של
+   הטלפון — כדי שלא ייווצר מצב שהמדבקה תופסת את המסך בלי יציאה.        */
+let qrHistoryEntry = false;
+
+function openQrModal(){
+  document.getElementById('qrModal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';   // הדף שמאחור לא נגלל יחד עם החלון
+  // מצב היסטוריה ייעודי: "חזור" בטלפון סוגר את החלון במקום לצאת מה-CRM
+  try{ history.pushState({ qrSticker:true }, ''); qrHistoryEntry = true; }
+  catch(e){ qrHistoryEntry = false; }
+}
+
+function closeQrModal(fromHistory){
+  const modal = document.getElementById('qrModal');
+  if (modal.style.display === 'none') return;
+  modal.style.display = 'none';
+  document.body.style.overflow = '';
+  const hadEntry = qrHistoryEntry;
+  qrHistoryEntry = false;
+  // סגירה בלחיצה מוחקת גם את מצב ההיסטוריה, אחרת "חזור" הבא לא יעשה כלום
+  if (!fromHistory && hadEntry){ try{ history.back(); }catch(e){} }
+}
+
+document.getElementById('qrCloseBtn').addEventListener('click', ()=> closeQrModal());
+document.getElementById('qrCloseX').addEventListener('click', ()=> closeQrModal());
 document.getElementById('qrModal').addEventListener('click', (e)=>{
-  if (e.target.id === 'qrModal') document.getElementById('qrModal').style.display = 'none';
+  if (e.target.id === 'qrModal') closeQrModal();
+});
+document.addEventListener('keydown', (e)=>{
+  if (e.key === 'Escape') closeQrModal();
+});
+window.addEventListener('popstate', ()=>{
+  if (qrHistoryEntry) closeQrModal(true);
 });
 
 /* בונה את קובץ ה-PDF מהמדבקה שכבר מצוירת על ה-canvas */
