@@ -1879,7 +1879,8 @@
     <p class="qr-link" id="qrLink"></p>
     <p class="qr-warn" id="qrWarn" style="display:none"></p>
     <div class="qr-actions">
-      <button type="button" class="btn btn-gold" id="qrPdfBtn">הורדה כ-PDF להדפסה</button>
+      <button type="button" class="btn btn-gold" id="qrPdfBtn">הורדה כ-PDF</button>
+      <button type="button" class="btn btn-ghost" id="qrShareBtn" style="display:none">שיתוף</button>
       <button type="button" class="btn btn-ghost" id="qrPngBtn">הורדה כתמונה</button>
       <button type="button" class="btn btn-ghost" id="qrCloseBtn">סגירה</button>
     </div>
@@ -1920,7 +1921,6 @@ const dashboard = document.getElementById('dashboard');
 const createAgencyScreen = document.getElementById('createAgencyScreen');
 const toastEl = document.getElementById('toast');
 let currentAgent = null;
-let currentAgencyName = '';
 const SUPPORT_EMAIL = 'support@shuknadlan.co.il'; // כתובת placeholder — תוקם בפועל בהמשך
 
 function showToast(msg, ms=3200){
@@ -2234,7 +2234,6 @@ async function loadDashboard(){
     agencyName = agency?.name || '';
   }
   currentAgent = agent;
-  currentAgencyName = agencyName;   // מוצג גם על מדבקת ה-QR לשלט
 
   loginScreen.style.display = 'none';
   dashboard.style.display = 'block';
@@ -4805,8 +4804,8 @@ function qrPenalty(m, size){
 
 /* ---------- ציור המדבקה ---------- */
 
-const QR_STICKER_W = 1240, QR_STICKER_H = 1748;      // ‏A6 לאורך (105×148 מ"מ) ב-300dpi
-const QR_STICKER_PT = { w: 297.64, h: 419.53 };      // אותו גודל בנקודות, לעמוד ה-PDF
+const QR_STICKER_W = 1063;                  // רוחב המדבקה: 90 מ"מ ב-300dpi
+let qrStickerPage = { w: 0, h: 0, mmW: 0, mmH: 0 };  // גודל העמוד ב-PDF, נקבע בציור
 
 function propertyPublicLink(propertyId){
   const dir = window.location.pathname.replace(/[^/]*$/, '');
@@ -4820,99 +4819,56 @@ function qrFit(ctx, text, maxWidth){
   return t + '…';
 }
 
-function qrWrap(ctx, text, maxWidth, maxLines){
-  const words = String(text).split(/\s+/).filter(Boolean);
-  const lines = [];
-  let line = '';
-  words.forEach(w => {
-    const next = line ? line + ' ' + w : w;
-    if (!line || ctx.measureText(next).width <= maxWidth) line = next;
-    else { lines.push(line); line = w; }
-  });
-  if (line) lines.push(line);
-  const kept = lines.slice(0, maxLines);
-  if (lines.length > maxLines) kept[maxLines - 1] += '…';
-  return kept.map(l => qrFit(ctx, l, maxWidth));
-}
+/* המדבקה: הקוד בתוך מסגרת, ומתחתיו שורת ההנחיה לסורק — וזהו. פרטי הנכס
+   כבר מופיעים על השלט שעליו היא מודבקת, וכל מה שהיא צריכה להוסיף הוא הקוד
+   וההסבר מה עושים איתו. גובה המדבקה נגזר מגודל הקוד, כדי שלא יישאר סביבו
+   שטח לבן מיותר — וממנו נגזר גם גודל עמוד ה-PDF.                         */
+function drawQrSticker(canvas, link){
+  const W = QR_STICKER_W, margin = 66;
+  const qr = qrEncode(link, 'Q');
+  // ‏+8 = שוליים שקטים של ארבעה מודולים מכל צד, כפי שדורש התקן לסריקה
+  const cell = Math.max(4, Math.floor((W - margin * 2) / (qr.size + 8)));
+  const box = cell * (qr.size + 8);
+  const qrX = Math.round((W - box) / 2), qrY = margin;
+  const sepY = qrY + box + 44;
+  const H = sepY + 196;
 
-/* המדבקה כולה: כותרת ממותגת, פרטי הנכס, הקוד עצמו ופרטי הסוכן/ת */
-function drawQrSticker(canvas, p, link){
-  const W = QR_STICKER_W, H = QR_STICKER_H, mid = W / 2, pad = 90;
-  const maxText = W - pad * 2;
   canvas.width = W; canvas.height = H;
   const ctx = canvas.getContext('2d');
   ctx.direction = 'rtl';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillStyle = '#fff';
+  ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, 0, W, H);
 
-  const heebo = (weight, px) => `${weight} ${px}px 'Heebo', sans-serif`;
-  const serif = (weight, px) => `${weight} ${px}px 'Frank Ruhl Libre', serif`;
-  const write = (text, y, font, color, max) => {
-    ctx.font = font; ctx.fillStyle = color;
-    ctx.fillText(qrFit(ctx, text, max || maxText), mid, y);
-  };
-
-  // כותרת ממותגת
-  ctx.fillStyle = '#122840';
-  ctx.fillRect(0, 0, W, 250);
-  write('שוק נדל״ן', currentAgencyName ? 128 : 155, serif(700, 82), '#ffffff');
-  if (currentAgencyName) write(currentAgencyName, 194, heebo(500, 42), '#AFC0D2');
-
-  let y = 250 + 96;
-
-  ctx.font = heebo(800, 62);
-  const titleLines = qrWrap(ctx, p.title || 'נכס למכירה', maxText, 2);
-  titleLines.forEach((l, i) => write(l, y + i * 76, heebo(800, 62), '#1B1F26'));
-  y += (titleLines.length - 1) * 76 + 62;
-
-  const address = [[p.street, p.house_number].filter(Boolean).join(' '), p.city].filter(Boolean).join(', ');
-  if (address){ write(address, y, heebo(400, 44), '#565C63'); y += 68; }
-
-  const price = p.deal_type === 'rent'
-    ? '₪' + Number(p.price).toLocaleString('he-IL') + ' לחודש'
-    : '₪' + Number(p.price).toLocaleString('he-IL');
-  write(price, y + 12, serif(700, 76), '#8B2332');
-  y += 84;
-
-  const meta = [
-    p.rooms ? p.rooms + ' חדרים' : '',
-    p.size_sqm ? p.size_sqm + ' מ״ר' : '',
-    p.property_type || '',
-  ].filter(Boolean).join(' · ');
-  if (meta){ write(meta, y, heebo(400, 40), '#565C63'); y += 56; }
-
-  // הקוד עצמו — כמה שיותר גדול במקום שנשאר, עם שוליים שקטים של ארבעה מודולים
-  const footTop = H - 200;
-  const ctaSpace = 160;
-  const qr = qrEncode(link, 'Q');
-  const room = Math.min(maxText, footTop - ctaSpace - (y + 20));
-  const cell = Math.max(4, Math.floor(room / (qr.size + 8)));
-  const box = cell * (qr.size + 8);
-  const qrX = Math.round((W - box) / 2), qrY = Math.round(y + 20);
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(qrX, qrY, box, box);
+  // המסגרת החיצונית היא גם קו הגזירה של המדבקה
   ctx.strokeStyle = '#C5C3BC';
-  ctx.lineWidth = 3;
-  ctx.strokeRect(qrX - 10.5, qrY - 10.5, box + 21, box + 21);
+  ctx.lineWidth = 4;
+  ctx.strokeRect(10, 10, W - 20, H - 20);
+
   ctx.fillStyle = '#000000';
   for (let r = 0; r < qr.size; r++) for (let c = 0; c < qr.size; c++)
     if (qr.modules[r][c]) ctx.fillRect(qrX + (c + 4) * cell, qrY + (r + 4) * cell, cell, cell);
 
-  y = qrY + box + 76;
-  write('סרקו לצפייה בנכס', y, heebo(800, 52), '#1C3A5E');
-  write('כל התמונות, הפרטים ויצירת קשר ישירה', y + 54, heebo(400, 36), '#565C63');
+  ctx.strokeStyle = '#E0E7ED';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(margin, sepY);
+  ctx.lineTo(W - margin, sepY);
+  ctx.stroke();
 
-  // פרטי הסוכן/ת בתחתית
-  ctx.fillStyle = '#E0E7ED';
-  ctx.fillRect(0, footTop, W, H - footTop);
-  const agentLine = [currentAgent?.display_name, currentAgent?.phone].filter(Boolean).join(' · ');
-  write(agentLine || 'שוק נדל״ן', footTop + 84, heebo(700, 46), '#122840');
-  let host = '';
-  try { host = new URL(link).hostname; } catch(e){ host = ''; }
-  const listing = p.listing_number ? 'מודעה #' + p.listing_number : '';
-  write([listing, host].filter(Boolean).join('  ·  '), footTop + 140, heebo(400, 32), '#565C63');
+  const write = (text, y, font, color) => {
+    ctx.font = font; ctx.fillStyle = color;
+    ctx.fillText(qrFit(ctx, text, W - margin * 2), W / 2, y);
+  };
+  write('סרקו לצפייה בנכס', sepY + 84, "800 56px 'Heebo', sans-serif", '#1C3A5E');
+  write('כל התמונות, הפרטים ויצירת קשר ישירה', sepY + 142, "400 36px 'Heebo', sans-serif", '#565C63');
+
+  // גודל העמוד ב-PDF, בנקודות, לפי אותם 300dpi שבהם צוירה המדבקה
+  qrStickerPage = {
+    w: +(W / 300 * 72).toFixed(2), h: +(H / 300 * 72).toFixed(2),
+    mmW: Math.round(W / 300 * 25.4), mmH: Math.round(H / 300 * 25.4),
+  };
 }
 
 /* ---------- בניית קובץ ה-PDF ----------
@@ -4973,7 +4929,7 @@ function canvasBlob(canvas, type, quality){
 
 /* ---------- החלון והכפתורים ---------- */
 
-let qrStickerProperty = null;
+let qrStickerProperty = null, qrStickerLink = '';
 
 async function openQrSticker(property, btn){
   const original = btn ? btn.textContent : '';
@@ -4985,17 +4941,20 @@ async function openQrSticker(property, btn){
     // והמדבקה מצוירת בגופן ברירת המחדל של הדפדפן
     if (document.fonts && document.fonts.load){
       await Promise.all([
-        document.fonts.load("800 62px 'Heebo'"),
-        document.fonts.load("700 46px 'Heebo'"),
-        document.fonts.load("400 40px 'Heebo'"),
-        document.fonts.load("700 82px 'Frank Ruhl Libre'"),
+        document.fonts.load("800 56px 'Heebo'"),
+        document.fonts.load("400 36px 'Heebo'"),
       ]).catch(()=>{});
     }
-    drawQrSticker(canvas, property, link);
+    drawQrSticker(canvas, link);
     qrStickerProperty = property;
+    qrStickerLink = link;
 
     document.getElementById('qrSub').textContent =
-      'המדבקה מוכנה להדפסה בגודל A6 — ‏105 על 148 מ״מ. סריקה של הקוד פותחת את עמוד הנכס באתר.';
+      (property.title ? property.title + ' · ' : '') +
+      'מדבקה להדפסה בגודל ' + qrStickerPage.mmW + ' על ' + qrStickerPage.mmH +
+      ' מ״מ. סריקה של הקוד פותחת את עמוד הנכס באתר.';
+    // ‏navigator.share קיים בעיקר בדפדפני מובייל — במחשב פשוט אין כפתור שיתוף
+    document.getElementById('qrShareBtn').style.display = navigator.share ? '' : 'none';
     document.getElementById('qrLink').textContent = link;
     const warn = document.getElementById('qrWarn');
     // כשהדף נפתח מהדיסק (file://) הכתובת שנבנית כאן לא קיימת באינטרנט,
@@ -5027,20 +4986,48 @@ document.getElementById('qrModal').addEventListener('click', (e)=>{
   if (e.target.id === 'qrModal') document.getElementById('qrModal').style.display = 'none';
 });
 
+/* בונה את קובץ ה-PDF מהמדבקה שכבר מצוירת על ה-canvas */
+async function stickerPdfBytes(){
+  const canvas = document.getElementById('qrCanvas');
+  const blob = await canvasBlob(canvas, 'image/jpeg', 0.95);
+  if (!blob) throw new Error('canvas.toBlob נכשל');
+  const jpeg = new Uint8Array(await blob.arrayBuffer());
+  return buildStickerPdf(jpeg, canvas.width, canvas.height, qrStickerPage.w, qrStickerPage.h);
+}
+
 document.getElementById('qrPdfBtn').addEventListener('click', async (e)=>{
   const btn = e.currentTarget, original = btn.textContent;
   btn.disabled = true; btn.textContent = 'מייצר PDF…';
   try{
-    const canvas = document.getElementById('qrCanvas');
-    const blob = await canvasBlob(canvas, 'image/jpeg', 0.95);
-    if (!blob) throw new Error('canvas.toBlob נכשל');
-    const jpeg = new Uint8Array(await blob.arrayBuffer());
-    const pdf = buildStickerPdf(jpeg, canvas.width, canvas.height, QR_STICKER_PT.w, QR_STICKER_PT.h);
-    downloadBlob(new Blob([pdf], { type:'application/pdf' }), qrStickerFilename('pdf'));
+    downloadBlob(new Blob([await stickerPdfBytes()], { type:'application/pdf' }), qrStickerFilename('pdf'));
     showToast('המדבקה ירדה כקובץ PDF — הדפיסו בגודל מקורי (100%)');
   } catch(err){
     console.error(err);
     showToast('שגיאה בהורדת ה-PDF — נסו שוב');
+  } finally {
+    btn.disabled = false; btn.textContent = original;
+  }
+});
+
+/* שיתוף ישיר מהטלפון (וואטסאפ, מייל וכו׳). דפדפן שיודע לשתף קבצים מקבל את
+   ה-PDF עצמו; אחרת משתפים לפחות את הקישור לעמוד הנכס.                     */
+document.getElementById('qrShareBtn').addEventListener('click', async (e)=>{
+  const btn = e.currentTarget, original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'מכין לשיתוף…';
+  try{
+    const title = 'מדבקת QR · ' + (qrStickerProperty?.title || 'נכס');
+    const file = new File([await stickerPdfBytes()], qrStickerFilename('pdf'), { type:'application/pdf' });
+    if (navigator.canShare && navigator.canShare({ files:[file] })){
+      await navigator.share({ files:[file], title });
+    } else if (navigator.share){
+      await navigator.share({ title, text: title, url: qrStickerLink });
+    } else {
+      showToast('הדפדפן לא תומך בשיתוף — השתמשו בהורדה');
+    }
+  } catch(err){
+    if (err && err.name === 'AbortError') return;   // המשתמש/ת סגר/ה את חלון השיתוף
+    console.error(err);
+    showToast('שגיאה בשיתוף — נסו להוריד את הקובץ');
   } finally {
     btn.disabled = false; btn.textContent = original;
   }
