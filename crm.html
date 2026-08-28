@@ -235,6 +235,20 @@
   .share-partner-list label:hover{background:var(--paper)}
   .filter-input{border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;background:#fff}
 
+  /* ---------- סרגל חיפוש/סינון/מיון לרשימות ----------
+     אותו סרגל משרת את שלוש הרשימות (הנכסים שלי, ששותפו איתי, הלקוחות).
+     ברוחב טלפון הפקדים נערמים בשורות ומתמתחים לרוחב מלא — בחירה בשדה
+     צר מדי היא הדרך הבטוחה לגרום לסוכן/ת לוותר על הסינון. */
+  .list-toolbar{display:grid;gap:8px;margin-bottom:12px}
+  .list-toolbar .toolbar-row{display:flex;gap:8px;flex-wrap:wrap}
+  .list-toolbar .toolbar-row > *{flex:1 1 130px;min-width:0}
+  .list-toolbar .filter-input{width:100%}
+  .list-toolbar .toolbar-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+  .list-count{font-size:.74rem;color:var(--ink-soft);margin:0}
+  .clear-filters{background:none;border:none;padding:0;font:inherit;font-size:.74rem;font-weight:700;
+    color:var(--gold-dark);cursor:pointer;text-decoration:underline}
+  .clear-filters[hidden]{display:none}
+
   /* ---------- קובץ הלקוחות ומנוע ההתאמות ----------
      כרטיס ההתאמה צר יותר מכרטיס ליד: הוא יושב *בתוך* כרטיס הלקוח/ה, ולכן
      הוא ויתר על התמונה ועל הריווח הגדול לטובת השורה התחתונה — הציון והפער. */
@@ -1090,6 +1104,55 @@
       <div id="addPropertyFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
       <div id="addPropertyPlanningStatus" style="font-size:.75rem;text-align:center;margin-top:4px;color:var(--ink-soft)"></div>
     </form>
+    <div class="list-toolbar" id="propToolbar" hidden>
+      <input type="search" id="propSearch" class="filter-input"
+             placeholder="חיפוש נכס — כותרת, עיר, רחוב, סוג נכס, מס׳ מודעה או בעל/ת הנכס">
+      <div class="toolbar-row">
+        <select id="propStatusFilter" class="filter-input" aria-label="סינון לפי סטטוס">
+          <option value="">כל הסטטוסים</option>
+          <option value="active">פעיל</option>
+          <option value="sold">נמכר</option>
+          <option value="rented">הושכר</option>
+          <option value="archived">הוסר</option>
+        </select>
+        <select id="propDealFilter" class="filter-input" aria-label="סינון לפי סוג עסקה">
+          <option value="">מכירה והשכרה</option>
+          <option value="sale">מכירה</option>
+          <option value="rent">השכרה</option>
+        </select>
+        <select id="propTypeFilter" class="filter-input" aria-label="סינון לפי סוג נכס">
+          <option value="">כל סוגי הנכס</option>
+        </select>
+        <select id="propCityFilter" class="filter-input" aria-label="סינון לפי עיר">
+          <option value="">כל הערים</option>
+        </select>
+      </div>
+      <div class="toolbar-row">
+        <select id="propExtraFilter" class="filter-input" aria-label="סינון מהיר">
+          <option value="">כל הנכסים</option>
+          <option value="promoted">מקודמים כרגע</option>
+          <option value="shared">פתוחים לשת״פ</option>
+          <option value="not_shared">לא פתוחים לשת״פ</option>
+          <option value="no_images">ללא תמונות</option>
+          <option value="expired">פג תוקף</option>
+        </select>
+        <select id="propSort" class="filter-input" aria-label="מיון">
+          <option value="created_desc">מיון: החדשים ביותר</option>
+          <option value="created_asc">מיון: הוותיקים ביותר</option>
+          <option value="price_desc">מיון: מחיר — מהגבוה לנמוך</option>
+          <option value="price_asc">מיון: מחיר — מהנמוך לגבוה</option>
+          <option value="rooms_desc">מיון: חדרים — מהרב למעט</option>
+          <option value="rooms_asc">מיון: חדרים — מהמעט לרב</option>
+          <option value="size_desc">מיון: שטח — מהגדול לקטן</option>
+          <option value="views_desc">מיון: הכי נצפים</option>
+          <option value="title_asc">מיון: כותרת — א׳ עד ת׳</option>
+        </select>
+      </div>
+      <div class="toolbar-foot">
+        <p class="list-count" id="propFilterCount"></p>
+        <button type="button" class="clear-filters" id="propClearFilters" hidden>ניקוי הסינון</button>
+      </div>
+    </div>
     <div id="propertiesList"></div>
       </div>
     </details>
@@ -1114,21 +1177,40 @@
       <div class="acc-body">
         <p class="acc-sub">נכסים שמשרדי תיווך אחרים פתחו לשת״פ מולכם. ליד כל נכס מופיע המשרד המשתף ופרטי הקשר של הסוכן/ת שאחראי/ת עליו.</p>
 
-        <div style="display:grid;gap:8px;margin-bottom:12px">
-          <input type="search" id="sharedSearch" class="filter-input" placeholder="חיפוש חופשי — כותרת, עיר, רחוב, משרד או סוכן/ת">
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <select id="sharedAgencyFilter" class="filter-input" style="flex:1;min-width:140px">
+        <div class="list-toolbar">
+          <input type="search" id="sharedSearch" class="filter-input" placeholder="חיפוש חופשי — כותרת, עיר, רחוב, סוג נכס, משרד או סוכן/ת">
+          <div class="toolbar-row">
+            <select id="sharedAgencyFilter" class="filter-input" aria-label="סינון לפי משרד">
               <option value="">כל המשרדים</option>
             </select>
-            <select id="sharedDealFilter" class="filter-input" style="flex:1;min-width:120px">
+            <select id="sharedDealFilter" class="filter-input" aria-label="סינון לפי סוג עסקה">
               <option value="">מכירה והשכרה</option>
               <option value="sale">מכירה</option>
               <option value="rent">השכרה</option>
             </select>
-            <select id="sharedCityFilter" class="filter-input" style="flex:1;min-width:120px">
+            <select id="sharedCityFilter" class="filter-input" aria-label="סינון לפי עיר">
               <option value="">כל הערים</option>
             </select>
+            <select id="sharedTypeFilter" class="filter-input" aria-label="סינון לפי סוג נכס">
+              <option value="">כל סוגי הנכס</option>
+            </select>
+          </div>
+          <div class="toolbar-row">
+            <select id="sharedSort" class="filter-input" aria-label="מיון">
+              <option value="shared_desc">מיון: שותפו לאחרונה</option>
+              <option value="shared_asc">מיון: שותפו מזמן</option>
+              <option value="price_desc">מיון: מחיר — מהגבוה לנמוך</option>
+              <option value="price_asc">מיון: מחיר — מהנמוך לגבוה</option>
+              <option value="rooms_desc">מיון: חדרים — מהרב למעט</option>
+              <option value="rooms_asc">מיון: חדרים — מהמעט לרב</option>
+              <option value="size_desc">מיון: שטח — מהגדול לקטן</option>
+              <option value="title_asc">מיון: כותרת — א׳ עד ת׳</option>
+            </select>
             <button type="button" class="btn btn-ghost" id="sharedRefreshBtn" style="white-space:nowrap">רענון</button>
+          </div>
+          <div class="toolbar-foot">
+            <p class="list-count" id="sharedFilterCount"></p>
+            <button type="button" class="clear-filters" id="sharedClearFilters" hidden>ניקוי הסינון</button>
           </div>
         </div>
 
@@ -1203,14 +1285,49 @@
           <div id="clientFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
         </form>
 
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-          <input type="search" id="clientSearch" class="filter-input" placeholder="חיפוש לקוח/ה — שם, טלפון או עיר" style="flex:1;min-width:170px">
-          <select id="clientStatusFilter" class="filter-input" style="flex:1;min-width:120px">
-            <option value="active">מחפשים</option>
-            <option value="">כל הסטטוסים</option>
-            <option value="paused">בהמתנה</option>
-            <option value="closed">סגרו עסקה</option>
-          </select>
+        <div class="list-toolbar">
+          <input type="search" id="clientSearch" class="filter-input"
+                 placeholder="חיפוש לקוח/ה — שם, טלפון, אימייל, עיר, סוג נכס מבוקש או הערה">
+          <div class="toolbar-row">
+            <select id="clientStatusFilter" class="filter-input" aria-label="סינון לפי סטטוס">
+              <option value="active">מחפשים</option>
+              <option value="">כל הסטטוסים</option>
+              <option value="paused">בהמתנה</option>
+              <option value="closed">סגרו עסקה</option>
+            </select>
+            <select id="clientDealFilter" class="filter-input" aria-label="סינון לפי סוג עסקה">
+              <option value="">קנייה ושכירות</option>
+              <option value="sale">קנייה</option>
+              <option value="rent">שכירות</option>
+            </select>
+            <select id="clientCategoryFilter" class="filter-input" aria-label="סינון לפי קטגוריה">
+              <option value="">מגורים ומסחרי</option>
+              <option value="residential">מגורים</option>
+              <option value="commercial">מסחרי</option>
+            </select>
+          </div>
+          <div class="toolbar-row">
+            <select id="clientTypeFilter" class="filter-input" aria-label="סינון לפי סוג הנכס שמחפשים">
+              <option value="">כל מי שמחפש/ת — כל סוגי הנכס</option>
+            </select>
+            <select id="clientCityFilter" class="filter-input" aria-label="סינון לפי עיר מבוקשת">
+              <option value="">כל הערים המבוקשות</option>
+            </select>
+          </div>
+          <div class="toolbar-row">
+            <select id="clientSort" class="filter-input" aria-label="מיון">
+              <option value="created_desc">מיון: הנוספו לאחרונה</option>
+              <option value="created_asc">מיון: הוותיקים ביותר</option>
+              <option value="matches_desc">מיון: הכי הרבה התאמות</option>
+              <option value="name_asc">מיון: שם — א׳ עד ת׳</option>
+              <option value="budget_desc">מיון: תקציב — מהגבוה לנמוך</option>
+              <option value="budget_asc">מיון: תקציב — מהנמוך לגבוה</option>
+            </select>
+          </div>
+          <div class="toolbar-foot">
+            <p class="list-count" id="clientFilterCount"></p>
+            <button type="button" class="clear-filters" id="clientClearFilters" hidden>ניקוי הסינון</button>
+          </div>
         </div>
 
         <div id="clientsList"></div>
@@ -3992,6 +4109,169 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   }, 1500);
 });
 
+/* ---------- חיפוש, סינון ומיון ברשימת "הנכסים שלי" ----------
+   הרשימה נטענת פעם אחת ל-myPropertyRows, וכל סינון/מיון הוא מקומי: הסוכן/ת
+   מקליד/ה בשדה החיפוש תוך כדי גלילה, ואין סיבה להחזיר את המסך למצב "טוען…"
+   על כל תו. לכן loadProperties() אחראית רק על הבאת הנתונים ועל המידע הנלווה
+   (צפיות, מידע תכנוני, ספירת שת״פ), ו-renderProperties() על התצוגה.       */
+const PROPERTY_STATUS_LABELS = { active:'פעיל', sold:'נמכר', rented:'הושכר', archived:'הוסר' };
+let myPropertyRows = [];
+let myPropertyAgentId = null;
+let propertyViewCounts = {};
+let propertyPlanningInfo = {};
+
+// טקסט אחד לחיפוש חופשי בכל מה שמזהה נכס — כולל בעל/ת הנכס, שגלוי רק כאן
+function propertySearchBlob(p){
+  const ownerRow = Array.isArray(p.property_owners) ? p.property_owners[0] : p.property_owners;
+  // שם השכונה יושב בטבלה נפרדת; אם המטמון עוד לא נטען פשוט לא מחפשים לפיו
+  const neighborhood = allNeighborhoods.find(n => n.id === p.neighborhood_id);
+  return [
+    p.title, p.city, neighborhood?.name, p.sales_area, p.street, p.house_number,
+    p.property_type, p.description, p.marketing_description,
+    p.listing_number != null ? '#' + p.listing_number : null,
+    p.listing_number, p.agent2_name,
+    ownerRow?.owner_name, ownerRow?.owner_phone,
+    PROPERTY_STATUS_LABELS[p.status],
+  ].filter(v => v !== null && v !== undefined && v !== '').join(' ').toLowerCase();
+}
+
+function propertyIsPromoted(p){
+  return !!p.is_promoted && (!p.promoted_until || msLeft(p.promoted_until) > 0);
+}
+function propertyIsExpired(p){
+  return !!p.listing_expires_at &&
+    new Date(p.listing_expires_at) < new Date(new Date().toDateString());
+}
+
+// מיון עולה/יורד על שדה מספרי: ערך חסר תמיד יורד לסוף, בשני הכיוונים —
+// נכס בלי מ״ר לא אמור לקפוץ לראש הרשימה רק כי מיינו מהנמוך לגבוה
+function numericCompare(a, b, dir){
+  const av = (a === null || a === undefined || a === '') ? null : Number(a);
+  const bv = (b === null || b === undefined || b === '') ? null : Number(b);
+  const aMissing = av === null || Number.isNaN(av);
+  const bMissing = bv === null || Number.isNaN(bv);
+  if (aMissing && bMissing) return 0;
+  if (aMissing) return 1;
+  if (bMissing) return -1;
+  return dir === 'asc' ? av - bv : bv - av;
+}
+const hebCompare = (a, b) => String(a || '').localeCompare(String(b || ''), 'he');
+const timeCompare = (a, b, dir) =>
+  dir === 'asc' ? new Date(a || 0) - new Date(b || 0) : new Date(b || 0) - new Date(a || 0);
+
+// בונה את רשימות הסינון מהנכסים שנטענו בפועל, ולא מרשימת הסוגים המלאה —
+// אין טעם להציע "בית מלון" לסוכן/ת שכל הנכסים שלו/ה דירות
+function syncPropertyFilterOptions(){
+  fillFilterSelect('propTypeFilter',
+    uniqueSorted(myPropertyRows.map(p => p.property_type)), 'כל סוגי הנכס');
+  fillFilterSelect('propCityFilter',
+    uniqueSorted(myPropertyRows.map(p => p.city)), 'כל הערים');
+}
+
+function uniqueSorted(values){
+  return [...new Set(values.filter(Boolean).map(String))].sort((a, b) => hebCompare(a, b));
+}
+
+// שמירה על הבחירה הקיימת כשהרשימה נבנית מחדש (אחרי הוספה/עריכה של נכס)
+function fillFilterSelect(selectId, values, allLabel){
+  const select = document.getElementById(selectId);
+  if (!select) return;
+  const previous = select.value;
+  select.innerHTML = `<option value="">${esc(allLabel)}</option>` +
+    values.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join('');
+  if (values.includes(previous)) select.value = previous;
+}
+
+// מצב הפקדים כאובייקט אחד — משמש גם לסינון, גם לשורת הספירה וגם לכפתור הניקוי
+function propertyFilterState(){
+  const val = id => (document.getElementById(id)?.value ?? '');
+  return {
+    q: val('propSearch').trim().toLowerCase(),
+    status: val('propStatusFilter'),
+    deal: val('propDealFilter'),
+    type: val('propTypeFilter'),
+    city: val('propCityFilter'),
+    extra: val('propExtraFilter'),
+    sort: val('propSort') || 'created_desc',
+  };
+}
+
+function filterProperties(rows, f){
+  return rows.filter(p => {
+    if (f.status && p.status !== f.status) return false;
+    if (f.deal && p.deal_type !== f.deal) return false;
+    if (f.type && p.property_type !== f.type) return false;
+    if (f.city && p.city !== f.city) return false;
+    if (f.extra === 'promoted'   && !propertyIsPromoted(p)) return false;
+    if (f.extra === 'shared'     && !p.shared_with_partners) return false;
+    if (f.extra === 'not_shared' && p.shared_with_partners) return false;
+    if (f.extra === 'no_images'  && (p.images && p.images.length)) return false;
+    if (f.extra === 'expired'    && !propertyIsExpired(p)) return false;
+    if (!f.q) return true;
+    return propertySearchBlob(p).includes(f.q);
+  });
+}
+
+function sortProperties(rows, sort){
+  const sorted = rows.slice();
+  const comparators = {
+    created_desc: (a, b) => timeCompare(a.created_at, b.created_at, 'desc'),
+    created_asc:  (a, b) => timeCompare(a.created_at, b.created_at, 'asc'),
+    price_desc:   (a, b) => numericCompare(a.price, b.price, 'desc'),
+    price_asc:    (a, b) => numericCompare(a.price, b.price, 'asc'),
+    rooms_desc:   (a, b) => numericCompare(a.rooms, b.rooms, 'desc'),
+    rooms_asc:    (a, b) => numericCompare(a.rooms, b.rooms, 'asc'),
+    size_desc:    (a, b) => numericCompare(a.size_sqm, b.size_sqm, 'desc'),
+    views_desc:   (a, b) => numericCompare(propertyViewCounts[a.id] || 0, propertyViewCounts[b.id] || 0, 'desc'),
+    title_asc:    (a, b) => hebCompare(a.title, b.title),
+  };
+  return sorted.sort(comparators[sort] || comparators.created_desc);
+}
+
+// "מציג X מתוך Y" מופיע רק כשמשהו באמת מסונן — אחרת זו שורה מיותרת
+function updateFilterFoot(countId, clearId, shown, total, active){
+  const countEl = document.getElementById(countId);
+  const clearEl = document.getElementById(clearId);
+  if (countEl) countEl.textContent = active ? `מציג ${shown} מתוך ${total}` : '';
+  if (clearEl) clearEl.hidden = !active;
+}
+
+function renderProperties(){
+  const listEl = document.getElementById('propertiesList');
+  const toolbar = document.getElementById('propToolbar');
+  if (!listEl) return;
+
+  if (toolbar) toolbar.hidden = myPropertyRows.length === 0;
+
+  if (myPropertyRows.length === 0){
+    listEl.innerHTML = '<div class="empty-state">עדיין לא פרסמת נכסים.</div>';
+    updateFilterFoot('propFilterCount', 'propClearFilters', 0, 0, false);
+    return;
+  }
+
+  const f = propertyFilterState();
+  const active = !!(f.q || f.status || f.deal || f.type || f.city || f.extra);
+  const rows = sortProperties(filterProperties(myPropertyRows, f), f.sort);
+  updateFilterFoot('propFilterCount', 'propClearFilters', rows.length, myPropertyRows.length, active);
+
+  if (rows.length === 0){
+    listEl.innerHTML = '<div class="empty-state">אין נכס שמתאים לחיפוש או לסינון הנוכחי.</div>';
+    return;
+  }
+  renderPropertyCards(listEl, rows, myPropertyAgentId);
+}
+
+function clearPropertyFilters(){
+  ['propSearch','propStatusFilter','propDealFilter','propTypeFilter','propCityFilter','propExtraFilter']
+    .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  renderProperties();
+}
+
+document.getElementById('propSearch').addEventListener('input', renderProperties);
+['propStatusFilter','propDealFilter','propTypeFilter','propCityFilter','propExtraFilter','propSort']
+  .forEach(id => document.getElementById(id).addEventListener('change', renderProperties));
+document.getElementById('propClearFilters').addEventListener('click', clearPropertyFilters);
+
 async function loadProperties(agentId){
   const listEl = document.getElementById('propertiesList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
@@ -4007,20 +4287,23 @@ async function loadProperties(agentId){
   }
   accSetCount('accProperties', (props||[]).length);
   dashProperties = props || [];
+  myPropertyRows = props || [];
+  myPropertyAgentId = agentId;
   renderDashboardOverview();
   if (!props || props.length === 0){
-    listEl.innerHTML = '<div class="empty-state">עדיין לא פרסמת נכסים.</div>';
+    propertyViewCounts = {}; propertyPlanningInfo = {}; propertyShareCounts = {};
+    syncPropertyFilterOptions();
+    renderProperties();
     return;
   }
-  const statusLabels = { active:'פעיל', sold:'נמכר', rented:'הושכר', archived:'הוסר' };
   const propertyIds = props.map(p=>p.id);
   const { data: viewRows } = await sb.from('property_views').select('property_id').in('property_id', propertyIds);
-  const viewCounts = {};
-  (viewRows||[]).forEach(v => { viewCounts[v.property_id] = (viewCounts[v.property_id]||0) + 1; });
+  propertyViewCounts = {};
+  (viewRows||[]).forEach(v => { propertyViewCounts[v.property_id] = (propertyViewCounts[v.property_id]||0) + 1; });
 
   const { data: planningRows } = await sb.from('property_planning_info').select('*').in('property_id', propertyIds);
-  const planningByProperty = {};
-  (planningRows||[]).forEach(pl => { planningByProperty[pl.property_id] = pl; });
+  propertyPlanningInfo = {};
+  (planningRows||[]).forEach(pl => { propertyPlanningInfo[pl.property_id] = pl; });
 
   // כמה משרדים קיבלו בפועל כל נכס — ה-policy על property_shares מחזירה לבעל
   // הנכס את השורות שלו, ולכן אפשר לספור מכאן בלי לעבור דרך פונקציה
@@ -4031,13 +4314,26 @@ async function loadProperties(agentId){
     propertyShareCounts[s.property_id] = (propertyShareCounts[s.property_id]||0) + 1;
   });
 
+  // כדי שהחיפוש החופשי יכסה גם שם שכונה — הקריאה ממוטמעת ומחזירה מיד
+  // אחרי הפעם הראשונה
+  await ensureNeighborhoodsLoaded();
+
+  syncPropertyFilterOptions();
+  renderProperties();
+}
+
+function renderPropertyCards(listEl, props, agentId){
+  const statusLabels = PROPERTY_STATUS_LABELS;
+  const viewCounts = propertyViewCounts;
+  const planningByProperty = propertyPlanningInfo;
+
   listEl.innerHTML = '';
   props.forEach(p=>{
     const priceLabel = p.deal_type === 'rent' ? ('₪' + Number(p.price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(p.price).toLocaleString('he-IL'));
     // ‏promoted_until ריק = קידום ידני/היסטורי בלי מועד סיום, נחשב פעיל
-    const isCurrentlyPromoted = !!p.is_promoted && (!p.promoted_until || msLeft(p.promoted_until) > 0);
+    const isCurrentlyPromoted = propertyIsPromoted(p);
     // תוקף המודעה הוא תזכורת לסוכן/ת בלבד — הוא לא מוריד את הנכס מהאתר
-    const expired = !!p.listing_expires_at && new Date(p.listing_expires_at) < new Date(new Date().toDateString());
+    const expired = propertyIsExpired(p);
     // ‏property_owners מוגן ב-RLS, ולכן השורה הזו מגיעה רק לסוכן/ת של הנכס
     // ולמנהל/ת המשרד — ולכל האחרים היא פשוט לא קיימת בתשובה.
     const ownerRow = Array.isArray(p.property_owners) ? p.property_owners[0] : p.property_owners;
@@ -6359,6 +6655,11 @@ function syncSharedFilters(){
     .sort((a, b) => a.localeCompare(b, 'he'))
     .map(c => ({ value:c, label:c }));
   fill('sharedCityFilter', cities, 'כל הערים');
+
+  const types = [...new Set(sharedWithMeRows.map(r => r.property_type).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, 'he'))
+    .map(t => ({ value:t, label:t }));
+  fill('sharedTypeFilter', types, 'כל סוגי הנכס');
 }
 
 function sharedAddressLine(r){
@@ -6378,15 +6679,34 @@ function renderSharedWithMe(){
   const agencyId = document.getElementById('sharedAgencyFilter').value;
   const deal = document.getElementById('sharedDealFilter').value;
   const city = document.getElementById('sharedCityFilter').value;
+  const type = document.getElementById('sharedTypeFilter').value;
+  const sort = document.getElementById('sharedSort').value || 'shared_desc';
 
-  const filtered = sharedWithMeRows.filter(r => {
+  const unsorted = sharedWithMeRows.filter(r => {
     if (agencyId && r.owner_agency_id !== agencyId) return false;
     if (deal && r.deal_type !== deal) return false;
     if (city && r.city !== city) return false;
+    if (type && r.property_type !== type) return false;
     if (!q) return true;
-    return [r.title, r.city, r.street, r.property_type, r.owner_agency_name, r.owner_agent_name]
+    return [r.title, r.city, r.street, r.house_number, r.property_type,
+            r.owner_agency_name, r.owner_agent_name, r.owner_agent_phone]
       .filter(Boolean).join(' ').toLowerCase().includes(q);
   });
+
+  const sharedComparators = {
+    shared_desc: (a, b) => timeCompare(a.shared_at, b.shared_at, 'desc'),
+    shared_asc:  (a, b) => timeCompare(a.shared_at, b.shared_at, 'asc'),
+    price_desc:  (a, b) => numericCompare(a.price, b.price, 'desc'),
+    price_asc:   (a, b) => numericCompare(a.price, b.price, 'asc'),
+    rooms_desc:  (a, b) => numericCompare(a.rooms, b.rooms, 'desc'),
+    rooms_asc:   (a, b) => numericCompare(a.rooms, b.rooms, 'asc'),
+    size_desc:   (a, b) => numericCompare(a.size_sqm, b.size_sqm, 'desc'),
+    title_asc:   (a, b) => hebCompare(a.title, b.title),
+  };
+  const filtered = unsorted.slice().sort(sharedComparators[sort] || sharedComparators.shared_desc);
+
+  updateFilterFoot('sharedFilterCount', 'sharedClearFilters',
+    filtered.length, sharedWithMeRows.length, !!(q || agencyId || deal || city || type));
 
   if (filtered.length === 0){
     listEl.innerHTML = '<div class="empty-state">' +
@@ -6470,8 +6790,13 @@ document.getElementById('partnerClearAll').addEventListener('click', ()=>{
 document.getElementById('savePartnersBtn').addEventListener('click', saveSharePartners);
 
 document.getElementById('sharedSearch').addEventListener('input', renderSharedWithMe);
-['sharedAgencyFilter','sharedDealFilter','sharedCityFilter'].forEach(id =>
+['sharedAgencyFilter','sharedDealFilter','sharedCityFilter','sharedTypeFilter','sharedSort'].forEach(id =>
   document.getElementById(id).addEventListener('change', renderSharedWithMe));
+document.getElementById('sharedClearFilters').addEventListener('click', ()=>{
+  ['sharedSearch','sharedAgencyFilter','sharedDealFilter','sharedCityFilter','sharedTypeFilter']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  renderSharedWithMe();
+});
 document.getElementById('sharedRefreshBtn').addEventListener('click', ()=> loadSharedWithMe());
 
 /* ---------- קובץ הלקוחות ומנוע ההתאמות ----------
@@ -6529,6 +6854,7 @@ async function loadClients(){
   accSetCount('accClients', clientRows.length
     ? clientRows.length + ' לקוחות · ' + totalMatches + ' התאמות'
     : '');
+  syncClientFilterOptions();
   renderClients();
 }
 
@@ -6550,17 +6876,64 @@ function clientRequirementLine(c){
   return parts.join(' · ');
 }
 
+/* רשימות הסינון של הלקוחות נבנות ממה שהוזן בפועל בכרטיסים — סוג הנכס והעיר
+   הם מערכים על השורה, ולכן הם משוטחים לרשימה אחת של ערכים ייחודיים.        */
+function syncClientFilterOptions(){
+  fillFilterSelect('clientTypeFilter',
+    uniqueSorted(clientRows.flatMap(c => c.property_types || [])),
+    'כל מי שמחפש/ת — כל סוגי הנכס');
+  fillFilterSelect('clientCityFilter',
+    uniqueSorted(clientRows.flatMap(c => c.cities || [])),
+    'כל הערים המבוקשות');
+}
+
+// טקסט אחד לחיפוש חופשי על כרטיס הלקוח/ה — כולל מה הוא/היא מחפש/ת, כדי
+// ש"מי חיפש חנות בעפולה" ייענה מאותו שדה שבו מחפשים לפי שם
+function clientSearchBlob(c){
+  return [
+    c.full_name, c.phone, c.email, c.notes,
+    ...(c.cities || []), ...(c.property_types || []),
+    ...(c.required_features || []).map(featureLabel),
+    c.deal_type === 'rent' ? 'שכירות' : 'קנייה',
+    c.category === 'commercial' ? 'מסחרי' : 'מגורים',
+    CLIENT_STATUS_LABELS[c.status],
+  ].filter(Boolean).join(' ').toLowerCase();
+}
+
 function renderClients(){
   const listEl = document.getElementById('clientsList');
   const q = document.getElementById('clientSearch').value.trim().toLowerCase();
   const status = document.getElementById('clientStatusFilter').value;
+  const deal = document.getElementById('clientDealFilter').value;
+  const category = document.getElementById('clientCategoryFilter').value;
+  const type = document.getElementById('clientTypeFilter').value;
+  const city = document.getElementById('clientCityFilter').value;
+  const sort = document.getElementById('clientSort').value || 'created_desc';
 
-  const filtered = clientRows.filter(c => {
+  const unsorted = clientRows.filter(c => {
     if (status && c.status !== status) return false;
+    if (deal && c.deal_type !== deal) return false;
+    if (category && c.category !== category) return false;
+    // רשימה ריקה בכרטיס פירושה "לא משנה" — ולכן לקוח/ה כזה/כזו נחשב/ת
+    // מתאים/ה גם לסינון לפי סוג נכס או עיר ספציפיים, בדיוק כמו במנוע ההתאמות
+    if (type && (c.property_types || []).length && !(c.property_types || []).includes(type)) return false;
+    if (city && (c.cities || []).length && !(c.cities || []).includes(city)) return false;
     if (!q) return true;
-    return [c.full_name, c.phone, c.email, ...(c.cities || [])]
-      .filter(Boolean).join(' ').toLowerCase().includes(q);
+    return clientSearchBlob(c).includes(q);
   });
+
+  const clientComparators = {
+    created_desc: (a, b) => timeCompare(a.created_at, b.created_at, 'desc'),
+    created_asc:  (a, b) => timeCompare(a.created_at, b.created_at, 'asc'),
+    matches_desc: (a, b) => numericCompare(clientMatchCounts[a.id] || 0, clientMatchCounts[b.id] || 0, 'desc'),
+    name_asc:     (a, b) => hebCompare(a.full_name, b.full_name),
+    budget_desc:  (a, b) => numericCompare(a.max_price ?? a.min_price, b.max_price ?? b.min_price, 'desc'),
+    budget_asc:   (a, b) => numericCompare(a.max_price ?? a.min_price, b.max_price ?? b.min_price, 'asc'),
+  };
+  const filtered = unsorted.slice().sort(clientComparators[sort] || clientComparators.created_desc);
+
+  updateFilterFoot('clientFilterCount', 'clientClearFilters', filtered.length, clientRows.length,
+    !!(q || status || deal || category || type || city));
 
   if (filtered.length === 0){
     listEl.innerHTML = '<div class="empty-state">' +
@@ -6846,7 +7219,13 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
 });
 
 document.getElementById('clientSearch').addEventListener('input', renderClients);
-document.getElementById('clientStatusFilter').addEventListener('change', renderClients);
+['clientStatusFilter','clientDealFilter','clientCategoryFilter','clientTypeFilter','clientCityFilter','clientSort']
+  .forEach(id => document.getElementById(id).addEventListener('change', renderClients));
+document.getElementById('clientClearFilters').addEventListener('click', ()=>{
+  ['clientSearch','clientStatusFilter','clientDealFilter','clientCategoryFilter','clientTypeFilter','clientCityFilter']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  renderClients();
+});
 
 async function openCmaReport(propertyId, btn){
   const original = btn.textContent;
