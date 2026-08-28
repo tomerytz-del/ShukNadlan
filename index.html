@@ -28,6 +28,12 @@
     --gold-tint:  #F1DFE1;
     --brick:      #6B1A26;
     --live:       #8B2332;
+    /* צבע אחד לכל סוג עסקה, משותף לפינים במפה, למקרא שמתחתיה, לבורר סוג
+       העסקה בסרגל החיפוש ולתגיות בשורות התוצאות — כך הצבע נקרא כאותו קוד
+       בכל מקום בעמוד */
+    --deal-sale:      #1C3A5E;
+    --deal-rent:      #8B2332;
+    --deal-commercial:#2E7D5B;
     --radius-sm:  6px;
     --radius-md:  12px;
     --radius-lg:  20px;
@@ -190,8 +196,8 @@
     background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.6 6 6.4l5-4.8' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat:no-repeat;background-position:left 11px center;background-size:11px;
   }
-  .deal-select[data-mode="rent"]{background-color:var(--gold)}
-  .deal-select[data-mode="commercial"]{background-color:var(--ink-soft)}
+  .deal-select[data-mode="rent"]{background-color:var(--deal-rent)}
+  .deal-select[data-mode="commercial"]{background-color:var(--deal-commercial)}
   .search-input{
     flex:1 1 auto;min-width:0;border:none;background:transparent;
     padding:12px 6px;font-size:.95rem;color:var(--ink);
@@ -250,26 +256,45 @@
   .tri-toggle button{flex:1;padding:8px;font-size:.78rem;font-weight:600;color:var(--ink-soft)}
   .tri-toggle button.active{background:var(--teal);color:#fff}
 
-  /* המפה תמיד משקפת בדיוק את מה שמוצג ב-#propertyGrid למטה בעמוד (נכסים
-     באזור, או תוצאות חיפוש) — ראו renderMap() ב-JS. */
-  /* סרגל צף אחד בתחתית המפה: מונה נכסים, בורר סגנון והגדלה. הסרגל עצמו
-     pointer-events:none חוץ מהפקדים שבו, כדי שאפשר יהיה לגרור את המפה גם
-     "דרכו". במובייל הוא נצמד לימין (תחילת השורה ב-RTL) ומשאיר פנויה את
-     הפינה השמאלית התחתונה, שבה יושבים הקרדיטים של Leaflet וכפתור הנגישות
-     הצף (.a11y-fab); בדסקטופ יש מספיק רוחב והוא ממורכז. */
+  /* המפה תמיד משקפת בדיוק את מה שמוצג ברשימת הנכסים שמתחתיה — כל הנכסים
+     הפעילים במאגר, או תוצאות החיפוש — ראו renderMap() ב-JS. */
+  /* סרגל צף אחד בתחתית המפה, מקצה לקצה. הסרגל עצמו pointer-events:none חוץ
+     מהפקדים שבו, כדי שאפשר יהיה לגרור את המפה גם "דרכו".
+     justify-content:space-between מחלק אותו לשתי פינות: בפינה הימנית־תחתונה
+     (תחילת השורה ב-RTL) המקרא, מונה הנכסים וכפתור ההגדלה, ובפינה
+     השמאלית־תחתונה בורר סגנון המפה. החלוקה נעשית ב-flex ולא במיקום אבסולוטי
+     של כל פינה בנפרד, כך שגם במסך צר שתי הקבוצות לא נדרסות זו על זו.
+     bottom:38px משאיר מתחתיו בדיוק את הקרדיטים של Leaflet (bottom:18px), שגם
+     הם יושבים בפינה השמאלית — בגובה נמוך יותר הבורר נחת עליהם. */
   .map-toolbar{
-    position:absolute;bottom:34px;right:0;left:0;z-index:3;pointer-events:none;
-    display:flex;align-items:center;justify-content:flex-start;flex-wrap:wrap;gap:6px;
-    padding:0 10px 0 76px;
+    position:absolute;bottom:38px;right:0;left:0;z-index:3;pointer-events:none;
+    display:flex;align-items:flex-end;justify-content:space-between;gap:8px;
+    padding:0 10px;
   }
   .map-toolbar > *{pointer-events:auto}
+  /* המקרא יושב מעל מונה הנכסים ולא לצדו: שורה אחת עם ארבעה פקדים לא נכנסת
+     ברוחב טלפון, ושבירה של flex-wrap הייתה מפזרת אותם בין שתי הפינות */
+  .map-toolbar-main{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0;pointer-events:none}
+  .map-toolbar-main > *{pointer-events:auto}
+  .map-toolbar-row{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
   .map-count{
     background:rgba(255,255,255,.94);padding:7px 10px;border-radius:999px;
     font-size:.72rem;font-weight:700;box-shadow:var(--shadow-sm);color:var(--ink);white-space:nowrap;
   }
+  /* מקרא צבעי הפינים — בלי זה שלושת הצבעים על המפה הם חידה */
+  .map-legend{
+    display:flex;align-items:center;gap:8px;
+    background:rgba(255,255,255,.94);padding:5px 9px;border-radius:999px;
+    font-size:.66rem;font-weight:700;color:var(--ink);box-shadow:var(--shadow-sm);white-space:nowrap;
+  }
+  .map-legend span{display:inline-flex;align-items:center;gap:4px}
+  .map-legend i{width:9px;height:9px;border-radius:50%;flex:0 0 auto;box-shadow:0 0 0 1.5px rgba(255,255,255,.9)}
+  .map-legend i.sale{background:var(--deal-sale)}
+  .map-legend i.rent{background:var(--deal-rent)}
+  .map-legend i.commercial{background:var(--deal-commercial)}
   .map-style-switch{display:flex;background:rgba(255,255,255,.94);border-radius:999px;padding:3px;box-shadow:var(--shadow-sm)}
-  /* ארבעה סגנונות במקום שלושה — הריפוד והפונט ירדו כדי שהסרגל ימשיך להיכנס
-     בשורה אחת לצד מונה הנכסים גם במסך טלפון צר */
+  /* ריפוד ופונט קטנים כדי שכל שלושת הסגנונות ייכנסו בשורה אחת בפינה
+     השמאלית התחתונה גם במסך טלפון צר */
   .map-style-switch button{padding:6px 9px;border-radius:999px;font-size:.7rem;font-weight:700;color:var(--ink-soft);white-space:nowrap}
   .map-style-switch button.active{background:var(--teal);color:#fff}
   .map-expand-btn{
@@ -282,7 +307,10 @@
   /* מרימים את הפקדים של Leaflet מעל הסרגל הצף, ואת שניהם מעל הקצה המעוגל
      של רצועת הקרוסלה שנכנסת מתחת למפה (.hot-band) */
   .leaflet-bottom{bottom:18px}
-  .leaflet-bottom.leaflet-right{bottom:58px}
+  /* פקדי הזום (בדסקטופ בלבד) יושבים בפינה הימנית התחתונה של המפה — אותה
+     פינה שבה יושבת עכשיו הקבוצה הימנית של הסרגל הצף, ולכן הם מורמים אל
+     מעליה ולא רק מעל הקצה המעוגל של הרצועה שמתחת */
+  .leaflet-bottom.leaflet-right{bottom:76px}
 
   /* שכבת הגוון "טבע": pane של Leaflet ב-z-index 250, כלומר מעל אריחי המפה
      (tilePane=200) ומתחת לפינים (markerPane=600) — כך פני השטח מוריקים אבל
@@ -330,7 +358,8 @@
     .hero-overlay{padding:26px 0 64px}
     .hero-inner h1{font-size:2rem}
     .hero-inner p.lede{display:block}
-    .map-toolbar{bottom:28px;justify-content:center;flex-wrap:nowrap;padding:0 14px}
+    .map-toolbar{padding:0 16px}
+    .map-toolbar-main{flex-direction:row;align-items:center;gap:8px}
   }
 
   /* ====== Newsflash ticker ====== */
@@ -424,6 +453,63 @@
     .owner-banner h2{font-size:1.9rem}
   }
 
+  /* ====== תוצאות החיפוש — שורות מיד מתחת למפה ======
+     מוסתר עד לחיפוש הראשון, ואז לוקח על עצמו את תפקיד ה"במה" של המפה
+     (אותו קצה מעוגל שנכנס 16px מתחתיה) במקום .hot-band שמתחתיו — ראו
+     הכלל הבא, שמבטל את הקצה הכפול כשהשניים מופיעים יחד. */
+  .search-results{
+    position:relative;z-index:4;margin-top:-16px;
+    background:var(--paper-raised);border-radius:26px 26px 0 0;
+    padding:20px 0 22px;box-shadow:0 -12px 30px rgba(6,20,34,.20);
+  }
+  .search-results:not([hidden]) + .hot-band{margin-top:0;border-radius:0;box-shadow:none}
+  .sr-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+  .sr-head h2{font-size:1.16rem}
+  .sr-count{font-size:.78rem;color:var(--ink-soft);font-weight:600}
+  .sr-clear{
+    margin-inline-start:auto;font-size:.75rem;font-weight:700;color:var(--teal);
+    border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:5px 12px;
+  }
+  .sr-rows{display:flex;flex-direction:column;gap:10px}
+  /* שורה ולא כרטיס: אחרי חיפוש חשוב לסרוק הרבה תוצאות בגלילה אחת, ולכן
+     התמונה קטנה, הטקסט דחוס והמחיר מיושר לקצה השני של השורה. */
+  .sr-row{
+    display:flex;align-items:stretch;gap:10px;cursor:pointer;text-align:right;
+    background:#fff;border:1px solid var(--line);border-radius:var(--radius-md);
+    overflow:hidden;box-shadow:var(--shadow-sm);
+  }
+  .sr-row:hover{border-color:var(--teal)}
+  .sr-row:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .sr-thumb{flex:0 0 104px;min-height:92px;position:relative}
+  .sr-thumb .ribbon{position:absolute;top:6px;right:6px}
+  .sr-body{flex:1 1 auto;min-width:0;padding:10px 2px 10px 0;display:flex;flex-direction:column;justify-content:center;gap:3px}
+  /* שתי שורות ולא אחת: ברוחב טלפון, בין תמונה למחיר, כותרת בשורה אחת נקטעת
+     בדיוק במקום שבו מופיעה השכונה — כלומר במידע שבגללו הנכס נמצא בחיפוש */
+  .sr-title{
+    font-weight:700;font-size:.88rem;color:var(--ink);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .sr-meta{font-size:.73rem;color:var(--ink-soft);display:flex;flex-wrap:wrap;gap:4px 10px;min-width:0}
+  .sr-meta span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sr-side{
+    flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;
+    gap:6px;padding:10px 0 10px 12px;
+  }
+  .sr-price{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1rem;color:var(--teal-dark);white-space:nowrap}
+  .sr-deal{font-size:.65rem;font-weight:700;color:#fff;border-radius:999px;padding:3px 9px;white-space:nowrap}
+  .sr-deal[data-deal="sale"]{background:var(--deal-sale)}
+  .sr-deal[data-deal="rent"]{background:var(--deal-rent)}
+  .sr-deal[data-deal="commercial"]{background:var(--deal-commercial)}
+  .sr-empty{text-align:center;padding:26px 12px;color:var(--ink-soft);font-size:.88rem}
+  @media(min-width:760px){
+    .search-results{margin-top:-20px;padding:26px 0 28px}
+    .sr-head h2{font-size:1.4rem}
+    .sr-thumb{flex:0 0 152px;min-height:106px}
+    .sr-title{font-size:.98rem}
+    .sr-meta{font-size:.8rem}
+    .sr-price{font-size:1.18rem}
+  }
+
   /* ====== "נכסים חמים מהמפה" — קרוסלת coverflow מתחת למפה ======
      הרצועה נכנסת 16px מתחת לקצה התחתון של המפה עם פינות מעוגלות, כך
      שהמפה נראית כמו במה שהקרוסלה יושבת עליה (ולא כמו שתי קופסאות נפרדות).
@@ -470,8 +556,8 @@
     position:absolute;top:6px;right:6px;background:var(--teal);color:#fff;
     font-size:.6rem;font-weight:800;padding:2px 7px;border-radius:5px;
   }
-  .cf-card[data-deal="rent"] .cf-badge{background:var(--gold)}
-  .cf-card[data-deal="commercial"] .cf-badge{background:var(--ink-soft)}
+  .cf-card[data-deal="rent"] .cf-badge{background:var(--deal-rent)}
+  .cf-card[data-deal="commercial"] .cf-badge{background:var(--deal-commercial)}
   .cf-body{padding:8px 8px 11px;text-align:center}
   /* בכרטיס הפעיל המחיר הוא הגיבור ומחליף את הכותרת; בכרטיסים שבצדדים
      הכותרת היא שמזהה את הנכס. אותו markup, רק תצוגה שונה. */
@@ -882,9 +968,15 @@
   html.a11y-contrast .map-tint{display:none !important}
   html.a11y-contrast #hero-map .leaflet-tile-pane{filter:none !important}
   html.a11y-contrast .hot-band,
+  html.a11y-contrast .search-results,
+  html.a11y-contrast .sr-row,
+  html.a11y-contrast .map-legend,
   html.a11y-contrast .ad-strip,
   html.a11y-contrast .cf-card,
   html.a11y-contrast .article-card{background:#000 !important;border-color:#fff !important;color:#fff !important}
+  html.a11y-contrast .sr-price,
+  html.a11y-contrast .sr-deal,
+  html.a11y-contrast .sr-clear{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
   html.a11y-contrast .cf-badge,
   html.a11y-contrast .article-card .kicker,
   html.a11y-contrast .cf-dots button{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
@@ -1148,13 +1240,38 @@
     </div>
 
     <div class="map-toolbar">
-      <span class="map-count" id="mapCount">6 נכסים במפה</span>
+      <div class="map-toolbar-main">
+        <div class="map-legend" role="list" aria-label="מקרא צבעי הפינים במפה">
+          <span role="listitem"><i class="sale" aria-hidden="true"></i>מכירה</span>
+          <span role="listitem"><i class="rent" aria-hidden="true"></i>השכרה</span>
+          <span role="listitem"><i class="commercial" aria-hidden="true"></i>מסחרי</span>
+        </div>
+        <div class="map-toolbar-row">
+          <span class="map-count" id="mapCount">טוען נכסים…</span>
+          <button type="button" class="map-expand-btn" id="mapExpandBtn" aria-expanded="false">הגדל מפה ↓</button>
+        </div>
+      </div>
+      <!-- בורר סגנון המפה יושב בפינה השמאלית־תחתונה, הרחק מהמונה ומכפתור
+           ההגדלה שבפינה הנגדית — ראו .map-toolbar ב-CSS -->
       <div class="map-style-switch" role="group" aria-label="סגנון המפה">
         <button type="button" data-map-style="nature">טבע</button>
         <button type="button" data-map-style="classic" class="active">קלאסי</button>
         <button type="button" data-map-style="light">בהיר</button>
       </div>
-      <button type="button" class="map-expand-btn" id="mapExpandBtn" aria-expanded="false">הגדל מפה ↓</button>
+    </div>
+  </section>
+
+  <!-- ====== תוצאות החיפוש, בשורות מיד מתחת למפה ======
+       מוזן מאותה רשימה בדיוק שמזינה את המפה (renderPropertyGrid → renderSearchRows),
+       ולכן כל שורה כאן היא פין על המפה שמעליה ולהפך. מוסתר עד לחיפוש הראשון. -->
+  <section class="search-results" id="searchResults" aria-labelledby="searchResultsTitle" hidden>
+    <div class="wrap">
+      <div class="sr-head">
+        <h2 id="searchResultsTitle">תוצאות החיפוש</h2>
+        <span class="sr-count" id="searchResultsCount"></span>
+        <button type="button" class="sr-clear" id="clearSearchBtn">ניקוי החיפוש</button>
+      </div>
+      <div class="sr-rows" id="searchResultsRows"></div>
     </div>
   </section>
 
@@ -1167,7 +1284,6 @@
       <div class="hot-head">
         <h2 id="hotFromMapTitle">נכסים חמים מהמפה — מהדורת פרימיום 2026</h2>
         <p class="hot-sub" id="hotFromMapSub">גללו בין הנכסים המסומנים על המפה</p>
-        <a href="#listings" class="see-all" id="hotFromMapAll" hidden>כל התוצאות ברשימה ←</a>
       </div>
       <div class="coverflow" id="hotCarousel" role="region" aria-label="נכסים חמים מהמפה"></div>
       <div class="cf-dots" id="hotCarouselDots" aria-label="מעבר בין נכסים"></div>
@@ -2087,16 +2203,37 @@ try {
    קידום ידני/היסטורי בלי מועד סיום.                                     */
 const isPromoted = p => !!p.is_promoted && (!p.promoted_until || new Date(p.promoted_until) > new Date());
 
+/* העמודות שכל תצוגות הנכסים בעמוד הבית נשענות עליהן — המפה, הקרוסלה,
+   שורות התוצאות והגריד. loadProperties ו-runSearch חייבות למשוך בדיוק את
+   אותה רשימה, אחרת תוצאות חיפוש יורדות לברירות מחדל (גרדיאנט במקום תמונה,
+   "עפולה והעמק" במקום הכתובת) ברגע שהמשתמש חיפש. */
+const PROPERTY_SELECT =
+  'id, price, title, rooms, size_sqm, city, street, address, property_type, deal_type, category, ' +
+  'lat, lng, is_promoted, promoted_until, images, agencies(name), neighborhoods(name)';
+
+const shapeProperty = p => ({
+  ...p,
+  agency_name: p.agencies?.name || '',
+  neighborhood_name: p.neighborhoods?.name || '',
+});
+
+/* כל הנכסים הפעילים במאגר, ולא רק 12: המפה בעמוד הבית אמורה להראות את
+   התמונה המלאה של השוק לפני שהגולש בכלל חיפש. המקודמים ראשונים, ואחריהם
+   הנכסים החדשים — הסדר קובע גם את הקרוסלה וגם את הגריד שלמטה. */
+const PROPERTY_LIMIT = 300;
+
 async function loadProperties(){
   if (!sb) return FALLBACK_PROPERTIES;
   try{
     const { data, error } = await sb
       .from('properties')
-      .select('id, price, title, rooms, size_sqm, city, property_type, deal_type, category, lat, lng, is_promoted, promoted_until, images, agencies(name)')
+      .select(PROPERTY_SELECT)
       .eq('status', 'active')
-      .limit(12);
+      .order('is_promoted', { ascending:false })
+      .order('created_at', { ascending:false })
+      .limit(PROPERTY_LIMIT);
     if (error || !data || data.length === 0) throw error || new Error('empty');
-    return data.map(p => ({...p, agency_name: p.agencies?.name || ''}));
+    return data.map(shapeProperty);
   } catch(e){
     console.warn('נכשל טעינת נכסים מה-DB, משתמש בנתוני fallback:', e);
     return FALLBACK_PROPERTIES;
@@ -2488,6 +2625,11 @@ document.querySelectorAll('.map-style-switch button').forEach(btn=>{
 
 const mapMarkers = {};
 
+// טעינת הנכסים הראשונית היא אסינכרונית, ולכן משתמש שהספיק ללחוץ "חיפוש"
+// לפני שהיא חזרה ראה את תוצאות החיפוש נדרסות שנייה אחר כך ע"י הרשימה
+// המלאה — נכסים שאין להם קשר למה שביקש, גם על המפה וגם ברשימה
+let searchHasRun = false;
+
 // כמה מהמפה באמת פנוי לפינים: החלק העליון חסום ע"י סרגל החיפוש הצף והחלק
 // התחתון ע"י סרגל הפקדים. נמדד מה-DOM ולא מקובע במספרים, כי הגובה משתנה בין
 // מובייל לדסקטופ, במצב "הגדל מפה" וכשהכותרת נשברת לשתי שורות.
@@ -2570,10 +2712,29 @@ function relayoutMapPins(){
   });
 }
 
-// המפה תמיד משקפת בדיוק את מה שמוצג ב-#propertyGrid למטה בעמוד — הפונקציה
+/* שלוש קטגוריות עסקה = שלושה צבעי פין. מסחרי גובר על deal_type בכוונה:
+   "חנות להשכרה" היא קודם כל נכס מסחרי, וזה מה שמבדיל אותה במבט על המפה
+   מדירה להשכרה. אותם שלושה צבעים חוזרים במקרא שמתחת למפה, בתגיות שבשורות
+   התוצאות ובבורר סוג העסקה בסרגל החיפוש. */
+function dealKind(p){
+  return p.category === 'commercial' ? 'commercial' : (p.deal_type === 'rent' ? 'rent' : 'sale');
+}
+const DEAL_COLORS = {
+  sale:      'var(--deal-sale)',
+  rent:      'var(--deal-rent)',
+  commercial:'var(--deal-commercial)',
+};
+const DEAL_LABELS = { sale:'מכירה', rent:'השכרה', commercial:'מסחרי' };
+
+// כתובת להצגה: מה שהכי ספציפי שקיים על הנכס, ובלית ברירה שם העיר
+function locationLabel(p){
+  return p.address || p.street || p.neighborhood_name || p.city || 'עפולה והעמק';
+}
+
+// המפה תמיד משקפת בדיוק את מה שמוצג ברשימת הנכסים למטה בעמוד — הפונקציה
 // הזו נקראת מתוך renderPropertyGrid() עצמה (לא רק מהטעינה הראשונית), כך
 // ש-runSearch() מסנכרן אליה אוטומטית בלי צורך לזכור לעדכן את המפה בנפרד
-// בכל מקום שמרנדר את הגריד.
+// בכל מקום שמרנדר את הרשימה.
 function renderMap(properties){
   Object.values(mapMarkers).forEach(m => heroMap && heroMap.removeLayer(m));
   Object.keys(mapMarkers).forEach(id => delete mapMarkers[id]);
@@ -2581,12 +2742,13 @@ function renderMap(properties){
   if (heroMap){
     properties.forEach((p) => {
       if (!p.lat || !p.lng) return;
-      // צבע הפין לפי סוג הנכס — תואם לצבע של בורר סוג העסקה בסרגל החיפוש
-      // (מכירה/השכרה/מסחרי), כדי לזהות סוג נכס במבט חטוף בלי לפתוח פופאפ
-      const pinColor = p.category === 'commercial' ? 'var(--ink-soft)' : (p.deal_type === 'sale' ? 'var(--teal)' : 'var(--gold)');
+      // צבע הפין לפי סוג העסקה — מכירה/השכרה/מסחרי, בדיוק כמו במקרא שמתחת
+      // למפה ובבורר סוג העסקה בסרגל החיפוש, כדי לזהות סוג נכס במבט חטוף
+      // בלי לפתוח פופאפ
+      const kind = dealKind(p);
       const icon = L.divIcon({
         className:'',
-        html:`<div class="map-pin" style="background:${pinColor}">${priceLabel(p)}</div>`,
+        html:`<div class="map-pin" style="background:${DEAL_COLORS[kind]}">${priceLabel(p)}</div>`,
         iconSize:[0,0]
       });
       // pinRank מכריע מי שומר על תווית מלאה כשפינים נחתכים (relayoutMapPins):
@@ -2595,7 +2757,10 @@ function renderMap(properties){
         icon,
         pinRank: (isPromoted(p) ? 1e12 : 0) + (Number(p.price) || 0),
       }).addTo(heroMap);
-      m.bindPopup(`<strong>${p.title}</strong><br>${priceLabel(p)}<br><span style="color:#565C63">${p.agency_name||''}</span>`);
+      m.bindPopup(
+        `<strong>${p.title}</strong><br>${DEAL_LABELS[kind]} · ${priceLabel(p)}<br>` +
+        `<span style="color:#565C63">${locationLabel(p)}${p.agency_name ? ' · ' + p.agency_name : ''}</span>`
+      );
       mapMarkers[p.id] = m;
     });
     fitMapToMarkers();
@@ -2603,7 +2768,8 @@ function renderMap(properties){
   }
   // ה-fallback של המפה מסתיר את .map-toolbar, ולכן mapCount עשוי לא להיות גלוי
   const mapCount = document.getElementById('mapCount');
-  if (mapCount) mapCount.textContent = `${properties.length} נכסים במפה`;
+  const shown = Object.keys(mapMarkers).length;
+  if (mapCount) mapCount.textContent = shown === 1 ? 'נכס אחד במפה' : `${shown} נכסים במפה`;
 }
 
 /* ---------- קרוסלת "נכסים חמים מהמפה" (coverflow) ----------
@@ -2644,10 +2810,7 @@ function scrollHotTo(index){
   hotTrack.scrollBy({ left: trackCenter(card) - trackCenter(hotTrack), behavior:'smooth' });
 }
 
-function dealBadge(p){
-  if (p.category === 'commercial') return 'מסחרי';
-  return p.deal_type === 'rent' ? 'השכרה' : 'מכירה';
-}
+function dealBadge(p){ return DEAL_LABELS[dealKind(p)]; }
 
 function renderHotCarousel(properties, isSearchResult){
   if (!hotTrack || !hotDots) return;
@@ -2657,14 +2820,13 @@ function renderHotCarousel(properties, isSearchResult){
   hotActiveIndex = -1;
 
   const sub = document.getElementById('hotFromMapSub');
-  const seeAll = document.getElementById('hotFromMapAll');
   if (sub){
+    // בזמן חיפוש התוצאות המלאות יושבות בשורות מיד מעל הרצועה, ולכן אין
+    // צורך יותר בקיצור "כל התוצאות ברשימה" שהיה כאן
     sub.textContent = isSearchResult
       ? `${properties.length} נכסים תואמים לחיפוש שלכם`
       : 'גללו בין הנכסים המסומנים על המפה';
   }
-  // בזמן חיפוש הרשימה המלאה יושבת הרחק למטה בעמוד, ולכן נפתח קיצור אליה
-  if (seeAll) seeAll.hidden = !isSearchResult;
 
   hotTrack.classList.toggle('is-sparse', properties.length < 3);
 
@@ -2747,7 +2909,7 @@ try {
       featuredScroll.appendChild(el);
     });
 
-    renderPropertyGrid(properties);
+    if (!searchHasRun) renderPropertyGrid(properties);
   })();
 } catch(e){
   console.warn('טעינת הנכסים נכשלה:', e);
@@ -2938,7 +3100,47 @@ function countActiveFilters(){
   return n;
 }
 
+/* שמות שכונות יושבים בטבלה נפרדת (properties.neighborhood_id → neighborhoods),
+   ולכן "גבעת המורה" לא ניתן לפתרון בשאילתה אחת על properties בלבד: קודם
+   מתרגמים את הטקסט לרשימת מזהי שכונות, ואז מצרפים אותה לאותו or של המיקום.
+   כישלון כאן לא מפיל את החיפוש — פשוט מוותרים על התאמת השכונה. */
+async function matchingNeighborhoodIds(text){
+  if (!sb) return [];
+  try{
+    const { data, error } = await sb.from('neighborhoods').select('id').ilike('name', `%${text}%`).limit(20);
+    if (error) throw error;
+    return (data || []).map(n => n.id);
+  } catch(e){
+    console.warn('התאמת שכונה לחיפוש נכשלה:', e);
+    return [];
+  }
+}
+
+/* תיבת החיפוש הראשית מבקשת "עיר, שכונה או רחוב", אבל השאילתה חיפשה את
+   הטקסט ב-title בלבד. התוצאה: נכס שכתובתו היא בדיוק מה שהוקלד לא נמצא,
+   בעוד נכס שבמקרה יש את המילה בכותרתו — ואין לו קשר למקום — כן הוצג,
+   על המפה ובתוצאות. כאן הטקסט נפרש על שדות המיקום האמיתיים (עיר, רחוב,
+   כתובת, שכונה) לצד הכותרת והתיאור.
+   הניקוי חובה: הפסיק, הסוגריים והמרכאות הם תחביר של or/ilike ב-PostgREST,
+   וטקסט חופשי שמכיל אותם היה שובר את השאילתה כולה (ואז "שגיאה בחיפוש"). */
+async function locationOrFilter(rawText){
+  const safe = rawText.replace(/[,()"'\\*%.]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (!safe) return '';
+  const like = `*${safe}*`;
+  const ors = [
+    `title.ilike.${like}`,
+    `description.ilike.${like}`,
+    `city.ilike.${like}`,
+    `street.ilike.${like}`,
+    `address.ilike.${like}`,
+  ];
+  const hoodIds = await matchingNeighborhoodIds(safe);
+  if (hoodIds.length) ors.push(`neighborhood_id.in.(${hoodIds.join(',')})`);
+  return ors.join(',');
+}
+
 async function runSearch(){
+  searchHasRun = true;
   collectFormValues();
   const badge = document.getElementById('filterCountBadge');
   const count = countActiveFilters();
@@ -2955,9 +3157,9 @@ async function runSearch(){
   try{
     if (!sb) throw new Error('no supabase client');
     // אותן עמודות כמו loadProperties: תוצאות חיפוש מרונדרות באותם כרטיסים
-    // (גריד + קרוסלה), וכשחסרו כאן images/size_sqm/city הן ירדו לגרדיאנט
-    // ולטקסט ברירת המחדל ברגע שהמשתמש חיפש
-    let query = sb.from('properties').select('id, price, title, rooms, size_sqm, city, property_type, deal_type, category, lat, lng, is_promoted, promoted_until, images, agencies(name)')
+    // (שורות + קרוסלה + מפה), וכשחסרו כאן images/size_sqm/city הן ירדו
+    // לגרדיאנט ולטקסט ברירת המחדל ברגע שהמשתמש חיפש
+    let query = sb.from('properties').select(PROPERTY_SELECT)
       .eq('status', 'active')
       .eq('category', isCommercial ? 'commercial' : 'residential')
       .eq('deal_type', dealType);
@@ -2981,39 +3183,135 @@ async function runSearch(){
     }
     const allFeatures = [...s.listingFeatures, ...s.propertyFeatures];
     if (allFeatures.length) query = query.contains('features', allFeatures);
-    const freeText = s.freeText || freeTextMain;
-    if (freeText) query = query.ilike('title', `%${freeText}%`);
+    const freeText = (s.freeText || freeTextMain).trim();
+    if (freeText){
+      const orFilter = await locationOrFilter(freeText);
+      if (orFilter) query = query.or(orFilter);
+    }
 
-    const { data, error } = await query.limit(30);
+    const { data, error } = await query
+      .order('is_promoted', { ascending:false })
+      .order('created_at', { ascending:false })
+      .limit(PROPERTY_LIMIT);
     if (error) throw error;
-    const results = (data||[]).map(p => ({...p, agency_name: p.agencies?.name || ''}));
+    const results = (data || []).map(shapeProperty);
     renderPropertyGrid(results, true);
+    revealSearchResults();
   } catch(e){
     console.warn('חיפוש נכשל:', e);
     showSearchError();
   }
 }
 
+// גלילה לתוצאות רק כשהן באמת מתחת לקפל — במסך רגיל השורות מציצות מתחת
+// למפה מיד, וגלילה אוטומטית הייתה דוחפת את המפה עצמה אל מחוץ למסך
+function revealSearchResults(){
+  const section = document.getElementById('searchResults');
+  if (!section || section.hidden) return;
+  requestAnimationFrame(()=>{
+    if (section.getBoundingClientRect().top > window.innerHeight * 0.9){
+      section.scrollIntoView({ behavior:'smooth', block:'start' });
+    }
+  });
+}
+
 function showSearchError(){
-  const grid = document.getElementById('propertyGrid');
-  grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--ink-soft)">שגיאה בחיפוש — נסו שוב</div>';
+  // בלי איפוס התצוגות, הודעת השגיאה מופיעה מעל המפה, הקרוסלה והשורות של
+  // החיפוש הקודם — כלומר מעל נכסים שאין להם קשר למה שהמשתמש ביקש עכשיו
+  renderMap([]);
+  renderHotCarousel([], true);
+  const section = document.getElementById('searchResults');
+  const rows = document.getElementById('searchResultsRows');
+  const countEl = document.getElementById('searchResultsCount');
+  if (section && rows){
+    section.hidden = false;
+    if (countEl) countEl.textContent = '';
+    rows.innerHTML = '<div class="sr-empty">שגיאה בחיפוש — נסו שוב</div>';
+  }
+  const listings = document.getElementById('listings');
+  if (listings) listings.hidden = true;
+}
+
+/* שורות התוצאות שמיד מתחת למפה. אותה רשימה שמזינה את הפינים, ולכן כל שורה
+   כאן היא פין על המפה שמעליה — כולל אותה תגית צבע לסוג העסקה. */
+function renderSearchRows(properties, isSearchResult){
+  const section = document.getElementById('searchResults');
+  const rows = document.getElementById('searchResultsRows');
+  const countEl = document.getElementById('searchResultsCount');
+  if (!section || !rows) return;
+
+  if (!isSearchResult){
+    section.hidden = true;
+    rows.innerHTML = '';
+    return;
+  }
+
+  section.hidden = false;
+  if (countEl){
+    countEl.textContent = properties.length
+      ? `${properties.length} נכסים תואמים · מסומנים על המפה שמעל`
+      : '';
+  }
+  rows.innerHTML = '';
+  if (!properties.length){
+    rows.innerHTML = '<div class="sr-empty">לא נמצאו נכסים התואמים את החיפוש. נסו להרחיב את הסינון או לחפש שכונה אחרת.</div>';
+    return;
+  }
+
+  properties.forEach((p, i)=>{
+    const row = document.createElement('article');
+    row.className = 'sr-row';
+    row.tabIndex = 0;
+    row.setAttribute('role', 'link');
+    row.innerHTML = `
+      <div class="sr-thumb" style="${thumbStyle(p, i)}">${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
+      <div class="sr-body">
+        <div class="sr-title">${p.title}</div>
+        <div class="sr-meta"><span>${locationLabel(p)}</span></div>
+        <div class="sr-meta">
+          ${p.rooms ? `<span>${p.rooms} חדרים</span>` : ''}
+          ${p.size_sqm ? `<span>${p.size_sqm} מ״ר</span>` : ''}
+          ${p.property_type ? `<span>${p.property_type}</span>` : ''}
+          ${p.agency_name ? `<span>${p.agency_name}</span>` : ''}
+        </div>
+      </div>
+      <div class="sr-side">
+        <span class="sr-deal" data-deal="${dealKind(p)}">${dealBadge(p)}</span>
+        <span class="sr-price">${priceLabel(p)}</span>
+      </div>`;
+    const open = ()=> window.location.href = 'property.html?id=' + p.id;
+    row.addEventListener('click', open);
+    row.addEventListener('keydown', (e)=>{ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(); } });
+    rows.appendChild(row);
+    // אותה פרסומת in-feed שקיימת בגריד — התוצאות עברו לכאן, וגם היא איתן
+    if (i === 1 && properties.length > 2){
+      const ad = document.createElement('div');
+      ad.className = 'infeed-ad';
+      ad.textContent = 'פרסומת — באנר רוחבי בין תוצאות החיפוש';
+      rows.appendChild(ad);
+    }
+  });
 }
 
 function renderPropertyGrid(properties, isSearchResult){
-  // נקודת הסנכרון היחידה בין המפה, הקרוסלה שמתחתיה והגריד: כל קריאה
-  // לפונקציה הזו — טעינה ראשונית או runSearch() — מעדכנת את שלושתם
-  // לאותם נכסים בדיוק.
+  // נקודת הסנכרון היחידה בין המפה, שורות התוצאות, הקרוסלה והגריד: כל קריאה
+  // לפונקציה הזו — טעינה ראשונית או runSearch() — מעדכנת את כולם לאותם
+  // נכסים בדיוק.
   renderMap(properties);
   renderHotCarousel(properties, isSearchResult);
+  renderSearchRows(properties, isSearchResult);
+
+  // בזמן חיפוש התוצאות יושבות בשורות מיד מתחת למפה, ולכן הגריד המלא של
+  // "כל הנכסים הפעילים" מוסתר במקום להציג את אותה רשימה בפעם השלישית
+  // באותו עמוד. "ניקוי החיפוש" מחזיר אותו.
+  const listings = document.getElementById('listings');
+  if (listings) listings.hidden = !!isSearchResult;
+  if (isSearchResult) return;
 
   const grid = document.getElementById('propertyGrid');
   const heading = document.querySelector('#listings h2');
-  if (heading) heading.textContent = isSearchResult ? `תוצאות חיפוש (${properties.length})` : 'כל הנכסים הפעילים';
+  if (heading) heading.textContent = 'כל הנכסים הפעילים';
   grid.innerHTML = '';
-  if (isSearchResult && properties.length === 0){
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:30px;color:var(--ink-soft)">לא נמצאו נכסים התואמים את החיפוש</div>';
-    return;
-  }
   properties.forEach((p, i)=>{
     const el = document.createElement('div');
     el.className = 'prop-card';
@@ -3036,8 +3334,24 @@ function renderPropertyGrid(properties, isSearchResult){
   });
 }
 
+/* חזרה מתוצאות החיפוש אל כל הנכסים שבמאגר. בלי כפתור כזה אין דרך לבטל
+   חיפוש חוץ מרענון העמוד: חיפוש ריק הוא עדיין חיפוש (הוא מסונן לפי סוג
+   העסקה שנבחר) ולא מחזיר את התצוגה המלאה. */
+async function clearSearch(){
+  document.getElementById('searchFreeText').value = '';
+  document.getElementById(searchState.activeTab === 'commercial' ? 'cClearFilters' : 'rClearFilters').click();
+  const badge = document.getElementById('filterCountBadge');
+  badge.style.display = 'none';
+  badge.textContent = '0';
+
+  searchHasRun = false;
+  renderPropertyGrid(await loadProperties());
+  document.getElementById('heroSection').scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
 initFilterModals();
 document.getElementById('searchSubmitBtn').addEventListener('click', runSearch);
+document.getElementById('clearSearchBtn').addEventListener('click', clearSearch);
 </script>
 </body>
 </html>
