@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>משרד תיווך | שוק נדל״ן</title>
-<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   /* ---------- ערכת הצבעים של המשרד ----------
@@ -20,6 +20,19 @@
     --on-brand:#fff;
     --teal:var(--brand); --teal-dark:var(--brand-dark); --gold:var(--accent); --gold-dark:var(--accent-dark);
     --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(15,52,53,.08); --maxw:1000px;
+
+    /* ====== שכבת העיצוב 2026 ======
+       אותה שכבה שדף הנכס מקבל: משטחים בהירים, קווי הפרדה דקיקים וצללים רכים.
+       היא מכוונת ולא נגזרת מ-var(--brand) — צבעי המשרד נשארים על האקסנטים
+       (טאב פעיל, תגיות, כפתורים), והשלד נשאר אחיד בין כל המשרדים במרקטפלייס.
+       ‏--surface כן נדרס אם המשרד הגדיר paper_raised משלו, כדי לא לשבור ערכה
+       כהה שנבחרה בכוונה. */
+    --surface:#FFFFFF; --surface-soft:#FBFAF9;
+    --hair:#E6E3DD; --hair-strong:#D8D4CC;
+    --bronze:#B45309; --bronze-tint:#FBF1E2;
+    --radius-xl:24px;
+    --shadow-xs:0 1px 2px rgba(18,40,64,.05);
+    --shadow-md:0 8px 24px rgba(18,40,64,.10);
   }
   @supports (color: color-mix(in srgb, red 50%, white)){
     :root{
@@ -28,12 +41,17 @@
     }
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55}
+  /* אלמנטים רבים בדף נכבים ונדלקים דרך ‎[hidden]‎ ומקבלים display מהמחלקה
+     שלהם — ‎display:flex‎ במחלקה גובר על ‎[hidden]‎ של הדפדפן */
+  [hidden]{display:none!important}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
   h1,h2,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark);margin:0}
   a{color:inherit;text-decoration:none}
   button{font-family:inherit;cursor:pointer;border:none}
+  svg{display:block}
   .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
   .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line)}
+  .panel{background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-xl);box-shadow:var(--shadow-xs)}
   /* הכותרת היא של הפלטפורמה, לא של המשרד — לכן צבעיה קבועים ולא נגזרים
      מ-var(--brand), אחרת המיתוג של "שוק נדל״ן" היה מתחלף בין משרד למשרד. */
   header.site{background:#F4F3F0;border-bottom:1px solid #C5C3BC;padding:14px 0}
@@ -47,72 +65,199 @@
   #notFoundState{display:none}
   #agencyContent{display:none}
 
-  .cover{height:150px;background:linear-gradient(120deg,var(--brand-dark),var(--brand));position:relative}
+  .cover{height:170px;background:linear-gradient(120deg,var(--brand-dark),var(--brand));position:relative}
   /* עם תמונת נושא: התמונה ממלאת את הרצועה, ומעליה שכבת כהות בגוון המותג כדי
      שהלוגו והשם שנשענים על הקצה התחתון יישארו קריאים על כל תמונה. */
-  .cover.has-image{height:210px;background-size:cover;background-position:center}
+  .cover.has-image{height:240px;background-size:cover;background-position:center}
   .cover.has-image::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45),rgba(0,0,0,.05) 55%)}
-  @media(max-width:640px){.cover.has-image{height:150px}}
+  @media(max-width:640px){.cover{height:130px}.cover.has-image{height:165px}}
+
   /* רק הלוגו נכנס אל תוך רצועת הנושא; שם המשרד יושב כולו על רקע הדף, אחרת
      טקסט כהה על גבי תמונת נושא כהה היה בלתי קריא. */
   .brand-strip{display:flex;align-items:flex-start;gap:16px;position:relative;z-index:1;padding:10px 0 16px}
-  .brand-logo{width:88px;height:88px;margin-top:-58px;border-radius:20px;background:linear-gradient(155deg,var(--accent),var(--brand) 65%);border:4px solid var(--paper);display:flex;align-items:center;justify-content:center;color:var(--on-brand);font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:2rem;flex-shrink:0;overflow:hidden}
+  .brand-logo{
+    width:96px;height:96px;margin-top:-62px;border-radius:22px;flex-shrink:0;overflow:hidden;
+    background:linear-gradient(155deg,var(--accent),var(--brand) 65%);
+    border:4px solid var(--paper);box-shadow:var(--shadow-md);
+    display:flex;align-items:center;justify-content:center;
+    color:var(--on-brand);font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:2.1rem;
+  }
   .brand-logo img{width:100%;height:100%;object-fit:cover;display:block}
-  .brand-name{font-size:1.5rem}
-  .brand-areas{font-size:.82rem;color:var(--ink-soft);margin-top:4px}
-  .brand-desc{color:var(--ink-soft);font-size:.92rem;max-width:60ch;margin-top:14px}
+  .brand-name{font-size:1.55rem;line-height:1.25}
+  @media(min-width:640px){.brand-name{font-size:1.85rem}}
+  .brand-areas{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .area-chip{
+    display:inline-flex;align-items:center;gap:5px;font-size:.74rem;font-weight:700;
+    background:var(--teal-tint);color:var(--brand-dark);padding:4px 11px;border-radius:999px;
+  }
+  .area-chip svg{width:12px;height:12px}
+  .brand-desc{color:var(--ink-soft);font-size:.94rem;max-width:62ch;margin:14px 0 0}
 
-  .tabs{display:flex;gap:6px;border-bottom:1px solid var(--line);margin-top:26px;overflow-x:auto}
-  .tab-btn{padding:11px 16px;font-weight:700;font-size:.88rem;color:var(--ink-soft);border-bottom:2.5px solid transparent;white-space:nowrap}
-  .tab-btn.active{color:var(--teal);border-color:var(--gold)}
-  .tab-panel{display:none;padding:20px 0}
+  /* ---------- שורת המספרים של המשרד ----------
+     במקום תגיות יכולת שאין מאחוריהן נתון, כאן יושבים רק מספרים אמיתיים
+     מהמסד. קפסולה שאין לה ערך (משרד בלי עסקאות סגורות, בלי ביקורות) פשוט
+     לא נוצרת — שורה של אפסים משכנעת פחות מכלום. */
+  .stat-row{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:20px}
+  /* ‏flex ולא ‎auto-fit‎ מרוחב מלא: משרד עם שתי קפסולות בלבד היה מקבל שתי
+     קפסולות ברוחב חצי מסך כל אחת, עם המספר תלוי באוויר. */
+  @media(min-width:640px){
+    .stat-row{display:flex;flex-wrap:wrap}
+    .stat-pill{flex:1 1 190px;max-width:270px}
+  }
+  .stat-row:empty{display:none}
+  .stat-pill{
+    display:flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--hair);
+    border-radius:16px;padding:12px 14px;box-shadow:var(--shadow-xs);min-width:0;
+  }
+  .stat-pill .ic{width:38px;height:38px;border-radius:12px;flex:none;display:grid;place-items:center;background:var(--teal-tint);color:var(--brand)}
+  .stat-pill .ic svg{width:20px;height:20px}
+  .stat-pill.accent .ic{background:var(--bronze-tint);color:var(--bronze)}
+  .stat-pill .txt{min-width:0;display:flex;flex-direction:column}
+  .stat-pill .v{font-size:1.15rem;font-weight:900;color:var(--teal-dark);line-height:1.2;letter-spacing:-.3px}
+  .stat-pill .k{font-size:.72rem;font-weight:600;color:var(--ink-soft);line-height:1.3}
+
+  /* ---------- גלריית המשרד ----------
+     רשת Bento באותה שפה כמו גלריית הנכס: שתי תמונות גדולות ושלוש קטנות,
+     ושכבת "‎+N‎" על האחרונה כשיש עוד. הפריסה נגזרת ממספר התמונות בפועל, כדי
+     שמשרד עם תמונה אחת לא יקבל חצי שורה ריקה. */
+  .gallery-sec{margin-top:26px;display:none}
+  .gallery-head{display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  .gallery-head h2{font-size:1.05rem}
+  .gallery-head span{font-size:.78rem;color:var(--ink-soft)}
+  /* מובייל הוא ברירת המחדל והפריסה לשש עמודות חיה רק מ-640px ומעלה: כללי
+     ה-data-count נושאים סלקטור נוסף, ולכן כמדיה־קוורי של max-width הם היו
+     גוברים על כללי המובייל ומותחים את שתי התמונות הראשונות לרוחב מלא. */
+  .bento{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  .bento-cell{
+    position:relative;overflow:hidden;border-radius:16px;border:1px solid var(--hair);
+    background:var(--surface-soft);padding:0;line-height:0;cursor:pointer;aspect-ratio:1/1;
+  }
+  .bento-cell:nth-child(1){grid-column:span 2;aspect-ratio:16/10}
+  .bento-cell img{width:100%;height:100%;object-fit:cover;transition:transform .5s cubic-bezier(.2,.7,.3,1)}
+  .bento-cell:hover img{transform:scale(1.045)}
+  .bento-cell:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+  @media(min-width:640px){
+    .bento{grid-template-columns:repeat(6,1fr)}
+    .bento-cell,.bento-cell:nth-child(1){grid-column:span 2;aspect-ratio:4/3}
+    .bento[data-count="1"] .bento-cell{grid-column:span 6;aspect-ratio:16/9}
+    .bento[data-count="2"] .bento-cell,
+    .bento[data-count="4"] .bento-cell{grid-column:span 3;aspect-ratio:16/10}
+    .bento[data-count="5"] .bento-cell:nth-child(-n+2){grid-column:span 3;aspect-ratio:16/10}
+  }
+  .bento-cell .cap{
+    position:absolute;inset:auto 0 0 0;background:linear-gradient(to top,rgba(10,18,30,.78),transparent);
+    color:#fff;font-size:.74rem;font-weight:600;padding:18px 10px 8px;line-height:1.3;text-align:start;
+  }
+  .more-overlay{
+    position:absolute;inset:0;display:grid;place-items:center;background:rgba(10,18,30,.55);
+    color:#fff;font-weight:800;font-size:1.05rem;backdrop-filter:blur(2px);
+  }
+
+  /* ---------- טאבים ----------
+     בקרת מקטעים בקפסולה במקום קו תחתון: הטאב הפעיל נצבע בצבע המשרד, וזה
+     המקום שבו המיתוג האישי שלו באמת נראה. */
+  .tabs{
+    display:flex;gap:5px;margin-top:26px;padding:5px;overflow-x:auto;
+    background:var(--surface);border:1px solid var(--hair);border-radius:999px;
+    box-shadow:var(--shadow-xs);width:max-content;max-width:100%;
+  }
+  .tab-btn{
+    padding:9px 18px;border-radius:999px;font-weight:700;font-size:.86rem;
+    color:var(--ink-soft);background:none;white-space:nowrap;transition:background .15s ease,color .15s ease;
+  }
+  .tab-btn:hover{background:var(--teal-tint);color:var(--brand-dark)}
+  .tab-btn.active{background:var(--brand);color:var(--on-brand)}
+  .tab-btn.active:hover{background:var(--brand)}
+  .tab-panel{display:none;padding:20px 0 40px}
   .tab-panel.active{display:block}
 
   .prop-grid{display:grid;grid-template-columns:1fr;gap:14px}
   @media(min-width:640px){.prop-grid{grid-template-columns:1fr 1fr}}
   @media(min-width:900px){.prop-grid{grid-template-columns:1fr 1fr 1fr}}
-  .prop-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;cursor:pointer}
-  .prop-card .thumb{height:130px;background:linear-gradient(155deg,var(--accent),var(--brand))}
-  .prop-card .body{padding:12px}
-  .prop-card .price{font-weight:800;color:var(--teal-dark)}
-  .prop-card .title{font-size:.85rem;margin-top:3px}
-  .prop-card .meta{font-size:.76rem;color:var(--ink-soft);margin-top:6px}
+  .prop-card{
+    background:var(--surface);border:1px solid var(--hair);border-radius:18px;overflow:hidden;cursor:pointer;
+    box-shadow:var(--shadow-xs);transition:box-shadow .15s ease,transform .15s ease;
+  }
+  .prop-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
+  .prop-card .thumb{
+    height:150px;position:relative;background-size:cover;background-position:center;
+    background-image:linear-gradient(155deg,var(--accent),var(--brand));
+  }
+  /* הצללה בתחתית התמונה — בלעדיה תגיות המדיה השקופות נבלעות בתמונות בהירות */
+  .prop-card .thumb::after{
+    content:'';position:absolute;inset:auto 0 0 0;height:52%;pointer-events:none;
+    background:linear-gradient(to top,rgba(10,18,30,.6),rgba(10,18,30,0));
+  }
+  .card-tags{position:absolute;top:9px;inset-inline-start:9px;z-index:2;display:flex;gap:5px;flex-wrap:wrap;max-width:80%}
+  .card-tag{
+    font-size:.66rem;font-weight:800;padding:3px 9px;border-radius:999px;line-height:1.35;
+    background:rgba(18,40,64,.62);color:#fff;border:1px solid rgba(255,255,255,.26);backdrop-filter:blur(8px);
+  }
+  .card-tag.rent{background:rgba(180,83,9,.82)}
+  .card-media{position:absolute;bottom:9px;inset-inline-start:9px;z-index:2;display:flex;gap:5px;flex-wrap:wrap}
+  .card-media span{
+    display:inline-flex;align-items:center;gap:4px;font-size:.66rem;font-weight:700;
+    background:rgba(15,23,42,.58);color:#fff;border:1px solid rgba(255,255,255,.24);
+    padding:4px 9px;border-radius:999px;backdrop-filter:blur(8px);
+  }
+  .card-media svg{width:12px;height:12px}
+  .prop-card .body{padding:12px 13px 13px}
+  .prop-card .price{font-weight:900;color:var(--teal-dark);font-size:1.05rem;letter-spacing:-.3px}
+  .prop-card .title{
+    font-size:.85rem;margin-top:3px;color:var(--ink);
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .prop-card .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+  .prop-card .meta span{font-size:.7rem;font-weight:600;color:var(--ink-soft);background:var(--surface-soft);border:1px solid var(--hair);padding:3px 9px;border-radius:999px}
 
-  .deal-row{display:flex;justify-content:space-between;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line);font-size:.85rem}
+  .deal-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--hair);font-size:.85rem}
   .deal-row:last-child{border-bottom:none}
-  .deal-price{font-weight:800;color:var(--teal-dark)}
+  .deal-price{font-weight:900;color:var(--teal-dark);white-space:nowrap}
+  .deal-date{font-size:.72rem;color:var(--ink-soft)}
 
-  .agent-grid{display:grid;grid-template-columns:1fr;gap:14px}
+  .agent-grid{display:grid;grid-template-columns:1fr;gap:12px}
   @media(min-width:640px){.agent-grid{grid-template-columns:1fr 1fr}}
-  .agent-card{padding:16px;display:flex;align-items:center;gap:12px;cursor:pointer}
-  .agent-avatar{width:52px;height:52px;border-radius:50%;background:var(--brand);color:var(--on-brand);display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Frank Ruhl Libre',serif;flex-shrink:0}
-  .agent-card .name{font-weight:700;font-size:.92rem}
-  .agent-card .role{font-size:.76rem;color:var(--ink-soft)}
+  .agent-card{
+    padding:14px;display:flex;align-items:center;gap:12px;cursor:pointer;
+    transition:box-shadow .15s ease,transform .15s ease;
+  }
+  .agent-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+  .agent-avatar{
+    width:56px;height:56px;border-radius:50%;flex-shrink:0;overflow:hidden;
+    background:var(--brand);color:var(--on-brand);display:flex;align-items:center;justify-content:center;
+    font-weight:700;font-family:'Frank Ruhl Libre',serif;font-size:1.25rem;
+  }
+  .agent-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+  .agent-card .name{font-weight:800;font-size:.95rem;color:var(--teal-dark)}
+  .agent-card .role{font-size:.76rem;color:var(--ink-soft);margin-top:1px}
+  .agent-card .lic{
+    display:inline-flex;align-items:center;gap:4px;margin-top:5px;font-size:.68rem;font-weight:700;
+    background:var(--teal-tint);color:var(--brand-dark);padding:2px 8px;border-radius:999px;
+  }
+  .agent-card .lic svg{width:11px;height:11px}
+  .agent-card .chev{margin-inline-start:auto;color:var(--ink-soft);flex:none}
+  .agent-card .chev svg{width:18px;height:18px}
 
-  .empty-state{padding:32px;text-align:center;color:var(--ink-soft);font-size:.88rem}
+  .review-card{padding:15px 16px;margin-bottom:12px}
+  .review-stars{color:var(--gold-dark);font-weight:700;letter-spacing:1px}
+  .review-text{font-size:.88rem;margin-top:7px}
+  .review-by{font-size:.75rem;color:var(--ink-soft);margin-top:7px}
 
-  /* ---------- גלריית המשרד ----------
-     רצועה נגללת אופקית ולא רשת: הגלריה יושבת מעל הטאבים ("דף הבית" של המשרד)
-     ואסור לה לדחוף את הנכסים אל מתחת לקיפול, גם כשיש 24 תמונות. */
-  .gallery-sec{margin-top:22px;display:none}
-  .gallery-head{display:flex;align-items:baseline;gap:10px;margin-bottom:10px}
-  .gallery-head h2{font-size:1.05rem}
-  .gallery-head span{font-size:.78rem;color:var(--ink-soft)}
-  .gallery-strip{display:flex;gap:10px;overflow-x:auto;padding-bottom:6px;scroll-snap-type:x mandatory}
-  .gallery-item{position:relative;flex:0 0 auto;width:210px;height:145px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--line);cursor:pointer;scroll-snap-align:start;background:var(--paper-raised)}
-  .gallery-item img{width:100%;height:100%;object-fit:cover;display:block}
-  .gallery-item .cap{position:absolute;inset:auto 0 0 0;background:linear-gradient(to top,rgba(0,0,0,.72),transparent);color:#fff;font-size:.74rem;font-weight:600;padding:16px 10px 7px;line-height:1.3}
-  @media(max-width:640px){.gallery-item{width:168px;height:118px}}
+  .empty-state{padding:34px 18px;text-align:center;color:var(--ink-soft);font-size:.88rem}
 
-  .lightbox{position:fixed;inset:0;background:rgba(12,14,18,.9);display:none;align-items:center;justify-content:center;z-index:300;padding:20px}
+  .lightbox{position:fixed;inset:0;background:rgba(8,14,24,.95);display:none;align-items:center;justify-content:center;z-index:300;padding:20px}
   .lightbox.open{display:flex}
   .lightbox figure{margin:0;max-width:min(920px,100%);max-height:100%;display:flex;flex-direction:column;gap:10px}
   .lightbox img{max-width:100%;max-height:76vh;object-fit:contain;border-radius:var(--radius-md);display:block;margin:0 auto}
   .lightbox figcaption{color:#F2F1EE;font-size:.86rem;text-align:center}
   .lightbox .nav{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;font-size:1.3rem;line-height:44px;text-align:center;padding:0}
+  .lightbox .nav:hover{background:rgba(255,255,255,.26)}
   .lightbox .prev{right:14px}
   .lightbox .next{left:14px}
   .lightbox .close{position:absolute;top:14px;left:14px;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;font-size:1rem;padding:0}
+  @media(prefers-reduced-motion:reduce){
+    .bento-cell img,.prop-card,.agent-card{transition:none}
+  }
 </style>
 </head>
 <body>
@@ -135,19 +280,21 @@
   <div class="wrap">
     <div class="brand-strip">
       <div class="brand-logo" id="brandLogo">·</div>
-      <div>
+      <div style="min-width:0">
         <h1 class="brand-name" id="brandName">—</h1>
         <div class="brand-areas" id="brandAreas"></div>
       </div>
     </div>
     <p class="brand-desc" id="brandDesc"></p>
 
+    <div class="stat-row" id="statRow"></div>
+
     <section class="gallery-sec" id="gallerySec">
       <div class="gallery-head">
         <h2>הגלריה של המשרד</h2>
         <span id="galleryCount"></span>
       </div>
-      <div class="gallery-strip" id="galleryStrip"></div>
+      <div class="bento" id="galleryBento"></div>
     </section>
 
     <div class="tabs">
@@ -158,7 +305,7 @@
     </div>
 
     <div class="tab-panel active" id="panel-active"><div class="prop-grid" id="activeProps"></div></div>
-    <div class="tab-panel" id="panel-sold"><div class="card" id="soldDeals"></div></div>
+    <div class="tab-panel" id="panel-sold"><div class="panel" id="soldDeals"></div></div>
     <div class="tab-panel" id="panel-agents"><div class="agent-grid" id="agentRoster"></div></div>
     <div class="tab-panel" id="panel-reviews"><div id="reviewsList"></div></div>
   </div>
@@ -178,6 +325,21 @@
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 
+/* ---------- ספריית אייקונים ----------
+   אותם אייקוני קו במשקל אחיד כמו בדף הנכס, מוטמעים כדי לא להוסיף בקשת רשת. */
+const S = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+const ICON = {
+  building:S('<path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M16 9h2a2 2 0 0 1 2 2v10M2 21h20"/><path d="M8 7h2M8 11h2M8 15h2"/>'),
+  key:     S('<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.8 12.2 8-8M17 6l2 2M14.5 8.5l2 2"/>'),
+  users:   S('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/>'),
+  star:    S('<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9Z"/>'),
+  pin:     S('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>'),
+  cube:    S('<path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="M3 8l9 5 9-5M12 13v8"/><path d="M7.5 5.5 16.5 10.7"/>'),
+  play:    S('<circle cx="12" cy="12" r="9.5"/><path d="M10 8.5v7l6-3.5Z"/>'),
+  check:   S('<path d="M20 6 9 17l-5-5"/>'),
+  chevron: S('<path d="m14 6-6 6 6 6"/>'),
+};
+
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
@@ -187,14 +349,37 @@ document.querySelectorAll('.tab-btn').forEach(btn=>{
   });
 });
 
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
+}
+
 function priceLabel(price, dealType){
   return dealType === 'rent' ? ('₪' + Number(price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(price).toLocaleString('he-IL'));
 }
 
 /* התמונה הראשית של הנכס; בלי תמונות נשאר גרדיאנט ברירת המחדל של .thumb */
 function thumbStyle(p){
-  const img = p.images && p.images[0];
-  return img ? ` style="background-image:url('${img}');background-size:cover;background-position:center"` : '';
+  const img = safeImageUrl(p.images && p.images[0]);
+  return img ? ` style="background-image:url('${encodeURI(img)}')"` : '';
+}
+
+/* ---------- שורת המספרים ----------
+   כל טוען מדווח את המספר שלו כשהוא מסיים, והקפסולה נוצרת רק אם יש מה להציג.
+   הסדר קבוע ולא סדר ההגעה, אחרת הקפסולות היו קופצות בין רינדורים. */
+const STAT_ORDER = ['props', 'deals', 'agents', 'rating'];
+const stats = {};
+
+function setStat(key, value, label, icon, accent){
+  if (!value) return;                       // 0, null ו-undefined לא מקבלים קפסולה
+  stats[key] = { value, label, icon, accent };
+  const row = document.getElementById('statRow');
+  row.innerHTML = STAT_ORDER.filter(k => stats[k]).map(k=>{
+    const s = stats[k];
+    return `<div class="stat-pill${s.accent ? ' accent' : ''}">
+      <span class="ic" aria-hidden="true">${ICON[s.icon]}</span>
+      <span class="txt"><span class="v">${escapeHtml(String(s.value))}</span><span class="k">${escapeHtml(s.label)}</span></span>
+    </div>`;
+  }).join('');
 }
 
 /* ---------- מיתוג המשרד ----------
@@ -240,8 +425,16 @@ function applyBranding(agency){
     root.setProperty('--accent-dark', safeHex(c.accent_dark, accent));
   }
   if (safeHex(c.paper, null)) root.setProperty('--paper', c.paper.trim());
-  if (safeHex(c.paper_raised, null)) root.setProperty('--paper-raised', c.paper_raised.trim());
-  if (safeHex(c.line, null)) root.setProperty('--line', c.line.trim());
+  // ‏paper_raised הוא צבע המשטחים שהמשרד בחר — הוא גובר גם על ‎--surface‎ של
+  // השכבה החדשה, אחרת ערכה כהה שנבחרה בכוונה הייתה מקבלת כרטיסים לבנים.
+  if (safeHex(c.paper_raised, null)){
+    root.setProperty('--paper-raised', c.paper_raised.trim());
+    root.setProperty('--surface', c.paper_raised.trim());
+  }
+  if (safeHex(c.line, null)){
+    root.setProperty('--line', c.line.trim());
+    root.setProperty('--hair', c.line.trim());
+  }
 
   const cover = safeImageUrl(agency.cover_url);
   if (cover){
@@ -263,8 +456,11 @@ function applyBranding(agency){
   }
 }
 
-/* ---------- גלריית המשרד (תמונות עסקאות/אירועים — לא נכסים) ---------- */
+/* ---------- גלריית המשרד (תמונות עסקאות/אירועים — לא נכסים) ----------
+   מוצגות עד חמש תמונות ברשת; השאר נגישות דרך הלייטבוקס, שנפתח על התמונה
+   הראשונה שלא נראית ברשת בלחיצה על שכבת ה-"‎+N‎". */
 let galleryItems = [];
+const GALLERY_VISIBLE = 5;
 
 function renderGallery(gallery){
   galleryItems = (Array.isArray(gallery) ? gallery : [])
@@ -272,26 +468,41 @@ function renderGallery(gallery){
     .filter(item => item.url);
   if (galleryItems.length === 0) return;
 
-  const strip = document.getElementById('galleryStrip');
-  strip.textContent = '';
-  galleryItems.forEach((item, i)=>{
-    const fig = document.createElement('button');
-    fig.type = 'button';
-    fig.className = 'gallery-item';
+  const grid = document.getElementById('galleryBento');
+  grid.textContent = '';
+  const shown = Math.min(galleryItems.length, GALLERY_VISIBLE);
+  grid.setAttribute('data-count', String(shown));
+  const rest = galleryItems.length - shown;
+
+  galleryItems.slice(0, shown).forEach((item, i)=>{
+    const cell = document.createElement('button');
+    cell.type = 'button';
+    cell.className = 'bento-cell';
+    cell.setAttribute('aria-label', item.caption || `תמונה ${i+1} מתוך ${galleryItems.length}`);
     const img = document.createElement('img');
     img.src = item.url;
-    img.loading = 'lazy';
+    img.loading = i ? 'lazy' : 'eager';
     img.alt = item.caption || 'תמונה מהמשרד';
-    fig.appendChild(img);
-    if (item.caption){
+    cell.appendChild(img);
+    // הכיתוב יורד מהתמונה האחרונה כשהיא נושאת את מונה השאר — שתי שכבות
+    // כתוביות אחת על השנייה לא נקראות
+    const carriesRest = (i === shown - 1 && rest > 0);
+    if (item.caption && !carriesRest){
       const cap = document.createElement('div');
       cap.className = 'cap';
       cap.textContent = item.caption;
-      fig.appendChild(cap);
+      cell.appendChild(cap);
     }
-    fig.addEventListener('click', ()=> openLightbox(i));
-    strip.appendChild(fig);
+    if (carriesRest){
+      const overlay = document.createElement('span');
+      overlay.className = 'more-overlay';
+      overlay.textContent = '+' + rest;
+      cell.appendChild(overlay);
+    }
+    cell.addEventListener('click', ()=> openLightbox(carriesRest ? shown : i));
+    grid.appendChild(cell);
   });
+
   document.getElementById('galleryCount').textContent = galleryItems.length + ' תמונות';
   document.getElementById('gallerySec').style.display = 'block';
 }
@@ -300,7 +511,7 @@ let lightboxIndex = 0;
 const lightboxEl = document.getElementById('lightbox');
 
 function openLightbox(i){
-  lightboxIndex = i;
+  lightboxIndex = Math.min(Math.max(i, 0), galleryItems.length - 1);
   showLightboxImage();
   lightboxEl.classList.add('open');
   document.body.style.overflow = 'hidden'; // שלא ייגלל הדף מתחת לתמונה
@@ -348,7 +559,8 @@ async function loadAgency(){
 
     document.title = agency.name + ' | שוק נדל״ן';
     document.getElementById('brandName').textContent = agency.name;
-    document.getElementById('brandAreas').textContent = (agency.specialty_areas||[]).join(' · ');
+    document.getElementById('brandAreas').innerHTML = (agency.specialty_areas || [])
+      .map(a => `<span class="area-chip">${ICON.pin}${escapeHtml(a)}</span>`).join('');
     document.getElementById('brandDesc').textContent = agency.description || 'משרד תיווך פעיל בעפולה והעמק.';
     applyBranding(agency);
     renderGallery(agency.gallery);
@@ -369,17 +581,41 @@ async function loadAgency(){
 
 async function loadActiveProperties(sb, agencyId){
   const el = document.getElementById('activeProps');
-  const { data: props } = await sb.from('properties').select('id, title, price, deal_type, rooms, property_type, images')
+  const { data: props } = await sb.from('properties')
+    .select('id, title, price, deal_type, rooms, property_type, size_sqm, city, images, tour_3d_url, video_url')
     .eq('agency_id', agencyId).eq('status', 'active').order('created_at', { ascending:false });
   if (!props || props.length === 0){ el.innerHTML = '<div class="empty-state">אין כרגע נכסים פעילים במשרד זה.</div>'; return; }
+
+  setStat('props', props.length, 'נכסים פעילים', 'building');
   el.innerHTML = '';
   props.forEach(p=>{
+    // רק נתונים שמולאו נכנסים לשורת המטא — מודעה דלילה לא צריכה מקפים
+    const meta = [
+      p.rooms ? p.rooms + ' חדרים' : '',
+      p.size_sqm ? p.size_sqm + ' מ״ר' : '',
+      p.property_type || '',
+      p.city || '',
+    ].filter(Boolean);
+    // המדיה מגיעה מהעמודות שנוספו לנכס — תגית עולה רק כשיש קישור אמיתי
+    const media = [
+      p.tour_3d_url ? `<span>${ICON.cube}סיור וירטואלי</span>` : '',
+      p.video_url ? `<span>${ICON.play}סרטון</span>` : '',
+    ].filter(Boolean).join('');
+
     const card = document.createElement('div');
     card.className = 'prop-card';
-    card.innerHTML = `<div class="thumb"${thumbStyle(p)}></div><div class="body">
-      <div class="price">${priceLabel(p.price, p.deal_type)}</div>
-      <div class="title">${p.title}</div>
-      <div class="meta">${p.rooms||'—'} חדרים · ${p.property_type}</div></div>`;
+    card.innerHTML = `
+      <div class="thumb"${thumbStyle(p)}>
+        <div class="card-tags">
+          <span class="card-tag${p.deal_type === 'rent' ? ' rent' : ''}">${p.deal_type === 'rent' ? 'להשכרה' : 'למכירה'}</span>
+        </div>
+        ${media ? `<div class="card-media">${media}</div>` : ''}
+      </div>
+      <div class="body">
+        <div class="price">${priceLabel(p.price, p.deal_type)}</div>
+        <div class="title">${escapeHtml(p.title || '')}</div>
+        <div class="meta">${meta.map(m => `<span>${escapeHtml(m)}</span>`).join('')}</div>
+      </div>`;
     card.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
     el.appendChild(card);
   });
@@ -391,27 +627,43 @@ async function loadSoldDeals(sb, agencyId){
     .select('sale_price, sold_at, rooms, property_type')
     .eq('agency_id', agencyId).order('sold_at', { ascending:false });
   if (!deals || deals.length === 0){ el.innerHTML = '<div class="empty-state">אין עדיין היסטוריית עסקאות למשרד זה.</div>'; return; }
+
+  setStat('deals', deals.length, 'עסקאות שנסגרו', 'key', true);
   el.innerHTML = '';
   deals.forEach(d=>{
     const row = document.createElement('div');
     row.className = 'deal-row';
-    row.innerHTML = `<span>${d.property_type} · ${d.rooms||'—'} חדרים</span><span class="deal-price">₪${Number(d.sale_price).toLocaleString('he-IL')}</span>`;
+    const when = d.sold_at ? new Date(d.sold_at).toLocaleDateString('he-IL', { year:'numeric', month:'long' }) : '';
+    row.innerHTML = `<span>${escapeHtml(d.property_type || '')}${d.rooms ? ' · ' + d.rooms + ' חדרים' : ''}` +
+      `${when ? `<div class="deal-date">${escapeHtml(when)}</div>` : ''}</span>` +
+      `<span class="deal-price">₪${Number(d.sale_price).toLocaleString('he-IL')}</span>`;
     el.appendChild(row);
   });
 }
 
 async function loadAgentRoster(sb, agencyId){
   const el = document.getElementById('agentRoster');
-  const { data: agents } = await sb.from('agency_members_public').select('id, slug, display_name, role')
+  const { data: agents } = await sb.from('agency_members_public')
+    .select('id, slug, display_name, role, photo_url, license_number')
     .eq('agency_id', agencyId);
   if (!agents || agents.length === 0){ el.innerHTML = '<div class="empty-state">אין כרגע סוכנים פעילים.</div>'; return; }
+
+  setStat('agents', agents.length, agents.length === 1 ? 'סוכן/ת במשרד' : 'סוכנים במשרד', 'users');
   el.innerHTML = '';
   const roleLabels = { manager:'מנהל/ת משרד', agent:'סוכן/ת' };
   agents.forEach(a=>{
+    const name = a.display_name || '?';
+    const photo = safeImageUrl(a.photo_url);
     const card = document.createElement('div');
-    card.className = 'card agent-card';
-    card.innerHTML = `<div class="agent-avatar">${(a.display_name||'?')[0]}</div>
-      <div><div class="name">${a.display_name}</div><div class="role">${roleLabels[a.role]||a.role}</div></div>`;
+    card.className = 'panel agent-card';
+    card.innerHTML = `
+      <div class="agent-avatar">${photo ? `<img src="${encodeURI(photo)}" alt="${escapeHtml(name)}" loading="lazy">` : escapeHtml(name[0])}</div>
+      <div style="min-width:0">
+        <div class="name">${escapeHtml(name)}</div>
+        <div class="role">${escapeHtml(roleLabels[a.role] || a.role || '')}</div>
+        ${a.license_number ? `<span class="lic">${ICON.check}רישיון ${escapeHtml(a.license_number)}</span>` : ''}
+      </div>
+      <span class="chev" aria-hidden="true">${ICON.chevron}</span>`;
     card.addEventListener('click', ()=> window.location.href = 'agent.html?slug=' + (a.slug || a.id));
     el.appendChild(card);
   });
@@ -422,15 +674,20 @@ async function loadReviews(sb, agencyId){
   const { data: reviews } = await sb.from('reviews').select('rating, text, reviewer_display_name')
     .eq('agency_id', agencyId).eq('status', 'published');
   if (!reviews || reviews.length === 0){ el.innerHTML = '<div class="empty-state">אין עדיין ביקורות למשרד זה.</div>'; return; }
+
+  const avg = reviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / reviews.length;
+  const reviewsLabel = reviews.length === 1 ? 'ביקורת אחת' : `${reviews.length} ביקורות`;
+  setStat('rating', avg.toFixed(1).replace(/\.0$/, ''), `דירוג ממוצע · ${reviewsLabel}`, 'star', true);
+
   el.innerHTML = '';
   reviews.forEach(r=>{
+    const rating = Math.max(0, Math.min(5, Number(r.rating) || 0));
     const card = document.createElement('div');
-    card.className = 'card';
-    card.style.padding = '14px 16px';
-    card.style.marginBottom = '10px';
-    card.innerHTML = `<div style="color:var(--gold-dark);font-weight:700">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div>
-      <div style="font-size:.85rem;margin-top:6px">${r.text||''}</div>
-      <div style="font-size:.75rem;color:var(--ink-soft);margin-top:6px">${r.reviewer_display_name||'לקוח מאומת'}</div>`;
+    card.className = 'panel review-card';
+    card.innerHTML = `
+      <div class="review-stars">${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}</div>
+      <div class="review-text">${escapeHtml(r.text || '')}</div>
+      <div class="review-by">${escapeHtml(r.reviewer_display_name || 'לקוח מאומת')}</div>`;
     el.appendChild(card);
   });
 }
