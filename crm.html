@@ -113,6 +113,19 @@
   .lead-card{padding:16px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px}
   .lead-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
   .lead-name{font-weight:700;font-size:.95rem}
+  /* מוני הנכסים הפעילים לצד שם חבר/ת הצוות. שני הקודים זהים ל---deal-sale
+     ול---deal-rent שב-index.html, כדי שהצבע ייקרא אותו דבר כאן ובמקרא
+     שמתחת למפה בדף הבית. */
+  .team-deals{font-weight:400;font-size:.85rem;color:var(--txt-soft,var(--ink-soft));white-space:nowrap;margin-inline-start:4px}
+  /* isolate על כל מספר בנפרד: בלעדיו אלגוריתם ה-bidi מאחד את שתי הספרות
+     והמפריד לרצף LTR אחד, וסדר המכירה/השכרה על המסך משתנה לפי אורך
+     המספרים. עם בידוד הסדר תמיד נקרא כמו בקוד — מכירה ואז השכרה. */
+  .team-deals,.team-deals b{unicode-bidi:isolate}
+  .team-deals b{font-weight:800;font-variant-numeric:tabular-nums}
+  .team-deals .td-sale{color:#1C3A5E}
+  .team-deals .td-rent{color:#8B2332}
+  .team-deals .td-commercial{color:#B85C00}
+  .team-deals .td-none{color:var(--txt-faint,var(--ink-soft))}
   /* ‏nowrap: מספר טלפון שנשבר באמצע לשתי שורות נקרא כמו שני מספרים */
   .lead-phone{font-size:.85rem;color:var(--ink-soft);direction:ltr;text-align:right;white-space:nowrap}
   .lead-meta{font-size:.78rem;color:var(--ink-soft)}
@@ -4033,6 +4046,14 @@ document.getElementById('addMemberForm').addEventListener('submit', async (e)=>{
   }
 });
 
+/* שלושת סוגי העסקה של מקרא המפה בדף הבית, באותו סדר ובאותם צבעים
+   (ראו .td-sale/.td-rent/.td-commercial ב-CSS). */
+const TEAM_DEAL_KINDS = [
+  { key:'sale',       label:'למכירה' },
+  { key:'rent',       label:'להשכרה' },
+  { key:'commercial', label:'מסחריים' },
+];
+
 async function loadTeam(agencyId, callerId){
   const el = document.getElementById('teamList');
   el.innerHTML = '<div class="empty-state">טוען…</div>';
@@ -4044,16 +4065,55 @@ async function loadTeam(agencyId, callerId){
 
   if (error){ el.innerHTML = '<div class="empty-state">שגיאה: ' + error.message + '</div>'; return; }
   accSetCount('accTeam', (members||[]).length);
+
+  // מספר הנכסים הפעילים של כל חבר/ת צוות, מפוצל למכירה ולהשכרה — באותם שני
+  // צבעים של המקרא שמתחת למפה בדף הבית, כדי שהקוד ייקרא אותו דבר בשני
+  // המקומות. שאילתה אחת לכל הצוות ולא אחת לכל שורה; נכסים פעילים קריאים
+  // ממילא (מפת החיפוש בדף הבית נבנית מהם), ולכן אין כאן חשיפה חדשה.
+  //
+  // dealCounts נשאר null אם הספירה נכשלה — עדיף להציג שום מספר מאשר 0 שגוי.
+  const memberIds = (members||[]).map(m=>m.id);
+  let dealCounts = null;
+  if (memberIds.length){
+    const { data: propRows, error: propErr } = await sb
+      .from('properties')
+      .select('agent_id, deal_type, category')
+      .eq('status', 'active')
+      .in('agent_id', memberIds);
+    if (!propErr){
+      dealCounts = {};
+      memberIds.forEach(id => { dealCounts[id] = { sale:0, rent:0, commercial:0 }; });
+      (propRows||[]).forEach(p=>{
+        const c = dealCounts[p.agent_id];
+        // מסחרי גובר על deal_type — בדיוק כמו dealKind() בדף הבית: "חנות
+        // להשכרה" נספרת שם כמסחרית, ולכן גם כאן, אחרת אותו נכס יופיע
+        // בשני המקומות בשני צבעים
+        if (c) c[p.category === 'commercial' ? 'commercial' : (p.deal_type === 'rent' ? 'rent' : 'sale')]++;
+      });
+    }
+  }
+
   const roleLabels = { manager:'מנהל/ת', agent:'סוכן/ת' };
   const tierLabels = { free:'חינמי', mid:'משודרג', premium:'פרימיום' };
   el.innerHTML = '';
   members.forEach(m=>{
+    const counts = dealCounts && dealCounts[m.id];
+    // סוג שאין בו נכסים לא מקבל מספר — שורת שם עם "0" משולש היא רעש.
+    const shown = counts ? TEAM_DEAL_KINDS.filter(k => counts[k.key] > 0) : [];
+    // role="img" + aria-label: הצבע לבדו לא נגיש, ולכן הסוגריים מוסתרות
+    // מהקורא ומוחלפות במשפט מלא
+    const dealsHtml = !counts ? '' : ` <span class="team-deals" role="img"
+          title="${shown.length ? 'נכסים פעילים: ' + shown.map(k => counts[k.key] + ' ' + k.label).join(', ') : 'אין נכסים פעילים'}"
+          aria-label="${shown.length ? 'נכסים פעילים: ' + shown.map(k => counts[k.key] + ' ' + k.label).join(', ') : 'אין נכסים פעילים'}"
+      >(${shown.length
+            ? shown.map(k => `<b class="td-${k.key}">${counts[k.key]}</b>`).join(' · ')
+            : '<b class="td-none">0</b>'})</span>`;
     const el2 = document.createElement('div');
     el2.className = 'card lead-card';
     el2.innerHTML = `
       <div class="lead-top">
         <div>
-          <div class="lead-name">${esc(m.display_name)}${m.id === callerId ? ' (את/ה)' : ''}</div>
+          <div class="lead-name">${esc(m.display_name)}${m.id === callerId ? ' (את/ה)' : ''}${dealsHtml}</div>
         </div>
         <span class="status-pill status-${m.active ? 'unlocked' : 'masked'}">${m.active ? 'פעיל' : 'לא פעיל'}</span>
       </div>
