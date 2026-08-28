@@ -396,6 +396,8 @@
   .notif-item{padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer}
   .notif-item:last-child{border-bottom:none}
   .notif-item.unread{background:var(--gold-tint)}
+  /* הסלמת ביקורת 1★ — פס אדום דק שמבדיל אותה משאר ההתראות בלי לצעוק */
+  .notif-item.alert{border-inline-start:3px solid var(--wine, #8B2332)}
   .notif-item .t{font-size:.83rem;font-weight:700}
   .notif-item .b{font-size:.75rem;color:var(--ink-soft);margin-top:2px}
   .notif-item .when{font-size:.68rem;color:var(--ink-soft);margin-top:3px}
@@ -6984,8 +6986,18 @@ async function loadLeads(agentId){
         onClick: btn => claimLead(lead, btn, agentId),
       });
     } else {
+      // הליד פתוח — כלומר הטלפון האמיתי כבר חשוף ב-display_phone, וזו הנקודה
+      // היחידה במערכת שממנה אפשר לבקש חוות דעת (הביקורת מאומתת מול הליד).
+      // וואטסאפ ראשון כי זו הדרך שבה זה באמת נשלח; העתקת קישור נשארת לגיבוי.
+      const wa = waLink(lead.display_phone);
+      if (wa){
+        addCardAction(actions, {
+          label:'⭐ בקשת חוות דעת', cls:'btn-gold', title:'שליחת הקישור ללקוח/ה בוואטסאפ',
+          onClick: () => sendReviewLinkWhatsApp(lead),
+        });
+      }
       addCardAction(actions, {
-        label:'📋 קישור לחוות דעת', title:'העתקת קישור לבקשת חוות דעת מהלקוח/ה',
+        label:'📋 העתקת קישור', title:'העתקת קישור לבקשת חוות דעת מהלקוח/ה',
         onClick: btn => copyReviewLink(lead.id, btn),
       });
     }
@@ -6993,8 +7005,27 @@ async function loadLeads(agentId){
   });
 }
 
+function reviewLink(leadId){
+  return window.location.origin + window.location.pathname.replace('crm.html','')
+       + 'review-request.html?lead=' + leadId;
+}
+
+/* פתיחת וואטסאפ עם הודעה מוכנה. הקישור נפתח בחלון חדש ולא נשלח מהשרת —
+   ההודעה יוצאת מהמספר של הסוכן/ת עצמו/ה, וזו הסיבה שהיא גם נקראת אישית
+   ולא כהודעת מערכת. */
+function sendReviewLinkWhatsApp(lead){
+  const wa = waLink(lead.display_phone);
+  if (!wa){ showToast('אין מספר טלפון תקין לליד הזה'); return; }
+  const name = (lead.display_name || '').trim();
+  const text =
+    (name ? `היי ${name},` : 'היי,') + '\n' +
+    'שמחתי לעזור! אשמח מאוד אם תוכל/י להשאיר חוות דעת קצרה — זה לוקח פחות מדקה ועוזר לי מאוד:\n' +
+    reviewLink(lead.id);
+  window.open(wa + '?text=' + encodeURIComponent(text), '_blank', 'noopener');
+}
+
 function copyReviewLink(leadId, btn){
-  const link = window.location.origin + window.location.pathname.replace('crm.html','') + 'review-request.html?lead=' + leadId;
+  const link = reviewLink(leadId);
   const original = btn.textContent;
   const finish = (msg)=>{ btn.textContent = msg; setTimeout(()=> btn.textContent = original, 2000); };
   if (navigator.clipboard && window.isSecureContext){
@@ -8528,7 +8559,7 @@ async function loadNotifications(agentId){
   listEl.innerHTML = '';
   items.forEach(n=>{
     const el = document.createElement('div');
-    el.className = 'notif-item' + (n.read ? '' : ' unread');
+    el.className = 'notif-item' + (n.read ? '' : ' unread') + (n.type === 'review_alert' ? ' alert' : '');
     el.innerHTML = `<div class="t">${n.title}</div>
       ${n.body ? `<div class="b">${n.body}</div>` : ''}
       <div class="when">${new Date(n.created_at).toLocaleString('he-IL')}</div>`;
@@ -8539,8 +8570,16 @@ async function loadNotifications(agentId){
       }
       document.getElementById('bellPanel').style.display = 'none';
       document.getElementById('bellBtn').setAttribute('aria-expanded','false');
-      openAcc('accLeads');
-      document.querySelector('#leadsList')?.scrollIntoView({ behavior:'smooth' });
+      // ‏review_alert היא הסלמה של ביקורת 1★ ולכן מובילה למסך הביקורות; כל
+      // השאר (ליד חדש, וגם תזכורת לבקש חוות דעת) מובילות לכרטיס הליד עצמו,
+      // כי שם יושב כפתור השליחה בוואטסאפ.
+      if (n.type === 'review_alert'){
+        openAcc('accReviews');
+        document.querySelector('#reviewModerationList')?.scrollIntoView({ behavior:'smooth' });
+      } else {
+        openAcc('accLeads');
+        document.querySelector('#leadsList')?.scrollIntoView({ behavior:'smooth' });
+      }
     });
     listEl.appendChild(el);
   });
