@@ -860,8 +860,10 @@
   #leadingAgents .section-head{margin-bottom:12px}
   /* הכותרת ארוכה ונשברת לשתי שורות במובייל; ‎balance‎ מחלק אותה לשתי
      שורות שוות־אורך במקום שורה מלאה ומילה בודדת מתחתיה, ושתיהן ממורכזות. */
-  #leadingAgents .section-head > div{width:100%;text-align:center}
-  #leadingAgents .section-head h2{text-align:center;margin-inline:auto;text-wrap:balance}
+  #leadingAgents .section-head > div,
+  #featured .section-head > div{width:100%;text-align:center}
+  #leadingAgents .section-head h2,
+  #featured .section-head h2{text-align:center;margin-inline:auto;text-wrap:balance}
 
   /* ====== שורת פרסומת בין הסקציות ====== */
   .ad-strip{
@@ -1033,6 +1035,37 @@
   }
   @media(min-width:640px){.property-grid{grid-template-columns:1fr 1fr}}
   @media(min-width:960px){.property-grid{grid-template-columns:1fr 1fr 1fr}}
+
+  /* ====== רשימת הנכסים: תצוגת חמישה חדשים מול כל המאגר ======
+     ברירת המחדל היא חמישה נכסים בלבד (הרשימה המלאה גלשה לאורך מסכים
+     שלמים), וטאב שני פותח את כל הנכסים יחד עם סרגל חיפוש שמסנן אותם
+     כאן במקום. */
+  .listings-tabs{
+    display:flex;gap:6px;justify-content:center;margin:-6px auto 16px;
+    background:var(--paper-raised);border:1px solid var(--line);border-radius:999px;
+    padding:5px;width:max-content;max-width:100%;
+  }
+  .listings-tab{
+    padding:9px 16px;border-radius:999px;font-weight:700;font-size:.85rem;
+    color:var(--ink-soft);white-space:nowrap;transition:background .15s ease,color .15s ease;
+  }
+  .listings-tab[aria-selected="true"]{background:var(--teal);color:#fff}
+  .listings-tab .tab-count{font-weight:600;opacity:.75;font-size:.78rem}
+
+  /* אותו ‎.search-card‎ של סרגל החיפוש בכותרת; שם הוא צף מעל מפה כהה
+     וסוחב צל עמוק, וכאן הוא יושב על רקע בהיר ולכן מקבל מסגרת וצל רך. */
+  .listings-search{margin:0 auto 18px;max-width:720px}
+  .listings-search .search-card{
+    background:var(--paper-raised);border:1px solid var(--line);
+    box-shadow:0 6px 18px rgba(6,20,34,.08);
+  }
+  .listings-search .search-card:focus-within{box-shadow:0 6px 18px rgba(6,20,34,.08), 0 0 0 2px var(--gold)}
+  .listings-count{margin:8px 2px 0;font-size:.8rem;font-weight:600;color:var(--ink-soft);text-align:center}
+  .listings-empty{
+    grid-column:1/-1;text-align:center;padding:26px 16px;font-size:.9rem;font-weight:600;
+    color:var(--ink-soft);background:var(--paper-raised);border:1px dashed var(--line);
+    border-radius:var(--radius-md);
+  }
 
   /* ====== Mortgage calculator teaser ======
      האקסנט של הסקציה הוא גרדיאנט חם שנגזר מ---gold של הפלטה ומתחמם לטרקוטה,
@@ -1921,6 +1954,29 @@
     </div>
   </div>
 
+  <!-- ====== Featured (Premium rotation) ====== -->
+  <section class="section wrap" id="featured">
+    <div class="section-head">
+      <div>
+        <h2>נכסים מומלצים שאסור לכם לפספס</h2>
+      </div>
+      <a href="#" class="see-all">כל הנכסים ←</a>
+    </div>
+    <div class="featured-scroll" id="featuredScroll"><!-- populated by JS --></div>
+  </section>
+
+  <!-- ====== Professionals ====== -->
+  <section class="section wrap" id="pros">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">בעלי מקצוע נבחרים</p>
+        <h2>מי שילווה אתכם בדרך</h2>
+      </div>
+      <a href="professional-signup.html" class="see-all">הצטרפות כבעל מקצוע ←</a>
+    </div>
+    <div class="pros-grid" id="prosGrid"><!-- populated by JS, fallback to static below on failure --></div>
+  </section>
+
   <!-- ====== כתבות ובלוגים ====== -->
   <section class="section wrap" id="articles">
     <div class="section-head">
@@ -1938,42 +1994,47 @@
   </div>
 
   <!-- ====== Property grid ====== -->
-  <!-- הרשימה המלאה. תוצאות חיפוש (runSearch) מתעדכנות כאן, במפה ובקרוסלה
-       שמתחתיה יחד (ראו renderPropertyGrid); הקישור "כל התוצאות ברשימה"
-       שנפתח בקרוסלה בזמן חיפוש מוביל לכאן. -->
+  <!-- שני מצבים על אותו גריד (ראו renderListings): ברירת המחדל היא חמשת
+       הנכסים החדשים בפלטפורמה, מעורבבים בין כל משרדי התיווך, והטאב השני
+       פותח את כל המאגר יחד עם סרגל חיפוש שמסנן אותו כאן במקום. תוצאות
+       חיפוש (runSearch) מתעדכנות במפה ובשורות שמתחתיה, והסקציה הזו
+       מוסתרת בזמן חיפוש. -->
   <section class="section wrap" id="listings">
     <div class="section-head">
       <div>
         <p class="eyebrow">נכסים באזור</p>
-        <h2>כל הנכסים הפעילים</h2>
+        <h2 id="listingsTitle">הנכסים החדשים בפלטפורמה</h2>
       </div>
-      <a href="#" class="see-all">סינון מתקדם ←</a>
     </div>
+
+    <div class="listings-tabs" role="tablist" aria-label="תצוגת הנכסים">
+      <button type="button" class="listings-tab" id="listingsTabNew" role="tab" aria-selected="true" aria-controls="propertyGrid">החדשים ביותר</button>
+      <button type="button" class="listings-tab" id="listingsTabAll" role="tab" aria-selected="false" aria-controls="propertyGrid">
+        כל הנכסים <span class="tab-count" id="listingsAllCount"></span>
+      </button>
+    </div>
+
+    <!-- אותו סרגל של הכותרת (.search-card), אבל הוא מסנן את הרשימה שכבר
+         נטענה כאן בדפדפן ולא מריץ חיפוש חדש מול ה-DB -->
+    <div class="listings-search" id="listingsSearch" hidden>
+      <div class="search-card">
+        <select id="listingsDeal" class="deal-select" data-mode="all" aria-label="סוג עסקה">
+          <option value="">כל הסוגים</option>
+          <option value="sale">מכירה</option>
+          <option value="rent">השכרה</option>
+          <option value="commercial">מסחרי</option>
+        </select>
+        <input type="text" class="search-input" id="listingsQuery" placeholder="עיר, שכונה, רחוב או סוג נכס…" autocomplete="off">
+        <button type="button" class="search-go" id="listingsGoBtn" aria-label="חיפוש ברשימת הנכסים" title="חיפוש">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+            <circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>
+          </svg>
+        </button>
+      </div>
+      <p class="listings-count" id="listingsCount" aria-live="polite"></p>
+    </div>
+
     <div class="property-grid" id="propertyGrid"><!-- populated by JS --></div>
-  </section>
-
-  <!-- ====== Featured (Premium rotation) ====== -->
-  <section class="section wrap" id="featured">
-    <div class="section-head">
-      <div>
-        <p class="eyebrow">נכסים מקודמים</p>
-        <h2>מומלצים השבוע בעמק</h2>
-      </div>
-      <a href="#" class="see-all">כל הנכסים ←</a>
-    </div>
-    <div class="featured-scroll" id="featuredScroll"><!-- populated by JS --></div>
-  </section>
-
-  <!-- ====== Professionals ====== -->
-  <section class="section wrap" id="pros">
-    <div class="section-head">
-      <div>
-        <p class="eyebrow">בעלי מקצוע נבחרים</p>
-        <h2>מי שילווה אתכם בדרך</h2>
-      </div>
-      <a href="professional-signup.html" class="see-all">הצטרפות כבעל מקצוע ←</a>
-    </div>
-    <div class="pros-grid" id="prosGrid"><!-- populated by JS, fallback to static below on failure --></div>
   </section>
 
 </main>
@@ -2609,9 +2670,12 @@ const isPromoted = p => !!p.is_promoted && (!p.promoted_until || new Date(p.prom
    שורות התוצאות והגריד. loadProperties ו-runSearch חייבות למשוך בדיוק את
    אותה רשימה, אחרת תוצאות חיפוש יורדות לברירות מחדל (גרדיאנט במקום תמונה,
    "עפולה והעמק" במקום הכתובת) ברגע שהמשתמש חיפש. */
+/* created_at נטען אף שהמיון מה-DB כבר עושה בו שימוש: הרשימה חוזרת
+   ממוינת מקודמים-קודם, ו"חמשת החדשים בפלטפורמה" (renderListings) צריך
+   את התאריך עצמו כדי למיין מחדש בלי הקידום. */
 const PROPERTY_SELECT =
   'id, price, title, rooms, size_sqm, city, street, address, property_type, deal_type, category, ' +
-  'lat, lng, is_promoted, promoted_until, images, agencies(name, logo_url), neighborhoods(name)';
+  'created_at, lat, lng, is_promoted, promoted_until, images, agencies(name, logo_url), neighborhoods(name)';
 
 const shapeProperty = p => ({
   ...p,
@@ -3948,6 +4012,12 @@ function renderSearchRows(properties, isSearchResult){
   });
 }
 
+/* מצב רשימת הנכסים. מוצהר כאן, לפני renderPropertyGrid שכותב אליו,
+   ולא לצד renderListings שמתחתיו — ‎let‎ ב-TDZ עד שורת ההצהרה. */
+const LISTINGS_PREVIEW = 5;
+let listingsAll = [];
+let listingsExpanded = false;
+
 function renderPropertyGrid(properties, isSearchResult){
   // נקודת הסנכרון היחידה בין המפה, שורות התוצאות, הקרוסלה והגריד: כל קריאה
   // לפונקציה הזו — טעינה ראשונית או runSearch() — מעדכנת את כולם לאותם
@@ -3963,30 +4033,121 @@ function renderPropertyGrid(properties, isSearchResult){
   if (listings) listings.hidden = !!isSearchResult;
   if (isSearchResult) return;
 
+  listingsAll = properties;
+  setListingsTab(false);
+}
+
+/* ============================================================
+   רשימת הנכסים: חמישה חדשים כברירת מחדל, כל המאגר בטאב השני
+   ============================================================ */
+
+/* הרשימה חוזרת מה-DB ממוינת מקודמים-קודם, ולכן נכס מקודם ישן היה נכנס
+   ל"החדשים ביותר" לפני נכס חדש שלא שולם עליו. כאן היא ממוינת לפי
+   created_at בלבד; ‏Array.sort יציב ב-JS מודרני, כך שרשומות בלי תאריך
+   (נתוני ה-fallback) שומרות על סדר המקור. */
+const newestFirst = list => [...list].sort((a,b)=>
+  (Date.parse(b.created_at || '') || 0) - (Date.parse(a.created_at || '') || 0));
+
+/* "החדשים ביותר" בסבב בין המשרדים: משרד עם עשרה נכסים טריים היה ממלא
+   לבדו את כל חמשת המקומות, ולכן נלקח נכס אחד מכל משרד בתורו (סדר
+   המשרדים נקבע לפי הנכס החדש ביותר שיש לכל אחד) עד שמתמלאת המכסה. */
+function newestMixedByAgency(list, count){
+  const queues = new Map();
+  newestFirst(list).forEach(p=>{
+    const key = p.agency_name || p.agency_id || '—';
+    if (!queues.has(key)) queues.set(key, []);
+    queues.get(key).push(p);
+  });
+  const out = [];
+  let picked = true;
+  while (out.length < count && picked){
+    picked = false;
+    for (const queue of queues.values()){
+      if (!queue.length) continue;
+      out.push(queue.shift());
+      picked = true;
+      if (out.length === count) break;
+    }
+  }
+  return out;
+}
+
+/* סינון מקומי של הרשימה שכבר נטענה — לא חיפוש חדש מול ה-DB. סרגל
+   החיפוש שבכותרת מריץ את runSearch() ומחליף את כל תצוגת העמוד; זה כאן
+   רק מצמצם את הרשימה הפתוחה. */
+function filterListings(list){
+  const q = (document.getElementById('listingsQuery').value || '').trim().toLowerCase();
+  const deal = document.getElementById('listingsDeal').value;
+  return list.filter(p=>{
+    if (deal && dealKind(p) !== deal) return false;
+    if (!q) return true;
+    return [p.title, p.city, p.street, p.address, p.property_type, p.neighborhood_name, p.agency_name]
+      .filter(Boolean).join(' ').toLowerCase().includes(q);
+  });
+}
+
+function propCard(p, i){
+  const el = document.createElement('div');
+  el.className = 'prop-card';
+  el.style.cursor = 'pointer';
+  el.innerHTML = `
+    <div class="thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
+    <div class="body">
+      <div class="price">${priceLabel(p)}</div>
+      <div class="title">${p.title}</div>
+      <div class="meta"><span>${p.rooms || '—'} חדרים</span><span>${p.property_type}</span><span>${p.agency_name||''}</span></div>
+    </div>`;
+  el.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
+  return el;
+}
+
+function renderListings(){
   const grid = document.getElementById('propertyGrid');
-  const heading = document.querySelector('#listings h2');
-  if (heading) heading.textContent = 'כל הנכסים הפעילים';
+  const heading = document.getElementById('listingsTitle');
+  const countEl = document.getElementById('listingsCount');
+  if (!grid) return;
+
+  const shown = listingsExpanded
+    ? filterListings(listingsAll)
+    : newestMixedByAgency(listingsAll, LISTINGS_PREVIEW);
+
+  if (heading) heading.textContent = listingsExpanded ? 'כל הנכסים הפעילים' : 'הנכסים החדשים בפלטפורמה';
+  if (countEl) countEl.textContent = listingsExpanded
+    ? (shown.length ? `${shown.length} נכסים מתוך ${listingsAll.length}` : '')
+    : '';
+
   grid.innerHTML = '';
-  properties.forEach((p, i)=>{
-    const el = document.createElement('div');
-    el.className = 'prop-card';
-    el.style.cursor = 'pointer';
-    el.innerHTML = `
-      <div class="thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
-      <div class="body">
-        <div class="price">${priceLabel(p)}</div>
-        <div class="title">${p.title}</div>
-        <div class="meta"><span>${p.rooms || '—'} חדרים</span><span>${p.property_type}</span><span>${p.agency_name||''}</span></div>
-      </div>`;
-    el.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
-    grid.appendChild(el);
-    if (i === 1){
+  if (!shown.length){
+    const empty = document.createElement('div');
+    empty.className = 'listings-empty';
+    empty.textContent = listingsAll.length ? 'לא נמצאו נכסים שמתאימים לחיפוש.' : 'אין כרגע נכסים פעילים להצגה.';
+    grid.appendChild(empty);
+    return;
+  }
+  shown.forEach((p, i)=>{
+    grid.appendChild(propCard(p, i));
+    // הפרסומת מוצגת רק ברשימה המלאה; בתצוגת חמשת החדשים היא הייתה
+    // חוצה רשימה קצרה ממילא.
+    if (listingsExpanded && i === 1){
       const ad = document.createElement('div');
       ad.className = 'infeed-ad';
       ad.textContent = 'פרסומת — באנר רוחבי בין אריחי הנכסים';
       grid.appendChild(ad);
     }
   });
+}
+
+function setListingsTab(expanded){
+  listingsExpanded = !!expanded;
+  const tabNew = document.getElementById('listingsTabNew');
+  const tabAll = document.getElementById('listingsTabAll');
+  const search = document.getElementById('listingsSearch');
+  const allCount = document.getElementById('listingsAllCount');
+  if (tabNew) tabNew.setAttribute('aria-selected', String(!listingsExpanded));
+  if (tabAll) tabAll.setAttribute('aria-selected', String(listingsExpanded));
+  if (search) search.hidden = !listingsExpanded;
+  if (allCount) allCount.textContent = listingsAll.length ? `(${listingsAll.length})` : '';
+  renderListings();
 }
 
 /* חזרה מתוצאות החיפוש אל כל הנכסים שבמאגר. בלי כפתור כזה אין דרך לבטל
@@ -4007,6 +4168,23 @@ async function clearSearch(){
 initFilterModals();
 document.getElementById('searchSubmitBtn').addEventListener('click', runSearch);
 document.getElementById('clearSearchBtn').addEventListener('click', clearSearch);
+
+/* ---------- טאבים וסרגל החיפוש של רשימת הנכסים ---------- */
+document.getElementById('listingsTabNew').addEventListener('click', ()=> setListingsTab(false));
+document.getElementById('listingsTabAll').addEventListener('click', ()=>{
+  setListingsTab(true);
+  document.getElementById('listingsQuery').focus({ preventScroll:true });
+});
+const listingsQuery = document.getElementById('listingsQuery');
+const listingsDeal = document.getElementById('listingsDeal');
+listingsQuery.addEventListener('input', renderListings);
+listingsQuery.addEventListener('keydown', (e)=>{ if (e.key === 'Enter'){ e.preventDefault(); renderListings(); } });
+listingsDeal.addEventListener('change', ()=>{
+  // data-mode צובע את הבורר לפי סוג העסקה, בדיוק כמו בסרגל שבכותרת
+  listingsDeal.dataset.mode = listingsDeal.value || 'all';
+  renderListings();
+});
+document.getElementById('listingsGoBtn').addEventListener('click', renderListings);
 </script>
 </body>
 </html>
