@@ -860,8 +860,10 @@
   #leadingAgents .section-head{margin-bottom:12px}
   /* הכותרת ארוכה ונשברת לשתי שורות במובייל; ‎balance‎ מחלק אותה לשתי
      שורות שוות־אורך במקום שורה מלאה ומילה בודדת מתחתיה, ושתיהן ממורכזות. */
-  #leadingAgents .section-head > div{width:100%;text-align:center}
-  #leadingAgents .section-head h2{text-align:center;margin-inline:auto;text-wrap:balance}
+  #leadingAgents .section-head > div,
+  #featured .section-head > div{width:100%;text-align:center}
+  #leadingAgents .section-head h2,
+  #featured .section-head h2{text-align:center;margin-inline:auto;text-wrap:balance}
 
   /* ====== שורת פרסומת בין הסקציות ====== */
   .ad-strip{
@@ -1881,6 +1883,29 @@
     </div>
   </div>
 
+  <!-- ====== Featured (Premium rotation) ====== -->
+  <section class="section wrap" id="featured">
+    <div class="section-head">
+      <div>
+        <h2>נכסים מומלצים שאסור לכם לפספס</h2>
+      </div>
+      <a href="#" class="see-all">כל הנכסים ←</a>
+    </div>
+    <div class="featured-scroll" id="featuredScroll"><!-- populated by JS --></div>
+  </section>
+
+  <!-- ====== Professionals ====== -->
+  <section class="section wrap" id="pros">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">בעלי מקצוע נבחרים</p>
+        <h2>מי שילווה אתכם בדרך</h2>
+      </div>
+      <a href="professional-signup.html" class="see-all">הצטרפות כבעל מקצוע ←</a>
+    </div>
+    <div class="pros-grid" id="prosGrid"><!-- populated by JS, fallback to static below on failure --></div>
+  </section>
+
   <!-- ====== כתבות ובלוגים ====== -->
   <section class="section wrap" id="articles">
     <div class="section-head">
@@ -1910,30 +1935,6 @@
       <a href="#" class="see-all">סינון מתקדם ←</a>
     </div>
     <div class="property-grid" id="propertyGrid"><!-- populated by JS --></div>
-  </section>
-
-  <!-- ====== Featured (Premium rotation) ====== -->
-  <section class="section wrap" id="featured">
-    <div class="section-head">
-      <div>
-        <p class="eyebrow">נכסים מקודמים</p>
-        <h2>מומלצים השבוע בעמק</h2>
-      </div>
-      <a href="#" class="see-all">כל הנכסים ←</a>
-    </div>
-    <div class="featured-scroll" id="featuredScroll"><!-- populated by JS --></div>
-  </section>
-
-  <!-- ====== Professionals ====== -->
-  <section class="section wrap" id="pros">
-    <div class="section-head">
-      <div>
-        <p class="eyebrow">בעלי מקצוע נבחרים</p>
-        <h2>מי שילווה אתכם בדרך</h2>
-      </div>
-      <a href="professional-signup.html" class="see-all">הצטרפות כבעל מקצוע ←</a>
-    </div>
-    <div class="pros-grid" id="prosGrid"><!-- populated by JS, fallback to static below on failure --></div>
   </section>
 
 </main>
