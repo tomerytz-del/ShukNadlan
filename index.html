@@ -745,6 +745,11 @@
     background:linear-gradient(155deg,var(--gold),var(--teal) 65%);color:#fff;
     font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.7rem;line-height:1;
   }
+  /* למשרד עם לוגו מוצג הלוגו עצמו במקום אות ההתחלה; contain (ולא cover)
+     כדי שלוגו לא ייחתך, על רקע לבן שמתאים לרוב הלוגואים. */
+  .cf-card.ag-card .cf-thumb:has(.ag-logo){background:#fff}
+  .cf-card.ag-card .cf-thumb:has(.ag-logo) .ag-initial{display:none}
+  .ag-logo{width:100%;height:100%;object-fit:contain;padding:8px}
   .ag-rank{
     position:absolute;top:6px;right:6px;background:rgba(255,255,255,.94);color:var(--gold-dark);
     font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:999px;
@@ -1945,36 +1950,41 @@ const FALLBACK_TICKER = [
 /* גרדיאנטים לכיסויי כתבות שאין להן תמונה (הנכסים עברו לממלא מקום ממותג) */
 const CARD_GRADIENTS = ['linear-gradient(155deg,#8B2332,#1C3A5E)','linear-gradient(155deg,#1C3A5E,#8B2332)','linear-gradient(155deg,#6B1A26,#1C3A5E)','linear-gradient(155deg,#8B2332,#6B1A26)','linear-gradient(155deg,#1C3A5E,#6B1A26)','linear-gradient(155deg,#6B1A26,#8B2332)'];
 
+/* ניקוי ערך שמגיע מה-DB לפני הזרקה ל-innerHTML (גם בתוך מאפיין src/alt).
+   מוגדר כאן, למעלה, כי הוא משמש גם את קרוסלת המשרדים, גם את בלון המפה
+   וגם את ממלא המקום של נכס בלי תמונות. */
+const escAttr = s => String(s ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+
+/* יש לנכס תמונה ראשית אמיתית? (מערך ריק, null או מחרוזת ריקה — אין) */
+function hasPhoto(p){
+  const img = p && p.images && p.images[0];
+  return typeof img === 'string' && img.trim() !== '';
+}
+
 /* לוגו הפלטפורמה משמש כברירת מחדל אחרונה בממלא המקום — כשלנכס אין תמונות
    וגם למשרד שלו אין לוגו או שם. */
 const SITE_LOGO = 'assets/logo-shuknadlan.png';
 const NO_PHOTOS_NOTE = 'תמונות של הנכס יעלו בקרוב';
 
-/* הצהרה (ולא const) כדי שתהיה זמינה גם לקוד שרץ מוקדם יותר בקובץ */
-function escHtml(s){
-  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
-}
-
 /* התמונה הראשית של נכס היא images[0]. נכס בלי תמונות מקבל את
    thumbFallback: לוגו המשרד שהנכס שייך אליו + "תמונות של הנכס יעלו בקרוב",
    במקום הגרדיאנט האדום שנראה כמו תמונה שבורה. */
 function thumbStyle(p, i){
-  const img = p.images && p.images[0];
-  return img
-    ? `background-image:url('${img}');background-size:cover;background-position:center`
+  return hasPhoto(p)
+    ? `background-image:url('${p.images[0]}');background-size:cover;background-position:center`
     : '';
 }
 
 function thumbFallback(p){
-  if (p && p.images && p.images[0]) return '';
+  if (hasPhoto(p)) return '';
   const name = (p && p.agency_name) || '';
   const logo = (p && p.agency_logo) || (name ? '' : SITE_LOGO);
   const mark = logo
-    ? `<img class="tf-logo" src="${escHtml(logo)}" alt="${escHtml(name)}" loading="lazy" onerror="this.remove()">`
-    : `<span class="tf-logo tf-initial" aria-hidden="true">${escHtml(name.trim()[0] || '?')}</span>`;
+    ? `<img class="tf-logo" src="${escAttr(logo)}" alt="${escAttr(name)}" loading="lazy" onerror="this.remove()">`
+    : `<span class="tf-logo tf-initial" aria-hidden="true">${escAttr(name.trim()[0] || '?')}</span>`;
   return `<div class="thumb-fallback">
       ${mark}
-      ${name ? `<span class="tf-agency">${escHtml(name)}</span>` : ''}
+      ${name ? `<span class="tf-agency">${escAttr(name)}</span>` : ''}
       <span class="tf-note">${NO_PHOTOS_NOTE}</span>
     </div>`;
 }
@@ -2521,51 +2531,97 @@ async function loadTicker(){
     return FALLBACK_TICKER;
   }
 }
+/* הקרוסלה מציגה את *כל* משרדי התיווך שבפלטפורמה, ולא רק את אלה שכבר יש
+   להם שורה ב-agency_rankings. קודם נטענו הדירוגים בלבד, ומכיוון שיש בהם
+   שלוש שורות בדיוק — בדיוק מספר הכרטיסים שנראים בבת אחת — למסלול לא היה
+   בכלל עודף רוחב והוא לא נגלל, ומשרדים חדשים שטרם דורגו פשוט לא הופיעו.
+   כאן הדירוג קובע רק את הסדר: המדורגים ראשונים (השלושה הראשונים נושאים
+   תג #1..#3), ואחריהם שאר המשרדים לפי מספר הנכסים הפעילים ואז לפי שם. */
 async function loadLeadingAgencies(){
   try{
     if (!sb) return [];
-    const { data, error } = await sb
-      .from('agency_rankings')
-      .select('agency_id, composite_score, active_properties_count, deal_count_6mo, agencies(name, slug)')
-      .order('composite_score', { ascending:false })
-      // הקרוסלה נועדה להציג את כל משרדי התיווך שבפלטפורמה ולא שישייה
-      // מובילה בלבד; התקרה כאן היא רק גבול בטיחות לגודל התשובה.
-      .limit(60);
-    if (error || !data) throw error;
-    return data;
+    const [agenciesRes, rankingsRes, activeRes] = await Promise.all([
+      // התקרות כאן הן רק גבול בטיחות לגודל התשובה, לא מכסת תצוגה.
+      sb.from('agencies').select('id, name, slug, logo_url').limit(200),
+      sb.from('agency_rankings').select('agency_id, composite_score, active_properties_count').limit(200),
+      sb.from('properties').select('agency_id').eq('status', 'active').limit(2000),
+    ]);
+    const agencies = agenciesRes.data;
+    if (agenciesRes.error || !agencies) throw agenciesRes.error || new Error('empty');
+
+    const rankByAgency = {};
+    (rankingsRes.data || []).forEach(r => { rankByAgency[r.agency_id] = r; });
+
+    // מספר הנכסים הפעילים נספר כאן מהנכסים עצמם ולא נלקח מ-
+    // active_properties_count שבטבלת הדירוגים: זה שדה מחושב שמתעדכן
+    // מדי פעם, ומספיק שמשרד יעלה נכס אחד כדי שהכרטיס יציג מספר ישן.
+    const liveCount = {};
+    (activeRes.data || []).forEach(p => {
+      if (p.agency_id) liveCount[p.agency_id] = (liveCount[p.agency_id] || 0) + 1;
+    });
+
+    return agencies
+      .map(a => {
+        const ranking = rankByAgency[a.id];
+        return {
+          ...a,
+          score: ranking ? Number(ranking.composite_score) : null,
+          active_properties_count: liveCount[a.id] ?? (ranking?.active_properties_count ?? 0),
+        };
+      })
+      .sort((x, y)=>{
+        if (x.score !== null && y.score === null) return -1;
+        if (x.score === null && y.score !== null) return 1;
+        if (x.score !== null && y.score !== null && y.score !== x.score) return y.score - x.score;
+        if (y.active_properties_count !== x.active_properties_count){
+          return y.active_properties_count - x.active_properties_count;
+        }
+        return String(x.name || '').localeCompare(String(y.name || ''), 'he');
+      });
   } catch(e){
-    console.warn('טעינת משרדים מובילים נכשלה:', e);
+    console.warn('טעינת משרדי תיווך נכשלה:', e);
     return [];
   }
 }
 
+// שמות ולוגואים מגיעים מקלט של משרדים ונכנסים כאן גם לתוך מאפיינים
+// (src/alt), ולכן עוברים דרך escAttr לפני ההזרקה ל-innerHTML.
 (async function initLeadingAgencies(){
-  const rankings = await loadLeadingAgencies();
+  const agencies = await loadLeadingAgencies();
   const track = document.getElementById('leadingAgenciesScroll');
   const dots = document.getElementById('leadingAgenciesDots');
   const section = document.getElementById('leadingAgencies');
   if (!track || !dots) return;
-  if (!rankings.length){ section.style.display = 'none'; return; }
+  if (!agencies.length){ section.style.display = 'none'; return; }
 
   const flow = createCoverflow(track, dots);
   flow.reset();
-  rankings.forEach((r, i)=>{
-    const name = r.agencies?.name || 'משרד תיווך';
+  agencies.forEach((a, i)=>{
+    const name = a.name || 'משרד תיווך';
     const card = document.createElement('article');
     card.className = 'cf-card ag-card';
+    // התג הוא סימן דירוג ולא מספר סידורי, ולכן הוא נשמר לשלושה המדורגים
+    // הראשונים בלבד; לשאר הכרטיסים אין תג.
+    const rank = (i < 3 && a.score !== null) ? `<span class="ag-rank">#${i + 1}</span>` : '';
+    // אות ההתחלה נשארת ב-DOM גם כשיש לוגו ורק מוסתרת ב-CSS; אם קובץ
+    // הלוגו נשבר ה-img מסיר את עצמו, ה-:has מפסיק להתאים והכרטיס חוזר
+    // לאות על הגרדיאנט במקום לאייקון תמונה שבורה.
+    const logo = a.logo_url
+      ? `<img class="ag-logo" src="${escAttr(a.logo_url)}" alt="${escAttr(name)}" loading="lazy" onerror="this.remove()">`
+      : '';
     card.innerHTML = `
-      <div class="cf-thumb"><span class="ag-rank">#${i+1}</span>${name[0]}</div>
+      <div class="cf-thumb">${rank}${logo}<span class="ag-initial">${escAttr(name.trim()[0] || 'מ')}</span></div>
       <div class="cf-body">
-        <div class="ag-name">${name}</div>
-        <div class="ag-stat">${r.active_properties_count} נכסים פעילים</div>
+        <div class="ag-name">${escAttr(name)}</div>
+        <div class="ag-stat">${a.active_properties_count} נכסים פעילים</div>
       </div>`;
     // כמו בקרוסלת הנכסים: לחיצה על כרטיס צדדי ממרכזת אותו, ורק לחיצה על
     // הכרטיס הפעיל מנווטת לעמוד המשרד — כדי לא "לברוח" מהעמוד בטעות במגע.
     card.addEventListener('click', ()=>{
       if (!flow.isActive(i)){ flow.goTo(i); return; }
-      if (r.agencies?.slug) window.location.href = 'agency.html?slug=' + r.agencies.slug;
+      if (a.slug) window.location.href = 'agency.html?slug=' + encodeURIComponent(a.slug);
     });
-    flow.add(card, `מעבר למשרד ${i+1} מתוך ${rankings.length}`);
+    flow.add(card, `מעבר למשרד ${i + 1} מתוך ${agencies.length}`);
   });
   flow.done();
 })();
@@ -3021,8 +3077,6 @@ function locationLabel(p){
   return p.address || p.street || p.neighborhood_name || p.city || 'עפולה והעמק';
 }
 
-const escAttr = s => String(s).replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
-
 /* בלון המידע של הפין. הבלון כולו <a> לדף הנכס: קודם הוא היה טקסט מת, ולחיצה
    עליו לא הובילה לשום מקום — הדרך היחידה להגיע לנכס מהמפה הייתה לאתר אותו
    שוב ברשימה שמתחת. התמונה מוצגת רק כשיש כזו, ומידותיה קבועות ב-CSS כדי
@@ -3226,6 +3280,11 @@ function renderHotCarousel(properties, isSearchResult){
   if (!hotFlow) return;
   hotFlow.reset();
 
+  // הרצועה הזו היא ויטרינה: כרטיס בלי תמונה נופל לגרדיאנט צבעוני ונראה
+  // כמו כרטיס שבור בין שכניו המצולמים, ולכן נכס בלי תמונה לא נכנס לכאן
+  // כלל. הוא עדיין מסומן על המפה ומופיע בשורות התוצאות ובגריד.
+  const shown = properties.filter(hasPhoto);
+
   const sub = document.getElementById('hotFromMapSub');
   if (sub){
     // בזמן חיפוש התוצאות המלאות יושבות בשורות מיד מעל הרצועה, ולכן אין
@@ -3235,13 +3294,15 @@ function renderHotCarousel(properties, isSearchResult){
       : 'גללו בין הנכסים המסומנים על המפה';
   }
 
-  if (!properties.length){
+  if (!shown.length){
     hotTrack.classList.add('is-sparse');
-    hotTrack.innerHTML = '<p class="cf-empty">אין נכסים להצגה כרגע</p>';
+    hotTrack.innerHTML = properties.length
+      ? '<p class="cf-empty">אין נכסים עם תמונה להצגה כרגע</p>'
+      : '<p class="cf-empty">אין נכסים להצגה כרגע</p>';
     return;
   }
 
-  properties.forEach((p, i)=>{
+  shown.forEach((p, i)=>{
     const card = document.createElement('article');
     card.className = 'cf-card';
     card.dataset.deal = p.category === 'commercial' ? 'commercial' : (p.deal_type || 'sale');
@@ -3259,7 +3320,7 @@ function renderHotCarousel(properties, isSearchResult){
       if (!hotFlow.isActive(i)) hotFlow.goTo(i);
       else window.location.href = 'property.html?id=' + p.id;
     });
-    hotFlow.add(card, `מעבר לנכס ${i + 1} מתוך ${properties.length}`);
+    hotFlow.add(card, `מעבר לנכס ${i + 1} מתוך ${shown.length}`);
   });
 
   hotFlow.done();
