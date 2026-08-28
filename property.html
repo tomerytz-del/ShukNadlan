@@ -92,10 +92,13 @@
     font-size:.85rem;font-weight:600;
   }
   .bento-empty svg{width:34px;height:34px;margin:0 auto 4px;opacity:.8}
-  .more-overlay{
-    position:absolute;inset:0;display:grid;place-items:center;background:rgba(10,18,30,.55);
-    color:#fff;font-weight:800;font-size:1.05rem;backdrop-filter:blur(2px);
+  /* התא שנושא את מונה התמונות מקבל הצללה משלו — התגית יושבת עליו ולא על
+     התמונה הראשית, ובלי ההצללה היא נבלעת בתמונות בהירות. */
+  .bento-thumb.carries-count::after{
+    content:'';position:absolute;inset:auto 0 0 0;height:58%;pointer-events:none;z-index:2;
+    background:linear-gradient(to top,rgba(10,18,30,.66),rgba(10,18,30,0));
   }
+  .bento-thumb .photo-count-host{position:absolute;bottom:8px;inset-inline-start:8px;z-index:3}
 
   /* אלמנטים מרחפים מעל התמונה */
   .hero-badges{position:absolute;top:12px;inset-inline-start:12px;display:flex;gap:6px;flex-wrap:wrap;max-width:70%;z-index:3}
@@ -131,6 +134,8 @@
     position:absolute;bottom:12px;inset-inline-end:12px;z-index:3;
     display:flex;flex-direction:column;align-items:flex-end;gap:6px;
   }
+  /* בתוך תא משני התגית נצמדת לפינה התחתונה־שמאלית שלו */
+  .bento-thumb > .media-btn{position:absolute;bottom:8px;inset-inline-start:8px;z-index:3;font-size:.7rem;padding:6px 10px}
   .media-btn{
     display:inline-flex;align-items:center;gap:6px;
     background:rgba(15,23,42,.52);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.22);
@@ -189,6 +194,9 @@
   .spec-pill .txt{min-width:0;display:flex;flex-direction:column}
   .spec-pill .v{font-weight:800;font-size:.98rem;color:var(--teal-dark);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .spec-pill .k{font-size:.7rem;font-weight:600;color:var(--ink-soft);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  /* ערך בטקסט חופשי (פירוט ריהוט) לא נכנס לקפסולה של חצי שורה */
+  .spec-pill.wide{grid-column:1/-1}
+  .spec-pill.wide .v{white-space:normal}
 
   .panel{
     background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-xl);
@@ -201,18 +209,27 @@
   .panel-link svg{width:14px;height:14px}
 
   /* מפרט ביתרונות מאוירים */
-  .highlights{display:grid;grid-template-columns:1fr;gap:11px}
-  @media(min-width:520px){.highlights{grid-template-columns:1fr 1fr}}
+  /* שני טורים גם במסך צר: בטור אחד הקוביה מתארכת על פני חצי מסך ודוחפת את
+     כל מה שמתחתיה מתחת לקיפול. */
+  .highlights{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .highlight{font-size:.84rem}
+  @media(min-width:520px){.highlights{gap:11px}.highlight{font-size:.9rem}}
   .highlight{display:flex;align-items:center;gap:10px;font-size:.9rem;font-weight:600;color:var(--ink);min-width:0}
   .highlight .ic{width:32px;height:32px;border-radius:10px;flex:none;display:grid;place-items:center;background:var(--bronze-tint);color:var(--bronze)}
   .highlight .ic svg{width:17px;height:17px}
 
   /* טבלת פרטים */
-  .detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1px;background:var(--hair);border:1px solid var(--hair);border-radius:16px;overflow:hidden}
-  .detail{background:var(--surface);padding:11px 14px}
-  .detail .k{font-size:.72rem;font-weight:700;color:var(--ink-soft)}
-  .detail .v{font-size:1rem;font-weight:800;color:var(--teal-dark);margin-top:2px}
   .prop-desc{white-space:pre-wrap;font-size:.93rem;margin:0;color:#3A4048}
+  .desc-block{margin-top:12px}
+  .desc-block .prop-desc{
+    display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .desc-block.open .prop-desc{display:block;overflow:visible}
+  .desc-toggle{
+    background:none;padding:4px 0 0;font-size:.82rem;font-weight:700;color:var(--teal);
+  }
+  .desc-toggle:hover{text-decoration:underline}
+  .listing-note{font-size:.72rem;color:var(--ink-soft);margin:14px 0 0;text-align:center}
 
   #propMap{height:230px;border-radius:16px;overflow:hidden;border:1px solid var(--hair)}
   .map-note{font-size:.75rem;color:var(--ink-soft);margin:10px 0 0}
@@ -552,6 +569,7 @@
     color:#fff;font-size:.66rem;font-weight:700;padding:4px 9px;border-radius:6px;letter-spacing:.02em}
   .viz-item.pending{display:flex;align-items:center;justify-content:center;
     aspect-ratio:4/3;color:var(--ink-soft);font-size:.84rem;background:var(--surface-soft)}
+  .viz-fallback{margin:12px 0 0;font-size:.78rem;font-weight:600;color:var(--ink-soft)}
   .viz-note{margin-top:14px;font-size:.75rem;color:var(--ink-soft);line-height:1.5}
   .viz-cta{margin-top:14px}
   .viz-form{margin-top:14px;display:none;gap:10px;flex-wrap:wrap;align-items:flex-start}
@@ -608,16 +626,19 @@
         <h1 class="prop-title" id="propTitle">—</h1>
         <div class="prop-address" id="propAddress"></div>
 
+        <!-- התיאור צמוד לכתובת ולא בתחתית העמוד, אבל מקוצר לארבע שורות עם
+             כפתור הרחבה: תיאור ארוך שיושב כאן במלואו היה דוחף את נתוני הנכס
+             מתחת לקיפול. -->
+        <div class="desc-block" id="descSection" hidden>
+          <p class="prop-desc" id="propDescription"></p>
+          <button type="button" class="desc-toggle" id="descToggle" hidden>המשך קריאה</button>
+        </div>
+
         <div class="spec-pills" id="specPills"></div>
 
         <section class="panel" id="highlightsSection" hidden>
           <h2>מה יש בנכס</h2>
           <div class="highlights" id="highlightsList"></div>
-        </section>
-
-        <section class="panel" id="descSection" hidden>
-          <h2>תיאור הנכס</h2>
-          <p class="prop-desc" id="propDescription"></p>
         </section>
 
         <!-- ====== הדמיות AI ======
@@ -633,6 +654,7 @@
 
           <div class="viz-styles" id="vizStyles"></div>
           <div class="viz-grid" id="vizGrid"></div>
+          <p class="viz-fallback" id="vizFallbackNote" hidden></p>
 
           <div class="viz-cta" id="vizCta" hidden>
             <button type="button" class="btn btn-gold" id="vizOpenBtn">לראות את הנכס בסגנון הזה</button>
@@ -648,11 +670,6 @@
             התמונות בסקציה זו הן הדמיות ממוחשבות שנוצרו מהתמונות האמיתיות של הנכס, ונועדו להמחשת פוטנציאל עיצובי בלבד.
             אין בהן התחייבות לביצוע עבודות, לחומרים או לתוצאה בפועל, והן אינן מתעדות את מצב הנכס כיום.
           </p>
-        </section>
-
-        <section class="panel" id="specSection" hidden>
-          <h2>פרטי הנכס</h2>
-          <div class="detail-grid" id="specGrid"></div>
         </section>
 
         <section class="panel" id="mapSection">
@@ -677,6 +694,10 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
           </span>
         </div>
+
+        <!-- מספר המודעה מעניין את המשרד ולא את הגולש/ת: הוא נשאר בעמוד לצורך
+             פנייה טלפונית ("מודעה 1083"), בשורה מוצנעת בתחתית. -->
+        <p class="listing-note" id="listingNote" hidden></p>
       </div>
 
       <div class="sidebar">
@@ -1069,58 +1090,64 @@ function renderGallery(p){
   grid.innerHTML = '';
   galleryImages = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
 
-  const main = document.createElement('div');
-  main.className = 'bento-cell bento-main';
   const shown = Math.min(galleryImages.length, 3);
   // נכס בלי תמונות מקבל תא ראשי ברוחב מלא (data-count=1) עם גרדיאנט המותג,
   // כדי שהתגיות המרחפות יישארו במקומן ולא ייפלו על רשת ריקה
   grid.setAttribute('data-count', String(Math.max(shown, 1)));
 
-  if (!galleryImages.length){
-    main.classList.add('bento-empty');
-    main.innerHTML = `<div style="text-align:center">${ICON.image}<div>אין תמונות למודעה זו</div></div>`;
-  } else {
+  // כל תא הוא ‎div‎ עם כפתור פרוש בתוכו ולא ‎button‎ בעצמו, כדי שיוכל לשאת
+  // תגיות מרחפות — כפתור בתוך כפתור אינו HTML חוקי.
+  const makeCell = (cls, index, opensAt)=>{
+    const cell = document.createElement('div');
+    cell.className = 'bento-cell ' + cls;
     const open = document.createElement('button');
     open.type = 'button';
     open.className = 'cell-open';
-    open.setAttribute('aria-label', `תמונה 1 מתוך ${galleryImages.length} — פתיחה בגלריה`);
-    open.innerHTML = `<img src="${escapeAttr(galleryImages[0])}" alt="">`;
-    open.addEventListener('click', ()=> lbOpen(0));
-    main.appendChild(open);
+    open.setAttribute('aria-label', `תמונה ${index+1} מתוך ${galleryImages.length} — פתיחה בגלריה`);
+    open.innerHTML = `<img src="${escapeAttr(galleryImages[index])}" alt="" ${index ? 'loading="lazy"' : ''}>`;
+    open.addEventListener('click', ()=> lbOpen(opensAt));
+    cell.appendChild(open);
+    return cell;
+  };
+
+  const main = document.createElement('div');
+  main.className = 'bento-cell bento-main';
+  if (!galleryImages.length){
+    main.classList.add('bento-empty');
+    main.innerHTML = `<div style="text-align:center">${ICON.image}<div>אין תמונות למודעה זו</div></div>`;
+    grid.appendChild(main);
+  } else {
+    grid.appendChild(makeCell('bento-main', 0, 0));
   }
-  grid.appendChild(main);
 
   // התגיות המרחפות עוברות לתוך התא הראשי — כך הן תמיד על התמונה הגדולה
+  const mainCell = grid.firstElementChild;
   ['heroBadges','heroTools','heroPrice','heroActions'].forEach(id=>{
     const el = document.getElementById(id);
-    if (el) main.appendChild(el);
+    if (el) mainCell.appendChild(el);
   });
 
+  const rest = galleryImages.length - shown;
   for (let i = 1; i < shown; i++){
-    const cell = document.createElement('button');
-    cell.type = 'button';
-    cell.className = 'bento-cell bento-thumb';
-    cell.setAttribute('aria-label', `תמונה ${i+1} מתוך ${galleryImages.length} — פתיחה בגלריה`);
-    cell.innerHTML = `<img src="${escapeAttr(galleryImages[i])}" alt="" loading="lazy">`;
     // התמונה האחרונה שמוצגת נושאת את שאר התמונות: לחיצה עליה פותחת את
     // הלייטבוקס בתמונה הראשונה שלא נראית ברשת.
-    const rest = galleryImages.length - shown;
-    const opensAt = (i === shown - 1 && rest > 0) ? shown : i;
-    if (i === shown - 1 && rest > 0){
-      const overlay = document.createElement('span');
-      overlay.className = 'more-overlay';
-      overlay.textContent = '+' + rest;
-      cell.appendChild(overlay);
-    }
-    cell.addEventListener('click', ()=> lbOpen(opensAt));
+    const isLast = i === shown - 1;
+    const cell = makeCell('bento-thumb', i, (isLast && rest > 0) ? shown : i);
+    if (isLast) cell.classList.add('carries-count');
     grid.appendChild(cell);
   }
 
-  if (galleryImages.length > 1){
-    const btn = document.getElementById('photoCountBtn');
+  // מונה התמונות יורד אל התמונה המשנית האחרונה במקום לשבת על הראשית: שם הוא
+  // מפנה מקום לתמונה עצמה, והוא ממילא מדבר על כל הגלריה ולא על תמונת השער.
+  const countHost = grid.querySelector('.bento-thumb.carries-count');
+  const btn = document.getElementById('photoCountBtn');
+  if (galleryImages.length > 1 && countHost){
     btn.innerHTML = `${ICON.image}<span>כל התמונות (${galleryImages.length})</span>`;
-    btn.addEventListener('click', ()=> lbOpen(0));
+    btn.addEventListener('click', ()=> lbOpen(rest > 0 ? shown : 0));
     btn.hidden = false;
+    countHost.appendChild(btn);
+  } else {
+    btn.hidden = true;
   }
 }
 
@@ -1322,10 +1349,19 @@ function selectVizStyle(styleKey){
 function renderVizGrid(pendingTargets){
   const grid = document.getElementById('vizGrid');
   const cta = document.getElementById('vizCta');
+  const note = document.getElementById('vizFallbackNote');
   const items = vizState.byStyle.get(vizState.current) || [];
-  grid.innerHTML = '';
 
-  items.forEach(it=>{
+  /* הרשת לעולם לא מתרוקנת: כשהסגנון הנבחר טרם נוצר לנכס, נשארות על המסך
+     ההדמיות שכבר קיימות. גולש/ת שרואה תוצאה אמיתית לפני שנדרש/ת למסור פרטים
+     יודע/ת שהדבר הזה עובד — רשת ריקה עם טופס נראית כמו הבטחה על תנאי. */
+  const readyKey = [...vizState.byStyle.keys()].find(k => (vizState.byStyle.get(k) || []).length);
+  const readyItems = readyKey ? vizState.byStyle.get(readyKey) : [];
+  const isFallback = !items.length && readyItems.length > 0;
+  const shown = items.length ? items : readyItems;
+
+  grid.innerHTML = '';
+  shown.forEach(it=>{
     const card = document.createElement('div');
     card.className = 'viz-item';
     card.innerHTML =
@@ -1342,15 +1378,24 @@ function renderVizGrid(pendingTargets){
     grid.appendChild(card);
   });
 
-  // הכפתור מוצג רק כשאין מה להראות בסגנון הנוכחי — אין טעם לבקש פרטים
-  // בשביל תמונה שכבר על המסך. מעבר בין סגנונות חייב להחזיר את הטופס למצב
-  // הסגור שלו, אחרת מי שכבר פתח אותו פעם רואה שדות ריקים בלי כפתור.
+  // הכפתור מוצג רק כשהסגנון הנבחר עצמו טרם נוצר — אין טעם לבקש פרטים בשביל
+  // תמונה שכבר על המסך. מעבר בין סגנונות חייב להחזיר את הטופס למצב הסגור,
+  // אחרת מי שכבר פתח אותו פעם רואה שדות ריקים בלי כפתור.
   if (vizState.isPrivate){
     const stillWorking = !!(pendingTargets && pendingTargets.length);
     cta.hidden = items.length > 0 || stillWorking;
+    const styleLabel = (VIZ_STYLES.find(x => x.key === vizState.current) || {}).label || '';
+    if (note){
+      note.hidden = !(isFallback && !stillWorking);
+      note.textContent = isFallback && styleLabel
+        ? `למעלה סט ההדמיות שכבר קיים לנכס. סגנון ${styleLabel} נוצר לפי בקשה.`
+        : '';
+    }
     if (!cta.hidden && !vizState.busy){
       document.getElementById('vizForm').classList.remove('open');
-      document.getElementById('vizOpenBtn').hidden = false;
+      const openBtn = document.getElementById('vizOpenBtn');
+      openBtn.hidden = false;
+      openBtn.textContent = styleLabel ? `ליצירת הנכס בסגנון ${styleLabel}` : 'לראות את הנכס בסגנון הזה';
       document.getElementById('vizError').textContent = '';
     }
   }
@@ -1520,20 +1565,26 @@ function floorText(p){
 
 function renderSpecPills(p){
   const isRent = p.deal_type === 'rent';
+  const moveIn = p.move_in_date
+    ? new Date(p.move_in_date).toLocaleDateString('he-IL')
+    : (p.move_in_soon ? 'כניסה מיידית' : '');
+  // איזור אחד לכל נתוני הנכס. עיר וסוג נכס לא חוזרים כאן — הם כבר בתגיות
+  // שמעל הכותרת ובשורת הכתובת, ומקומם שמור לנתונים שאין להם מקום אחר.
   const candidates = [
-    p.size_sqm      ? { icon:'ruler',  v:Number(p.size_sqm).toLocaleString('he-IL') + ' מ״ר', k:'שטח הנכס' } : null,
-    p.rooms         ? { icon:'bed',    v:Number(p.rooms).toLocaleString('he-IL') + ' חדרים',  k:'חדרים' } : null,
-    floorText(p)    ? { icon:'stairs', v:floorText(p), k: p.floor === 0 ? 'גישה ישירה' : 'קומה' } : null,
-    p.price_per_sqm ? { icon:'shekel', v:Number(p.price_per_sqm).toLocaleString('he-IL') + ' ₪',
-                        k:isRent ? 'למ״ר לחודש' : 'מחיר למ״ר', accent:true } : null,
-    // סוג הנכס כבר מופיע כתגית מתחת לגלריה, ולכן הוא נכנס לקפסולות רק
-    // כשאין ארבעה נתונים אחרים למלא בהם את השורה
-    p.city          ? { icon:'pin',    v:p.city, k:'מיקום', accent:true } : null,
-    p.property_type ? { icon:'building', v:p.property_type, k:'סוג הנכס' } : null,
-  ].filter(Boolean).slice(0, 4);
+    p.size_sqm       ? { icon:'ruler',  v:Number(p.size_sqm).toLocaleString('he-IL') + ' מ״ר', k:'שטח הנכס' } : null,
+    p.rooms          ? { icon:'bed',    v:Number(p.rooms).toLocaleString('he-IL') + ' חדרים',  k:'חדרים' } : null,
+    floorText(p)     ? { icon:'stairs', v:floorText(p), k: p.floor === 0 ? 'גישה ישירה' : 'קומה' } : null,
+    p.price_per_sqm  ? { icon:'shekel', v:Number(p.price_per_sqm).toLocaleString('he-IL') + ' ₪',
+                         k:isRent ? 'למ״ר לחודש' : 'מחיר למ״ר', accent:true } : null,
+    p.built_size_sqm ? { icon:'area',   v:Number(p.built_size_sqm).toLocaleString('he-IL') + ' מ״ר', k:'שטח בנוי' } : null,
+    p.garden_sqm     ? { icon:'balcony',v:Number(p.garden_sqm).toLocaleString('he-IL') + ' מ״ר', k:'גינה' } : null,
+    CONDITION_LABELS[p.condition] ? { icon:'sparkle', v:CONDITION_LABELS[p.condition], k:'מצב הנכס' } : null,
+    moveIn           ? { icon:'key',    v:moveIn, k:'תאריך כניסה', accent:true } : null,
+    p.furniture_details ? { icon:'sofa', v:p.furniture_details, k:'ריהוט', wide:true } : null,
+  ].filter(Boolean);
 
   document.getElementById('specPills').innerHTML = candidates.map(c => `
-    <div class="spec-pill${c.accent ? ' accent' : ''}">
+    <div class="spec-pill${c.accent ? ' accent' : ''}${c.wide ? ' wide' : ''}">
       <span class="ic" aria-hidden="true">${ICON[c.icon]}</span>
       <span class="txt"><span class="v">${escapeHtml(String(c.v))}</span><span class="k">${escapeHtml(c.k)}</span></span>
     </div>`).join('');
@@ -1563,28 +1614,39 @@ function renderHighlights(p){
   section.hidden = false;
 }
 
-/* "פרטי הנכס": רק שדות שבאמת מולאו, ורק כאלה שלא הופיעו כבר בקפסולות
-   ובכותרת. שדה ריק לא מקבל כרטיס, ואם אין אף שדה הבלוק כולו לא מוצג —
-   מודעה דלילה לא צריכה להיראות כמו טבלה של מקפים.                          */
-function renderSpecs(p){
-  const specs = [
-    ['שטח בנוי', p.built_size_sqm ? p.built_size_sqm + ' מ״ר' : ''],
-    ['גינה', p.garden_sqm ? p.garden_sqm + ' מ״ר' : ''],
-    ['מצב הנכס', CONDITION_LABELS[p.condition] || ''],
-    ['תאריך כניסה', p.move_in_date ? new Date(p.move_in_date).toLocaleDateString('he-IL') : (p.move_in_soon ? 'כניסה מיידית' : '')],
-    ['ריהוט', p.furniture_details || ''],
-    ['מספר מודעה', p.listing_number],
-  ].filter(([, value]) => value !== '' && value !== null && value !== undefined);
-
-  const grid = document.getElementById('specGrid');
-  grid.innerHTML = specs.map(([key, value]) =>
-    `<div class="detail"><div class="k">${key}</div><div class="v">${escapeHtml(String(value))}</div></div>`).join('');
-  document.getElementById('specSection').hidden = !specs.length;
-
+/* ---------- התיאור ומספר המודעה ----------
+   הפאנל "פרטי הנכס" ירד: תוכנו התמזג לקפסולות שמעליו, ושתי טבלאות נתונים
+   באותו עמוד רק פיצלו את תשומת הלב. מה שנשאר כאן הוא הטקסט החופשי — ומספר
+   המודעה, שיורד לשורה מוצנעת בתחתית.                                       */
+function renderDescription(p){
   // ‏marketing_description הוא נוסח פרסומי פנימי — משמש רק כשאין תיאור מודעה
   const description = p.description || p.marketing_description || '';
-  document.getElementById('propDescription').textContent = description;
-  document.getElementById('descSection').hidden = !description;
+  const block = document.getElementById('descSection');
+  const textEl = document.getElementById('propDescription');
+  textEl.textContent = description;
+  block.hidden = !description;
+
+  if (description){
+    // כפתור ההרחבה מוצג רק כשהטקסט באמת נחתך — אחרת הוא מבטיח המשך שאין
+    requestAnimationFrame(()=>{
+      const toggle = document.getElementById('descToggle');
+      const clipped = textEl.scrollHeight > textEl.clientHeight + 2;
+      toggle.hidden = !clipped;
+      if (clipped && !toggle.dataset.wired){
+        toggle.dataset.wired = '1';
+        toggle.addEventListener('click', ()=>{
+          const open = block.classList.toggle('open');
+          toggle.textContent = open ? 'הצגה מקוצרת' : 'המשך קריאה';
+        });
+      }
+    });
+  }
+
+  const note = document.getElementById('listingNote');
+  if (p.listing_number){
+    note.textContent = 'מודעה מס׳ ' + p.listing_number;
+    note.hidden = false;
+  }
 }
 
 function escapeHtml(s){
@@ -1642,7 +1704,7 @@ function renderProperty(p){
 
   renderSpecPills(p);
   renderHighlights(p);
-  renderSpecs(p);
+  renderDescription(p);
 
   // המחיר חוזר בכרטיס ההמרה ובסרגל התחתון — שם הוא צמוד לכפתור הפעולה
   const priceLabelText = p.deal_type === 'rent' ? 'שכר דירה חודשי' : 'מחיר מבוקש';
