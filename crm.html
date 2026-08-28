@@ -365,6 +365,17 @@
   .cma-note{font-size:.75rem;color:var(--ink-soft);background:var(--teal-tint);border-radius:var(--radius-sm);padding:9px 11px;margin-top:8px}
   .cma-foot{margin-top:22px;padding-top:12px;border-top:1px solid var(--line);font-size:.68rem;color:var(--ink-soft);line-height:1.6}
 
+  /* ---------- מדבקת QR לשלט ---------- */
+  .qr-card{max-width:520px;max-height:calc(100vh - 40px);overflow-y:auto}
+  .qr-sub{font-size:.84rem;color:var(--ink-soft);margin:0 0 14px;line-height:1.5}
+  .qr-preview{background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-sm);padding:12px;display:flex;justify-content:center;min-height:120px}
+  /* ה-canvas עצמו בגודל הדפסה (‏1240×1748), וכאן הוא רק מוקטן לתצוגה */
+  .qr-preview canvas{width:100%;max-width:290px;height:auto;border-radius:4px;box-shadow:0 6px 18px rgba(0,0,0,.18)}
+  .qr-link{font-size:.7rem;color:var(--ink-soft);word-break:break-all;direction:ltr;text-align:center;margin:10px 0 0}
+  .qr-warn{font-size:.78rem;color:var(--brick);background:var(--gold-tint);border-radius:var(--radius-sm);padding:9px 11px;margin:10px 0 0;line-height:1.45}
+  .qr-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+  .qr-actions .btn{flex:1 1 150px}
+
   /* ---------- Test menu (מצב בדיקה) — מוצג רק למנהל פלטפורמה ---------- */
   #devMenu{position:fixed;bottom:16px;left:16px;z-index:300;display:none;font-size:.8rem}
   #devMenuToggle{background:var(--teal-dark);color:#fff;border-radius:999px;padding:9px 16px;font-weight:700;font-size:.8rem;box-shadow:0 6px 18px rgba(0,0,0,.28)}
@@ -1894,6 +1905,23 @@
     <div class="pm-actions">
       <button type="button" class="btn btn-ghost" id="pmCancel">ביטול</button>
       <button type="button" class="btn btn-gold" id="pmConfirm">אישור וחיוב</button>
+    </div>
+  </div>
+</div>
+
+<!-- מדבקת QR לשלט: תצוגה מקדימה של המדבקה, והורדה כ-PDF להדפסה -->
+<div class="pm-overlay" id="qrModal" role="dialog" aria-modal="true" aria-labelledby="qrTitle" style="display:none">
+  <div class="pm-card qr-card">
+    <div class="pm-title" id="qrTitle">מדבקת QR להדבקה על השלט</div>
+    <p class="qr-sub" id="qrSub"></p>
+    <div class="qr-preview"><canvas id="qrCanvas" aria-label="תצוגה מקדימה של המדבקה"></canvas></div>
+    <p class="qr-link" id="qrLink"></p>
+    <p class="qr-warn" id="qrWarn" style="display:none"></p>
+    <div class="qr-actions">
+      <button type="button" class="btn btn-gold" id="qrPdfBtn">הורדה כ-PDF</button>
+      <button type="button" class="btn btn-ghost" id="qrShareBtn" style="display:none">שיתוף</button>
+      <button type="button" class="btn btn-ghost" id="qrPngBtn">הורדה כתמונה</button>
+      <button type="button" class="btn btn-ghost" id="qrCloseBtn">סגירה</button>
     </div>
   </div>
 </div>
@@ -4450,6 +4478,14 @@ function renderPropertyCards(listEl, props, agentId){
       soldBtn.addEventListener('click', ()=> markPropertyStatus(p.id, dealStatus, agentId));
       actions.appendChild(soldBtn);
 
+      // מדבקה להדבקה על השלט בשטח — עמוד הנכס באתר מוצג רק לנכס פעיל,
+      // ולכן גם הכפתור נמצא כאן ולא לצד "עריכה"
+      const qrBtn = document.createElement('button');
+      qrBtn.className = 'btn btn-ghost';
+      qrBtn.textContent = '🏷️ הפק מדבקת QR להדבקה על השלט';
+      qrBtn.addEventListener('click', ()=> openQrSticker(p, qrBtn));
+      actions.appendChild(qrBtn);
+
       const bumpBtn = document.createElement('button');
       bumpBtn.className = 'btn btn-ghost';
       bumpBtn.textContent = 'הקפצה חינם';
@@ -4586,6 +4622,505 @@ async function republishProperty(property, btn, agentId){
   await loadProperties(agentId);
 }
 
+/* ==========================================================================
+   מדבקת QR לשלט
+   --------------------------------------------------------------------------
+   הסוכן/ת מדביק/ה על השלט שבשטח קוד שסריקתו פותחת את עמוד הנכס באתר. הכול
+   נעשה בדפדפן ובלי שרת: המדבקה מצוירת על canvas בגודל A6 ב-300dpi, וממנה
+   נבנה קובץ PDF בן עמוד אחד.
+
+   גם מקודד ה-QR וגם כתיבת ה-PDF ממומשים כאן ולא נטענים מ-CDN, כי מדבקה
+   שנכשלת ברגע שספרייה חיצונית לא נטענת היא מדבקה שלא מודפסת. המקודד תומך
+   במצב בייטים ובגרסאות 1–10 (עד 271 בייט) — יותר מספיק לכתובת עמוד נכס.
+   ========================================================================== */
+
+/* טבלאות התקן: לכל גרסה ורמת תיקון —
+   [קודי תיקון לבלוק, בלוקים בקבוצה 1, קודי מידע בבלוק, בלוקים בקבוצה 2, קודי מידע בבלוק] */
+const QR_EC_BLOCKS = {
+  M: [null,[10,1,16,0,0],[16,1,28,0,0],[26,1,44,0,0],[18,2,32,0,0],[24,2,43,0,0],
+      [16,4,27,0,0],[18,4,31,0,0],[22,2,38,2,39],[22,3,36,2,37],[26,4,43,1,44]],
+  Q: [null,[13,1,13,0,0],[22,1,22,0,0],[18,2,17,0,0],[26,2,24,0,0],[18,2,15,2,16],
+      [24,4,19,0,0],[18,2,14,4,15],[22,4,18,2,19],[20,4,16,4,17],[24,6,19,2,20]],
+};
+const QR_ALIGN = [null,[],[6,18],[6,22],[6,26],[6,30],[6,34],[6,22,38],[6,24,42],[6,26,46],[6,28,50]];
+const QR_EC_BITS = { L:1, M:0, Q:3, H:2 };
+
+// שדה גלואה GF(256) עבור קודי ריד-סולומון
+const QR_EXP = new Uint8Array(512), QR_LOG = new Uint8Array(256);
+(function(){
+  let x = 1;
+  for (let i = 0; i < 255; i++){ QR_EXP[i] = x; QR_LOG[x] = i; x <<= 1; if (x & 0x100) x ^= 0x11d; }
+  for (let i = 255; i < 512; i++) QR_EXP[i] = QR_EXP[i - 255];
+})();
+function qrMul(a, b){ return (a === 0 || b === 0) ? 0 : QR_EXP[QR_LOG[a] + QR_LOG[b]]; }
+function qrGenPoly(n){
+  let poly = [1];
+  for (let i = 0; i < n; i++){
+    const next = new Array(poly.length + 1).fill(0);
+    for (let j = 0; j < poly.length; j++){
+      next[j] ^= poly[j];
+      next[j + 1] ^= qrMul(poly[j], QR_EXP[i]);
+    }
+    poly = next;
+  }
+  return poly;
+}
+function qrRemainder(data, ecCount){
+  const gen = qrGenPoly(ecCount);
+  const res = new Uint8Array(data.length + ecCount);
+  res.set(data);
+  for (let i = 0; i < data.length; i++){
+    const factor = res[i];
+    if (!factor) continue;
+    for (let j = 1; j <= ecCount; j++) res[i + j] ^= qrMul(gen[j], factor);
+  }
+  return res.subarray(data.length);
+}
+function qrPushByte(arr, byte){ for (let i = 7; i >= 0; i--) arr.push((byte >> i) & 1); }
+
+/* מחזיר { size, version, mask, modules } — modules הוא מערך דו-ממדי של 0/1 */
+function qrEncode(text, level){
+  const ec = level || 'Q';
+  const bytes = new TextEncoder().encode(String(text));
+  const table = QR_EC_BLOCKS[ec];
+
+  let version = 0, spec = null;
+  for (let v = 1; v <= 10; v++){
+    const s = table[v];
+    const capacity = (s[1] * s[2] + s[3] * s[4]) * 8;
+    if (4 + (v < 10 ? 8 : 16) + bytes.length * 8 <= capacity){ version = v; spec = s; break; }
+  }
+  if (!version) throw new Error('הכתובת ארוכה מדי לקוד QR');
+
+  const totalData = spec[1] * spec[2] + spec[3] * spec[4];
+
+  // ---- זרם הביטים: מצב בייטים, אורך, נתונים, סוגר ותווי מילוי ----
+  const bits = [];
+  const put = (value, len) => { for (let i = len - 1; i >= 0; i--) bits.push((value >> i) & 1); };
+  put(4, 4);
+  put(bytes.length, version < 10 ? 8 : 16);
+  bytes.forEach(b => put(b, 8));
+  for (let i = 0; i < 4 && bits.length < totalData * 8; i++) bits.push(0);
+  while (bits.length % 8) bits.push(0);
+  const codewords = new Uint8Array(totalData);
+  for (let i = 0; i < bits.length / 8; i++){
+    let b = 0;
+    for (let j = 0; j < 8; j++) b = (b << 1) | bits[i * 8 + j];
+    codewords[i] = b;
+  }
+  for (let i = bits.length / 8, pad = 0; i < totalData; i++, pad++) codewords[i] = pad % 2 ? 0x11 : 0xEC;
+
+  // ---- חלוקה לבלוקים, קודי תיקון ושזירה ----
+  const dataBlocks = [], ecBlocks = [];
+  let pos = 0;
+  const addBlocks = (count, size) => {
+    for (let i = 0; i < count; i++){
+      const block = codewords.subarray(pos, pos + size);
+      pos += size;
+      dataBlocks.push(block);
+      ecBlocks.push(qrRemainder(block, spec[0]));
+    }
+  };
+  addBlocks(spec[1], spec[2]);
+  addBlocks(spec[3], spec[4]);
+
+  const finalBits = [];
+  const longest = Math.max(...dataBlocks.map(b => b.length));
+  for (let i = 0; i < longest; i++)
+    dataBlocks.forEach(b => { if (i < b.length) qrPushByte(finalBits, b[i]); });
+  for (let i = 0; i < spec[0]; i++)
+    ecBlocks.forEach(b => qrPushByte(finalBits, b[i]));
+  // ביטי שארית: בגרסאות 2–6 נוספים שבעה ביטים אפס בסוף
+  if (version >= 2 && version <= 6) for (let i = 0; i < 7; i++) finalBits.push(0);
+
+  // ---- תבניות קבועות ----
+  const size = version * 4 + 17;
+  const grid = [], reserved = [];
+  for (let r = 0; r < size; r++){
+    grid.push(new Array(size).fill(0));
+    reserved.push(new Array(size).fill(false));
+  }
+  const setF = (r, c, v) => { grid[r][c] = v; reserved[r][c] = true; };
+
+  const finder = (row, col) => {
+    for (let r = -1; r <= 7; r++) for (let c = -1; c <= 7; c++){
+      const rr = row + r, cc = col + c;
+      if (rr < 0 || rr >= size || cc < 0 || cc >= size) continue;
+      const ring = (r >= 0 && r <= 6 && (c === 0 || c === 6)) || (c >= 0 && c <= 6 && (r === 0 || r === 6));
+      const core = r >= 2 && r <= 4 && c >= 2 && c <= 4;
+      setF(rr, cc, (ring || core) ? 1 : 0);
+    }
+  };
+  finder(0, 0); finder(0, size - 7); finder(size - 7, 0);
+
+  for (let i = 8; i < size - 8; i++){          // שורת ועמודת התזמון
+    setF(6, i, i % 2 === 0 ? 1 : 0);
+    setF(i, 6, i % 2 === 0 ? 1 : 0);
+  }
+
+  const centers = QR_ALIGN[version];           // עוגני היישור, למעט אלה שנופלים על עוגני הזיהוי
+  centers.forEach(r => centers.forEach(c => {
+    if ((r === 6 && c === 6) || (r === 6 && c === size - 7) || (r === size - 7 && c === 6)) return;
+    for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++)
+      setF(r + dr, c + dc, Math.max(Math.abs(dr), Math.abs(dc)) !== 1 ? 1 : 0);
+  }));
+
+  setF(size - 8, 8, 1);                        // המודול הכהה הקבוע
+
+  for (let i = 0; i < 9; i++){                 // שמירת מקום למידע הפורמט
+    if (!reserved[8][i]) setF(8, i, 0);
+    if (!reserved[i][8]) setF(i, 8, 0);
+  }
+  for (let i = 0; i < 8; i++){
+    if (!reserved[8][size - 1 - i]) setF(8, size - 1 - i, 0);
+    if (!reserved[size - 1 - i][8]) setF(size - 1 - i, 8, 0);
+  }
+
+  if (version >= 7){                           // מידע הגרסה, ‏BCH(18,6)
+    let d = version << 12;
+    for (let i = 0; i < 6; i++) if ((d >> (17 - i)) & 1) d ^= 0x1F25 << (5 - i);
+    const vBits = (version << 12) | d;
+    for (let i = 0; i < 18; i++){
+      const bit = (vBits >> i) & 1;
+      setF(Math.floor(i / 3), size - 11 + (i % 3), bit);
+      setF(size - 11 + (i % 3), Math.floor(i / 3), bit);
+    }
+  }
+
+  // ---- שיבוץ הנתונים בזיגזג מהפינה הימנית-תחתונה ----
+  let bitIndex = 0, upward = true;
+  for (let col = size - 1; col > 0; col -= 2){
+    if (col === 6) col--;                      // עמודת התזמון נדלגת
+    for (let i = 0; i < size; i++){
+      const row = upward ? size - 1 - i : i;
+      for (let c = 0; c < 2; c++){
+        const cc = col - c;
+        if (reserved[row][cc]) continue;
+        grid[row][cc] = bitIndex < finalBits.length ? finalBits[bitIndex] : 0;
+        bitIndex++;
+      }
+    }
+    upward = !upward;
+  }
+
+  // ---- בחירת המסכה בעלת ניקוד הקנס הנמוך ביותר ----
+  let best = null;
+  for (let mask = 0; mask < 8; mask++){
+    const modules = qrApplyMask(grid, reserved, size, mask, ec);
+    const score = qrPenalty(modules, size);
+    if (!best || score < best.score) best = { score, modules, mask };
+  }
+  return { size, version, mask: best.mask, modules: best.modules };
+}
+
+/* מחיל מסכה על מודולי הנתונים וכותב את מידע הפורמט בשני העותקים */
+function qrApplyMask(grid, reserved, size, mask, ec){
+  const rule = [
+    (r, c) => (r + c) % 2 === 0,
+    (r) => r % 2 === 0,
+    (r, c) => c % 3 === 0,
+    (r, c) => (r + c) % 3 === 0,
+    (r, c) => (Math.floor(r / 2) + Math.floor(c / 3)) % 2 === 0,
+    (r, c) => (r * c) % 2 + (r * c) % 3 === 0,
+    (r, c) => ((r * c) % 2 + (r * c) % 3) % 2 === 0,
+    (r, c) => ((r + c) % 2 + (r * c) % 3) % 2 === 0,
+  ][mask];
+  const out = [];
+  for (let r = 0; r < size; r++){
+    out.push(new Array(size));
+    for (let c = 0; c < size; c++)
+      out[r][c] = reserved[r][c] ? grid[r][c] : (rule(r, c) ? grid[r][c] ^ 1 : grid[r][c]);
+  }
+
+  const fmt = (QR_EC_BITS[ec] << 3) | mask;    // חמישה ביטים עם BCH(15,5) ו-XOR קבוע
+  let d = fmt << 10;
+  for (let i = 0; i < 5; i++) if ((d >> (14 - i)) & 1) d ^= 0x537 << (4 - i);
+  const bitsF = ((fmt << 10) | d) ^ 0x5412;
+  const get = i => (bitsF >> i) & 1;
+  for (let i = 0; i <= 5; i++){ out[8][i] = get(14 - i); out[i][8] = get(i); }
+  out[8][7] = get(8); out[8][8] = get(7); out[7][8] = get(6);
+  for (let i = 0; i <= 6; i++) out[size - 1 - i][8] = get(14 - i);
+  for (let i = 0; i <= 7; i++) out[8][size - 1 - i] = get(i);
+  out[size - 8][8] = 1;
+  return out;
+}
+
+/* ניקוד הקנס לפי ארבעת הכללים בתקן — ככל שנמוך יותר, כך הקוד קריא יותר */
+function qrPenalty(m, size){
+  let score = 0;
+  for (let i = 0; i < size; i++){
+    for (const read of [(j) => m[i][j], (j) => m[j][i]]){
+      let run = 1;
+      for (let j = 1; j < size; j++){
+        if (read(j) === read(j - 1)) run++;
+        else { if (run >= 5) score += run - 2; run = 1; }
+      }
+      if (run >= 5) score += run - 2;
+    }
+  }
+  for (let r = 0; r < size - 1; r++) for (let c = 0; c < size - 1; c++)
+    if (m[r][c] === m[r][c + 1] && m[r][c] === m[r + 1][c] && m[r][c] === m[r + 1][c + 1]) score += 3;
+  const patA = [1,0,1,1,1,0,1,0,0,0,0], patB = [0,0,0,0,1,0,1,1,1,0,1];
+  for (let i = 0; i < size; i++) for (let j = 0; j <= size - 11; j++){
+    for (const read of [(k) => m[i][j + k], (k) => m[j + k][i]]){
+      let a = true, b = true;
+      for (let k = 0; k < 11; k++){ if (read(k) !== patA[k]) a = false; if (read(k) !== patB[k]) b = false; }
+      if (a) score += 40;
+      if (b) score += 40;
+    }
+  }
+  let dark = 0;
+  for (let r = 0; r < size; r++) for (let c = 0; c < size; c++) dark += m[r][c];
+  score += Math.floor(Math.abs(dark * 100 / (size * size) - 50) / 5) * 10;
+  return score;
+}
+
+/* ---------- ציור המדבקה ---------- */
+
+const QR_STICKER_W = 1063;                  // רוחב המדבקה: 90 מ"מ ב-300dpi
+let qrStickerPage = { w: 0, h: 0, mmW: 0, mmH: 0 };  // גודל העמוד ב-PDF, נקבע בציור
+
+function propertyPublicLink(propertyId){
+  const dir = window.location.pathname.replace(/[^/]*$/, '');
+  return window.location.origin + dir + 'property.html?id=' + encodeURIComponent(propertyId);
+}
+
+function qrFit(ctx, text, maxWidth){
+  let t = String(text);
+  if (ctx.measureText(t).width <= maxWidth) return t;
+  while (t.length > 1 && ctx.measureText(t + '…').width > maxWidth) t = t.slice(0, -1);
+  return t + '…';
+}
+
+/* המדבקה: הקוד בתוך מסגרת, ומתחתיו שורת ההנחיה לסורק — וזהו. פרטי הנכס
+   כבר מופיעים על השלט שעליו היא מודבקת, וכל מה שהיא צריכה להוסיף הוא הקוד
+   וההסבר מה עושים איתו. גובה המדבקה נגזר מגודל הקוד, כדי שלא יישאר סביבו
+   שטח לבן מיותר — וממנו נגזר גם גודל עמוד ה-PDF.                         */
+function drawQrSticker(canvas, link){
+  const W = QR_STICKER_W, margin = 66;
+  const qr = qrEncode(link, 'Q');
+  // ‏+8 = שוליים שקטים של ארבעה מודולים מכל צד, כפי שדורש התקן לסריקה
+  const cell = Math.max(4, Math.floor((W - margin * 2) / (qr.size + 8)));
+  const box = cell * (qr.size + 8);
+  const qrX = Math.round((W - box) / 2), qrY = margin;
+  const sepY = qrY + box + 44;
+  const H = sepY + 196;
+
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.direction = 'rtl';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, 0, W, H);
+
+  // המסגרת החיצונית היא גם קו הגזירה של המדבקה
+  ctx.strokeStyle = '#C5C3BC';
+  ctx.lineWidth = 4;
+  ctx.strokeRect(10, 10, W - 20, H - 20);
+
+  ctx.fillStyle = '#000000';
+  for (let r = 0; r < qr.size; r++) for (let c = 0; c < qr.size; c++)
+    if (qr.modules[r][c]) ctx.fillRect(qrX + (c + 4) * cell, qrY + (r + 4) * cell, cell, cell);
+
+  ctx.strokeStyle = '#E0E7ED';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.moveTo(margin, sepY);
+  ctx.lineTo(W - margin, sepY);
+  ctx.stroke();
+
+  const write = (text, y, font, color) => {
+    ctx.font = font; ctx.fillStyle = color;
+    ctx.fillText(qrFit(ctx, text, W - margin * 2), W / 2, y);
+  };
+  write('סרקו לצפייה בנכס', sepY + 84, "800 56px 'Heebo', sans-serif", '#1C3A5E');
+  write('כל התמונות, הפרטים ויצירת קשר ישירה', sepY + 142, "400 36px 'Heebo', sans-serif", '#565C63');
+
+  // גודל העמוד ב-PDF, בנקודות, לפי אותם 300dpi שבהם צוירה המדבקה
+  qrStickerPage = {
+    w: +(W / 300 * 72).toFixed(2), h: +(H / 300 * 72).toFixed(2),
+    mmW: Math.round(W / 300 * 25.4), mmH: Math.round(H / 300 * 25.4),
+  };
+}
+
+/* ---------- בניית קובץ ה-PDF ----------
+   עמוד אחד בגודל A6 שכולו תמונת המדבקה. ‏PDF הוא פורמט טקסטואלי עם טבלת
+   היסטים בסופו, ולכן אפשר להרכיב אותו כאן ישירות מבייטים — בלי ספריית
+   ייצוא ובלי בעיית גופנים בעברית, כי הטקסט כבר מצויר בתוך התמונה.       */
+function buildStickerPdf(jpeg, pxW, pxH, ptW, ptH){
+  const enc = new TextEncoder();
+  const chunks = [];
+  let length = 0;
+  const offsets = [];
+  const push = part => {
+    const bytes = typeof part === 'string' ? enc.encode(part) : part;
+    chunks.push(bytes);
+    length += bytes.length;
+  };
+  const object = (num, body) => { offsets[num] = length; push(num + ' 0 obj\n'); push(body); push('\nendobj\n'); };
+
+  push('%PDF-1.4\n%âãÏÓ\n');
+  object(1, '<< /Type /Catalog /Pages 2 0 R >>');
+  object(2, '<< /Type /Pages /Kids [3 0 R] /Count 1 >>');
+  object(3, '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 ' + ptW + ' ' + ptH + ']' +
+            ' /Resources << /XObject << /Im0 5 0 R >> >> /Contents 4 0 R >>');
+  const content = 'q ' + ptW + ' 0 0 ' + ptH + ' 0 0 cm /Im0 Do Q';
+  object(4, '<< /Length ' + content.length + ' >>\nstream\n' + content + '\nendstream');
+  offsets[5] = length;
+  push('5 0 obj\n<< /Type /XObject /Subtype /Image /Width ' + pxW + ' /Height ' + pxH +
+       ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ' + jpeg.length + ' >>\nstream\n');
+  push(jpeg);
+  push('\nendstream\nendobj\n');
+
+  const xref = length;
+  let table = 'xref\n0 6\n0000000000 65535 f \n';
+  for (let i = 1; i <= 5; i++) table += String(offsets[i]).padStart(10, '0') + ' 00000 n \n';
+  push(table);
+  push('trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n' + xref + '\n%%EOF\n');
+
+  const out = new Uint8Array(length);
+  let at = 0;
+  chunks.forEach(c => { out.set(c, at); at += c.length; });
+  return out;
+}
+
+function downloadBlob(blob, filename){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(()=> URL.revokeObjectURL(url), 4000);
+}
+
+function canvasBlob(canvas, type, quality){
+  return new Promise(resolve => canvas.toBlob(resolve, type, quality));
+}
+
+/* ---------- החלון והכפתורים ---------- */
+
+let qrStickerProperty = null, qrStickerLink = '';
+
+async function openQrSticker(property, btn){
+  const original = btn ? btn.textContent : '';
+  if (btn){ btn.disabled = true; btn.textContent = 'מכין מדבקה…'; }
+  try{
+    const link = propertyPublicLink(property.id);
+    const canvas = document.getElementById('qrCanvas');
+    // בלי ההמתנה הזו הגופנים עדיין לא זמינים ל-canvas בפתיחה הראשונה,
+    // והמדבקה מצוירת בגופן ברירת המחדל של הדפדפן
+    if (document.fonts && document.fonts.load){
+      await Promise.all([
+        document.fonts.load("800 56px 'Heebo'"),
+        document.fonts.load("400 36px 'Heebo'"),
+      ]).catch(()=>{});
+    }
+    drawQrSticker(canvas, link);
+    qrStickerProperty = property;
+    qrStickerLink = link;
+
+    document.getElementById('qrSub').textContent =
+      (property.title ? property.title + ' · ' : '') +
+      'מדבקה להדפסה בגודל ' + qrStickerPage.mmW + ' על ' + qrStickerPage.mmH +
+      ' מ״מ. סריקה של הקוד פותחת את עמוד הנכס באתר.';
+    // ‏navigator.share קיים בעיקר בדפדפני מובייל — במחשב פשוט אין כפתור שיתוף
+    document.getElementById('qrShareBtn').style.display = navigator.share ? '' : 'none';
+    document.getElementById('qrLink').textContent = link;
+    const warn = document.getElementById('qrWarn');
+    // כשהדף נפתח מהדיסק (file://) הכתובת שנבנית כאן לא קיימת באינטרנט,
+    // והמדבקה תוביל לשום מקום — עדיף להגיד את זה לפני ההדפסה
+    if (!/^https?:$/.test(window.location.protocol)){
+      warn.style.display = 'block';
+      warn.textContent = 'שימו לב: הדף נפתח מקובץ מקומי ולכן הקישור שבקוד אינו כתובת אינטרנט. הפיקו את המדבקה מהאתר עצמו.';
+    } else {
+      warn.style.display = 'none';
+    }
+    document.getElementById('qrModal').style.display = 'flex';
+  } catch(err){
+    console.error(err);
+    showToast('שגיאה בהפקת המדבקה — נסו שוב');
+  } finally {
+    if (btn){ btn.disabled = false; btn.textContent = original; }
+  }
+}
+
+function qrStickerFilename(ext){
+  const id = qrStickerProperty?.listing_number || String(qrStickerProperty?.id || '').slice(0, 8);
+  return 'qr-sticker-' + (id || 'property') + '.' + ext;
+}
+
+document.getElementById('qrCloseBtn').addEventListener('click', ()=>{
+  document.getElementById('qrModal').style.display = 'none';
+});
+document.getElementById('qrModal').addEventListener('click', (e)=>{
+  if (e.target.id === 'qrModal') document.getElementById('qrModal').style.display = 'none';
+});
+
+/* בונה את קובץ ה-PDF מהמדבקה שכבר מצוירת על ה-canvas */
+async function stickerPdfBytes(){
+  const canvas = document.getElementById('qrCanvas');
+  const blob = await canvasBlob(canvas, 'image/jpeg', 0.95);
+  if (!blob) throw new Error('canvas.toBlob נכשל');
+  const jpeg = new Uint8Array(await blob.arrayBuffer());
+  return buildStickerPdf(jpeg, canvas.width, canvas.height, qrStickerPage.w, qrStickerPage.h);
+}
+
+document.getElementById('qrPdfBtn').addEventListener('click', async (e)=>{
+  const btn = e.currentTarget, original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'מייצר PDF…';
+  try{
+    downloadBlob(new Blob([await stickerPdfBytes()], { type:'application/pdf' }), qrStickerFilename('pdf'));
+    showToast('המדבקה ירדה כקובץ PDF — הדפיסו בגודל מקורי (100%)');
+  } catch(err){
+    console.error(err);
+    showToast('שגיאה בהורדת ה-PDF — נסו שוב');
+  } finally {
+    btn.disabled = false; btn.textContent = original;
+  }
+});
+
+/* שיתוף ישיר מהטלפון (וואטסאפ, מייל וכו׳). דפדפן שיודע לשתף קבצים מקבל את
+   ה-PDF עצמו; אחרת משתפים לפחות את הקישור לעמוד הנכס.                     */
+document.getElementById('qrShareBtn').addEventListener('click', async (e)=>{
+  const btn = e.currentTarget, original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'מכין לשיתוף…';
+  try{
+    const title = 'מדבקת QR · ' + (qrStickerProperty?.title || 'נכס');
+    const file = new File([await stickerPdfBytes()], qrStickerFilename('pdf'), { type:'application/pdf' });
+    if (navigator.canShare && navigator.canShare({ files:[file] })){
+      await navigator.share({ files:[file], title });
+    } else if (navigator.share){
+      await navigator.share({ title, text: title, url: qrStickerLink });
+    } else {
+      showToast('הדפדפן לא תומך בשיתוף — השתמשו בהורדה');
+    }
+  } catch(err){
+    if (err && err.name === 'AbortError') return;   // המשתמש/ת סגר/ה את חלון השיתוף
+    console.error(err);
+    showToast('שגיאה בשיתוף — נסו להוריד את הקובץ');
+  } finally {
+    btn.disabled = false; btn.textContent = original;
+  }
+});
+
+document.getElementById('qrPngBtn').addEventListener('click', async (e)=>{
+  const btn = e.currentTarget, original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'מייצר תמונה…';
+  try{
+    const blob = await canvasBlob(document.getElementById('qrCanvas'), 'image/png');
+    if (!blob) throw new Error('canvas.toBlob נכשל');
+    downloadBlob(blob, qrStickerFilename('png'));
+    showToast('המדבקה ירדה כתמונה');
+  } catch(err){
+    console.error(err);
+    showToast('שגיאה בהורדת התמונה — נסו שוב');
+  } finally {
+    btn.disabled = false; btn.textContent = original;
+  }
+});
 let editingPropertyId = null;
 let editingPropertyOriginalAddress = null; // לזיהוי "האם הכתובת השתנתה" בעריכה
 function openEditProperty(p){
