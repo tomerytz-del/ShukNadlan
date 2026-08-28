@@ -98,8 +98,10 @@
      לפרוץ בדיוק עד קצה המסך) חרגו 18px מעבר לו והדף נגלל הצידה במובייל.
      אותו כלל בדיוק חל על ‎.header-inner‎, ‎.ad-slot‎ ו-‎.ad-row‎ למטה. */
   .section{padding-block:44px}
-  .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
-  .section-head.is-centered{justify-content:center;text-align:center}
+  /* כותרות הסקציות ממורכזות בכל העמוד (ולא צמודות לצד עם קישור "כל ה…"
+     בקצה הנגדי): הכותרת והתגית שמעליה יושבות במרכז, וקישור ה-see-all
+     יורד שורה מתחתיהן וממורכז גם הוא. */
+  .section-head{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;margin-bottom:22px}
   .section-head h2{font-size:1.5rem}
   .see-all{font-size:.85rem;font-weight:700;color:var(--teal);border-bottom:1.5px solid var(--gold);padding-bottom:2px;white-space:nowrap}
   .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
@@ -772,11 +774,77 @@
     .ag-stat{font-size:.76rem}
   }
 
+  /* ====== קרוסלת מתווכים מומלצים ======
+     גרסת "מתווך/ת" לכרטיס ה-coverflow, על אותו מנוע כמו משרדי התיווך:
+     כאן התמונה *היא* הכרטיס — היא ממלאת את כל האריח, והשם ושם המשרד
+     יושבים בתחתיתו על scrim כהה במקום בגוף כרטיס נפרד מתחת לתמונה.
+     הגרדיאנט עם אות ההתחלה נשאר מתחת לתמונה כרשת ביטחון: מתווך/ת בלי
+     תמונה (או קובץ שנשבר וה-img הסיר את עצמו) מקבל/ת אריח צבעוני
+     ולא ריבוע ריק. */
+  .cf-card.agent-card{background:linear-gradient(155deg,var(--gold),var(--teal) 65%)}
+  /* הריפוד התחתון ממרכז את אות ההתחלה בשטח *שמעל* רצועת השם ולא באמצע
+     האריח (התמונה והרצועה מרחפות ולכן לא מושפעות ממנו), כדי שהאות לא
+     תיחתך מאחורי הרצועה. */
+  .agent-tile{
+    position:relative;aspect-ratio:1/1;overflow:hidden;padding-bottom:38px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .agent-initial{
+    font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:2.1rem;
+    color:#fff;line-height:1;
+  }
+  /* object-position גבוה מהמרכז: בתמונות פרופיל הפנים יושבות בשליש
+     העליון, וחיתוך למרכז היה קוטע אותן בתחתית האריח הריבועי. */
+  .agent-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 22%}
+  .agent-rank{
+    position:absolute;top:6px;right:6px;background:rgba(255,255,255,.94);color:var(--gold-dark);
+    font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:999px;
+    box-shadow:0 2px 6px rgba(6,20,34,.22);
+  }
+  .agent-overlay{
+    position:absolute;inset-inline:0;bottom:0;padding:26px 8px 9px;text-align:center;color:#fff;
+    background:linear-gradient(to top, rgba(6,20,34,.94) 30%, rgba(6,20,34,.66) 62%, rgba(6,20,34,0));
+  }
+  .agent-name{
+    font-weight:700;font-size:.78rem;line-height:1.25;
+    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .agent-agency{
+    font-size:.66rem;color:rgba(255,255,255,.86);margin-top:2px;
+    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .agent-meta{
+    display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;
+    font-size:.6rem;color:rgba(255,255,255,.9);margin-top:5px;
+  }
+  .agent-meta .star{color:#FFD34D;margin-inline-end:2px}
+  @media(min-width:480px){
+    .agent-initial{font-size:2.6rem}
+    .agent-name{font-size:.86rem}
+    .agent-agency{font-size:.72rem}
+    .agent-meta{font-size:.66rem}
+  }
+  @media(min-width:760px){
+    .agent-initial{font-size:3.2rem}
+    .agent-rank{top:9px;right:9px;font-size:.7rem;padding:3px 10px}
+    .agent-overlay{padding:32px 12px 12px}
+    .agent-name{font-size:.95rem}
+    .agent-agency{font-size:.78rem}
+    .agent-meta{font-size:.72rem}
+  }
+
   /* הרצועה יושבת בין באנר פרסומת לסקציית הנכסים המסחריים; ריפוד סקציה
      מלא משני הצדדים יצר שם חלל ריק גדול, ולכן היא מהודקת בנפרד. */
   #leadingAgencies{padding-block:18px 12px}
   #leadingAgencies .section-head{margin-bottom:10px}
   #commercialProps{padding-top:22px}
+  /* אותו טיפול לרצועת המתווכים: מתחתיה ומעליה יושבות סקציות עם ריפוד
+     מלא, ומכיוון שבאנר הפרסומת שביניהן מוסתר נוצר מעליה חלל ריק גדול
+     (ריפוד תחתון של המחשבון ועוד ריפוד עליון מלא כאן, בלי שום דבר
+     ביניהם). שני הצדדים מהודקים כדי לסגור אותו. */
+  #calc{padding-bottom:22px}
+  #leadingAgents{padding-block:12px 20px}
+  #leadingAgents .section-head{margin-bottom:12px}
 
   /* ====== שורת פרסומת בין הסקציות ====== */
   .ad-strip{
@@ -913,24 +981,6 @@
   }
   .featured-scroll .prop-card .meta{font-size:.66rem;margin-top:5px;gap:8px;flex-wrap:wrap}
 
-  .agency-card{
-    background:#fff;border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;
-    flex:0 0 min(200px, calc((100% - var(--row-gap) * 2) / 3));
-    scroll-snap-align:start;padding:12px 8px;text-align:center;cursor:pointer;transition:box-shadow .15s;
-  }
-  .agency-card:hover{box-shadow:var(--shadow)}
-  .agency-card .rank-badge{
-    width:26px;height:26px;border-radius:50%;background:var(--gold-tint);color:var(--gold-dark);
-    display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.74rem;margin:0 auto 8px;
-  }
-  .agency-card .logo{
-    width:42px;height:42px;border-radius:12px;margin:0 auto 8px;
-    background:linear-gradient(155deg,var(--gold),var(--teal) 65%);color:#fff;
-    display:flex;align-items:center;justify-content:center;font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.08rem;
-  }
-  .agency-card .name{font-weight:700;font-size:.76rem}
-  .agency-card .stat{font-size:.64rem;color:var(--ink-soft);margin-top:5px}
-
   /* במובייל המסלולים פורצים את ריפוד ה-.wrap, בדיוק כמו .coverflow */
   @media(max-width:759px){
     .featured-scroll,.article-scroll{margin-inline:-18px}
@@ -942,8 +992,6 @@
     .featured-scroll .prop-card .title{font-size:.78rem}
     .article-card .cover{height:106px}
     .article-card h3{font-size:.84rem}
-    .agency-card .logo{width:48px;height:48px;font-size:1.2rem}
-    .agency-card .name{font-size:.82rem}
   }
   @media(min-width:760px){
     .featured-scroll,.article-scroll{--row-gap:16px;--row-peek:24px}
@@ -959,11 +1007,6 @@
     .article-card p{font-size:.78rem}
     .article-card .kicker{font-size:.66rem;padding:3px 9px}
     .article-card .stamp{font-size:.7rem}
-    .agency-card{padding:16px}
-    .agency-card .rank-badge{width:32px;height:32px;font-size:.85rem;margin-bottom:10px}
-    .agency-card .logo{width:52px;height:52px;border-radius:14px;font-size:1.3rem;margin-bottom:10px}
-    .agency-card .name{font-size:.88rem}
-    .agency-card .stat{font-size:.72rem;margin-top:6px}
   }
 
   .property-grid{display:grid;grid-template-columns:1fr;gap:16px}
@@ -1541,7 +1584,7 @@
        התיווך בפלטפורמה נמצאים במסלול אחד שאפשר לדפדף בו, והדירוג יושב
        על ריבוע הלוגו במקום כשורה נפרדת מעליו. -->
   <section class="section wrap" id="leadingAgencies">
-    <div class="section-head is-centered">
+    <div class="section-head">
       <div>
         <h2>משרדי תיווך מובילים בעפולה</h2>
       </div>
@@ -1564,7 +1607,7 @@
 
   <!-- ====== Mortgage calculator ====== -->
   <section class="section wrap" id="calc">
-    <div class="section-head is-centered">
+    <div class="section-head">
       <div>
         <h2>מחשבון משכנתא</h2>
       </div>
@@ -1693,15 +1736,18 @@
     <div class="ad-strip"><span class="tag">פרסומת</span> מיקום פרסום — באנר רוחבי מתחת למחשבון המשכנתא</div>
   </div>
 
-  <!-- ====== Leading Agents (module 3 §5.1) ====== -->
+  <!-- ====== Leading Agents (module 3 §5.1) ======
+       קרוסלה על אותו מנוע coverflow של משרדי התיווך: כל המתווכים
+       שבפלטפורמה נמצאים במסלול אחד שאפשר לדפדף בו, לפי דירוג הביקורות
+       ואחריו מספר הנכסים הפעילים. -->
   <section class="section wrap" id="leadingAgents">
     <div class="section-head">
       <div>
-        <p class="eyebrow">מריטוקרטי, לא תלוי-מנוי</p>
         <h2>מתווכים מומלצים בעפולה והעמק</h2>
       </div>
     </div>
-    <div class="featured-scroll" id="leadingAgentsScroll"><!-- populated by JS --></div>
+    <div class="coverflow" id="leadingAgentsScroll" role="region" aria-label="מתווכים מומלצים"><!-- populated by JS --></div>
+    <div class="cf-dots" id="leadingAgentsDots" aria-label="מעבר בין מתווכים"></div>
   </section>
 
   <!-- ====== כתבות ובלוגים ====== -->
@@ -2626,64 +2672,138 @@ async function loadLeadingAgencies(){
   flow.done();
 })();
 
+/* כמו בקרוסלת משרדי התיווך, הרצועה מציגה את *כל* המתווכים הפעילים
+   שבפלטפורמה ולא רק את אלה שכבר יש להם שורה ב-agent_rankings (שלוש שורות
+   בלבד היום — בדיוק מספר הכרטיסים שנראים בבת אחת, כך שלמסלול לא היה עודף
+   רוחב והוא לא נגלל כלל). הדירוג קובע כאן רק את הסדר: קודם דירוג הביקורות
+   הממוצע, ואחריו מספר הנכסים הפעילים.
+   הערה: "באזורך" בהנחיה המקורית מרמז על התאמה גיאוגרפית לפי מיקום הגולש —
+   עדיין אין זיהוי מיקום בדף הבית, אז מוצגים כאן המובילים בכל האזור
+   (עפולה + סביבה), לא מסוננים לפי שכונה ספציפית. */
 async function loadLeadingAgents(){
   try{
     if (!sb) return [];
-    // הערה: "באזורך" בהנחיה המקורית מרמז על התאמה גיאוגרפית לפי מיקום הגולש —
-    // עדיין אין זיהוי מיקום בדף הבית, אז מוצגים כאן המובילים הכלליים בכל האזור
-    // (עפולה + סביבה), לא מסוננים לפי שכונה ספציפית. תיוג הכותרת שיקף את זה בכוונה.
-    const { data: rankings, error } = await sb
-      .from('agent_rankings')
-      .select('agent_id, composite_score, deal_count_6mo')
-      .order('composite_score', { ascending:false })
-      .limit(6);
-    if (error || !rankings || rankings.length === 0) throw error || new Error('empty');
+    const [membersRes, rankingsRes, reviewsRes, activeRes] = await Promise.all([
+      // התקרות כאן הן רק גבול בטיחות לגודל התשובה, לא מכסת תצוגה.
+      sb.from('agency_members_public').select('id, display_name, slug, photo_url, agency_id').limit(200),
+      sb.from('agent_rankings').select('agent_id, composite_score, active_properties_count').limit(200),
+      sb.from('reviews').select('agent_id, rating').eq('status', 'published').limit(2000),
+      sb.from('properties').select('agent_id').eq('status', 'active').limit(2000),
+    ]);
+    const members = membersRes.data;
+    if (membersRes.error || !members) throw membersRes.error || new Error('empty');
 
-    // שאילתה שנייה נפרדת ולא embed חוצה-שם (agent_rankings -> agency_members_public) —
-    // FK בפועל מצביע ל-agency_members, לא ל-view; embed ישיר לא מובטח להיפתר נכון ב-PostgREST.
-    const ids = rankings.map(r => r.agent_id);
-    const { data: members } = await sb
-      .from('agency_members_public')
-      .select('id, display_name, slug, agency_id')
-      .in('id', ids);
-
-    // גם שם המשרד נטען בשאילתה נפרדת: מאז ש-property_shares מחזיקה שני מפתחות
-    // זרים ל-agencies, embed מ-agency_members ל-agencies מחזיר PGRST201 (HTTP 300).
-    const agencyIds = [...new Set((members||[]).map(m => m.agency_id).filter(Boolean))];
+    // שם המשרד נטען בשאילתה נפרדת ולא ב-embed: מאז ש-property_shares מחזיקה
+    // שני מפתחות זרים ל-agencies, embed מ-agency_members ל-agencies מחזיר
+    // PGRST201 (HTTP 300) במקום את השורה.
+    const agencyIds = [...new Set(members.map(m => m.agency_id).filter(Boolean))];
     const agencyById = {};
     if (agencyIds.length){
       const { data: agencies } = await sb.from('agencies').select('id, name').in('id', agencyIds);
       (agencies||[]).forEach(a => agencyById[a.id] = a);
     }
-    const byId = {};
-    (members||[]).forEach(m => byId[m.id] = { ...m, agencies: agencyById[m.agency_id] || null });
 
-    return rankings.map(r => ({ ...r, agency_members: byId[r.agent_id] || null }));
+    const rankByAgent = {};
+    (rankingsRes.data || []).forEach(r => { rankByAgent[r.agent_id] = r; });
+
+    // ממוצע הביקורות מחושב מהביקורות המפורסמות עצמן ולא נלקח מ-
+    // bayesian_rating שבטבלת הדירוגים: זה שדה מחושב שמתעדכן מדי פעם, ובלי
+    // הביקורות שמאחוריו הכרטיס היה מציג כוכבים בלי אף ביקורת שתגבה אותם.
+    // כך גם הסדר וגם התצוגה נשענים על אותו מקור אחד.
+    const reviewAgg = {};
+    (reviewsRes.data || []).forEach(r => {
+      if (!r.agent_id) return;
+      const agg = reviewAgg[r.agent_id] || (reviewAgg[r.agent_id] = { sum:0, count:0 });
+      agg.sum += Number(r.rating) || 0;
+      agg.count += 1;
+    });
+
+    // אותו נימוק כמו במשרדים: מספר הנכסים הפעילים נספר מהנכסים עצמם ולא
+    // מ-active_properties_count, כדי שהכרטיס לא יציג מספר ישן.
+    const liveCount = {};
+    (activeRes.data || []).forEach(p => {
+      if (p.agent_id) liveCount[p.agent_id] = (liveCount[p.agent_id] || 0) + 1;
+    });
+
+    return members
+      .map(m => {
+        const agg = reviewAgg[m.id];
+        const ranking = rankByAgent[m.id];
+        return {
+          ...m,
+          agency_name: agencyById[m.agency_id]?.name || '',
+          rating: agg && agg.count ? agg.sum / agg.count : null,
+          reviews_count: agg?.count || 0,
+          active_properties_count: liveCount[m.id] ?? (ranking?.active_properties_count ?? 0),
+        };
+      })
+      .sort((x, y)=>{
+        if (x.rating !== null && y.rating === null) return -1;
+        if (x.rating === null && y.rating !== null) return 1;
+        if (x.rating !== null && y.rating !== null && y.rating !== x.rating) return y.rating - x.rating;
+        if (y.active_properties_count !== x.active_properties_count){
+          return y.active_properties_count - x.active_properties_count;
+        }
+        return String(x.display_name || '').localeCompare(String(y.display_name || ''), 'he');
+      });
   } catch(e){
     console.warn('טעינת מתווכים מובילים נכשלה:', e);
     return [];
   }
 }
 
+// שמות, שמות משרדים וכתובות תמונה מגיעים מקלט של סוכנים ונכנסים כאן גם
+// לתוך מאפיינים (src/alt), ולכן עוברים דרך escAttr לפני ההזרקה ל-innerHTML.
 (async function initLeadingAgents(){
-  const rankings = await loadLeadingAgents();
-  const el = document.getElementById('leadingAgentsScroll');
+  const agents = await loadLeadingAgents();
+  const track = document.getElementById('leadingAgentsScroll');
+  const dots = document.getElementById('leadingAgentsDots');
   const section = document.getElementById('leadingAgents');
-  if (!rankings.length){ section.style.display = 'none'; return; }
-  rankings.forEach((r, i)=>{
-    const agent = r.agency_members;
-    const card = document.createElement('div');
-    card.className = 'agency-card';
-    const name = agent?.display_name || 'מתווך/ת';
+  if (!track || !dots) return;
+  if (!agents.length){ section.style.display = 'none'; return; }
+
+  const flow = createCoverflow(track, dots);
+  flow.reset();
+  agents.forEach((a, i)=>{
+    const name = a.display_name || 'מתווך/ת';
+    const card = document.createElement('article');
+    card.className = 'cf-card agent-card';
+    // התג הוא סימן דירוג ולא מספר סידורי: הוא נשמר לשלושה המדורגים
+    // הראשונים, ורק כשיש בכלל על מה לדרג אותם (ביקורות או נכסים פעילים).
+    const ranked = a.rating !== null || a.active_properties_count > 0;
+    const rank = (i < 3 && ranked) ? `<span class="agent-rank">#${i + 1}</span>` : '';
+    // אות ההתחלה נשארת ב-DOM גם כשיש תמונה ופשוט מכוסה על ידה; אם קובץ
+    // התמונה נשבר ה-img מסיר את עצמו והאריח חוזר לאות על הגרדיאנט
+    // במקום לאייקון תמונה שבורה.
+    const photo = a.photo_url
+      ? `<img class="agent-photo" src="${escAttr(a.photo_url)}" alt="${escAttr(name)}" loading="lazy" onerror="this.remove()">`
+      : '';
+    const meta = [];
+    if (a.rating !== null){
+      const reviews = a.reviews_count === 1 ? 'ביקורת אחת' : `${a.reviews_count} ביקורות`;
+      meta.push(`<span><span class="star">★</span>${a.rating.toFixed(1).replace(/\.0$/, '')} · ${reviews}</span>`);
+    }
+    meta.push(`<span>${a.active_properties_count === 1 ? 'נכס פעיל אחד' : a.active_properties_count + ' נכסים פעילים'}</span>`);
     card.innerHTML = `
-      <div class="rank-badge">#${i+1}</div>
-      <div class="logo">${name[0]}</div>
-      <div class="name">${name}</div>
-      <div class="stat">${agent?.agencies?.name || ''}</div>
-    `;
-    if (agent?.slug) card.addEventListener('click', ()=> window.location.href = 'agent.html?slug=' + agent.slug);
-    el.appendChild(card);
+      <div class="agent-tile">
+        <span class="agent-initial">${escAttr(name.trim()[0] || 'מ')}</span>
+        ${photo}${rank}
+        <div class="agent-overlay">
+          <div class="agent-name">${escAttr(name)}</div>
+          <div class="agent-agency">${escAttr(a.agency_name)}</div>
+          <div class="agent-meta">${meta.join('')}</div>
+        </div>
+      </div>`;
+    // כמו בשאר הקרוסלות: לחיצה על כרטיס צדדי ממרכזת אותו, ורק לחיצה על
+    // הכרטיס הפעיל מנווטת לעמוד המתווך/ת — כדי לא "לברוח" מהעמוד בטעות במגע.
+    card.addEventListener('click', ()=>{
+      if (!flow.isActive(i)){ flow.goTo(i); return; }
+      const key = a.slug || a.id;
+      if (key) window.location.href = 'agent.html?slug=' + encodeURIComponent(key);
+    });
+    flow.add(card, `מעבר למתווך/ת ${i + 1} מתוך ${agents.length}`);
   });
+  flow.done();
 })();
 
 /* ---------- נכסים מסחריים ---------- */
