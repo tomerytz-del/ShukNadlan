@@ -101,7 +101,7 @@
   .bento-thumb .photo-count-host{position:absolute;bottom:8px;inset-inline-start:8px;z-index:3}
 
   /* אלמנטים מרחפים מעל התמונה */
-  .hero-badges{position:absolute;top:12px;inset-inline-start:12px;display:flex;gap:6px;flex-wrap:wrap;max-width:70%;z-index:3}
+  .hero-badges{position:absolute;top:12px;inset-inline-start:12px;display:flex;gap:5px;flex-wrap:wrap;max-width:calc(100% - 66px);z-index:3}
   .hero-badges:empty{display:none}
   .badge{
     display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:800;
@@ -109,6 +109,9 @@
     background:rgba(18,40,64,.55);color:#fff;line-height:1.3;
   }
   .badge svg{width:13px;height:13px}
+  /* תגית העסקה היא הלייבל שמכוון קודם כל — זכוכית בהירה שמבדילה אותה משאר
+     הרצועה, באותה שפה כמו שלט ההדמיה שבתחתית התמונה. */
+  .badge-deal{background:rgba(255,255,255,.9);color:var(--teal-dark);border-color:rgba(255,255,255,.95)}
   .badge-promo{background:rgba(180,83,9,.82);border-color:rgba(255,255,255,.4)}
   .badge-exclusive{background:rgba(139,35,50,.82);border-color:rgba(255,255,255,.4)}
   .hero-tools{position:absolute;top:12px;inset-inline-end:12px;display:flex;gap:6px;z-index:3}
@@ -171,10 +174,6 @@
   .content-grid{display:grid;grid-template-columns:1fr;gap:22px;padding:22px 0 40px}
   @media(min-width:760px){.content-grid{grid-template-columns:1.6fr 1fr;align-items:start}}
 
-  .eyebrow{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
-  .tag{font-size:.72rem;font-weight:800;padding:4px 11px;border-radius:999px;background:var(--teal-tint);color:var(--teal)}
-  .tag-rent{background:var(--gold-tint);color:var(--gold-dark)}
-  .tag-bronze{background:var(--bronze-tint);color:var(--bronze)}
   h1.prop-title{font-size:1.4rem;line-height:1.3}
   @media(min-width:640px){h1.prop-title{font-size:1.72rem}}
   .prop-address{display:flex;align-items:center;gap:6px;color:var(--ink-soft);font-size:.9rem;font-weight:600;margin-top:7px}
@@ -622,7 +621,6 @@
 
     <div class="content-grid">
       <div class="main-col">
-        <div class="eyebrow" id="propTags"></div>
         <h1 class="prop-title" id="propTitle">—</h1>
         <div class="prop-address" id="propAddress"></div>
 
@@ -1659,26 +1657,26 @@ function escapeAttr(s){ return escapeHtml(s); }
 function renderTags(p){
   const promotionActive = p.is_promoted && (!p.promoted_until || new Date(p.promoted_until) > new Date());
   const features = p.features || [];
-  const badges = [];
+
+  /* הכל יושב על התמונה הראשית ולא בשורה מתחתיה. שני סוגי תגיות באותה רצועה,
+     ומה שמפריד ביניהן הוא צבע: קטגוריה (עסקה, סוג נכס, אזור) בזכוכית ניטרלית,
+     סטטוס (מקודם, בבלעדיות) בצבע. סוג העסקה ראשון כי הוא הלייבל שמכוון קודם
+     כל — "להשכרה" או "למכירה" קובע אם המודעה בכלל רלוונטית לקורא/ת. */
+  const badges = [
+    { cls:'badge-deal', icon:'', text: p.deal_type === 'rent' ? 'להשכרה' : 'למכירה' },
+  ];
   if (promotionActive) badges.push({ cls:'badge-promo', icon:ICON.sparkle, text:'מקודם' });
   if (features.includes('exclusive')) badges.push({ cls:'badge-exclusive', icon:ICON.star, text:'בבלעדיות' });
+  if (p.property_type) badges.push({ cls:'', icon:'', text:p.property_type });
+  if (p.sales_area) badges.push({ cls:'', icon:ICON.pin, text:p.sales_area });
   // הדגל הוא הצהרה ("יש סיור") והכתובת היא הקישור אליו. כשיש כתובת יש גם
   // כפתור על התמונה, ותגית שאומרת את אותו דבר בלי לעשות כלום היא רעש —
   // לכן התגית עולה רק על הדגל היבש, בלי קישור.
   if (features.includes('tour_3d') && !p.tour_3d_url) badges.push({ cls:'', icon:ICON.cube, text:'סיור 3D' });
   if (features.includes('price_dropped')) badges.push({ cls:'', icon:ICON.trend, text:'המחיר ירד' });
+
   document.getElementById('heroBadges').innerHTML = badges.map(b =>
     `<span class="badge ${b.cls}">${b.icon}${escapeHtml(b.text)}</span>`).join('');
-
-  // התגיות שמתחת לתמונה הן קטגוריה, לא סטטוס: עסקה וסוג נכס
-  const tags = [];
-  tags.push(p.deal_type === 'rent'
-    ? { cls:'tag-rent', text:'להשכרה' }
-    : { cls:'', text:'למכירה' });
-  if (p.property_type) tags.push({ cls:'tag-bronze', text:p.property_type });
-  if (p.sales_area) tags.push({ cls:'', text:p.sales_area });
-  document.getElementById('propTags').innerHTML = tags.map(t =>
-    `<span class="tag ${t.cls}">${escapeHtml(t.text)}</span>`).join('');
 }
 
 function renderProperty(p){

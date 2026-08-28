@@ -1535,6 +1535,12 @@
           </div>
         </div>
 
+        <div class="form-subheading">משפט המוטו</div>
+        <div class="field">
+          <input type="text" id="brTagline" maxlength="120" placeholder="למשל: חיפשתם נכס, מצאתם בית">
+          <div class="hint">שורה קצרה שמוצגת מתחת לשם המשרד בדף הציבורי. עד 120 תווים.</div>
+        </div>
+
         <div class="form-subheading">לוגו ותמונת נושא</div>
         <div class="single-img-row">
           <div>
@@ -3167,7 +3173,7 @@ function readableOn(hex){
 
 async function loadBranding(agencyId){
   const { data: agency, error } = await sb.from('agencies')
-    .select('name, slug, logo_url, cover_url, colors, gallery').eq('id', agencyId).single();
+    .select('name, slug, tagline, logo_url, cover_url, colors, gallery').eq('id', agencyId).single();
   if (error || !agency){
     document.getElementById('brFeedback').textContent = 'לא ניתן לטעון את הגדרות המיתוג.';
     return;
@@ -3190,6 +3196,7 @@ async function loadBranding(agencyId){
     pendingDeletes: [],
   };
 
+  document.getElementById('brTagline').value = agency.tagline || '';
   document.getElementById('brViewPageLink').href = 'agency.html?slug=' + encodeURIComponent(agency.slug);
   renderPaletteGrid();
   syncColorInputs();
@@ -3488,6 +3495,7 @@ document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
     feedback.textContent = 'שומר…';
     const { error } = await sb.from('agencies').update({
       colors,
+      tagline: document.getElementById('brTagline').value.trim().slice(0, 120) || null,
       logo_url:  brandingState.logo  ? brandingState.logo.url  : null,
       cover_url: brandingState.cover ? brandingState.cover.url : null,
       gallery: brandingState.gallery.map(g => ({ url: g.url, caption: (g.caption || '').trim() })),
