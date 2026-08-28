@@ -485,6 +485,68 @@
   /* הרקע מוחלף רק כשהדשבורד באמת מוצג (loadDashboard מוסיף את המחלקה) */
   body.dash-active{background:var(--bg)}
 
+  /* ==========================================================================
+     רקע זורם לדשבורד
+     --------------------------------------------------------------------------
+     שכבה קבועה (position:fixed) שיושבת מאחורי כל התוכן: זוהר חמים־זהוב בפינה
+     העליונה כמו שמש, קו רקיע עדין של העיר, ומעליו גלי כחול־נייבי. הגלים נעים
+     כל הזמן לרוחב באנימציית CSS, ובנוסף מוסטים לפי הגלילה מ-JS (dashBgFlow) —
+     כל שכבה בקצב אחר, ולכן הרקע נראה זורם לאורך כל הדף.
+
+     הכל דקורטיבי בלבד: aria-hidden + pointer-events:none, ובמצב
+     prefers-reduced-motion התנועה נכבית לגמרי ונשאר רקע סטטי.
+     ========================================================================== */
+  #dashboard{position:relative;isolation:isolate}
+  .dash-bg{
+    position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;
+    background:
+      radial-gradient(120% 78% at 74% -12%, rgba(250,201,124,.62) 0%, rgba(252,222,175,.34) 34%, rgba(248,250,252,0) 70%),
+      radial-gradient(100% 66% at 8% 2%, rgba(214,232,248,.90), rgba(248,250,252,0) 74%),
+      linear-gradient(180deg,#fdf8ef 0%,#f7fbfe 38%,#e4eefa 100%);
+  }
+  /* גרעין השמש — הילה חמה שנושמת לאט, בדיוק כמו בתמונת ההשראה */
+  .bg-sun{
+    position:absolute;top:-110px;inset-inline-end:12%;width:min(58vw,480px);aspect-ratio:1;
+    border-radius:50%;
+    background:radial-gradient(circle,rgba(249,182,84,.52) 0%,rgba(251,208,136,.28) 40%,rgba(252,228,186,0) 70%);
+    animation:bgSun 16s ease-in-out infinite;
+  }
+  @keyframes bgSun{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.09);opacity:1}}
+
+  /* קו הרקיע: מגדלים ובתים בגוון כחול־אפור דהוי, יושב על "קו המים" של הגלים */
+  .bg-skyline{
+    position:absolute;left:0;right:0;bottom:18%;height:min(30vh,240px);
+    opacity:.20;will-change:transform;
+  }
+  .bg-skyline svg{display:block;width:100%;height:100%}
+
+  /* שכבת גל אחת: רוחב 300% = שלושה מחזורים, כדי שגם ההיסט מהגלילה וגם
+     האנימציה יוכלו להזיז אותה בלי לחשוף קצה */
+  .bg-wave{position:absolute;left:0;width:300%;will-change:transform}
+  .bg-wave svg{display:block;width:100%;height:100%}
+  /* -33.333% = בדיוק מחזור גל אחד, ולכן הלולאה חלקה ובלי קפיצה */
+  @keyframes bgDrift{from{transform:translate3d(0,0,0)}to{transform:translate3d(-33.3333%,0,0)}}
+  .bg-wave>svg{animation:bgDrift linear infinite}
+  .bg-wave-1{top:5%;height:min(30vh,250px);opacity:.70}
+  .bg-wave-1>svg{animation-duration:74s}
+  .bg-wave-2{top:30%;height:min(34vh,280px);opacity:.50}
+  .bg-wave-2>svg{animation-duration:52s;animation-direction:reverse}
+  .bg-wave-3{top:52%;height:min(36vh,300px);opacity:.46}
+  .bg-wave-3>svg{animation-duration:38s}
+  .bg-wave-4{bottom:-10%;height:min(46vh,380px);opacity:.32}
+  .bg-wave-4>svg{animation-duration:28s;animation-direction:reverse}
+
+  /* הכרטיסים נשארים בהירים אבל לא אטומים לגמרי — כך הזרימה של הרקע
+     מבצבצת ביניהם, והדף מרגיש שכבתי במקום לבן־על־לבן */
+  #dashboard .acc,
+  #dashboard .panel,
+  #dashboard .qa-card,
+  #dashboard .meter-card,
+  #dashboard .kpi-exclusive{background:rgba(255,255,255,.88)}
+
+  @media(prefers-reduced-motion:reduce){
+    .bg-sun,.bg-wave>svg{animation:none}
+  }
   /* ---------- Header ---------- */
   #dashboard header.crm{
     background:rgba(255,255,255,.86); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
@@ -768,6 +830,10 @@
   .panel-ico{width:26px;height:26px;border-radius:8px;background:var(--wine-tint);color:var(--wine);display:inline-flex;align-items:center;justify-content:center}
   .panel-ico svg{width:15px;height:15px}
   .panel-sub{font-size:.76rem;color:var(--txt-faint);margin:5px 0 0}
+  /* שורת הכותרת בתוך גוף האקורדיון: הסבר קצר + קיצור דרך לכל הלידים */
+  .hot-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
+  .hot-head .panel-sub{margin:0}
+  #dashboard .acc-hot>summary .panel-ico{flex-shrink:0}
   .hot-row{
     display:flex;flex-direction:column;gap:8px;padding:13px 14px;border-radius:var(--r-md);
     border:1px solid var(--edge);margin-bottom:9px;transition:border-color .16s ease,background .16s ease;
@@ -781,8 +847,8 @@
   }
   .hot-row[data-kind="owner"] .hot-avatar{background:var(--amber-tint);color:var(--amber)}
   .hot-id{min-width:0;flex:1}
-  .hot-name{font-weight:700;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .hot-meta{font-size:.74rem;color:var(--txt-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hot-name{display:block;font-weight:700;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .hot-meta{display:block;font-size:.74rem;color:var(--txt-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .hot-tags{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
   .hot-tag{font-size:.68rem;font-weight:800;padding:3px 9px;border-radius:999px;background:var(--surface-2);color:var(--txt-soft);white-space:nowrap}
   .hot-tag.t-owner{background:var(--amber-tint);color:var(--amber)}
@@ -902,6 +968,94 @@
 </div>
 
 <div id="dashboard">
+
+  <!-- ---------- הרקע הזורם ----------
+       עיטור בלבד (aria-hidden): שמש חמה, קו רקיע של העיר וארבע שכבות גלים.
+       הגלים נעים לרוחב לבד, ו-dashBgFlow() מוסיף להם היסט לפי הגלילה —
+       כל שכבה בקצב אחר, ולכן הרקע זורם לאורך כל הדף. ראו ".dash-bg" ב-CSS. -->
+  <div class="dash-bg" id="dashBg" aria-hidden="true">
+    <span class="bg-sun"></span>
+
+    <!-- קו הרקיע: מגדלים ובתים צמודים לתחתית האלמנט, ובסיסם מכוסה בגל
+         התחתון. slice ולא meet — במסך צר עדיף להתקרב לכמה בניינים גדולים
+         ורכים (כמו בתמונת ההשראה) מאשר לרסק עיר שלמה לרצועת פסים זעירה. -->
+    <div class="bg-skyline" data-kx="0" data-ky="22">
+      <svg viewBox="0 0 1440 220" preserveAspectRatio="xMidYMax slice">
+        <defs>
+          <linearGradient id="bgSkyGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#7ea6cd"/>
+            <stop offset="100%" stop-color="#1C3A5E"/>
+          </linearGradient>
+        </defs>
+        <g fill="url(#bgSkyGrad)">
+          <!-- מגדלים -->
+          <rect x="40"   y="120" width="64" height="100" rx="4"/>
+          <rect x="112"  y="86"  width="52" height="134" rx="4"/>
+          <rect x="172"  y="140" width="70" height="80"  rx="4"/>
+          <rect x="340"  y="100" width="58" height="120" rx="4"/>
+          <rect x="406"  y="58"  width="74" height="162" rx="5"/>
+          <rect x="440"  y="26"  width="5"  height="34"/>
+          <rect x="488"  y="132" width="62" height="88"  rx="4"/>
+          <rect x="640"  y="110" width="66" height="110" rx="4"/>
+          <rect x="714"  y="74"  width="58" height="146" rx="4"/>
+          <rect x="780"  y="146" width="74" height="74"  rx="4"/>
+          <rect x="956"  y="118" width="60" height="102" rx="4"/>
+          <rect x="1024" y="84"  width="70" height="136" rx="4"/>
+          <rect x="1102" y="150" width="66" height="70"  rx="4"/>
+          <rect x="1266" y="112" width="62" height="108" rx="4"/>
+          <rect x="1336" y="142" width="64" height="78"  rx="4"/>
+          <!-- בתים פרטיים עם גג משופע, כמו בתמונת ההשראה -->
+          <path d="M250 220v-56l40-32 40 32v56z"/>
+          <path d="M558 220v-50l36-30 36 30v50z"/>
+          <path d="M866 220v-58l42-34 42 34v58z"/>
+          <path d="M1180 220v-52l38-30 38 30v52z"/>
+        </g>
+      </svg>
+    </div>
+
+    <div class="bg-wave bg-wave-1" data-kx="0.10" data-ky="18">
+      <svg viewBox="0 0 2160 320" preserveAspectRatio="none">
+        <defs><linearGradient id="bgWave1" x1="0" y1="0" x2=".3" y2="1">
+          <stop offset="0%" stop-color="#eef5fc"/>
+          <stop offset="55%" stop-color="#d7e7f7" stop-opacity=".6"/>
+          <stop offset="100%" stop-color="#cfe2f4" stop-opacity="0"/>
+        </linearGradient></defs>
+        <path fill="url(#bgWave1)" d="M0,160 C120,205 240,205 360,160 C480,115 600,115 720,160 C840,205 960,205 1080,160 C1200,115 1320,115 1440,160 C1560,205 1680,205 1800,160 C1920,115 2040,115 2160,160 L2160,320 L0,320 Z"/>
+      </svg>
+    </div>
+
+    <div class="bg-wave bg-wave-2" data-kx="0.17" data-ky="-24">
+      <svg viewBox="0 0 2160 320" preserveAspectRatio="none">
+        <defs><linearGradient id="bgWave2" x1="0" y1="0" x2=".35" y2="1">
+          <stop offset="0%" stop-color="#d5e7f7"/>
+          <stop offset="55%" stop-color="#a9cbe8" stop-opacity=".6"/>
+          <stop offset="100%" stop-color="#9dc4e6" stop-opacity="0"/>
+        </linearGradient></defs>
+        <path fill="url(#bgWave2)" d="M0,160 C120,80 240,80 360,160 C480,240 600,240 720,160 C840,80 960,80 1080,160 C1200,240 1320,240 1440,160 C1560,80 1680,80 1800,160 C1920,240 2040,240 2160,160 L2160,320 L0,320 Z"/>
+      </svg>
+    </div>
+
+    <div class="bg-wave bg-wave-3" data-kx="0.26" data-ky="30">
+      <svg viewBox="0 0 2160 320" preserveAspectRatio="none">
+        <defs><linearGradient id="bgWave3" x1="0" y1="0" x2=".35" y2="1">
+          <stop offset="0%" stop-color="#8fbadf"/>
+          <stop offset="55%" stop-color="#5b90c0" stop-opacity=".6"/>
+          <stop offset="100%" stop-color="#3c74a8" stop-opacity="0"/>
+        </linearGradient></defs>
+        <path fill="url(#bgWave3)" d="M0,160 C120,205 240,205 360,160 C480,115 600,115 720,160 C840,205 960,205 1080,160 C1200,115 1320,115 1440,160 C1560,205 1680,205 1800,160 C1920,115 2040,115 2160,160 L2160,320 L0,320 Z"/>
+      </svg>
+    </div>
+
+    <div class="bg-wave bg-wave-4" data-kx="0.38" data-ky="-40">
+      <svg viewBox="0 0 2160 320" preserveAspectRatio="none">
+        <defs><linearGradient id="bgWave4" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#2c5a8c"/><stop offset="100%" stop-color="#1C3A5E"/>
+        </linearGradient></defs>
+        <path fill="url(#bgWave4)" d="M0,160 C120,80 240,80 360,160 C480,240 600,240 720,160 C840,80 960,80 1080,160 C1200,240 1320,240 1440,160 C1560,80 1680,80 1800,160 C1920,240 2040,240 2160,160 L2160,320 L0,320 Z"/>
+      </svg>
+    </div>
+  </div>
+
   <header class="crm">
     <div class="dash-wrap crm-header-inner">
       <div class="agent-id">
@@ -1042,25 +1196,29 @@
         <div class="quick-grid" id="quickGrid"></div>
       </section>
 
-      <!-- ---------- לידים חמים אחרונים ----------
-           תמצית של accLeads: הלידים שעדיין לא נפתחו, החדשים קודם. -->
-      <section class="panel" id="hotLeadsPanel" aria-label="לידים חמים אחרונים">
-        <div class="panel-head">
-          <div>
-            <h2 class="section-h">
-              <span class="panel-ico">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .4-2 .4-2S6 11 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12Z"/></svg>
-              </span>
-              לידים חמים אחרונים
-            </h2>
-            <p class="panel-sub">פניות שעדיין לא נפתחו — כאן נמצא הכסף שממתין לטיפול</p>
-          </div>
+      <h2 class="section-h stack-h">הפעילות שלי</h2>
+
+    <!-- ---------- לידים חמים אחרונים ----------
+         תמצית של accLeads: הלידים שעדיין לא נפתחו, החדשים קודם.
+         מקופל ל-<details> כמו שאר הקטגוריות, כך שמצב הפתיחה נשמר
+         ב-localStorage דרך initAccordions() והקטגוריה מופיעה גם בתפריט. -->
+    <details class="acc acc-hot" id="accHotLeads" open>
+      <summary>
+        <span class="panel-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .4-2 .4-2S6 11 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12Z"/></svg>
+        </span>
+        <span class="acc-title">לידים חמים אחרונים</span>
+        <span class="acc-count hot" id="accHotLeadsCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <div class="hot-head">
+          <p class="panel-sub">פניות שעדיין לא נפתחו — כאן נמצא הכסף שממתין לטיפול</p>
           <button type="button" class="ghost-chip" data-goto="accLeads">לכל הלידים</button>
         </div>
         <div id="hotLeadsBody"><div class="empty-state">טוען…</div></div>
-      </section>
-
-      <h2 class="section-h stack-h">הפעילות שלי</h2>
+      </div>
+    </details>
 
     <details class="acc" id="accProperties" open>
       <summary>
@@ -8733,6 +8891,44 @@ function renderDashboardOverview(){
   renderExclusiveCard(active);
 }
 
+/* ---------- הרקע הזורם של הדשבורד ----------
+   כל שכבה ב-#dashBg נושאת data-kx (קצב ההיסט האופקי ביחס לגלילה) ו-data-ky
+   (משרעת הנדנוד האנכי בפיקסלים).
+
+   האופקי מקבל ווראפ ברוחב החלון: שם בדיוק נגמר מחזור גל אחד ב-SVG, ולכן
+   הקפיצה בלתי נראית והזרימה נמשכת גם בדף ארוך מאוד. האנכי רץ על סינוס
+   מאותה סיבה — הוא עולה ויורד לאורך הדף במקום לברוח מהמסך.
+
+   העדכון עצמו יושב ב-requestAnimationFrame אחד לפריים (bgFlowTicking),
+   כדי שאירועי הגלילה לא ייצרו עבודה מיותרת. */
+const bgFlowLayers = [...document.querySelectorAll('#dashBg [data-kx]')];
+let bgFlowTicking = false;
+
+function dashBgFlow(){
+  bgFlowTicking = false;
+  const w = window.innerWidth || 1;
+  const y = window.pageYOffset || 0;
+  bgFlowLayers.forEach(el=>{
+    const kx = parseFloat(el.dataset.kx) || 0;
+    const ky = parseFloat(el.dataset.ky) || 0;
+    const x = kx ? -((((y * kx) % w) + w) % w) : 0;
+    const dy = ky ? Math.sin(y / 620) * ky : 0;
+    el.style.transform = `translate3d(${x.toFixed(1)}px,${dy.toFixed(1)}px,0)`;
+  });
+}
+
+function requestDashBgFlow(){
+  if (bgFlowTicking) return;
+  bgFlowTicking = true;
+  requestAnimationFrame(dashBgFlow);
+}
+
+if (bgFlowLayers.length && !window.matchMedia('(prefers-reduced-motion: reduce)').matches){
+  window.addEventListener('scroll', requestDashBgFlow, { passive:true });
+  window.addEventListener('resize', requestDashBgFlow);
+  dashBgFlow();
+}
+
 /* ---------- לידים חמים אחרונים ---------- */
 function dashRelTime(ts){
   if (!ts) return '';
@@ -8751,6 +8947,8 @@ function renderHotLeads(){
   const body = document.getElementById('hotLeadsBody');
   if (!body) return;
   const hot = dashLeads.filter(l => l.status !== 'unlocked').slice(0, 5);
+  // המונה בכותרת האקורדיון מציג כמה לידים חמים מוצגים כאן בפועל
+  accSetCount('accHotLeads', hot.length);
 
   if (hot.length === 0){
     body.innerHTML = dashLeads.length === 0
