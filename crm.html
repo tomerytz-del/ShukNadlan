@@ -220,6 +220,39 @@
   .img-thumb .star{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:rgba(27,31,38,.72);color:#fff;font-size:.65rem;line-height:20px;text-align:center;padding:0}
   .prop-thumb-mini{width:52px;height:52px;border-radius:var(--radius-sm);object-fit:cover;flex-shrink:0;border:1px solid var(--line)}
 
+  /* ---------- כרטיס נכס: תגיות ופעולות ----------
+     נתוני הנכס היו שורות טקסט ארוכות מופרדות בנקודות, והפעולות היו רצף
+     כפתורים שנשבר לשורות באורכים שונים — "מדרגות" שקשה לסרוק בעין.
+     עכשיו: כל נתון הוא תגית קצרה בשורה אחת, והפעולות יושבות ברשת עמודות
+     שוות — כל כפתור באותו גובה ואותו רוחב, בלי קצוות משוננים. */
+  .prop-price{font-weight:800;font-size:.92rem;color:var(--teal-dark);margin-top:2px}
+  .prop-price .per{font-weight:600;font-size:.78rem;color:var(--ink-soft)}
+  .prop-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+  .prop-tag{display:inline-flex;align-items:center;gap:4px;font-size:.71rem;font-weight:600;line-height:1.7;
+    color:var(--ink-soft);background:#fff;border:1px solid var(--line);border-radius:999px;padding:1px 9px;white-space:nowrap}
+  .prop-tag b{font-weight:800;color:var(--ink)}
+  /* מספר המודעה הוא המזהה שהסוכן/ת מוסר/ת בטלפון — ולכן הוא התגית הראשונה
+     ובצבע מלא, ולא עוד פרט אפור באמצע השורה */
+  .prop-tag.tag-id{background:var(--teal);border-color:var(--teal);color:#EDF2F8;font-weight:800;letter-spacing:.02em}
+  .prop-tag.tag-warn{background:var(--gold-tint);border-color:#E1C7CB;color:var(--brick);font-weight:700}
+  .prop-tag.tag-plan{background:var(--teal-tint);border-color:var(--teal-tint);color:var(--teal)}
+  /* נכס שאינו פעיל מקבל תגית אפורה — צבע שמור למה שחי באתר עכשיו */
+  .status-pill.status-off{background:#E4E1D2;color:#6B6450}
+
+  /* רשת פעולות: auto-fit נותן שתי עמודות בטלפון וארבע בדסקטופ, בלי media
+     query — הכפתורים תמיד מתיישרים לרשת במקום להיערם בקצוות שונים.
+     ‏act-wide שמור לפעולה הראשית (סימון עסקה / שת"פ), שנשארת ברוחב מלא. */
+  .prop-actions{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:8px;
+    margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)}
+  .prop-actions .btn{width:100%;padding:10px 12px;font-size:.81rem;gap:6px;min-width:0}
+  .prop-actions .btn-ghost{background:#fff}
+  /* שת"פ בירוק — אותה שפת צבע של תגית השת"פ בכרטיס, כך שהזהב נשאר שמור
+     לפעולה היחידה שסוגרת את המודעה (סימון כנמכר/הושכר) */
+  .prop-actions .btn-share{background:#2A5B36;color:#EAF4EC}
+  .prop-actions .btn-share:disabled{opacity:.5;cursor:not-allowed}
+  .prop-actions .act-wide{grid-column:1/-1}
+  .is-promoted .prop-actions .btn-ghost{background:rgba(255,255,255,.75)}
+
   /* ---------- שת"פ בין משרדי תיווך ----------
      ירוק, כדי שלא יתחרה בזהב (ליד של בעל נכס) ובכחול (ליד של קונה) — נכס
      בשת"פ הוא לא ליד וגם לא חיוב, אלא ערוץ שלישי לגמרי.
@@ -4404,7 +4437,7 @@ function renderPropertyCards(listEl, props, agentId){
 
   listEl.innerHTML = '';
   props.forEach(p=>{
-    const priceLabel = p.deal_type === 'rent' ? ('₪' + Number(p.price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(p.price).toLocaleString('he-IL'));
+    const priceHtml = shekel(p.price) + (p.deal_type === 'rent' ? ' <span class="per">לחודש</span>' : '');
     // ‏promoted_until ריק = קידום ידני/היסטורי בלי מועד סיום, נחשב פעיל
     const isCurrentlyPromoted = propertyIsPromoted(p);
     // תוקף המודעה הוא תזכורת לסוכן/ת בלבד — הוא לא מוריד את הנכס מהאתר
@@ -4419,110 +4452,108 @@ function renderPropertyCards(listEl, props, agentId){
     const thumbHtml = (p.images && p.images.length)
       ? `<img class="prop-thumb-mini" src="${p.images[0]}" alt="">`
       : '';
+    // כל פרט הוא תגית קצרה משלו: קודם המזהה שהסוכן/ת מוסר/ת בטלפון, אחר כך
+    // מאפייני הנכס, ובסוף התגיות שדורשות פעולה (פג תוקף / ללא תמונות) בגוון
+    // אזהרה — כדי שהעין תתפוס אותן בסריקה מהירה של הרשימה.
+    const tags = [
+      `<span class="prop-tag tag-id">מודעה #${esc(p.listing_number ?? '—')}</span>`,
+    ];
+    if (p.rooms) tags.push(`<span class="prop-tag">🛏 <b>${esc(p.rooms)}</b> חדרים</span>`);
+    if (p.property_type) tags.push(`<span class="prop-tag">🏠 ${esc(p.property_type)}</span>`);
+    tags.push(`<span class="prop-tag">👁 <b>${viewCounts[p.id]||0}</b> צפיות</span>`);
+    if (p.price_per_sqm) tags.push(`<span class="prop-tag">📐 ${shekel(p.price_per_sqm)} למ״ר</span>`);
+    if (planning) tags.push(`<span class="prop-tag tag-plan">📍 גוש ${esc(planning.gush||'—')} · חלקה ${esc(planning.helka||'—')}</span>`);
+    if (expired) tags.push(`<span class="prop-tag tag-warn">⏳ פג תוקף ${hebDate(p.listing_expires_at)}</span>`);
+    else if (p.listing_expires_at) tags.push(`<span class="prop-tag">⏳ בתוקף עד ${hebDate(p.listing_expires_at)}</span>`);
+    if (!p.images || !p.images.length) tags.push('<span class="prop-tag tag-warn">📷 ללא תמונות</span>');
+
     el.innerHTML = `
       <div class="lead-top">
-        <div style="display:flex;gap:10px;align-items:flex-start">
+        <div style="display:flex;gap:10px;align-items:flex-start;min-width:0">
           ${thumbHtml}
-          <div>
+          <div style="min-width:0">
             ${isCurrentlyPromoted && p.promoted_until ? `<span class="lead-kind">🌟 מקודם · ${esc(timeLeftLabel(p.promoted_until))}</span>` : (isCurrentlyPromoted ? '<span class="lead-kind">🌟 מקודם</span>' : '')}
-            <div class="lead-name">${p.title}</div>
-            <div class="lead-meta">${priceLabel} · ${p.rooms || '—'} חדרים · ${p.property_type} · ${viewCounts[p.id]||0} צפיות${(!p.images || !p.images.length) ? ' · <span style="color:var(--brick)">ללא תמונות</span>' : ''}${planning ? ' · 📍 גוש ' + (planning.gush||'—') + ' חלקה ' + (planning.helka||'—') : ''}</div>
-            <div class="lead-meta">מודעה #${p.listing_number ?? '—'}${p.price_per_sqm ? ' · ₪' + Number(p.price_per_sqm).toLocaleString('he-IL') + ' למ״ר' : ''}${expired ? ' · <span style="color:var(--brick)">פג תוקף ' + hebDate(p.listing_expires_at) + '</span>' : (p.listing_expires_at ? ' · בתוקף עד ' + hebDate(p.listing_expires_at) : '')}</div>
-            ${ownerLine ? `<div class="lead-meta">בעלים: ${esc(ownerLine)}</div>` : ''}
-            ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
+            <div class="lead-name">${esc(p.title)}</div>
+            <div class="prop-price">${priceHtml}</div>
           </div>
         </div>
         <div class="pill-row">
-          <span class="status-pill status-unlocked">${statusLabels[p.status] || p.status}</span>
+          <span class="status-pill ${p.status === 'active' ? 'status-unlocked' : 'status-off'}">${statusLabels[p.status] || p.status}</span>
           ${p.shared_with_partners
-            ? `<span class="status-pill status-shared" title="הופץ ${hebDate(p.shared_at)}">🤝 שת״פ · ${propertyShareCounts[p.id] || 0} משרדים</span>`
+            ? `<span class="status-pill status-shared" title="בשת״פ · הופץ ${hebDate(p.shared_at)}">🤝 ${propertyShareCounts[p.id] || 0} משרדים</span>`
             : ''}
         </div>
       </div>
-      <div class="lead-actions"></div>
+      <div class="prop-tags">${tags.join('')}</div>
+      ${ownerLine ? `<div class="lead-meta">בעלים: ${esc(ownerLine)}</div>` : ''}
+      ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
+      <div class="prop-actions"></div>
     `;
-    const actions = el.querySelector('.lead-actions');
+    const actions = el.querySelector('.prop-actions');
 
-    const editBtn = document.createElement('button');
-    editBtn.className = 'btn btn-ghost';
-    editBtn.textContent = 'עריכה';
-    editBtn.addEventListener('click', ()=> openEditProperty(p));
-    actions.appendChild(editBtn);
+    // סדר הפעולות: קודם כלי העבודה היומיומיים ברשת עמודות שוות, ורק בסוף
+    // הפעולות שמשנות את מצב הנכס (שת"פ / סגירת עסקה) ברוחב מלא.
+    const addAction = (label, cls, onClick, title) => {
+      const btn = document.createElement('button');
+      btn.className = 'btn ' + cls;
+      btn.textContent = label;
+      if (title) btn.title = title;
+      btn.addEventListener('click', ()=> onClick(btn));
+      actions.appendChild(btn);
+      return btn;
+    };
+
+    addAction('✏️ עריכה', 'btn-ghost', ()=> openEditProperty(p));
 
     if (planning){
-      const planBtn = document.createElement('button');
-      planBtn.className = 'btn btn-ghost';
-      planBtn.textContent = 'מידע תכנוני שמור';
-      planBtn.addEventListener('click', ()=>{
+      addAction('🗺️ מידע תכנוני', 'btn-ghost', ()=>{
         document.getElementById('planResultPanel').scrollIntoView({ behavior:'smooth', block:'start' });
         renderPlanningResult(planning);
-      });
-      actions.appendChild(planBtn);
+      }, 'המידע התכנוני השמור של הנכס');
     }
 
     // הכפתור מוצג רק ל-mid/premium; ה-gating עצמו נאכף ב-cma_report ב-DB
     if (currentAgent && (currentAgent.tier === 'mid' || currentAgent.tier === 'premium')){
-      const cmaBtn = document.createElement('button');
-      cmaBtn.className = 'btn btn-ghost';
-      cmaBtn.textContent = '📊 דוח CMA';
-      cmaBtn.addEventListener('click', ()=> openCmaReport(p.id, cmaBtn));
-      actions.appendChild(cmaBtn);
+      addAction('📊 דוח CMA', 'btn-ghost', btn => openCmaReport(p.id, btn));
     }
 
     if (p.status === 'active'){
-      const dealLabel = p.deal_type === 'rent' ? 'סמן כהושכר' : 'סמן כנמכר';
-      const dealStatus = p.deal_type === 'rent' ? 'rented' : 'sold';
-      const soldBtn = document.createElement('button');
-      soldBtn.className = 'btn btn-gold';
-      soldBtn.textContent = dealLabel;
-      soldBtn.addEventListener('click', ()=> markPropertyStatus(p.id, dealStatus, agentId));
-      actions.appendChild(soldBtn);
-
       // מדבקה להדבקה על השלט בשטח — עמוד הנכס באתר מוצג רק לנכס פעיל,
       // ולכן גם הכפתור נמצא כאן ולא לצד "עריכה"
-      const qrBtn = document.createElement('button');
-      qrBtn.className = 'btn btn-ghost';
-      qrBtn.textContent = '🏷️ הפק מדבקת QR להדבקה על השלט';
-      qrBtn.addEventListener('click', ()=> openQrSticker(p, qrBtn));
-      actions.appendChild(qrBtn);
+      addAction('🏷️ מדבקת QR', 'btn-ghost', btn => openQrSticker(p, btn),
+        'הפקת מדבקת QR להדבקה על השלט');
 
-      const bumpBtn = document.createElement('button');
-      bumpBtn.className = 'btn btn-ghost';
-      bumpBtn.textContent = 'הקפצה חינם';
-      bumpBtn.addEventListener('click', ()=> bumpProperty(p.id, bumpBtn, agentId));
-      actions.appendChild(bumpBtn);
+      addAction('⬆️ הקפצה חינם', 'btn-ghost', btn => bumpProperty(p.id, btn, agentId),
+        'העלאת הנכס לראש התוצאות · פעם ב-24 שעות');
 
       if (!isCurrentlyPromoted){
-        const promoteBtn = document.createElement('button');
-        promoteBtn.className = 'btn btn-ghost';
-        promoteBtn.textContent = `קידום — ${shekel(priceOf('promote_price', 20))} ל-${priceOf('promote_duration_hours', 72)} שעות`;
-        promoteBtn.addEventListener('click', ()=> promoteProperty(p, promoteBtn, agentId));
-        actions.appendChild(promoteBtn);
+        const price = shekel(priceOf('promote_price', 20));
+        const hours = priceOf('promote_duration_hours', 72);
+        addAction(`📣 קידום · ${price}`, 'btn-ghost',
+          btn => promoteProperty(p, btn, agentId),
+          `קידום בתשלום — ${price} ל-${hours} שעות בסלוטים המקודמים`);
       }
-
-      // סימון הנכס כפתוח לשת"פ — ההפצה יוצאת מיד למשרדים שברשימת השת"פ
-      const shareBtn = document.createElement('button');
-      shareBtn.className = p.shared_with_partners ? 'btn btn-ghost' : 'btn btn-gold';
-      shareBtn.textContent = p.shared_with_partners ? '🤝 עדכון הפצה' : '🤝 פתיחה לשת״פ';
-      shareBtn.addEventListener('click', ()=> shareProperty(p, shareBtn, agentId));
-      actions.appendChild(shareBtn);
 
       if (p.shared_with_partners){
-        const unshareBtn = document.createElement('button');
-        unshareBtn.className = 'btn btn-ghost';
-        unshareBtn.textContent = 'ביטול שת״פ';
-        unshareBtn.addEventListener('click', ()=> unshareProperty(p, unshareBtn, agentId));
-        actions.appendChild(unshareBtn);
+        addAction('✖ ביטול שת״פ', 'btn-ghost', btn => unshareProperty(p, btn, agentId));
       }
+
+      // סימון הנכס כפתוח לשת"פ — ההפצה יוצאת מיד למשרדים שברשימת השת"פ.
+      // ירוק ולא זהוב: זו שפת הצבע של השת"פ בכל הכרטיס, והיא משאירה את
+      // הזהב לפעולה היחידה שסוגרת את המודעה.
+      addAction(p.shared_with_partners ? '🤝 עדכון הפצה' : '🤝 פתיחה לשת״פ',
+        (p.shared_with_partners ? 'btn-ghost' : 'btn-share') + ' act-wide',
+        btn => shareProperty(p, btn, agentId));
+
+      const isRent = p.deal_type === 'rent';
+      addAction(isRent ? '✅ סמן כהושכר' : '✅ סמן כנמכר', 'btn-gold act-wide',
+        ()=> markPropertyStatus(p.id, isRent ? 'rented' : 'sold', agentId));
     } else {
       // נכס שסומן כהושכר/נמכר/הוסר לא נעלם — עסקה שהתבטלה או שוכר שעזב מחזירים
       // אותו לפרסום מאותו כרטיס, בלי לפתוח מודעה חדשה ולאבד את מספר המודעה,
       // הצפיות והמידע התכנוני שכבר נצברו עליו.
-      const republishBtn = document.createElement('button');
-      republishBtn.className = 'btn btn-gold';
-      republishBtn.textContent = '↩ החזרה לפרסום';
-      republishBtn.addEventListener('click', ()=> republishProperty(p, republishBtn, agentId));
-      actions.appendChild(republishBtn);
+      addAction('↩ החזרה לפרסום', 'btn-gold act-wide',
+        btn => republishProperty(p, btn, agentId));
     }
     listEl.appendChild(el);
   });
