@@ -182,23 +182,26 @@
   .hero.map-failed .hero-overlay{position:static;background:none;padding:0}
   .hero-inner .eyebrow{
     color:#F0D9A8;font-size:.8rem;letter-spacing:.12em;margin-bottom:10px;
-    text-shadow:0 2px 8px rgba(0,0,0,.6);
+    text-shadow:0 2px 8px rgba(0,0,0,.6);justify-content:center;text-align:center;
   }
-  .hero-inner .eyebrow::before{background:#F0D9A8}
+  /* בלי הקו המקדים של .eyebrow — על המפה הוא נקרא כמקף תלוש בתחילת המשפט */
+  .hero-inner .eyebrow::before{display:none}
   /* הכותרת יושבת על שורה אחת בכל רוחב מסך. הטקסט ב-Frank Ruhl Libre רחב
      פי ~14.26 מגודל הגופן, כלומר הוא נכנס לרוחב ה-wrap (100vw פחות 36px
      padding) עד 7.01vw−2.5px; ה-calc כאן משאיר ~6% ביטחון מתחת לגבול הזה,
      וה-min מקבע 21.6px מ-~368px ומעלה כדי שהמסכים הרגילים לא ינפחו אותה. */
   .hero-inner h1{
     color:#fff;font-size:min(1.35rem, calc(6.6vw - 2.4px));font-weight:700;
-    white-space:nowrap;text-shadow:0 2px 8px rgba(0,0,0,.6);
+    white-space:nowrap;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,.6);
   }
-  .hero-inner p.lede{display:none;color:#DCE6E4;margin-top:8px;font-size:.95rem;max-width:46ch;text-shadow:0 2px 8px rgba(0,0,0,.6)}
+  .hero-inner p.lede{display:none;color:#DCE6E4;margin:8px auto 0;font-size:.95rem;max-width:46ch;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,.6)}
 
   /* ====== סרגל חיפוש בשורה אחת ====== */
   /* max-width: בלי זה הסרגל נמתח על כל רוחב ה-wrap בדסקטופ ותיבת הטקסט
      נראית כמו שדה ריק ענק. ב-RTL הבלוק נצמד מעצמו לימין, מתחת לכותרת. */
-  .search-shell{position:relative;margin-top:22px;max-width:720px;pointer-events:auto}
+  /* margin-inline:auto — הכותרות מעליו ממורכזות, וסרגל צמוד־ימין מתחתן נראה
+     שבור בדסקטופ (במובייל הוא ממילא ברוחב מלא ולא זז). */
+  .search-shell{position:relative;margin:22px auto 0;max-width:720px;pointer-events:auto}
   /* הילה מטושטשת מתחת לסרגל: מפרידה אותו מהמפה גם כשמתחתיו אזור בהיר */
   .search-shell::before{
     content:"";position:absolute;inset:-16px -8px -22px;pointer-events:none;
