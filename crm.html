@@ -804,7 +804,7 @@
         </label>
         <label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:.85rem;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;cursor:pointer">
           <input type="radio" name="caTier" value="mid" style="margin:0">
-          <span><b>משודרג</b> — לידי קונה/שוכר ללא הגבלה, כלים טכנולוגיים, מידע תכנוני</span>
+          <span><b>משודרג</b> — לידי קונה/שוכר ללא הגבלה, כלים טכנולוגיים, מידע תכנוני, מפת מיקום בדף הנכס</span>
         </label>
         <label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:.85rem;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;cursor:pointer">
           <input type="radio" name="caTier" value="premium" style="margin:0">
@@ -1033,7 +1033,7 @@
         <div class="field"><label>רחוב (לא חובה)</label><input type="text" id="npStreet" placeholder="לדוגמה: דפנה"></div>
         <div class="field"><label>מספר בית (לא חובה)</label><input type="text" id="npHouseNumber"></div>
       </div>
-      <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">אם מולאו רחוב+מספר, מידע תכנוני (גוש/חלקה/ייעוד) ייקלט אוטומטית ברקע (מסלולי Mid/Premium בלבד)</p>
+      <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">אם מולאו רחוב+מספר, מידע תכנוני (גוש/חלקה/ייעוד) ייקלט אוטומטית ברקע, ובדף הנכס תוצג מפת מיקום עם הפין המדויק (מסלולי Mid/Premium בלבד). בלי מספר בית אין מפה: הגאוקודינג נופל למרכז העיר, ופין כזה נראה מדויק ואינו כזה.</p>
       <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="field"><label>קו רוחב (lat, לא חובה — מתמלא אוטומטית מהכתובת אם ריק)</label><input type="number" id="npLat" step="0.0001" placeholder="32.6078"></div>
         <div class="field"><label>קו אורך (lng, לא חובה — מתמלא אוטומטית מהכתובת אם ריק)</label><input type="number" id="npLng" step="0.0001" placeholder="35.2897"></div>
