@@ -527,22 +527,27 @@
      כל תמונה כאן היא הדמיה ולא צילום, ולכן תגית ה-"הדמיה" יושבת *על* התמונה
      ולא לידה: מי שישמור או ישתף את התמונה ייקח את התווית איתו. זו לא קישוטיות
      אלא הדרישה שמפרידה בין המחשה שיווקית לבין הצגה מטעה של נכס. */
+  /* הריווח והכותרת עברו ל-#vizSection: מחלקת ‎.section‎ שהבלוק הזה נשען
+     עליה הוחלפה ב-.panel, ובלעדיהן הסקציה נצמדת לרצועת המשרד וכותרתה
+     נשארת בגודל ברירת המחדל של הדפדפן — גדולה מכל כותרת אחרת בדף. */
+  #vizSection{margin-top:26px;padding-bottom:34px}
+  #vizSection h2{font-size:1.05rem}
   .viz-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
   .viz-head .viz-sub{font-size:.82rem;color:var(--ink-soft)}
   .viz-styles{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px}
-  .viz-style{border:1.5px solid var(--line);background:#fff;border-radius:999px;
+  .viz-style{border:1.5px solid var(--hair-strong);background:var(--surface);border-radius:999px;
     padding:8px 16px;font-size:.84rem;font-weight:700;color:var(--ink);cursor:pointer}
   .viz-style.active{border-color:var(--gold);background:var(--gold-tint);color:var(--gold-dark)}
   .viz-style-tag{display:block;font-size:.68rem;font-weight:400;color:var(--ink-soft);margin-top:2px}
   .viz-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:14px}
-  .viz-item{position:relative;border:1px solid var(--line);border-radius:var(--radius-md);
-    overflow:hidden;background:#fff}
+  .viz-item{position:relative;border:1px solid var(--hair);border-radius:16px;
+    overflow:hidden;background:var(--surface);box-shadow:var(--shadow-xs)}
   .viz-item img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
   .viz-item .viz-room{padding:9px 12px;font-size:.82rem;font-weight:700}
   .viz-badge{position:absolute;top:8px;inset-inline-start:8px;background:rgba(27,31,38,.86);
     color:#fff;font-size:.66rem;font-weight:700;padding:4px 9px;border-radius:6px;letter-spacing:.02em}
   .viz-item.pending{display:flex;align-items:center;justify-content:center;
-    aspect-ratio:4/3;color:var(--ink-soft);font-size:.84rem;background:var(--paper)}
+    aspect-ratio:4/3;color:var(--ink-soft);font-size:.84rem;background:var(--surface-soft)}
   .viz-note{margin-top:14px;font-size:.75rem;color:var(--ink-soft);line-height:1.5}
   .viz-cta{margin-top:14px}
   .viz-form{margin-top:14px;display:none;gap:10px;flex-wrap:wrap;align-items:flex-start}
