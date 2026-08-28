@@ -876,25 +876,31 @@
   /* ====== Mortgage calculator teaser ======
      האקסנט של הסקציה הוא גרדיאנט חם שנגזר מ---gold של הפלטה ומתחמם לטרקוטה,
      כדי שהסליידרים וה-CTA יבלטו מול הכחול-כהה בלי לייבא צבע זר לאתר.        */
+  /* המרווח מעל המחשבון היה padding-block של שתי סקציות סמוכות (44+44px) ועוד
+     eyebrow — כמעט מסך ריק לפני הכותרת בטלפון. הסקציה נפתחת צמוד יותר,
+     הכותרת ממורכזת מעל הכרטיס, וכל המידות בפנים הודקו כדי שהכלי כולו
+     ייכנס בגלילה אחת ולא יאכל שטח מסך.                                     */
+  #calc{padding-top:16px}
+  #calc .section-head{margin-bottom:14px}
   .calc-card{
     --calc-accent:#8B2332; --calc-accent-warm:#C25B34;
     --calc-fill:linear-gradient(to left,var(--calc-accent),var(--calc-accent-warm));
-    padding:26px 20px 22px;display:flex;flex-direction:column;gap:20px;
+    padding:18px 16px 16px;display:flex;flex-direction:column;gap:14px;
     background:linear-gradient(165deg,#FBFAF8 0%,var(--paper-raised) 55%,var(--teal-tint) 100%);
     border:1px solid var(--line);
   }
-  .calc-hero{text-align:center;display:flex;flex-direction:column;align-items:center;gap:10px}
+  .calc-hero{text-align:center;display:flex;flex-direction:column;align-items:center;gap:7px}
   .calc-hero-icon{
-    width:64px;height:64px;border-radius:18px;display:grid;place-items:center;
+    width:48px;height:48px;border-radius:14px;display:grid;place-items:center;
     background:linear-gradient(150deg,var(--teal) 0%,var(--teal-dark) 55%,var(--calc-accent) 100%);
     box-shadow:0 8px 22px rgba(27,58,94,.28);
   }
-  .calc-hero-icon svg{width:34px;height:34px;display:block}
-  .calc-hero h3{font-size:1.35rem;line-height:1.25;max-width:22ch}
-  .calc-hero p{font-size:.8rem;color:var(--ink-soft);margin:0}
+  .calc-hero-icon svg{width:26px;height:26px;display:block}
+  .calc-hero h3{font-size:1.12rem;line-height:1.25;max-width:24ch}
+  .calc-hero p{font-size:.78rem;color:var(--ink-soft);margin:0}
 
-  .calc-controls{display:flex;flex-direction:column;gap:18px}
-  .calc-slider-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:8px}
+  .calc-controls{display:flex;flex-direction:column;gap:13px}
+  .calc-slider-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:6px}
   .calc-slider-head .lbl{font-size:.82rem;font-weight:700;color:var(--ink-soft)}
   .calc-slider-head .val{font-family:'Frank Ruhl Libre',serif;font-size:1.28rem;font-weight:700;color:var(--teal-dark);white-space:nowrap}
 
@@ -915,25 +921,25 @@
     width:26px;height:26px;border-radius:50%;box-sizing:border-box;
     background:var(--teal-dark);border:3px solid #fff;box-shadow:0 3px 10px rgba(15,52,53,.35);
   }
-  .calc-ltv{display:flex;align-items:center;gap:7px;margin-top:10px;font-size:.76rem;font-weight:700;color:var(--gold-dark)}
+  .calc-ltv{display:flex;align-items:center;gap:7px;margin-top:7px;font-size:.76rem;font-weight:700;color:var(--gold-dark)}
   .calc-ltv .arrow{color:var(--calc-accent);font-size:.9rem;line-height:1}
   .calc-ltv-track{flex:0 0 58px;height:4px;border-radius:999px;background:#CFCDC7;overflow:hidden}
   .calc-ltv-fill{display:block;height:100%;width:0;background:var(--calc-fill);transition:width .18s ease}
 
   .calc-steppers{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .calc-step .lbl{display:block;font-size:.82rem;font-weight:700;color:var(--ink-soft);text-align:center;margin-bottom:7px}
+  .calc-step .lbl{display:block;font-size:.82rem;font-weight:700;color:var(--ink-soft);text-align:center;margin-bottom:5px}
   .calc-step-ctl{
     display:flex;align-items:center;background:var(--paper-raised);border:1.5px solid var(--line);
-    border-radius:14px;padding:4px;gap:4px;
+    border-radius:14px;padding:3px;gap:4px;
   }
   .calc-step-ctl button{
-    width:38px;height:38px;flex:none;border-radius:10px;font-size:1.3rem;font-weight:700;line-height:1;
+    width:36px;height:36px;flex:none;border-radius:10px;font-size:1.3rem;font-weight:700;line-height:1;
     color:var(--teal-dark);display:grid;place-items:center;transition:background .15s ease;
   }
   .calc-step-ctl button:hover{background:var(--teal-tint)}
   .calc-step-ctl input{
     flex:1;min-width:0;width:100%;text-align:center;border:none;background:#fff;border-radius:10px;
-    padding:8px 2px;font-size:1.35rem;font-weight:800;color:var(--teal-dark);
+    padding:6px 2px;font-size:1.22rem;font-weight:800;color:var(--teal-dark);
     font-family:'Frank Ruhl Libre',serif;
   }
   /* חצי ה-spinner של הדפדפן מיותרים — יש כפתורי ‎−/+‎ משלנו */
@@ -944,19 +950,19 @@
   .calc-result{
     display:flex;align-items:center;justify-content:space-between;gap:14px;
     background:linear-gradient(120deg,var(--teal-dark) 0%,var(--teal) 100%);
-    border-radius:var(--radius-md);padding:18px 20px;box-shadow:0 10px 26px rgba(18,40,64,.25);
+    border-radius:var(--radius-md);padding:13px 18px;box-shadow:0 10px 26px rgba(18,40,64,.25);
   }
   .calc-result .side{text-align:right}
   .calc-result .ttl{font-size:1rem;font-weight:800;color:#fff}
   .calc-result .lbl{font-size:.74rem;color:rgba(255,255,255,.72);margin-top:2px;max-width:14ch}
   .calc-result .num{
-    font-family:'Frank Ruhl Libre',serif;font-size:2.5rem;font-weight:900;line-height:1;
+    font-family:'Frank Ruhl Libre',serif;font-size:2.1rem;font-weight:900;line-height:1;
     color:#F0B07A;text-shadow:0 0 22px rgba(194,91,52,.55);white-space:nowrap;
   }
   .calc-warn{font-size:.78rem;color:var(--brick);font-weight:700;margin:0;text-align:center}
   .calc-warn:empty{display:none}
   .calc-cta{
-    display:flex;align-items:center;justify-content:center;gap:10px;padding:15px 20px;border-radius:14px;
+    display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 18px;border-radius:14px;
     background:linear-gradient(to right,var(--teal-dark),var(--calc-accent) 55%,var(--calc-accent-warm));
     color:#fff;font-weight:800;font-size:1rem;box-shadow:0 8px 20px rgba(139,35,50,.28);
     transition:transform .15s ease, box-shadow .15s ease;
@@ -998,9 +1004,9 @@
   @media(min-width:640px){
     /* הכרטיס נשאר צר וממורכז גם במסך רחב — סליידר באורך 1100px הוא בלתי-שמיש,
        והמסר של הכלי הוא "כרטיס אחד ממוקד", לא טופס רוחבי. */
-    .calc-card{padding:34px 34px 28px;max-width:620px;margin-inline:auto}
-    .calc-hero h3{font-size:1.7rem}
-    .calc-result .num{font-size:3rem}
+    .calc-card{padding:24px 30px 22px;max-width:620px;margin-inline:auto}
+    .calc-hero h3{font-size:1.45rem}
+    .calc-result .num{font-size:2.6rem}
   }
 
   /* ====== Professionals ====== */
@@ -1444,9 +1450,8 @@
 
   <!-- ====== Mortgage calculator ====== -->
   <section class="section wrap" id="calc">
-    <div class="section-head">
+    <div class="section-head is-centered">
       <div>
-        <p class="eyebrow">כלי שימושי</p>
         <h2>מחשבון משכנתא</h2>
       </div>
     </div>
