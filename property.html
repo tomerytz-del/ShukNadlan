@@ -6,6 +6,9 @@
 <title>נכס | שוק נדל״ן</title>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<!-- ‏Leaflet עצמו, ולא רק ה-CSS שלו: בלעדיו סקציית "מיקום וסביבה" נשארת
+     מוסתרת, כי אין מפה להציג. -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
@@ -230,8 +233,59 @@
   .desc-toggle:hover{text-decoration:underline}
   .listing-note{font-size:.72rem;color:var(--ink-soft);margin:14px 0 0;text-align:center}
 
-  #propMap{height:230px;border-radius:16px;overflow:hidden;border:1px solid var(--hair)}
+  /* ====== מפת הנכס ======
+     מפה מוטמעת קטנה שמראה את המיקום בלי קליק, וכפתור שפותח אותה במסך מלא
+     למי שרוצה לחקור את הסביבה. הסקציה כולה מוצגת רק לנכס זכאי — ראו
+     initPropertyMap ב-JS ואת property_map_enabled ב-DB. */
+  /* ‏z-index:0 יוצר הקשר ערימה משלו למסגרת. בלעדיו פקדי Leaflet של המפה
+     המוטמעת (‎z-index:800‎ אצל Leaflet) מטפסים מעל שכבת המסך המלא (400)
+     ושורת הקרדיטים שלה נדבקת מעל כפתורי הניווט */
+  .map-frame{position:relative;z-index:0;border-radius:16px;overflow:hidden;border:1px solid var(--hair)}
+  #propMap{height:230px}
+  @media(min-width:760px){#propMap{height:290px}}
+  /* פינת ההגדלה יושבת בקצה העליון־חיצוני, כי התחתית שמורה לקרדיטים של
+     Leaflet ופקדי הזום כבויים במפה הקטנה */
+  .map-expand{
+    position:absolute;z-index:3;top:10px;inset-inline-end:10px;
+    display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;
+    background:rgba(255,255,255,.94);backdrop-filter:blur(8px);box-shadow:var(--shadow-sm);
+    font-size:.75rem;font-weight:700;color:var(--teal-dark);
+  }
+  .map-expand:hover{background:#fff;box-shadow:var(--shadow-md)}
+  .map-expand svg{width:15px;height:15px}
   .map-note{font-size:.75rem;color:var(--ink-soft);margin:10px 0 0}
+  /* הפין: אותה שפה של פין המחיר במפת החיפוש בדף הבית, בלי התווית — כאן יש
+     נכס אחד ואין מה לזהות לפיו */
+  .map-marker{
+    width:22px;height:22px;border-radius:50%;background:var(--gold);border:3px solid #fff;
+    box-shadow:0 3px 10px rgba(18,40,64,.35);transform:translate(-50%,-50%);
+  }
+
+  /* ====== מפת הנכס במסך מלא ======
+     אותה שפה של לייטבוקס הגלריה: שכבה כהה, סרגל עליון עם כתובת וכפתור
+     סגירה, ומתחת למפה שורת ניווט. מופע Leaflet שני ונפרד מהמפה המוטמעת,
+     שנוצר רק בפתיחה הראשונה. */
+  /* רקע אטום לגמרי ולא כמעט־אטום כמו בלייטבוקס: מתחת למפה יושבים הסרגל
+     הדביק ובועת הוואטסאפ, ושלושה אחוזי שקיפות הספיקו כדי שהם "יבצבצו" מבעד
+     לשורת כפתורי הניווט ויתחרו בה */
+  .map-full{position:fixed;inset:0;z-index:400;background:#080E18;display:none;flex-direction:column}
+  .map-full.open{display:flex}
+  .map-full-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px;color:#fff;flex:0 0 auto}
+  .map-full-title{min-width:0;font-size:.9rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .map-full-close{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;display:grid;place-items:center;flex:none}
+  .map-full-close svg{width:19px;height:19px}
+  #propMapFull{flex:1 1 auto;min-height:0;margin:0 12px;border-radius:16px;overflow:hidden}
+  .map-full-actions{
+    display:flex;gap:8px;flex:0 0 auto;
+    padding:14px 12px calc(14px + env(safe-area-inset-bottom));
+  }
+  .map-full-actions a{
+    flex:1 1 0;display:inline-flex;align-items:center;justify-content:center;gap:7px;
+    padding:12px;border-radius:14px;font-size:.85rem;font-weight:800;
+    background:rgba(255,255,255,.12);color:#fff;
+  }
+  .map-full-actions a:hover{background:rgba(255,255,255,.22)}
+  .map-full-actions svg{width:17px;height:17px}
 
   .agency-strip{display:flex;align-items:center;gap:12px;cursor:pointer;transition:box-shadow .15s ease,transform .15s ease}
   .agency-strip:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
@@ -670,7 +724,11 @@
           </p>
         </section>
 
-        <section class="panel" id="mapSection">
+        <!-- ====== מיקום וסביבה ======
+             מוצגת רק לנכס זכאי (מסלול Mid ומעלה + כתובת מדויקת), ולכן hidden
+             כברירת מחדל ונפתחת רק אחרי ש-initPropertyMap אישר את הזכאות
+             והמפה עלתה בפועל. -->
+        <section class="panel" id="mapSection" hidden>
           <div class="panel-head">
             <h2>מיקום וסביבה</h2>
             <a class="panel-link" id="mapDirections" href="#" target="_blank" rel="noopener noreferrer" hidden>
@@ -678,7 +736,13 @@
               ניווט למקום
             </a>
           </div>
-          <div id="propMap"></div>
+          <div class="map-frame">
+            <div id="propMap"></div>
+            <button type="button" class="map-expand" id="mapExpandBtn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+              הגדלת המפה
+            </button>
+          </div>
           <p class="map-note" id="mapNote"></p>
         </section>
 
@@ -820,6 +884,29 @@
     </button>
   </div>
   <div class="lb-strip" id="lbStrip"></div>
+</div>
+
+<!-- ====== מפת הנכס במסך מלא ====== -->
+<div class="map-full" id="mapFull" role="dialog" aria-modal="true" aria-label="מפת מיקום הנכס">
+  <div class="map-full-bar">
+    <span class="map-full-title" id="mapFullTitle"></span>
+    <button type="button" class="map-full-close" id="mapFullClose" aria-label="סגירת המפה">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div id="propMapFull"></div>
+  <!-- שתי אפליקציות הניווט שבשימוש בפועל בישראל. הקישורים נבנים מהקואורדינטות
+       ולא מהכתובת כטקסט, כדי שהיעד יהיה בדיוק הפין שרואים על המפה. -->
+  <div class="map-full-actions">
+    <a id="mapFullGoogle" href="#" target="_blank" rel="noopener noreferrer">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+      Google Maps
+    </a>
+    <a id="mapFullWaze" href="#" target="_blank" rel="noopener noreferrer">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11 22 2l-9 19-2-8-8-2Z"/></svg>
+      Waze
+    </a>
+  </div>
 </div>
 
 <!-- ====== בלון איסוף ליד ייעוץ משכנתאות ====== -->
@@ -1234,6 +1321,114 @@ document.addEventListener('keydown', (e)=>{
   // ב-RTL החץ הימני הוא "הקודם" מבחינת סדר הקריאה
   if (e.key === 'ArrowRight') lbStep(-1);
   if (e.key === 'ArrowLeft') lbStep(1);
+});
+
+/* ---------- מפת הנכס ----------
+   סקציית "מיקום וסביבה" היא יכולת של מסלול בתשלום, ולא כל נכס מקבל אותה:
+
+   ‏1. ‏מסלול — Mid ופרימיום בלבד.
+   ‏2. ‏כתובת מדויקת — נכס שנרשם עם עיר בלבד מקבל מהגאוקודינג את מרכז העיר,
+      ופין על מרכז עפולה במודעה שכתובתה "עפולה" הוא מידע שנראה מדויק ואינו
+      כזה.
+
+   שני התנאים נבדקים ב-property_map_enabled ב-DB ולא כאן, כדי שיהיה מקור אמת
+   יחיד לכללי המסלולים — בדיוק כמו ההדמיות. הצד הזה רק שואל, ואם התשובה
+   שלילית (או שהמפה לא עלתה) הסקציה פשוט לא מוצגת: אין תווית "שדרגו כדי
+   לראות", כי חסם כזה מוצג לגולש/ת שלא אשמ/ה בו.
+
+   שני מופעי Leaflet נפרדים: המוטמע נוצר עם טעינת הנכס, ומופע המסך המלא נוצר
+   בפתיחה הראשונה בלבד. אי אפשר להזיז קונטיינר של מפה בין שני מקומות ב-DOM
+   בלי לאתחל אותה מחדש, ושכפול פשוט יותר מלנהל העברה.                     */
+
+const PROP_MAP_TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+const PROP_MAP_TILE_ATTRIBUTION = '&copy; OpenStreetMap &copy; CARTO';
+const PROP_MAP_ZOOM = 16;
+const PROP_MAP_FULL_ZOOM = 17;
+
+let propMapReady = false;      // המפה המוטמעת עלתה — כלומר הנכס זכאי
+let propMapFull = null;        // מופע המסך המלא, נוצר בפתיחה הראשונה
+
+function propMapMarker(p){
+  return L.marker([p.lat, p.lng], {
+    icon: L.divIcon({ className:'', html:'<div class="map-marker"></div>', iconSize:[0,0] }),
+    keyboard: false,
+  });
+}
+function propMapTiles(map){
+  L.tileLayer(PROP_MAP_TILE_URL, { attribution:PROP_MAP_TILE_ATTRIBUTION, maxZoom:19 }).addTo(map);
+}
+
+async function propertyMapEnabled(id){
+  try{
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data, error } = await sb.rpc('property_map_enabled', { p_property_id: id });
+    if (error) throw error;
+    return data === true;
+  } catch(e){
+    // ה-RPC עדיין לא הותקן, או שהקריאה נכשלה — נופלים לצד הבטוח ולא מציגים
+    console.warn('בדיקת הזכאות למפת הנכס נכשלה:', e);
+    return false;
+  }
+}
+
+async function initPropertyMap(p, addressText){
+  const section = document.getElementById('mapSection');
+  // ‏Leaflet חסום/נכשל, או שאין קואורדינטות — אין מה להציג
+  if (!window.L || !window.supabase || !p.lat || !p.lng) return;
+  if (!await propertyMapEnabled(p.id)) return;
+
+  // חשיפת הסקציה לפני יצירת המפה: Leaflet מודד את גודל הקונטיינר ברגע
+  // היצירה, ובתוך section[hidden] הוא היה מקבל 0×0 ומצייר אריחים אפורים
+  section.hidden = false;
+  try{
+    const map = L.map('propMap', { scrollWheelZoom:false, zoomControl:false })
+      .setView([p.lat, p.lng], PROP_MAP_ZOOM);
+    propMapTiles(map);
+    propMapMarker(p).addTo(map);
+
+    const google = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`;
+    const waze = `https://waze.com/ul?ll=${p.lat},${p.lng}&navigate=yes`;
+    const dir = document.getElementById('mapDirections');
+    dir.href = google;
+    dir.hidden = false;
+    document.getElementById('mapFullGoogle').href = google;
+    document.getElementById('mapFullWaze').href = waze;
+    document.getElementById('mapFullTitle').textContent = addressText || p.title || '';
+    document.getElementById('mapNote').textContent = addressText || '';
+    propMapReady = true;
+  } catch(e){
+    console.warn('מפת הנכס לא נטענה:', e);
+    section.hidden = true;
+  }
+}
+
+function mapFullOpen(){
+  const p = currentProperty;
+  if (!propMapReady || !p) return;
+  const overlay = document.getElementById('mapFull');
+  overlay.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  if (!propMapFull){
+    propMapFull = L.map('propMapFull').setView([p.lat, p.lng], PROP_MAP_FULL_ZOOM);
+    propMapTiles(propMapFull);
+    propMapMarker(p).addTo(propMapFull);
+  }
+  // הקונטיינר היה display:none עד לפני רגע, ולכן המידות שנמדדו בו (בפתיחה
+  // הראשונה) או שנשמרו מפתיחה קודמת אינן נכונות
+  propMapFull.invalidateSize();
+  propMapFull.setView([p.lat, p.lng], PROP_MAP_FULL_ZOOM);
+  document.getElementById('mapFullClose').focus();
+}
+function mapFullClose(){
+  document.getElementById('mapFull').classList.remove('open');
+  document.body.style.overflow = '';
+  const btn = document.getElementById('mapExpandBtn');
+  if (btn) btn.focus();
+}
+document.getElementById('mapExpandBtn').addEventListener('click', mapFullOpen);
+document.getElementById('mapFullClose').addEventListener('click', mapFullClose);
+document.addEventListener('keydown', (e)=>{
+  if (e.key === 'Escape' && document.getElementById('mapFull').classList.contains('open')) mapFullClose();
 });
 
 /* ---------- הדמיות AI ----------
@@ -1726,21 +1921,9 @@ function renderProperty(p){
     if (p.agencies?.slug) window.location.href = 'agency.html?slug=' + p.agencies.slug;
   });
 
-  if (p.lat && p.lng && window.L){
-    try{
-      const map = L.map('propMap', { scrollWheelZoom:false }).setView([p.lat, p.lng], 15);
-      L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-        attribution:'&copy; OpenStreetMap &copy; CARTO', maxZoom:19
-      }).addTo(map);
-      L.marker([p.lat, p.lng]).addTo(map);
-      const dir = document.getElementById('mapDirections');
-      dir.href = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`;
-      dir.hidden = false;
-      document.getElementById('mapNote').textContent = addressText ? addressText : '';
-    } catch(e){ console.warn('מפת הנכס לא נטענה:', e); }
-  } else {
-    document.getElementById('mapSection').hidden = true;
-  }
+  // המפה נטענת ברקע: היא דורשת בדיקת זכאות נוספת מול ה-DB, ואין סיבה שהיא
+  // תעכב את רינדור הנכס עצמו.
+  initPropertyMap(p, addressText);
 
   document.getElementById('loadingState').style.display = 'none';
   document.getElementById('propertyContent').style.display = 'block';
