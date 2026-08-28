@@ -92,7 +92,12 @@
   .btn-ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
   .btn-block{width:100%}
   .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line)}
-  .section{padding:44px 0}
+  /* padding-block ולא ‎padding:44px 0‎ — כל הסקציות נושאות גם .wrap, ו-‎
+     shorthand מאוחר יותר עם אותה ספציפיות היה מאפס את ‎padding:0 18px‎ שלו.
+     בלי המרווח הצדדי הזה מסלולי הגלילה עם ‎margin-inline:-18px‎ (שנועדו
+     לפרוץ בדיוק עד קצה המסך) חרגו 18px מעבר לו והדף נגלל הצידה במובייל.
+     אותו כלל בדיוק חל על ‎.header-inner‎, ‎.ad-slot‎ ו-‎.ad-row‎ למטה. */
+  .section{padding-block:44px}
   .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:22px;flex-wrap:wrap}
   .section-head.is-centered{justify-content:center;text-align:center}
   .section-head h2{font-size:1.5rem}
@@ -107,7 +112,7 @@
     position:sticky;top:0;z-index:100;background:var(--paper-raised);
     border-bottom:1px solid var(--line);
   }
-  .header-inner{display:flex;align-items:center;justify-content:space-between;padding:14px 0}
+  .header-inner{display:flex;align-items:center;justify-content:space-between;padding-block:14px}
   .logo{display:flex;align-items:center;gap:8px}
   .logo-mark{
     width:34px;height:34px;border-radius:8px;background:linear-gradient(155deg,var(--gold),var(--teal) 65%);
@@ -140,7 +145,7 @@
   }
   .ad-slot{
     display:flex;align-items:center;justify-content:center;gap:10px;
-    padding:10px 0;font-size:.78rem;color:var(--ink-soft);text-align:center;
+    padding-block:10px;font-size:.78rem;color:var(--ink-soft);text-align:center;
   }
   .ad-slot .tag{background:var(--paper-raised);border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-weight:700;font-size:.68rem}
 
@@ -704,7 +709,7 @@
 
   /* הרצועה יושבת בין באנר פרסומת לסקציית הנכסים המסחריים; ריפוד סקציה
      מלא משני הצדדים יצר שם חלל ריק גדול, ולכן היא מהודקת בנפרד. */
-  #leadingAgencies{padding:18px 0 12px}
+  #leadingAgencies{padding-block:18px 12px}
   #leadingAgencies .section-head{margin-bottom:10px}
   #commercialProps{padding-top:22px}
 
@@ -718,7 +723,7 @@
     background:var(--paper-raised);border:1px solid var(--line);border-radius:6px;
     padding:2px 8px;font-size:.68rem;
   }
-  .ad-row{padding:14px 0}
+  .ad-row{padding-block:14px}
 
   /* ====== כתבות ובלוגים ======
      אותה שיטת מידוד כמו קרוסלת "נכסים חמים מהמפה": רוחב הכרטיס נגזר
