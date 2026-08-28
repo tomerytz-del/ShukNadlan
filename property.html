@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>נכס | שוק נדל״ן</title>
-<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
@@ -13,17 +13,36 @@
     --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
     --gold:#8B2332; --gold-dark:#6B1A26; --gold-tint:#F1DFE1; --brick:#6B1A26;
     --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(15,52,53,.08); --maxw:900px;
+
+    /* ====== שכבת עיצוב 2026 (דף הנכס) ======
+       הפלטה של המותג נשארת כמו שהיא — כחול-דיו, יין ונייר — אבל המשטחים
+       מתבהרים: כרטיסים לבנים, קווי הפרדה דקיקים במקום ה-‎--line‎ הכהה, וצללים
+       רכים בשלוש דרגות. שני צבעים חדשים בלבד: ברונזה לתגיות פרימיום וירוק
+       וואטסאפ — שניהם צבעים שאין להם תחליף בפלטה הקיימת. */
+    --surface:#FFFFFF; --surface-soft:#FBFAF9;
+    --hair:#E6E3DD; --hair-strong:#D8D4CC;
+    --bronze:#B45309; --bronze-soft:#D97706; --bronze-tint:#FBF1E2;
+    --wa:#22C55E; --wa-dark:#16A34A;
+    --radius-xl:24px;
+    --shadow-xs:0 1px 2px rgba(18,40,64,.05);
+    --shadow-md:0 8px 24px rgba(18,40,64,.10);
+    --shadow-lg:0 18px 44px rgba(18,40,64,.14);
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55}
+  /* חצי מהאלמנטים בדף נכבים ונדלקים דרך ‎[hidden]‎, ורובם מקבלים display
+     מתוך המחלקה שלהם — ‎display:flex‎ במחלקה גובר על ‎[hidden]‎ של הדפדפן.
+     כלל אחד גלובלי חוסך ‎.x[hidden]‎ ליד כל מחלקה כזו. */
+  [hidden]{display:none!important}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
   h1,h2,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark);margin:0}
   a{color:inherit;text-decoration:none}
   button{font-family:inherit;cursor:pointer;border:none}
   input,select,textarea{font-family:inherit;font-size:1rem}
+  svg{display:block}
   .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
   .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line)}
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:999px;font-weight:700;font-size:.95rem}
-  .btn-gold{background:var(--gold);color:#241505}
+  .btn-gold{background:var(--gold);color:#fff}
   .btn-gold:disabled{opacity:.5;cursor:not-allowed}
   .btn-block{width:100%}
   header.site{background:var(--paper-raised);border-bottom:1px solid var(--line);padding:14px 0}
@@ -37,33 +56,231 @@
   #notFoundState{display:none;padding:60px 18px;text-align:center}
   #propertyContent{display:none}
 
-  .hero-media{height:280px;background-size:cover;background-position:center;position:relative}
-  .promo-ribbon{position:absolute;top:14px;right:14px;background:var(--gold);color:#241505;font-size:.72rem;font-weight:800;padding:4px 11px;border-radius:6px}
-  .gallery-strip{display:flex;gap:8px;overflow-x:auto;padding:10px 18px 0;max-width:1180px;margin:0 auto}
-  .gallery-strip:empty{display:none}
-  .gallery-strip button{padding:0;border:2px solid transparent;border-radius:var(--radius-sm);overflow:hidden;flex-shrink:0;background:none;cursor:pointer;line-height:0}
-  .gallery-strip button.active{border-color:var(--gold)}
-  .gallery-strip img{width:84px;height:62px;object-fit:cover;display:block}
-  .img-count{position:absolute;bottom:14px;right:14px;background:rgba(27,31,38,.7);color:#fff;font-size:.72rem;font-weight:700;padding:3px 10px;border-radius:6px}
-  .content-grid{display:grid;grid-template-columns:1fr;gap:20px;padding:22px 0 40px}
+  /* ====== גלריית Bento ======
+     תמונה ראשית גדולה ולצידה עד שתי תמונות משנה. במובייל התמונות המשניות
+     יורדות לשורה מתחת לראשית; מדסקטופ הן עמודה לצידה. מספר התמונות בפועל
+     נכתב ל-data-count, כי מודעה עם תמונה אחת (רוב המודעות במערכת) צריכה
+     תמונה ראשית ברוחב מלא ולא עמודה ריקה לצידה. */
+  .hero{margin-top:16px}
+  .bento{display:grid;gap:8px;grid-template-columns:repeat(2,1fr)}
+  .bento-cell{
+    position:relative;overflow:hidden;border-radius:16px;border:1px solid var(--hair);
+    background:var(--teal-tint);padding:0;line-height:0;
+  }
+  /* התמונה הראשית היא ‎div‎ ולא ‎button‎ כדי שהתגיות המרחפות (מחיר, סטטוס,
+     שיתוף) יוכלו לשבת בתוכה — כפתור בתוך כפתור אינו HTML חוקי. הכפתור
+     שפותח את הלייטבוקס פרוש על כל שטח התא מתחת לתגיות. */
+  .cell-open{position:absolute;inset:0;width:100%;height:100%;padding:0;background:none;border:none;line-height:0;z-index:1}
+  .bento-thumb{cursor:pointer}
+  .bento-cell img{width:100%;height:100%;object-fit:cover;transition:transform .5s cubic-bezier(.2,.7,.3,1)}
+  .bento-cell:hover img{transform:scale(1.045)}
+  .bento-cell:focus-within{outline:3px solid var(--teal);outline-offset:2px}
+  .bento-main{grid-column:1/-1;aspect-ratio:4/3}
+  .bento-thumb{aspect-ratio:4/3}
+  .bento[data-count="1"] .bento-main{aspect-ratio:16/10}
+  .bento[data-count="2"] .bento-thumb{grid-column:1/-1;aspect-ratio:16/7}
+  /* שכבת הצללה בתחתית התמונה הראשית — בלעדיה תגית המחיר השקופה נבלעת
+     בתמונות בהירות (קירות לבנים, שמיים) */
+  .bento-main::after{
+    content:'';position:absolute;inset:auto 0 0 0;height:46%;pointer-events:none;z-index:2;
+    background:linear-gradient(to top,rgba(10,18,30,.62),rgba(10,18,30,0));
+  }
+  .bento-main.bento-empty::after{display:none}
+  .bento-empty{
+    grid-column:1/-1;grid-row:1/-1;aspect-ratio:16/9;border-radius:16px;display:grid;place-items:center;gap:8px;
+    background:linear-gradient(155deg,#1C3A5E,#8B2332);color:rgba(255,255,255,.9);
+    font-size:.85rem;font-weight:600;
+  }
+  .bento-empty svg{width:34px;height:34px;margin:0 auto 4px;opacity:.8}
+  .more-overlay{
+    position:absolute;inset:0;display:grid;place-items:center;background:rgba(10,18,30,.55);
+    color:#fff;font-weight:800;font-size:1.05rem;backdrop-filter:blur(2px);
+  }
+
+  /* אלמנטים מרחפים מעל התמונה */
+  .hero-badges{position:absolute;top:12px;inset-inline-start:12px;display:flex;gap:6px;flex-wrap:wrap;max-width:70%;z-index:3}
+  .hero-badges:empty{display:none}
+  .badge{
+    display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:800;
+    padding:5px 11px;border-radius:999px;backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.28);
+    background:rgba(18,40,64,.55);color:#fff;line-height:1.3;
+  }
+  .badge svg{width:13px;height:13px}
+  .badge-promo{background:rgba(180,83,9,.82);border-color:rgba(255,255,255,.4)}
+  .badge-exclusive{background:rgba(139,35,50,.82);border-color:rgba(255,255,255,.4)}
+  .hero-tools{position:absolute;top:12px;inset-inline-end:12px;display:flex;gap:6px;z-index:3}
+  .hero-tool{
+    width:36px;height:36px;border-radius:50%;display:grid;place-items:center;
+    background:rgba(255,255,255,.82);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.6);
+    color:var(--teal-dark);box-shadow:var(--shadow-xs);
+  }
+  .hero-tool svg{width:18px;height:18px}
+  .hero-tool:hover{background:#fff}
+  /* תגית המחיר: זכוכית כהה מעל התמונה הראשית — המחיר נקרא לפני כל דבר אחר */
+  .hero-price{
+    position:absolute;bottom:12px;inset-inline-start:12px;z-index:3;
+    background:rgba(15,23,42,.52);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.22);
+    border-radius:16px;padding:9px 15px;color:#fff;box-shadow:0 8px 24px rgba(10,18,30,.28);
+  }
+  .hero-price .num{font-size:1.5rem;font-weight:900;line-height:1.1;letter-spacing:-.5px;white-space:nowrap}
+  .hero-price .num .suffix{font-size:.82rem;font-weight:600;opacity:.85;letter-spacing:0}
+  .hero-price .sub{font-size:.72rem;font-weight:600;opacity:.8;margin-top:1px}
+  /* פעולות המדיה נערמות כלפי מעלה מהפינה התחתונה, בצד ההפוך לתגית המחיר:
+     כשיש גם סיור וירטואלי וגם סרטון הן לא נדחקות לשורה אחת שנשברת על מסך צר */
+  .hero-actions{
+    position:absolute;bottom:12px;inset-inline-end:12px;z-index:3;
+    display:flex;flex-direction:column;align-items:flex-end;gap:6px;
+  }
+  .media-btn{
+    display:inline-flex;align-items:center;gap:6px;
+    background:rgba(15,23,42,.52);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.22);
+    color:#fff;font-size:.75rem;font-weight:700;padding:7px 12px;border-radius:999px;
+    transition:background .15s ease;
+  }
+  .media-btn:hover{background:rgba(15,23,42,.74)}
+  .media-btn svg{width:15px;height:15px;flex:none}
+  /* סיור וסרטון הם הפעולות שמייחדות את המודעה — ברונזה מבדילה אותן ממונה
+     התמונות, שהוא פעולה שקיימת בכל נכס */
+  .media-btn.accent{background:rgba(180,83,9,.8);border-color:rgba(255,255,255,.36)}
+  .media-btn.accent:hover{background:rgba(180,83,9,.95)}
+  @media(min-width:640px){
+    .bento{grid-template-columns:1.9fr 1fr;grid-template-rows:1fr 1fr;height:min(58vh,430px)}
+    .bento-main{grid-column:1;grid-row:1/3;aspect-ratio:auto;height:100%}
+    .bento-thumb{aspect-ratio:auto;height:100%}
+    .bento[data-count="1"] .bento-main{grid-column:1/-1;aspect-ratio:auto}
+    .bento[data-count="2"] .bento-thumb{grid-column:2;grid-row:1/3;aspect-ratio:auto}
+    .hero-price{bottom:16px;inset-inline-start:16px;padding:11px 18px}
+    .hero-price .num{font-size:1.85rem}
+    .hero-badges,.hero-tools{top:16px}
+    .hero-badges{inset-inline-start:16px}
+    .hero-tools{inset-inline-end:16px}
+    .hero-actions{bottom:16px;inset-inline-end:16px}
+  }
+
+  /* ====== היררכיית התוכן ====== */
+  .content-grid{display:grid;grid-template-columns:1fr;gap:22px;padding:22px 0 40px}
   @media(min-width:760px){.content-grid{grid-template-columns:1.6fr 1fr;align-items:start}}
 
-  .price-row{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
-  .price{font-family:'Frank Ruhl Libre',serif;font-size:2rem;color:var(--teal-dark)}
-  .deal-pill{font-size:.72rem;font-weight:800;padding:3px 10px;border-radius:999px;background:var(--teal-tint);color:var(--teal)}
-  .title{font-size:1.15rem;margin-top:6px;color:var(--ink)}
-  .meta-row{display:flex;gap:16px;margin-top:10px;color:var(--ink-soft);font-size:.88rem;flex-wrap:wrap}
-  .meta-row span{display:flex;align-items:center;gap:5px}
+  .eyebrow{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:9px}
+  .tag{font-size:.72rem;font-weight:800;padding:4px 11px;border-radius:999px;background:var(--teal-tint);color:var(--teal)}
+  .tag-rent{background:var(--gold-tint);color:var(--gold-dark)}
+  .tag-bronze{background:var(--bronze-tint);color:var(--bronze)}
+  h1.prop-title{font-size:1.4rem;line-height:1.3}
+  @media(min-width:640px){h1.prop-title{font-size:1.72rem}}
+  .prop-address{display:flex;align-items:center;gap:6px;color:var(--ink-soft);font-size:.9rem;font-weight:600;margin-top:7px}
+  .prop-address svg{width:16px;height:16px;flex:none;color:var(--bronze)}
 
-  .section{margin-top:26px}
-  .spec-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:10px}
-  .spec{padding:11px 14px}
-  .spec .k{font-size:.72rem;font-weight:700;color:var(--ink-soft)}
-  .spec .v{font-family:'Frank Ruhl Libre',serif;font-size:1.02rem;font-weight:700;color:var(--teal-dark);margin-top:2px}
-  .feature-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
-  .feature-chip{font-size:.78rem;font-weight:600;background:var(--teal-tint);color:var(--teal);padding:5px 11px;border-radius:999px}
-  .prop-desc{white-space:pre-wrap;font-size:.92rem;margin:0}
-  .section h2{font-size:1.05rem;margin-bottom:10px}
+  /* סרגל נתונים בקפסולות */
+  /* שתי קפסולות בשורה בכל רוחב: בעמודת התוכן (‎1.6fr‎ מתוך 900px) ארבע
+     קפסולות בשורה אחת מקצצות כל ערך לשלוש אותיות ונקודות */
+  .spec-pills{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-top:16px}
+  .spec-pill{
+    display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--hair);
+    border-radius:16px;padding:10px 12px;box-shadow:var(--shadow-xs);min-width:0;
+  }
+  .spec-pill .ic{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;background:var(--teal-tint);color:var(--teal)}
+  .spec-pill .ic svg{width:19px;height:19px}
+  .spec-pill.accent .ic{background:var(--bronze-tint);color:var(--bronze)}
+  .spec-pill .txt{min-width:0;display:flex;flex-direction:column}
+  .spec-pill .v{font-weight:800;font-size:.98rem;color:var(--teal-dark);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .spec-pill .k{font-size:.7rem;font-weight:600;color:var(--ink-soft);line-height:1.3;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  .panel{
+    background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-xl);
+    box-shadow:var(--shadow-xs);padding:18px;margin-top:18px;
+  }
+  .panel > h2{font-size:1.05rem;margin-bottom:12px}
+  .panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+  .panel-head h2{font-size:1.05rem}
+  .panel-link{font-size:.78rem;font-weight:700;color:var(--teal);display:inline-flex;align-items:center;gap:4px}
+  .panel-link svg{width:14px;height:14px}
+
+  /* מפרט ביתרונות מאוירים */
+  .highlights{display:grid;grid-template-columns:1fr;gap:11px}
+  @media(min-width:520px){.highlights{grid-template-columns:1fr 1fr}}
+  .highlight{display:flex;align-items:center;gap:10px;font-size:.9rem;font-weight:600;color:var(--ink);min-width:0}
+  .highlight .ic{width:32px;height:32px;border-radius:10px;flex:none;display:grid;place-items:center;background:var(--bronze-tint);color:var(--bronze)}
+  .highlight .ic svg{width:17px;height:17px}
+
+  /* טבלת פרטים */
+  .detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:1px;background:var(--hair);border:1px solid var(--hair);border-radius:16px;overflow:hidden}
+  .detail{background:var(--surface);padding:11px 14px}
+  .detail .k{font-size:.72rem;font-weight:700;color:var(--ink-soft)}
+  .detail .v{font-size:1rem;font-weight:800;color:var(--teal-dark);margin-top:2px}
+  .prop-desc{white-space:pre-wrap;font-size:.93rem;margin:0;color:#3A4048}
+
+  #propMap{height:230px;border-radius:16px;overflow:hidden;border:1px solid var(--hair)}
+  .map-note{font-size:.75rem;color:var(--ink-soft);margin:10px 0 0}
+
+  .agency-strip{display:flex;align-items:center;gap:12px;cursor:pointer;transition:box-shadow .15s ease,transform .15s ease}
+  .agency-strip:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
+  .agency-avatar{width:44px;height:44px;border-radius:13px;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Frank Ruhl Libre',serif;flex-shrink:0}
+  .agency-name{font-weight:800;font-size:.94rem;color:var(--teal-dark)}
+  .agency-sub{font-size:.78rem;color:var(--ink-soft)}
+  .agency-strip .chev{margin-inline-start:auto;color:var(--ink-soft)}
+  .agency-strip .chev svg{width:18px;height:18px}
+
+  /* ====== כרטיס ההמרה של הסוכן/ת ====== */
+  .sidebar > *{margin-bottom:16px}
+  .sidebar > *:last-child{margin-bottom:0}
+  .agent-card{
+    background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-xl);
+    box-shadow:var(--shadow-md);overflow:hidden;
+  }
+  .agent-top{
+    display:flex;align-items:center;gap:12px;padding:16px;
+    background:linear-gradient(140deg,var(--teal-dark),var(--teal) 78%);color:#fff;
+  }
+  .agent-photo{
+    width:56px;height:56px;border-radius:50%;flex:none;overflow:hidden;background:rgba(255,255,255,.18);
+    display:grid;place-items:center;font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.35rem;
+    border:2px solid rgba(255,255,255,.55);
+  }
+  .agent-photo img{width:100%;height:100%;object-fit:cover}
+  .agent-name{font-weight:800;font-size:1.02rem;line-height:1.25}
+  .agent-cred{
+    display:inline-flex;align-items:center;gap:5px;margin-top:4px;font-size:.72rem;font-weight:700;
+    background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);padding:3px 9px;border-radius:999px;
+  }
+  .agent-cred svg{width:13px;height:13px;flex:none;color:#9BD5A3}
+  .agent-agency{font-size:.75rem;opacity:.8;margin-top:4px}
+  .agent-body{padding:16px}
+  .agent-price{
+    display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+    border:1px dashed var(--hair-strong);border-radius:14px;padding:10px 13px;margin-bottom:14px;
+  }
+  .agent-price .k{font-size:.74rem;font-weight:700;color:var(--ink-soft)}
+  .agent-price .v{font-size:1.2rem;font-weight:900;color:var(--teal-dark);letter-spacing:-.4px;white-space:nowrap}
+  .agent-body h2{font-size:1.02rem;margin-bottom:3px}
+  .agent-body p.sub{font-size:.79rem;color:var(--ink-soft);margin:0 0 13px}
+  .field{margin-bottom:9px}
+  .field input,.field textarea{width:100%;border:1.5px solid var(--hair-strong);border-radius:12px;padding:11px 13px;background:var(--surface-soft);transition:border-color .15s ease,background .15s ease}
+  .field input:focus,.field textarea:focus{border-color:var(--teal);background:#fff;outline:none}
+  .field textarea{resize:vertical;min-height:66px}
+  #inquiryFeedback{font-size:.8rem;margin-top:8px;text-align:center;min-height:1.2em}
+  .btn-submit{
+    width:100%;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 18px;
+    border-radius:14px;font-weight:800;font-size:.95rem;color:#fff;
+    background:linear-gradient(120deg,var(--gold-dark),var(--gold) 60%,#A32B3C);
+    box-shadow:0 6px 16px rgba(139,35,50,.24);transition:transform .15s ease,box-shadow .15s ease;
+  }
+  .btn-submit:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 10px 22px rgba(139,35,50,.3)}
+  .btn-submit:disabled{opacity:.55;cursor:not-allowed}
+  .agent-actions{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:12px}
+  .agent-actions:empty{display:none}
+  .btn-wa{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;border-radius:14px;
+    background:linear-gradient(120deg,var(--wa-dark),var(--wa));color:#fff;font-weight:800;font-size:.9rem;
+    box-shadow:0 6px 16px rgba(34,197,94,.28);transition:transform .15s ease,box-shadow .15s ease;
+  }
+  .btn-wa:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(34,197,94,.34)}
+  .btn-wa svg{width:19px;height:19px;fill:#fff;flex:none}
+  .btn-call{
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px 15px;border-radius:14px;
+    background:var(--teal-tint);color:var(--teal-dark);font-weight:800;font-size:.9rem;border:1px solid var(--hair);
+  }
+  .btn-call:hover{background:#D3DEE8}
+  .btn-call svg{width:18px;height:18px;flex:none}
 
   /* ====== נכסים דומים ======
      אותה שיטת מידוד כמו קרוסלות ה-featured-scroll בדף הבית: רוחב הכרטיס
@@ -75,12 +292,14 @@
     padding:0 var(--row-peek) 6px;
   }
   .prop-card{
-    background:#fff;border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;
+    background:var(--surface);border:1px solid var(--hair);border-radius:16px;overflow:hidden;
     flex:0 0 min(250px, calc((100% - var(--row-gap) * 2) / 3));scroll-snap-align:start;cursor:pointer;
+    box-shadow:var(--shadow-xs);transition:box-shadow .15s ease,transform .15s ease;
   }
+  .prop-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
   .prop-card .thumb{height:94px;background-size:cover;background-position:center;position:relative}
   .prop-card .ribbon{
-    position:absolute;top:6px;right:6px;background:var(--gold);color:#fff;font-size:.6rem;
+    position:absolute;top:6px;inset-inline-end:6px;background:var(--bronze);color:#fff;font-size:.6rem;
     font-weight:800;padding:2px 7px;border-radius:5px;
   }
   .prop-card .body{padding:9px}
@@ -107,43 +326,75 @@
     .prop-card .price{font-size:1.02rem}
     .prop-card .title{font-size:.85rem}
     .prop-card .meta{font-size:.76rem;margin-top:6px}
-    .prop-card .ribbon{top:10px;right:10px;font-size:.68rem;padding:3px 9px}
+    .prop-card .ribbon{top:10px;inset-inline-end:10px;font-size:.68rem;padding:3px 9px}
   }
-  .agency-strip{display:flex;align-items:center;gap:12px;padding:14px;margin-top:26px}
-  .agency-avatar{width:44px;height:44px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Frank Ruhl Libre',serif;flex-shrink:0}
-  .agency-name{font-weight:700;font-size:.92rem}
-  .agency-sub{font-size:.78rem;color:var(--ink-soft)}
+  #similarSection{padding-bottom:34px}
+  #similarSection h2{font-size:1.05rem;margin-bottom:12px}
 
-  #propMap{height:220px;border-radius:var(--radius-md);overflow:hidden;margin-top:26px}
+  /* ====== לייטבוקס גלריה ====== */
+  .lb{position:fixed;inset:0;z-index:400;background:rgba(8,14,24,.97);display:none;flex-direction:column}
+  .lb.open{display:flex}
+  .lb-bar{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;color:#fff;flex:0 0 auto}
+  .lb-count{font-size:.85rem;font-weight:700;opacity:.85}
+  .lb-close{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;display:grid;place-items:center}
+  .lb-close svg{width:19px;height:19px}
+  .lb-stage{flex:1 1 auto;min-height:0;margin-bottom:16px;position:relative}
+  /* התמונה נמתחת על כל הבמה ומתכווצת פנימה עם ‎object-fit:contain‎. גודל
+     מפורש ולא ‎max-height:100%‎: על ילד רגיל האחוז נמדד מול ‎height:auto‎ של
+     האב, לא חוסם כלום, והתמונה גלשה מעל רצועת התמוניות. */
+  .lb-stage img{position:absolute;inset:0;width:100%;height:100%;padding:0 12px;object-fit:contain}
+  .lb-nav{
+    position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;border-radius:50%;
+    background:rgba(255,255,255,.14);color:#fff;display:grid;place-items:center;backdrop-filter:blur(8px);
+  }
+  .lb-nav:hover{background:rgba(255,255,255,.24)}
+  .lb-nav svg{width:20px;height:20px}
+  .lb-prev{inset-inline-end:14px}
+  .lb-next{inset-inline-start:14px}
+  .lb-strip{display:flex;gap:7px;overflow-x:auto;padding:0 16px 16px;flex:0 0 auto}
+  .lb-strip button{padding:0;border:2px solid transparent;border-radius:9px;overflow:hidden;flex:none;background:none;line-height:0;opacity:.55}
+  .lb-strip button.active{border-color:var(--bronze-soft);opacity:1}
+  .lb-strip img{width:76px;height:56px;object-fit:cover}
 
-  .sidebar .card{padding:20px;margin-bottom:16px}
-  .inquiry-card h2{font-size:1.05rem;margin-bottom:4px}
-  .inquiry-card p.sub{font-size:.8rem;color:var(--ink-soft);margin:0 0 14px}
-  .field{margin-bottom:10px}
-  .field input,.field textarea{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
-  .field textarea{resize:vertical;min-height:70px}
-  #inquiryFeedback{font-size:.8rem;margin-top:8px;text-align:center;min-height:1.2em}
+  /* ====== סרגל תחתון דביק (מובייל) ====== */
+  .sticky-bar{
+    position:fixed;inset-inline:0;bottom:0;z-index:220;display:none;align-items:center;gap:10px;
+    padding:10px 14px calc(10px + env(safe-area-inset-bottom));
+    background:rgba(255,255,255,.9);backdrop-filter:blur(16px);border-top:1px solid var(--hair);
+    box-shadow:0 -6px 22px rgba(18,40,64,.12);
+  }
+  body.has-sticky-bar .sticky-bar{display:flex}
+  .sb-price{min-width:0;flex:0 0 auto}
+  .sb-price .k{font-size:.66rem;font-weight:700;color:var(--ink-soft);line-height:1.2}
+  .sb-price .v{font-size:1.02rem;font-weight:900;color:var(--teal-dark);letter-spacing:-.3px;white-space:nowrap;line-height:1.25}
+  .sticky-bar .btn-wa{flex:1 1 auto;min-width:0;padding:12px;font-size:.88rem;white-space:nowrap}
+  .sticky-bar .btn-call{flex:0 0 auto;width:46px;padding:12px 0}
+  .sticky-bar .btn-call span{display:none}
+  @media(min-width:760px){body.has-sticky-bar .sticky-bar{display:none}}
+  body.has-sticky-bar{padding-bottom:78px}
+  @media(min-width:760px){body.has-sticky-bar{padding-bottom:0}}
 
   /* ====== מחשבון המשכנתא של הנכס ======
      אותה שפה כמו המחשבון בדף הבית, מותאמת לעמודת צד צרה: מחיר הנכס אינו
      סליידר אלא נתון — זה המחיר של הנכס הזה — וההון העצמי הוא מה שמשחקים בו. */
   .calc-card{
     --calc-accent:#8B2332; --calc-accent-warm:#C25B34;
-    padding:20px;display:flex;flex-direction:column;gap:16px;
-    background:linear-gradient(165deg,#FBFAF8 0%,var(--paper-raised) 55%,var(--teal-tint) 100%);
+    padding:20px;display:flex;flex-direction:column;gap:16px;border-radius:var(--radius-xl);
+    border:1px solid var(--hair);box-shadow:var(--shadow-xs);
+    background:linear-gradient(165deg,#FFFFFF 0%,var(--surface-soft) 55%,var(--teal-tint) 100%);
   }
   .calc-card h2{font-size:1.05rem;margin:0}
   .calc-card .calc-sub{font-size:.76rem;color:var(--ink-soft);margin:4px 0 0}
   .calc-price{
     display:flex;align-items:baseline;justify-content:space-between;gap:8px;
-    background:var(--teal-tint);border-radius:var(--radius-sm);padding:10px 12px;
+    background:var(--teal-tint);border-radius:12px;padding:10px 12px;
   }
   .calc-price .lbl{font-size:.76rem;font-weight:700;color:var(--ink-soft)}
-  .calc-price .val{font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;font-weight:700;color:var(--teal-dark)}
+  .calc-price .val{font-size:1.15rem;font-weight:900;color:var(--teal-dark)}
 
   .calc-slider-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;margin-bottom:7px}
   .calc-slider-head .lbl{font-size:.78rem;font-weight:700;color:var(--ink-soft)}
-  .calc-slider-head .val{font-family:'Frank Ruhl Libre',serif;font-size:1.1rem;font-weight:700;color:var(--teal-dark);white-space:nowrap}
+  .calc-slider-head .val{font-size:1.1rem;font-weight:900;color:var(--teal-dark);white-space:nowrap}
   /* הרקע על ה-input עצמו (ולא רק על ::-webkit-slider-runnable-track) כדי
      שמילוי המסלול יעבוד גם בפיירפוקס, שם ::-moz-range-track שקוף. */
   .calc-range{
@@ -169,7 +420,7 @@
   .calc-steppers{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .calc-step .lbl{display:block;font-size:.74rem;font-weight:700;color:var(--ink-soft);text-align:center;margin-bottom:6px}
   .calc-step-ctl{
-    display:flex;align-items:center;background:var(--paper-raised);border:1.5px solid var(--line);
+    display:flex;align-items:center;background:var(--surface);border:1.5px solid var(--hair-strong);
     border-radius:12px;padding:3px;gap:3px;
   }
   .calc-step-ctl button{
@@ -179,7 +430,7 @@
   .calc-step-ctl button:hover{background:var(--teal-tint)}
   .calc-step-ctl input{
     flex:1;min-width:0;width:100%;text-align:center;border:none;background:#fff;border-radius:9px;
-    padding:7px 2px;font-size:1.1rem;font-weight:800;color:var(--teal-dark);font-family:'Frank Ruhl Libre',serif;
+    padding:7px 2px;font-size:1.1rem;font-weight:900;color:var(--teal-dark);
   }
   .calc-step-ctl input::-webkit-outer-spin-button,
   .calc-step-ctl input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
@@ -188,18 +439,18 @@
   .calc-result{
     display:flex;align-items:center;justify-content:space-between;gap:10px;
     background:linear-gradient(120deg,var(--teal-dark) 0%,var(--teal) 100%);
-    border-radius:var(--radius-md);padding:14px 16px;box-shadow:0 8px 20px rgba(18,40,64,.22);
+    border-radius:16px;padding:14px 16px;box-shadow:0 8px 20px rgba(18,40,64,.22);
   }
   .calc-result .ttl{font-size:.88rem;font-weight:800;color:#fff}
   .calc-result .lbl{font-size:.7rem;color:rgba(255,255,255,.72);margin-top:2px}
   .calc-result .num{
-    font-family:'Frank Ruhl Libre',serif;font-size:1.8rem;font-weight:900;line-height:1;
+    font-size:1.8rem;font-weight:900;line-height:1;
     color:#F0B07A;text-shadow:0 0 18px rgba(194,91,52,.5);white-space:nowrap;
   }
   .ltv-warn{color:var(--brick);font-size:.72rem;font-weight:700;text-align:center;margin:0}
   .ltv-warn:empty{display:none}
   .calc-cta{
-    display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 16px;border-radius:12px;
+    display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 16px;border-radius:14px;
     background:linear-gradient(to right,var(--teal-dark),var(--calc-accent) 55%,var(--calc-accent-warm));
     color:#fff;font-weight:800;font-size:.9rem;box-shadow:0 6px 16px rgba(139,35,50,.26);
     transition:transform .15s ease, box-shadow .15s ease;width:100%;
@@ -211,24 +462,24 @@
   /* ====== בלון ליד ייעוץ משכנתאות ====== */
   .mlead-overlay{display:none;position:fixed;inset:0;background:rgba(15,52,53,.55);z-index:300;align-items:flex-end;justify-content:center}
   .mlead-overlay.open{display:flex}
-  .mlead-panel{background:var(--paper-raised);width:100%;max-width:520px;max-height:88vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;overflow:hidden}
+  .mlead-panel{background:var(--surface);width:100%;max-width:520px;max-height:88vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;overflow:hidden}
   @media(min-width:520px){
     .mlead-overlay{align-items:center}
-    .mlead-panel{border-radius:var(--radius-lg);max-height:84vh}
+    .mlead-panel{border-radius:var(--radius-xl);max-height:84vh}
   }
-  .mlead-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line);flex:0 0 auto}
+  .mlead-head{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--hair);flex:0 0 auto}
   .mlead-head h3{font-family:'Frank Ruhl Libre',serif;font-size:1.05rem;color:var(--teal-dark);margin:0}
   .mlead-close{width:32px;height:32px;border-radius:50%;background:var(--paper);font-size:1rem;color:var(--ink-soft)}
   .mlead-body{padding:16px 18px;overflow-y:auto;flex:1 1 auto}
-  .mlead-foot{padding:14px 18px;border-top:1px solid var(--line);flex:0 0 auto}
+  .mlead-foot{padding:14px 18px;border-top:1px solid var(--hair);flex:0 0 auto}
   .mlead-intro{font-size:.84rem;color:var(--ink-soft);margin:0 0 14px}
-  .mlead-recap{background:var(--teal-tint);border-radius:var(--radius-sm);padding:10px 12px;margin-bottom:14px;font-size:.78rem;color:var(--teal-dark);font-weight:600}
+  .mlead-recap{background:var(--teal-tint);border-radius:12px;padding:10px 12px;margin-bottom:14px;font-size:.78rem;color:var(--teal-dark);font-weight:600}
   .mlead-field{margin-bottom:12px}
   .mlead-field label{font-size:.76rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
-  .mlead-field input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;background:#fff}
-  .mlead-field input:focus{border-color:var(--teal);outline:none}
+  .mlead-field input{width:100%;border:1.5px solid var(--hair-strong);border-radius:12px;padding:11px 12px;background:var(--surface-soft)}
+  .mlead-field input:focus{border-color:var(--teal);background:#fff;outline:none}
   .mlead-field input.invalid{border-color:var(--brick);background:var(--gold-tint)}
-  .mlead-check{display:flex;align-items:center;gap:10px;background:var(--paper);border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:12px;cursor:pointer;font-size:.86rem;font-weight:600}
+  .mlead-check{display:flex;align-items:center;gap:10px;background:var(--surface-soft);border:1.5px solid var(--hair-strong);border-radius:12px;padding:12px;cursor:pointer;font-size:.86rem;font-weight:600}
   .mlead-check input{width:20px;height:20px;flex:none;accent-color:var(--teal);cursor:pointer}
   .mlead-error{font-size:.78rem;color:var(--brick);font-weight:700;margin:8px 0 0;min-height:1.2em}
   .mlead-privacy{font-size:.7rem;color:var(--ink-soft);margin:12px 0 0;text-align:center}
@@ -237,62 +488,66 @@
   .mlead-done h4{font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;color:var(--teal-dark);margin:0 0 6px}
   .mlead-done p{font-size:.85rem;color:var(--ink-soft);margin:0}
 
-  .toast{position:fixed;bottom:20px;right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:var(--radius-sm);font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;z-index:200}
+  .toast{position:fixed;bottom:20px;right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:12px;font-size:.85rem;box-shadow:var(--shadow-lg);display:none;z-index:430}
 
   /* ====== בועת וואטסאפ צפה לסוכן/ת המטפל/ת ======
-     נשארת על המסך לכל אורך הגלילה: הפנייה בוואטסאפ היא הדרך המהירה ביותר
-     ליצור קשר, ולא צריך לחזור בשבילה לטופס שבעמודת הצד. הצבע הוא הירוק של
-     וואטסאפ ולא צבע המותג — האייקון צריך להיות מזוהה מיד. */
+     בדסקטופ בלבד: במובייל הפעולה הזו יושבת בסרגל התחתון הדביק, ושתי בועות
+     ירוקות באותו מסך הן רעש. */
   .wa-bubble{
-    position:fixed;bottom:18px;right:18px;z-index:210;
-    display:flex;align-items:center;padding:9px;padding-inline-end:16px;
-    background:#25D366;color:#fff;border-radius:999px;font-weight:700;font-size:.88rem;
-    box-shadow:0 8px 22px rgba(37,211,102,.42);
+    position:fixed;bottom:18px;inset-inline-end:18px;z-index:210;
+    display:none;align-items:center;padding:9px;padding-inline-end:16px;
+    background:var(--wa);color:#fff;border-radius:999px;font-weight:700;font-size:.88rem;
+    box-shadow:0 8px 22px rgba(34,197,94,.42);
     transition:transform .15s ease, box-shadow .15s ease;
   }
-  /* גובר על ‎[hidden]‎ של הדפדפן, שאחרת מפסיד ל-display:flex שלמעלה */
-  .wa-bubble[hidden]{display:none}
-  .wa-bubble:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(37,211,102,.52)}
+  @media(min-width:760px){
+    /* גובר על ‎[hidden]‎ של הדפדפן, שאחרת מפסיד ל-display:flex */
+    .wa-bubble{display:flex}
+    .wa-bubble[hidden]{display:none}
+  }
+  .wa-bubble:hover{transform:translateY(-2px);box-shadow:0 12px 28px rgba(34,197,94,.52)}
   .wa-bubble:focus-visible{outline:3px solid var(--teal-dark);outline-offset:3px}
   .wa-ico{width:38px;height:38px;flex:none;border-radius:50%;display:grid;place-items:center}
-  .wa-ico svg{width:30px;height:30px;display:block;fill:#fff}
+  .wa-ico svg{width:30px;height:30px;fill:#fff}
   .wa-label{padding-inline-start:9px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(46vw,220px)}
   @keyframes wa-pulse{
-    0%{box-shadow:0 0 0 0 rgba(37,211,102,.55)}
-    70%{box-shadow:0 0 0 15px rgba(37,211,102,0)}
-    100%{box-shadow:0 0 0 0 rgba(37,211,102,0)}
+    0%{box-shadow:0 0 0 0 rgba(34,197,94,.55)}
+    70%{box-shadow:0 0 0 15px rgba(34,197,94,0)}
+    100%{box-shadow:0 0 0 0 rgba(34,197,94,0)}
   }
   .wa-ico{animation:wa-pulse 2.8s ease-out infinite}
-  @media(prefers-reduced-motion:reduce){.wa-ico{animation:none}}
-  /* בטלפון בועה עם שם הסוכן/ת תופסת חצי מרוחב המסך ומסתירה תוכן — האייקון
-     לבדו מזוהה מספיק, והשם ממילא מופיע ברצועת המשרד. */
-  @media(max-width:479px){
-    .wa-bubble{padding-inline-end:9px}
-    .wa-label{display:none}
+  @media(prefers-reduced-motion:reduce){
+    .wa-ico{animation:none}
+    .bento-cell img,.prop-card,.btn-wa,.btn-submit,.calc-cta{transition:none}
   }
-  /* במסך צר ההודעה הצפה רחבה כמעט כמו המסך ויושבת בדיוק על הבועה */
-  @media(max-width:520px){body.has-wa-bubble .toast{bottom:86px}}
+  /* במסך צר ההודעה הצפה יושבת בדיוק על הסרגל הדביק */
+  @media(max-width:759px){body.has-sticky-bar .toast{bottom:88px}}
 
   /* ====== הדמיות AI ======
      כל תמונה כאן היא הדמיה ולא צילום, ולכן תגית ה-"הדמיה" יושבת *על* התמונה
      ולא לידה: מי שישמור או ישתף את התמונה ייקח את התווית איתו. זו לא קישוטיות
      אלא הדרישה שמפרידה בין המחשה שיווקית לבין הצגה מטעה של נכס. */
+  /* הריווח והכותרת עברו ל-#vizSection: מחלקת ‎.section‎ שהבלוק הזה נשען
+     עליה הוחלפה ב-.panel, ובלעדיהן הסקציה נצמדת לרצועת המשרד וכותרתה
+     נשארת בגודל ברירת המחדל של הדפדפן — גדולה מכל כותרת אחרת בדף. */
+  #vizSection{margin-top:26px;padding-bottom:34px}
+  #vizSection h2{font-size:1.05rem}
   .viz-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
   .viz-head .viz-sub{font-size:.82rem;color:var(--ink-soft)}
   .viz-styles{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px}
-  .viz-style{border:1.5px solid var(--line);background:#fff;border-radius:999px;
+  .viz-style{border:1.5px solid var(--hair-strong);background:var(--surface);border-radius:999px;
     padding:8px 16px;font-size:.84rem;font-weight:700;color:var(--ink);cursor:pointer}
   .viz-style.active{border-color:var(--gold);background:var(--gold-tint);color:var(--gold-dark)}
   .viz-style-tag{display:block;font-size:.68rem;font-weight:400;color:var(--ink-soft);margin-top:2px}
   .viz-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:14px}
-  .viz-item{position:relative;border:1px solid var(--line);border-radius:var(--radius-md);
-    overflow:hidden;background:#fff}
+  .viz-item{position:relative;border:1px solid var(--hair);border-radius:16px;
+    overflow:hidden;background:var(--surface);box-shadow:var(--shadow-xs)}
   .viz-item img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
   .viz-item .viz-room{padding:9px 12px;font-size:.82rem;font-weight:700}
   .viz-badge{position:absolute;top:8px;inset-inline-start:8px;background:rgba(27,31,38,.86);
     color:#fff;font-size:.66rem;font-weight:700;padding:4px 9px;border-radius:6px;letter-spacing:.02em}
   .viz-item.pending{display:flex;align-items:center;justify-content:center;
-    aspect-ratio:4/3;color:var(--ink-soft);font-size:.84rem;background:var(--paper)}
+    aspect-ratio:4/3;color:var(--ink-soft);font-size:.84rem;background:var(--surface-soft)}
   .viz-note{margin-top:14px;font-size:.75rem;color:var(--ink-soft);line-height:1.5}
   .viz-cta{margin-top:14px}
   .viz-form{margin-top:14px;display:none;gap:10px;flex-wrap:wrap;align-items:flex-start}
@@ -319,114 +574,166 @@
 </div>
 
 <div id="propertyContent">
-  <div class="hero-media" id="heroMedia"></div>
-  <div class="gallery-strip" id="galleryStrip"></div>
-  <div class="wrap content-grid">
-    <div class="main-col">
-      <div class="price-row">
-        <span class="price" id="propPrice">—</span>
-        <span class="deal-pill" id="propDealPill">—</span>
-      </div>
-      <div class="title" id="propTitle">—</div>
-      <div class="meta-row">
-        <span id="propRooms">—</span>
-        <span id="propType">—</span>
-        <span id="propCity">—</span>
-        <span id="propPricePerSqm"></span>
-      </div>
-
-      <div class="section" id="specSection" style="display:none">
-        <h2>פרטי הנכס</h2>
-        <div class="spec-grid" id="specGrid"></div>
-        <div class="feature-chips" id="featureChips"></div>
-      </div>
-
-      <div class="section" id="descSection" style="display:none">
-        <h2>תיאור</h2>
-        <p class="prop-desc" id="propDescription"></p>
-      </div>
-
-      <div class="card agency-strip" id="agencyStrip" style="cursor:pointer">
-        <div class="agency-avatar" id="agencyAvatar">·</div>
-        <div>
-          <div class="agency-name" id="agencyName">—</div>
-          <div class="agency-sub" id="agentName">—</div>
-        </div>
-      </div>
-
-      <div id="propMap"></div>
-    </div>
-
-    <div class="sidebar">
-      <div class="card inquiry-card">
-        <h2>מעוניינים בנכס?</h2>
-        <p class="sub">השאירו פרטים והמתווך יחזור אליכם בהקדם</p>
-        <form id="inquiryForm">
-          <div class="field"><input type="text" id="inqName" placeholder="שם מלא" required></div>
-          <div class="field"><input type="tel" id="inqPhone" placeholder="טלפון" required></div>
-          <div class="field"><textarea id="inqMessage" placeholder="הודעה (לא חובה)"></textarea></div>
-          <button type="submit" class="btn btn-gold btn-block" id="inquirySubmit">שליחת פנייה</button>
-        </form>
-        <div id="inquiryFeedback"></div>
-      </div>
-
-      <div class="card calc-card">
-        <div>
-          <h2>כמה משכנתא צריך לנכס הזה?</h2>
-          <p class="calc-sub">מזיזים את ההון העצמי ורואים מיד את ההחזר החודשי</p>
-        </div>
-
-        <div class="calc-price">
-          <span class="lbl">מחיר הנכס</span>
-          <span class="val" id="calcPriceLabel">—</span>
-        </div>
-
-        <div>
-          <div class="calc-slider-head">
-            <label class="lbl" for="calcEquity">הון עצמי</label>
-            <span class="val"><span id="calcEquityOut">300,000</span> ₪</span>
-          </div>
-          <input type="range" class="calc-range" id="calcEquity" min="0" max="3000000" step="10000" value="300000" aria-label="הון עצמי בשקלים">
-          <div class="calc-ltv">
-            <span><span id="calcLtvPct">—</span> מימון</span>
-            <span class="arrow" aria-hidden="true">←</span>
-            <span class="calc-ltv-track"><span class="calc-ltv-fill" id="calcLtvFill"></span></span>
-          </div>
-        </div>
-
-        <div class="calc-steppers">
-          <div class="calc-step">
-            <label class="lbl" for="calcRate">ריבית (%)</label>
-            <!-- ‎+‎ ראשון ב-DOM כדי שב-RTL הוא ייפול לימין השדה ו-‎−‎ לשמאלו -->
-            <div class="calc-step-ctl">
-              <button type="button" data-step="calcRate" data-dir="1" aria-label="הגדלת ריבית">+</button>
-              <input type="number" id="calcRate" value="4.8" step="0.1" min="0.1" max="15" inputmode="decimal">
-              <button type="button" data-step="calcRate" data-dir="-1" aria-label="הפחתת ריבית">−</button>
-            </div>
-          </div>
-          <div class="calc-step">
-            <label class="lbl" for="calcYears">תקופה</label>
-            <div class="calc-step-ctl">
-              <button type="button" data-step="calcYears" data-dir="1" aria-label="הארכת התקופה">+</button>
-              <input type="number" id="calcYears" value="25" step="1" min="1" max="30" inputmode="numeric">
-              <button type="button" data-step="calcYears" data-dir="-1" aria-label="קיצור התקופה">−</button>
-            </div>
-          </div>
-        </div>
-
-        <div class="calc-result">
-          <div>
-            <div class="ttl">החזר חודשי</div>
-            <div class="lbl">משוער</div>
-          </div>
-          <div class="num" id="calcMonthly">—</div>
-        </div>
-        <p class="ltv-warn" id="ltvWarn"></p>
-        <button type="button" class="calc-cta" id="mleadOpenBtn">
-          <svg viewBox="0 0 24 24" fill="#25D366" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>
-          בדיקת זכאות וייעוץ אישי
+  <div class="wrap">
+    <!-- ====== גלריית Bento + אלמנטים מרחפים ====== -->
+    <!-- התגיות המרחפות נבנות כאן ועוברות ב-JS לתוך תא התמונה הראשית, כדי
+         שיישבו עליה גם כשהתמונות המשניות נערמות מתחתיה במובייל -->
+    <section class="hero">
+      <div class="bento" id="bentoGrid"></div>
+      <div class="hero-badges" id="heroBadges"></div>
+      <div class="hero-tools" id="heroTools">
+        <button type="button" class="hero-tool" id="shareBtn" aria-label="שיתוף הנכס" title="שיתוף">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>
         </button>
-        <p class="calc-fine">* הערכה בלבד ואינה מהווה הצעת מימון מחייבת.</p>
+      </div>
+      <div class="hero-price" id="heroPrice" hidden>
+        <div class="num" id="heroPriceNum"></div>
+        <div class="sub" id="heroPriceSub"></div>
+      </div>
+      <div class="hero-actions" id="heroActions">
+        <a class="media-btn accent" id="tourBtn" href="#" target="_blank" rel="noopener noreferrer" hidden></a>
+        <a class="media-btn accent" id="videoBtn" href="#" target="_blank" rel="noopener noreferrer" hidden></a>
+        <button type="button" class="media-btn" id="photoCountBtn" hidden></button>
+      </div>
+    </section>
+
+    <div class="content-grid">
+      <div class="main-col">
+        <div class="eyebrow" id="propTags"></div>
+        <h1 class="prop-title" id="propTitle">—</h1>
+        <div class="prop-address" id="propAddress"></div>
+
+        <div class="spec-pills" id="specPills"></div>
+
+        <section class="panel" id="highlightsSection" hidden>
+          <h2>מה יש בנכס</h2>
+          <div class="highlights" id="highlightsList"></div>
+        </section>
+
+        <section class="panel" id="descSection" hidden>
+          <h2>תיאור הנכס</h2>
+          <p class="prop-desc" id="propDescription"></p>
+        </section>
+
+        <section class="panel" id="specSection" hidden>
+          <h2>פרטי הנכס</h2>
+          <div class="detail-grid" id="specGrid"></div>
+        </section>
+
+        <section class="panel" id="mapSection">
+          <div class="panel-head">
+            <h2>מיקום וסביבה</h2>
+            <a class="panel-link" id="mapDirections" href="#" target="_blank" rel="noopener noreferrer" hidden>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 22 2l-9 19-2-8-8-2Z"/></svg>
+              ניווט למקום
+            </a>
+          </div>
+          <div id="propMap"></div>
+          <p class="map-note" id="mapNote"></p>
+        </section>
+
+        <div class="panel agency-strip" id="agencyStrip">
+          <div class="agency-avatar" id="agencyAvatar">·</div>
+          <div>
+            <div class="agency-name" id="agencyName">—</div>
+            <div class="agency-sub" id="agentName">—</div>
+          </div>
+          <span class="chev" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
+          </span>
+        </div>
+      </div>
+
+      <div class="sidebar">
+        <!-- ====== כרטיס ההמרה ====== -->
+        <div class="agent-card">
+          <div class="agent-top">
+            <div class="agent-photo" id="agentPhoto">·</div>
+            <div style="min-width:0">
+              <div class="agent-name" id="agentCardName">צוות שוק נדל״ן</div>
+              <div class="agent-cred" id="agentCred" hidden>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                <span id="agentCredText">מתווך/ת מורשה/ית</span>
+              </div>
+              <div class="agent-agency" id="agentCardAgency"></div>
+            </div>
+          </div>
+          <div class="agent-body">
+            <div class="agent-price">
+              <span class="k" id="agentPriceLabel">מחיר</span>
+              <span class="v" id="agentPriceValue">—</span>
+            </div>
+            <h2>תיאום ביקור בנכס</h2>
+            <p class="sub">משאירים פרטים והסוכן/ת חוזר/ת אליכם בהקדם</p>
+            <form id="inquiryForm">
+              <div class="field"><input type="text" id="inqName" placeholder="שם מלא" required autocomplete="name"></div>
+              <div class="field"><input type="tel" id="inqPhone" placeholder="טלפון" required autocomplete="tel" inputmode="tel"></div>
+              <div class="field"><textarea id="inqMessage" placeholder="הודעה (לא חובה)"></textarea></div>
+              <button type="submit" class="btn-submit" id="inquirySubmit">שליחת פנייה</button>
+            </form>
+            <div id="inquiryFeedback"></div>
+            <div class="agent-actions" id="agentActions"></div>
+          </div>
+        </div>
+
+        <div class="calc-card">
+          <div>
+            <h2>כמה משכנתא צריך לנכס הזה?</h2>
+            <p class="calc-sub">מזיזים את ההון העצמי ורואים מיד את ההחזר החודשי</p>
+          </div>
+
+          <div class="calc-price">
+            <span class="lbl">מחיר הנכס</span>
+            <span class="val" id="calcPriceLabel">—</span>
+          </div>
+
+          <div>
+            <div class="calc-slider-head">
+              <label class="lbl" for="calcEquity">הון עצמי</label>
+              <span class="val"><span id="calcEquityOut">300,000</span> ₪</span>
+            </div>
+            <input type="range" class="calc-range" id="calcEquity" min="0" max="3000000" step="10000" value="300000" aria-label="הון עצמי בשקלים">
+            <div class="calc-ltv">
+              <span><span id="calcLtvPct">—</span> מימון</span>
+              <span class="arrow" aria-hidden="true">←</span>
+              <span class="calc-ltv-track"><span class="calc-ltv-fill" id="calcLtvFill"></span></span>
+            </div>
+          </div>
+
+          <div class="calc-steppers">
+            <div class="calc-step">
+              <label class="lbl" for="calcRate">ריבית (%)</label>
+              <!-- ‎+‎ ראשון ב-DOM כדי שב-RTL הוא ייפול לימין השדה ו-‎−‎ לשמאלו -->
+              <div class="calc-step-ctl">
+                <button type="button" data-step="calcRate" data-dir="1" aria-label="הגדלת ריבית">+</button>
+                <input type="number" id="calcRate" value="4.8" step="0.1" min="0.1" max="15" inputmode="decimal">
+                <button type="button" data-step="calcRate" data-dir="-1" aria-label="הפחתת ריבית">−</button>
+              </div>
+            </div>
+            <div class="calc-step">
+              <label class="lbl" for="calcYears">תקופה</label>
+              <div class="calc-step-ctl">
+                <button type="button" data-step="calcYears" data-dir="1" aria-label="הארכת התקופה">+</button>
+                <input type="number" id="calcYears" value="25" step="1" min="1" max="30" inputmode="numeric">
+                <button type="button" data-step="calcYears" data-dir="-1" aria-label="קיצור התקופה">−</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="calc-result">
+            <div>
+              <div class="ttl">החזר חודשי</div>
+              <div class="lbl">משוער</div>
+            </div>
+            <div class="num" id="calcMonthly">—</div>
+          </div>
+          <p class="ltv-warn" id="ltvWarn"></p>
+          <button type="button" class="calc-cta" id="mleadOpenBtn">
+            <svg viewBox="0 0 24 24" fill="#25D366" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>
+            בדיקת זכאות וייעוץ אישי
+          </button>
+          <p class="calc-fine">* הערכה בלבד ואינה מהווה הצעת מימון מחייבת.</p>
+        </div>
       </div>
     </div>
   </div>
@@ -434,7 +741,7 @@
   <!-- ====== הדמיות AI ======
        מוצגת רק בנכסי Premium שיש להם הדמיות בסיס, ולכן היא hidden כברירת
        מחדל ונפתחת רק אחרי ש-loadVisualizations מצא משהו להראות. -->
-  <section class="wrap section" id="vizSection" hidden>
+  <section class="wrap" id="vizSection" hidden>
     <div class="viz-head">
       <h2>איך זה יכול להיראות</h2>
       <span class="viz-sub">הדמיות AI על בסיס התמונות האמיתיות של הנכס</span>
@@ -463,10 +770,30 @@
        אותה שיטת מידוד כמו קרוסלות דף הבית: שלושה כרטיסים בתצוגה בכל רגע,
        עם הצצה לרביעי. מוסתרת לגמרי כשאין מספיק נכסים דומים, כמו הקרוסלות
        המקבילות בדף הבית (משרדי תיווך מובילים וכו'). -->
-  <section class="wrap section" id="similarSection" hidden>
+  <section class="wrap" id="similarSection" hidden>
     <h2>נכסים דומים שעשויים לעניין אתכם</h2>
     <div class="featured-scroll" id="similarScroll"></div>
   </section>
+</div>
+
+<!-- ====== לייטבוקס גלריה ====== -->
+<div class="lb" id="lightbox" role="dialog" aria-modal="true" aria-label="גלריית תמונות הנכס">
+  <div class="lb-bar">
+    <span class="lb-count" id="lbCount"></span>
+    <button type="button" class="lb-close" id="lbClose" aria-label="סגירת הגלריה">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="lb-stage">
+    <img id="lbImage" src="" alt="">
+    <button type="button" class="lb-nav lb-prev" id="lbPrev" aria-label="התמונה הקודמת">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    </button>
+    <button type="button" class="lb-nav lb-next" id="lbNext" aria-label="התמונה הבאה">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 6-6 6 6 6"/></svg>
+    </button>
+  </div>
+  <div class="lb-strip" id="lbStrip"></div>
 </div>
 
 <!-- ====== בלון איסוף ליד ייעוץ משכנתאות ====== -->
@@ -515,7 +842,7 @@
   </div>
 </div>
 
-<!-- ====== בועת וואטסאפ לסוכן/ת המטפל/ת ======
+<!-- ====== בועת וואטסאפ לסוכן/ת המטפל/ת (דסקטופ) ======
      מוסתרת עד שהנכס נטען ומתברר שלסוכן/ת יש מספר טלפון. -->
 <a class="wa-bubble" id="waBubble" href="#" target="_blank" rel="noopener noreferrer" hidden>
   <span class="wa-ico" aria-hidden="true">
@@ -523,6 +850,25 @@
   </span>
   <span class="wa-label" id="waBubbleLabel">וואטסאפ לסוכן</span>
 </a>
+
+<!-- ====== סרגל תחתון דביק (מובייל) ====== -->
+<div class="sticky-bar" id="stickyBar">
+  <div class="sb-price">
+    <div class="k" id="sbPriceLabel">מחיר</div>
+    <div class="v" id="sbPriceValue">—</div>
+  </div>
+  <a class="btn-wa" id="sbWaBtn" href="#" target="_blank" rel="noopener noreferrer" hidden>
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>
+    וואטסאפ מהיר
+  </a>
+  <button type="button" class="btn-wa" id="sbFormBtn" hidden style="background:linear-gradient(120deg,var(--gold-dark),var(--gold))">
+    תיאום ביקור
+  </button>
+  <a class="btn-call" id="sbCallBtn" href="#" hidden aria-label="חיוג לסוכן">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8.1 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2Z"/></svg>
+    <span>חייגו</span>
+  </a>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -532,6 +878,47 @@ const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const INQUIRY_FUNCTION_URL = SUPABASE_URL + '/functions/v1/property-inquiry-intake';
 const CARD_GRADIENTS = ['linear-gradient(155deg,#8B2332,#1C3A5E)','linear-gradient(155deg,#1C3A5E,#8B2332)','linear-gradient(155deg,#6B1A26,#1C3A5E)'];
 const LTV_THRESHOLDS = { single:0.75 }; // מודול 2 §5.5
+
+/* ---------- ספריית אייקונים ----------
+   אייקוני קו במשקל אחיד (stroke 1.9, 24×24) בסגנון Lucide, מוטמעים כדי לא
+   להוסיף עוד בקשת רשת לדף שכבר טוען Supabase, Leaflet ופונטים.            */
+const S = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
+const ICON = {
+  ruler:   S('<path d="M21.3 8.7 8.7 21.3a1 1 0 0 1-1.4 0l-4.6-4.6a1 1 0 0 1 0-1.4L15.3 2.7a1 1 0 0 1 1.4 0l4.6 4.6a1 1 0 0 1 0 1.4Z"/><path d="m7.5 10.5 2 2M10.5 7.5l2 2M13.5 4.5l2 2M4.5 13.5l2 2"/>'),
+  bed:     S('<path d="M2 20v-8h20v8M2 12V6M22 12v-2a2 2 0 0 0-2-2h-6v4M2 20h20"/><circle cx="7" cy="10" r="2"/>'),
+  stairs:  S('<path d="M3 20h4v-4h4v-4h4V8h4V4"/><path d="M3 20V4"/>'),
+  shekel:  S('<path d="M6 5v9a4 4 0 0 0 4 4h1"/><path d="M18 19v-9a4 4 0 0 0-4-4h-1"/><path d="M6 5h12"/>'),
+  pin:     S('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>'),
+  building:S('<path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M16 9h2a2 2 0 0 1 2 2v10M2 21h20"/><path d="M8 7h2M8 11h2M8 15h2"/>'),
+  area:    S('<path d="M3 3h18v18H3z"/><path d="M9 3v18M3 9h18"/>'),
+  check:   S('<path d="M20 6 9 17l-5-5"/>'),
+  car:     S('<path d="M5 17h14M6.5 17v2M17.5 17v2"/><path d="M4 17v-4l2-5a2 2 0 0 1 1.9-1.4h8.2A2 2 0 0 1 18 8l2 5v4"/><path d="M6.5 13.5h.01M17.5 13.5h.01"/>'),
+  elevator:S('<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 3v18M8 9l1.5-2L11 9M13 15l1.5 2 1.5-2"/>'),
+  sun:     S('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
+  balcony: S('<path d="M4 21V10h16v11M2 21h20M8 10v11M12 10v11M16 10v11"/><path d="M12 3v4M8 6l4-3 4 3"/>'),
+  snow:    S('<path d="M12 2v20M4.2 7l15.6 10M19.8 7 4.2 17"/><path d="m9 4 3 2 3-2M9 20l3-2 3 2"/>'),
+  shield:  S('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>'),
+  truck:   S('<path d="M2 17V6h11v11M13 9h4l4 4v4h-2"/><circle cx="7" cy="18" r="2"/><circle cx="17" cy="18" r="2"/>'),
+  sofa:    S('<path d="M4 12V8a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v4"/><path d="M2 14a2 2 0 0 1 4 0v3h12v-3a2 2 0 0 1 4 0v5H2Z"/>'),
+  sparkle: S('<path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z"/><path d="M18 16.5 18.7 18l1.5.7-1.5.7L18 21l-.7-1.6-1.5-.7 1.5-.7Z"/>'),
+  box:     S('<path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="M3 8l9 5 9-5M12 13v8"/>'),
+  camera:  S('<path d="M3 8h3l2-3h8l2 3h3v11H3Z"/><circle cx="12" cy="13" r="3.5"/>'),
+  bell:    S('<path d="M18 8a6 6 0 1 0-12 0c0 6-3 7-3 7h18s-3-1-3-7"/><path d="M10.5 20a2 2 0 0 0 3 0"/>'),
+  users:   S('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/>'),
+  wifi:    S('<path d="M2 8.8a16 16 0 0 1 20 0M5 12.5a11 11 0 0 1 14 0M8.5 16.2a6 6 0 0 1 7 0"/><path d="M12 20h.01"/>'),
+  thermo:  S('<path d="M14 14.8V4a2 2 0 1 0-4 0v10.8a4 4 0 1 0 4 0Z"/>'),
+  access:  S('<circle cx="12" cy="4.5" r="1.8"/><path d="M6 8.5h12M12 8.5V15M12 15l-3 5M12 15l3 5"/>'),
+  arrowUp: S('<path d="M12 20V4M6 10l6-6 6 6"/>'),
+  utensils:S('<path d="M7 3v8a2 2 0 0 0 4 0V3M9 11v10"/><path d="M17 3c-1.5 1.5-2 3-2 5s.7 3 2 3v10"/>'),
+  star:    S('<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9Z"/>'),
+  cube:    S('<path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="M3 8l9 5 9-5M12 13v8"/><path d="M7.5 5.5 16.5 10.7"/>'),
+  play:    S('<circle cx="12" cy="12" r="9.5"/><path d="M10 8.5v7l6-3.5Z"/>'),
+  key:     S('<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.8 12.2 8-8M17 6l2 2M14.5 8.5l2 2"/>'),
+  window:  S('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18M3 12h18"/>'),
+  image:   S('<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="9" r="1.8"/><path d="m21 15-5-5L5 21"/>'),
+  trend:   S('<path d="M22 7 13.5 15.5l-4-4L2 19"/><path d="M16 7h6v6"/>'),
+  call:    S('<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8.1 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2Z"/>'),
+};
 
 /* תוויות המאפיינים — עותק של הרשימות ב-crm.html וב-index.html. שלושת הקבצים
    סטטיים ובלי מודול משותף, ולכן הסנכרון ידני (כמו שכבר מתועד שם).          */
@@ -543,9 +930,26 @@ const FEATURE_LABELS = {
   kitchenette:'מטבחון', alarm:'אזעקה', meeting_room:'חדר ישיבות', loading_ramp:'רמפת העמסה',
   comms:'תקשורת', cold_room:'חדר קירור',
 };
+/* אייקון לכל מאפיין — מה שאין לו אייקון ייעודי מקבל וי, כדי שרשימת היתרונות
+   תישאר קו אחד ולא תערבב אייקונים לחלק מהשורות ונקודות לשאר. */
+const FEATURE_ICONS = {
+  parking:'car', elevator:'elevator', balcony:'balcony', sun_balcony:'sun', ac:'snow', bars:'window',
+  accessible:'access', renovated_feature:'sparkle', furnished:'sofa', mamad:'shield', mamak:'shield',
+  building_shelter:'shield', storage:'box', high_ceiling:'arrowUp', cameras:'camera', kitchenette:'utensils',
+  alarm:'bell', meeting_room:'users', loading_ramp:'truck', comms:'wifi', cold_room:'thermo',
+  tour_3d:'cube', exclusive:'star', price_dropped:'trend', moshav_kibbutz_only:'pin',
+};
 const CONDITION_LABELS = {
   new_from_contractor:'חדש מקבלן', new:'חדש', renovated:'משופץ',
   maintained:'שמור', needs_renovation:'דרוש שיפוץ',
+};
+/* מצב הנכס מוצג גם כיתרון מאויר — "חדש מקבלן" הוא טיעון מכירה, לא שורה
+   בטבלה. רק המצבים החיוביים; "דרוש שיפוץ" נשאר בטבלת הפרטים בלבד. */
+const CONDITION_HIGHLIGHTS = {
+  new_from_contractor:{ icon:'key',     label:'חדש מקבלן' },
+  new:                {  icon:'sparkle', label:'נכס חדש' },
+  renovated:          {  icon:'sparkle', label:'משופץ' },
+  maintained:         {  icon:'check',   label:'במצב שמור' },
 };
 
 function showToast(msg){
@@ -558,6 +962,16 @@ function showToast(msg){
 function priceLabel(p){
   return p.deal_type === 'rent' ? ('₪' + Number(p.price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(p.price).toLocaleString('he-IL'));
 }
+/* המחיר בתצוגה הגדולה: מספר גדול + סיומת קטנה, כדי שהעין תתפוס קודם את
+   הסכום ורק אחריו את "לחודש". */
+function priceParts(p){
+  const num = Number(p.price).toLocaleString('he-IL') + ' ₪';
+  return { num, suffix: p.deal_type === 'rent' ? ' / חודש' : '' };
+}
+function priceFlat(p){
+  const parts = priceParts(p);
+  return parts.num + parts.suffix;
+}
 
 /* התמונה הראשית של נכס היא images[0]; נכס בלי תמונות נופל חזרה לגרדיאנט
    הצבעוני, כדי שהכרטיס לא ייראה שבור — בדיוק כמו ב-index.html. */
@@ -567,7 +981,7 @@ function thumbStyle(p, i){
     ? `background-image:url('${img}');background-size:cover;background-position:center`
     : `background:${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}`;
 }
-// הקידום נמכר לחלון של 72 שעות (כמו renderProperty למעלה) — אותה בדיקה
+// הקידום נמכר לחלון של 72 שעות (כמו renderProperty למטה) — אותה בדיקה
 // כאן כדי שסרט "מקודם" לא יישאר על כרטיס בקרוסלה אחרי שהחלון נגמר.
 const isPromoted = p => !!p.is_promoted && (!p.promoted_until || new Date(p.promoted_until) > new Date());
 
@@ -612,8 +1026,11 @@ async function loadProperty(){
 
     // agent_id -> agency_members_public בשאילתה נפרדת, מאותה סיבה שכבר תועדה
     // ב-index.html: embed חוצה-שם (properties -> agency_members_public) לא מובטח.
+    // ‏photo_url ו-license_number מזינים את כרטיס ההמרה: פנים ורישיון הופכים
+    // טופס אנונימי לפנייה לאדם ספציפי.
     if (data.agent_id){
-      const { data: agentRow } = await sb.from('agency_members_public').select('display_name, slug, phone_e164').eq('id', data.agent_id).maybeSingle();
+      const { data: agentRow } = await sb.from('agency_members_public')
+        .select('display_name, slug, phone_e164, photo_url, license_number').eq('id', data.agent_id).maybeSingle();
       data.agency_members = agentRow || null;
     }
 
@@ -633,48 +1050,142 @@ async function loadProperty(){
   }
 }
 
-/* גלריית תמונות (2.1): התמונה הראשית היא images[0], והרצועה מתחתיה מחליפה
-   אותה. נכס בלי תמונות נשאר עם הגרדיאנט שהיה כאן קודם.                    */
-function renderGallery(p){
-  const hero = document.getElementById('heroMedia');
-  const strip = document.getElementById('galleryStrip');
-  strip.innerHTML = '';
-  const images = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
+/* ---------- גלריית Bento + לייטבוקס ----------
+   מוצגות עד שלוש תמונות: ראשית ושתי משנה. יש יותר — התמונה השלישית מקבלת
+   שכבת "+N" ופותחת את הלייטבוקס בתמונה הרביעית. רוב המודעות במערכת הן בעלות
+   תמונה אחת או שתיים, ולכן ה-data-count קובע את פריסת הרשת: תמונה בודדת
+   פורשת לרוחב מלא במקום להשאיר עמודה ריקה.                                 */
+let galleryImages = [];
 
-  if (!images.length){
-    hero.style.background = CARD_GRADIENTS[0];
-    return;
+function renderGallery(p){
+  const grid = document.getElementById('bentoGrid');
+  grid.innerHTML = '';
+  galleryImages = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
+
+  const main = document.createElement('div');
+  main.className = 'bento-cell bento-main';
+  const shown = Math.min(galleryImages.length, 3);
+  // נכס בלי תמונות מקבל תא ראשי ברוחב מלא (data-count=1) עם גרדיאנט המותג,
+  // כדי שהתגיות המרחפות יישארו במקומן ולא ייפלו על רשת ריקה
+  grid.setAttribute('data-count', String(Math.max(shown, 1)));
+
+  if (!galleryImages.length){
+    main.classList.add('bento-empty');
+    main.innerHTML = `<div style="text-align:center">${ICON.image}<div>אין תמונות למודעה זו</div></div>`;
+  } else {
+    const open = document.createElement('button');
+    open.type = 'button';
+    open.className = 'cell-open';
+    open.setAttribute('aria-label', `תמונה 1 מתוך ${galleryImages.length} — פתיחה בגלריה`);
+    open.innerHTML = `<img src="${escapeAttr(galleryImages[0])}" alt="">`;
+    open.addEventListener('click', ()=> lbOpen(0));
+    main.appendChild(open);
+  }
+  grid.appendChild(main);
+
+  // התגיות המרחפות עוברות לתוך התא הראשי — כך הן תמיד על התמונה הגדולה
+  ['heroBadges','heroTools','heroPrice','heroActions'].forEach(id=>{
+    const el = document.getElementById(id);
+    if (el) main.appendChild(el);
+  });
+
+  for (let i = 1; i < shown; i++){
+    const cell = document.createElement('button');
+    cell.type = 'button';
+    cell.className = 'bento-cell bento-thumb';
+    cell.setAttribute('aria-label', `תמונה ${i+1} מתוך ${galleryImages.length} — פתיחה בגלריה`);
+    cell.innerHTML = `<img src="${escapeAttr(galleryImages[i])}" alt="" loading="lazy">`;
+    // התמונה האחרונה שמוצגת נושאת את שאר התמונות: לחיצה עליה פותחת את
+    // הלייטבוקס בתמונה הראשונה שלא נראית ברשת.
+    const rest = galleryImages.length - shown;
+    const opensAt = (i === shown - 1 && rest > 0) ? shown : i;
+    if (i === shown - 1 && rest > 0){
+      const overlay = document.createElement('span');
+      overlay.className = 'more-overlay';
+      overlay.textContent = '+' + rest;
+      cell.appendChild(overlay);
+    }
+    cell.addEventListener('click', ()=> lbOpen(opensAt));
+    grid.appendChild(cell);
   }
 
-  const show = (url)=>{
-    hero.style.backgroundImage = `url('${url}')`;
-    hero.style.backgroundSize = 'cover';
-    hero.style.backgroundPosition = 'center';
-  };
-  show(images[0]);
-
-  if (images.length > 1){
-    const count = document.createElement('span');
-    count.className = 'img-count';
-    count.textContent = `1 / ${images.length}`;
-    hero.appendChild(count);
-
-    images.forEach((url, i)=>{
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = i === 0 ? 'active' : '';
-      btn.setAttribute('aria-label', `תמונה ${i+1} מתוך ${images.length}`);
-      btn.innerHTML = `<img src="${url}" alt="" loading="lazy">`;
-      btn.addEventListener('click', ()=>{
-        show(url);
-        count.textContent = `${i+1} / ${images.length}`;
-        strip.querySelectorAll('button').forEach(b=>b.classList.remove('active'));
-        btn.classList.add('active');
-      });
-      strip.appendChild(btn);
-    });
+  if (galleryImages.length > 1){
+    const btn = document.getElementById('photoCountBtn');
+    btn.innerHTML = `${ICON.image}<span>כל התמונות (${galleryImages.length})</span>`;
+    btn.addEventListener('click', ()=> lbOpen(0));
+    btn.hidden = false;
   }
 }
+
+/* ---------- סיור וירטואלי וסרטון ----------
+   ‏tour_3d_url ו-video_url הן כתובות חיצוניות (Matterport, יוטיוב וכו׳),
+   ולכן הן נפתחות בלשונית חדשה ולא מוטמעות: כל ספק דורש נגן משלו, וה-check
+   במסד כבר מבטיח ש-‎href‎ הוא ‎http(s)‎ ולא ‎javascript:‎. אין כתובת = אין
+   כפתור — כפתור נגן שלא מנגן כלום גרוע מהיעדרו.                           */
+function renderMediaButtons(p){
+  const link = (id, url, icon, label)=>{
+    if (!url) return;
+    const el = document.getElementById(id);
+    el.href = url;
+    el.innerHTML = `${icon}<span>${label}</span>`;
+    el.hidden = false;
+  };
+  link('tourBtn', p.tour_3d_url, ICON.cube, 'סיור וירטואלי');
+  link('videoBtn', p.video_url, ICON.play, 'סרטון הנכס');
+}
+
+const lb = document.getElementById('lightbox');
+let lbIndex = 0;
+
+function lbRender(){
+  document.getElementById('lbImage').src = galleryImages[lbIndex] || '';
+  document.getElementById('lbCount').textContent = `${lbIndex+1} / ${galleryImages.length}`;
+  const strip = document.getElementById('lbStrip');
+  strip.querySelectorAll('button').forEach((b, i)=> b.classList.toggle('active', i === lbIndex));
+  const active = strip.children[lbIndex];
+  if (active) active.scrollIntoView({ block:'nearest', inline:'center', behavior:'smooth' });
+}
+function lbOpen(index){
+  if (!galleryImages.length) return;
+  lbIndex = Math.min(Math.max(index, 0), galleryImages.length - 1);
+  const strip = document.getElementById('lbStrip');
+  if (strip.children.length !== galleryImages.length){
+    strip.innerHTML = '';
+    galleryImages.forEach((url, i)=>{
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('aria-label', `מעבר לתמונה ${i+1}`);
+      b.innerHTML = `<img src="${escapeAttr(url)}" alt="" loading="lazy">`;
+      b.addEventListener('click', ()=>{ lbIndex = i; lbRender(); });
+      strip.appendChild(b);
+    });
+  }
+  const single = galleryImages.length < 2;
+  document.getElementById('lbPrev').hidden = single;
+  document.getElementById('lbNext').hidden = single;
+  strip.hidden = single;
+  lb.classList.add('open');
+  document.body.style.overflow = 'hidden';
+  lbRender();
+  document.getElementById('lbClose').focus();
+}
+function lbClose(){ lb.classList.remove('open'); document.body.style.overflow = ''; }
+function lbStep(delta){
+  if (!galleryImages.length) return;
+  lbIndex = (lbIndex + delta + galleryImages.length) % galleryImages.length;
+  lbRender();
+}
+document.getElementById('lbClose').addEventListener('click', lbClose);
+document.getElementById('lbPrev').addEventListener('click', ()=> lbStep(-1));
+document.getElementById('lbNext').addEventListener('click', ()=> lbStep(1));
+lb.addEventListener('click', (e)=>{ if (e.target === lb || e.target.classList.contains('lb-stage')) lbClose(); });
+document.addEventListener('keydown', (e)=>{
+  if (!lb.classList.contains('open')) return;
+  if (e.key === 'Escape') lbClose();
+  // ב-RTL החץ הימני הוא "הקודם" מבחינת סדר הקריאה
+  if (e.key === 'ArrowRight') lbStep(-1);
+  if (e.key === 'ArrowLeft') lbStep(1);
+});
 
 /* ---------- הדמיות AI ----------
    הסקציה עובדת בשני מצבים לפי category:
@@ -963,8 +1474,8 @@ function renderSimilarProperties(list){
       <div class="thumb" style="${thumbStyle(sp, i)}">${isPromoted(sp) ? '<span class="ribbon">מקודם</span>' : ''}</div>
       <div class="body">
         <div class="price">${priceLabel(sp)}</div>
-        <div class="title">${sp.title}</div>
-        <div class="meta"><span>${sp.rooms ? sp.rooms + ' חדרים' : sp.property_type}</span><span>${sp.city || ''}</span></div>
+        <div class="title">${escapeHtml(sp.title || '')}</div>
+        <div class="meta"><span>${escapeHtml(String(sp.rooms ? sp.rooms + ' חדרים' : (sp.property_type || '')))}</span><span>${escapeHtml(sp.city || '')}</span></div>
       </div>`;
     card.addEventListener('click', ()=> window.location.href = 'property.html?id=' + sp.id);
     scroll.appendChild(card);
@@ -972,13 +1483,66 @@ function renderSimilarProperties(list){
   section.hidden = false;
 }
 
-/* "פרטי הנכס": רק שדות שבאמת מולאו. שדה ריק לא מקבל כרטיס, ואם אין אף שדה
-   הבלוק כולו לא מוצג — מודעה דלילה לא צריכה להיראות כמו טבלה של מקפים.   */
+/* ---------- סרגל הנתונים המהיר ----------
+   ארבע קפסולות לכל היותר, לפי סדר החשיבות שגולש/ת בודק/ת קודם: שטח, חדרים,
+   קומה, מחיר למ״ר, מיקום. שדה שלא מולא פשוט לא תופס מקום — מודעה דלילה
+   מציגה שתי קפסולות, לא ארבע עם מקפים.                                     */
+function floorText(p){
+  if (p.floor === null || p.floor === undefined) return '';
+  const base = p.floor === 0 ? 'קומת קרקע' : 'קומה ' + p.floor;
+  return p.total_floors ? base + ' מ־' + p.total_floors : base;
+}
+
+function renderSpecPills(p){
+  const isRent = p.deal_type === 'rent';
+  const candidates = [
+    p.size_sqm      ? { icon:'ruler',  v:Number(p.size_sqm).toLocaleString('he-IL') + ' מ״ר', k:'שטח הנכס' } : null,
+    p.rooms         ? { icon:'bed',    v:Number(p.rooms).toLocaleString('he-IL') + ' חדרים',  k:'חדרים' } : null,
+    floorText(p)    ? { icon:'stairs', v:floorText(p), k: p.floor === 0 ? 'גישה ישירה' : 'קומה' } : null,
+    p.price_per_sqm ? { icon:'shekel', v:Number(p.price_per_sqm).toLocaleString('he-IL') + ' ₪',
+                        k:isRent ? 'למ״ר לחודש' : 'מחיר למ״ר', accent:true } : null,
+    // סוג הנכס כבר מופיע כתגית מתחת לגלריה, ולכן הוא נכנס לקפסולות רק
+    // כשאין ארבעה נתונים אחרים למלא בהם את השורה
+    p.city          ? { icon:'pin',    v:p.city, k:'מיקום', accent:true } : null,
+    p.property_type ? { icon:'building', v:p.property_type, k:'סוג הנכס' } : null,
+  ].filter(Boolean).slice(0, 4);
+
+  document.getElementById('specPills').innerHTML = candidates.map(c => `
+    <div class="spec-pill${c.accent ? ' accent' : ''}">
+      <span class="ic" aria-hidden="true">${ICON[c.icon]}</span>
+      <span class="txt"><span class="v">${escapeHtml(String(c.v))}</span><span class="k">${escapeHtml(c.k)}</span></span>
+    </div>`).join('');
+}
+
+/* ---------- יתרונות הנכס ----------
+   המאפיינים שהוזנו במודעה, כרשימה מאוירת ולא כענן צ׳יפים: כל שורה היא טיעון
+   מכירה אחד. מצב הנכס ("חדש מקבלן") וכניסה מיידית מצטרפים לרשימה כי הם
+   נקראים בדיוק כמו מאפיין.                                                 */
+function renderHighlights(p){
+  const items = [];
+  const cond = CONDITION_HIGHLIGHTS[p.condition];
+  if (cond) items.push(cond);
+  if (p.move_in_soon) items.push({ icon:'key', label:'כניסה מיידית' });
+  (p.features || []).forEach(code=>{
+    const label = FEATURE_LABELS[code];
+    if (label && code !== 'has_photo') items.push({ icon:FEATURE_ICONS[code] || 'check', label });
+  });
+
+  const section = document.getElementById('highlightsSection');
+  if (!items.length){ section.hidden = true; return; }
+  document.getElementById('highlightsList').innerHTML = items.map(it => `
+    <div class="highlight">
+      <span class="ic" aria-hidden="true">${ICON[it.icon] || ICON.check}</span>
+      <span>${escapeHtml(it.label)}</span>
+    </div>`).join('');
+  section.hidden = false;
+}
+
+/* "פרטי הנכס": רק שדות שבאמת מולאו, ורק כאלה שלא הופיעו כבר בקפסולות
+   ובכותרת. שדה ריק לא מקבל כרטיס, ואם אין אף שדה הבלוק כולו לא מוצג —
+   מודעה דלילה לא צריכה להיראות כמו טבלה של מקפים.                          */
 function renderSpecs(p){
   const specs = [
-    ['קומה', p.floor === null || p.floor === undefined ? '' : (p.floor === 0 ? 'קרקע' : p.floor)],
-    ['מתוך קומות', p.total_floors],
-    ['שטח', p.size_sqm ? p.size_sqm + ' מ״ר' : ''],
     ['שטח בנוי', p.built_size_sqm ? p.built_size_sqm + ' מ״ר' : ''],
     ['גינה', p.garden_sqm ? p.garden_sqm + ' מ״ר' : ''],
     ['מצב הנכס', CONDITION_LABELS[p.condition] || ''],
@@ -989,58 +1553,90 @@ function renderSpecs(p){
 
   const grid = document.getElementById('specGrid');
   grid.innerHTML = specs.map(([key, value]) =>
-    `<div class="card spec"><div class="k">${key}</div><div class="v">${escapeHtml(String(value))}</div></div>`).join('');
-
-  const chips = (p.features || [])
-    .map(code => FEATURE_LABELS[code])
-    .filter(Boolean);
-  document.getElementById('featureChips').innerHTML =
-    chips.map(label => `<span class="feature-chip">${escapeHtml(label)}</span>`).join('');
-
-  document.getElementById('specSection').style.display = (specs.length || chips.length) ? 'block' : 'none';
+    `<div class="detail"><div class="k">${key}</div><div class="v">${escapeHtml(String(value))}</div></div>`).join('');
+  document.getElementById('specSection').hidden = !specs.length;
 
   // ‏marketing_description הוא נוסח פרסומי פנימי — משמש רק כשאין תיאור מודעה
   const description = p.description || p.marketing_description || '';
   document.getElementById('propDescription').textContent = description;
-  document.getElementById('descSection').style.display = description ? 'block' : 'none';
+  document.getElementById('descSection').hidden = !description;
 }
 
 function escapeHtml(s){
   return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
 }
+// כתובות תמונה נכנסות לתוך src="…" — גרשיים בכתובת היו שוברות את התגית
+function escapeAttr(s){ return escapeHtml(s); }
+
+/* ---------- תגיות הסטטוס שמעל התמונה ---------- */
+function renderTags(p){
+  const promotionActive = p.is_promoted && (!p.promoted_until || new Date(p.promoted_until) > new Date());
+  const features = p.features || [];
+  const badges = [];
+  if (promotionActive) badges.push({ cls:'badge-promo', icon:ICON.sparkle, text:'מקודם' });
+  if (features.includes('exclusive')) badges.push({ cls:'badge-exclusive', icon:ICON.star, text:'בבלעדיות' });
+  // הדגל הוא הצהרה ("יש סיור") והכתובת היא הקישור אליו. כשיש כתובת יש גם
+  // כפתור על התמונה, ותגית שאומרת את אותו דבר בלי לעשות כלום היא רעש —
+  // לכן התגית עולה רק על הדגל היבש, בלי קישור.
+  if (features.includes('tour_3d') && !p.tour_3d_url) badges.push({ cls:'', icon:ICON.cube, text:'סיור 3D' });
+  if (features.includes('price_dropped')) badges.push({ cls:'', icon:ICON.trend, text:'המחיר ירד' });
+  document.getElementById('heroBadges').innerHTML = badges.map(b =>
+    `<span class="badge ${b.cls}">${b.icon}${escapeHtml(b.text)}</span>`).join('');
+
+  // התגיות שמתחת לתמונה הן קטגוריה, לא סטטוס: עסקה וסוג נכס
+  const tags = [];
+  tags.push(p.deal_type === 'rent'
+    ? { cls:'tag-rent', text:'להשכרה' }
+    : { cls:'', text:'למכירה' });
+  if (p.property_type) tags.push({ cls:'tag-bronze', text:p.property_type });
+  if (p.sales_area) tags.push({ cls:'', text:p.sales_area });
+  document.getElementById('propTags').innerHTML = tags.map(t =>
+    `<span class="tag ${t.cls}">${escapeHtml(t.text)}</span>`).join('');
+}
 
 function renderProperty(p){
   document.title = p.title + ' | שוק נדל״ן';
   renderGallery(p);
+  renderMediaButtons(p);
   // הקידום נמכר לחלון של 72 שעות. ‏expire_promotions ב-DB מכבה את is_promoted
   // כל רבע שעה, ובדיקת promoted_until כאן סוגרת גם את הפער הזה.
   // ‏promoted_until ריק = קידום ידני/היסטורי בלי מועד סיום.
-  const promotionActive = p.is_promoted && (!p.promoted_until || new Date(p.promoted_until) > new Date());
-  if (promotionActive){
-    const ribbon = document.createElement('span');
-    ribbon.className = 'promo-ribbon';
-    ribbon.textContent = 'מקודם';
-    document.getElementById('heroMedia').appendChild(ribbon);
-  }
-  document.getElementById('propPrice').textContent = priceLabel(p);
-  document.getElementById('propDealPill').textContent = p.deal_type === 'rent' ? 'להשכרה' : 'למכירה';
+  renderTags(p);
+
+  const price = priceParts(p);
+  document.getElementById('heroPriceNum').innerHTML =
+    escapeHtml(price.num) + (price.suffix ? `<span class="suffix">${escapeHtml(price.suffix)}</span>` : '');
+  document.getElementById('heroPriceSub').textContent =
+    p.price_per_sqm ? Number(p.price_per_sqm).toLocaleString('he-IL') + ' ₪ למ״ר' : (p.deal_type === 'rent' ? 'להשכרה' : 'למכירה');
+  document.getElementById('heroPrice').hidden = false;
+
   document.getElementById('propTitle').textContent = p.title;
-  document.getElementById('propRooms').textContent = (p.rooms || '—') + ' חדרים';
-  document.getElementById('propType').textContent = p.property_type;
-  document.getElementById('propCity').textContent = p.city;
-  document.getElementById('propPricePerSqm').textContent =
-    p.price_per_sqm ? '₪' + Number(p.price_per_sqm).toLocaleString('he-IL') + ' למ״ר' : '';
+  const addressText = [p.address || [p.street, p.house_number].filter(Boolean).join(' '), p.city].filter(Boolean).join(', ');
+  const addressEl = document.getElementById('propAddress');
+  addressEl.innerHTML = addressText ? ICON.pin + `<span>${escapeHtml(addressText)}</span>` : '';
+
+  renderSpecPills(p);
+  renderHighlights(p);
   renderSpecs(p);
+
+  // המחיר חוזר בכרטיס ההמרה ובסרגל התחתון — שם הוא צמוד לכפתור הפעולה
+  const priceLabelText = p.deal_type === 'rent' ? 'שכר דירה חודשי' : 'מחיר מבוקש';
+  document.getElementById('agentPriceLabel').textContent = priceLabelText;
+  document.getElementById('agentPriceValue').textContent = priceFlat(p);
+  document.getElementById('sbPriceLabel').textContent = p.deal_type === 'rent' ? 'לחודש' : 'מחיר';
+  document.getElementById('sbPriceValue').textContent = priceFlat(p);
+
   document.getElementById('agencyName').textContent = p.agencies?.name || 'משרד תיווך';
   document.getElementById('agencyAvatar').textContent = (p.agencies?.name || '?')[0];
   // הטלפון של סוכן/ת 2 לא מוצג באתר, בדיוק כמו של סוכן/ת 1 — הפנייה עוברת
-  // בטופס או בבועת הוואטסאפ של הסוכן/ת הראשי/ת
+  // בטופס או בכפתורי הוואטסאפ של הסוכן/ת הראשי/ת
   const agentLine = [
     p.agency_members?.display_name ? 'סוכן: ' + p.agency_members.display_name : '',
     p.agent2_name ? 'בשיתוף: ' + p.agent2_name : '',
   ].filter(Boolean).join(' · ');
   document.getElementById('agentName').textContent = agentLine;
-  renderWhatsappBubble(p);
+  renderAgentCard(p);
+  renderContactButtons(p);
   document.getElementById('agencyStrip').addEventListener('click', ()=>{
     if (p.agencies?.slug) window.location.href = 'agency.html?slug=' + p.agencies.slug;
   });
@@ -1052,9 +1648,13 @@ function renderProperty(p){
         attribution:'&copy; OpenStreetMap &copy; CARTO', maxZoom:19
       }).addTo(map);
       L.marker([p.lat, p.lng]).addTo(map);
+      const dir = document.getElementById('mapDirections');
+      dir.href = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`;
+      dir.hidden = false;
+      document.getElementById('mapNote').textContent = addressText ? addressText : '';
     } catch(e){ console.warn('מפת הנכס לא נטענה:', e); }
   } else {
-    document.getElementById('propMap').style.display = 'none';
+    document.getElementById('mapSection').hidden = true;
   }
 
   document.getElementById('loadingState').style.display = 'none';
@@ -1070,31 +1670,102 @@ function renderProperty(p){
   }
 }
 
-/* ---------- בועת הוואטסאפ של הסוכן/ת המטפל/ת ----------
-   הסוכן/ת המטפל/ת הוא ‎properties.agent_id, ו-phone_e164 מגיע מהמסד כספרות
-   בלבד בפורמט 972521112222 — בדיוק מה ש-wa.me מצפה לו, ולכן אין כאן נרמול
-   בצד הלקוח. אין טלפון (או שאין סוכן/ת משויך/ת) = אין בועה: קישור וואטסאפ
-   לשום מקום גרוע מהיעדר כפתור.
+/* ---------- כרטיס הסוכן/ת ----------
+   תמונה אמיתית כשיש אחת, אחרת ראשי תיבות. תג "מתווך/ת מורשה/ית" מוצג רק
+   כשיש מספר רישיון במסד — תג אמון בלי כיסוי גרוע מהיעדר תג.               */
+function renderAgentCard(p){
+  const agent = p.agency_members;
+  const name = agent?.display_name || p.agencies?.name || 'צוות שוק נדל״ן';
+  document.getElementById('agentCardName').textContent = name;
+  document.getElementById('agentCardAgency').textContent = p.agencies?.name || '';
+
+  const photoEl = document.getElementById('agentPhoto');
+  if (agent?.photo_url){
+    photoEl.innerHTML = `<img src="${escapeAttr(agent.photo_url)}" alt="${escapeAttr(name)}">`;
+  } else {
+    photoEl.textContent = (name || '?')[0];
+  }
+
+  if (agent?.license_number){
+    document.getElementById('agentCredText').textContent = 'מתווך/ת מורשה/ית · רישיון ' + agent.license_number;
+    document.getElementById('agentCred').hidden = false;
+  }
+}
+
+/* ---------- כפתורי יצירת קשר ----------
+   ‏phone_e164 מגיע מהמסד כספרות בלבד בפורמט 972521112222 — בדיוק מה שגם
+   wa.me וגם tel: מצפים לו, ולכן אין כאן נרמול בצד הלקוח. אין טלפון (או שאין
+   סוכן/ת משויך/ת) = אין כפתורים: קישור וואטסאפ לשום מקום גרוע מהיעדר כפתור,
+   ואז הסרגל התחתון מציג כפתור שגולל לטופס.
    ההודעה נפתחת מוכנה עם שם הנכס, המחיר וקישור לעמוד, כדי שהסוכן/ת יידע/תדע
    על איזה נכס מדובר עוד לפני שהגולש/ת מקליד/ה מילה.                        */
-function renderWhatsappBubble(p){
+function renderContactButtons(p){
+  document.body.classList.add('has-sticky-bar');
   const phone = p.agency_members?.phone_e164;
-  if (!phone) return;
-
   const agentName = p.agency_members?.display_name || '';
+
+  if (!phone){
+    // בלי טלפון נשארת רק דרך אחת ליצור קשר — הטופס
+    const formBtn = document.getElementById('sbFormBtn');
+    formBtn.hidden = false;
+    formBtn.addEventListener('click', ()=>{
+      document.querySelector('.agent-card').scrollIntoView({ behavior:'smooth', block:'center' });
+      setTimeout(()=> document.getElementById('inqName').focus(), 420);
+    });
+    return;
+  }
+
   const text = [
     'היי' + (agentName ? ' ' + agentName : '') + ',',
     `ראיתי בשוק נדל״ן את הנכס "${p.title}" (${priceLabel(p)}) ואשמח לקבל פרטים נוספים.`,
     window.location.href,
   ].join('\n');
+  const waHref = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
+  const telHref = 'tel:+' + phone;
+  const waAria = agentName ? 'שליחת הודעת וואטסאפ ל' + agentName : 'שליחת הודעת וואטסאפ לסוכן המטפל';
 
+  // בועה צפה (דסקטופ)
   const bubble = document.getElementById('waBubble');
-  bubble.href = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
-  bubble.setAttribute('aria-label', agentName ? 'שליחת הודעת וואטסאפ ל' + agentName : 'שליחת הודעת וואטסאפ לסוכן המטפל');
+  bubble.href = waHref;
+  bubble.setAttribute('aria-label', waAria);
   document.getElementById('waBubbleLabel').textContent = agentName ? 'וואטסאפ · ' + agentName : 'וואטסאפ לסוכן';
   bubble.hidden = false;
-  document.body.classList.add('has-wa-bubble');
+
+  // סרגל תחתון (מובייל)
+  const sbWa = document.getElementById('sbWaBtn');
+  sbWa.href = waHref;
+  sbWa.setAttribute('aria-label', waAria);
+  sbWa.hidden = false;
+  const sbCall = document.getElementById('sbCallBtn');
+  sbCall.href = telHref;
+  sbCall.hidden = false;
+
+  // כפתורים בכרטיס ההמרה
+  document.getElementById('agentActions').innerHTML = `
+    <a class="btn-wa" href="${escapeAttr(waHref)}" target="_blank" rel="noopener noreferrer" aria-label="${escapeAttr(waAria)}">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>
+      וואטסאפ מהיר
+    </a>
+    <a class="btn-call" href="${escapeAttr(telHref)}" aria-label="חיוג לסוכן">
+      ${ICON.call}<span>חייגו</span>
+    </a>`;
 }
+
+/* ---------- שיתוף ----------
+   ‏navigator.share קיים בכל דפדפני המובייל ומוביל ישירות לוואטסאפ של
+   הגולש/ת; בדסקטופ נופלים להעתקת הקישור. */
+document.getElementById('shareBtn').addEventListener('click', async ()=>{
+  const url = window.location.href;
+  const title = currentProperty?.title || 'נכס בשוק נדל״ן';
+  try{
+    if (navigator.share){ await navigator.share({ title, url }); return; }
+    await navigator.clipboard.writeText(url);
+    showToast('הקישור לנכס הועתק');
+  } catch(e){
+    if (e && e.name === 'AbortError') return; // הגולש/ת ביטל/ה את תפריט השיתוף
+    showToast('לא הצלחנו לשתף — אפשר להעתיק את הכתובת מהדפדפן');
+  }
+});
 
 /* ---------- Mortgage calculator, price pre-filled from this property ----------
    בניגוד למחשבון בדף הבית, כאן מחיר הנכס אינו נתון לבחירה — הוא המחיר של
