@@ -223,6 +223,36 @@
     content:'';position:absolute;inset:auto 0 0 0;height:52%;pointer-events:none;
     background:linear-gradient(to top,rgba(10,18,30,.6),rgba(10,18,30,0));
   }
+  /* ====== נכס שהתמונות שלו עוד לא הועלו ======
+     לוגו המשרד + "תמונות של הנכס יעלו בקרוב" במקום מלבן צבע ריק. ההצללה
+     התחתונה מבוטלת כאן: היא נועדה לתמונות אמיתיות, ועל רקע בהיר היא רק
+     מלכלכת את ממלא המקום. */
+  .prop-card .thumb.no-photo{background-image:none}
+  .prop-card .thumb.no-photo::after{display:none}
+  .thumb-fallback{
+    position:absolute;inset:0;z-index:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:7px;padding:12px;text-align:center;
+    background:
+      linear-gradient(180deg,rgba(255,255,255,.66),rgba(255,255,255,.36) 55%,rgba(255,255,255,.56)),
+      url('assets/property-placeholder.jpg') center/cover no-repeat,
+      linear-gradient(160deg,#F4F3F0 0%,var(--teal-tint) 100%);
+  }
+  .thumb-fallback .tf-logo{
+    width:54px;height:54px;flex:0 0 auto;border-radius:14px;background:#fff;
+    border:1px solid var(--hair);object-fit:contain;padding:5px;
+    box-shadow:0 4px 14px rgba(18,40,64,.18);
+  }
+  .thumb-fallback .tf-initial{
+    display:flex;align-items:center;justify-content:center;padding:0;border-color:transparent;
+    background:linear-gradient(155deg,var(--accent),var(--brand) 65%);color:#fff;
+    font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.3rem;line-height:1;
+  }
+  .thumb-fallback .tf-agency{
+    font-size:.78rem;font-weight:800;color:var(--brand-dark);line-height:1.25;
+    max-width:100%;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .thumb-fallback .tf-note{font-size:.7rem;font-weight:600;color:var(--ink-soft);line-height:1.25}
   .card-tags{position:absolute;top:9px;inset-inline-start:9px;z-index:2;display:flex;gap:5px;flex-wrap:wrap;max-width:80%}
   .card-tag{
     font-size:.66rem;font-weight:800;padding:3px 9px;border-radius:999px;line-height:1.35;
@@ -407,10 +437,31 @@ function priceLabel(price, dealType){
   return dealType === 'rent' ? ('₪' + Number(price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(price).toLocaleString('he-IL'));
 }
 
-/* התמונה הראשית של הנכס; בלי תמונות נשאר גרדיאנט ברירת המחדל של .thumb */
+/* התמונה הראשית של הנכס; בלי תמונות מוצג ממלא מקום עם לוגו המשרד */
 function thumbStyle(p){
   const img = safeImageUrl(p.images && p.images[0]);
   return img ? ` style="background-image:url('${encodeURI(img)}')"` : '';
+}
+
+const NO_PHOTOS_NOTE = 'תמונות של הנכס יעלו בקרוב';
+const SITE_LOGO = 'assets/logo-shuknadlan.png';
+
+/* המשרד שהעמוד מוקדש לו — נשמר כדי שאריח נכס בלי תמונות יוכל להציג את
+   הלוגו והשם שלו. */
+let currentAgency = null;
+
+function thumbFallback(p){
+  if (safeImageUrl(p.images && p.images[0])) return '';
+  const name = (currentAgency && currentAgency.name) || '';
+  const logo = (currentAgency && safeImageUrl(currentAgency.logo_url)) || (name ? '' : SITE_LOGO);
+  const mark = logo
+    ? `<img class="tf-logo" src="${escapeHtml(encodeURI(logo))}" alt="${escapeHtml(name)}" loading="lazy" onerror="this.remove()">`
+    : `<span class="tf-logo tf-initial" aria-hidden="true">${escapeHtml(name.trim()[0] || '?')}</span>`;
+  return `<div class="thumb-fallback">
+      ${mark}
+      ${name ? `<span class="tf-agency">${escapeHtml(name)}</span>` : ''}
+      <span class="tf-note">${NO_PHOTOS_NOTE}</span>
+    </div>`;
 }
 
 /* ---------- שורת המספרים ----------
@@ -611,6 +662,7 @@ async function loadAgency(){
     const { data: agency, error } = await sb.from('agencies').select('*').eq('slug', slug).single();
     if (error || !agency) throw error || new Error('not found');
 
+    currentAgency = agency;
     document.title = agency.name + ' | שוק נדל״ן';
     document.getElementById('brandName').textContent = agency.name;
     const tagline = (agency.tagline || '').trim();
@@ -666,9 +718,11 @@ function propertyCardHtml(p){
     p.tour_3d_url ? `<span>${ICON.cube}סיור וירטואלי</span>` : '',
     p.video_url ? `<span>${ICON.play}סרטון</span>` : '',
   ].filter(Boolean).join('');
+  const hasPhoto = !!safeImageUrl(p.images && p.images[0]);
 
   return `
-    <div class="thumb"${thumbStyle(p)}>
+    <div class="thumb${hasPhoto ? '' : ' no-photo'}"${thumbStyle(p)}>
+      ${thumbFallback(p)}
       <div class="card-tags">
         <span class="card-tag${p.deal_type === 'rent' ? ' rent' : ''}">${p.deal_type === 'rent' ? 'להשכרה' : 'למכירה'}</span>
       </div>

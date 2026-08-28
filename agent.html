@@ -61,7 +61,33 @@
   .section h2{font-size:1.05rem;margin-bottom:12px}
   .prop-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .prop-card{background:#fff;border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;cursor:pointer}
-  .prop-card .thumb{height:100px;background:linear-gradient(155deg,#8B2332,#1C3A5E)}
+  .prop-card .thumb{height:100px;position:relative;background-size:cover;background-position:center}
+  /* נכס שהתמונות שלו עוד לא הועלו: לוגו המשרד + הודעה שהן בדרך, במקום
+     מלבן צבעוני שנקרא כמו תמונה שבורה */
+  .thumb-fallback{
+    position:absolute;inset:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+    gap:5px;padding:8px;text-align:center;
+    background:
+      linear-gradient(180deg,rgba(255,255,255,.66),rgba(255,255,255,.36) 55%,rgba(255,255,255,.56)),
+      url('assets/property-placeholder.jpg') center/cover no-repeat,
+      linear-gradient(160deg,#F4F3F0 0%,#E0E7ED 100%);
+  }
+  .thumb-fallback .tf-logo{
+    width:36px;height:36px;flex:0 0 auto;border-radius:10px;background:#fff;
+    border:1px solid var(--line);object-fit:contain;padding:3px;
+    box-shadow:0 4px 14px rgba(18,40,64,.18);
+  }
+  .thumb-fallback .tf-initial{
+    display:flex;align-items:center;justify-content:center;padding:0;border-color:transparent;
+    background:linear-gradient(155deg,#8B2332,#1C3A5E 65%);color:#fff;
+    font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1rem;line-height:1;
+  }
+  .thumb-fallback .tf-agency{
+    font-size:.68rem;font-weight:700;color:var(--teal-dark);line-height:1.25;
+    max-width:100%;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .thumb-fallback .tf-note{font-size:.62rem;color:var(--ink-soft);line-height:1.25}
   .prop-card .body{padding:10px}
   .prop-card .price{font-weight:800;color:var(--teal-dark);font-size:.9rem}
   .prop-card .meta{font-size:.72rem;color:var(--ink-soft);margin-top:4px}
@@ -134,10 +160,34 @@ function priceLabel(price, dealType){
   return dealType === 'rent' ? ('₪' + Number(price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(price).toLocaleString('he-IL'));
 }
 
-/* התמונה הראשית של הנכס; בלי תמונות נשאר גרדיאנט ברירת המחדל של .thumb */
+/* התמונה הראשית של הנכס; בלי תמונות מוצג ממלא מקום עם לוגו המשרד */
 function thumbStyle(p){
   const img = p.images && p.images[0];
   return img ? ` style="background-image:url('${img}');background-size:cover;background-position:center"` : '';
+}
+
+const NO_PHOTOS_NOTE = 'תמונות של הנכס יעלו בקרוב';
+const SITE_LOGO = 'assets/logo-shuknadlan.png';
+
+function escapeHtml(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
+}
+
+/* המשרד של הסוכן/ת נטען יחד עם הפרופיל, ומספק את הלוגו והשם שמופיעים על
+   אריח של נכס שהתמונות שלו עוד לא הועלו. */
+function thumbFallback(p){
+  if (p && p.images && p.images[0]) return '';
+  const agency = (currentAgentProfile && currentAgentProfile.agencies) || null;
+  const name = (agency && agency.name) || '';
+  const logo = (agency && agency.logo_url) || (name ? '' : SITE_LOGO);
+  const mark = logo
+    ? `<img class="tf-logo" src="${escapeHtml(logo)}" alt="${escapeHtml(name)}" loading="lazy" onerror="this.remove()">`
+    : `<span class="tf-logo tf-initial" aria-hidden="true">${escapeHtml(name.trim()[0] || '?')}</span>`;
+  return `<div class="thumb-fallback">
+      ${mark}
+      ${name ? `<span class="tf-agency">${escapeHtml(name)}</span>` : ''}
+      <span class="tf-note">${NO_PHOTOS_NOTE}</span>
+    </div>`;
 }
 
 /* ראש הפרופיל — התמונות והפרטים שהסוכן/ת מעדכן/ת ב-CRM ("עדכון פרטי הסוכן/ת").
@@ -188,7 +238,7 @@ async function loadAgentProfile(){
     if (error || !agent) throw error || new Error('not found');
 
     if (agent.agency_id){
-      const { data: agency } = await sb.from('agencies').select('name, slug').eq('id', agent.agency_id).maybeSingle();
+      const { data: agency } = await sb.from('agencies').select('name, slug, logo_url').eq('id', agent.agency_id).maybeSingle();
       agent.agencies = agency || null;
     }
 
@@ -217,7 +267,7 @@ async function loadAgentProperties(sb, agentId){
   props.forEach(p=>{
     const card = document.createElement('div');
     card.className = 'prop-card';
-    card.innerHTML = `<div class="thumb"${thumbStyle(p)}></div><div class="body">
+    card.innerHTML = `<div class="thumb"${thumbStyle(p)}>${thumbFallback(p)}</div><div class="body">
       <div class="price">${priceLabel(p.price, p.deal_type)}</div>
       <div class="meta">${p.rooms||'—'} חדרים · ${p.property_type}</div></div>`;
     card.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
