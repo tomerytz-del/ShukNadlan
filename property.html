@@ -272,6 +272,33 @@
   }
   /* במסך צר ההודעה הצפה רחבה כמעט כמו המסך ויושבת בדיוק על הבועה */
   @media(max-width:520px){body.has-wa-bubble .toast{bottom:86px}}
+
+  /* ====== הדמיות AI ======
+     כל תמונה כאן היא הדמיה ולא צילום, ולכן תגית ה-"הדמיה" יושבת *על* התמונה
+     ולא לידה: מי שישמור או ישתף את התמונה ייקח את התווית איתו. זו לא קישוטיות
+     אלא הדרישה שמפרידה בין המחשה שיווקית לבין הצגה מטעה של נכס. */
+  .viz-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .viz-head .viz-sub{font-size:.82rem;color:var(--ink-soft)}
+  .viz-styles{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px}
+  .viz-style{border:1.5px solid var(--line);background:#fff;border-radius:999px;
+    padding:8px 16px;font-size:.84rem;font-weight:700;color:var(--ink);cursor:pointer}
+  .viz-style.active{border-color:var(--gold);background:var(--gold-tint);color:var(--gold-dark)}
+  .viz-style-tag{display:block;font-size:.68rem;font-weight:400;color:var(--ink-soft);margin-top:2px}
+  .viz-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:14px}
+  .viz-item{position:relative;border:1px solid var(--line);border-radius:var(--radius-md);
+    overflow:hidden;background:#fff}
+  .viz-item img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
+  .viz-item .viz-room{padding:9px 12px;font-size:.82rem;font-weight:700}
+  .viz-badge{position:absolute;top:8px;inset-inline-start:8px;background:rgba(27,31,38,.86);
+    color:#fff;font-size:.66rem;font-weight:700;padding:4px 9px;border-radius:6px;letter-spacing:.02em}
+  .viz-item.pending{display:flex;align-items:center;justify-content:center;
+    aspect-ratio:4/3;color:var(--ink-soft);font-size:.84rem;background:var(--paper)}
+  .viz-note{margin-top:14px;font-size:.75rem;color:var(--ink-soft);line-height:1.5}
+  .viz-cta{margin-top:14px}
+  .viz-form{margin-top:14px;display:none;gap:10px;flex-wrap:wrap;align-items:flex-start}
+  .viz-form.open{display:flex}
+  .viz-form .field{flex:1 1 160px;margin:0}
+  .viz-error{color:var(--gold-dark);font-size:.8rem;margin-top:8px;min-height:1em}
 </style>
 </head>
 <body>
@@ -403,6 +430,34 @@
       </div>
     </div>
   </div>
+
+  <!-- ====== הדמיות AI ======
+       מוצגת רק בנכסי Premium שיש להם הדמיות בסיס, ולכן היא hidden כברירת
+       מחדל ונפתחת רק אחרי ש-loadVisualizations מצא משהו להראות. -->
+  <section class="wrap section" id="vizSection" hidden>
+    <div class="viz-head">
+      <h2>איך זה יכול להיראות</h2>
+      <span class="viz-sub">הדמיות AI על בסיס התמונות האמיתיות של הנכס</span>
+    </div>
+
+    <div class="viz-styles" id="vizStyles"></div>
+    <div class="viz-grid" id="vizGrid"></div>
+
+    <div class="viz-cta" id="vizCta" hidden>
+      <button type="button" class="btn btn-gold" id="vizOpenBtn">לראות את הנכס בסגנון הזה</button>
+      <form class="viz-form" id="vizForm" novalidate>
+        <div class="field"><input type="text" id="vizName" placeholder="שם מלא" autocomplete="name"></div>
+        <div class="field"><input type="tel" id="vizPhone" placeholder="טלפון" autocomplete="tel" inputmode="tel"></div>
+        <button type="submit" class="btn btn-gold" id="vizSubmit">יצירת ההדמיה</button>
+      </form>
+      <p class="viz-error" id="vizError" role="alert"></p>
+    </div>
+
+    <p class="viz-note">
+      התמונות בסקציה זו הן הדמיות ממוחשבות שנוצרו מהתמונות האמיתיות של הנכס, ונועדו להמחשת פוטנציאל עיצובי בלבד.
+      אין בהן התחייבות לביצוע עבודות, לחומרים או לתוצאה בפועל, והן אינן מתעדות את מצב הנכס כיום.
+    </p>
+  </section>
 
   <!-- ====== נכסים דומים ======
        אותה שיטת מידוד כמו קרוסלות דף הבית: שלושה כרטיסים בתצוגה בכל רגע,
@@ -568,6 +623,9 @@ async function loadProperty(){
     // לא חוסם את רינדור הנכס: הקרוסלה נטענת ומתמלאת ברקע, ותופיע ברגע
     // שהיא מוכנה.
     loadSimilarProperties(data).then(renderSimilarProperties);
+    // גם ההדמיות נטענות ברקע: הן דורשות קריאת RPC נוספת ואין סיבה שהן
+    // יעכבו את רינדור הנכס עצמו.
+    loadVisualizations(data);
   } catch(e){
     console.warn('טעינת נכס נכשלה:', e);
     document.getElementById('loadingState').style.display = 'none';
@@ -616,6 +674,250 @@ function renderGallery(p){
       strip.appendChild(btn);
     });
   }
+}
+
+/* ---------- הדמיות AI ----------
+   הסקציה עובדת בשני מצבים לפי category:
+
+   ‏residential — ארבעה סגנונות קבועים. סגנון אחד (סט הבסיס) כבר קיים ומוצג
+   לכל מבקר/ת; שאר הסגנונות נוצרים לפי דרישה תמורת שם וטלפון, וכל בקשה כזו
+   היא ליד לסוכן/ת.
+
+   ‏commercial — אין סגנונות: מדמים עסק, ולכן הקלט הוא סוג העסק בטקסט חופשי.
+   אין סט בסיס, כי "משרד" ו"חנות בגדים" באותו נכס נראים אחרת לגמרי.
+
+   ההדמיות שנוצרו לפי דרישה נשמרות ב-vizState בלבד — ריענון דף מחזיר את
+   המבקר/ת לסט הבסיס, וזה מכוון: לא רוצים שהעמוד הפומבי יציג הדמיות שגולש
+   אחר הזמין. */
+const VIZ_FUNCTION_URL = SUPABASE_URL + '/functions/v1/property-visualize';
+
+const VIZ_STYLES = [
+  { key:'modern_clean',        label:'מודרני נקי',   tag:'לבן, אפור בהיר ואלון' },
+  { key:'mediterranean_white', label:'ים-תיכוני לבן', tag:'טיח, אבן טבעית וצמחייה' },
+  { key:'warm_scandi',         label:'סקנדינבי חמים', tag:'עץ אלון, בז\' רך ו-Japandi' },
+  { key:'modern_luxury',       label:'יוקרה מודרנית', tag:'שיש, פליז ותאורה דרמטית' },
+];
+
+const VIZ_TARGET_LABELS = {
+  exterior:'חזית הבית והחצר', living_room:'הסלון', kitchen:'המטבח', interior_main:'חלל העסק',
+};
+
+const vizState = { propertyId:null, isPrivate:true, byStyle:new Map(), current:null, busy:false };
+
+async function loadVisualizations(p){
+  if (!window.supabase) return;
+  const section = document.getElementById('vizSection');
+  try{
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    // הזכאות נשאלת מה-DB ולא נגזרת בצד הלקוח, כדי שתהיה הגדרה אחת בלבד
+    // ל"מי זכאי" — אותה פונקציה שה-Edge Function נשען עליה.
+    const { data: enabled } = await sb.rpc('property_visualizations_enabled', { p_property_id: p.id });
+    if (!enabled) return;
+
+    vizState.propertyId = p.id;
+    vizState.isPrivate = p.category === 'residential';
+
+    const { data: base } = await sb
+      .from('property_visualizations_public')
+      .select('target, style_key, result_url')
+      .eq('property_id', p.id);
+
+    (base || []).forEach(r=>{
+      const key = r.style_key || '_';
+      if (!vizState.byStyle.has(key)) vizState.byStyle.set(key, []);
+      vizState.byStyle.get(key).push({ target:r.target, result_url:r.result_url });
+    });
+
+    // נכס מסחרי בלי הדמיה קיימת עדיין שווה הצגה — שם ההצעה עצמה ("איך
+    // ייראה כאן העסק שלך") היא המוצר. נכס פרטי בלי סט בסיס כן מוצג, כי
+    // ארבעת הסגנונות זמינים לפי דרישה.
+    section.hidden = false;
+    if (vizState.isPrivate) renderVizStyles();
+    else renderVizCommercial();
+
+    if (vizState.isPrivate){
+      // פותחים על הסגנון שכבר קיים כדי שהמבקר/ת יראה תמונה מיד; אם אין סט
+      // בסיס בכלל, נופלים לסגנון הראשון וכל הארבעה זמינים לפי דרישה.
+      const first = vizState.byStyle.keys().next();
+      selectVizStyle(first.done ? VIZ_STYLES[0].key : first.value);
+    } else {
+      // במסחרי אין סגנונות — כל התוצאות יושבות תחת מפתח יחיד
+      vizState.current = '_';
+      renderVizGrid();
+    }
+  } catch(e){
+    console.warn('טעינת הדמיות נכשלה:', e);
+  }
+}
+
+function renderVizStyles(){
+  const wrap = document.getElementById('vizStyles');
+  wrap.innerHTML = '';
+  VIZ_STYLES.forEach(s=>{
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'viz-style';
+    btn.dataset.style = s.key;
+    btn.innerHTML = `${s.label}<span class="viz-style-tag">${s.tag}</span>`;
+    btn.addEventListener('click', ()=>selectVizStyle(s.key));
+    wrap.appendChild(btn);
+  });
+}
+
+function renderVizCommercial(){
+  const wrap = document.getElementById('vizStyles');
+  wrap.innerHTML =
+    '<div class="field" style="flex:1 1 260px;margin:0">' +
+    '<input type="text" id="vizBusiness" placeholder="איזה עסק תפתחו כאן? (למשל: בית קפה)">' +
+    '</div>';
+  document.getElementById('vizCta').hidden = false;
+  document.getElementById('vizOpenBtn').textContent = 'לראות את העסק שלכם בנכס';
+}
+
+function selectVizStyle(styleKey){
+  vizState.current = styleKey;
+  document.querySelectorAll('.viz-style').forEach(b=>{
+    b.classList.toggle('active', b.dataset.style === styleKey);
+  });
+  renderVizGrid();
+}
+
+function renderVizGrid(pendingTargets){
+  const grid = document.getElementById('vizGrid');
+  const cta = document.getElementById('vizCta');
+  const items = vizState.byStyle.get(vizState.current) || [];
+  grid.innerHTML = '';
+
+  items.forEach(it=>{
+    const card = document.createElement('div');
+    card.className = 'viz-item';
+    card.innerHTML =
+      `<img src="${it.result_url}" alt="הדמיה של ${VIZ_TARGET_LABELS[it.target] || it.target}" loading="lazy">` +
+      `<span class="viz-badge">הדמיה</span>` +
+      `<div class="viz-room">${VIZ_TARGET_LABELS[it.target] || it.target}</div>`;
+    grid.appendChild(card);
+  });
+
+  (pendingTargets || []).forEach(t=>{
+    const card = document.createElement('div');
+    card.className = 'viz-item pending';
+    card.textContent = `יוצרים את ${VIZ_TARGET_LABELS[t] || t}…`;
+    grid.appendChild(card);
+  });
+
+  // הכפתור מוצג רק כשאין מה להראות בסגנון הנוכחי — אין טעם לבקש פרטים
+  // בשביל תמונה שכבר על המסך. מעבר בין סגנונות חייב להחזיר את הטופס למצב
+  // הסגור שלו, אחרת מי שכבר פתח אותו פעם רואה שדות ריקים בלי כפתור.
+  if (vizState.isPrivate){
+    const stillWorking = !!(pendingTargets && pendingTargets.length);
+    cta.hidden = items.length > 0 || stillWorking;
+    if (!cta.hidden && !vizState.busy){
+      document.getElementById('vizForm').classList.remove('open');
+      document.getElementById('vizOpenBtn').hidden = false;
+      document.getElementById('vizError').textContent = '';
+    }
+  }
+}
+
+function initVisualizationForm(){
+  const openBtn = document.getElementById('vizOpenBtn');
+  const form = document.getElementById('vizForm');
+  const errEl = document.getElementById('vizError');
+  if (!openBtn || !form) return;
+
+  openBtn.addEventListener('click', ()=>{
+    form.classList.add('open');
+    openBtn.hidden = true;
+    document.getElementById('vizName').focus();
+  });
+
+  form.addEventListener('submit', async (ev)=>{
+    ev.preventDefault();
+    if (vizState.busy) return;
+
+    const name = document.getElementById('vizName').value.trim();
+    const phone = document.getElementById('vizPhone').value.trim();
+    const business = document.getElementById('vizBusiness');
+    errEl.textContent = '';
+
+    if (!name || !phone){ errEl.textContent = 'יש למלא שם וטלפון'; return; }
+    if (!vizState.isPrivate && !(business && business.value.trim())){
+      errEl.textContent = 'יש לציין איזה עסק תפתחו בנכס'; return;
+    }
+
+    const submitBtn = document.getElementById('vizSubmit');
+    vizState.busy = true;
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'יוצרים…';
+
+    try{
+      const payload = { property_id: vizState.propertyId, name, phone };
+      if (vizState.isPrivate) payload.style = vizState.current;
+      else payload.business_type = business.value.trim();
+
+      const res = await fetch(VIZ_FUNCTION_URL, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+        body: JSON.stringify(payload),
+      });
+      const out = await res.json().catch(()=>({}));
+      if (!res.ok || out.error) throw new Error(out.message || out.error || 'שגיאה ביצירת ההדמיה');
+
+      form.classList.remove('open');
+      document.getElementById('vizCta').hidden = true;
+      mergeVizResults(out.ready || []);
+
+      if (out.job_id) await pollVisualizationJob(out.job_id, out.pending_targets || []);
+      else renderVizGrid();
+
+      showToast('ההדמיה מוכנה. הסוכן/ת יחזור/תחזור אליכם בקרוב');
+    } catch(e){
+      errEl.textContent = e.message || 'שגיאה ביצירת ההדמיה';
+      document.getElementById('vizOpenBtn').hidden = false;
+    } finally{
+      vizState.busy = false;
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'יצירת ההדמיה';
+    }
+  });
+}
+
+function mergeVizResults(rows){
+  const key = vizState.current || '_';
+  const list = vizState.byStyle.get(key) || [];
+  rows.forEach(r=>{
+    if (!r.result_url) return;
+    const existing = list.find(x=>x.target === r.target);
+    if (existing) existing.result_url = r.result_url;
+    else list.push({ target:r.target, result_url:r.result_url });
+  });
+  vizState.byStyle.set(key, list);
+}
+
+/* ההדמיה רצה ברקע ב-Edge Function ולכן המעקב הוא polling על ה-RPC.
+   ה-job_id הוא כרטיס הכניסה לתוצאה — הוא נמסר רק למי שביקש/ה. */
+async function pollVisualizationJob(jobId, pendingTargets){
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const DEADLINE = Date.now() + 180000;
+  let remaining = pendingTargets.slice();
+
+  renderVizGrid(remaining);
+
+  while (Date.now() < DEADLINE){
+    await new Promise(r=>setTimeout(r, 4000));
+    const { data } = await sb.rpc('visualization_job_status', { p_job_id: jobId });
+    const rows = data || [];
+
+    mergeVizResults(rows.filter(r=>r.item_status === 'done'));
+    remaining = remaining.filter(t=>!rows.some(r=>r.target === t && r.item_status !== 'pending' && r.item_status !== 'processing'));
+    renderVizGrid(remaining);
+
+    const jobStatus = rows[0] && rows[0].job_status;
+    if (jobStatus === 'done' || jobStatus === 'failed') break;
+  }
+
+  renderVizGrid();
 }
 
 /* ---------- נכסים דומים ----------
@@ -1001,6 +1303,7 @@ document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
   }
 });
 
+initVisualizationForm();
 loadProperty();
 </script>
 </body>
