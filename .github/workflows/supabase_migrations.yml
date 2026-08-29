@@ -1,0 +1,85 @@
+name: הרצת מיגרציות ל-Supabase
+
+# ‏Netlify מפרסם את ה-HTML תוך שניות מהמיזוג ל-main, אבל שום דבר לא הריץ את
+# המיגרציות שנכנסו באותו מיזוג. שלוש פעמים ברצף זה שבר את הפרודקשן באותה
+# צורה בדיוק: הקוד ביקש עמודה (‏years_experience, ‏photo_position), ‏PostgREST
+# החזיר "עמודה לא קיימת" על השאילתה כולה, והדף נפל — עד שמישהו הריץ ידנית.
+#
+# ה-workflow הזה סוגר את הפער: כל מיזוג ל-main שנוגע ב-supabase/migrations
+# מריץ supabase db push מול המסד, כך שהסכימה והקוד עולים לאוויר יחד.
+#
+# ‏db push מריץ רק מיגרציות שה-version שלהן (המספר בתחילת שם הקובץ) עדיין לא
+# רשום ב-supabase_migrations.schema_migrations, ולכן הוא בטוח להרצה חוזרת:
+# ריצה בלי מיגרציות חדשות פשוט לא עושה כלום.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+      - ".github/workflows/supabase_migrations.yml"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "הרצת יבש — להציג מה היה רץ בלי לגעת במסד"
+        type: boolean
+        default: false
+
+# מיזוג נוסף בזמן שהרצה קודמת עוד פועלת ימתין ולא ירוץ במקביל: שתי הרצות
+# ‏db push בו-זמנית על אותו מסד הן בדיוק הדרך לקבל מיגרציה חצי-מורצת.
+concurrency:
+  group: supabase-migrations
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  push:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: משיכת הקוד
+        uses: actions/checkout@v4
+
+      # שני קבצי מיגרציה עם אותו מספר בתחילת השם הם תקלה שקטה: ‏version הוא
+      # מפתח ראשי בטבלת ההיסטוריה, ולכן אחרי שהראשון נרשם השני ייחשב כמורץ
+      # ולא ירוץ לעולם. עדיף להיכשל כאן, לפני שהמסד מושפע.
+      - name: בדיקת כפילות בגרסאות המיגרציה
+        run: |
+          DUPES=$(ls supabase/migrations | sed -E 's/^([0-9]+)_.*/\1/' | sort | uniq -d)
+          if [ -n "$DUPES" ]; then
+            echo "::error::נמצאו קבצי מיגרציה שחולקים אותו version:"
+            echo "$DUPES"
+            exit 1
+          fi
+          echo "כל הגרסאות ייחודיות ($(ls supabase/migrations | wc -l) קבצים)."
+
+      - name: התקנת Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # מצב ההיסטוריה לפני הנגיעה במסד — כדי שיהיה ברור בלוג מה בדיוק חסר
+      # ומה עומד לרוץ, גם כשהשלב הבא נכשל.
+      - name: מצב המיגרציות לפני ההרצה
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: supabase migration list --db-url "$SUPABASE_DB_URL"
+
+      - name: הרצת המיגרציות
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          # קלט ההרצה הידנית מועבר כמשתנה סביבה ולא משורשר לתוך הפקודה
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          ARGS=""
+          if [ "$DRY_RUN" = "true" ]; then ARGS="--dry-run"; fi
+          supabase db push --db-url "$SUPABASE_DB_URL" $ARGS
+
+      - name: מצב המיגרציות אחרי ההרצה
+        if: success()
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: supabase migration list --db-url "$SUPABASE_DB_URL"
