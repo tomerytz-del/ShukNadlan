@@ -34,6 +34,11 @@
   #feedback{font-size:.82rem;text-align:center;margin-top:12px;min-height:1.2em}
   .note{font-size:.72rem;color:var(--ink-soft);background:var(--gold-tint);border-radius:var(--radius-sm);padding:10px 12px;margin-top:16px;text-align:center}
   #stateDone{display:none;text-align:center}
+  .btn-ghost{background:transparent;border:1.5px solid var(--blue);color:var(--blue)}
+  .manage-box{background:var(--blue-tint);border-radius:var(--radius-md);padding:14px;margin-top:18px;text-align:center}
+  .manage-title{font-weight:800;font-size:.86rem;color:var(--blue-dark);margin:0 0 4px}
+  .manage-note{font-size:.74rem;color:var(--ink-soft);margin:0 0 10px}
+  .manage-box input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:9px 10px;font-size:.76rem;background:#fff;text-align:left;direction:ltr}
   .back-link{display:block;text-align:center;font-size:.8rem;color:var(--blue);margin-top:16px;text-decoration:none}
 </style>
 </head>
@@ -46,7 +51,10 @@
     <p class="sub">חשיפה לקהל רחב באזור עפולה והעמק</p>
     <span class="price-badge">₪350 לחודש · ביטול בכל עת</span>
 
-    <div class="field"><label>שם מלא / שם עסק</label><input type="text" id="advName" required></div>
+    <!-- השם ושם העסק הם שתי השורות שמופיעות בכרטיסייה בדף הבית, ולכן שני
+         שדות נפרדים ולא שדה אחד משולב. -->
+    <div class="field"><label>שם מלא</label><input type="text" id="advName" required></div>
+    <div class="field"><label>שם העסק</label><input type="text" id="advBusiness" placeholder="השם שיוצג מתחת לשם שלך"></div>
     <div class="field">
       <label>תחום עיסוק</label>
       <select id="advType" required>
@@ -61,6 +69,11 @@
     <div class="field"><label>אימייל ליצירת קשר</label><input type="email" id="advEmail" required></div>
     <div class="field"><label>קישור לאתר / פרופיל (לא חובה)</label><input type="url" id="advUrl" placeholder="https://"></div>
 
+    <!-- התמונות, התיאור, השירותים, הגלריה והטלפון לוואטסאפ נכנסים במסך
+         העריכה שנפתח מיד אחרי ההרשמה — שם אפשר להעלות קבצים מהטלפון
+         במקום להדביק כתובות, ולכן אין להם שדה כאן. -->
+    <p class="note" style="margin-top:14px;margin-bottom:0">מיד אחרי ההרשמה ייפתח מסך שבו תעלו תמונות, תכתבו על עצמכם ותוסיפו טלפון לוואטסאפ.</p>
+
     <button type="button" class="btn" id="submitBtn">הרשמה — ₪350/חודש</button>
     <div id="feedback"></div>
     <div class="note">מצב בדיקה — לא מתבצע חיוב אמיתי כרגע. הכרטיסייה תופיע מיד בדף הבית לאחר ההרשמה.</div>
@@ -70,8 +83,20 @@
   <div id="stateDone">
     <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a>
     <h1>נרשמת בהצלחה!</h1>
-    <p class="sub">הכרטיסייה שלך פעילה כעת בדף הבית של שוק נדל״ן</p>
-    <a href="index.html" class="btn" style="display:flex;text-decoration:none;margin-top:16px">צפייה בדף הבית</a>
+    <p class="sub">הכרטיסייה שלך כבר בדף הבית. נשאר להשלים את העמוד שלך — תמונות, תיאור וטלפון לוואטסאפ.</p>
+
+    <!-- קישור העריכה מוחזר פעם אחת בלבד, בתשובה להרשמה. אין לבעלי מקצוע
+         חשבון באתר, ולכן הקישור הזה *הוא* הדרך לחזור ולערוך — ומכאן
+         הבליטות של הבלוק ושל כפתור ההעתקה. -->
+    <div class="manage-box" id="manageBox" hidden>
+      <p class="manage-title">הקישור לעמוד העריכה שלך</p>
+      <p class="manage-note">זו הדרך היחידה לחזור ולערוך את הפרופיל — שמרו אותו במועדפים.</p>
+      <input type="text" id="manageLink" readonly>
+      <button type="button" class="btn btn-ghost" id="copyLinkBtn">העתקת הקישור</button>
+    </div>
+
+    <a href="#" class="btn" id="manageOpen" style="display:flex;text-decoration:none;margin-top:16px">להשלמת העמוד שלי ←</a>
+    <a href="index.html" class="back-link">צפייה בדף הבית</a>
   </div>
 </div>
 
@@ -82,6 +107,7 @@ const SIGNUP_FUNCTION_URL = SUPABASE_URL + '/functions/v1/professional-signup';
 
 document.getElementById('submitBtn').addEventListener('click', async ()=>{
   const advertiser_name = document.getElementById('advName').value.trim();
+  const business_name = document.getElementById('advBusiness').value.trim();
   const advertiser_type = document.getElementById('advType').value;
   const contact_email = document.getElementById('advEmail').value.trim();
   const click_url = document.getElementById('advUrl').value.trim();
@@ -99,7 +125,14 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     const res = await fetch(SIGNUP_FUNCTION_URL, {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
-      body: JSON.stringify({ advertiser_name, advertiser_type, contact_email, click_url: click_url || null, target_region: 'עפולה' }),
+      body: JSON.stringify({
+        advertiser_name,
+        business_name: business_name || null,
+        advertiser_type,
+        contact_email,
+        click_url: click_url || null,
+        target_region: 'עפולה',
+      }),
     });
     const data = await res.json();
     if (!res.ok || data.error){
@@ -107,6 +140,17 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
       feedback.textContent = 'שגיאה בהרשמה — נסו שוב';
       btn.disabled = false; btn.textContent = 'הרשמה — ₪350/חודש';
       return;
+    }
+    // בלי אסימון אין מסך עריכה להוביל אליו, ולכן הכפתור והתיבה יורדים
+    // במקום להצביע על "#" — ההרשמה עצמה הצליחה בכל מקרה.
+    if (data.manage_token){
+      const manageUrl = new URL('professional-manage.html', location.href);
+      manageUrl.searchParams.set('token', data.manage_token);
+      document.getElementById('manageLink').value = manageUrl.href;
+      document.getElementById('manageOpen').href = manageUrl.href;
+      document.getElementById('manageBox').hidden = false;
+    } else {
+      document.getElementById('manageOpen').hidden = true;
     }
     document.getElementById('stateForm').style.display = 'none';
     document.getElementById('stateDone').style.display = 'block';
@@ -116,6 +160,21 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     feedback.textContent = 'שגיאת רשת — נסו שוב';
     btn.disabled = false; btn.textContent = 'הרשמה — ₪350/חודש';
   }
+});
+
+// ‎navigator.clipboard‎ לא קיים בהקשר לא-מאובטח (למשל בדיקה מקומית על
+// http), ולכן יש נפילה ל-select() — במקרה הגרוע המשתמש מעתיק בעצמו.
+document.getElementById('copyLinkBtn').addEventListener('click', async ()=>{
+  const input = document.getElementById('manageLink');
+  const btn = document.getElementById('copyLinkBtn');
+  try{
+    await navigator.clipboard.writeText(input.value);
+  } catch(err){
+    input.select();
+    return;
+  }
+  btn.textContent = 'הקישור הועתק ✓';
+  setTimeout(()=>{ btn.textContent = 'העתקת הקישור'; }, 2200);
 });
 </script>
 </body>

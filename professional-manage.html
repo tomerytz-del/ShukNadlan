@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>עריכת עמוד בעל מקצוע | שוק נדל״ן</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
+    --line:#C5C3BC; --blue:#1C3A5E; --blue-dark:#122840; --blue-tint:#E0E7ED;
+    --red:#8B2332; --red-dark:#6B1A26; --gold-tint:#F1DFE1; --green:#1F6B4A;
+    --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(18,40,64,.1);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;padding:24px 16px 40px}
+  h1,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--blue-dark);margin:0}
+  a{color:inherit}
+  button{font-family:inherit;cursor:pointer;border:none}
+  input,select,textarea{font-family:inherit;font-size:1rem}
+  img{max-width:100%}
+  .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line);max-width:560px;width:100%;margin:0 auto;padding:30px 24px}
+  .logo-link{display:block;width:64px;margin:0 auto 16px;line-height:0}
+  .logo-link img{width:100%;height:auto;display:block;border-radius:50%}
+  h1{font-size:1.25rem;text-align:center;margin-bottom:6px}
+  p.sub{text-align:center;color:var(--ink-soft);font-size:.85rem;margin:0 0 18px}
+  .status-badge{display:block;text-align:center;background:var(--blue-tint);color:var(--blue-dark);font-weight:700;font-size:.8rem;padding:8px;border-radius:var(--radius-sm);margin-bottom:10px}
+  .view-link{display:block;text-align:center;font-size:.82rem;font-weight:700;color:var(--blue);margin-bottom:18px}
+
+  fieldset{border:none;border-top:1px solid var(--line);margin:22px 0 0;padding:18px 0 0}
+  legend{display:none}
+  .group-title{font-weight:800;font-size:.92rem;color:var(--blue-dark);margin:0 0 3px}
+  .group-note{font-size:.76rem;color:var(--ink-soft);margin:0 0 14px}
+
+  .field{margin-bottom:12px}
+  .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
+  .field .hint{font-weight:500;color:var(--ink-soft);opacity:.85}
+  .field input,.field select,.field textarea{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;background:#fff}
+  .field textarea{resize:vertical;min-height:96px;line-height:1.6}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--blue);outline:none}
+  .field-row{display:flex;gap:10px}
+  .field-row .field{flex:1}
+
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:999px;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn-ghost{background:transparent;border:1.5px solid var(--blue);color:var(--blue)}
+  #feedback{font-size:.84rem;text-align:center;margin-top:12px;min-height:1.2em;font-weight:600}
+  .note{font-size:.72rem;color:var(--ink-soft);background:var(--gold-tint);border-radius:var(--radius-sm);padding:10px 12px;margin-top:16px;text-align:center}
+  .back-link{display:block;text-align:center;font-size:.8rem;color:var(--blue);margin-top:16px;text-decoration:none}
+
+  /* ====== תצוגה מקדימה של האריח ======
+     אותו אריח בדיוק כמו בדף הבית (תמונה שממלאת את הכרטיס, שם ושם עסק על
+     scrim כהה בתחתית), כדי שמי שעורך יראה מיד מה יופיע באתר ולא ינחש. */
+  .preview-wrap{margin:0 0 18px}
+  .preview-label{font-size:.75rem;font-weight:700;color:var(--ink-soft);margin:0 0 7px;text-align:center}
+  .preview-card{
+    width:168px;height:214px;margin:0 auto;position:relative;overflow:hidden;
+    border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-sm);
+    /* אותו גרדיאנט בדיוק כמו האריח בדף הבית (‎--gold‎ ← ‎--teal‎ שם) */
+    background:linear-gradient(155deg,var(--red),var(--blue) 65%);
+    display:flex;align-items:center;justify-content:center;padding-bottom:38px;
+  }
+  .preview-initial{font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:2.1rem;color:#fff;line-height:1}
+  .preview-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 22%}
+  .preview-overlay{
+    position:absolute;inset-inline:0;bottom:0;padding:26px 8px 9px;text-align:center;color:#fff;
+    background:linear-gradient(to top, rgba(6,20,34,.94) 30%, rgba(6,20,34,.66) 62%, rgba(6,20,34,0));
+  }
+  .preview-name{font-weight:700;font-size:.82rem;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .preview-business{font-size:.7rem;color:rgba(255,255,255,.86);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  /* ====== העלאת תמונות ====== */
+  .media-row{display:flex;align-items:center;gap:12px;margin-bottom:8px}
+  .media-thumb{
+    width:74px;height:74px;flex:none;border-radius:var(--radius-md);overflow:hidden;
+    border:1.5px dashed var(--line);background:#fff;
+    display:flex;align-items:center;justify-content:center;color:var(--ink-soft);font-size:.68rem;text-align:center;padding:6px;
+  }
+  .media-thumb.cover{width:130px;height:74px}
+  .media-thumb img{width:100%;height:100%;object-fit:cover}
+  .media-actions{flex:1;display:flex;flex-wrap:wrap;gap:8px}
+  .file-btn{
+    display:inline-flex;align-items:center;gap:6px;border:1.5px solid var(--blue);color:var(--blue);
+    background:#fff;border-radius:999px;padding:8px 15px;font-size:.8rem;font-weight:700;
+  }
+  .link-btn{
+    background:none;border:none;color:var(--ink-soft);font-size:.76rem;font-weight:700;
+    text-decoration:underline;padding:0;
+  }
+  input[type=file]{display:none}
+
+  .gallery-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+  .gallery-item{position:relative;aspect-ratio:1;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--line);background:#fff}
+  .gallery-item img{width:100%;height:100%;object-fit:cover;display:block}
+  .gallery-item button{
+    position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;
+    background:rgba(6,20,34,.78);color:#fff;font-size:1rem;line-height:1;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .gallery-empty{font-size:.78rem;color:var(--ink-soft);margin:8px 0 0}
+  .upload-state{font-size:.76rem;color:var(--ink-soft);margin-top:6px;min-height:1.1em}
+
+  #stateLoading,#stateError,#stateForm{display:none}
+  #stateLoading[data-on],#stateError[data-on],#stateForm[data-on]{display:block}
+  #stateLoading,#stateError{text-align:center}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div id="stateLoading" data-on>
+    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a>
+    <h1>טוען את הפרופיל…</h1>
+  </div>
+
+  <div id="stateError">
+    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256">
+    </a>
+    <h1>הקישור לא תקין</h1>
+    <p class="sub" id="errorText">קישור העריכה שגוי או פג תוקפו.</p>
+    <p class="note">קישור העריכה הוא הקישור שהתקבל בסיום ההרשמה. אם איבדתם אותו, כתבו לנו ונשלח אותו מחדש לכתובת המייל שאיתה נרשמתם.</p>
+    <a href="index.html" class="back-link">חזרה לדף הבית</a>
+  </div>
+
+  <div id="stateForm">
+    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a>
+    <h1>עמוד בעל המקצוע שלך</h1>
+    <p class="sub">השינויים מופיעים באתר מיד לאחר השמירה</p>
+    <span class="status-badge" id="statusBadge"></span>
+    <a href="#" class="view-link" id="viewPageLink" target="_blank" rel="noopener">צפייה בעמוד שלי ←</a>
+
+    <div class="preview-wrap">
+      <p class="preview-label">כך תיראה הכרטיסייה בדף הבית</p>
+      <div class="preview-card">
+        <span class="preview-initial" id="pvInitial">?</span>
+        <img class="preview-photo" id="pvPhoto" alt="" hidden>
+        <div class="preview-overlay">
+          <div class="preview-name" id="pvName">שם בעל/ת המקצוע</div>
+          <div class="preview-business" id="pvBusiness"></div>
+        </div>
+      </div>
+    </div>
+
+    <fieldset>
+      <p class="group-title">פרטים בסיסיים</p>
+      <p class="group-note">שתי השורות שמופיעות על הכרטיסייה בדף הבית</p>
+      <div class="field"><label for="advName">שם מלא</label><input type="text" id="advName" required></div>
+      <div class="field"><label for="advBusiness">שם העסק</label><input type="text" id="advBusiness" placeholder="השם שיוצג מתחת לשם שלך"></div>
+      <div class="field-row">
+        <div class="field">
+          <label for="advType">תחום עיסוק</label>
+          <select id="advType" required>
+            <option value="mortgage_advisor">יועץ/ת משכנתאות</option>
+            <option value="appraiser">שמאי/ת מקרקעין</option>
+            <option value="architect">אדריכל/ית</option>
+            <option value="interior_designer">מעצב/ת פנים</option>
+            <option value="real_estate_lawyer">עו״ד מקרקעין</option>
+            <option value="general">אחר</option>
+          </select>
+        </div>
+        <div class="field"><label for="advRegion">אזור ראשי</label><input type="text" id="advRegion" placeholder="עפולה"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <p class="group-title">התוכן בעמוד שלך</p>
+      <p class="group-note">מה שגולשים קוראים כשהם נכנסים מהכרטיסייה</p>
+      <div class="field">
+        <label for="advHeadline">משפט פתיחה <span class="hint">— שורה אחת מתחת לשם</span></label>
+        <input type="text" id="advHeadline" maxlength="160" placeholder="ליווי מלא בעסקאות נדל״ן בעמק יזרעאל">
+      </div>
+      <div class="field">
+        <label for="advDescription">תיאור <span class="hint">— מי אתם ומה אתם עושים</span></label>
+        <textarea id="advDescription" maxlength="4000" placeholder="ספרו על עצמכם, על הניסיון שלכם ועל האופן שבו אתם עובדים."></textarea>
+      </div>
+      <div class="field">
+        <label for="advServices">השירותים שלכם <span class="hint">— שירות אחד בכל שורה</span></label>
+        <textarea id="advServices" placeholder="הערכת שווי לצורכי מכירה&#10;שמאות לבנק למשכנתאות&#10;חוות דעת לבית משפט"></textarea>
+      </div>
+      <div class="field">
+        <label for="advAreas">אזורי פעילות <span class="hint">— אזור אחד בכל שורה</span></label>
+        <textarea id="advAreas" style="min-height:70px" placeholder="עפולה&#10;עמק יזרעאל&#10;נצרת עילית"></textarea>
+      </div>
+      <div class="field-row">
+        <div class="field"><label for="advLicense">מספר רישיון <span class="hint">(לא חובה)</span></label><input type="text" id="advLicense"></div>
+        <div class="field"><label for="advYears">שנות ניסיון</label><input type="number" id="advYears" min="0" max="80" inputmode="numeric"></div>
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <p class="group-title">תמונות ווידאו</p>
+      <p class="group-note">תמונות מוקטנות בדפדפן לפני ההעלאה — אפשר לבחור ישירות מהטלפון</p>
+
+      <div class="field">
+        <label>תמונת פרופיל <span class="hint">— זו שממלאת את הכרטיסייה בדף הבית</span></label>
+        <div class="media-row">
+          <div class="media-thumb" id="photoThumb">אין תמונה</div>
+          <div class="media-actions">
+            <label class="file-btn" for="photoFile">בחירת תמונה</label>
+            <input type="file" id="photoFile" accept="image/*">
+            <button type="button" class="link-btn" id="photoClear">הסרה</button>
+          </div>
+        </div>
+        <div class="upload-state" id="photoState"></div>
+      </div>
+
+      <div class="field">
+        <label>תמונת נושא <span class="hint">— הרצועה הרחבה בראש העמוד</span></label>
+        <div class="media-row">
+          <div class="media-thumb cover" id="coverThumb">אין תמונה</div>
+          <div class="media-actions">
+            <label class="file-btn" for="coverFile">בחירת תמונה</label>
+            <input type="file" id="coverFile" accept="image/*">
+            <button type="button" class="link-btn" id="coverClear">הסרה</button>
+          </div>
+        </div>
+        <div class="upload-state" id="coverState"></div>
+      </div>
+
+      <div class="field">
+        <label>גלריה <span class="hint">— עד 12 תמונות</span></label>
+        <label class="file-btn" for="galleryFiles">הוספת תמונות</label>
+        <input type="file" id="galleryFiles" accept="image/*" multiple>
+        <div class="upload-state" id="galleryState"></div>
+        <div class="gallery-grid" id="galleryGrid"></div>
+        <p class="gallery-empty" id="galleryEmpty">עדיין לא הוספתם תמונות לגלריה.</p>
+      </div>
+
+      <div class="field">
+        <label for="advVideo">סרטון <span class="hint">— קישור YouTube / Vimeo, או קובץ mp4</span></label>
+        <input type="url" id="advVideo" placeholder="https://youtube.com/watch?v=...">
+      </div>
+    </fieldset>
+
+    <fieldset>
+      <p class="group-title">יצירת קשר</p>
+      <p class="group-note">הטלפון הוא מה שמפעיל את כפתור הוואטסאפ בעמוד</p>
+      <div class="field"><label for="advPhone">טלפון <span class="hint">— לוואטסאפ ולשיחה</span></label><input type="tel" id="advPhone" placeholder="050-1234567"></div>
+      <div class="field"><label for="advEmail">אימייל להצגה <span class="hint">(לא חובה)</span></label><input type="email" id="advEmail" placeholder="office@example.com"></div>
+      <div class="field"><label for="advUrl">קישור לאתר / פרופיל</label><input type="url" id="advUrl" placeholder="https://"></div>
+    </fieldset>
+
+    <button type="button" class="btn" id="saveBtn" style="margin-top:20px">שמירת השינויים</button>
+    <div id="feedback"></div>
+    <p class="note">שמרו את הקישור לעמוד הזה — הוא המפתח היחיד לעריכה, ומי שמחזיק בו יכול לערוך את הפרופיל.</p>
+    <a href="index.html" class="back-link">חזרה לדף הבית</a>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+const MANAGE_FUNCTION_URL = SUPABASE_URL + '/functions/v1/professional-manage';
+
+const TYPE_LABELS = {
+  mortgage_advisor:'יועץ/ת משכנתאות', appraiser:'שמאי/ת מקרקעין', architect:'אדריכל/ית',
+  interior_designer:'מעצב/ת פנים', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל/ת מקצוע',
+};
+const MAX_GALLERY = 12;
+const MAX_IMAGE_DIM = 1600;
+
+const token = new URLSearchParams(location.search).get('token') || '';
+const el = id => document.getElementById(id);
+
+// מצב התמונות מוחזק כאן ולא בשדות טופס: הן נשמרות רק בלחיצה על "שמירה",
+// אבל ההעלאה עצמה קורית מיד בבחירת הקובץ.
+const media = { photo:'', cover:'', gallery:[] };
+
+const showState = name => {
+  ['stateLoading','stateError','stateForm'].forEach(s => el(s).removeAttribute('data-on'));
+  el(name).setAttribute('data-on', '');
+};
+
+async function callManage(payload){
+  const res = await fetch(MANAGE_FUNCTION_URL, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+    body: JSON.stringify({ token, ...payload }),
+  });
+  const data = await res.json().catch(()=>({ error:'bad_response' }));
+  return { ok: res.ok && !data.error, data };
+}
+
+/* טקסט רב-שורתי ↔ מערך. שורה ריקה היא לא פריט, וזה גם מה שמאפשר להשאיר
+   שורת רווח בין פריטים בלי שהיא תיהפך לתגית ריקה בעמוד. */
+const linesToList = value => value.split('\n').map(s => s.trim()).filter(Boolean);
+const listToLines = list => (list || []).join('\n');
+
+/* ---------- תצוגה מקדימה ----------
+   נגזרת מהשדות בזמן אמת ובאותם כללי נפילה של דף הבית: שם העסק, ואם אין
+   אותו — תחום העיסוק. */
+function renderPreview(){
+  const name = el('advName').value.trim() || 'שם בעל/ת המקצוע';
+  const business = el('advBusiness').value.trim() || TYPE_LABELS[el('advType').value] || '';
+  el('pvName').textContent = name;
+  el('pvBusiness').textContent = business;
+  el('pvInitial').textContent = name.split(/\s+/).map(w=>w[0]).slice(0,2).join('');
+
+  const img = el('pvPhoto');
+  if (media.photo){
+    img.onerror = ()=>{ img.hidden = true; };
+    img.onload = ()=>{ img.hidden = false; };
+    img.src = media.photo;
+  } else {
+    img.hidden = true;
+    img.removeAttribute('src');
+  }
+}
+
+/* ---------- העלאת תמונות ----------
+   הקובץ מוקטן ל-JPEG בדפדפן לפני ההעלאה: תמונה ישר מהטלפון היא 4-8MB,
+   ואחרי resize ל-1600px היא יורדת לכ-200-400KB. ה-bucket חוסם מעל 3MB
+   ממילא, אז בלי ההקטנה העלאות מהמובייל היו נכשלות. (אותו טיפול בדיוק
+   כמו בהעלאת תמונות נכס ב-CRM.)                                        */
+function fileToResizedBlob(file, maxDim = MAX_IMAGE_DIM, quality = 0.82){
+  return new Promise((resolve, reject)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = ()=>{
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('encode failed')), 'image/jpeg', quality);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('לא ניתן לקרוא את הקובץ')); };
+    img.src = url;
+  });
+}
+
+/* ההעלאה היא בשני צעדים: פונקציית הקצה מאמתת את האסימון ומחזירה כתובת
+   חתומה, והדפדפן מעלה אליה ישירות. ה-bucket עצמו סגור לכתיבה — אין דרך
+   להעלות אליו בלי אסימון תקין. */
+async function uploadImage(file, kind){
+  const blob = await fileToResizedBlob(file);
+  const { ok, data } = await callManage({ action:'upload', kind });
+  if (!ok) throw new Error('signing failed');
+  const res = await fetch(data.signed_url, {
+    method:'PUT',
+    headers:{ 'Content-Type':'image/jpeg', 'x-upsert':'true' },
+    body: blob,
+  });
+  if (!res.ok) throw new Error('upload failed');
+  return data.public_url;
+}
+
+function setThumb(id, url, emptyText){
+  const box = el(id);
+  box.innerHTML = url
+    ? `<img src="${url.replace(/"/g,'&quot;')}" alt="">`
+    : emptyText;
+}
+
+function renderMedia(){
+  setThumb('photoThumb', media.photo, 'אין תמונה');
+  setThumb('coverThumb', media.cover, 'אין תמונה');
+
+  el('galleryGrid').innerHTML = media.gallery.map((url, i) =>
+    `<div class="gallery-item"><img src="${url.replace(/"/g,'&quot;')}" alt="">` +
+    `<button type="button" data-remove="${i}" aria-label="הסרת תמונה ${i + 1}">×</button></div>`
+  ).join('');
+  el('galleryEmpty').hidden = media.gallery.length > 0;
+  renderPreview();
+}
+
+function wireSingleUpload(kind, inputId, clearId, stateId){
+  el(inputId).addEventListener('change', async e => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    el(stateId).textContent = 'מעלה…';
+    try{
+      media[kind] = await uploadImage(file, kind === 'photo' ? 'photo' : 'cover');
+      el(stateId).textContent = 'התמונה הועלתה — לחצו "שמירת השינויים" כדי לפרסם אותה';
+      renderMedia();
+    } catch(err){
+      console.error(err);
+      el(stateId).textContent = 'ההעלאה נכשלה — נסו שוב';
+    }
+  });
+  el(clearId).addEventListener('click', ()=>{
+    media[kind] = '';
+    el(stateId).textContent = '';
+    renderMedia();
+  });
+}
+wireSingleUpload('photo', 'photoFile', 'photoClear', 'photoState');
+wireSingleUpload('cover', 'coverFile', 'coverClear', 'coverState');
+
+el('galleryFiles').addEventListener('change', async e => {
+  const files = Array.from(e.target.files || []);
+  e.target.value = '';
+  if (!files.length) return;
+  const room = MAX_GALLERY - media.gallery.length;
+  if (room <= 0){
+    el('galleryState').textContent = `הגלריה מלאה (${MAX_GALLERY} תמונות)`;
+    return;
+  }
+  const batch = files.slice(0, room);
+  let done = 0;
+  for (const file of batch){
+    el('galleryState').textContent = `מעלה ${done + 1} מתוך ${batch.length}…`;
+    try{
+      media.gallery.push(await uploadImage(file, 'gallery'));
+      renderMedia();
+    } catch(err){ console.error(err); }
+    done++;
+  }
+  el('galleryState').textContent = 'התמונות הועלו — לחצו "שמירת השינויים" כדי לפרסם אותן';
+});
+
+el('galleryGrid').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-remove]');
+  if (!btn) return;
+  media.gallery.splice(Number(btn.dataset.remove), 1);
+  renderMedia();
+});
+
+/* ---------- טעינה ושמירה ---------- */
+function fillForm(card){
+  el('advName').value = card.advertiser_name || '';
+  el('advBusiness').value = card.business_name || '';
+  el('advType').value = card.advertiser_type || 'general';
+  el('advRegion').value = card.target_region || '';
+  el('advHeadline').value = card.headline || '';
+  el('advDescription').value = card.description || '';
+  el('advServices').value = listToLines(card.services);
+  el('advAreas').value = listToLines(card.service_areas);
+  el('advLicense').value = card.license_number || '';
+  el('advYears').value = card.years_experience ?? '';
+  el('advVideo').value = card.video_url || '';
+  // הטלפון חוזר מנורמל (972…) — מוצג עם + כדי שיהיה ברור שזו הקידומת
+  el('advPhone').value = card.phone_e164 ? '+' + card.phone_e164 : '';
+  el('advEmail').value = card.public_email || '';
+  el('advUrl').value = card.click_url || '';
+
+  media.photo = card.creative_url || '';
+  media.cover = card.cover_url || '';
+  media.gallery = (card.gallery_urls || []).slice();
+
+  // תאריך הסיום הוא מה שבעל/ת המקצוע באמת צריך לדעת: הכרטיסייה והעמוד
+  // יורדים מהאתר כשהוא עובר, גם אם הסטטוס בטבלה נשאר active.
+  const ends = card.ends_at ? new Date(card.ends_at + 'T00:00:00') : null;
+  const live = card.status === 'active' && (!card.ends_at || card.ends_at >= new Date().toISOString().slice(0,10));
+  el('statusBadge').textContent = live
+    ? (ends ? 'הפרופיל פעיל עד ' + ends.toLocaleDateString('he-IL') : 'הפרופיל פעיל')
+    : 'הפרופיל אינו מוצג כרגע באתר';
+
+  // ‏slug נוצר בשמירה הראשונה; עד אז הקישור לעמוד עובד לפי המזהה
+  const key = card.slug || card.id;
+  const link = el('viewPageLink');
+  link.href = 'professional.html?slug=' + encodeURIComponent(key);
+  link.hidden = !live;
+
+  renderMedia();
+}
+
+['advName','advBusiness'].forEach(id => el(id).addEventListener('input', renderPreview));
+el('advType').addEventListener('change', renderPreview);
+
+el('saveBtn').addEventListener('click', async ()=>{
+  const feedback = el('feedback');
+  const btn = el('saveBtn');
+  if (!el('advName').value.trim()){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'נא למלא שם';
+    el('advName').focus();
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'שומר…'; feedback.textContent = '';
+
+  const { ok, data } = await callManage({
+    action:'save',
+    advertiser_name: el('advName').value.trim(),
+    business_name: el('advBusiness').value.trim() || null,
+    advertiser_type: el('advType').value,
+    target_region: el('advRegion').value.trim() || null,
+    headline: el('advHeadline').value.trim() || null,
+    description: el('advDescription').value.trim() || null,
+    services: linesToList(el('advServices').value),
+    service_areas: linesToList(el('advAreas').value),
+    license_number: el('advLicense').value.trim() || null,
+    years_experience: el('advYears').value.trim() || null,
+    creative_url: media.photo || null,
+    cover_url: media.cover || null,
+    gallery_urls: media.gallery,
+    video_url: el('advVideo').value.trim() || null,
+    phone_e164: el('advPhone').value.trim() || null,
+    public_email: el('advEmail').value.trim() || null,
+    click_url: el('advUrl').value.trim() || null,
+  }).catch(()=>({ ok:false, data:{} }));
+
+  btn.disabled = false; btn.textContent = 'שמירת השינויים';
+  if (!ok){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'השמירה נכשלה — נסו שוב';
+    return;
+  }
+  // הטופס מתמלא מחדש מהתשובה ולא מהקלט: ערך שנפסל בשרת (כתובת בפרוטוקול
+  // לא נתמך, טלפון קצר מדי) ייעלם מהשדה ולא ייראה כאילו נשמר.
+  fillForm(data.card);
+  ['photoState','coverState','galleryState'].forEach(id => { el(id).textContent = ''; });
+  feedback.style.color = 'var(--green)';
+  feedback.textContent = 'השינויים נשמרו והם כבר באתר';
+});
+
+(async function init(){
+  if (!token){
+    showState('stateError');
+    return;
+  }
+  try{
+    const { ok, data } = await callManage({ action:'load' });
+    if (!ok){
+      el('errorText').textContent = data.error === 'not_found'
+        ? 'לא נמצא פרופיל עבור הקישור הזה.'
+        : 'קישור העריכה שגוי או פג תוקפו.';
+      showState('stateError');
+      return;
+    }
+    fillForm(data.card);
+    showState('stateForm');
+  } catch(err){
+    console.error(err);
+    el('errorText').textContent = 'שגיאת רשת — נסו לרענן את העמוד.';
+    showState('stateError');
+  }
+})();
+</script>
+</body>
+</html>

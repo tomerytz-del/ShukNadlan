@@ -112,6 +112,8 @@
      יורד שורה מתחתיהן וממורכז גם הוא. */
   .section-head{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;margin-bottom:22px}
   .section-head h2{font-size:1.5rem}
+  /* שורת משנה מתחת לכותרת הסקציה — משלימה את המשפט שהכותרת פותחת */
+  .section-head .section-sub{font-size:.88rem;color:var(--ink-soft);margin:-4px 0 0;max-width:46ch;text-wrap:balance}
   .see-all{font-size:.85rem;font-weight:700;color:var(--teal);border-bottom:1.5px solid var(--gold);padding-bottom:2px;white-space:nowrap}
   .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
   .skip-link{position:absolute;right:-999px;top:0;background:var(--teal);color:#fff;padding:10px 16px;z-index:200;border-radius:0 0 0 8px}
@@ -816,6 +818,9 @@
      הגרדיאנט עם אות ההתחלה נשאר מתחת לתמונה כרשת ביטחון: מתווך/ת בלי
      תמונה (או קובץ שנשבר וה-img הסיר את עצמו) מקבל/ת אריח צבעוני
      ולא ריבוע ריק. */
+     אותו אריח בדיוק משמש גם את כרטיסיות "בעלי מקצוע נבחרים" (‎.pro-*‎):
+     ההגדרות משותפות כאן כדי ששתי הרצועות יישארו זהות בעיצוב ובגודל,
+     והשמות נפרדים רק כדי שה-markup של כל אחת יקרא לעצמו בשמו. */
   .cf-card.agent-card{background:linear-gradient(155deg,var(--gold),var(--teal) 65%)}
   /* הריפוד התחתון ממרכז את אות ההתחלה בשטח *שמעל* רצועת השם ולא באמצע
      האריח (התמונה והרצועה מרחפות ולכן לא מושפעות ממנו), כדי שהאות לא
@@ -823,31 +828,37 @@
      האריח ממלא את גובה הכרטיס המשותף (‎--card-h‎) במקום להיות ריבוע:
      ריבוע ברוחב הכרטיס יצא נמוך משמעותית מכרטיס הנכס, והרצועה נראתה
      קטנה משאר הקרוסלות. כך התמונה גם מקבלת את כל השטח שיש. */
-  .agent-tile{
+  .agent-tile,
+  .pro-tile{
     position:relative;flex:1;overflow:hidden;padding-bottom:38px;
     display:flex;align-items:center;justify-content:center;
   }
-  .agent-initial{
+  .agent-initial,
+  .pro-initial{
     font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:2.1rem;
     color:#fff;line-height:1;
   }
   /* object-position גבוה מהמרכז: בתמונות פרופיל הפנים יושבות בשליש
      העליון, וחיתוך למרכז היה קוטע אותן בתחתית האריח הריבועי. */
-  .agent-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 22%}
+  .agent-photo,
+  .pro-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 22%}
   .agent-rank{
     position:absolute;top:6px;right:6px;background:rgba(255,255,255,.94);color:var(--gold-dark);
     font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:999px;
     box-shadow:0 2px 6px rgba(6,20,34,.22);
   }
-  .agent-overlay{
+  .agent-overlay,
+  .pro-overlay{
     position:absolute;inset-inline:0;bottom:0;padding:26px 8px 9px;text-align:center;color:#fff;
     background:linear-gradient(to top, rgba(6,20,34,.94) 30%, rgba(6,20,34,.66) 62%, rgba(6,20,34,0));
   }
-  .agent-name{
+  .agent-name,
+  .pro-name{
     font-weight:700;font-size:.78rem;line-height:1.25;
     display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
   }
-  .agent-agency{
+  .agent-agency,
+  .pro-business{
     font-size:.66rem;color:rgba(255,255,255,.86);margin-top:2px;
     display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
   }
@@ -857,17 +868,17 @@
   }
   .agent-meta .star{color:#FFD34D;margin-inline-end:2px}
   @media(min-width:480px){
-    .agent-initial{font-size:2.6rem}
-    .agent-name{font-size:.86rem}
-    .agent-agency{font-size:.72rem}
+    .agent-initial,.pro-initial{font-size:2.6rem}
+    .agent-name,.pro-name{font-size:.86rem}
+    .agent-agency,.pro-business{font-size:.72rem}
     .agent-meta{font-size:.66rem}
   }
   @media(min-width:760px){
-    .agent-initial{font-size:3.2rem}
+    .agent-initial,.pro-initial{font-size:3.2rem}
     .agent-rank{top:9px;right:9px;font-size:.7rem;padding:3px 10px}
-    .agent-overlay{padding:32px 12px 12px}
-    .agent-name{font-size:.95rem}
-    .agent-agency{font-size:.78rem}
+    .agent-overlay,.pro-overlay{padding:32px 12px 12px}
+    .agent-name,.pro-name{font-size:.95rem}
+    .agent-agency,.pro-business{font-size:.78rem}
     .agent-meta{font-size:.72rem}
   }
 
@@ -1231,17 +1242,35 @@
     .calc-result .num{font-size:2.6rem}
   }
 
-  /* ====== Professionals ====== */
-  .pros-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  .pro-card{padding:16px;text-align:center}
-  .pro-avatar{
-    width:52px;height:52px;border-radius:50%;margin:0 auto 10px;
-    background:linear-gradient(155deg,var(--gold-tint),var(--teal-tint));
-    display:flex;align-items:center;justify-content:center;font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal)
+  /* ====== Professionals ======
+     הכרטיסייה עברה מ"אווטאר קטן + שתי שורות טקסט" לאריח בדיוק כמו זה של
+     המתווכים המומלצים: התמונה ממלאת את כל הכרטיס, ושם בעל/ת המקצוע ושם
+     העסק יושבים בתחתיתו על scrim כהה. הגדרות האריח עצמו משותפות עם
+     ‎.agent-*‎ (ראו "קרוסלת מתווכים מומלצים"), וכאן יושב רק הגריד ומעטפת
+     הכרטיס — הגובה ‎--card-h‎ הוא אותו גובה של כרטיסי הקרוסלות, כדי ששתי
+     הרצועות ייראו מאותה משפחה. הגרדיאנט הוא רשת הביטחון לבעל/ת מקצוע
+     בלי תמונה: אריח צבעוני עם אות ההתחלה, לא ריבוע ריק. */
+  .pros-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  .pro-card{
+    min-height:var(--card-h);display:flex;flex-direction:column;overflow:hidden;
+    background:linear-gradient(155deg,var(--gold),var(--teal) 65%);
+    border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-sm);
+    transition:transform .2s ease, box-shadow .2s ease;
   }
-  .pro-card h3{font-size:.88rem;font-family:'Heebo',sans-serif;font-weight:700}
-  .pro-card .role{font-size:.72rem;color:var(--gold-dark);font-weight:700;margin-top:2px}
-  @media(min-width:760px){.pros-grid{grid-template-columns:repeat(5,1fr)}}
+  a.pro-card:hover{transform:translateY(-2px);box-shadow:0 14px 28px -14px rgba(6,20,34,.42)}
+  @media(min-width:480px){.pros-grid{grid-template-columns:repeat(3,1fr);gap:14px}}
+  @media(min-width:760px){
+    .pros-grid{grid-template-columns:repeat(5,1fr);gap:16px}
+    .pro-card{border-radius:16px}
+  }
+  /* רצועת בעלי המקצוע יושבת בין רצועת הנכסים המומלצים לסקציית הכתבות,
+     וכל השלוש נשאו ריפוד סקציה מלא (44px). הריפודים הצטברו זה על זה
+     ויצרו חלל ריק גדול מעל הכותרת ועוד אחד מתחת לכרטיסיות; שלושתם
+     מהודקים כאן כדי לסגור אותם בלי לגעת בשאר הסקציות בעמוד. */
+  #featured{padding-bottom:20px}
+  #pros{padding-block:14px 18px}
+  #pros .section-head{margin-bottom:14px;gap:6px}
+  #articles{padding-top:20px}
 
   /* ====== Footer ====== */
   footer.site{background:var(--teal-dark);color:#CFE1DF;padding:38px 0 22px;margin-top:30px}
@@ -1365,6 +1394,9 @@
     <!-- הדירוג לא מוצג ככותרת בדף הבית אלא נשאר כאן, בתפריט: מי שרוצה להבין
          מה עומד מאחורי הכוכבים על כרטיס המתווך/ת מוצא/ת את ההסבר בלחיצה. -->
     <a href="#" id="ratingInfoLink">איך עובד הדירוג?</a>
+    <!-- עד עכשיו נקודת הכניסה היחידה של בעלי מקצוע הייתה הקישור בתוך
+         הרצועה בדף הבית — מי שלא גלל עד אליה לא ידע שאפשר להצטרף. -->
+    <a href="professional-signup.html">הצטרפות כבעל מקצוע</a>
     <a href="crm.html" class="btn btn-teal btn-block" style="margin-top:10px">כניסת מתווכים</a>
   </nav>
 </header>
@@ -1997,8 +2029,8 @@
   <section class="section wrap" id="pros">
     <div class="section-head">
       <div>
-        <p class="eyebrow">בעלי מקצוע נבחרים</p>
-        <h2>מי שילווה אתכם בדרך</h2>
+        <h2>בעלי מקצוע נבחרים</h2>
+        <p class="section-sub">שילוו אתכם בדרך לעסקת הנדל״ן הבאה שלכם</p>
       </div>
       <a href="professional-signup.html" class="see-all">הצטרפות כבעל מקצוע ←</a>
     </div>
@@ -2073,7 +2105,10 @@
       <h4>שוק נדל״ן</h4>
       <a href="#">אודות</a>
       <a href="#">צור קשר</a>
-      <a href="#">הצטרפות כמשרד תיווך</a>
+      <!-- שני מסלולי ההצטרפות הם הדפים היחידים כאן שכבר קיימים, ולכן הם
+           קישורים אמיתיים ולא href="#" כמו שאר הפוטר. -->
+      <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
+      <a href="professional-signup.html">הצטרפות כבעל מקצוע</a>
     </div>
     <div class="footer-col">
       <h4>נכסים</h4>
@@ -2083,9 +2118,9 @@
     </div>
     <div class="footer-col">
       <h4>כלים</h4>
-      <a href="#">מחשבון משכנתא</a>
-      <a href="#">מתווכים מובילים</a>
-      <a href="#">בעלי מקצוע</a>
+      <a href="#calc">מחשבון משכנתא</a>
+      <a href="#leadingAgents">מתווכים מובילים</a>
+      <a href="#pros">בעלי מקצוע</a>
     </div>
     <div class="footer-col">
       <h4>משפטי ונגישות</h4>
@@ -3099,13 +3134,35 @@ async function loadArticles(){
 })();
 
 /* ---------- Professionals (module 2 §5.6) — live ad_placements, static fallback ---------- */
+/* ברירת המחדל היא מקומות פנויים ולא בעלי-מקצוע אמיתיים: השורה הראשונה
+   היא התחום והשנייה תיאור קצר שלו, כדי שהרצועה תיראה מאוישת גם לפני
+   שנרשם מישהו. ‎business_name‎ מפורש כאן ולא נשען על הנפילה לתחום העיסוק,
+   אחרת שתי השורות היו חוזרות על אותו טקסט. */
 const FALLBACK_PROS = [
-  {advertiser_name:'יועץ משכנתאות', advertiser_type:'mortgage_advisor', target_region:'מומלץ באזור עפולה'},
-  {advertiser_name:'שמאי מקרקעין', advertiser_type:'appraiser', target_region:'הערכות שווי'},
-  {advertiser_name:'אדריכל', advertiser_type:'architect', target_region:'תכנון ועיצוב'},
-  {advertiser_name:'מעצבת פנים', advertiser_type:'interior_designer', target_region:"שיפוצים והום סטייג'ינג"},
-  {advertiser_name:'עו״ד מקרקעין', advertiser_type:'real_estate_lawyer', target_region:'ליווי עסקאות'},
+  {advertiser_name:'יועץ משכנתאות', business_name:'ליווי מימון ומשכנתאות', advertiser_type:'mortgage_advisor', target_region:'מומלץ באזור עפולה'},
+  {advertiser_name:'שמאי מקרקעין', business_name:'הערכות שווי', advertiser_type:'appraiser', target_region:'עפולה והעמק'},
+  {advertiser_name:'אדריכל', business_name:'תכנון ועיצוב', advertiser_type:'architect', target_region:'עפולה והעמק'},
+  {advertiser_name:'מעצבת פנים', business_name:"שיפוצים והום סטייג'ינג", advertiser_type:'interior_designer', target_region:'עפולה והעמק'},
+  {advertiser_name:'עו״ד מקרקעין', business_name:'ליווי עסקאות', advertiser_type:'real_estate_lawyer', target_region:'עפולה והעמק'},
 ];
+/* שם העסק הוא שדה נפרד מהשם הפרטי (business_name), אבל הוא התווסף אחרי
+   שכבר נרשמו בעלי מקצוע — ולכן יש נפילה מסודרת: שם העסק, ואם אין אותו
+   תחום העיסוק, ואם גם הוא חסר האזור. הרצועה התחתונה של האריח לעולם לא
+   נשארת חצי ריקה. */
+function proSecondLine(p){
+  return p.business_name || TYPE_LABELS[p.advertiser_type] || p.target_region || '';
+}
+
+/* קישור התמונה וקישור הכרטיסייה מגיעים מטופס הרשמה פתוח ונכנסים ישירות
+   ל-href/src, ולכן מסוננים לפרוטוקול בטוח בלבד: ‎javascript:‎ בשדה הקישור
+   היה הופך לכתובת שהכרטיסייה כולה מפעילה בלחיצה. */
+function safeExternalUrl(u){
+  if (!u) return '';
+  try{
+    const url = new URL(String(u), location.href);
+    return /^https?:$/.test(url.protocol) ? url.href : '';
+  } catch(e){ return ''; }
+}
 const TYPE_LABELS = {
   mortgage_advisor:'יועץ/ת משכנתאות', appraiser:'שמאי/ת מקרקעין', architect:'אדריכל/ית',
   interior_designer:'מעצב/ת פנים', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל/ת מקצוע',
@@ -3143,36 +3200,59 @@ function rotateProfessionalsFairly(list){
   return out;
 }
 
-function isPlacementLive(p, today){
-  return (!p.starts_at || p.starts_at <= today) && (!p.ends_at || p.ends_at >= today);
-}
-
 (async function initProfessionals(){
   const el = document.getElementById('prosGrid');
   let pros = FALLBACK_PROS;
   try{
     if (sb){
+      // ‏professional_cards_public הוא ה-view הציבורי: הוא כבר מסנן
+      // לכרטיסיות פעילות שבתוך חלון הפרסום (status לבדו לא מספיק —
+      // כרטיסייה שתקופתה הסתיימה נשארת active בטבלה), והוא לא כולל את
+      // כתובת החיוב של המפרסם.
       const { data, error } = await sb
-        .from('ad_placements')
-        .select('id, advertiser_name, advertiser_type, target_region, click_url, starts_at, ends_at')
-        .eq('placement_type', 'professional_card')
-        .eq('status', 'active')
+        .from('professional_cards_public')
+        .select('id, slug, advertiser_name, business_name, advertiser_type, target_region, creative_url, click_url')
         .limit(50);
-      // status לבדו לא מספיק: כרטיסייה שתקופת הפרסום שלה הסתיימה נשארת
-      // active בטבלה, ובלי הסינון הזה היא המשיכה להופיע באתר.
-      const today = new Date().toISOString().slice(0, 10);
-      const live = (data || []).filter(p => isPlacementLive(p, today));
+      const live = data || [];
       if (!error && live.length > 0) pros = rotateProfessionalsFairly(live).slice(0, 10);
     }
   } catch(e){ console.warn('טעינת בעלי מקצוע נכשלה, מציג ברירת מחדל:', e); }
 
+  // שמות ושם עסק מגיעים מטופס הרשמה פתוח, וכתובת התמונה נכנסת גם לתוך
+  // מאפיין (src) — ולכן הכול עובר דרך escAttr לפני ההזרקה ל-innerHTML.
   el.innerHTML = '';
   pros.forEach(p=>{
-    const initials = p.advertiser_name.split(' ').map(w=>w[0]).slice(0,2).join('');
-    const card = document.createElement(p.click_url ? 'a' : 'div');
-    card.className = 'card pro-card';
-    if (p.click_url){ card.href = p.click_url; card.target = '_blank'; card.rel = 'noopener'; card.style.textDecoration = 'none'; card.style.color = 'inherit'; }
-    card.innerHTML = `<div class="pro-avatar">${initials}</div><h3>${p.advertiser_name}</h3><p class="role">${p.target_region || TYPE_LABELS[p.advertiser_type] || ''}</p>`;
+    const name = p.advertiser_name || 'בעל/ת מקצוע';
+    const initials = name.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('');
+    // הכרטיסייה מובילה עכשיו פנימה, לעמוד הפרופיל — שם יושבים התיאור,
+    // השירותים, הגלריה, הווידאו וכפתור הוואטסאפ. האתר החיצוני של בעל/ת
+    // המקצוע הוא כפתור *בתוך* העמוד; קודם הוא היה היעד של הכרטיסייה,
+    // והלחיצה הוציאה את הגולש מהאתר מיד. כרטיסייה בלי עמוד (אין slug ואין
+    // מזהה) נשארת אריח לא-לחיץ ולא קישור לשום מקום.
+    const profileKey = p.slug || p.id;
+    const card = document.createElement(profileKey ? 'a' : 'div');
+    card.className = 'pro-card';
+    if (profileKey){
+      card.href = 'professional.html?slug=' + encodeURIComponent(profileKey);
+      card.style.textDecoration = 'none';
+      card.style.color = 'inherit';
+    }
+    // אות ההתחלה נשארת ב-DOM גם כשיש תמונה ופשוט מכוסה על ידה; אם קובץ
+    // התמונה נשבר ה-img מסיר את עצמו והאריח חוזר לאות על הגרדיאנט
+    // במקום לאייקון תמונה שבורה — בדיוק כמו באריח המתווך/ת.
+    const photoUrl = safeExternalUrl(p.creative_url);
+    const photo = photoUrl
+      ? `<img class="pro-photo" src="${escAttr(photoUrl)}" alt="${escAttr(name)}" loading="lazy" onerror="this.remove()">`
+      : '';
+    card.innerHTML = `
+      <div class="pro-tile">
+        <span class="pro-initial">${escAttr(initials)}</span>
+        ${photo}
+        <div class="pro-overlay">
+          <div class="pro-name">${escAttr(name)}</div>
+          <div class="pro-business">${escAttr(proSecondLine(p))}</div>
+        </div>
+      </div>`;
     el.appendChild(card);
   });
 })();
