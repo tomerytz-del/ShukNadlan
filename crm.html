@@ -331,6 +331,16 @@
   .match-gap{font-size:.72rem;color:var(--brick);margin-top:4px}
   .req-line{font-size:.75rem;color:var(--ink-soft)}
 
+  /* ---------- התראות התאמה ----------
+     כרטיס ההתראה הוא כרטיס ההתאמה שיצא מתוך כרטיס הלקוח/ה ועומד בפני עצמו,
+     ולכן הוא מוסיף את מה שהכרטיס הפנימי לא היה צריך: שם הלקוח/ה ומועד
+     ההתראה. הפס הצדדי מסמן את מה שטרם נצפה — בלעדיו רשימת ההתראות אחידה
+     לגמרי, והחדש נבלע בין מה שכבר טופל. */
+  .alert-card{border-inline-start:3px solid transparent}
+  .alert-card.is-new{border-inline-start-color:var(--gold);background:var(--gold-tint)}
+  .alert-for{font-size:.74rem;font-weight:800;color:var(--teal)}
+  .alert-when{font-size:.68rem;color:var(--ink-soft);white-space:nowrap}
+
   /* ---------- מיתוג דף המשרד (מנהל בלבד) ---------- */
   .palette-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   @media(min-width:560px){.palette-grid{grid-template-columns:repeat(4,1fr)}}
@@ -1550,6 +1560,33 @@
         </div>
 
         <div id="sharedWithMeList"></div>
+      </div>
+    </details>
+
+    <details class="acc" id="accAlerts" open>
+      <summary>
+        <span class="acc-title">התראות התאמה</span>
+        <span class="acc-count hot" id="accAlertsCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">כל נכס שנכנס למערכת — שלך, של המשרד או כזה ששותף איתך — נבדק מול קובץ הלקוחות, וכל התאמה חזקה נפתחת כאן כהתראה. גם ירידת מחיר שמכניסה נכס קיים לתקציב של לקוח/ה פותחת התראה. כל צמד לקוח/ה–נכס מתריע פעם אחת בלבד.</p>
+
+        <div class="list-toolbar">
+          <div class="toolbar-row">
+            <select id="alertScopeFilter" class="filter-input" aria-label="סינון התראות">
+              <option value="new">חדשות בלבד</option>
+              <option value="all">כל ההתראות</option>
+            </select>
+            <button type="button" class="btn btn-ghost" id="alertsRefreshBtn" style="white-space:nowrap">רענון</button>
+          </div>
+          <div class="toolbar-foot">
+            <p class="list-count" id="alertsFilterCount"></p>
+            <button type="button" class="clear-filters" id="alertsMarkAll" hidden>סימון הכל כנצפה</button>
+          </div>
+        </div>
+
+        <div id="alertsList"></div>
       </div>
     </details>
 
@@ -2824,6 +2861,7 @@ async function loadDashboard(user){
   await loadLeadShelf(agent.id);
   await loadSharedWithMe();
   await loadClients();
+  await loadClientAlerts();
   await loadNotifications(agent.id);
   await loadPreferences(agent.id);
   loadWhatsappSettings(agent);
@@ -5067,6 +5105,9 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   document.querySelectorAll('[data-category]').forEach(b=> b.classList.toggle('active', b.dataset.category === 'residential'));
   updateFormForCategory('residential');
   await loadProperties(currentAgent.id);
+  // הנכס שזה עתה פורסם עשוי להתאים ללקוח/ה בקובץ שלך — הטריגר כבר פתח את
+  // ההתראה, וכאן היא נשלפת בלי שיהיה צורך לרענן את העמוד
+  await loadClientAlerts();
   setTimeout(()=>{
     addForm.style.display='none';
     toggleBtn.textContent='+ הוספת נכס חדש';
@@ -8731,6 +8772,9 @@ async function deleteClient(c){
   if (editingClientId === c.id) resetClientForm();
   showToast('הלקוח/ה נמחק/ה');
   await loadClients();
+  // ההתראות של הלקוח/ה ירדו עם השורה (on delete cascade) — בלי הרענון הן
+  // היו נשארות על המסך ומצביעות על מי שכבר לא בקובץ
+  await loadClientAlerts();
 }
 
 // שדה מספרי ריק הוא null ולא 0 — 0 היה נקרא כ"תקציב אפס" ומסנן הכול
@@ -8818,6 +8862,193 @@ document.getElementById('clientClearFilters').addEventListener('click', ()=>{
     .forEach(id => { document.getElementById(id).value = ''; });
   renderClients();
 });
+
+/* ---------- התראות התאמה ----------
+   מנוע ההתאמות עבד עד היום רק במשיכה: הסוכן/ת פותח/ת כרטיס לקוח/ה ולוחץ/ת
+   "הצגת התאמות". נכס שנכנס בשתיים בלילה חיכה שמישהו יפתח את הכרטיס הנכון
+   ביום הנכון. ההתראות הן הכיוון ההפוך — טריגר ב-DB (מיגרציה 20260829200000)
+   מצליב כל נכס חדש מול קובצי הלקוחות של כל מי שרואה אותו, ופותח שורה
+   ב-client_match_alerts. כאן רק התצוגה והסטטוס.
+
+   שתי נקודות שכדאי לדעת עליהן:
+   • הציון והסיבות נשמרים על שורת ההתראה ולא מחושבים מחדש בקריאה — ההתראה
+     מתעדת את מצב הנכס ברגע שהוא התאים, וזה מה שצריך להסביר *למה* היא נשלחה.
+   • ההתראות אינן רטרואקטיביות. לקוח/ה חדש/ה לא מציף/ה את הרשימה בכל
+     הנכסים שכבר קיימים — בשבילם יש את פאנל ההתאמות בקובץ הלקוחות.        */
+let alertRows = [];
+
+function alertScope(){
+  return document.getElementById('alertScopeFilter').value || 'new';
+}
+
+async function loadClientAlerts(){
+  const listEl = document.getElementById('alertsList');
+  listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+
+  const { data, error } = await sb.rpc('client_match_alerts_feed',
+    { p_scope: alertScope(), p_limit: 60 });
+
+  if (error){
+    listEl.innerHTML = '<div class="empty-state">' +
+      (missingSchema(error)
+        ? 'התראות ההתאמה לא הופעלו עדיין בפרויקט הזה.'
+        : 'שגיאה בטעינת ההתראות: ' + esc(error.message)) + '</div>';
+    accSetCount('accAlerts', '');
+    document.getElementById('alertsFilterCount').textContent = '';
+    document.getElementById('alertsMarkAll').hidden = true;
+    return;
+  }
+
+  alertRows = data || [];
+  renderClientAlerts();
+}
+
+function renderClientAlerts(){
+  const listEl = document.getElementById('alertsList');
+  const unseen = alertRows.filter(a => a.status === 'new').length;
+
+  accSetCount('accAlerts', unseen ? unseen + ' חדשות' : '');
+  document.getElementById('alertsMarkAll').hidden = unseen === 0;
+  document.getElementById('alertsFilterCount').textContent = alertRows.length
+    ? alertRows.length + ' התראות' + (unseen ? ' · ' + unseen + ' חדשות' : '')
+    : '';
+
+  if (alertRows.length === 0){
+    listEl.innerHTML = '<div class="empty-state">' +
+      (alertScope() === 'new'
+        ? 'אין התראות חדשות. כשייכנס נכס שעונה על הדרישות של אחד הלקוחות בקובץ — הוא יופיע כאן.'
+        : 'עדיין לא נפתחו התראות התאמה.') + '</div>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  alertRows.forEach(a => {
+    const address = [a.city, [a.street, a.house_number].filter(Boolean).join(' ')]
+      .filter(Boolean).join(', ');
+
+    const alertTags = tagsHtml([
+      { text: a.deal_type === 'rent' ? shekel(a.price) + ' לחודש' : shekel(a.price), cls:'tag-key' },
+      a.rooms && { html:`🛏 <b>${esc(a.rooms)}</b> חדרים` },
+      a.property_type && { text:'🏠 ' + a.property_type },
+      a.size_sqm && { text:`📐 ${a.size_sqm} מ״ר` },
+      a.floor != null && { text:'🏢 קומה ' + a.floor },
+      address && { text:'📍 ' + address },
+    ]);
+
+    const gaps = [
+      ...(a.reasons || []),
+      ...((a.missing_features || []).length
+        ? ['חסר: ' + a.missing_features.map(featureLabel).join(', ')] : []),
+    ];
+
+    // המשרד שמפרסם רלוונטי רק כשהוא לא שלי — בנכס שלי זה רעש
+    const sourceLabel = a.source === 'shared'
+      ? '🤝 ' + (a.listing_agency_name || 'משרד שותף')
+      : MATCH_SOURCE_LABELS[a.source] || a.source;
+
+    const card = document.createElement('div');
+    card.className = 'match-card alert-card' + (a.status === 'new' ? ' is-new' : '');
+    card.innerHTML = `
+      <div class="match-head">
+        <div>
+          <span class="src-tag src-${esc(a.source)}">${esc(sourceLabel)}</span>
+          <div class="alert-for">מתאים ל${esc(a.client_name)}</div>
+          <div class="match-title">${esc(a.title)}</div>
+        </div>
+        <div style="text-align:left">
+          <span class="score-pill ${a.score >= 85 ? 'score-high' : 'score-mid'}">${a.score}%</span>
+          <div class="alert-when">${esc(hebDateTime(a.created_at))}</div>
+        </div>
+      </div>
+      ${alertTags}
+      ${gaps.length ? `<div class="match-gap">${gaps.map(esc).join(' · ')}</div>` : ''}
+      <div class="lead-actions"></div>
+    `;
+
+    const actions = card.querySelector('.lead-actions');
+    addCardAction(actions, {
+      label:'🏠 עמוד הנכס', blank:true,
+      href:'property.html?id=' + encodeURIComponent(a.property_id),
+    });
+
+    // ההצעה ללקוח/ה היא הפעולה שההתראה נועדה לה, ולכן הקישור נולד מוכן:
+    // שם, כותרת הנכס, מחיר וקישור ציבורי — בלי להקליד כלום
+    const clientWa = waLink(a.client_phone);
+    if (clientWa){
+      const lines = [
+        `שלום ${a.client_name},`,
+        `מצאתי נכס שיכול להתאים למה שאתם מחפשים: ${a.title}` + (address ? ` ב${address}` : '') + '.',
+        (a.deal_type === 'rent' ? shekel(a.price) + ' לחודש' : shekel(a.price)) + '.',
+        propertyPublicLink(a.property_id),
+      ];
+      addCardAction(actions, {
+        label:'💬 שליחה ללקוח/ה', cls:'btn-gold', blank:true,
+        href: clientWa + '?text=' + encodeURIComponent(lines.join('\n')),
+      });
+    }
+
+    if (a.source !== 'own' && a.listing_agent_phone){
+      addCardAction(actions, {
+        label:'📞 ' + (a.listing_agent_name || 'הסוכן/ת'),
+        href:'tel:' + String(a.listing_agent_phone).replace(/[^\d+]/g, ''),
+      });
+    }
+
+    if (a.status === 'new'){
+      addCardAction(actions, { label:'✓ נצפתה', onClick: btn => setAlertStatus(a, 'seen', btn) });
+    }
+    addCardAction(actions, {
+      label:'✕ הסרה', title:'ההתראה לא תוצג שוב. הנכס עצמו נשאר בפאנל ההתאמות של הלקוח/ה.',
+      onClick: btn => setAlertStatus(a, 'dismissed', btn),
+    });
+
+    listEl.appendChild(card);
+  });
+}
+
+/* ‏dismissed יורדת מהרשימה תמיד (הפיד לא מחזיר אותה), ו-seen יורדת רק
+   כשמסתכלים על "חדשות בלבד" — אחרת היא נשארת ומשנה צבע.               */
+async function setAlertStatus(row, status, btn){
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = '…';
+
+  const { error } = await sb.from('client_match_alerts')
+    .update({ status, seen_at: row.seen_at || new Date().toISOString() })
+    .eq('id', row.id);
+
+  if (error){
+    btn.disabled = false; btn.textContent = original;
+    showToast('שגיאה בעדכון ההתראה: ' + error.message);
+    return;
+  }
+
+  if (status === 'dismissed' || alertScope() === 'new'){
+    alertRows = alertRows.filter(r => r.id !== row.id);
+  } else {
+    row.status = status;
+    row.seen_at = row.seen_at || new Date().toISOString();
+  }
+  renderClientAlerts();
+}
+
+async function markAllAlertsSeen(btn){
+  const ids = alertRows.filter(a => a.status === 'new').map(a => a.id);
+  if (!ids.length) return;
+
+  btn.disabled = true;
+  const { error } = await sb.from('client_match_alerts')
+    .update({ status:'seen', seen_at:new Date().toISOString() })
+    .in('id', ids);
+  btn.disabled = false;
+
+  if (error){ showToast('שגיאה בעדכון ההתראות: ' + error.message); return; }
+  showToast(ids.length + ' התראות סומנו כנצפו');
+  await loadClientAlerts();
+}
+
+document.getElementById('alertScopeFilter').addEventListener('change', ()=> loadClientAlerts());
+document.getElementById('alertsRefreshBtn').addEventListener('click', ()=> loadClientAlerts());
+document.getElementById('alertsMarkAll').addEventListener('click', e => markAllAlertsSeen(e.currentTarget));
 
 async function openCmaReport(propertyId, btn){
   const original = btn.textContent;
@@ -8979,12 +9210,16 @@ async function loadNotifications(agentId){
       }
       document.getElementById('bellPanel').style.display = 'none';
       document.getElementById('bellBtn').setAttribute('aria-expanded','false');
-      // ‏review_alert היא הסלמה של ביקורת 1★ ולכן מובילה למסך הביקורות; כל
-      // השאר (ליד חדש, וגם תזכורת לבקש חוות דעת) מובילות לכרטיס הליד עצמו,
-      // כי שם יושב כפתור השליחה בוואטסאפ.
+      // ‏review_alert היא הסלמה של ביקורת 1★ ולכן מובילה למסך הביקורות,
+      // ‏client_match מובילה להתראות ההתאמה; כל השאר (ליד חדש, וגם תזכורת
+      // לבקש חוות דעת) מובילות לכרטיס הליד עצמו, כי שם יושב כפתור השליחה
+      // בוואטסאפ.
       if (n.type === 'review_alert'){
         openAcc('accReviews');
         document.querySelector('#reviewModerationList')?.scrollIntoView({ behavior:'smooth' });
+      } else if (n.type === 'client_match'){
+        openAcc('accAlerts');
+        document.querySelector('#alertsList')?.scrollIntoView({ behavior:'smooth' });
       } else {
         openAcc('accLeads');
         document.querySelector('#leadsList')?.scrollIntoView({ behavior:'smooth' });
@@ -9051,6 +9286,7 @@ const DASH_ICONS = {
   article:'<path d="M4 4h12a2 2 0 0 1 2 2v13a2 2 0 0 0 2-2V8"/><path d="M18 21H5a2 2 0 0 1-2-2V4"/><line x1="7" y1="8" x2="14" y2="8"/><line x1="7" y1="12" x2="14" y2="12"/><line x1="7" y1="16" x2="11" y2="16"/>',
   menu:'<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>',
   grip:'<circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/>',
+  bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
   chevRight:'<polyline points="9 18 15 12 9 6"/>',
   chevLeft:'<polyline points="15 18 9 12 15 6"/>',
 };
@@ -9102,6 +9338,8 @@ const QUICK_ACTIONS = [
     when: ()=> currentAgent && currentAgent.role === 'manager' },
   { key:'shelf',      acc:'accLeadShelf',    icon:'layers',   tone:'green',
     title:'מדף לידים',         sub:'לידים זמינים לרכישה' },
+  { key:'alerts',     acc:'accAlerts',       icon:'bell',     tone:'wine',  hot:true,
+    title:'התראות התאמה',      sub:'נכסים חדשים ללקוחות בקובץ' },
   { key:'clients',    acc:'accClients',      icon:'contact',  tone:'navy',  hot:true,
     title:'קובץ הלקוחות',      sub:'התאמות אוטומטיות לנכסים' },
   { key:'shared',     acc:'accSharedWithMe', icon:'share',    tone:'navy',  hot:true,
