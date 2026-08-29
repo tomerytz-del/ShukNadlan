@@ -379,6 +379,11 @@
   .profile-preview .pp-badge{width:38px;height:38px;border-radius:50%;margin-top:6px;display:block;
     filter:drop-shadow(0 2px 6px rgba(18,40,64,.24))}
   .profile-preview .pp-badge[hidden]{display:none}
+  /* תגיות הפרופיל בתצוגה המקדימה — אותה שורה שמופיעה בראש agent.html */
+  .profile-preview .pp-pills{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
+  .profile-preview .pp-pills:empty{display:none}
+  .profile-preview .pp-pills span{font-size:.68rem;font-weight:700;color:var(--teal-dark);
+    background:var(--teal-tint);border-radius:999px;padding:3px 9px;line-height:1.4}
 
   /* ---------- הקוד האתי ותו האיכות ----------
      התו עצמו מוצג כאן בגודל מלא: מי שעומד לחתום על עשרה סעיפים מחייבים צריך
@@ -1859,6 +1864,7 @@
               <div class="pp-name" id="ppName">—</div>
               <div class="pp-license" id="ppLicense"></div>
               <img class="pp-badge" id="ppBadge" src="assets/badge-ethics.png" alt="תו האמון והאיכות" width="384" height="384" hidden>
+              <div class="pp-pills" id="ppPills"></div>
               <p class="pp-bio" id="ppBio"></p>
             </div>
           </div>
@@ -1878,6 +1884,29 @@
             <label for="pfBio">תיאור</label>
             <textarea id="pfBio" rows="4" maxlength="600" placeholder="כמה מילים על עצמך: ותק, אזורי פעילות, סוגי נכסים והתמחות."></textarea>
             <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0"><span id="pfBioCount">0</span>/600 תווים</p>
+          </div>
+
+          <!-- תגיות הפרופיל: מה שעד היום היה קבור בתוך פסקת התיאור (ותק,
+               התמחות, הסמכות, אזור) יושב כאן בשדות נפרדים, כדי שדף הסוכן/ת
+               יציג אותו כתגיות שנסרקות בשנייה ולא כמשפט שצריך לקרוא. -->
+          <div class="form-subheading">תגיות הפרופיל</div>
+          <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">כל השדות כאן הם רשות. מה שתמלאו יופיע כתגית בראש דף הסוכן/ת; מה שתשאירו ריק פשוט לא יוצג.</p>
+          <div class="field">
+            <label for="pfYears">שנות ותק בנדל״ן</label>
+            <input type="number" id="pfYears" min="0" max="70" step="1" inputmode="numeric" placeholder="למשל 15">
+          </div>
+          <div class="field">
+            <label for="pfArea">אזור התמחות</label>
+            <input type="text" id="pfArea" maxlength="60" placeholder="למשל עפולה והעמקים">
+          </div>
+          <div class="field">
+            <label for="pfCredentials">תארים והסמכות</label>
+            <input type="text" id="pfCredentials" maxlength="80" placeholder="למשל B.A ומגשר מוסמך">
+          </div>
+          <div class="field">
+            <label>תחומי התמחות</label>
+            <div class="checkbox-grid" id="pfSpecialties"></div>
+            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">עד 4 תחומים — התגיות הראשונות הן אלה שנראות בראש הדף.</p>
           </div>
 
           <div class="form-subheading">תמונת סוכן/ת ותמונת נושא</div>
@@ -2937,7 +2966,7 @@ async function loadDashboard(user){
   // agency_members ל-agencies ומחזיר PGRST201 (HTTP 300) על כל embed כזה.
   const { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select('id, agency_id, slug, display_name, bio, photo_url, cover_url, license_number, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, is_mortgage_advisor, phone, ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at')
+    .select('id, agency_id, slug, display_name, bio, photo_url, cover_url, license_number, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, is_mortgage_advisor, phone, ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at, years_experience, specialties, credentials, service_area')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -3752,6 +3781,41 @@ document.getElementById('whatsappForm').addEventListener('submit', async (e)=>{
 const PROFILE_BUCKET = 'property-images'; // אותו bucket ציבורי; הנתיב מפריד בין נכסים לפרופיל
 let profileState = null;
 
+/* תחומי ההתמחות — אוצר מילים סגור ולא טקסט חופשי, כדי שהתגיות בדף הסוכן/ת
+   ייראו אותו דבר אצל כולם ויהיו ניתנות לסינון בהמשך. הערך שנשמר הוא התווית
+   עצמה: זו רשימת תצוגה, ואין קוד שמפרש אותה. */
+const SPECIALTY_OPTIONS = [
+  'מגורים', 'מסחרי', 'מגרשים וקרקעות', 'השקעות ונכסים מניבים',
+  'יזמות ופרויקטים', 'שכירות', 'תמ״א והתחדשות עירונית', 'משקי בית ונחלות',
+];
+const MAX_SPECIALTIES = 4;
+
+/* עד ארבעה תחומים — מעבר לזה שורת התגיות בראש הדף נשברת לשלוש שורות
+   ומפסיקה להיסרק במבט אחד. הנעילה היא ויזואלית: מה שכבר מסומן תמיד נשאר לחיץ. */
+function renderSpecialtyChoices(selected){
+  const container = document.getElementById('pfSpecialties');
+  const chosen = Array.isArray(selected) ? selected : [];
+  container.innerHTML = SPECIALTY_OPTIONS.map(label => `
+    <label class="checkbox-item"><input type="checkbox" value="${label}" ${chosen.includes(label) ? 'checked' : ''}> ${label}</label>
+  `).join('');
+  container.querySelectorAll('input').forEach(input => {
+    input.addEventListener('change', ()=>{ enforceSpecialtyLimit(); renderProfilePreview(); });
+  });
+  enforceSpecialtyLimit();
+}
+
+function selectedSpecialties(){
+  return Array.from(document.querySelectorAll('#pfSpecialties input:checked')).map(el => el.value);
+}
+
+function enforceSpecialtyLimit(){
+  const full = selectedSpecialties().length >= MAX_SPECIALTIES;
+  document.querySelectorAll('#pfSpecialties input').forEach(input => {
+    input.disabled = full && !input.checked;
+    input.closest('.checkbox-item').style.opacity = input.disabled ? '.45' : '';
+  });
+}
+
 /* האווטאר בכותרת מציג את התמונה אם יש, ואת האות הראשונה אם אין */
 function renderHeaderAvatar(agent){
   const initial = document.getElementById('avatarInitial');
@@ -3785,6 +3849,10 @@ function loadProfileSettings(agent){
   document.getElementById('pfName').value = agent.display_name || '';
   document.getElementById('pfLicense').value = agent.license_number || '';
   document.getElementById('pfBio').value = agent.bio || '';
+  document.getElementById('pfYears').value = agent.years_experience == null ? '' : agent.years_experience;
+  document.getElementById('pfArea').value = agent.service_area || '';
+  document.getElementById('pfCredentials').value = agent.credentials || '';
+  renderSpecialtyChoices(agent.specialties);
   // slug יכול להיות ריק לסוכנים ותיקים — agent.html יודע לקבל גם id גולמי
   document.getElementById('pfViewPageLink').href = 'agent.html?slug=' + encodeURIComponent(agent.slug || agent.id);
   accSetCount('accProfile', profileComplete(agent) ? '' : 'להשלמה');
@@ -3853,6 +3921,18 @@ function renderProfilePreview(){
   document.getElementById('ppBio').textContent = bio || 'התיאור שתכתבו כאן יופיע בראש דף הסוכן/ת.';
   document.getElementById('pfBioCount').textContent = String(bioEl.value.length);
 
+  // אותה שורת תגיות שתופיע בדף הציבורי, באותו סדר — כך שמה שנראה כאן הוא מה שיש שם
+  const pills = document.getElementById('ppPills');
+  if (pills){
+    const years = parseInt(document.getElementById('pfYears').value, 10);
+    const items = [];
+    if (Number.isFinite(years) && years > 0) items.push(years + '+ שנות ניסיון');
+    selectedSpecialties().forEach(s => items.push(s));
+    const credentials = document.getElementById('pfCredentials').value.trim();
+    if (credentials) items.push(credentials);
+    pills.innerHTML = items.map(t => `<span>${esc(t)}</span>`).join('');
+  }
+
   const coverSrc = profileState && profileState.cover ? (profileState.cover.previewUrl || profileState.cover.url) : null;
   // ריק מחזיר את הגרדיאנט שמוגדר ב-CSS במקום להשאיר תמונה ישנה
   document.getElementById('ppCover').style.backgroundImage = coverSrc ? `url("${coverSrc}")` : '';
@@ -3869,7 +3949,7 @@ function renderProfilePreview(){
   }
 }
 
-['pfName','pfLicense','pfBio'].forEach(id=>{
+['pfName','pfLicense','pfBio','pfYears','pfCredentials','pfArea'].forEach(id=>{
   document.getElementById(id).addEventListener('input', renderProfilePreview);
 });
 
@@ -3890,6 +3970,19 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
   const name = document.getElementById('pfName').value.trim();
   const license = document.getElementById('pfLicense').value.trim();
   const bio = document.getElementById('pfBio').value.trim();
+  // שדות התגיות — כולם רשות, וריק נשמר כ-null ולא כמחרוזת ריקה, כדי שדף
+  // הסוכן/ת יוכל פשוט לבדוק "יש ערך?" בלי לנקות רווחים בצד שלו
+  const yearsRaw = document.getElementById('pfYears').value.trim();
+  const years = yearsRaw === '' ? null : parseInt(yearsRaw, 10);
+  const serviceArea = document.getElementById('pfArea').value.trim();
+  const credentials = document.getElementById('pfCredentials').value.trim();
+  const specialties = selectedSpecialties();
+
+  if (years !== null && (!Number.isFinite(years) || years < 0 || years > 70)){
+    feedback.style.color = 'var(--wine)';
+    feedback.textContent = 'שנות הוותק צריכות להיות מספר בין 0 ל-70.';
+    return;
+  }
 
   if (!name || !license){
     feedback.style.color = 'var(--wine)';
@@ -3920,9 +4013,13 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
       bio: bio || null,
       photo_url: profileState.photo ? profileState.photo.url : null,
       cover_url: profileState.cover ? profileState.cover.url : null,
+      years_experience: years,
+      service_area: serviceArea || null,
+      credentials: credentials || null,
+      specialties: specialties.length ? specialties : null,
       updated_at: new Date().toISOString(),
     }).eq('id', currentAgent.id)
-      .select('display_name, license_number, bio, photo_url, cover_url')
+      .select('display_name, license_number, bio, photo_url, cover_url, years_experience, service_area, credentials, specialties')
       .single();
     if (error) throw error;
 
@@ -3936,6 +4033,10 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     document.getElementById('pfName').value = saved.display_name || '';
     document.getElementById('pfLicense').value = saved.license_number || '';
     document.getElementById('pfBio').value = saved.bio || '';
+    document.getElementById('pfYears').value = saved.years_experience == null ? '' : saved.years_experience;
+    document.getElementById('pfArea').value = saved.service_area || '';
+    document.getElementById('pfCredentials').value = saved.credentials || '';
+    renderSpecialtyChoices(saved.specialties);
     renderHeaderAvatar(currentAgent);
     document.getElementById('agentName').textContent = saved.display_name || '';
     accSetCount('accProfile', profileComplete(currentAgent) ? '' : 'להשלמה');
