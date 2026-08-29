@@ -367,6 +367,15 @@
   .profile-preview .pp-license{font-size:.7rem;color:var(--ink-soft);margin-top:2px}
   .profile-preview .pp-bio{font-size:.78rem;color:var(--ink-soft);margin:6px 0 0;white-space:pre-wrap}
 
+  /* התצוגה המקדימה של הכתבה מחקה את הכרטיס ברצועת דף הבית — כולל
+     חיתוך הכותרת לשתי שורות, שהוא בדיוק מה שכדאי לראות לפני הפרסום. */
+  .article-preview{border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;margin-top:14px;background:#fff}
+  .article-preview .ap-cover{height:110px;background:linear-gradient(120deg,#122840,#1C3A5E);background-size:cover;background-position:center}
+  .article-preview .ap-body{padding:10px 14px 14px;display:flex;flex-direction:column;gap:6px}
+  .article-preview .ap-kicker{align-self:flex-start;background:var(--gold-tint);color:var(--gold-dark);font-size:.64rem;font-weight:800;padding:2px 8px;border-radius:5px}
+  .article-preview .ap-title{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1rem;line-height:1.3;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  .article-preview .ap-sub{font-size:.78rem;color:var(--ink-soft);margin:0;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+
   .single-img-row{display:flex;gap:12px;align-items:flex-start;flex-wrap:wrap}
   .single-img-box{position:relative;width:104px;height:76px;border-radius:var(--radius-sm);overflow:hidden;border:1px solid var(--line);background:var(--paper);flex-shrink:0}
   .single-img-box img{width:100%;height:100%;object-fit:cover;display:block}
@@ -1991,6 +2000,84 @@
           <div id="rssSourcesAdminList"></div>
         </div>
       </details>
+
+      <!-- ---------- כתבות ובלוגים ----------
+           המקור של רצועת "כתבות ובלוגים" בדף הבית ושל עמוד הכתבה
+           (article.html). כתבה נשמרת כטיוטה עד שלוחצים "פרסום", ולכן אפשר
+           לכתוב אותה בכמה ישיבות בלי שהיא תופיע באתר באמצע. -->
+      <details class="acc" id="accArticles">
+        <summary>
+          <span class="acc-title">כתבות ובלוגים (מנהל פלטפורמה)</span>
+          <span class="acc-count" id="accArticlesCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <p class="acc-sub">כתבה שמתפרסמת כאן נכנסת לרצועת "כתבות ובלוגים" בדף הבית ומקבלת עמוד משלה, שממנו אפשר לגלול לכתבה הקודמת והבאה.</p>
+
+          <!-- התצוגה המקדימה היא בדיוק הכרטיס שיופיע ברצועה בדף הבית —
+               כותרת ארוכה מדי או תמונה חתוכה נראות כאן, לפני הפרסום. -->
+          <div class="article-preview" id="articlePreview">
+            <div class="ap-cover" id="apCover"></div>
+            <div class="ap-body">
+              <span class="ap-kicker" id="apKicker">מגזין שוק נדל״ן</span>
+              <div class="ap-title" id="apTitle">הכותרת של הכתבה</div>
+              <p class="ap-sub" id="apSub">כותרת המשנה תופיע כאן, וגם כתקציר בכרטיס וברשתות.</p>
+            </div>
+          </div>
+
+          <form id="articleForm" style="margin-bottom:0">
+            <div class="field">
+              <label for="arTitle">כותרת</label>
+              <input type="text" id="arTitle" maxlength="120" required placeholder="למשל: כמה הון עצמי באמת צריך לדירה ראשונה בעפולה">
+            </div>
+            <div class="field">
+              <label for="arSubtitle">כותרת משנה</label>
+              <textarea id="arSubtitle" rows="2" maxlength="240" placeholder="משפט אחד שמסביר על מה הכתבה. מופיע מתחת לכותרת, בכרטיס ברצועה ובשיתוף בוואטסאפ."></textarea>
+              <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0"><span id="arSubtitleCount">0</span>/240 תווים</p>
+            </div>
+            <div class="field">
+              <label for="arCategory">נושא</label>
+              <input type="text" id="arCategory" maxlength="40" list="articleCategoryList" placeholder="מדריכים / ניתוח שוק / בלוג המתווכים">
+              <datalist id="articleCategoryList">
+                <option value="מדריכים"></option>
+                <option value="ניתוח שוק"></option>
+                <option value="בלוג המתווכים"></option>
+                <option value="שוכרים"></option>
+                <option value="משכנתאות"></option>
+                <option value="חדשות הפלטפורמה"></option>
+              </datalist>
+            </div>
+
+            <div class="form-subheading">תמונת נושא</div>
+            <div class="img-dropzone" style="padding:10px 14px">
+              <label class="pick" for="arCoverInput">+ העלאת תמונת נושא</label>
+              <input type="file" id="arCoverInput" accept="image/jpeg,image/png,image/webp">
+              <div class="hint">רצועה רחבה בראש הכתבה · מומלץ 1600×900</div>
+            </div>
+            <div class="img-preview" id="arCoverPreview"></div>
+
+            <div class="field" style="margin-top:14px">
+              <label for="arBody">גוף הכתבה</label>
+              <textarea id="arBody" rows="10" placeholder="שורה ריקה מפרידה בין פסקאות.&#10;שורה שמסתיימת בנקודתיים הופכת לכותרת ביניים.&#10;שורה שמתחילה במקף הופכת לפריט ברשימה."></textarea>
+              <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">בלי HTML — הטקסט מעוצב לבד: שורה ריקה = פסקה חדשה, שורה שמסתיימת ב־":" = כותרת ביניים, שורה שפותחת ב־"-" = פריט ברשימה.</p>
+            </div>
+            <div class="field">
+              <label for="arAuthor">שם הכותב/ת</label>
+              <input type="text" id="arAuthor" maxlength="60" placeholder="מערכת שוק נדל״ן">
+            </div>
+
+            <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:16px">
+              <button type="submit" class="btn btn-gold" id="arSaveBtn" style="flex:1;min-width:150px">שמירה כטיוטה</button>
+              <button type="button" class="btn btn-teal" id="arPublishBtn" style="flex:1;min-width:150px">שמירה ופרסום</button>
+            </div>
+            <button type="button" class="btn btn-ghost btn-block" id="arCancelBtn" style="margin-top:8px" hidden>ביטול העריכה</button>
+            <div id="arFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+          </form>
+
+          <div class="form-subheading">הכתבות שלי</div>
+          <div id="articlesAdminList"></div>
+        </div>
+      </details>
     </div>
 
     <details class="acc" id="accSharePartners">
@@ -2754,6 +2841,7 @@ async function loadDashboard(user){
     document.getElementById('platformAdminSection').style.display = 'block';
     await loadNeighborhoodsAdmin();
     await loadRssSourcesAdmin();
+    await loadArticlesAdmin();
   }
 
   // מדף לידי המשכנתאות פתוח רק ליועצ/ת משכנתאות. כמו managerSection, ה-display
@@ -3040,6 +3128,326 @@ document.getElementById('addRssSourceBtn').addEventListener('click', async ()=>{
   showToast('המקור נוסף — ייקרא בהרצה הבאה של המנוע');
   await loadRssSourcesAdmin();
 });
+
+/* ---------- כתבות ובלוגים (platform admin only) ----------
+   המקור של רצועת "כתבות ובלוגים" בדף הבית ושל article.html. הכתיבה מוגנת
+   ב-RLS: policy של articles מתיר INSERT/UPDATE/DELETE רק ל-is_platform_admin,
+   וקריאה ציבורית מוגבלת ל-status='published'.
+
+   טופס אחד משמש גם ליצירה וגם לעריכה — articleState.editingId הוא ההבדל
+   היחיד ביניהם, ושני כפתורי השמירה נבדלים רק בסטטוס שהם שולחים. */
+const ARTICLES_BUCKET = 'property-images'; // אותו bucket ציבורי; הנתיב מפריד בין נכסים לכתבות
+let articleState = { editingId:null, cover:null, pendingDeletes:[] };
+
+function articleCoverPath(url){
+  const marker = '/storage/v1/object/public/' + ARTICLES_BUCKET + '/';
+  const i = String(url).indexOf(marker);
+  return i === -1 ? null : decodeURIComponent(String(url).slice(i + marker.length));
+}
+
+function renderArticleCover(){
+  renderSingleImage('arCoverPreview', articleState.cover, 'cover', clearArticleCover);
+}
+
+function clearArticleCover(){
+  const slot = articleState.cover;
+  if (!slot) return;
+  if (slot.previewUrl) URL.revokeObjectURL(slot.previewUrl);
+  // מוחקים מה-Storage רק אחרי שהשמירה ל-DB הצליחה, כדי לא לאבד תמונה
+  // שעדיין מוצגת בכתבה שפורסמה
+  if (slot.url){
+    const path = articleCoverPath(slot.url);
+    if (path) articleState.pendingDeletes.push(path);
+  }
+  articleState.cover = null;
+  renderArticleCover();
+  renderArticlePreview();
+}
+
+document.getElementById('arCoverInput').addEventListener('change', async (e)=>{
+  const file = (e.target.files || [])[0];
+  e.target.value = '';
+  if (!file) return;
+  try{
+    const blob = await fileToResizedBlob(file, 1600);
+    const previous = articleState.cover;
+    if (previous){
+      if (previous.previewUrl) URL.revokeObjectURL(previous.previewUrl);
+      if (previous.url){
+        const path = articleCoverPath(previous.url);
+        if (path) articleState.pendingDeletes.push(path);
+      }
+    }
+    articleState.cover = { blob, previewUrl: URL.createObjectURL(blob) };
+    renderArticleCover();
+    renderArticlePreview();
+  } catch(err){
+    console.warn('article cover resize failed', err);
+    showToast('לא ניתן לקרוא את הקובץ');
+  }
+});
+
+function renderArticlePreview(){
+  const title = document.getElementById('arTitle').value.trim();
+  const subtitle = document.getElementById('arSubtitle').value.trim();
+  const category = document.getElementById('arCategory').value.trim();
+
+  document.getElementById('apTitle').textContent = title || 'הכותרת של הכתבה';
+  document.getElementById('apSub').textContent = subtitle || 'כותרת המשנה תופיע כאן, וגם כתקציר בכרטיס וברשתות.';
+  document.getElementById('apKicker').textContent = category || 'מגזין שוק נדל״ן';
+  document.getElementById('arSubtitleCount').textContent = String(document.getElementById('arSubtitle').value.length);
+
+  const slot = articleState.cover;
+  const src = slot ? (slot.previewUrl || slot.url) : null;
+  // ריק מחזיר את הגרדיאנט שמוגדר ב-CSS במקום להשאיר תמונה ישנה
+  document.getElementById('apCover').style.backgroundImage = src ? `url("${String(src).replace(/"/g, '%22')}")` : '';
+}
+
+['arTitle','arSubtitle','arCategory'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', renderArticlePreview);
+});
+
+function resetArticleForm(){
+  if (articleState.cover && articleState.cover.previewUrl) URL.revokeObjectURL(articleState.cover.previewUrl);
+  articleState = { editingId:null, cover:null, pendingDeletes:[] };
+  ['arTitle','arSubtitle','arCategory','arBody','arAuthor'].forEach(id=>{
+    document.getElementById(id).value = '';
+  });
+  document.getElementById('arSaveBtn').textContent = 'שמירה כטיוטה';
+  document.getElementById('arPublishBtn').textContent = 'שמירה ופרסום';
+  document.getElementById('arCancelBtn').hidden = true;
+  document.getElementById('arFeedback').textContent = '';
+  renderArticleCover();
+  renderArticlePreview();
+}
+
+function startArticleEdit(article){
+  if (articleState.cover && articleState.cover.previewUrl) URL.revokeObjectURL(articleState.cover.previewUrl);
+  articleState = {
+    editingId: article.id,
+    cover: article.cover_url ? { url: article.cover_url } : null,
+    pendingDeletes: [],
+  };
+  document.getElementById('arTitle').value    = article.title || '';
+  document.getElementById('arSubtitle').value = article.subtitle || '';
+  document.getElementById('arCategory').value = article.category || '';
+  document.getElementById('arBody').value     = article.body || '';
+  document.getElementById('arAuthor').value   = article.author_name || '';
+  // כתבה שכבר פורסמה נשמרת בחזרה כמפורסמת — הכפתור השני הוא "עדכון", לא
+  // "פרסום", כדי שלא ייראה כאילו הוא מפרסם משהו בפעם הראשונה
+  const published = article.status === 'published';
+  document.getElementById('arSaveBtn').textContent = published ? 'שמירה והחזרה לטיוטה' : 'שמירה כטיוטה';
+  document.getElementById('arPublishBtn').textContent = published ? 'עדכון הכתבה המפורסמת' : 'שמירה ופרסום';
+  document.getElementById('arCancelBtn').hidden = false;
+  renderArticleCover();
+  renderArticlePreview();
+  openAcc('accArticles');
+  document.getElementById('arTitle').scrollIntoView({ behavior:'smooth', block:'center' });
+}
+
+document.getElementById('arCancelBtn').addEventListener('click', resetArticleForm);
+
+async function uploadArticleCover(blob){
+  // הקידומת היא מזהה הסוכן/ת, כמו בכל שאר ההעלאות מה-CRM: זה הנתיב
+  // שמדיניות ה-Storage של ה-bucket מצפה לו.
+  const name = `${currentAgent.id}/articles/${crypto.randomUUID()}.jpg`;
+  const { error } = await sb.storage.from(ARTICLES_BUCKET).upload(name, blob, {
+    contentType:'image/jpeg', cacheControl:'31536000', upsert:false,
+  });
+  if (error) throw error;
+  return sb.storage.from(ARTICLES_BUCKET).getPublicUrl(name).data.publicUrl;
+}
+
+/* ‏status הוא הפרמטר היחיד שמבדיל בין שני הכפתורים. published_at נקבע
+   בטריגר בצד ה-DB, ולכן עדכון של כתבה שכבר פורסמה לא מקפיץ אותה מחדש
+   לראש הרצועה. */
+async function saveArticle(status){
+  const title = document.getElementById('arTitle').value.trim();
+  if (!title){ showToast('נדרשת כותרת לכתבה'); return; }
+
+  const saveBtn = document.getElementById('arSaveBtn');
+  const publishBtn = document.getElementById('arPublishBtn');
+  const feedback = document.getElementById('arFeedback');
+  saveBtn.disabled = publishBtn.disabled = true;
+  feedback.textContent = 'שומר…';
+
+  try{
+    let coverUrl = articleState.cover ? (articleState.cover.url || null) : null;
+    if (articleState.cover && articleState.cover.blob){
+      coverUrl = await uploadArticleCover(articleState.cover.blob);
+    }
+
+    const payload = {
+      title,
+      subtitle:    document.getElementById('arSubtitle').value.trim() || null,
+      category:    document.getElementById('arCategory').value.trim() || null,
+      body:        document.getElementById('arBody').value.trim() || null,
+      author_name: document.getElementById('arAuthor').value.trim() || null,
+      cover_url:   coverUrl,
+      status,
+    };
+
+    let error;
+    if (articleState.editingId){
+      ({ error } = await sb.from('articles').update(payload).eq('id', articleState.editingId));
+    } else {
+      payload.created_by = currentAgent ? currentAgent.id : null;
+      ({ error } = await sb.from('articles').insert(payload));
+    }
+    if (error) throw error;
+
+    // התמונות שהוחלפו נמחקות רק עכשיו, אחרי שהשורה כבר לא מצביעה עליהן
+    if (articleState.pendingDeletes.length){
+      sb.storage.from(ARTICLES_BUCKET).remove(articleState.pendingDeletes).catch(()=>{});
+    }
+
+    resetArticleForm();
+    showToast(status === 'published' ? 'הכתבה פורסמה באתר' : 'הכתבה נשמרה כטיוטה');
+    await loadArticlesAdmin();
+  } catch(err){
+    console.warn('שמירת כתבה נכשלה:', err);
+    feedback.textContent = 'שגיאה: ' + (err.message || 'לא ניתן לשמור');
+  } finally {
+    saveBtn.disabled = publishBtn.disabled = false;
+  }
+}
+
+document.getElementById('articleForm').addEventListener('submit', (e)=>{
+  e.preventDefault();
+  saveArticle('draft');
+});
+document.getElementById('arPublishBtn').addEventListener('click', ()=> saveArticle('published'));
+
+async function loadArticlesAdmin(){
+  const listEl = document.getElementById('articlesAdminList');
+  listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+
+  const { data, error } = await sb
+    .from('articles')
+    .select('id, slug, title, subtitle, category, cover_url, body, author_name, status, published_at, updated_at')
+    .order('updated_at', { ascending:false });
+
+  if (error){
+    // 42P01 = הטבלה לא קיימת עדיין — כלומר המיגרציה טרם הורצה בפרויקט
+    listEl.innerHTML = '<div class="empty-state">' +
+      (error.code === '42P01'
+        ? 'טבלת articles לא קיימת עדיין — הריצו את המיגרציה 20260829180000_articles.sql ב-Supabase.'
+        : 'שגיאה: ' + error.message) + '</div>';
+    return;
+  }
+
+  const articles = data || [];
+  accSetCount('accArticles', articles.filter(a => a.status === 'published').length + ' פורסמו');
+
+  if (!articles.length){
+    listEl.innerHTML = '<div class="empty-state">אין עדיין כתבות. כתבו את הראשונה בטופס שלמעלה.</div>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  articles.forEach(article => {
+    const row = document.createElement('div');
+    row.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--line)';
+
+    const head = document.createElement('div');
+    head.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+
+    const title = document.createElement('span');
+    title.style.cssText = 'font-size:.88rem;font-weight:700';
+    title.textContent = article.title;
+    head.appendChild(title);
+
+    const badge = document.createElement('span');
+    const published = article.status === 'published';
+    badge.style.cssText = 'font-size:.66rem;font-weight:800;padding:2px 7px;border-radius:5px;' +
+      (published ? 'background:var(--teal-tint);color:var(--teal-dark)' : 'background:var(--gold-tint);color:var(--gold-dark)');
+    badge.textContent = published ? 'מפורסמת' : 'טיוטה';
+    head.appendChild(badge);
+
+    if (article.category){
+      const cat = document.createElement('span');
+      cat.style.cssText = 'font-size:.66rem;font-weight:800;background:var(--paper);color:var(--ink-soft);padding:2px 7px;border-radius:5px';
+      cat.textContent = article.category;
+      head.appendChild(cat);
+    }
+    row.appendChild(head);
+
+    if (article.subtitle){
+      const sub = document.createElement('div');
+      sub.style.cssText = 'font-size:.74rem;color:var(--ink-soft);margin-top:2px';
+      sub.textContent = article.subtitle;
+      row.appendChild(sub);
+    }
+
+    const meta = document.createElement('div');
+    meta.style.cssText = 'font-size:.72rem;color:var(--ink-soft);margin-top:2px';
+    const when = article.published_at || article.updated_at;
+    meta.textContent = (published ? 'פורסמה ' : 'עודכנה ') +
+      new Date(when).toLocaleDateString('he-IL', { day:'numeric', month:'long', year:'numeric' }) +
+      (article.author_name ? ' · ' + article.author_name : '');
+    row.appendChild(meta);
+
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:8px;margin-top:8px;flex-wrap:wrap';
+
+    const editBtn = document.createElement('button');
+    editBtn.type = 'button';
+    editBtn.className = 'btn btn-ghost';
+    editBtn.style.padding = '5px 12px';
+    editBtn.textContent = 'עריכה';
+    editBtn.addEventListener('click', ()=> startArticleEdit(article));
+    actions.appendChild(editBtn);
+
+    const toggleBtn = document.createElement('button');
+    toggleBtn.type = 'button';
+    toggleBtn.className = 'btn btn-ghost';
+    toggleBtn.style.padding = '5px 12px';
+    toggleBtn.textContent = published ? 'החזרה לטיוטה' : 'פרסום';
+    toggleBtn.addEventListener('click', async ()=>{
+      toggleBtn.disabled = true;
+      const { error: updErr } = await sb.from('articles')
+        .update({ status: published ? 'draft' : 'published' }).eq('id', article.id);
+      if (updErr){ showToast('שגיאה: ' + updErr.message); toggleBtn.disabled = false; return; }
+      showToast(published ? 'הכתבה הוסרה מהאתר' : 'הכתבה פורסמה באתר');
+      await loadArticlesAdmin();
+    });
+    actions.appendChild(toggleBtn);
+
+    if (published){
+      const viewLink = document.createElement('a');
+      viewLink.className = 'btn btn-ghost';
+      viewLink.style.padding = '5px 12px';
+      viewLink.target = '_blank';
+      viewLink.rel = 'noopener';
+      viewLink.href = 'article.html?slug=' + encodeURIComponent(article.slug || article.id);
+      viewLink.textContent = 'צפייה';
+      actions.appendChild(viewLink);
+    }
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'btn btn-ghost';
+    delBtn.style.padding = '5px 12px';
+    delBtn.textContent = 'מחיקה';
+    delBtn.addEventListener('click', async ()=>{
+      if (!confirm(`למחוק את הכתבה "${article.title}"? הפעולה אינה הפיכה.`)) return;
+      delBtn.disabled = true;
+      const { error: delErr } = await sb.from('articles').delete().eq('id', article.id);
+      if (delErr){ showToast('שגיאה במחיקה: ' + delErr.message); delBtn.disabled = false; return; }
+      // התמונה כבר לא מוצגת בשום מקום — best-effort, כמו בשאר המחיקות
+      const path = article.cover_url ? articleCoverPath(article.cover_url) : null;
+      if (path) sb.storage.from(ARTICLES_BUCKET).remove([path]).catch(()=>{});
+      // עריכה פתוחה של הכתבה שנמחקה הייתה נשמרת בחזרה כשורה חדשה
+      if (articleState.editingId === article.id) resetArticleForm();
+      showToast('הכתבה נמחקה');
+      await loadArticlesAdmin();
+    });
+    actions.appendChild(delBtn);
+
+    row.appendChild(actions);
+    listEl.appendChild(row);
+  });
+}
 
 /* ---------- Lead preferences (module 2 §3 — every agent, regardless of role) ---------- */
 let allNeighborhoods = [];
@@ -8639,6 +9047,7 @@ const DASH_ICONS = {
   share:'<circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.6" y1="13.5" x2="15.4" y2="17.6"/><line x1="15.4" y1="6.4" x2="8.6" y2="10.5"/>',
   bank:'<line x1="3" y1="21" x2="21" y2="21"/><path d="M5 21V10"/><path d="M19 21V10"/><path d="M9 21V10"/><path d="M15 21V10"/><path d="m12 3 9 5H3Z"/>',
   map:'<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3Z"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>',
+  article:'<path d="M4 4h12a2 2 0 0 1 2 2v13a2 2 0 0 0 2-2V8"/><path d="M18 21H5a2 2 0 0 1-2-2V4"/><line x1="7" y1="8" x2="14" y2="8"/><line x1="7" y1="12" x2="14" y2="12"/><line x1="7" y1="16" x2="11" y2="16"/>',
   menu:'<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>',
   grip:'<circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/>',
   chevRight:'<polyline points="9 18 15 12 9 6"/>',
@@ -8701,6 +9110,9 @@ const QUICK_ACTIONS = [
   { key:'mortgage',   acc:'accMortgageShelf',icon:'bank',     tone:'green',
     title:'לידי משכנתאות',     sub:'מדף רכישה ליועצי משכנתאות',
     when: ()=> currentAgent && currentAgent.is_mortgage_advisor },
+  { key:'articles',   acc:'accArticles',     icon:'article',  tone:'wine',
+    title:'כתבות ובלוגים',     sub:'כתיבה ופרסום למגזין האתר',
+    when: ()=> currentAgent && currentAgent.is_platform_admin },
 ];
 
 const QUICK_ORDER_KEY = 'crmQuickActionsOrder';
