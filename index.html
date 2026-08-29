@@ -1365,6 +1365,40 @@
   }
   .mlead-done h4{font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;color:var(--teal-dark);margin:0 0 6px}
   .mlead-done p{font-size:.85rem;color:var(--ink-soft);margin:0}
+
+  /* ====== הסוכן החכם — שמירת חיפוש וקבלת התראות ======
+     חולק את מעטפת ה-.filter-modal ואת שדות ה-.mlead-field; כאן רק ה-CTA
+     והשדות שאין להם מקבילה. */
+  .ssa-cta{
+    display:inline-flex;align-items:center;gap:6px;font-size:.75rem;font-weight:800;
+    color:var(--teal-dark);background:var(--teal-tint);border:1.5px solid transparent;
+    border-radius:999px;padding:5px 13px;cursor:pointer;font-family:inherit;
+  }
+  .ssa-cta:hover{border-color:var(--teal)}
+  /* אחרי לחיצה על "ניקוי החיפוש" ה-.sr-clear נדחף לקצה; הכפתור שלנו נצמד אליו */
+  .sr-head .ssa-cta{margin-inline-start:auto}
+  .sr-head .ssa-cta ~ .sr-clear{margin-inline-start:0}
+  /* אפס תוצאות הוא רגע הכוונה הגבוה ביותר: אין מה להראות עכשיו, ובדיוק לכן
+     שווה להציע להודיע כשיהיה. שם ה-CTA גדול ומרכזי ולא גלולה בכותרת. */
+  .ssa-empty{margin-top:14px}
+  .ssa-empty .ssa-cta{font-size:.86rem;padding:11px 22px;background:var(--teal);color:#fff}
+  .ssa-empty .ssa-cta:hover{background:var(--teal-dark)}
+
+  .ssa-recap{
+    background:var(--teal-tint);border-radius:var(--radius-sm);padding:11px 13px;margin-bottom:14px;
+    font-size:.8rem;color:var(--teal-dark);font-weight:700;line-height:1.5;
+  }
+  .ssa-row{display:flex;gap:10px}
+  .ssa-row .mlead-field{flex:1;min-width:0}
+  .ssa-field-note{font-size:.68rem;color:var(--ink-soft);font-weight:500;margin:4px 0 0}
+  .ssa-channels{display:flex;gap:8px;margin-bottom:12px}
+  .ssa-channels button{
+    flex:1;border:1.5px solid var(--line);background:#fff;border-radius:var(--radius-sm);
+    padding:10px 6px;font-size:.8rem;font-weight:700;color:var(--ink-soft);cursor:pointer;font-family:inherit;
+  }
+  .ssa-channels button.active{border-color:var(--teal);background:var(--teal-tint);color:var(--teal-dark)}
+  .ssa-consent{margin-top:10px}
+  .ssa-consent span{font-size:.78rem;font-weight:600;line-height:1.45}
   @media(min-width:640px){
     /* הכרטיס נשאר צר וממורכז גם במסך רחב — סליידר באורך 1100px הוא בלתי-שמיש,
        והמסר של הכלי הוא "כרטיס אחד ממוקד", לא טופס רוחבי. */
@@ -1845,11 +1879,101 @@
       <div class="sr-head">
         <h2 id="searchResultsTitle">תוצאות החיפוש</h2>
         <span class="sr-count" id="searchResultsCount"></span>
+        <button type="button" class="ssa-cta" id="ssaOpenBtn">🔔 עדכנו אותי על נכסים כאלה</button>
         <button type="button" class="sr-clear" id="clearSearchBtn">ניקוי החיפוש</button>
       </div>
       <div class="sr-rows" id="searchResultsRows"></div>
     </div>
   </section>
+
+  <!-- ====== הסוכן החכם: שמירת חיפוש וקבלת התראות ======
+       נפתח מ-#ssaOpenBtn שבכותרת התוצאות ומ-#ssaEmptyBtn שנבנה בקוד כשאין
+       תוצאות. הקריטריונים נלכדים מ-searchState ומגלולת השכונה ברגע הפתיחה,
+       ומוצגים כסיכום — כדי שמה שמאושר יהיה בדיוק מה שיישמר. -->
+  <div class="mlead-overlay" id="ssaModal" role="dialog" aria-modal="true" aria-labelledby="ssaTitle">
+    <div class="filter-modal">
+      <div class="filter-modal-header">
+        <h3 id="ssaTitle">🔔 סוכן חכם — התראה על נכס מתאים</h3>
+        <button type="button" class="filter-modal-close" id="ssaCloseBtn" aria-label="סגירה">✕</button>
+      </div>
+
+      <!-- novalidate: הוולידציה ב-JS כדי שההודעות יהיו בעברית ובמקום אחד
+           (‎#ssaError), ולא בבועה של הדפדפן בשפת המערכת. -->
+      <form id="ssaForm" novalidate>
+        <div class="filter-modal-body">
+          <p class="mlead-intro">נשמור לכם את החיפוש. ברגע שנכס שמתאים לו עולה לאתר — תקבלו התראה, בלי לחפש שוב.</p>
+
+          <div class="ssa-recap" id="ssaRecap"></div>
+
+          <!-- טווח החדרים והתקציב ניתנים לעריכה כאן ולא רק בסינון: חיפוש
+               לרגע אחד ("4 חדרים") וחיפוש מתמשך ("4 עד 5 חדרים") אינם אותו
+               דבר, וזה המקום שבו ההבדל מתברר. -->
+          <div class="ssa-row">
+            <div class="mlead-field">
+              <label for="ssaRoomsMin">מחדרים</label>
+              <input type="number" id="ssaRoomsMin" inputmode="decimal" step="0.5" min="1" max="20" placeholder="הכול">
+            </div>
+            <div class="mlead-field">
+              <label for="ssaRoomsMax">עד חדרים</label>
+              <input type="number" id="ssaRoomsMax" inputmode="decimal" step="0.5" min="1" max="20" placeholder="הכול">
+            </div>
+          </div>
+          <div class="ssa-row">
+            <div class="mlead-field">
+              <label for="ssaPriceMin">ממחיר (₪)</label>
+              <input type="number" id="ssaPriceMin" inputmode="numeric" min="0" placeholder="הכול">
+            </div>
+            <div class="mlead-field">
+              <label for="ssaPriceMax">עד מחיר (₪)</label>
+              <input type="number" id="ssaPriceMax" inputmode="numeric" min="0" placeholder="הכול">
+            </div>
+          </div>
+
+          <div class="mlead-field">
+            <label for="ssaName">שם מלא</label>
+            <input type="text" id="ssaName" name="name" autocomplete="name" required>
+          </div>
+
+          <label class="mlead-field" style="display:block">
+            <span style="font-size:.76rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px">איך לעדכן אתכם?</span>
+          </label>
+          <div class="ssa-channels" id="ssaChannels" role="group" aria-label="ערוץ ההתראות">
+            <button type="button" data-channel="whatsapp" class="active">וואטסאפ</button>
+            <button type="button" data-channel="email">מייל</button>
+            <button type="button" data-channel="both">שניהם</button>
+          </div>
+
+          <div class="mlead-field" id="ssaPhoneField">
+            <label for="ssaPhone">טלפון</label>
+            <input type="tel" id="ssaPhone" name="tel" autocomplete="tel" inputmode="tel" placeholder="050-1234567">
+          </div>
+          <div class="mlead-field" id="ssaEmailField" hidden>
+            <label for="ssaEmail">אימייל</label>
+            <input type="email" id="ssaEmail" name="email" autocomplete="email" inputmode="email" dir="ltr" style="text-align:left">
+          </div>
+
+          <!-- ההסכמה נפרדת מההרשמה במכוון: אפשר לקבל התראות בלי שהפרטים
+               יעברו לאף אחד. רק מי שמסמן/ת כאן הופך/ת לליד. -->
+          <label class="mlead-check ssa-consent" for="ssaConsent">
+            <input type="checkbox" id="ssaConsent">
+            <span>אשמח שמתווך/ת מהאזור ייצור איתי קשר עם נכסים מתאימים</span>
+          </label>
+
+          <p class="mlead-error" id="ssaError" role="alert"></p>
+          <p class="mlead-privacy">אפשר להפסיק את ההתראות בכל רגע, מקישור שבכל הודעה.</p>
+        </div>
+        <div class="filter-modal-footer">
+          <button type="submit" class="btn btn-gold" id="ssaSubmitBtn" style="flex:1">שמירת החיפוש</button>
+        </div>
+      </form>
+
+      <div class="filter-modal-body mlead-done" id="ssaDone" hidden>
+        <div class="mark">🔔</div>
+        <h4>הסוכן החכם פועל</h4>
+        <p id="ssaDoneText">נעדכן אתכם ברגע שיעלה נכס שמתאים לחיפוש.</p>
+      </div>
+    </div>
+  </div>
 
   <!-- ====== קרוסלת "נכסים חמים מהמפה" ======
        מוזנת מאותה רשימת נכסים שמזינה את המפה ואת גריד הנכסים: renderPropertyGrid()
@@ -4762,7 +4886,14 @@ function renderSearchRows(properties, isSearchResult){
   }
   rows.innerHTML = '';
   if (!properties.length){
-    rows.innerHTML = '<div class="sr-empty">לא נמצאו נכסים התואמים את החיפוש. נסו להרחיב את הסינון או לחפש שכונה אחרת.</div>';
+    // אפס תוצאות הוא רגע הכוונה הגבוה ביותר בכל המסך: מי שחיפש/ה בדיוק את
+    // זה ולא מצא/ה הוא/היא בדיוק מי שכדאי לעדכן כשזה יעלה. ה-CTA כאן גדול
+    // ומרכזי, ולא גלולה בכותרת.
+    rows.innerHTML =
+      '<div class="sr-empty">לא נמצאו נכסים התואמים את החיפוש. נסו להרחיב את הסינון או לחפש שכונה אחרת.' +
+      '<div class="ssa-empty"><button type="button" class="ssa-cta" id="ssaEmptyBtn">' +
+      '🔔 עדכנו אותי כשיעלה נכס כזה</button></div></div>';
+    document.getElementById('ssaEmptyBtn').addEventListener('click', ssaOpen);
     return;
   }
 
@@ -4777,6 +4908,253 @@ function renderSearchRows(properties, isSearchResult){
     }
   });
 }
+
+/* ============================================================================
+   הסוכן החכם — שמירת חיפוש והתראה על נכס מתאים
+
+   הקריטריונים נלכדים מ-searchState בדיוק כפי ש-runSearch() קורא אותו, כדי
+   שמה שנשמר יהיה מה שחיפשו. שני הבדלים מכוונים מול החיפוש החד-פעמי:
+
+     ‏1. גלולות החדרים והמחיר הופכות לטווח שאפשר לערוך. "4 חדרים" הוא בחירה
+        לרגע אחד; חיפוש שחי חודשיים כמעט תמיד מתכוון "4 עד 5".
+     ‏2. מסנני המודעה (עם תמונה, מחיר שירד, סיור 3D) לא נשמרים. הם דרך לסנן
+        מלאי קיים, לא דרישה מנכס שעוד לא פורסם — ונכס חדש בלי תמונה עדיין
+        הנכס שחיכו לו.
+
+   ‏הטקסט החופשי מתורגם כאן למזהי שכונות ולעיר, ולא נשמר כטקסט לחיפוש:
+   ההתאמה בשרת היא על שדות מובנים בלבד. ראו docs/smart-search-agent.md.
+   ========================================================================== */
+const SAVED_SEARCH_FUNCTION_URL = SUPABASE_URL + '/functions/v1/saved-search-intake';
+
+const ssaModal = document.getElementById('ssaModal');
+const ssaForm  = document.getElementById('ssaForm');
+const ssaDone  = document.getElementById('ssaDone');
+const ssaErrorEl = document.getElementById('ssaError');
+
+// צילום הקריטריונים ברגע פתיחת הבלון — לא בשליחה. מה שמסוכם על המסך הוא
+// מה שיישמר, גם אם המשתמש/ת ישנה את הסינון מאחורי הבלון.
+let ssaSnapshot = null;
+let ssaChannel = 'whatsapp';
+
+const SSA_DEAL_LABELS = { sale:'למכירה', rent:'להשכרה' };
+
+/* רשימת הערים מגיעה מטבלת השכונות שכבר נטענה, ולכן אין כאן קריאה נוספת.
+   טקסט חופשי שהוא שם עיר נשמר כעיר; טקסט שהוא שם שכונה תורגם כבר למזהה. */
+function ssaCityFromText(text){
+  if (!text) return null;
+  const needle = text.trim();
+  const cities = [...new Set(hoodState.rows.map(h => h.city).filter(Boolean))];
+  return cities.find(c => c === needle || c.includes(needle) || needle.includes(c)) || null;
+}
+
+async function ssaCapture(){
+  collectFormValues();
+  const isCommercial = searchState.activeTab === 'commercial';
+  const s = isCommercial ? searchState.c : searchState.r;
+  const dealType = isCommercial ? s.deal : searchState.activeTab;
+  const freeText = (s.freeText || document.getElementById('searchFreeText').value || '').trim();
+
+  // גלולת השכונה מנצחת את הטקסט: היא בחירה מפורשת לפי מזהה, ולא ניחוש.
+  let hoodIds = [];
+  if (hoodState.selected) hoodIds = [hoodState.selected];
+  else if (freeText) hoodIds = await matchingNeighborhoodIds(freeText);
+
+  // עיר נשמרת רק כשלא זוהתה שכונה — אחרת החיפוש היה מתרחב מ"רובע יזרעאל"
+  // ל"כל עפולה" בלי שמישהו ביקש.
+  const city = hoodIds.length ? null : ssaCityFromText(freeText);
+
+  // '+6' פירושו "6 ומעלה", כלומר מינימום בלי מקסימום
+  const roomVals = [...s.rooms].map(r => r === '+6' ? 6 : parseFloat(r)).filter(n => !isNaN(n));
+  const openEnded = s.rooms.has('+6');
+
+  ssaSnapshot = {
+    deal_type: dealType,
+    category: isCommercial ? 'commercial' : 'residential',
+    cities: city ? [city] : [],
+    neighborhood_ids: hoodIds,
+    property_types: [...s.ptypes],
+    // רק מאפייני הנכס עצמו. מסנני המודעה נשארים בחיפוש החד-פעמי.
+    required_features: [...s.propertyFeatures],
+    min_size_sqm: s.sizeMin ? Number(s.sizeMin) : null,
+    max_size_sqm: s.sizeMax ? Number(s.sizeMax) : null,
+    min_floor: s.floorMin !== null && s.floorMin !== '' ? Number(s.floorMin) : null,
+    max_floor: s.floorMax !== null && s.floorMax !== '' ? Number(s.floorMax) : null,
+    condition: (!isCommercial && s.condition) ? s.condition : null,
+    free_text: freeText || null,
+    _hoodNames: hoodIds.map(id => hoodState.byId.get(id)?.name).filter(Boolean),
+    _roomsMin: roomVals.length ? Math.min(...roomVals) : null,
+    _roomsMax: (roomVals.length && !openEnded) ? Math.max(...roomVals) : null,
+  };
+
+  // הטווחים הניתנים לעריכה מוזנים מהסינון, ומכאן והלאה הם של המשתמש/ת
+  document.getElementById('ssaRoomsMin').value = ssaSnapshot._roomsMin ?? '';
+  document.getElementById('ssaRoomsMax').value = ssaSnapshot._roomsMax ?? '';
+  document.getElementById('ssaPriceMin').value = s.priceMin || '';
+  document.getElementById('ssaPriceMax').value = s.priceMax || '';
+
+  ssaRenderRecap();
+}
+
+/* הסיכום מציג את מה שאי אפשר לערוך בבלון. החדרים והמחיר לא מופיעים כאן
+   בכוונה — הם יושבים בשדות שמעליו, ושכפול שלהם היה מייצר שני מקורות אמת
+   שנפרדים ברגע שמישהו עורך אחד מהם. */
+function ssaRenderRecap(){
+  const s = ssaSnapshot;
+  const parts = [
+    SSA_DEAL_LABELS[s.deal_type] || '',
+    s.category === 'commercial' ? 'נכס מסחרי' : null,
+    s._hoodNames.length ? '📍 ' + s._hoodNames.join(', ') : (s.cities.length ? '📍 ' + s.cities.join(', ') : '📍 כל האזורים'),
+    s.property_types.length ? '🏠 ' + s.property_types.join(', ') : null,
+    s.min_size_sqm || s.max_size_sqm
+      ? `📐 ${s.min_size_sqm || ''}${s.min_size_sqm && s.max_size_sqm ? '–' : ''}${s.max_size_sqm || ''} מ״ר` : null,
+    s.required_features.length ? '✓ ' + s.required_features.length + ' מאפיינים' : null,
+  ].filter(Boolean);
+  document.getElementById('ssaRecap').textContent = parts.join(' · ');
+}
+
+/* כותרת החיפוש, כפי שתופיע בהתראה עצמה ובכרטיס הליד. נבנית בעברית מהחלקים
+   ולא מהטקסט החופשי — היא צריכה להיקרא כמשפט גם למי שהקליד/ה שלוש מילים. */
+function ssaBuildLabel(roomsMin, roomsMax, priceMax){
+  const s = ssaSnapshot;
+  const rooms = roomsMin && roomsMax && roomsMin !== roomsMax ? `${roomsMin}–${roomsMax} חדרים`
+              : roomsMin ? `${roomsMin} חדרים${!roomsMax ? ' ומעלה' : ''}`
+              : roomsMax ? `עד ${roomsMax} חדרים` : null;
+  const place = s._hoodNames.length ? s._hoodNames.join(', ')
+              : s.cities.length ? s.cities.join(', ') : null;
+  return [
+    rooms || (s.property_types[0] || (s.category === 'commercial' ? 'נכס מסחרי' : 'נכס')),
+    place ? 'ב' + place : null,
+    SSA_DEAL_LABELS[s.deal_type],
+    priceMax ? 'עד ' + nis(priceMax) + ' ₪' : null,
+  ].filter(Boolean).join(' ').slice(0, 200);
+}
+
+async function ssaOpen(){
+  ssaErrorEl.textContent = '';
+  ssaForm.hidden = false;
+  ssaDone.hidden = true;
+  const btn = document.getElementById('ssaSubmitBtn');
+  btn.disabled = false;
+  btn.textContent = 'שמירת החיפוש';
+  await ssaCapture();
+  ssaModal.classList.add('open');
+  document.getElementById('ssaName').focus();
+}
+function ssaClose(){ ssaModal.classList.remove('open'); }
+
+document.getElementById('ssaOpenBtn').addEventListener('click', ssaOpen);
+document.getElementById('ssaCloseBtn').addEventListener('click', ssaClose);
+ssaModal.addEventListener('click', (e)=>{ if (e.target === ssaModal) ssaClose(); });
+document.addEventListener('keydown', (e)=>{
+  if (e.key === 'Escape' && ssaModal.classList.contains('open')) ssaClose();
+});
+
+// בחירת הערוץ מחליפה את השדות המוצגים — אין טעם לבקש אימייל ממי שביקש/ה
+// וואטסאפ, וכל שדה מיותר בטופס הוא נטישה.
+document.getElementById('ssaChannels').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-channel]');
+  if (!btn) return;
+  ssaChannel = btn.dataset.channel;
+  document.querySelectorAll('#ssaChannels button').forEach(b => b.classList.toggle('active', b === btn));
+  document.getElementById('ssaPhoneField').hidden = ssaChannel === 'email';
+  document.getElementById('ssaEmailField').hidden = ssaChannel === 'whatsapp';
+});
+
+ssaForm.addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  if (!ssaSnapshot) return;
+
+  const nameEl  = document.getElementById('ssaName');
+  const phoneEl = document.getElementById('ssaPhone');
+  const emailEl = document.getElementById('ssaEmail');
+  const full_name = nameEl.value.trim();
+  const phone = ssaChannel === 'email' ? '' : phoneEl.value.trim();
+  const email = ssaChannel === 'whatsapp' ? '' : emailEl.value.trim();
+
+  // אותן בדיקות רצות שוב ב-Edge Function — כאן הן רק כדי לחסוך הלוך-ושוב
+  const badName  = full_name.length < 2;
+  const badPhone = ssaChannel !== 'email' && phone.replace(/\D/g, '').length < 9;
+  const badEmail = ssaChannel !== 'whatsapp' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  nameEl.classList.toggle('invalid', badName);
+  phoneEl.classList.toggle('invalid', badPhone);
+  emailEl.classList.toggle('invalid', badEmail);
+  if (badName)  { ssaErrorEl.textContent = 'נא להזין שם מלא'; nameEl.focus(); return; }
+  if (badPhone) { ssaErrorEl.textContent = 'נא להזין מספר טלפון תקין'; phoneEl.focus(); return; }
+  if (badEmail) { ssaErrorEl.textContent = 'נא להזין כתובת אימייל תקינה'; emailEl.focus(); return; }
+
+  const numOrNull = (id)=>{ const v = document.getElementById(id).value; return v === '' ? null : Number(v); };
+  const roomsMin = numOrNull('ssaRoomsMin'), roomsMax = numOrNull('ssaRoomsMax');
+  const priceMin = numOrNull('ssaPriceMin'), priceMax = numOrNull('ssaPriceMax');
+
+  // חיפוש בלי שום קריטריון הוא מנוי לכל נכס באתר. השרת דוחה אותו ממילא;
+  // כאן ההודעה נאמרת בשפה שאפשר לפעול לפיה.
+  const s = ssaSnapshot;
+  const hasCriteria = roomsMin !== null || roomsMax !== null || priceMin !== null || priceMax !== null ||
+    s.cities.length || s.neighborhood_ids.length || s.property_types.length ||
+    s.required_features.length || s.min_size_sqm !== null || s.max_size_sqm !== null ||
+    s.min_floor !== null || s.max_floor !== null;
+  if (!hasCriteria){
+    ssaErrorEl.textContent = 'הוסיפו לפחות תנאי אחד — אזור, תקציב או מספר חדרים';
+    return;
+  }
+  ssaErrorEl.textContent = '';
+
+  const btn = document.getElementById('ssaSubmitBtn');
+  const originalLabel = btn.textContent;
+  btn.textContent = 'שומר…';
+  btn.disabled = true;
+
+  const payload = {
+    full_name, phone, email,
+    contact_channel: ssaChannel,
+    label: ssaBuildLabel(roomsMin, roomsMax, priceMax),
+    deal_type: s.deal_type,
+    category: s.category,
+    cities: s.cities,
+    neighborhood_ids: s.neighborhood_ids,
+    property_types: s.property_types,
+    required_features: s.required_features,
+    min_rooms: roomsMin, max_rooms: roomsMax,
+    min_price: priceMin, max_price: priceMax,
+    min_size_sqm: s.min_size_sqm, max_size_sqm: s.max_size_sqm,
+    min_floor: s.min_floor, max_floor: s.max_floor,
+    condition: s.condition,
+    free_text: s.free_text,
+    consent_agent_contact: document.getElementById('ssaConsent').checked,
+  };
+
+  try{
+    const res = await fetch(SAVED_SEARCH_FUNCTION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      const messages = {
+        too_many_searches: `הגעתם למקסימום החיפושים השמורים (${data.limit || 5}). אפשר להפסיק חיפוש קיים מהקישור שבהתראה.`,
+        no_criteria: 'הוסיפו לפחות תנאי אחד — אזור, תקציב או מספר חדרים',
+        invalid_phone: 'נא להזין מספר טלפון תקין',
+        invalid_email: 'נא להזין כתובת אימייל תקינה',
+        invalid_name: 'נא להזין שם מלא',
+      };
+      throw new Error(messages[data.error] || 'השמירה נכשלה — נסו שוב');
+    }
+    // ‏duplicate=true פירושו שהחיפוש הזה כבר שמור. מבחינת המחפש/ת זו הצלחה,
+    // ולכן אותו מסך — רק הטקסט מדויק יותר.
+    document.getElementById('ssaDoneText').textContent = data.duplicate
+      ? 'החיפוש הזה כבר שמור אצלנו — נעדכן אתכם ברגע שיעלה נכס מתאים.'
+      : 'נעדכן אתכם ברגע שיעלה נכס שמתאים לחיפוש.';
+    ssaForm.hidden = true;
+    ssaDone.hidden = false;
+  } catch(err){
+    console.warn('saved-search-intake failed:', err);
+    ssaErrorEl.textContent = err.message && err.message !== 'Failed to fetch'
+      ? err.message : 'השמירה נכשלה — בדקו חיבור לאינטרנט ונסו שוב';
+    btn.textContent = originalLabel;
+    btn.disabled = false;
+  }
+});
 
 /* מצב רשימת הנכסים. מוצהר כאן, לפני renderPropertyGrid שכותב אליו,
    ולא לצד renderListings שמתחתיו — ‎let‎ ב-TDZ עד שורת ההצהרה. */
