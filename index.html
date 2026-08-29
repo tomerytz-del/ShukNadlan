@@ -1258,6 +1258,9 @@
      הכרטיס — הגובה ‎--card-h‎ הוא אותו גובה של כרטיסי הקרוסלות, כדי ששתי
      הרצועות ייראו מאותה משפחה. הגרדיאנט הוא רשת הביטחון לבעל/ת מקצוע
      בלי תמונה: אריח צבעוני עם אות ההתחלה, לא ריבוע ריק. */
+  /* ארבעה אריחים בדיוק (ראו ‎PROS_VISIBLE‎ ב-JS), ולכן מספר העמודות תמיד
+     מחלק את ארבע: 2×2 בנייד ושורה אחת של ארבעה מ-760px ומעלה. שלוש
+     עמודות היו משאירות אריח בודד ויתום בשורה השנייה. */
   .pros-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
   .pro-card{
     min-height:var(--card-h);display:flex;flex-direction:column;overflow:hidden;
@@ -1266,9 +1269,9 @@
     transition:transform .2s ease, box-shadow .2s ease;
   }
   a.pro-card:hover{transform:translateY(-2px);box-shadow:0 14px 28px -14px rgba(6,20,34,.42)}
-  @media(min-width:480px){.pros-grid{grid-template-columns:repeat(3,1fr);gap:14px}}
+  @media(min-width:480px){.pros-grid{gap:14px}}
   @media(min-width:760px){
-    .pros-grid{grid-template-columns:repeat(5,1fr);gap:16px}
+    .pros-grid{grid-template-columns:repeat(4,1fr);gap:16px}
     .pro-card{border-radius:16px}
   }
   /* רצועת בעלי המקצוע יושבת בין רצועת הנכסים המומלצים לסקציית הכתבות,
@@ -3180,15 +3183,36 @@ const TYPE_LABELS = {
   interior_designer:'מעצב/ת פנים', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל/ת מקצוע',
 };
 
-/* רוטציה הוגנת בין בעלי-מקצוע באותה קטגוריה.
-   בכוונה חסרת-state: התצוגה קורית לגולשים אנונימיים שאין להם הרשאת כתיבה,
-   ורישום שורת רוטציה בכל צפיית עמוד גם היה מייצר עומס כתיבה מיותר. במקום
-   זה הסדר נגזר משעת השעון — כל שעה עולה לראש כל קטגוריה מפרסם אחר, כך
-   שלאורך זמן החשיפה מתחלקת שווה בשווה בלי לשמור כלום.
-   (priority_rotation_state נשאר בשימוש לרוטציה של Promote, שם יש סוכן
-   מזוהה ומדובר בבחירה חד-פעמית ולא בכל rendering.)                       */
-function rotateProfessionalsFairly(list){
-  const bucket = Math.floor(Date.now() / 3600000); // דלי של שעה
+/* הרצועה מציגה ארבעה אריחים בדיוק — שורה מלאה אחת בדסקטופ ו-2×2 בנייד —
+   ולכן שאר בעלי המקצוע מתחלפים ברוטציה במקום להיערם בשורות נוספות. */
+const PROS_VISIBLE = 4;
+
+/* מונה הרוטציה מתקדם בצעד אחד בכל טעינת עמוד, כך שריענון מביא את בעלי
+   המקצוע הבאים בתור. מונה מתמיד (localStorage) ולא הגרלה אקראית, כדי
+   שהחשיפה תתחלק שווה בשווה ולא תיפול פעמיים על אותו מפרסם. אם האחסון
+   חסום (גלישה פרטית, דחיית עוגיות) יש נפילה להגרלה — עדיין מתחלף בכל
+   ריענון, פשוט בלי הבטחת הסבב.
+   בכוונה חסרת-state בצד השרת: התצוגה קורית לגולשים אנונימיים שאין להם
+   הרשאת כתיבה, ורישום שורת רוטציה בכל צפיית עמוד היה מייצר עומס כתיבה
+   מיותר. (priority_rotation_state נשאר בשימוש לרוטציה של Promote, שם יש
+   סוכן מזוהה ומדובר בבחירה חד-פעמית ולא בכל rendering.)                  */
+function nextProsRotationTick(){
+  try{
+    const prev = parseInt(localStorage.getItem('prosRotationTick') || '0', 10);
+    const tick = (Number.isFinite(prev) ? prev : 0) + 1;
+    // גלילה לפני הגעה לגבולות המספר השלם; כל ערך גדול דיו כדי לא לחזור
+    localStorage.setItem('prosRotationTick', String(tick % 1000000));
+    return tick;
+  } catch(e){
+    return Math.floor(Math.random() * 1000000);
+  }
+}
+
+/* רוטציה הוגנת בין בעלי-מקצוע באותה קטגוריה, ובין הקטגוריות עצמן.
+   שתי הרמות מסתובבות: בתוך הקטגוריה עולה לראש מפרסם אחר בכל ריענון,
+   וגם סדר הקטגוריות מזדחל — אחרת קטגוריה שיש בה בעל מקצוע יחיד הייתה
+   נעולה לנצח על אותו מקום בגריד ולעולם לא יוצאת מארבעת הראשונים.       */
+function rotateProfessionalsFairly(list, tick){
   const byType = new Map();
   list.forEach(p=>{
     const key = p.advertiser_type || 'general';
@@ -3200,14 +3224,17 @@ function rotateProfessionalsFairly(list){
     // סדר בסיס יציב, כדי שהרוטציה תהיה צפויה ולא תלויה בסדר שהגיע מה-DB
     const items = byType.get(key).slice().sort((a, b)=>
       String(a.id || a.advertiser_name).localeCompare(String(b.id || b.advertiser_name)));
-    const offset = bucket % items.length;
+    const offset = tick % items.length;
     return items.slice(offset).concat(items.slice(0, offset));
   });
 
-  // שזירה בין הקטגוריות — אחרת שלושה שמאים היו תופסים את כל השורה הראשונה
+  const gOffset = groups.length ? tick % groups.length : 0;
+  const ordered = groups.slice(gOffset).concat(groups.slice(0, gOffset));
+
+  // שזירה בין הקטגוריות — אחרת שלושה שמאים היו תופסים את כל השורה
   const out = [];
-  for (let i = 0; groups.some(g => g[i]); i++){
-    groups.forEach(g => { if (g[i]) out.push(g[i]); });
+  for (let i = 0; ordered.some(g => g[i]); i++){
+    ordered.forEach(g => { if (g[i]) out.push(g[i]); });
   }
   return out;
 }
@@ -3226,9 +3253,14 @@ function rotateProfessionalsFairly(list){
         .select('id, slug, advertiser_name, business_name, advertiser_type, target_region, creative_url, click_url')
         .limit(50);
       const live = data || [];
-      if (!error && live.length > 0) pros = rotateProfessionalsFairly(live).slice(0, 10);
+      if (!error && live.length > 0) pros = live;
     }
   } catch(e){ console.warn('טעינת בעלי מקצוע נכשלה, מציג ברירת מחדל:', e); }
+
+  // הרוטציה חלה גם על ברירת המחדל ולא רק על הנתונים החיים: גם ברשימת
+  // המקומות הפנויים יש חמישה תחומים וארבעה מקומות, ולכן הריענון מחליף
+  // ביניהם במקום להסתיר תמיד את אותו תחום.
+  pros = rotateProfessionalsFairly(pros, nextProsRotationTick()).slice(0, PROS_VISIBLE);
 
   // שמות ושם עסק מגיעים מטופס הרשמה פתוח, וכתובת התמונה נכנסת גם לתוך
   // מאפיין (src) — ולכן הכול עובר דרך escAttr לפני ההזרקה ל-innerHTML.
