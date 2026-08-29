@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>סימון גבולות שכונה | שוק נדל״ן</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
+    --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --gold:#8B2332; --gold-dark:#6B1A26;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:'Heebo',sans-serif;line-height:1.55;
+    display:flex;flex-direction:column;height:100vh;
+  }
+  h1{font-family:'Frank Ruhl Libre',serif;font-size:1.05rem;margin:0;color:var(--teal-dark)}
+  header{
+    flex:0 0 auto;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    padding:10px 16px;background:var(--paper-raised);border-bottom:1px solid var(--line);
+  }
+  header .sub{font-size:.76rem;color:var(--ink-soft);flex:1 1 240px;min-width:0}
+  select,button{font-family:inherit;font-size:.82rem;font-weight:700}
+  select{
+    border:1.5px solid var(--line);border-radius:999px;padding:8px 14px;background:#fff;color:var(--ink);
+  }
+  button{
+    border:none;border-radius:999px;padding:8px 15px;cursor:pointer;
+    background:var(--teal);color:#fff;
+  }
+  button.ghost{background:#fff;color:var(--teal);border:1.5px solid var(--line)}
+  button:disabled{opacity:.45;cursor:default}
+  main{flex:1 1 auto;display:flex;min-height:0}
+  #map{flex:1 1 auto;min-width:0;background:var(--teal-dark);cursor:crosshair}
+  aside{
+    flex:0 0 clamp(300px,32vw,420px);display:flex;flex-direction:column;min-width:0;
+    background:var(--paper-raised);border-inline-start:1px solid var(--line);
+  }
+  .panel{padding:12px 14px;border-bottom:1px solid var(--line)}
+  .panel h2{font-family:'Frank Ruhl Libre',serif;font-size:.92rem;margin:0 0 6px}
+  .hint{font-size:.75rem;color:var(--ink-soft);margin:0 0 8px}
+  .hint b{color:var(--ink)}
+  .row{display:flex;gap:6px;flex-wrap:wrap}
+  .count{font-size:.75rem;font-weight:700;color:var(--gold-dark);margin-top:8px}
+  textarea{
+    flex:1 1 auto;width:100%;border:none;resize:none;padding:12px 14px;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.72rem;line-height:1.5;
+    background:#fff;color:var(--ink);direction:ltr;text-align:left;
+  }
+  textarea:focus{outline:2px solid var(--gold);outline-offset:-2px}
+  .sql-head{
+    display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);
+  }
+  .sql-head h2{flex:1 1 auto;margin:0;font-family:'Frank Ruhl Libre',serif;font-size:.92rem}
+  .vertex-dot{
+    background:var(--gold);border:2px solid #fff;border-radius:50%;
+    width:13px;height:13px;box-shadow:0 1px 4px rgba(0,0,0,.45);
+  }
+  @media(max-width:860px){
+    main{flex-direction:column}
+    #map{flex:1 1 55%}
+    aside{flex:1 1 45%;border-inline-start:none;border-top:1px solid var(--line)}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>סימון גבולות שכונה</h1>
+  <select id="hoodSelect" aria-label="בחירת שכונה"><option>טוען…</option></select>
+  <span class="sub" id="status">בוחרים שכונה, ואז לוחצים על המפה כדי להניח את נקודות הגבול.</span>
+</header>
+
+<main>
+  <div id="map" role="application" aria-label="מפה לסימון גבול השכונה"></div>
+  <aside>
+    <div class="panel">
+      <h2>איך מסמנים</h2>
+      <p class="hint">
+        לחיצה על המפה מוסיפה נקודה. אפשר <b>לגרור</b> נקודה כדי לתקן, ולחיצה
+        <b>על נקודה</b> מוחקת אותה. אין צורך לסגור את הטבעת — המפה סוגרת אותה
+        לבד. שכונות שכבר סומנו מוצגות בקו דק, כדי שאפשר יהיה להצמיד אליהן גבול.
+      </p>
+      <div class="row">
+        <button type="button" class="ghost" id="undoBtn">ביטול נקודה אחרונה</button>
+        <button type="button" class="ghost" id="clearBtn">ניקוי</button>
+        <button type="button" class="ghost" id="loadBtn">טעינת הסימון הקיים</button>
+      </div>
+      <div class="count" id="count">0 נקודות</div>
+    </div>
+    <div class="sql-head">
+      <h2>ה-SQL לעדכון</h2>
+      <button type="button" id="copyBtn">העתקה</button>
+    </div>
+    <textarea id="sql" readonly spellcheck="false" aria-label="פקודת ה-SQL לעדכון גבול השכונה"></textarea>
+  </aside>
+</main>
+
+<script>
+/* ============================================================
+   סימון גבולות שכונה — כלי למנהל/ת הפלטפורמה
+
+   העמוד קורא בלבד: הוא טוען את טבלת השכונות (קריאה ציבורית ממילא) ומייצר
+   משפט update להרצה ידנית ב-Supabase. אין כאן שום מסלול כתיבה, ולכן גם אין
+   מה להגן עליו — הרשאת העריכה על neighborhoods נשארת של המנהל/ת בלבד.
+
+   הצורך: עיגול לא מתאר שכונה. עד שהיה כאן כלי, הדרך היחידה לסמן גבול הייתה
+   לצייר על צילום מסך ולהמיר אותו חזרה לקואורדינטות — עבודה שנעשית פעם אחת
+   ולא ניתנת לתיקון. כאן מסמנים ישירות על המפה האמיתית.
+   ============================================================ */
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+
+const MAP_TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+const MAP_TILE_ATTRIBUTION = '&copy; OpenStreetMap, &copy; CARTO';
+const AFULA_CENTER = [32.6078, 35.2897];
+const AFULA_ZOOM = 13;
+
+let sb = null;
+try { sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }
+catch(e){ console.warn('supabase-js לא נטען:', e); }
+
+const statusEl = document.getElementById('status');
+const setStatus = (text)=> { statusEl.textContent = text; };
+
+const map = L.map('map').setView(AFULA_CENTER, AFULA_ZOOM);
+L.tileLayer(MAP_TILE_URL, { attribution:MAP_TILE_ATTRIBUTION, maxZoom:19 }).addTo(map);
+
+/* מצב העריכה: טבעת הנקודות של השכונה הנבחרת, והסמנים שמייצגים אותן.
+   ‏ring הוא מקור האמת; הסמנים והמצולע נגזרים ממנו בכל ציור מחדש. */
+let hoods = [];
+let selectedId = null;
+let ring = [];
+let markers = [];
+let poly = null;
+const othersLayer = L.layerGroup().addTo(map);
+
+/* ‏select('*') כמו בדף הבית: העמודות הגאוגרפיות נוספו במיגרציות, ובחירה
+   מפורשת בהן נכשלת בכל סביבה שהן עוד לא הגיעו אליה. */
+async function loadHoods(){
+  if (!sb) { setStatus('טעינת השכונות נכשלה — supabase-js חסום.'); return []; }
+  const { data, error } = await sb.from('neighborhoods').select('*').order('city').order('name');
+  if (error){ setStatus('טעינת השכונות נכשלה: ' + error.message); return []; }
+  return data || [];
+}
+
+function hoodById(id){ return hoods.find(h => h.id === id) || null; }
+
+function parseBoundary(raw){
+  let value = raw;
+  if (typeof value === 'string'){
+    try { value = JSON.parse(value); } catch(e){ return []; }
+  }
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(p => Array.isArray(p) && p.length >= 2 && Number.isFinite(Number(p[0])) && Number.isFinite(Number(p[1])))
+    .map(p => [Number(p[0]), Number(p[1])]);
+}
+
+/* השכונות שכבר סומנו, בקו דק — כדי שאפשר יהיה להצמיד גבול חדש לשכן שלו
+   במקום להשאיר רצועה יתומה או חפיפה. */
+function drawOthers(){
+  othersLayer.clearLayers();
+  hoods.forEach(h=>{
+    if (h.id === selectedId) return;
+    const other = parseBoundary(h.boundary);
+    if (other.length < 3) return;
+    L.polygon(other, {
+      interactive:false, color:'#1C3A5E', weight:1.5, opacity:.55,
+      dashArray:'4 4', fillColor:'#1C3A5E', fillOpacity:.04,
+    }).addTo(othersLayer);
+  });
+}
+
+const vertexIcon = L.divIcon({
+  className:'', html:'<div class="vertex-dot"></div>',
+  iconSize:[13, 13], iconAnchor:[6.5, 6.5],
+});
+
+function redraw(){
+  markers.forEach(m => map.removeLayer(m));
+  markers = [];
+  if (poly){ map.removeLayer(poly); poly = null; }
+
+  if (ring.length >= 2){
+    poly = L.polygon(ring, {
+      interactive:false, color:'#8B2332', weight:2.5, opacity:.9,
+      fillColor:'#8B2332', fillOpacity:.10,
+    }).addTo(map);
+  }
+
+  ring.forEach((pt, i)=>{
+    const m = L.marker(pt, { icon:vertexIcon, draggable:true, keyboard:false });
+    m.on('drag', (e)=>{ const ll = e.target.getLatLng(); ring[i] = [ll.lat, ll.lng]; if (poly) poly.setLatLngs(ring); });
+    m.on('dragend', writeSql);
+    // לחיצה על נקודה מוחקת אותה — הדרך לתקן קליק שנחת במקום הלא נכון
+    m.on('click', (e)=>{ L.DomEvent.stop(e); ring.splice(i, 1); redraw(); });
+    m.addTo(map);
+    markers.push(m);
+  });
+
+  document.getElementById('count').textContent =
+    ring.length === 1 ? 'נקודה אחת' : `${ring.length} נקודות`;
+  document.getElementById('undoBtn').disabled = !ring.length;
+  document.getElementById('clearBtn').disabled = !ring.length;
+  writeSql();
+}
+
+/* הפלט הוא בדיוק אותו משפט update שיושב במיגרציה — התאמה לפי (city, name),
+   כדי ששם שהשתנה לא ייכתב על השכונה הלא נכונה. */
+function writeSql(){
+  const box = document.getElementById('sql');
+  const hood = hoodById(selectedId);
+  if (!hood){ box.value = ''; return; }
+  if (ring.length < 3){
+    box.value = '-- צריך לפחות שלוש נקודות כדי לסגור מצולע.';
+    return;
+  }
+  const rows = ring.map(([lat, lng]) => `    [${lat.toFixed(6)}, ${lng.toFixed(6)}]`).join(',\n');
+  const esc = s => String(s).replace(/'/g, "''");
+  box.value =
+    `update public.neighborhoods set boundary = '[\n${rows}\n  ]'::jsonb\n` +
+    ` where city = '${esc(hood.city)}' and name = '${esc(hood.name)}';\n`;
+}
+
+map.on('click', (e)=>{
+  if (!selectedId){ setStatus('קודם בוחרים שכונה מהרשימה שלמעלה.'); return; }
+  ring.push([e.latlng.lat, e.latlng.lng]);
+  redraw();
+});
+
+document.getElementById('undoBtn').addEventListener('click', ()=>{ ring.pop(); redraw(); });
+document.getElementById('clearBtn').addEventListener('click', ()=>{ ring = []; redraw(); });
+
+document.getElementById('loadBtn').addEventListener('click', ()=>{
+  const hood = hoodById(selectedId);
+  if (!hood) return;
+  ring = parseBoundary(hood.boundary);
+  redraw();
+  if (ring.length) map.fitBounds(L.latLngBounds(ring).pad(0.25));
+  setStatus(ring.length ? 'נטען הסימון הקיים — אפשר לגרור נקודות כדי לתקן.'
+                        : 'לשכונה הזו עדיין אין סימון.');
+});
+
+document.getElementById('copyBtn').addEventListener('click', async ()=>{
+  const box = document.getElementById('sql');
+  if (!box.value) return;
+  try {
+    await navigator.clipboard.writeText(box.value);
+    setStatus('ה-SQL הועתק. מריצים אותו ב-Supabase → SQL Editor.');
+  } catch(e){
+    // הרשאת clipboard נחסמת בהקשרים לא מאובטחים — בחירת הטקסט עדיין עובדת
+    box.select();
+    setStatus('לא ניתן להעתיק אוטומטית — הטקסט נבחר, אפשר להעתיק ידנית.');
+  }
+});
+
+const hoodSelect = document.getElementById('hoodSelect');
+hoodSelect.addEventListener('change', ()=>{
+  selectedId = hoodSelect.value || null;
+  const hood = hoodById(selectedId);
+  ring = hood ? parseBoundary(hood.boundary) : [];
+  drawOthers();
+  redraw();
+  if (ring.length){
+    map.fitBounds(L.latLngBounds(ring).pad(0.25));
+    setStatus(`${hood.name}: נטען הסימון הקיים. גוררים נקודה כדי לתקן, לוחצים על נקודה כדי למחוק.`);
+  } else if (hood){
+    setStatus(`${hood.name}: אין עדיין סימון. לוחצים על המפה כדי להניח נקודות.`);
+  }
+});
+
+(async function init(){
+  hoods = await loadHoods();
+  hoodSelect.innerHTML = '<option value="">— בחרו שכונה —</option>';
+  hoods.forEach(h=>{
+    const opt = document.createElement('option');
+    opt.value = h.id;
+    // מסומנת / לא מסומנת, כדי לראות מיד מה עוד חסר
+    opt.textContent = `${h.city} · ${h.name}${parseBoundary(h.boundary).length >= 3 ? ' ✓' : ''}`;
+    hoodSelect.appendChild(opt);
+  });
+  drawOthers();
+  redraw();
+})();
+</script>
+</body>
+</html>

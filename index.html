@@ -3652,10 +3652,10 @@ const MAP_FIT_MAX_ZOOM = 16;
 function fitMapToMarkers(){
   if (!heroMap) return;
   const points = visibleMarkers().map(m => m.getLatLng());
-  // עיגול השכונה הנבחרת נספר כחלק ממה שצריך להיכנס לתצוגה: בלעדיו הוא היה
+  // סימון השכונה הנבחרת נספר כחלק ממה שצריך להיכנס לתצוגה: בלעדיו הוא היה
   // נחתך כשהנכסים מרוכזים בפינה אחת שלו, ובשכונה שהחיפוש לא החזיר בה כלום
   // לא היה למפה בכלל לאן לעוף
-  const hoodBounds = hoodCircle ? hoodCircle.getBounds() : null;
+  const hoodBounds = hoodShape ? hoodShape.getBounds() : null;
   if (!points.length && !hoodBounds) return;
   try {
     const pad = visibleMapPadding();
@@ -4183,7 +4183,8 @@ const hoodState = {
   centers: new Map(),      // מזהה שכונה → { center:[lat,lng], radius }
   selected: null,
 };
-let hoodCircle = null;
+// הסימון של השכונה הנבחרת: מצולע כשיש boundary, ואחרת עיגול (ראו drawHoodShape)
+let hoodShape = null;
 
 /* ‏select('*') בכוונה: העמודות הגאוגרפיות (lat/lng/radius_m) נוספות
    במיגרציה 20260830120000, ובחירה מפורשת בהן הייתה מפילה את הטעינה בכל
@@ -4204,10 +4205,11 @@ async function loadNeighborhoods(){
    השכונות — ולכן נשמר בנפרד מ-mapProperties, שמתחלף עם כל חיפוש. */
 let allActiveProperties = [];
 
-/* מרכז ורדיוס לכל שכונה. סימון ידני ב-DB (lat/lng/radius_m) גובר תמיד;
-   בהיעדרו הם נגזרים מהנכסים עצמם — ממוצע הקואורדינטות, ורדיוס עד הנכס
-   הרחוק ביותר ממנו. חישוב מהנכסים נכון תמיד למקום שבו הנכסים באמת יושבים,
-   וסימון ידני מדויק יותר לגבולות השכונה כפי שהן מוכרות בעיר.
+/* מרכז ורדיוס לכל שכונה — רק בשביל עיגול ברירת המחדל, לשכונה שאין לה עדיין
+   ‏boundary. סימון ידני ב-DB (lat/lng/radius_m) גובר; בהיעדרו הם נגזרים
+   מהנכסים עצמם — ממוצע הקואורדינטות, ורדיוס עד הנכס הרחוק ביותר ממנו.
+   שני החישובים האלה מתארים את מיקום *המודעות* ולא את גבולות השכונה, ולכן
+   הם ברירת מחדל ולא היעד: היעד הוא המצולע (ראו drawHoodShape).
    נגזר מכל הנכסים הפעילים ולא מהמסוננים: מרכז השכונה אינו תלוי בסוג העסקה
    שנבחר, ויותר נקודות = מרכז מדויק יותר. */
 function computeHoodGeometry(properties){
@@ -4244,19 +4246,56 @@ function computeHoodGeometry(properties){
   });
 }
 
-/* העיגול המקווקו שמסמן את תחום השכונה הנבחרת. שכבת overlayPane יושבת מתחת
-   לפינים, ולכן הוא לא מסתיר אותם. הצבע קבוע ולא ‎var(--gold)‎: ‏Leaflet כותב
-   אותו כ-presentation attribute על ה-path, ושם ‎var()‎ אינו נתמך. */
-function drawHoodCircle(){
+/* הסימון של השכונה הנבחרת על המפה.
+
+   שכונה אינה עיגול. גבעת המורה נפרסת על מדרון, רובע יזרעאל הוא מרובע כלוא
+   בין שדרות רבין לנחל חרוד, ומרכז העיר צר וארוך — עיגול סביב מרכז המסה שלהן
+   או גולש הרחק אל השכונות השכנות או קוטע להן חצי. לכן הצורה הראשית היא
+   *מצולע* מ-neighborhoods.boundary, והעיגול נשאר רק כברירת מחדל לשכונה
+   שעדיין לא סומנה — שם הוא לפחות אומר "בערך כאן" ולא מתיימר לתחום.
+
+   הקו מקווקו בשני המקרים: זהו סימון של אזור, לא גבול מוניציפלי מדויק.
+   שכבת overlayPane יושבת מתחת לפינים ולכן הסימון לא מסתיר אותם.
+   הצבע קבוע ולא ‎var(--gold)‎: ‏Leaflet כותב אותו כ-presentation attribute על
+   ה-path, ושם ‎var()‎ אינו נתמך. */
+const HOOD_SHAPE_STYLE = {
+  interactive:false,
+  color:'#8B2332', weight:2, opacity:.85, dashArray:'6 5',
+  fillColor:'#8B2332', fillOpacity:.06,
+};
+
+function drawHoodShape(){
   if (!heroMap) return;
-  if (hoodCircle){ heroMap.removeLayer(hoodCircle); hoodCircle = null; }
-  const geo = hoodState.selected && hoodState.centers.get(hoodState.selected);
-  if (!geo) return;
-  hoodCircle = L.circle(geo.center, {
-    radius: geo.radius, interactive:false,
-    color:'#8B2332', weight:2, opacity:.85, dashArray:'6 5',
-    fillColor:'#8B2332', fillOpacity:.06,
-  }).addTo(heroMap);
+  if (hoodShape){ heroMap.removeLayer(hoodShape); hoodShape = null; }
+  if (!hoodState.selected) return;
+
+  const hood = hoodState.byId.get(hoodState.selected);
+  const ring = parseBoundary(hood && hood.boundary);
+  if (ring){
+    hoodShape = L.polygon(ring, HOOD_SHAPE_STYLE).addTo(heroMap);
+    return;
+  }
+  const geo = hoodState.centers.get(hoodState.selected);
+  if (geo) hoodShape = L.circle(geo.center, { radius:geo.radius, ...HOOD_SHAPE_STYLE }).addTo(heroMap);
+}
+
+/* ‏boundary הוא מערך של זוגות [lat,lng] ב-jsonb. הוא נערך ידנית ב-DB, ולכן
+   נבדק כאן ולא מונח: טבלה עם מצולע פגום צריכה להוריד את הסימון לעיגול
+   ברירת המחדל, לא לשבור את המפה. */
+function parseBoundary(raw){
+  if (!raw) return null;
+  let ring = raw;
+  if (typeof ring === 'string'){
+    try { ring = JSON.parse(ring); } catch(e){ return null; }
+  }
+  if (!Array.isArray(ring) || ring.length < 3) return null;
+  const pts = ring
+    .filter(p => Array.isArray(p) && p.length >= 2)
+    .map(p => [Number(p[0]), Number(p[1])])
+    .filter(([lat, lng]) =>
+      Number.isFinite(lat) && Number.isFinite(lng) &&
+      Math.abs(lat) <= 90 && Math.abs(lng) <= 180);
+  return pts.length >= 3 ? pts : null;
 }
 
 /* מספר הנכסים בכל שכונה — לפי סוג העסקה שנבחר בסרגל החיפוש, כלומר בדיוק
@@ -4334,7 +4373,7 @@ function selectHood(id){
   // מוצגות (שכונה נבחרת נשארת בשורה גם בלי נכסים), ולכן ביטול הבחירה חייב
   // גם להוריד אותה משם
   renderHoodPills();
-  drawHoodCircle();
+  drawHoodShape();
   runSearch();
 }
 
@@ -4922,7 +4961,7 @@ function setListingsTab(expanded){
 async function clearSearch(){
   document.getElementById('searchFreeText').value = '';
   hoodState.selected = null;
-  drawHoodCircle();
+  drawHoodShape();
   document.getElementById(searchState.activeTab === 'commercial' ? 'cClearFilters' : 'rClearFilters').click();
   // אחרי איפוס הסינונים ולא לפניו: הוא מחזיר גם את סוג העסקה המסחרי
   // ל"מכירה", ואיתו משתנים המונים ודירוג השכונות
