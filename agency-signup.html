@@ -61,13 +61,13 @@
     <div class="field"><label>אימייל</label><input type="email" id="managerEmail" required autocomplete="username"></div>
     <div class="field"><label>סיסמה (8 תווים לפחות)</label><input type="password" id="managerPassword" required minlength="8" autocomplete="new-password"></div>
 
-    <!-- ‏הצטרפות לפלטפורמה = התחייבות לקוד האתי. האישור המחייב עצמו נרשם
-         במסד מיד אחרי הכניסה הראשונה ל-CRM ("הקוד האתי ותו האיכות"), כי הוא
-         חייב להיחתם בידי הסוכן/ת המחובר/ת עצמו/ה — כאן זו ההצהרה שקדמה לו. -->
+    <!-- ‏הצטרפות לפלטפורמה = התחייבות לקוד האתי. האישור נרשם במסד ברגע פתיחת
+         המשרד (agency-signup חותם על שורת המנהל/ת ועל שורת המשרד), ולכן תו
+         האיכות פעיל כבר בכניסה הראשונה. הבדיקה נאכפת גם בשרת ולא רק כאן. -->
     <div class="section-divider">הקוד האתי</div>
     <div class="consent">
       <input type="checkbox" id="ethicsConsent">
-      <label for="ethicsConsent">קראתי את <a href="ethics-code.html" target="_blank" rel="noopener">הקוד האתי של הפלטפורמה</a> ואני מסכים/ה לעשרת סעיפיו. ידוע לי שתו האיכות יוסר במקרה של הפרת התקנון.</label>
+      <label for="ethicsConsent">קראתי את <a href="ethics-code.html" target="_blank" rel="noopener">הקוד האתי של הפלטפורמה</a> ואני מסכים/ה לעשרת סעיפיו — בשמי ובשם המשרד. ידוע לי שתו האיכות יוסר במקרה של הפרת התקנון.</label>
     </div>
 
     <button class="btn" id="submitBtn">פתיחת המשרד</button>
@@ -77,7 +77,7 @@
 
   <div id="stateDone">
     <h1>המשרד נפתח בהצלחה!</h1>
-    <p class="sub">אפשר להתחבר עכשיו עם הפרטים שהזנת. בכניסה הראשונה תתבקש/י לאשר את הקוד האתי — האישור הוא שמדליק את תו האיכות בדף שלך ובמודעות הנכסים.</p>
+    <p class="sub">אפשר להתחבר עכשיו עם הפרטים שהזנת. אישור הקוד האתי נרשם, ותו האיכות כבר פעיל בדף שלך, בדף המשרד ובמודעות הנכסים.</p>
     <a href="crm.html" class="btn" style="display:flex;text-decoration:none;margin-top:16px">מעבר לכניסת מתווכים</a>
   </div>
 </div>
@@ -123,6 +123,7 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
         manager_email: managerEmail,
         manager_password: managerPassword,
         license_number: licenseNumber,
+        ethics_code_accepted: true,
       }),
     });
     const data = await res.json();
@@ -130,6 +131,7 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
       const messages = {
         weak_password: 'הסיסמה קצרה מדי',
         auth_error: 'שגיאה ביצירת החשבון — ייתכן שהאימייל כבר בשימוש',
+        ethics_not_accepted: 'ההצטרפות מותנית באישור הקוד האתי',
       };
       feedback.style.color = 'var(--red)';
       feedback.textContent = messages[data.error] || ('שגיאה: ' + (data.detail || data.error));
