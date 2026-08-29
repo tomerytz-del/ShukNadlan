@@ -970,9 +970,10 @@
     color:#fff;line-height:1;
   }
   /* object-position גבוה מהמרכז: בתמונות פרופיל הפנים יושבות בשליש
-     העליון, וחיתוך למרכז היה קוטע אותן בתחתית האריח הריבועי. */
+     העליון, וחיתוך למרכז היה קוטע אותן בתחתית האריח הריבועי. סוכן/ת שסימן/ה
+     נקודת מיקוד ב-CRM דורס/ת את ברירת המחדל הזו דרך --photo-pos. */
   .agent-photo,
-  .pro-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 22%}
+  .pro-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:var(--photo-pos,center 22%)}
   .agent-rank{
     position:absolute;top:6px;right:6px;background:rgba(255,255,255,.94);color:var(--gold-dark);
     font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:999px;
@@ -3219,7 +3220,7 @@ async function loadLeadingAgents(){
     if (!sb) return [];
     const [membersRes, rankingsRes, reviewsRes, activeRes] = await Promise.all([
       // התקרות כאן הן רק גבול בטיחות לגודל התשובה, לא מכסת תצוגה.
-      sb.from('agency_members_public').select('id, display_name, slug, photo_url, agency_id, has_ethics_badge').limit(200),
+      sb.from('agency_members_public').select('id, display_name, slug, photo_url, photo_position, agency_id, has_ethics_badge').limit(200),
       sb.from('agent_rankings').select('agent_id, composite_score, active_properties_count').limit(200),
       sb.from('reviews').select('agent_id, rating').eq('status', 'published').limit(2000),
       sb.from('properties').select('agent_id').eq('status', 'active').limit(2000),
@@ -3309,8 +3310,12 @@ async function loadLeadingAgents(){
     // אות ההתחלה נשארת ב-DOM גם כשיש תמונה ופשוט מכוסה על ידה; אם קובץ
     // התמונה נשבר ה-img מסיר את עצמו והאריח חוזר לאות על הגרדיאנט
     // במקום לאייקון תמונה שבורה.
+    // נקודת המיקוד שהסוכן/ת סימן/ה ב-CRM. הערך נכנס ל-CSS ולכן נבדק כאן
+    // בדיוק כפי שהוא נבדק ב-DB: שני אחוזים ותו לא.
+    const focus = /^\d{1,3}% \d{1,3}%$/.test(a.photo_position || '') ? a.photo_position : '';
     const photo = a.photo_url
-      ? `<img class="agent-photo" src="${escAttr(a.photo_url)}" alt="${escAttr(name)}" loading="lazy" onerror="this.remove()">`
+      ? `<img class="agent-photo" src="${escAttr(a.photo_url)}" alt="${escAttr(name)}" loading="lazy"
+              ${focus ? `style="--photo-pos:${focus}"` : ''} onerror="this.remove()">`
       : '';
     const meta = [];
     if (a.rating !== null){

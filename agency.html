@@ -299,7 +299,9 @@
     background:var(--brand);color:var(--on-brand);display:flex;align-items:center;justify-content:center;
     font-weight:700;font-family:'Frank Ruhl Libre',serif;font-size:1.25rem;
   }
-  .agent-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+  /* ‏--photo-pos = נקודת המיקוד שהסוכן/ת סימן/ה ב-CRM; בלעדיה חיתוך למרכז
+     היה קוטע את הפנים בתמונות פורטרט */
+  .agent-avatar img{width:100%;height:100%;object-fit:cover;display:block;object-position:var(--photo-pos,50% 25%)}
   .agent-card .name{font-weight:800;font-size:.95rem;color:var(--teal-dark)}
   .agent-card .role{font-size:.76rem;color:var(--ink-soft);margin-top:1px}
   .agent-card .lic{
@@ -837,7 +839,7 @@ async function loadSoldDeals(sb, agencyId){
 async function loadAgentRoster(sb, agencyId){
   const el = document.getElementById('agentRoster');
   const { data: agents } = await sb.from('agency_members_public')
-    .select('id, slug, display_name, role, photo_url, license_number, has_ethics_badge')
+    .select('id, slug, display_name, role, photo_url, photo_position, license_number, has_ethics_badge')
     .eq('agency_id', agencyId);
   if (!agents || agents.length === 0){ el.innerHTML = '<div class="empty-state">אין כרגע סוכנים פעילים.</div>'; return; }
 
@@ -847,10 +849,11 @@ async function loadAgentRoster(sb, agencyId){
   agents.forEach(a=>{
     const name = a.display_name || '?';
     const photo = safeImageUrl(a.photo_url);
+    const focus = /^\d{1,3}% \d{1,3}%$/.test(a.photo_position || '') ? a.photo_position : '';
     const card = document.createElement('div');
     card.className = 'panel agent-card';
     card.innerHTML = `
-      <div class="agent-avatar">${photo ? `<img src="${encodeURI(photo)}" alt="${escapeHtml(name)}" loading="lazy">` : escapeHtml(name[0])}</div>
+      <div class="agent-avatar">${photo ? `<img src="${encodeURI(photo)}" alt="${escapeHtml(name)}" loading="lazy"${focus ? ` style="--photo-pos:${focus}"` : ''}>` : escapeHtml(name[0])}</div>
       <div style="min-width:0">
         <div class="name">${escapeHtml(name)}</div>
         <div class="role">${escapeHtml(roleLabels[a.role] || a.role || '')}</div>
