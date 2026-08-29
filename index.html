@@ -333,9 +333,24 @@
     padding:0 10px;
   }
   .map-toolbar > *{pointer-events:auto}
-  /* בעמודה ב-RTL: flex-end = הקצה השמאלי, כלומר הבורר נשאר בפינה שלו
-     בעוד שהפאנל שמתחתיו ממורכז */
-  .map-toolbar .map-style-select{align-self:flex-end}
+  /* בעמודה ב-RTL: flex-end = הקצה השמאלי, כלומר שורת הפקדים הצדדית (בורר
+     הסגנון + מירכוז המפה) נשארת בפינה השמאלית בעוד שהפאנל שמתחתיה ממורכז.
+     בשורה עצמה (RTL) האיבר האחרון הוא השמאלי ביותר, ולכן כפתור המירכוז
+     יושב ממש בפינה. */
+  .map-toolbar .map-toolbar-side{align-self:flex-end;display:flex;align-items:center;gap:6px}
+  /* כפתור מירכוז המפה: עיגול לבן קטן עם פין אדום בפינה השמאלית התחתונה.
+     עגול ולא גלולה עם טקסט — כדי שיהיה מזוהה מייד אבל יכסה כמה שפחות מפה.
+     לחיצה מחזירה את המפה למרכז עפולה ולזום ההתחלתי בלי לגעת בחיפוש
+     (ראו recenterHeroMap ב-JS). */
+  .map-recenter-btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:32px;height:32px;border-radius:50%;flex:0 0 auto;
+    background:rgba(255,255,255,.94);box-shadow:var(--shadow-sm);
+    color:#D6262B;cursor:pointer;transition:background .2s ease,transform .15s ease;
+  }
+  .map-recenter-btn svg{width:17px;height:17px;display:block}
+  .map-recenter-btn:hover{background:#fff;transform:scale(1.06)}
+  .map-recenter-btn:active{transform:scale(.96)}
   /* הפאנל המאוחד: שורת המקרא + ההגדלה, ומתחתיה מונה הנכסים */
   .map-panel{
     display:flex;flex-direction:column;align-items:center;gap:1px;max-width:100%;
@@ -1335,7 +1350,8 @@
   html.a11y-contrast .owner-toggle button, html.a11y-contrast .deal-select,
   html.a11y-contrast .map-legend button,
   html.a11y-contrast .search-card .icon-btn, html.a11y-contrast .search-card .search-go,
-  html.a11y-contrast .map-expand-btn{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
+  html.a11y-contrast .map-expand-btn,
+  html.a11y-contrast .map-recenter-btn{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
   /* במצב ניגודיות גבוהה המפה מעומעמת: אריחים צבעוניים מתחת לטקסט צהוב על
      שחור הורסים את יחס הניגודיות שכל המצב הזה נועד להבטיח */
   html.a11y-contrast .hero-overlay{background:#000 !important}
@@ -1634,11 +1650,20 @@
     </div>
 
     <div class="map-toolbar">
-      <select id="mapStyleSelect" class="map-style-select" aria-label="סגנון המפה">
-        <option value="nature">טבע</option>
-        <option value="classic" selected>קלאסי</option>
-        <option value="light">בהיר</option>
-      </select>
+      <div class="map-toolbar-side">
+        <select id="mapStyleSelect" class="map-style-select" aria-label="סגנון המפה">
+          <option value="nature">טבע</option>
+          <option value="classic" selected>קלאסי</option>
+          <option value="light">בהיר</option>
+        </select>
+        <!-- מירכוז המפה חזרה למרכז עפולה, לתצוגה שאיתה הדף נפתח. משנה רק
+             את תצוגת המפה — החיפוש והפינים שעליה נשארים כמו שהם. -->
+        <button type="button" class="map-recenter-btn" id="mapRecenterBtn" title="מירכוז המפה על עפולה" aria-label="מירכוז המפה על עפולה">
+          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2c-3.87 0-7 3.13-7 7 0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/>
+          </svg>
+        </button>
+      </div>
       <!-- פאנל אחד לתחתית המפה: מקרא הצבעים שהוא גם המסנן (לחיצה על סוג
            עסקה מסתירה/מחזירה את הפינים שלו) עם מונה לכל סוג, כפתור הגדלת
            המפה, ומתחתיהם מונה הנכסים המוצגים -->
@@ -3357,6 +3382,12 @@ const MAP_TILE_MAX_ZOOM = 19;
 const MAP_STYLES = ['nature','classic','light'];
 const DEFAULT_MAP_STYLE = 'classic';
 
+/* התצוגה ההתחלתית של המפה — מרכז עפולה. מוגדרת פעם אחת ומשמשת גם באתחול
+   המפה וגם בכפתור המירכוז שבפינה השמאלית התחתונה, כדי ששניהם לא יוכלו
+   להיפרד זה מזה. */
+const AFULA_CENTER = [32.6078, 35.2897];
+const AFULA_ZOOM = 13;
+
 function applyMapStyle(style){
   if (!MAP_STYLES.includes(style)) style = DEFAULT_MAP_STYLE;
   document.body.dataset.mapStyle = style;
@@ -3372,7 +3403,7 @@ if (!MAP_STYLES.includes(savedMapStyle)) savedMapStyle = DEFAULT_MAP_STYLE;
 try {
   if (!window.L) throw new Error('Leaflet לא נטען (CDN חסום/נכשל)');
 
-  heroMap = L.map('hero-map', { scrollWheelZoom:false, zoomControl:false }).setView([32.6078, 35.2897], 13);
+  heroMap = L.map('hero-map', { scrollWheelZoom:false, zoomControl:false }).setView(AFULA_CENTER, AFULA_ZOOM);
   heroTiles = L.tileLayer(MAP_TILE_URL, {
     attribution:MAP_TILE_ATTRIBUTION, maxZoom:MAP_TILE_MAX_ZOOM
   }).addTo(heroMap);
@@ -3775,6 +3806,18 @@ function renderHotCarousel(properties, isSearchResult){
 
   hotFlow.done();
 }
+
+/* מירכוז המפה חזרה לעפולה. פעולה של תצוגה בלבד: היא לא נוגעת ברשימת
+   הנכסים, בפילטרים או בשורת החיפוש — מי שחיפש "3 חדרים להשכרה" ולחץ כאן
+   מקבל את אותן תוצאות בדיוק, רק ממורכזות מחדש על העיר. */
+function recenterHeroMap(){
+  if (!heroMap) return;
+  heroMap.closePopup();
+  if (heroMap.flyTo) heroMap.flyTo(AFULA_CENTER, AFULA_ZOOM, { duration:.7 });
+  else heroMap.setView(AFULA_CENTER, AFULA_ZOOM, { animate:true });
+}
+const mapRecenterBtn = document.getElementById('mapRecenterBtn');
+if (mapRecenterBtn) mapRecenterBtn.addEventListener('click', recenterHeroMap);
 
 const mapExpandBtn = document.getElementById('mapExpandBtn');
 if (mapExpandBtn){
