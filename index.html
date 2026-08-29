@@ -3096,8 +3096,43 @@ const FALLBACK_ARTICLES = [
   {title:'חמישה דברים לבדוק לפני שחותמים על חוזה שכירות', kicker:'שוכרים', excerpt:'ערבויות, תיקונים, מדד וצמדות — הסעיפים ששווה לקרוא פעמיים.'},
 ];
 
+/* כותרות ותקצירים נכתבים בעורך של ה-CRM ונכנסים כאן ל-innerHTML —
+   גרשיים בכותרת ("דירת 4 חד׳") הם המקרה השכיח, הזרקה היא המקרה שאסור. */
+function escapeArticleText(s){
+  return String(s == null ? '' : s)
+    .replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
+}
+
 async function loadArticles(){
   if (!sb) return FALLBACK_ARTICLES;
+
+  // 1. המגזין של הפלטפורמה — כתבות שנכתבו ב-CRM. זה המקור המועדף, והוא
+  //    היחיד שיש לו עמוד משלו באתר (article.html).
+  try{
+    const { data, error } = await sb
+      .from('articles_public')
+      .select('id, slug, title, subtitle, category, cover_url, published_at')
+      .order('published_at', { ascending:false })
+      .limit(8);
+    if (error) throw error;
+    if (data && data.length){
+      return data.map(a => ({
+        title: a.title || 'כתבה',
+        kicker: a.category || 'מגזין שוק נדל״ן',
+        excerpt: a.subtitle || '',
+        url: 'article.html?slug=' + encodeURIComponent(a.slug || a.id),
+        image: a.cover_url || '',
+        published_at: a.published_at,
+        internal: true,
+      }));
+    }
+  } catch(e){
+    // טבלה שטרם נוצרה בסביבה הזו (42P01) היא לא שגיאה שהגולש צריך לראות —
+    // ממשיכים למקור הבא.
+    console.warn('טעינת כתבות המגזין נכשלה:', e);
+  }
+
+  // 2. מבזק החדשות החיצוני, אם קיים בסביבה הזו.
   try{
     // select('*') בכוונה: הטבלה משותפת עם המבזק ועשויה להכיל שדות תוכן
     // נוספים (תקציר, תמונה, קישור) שלא כולם קיימים בכל סביבה — קוראים
@@ -3112,7 +3147,8 @@ async function loadArticles(){
       title: n.headline || n.title || 'כתבה',
       kicker: n.category || n.source_name || 'חדשות הנדל״ן',
       excerpt: n.summary || n.description || '',
-      url: n.url || n.link || '',
+      // המבזק נאסף ממקורות חיצוניים, והכתובת נכנסת ישירות ל-href של הכרטיס
+      url: safeExternalUrl(n.url || n.link || ''),
       image: n.image_url || n.image || '',
       published_at: n.published_at,
     }));
@@ -3129,9 +3165,14 @@ async function loadArticles(){
   articles.forEach((a, i)=>{
     const card = document.createElement(a.url ? 'a' : 'article');
     card.className = 'article-card';
-    if (a.url){ card.href = a.url; card.target = '_blank'; card.rel = 'noopener'; }
+    if (a.url){
+      card.href = a.url;
+      // כתבה של המגזין נפתחת באותה לשונית — היא חלק מהאתר. קישור חיצוני
+      // (מבזק) ממשיך להיפתח בלשונית חדשה כדי לא לגרור את הגולש החוצה.
+      if (!a.internal){ card.target = '_blank'; card.rel = 'noopener'; }
+    }
     const cover = a.image
-      ? `background-image:url('${a.image}')`
+      ? `background-image:url('${encodeURI(a.image).replace(/'/g, '%27')}')`
       : `background:${CARD_GRADIENTS[i % CARD_GRADIENTS.length]}`;
     const stamp = a.published_at
       ? new Date(a.published_at).toLocaleDateString('he-IL', { day:'numeric', month:'long', year:'numeric' })
@@ -3139,10 +3180,10 @@ async function loadArticles(){
     card.innerHTML = `
       <div class="cover" style="${cover}"></div>
       <div class="body">
-        <span class="kicker">${a.kicker}</span>
-        <h3>${a.title}</h3>
-        ${a.excerpt ? `<p>${a.excerpt}</p>` : ''}
-        <span class="stamp">${stamp}</span>
+        <span class="kicker">${escapeArticleText(a.kicker)}</span>
+        <h3>${escapeArticleText(a.title)}</h3>
+        ${a.excerpt ? `<p>${escapeArticleText(a.excerpt)}</p>` : ''}
+        <span class="stamp">${escapeArticleText(stamp)}</span>
       </div>`;
     el.appendChild(card);
   });
