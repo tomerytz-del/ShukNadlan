@@ -12,115 +12,204 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
+  /* הפלטה, הגופנים והרכיבים הבסיסיים זהים לדף הבית — העמוד הזה הוא חלק
+     מאותו אתר ולא עולם משלו. --maxw צר יותר בכוונה: זה עמוד קריאה. */
   :root{
     --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
     --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
     --gold:#8B2332; --gold-dark:#6B1A26; --gold-tint:#F1DFE1; --wa:#1F8F5F;
     --radius-sm:6px; --radius-md:12px; --radius-lg:20px;
-    --shadow-sm:0 2px 8px rgba(15,52,53,.08); --maxw:820px;
+    --shadow:0 4px 20px rgba(15,52,53,.10); --shadow-sm:0 2px 8px rgba(15,52,53,.08);
+    --maxw:860px;
   }
   *{box-sizing:border-box}
-  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.6}
-  h1,h2,h3,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark);margin:0}
+  html{scroll-behavior:smooth}
+  [hidden]{display:none !important}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:'Heebo',sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;line-height:1.15;color:var(--teal-dark);margin:0}
   a{color:inherit;text-decoration:none}
+  img{max-width:100%;display:block}
   button{font-family:inherit;cursor:pointer;border:none;background:none}
-  img{max-width:100%}
   .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
-  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:11px 18px;border-radius:999px;font-weight:700;font-size:.86rem}
+  .eyebrow{
+    font-size:.72rem;letter-spacing:.08em;font-weight:700;color:var(--gold-dark);
+    text-transform:uppercase;display:flex;align-items:center;gap:8px;
+  }
+  .eyebrow::before{content:"";width:18px;height:2px;background:var(--gold-dark);display:inline-block}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:11px 20px;border-radius:999px;font-weight:700;font-size:.88rem;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
   .btn svg{width:18px;height:18px;flex:none}
   .btn-teal{background:var(--teal);color:#fff}
+  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(23,73,74,.3)}
   .btn-wa{background:var(--wa);color:#fff}
+  .btn-wa:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(31,143,95,.32)}
   .btn-ghost{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
+  .btn-ghost:hover{border-color:var(--teal)}
   :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+  .skip-link{position:absolute;right:-999px;top:0;background:var(--teal);color:#fff;padding:10px 16px;z-index:200;border-radius:0 0 0 8px}
+  .skip-link:focus{right:0}
 
-  header.site{background:var(--paper-raised);border-bottom:1px solid var(--line);padding:14px 0}
+  /* ====== Header ====== */
+  header.site{
+    position:sticky;top:0;z-index:100;background:var(--paper-raised);
+    border-bottom:1px solid var(--line);padding:12px 0;
+  }
   .header-inner{display:flex;align-items:center;justify-content:space-between;gap:12px}
   .logo{display:flex;align-items:center;gap:10px;min-width:0}
-  .logo-img{height:46px;width:46px;display:block;flex:0 0 auto;border-radius:50%}
+  .logo-img{height:44px;width:44px;flex:0 0 auto;border-radius:50%}
   .logo-word{
     font-family:'Rubik','Heebo',sans-serif;font-weight:500;color:var(--teal-dark);
-    font-size:.82rem;line-height:1.3;letter-spacing:-.012em;min-width:0;text-align:center;
+    font-size:.8rem;line-height:1.3;letter-spacing:-.012em;min-width:0;text-align:center;
   }
   .logo-word span{color:var(--gold-dark);font-weight:700}
   @media(min-width:900px){
-    .logo-img{height:54px;width:54px}
+    .logo-img{height:52px;width:52px}
     .logo-word{font-size:.95rem;white-space:nowrap}
   }
-  .back-link{font-size:.85rem;font-weight:700;color:var(--teal);white-space:nowrap}
+  .back-link{font-size:.85rem;font-weight:700;color:var(--teal);white-space:nowrap;border-bottom:1.5px solid var(--gold);padding-bottom:2px}
 
-  #loadingState,#notFoundState{padding:60px 18px;text-align:center;color:var(--ink-soft)}
+  /* מד ההתקדמות בקריאה — פס דק בצבע המותג בקצה העליון של הכותרת הדביקה.
+     הוא לא אינטראקטיבי ולכן aria-hidden; מי שרוצה לדעת כמה נשאר רואה
+     אותו, ומי שלא — לא מפריע לו. */
+  .progress{position:absolute;inset-inline-start:0;bottom:-1px;height:3px;width:0;background:var(--gold);transition:width .1s linear}
+
+  #loadingState,#notFoundState{padding:70px 18px;text-align:center;color:var(--ink-soft)}
   #notFoundState{display:none}
-  #articleContent{display:none;padding-bottom:40px}
+  #articleContent{display:none;padding-bottom:10px}
 
-  /* ====== ראש הכתבה ======
-     תמונת הנושא מוצגת רק כשהועלתה אחת — בלעדיה הכותרת פשוט מתחילה גבוה
-     יותר, ולא נשאר במקומה מלבן ריק. */
+  /* ====== פירורי לחם ======
+     שורת הניווט הזו היא גם ההקשר (איפה אני?) וגם הדרך הקצרה ביותר חזרה
+     לארכיון — הקישור הראשון מבין שלושה בעמוד שמובילים אליו. */
+  .crumbs{display:flex;flex-wrap:wrap;align-items:center;gap:7px;font-size:.78rem;color:var(--ink-soft);padding:16px 0 12px}
+  .crumbs a{color:var(--teal);font-weight:600}
+  .crumbs a:hover{border-bottom:1px solid var(--gold)}
+  .crumbs .sep{opacity:.55}
+
+  /* ====== תמונת הנושא ======
+     מוצגת רק כשהועלתה אחת. בלעדיה גיליון הכתבה פשוט מתחיל גבוה יותר,
+     ולא נשאר במקומה מלבן ריק. */
   .cover{
-    height:190px;border-radius:0 0 var(--radius-lg) var(--radius-lg);background-size:cover;
-    background-position:center;border:1px solid var(--line);border-top:none;display:none;
+    height:200px;border-radius:var(--radius-lg);background-size:cover;background-position:center;
+    background-color:var(--teal-tint);border:1px solid var(--line);box-shadow:var(--shadow-sm);display:none;
   }
-  @media(min-width:760px){.cover{height:320px}}
+  @media(min-width:760px){.cover{height:340px}}
 
-  .kicker{
-    display:inline-block;background:var(--gold-tint);color:var(--gold-dark);
-    font-size:.7rem;font-weight:800;padding:4px 11px;border-radius:6px;
+  /* ====== גיליון הכתבה ======
+     רקע לבן על גבי ה-paper של האתר: הטקסט הארוך יושב על משטח נקי, והכרטיס
+     נדחף מעט מעל תמונת הנושא כך שהשניים נקראים כיחידה אחת. */
+  .paper-sheet{
+    background:#fff;border:1px solid var(--line);border-radius:var(--radius-lg);
+    box-shadow:var(--shadow);padding:24px 20px 28px;margin-top:20px;
   }
-  .article-head{padding:24px 0 0}
-  h1.title{font-size:1.55rem;line-height:1.25;margin-top:10px;text-wrap:balance}
-  @media(min-width:760px){h1.title{font-size:2.1rem}}
+  .paper-sheet.has-cover{margin-top:-44px;position:relative;z-index:1}
+  @media(min-width:760px){
+    .paper-sheet{padding:36px 44px 40px;margin-top:26px}
+    .paper-sheet.has-cover{margin-top:-64px;margin-inline:22px}
+  }
+
+  .article-head{border-bottom:1px solid var(--line);padding-bottom:18px}
+  h1.title{font-size:1.6rem;line-height:1.24;margin-top:12px;text-wrap:balance}
+  @media(min-width:760px){h1.title{font-size:2.15rem}}
   .subtitle{
-    font-size:1rem;color:var(--ink-soft);font-weight:500;margin:10px 0 0;
-    max-width:60ch;text-wrap:balance;
+    font-size:1rem;color:var(--ink-soft);font-weight:500;margin:12px 0 0;
+    max-width:58ch;text-wrap:balance;
   }
+  @media(min-width:760px){.subtitle{font-size:1.08rem}}
   .stamp{
-    display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-top:14px;
+    display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:16px;
     font-size:.78rem;color:var(--ink-soft);
   }
-  .stamp .dot{opacity:.5}
-
-  .share-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+  .stamp .dot{opacity:.45}
+  .stamp .author{font-weight:700;color:var(--teal-dark)}
 
   /* ====== גוף הכתבה ======
-     הטקסט נשמר כטקסט חופשי, ולכן העיצוב עושה את העבודה: פסקאות באורך
-     קריא, כותרות ביניים בולטות, וציטוט לשורה שנפתחת בגרשיים. */
-  .body{margin-top:24px;max-width:66ch}
-  .body p{font-size:1rem;margin:0 0 16px;color:var(--ink)}
-  .body h2{font-size:1.15rem;margin:26px 0 10px}
-  .body blockquote{
-    margin:0 0 16px;padding:12px 16px;border-inline-start:4px solid var(--gold);
-    background:var(--paper-raised);border-radius:0 var(--radius-md) var(--radius-md) 0;
-    font-size:1rem;color:var(--teal-dark);font-weight:600;
+     הטקסט נשמר חופשי, ולכן העיצוב עושה את העבודה: מידה קריאה, פסקאות
+     נושמות, כותרות ביניים שמסומנות בקו זהב, וציטוט שיושב על רקע מודגש. */
+  .body{margin-top:22px;max-width:64ch}
+  .body p{font-size:1.02rem;margin:0 0 18px;color:var(--ink)}
+  @media(min-width:760px){.body p{font-size:1.06rem;line-height:1.75}}
+  /* האות הראשונה של הפסקה הראשונה — סימן פתיחה שמבדיל בין כתבה לבין
+     עוד בלוק טקסט באתר. רק בדסקטופ (במובייל היא גוזלת שליש משורה) ורק
+     כשהפסקה ארוכה מספיק כדי לעטוף אותה — ראו .lead-para ב-renderBody. */
+  @media(min-width:760px){
+    .body > p.lead-para::first-letter{
+      float:right;font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--gold-dark);
+      font-size:3.1rem;line-height:.86;margin:6px 0 0 8px;
+    }
   }
-  .body ul{margin:0 0 16px;padding-inline-start:20px}
-  .body li{font-size:1rem;margin-bottom:6px}
+  .body h2{
+    font-size:1.2rem;margin:30px 0 12px;padding-inline-start:12px;
+    border-inline-start:3px solid var(--gold);
+  }
+  @media(min-width:760px){.body h2{font-size:1.35rem}}
+  .body blockquote{
+    margin:0 0 18px;padding:16px 18px;border-inline-start:4px solid var(--gold);
+    background:var(--paper-raised);border-radius:0 var(--radius-md) var(--radius-md) 0;
+    font-family:'Frank Ruhl Libre',serif;font-size:1.08rem;line-height:1.55;
+    color:var(--teal-dark);font-weight:500;
+  }
+  .body ul{margin:0 0 18px;padding-inline-start:4px;list-style:none}
+  .body li{font-size:1.02rem;margin-bottom:9px;padding-inline-start:20px;position:relative}
+  .body li::before{
+    content:"";position:absolute;inset-inline-start:0;top:.62em;
+    width:7px;height:7px;border-radius:50%;background:var(--gold);
+  }
+
+  /* ====== שיתוף ======
+     יורד לסוף הכתבה בכוונה: משתפים מה שקראתם, לא מה שאתם עומדים לקרוא. */
+  .share-block{
+    margin-top:30px;padding-top:20px;border-top:1px solid var(--line);
+    display:flex;flex-wrap:wrap;align-items:center;gap:10px;
+  }
+  .share-label{font-size:.85rem;font-weight:700;color:var(--teal-dark);margin-inline-end:4px}
+  @media(max-width:519px){
+    .share-label{flex:1 0 100%;margin-bottom:2px}
+    .share-block .btn{flex:1 1 calc(50% - 5px)}
+  }
+
+  /* קישור הארכיון בסוף הגיליון — הנקודה שבה הקורא/ת סיים/ה ומחפש/ת
+     את הדבר הבא */
+  .archive-cta{
+    display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;
+    margin-top:22px;padding:16px 18px;background:var(--teal-tint);
+    border-radius:var(--radius-md);
+  }
+  .archive-cta p{margin:0;font-size:.88rem;color:var(--teal-dark);font-weight:600}
 
   /* ====== ניווט בין כתבות ======
      שתי צורות לאותו דבר: חיצים צפים בצדי המסך בדסקטופ, וזוג כרטיסים
-     מתחת לכתבה בכל רוחב. בממשק RTL "הקודמת" יושבת מימין — אותו כיוון
-     שבו הרצועה בדף הבית נקראת. */
+     מתחת לכתבה בכל רוחב. בממשק RTL "הקודמת" יושבת מימין. */
   .side-nav{
     position:fixed;top:50%;transform:translateY(-50%);z-index:30;
-    width:46px;height:46px;border-radius:50%;background:var(--paper-raised);
-    border:1px solid var(--line);box-shadow:var(--shadow-sm);
+    width:48px;height:48px;border-radius:50%;background:#fff;
+    border:1px solid var(--line);box-shadow:var(--shadow);
     display:none;align-items:center;justify-content:center;
     color:var(--teal-dark);font-size:1.5rem;line-height:1;
   }
   .side-nav[data-on]{display:flex}
+  .side-nav:hover{background:var(--teal);color:#fff;border-color:var(--teal)}
   /* בממשק RTL ‎inline-start‎ הוא הצד הימני — ושם יושבת "הקודמת", באותו
      כיוון שאליו החץ ›‎ מצביע. */
   .side-nav.prev{inset-inline-start:14px}
   .side-nav.next{inset-inline-end:14px}
-  /* מתחת לרוחב הזה החיצים היו יושבים על הטקסט עצמו — שם מנווטים
+  /* מתחת לרוחב הזה החיצים היו יושבים על הגיליון עצמו — שם מנווטים
      בכרטיסים שלמטה ובהחלקת אצבע. */
-  @media(max-width:1100px){.side-nav[data-on]{display:none}}
+  @media(max-width:1140px){.side-nav[data-on]{display:none}}
 
-  .pager{display:grid;gap:10px;margin-top:34px}
+  .pager{display:grid;gap:10px;margin-top:26px}
   @media(min-width:620px){.pager{grid-template-columns:1fr 1fr}}
   .pager a{
     display:flex;gap:12px;align-items:center;background:var(--paper-raised);
     border:1px solid var(--line);border-radius:var(--radius-md);padding:12px;
+    transition:border-color .15s ease, transform .15s ease;
   }
-  .pager a:hover{border-color:var(--teal)}
+  .pager a:hover{border-color:var(--teal);transform:translateY(-1px)}
   .pager .thumb{
     width:64px;height:64px;flex:none;border-radius:var(--radius-sm);
     background-size:cover;background-position:center;background-color:var(--teal-tint);
@@ -132,44 +221,55 @@
   }
   /* "הבאה" יושבת בתא השני של הגריד גם כשאין "קודמת" לפניה, כדי שהיא לא
      תקפוץ לצד הלא נכון בכתבה הראשונה. */
-  .pager a.next{text-align:start}
   .pager a.next.only{grid-column:2}
   @media(max-width:619px){.pager a.next.only{grid-column:1}}
 
   /* ====== עוד כתבות ======
-     אותה קרוסלה שברצועת דף הבית — שלושה כרטיסים עם הצצה לרביעי, וגלילה
-     אופקית עם הצמדה. */
+     אותה קרוסלה שברצועת דף הבית — כרטיסים עם הצמדה וגלילה אופקית. */
   section.more{margin-top:38px}
-  section.more h2{font-size:1.15rem;margin-bottom:12px}
+  .more-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:14px}
+  .more-head h2{font-size:1.25rem}
+  .see-all{font-size:.85rem;font-weight:700;color:var(--teal);border-bottom:1.5px solid var(--gold);padding-bottom:2px;white-space:nowrap}
   .more-scroll{
     --row-gap:10px;
     display:flex;gap:var(--row-gap);overflow-x:auto;scroll-snap-type:x mandatory;
-    padding-bottom:6px;
+    padding-bottom:8px;
   }
   .more-card{
-    flex:0 0 min(240px, calc((100% - var(--row-gap) * 2) / 2.4));
+    flex:0 0 min(250px, calc((100% - var(--row-gap) * 2) / 2.3));
     scroll-snap-align:start;background:#fff;border:1px solid var(--line);
     border-radius:var(--radius-md);overflow:hidden;display:flex;flex-direction:column;
+    transition:border-color .15s ease, transform .15s ease;
   }
-  .more-card .c{height:96px;background-size:cover;background-position:center;background-color:var(--teal-tint)}
-  .more-card .b{padding:10px;display:flex;flex-direction:column;gap:5px;flex:1}
+  .more-card:hover{border-color:var(--teal);transform:translateY(-2px)}
+  .more-card .c{height:104px;background-size:cover;background-position:center;background-color:var(--teal-tint)}
+  .more-card .b{padding:11px;display:flex;flex-direction:column;gap:6px;flex:1}
   .more-card .k{
     align-self:flex-start;background:var(--gold-tint);color:var(--gold-dark);
-    font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:5px;
+    font-size:.62rem;font-weight:800;padding:2px 8px;border-radius:5px;
   }
   .more-card h3{
-    font-family:'Heebo',sans-serif;font-size:.82rem;font-weight:700;line-height:1.35;color:var(--ink);
+    font-family:'Heebo',sans-serif;font-size:.84rem;font-weight:700;line-height:1.35;color:var(--ink);
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   }
   .more-card .d{font-size:.68rem;color:var(--ink-soft);margin-top:auto}
 
-  .site-note{
-    margin:34px 0 0;text-align:center;font-size:.85rem;color:var(--ink-soft);
+  /* ====== Footer (זהה לדף הבית) ====== */
+  footer.site{background:var(--teal-dark);color:#CFE1DF;padding:38px 0 22px;margin-top:44px}
+  .footer-grid{display:grid;grid-template-columns:1fr;gap:26px}
+  .footer-col h4{color:#fff;font-size:.85rem;margin-bottom:10px}
+  .footer-col a{display:block;font-size:.82rem;color:#AFC7C4;padding:4px 0}
+  .footer-col a:hover{color:#fff}
+  .footer-bottom{
+    border-top:1px solid rgba(255,255,255,.12);margin-top:26px;padding-top:16px;
+    font-size:.72rem;color:#8FADA9;display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;
   }
-  .site-note a{color:var(--teal);font-weight:700}
+  @media(min-width:760px){.footer-grid{grid-template-columns:repeat(4,1fr)}}
 </style>
 </head>
 <body>
+
+<a href="#main" class="skip-link">דילוג לתוכן</a>
 
 <header class="site">
   <div class="wrap header-inner">
@@ -177,9 +277,12 @@
       <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256">
       <span class="logo-word">מרקטפלייס הנדל״ן של <span>עפולה והסביבה</span></span>
     </a>
-    <a href="index.html#articles" class="back-link">← כל הכתבות</a>
+    <a href="articles.html" class="back-link">← כל הכתבות</a>
   </div>
+  <div class="progress" id="readProgress" aria-hidden="true"></div>
 </header>
+
+<main id="main">
 
 <div id="loadingState">טוען כתבה…</div>
 
@@ -188,7 +291,7 @@
   <p style="font-size:.9rem;color:var(--ink-soft);max-width:46ch;margin:10px auto 0">
     ייתכן שהכתבה הוסרה מהאתר או חזרה לטיוטה, או שהקישור שגוי.
   </p>
-  <a href="index.html#articles" class="btn btn-teal" style="margin-top:18px">לכל הכתבות</a>
+  <a href="articles.html" class="btn btn-teal" style="margin-top:18px">לארכיון הכתבות</a>
 </div>
 
 <!-- החיצים יושבים מחוץ ל-.wrap כי הם צפים על שולי המסך, לא בתוך העמודה -->
@@ -197,28 +300,82 @@
 
 <article id="articleContent">
   <div class="wrap">
+    <nav class="crumbs" aria-label="מיקום בעמוד">
+      <a href="index.html">דף הבית</a>
+      <span class="sep">›</span>
+      <a href="articles.html">כתבות ובלוגים</a>
+      <span class="sep">›</span>
+      <span id="crumbTitle">כתבה</span>
+    </nav>
+
     <div class="cover" id="articleCover"></div>
 
-    <header class="article-head">
-      <span class="kicker" id="articleKicker" hidden></span>
-      <h1 class="title" id="articleTitle">—</h1>
-      <p class="subtitle" id="articleSubtitle" hidden></p>
-      <div class="stamp" id="articleStamp"></div>
-      <div class="share-row" id="shareRow"></div>
-    </header>
+    <div class="paper-sheet" id="articleSheet">
+      <header class="article-head">
+        <span class="eyebrow" id="articleKicker">מגזין שוק נדל״ן</span>
+        <h1 class="title" id="articleTitle">—</h1>
+        <p class="subtitle" id="articleSubtitle" hidden></p>
+        <div class="stamp" id="articleStamp"></div>
+      </header>
 
-    <div class="body" id="articleBody"></div>
+      <div class="body" id="articleBody"></div>
+
+      <div class="share-block">
+        <span class="share-label">שיתוף הכתבה</span>
+        <span id="shareRow" style="display:contents"></span>
+      </div>
+
+      <div class="archive-cta">
+        <p>רוצים עוד? כל הכתבות והבלוגים של המגזין במקום אחד.</p>
+        <a href="articles.html" class="btn btn-teal">לארכיון הכתבות</a>
+      </div>
+    </div>
 
     <nav class="pager" id="pager" aria-label="ניווט בין הכתבות"></nav>
 
     <section class="more" id="moreBlock" hidden>
-      <h2>כתבות נוספות</h2>
+      <div class="more-head">
+        <h2>כתבות נוספות</h2>
+        <a href="articles.html" class="see-all">כל הכתבות ←</a>
+      </div>
       <div class="more-scroll" id="moreScroll"></div>
     </section>
-
-    <p class="site-note"><a href="index.html#articles">לכל הכתבות והבלוגים של שוק נדל״ן ←</a></p>
   </div>
 </article>
+
+</main>
+
+<footer class="site">
+  <div class="wrap footer-grid">
+    <div class="footer-col">
+      <h4>שוק נדל״ן</h4>
+      <a href="index.html">דף הבית</a>
+      <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
+      <a href="professional-signup.html">הצטרפות כבעל מקצוע</a>
+    </div>
+    <div class="footer-col">
+      <h4>נכסים</h4>
+      <a href="index.html#listings">כל הנכסים</a>
+      <a href="index.html#commercialProps">נכסים מסחריים</a>
+      <a href="index.html#leadingAgencies">משרדי תיווך מובילים</a>
+    </div>
+    <div class="footer-col">
+      <h4>כלים</h4>
+      <a href="articles.html">כתבות ובלוגים</a>
+      <a href="index.html#calc">מחשבון משכנתא</a>
+      <a href="index.html#pros">בעלי מקצוע</a>
+    </div>
+    <div class="footer-col">
+      <h4>המגזין</h4>
+      <a href="articles.html">כל הכתבות</a>
+      <a href="index.html#articles">הכתבות האחרונות</a>
+    </div>
+  </div>
+  <div class="wrap footer-bottom">
+    <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
+    <span>העסקה הבאה שלך בעפולה מתחילה בשוק הנדל״ן.</span>
+  </div>
+</footer>
 
 <script>
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
@@ -311,6 +468,13 @@ function renderBody(text){
     });
     flush();
   });
+
+  // האות המוגדלת מוצגת רק כשהכתבה נפתחת בפסקה שיש בה מספיק טקסט כדי
+  // לעטוף אותה. פתיחה של שורה אחת הייתה משאירה אות ענקית תלויה מעל חלל ריק.
+  const first = wrap.firstElementChild;
+  if (first && first.tagName === 'P' && first.textContent.length >= 150){
+    first.classList.add('lead-para');
+  }
 }
 
 /* ---------- ראש הכתבה ---------- */
@@ -319,31 +483,42 @@ function renderHead(a){
   if (cover){
     el('articleCover').style.backgroundImage = `url("${cover.replace(/"/g, '%22')}")`;
     el('articleCover').style.display = 'block';
+    // הגיליון נדחף מעל התמונה רק כשיש תמונה שאפשר לדחוף מעליה
+    el('articleSheet').classList.add('has-cover');
   }
-  if (a.category){
-    el('articleKicker').textContent = a.category;
-    el('articleKicker').hidden = false;
-  }
+  el('articleKicker').textContent = a.category || 'מגזין שוק נדל״ן';
   el('articleTitle').textContent = a.title || 'כתבה';
+  el('crumbTitle').textContent = a.title || 'כתבה';
   if (a.subtitle){
     el('articleSubtitle').textContent = a.subtitle;
     el('articleSubtitle').hidden = false;
   }
 
+  const stamp = el('articleStamp');
+  stamp.textContent = '';
   const parts = [];
-  if (a.author_name) parts.push(a.author_name);
+  if (a.author_name) parts.push({ text:a.author_name, cls:'author' });
   const when = dateLabel(a.published_at);
-  if (when) parts.push(when);
+  if (when) parts.push({ text:when });
   if (a.body){
     const minutes = readingMinutes(a.body);
-    parts.push(minutes === 1 ? 'קריאה של דקה' : 'קריאה של ' + minutes + ' דקות');
+    parts.push({ text: minutes === 1 ? 'קריאה של דקה' : 'קריאה של ' + minutes + ' דקות' });
   }
-  el('articleStamp').innerHTML = parts
-    .map(escapeHtml).join('<span class="dot">·</span>');
+  parts.forEach((part, i)=>{
+    if (i){
+      const dot = document.createElement('span');
+      dot.className = 'dot'; dot.textContent = '·';
+      stamp.appendChild(dot);
+    }
+    const span = document.createElement('span');
+    if (part.cls) span.className = part.cls;
+    span.textContent = part.text;
+    stamp.appendChild(span);
+  });
 }
 
-/* השיתוף הוא חלק מהמוצר: כתבה שלא עוברת הלאה בוואטסאפ לא נקראת. הקישור
-   לשיתוף הוא ה-URL הקנוני של הכתבה, לא הכתובת המקרית שדרכה הגיעו. */
+/* השיתוף יושב בסוף הכתבה: משתפים מה שקראתם. הקישור לשיתוף הוא ה-URL
+   הקנוני של הכתבה, לא הכתובת המקרית שדרכה הגיעו. */
 function renderShare(a){
   const url = location.origin + location.pathname + '?slug=' + encodeURIComponent(a.slug || a.id);
   const text = [a.title, url].filter(Boolean).join('\n');
@@ -351,7 +526,7 @@ function renderShare(a){
   wa.className = 'btn btn-wa';
   wa.href = 'https://wa.me/?text=' + encodeURIComponent(text);
   wa.target = '_blank'; wa.rel = 'noopener';
-  wa.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.9-4.45 9.9-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.1c-.24.68-1.2 1.26-1.96 1.42-.52.11-1.2.2-3.5-.75-2.94-1.22-4.83-4.2-4.98-4.4-.14-.2-1.19-1.58-1.19-3.02s.76-2.14 1.03-2.44c.27-.3.58-.37.78-.37.19 0 .39 0 .56.01.18.01.42-.07.66.5.24.58.82 2.02.9 2.17.07.15.12.32.02.52-.1.2-.15.32-.29.5-.15.17-.31.38-.44.51-.15.15-.3.31-.13.6.17.3.76 1.25 1.63 2.02 1.12 1 2.07 1.31 2.37 1.46.3.15.47.13.65-.08.17-.2.75-.87.95-1.17.2-.3.39-.25.66-.15.27.1 1.7.8 1.99.95.29.15.48.22.55.34.07.13.07.72-.17 1.4Z"/></svg><span>שיתוף בוואטסאפ</span>';
+  wa.innerHTML = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.9-4.45 9.9-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.1c-.24.68-1.2 1.26-1.96 1.42-.52.11-1.2.2-3.5-.75-2.94-1.22-4.83-4.2-4.98-4.4-.14-.2-1.19-1.58-1.19-3.02s.76-2.14 1.03-2.44c.27-.3.58-.37.78-.37.19 0 .39 0 .56.01.18.01.42-.07.66.5.24.58.82 2.02.9 2.17.07.15.12.32.02.52-.1.2-.15.32-.29.5-.15.17-.31.38-.44.51-.15.15-.3.31-.13.6.17.3.76 1.25 1.63 2.02 1.12 1 2.07 1.31 2.37 1.46.3.15.47.13.65-.08.17-.2.75-.87.95-1.17.2-.3.39-.25.66-.15.27.1 1.7.8 1.99.95.29.15.48.22.55.34.07.13.07.72-.17 1.4Z"/></svg><span>וואטסאפ</span>';
 
   const copy = document.createElement('button');
   copy.type = 'button';
@@ -453,6 +628,24 @@ function renderMore(list, index){
   el('moreBlock').hidden = false;
 }
 
+/* מד ההתקדמות נמדד על גיליון הכתבה ולא על כל העמוד — הפוטר ורצועת
+   "כתבות נוספות" הם לא חלק מהקריאה, ובלי זה הפס היה מגיע ל-100% רק
+   אחרי שהקורא/ת כבר עבר/ה את סוף הכתבה. */
+function bindReadProgress(){
+  const bar = el('readProgress');
+  const sheet = el('articleSheet');
+  const update = ()=>{
+    const rect = sheet.getBoundingClientRect();
+    const total = rect.height - window.innerHeight;
+    if (total <= 0){ bar.style.width = '0'; return; }
+    const passed = Math.min(Math.max(-rect.top, 0), total);
+    bar.style.width = (passed / total * 100) + '%';
+  };
+  window.addEventListener('scroll', update, { passive:true });
+  window.addEventListener('resize', update);
+  update();
+}
+
 /* ---------- מטא ונתונים מובנים ---------- */
 function renderMeta(a){
   const title = (a.title || 'כתבה') + ' | שוק נדל״ן';
@@ -488,7 +681,8 @@ function renderMeta(a){
    שאילתה אחת מביאה את כל הכתבות המפורסמות לפי הסדר. זה מה שמאפשר גם
    להציג את הכתבה עצמה, גם לדעת מי שכנותיה, וגם לאייש את "כתבות נוספות"
    בלי לפנות שוב לשרת. הרשימה קטנה מטבעה (מגזין, לא ארכיון חדשות), ואם
-   תגדל — ה-limit כאן הוא הבלם.                                          */
+   תגדל — ה-limit כאן הוא הבלם, והארכיון (articles.html) הוא הדף שמציג
+   את הכל.                                                              */
 (async function init(){
   const params = new URLSearchParams(location.search);
   const key = params.get('slug') || params.get('id') || '';
@@ -514,14 +708,15 @@ function renderMeta(a){
 
     renderMeta(article);
     renderHead(article);
-    renderShare(article);
     renderBody(article.body);
+    renderShare(article);
     const nav = renderPager(list, index);
     bindNavGestures(nav);
     renderMore(list, index);
 
     el('loadingState').style.display = 'none';
     el('articleContent').style.display = 'block';
+    bindReadProgress();
   } catch(e){
     console.warn('טעינת הכתבה נכשלה:', e);
     el('loadingState').style.display = 'none';
