@@ -566,12 +566,23 @@ async function loadAgentProfile(){
     // שם המשרד נטען בשאילתה נפרדת ולא ב-embed: מאז ש-property_shares מחזיקה שני
     // מפתחות זרים ל-agencies, PostgREST מחזיר PGRST201 (HTTP 300) על embed
     // מ-agency_members ל-agencies במקום את השורה.
-    let query = sb.from('agency_members_public').select('id, display_name, bio, photo_url, cover_url, license_number, slug, agency_id, has_ethics_badge, phone_e164, years_experience, specialties, credentials, service_area');
     // slug יכול להיות ה-slug הקריא או ה-id הגולמי (fallback), לפי מה שנשלח מ-agency.html
     const isUuid = /^[0-9a-f-]{36}$/i.test(slug);
-    query = isUuid ? query.eq('id', slug) : query.eq('slug', slug);
-    const { data: agent, error } = await query.single();
-    if (error || !agent) throw error || new Error('not found');
+    const byKey = q => isUuid ? q.eq('id', slug) : q.eq('slug', slug);
+
+    // שדות הפרופיל המורחבים (ותק, התמחויות, הסמכות ואזור פעילות) נוספו
+    // ל-view אחרי שהדף כבר עלה לאוויר. כש-view בסביבה כלשהי עוד לא עודכן,
+    // ‏PostgREST מחזיר שגיאת "עמודה לא קיימת" על *כל* השאילתה — והדף כולו
+    // הציג "הסוכן לא נמצא" בגלל תגית חסרה. הניסיון השני מוותר על השדות
+    // המורחבים בלבד, כך שהפרופיל עצמו עולה גם אז והתגיות פשוט לא מוצגות.
+    const CORE_FIELDS = 'id, display_name, bio, photo_url, cover_url, license_number, slug, agency_id, has_ethics_badge, phone_e164';
+    const HIGHLIGHT_FIELDS = ', years_experience, specialties, credentials, service_area';
+    let { data: agent, error } = await byKey(sb.from('agency_members_public').select(CORE_FIELDS + HIGHLIGHT_FIELDS)).maybeSingle();
+    if (error){
+      console.warn('טעינת שדות הפרופיל המורחבים נכשלה, נטען פרופיל בסיסי:', error);
+      ({ data: agent } = await byKey(sb.from('agency_members_public').select(CORE_FIELDS)).maybeSingle());
+    }
+    if (!agent) throw new Error('not found');
 
     if (agent.agency_id){
       const { data: agency } = await sb.from('agencies').select('name, slug, logo_url').eq('id', agent.agency_id).maybeSingle();
