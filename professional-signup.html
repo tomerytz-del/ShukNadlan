@@ -34,6 +34,12 @@
   #feedback{font-size:.82rem;text-align:center;margin-top:12px;min-height:1.2em}
   .note{font-size:.72rem;color:var(--ink-soft);background:var(--gold-tint);border-radius:var(--radius-sm);padding:10px 12px;margin-top:16px;text-align:center}
   #stateDone{display:none;text-align:center}
+  .btn-ghost{background:transparent;border:1.5px solid var(--blue);color:var(--blue)}
+  .manage-box{background:var(--blue-tint);border-radius:var(--radius-md);padding:14px;margin-top:18px;text-align:center}
+  .manage-title{font-weight:800;font-size:.86rem;color:var(--blue-dark);margin:0 0 4px}
+  .manage-note{font-size:.74rem;color:var(--ink-soft);margin:0 0 10px}
+  .manage-box input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:9px 10px;font-size:.76rem;background:#fff;text-align:left;direction:ltr}
+  .manage-open{display:block;font-size:.8rem;font-weight:700;color:var(--blue);margin-top:10px;text-decoration:none}
   .back-link{display:block;text-align:center;font-size:.8rem;color:var(--blue);margin-top:16px;text-decoration:none}
 </style>
 </head>
@@ -77,6 +83,18 @@
     <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a>
     <h1>נרשמת בהצלחה!</h1>
     <p class="sub">הכרטיסייה שלך פעילה כעת בדף הבית של שוק נדל״ן</p>
+
+    <!-- קישור העריכה מוחזר פעם אחת בלבד, בתשובה להרשמה. אין לבעלי מקצוע
+         חשבון באתר, ולכן הקישור הזה *הוא* הדרך לחזור ולערוך — ומכאן
+         הבליטות של הבלוק ושל כפתור ההעתקה. -->
+    <div class="manage-box" id="manageBox" hidden>
+      <p class="manage-title">קישור לעריכת הכרטיסייה</p>
+      <p class="manage-note">זו הדרך היחידה לחזור ולערוך את הכרטיסייה — שמרו אותו במועדפים.</p>
+      <input type="text" id="manageLink" readonly>
+      <button type="button" class="btn btn-ghost" id="copyLinkBtn">העתקת הקישור</button>
+      <a href="#" class="manage-open" id="manageOpen">פתיחת מסך העריכה ←</a>
+    </div>
+
     <a href="index.html" class="btn" style="display:flex;text-decoration:none;margin-top:16px">צפייה בדף הבית</a>
   </div>
 </div>
@@ -124,6 +142,13 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
       btn.disabled = false; btn.textContent = 'הרשמה — ₪350/חודש';
       return;
     }
+    if (data.manage_token){
+      const manageUrl = new URL('professional-manage.html', location.href);
+      manageUrl.searchParams.set('token', data.manage_token);
+      document.getElementById('manageLink').value = manageUrl.href;
+      document.getElementById('manageOpen').href = manageUrl.href;
+      document.getElementById('manageBox').hidden = false;
+    }
     document.getElementById('stateForm').style.display = 'none';
     document.getElementById('stateDone').style.display = 'block';
   } catch(err){
@@ -132,6 +157,21 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     feedback.textContent = 'שגיאת רשת — נסו שוב';
     btn.disabled = false; btn.textContent = 'הרשמה — ₪350/חודש';
   }
+});
+
+// ‎navigator.clipboard‎ לא קיים בהקשר לא-מאובטח (למשל בדיקה מקומית על
+// http), ולכן יש נפילה ל-select() — במקרה הגרוע המשתמש מעתיק בעצמו.
+document.getElementById('copyLinkBtn').addEventListener('click', async ()=>{
+  const input = document.getElementById('manageLink');
+  const btn = document.getElementById('copyLinkBtn');
+  try{
+    await navigator.clipboard.writeText(input.value);
+  } catch(err){
+    input.select();
+    return;
+  }
+  btn.textContent = 'הקישור הועתק ✓';
+  setTimeout(()=>{ btn.textContent = 'העתקת הקישור'; }, 2200);
 });
 </script>
 </body>

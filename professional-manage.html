@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>עריכת כרטיסיית בעל מקצוע | שוק נדל״ן</title>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
+    --line:#C5C3BC; --blue:#1C3A5E; --blue-dark:#122840; --blue-tint:#E0E7ED;
+    --red:#8B2332; --red-dark:#6B1A26; --gold-tint:#F1DFE1; --green:#1F6B4A;
+    --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(18,40,64,.1);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  h1,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--blue-dark);margin:0}
+  a{color:inherit}
+  button{font-family:inherit;cursor:pointer;border:none}
+  input,select{font-family:inherit;font-size:1rem}
+  .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line);max-width:440px;width:100%;padding:32px 26px}
+  .logo-link{display:block;width:64px;margin:0 auto 16px;line-height:0}
+  .logo-link img{width:100%;height:auto;display:block;border-radius:50%}
+  h1{font-size:1.25rem;text-align:center;margin-bottom:6px}
+  p.sub{text-align:center;color:var(--ink-soft);font-size:.85rem;margin:0 0 18px}
+  .field{margin-bottom:12px}
+  .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
+  .field input,.field select{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
+  .field input:focus,.field select:focus{border-color:var(--blue);outline:none}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:999px;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff;margin-top:8px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  #feedback{font-size:.82rem;text-align:center;margin-top:12px;min-height:1.2em}
+  .note{font-size:.72rem;color:var(--ink-soft);background:var(--gold-tint);border-radius:var(--radius-sm);padding:10px 12px;margin-top:16px;text-align:center}
+  .back-link{display:block;text-align:center;font-size:.8rem;color:var(--blue);margin-top:16px;text-decoration:none}
+  .status-badge{display:block;text-align:center;background:var(--blue-tint);color:var(--blue-dark);font-weight:700;font-size:.8rem;padding:8px;border-radius:var(--radius-sm);margin-bottom:18px}
+
+  /* תצוגה מקדימה של הכרטיסייה — אותו אריח בדיוק כמו בדף הבית (תמונה
+     שממלאת את הכרטיס, שם ושם עסק על scrim כהה בתחתית), כדי שמי שעורך
+     יראה מיד מה יופיע באתר ולא ינחש. */
+  .preview-wrap{margin:0 0 18px}
+  .preview-label{font-size:.75rem;font-weight:700;color:var(--ink-soft);margin:0 0 7px;text-align:center}
+  .preview-card{
+    width:168px;height:214px;margin:0 auto;position:relative;overflow:hidden;
+    border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-sm);
+    /* אותו גרדיאנט בדיוק כמו האריח בדף הבית (‎--gold‎ ← ‎--teal‎ שם) */
+    background:linear-gradient(155deg,var(--red),var(--blue) 65%);
+    display:flex;align-items:center;justify-content:center;padding-bottom:38px;
+  }
+  .preview-initial{font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:2.1rem;color:#fff;line-height:1}
+  .preview-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center 22%}
+  .preview-overlay{
+    position:absolute;inset-inline:0;bottom:0;padding:26px 8px 9px;text-align:center;color:#fff;
+    background:linear-gradient(to top, rgba(6,20,34,.94) 30%, rgba(6,20,34,.66) 62%, rgba(6,20,34,0));
+  }
+  .preview-name{font-weight:700;font-size:.82rem;line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .preview-business{font-size:.7rem;color:rgba(255,255,255,.86);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+  #stateLoading,#stateError,#stateForm{display:none}
+  #stateLoading[data-on],#stateError[data-on],#stateForm[data-on]{display:block}
+  #stateLoading,#stateError{text-align:center}
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div id="stateLoading" data-on>
+    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a>
+    <h1>טוען את הכרטיסייה…</h1>
+  </div>
+
+  <div id="stateError">
+    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a>
+    <h1>הקישור לא תקין</h1>
+    <p class="sub" id="errorText">קישור העריכה שגוי או פג תוקפו.</p>
+    <p class="note">קישור העריכה הוא הקישור שהתקבל בסיום ההרשמה. אם איבדתם אותו, כתבו לנו ונשלח אותו מחדש לכתובת המייל שאיתה נרשמתם.</p>
+    <a href="index.html" class="back-link">חזרה לדף הבית</a>
+  </div>
+
+  <div id="stateForm">
+    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a>
+    <h1>עריכת הכרטיסייה שלך</h1>
+    <p class="sub">השינויים מופיעים בדף הבית מיד לאחר השמירה</p>
+    <span class="status-badge" id="statusBadge"></span>
+
+    <div class="preview-wrap">
+      <p class="preview-label">כך תיראה הכרטיסייה בדף הבית</p>
+      <div class="preview-card">
+        <span class="preview-initial" id="pvInitial">?</span>
+        <img class="preview-photo" id="pvPhoto" alt="" hidden>
+        <div class="preview-overlay">
+          <div class="preview-name" id="pvName">שם בעל/ת המקצוע</div>
+          <div class="preview-business" id="pvBusiness"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="field"><label>שם מלא</label><input type="text" id="advName" required></div>
+    <div class="field"><label>שם העסק</label><input type="text" id="advBusiness" placeholder="השם שיוצג מתחת לשם שלך"></div>
+    <div class="field">
+      <label>תחום עיסוק</label>
+      <select id="advType" required>
+        <option value="mortgage_advisor">יועץ/ת משכנתאות</option>
+        <option value="appraiser">שמאי/ת מקרקעין</option>
+        <option value="architect">אדריכל/ית</option>
+        <option value="interior_designer">מעצב/ת פנים</option>
+        <option value="real_estate_lawyer">עו״ד מקרקעין</option>
+        <option value="general">אחר</option>
+      </select>
+    </div>
+    <div class="field"><label>אזור פעילות</label><input type="text" id="advRegion" placeholder="עפולה"></div>
+    <div class="field"><label>קישור לתמונת פרופיל</label><input type="url" id="advPhoto" placeholder="https://"></div>
+    <div class="field"><label>קישור לאתר / פרופיל</label><input type="url" id="advUrl" placeholder="https://"></div>
+
+    <button type="button" class="btn" id="saveBtn">שמירת השינויים</button>
+    <div id="feedback"></div>
+    <p class="note">שמרו את הקישור הזה — הוא המפתח היחיד לעריכת הכרטיסייה, ומי שמחזיק בו יכול לערוך אותה.</p>
+    <a href="index.html" class="back-link">חזרה לדף הבית</a>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+const MANAGE_FUNCTION_URL = SUPABASE_URL + '/functions/v1/professional-manage';
+
+const TYPE_LABELS = {
+  mortgage_advisor:'יועץ/ת משכנתאות', appraiser:'שמאי/ת מקרקעין', architect:'אדריכל/ית',
+  interior_designer:'מעצב/ת פנים', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל/ת מקצוע',
+};
+
+const token = new URLSearchParams(location.search).get('token') || '';
+const el = id => document.getElementById(id);
+const showState = name => {
+  ['stateLoading','stateError','stateForm'].forEach(s => el(s).removeAttribute('data-on'));
+  el(name).setAttribute('data-on', '');
+};
+
+async function callManage(payload){
+  const res = await fetch(MANAGE_FUNCTION_URL, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+    body: JSON.stringify({ token, ...payload }),
+  });
+  const data = await res.json().catch(()=>({ error:'bad_response' }));
+  return { ok: res.ok && !data.error, data };
+}
+
+/* התצוגה המקדימה נגזרת מהשדות בזמן אמת ובאותם כללי נפילה של דף הבית:
+   שם העסק, ואם אין אותו — תחום העיסוק. */
+function renderPreview(){
+  const name = el('advName').value.trim() || 'שם בעל/ת המקצוע';
+  const business = el('advBusiness').value.trim() || TYPE_LABELS[el('advType').value] || '';
+  el('pvName').textContent = name;
+  el('pvBusiness').textContent = business;
+  el('pvInitial').textContent = name.split(/\s+/).map(w=>w[0]).slice(0,2).join('');
+
+  const photo = el('advPhoto').value.trim();
+  const img = el('pvPhoto');
+  // תמונה שבורה חוזרת לאריח הגרדיאנט עם ראשי התיבות, בדיוק כמו בדף הבית
+  if (/^https?:\/\//i.test(photo)){
+    img.onerror = ()=>{ img.hidden = true; };
+    img.onload = ()=>{ img.hidden = false; };
+    img.src = photo;
+  } else {
+    img.hidden = true;
+    img.removeAttribute('src');
+  }
+}
+
+function fillForm(card){
+  el('advName').value = card.advertiser_name || '';
+  el('advBusiness').value = card.business_name || '';
+  el('advType').value = card.advertiser_type || 'general';
+  el('advRegion').value = card.target_region || '';
+  el('advPhoto').value = card.creative_url || '';
+  el('advUrl').value = card.click_url || '';
+
+  // תאריך הסיום הוא מה שבעל/ת המקצוע באמת צריך לדעת: הכרטיסייה יורדת
+  // מהאתר כשהוא עובר, גם אם הסטטוס בטבלה נשאר active.
+  const ends = card.ends_at ? new Date(card.ends_at + 'T00:00:00') : null;
+  const live = card.status === 'active' && (!card.ends_at || card.ends_at >= new Date().toISOString().slice(0,10));
+  el('statusBadge').textContent = live
+    ? (ends ? 'הכרטיסייה פעילה עד ' + ends.toLocaleDateString('he-IL') : 'הכרטיסייה פעילה')
+    : 'הכרטיסייה אינה מוצגת כרגע באתר';
+  renderPreview();
+}
+
+['advName','advBusiness','advPhoto'].forEach(id => el(id).addEventListener('input', renderPreview));
+el('advType').addEventListener('change', renderPreview);
+
+el('saveBtn').addEventListener('click', async ()=>{
+  const feedback = el('feedback');
+  const btn = el('saveBtn');
+  if (!el('advName').value.trim()){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'נא למלא שם';
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'שומר…'; feedback.textContent = '';
+  const { ok, data } = await callManage({
+    action:'save',
+    advertiser_name: el('advName').value.trim(),
+    business_name: el('advBusiness').value.trim() || null,
+    advertiser_type: el('advType').value,
+    target_region: el('advRegion').value.trim() || null,
+    creative_url: el('advPhoto').value.trim() || null,
+    click_url: el('advUrl').value.trim() || null,
+  }).catch(()=>({ ok:false, data:{} }));
+
+  btn.disabled = false; btn.textContent = 'שמירת השינויים';
+  if (!ok){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'השמירה נכשלה — נסו שוב';
+    return;
+  }
+  // הטופס מתמלא מחדש מהתשובה ולא מהקלט: כתובת שנפסלה בשרת (פרוטוקול לא
+  // נתמך) תיעלם מהשדה, ולא תיראה כאילו נשמרה.
+  fillForm(data.card);
+  feedback.style.color = 'var(--green)';
+  feedback.textContent = 'השינויים נשמרו והם כבר בדף הבית';
+});
+
+(async function init(){
+  if (!token){
+    showState('stateError');
+    return;
+  }
+  try{
+    const { ok, data } = await callManage({ action:'load' });
+    if (!ok){
+      el('errorText').textContent = data.error === 'not_found'
+        ? 'לא נמצאה כרטיסייה עבור הקישור הזה.'
+        : 'קישור העריכה שגוי או פג תוקפו.';
+      showState('stateError');
+      return;
+    }
+    fillForm(data.card);
+    showState('stateForm');
+  } catch(err){
+    console.error(err);
+    el('errorText').textContent = 'שגיאת רשת — נסו לרענן את העמוד.';
+    showState('stateError');
+  }
+})();
+</script>
+</body>
+</html>

@@ -83,7 +83,27 @@ Deno.serve(async (req: Request) => {
 
     if (insertErr) return json({ error: "db_error", detail: insertErr.message }, 500);
 
-    return json({ success: true, placement_id: placement.id, ends_at: placement.ends_at, test_mode: true });
+    // אסימון הניהול הוא מה שמחליף התחברות: אין לבעל/ת המקצוע חשבון באתר,
+    // והקישור שמכיל אותו הוא הדרך היחידה לחזור ולערוך את הכרטיסייה. הוא
+    // מוחזר פעם אחת בלבד — כאן — ומוצג במסך הסיום כדי שיישמר. (כשיחובר
+    // ספק דיוור, המקום לשלוח אותו במייל הוא כאן.)
+    const { data: access, error: accessErr } = await supabase
+      .from("ad_placement_access")
+      .insert({ placement_id: placement.id })
+      .select("manage_token")
+      .single();
+
+    // כישלון ביצירת האסימון לא מבטל הרשמה שכבר נשמרה ושולמה — הכרטיסייה
+    // פעילה, ופשוט חוזרים בלי קישור עריכה.
+    if (accessErr) console.error("manage token creation failed", accessErr.message);
+
+    return json({
+      success: true,
+      placement_id: placement.id,
+      ends_at: placement.ends_at,
+      manage_token: access?.manage_token ?? null,
+      test_mode: true,
+    });
   } catch (err: any) {
     return json({ error: "unhandled", detail: String(err?.message ?? err) }, 500);
   }
