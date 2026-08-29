@@ -115,6 +115,14 @@ create trigger articles_set_updated_at
 -- ---------------------------------------------------------------------------
 alter table public.articles enable row level security;
 
+-- ‏Supabase מעניקה כברירת מחדל את כל ההרשאות לכל התפקידים ב-public. ה-RLS
+-- כבר חוסם כתיבה אנונימית (אין ל-anon ‏auth.uid()‎, ולכן ה-policy של
+-- מנהל/ת הפלטפורמה לא מתקיימת), אבל אין סיבה שההרשאה בכלל תהיה שם.
+-- ‏authenticated דווקא נשאר: מנהל/ת הפלטפורמה הוא/היא משתמש/ת מחובר/ת,
+-- והכתיבה שלו/ה עוברת דרך התפקיד הזה — שלילת ההרשאה ממנו הייתה חוסמת
+-- את הטופס ב-CRM עצמו.
+revoke insert, update, delete on public.articles from anon;
+
 drop policy if exists "public reads published articles" on public.articles;
 create policy "public reads published articles"
   on public.articles for select
