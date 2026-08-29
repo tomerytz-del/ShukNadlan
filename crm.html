@@ -2184,6 +2184,15 @@
             <input type="text" id="newNeighborhoodAdminName" placeholder="שם שכונה חדשה" style="flex:1;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px">
             <button type="button" class="btn btn-gold" id="addNeighborhoodAdminBtn" style="white-space:nowrap">+ הוספה</button>
           </div>
+          <!-- שכונה חדשה נולדת בלי גבול, ועד שיסומן היא מקבלת במפת החיפוש עיגול
+               מוערך במקום הצורה שלה. הקישור לכלי הסימון יושב כאן, ליד ההוספה,
+               כי זה הרגע שבו נוצר החוב הזה — ולצד כל שכונה בהמשך מוצג אם היא
+               כבר סומנה. -->
+          <p class="acc-sub" style="margin-bottom:14px">
+            שכונה בלי גבול מוצגת במפת החיפוש כעיגול מוערך בלבד.
+            <a href="neighborhood-boundary.html" target="_blank" rel="noopener"
+               style="color:var(--gold-dark);font-weight:700;text-decoration:none;white-space:nowrap">סימון על המפה ←</a>
+          </p>
           <div id="neighborhoodsAdminList"></div>
         </div>
       </details>
@@ -3155,14 +3164,30 @@ document.getElementById('devRolePills').addEventListener('click', (e)=>{
 async function loadNeighborhoodsAdmin(){
   const listEl = document.getElementById('neighborhoodsAdminList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
-  const { data, error } = await sb.from('neighborhoods').select('id, city, name').order('name');
+  const { data, error } = await sb.from('neighborhoods').select('id, city, name, boundary').order('name');
   if (error){ listEl.innerHTML = '<div class="empty-state">שגיאה: ' + error.message + '</div>'; return; }
   accSetCount('accNeighborhoods', (data||[]).length);
   listEl.innerHTML = '';
   (data||[]).forEach(n=>{
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line)';
-    row.innerHTML = `<span style="font-size:.88rem">${n.name} <span style="color:var(--ink-soft);font-size:.74rem">(${n.city})</span></span>`;
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)';
+    row.innerHTML = `<span style="font-size:.88rem;flex:1 1 auto;min-width:0">${n.name} <span style="color:var(--ink-soft);font-size:.74rem">(${n.city})</span></span>`;
+
+    // מסומנת או לא — מה שקובע איך השכונה נראית במפת החיפוש. הקישור פותח את
+    // כלי הסימון כשהיא כבר נבחרת, כדי שהתיקון יהיה במרחק לחיצה אחת.
+    const marked = Array.isArray(n.boundary) && n.boundary.length >= 3;
+    const shape = document.createElement('a');
+    shape.href = 'neighborhood-boundary.html?hood=' + encodeURIComponent(n.id);
+    shape.target = '_blank';
+    shape.rel = 'noopener';
+    shape.style.cssText = 'font-size:.74rem;font-weight:700;white-space:nowrap;text-decoration:none;' +
+      (marked ? 'color:var(--ink-soft)' : 'color:var(--gold-dark)');
+    shape.textContent = marked ? `✓ מסומנת · ${n.boundary.length} נק׳` : 'סימון על המפה ←';
+    shape.title = marked
+      ? 'לשכונה יש גבול על המפה. לחיצה פותחת אותו לעריכה.'
+      : 'אין לשכונה גבול — במפת החיפוש היא מוצגת כעיגול מוערך.';
+    row.appendChild(shape);
+
     const delBtn = document.createElement('button');
     delBtn.className = 'btn btn-ghost';
     delBtn.style.padding = '5px 12px';

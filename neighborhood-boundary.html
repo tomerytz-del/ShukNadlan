@@ -290,6 +290,14 @@ hoodSelect.addEventListener('change', ()=>{
   });
   drawOthers();
   redraw();
+
+  // ‏?hood=<id> — הקישור מרשימת השכונות ב-CRM נוחת ישר על השכונה שלחצו עליה,
+  // במקום להנחית על רשימה שצריך לחפש בה שוב את מה שכבר נבחר
+  const wanted = new URLSearchParams(location.search).get('hood');
+  if (wanted && hoodById(wanted)){
+    hoodSelect.value = wanted;
+    hoodSelect.dispatchEvent(new Event('change'));
+  }
 })();
 </script>
 </body>
