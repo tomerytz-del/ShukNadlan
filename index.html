@@ -978,6 +978,14 @@
     font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:999px;
     box-shadow:0 2px 6px rgba(6,20,34,.22);
   }
+  /* תו האיכות על אריח בקרוסלה. הוא יושב בפינה הנגדית לתג הדירוג כדי שהשניים
+     לא יתנגשו, ואינו לחיץ: לחיצה על אריח בקרוסלה ממרכזת אותו או מנווטת לדף
+     המתווך/ת, ושם התו הגדול נלחץ ופותח את הפופ־אפ. */
+  .badge-mini{
+    position:absolute;top:6px;left:6px;width:26px;height:26px;border-radius:50%;
+    box-shadow:0 2px 7px rgba(6,20,34,.4);pointer-events:none;
+  }
+  @media(min-width:760px){.badge-mini{width:30px;height:30px;top:8px;left:8px}}
   .agent-overlay,
   .pro-overlay{
     position:absolute;inset-inline:0;bottom:0;padding:26px 8px 9px;text-align:center;color:#fff;
@@ -2970,6 +2978,14 @@ async function loadTicker(){
     return FALLBACK_TICKER;
   }
 }
+/* תו האיכות על אריחי הקרוסלות. הטקסט השיווקי של התו מבקש מהגולש/ת "לחפש את
+   תו האיכות בפרופיל המתווך ובמודעות הנכסים", ודף הבית הוא המקום הראשון שבו
+   מדפדפים בין מתווכים — ולכן הוא מופיע גם כאן. מחרוזת קבועה בלי קלט משתמש,
+   ולכן בטוחה להזרקה ל-innerHTML. */
+const ETHICS_BADGE_MINI =
+  '<img class="badge-mini" src="assets/badge-ethics.png" width="384" height="384" loading="lazy" ' +
+  'alt="עומד בתקן האתי" title="עומד בתקן האתי של שוק הנדל״ן של עפולה">';
+
 /* הקרוסלה מציגה את *כל* משרדי התיווך שבפלטפורמה, ולא רק את אלה שכבר יש
    להם שורה ב-agency_rankings. קודם נטענו הדירוגים בלבד, ומכיוון שיש בהם
    שלוש שורות בדיוק — בדיוק מספר הכרטיסים שנראים בבת אחת — למסלול לא היה
@@ -2981,7 +2997,7 @@ async function loadLeadingAgencies(){
     if (!sb) return [];
     const [agenciesRes, rankingsRes, activeRes] = await Promise.all([
       // התקרות כאן הן רק גבול בטיחות לגודל התשובה, לא מכסת תצוגה.
-      sb.from('agencies').select('id, name, slug, logo_url').limit(200),
+      sb.from('agencies').select('id, name, slug, logo_url, ethics_code_accepted_at, ethics_badge_revoked_at').limit(200),
       sb.from('agency_rankings').select('agency_id, composite_score, active_properties_count').limit(200),
       sb.from('properties').select('agency_id').eq('status', 'active').limit(2000),
     ]);
@@ -3048,8 +3064,9 @@ async function loadLeadingAgencies(){
     const logo = a.logo_url
       ? `<img class="ag-logo" src="${escAttr(a.logo_url)}" alt="${escAttr(name)}" loading="lazy" onerror="this.remove()">`
       : '';
+    const agencyBadge = (a.ethics_code_accepted_at && !a.ethics_badge_revoked_at) ? ETHICS_BADGE_MINI : '';
     card.innerHTML = `
-      <div class="cf-thumb">${rank}${logo}<span class="ag-initial">${escAttr(name.trim()[0] || 'מ')}</span></div>
+      <div class="cf-thumb">${rank}${logo}${agencyBadge}<span class="ag-initial">${escAttr(name.trim()[0] || 'מ')}</span></div>
       <div class="cf-body">
         <div class="ag-name">${escAttr(name)}</div>
         <div class="ag-stat">${a.active_properties_count} נכסים פעילים</div>
@@ -3078,7 +3095,7 @@ async function loadLeadingAgents(){
     if (!sb) return [];
     const [membersRes, rankingsRes, reviewsRes, activeRes] = await Promise.all([
       // התקרות כאן הן רק גבול בטיחות לגודל התשובה, לא מכסת תצוגה.
-      sb.from('agency_members_public').select('id, display_name, slug, photo_url, agency_id').limit(200),
+      sb.from('agency_members_public').select('id, display_name, slug, photo_url, agency_id, has_ethics_badge').limit(200),
       sb.from('agent_rankings').select('agent_id, composite_score, active_properties_count').limit(200),
       sb.from('reviews').select('agent_id, rating').eq('status', 'published').limit(2000),
       sb.from('properties').select('agent_id').eq('status', 'active').limit(2000),
@@ -3180,7 +3197,7 @@ async function loadLeadingAgents(){
     card.innerHTML = `
       <div class="agent-tile">
         <span class="agent-initial">${escAttr(name.trim()[0] || 'מ')}</span>
-        ${photo}${rank}
+        ${photo}${rank}${a.has_ethics_badge ? ETHICS_BADGE_MINI : ''}
         <div class="agent-overlay">
           <div class="agent-name">${escAttr(name)}</div>
           <div class="agent-agency">${escAttr(a.agency_name)}</div>
