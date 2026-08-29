@@ -3195,10 +3195,10 @@ async function loadLeadingAgencies(){
         <div class="ag-name">${escAttr(name)}</div>
         <div class="ag-stat">${a.active_properties_count} נכסים פעילים</div>
       </div>`;
-    // כמו בקרוסלת הנכסים: לחיצה על כרטיס צדדי ממרכזת אותו, ורק לחיצה על
-    // הכרטיס הפעיל מנווטת לעמוד המשרד — כדי לא "לברוח" מהעמוד בטעות במגע.
-    card.addEventListener('click', ()=>{
-      if (!flow.isActive(i)){ flow.goTo(i); return; }
+    // נגיעה אחת פותחת את עמוד המשרד, גם בכרטיס צדדי: כל מה שיש בכרטיס
+    // (שם, לוגו ומספר נכסים) גלוי ממילא בכל המצבים, ולכן אין מה "לחשוף"
+    // במירכוז מקדים — ‏bindOpen כבר מבדיל בין נגיעה לבין סוף החלקה.
+    flow.bindOpen(card, ()=>{
       if (a.slug) window.location.href = 'agency.html?slug=' + encodeURIComponent(a.slug);
     });
     flow.add(card, `מעבר למשרד ${i + 1} מתוך ${agencies.length}`);
@@ -3328,10 +3328,8 @@ async function loadLeadingAgents(){
           <div class="agent-meta">${meta.join('')}</div>
         </div>
       </div>`;
-    // כמו בשאר הקרוסלות: לחיצה על כרטיס צדדי ממרכזת אותו, ורק לחיצה על
-    // הכרטיס הפעיל מנווטת לעמוד המתווך/ת — כדי לא "לברוח" מהעמוד בטעות במגע.
-    card.addEventListener('click', ()=>{
-      if (!flow.isActive(i)){ flow.goTo(i); return; }
+    // כמו בקרוסלת המשרדים: נגיעה אחת פותחת את עמוד המתווך/ת גם בכרטיס צדדי.
+    flow.bindOpen(card, ()=>{
       const key = a.slug || a.id;
       if (key) window.location.href = 'agent.html?slug=' + encodeURIComponent(key);
     });
@@ -4047,8 +4045,46 @@ function createCoverflow(track, dots){
   track.addEventListener('scroll', queueSync, { passive:true });
   window.addEventListener('resize', queueSync);
 
+  /* פתיחת כרטיס בנגיעה אחת, גם כשהוא לא הכרטיס המרוכז.
+     הדרישה שהכרטיס יהיה קודם במרכז נועדה למנוע "בריחה" מהעמוד בזמן
+     החלקה — אבל היא גם גרמה לכך שהנגיעה הראשונה בכרטיס צדדי לא עושה
+     כלום למראית עין, והכרטיס נראה מקולקל. במקום זה מבחינים כאן בין נגיעה
+     לבין סוף החלקה: אם האצבע זזה, אם הדפדפן לקח את המחווה לגלילה
+     (pointercancel) או אם המסלול נגלל בין הלחיצה לשחרור — לא מנווטים.
+     ‏DRAG_SLOP נדיב במכוון: אצבע על מסך נעה מעט גם ב"נגיעה" נקייה. */
+  const DRAG_SLOP = 12;
+  function bindOpen(card, open){
+    let startX = 0, startY = 0, startScroll = 0, dragged = false;
+    card.addEventListener('pointerdown', e=>{
+      startX = e.clientX; startY = e.clientY;
+      startScroll = track.scrollLeft;
+      dragged = false;
+    });
+    card.addEventListener('pointermove', e=>{
+      // ‏buttons===0 הוא ריחוף עכבר בלי לחיצה, לא גרירה
+      if (!e.buttons && e.pointerType === 'mouse') return;
+      if (Math.abs(e.clientX - startX) > DRAG_SLOP || Math.abs(e.clientY - startY) > DRAG_SLOP) dragged = true;
+    });
+    // הדפדפן מבטל את ה-pointer ברגע שהוא מחליט שהמחווה היא גלילה
+    card.addEventListener('pointercancel', ()=>{ dragged = true; });
+    card.addEventListener('click', ()=>{
+      const wasDragged = dragged || Math.abs(track.scrollLeft - startScroll) > 4;
+      dragged = false;
+      if (!wasDragged) open();
+    });
+    // הכרטיס הוא יעד ניווט לכל דבר, ולכן גם מקבל מיקוד ונפתח ב-Enter/רווח
+    card.tabIndex = 0;
+    card.setAttribute('role', 'link');
+    card.addEventListener('keydown', e=>{
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      open();
+    });
+  }
+
   return {
     goTo,
+    bindOpen,
     isActive(index){ return index === activeIndex; },
     reset(){ track.innerHTML = ''; dots.innerHTML = ''; cards = []; activeIndex = -1; },
     add(card, dotLabel){
