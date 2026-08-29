@@ -1041,6 +1041,10 @@
         </label>
       </div>
     </div>
+    <div class="ethics-consent" style="margin-bottom:12px">
+      <input type="checkbox" id="caEthicsConsent">
+      <label for="caEthicsConsent">קראתי את <a href="ethics-code.html" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">הקוד האתי</a> ואני מסכים/ה לעשרת סעיפיו — בשמי ובשם המשרד. ידוע לי שתו האיכות יוסר במקרה של הפרת התקנון.</label>
+    </div>
     <button type="button" class="btn btn-gold btn-block" id="createAgencyBtn">פתיחת המשרד שלי</button>
     <div id="createAgencyFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
     <button type="button" class="btn btn-ghost btn-block" id="cancelCreateAgency" style="margin-top:8px">יציאה</button>
@@ -1055,6 +1059,29 @@
     <div id="loadErrorDetail" style="font-size:.78rem;color:var(--red);text-align:center;margin-bottom:12px;min-height:1.2em"></div>
     <button type="button" class="btn btn-gold btn-block" id="retryLoadBtn">נסיון נוסף</button>
     <button type="button" class="btn btn-ghost btn-block" id="loadErrorLogoutBtn" style="margin-top:8px">יציאה</button>
+  </div>
+
+  <!-- ---------- שער האישור של הקוד האתי ----------
+       סוכן/ת שמנהל/ת המשרד הוסיף/ה אינו/ה עובר/ת דרך טופס הרשמה, ולכן הכניסה
+       הראשונה ל-CRM היא הרגע הראשון שבו הוא/היא פועל/ת בעצמו/ה — וזה המקום
+       היחיד שבו אפשר לקבל אישור אישי אמיתי. הטריגר במסד חוסם ממילא כל ניסיון
+       של מנהל/ת לחתום במקומם, ולכן בלי השער הזה הם היו נכנסים למערכת בלי
+       אישור כלל. סוכנים ותיקים (עד 29.8.2026) נחתמו במיגרציית ה-grandfathering
+       ולכן לא רואים את המסך הזה. -->
+  <div class="card login-card" id="ethicsGateScreen" style="display:none">
+    <img src="assets/badge-ethics.png" alt="תו האמון והאיכות" width="384" height="384"
+         style="width:88px;height:88px;display:block;margin:0 auto 14px;border-radius:50%;filter:grayscale(1);opacity:.5">
+    <h1>ברוך/ה הבא/ה לנבחרת</h1>
+    <p class="sub">לפני הכניסה — אישור הקוד האתי של הפלטפורמה. זהו התנאי להצגת תו האיכות בדף שלך ובמודעות הנכסים, והוא נחתם אישית על ידך בלבד.</p>
+    <ol class="ethics-clauses" id="gateClauses" style="margin-bottom:12px"></ol>
+    <a class="ethics-link" href="ethics-code.html" target="_blank" rel="noopener">קריאת נוסח הקוד המלא ←</a>
+    <div class="ethics-consent" style="margin-bottom:12px">
+      <input type="checkbox" id="gateConsent">
+      <label for="gateConsent">קראתי את עשרת סעיפי הקוד האתי ואני מסכים/ה לכולם. ידוע לי שהתו יוסר במקרה של הפרת התקנון.</label>
+    </div>
+    <button type="button" class="btn btn-gold btn-block" id="gateAcceptBtn">אישור הקוד וכניסה למערכת</button>
+    <div id="gateFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
+    <button type="button" class="btn btn-ghost btn-block" id="gateLogoutBtn" style="margin-top:8px">יציאה</button>
   </div>
 </div>
 
@@ -2059,6 +2086,12 @@
             <option value="premium">פרימיום</option>
           </select>
         </div>
+        <!-- המנהל/ת מצהיר/ה שהציג/ה את הקוד; החתימה עצמה נעשית בידי הסוכן/ת
+             בכניסה הראשונה — הטריגר במסד חוסם חתימה בשם מישהו אחר. -->
+        <div class="ethics-consent" style="margin-top:12px">
+          <input type="checkbox" id="nmEthicsPresented">
+          <label for="nmEthicsPresented">הצגתי לסוכן/ת את <a href="ethics-code.html" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">הקוד האתי</a>. בכניסה הראשונה הוא/היא יתבקש/תתבקש לאשר אותו אישית, ורק אז יוצג תו האיכות בדף שלו/ה.</label>
+        </div>
         <button type="submit" class="btn btn-gold btn-block" id="addMemberBtn">הוספת הסוכן/ת</button>
         <div id="addMemberFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
       </form>
@@ -2612,6 +2645,7 @@ const SCREEN_CARDS = {
   login:        'loginCardMain',
   createAgency: 'createAgencyScreen',
   loadError:    'loadErrorScreen',
+  ethicsGate:   'ethicsGateScreen',
 };
 
 function showScreen(name){
@@ -2766,13 +2800,18 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
     feedback.textContent = 'נא למלא את כל השדות';
     return;
   }
+  if (!document.getElementById('caEthicsConsent').checked){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'פתיחת המשרד מותנית באישור הקוד האתי';
+    return;
+  }
   btn.disabled = true; btn.textContent = 'פותח משרד…'; feedback.textContent = '';
   try{
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/create-own-agency', {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
-      body: JSON.stringify({ agency_name: agencyName, manager_name: managerName, license_number: license, initial_tier: selectedTier }),
+      body: JSON.stringify({ agency_name: agencyName, manager_name: managerName, license_number: license, initial_tier: selectedTier, ethics_code_accepted: true }),
     });
     const data = await res.json();
     if (!res.ok || data.error){
@@ -2917,6 +2956,10 @@ async function loadDashboard(user){
     agencyName = agency?.name || '';
   }
   currentAgent = agent;
+
+  // שער האישור לפני הדשבורד: סוכן/ת שנוסף/ה על ידי מנהל/ת המשרד לא עבר/ה
+  // בשום טופס הרשמה, והכניסה הזו היא ההזדמנות הראשונה לאישור אישי.
+  if (ethicsNeedsGate(agent)){ showEthicsGate(); return; }
 
   showScreen('dashboard');
   // הגריד נבנה לפני הטעינות, כדי שהמונים שמגיעים מהן ימצאו תגית לכתוב אליה
@@ -3942,6 +3985,70 @@ const ETHICS_CLAUSES = [
 
 let ethicsAgency = null;   // שורת המשרד, נטענת רק למנהל/ת משרד
 
+/* ---------- שער האישור בכניסה הראשונה ----------
+   מוצג לסוכן/ת שטרם אישר/ה — בפועל רק למי שמנהל/ת המשרד הוסיף/ה, כי שני
+   מסלולי פתיחת המשרד חותמים בעצמם והוותיקים נחתמו ב-grandfathering.
+   מי שהתו שלו/ה הוסר אינו/ה נעצר/ת כאן: ההסרה היא החלטה של ההנהלה, לא
+   סיבה לחסום גישה למערכת. */
+function ethicsNeedsGate(agent){
+  return !!agent && !agent.ethics_code_accepted_at && !agent.ethics_badge_revoked_at;
+}
+
+function showEthicsGate(){
+  const list = document.getElementById('gateClauses');
+  if (!list.children.length){
+    ETHICS_CLAUSES.forEach(text=>{
+      const li = document.createElement('li');
+      li.textContent = text;
+      list.appendChild(li);
+    });
+  }
+  document.getElementById('gateConsent').checked = false;
+  document.getElementById('gateFeedback').textContent = '';
+  showScreen('ethicsGate');
+}
+
+document.getElementById('gateAcceptBtn').addEventListener('click', async ()=>{
+  if (!currentAgent) return;
+  const btn = document.getElementById('gateAcceptBtn');
+  const feedback = document.getElementById('gateFeedback');
+  if (!document.getElementById('gateConsent').checked){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'יש לסמן את תיבת האישור כדי להמשיך.';
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'שומר…';
+  feedback.style.color = 'var(--ink-soft)'; feedback.textContent = '';
+  try{
+    const { data: saved, error } = await sb.from('agency_members').update({
+      ethics_code_accepted_at: new Date().toISOString(),
+      ethics_code_version: ETHICS_CODE_VERSION,
+      updated_at: new Date().toISOString(),
+    }).eq('id', currentAgent.id)
+      .select('ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at')
+      .single();
+    if (error) throw error;
+    Object.assign(currentAgent, saved);
+    // בלי אימות שהחותמת באמת נכתבה, כישלון שקט של הטריגר היה מכניס למערכת
+    // סוכן/ת בלי אישור — בדיוק מה שהשער נועד למנוע
+    if (!currentAgent.ethics_code_accepted_at) throw new Error('האישור לא נשמר');
+    showBootCard('טוענים את איזור הסוכנים…');
+    await loadDashboard();
+  } catch(err){
+    console.error('ethics gate accept failed', err);
+    showEthicsGate();
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'שמירה נכשלה: ' + (err.message || 'שגיאה לא צפויה');
+  } finally{
+    btn.disabled = false; btn.textContent = 'אישור הקוד וכניסה למערכת';
+  }
+});
+
+document.getElementById('gateLogoutBtn').addEventListener('click', async ()=>{
+  await sb.auth.signOut();
+  location.reload();
+});
+
 function ethicsBadgeActive(row){
   return !!(row && row.ethics_code_accepted_at && !row.ethics_badge_revoked_at);
 }
@@ -4841,6 +4948,11 @@ document.getElementById('addMemberForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const btn = document.getElementById('addMemberBtn');
   const feedback = document.getElementById('addMemberFeedback');
+  if (!document.getElementById('nmEthicsPresented').checked){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = 'יש לאשר שהקוד האתי הוצג לסוכן/ת.';
+    return;
+  }
   btn.disabled = true; btn.textContent = 'מוסיף…'; feedback.textContent = '';
   try{
     const { data: { session } } = await sb.auth.getSession();
