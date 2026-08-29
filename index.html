@@ -914,21 +914,27 @@
   .ad-row{padding-block:14px}
 
   /* ====== כתבות ובלוגים ======
-     אותה שיטת מידוד כמו קרוסלת "נכסים חמים מהמפה": רוחב הכרטיס נגזר
-     מרוחב המסלול עצמו כך שתמיד רואים שלושה כרטיסים (עם הצצה לרביעי),
-     ובמובייל המסלול פורץ את ריפוד ה-.wrap כדי לנצל את מלוא רוחב המסך. */
+     קרוסלה של ממש ולא רצועה של אריחים קטנים: הכרטיס תופס כשני שליש
+     מרוחב המסך, כך שהשכן שלו תמיד מציץ מהצד ורואים שהרשימה ממשיכה,
+     והתמונה גדלה לגובה ‎--card-h‎ — אותו גובה של ריבועי בעלי המקצוע —
+     כדי שהכתבה תיקרא כמו כרטיס תוכן ולא כמו תגית.
+     ‎scroll-padding-inline‎ מיישר את נקודת העצירה של ה-snap לריפוד המסלול,
+     אחרת הכרטיס היה נעצר צמוד לקצה המסך. */
   .article-scroll{
-    --row-gap:9px; --row-peek:14px;
+    --row-gap:10px; --row-peek:14px;
+    --article-card-w:min(268px, 66%);
     display:flex;gap:var(--row-gap);overflow-x:auto;scroll-snap-type:x mandatory;
     padding:0 var(--row-peek) 6px;
+    scroll-padding-inline:var(--row-peek);
   }
   .article-card{
-    flex:0 0 min(250px, calc((100% - var(--row-gap) * 2) / 3));
+    flex:0 0 var(--article-card-w);
     scroll-snap-align:start;background:#fff;border:1px solid var(--line);
     border-radius:var(--radius-md);overflow:hidden;display:flex;flex-direction:column;
+    box-shadow:var(--shadow-sm);
   }
-  .article-card .cover{height:88px;background-size:cover;background-position:center}
-  .article-card .body{padding:9px;display:flex;flex-direction:column;gap:5px;flex:1}
+  .article-card .cover{height:var(--card-h);background-size:cover;background-position:center}
+  .article-card .body{padding:11px;display:flex;flex-direction:column;gap:6px;flex:1}
   .article-card .kicker{
     align-self:flex-start;background:var(--gold-tint);color:var(--gold-dark);
     font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:5px;
@@ -936,7 +942,7 @@
   /* הגבלה לשתי שורות: הכרטיסים צרים יותר עכשיו, וכותרת ארוכה לא תמתח
      כרטיס אחד מעל שכניו. */
   .article-card h3{
-    font-family:'Heebo',sans-serif;font-size:.78rem;font-weight:700;line-height:1.35;color:var(--ink);
+    font-family:'Heebo',sans-serif;font-size:.86rem;font-weight:700;line-height:1.35;color:var(--ink);
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   }
   .article-card p{
@@ -1048,20 +1054,22 @@
     .featured-scroll .prop-card .thumb{height:112px}
     .featured-scroll .prop-card .price{font-size:.94rem}
     .featured-scroll .prop-card .title{font-size:.78rem}
-    .article-card .cover{height:106px}
-    .article-card h3{font-size:.84rem}
+    /* גובה הכיסוי נגזר מ‎--card-h‎ שכבר גדל בעצמו בנקודות השבירה */
+    .article-card h3{font-size:.9rem}
   }
   @media(min-width:760px){
     .featured-scroll,.article-scroll{--row-gap:16px;--row-peek:24px}
+    /* בדסקטופ הכרטיס לא צריך שני שליש מסך, אבל הרוחב נשאר כזה שהכרטיס
+       הבא תמיד נחתך בקצה המסלול — כך הרצועה נקראת כקרוסלה ולא כגריד. */
+    .article-scroll{--article-card-w:min(320px, 30%)}
     .featured-scroll .prop-card .thumb{height:150px}
     .featured-scroll .prop-card .ribbon{top:10px;right:10px;font-size:.68rem;padding:3px 9px}
     .featured-scroll .prop-card .body{padding:12px}
     .featured-scroll .prop-card .price{font-size:1.02rem}
     .featured-scroll .prop-card .title{font-size:.85rem}
     .featured-scroll .prop-card .meta{font-size:.76rem;margin-top:6px}
-    .article-card .cover{height:130px}
-    .article-card .body{padding:12px;gap:6px}
-    .article-card h3{font-size:.9rem}
+    .article-card .body{padding:14px;gap:7px}
+    .article-card h3{font-size:.95rem}
     .article-card p{font-size:.78rem}
     .article-card .kicker{font-size:.66rem;padding:3px 9px}
     .article-card .stamp{font-size:.7rem}
@@ -1270,7 +1278,12 @@
   #featured{padding-bottom:20px}
   #pros{padding-block:14px 18px}
   #pros .section-head{margin-bottom:14px;gap:6px}
-  #articles{padding-top:20px}
+  /* הכתבות והנכסים נשאו שניהם ריפוד סקציה מלא, ובאמצע יושבת רצועת
+     פרסומת שמוסתרת כל עוד אין מפרסמים — כך נפער חלל ריק גדול בין
+     הקרוסלה לכותרת "הנכסים הכי חדשים". שני הריפודים מהודקים כאן. */
+  #articles{padding-block:20px 14px}
+  #listings{padding-top:14px}
+  #listings .section-head{margin-bottom:16px}
 
   /* ====== Footer ====== */
   footer.site{background:var(--teal-dark);color:#CFE1DF;padding:38px 0 22px;margin-top:30px}
@@ -2062,8 +2075,7 @@
   <section class="section wrap" id="listings">
     <div class="section-head">
       <div>
-        <p class="eyebrow">נכסים באזור</p>
-        <h2 id="listingsTitle">הנכסים החדשים בפלטפורמה</h2>
+        <h2 id="listingsTitle">הנכסים הכי חדשים</h2>
       </div>
     </div>
 
@@ -4219,7 +4231,7 @@ function renderListings(){
     ? filterListings(listingsAll)
     : newestMixedByAgency(listingsAll, LISTINGS_PREVIEW);
 
-  if (heading) heading.textContent = listingsExpanded ? 'כל הנכסים הפעילים' : 'הנכסים החדשים בפלטפורמה';
+  if (heading) heading.textContent = listingsExpanded ? 'כל הנכסים הפעילים' : 'הנכסים הכי חדשים';
   if (countEl) countEl.textContent = listingsExpanded
     ? (shown.length ? `${shown.length} נכסים מתוך ${listingsAll.length}` : '')
     : '';
