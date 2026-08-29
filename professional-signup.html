@@ -46,7 +46,10 @@
     <p class="sub">חשיפה לקהל רחב באזור עפולה והעמק</p>
     <span class="price-badge">₪350 לחודש · ביטול בכל עת</span>
 
-    <div class="field"><label>שם מלא / שם עסק</label><input type="text" id="advName" required></div>
+    <!-- השם ושם העסק הם שתי השורות שמופיעות בכרטיסייה בדף הבית, ולכן שני
+         שדות נפרדים ולא שדה אחד משולב. -->
+    <div class="field"><label>שם מלא</label><input type="text" id="advName" required></div>
+    <div class="field"><label>שם העסק</label><input type="text" id="advBusiness" placeholder="השם שיוצג מתחת לשם שלך"></div>
     <div class="field">
       <label>תחום עיסוק</label>
       <select id="advType" required>
@@ -59,6 +62,9 @@
       </select>
     </div>
     <div class="field"><label>אימייל ליצירת קשר</label><input type="email" id="advEmail" required></div>
+    <!-- התמונה ממלאת את כל הכרטיסייה בדף הבית; בלעדיה מוצג אריח צבעוני
+         עם ראשי התיבות של השם. -->
+    <div class="field"><label>קישור לתמונת פרופיל (לא חובה)</label><input type="url" id="advPhoto" placeholder="https://"></div>
     <div class="field"><label>קישור לאתר / פרופיל (לא חובה)</label><input type="url" id="advUrl" placeholder="https://"></div>
 
     <button type="button" class="btn" id="submitBtn">הרשמה — ₪350/חודש</button>
@@ -82,8 +88,10 @@ const SIGNUP_FUNCTION_URL = SUPABASE_URL + '/functions/v1/professional-signup';
 
 document.getElementById('submitBtn').addEventListener('click', async ()=>{
   const advertiser_name = document.getElementById('advName').value.trim();
+  const business_name = document.getElementById('advBusiness').value.trim();
   const advertiser_type = document.getElementById('advType').value;
   const contact_email = document.getElementById('advEmail').value.trim();
+  const creative_url = document.getElementById('advPhoto').value.trim();
   const click_url = document.getElementById('advUrl').value.trim();
   const feedback = document.getElementById('feedback');
   const btn = document.getElementById('submitBtn');
@@ -99,7 +107,15 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     const res = await fetch(SIGNUP_FUNCTION_URL, {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
-      body: JSON.stringify({ advertiser_name, advertiser_type, contact_email, click_url: click_url || null, target_region: 'עפולה' }),
+      body: JSON.stringify({
+        advertiser_name,
+        business_name: business_name || null,
+        advertiser_type,
+        contact_email,
+        creative_url: creative_url || null,
+        click_url: click_url || null,
+        target_region: 'עפולה',
+      }),
     });
     const data = await res.json();
     if (!res.ok || data.error){
