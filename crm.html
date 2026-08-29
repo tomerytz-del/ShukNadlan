@@ -1824,6 +1824,37 @@
         <div id="purchasedMortgageList"></div>
       </div>
     </details>
+
+    <!-- מדף מחפשי הדירה: חיפושים שמורים שבהם ניתן אישור מפורש ליצירת קשר.
+         מלאי אחר לגמרי מזה של מדף ה-RSS — כאן הפונה הגדיר/ה בעצמו/ה תקציב,
+         אזור וחדרים, וההתראות שנשלחו אליו/ה מודדות התעניינות אמיתית. -->
+    <details class="acc" id="accSavedSearchShelf">
+      <summary>
+        <span class="acc-title">מדף מחפשי דירה — רכישה</span>
+        <span class="acc-count" id="accSavedSearchShelfCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">אנשים שהגדירו באתר "סוכן חכם" — חיפוש שמור עם תקציב ואזור — ואישרו שמתווך/ת ייצור איתם קשר. הרכישה מנכה <b id="savedSearchPriceLabel">₪60</b> מיתרת הארנק וחושפת שם וטלפון, וגם את הנכסים שכבר נשלחו אליהם ומה מתוכם נלחץ. כל ליד נמכר לסוכן/ת אחד/ת בלבד.</p>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+          <select id="savedSearchDealFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
+            <option value="">מכירה והשכרה</option>
+            <option value="sale">מחפשי קנייה</option>
+            <option value="rent">מחפשי שכירות</option>
+          </select>
+          <select id="savedSearchHoodFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
+            <option value="">כל האזורים</option>
+          </select>
+          <button type="button" class="btn btn-ghost" id="savedSearchRefreshBtn" style="white-space:nowrap">רענון</button>
+        </div>
+
+        <div id="savedSearchShelfList"></div>
+
+        <div class="form-subheading">הלידים שרכשתי</div>
+        <div id="purchasedSavedSearchList"></div>
+      </div>
+    </details>
     </main>
 
     <!-- ---------- Sidebar: הכלים הניהוליים ----------
@@ -2990,6 +3021,7 @@ async function loadDashboard(user){
   await loadProperties(agent.id);
   await loadLeads(agent.id);
   await loadLeadShelf(agent.id);
+  await loadSavedSearchShelf(agent.id);
   await loadSharedWithMe();
   await loadClients();
   await loadClientAlerts();
@@ -8558,6 +8590,297 @@ document.getElementById('mortgageShelfRefreshBtn').addEventListener('click', ()=
   if (currentAgent) loadMortgageShelf(currentAgent.id);
 });
 
+/* ---------- מדף מחפשי הדירה: לידי הסוכן החכם ----------
+   אותה מכונה כמו שני המדפים שמעל, על מלאי שהוא שונה מהם באופיו: כאן הפונה
+   לא מילא/ה טופס פנייה אלא הגדיר/ה חיפוש מתמשך — תקציב, אזור ומספר חדרים —
+   וקיבל/ה עליו התראות. לכן יש כאן שני דברים שאין באף מדף אחר:
+
+     • ‏intent_score — ציון התעניינות שדועך בזמן ועולה עם כל קליק על התראה.
+       ‏מי שלחץ/ה על שלושה נכסים בשבוע האחרון הוא/היא לא "פנייה", אלא
+       מישהו/י שמחפש/ת עכשיו.
+     • הפעילות שנחשפת אחרי הרכישה — אילו נכסים נשלחו ומה מתוכם נלחץ. זו
+       שיחת הפתיחה שהסוכן/ת שילמ/ה עליה.
+
+   המדף נקרא מ-saved_search_leads_public — קריטריונים וציון בלבד, בלי שם,
+   טלפון או אימייל — והרכישה עוברת ב-Edge Function saved-search-lead-purchase,
+   כי גם כאן הטריגר protect_sensitive_agency_member_fields מבטל שינוי
+   ‏credit_balance שלא הגיע מ-service_role.                                  */
+let savedSearchPrice = 60;
+let savedSearchLeads = [];
+let savedSearchHoods = new Map();   // מזהה שכונה → שם
+
+const SS_DEAL_LABELS = { sale:'מחפש/ת לקנייה', rent:'מחפש/ת לשכירות' };
+
+async function loadSavedSearchHoods(){
+  if (savedSearchHoods.size) return;
+  const { data } = await sb.from('neighborhoods').select('id, name');
+  (data || []).forEach(n => savedSearchHoods.set(n.id, n.name));
+}
+
+async function loadSavedSearchShelf(agentId){
+  const listEl = document.getElementById('savedSearchShelfList');
+  listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+
+  const { data: leads, error } = await sb
+    .from('saved_search_leads_public')
+    .select('*')
+    .eq('lead_status', 'new')
+    .order('intent_score', { ascending:false, nullsFirst:false })
+    .order('created_at', { ascending:false })
+    .limit(60);
+
+  savedSearchPrice = priceOf('saved_search_lead_price', 60);
+  document.getElementById('savedSearchPriceLabel').textContent = shekel(savedSearchPrice);
+
+  if (error){
+    // עד שהמיגרציה רצה בפרויקט אין טעם להבהיל — אותה התנהגות כמו בשני
+    // המדפים שמעל
+    const missing = /does not exist|schema cache/i.test(error.message || '');
+    listEl.innerHTML = '<div class="empty-state">' +
+      (missing ? 'מדף מחפשי הדירה לא הופעל עדיין בפרויקט הזה.' : 'שגיאה בטעינת המדף: ' + esc(error.message)) +
+      '</div>';
+    accSetCount('accSavedSearchShelf', '');
+    return;
+  }
+
+  await loadSavedSearchHoods();
+  savedSearchLeads = leads || [];
+  accSetCount('accSavedSearchShelf', savedSearchLeads.length ? savedSearchLeads.length + ' זמינים' : '');
+  syncSavedSearchHoodFilter();
+  renderSavedSearchShelf();
+  await loadPurchasedSavedSearches(agentId);
+}
+
+// רשימת האזורים נבנית מהמדף עצמו ולא מטבלת השכונות: אין טעם להציע סינון
+// לאזור שאין בו אף מחפש/ת
+function syncSavedSearchHoodFilter(){
+  const select = document.getElementById('savedSearchHoodFilter');
+  const previous = select.value;
+  const ids = new Set();
+  savedSearchLeads.forEach(l => (l.neighborhood_ids || []).forEach(id => ids.add(id)));
+  const opts = [...ids]
+    .map(id => ({ id, name: savedSearchHoods.get(id) }))
+    .filter(o => o.name)
+    .sort((a,b)=> a.name.localeCompare(b.name,'he'));
+  select.innerHTML = '<option value="">כל האזורים</option>' +
+    opts.map(o => `<option value="${esc(o.id)}">${esc(o.name)}</option>`).join('');
+  if (opts.some(o => o.id === previous)) select.value = previous;
+}
+
+/* התקציר של החיפוש. ‏label נבנה באתר בזמן השמירה ולכן הוא הניסוח של
+   המחפש/ת עצמו/ה; רק כשהוא חסר בונים תחליף מהשדות. */
+function savedSearchTitle(lead){
+  if (lead.label) return lead.label;
+  const rooms = lead.min_rooms && lead.max_rooms && lead.min_rooms !== lead.max_rooms
+      ? `${lead.min_rooms}–${lead.max_rooms} חדרים`
+    : lead.min_rooms ? `${lead.min_rooms} חדרים ומעלה`
+    : lead.max_rooms ? `עד ${lead.max_rooms} חדרים` : null;
+  const place = savedSearchPlaces(lead).join(', ');
+  return [rooms || 'נכס', place ? 'ב' + place : null,
+          lead.max_price ? 'עד ' + shekel(lead.max_price) : null].filter(Boolean).join(' ');
+}
+
+function savedSearchPlaces(lead){
+  const hoods = (lead.neighborhood_ids || []).map(id => savedSearchHoods.get(id)).filter(Boolean);
+  return hoods.length ? hoods : (lead.cities || []);
+}
+
+function savedSearchMetaParts(lead){
+  const places = savedSearchPlaces(lead);
+  const budget = lead.min_price && lead.max_price ? `${shekel(lead.min_price)}–${shekel(lead.max_price)}`
+    : lead.max_price ? 'עד ' + shekel(lead.max_price)
+    : lead.min_price ? 'מ-' + shekel(lead.min_price) : null;
+  return [
+    places.length ? '📍 ' + places.join(', ') : null,
+    (lead.property_types || []).length ? '🏠 ' + lead.property_types.join(', ') : null,
+    budget ? '💰 ' + budget : null,
+    lead.min_size_sqm ? '📐 מ-' + Math.round(lead.min_size_sqm) + ' מ״ר' : null,
+    (lead.required_features || []).length ? '✓ ' + lead.required_features.length + ' דרישות' : null,
+  ].filter(Boolean);
+}
+
+function renderSavedSearchShelf(){
+  const listEl = document.getElementById('savedSearchShelfList');
+  const deal = document.getElementById('savedSearchDealFilter').value;
+  const hood = document.getElementById('savedSearchHoodFilter').value;
+  const filtered = savedSearchLeads.filter(l =>
+    (!deal || l.deal_type === deal) &&
+    (!hood || (l.neighborhood_ids || []).includes(hood)));
+
+  if (filtered.length === 0){
+    listEl.innerHTML = '<div class="empty-state">' +
+      (savedSearchLeads.length === 0
+        ? 'אין כרגע מחפשי דירה פנויים במדף.<br>לידים נוספים נכנסים כשמבקרים באתר שומרים חיפוש.'
+        : 'אין לידים שמתאימים לסינון הנוכחי.') +
+      '</div>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  filtered.forEach(lead => {
+    const el = document.createElement('div');
+    el.className = 'card lead-card kind-buyer';
+    el.innerHTML = `
+      <div class="lead-top">
+        <div>
+          <span class="lead-kind">🔔 ${esc(SS_DEAL_LABELS[lead.deal_type] || 'מחפש/ת')}</span>
+          <div class="lead-name">${esc(savedSearchTitle(lead))}</div>
+        </div>
+        <span class="status-pill status-masked">${shekel(savedSearchPrice)}</span>
+      </div>
+      ${tagsHtml([
+        // ציון ההתעניינות הוא השיקול הראשון ברכישה, ולכן התגית הפותחת
+        { text:`⭐ התעניינות ${lead.intent_score}/100`,
+          cls: lead.intent_score >= 75 ? 'tag-good' : 'tag-key' },
+        // הקליקים הם הראיה היחידה שאינה הצהרה של הפונה על עצמו/ה
+        lead.alerts_clicked > 0
+          ? { text:`👆 ${lead.alerts_clicked} נכסים נפתחו`, cls:'tag-good' }
+          : (lead.alerts_sent > 0 ? { text:`📤 ${lead.alerts_sent} התראות נשלחו`, cls:'tag-info' } : null),
+        ...savedSearchMetaParts(lead),
+        lead.has_phone ? '📞 יש טלפון' : null,
+        { text:'📅 נשמר ' + hebDate(lead.created_at) },
+      ])}
+      ${lead.free_text ? `<div class="lead-meta">חיפש/ה: “${esc(lead.free_text)}”</div>` : ''}
+      <div class="lead-actions"></div>
+    `;
+    addCardAction(el.querySelector('.lead-actions'), {
+      label:`🛒 רכישה · ${shekel(savedSearchPrice)}`, cls:'btn-gold act-wide',
+      onClick: btn => buySavedSearchLead(lead, btn),
+    });
+    listEl.appendChild(el);
+  });
+}
+
+async function loadPurchasedSavedSearches(agentId){
+  const listEl = document.getElementById('purchasedSavedSearchList');
+  const { data: leads, error } = await sb
+    .from('saved_searches')
+    .select('id, full_name, phone, email, label, deal_type, cities, neighborhood_ids, property_types, ' +
+            'min_price, max_price, min_rooms, max_rooms, min_size_sqm, required_features, free_text, ' +
+            'alerts_sent, alerts_clicked, status, sold_at')
+    .eq('sold_to_agent_id', agentId)
+    .order('sold_at', { ascending:false });
+
+  if (error){
+    listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת הלידים שנרכשו: ' + esc(error.message) + '</div>';
+    return;
+  }
+  if (!leads || leads.length === 0){
+    listEl.innerHTML = '<div class="empty-state">עוד לא רכשת לידים ממדף מחפשי הדירה.</div>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  leads.forEach(lead => {
+    const el = document.createElement('div');
+    el.className = 'card lead-card kind-buyer';
+    const waPhone = (lead.phone || '').replace(/\D/g, '').replace(/^0/, '972');
+    el.innerHTML = `
+      <div class="lead-top">
+        <div>
+          <span class="lead-kind">🔔 ${esc(SS_DEAL_LABELS[lead.deal_type] || 'מחפש/ת')}</span>
+          <div class="lead-name">${esc(lead.full_name)}</div>
+        </div>
+        <span class="status-pill status-unlocked">נרכש ${hebDate(lead.sold_at)}</span>
+      </div>
+      ${tagsHtml([
+        { text:'🔎 ' + savedSearchTitle(lead), cls:'tag-key' },
+        ...savedSearchMetaParts(lead),
+        // מי שביטל/ה את ההתראות עדיין ליד לגיטימי, אבל זו עובדה שכדאי לדעת
+        // לפני שמרימים טלפון
+        lead.status === 'unsubscribed' ? { text:'🔕 הפסיק/ה את ההתראות', cls:'tag-warn' } : null,
+      ])}
+      ${lead.free_text ? `<div class="lead-meta">חיפש/ה: “${esc(lead.free_text)}”</div>` : ''}
+      <div class="lead-meta" id="ssAct-${esc(lead.id)}">טוען פעילות…</div>
+      <div class="lead-actions"></div>
+    `;
+    const actions = el.querySelector('.lead-actions');
+    if (lead.phone){
+      addCardAction(actions, { label:'📞 חיוג', href:'tel:' + lead.phone });
+      addCardAction(actions, { label:'💬 וואטסאפ', cls:'btn-share',
+        href:'https://wa.me/' + waPhone, blank:true });
+    }
+    if (lead.email){
+      addCardAction(actions, { label:'✉️ מייל', href:'mailto:' + lead.email });
+    }
+    listEl.appendChild(el);
+    renderSavedSearchActivity(lead.id);
+  });
+}
+
+/* הנכסים שכבר נשלחו למחפש/ת ומה מתוכם נלחץ. זו הסיבה שהליד הזה שווה יותר
+   מפנייה רגילה, ולכן היא נטענת לכל כרטיס ולא מאחורי לחיצה נוספת. */
+async function renderSavedSearchActivity(searchId){
+  const el = document.getElementById('ssAct-' + searchId);
+  if (!el) return;
+  const { data, error } = await sb.rpc('saved_search_lead_activity', { p_search_id: searchId });
+  if (error || !data || data.length === 0){
+    el.textContent = error ? '' : 'עוד לא נשלחו לו/ה נכסים.';
+    return;
+  }
+  const clicked = data.filter(r => r.clicked_at);
+  const lines = (clicked.length ? clicked : data).slice(0, 4).map(r =>
+    `${r.clicked_at ? '👆' : '📤'} ${esc(r.title || 'נכס')}` +
+    (r.price ? ' · ' + shekel(r.price) : '') +
+    (r.street ? ' · ' + esc(r.street) : ''));
+  el.innerHTML =
+    `<b>${clicked.length ? 'נכסים שפתח/ה:' : 'נכסים שנשלחו:'}</b><br>` + lines.join('<br>');
+}
+
+async function buySavedSearchLead(lead, btn){
+  const approved = await confirmPurchase({
+    title: 'אישור רכישת ליד מחפש/ת דירה',
+    lines: [
+      SS_DEAL_LABELS[lead.deal_type] || 'מחפש/ת דירה',
+      savedSearchTitle(lead),
+      savedSearchMetaParts(lead).join(' · '),
+      `ציון התעניינות ${lead.intent_score}/100 · ${lead.alerts_clicked} נכסים נפתחו מתוך ${lead.alerts_sent} התראות`,
+      'הרכישה חושפת שם וטלפון, ואת הנכסים שנשלחו למחפש/ת, ומשייכת את הליד אליך בלבד.',
+    ].filter(Boolean),
+    price: savedSearchPrice,
+  });
+  if (!approved) return;
+
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'רוכש…';
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/saved-search-lead-purchase', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      body: JSON.stringify({ search_id: lead.id }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      const errorMessages = {
+        insufficient_balance: `יתרה לא מספיקה — נדרש ${shekel(data.required)}. טענו את הארנק ונסו שוב`,
+        lead_already_sold: 'הליד כבר נמכר לסוכן/ת אחר/ת',
+        lead_not_available: 'הליד כבר לא זמין — ייתכן שההתראות בוטלו',
+        lead_not_found: 'הליד לא נמצא',
+        agent_inactive: 'החשבון אינו פעיל',
+        no_matching_agent_profile: 'שגיאת הרשאה — אין פרופיל סוכן/ת מקושר',
+      };
+      showToast(errorMessages[data.error] || ('שגיאה: ' + (data.error || 'לא ידועה')));
+      btn.disabled = false; btn.textContent = original;
+      return;
+    }
+    showToast(data.already_purchased
+      ? 'הליד כבר שלך — מופיע למטה תחת "הלידים שרכשתי"'
+      : `הליד נרכש! חויבת ${shekel(data.price_charged)}. פרטי הקשר מופיעים תחת "הלידים שרכשתי"`);
+    await loadDashboard();
+  } catch(err){
+    console.error(err);
+    showToast('שגיאת רשת — נסו שוב');
+    btn.disabled = false; btn.textContent = original;
+  }
+}
+
+document.getElementById('savedSearchDealFilter').addEventListener('change', renderSavedSearchShelf);
+document.getElementById('savedSearchHoodFilter').addEventListener('change', renderSavedSearchShelf);
+document.getElementById('savedSearchRefreshBtn').addEventListener('click', ()=> {
+  if (currentAgent) loadSavedSearchShelf(currentAgent.id);
+});
+
 /* ---------- שת"פ בין משרדי תיווך ----------
    שני צדדים לאותו מנגנון:
    • רשימת השת"פ — בחירה חד-פעמית של המשרדים שאיתם משתפים פעולה. נשמרת ב-DB
@@ -9812,6 +10135,8 @@ const QUICK_ACTIONS = [
     when: ()=> currentAgent && currentAgent.role === 'manager' },
   { key:'shelf',      acc:'accLeadShelf',    icon:'layers',   tone:'green',
     title:'מדף לידים',         sub:'לידים זמינים לרכישה' },
+  { key:'buyers',     acc:'accSavedSearchShelf', icon:'bell', tone:'green', hot:true,
+    title:'מחפשי דירה',        sub:'לידים עם תקציב ואזור מוגדרים' },
   { key:'alerts',     acc:'accAlerts',       icon:'bell',     tone:'wine',  hot:true,
     title:'התראות התאמה',      sub:'נכסים חדשים ללקוחות בקובץ' },
   { key:'clients',    acc:'accClients',      icon:'contact',  tone:'navy',  hot:true,
