@@ -3200,25 +3200,20 @@ function rotateProfessionalsFairly(list){
   return out;
 }
 
-function isPlacementLive(p, today){
-  return (!p.starts_at || p.starts_at <= today) && (!p.ends_at || p.ends_at >= today);
-}
-
 (async function initProfessionals(){
   const el = document.getElementById('prosGrid');
   let pros = FALLBACK_PROS;
   try{
     if (sb){
+      // ‏professional_cards_public הוא ה-view הציבורי: הוא כבר מסנן
+      // לכרטיסיות פעילות שבתוך חלון הפרסום (status לבדו לא מספיק —
+      // כרטיסייה שתקופתה הסתיימה נשארת active בטבלה), והוא לא כולל את
+      // כתובת החיוב של המפרסם.
       const { data, error } = await sb
-        .from('ad_placements')
-        .select('id, advertiser_name, business_name, advertiser_type, target_region, creative_url, click_url, starts_at, ends_at')
-        .eq('placement_type', 'professional_card')
-        .eq('status', 'active')
+        .from('professional_cards_public')
+        .select('id, slug, advertiser_name, business_name, advertiser_type, target_region, creative_url, click_url')
         .limit(50);
-      // status לבדו לא מספיק: כרטיסייה שתקופת הפרסום שלה הסתיימה נשארת
-      // active בטבלה, ובלי הסינון הזה היא המשיכה להופיע באתר.
-      const today = new Date().toISOString().slice(0, 10);
-      const live = (data || []).filter(p => isPlacementLive(p, today));
+      const live = data || [];
       if (!error && live.length > 0) pros = rotateProfessionalsFairly(live).slice(0, 10);
     }
   } catch(e){ console.warn('טעינת בעלי מקצוע נכשלה, מציג ברירת מחדל:', e); }
@@ -3229,10 +3224,19 @@ function isPlacementLive(p, today){
   pros.forEach(p=>{
     const name = p.advertiser_name || 'בעל/ת מקצוע';
     const initials = name.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('');
-    const link = safeExternalUrl(p.click_url);
-    const card = document.createElement(link ? 'a' : 'div');
+    // הכרטיסייה מובילה עכשיו פנימה, לעמוד הפרופיל — שם יושבים התיאור,
+    // השירותים, הגלריה, הווידאו וכפתור הוואטסאפ. האתר החיצוני של בעל/ת
+    // המקצוע הוא כפתור *בתוך* העמוד; קודם הוא היה היעד של הכרטיסייה,
+    // והלחיצה הוציאה את הגולש מהאתר מיד. כרטיסייה בלי עמוד (אין slug ואין
+    // מזהה) נשארת אריח לא-לחיץ ולא קישור לשום מקום.
+    const profileKey = p.slug || p.id;
+    const card = document.createElement(profileKey ? 'a' : 'div');
     card.className = 'pro-card';
-    if (link){ card.href = link; card.target = '_blank'; card.rel = 'noopener'; card.style.textDecoration = 'none'; card.style.color = 'inherit'; }
+    if (profileKey){
+      card.href = 'professional.html?slug=' + encodeURIComponent(profileKey);
+      card.style.textDecoration = 'none';
+      card.style.color = 'inherit';
+    }
     // אות ההתחלה נשארת ב-DOM גם כשיש תמונה ופשוט מכוסה על ידה; אם קובץ
     // התמונה נשבר ה-img מסיר את עצמו והאריח חוזר לאות על הגרדיאנט
     // במקום לאייקון תמונה שבורה — בדיוק כמו באריח המתווך/ת.

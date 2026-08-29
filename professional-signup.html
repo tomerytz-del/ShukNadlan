@@ -39,7 +39,6 @@
   .manage-title{font-weight:800;font-size:.86rem;color:var(--blue-dark);margin:0 0 4px}
   .manage-note{font-size:.74rem;color:var(--ink-soft);margin:0 0 10px}
   .manage-box input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:9px 10px;font-size:.76rem;background:#fff;text-align:left;direction:ltr}
-  .manage-open{display:block;font-size:.8rem;font-weight:700;color:var(--blue);margin-top:10px;text-decoration:none}
   .back-link{display:block;text-align:center;font-size:.8rem;color:var(--blue);margin-top:16px;text-decoration:none}
 </style>
 </head>
@@ -68,10 +67,12 @@
       </select>
     </div>
     <div class="field"><label>אימייל ליצירת קשר</label><input type="email" id="advEmail" required></div>
-    <!-- התמונה ממלאת את כל הכרטיסייה בדף הבית; בלעדיה מוצג אריח צבעוני
-         עם ראשי התיבות של השם. -->
-    <div class="field"><label>קישור לתמונת פרופיל (לא חובה)</label><input type="url" id="advPhoto" placeholder="https://"></div>
     <div class="field"><label>קישור לאתר / פרופיל (לא חובה)</label><input type="url" id="advUrl" placeholder="https://"></div>
+
+    <!-- התמונות, התיאור, השירותים, הגלריה והטלפון לוואטסאפ נכנסים במסך
+         העריכה שנפתח מיד אחרי ההרשמה — שם אפשר להעלות קבצים מהטלפון
+         במקום להדביק כתובות, ולכן אין להם שדה כאן. -->
+    <p class="note" style="margin-top:14px;margin-bottom:0">מיד אחרי ההרשמה ייפתח מסך שבו תעלו תמונות, תכתבו על עצמכם ותוסיפו טלפון לוואטסאפ.</p>
 
     <button type="button" class="btn" id="submitBtn">הרשמה — ₪350/חודש</button>
     <div id="feedback"></div>
@@ -82,20 +83,20 @@
   <div id="stateDone">
     <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a>
     <h1>נרשמת בהצלחה!</h1>
-    <p class="sub">הכרטיסייה שלך פעילה כעת בדף הבית של שוק נדל״ן</p>
+    <p class="sub">הכרטיסייה שלך כבר בדף הבית. נשאר להשלים את העמוד שלך — תמונות, תיאור וטלפון לוואטסאפ.</p>
 
     <!-- קישור העריכה מוחזר פעם אחת בלבד, בתשובה להרשמה. אין לבעלי מקצוע
          חשבון באתר, ולכן הקישור הזה *הוא* הדרך לחזור ולערוך — ומכאן
          הבליטות של הבלוק ושל כפתור ההעתקה. -->
     <div class="manage-box" id="manageBox" hidden>
-      <p class="manage-title">קישור לעריכת הכרטיסייה</p>
-      <p class="manage-note">זו הדרך היחידה לחזור ולערוך את הכרטיסייה — שמרו אותו במועדפים.</p>
+      <p class="manage-title">הקישור לעמוד העריכה שלך</p>
+      <p class="manage-note">זו הדרך היחידה לחזור ולערוך את הפרופיל — שמרו אותו במועדפים.</p>
       <input type="text" id="manageLink" readonly>
       <button type="button" class="btn btn-ghost" id="copyLinkBtn">העתקת הקישור</button>
-      <a href="#" class="manage-open" id="manageOpen">פתיחת מסך העריכה ←</a>
     </div>
 
-    <a href="index.html" class="btn" style="display:flex;text-decoration:none;margin-top:16px">צפייה בדף הבית</a>
+    <a href="#" class="btn" id="manageOpen" style="display:flex;text-decoration:none;margin-top:16px">להשלמת העמוד שלי ←</a>
+    <a href="index.html" class="back-link">צפייה בדף הבית</a>
   </div>
 </div>
 
@@ -109,7 +110,6 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
   const business_name = document.getElementById('advBusiness').value.trim();
   const advertiser_type = document.getElementById('advType').value;
   const contact_email = document.getElementById('advEmail').value.trim();
-  const creative_url = document.getElementById('advPhoto').value.trim();
   const click_url = document.getElementById('advUrl').value.trim();
   const feedback = document.getElementById('feedback');
   const btn = document.getElementById('submitBtn');
@@ -130,7 +130,6 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
         business_name: business_name || null,
         advertiser_type,
         contact_email,
-        creative_url: creative_url || null,
         click_url: click_url || null,
         target_region: 'עפולה',
       }),
@@ -142,12 +141,16 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
       btn.disabled = false; btn.textContent = 'הרשמה — ₪350/חודש';
       return;
     }
+    // בלי אסימון אין מסך עריכה להוביל אליו, ולכן הכפתור והתיבה יורדים
+    // במקום להצביע על "#" — ההרשמה עצמה הצליחה בכל מקרה.
     if (data.manage_token){
       const manageUrl = new URL('professional-manage.html', location.href);
       manageUrl.searchParams.set('token', data.manage_token);
       document.getElementById('manageLink').value = manageUrl.href;
       document.getElementById('manageOpen').href = manageUrl.href;
       document.getElementById('manageBox').hidden = false;
+    } else {
+      document.getElementById('manageOpen').hidden = true;
     }
     document.getElementById('stateForm').style.display = 'none';
     document.getElementById('stateDone').style.display = 'block';

@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>בעל מקצוע | שוק נדל״ן</title>
+<meta name="description" id="metaDescription" content="בעלי מקצוע נבחרים בתחום הנדל״ן באזור עפולה והעמק — שוק נדל״ן.">
+<meta property="og:type" content="profile">
+<meta property="og:title" id="ogTitle" content="בעל מקצוע | שוק נדל״ן">
+<meta property="og:description" id="ogDescription" content="בעלי מקצוע נבחרים בתחום הנדל״ן באזור עפולה והעמק.">
+<meta property="og:image" id="ogImage" content="">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
+    --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
+    --gold:#8B2332; --gold-dark:#6B1A26; --gold-tint:#F1DFE1; --wa:#1F8F5F;
+    --radius-sm:6px; --radius-md:12px; --radius-lg:20px;
+    --shadow-sm:0 2px 8px rgba(15,52,53,.08); --maxw:900px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55}
+  h1,h2,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark);margin:0}
+  a{color:inherit;text-decoration:none}
+  button{font-family:inherit;cursor:pointer;border:none;background:none}
+  img{max-width:100%}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
+  .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line)}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;border-radius:999px;font-weight:700;font-size:.9rem}
+  .btn svg{width:19px;height:19px;flex:none}
+  .btn-wa{background:var(--wa);color:#fff}
+  .btn-teal{background:var(--teal);color:#fff}
+  .btn-ghost{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
+  :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+
+  header.site{background:var(--paper-raised);border-bottom:1px solid var(--line);padding:14px 0}
+  .header-inner{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .logo{display:flex;align-items:center;gap:10px;min-width:0}
+  .logo-img{height:46px;width:46px;display:block;flex:0 0 auto;border-radius:50%}
+  .logo-word{
+    font-family:'Rubik','Heebo',sans-serif;font-weight:500;color:var(--teal-dark);
+    font-size:.82rem;line-height:1.3;letter-spacing:-.012em;min-width:0;text-align:center;
+  }
+  .logo-word span{color:var(--gold-dark);font-weight:700}
+  @media(min-width:900px){
+    .logo-img{height:54px;width:54px}
+    .logo-word{font-size:.95rem;white-space:nowrap}
+  }
+  .back-link{font-size:.85rem;font-weight:700;color:var(--teal);white-space:nowrap}
+
+  #loadingState,#notFoundState{padding:60px 18px;text-align:center;color:var(--ink-soft)}
+  #notFoundState{display:none}
+  #proContent{display:none;padding-bottom:40px}
+
+  /* ====== ראש הפרופיל ======
+     תמונת הנושא מוצגת רק כשהועלתה אחת — אחרת הרצועה לא קיימת בכלל, ולא
+     נשאר במקומה מלבן ריק. */
+  .profile-cover{
+    height:170px;border-radius:0 0 var(--radius-lg) var(--radius-lg);background-size:cover;
+    background-position:center;border:1px solid var(--line);border-top:none;display:none;
+  }
+  @media(min-width:760px){.profile-cover{height:240px}}
+  .profile-strip{display:flex;align-items:center;gap:16px;padding:26px 0 18px}
+  /* עם תמונת נושא רק *האווטאר* נדחף למעלה ומכסה את קצה התמונה; הטקסט
+     נשאר מתחתיה. כשכל הרצועה נדחפה למעלה השם נחת על התמונה עצמה, ובתמונה
+     כהה הוא פשוט לא היה קריא. */
+  .profile-strip.has-cover{padding-top:14px;align-items:flex-end}
+  .profile-strip.has-cover .profile-avatar{margin-top:-58px}
+  .profile-avatar{
+    width:96px;height:96px;border-radius:50%;flex-shrink:0;overflow:hidden;
+    border:3px solid var(--paper);display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(155deg,var(--gold),var(--teal) 65%);
+    color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:2rem;
+  }
+  .profile-avatar img{width:100%;height:100%;object-fit:cover;object-position:center 22%;display:block}
+  .profile-strip.has-cover .profile-text{padding-bottom:6px}
+  .profile-name{font-size:1.4rem;font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark)}
+  .profile-business{font-size:.95rem;color:var(--gold-dark);font-weight:700;margin-top:2px}
+  .profile-role{font-size:.85rem;color:var(--ink-soft);margin-top:3px}
+
+  /* שורת האסמכתאות — רישיון, ותק ואזורי פעילות. כל תגית מוצגת רק אם יש
+     לה תוכן, ואם אין אף אחת השורה כולה יורדת. */
+  .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
+  .chip{
+    background:var(--teal-tint);color:var(--teal-dark);border-radius:999px;
+    padding:5px 12px;font-size:.76rem;font-weight:700;
+  }
+  .chip.soft{background:#fff;border:1px solid var(--line);color:var(--ink-soft);font-weight:600}
+
+  .headline{
+    font-size:1rem;color:var(--ink);margin:14px 0 0;font-weight:600;
+    max-width:60ch;text-wrap:balance;
+  }
+
+  /* ====== יצירת קשר ======
+     וואטסאפ הוא הכפתור הראשי — זו הדרך שבה אנשים באמת פונים לבעל מקצוע.
+     כפתור שאין לו נתונים (אין טלפון, אין אתר) לא מוצג אפור אלא לא מוצג. */
+  .contact-row{display:flex;flex-wrap:wrap;gap:9px;margin:18px 0 0}
+  .contact-row .btn{flex:1 1 auto;min-width:140px}
+  /* בטלפון ארבעה כפתורים ברוחב מלא דוחפים את התוכן הרבה מתחת לקיפול.
+     וואטסאפ נשאר שורה שלמה כי הוא הפעולה הראשית, והשאר מסתדרים בזוגות. */
+  @media(max-width:479px){
+    .contact-row .btn{flex:1 1 calc(50% - 5px);min-width:0}
+    .contact-row .btn-wa{flex:1 1 100%}
+  }
+
+  .empty-note{
+    margin:26px 0 0;padding:16px 18px;font-size:.88rem;color:var(--ink-soft);
+    background:var(--paper-raised);border:1px dashed var(--line);border-radius:var(--radius-md);text-align:center;
+  }
+
+  section.block{margin-top:30px}
+  section.block h2{font-size:1.1rem;margin-bottom:12px}
+  .prose{
+    font-size:.94rem;color:var(--ink);white-space:pre-wrap;max-width:66ch;
+    background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-md);padding:16px 18px;
+  }
+
+  .service-list{display:flex;flex-wrap:wrap;gap:8px;list-style:none;padding:0;margin:0}
+  .service-list li{
+    background:#fff;border:1px solid var(--line);border-radius:var(--radius-sm);
+    padding:9px 13px;font-size:.86rem;font-weight:600;
+    display:flex;align-items:center;gap:8px;
+  }
+  .service-list li::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--gold);flex:none}
+
+  /* ====== גלריה ======
+     ריבועים אחידים: תמונות באורכים שונים היו הופכות את הרשת למדרגות.
+     הלחיצה פותחת את התמונה במלואה, ושם היא כבר לא נחתכת. */
+  .gallery{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}
+  @media(min-width:560px){.gallery{grid-template-columns:repeat(3,1fr)}}
+  .gallery button{
+    position:relative;padding:0;aspect-ratio:1;overflow:hidden;border-radius:var(--radius-md);
+    border:1px solid var(--line);background:var(--teal-tint);display:block;width:100%;
+  }
+  .gallery img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .3s ease}
+  .gallery button:hover img{transform:scale(1.05)}
+
+  .lightbox{
+    position:fixed;inset:0;z-index:200;background:rgba(6,20,34,.94);
+    display:none;align-items:center;justify-content:center;padding:20px;
+  }
+  .lightbox[data-open]{display:flex}
+  .lightbox img{max-width:100%;max-height:86vh;object-fit:contain;border-radius:var(--radius-md)}
+  .lightbox .lb-close,.lightbox .lb-nav{
+    position:absolute;color:#fff;font-size:1.7rem;line-height:1;
+    width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.14);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .lightbox .lb-close{top:16px;left:16px}
+  .lightbox .lb-nav.prev{right:14px;top:50%;transform:translateY(-50%)}
+  .lightbox .lb-nav.next{left:14px;top:50%;transform:translateY(-50%)}
+  .lightbox .lb-count{position:absolute;bottom:18px;color:rgba(255,255,255,.8);font-size:.82rem}
+
+  /* ====== וידאו ======
+     יחס 16:9 קבוע כדי שהעמוד לא יקפוץ כשה-iframe נטען. */
+  .video-frame{
+    position:relative;aspect-ratio:16/9;border-radius:var(--radius-md);overflow:hidden;
+    border:1px solid var(--line);background:#000;
+  }
+  .video-frame iframe,.video-frame video{position:absolute;inset:0;width:100%;height:100%;border:0;display:block}
+
+  /* ====== סרגל תחתון במובייל ======
+     במסך טלפון כפתורי יצירת הקשר נעלמים מעל הקיפול ברגע שגוללים לתיאור,
+     ולכן הם חוזרים כסרגל צף. */
+  .sticky-bar{
+    position:fixed;inset-inline:0;bottom:0;z-index:120;display:none;gap:8px;padding:10px 14px;
+    background:var(--paper-raised);border-top:1px solid var(--line);box-shadow:0 -6px 20px rgba(6,20,34,.12);
+  }
+  .sticky-bar .btn{flex:1}
+  body.has-sticky-bar #proContent{padding-bottom:86px}
+  @media(max-width:759px){body.has-sticky-bar .sticky-bar{display:flex}}
+
+  .site-note{
+    margin-top:28px;font-size:.74rem;color:var(--ink-soft);text-align:center;
+    border-top:1px solid var(--line);padding-top:14px;
+  }
+  .site-note a{color:var(--teal);font-weight:700}
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap header-inner">
+    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+      <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256">
+      <span class="logo-word">מרקטפלייס הנדל״ן של <span>עפולה והסביבה</span></span>
+    </a>
+    <a href="index.html#pros" class="back-link">← כל בעלי המקצוע</a>
+  </div>
+</header>
+
+<div id="loadingState">טוען פרופיל…</div>
+
+<div id="notFoundState" class="wrap">
+  <h1 style="font-size:1.3rem">הפרופיל לא נמצא</h1>
+  <p style="font-size:.9rem;color:var(--ink-soft);max-width:46ch;margin:10px auto 0">
+    ייתכן שתקופת הפרסום של בעל/ת המקצוע הסתיימה, או שהקישור שגוי.
+  </p>
+  <a href="index.html#pros" class="btn btn-teal" style="margin-top:18px">לכל בעלי המקצוע</a>
+</div>
+
+<div id="proContent">
+  <div class="wrap">
+    <div class="profile-cover" id="profileCover"></div>
+    <div class="profile-strip" id="profileStrip">
+      <div class="profile-avatar" id="profileAvatar">·</div>
+      <div class="profile-text">
+        <h1 class="profile-name" id="profileName">—</h1>
+        <div class="profile-business" id="profileBusiness"></div>
+        <div class="profile-role" id="profileRole"></div>
+      </div>
+    </div>
+
+    <div class="chips" id="profileChips"></div>
+    <p class="headline" id="profileHeadline" hidden></p>
+
+    <div class="contact-row" id="contactRow"></div>
+
+    <!-- פרופיל שנרשם ועדיין לא מולא: אומרים את זה במפורש במקום להשאיר
+         עמוד ריק שנראה שבור. -->
+    <p class="empty-note" id="emptyNote" hidden>בעל/ת המקצוע עדיין לא השלים/ה את הפרופיל כאן.</p>
+
+    <section class="block" id="aboutBlock" hidden>
+      <h2>קצת עליי</h2>
+      <div class="prose" id="profileDescription"></div>
+    </section>
+
+    <section class="block" id="servicesBlock" hidden>
+      <h2>השירותים שאני נותן/ת</h2>
+      <ul class="service-list" id="serviceList"></ul>
+    </section>
+
+    <section class="block" id="videoBlock" hidden>
+      <h2>וידאו</h2>
+      <div class="video-frame" id="videoFrame"></div>
+    </section>
+
+    <section class="block" id="galleryBlock" hidden>
+      <h2>גלריה</h2>
+      <div class="gallery" id="gallery"></div>
+    </section>
+
+    <p class="site-note">
+      הפרופיל הזה הוא פרסום בתשלום בשוק הנדל״ן של עפולה והסביבה.
+      <a href="professional-signup.html">גם אתם בעלי מקצוע? הצטרפו</a>
+    </p>
+  </div>
+</div>
+
+<div class="sticky-bar" id="stickyBar"></div>
+
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="תצוגת תמונה">
+  <button type="button" class="lb-close" id="lbClose" aria-label="סגירה">×</button>
+  <button type="button" class="lb-nav prev" id="lbPrev" aria-label="התמונה הקודמת">›</button>
+  <img id="lbImage" alt="">
+  <button type="button" class="lb-nav next" id="lbNext" aria-label="התמונה הבאה">‹</button>
+  <span class="lb-count" id="lbCount"></span>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+
+const TYPE_LABELS = {
+  mortgage_advisor:'יועץ/ת משכנתאות', appraiser:'שמאי/ת מקרקעין', architect:'אדריכל/ית',
+  interior_designer:'מעצב/ת פנים', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל/ת מקצוע',
+};
+
+const el = id => document.getElementById(id);
+function escapeHtml(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
+}
+
+/* כתובות נשמרות מסוננות לפרוטוקול בפונקציית הקצה, אבל הן עדיין נכנסות כאן
+   ל-href ול-src — ובדיקה שנייה בצד שהמזריק לא עולה כלום. */
+function safeUrl(u){
+  if (!u) return '';
+  try{
+    const url = new URL(String(u), location.href);
+    return /^https?:$/.test(url.protocol) ? url.href : '';
+  } catch(e){ return ''; }
+}
+
+const ICONS = {
+  wa:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.9-4.45 9.9-9.91C21.95 6.45 17.5 2 12.04 2Zm5.8 14.1c-.24.68-1.2 1.26-1.96 1.42-.52.11-1.2.2-3.5-.75-2.94-1.22-4.83-4.2-4.98-4.4-.14-.2-1.19-1.58-1.19-3.02s.76-2.14 1.03-2.44c.27-.3.58-.37.78-.37.19 0 .39 0 .56.01.18.01.42-.07.66.5.24.58.82 2.02.9 2.17.07.15.12.32.02.52-.1.2-.15.32-.29.5-.15.17-.31.38-.44.51-.15.15-.3.31-.13.6.17.3.76 1.25 1.63 2.02 1.12 1 2.07 1.31 2.37 1.46.3.15.47.13.65-.08.17-.2.75-.87.95-1.17.2-.3.39-.25.66-.15.27.1 1.7.8 1.99.95.29.15.48.22.55.34.07.13.07.72-.17 1.4Z"/></svg>',
+  phone:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.1.4 2.3.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1C10.4 21 3 13.6 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.2.2 2.4.6 3.6.1.4 0 .7-.2 1l-2.3 2.2Z"/></svg>',
+  site:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20Zm6.9 9h-3a15.6 15.6 0 0 0-1.2-5.3A8 8 0 0 1 18.9 11ZM12 4.1c.8 1.1 1.5 3 1.7 6.9h-3.4c.2-3.9.9-5.8 1.7-6.9ZM5.1 11a8 8 0 0 1 4.2-5.3A15.6 15.6 0 0 0 8.1 11h-3Zm0 2h3a15.6 15.6 0 0 0 1.2 5.3A8 8 0 0 1 5.1 13Zm6.9 6.9c-.8-1.1-1.5-3-1.7-6.9h3.4c-.2 3.9-.9 5.8-1.7 6.9Zm2.7-.6a15.6 15.6 0 0 0 1.2-5.3h3a8 8 0 0 1-4.2 5.3Z"/></svg>',
+  mail:'<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2Zm8 7L4.4 6.3 4 6v.6l8 5 8-5V6l-.4.3L12 11Z"/></svg>',
+};
+
+/* ---------- ראש הפרופיל ---------- */
+function renderHeader(p){
+  const name = p.advertiser_name || 'בעל/ת מקצוע';
+  const role = TYPE_LABELS[p.advertiser_type] || 'בעל/ת מקצוע';
+
+  const cover = safeUrl(p.cover_url);
+  if (cover){
+    el('profileCover').style.backgroundImage = `url("${cover.replace(/"/g, '%22')}")`;
+    el('profileCover').style.display = 'block';
+    el('profileStrip').classList.add('has-cover');
+  }
+
+  const avatar = el('profileAvatar');
+  const photo = safeUrl(p.creative_url);
+  if (photo){
+    const img = document.createElement('img');
+    img.src = photo;
+    img.alt = name;
+    // תמונה שבורה חוזרת לאות ההתחלה על הגרדיאנט, ולא לאייקון תמונה שבורה
+    img.onerror = ()=>{ img.remove(); avatar.textContent = name.trim()[0] || '?'; };
+    avatar.textContent = '';
+    avatar.appendChild(img);
+  } else {
+    avatar.textContent = name.trim()[0] || '?';
+  }
+
+  el('profileName').textContent = name;
+  el('profileBusiness').textContent = p.business_name || '';
+  el('profileRole').textContent = [role, p.target_region].filter(Boolean).join(' · ');
+
+  const chips = [];
+  if (p.license_number) chips.push({ text:'רישיון ' + p.license_number });
+  if (p.years_experience) chips.push({ text:p.years_experience + ' שנות ניסיון' });
+  (p.service_areas || []).forEach(area => chips.push({ text:area, soft:true }));
+  el('profileChips').innerHTML = chips
+    .map(c => `<span class="chip${c.soft ? ' soft' : ''}">${escapeHtml(c.text)}</span>`).join('');
+
+  if (p.headline){
+    el('profileHeadline').textContent = p.headline;
+    el('profileHeadline').hidden = false;
+  }
+}
+
+/* ---------- יצירת קשר ----------
+   ‏phone_e164 נשמר כספרות בלבד בפורמט 972521112222 — בדיוק מה שגם wa.me
+   וגם tel: מצפים לו, ולכן אין כאן נרמול. ההודעה נפתחת מוכנה עם שם בעל/ת
+   המקצוע וקישור לעמוד, כדי שיידע/תדע מאיפה הפנייה הגיעה.               */
+function renderContact(p){
+  const name = p.advertiser_name || '';
+  const row = el('contactRow');
+  const sticky = el('stickyBar');
+  const buttons = [];
+
+  if (p.phone_e164){
+    const text = [
+      'היי' + (name ? ' ' + name : '') + ',',
+      'הגעתי אליך דרך שוק הנדל״ן של עפולה והסביבה ואשמח לשמוע פרטים.',
+      location.href,
+    ].join('\n');
+    const waHref = 'https://wa.me/' + p.phone_e164 + '?text=' + encodeURIComponent(text);
+    buttons.push({ href:waHref, cls:'btn-wa', icon:'wa', label:'וואטסאפ', aria:'שליחת הודעת וואטסאפ ל' + (name || 'בעל/ת המקצוע'), external:true, sticky:true });
+    buttons.push({ href:'tel:+' + p.phone_e164, cls:'btn-ghost', icon:'phone', label:'התקשרו', sticky:true });
+  }
+  const site = safeUrl(p.click_url);
+  if (site) buttons.push({ href:site, cls:'btn-ghost', icon:'site', label:'לאתר', external:true });
+  if (p.public_email) buttons.push({ href:'mailto:' + p.public_email, cls:'btn-ghost', icon:'mail', label:'אימייל' });
+
+  const html = b => `<a class="btn ${b.cls}" href="${escapeHtml(b.href)}"${b.external ? ' target="_blank" rel="noopener"' : ''}` +
+    `${b.aria ? ` aria-label="${escapeHtml(b.aria)}"` : ''}>${ICONS[b.icon]}<span>${escapeHtml(b.label)}</span></a>`;
+
+  row.innerHTML = buttons.map(html).join('');
+  const stickyButtons = buttons.filter(b => b.sticky);
+  if (stickyButtons.length){
+    sticky.innerHTML = stickyButtons.map(html).join('');
+    document.body.classList.add('has-sticky-bar');
+  }
+}
+
+/* ---------- תוכן ---------- */
+function renderBody(p){
+  if (p.description){
+    el('profileDescription').textContent = p.description;
+    el('aboutBlock').hidden = false;
+  }
+
+  const services = (p.services || []).filter(Boolean);
+  if (services.length){
+    el('serviceList').innerHTML = services.map(s => `<li>${escapeHtml(s)}</li>`).join('');
+    el('servicesBlock').hidden = false;
+  }
+
+  renderVideo(p.video_url);
+  renderGallery(p.gallery_urls || [], p.advertiser_name || '');
+
+  // אם אחרי כל זה לא נפתחה אף סקציה, העמוד ריק — ואז עדיף להגיד את זה
+  // מאשר להשאיר שם וכותרת שמרחפים באוויר.
+  const hasContent = [...document.querySelectorAll('section.block')].some(s => !s.hidden);
+  el('emptyNote').hidden = hasContent || !!p.headline;
+}
+
+/* יוטיוב ווימאו מוטמעים כ-iframe; קובץ וידאו ישיר מקבל נגן. כל מה שאינו
+   אחד מאלה לא מוצג בכלל — iframe לכתובת שרירותית הוא בקשה לצרות. */
+function embedUrl(raw){
+  const url = safeUrl(raw);
+  if (!url) return null;
+  let u;
+  try{ u = new URL(url); } catch(e){ return null; }
+  const host = u.hostname.replace(/^www\./, '');
+
+  if (host === 'youtu.be'){
+    const id = u.pathname.slice(1);
+    return id ? { type:'iframe', src:'https://www.youtube.com/embed/' + encodeURIComponent(id) } : null;
+  }
+  if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com'){
+    const id = u.searchParams.get('v') || u.pathname.match(/\/(?:embed|shorts|v)\/([^/?#]+)/)?.[1];
+    return id ? { type:'iframe', src:'https://www.youtube.com/embed/' + encodeURIComponent(id) } : null;
+  }
+  if (host === 'vimeo.com' || host === 'player.vimeo.com'){
+    const id = u.pathname.match(/(\d+)/)?.[1];
+    return id ? { type:'iframe', src:'https://player.vimeo.com/video/' + encodeURIComponent(id) } : null;
+  }
+  if (/\.(mp4|webm|ogg)$/i.test(u.pathname)) return { type:'video', src:url };
+  return null;
+}
+
+function renderVideo(raw){
+  const embed = embedUrl(raw);
+  if (!embed) return;
+  const frame = el('videoFrame');
+  if (embed.type === 'iframe'){
+    frame.innerHTML = `<iframe src="${escapeHtml(embed.src)}" title="סרטון הצגה" loading="lazy" ` +
+      `allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture" allowfullscreen></iframe>`;
+  } else {
+    frame.innerHTML = `<video src="${escapeHtml(embed.src)}" controls preload="metadata" playsinline></video>`;
+  }
+  el('videoBlock').hidden = false;
+}
+
+let galleryImages = [];
+let lightboxIndex = 0;
+
+function renderGallery(urls, name){
+  galleryImages = urls.map(safeUrl).filter(Boolean);
+  if (!galleryImages.length) return;
+  el('gallery').innerHTML = galleryImages.map((src, i) =>
+    `<button type="button" data-index="${i}" aria-label="הגדלת תמונה ${i + 1}">` +
+    `<img src="${escapeHtml(src)}" alt="${escapeHtml(name)} — תמונה ${i + 1}" loading="lazy"></button>`
+  ).join('');
+  el('galleryBlock').hidden = false;
+
+  el('gallery').addEventListener('click', e => {
+    const btn = e.target.closest('button[data-index]');
+    if (btn) openLightbox(Number(btn.dataset.index));
+  });
+}
+
+function openLightbox(i){
+  lightboxIndex = i;
+  el('lbImage').src = galleryImages[i];
+  el('lbCount').textContent = (i + 1) + ' / ' + galleryImages.length;
+  el('lightbox').setAttribute('data-open', '');
+  el('lbClose').focus();
+}
+function closeLightbox(){ el('lightbox').removeAttribute('data-open'); }
+function stepLightbox(delta){
+  if (!galleryImages.length) return;
+  openLightbox((lightboxIndex + delta + galleryImages.length) % galleryImages.length);
+}
+
+el('lbClose').addEventListener('click', closeLightbox);
+el('lbPrev').addEventListener('click', ()=> stepLightbox(-1));
+el('lbNext').addEventListener('click', ()=> stepLightbox(1));
+el('lightbox').addEventListener('click', e => { if (e.target === el('lightbox')) closeLightbox(); });
+document.addEventListener('keydown', e => {
+  if (!el('lightbox').hasAttribute('data-open')) return;
+  if (e.key === 'Escape') closeLightbox();
+  // בממשק RTL החץ ימינה הוא "הקודם" — אותו כיוון שבו הגלריה נקראת
+  if (e.key === 'ArrowRight') stepLightbox(-1);
+  if (e.key === 'ArrowLeft') stepLightbox(1);
+});
+
+/* ---------- מטא ונתונים מובנים ----------
+   שני אלה הם מה שהופך את העמוד לתוצאה בגוגל ולתצוגה מסודרת בוואטסאפ, וזה
+   חלק מהמוצר שבעל/ת המקצוע קונה. */
+function renderMeta(p){
+  const name = p.advertiser_name || 'בעל מקצוע';
+  const role = TYPE_LABELS[p.advertiser_type] || 'בעל/ת מקצוע';
+  const title = [name, p.business_name].filter(Boolean).join(' · ') + ' | שוק נדל״ן';
+  const description = (p.headline || p.description || `${role} באזור ${p.target_region || 'עפולה והעמק'}.`)
+    .replace(/\s+/g, ' ').slice(0, 155);
+
+  document.title = title;
+  el('metaDescription').content = description;
+  el('ogTitle').content = title;
+  el('ogDescription').content = description;
+  const image = safeUrl(p.cover_url) || safeUrl(p.creative_url);
+  if (image) el('ogImage').content = image;
+
+  const ld = {
+    '@context':'https://schema.org',
+    '@type':'ProfessionalService',
+    name: p.business_name || name,
+    description,
+    areaServed: (p.service_areas && p.service_areas.length) ? p.service_areas : (p.target_region || undefined),
+    url: location.href,
+  };
+  if (image) ld.image = image;
+  if (p.phone_e164) ld.telephone = '+' + p.phone_e164;
+  if (p.public_email) ld.email = p.public_email;
+  if (p.click_url) ld.sameAs = [p.click_url];
+
+  const script = document.createElement('script');
+  script.type = 'application/ld+json';
+  script.textContent = JSON.stringify(ld);
+  document.head.appendChild(script);
+}
+
+/* ---------- טעינה ----------
+   הקריאה היא ל-view professional_cards_public, שכבר מסנן לכרטיסיות פעילות
+   שבתוך חלון הפרסום ולא כולל את כתובת החיוב. כרטיסייה שפג תוקפה פשוט לא
+   נמצאת — וזה בדיוק המצב שהעמוד צריך להציג כ"לא נמצא".               */
+(async function init(){
+  const params = new URLSearchParams(location.search);
+  const slug = params.get('slug') || params.get('id') || '';
+  if (!slug || !window.supabase){
+    el('loadingState').style.display = 'none';
+    el('notFoundState').style.display = 'block';
+    return;
+  }
+
+  try{
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
+    const { data, error } = await sb
+      .from('professional_cards_public')
+      .select('*')
+      // ‏slug יכול להיות גם ה-id הגולמי — קישורים ישנים ופרופיל שעוד לא
+      // נשמר פעם אחת (ולכן אין לו slug) עדיין מגיעים ליעד
+      .eq(isUuid ? 'id' : 'slug', slug)
+      .maybeSingle();
+    if (error || !data) throw error || new Error('not found');
+
+    renderMeta(data);
+    renderHeader(data);
+    renderContact(data);
+    renderBody(data);
+
+    el('loadingState').style.display = 'none';
+    el('proContent').style.display = 'block';
+  } catch(e){
+    console.warn('טעינת פרופיל בעל מקצוע נכשלה:', e);
+    el('loadingState').style.display = 'none';
+    el('notFoundState').style.display = 'block';
+  }
+})();
+</script>
+</body>
+</html>
