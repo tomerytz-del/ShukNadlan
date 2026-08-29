@@ -340,7 +340,9 @@
     display:grid;place-items:center;font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.35rem;
     border:2px solid rgba(255,255,255,.55);
   }
-  .agent-photo img{width:100%;height:100%;object-fit:cover}
+  /* ‏--photo-pos = נקודת המיקוד שהסוכן/ת סימן/ה ב-CRM, כדי שהעיגול הקטן
+     ייחתך סביב הפנים ולא סביב מרכז הקובץ */
+  .agent-photo img{width:100%;height:100%;object-fit:cover;object-position:var(--photo-pos,50% 25%)}
   .agent-name{font-weight:800;font-size:1.02rem;line-height:1.25}
   .agent-cred{
     display:inline-flex;align-items:center;gap:5px;margin-top:4px;font-size:.72rem;font-weight:700;
@@ -1228,7 +1230,7 @@ async function loadProperty(){
     // טופס אנונימי לפנייה לאדם ספציפי.
     if (data.agent_id){
       const { data: agentRow } = await sb.from('agency_members_public')
-        .select('display_name, slug, phone_e164, photo_url, license_number, has_ethics_badge').eq('id', data.agent_id).maybeSingle();
+        .select('display_name, slug, phone_e164, photo_url, photo_position, license_number, has_ethics_badge').eq('id', data.agent_id).maybeSingle();
       data.agency_members = agentRow || null;
     }
 
@@ -2045,7 +2047,8 @@ function renderAgentCard(p){
 
   const photoEl = document.getElementById('agentPhoto');
   if (agent?.photo_url){
-    photoEl.innerHTML = `<img src="${escapeAttr(agent.photo_url)}" alt="${escapeAttr(name)}">`;
+    const focus = /^\d{1,3}% \d{1,3}%$/.test(agent.photo_position || '') ? agent.photo_position : '';
+    photoEl.innerHTML = `<img src="${escapeAttr(agent.photo_url)}" alt="${escapeAttr(name)}"${focus ? ` style="--photo-pos:${focus}"` : ''}>`;
   } else {
     photoEl.textContent = (name || '?')[0];
   }

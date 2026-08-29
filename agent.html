@@ -68,19 +68,28 @@
   .hero-top{display:flex;align-items:flex-start;gap:16px}
   @media(max-width:520px){.hero-top{gap:13px}}
 
-  /* התמונה עם תג הזמינות בפינה — מסגרת בצבע המותג כדי שהיא תיקרא כדמות
-     ולא כתמונה בטופס. ה-min-width נותן לתג רוחב לשבת בו מבלי לפרוץ את
-     הכרטיס: התג רחב מהתמונה, וזה העמוד היחיד שבו הוא מופיע. */
+  /* התמונה עם תג הזמינות בפינה. הפריים הוא פורטרט מלבני ללא מסגרת ולא עיגול:
+     עיגול חותך את ארבע הפינות של כל תמונה, וכשהפנים יושבות — כמו ברוב
+     הפורטרטים — בשליש העליון, מה שנחתך הוא המצח והשיער. מלבן בפרופורציה
+     של פורטרט (5:6) מחזיק את אותה תמונה כמעט שלמה, ונקודת המיקוד שהסוכן/ת
+     מסמן/ת ב-CRM (photo_position) קובעת מה נשאר בפריים כשהיחס בכל זאת שונה.
+     ה-min-width נותן לתג הזמינות רוחב לשבת בו מבלי לפרוץ את הכרטיס: התג רחב
+     מהתמונה, וזה העמוד היחיד שבו הוא מופיע. */
   .avatar-wrap{position:relative;flex:0 0 auto;display:flex;justify-content:center;min-width:134px}
   @media(max-width:520px){.avatar-wrap{min-width:106px}}
   .profile-avatar{
-    width:132px;height:132px;border-radius:50%;background:var(--teal);color:#fff;
+    width:132px;height:158px;border-radius:16px;background:var(--teal);color:#fff;
     display:flex;align-items:center;justify-content:center;font-weight:700;
     font-family:'Frank Ruhl Libre',serif;font-size:2.8rem;overflow:hidden;
-    border:3px solid #fff;box-shadow:0 0 0 2px var(--teal),0 8px 22px rgba(18,40,64,.2);
+    box-shadow:0 10px 26px rgba(18,40,64,.18);
   }
-  @media(max-width:520px){.profile-avatar{width:104px;height:104px;font-size:2.2rem}}
-  .profile-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+  @media(max-width:520px){.profile-avatar{width:104px;height:125px;border-radius:14px;font-size:2.2rem}}
+  /* ‏--photo-pos מוזרק מ-JS לפי photo_position של הסוכן/ת; ברירת המחדל
+     מוטה למעלה, כי זה מקומן של פנים בפורטרט. */
+  .profile-avatar img{
+    width:100%;height:100%;display:block;
+    object-fit:cover;object-position:var(--photo-pos,50% 25%);
+  }
   /* תג הזמינות — מוצג רק כשיש טלפון שאפשר באמת להתקשר אליו */
   .avail-tag{
     position:absolute;bottom:-6px;inset-inline-start:50%;transform:translateX(50%);
@@ -517,6 +526,13 @@ function focusInquiryForm(){
   setTimeout(()=> document.getElementById('inqName').focus(), 420);
 }
 
+/* נקודת המיקוד של תמונת הסוכן/ת, כפי שסומנה ב-CRM. הערך נכנס ישירות ל-CSS,
+   ולכן כל מה שאינו בדיוק שני אחוזים מנוקה לברירת המחדל. ברירת המחדל מוטה
+   מעט למעלה: בפורטרט טיפוסי הפנים אינן במרכז הקובץ אלא מעליו. */
+function photoPosition(value){
+  return /^\d{1,3}% \d{1,3}%$/.test(value || '') ? value : '50% 25%';
+}
+
 /* ראש הפרופיל — התמונות והפרטים שהסוכן/ת מעדכן/ת ב-CRM ("עדכון פרטי הסוכן/ת").
    כשאין תמונת נושא הרצועה לא מוצגת בכלל, וכשאין תמונת סוכן/ת נשארת האות הראשונה. */
 function renderProfileHeader(agent){
@@ -532,6 +548,7 @@ function renderProfileHeader(agent){
     const img = document.createElement('img');
     img.src = agent.photo_url;
     img.alt = agent.display_name || '';
+    avatar.style.setProperty('--photo-pos', photoPosition(agent.photo_position));
     avatar.textContent = '';
     avatar.appendChild(img);
   } else {
@@ -576,7 +593,7 @@ async function loadAgentProfile(){
     // הציג "הסוכן לא נמצא" בגלל תגית חסרה. הניסיון השני מוותר על השדות
     // המורחבים בלבד, כך שהפרופיל עצמו עולה גם אז והתגיות פשוט לא מוצגות.
     const CORE_FIELDS = 'id, display_name, bio, photo_url, cover_url, license_number, slug, agency_id, has_ethics_badge, phone_e164';
-    const HIGHLIGHT_FIELDS = ', years_experience, specialties, credentials, service_area';
+    const HIGHLIGHT_FIELDS = ', years_experience, specialties, credentials, service_area, photo_position';
     let { data: agent, error } = await byKey(sb.from('agency_members_public').select(CORE_FIELDS + HIGHLIGHT_FIELDS)).maybeSingle();
     if (error){
       console.warn('טעינת שדות הפרופיל המורחבים נכשלה, נטען פרופיל בסיסי:', error);
