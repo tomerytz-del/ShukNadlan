@@ -105,8 +105,11 @@
      shorthand מאוחר יותר עם אותה ספציפיות היה מאפס את ‎padding:0 18px‎ שלו.
      בלי המרווח הצדדי הזה מסלולי הגלילה עם ‎margin-inline:-18px‎ (שנועדו
      לפרוץ בדיוק עד קצה המסך) חרגו 18px מעבר לו והדף נגלל הצידה במובייל.
-     אותו כלל בדיוק חל על ‎.header-inner‎, ‎.ad-slot‎ ו-‎.ad-row‎ למטה. */
-  .section{padding-block:44px}
+     אותו כלל בדיוק חל על ‎.header-inner‎, ‎.ad-slot‎ ו-‎.ad-row‎ למטה.
+     הריפוד הוא 18px ולא 44px: שתי סקציות סמוכות מצטברות תמיד לשני ריפודים,
+     כך שכל מעבר בין חלקי העמוד יוצא ~36px — אותו מרווח הדוק שכבר נקבע
+     ידנית בין בעלי המקצוע לכתבות, ועכשיו הוא ברירת המחדל לכל העמוד. */
+  .section{padding-block:18px}
   /* כותרות הסקציות ממורכזות בכל העמוד (ולא צמודות לצד עם קישור "כל ה…"
      בקצה הנגדי): הכותרת והתגית שמעליה יושבות במרכז, וקישור ה-see-all
      יורד שורה מתחתיהן וממורכז גם הוא. */
@@ -882,17 +885,12 @@
     .agent-meta{font-size:.72rem}
   }
 
-  /* הרצועה יושבת בין באנר פרסומת לסקציית הנכסים המסחריים; ריפוד סקציה
-     מלא משני הצדדים יצר שם חלל ריק גדול, ולכן היא מהודקת בנפרד. */
-  #leadingAgencies{padding-block:18px 12px}
+  /* לשתי רצועות הקרוסלה יש נקודות ניווט (.cf-dots) שנושאות מרווח משלהן
+     מתחת למסלול, ולכן הריפוד התחתון שלהן מהודק מעט מתחת לברירת המחדל
+     של .section כדי שהמעבר לסקציה הבאה יישאר זהה לשאר העמוד. */
+  #leadingAgencies{padding-bottom:12px}
   #leadingAgencies .section-head{margin-bottom:10px}
-  #commercialProps{padding-top:22px}
-  /* אותו טיפול לרצועת המתווכים: מתחתיה ומעליה יושבות סקציות עם ריפוד
-     מלא, ומכיוון שבאנר הפרסומת שביניהן מוסתר נוצר מעליה חלל ריק גדול
-     (ריפוד תחתון של המחשבון ועוד ריפוד עליון מלא כאן, בלי שום דבר
-     ביניהם). שני הצדדים מהודקים כדי לסגור אותו. */
-  #calc{padding-bottom:22px}
-  #leadingAgents{padding-block:12px 20px}
+  #leadingAgents{padding-top:12px}
   #leadingAgents .section-head{margin-bottom:12px}
   /* הכותרת ארוכה ונשברת לשתי שורות במובייל; ‎balance‎ מחלק אותה לשתי
      שורות שוות־אורך במקום שורה מלאה ומילה בודדת מתחתיה, ושתיהן ממורכזות. */
@@ -1117,11 +1115,8 @@
   /* ====== Mortgage calculator teaser ======
      האקסנט של הסקציה הוא גרדיאנט חם שנגזר מ---gold של הפלטה ומתחמם לטרקוטה,
      כדי שהסליידרים וה-CTA יבלטו מול הכחול-כהה בלי לייבא צבע זר לאתר.        */
-  /* המרווח מעל המחשבון היה padding-block של שתי סקציות סמוכות (44+44px) ועוד
-     eyebrow — כמעט מסך ריק לפני הכותרת בטלפון. הסקציה נפתחת צמוד יותר,
-     הכותרת ממורכזת מעל הכרטיס, וכל המידות בפנים הודקו כדי שהכלי כולו
+  /* הכותרת ממורכזת מעל הכרטיס, וכל המידות בפנים הודקו כדי שהכלי כולו
      ייכנס בגלילה אחת ולא יאכל שטח מסך.                                     */
-  #calc{padding-top:16px}
   #calc .section-head{margin-bottom:14px}
   .calc-card{
     --calc-accent:#8B2332; --calc-accent-warm:#C25B34;
@@ -1274,18 +1269,10 @@
     .pros-grid{grid-template-columns:repeat(4,1fr);gap:16px}
     .pro-card{border-radius:16px}
   }
-  /* רצועת בעלי המקצוע יושבת בין רצועת הנכסים המומלצים לסקציית הכתבות,
-     וכל השלוש נשאו ריפוד סקציה מלא (44px). הריפודים הצטברו זה על זה
-     ויצרו חלל ריק גדול מעל הכותרת ועוד אחד מתחת לכרטיסיות; שלושתם
-     מהודקים כאן כדי לסגור אותם בלי לגעת בשאר הסקציות בעמוד. */
-  #featured{padding-bottom:20px}
-  #pros{padding-block:14px 18px}
+  /* סדר הרצועות בסוף העמוד: נכסים מומלצים ← כתבות ← בעלי מקצוע ← נכסים.
+     הריפוד של .section (18px) כבר נותן את המרווח ההדוק בכל המעברים, ולכן
+     כאן נשארים רק תיקונים נקודתיים לכותרות שנושאות eyebrow או שורת משנה. */
   #pros .section-head{margin-bottom:14px;gap:6px}
-  /* הכתבות והנכסים נשאו שניהם ריפוד סקציה מלא, ובאמצע יושבת רצועת
-     פרסומת שמוסתרת כל עוד אין מפרסמים — כך נפער חלל ריק גדול בין
-     הקרוסלה לכותרת "הנכסים הכי חדשים". שני הריפודים מהודקים כאן. */
-  #articles{padding-block:20px 14px}
-  #listings{padding-top:14px}
   #listings .section-head{margin-bottom:16px}
 
   /* ====== Footer ====== */
@@ -2041,18 +2028,6 @@
     <div class="featured-scroll" id="featuredScroll"><!-- populated by JS --></div>
   </section>
 
-  <!-- ====== Professionals ====== -->
-  <section class="section wrap" id="pros">
-    <div class="section-head">
-      <div>
-        <h2>בעלי מקצוע נבחרים</h2>
-        <p class="section-sub">שילוו אתכם בדרך לעסקת הנדל״ן הבאה שלכם</p>
-      </div>
-      <a href="professional-signup.html" class="see-all">הצטרפות כבעל מקצוע ←</a>
-    </div>
-    <div class="pros-grid" id="prosGrid"><!-- populated by JS, fallback to static below on failure --></div>
-  </section>
-
   <!-- ====== כתבות ובלוגים ======
        הרצועה מציגה את שמונה האחרונות; הארכיון המלא (articles.html) הוא
        היעד של "כל הכתבות", כאן ובסוף כל כתבה. -->
@@ -2067,9 +2042,21 @@
     <div class="article-scroll" id="articlesScroll"><!-- populated by JS --></div>
   </section>
 
+  <!-- ====== Professionals ====== -->
+  <section class="section wrap" id="pros">
+    <div class="section-head">
+      <div>
+        <h2>בעלי מקצוע נבחרים</h2>
+        <p class="section-sub">שילוו אתכם בדרך לעסקת הנדל״ן הבאה שלכם</p>
+      </div>
+      <a href="professional-signup.html" class="see-all">הצטרפות כבעל מקצוע ←</a>
+    </div>
+    <div class="pros-grid" id="prosGrid"><!-- populated by JS, fallback to static below on failure --></div>
+  </section>
+
   <!-- ====== שורת פרסומת ====== -->
   <div class="ad-row wrap">
-    <div class="ad-strip"><span class="tag">פרסומת</span> מיקום פרסום — באנר רוחבי מתחת לכתבות</div>
+    <div class="ad-strip"><span class="tag">פרסומת</span> מיקום פרסום — באנר רוחבי מתחת לבעלי המקצוע</div>
   </div>
 
   <!-- ====== Property grid ====== -->
