@@ -513,6 +513,13 @@ begin
 end;
 $$;
 
+-- ‏פונקציית טריגר אינה אמורה להיות נגישה כ-RPC. ‏PostgreSQL אמנם דוחה קריאה
+-- ישירה אליה ("trigger functions can only be called as triggers"), אבל בלי
+-- ה-revoke היא מופיעה ב-/rest/v1/rpc/ ומסומנת ב-linter של Supabase כפונקציית
+-- ‏SECURITY DEFINER שחשופה ל-anon.
+revoke all on function public.properties_saved_search_alerts() from public;
+revoke all on function public.properties_saved_search_alerts() from anon, authenticated;
+
 drop trigger if exists properties_saved_search_alerts_ins on public.properties;
 create trigger properties_saved_search_alerts_ins
   after insert on public.properties
