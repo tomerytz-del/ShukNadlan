@@ -6,6 +6,7 @@
 <title>סוכן | שוק נדל״ן</title>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="assets/quality-badge.js"></script>
 <style>
   :root{
     --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
@@ -48,6 +49,14 @@
   @media(min-width:760px){.profile-cover{height:230px}}
   .profile-strip{display:flex;align-items:center;gap:16px;padding:26px 0}
   .profile-strip.has-cover{padding-top:0;margin-top:-34px;align-items:flex-end}
+  /* תו האיכות יושב בקצה השני של רצועת הפרופיל — הדבר הראשון שנראה בדף אחרי
+     השם והתמונה. במסך צר הכיתוב לצדו יורד והתו מוקטן, כדי לא לדחוס את השם. */
+  .profile-badge{margin-inline-start:auto;flex:0 0 auto}
+  .profile-strip.has-cover .profile-badge{padding-bottom:6px}
+  @media(max-width:560px){
+    .profile-badge .qb-badge img{width:50px!important;height:50px!important}
+    .profile-badge .qb-label{display:none}
+  }
   .profile-avatar{width:84px;height:84px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Frank Ruhl Libre',serif;font-size:1.8rem;flex-shrink:0;overflow:hidden;border:3px solid var(--paper)}
   .profile-avatar img{width:100%;height:100%;object-fit:cover;display:block}
   .profile-strip.has-cover .profile-text{padding-bottom:6px}
@@ -148,6 +157,7 @@
       </div>
       <p class="profile-bio" id="profileBio"></p>
     </div>
+    <div class="profile-badge" id="profileBadge"></div>
   </div>
 
   <div class="content-grid">
@@ -242,6 +252,12 @@ function renderProfileHeader(agent){
   document.getElementById('profileLicense').textContent =
     agent.license_number ? ('רישיון תיווך ' + agent.license_number) : '';
   document.getElementById('profileBio').textContent = agent.bio || 'סוכן/ת נדל״ן פעיל/ה באזור עפולה והעמק.';
+
+  // תו האיכות מוצג רק למי שאישר/ה את הקוד האתי והתו שלו/ה בתוקף. הבוליאני
+  // ‏has_ethics_badge מחושב ב-view עצמו, כדי שהתנאי לא ישוכפל בין הדפים.
+  if (agent.has_ethics_badge && window.QualityBadge){
+    QualityBadge.mount('profileBadge', { size:'lg', label:true, subject: agent.display_name });
+  }
 }
 
 async function loadAgentProfile(){
@@ -256,7 +272,7 @@ async function loadAgentProfile(){
     // שם המשרד נטען בשאילתה נפרדת ולא ב-embed: מאז ש-property_shares מחזיקה שני
     // מפתחות זרים ל-agencies, PostgREST מחזיר PGRST201 (HTTP 300) על embed
     // מ-agency_members ל-agencies במקום את השורה.
-    let query = sb.from('agency_members_public').select('id, display_name, bio, photo_url, cover_url, license_number, slug, agency_id');
+    let query = sb.from('agency_members_public').select('id, display_name, bio, photo_url, cover_url, license_number, slug, agency_id, has_ethics_badge');
     // slug יכול להיות ה-slug הקריא או ה-id הגולמי (fallback), לפי מה שנשלח מ-agency.html
     const isUuid = /^[0-9a-f-]{36}$/i.test(slug);
     query = isUuid ? query.eq('id', slug) : query.eq('slug', slug);

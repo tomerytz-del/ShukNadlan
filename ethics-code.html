@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>הקוד האתי ותו האיכות | שוק נדל״ן</title>
+<meta name="description" content="הקוד האתי של נבחרת המתווכים בשוק הנדל״ן של עפולה — עשרה סעיפים מחייבים של רישוי, שקיפות, שיתופי פעולה וחדשנות, ותו האיכות שמעיד על עמידה בהם.">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800;900&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
+    --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
+    --gold:#8B2332; --gold-dark:#6B1A26; --gold-tint:#F1DFE1;
+    --brass:#C9A227; --brass-tint:#FAF3DF;
+    --surface:#FFFFFF; --surface-soft:#FBFAF9; --hair:#E6E3DD;
+    --radius-md:12px; --radius-lg:20px; --radius-xl:24px;
+    --shadow-xs:0 1px 2px rgba(18,40,64,.05); --shadow-md:0 8px 24px rgba(18,40,64,.10);
+    --maxw:860px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark);margin:0}
+  a{color:inherit;text-decoration:none}
+  svg{display:block}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
+
+  header.site{background:var(--paper-raised);border-bottom:1px solid var(--line);padding:14px 0}
+  .header-inner{display:flex;align-items:center;justify-content:space-between}
+  .logo{display:flex;align-items:center;gap:10px;min-width:0}
+  .logo-img{height:46px;width:46px;display:block;flex:0 0 auto;border-radius:50%}
+  .logo-word{font-family:'Rubik','Heebo',sans-serif;font-weight:500;color:var(--teal-dark);
+    font-size:.82rem;line-height:1.3;letter-spacing:-.012em;min-width:0;text-align:center}
+  .logo-word span{color:var(--gold-dark);font-weight:700}
+  @media(min-width:900px){.logo-img{height:54px;width:54px}.logo-word{font-size:.95rem;white-space:nowrap}}
+  .back-link{font-size:.85rem;font-weight:700;color:var(--teal)}
+
+  /* ---------- ההירו ----------
+     התו עצמו הוא הגיבור של הדף, ולכן הוא מוצג כאן בגודל מלא ולא כאייקון:
+     זה הדף שאליו הפופ־אפ שולח את מי שרוצה לדעת מה בדיוק עומד מאחורי החותמת. */
+  .hero{background:linear-gradient(150deg,#0E2340,#1C3A5E 60%,#2A4E77);color:#fff;padding:34px 0 38px}
+  .hero-inner{display:flex;flex-direction:column;align-items:center;text-align:center;gap:16px}
+  @media(min-width:720px){
+    .hero-inner{flex-direction:row;text-align:right;gap:26px}
+    .hero-text{flex:1}
+  }
+  .hero img{width:132px;height:132px;flex:0 0 auto;border-radius:50%;
+    filter:drop-shadow(0 8px 22px rgba(0,0,0,.4))}
+  @media(min-width:720px){.hero img{width:156px;height:156px}}
+  .hero h1{color:#fff;font-size:1.65rem;line-height:1.25}
+  @media(min-width:720px){.hero h1{font-size:2rem}}
+  .hero .kicker{font-size:.76rem;font-weight:800;letter-spacing:.08em;color:var(--brass);margin-bottom:6px}
+  .hero p{margin:10px 0 0;font-size:.95rem;color:#D6DFE9;max-width:56ch}
+
+  main{padding:26px 0 50px}
+  .lead{background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-xl);
+    box-shadow:var(--shadow-xs);padding:20px 22px;margin-bottom:24px}
+  .lead p{margin:0;font-size:.95rem;color:var(--ink-soft)}
+  .lead p+p{margin-top:10px}
+
+  .section-title{display:flex;align-items:baseline;gap:10px;margin:0 0 14px}
+  .section-title h2{font-size:1.25rem}
+  .section-title .count{font-size:.76rem;font-weight:700;color:var(--ink-soft)}
+
+  .clauses{list-style:none;margin:0;padding:0;display:grid;gap:12px;counter-reset:clause}
+  .clause{position:relative;background:var(--surface);border:1px solid var(--hair);
+    border-radius:var(--radius-xl);box-shadow:var(--shadow-xs);padding:16px 66px 16px 18px}
+  .clause::before{
+    counter-increment:clause;content:counter(clause);
+    position:absolute;inset-inline-end:18px;top:16px;width:34px;height:34px;border-radius:11px;
+    display:grid;place-items:center;
+    background:linear-gradient(150deg,var(--teal-dark),var(--teal));color:#fff;
+    font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.05rem;line-height:1;
+  }
+  .clause h3{font-size:1rem;line-height:1.35;margin-bottom:5px}
+  .clause p{margin:0;font-size:.88rem;color:var(--ink-soft)}
+
+  /* ---------- מה התו מבטיח ללקוח ---------- */
+  .promise{margin-top:30px;background:var(--brass-tint);border:1px solid #EAD9A8;
+    border-radius:var(--radius-xl);padding:20px 22px}
+  .promise h2{font-size:1.15rem;margin-bottom:4px}
+  .promise .sub{font-size:.8rem;font-weight:700;color:var(--gold-dark);margin:0 0 14px}
+  .promise ul{list-style:none;margin:0;padding:0;display:grid;gap:9px}
+  .promise li{position:relative;padding-inline-end:30px;font-size:.87rem;color:var(--ink-soft);line-height:1.55}
+  .promise li::before{content:"";position:absolute;inset-inline-end:0;top:5px;width:19px;height:19px;
+    border-radius:50%;background:#12294A url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23fff' stroke-width='3.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E") center/12px no-repeat}
+  .promise b{color:var(--teal-dark);font-weight:800}
+  .promise .closing{margin:16px 0 0;font-size:.9rem;font-weight:700;color:var(--teal-dark)}
+
+  /* ---------- תוקף התו ---------- */
+  .enforcement{margin-top:24px;background:var(--surface-soft);border:1px dashed #D8D4CC;
+    border-radius:var(--radius-lg);padding:18px 20px}
+  .enforcement h2{font-size:1.02rem;margin-bottom:8px}
+  .enforcement p{margin:0;font-size:.85rem;color:var(--ink-soft)}
+  .enforcement p+p{margin-top:8px}
+
+  .cta-row{display:grid;gap:10px;margin-top:26px}
+  @media(min-width:520px){.cta-row{grid-template-columns:1fr 1fr}}
+  .cta{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 20px;
+    border-radius:14px;font-weight:800;font-size:.92rem}
+  .cta-primary{background:linear-gradient(120deg,var(--gold-dark),var(--gold) 60%,#A32B3C);color:#fff;
+    box-shadow:0 6px 16px rgba(139,35,50,.24)}
+  .cta-ghost{background:var(--teal-tint);color:var(--teal-dark);border:1px solid var(--line)}
+
+  footer.page{border-top:1px solid var(--line);margin-top:34px;padding-top:16px;
+    font-size:.75rem;color:var(--ink-soft);text-align:center}
+</style>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap header-inner">
+    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+      <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256">
+      <span class="logo-word">מרקטפלייס הנדל״ן של <span>עפולה והסביבה</span></span>
+    </a>
+    <a href="index.html" class="back-link">← דף הבית</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap hero-inner">
+    <img src="assets/badge-ethics.png" alt="תו האמון והאיכות — עומד בתקן האתי של שוק הנדל״ן של עפולה" width="384" height="384">
+    <div class="hero-text">
+      <div class="kicker">תו האמון והאיכות</div>
+      <h1>הקוד האתי של נבחרת המתווכים</h1>
+      <p>עשרה סעיפים מחייבים שמגדירים את סטנדרט המקצועיות, השקיפות והחדשנות הנדרש מכל יועץ וסוכן נדל״ן הפועל בפלטפורמה — והתחייבות ישירה כלפי קהל הלקוחות והקולגות.</p>
+    </div>
+  </div>
+</section>
+
+<main class="wrap">
+
+  <div class="lead">
+    <p>תו האמון והאיכות אינו עוד חותמת סמלית — הוא הבטחה לסטנדרט מקצועי חסר פשרות. כל מתווך ויועץ נדל״ן הנושא את התו אישר את עשרת הסעיפים שלהלן במלואם, ומחויב להם בכל עסקה ובכל מפגש עם לקוח.</p>
+    <p>התו מוצג בפרופיל המתווך, בדף המשרד ולצד תמונת הסוכן/ת המטפל/ת בכל מודעת נכס. לחיצה עליו פותחת את פרטי התו ומובילה לדף הזה.</p>
+  </div>
+
+  <div class="section-title">
+    <h2>הקוד האתי</h2>
+    <span class="count">עשרה סעיפים מחייבים</span>
+  </div>
+
+  <ol class="clauses">
+    <li class="clause">
+      <h3>רישוי והסמכה כחוק</h3>
+      <p>כל חבר בפלטפורמה מחזיק ברישיון תיווך מקרקעין בתוקף מטעם משרד המשפטים, ופועל בהתאם להוראות חוק המתווכים במקרקעין והתקנות הנלוות.</p>
+    </li>
+    <li class="clause">
+      <h3>נאמנות ושקיפות מלאה ללקוח</h3>
+      <p>טובת הלקוח קודמת לכל שיקול אישי או מסחרי. המתווך מתחייב להציג תמונת מצב אובייקטיבית ומלאה של הנכס, כולל יתרונות, אתגרים או ליקויים הידועים לו, ללא הסתרת מידע מהותי.</p>
+    </li>
+    <li class="clause">
+      <h3>שיתופי פעולה פתוחים (Co-Broke)</h3>
+      <p>המתווך מתחייב לשתף פעולה באופן מלא, מהיר והוגן עם כל סוכן ומשרד תיווך אחר לטובת קידום העסקה של הלקוח. נכסים בבלעדיות ייפתחו לכלל הקהילה המקצועית ללא הצבת חסמים.</p>
+    </li>
+    <li class="clause">
+      <h3>אימוץ טכנולוגיה וחדשנות (AI-Driven Real Estate)</h3>
+      <p>חברי התו רותמים כלי בינה מלאכותית (AI) ואוטומציה מתקדמת לטובת ניתוחי שוק מדויקים, תמחור מבוסס נתונים, שיווק חכם, סיורים וירטואליים וייעול חוויית השירות ללקוח.</p>
+    </li>
+    <li class="clause">
+      <h3>אמינות ודיוק בפרסום ושיווק</h3>
+      <p>כל מידע, תמונה, הדמיה או ניתוח שיווקי המפורסמים על ידי המתווך יהיו עדכניים, מדויקים ומשקפים את המציאות. אין לפרסם נכסים פיקטיביים (״מודעות פיתיון״) או נכסים ללא הרשאה מפורשת בכתב.</p>
+    </li>
+    <li class="clause">
+      <h3>ייצוג הוגן ומניעת ניגוד עניינים</h3>
+      <p>במקרים של ייצוג שני הצדדים בעסקה (קונה ומוכר), יפעל המתווך בשקיפות מוחלטת ובגילוי נאות מראש, תוך שמירה על הגינות, ניטרליות ואי-העדפת צד אחד על פני משנהו.</p>
+    </li>
+    <li class="clause">
+      <h3>סודיות והגנת מידע</h3>
+      <p>שמירה קפדנית על פרטיותם של הלקוחות ועל המידע העסקי, האישי והפיננסי שנמסר במהלך התהליך. שימוש בנתונים ובכלי AI ייעשה אך ורק תחת תקני אבטחת מידע והגנת הפרטיות.</p>
+    </li>
+    <li class="clause">
+      <h3>קביעת שכר טרחה ברור ומראש</h3>
+      <p>הסכמי התקשרות ושכר טרחה ייחתמו תמיד מראש, בצורה ברורה, שקופה ובכתב, ללא אותיות קטנות או חיובים נסתרים.</p>
+    </li>
+    <li class="clause">
+      <h3>מקצועיות, למידה והתפתחות מתמדת</h3>
+      <p>חברי הפלטפורמה מחויבים להתעדכן באופן שוטף בשינויי חקיקה, מגמות מאקרו ומיקרו בשוק הנדל״ן, כלים טכנולוגיים חדשים ושיטות שיווק מודרניות כדי להעניק ערך מקסימלי ללקוח.</p>
+    </li>
+    <li class="clause">
+      <h3>תרבות של גישור וכבוד הדדי</h3>
+      <p>ניהול משא ומתן בגישה מגשרת, סבלנית ומכבדת, תוך חתירה לפתרון מחלוקות בהסכמה, קידום עסקאות במודל Win-Win ושמירה על יחסי קולגיאליות בענף.</p>
+    </li>
+  </ol>
+
+  <section class="promise">
+    <h2>מה התו מבטיח לכם, הלקוחות</h2>
+    <p class="sub">הסטנדרט החדש בעולם הנדל״ן</p>
+    <ul>
+      <li><b>רישוי מלא כחוק</b> — עבודה מול אנשי מקצוע מורשים בלבד, בעלי רישיון תיווך בתוקף מטעם משרד המשפטים.</li>
+      <li><b>שקיפות ויושרה מעל הכל</b> — הצגת תמונת מצב אובייקטיבית, ללא אותיות קטנות, ללא מודעות פיקטיביות ובנאמנות מוחלטת לטובתכם.</li>
+      <li><b>חדשנות וכלי AI מתקדמים</b> — שיווק חכם, ניתוחי שוק מבוססי דאטה, הדמיות מדויקות ותמחור ריאלי שחוסכים לכם זמן יקר וממקסמים תוצאות.</li>
+      <li><b>עוצמת שיתופי הפעולה</b> — נכסים בבלעדיות נחשפים לכלל משרדי התיווך והסוכנים באזור, כדי להבטיח למוכרים קונים מהירים ולרוכשים את ההזדמנויות הטובות ביותר בשוק.</li>
+      <li><b>גישה מגשרת ומקצועית</b> — ניהול משא ומתן סבלני, הוגן וממוקד מטרה, שנועד לייצר עסקאות בטוחות ורווחיות לכל הצדדים.</li>
+    </ul>
+    <p class="closing">מחפשים לקנות או למכור נכס בראש שקט? חפשו את תו האיכות בפרופיל המתווך ובמודעות הנכסים.</p>
+  </section>
+
+  <section class="enforcement">
+    <h2>איך התו ניתן — ואיך הוא מוסר</h2>
+    <p>כל מתווך שמצטרף לפלטפורמה נדרש לאשר במפורש שקרא את עשרת הסעיפים ומסכים לכולם. האישור נרשם במערכת עם התאריך וגרסת הקוד שאושרה, ורק לאחריו מוצג התו בפרופיל ובמודעות הנכסים.</p>
+    <p>התו אינו קבוע: הפרה של אחד מסעיפי הקוד מובילה להסרתו מהפרופיל ומכל מודעות הנכסים של המתווך. נתקלתם בהתנהלות שאינה עומדת בקוד? נשמח לשמוע — כל פנייה נבדקת.</p>
+  </section>
+
+  <div class="cta-row">
+    <a class="cta cta-primary" href="agency-signup.html">הצטרפות לנבחרת המתווכים</a>
+    <a class="cta cta-ghost" href="index.html">חזרה למרקטפלייס</a>
+  </div>
+
+  <footer class="page">
+    שוק הנדל״ן של עפולה והסביבה · הקוד האתי — גרסה 2026-08
+  </footer>
+</main>
+
+</body>
+</html>

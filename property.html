@@ -10,6 +10,7 @@
      מוסתרת, כי אין מפה להציג. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="assets/quality-badge.js"></script>
 <style>
   :root{
     --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
@@ -347,6 +348,10 @@
   }
   .agent-cred svg{width:13px;height:13px;flex:none;color:#9BD5A3}
   .agent-agency{font-size:.75rem;opacity:.8;margin-top:4px}
+  /* תו האיכות בקצה השני של ראש הכרטיס. ‎:empty‎ — כשלסוכן/ת אין תו הרכיב לא
+     מוזרק בכלל, והמשבצת לא צריכה לתפוס מקום או להיקרא במקלט מסך. */
+  .agent-badge-slot{margin-inline-start:auto;flex:none;display:flex;align-items:center}
+  .agent-badge-slot:empty{display:none}
   .agent-body{padding:16px}
   .agent-price{
     display:flex;align-items:baseline;justify-content:space-between;gap:8px;
@@ -835,6 +840,7 @@
               </div>
               <div class="agent-agency" id="agentCardAgency"></div>
             </div>
+            <div class="agent-badge-slot" id="agentBadge"></div>
           </div>
           <div class="agent-body">
             <div class="agent-price">
@@ -1222,7 +1228,7 @@ async function loadProperty(){
     // טופס אנונימי לפנייה לאדם ספציפי.
     if (data.agent_id){
       const { data: agentRow } = await sb.from('agency_members_public')
-        .select('display_name, slug, phone_e164, photo_url, license_number').eq('id', data.agent_id).maybeSingle();
+        .select('display_name, slug, phone_e164, photo_url, license_number, has_ethics_badge').eq('id', data.agent_id).maybeSingle();
       data.agency_members = agentRow || null;
     }
 
@@ -2047,6 +2053,12 @@ function renderAgentCard(p){
   if (agent?.license_number){
     document.getElementById('agentCredText').textContent = 'מתווך/ת מורשה/ית · רישיון ' + agent.license_number;
     document.getElementById('agentCred').hidden = false;
+  }
+
+  // תו האיכות של הסוכן/ת המטפל/ת, לצד התמונה שלו/ה בראש כרטיס ההמרה: זה
+  // הרגע שבו הגולש/ת מחליט/ה אם להשאיר פרטים, ולכן זה המקום שבו התו עובד.
+  if (agent?.has_ethics_badge && window.QualityBadge){
+    QualityBadge.mount('agentBadge', { size:'md', tone:'dark', subject:name });
   }
 }
 

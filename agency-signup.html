@@ -29,6 +29,11 @@
   .field input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
   .field input:focus{border-color:var(--blue);outline:none}
   .section-divider{font-size:.72rem;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 10px;padding-top:14px;border-top:1px solid var(--line)}
+  .consent{display:flex;align-items:flex-start;gap:9px;background:var(--paper);border:1px solid var(--line);
+    border-radius:var(--radius-sm);padding:11px 12px}
+  .consent input{margin:2px 0 0;width:17px;height:17px;flex:0 0 auto;accent-color:var(--blue)}
+  .consent label{font-size:.78rem;line-height:1.45;cursor:pointer}
+  .consent a{color:var(--blue);font-weight:700}
   .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:999px;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff;margin-top:6px}
   .btn:disabled{opacity:.5;cursor:not-allowed}
   #feedback{font-size:.82rem;text-align:center;margin-top:12px;min-height:1.2em}
@@ -56,6 +61,15 @@
     <div class="field"><label>אימייל</label><input type="email" id="managerEmail" required autocomplete="username"></div>
     <div class="field"><label>סיסמה (8 תווים לפחות)</label><input type="password" id="managerPassword" required minlength="8" autocomplete="new-password"></div>
 
+    <!-- ‏הצטרפות לפלטפורמה = התחייבות לקוד האתי. האישור נרשם במסד ברגע פתיחת
+         המשרד (agency-signup חותם על שורת המנהל/ת ועל שורת המשרד), ולכן תו
+         האיכות פעיל כבר בכניסה הראשונה. הבדיקה נאכפת גם בשרת ולא רק כאן. -->
+    <div class="section-divider">הקוד האתי</div>
+    <div class="consent">
+      <input type="checkbox" id="ethicsConsent">
+      <label for="ethicsConsent">קראתי את <a href="ethics-code.html" target="_blank" rel="noopener">הקוד האתי של הפלטפורמה</a> ואני מסכים/ה לעשרת סעיפיו — בשמי ובשם המשרד. ידוע לי שתו האיכות יוסר במקרה של הפרת התקנון.</label>
+    </div>
+
     <button class="btn" id="submitBtn">פתיחת המשרד</button>
     <div id="feedback"></div>
     <a href="crm.html" class="back-link">כבר יש לך חשבון? כניסה</a>
@@ -63,7 +77,7 @@
 
   <div id="stateDone">
     <h1>המשרד נפתח בהצלחה!</h1>
-    <p class="sub">אפשר להתחבר עכשיו עם הפרטים שהזנת</p>
+    <p class="sub">אפשר להתחבר עכשיו עם הפרטים שהזנת. אישור הקוד האתי נרשם, ותו האיכות כבר פעיל בדף שלך, בדף המשרד ובמודעות הנכסים.</p>
     <a href="crm.html" class="btn" style="display:flex;text-decoration:none;margin-top:16px">מעבר לכניסת מתווכים</a>
   </div>
 </div>
@@ -92,6 +106,11 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     feedback.textContent = 'הסיסמה צריכה להכיל לפחות 8 תווים';
     return;
   }
+  if (!document.getElementById('ethicsConsent').checked){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'ההצטרפות מותנית באישור הקוד האתי של הפלטפורמה';
+    return;
+  }
 
   btn.disabled = true; btn.textContent = 'פותח משרד…'; feedback.textContent = '';
   try{
@@ -104,6 +123,7 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
         manager_email: managerEmail,
         manager_password: managerPassword,
         license_number: licenseNumber,
+        ethics_code_accepted: true,
       }),
     });
     const data = await res.json();
@@ -111,6 +131,7 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
       const messages = {
         weak_password: 'הסיסמה קצרה מדי',
         auth_error: 'שגיאה ביצירת החשבון — ייתכן שהאימייל כבר בשימוש',
+        ethics_not_accepted: 'ההצטרפות מותנית באישור הקוד האתי',
       };
       feedback.style.color = 'var(--red)';
       feedback.textContent = messages[data.error] || ('שגיאה: ' + (data.detail || data.error));
