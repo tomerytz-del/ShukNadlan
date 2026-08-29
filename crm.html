@@ -366,6 +366,42 @@
   .profile-preview .pp-name{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1rem}
   .profile-preview .pp-license{font-size:.7rem;color:var(--ink-soft);margin-top:2px}
   .profile-preview .pp-bio{font-size:.78rem;color:var(--ink-soft);margin:6px 0 0;white-space:pre-wrap}
+  .profile-preview .pp-badge{width:38px;height:38px;border-radius:50%;margin-top:6px;display:block;
+    filter:drop-shadow(0 2px 6px rgba(18,40,64,.24))}
+  .profile-preview .pp-badge[hidden]{display:none}
+
+  /* ---------- הקוד האתי ותו האיכות ----------
+     התו עצמו מוצג כאן בגודל מלא: מי שעומד לחתום על עשרה סעיפים מחייבים צריך
+     לראות בדיוק מה הוא מקבל. לפני האישור התו מוצג דהוי, כדי שההבדל בין "יש
+     תו" ל"אין תו" יהיה מיידי ולא ייקרא כתקלה בטעינת התמונה. */
+  .ethics-state{display:flex;align-items:center;gap:14px;background:#fff;border:1px solid var(--line);
+    border-radius:var(--radius-md);padding:14px;margin-bottom:14px}
+  .ethics-state img{width:76px;height:76px;flex:0 0 auto;border-radius:50%;
+    filter:drop-shadow(0 3px 10px rgba(18,40,64,.22))}
+  .ethics-state.is-pending img{filter:grayscale(1);opacity:.42}
+  .ethics-state .es-title{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1rem;color:var(--teal-dark)}
+  .ethics-state .es-note{font-size:.76rem;color:var(--ink-soft);margin-top:3px}
+  .ethics-state .es-pill{display:inline-block;font-size:.66rem;font-weight:800;padding:2px 9px;
+    border-radius:5px;margin-top:6px;background:var(--teal-tint);color:var(--teal-dark)}
+  .ethics-state.is-pending .es-pill{background:var(--gold-tint);color:var(--gold-dark)}
+  .ethics-state.is-revoked .es-pill{background:var(--gold-tint);color:var(--gold-dark)}
+
+  /* עשרת הסעיפים מוצגים במלואם ולא בגלילה פנימית: זו חתימה על התחייבות,
+     ורשימה חתוכה באמצע היא בדיוק ההפך ממה שהסעיף על שקיפות דורש */
+  .ethics-clauses{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:6px;counter-reset:ec}
+  .ethics-clauses li{counter-increment:ec;position:relative;padding-inline-end:26px;
+    font-size:.79rem;color:var(--ink-soft);line-height:1.45}
+  .ethics-clauses li::before{content:counter(ec);position:absolute;inset-inline-end:0;top:1px;
+    width:19px;height:19px;border-radius:6px;display:grid;place-items:center;
+    background:var(--teal-tint);color:var(--teal-dark);font-size:.64rem;font-weight:800}
+  .ethics-consent{display:flex;align-items:flex-start;gap:9px;background:var(--paper);
+    border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;margin-bottom:10px}
+  .ethics-consent input{margin:2px 0 0;width:17px;height:17px;flex:0 0 auto;accent-color:var(--teal)}
+  .ethics-consent label{font-size:.8rem;line-height:1.45;cursor:pointer}
+  .ethics-link{font-size:.78rem;font-weight:700;color:var(--teal);display:inline-block;margin-bottom:12px}
+  /* ‏.btn ו-.ethics-consent מגדירים display משלהם, שגובר על ‎[hidden]‎ של
+     הדפדפן — בלי השורה הזו כפתור שכובה היה ממשיך להופיע */
+  #accEthics .btn[hidden],#accEthics .ethics-consent[hidden]{display:none}
 
   /* התצוגה המקדימה של הכתבה מחקה את הכרטיס ברצועת דף הבית — כולל
      חיתוך הכותרת לשתי שורות, שהוא בדיוק מה שכדאי לראות לפני הפרסום. */
@@ -1758,6 +1794,7 @@
             <div class="pp-text">
               <div class="pp-name" id="ppName">—</div>
               <div class="pp-license" id="ppLicense"></div>
+              <img class="pp-badge" id="ppBadge" src="assets/badge-ethics.png" alt="תו האמון והאיכות" width="384" height="384" hidden>
               <p class="pp-bio" id="ppBio"></p>
             </div>
           </div>
@@ -1803,6 +1840,57 @@
           <div id="pfFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
           <a href="#" id="pfViewPageLink" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:.8rem;color:var(--teal);margin-top:8px">צפייה בדף הסוכן/ת שלי ←</a>
         </form>
+      </div>
+    </details>
+
+    <!-- ---------- הקוד האתי ותו האיכות ----------
+         האישור כאן הוא מה שמדליק את התו בדף הסוכן/ת, בדף המשרד ולצד התמונה
+         בכל מודעת נכס. הוא אישי: מנהל/ת משרד לא יכול/ה לחתום במקום סוכן/ת
+         (הטריגר במסד מחזיר אישור כזה לערכו הקודם), ולכן כל סוכן/ת רואה כאן
+         את המצב של עצמו/ה בלבד. -->
+    <details class="acc" id="accEthics">
+      <summary>
+        <span class="acc-title">הקוד האתי ותו האיכות</span>
+        <span class="acc-count" id="accEthicsCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <div class="ethics-state is-pending" id="ethicsState">
+          <img src="assets/badge-ethics.png" alt="תו האמון והאיכות" width="384" height="384">
+          <div>
+            <div class="es-title" id="ethicsStateTitle">תו האיכות טרם הופעל</div>
+            <div class="es-note" id="ethicsStateNote">אישור עשרת הסעיפים מדליק את התו בדף שלך ובכל מודעות הנכסים.</div>
+            <span class="es-pill" id="ethicsStatePill">נדרש אישור</span>
+          </div>
+        </div>
+
+        <p class="acc-sub">הקוד האתי מגדיר את סטנדרט המקצועיות, השקיפות והחדשנות הנדרש מכל יועץ וסוכן נדל״ן בפלטפורמה, ומהווה התחייבות ישירה כלפי הלקוחות והקולגות.</p>
+
+        <ol class="ethics-clauses" id="ethicsClauses"></ol>
+        <a class="ethics-link" href="ethics-code.html" target="_blank" rel="noopener">קריאת נוסח הקוד המלא ←</a>
+
+        <form id="ethicsForm" style="margin-bottom:0">
+          <div class="ethics-consent">
+            <input type="checkbox" id="ethicsConsent">
+            <label for="ethicsConsent">קראתי את עשרת סעיפי הקוד האתי ואני מסכים/ה לכולם. ידוע לי שהתו יוסר במקרה של הפרת התקנון.</label>
+          </div>
+          <button type="submit" class="btn btn-gold btn-block" id="ethicsSaveBtn">אישור הקוד והפעלת התו</button>
+          <button type="button" class="btn btn-ghost btn-block" id="ethicsWithdrawBtn" hidden style="margin-top:8px">ביטול האישור והסרת התו</button>
+          <div id="ethicsFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+        </form>
+
+        <!-- אישור בשם המשרד — מנהל/ת המשרד בלבד. הוא מדליק את התו בראש דף
+             המשרד, בנפרד מהתו האישי של כל סוכן/ת. -->
+        <div id="ethicsAgencyBlock" hidden style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line)">
+          <div class="form-subheading">התו של המשרד</div>
+          <p class="acc-sub" id="ethicsAgencyNote">אישור בשם המשרד מדליק את התו בראש דף המשרד. הוא אינו מחליף את האישור האישי של כל סוכן/ת.</p>
+          <div class="ethics-consent">
+            <input type="checkbox" id="ethicsAgencyConsent">
+            <label for="ethicsAgencyConsent">אני מאשר/ת בשם המשרד את הקוד האתי, ומתחייב/ת שכל סוכני המשרד יפעלו לפיו.</label>
+          </div>
+          <button type="button" class="btn btn-gold btn-block" id="ethicsAgencyBtn">אישור בשם המשרד</button>
+          <div id="ethicsAgencyFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+        </div>
       </div>
     </details>
 
@@ -2773,7 +2861,7 @@ async function loadDashboard(user){
   // agency_members ל-agencies ומחזיר PGRST201 (HTTP 300) על כל embed כזה.
   const { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select('id, agency_id, slug, display_name, bio, photo_url, cover_url, license_number, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, is_mortgage_advisor, phone')
+    .select('id, agency_id, slug, display_name, bio, photo_url, cover_url, license_number, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, is_mortgage_advisor, phone, ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -2828,6 +2916,7 @@ async function loadDashboard(user){
   await loadPreferences(agent.id);
   loadWhatsappSettings(agent);
   loadProfileSettings(agent);
+  loadEthicsSettings(agent);
 
   // display נקבע בשני הכיוונים ולא רק ל-block, כדי שהחלפת תפקיד מתפריט הבדיקה
   // (מנהל/ת → סוכן/ת) באמת תסתיר את אזור הניהול בלי לרענן את העמוד
@@ -2836,6 +2925,9 @@ async function loadDashboard(user){
     await loadBranding(agent.agency_id);
     await loadTeam(agent.agency_id, agent.id);
     await loadPendingReviews(agent.agency_id);
+    await loadAgencyEthics(agent.agency_id);
+  } else {
+    document.getElementById('ethicsAgencyBlock').hidden = true;
   }
 
   if (agent.is_platform_admin){
@@ -3673,6 +3765,10 @@ function renderProfilePreview(){
 
   document.getElementById('ppName').textContent = name || 'השם שלך';
   document.getElementById('ppLicense').textContent = license ? ('רישיון תיווך ' + license) : '';
+  // התו בתצוגה המקדימה מופיע בדיוק כשהוא מופיע בדף הציבורי — כך הסוכן/ת רואה
+  // מיד מה האישור בקטגוריה שמתחת עשה לדף שלו/ה
+  const ppBadge = document.getElementById('ppBadge');
+  if (ppBadge) ppBadge.hidden = !ethicsBadgeActive(currentAgent);
   document.getElementById('ppBio').textContent = bio || 'התיאור שתכתבו כאן יופיע בראש דף הסוכן/ת.';
   document.getElementById('pfBioCount').textContent = String(bioEl.value.length);
 
@@ -3776,6 +3872,272 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     feedback.textContent = 'שמירה נכשלה: ' + (err.message || 'שגיאה לא צפויה');
   } finally{
     btn.disabled = false; btn.textContent = 'שמירת הפרטים';
+  }
+});
+
+/* ==========================================================================
+   הקוד האתי ותו האיכות
+   --------------------------------------------------------------------------
+   האישור נשמר ב-agency_members (ולמנהל/ת משרד גם ב-agencies), והוא התנאי
+   היחיד להצגת התו בדפים הציבוריים: ה-view agency_members_public מחשב
+   ‏has_ethics_badge = accepted_at is not null and revoked_at is null‏.
+
+   שלוש נקודות שהמסד אוכף ולא הדפדפן, ולכן אין כאן ניסיון לעקוף אותן:
+     • החותמת נקבעת ב-now() בטריגר — התאריך שנשלח מכאן הוא רק סימון "אשר".
+     • רק הסוכן/ת עצמו/ה יכול/ה לאשר; מנהל/ת לא חותמ/ת במקום סוכן/ת.
+     • הסרת תו (revoked_at) שמורה להנהלת הפלטפורמה — כאן היא רק מוצגת.
+   ========================================================================== */
+const ETHICS_CODE_VERSION = '2026-08';
+
+const ETHICS_CLAUSES = [
+  'רישוי והסמכה כחוק — רישיון תיווך מקרקעין בתוקף מטעם משרד המשפטים.',
+  'נאמנות ושקיפות מלאה ללקוח — תמונת מצב אובייקטיבית, בלי הסתרת מידע מהותי.',
+  'שיתופי פעולה פתוחים (Co-Broke) — נכסים בבלעדיות נפתחים לכלל הקהילה המקצועית.',
+  'אימוץ טכנולוגיה וחדשנות — כלי AI ואוטומציה לניתוח, תמחור ושיווק.',
+  'אמינות ודיוק בפרסום — בלי מודעות פיתיון ובלי נכס ללא הרשאה בכתב.',
+  'ייצוג הוגן ומניעת ניגוד עניינים — גילוי נאות מראש בייצוג שני הצדדים.',
+  'סודיות והגנת מידע — שמירה על פרטיות הלקוח ועל נתוניו העסקיים.',
+  'שכר טרחה ברור ומראש — הסכם בכתב, בלי אותיות קטנות וחיובים נסתרים.',
+  'מקצועיות ולמידה מתמדת — עדכון שוטף בחקיקה, במגמות ובכלים חדשים.',
+  'תרבות של גישור וכבוד הדדי — משא ומתן מגשר וקידום עסקאות Win-Win.',
+];
+
+let ethicsAgency = null;   // שורת המשרד, נטענת רק למנהל/ת משרד
+
+function ethicsBadgeActive(row){
+  return !!(row && row.ethics_code_accepted_at && !row.ethics_badge_revoked_at);
+}
+
+function ethicsDateLabel(iso){
+  if (!iso) return '';
+  const d = new Date(iso);
+  return isNaN(d) ? '' : d.toLocaleDateString('he-IL', { year:'numeric', month:'long', day:'numeric' });
+}
+
+function renderEthicsState(agent){
+  const box = document.getElementById('ethicsState');
+  const title = document.getElementById('ethicsStateTitle');
+  const note = document.getElementById('ethicsStateNote');
+  const pill = document.getElementById('ethicsStatePill');
+  const saveBtn = document.getElementById('ethicsSaveBtn');
+  const withdrawBtn = document.getElementById('ethicsWithdrawBtn');
+  const consent = document.getElementById('ethicsConsent');
+  const form = document.getElementById('ethicsForm');
+
+  const accepted = !!agent.ethics_code_accepted_at;
+  const revoked = !!agent.ethics_badge_revoked_at;
+  const active = ethicsBadgeActive(agent);
+  const stale = accepted && !revoked && agent.ethics_code_version !== ETHICS_CODE_VERSION;
+
+  box.classList.toggle('is-pending', !active);
+  box.classList.toggle('is-revoked', revoked);
+  consent.checked = false;
+  withdrawBtn.hidden = !active;
+
+  if (revoked){
+    // הסרה היא החלטה של הנהלת הפלטפורמה — אישור חוזר מכאן לא יחזיר את התו,
+    // ולכן הטופס נסגר במקום להציע פעולה שלא תעבוד
+    title.textContent = 'תו האיכות הוסר';
+    note.textContent = 'התו הוסר בתאריך ' + ethicsDateLabel(agent.ethics_badge_revoked_at) +
+      ' בעקבות בדיקת עמידה בתקנון. להחזרתו יש לפנות להנהלת הפלטפורמה.';
+    pill.textContent = 'התו הוסר';
+    form.hidden = true;
+    accSetCount('accEthics', 'התו הוסר');
+    return;
+  }
+
+  form.hidden = false;
+  if (stale){
+    title.textContent = 'הקוד האתי עודכן';
+    note.textContent = 'אישרת את גרסה ' + (agent.ethics_code_version || 'קודמת') +
+      '. כדי שהתו יישאר בתוקף יש לאשר את הנוסח המעודכן.';
+    pill.textContent = 'נדרש אישור מחדש';
+    saveBtn.textContent = 'אישור הנוסח המעודכן';
+    accSetCount('accEthics', 'נדרש אישור');
+  } else if (active){
+    title.textContent = 'תו האיכות פעיל';
+    note.textContent = 'אישרת את הקוד האתי בתאריך ' + ethicsDateLabel(agent.ethics_code_accepted_at) +
+      '. התו מוצג בדף שלך, בדף המשרד ולצד תמונתך בכל מודעת נכס.';
+    pill.textContent = 'פעיל';
+    accSetCount('accEthics', '');
+  } else {
+    title.textContent = 'תו האיכות טרם הופעל';
+    note.textContent = 'אישור עשרת הסעיפים מדליק את התו בדף שלך ובכל מודעות הנכסים.';
+    pill.textContent = 'נדרש אישור';
+    saveBtn.textContent = 'אישור הקוד והפעלת התו';
+    accSetCount('accEthics', 'נדרש אישור');
+  }
+  // תיבת האישור נלווית לכפתור האישור — בלעדיו היא סימון שלא עושה דבר
+  saveBtn.hidden = active && !stale;
+  consent.closest('.ethics-consent').hidden = saveBtn.hidden;
+}
+
+function loadEthicsSettings(agent){
+  const list = document.getElementById('ethicsClauses');
+  if (!list.children.length){
+    ETHICS_CLAUSES.forEach(text=>{
+      const li = document.createElement('li');
+      li.textContent = text;
+      list.appendChild(li);
+    });
+  }
+  renderEthicsState(agent);
+  // מי שעוד לא אישר/ה מקבל/ת את הקטגוריה פתוחה: בלי אישור אין תו, וזה הדבר
+  // הראשון שכדאי לסגור אחרי ההצטרפות
+  if (!agent.ethics_code_accepted_at && !agent.ethics_badge_revoked_at){
+    document.getElementById('accEthics').open = true;
+  }
+}
+
+document.getElementById('ethicsForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  if (!currentAgent) return;
+  const feedback = document.getElementById('ethicsFeedback');
+  const btn = document.getElementById('ethicsSaveBtn');
+  if (!document.getElementById('ethicsConsent').checked){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = 'יש לסמן את תיבת האישור לפני הפעלת התו.';
+    return;
+  }
+  btn.disabled = true;
+  const original = btn.textContent;
+  btn.textContent = 'שומר…';
+  feedback.style.color = 'var(--ink-soft)';
+  feedback.textContent = '';
+  try{
+    // התאריך שנשלח הוא סימון בלבד — הטריגר במסד דורס אותו ב-now(). קוראים
+    // את השורה חזרה כדי להציג את מה שבאמת נשמר, ולא את מה שביקשנו לשמור.
+    const { data: saved, error } = await sb.from('agency_members').update({
+      ethics_code_accepted_at: new Date().toISOString(),
+      ethics_code_version: ETHICS_CODE_VERSION,
+      updated_at: new Date().toISOString(),
+    }).eq('id', currentAgent.id)
+      .select('ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at')
+      .single();
+    if (error) throw error;
+
+    Object.assign(currentAgent, saved);
+    renderEthicsState(currentAgent);
+    renderProfilePreview();
+    if (ethicsBadgeActive(currentAgent)){
+      feedback.style.color = 'var(--teal)';
+      feedback.textContent = 'התו הופעל — הוא מוצג מעכשיו בדף שלך ובמודעות הנכסים.';
+      showToast('תו האיכות הופעל');
+    } else {
+      feedback.style.color = 'var(--brick)';
+      feedback.textContent = 'האישור לא נשמר. נסו שוב, ואם זה חוזר — פנו להנהלת הפלטפורמה.';
+    }
+  } catch(err){
+    console.error('ethics accept failed', err);
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = 'שמירה נכשלה: ' + (err.message || 'שגיאה לא צפויה');
+  } finally{
+    btn.disabled = false;
+    if (btn.textContent === 'שומר…') btn.textContent = original;
+  }
+});
+
+/* ביטול אישור מרצון — לא הסרה משמעתית. מנקה את החותמת, ולכן התו יורד מכל
+   המקומות הציבוריים עד לאישור חוזר. */
+document.getElementById('ethicsWithdrawBtn').addEventListener('click', async ()=>{
+  if (!currentAgent) return;
+  if (!confirm('לבטל את האישור? התו יוסר מדף הסוכן/ת שלך ומכל מודעות הנכסים עד לאישור חוזר.')) return;
+  const feedback = document.getElementById('ethicsFeedback');
+  try{
+    const { data: saved, error } = await sb.from('agency_members').update({
+      ethics_code_accepted_at: null,
+      ethics_code_version: null,
+      updated_at: new Date().toISOString(),
+    }).eq('id', currentAgent.id)
+      .select('ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at')
+      .single();
+    if (error) throw error;
+    Object.assign(currentAgent, saved);
+    renderEthicsState(currentAgent);
+    renderProfilePreview();
+    feedback.style.color = 'var(--ink-soft)';
+    feedback.textContent = 'האישור בוטל והתו הוסר מהדפים הציבוריים.';
+  } catch(err){
+    console.error('ethics withdraw failed', err);
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = 'הביטול נכשל: ' + (err.message || 'שגיאה לא צפויה');
+  }
+});
+
+/* ---------- התו של המשרד (מנהל/ת בלבד) ---------- */
+async function loadAgencyEthics(agencyId){
+  const block = document.getElementById('ethicsAgencyBlock');
+  block.hidden = false;
+  const { data, error } = await sb.from('agencies')
+    .select('ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at')
+    .eq('id', agencyId).maybeSingle();
+  if (error || !data){ block.hidden = true; return; }
+  ethicsAgency = data;
+  renderAgencyEthicsState();
+}
+
+function renderAgencyEthicsState(){
+  const note = document.getElementById('ethicsAgencyNote');
+  const btn = document.getElementById('ethicsAgencyBtn');
+  const consent = document.getElementById('ethicsAgencyConsent');
+  const row = ethicsAgency || {};
+  const stale = row.ethics_code_accepted_at && !row.ethics_badge_revoked_at &&
+    row.ethics_code_version !== ETHICS_CODE_VERSION;
+
+  if (row.ethics_badge_revoked_at){
+    note.textContent = 'התו של המשרד הוסר בתאריך ' + ethicsDateLabel(row.ethics_badge_revoked_at) +
+      '. להחזרתו יש לפנות להנהלת הפלטפורמה.';
+    consent.closest('.ethics-consent').hidden = true;
+    btn.hidden = true;
+    return;
+  }
+  consent.closest('.ethics-consent').hidden = false;
+  if (ethicsBadgeActive(row) && !stale){
+    note.textContent = 'התו של המשרד פעיל מאז ' + ethicsDateLabel(row.ethics_code_accepted_at) +
+      ' ומוצג בראש דף המשרד.';
+    consent.closest('.ethics-consent').hidden = true;
+    btn.hidden = true;
+  } else {
+    note.textContent = stale
+      ? 'הקוד האתי עודכן — יש לאשר את הנוסח המעודכן בשם המשרד כדי שהתו יישאר בתוקף.'
+      : 'אישור בשם המשרד מדליק את התו בראש דף המשרד. הוא אינו מחליף את האישור האישי של כל סוכן/ת.';
+    btn.hidden = false;
+    btn.textContent = stale ? 'אישור הנוסח המעודכן בשם המשרד' : 'אישור בשם המשרד';
+  }
+}
+
+document.getElementById('ethicsAgencyBtn').addEventListener('click', async ()=>{
+  if (!currentAgent || !currentAgent.agency_id) return;
+  const feedback = document.getElementById('ethicsAgencyFeedback');
+  const btn = document.getElementById('ethicsAgencyBtn');
+  if (!document.getElementById('ethicsAgencyConsent').checked){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = 'יש לסמן את תיבת האישור.';
+    return;
+  }
+  btn.disabled = true;
+  feedback.style.color = 'var(--ink-soft)';
+  feedback.textContent = 'שומר…';
+  try{
+    const { data: saved, error } = await sb.from('agencies').update({
+      ethics_code_accepted_at: new Date().toISOString(),
+      ethics_code_version: ETHICS_CODE_VERSION,
+    }).eq('id', currentAgent.agency_id)
+      .select('ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at')
+      .single();
+    if (error) throw error;
+    ethicsAgency = saved;
+    document.getElementById('ethicsAgencyConsent').checked = false;
+    renderAgencyEthicsState();
+    feedback.style.color = 'var(--teal)';
+    feedback.textContent = 'התו של המשרד הופעל.';
+    showToast('תו האיכות של המשרד הופעל');
+  } catch(err){
+    console.error('agency ethics accept failed', err);
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = 'שמירה נכשלה: ' + (err.message || 'שגיאה לא צפויה');
+  } finally{
+    btn.disabled = false;
   }
 });
 

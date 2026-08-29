@@ -6,6 +6,7 @@
 <title>משרד תיווך | שוק נדל״ן</title>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800;900&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="assets/quality-badge.js"></script>
 <style>
   /* ---------- ערכת הצבעים של המשרד ----------
      ארבעת ה־brand tokens למטה הם היחידים שדף הניהול דורס (setProperty על :root)
@@ -83,6 +84,12 @@
   /* רק הלוגו נכנס אל תוך רצועת הנושא; שם המשרד יושב כולו על רקע הדף, אחרת
      טקסט כהה על גבי תמונת נושא כהה היה בלתי קריא. */
   .brand-strip{display:flex;align-items:flex-start;gap:16px;position:relative;z-index:1;padding:10px 0 16px}
+  /* תו האיכות של המשרד — בקצה השני של שורת השם והלוגו, בגובה השם */
+  .brand-badge{margin-inline-start:auto;flex:0 0 auto;padding-top:4px}
+  @media(max-width:560px){
+    .brand-badge .qb-badge img{width:50px!important;height:50px!important}
+    .brand-badge .qb-label{display:none}
+  }
   .brand-logo{
     width:96px;height:96px;margin-top:-62px;border-radius:22px;flex-shrink:0;overflow:hidden;
     background:linear-gradient(155deg,var(--accent),var(--brand) 65%);
@@ -302,6 +309,11 @@
   .agent-card .lic svg{width:11px;height:11px}
   .agent-card .chev{margin-inline-start:auto;color:var(--ink-soft);flex:none}
   .agent-card .chev svg{width:18px;height:18px}
+  /* תו האיכות על אריח של סוכן/ת בנבחרת. הוא לוקח על עצמו את הדחיפה לקצה
+     במקום ה-chev, אחרת שני margin אוטומטיים היו מחלקים ביניהם את הרווח
+     והתו היה נתקע באמצע הכרטיס. */
+  .agent-card .agent-badge{margin-inline-start:auto;flex:none;display:flex;align-items:center}
+  .agent-card.has-badge .chev{margin-inline-start:8px}
 
   .review-card{padding:15px 16px;margin-bottom:12px}
   .review-stars{color:var(--gold-dark);font-weight:700;letter-spacing:1px}
@@ -353,6 +365,7 @@
         <p class="brand-tagline" id="brandTagline" hidden></p>
         <div class="brand-areas" id="brandAreas"></div>
       </div>
+      <div class="brand-badge" id="brandBadge"></div>
     </div>
     <p class="brand-desc" id="brandDesc"></p>
 
@@ -650,6 +663,19 @@ document.addEventListener('keydown', (e)=>{
   if (e.key === 'ArrowRight') stepLightbox(-1);
 });
 
+/* ---------- תו האיכות של המשרד ----------
+   מנהל/ת המשרד מאשר/ת את הקוד האתי בשם המשרד ב-CRM. שני התאריכים נשמרים
+   בשורת ה-agency, והתו מוצג רק כשיש אישור ואין הסרה — אותו תנאי בדיוק
+   שה-view של הסוכנים מחשב בעצמו ב-has_ethics_badge. */
+function agencyHasEthicsBadge(agency){
+  return !!(agency && agency.ethics_code_accepted_at && !agency.ethics_badge_revoked_at);
+}
+
+function renderQualityBadge(agency){
+  if (!agencyHasEthicsBadge(agency) || !window.QualityBadge) return;
+  QualityBadge.mount('brandBadge', { size:'lg', label:true, subject: agency.name });
+}
+
 async function loadAgency(){
   const slug = new URLSearchParams(window.location.search).get('slug');
   if (!slug || !window.supabase){
@@ -673,6 +699,7 @@ async function loadAgency(){
       .map(a => `<span class="area-chip">${ICON.pin}${escapeHtml(a)}</span>`).join('');
     document.getElementById('brandDesc').textContent = agency.description || 'משרד תיווך פעיל בעפולה והעמק.';
     applyBranding(agency);
+    renderQualityBadge(agency);
     renderGallery(agency.gallery);
 
     document.getElementById('loadingState').style.display = 'none';
@@ -810,7 +837,7 @@ async function loadSoldDeals(sb, agencyId){
 async function loadAgentRoster(sb, agencyId){
   const el = document.getElementById('agentRoster');
   const { data: agents } = await sb.from('agency_members_public')
-    .select('id, slug, display_name, role, photo_url, license_number')
+    .select('id, slug, display_name, role, photo_url, license_number, has_ethics_badge')
     .eq('agency_id', agencyId);
   if (!agents || agents.length === 0){ el.innerHTML = '<div class="empty-state">אין כרגע סוכנים פעילים.</div>'; return; }
 
@@ -829,7 +856,14 @@ async function loadAgentRoster(sb, agencyId){
         <div class="role">${escapeHtml(roleLabels[a.role] || a.role || '')}</div>
         ${a.license_number ? `<span class="lic">${ICON.check}רישיון ${escapeHtml(a.license_number)}</span>` : ''}
       </div>
+      ${a.has_ethics_badge ? '<span class="agent-badge"></span>' : ''}
       <span class="chev" aria-hidden="true">${ICON.chevron}</span>`;
+    // התו נשתל אחרי ה-innerHTML כדי שיישא את מאזין הלחיצה שלו; הוא עוצר את
+    // ה-click מלטפס לכרטיס, כך שלחיצה עליו פותחת את הפופ־אפ ולא את דף הסוכן/ת
+    if (a.has_ethics_badge && window.QualityBadge){
+      card.classList.add('has-badge');
+      QualityBadge.mount(card.querySelector('.agent-badge'), { size:'sm', subject:name });
+    }
     card.addEventListener('click', ()=> window.location.href = 'agent.html?slug=' + (a.slug || a.id));
     el.appendChild(card);
   });
