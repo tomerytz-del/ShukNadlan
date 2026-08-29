@@ -273,6 +273,43 @@
      בגודל אייקון אין לו מקום פנימי, ולכן הוא נתלה על הפינה שלו. */
   .search-card .filter-count-badge{position:absolute;top:-1px;inset-inline-start:-1px}
   .map-fallback-note{margin-top:16px;font-size:.85rem;color:#DCE6E4}
+
+  /* ====== גלולות שכונה: קיצור הדרך לנכס ======
+     בעפולה ובעמק המיקום שקובע הוא ברמת השכונה ("רובע יזרעאל", "לב העמק C1"),
+     ולא ברמת העיר — מי שמחפש כאן כבר יודע באיזו עיר. הגלולות מציגות רק
+     שכונות שיש בהן נכסים פעילים, עם המונה שלהן, כדי שלחיצה לעולם לא תוביל
+     לרשימה ריקה (ראו renderHoodPills ב-JS).
+     השורה נגללת אופקית במסך צר ונפרסת ממורכזת בדסקטופ. פס הגלילה מוסתר —
+     פס גלילה על גבי המפה נראה כמו תקלה, והגלולה החתוכה בקצה היא כשלעצמה
+     הרמז שאפשר להמשיך לגלול. */
+  .hood-bar{margin:10px auto 0;max-width:860px;pointer-events:auto}
+  .hood-pills{
+    display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;
+    padding:2px 4px;scroll-behavior:smooth;
+  }
+  .hood-pills::-webkit-scrollbar{display:none}
+  .hood-pills button{
+    flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;
+    padding:6px 13px;border-radius:999px;white-space:nowrap;cursor:pointer;
+    font-size:.76rem;font-weight:700;color:var(--teal-dark);
+    background:rgba(255,255,255,.92);border:1.5px solid transparent;
+    box-shadow:0 2px 8px rgba(6,20,34,.28);
+    transition:background .15s ease,color .15s ease,border-color .15s ease;
+  }
+  .hood-pills button:hover{background:#fff}
+  .hood-pills button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  /* הנבחרת נצבעת בטיל הכהה ולא רק במסגרת: הגלולות יושבות על מפה מרובת
+     גוונים, ושינוי מסגרת בלבד לא נקרא שם כבחירה. */
+  .hood-pills button[aria-pressed="true"]{
+    background:var(--teal-dark);color:#fff;border-color:var(--gold);
+  }
+  .hood-pills .hood-count{
+    font-variant-numeric:tabular-nums;font-weight:700;font-size:.68rem;color:var(--ink-soft);
+  }
+  .hood-pills button[aria-pressed="true"] .hood-count{color:#E7D9BC}
+  @media(min-width:760px){
+    .hood-pills{flex-wrap:wrap;justify-content:center;overflow:visible}
+  }
   .filters-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .filters-row select{
     border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 8px;
@@ -414,6 +451,82 @@
     .map-expand-btn{margin-inline-start:0}
     .map-expand-btn::before{display:none}
   }
+  /* ====== Split view: מפה לצד רשימה (דסקטופ בלבד) ======
+     חצי מסך מפה אינטראקטיבית וחצי רשימת נכסים שמתעדכנת בגרירה ובזום —
+     הרשימה מציגה תמיד בדיוק את מה שנמצא *בתחום הנראה של המפה*, ולכן
+     הזזת המפה היא עצמה פעולת חיפוש (ראו updateSplitPanel ב-JS).
+     הפאנל יושב ב-inset-inline-start, כלומר בימין ב-RTL: קוראים קודם את
+     הרשימה ואז מסתכלים על המפה שלצדה, ולא הפוך.
+     המצב כבוי כברירת מחדל ונדלק מהכפתור שבסרגל המפה (ונזכר ב-localStorage).
+     כפתור ה-✕ שבראש הפאנל סוגר אותו וחוזר למפה מלאה. */
+  .split-panel{display:none}
+  .split-toggle-btn{display:none}
+  @media(min-width:1024px){
+    .split-toggle-btn{display:inline-flex}
+    .hero{--split-w:clamp(340px,30vw,440px)}
+    /* במצב מפוצל המפה היא סביבת עבודה ולא כרזה — היא מקבלת גובה מלא יותר,
+       ושורת ההסבר שמתחת לכותרת יורדת כדי לא לגזול ממנה. */
+    .hero.split-on{height:clamp(620px,90vh,960px)}
+    .hero.split-on #hero-map,
+    .hero.split-on .hero-overlay,
+    .hero.split-on .map-toolbar{inset-inline-start:var(--split-w)}
+    /* ‏#hero-map מוגדר ב-width:100% על גבי inset:0; בלי הביטול הזה הוא היה
+       גולש מתחת לפאנל במקום להתקצר מולו. */
+    .hero.split-on #hero-map{width:auto}
+    .hero.split-on .hero-inner h1{font-size:1.3rem}
+    .hero.split-on .hero-inner p.lede{display:none}
+    .hero.split-on .split-panel{display:flex}
+    .split-panel{
+      position:absolute;inset-block:0;inset-inline-start:0;width:var(--split-w);z-index:6;
+      flex-direction:column;background:var(--paper-raised);
+      box-shadow:8px 0 26px rgba(6,20,34,.32);
+    }
+    /* ב-RTL הצל צריך לצאת שמאלה מהפאנל שיושב בימין */
+    html[dir="rtl"] .split-panel{box-shadow:-8px 0 26px rgba(6,20,34,.32)}
+    .split-head{
+      flex:0 0 auto;display:flex;align-items:center;gap:8px;
+      padding:12px 16px;border-bottom:1px solid var(--line);background:#fff;
+    }
+    .split-head-text{min-width:0;flex:1 1 auto}
+    .split-title{font-size:1rem;line-height:1.25}
+    .split-count{display:block;font-size:.72rem;font-weight:600;color:var(--ink-soft);margin-top:2px}
+    .split-close{
+      flex:0 0 auto;width:30px;height:30px;border-radius:50%;
+      background:var(--paper);color:var(--ink-soft);font-size:.95rem;cursor:pointer;
+    }
+    .split-close:hover{background:var(--teal-tint);color:var(--teal-dark)}
+    .split-rows{
+      flex:1 1 auto;overflow-y:auto;overscroll-behavior:contain;
+      display:flex;flex-direction:column;gap:8px;padding:12px;
+    }
+    /* בלי זה השורות הן פריטי flex בקונטיינר בגובה קבוע והן מתכווצות זו על
+       זו ככל שיש יותר תוצאות — עשרים שורות היו נדחסות לגובה של חמש
+       והטקסט בהן גלש אחת על השנייה. הגלילה היא זו שאמורה לספוג את העודף. */
+    .split-rows > *{flex:0 0 auto}
+    /* אותה שורה בדיוק של תוצאות החיפוש, בקנה מידה של עמודה צרה: התמונה
+       מתכווצת והמחיר יורד לשורה אחת עם התגית, כדי שייכנסו בלי גלישה. */
+    .split-rows .sr-thumb{flex:0 0 84px;min-height:78px}
+    .split-rows .sr-title{font-size:.82rem}
+    .split-rows .sr-meta{font-size:.7rem}
+    .split-rows .sr-price{font-size:.9rem}
+    .split-rows .sr-side{padding:8px 0 8px 10px;gap:4px}
+    /* השורה שהעכבר עליה מדגישה את הפין המתאים במפה, וההפך — לחיצה על פין
+       מדגישה וגוללת אל השורה שלו. הקישור הדו-כיווני הזה הוא כל הרעיון של
+       התצוגה המפוצלת. */
+    .split-rows .sr-row.is-hot{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold-tint)}
+    .split-note{
+      flex:0 0 auto;padding:8px 14px;border-top:1px solid var(--line);background:#fff;
+      font-size:.7rem;color:var(--ink-soft);text-align:center;
+    }
+  }
+  /* הפין המקושר לשורה שהעכבר עליה. ההרמה מעל הפינים השכנים נעשית ב-JS
+     (setZIndexOffset על ה-marker עצמו) — z-index כאן, על ה-div שבתוך
+     האייקון, לא היה מרים אותו מעל אלמנטים אחרים של Leaflet. */
+  .map-pin.is-hot{
+    outline:2.5px solid var(--gold);outline-offset:1px;
+    transform:translate(-50%,-50%) scale(1.12);
+  }
+
   /* פקדי הזום מיותרים במגע (פינץ' עושה את העבודה) ורק גוזלים רוחב מהסרגל */
   @media(max-width:759px){ .leaflet-control-zoom{display:none !important} }
   /* מרימים את הפקדים של Leaflet מעל הסרגל הצף, ואת שניהם מעל הקצה המעוגל
@@ -1351,7 +1464,15 @@
   html.a11y-contrast .map-legend button,
   html.a11y-contrast .search-card .icon-btn, html.a11y-contrast .search-card .search-go,
   html.a11y-contrast .map-expand-btn,
+  html.a11y-contrast .hood-pills button,
+  html.a11y-contrast .split-close,
   html.a11y-contrast .map-recenter-btn{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
+  /* הגלולה הנבחרת חייבת להיבדל מהשאר גם כשכולן שחור-על-צהוב */
+  html.a11y-contrast .hood-pills button[aria-pressed="true"]{background:#FFD84D !important;color:#000 !important}
+  html.a11y-contrast .hood-pills button[aria-pressed="true"] .hood-count{color:#000 !important}
+  html.a11y-contrast .split-panel,
+  html.a11y-contrast .split-head,
+  html.a11y-contrast .split-note{background:#000 !important;border-color:#FFD84D !important}
   /* במצב ניגודיות גבוהה המפה מעומעמת: אריחים צבעוניים מתחת לטקסט צהוב על
      שחור הורסים את יחס הניגודיות שכל המצב הזה נועד להבטיח */
   html.a11y-contrast .hero-overlay{background:#000 !important}
@@ -1462,9 +1583,31 @@
             </button>
           </div>
         </div>
+
+        <!-- סינון מהיר לפי שכונה. נבנה מהנכסים הפעילים עצמם (renderHoodPills),
+             ולכן מוצגות כאן רק שכונות שבאמת יש בהן מה למצוא. -->
+        <div class="hood-bar" id="hoodBar" hidden>
+          <div class="hood-pills" id="hoodPills" role="group" aria-label="סינון מהיר לפי שכונה"></div>
+        </div>
+
         <p class="map-fallback-note" id="mapFallbackNote" hidden>המפה לא נטענה (בעיית רשת) — רשימת הנכסים למטה עדיין זמינה.</p>
       </div>
     </div>
+
+    <!-- ====== תצוגה מפוצלת: רשימה לצד המפה (דסקטופ) ======
+         מוזנת מהנכסים שעל המפה ומצומצמת לתחום הנראה שלה, ולכן היא מתעדכנת
+         בכל גרירה וזום — ראו updateSplitPanel ב-JS. -->
+    <aside class="split-panel" id="splitPanel" aria-label="נכסים בתחום המפה">
+      <div class="split-head">
+        <div class="split-head-text">
+          <h2 class="split-title">נכסים בתחום המפה</h2>
+          <span class="split-count" id="splitCount" aria-live="polite"></span>
+        </div>
+        <button type="button" class="split-close" id="splitCloseBtn" aria-label="סגירת הרשימה והצגת המפה בלבד" title="סגירת הרשימה והצגת המפה בלבד">✕</button>
+      </div>
+      <div class="split-rows" id="splitRows"></div>
+      <p class="split-note" id="splitNote" hidden></p>
+    </aside>
 
     <!-- ====== Residential filters modal ====== -->
     <div class="filter-modal-overlay" id="residentialFilterModal">
@@ -1674,6 +1817,14 @@
             <button type="button" data-deal-kind="rent" aria-pressed="true"><i class="rent" aria-hidden="true"></i>השכרה <span class="legend-count" data-legend-count="rent"></span></button>
             <button type="button" data-deal-kind="commercial" aria-pressed="true"><i class="commercial" aria-hidden="true"></i>מסחרי <span class="legend-count" data-legend-count="commercial"></span></button>
           </div>
+          <!-- מפה + רשימה זה לצד זה. מוצג מ-1024px ומעלה בלבד: מתחת לזה אין
+               רוחב לשתי עמודות, ושם הרשימה ממילא יושבת מיד מתחת למפה. -->
+          <button type="button" class="map-expand-btn split-toggle-btn" id="splitToggleBtn" aria-pressed="false" aria-label="הצגת רשימת הנכסים לצד המפה">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M10 4v16"/>
+            </svg>
+            <span class="split-toggle-label">מפה + רשימה</span>
+          </button>
           <button type="button" class="map-expand-btn" id="mapExpandBtn" aria-expanded="false" aria-label="הגדלת המפה">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
               <path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6"/>
@@ -2769,7 +2920,8 @@ const isPromoted = p => !!p.is_promoted && (!p.promoted_until || new Date(p.prom
    את התאריך עצמו כדי למיין מחדש בלי הקידום. */
 const PROPERTY_SELECT =
   'id, price, title, rooms, size_sqm, city, street, address, property_type, deal_type, category, ' +
-  'created_at, lat, lng, is_promoted, promoted_until, images, agencies(name, logo_url), neighborhoods(name)';
+  'created_at, lat, lng, is_promoted, promoted_until, images, neighborhood_id, ' +
+  'agencies(name, logo_url), neighborhoods(name)';
 
 const shapeProperty = p => ({
   ...p,
@@ -3423,6 +3575,11 @@ try {
   // מה שנחתך בזום נמוך מתפרש יפה אחרי התקרבות, ולהפך — הפריסה מחושבת מחדש
   // בכל שינוי תצוגה ולא רק בעת רינדור הפינים
   heroMap.on('zoomend moveend resize', ()=> relayoutMapPins());
+
+  // ליבת התצוגה המפוצלת: גרירה או זום של המפה הם עצמם פעולת חיפוש — הרשימה
+  // שלצדה מצטמצמת למה שנמצא בתחום הנראה. moveend/zoomend נורים פעם אחת בסוף
+  // המחווה, ולכן אין כאן צורך ב-debounce.
+  heroMap.on('moveend zoomend resize', ()=> updateSplitPanel());
 } catch(e){
   console.warn('אתחול המפה נכשל, ממשיכים בלי המפה:', e);
   const hero = document.getElementById('heroSection');
@@ -3440,6 +3597,9 @@ if (mapStyleSelect){
 }
 
 const mapMarkers = {};
+// הנכסים שמהם נבנו הפינים הנוכחיים, בסדר שבו הם התקבלו (מקודמים ואז חדשים).
+// מקור האמת של הפאנל המפוצל — ראו renderMap ו-updateSplitPanel.
+let mapProperties = [];
 
 /* המקרא שמתחת למפה הוא גם מסנן: כל סוג עסקה שכבוי כאן — הפינים שלו יורדים
    מהמפה. הסינון הזה חי רק בשכבת התצוגה ולא נוגע ברשימת הנכסים עצמה, ולכן
@@ -3491,10 +3651,16 @@ const MAP_FIT_MAX_ZOOM = 16;
 function fitMapToMarkers(){
   if (!heroMap) return;
   const points = visibleMarkers().map(m => m.getLatLng());
-  if (!points.length) return;
+  // עיגול השכונה הנבחרת נספר כחלק ממה שצריך להיכנס לתצוגה: בלעדיו הוא היה
+  // נחתך כשהנכסים מרוכזים בפינה אחת שלו, ובשכונה שהחיפוש לא החזיר בה כלום
+  // לא היה למפה בכלל לאן לעוף
+  const hoodBounds = hoodCircle ? hoodCircle.getBounds() : null;
+  if (!points.length && !hoodBounds) return;
   try {
     const pad = visibleMapPadding();
-    const bounds = L.latLngBounds(points);
+    const bounds = points.length
+      ? (hoodBounds ? L.latLngBounds(points).extend(hoodBounds) : L.latLngBounds(points))
+      : hoodBounds;
 
     // fitBounds רגיל היה מרחיק את הזום עד שכל הגבולות נכנסים לחלון הפנוי
     // בין סרגל החיפוש לסרגל הפקדים — ובמפה נמוכה זה אומר שאשכול נכסים של
@@ -3587,6 +3753,10 @@ function mapPopupHtml(p, kind){
 function renderMap(properties){
   Object.values(mapMarkers).forEach(m => heroMap && heroMap.removeLayer(m));
   Object.keys(mapMarkers).forEach(id => delete mapMarkers[id]);
+  // הרשימה שמזינה את הפינים היא גם זו שמזינה את הפאנל המפוצל, שמצמצם אותה
+  // לתחום הנראה של המפה. נשמרת כאן ולא נטענת מחדש, כדי ששתי התצוגות לא
+  // יוכלו להיפרד זו מזו.
+  mapProperties = properties.slice();
 
   if (heroMap){
     properties.forEach((p) => {
@@ -3608,6 +3778,10 @@ function renderMap(properties){
         pinRank: (isPromoted(p) ? 1e12 : 0) + (Number(p.price) || 0),
       });
       m.bindPopup(mapPopupHtml(p, kind));
+      // לחיצה על פין מדגישה וגוללת אל השורה שלו בפאנל המפוצל — הכיוון השני
+      // של הקישור שריחוף על שורה יוצר (ראו hotSplitRow)
+      m.on('popupopen', ()=> revealSplitRow(p.id));
+      m.on('popupclose', ()=> hotSplitRow(p.id, false));
       mapMarkers[p.id] = m;
     });
   }
@@ -3644,6 +3818,9 @@ function applyDealFilter({ fit = false } = {}){
     relayoutMapPins();
   }
   updateMapCount();
+  // המקרא מסתיר פינים, והפאנל המפוצל מציג רק את מה שמצויר על המפה — ולכן
+  // כיבוי "השכרה" חייב להוריד את אותם נכסים גם מהרשימה שלצדה
+  updateSplitPanel();
 }
 
 // ה-fallback של המפה מסתיר את הפאנל, ולכן המונה עשוי לא להיות גלוי בכלל
@@ -3835,9 +4012,344 @@ if (mapExpandBtn){
   });
 }
 
+/* ============================================================
+   תצוגה מפוצלת: מפה לצד רשימה (דסקטופ)
+   ------------------------------------------------------------
+   חצי מסך מפה וחצי רשימת נכסים שמתעדכנת בזמן אמת בגרירה ובזום. הרעיון:
+   הזזת המפה היא עצמה פעולת חיפוש — הרשימה עונה תמיד על "מה יש כאן, במקום
+   שאני מסתכל עליו עכשיו", ולא על "מה החזירה השאילתה האחרונה".
+   הרשימה נגזרת מ-mapProperties (הנכסים שמהם נבנו הפינים) ומצטמצמת לתחום
+   הנראה, ולכן היא לא יכולה להיפרד מהמפה שלצדה גם אחרי חיפוש חדש.
+   ============================================================ */
+const SPLIT_MIN_WIDTH = 1024;   // חייב להתאים ל-@media בגיליון הסגנונות
+const SPLIT_MAX_ROWS = 60;      // מעבר לזה הגלילה ארוכה מלהיות שימושית
+
+/* מסך רחב מספיק לשתי עמודות — *ומפה שנטענה*. בלי תנאי המפה, העדפה שנשמרה
+   מביקור קודם הייתה פותחת פאנל "נכסים בתחום המפה" ריק לצד מפה שלא עלתה
+   (‏Leaflet חסום/נכשל), כי אין תחום נראה לסנן לפיו. */
+const splitSupported = ()=> !!heroMap && window.matchMedia(`(min-width:${SPLIT_MIN_WIDTH}px)`).matches;
+
+let splitOn = false;
+// האם הגולש/ת כבר הביע/ה העדפה. בלי ההבחנה הזו אי אפשר להבדיל בין "כיבה
+// במפורש" לבין "עוד לא נתקל בזה" — ורק במקרה השני מותר לפתוח אוטומטית
+// אחרי החיפוש הראשון.
+let splitPrefSet = false;
+try {
+  const stored = localStorage.getItem('shuk_split_view');
+  splitPrefSet = stored !== null;
+  splitOn = stored === '1';
+} catch(e){ /* מצב פרטי/חסום */ }
+
+function setSplitView(on, { remember = true } = {}){
+  splitOn = !!on;
+  const hero = document.getElementById('heroSection');
+  const btn = document.getElementById('splitToggleBtn');
+  if (hero) hero.classList.toggle('split-on', splitOn);
+  if (btn){
+    btn.setAttribute('aria-pressed', String(splitOn));
+    btn.setAttribute('aria-label', splitOn ? 'סגירת הרשימה והצגת המפה בלבד' : 'הצגת רשימת הנכסים לצד המפה');
+    const label = btn.querySelector('.split-toggle-label');
+    if (label) label.textContent = splitOn ? 'מפה בלבד' : 'מפה + רשימה';
+  }
+  if (remember){
+    splitPrefSet = true;
+    try { localStorage.setItem('shuk_split_view', splitOn ? '1' : '0'); } catch(e){ /* מצב פרטי/חסום */ }
+  }
+  // רוחב הקונטיינר של המפה משתנה במעבר, ו-Leaflet לא מזהה שינוי גודל בעצמו:
+  // בלי invalidateSize האריחים נשארים חתוכים ברוחב הישן. ההמתנה היא לאורך
+  // מעבר הגובה של ה-hero (‎transition:height .3s‎), כמו בכפתור ההגדלה.
+  if (heroMap) setTimeout(()=>{ heroMap.invalidateSize({ pan:false }); fitMapToMarkers(); updateSplitPanel(); }, 320);
+  else updateSplitPanel();
+}
+
+/* הנכסים שנמצאים כרגע בתוך התחום הנראה של המפה, בסדר המקורי של הרשימה
+   (מקודמים ואז החדשים). מסנן המקרא נאכף גם כאן: סוג עסקה שכבוי לא מצויר
+   על המפה, ולכן אסור לו להופיע ברשימה שלצדה. */
+function propertiesInView(){
+  if (!heroMap) return [];
+  let bounds;
+  try { bounds = heroMap.getBounds(); } catch(e){ return []; }
+  return mapProperties.filter(p =>
+    p.lat && p.lng &&
+    activeDealKinds.has(dealKind(p)) &&
+    bounds.contains([Number(p.lat), Number(p.lng)]));
+}
+
+function splitRowFor(id){
+  const rows = document.getElementById('splitRows');
+  if (!rows) return null;
+  return Array.from(rows.children).find(el => el.dataset && el.dataset.propId === String(id)) || null;
+}
+
+/* הדגשה דו-כיוונית בין שורה לפין — הקישור הזה הוא כל מה שהופך שתי עמודות
+   נפרדות לתצוגה אחת. המזהה המודגש נשמר ב-hotSplitId כדי שתמיד יהיה אפשר
+   לכבות אותו, גם כשהשורה עצמה כבר לא קיימת. */
+let hotSplitId = null;
+function hotSplitRow(id, on){
+  const marker = mapMarkers[id];
+  if (marker){
+    const el = marker.getElement();
+    const pin = el && el.querySelector('.map-pin');
+    if (pin) pin.classList.toggle('is-hot', !!on);
+    // הרמה מעל הפינים השכנים כל עוד ההדגשה פעילה; באשכול צפוף הפין המודגש
+    // היה מוסתר מתחת לשכניו
+    if (marker.setZIndexOffset) marker.setZIndexOffset(on ? 1000 : 0);
+  }
+  const row = splitRowFor(id);
+  if (row) row.classList.toggle('is-hot', !!on);
+  if (on) hotSplitId = id;
+  else if (hotSplitId === id) hotSplitId = null;
+}
+
+// לחיצה על פין → גלילה אל השורה שלו בפאנל והדגשתה
+function revealSplitRow(id){
+  if (!splitOn || !splitSupported()) return;
+  if (hotSplitId && hotSplitId !== id) hotSplitRow(hotSplitId, false);
+  const row = splitRowFor(id);
+  if (!row) return;
+  hotSplitRow(id, true);
+  // block:'nearest' — גלילה בתוך הפאנל בלבד, בלי לגרור איתה את העמוד
+  row.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function updateSplitPanel(){
+  const rows = document.getElementById('splitRows');
+  const countEl = document.getElementById('splitCount');
+  const note = document.getElementById('splitNote');
+  if (!rows) return;
+  // כשהתצוגה כבויה אין מה לצייר; ההדלקה קוראת לפונקציה הזו בעצמה
+  if (!splitOn || !splitSupported()) return;
+
+  const inView = propertiesInView();
+  const shown = inView.slice(0, SPLIT_MAX_ROWS);
+  // שורה שנמחקת תוך כדי ריחוף לא מפעילה mouseleave, והפין שלה היה נשאר
+  // מודגש ומורם לנצח
+  if (hotSplitId) hotSplitRow(hotSplitId, false);
+
+  if (countEl){
+    countEl.textContent = inView.length
+      ? (inView.length === 1 ? 'נכס אחד בתחום התצוגה' : `${inView.length} נכסים בתחום התצוגה`)
+      : 'אין נכסים בתחום התצוגה';
+  }
+
+  rows.innerHTML = '';
+  if (!shown.length){
+    rows.innerHTML = '<div class="sr-empty">אין נכסים בתחום התצוגה הנוכחי. הזיזו את המפה או התרחקו כדי לראות עוד.</div>';
+  } else {
+    shown.forEach((p, i)=>{
+      const row = buildSearchRow(p, i);
+      row.addEventListener('mouseenter', ()=> hotSplitRow(p.id, true));
+      row.addEventListener('mouseleave', ()=> hotSplitRow(p.id, false));
+      row.addEventListener('focus', ()=> hotSplitRow(p.id, true));
+      row.addEventListener('blur', ()=> hotSplitRow(p.id, false));
+      rows.appendChild(row);
+    });
+  }
+  // התוכן התחלף — גלילה שנשארה מהתצוגה הקודמת הייתה נוחתת באמצע רשימה אחרת
+  rows.scrollTop = 0;
+
+  if (note){
+    const overflow = inView.length - shown.length;
+    note.hidden = overflow <= 0;
+    if (overflow > 0) note.textContent = `מוצגים ${shown.length} מתוך ${inView.length} — התקרבו במפה כדי לצמצם`;
+  }
+}
+
+const splitToggleBtn = document.getElementById('splitToggleBtn');
+if (splitToggleBtn) splitToggleBtn.addEventListener('click', ()=> setSplitView(!splitOn));
+const splitCloseBtn = document.getElementById('splitCloseBtn');
+if (splitCloseBtn) splitCloseBtn.addEventListener('click', ()=> setSplitView(false));
+// המצב נזכר בין ביקורים, אבל רק במסך שיש בו מקום לשתי עמודות. remember:false
+// כדי שפתיחה במסך צר לא תמחק את ההעדפה שנשמרה בדסקטופ.
+setSplitView(splitOn && splitSupported(), { remember:false });
+
+/* ============================================================
+   שכונות: סינון מהיר ורדיוס על המפה
+   ------------------------------------------------------------
+   בעפולה ובעמק המיקום שקובע נקרא ברמת השכונה — "רובע יזרעאל", "גבעת המורה",
+   "לב העמק C1" — ולא ברמת העיר; מי שמחפש כאן כבר יודע באיזו עיר. הגלולות
+   נבנות מהנכסים הפעילים עצמם, ולכן מוצגות רק שכונות שיש בהן מה למצוא,
+   והמונה שעל הגלולה הוא מספר הנכסים שבאמת ימתינו מעבר ללחיצה.
+   ============================================================ */
+const HOOD_PILL_LIMIT = 8;
+const HOOD_MIN_RADIUS_M = 450;   // רדיוס מינימלי, שלא ייווצר עיגול זעיר סביב נכס בודד
+const HOOD_RADIUS_PAD_M = 220;   // שוליים סביב הנכס הרחוק ביותר בשכונה
+
+const hoodState = {
+  rows: [],                // כל השכונות מה-DB
+  byId: new Map(),
+  counts: new Map(),       // מזהה שכונה → מספר נכסים פעילים
+  centers: new Map(),      // מזהה שכונה → { center:[lat,lng], radius }
+  selected: null,
+};
+let hoodCircle = null;
+
+/* ‏select('*') בכוונה: העמודות הגאוגרפיות (lat/lng/radius_m) נוספות
+   במיגרציה 20260830120000, ובחירה מפורשת בהן הייתה מפילה את הטעינה בכל
+   סביבה שהמיגרציה עוד לא רצה בה. הטבלה קטנה ואין בה שדות רגישים. */
+async function loadNeighborhoods(){
+  if (!sb) return [];
+  try{
+    const { data, error } = await sb.from('neighborhoods').select('*');
+    if (error) throw error;
+    return data || [];
+  } catch(e){
+    console.warn('טעינת השכונות נכשלה, ממשיכים בלי גלולות השכונה:', e);
+    return [];
+  }
+}
+
+/* כל הנכסים הפעילים במאגר, כפי שנטענו לעמוד. מקור המונים והמרכזים של
+   השכונות — ולכן נשמר בנפרד מ-mapProperties, שמתחלף עם כל חיפוש. */
+let allActiveProperties = [];
+
+/* מרכז ורדיוס לכל שכונה. סימון ידני ב-DB (lat/lng/radius_m) גובר תמיד;
+   בהיעדרו הם נגזרים מהנכסים עצמם — ממוצע הקואורדינטות, ורדיוס עד הנכס
+   הרחוק ביותר ממנו. חישוב מהנכסים נכון תמיד למקום שבו הנכסים באמת יושבים,
+   וסימון ידני מדויק יותר לגבולות השכונה כפי שהן מוכרות בעיר.
+   נגזר מכל הנכסים הפעילים ולא מהמסוננים: מרכז השכונה אינו תלוי בסוג העסקה
+   שנבחר, ויותר נקודות = מרכז מדויק יותר. */
+function computeHoodGeometry(properties){
+  hoodState.centers = new Map();
+  const points = new Map();
+
+  properties.forEach(p=>{
+    const id = p.neighborhood_id;
+    if (!id || !p.lat || !p.lng) return;
+    if (!points.has(id)) points.set(id, []);
+    points.get(id).push([Number(p.lat), Number(p.lng)]);
+  });
+
+  hoodState.rows.forEach(h=>{
+    const list = points.get(h.id) || [];
+    const manualLat = Number(h.lat), manualLng = Number(h.lng);
+    let center = (h.lat != null && h.lng != null && Number.isFinite(manualLat) && Number.isFinite(manualLng))
+      ? [manualLat, manualLng]
+      : null;
+    if (!center && list.length){
+      center = [
+        list.reduce((sum, pt)=> sum + pt[0], 0) / list.length,
+        list.reduce((sum, pt)=> sum + pt[1], 0) / list.length,
+      ];
+    }
+    if (!center) return;
+
+    let radius = Number(h.radius_m) || 0;
+    if (!radius && list.length && window.L){
+      const c = L.latLng(center);
+      radius = list.reduce((max, pt)=> Math.max(max, c.distanceTo(L.latLng(pt))), 0) + HOOD_RADIUS_PAD_M;
+    }
+    hoodState.centers.set(h.id, { center, radius: Math.max(HOOD_MIN_RADIUS_M, Math.round(radius)) });
+  });
+}
+
+/* העיגול המקווקו שמסמן את תחום השכונה הנבחרת. שכבת overlayPane יושבת מתחת
+   לפינים, ולכן הוא לא מסתיר אותם. הצבע קבוע ולא ‎var(--gold)‎: ‏Leaflet כותב
+   אותו כ-presentation attribute על ה-path, ושם ‎var()‎ אינו נתמך. */
+function drawHoodCircle(){
+  if (!heroMap) return;
+  if (hoodCircle){ heroMap.removeLayer(hoodCircle); hoodCircle = null; }
+  const geo = hoodState.selected && hoodState.centers.get(hoodState.selected);
+  if (!geo) return;
+  hoodCircle = L.circle(geo.center, {
+    radius: geo.radius, interactive:false,
+    color:'#8B2332', weight:2, opacity:.85, dashArray:'6 5',
+    fillColor:'#8B2332', fillOpacity:.06,
+  }).addTo(heroMap);
+}
+
+/* מספר הנכסים בכל שכונה — לפי סוג העסקה שנבחר בסרגל החיפוש, כלומר בדיוק
+   מה שהלחיצה על הגלולה תחזיר. ספירה כוללת הייתה מבטיחה "4" ומחזירה רשימה
+   ריקה כשארבעת הנכסים האלה מסחריים והבורר עומד על "מכירה". התנאים כאן הם
+   בכוונה אותם תנאים שב-runSearch, ולכן הם מתעדכנים איתו. */
+function hoodCounts(){
+  const isCommercial = searchState.activeTab === 'commercial';
+  const category = isCommercial ? 'commercial' : 'residential';
+  const dealType = isCommercial ? searchState.c.deal : searchState.activeTab;
+  const counts = new Map();
+  allActiveProperties.forEach(p=>{
+    if (!p.neighborhood_id) return;
+    if (p.category !== category || p.deal_type !== dealType) return;
+    counts.set(p.neighborhood_id, (counts.get(p.neighborhood_id) || 0) + 1);
+  });
+  return counts;
+}
+
+function renderHoodPills(){
+  const bar = document.getElementById('hoodBar');
+  const wrap = document.getElementById('hoodPills');
+  if (!bar || !wrap) return;
+  hoodState.counts = hoodCounts();
+
+  const ranked = hoodState.rows
+    .filter(h => (hoodState.counts.get(h.id) || 0) > 0)
+    .sort((a, b)=>
+      (hoodState.counts.get(b.id) - hoodState.counts.get(a.id)) ||
+      String(a.name).localeCompare(String(b.name), 'he'));
+
+  let shown = ranked.slice(0, HOOD_PILL_LIMIT);
+  // שכונה נבחרת נשארת בשורה גם כשאין בה נכסים מסוג העסקה הנוכחי, ואפילו אם
+  // אינה בין המובילות: אחרת הבחירה הפעילה נעלמת מהמסך ואי אפשר לבטל אותה
+  if (hoodState.selected && !shown.some(h => h.id === hoodState.selected)){
+    const sel = hoodState.byId.get(hoodState.selected);
+    if (sel) shown = [sel, ...shown];
+  }
+
+  if (!shown.length){ bar.hidden = true; wrap.innerHTML = ''; return; }
+  bar.hidden = false;
+  wrap.innerHTML = '';
+
+  const all = document.createElement('button');
+  all.type = 'button';
+  all.textContent = 'כל השכונות';
+  all.setAttribute('aria-pressed', String(!hoodState.selected));
+  all.addEventListener('click', ()=> selectHood(null));
+  wrap.appendChild(all);
+
+  shown.forEach(h=>{
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.dataset.hoodId = h.id;
+    btn.setAttribute('aria-pressed', String(h.id === hoodState.selected));
+    // textContent ולא innerHTML: שמות שכונות מוזנים ע"י משתמשי הפלטפורמה
+    // (‏neighborhoods.is_custom‎), ואסור להם להגיע ל-DOM כ-HTML
+    btn.appendChild(document.createTextNode(h.name));
+    const count = document.createElement('span');
+    count.className = 'hood-count';
+    count.textContent = hoodState.counts.get(h.id) || 0;
+    btn.appendChild(count);
+    btn.addEventListener('click', ()=> selectHood(h.id));
+    wrap.appendChild(btn);
+  });
+}
+
+/* לחיצה על גלולת שכונה מריצה חיפוש אמיתי מול ה-DB ולא סינון מקומי: כך היא
+   מצטרפת לשאר הסינונים (מחיר, חדרים, סוג עסקה) במקום להתחרות בהם, ומחזירה
+   גם נכסים שמעבר ל-300 הראשונים שנטענו לעמוד. לחיצה חוזרת על אותה שכונה
+   מבטלת את הבחירה — כמו "כל השכונות". */
+function selectHood(id){
+  hoodState.selected = (id && hoodState.selected === id) ? null : id;
+  // רינדור מלא ולא עדכון aria-pressed בלבד: הבחירה משפיעה על *אילו* גלולות
+  // מוצגות (שכונה נבחרת נשארת בשורה גם בלי נכסים), ולכן ביטול הבחירה חייב
+  // גם להוריד אותה משם
+  renderHoodPills();
+  drawHoodCircle();
+  runSearch();
+}
+
 try {
   (async function initPropertyUI(){
-    const properties = await loadProperties();
+    // שתי הטעינות בלתי תלויות זו בזו — הרשימה מספקת את המונים והמרכזים,
+    // והטבלה מספקת את השמות והסימון הידני
+    const [properties, hoods] = await Promise.all([loadProperties(), loadNeighborhoods()]);
+    hoodState.rows = hoods;
+    hoodState.byId = new Map(hoods.map(h => [h.id, h]));
+    // תמיד מהרשימה המלאה של הנכסים הפעילים, ולא מתוצאות חיפוש: המונה שעל
+    // הגלולה הוא "כמה יש בשכונה", ואם הוא היה מצטמצם עם כל חיפוש הוא היה
+    // מפסיק לענות על השאלה שבגללה מסתכלים עליו
+    allActiveProperties = properties;
+    computeHoodGeometry(properties);
+    renderHoodPills();
 
     const featuredScroll = document.getElementById('featuredScroll');
     properties.filter(isPromoted).forEach((p,i)=>{
@@ -3953,6 +4465,9 @@ function initFilterModals(){
       document.querySelectorAll('.deal-toggle[aria-label="סוג עסקה מסחרי"] button').forEach(b=>b.classList.remove('active'));
       btn.classList.add('active');
       searchState.c.deal = btn.dataset.cdeal;
+      // מכירה/השכרה מסחרית משנה את מה שהחיפוש יחזיר, ולכן גם את המונים
+      // שעל גלולות השכונה
+      renderHoodPills();
     });
   });
 }
@@ -3964,6 +4479,10 @@ if (dealTypeSelect){
   dealTypeSelect.addEventListener('change', ()=>{
     searchState.activeTab = dealTypeSelect.value;
     dealTypeSelect.dataset.mode = dealTypeSelect.value;
+    // המונים שעל גלולות השכונה נספרים לפי סוג העסקה הנבחר, ולכן הם חייבים
+    // להיספר מחדש כאן — אחרת "אזור התעשייה 4" היה נשאר על המסך אחרי מעבר
+    // ל"מכירה" ומחזיר רשימה ריקה
+    renderHoodPills();
     // מריצים חיפוש מיידית עם שינוי הבחירה, כדי שהמפה (וגם הגריד) יסננו
     // מיד לסוג הרלוונטי בלבד, בלי לחכות שהמשתמש ילחץ "חיפוש"
     runSearch();
@@ -4110,6 +4629,10 @@ async function runSearch(){
       .eq('category', isCommercial ? 'commercial' : 'residential')
       .eq('deal_type', dealType);
 
+    // גלולת השכונה היא סינון מלא לכל דבר, ולא קיצור דרך לחיפוש חופשי:
+    // "מרכז העיר" מזוהה כאן לפי מזהה ולא לפי טקסט, ולכן היא לא סוחפת איתה
+    // נכסים שהמילים האלה מופיעות בכותרת שלהם
+    if (hoodState.selected) query = query.eq('neighborhood_id', hoodState.selected);
     if (s.priceMin) query = query.gte('price', s.priceMin);
     if (s.priceMax) query = query.lte('price', s.priceMax);
     if (s.rooms.size) query = query.in('rooms', Array.from(s.rooms).map(r=>r === '+6' ? 6 : parseFloat(r)));
@@ -4142,6 +4665,10 @@ async function runSearch(){
     if (error) throw error;
     const results = (data || []).map(shapeProperty);
     renderPropertyGrid(results, true);
+    // רגע הכניסה הטבעי לתצוגה המפוצלת: מהחיפוש הראשון ואילך יש תוצאות
+    // להשוות מול המפה. נפתחת פעם אחת בלבד ורק למי שעוד לא בחר/ה בעצמו/ה —
+    // מי שסגר/ה את הפאנל לא ימצא אותו פתוח שוב.
+    if (!splitPrefSet && splitSupported()) setSplitView(true);
     revealSearchResults();
   } catch(e){
     console.warn('חיפוש נכשל:', e);
@@ -4154,6 +4681,9 @@ async function runSearch(){
 function revealSearchResults(){
   const section = document.getElementById('searchResults');
   if (!section || section.hidden) return;
+  // בתצוגה המפוצלת התוצאות כבר מול העיניים, בפאנל שלצד המפה — גלילה אל
+  // העותק שמתחת הייתה דוחפת את שתיהן אל מחוץ למסך בדיוק ברגע החיפוש
+  if (splitOn && splitSupported()) return;
   requestAnimationFrame(()=>{
     if (section.getBoundingClientRect().top > window.innerHeight * 0.9){
       section.scrollIntoView({ behavior:'smooth', block:'start' });
@@ -4176,6 +4706,37 @@ function showSearchError(){
   }
   const listings = document.getElementById('listings');
   if (listings) listings.hidden = true;
+}
+
+/* שורת נכס אחת. משותפת לשתי הרשימות שמציגות תוצאות — השורות שמתחת למפה
+   והפאנל המפוצל שלצדה — כדי ששתיהן יציגו בדיוק את אותו מידע ויגיבו באותה
+   דרך. data-prop-id הוא מה שמקשר שורה לפין שלה (ראו hotSplitRow). */
+function buildSearchRow(p, i){
+  const row = document.createElement('article');
+  row.className = 'sr-row';
+  row.tabIndex = 0;
+  row.setAttribute('role', 'link');
+  row.dataset.propId = p.id;
+  row.innerHTML = `
+    <div class="sr-thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
+    <div class="sr-body">
+      <div class="sr-title">${p.title}</div>
+      <div class="sr-meta"><span>${locationLabel(p)}</span></div>
+      <div class="sr-meta">
+        ${p.rooms ? `<span>${p.rooms} חדרים</span>` : ''}
+        ${p.size_sqm ? `<span>${p.size_sqm} מ״ר</span>` : ''}
+        ${p.property_type ? `<span>${p.property_type}</span>` : ''}
+        ${p.agency_name ? `<span>${p.agency_name}</span>` : ''}
+      </div>
+    </div>
+    <div class="sr-side">
+      <span class="sr-deal" data-deal="${dealKind(p)}">${dealBadge(p)}</span>
+      <span class="sr-price">${priceLabel(p)}</span>
+    </div>`;
+  const open = ()=> window.location.href = 'property.html?id=' + p.id;
+  row.addEventListener('click', open);
+  row.addEventListener('keydown', (e)=>{ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(); } });
+  return row;
 }
 
 /* שורות התוצאות שמיד מתחת למפה. אותה רשימה שמזינה את הפינים, ולכן כל שורה
@@ -4205,30 +4766,7 @@ function renderSearchRows(properties, isSearchResult){
   }
 
   properties.forEach((p, i)=>{
-    const row = document.createElement('article');
-    row.className = 'sr-row';
-    row.tabIndex = 0;
-    row.setAttribute('role', 'link');
-    row.innerHTML = `
-      <div class="sr-thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
-      <div class="sr-body">
-        <div class="sr-title">${p.title}</div>
-        <div class="sr-meta"><span>${locationLabel(p)}</span></div>
-        <div class="sr-meta">
-          ${p.rooms ? `<span>${p.rooms} חדרים</span>` : ''}
-          ${p.size_sqm ? `<span>${p.size_sqm} מ״ר</span>` : ''}
-          ${p.property_type ? `<span>${p.property_type}</span>` : ''}
-          ${p.agency_name ? `<span>${p.agency_name}</span>` : ''}
-        </div>
-      </div>
-      <div class="sr-side">
-        <span class="sr-deal" data-deal="${dealKind(p)}">${dealBadge(p)}</span>
-        <span class="sr-price">${priceLabel(p)}</span>
-      </div>`;
-    const open = ()=> window.location.href = 'property.html?id=' + p.id;
-    row.addEventListener('click', open);
-    row.addEventListener('keydown', (e)=>{ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(); } });
-    rows.appendChild(row);
+    rows.appendChild(buildSearchRow(p, i));
     // אותה פרסומת in-feed שקיימת בגריד — התוצאות עברו לכאן, וגם היא איתן
     if (i === 1 && properties.length > 2){
       const ad = document.createElement('div');
@@ -4382,7 +4920,12 @@ function setListingsTab(expanded){
    העסקה שנבחר) ולא מחזיר את התצוגה המלאה. */
 async function clearSearch(){
   document.getElementById('searchFreeText').value = '';
+  hoodState.selected = null;
+  drawHoodCircle();
   document.getElementById(searchState.activeTab === 'commercial' ? 'cClearFilters' : 'rClearFilters').click();
+  // אחרי איפוס הסינונים ולא לפניו: הוא מחזיר גם את סוג העסקה המסחרי
+  // ל"מכירה", ואיתו משתנים המונים ודירוג השכונות
+  renderHoodPills();
   const badge = document.getElementById('filterCountBadge');
   badge.style.display = 'none';
   badge.textContent = '0';
