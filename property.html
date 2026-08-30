@@ -670,6 +670,12 @@
      עליה הוחלפה ב-.panel, ובלעדיהן הסקציה נצמדת לרצועת המשרד וכותרתה
      נשארת בגודל ברירת המחדל של הדפדפן — גדולה מכל כותרת אחרת בדף. */
   #vizSection h2{font-size:1.05rem}
+  /* ‏16:9 קבוע לנגן: גובה שנקבע מהמדיה עצמה גורם לקפיצת פריסה כשה-metadata
+     נטענת, וסרטוני נכסים מגיעים גם לאורך וגם לרוחב. */
+  .video-frame{position:relative;aspect-ratio:16/9;border-radius:var(--radius-lg);overflow:hidden;background:#000}
+  .video-frame video,.video-frame iframe{width:100%;height:100%;display:block;border:0}
+  .video-frame video{object-fit:contain}
+
   .viz-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
   .viz-head .viz-sub{font-size:.82rem;color:var(--ink-soft)}
   .viz-styles{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px}
@@ -758,6 +764,15 @@
         <section class="panel" id="highlightsSection" hidden>
           <h2>מה יש בנכס</h2>
           <div class="highlights" id="highlightsList"></div>
+        </section>
+
+        <!-- ====== סרטון הנכס ======
+             נפתחת רק כשיש סרטון שאפשר לנגן בעמוד עצמו: קובץ שהועלה מה-CRM,
+             או יוטיוב/וימאו שמוטמעים כ-iframe. כתובת מסוג אחר נשארת כפתור
+             בהירו שנפתח בלשונית חדשה, כי אין דרך בטוחה להטמיע אותה. -->
+        <section class="panel" id="videoSection" hidden>
+          <h2>סרטון הנכס</h2>
+          <div class="video-frame" id="videoFrame"></div>
         </section>
 
         <!-- ====== הדמיות AI ======
@@ -1334,10 +1349,47 @@ function renderGallery(p){
 }
 
 /* ---------- סיור וירטואלי וסרטון ----------
-   ‏tour_3d_url ו-video_url הן כתובות חיצוניות (Matterport, יוטיוב וכו׳),
-   ולכן הן נפתחות בלשונית חדשה ולא מוטמעות: כל ספק דורש נגן משלו, וה-check
-   במסד כבר מבטיח ש-‎href‎ הוא ‎http(s)‎ ולא ‎javascript:‎. אין כתובת = אין
-   כפתור — כפתור נגן שלא מנגן כלום גרוע מהיעדרו.                           */
+   ‏tour_3d_url נשארת כפתור שנפתח בלשונית חדשה: לכל ספק סיור יש נגן משלו,
+   ואין דרך אחת להטמיע את כולם.
+
+   ‏video_url לעומתה מגיעה משני מקורות — קובץ שהועלה מה-CRM לדלי
+   ‎property-videos‎, או קישור חיצוני שהודבק. את שניהם אפשר לנגן בעמוד עצמו:
+   קובץ מדיה מקבל ‎<video>‎, ויוטיוב/וימאו מקבלים iframe אל דומיין הנגן שלהם.
+   כתובת שאינה אחד מאלה נשארת כפתור חיצוני — ‏iframe לכתובת שרירותית הוא
+   בקשה לצרות. אין כתובת = אין כפתור: כפתור נגן שלא מנגן כלום גרוע מהיעדרו. */
+function videoEmbed(raw){
+  if (!raw) return null;
+  let u;
+  try{ u = new URL(raw); } catch(e){ return null; }
+  if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+  const host = u.hostname.replace(/^www\./, '');
+
+  if (host === 'youtu.be'){
+    const id = u.pathname.slice(1);
+    return id ? { type:'iframe', src:'https://www.youtube.com/embed/' + encodeURIComponent(id) } : null;
+  }
+  if (host === 'youtube.com' || host === 'm.youtube.com' || host === 'youtube-nocookie.com'){
+    const id = u.searchParams.get('v') || u.pathname.match(/\/(?:embed|shorts|v)\/([^/?#]+)/)?.[1];
+    return id ? { type:'iframe', src:'https://www.youtube.com/embed/' + encodeURIComponent(id) } : null;
+  }
+  if (host === 'vimeo.com' || host === 'player.vimeo.com'){
+    const id = u.pathname.match(/(\d+)/)?.[1];
+    return id ? { type:'iframe', src:'https://player.vimeo.com/video/' + encodeURIComponent(id) } : null;
+  }
+  // ‏mov נכלל כי זה מה שאייפון מוסר, ו-CRM מעלה אותו כמו שהוא
+  if (/\.(mp4|webm|ogg|ogv|mov|m4v)$/i.test(u.pathname)) return { type:'video', src:u.href };
+  return null;
+}
+
+function renderVideoPanel(embed){
+  const frame = document.getElementById('videoFrame');
+  frame.innerHTML = embed.type === 'iframe'
+    ? `<iframe src="${escapeAttr(embed.src)}" title="סרטון הנכס" loading="lazy" ` +
+      `allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture" allowfullscreen></iframe>`
+    : `<video src="${escapeAttr(embed.src)}" controls preload="metadata" playsinline></video>`;
+  document.getElementById('videoSection').hidden = false;
+}
+
 function renderMediaButtons(p){
   const link = (id, url, icon, label)=>{
     if (!url) return;
@@ -1347,7 +1399,22 @@ function renderMediaButtons(p){
     el.hidden = false;
   };
   link('tourBtn', p.tour_3d_url, ICON.cube, 'סיור וירטואלי');
-  link('videoBtn', p.video_url, ICON.play, 'סרטון הנכס');
+
+  const embed = videoEmbed(p.video_url);
+  if (!embed){ link('videoBtn', p.video_url, ICON.play, 'סרטון הנכס'); return; }
+
+  // כשהסרטון מנוגן בעמוד, הכפתור בהירו הוא קיצור דרך אליו ולא יציאה מהעמוד
+  renderVideoPanel(embed);
+  const btn = document.getElementById('videoBtn');
+  btn.href = '#videoSection';
+  btn.removeAttribute('target');
+  btn.removeAttribute('rel');
+  btn.innerHTML = `${ICON.play}<span>סרטון הנכס</span>`;
+  btn.hidden = false;
+  btn.addEventListener('click', (e)=>{
+    e.preventDefault();
+    document.getElementById('videoSection').scrollIntoView({ behavior:'smooth', block:'start' });
+  });
 }
 
 /* ---------- קיצור הדרך להדמיות ----------

@@ -240,6 +240,17 @@
   .img-thumb .main-tag{position:absolute;bottom:0;right:0;left:0;background:rgba(28,58,94,.85);color:#fff;font-size:.6rem;font-weight:800;text-align:center;padding:1px 0}
   .img-thumb .x{position:absolute;top:2px;left:2px;width:20px;height:20px;border-radius:50%;background:rgba(27,31,38,.72);color:#fff;font-size:.75rem;line-height:20px;text-align:center;padding:0}
   .img-thumb .star{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:rgba(27,31,38,.72);color:#fff;font-size:.65rem;line-height:20px;text-align:center;padding:0}
+  /* תצוגה מקדימה של הסרטון — רחבה מהתמונות (16:9) כי פריים בודד בריבוע 78px
+     לא אומר כלום, וכי כאן יש נגן אמיתי שצריך מקום לפקדים שלו. שורת הפרטים
+     יושבת מתחת לנגן ולא מעליו: פקדי הווידאו של הדפדפן תופסים את תחתית
+     המסגרת, ושכבה מעליהם הייתה מסתירה את סרגל ההתקדמות. */
+  .video-thumb{position:relative;width:min(260px,100%);border-radius:var(--radius-sm);overflow:hidden;
+    border:1px solid var(--line);background:#000}
+  .video-thumb video{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}
+  .video-thumb .x{position:absolute;top:4px;left:4px;width:22px;height:22px;border-radius:50%;
+    background:rgba(27,31,38,.72);color:#fff;font-size:.75rem;line-height:22px;text-align:center;padding:0;z-index:2}
+  .video-thumb .meta{background:rgba(28,58,94,.92);color:#fff;font-size:.65rem;font-weight:700;
+    text-align:center;padding:4px 6px;line-height:1.5;word-break:break-word}
   .prop-thumb-mini{width:52px;height:52px;border-radius:var(--radius-sm);object-fit:cover;flex-shrink:0;border:1px solid var(--line)}
 
   /* ---------- שפת הכרטיסים: תגיות ורשת פעולות ----------
@@ -1508,9 +1519,22 @@
         <input type="url" id="npTour3dUrl" dir="ltr" placeholder="https://my.matterport.com/show/?m=…">
         <div class="hint">Matterport, Kuula, סיור 360 — כתובת מלאה שמתחילה ב-https</div>
       </div>
-      <div class="field"><label>קישור לסרטון הנכס (לא חובה)</label>
+      <!-- שני מסלולים לאותו שדה אחד (video_url): קובץ מהמכשיר או קישור חיצוני.
+           רוב הסרטונים נולדים כקובץ בטלפון, ולכן ההעלאה ראשונה. בחירת קובץ
+           מנטרלת את שדה הקישור (ולהפך) כדי שלא ייווצר מצב של שני מקורות
+           לסרטון אחד — במסד יש כתובת אחת בלבד. -->
+      <div class="field">
+        <label>סרטון הנכס (לא חובה)</label>
+        <div class="img-dropzone">
+          <label class="pick" for="npVideoFile">+ העלאת סרטון מהמכשיר</label>
+          <input type="file" id="npVideoFile" accept="video/mp4,video/webm,video/quicktime">
+          <div class="hint">‏MP4, WebM או MOV · עד <span id="npVideoMaxHint">50</span>MB · יוצג כנגן מוטמע בדף הנכס</div>
+        </div>
+        <div class="img-preview" id="npVideoPreview"></div>
+      </div>
+      <div class="field"><label>או קישור לסרטון חיצוני</label>
         <input type="url" id="npVideoUrl" dir="ltr" placeholder="https://www.youtube.com/watch?v=…">
-        <div class="hint">יוטיוב, וימאו או צילומי רחפן — כתובת מלאה שמתחילה ב-https</div>
+        <div class="hint" id="npVideoUrlHint">יוטיוב, וימאו או צילומי רחפן — כתובת מלאה שמתחילה ב-https</div>
       </div>
 
       <div class="form-subheading">סוכן/ת נוסף/ת על המודעה</div>
@@ -5552,6 +5576,7 @@ function resetImageState(){
   document.getElementById('npImages').value = '';
   renderImagePreview();
   resetMarketingImage();
+  resetVideoState();
 }
 
 /* התמונה השיווקית היא נכס נפרד מהגלריה — תמונה מעוצבת אחת לפרסום. אותו
@@ -5608,6 +5633,130 @@ async function resolveMarketingImageUrl(propertyId){
   const url = sb.storage.from(IMAGES_BUCKET).getPublicUrl(name).data.publicUrl;
   marketingImageSlot.url = url;
   return url;
+}
+
+/* ---------- סרטון הנכס ----------
+   ‏video_url במסד היא כתובת אחת, ולכן גם כאן יש מקור אחד לסרטון — אבל שתי
+   דרכים להגיע אליו: קובץ שמועלה לדלי property-videos, או קישור חיצוני
+   (יוטיוב/וימאו) שמודבק בשדה שמתחתיו. בחירת קובץ מנטרלת את שדה הקישור,
+   והסרתו מחזירה אותו — כך אף פעם אין שני ערכים שמתחרים על אותה עמודה.
+
+   בניגוד לתמונות אין כאן דחיסה בצד הלקוח: קידוד וידאו מחדש בדפדפן לוקח
+   דקות ארוכות ומצריך WebCodecs. במקום זה יש תקרת גודל שנבדקת לפני ההעלאה,
+   כדי שהכישלון יגיע מיד ולא אחרי שקובץ של 200MB כבר נשלח וחזר ב-413.       */
+const VIDEOS_BUCKET = 'property-videos';
+const MAX_VIDEO_MB = 50; // חייב להתאים ל-file_size_limit של הדלי במיגרציה
+const VIDEO_MIME_EXT = { 'video/mp4':'mp4', 'video/webm':'webm', 'video/quicktime':'mov' };
+document.getElementById('npVideoMaxHint').textContent = MAX_VIDEO_MB;
+
+// ‏null כשאין סרטון; ‎{ url }‎ לסרטון ששמור כבר; ‎{ file, previewUrl }‎ לקובץ
+// חדש שטרם הועלה.
+let videoSlot = null;
+// הכתובת שהייתה שמורה בנכס כשנפתחה העריכה. נשמרת כדי למחוק את הקובץ הישן
+// מה-Storage אחרי שמירה שהחליפה או הסירה אותו — ורק אז: מחיקה כבר בלחיצה על
+// ✕ הייתה מוחקת את הסרטון גם כשהעריכה מבוטלת באמצע.
+let videoOriginalUrl = null;
+
+function videoStoragePath(url){
+  const marker = '/storage/v1/object/public/' + VIDEOS_BUCKET + '/';
+  const i = String(url || '').indexOf(marker);
+  return i === -1 ? null : decodeURIComponent(String(url).slice(i + marker.length));
+}
+
+function renderVideoPreview(){
+  const wrap = document.getElementById('npVideoPreview');
+  const urlInput = document.getElementById('npVideoUrl');
+  wrap.innerHTML = '';
+  // שדה הקישור מנוטרל כל עוד יש קובץ, וההסבר יושב ב-hint שמתחתיו ולא
+  // ב-placeholder: שדה מנוטרל בלי סיבה נראית לעין הוא תקלה מבחינת מי
+  // שמסתכל/ת עליו, אבל placeholder ארוך פשוט נחתך בשדה צר.
+  urlInput.disabled = !!videoSlot;
+  urlInput.placeholder = videoSlot ? 'יש כבר סרטון מועלה' : 'https://www.youtube.com/watch?v=…';
+  document.getElementById('npVideoUrlHint').textContent = videoSlot
+    ? 'להזנת קישור חיצוני יש להסיר קודם את הסרטון שהועלה (✕ על התצוגה המקדימה)'
+    : 'יוטיוב, וימאו או צילומי רחפן — כתובת מלאה שמתחילה ב-https';
+  if (!videoSlot) return;
+
+  const el = document.createElement('div');
+  el.className = 'video-thumb';
+  const src = videoSlot.url || videoSlot.previewUrl;
+  // ‏bdi סביב שם הקובץ: שם לועזי בתוך משפט עברי מסודר מחדש על ידי אלגוריתם
+  // הדו-כיווניות, ותו פיסוק בקצהו (‎_video.mp4‎) קופץ לצד הלא נכון בלעדיו.
+  const meta = videoSlot.file
+    ? `<bdi>${esc(videoSlot.file.name)}</bdi> · ${(videoSlot.file.size / 1048576).toFixed(1)}MB — יועלה בשמירה`
+    : 'סרטון שמור על הנכס';
+  el.innerHTML = `<video src="${esc(src)}" controls preload="metadata" playsinline></video>
+    <button type="button" class="x" title="הסרת הסרטון">✕</button>
+    <div class="meta">${meta}</div>`;
+  el.querySelector('.x').addEventListener('click', removeVideo);
+  wrap.appendChild(el);
+}
+
+function removeVideo(){
+  if (videoSlot?.previewUrl) URL.revokeObjectURL(videoSlot.previewUrl);
+  videoSlot = null;
+  document.getElementById('npVideoFile').value = '';
+  renderVideoPreview();
+}
+
+function resetVideoState(){
+  if (videoSlot?.previewUrl) URL.revokeObjectURL(videoSlot.previewUrl);
+  videoSlot = null;
+  videoOriginalUrl = null;
+  document.getElementById('npVideoFile').value = '';
+  document.getElementById('npVideoUrl').value = '';
+  renderVideoPreview();
+}
+
+document.getElementById('npVideoFile').addEventListener('change', (e)=>{
+  const file = (e.target.files || [])[0];
+  e.target.value = ''; // מאפשר לבחור שוב את אותו קובץ אחרי הסרה
+  if (!file) return;
+  if (!VIDEO_MIME_EXT[file.type]){
+    showToast('פורמט לא נתמך — יש להעלות MP4, WebM או MOV');
+    return;
+  }
+  if (file.size > MAX_VIDEO_MB * 1048576){
+    showToast(`הסרטון גדול מדי (${(file.size / 1048576).toFixed(0)}MB) — המקסימום הוא ${MAX_VIDEO_MB}MB`);
+    return;
+  }
+  if (videoSlot?.previewUrl) URL.revokeObjectURL(videoSlot.previewUrl);
+  videoSlot = { file, previewUrl: URL.createObjectURL(file) };
+  // הקובץ גובר על הקישור, ולכן הקישור נמחק כאן ולא נשאר "רפאים" בשדה מנוטרל
+  const urlInput = document.getElementById('npVideoUrl');
+  if (urlInput.value.trim()){
+    urlInput.value = '';
+    showToast('הקישור החיצוני הוסר — הסרטון יילקח מהקובץ שהועלה');
+  }
+  renderVideoPreview();
+});
+
+// מעלה את הקובץ אם הוא חדש, ומחזיר את הכתובת הציבורית (או null כשאין סרטון).
+async function resolveVideoUrl(propertyId){
+  if (!videoSlot) return null;
+  if (videoSlot.url) return videoSlot.url;
+  const ext = VIDEO_MIME_EXT[videoSlot.file.type] || 'mp4';
+  const name = `${currentAgent.id}/${propertyId}/video-${crypto.randomUUID()}.${ext}`;
+  const { error } = await sb.storage.from(VIDEOS_BUCKET).upload(name, videoSlot.file, {
+    contentType: videoSlot.file.type, cacheControl:'31536000', upsert:false,
+  });
+  if (error) throw error;
+  const url = sb.storage.from(VIDEOS_BUCKET).getPublicUrl(name).data.publicUrl;
+  // מרגע זה הסלוט הוא "שמור": ניסיון שמירה חוזר לא יעלה את אותו קובץ פעמיים
+  if (videoSlot.previewUrl) URL.revokeObjectURL(videoSlot.previewUrl);
+  videoSlot = { url };
+  renderVideoPreview();
+  return url;
+}
+
+// מוחק מה-Storage סרטון שהוחלף או הוסר בשמירה. best-effort: הנכס כבר לא
+// מצביע עליו, ולכן כישלון כאן משאיר קובץ יתום ולא שובר כלום.
+function cleanupReplacedVideo(finalUrl){
+  if (videoOriginalUrl && videoOriginalUrl !== finalUrl){
+    const path = videoStoragePath(videoOriginalUrl);
+    if (path) sb.storage.from(VIDEOS_BUCKET).remove([path]).catch(()=>{});
+  }
+  videoOriginalUrl = finalUrl || null;
 }
 
 /* ‏allNeighborhoods נטענת ב-loadPreferences, שרצה אחרי loadProperties. הטופס
@@ -5730,7 +5879,10 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   let tour3dUrl, videoUrl;
   try{
     tour3dUrl = mediaUrl('npTour3dUrl', 'הקישור לסיור הווירטואלי');
-    videoUrl  = mediaUrl('npVideoUrl', 'הקישור לסרטון');
+    // סרטון מועלה גובר על קישור חיצוני (שדה הקישור ממילא מנוטרל כשיש קובץ).
+    // קובץ שטרם הועלה מקבל כאן null, והכתובת האמיתית נכתבת אחרי ההעלאה —
+    // שרצה רק אחרי שלנכס יש id, כי הוא חלק מהנתיב ב-Storage.
+    videoUrl  = videoSlot ? (videoSlot.url || null) : mediaUrl('npVideoUrl', 'הקישור לסרטון');
   } catch(err){
     feedback.style.color = 'var(--brick)';
     feedback.textContent = err.message;
@@ -5817,19 +5969,29 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   }
 
   if (!error && newPropertyId){
+    // שם השלב נשמר כדי שהודעת הכישלון תגיד מה בדיוק לא עלה — סרטון של 50MB
+    // נופל מסיבות אחרות מתמונה של 300KB, ו"העלאת הקבצים נכשלה" לא עוזר לאף אחד.
+    let mediaStage = 'העלאת התמונות';
     try{
       btn.textContent = 'מעלה תמונות…';
       const urls = await resolveImageUrls(newPropertyId);
       const marketingUrl = await resolveMarketingImageUrl(newPropertyId);
+
+      mediaStage = 'העלאת הסרטון';
+      if (videoSlot && !videoSlot.url) btn.textContent = 'מעלה סרטון…';
+      const uploadedVideoUrl = await resolveVideoUrl(newPropertyId);
+
+      mediaStage = 'שמירת קישורי המדיה';
       const { error: imgErr } = await sb.from('properties')
-        .update({ images: urls, marketing_image: marketingUrl })
+        .update({ images: urls, marketing_image: marketingUrl, video_url: uploadedVideoUrl ?? videoUrl })
         .eq('id', newPropertyId);
       if (imgErr) throw imgErr;
+      cleanupReplacedVideo(uploadedVideoUrl ?? videoUrl);
     } catch(imgError){
       console.error(imgError);
       btn.disabled = false; btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
       feedback.style.color = 'var(--brick)';
-      feedback.textContent = 'הנכס נשמר, אך העלאת התמונות נכשלה: ' + (imgError.message || 'שגיאה');
+      feedback.textContent = `הנכס נשמר, אך ${mediaStage} נכשלה: ` + (imgError.message || 'שגיאה');
       await loadProperties(currentAgent.id);
       return;
     }
@@ -6902,7 +7064,6 @@ function openEditProperty(p){
   document.getElementById('npPostText').value = p.post_text || '';
   document.getElementById('npFurnitureDetails').value = p.furniture_details || '';
   document.getElementById('npTour3dUrl').value = p.tour_3d_url || '';
-  document.getElementById('npVideoUrl').value = p.video_url || '';
   document.getElementById('npExpiresAt').value = p.listing_expires_at || '';
   document.getElementById('npAgent2Name').value = p.agent2_name || '';
   document.getElementById('npAgent2Phone').value = p.agent2_phone || '';
@@ -6926,6 +7087,16 @@ function openEditProperty(p){
     marketingImageSlot = { url: p.marketing_image };
     renderMarketingImagePreview();
   }
+  // ‏video_url אחת, שני מצבים: קובץ שלנו בדלי מקבל תצוגה מקדימה עם נגן,
+  // וכתובת חיצונית חוזרת לשדה הקישור. ‏videoOriginalUrl זוכרת את המצב ההתחלתי
+  // כדי שהחלפה או הסרה ימחקו את הקובץ הישן מה-Storage בשמירה.
+  videoOriginalUrl = p.video_url || null;
+  if (videoStoragePath(p.video_url)){
+    videoSlot = { url: p.video_url };
+  } else {
+    document.getElementById('npVideoUrl').value = p.video_url || '';
+  }
+  renderVideoPreview();
   addForm.style.display = 'block';
   document.getElementById('addPropertyBtn').textContent = 'שמירת שינויים';
   toggleBtn.textContent = '✕ ביטול';
