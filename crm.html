@@ -1036,6 +1036,12 @@
     <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
     <h1>איזור סוכנים</h1>
     <p class="sub">שוק נדל״ן — עפולה והעמק</p>
+    <!-- מי שהגיע/ה מקישור הזמנה חייב/ת לראות שההזמנה "נתפסה", אחרת מסך כניסה
+         רגיל נראה בדיוק כמו קישור שלא עבד. האסימון עצמו נשמר בזיכרון הדף
+         ומופעל מיד אחרי ההתחברות. -->
+    <div id="inviteBanner" style="display:none;background:#F1F6F5;border:1.5px solid var(--teal);border-radius:var(--radius-sm);padding:11px 13px;margin-bottom:14px;font-size:.82rem;line-height:1.55;text-align:center">
+      ✉️ הוזמנת להצטרף לצוות משרד. יש להתחבר כאן — עם Google או עם אימייל וסיסמה — והחיבור לכרטיס ייעשה אוטומטית.
+    </div>
     <button type="button" class="btn btn-ghost btn-block" id="googleLoginBtn" style="margin-bottom:14px;gap:10px">
       <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.94v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.94A9 9 0 0 0 0 9c0 1.45.35 2.83.94 4.03l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .94 4.97l3.01 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
       <span class="gl-label">התחברות עם Google</span>
@@ -1052,6 +1058,42 @@
       <b>סביבת בדיקה:</b> dana@test.shuknadlan.co.il · roi@test.shuknadlan.co.il · michal@test.shuknadlan.co.il<br>
       סיסמה לכולם: <b>Test1234!</b>
     </div>
+  </div>
+
+  <!-- ---------- מי את/ה? ----------
+       המסך שקודם לפתיחת משרד חדש, ולא במקומה. עד היום חשבון בלי שורת
+       agency_members הוצג מיד כ"עדיין לא פתחת משרד" — וזה נכון רק לחלק
+       מהמקרים. סוכן/ת שמנהל/ת המשרד כבר הוסיף/ה, אבל האימייל על הכרטיס אינו
+       הכתובת שאיתה הוא/היא נכנס/ת בפועל (טעות הקלדה אחת מספיקה), הגיע/ה בדיוק
+       לכאן — ובלי המסך הזה הדרך היחידה שלו/ה קדימה הייתה לפתוח משרד מיותר.
+       מספר הרישיון מזהה את הכרטיס, ומנהל/ת המשרד מאשר/ת את החיבור. -->
+  <div class="card login-card" id="identifyScreen" style="display:none">
+    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
+    <h1>ברוך/ה הבא/ה!</h1>
+    <p class="sub">החשבון <b id="idEmail"></b> עדיין לא מקושר לכרטיס סוכן/ת. אם מנהל/ת המשרד כבר הוסיף/ה אותך לצוות — נחבר את הכרטיס עכשיו.</p>
+    <div id="idNotice" style="font-size:.82rem;text-align:center;margin-bottom:12px;color:var(--brick)"></div>
+    <div class="field">
+      <label>מספר רישיון התיווך שלך</label>
+      <input type="text" id="idLicense" inputmode="numeric" placeholder="לדוגמה: 123456" autocomplete="off">
+    </div>
+    <button type="button" class="btn btn-gold btn-block" id="idClaimBtn">חיבור לכרטיס הקיים שלי</button>
+    <div id="idFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
+    <div style="text-align:center;font-size:.75rem;color:var(--ink-soft);margin:16px 0 10px">— או —</div>
+    <button type="button" class="btn btn-ghost btn-block" id="idOpenAgencyBtn">אני פותח/ת משרד תיווך חדש</button>
+    <button type="button" class="btn btn-ghost btn-block" id="idLogoutBtn" style="margin-top:8px">יציאה</button>
+  </div>
+
+  <!-- הבקשה הוגשה וממתינה למנהל/ת. מסך נפרד ולא הודעה חולפת, כי הכניסה הבאה
+       של הסוכן/ת (לפני האישור) חייבת לנחות כאן ולא שוב בטופס — אחרת זה נראה
+       כאילו הבקשה נעלמה, והתגובה הטבעית היא לשלוח עוד אחת. -->
+  <div class="card login-card" id="claimPendingScreen" style="display:none">
+    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
+    <h1>הבקשה נשלחה</h1>
+    <p class="sub">ביקשנו ממנהל/ת המשרד <b id="claimAgencyName"></b> לאשר את חיבור החשבון <b id="claimEmail"></b> לכרטיס שלך. ברגע שיאושר — הכניסה כאן תוביל ישר לאיזור הסוכנים.</p>
+    <button type="button" class="btn btn-gold btn-block" id="claimRefreshBtn">בדיקה אם אושר</button>
+    <div id="claimFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
+    <button type="button" class="btn btn-ghost btn-block" id="claimCancelBtn" style="margin-top:8px">ביטול הבקשה (הקלדתי מספר שגוי)</button>
+    <button type="button" class="btn btn-ghost btn-block" id="claimLogoutBtn" style="margin-top:8px">יציאה</button>
   </div>
 
   <div class="card login-card" id="createAgencyScreen" style="display:none">
@@ -2176,12 +2218,22 @@
           <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </summary>
         <div class="acc-body">
+      <div id="claimRequests"></div>
       <button class="btn btn-ghost btn-block" id="toggleAddMember" style="margin-bottom:12px">+ הוספת סוכן/ת לצוות</button>
       <form id="addMemberForm" class="card" style="display:none;padding:18px;margin-bottom:18px">
         <div class="field"><label>שם מלא</label><input type="text" id="nmName" required></div>
         <div class="field"><label>מספר רישיון תיווך (שדה חובה)</label><input type="text" id="nmLicense" required placeholder="לדוגמה: 123456"></div>
-        <div class="field"><label>אימייל</label><input type="email" id="nmEmail" required></div>
-        <div class="field"><label>סיסמה זמנית (8 תווים לפחות)</label><input type="password" id="nmPassword" required minlength="8"></div>
+        <!-- הכתובת הזו היא כל ההזמנה. אין כאן יותר "סיסמה זמנית" שהמנהל/ת
+             ממציא/ה: הסוכן/ת מקבל/ת קישור, נכנס/ת עם החשבון שלו/ה, והחיבור
+             לכרטיס נעשה שם. כך כתובת שגויה נשארת גלויה כ"ממתין/ה" ברשימה
+             במקום לקשור את הכרטיס לחשבון שאיש לא ייכנס אליו. -->
+        <div class="field">
+          <label>אימייל</label>
+          <input type="email" id="nmEmail" required autocomplete="off" spellcheck="false">
+          <p style="font-size:.74rem;color:var(--ink-soft);margin:6px 2px 0;line-height:1.5">
+            לכתובת הזו נשלח קישור הזמנה אישי. שווה לוודא אותה — סוכן/ת שלא קיבל/ה מייל תופיע ברשימה כ"ממתין/ה", ואפשר לתקן ולשלוח שוב.
+          </p>
+        </div>
         <div class="field"><label>מסלול התחלתי</label>
           <select id="nmTier" style="width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px">
             <option value="free">חינמי</option>
@@ -2195,9 +2247,18 @@
           <input type="checkbox" id="nmEthicsPresented">
           <label for="nmEthicsPresented">הצגתי לסוכן/ת את <a href="ethics-code.html" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">הקוד האתי</a>. בכניסה הראשונה הוא/היא יתבקש/תתבקש לאשר אותו אישית, ורק אז יוצג תו האיכות בדף שלו/ה.</label>
         </div>
-        <button type="submit" class="btn btn-gold btn-block" id="addMemberBtn">הוספת הסוכן/ת</button>
+        <button type="submit" class="btn btn-gold btn-block" id="addMemberBtn">שליחת הזמנה</button>
         <div id="addMemberFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
       </form>
+      <!-- הקישור מוצג תמיד, לא רק כשהמייל נכשל: מייל שנפל לספאם נראה בדיוק
+           כמו מייל שלא נשלח, והעתקה לוואטסאפ פותרת את שניהם בשנייה. -->
+      <div id="inviteResult" class="card" style="display:none;padding:16px;margin-bottom:18px">
+        <div id="inviteResultTitle" style="font-weight:700;font-size:.9rem;margin-bottom:6px"></div>
+        <div id="inviteResultNote" style="font-size:.78rem;color:var(--ink-soft);line-height:1.55;margin-bottom:10px"></div>
+        <input type="text" id="inviteResultUrl" readonly onclick="this.select()"
+               style="width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:9px 10px;font-size:.72rem;direction:ltr;text-align:left;background:var(--paper)">
+        <div class="lead-actions" id="inviteResultActions" style="margin-top:10px"></div>
+      </div>
       <div id="teamList"></div>
         </div>
       </details>
@@ -2755,6 +2816,8 @@ function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel }
 const SCREEN_CARDS = {
   boot:         'bootCard',
   login:        'loginCardMain',
+  identify:     'identifyScreen',
+  claimPending: 'claimPendingScreen',
   createAgency: 'createAgencyScreen',
   loadError:    'loadErrorScreen',
   ethicsGate:   'ethicsGateScreen',
@@ -2787,6 +2850,9 @@ function showLoginCard(message){
   // הגעה למסך ממסך אחר מנקה הודעה ישנה; קריאה חוזרת כשכבר עומדים כאן (המאזין
   // ו-boot() יכולים שניהם להגיע לכאן על אותה טעינה) לא מוחקת הודעה שכבר מוצגת
   if (text || !alreadyOnLogin) document.getElementById('loginError').textContent = text || '';
+  // בלי הבאנר, מי שלחץ/ה על קישור ההזמנה רואה מסך כניסה סתמי ואין לו/ה שום
+  // דרך לדעת שהקישור נקלט ושההצטרפות תושלם מיד אחרי ההתחברות.
+  document.getElementById('inviteBanner').style.display = readInviteToken() ? 'block' : 'none';
   resetGoogleButton();
   showScreen('login');
 }
@@ -2803,7 +2869,39 @@ function showBootCard(message){
    ורענון או "חזור" מנסים לעבד שוב תשובה שכבר נוצלה ומחזירים את המשתמש/ת
    למסך הכניסה. הקריאה לפונקציה נעשית רק אחרי שה-session בידינו. */
 const AUTH_HASH_KEYS  = ['access_token','refresh_token','provider_token','provider_refresh_token','expires_in','expires_at','token_type','error','error_code','error_description'];
-const AUTH_QUERY_KEYS = ['code','state','error','error_code','error_description'];
+// ‏invite נכלל בניקוי מאותה סיבה כמו האסימונים: הוא נקרא פעם אחת לזיכרון הדף
+// (pendingInviteToken למטה), ומרגע שנוצל אין סיבה שיישאר בהיסטוריה ובשיתוף.
+const AUTH_QUERY_KEYS = ['code','state','error','error_code','error_description','invite'];
+
+/* ---------- אסימון ההזמנה ----------
+   נקרא בטעינת הדף לפני כל ניקוי, ונשמר ב-sessionStorage ולא רק במשתנה: מי
+   שמגיע/ה מקישור ההזמנה כמעט תמיד עדיין לא מחובר/ת, וההתחברות עם Google
+   טוענת את הדף מחדש עם redirectTo שהוא origin+pathname בלבד — כלומר בלי
+   ה-query. בלי השמירה, כל הזמנה שנפתחה במסלול Google הייתה מתאדה בדיוק
+   ברגע שהיא נדרשת. הניקוי נעשה מיד כשהאסימון נוצל. */
+const INVITE_STORE_KEY = 'shuknadlan.invite_token';
+
+function readInviteToken(){
+  try{
+    const fromUrl = new URLSearchParams(window.location.search).get('invite');
+    if (fromUrl){ sessionStorage.setItem(INVITE_STORE_KEY, fromUrl); return fromUrl; }
+    return sessionStorage.getItem(INVITE_STORE_KEY) || '';
+  } catch(_){
+    // גלישה פרטית חוסמת sessionStorage; ההזמנה עדיין תעבוד בכניסה עם סיסמה,
+    // שאינה עוזבת את הדף
+    try { return new URLSearchParams(window.location.search).get('invite') || ''; }
+    catch(__){ return ''; }
+  }
+}
+function clearInviteToken(){
+  try { sessionStorage.removeItem(INVITE_STORE_KEY); } catch(_){ /* ראו למעלה */ }
+}
+
+// קריאה מיידית בטעינת הדף, ובכוונה כאן ולא בשימוש הראשון: 'invite' נמצא
+// ברשימת המפתחות שמנוקים מהכתובת, ו-cleanAuthParamsFromUrl() רצה כבר בדרך
+// למסך הכניסה. בלי ההעברה הזו ל-sessionStorage לפניה, כל הזמנה שנפתחה בחשבון
+// לא מחובר הייתה נמחקת מהכתובת לפני שמישהו הספיק לקרוא אותה.
+readInviteToken();
 
 function cleanAuthParamsFromUrl(){
   if (!window.history || !window.history.replaceState) return;
@@ -2963,6 +3061,139 @@ function showCreateAgencyScreen(){
   showScreen('createAgency');
 }
 
+/* ---------- זיהוי חשבון שאין לו כרטיס משויך ----------
+   נקודה אחת שמפרידה בין "אין לך משרד" לבין "יש לך כרטיס, הוא פשוט לא מחובר".
+   הבירור עצמו נעשה ב-join-agency, כי הוא דורש service role: השוואה מול כרטיסים
+   ממתינים ואימות אסימון הזמנה אינם דברים שאפשר לחשוף ללקוח. */
+async function callJoinAgency(payload){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return { ok:false, data:{ error:'no_session' } };
+  const res = await fetch(SUPABASE_URL + '/functions/v1/join-agency', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+    body: JSON.stringify(payload),
+  });
+  let data = {};
+  try { data = await res.json(); } catch(_){ /* ראו callTeamInvite */ }
+  return { ok: res.ok && !data.error, data };
+}
+
+const INVITE_INVALID_TEXT = {
+  used:     'קישור ההזמנה כבר נוצל. אם כבר הצטרפת עם חשבון אחר — יש להתחבר איתו.',
+  expired:  'תוקף קישור ההזמנה פג. אפשר לבקש ממנהל/ת המשרד לשלוח אותו שוב.',
+  revoked:  'ההזמנה בוטלה על ידי מנהל/ת המשרד.',
+  not_found:'קישור ההזמנה אינו תקין. כדאי לוודא שהועתק במלואו.',
+};
+
+async function resolveMembership(user, { alreadyResolved = false } = {}){
+  // שומר נגד לולאה: join-agency רואה את השורה עם service role, אבל אם
+  // ה-select של הלקוח לא רואה אותה (הרשאה, שכפול), loadDashboard היה חוזר
+  // לכאן, וכאן שוב ל-loadDashboard — בלי סוף ובלי שום דבר על המסך.
+  if (alreadyResolved){
+    showAuthLoadError('החשבון חובר לכרטיס, אבל טעינת הפרטים נכשלה. נסו לרענן את הדף.');
+    return;
+  }
+
+  showBootCard('מזהים את החשבון…');
+  const token = readInviteToken();
+  const { data } = await callJoinAgency({ action:'resolve', token });
+
+  if (data.status === 'joined' || data.status === 'member'){
+    // ההזמנה נוצלה — היא לא צריכה להישאר ולנסות לפעול שוב בכניסה הבאה
+    clearInviteToken();
+    if (data.status === 'joined') showToast('החשבון חובר לכרטיס שלך במשרד');
+    // עכשיו השורה קיימת, והטעינה הרגילה תמצא אותה
+    await loadDashboard(user, { alreadyResolved:true });
+    return;
+  }
+
+  if (data.status === 'claim_pending'){ showClaimPendingScreen(user, data.agency_name); return; }
+
+  // אסימון שנכשל: מציגים למה, ומשאירים את מסלול מספר הרישיון פתוח — הוא
+  // עובד גם כשהקישור פג או כבר נוצל.
+  let notice = '';
+  if (data.status === 'invite_invalid'){
+    clearInviteToken();
+    notice = INVITE_INVALID_TEXT[data.reason] || INVITE_INVALID_TEXT.not_found;
+  } else if (data.error){
+    notice = 'הזיהוי האוטומטי לא הצליח. אפשר להזדהות ידנית כאן.';
+  }
+  showIdentifyScreen(user, notice);
+}
+
+function showIdentifyScreen(user, notice){
+  document.getElementById('idEmail').textContent = user?.email || '';
+  document.getElementById('idNotice').textContent = notice || '';
+  document.getElementById('idFeedback').textContent = '';
+  document.getElementById('idLicense').value = '';
+  showScreen('identify');
+}
+
+function showClaimPendingScreen(user, agencyName){
+  document.getElementById('claimEmail').textContent = user?.email || '';
+  document.getElementById('claimAgencyName').textContent = agencyName || '';
+  document.getElementById('claimFeedback').textContent = '';
+  showScreen('claimPending');
+}
+
+document.getElementById('idClaimBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('idClaimBtn');
+  const feedback = document.getElementById('idFeedback');
+  const license = document.getElementById('idLicense').value.trim();
+  if (!license){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = 'יש להזין את מספר רישיון התיווך.';
+    return;
+  }
+  btn.disabled = true; btn.textContent = 'בודקים…'; feedback.textContent = '';
+  const { ok, data } = await callJoinAgency({ action:'claim', license_number:license });
+  btn.disabled = false; btn.textContent = 'חיבור לכרטיס הקיים שלי';
+
+  if (!ok){
+    const messages = {
+      license_not_found:     'לא נמצא כרטיס עם מספר הרישיון הזה. כדאי לוודא מול מנהל/ת המשרד שהכרטיס נפתח, ושהמספר זהה.',
+      already_member:        'החשבון הזה כבר מחובר לכרטיס. נסו לרענן את הדף.',
+      claim_already_pending: 'כבר נשלחה בקשה והיא ממתינה לאישור מנהל/ת המשרד.',
+    };
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = messages[data.error] || 'הבקשה נכשלה, אנא נסו שוב.';
+    return;
+  }
+  const { data: { session } } = await sb.auth.getSession();
+  showClaimPendingScreen(session?.user, data.agency_name);
+});
+
+document.getElementById('idOpenAgencyBtn').addEventListener('click', ()=> showCreateAgencyScreen());
+document.getElementById('idLogoutBtn').addEventListener('click', async ()=>{
+  await sb.auth.signOut(); routedUserId = null; showLoginCard();
+});
+
+document.getElementById('claimRefreshBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('claimRefreshBtn');
+  const feedback = document.getElementById('claimFeedback');
+  btn.disabled = true; btn.textContent = 'בודקים…';
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session){ showLoginCard('פג תוקף החיבור — יש להתחבר מחדש.'); return; }
+  await routeAfterAuth(session, { force:true });
+  btn.disabled = false; btn.textContent = 'בדיקה אם אושר';
+  // אם האישור עבר, routeAfterAuth כבר החליף מסך; אם עדיין לא — נשארנו כאן
+  if (document.getElementById('claimPendingScreen').style.display === 'block'){
+    feedback.style.color = 'var(--ink-soft)';
+    feedback.textContent = 'הבקשה עדיין ממתינה לאישור.';
+  }
+});
+
+document.getElementById('claimCancelBtn').addEventListener('click', async ()=>{
+  if (!confirm('לבטל את הבקשה? אפשר יהיה לשלוח אחת חדשה עם מספר רישיון אחר.')) return;
+  await callJoinAgency({ action:'cancel_claim' });
+  const { data: { session } } = await sb.auth.getSession();
+  showIdentifyScreen(session?.user, '');
+});
+
+document.getElementById('claimLogoutBtn').addEventListener('click', async ()=>{
+  await sb.auth.signOut(); routedUserId = null; showLoginCard();
+});
+
 function showAuthLoadError(detail){
   // הניתוב לא הושלם, ולכן routedUserId מתאפס — כך "נסיון נוסף" (או אירוע
   // התחברות חדש) באמת יריץ את הטעינה שוב ולא ייחשב כמי שכבר נטען
@@ -3035,7 +3266,7 @@ async function routeAfterAuthOnce(user){
 }
 
 /* ---------- Dashboard ---------- */
-async function loadDashboard(user){
+async function loadDashboard(user, { alreadyResolved = false } = {}){
   // ה-user מגיע מה-session שכבר בידינו. קריאה ל-getUser() כאן הייתה סיבוב רשת
   // נוסף לפני שמשהו מוצג על המסך — עוד שנייה של "מסך שלא ברור מה קורה בו".
   if (!user){
@@ -3055,10 +3286,15 @@ async function loadDashboard(user){
 
   if (agentErr){ showAuthLoadError('שגיאה: ' + agentErr.message); return; }
   if (!agent){
-    // אין agency_members לחשבון הזה — למשל חשבון Google חדש שנכנס בפעם הראשונה.
-    // זה המקום היחיד שמחליט על כך, ולכן חשוב שהוא יבחין בין "אין שורה" (מסך
-    // פתיחת משרד) לבין agentErr למעלה (מסך שגיאה) ולא יערבב ביניהם.
-    showCreateAgencyScreen();
+    // אין agency_members לחשבון הזה. עד כאן זה נכון — אבל **לא** נכון להסיק
+    // מכך מיד "אין לך משרד": זו הייתה בדיוק התקלה. סוכן/ת שהמנהל/ת כבר
+    // הוסיף/ה, שהאימייל על הכרטיס שלו/ה הוקלד עם אות אחת עודפת, נחת/ה כאן
+    // וקיבל/ה הוראה לפתוח משרד מיותר — בזמן שהכרטיס שלו/ה יושב במשרד ומחכה.
+    //
+    // לכן קודם מנסים לזהות (הזמנה → אימייל → בקשת שיוך), ורק אם באמת אין שום
+    // קצה חוט מגיעים למסך פתיחת המשרד. ההבחנה מול agentErr למעלה נשמרת:
+    // שאילתה שנכשלה היא מסך שגיאה, לא "אין לך משרד".
+    await resolveMembership(user, { alreadyResolved });
     return;
   }
 
@@ -5256,7 +5492,67 @@ toggleMemberBtn.addEventListener('click', ()=>{
   const showing = addMemberForm.style.display !== 'none';
   addMemberForm.style.display = showing ? 'none' : 'block';
   toggleMemberBtn.textContent = showing ? '+ הוספת סוכן/ת לצוות' : '✕ ביטול';
+  // הקישור של ההזמנה הקודמת יורד מהמסך, כדי שלא ייראה כאילו הוא שייך להזמנה
+  // החדשה שמקלידים עכשיו
+  document.getElementById('inviteResult').style.display = 'none';
 });
+
+/* קריאה אחת לכל שלוש הפעולות של add-team-member (invite / resend / revoke),
+   כדי שהכותרות, ה-JWT וטיפול השגיאות לא ייכתבו שלוש פעמים בשלוש גרסאות. */
+async function callTeamInvite(payload){
+  const { data: { session } } = await sb.auth.getSession();
+  const res = await fetch(SUPABASE_URL + '/functions/v1/add-team-member', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+    body: JSON.stringify(payload),
+  });
+  let data = {};
+  try { data = await res.json(); } catch(_){ /* גוף ריק — data.error יישאר undefined ו-res.ok יכריע */ }
+  return { ok: res.ok && !data.error, data };
+}
+
+const TEAM_INVITE_ERRORS = {
+  managers_only:  'רק מנהל/ת משרד יכול/ה להוסיף סוכנים.',
+  invalid_email:  'כתובת האימייל אינה תקינה.',
+  email_in_use:   'הכתובת הזו כבר משויכת לסוכן/ת במערכת.',
+  already_joined: 'הסוכן/ת כבר חיבר/ה את החשבון — אין צורך בהזמנה נוספת.',
+  member_not_found: 'הכרטיס לא נמצא. נסו לרענן את הדף.',
+};
+
+/* הצגת הקישור אחרי הזמנה או שליחה חוזרת. הוא מוצג גם כשהמייל יצא בהצלחה:
+   מייל שנחת בספאם נראה בדיוק כמו מייל שלא נשלח, ושליחה בוואטסאפ עוקפת את
+   שניהם. זו גם הדרך היחידה להשלים הזמנה כשהכתובת שהוקלדה אינה נכונה. */
+function showInviteResult(data, email){
+  const box   = document.getElementById('inviteResult');
+  const title = document.getElementById('inviteResultTitle');
+  const note  = document.getElementById('inviteResultNote');
+  const url   = document.getElementById('inviteResultUrl');
+  const acts  = document.getElementById('inviteResultActions');
+
+  title.textContent = data.email_sent ? '✅ ההזמנה נשלחה ל' + (email || '') : '⚠️ ההזמנה נוצרה, אבל המייל לא נשלח';
+  note.textContent = data.email_sent
+    ? 'הסוכן/ת יופיע/תופיע ברשימה כ"ממתין/ה" עד לכניסה הראשונה. אפשר גם לשלוח את הקישור ישירות:'
+    : 'אפשר לשלוח את הקישור האישי ידנית, או לתקן את הכתובת ולשלוח שוב מרשימת הצוות.';
+  url.value = data.invite_url || '';
+  box.style.display = 'block';
+
+  acts.innerHTML = '';
+  addCardAction(acts, {
+    label: '📋 העתקת הקישור',
+    cls: 'btn-gold',
+    onClick: async ()=>{
+      try { await navigator.clipboard.writeText(data.invite_url); showToast('הקישור הועתק'); }
+      catch(_){ url.select(); showToast('יש להעתיק ידנית'); }
+    },
+  });
+  addCardAction(acts, {
+    label: '💬 שליחה בוואטסאפ',
+    onClick: ()=>{
+      const text = 'הוזמנת להצטרף לצוות המשרד בשוק נדל״ן — כל הנכסים, הלידים והלקוחות שלך במקום אחד: ' + data.invite_url;
+      window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener');
+    },
+  });
+}
 
 document.getElementById('addMemberForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
@@ -5267,43 +5563,36 @@ document.getElementById('addMemberForm').addEventListener('submit', async (e)=>{
     feedback.textContent = 'יש לאשר שהקוד האתי הוצג לסוכן/ת.';
     return;
   }
-  btn.disabled = true; btn.textContent = 'מוסיף…'; feedback.textContent = '';
+  const email = document.getElementById('nmEmail').value.trim().toLowerCase();
+  btn.disabled = true; btn.textContent = 'שולח…'; feedback.textContent = '';
   try{
-    const { data: { session } } = await sb.auth.getSession();
-    const res = await fetch(SUPABASE_URL + '/functions/v1/add-team-member', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
-      body: JSON.stringify({
-        member_name: document.getElementById('nmName').value,
-        license_number: document.getElementById('nmLicense').value,
-        member_email: document.getElementById('nmEmail').value,
-        member_password: document.getElementById('nmPassword').value,
-        initial_tier: document.getElementById('nmTier').value,
-      }),
+    const { ok, data } = await callTeamInvite({
+      action: 'invite',
+      member_name: document.getElementById('nmName').value,
+      license_number: document.getElementById('nmLicense').value,
+      member_email: email,
+      initial_tier: document.getElementById('nmTier').value,
     });
-    const data = await res.json();
-    if (!res.ok || data.error){
-      const messages = {
-        managers_only: 'רק מנהל/ת משרד יכול/ה להוסיף סוכנים.',
-        weak_password: 'הסיסמה קצרה מדי.',
-      };
+    if (!ok){
       feedback.style.color = 'var(--red)';
-      feedback.innerHTML = messages[data.error]
-        ? messages[data.error]
-        : `הקמת דף הסוכן לא הצליחה, אנא נסה שוב.<br>לתמיכה: <a href="mailto:${SUPPORT_EMAIL}" style="color:var(--blue)">${SUPPORT_EMAIL}</a>`;
-      btn.disabled = false; btn.textContent = 'הוספת הסוכן/ת';
+      feedback.innerHTML = TEAM_INVITE_ERRORS[data.error]
+        ? TEAM_INVITE_ERRORS[data.error]
+        : `שליחת ההזמנה לא הצליחה, אנא נסו שוב.<br>לתמיכה: <a href="mailto:${SUPPORT_EMAIL}" style="color:var(--blue)">${SUPPORT_EMAIL}</a>`;
+      btn.disabled = false; btn.textContent = 'שליחת הזמנה';
       return;
     }
-    feedback.style.color = 'var(--blue)';
-    feedback.textContent = 'הסוכן/ת נוסף/ה בהצלחה!';
     document.getElementById('addMemberForm').reset();
+    showInviteResult(data, email);
     await loadTeam(currentAgent.agency_id, currentAgent.id);
-    setTimeout(()=>{ addMemberForm.style.display='none'; toggleMemberBtn.textContent='+ הוספת סוכן/ת לצוות'; feedback.textContent=''; }, 1800);
+    addMemberForm.style.display = 'none';
+    toggleMemberBtn.textContent = '+ הוספת סוכן/ת לצוות';
+    feedback.textContent = '';
   } catch(err){
     console.error(err);
     feedback.style.color = 'var(--red)';
-    feedback.innerHTML = `הקמת דף הסוכן לא הצליחה, אנא נסה שוב.<br>לתמיכה: <a href="mailto:${SUPPORT_EMAIL}" style="color:var(--blue)">${SUPPORT_EMAIL}</a>`;
-    btn.disabled = false; btn.textContent = 'הוספת הסוכן/ת';
+    feedback.innerHTML = `שליחת ההזמנה לא הצליחה, אנא נסו שוב.<br>לתמיכה: <a href="mailto:${SUPPORT_EMAIL}" style="color:var(--blue)">${SUPPORT_EMAIL}</a>`;
+  } finally {
+    btn.disabled = false; btn.textContent = 'שליחת הזמנה';
   }
 });
 
@@ -5318,9 +5607,12 @@ const TEAM_DEAL_KINDS = [
 async function loadTeam(agencyId, callerId){
   const el = document.getElementById('teamList');
   el.innerHTML = '<div class="empty-state">טוען…</div>';
+  // ‏user_id ו-email נטענים כדי להבחין בין סוכן/ת שכבר נכנס/ה לבין הזמנה
+  // שממתינה. בלי ההבחנה הזו כרטיס תקוע נראה ברשימה בדיוק כמו כרטיס פעיל,
+  // ואף אחד לא יודע שהמייל לא הגיע ליעד.
   const { data: members, error } = await sb
     .from('agency_members')
-    .select('id, display_name, role, tier, active, license_number')
+    .select('id, display_name, role, tier, active, license_number, user_id, email')
     .eq('agency_id', agencyId)
     .order('role', { ascending:false });
 
@@ -5369,23 +5661,56 @@ async function loadTeam(agencyId, callerId){
       >(${shown.length
             ? shown.map(k => `<b class="td-${k.key}">${counts[k.key]}</b>`).join(' · ')
             : '<b class="td-none">0</b>'})</span>`;
+    // כרטיס בלי user_id הוא הזמנה שטרם נענתה. זה הסימן היחיד שמגלה כתובת
+    // שהוקלדה שגוי — קודם לא היה סימן כזה בכלל, כי הכרטיס נקשר מיד לחשבון
+    // שנוצר על הכתובת השגויה ונראה פעיל לחלוטין.
+    const pending = !m.user_id;
     const el2 = document.createElement('div');
     el2.className = 'card lead-card';
     el2.innerHTML = `
       <div class="lead-top">
         <div>
           <div class="lead-name">${esc(m.display_name)}${m.id === callerId ? ' (את/ה)' : ''}${dealsHtml}</div>
+          ${pending ? `<div style="font-size:.75rem;color:var(--ink-soft);margin-top:3px;direction:ltr;text-align:right">${esc(m.email || '')}</div>` : ''}
         </div>
-        <span class="status-pill status-${m.active ? 'unlocked' : 'masked'}">${m.active ? 'פעיל' : 'לא פעיל'}</span>
+        <span class="status-pill status-${pending ? 'masked' : (m.active ? 'unlocked' : 'masked')}">${pending ? 'ממתין/ה' : (m.active ? 'פעיל' : 'לא פעיל')}</span>
       </div>
       ${tagsHtml([
         { text:roleLabels[m.role], cls: m.role === 'manager' ? 'tag-key' : '' },
         { text:'מסלול ' + tierLabels[m.tier], cls: m.tier === 'free' ? '' : 'tag-info' },
         { text:'🪪 רישיון ' + m.license_number },
       ])}
+      ${pending ? `<p style="font-size:.75rem;color:var(--ink-soft);line-height:1.5;margin:8px 0 0">
+        ההזמנה נשלחה ועדיין לא נענתה. אם הכתובת שגויה — כאן מתקנים ושולחים שוב.
+      </p>` : ''}
       <div class="lead-actions"></div>
     `;
-    if (m.id !== callerId){
+    if (pending){
+      const actions = el2.querySelector('.lead-actions');
+      addCardAction(actions, {
+        label: '✉️ שליחה מחדש / תיקון כתובת',
+        cls: 'btn-gold',
+        onClick: async ()=>{
+          const next = prompt('כתובת האימייל לשליחת ההזמנה:', m.email || '');
+          if (next === null) return;
+          const { ok, data } = await callTeamInvite({ action:'resend', member_id:m.id, member_email:next.trim() });
+          if (!ok){ showToast(TEAM_INVITE_ERRORS[data.error] || 'השליחה נכשלה'); return; }
+          showInviteResult(data, data.email);
+          showToast(data.email_sent ? 'ההזמנה נשלחה מחדש' : 'ההזמנה נוצרה — המייל לא נשלח, אפשר להעתיק קישור');
+          await loadTeam(agencyId, callerId);
+        },
+      });
+      addCardAction(actions, {
+        label: '🗑 ביטול ההזמנה',
+        onClick: async ()=>{
+          if (!confirm('לבטל את ההזמנה ולמחוק את הכרטיס של ' + m.display_name + '?')) return;
+          const { ok, data } = await callTeamInvite({ action:'revoke', member_id:m.id });
+          if (!ok){ showToast(TEAM_INVITE_ERRORS[data.error] || 'הביטול נכשל'); return; }
+          showToast('ההזמנה בוטלה');
+          await loadTeam(agencyId, callerId);
+        },
+      });
+    } else if (m.id !== callerId){
       // עריכת תפקיד/סטטוס זמינה רק לחברי צוות אחרים — לא לעצמך (הטריגר ב-DB חוסם
       // עריכה-עצמית של role/active בכל מקרה, כדי שאף אחד לא "יקדם את עצמו" בעצמו)
       const actions = el2.querySelector('.lead-actions');
@@ -5403,6 +5728,80 @@ async function loadTeam(agencyId, callerId){
       });
     }
     el.appendChild(el2);
+  });
+
+  await loadClaimRequests(agencyId, callerId);
+}
+
+/* ---------- בקשות שיוך ממתינות ----------
+   סוכן/ת שהכרטיס שלו/ה קיים אבל מקושר לכתובת אחרת (או לחשבון שנוצר על כתובת
+   שהוקלדה שגוי) מזדהה במספר הרישיון, וההחלטה מגיעה לכאן. זה מה שמאפשר לתקן
+   שיוך שבור מתוך הממשק — עד היום התיקון היחיד היה עריכה ידנית במסד. */
+async function loadClaimRequests(agencyId, callerId){
+  const el = document.getElementById('claimRequests');
+  if (!el) return;
+  const { data: claims, error } = await sb
+    .from('agency_member_claims')
+    .select('id, member_id, claim_email, claim_name, license_number, created_at')
+    .eq('agency_id', agencyId).eq('status', 'pending')
+    .order('created_at', { ascending:true });
+
+  // כשל בשליפה לא מוחק את רשימת הצוות שכבר מוצגת מעליה
+  if (error || !claims || !claims.length){ el.innerHTML = ''; return; }
+
+  const { data: members } = await sb
+    .from('agency_members').select('id, display_name, email, user_id').eq('agency_id', agencyId);
+  const byId = Object.fromEntries((members || []).map(m => [m.id, m]));
+
+  el.innerHTML = '';
+  claims.forEach(c=>{
+    const target = byId[c.member_id];
+    const card = document.createElement('div');
+    card.className = 'card lead-card';
+    card.style.borderColor = 'var(--gold)';
+    card.innerHTML = `
+      <div class="lead-top">
+        <div><div class="lead-name">בקשת חיבור לכרטיס ${esc(target?.display_name || '')}</div></div>
+        <span class="status-pill status-masked">ממתינה</span>
+      </div>
+      <p style="font-size:.8rem;line-height:1.6;margin:8px 0 0">
+        ${esc(c.claim_name || 'סוכן/ת')} מבקש/ת לחבר את החשבון
+        <b style="direction:ltr;display:inline-block">${esc(c.claim_email)}</b>
+        לכרטיס שעל מספר רישיון <b>${esc(c.license_number)}</b>.
+        ${target?.user_id
+          ? '<br><span style="color:var(--brick)">שימו לב: הכרטיס מקושר כרגע לחשבון אחר' +
+            (target.email ? ' (<span style="direction:ltr;display:inline-block">' + esc(target.email) + '</span>)' : '') +
+            '. אישור ינתק אותו ויחבר את החשבון החדש.</span>'
+          : ''}
+      </p>
+      <p style="font-size:.75rem;color:var(--ink-soft);line-height:1.5;margin:8px 0 0">
+        לאשר רק אם את/ה מזהה את האדם. מספר רישיון הוא מידע ציבורי, והאישור שלך הוא מה שמונע חיבור של מישהו זר.
+      </p>
+      <div class="lead-actions"></div>`;
+
+    const actions = card.querySelector('.lead-actions');
+    const decide = async (decision, label)=>{
+      if (!confirm(label)) return;
+      const { data: { session } } = await sb.auth.getSession();
+      const res = await fetch(SUPABASE_URL + '/functions/v1/join-agency', {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+        body: JSON.stringify({ action:'decide', claim_id:c.id, decision }),
+      });
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok || data.error){ showToast('הפעולה נכשלה: ' + (data.error || res.status)); return; }
+      showToast(decision === 'approve' ? 'החשבון חובר לכרטיס' : 'הבקשה נדחתה');
+      await loadTeam(agencyId, callerId);
+    };
+    addCardAction(actions, {
+      label:'✅ אישור החיבור', cls:'btn-gold',
+      onClick: ()=> decide('approve', 'לחבר את ' + c.claim_email + ' לכרטיס של ' + (target?.display_name || '') + '?'),
+    });
+    addCardAction(actions, {
+      label:'✕ דחייה',
+      onClick: ()=> decide('reject', 'לדחות את הבקשה?'),
+    });
+    el.appendChild(card);
   });
 }
 
