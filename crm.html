@@ -5698,6 +5698,33 @@ function fmtMinutes(sec){
   return `${m} דקות`;
 }
 
+/* קורא אורך ומידות בלי לנגן ובלי לפענח פריימים. אותו נגן שקורא כאן הוא גם
+   זה שינגן בדף הנכס, ולכן קובץ שנכשל כאן לא היה מתנגן ממילא אצל הצופים. */
+function probeVideoMeta(file){
+  return new Promise((resolve, reject)=>{
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    const url = URL.createObjectURL(file);
+    const cleanup = ()=>{ URL.revokeObjectURL(url); video.removeAttribute('src'); };
+    video.onloadedmetadata = ()=>{
+      const meta = { duration:video.duration, width:video.videoWidth, height:video.videoHeight };
+      cleanup();
+      resolve(meta);
+    };
+    video.onerror = ()=>{
+      cleanup();
+      reject(new Error('הדפדפן לא הצליח לפתוח את הסרטון — ייתכן שהפורמט לא נתמך במכשיר הזה'));
+    };
+    video.src = url;
+  });
+}
+
+function assertVideoLength(duration){
+  if (!isFinite(duration) || duration <= 0) throw new Error('לא ניתן לקרוא את אורך הסרטון');
+  if (duration > VIDEO_MAX_SECONDS)
+    throw new Error(`הסרטון ארוך מדי (${fmtClock(duration)}) — עד ${fmtMinutes(VIDEO_MAX_SECONDS)}. יש לקצר אותו ולנסות שוב`);
+}
+
 /* פורמט הפלט נקבע לפי מה שהדפדפן יודע להקליט. ‏MP4 ראשון כי הוא מתנגן בכל
    מקום; ‏WebM הוא הגיבוי בכרום שאין בו מקודד H.264. הערך שחוזר מפריד בין
    מחרוזת הבדיקה (עם codecs) לבין ה-mime הבסיסי — ‏allowed_mime_types של
@@ -5737,9 +5764,7 @@ async function compressVideo(file, onProgress, abort){
     });
 
     const duration = video.duration;
-    if (!isFinite(duration) || duration <= 0) throw new Error('לא ניתן לקרוא את אורך הסרטון');
-    if (duration > VIDEO_MAX_SECONDS)
-      throw new Error(`הסרטון ארוך מדי (${fmtClock(duration)}) — עד ${fmtMinutes(VIDEO_MAX_SECONDS)}. יש לקצר אותו ולנסות שוב`);
+    assertVideoLength(duration); // ‏prepareVideoForUpload כבר בדקה, וזו שמירה על עצמאות הפונקציה
     if (!video.videoWidth || !video.videoHeight) throw new Error('לא ניתן לקרוא את מידות הסרטון');
 
     // הביטרייט נגזר מהאורך ולא קבוע מראש, כך שהתוצאה נכנסת לתקציב בכל אורך.
@@ -5848,6 +5873,12 @@ async function compressVideo(file, onProgress, abort){
 async function prepareVideoForUpload(file, onProgress, abort){
   const origMB = file.size / 1048576;
   const knownMime = VIDEO_MIME_EXT[file.type];
+
+  // תקרת האורך נבדקת כאן ולא בתוך הדחיסה, כי היא חלה על כל קובץ: סרטון
+  // דחוס היטב יכול להיות ארוך בזמן וקל במשקל, ודרך מסלול הדילוג על הדחיסה
+  // הוא היה נכנס בלי שאיש בדק את אורכו.
+  const meta = await probeVideoMeta(file);
+  assertVideoLength(meta.duration);
 
   if (knownMime && origMB <= VIDEO_SKIP_COMPRESS_MB){
     return { blob:file, mime:file.type, ext:knownMime,
