@@ -1537,7 +1537,7 @@
         <div class="img-dropzone">
           <label class="pick" for="npVideoFile">+ העלאת סרטון מהמכשיר</label>
           <input type="file" id="npVideoFile" accept="video/mp4,video/webm,video/quicktime">
-          <div class="hint">‏MP4, WebM או MOV · עד <span id="npVideoMaxMinutes">6</span> דקות · הסרטון נדחס אוטומטית במכשיר לפני ההעלאה, כך שאפשר לבחור קובץ ישירות מהגלריה</div>
+          <div class="hint">‏MP4, WebM או MOV · עד <span id="npVideoMaxLen">דקה אחת</span> · הסרטון נדחס אוטומטית במכשיר לפני ההעלאה, כך שאפשר לבחור קובץ ישירות מהגלריה</div>
         </div>
         <div class="video-progress" id="npVideoProgress" hidden>
           <div class="bar"><span id="npVideoProgressFill"></span></div>
@@ -5674,11 +5674,11 @@ const VIDEOS_BUCKET = 'property-videos';
 const MAX_VIDEO_MB = 50;          // חייב להתאים ל-file_size_limit של הדלי במיגרציה
 const VIDEO_TARGET_MB = 40;       // תקציב למקודד — מרווח מתחת לתקרה, כי VBR חורג
 const VIDEO_SKIP_COMPRESS_MB = 8; // מתחת לזה הדחיסה רק תוריד איכות בלי להרוויח
-const VIDEO_MAX_SECONDS = 360;
+const VIDEO_MAX_SECONDS = 60;
 const VIDEO_AUDIO_KBPS = 96;
 const VIDEO_MIN_KBPS = 700, VIDEO_MAX_KBPS = 3500;
 const VIDEO_MIME_EXT = { 'video/mp4':'mp4', 'video/webm':'webm', 'video/quicktime':'mov' };
-document.getElementById('npVideoMaxMinutes').textContent = VIDEO_MAX_SECONDS / 60;
+document.getElementById('npVideoMaxLen').textContent = fmtMinutes(VIDEO_MAX_SECONDS);
 
 // חלק מהמכשירים מוסרים קובץ מהגלריה בלי mime — אז הסיומת היא הגיבוי.
 function isAcceptedVideo(file){
@@ -5688,6 +5688,14 @@ function isAcceptedVideo(file){
 function fmtClock(sec){
   const s = Math.round(sec);
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+// ‏"1 דקות" ו-"2 דקות" הן שגיאות עברית, ולכן המספר לא מודבק לטקסט כמו שהוא
+function fmtMinutes(sec){
+  const m = sec / 60;
+  if (m === 1) return 'דקה אחת';
+  if (m === 2) return 'שתי דקות';
+  return `${m} דקות`;
 }
 
 /* פורמט הפלט נקבע לפי מה שהדפדפן יודע להקליט. ‏MP4 ראשון כי הוא מתנגן בכל
@@ -5731,11 +5739,13 @@ async function compressVideo(file, onProgress, abort){
     const duration = video.duration;
     if (!isFinite(duration) || duration <= 0) throw new Error('לא ניתן לקרוא את אורך הסרטון');
     if (duration > VIDEO_MAX_SECONDS)
-      throw new Error(`הסרטון ארוך מדי (${fmtClock(duration)}) — עד ${VIDEO_MAX_SECONDS / 60} דקות. יש לקצר אותו ולנסות שוב`);
+      throw new Error(`הסרטון ארוך מדי (${fmtClock(duration)}) — עד ${fmtMinutes(VIDEO_MAX_SECONDS)}. יש לקצר אותו ולנסות שוב`);
     if (!video.videoWidth || !video.videoHeight) throw new Error('לא ניתן לקרוא את מידות הסרטון');
 
-    // הביטרייט נגזר מהאורך ולא קבוע מראש, כך שהתוצאה נכנסת לתקציב בין אם
-    // הסרטון בן 20 שניות ובין אם הוא בן חמש דקות. הרזולוציה יורדת יחד איתו:
+    // הביטרייט נגזר מהאורך ולא קבוע מראש, כך שהתוצאה נכנסת לתקציב בכל אורך.
+    // בתקרה הנוכחית (דקה) החישוב תמיד נעצר ב-VIDEO_MAX_KBPS, כלומר כל סרטון
+    // מקבל את האיכות המקסימלית ויוצא סביב 26MB; ההצמדה לרצפה ולירידת
+    // הרזולוציה נשארת כדי שהעלאת התקרה בעתיד לא תחרוג מהתקציב בשקט.
     // ‏720p בביטרייט נמוך מדי נראה גרוע יותר מ-480p באותו ביטרייט.
     const budgetKbps = (VIDEO_TARGET_MB * 8192) / duration;
     const videoKbps = Math.round(Math.min(VIDEO_MAX_KBPS, Math.max(VIDEO_MIN_KBPS, budgetKbps - VIDEO_AUDIO_KBPS)));
