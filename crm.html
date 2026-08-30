@@ -1096,14 +1096,39 @@
     <button type="button" class="btn btn-ghost btn-block" id="claimLogoutBtn" style="margin-top:8px">יציאה</button>
   </div>
 
+  <!-- ---------- ניתוק מהמשרד ----------
+       מנהל/ת המשרד השעה/תה את הסוכן/ת. זה המסך שהוא/היא פוגש/ת בכניסה הבאה,
+       ובמכוון הוא **לא** מסך הכניסה ולא "אין לך משרד": מי שהושעה/תה צריך/ה
+       לדעת מה קרה, ממי, ושהנכסים לא הלכו לאיבוד אלא עוברים איתו/ה. -->
+  <div class="card login-card" id="releasedScreen" style="display:none">
+    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
+    <h1>הושעית מהמשרד</h1>
+    <p class="sub">מנהל/ת המשרד <b id="relAgencyName"></b> השעה/תה אותך, והחשבון שלך כבר לא משויך אליו.</p>
+    <div style="background:#F1F6F5;border:1.5px solid var(--teal);border-radius:var(--radius-sm);padding:13px 15px;margin-bottom:16px;font-size:.84rem;line-height:1.65;text-align:right">
+      <b>הנכסים שלך לא הלכו לאיבוד.</b><br>
+      פתיחת משרד משלך תעביר אליו את כל מה שרשום על שמך — הנכסים, הלידים
+      והלקוחות. דף הסוכן/ת שלך נשאר באותה כתובת, ויתרת הארנק והמסלול שלך
+      נשמרים כמו שהם.
+    </div>
+    <button type="button" class="btn btn-gold btn-block" id="relOpenAgencyBtn">פתיחת משרד תיווך משלי</button>
+    <p style="font-size:.75rem;color:var(--ink-soft);text-align:center;margin:12px 0 0;line-height:1.55">
+      אם זו טעות, מנהל/ת המשרד יכול/ה לבטל את ההשעיה כל עוד לא פתחת משרד חדש.
+    </p>
+    <button type="button" class="btn btn-ghost btn-block" id="relLogoutBtn" style="margin-top:12px">יציאה</button>
+  </div>
+
   <div class="card login-card" id="createAgencyScreen" style="display:none">
     <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
-    <h1>ברוך/ה הבא/ה!</h1>
-    <p class="sub">עדיין לא פתחת משרד תיווך במערכת. כל סוכן יכול להיות בעלים של משרד אחד בלבד — בואו נקים אותו.</p>
+    <h1 id="caTitle">ברוך/ה הבא/ה!</h1>
+    <p class="sub" id="caSubtitle">עדיין לא פתחת משרד תיווך במערכת. כל סוכן יכול להיות בעלים של משרד אחד בלבד — בואו נקים אותו.</p>
+    <div id="caAdoptNote" style="display:none;background:#F1F6F5;border:1.5px solid var(--teal);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;font-size:.8rem;line-height:1.6;text-align:right">
+      הנכסים, הלידים והלקוחות הרשומים על שמך יעברו למשרד הזה ברגע שייפתח.
+      המסלול ויתרת הארנק שלך ממשיכים כמו שהם.
+    </div>
     <div class="field"><label>שם המשרד</label><input type="text" id="caAgencyName" required></div>
     <div class="field"><label>השם המלא שלך</label><input type="text" id="caManagerName" required></div>
     <div class="field"><label>מספר רישיון תיווך</label><input type="text" id="caLicense" required placeholder="לדוגמה: 123456"></div>
-    <div class="field">
+    <div class="field" id="caTierField">
       <label>מסלול מנוי</label>
       <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
         <label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:.85rem;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;cursor:pointer">
@@ -2759,8 +2784,13 @@ function shelfKind(side){
 /* ---------- דיאלוג אישור רכישה ----------
    כל פעולה שמוציאה כסף מהארנק עוברת כאן. הסכום מוצג בגדול, ונדרש סימון
    מפורש של "אני מבין/ה שזו רכישה" לפני שכפתור החיוב נדלק — הקריאה לשרת
-   יוצאת רק אחרי לחיצה עליו. השורה הראשונה ב-lines היא הכותרת המודגשת. */
-function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel }){
+   יוצאת רק אחרי לחיצה עליו. השורה הראשונה ב-lines היא הכותרת המודגשת.
+
+   ‏requireAck ו-hidePrice מרחיבים אותו לפעולות שאינן רכישה אבל דורשות בדיוק
+   את אותו "אישרתי שוב שאני בטוח/ה" — ניתוק סוכן/ת מהמשרד הוא כזה. תיבת
+   הסימון היא מה שהופך לחיצה מהירה להחלטה, ולכן עדיף להשתמש בדיאלוג הקיים
+   מאשר לשרשר שני confirm() של הדפדפן זה אחרי זה. */
+function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel, requireAck = false, hidePrice = false }){
   const overlay   = document.getElementById('purchaseModal');
   const ackBox    = document.getElementById('pmAck');
   const ackWrap   = document.getElementById('pmAckWrap');
@@ -2768,22 +2798,24 @@ function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel }
   const cancelBtn = document.getElementById('pmCancel');
   const priceEl   = document.getElementById('pmPrice');
   const paid = Number(price) > 0;
+  const needAck = paid || requireAck;      // מה שמדליק את כפתור האישור
 
   document.getElementById('pmTitle').textContent = title;
   document.getElementById('pmBody').innerHTML = lines.map(l => `<div>${esc(l)}</div>`).join('');
   priceEl.textContent = paid ? `לחיוב עכשיו: ${shekel(price)} מיתרת הארנק` : 'ללא עלות — לא ייגבה תשלום';
   priceEl.className = 'pm-price' + (paid ? '' : ' free');
+  priceEl.style.display = hidePrice ? 'none' : '';
   document.getElementById('pmAckText').textContent = ackText ||
     `אני מבין/ה שזו רכישה, ושאישור הפעולה יחייב את הארנק שלי ב-${shekel(price)}.`;
 
-  ackWrap.style.display = paid ? 'flex' : 'none';
+  ackWrap.style.display = needAck ? 'flex' : 'none';
   ackBox.checked = false;
   confirmBtn.textContent = confirmLabel || (paid ? `אישור רכישה וחיוב ${shekel(price)}` : 'אישור');
-  confirmBtn.disabled = paid;              // נדלק רק אחרי סימון ה"אני מבין/ה"
+  confirmBtn.disabled = needAck;           // נדלק רק אחרי סימון ה"אני מבין/ה"
   overlay.style.display = 'flex';
 
   return new Promise(resolve => {
-    const onAck     = ()=> { confirmBtn.disabled = paid && !ackBox.checked; };
+    const onAck     = ()=> { confirmBtn.disabled = needAck && !ackBox.checked; };
     const onConfirm = ()=> { if (!confirmBtn.disabled) done(true); };
     const onCancel  = ()=> done(false);
     const onKey     = (e)=> { if (e.key === 'Escape') done(false); };
@@ -2818,6 +2850,7 @@ const SCREEN_CARDS = {
   login:        'loginCardMain',
   identify:     'identifyScreen',
   claimPending: 'claimPendingScreen',
+  released:     'releasedScreen',
   createAgency: 'createAgencyScreen',
   loadError:    'loadErrorScreen',
   ethicsGate:   'ethicsGateScreen',
@@ -3002,6 +3035,8 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
   const agencyName = document.getElementById('caAgencyName').value.trim();
   const managerName = document.getElementById('caManagerName').value.trim();
   const license = document.getElementById('caLicense').value.trim();
+  // סוכן/ת שנותק/ה שומר/ת על המסלול והארנק הקיימים, ובורר המסלול מוסתר —
+  // השרת מתעלם מהערך הזה במסלול הזה בכל מקרה
   const selectedTier = document.querySelector('input[name="caTier"]:checked').value;
   const feedback = document.getElementById('createAgencyFeedback');
   const btn = document.getElementById('createAgencyBtn');
@@ -3038,10 +3073,20 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
       btn.disabled = false; btn.textContent = 'פתיחת המשרד שלי';
       return;
     }
+    // המעבר הושלם — הדגל יורד, אחרת מסך פתיחת המשרד יישאר "במצב אימוץ"
+    // אם נחזור אליו מסיבה כלשהי
+    const wasAdopted = !!data.adopted;
+    const movedProps = data.moved?.properties || 0;
+    releasedAgent = null;
     // מסך ההמתנה במקום כיבוי ידני של הכרטיס: כך אין רגע ריק בין סגירת מסך
     // פתיחת המשרד לבין הופעת הדשבורד. showScreen() מכבה את הכרטיס בעצמו.
     showBootCard('טוענים את איזור הסוכנים…');
     await loadDashboard(session.user);
+    if (wasAdopted){
+      showToast(movedProps > 0
+        ? `המשרד נפתח. ${movedProps} נכסים עברו איתך.`
+        : 'המשרד נפתח, וכל מה שרשום על שמך עבר איתך.');
+    }
   } catch(err){
     console.error(err);
     // חוזרים למסך פתיחת המשרד — אחרת ההודעה נכתבת לכרטיס שכבר לא מוצג
@@ -3057,9 +3102,37 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
    הפרדה מפורשת בין שלושה מצבים: יש שורת חבר/ה במשרד → דשבורד; אין שורה → מסך
    פתיחת משרד; שאילתה שנכשלה → מסך שגיאה. בלי ההפרדה הזו, כל תקלה זמנית נראית
    לסוכן/ת ותיק/ה כאילו המערכת לא מזהה אותם ומבקשת מהם לפתוח משרד חדש. */
+/* מי שנותק/ה מהמשרד ופותח/ת משרד משלו/ה עובר/ת באותו מסך — אבל השורה שלו/ה
+   כבר קיימת, ולכן חלק מהשדות לא רלוונטיים: השם והרישיון באים מהכרטיס, והמסלול
+   והארנק ממשיכים כמו שהם ולא נבחרים מחדש. הדגל הזה הוא מה שמבדיל. */
+let releasedAgent = null;
+
 function showCreateAgencyScreen(){
+  const adopting = !!releasedAgent;
+  document.getElementById('caTierField').style.display = adopting ? 'none' : '';
+  document.getElementById('caAdoptNote').style.display = adopting ? 'block' : 'none';
+  document.getElementById('caTitle').textContent = adopting ? 'פתיחת המשרד שלך' : 'ברוך/ה הבא/ה!';
+  document.getElementById('caSubtitle').textContent = adopting
+    ? 'המשרד יהיה שלך, ואת/ה מנהל/ת שלו. כל מה שרשום על שמך יעבור אליו.'
+    : 'עדיין לא פתחת משרד תיווך במערכת. כל סוכן יכול להיות בעלים של משרד אחד בלבד — בואו נקים אותו.';
+  if (adopting){
+    // הכרטיס כבר קיים; מילוי מראש מונע שם או רישיון שנכתבים מחדש בשוגג
+    document.getElementById('caManagerName').value = releasedAgent.display_name || '';
+    document.getElementById('caLicense').value = releasedAgent.license_number || '';
+  }
   showScreen('createAgency');
 }
+
+function showReleasedScreen(agent, agencyName){
+  releasedAgent = agent;
+  document.getElementById('relAgencyName').textContent = agencyName || '';
+  showScreen('released');
+}
+
+document.getElementById('relOpenAgencyBtn').addEventListener('click', ()=> showCreateAgencyScreen());
+document.getElementById('relLogoutBtn').addEventListener('click', async ()=>{
+  await sb.auth.signOut(); routedUserId = null; releasedAgent = null; showLoginCard();
+});
 
 /* ---------- זיהוי חשבון שאין לו כרטיס משויך ----------
    נקודה אחת שמפרידה בין "אין לך משרד" לבין "יש לך כרטיס, הוא פשוט לא מחובר".
@@ -3280,7 +3353,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // agency_members ל-agencies ומחזיר PGRST201 (HTTP 300) על כל embed כזה.
   const { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select('id, agency_id, slug, display_name, bio, photo_url, photo_position, cover_url, license_number, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, is_mortgage_advisor, phone, ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at, years_experience, specialties, credentials, service_area')
+    .select('id, agency_id, slug, display_name, bio, photo_url, photo_position, cover_url, license_number, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, is_mortgage_advisor, phone, ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at, years_experience, specialties, credentials, service_area, released_at')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -3303,6 +3376,11 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
     const { data: agency } = await sb.from('agencies').select('name').eq('id', agent.agency_id).maybeSingle();
     agencyName = agency?.name || '';
   }
+
+  // ניתוק מהמשרד קודם לכל השאר, ובפרט לשער הקוד האתי: מי שכבר לא במשרד לא
+  // אמור/ה להתבקש לחתום על משהו בשמו לפני שהוא/היא בכלל יודע/ת שהושעה/תה.
+  if (agent.released_at){ showReleasedScreen(agent, agencyName); return; }
+
   currentAgent = agent;
 
   // שער האישור לפני הדשבורד: סוכן/ת שנוסף/ה על ידי מנהל/ת המשרד לא עבר/ה
@@ -5612,7 +5690,7 @@ async function loadTeam(agencyId, callerId){
   // ואף אחד לא יודע שהמייל לא הגיע ליעד.
   const { data: members, error } = await sb
     .from('agency_members')
-    .select('id, display_name, role, tier, active, license_number, user_id, email')
+    .select('id, display_name, role, tier, active, license_number, user_id, email, released_at')
     .eq('agency_id', agencyId)
     .order('role', { ascending:false });
 
@@ -5665,6 +5743,10 @@ async function loadTeam(agencyId, callerId){
     // שהוקלדה שגוי — קודם לא היה סימן כזה בכלל, כי הכרטיס נקשר מיד לחשבון
     // שנוצר על הכתובת השגויה ונראה פעיל לחלוטין.
     const pending = !m.user_id;
+    // מנותק/ת: המנהל/ת כבר השעה, והסוכן/ת עוד לא פתח/ה משרד משלו/ה. זהו
+    // החלון היחיד שבו אפשר לבטל — ברגע שהמשרד נפתח השורה כבר לא כאן.
+    const released = !!m.released_at;
+    const statusLabel = pending ? 'ממתין/ה' : released ? 'מנותק/ת' : (m.active ? 'פעיל' : 'לא פעיל');
     const el2 = document.createElement('div');
     el2.className = 'card lead-card';
     el2.innerHTML = `
@@ -5673,7 +5755,7 @@ async function loadTeam(agencyId, callerId){
           <div class="lead-name">${esc(m.display_name)}${m.id === callerId ? ' (את/ה)' : ''}${dealsHtml}</div>
           ${pending ? `<div style="font-size:.75rem;color:var(--ink-soft);margin-top:3px;direction:ltr;text-align:right">${esc(m.email || '')}</div>` : ''}
         </div>
-        <span class="status-pill status-${pending ? 'masked' : (m.active ? 'unlocked' : 'masked')}">${pending ? 'ממתין/ה' : (m.active ? 'פעיל' : 'לא פעיל')}</span>
+        <span class="status-pill status-${(pending || released || !m.active) ? 'masked' : 'unlocked'}">${statusLabel}</span>
       </div>
       ${tagsHtml([
         { text:roleLabels[m.role], cls: m.role === 'manager' ? 'tag-key' : '' },
@@ -5682,6 +5764,11 @@ async function loadTeam(agencyId, callerId){
       ])}
       ${pending ? `<p style="font-size:.75rem;color:var(--ink-soft);line-height:1.5;margin:8px 0 0">
         ההזמנה נשלחה ועדיין לא נענתה. אם הכתובת שגויה — כאן מתקנים ושולחים שוב.
+      </p>` : ''}
+      ${released ? `<p style="font-size:.75rem;color:var(--brick);line-height:1.5;margin:8px 0 0">
+        הושעה/תה מהמשרד ב-${esc(hebDate(m.released_at))}. בכניסה הבאה יתבקש/תתבקש לפתוח משרד משלו/ה,
+        והנכסים${counts && counts.sale + counts.rent + counts.commercial > 0 ? ` (${counts.sale + counts.rent + counts.commercial})` : ''} יעברו איתו/ה.
+        עד אז אפשר לבטל.
       </p>` : ''}
       <div class="lead-actions"></div>
     `;
@@ -5710,6 +5797,19 @@ async function loadTeam(agencyId, callerId){
           await loadTeam(agencyId, callerId);
         },
       });
+    } else if (released){
+      const actions = el2.querySelector('.lead-actions');
+      addCardAction(actions, {
+        label: '↩ ביטול ההשעיה',
+        cls: 'btn-gold',
+        onClick: async ()=>{
+          if (!confirm('להחזיר את ' + m.display_name + ' למשרד? הכרטיס והנכסים נשארים כאן.')) return;
+          const { ok, data } = await callRelease({ action:'undo', member_id:m.id });
+          if (!ok){ showToast(RELEASE_ERRORS[data.error] || 'הפעולה נכשלה'); return; }
+          showToast('הסוכן/ת חזר/ה למשרד');
+          await loadTeam(agencyId, callerId);
+        },
+      });
     } else if (m.id !== callerId){
       // עריכת תפקיד/סטטוס זמינה רק לחברי צוות אחרים — לא לעצמך (הטריגר ב-DB חוסם
       // עריכה-עצמית של role/active בכל מקרה, כדי שאף אחד לא "יקדם את עצמו" בעצמו)
@@ -5721,11 +5821,24 @@ async function loadTeam(agencyId, callerId){
         onClick: ()=> updateMemberField(m.id, { role: newRole }, agencyId, callerId),
       });
 
-      addCardAction(actions, {
-        label: m.active ? '⏸ השעיה' : '▶ הפעלה מחדש',
-        cls: m.active ? 'btn-ghost' : 'btn-gold',
-        onClick: ()=> updateMemberField(m.id, { active: !m.active }, agencyId, callerId),
-      });
+      // השעיה = ניתוק מהמשרד. הכפתור אומר את זה במפורש, כי הפעולה הישנה
+      // ("השעיה" שלא חסמה כלום) לימדה שזו לחיצה קלה בלי משמעות.
+      //
+      // שורה לא-פעילה שאינה מנותקת יכולה להיווצר רק מעריכה ישירה במסד, אבל
+      // בלי הענף הזה היא הייתה נשארת בלי שום דרך להחזיר אותה לפעילות.
+      if (m.active){
+        const owned = counts ? counts.sale + counts.rent + counts.commercial : 0;
+        addCardAction(actions, {
+          label: '⏸ השעיה וניתוק מהמשרד',
+          onClick: ()=> releaseMember(m, owned, agencyId, callerId),
+        });
+      } else {
+        addCardAction(actions, {
+          label: '▶ הפעלה מחדש',
+          cls: 'btn-gold',
+          onClick: ()=> updateMemberField(m.id, { active: true }, agencyId, callerId),
+        });
+      }
     }
     el.appendChild(el2);
   });
@@ -5803,6 +5916,59 @@ async function loadClaimRequests(agencyId, callerId){
     });
     el.appendChild(card);
   });
+}
+
+/* ---------- השעיה = ניתוק מהמשרד ----------
+   הפעולה הקודמת כתבה active=false ישירות לטבלה, ולא חסמה שום דבר: אף מקום
+   בקוד לא בדק את הדגל בכניסה, ולכן "סוכן/ת מושעה/ת" המשיך/ה לעבוד כרגיל.
+   עכשיו זו פעולת שרת עם משמעות אחת — הסוכן/ת יוצא/ת, והנכסים עוברים איתו/ה
+   כשייפתח המשרד החדש. שלוש העמודות נעולות בטריגר, ולכן אין לזה קיצור דרך
+   בעדכון ישיר מהדפדפן. */
+async function callRelease(payload){
+  const { data: { session } } = await sb.auth.getSession();
+  const res = await fetch(SUPABASE_URL + '/functions/v1/release-team-member', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+    body: JSON.stringify(payload),
+  });
+  let data = {};
+  try { data = await res.json(); } catch(_){ /* ראו callTeamInvite */ }
+  return { ok: res.ok && !data.error, data };
+}
+
+const RELEASE_ERRORS = {
+  managers_only:      'רק מנהל/ת משרד יכול/ה להשעות סוכנים.',
+  cannot_release_self:'אי אפשר להשעות את עצמך.',
+  last_manager:       'זה המנהל/ת הפעיל/ה היחיד/ה במשרד. יש לקדם מנהל/ת נוסף/ת קודם, אחרת המשרד יישאר בלי מי שינהל אותו.',
+  member_not_joined:  'הסוכן/ת עדיין לא חיבר/ה חשבון. הפעולה המתאימה כאן היא ביטול ההזמנה.',
+  already_released:   'הסוכן/ת כבר מושעה/ת.',
+  member_not_found:   'הכרטיס לא נמצא. נסו לרענן את הדף.',
+};
+
+async function releaseMember(m, ownedCount, agencyId, callerId){
+  const lines = [
+    `${m.display_name} יוצא/ת מהמשרד.`,
+    'בכניסה הבאה יתבקש/תתבקש לפתוח משרד תיווך משלו/ה.',
+    ownedCount > 0
+      ? `${ownedCount} הנכסים הפעילים שלו/ה יעברו איתו/ה למשרד החדש, ויירדו מהמשרד שלך.`
+      : 'הנכסים שלו/ה, אם יש, יעברו איתו/ה למשרד החדש.',
+    'גם הלידים והלקוחות שרשומים על שמו/ה עוברים. היסטוריית החיובים נשארת אצלך.',
+    'אפשר לבטל את ההשעיה כל עוד המשרד החדש טרם נפתח.',
+  ];
+  const ok = await confirmPurchase({
+    title: 'השעיה וניתוק מהמשרד',
+    lines,
+    hidePrice: true,
+    requireAck: true,
+    ackText: `אני מבין/ה ש-${m.display_name} יוצא/ת מהמשרד ושהנכסים עוברים איתו/ה.`,
+    confirmLabel: 'השעיה וניתוק',
+  });
+  if (!ok) return;
+
+  const { ok: done, data } = await callRelease({ action:'release', member_id:m.id });
+  if (!done){ showToast(RELEASE_ERRORS[data.error] || 'ההשעיה נכשלה'); return; }
+  showToast(m.display_name + ' הושעה/תה ונותק/ה מהמשרד');
+  await loadTeam(agencyId, callerId);
 }
 
 async function updateMemberField(memberId, changes, agencyId, callerId){

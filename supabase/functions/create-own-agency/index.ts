@@ -56,10 +56,17 @@ Deno.serve(async (req: Request) => {
 
   const { data: existing } = await supabase
     .from("agency_members")
-    .select("id, agencies(name)")
+    .select("id, released_at, agencies(name)")
     .eq("user_id", userData.user.id)
     .maybeSingle();
-  if (existing) return json({ error: "already_has_agency", agency_name: (existing as any).agencies?.name ?? null }, 409);
+
+  // שורה קיימת שנותקה מהמשרד אינה "כבר יש לך משרד" — היא בדיוק מי שהמסך
+  // הזה נועד לו/ה. במקרה כזה לא נוצרת שורה חדשה: הקיימת **עוברת** למשרד
+  // שנפתח כאן, עם אותו id, ואיתה הנכסים. ראו adopt_released_member_into_agency.
+  const releasedMember = existing?.released_at ? existing : null;
+  if (existing && !releasedMember) {
+    return json({ error: "already_has_agency", agency_name: (existing as any).agencies?.name ?? null }, 409);
+  }
 
   try {
     let baseSlug = slugify(agency_name) || "agency";
@@ -75,6 +82,46 @@ Deno.serve(async (req: Request) => {
     const { data: agency, error: agencyErr } = await supabase
       .from("agencies").insert({ slug: finalSlug, name: agency_name }).select().single();
     if (agencyErr) return json({ error: "db_error", detail: agencyErr.message }, 500);
+
+    // ----------------------------------------------------------------------
+    // מסלול הסוכן/ת שנותק/ה: מעבר במקום יצירה
+    // ----------------------------------------------------------------------
+    if (releasedMember) {
+      const { data: moved, error: moveErr } = await supabase.rpc("adopt_released_member_into_agency", {
+        p_member_id: releasedMember.id,
+        p_agency_id: agency.id,
+        p_display_name: manager_name,
+        p_license_number: license_number,
+      });
+
+      if (moveErr) {
+        // המשרד נמחק כדי שלא יישאר משרד ריק שאיש אינו מנהל שלו, והסוכן/ת
+        // נשאר/ת במצב "מנותק/ת" — כלומר יכול/ה פשוט לנסות שוב.
+        await supabase.from("agencies").delete().eq("id", agency.id);
+        return json({ error: "db_error", detail: moveErr.message }, 500);
+      }
+
+      // חתימת הקוד האתי על המשרד החדש. שורת הסוכן/ת כבר חתומה מהמשרד הקודם,
+      // והחתימה אישית ולא נמחקת במעבר.
+      const { error: agencyEthicsErr } = await supabase
+        .from("agencies")
+        .update({ ethics_code_accepted_at: new Date().toISOString(), ethics_code_version: ETHICS_CODE_VERSION })
+        .eq("id", agency.id);
+
+      return json({
+        success: true,
+        adopted: true,
+        agency_slug: finalSlug,
+        member_slug: (moved as any)?.member_slug ?? null,
+        tier: (moved as any)?.tier ?? null,
+        moved: {
+          properties: (moved as any)?.properties_moved ?? 0,
+          leads: (moved as any)?.leads_moved ?? 0,
+          clients: (moved as any)?.clients_moved ?? 0,
+        },
+        ethics_recorded: !agencyEthicsErr,
+      });
+    }
 
     let memberSlug = slugify(manager_name) || "agent";
     let finalMemberSlug = memberSlug;
