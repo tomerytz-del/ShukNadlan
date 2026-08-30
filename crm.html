@@ -251,6 +251,15 @@
     background:rgba(27,31,38,.72);color:#fff;font-size:.75rem;line-height:22px;text-align:center;padding:0;z-index:2}
   .video-thumb .meta{background:rgba(28,58,94,.92);color:#fff;font-size:.65rem;font-weight:700;
     text-align:center;padding:4px 6px;line-height:1.5;word-break:break-word}
+  /* מד התקדמות הדחיסה. הדחיסה רצה בקצב הנגינה של הסרטון, ולכן דקה של חומר
+     היא בערך דקה של המתנה — בלי מד שמראה שמשהו קורה זה נראה כמו תקיעה. */
+  .video-progress{margin-top:8px}
+  .video-progress .bar{height:6px;border-radius:999px;background:var(--line);overflow:hidden}
+  .video-progress .bar span{display:block;height:100%;width:0;background:var(--teal);transition:width .25s linear}
+  .video-progress .progress-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:5px}
+  .video-progress .txt{font-size:.71rem;color:var(--ink-soft)}
+  .video-progress .progress-cancel{font-size:.71rem;font-weight:700;color:var(--brick);
+    background:none;border:none;padding:0;text-decoration:underline;flex:0 0 auto}
   .prop-thumb-mini{width:52px;height:52px;border-radius:var(--radius-sm);object-fit:cover;flex-shrink:0;border:1px solid var(--line)}
 
   /* ---------- שפת הכרטיסים: תגיות ורשת פעולות ----------
@@ -1528,7 +1537,14 @@
         <div class="img-dropzone">
           <label class="pick" for="npVideoFile">+ העלאת סרטון מהמכשיר</label>
           <input type="file" id="npVideoFile" accept="video/mp4,video/webm,video/quicktime">
-          <div class="hint">‏MP4, WebM או MOV · עד <span id="npVideoMaxHint">50</span>MB · יוצג כנגן מוטמע בדף הנכס</div>
+          <div class="hint">‏MP4, WebM או MOV · עד <span id="npVideoMaxMinutes">6</span> דקות · הסרטון נדחס אוטומטית במכשיר לפני ההעלאה, כך שאפשר לבחור קובץ ישירות מהגלריה</div>
+        </div>
+        <div class="video-progress" id="npVideoProgress" hidden>
+          <div class="bar"><span id="npVideoProgressFill"></span></div>
+          <div class="progress-row">
+            <span class="txt" id="npVideoProgressTxt">מכין את הסרטון…</span>
+            <button type="button" class="progress-cancel" id="npVideoCancel">ביטול</button>
+          </div>
         </div>
         <div class="img-preview" id="npVideoPreview"></div>
       </div>
@@ -5641,16 +5657,216 @@ async function resolveMarketingImageUrl(propertyId){
    (יוטיוב/וימאו) שמודבק בשדה שמתחתיו. בחירת קובץ מנטרלת את שדה הקישור,
    והסרתו מחזירה אותו — כך אף פעם אין שני ערכים שמתחרים על אותה עמודה.
 
-   בניגוד לתמונות אין כאן דחיסה בצד הלקוח: קידוד וידאו מחדש בדפדפן לוקח
-   דקות ארוכות ומצריך WebCodecs. במקום זה יש תקרת גודל שנבדקת לפני ההעלאה,
-   כדי שהכישלון יגיע מיד ולא אחרי שקובץ של 200MB כבר נשלח וחזר ב-413.       */
-const VIDEOS_BUCKET = 'property-videos';
-const MAX_VIDEO_MB = 50; // חייב להתאים ל-file_size_limit של הדלי במיגרציה
-const VIDEO_MIME_EXT = { 'video/mp4':'mp4', 'video/webm':'webm', 'video/quicktime':'mov' };
-document.getElementById('npVideoMaxHint').textContent = MAX_VIDEO_MB;
+   הקובץ נדחס במכשיר לפני ההעלאה, וזה לא נוחוּת אלא תנאי לכך שהפיצ'ר עובד
+   בכלל: דקה גולמית מהטלפון היא 65-170MB (‏MB לדקה = Mbps × 7.5), והתקרה של
+   הדלי היא 50MB — כלומר כמעט כל סרטון שנבחר ישירות מהגלריה היה נדחה. אחרי
+   הדחיסה דקה שוקלת כ-20MB, וגם מכסת האחסון הכוללת (1GB במסלול הנוכחי)
+   מחזיקה פי כמה סרטונים.
 
-// ‏null כשאין סרטון; ‎{ url }‎ לסרטון ששמור כבר; ‎{ file, previewUrl }‎ לקובץ
-// חדש שטרם הועלה.
+   הדחיסה נשענת על MediaRecorder ולא על WebCodecs, למרות ש-WebCodecs מהיר
+   בהרבה: היא עוברת דרך אותו נגן שמנגן את הקובץ ממילא, ולכן כל מה שהמכשיר
+   יודע לפתוח הוא גם מה שהיא יודעת לדחוס — כולל HEVC מאייפון, שמפענח שם
+   מקומית. ‏WebCodecs היה מחייב demuxer ו-muxer חיצוניים, טיפול ידני
+   בסיבוב, ב-timestamps וב-סנכרון האודיו, והוא נתמך רק מ-iOS 17. המחיר:
+   הדחיסה רצה בקצב הנגינה — דקת חומר ≈ דקת המתנה, ולכן יש מד התקדמות
+   וכפתור ביטול.                                                            */
+const VIDEOS_BUCKET = 'property-videos';
+const MAX_VIDEO_MB = 50;          // חייב להתאים ל-file_size_limit של הדלי במיגרציה
+const VIDEO_TARGET_MB = 40;       // תקציב למקודד — מרווח מתחת לתקרה, כי VBR חורג
+const VIDEO_SKIP_COMPRESS_MB = 8; // מתחת לזה הדחיסה רק תוריד איכות בלי להרוויח
+const VIDEO_MAX_SECONDS = 360;
+const VIDEO_AUDIO_KBPS = 96;
+const VIDEO_MIN_KBPS = 700, VIDEO_MAX_KBPS = 3500;
+const VIDEO_MIME_EXT = { 'video/mp4':'mp4', 'video/webm':'webm', 'video/quicktime':'mov' };
+document.getElementById('npVideoMaxMinutes').textContent = VIDEO_MAX_SECONDS / 60;
+
+// חלק מהמכשירים מוסרים קובץ מהגלריה בלי mime — אז הסיומת היא הגיבוי.
+function isAcceptedVideo(file){
+  return !!VIDEO_MIME_EXT[file.type] || /\.(mp4|m4v|webm|mov|qt)$/i.test(file.name);
+}
+
+function fmtClock(sec){
+  const s = Math.round(sec);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+}
+
+/* פורמט הפלט נקבע לפי מה שהדפדפן יודע להקליט. ‏MP4 ראשון כי הוא מתנגן בכל
+   מקום; ‏WebM הוא הגיבוי בכרום שאין בו מקודד H.264. הערך שחוזר מפריד בין
+   מחרוזת הבדיקה (עם codecs) לבין ה-mime הבסיסי — ‏allowed_mime_types של
+   הדלי משווה מול הטיפוס הבסיסי, ו-'video/webm;codecs=vp8' לא היה עובר. */
+function pickRecorderMime(){
+  const candidates = [
+    ['video/mp4;codecs=avc1.4d002a,mp4a.40.2', 'video/mp4',  'mp4'],
+    ['video/mp4',                              'video/mp4',  'mp4'],
+    ['video/webm;codecs=vp9,opus',             'video/webm', 'webm'],
+    ['video/webm;codecs=vp8,opus',             'video/webm', 'webm'],
+    ['video/webm',                             'video/webm', 'webm'],
+  ];
+  for (const [test, mime, ext] of candidates){
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported(test)) return { test, mime, ext };
+  }
+  return null;
+}
+
+/* דוחס את הקובץ דרך קנבס: הסרטון מתנגן, כל פריים מצויר בגודל היעד, ו-
+   ‏MediaRecorder מקליט את זרם הקנבס יחד עם פס הקול. מחזיר ‎{ blob, mime, ext }‎.
+   ‏abort הוא אובייקט שהקורא יכול לסמן בו ביטול. */
+async function compressVideo(file, onProgress, abort){
+  const target = pickRecorderMime();
+  if (!target) throw new Error('הדפדפן הזה לא תומך בדחיסת וידאו — נסו מכשיר או דפדפן אחר');
+
+  const video = document.createElement('video');
+  video.preload = 'auto';
+  video.playsInline = true;
+  const srcUrl = URL.createObjectURL(file);
+  video.src = srcUrl;
+
+  let audioCtx = null, stopped = false;
+  try{
+    await new Promise((resolve, reject)=>{
+      video.onloadedmetadata = resolve;
+      video.onerror = ()=> reject(new Error('הדפדפן לא הצליח לפתוח את הסרטון — ייתכן שהפורמט לא נתמך במכשיר הזה'));
+    });
+
+    const duration = video.duration;
+    if (!isFinite(duration) || duration <= 0) throw new Error('לא ניתן לקרוא את אורך הסרטון');
+    if (duration > VIDEO_MAX_SECONDS)
+      throw new Error(`הסרטון ארוך מדי (${fmtClock(duration)}) — עד ${VIDEO_MAX_SECONDS / 60} דקות. יש לקצר אותו ולנסות שוב`);
+    if (!video.videoWidth || !video.videoHeight) throw new Error('לא ניתן לקרוא את מידות הסרטון');
+
+    // הביטרייט נגזר מהאורך ולא קבוע מראש, כך שהתוצאה נכנסת לתקציב בין אם
+    // הסרטון בן 20 שניות ובין אם הוא בן חמש דקות. הרזולוציה יורדת יחד איתו:
+    // ‏720p בביטרייט נמוך מדי נראה גרוע יותר מ-480p באותו ביטרייט.
+    const budgetKbps = (VIDEO_TARGET_MB * 8192) / duration;
+    const videoKbps = Math.round(Math.min(VIDEO_MAX_KBPS, Math.max(VIDEO_MIN_KBPS, budgetKbps - VIDEO_AUDIO_KBPS)));
+    const maxDim = videoKbps >= 2000 ? 1280 : 854;
+
+    const scale = Math.min(1, maxDim / Math.max(video.videoWidth, video.videoHeight));
+    const canvas = document.createElement('canvas');
+    // מידות זוגיות — מקודדי וידאו דורשים זאת, ומספר אי-זוגי מפיל את ההקלטה
+    canvas.width  = Math.max(2, Math.round(video.videoWidth  * scale / 2) * 2);
+    canvas.height = Math.max(2, Math.round(video.videoHeight * scale / 2) * 2);
+    const ctx = canvas.getContext('2d', { alpha:false });
+
+    const stream = canvas.captureStream(30);
+
+    // פס הקול נמשך דרך WebAudio ולא דרך video.captureStream: האחרון לא נתמך
+    // בספארי, ו-createMediaElementSource גם מנתב את הצליל מהרמקולים החוצה,
+    // כך שהדחיסה לא נשמעת בזמן שהיא רצה.
+    try{
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const dest = audioCtx.createMediaStreamDestination();
+      audioCtx.createMediaElementSource(video).connect(dest);
+      dest.stream.getAudioTracks().forEach(t => stream.addTrack(t));
+      if (audioCtx.state === 'suspended') await audioCtx.resume().catch(()=>{});
+    } catch(err){
+      console.warn('פס הקול לא נלכד, הסרטון יידחס בלי סאונד:', err);
+    }
+
+    const chunks = [];
+    const rec = new MediaRecorder(stream, {
+      mimeType: target.test,
+      videoBitsPerSecond: videoKbps * 1000,
+      audioBitsPerSecond: VIDEO_AUDIO_KBPS * 1000,
+    });
+    rec.ondataavailable = e => { if (e.data && e.data.size) chunks.push(e.data); };
+    const recStopped = new Promise(resolve => { rec.onstop = resolve; });
+
+    // ‏requestVideoFrameCallback מצייר בדיוק פריים אחד לכל פריים שהוצג, ולכן
+    // לא מכפיל ולא מפספס; rAF הוא הגיבוי לדפדפנים שאין בהם את ה-API.
+    const paint = ()=>{
+      if (stopped) return;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      if (onProgress) onProgress(Math.min(1, video.currentTime / duration));
+      schedule();
+    };
+    const schedule = video.requestVideoFrameCallback
+      ? ()=> video.requestVideoFrameCallback(paint)
+      : ()=> requestAnimationFrame(paint);
+
+    // ההמתנה נרשמת לפני play כדי שסרטון קצר מאוד לא יסתיים לפני שהאזנו לו
+    const finished = new Promise((resolve, reject)=>{
+      video.onended = resolve;
+      abort.onCancel = ()=>{
+        const err = new Error('הדחיסה בוטלה');
+        err.cancelled = true;
+        reject(err);
+      };
+    });
+
+    // ‏start בלי timeslice בכוונה: עם timeslice הכותרת נכתבת לפני שהאורך
+    // ידוע, ותוצאת החיבור של המקטעים היא קובץ WebM שמדווח duration=Infinity —
+    // כלומר סרגל ניגון שבור בדף הנכס. בלעדיו יוצא blob אחד סגור ותקין,
+    // ואותה כמות זיכרון בדיוק (ממילא צברנו את כל המקטעים).
+    rec.start();
+    schedule();
+    try{
+      await video.play();
+    } catch(err){
+      // מדיניות ההשמעה האוטומטית של הדפדפן חוסמת ניגון עם סאונד כשאישור
+      // המשתמש/ת פג. השתקה עוקפת את זה — במחיר סרטון בלי פס קול, שעדיין
+      // עדיף על כישלון מוחלט.
+      video.muted = true;
+      await video.play();
+    }
+
+    try{
+      await finished;
+    } finally {
+      stopped = true;
+      video.pause();
+      if (rec.state !== 'inactive') rec.stop();
+    }
+    await recStopped;
+
+    const blob = new Blob(chunks, { type: target.mime });
+    if (!blob.size) throw new Error('הדחיסה החזירה קובץ ריק');
+    return { blob, mime: target.mime, ext: target.ext };
+  } finally {
+    stopped = true;
+    abort.onCancel = null;
+    try{ video.pause(); } catch(err){ /* כבר עצור */ }
+    video.removeAttribute('src');
+    URL.revokeObjectURL(srcUrl);
+    if (audioCtx) audioCtx.close().catch(()=>{});
+  }
+}
+
+/* מכין קובץ שנבחר להעלאה ומחזיר ‎{ blob, mime, ext, label }‎. שלושה מסלולים:
+   קובץ קטן בפורמט מוכר עולה כמו שהוא, קובץ גדול נדחס, ודחיסה שנכשלה נופלת
+   חזרה למקור אם הוא בכלל נכנס בתקרה. */
+async function prepareVideoForUpload(file, onProgress, abort){
+  const origMB = file.size / 1048576;
+  const knownMime = VIDEO_MIME_EXT[file.type];
+
+  if (knownMime && origMB <= VIDEO_SKIP_COMPRESS_MB){
+    return { blob:file, mime:file.type, ext:knownMime,
+             fileName:file.name, note:`${origMB.toFixed(1)}MB` };
+  }
+
+  let out;
+  try{
+    out = await compressVideo(file, onProgress, abort);
+  } catch(err){
+    if (err.cancelled) throw err;
+    if (knownMime && origMB <= MAX_VIDEO_MB){
+      console.warn('דחיסה נכשלה, מעלים את המקור:', err);
+      showToast('הדחיסה לא הצליחה — הסרטון יועלה כמו שהוא');
+      return { blob:file, mime:file.type, ext:knownMime,
+               fileName:file.name, note:`${origMB.toFixed(1)}MB · ללא דחיסה` };
+    }
+    throw err;
+  }
+
+  const outMB = out.blob.size / 1048576;
+  if (outMB > MAX_VIDEO_MB)
+    throw new Error(`גם אחרי דחיסה הסרטון שוקל ${outMB.toFixed(0)}MB — יש לקצר אותו ולנסות שוב`);
+  return { ...out, fileName:file.name,
+           note:`נדחס מ-${origMB.toFixed(0)}MB ל-${outMB.toFixed(1)}MB` };
+}
+
+// ‏null כשאין סרטון; ‎{ url }‎ לסרטון ששמור כבר; ‎{ blob, mime, ext, label,
+// previewUrl }‎ לקובץ חדש שכבר עבר הכנה וטרם הועלה.
 let videoSlot = null;
 // הכתובת שהייתה שמורה בנכס כשנפתחה העריכה. נשמרת כדי למחוק את הקובץ הישן
 // מה-Storage אחרי שמירה שהחליפה או הסירה אותו — ורק אז: מחיקה כבר בלחיצה על
@@ -5680,10 +5896,11 @@ function renderVideoPreview(){
   const el = document.createElement('div');
   el.className = 'video-thumb';
   const src = videoSlot.url || videoSlot.previewUrl;
-  // ‏bdi סביב שם הקובץ: שם לועזי בתוך משפט עברי מסודר מחדש על ידי אלגוריתם
-  // הדו-כיווניות, ותו פיסוק בקצהו (‎_video.mp4‎) קופץ לצד הלא נכון בלעדיו.
-  const meta = videoSlot.file
-    ? `<bdi>${esc(videoSlot.file.name)}</bdi> · ${(videoSlot.file.size / 1048576).toFixed(1)}MB — יועלה בשמירה`
+  // ‏bdi עוטף אך ורק את שם הקובץ. שם לועזי בתוך משפט עברי מבלבל את אלגוריתם
+  // הדו-כיווניות (תו פיסוק בקצהו קופץ לצד הלא נכון), אבל עטיפת המשפט כולו
+  // הייתה מזהה אותו כלועזי לפי התו החזק הראשון והופכת את סדר המילים בעברית.
+  const meta = videoSlot.fileName
+    ? `<bdi>${esc(videoSlot.fileName)}</bdi> · ${esc(videoSlot.note)} — יועלה בשמירה`
     : 'סרטון שמור על הנכס';
   el.innerHTML = `<video src="${esc(src)}" controls preload="metadata" playsinline></video>
     <button type="button" class="x" title="הסרת הסרטון">✕</button>
@@ -5700,6 +5917,9 @@ function removeVideo(){
 }
 
 function resetVideoState(){
+  // סגירת הטופס באמצע דחיסה מבטלת אותה — אחרת היא הייתה ממשיכה לרוץ ברקע
+  // ומסיימת לתוך טופס שכבר לא קיים
+  if (videoBusy?.abort?.onCancel) videoBusy.abort.onCancel();
   if (videoSlot?.previewUrl) URL.revokeObjectURL(videoSlot.previewUrl);
   videoSlot = null;
   videoOriginalUrl = null;
@@ -5708,20 +5928,63 @@ function resetVideoState(){
   renderVideoPreview();
 }
 
-document.getElementById('npVideoFile').addEventListener('change', (e)=>{
+/* מצב "עסוק": הדחיסה רצה בזמן אמת, ולכן חייבים לחסום שמירה של הנכס באמצע —
+   שמירה כזו הייתה מעלה נכס בלי הסרטון שהמשתמש/ת בדיוק ממתין/ה לו. */
+let videoBusy = null; // ‎{ abort }‎ כשדחיסה רצה, אחרת null
+
+function setVideoBusy(busy, text){
+  videoBusy = busy;
+  document.getElementById('npVideoFile').disabled = !!busy;
+  document.getElementById('addPropertyBtn').disabled = !!busy;
+  document.getElementById('npVideoProgress').hidden = !busy;
+  document.getElementById('npVideoProgressFill').style.width = '0%';
+  if (busy) document.getElementById('npVideoProgressTxt').textContent = text || 'מעבד…';
+}
+
+function setVideoProgress(frac){
+  const pct = Math.round(frac * 100);
+  document.getElementById('npVideoProgressFill').style.width = pct + '%';
+  document.getElementById('npVideoProgressTxt').textContent =
+    `דוחס את הסרטון… ${pct}% — יש להשאיר את החלון פתוח`;
+}
+
+document.getElementById('npVideoCancel').addEventListener('click', ()=>{
+  if (videoBusy?.abort?.onCancel) videoBusy.abort.onCancel();
+});
+
+document.getElementById('npVideoFile').addEventListener('change', async (e)=>{
   const file = (e.target.files || [])[0];
   e.target.value = ''; // מאפשר לבחור שוב את אותו קובץ אחרי הסרה
-  if (!file) return;
-  if (!VIDEO_MIME_EXT[file.type]){
+  if (!file || videoBusy) return;
+  // כפתור השמירה מנוטרל בדיוק לאורך שמירה שרצה. החלפת סרטון באמצע שמירה
+  // הייתה משנה את videoSlot מתחת לרגליים של resolveVideoUrl, ובסופה
+  // setVideoBusy היה מחזיר את הכפתור לפעולה בזמן שהשמירה עוד רצה.
+  if (document.getElementById('addPropertyBtn').disabled){
+    showToast('לא ניתן להחליף סרטון בזמן שמירה — נסו שוב בעוד רגע');
+    return;
+  }
+  if (!isAcceptedVideo(file)){
     showToast('פורמט לא נתמך — יש להעלות MP4, WebM או MOV');
     return;
   }
-  if (file.size > MAX_VIDEO_MB * 1048576){
-    showToast(`הסרטון גדול מדי (${(file.size / 1048576).toFixed(0)}MB) — המקסימום הוא ${MAX_VIDEO_MB}MB`);
+
+  const abort = { onCancel:null };
+  setVideoBusy({ abort }, 'קורא את הסרטון…');
+  let prepared;
+  try{
+    prepared = await prepareVideoForUpload(file, setVideoProgress, abort);
+  } catch(err){
+    if (!err.cancelled){
+      console.warn('הכנת הסרטון נכשלה:', err);
+      showToast(err.message || 'הסרטון לא נטען');
+    }
+    setVideoBusy(null);
     return;
   }
+  setVideoBusy(null);
+
   if (videoSlot?.previewUrl) URL.revokeObjectURL(videoSlot.previewUrl);
-  videoSlot = { file, previewUrl: URL.createObjectURL(file) };
+  videoSlot = { ...prepared, previewUrl: URL.createObjectURL(prepared.blob) };
   // הקובץ גובר על הקישור, ולכן הקישור נמחק כאן ולא נשאר "רפאים" בשדה מנוטרל
   const urlInput = document.getElementById('npVideoUrl');
   if (urlInput.value.trim()){
@@ -5735,10 +5998,9 @@ document.getElementById('npVideoFile').addEventListener('change', (e)=>{
 async function resolveVideoUrl(propertyId){
   if (!videoSlot) return null;
   if (videoSlot.url) return videoSlot.url;
-  const ext = VIDEO_MIME_EXT[videoSlot.file.type] || 'mp4';
-  const name = `${currentAgent.id}/${propertyId}/video-${crypto.randomUUID()}.${ext}`;
-  const { error } = await sb.storage.from(VIDEOS_BUCKET).upload(name, videoSlot.file, {
-    contentType: videoSlot.file.type, cacheControl:'31536000', upsert:false,
+  const name = `${currentAgent.id}/${propertyId}/video-${crypto.randomUUID()}.${videoSlot.ext}`;
+  const { error } = await sb.storage.from(VIDEOS_BUCKET).upload(name, videoSlot.blob, {
+    contentType: videoSlot.mime, cacheControl:'31536000', upsert:false,
   });
   if (error) throw error;
   const url = sb.storage.from(VIDEOS_BUCKET).getPublicUrl(name).data.publicUrl;
