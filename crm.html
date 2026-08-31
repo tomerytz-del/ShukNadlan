@@ -2236,6 +2236,21 @@
             </div>
           </div>
 
+          <!-- ---------- הגלריה האישית ----------
+               מקטע הגלריה בדף הסוכן/ת. סוכן/ת שלא מעלה/ה כאן תמונות מקבל/ת
+               בדף את גלריית המשרד, ולכן ריק כאן הוא מצב תקין ולא חסר. -->
+          <div class="form-subheading">הגלריה שלי</div>
+          <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">
+            תמונות מהעבודה שלך — מסירת מפתחות, עסקאות שנסגרו, לקוחות מרוצים ואירועים. <b>לא</b> תמונות של נכסים (אלה נוספות דרך "הנכסים שלי"). בלי תמונות כאן, בדף שלך מוצגת גלריית המשרד.
+          </p>
+          <div class="img-dropzone">
+            <label class="pick" for="pfGalleryInput">+ הוספת תמונות לגלריה</label>
+            <input type="file" id="pfGalleryInput" accept="image/jpeg,image/png,image/webp" multiple>
+            <div class="hint">עד 24 תמונות · אפשר להוסיף כיתוב לכל תמונה · הקבצים מוקטנים אוטומטית</div>
+          </div>
+          <div class="gallery-admin" id="pfGalleryGrid"></div>
+          <div id="pfGalleryEmpty" class="empty-state" style="padding:18px">עדיין אין תמונות בגלריה שלך.</div>
+
           <button type="submit" class="btn btn-gold btn-block" id="pfSaveBtn" style="margin-top:16px">שמירת הפרטים</button>
           <div id="pfFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
           <a href="#" id="pfViewPageLink" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:.8rem;color:var(--teal);margin-top:8px">צפייה בדף הסוכן/ת שלי ←</a>
@@ -3579,7 +3594,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // agency_members ל-agencies ומחזיר PGRST201 (HTTP 300) על כל embed כזה.
   const { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select('id, agency_id, slug, display_name, bio, photo_url, photo_position, cover_url, license_number, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, is_mortgage_advisor, phone, ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at, years_experience, specialties, credentials, service_area, released_at')
+    .select('id, agency_id, slug, display_name, bio, photo_url, photo_position, cover_url, license_number, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, is_mortgage_advisor, phone, ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at, years_experience, specialties, credentials, service_area, gallery, released_at')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -4515,11 +4530,18 @@ function loadProfileSettings(agent){
       const slot = profileState[k];
       if (slot && slot.previewUrl) URL.revokeObjectURL(slot.previewUrl);
     });
+    (profileState.gallery || []).forEach(item=>{
+      if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+    });
   }
   profileState = {
     photo: agent.photo_url ? { url: agent.photo_url } : null,
     cover: agent.cover_url ? { url: agent.cover_url } : null,
     photoPos: parsePhotoPosition(agent.photo_position),
+    // אותו מבנה בדיוק כמו גלריית המשרד: {url, caption} לפי הסדר
+    gallery: (Array.isArray(agent.gallery) ? agent.gallery : [])
+      .filter(g => g && g.url)
+      .map(g => ({ url: g.url, caption: g.caption || '' })),
     pendingDeletes: [],
   };
   document.getElementById('pfName').value = agent.display_name || '';
@@ -4542,6 +4564,102 @@ function renderProfileImages(){
   renderSingleImage('pfPhotoPreview', profileState.photo, 'logo', ()=> clearProfileImage('photo'));
   renderSingleImage('pfCoverPreview', profileState.cover, 'cover', ()=> clearProfileImage('cover'));
   renderPhotoFocus();
+  renderProfileGalleryAdmin();
+}
+
+/* ---- הגלריה האישית של הסוכן/ת ----
+   אותה עריכה בדיוק שיש לגלריית המשרד — הוספה, סידור, כיתוב ומחיקה — רק
+   שהיא כותבת ל-agency_members.gallery ולא ל-agencies.gallery, ולכן כל סוכן/ת
+   עורך/ת את שלו/ה. */
+document.getElementById('pfGalleryInput').addEventListener('change', async (e)=>{
+  const files = Array.from(e.target.files || []);
+  e.target.value = '';
+  if (!profileState) return;
+  const room = MAX_GALLERY_IMAGES - profileState.gallery.length;
+  if (room <= 0){ showToast(`אפשר עד ${MAX_GALLERY_IMAGES} תמונות בגלריה`); return; }
+  for (const file of files.slice(0, room)){
+    try{
+      const blob = await fileToResizedBlob(file, 1600);
+      profileState.gallery.push({ blob, previewUrl: URL.createObjectURL(blob), caption: '' });
+    } catch(err){
+      console.warn('profile gallery resize failed', file.name, err);
+      showToast('קובץ אחד לא נטען: ' + file.name);
+    }
+  }
+  if (files.length > room) showToast(`נוספו ${room} תמונות בלבד — המקסימום הוא ${MAX_GALLERY_IMAGES}`);
+  renderProfileGalleryAdmin();
+});
+
+function renderProfileGalleryAdmin(){
+  const grid = document.getElementById('pfGalleryGrid');
+  const empty = document.getElementById('pfGalleryEmpty');
+  if (!grid) return;
+  grid.textContent = '';
+  const items = profileState ? profileState.gallery : [];
+  empty.style.display = items.length === 0 ? 'block' : 'none';
+
+  items.forEach((item, i)=>{
+    const cell = document.createElement('div');
+    cell.className = 'gallery-admin-item';
+
+    const ph = document.createElement('div');
+    ph.className = 'ph';
+    const img = document.createElement('img');
+    img.src = item.previewUrl || item.url;
+    img.alt = '';
+    ph.appendChild(img);
+
+    const x = document.createElement('button');
+    x.type = 'button'; x.className = 'x'; x.title = 'מחיקה'; x.textContent = '✕';
+    x.addEventListener('click', ()=> removeProfileGalleryImage(i));
+    ph.appendChild(x);
+
+    if (i > 0){
+      const right = document.createElement('button');
+      right.type = 'button'; right.className = 'move move-right'; right.title = 'הזזה ימינה'; right.textContent = '›';
+      right.addEventListener('click', ()=> moveProfileGalleryImage(i, -1));
+      ph.appendChild(right);
+    }
+    if (i < items.length - 1){
+      const left = document.createElement('button');
+      left.type = 'button'; left.className = 'move move-left'; left.title = 'הזזה שמאלה'; left.textContent = '‹';
+      left.addEventListener('click', ()=> moveProfileGalleryImage(i, 1));
+      ph.appendChild(left);
+    }
+    if (!item.url){
+      const tag = document.createElement('span');
+      tag.className = 'pending';
+      tag.textContent = 'ממתין לשמירה';
+      ph.appendChild(tag);
+    }
+
+    const caption = document.createElement('input');
+    caption.type = 'text';
+    caption.placeholder = 'כיתוב (לא חובה)';
+    caption.maxLength = 90;
+    caption.value = item.caption || '';
+    caption.addEventListener('input', ()=> { item.caption = caption.value; });
+
+    cell.appendChild(ph);
+    cell.appendChild(caption);
+    grid.appendChild(cell);
+  });
+}
+
+function removeProfileGalleryImage(i){
+  const [item] = profileState.gallery.splice(i, 1);
+  if (!item) return;
+  if (item.previewUrl) URL.revokeObjectURL(item.previewUrl);
+  if (item.url) queueProfileDelete(item.url);
+  renderProfileGalleryAdmin();
+}
+
+function moveProfileGalleryImage(i, delta){
+  const target = i + delta;
+  if (target < 0 || target >= profileState.gallery.length) return;
+  const [item] = profileState.gallery.splice(i, 1);
+  profileState.gallery.splice(target, 0, item);
+  renderProfileGalleryAdmin();
 }
 
 /* ---- כלי סימון נקודת המיקוד ----
@@ -4757,7 +4875,9 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     return;
   }
 
-  const uploading = (profileState.photo && !profileState.photo.url) || (profileState.cover && !profileState.cover.url);
+  const uploading = (profileState.photo && !profileState.photo.url)
+    || (profileState.cover && !profileState.cover.url)
+    || profileState.gallery.some(g => !g.url);
   btn.disabled = true; btn.textContent = 'שומר…';
   feedback.style.color = 'var(--ink-soft)';
   feedback.textContent = uploading ? 'מעלה תמונות…' : 'שומר…';
@@ -4769,6 +4889,9 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     }
     if (profileState.cover && !profileState.cover.url){
       profileState.cover.url = await uploadProfileBlob(profileState.cover.blob, 'cover');
+    }
+    for (const item of profileState.gallery){
+      if (!item.url) item.url = await uploadProfileBlob(item.blob, 'gallery');
     }
 
     feedback.textContent = 'שומר…';
@@ -4785,9 +4908,10 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
       service_area: serviceArea || null,
       credentials: credentials || null,
       specialties: specialties.length ? specialties : null,
+      gallery: profileState.gallery.map(g => ({ url: g.url, caption: (g.caption || '').trim() })),
       updated_at: new Date().toISOString(),
     }).eq('id', currentAgent.id)
-      .select('display_name, license_number, bio, photo_url, photo_position, cover_url, years_experience, service_area, credentials, specialties')
+      .select('display_name, license_number, bio, photo_url, photo_position, cover_url, years_experience, service_area, credentials, specialties, gallery')
       .single();
     if (error) throw error;
 
