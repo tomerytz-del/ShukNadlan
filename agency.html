@@ -152,7 +152,10 @@
   /* רק הלוגו נכנס אל תוך רצועת הנושא; שם המשרד יושב כולו על רקע הכרטיס,
      אחרת טקסט כהה על גבי תמונת נושא כהה היה בלתי קריא. */
   .brand-strip{display:flex;align-items:flex-start;gap:16px;position:relative;z-index:1}
-  .brand-id{min-width:0}
+  /* השם, המוטו והדירוג ממורכזים כגוש אחד: הם עומדים בין הלוגו לתו האיכות
+     שבשני קצות השורה, ויישור לקצה ההתחלה הצמיד אותם ללוגו והשאיר את הצד
+     השני ריק. הכיתוב עצמו נשאר RTL — רק היישור מתמרכז. */
+  .brand-id{min-width:0;text-align:center}
   /* תו האיכות של המשרד — בקצה השני של שורת השם והלוגו, בגובה השם */
   .brand-badge{margin-inline-start:auto;flex:0 0 auto;padding-top:4px}
   @media(max-width:560px){
@@ -183,7 +186,7 @@
      שורת מידע, ולכן הוא לא מקבל את הצבע האפור של הטקסט המשני. */
   .brand-tagline{
     font-family:'Frank Ruhl Libre',serif;font-size:1.1rem;font-weight:500;font-style:italic;
-    color:var(--brand);margin:7px 0 0;max-width:46ch;line-height:1.4;
+    color:var(--brand);margin:7px auto 0;max-width:46ch;line-height:1.4;
   }
   @media(min-width:640px){.brand-tagline{font-size:1.3rem}}
 
@@ -885,10 +888,18 @@ function contrastWithWhite(hex){
   return contrastBetween(hex, '#ffffff');
 }
 
+/* כתובת תמונה שמותר להכניס ל-src או ל-url() של CSS.
+   מותרים שלושה סוגים: כתובת http(s) מלאה (כך נשמרות תמונות שהועלו דרך
+   ה-CRM אל ה-Storage), ונתיב יחסי לאתר עצמו — ‎/…‎ או ‎assets/…‎ — שכך
+   נשמרות תמונות שיושבות בריפו. עד כה התקבלו רק כתובות https, וסוכן/ת
+   שהתמונה שלו/ה היא ‎assets/agents/…‎ הופיע/ה בדף שלו/ה עם תמונה ובדף
+   המשרד בלי — אותו נתון, שני כללים. הכלל כאן זהה לזה שב-agent.html, פרט
+   לכך שנתיב שמתחיל ב-‎//‎ נחסם: הוא נראה יחסי אבל טוען מדומיין אחר. */
 function safeImageUrl(url){
   if (typeof url !== 'string') return null;
   const trimmed = url.trim();
-  return /^https:\/\//i.test(trimmed) ? trimmed : null;
+  const allowed = /^https?:\/\//i.test(trimmed) || /^(\/(?!\/)|assets\/)/i.test(trimmed);
+  return allowed ? trimmed : null;
 }
 
 function applyBranding(agency){
