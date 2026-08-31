@@ -118,13 +118,18 @@
   /* ---------- כרטיס הזהות של המשרד ----------
      עד כה ראש הדף היה טקסט חשוף על רקע הנייר: שם, מוטו ושורת תיאור אחת,
      בלי דבר שיאסוף אותם. עכשיו הכל יושב בכרטיס אחד שנשען על רצועת הנושא —
-     הוא נותן לראש הדף רקע משלו, מפריד אותו משאר המקטעים, ומחזיק ארבעה
-     סוגי מידע שקודם לא היו בדף בכלל: תחומי התמחות, דירוג, ומספרי המשרד.
+     הוא נותן לראש הדף רקע משלו ומפריד אותו משאר המקטעים.
+
+     הכרטיס מחזיק את המינימום שדרוש כדי להחליט אם להתקשר: שם, מוטו, דירוג,
+     תחומי התמחות, אזורי פעילות ושני כפתורי פנייה. כל מה שאפשר לקרוא מטה
+     בדף — מספר הנכסים, מספר העסקאות, מניין הסוכנים — ירד מכאן: הוא הופיע
+     ממילא בכותרות המקטעים, וכפילות שדוחפת את נבחרת המתווכים מתחת לקיפול
+     עולה יותר משהיא מוסיפה.
 
      הרקע נגזר מגוון המותג ולא קבוע — משרד שבחר ערכה חמה מקבל כרטיס חמים,
      ובדפדפן בלי color-mix הוא נסוג למשטח הרגיל בלי לאבד קריאות. */
   .hero{
-    position:relative;margin-top:18px;padding:20px 18px 22px;
+    position:relative;margin-top:16px;padding:16px 16px 18px;
     border:1px solid var(--hair);border-radius:var(--radius-xl);box-shadow:var(--shadow-md);
     background:
       radial-gradient(120% 150% at 100% 0%, var(--teal-tint), transparent 58%),
@@ -134,9 +139,13 @@
   }
   @media(min-width:900px){
     .hero{
-      display:grid;grid-template-columns:minmax(0,1fr) 232px;gap:26px;align-items:start;
-      padding:24px 26px 26px;
+      padding:20px 24px 22px;
+      display:grid;grid-template-columns:minmax(0,1fr) auto;gap:22px;align-items:center;
     }
+  }
+  /* משרד בלי טלפון לא מייצר עמודת כפתורים — ולכן גם לא רווח ריק לצדה */
+  @supports selector(:has(*)){
+    @media(min-width:900px){.hero:has(.brand-cta:empty){grid-template-columns:minmax(0,1fr)}}
   }
   .hero-main{min-width:0}
 
@@ -196,17 +205,19 @@
      שתי שאלות שונות ולכן שתי שורות: "במה המשרד מתמחה" ו"איפה הוא פועל".
      התווית הקטנה בצד מונעת את הקריאה השגויה שבה קרקעות ועפולה נראים
      כאותו סוג מידע. */
-  .hero-tags{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:14px}
+  .hero-tags{display:flex;flex-wrap:wrap;align-items:center;gap:7px;margin-top:12px}
   .tags-label{
     font-size:.68rem;font-weight:800;letter-spacing:.04em;color:var(--ink-soft);
     text-transform:uppercase;flex:0 0 auto;
   }
-  .chips{display:flex;flex-wrap:wrap;gap:7px;min-width:0}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;min-width:0}
+  /* הקפסולות דחוסות דיין ששתי שורות מספיקות לארבע תגיות גם במסך צר —
+     שלוש שורות של תגיות דחפו את כפתורי הפנייה מתחת לקיפול */
   .spec-chip,.area-chip{
-    display:inline-flex;align-items:center;gap:6px;font-size:.82rem;font-weight:700;
-    padding:6px 13px;border-radius:999px;line-height:1.2;
+    display:inline-flex;align-items:center;gap:5px;font-size:.76rem;font-weight:700;
+    padding:5px 10px;border-radius:999px;line-height:1.2;
   }
-  .spec-chip svg,.area-chip svg{width:14px;height:14px;flex:none}
+  .spec-chip svg,.area-chip svg{width:13px;height:13px;flex:none}
   /* התמחויות בגוון המשני — הן ההבטחה המקצועית של המשרד; אזורי פעילות
      בגוון הראשי, כמידע גאוגרפי שקט יותר */
   .spec-chip{background:var(--gold-tint);color:var(--accent-ink);border:1px solid var(--accent)}
@@ -214,40 +225,17 @@
   /* משרד שלא סימן תחומים מקבל תגיות שנגזרו מהנכסים שלו בפועל — וההערה
      הזאת אומרת זאת במפורש, כדי שתגית לא תיקרא כהצהרה שהמשרד לא נתן */
   .tags-note{font-size:.68rem;color:var(--ink-soft);flex:0 0 auto}
-  .brand-desc{color:var(--ink-soft);font-size:1rem;max-width:62ch;margin:14px 0 0}
-
-  /* ---------- מספרי המשרד ----------
-     ארבע אריחים: נכסים פעילים, עסקאות שנסגרו, מתווכים ודירוג. אריח בלי
-     נתון פשוט לא נוצר — "0 עסקאות" הוא מידע גרוע יותר משתיקה. במסכים
-     רחבים הם עמודה בצד הכרטיס, ובמובייל רשת של שניים. */
-  .hero-stats{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:18px}
-  .hero-stats:empty{display:none}
-  @media(min-width:900px){.hero-stats{grid-template-columns:1fr;margin-top:0;gap:8px}}
-  /* אריחים שלא נוצרו לא ישאירו עמודה ריקה ברוחב 232 פיקסלים לצד הכרטיס */
-  @supports selector(:has(*)){
-    @media(min-width:900px){.hero:has(.hero-stats:empty){grid-template-columns:minmax(0,1fr)}}
-  }
-  .stat-tile{
-    background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-md);
-    padding:11px 13px;box-shadow:var(--shadow-xs);display:flex;align-items:center;gap:10px;
-  }
-  .stat-ic{
-    width:32px;height:32px;border-radius:10px;flex:none;display:grid;place-items:center;
-    background:var(--teal-tint);color:var(--brand-dark);
-  }
-  .stat-ic svg{width:17px;height:17px}
-  .stat-tile.accent .stat-ic{background:var(--gold-tint);color:var(--accent-ink)}
-  .stat-val{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.25rem;line-height:1.1;color:var(--brand-dark)}
-  .stat-lbl{font-size:.72rem;color:var(--ink-soft);line-height:1.25}
 
   /* ---------- יצירת קשר עם המשרד ----------
      עד כה דף המשרד היה קטלוג בלבד — אפשר היה לראות נכסים ולא לפנות לאיש.
      שני הכפתורים כאן צבועים בצבעי המשרד (ולא בירוק של וואטסאפ) בכוונה: זו
      הפעולה הבולטת ביותר בדף, ולכן המקום שבו הערכה שנבחרה נראית הכי חזק.
      הבלוק נוצר רק כשיש טלפון אמיתי מאחוריו, ולכן ‎:empty‎ מכבה אותו. */
-  .brand-cta{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:18px;max-width:460px}
+  .brand-cta{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px;max-width:460px}
   .brand-cta:empty{display:none}
   @media(min-width:640px){.brand-cta{grid-template-columns:auto auto;justify-content:start}}
+  /* בעמודה שלצד הזהות הם נערמים ומתיישרים לרוחב אחיד */
+  @media(min-width:900px){.brand-cta{grid-template-columns:1fr;width:236px;max-width:none;margin-top:0}}
   .brand-cta a{
     display:inline-flex;align-items:center;justify-content:center;gap:8px;
     padding:14px 24px;border-radius:999px;font-weight:800;font-size:1rem;line-height:1;
@@ -415,15 +403,21 @@
   /* ---------- טאבים ----------
      בקרת מקטעים בקפסולה במקום קו תחתון: הטאב הפעיל נצבע בצבע המשרד, וזה
      המקום שבו המיתוג האישי שלו באמת נראה. */
+  /* שני הטאבים חולקים את מלוא רוחב הדף בחלקים שווים, במובייל ובמחשב כאחד:
+     כרצועה צרה בקצה הימני הם נראו כמו שובל של הכותרת שמעליהם ולא כמתג בין
+     שני מצבים של הדף. ‏grid-auto-columns (ולא שתי עמודות קבועות) כדי שטאב
+     שלישי, אם ייווסף, יתחלק איתם באותה מידה. */
   .tabs{
-    display:flex;gap:5px;margin-bottom:16px;padding:5px;overflow-x:auto;
+    display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:6px;
+    margin-bottom:16px;padding:6px;width:100%;
     background:var(--surface);border:1px solid var(--hair);border-radius:999px;
-    box-shadow:var(--shadow-xs);width:max-content;max-width:100%;
+    box-shadow:var(--shadow-xs);
   }
   .tab-btn{
-    padding:9px 18px;border-radius:999px;font-weight:700;font-size:.86rem;
+    padding:12px 10px;border-radius:999px;font-weight:700;font-size:.95rem;text-align:center;
     color:var(--ink-soft);background:none;white-space:nowrap;transition:background .15s ease,color .15s ease;
   }
+  @media(max-width:380px){.tab-btn{font-size:.86rem;padding-inline:6px}}
   .tab-btn:hover{background:var(--teal-tint);color:var(--brand-dark)}
   .tab-btn.active{background:var(--brand);color:var(--on-brand)}
   .tab-btn.active:hover{background:var(--brand)}
@@ -647,8 +641,9 @@
   <div class="wrap">
     <!-- ---------- כרטיס הזהות של המשרד ----------
          כל מה שלקוח צריך כדי להחליט אם להתקשר, בכרטיס אחד מעל הקיפול: מי
-         המשרד, במה הוא מתמחה, איפה הוא פועל, מה הדירוג שלו, כמה נכסים
-         ועסקאות יש מאחוריו — ושתי דרכי הפנייה אליו. -->
+         המשרד, במה הוא מתמחה, איפה הוא פועל, מה הדירוג שלו — ושתי דרכי
+         הפנייה אליו. הכרטיס נשאר קצר בכוונה: נבחרת המתווכים שמתחתיו היא
+         המקטע הפותח האמיתי של הדף, וכל שורה כאן דוחפת אותה מטה. -->
     <section class="hero" aria-labelledby="brandName">
       <div class="hero-main">
         <div class="brand-strip">
@@ -661,8 +656,6 @@
           <div class="brand-badge" id="brandBadge"></div>
         </div>
 
-        <p class="brand-desc" id="brandDesc"></p>
-
         <div class="hero-tags" id="specsRow" hidden>
           <span class="tags-label">תחומי התמחות</span>
           <div class="chips" id="brandSpecs"></div>
@@ -672,12 +665,12 @@
           <span class="tags-label">אזורי פעילות</span>
           <div class="chips" id="brandAreas"></div>
         </div>
-
-        <div class="brand-cta" id="brandCta"></div>
       </div>
 
-      <!-- המספרים נכתבים כאן ככל שהשליפות חוזרות; אריח בלי נתון לא נוצר -->
-      <div class="hero-stats" id="heroStats"></div>
+      <!-- הכפתורים הם אח של הזהות ולא ילד שלה: במסך רחב הם עוברים לעמודה
+           משלהם בצד השני של הכרטיס, וכך הם ממלאים את החצי שהתרוקן ובו בזמן
+           מקצרים את הכרטיס בשורה שלמה. -->
+      <div class="brand-cta" id="brandCta"></div>
     </section>
 
     <!-- ---------- נבחרת המתווכים ----------
@@ -777,8 +770,6 @@ const ICON = {
   cube:    S('<path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="M3 8l9 5 9-5M12 13v8"/><path d="M7.5 5.5 16.5 10.7"/>'),
   play:    S('<circle cx="12" cy="12" r="9.5"/><path d="M10 8.5v7l6-3.5Z"/>'),
   check:   S('<path d="M20 6 9 17l-5-5"/>'),
-  users:   S('<path d="M16 20v-1.5a4 4 0 0 0-4-4H6.5a4 4 0 0 0-4 4V20"/><circle cx="9.2" cy="7.5" r="3.5"/><path d="M21.5 20v-1.5a4 4 0 0 0-3-3.9M16 4.2a3.5 3.5 0 0 1 0 6.6"/>'),
-  handshake:S('<path d="m12 8.5 2-1.8a2 2 0 0 1 2.6 0L21 10.5"/><path d="m12 8.5-2-1.8a2 2 0 0 0-2.6 0L3 10.5"/><path d="M3 10.5v4l4.5 4a1.7 1.7 0 0 0 2.4 0l.6-.6.9.8a1.6 1.6 0 0 0 2.3-.2l.5-.6.7.5a1.5 1.5 0 0 0 2.1-2.1L14 13"/><path d="M21 10.5v4"/>'),
   chevron: S('<path d="m14 6-6 6 6 6"/>'),
   chevronR:S('<path d="m10 6 6 6-6 6"/>'),
   search:  S('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'),
@@ -840,42 +831,24 @@ function setSectionNote(id, text){
   if (el) el.textContent = text || '';
 }
 
-/* ---------- מספרי המשרד בראש הדף ----------
-   ארבעת האריחים ניזונים מארבע שליפות נפרדות שחוזרות בסדר אקראי, ולכן הם
-   נאספים למפה אחת ונכתבים מחדש בכל עדכון — כך הסדר על המסך קבוע ולא תלוי
-   במי מהשליפות הקדימה. מפתח שלא נכתב פשוט לא מצייר אריח: "0 עסקאות" הוא
-   מידע גרוע יותר משתיקה. */
-const HERO_STATS_ORDER = ['props','deals','team','rating'];
-const heroStats = {};
-
-function setHeroStat(key, value, label, options){
-  const opts = options || {};
-  heroStats[key] = { value, label, icon: opts.icon || 'building', accent: !!opts.accent };
-  const el = document.getElementById('heroStats');
-  if (!el) return;
-  el.innerHTML = HERO_STATS_ORDER.filter(k => heroStats[k]).map(k=>{
-    const s = heroStats[k];
-    return `<div class="stat-tile${s.accent ? ' accent' : ''}">
-        <span class="stat-ic">${ICON[s.icon] || ICON.building}</span>
-        <span style="min-width:0">
-          <span class="stat-val">${escapeHtml(String(s.value))}</span>
-          <span class="stat-lbl" style="display:block">${escapeHtml(s.label)}</span>
-        </span>
-      </div>`;
-  }).join('');
-}
-
 /* ---------- תחומי ההתמחות ----------
    מה שמנהל/ת המשרד סימן/ה ב-CRM גובר תמיד. משרד שעדיין לא סימן לא נשאר עם
    שורה ריקה: הנכסים שכבר עלו מספרים בעצמם במה הוא עוסק, והתגיות נגזרות
    מהם — עם הערה שאומרת זאת, כדי שגזירה לא תיקרא כהצהרה של המשרד. */
+
+/* בדף מוצגות עד ארבע תגיות גם כשהמשרד סימן שש: ארבע קפסולות הן בדיוק שתי
+   שורות במסך צר, ומשם והלאה השורה השלישית דוחפת את כפתורי הפנייה מתחת
+   לקיפול. הבחירה המלאה נשמרת — רק התצוגה נעצרת. */
+const HERO_SPECS_SHOWN = 4;
+
 function renderSpecialties(agency, properties){
   if (!window.Specialties) return;
   const row = document.getElementById('specsRow');
   const note = document.getElementById('specsNote');
   const picked = Specialties.forAgency(agency, properties);
   if (!picked.ids.length){ row.hidden = true; return; }
-  document.getElementById('brandSpecs').innerHTML = Specialties.chipsHtml(picked.ids);
+  document.getElementById('brandSpecs').innerHTML =
+    Specialties.chipsHtml(picked.ids.slice(0, HERO_SPECS_SHOWN));
   note.textContent = picked.source === 'auto' ? 'לפי הנכסים שבמשרד' : '';
   note.hidden = picked.source !== 'auto';
   row.hidden = false;
@@ -1197,7 +1170,6 @@ async function loadAgency(){
     // התמחויות מוצהרות נכנסות מיד; משרד בלי הצהרה מקבל תגיות נגזרות אחרי
     // שהנכסים נטענים (loadActiveProperties קורא שוב עם הנכסים בידו)
     renderSpecialties(agency, null);
-    document.getElementById('brandDesc').textContent = agency.description || 'משרד תיווך פעיל בעפולה והעמק.';
     applyBranding(agency);
     renderQualityBadge(agency);
     renderGallery(agency.gallery);
@@ -1226,7 +1198,6 @@ async function loadActiveProperties(sb, agencyId){
   if (!props || props.length === 0){ el.innerHTML = '<div class="empty-state">אין כרגע נכסים פעילים במשרד זה.</div>'; return; }
 
   agencyProperties = props;
-  setHeroStat('props', props.length, props.length === 1 ? 'נכס פעיל' : 'נכסים פעילים', { icon:'building' });
   // התגיות הנגזרות מחכות לרגע הזה — עכשיו יש נכסים שאפשר לקרוא מהם
   renderSpecialties(currentAgency, props);
   setSectionNote('propsCount', props.length === 1 ? 'נכס פעיל אחד' : props.length + ' נכסים פעילים');
@@ -1399,7 +1370,6 @@ async function loadSoldDeals(sb, agencyId){
     .eq('agency_id', agencyId).order('sold_at', { ascending:false });
   if (!deals || deals.length === 0){ el.innerHTML = '<div class="empty-state">אין עדיין היסטוריית עסקאות למשרד זה.</div>'; return; }
 
-  setHeroStat('deals', deals.length, deals.length === 1 ? 'עסקה שנסגרה' : 'עסקאות שנסגרו', { icon:'handshake' });
   // מספר העסקאות נכנס אל תוך הכפתור עצמו — הוא הסיבה היחידה ללחוץ עליו
   const soldBtn = document.querySelector('.tab-btn[data-tab="sold"]');
   if (soldBtn) soldBtn.textContent = `נכסים שנמכרו (${deals.length})`;
@@ -1429,7 +1399,6 @@ async function loadTeam(sb, agencyId){
   renderManagerContact(agents);
   // בלי צוות אין מה להציג: מקטע "נבחרת" ריק פוגע יותר משהוא מוסיף
   if (!agents || agents.length === 0) return;
-  setHeroStat('team', agents.length, agents.length === 1 ? 'מתווך/ת במשרד' : 'מתווכים במשרד', { icon:'users' });
 
   // sort יציב ב-JS מודרני, ולכן שאר הצוות שומר על סדר ההגעה מהמסד
   const team = agents.slice().sort((a, b) => (b.role === 'manager') - (a.role === 'manager'));
@@ -1571,7 +1540,6 @@ async function loadReviews(sb, agencyId){
   const ratingEl = document.getElementById('heroRating');
   ratingEl.innerHTML = `${starsHtml(avg)}<span class="hr-score">${score}</span><span class="hr-count">${reviewsLabel} ←</span>`;
   ratingEl.hidden = false;
-  setHeroStat('rating', score, 'דירוג ממוצע', { icon:'star', accent:true });
 
   el.innerHTML = '';
   reviews.forEach(r=>{
