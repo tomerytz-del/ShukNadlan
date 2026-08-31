@@ -9282,9 +9282,12 @@ async function loadLeads(agentId){
   });
 }
 
+/* הכתובת מורכבת מתיקיית הדף הנוכחי ולא מהחלפת 'crm.html' בנתיב: בפרודקשן
+   הדף מוגש גם בלי הסיומת (/crm), ואז ההחלפה לא תופסת והתוצאה הייתה
+   /crmreview-request.html — קישור שבור. קיצוץ המקטע האחרון עובד בשתי הצורות. */
 function reviewLink(leadId){
-  return window.location.origin + window.location.pathname.replace('crm.html','')
-       + 'review-request.html?lead=' + leadId;
+  const dir = window.location.pathname.replace(/[^/]*$/, '');
+  return window.location.origin + dir + 'review-request.html?lead=' + leadId;
 }
 
 /* פתיחת וואטסאפ עם הודעה מוכנה. הקישור נפתח בחלון חדש ולא נשלח מהשרת —
