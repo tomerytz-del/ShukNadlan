@@ -548,14 +548,31 @@
   .bell-panel{position:absolute;top:48px;left:0;width:290px;max-height:340px;overflow-y:auto;background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:0 10px 30px rgba(0,0,0,.18);display:none;z-index:150}
   .bell-panel header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line);font-size:.8rem;font-weight:700}
   .bell-panel .mark-all{background:transparent;color:var(--teal);font-size:.72rem;font-weight:700;padding:0}
+  /* שתי הפעולות שבכותרת הפאנל — סימון הכל כנקרא וקיצור לניהול ההתראות */
+  .bell-panel .bell-tools{display:flex;align-items:center;gap:10px}
   .notif-item{padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer}
   .notif-item:last-child{border-bottom:none}
   .notif-item.unread{background:var(--gold-tint)}
-  /* הסלמת ביקורת 1★ — פס אדום דק שמבדיל אותה משאר ההתראות בלי לצעוק */
+  /* פס צדדי דק לפי סוג — מבדיל את ההתראות החשובות בלי לצעוק:
+     אדום להסלמת 1★, נייבי לביקורת חדשה, ירוק לעסקה שנסגרה בצוות */
   .notif-item.alert{border-inline-start:3px solid var(--wine, #8B2332)}
+  .notif-item.review{border-inline-start:3px solid var(--navy, #1C3A5E)}
+  .notif-item.deal{border-inline-start:3px solid var(--green, #0f766e)}
   .notif-item .t{font-size:.83rem;font-weight:700}
   .notif-item .b{font-size:.75rem;color:var(--ink-soft);margin-top:2px}
   .notif-item .when{font-size:.68rem;color:var(--ink-soft);margin-top:3px}
+
+  /* ---------- ניהול ההתראות ----------
+     שורה לכל סוג. כל השורה היא ה-label, כך שגם הכותרת וגם ההסבר מסמנים את
+     התיבה — בטלפון זה ההבדל בין מתג שאפשר ללחוץ עליו לבין מטרה של 14 פיקסל. */
+  .notif-prefs{display:flex;flex-direction:column;gap:8px}
+  .notif-prefs label{
+    display:flex;align-items:flex-start;gap:10px;cursor:pointer;font-weight:400;
+    background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:11px 12px;
+  }
+  .notif-prefs input{margin:2px 0 0;flex-shrink:0;width:17px;height:17px;accent-color:var(--teal)}
+  .notif-prefs .np-title{font-size:.85rem;font-weight:700;display:block}
+  .notif-prefs .np-sub{font-size:.74rem;color:var(--ink-soft);display:block;margin-top:2px;line-height:1.5}
 
   /* ---------- CMA report (2.3) ---------- */
   #cmaOverlay{position:fixed;inset:0;background:rgba(18,40,64,.55);z-index:300;display:none;overflow-y:auto;padding:20px 12px}
@@ -1396,7 +1413,13 @@
           <div class="bell-panel" id="bellPanel">
             <header>
               <span>התראות</span>
-              <button type="button" class="mark-all" id="markAllRead">סימון הכל כנקרא</button>
+              <!-- "ניהול" מוביל לקטגוריית ההתראות בדשבורד. הקיצור יושב כאן כי
+                   הרגע שבו רוצים לכבות סוג התראה הוא בדיוק הרגע שבו רואים
+                   אותה בפאנל. -->
+              <span class="bell-tools">
+                <button type="button" class="mark-all" id="markAllRead">סימון הכל כנקרא</button>
+                <button type="button" class="mark-all" id="notifSettingsBtn" title="בחירת סוגי ההתראות">⚙ ניהול</button>
+              </span>
             </header>
             <div id="notifList"><div class="empty-state" style="padding:18px">טוען…</div></div>
           </div>
@@ -2653,6 +2676,29 @@
       </div>
     </details>
 
+    <!-- ניהול ההתראות: תיבת סימון לכל סוג, והכול מסומן כברירת מחדל. הרשימה
+         נבנית ב-renderNotifPrefs() מתוך NOTIF_TYPES, כדי שסוג חדש שנוסף
+         לקוד יופיע כאן אוטומטית ולא יישכח. -->
+    <details class="acc" id="accNotifPrefs">
+      <summary>
+        <span class="acc-title">ניהול התראות</span>
+        <span class="acc-count" id="accNotifPrefsCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+    <p class="acc-sub">בחירת סוגי ההתראות שיופיעו בפעמון. ברירת המחדל היא קבלת כל ההתראות — הסרת סימון מכבה רק את ההתראה, לא את מה שמאחוריה: הליד עדיין נכנס, הביקורת עדיין ממתינה לאישור והעסקה עדיין נרשמת.</p>
+    <form id="notifPrefsForm" style="margin-bottom:0">
+      <div id="notifPrefsList" class="notif-prefs"></div>
+      <div style="display:flex;gap:8px;margin:12px 0">
+        <button type="button" class="btn" id="notifPrefsAllBtn" style="flex:1">סימון הכל</button>
+        <button type="button" class="btn" id="notifPrefsNoneBtn" style="flex:1">ניקוי הכל</button>
+      </div>
+      <button type="submit" class="btn btn-gold btn-block" id="saveNotifPrefsBtn">שמירת ההעדפות</button>
+      <div id="notifPrefsFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+    </form>
+      </div>
+    </details>
+
     <details class="acc" id="accPlanning">
       <summary>
         <span class="acc-title">מידע תכנוני על נכס (עפולה)</span>
@@ -3546,6 +3592,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   await loadClients();
   await loadClientAlerts();
   await loadNotifications(agent.id);
+  await loadNotifPrefs(agent.id);
   await loadPreferences(agent.id);
   loadWhatsappSettings(agent);
   loadProfileSettings(agent);
@@ -11455,9 +11502,45 @@ document.getElementById('cmaCloseBtn').addEventListener('click', ()=>{
 document.getElementById('cmaPrintBtn').addEventListener('click', ()=> window.print());
 
 /* ---------- Notifications bell (2.2) ----------
-   ההתראות נוצרות בטריגר על leads, כך שגם ליד שנכנס דרך Edge Function
-   (owner-lead-intake / property-inquiry-intake) מייצר שורה כאן.
-   הגוף של ההתראה לעולם לא מכיל שם/טלפון — הליד עשוי להיות עדיין masked. */
+   ההתראות נוצרות בטריגרים במסד, כך שגם אירוע שנכנס דרך Edge Function
+   (owner-lead-intake / submit-review) או דרך הבוט בוואטסאפ מייצר שורה כאן.
+   הגוף של התראת ליד לעולם לא מכיל שם/טלפון — הליד עשוי להיות עדיין masked.
+
+   ‏NOTIF_TYPES הוא מקור האמת היחיד לסוגי ההתראות: ממנו נבנית רשימת תיבות
+   הסימון ב"ניהול התראות", ממנו נגזר הפס הצדדי בפאנל, וממנו הניווט בלחיצה.
+   סוג חדש שנוסף במסד צריך שורה אחת כאן — ובלעדיה הוא עדיין יוצג, רק בלי
+   צבע וניווט ייעודיים.
+
+   ‏when() מסתיר סוג שאינו רלוונטי לתפקיד: אין טעם להציע למנהל/ת פלטפורמה
+   לכבות התראה שסוכן/ת רגיל/ה לעולם לא מקבל/ת, ולהפך. */
+const NOTIF_TYPES = [
+  { type:'new_lead',       tone:'',       goto:'accLeads',    focus:'#leadsList',
+    title:'ליד חדש',
+    sub:'פנייה חדשה שהשתייכה אליך — בעל/ת נכס, מתעניין/ת בנכס או פנייה ישירה.' },
+  { type:'review_new',     tone:'review', goto:'accReviews',  focus:'#reviewModerationList',
+    title:'ביקורת חדשה',
+    sub:'חוות דעת שהתקבלה עליך, ולמנהל/ת המשרד גם ביקורת של סוכן/ת בצוות שממתינה לאישור.' },
+  { type:'review_request', tone:'',       goto:'accLeads',    focus:'#leadsList',
+    title:'תזכורת לבקש חוות דעת',
+    sub:'אחרי סגירת עסקה, או כשליד פתוח מזמן ועדיין אין עליו חוות דעת.' },
+  { type:'client_match',   tone:'',       goto:'accAlerts',   focus:'#alertsList',
+    title:'התאמת נכס ללקוח/ה בקובץ',
+    sub:'נכס חדש שעונה על הדרישות של אחד הלקוחות בקובץ הלקוחות שלך.' },
+  { type:'deal_closed',    tone:'deal',   goto:'accTeam',     focus:'#teamList',
+    title:'עסקה שנסגרה בצוות',
+    sub:'נכס שסומן כנמכר או כהושכר אצל אחד הסוכנים במשרד, כולל שם הסוכן/ת ופרטי הנכס.',
+    when: ()=> currentAgent && currentAgent.role === 'manager' },
+  { type:'system',         tone:'',       goto:'accSharedWithMe', focus:'#sharedWithMeList',
+    title:'שיתופי נכסים ועדכוני מערכת',
+    sub:'נכס שמשרד שותף פתח לשיתוף פעולה, והודעות מערכת כלליות.' },
+  { type:'review_alert',   tone:'alert',  goto:'accReviews',  focus:'#reviewModerationList',
+    title:'הסלמת ביקורת כוכב אחד',
+    sub:'ביקורת 1★ שנכנסה לפלטפורמה ומגיעה לבדיקת ההנהלה.',
+    when: ()=> currentAgent && currentAgent.is_platform_admin },
+];
+
+const NOTIF_BY_TYPE = new Map(NOTIF_TYPES.map(t => [t.type, t]));
+
 async function loadNotifications(agentId){
   const listEl = document.getElementById('notifList');
   const badge = document.getElementById('bellBadge');
@@ -11483,10 +11566,13 @@ async function loadNotifications(agentId){
   }
   listEl.innerHTML = '';
   items.forEach(n=>{
+    const meta = NOTIF_BY_TYPE.get(n.type);
     const el = document.createElement('div');
-    el.className = 'notif-item' + (n.read ? '' : ' unread') + (n.type === 'review_alert' ? ' alert' : '');
-    el.innerHTML = `<div class="t">${n.title}</div>
-      ${n.body ? `<div class="b">${n.body}</div>` : ''}
+    el.className = 'notif-item' + (n.read ? '' : ' unread') + (meta && meta.tone ? ' ' + meta.tone : '');
+    // ‏esc(): הגוף של ההתראה מכיל היום גם טקסט שנכתב בידי לקוח/ה (ציטוט
+    // מביקורת) ושמות נכסים ממשרדים אחרים — תוכן שלא נוצר כאן ולכן לא נסמך
+    el.innerHTML = `<div class="t">${esc(n.title)}</div>
+      ${n.body ? `<div class="b">${esc(n.body)}</div>` : ''}
       <div class="when">${new Date(n.created_at).toLocaleString('he-IL')}</div>`;
     el.addEventListener('click', async ()=>{
       if (!n.read){
@@ -11495,19 +11581,16 @@ async function loadNotifications(agentId){
       }
       document.getElementById('bellPanel').style.display = 'none';
       document.getElementById('bellBtn').setAttribute('aria-expanded','false');
-      // ‏review_alert היא הסלמה של ביקורת 1★ ולכן מובילה למסך הביקורות,
-      // ‏client_match מובילה להתראות ההתאמה; כל השאר (ליד חדש, וגם תזכורת
-      // לבקש חוות דעת) מובילות לכרטיס הליד עצמו, כי שם יושב כפתור השליחה
-      // בוואטסאפ.
-      if (n.type === 'review_alert'){
-        openAcc('accReviews');
-        document.querySelector('#reviewModerationList')?.scrollIntoView({ behavior:'smooth' });
-      } else if (n.type === 'client_match'){
-        openAcc('accAlerts');
-        document.querySelector('#alertsList')?.scrollIntoView({ behavior:'smooth' });
-      } else {
-        openAcc('accLeads');
-        document.querySelector('#leadsList')?.scrollIntoView({ behavior:'smooth' });
+      // כל סוג מוביל לקטגוריה שבה באמת אפשר לעשות משהו עם ההתראה. סוג לא
+      // מוכר, או קטגוריה שאינה גלויה לתפקיד הזה, פשוט סוגרים את הפאנל —
+      // נחיתה רכה עדיפה על קפיצה למקום שגוי.
+      const target = meta || NOTIF_BY_TYPE.get('new_lead');
+      const accEl = document.getElementById(target.goto);
+      // ‏offsetParent === null מזהה קטגוריה שההורה שלה מוסתר (managerSection
+      // לסוכן/ת רגיל/ה): פתיחת details מוסתר הייתה גוללת לשום מקום
+      if (accEl && accEl.offsetParent !== null){
+        openAcc(target.goto);
+        if (target.focus) document.querySelector(target.focus)?.scrollIntoView({ behavior:'smooth' });
       }
     });
     listEl.appendChild(el);
@@ -11541,6 +11624,111 @@ document.getElementById('markAllRead').addEventListener('click', async ()=>{
     .eq('agent_id', currentAgent.id).eq('read', false);
   if (error){ showToast('שגיאה בסימון ההתראות'); return; }
   await loadNotifications(currentAgent.id);
+});
+
+document.getElementById('notifSettingsBtn').addEventListener('click', ()=>{
+  document.getElementById('bellPanel').style.display = 'none';
+  document.getElementById('bellBtn').setAttribute('aria-expanded','false');
+  gotoSection('accNotifPrefs');
+});
+
+/* ---------- ניהול ההתראות ----------
+   מה שנשמר במסד הוא רשימת הסוגים ה*מושתקים* ולא המסומנים, ושתי תוצאות
+   נובעות מזה:
+
+   • ברירת המחדל היא קבלת הכול בלי שורה במסד ובלי backfill — סוכן/ת שמעולם
+     לא נכנס/ה לכאן מקבל/ת כל התראה, וכך גם סוג התראה חדש שייכנס בעתיד.
+   • הטריגר notifications_apply_preferences במסד הוא זה שבאמת מסנן, כך
+     שהתראה שכובתה לא נוצרת מלכתחילה ולא רק מוסתרת בדפדפן. */
+let notifMutedTypes = [];
+
+function notifVisibleTypes(){
+  return NOTIF_TYPES.filter(t => !t.when || t.when());
+}
+
+async function loadNotifPrefs(agentId){
+  const { data, error } = await sb
+    .from('agent_notification_preferences')
+    .select('muted_types')
+    .eq('agent_id', agentId)
+    .maybeSingle();
+
+  // שגיאה כאן משמעה שהמיגרציה עוד לא רצה על המסד. במצב כזה לא חוסמים כלום:
+  // הדשבורד ממשיך להציג את כל ההתראות, וזו בדיוק ברירת המחדל.
+  notifMutedTypes = (!error && data && Array.isArray(data.muted_types)) ? data.muted_types : [];
+  renderNotifPrefs();
+}
+
+function renderNotifPrefs(){
+  const el = document.getElementById('notifPrefsList');
+  if (!el) return;
+  const types = notifVisibleTypes();
+  el.innerHTML = '';
+  types.forEach(t=>{
+    const label = document.createElement('label');
+    label.innerHTML = `<input type="checkbox" class="notifPrefType" value="${esc(t.type)}"
+        ${notifMutedTypes.includes(t.type) ? '' : 'checked'}>
+      <span><span class="np-title">${esc(t.title)}</span><span class="np-sub">${esc(t.sub)}</span></span>`;
+    el.appendChild(label);
+  });
+  syncNotifPrefsCount();
+}
+
+/* המונה על הקטגוריה: "הכול" כשאין מושתקים, ואחרת כמה מתוך כמה פעילים —
+   כדי שאפשר יהיה לראות מהדשבורד שההתראות הצטמצמו בלי לפתוח את הקטגוריה. */
+function syncNotifPrefsCount(){
+  const boxes = Array.from(document.querySelectorAll('.notifPrefType'));
+  if (!boxes.length){ accSetCount('accNotifPrefs', ''); return; }
+  const on = boxes.filter(b => b.checked).length;
+  accSetCount('accNotifPrefs', on === boxes.length ? 'הכול' : on + '/' + boxes.length);
+}
+
+document.getElementById('notifPrefsList').addEventListener('change', syncNotifPrefsCount);
+
+document.getElementById('notifPrefsAllBtn').addEventListener('click', ()=>{
+  document.querySelectorAll('.notifPrefType').forEach(cb => { cb.checked = true; });
+  syncNotifPrefsCount();
+});
+
+document.getElementById('notifPrefsNoneBtn').addEventListener('click', ()=>{
+  document.querySelectorAll('.notifPrefType').forEach(cb => { cb.checked = false; });
+  syncNotifPrefsCount();
+});
+
+document.getElementById('notifPrefsForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  if (!currentAgent) return;
+  const btn = document.getElementById('saveNotifPrefsBtn');
+  const feedback = document.getElementById('notifPrefsFeedback');
+  btn.disabled = true; btn.textContent = 'שומר…'; feedback.textContent = '';
+
+  // רק סוגים שגלויים לתפקיד הזה נשקלים. כך מנהל/ת שהורד/ה לסוכן/ת רגיל/ה
+  // לא "מדליק/ה" בשקט התראות שכיבה/תה כשעדיין היה/הייתה מנהל/ת.
+  const shown = notifVisibleTypes().map(t => t.type);
+  const checked = new Set(Array.from(document.querySelectorAll('.notifPrefType:checked')).map(cb => cb.value));
+  const muted = notifMutedTypes
+    .filter(type => !shown.includes(type))
+    .concat(shown.filter(type => !checked.has(type)));
+
+  const { error } = await sb.from('agent_notification_preferences').upsert({
+    agent_id: currentAgent.id,
+    muted_types: muted,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'agent_id' });
+
+  btn.disabled = false; btn.textContent = 'שמירת ההעדפות';
+  if (error){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'שגיאה: ' + error.message;
+    return;
+  }
+  notifMutedTypes = muted;
+  syncNotifPrefsCount();
+  feedback.style.color = 'var(--blue)';
+  feedback.textContent = muted.length
+    ? 'נשמר — ' + muted.length + ' סוגי התראה כבויים.'
+    : 'נשמר — מקבלים את כל ההתראות.';
+  setTimeout(()=>{ feedback.textContent=''; }, 2500);
 });
 
 /* ==========================================================================
