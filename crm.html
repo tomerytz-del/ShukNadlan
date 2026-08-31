@@ -28,7 +28,10 @@
   /* ‏text-decoration:none — חלק מהפעולות בכרטיסים הן <a> (חיוג, וואטסאפ,
      עמוד הנכס), והקו התחתון של הקישור הפך אותן לזרות לשאר הכפתורים */
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;border-radius:999px;font-weight:700;font-size:.9rem;white-space:nowrap;text-decoration:none;color:inherit}
-  .btn-gold{background:var(--gold);color:#241505}
+  /* טקסט לבן על הבורדו, ולא חום כהה: ‏#241505 על ‎--gold‎ נותן יחס ניגודיות
+     של 2.2:1 בלבד — מתחת לסף — והכיתוב על כפתור הפעולה הראשי נקרא מטושטש.
+     לבן נותן 7.4:1, וזה גם מה שכל שאר דפי האתר כבר עושים עם אותו כפתור. */
+  .btn-gold{background:var(--gold);color:#fff}
   .btn-gold:disabled{opacity:.5;cursor:not-allowed}
   .btn-ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
   .btn-block{width:100%}
