@@ -14,6 +14,26 @@ const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 // הקוד יוכל לדרוש אישור מחדש בלי לאבד את התיעוד של האישור הקודם.
 const ETHICS_CODE_VERSION = "2026-08";
 
+// תחומי ההתמחות שהטופס מציע. חייב להישאר זהה ל-SPECIALTY_CATALOG ב-
+// assets/specialties.js ול-agencies_specialties_check במסד. מסונן כאן ולא
+// רק בטופס, כי הגוף מגיע מהדפדפן: ערך שאינו ברשימה היה מפיל את ה-INSERT
+// על בדיקת ה-CHECK ואיתו את פתיחת המשרד כולה.
+const SPECIALTY_IDS = new Set([
+  "residential_sale", "residential_rent", "commercial", "income", "land",
+  "urban_renewal", "new_projects", "luxury", "industrial", "property_management",
+]);
+const MAX_SPECIALTIES = 6;
+
+function cleanSpecialties(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set<string>();
+  for (const item of value) {
+    if (typeof item === "string" && SPECIALTY_IDS.has(item)) seen.add(item);
+    if (seen.size >= MAX_SPECIALTIES) break;
+  }
+  return [...seen];
+}
+
 function corsHeaders() {
   return {
     "Content-Type": "application/json",
@@ -68,7 +88,7 @@ Deno.serve(async (req: Request) => {
 
     const { data: agency, error: agencyErr } = await supabase
       .from("agencies")
-      .insert({ slug: finalSlug, name: agency_name })
+      .insert({ slug: finalSlug, name: agency_name, specialties: cleanSpecialties(body.specialties) })
       .select()
       .single();
     if (agencyErr) return json({ error: "db_error", detail: agencyErr.message }, 500);
