@@ -169,45 +169,123 @@
   .cta-secondary:hover{background:var(--accent);color:var(--on-accent)}
   @media(max-width:420px){.brand-cta a{padding-inline:12px;font-size:.86rem;gap:6px}}
 
-  /* ---------- שורת המספרים של המשרד ----------
-     במקום תגיות יכולת שאין מאחוריהן נתון, כאן יושבים רק מספרים אמיתיים
-     מהמסד. קפסולה שאין לה ערך (משרד בלי עסקאות סגורות, בלי ביקורות) פשוט
-     לא נוצרת — שורה של אפסים משכנעת פחות מכלום. */
-  .stat-row{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:20px}
-  /* ‏flex ולא ‎auto-fit‎ מרוחב מלא: משרד עם שתי קפסולות בלבד היה מקבל שתי
-     קפסולות ברוחב חצי מסך כל אחת, עם המספר תלוי באוויר. */
-  @media(min-width:640px){
-    .stat-row{display:flex;flex-wrap:wrap}
-    .stat-pill{flex:1 1 190px;max-width:270px}
+  /* ---------- כותרת מקטע ----------
+     מקל קצר בצבע המשני לפני הכותרת, ולצידה שורת מידע קטנה (כמה נכסים, כמה
+     תמונות, איזה דירוג). זו הכותרת של כל מקטעי הדף — הגלריה, הנבחרת,
+     הנכסים, הביקורות — כדי שכולם ייקראו כרצף אחד ולא כארבעה עיצובים. */
+  .sec-head{display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+  .sec-head h2{font-size:1.05rem;position:relative;padding-inline-start:12px}
+  .sec-head h2::before{
+    content:'';position:absolute;inset-block:3px;inset-inline-start:0;
+    width:4px;border-radius:2px;background:var(--accent);
   }
-  .stat-row:empty{display:none}
-  .stat-pill{
-    display:flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--hair);
-    border-radius:16px;padding:12px 14px;box-shadow:var(--shadow-xs);min-width:0;
+  .sec-head span{font-size:.78rem;color:var(--ink-soft)}
+
+  /* ---------- נבחרת המתווכים ----------
+     המקטע הראשון מתחת לכותרת המשרד: אנשים, לא מספרים. הקרוסלה גוללת
+     במגע ובחיצים, ומנהל/ת המשרד היא הכרטיס הבולט בה — כרטיס רחב יותר,
+     טבעת בצבע המשני ותגית תפקיד — ולכן גם הכרטיס הראשון ברצף. */
+  .team-sec{margin-top:26px;display:none}
+  /* ---------- רצועה נגללת ----------
+     ‏overflow-x גולל, scroll-snap ממרכז כרטיס — כך שגלילה במגע נעצרת על
+     כרטיס שלם ולא באמצע אחד. הפדינג האנכי משאיר מקום להרמה ב-hover ולצל.
+     ‏‎.rail‎ משותפת לרצועת המתווכים ולרצועות הנכסים. */
+  .rail{
+    --rail-gap:12px;
+    display:flex;gap:var(--rail-gap);overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;
+    /* הפדינג האנכי הוא בדיוק מה שההרמה ב-hover והצל צריכים ולא יותר, כדי
+       שלא ייווצר רווח לבן בין רצועה לרצועה */
+    padding:6px 2px 10px;scrollbar-width:none;-ms-overflow-style:none;
   }
-  .stat-pill .ic{width:38px;height:38px;border-radius:12px;flex:none;display:grid;place-items:center;background:var(--teal-tint);color:var(--brand)}
-  .stat-pill .ic svg{width:20px;height:20px}
-  /* הקפסולות ה"חמות" — עסקאות שנסגרו והדירוג — נצבעות בצבע המשני של המשרד
-     ולא בברונזה קבועה, כדי ששורת המספרים תישא את שתי הצלעות של הערכה. */
-  .stat-pill.accent .ic{background:var(--gold-tint);color:var(--accent-ink)}
-  .stat-pill .txt{min-width:0;display:flex;flex-direction:column}
-  .stat-pill .v{font-size:1.15rem;font-weight:900;color:var(--teal-dark);line-height:1.2;letter-spacing:-.3px}
-  .stat-pill .k{font-size:.72rem;font-weight:600;color:var(--ink-soft);line-height:1.3}
+  .rail::-webkit-scrollbar{display:none}
+  /* רצועה שאין בה מה לגלול לא תיראה כרצועה קטועה בקצה — הכרטיסים מתמרכזים */
+  .rail.no-scroll{justify-content:center;flex-wrap:wrap}
+  /* תגית "מנהל/ת המשרד" חורגת מעל שפת הכרטיס וזקוקה למקום מעליה */
+  .team-rail{padding-top:18px}
+  .team-card{
+    flex:0 0 196px;scroll-snap-align:center;position:relative;text-align:center;cursor:pointer;
+    background:var(--surface);border:1px solid var(--hair);border-radius:20px;
+    padding:18px 14px 14px;box-shadow:var(--shadow-xs);
+    display:flex;flex-direction:column;align-items:center;
+    transition:transform .18s ease,box-shadow .18s ease;
+  }
+  .team-card:hover{transform:translateY(-3px);box-shadow:var(--shadow-md)}
+  .team-card:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+  /* כרטיס מנהל/ת המשרד: רחב יותר, נושא את גוון האקסנט מלמעלה ומקבל תגית
+     תפקיד שיושבת על שפת הכרטיס — הבולטוּת נעשית בשלושה סימנים ולא באחד,
+     כדי שתישמר גם כשהמשרד בחר אקסנט חיוור. */
+  .team-card.is-manager{
+    flex-basis:224px;border-color:var(--accent);box-shadow:var(--shadow-md);
+    background:linear-gradient(180deg,var(--gold-tint) 0%,var(--surface) 46%);
+  }
+  /* התגית חורגת מעל שפת הכרטיס — הפדינג העליון של הרצועה מפנה לה מקום כדי
+     שגלילה אופקית לא תחתוך אותה */
+  .team-flag{
+    position:absolute;top:-11px;left:50%;transform:translateX(-50%);
+    background:var(--accent);color:var(--on-accent);font-size:.66rem;font-weight:800;
+    padding:3px 11px;border-radius:999px;white-space:nowrap;box-shadow:var(--shadow-sm);
+    display:inline-flex;align-items:center;gap:4px;
+  }
+  .team-flag svg{width:11px;height:11px}
+  .team-avatar{
+    width:88px;height:88px;border-radius:50%;overflow:hidden;flex:none;
+    background:var(--brand);color:var(--on-brand);box-shadow:0 0 0 2px var(--hair);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.9rem;
+  }
+  .team-avatar img{width:100%;height:100%;object-fit:cover;display:block;object-position:var(--photo-pos,50% 25%)}
+  .team-card.is-manager .team-avatar{width:104px;height:104px;font-size:2.2rem;box-shadow:0 0 0 3px var(--accent)}
+  .team-name{font-weight:800;font-size:.97rem;color:var(--teal-dark);margin-top:11px;line-height:1.25}
+  .team-card.is-manager .team-name{font-size:1.06rem}
+  .team-role{font-size:.76rem;color:var(--ink-soft);margin-top:1px}
+  .team-lic{
+    display:inline-flex;align-items:center;gap:4px;margin-top:7px;font-size:.68rem;font-weight:700;
+    background:var(--teal-tint);color:var(--brand-dark);padding:2px 8px;border-radius:999px;
+  }
+  .team-lic svg{width:11px;height:11px}
+  .team-badge{margin-top:8px;display:flex;justify-content:center}
+  /* הפעולות נדחפות לתחתית הכרטיס כדי שכל הכרטיסים ברצועה יסתיימו באותו קו,
+     גם כשלאחד/ת יש רישיון ולאחר/ת אין */
+  .team-actions{display:flex;gap:6px;margin-top:auto;padding-top:12px;width:100%}
+  .team-actions a{
+    flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;
+    padding:8px 6px;border-radius:999px;font-size:.78rem;font-weight:800;line-height:1;
+    transition:background .15s ease,color .15s ease;
+  }
+  .team-actions svg{width:15px;height:15px;flex:none}
+  .ta-wa{background:linear-gradient(120deg,var(--brand-dark),var(--brand));color:var(--on-brand)}
+  .ta-wa svg{fill:currentColor;stroke:none;width:16px;height:16px}
+  .ta-tel{background:var(--gold-tint);color:var(--accent-ink);border:1px solid var(--accent)}
+  .ta-tel:hover{background:var(--accent);color:var(--on-accent)}
+  /* ---------- חיצים ונקודות של רצועה ----------
+     אותה בקרה משרתת את רצועת המתווכים ואת שלוש רצועות הנכסים, כדי שכל
+     הגלילות בדף יתנהגו ויֵראו אותו דבר.
+     ב-RTL ה"קודם" הוא לכיוון ההתחלה — ימין — ולכן המיקום לוגי
+     (‏inset-inline) ולא ימין/שמאל פיזיים. */
+  .rail-wrap{position:relative}
+  .rail-nav{
+    position:absolute;top:calc(50% - 8px);transform:translateY(-50%);width:36px;height:36px;
+    border-radius:50%;background:var(--surface);border:1px solid var(--hair);box-shadow:var(--shadow-md);
+    color:var(--brand-dark);display:grid;place-items:center;z-index:2;padding:0;
+    transition:background .15s ease,opacity .15s ease;
+  }
+  .rail-nav:hover{background:var(--teal-tint)}
+  .rail-nav[disabled]{opacity:.32;cursor:default}
+  .rail-nav svg{width:19px;height:19px}
+  .rail-nav.prev{inset-inline-start:-6px}
+  .rail-nav.next{inset-inline-end:-6px}
+  .rail-dots{display:flex;justify-content:center;gap:6px;margin-top:2px}
+  .rail-dots button{
+    width:7px;height:7px;padding:0;border-radius:999px;background:var(--hair-strong);
+    transition:width .2s ease,background .2s ease;
+  }
+  .rail-dots button.on{width:20px;background:var(--accent)}
 
   /* ---------- גלריית המשרד ----------
      רשת Bento באותה שפה כמו גלריית הנכס: שתי תמונות גדולות ושלוש קטנות,
      ושכבת "‎+N‎" על האחרונה כשיש עוד. הפריסה נגזרת ממספר התמונות בפועל, כדי
      שמשרד עם תמונה אחת לא יקבל חצי שורה ריקה. */
-  .gallery-sec{margin-top:26px;display:none}
-  .gallery-head{display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap}
-  /* מקל קצר בצבע המשני לפני כותרת המקטע — סימון זול שחוזר על עצמו בכל דף
-     משרד ונותן לערכה נוכחות גם בטיפוגרפיה, לא רק במשטחים */
-  .gallery-head h2{font-size:1.05rem;position:relative;padding-inline-start:12px}
-  .gallery-head h2::before{
-    content:'';position:absolute;inset-block:3px;inset-inline-start:0;
-    width:4px;border-radius:2px;background:var(--accent);
-  }
-  .gallery-head span{font-size:.78rem;color:var(--ink-soft)}
+  .gallery-sec{margin-top:30px;display:none}
   /* מובייל הוא ברירת המחדל והפריסה לשש עמודות חיה רק מ-640px ומעלה: כללי
      ה-data-count נושאים סלקטור נוסף, ולכן כמדיה־קוורי של max-width הם היו
      גוברים על כללי המובייל ומותחים את שתי התמונות הראשונות לרוחב מלא. */
@@ -237,11 +315,16 @@
     color:#fff;font-weight:800;font-size:1.05rem;backdrop-filter:blur(2px);
   }
 
+  /* ---------- מקטע הנכסים ----------
+     החיפוש והמעבר בין נכסים פעילים לעסקאות שנסגרו יושבים יחד: שניהם עונים
+     על אותה שאלה — מה המשרד הזה מוכר. */
+  .props-sec{margin-top:30px}
+
   /* ---------- טאבים ----------
      בקרת מקטעים בקפסולה במקום קו תחתון: הטאב הפעיל נצבע בצבע המשרד, וזה
      המקום שבו המיתוג האישי שלו באמת נראה. */
   .tabs{
-    display:flex;gap:5px;margin-top:26px;padding:5px;overflow-x:auto;
+    display:flex;gap:5px;margin-bottom:16px;padding:5px;overflow-x:auto;
     background:var(--surface);border:1px solid var(--hair);border-radius:999px;
     box-shadow:var(--shadow-xs);width:max-content;max-width:100%;
   }
@@ -252,7 +335,7 @@
   .tab-btn:hover{background:var(--teal-tint);color:var(--brand-dark)}
   .tab-btn.active{background:var(--brand);color:var(--on-brand)}
   .tab-btn.active:hover{background:var(--brand)}
-  .tab-panel{display:none;padding:20px 0 40px}
+  .tab-panel{display:none}
   .tab-panel.active{display:block}
 
   .prop-search{
@@ -275,9 +358,56 @@
   .prop-search .clear:hover{background:var(--teal-tint);color:var(--brand-dark)}
   .search-count{font-size:.8rem;color:var(--ink-soft);margin:0 0 12px;font-weight:600}
 
-  .prop-grid{display:grid;grid-template-columns:1fr;gap:14px}
-  @media(min-width:640px){.prop-grid{grid-template-columns:1fr 1fr}}
-  @media(min-width:900px){.prop-grid{grid-template-columns:1fr 1fr 1fr}}
+  /* ---------- שלוש רצועות הנכסים ----------
+     במקום רשימה אחת ארוכה שמערבבת דירה להשכרה עם חנות למכירה, הנכסים
+     מחולקים לשלוש רצועות לפי מה שהגולש/ת באמת מחפש/ת: פרטי להשכרה, פרטי
+     למכירה, ומסחרי (מכירה והשכרה יחד — שוק אחד). רצועה שאין לה נכסים
+     פשוט לא נוצרת. */
+  .prop-group{margin-top:18px}
+  .prop-group:first-child{margin-top:6px}
+  .group-head{display:flex;align-items:center;gap:9px}
+  /* הקישור נדחף לקצה השני של שורת הכותרת ומופיע רק כשיש מה לפתוח */
+  .group-all{
+    margin-inline-start:auto;font-size:.78rem;font-weight:800;color:var(--accent-ink);
+    background:none;padding:4px 2px;white-space:nowrap;
+  }
+  .group-all:hover{text-decoration:underline}
+  .group-head .ic{
+    width:30px;height:30px;border-radius:10px;flex:none;display:grid;place-items:center;
+    background:var(--teal-tint);color:var(--brand);
+  }
+  .group-head .ic svg{width:17px;height:17px}
+  .group-head h3{
+    font-family:'Frank Ruhl Libre',serif;font-size:1rem;font-weight:700;
+    color:var(--teal-dark);margin:0;
+  }
+  .group-head .n{font-size:.75rem;font-weight:600;color:var(--ink-soft)}
+  /* להשכרה ומסחרי נושאים את הצבע המשני — אותה הבחנה בדיוק שהתגית על אריח
+     הנכס עושה, כך שהצבע אומר את אותו הדבר בכל מקום בדף */
+  .prop-group[data-kind="rent"] .group-head .ic,
+  .prop-group[data-kind="commercial"] .group-head .ic{background:var(--gold-tint);color:var(--accent-ink)}
+  /* ---------- רוחב הכרטיס ברצועה ----------
+     לכל היותר שלושה כרטיסים במסך אחד, והם ממלאים את רוחב המכל בדיוק:
+     ‏3 כרטיסים + 2 רווחים = 100%. במסך צר שלושה כרטיסים היו יוצאים צרים
+     מכדי לקרוא, ולכן שם הרצועה מציגה אחד ומציצה אל הבא — אותה משמעות,
+     בקנה מידה של מובייל. ‏scroll-snap-align:start מצמיד את הכרטיס לשפת
+     המכל, כך שכל "עמוד" של הרצועה יושב בתוך הגבולות ולא חוצה אותם. */
+  .rail .prop-card{flex:0 0 82%;scroll-snap-align:start}
+  @media(min-width:600px){.rail .prop-card{flex-basis:calc((100% - var(--rail-gap)) / 2)}}
+  @media(min-width:900px){.rail .prop-card{flex-basis:calc((100% - 2 * var(--rail-gap)) / 3)}}
+
+  /* ---------- "לכל הנכסים" ----------
+     אין דף רשימה נפרד לנכסי משרד לפי קטגוריה, ולכן הקישור פותח את הרצועה
+     במקום — הופך אותה לרשת שמציגה את כל הנכסים של אותה קטגוריה בבת אחת.
+     במצב פתוח אין מה לגלול, ולכן החיצים והנקודות יורדים. */
+  .prop-group.expanded .rail{
+    display:grid;grid-template-columns:1fr;overflow:visible;scroll-snap-type:none;
+  }
+  @media(min-width:600px){.prop-group.expanded .rail{grid-template-columns:1fr 1fr}}
+  @media(min-width:900px){.prop-group.expanded .rail{grid-template-columns:1fr 1fr 1fr}}
+  .prop-group.expanded .rail .prop-card{flex:none}
+  .prop-group.expanded .rail-nav,
+  .prop-group.expanded .rail-dots{display:none}
   .prop-card{
     background:var(--surface);border:1px solid var(--hair);border-radius:18px;overflow:hidden;cursor:pointer;
     box-shadow:var(--shadow-xs);transition:box-shadow .15s ease,transform .15s ease;
@@ -351,40 +481,38 @@
   .deal-price{font-weight:900;color:var(--accent-ink);white-space:nowrap}
   .deal-date{font-size:.72rem;color:var(--ink-soft)}
 
-  .agent-grid{display:grid;grid-template-columns:1fr;gap:12px}
-  @media(min-width:640px){.agent-grid{grid-template-columns:1fr 1fr}}
-  .agent-card{
-    padding:14px;display:flex;align-items:center;gap:12px;cursor:pointer;
-    transition:box-shadow .15s ease,transform .15s ease;
-  }
-  .agent-card:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
-  .agent-avatar{
-    width:56px;height:56px;border-radius:50%;flex-shrink:0;overflow:hidden;
-    background:var(--brand);color:var(--on-brand);display:flex;align-items:center;justify-content:center;
-    font-weight:700;font-family:'Frank Ruhl Libre',serif;font-size:1.25rem;
-  }
-  /* ‏--photo-pos = נקודת המיקוד שהסוכן/ת סימן/ה ב-CRM; בלעדיה חיתוך למרכז
-     היה קוטע את הפנים בתמונות פורטרט */
-  .agent-avatar img{width:100%;height:100%;object-fit:cover;display:block;object-position:var(--photo-pos,50% 25%)}
-  .agent-card .name{font-weight:800;font-size:.95rem;color:var(--teal-dark)}
-  .agent-card .role{font-size:.76rem;color:var(--ink-soft);margin-top:1px}
-  .agent-card .lic{
-    display:inline-flex;align-items:center;gap:4px;margin-top:5px;font-size:.68rem;font-weight:700;
-    background:var(--teal-tint);color:var(--brand-dark);padding:2px 8px;border-radius:999px;
-  }
-  .agent-card .lic svg{width:11px;height:11px}
-  .agent-card .chev{margin-inline-start:auto;color:var(--ink-soft);flex:none}
-  .agent-card .chev svg{width:18px;height:18px}
-  /* תו האיכות על אריח של סוכן/ת בנבחרת. הוא לוקח על עצמו את הדחיפה לקצה
-     במקום ה-chev, אחרת שני margin אוטומטיים היו מחלקים ביניהם את הרווח
-     והתו היה נתקע באמצע הכרטיס. */
-  .agent-card .agent-badge{margin-inline-start:auto;flex:none;display:flex;align-items:center}
-  .agent-card.has-badge .chev{margin-inline-start:8px}
-
-  .review-card{padding:15px 16px;margin-bottom:12px}
+  .reviews-sec{margin-top:30px}
+  .reviews-grid{display:grid;grid-template-columns:1fr;gap:12px}
+  @media(min-width:760px){.reviews-grid{grid-template-columns:1fr 1fr}}
+  .reviews-grid .empty-state{grid-column:1/-1}
+  .review-card{padding:15px 16px}
   .review-stars{color:var(--accent-ink);font-weight:700;letter-spacing:1px}
   .review-text{font-size:.88rem;margin-top:7px}
   .review-by{font-size:.75rem;color:var(--ink-soft);margin-top:7px}
+
+  /* ---------- יצירת קשר עם מנהל/ת המשרד ----------
+     חותם הדף: אחרי שראו את הצוות, את הנכסים, את הגלריה ואת מה שכתבו על
+     המשרד — הפנייה היא לאדם עם שם ופנים, ולא לטופס אנונימי. */
+  .contact-sec{margin:30px 0 46px;display:none}
+  .contact-card{
+    display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:20px 18px;
+    background:linear-gradient(160deg,var(--teal-tint) 0%,var(--surface) 55%);
+  }
+  .contact-card .team-avatar{width:76px;height:76px;font-size:1.7rem;box-shadow:0 0 0 3px var(--accent)}
+  .contact-who{min-width:0;flex:1 1 180px}
+  .contact-who .name{font-weight:800;font-size:1.08rem;color:var(--teal-dark);line-height:1.25}
+  .contact-who .role{font-size:.8rem;color:var(--ink-soft);margin-top:2px}
+  .contact-who .note{font-size:.82rem;color:var(--ink-soft);margin-top:7px;max-width:44ch}
+  .contact-actions{display:flex;gap:9px;flex-wrap:wrap;width:100%}
+  @media(min-width:640px){.contact-actions{width:auto;margin-inline-start:auto}}
+  .contact-actions a{
+    flex:1 1 150px;display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:12px 20px;border-radius:999px;font-weight:800;font-size:.92rem;line-height:1;
+    transition:transform .15s ease,background .15s ease,color .15s ease;
+  }
+  .contact-actions svg{width:18px;height:18px;flex:none}
+  .contact-actions .cta-primary svg{fill:currentColor;stroke:none;width:19px;height:19px}
+  .contact-actions a:hover{transform:translateY(-1px)}
 
   .empty-state{padding:34px 18px;text-align:center;color:var(--ink-soft);font-size:.88rem}
 
@@ -399,7 +527,8 @@
   .lightbox .next{left:14px}
   .lightbox .close{position:absolute;top:14px;left:14px;width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.16);color:#fff;font-size:1rem;padding:0}
   @media(prefers-reduced-motion:reduce){
-    .bento-cell img,.prop-card,.agent-card{transition:none}
+    .bento-cell img,.prop-card,.team-card{transition:none}
+    .team-rail{scroll-behavior:auto}
   }
 </style>
 </head>
@@ -437,37 +566,74 @@
 
     <div class="brand-cta" id="brandCta"></div>
 
-    <div class="stat-row" id="statRow"></div>
+    <!-- ---------- נבחרת המתווכים ----------
+         המקטע הפותח של הדף: מי האנשים שמאחורי המשרד. הקרוסלה נבנית ב-JS
+         מתוך agency_members_public, ומנהל/ת המשרד מוצב/ת בראשה. -->
+    <section class="team-sec" id="teamSec" aria-labelledby="teamHeading">
+      <div class="sec-head">
+        <h2 id="teamHeading">נבחרת המתווכים שלנו</h2>
+        <span id="teamCount"></span>
+      </div>
+      <div class="rail-wrap">
+        <button type="button" class="rail-nav prev" id="teamPrev" aria-label="המתווכים הקודמים" hidden></button>
+        <div class="team-rail rail" id="teamRail" tabindex="0" role="group" aria-label="נבחרת המתווכים של המשרד"></div>
+        <button type="button" class="rail-nav next" id="teamNext" aria-label="המתווכים הבאים" hidden></button>
+      </div>
+      <div class="rail-dots" id="teamDots"></div>
+    </section>
 
-    <section class="gallery-sec" id="gallerySec">
-      <div class="gallery-head">
-        <h2>הגלריה של המשרד</h2>
+    <!-- ---------- חיפוש הנכסים ---------- -->
+    <section class="props-sec" aria-labelledby="propsHeading">
+      <div class="sec-head">
+        <h2 id="propsHeading">הנכסים של המשרד</h2>
+        <span id="propsCount"></span>
+      </div>
+
+      <div class="tabs">
+        <button class="tab-btn active" data-tab="active">נכסים פעילים</button>
+        <button class="tab-btn" data-tab="sold">נכסים שנמכרו</button>
+      </div>
+
+      <div class="tab-panel active" id="panel-active">
+        <!-- החיפוש מסנן את מה שכבר נטען לזיכרון ולא יורה שאילתה חדשה: כל הנכסים
+             הפעילים של המשרד מגיעים ממילא בטעינת הדף, וסינון מקומי מגיב מיד. -->
+        <div class="prop-search" id="propSearchBar" hidden>
+          <span class="ic" aria-hidden="true"></span>
+          <input type="search" id="propSearch" placeholder="חיפוש בנכסי המשרד — רחוב, סוג נכס, עיר" aria-label="חיפוש בנכסי המשרד">
+          <button type="button" class="clear" id="propSearchClear" aria-label="ניקוי החיפוש" hidden>✕</button>
+        </div>
+        <p class="search-count" id="propSearchCount" hidden></p>
+        <!-- שלוש רצועות הנכסים נבנות לכאן ב-JS: פרטי להשכרה, פרטי למכירה, מסחרי -->
+        <div id="activeProps"></div>
+      </div>
+      <div class="tab-panel" id="panel-sold"><div class="panel" id="soldDeals"></div></div>
+    </section>
+
+    <!-- ---------- הגלריה ---------- -->
+    <section class="gallery-sec" id="gallerySec" aria-labelledby="galleryHeading">
+      <div class="sec-head">
+        <h2 id="galleryHeading">הגלריה של המשרד</h2>
         <span id="galleryCount"></span>
       </div>
       <div class="bento" id="galleryBento"></div>
     </section>
 
-    <div class="tabs">
-      <button class="tab-btn active" data-tab="active">נכסים פעילים</button>
-      <button class="tab-btn" data-tab="sold">נכסים שנמכרו</button>
-      <button class="tab-btn" data-tab="agents">נבחרת הסוכנים</button>
-      <button class="tab-btn" data-tab="reviews">ביקורות</button>
-    </div>
-
-    <div class="tab-panel active" id="panel-active">
-      <!-- החיפוש מסנן את מה שכבר נטען לזיכרון ולא יורה שאילתה חדשה: כל הנכסים
-           הפעילים של המשרד מגיעים ממילא בטעינת הדף, וסינון מקומי מגיב מיד. -->
-      <div class="prop-search" id="propSearchBar" hidden>
-        <span class="ic" aria-hidden="true"></span>
-        <input type="search" id="propSearch" placeholder="חיפוש בנכסי המשרד — רחוב, סוג נכס, עיר" aria-label="חיפוש בנכסי המשרד">
-        <button type="button" class="clear" id="propSearchClear" aria-label="ניקוי החיפוש" hidden>✕</button>
+    <!-- ---------- המלצות וביקורות ---------- -->
+    <section class="reviews-sec" aria-labelledby="reviewsHeading">
+      <div class="sec-head">
+        <h2 id="reviewsHeading">המלצות וביקורות</h2>
+        <span id="reviewsSummary"></span>
       </div>
-      <p class="search-count" id="propSearchCount" hidden></p>
-      <div class="prop-grid" id="activeProps"></div>
-    </div>
-    <div class="tab-panel" id="panel-sold"><div class="panel" id="soldDeals"></div></div>
-    <div class="tab-panel" id="panel-agents"><div class="agent-grid" id="agentRoster"></div></div>
-    <div class="tab-panel" id="panel-reviews"><div id="reviewsList"></div></div>
+      <div class="reviews-grid" id="reviewsList"></div>
+    </section>
+
+    <!-- ---------- יצירת קשר עם מנהל/ת המשרד ---------- -->
+    <section class="contact-sec" id="contactSec" aria-labelledby="contactHeading">
+      <div class="sec-head">
+        <h2 id="contactHeading">יצירת קשר עם מנהל המשרד</h2>
+      </div>
+      <div class="panel contact-card" id="contactCard"></div>
+    </section>
   </div>
 </div>
 
@@ -491,13 +657,14 @@ const S = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strok
 const ICON = {
   building:S('<path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M16 9h2a2 2 0 0 1 2 2v10M2 21h20"/><path d="M8 7h2M8 11h2M8 15h2"/>'),
   key:     S('<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.8 12.2 8-8M17 6l2 2M14.5 8.5l2 2"/>'),
-  users:   S('<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.9"/>'),
+  store:   S('<path d="M4 9h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Z"/><path d="M3 9l1.6-5.2A1 1 0 0 1 5.6 3h12.8a1 1 0 0 1 1 .8L21 9"/><path d="M9 21v-6h6v6"/>'),
   star:    S('<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9Z"/>'),
   pin:     S('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>'),
   cube:    S('<path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="M3 8l9 5 9-5M12 13v8"/><path d="M7.5 5.5 16.5 10.7"/>'),
   play:    S('<circle cx="12" cy="12" r="9.5"/><path d="M10 8.5v7l6-3.5Z"/>'),
   check:   S('<path d="M20 6 9 17l-5-5"/>'),
   chevron: S('<path d="m14 6-6 6 6 6"/>'),
+  chevronR:S('<path d="m10 6 6 6-6 6"/>'),
   search:  S('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'),
   phone:   S('<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8.1 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2Z"/>'),
 };
@@ -548,23 +715,13 @@ function thumbFallback(p){
     </div>`;
 }
 
-/* ---------- שורת המספרים ----------
-   כל טוען מדווח את המספר שלו כשהוא מסיים, והקפסולה נוצרת רק אם יש מה להציג.
-   הסדר קבוע ולא סדר ההגעה, אחרת הקפסולות היו קופצות בין רינדורים. */
-const STAT_ORDER = ['props', 'deals', 'agents', 'rating'];
-const stats = {};
-
-function setStat(key, value, label, icon, accent){
-  if (!value) return;                       // 0, null ו-undefined לא מקבלים קפסולה
-  stats[key] = { value, label, icon, accent };
-  const row = document.getElementById('statRow');
-  row.innerHTML = STAT_ORDER.filter(k => stats[k]).map(k=>{
-    const s = stats[k];
-    return `<div class="stat-pill${s.accent ? ' accent' : ''}">
-      <span class="ic" aria-hidden="true">${ICON[s.icon]}</span>
-      <span class="txt"><span class="v">${escapeHtml(String(s.value))}</span><span class="k">${escapeHtml(s.label)}</span></span>
-    </div>`;
-  }).join('');
+/* ---------- שורות המידע של המקטעים ----------
+   המספרים של המשרד (כמה נכסים, כמה סוכנים, איזה דירוג) כבר לא יושבים
+   בקפסולות נפרדות אלא לצד כותרת המקטע שאליו הם שייכים. טוען שאין לו מה
+   לדווח פשוט לא כותב כלום — שורת מידע ריקה גרועה משורה שאינה. */
+function setSectionNote(id, text){
+  const el = document.getElementById(id);
+  if (el) el.textContent = text || '';
 }
 
 /* ---------- מיתוג המשרד ----------
@@ -665,23 +822,82 @@ function applyBranding(agency){
    כפתור שלא מוביל לאיש גרוע מהיעדר כפתור.
    ‏phone_e164 שמור כספרות בלבד (972521112222) — בדיוק מה ש-wa.me ו-tel:
    מצפים לו. הבדיקה כאן היא גם שער אבטחה: המספר נכנס ל-href. */
+const PHONE_RE = /^\d{9,15}$/;
+const hasPhone = m => PHONE_RE.test(String(m && m.phone_e164 || ''));
+
+/* קישור וואטסאפ עם פתיח שכבר מספר מאיפה הפנייה הגיעה */
+function waLink(phone, opener){
+  const name = (currentAgency && currentAgency.name) || 'המשרד';
+  const text = [
+    'היי,',
+    opener || `הגעתי לדף של ${name} בשוק הנדל״ן של עפולה והסביבה ואשמח לקבל פרטים.`,
+    window.location.href,
+  ].join('\n');
+  return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
+}
+
+const ROLE_LABELS = { manager:'מנהל/ת משרד', agent:'סוכן/ת' };
+const roleLabel = a => ROLE_LABELS[a && a.role] || (a && a.role) || 'סוכן/ת';
+
+/* תמונת הסוכן/ת, ובהיעדרה האות הראשונה של השם. ‏--photo-pos = נקודת המיקוד
+   שסומנה ב-CRM; בלעדיה חיתוך למרכז היה קוטע פנים בתמונות פורטרט. */
+function agentAvatarHtml(a, cls){
+  const name = a.display_name || '?';
+  const photo = safeImageUrl(a.photo_url);
+  const focus = /^\d{1,3}% \d{1,3}%$/.test(a.photo_position || '') ? a.photo_position : '';
+  const inner = photo
+    ? `<img src="${encodeURI(photo)}" alt="${escapeHtml(name)}" loading="lazy"${focus ? ` style="--photo-pos:${focus}"` : ''}>`
+    : escapeHtml(name.trim()[0] || '?');
+  return `<div class="${cls}">${inner}</div>`;
+}
+
 function renderAgencyContact(members){
-  const reachable = (members || []).filter(m => /^\d{9,15}$/.test(String(m && m.phone_e164 || '')));
+  const reachable = (members || []).filter(hasPhone);
   if (!reachable.length) return;
   const contact = reachable.find(m => m.role === 'manager') || reachable[0];
   const phone = contact.phone_e164;
   const name = (currentAgency && currentAgency.name) || 'המשרד';
-  const text = [
-    'היי,',
-    `הגעתי לדף של ${name} בשוק הנדל״ן של עפולה והסביבה ואשמח לקבל פרטים.`,
-    window.location.href,
-  ].join('\n');
-  const waHref = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
+  const href = waLink(phone);
 
   document.getElementById('brandCta').innerHTML = `
-    <a class="cta-primary" href="${escapeHtml(waHref)}" target="_blank" rel="noopener noreferrer"
+    <a class="cta-primary" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"
        aria-label="${escapeHtml('שליחת הודעת וואטסאפ ל' + name)}">${WA_SVG} וואטסאפ למשרד</a>
     <a class="cta-secondary" href="tel:+${phone}" aria-label="${escapeHtml('חיוג ל' + name)}">${ICON.phone} שיחה עם המשרד</a>`;
+}
+
+/* ---------- חותם הדף: פנייה למנהל/ת המשרד ----------
+   כאן, בשונה מהכפתורים שבראש הדף, הפנייה נושאת פנים ושם. אם למנהל/ת אין
+   מספר, המקטע נופל לסוכן/ת הראשון/ה שיש לו — עדיף איש קשר אמיתי בשם אחר
+   מאשר מקטע שנפתח ולא מוביל לאיש. בלי מספר בכלל המקטע לא מוצג. */
+function renderManagerContact(members){
+  const list = members || [];
+  const manager = list.find(m => m.role === 'manager' && hasPhone(m))
+    || list.find(hasPhone);
+  if (!manager) return;
+
+  const name = manager.display_name || 'מנהל המשרד';
+  const agencyName = (currentAgency && currentAgency.name) || 'המשרד';
+  const isManager = manager.role === 'manager';
+  const href = waLink(manager.phone_e164,
+    `הגעתי לדף של ${agencyName} בשוק הנדל״ן של עפולה והסביבה ואשמח לדבר עם ${name}.`);
+
+  document.getElementById('contactHeading').textContent =
+    isManager ? 'יצירת קשר עם מנהל המשרד' : 'יצירת קשר עם המשרד';
+
+  document.getElementById('contactCard').innerHTML = `
+    ${agentAvatarHtml(manager, 'team-avatar')}
+    <div class="contact-who">
+      <div class="name">${escapeHtml(name)}</div>
+      <div class="role">${escapeHtml(roleLabel(manager))} · ${escapeHtml(agencyName)}</div>
+      <p class="note">מוזמנים לפנות בכל שאלה — על נכס מסוים, על הערכת שווי או על מכירה והשכרה בעפולה והעמק.</p>
+    </div>
+    <div class="contact-actions">
+      <a class="cta-primary" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"
+         aria-label="${escapeHtml('שליחת הודעת וואטסאפ ל' + name)}">${WA_SVG} וואטסאפ ל${escapeHtml(name.split(' ')[0])}</a>
+      <a class="cta-secondary" href="tel:+${manager.phone_e164}"
+         aria-label="${escapeHtml('חיוג ל' + name)}">${ICON.phone} שיחת טלפון</a>
+    </div>`;
+  document.getElementById('contactSec').style.display = 'block';
 }
 
 /* ---------- גלריית המשרד (תמונות עסקאות/אירועים — לא נכסים) ----------
@@ -819,9 +1035,9 @@ async function loadAgency(){
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('agencyContent').style.display = 'block';
 
+    loadTeam(sb, agency.id);
     loadActiveProperties(sb, agency.id);
     loadSoldDeals(sb, agency.id);
-    loadAgentRoster(sb, agency.id);
     loadReviews(sb, agency.id);
   } catch(e){
     console.warn('טעינת משרד נכשלה:', e);
@@ -835,12 +1051,12 @@ let agencyProperties = [];
 async function loadActiveProperties(sb, agencyId){
   const el = document.getElementById('activeProps');
   const { data: props } = await sb.from('properties')
-    .select('id, title, price, deal_type, rooms, property_type, size_sqm, city, street, images, tour_3d_url, video_url')
+    .select('id, title, price, deal_type, category, rooms, property_type, size_sqm, city, street, images, tour_3d_url, video_url')
     .eq('agency_id', agencyId).eq('status', 'active').order('created_at', { ascending:false });
   if (!props || props.length === 0){ el.innerHTML = '<div class="empty-state">אין כרגע נכסים פעילים במשרד זה.</div>'; return; }
 
   agencyProperties = props;
-  setStat('props', props.length, 'נכסים פעילים', 'building');
+  setSectionNote('propsCount', props.length === 1 ? 'נכס פעיל אחד' : props.length + ' נכסים פעילים');
   renderPropertyCards(props);
   // סרגל החיפוש מופיע רק כשיש בו טעם: בארבעה נכסים העין מהירה ממנו
   if (props.length >= 5) initPropertySearch();
@@ -876,19 +1092,94 @@ function propertyCardHtml(p){
     </div>`;
 }
 
+/* ---------- שלוש רצועות הנכסים ----------
+   ‏category הוא מה שמפריד בין נדל״ן פרטי למסחרי בכל המרקטפלייס — עמודה
+   ‏NOT NULL עם ברירת מחדל 'residential' וערכים 'residential'/'commercial'
+   בלבד (index.html שולף לפיה את הרצועה המסחרית). גם ‎deal_type‎ מוגבל
+   ל-'sale'/'rent', ולכן שלוש הרצועות מכסות את כל הנכסים בלי שאף אחד ייפול
+   בין הכיסאות. */
+const isCommercial = p => p.category === 'commercial';
+
+const PROP_GROUPS = [
+  { key:'rent',  title:'נכסים פרטיים להשכרה', icon:'key',
+    match: p => !isCommercial(p) && p.deal_type === 'rent' },
+  { key:'sale',  title:'נכסים פרטיים למכירה', icon:'building',
+    match: p => !isCommercial(p) && p.deal_type === 'sale' },
+  // במסחרי מכירה והשכרה יושבים יחד: מי שמחפש חנות בודק ממילא את שתי האפשרויות
+  { key:'commercial', title:'נכסים מסחריים', icon:'store', match: isCommercial },
+];
+
+/* הרצועה מציגה עד שלושה כרטיסים במסך אחד; כשיש יותר, "לכל הנכסים" פותח את
+   כולם ברשת. עד שלושה — אין מה לפתוח, ולכן אין קישור. */
+const RAIL_VISIBLE = 3;
+const allLabel = items => `כל ${items.length} הנכסים`;
+
+function propertyRailHtml(group, items){
+  const count = items.length === 1 ? 'נכס אחד' : items.length + ' נכסים';
+  const showAll = items.length > RAIL_VISIBLE
+    ? `<button type="button" class="group-all" aria-expanded="false">${allLabel(items)} ←</button>`
+    : '';
+  return `
+    <div class="group-head">
+      <span class="ic" aria-hidden="true">${ICON[group.icon]}</span>
+      <h3 id="group-${group.key}">${escapeHtml(group.title)}</h3>
+      <span class="n">${count}</span>
+      ${showAll}
+    </div>
+    <div class="rail-wrap">
+      <button type="button" class="rail-nav prev" aria-label="הנכסים הקודמים" hidden></button>
+      <div class="rail" tabindex="0" role="group" aria-labelledby="group-${group.key}"></div>
+      <button type="button" class="rail-nav next" aria-label="הנכסים הבאים" hidden></button>
+    </div>
+    <div class="rail-dots"></div>`;
+}
+
+function initShowAll(section, items){
+  const btn = section.querySelector('.group-all');
+  if (!btn) return;
+  const rail = section.querySelector('.rail');
+  btn.addEventListener('click', ()=>{
+    const open = !section.classList.contains('expanded');
+    section.classList.toggle('expanded', open);
+    btn.setAttribute('aria-expanded', String(open));
+    btn.textContent = open ? 'תצוגה מצומצמת ←' : `${allLabel(items)} ←`;
+    // במצב פתוח אין גלילה למדוד, וה-sync רק היה מחזיר את החיצים
+    rail.dataset.expanded = open ? '1' : '';
+    if (!open){ rail.scrollTo({ left:0 }); rail._railSync(); }
+  });
+}
+
 function renderPropertyCards(list){
   const el = document.getElementById('activeProps');
+  el.textContent = '';
   if (!list.length){
     el.innerHTML = '<div class="empty-state">לא נמצאו נכסים שתואמים לחיפוש.</div>';
     return;
   }
-  el.innerHTML = '';
-  list.forEach(p=>{
-    const card = document.createElement('div');
-    card.className = 'prop-card';
-    card.innerHTML = propertyCardHtml(p);
-    card.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
-    el.appendChild(card);
+
+  PROP_GROUPS.forEach(group=>{
+    const items = list.filter(group.match);
+    if (!items.length) return;                 // רצועה בלי נכסים לא נוצרת
+
+    const section = document.createElement('section');
+    section.className = 'prop-group';
+    section.dataset.kind = group.key;
+    section.innerHTML = propertyRailHtml(group, items);
+
+    const rail = section.querySelector('.rail');
+    items.forEach(p=>{
+      const card = document.createElement('div');
+      card.className = 'prop-card';
+      card.innerHTML = propertyCardHtml(p);
+      card.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
+      rail.appendChild(card);
+    });
+
+    el.appendChild(section);
+    // אחרי ההוספה ל-DOM, אחרת המדידות של הרצועה מחזירות אפס
+    initCarousel(rail, section.querySelector('.rail-nav.prev'),
+                 section.querySelector('.rail-nav.next'), section.querySelector('.rail-dots'));
+    initShowAll(section, items);
   });
 }
 
@@ -935,7 +1226,9 @@ async function loadSoldDeals(sb, agencyId){
     .eq('agency_id', agencyId).order('sold_at', { ascending:false });
   if (!deals || deals.length === 0){ el.innerHTML = '<div class="empty-state">אין עדיין היסטוריית עסקאות למשרד זה.</div>'; return; }
 
-  setStat('deals', deals.length, 'עסקאות שנסגרו', 'key', true);
+  // מספר העסקאות נכנס אל תוך הכפתור עצמו — הוא הסיבה היחידה ללחוץ עליו
+  const soldBtn = document.querySelector('.tab-btn[data-tab="sold"]');
+  if (soldBtn) soldBtn.textContent = `נכסים שנמכרו (${deals.length})`;
   el.innerHTML = '';
   deals.forEach(d=>{
     const row = document.createElement('div');
@@ -948,42 +1241,144 @@ async function loadSoldDeals(sb, agencyId){
   });
 }
 
-async function loadAgentRoster(sb, agencyId){
-  const el = document.getElementById('agentRoster');
+/* ---------- נבחרת המתווכים ----------
+   הקרוסלה הפותחת של הדף. מנהל/ת המשרד תמיד הכרטיס הראשון והבולט: כרטיס
+   רחב יותר, טבעת בצבע המשני ותגית תפקיד מעליו. */
+async function loadTeam(sb, agencyId){
+  const rail = document.getElementById('teamRail');
   const { data: agents } = await sb.from('agency_members_public')
     .select('id, slug, display_name, role, photo_url, photo_position, license_number, has_ethics_badge, phone_e164')
     .eq('agency_id', agencyId);
-  // כפתורי יצירת הקשר בראש הדף ניזונים מאותה שליפה — אין טעם בשאילתה שנייה
-  renderAgencyContact(agents);
-  if (!agents || agents.length === 0){ el.innerHTML = '<div class="empty-state">אין כרגע סוכנים פעילים.</div>'; return; }
 
-  setStat('agents', agents.length, agents.length === 1 ? 'סוכן/ת במשרד' : 'סוכנים במשרד', 'users');
-  el.innerHTML = '';
-  const roleLabels = { manager:'מנהל/ת משרד', agent:'סוכן/ת' };
-  agents.forEach(a=>{
+  // כפתורי יצירת הקשר — בראש הדף ובחותם שלו — ניזונים מאותה שליפה
+  renderAgencyContact(agents);
+  renderManagerContact(agents);
+  // בלי צוות אין מה להציג: מקטע "נבחרת" ריק פוגע יותר משהוא מוסיף
+  if (!agents || agents.length === 0) return;
+
+  // sort יציב ב-JS מודרני, ולכן שאר הצוות שומר על סדר ההגעה מהמסד
+  const team = agents.slice().sort((a, b) => (b.role === 'manager') - (a.role === 'manager'));
+
+  setSectionNote('teamCount', team.length === 1 ? 'סוכן/ת אחד/ת במשרד' : team.length + ' סוכנים במשרד');
+
+  rail.textContent = '';
+  team.forEach(a=>{
     const name = a.display_name || '?';
-    const photo = safeImageUrl(a.photo_url);
-    const focus = /^\d{1,3}% \d{1,3}%$/.test(a.photo_position || '') ? a.photo_position : '';
+    const isManager = a.role === 'manager';
     const card = document.createElement('div');
-    card.className = 'panel agent-card';
+    card.className = 'team-card' + (isManager ? ' is-manager' : '');
+    card.setAttribute('role', 'link');
+    card.tabIndex = 0;
+    card.setAttribute('aria-label', name + ' — ' + roleLabel(a));
     card.innerHTML = `
-      <div class="agent-avatar">${photo ? `<img src="${encodeURI(photo)}" alt="${escapeHtml(name)}" loading="lazy"${focus ? ` style="--photo-pos:${focus}"` : ''}>` : escapeHtml(name[0])}</div>
-      <div style="min-width:0">
-        <div class="name">${escapeHtml(name)}</div>
-        <div class="role">${escapeHtml(roleLabels[a.role] || a.role || '')}</div>
-        ${a.license_number ? `<span class="lic">${ICON.check}רישיון ${escapeHtml(a.license_number)}</span>` : ''}
-      </div>
-      ${a.has_ethics_badge ? '<span class="agent-badge"></span>' : ''}
-      <span class="chev" aria-hidden="true">${ICON.chevron}</span>`;
-    // התו נשתל אחרי ה-innerHTML כדי שיישא את מאזין הלחיצה שלו; הוא עוצר את
-    // ה-click מלטפס לכרטיס, כך שלחיצה עליו פותחת את הפופ־אפ ולא את דף הסוכן/ת
+      ${isManager ? `<span class="team-flag">${ICON.star}מנהל/ת המשרד</span>` : ''}
+      ${agentAvatarHtml(a, 'team-avatar')}
+      <div class="team-name">${escapeHtml(name)}</div>
+      <div class="team-role">${escapeHtml(roleLabel(a))}</div>
+      ${a.license_number ? `<span class="team-lic">${ICON.check}רישיון ${escapeHtml(a.license_number)}</span>` : ''}
+      ${a.has_ethics_badge ? '<div class="team-badge"></div>' : ''}
+      ${hasPhone(a) ? `<div class="team-actions">
+        <a class="ta-wa" href="${escapeHtml(waLink(a.phone_e164, `הגעתי לדף של ${(currentAgency && currentAgency.name) || 'המשרד'} בשוק הנדל״ן של עפולה והסביבה ואשמח לדבר עם ${name}.`))}"
+           target="_blank" rel="noopener noreferrer"
+           aria-label="${escapeHtml('שליחת הודעת וואטסאפ ל' + name)}">${WA_SVG} וואטסאפ</a>
+        <a class="ta-tel" href="tel:+${a.phone_e164}" aria-label="${escapeHtml('חיוג ל' + name)}">${ICON.phone} חיוג</a>
+      </div>` : ''}`;
+
+    // התו נשתל אחרי ה-innerHTML כדי שיישא את מאזין הלחיצה שלו
     if (a.has_ethics_badge && window.QualityBadge){
-      card.classList.add('has-badge');
-      QualityBadge.mount(card.querySelector('.agent-badge'), { size:'sm', subject:name });
+      QualityBadge.mount(card.querySelector('.team-badge'), { size:'sm', subject:name });
     }
-    card.addEventListener('click', ()=> window.location.href = 'agent.html?slug=' + (a.slug || a.id));
-    el.appendChild(card);
+
+    const open = ()=> window.location.href = 'agent.html?slug=' + (a.slug || a.id);
+    // לחיצה על כפתור וואטסאפ/חיוג או על תו האיכות לא אמורה לנווט לדף הסוכן/ת
+    card.addEventListener('click', (e)=>{ if (!e.target.closest('a, button')) open(); });
+    card.addEventListener('keydown', (e)=>{
+      if ((e.key === 'Enter' || e.key === ' ') && e.target === card){ e.preventDefault(); open(); }
+    });
+    rail.appendChild(card);
   });
+
+  document.getElementById('teamSec').style.display = 'block';
+  initCarousel(rail, document.getElementById('teamPrev'),
+               document.getElementById('teamNext'), document.getElementById('teamDots'));
+}
+
+/* ---------- קרוסלה ----------
+   חיצים, נקודות וגלילה בקפיצות של כרטיס — לרצועת המתווכים ולשלוש רצועות
+   הנכסים כאחד. ב-RTL ציר הגלילה הפיזי הפוך — ‏scrollLeft יורד לשלילי ככל
+   שמתקדמים — ולכן כיוון הצעד נגזר מכיוון הכתיבה בפועל ולא מקובע. */
+window.addEventListener('resize', ()=>{
+  document.querySelectorAll('.rail').forEach(rail => rail._railSync && rail._railSync());
+});
+
+function initCarousel(rail, prev, next, dots){
+  const cards = Array.from(rail.children);
+  if (!cards.length) return;
+
+  prev.innerHTML = ICON.chevronR;
+  next.innerHTML = ICON.chevron;
+
+  const rtl = getComputedStyle(rail).direction === 'rtl';
+  // ‏scrollBy/scrollTo מקבלים היסט פיזי; ב-RTL ההתקדמות היא לכיוון השלילי
+  const toAxis = value => rtl ? -value : value;
+
+  const gap = parseFloat(getComputedStyle(rail).columnGap) || 0;
+  const step = dir =>{
+    const width = cards[0].getBoundingClientRect().width + gap;
+    rail.scrollBy({ left: toAxis(dir * width), behavior:'smooth' });
+  };
+  prev.addEventListener('click', ()=> step(-1));
+  next.addEventListener('click', ()=> step(1));
+
+  /* הנקודות מסמנות עמודי גלילה ולא כרטיסים: במסך רחב נראים ארבעה כרטיסים
+     בבת אחת, ונקודה לכל כרטיס הייתה מציגה ארבע "מיקומים" שאי אפשר להגיע
+     אליהם. מספר העמודים תלוי ברוחב, ולכן הן נבנות מחדש כשהוא משתנה. */
+  let pageCount = 0;
+  function buildDots(count){
+    pageCount = count;
+    dots.textContent = '';
+    for (let i = 0; i < count; i++){
+      const dot = document.createElement('button');
+      dot.type = 'button';
+      dot.setAttribute('aria-label', `מעבר לעמוד ${i + 1} מתוך ${count}`);
+      // מיקום יחסי לאורך הגלילה כולה — כך שהנקודה האחרונה באמת מגיעה לסוף
+      // הרצועה גם כשהעודף לגלילה קטן מרוחב עמוד שלם
+      dot.addEventListener('click', ()=>{
+        const scrollable = rail.scrollWidth - rail.clientWidth;
+        rail.scrollTo({ left: toAxis(scrollable * i / (count - 1)), behavior:'smooth' });
+      });
+      dots.appendChild(dot);
+    }
+  }
+
+  function sync(){
+    if (rail.dataset.expanded === '1') return;   // רשת פתוחה — אין קרוסלה לסנכרן
+    rail.classList.remove('no-scroll');
+    const scrollable = rail.scrollWidth - rail.clientWidth;
+    const overflowing = scrollable > 8;
+    prev.hidden = next.hidden = !overflowing;
+    dots.hidden = !overflowing;
+    if (!overflowing){ rail.classList.add('no-scroll'); return; }
+
+    const pos = Math.abs(rail.scrollLeft);
+    prev.disabled = pos <= 2;
+    next.disabled = pos >= scrollable - 2;
+
+    const count = Math.max(2, Math.ceil(rail.scrollWidth / rail.clientWidth));
+    if (count !== pageCount) buildDots(count);
+    const active = Math.round(pos / scrollable * (count - 1));
+    Array.from(dots.children).forEach((d, i)=> d.classList.toggle('on', i === active));
+  }
+
+  rail.addEventListener('scroll', ()=>{
+    if (rail._syncing) return;
+    rail._syncing = requestAnimationFrame(()=>{ rail._syncing = null; sync(); });
+  });
+  // הרצועות של הנכסים נבנות מחדש בכל הקלדה בחיפוש. מאזין resize על window לכל
+  // רצועה היה משאיר מאחוריו מאזין מת בכל בנייה — לכן ה-sync נתלה על הרצועה
+  // עצמה, ומאזין יחיד וגלובלי מריץ את מה שבאמת נמצא בדף.
+  rail._railSync = sync;
+  sync();
 }
 
 async function loadReviews(sb, agencyId){
@@ -994,7 +1389,7 @@ async function loadReviews(sb, agencyId){
 
   const avg = reviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / reviews.length;
   const reviewsLabel = reviews.length === 1 ? 'ביקורת אחת' : `${reviews.length} ביקורות`;
-  setStat('rating', avg.toFixed(1).replace(/\.0$/, ''), `דירוג ממוצע · ${reviewsLabel}`, 'star', true);
+  setSectionNote('reviewsSummary', `★ ${avg.toFixed(1).replace(/\.0$/, '')} דירוג ממוצע · ${reviewsLabel}`);
 
   el.innerHTML = '';
   reviews.forEach(r=>{
