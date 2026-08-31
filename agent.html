@@ -1053,7 +1053,7 @@ async function loadAgentProfile(){
 
     if (agent.agency_id){
       const { data: agency } = await sb.from('agencies')
-        .select('name, slug, logo_url, cover_url, colors, gallery').eq('id', agent.agency_id).maybeSingle();
+        .select('name, slug, logo_url, cover_url, colors').eq('id', agent.agency_id).maybeSingle();
       agent.agencies = agency || null;
     }
 
@@ -1323,9 +1323,10 @@ async function loadAgentDeals(sb, agentId){
 }
 
 /* ---------- הגלריה ----------
-   התמונות של הסוכן/ת עצמו/ה (agency_members.gallery, נערכות ב-CRM). סוכן/ת
-   שעוד לא העלה/תה תמונות משלו/ה מקבל/ת את גלריית המשרד — עם כותרת שאומרת
-   במפורש שאלה תמונות המשרד, כדי שהן לא ייקראו כשלו/ה. */
+   התמונות של הסוכן/ת עצמו/ה בלבד (agency_members.gallery, נערכות ב-CRM תחת
+   "עדכון פרטי הסוכן/ת"). אין כאן נפילה לגלריית המשרד: תמונות של המשרד אינן
+   התמונות של הסוכן/ת, והצגתן כאן קוראת כאילו הן שלו/ה. סוכן/ת שעדיין לא
+   העלה/תה תמונות פשוט לא מקבל/ת מקטע גלריה. */
 let galleryItems = [];
 /* שתי שורות תמונות ותו לא. במסך רחב זה 2 גדולות + 3 קטנות; במסך צר הרשת היא
    שתי עמודות, ולכן חמש תמונות היו נערמות לשלוש שורות. */
@@ -1339,16 +1340,11 @@ function normalizeGallery(raw){
 }
 
 function renderGallery(agent){
-  const own = normalizeGallery(agent.gallery);
-  const agency = agent.agencies || null;
-  const fallback = own.length ? [] : normalizeGallery(agency && agency.gallery);
-  galleryItems = own.length ? own : fallback;
+  galleryItems = normalizeGallery(agent.gallery);
   if (galleryItems.length === 0) return;
 
   const first = (agent.display_name || '').split(' ')[0];
-  document.getElementById('galleryHeading').textContent = own.length
-    ? (first ? 'הגלריה של ' + first : 'הגלריה')
-    : 'הגלריה של ' + ((agency && agency.name) || 'המשרד');
+  document.getElementById('galleryHeading').textContent = first ? 'הגלריה של ' + first : 'הגלריה';
 
   const grid = document.getElementById('galleryBento');
   grid.textContent = '';
