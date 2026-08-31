@@ -32,21 +32,41 @@
 
     /* ====== שכבת העיצוב 2026 ======
        אותה שכבה שדף הנכס מקבל: משטחים בהירים, קווי הפרדה דקיקים וצללים רכים.
-       היא מכוונת ולא נגזרת מ-var(--brand) — צבעי המשרד נשארים על האקסנטים
-       (טאב פעיל, תגיות, כפתורים), והשלד נשאר אחיד בין כל המשרדים במרקטפלייס.
-       ‏--surface כן נדרס אם המשרד הגדיר paper_raised משלו, כדי לא לשבור ערכה
+       הפריסה, הרדיוסים ועוצמת הצללים זהים בכל המשרדים — זה השלד המשותף של
+       המרקטפלייס. מה שכן נגזר מ-var(--brand) הוא הטמפרטורה: המשטח המשני
+       והצללים מקבלים את גוון המותג, כך שערכה חמה לא נשארת עם צללים כחלחלים.
+       ‏--surface נדרס אם המשרד הגדיר paper_raised משלו, כדי לא לשבור ערכה
        כהה שנבחרה בכוונה. */
     --surface:#FFFFFF; --surface-soft:#FBFAF9;
     --hair:#E6E3DD; --hair-strong:#D8D4CC;
     --radius-xl:24px;
+    /* ‏--veil-ink הוא ה"שחור" של הדף: הבסיס לצללים, לשכבת הכהות מעל תמונת
+       הנושא ולתגיות שיושבות על תמונות. בלי color-mix הוא נשאר שחור נקי. */
+    --veil-ink:#000;
     --shadow-xs:0 1px 2px rgba(18,40,64,.05);
     --shadow-md:0 8px 24px rgba(18,40,64,.10);
+    --brand-veil:rgba(18,40,64,.62);
+    --cover-veil-strong:rgba(0,0,0,.45); --cover-veil-soft:rgba(0,0,0,.05);
   }
   @supports (color: color-mix(in srgb, red 50%, white)){
     :root{
       --teal-tint:color-mix(in srgb, var(--brand) 14%, #fff);
       --gold-tint:color-mix(in srgb, var(--accent) 14%, #fff);
       --accent-veil:color-mix(in srgb, var(--accent) 84%, transparent);
+
+      /* ‏--surface-soft נגזר מ---surface (ולא מלבן קבוע), ולכן הוא ממשיך לעבוד
+         גם כשהמשרד הגדיר רקע כרטיסים משלו. */
+      --surface-soft:color-mix(in srgb, var(--brand) 4%, var(--surface));
+      /* שחור מעורבב בגוון הראשי הכהה — תמיד כהה יותר מ---brand-dark עצמו,
+         ולכן שכבת הכהות מעל תמונת הנושא נשארת קריאה גם בערכה בהירה. */
+      --veil-ink:color-mix(in srgb, var(--brand-dark) 55%, #000);
+      /* אותן עוצמות צל כמו קודם (5%/8%/10% של נייבי) — רק הגוון משתנה */
+      --shadow-xs:0 1px 2px color-mix(in srgb, var(--veil-ink) 6%, transparent);
+      --shadow-sm:0 2px 8px color-mix(in srgb, var(--veil-ink) 9%, transparent);
+      --shadow-md:0 8px 24px color-mix(in srgb, var(--veil-ink) 12%, transparent);
+      --brand-veil:color-mix(in srgb, var(--veil-ink) 62%, transparent);
+      --cover-veil-strong:color-mix(in srgb, var(--veil-ink) 45%, transparent);
+      --cover-veil-soft:color-mix(in srgb, var(--veil-ink) 5%, transparent);
     }
   }
   *{box-sizing:border-box}
@@ -91,7 +111,7 @@
   /* עם תמונת נושא: התמונה ממלאת את הרצועה, ומעליה שכבת כהות בגוון המותג כדי
      שהלוגו והשם שנשענים על הקצה התחתון יישארו קריאים על כל תמונה. */
   .cover.has-image{height:240px;background-size:cover;background-position:center}
-  .cover.has-image::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45),rgba(0,0,0,.05) 55%)}
+  .cover.has-image::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,var(--cover-veil-strong),var(--cover-veil-soft) 55%)}
   @media(max-width:640px){.cover{height:130px}.cover.has-image{height:165px}}
 
   /* רק הלוגו נכנס אל תוך רצועת הנושא; שם המשרד יושב כולו על רקע הדף, אחרת
@@ -285,7 +305,7 @@
     background:
       linear-gradient(180deg,rgba(255,255,255,.66),rgba(255,255,255,.36) 55%,rgba(255,255,255,.56)),
       url('assets/property-placeholder.jpg') center/cover no-repeat,
-      linear-gradient(160deg,#F4F3F0 0%,var(--teal-tint) 100%);
+      linear-gradient(160deg,var(--surface-soft) 0%,var(--teal-tint) 100%);
   }
   .thumb-fallback .tf-logo{
     width:54px;height:54px;flex:0 0 auto;border-radius:14px;background:#fff;
@@ -305,7 +325,7 @@
   .card-tags{position:absolute;top:9px;inset-inline-start:9px;z-index:2;display:flex;gap:5px;flex-wrap:wrap;max-width:80%}
   .card-tag{
     font-size:.66rem;font-weight:800;padding:3px 9px;border-radius:999px;line-height:1.35;
-    background:rgba(18,40,64,.62);color:#fff;border:1px solid rgba(255,255,255,.26);backdrop-filter:blur(8px);
+    background:var(--brand-veil);color:#fff;border:1px solid rgba(255,255,255,.26);backdrop-filter:blur(8px);
   }
   .card-tag.rent{background:var(--accent-veil);color:var(--on-accent)}
   .card-media{position:absolute;bottom:9px;inset-inline-start:9px;z-index:2;display:flex;gap:5px;flex-wrap:wrap}
