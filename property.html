@@ -11,6 +11,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="assets/quality-badge.js"></script>
+<script src="assets/map-gestures.js"></script>
 <style>
   :root{
     --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
@@ -1571,6 +1572,11 @@ async function initPropertyMap(p, addressText){
       .setView([p.lat, p.lng], PROP_MAP_ZOOM);
     propMapTiles(map);
     propMapMarker(p).addTo(map);
+    /* ‏scrollWheelZoom:false מטפל בגלגלת; זו המקבילה שלו במגע. המפה יושבת
+       באמצע דף ארוך, ובלעדיה אצבע שנחתה עליה בדרך לפרטי הנכס הזיזה את המפה
+       במקום להמשיך לגלול. במסך המלא (propMapFull) לא קוראים לזה בכוונה: שם
+       אין דף מתחת לגלול, והמפה היא כל המסך. */
+    if (window.MapGestures) MapGestures.apply(map);
 
     const google = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`;
     const waze = `https://waze.com/ul?ll=${p.lat},${p.lng}&navigate=yes`;

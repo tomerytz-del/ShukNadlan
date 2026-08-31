@@ -12,6 +12,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="assets/map-gestures.js"></script>
 <style>
   /* ====== Design tokens — grounded in Jezreel Valley (עמק יזרעאל): wheat gold + cultivated-land teal + Gilboa dusk ====== */
   :root{
@@ -1637,7 +1638,11 @@
   /* במצב ניגודיות גבוהה המפה מעומעמת: אריחים צבעוניים מתחת לטקסט צהוב על
      שחור הורסים את יחס הניגודיות שכל המצב הזה נועד להבטיח */
   html.a11y-contrast .hero-overlay{background:#000 !important}
-  html.a11y-contrast #hero-map{opacity:.25}
+  /* העימום חל על שכבת המפה עצמה ולא על ‎#hero-map‎ כולו: קונטיינר מעומעם
+     עימם גם את מה שמונח מעל המפה — פקדי Leaflet ובועית "שתי אצבעות" —
+     שנועדו דווקא להיקרא במצב הזה */
+  html.a11y-contrast #hero-map .leaflet-map-pane{opacity:.25}
+  html.a11y-contrast .map-gesture-hint{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D}
   html.a11y-contrast .map-tint{display:none !important}
   html.a11y-contrast #hero-map .leaflet-tile-pane{filter:none !important}
   html.a11y-contrast .hot-band,
@@ -4231,6 +4236,14 @@ try {
   heroMap.attributionControl.setPosition('bottomleft');
   heroMap.on('focus', ()=> heroMap.scrollWheelZoom.enable());
   heroMap.on('blur', ()=> heroMap.scrollWheelZoom.disable());
+
+  /* המקבילה של scrollWheelZoom:false למגע. המפה כאן פותחת את הדף וגובהה
+     כמעט מסך שלם במובייל, ולכן היא הייתה המלכודת הגדולה מכולן: אצבע שנחתה
+     עליה בדרך למטה הזיזה את המפה במקום להמשיך בדף. עכשיו אצבע אחת גוללת,
+     ושתיים מזיזות ומקרבות. הזזה בשתי אצבעות ממשיכה לירות moveend/zoomend,
+     ולכן הפאנל המפוצל וסינון התחום הנראה לא מושפעים.
+     ‏MapGestures לא נטען (קובץ חסר/נכשל) — המפה פשוט נשארת כשהייתה. */
+  if (window.MapGestures) MapGestures.apply(heroMap);
 
   const tintPane = heroMap.createPane('tintPane');
   tintPane.classList.add('map-tint');
