@@ -699,9 +699,9 @@
   }
 
   /* ====== Newsflash ticker ====== */
-  /* הרצועה יושבת עכשיו בין קרוסלת "נכסים חמים מהמפה" לרצועת משרדי
-     התיווך — שתי סקציות על אותו רקע בהיר — ולכן היא תחומה משני הצדדים
-     ולא רק מלמטה, אחרת היא נראית כהמשך של הסקציה שמעליה. */
+  /* הרצועה יושבת בין קרוסלת משרדי התיווך לרצועת הנכסים למכירה — שתי
+     סקציות על אותו רקע בהיר — ולכן היא תחומה משני הצדדים ולא רק מלמטה,
+     אחרת היא נראית כהמשך של הסקציה שמעליה. */
   .ticker{
     background:var(--gold-tint);border-block:1px solid var(--line);
     display:flex;align-items:center;gap:10px;padding:9px 0;overflow:hidden;
@@ -895,7 +895,7 @@
     .sr-price{font-size:1.18rem}
   }
 
-  /* ====== "נכסים חמים מהמפה" — קרוסלת coverflow מתחת למפה ======
+  /* ====== הרצועה הראשונה מתחת למפה (קרוסלת משרדי התיווך) ======
      הרצועה נכנסת 16px מתחת לקצה התחתון של המפה עם פינות מעוגלות, כך
      שהמפה נראית כמו במה שהקרוסלה יושבת עליה (ולא כמו שתי קופסאות נפרדות).
      z-index:4 מציב אותה מעל .map-toolbar (z-index:3), שהורחק כלפי מעלה
@@ -1139,9 +1139,10 @@
 
   /* לשתי רצועות הקרוסלה יש נקודות ניווט (.cf-dots) שנושאות מרווח משלהן
      מתחת למסלול, ולכן הריפוד התחתון שלהן מהודק מעט מתחת לברירת המחדל
-     של .section כדי שהמעבר לסקציה הבאה יישאר זהה לשאר העמוד. */
-  #leadingAgencies{padding-bottom:12px}
-  #leadingAgencies .section-head{margin-bottom:10px}
+     של .section / .hot-band כדי שהמעבר לסקציה הבאה יישאר זהה לשאר העמוד.
+     ‏#leadingAgencies הוא הרצועה הראשונה מתחת למפה ונושא את .hot-band,
+     ולכן הריפוד שלו נגזר משם ורק התחתון מהודק כאן. */
+  #leadingAgencies{padding-bottom:18px}
   #leadingAgents{padding-top:12px}
   #leadingAgents .section-head{margin-bottom:12px}
   /* הכותרת ארוכה ונשברת לשתי שורות במובייל; ‎balance‎ מחלק אותה לשתי
@@ -2227,27 +2228,21 @@
     </div>
   </div>
 
-  <!-- ====== קרוסלת "נכסים חמים מהמפה" ======
-       מוזנת מאותה רשימת נכסים שמזינה את המפה ואת גריד הנכסים: renderPropertyGrid()
-       קורא ל-renderMap() ול-renderHotCarousel() יחד, כך שחיפוש מעדכן את שלושתם
-       באותו רגע והקרוסלה תמיד מציגה בדיוק את מה שמסומן על המפה שמעליה. -->
-  <section class="hot-band" id="hotFromMap" aria-labelledby="hotFromMapTitle">
+  <!-- ====== Leading Agencies (module 3 §5.2) ======
+       הרצועה הראשונה מתחת למפה: קרוסלת coverflow של כל משרדי התיווך
+       בפלטפורמה, כשהדירוג יושב על ריבוע הלוגו. היא נושאת את מחלקת
+       ‎.hot-band‎ — הבמה שנכנסת 16px מתחת לקצה המפה — כי היא זו שיושבת
+       עכשיו במקום שבו ישבה קודם רצועת "נכסים חמים מהמפה". -->
+  <section class="hot-band" id="leadingAgencies" aria-labelledby="leadingAgenciesTitle">
     <div class="wrap">
       <div class="hot-head">
-        <h2 id="hotFromMapTitle">נכסים חמים מהמפה — מהדורת פרימיום 2026</h2>
-        <p class="hot-sub" id="hotFromMapSub">גללו בין הנכסים המסומנים על המפה</p>
+        <h2 id="leadingAgenciesTitle">משרדי תיווך מובילים בעפולה</h2>
+        <p class="hot-sub">הדירוג נקבע לפי ביקורות הלקוחות ופעילות המשרד</p>
       </div>
-      <!-- אין כאן שורת נקודות ניווט: מספר הנכסים ברצועה אינו חסום, ושורת
-           נקודות אחת לכל נכס הייתה נשברת לעשרות שורות ודוחפת את כל הסקציות
-           שמתחת כלפי מטה. הניווט ברצועה הוא בגלילה/החלקה בלבד. -->
-      <div class="coverflow" id="hotCarousel" role="region" aria-label="נכסים חמים מהמפה"></div>
+      <div class="coverflow" id="leadingAgenciesScroll" role="region" aria-label="משרדי תיווך מובילים"><!-- populated by JS --></div>
+      <div class="cf-dots" id="leadingAgenciesDots" aria-label="מעבר בין משרדי תיווך"></div>
     </div>
   </section>
-
-  <!-- ====== שורת פרסומת ====== -->
-  <div class="ad-row wrap">
-    <div class="ad-strip"><span class="tag">פרסומת</span> מיקום פרסום — באנר רוחבי מתחת לנכסים החמים</div>
-  </div>
 
   <!-- ====== Newsflash ticker ====== -->
   <div class="ticker">
@@ -2262,19 +2257,41 @@
     </div>
   </div>
 
-  <!-- ====== Leading Agencies (module 3 §5.2) ======
-       קרוסלה על אותו מנוע coverflow של "נכסים חמים מהמפה": כל משרדי
-       התיווך בפלטפורמה נמצאים במסלול אחד שאפשר לדפדף בו, והדירוג יושב
-       על ריבוע הלוגו במקום כשורה נפרדת מעליו. -->
-  <section class="section wrap" id="leadingAgencies">
+  <!-- ====== נכסים פרטיים למכירה ======
+       כל הנכסים למגורים של כל משרדי התיווך בפלטפורמה במסלול אחד: החדשים
+       ראשונים, ולפניהם שני נכסים מקודמים *מאותה קטגוריה* (מגורים למכירה)
+       — קידום מציב נכס בראש הרצועה שהוא שייך אליה ולא בראש רצועה אחרת.
+       שתי הרצועות (מכירה/השכרה) מוזנות מאותה רשימת נכסים פעילים שמזינה
+       את המפה ואת הגריד שלמטה — ראו renderDealCarousels(). -->
+  <section class="section wrap" id="saleProps">
     <div class="section-head">
       <div>
-        <h2>משרדי תיווך מובילים בעפולה</h2>
+        <p class="eyebrow">דירות, בתים ומגרשים</p>
+        <h2>נכסים פרטיים למכירה</h2>
+        <p class="section-sub">מכל משרדי התיווך בעפולה והסביבה — החדשים ביותר בראש</p>
       </div>
+      <a href="#heroSection" class="see-all" id="saleSeeAll">כל הנכסים למכירה ←</a>
     </div>
-    <div class="coverflow" id="leadingAgenciesScroll" role="region" aria-label="משרדי תיווך מובילים"><!-- populated by JS --></div>
-    <div class="cf-dots" id="leadingAgenciesDots" aria-label="מעבר בין משרדי תיווך"></div>
+    <div class="featured-scroll" id="saleScroll"><!-- populated by JS --></div>
   </section>
+
+  <!-- ====== נכסים פרטיים להשכרה ====== -->
+  <section class="section wrap" id="rentProps">
+    <div class="section-head">
+      <div>
+        <p class="eyebrow">דירות ובתים להשכרה</p>
+        <h2>נכסים פרטיים להשכרה</h2>
+        <p class="section-sub">מכל משרדי התיווך בעפולה והסביבה — החדשים ביותר בראש</p>
+      </div>
+      <a href="#heroSection" class="see-all" id="rentSeeAll">כל הנכסים להשכרה ←</a>
+    </div>
+    <div class="featured-scroll" id="rentScroll"><!-- populated by JS --></div>
+  </section>
+
+  <!-- ====== שורת פרסומת ====== -->
+  <div class="ad-row wrap">
+    <div class="ad-strip"><span class="tag">פרסומת</span> מיקום פרסום — באנר רוחבי מתחת לנכסים למגורים</div>
+  </div>
 
   <!-- ====== נכסים מסחריים ====== -->
   <section class="section wrap" id="commercialProps">
@@ -2283,7 +2300,7 @@
         <p class="eyebrow">משרדים, חנויות ומבני תעשייה</p>
         <h2>נכסים מסחריים בעפולה והסביבה</h2>
       </div>
-      <a href="#hotFromMap" class="see-all" id="commercialSeeAll">כל הנכסים המסחריים ←</a>
+      <a href="#heroSection" class="see-all" id="commercialSeeAll">כל הנכסים המסחריים ←</a>
     </div>
     <div class="featured-scroll" id="commercialScroll"><!-- populated by JS --></div>
   </section>
@@ -3917,16 +3934,85 @@ async function loadCommercialProperties(){
   });
 })();
 
-/* "כל הנכסים המסחריים" מריץ את החיפוש הרגיל במצב מסחרי במקום לקשר לעמוד
-   שעדיין לא קיים — כך המפה, הקרוסלה והרשימה מסתננים יחד למסחרי בלבד. */
-document.getElementById('commercialSeeAll')?.addEventListener('click', (e)=>{
+/* קישורי "כל הנכסים…" מריצים את החיפוש הרגיל בסוג העסקה המתאים במקום
+   לקשר לעמוד שעדיין לא קיים — כך המפה ושורות התוצאות מסתננות יחד לאותה
+   קטגוריה. היעד לגלילה הוא ה-hero: שם יושבים גם בורר סוג העסקה שהשתנה
+   וגם המפה, ותוצאות החיפוש נפתחות מיד מתחתיהם. */
+function seeAllByDeal(mode){
   const select = document.getElementById('dealTypeSelect');
   if (!select) return;
-  e.preventDefault();
-  select.value = 'commercial';
+  select.value = mode;
   select.dispatchEvent(new Event('change'));
-  document.getElementById('hotFromMap')?.scrollIntoView({ behavior:'smooth', block:'start' });
+  document.getElementById('heroSection')?.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+[['commercialSeeAll','commercial'], ['saleSeeAll','sale'], ['rentSeeAll','rent']].forEach(([id, mode])=>{
+  document.getElementById(id)?.addEventListener('click', (e)=>{ e.preventDefault(); seeAllByDeal(mode); });
 });
+
+/* ---------- קרוסלות הנכסים למגורים: למכירה ולהשכרה ----------
+   שתי רצועות שמוזנות מאותה רשימת נכסים פעילים שמזינה את המפה ואת הגריד
+   שלמטה (renderDealCarousels נקראת מ-initPropertyUI), ולכן אין כאן
+   שאילתה נוספת ל-DB ואין סיכון שהן יציגו מלאי אחר ממה שעל המפה. */
+
+/* כמה כרטיסים נכנסים לרצועה. מספיק כדי שהגלילה תרגיש עשירה ולא כל
+   המאגר — לרשימה המלאה יש גריד משלה בתחתית העמוד. */
+const DEAL_CAROUSEL_MAX = 12;
+/* שני המקומות הראשונים בכל רצועה שמורים לנכסים מקודמים. */
+const DEAL_CAROUSEL_PROMOTED = 2;
+
+/* הסדר ברצועה: עד שני נכסים מקודמים *מאותה קטגוריה* בראש (החדשים שבהם
+   קודם), ואחריהם שאר הנכסים לפי תאריך העלאה יורד.
+   המיון נעשה כאן ולא נלקח כמו שהוא מה-DB: הרשימה חוזרת משם ממוינת
+   מקודמים-קודם על פני *כל* הקטגוריות יחד, וכך נכס מקודם להשכרה היה
+   נדחף לראש רצועת המכירה. קידום מרים נכס בתוך הרצועה שהוא שייך אליה. */
+function dealCarouselItems(properties, deal){
+  const pool = newestFirst(properties.filter(p => dealKind(p) === deal));
+  const promoted = pool.filter(isPromoted).slice(0, DEAL_CAROUSEL_PROMOTED);
+  const promotedIds = new Set(promoted.map(p => p.id));
+  return [...promoted, ...pool.filter(p => !promotedIds.has(p.id))].slice(0, DEAL_CAROUSEL_MAX);
+}
+
+/* אותו אריח של שאר הרצועות בעמוד, עם כל הכותרות של הנכס: סרט "מקודם"
+   כשהוא בתשלום, מחיר (שכירות מסומנת ב"/חוד׳" ע"י priceLabel), כותרת,
+   חדרים, שטח, סוג הנכס והמשרד שמפרסם אותו. */
+function dealCarouselCard(p, i){
+  const card = document.createElement('article');
+  card.className = 'prop-card';
+  card.style.cursor = 'pointer';
+  const meta = [
+    p.rooms ? p.rooms + ' חדרים' : '',
+    p.size_sqm ? p.size_sqm + ' מ״ר' : '',
+    p.property_type || '',
+    p.agency_name || '',
+  ].filter(Boolean).map(t => `<span>${escAttr(t)}</span>`).join('');
+  card.innerHTML = `
+    <div class="thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
+    <div class="body">
+      <div class="price">${priceLabel(p)}</div>
+      <div class="title">${escAttr(p.title || '')}</div>
+      <div class="meta">${meta}</div>
+    </div>`;
+  card.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
+  return card;
+}
+
+/* רצועה בלי נכסים מוסתרת לגמרי (כמו קרוסלת המשרדים): כותרת סקציה מעל
+   מסלול ריק נראית כמו תקלה, ובעפולה יש ימים שבהם אין ולו נכס אחד
+   להשכרה במאגר. */
+function renderDealCarousel(trackId, sectionId, properties, deal){
+  const track = document.getElementById(trackId);
+  const section = document.getElementById(sectionId);
+  if (!track || !section) return;
+  const items = dealCarouselItems(properties, deal);
+  section.hidden = !items.length;
+  track.innerHTML = '';
+  items.forEach((p, i)=> track.appendChild(dealCarouselCard(p, i)));
+}
+
+function renderDealCarousels(properties){
+  renderDealCarousel('saleScroll', 'saleProps', properties, 'sale');
+  renderDealCarousel('rentScroll', 'rentProps', properties, 'rent');
+}
 
 /* ---------- כתבות ובלוגים ---------- */
 const FALLBACK_ARTICLES = [
@@ -4545,7 +4631,7 @@ document.querySelectorAll('.map-legend button').forEach(btn=>{
    getBoundingClientRect ולא מול scrollLeft בכוונה — ב-RTL הסימן והאפס של
    scrollLeft שונים בין דפדפנים, בעוד שמרכז מלבן במרחב התצוגה תמיד מדויק
    (וגם לא מושפע מה-scale() שעל הכרטיסים, שממורכז ממילא).
-   שני מסלולים משתמשים במנוע — "נכסים חמים מהמפה" ו"משרדי תיווך מובילים" —
+   שני מסלולים משתמשים במנוע — "משרדי תיווך מובילים" ו"מתווכים מובילים" —
    ולכן המצב (הכרטיסים והאינדקס הפעיל) יושב במופע ולא במשתנים גלובליים. */
 function trackCenter(el){
   const r = el.getBoundingClientRect();
@@ -4650,62 +4736,7 @@ function createCoverflow(track, dots){
   };
 }
 
-/* ---------- קרוסלת "נכסים חמים מהמפה" ---------- */
-const hotTrack = document.getElementById('hotCarousel');
-// בלי מסלול נקודות (null) — ראו את ההערה ליד הרצועה ב-HTML
-const hotFlow = hotTrack ? createCoverflow(hotTrack, null) : null;
-
 function dealBadge(p){ return DEAL_LABELS[dealKind(p)]; }
-
-function renderHotCarousel(properties, isSearchResult){
-  if (!hotFlow) return;
-  hotFlow.reset();
-
-  // הרצועה הזו היא ויטרינה: כרטיס בלי תמונה נופל לגרדיאנט צבעוני ונראה
-  // כמו כרטיס שבור בין שכניו המצולמים, ולכן נכס בלי תמונה לא נכנס לכאן
-  // כלל. הוא עדיין מסומן על המפה ומופיע בשורות התוצאות ובגריד.
-  const shown = properties.filter(hasPhoto);
-
-  const sub = document.getElementById('hotFromMapSub');
-  if (sub){
-    // בזמן חיפוש התוצאות המלאות יושבות בשורות מיד מעל הרצועה, ולכן אין
-    // צורך יותר בקיצור "כל התוצאות ברשימה" שהיה כאן
-    sub.textContent = isSearchResult
-      ? `${properties.length} נכסים תואמים לחיפוש שלכם`
-      : 'גללו בין הנכסים המסומנים על המפה';
-  }
-
-  if (!shown.length){
-    hotTrack.classList.add('is-sparse');
-    hotTrack.innerHTML = properties.length
-      ? '<p class="cf-empty">אין נכסים עם תמונה להצגה כרגע</p>'
-      : '<p class="cf-empty">אין נכסים להצגה כרגע</p>';
-    return;
-  }
-
-  shown.forEach((p, i)=>{
-    const card = document.createElement('article');
-    card.className = 'cf-card';
-    card.dataset.deal = p.category === 'commercial' ? 'commercial' : (p.deal_type || 'sale');
-    card.innerHTML = `
-      <div class="cf-thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}<span class="cf-badge">${dealBadge(p)}</span></div>
-      <div class="cf-body">
-        <div class="cf-price">${priceLabel(p)}</div>
-        <div class="cf-title">${p.title}</div>
-        <div class="cf-meta"><span>${p.rooms ? p.rooms + ' חדרים' : p.property_type}</span></div>
-        <div class="cf-meta"><span aria-hidden="true">📍</span><span>${p.size_sqm ? p.size_sqm + ' מ״ר' : (p.city || 'עפולה והעמק')}</span></div>
-      </div>`;
-    // לחיצה על כרטיס צדדי ממרכזת אותו במקום לנווט: כך המחיר נחשף לפני
-    // שהמשתמש מתחייב למעבר לעמוד הנכס, וגם לא "בורחים" מהעמוד בטעות במגע
-    card.addEventListener('click', ()=>{
-      if (!hotFlow.isActive(i)) hotFlow.goTo(i);
-      else window.location.href = 'property.html?id=' + p.id;
-    });
-    hotFlow.add(card, `מעבר לנכס ${i + 1} מתוך ${shown.length}`);
-  });
-
-  hotFlow.done();
-}
 
 /* מירכוז המפה חזרה לעפולה. פעולה של תצוגה בלבד: היא לא נוגעת ברשימת
    הנכסים, בפילטרים או בשורת החיפוש — מי שחיפש "3 חדרים להשכרה" ולחץ כאן
@@ -5154,6 +5185,11 @@ try {
     computeHoodGeometry(properties);
     renderHoodFilter();
 
+    // שתי הרצועות למגורים (מכירה/השכרה) מוזנות מהרשימה המלאה ולא מתוצאות
+    // חיפוש: הן ויטרינה קבועה של המלאי בעמוד הבית, ותוצאות החיפוש מוצגות
+    // בשורות שמתחת למפה.
+    renderDealCarousels(properties);
+
     const featuredScroll = document.getElementById('featuredScroll');
     properties.filter(isPromoted).forEach((p,i)=>{
       const el = document.createElement('div');
@@ -5533,10 +5569,9 @@ function revealSearchResults(){
 }
 
 function showSearchError(){
-  // בלי איפוס התצוגות, הודעת השגיאה מופיעה מעל המפה, הקרוסלה והשורות של
-  // החיפוש הקודם — כלומר מעל נכסים שאין להם קשר למה שהמשתמש ביקש עכשיו
+  // בלי איפוס התצוגות, הודעת השגיאה מופיעה מעל המפה והשורות של החיפוש
+  // הקודם — כלומר מעל נכסים שאין להם קשר למה שהמשתמש ביקש עכשיו
   renderMap([]);
-  renderHotCarousel([], true);
   const section = document.getElementById('searchResults');
   const rows = document.getElementById('searchResultsRows');
   const countEl = document.getElementById('searchResultsCount');
@@ -5879,11 +5914,10 @@ let listingsAll = [];
 let listingsExpanded = false;
 
 function renderPropertyGrid(properties, isSearchResult){
-  // נקודת הסנכרון היחידה בין המפה, שורות התוצאות, הקרוסלה והגריד: כל קריאה
+  // נקודת הסנכרון היחידה בין המפה, שורות התוצאות והגריד: כל קריאה
   // לפונקציה הזו — טעינה ראשונית או runSearch() — מעדכנת את כולם לאותם
   // נכסים בדיוק.
   renderMap(properties);
-  renderHotCarousel(properties, isSearchResult);
   renderSearchRows(properties, isSearchResult);
 
   // בזמן חיפוש התוצאות יושבות בשורות מיד מתחת למפה, ולכן הגריד המלא של
