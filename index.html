@@ -274,41 +274,51 @@
   .search-card .filter-count-badge{position:absolute;top:-1px;inset-inline-start:-1px}
   .map-fallback-note{margin-top:16px;font-size:.85rem;color:#DCE6E4}
 
-  /* ====== גלולות שכונה: קיצור הדרך לנכס ======
+  /* ====== סינון לפי שכונות ======
      בעפולה ובעמק המיקום שקובע הוא ברמת השכונה ("רובע יזרעאל", "לב העמק C1"),
-     ולא ברמת העיר — מי שמחפש כאן כבר יודע באיזו עיר. הגלולות מציגות רק
-     שכונות שיש בהן נכסים פעילים, עם המונה שלהן, כדי שלחיצה לעולם לא תוביל
-     לרשימה ריקה (ראו renderHoodPills ב-JS).
-     השורה נגללת אופקית במסך צר ונפרסת ממורכזת בדסקטופ. פס הגלילה מוסתר —
-     פס גלילה על גבי המפה נראה כמו תקלה, והגלולה החתוכה בקצה היא כשלעצמה
-     הרמז שאפשר להמשיך לגלול. */
-  .hood-bar{margin:10px auto 0;max-width:860px;pointer-events:auto}
-  .hood-pills{
-    display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;
-    padding:2px 4px;scroll-behavior:smooth;
-  }
-  .hood-pills::-webkit-scrollbar{display:none}
-  .hood-pills button{
-    flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;
-    padding:6px 13px;border-radius:999px;white-space:nowrap;cursor:pointer;
-    font-size:.76rem;font-weight:700;color:var(--teal-dark);
-    background:rgba(255,255,255,.92);border:1.5px solid transparent;
-    box-shadow:0 2px 8px rgba(6,20,34,.28);
+     ולא ברמת העיר — מי שמחפש כאן כבר יודע באיזו עיר.
+
+     קודם ישבה כאן שורת גלולות, שכונה אחת בכל לחיצה. שתי מגבלות הפילו אותה:
+     בשורה אחת מעל המפה נכנסו שמונה שכונות מתוך ארבע-עשרה, והבחירה הייתה
+     בלעדית — מי שמתלבט/ת בין רובע יזרעאל ללב העמק נאלץ/ה לבדוק כל אחת בנפרד
+     ולהשוות מהזיכרון. הכפתור כאן פותח מודאל בחירה מרובה: כל השכונות שיש בהן
+     נכסים, עם המונה שלהן, וכמה מהן יחד על אותה מפה (ראו renderHoodFilter).
+
+     הכפתור מרכזי ובודד, ולכן אין כאן גלילה אופקית ואין מה לחתוך בקצה. */
+  .hood-bar{margin:10px auto 0;max-width:860px;pointer-events:auto;display:flex;justify-content:center}
+  .hood-filter-btn{
+    display:inline-flex;align-items:center;gap:7px;cursor:pointer;
+    padding:8px 16px;border-radius:999px;white-space:nowrap;
+    font-size:.8rem;font-weight:700;color:var(--teal-dark);
+    background:rgba(255,255,255,.94);border:1.5px solid transparent;
+    box-shadow:0 2px 10px rgba(6,20,34,.28);
     transition:background .15s ease,color .15s ease,border-color .15s ease;
   }
-  .hood-pills button:hover{background:#fff}
-  .hood-pills button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-  /* הנבחרת נצבעת בטיל הכהה ולא רק במסגרת: הגלולות יושבות על מפה מרובת
-     גוונים, ושינוי מסגרת בלבד לא נקרא שם כבחירה. */
-  .hood-pills button[aria-pressed="true"]{
+  .hood-filter-btn:hover{background:#fff}
+  .hood-filter-btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .hood-filter-btn svg{width:16px;height:16px;flex:0 0 auto}
+  /* כשיש בחירה פעילה הכפתור נצבע בטיל הכהה ולא רק במסגרת: הוא יושב על מפה
+     מרובת גוונים, ושינוי מסגרת בלבד לא נקרא שם כבחירה. */
+  .hood-filter-btn[data-active="true"]{
     background:var(--teal-dark);color:#fff;border-color:var(--gold);
   }
-  .hood-pills .hood-count{
-    font-variant-numeric:tabular-nums;font-weight:700;font-size:.68rem;color:var(--ink-soft);
+  .hood-filter-btn .hood-filter-count{
+    display:inline-flex;align-items:center;justify-content:center;
+    min-width:19px;height:19px;padding:0 5px;border-radius:999px;
+    background:var(--gold);color:#fff;font-size:.68rem;font-weight:800;
+    font-variant-numeric:tabular-nums;
   }
-  .hood-pills button[aria-pressed="true"] .hood-count{color:#E7D9BC}
-  @media(min-width:760px){
-    .hood-pills{flex-wrap:wrap;justify-content:center;overflow:visible}
+
+  /* שורות המודאל: תיבת סימון, שם השכונה, ומספר הנכסים שבה נדחק לקצה כדי
+     שהמספרים ייקראו כטור אחד. */
+  .hood-option{
+    display:flex;align-items:center;gap:8px;font-size:.85rem;color:var(--ink);
+    padding:7px 2px;cursor:pointer;
+  }
+  .hood-option input{margin:0;flex:0 0 auto}
+  .hood-option .hood-option-name{flex:1 1 auto}
+  .hood-option .hood-count{
+    font-variant-numeric:tabular-nums;font-weight:700;font-size:.72rem;color:var(--ink-soft);
   }
   .filters-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .filters-row select{
@@ -1507,12 +1517,13 @@
   html.a11y-contrast .map-legend button,
   html.a11y-contrast .search-card .icon-btn, html.a11y-contrast .search-card .search-go,
   html.a11y-contrast .map-expand-btn,
-  html.a11y-contrast .hood-pills button,
+  html.a11y-contrast .hood-filter-btn,
   html.a11y-contrast .split-close,
   html.a11y-contrast .map-recenter-btn{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
-  /* הגלולה הנבחרת חייבת להיבדל מהשאר גם כשכולן שחור-על-צהוב */
-  html.a11y-contrast .hood-pills button[aria-pressed="true"]{background:#FFD84D !important;color:#000 !important}
-  html.a11y-contrast .hood-pills button[aria-pressed="true"] .hood-count{color:#000 !important}
+  /* כפתור עם בחירה פעילה חייב להיבדל גם כשהכול שחור-על-צהוב */
+  html.a11y-contrast .hood-filter-btn[data-active="true"]{background:#FFD84D !important;color:#000 !important}
+  html.a11y-contrast .hood-filter-btn .hood-filter-count{background:#000 !important;color:#FFD84D !important;border:1px solid #FFD84D}
+  html.a11y-contrast .hood-filter-btn[data-active="true"] .hood-filter-count{background:#000 !important;color:#FFD84D !important}
   html.a11y-contrast .split-panel,
   html.a11y-contrast .split-head,
   html.a11y-contrast .split-note{background:#000 !important;border-color:#FFD84D !important}
@@ -1627,10 +1638,17 @@
           </div>
         </div>
 
-        <!-- סינון מהיר לפי שכונה. נבנה מהנכסים הפעילים עצמם (renderHoodPills),
-             ולכן מוצגות כאן רק שכונות שבאמת יש בהן מה למצוא. -->
+        <!-- סינון לפי שכונות. הכפתור פותח מודאל בחירה מרובה שנבנה מהנכסים
+             הפעילים עצמם (renderHoodOptions), ולכן מוצגות בו רק שכונות
+             שבאמת יש בהן מה למצוא. -->
         <div class="hood-bar" id="hoodBar" hidden>
-          <div class="hood-pills" id="hoodPills" role="group" aria-label="סינון מהיר לפי שכונה"></div>
+          <button type="button" class="hood-filter-btn" id="hoodFilterBtn" aria-haspopup="dialog">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/>
+            </svg>
+            <span id="hoodFilterLabel">סינון לפי שכונות</span>
+            <span class="hood-filter-count" id="hoodFilterCount" hidden>0</span>
+          </button>
         </div>
 
         <p class="map-fallback-note" id="mapFallbackNote" hidden>המפה לא נטענה (בעיית רשת) — רשימת הנכסים למטה עדיין זמינה.</p>
@@ -1651,6 +1669,28 @@
       <div class="split-rows" id="splitRows"></div>
       <p class="split-note" id="splitNote" hidden></p>
     </aside>
+
+    <!-- ====== סינון לפי שכונות (בחירה מרובה) ======
+         הבחירה מוחלת רק בלחיצה על "הצגת תוצאות": סימון של שכונה שלישית
+         באמצע ההתלבטות לא צריך להריץ חיפוש ולהזיז את המפה מתחת ליד. -->
+    <div class="filter-modal-overlay" id="hoodFilterModal">
+      <div class="filter-modal">
+        <div class="filter-modal-header">
+          <h3>סינון לפי שכונות</h3>
+          <button type="button" class="filter-modal-close" data-close-modal="hoodFilterModal">✕</button>
+        </div>
+        <div class="filter-modal-body">
+          <div class="filter-section">
+            <h4>שכונות <span class="filter-hint">(ניתן לבחור יותר משכונה אחת)</span></h4>
+            <div id="hoodFilterOptions" role="group" aria-label="בחירת שכונות"></div>
+          </div>
+        </div>
+        <div class="filter-modal-footer">
+          <button type="button" class="btn btn-ghost" id="hoodClearBtn">כל השכונות</button>
+          <button type="button" class="btn btn-gold" id="hoodApplyBtn" style="flex:1">הצגת תוצאות</button>
+        </div>
+      </div>
+    </div>
 
     <!-- ====== Residential filters modal ====== -->
     <div class="filter-modal-overlay" id="residentialFilterModal">
@@ -3799,7 +3839,9 @@ function fitMapToMarkers(){
   // סימון השכונה הנבחרת נספר כחלק ממה שצריך להיכנס לתצוגה: בלעדיו הוא היה
   // נחתך כשהנכסים מרוכזים בפינה אחת שלו, ובשכונה שהחיפוש לא החזיר בה כלום
   // לא היה למפה בכלל לאן לעוף
-  const hoodBounds = hoodShape ? hoodShape.getBounds() : null;
+  const hoodBounds = hoodShapes.length
+    ? hoodShapes.reduce((acc, s)=> acc ? acc.extend(s.getBounds()) : L.latLngBounds(s.getBounds()), null)
+    : null;
   if (!points.length && !hoodBounds) return;
   try {
     const pad = visibleMapPadding();
@@ -4347,14 +4389,17 @@ if (splitCloseBtn) splitCloseBtn.addEventListener('click', ()=> setSplitView(fal
 setSplitView(splitOn && splitSupported(), { remember:false });
 
 /* ============================================================
-   שכונות: סינון מהיר ורדיוס על המפה
+   שכונות: סינון לפי שכונות וסימון על המפה
    ------------------------------------------------------------
    בעפולה ובעמק המיקום שקובע נקרא ברמת השכונה — "רובע יזרעאל", "גבעת המורה",
-   "לב העמק C1" — ולא ברמת העיר; מי שמחפש כאן כבר יודע באיזו עיר. הגלולות
-   נבנות מהנכסים הפעילים עצמם, ולכן מוצגות רק שכונות שיש בהן מה למצוא,
-   והמונה שעל הגלולה הוא מספר הנכסים שבאמת ימתינו מעבר ללחיצה.
+   "לב העמק C1" — ולא ברמת העיר; מי שמחפש כאן כבר יודע באיזו עיר. רשימת
+   הבחירה נבנית מהנכסים הפעילים עצמם, ולכן מוצגות בה רק שכונות שיש בהן מה
+   למצוא, והמונה שליד כל שכונה הוא מספר הנכסים שבאמת ימתינו מעבר לבחירה.
+
+   הבחירה היא *קבוצה*: אפשר לסמן כמה שכונות ולראות את כולן יחד על המפה.
+   מי שמתלבט/ת בין שתי שכונות שכנות משווה ביניהן במבט אחד במקום לעבור
+   ביניהן ולזכור מה היה בשנייה.
    ============================================================ */
-const HOOD_PILL_LIMIT = 8;
 const HOOD_MIN_RADIUS_M = 450;   // רדיוס מינימלי, שלא ייווצר עיגול זעיר סביב נכס בודד
 const HOOD_RADIUS_PAD_M = 220;   // שוליים סביב הנכס הרחוק ביותר בשכונה
 
@@ -4363,10 +4408,11 @@ const hoodState = {
   byId: new Map(),
   counts: new Map(),       // מזהה שכונה → מספר נכסים פעילים
   centers: new Map(),      // מזהה שכונה → { center:[lat,lng], radius }
-  selected: null,
+  selected: new Set(),     // מזהי השכונות שנבחרו; ריק = כל השכונות
+  draft: new Set(),        // הסימון שבתוך המודאל, לפני "הצגת תוצאות"
 };
-// הסימון של השכונה הנבחרת: מצולע כשיש boundary, ואחרת עיגול (ראו drawHoodShape)
-let hoodShape = null;
+// הסימונים של השכונות הנבחרות: מצולע כשיש boundary, ואחרת עיגול (ראו drawHoodShapes)
+let hoodShapes = [];
 
 /* ‏select('*') בכוונה: העמודות הגאוגרפיות (lat/lng/radius_m) נוספות
    במיגרציה 20260830120000, ובחירה מפורשת בהן הייתה מפילה את הטעינה בכל
@@ -4391,7 +4437,7 @@ let allActiveProperties = [];
    ‏boundary. סימון ידני ב-DB (lat/lng/radius_m) גובר; בהיעדרו הם נגזרים
    מהנכסים עצמם — ממוצע הקואורדינטות, ורדיוס עד הנכס הרחוק ביותר ממנו.
    שני החישובים האלה מתארים את מיקום *המודעות* ולא את גבולות השכונה, ולכן
-   הם ברירת מחדל ולא היעד: היעד הוא המצולע (ראו drawHoodShape).
+   הם ברירת מחדל ולא היעד: היעד הוא המצולע (ראו drawHoodShapes).
    נגזר מכל הנכסים הפעילים ולא מהמסוננים: מרכז השכונה אינו תלוי בסוג העסקה
    שנבחר, ויותר נקודות = מרכז מדויק יותר. */
 function computeHoodGeometry(properties){
@@ -4446,19 +4492,24 @@ const HOOD_SHAPE_STYLE = {
   fillColor:'#8B2332', fillOpacity:.06,
 };
 
-function drawHoodShape(){
+/* מצייר סימון לכל אחת מהשכונות הנבחרות. כשנבחרו כמה, כל אחת מקבלת מצולע
+   משלה ולא מעטפת אחת סביב כולן: מעטפת משותפת הייתה בולעת את השטח שביניהן
+   ומבטיחה נכסים שאינם שם. */
+function drawHoodShapes(){
   if (!heroMap) return;
-  if (hoodShape){ heroMap.removeLayer(hoodShape); hoodShape = null; }
-  if (!hoodState.selected) return;
+  hoodShapes.forEach(shape => heroMap.removeLayer(shape));
+  hoodShapes = [];
 
-  const hood = hoodState.byId.get(hoodState.selected);
-  const ring = parseBoundary(hood && hood.boundary);
-  if (ring){
-    hoodShape = L.polygon(ring, HOOD_SHAPE_STYLE).addTo(heroMap);
-    return;
-  }
-  const geo = hoodState.centers.get(hoodState.selected);
-  if (geo) hoodShape = L.circle(geo.center, { radius:geo.radius, ...HOOD_SHAPE_STYLE }).addTo(heroMap);
+  hoodState.selected.forEach(id=>{
+    const hood = hoodState.byId.get(id);
+    const ring = parseBoundary(hood && hood.boundary);
+    if (ring){
+      hoodShapes.push(L.polygon(ring, HOOD_SHAPE_STYLE).addTo(heroMap));
+      return;
+    }
+    const geo = hoodState.centers.get(id);
+    if (geo) hoodShapes.push(L.circle(geo.center, { radius:geo.radius, ...HOOD_SHAPE_STYLE }).addTo(heroMap));
+  });
 }
 
 /* ‏boundary הוא מערך של זוגות [lat,lng] ב-jsonb. הוא נערך ידנית ב-DB, ולכן
@@ -4497,65 +4548,87 @@ function hoodCounts(){
   return counts;
 }
 
-function renderHoodPills(){
-  const bar = document.getElementById('hoodBar');
-  const wrap = document.getElementById('hoodPills');
-  if (!bar || !wrap) return;
-  hoodState.counts = hoodCounts();
-
+/* השכונות שמוצעות לבחירה: אלה שיש בהן נכסים מסוג העסקה הנוכחי, מהגדולה
+   לקטנה. שכונה שנבחרה נשארת ברשימה גם כשאין בה נכסים מסוג העסקה הנוכחי —
+   אחרת הבחירה הפעילה נעלמת מהמסך ואי אפשר לבטל אותה. */
+function hoodChoices(){
   const ranked = hoodState.rows
     .filter(h => (hoodState.counts.get(h.id) || 0) > 0)
     .sort((a, b)=>
       (hoodState.counts.get(b.id) - hoodState.counts.get(a.id)) ||
       String(a.name).localeCompare(String(b.name), 'he'));
 
-  let shown = ranked.slice(0, HOOD_PILL_LIMIT);
-  // שכונה נבחרת נשארת בשורה גם כשאין בה נכסים מסוג העסקה הנוכחי, ואפילו אם
-  // אינה בין המובילות: אחרת הבחירה הפעילה נעלמת מהמסך ואי אפשר לבטל אותה
-  if (hoodState.selected && !shown.some(h => h.id === hoodState.selected)){
-    const sel = hoodState.byId.get(hoodState.selected);
-    if (sel) shown = [sel, ...shown];
-  }
+  const missing = hoodState.rows.filter(h =>
+    hoodState.selected.has(h.id) && !ranked.some(r => r.id === h.id));
+  return [...ranked, ...missing];
+}
 
-  if (!shown.length){ bar.hidden = true; wrap.innerHTML = ''; return; }
+/* הכפתור שמעל המפה: שם השכונה כשנבחרה אחת, ומונה כשנבחרו כמה. שם מלא ולא
+   "1 שכונה" — כשהבחירה יחידה היא גם הכותרת של מה שרואים על המפה. */
+function renderHoodFilter(){
+  const bar = document.getElementById('hoodBar');
+  const btn = document.getElementById('hoodFilterBtn');
+  const label = document.getElementById('hoodFilterLabel');
+  const badge = document.getElementById('hoodFilterCount');
+  if (!bar || !btn || !label || !badge) return;
+  hoodState.counts = hoodCounts();
+
+  if (!hoodChoices().length){ bar.hidden = true; return; }
   bar.hidden = false;
+
+  const n = hoodState.selected.size;
+  btn.dataset.active = String(n > 0);
+  badge.hidden = n < 2;
+  badge.textContent = n;
+
+  if (n === 0) label.textContent = 'סינון לפי שכונות';
+  else if (n === 1) label.textContent = hoodState.byId.get([...hoodState.selected][0])?.name || 'שכונה אחת';
+  else label.textContent = 'שכונות נבחרות';
+}
+
+/* רשימת תיבות הסימון שבמודאל. נבנית מחדש בכל פתיחה, כי המונים משתנים עם
+   סוג העסקה. הסימון נאסף ל-hoodState.draft ומוחל רק ב"הצגת תוצאות". */
+function renderHoodOptions(){
+  const wrap = document.getElementById('hoodFilterOptions');
+  if (!wrap) return;
   wrap.innerHTML = '';
 
-  const all = document.createElement('button');
-  all.type = 'button';
-  all.textContent = 'כל השכונות';
-  all.setAttribute('aria-pressed', String(!hoodState.selected));
-  all.addEventListener('click', ()=> selectHood(null));
-  wrap.appendChild(all);
+  hoodChoices().forEach(h=>{
+    const row = document.createElement('label');
+    row.className = 'hood-option';
 
-  shown.forEach(h=>{
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.dataset.hoodId = h.id;
-    btn.setAttribute('aria-pressed', String(h.id === hoodState.selected));
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.value = h.id;
+    box.checked = hoodState.draft.has(h.id);
+    box.addEventListener('change', ()=>{
+      if (box.checked) hoodState.draft.add(h.id); else hoodState.draft.delete(h.id);
+    });
+    row.appendChild(box);
+
     // textContent ולא innerHTML: שמות שכונות מוזנים ע"י משתמשי הפלטפורמה
     // (‏neighborhoods.is_custom‎), ואסור להם להגיע ל-DOM כ-HTML
-    btn.appendChild(document.createTextNode(h.name));
+    const name = document.createElement('span');
+    name.className = 'hood-option-name';
+    name.textContent = h.name;
+    row.appendChild(name);
+
     const count = document.createElement('span');
     count.className = 'hood-count';
     count.textContent = hoodState.counts.get(h.id) || 0;
-    btn.appendChild(count);
-    btn.addEventListener('click', ()=> selectHood(h.id));
-    wrap.appendChild(btn);
+    row.appendChild(count);
+
+    wrap.appendChild(row);
   });
 }
 
-/* לחיצה על גלולת שכונה מריצה חיפוש אמיתי מול ה-DB ולא סינון מקומי: כך היא
-   מצטרפת לשאר הסינונים (מחיר, חדרים, סוג עסקה) במקום להתחרות בהם, ומחזירה
-   גם נכסים שמעבר ל-300 הראשונים שנטענו לעמוד. לחיצה חוזרת על אותה שכונה
-   מבטלת את הבחירה — כמו "כל השכונות". */
-function selectHood(id){
-  hoodState.selected = (id && hoodState.selected === id) ? null : id;
-  // רינדור מלא ולא עדכון aria-pressed בלבד: הבחירה משפיעה על *אילו* גלולות
-  // מוצגות (שכונה נבחרת נשארת בשורה גם בלי נכסים), ולכן ביטול הבחירה חייב
-  // גם להוריד אותה משם
-  renderHoodPills();
-  drawHoodShape();
+/* החלת הבחירה מריצה חיפוש אמיתי מול ה-DB ולא סינון מקומי: כך היא מצטרפת
+   לשאר הסינונים (מחיר, חדרים, סוג עסקה) במקום להתחרות בהם, ומחזירה גם
+   נכסים שמעבר ל-300 הראשונים שנטענו לעמוד. קבוצה ריקה = כל השכונות. */
+function applyHoodSelection(ids){
+  hoodState.selected = new Set(ids);
+  renderHoodFilter();
+  drawHoodShapes();
   runSearch();
 }
 
@@ -4567,11 +4640,11 @@ try {
     hoodState.rows = hoods;
     hoodState.byId = new Map(hoods.map(h => [h.id, h]));
     // תמיד מהרשימה המלאה של הנכסים הפעילים, ולא מתוצאות חיפוש: המונה שעל
-    // הגלולה הוא "כמה יש בשכונה", ואם הוא היה מצטמצם עם כל חיפוש הוא היה
-    // מפסיק לענות על השאלה שבגללה מסתכלים עליו
+    // שברשימת הבחירה הוא "כמה יש בשכונה", ואם הוא היה מצטמצם עם כל חיפוש
+    // הוא היה מפסיק לענות על השאלה שבגללה מסתכלים עליו
     allActiveProperties = properties;
     computeHoodGeometry(properties);
-    renderHoodPills();
+    renderHoodFilter();
 
     const featuredScroll = document.getElementById('featuredScroll');
     properties.filter(isPromoted).forEach((p,i)=>{
@@ -4688,8 +4761,8 @@ function initFilterModals(){
       btn.classList.add('active');
       searchState.c.deal = btn.dataset.cdeal;
       // מכירה/השכרה מסחרית משנה את מה שהחיפוש יחזיר, ולכן גם את המונים
-      // שעל גלולות השכונה
-      renderHoodPills();
+      // שברשימת השכונות
+      renderHoodFilter();
     });
   });
 }
@@ -4701,10 +4774,10 @@ if (dealTypeSelect){
   dealTypeSelect.addEventListener('change', ()=>{
     searchState.activeTab = dealTypeSelect.value;
     dealTypeSelect.dataset.mode = dealTypeSelect.value;
-    // המונים שעל גלולות השכונה נספרים לפי סוג העסקה הנבחר, ולכן הם חייבים
+    // המונים שברשימת השכונות נספרים לפי סוג העסקה הנבחר, ולכן הם חייבים
     // להיספר מחדש כאן — אחרת "אזור התעשייה 4" היה נשאר על המסך אחרי מעבר
     // ל"מכירה" ומחזיר רשימה ריקה
-    renderHoodPills();
+    renderHoodFilter();
     // מריצים חיפוש מיידית עם שינוי הבחירה, כדי שהמפה (וגם הגריד) יסננו
     // מיד לסוג הרלוונטי בלבד, בלי לחכות שהמשתמש ילחץ "חיפוש"
     runSearch();
@@ -4728,6 +4801,26 @@ document.querySelectorAll('.filter-modal-overlay').forEach(overlay=>{
 
 document.getElementById('openFiltersBtn').addEventListener('click', ()=>{
   openModal(searchState.activeTab === 'commercial' ? 'commercialFilterModal' : 'residentialFilterModal');
+});
+
+// המודאל נפתח תמיד מהבחירה שכבר פעילה: מי שסגר/ה בטעות וחזר/ה מוצא/ת את
+// הסימון כפי שהיה, ולא דף ריק.
+document.getElementById('hoodFilterBtn').addEventListener('click', ()=>{
+  hoodState.draft = new Set(hoodState.selected);
+  renderHoodOptions();
+  openModal('hoodFilterModal');
+});
+// "כל השכונות" מנקה ומחיל מיד — זו הדרך לבטל סינון, ולא עוד שלב לפני
+// "הצגת תוצאות"
+document.getElementById('hoodClearBtn').addEventListener('click', ()=>{
+  hoodState.draft = new Set();
+  renderHoodOptions();
+  applyHoodSelection([]);
+  closeModal('hoodFilterModal');
+});
+document.getElementById('hoodApplyBtn').addEventListener('click', ()=>{
+  applyHoodSelection(hoodState.draft);
+  closeModal('hoodFilterModal');
 });
 
 document.getElementById('rClearFilters').addEventListener('click', ()=>{
@@ -4851,10 +4944,10 @@ async function runSearch(){
       .eq('category', isCommercial ? 'commercial' : 'residential')
       .eq('deal_type', dealType);
 
-    // גלולת השכונה היא סינון מלא לכל דבר, ולא קיצור דרך לחיפוש חופשי:
-    // "מרכז העיר" מזוהה כאן לפי מזהה ולא לפי טקסט, ולכן היא לא סוחפת איתה
-    // נכסים שהמילים האלה מופיעות בכותרת שלהם
-    if (hoodState.selected) query = query.eq('neighborhood_id', hoodState.selected);
+    // סינון השכונות הוא סינון מלא לכל דבר, ולא קיצור דרך לחיפוש חופשי:
+    // "מרכז העיר" מזוהה כאן לפי מזהה ולא לפי טקסט, ולכן הוא לא סוחף איתו
+    // נכסים שהמילים האלה מופיעות בכותרת שלהם. כמה שכונות = ‏in ולא eq.
+    if (hoodState.selected.size) query = query.in('neighborhood_id', [...hoodState.selected]);
     if (s.priceMin) query = query.gte('price', s.priceMin);
     if (s.priceMax) query = query.lte('price', s.priceMax);
     if (s.rooms.size) query = query.in('rooms', Array.from(s.rooms).map(r=>r === '+6' ? 6 : parseFloat(r)));
@@ -5051,9 +5144,9 @@ async function ssaCapture(){
   const dealType = isCommercial ? s.deal : searchState.activeTab;
   const freeText = (s.freeText || document.getElementById('searchFreeText').value || '').trim();
 
-  // גלולת השכונה מנצחת את הטקסט: היא בחירה מפורשת לפי מזהה, ולא ניחוש.
+  // סינון השכונות מנצח את הטקסט: זו בחירה מפורשת לפי מזהה, ולא ניחוש.
   let hoodIds = [];
-  if (hoodState.selected) hoodIds = [hoodState.selected];
+  if (hoodState.selected.size) hoodIds = [...hoodState.selected];
   else if (freeText) hoodIds = await matchingNeighborhoodIds(freeText);
 
   // עיר נשמרת רק כשלא זוהתה שכונה — אחרת החיפוש היה מתרחב מ"רובע יזרעאל"
@@ -5396,12 +5489,13 @@ function setListingsTab(expanded){
    העסקה שנבחר) ולא מחזיר את התצוגה המלאה. */
 async function clearSearch(){
   document.getElementById('searchFreeText').value = '';
-  hoodState.selected = null;
-  drawHoodShape();
+  hoodState.selected = new Set();
+  hoodState.draft = new Set();
+  drawHoodShapes();
   document.getElementById(searchState.activeTab === 'commercial' ? 'cClearFilters' : 'rClearFilters').click();
   // אחרי איפוס הסינונים ולא לפניו: הוא מחזיר גם את סוג העסקה המסחרי
   // ל"מכירה", ואיתו משתנים המונים ודירוג השכונות
-  renderHoodPills();
+  renderHoodFilter();
   const badge = document.getElementById('filterCountBadge');
   badge.style.display = 'none';
   badge.textContent = '0';
