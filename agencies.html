@@ -3,10 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>כל משרדי התיווך | שוק נדל״ן</title>
+<title>כל משרדי התיווך בשוק הנדל״ן</title>
 <meta name="description" content="ספריית משרדי התיווך של שוק הנדל״ן של עפולה והסביבה — דירוג לקוחות, מספר הנכסים הפעילים ותו האמנה האתית, לכל משרד בפלטפורמה.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="כל משרדי התיווך | שוק נדל״ן">
+<meta property="og:title" content="כל משרדי התיווך בשוק הנדל״ן">
 <meta property="og:description" content="כל משרדי התיווך של עפולה והסביבה במקום אחד — דירוג, ביקורות ומספר נכסים פעילים.">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -50,6 +50,64 @@
   :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
   .skip-link{position:absolute;right:-999px;top:0;background:var(--teal);color:#fff;padding:10px 16px;z-index:200;border-radius:0 0 0 8px}
   .skip-link:focus{right:0}
+
+  /* ==========================================================================
+     הרקע הזורם של הדף — אותו רקע של דף הבית (ראו ".page-bg" ב-index.html)
+     --------------------------------------------------------------------------
+     שכבה קבועה (position:fixed) שיושבת מאחורי כל התוכן ולכן לא זזה עם
+     הגלילה: זוהר חמים־זהוב בפינה העליונה כמו שמש, קו רקיע עדין של העיר,
+     ומעליו גלי כחול־נייבי. הגלים נעים כל הזמן לרוחב באנימציית CSS, ובנוסף
+     מוסטים לפי הגלילה מ-JS (pageBgFlow) — כל שכבה בקצב אחר, ולכן הרקע נראה
+     זורם לאורך כל הדף.
+
+     הכל דקורטיבי בלבד: aria-hidden + pointer-events:none, ובמצב
+     prefers-reduced-motion התנועה נכבית לגמרי ונשאר רקע סטטי.
+
+     ‏z-index:-1 מציב את השכבה מתחת לכל תוכן הדף אבל מעל רקע ה-body, ולכן
+     ‎--paper‎ שעל ה-body נשאר רק כרשת ביטחון אם הדפדפן לא צייר את השכבה.
+     ========================================================================== */
+  .page-bg{
+    position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;
+    background:
+      radial-gradient(120% 78% at 74% -12%, rgba(250,201,124,.62) 0%, rgba(252,222,175,.34) 34%, rgba(248,250,252,0) 70%),
+      radial-gradient(100% 66% at 8% 2%, rgba(214,232,248,.90), rgba(248,250,252,0) 74%),
+      linear-gradient(180deg,#fdf8ef 0%,#f7fbfe 38%,#e4eefa 100%);
+  }
+  /* גרעין השמש — הילה חמה שנושמת לאט */
+  .bg-sun{
+    position:absolute;top:-110px;inset-inline-end:12%;width:min(58vw,480px);aspect-ratio:1;
+    border-radius:50%;
+    background:radial-gradient(circle,rgba(249,182,84,.52) 0%,rgba(251,208,136,.28) 40%,rgba(252,228,186,0) 70%);
+    animation:bgSun 16s ease-in-out infinite;
+  }
+  @keyframes bgSun{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.09);opacity:1}}
+
+  /* קו הרקיע: מגדלים ובתים בגוון כחול־אפור דהוי, יושב על "קו המים" של הגלים */
+  .bg-skyline{
+    position:absolute;left:0;right:0;bottom:18%;height:min(30vh,240px);
+    opacity:.16;will-change:transform;
+  }
+  .bg-skyline svg{display:block;width:100%;height:100%}
+
+  /* שכבת גל אחת: רוחב 300% = שלושה מחזורים, כדי שגם ההיסט מהגלילה וגם
+     האנימציה יוכלו להזיז אותה בלי לחשוף קצה */
+  .bg-wave{position:absolute;left:0;width:300%;will-change:transform}
+  .bg-wave svg{display:block;width:100%;height:100%}
+  /* -33.333% = בדיוק מחזור גל אחד, ולכן הלולאה חלקה ובלי קפיצה */
+  @keyframes bgDrift{from{transform:translate3d(0,0,0)}to{transform:translate3d(-33.3333%,0,0)}}
+  .bg-wave>svg{animation:bgDrift linear infinite}
+  .bg-wave-1{top:5%;height:min(30vh,250px);opacity:.55}
+  .bg-wave-1>svg{animation-duration:74s}
+  .bg-wave-2{top:30%;height:min(34vh,280px);opacity:.34}
+  .bg-wave-2>svg{animation-duration:52s;animation-direction:reverse}
+  .bg-wave-3{top:52%;height:min(36vh,300px);opacity:.24}
+  .bg-wave-3>svg{animation-duration:38s}
+  .bg-wave-4{bottom:-22%;height:min(46vh,380px);opacity:.14}
+  .bg-wave-4>svg{animation-duration:28s;animation-direction:reverse}
+
+  @media(prefers-reduced-motion:reduce){
+    .bg-sun,.bg-wave>svg{animation:none}
+  }
 
   /* ====== Header ====== */
   header.site{
@@ -155,9 +213,11 @@
   .state h2{font-size:1.2rem;margin-bottom:8px}
 
   /* ====== הזמנה להצטרפות, בתחתית הרשימה ====== */
+  /* לבן חלקית ולא ‎--paper-raised‎ אטום, כמו ‎.card‎ בדף הבית: כך הרקע
+     הזורם מבצבץ גם מתחת לבמה הזו במקום להיחתך בה כמלבן אפור. */
   .join-band{
-    background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-lg);
-    text-align:center;padding:30px 20px;margin-top:26px;
+    background:rgba(255,255,255,.88);border:1px solid var(--line);border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-sm);text-align:center;padding:30px 20px;margin-top:26px;
   }
   .join-band h2{font-size:1.3rem}
   .join-band p{font-size:.9rem;color:var(--ink-soft);margin:10px auto 18px;max-width:46ch}
@@ -179,6 +239,93 @@
 
 <a href="#main" class="skip-link">דילוג לתוכן</a>
 
+<!-- ---------- הרקע הזורם ----------
+     עיטור בלבד (aria-hidden): שמש חמה, קו רקיע של העיר וארבע שכבות גלים.
+     הגלים נעים לרוחב לבד, ו-pageBgFlow() מוסיף להם היסט לפי הגלילה —
+     כל שכבה בקצב אחר, ולכן הרקע זורם לאורך כל הדף. זהה לזה שבדף הבית. -->
+<div class="page-bg" id="pageBg" aria-hidden="true">
+  <span class="bg-sun"></span>
+
+  <!-- קו הרקיע: מגדלים ובתים צמודים לתחתית האלמנט, ובסיסם מכוסה בגל
+       התחתון. slice ולא meet — במסך צר עדיף להתקרב לכמה בניינים גדולים
+       ורכים מאשר לרסק עיר שלמה לרצועת פסים זעירה. -->
+  <div class="bg-skyline" data-kx="0" data-ky="22">
+    <svg viewBox="0 0 1440 220" preserveAspectRatio="xMidYMax slice">
+      <defs>
+        <linearGradient id="bgSkyGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#7ea6cd"/>
+          <stop offset="100%" stop-color="#1C3A5E"/>
+        </linearGradient>
+      </defs>
+      <g fill="url(#bgSkyGrad)">
+        <!-- מגדלים -->
+        <rect x="40"   y="120" width="64" height="100" rx="4"/>
+        <rect x="112"  y="86"  width="52" height="134" rx="4"/>
+        <rect x="172"  y="140" width="70" height="80"  rx="4"/>
+        <rect x="340"  y="100" width="58" height="120" rx="4"/>
+        <rect x="406"  y="58"  width="74" height="162" rx="5"/>
+        <rect x="440"  y="26"  width="5"  height="34"/>
+        <rect x="488"  y="132" width="62" height="88"  rx="4"/>
+        <rect x="640"  y="110" width="66" height="110" rx="4"/>
+        <rect x="714"  y="74"  width="58" height="146" rx="4"/>
+        <rect x="780"  y="146" width="74" height="74"  rx="4"/>
+        <rect x="956"  y="118" width="60" height="102" rx="4"/>
+        <rect x="1024" y="84"  width="70" height="136" rx="4"/>
+        <rect x="1102" y="150" width="66" height="70"  rx="4"/>
+        <rect x="1266" y="112" width="62" height="108" rx="4"/>
+        <rect x="1336" y="142" width="64" height="78"  rx="4"/>
+        <!-- בתים פרטיים עם גג משופע -->
+        <path d="M250 220v-56l40-32 40 32v56z"/>
+        <path d="M558 220v-50l36-30 36 30v50z"/>
+        <path d="M866 220v-58l42-34 42 34v58z"/>
+        <path d="M1180 220v-52l38-30 38 30v52z"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="bg-wave bg-wave-1" data-kx="0.10" data-ky="18">
+    <svg viewBox="0 0 2160 320" preserveAspectRatio="none">
+      <defs><linearGradient id="bgWave1" x1="0" y1="0" x2=".3" y2="1">
+        <stop offset="0%" stop-color="#eef5fc"/>
+        <stop offset="55%" stop-color="#d7e7f7" stop-opacity=".6"/>
+        <stop offset="100%" stop-color="#cfe2f4" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path fill="url(#bgWave1)" d="M0,160 C120,205 240,205 360,160 C480,115 600,115 720,160 C840,205 960,205 1080,160 C1200,115 1320,115 1440,160 C1560,205 1680,205 1800,160 C1920,115 2040,115 2160,160 L2160,320 L0,320 Z"/>
+    </svg>
+  </div>
+
+  <div class="bg-wave bg-wave-2" data-kx="0.17" data-ky="-24">
+    <svg viewBox="0 0 2160 320" preserveAspectRatio="none">
+      <defs><linearGradient id="bgWave2" x1="0" y1="0" x2=".35" y2="1">
+        <stop offset="0%" stop-color="#d5e7f7"/>
+        <stop offset="55%" stop-color="#a9cbe8" stop-opacity=".6"/>
+        <stop offset="100%" stop-color="#9dc4e6" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path fill="url(#bgWave2)" d="M0,160 C120,80 240,80 360,160 C480,240 600,240 720,160 C840,80 960,80 1080,160 C1200,240 1320,240 1440,160 C1560,80 1680,80 1800,160 C1920,240 2040,240 2160,160 L2160,320 L0,320 Z"/>
+    </svg>
+  </div>
+
+  <div class="bg-wave bg-wave-3" data-kx="0.26" data-ky="30">
+    <svg viewBox="0 0 2160 320" preserveAspectRatio="none">
+      <defs><linearGradient id="bgWave3" x1="0" y1="0" x2=".35" y2="1">
+        <stop offset="0%" stop-color="#8fbadf"/>
+        <stop offset="55%" stop-color="#5b90c0" stop-opacity=".6"/>
+        <stop offset="100%" stop-color="#3c74a8" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path fill="url(#bgWave3)" d="M0,160 C120,205 240,205 360,160 C480,115 600,115 720,160 C840,205 960,205 1080,160 C1200,115 1320,115 1440,160 C1560,205 1680,205 1800,160 C1920,115 2040,115 2160,160 L2160,320 L0,320 Z"/>
+    </svg>
+  </div>
+
+  <div class="bg-wave bg-wave-4" data-kx="0.38" data-ky="-40">
+    <svg viewBox="0 0 2160 320" preserveAspectRatio="none">
+      <defs><linearGradient id="bgWave4" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#2c5a8c"/><stop offset="100%" stop-color="#1C3A5E"/>
+      </linearGradient></defs>
+      <path fill="url(#bgWave4)" d="M0,160 C120,80 240,80 360,160 C480,240 600,240 720,160 C840,80 960,80 1080,160 C1200,240 1320,240 1440,160 C1560,80 1680,80 1800,160 C1920,240 2040,240 2160,160 L2160,320 L0,320 Z"/>
+    </svg>
+  </div>
+</div>
+
 <header class="site">
   <div class="wrap header-inner">
     <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
@@ -193,7 +340,7 @@
   <div class="wrap">
     <div class="archive-head">
       <p class="eyebrow">משרדי תיווך</p>
-      <h1>כל משרדי התיווך בפלטפורמה</h1>
+      <h1>כל משרדי התיווך בשוק הנדל״ן</h1>
       <p class="lede">כל משרדי התיווך של עפולה והסביבה במקום אחד — דירוג הלקוחות, מספר הנכסים הפעילים ותו האמנה האתית, כדי לבחור עם מי לעבוד.</p>
     </div>
 
@@ -266,6 +413,50 @@
 <script>
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+
+/* ---------- הרקע הזורם של הדף ----------
+   כל שכבה ב-#pageBg נושאת data-kx (קצב ההיסט האופקי ביחס לגלילה) ו-data-ky
+   (משרעת הנדנוד האנכי בפיקסלים).
+
+   האופקי מקבל ווראפ ברוחב החלון: שם בדיוק נגמר מחזור גל אחד ב-SVG, ולכן
+   הקפיצה בלתי נראית והזרימה נמשכת גם בדף ארוך מאוד. האנכי רץ על סינוס
+   מאותה סיבה — הוא עולה ויורד לאורך הדף במקום לברוח מהמסך.
+
+   העדכון עצמו יושב ב-requestAnimationFrame אחד לפריים (bgFlowTicking), כדי
+   שאירועי הגלילה לא ייצרו עבודה מיותרת. זהה ל-pageBgFlow שבדף הבית, פרט
+   ל"עצירת אנימציות" של תפריט הנגישות — אין תפריט כזה בעמוד הזה. */
+const bgFlowLayers = [...document.querySelectorAll('#pageBg [data-kx]')];
+const bgFlowReduceMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+let bgFlowTicking = false;
+
+function pageBgFlow(){
+  bgFlowTicking = false;
+  if (bgFlowReduceMQ.matches){
+    bgFlowLayers.forEach(el=>{ el.style.transform = ''; });
+    return;
+  }
+  const w = window.innerWidth || 1;
+  const y = window.pageYOffset || 0;
+  bgFlowLayers.forEach(el=>{
+    const kx = parseFloat(el.dataset.kx) || 0;
+    const ky = parseFloat(el.dataset.ky) || 0;
+    const x = kx ? -((((y * kx) % w) + w) % w) : 0;
+    const dy = ky ? Math.sin(y / 620) * ky : 0;
+    el.style.transform = `translate3d(${x.toFixed(1)}px,${dy.toFixed(1)}px,0)`;
+  });
+}
+
+function requestPageBgFlow(){
+  if (bgFlowTicking) return;
+  bgFlowTicking = true;
+  requestAnimationFrame(pageBgFlow);
+}
+
+if (bgFlowLayers.length){
+  window.addEventListener('scroll', requestPageBgFlow, { passive:true });
+  window.addEventListener('resize', requestPageBgFlow);
+  pageBgFlow();
+}
 
 const el = id => document.getElementById(id);
 function escapeHtml(s){
