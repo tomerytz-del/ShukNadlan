@@ -34,6 +34,19 @@
   .consent input{margin:2px 0 0;width:17px;height:17px;flex:0 0 auto;accent-color:var(--blue)}
   .consent label{font-size:.78rem;line-height:1.45;cursor:pointer}
   .consent a{color:var(--blue);font-weight:700}
+  /* ---------- תחומי התמחות ----------
+     כאן הם קפסולות ולא רשת מוסברת כמו ב-CRM: הכרטיס צר, והשלב הזה הוא
+     הרשמה ולא עריכת פרופיל. הכיתוב הקצר מספיק כדי לסמן, וההסבר המלא
+     ממתין במסך המיתוג. */
+  .spec-chips{display:flex;flex-wrap:wrap;gap:7px}
+  .spec-chip{
+    display:inline-flex;align-items:center;gap:5px;font-size:.76rem;font-weight:700;line-height:1.2;
+    border:1.5px solid var(--line);background:#fff;color:var(--ink);border-radius:999px;padding:7px 12px;
+    transition:border-color .15s ease,background .15s ease,color .15s ease;
+  }
+  .spec-chip svg{width:13px;height:13px;flex:none}
+  .spec-chip.on{border-color:var(--blue);background:var(--blue);color:#fff}
+  .spec-chip[disabled]{opacity:.45;cursor:not-allowed}
   .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:999px;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff;margin-top:6px}
   .btn:disabled{opacity:.5;cursor:not-allowed}
   #feedback{font-size:.82rem;text-align:center;margin-top:12px;min-height:1.2em}
@@ -54,6 +67,17 @@
 
     <div class="section-divider">פרטי המשרד</div>
     <div class="field"><label>שם המשרד</label><input type="text" id="agencyName" required></div>
+
+    <!-- תחומי ההתמחות נשאלים כבר כאן ולא רק בעריכת המיתוג: הם מה שיופיע
+         כתגיות בראש דף המשרד, ומשרד חדש שאין לו עדיין נכסים הוא בדיוק זה
+         שאין ממה לגזור עבורו תגיות. אופציונלי — אפשר להשלים בהמשך. -->
+    <div class="field">
+      <label>תחומי התמחות <span style="font-weight:400">(אופציונלי · עד <span id="specMax">6</span>)</span></label>
+      <div class="spec-chips" id="specChips"></div>
+      <div class="hint" style="font-size:.72rem;color:var(--ink-soft);margin-top:6px">
+        יוצגו כתגיות בראש דף המשרד. אפשר לשנות בכל עת ב״מיתוג ועיצוב דף המשרד״.
+      </div>
+    </div>
 
     <div class="section-divider">הפרטים שלך (כמנהל/ת)</div>
     <div class="field"><label>שם מלא</label><input type="text" id="managerName" required></div>
@@ -82,10 +106,43 @@
   </div>
 </div>
 
+<script src="assets/specialties.js"></script>
 <script>
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const SIGNUP_FUNCTION_URL = SUPABASE_URL + '/functions/v1/agency-signup';
+
+/* ---------- בחירת תחומי ההתמחות ----------
+   הרשימה מגיעה מ-assets/specialties.js — אותו קטלוג בדיוק שה-CRM ודף
+   המשרד קוראים ממנו, כדי שתחום חדש לא ייפול בין הטופס הזה לשאר המערכת. */
+const chosenSpecialties = [];
+
+function renderSpecChips(){
+  const box = document.getElementById('specChips');
+  if (!box || !window.Specialties) return;
+  document.getElementById('specMax').textContent = Specialties.MAX_SELECTED;
+  const full = chosenSpecialties.length >= Specialties.MAX_SELECTED;
+  box.textContent = '';
+  Specialties.list().forEach(item=>{
+    const on = chosenSpecialties.includes(item.id);
+    const chip = document.createElement('button');
+    chip.type = 'button';
+    chip.className = 'spec-chip' + (on ? ' on' : '');
+    chip.setAttribute('aria-pressed', on ? 'true' : 'false');
+    chip.title = item.hint;
+    if (!on && full) chip.disabled = true;
+    chip.innerHTML = Specialties.iconFor(item.id) + '<span></span>';
+    chip.querySelector('span').textContent = item.short;
+    chip.addEventListener('click', ()=>{
+      const at = chosenSpecialties.indexOf(item.id);
+      if (at >= 0) chosenSpecialties.splice(at, 1);
+      else if (chosenSpecialties.length < Specialties.MAX_SELECTED) chosenSpecialties.push(item.id);
+      renderSpecChips();
+    });
+    box.appendChild(chip);
+  });
+}
+renderSpecChips();
 
 document.getElementById('submitBtn').addEventListener('click', async ()=>{
   const agencyName = document.getElementById('agencyName').value.trim();
@@ -123,6 +180,7 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
         manager_email: managerEmail,
         manager_password: managerPassword,
         license_number: licenseNumber,
+        specialties: chosenSpecialties,
         ethics_code_accepted: true,
       }),
     });
