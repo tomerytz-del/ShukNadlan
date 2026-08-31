@@ -191,8 +191,11 @@
      כרטיס שלם ולא באמצע אחד. הפדינג האנכי משאיר מקום להרמה ב-hover ולצל.
      ‏‎.rail‎ משותפת לרצועת המתווכים ולרצועות הנכסים. */
   .rail{
-    display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;
-    padding:8px 2px 14px;scrollbar-width:none;-ms-overflow-style:none;
+    --rail-gap:12px;
+    display:flex;gap:var(--rail-gap);overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;
+    /* הפדינג האנכי הוא בדיוק מה שההרמה ב-hover והצל צריכים ולא יותר, כדי
+       שלא ייווצר רווח לבן בין רצועה לרצועה */
+    padding:6px 2px 10px;scrollbar-width:none;-ms-overflow-style:none;
   }
   .rail::-webkit-scrollbar{display:none}
   /* רצועה שאין בה מה לגלול לא תיראה כרצועה קטועה בקצה — הכרטיסים מתמרכזים */
@@ -360,9 +363,15 @@
      מחולקים לשלוש רצועות לפי מה שהגולש/ת באמת מחפש/ת: פרטי להשכרה, פרטי
      למכירה, ומסחרי (מכירה והשכרה יחד — שוק אחד). רצועה שאין לה נכסים
      פשוט לא נוצרת. */
-  .prop-group{margin-top:16px}
-  .prop-group:first-child{margin-top:2px}
+  .prop-group{margin-top:18px}
+  .prop-group:first-child{margin-top:6px}
   .group-head{display:flex;align-items:center;gap:9px}
+  /* הקישור נדחף לקצה השני של שורת הכותרת ומופיע רק כשיש מה לפתוח */
+  .group-all{
+    margin-inline-start:auto;font-size:.78rem;font-weight:800;color:var(--accent-ink);
+    background:none;padding:4px 2px;white-space:nowrap;
+  }
+  .group-all:hover{text-decoration:underline}
   .group-head .ic{
     width:30px;height:30px;border-radius:10px;flex:none;display:grid;place-items:center;
     background:var(--teal-tint);color:var(--brand);
@@ -377,10 +386,28 @@
      הנכס עושה, כך שהצבע אומר את אותו הדבר בכל מקום בדף */
   .prop-group[data-kind="rent"] .group-head .ic,
   .prop-group[data-kind="commercial"] .group-head .ic{background:var(--gold-tint);color:var(--accent-ink)}
-  /* ברצועה הכרטיס מקבל רוחב קבוע; ברוחב מסך צר נשארת הצצה לכרטיס הבא כדי
-     שיהיה ברור שיש המשך מימין */
-  .rail .prop-card{flex:0 0 246px;scroll-snap-align:center}
-  @media(max-width:420px){.rail .prop-card{flex-basis:78%}}
+  /* ---------- רוחב הכרטיס ברצועה ----------
+     לכל היותר שלושה כרטיסים במסך אחד, והם ממלאים את רוחב המכל בדיוק:
+     ‏3 כרטיסים + 2 רווחים = 100%. במסך צר שלושה כרטיסים היו יוצאים צרים
+     מכדי לקרוא, ולכן שם הרצועה מציגה אחד ומציצה אל הבא — אותה משמעות,
+     בקנה מידה של מובייל. ‏scroll-snap-align:start מצמיד את הכרטיס לשפת
+     המכל, כך שכל "עמוד" של הרצועה יושב בתוך הגבולות ולא חוצה אותם. */
+  .rail .prop-card{flex:0 0 82%;scroll-snap-align:start}
+  @media(min-width:600px){.rail .prop-card{flex-basis:calc((100% - var(--rail-gap)) / 2)}}
+  @media(min-width:900px){.rail .prop-card{flex-basis:calc((100% - 2 * var(--rail-gap)) / 3)}}
+
+  /* ---------- "לכל הנכסים" ----------
+     אין דף רשימה נפרד לנכסי משרד לפי קטגוריה, ולכן הקישור פותח את הרצועה
+     במקום — הופך אותה לרשת שמציגה את כל הנכסים של אותה קטגוריה בבת אחת.
+     במצב פתוח אין מה לגלול, ולכן החיצים והנקודות יורדים. */
+  .prop-group.expanded .rail{
+    display:grid;grid-template-columns:1fr;overflow:visible;scroll-snap-type:none;
+  }
+  @media(min-width:600px){.prop-group.expanded .rail{grid-template-columns:1fr 1fr}}
+  @media(min-width:900px){.prop-group.expanded .rail{grid-template-columns:1fr 1fr 1fr}}
+  .prop-group.expanded .rail .prop-card{flex:none}
+  .prop-group.expanded .rail-nav,
+  .prop-group.expanded .rail-dots{display:none}
   .prop-card{
     background:var(--surface);border:1px solid var(--hair);border-radius:18px;overflow:hidden;cursor:pointer;
     box-shadow:var(--shadow-xs);transition:box-shadow .15s ease,transform .15s ease;
@@ -1082,13 +1109,22 @@ const PROP_GROUPS = [
   { key:'commercial', title:'נכסים מסחריים', icon:'store', match: isCommercial },
 ];
 
+/* הרצועה מציגה עד שלושה כרטיסים במסך אחד; כשיש יותר, "לכל הנכסים" פותח את
+   כולם ברשת. עד שלושה — אין מה לפתוח, ולכן אין קישור. */
+const RAIL_VISIBLE = 3;
+const allLabel = items => `כל ${items.length} הנכסים`;
+
 function propertyRailHtml(group, items){
   const count = items.length === 1 ? 'נכס אחד' : items.length + ' נכסים';
+  const showAll = items.length > RAIL_VISIBLE
+    ? `<button type="button" class="group-all" aria-expanded="false">${allLabel(items)} ←</button>`
+    : '';
   return `
     <div class="group-head">
       <span class="ic" aria-hidden="true">${ICON[group.icon]}</span>
       <h3 id="group-${group.key}">${escapeHtml(group.title)}</h3>
       <span class="n">${count}</span>
+      ${showAll}
     </div>
     <div class="rail-wrap">
       <button type="button" class="rail-nav prev" aria-label="הנכסים הקודמים" hidden></button>
@@ -1096,6 +1132,21 @@ function propertyRailHtml(group, items){
       <button type="button" class="rail-nav next" aria-label="הנכסים הבאים" hidden></button>
     </div>
     <div class="rail-dots"></div>`;
+}
+
+function initShowAll(section, items){
+  const btn = section.querySelector('.group-all');
+  if (!btn) return;
+  const rail = section.querySelector('.rail');
+  btn.addEventListener('click', ()=>{
+    const open = !section.classList.contains('expanded');
+    section.classList.toggle('expanded', open);
+    btn.setAttribute('aria-expanded', String(open));
+    btn.textContent = open ? 'תצוגה מצומצמת ←' : `${allLabel(items)} ←`;
+    // במצב פתוח אין גלילה למדוד, וה-sync רק היה מחזיר את החיצים
+    rail.dataset.expanded = open ? '1' : '';
+    if (!open){ rail.scrollTo({ left:0 }); rail._railSync(); }
+  });
 }
 
 function renderPropertyCards(list){
@@ -1128,6 +1179,7 @@ function renderPropertyCards(list){
     // אחרי ההוספה ל-DOM, אחרת המדידות של הרצועה מחזירות אפס
     initCarousel(rail, section.querySelector('.rail-nav.prev'),
                  section.querySelector('.rail-nav.next'), section.querySelector('.rail-dots'));
+    initShowAll(section, items);
   });
 }
 
@@ -1300,6 +1352,7 @@ function initCarousel(rail, prev, next, dots){
   }
 
   function sync(){
+    if (rail.dataset.expanded === '1') return;   // רשת פתוחה — אין קרוסלה לסנכרן
     rail.classList.remove('no-scroll');
     const scrollable = rail.scrollWidth - rail.clientWidth;
     const overflowing = scrollable > 8;
