@@ -148,8 +148,33 @@ post_text — פוסט לפייסבוק, עד 45 מילים, משפט פותח �
 שלוש אימוג'י לכל היותר, ובסוף שורה אחת עם 3 עד 5 האשטגים בעברית
 (לדוגמה: #נדלן #עפולה #דירהלמכירה). בלי קישור ובלי טלפון.`;
 
-async function generateMarketing(row: any): Promise<{ description: string; post: string } | null> {
+// פוסט חוזר על נכס שכבר פורסם. אותם חוקים, זווית אחרת: פוסט זהה שחוזר
+// כעבור חודש נראה לגולש/ת כמו ספאם, ופייסבוק עצמו מדכא תוכן שחוזר מילה
+// במילה. ‏marketing_description של הנכס לא נגזר מכאן — רק הפוסט מתחלף.
+const VARIANT_PROMPT = `${SYSTEM_PROMPT}
+
+זהו פוסט חוזר על נכס שכבר פורסם בעבר. בנוסף לחוקים שלמעלה:
+- לפתוח בזווית שונה מהפוסט הקודם (אם צורף) — לא באותו משפט ולא באותו מבנה.
+- מותר להדגיש מאפיין אחר של הנכס, כל עוד הוא מופיע בנתונים.
+- אין להזכיר שהנכס פורסם כבר, "עדיין זמין" או "ירידת מחיר" — אלה עובדות
+  שלא נמסרו.
+
+פלט: אותו JSON. את marketing_description יש להחזיר כפי שהוא נמסר בקלט,
+בלי שינוי; רק post_text נכתב מחדש.`;
+
+async function generateMarketing(
+  row: any,
+  opts: { variant?: boolean } = {},
+): Promise<{ description: string; post: string } | null> {
   if (!ANTHROPIC_KEY) return null;
+
+  const userContent = opts.variant
+    ? [
+      `נתוני הנכס:\n${facts(row)}`,
+      `\nהתיאור השיווקי הקיים (להחזיר כפי שהוא):\n${row.marketing_description ?? ""}`,
+      row.post_text ? `\nהפוסט הקודם (לא לחזור עליו):\n${row.post_text}` : "",
+    ].join("\n")
+    : `נתוני הנכס:\n${facts(row)}`;
 
   const res = await fetch("https://api.anthropic.com/v1/messages", {
     method: "POST",
@@ -161,8 +186,8 @@ async function generateMarketing(row: any): Promise<{ description: string; post:
     body: JSON.stringify({
       model: CLAUDE_MODEL,
       max_tokens: 1000,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: `נתוני הנכס:\n${facts(row)}` }],
+      system: opts.variant ? VARIANT_PROMPT : SYSTEM_PROMPT,
+      messages: [{ role: "user", content: userContent }],
     }),
   });
 
@@ -202,9 +227,9 @@ async function generateMarketing(row: any): Promise<{ description: string; post:
 // גולש/ת בפייסבוק סורק/ת את השורות האלה לפני שהוא/היא קורא/ת מילה מהפתיח,
 // ולכן הן לא נכנסות לתוך הטקסט החופשי אלא יושבות מתחתיו תמיד באותו סדר.
 // ---------------------------------------------------------------------------
-function buildMessage(row: any, marketing: { description: string; post: string }): string {
+function buildMessage(row: any, lead: string): string {
   const link = propertyUrl(row.property_id);
-  const lead = (row.post_text?.trim() || marketing.post || marketing.description).trim();
+  lead = lead.trim();
 
   const lines = [lead, ""];
   const place = placeLine(row);
@@ -335,12 +360,15 @@ async function handle(sb: any, row: any, opts: { force: boolean; dryRun: boolean
     description: (row.marketing_description || "").trim(),
     post: (row.post_text || "").trim(),
   };
+  // הפתיח של הפוסט: מה שהסוכן/ת כתב/ה קודם לכול, אחריו מה ש-Claude כתב.
+  let lead = marketing.post || marketing.description;
 
   if (!marketing.description || opts.force) {
     const fresh = await generateMarketing(row);
     if (fresh) {
       marketing = fresh;
       generated = true;
+      lead = (row.post_text || "").trim() || fresh.post;
       if (!opts.dryRun) {
         const patch: Record<string, string> = { marketing_description: fresh.description };
         // ‏post_text של הסוכן/ת נשאר שלו/ה גם בכתיבה מחדש: המערכת משלימה
@@ -352,10 +380,20 @@ async function handle(sb: any, row: any, opts: { force: boolean; dryRun: boolean
     } else if (!marketing.description) {
       throw new Error("אין תיאור שיווקי ו-ANTHROPIC_API_KEY לא מוגדר");
     }
+  } else if (row.origin === "manual") {
+    // פוסט חוזר על נכס שכבר פורסם — פתיח חדש לפוסט הזה בלבד. הנכס עצמו לא
+    // משתנה: הסוכן/ת פתח/ה את הכרטיס ומצא/ה שם את הנוסח שהוא/היא מכיר/ה.
+    // כישלון כאן לא מבטל את הפרסום, רק מחזיר אותנו לנוסח הקיים.
+    try {
+      const variant = await generateMarketing(row, { variant: true });
+      if (variant?.post) lead = variant.post;
+    } catch (e) {
+      console.warn("ניסוח פוסט חוזר נכשל, ממשיכים עם הנוסח הקיים", e);
+    }
   }
 
   // 2. הפוסט
-  const message = buildMessage(row, marketing);
+  const message = buildMessage(row, lead);
   if (opts.dryRun) {
     return { property_id: row.property_id, dry_run: true, generated, message, images };
   }
@@ -396,8 +434,13 @@ async function handle(sb: any, row: any, opts: { force: boolean; dryRun: boolean
 // ---------------------------------------------------------------------------
 Deno.serve(async (req: Request) => {
   // אותה בחירה כמו ב-saved-search-notify: הסוד אופציונלי, כי הפונקציה לא
-  // מקבלת תוכן מהקורא אלא מרוקנת תור קיים. ‏JWT של מנהל/ת פלטפורמה נבדק
-  // בנפרד ומאפשר את המסלול הידני.
+  // מקבלת תוכן מהקורא אלא מרוקנת תור קיים.
+  //
+  // מעל זה שני מסלולים עם JWT. ההבדל ביניהם הוא מה מותר *ליזום*:
+  //   מנהל/ת פלטפורמה — להחזיר נכס לתור ולכתוב מחדש את התיאור (force).
+  //   סוכן/ת — רק להאיץ שורה שכבר ממתינה על נכס שלו/ה. את השורה עצמה יוצרת
+  //   ‏request_manual_publication, ושם נאכף החסם החודשי; לו הפונקציה הזו
+  //   הייתה מכניסה לתור בעצמה, כפתור אחד היה עוקף אותו.
   const authHeader = req.headers.get("Authorization") || "";
   const cronOk = !CRON_SECRET || req.headers.get("x-alert-cron-secret") === CRON_SECRET;
   const serviceOk = authHeader === `Bearer ${serviceRoleKey}`;
@@ -405,20 +448,24 @@ Deno.serve(async (req: Request) => {
   const sb = createClient(supabaseUrl, serviceRoleKey);
 
   let adminOk = false;
+  let agent: { id: string; agency_id: string | null; role: string | null } | null = null;
   if (!cronOk && !serviceOk && authHeader) {
     const authed = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
     const { data: userData } = await authed.auth.getUser();
     if (userData?.user) {
       const { data: member } = await sb
         .from("agency_members")
-        .select("is_platform_admin, active")
+        .select("id, agency_id, role, is_platform_admin, active")
         .eq("user_id", userData.user.id)
         .maybeSingle();
-      adminOk = Boolean(member?.active && member?.is_platform_admin);
+      if (member?.active) {
+        adminOk = Boolean(member.is_platform_admin);
+        agent = { id: member.id, agency_id: member.agency_id, role: member.role };
+      }
     }
   }
 
-  if (!cronOk && !serviceOk && !adminOk) return json({ error: "unauthorized" }, 401);
+  if (!cronOk && !serviceOk && !adminOk && !agent) return json({ error: "unauthorized" }, 401);
 
   let body: any = {};
   try {
@@ -428,8 +475,24 @@ Deno.serve(async (req: Request) => {
   }
 
   const propertyId: string | null = body?.property_id ?? null;
-  const force = Boolean(body?.force);
+  // ‏force כותב מחדש טקסט שיווקי שכבר קיים — פעולה של מנהל/ת פלטפורמה בלבד.
+  const force = Boolean(body?.force) && (cronOk || serviceOk || adminOk);
   const dryRun = Boolean(body?.dry_run);
+
+  // סוכן/ת מגיע/ה רק דרך הכפתור בכרטיס, כלומר תמיד עם נכס מסוים ותמיד על
+  // נכס שלו/ה או של המשרד שהוא/היא מנהל/ת.
+  const agentOnly = !cronOk && !serviceOk && !adminOk;
+  if (agentOnly) {
+    if (!propertyId) return json({ error: "missing_property_id" }, 400);
+    const { data: prop } = await sb
+      .from("properties")
+      .select("agent_id, agency_id")
+      .eq("id", propertyId)
+      .maybeSingle();
+    const mine = prop?.agent_id === agent!.id;
+    const myAgency = agent!.role === "manager" && prop?.agency_id === agent!.agency_id;
+    if (!prop || (!mine && !myAgency)) return json({ error: "not_your_property" }, 403);
+  }
 
   if (!dryRun && !MAKE_WEBHOOK_URL && !(FB_PAGE_ID && FB_PAGE_TOKEN)) {
     // אף ערוץ לא מחובר. לא נוגעים בתור: השורות ימתינו לחיבור ולא יישרפו
@@ -442,8 +505,9 @@ Deno.serve(async (req: Request) => {
   //
   // ‏בדיקה יבשה לא מחזירה שורה לתור: המשמעות הייתה שהצצה בטקסט של נכס
   // שכבר פורסם מזמינה אותו לפרסום שני בהרצת ה-cron הבאה. לכן dry_run רואה
-  // רק נכס שממתין ממילא.
-  if (propertyId) {
+  // רק נכס שממתין ממילא. סוכן/ת לא מכניס/ה לתור כאן כלל — זה תפקידה של
+  // ‏request_manual_publication, שאוכפת את החסם החודשי.
+  if (propertyId && !agentOnly) {
     const { error } = await sb.rpc("queue_property_publication", {
       p_property_id: propertyId,
       p_channel: "facebook_page",
@@ -463,7 +527,11 @@ Deno.serve(async (req: Request) => {
       ok: true,
       processed: 0,
       ...(propertyId
-        ? { note: "הנכס אינו ממתין לפרסום — לא פעיל, או שכבר פורסם ובבדיקה יבשה לא מחזירים אותו לתור" }
+        ? {
+          note: agentOnly
+            ? "אין שורה ממתינה לנכס הזה. פרסום חוזר מתחיל ב-request_manual_publication"
+            : "הנכס אינו ממתין לפרסום — לא פעיל, או שכבר פורסם ובבדיקה יבשה לא מחזירים אותו לתור",
+        }
         : {}),
     });
   }

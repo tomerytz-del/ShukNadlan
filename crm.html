@@ -310,6 +310,10 @@
      ‏pill-row: בשורת הנכס יושבות עכשיו שתי תגיות (סטטוס + שיתוף), וברוחב
      טלפון הן חייבות לרדת שורה במקום לדחוס את הכותרת. */
   .status-shared{background:#DFEDE3;color:#2A5B36}
+  /* פרסום בפייסבוק — כחול מרוסן. תגית ולא כפתור: היא מדווחת מצב, ובנכס
+     שכבר פורסם היא גם הקישור לפוסט עצמו. */
+  .status-fb{background:#DEE7F5;color:#1B3C6E;text-decoration:none}
+  a.status-fb:hover{background:#CFDDF1}
   .pill-row{display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end}
   .acc-body .card.kind-shared{background:linear-gradient(180deg,#F4F9F5,#E8F2EA);border-inline-start-color:#2A5B36}
   .kind-shared .lead-kind{background:#2A5B36;color:#EAF4EC}
@@ -7100,6 +7104,8 @@ let myPropertyRows = [];
 let myPropertyAgentId = null;
 let propertyViewCounts = {};
 let propertyPlanningInfo = {};
+// property_id → { posted: השורה של הפוסט האחרון, pending: יש פרסום בדרך }
+let propertyPublications = {};
 
 // טקסט אחד לחיפוש חופשי בכל מה שמזהה נכס — כולל בעל/ת הנכס, שגלוי רק כאן
 function propertySearchBlob(p){
@@ -7273,6 +7279,7 @@ async function loadProperties(agentId){
   renderDashboardOverview();
   if (!props || props.length === 0){
     propertyViewCounts = {}; propertyPlanningInfo = {}; propertyShareCounts = {};
+    propertyPublications = {};
     syncPropertyFilterOptions();
     renderProperties();
     return;
@@ -7285,6 +7292,21 @@ async function loadProperties(agentId){
   const { data: planningRows } = await sb.from('property_planning_info').select('*').in('property_id', propertyIds);
   propertyPlanningInfo = {};
   (planningRows||[]).forEach(pl => { propertyPlanningInfo[pl.property_id] = pl; });
+
+  // יומן הפרסומים בפייסבוק — הפוסט האחרון על כל נכס. ה-policy מחזירה לסוכן/ת
+  // את השורות של הנכסים שלו/ה בלבד, ולכן אפשר למשוך ישירות. ממוין כך
+  // שהשורה הראשונה לכל נכס היא העדכנית ביותר.
+  propertyPublications = {};
+  const { data: pubRows } = await sb.from('property_publications')
+    .select('property_id, status, origin, posted_at, post_url, created_at')
+    .in('property_id', propertyIds)
+    .order('created_at', { ascending:false });
+  (pubRows||[]).forEach(pub => {
+    const cur = propertyPublications[pub.property_id] || { posted:null, pending:false };
+    if (pub.status === 'pending') cur.pending = true;
+    if (pub.status === 'posted' && !cur.posted) cur.posted = pub;
+    propertyPublications[pub.property_id] = cur;
+  });
 
   // כמה משרדים קיבלו בפועל כל נכס — ה-policy על property_shares מחזירה לבעל
   // הנכס את השורות שלו, ולכן אפשר לספור מכאן בלי לעבור דרך פונקציה
@@ -7303,10 +7325,27 @@ async function loadProperties(agentId){
   renderProperties();
 }
 
+/* מצב הפרסום בפייסבוק של נכס אחד, מתוך היומן שנטען ב-loadProperties.
+   ‏canPublish כאן הוא תחזית לתצוגה בלבד — ההחלטה האמיתית מתקבלת במסד. */
+function facebookPublishState(propertyId, republishDays){
+  const pub = propertyPublications[propertyId] || {};
+  const postedAt = pub.posted?.posted_at ? new Date(pub.posted.posted_at) : null;
+  const nextAllowed = postedAt
+    ? new Date(postedAt.getTime() + republishDays * 864e5)
+    : null;
+  return {
+    posted: pub.posted || null,
+    pending: Boolean(pub.pending),
+    nextAllowed,
+    canPublish: !nextAllowed || nextAllowed <= new Date(),
+  };
+}
+
 function renderPropertyCards(listEl, props, agentId){
   const statusLabels = PROPERTY_STATUS_LABELS;
   const viewCounts = propertyViewCounts;
   const planningByProperty = propertyPlanningInfo;
+  const fbRepublishDays = priceOf('facebook_republish_min_days', 30);
 
   listEl.innerHTML = '';
   props.forEach(p=>{
@@ -7320,6 +7359,9 @@ function renderPropertyCards(listEl, props, agentId){
     const ownerRow = Array.isArray(p.property_owners) ? p.property_owners[0] : p.property_owners;
     const ownerLine = [ownerRow?.owner_name, ownerRow?.owner_phone].filter(Boolean).join(' · ');
     const planning = planningByProperty[p.id];
+    // מצב הפרסום בפייסבוק: מתי יצא הפוסט האחרון, האם יש פוסט בדרך, והאם
+    // חלף החסם החודשי. המצב מחושב פעם אחת ומשמש גם את התגית וגם את הכפתור.
+    const fbState = facebookPublishState(p.id, fbRepublishDays);
     const el = document.createElement('div');
     el.className = 'card lead-card' + (isCurrentlyPromoted ? ' is-promoted' : '');
     const thumbHtml = (p.images && p.images.length)
@@ -7355,6 +7397,13 @@ function renderPropertyCards(listEl, props, agentId){
           ${p.shared_with_partners
             ? `<span class="status-pill status-shared" title="בשת״פ · הופץ ${hebDate(p.shared_at)}">🤝 ${propertyShareCounts[p.id] || 0} משרדים</span>`
             : ''}
+          ${fbState.pending
+            ? '<span class="status-pill status-fb" title="בתור הפרסום — הפוסט יעלה בדקות הקרובות">📘 בתור לפרסום</span>'
+            : fbState.posted
+              ? (fbState.posted.post_url
+                  ? `<a class="status-pill status-fb" href="${esc(fbState.posted.post_url)}" target="_blank" rel="noopener noreferrer" title="${fbState.canPublish ? 'אפשר לפרסם שוב' : 'אפשר לפרסם שוב מ-' + hebDate(fbState.nextAllowed)}">📘 פורסם ${hebDate(fbState.posted.posted_at)}</a>`
+                  : `<span class="status-pill status-fb" title="${fbState.canPublish ? 'אפשר לפרסם שוב' : 'אפשר לפרסם שוב מ-' + hebDate(fbState.nextAllowed)}">📘 פורסם ${hebDate(fbState.posted.posted_at)}</span>`)
+              : ''}
         </div>
       </div>
       ${tags}
@@ -7403,6 +7452,21 @@ function renderPropertyCards(listEl, props, agentId){
         label:'⬆️ הקפצה חינם', title:'העלאת הנכס לראש התוצאות · פעם ב-24 שעות',
         onClick:btn => bumpProperty(p.id, btn, agentId),
       });
+
+      // פרסום בדף הפייסבוק של האתר. כל נכס מקבל פוסט אוטומטי אחד עם כניסתו
+      // למערכת, והכפתור כאן הוא הפרסום החוזר — פעם ב-30 יום. הכפתור מוצג רק
+      // כשהפרסום באמת אפשרי; מצב "פורסם" ו"בתור" מסופרים בתגית שבראש הכרטיס,
+      // כדי שכפתור חסום לא יתפוס מקום ברשת הפעולות. החסם עצמו נאכף
+      // ב-request_manual_publication ולא כאן.
+      if (!fbState.pending && fbState.canPublish){
+        addCardAction(actions, {
+          label: fbState.posted ? '📘 פרסום חוזר בפייסבוק' : '📘 פרסם בפייסבוק',
+          title: fbState.posted
+            ? `הפוסט האחרון: ${hebDate(fbState.posted.posted_at)} · פוסט חוזר מותר פעם ב-${fbRepublishDays} יום`
+            : 'פרסום הנכס בדף הפייסבוק של האתר',
+          onClick:btn => publishPropertyToFacebook(p, btn, agentId),
+        });
+      }
 
       if (!isCurrentlyPromoted){
         const price = shekel(priceOf('promote_price', 20));
@@ -7457,6 +7521,49 @@ async function bumpProperty(propertyId, btn, agentId){
   }
   showToast('הנכס הוקפץ בהצלחה!');
   btn.disabled = false; btn.textContent = original;
+  await loadProperties(agentId);
+}
+
+/* פרסום הנכס בדף הפייסבוק של האתר — שני שלבים בכוונה:
+   ‏1. ‏request_manual_publication מכניסה שורה לתור ואוכפת את הכללים (בעלות,
+      נכס פעיל, פעם ב-30 יום). זו הבדיקה היחידה שקובעת.
+   ‏2. קריאה לשרת הפרסום כדי שהפוסט יצא עכשיו ולא בעוד חמש דקות. השלב הזה
+      הוא נוחות בלבד: אם הוא נכשל, ה-cron ירים את השורה בהרצה הבאה, ולכן
+      ההודעה לסוכן/ת נשארת חיובית ולא מבטיחה קישור שלא הגיע. */
+async function publishPropertyToFacebook(property, btn, agentId){
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'שולח לפרסום…';
+
+  const { data, error } = await sb.rpc('request_manual_publication', { p_property_id: property.id });
+  if (error || !data?.ok){
+    const nextDate = data?.next_allowed_at ? hebDate(data.next_allowed_at) : null;
+    const messages = {
+      too_soon:       `הנכס פורסם לאחרונה ב-${data?.last_posted_at ? hebDate(data.last_posted_at) : '—'}. אפשר לפרסם שוב מ-${nextDate}`,
+      already_queued: 'הנכס כבר בתור הפרסום — הפוסט יעלה בדקות הקרובות',
+      not_active:     'אפשר לפרסם רק נכס פעיל',
+      not_allowed:    'הנכס לא שייך אליך',
+      not_agent:      'שגיאת הרשאה',
+      disabled:       'הפרסום האוטומטי לפייסבוק כבוי כרגע',
+    };
+    showToast(messages[data?.reason] || 'שגיאה בשליחה לפרסום');
+    btn.disabled = false; btn.textContent = original;
+    return;
+  }
+
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/property-marketing-publish', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      body: JSON.stringify({ property_id: property.id }),
+    });
+    const out = await res.json().catch(()=> ({}));
+    const posted = res.ok && (out.results || []).find(r => r.post_id || r.post_url);
+    showToast(posted ? 'הנכס פורסם בדף הפייסבוק!' : 'הנכס נשלח לפרסום — הפוסט יעלה בדקות הקרובות');
+  } catch(err){
+    console.error(err);
+    showToast('הנכס נשלח לפרסום — הפוסט יעלה בדקות הקרובות');
+  }
   await loadProperties(agentId);
 }
 
