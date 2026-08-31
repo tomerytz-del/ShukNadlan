@@ -377,14 +377,62 @@
   .color-input label{font-size:.72rem;font-weight:700;color:var(--ink-soft)}
   .color-input input[type=color]{width:100%;height:38px;padding:2px;border:1.5px solid var(--line);border-radius:var(--radius-sm);background:#fff;cursor:pointer}
 
-  /* תצוגה מקדימה — מחקה את ראש דף המשרד כדי שהמנהל יראה את הבחירה לפני שמירה */
-  .brand-preview{border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;margin-top:14px}
-  .brand-preview .bp-cover{height:92px;background-size:cover;background-position:center;position:relative}
-  .brand-preview .bp-body{padding:8px 14px 14px;display:flex;align-items:flex-start;gap:12px;position:relative}
-  .brand-preview .bp-logo{width:56px;height:56px;margin-top:-34px;border-radius:14px;border:3px solid #fff;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.3rem;overflow:hidden;flex-shrink:0}
+  /* ---------- תצוגה מקדימה של דף המשרד ----------
+     מיני־מוק של כל המרכיבים שנושאים צבע בדף האמיתי — רצועת נושא, לוגו ושם,
+     קפסולות מספרים, כפתורי יצירת קשר, טאבים, אריח נכס וכוכבי ביקורת. עד כה
+     נראתה כאן הכותרת בלבד, ולכן אי אפשר היה לראות מה עושים "רקע כרטיסים",
+     "קווי הפרדה" והצבע המשני לפני שמירה.
+     כל הצביעה עוברת דרך משתני ‎--bp-*‎ שנקבעים על המכל ב-renderBrandPreview,
+     באותה נגזרת בדיוק שדף המשרד מחשב אצל הלקוח. */
+  .brand-preview{
+    border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;margin-top:14px;
+    background:var(--bp-paper-raised,#fff);
+  }
+  .brand-preview .bp-cover{
+    height:92px;background-size:cover;background-position:center;position:relative;
+    border-bottom:4px solid var(--bp-accent,var(--gold));
+  }
+  .brand-preview .bp-body{padding:8px 14px 14px;position:relative}
+  .brand-preview .bp-head{display:flex;align-items:flex-start;gap:12px}
+  .brand-preview .bp-logo{
+    width:56px;height:56px;margin-top:-34px;border-radius:14px;border:3px solid var(--bp-paper,#fff);
+    display:flex;align-items:center;justify-content:center;font-family:'Frank Ruhl Libre',serif;
+    font-weight:900;font-size:1.3rem;overflow:hidden;flex-shrink:0;
+    background:linear-gradient(155deg,var(--bp-accent),var(--bp-brand) 65%);color:var(--bp-on-brand,#fff);
+  }
   .brand-preview .bp-logo img{width:100%;height:100%;object-fit:cover}
-  .brand-preview .bp-name{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1rem}
-  .brand-preview .bp-chip{display:inline-block;font-size:.66rem;font-weight:800;padding:2px 8px;border-radius:5px;color:#fff;margin-top:3px}
+  .brand-preview .bp-name{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1rem;color:var(--bp-brand-dark)}
+  .brand-preview .bp-tagline{font-family:'Frank Ruhl Libre',serif;font-style:italic;font-size:.76rem;color:var(--bp-brand);margin-top:2px;line-height:1.35}
+  .brand-preview .bp-tagline:empty{display:none}
+  .brand-preview .bp-row{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+  .brand-preview .bp-stat{
+    display:inline-flex;align-items:center;gap:6px;font-size:.66rem;font-weight:700;
+    background:var(--bp-surface,#fff);border:1px solid var(--bp-line);border-radius:999px;padding:4px 10px;
+  }
+  .brand-preview .bp-stat i{width:14px;height:14px;border-radius:4px;background:var(--bp-brand-tint);flex:none}
+  .brand-preview .bp-stat.accent i{background:var(--bp-accent-tint)}
+  .brand-preview .bp-btn{font-size:.68rem;font-weight:800;border-radius:999px;padding:7px 14px;white-space:nowrap}
+  .brand-preview .bp-btn.primary{background:linear-gradient(120deg,var(--bp-brand-dark),var(--bp-brand));color:var(--bp-on-brand,#fff)}
+  .brand-preview .bp-btn.secondary{background:var(--bp-accent-tint);color:var(--bp-accent-ink);border:1px solid var(--bp-accent)}
+  .brand-preview .bp-tabs{
+    display:flex;gap:4px;margin-top:10px;padding:4px;width:max-content;max-width:100%;overflow:hidden;
+    background:var(--bp-surface,#fff);border:1px solid var(--bp-line);border-radius:999px;
+  }
+  .brand-preview .bp-tab{font-size:.66rem;font-weight:700;padding:5px 12px;border-radius:999px;color:var(--ink-soft);white-space:nowrap}
+  .brand-preview .bp-tab.active{background:var(--bp-brand);color:var(--bp-on-brand,#fff)}
+  .brand-preview .bp-card{
+    display:flex;gap:10px;align-items:center;margin-top:10px;overflow:hidden;
+    background:var(--bp-surface,#fff);border:1px solid var(--bp-line);border-radius:12px;
+    width:max-content;max-width:100%;padding-inline-end:14px;
+  }
+  .brand-preview .bp-thumb{width:78px;height:58px;flex:none;position:relative;background:linear-gradient(155deg,var(--bp-accent),var(--bp-brand))}
+  .brand-preview .bp-tag{
+    position:absolute;top:5px;inset-inline-start:5px;font-size:.55rem;font-weight:800;
+    padding:2px 7px;border-radius:999px;background:var(--bp-accent);color:var(--bp-on-accent,#fff);
+  }
+  .brand-preview .bp-price{font-size:.82rem;font-weight:900;color:var(--bp-accent-ink)}
+  .brand-preview .bp-title{font-size:.66rem;color:var(--ink-soft)}
+  .brand-preview .bp-stars{margin-top:9px;font-size:.82rem;letter-spacing:1px;color:var(--bp-accent-ink)}
 
   /* אותה תצוגה מקדימה, הפעם לראש דף הסוכן/ת — התמונה היא פורטרט מלבני ללא
      מסגרת, בדיוק כמו ב-agent.html, כדי שמה שנראה כאן יהיה מה שיוצג שם */
@@ -2238,11 +2286,34 @@
         <div class="brand-preview" id="brandPreview">
           <div class="bp-cover" id="bpCover"></div>
           <div class="bp-body">
-            <div class="bp-logo" id="bpLogo">·</div>
-            <div>
-              <div class="bp-name" id="bpName">המשרד שלי</div>
-              <span class="bp-chip" id="bpChip">נכסים פעילים</span>
+            <div class="bp-head">
+              <div class="bp-logo" id="bpLogo">·</div>
+              <div style="min-width:0">
+                <div class="bp-name" id="bpName">המשרד שלי</div>
+                <div class="bp-tagline" id="bpTagline"></div>
+              </div>
             </div>
+            <!-- הנתונים כאן הם דוגמה קבועה; מה שמשתנה הוא הצבע בלבד -->
+            <div class="bp-row">
+              <span class="bp-stat"><i></i>12 נכסים פעילים</span>
+              <span class="bp-stat accent"><i></i>4.8 דירוג ממוצע</span>
+            </div>
+            <div class="bp-row">
+              <span class="bp-btn primary">וואטסאפ למשרד</span>
+              <span class="bp-btn secondary">שיחה עם המשרד</span>
+            </div>
+            <div class="bp-tabs">
+              <span class="bp-tab active">נכסים פעילים</span>
+              <span class="bp-tab">נבחרת הסוכנים</span>
+            </div>
+            <div class="bp-card">
+              <div class="bp-thumb"><span class="bp-tag">להשכרה</span></div>
+              <div style="min-width:0;padding:0 4px 0 0">
+                <div class="bp-price">₪4,200/חוד׳</div>
+                <div class="bp-title">4 חדרים · עפולה</div>
+              </div>
+            </div>
+            <div class="bp-stars">★★★★★</div>
           </div>
         </div>
 
@@ -5357,6 +5428,11 @@ function syncColorInputs(){
   });
 }
 
+// המוטו נראה עכשיו בתצוגה המקדימה, ולכן הוא מתעדכן תוך כדי הקלדה
+document.getElementById('brTagline').addEventListener('input', ()=>{
+  if (brandingState) renderBrandPreview();
+});
+
 BRAND_COLOR_KEYS.forEach(k=>{
   document.getElementById(BRAND_COLOR_INPUTS[k]).addEventListener('input', (e)=>{
     if (!brandingState) return;
@@ -5368,11 +5444,39 @@ BRAND_COLOR_KEYS.forEach(k=>{
   });
 });
 
+// גוון בהיר של צבע — אותה נוסחה ש-agency.html מקבל מ-color-mix ב-14%
+function tintOf(hex, ratio = 0.14){
+  const channel = i => parseInt(hex.slice(i, i+2), 16);
+  const mix = v => Math.round(v * ratio + 255 * (1 - ratio));
+  return '#' + [1,3,5].map(i => mix(channel(i)).toString(16).padStart(2,'0')).join('');
+}
+
+/* הצבע שבו ייכתבו המחיר, הכוכבים ואייקוני הקפסולות על רקע הכרטיסים. זו אותה
+   נסיגה בדיוק שדף המשרד מבצע: המשני הכהה, אחריו המשני, ורק אם שניהם בהירים
+   מדי — הראשי הכהה. חייב להישאר זהה ל-applyBranding ב-agency.html. */
+function accentInkOf(c){
+  return [c.accent_dark, c.accent, c.primary_dark].find(hex => contrastRatio(hex, c.paper_raised) >= 4.5) || '#1b1f26';
+}
+
 function renderBrandPreview(){
   if (!brandingState) return;
   const c = brandingState.colors;
   const preview = document.getElementById('brandPreview');
-  preview.style.background = c.paper_raised;
+  const vars = {
+    '--bp-brand': c.primary,
+    '--bp-brand-dark': c.primary_dark,
+    '--bp-accent': c.accent,
+    '--bp-paper': c.paper,
+    '--bp-paper-raised': c.paper_raised,
+    '--bp-surface': c.paper_raised,
+    '--bp-line': c.line,
+    '--bp-on-brand': readableOn(c.primary),
+    '--bp-on-accent': readableOn(c.accent),
+    '--bp-accent-ink': accentInkOf(c),
+    '--bp-brand-tint': tintOf(c.primary),
+    '--bp-accent-tint': tintOf(c.accent),
+  };
+  Object.keys(vars).forEach(k => preview.style.setProperty(k, vars[k]));
   preview.style.borderColor = c.line;
 
   const cover = document.getElementById('bpCover');
@@ -5385,38 +5489,56 @@ function renderBrandPreview(){
   const logoSrc = brandingState.logo ? (brandingState.logo.previewUrl || brandingState.logo.url) : null;
   logo.textContent = '';
   if (logoSrc){
+    // תמונת לוגו מכסה את הריבוע — הגרדיאנט של הערכה מתחתיה רק היה מציץ בקצוות
     logo.style.background = 'transparent';
     const img = document.createElement('img');
     img.src = logoSrc;
     img.alt = '';
     logo.appendChild(img);
   } else {
-    logo.style.background = `linear-gradient(155deg, ${c.accent}, ${c.primary} 65%)`;
-    logo.style.color = readableOn(c.primary);
+    logo.style.background = '';
     logo.textContent = (brandingState.agencyName || '?')[0];
   }
 
-  const nameEl = document.getElementById('bpName');
-  nameEl.textContent = brandingState.agencyName || 'המשרד שלי';
-  nameEl.style.color = c.primary_dark;
-  const chip = document.getElementById('bpChip');
-  chip.style.background = c.accent;
-  chip.style.color = readableOn(c.accent);
+  document.getElementById('bpName').textContent = brandingState.agencyName || 'המשרד שלי';
+  const taglineInput = document.getElementById('brTagline');
+  document.getElementById('bpTagline').textContent = taglineInput ? taglineInput.value.trim() : '';
 
   renderContrastWarning();
 }
 
-// צבע ראשי בהיר מדי הופך כותרות בדף המשרד לבלתי קריאות — מזהירים במקום לחסום.
+/* צבע בהיר מדי הופך טקסט בדף המשרד לבלתי קריא — מזהירים במקום לחסום, כי
+   מותג הוא בחירה של המשרד. שתי הבדיקות מכסות את שני המקומות שבהם צבע נושא
+   טקסט: הכותרות על רקע הדף, והמחירים/כוכבים על רקע הכרטיסים. */
 function renderContrastWarning(){
   const c = brandingState.colors;
   const el = document.getElementById('brContrastWarn');
-  const headingContrast = contrastRatio(c.primary_dark, c.paper);
-  if (headingContrast < 4.5){
-    el.textContent = `שימו לב: הניגודיות בין "ראשי כהה" לרקע הדף נמוכה (${headingContrast.toFixed(1)}:1, מומלץ 4.5 ומעלה) — הכותרות בדף המשרד יהיו קשות לקריאה.`;
-    el.style.display = 'block';
-  } else {
-    el.style.display = 'none';
+  const notes = [];
+
+  const heading = contrastRatio(c.primary_dark, c.paper);
+  if (heading < 4.5){
+    notes.push(`הניגודיות בין "ראשי כהה" לרקע הדף נמוכה (${heading.toFixed(1)}:1, מומלץ 4.5 ומעלה) — הכותרות בדף המשרד יהיו קשות לקריאה.`);
   }
+  // הצבע המשני משמש כמילוי — הקו מתחת לתמונת הנושא ותגית ההשכרה. גוון
+  // שכמעט זהה לרקע פשוט נעלם, וזה לא משהו שהדף יכול לתקן לבד.
+  const accentFill = contrastRatio(c.accent, c.paper_raised);
+  if (accentFill < 1.6){
+    notes.push('הצבע המשני כמעט זהה לרקע הכרטיסים — הקו מתחת לתמונת הנושא ותגיות ההשכרה כמעט לא ייראו בדף המשרד.');
+  }
+  // ובמקביל הוא נושא טקסט — מחירים, כוכבים ואייקוני הקפסולות. אקסנט בהיר מדי
+  // ייעלם שם, ולכן הדף מחליף אותו אוטומטית בצבע הראשי.
+  const accentInk = Math.max(contrastRatio(c.accent_dark, c.paper_raised), accentFill);
+  if (accentInk < 4.5){
+    notes.push(`הצבע המשני בהיר מדי ביחס לרקע הכרטיסים (${accentInk.toFixed(1)}:1) — המחירים והכוכבים בדף המשרד יוצגו בצבע הראשי במקומו.`);
+  }
+
+  el.textContent = '';
+  notes.forEach(text=>{
+    const line = document.createElement('div');
+    line.textContent = 'שימו לב: ' + text;
+    el.appendChild(line);
+  });
+  el.style.display = notes.length ? 'block' : 'none';
 }
 
 /* ---------- לוגו ותמונת נושא ---------- */

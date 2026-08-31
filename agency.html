@@ -19,26 +19,54 @@
     --teal-tint:#E0E7ED; --gold-tint:#F1DFE1;
     /* צבע הטקסט שיושב על גבי --brand; נדרס ל-כהה אם המשרד בחר גוון בהיר */
     --on-brand:#fff;
+    /* אותו עיקרון לצבע המשני: טקסט שיושב על גבי --accent */
+    --on-accent:#fff;
+    /* ‏--accent-ink הוא הצבע המשני כטקסט על משטח בהיר. הוא נגזר ב-JS ונסוג
+       ל-‎--brand-dark‎ כשהמשרד בחר אקסנט בהיר מדי — מחיר בכרטיס נכס חייב
+       להיקרא, גם במחיר של ויתור על הגוון שנבחר. */
+    --accent-ink:var(--accent-dark);
+    /* האקסנט כתגית שמונחת על תמונה: חצי־שקוף איפה שיש color-mix, אטום אחרת */
+    --accent-veil:var(--accent);
     --teal:var(--brand); --teal-dark:var(--brand-dark); --gold:var(--accent); --gold-dark:var(--accent-dark);
     --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(15,52,53,.08); --maxw:1000px;
 
     /* ====== שכבת העיצוב 2026 ======
        אותה שכבה שדף הנכס מקבל: משטחים בהירים, קווי הפרדה דקיקים וצללים רכים.
-       היא מכוונת ולא נגזרת מ-var(--brand) — צבעי המשרד נשארים על האקסנטים
-       (טאב פעיל, תגיות, כפתורים), והשלד נשאר אחיד בין כל המשרדים במרקטפלייס.
-       ‏--surface כן נדרס אם המשרד הגדיר paper_raised משלו, כדי לא לשבור ערכה
+       הפריסה, הרדיוסים ועוצמת הצללים זהים בכל המשרדים — זה השלד המשותף של
+       המרקטפלייס. מה שכן נגזר מ-var(--brand) הוא הטמפרטורה: המשטח המשני
+       והצללים מקבלים את גוון המותג, כך שערכה חמה לא נשארת עם צללים כחלחלים.
+       ‏--surface נדרס אם המשרד הגדיר paper_raised משלו, כדי לא לשבור ערכה
        כהה שנבחרה בכוונה. */
     --surface:#FFFFFF; --surface-soft:#FBFAF9;
     --hair:#E6E3DD; --hair-strong:#D8D4CC;
-    --bronze:#B45309; --bronze-tint:#FBF1E2;
     --radius-xl:24px;
+    /* ‏--veil-ink הוא ה"שחור" של הדף: הבסיס לצללים, לשכבת הכהות מעל תמונת
+       הנושא ולתגיות שיושבות על תמונות. בלי color-mix הוא נשאר שחור נקי. */
+    --veil-ink:#000;
     --shadow-xs:0 1px 2px rgba(18,40,64,.05);
     --shadow-md:0 8px 24px rgba(18,40,64,.10);
+    --brand-veil:rgba(18,40,64,.62);
+    --cover-veil-strong:rgba(0,0,0,.45); --cover-veil-soft:rgba(0,0,0,.05);
   }
   @supports (color: color-mix(in srgb, red 50%, white)){
     :root{
       --teal-tint:color-mix(in srgb, var(--brand) 14%, #fff);
       --gold-tint:color-mix(in srgb, var(--accent) 14%, #fff);
+      --accent-veil:color-mix(in srgb, var(--accent) 84%, transparent);
+
+      /* ‏--surface-soft נגזר מ---surface (ולא מלבן קבוע), ולכן הוא ממשיך לעבוד
+         גם כשהמשרד הגדיר רקע כרטיסים משלו. */
+      --surface-soft:color-mix(in srgb, var(--brand) 4%, var(--surface));
+      /* שחור מעורבב בגוון הראשי הכהה — תמיד כהה יותר מ---brand-dark עצמו,
+         ולכן שכבת הכהות מעל תמונת הנושא נשארת קריאה גם בערכה בהירה. */
+      --veil-ink:color-mix(in srgb, var(--brand-dark) 55%, #000);
+      /* אותן עוצמות צל כמו קודם (5%/8%/10% של נייבי) — רק הגוון משתנה */
+      --shadow-xs:0 1px 2px color-mix(in srgb, var(--veil-ink) 6%, transparent);
+      --shadow-sm:0 2px 8px color-mix(in srgb, var(--veil-ink) 9%, transparent);
+      --shadow-md:0 8px 24px color-mix(in srgb, var(--veil-ink) 12%, transparent);
+      --brand-veil:color-mix(in srgb, var(--veil-ink) 62%, transparent);
+      --cover-veil-strong:color-mix(in srgb, var(--veil-ink) 45%, transparent);
+      --cover-veil-soft:color-mix(in srgb, var(--veil-ink) 5%, transparent);
     }
   }
   *{box-sizing:border-box}
@@ -74,11 +102,16 @@
   #notFoundState{display:none}
   #agencyContent{display:none}
 
-  .cover{height:170px;background:linear-gradient(120deg,var(--brand-dark),var(--brand));position:relative}
+  /* הקו התחתון בצבע המשני הוא ההופעה הראשונה של האקסנט בדף — הוא חוצה את כל
+     רוחב המסך מעל הקיפול, ולכן ערכה מתחלפת נראית מיד ולא רק בלוגו. */
+  .cover{
+    height:170px;background:linear-gradient(120deg,var(--brand-dark),var(--brand));position:relative;
+    border-bottom:4px solid var(--accent);
+  }
   /* עם תמונת נושא: התמונה ממלאת את הרצועה, ומעליה שכבת כהות בגוון המותג כדי
      שהלוגו והשם שנשענים על הקצה התחתון יישארו קריאים על כל תמונה. */
   .cover.has-image{height:240px;background-size:cover;background-position:center}
-  .cover.has-image::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.45),rgba(0,0,0,.05) 55%)}
+  .cover.has-image::after{content:'';position:absolute;inset:0;background:linear-gradient(to top,var(--cover-veil-strong),var(--cover-veil-soft) 55%)}
   @media(max-width:640px){.cover{height:130px}.cover.has-image{height:165px}}
 
   /* רק הלוגו נכנס אל תוך רצועת הנושא; שם המשרד יושב כולו על רקע הדף, אחרת
@@ -115,6 +148,27 @@
   .area-chip svg{width:12px;height:12px}
   .brand-desc{color:var(--ink-soft);font-size:.94rem;max-width:62ch;margin:14px 0 0}
 
+  /* ---------- יצירת קשר עם המשרד ----------
+     עד כה דף המשרד היה קטלוג בלבד — אפשר היה לראות נכסים ולא לפנות לאיש.
+     שני הכפתורים כאן צבועים בצבעי המשרד (ולא בירוק של וואטסאפ) בכוונה: זו
+     הפעולה הבולטת ביותר בדף, ולכן המקום שבו הערכה שנבחרה נראית הכי חזק.
+     הבלוק נוצר רק כשיש טלפון אמיתי מאחוריו, ולכן ‎:empty‎ מכבה אותו. */
+  .brand-cta{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin-top:16px;max-width:440px}
+  .brand-cta:empty{display:none}
+  @media(min-width:640px){.brand-cta{grid-template-columns:auto auto;justify-content:start}}
+  .brand-cta a{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:12px 20px;border-radius:999px;font-weight:800;font-size:.92rem;line-height:1;
+    transition:transform .15s ease,box-shadow .15s ease,background .15s ease,color .15s ease;
+  }
+  .brand-cta svg{width:18px;height:18px;flex:none}
+  .cta-primary{background:linear-gradient(120deg,var(--brand-dark),var(--brand));color:var(--on-brand);box-shadow:var(--shadow-md)}
+  .cta-primary:hover{transform:translateY(-1px)}
+  .cta-primary svg{fill:currentColor;stroke:none;width:19px;height:19px}
+  .cta-secondary{background:var(--gold-tint);color:var(--accent-ink);border:1px solid var(--accent)}
+  .cta-secondary:hover{background:var(--accent);color:var(--on-accent)}
+  @media(max-width:420px){.brand-cta a{padding-inline:12px;font-size:.86rem;gap:6px}}
+
   /* ---------- שורת המספרים של המשרד ----------
      במקום תגיות יכולת שאין מאחוריהן נתון, כאן יושבים רק מספרים אמיתיים
      מהמסד. קפסולה שאין לה ערך (משרד בלי עסקאות סגורות, בלי ביקורות) פשוט
@@ -133,7 +187,9 @@
   }
   .stat-pill .ic{width:38px;height:38px;border-radius:12px;flex:none;display:grid;place-items:center;background:var(--teal-tint);color:var(--brand)}
   .stat-pill .ic svg{width:20px;height:20px}
-  .stat-pill.accent .ic{background:var(--bronze-tint);color:var(--bronze)}
+  /* הקפסולות ה"חמות" — עסקאות שנסגרו והדירוג — נצבעות בצבע המשני של המשרד
+     ולא בברונזה קבועה, כדי ששורת המספרים תישא את שתי הצלעות של הערכה. */
+  .stat-pill.accent .ic{background:var(--gold-tint);color:var(--accent-ink)}
   .stat-pill .txt{min-width:0;display:flex;flex-direction:column}
   .stat-pill .v{font-size:1.15rem;font-weight:900;color:var(--teal-dark);line-height:1.2;letter-spacing:-.3px}
   .stat-pill .k{font-size:.72rem;font-weight:600;color:var(--ink-soft);line-height:1.3}
@@ -144,7 +200,13 @@
      שמשרד עם תמונה אחת לא יקבל חצי שורה ריקה. */
   .gallery-sec{margin-top:26px;display:none}
   .gallery-head{display:flex;align-items:baseline;gap:10px;margin-bottom:12px;flex-wrap:wrap}
-  .gallery-head h2{font-size:1.05rem}
+  /* מקל קצר בצבע המשני לפני כותרת המקטע — סימון זול שחוזר על עצמו בכל דף
+     משרד ונותן לערכה נוכחות גם בטיפוגרפיה, לא רק במשטחים */
+  .gallery-head h2{font-size:1.05rem;position:relative;padding-inline-start:12px}
+  .gallery-head h2::before{
+    content:'';position:absolute;inset-block:3px;inset-inline-start:0;
+    width:4px;border-radius:2px;background:var(--accent);
+  }
   .gallery-head span{font-size:.78rem;color:var(--ink-soft)}
   /* מובייל הוא ברירת המחדל והפריסה לשש עמודות חיה רק מ-640px ומעלה: כללי
      ה-data-count נושאים סלקטור נוסף, ולכן כמדיה־קוורי של max-width הם היו
@@ -243,7 +305,7 @@
     background:
       linear-gradient(180deg,rgba(255,255,255,.66),rgba(255,255,255,.36) 55%,rgba(255,255,255,.56)),
       url('assets/property-placeholder.jpg') center/cover no-repeat,
-      linear-gradient(160deg,#F4F3F0 0%,var(--teal-tint) 100%);
+      linear-gradient(160deg,var(--surface-soft) 0%,var(--teal-tint) 100%);
   }
   .thumb-fallback .tf-logo{
     width:54px;height:54px;flex:0 0 auto;border-radius:14px;background:#fff;
@@ -263,9 +325,9 @@
   .card-tags{position:absolute;top:9px;inset-inline-start:9px;z-index:2;display:flex;gap:5px;flex-wrap:wrap;max-width:80%}
   .card-tag{
     font-size:.66rem;font-weight:800;padding:3px 9px;border-radius:999px;line-height:1.35;
-    background:rgba(18,40,64,.62);color:#fff;border:1px solid rgba(255,255,255,.26);backdrop-filter:blur(8px);
+    background:var(--brand-veil);color:#fff;border:1px solid rgba(255,255,255,.26);backdrop-filter:blur(8px);
   }
-  .card-tag.rent{background:rgba(180,83,9,.82)}
+  .card-tag.rent{background:var(--accent-veil);color:var(--on-accent)}
   .card-media{position:absolute;bottom:9px;inset-inline-start:9px;z-index:2;display:flex;gap:5px;flex-wrap:wrap}
   .card-media span{
     display:inline-flex;align-items:center;gap:4px;font-size:.66rem;font-weight:700;
@@ -274,7 +336,9 @@
   }
   .card-media svg{width:12px;height:12px}
   .prop-card .body{padding:12px 13px 13px}
-  .prop-card .price{font-weight:900;color:var(--teal-dark);font-size:1.05rem;letter-spacing:-.3px}
+  /* המחיר הוא הדבר שהעין נעצרת עליו בכל אריח — ולכן הוא נושא את הצבע המשני.
+     ‏--accent-ink כבר עבר בדיקת ניגודיות ב-JS מול רקע הכרטיס. */
+  .prop-card .price{font-weight:900;color:var(--accent-ink);font-size:1.05rem;letter-spacing:-.3px}
   .prop-card .title{
     font-size:.85rem;margin-top:3px;color:var(--ink);
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
@@ -284,7 +348,7 @@
 
   .deal-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--hair);font-size:.85rem}
   .deal-row:last-child{border-bottom:none}
-  .deal-price{font-weight:900;color:var(--teal-dark);white-space:nowrap}
+  .deal-price{font-weight:900;color:var(--accent-ink);white-space:nowrap}
   .deal-date{font-size:.72rem;color:var(--ink-soft)}
 
   .agent-grid{display:grid;grid-template-columns:1fr;gap:12px}
@@ -318,7 +382,7 @@
   .agent-card.has-badge .chev{margin-inline-start:8px}
 
   .review-card{padding:15px 16px;margin-bottom:12px}
-  .review-stars{color:var(--gold-dark);font-weight:700;letter-spacing:1px}
+  .review-stars{color:var(--accent-ink);font-weight:700;letter-spacing:1px}
   .review-text{font-size:.88rem;margin-top:7px}
   .review-by{font-size:.75rem;color:var(--ink-soft);margin-top:7px}
 
@@ -370,6 +434,8 @@
       <div class="brand-badge" id="brandBadge"></div>
     </div>
     <p class="brand-desc" id="brandDesc"></p>
+
+    <div class="brand-cta" id="brandCta"></div>
 
     <div class="stat-row" id="statRow"></div>
 
@@ -433,7 +499,10 @@ const ICON = {
   check:   S('<path d="M20 6 9 17l-5-5"/>'),
   chevron: S('<path d="m14 6-6 6 6 6"/>'),
   search:  S('<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>'),
+  phone:   S('<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8.1 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2Z"/>'),
 };
+// לוגו וואטסאפ הוא צורה מלאה ולא קו, ולכן הוא לא עובר דרך S()
+const WA_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>';
 
 document.querySelectorAll('.tab-btn').forEach(btn=>{
   btn.addEventListener('click', ()=>{
@@ -509,14 +578,21 @@ function safeHex(value, fallback){
   return typeof value === 'string' && HEX_RE.test(value.trim()) ? value.trim() : fallback;
 }
 
-// יחס הניגודיות (WCAG) בין צבע לבין לבן — קובע אם טקסט לבן עליו יהיה קריא
-function contrastWithWhite(hex){
+// בהירות יחסית (WCAG) — הבסיס לכל בדיקות הניגודיות בדף
+function relLuminance(hex){
   const full = hex.length === 4 ? '#' + hex.slice(1).split('').map(c=>c+c).join('') : hex;
-  const lum = [1,3,5].map(i=>{
+  return [1,3,5].map(i=>{
     const ch = parseInt(full.slice(i, i+2), 16) / 255;
     return ch <= 0.03928 ? ch/12.92 : Math.pow((ch+0.055)/1.055, 2.4);
   }).reduce((acc, ch, i)=> acc + [0.2126,0.7152,0.0722][i] * ch, 0);
-  return 1.05 / (lum + 0.05);
+}
+function contrastBetween(a, b){
+  const la = relLuminance(a), lb = relLuminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+// יחס הניגודיות בין צבע לבין לבן — קובע אם טקסט לבן עליו יהיה קריא
+function contrastWithWhite(hex){
+  return contrastBetween(hex, '#ffffff');
 }
 
 function safeImageUrl(url){
@@ -537,8 +613,18 @@ function applyBranding(agency){
     root.setProperty('--on-brand', contrastWithWhite(brand) >= 3.2 ? '#fff' : '#1B1F26');
   }
   if (accent){
+    const accentDark = safeHex(c.accent_dark, accent);
     root.setProperty('--accent', accent);
-    root.setProperty('--accent-dark', safeHex(c.accent_dark, accent));
+    root.setProperty('--accent-dark', accentDark);
+    root.setProperty('--on-accent', contrastWithWhite(accent) >= 3.2 ? '#fff' : '#1B1F26');
+    /* ‏--accent-ink נושא טקסט ואייקונים קטנים (מחיר, כוכבים, אייקוני הקפסולות) על רקע
+       הכרטיסים. אקסנט בהיר — צהוב, חול, ובוודאי לבן — נכשל שם בניגודיות,
+       ולכן נבחר כאן הגוון הראשון שעובר 4.5:1: קודם המשני הכהה, אחריו המשני
+       עצמו, ורק אם שניהם בהירים מדי נסוגים לצבע הראשי. */
+    const surface = safeHex(c.paper_raised, '#FFFFFF');
+    const brandDark = safeHex(c.primary_dark, safeHex(c.primary, '#122840'));
+    const ink = [accentDark, accent, brandDark].find(hex => contrastBetween(hex, surface) >= 4.5) || '#1B1F26';
+    root.setProperty('--accent-ink', ink);
   }
   if (safeHex(c.paper, null)) root.setProperty('--paper', c.paper.trim());
   // ‏paper_raised הוא צבע המשטחים שהמשרד בחר — הוא גובר גם על ‎--surface‎ של
@@ -570,6 +656,32 @@ function applyBranding(agency){
   } else {
     logoEl.textContent = agency.name[0];
   }
+}
+
+/* ---------- יצירת קשר עם המשרד ----------
+   ל-agencies אין עמודת טלפון — המספר הפומבי היחיד שיש הוא של חברי הצוות
+   (‏agency_members_public.phone_e164‎). לכן הפנייה מנותבת למנהל/ת המשרד, ואם
+   אין להם מספר — לסוכן/ת הראשון/ה שיש לו. בלי מספר אמיתי הבלוק לא נוצר:
+   כפתור שלא מוביל לאיש גרוע מהיעדר כפתור.
+   ‏phone_e164 שמור כספרות בלבד (972521112222) — בדיוק מה ש-wa.me ו-tel:
+   מצפים לו. הבדיקה כאן היא גם שער אבטחה: המספר נכנס ל-href. */
+function renderAgencyContact(members){
+  const reachable = (members || []).filter(m => /^\d{9,15}$/.test(String(m && m.phone_e164 || '')));
+  if (!reachable.length) return;
+  const contact = reachable.find(m => m.role === 'manager') || reachable[0];
+  const phone = contact.phone_e164;
+  const name = (currentAgency && currentAgency.name) || 'המשרד';
+  const text = [
+    'היי,',
+    `הגעתי לדף של ${name} בשוק הנדל״ן של עפולה והסביבה ואשמח לקבל פרטים.`,
+    window.location.href,
+  ].join('\n');
+  const waHref = 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
+
+  document.getElementById('brandCta').innerHTML = `
+    <a class="cta-primary" href="${escapeHtml(waHref)}" target="_blank" rel="noopener noreferrer"
+       aria-label="${escapeHtml('שליחת הודעת וואטסאפ ל' + name)}">${WA_SVG} וואטסאפ למשרד</a>
+    <a class="cta-secondary" href="tel:+${phone}" aria-label="${escapeHtml('חיוג ל' + name)}">${ICON.phone} שיחה עם המשרד</a>`;
 }
 
 /* ---------- גלריית המשרד (תמונות עסקאות/אירועים — לא נכסים) ----------
@@ -839,8 +951,10 @@ async function loadSoldDeals(sb, agencyId){
 async function loadAgentRoster(sb, agencyId){
   const el = document.getElementById('agentRoster');
   const { data: agents } = await sb.from('agency_members_public')
-    .select('id, slug, display_name, role, photo_url, photo_position, license_number, has_ethics_badge')
+    .select('id, slug, display_name, role, photo_url, photo_position, license_number, has_ethics_badge, phone_e164')
     .eq('agency_id', agencyId);
+  // כפתורי יצירת הקשר בראש הדף ניזונים מאותה שליפה — אין טעם בשאילתה שנייה
+  renderAgencyContact(agents);
   if (!agents || agents.length === 0){ el.innerHTML = '<div class="empty-state">אין כרגע סוכנים פעילים.</div>'; return; }
 
   setStat('agents', agents.length, agents.length === 1 ? 'סוכן/ת במשרד' : 'סוכנים במשרד', 'users');
