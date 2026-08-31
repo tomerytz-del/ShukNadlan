@@ -712,9 +712,37 @@
   }
   .live-dot{width:7px;height:7px;border-radius:50%;background:#fff;animation:pulse 1.4s infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+  /* הכיתוב עצמו הוא כפתור ולא span: הוא פותח את רשימת המבזקים, ולחיצה על
+     שורת חדשות היא הדבר הראשון שמנסים לעשות ברצועה כזו. ‏text-align:start
+     ו-font:inherit מבטלים את ברירות המחדל של הדפדפן לכפתור. */
   .ticker-text{font-size:.85rem;font-weight:600;color:var(--teal-dark);cursor:pointer;flex:1;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+    background:none;border:0;padding:0;text-align:start;font-family:inherit;min-width:0}
+  /* ההחלפה בין מבזקים בהצפה עדינה במקום קפיצה. ‎prefers-reduced-motion‎
+     מכבה אותה — תנועה חוזרת כל חמש שניות היא בדיוק המקרה שההעדפה נועדה לו. */
+  .ticker-text.swap{animation:tickerSwap .45s ease}
+  @keyframes tickerSwap{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  @media(prefers-reduced-motion:reduce){
+    .ticker-text.swap{animation:none}
+    .live-dot{animation:none}
+  }
   .ticker-more{font-size:.75rem;font-weight:700;color:var(--gold-dark);flex:0 0 auto;white-space:nowrap}
+
+  /* רשימת "כל העדכונים" — עשרת המבזקים האחרונים, במודאל שאפשר לגלול בו.
+     כל שורה היא קישור לכתבה המלאה כשיש כזו, ו-<div> כשאין. */
+  .news-list{display:flex;flex-direction:column;gap:10px}
+  .news-item{display:block;border:1px solid var(--line);border-radius:var(--radius-sm);
+    padding:12px 14px;background:#fff;color:inherit;text-decoration:none}
+  a.news-item:hover{border-color:var(--gold);background:var(--gold-tint)}
+  .news-item-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+  .news-badge{font-size:.62rem;font-weight:800;padding:3px 7px;border-radius:5px;
+    background:var(--teal);color:#fff;white-space:nowrap}
+  .news-badge.local{background:var(--brick)}
+  .news-time{font-size:.68rem;font-weight:600;color:var(--ink-soft)}
+  .news-item h4{font-size:.88rem;font-weight:700;color:var(--ink);line-height:1.4}
+  .news-item p{font-size:.75rem;font-weight:400;color:var(--ink-soft);margin-top:5px;line-height:1.55}
+  .news-source{display:block;font-size:.68rem;color:var(--ink-soft);margin-top:7px}
+  .news-empty{font-size:.8rem;color:var(--ink-soft);text-align:center;padding:24px 0}
 
   /* ====== Owner-lead banner ====== */
   /* הבאנר הוא עמודה אחת ממורכזת ולא שתי עמודות: במצב הסגור הוא צריך לקרוא
@@ -2220,8 +2248,12 @@
   <div class="ticker">
     <div class="wrap">
       <span class="ticker-flag"><span class="live-dot"></span> מבזק</span>
-      <span class="ticker-text" id="tickerText" role="status" aria-live="polite"></span>
-      <button class="ticker-more" id="tickerMore">כל העדכונים ←</button>
+      <!-- ‏aria-live הוסר בכוונה: שורה שמתחלפת כל חמש שניות באזור חי פירושה
+           שקורא מסך קוטע את עצמו כל חמש שניות. עכשיו כל המבזקים נגישים
+           ברשימה שהכפתור פותח, ולכן ההכרזה החוזרת הפכה לרעש בלבד. -->
+      <button type="button" class="ticker-text" id="tickerText"
+              aria-haspopup="dialog" title="לחיצה פותחת את כל המבזקים"></button>
+      <button type="button" class="ticker-more" id="tickerMore" aria-haspopup="dialog">כל העדכונים ←</button>
     </div>
   </div>
 
@@ -2368,6 +2400,25 @@
         </div>
         <div class="filter-modal-footer">
           <button type="button" class="btn btn-teal" style="flex:1" id="ratingInfoDone">הבנתי</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ====== כל המבזקים (נפתח מרצועת ה"מבזק") ======
+         עשרת המבזקים האחרונים, בגלילה. משתמש ב-mlead-overlay ולא
+         ב-filter-modal-overlay מאותה סיבה שמתועדת למעלה: ‏runSearch() סוגר
+         כל מודאל סינון פתוח, וזה אינו מודאל סינון. -->
+    <div class="mlead-overlay" id="newsModal" role="dialog" aria-modal="true" aria-labelledby="newsModalTitle">
+      <div class="filter-modal">
+        <div class="filter-modal-header">
+          <h3 id="newsModalTitle">מבזקי הנדל״ן האחרונים</h3>
+          <button type="button" class="filter-modal-close" id="newsModalClose" aria-label="סגירה">✕</button>
+        </div>
+        <div class="filter-modal-body">
+          <div class="news-list" id="newsModalList"></div>
+        </div>
+        <div class="filter-modal-footer">
+          <button type="button" class="btn btn-teal" style="flex:1" id="newsModalDone">סגירה</button>
         </div>
       </div>
     </div>
@@ -2711,9 +2762,14 @@ const FALLBACK_PROPERTIES = [
   {id:'m2', price:4200, title:'דירת 3 חדרים להשכרה, מרכז העיר', rooms:3, property_type:'דירה', deal_type:'rent', category:'residential', lat:32.6100, lng:35.2950, agency_name:'נדל״ן גלבוע', is_promoted:false},
   {id:'m3', price:2350000, title:'בית פרטי, שכונת גבעת המורה', rooms:6, property_type:'בית פרטי', deal_type:'sale', category:'residential', lat:32.6020, lng:35.2830, agency_name:'בית ונחלה', is_promoted:true},
 ];
+/* מבזקי ברירת המחדל — מה שהרצועה מציגה בשנייה הראשונה, לפני שהתשובה
+   מ-Supabase חוזרת, וגם אם היא לא חוזרת בכלל. השדות זהים לאלה שמגיעים
+   מ-news_items_public, כדי שהרצועה והמודאל לא יצטרכו להבחין ביניהם.
+   בלי published_at בכוונה: אלה לא ידיעות מתוארכות, והמודאל מדלג על חותמת
+   הזמן כשאין. */
 const FALLBACK_TICKER = [
-  {text:'חם מהשטח: דירת 4 חדרים בעפולה נמכרה ב-1,350,000 ₪'},
-  {text:'עדכון: ריבית הפריים נותרה יציבה לחודש השני ברציפות'},
+  {headline:'חם מהשטח: דירת 4 חדרים בעפולה נמכרה ב-1,350,000 ₪', category:'עסקאות ומחירים', is_local:true},
+  {headline:'עדכון: ריבית הפריים נותרה יציבה לחודש השני ברציפות', category:'משכנתאות וריבית', is_local:false},
 ];
 /* גרדיאנטים לכיסויי כתבות שאין להן תמונה (הנכסים עברו לממלא מקום ממותג) */
 const CARD_GRADIENTS = ['linear-gradient(155deg,#8B2332,#1C3A5E)','linear-gradient(155deg,#1C3A5E,#8B2332)','linear-gradient(155deg,#6B1A26,#1C3A5E)','linear-gradient(155deg,#8B2332,#6B1A26)','linear-gradient(155deg,#1C3A5E,#6B1A26)','linear-gradient(155deg,#6B1A26,#8B2332)'];
@@ -2930,18 +2986,140 @@ document.querySelectorAll('.deal-toggle button').forEach(btn=>{
 });
 
 
-/* ---------- Newsflash ticker rotation (starts with fallback text immediately) ---------- */
+/* ---------- Newsflash ticker rotation (starts with fallback text immediately) ----------
+   הרצועה מתחילה לרוץ מיד עם מבזקי ברירת המחדל, ו-initTicker() ב-PART 2
+   מחליף אותם במה שנאסף מהפידים ברגע שהתשובה מ-Supabase חוזרת. כך אין
+   רצועה ריקה בטעינה, ואין תלות ב-DB לתצוגה הראשונה. */
+const TICKER_MAX = 10;   // כמה מבזקים נשמרים לרוטציה ולמודאל
 let TICKER_ITEMS = FALLBACK_TICKER;
 let tickerIndex = 0;
 const tickerText = document.getElementById('tickerText');
+const newsModal = document.getElementById('newsModal');
+const newsModalList = document.getElementById('newsModalList');
+
 function renderTicker(){
-  tickerText.textContent = TICKER_ITEMS[tickerIndex].text;
+  if (!TICKER_ITEMS.length) return;
+  const item = TICKER_ITEMS[tickerIndex];
+  tickerText.textContent = item.headline || '';
   tickerIndex = (tickerIndex + 1) % TICKER_ITEMS.length;
+  // הפעלה מחדש של אנימציית ההחלפה: הסרת המחלקה, קריאה שמאלצת reflow,
+  // והחזרתה. בלי הקריאה הזו הדפדפן מאחד את שני השינויים ולא מריץ כלום.
+  tickerText.classList.remove('swap');
+  void tickerText.offsetWidth;
+  tickerText.classList.add('swap');
 }
+
+/* מציב רשימת מבזקים חדשה ומתחיל אותה מההתחלה. נקרא גם מ-PART 2. */
+function setTickerItems(items){
+  if (!items || !items.length) return;
+  TICKER_ITEMS = items.slice(0, TICKER_MAX);
+  tickerIndex = 0;
+  renderTicker();
+  renderNewsModal();
+}
+
 renderTicker();
-setInterval(renderTicker, 5000);
-document.getElementById('tickerMore').addEventListener('click', ()=>{
-  alert('כאן ייפתח מודאל עם רשימת כל העדכונים (ראו מודול 0 §2.3 / מודול 2 §5.3)');
+// הרוטציה נעצרת בזמן שהמודאל פתוח: הרשימה שם מציגה את אותם מבזקים, ושורה
+// שמתחלפת מאחורי החלון רק גונבת תשומת לב.
+setInterval(()=>{ if (!newsModal.classList.contains('open')) renderTicker(); }, 5000);
+
+/* ---------- "כל העדכונים" — עשרת המבזקים האחרונים ---------- */
+
+/* חותמת זמן יחסית. מבזק הוא לפי הגדרתו טרי, ולכן "לפני 3 שעות" אומר יותר
+   מתאריך מלא; מעל שבוע חוזרים לתאריך, כי "לפני 11 ימים" כבר לא נקרא.
+   היחיד והזוגי מנוסחים בנפרד — "לפני 1 שעות" הוא בדיוק סוג הטקסט שמסגיר
+   שהמספר הודבק לתבנית. */
+function newsTimeLabel(stamp){
+  if (!stamp) return '';
+  const when = new Date(stamp);
+  if (isNaN(when)) return '';
+  const minutes = Math.round((Date.now() - when.getTime()) / 60000);
+  if (minutes < 1) return 'עכשיו';
+  if (minutes === 1) return 'לפני דקה';
+  if (minutes < 60) return `לפני ${minutes} דק׳`;
+  const hours = Math.round(minutes / 60);
+  if (hours === 1) return 'לפני שעה';
+  if (hours === 2) return 'לפני שעתיים';
+  if (hours < 24) return `לפני ${hours} שעות`;
+  const days = Math.round(hours / 24);
+  if (days === 1) return 'אתמול';
+  if (days === 2) return 'לפני יומיים';
+  if (days < 8) return `לפני ${days} ימים`;
+  return when.toLocaleDateString('he-IL', { day:'numeric', month:'long' });
+}
+
+/* הרשימה נבנית ב-createElement ובלי innerHTML: הכותרות והתקצירים מגיעים
+   מפידים חיצוניים, ו-textContent מסלק את שאלת ההזרקה מהשורש. */
+function renderNewsModal(){
+  newsModalList.textContent = '';
+  if (!TICKER_ITEMS.length){
+    const empty = document.createElement('p');
+    empty.className = 'news-empty';
+    empty.textContent = 'אין מבזקים להצגה כרגע.';
+    newsModalList.appendChild(empty);
+    return;
+  }
+
+  TICKER_ITEMS.forEach(item => {
+    const href = safeExternalUrl(item.url || '');
+    const card = document.createElement(href ? 'a' : 'div');
+    card.className = 'news-item';
+    if (href){
+      card.href = href;
+      // מבזק הוא תוכן חיצוני — הוא נפתח בלשונית חדשה כדי לא לגרור את
+      // הגולש/ת מחוץ לאתר באמצע גלישה.
+      card.target = '_blank';
+      card.rel = 'noopener noreferrer';
+    }
+
+    const top = document.createElement('div');
+    top.className = 'news-item-top';
+    const badge = document.createElement('span');
+    badge.className = 'news-badge' + (item.is_local ? ' local' : '');
+    badge.textContent = item.category || (item.is_local ? 'עפולה והעמק' : 'נדל״ן ארצי');
+    top.appendChild(badge);
+    const stamp = newsTimeLabel(item.published_at);
+    if (stamp){
+      const time = document.createElement('span');
+      time.className = 'news-time';
+      time.textContent = stamp;
+      top.appendChild(time);
+    }
+    card.appendChild(top);
+
+    const title = document.createElement('h4');
+    title.textContent = item.headline || '';
+    card.appendChild(title);
+
+    if (item.summary){
+      const body = document.createElement('p');
+      body.textContent = item.summary;
+      card.appendChild(body);
+    }
+    if (item.source_name){
+      const source = document.createElement('span');
+      source.className = 'news-source';
+      source.textContent = 'מקור: ' + item.source_name;
+      card.appendChild(source);
+    }
+    newsModalList.appendChild(card);
+  });
+}
+
+function newsModalOpen(){
+  renderNewsModal();
+  newsModal.classList.add('open');
+  document.getElementById('newsModalClose').focus();
+}
+function newsModalClose(){ newsModal.classList.remove('open'); }
+
+document.getElementById('tickerMore').addEventListener('click', newsModalOpen);
+document.getElementById('tickerText').addEventListener('click', newsModalOpen);
+document.getElementById('newsModalClose').addEventListener('click', newsModalClose);
+document.getElementById('newsModalDone').addEventListener('click', newsModalClose);
+newsModal.addEventListener('click', (e)=>{ if (e.target === newsModal) newsModalClose(); });
+document.addEventListener('keydown', (e)=>{
+  if (e.key === 'Escape' && newsModal.classList.contains('open')) newsModalClose();
 });
 
 /* ---------- Mortgage calculator (pure JS, live, amortization formula) ---------- */
@@ -3361,21 +3539,72 @@ async function loadProperties(){
   }
 }
 
+/* המבזקים שהרצועה מציגה, משני מקורות:
+
+   1. ‏news_items_public — מה שמנוע המבזקים אסף אוטומטית מפרסומי עיריית
+      עפולה ומאתרי הנדל"ן המובילים (news_scraper.py, רץ ב-GitHub Actions
+      כל שעתיים). ראו docs/news-ticker.md.
+   2. ‏market_deals — עסקאות שנסגרו בפלטפורמה עצמה. זה המבזק שאף אתר חדשות
+      לא יכול לתת, ולכן הוא נשאר גם כשיש שפע ידיעות חיצוניות.
+
+   שני המקורות מתמזגים לרשימה אחת ממוינת לפי זמן, ונחתכים לעשרה — בדיוק
+   מה שהרוטציה והמודאל מציגים. ‏limit גבוה מ-TICKER_MAX בכוונה: המיזוג הוא
+   שקובע מי נכנס לעשירייה, ולא הסדר שבו חזרו השאילתות.
+
+   שתי השאילתות רצות במקביל, וכישלון של אחת (טבלה שטרם נוצרה בסביבה הזו)
+   אינו מפיל את השנייה — ‎allSettled‎ ולא ‎all‎. */
 async function loadTicker(){
   if (!sb) return FALLBACK_TICKER;
   try{
-    const { data: deals } = await sb.from('market_deals').select('property_type, rooms, city, sale_price, sold_at').order('sold_at', {ascending:false}).limit(3);
-    const { data: news } = await sb.from('news_items').select('headline, published_at').order('published_at', {ascending:false}).limit(3);
+    const [newsRes, dealsRes] = await Promise.allSettled([
+      sb.from('news_items_public')
+        .select('headline, summary, url, category, is_local, source_name, published_at')
+        .order('published_at', { ascending:false })
+        .limit(TICKER_MAX),
+      sb.from('market_deals')
+        .select('property_type, rooms, city, sale_price, sold_at')
+        .order('sold_at', { ascending:false })
+        .limit(3),
+    ]);
+
+    const news = newsRes.status === 'fulfilled' ? (newsRes.value.data || []) : [];
+    const deals = dealsRes.status === 'fulfilled' ? (dealsRes.value.data || []) : [];
+
     const items = [
-      ...(deals||[]).map(d => ({text:`חם מהשטח: דירת ${d.rooms} חדרים ב${d.city} נמכרה ב-${Number(d.sale_price).toLocaleString('he-IL')} ₪`})),
-      ...(news||[]).map(n => ({text: n.headline})),
-    ];
+      ...news.map(n => ({
+        headline: n.headline,
+        summary: n.summary || '',
+        url: n.url || '',
+        category: n.category || '',
+        is_local: !!n.is_local,
+        source_name: n.source_name || '',
+        published_at: n.published_at,
+      })),
+      ...deals.filter(d => d.rooms && d.city && d.sale_price).map(d => ({
+        headline: `חם מהשטח: דירת ${d.rooms} חדרים ב${d.city} נמכרה ב-${Number(d.sale_price).toLocaleString('he-IL')} ₪`,
+        summary: 'עסקה שנסגרה דרך הפלטפורמה.',
+        url: '',
+        category: 'עסקה בפלטפורמה',
+        is_local: true,
+        source_name: '',
+        published_at: d.sold_at,
+      })),
+    ]
+      .filter(i => i.headline)
+      .sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
+
     return items.length ? items : FALLBACK_TICKER;
   } catch(e){
     console.warn('נכשל טעינת מבזק מה-DB, משתמש בנתוני fallback:', e);
     return FALLBACK_TICKER;
   }
 }
+
+/* ‏loadTicker() הוגדרה מזמן אבל מעולם לא נקראה — הרצועה הציגה תמיד את
+   מבזקי ברירת המחדל. הקריאה כאן היא מה שמחבר אותה למנוע האיסוף. */
+(async function initTicker(){
+  setTickerItems(await loadTicker());
+})();
 /* תו האיכות על אריחי הקרוסלות. הטקסט השיווקי של התו מבקש מהגולש/ת "לחפש את
    תו האיכות בפרופיל המתווך ובמודעות הנכסים", ודף הבית הוא המקום הראשון שבו
    מדפדפים בין מתווכים — ולכן הוא מופיע גם כאן. מחרוזת קבועה בלי קלט משתמש,
@@ -3738,24 +3967,23 @@ async function loadArticles(){
     console.warn('טעינת כתבות המגזין נכשלה:', e);
   }
 
-  // 2. מבזק החדשות החיצוני, אם קיים בסביבה הזו.
+  // 2. מבזק החדשות החיצוני, אם קיים בסביבה הזו. אותו מקור שמזין את רצועת
+  //    ה"מבזק" — הקריאה עוברת ב-view הציבורי, בלי הכתובת הגולמית ובלי
+  //    שדות התחקור של המנוע.
   try{
-    // select('*') בכוונה: הטבלה משותפת עם המבזק ועשויה להכיל שדות תוכן
-    // נוספים (תקציר, תמונה, קישור) שלא כולם קיימים בכל סביבה — קוראים
-    // מה שיש ונופלים חזרה לברירות מחדל על מה שאין.
     const { data, error } = await sb
-      .from('news_items')
-      .select('*')
+      .from('news_items_public')
+      .select('headline, summary, url, image_url, category, source_name, published_at')
       .order('published_at', { ascending:false })
       .limit(8);
     if (error || !data || data.length === 0) throw error || new Error('empty');
     return data.map(n => ({
-      title: n.headline || n.title || 'כתבה',
+      title: n.headline || 'כתבה',
       kicker: n.category || n.source_name || 'חדשות הנדל״ן',
-      excerpt: n.summary || n.description || '',
+      excerpt: n.summary || '',
       // המבזק נאסף ממקורות חיצוניים, והכתובת נכנסת ישירות ל-href של הכרטיס
-      url: safeExternalUrl(n.url || n.link || ''),
-      image: n.image_url || n.image || '',
+      url: safeExternalUrl(n.url || ''),
+      image: n.image_url || '',
       published_at: n.published_at,
     }));
   } catch(e){

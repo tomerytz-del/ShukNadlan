@@ -25,6 +25,9 @@ class FeedEntry:
     published_at: Optional[datetime]
     source_id: Optional[str] = None
     source_name: Optional[str] = None
+    # תמונת הפריט, אם הפיד מסר אחת. מנוע הלידים מתעלם ממנה (ליד נמכר
+    # כתקציר טקסטואלי), ומנוע המבזקים משתמש בה ככיסוי הכרטיס במודאל.
+    image_url: Optional[str] = None
 
     @property
     def prompt_text(self) -> str:
