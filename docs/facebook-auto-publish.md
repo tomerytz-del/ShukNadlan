@@ -36,7 +36,7 @@ claim_property_publication  ← נועל את השורה מפני הרצה חו�
         ├── אין marketing_description?  →  Claude כותב תיאור + פוסט  →  נשמר על הנכס
         │
         ▼
-פרסום:  Make (מומלץ)  או  Graph API ישיר
+פרסום:  Graph API ישיר  או  Make
         │
         ▼
 mark_property_publication → posted + post_id + הטקסט שיצא
@@ -91,10 +91,10 @@ update pricing_config set value = 0 where key = 'facebook_autopost_enabled';
 | `ANTHROPIC_API_KEY` | ✅ | אותו מפתח של מנוע ה-RSS |
 | `CLAUDE_MODEL` | ✖️ | ברירת מחדל `claude-sonnet-5` |
 | `SITE_BASE_URL` | ✖️ | ברירת מחדל `https://shuknadlan.co.il` |
+| `FACEBOOK_PAGE_ID` | מסלול Graph | מזהה הדף |
+| `FACEBOOK_PAGE_ACCESS_TOKEN` | מסלול Graph | טוקן System User, אינו פג |
 | `MAKE_FACEBOOK_WEBHOOK_URL` | מסלול Make | כתובת ה-Webhook מהתרחיש |
 | `MAKE_WEBHOOK_SECRET` | ✖️ | נשלח ב-header `x-shuknadlan-secret` |
-| `FACEBOOK_PAGE_ID` | מסלול ישיר | מזהה הדף |
-| `FACEBOOK_PAGE_ACCESS_TOKEN` | מסלול ישיר | טוקן דף ארוך-טווח |
 | `ALERT_CRON_SECRET` | ✖️ | אותו סוד של שרת ההתראות |
 
 צריך **אחד** משני מסלולי הפרסום. אם שניהם מוגדרים — Make מנצח. בלי אף אחד
@@ -124,11 +124,28 @@ select vault.create_secret('<סוד אקראי>', 'alert_cron_secret',
 
 ואותו ערך כ-`ALERT_CRON_SECRET` בסודות ה-Edge Functions.
 
-## מסלול א׳ — Make (מומלץ)
+## איזה מסלול לבחור
 
-למה זה המסלול המומלץ: ל-Make יש אפליקציית פייסבוק מאושרת משלו. אין צורך
-לפתוח אפליקציית Meta, לעבור App Review על `pages_manage_posts`, ולתחזק טוקן
-שפג. בוחרים את הדף מרשימה, ו-Make מחדש את ההרשאה לבד.
+| | Graph API ישיר | Make |
+| --- | --- | --- |
+| הקמה בפרויקט הזה | קצרה: אפליקציית ה-Meta וה-System User כבר קיימים בזכות בוט הוואטסאפ | בניית תרחיש וחיבור חשבון |
+| טוקן | טוקן System User אינו פג | Make מחדש לבד |
+| פוסט מרובה תמונות | ממומש בקוד | דורש Iterator + Aggregator בתרחיש |
+| ‏`post_url` ביומן | חוזר אוטומטית | רק עם Webhook response |
+| תלות חיצונית | אין | נפילה או מיצוי מכסה ב-Make = אין פוסט |
+| איפה רואים תקלה | `property_publications.last_error` ולוגים של הפונקציה | ממשק Make, מחוץ למערכת |
+| הרחבה לערוצים נוספים | פונקציה/קוד לכל ערוץ | גרירה בתרחיש |
+
+**בפרויקט הזה Graph API הוא ברירת המחדל העדיפה** — פחות חלקים נעים, והחלק
+היקר (אפליקציית Meta מאומתת עם System User) כבר קיים. ‏Make מתאים כשרוצים
+לפצל את אותו נכס לכמה ערוצים או לשנות את מבנה הפוסט בלי פריסה.
+
+המעבר בין המסלולים הוא שינוי סודות בלבד, בלי נגיעה בקוד.
+
+## מסלול Make
+
+מה שהוא באמת חוסך: התחברות לדף נעשית מרשימה ב-Make, בלי אפליקציית Meta
+משלכם ובלי טוקן לתחזק — נוח במיוחד למי שאין לו כבר תשתית Meta.
 
 ### התרחיש, מודול אחר מודול
 
@@ -182,12 +199,22 @@ select vault.create_secret('<סוד אקראי>', 'alert_cron_secret',
 > **תזמון:** אין צורך ב-scheduling ב-Make. הקצב נקבע אצלנו — cron כל חמש
 > דקות, השהיה של 20 דקות ותקרה יומית. Make רק מפרסם מה שנשלח אליו.
 
-## מסלול ב׳ — Graph API ישיר
+## מסלול Graph API ישיר
 
-בלי מתווך, אבל דורש עבודה מול Meta: אפליקציה עם ההרשאות
-`pages_manage_posts` + `pages_read_engagement`, טוקן דף ארוך-טווח (עדיף
-System User token מ-Business Manager, שאינו פג), ומעבר App Review לפני
-שהדף מפרסם בפרודקשן.
+בלי מתווך. בפרויקט הזה זה המסלול הקצר יותר, כי התשתית כבר קיימת: בוט
+הוואטסאפ רץ על אפליקציית Meta מסוג Business עם System User וטוקן קבוע
+(`docs/whatsapp-setup.md` שלב 1). מה שנשאר:
+
+1. **Business Settings → System Users** → אותו System User → **Add Assets**
+   → לשייך את דף הפייסבוק בהרשאת ניהול תוכן.
+2. **Generate New Token** עם `pages_manage_posts` ו-`pages_read_engagement`.
+   טוקן System User אינו פג — זה `FACEBOOK_PAGE_ACCESS_TOKEN`.
+3. מזהה הדף (‏Page → About → Page transparency, או
+   `GET /me/accounts` עם אותו טוקן) — זה `FACEBOOK_PAGE_ID`.
+
+**אין צורך ב-App Review** כל עוד מפרסמים לדף שנמצא באותו Business שמחזיק
+את האפליקציה: ‏Standard Access מכסה נכסים של העסק עצמו. ‏App Review נדרש
+רק כדי לפרסם לדפים של משתמשים אחרים.
 
 מגדירים `FACEBOOK_PAGE_ID` ו-`FACEBOOK_PAGE_ACCESS_TOKEN` **בלי**
 `MAKE_FACEBOOK_WEBHOOK_URL`. הקוד מעלה עד 5 תמונות כ-`published=false`,

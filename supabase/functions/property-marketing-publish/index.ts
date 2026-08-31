@@ -15,12 +15,12 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 //
 // שני מסלולי פרסום, לפי מה שמוגדר בסודות:
 //
+//   ‏FACEBOOK_PAGE_ID + FACEBOOK_PAGE_ACCESS_TOKEN → פרסום ישיר ל-Graph API.
+//     המסלול המועדף בפרויקט הזה: אפליקציית ה-Meta וה-System User כבר קיימים
+//     בזכות בוט הוואטסאפ, הטוקן אינו פג, ואין תלות חיצונית בדרך לדף.
 //   ‏MAKE_FACEBOOK_WEBHOOK_URL  → הפוסט נשלח כ-JSON ל-Make, ושם מודול
-//     ‏"Facebook Pages › Create a Post" מפרסם. זו ברירת המחדל המומלצת:
-//     ל-Make יש אפליקציית פייסבוק מאושרת משלו, ולכן אין צורך באישור אפליקציה
-//     מול Meta ואין טוקן שפג בחשבון שלנו.
-//   ‏FACEBOOK_PAGE_ID + FACEBOOK_PAGE_ACCESS_TOKEN → פרסום ישיר ל-Graph API,
-//     בלי מתווך. דורש אפליקציית Meta עם pages_manage_posts וטוקן ארוך-טווח.
+//     ‏"Facebook Pages › Create a Post" מפרסם. שימושי כשרוצים לפצל את אותו
+//     נכס לכמה ערוצים או לשנות את מבנה הפוסט בלי פריסה.
 //
 // ‏Make מקבל עדיפות אם שניהם מוגדרים. בלי אף אחד מהם הפונקציה מחזירה
 // ‏publish_not_configured ולא נוגעת בתור — נכס לא "נכשל" רק כי עוד לא
