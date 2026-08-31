@@ -888,10 +888,18 @@ function contrastWithWhite(hex){
   return contrastBetween(hex, '#ffffff');
 }
 
+/* כתובת תמונה שמותר להכניס ל-src או ל-url() של CSS.
+   מותרים שלושה סוגים: כתובת http(s) מלאה (כך נשמרות תמונות שהועלו דרך
+   ה-CRM אל ה-Storage), ונתיב יחסי לאתר עצמו — ‎/…‎ או ‎assets/…‎ — שכך
+   נשמרות תמונות שיושבות בריפו. עד כה התקבלו רק כתובות https, וסוכן/ת
+   שהתמונה שלו/ה היא ‎assets/agents/…‎ הופיע/ה בדף שלו/ה עם תמונה ובדף
+   המשרד בלי — אותו נתון, שני כללים. הכלל כאן זהה לזה שב-agent.html, פרט
+   לכך שנתיב שמתחיל ב-‎//‎ נחסם: הוא נראה יחסי אבל טוען מדומיין אחר. */
 function safeImageUrl(url){
   if (typeof url !== 'string') return null;
   const trimmed = url.trim();
-  return /^https:\/\//i.test(trimmed) ? trimmed : null;
+  const allowed = /^https?:\/\//i.test(trimmed) || /^(\/(?!\/)|assets\/)/i.test(trimmed);
+  return allowed ? trimmed : null;
 }
 
 function applyBranding(agency){
