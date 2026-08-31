@@ -22,7 +22,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 //     ‏"Facebook Pages › Create a Post" מפרסם. שימושי כשרוצים לפצל את אותו
 //     נכס לכמה ערוצים או לשנות את מבנה הפוסט בלי פריסה.
 //
-// ‏Make מקבל עדיפות אם שניהם מוגדרים. בלי אף אחד מהם הפונקציה מחזירה
+// ‏Graph מקבל עדיפות אם שניהם מוגדרים. בלי אף אחד מהם הפונקציה מחזירה
 // ‏publish_not_configured ולא נוגעת בתור — נכס לא "נכשל" רק כי עוד לא
 // חיברנו את הערוץ.
 //
@@ -360,9 +360,11 @@ async function handle(sb: any, row: any, opts: { force: boolean; dryRun: boolean
     return { property_id: row.property_id, dry_run: true, generated, message, images };
   }
 
-  const result = MAKE_WEBHOOK_URL
-    ? await publishViaMake(row, message, images)
-    : await publishViaGraph(row, message, images);
+  // ‏Graph קודם: מי שהגדיר טוקן דף התכוון לפרסם ישירות, ו-webhook ישן של
+  // ‏Make שנשאר בסודות לא צריך לחטוף את הפוסט בשקט.
+  const result = FB_PAGE_ID && FB_PAGE_TOKEN
+    ? await publishViaGraph(row, message, images)
+    : await publishViaMake(row, message, images);
 
   const { error: markErr } = await sb.rpc("mark_property_publication", {
     p_publication_id: row.publication_id,

@@ -97,7 +97,8 @@ update pricing_config set value = 0 where key = 'facebook_autopost_enabled';
 | `MAKE_WEBHOOK_SECRET` | ✖️ | נשלח ב-header `x-shuknadlan-secret` |
 | `ALERT_CRON_SECRET` | ✖️ | אותו סוד של שרת ההתראות |
 
-צריך **אחד** משני מסלולי הפרסום. אם שניהם מוגדרים — Make מנצח. בלי אף אחד
+צריך **אחד** משני מסלולי הפרסום. אם שניהם מוגדרים — Graph מנצח, כדי
+ש-webhook ישן שנשאר בסודות לא יחטוף את הפוסט בשקט. בלי אף אחד
 מהם הפונקציה מחזירה `publish_not_configured` ולא נוגעת בתור, כך שאפשר לפרוס
 הכול לפני שהערוץ מחובר בלי לשרוף ניסיונות.
 
