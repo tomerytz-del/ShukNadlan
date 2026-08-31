@@ -320,6 +320,11 @@
   .hood-option .hood-count{
     font-variant-numeric:tabular-nums;font-weight:700;font-size:.72rem;color:var(--ink-soft);
   }
+  /* שכונה בלי נכסים בסוג העסקה הנבחר: מוצגת כדי שהרשימה תהיה מלאה, מעומעמת
+     כדי שלא תיראה כמו אפשרות שווה, ולא נבחרת כי אין מה להציג מעברה. */
+  .hood-option--empty{opacity:.45;cursor:default}
+  .hood-option--empty input{cursor:default}
+  .hood-empty-note{margin-top:10px;line-height:1.5}
   .filters-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .filters-row select{
     border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 8px;
@@ -1683,6 +1688,10 @@
           <div class="filter-section">
             <h4>שכונות <span class="filter-hint">(ניתן לבחור יותר משכונה אחת)</span></h4>
             <div id="hoodFilterOptions" role="group" aria-label="בחירת שכונות"></div>
+            <p class="filter-hint hood-empty-note" id="hoodEmptyNote" hidden>
+              המספר לצד כל שכונה הוא מספר הנכסים בה בסוג העסקה שנבחר. שכונות
+              מעומעמות הן שכונות שאין בהן כרגע נכסים כאלה.
+            </p>
           </div>
         </div>
         <div class="filter-modal-footer">
@@ -4552,15 +4561,13 @@ function hoodCounts(){
    לקטנה. שכונה שנבחרה נשארת ברשימה גם כשאין בה נכסים מסוג העסקה הנוכחי —
    אחרת הבחירה הפעילה נעלמת מהמסך ואי אפשר לבטל אותה. */
 function hoodChoices(){
-  const ranked = hoodState.rows
-    .filter(h => (hoodState.counts.get(h.id) || 0) > 0)
-    .sort((a, b)=>
-      (hoodState.counts.get(b.id) - hoodState.counts.get(a.id)) ||
-      String(a.name).localeCompare(String(b.name), 'he'));
-
-  const missing = hoodState.rows.filter(h =>
-    hoodState.selected.has(h.id) && !ranked.some(r => r.id === h.id));
-  return [...ranked, ...missing];
+  // *כל* השכונות, ולא רק אלה שיש בהן נכסים. הרשימה המקוצרת נראתה כמו תקלה:
+  // מי שיודע שיש בעפולה ארבע-עשרה שכונות ורואה שתיים מסיק שהסינון שבור, ולא
+  // שאין נכסים בשאר. שכונה ריקה מוצגת עם 0 ומעומעמת (ראו renderHoodOptions) —
+  // "אין כאן כרגע" היא תשובה, ורשימה חסרה אינה.
+  return hoodState.rows.slice().sort((a, b)=>
+    ((hoodState.counts.get(b.id) || 0) - (hoodState.counts.get(a.id) || 0)) ||
+    String(a.name).localeCompare(String(b.name), 'he'));
 }
 
 /* הכפתור שמעל המפה: שם השכונה כשנבחרה אחת, ומונה כשנבחרו כמה. שם מלא ולא
@@ -4573,7 +4580,8 @@ function renderHoodFilter(){
   if (!bar || !btn || !label || !badge) return;
   hoodState.counts = hoodCounts();
 
-  if (!hoodChoices().length){ bar.hidden = true; return; }
+  // הכפתור מוסתר רק כשאין שכונות בכלל (טעינה שנכשלה, או מסד ריק)
+  if (!hoodState.rows.length){ bar.hidden = true; return; }
   bar.hidden = false;
 
   const n = hoodState.selected.size;
@@ -4594,13 +4602,20 @@ function renderHoodOptions(){
   wrap.innerHTML = '';
 
   hoodChoices().forEach(h=>{
+    const n = hoodState.counts.get(h.id) || 0;
+    // שכונה בלי נכסים מסוג העסקה הנבחר מוצגת אבל לא נבחרת: הבחירה בה הייתה
+    // מחזירה רשימה ריקה ותו לא. אם היא כבר מסומנת היא נשארת פעילה, אחרת אי
+    // אפשר היה לבטל בחירה שהמונה שלה ירד ל-0 אחרי החלפת סוג העסקה.
+    const empty = n === 0 && !hoodState.draft.has(h.id);
+
     const row = document.createElement('label');
-    row.className = 'hood-option';
+    row.className = 'hood-option' + (empty ? ' hood-option--empty' : '');
 
     const box = document.createElement('input');
     box.type = 'checkbox';
     box.value = h.id;
     box.checked = hoodState.draft.has(h.id);
+    box.disabled = empty;
     box.addEventListener('change', ()=>{
       if (box.checked) hoodState.draft.add(h.id); else hoodState.draft.delete(h.id);
     });
@@ -4615,11 +4630,15 @@ function renderHoodOptions(){
 
     const count = document.createElement('span');
     count.className = 'hood-count';
-    count.textContent = hoodState.counts.get(h.id) || 0;
+    count.textContent = n;
     row.appendChild(count);
 
     wrap.appendChild(row);
   });
+
+  // ההסבר על העמעום מוצג רק כשיש מה להסביר
+  const note = document.getElementById('hoodEmptyNote');
+  if (note) note.hidden = !wrap.querySelector('.hood-option--empty');
 }
 
 /* החלת הבחירה מריצה חיפוש אמיתי מול ה-DB ולא סינון מקומי: כך היא מצטרפת
