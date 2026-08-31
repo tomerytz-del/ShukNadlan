@@ -316,10 +316,16 @@
   .map-full-actions a:hover{background:rgba(255,255,255,.22)}
   .map-full-actions svg{width:17px;height:17px}
 
-  .agency-strip{display:flex;align-items:center;gap:12px;cursor:pointer;transition:box-shadow .15s ease,transform .15s ease}
+  /* ‏--ag-* נקבעים ב-applyAgencyAccent על הרצועה הזו בלבד, מצבעי המשרד
+     שמפרסם את הנכס. בלי משרד שהגדיר צבעים הכל נשאר בצבעי הפלטפורמה. */
+  .agency-strip{
+    display:flex;align-items:center;gap:12px;cursor:pointer;
+    transition:box-shadow .15s ease,transform .15s ease;
+    border-inline-start:4px solid var(--ag-accent,transparent);
+  }
   .agency-strip:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
-  .agency-avatar{width:44px;height:44px;border-radius:13px;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Frank Ruhl Libre',serif;flex-shrink:0}
-  .agency-name{font-weight:800;font-size:.94rem;color:var(--teal-dark)}
+  .agency-avatar{width:44px;height:44px;border-radius:13px;background:var(--ag-brand,var(--teal));color:var(--ag-on-brand,#fff);display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Frank Ruhl Libre',serif;flex-shrink:0}
+  .agency-name{font-weight:800;font-size:.94rem;color:var(--ag-brand-dark,var(--teal-dark))}
   .agency-sub{font-size:.78rem;color:var(--ink-soft)}
   .agency-strip .chev{margin-inline-start:auto;color:var(--ink-soft)}
   .agency-strip .chev svg{width:18px;height:18px}
@@ -1237,7 +1243,7 @@ async function loadProperty(){
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const { data, error } = await sb
       .from('properties')
-      .select('*, agencies(name, slug, logo_url)')
+      .select('*, agencies(name, slug, logo_url, colors)')
       .eq('id', id)
       .eq('status', 'active')
       .single();
@@ -2017,6 +2023,34 @@ function escapeHtml(s){
 // כתובות תמונה נכנסות לתוך src="…" — גרשיים בכתובת היו שוברות את התגית
 function escapeAttr(s){ return escapeHtml(s); }
 
+/* ---------- צבעי המשרד בכרטיס המשרד ----------
+   דף הנכס שייך לפלטפורמה ולא למשרד, ולכן הצבעים שמנהל/ת המשרד בחר/ה לא
+   נוגעים בטוקנים הגלובליים — הם נכנסים כמשתני CSS על רצועת המשרד בלבד.
+   כך נכס נושא סימן ויזואלי של המשרד שמפרסם אותו, בלי שהמרקטפלייס יתחלף
+   בצבעים בין מודעה למודעה. */
+const AGENCY_HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
+function agencyHex(value){
+  return typeof value === 'string' && AGENCY_HEX_RE.test(value.trim()) ? value.trim() : null;
+}
+// טקסט לבן על גוון בהיר אינו קריא — אותה בדיקה שדף המשרד עושה
+function agencyReadableOn(hex){
+  const full = hex.length === 4 ? '#' + hex.slice(1).split('').map(c=>c+c).join('') : hex;
+  const lum = [1,3,5].map(i=>{
+    const ch = parseInt(full.slice(i, i+2), 16) / 255;
+    return ch <= 0.03928 ? ch/12.92 : Math.pow((ch+0.055)/1.055, 2.4);
+  }).reduce((acc, ch, i)=> acc + [0.2126,0.7152,0.0722][i] * ch, 0);
+  return (1.05 / (lum + 0.05)) >= 3.2 ? '#fff' : '#1B1F26';
+}
+function applyAgencyAccent(agency){
+  const brand = agencyHex(agency && agency.colors && agency.colors.primary);
+  if (!brand) return;
+  const strip = document.getElementById('agencyStrip');
+  strip.style.setProperty('--ag-brand', brand);
+  strip.style.setProperty('--ag-brand-dark', agencyHex(agency.colors.primary_dark) || brand);
+  strip.style.setProperty('--ag-accent', agencyHex(agency.colors.accent) || brand);
+  strip.style.setProperty('--ag-on-brand', agencyReadableOn(brand));
+}
+
 /* ---------- תגיות הסטטוס שמעל התמונה ---------- */
 function renderTags(p){
   const promotionActive = p.is_promoted && (!p.promoted_until || new Date(p.promoted_until) > new Date());
@@ -2076,6 +2110,7 @@ function renderProperty(p){
 
   document.getElementById('agencyName').textContent = p.agencies?.name || 'משרד תיווך';
   document.getElementById('agencyAvatar').textContent = (p.agencies?.name || '?')[0];
+  applyAgencyAccent(p.agencies);
   // הטלפון של סוכן/ת 2 לא מוצג באתר, בדיוק כמו של סוכן/ת 1 — הפנייה עוברת
   // בטופס או בכפתורי הוואטסאפ של הסוכן/ת הראשי/ת
   const agentLine = [
