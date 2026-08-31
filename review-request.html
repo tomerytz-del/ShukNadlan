@@ -29,6 +29,17 @@
   .star{font-size:2.2rem;color:var(--line);cursor:pointer;transition:color .1s}
   .star.active{color:var(--red)}
 
+  /* השאלה על המשרד. היא מופרדת בקו ומוקטנת במכוון: השאלה העיקרית היא על
+     המתווך/ת, וזו תוספת אופציונלית שלא אמורה להתחרות בה על תשומת הלב או
+     להיראות כמו עוד חסם לפני כפתור השליחה. */
+  .agency-block{border-top:1px solid var(--line);margin:22px 0 18px;padding-top:16px}
+  .agency-block h2{font-family:'Frank Ruhl Libre',serif;font-size:.98rem;color:var(--blue-dark);text-align:center;margin:0 0 3px}
+  .agency-block .sub{margin-bottom:12px;font-size:.78rem}
+  .agency-block .stars{margin-bottom:0}
+  .agency-block .star{font-size:1.7rem}
+  .stars-clear{display:block;margin:8px auto 0;background:none;color:var(--ink-soft);font-size:.74rem;text-decoration:underline;padding:2px}
+  .stars-clear[hidden]{display:none}
+
   .field{margin-bottom:14px}
   .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
   .field input,.field textarea{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
@@ -73,6 +84,26 @@
     </div>
     <form id="reviewForm">
       <div class="field"><label>ספרו לנו בכמה מילים (לא חובה)</label><textarea id="reviewText" placeholder="איך הייתה החוויה?"></textarea></div>
+
+      <!-- הדירוג הישיר של המשרד. עד היום נמדד רק המתווך/ת, והמשרד קיבל את
+           הציון שלו בירושה מהצוות — כך שמה ששייך למשרד עצמו (שקיפות התהליך,
+           מי עונה כשהמתווך/ת לא זמין/ה, אם קיימו את מה שהובטח) לא נמדד כלל.
+           אופציונלי במכוון: לא לכל לקוח/ה הייתה בכלל התנהלות מול המשרד מעבר
+           למתווך/ת, וחיוב תשובה כאן היה קונה דירוג חסר משמעות במחיר פגיעה
+           באחוז המענה על השאלה העיקרית. -->
+      <div class="agency-block">
+        <h2>ואיך הייתה ההתנהלות מול המשרד עצמו?</h2>
+        <p class="sub">לא חובה — אפשר לדלג אם כל הקשר היה מול המתווך/ת בלבד</p>
+        <div class="stars" id="agencyStars">
+          <span class="star" data-val="5">★</span>
+          <span class="star" data-val="4">★</span>
+          <span class="star" data-val="3">★</span>
+          <span class="star" data-val="2">★</span>
+          <span class="star" data-val="1">★</span>
+        </div>
+        <button type="button" class="stars-clear" id="agencyStarsClear" hidden>ביטול הבחירה</button>
+      </div>
+
       <div class="field"><label>שם לתצוגה (לא חובה)</label><input type="text" id="reviewerName" placeholder="לדוגמה: משפחת כהן"></div>
       <button type="submit" class="btn" id="submitBtn">שליחת חוות דעת</button>
       <div id="feedback"></div>
@@ -91,15 +122,31 @@ function showState(id){
   });
 }
 
-let selectedRating = 0;
-document.querySelectorAll('.star').forEach(star=>{
-  star.addEventListener('click', ()=>{
-    selectedRating = parseInt(star.dataset.val, 10);
-    document.querySelectorAll('.star').forEach(s=>{
-      s.classList.toggle('active', parseInt(s.dataset.val,10) <= selectedRating);
-    });
+/* שתי קבוצות כוכבים בדף, ולכן הבורר מקומי לקבוצה ולא גלובלי: ‏querySelectorAll
+   על '.star' היה מסמן את שתיהן יחד ברגע שנוספה השנייה. */
+function createStarPicker(containerId){
+  const container = document.getElementById(containerId);
+  const stars = container.querySelectorAll('.star');
+  const picker = { value: 0 };
+  function paint(){
+    stars.forEach(s=> s.classList.toggle('active', parseInt(s.dataset.val,10) <= picker.value));
+    if (picker.onchange) picker.onchange(picker.value);
+  }
+  stars.forEach(star=>{
+    star.addEventListener('click', ()=>{ picker.value = parseInt(star.dataset.val, 10); paint(); });
   });
-});
+  picker.clear = ()=>{ picker.value = 0; paint(); };
+  return picker;
+}
+
+const agentStars = createStarPicker('stars');
+
+/* דירוג שניתן בטעות חייב להיות הפיך: השאלה אופציונלית, אבל בלי כפתור ביטול
+   לחיצה אחת על כוכב הופכת אותה לחובה בדיעבד — אין דרך לחזור ל"לא עניתי". */
+const agencyStars = createStarPicker('agencyStars');
+const agencyStarsClear = document.getElementById('agencyStarsClear');
+agencyStars.onchange = (v)=>{ agencyStarsClear.hidden = (v === 0); };
+agencyStarsClear.addEventListener('click', ()=> agencyStars.clear());
 
 /* ---------- Validate the lead up front (client-side UX only — the Edge Function
    re-validates server-side regardless, this is just to avoid showing a form
@@ -119,7 +166,7 @@ document.getElementById('reviewForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const leadId = new URLSearchParams(window.location.search).get('lead');
   if (!leadId){ showState('stateError'); return; }
-  if (selectedRating === 0){
+  if (agentStars.value === 0){
     document.getElementById('feedback').style.color = 'var(--red)';
     document.getElementById('feedback').textContent = 'נא לבחור דירוג בכוכבים';
     return;
@@ -133,7 +180,10 @@ document.getElementById('reviewForm').addEventListener('submit', async (e)=>{
       headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
       body: JSON.stringify({
         lead_id: leadId,
-        rating: selectedRating,
+        rating: agentStars.value,
+        // ‏null ולא 0 כשלא נבחר דירוג למשרד: "לא עניתי" ו"עניתי גרוע" הם שתי
+        // תשובות שונות, והראשונה לא אמורה להיכנס לממוצע בכלל.
+        agency_rating: agencyStars.value || null,
         text: document.getElementById('reviewText').value || null,
         reviewer_display_name: document.getElementById('reviewerName').value || null,
       }),

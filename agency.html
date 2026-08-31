@@ -573,6 +573,9 @@
   .reviews-grid .empty-state{grid-column:1/-1}
   .review-card{padding:15px 16px}
   .review-stars{color:var(--accent-ink);font-weight:700;letter-spacing:1px}
+  /* הדירוג הישיר של המשרד — קטן ומופחת מול הדירוג של המתווך/ת, כי זו שאלה
+     משנית באותה ביקורת ולא ביקורת שנייה */
+  .review-agency{font-size:.76rem;color:var(--ink-soft);margin-top:4px;letter-spacing:.5px}
   .review-text{font-size:.88rem;margin-top:7px}
   .review-by{font-size:.75rem;color:var(--ink-soft);margin-top:7px}
 
@@ -1531,20 +1534,52 @@ function initCarousel(rail, prev, next, dots){
   sync();
 }
 
+/* מרכיבה את שורת ההסבר שמתחת לציון. הציון של המשרד אינו ממוצע הביקורות שלו,
+   ולכן חייב להיות ברור ממה הוא כן מורכב — אחרת לקוח/ה שסופר/ת את הכוכבים
+   בביקורות שמתחת יגיע/תגיע למספר אחר ויחשוב/תחשוב שהמערכת משקרת. */
+function ratingBreakdown(stats, reviewsCount){
+  const parts = [];
+  const agents = Number(stats?.rated_agent_count) || 0;
+  if (agents > 0){
+    parts.push(agents === 1 ? 'מתווך/ת אחד/ת מדורג/ת' : `${agents} מתווכים מדורגים`);
+  }
+  const direct = Number(stats?.direct_review_count) || 0;
+  if (direct > 0){
+    parts.push(direct === 1 ? 'דירוג ישיר אחד למשרד' : `${direct} דירוגים ישירים למשרד`);
+  }
+  if (!parts.length){
+    return reviewsCount === 1 ? 'ביקורת אחת' : `${reviewsCount} ביקורות`;
+  }
+  return parts.join(' · ');
+}
+
 async function loadReviews(sb, agencyId){
   const el = document.getElementById('reviewsList');
-  const { data: reviews } = await sb.from('reviews').select('rating, text, reviewer_display_name')
-    .eq('agency_id', agencyId).eq('status', 'published');
+  // הציון מגיע מ-agency_ratings_public ולא מחושב כאן: הוא מערבב דירוג צוות
+  // (ממוצע של ממוצעי המתווכים, ולא ממוצע מאוחד של הביקורות) עם הדירוג הישיר
+  // של המשרד, ואת הנוסחה הזו אין טעם לשכפל בדפדפן. הביקורות עצמן עדיין
+  // נטענות בנפרד — ה-view לא מחזיר טקסטים.
+  const [{ data: reviews }, { data: stats }] = await Promise.all([
+    sb.from('reviews').select('rating, agency_rating, text, reviewer_display_name')
+      .eq('agency_id', agencyId).eq('status', 'published'),
+    sb.from('agency_ratings_public').select('score, review_count, rated_agent_count, direct_review_count')
+      .eq('agency_id', agencyId).maybeSingle(),
+  ]);
   if (!reviews || reviews.length === 0){ el.innerHTML = '<div class="empty-state">אין עדיין ביקורות למשרד זה.</div>'; return; }
 
-  const avg = reviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / reviews.length;
   const reviewsLabel = reviews.length === 1 ? 'ביקורת אחת' : `${reviews.length} ביקורות`;
+  // נפילה לאחור לממוצע הגולמי אם ה-view לא נטען (מיגרציה שטרם רצה, שגיאת
+  // רשת): עדיף דירוג פחות מדויק מאשר ראש דף בלי דירוג בכלל.
+  const avg = stats?.score != null
+    ? Number(stats.score)
+    : reviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / reviews.length;
   const score = avg.toFixed(1).replace(/\.0$/, '');
-  setSectionNote('reviewsSummary', `★ ${score} דירוג ממוצע · ${reviewsLabel}`);
+  setSectionNote('reviewsSummary', `★ ${score} דירוג המשרד · ${reviewsLabel}`);
 
   // אותו דירוג פעמיים בדף: בראשו כמדד אמון, ובמקטע עצמו ככותרת הביקורות
   const ratingEl = document.getElementById('heroRating');
-  ratingEl.innerHTML = `${starsHtml(avg)}<span class="hr-score">${score}</span><span class="hr-count">${reviewsLabel} ←</span>`;
+  ratingEl.innerHTML = `${starsHtml(avg)}<span class="hr-score">${score}</span>`
+    + `<span class="hr-count">${escapeHtml(ratingBreakdown(stats, reviews.length))} ←</span>`;
   ratingEl.hidden = false;
 
   el.innerHTML = '';
@@ -1552,8 +1587,15 @@ async function loadReviews(sb, agencyId){
     const rating = Math.max(0, Math.min(5, Number(r.rating) || 0));
     const card = document.createElement('div');
     card.className = 'panel review-card';
+    // הדירוג הישיר מוצג רק כשניתן. השאלה אופציונלית, ושורה ריקה "המשרד: ☆☆☆☆☆"
+    // הייתה נקראת כדירוג אפס במקום כתשובה שלא נמסרה.
+    const agencyRating = Number(r.agency_rating);
+    const agencyLine = (agencyRating >= 1 && agencyRating <= 5)
+      ? `<div class="review-agency">המשרד עצמו: ${'★'.repeat(agencyRating)}${'☆'.repeat(5 - agencyRating)}</div>`
+      : '';
     card.innerHTML = `
       <div class="review-stars">${'★'.repeat(rating)}${'☆'.repeat(5 - rating)}</div>
+      ${agencyLine}
       <div class="review-text">${escapeHtml(r.text || '')}</div>
       <div class="review-by">${escapeHtml(r.reviewer_display_name || 'לקוח מאומת')}</div>`;
     el.appendChild(card);

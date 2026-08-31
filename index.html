@@ -945,6 +945,9 @@
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   }
   .ag-stat{font-size:.64rem;color:var(--ink-soft);margin-top:4px}
+  /* אותו כוכב צהוב של כרטיסי המתווכים — משרד ומתווך/ת הם שני סוגי דירוג
+     בפלטפורמה אחת, ואין סיבה שייראו כמו שתי מערכות */
+  .ag-stat .star{color:#FFD34D;margin-inline-end:2px}
   @media(min-width:480px){
     .cf-card.ag-card .cf-thumb{font-size:2rem}
     .ag-name{font-size:.82rem}
@@ -2192,6 +2195,12 @@
             אף מתווך/ת ולא משנה את כמות הפניות שכל אחד/ת מקבל/ת — רק את הסדר שבו הם מוצגים.</p>
           </div>
           <div class="filter-section">
+            <h4>דירוג משרד הוא לא ממוצע הביקורות שלו</h4>
+            <p class="filter-hint">משרד מדורג לפי <strong>ממוצע המתווכים שבו</strong> ולא לפי ממוצע הביקורות,
+            כך שמתווך/ת אחד/ת עם הרבה ביקורות לא קובע/ת לבדו/ה את ציון כל המשרד. לצד זה, בכל חוות דעת
+            אפשר לדרג גם את ההתנהלות מול המשרד עצמו — והדירוג הישיר הזה נכנס לציון בנפרד.</p>
+          </div>
+          <div class="filter-section">
             <h4>מתווך/ת חדש/ה לא נענש/ת</h4>
             <p class="filter-hint">הציון משוקלל מול ממוצע הפלטפורמה, כך שביקורת בודדת — טובה או רעה —
             לא קובעת תמונה מלאה. ככל שנצברות יותר חוות דעת, הציון מתקרב לדירוג האמיתי.</p>
@@ -3169,10 +3178,15 @@ const ETHICS_BADGE_MINI =
 async function loadLeadingAgencies(){
   try{
     if (!sb) return [];
-    const [agenciesRes, rankingsRes, activeRes] = await Promise.all([
+    const [agenciesRes, rankingsRes, ratingsRes, activeRes] = await Promise.all([
       // התקרות כאן הן רק גבול בטיחות לגודל התשובה, לא מכסת תצוגה.
       sb.from('agencies').select('id, name, slug, logo_url, ethics_code_accepted_at, ethics_badge_revoked_at').limit(200),
       sb.from('agency_rankings').select('agency_id, composite_score, active_properties_count').limit(200),
+      // הדירוג נלקח מה-view ולא מ-agency_rankings.bayesian_rating: הטבלה
+      // מתרעננת אחת לשבועיים, וה-view מחושב מהביקורות המפורסמות ברגע הטעינה,
+      // כך שביקורת שאושרה הבוקר משפיעה על הכרטיס היום. אותו נימוק בדיוק
+      // שבגללו כרטיסי המתווכים סופרים את הביקורות עצמם.
+      sb.from('agency_ratings_public').select('agency_id, score, review_count').limit(200),
       sb.from('properties').select('agency_id').eq('status', 'active').limit(2000),
     ]);
     const agencies = agenciesRes.data;
@@ -3180,6 +3194,9 @@ async function loadLeadingAgencies(){
 
     const rankByAgency = {};
     (rankingsRes.data || []).forEach(r => { rankByAgency[r.agency_id] = r; });
+
+    const ratingByAgency = {};
+    (ratingsRes.data || []).forEach(r => { ratingByAgency[r.agency_id] = r; });
 
     // מספר הנכסים הפעילים נספר כאן מהנכסים עצמם ולא נלקח מ-
     // active_properties_count שבטבלת הדירוגים: זה שדה מחושב שמתעדכן
@@ -3192,9 +3209,14 @@ async function loadLeadingAgencies(){
     return agencies
       .map(a => {
         const ranking = rankByAgency[a.id];
+        const rated = ratingByAgency[a.id];
         return {
           ...a,
           score: ranking ? Number(ranking.composite_score) : null,
+          // ‏score ב-view הוא null למשרד בלי ביקורות — משרד חדש לא מקבל
+          // "0 כוכבים" אלא פשוט לא מוצג עם דירוג, כמו בכרטיסי המתווכים.
+          rating: rated?.score != null ? Number(rated.score) : null,
+          reviews_count: Number(rated?.review_count) || 0,
           active_properties_count: liveCount[a.id] ?? (ranking?.active_properties_count ?? 0),
         };
       })
@@ -3239,10 +3261,17 @@ async function loadLeadingAgencies(){
       ? `<img class="ag-logo" src="${escAttr(a.logo_url)}" alt="${escAttr(name)}" loading="lazy" onerror="this.remove()">`
       : '';
     const agencyBadge = (a.ethics_code_accepted_at && !a.ethics_badge_revoked_at) ? ETHICS_BADGE_MINI : '';
+    // הדירוג בשורה נפרדת מעל מספר הנכסים ולא לצידו: כמות נכסים היא מדד גודל
+    // ודירוג הוא מדד איכות, וצירופם לשורה אחת קורא כאילו הגדול הוא גם הטוב.
+    const ratingLine = a.rating !== null
+      ? `<div class="ag-stat"><span class="star">★</span>${a.rating.toFixed(1).replace(/\.0$/, '')} · ${
+          a.reviews_count === 1 ? 'ביקורת אחת' : a.reviews_count + ' ביקורות'}</div>`
+      : '';
     card.innerHTML = `
       <div class="cf-thumb">${rank}${logo}${agencyBadge}<span class="ag-initial">${escAttr(name.trim()[0] || 'מ')}</span></div>
       <div class="cf-body">
         <div class="ag-name">${escAttr(name)}</div>
+        ${ratingLine}
         <div class="ag-stat">${a.active_properties_count} נכסים פעילים</div>
       </div>`;
     // נגיעה אחת פותחת את עמוד המשרד, גם בכרטיס צדדי: כל מה שיש בכרטיס
