@@ -811,6 +811,20 @@
   }
   #dashboard .notif-item{border-bottom:1px solid var(--edge)}
   #dashboard .notif-item.unread{background:var(--wine-tint)}
+  /* ההתראה היא טקסט — היא נשברת לשורות ולא נחתכת באמצע מילה */
+  .notif-item .t,.notif-item .b{overflow-wrap:anywhere}
+
+  /* במסך צר הפאנל נפתח מקצה לקצה של רוחב הכותרת במקום להיתלות בפעמון:
+     הפעמון יושב קרוב לקצה, ופאנל ברוחב קבוע שנפתח ממנו גלש אל מחוץ למסך
+     ונחתך. ‏position:static על העוטף מעביר את העיגון ל-.crm-header-inner,
+     שהוא גם ה-.dash-wrap של הכותרת — ולכן 12px מכל צד משאירים שוליים למסך. */
+  @media(max-width:720px){
+    #dashboard .bell-wrap,#dashboard .menu-wrap{position:static}
+    #dashboard .bell-panel,#dashboard .menu-panel{
+      top:calc(100% + 12px);inset-inline:12px;width:auto;max-width:none;
+    }
+    #dashboard .bell-panel{max-height:min(70vh,420px)}
+  }
 
   /* ---------- תפריט הבורגר ----------
      מפת הדשבורד המלאה של הסוכן/ת: כל קטגוריה שגלויה לו/ה בעמוד מופיעה כאן
@@ -2152,7 +2166,7 @@
               <div class="img-dropzone" style="padding:10px 14px">
                 <label class="pick" for="pfCoverInput">+ העלאת תמונת נושא</label>
                 <input type="file" id="pfCoverInput" accept="image/jpeg,image/png,image/webp">
-                <div class="hint">רצועה רחבה בראש דף הסוכן/ת · מומלץ 1600×600</div>
+                <div class="hint">רצועה רחבה בראש דף הסוכן/ת · מומלץ 1600×600 · בלי תמונה מוצגת תמונת הרקע של המשרד</div>
               </div>
               <div class="img-preview" id="pfCoverPreview"></div>
             </div>
@@ -4382,6 +4396,16 @@ function profileComplete(agent){
   return !!(agent && agent.photo_url && (agent.bio || '').trim());
 }
 
+/* תמונת הרקע של המשרד, ברירת המחדל לרצועה בראש דף הסוכן/ת. נטענת בנפרד
+   מ-brandingState, שקיים רק אצל מנהל/ת משרד. */
+let agencyCoverUrl = null;
+async function loadAgencyCover(agencyId){
+  if (!agencyId) return;
+  const { data } = await sb.from('agencies').select('cover_url').eq('id', agencyId).maybeSingle();
+  agencyCoverUrl = (data && data.cover_url) || null;
+  if (agencyCoverUrl) renderProfilePreview();
+}
+
 function loadProfileSettings(agent){
   // טעינה חוזרת (החלפת תפקיד בתפריט הבדיקה, למשל) לא אמורה להשאיר blob URL תלוי באוויר
   if (profileState){
@@ -4408,6 +4432,7 @@ function loadProfileSettings(agent){
   accSetCount('accProfile', profileComplete(agent) ? '' : 'להשלמה');
   renderProfileImages();
   renderProfilePreview();
+  loadAgencyCover(agent.agency_id);
 }
 
 function renderProfileImages(){
@@ -4568,7 +4593,10 @@ function renderProfilePreview(){
     pills.innerHTML = items.map(t => `<span>${esc(t)}</span>`).join('');
   }
 
-  const coverSrc = profileState && profileState.cover ? (profileState.cover.previewUrl || profileState.cover.url) : null;
+  // בלי תמונת נושא אישית דף הסוכן/ת מציג את תמונת הרקע של המשרד — והתצוגה
+  // המקדימה מראה בדיוק את אותה נפילה
+  const coverSrc = (profileState && profileState.cover ? (profileState.cover.previewUrl || profileState.cover.url) : null)
+    || agencyCoverUrl;
   // ריק מחזיר את הגרדיאנט שמוגדר ב-CSS במקום להשאיר תמונה ישנה
   document.getElementById('ppCover').style.backgroundImage = coverSrc ? `url("${coverSrc}")` : '';
 

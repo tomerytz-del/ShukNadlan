@@ -260,7 +260,6 @@
     background:none;padding:4px 0 0;font-size:.82rem;font-weight:700;color:var(--teal);
   }
   .desc-toggle:hover{text-decoration:underline}
-  .listing-note{font-size:.72rem;color:var(--ink-soft);margin:14px 0 0;text-align:center}
 
   /* ====== מפת הנכס ======
      מפה מוטמעת קטנה שמראה את המיקום בלי קליק, וכפתור שפותח אותה במסך מלא
@@ -316,17 +315,32 @@
   .map-full-actions a:hover{background:rgba(255,255,255,.22)}
   .map-full-actions svg{width:17px;height:17px}
 
-  /* ‏--ag-* נקבעים ב-applyAgencyAccent על הרצועה הזו בלבד, מצבעי המשרד
+  /* רצועת המשרד. הלוגו הוא הזיהוי המהיר של המשרד, ולכן הוא מוצג בגודל שאפשר
+     באמת לזהות בו סמל — האות הראשונה נשארת רק כשאין לוגו.
+     ‏--ag-* נקבעים ב-applyAgencyAccent על הרצועה הזו בלבד, מצבעי המשרד
      שמפרסם את הנכס. בלי משרד שהגדיר צבעים הכל נשאר בצבעי הפלטפורמה. */
   .agency-strip{
-    display:flex;align-items:center;gap:12px;cursor:pointer;
+    display:flex;align-items:center;gap:14px;cursor:pointer;padding:20px;
     transition:box-shadow .15s ease,transform .15s ease;
     border-inline-start:4px solid var(--ag-accent,transparent);
   }
   .agency-strip:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
-  .agency-avatar{width:44px;height:44px;border-radius:13px;background:var(--ag-brand,var(--teal));color:var(--ag-on-brand,#fff);display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Frank Ruhl Libre',serif;flex-shrink:0}
-  .agency-name{font-weight:800;font-size:.94rem;color:var(--ag-brand-dark,var(--teal-dark))}
-  .agency-sub{font-size:.78rem;color:var(--ink-soft)}
+  .agency-avatar{
+    width:62px;height:62px;border-radius:15px;
+    background:var(--ag-brand,var(--teal));color:var(--ag-on-brand,#fff);
+    display:flex;align-items:center;justify-content:center;font-size:1.35rem;font-weight:700;
+    font-family:'Frank Ruhl Libre',serif;flex-shrink:0;overflow:hidden;
+  }
+  /* לוגו מוצג במלואו (contain) על רקע לבן — חיתוך cover היה קוצץ שם או סמל,
+     וצבע המשרד עובר למסגרת כדי שלא ייעלם מתחת ללוגו */
+  .agency-avatar.has-logo{background:#fff;border:1px solid var(--ag-accent,var(--hair))}
+  .agency-avatar img{width:100%;height:100%;object-fit:contain;display:block;padding:4px}
+  .agency-name{font-weight:800;font-size:1.02rem;color:var(--ag-brand-dark,var(--teal-dark))}
+  .agency-sub{font-size:.8rem;color:var(--ink-soft);margin-top:2px}
+  @media(max-width:520px){
+    .agency-strip{gap:12px;padding:16px}
+    .agency-avatar{width:54px;height:54px}
+  }
   .agency-strip .chev{margin-inline-start:auto;color:var(--ink-soft)}
   .agency-strip .chev svg{width:18px;height:18px}
 
@@ -372,7 +386,8 @@
   .field{margin-bottom:9px}
   .field input,.field textarea{width:100%;border:1.5px solid var(--hair-strong);border-radius:12px;padding:11px 13px;background:var(--surface-soft);transition:border-color .15s ease,background .15s ease}
   .field input:focus,.field textarea:focus{border-color:var(--teal);background:#fff;outline:none}
-  .field textarea{resize:vertical;min-height:66px}
+  /* גובה שמכיל את ההודעה המוכנה עם מספר המודעה בלי גלילה בתוך התיבה */
+  .field textarea{resize:vertical;min-height:84px}
   #inquiryFeedback{font-size:.8rem;margin-top:8px;text-align:center;min-height:1.2em}
   .btn-submit{
     width:100%;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 18px;
@@ -845,9 +860,6 @@
           </span>
         </div>
 
-        <!-- מספר המודעה מעניין את המשרד ולא את הגולש/ת: הוא נשאר בעמוד לצורך
-             פנייה טלפונית ("מודעה 1083"), בשורה מוצנעת בתחתית. -->
-        <p class="listing-note" id="listingNote" hidden></p>
       </div>
 
       <div class="sidebar">
@@ -2010,11 +2022,40 @@ function renderDescription(p){
     });
   }
 
-  const note = document.getElementById('listingNote');
-  if (p.listing_number){
-    note.textContent = 'מודעה מס׳ ' + p.listing_number;
-    note.hidden = false;
-  }
+}
+
+/* הלוגו של המשרד ברצועה שמתחת למפה. כשאין לוגו נשארת האות הראשונה של השם,
+   ולוגו שנכשל בטעינה חוזר אליה — ריבוע ריק גרוע משתיהן. */
+function renderAgencyAvatar(agency){
+  const el = document.getElementById('agencyAvatar');
+  const name = (agency && agency.name) || '';
+  const initial = (name || '?')[0];
+  const raw = (agency && typeof agency.logo_url === 'string') ? agency.logo_url.trim() : '';
+  const logo = /^(https?:\/\/|\/|assets\/)/i.test(raw) ? raw : '';
+  el.classList.remove('has-logo');
+  el.textContent = initial;
+  if (!logo) return;
+  const img = document.createElement('img');
+  img.src = logo;
+  img.alt = name;
+  img.loading = 'lazy';
+  img.addEventListener('error', ()=>{
+    el.classList.remove('has-logo');
+    el.textContent = initial;
+  });
+  el.classList.add('has-logo');
+  el.textContent = '';
+  el.appendChild(img);
+}
+
+/* מספר המודעה הוא מה שהסוכן/ת מחפש/ת כדי לזהות על איזה נכס מדובר. במקום שורה
+   מוצנעת בתחתית העמוד, שאיש לא מעתיק ממנה, הוא נכנס מראש לתיבת ההודעה בטופס
+   הפנייה — הודעה מוכנה לשליחה שכבר נושאת את המספר. */
+function prefillInquiryMessage(p){
+  if (!p.listing_number) return;
+  const box = document.getElementById('inqMessage');
+  if (box.value.trim()) return;
+  box.value = 'שלום, ראיתי בשוק הנדל״ן את מודעה מספר ' + p.listing_number + ' ורציתי לקבל עוד פרטים';
 }
 
 function escapeHtml(s){
@@ -2109,7 +2150,7 @@ function renderProperty(p){
   document.getElementById('sbPriceValue').textContent = priceFlat(p);
 
   document.getElementById('agencyName').textContent = p.agencies?.name || 'משרד תיווך';
-  document.getElementById('agencyAvatar').textContent = (p.agencies?.name || '?')[0];
+  renderAgencyAvatar(p.agencies);
   applyAgencyAccent(p.agencies);
   // הטלפון של סוכן/ת 2 לא מוצג באתר, בדיוק כמו של סוכן/ת 1 — הפנייה עוברת
   // בטופס או בכפתורי הוואטסאפ של הסוכן/ת הראשי/ת
@@ -2120,6 +2161,7 @@ function renderProperty(p){
   document.getElementById('agentName').textContent = agentLine;
   renderAgentCard(p);
   renderContactButtons(p);
+  prefillInquiryMessage(p);
   document.getElementById('agencyStrip').addEventListener('click', ()=>{
     if (p.agencies?.slug) window.location.href = 'agency.html?slug=' + p.agencies.slug;
   });
@@ -2443,6 +2485,8 @@ document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
     feedback.style.color = 'var(--teal)';
     feedback.textContent = 'הפנייה נשלחה! המתווך יחזור אליכם בקרוב';
     document.getElementById('inquiryForm').reset();
+    // reset מחזיר את התיבה לערך שב-HTML (ריק) — ההודעה המוכנה נכתבת שוב
+    prefillInquiryMessage(currentProperty);
   } catch(err){
     console.error(err);
     feedback.style.color = 'var(--brick)';
