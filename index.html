@@ -808,7 +808,8 @@
   .hot-band{
     position:relative;z-index:4;margin-top:-16px;
     background:var(--paper-raised);border-radius:26px 26px 0 0;
-    padding:20px 0 22px;box-shadow:0 -12px 30px rgba(6,20,34,.20);
+    /* הריפוד התחתון מחזיק את המרווח שהחזיקה קודם שורת נקודות הניווט */
+    padding:20px 0 30px;box-shadow:0 -12px 30px rgba(6,20,34,.20);
   }
   .hot-head{text-align:center;padding:0 16px;margin-bottom:6px}
   .hot-head h2{font-size:1.16rem;line-height:1.35}
@@ -902,7 +903,7 @@
   }
 
   @media(min-width:760px){
-    .hot-band{margin-top:-20px;padding:26px 0 26px}
+    .hot-band{margin-top:-20px;padding:26px 0 32px}
     .hot-head h2{font-size:1.4rem}
     .coverflow{--cf-gap:16px;--cf-peek:24px;padding:16px var(--cf-peek) 12px}
     .cf-card{border-radius:16px}
@@ -2043,8 +2044,10 @@
         <h2 id="hotFromMapTitle">נכסים חמים מהמפה — מהדורת פרימיום 2026</h2>
         <p class="hot-sub" id="hotFromMapSub">גללו בין הנכסים המסומנים על המפה</p>
       </div>
+      <!-- אין כאן שורת נקודות ניווט: מספר הנכסים ברצועה אינו חסום, ושורת
+           נקודות אחת לכל נכס הייתה נשברת לעשרות שורות ודוחפת את כל הסקציות
+           שמתחת כלפי מטה. הניווט ברצועה הוא בגלילה/החלקה בלבד. -->
       <div class="coverflow" id="hotCarousel" role="region" aria-label="נכסים חמים מהמפה"></div>
-      <div class="cf-dots" id="hotCarouselDots" aria-label="מעבר בין נכסים"></div>
     </div>
   </section>
 
@@ -4067,6 +4070,9 @@ function trackCenter(el){
   return r.left + r.width / 2;
 }
 
+/* ‏dots יכול להיות null: רצועה שמספר הפריטים בה אינו חסום (הנכסים החמים)
+   מוותרת על שורת הנקודות, כי היא הייתה נשברת לשורות רבות ודוחפת את שאר
+   העמוד מטה. שאר המנוע — הכרטיס הפעיל, הפתיחה בנגיעה — זהה בשני המצבים. */
 function createCoverflow(track, dots){
   let cards = [];
   let activeIndex = -1;
@@ -4082,7 +4088,7 @@ function createCoverflow(track, dots){
     if (best === activeIndex) return;
     activeIndex = best;
     cards.forEach((c, i)=> c.classList.toggle('is-active', i === best));
-    dots.querySelectorAll('button').forEach((d, i)=> d.classList.toggle('active', i === best));
+    if (dots) dots.querySelectorAll('button').forEach((d, i)=> d.classList.toggle('active', i === best));
   }
 
   // scrollBy עם הפרש יחסי, ולא scrollLeft מוחלט או scrollIntoView: הראשון
@@ -4142,11 +4148,12 @@ function createCoverflow(track, dots){
     goTo,
     bindOpen,
     isActive(index){ return index === activeIndex; },
-    reset(){ track.innerHTML = ''; dots.innerHTML = ''; cards = []; activeIndex = -1; },
+    reset(){ track.innerHTML = ''; if (dots) dots.innerHTML = ''; cards = []; activeIndex = -1; },
     add(card, dotLabel){
       const index = cards.length;
       track.appendChild(card);
       cards.push(card);
+      if (!dots) return;
       const dot = document.createElement('button');
       dot.type = 'button';
       dot.setAttribute('aria-label', dotLabel);
@@ -4163,8 +4170,8 @@ function createCoverflow(track, dots){
 
 /* ---------- קרוסלת "נכסים חמים מהמפה" ---------- */
 const hotTrack = document.getElementById('hotCarousel');
-const hotDots = document.getElementById('hotCarouselDots');
-const hotFlow = (hotTrack && hotDots) ? createCoverflow(hotTrack, hotDots) : null;
+// בלי מסלול נקודות (null) — ראו את ההערה ליד הרצועה ב-HTML
+const hotFlow = hotTrack ? createCoverflow(hotTrack, null) : null;
 
 function dealBadge(p){ return DEAL_LABELS[dealKind(p)]; }
 
