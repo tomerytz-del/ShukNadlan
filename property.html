@@ -1119,8 +1119,12 @@ const ICON = {
 
 /* תוויות המאפיינים — עותק של הרשימות ב-crm.html וב-index.html. שלושת הקבצים
    סטטיים ובלי מודול משותף, ולכן הסנכרון ידני (כמו שכבר מתועד שם).          */
+/* ‏has_photo ו-tour_3d הוסרו מהאוצר: הראשון מעולם לא הוצג כאן (תמונות רואים
+   בגלריה), והשני היה הצהרה שהכתובת ב-‎tour_3d_url‎ כבר אומרת טוב ממנה. קוד
+   בלי תווית פשוט לא מצטרף לרשימת היתרונות, ולכן נכסים ישנים שהדגל עוד יושב
+   עליהם לא יציגו שורה מיותרת.                                              */
 const FEATURE_LABELS = {
-  has_photo:'עם תמונה', moshav_kibbutz_only:'במושב/קיבוץ', price_dropped:'המחיר ירד לאחרונה', tour_3d:'סיור 3D',
+  moshav_kibbutz_only:'במושב/קיבוץ', price_dropped:'המחיר ירד לאחרונה',
   parking:'חניה', elevator:'מעלית', balcony:'מרפסת', sun_balcony:'מרפסת שמש', ac:'מיזוג', bars:'סורגים',
   accessible:'גישה לנכים', renovated_feature:'משופצת', furnished:'מרוהטת', mamad:'ממ״ד', exclusive:'בבלעדיות',
   building_shelter:'מקלט בבניין', mamak:'ממ״ק', storage:'מחסן', high_ceiling:'תקרה גבוהה', cameras:'מצלמות',
@@ -1134,7 +1138,7 @@ const FEATURE_ICONS = {
   accessible:'access', renovated_feature:'sparkle', furnished:'sofa', mamad:'shield', mamak:'shield',
   building_shelter:'shield', storage:'box', high_ceiling:'arrowUp', cameras:'camera', kitchenette:'utensils',
   alarm:'bell', meeting_room:'users', loading_ramp:'truck', comms:'wifi', cold_room:'thermo',
-  tour_3d:'cube', exclusive:'star', price_dropped:'trend', moshav_kibbutz_only:'pin',
+  exclusive:'star', price_dropped:'trend', moshav_kibbutz_only:'pin',
 };
 const CONDITION_LABELS = {
   new_from_contractor:'חדש מקבלן', new:'חדש', renovated:'משופץ',
@@ -1959,7 +1963,7 @@ function renderHighlights(p){
   if (p.move_in_soon) items.push({ icon:'key', label:'כניסה מיידית' });
   (p.features || []).forEach(code=>{
     const label = FEATURE_LABELS[code];
-    if (label && code !== 'has_photo') items.push({ icon:FEATURE_ICONS[code] || 'check', label });
+    if (label) items.push({ icon:FEATURE_ICONS[code] || 'check', label });
   });
 
   const section = document.getElementById('highlightsSection');
@@ -2029,10 +2033,9 @@ function renderTags(p){
   if (features.includes('exclusive')) badges.push({ cls:'badge-exclusive', icon:ICON.star, text:'בבלעדיות' });
   if (p.property_type) badges.push({ cls:'', icon:'', text:p.property_type });
   if (p.sales_area) badges.push({ cls:'', icon:ICON.pin, text:p.sales_area });
-  // הדגל הוא הצהרה ("יש סיור") והכתובת היא הקישור אליו. כשיש כתובת יש גם
-  // כפתור על התמונה, ותגית שאומרת את אותו דבר בלי לעשות כלום היא רעש —
-  // לכן התגית עולה רק על הדגל היבש, בלי קישור.
-  if (features.includes('tour_3d') && !p.tour_3d_url) badges.push({ cls:'', icon:ICON.cube, text:'סיור 3D' });
+  // הסיור מיוצג בכפתור שעל התמונה, שמוביל אליו בפועל. התגית שהוצגה כאן על
+  // הדגל היבש ‎tour_3d‎ הבטיחה סיור בלי לתת דרך להגיע אליו, והדגל עצמו כבר
+  // לא קיים בטופס הנכס.
   if (features.includes('price_dropped')) badges.push({ cls:'', icon:ICON.trend, text:'המחיר ירד' });
 
   document.getElementById('heroBadges').innerHTML = badges.map(b =>
