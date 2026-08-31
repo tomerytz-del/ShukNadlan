@@ -52,9 +52,22 @@
   /* ====== ראש הדף ======
      כרטיס אחד לבן שמרכז את כל מה שהגולש/ת צריך/ה כדי להחליט אם לפנות: תמונה,
      שם, תגיות ושני כפתורי יצירת קשר. תמונת הנושא נשארת רצועה נפרדת מאחוריו
-     ומוצגת רק כשהסוכן/ת העלה/תה אחת. */
-  .profile-cover{height:170px;border-radius:0 0 var(--radius-lg) var(--radius-lg);background-size:cover;background-position:center;border:1px solid var(--line);border-top:none;display:none}
+     ומוצגת כשיש תמונה — של הסוכן/ת, ואם אין, של המשרד. */
+  .profile-cover{height:170px;border-radius:0 0 var(--radius-lg) var(--radius-lg);background-size:cover;background-position:center;border:1px solid var(--line);border-top:none;display:none;position:relative}
   @media(min-width:760px){.profile-cover{height:230px}}
+  /* כשהרצועה מקושרת לדף המשרד היא אלמנט a — בלי href הוא מתנהג בדיוק כמו div */
+  .profile-cover[href]{text-decoration:none;color:inherit;cursor:pointer}
+  .profile-cover[href]:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+  .cover-tag{
+    position:absolute;top:12px;inset-inline-end:12px;display:inline-flex;align-items:center;gap:7px;
+    padding:6px 11px;border-radius:999px;background:rgba(255,255,255,.92);color:var(--teal-dark);
+    font-size:.76rem;font-weight:700;box-shadow:0 2px 8px rgba(18,40,64,.16);
+    -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+    transition:background .14s ease,box-shadow .14s ease;
+  }
+  .profile-cover[href]:hover .cover-tag,
+  .profile-cover[href]:focus-visible .cover-tag{background:#fff;box-shadow:0 4px 14px rgba(18,40,64,.24)}
+  .cover-tag img{width:18px;height:18px;border-radius:5px;object-fit:cover;display:block}
 
   .hero-card{
     background:rgba(255,255,255,.86);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
@@ -314,7 +327,7 @@
 </div>
 
 <div id="agentContent" class="wrap">
-  <div class="profile-cover" id="profileCover"></div>
+  <a class="profile-cover" id="profileCover"></a>
 
   <!-- ראש הדף: כרטיס אחד עם התמונה, התגיות ושני כפתורי יצירת קשר -->
   <section class="hero-card" id="heroCard">
@@ -533,15 +546,49 @@ function photoPosition(value){
   return /^\d{1,3}% \d{1,3}%$/.test(value || '') ? value : '50% 25%';
 }
 
-/* ראש הפרופיל — התמונות והפרטים שהסוכן/ת מעדכן/ת ב-CRM ("עדכון פרטי הסוכן/ת").
-   כשאין תמונת נושא הרצועה לא מוצגת בכלל, וכשאין תמונת סוכן/ת נשארת האות הראשונה. */
-function renderProfileHeader(agent){
+/* כתובת תמונה שמותר להכניס ל-background-image. כתובת שאינה http(s) או נתיב
+   מקומי לא נכנסת ל-CSS, כדי ש-url() לא ייצא מהמחרוזת שלו. */
+function safeImageUrl(url){
+  if (typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  return /^(https?:\/\/|\/|assets\/)/i.test(trimmed) ? trimmed : null;
+}
+
+/* הקישור לדף המשרד. agency.html מאתר משרד לפי slug בלבד, ולכן בלי slug אין לאן
+   להוביל והרצועה נשארת תמונה בלבד. */
+function agencyPageHref(agency){
+  return agency && agency.slug ? 'agency.html?slug=' + encodeURIComponent(agency.slug) : null;
+}
+
+/* רצועת תמונת הנושא. ברירת המחדל היא תמונת הרקע של המשרד — כך שגם סוכן/ת
+   שעוד לא העלה/תה תמונה משלו/ה מקבל/ת ראש עמוד ממותג — ותמונה אישית, כשקיימת,
+   גוברת עליה. הרצועה מקשרת לדף המשרד, עם תגית קטנה שמסמנת שאפשר ללחוץ. */
+function renderProfileCover(agent){
+  const agency = agent.agencies || null;
+  const src = safeImageUrl(agent.cover_url) || safeImageUrl(agency && agency.cover_url);
+  if (!src) return;
+
   const cover = document.getElementById('profileCover');
-  if (agent.cover_url){
-    cover.style.backgroundImage = `url("${agent.cover_url}")`;
-    cover.style.display = 'block';
-    document.getElementById('heroCard').classList.add('has-cover');
-  }
+  cover.style.backgroundImage = `url("${encodeURI(src)}")`;
+  cover.style.display = 'block';
+  document.getElementById('heroCard').classList.add('has-cover');
+
+  const href = agencyPageHref(agency);
+  if (!href) return;
+  const name = agency.name || 'המשרד';
+  const logo = safeImageUrl(agency.logo_url);
+  cover.href = href;
+  cover.setAttribute('aria-label', 'מעבר לדף המשרד ' + name);
+  cover.innerHTML = `<span class="cover-tag">
+      ${logo ? `<img src="${escapeHtml(encodeURI(logo))}" alt="" loading="lazy" onerror="this.remove()">` : ''}
+      <span>${escapeHtml(name)}</span>
+    </span>`;
+}
+
+/* ראש הפרופיל — התמונות והפרטים שהסוכן/ת מעדכן/ת ב-CRM ("עדכון פרטי הסוכן/ת").
+   כשאין תמונת סוכן/ת נשארת האות הראשונה. */
+function renderProfileHeader(agent){
+  renderProfileCover(agent);
 
   const avatar = document.getElementById('profileAvatar');
   if (agent.photo_url){
@@ -602,7 +649,7 @@ async function loadAgentProfile(){
     if (!agent) throw new Error('not found');
 
     if (agent.agency_id){
-      const { data: agency } = await sb.from('agencies').select('name, slug, logo_url').eq('id', agent.agency_id).maybeSingle();
+      const { data: agency } = await sb.from('agencies').select('name, slug, logo_url, cover_url').eq('id', agent.agency_id).maybeSingle();
       agent.agencies = agency || null;
     }
 

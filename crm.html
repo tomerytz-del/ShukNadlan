@@ -2104,7 +2104,7 @@
               <div class="img-dropzone" style="padding:10px 14px">
                 <label class="pick" for="pfCoverInput">+ העלאת תמונת נושא</label>
                 <input type="file" id="pfCoverInput" accept="image/jpeg,image/png,image/webp">
-                <div class="hint">רצועה רחבה בראש דף הסוכן/ת · מומלץ 1600×600</div>
+                <div class="hint">רצועה רחבה בראש דף הסוכן/ת · מומלץ 1600×600 · בלי תמונה מוצגת תמונת הרקע של המשרד</div>
               </div>
               <div class="img-preview" id="pfCoverPreview"></div>
             </div>
@@ -4311,6 +4311,16 @@ function profileComplete(agent){
   return !!(agent && agent.photo_url && (agent.bio || '').trim());
 }
 
+/* תמונת הרקע של המשרד, ברירת המחדל לרצועה בראש דף הסוכן/ת. נטענת בנפרד
+   מ-brandingState, שקיים רק אצל מנהל/ת משרד. */
+let agencyCoverUrl = null;
+async function loadAgencyCover(agencyId){
+  if (!agencyId) return;
+  const { data } = await sb.from('agencies').select('cover_url').eq('id', agencyId).maybeSingle();
+  agencyCoverUrl = (data && data.cover_url) || null;
+  if (agencyCoverUrl) renderProfilePreview();
+}
+
 function loadProfileSettings(agent){
   // טעינה חוזרת (החלפת תפקיד בתפריט הבדיקה, למשל) לא אמורה להשאיר blob URL תלוי באוויר
   if (profileState){
@@ -4337,6 +4347,7 @@ function loadProfileSettings(agent){
   accSetCount('accProfile', profileComplete(agent) ? '' : 'להשלמה');
   renderProfileImages();
   renderProfilePreview();
+  loadAgencyCover(agent.agency_id);
 }
 
 function renderProfileImages(){
@@ -4497,7 +4508,10 @@ function renderProfilePreview(){
     pills.innerHTML = items.map(t => `<span>${esc(t)}</span>`).join('');
   }
 
-  const coverSrc = profileState && profileState.cover ? (profileState.cover.previewUrl || profileState.cover.url) : null;
+  // בלי תמונת נושא אישית דף הסוכן/ת מציג את תמונת הרקע של המשרד — והתצוגה
+  // המקדימה מראה בדיוק את אותה נפילה
+  const coverSrc = (profileState && profileState.cover ? (profileState.cover.previewUrl || profileState.cover.url) : null)
+    || agencyCoverUrl;
   // ריק מחזיר את הגרדיאנט שמוגדר ב-CSS במקום להשאיר תמונה ישנה
   document.getElementById('ppCover').style.backgroundImage = coverSrc ? `url("${coverSrc}")` : '';
 
