@@ -186,17 +186,19 @@
      במגע ובחיצים, ומנהל/ת המשרד היא הכרטיס הבולט בה — כרטיס רחב יותר,
      טבעת בצבע המשני ותגית תפקיד — ולכן גם הכרטיס הראשון ברצף. */
   .team-sec{margin-top:26px;display:none}
-  .team-carousel{position:relative}
-  /* ‏overflow-x גולל, scroll-snap ממרכז כרטיס — כך שגלילה במגע נעצרת על
-     כרטיס שלם ולא באמצע אחד. הפדינג האנכי משאיר מקום להרמה ב-hover ולצל. */
-  .team-rail{
+  /* ---------- רצועה נגללת ----------
+     ‏overflow-x גולל, scroll-snap ממרכז כרטיס — כך שגלילה במגע נעצרת על
+     כרטיס שלם ולא באמצע אחד. הפדינג האנכי משאיר מקום להרמה ב-hover ולצל.
+     ‏‎.rail‎ משותפת לרצועת המתווכים ולרצועות הנכסים. */
+  .rail{
     display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-behavior:smooth;
-    padding:18px 2px 14px;scrollbar-width:none;-ms-overflow-style:none;
+    padding:8px 2px 14px;scrollbar-width:none;-ms-overflow-style:none;
   }
-  .team-rail::-webkit-scrollbar{display:none}
-  /* משרד עם סוכן/ת אחד/ת או שניים לא ייראה כרצועה קטועה בקצה — הכרטיסים
-     מתמרכזים כשאין מה לגלול */
-  .team-rail.no-scroll{justify-content:center;flex-wrap:wrap}
+  .rail::-webkit-scrollbar{display:none}
+  /* רצועה שאין בה מה לגלול לא תיראה כרצועה קטועה בקצה — הכרטיסים מתמרכזים */
+  .rail.no-scroll{justify-content:center;flex-wrap:wrap}
+  /* תגית "מנהל/ת המשרד" חורגת מעל שפת הכרטיס וזקוקה למקום מעליה */
+  .team-rail{padding-top:18px}
   .team-card{
     flex:0 0 196px;scroll-snap-align:center;position:relative;text-align:center;cursor:pointer;
     background:var(--surface);border:1px solid var(--hair);border-radius:20px;
@@ -252,25 +254,29 @@
   .ta-wa svg{fill:currentColor;stroke:none;width:16px;height:16px}
   .ta-tel{background:var(--gold-tint);color:var(--accent-ink);border:1px solid var(--accent)}
   .ta-tel:hover{background:var(--accent);color:var(--on-accent)}
-  /* החיצים יושבים על שפות הרצועה. ב-RTL ה"קודם" הוא לכיוון ההתחלה — ימין —
-     ולכן המיקום לוגי (inset-inline) ולא ימין/שמאל פיזיים. */
-  .team-nav{
+  /* ---------- חיצים ונקודות של רצועה ----------
+     אותה בקרה משרתת את רצועת המתווכים ואת שלוש רצועות הנכסים, כדי שכל
+     הגלילות בדף יתנהגו ויֵראו אותו דבר.
+     ב-RTL ה"קודם" הוא לכיוון ההתחלה — ימין — ולכן המיקום לוגי
+     (‏inset-inline) ולא ימין/שמאל פיזיים. */
+  .rail-wrap{position:relative}
+  .rail-nav{
     position:absolute;top:calc(50% - 8px);transform:translateY(-50%);width:36px;height:36px;
     border-radius:50%;background:var(--surface);border:1px solid var(--hair);box-shadow:var(--shadow-md);
     color:var(--brand-dark);display:grid;place-items:center;z-index:2;padding:0;
     transition:background .15s ease,opacity .15s ease;
   }
-  .team-nav:hover{background:var(--teal-tint)}
-  .team-nav[disabled]{opacity:.32;cursor:default}
-  .team-nav svg{width:19px;height:19px}
-  .team-nav.prev{inset-inline-start:-6px}
-  .team-nav.next{inset-inline-end:-6px}
-  .team-dots{display:flex;justify-content:center;gap:6px;margin-top:2px}
-  .team-dots button{
+  .rail-nav:hover{background:var(--teal-tint)}
+  .rail-nav[disabled]{opacity:.32;cursor:default}
+  .rail-nav svg{width:19px;height:19px}
+  .rail-nav.prev{inset-inline-start:-6px}
+  .rail-nav.next{inset-inline-end:-6px}
+  .rail-dots{display:flex;justify-content:center;gap:6px;margin-top:2px}
+  .rail-dots button{
     width:7px;height:7px;padding:0;border-radius:999px;background:var(--hair-strong);
     transition:width .2s ease,background .2s ease;
   }
-  .team-dots button.on{width:20px;background:var(--accent)}
+  .rail-dots button.on{width:20px;background:var(--accent)}
 
   /* ---------- גלריית המשרד ----------
      רשת Bento באותה שפה כמו גלריית הנכס: שתי תמונות גדולות ושלוש קטנות,
@@ -349,9 +355,32 @@
   .prop-search .clear:hover{background:var(--teal-tint);color:var(--brand-dark)}
   .search-count{font-size:.8rem;color:var(--ink-soft);margin:0 0 12px;font-weight:600}
 
-  .prop-grid{display:grid;grid-template-columns:1fr;gap:14px}
-  @media(min-width:640px){.prop-grid{grid-template-columns:1fr 1fr}}
-  @media(min-width:900px){.prop-grid{grid-template-columns:1fr 1fr 1fr}}
+  /* ---------- שלוש רצועות הנכסים ----------
+     במקום רשימה אחת ארוכה שמערבבת דירה להשכרה עם חנות למכירה, הנכסים
+     מחולקים לשלוש רצועות לפי מה שהגולש/ת באמת מחפש/ת: פרטי להשכרה, פרטי
+     למכירה, ומסחרי (מכירה והשכרה יחד — שוק אחד). רצועה שאין לה נכסים
+     פשוט לא נוצרת. */
+  .prop-group{margin-top:16px}
+  .prop-group:first-child{margin-top:2px}
+  .group-head{display:flex;align-items:center;gap:9px}
+  .group-head .ic{
+    width:30px;height:30px;border-radius:10px;flex:none;display:grid;place-items:center;
+    background:var(--teal-tint);color:var(--brand);
+  }
+  .group-head .ic svg{width:17px;height:17px}
+  .group-head h3{
+    font-family:'Frank Ruhl Libre',serif;font-size:1rem;font-weight:700;
+    color:var(--teal-dark);margin:0;
+  }
+  .group-head .n{font-size:.75rem;font-weight:600;color:var(--ink-soft)}
+  /* להשכרה ומסחרי נושאים את הצבע המשני — אותה הבחנה בדיוק שהתגית על אריח
+     הנכס עושה, כך שהצבע אומר את אותו הדבר בכל מקום בדף */
+  .prop-group[data-kind="rent"] .group-head .ic,
+  .prop-group[data-kind="commercial"] .group-head .ic{background:var(--gold-tint);color:var(--accent-ink)}
+  /* ברצועה הכרטיס מקבל רוחב קבוע; ברוחב מסך צר נשארת הצצה לכרטיס הבא כדי
+     שיהיה ברור שיש המשך מימין */
+  .rail .prop-card{flex:0 0 246px;scroll-snap-align:center}
+  @media(max-width:420px){.rail .prop-card{flex-basis:78%}}
   .prop-card{
     background:var(--surface);border:1px solid var(--hair);border-radius:18px;overflow:hidden;cursor:pointer;
     box-shadow:var(--shadow-xs);transition:box-shadow .15s ease,transform .15s ease;
@@ -518,12 +547,12 @@
         <h2 id="teamHeading">נבחרת המתווכים שלנו</h2>
         <span id="teamCount"></span>
       </div>
-      <div class="team-carousel">
-        <button type="button" class="team-nav prev" id="teamPrev" aria-label="המתווכים הקודמים" hidden></button>
-        <div class="team-rail" id="teamRail" tabindex="0" role="group" aria-label="נבחרת המתווכים של המשרד"></div>
-        <button type="button" class="team-nav next" id="teamNext" aria-label="המתווכים הבאים" hidden></button>
+      <div class="rail-wrap">
+        <button type="button" class="rail-nav prev" id="teamPrev" aria-label="המתווכים הקודמים" hidden></button>
+        <div class="team-rail rail" id="teamRail" tabindex="0" role="group" aria-label="נבחרת המתווכים של המשרד"></div>
+        <button type="button" class="rail-nav next" id="teamNext" aria-label="המתווכים הבאים" hidden></button>
       </div>
-      <div class="team-dots" id="teamDots"></div>
+      <div class="rail-dots" id="teamDots"></div>
     </section>
 
     <!-- ---------- חיפוש הנכסים ---------- -->
@@ -547,7 +576,8 @@
           <button type="button" class="clear" id="propSearchClear" aria-label="ניקוי החיפוש" hidden>✕</button>
         </div>
         <p class="search-count" id="propSearchCount" hidden></p>
-        <div class="prop-grid" id="activeProps"></div>
+        <!-- שלוש רצועות הנכסים נבנות לכאן ב-JS: פרטי להשכרה, פרטי למכירה, מסחרי -->
+        <div id="activeProps"></div>
       </div>
       <div class="tab-panel" id="panel-sold"><div class="panel" id="soldDeals"></div></div>
     </section>
@@ -598,6 +628,9 @@ const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
    אותם אייקוני קו במשקל אחיד כמו בדף הנכס, מוטמעים כדי לא להוסיף בקשת רשת. */
 const S = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 const ICON = {
+  building:S('<path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M16 9h2a2 2 0 0 1 2 2v10M2 21h20"/><path d="M8 7h2M8 11h2M8 15h2"/>'),
+  key:     S('<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.8 12.2 8-8M17 6l2 2M14.5 8.5l2 2"/>'),
+  store:   S('<path d="M4 9h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Z"/><path d="M3 9l1.6-5.2A1 1 0 0 1 5.6 3h12.8a1 1 0 0 1 1 .8L21 9"/><path d="M9 21v-6h6v6"/>'),
   star:    S('<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9Z"/>'),
   pin:     S('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>'),
   cube:    S('<path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="M3 8l9 5 9-5M12 13v8"/><path d="M7.5 5.5 16.5 10.7"/>'),
@@ -991,7 +1024,7 @@ let agencyProperties = [];
 async function loadActiveProperties(sb, agencyId){
   const el = document.getElementById('activeProps');
   const { data: props } = await sb.from('properties')
-    .select('id, title, price, deal_type, rooms, property_type, size_sqm, city, street, images, tour_3d_url, video_url')
+    .select('id, title, price, deal_type, category, rooms, property_type, size_sqm, city, street, images, tour_3d_url, video_url')
     .eq('agency_id', agencyId).eq('status', 'active').order('created_at', { ascending:false });
   if (!props || props.length === 0){ el.innerHTML = '<div class="empty-state">אין כרגע נכסים פעילים במשרד זה.</div>'; return; }
 
@@ -1032,19 +1065,69 @@ function propertyCardHtml(p){
     </div>`;
 }
 
+/* ---------- שלוש רצועות הנכסים ----------
+   ‏category הוא מה שמפריד בין נדל״ן פרטי למסחרי בכל המרקטפלייס — עמודה
+   ‏NOT NULL עם ברירת מחדל 'residential' וערכים 'residential'/'commercial'
+   בלבד (index.html שולף לפיה את הרצועה המסחרית). גם ‎deal_type‎ מוגבל
+   ל-'sale'/'rent', ולכן שלוש הרצועות מכסות את כל הנכסים בלי שאף אחד ייפול
+   בין הכיסאות. */
+const isCommercial = p => p.category === 'commercial';
+
+const PROP_GROUPS = [
+  { key:'rent',  title:'נכסים פרטיים להשכרה', icon:'key',
+    match: p => !isCommercial(p) && p.deal_type === 'rent' },
+  { key:'sale',  title:'נכסים פרטיים למכירה', icon:'building',
+    match: p => !isCommercial(p) && p.deal_type === 'sale' },
+  // במסחרי מכירה והשכרה יושבים יחד: מי שמחפש חנות בודק ממילא את שתי האפשרויות
+  { key:'commercial', title:'נכסים מסחריים', icon:'store', match: isCommercial },
+];
+
+function propertyRailHtml(group, items){
+  const count = items.length === 1 ? 'נכס אחד' : items.length + ' נכסים';
+  return `
+    <div class="group-head">
+      <span class="ic" aria-hidden="true">${ICON[group.icon]}</span>
+      <h3 id="group-${group.key}">${escapeHtml(group.title)}</h3>
+      <span class="n">${count}</span>
+    </div>
+    <div class="rail-wrap">
+      <button type="button" class="rail-nav prev" aria-label="הנכסים הקודמים" hidden></button>
+      <div class="rail" tabindex="0" role="group" aria-labelledby="group-${group.key}"></div>
+      <button type="button" class="rail-nav next" aria-label="הנכסים הבאים" hidden></button>
+    </div>
+    <div class="rail-dots"></div>`;
+}
+
 function renderPropertyCards(list){
   const el = document.getElementById('activeProps');
+  el.textContent = '';
   if (!list.length){
     el.innerHTML = '<div class="empty-state">לא נמצאו נכסים שתואמים לחיפוש.</div>';
     return;
   }
-  el.innerHTML = '';
-  list.forEach(p=>{
-    const card = document.createElement('div');
-    card.className = 'prop-card';
-    card.innerHTML = propertyCardHtml(p);
-    card.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
-    el.appendChild(card);
+
+  PROP_GROUPS.forEach(group=>{
+    const items = list.filter(group.match);
+    if (!items.length) return;                 // רצועה בלי נכסים לא נוצרת
+
+    const section = document.createElement('section');
+    section.className = 'prop-group';
+    section.dataset.kind = group.key;
+    section.innerHTML = propertyRailHtml(group, items);
+
+    const rail = section.querySelector('.rail');
+    items.forEach(p=>{
+      const card = document.createElement('div');
+      card.className = 'prop-card';
+      card.innerHTML = propertyCardHtml(p);
+      card.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
+      rail.appendChild(card);
+    });
+
+    el.appendChild(section);
+    // אחרי ההוספה ל-DOM, אחרת המדידות של הרצועה מחזירות אפס
+    initCarousel(rail, section.querySelector('.rail-nav.prev'),
+                 section.querySelector('.rail-nav.next'), section.querySelector('.rail-dots'));
   });
 }
 
@@ -1164,17 +1247,19 @@ async function loadTeam(sb, agencyId){
   });
 
   document.getElementById('teamSec').style.display = 'block';
-  initTeamCarousel();
+  initCarousel(rail, document.getElementById('teamPrev'),
+               document.getElementById('teamNext'), document.getElementById('teamDots'));
 }
 
-/* חיצים, נקודות וגלילה בקפיצות של כרטיס. ב-RTL ציר הגלילה הפיזי הפוך —
-   ‏scrollLeft יורד לשלילי ככל שמתקדמים — ולכן כיוון הצעד נגזר מכיוון
-   הכתיבה בפועל ולא מקובע. */
-function initTeamCarousel(){
-  const rail = document.getElementById('teamRail');
-  const prev = document.getElementById('teamPrev');
-  const next = document.getElementById('teamNext');
-  const dots = document.getElementById('teamDots');
+/* ---------- קרוסלה ----------
+   חיצים, נקודות וגלילה בקפיצות של כרטיס — לרצועת המתווכים ולשלוש רצועות
+   הנכסים כאחד. ב-RTL ציר הגלילה הפיזי הפוך — ‏scrollLeft יורד לשלילי ככל
+   שמתקדמים — ולכן כיוון הצעד נגזר מכיוון הכתיבה בפועל ולא מקובע. */
+window.addEventListener('resize', ()=>{
+  document.querySelectorAll('.rail').forEach(rail => rail._railSync && rail._railSync());
+});
+
+function initCarousel(rail, prev, next, dots){
   const cards = Array.from(rail.children);
   if (!cards.length) return;
 
@@ -1185,8 +1270,9 @@ function initTeamCarousel(){
   // ‏scrollBy/scrollTo מקבלים היסט פיזי; ב-RTL ההתקדמות היא לכיוון השלילי
   const toAxis = value => rtl ? -value : value;
 
+  const gap = parseFloat(getComputedStyle(rail).columnGap) || 0;
   const step = dir =>{
-    const width = cards[0].getBoundingClientRect().width + 12;   // רוחב כרטיס + הרווח
+    const width = cards[0].getBoundingClientRect().width + gap;
     rail.scrollBy({ left: toAxis(dir * width), behavior:'smooth' });
   };
   prev.addEventListener('click', ()=> step(-1));
@@ -1235,7 +1321,10 @@ function initTeamCarousel(){
     if (rail._syncing) return;
     rail._syncing = requestAnimationFrame(()=>{ rail._syncing = null; sync(); });
   });
-  window.addEventListener('resize', sync);
+  // הרצועות של הנכסים נבנות מחדש בכל הקלדה בחיפוש. מאזין resize על window לכל
+  // רצועה היה משאיר מאחוריו מאזין מת בכל בנייה — לכן ה-sync נתלה על הרצועה
+  // עצמה, ומאזין יחיד וגלובלי מריץ את מה שבאמת נמצא בדף.
+  rail._railSync = sync;
   sync();
 }
 
