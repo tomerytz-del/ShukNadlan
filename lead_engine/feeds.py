@@ -127,6 +127,36 @@ def _entry_content(entry) -> str:
     return clean_text("\n".join(blocks))
 
 
+def _entry_image(entry) -> str:
+    """
+    תמונת הפריט, מהמקום הראשון שיש בו אחת.
+
+    לכל משפחת פידים מוסכמה משלה: ‎media:content‎/‎media:thumbnail‎ (Media RSS,
+    מה שגוגל ורוב אתרי החדשות מייצרים), ‎<enclosure>‎ (RSS 2.0 קלאסי) ו-
+    ‎image‎ ב-JSON Feed. מי שאין לו תמונה מקבל כרטיס עם גרדיאנט, ולכן אין
+    כאן נפילה לתמונה גנרית.
+    """
+    for key in ("media_content", "media_thumbnail"):
+        for item in getattr(entry, key, None) or []:
+            url = (item.get("url") or "").strip() if isinstance(item, dict) else ""
+            if url.startswith(("http://", "https://")):
+                return url
+    for item in getattr(entry, "enclosures", None) or []:
+        if not isinstance(item, dict):
+            continue
+        if not (item.get("type") or "").startswith("image"):
+            continue
+        url = (item.get("href") or item.get("url") or "").strip()
+        if url.startswith(("http://", "https://")):
+            return url
+    image = getattr(entry, "image", None)
+    if isinstance(image, dict):
+        url = (image.get("href") or image.get("url") or "").strip()
+        if url.startswith(("http://", "https://")):
+            return url
+    return ""
+
+
 def _json_feed_to_parsed(payload: dict) -> feedparser.FeedParserDict:
     """
     ממיר JSON Feed למבנה שנראה ל-parse_entries בדיוק כמו פיד XML מפורסר.
@@ -149,6 +179,8 @@ def _json_feed_to_parsed(payload: dict) -> feedparser.FeedParserDict:
         body = item.get("content_html") or item.get("content_text") or item.get("summary")
         if body:
             entry["content"] = [{"value": body}]
+        if item.get("image"):
+            entry["image"] = {"href": item["image"]}
         stamp = item.get("date_published") or item.get("date_modified")
         if stamp:
             parsed_stamp = _iso_to_struct(stamp)
@@ -233,6 +265,7 @@ def parse_entries(
             published_at=_published_at(entry),
             source_id=source_id,
             source_name=source_name,
+            image_url=_entry_image(entry) or None,
         )
 
 
