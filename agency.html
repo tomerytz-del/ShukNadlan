@@ -222,9 +222,6 @@
      בגוון הראשי, כמידע גאוגרפי שקט יותר */
   .spec-chip{background:var(--gold-tint);color:var(--accent-ink);border:1px solid var(--accent)}
   .area-chip{background:var(--teal-tint);color:var(--brand-dark);border:1px solid transparent}
-  /* משרד שלא סימן תחומים מקבל תגיות שנגזרו מהנכסים שלו בפועל — וההערה
-     הזאת אומרת זאת במפורש, כדי שתגית לא תיקרא כהצהרה שהמשרד לא נתן */
-  .tags-note{font-size:.68rem;color:var(--ink-soft);flex:0 0 auto}
 
   /* ---------- יצירת קשר עם המשרד ----------
      עד כה דף המשרד היה קטלוג בלבד — אפשר היה לראות נכסים ולא לפנות לאיש.
@@ -659,7 +656,6 @@
         <div class="hero-tags" id="specsRow" hidden>
           <span class="tags-label">תחומי התמחות</span>
           <div class="chips" id="brandSpecs"></div>
-          <span class="tags-note" id="specsNote" hidden></span>
         </div>
         <div class="hero-tags" id="areasRow" hidden>
           <span class="tags-label">אזורי פעילות</span>
@@ -834,7 +830,9 @@ function setSectionNote(id, text){
 /* ---------- תחומי ההתמחות ----------
    מה שמנהל/ת המשרד סימן/ה ב-CRM גובר תמיד. משרד שעדיין לא סימן לא נשאר עם
    שורה ריקה: הנכסים שכבר עלו מספרים בעצמם במה הוא עוסק, והתגיות נגזרות
-   מהם — עם הערה שאומרת זאת, כדי שגזירה לא תיקרא כהצהרה של המשרד. */
+   מהם. הגזירה אינה מסומנת בדף — הערת "לפי הנכסים שבמשרד" תפסה שורה שלמה
+   בכרטיס, וזה מחיר גבוה מדי להסתייגות שהלקוח ממילא לא צריך לעשות בה דבר.
+   מי שרוצה שליטה מדויקת בתגיות מסמן אותן במסך המיתוג. */
 
 /* בדף מוצגות עד ארבע תגיות גם כשהמשרד סימן שש: ארבע קפסולות הן בדיוק שתי
    שורות במסך צר, ומשם והלאה השורה השלישית דוחפת את כפתורי הפנייה מתחת
@@ -844,13 +842,10 @@ const HERO_SPECS_SHOWN = 4;
 function renderSpecialties(agency, properties){
   if (!window.Specialties) return;
   const row = document.getElementById('specsRow');
-  const note = document.getElementById('specsNote');
   const picked = Specialties.forAgency(agency, properties);
   if (!picked.ids.length){ row.hidden = true; return; }
   document.getElementById('brandSpecs').innerHTML =
     Specialties.chipsHtml(picked.ids.slice(0, HERO_SPECS_SHOWN));
-  note.textContent = picked.source === 'auto' ? 'לפי הנכסים שבמשרד' : '';
-  note.hidden = picked.source !== 'auto';
   row.hidden = false;
 }
 
