@@ -1998,8 +1998,13 @@
         <div class="filter-modal-body">
           <div class="filter-section">
             <h4>סוג עסקה</h4>
-            <div class="deal-toggle" role="group" aria-label="סוג עסקה מסחרי" style="max-width:260px">
-              <button type="button" class="active" data-cdeal="sale">מכירה</button>
+            <!-- "הכול" הוא ברירת המחדל ולא "מכירה": נדל"ן מסחרי הוא קודם כל
+                 קטגוריה, ורוב המלאי המסחרי בפלטפורמה הוא להשכרה. כשברירת
+                 המחדל הייתה "מכירה", מעבר ל"מסחרי" בסרגל החיפוש החזיר את
+                 נכסי המכירה בלבד והסתיר את כל המסחרי להשכרה. -->
+            <div class="deal-toggle" role="group" aria-label="סוג עסקה מסחרי" style="max-width:320px">
+              <button type="button" class="active" data-cdeal="">הכול</button>
+              <button type="button" data-cdeal="sale">מכירה</button>
               <button type="button" data-cdeal="rent">השכרה</button>
             </div>
           </div>
@@ -2238,6 +2243,7 @@
       <div class="hot-head">
         <h2 id="leadingAgenciesTitle">משרדי תיווך מובילים בעפולה</h2>
         <p class="hot-sub">הדירוג נקבע לפי ביקורות הלקוחות ופעילות המשרד</p>
+        <a href="agencies.html" class="see-all">לכל משרדי התיווך ←</a>
       </div>
       <div class="coverflow" id="leadingAgenciesScroll" role="region" aria-label="משרדי תיווך מובילים"><!-- populated by JS --></div>
       <div class="cf-dots" id="leadingAgenciesDots" aria-label="מעבר בין משרדי תיווך"></div>
@@ -2725,6 +2731,7 @@
     <div class="footer-col">
       <h4>כלים</h4>
       <a href="articles.html">כתבות ובלוגים</a>
+      <a href="agencies.html">כל משרדי התיווך</a>
       <a href="#calc">מחשבון משכנתא</a>
       <a href="#leadingAgents">מתווכים מובילים</a>
       <a href="#pros">בעלי מקצוע</a>
@@ -3941,7 +3948,15 @@ async function loadCommercialProperties(){
 function seeAllByDeal(mode){
   const select = document.getElementById('dealTypeSelect');
   if (!select) return;
+  // "כל הנכסים…" מתחיל מדף נקי: מחיר, חדרים, שכונה או טקסט חופשי שנשארו
+  // מחיפוש קודם היו מצמצמים בשקט בדיוק את מה שהקישור מבטיח להראות במלואו.
+  document.getElementById('searchFreeText').value = '';
+  hoodState.selected = new Set();
+  hoodState.draft = new Set();
+  drawHoodShapes();
+  document.getElementById(mode === 'commercial' ? 'cClearFilters' : 'rClearFilters').click();
   select.value = mode;
+  // ה-change הוא שמריץ את החיפוש, גם כשהבורר כבר עמד על אותו סוג עסקה
   select.dispatchEvent(new Event('change'));
   document.getElementById('heroSection')?.scrollIntoView({ behavior:'smooth', block:'start' });
 }
@@ -5071,7 +5086,9 @@ function hoodCounts(){
   const counts = new Map();
   allActiveProperties.forEach(p=>{
     if (!p.neighborhood_id) return;
-    if (p.category !== category || p.deal_type !== dealType) return;
+    if (p.category !== category) return;
+    // dealType ריק = "הכול" במסחרי, ואז המונה סופר את שני סוגי העסקה יחד
+    if (dealType && p.deal_type !== dealType) return;
     counts.set(p.neighborhood_id, (counts.get(p.neighborhood_id) || 0) + 1);
   });
   return counts;
@@ -5251,7 +5268,8 @@ const searchState = {
   activeTab: 'sale', // 'sale' | 'rent' | 'commercial'
   freeText: '',
   r: { priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), condition:'', projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, moveInDate:'', moveInSoon:false, freeText:'' },
-  c: { deal:'sale', priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, restrooms:'', storage:'', mamad:'', moveInDate:'', moveInSoon:false, freeText:'' },
+  // deal:'' = שני סוגי העסקה המסחריים יחד (ראו ההערה ליד הבורר ב-HTML)
+  c: { deal:'', priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, restrooms:'', storage:'', mamad:'', moveInDate:'', moveInSoon:false, freeText:'' },
 };
 
 function renderPills(container, options, selectedSet, labelFn){
@@ -5283,6 +5301,11 @@ function renderCheckboxes(container, items, selectedSet){
   });
 }
 
+function syncCommercialDealToggle(){
+  document.querySelectorAll('.deal-toggle[aria-label="סוג עסקה מסחרי"] button').forEach(b=>
+    b.classList.toggle('active', b.dataset.cdeal === searchState.c.deal));
+}
+
 function initFilterModals(){
   renderPills(document.getElementById('rRoomsPills'), ROOM_OPTIONS, searchState.r.rooms);
   Object.entries(RESIDENTIAL_PTYPES).forEach(([cat, list])=>{
@@ -5308,11 +5331,13 @@ function initFilterModals(){
     group.querySelector('button[data-val=""]')?.classList.add('active');
   });
 
+  // הסימון נגזר מהמצב ולא נשאר מה-HTML: "איפוס" מחזיר את searchState.c.deal
+  // ל"הכול" וקורא ל-initFilterModals, וכך גם הכפתור המסומן חוזר איתו.
+  syncCommercialDealToggle();
   document.querySelectorAll('.deal-toggle[aria-label="סוג עסקה מסחרי"] button').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      document.querySelectorAll('.deal-toggle[aria-label="סוג עסקה מסחרי"] button').forEach(b=>b.classList.remove('active'));
-      btn.classList.add('active');
       searchState.c.deal = btn.dataset.cdeal;
+      syncCommercialDealToggle();
       // מכירה/השכרה מסחרית משנה את מה שהחיפוש יחזיר, ולכן גם את המונים
       // שברשימת השכונות
       renderHoodFilter();
@@ -5384,7 +5409,7 @@ document.getElementById('rClearFilters').addEventListener('click', ()=>{
   initFilterModals();
 });
 document.getElementById('cClearFilters').addEventListener('click', ()=>{
-  searchState.c = { deal:'sale', priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, restrooms:'', storage:'', mamad:'', moveInDate:'', moveInSoon:false, freeText:'' };
+  searchState.c = { deal:'', priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, restrooms:'', storage:'', mamad:'', moveInDate:'', moveInSoon:false, freeText:'' };
   ['cPriceMin','cPriceMax','cFloorMin','cFloorMax','cSizeMin','cSizeMax','cMoveInDate','cFreeText'].forEach(id=> document.getElementById(id).value='');
   document.getElementById('cProjectStatus').value='';
   document.getElementById('cMoveInSoon').checked=false;
@@ -5430,6 +5455,8 @@ function countActiveFilters(){
   if ('condition' in s && s.condition) n++;
   if (s.projectStatus) n++;
   if (s.freeText) n++;
+  // במסחרי "מכירה"/"השכרה" הוא סינון לכל דבר מאז ש"הכול" הוא ברירת המחדל
+  if (s.deal) n++;
   return n;
 }
 
@@ -5494,8 +5521,11 @@ async function runSearch(){
     // לגרדיאנט ולטקסט ברירת המחדל ברגע שהמשתמש חיפש
     let query = sb.from('properties').select(PROPERTY_SELECT)
       .eq('status', 'active')
-      .eq('category', isCommercial ? 'commercial' : 'residential')
-      .eq('deal_type', dealType);
+      .eq('category', isCommercial ? 'commercial' : 'residential');
+    // במסחרי מותר ש-dealType יהיה ריק ("הכול"), ואז לא מסננים לפי סוג
+    // העסקה כלל. בלי התנאי הזה הבחירה ב"מסחרי" הייתה תמיד מוסיפה
+    // deal_type='sale' ומחזירה רק את נכסי המכירה מתוך המלאי המסחרי.
+    if (dealType) query = query.eq('deal_type', dealType);
 
     // סינון השכונות הוא סינון מלא לכל דבר, ולא קיצור דרך לחיפוש חופשי:
     // "מרכז העיר" מזוהה כאן לפי מזהה ולא לפי טקסט, ולכן הוא לא סוחף איתו
@@ -5631,9 +5661,14 @@ function renderSearchRows(properties, isSearchResult){
 
   section.hidden = false;
   if (countEl){
-    countEl.textContent = properties.length
-      ? `${properties.length} נכסים תואמים · מסומנים על המפה שמעל`
-      : '';
+    // נכס בלי קואורדינטות לא יכול לקבל פין, ולכן ההבטחה "מסומנים על המפה"
+    // נכונה רק כשלכולם יש מיקום. אחרת נאמר במפורש כמה מהם על המפה — אחרת
+    // המונה שמתחת למפה ("N נכסים במפה") סותר את המונה כאן בלי הסבר.
+    const pinned = properties.filter(p => p.lat && p.lng).length;
+    countEl.textContent = !properties.length ? ''
+      : pinned === properties.length
+        ? `${properties.length} נכסים תואמים · מסומנים על המפה שמעל`
+        : `${properties.length} נכסים תואמים · ${pinned} מהם מסומנים על המפה`;
   }
   rows.innerHTML = '';
   if (!properties.length){
@@ -5719,7 +5754,12 @@ async function ssaCapture(){
   const openEnded = s.rooms.has('+6');
 
   ssaSnapshot = {
-    deal_type: dealType,
+    // ‏saved_searches.deal_type מוגבל ב-check ל-'sale'/'rent' ומנוע ההתאמה
+    // משווה אותו לנכס בשוויון פשוט, כלומר חיפוש שמור לא יכול לעקוב אחרי
+    // שני סוגי העסקה יחד. חיפוש מסחרי במצב "הכול" נשמר לכן כ-'sale' —
+    // אותה ברירת מחדל שה-RPC מחיל ממילא — והסיכום בבלון מציג אותה
+    // במפורש ("למכירה"), כדי שמה שנשמר יהיה מה שרואים לפני השמירה.
+    deal_type: dealType || 'sale',
     category: isCommercial ? 'commercial' : 'residential',
     cities: city ? [city] : [],
     neighborhood_ids: hoodIds,
