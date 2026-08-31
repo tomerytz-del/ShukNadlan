@@ -763,6 +763,20 @@
   }
   #dashboard .notif-item{border-bottom:1px solid var(--edge)}
   #dashboard .notif-item.unread{background:var(--wine-tint)}
+  /* ההתראה היא טקסט — היא נשברת לשורות ולא נחתכת באמצע מילה */
+  .notif-item .t,.notif-item .b{overflow-wrap:anywhere}
+
+  /* במסך צר הפאנל נפתח מקצה לקצה של רוחב הכותרת במקום להיתלות בפעמון:
+     הפעמון יושב קרוב לקצה, ופאנל ברוחב קבוע שנפתח ממנו גלש אל מחוץ למסך
+     ונחתך. ‏position:static על העוטף מעביר את העיגון ל-.crm-header-inner,
+     שהוא גם ה-.dash-wrap של הכותרת — ולכן 12px מכל צד משאירים שוליים למסך. */
+  @media(max-width:720px){
+    #dashboard .bell-wrap,#dashboard .menu-wrap{position:static}
+    #dashboard .bell-panel,#dashboard .menu-panel{
+      top:calc(100% + 12px);inset-inline:12px;width:auto;max-width:none;
+    }
+    #dashboard .bell-panel{max-height:min(70vh,420px)}
+  }
 
   /* ---------- תפריט הבורגר ----------
      מפת הדשבורד המלאה של הסוכן/ת: כל קטגוריה שגלויה לו/ה בעמוד מופיעה כאן
