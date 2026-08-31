@@ -5288,7 +5288,7 @@ async function loadPendingReviews(agencyId){
   el.innerHTML = '<div class="empty-state">טוען…</div>';
   const { data: reviews, error } = await sb
     .from('reviews')
-    .select('id, rating, text, reviewer_display_name, created_at')
+    .select('id, rating, agency_rating, text, reviewer_display_name, created_at')
     .eq('agency_id', agencyId)
     .eq('status', 'pending')
     .order('created_at', { ascending:false });
@@ -5309,7 +5309,14 @@ async function loadPendingReviews(agencyId){
       </div>
       ${tagsHtml([
         { text:'👤 ' + (r.reviewer_display_name || 'לקוח מאומת'), cls:'tag-key' },
-        { text:`⭐ ${r.rating}/5`, cls: r.rating >= 4 ? 'tag-good' : 'tag-warn' },
+        { text:`⭐ המתווך/ת ${r.rating}/5`, cls: r.rating >= 4 ? 'tag-good' : 'tag-warn' },
+        // הדירוג הישיר של המשרד הוא שאלה אופציונלית בטופס, ולכן התגית מופיעה
+        // רק כשניתנה תשובה. מנהל/ת המשרד מאשר/ת את הביקורת — וצריך/ה לראות
+        // את שני הדירוגים שהאישור מפרסם, לא רק את זה של המתווך/ת.
+        ...(r.agency_rating ? [{
+          text:`🏢 המשרד ${r.agency_rating}/5`,
+          cls: r.agency_rating >= 4 ? 'tag-good' : 'tag-warn',
+        }] : []),
         { text:'📅 ' + hebDate(r.created_at) },
       ])}
       ${r.text ? `<div class="lead-meta" style="margin-top:6px">${esc(r.text)}</div>` : ''}
