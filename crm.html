@@ -9,6 +9,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="assets/specialties.js"></script>
+<script src="assets/map-gestures.js"></script>
 <style>
   :root{
     --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
@@ -5509,7 +5510,13 @@ function renderPlanningResult(d){
   if (!window.L || !d.lat || !d.lng){ mapEl.style.display = 'none'; return; }
   mapEl.style.display = 'block';
 
-  planningMap = L.map('planMap').setView([d.lat, d.lng], 18);
+  /* מפה בגובה 280px בתוך פאנל נגלל היא מלכודת גלילה: הגלגלת מעליה הייתה
+     מקרבת אותה במקום להמשיך בדף, ובמובייל אצבע אחת הזיזה אותה. לכן הגלגלת
+     נדלקת רק אחרי לחיצה על המפה (focus), והמגע עובר למחוות שתי אצבעות. */
+  planningMap = L.map('planMap', { scrollWheelZoom:false }).setView([d.lat, d.lng], 18);
+  planningMap.on('focus', ()=> planningMap.scrollWheelZoom.enable());
+  planningMap.on('blur', ()=> planningMap.scrollWheelZoom.disable());
+  if (window.MapGestures) MapGestures.apply(planningMap);
   L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
     attribution:'&copy; OpenStreetMap &copy; CARTO', maxZoom:20
   }).addTo(planningMap);
