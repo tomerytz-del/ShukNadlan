@@ -1818,7 +1818,11 @@
   .footer-brand .footer-logo span{
     font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1rem;color:#fff;line-height:1.3;
   }
-  .footer-tagline{font-size:.8rem;line-height:1.6;color:#AFC7C4;max-width:34ch;margin:0}
+  /* שתי שורות נפרדות: המשפט המתאר ומתחתיו משפט המפתח. הגופן מתכווץ מעט
+     במסכים צרים כדי שהמשפט הראשון יישאר בשורה אחת ולא יישבר לשתיים. */
+  .footer-tagline{font-size:clamp(.68rem,3.1vw,.8rem);line-height:1.6;color:#AFC7C4;margin:0}
+  .footer-tagline span{display:block}
+  .footer-tagline-strong{color:#E4EEEC;font-weight:600;margin-top:2px}
   .footer-cta{display:flex;flex-wrap:wrap;gap:8px}
   .footer-cta .btn{font-size:.78rem;padding:8px 14px}
   .footer-cta .btn-ghost{
@@ -1849,8 +1853,9 @@
   @media(min-width:560px){
     .footer-grid{grid-template-columns:repeat(4,1fr)}
   }
-  @media(min-width:900px){
-    .footer-top{grid-template-columns:minmax(230px,1fr) 2.4fr;gap:34px}
+  /* גוש המותג עולה לצד הקישורים רק כשיש לו מספיק רוחב למשפט בשורה אחת */
+  @media(min-width:1024px){
+    .footer-top{grid-template-columns:minmax(370px,1fr) 2fr;gap:34px}
     .footer-grid{gap:24px}
   }
 
@@ -3426,7 +3431,10 @@
         <img src="assets/logo-shuknadlan.png" alt="" width="512" height="436" loading="lazy">
         <span>שוק הנדל״ן<br>של עפולה והסביבה</span>
       </a>
-      <p class="footer-tagline">כל הדירות, כל המתווכים ובעלי המקצוע של עפולה והעמק — בכתובת אחת.</p>
+      <p class="footer-tagline">
+        <span>כל הנכסים, כל המתווכים ובעלי המקצוע בעפולה והעמק בכתובת אחת</span>
+        <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
+      </p>
       <div class="footer-cta">
         <a href="agency-signup.html" class="btn btn-gold">הצטרפות כמשרד תיווך</a>
         <a href="professional-signup.html" class="btn btn-ghost">הצטרפות כבעל מקצוע</a>
