@@ -2700,6 +2700,21 @@
           <a href="articles.html" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:.8rem;color:var(--teal);margin-top:10px">צפייה בארכיון הכתבות באתר ←</a>
         </div>
       </details>
+
+      <!-- לידים שנקלטו ואין להם קהל. הפעמון מתריע על כל אחד בנפרד; כאן
+           רואים את כולם יחד, ובעיקר *למה* — קהל ריק (אין יועצי משכנתאות
+           רשומים) הוא בעיה אחרת לגמרי מליד בודד שלא עבר סף. -->
+      <details class="acc" id="accUnroutedLeads">
+        <summary>
+          <span class="acc-title">לידים ללא יעד (מנהל פלטפורמה)</span>
+          <span class="acc-count" id="accUnroutedLeadsCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <p class="acc-sub">פניות שנקלטו מהאתר ואין להן קהל שיקבל אותן. "קהל עכשיו" הוא מספר הנמענים האפשריים ברגע זה — ליד שנפל כשלא היה אף יועץ משכנתאות רשום מקבל יעד ברגע שנרשם אחד.</p>
+          <div id="unroutedLeadsList"></div>
+        </div>
+      </details>
     </div>
 
     <details class="acc" id="accSharePartners">
@@ -3732,6 +3747,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
     await loadNeighborhoodsAdmin();
     await loadRssSourcesAdmin();
     await loadArticlesAdmin();
+    await loadUnroutedLeads();
   }
 
   // מדף לידי המשכנתאות פתוח רק ליועצ/ת משכנתאות. כמו managerSection, ה-display
@@ -4223,6 +4239,116 @@ document.getElementById('articleForm').addEventListener('submit', (e)=>{
   saveArticle('draft');
 });
 document.getElementById('arPublishBtn').addEventListener('click', ()=> saveArticle('published'));
+
+/* ---------- לידים ללא יעד (מנהל פלטפורמה) ----------
+   ‏lead_routing_open הוא ה-view של יומן ניתוב הלידים: כל ליד שנקלט מווידג'ט
+   כלשהו ולא נמצא לו קהל, וטרם טופל. ה-view הוא security_invoker ונשען על
+   ה-policy של הטבלה, ולכן סוכן/ת רגיל/ה שיפתח/תפתח אותו יקבל/תקבל רשימה
+   ריקה ולא שגיאה.
+
+   אין כאן שם או טלפון של אף פונה: היומן מתאר את *הניתוב*, לא את הליד. */
+const UNROUTED_KIND_LABELS = {
+  agent_owner:'ליד בעל/ת נכס',
+  agent_buyer:'ליד מחפש/ת דירה',
+  mortgage_advisor:'ליד ייעוץ משכנתאות',
+};
+const UNROUTED_REASONS = {
+  no_mortgage_advisor:'אין יועצ/ת משכנתאות רשומ/ה בפלטפורמה',
+  no_eligible_agents:'אין סוכני Mid/Premium עם העדפות לידים פעילות',
+  no_matching_agent_preferences:'יש סוכנים, אך אף אחד לא מוגדר לאזור/סוג הנכס הזה',
+  no_active_agents:'אין סוכנים פעילים שיכולים לקנות את הליד',
+  below_min_intent:'ציון ההתעניינות נמוך מהסף למדף מחפשי הדירה',
+  agency_without_active_member:'הליד הגיע מדף משרד שאין בו סוכן/ת פעיל/ה',
+};
+const UNROUTED_SOURCES = {
+  homepage_owner_wizard:'אשף הערכת שווי (דף הבית)',
+  homepage_buyer_wizard:'באנר מחפשי נכס (דף הבית)',
+  homepage_search_agent:'הסוכן החכם (תוצאות חיפוש)',
+  homepage_mortgage_calc:'מחשבון משכנתא (דף הבית)',
+  property_page_mortgage_calc:'מחשבון משכנתא (דף נכס)',
+  homepage_yield_calc:'מחשבון תשואה (דף הבית)',
+  agency_page_owner_wizard:'הערכת שווי (דף משרד)',
+  agency_page_yield_calc:'מחשבון תשואה (דף משרד)',
+};
+
+async function loadUnroutedLeads(){
+  const listEl = document.getElementById('unroutedLeadsList');
+  if (!listEl) return;
+  listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+
+  const { data, error } = await sb
+    .from('lead_routing_open')
+    .select('id, created_at, source, lead_kind, lead_table, lead_id, recipients, reason, summary, city, deal_type, property_type, audience_now')
+    .limit(50);
+
+  if (error){
+    // 42P01 = ה-view עדיין לא קיים, כלומר המיגרציה טרם רצה על המסד
+    listEl.innerHTML = '<div class="empty-state">' +
+      (error.code === '42P01'
+        ? 'יומן ניתוב הלידים לא קיים עדיין — הריצו את המיגרציה 20260913090000_lead_routing.sql ב-Supabase.'
+        : 'שגיאה: ' + error.message) + '</div>';
+    return;
+  }
+
+  const rows = data || [];
+  accSetCount('accUnroutedLeads', rows.length ? rows.length + ' ממתינים' : '');
+
+  if (!rows.length){
+    listEl.innerHTML = '<div class="empty-state">כל הלידים שנקלטו מצאו יעד. 🎯</div>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  rows.forEach(row => {
+    const item = document.createElement('div');
+    item.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--line)';
+
+    const head = document.createElement('div');
+    head.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+    const title = document.createElement('strong');
+    title.style.fontSize = '.9rem';
+    title.textContent = UNROUTED_KIND_LABELS[row.lead_kind] || 'ליד';
+    head.appendChild(title);
+    const when = document.createElement('span');
+    when.style.cssText = 'font-size:.72rem;color:var(--ink-soft)';
+    when.textContent = new Date(row.created_at).toLocaleString('he-IL', { dateStyle:'short', timeStyle:'short' });
+    head.appendChild(when);
+    // קהל שגדל מאז מסמן ליד שאפשר לשחרר עכשיו — זו הפעולה, לא רק המידע
+    if (row.audience_now > 0){
+      const ready = document.createElement('span');
+      ready.className = 'status-pill status-shared';
+      ready.textContent = 'יש קהל עכשיו (' + row.audience_now + ')';
+      head.appendChild(ready);
+    }
+    item.appendChild(head);
+
+    const meta = document.createElement('div');
+    meta.style.cssText = 'font-size:.78rem;color:var(--ink-soft);margin-top:4px;line-height:1.6';
+    meta.textContent = [
+      UNROUTED_SOURCES[row.source] || row.source,
+      row.summary,
+      UNROUTED_REASONS[row.reason] || row.reason,
+    ].filter(Boolean).join(' · ');
+    item.appendChild(meta);
+
+    const done = document.createElement('button');
+    done.type = 'button';
+    done.className = 'btn btn-ghost';
+    done.style.cssText = 'margin-top:8px;font-size:.78rem;padding:7px 14px';
+    done.textContent = 'סימון כטופל';
+    done.addEventListener('click', async ()=>{
+      done.disabled = true;
+      const { error: upErr } = await sb.from('lead_routing_log')
+        .update({ resolved_at: new Date().toISOString(), resolved_by: currentAgent.id })
+        .eq('id', row.id);
+      if (upErr){ done.disabled = false; alert('העדכון נכשל: ' + upErr.message); return; }
+      await loadUnroutedLeads();
+    });
+    item.appendChild(done);
+
+    listEl.appendChild(item);
+  });
+}
 
 async function loadArticlesAdmin(){
   const listEl = document.getElementById('articlesAdminList');
@@ -12003,6 +12129,10 @@ const NOTIF_TYPES = [
   { type:'review_alert',   tone:'alert',  goto:'accReviews',  focus:'#reviewModerationList',
     title:'הסלמת ביקורת כוכב אחד',
     sub:'ביקורת 1★ שנכנסה לפלטפורמה ומגיעה לבדיקת ההנהלה.',
+    when: ()=> currentAgent && currentAgent.is_platform_admin },
+  { type:'lead_unrouted',  tone:'alert',  goto:'accUnroutedLeads', focus:'#unroutedLeadsList',
+    title:'ליד שאין למי להפנות',
+    sub:'פנייה שנקלטה מהאתר ואין קהל שיקבל אותה — למשל ליד משכנתא בלי יועצ/ת רשומ/ה.',
     when: ()=> currentAgent && currentAgent.is_platform_admin },
 ];
 

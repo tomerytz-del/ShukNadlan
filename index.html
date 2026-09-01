@@ -767,6 +767,9 @@
   .owner-banner{background:linear-gradient(160deg,rgba(28,58,94,.84),rgba(18,40,64,.72))}
   .buyer-banner{background:linear-gradient(160deg,rgba(107,26,38,.85),rgba(61,17,25,.74))}
   .calc-banner{background:linear-gradient(160deg,rgba(18,40,64,.85),rgba(28,58,94,.72))}
+  /* מחשבון התשואה בבורדו כמו באנר מחפשי הנכס, ולא בכחול של כלי הבעלים:
+     שניהם פונים לאותו צד של העסקה — מי שקונה. */
+  .yield-banner{background:linear-gradient(160deg,rgba(61,17,25,.86),rgba(107,26,38,.74))}
 
   /* שורת ההזמנה היא כפתור אחד ולא כותרת עם כפתור קטן בתוכה: כל השורה היא
      שטח לחיצה, וזה ההבדל בין שני מבקרים שפותחים את האשף לבין אחד. */
@@ -1601,6 +1604,14 @@
   }
   .calc-warn{font-size:.78rem;color:var(--brick);font-weight:700;margin:0;text-align:center}
   .calc-warn:empty{display:none}
+  /* שלוש התוצאות המשניות של מחשבון התשואה. ‏gap:1px על רקע בצבע הקו נותן
+     מפרידים בעובי פיקסל בלי שלושה גבולות שנערמים זה על זה. */
+  .calc-more{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;
+    background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .calc-more div{background:var(--paper-raised);padding:11px 6px;text-align:center;min-width:0}
+  .calc-more .v{font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.2rem;
+    color:var(--teal-dark);line-height:1.15}
+  .calc-more .k{font-size:.68rem;color:var(--ink-soft);margin-top:3px;font-weight:600}
   .calc-cta{
     display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 18px;border-radius:14px;
     background:linear-gradient(to right,var(--teal-dark),var(--calc-accent) 55%,var(--calc-accent-warm));
@@ -3083,6 +3094,110 @@
     <div class="featured-scroll" id="featuredScroll"><!-- populated by JS --></div>
   </section>
 
+  <!-- ====== Yield calculator banner ======
+       מחשבון התשואה של דף המשרד (agency.html), באותו באנר מתקפל של שאר
+       הכלים בעמוד הבית. הוא יושב אחרי רצועות הנכסים ולפני המגזין: מי
+       שגלל/ה עד לכאן כבר ראה/תה מחירים ושכר דירה, וזו השאלה שנשארת —
+       כמה זה באמת מחזיר.
+
+       החישוב כולו רץ בדפדפן ואינו שולח דבר. מה שנשלח הוא רק מה שהגולש/ת
+       בוחר/ת לשלוח דרך ה-CTA, שפותח את באנר מחפשי הנכס — ליד של מחפש/ת
+       נכס להשקעה הוא בדיוק אותו חיפוש שמור, ואין סיבה לטופס שני. -->
+  <div class="section wrap">
+    <div class="lead-banner yield-banner" id="yieldBanner">
+      <button type="button" class="lead-teaser" id="yieldStartBtn"
+              aria-expanded="false" aria-controls="yieldPanel">
+        <span class="lead-teaser-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3.5 18a9 9 0 1 1 17 0"></path>
+            <path d="m12 14 3.5-3.8"></path>
+            <circle cx="12" cy="15.5" r="1.6"></circle>
+          </svg>
+        </span>
+        <span class="lead-teaser-copy">
+          <span class="lead-teaser-eyebrow">מחשבון תשואה</span>
+          <span class="lead-teaser-title">כמה באמת מחזיר נכס להשקעה?</span>
+          <span class="lead-teaser-sub">ברוטו, נטו, וכמה שנים עד שההשקעה חוזרת</span>
+        </span>
+        <span class="lead-teaser-go" aria-hidden="true">
+          <span class="lead-teaser-go-open">לחישוב ←</span>
+          <span class="lead-teaser-go-close">סגירה ✕</span>
+        </span>
+      </button>
+
+      <div class="lead-panel" id="yieldPanel" hidden>
+        <div class="card calc-card">
+          <div class="calc-controls">
+            <div class="calc-slider">
+              <div class="calc-slider-head">
+                <label class="lbl" for="yieldPrice">מחיר הנכס</label>
+                <span class="val"><span id="yieldPriceOut">1,250,000</span> ₪</span>
+              </div>
+              <input type="range" class="calc-range" id="yieldPrice" min="300000" max="5000000" step="10000" value="1250000" aria-label="מחיר הנכס בשקלים">
+            </div>
+
+            <div class="calc-slider">
+              <div class="calc-slider-head">
+                <label class="lbl" for="yieldRent">שכר דירה חודשי</label>
+                <span class="val"><span id="yieldRentOut">4,200</span> ₪</span>
+              </div>
+              <input type="range" class="calc-range" id="yieldRent" min="500" max="25000" step="100" value="4200" aria-label="שכר דירה חודשי בשקלים">
+              <div class="calc-ltv">
+                <span><span id="yieldGrossPct">—</span> תשואה ברוטו</span>
+                <span class="arrow" aria-hidden="true">←</span>
+                <span class="calc-ltv-track"><span class="calc-ltv-fill" id="yieldGrossFill"></span></span>
+              </div>
+            </div>
+
+            <div class="calc-steppers">
+              <div class="calc-step">
+                <label class="lbl" for="yieldCosts">הוצאות שנתיות (₪)</label>
+                <!-- ‎+‎ ראשון ב-DOM כדי שב-RTL הוא ייפול לימין השדה ו-‎−‎ לשמאלו -->
+                <div class="calc-step-ctl">
+                  <button type="button" data-ystep="yieldCosts" data-dir="1" aria-label="הגדלת ההוצאות">+</button>
+                  <input type="number" id="yieldCosts" value="6000" step="500" min="0" max="120000" inputmode="numeric">
+                  <button type="button" data-ystep="yieldCosts" data-dir="-1" aria-label="הפחתת ההוצאות">−</button>
+                </div>
+              </div>
+              <div class="calc-step">
+                <label class="lbl" for="yieldVacancy">חודשי אי-אכלוס בשנה</label>
+                <div class="calc-step-ctl">
+                  <button type="button" data-ystep="yieldVacancy" data-dir="1" aria-label="הוספת חודש אי-אכלוס">+</button>
+                  <input type="number" id="yieldVacancy" value="0.5" step="0.5" min="0" max="6" inputmode="decimal">
+                  <button type="button" data-ystep="yieldVacancy" data-dir="-1" aria-label="הפחתת חודש אי-אכלוס">−</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="calc-result">
+            <div class="side">
+              <div class="ttl">תשואה נטו</div>
+              <div class="lbl">אחרי הוצאות וחודשים ריקים</div>
+            </div>
+            <div class="num" id="yieldNet">—</div>
+          </div>
+
+          <div class="calc-more">
+            <div><div class="v" id="yieldGross">—</div><div class="k">תשואה ברוטו</div></div>
+            <div><div class="v" id="yieldAnnual">—</div><div class="k">הכנסה שנתית נטו</div></div>
+            <div><div class="v" id="yieldPayback">—</div><div class="k">שנים להחזר</div></div>
+          </div>
+
+          <p class="calc-warn" id="yieldWarn"></p>
+          <button type="button" class="calc-cta" id="yieldLeadOpen">
+            <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="10.5" cy="10.5" r="6.5"></circle>
+              <path d="M15.5 15.5 21 21"></path>
+            </svg>
+            עדכנו אותי על נכסים להשקעה
+          </button>
+          <p class="calc-fine">* הערכה בלבד. החישוב אינו כולל מס רכישה, עלויות מימון, שיפוץ ומיסוי על ההכנסה.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ====== כתבות ובלוגים ======
        הרצועה מציגה את שמונה האחרונות; הארכיון המלא (articles.html) הוא
        היעד של "כל הכתבות", כאן ובסוף כל כתבה. -->
@@ -3682,6 +3797,92 @@ document.querySelectorAll('.calc-step-ctl button[data-step]').forEach(btn=>{
 });
 updateCalculator();
 
+/* ---------- Yield calculator (מחשבון תשואה למשקיעים) ----------
+   הרכיב של דף המשרד (agency.html), באותו באנר מתקפל של שאר הכלים כאן.
+   כמו מחשבון המשכנתא — חישוב טהור בדפדפן, בלי תלות ב-SDK ובלי שליחה: מה
+   שנשלח הוא רק מה שהגולש/ת בוחר/ת לשלוח דרך ה-CTA.
+
+   ההבדל היחיד מגרסת דף המשרד הוא ערכי הפתיחה: שם הם נגזרים מחציון הנכסים
+   של אותו משרד, וכאן אין "אותו משרד" — ולכן נשארים ערכי ברירת המחדל. */
+const yieldState = { price:1250000, rent:4200, costs:6000, vacancy:0.5 };
+const pctText = v => v == null ? '—' : v.toFixed(1).replace(/\.0$/, '') + '%';
+
+function updateYield(){
+  const { price, rent, costs, vacancy } = yieldState;
+
+  document.getElementById('yieldPriceOut').textContent = nis(price);
+  document.getElementById('yieldRentOut').textContent = nis(rent);
+
+  const gross = price > 0 ? (rent * 12) / price * 100 : null;
+  // חודשי אי-אכלוס יורדים מההכנסה לפני ההוצאות — נכס ריק לא מפסיק לעלות כסף
+  const netAnnual = rent * Math.max(12 - vacancy, 0) - costs;
+  const net = price > 0 ? netAnnual / price * 100 : null;
+  // החזר ההשקעה מוגדר רק כשההכנסה חיובית: הוצאות שגבוהות מהשכירות אינן
+  // "אינסוף שנים" אלא הפסד, ומספר במקום הזה היה משקר
+  const payback = (price > 0 && netAnnual > 0) ? price / netAnnual : null;
+
+  document.getElementById('yieldNet').textContent = pctText(net);
+  document.getElementById('yieldGross').textContent = pctText(gross);
+  document.getElementById('yieldAnnual').textContent = netAnnual > 0 ? '₪' + nis(netAnnual) : '—';
+  document.getElementById('yieldPayback').textContent = payback == null ? '—' : nis(payback);
+
+  document.getElementById('yieldGrossPct').textContent = pctText(gross);
+  // הפס נמדד מול 8% — התקרה המעשית של תשואה ברוטו בשוק המקומי, כך שהמילוי
+  // אומר משהו במקום להיתקע תמיד ברבע הראשון
+  document.getElementById('yieldGrossFill').style.width =
+    Math.min(Math.max((gross || 0) / 8 * 100, 0), 100).toFixed(1) + '%';
+
+  document.getElementById('yieldWarn').textContent = netAnnual <= 0
+    ? 'ההוצאות והחודשים הריקים גבוהים מההכנסה משכירות — בתנאים האלה אין תשואה.'
+    : '';
+}
+
+bindLeadBanner({
+  banner:'yieldBanner', teaser:'yieldStartBtn', panel:'yieldPanel',
+  // הסליידרים נמדדים רק אחרי הפתיחה — לפניה הם היו בתוך פאנל מוסתר,
+  // ומילוי המסלול שלהם היה מחושב על רוחב 0
+  onOpen(){ ['yieldPrice','yieldRent'].forEach(id => paintRange(document.getElementById(id))); },
+});
+
+[['yieldPrice','price'], ['yieldRent','rent']].forEach(([id, key])=>{
+  const el = document.getElementById(id);
+  el.addEventListener('input', ()=>{
+    yieldState[key] = Number(el.value) || 0;
+    paintRange(el);
+    updateYield();
+  });
+  paintRange(el);
+});
+
+/* שדות ה-‎−/+‎. ‏clamp ל-min/max של השדה ועיגול לפי ה-step, כדי שלא ייווצרו
+   שאריות float כמו 1.5000000000000002 בחודשי אי-האכלוס. */
+const YIELD_STEP_KEYS = { yieldCosts:'costs', yieldVacancy:'vacancy' };
+document.querySelectorAll('.calc-step-ctl button[data-ystep]').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const input = document.getElementById(btn.dataset.ystep);
+    const step = parseFloat(input.step) || 1;
+    const decimals = (String(step).split('.')[1] || '').length;
+    let next = (parseFloat(input.value) || 0) + step * Number(btn.dataset.dir);
+    next = Math.min(Math.max(next, parseFloat(input.min)), parseFloat(input.max));
+    input.value = next.toFixed(decimals);
+    yieldState[YIELD_STEP_KEYS[input.id]] = Number(input.value);
+    updateYield();
+  });
+});
+Object.keys(YIELD_STEP_KEYS).forEach(id=>{
+  const input = document.getElementById(id);
+  input.addEventListener('input', ()=>{
+    yieldState[YIELD_STEP_KEYS[id]] = Math.max(Number(input.value) || 0, 0);
+    updateYield();
+  });
+});
+
+// ‏CTA: מי שסיים/ה לחשב תשואה מחפש/ת נכס להשקעה, וזה בדיוק החיפוש השמור
+// שבאנר מחפשי הנכס פותח — ולכן אין כאן טופס שני אלא הפניה אליו.
+document.getElementById('yieldLeadOpen').addEventListener('click', openBuyerSearch);
+
+updateYield();
+
 /* ---------- בלון ליד ייעוץ משכנתאות ----------
    נמצא כאן ולא ליד שאר המודאלים בכוונה: כמו המחשבון עצמו, הוא חייב לעבוד גם
    כשה-CDN של supabase-js/leaflet חסום. לכן הוא לא נשען על openModal/closeModal
@@ -3961,6 +4162,9 @@ wizForm.addEventListener('submit', async (e)=>{
         features: wizState.features,
         name: wizState.name,
         phone: wizState.phone,
+        // מזהה הווידג'ט נשמר ביומן ניתוב הלידים, כדי שמנהל/ת הפלטפורמה
+        // תדע איזה כלי ייצר ליד שאין למי להפנות (ראו docs/lead-routing.md)
+        source: 'homepage_owner_wizard',
       }),
     });
     const data = await res.json();
@@ -6611,6 +6815,7 @@ ssaForm.addEventListener('submit', async (e)=>{
     condition: s.condition,
     free_text: s.free_text,
     consent_agent_contact: document.getElementById('ssaConsent').checked,
+    source: 'homepage_search_agent',
   };
 
   try{
@@ -6669,15 +6874,26 @@ const buyState = {
   rooms:new Set(),
   ptypes:new Set(),
   channel:'whatsapp',
+  source:'homepage_buyer_wizard',   // מתחלף כשהבאנר נפתח ממחשבון התשואה
 };
 
 const buyerForm = document.getElementById('buyerWizardForm');
 const buyDoneEl = document.getElementById('buyDone');
 
-bindLeadBanner({
+const openBuyerPanel = bindLeadBanner({
   banner:'buyerBanner', teaser:'buyerStartBtn', panel:'buyerPanel',
   onOpen(){ buyGoToStep(1); },
 });
+
+/* פתיחת הבאנר מבחוץ — ה-CTA של מחשבון התשואה מפנה לכאן: ליד של מחפש/ת
+   נכס להשקעה הוא אותו חיפוש שמור בדיוק, ולכן אין טופס נוסף. הבאנר יושב
+   הרבה מעל המחשבון בעמוד, ולכן הפתיחה מלווה בגלילה אליו — אחרת שום דבר
+   לא נראה קורה בלחיצה. */
+function openBuyerSearch(){
+  buyState.source = 'homepage_yield_calc';
+  openBuyerPanel(true);
+  document.getElementById('buyerBanner').scrollIntoView({ behavior:'smooth', block:'start' });
+}
 
 function buyGoToStep(n){
   buyerForm.querySelectorAll('.wiz-panel').forEach(p=>{
@@ -6975,6 +7191,9 @@ buyerForm.addEventListener('submit', async (e)=>{
     label: buyBuildLabel(c),
     required_features: [],
     consent_agent_contact: document.getElementById('buyConsent').checked,
+    // מי שהגיע/ה לכאן ממחשבון התשואה מחפש/ת נכס להשקעה, וזה מה שיירשם
+    // ביומן הניתוב — אותו טופס, שני מקורות שונים
+    source: buyState.source,
   };
 
   try{
@@ -7012,6 +7231,7 @@ buyerForm.addEventListener('submit', async (e)=>{
 
 document.getElementById('buyRestart').addEventListener('click', ()=>{
   buyerForm.reset();
+  buyState.source = 'homepage_buyer_wizard';
   buyState.hoods.clear();
   buyState.rooms.clear();
   buyState.ptypes.clear();
