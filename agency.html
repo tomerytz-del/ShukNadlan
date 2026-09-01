@@ -626,39 +626,8 @@
   .lead-widgets{margin-top:30px;display:flex;flex-direction:column;gap:14px}
   /* המרווח שמפריד ווידג'ט מהרצועה שמעליו ומהכותרת שמתחתיו, כשהוא כבר
      יושב בתוך ‎#activeProps‎ */
-  #activeProps > .lead-banner,
-  #activeProps > .tool-widget{margin:20px 0 4px}
+  #activeProps > .lead-banner{margin:20px 0 4px}
 
-  /* ---------- מחשבון התשואה במצב מצומצם ----------
-     המחשבון פתוח תמיד היה תופס מסך שלם באמצע הדף, ורוב הגולשים בדף משרד
-     אינם משקיעים. לכן הוא מתחיל כשורה אחת שאומרת מה הוא עושה, ונפתח רק
-     למי שזה מעניין אותו/ה. */
-  .yield-teaser{
-    display:flex;align-items:center;gap:13px;width:100%;text-align:start;
-    padding:15px 16px;background:var(--surface);border:1px solid var(--hair);
-    border-radius:var(--radius-xl);box-shadow:var(--shadow-xs);
-    transition:box-shadow .15s ease,transform .15s ease,border-color .15s ease;
-  }
-  .yield-teaser:hover{box-shadow:var(--shadow-md);transform:translateY(-2px);border-color:var(--hair-strong)}
-  .yield-teaser:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
-  .yield-teaser .ic{
-    width:42px;height:42px;border-radius:13px;flex:none;display:grid;place-items:center;color:#fff;
-    background:linear-gradient(150deg,var(--brand) 0%,var(--brand-dark) 55%,var(--accent) 100%);
-    box-shadow:var(--shadow-sm);
-  }
-  .yield-teaser .ic svg{width:22px;height:22px}
-  .yield-teaser .tt{min-width:0;flex:1}
-  .yield-teaser .t{
-    display:block;font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.05rem;
-    color:var(--teal-dark);line-height:1.25;
-  }
-  .yield-teaser .s{display:block;font-size:.8rem;color:var(--ink-soft);margin-top:2px;line-height:1.4}
-  .yield-teaser .go{
-    flex:none;display:inline-flex;align-items:center;gap:5px;font-size:.8rem;font-weight:800;
-    color:var(--accent-ink);
-  }
-  .yield-teaser .go svg{width:16px;height:16px}
-  @media(max-width:560px){.yield-teaser .go span{display:none}}
 
   /* ---------- באנרי הלידים ----------
      שני באנרים על אותו שלד — שורת הזמנה שכולה כפתור, ומתחתיה אשף בן שלושה
@@ -673,6 +642,13 @@
   .owner-banner{background:var(--teal);color:var(--on-brand)}
   .buyer-banner{
     background:linear-gradient(160deg,var(--accent-dark),var(--accent));
+    color:var(--on-accent);
+  }
+  /* מחשבון התשואה הוא אותו באנר בדיוק, במדרג הפוך — כמו בדף הבית, שבו
+     באנר מחפשי הנכס ובאנר המחשבון חולקים שני גוונים באותו סדר הפוך.
+     שניהם פונים לאותו צד של העסקה: מי שקונה. */
+  .yield-banner{
+    background:linear-gradient(160deg,var(--accent),var(--accent-dark));
     color:var(--on-accent);
   }
 
@@ -699,8 +675,9 @@
     box-shadow:0 10px 20px rgba(0,0,0,.28);
     transition:transform .15s ease, box-shadow .15s ease;
   }
-  /* בבאנר המשני ה-CTA לא יכול להיות באותו גוון של הרקע שמתחתיו */
-  .buyer-banner .lead-teaser-go{background:var(--gold-tint);color:var(--accent-ink);box-shadow:none}
+  /* בשני הבאנרים המשניים ה-CTA לא יכול להיות באותו גוון של הרקע שמתחתיו */
+  .buyer-banner .lead-teaser-go,
+  .yield-banner .lead-teaser-go{background:var(--gold-tint);color:var(--accent-ink);box-shadow:none}
   .lead-teaser:hover .lead-teaser-go{transform:translateY(-2px);box-shadow:0 14px 26px rgba(0,0,0,.34)}
   /* פתוח: אותה שורה הופכת לכותרת שאפשר לסגור בה, ולכן ה-CTA מתעמעם
      למסגרת — כפתור מלא שקורא "לבדיקה" מעל אשף פתוח הוא הבטחה כפולה. */
@@ -849,28 +826,21 @@
      שני שדות ‎−/+‎, ולוח תוצאה כהה שנושא את המספר האחד שבגללו נכנסו לכאן.
      ההבדל הוא מה שמחושב — תשואה ולא החזר — ולאן ה-CTA מוביל: להשארת פרטים
      שמגיעים למנהל/ת המשרד הזה. */
+  /* הכרטיס יושב בתוך הפאנל הכהה של הבאנר, ולכן הוא לוח בהיר בתוכו ולא
+     כרטיס עומד בפני עצמו: בלי מרווח עליון משלו ובלי כותרת פנימית — שורת
+     ההזמנה שמעליו היא הכותרת. */
   .calc-card{
     --calc-accent:var(--accent); --calc-accent-warm:var(--accent-dark);
-    padding:18px 16px 16px;display:flex;flex-direction:column;gap:14px;margin-top:14px;
+    padding:16px;display:flex;flex-direction:column;gap:14px;text-align:start;
     background:linear-gradient(165deg,var(--surface) 0%,var(--surface-soft) 55%,var(--teal-tint) 100%);
     border:1px solid var(--hair);border-radius:var(--radius-xl);box-shadow:var(--shadow-md);
     animation:calcIn .22s ease;
   }
   @keyframes calcIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   @media(min-width:640px){
-    .calc-card{padding:24px 30px 22px;max-width:620px;margin-inline:auto}
-    .calc-hero h3{font-size:1.45rem}
+    .calc-card{padding:22px 26px 20px;max-width:620px;margin-inline:auto}
     .calc-result .num{font-size:2.6rem}
   }
-  .calc-hero{text-align:center;display:flex;flex-direction:column;align-items:center;gap:7px}
-  .calc-hero-icon{
-    width:48px;height:48px;border-radius:14px;display:grid;place-items:center;color:#fff;
-    background:linear-gradient(150deg,var(--brand) 0%,var(--brand-dark) 55%,var(--calc-accent) 100%);
-    box-shadow:var(--shadow-md);
-  }
-  .calc-hero-icon svg{width:26px;height:26px;display:block}
-  .calc-hero h3{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark);font-size:1.12rem;line-height:1.25;max-width:24ch;margin:0}
-  .calc-hero p{font-size:.78rem;color:var(--ink-soft);margin:0}
   .calc-controls{display:flex;flex-direction:column;gap:13px}
   .calc-slider-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:6px}
   .calc-slider-head .lbl{font-size:.82rem;font-weight:700;color:var(--ink-soft)}
@@ -1530,24 +1500,30 @@
       <!-- ---------- מחשבון התשואה ----------
            יושב מתחת לנכסים המסחריים: מי שגלל/ה חנויות ומשרדים הוא/היא מי
            ששואל/ת כמה הנכס מחזיר. מתחיל כשורה אחת ונפתח בלחיצה. -->
-      <div class="tool-widget" id="yieldWidget" data-slot="commercial">
-        <button type="button" class="yield-teaser" id="yieldTeaser" aria-expanded="false" aria-controls="yieldCard">
-          <span class="ic" id="yieldTeaserIcon" aria-hidden="true"></span>
-          <span class="tt">
-            <span class="t">מחשבון תשואה למשקיעים</span>
-            <span class="s">כמה באמת מחזיר נכס להשקעה — ברוטו, נטו, וכמה שנים עד החזר ההשקעה.</span>
+      <div class="lead-banner yield-banner" id="yieldWidget" data-slot="commercial">
+        <button type="button" class="lead-teaser" id="yieldTeaser" aria-expanded="false" aria-controls="yieldPanel">
+          <span class="lead-teaser-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3.5 18a9 9 0 1 1 17 0"></path>
+              <path d="m12 14 3.5-3.8"></path>
+              <circle cx="12" cy="15.5" r="1.6"></circle>
+            </svg>
           </span>
-          <span class="go"><span>פתיחת המחשבון</span><span id="yieldTeaserChevron" aria-hidden="true"></span></span>
+          <span class="lead-teaser-copy">
+            <span class="lead-teaser-title">כמה באמת מחזיר נכס להשקעה?</span>
+            <span class="lead-teaser-sub">ברוטו, נטו, וכמה שנים עד שההשקעה חוזרת</span>
+          </span>
+          <span class="lead-teaser-go" aria-hidden="true">
+            <span class="lead-teaser-go-open">לחישוב ←</span>
+            <span class="lead-teaser-go-close">סגירה ✕</span>
+          </span>
         </button>
 
-        <!-- מחשבון התשואה — מצב פתוח -->
-        <div class="calc-card" id="yieldCard" hidden>
-          <div class="calc-hero">
-            <span class="calc-hero-icon" id="yieldHeroIcon" aria-hidden="true"></span>
-            <h3>כמה באמת מחזיר לכם נכס להשקעה?</h3>
-            <p>מזיזים את הסליידרים ורואים מיד את התשואה נטו</p>
-          </div>
-
+        <!-- מחשבון התשואה — מצב פתוח.
+             בלי כותרת פנימית: שורת ההזמנה שמעל היא כבר הכותרת, ו-h3 שחוזר
+             עליה במילים אחרות רק דוחף את הסליידרים מטה. -->
+        <div class="lead-panel" id="yieldPanel" hidden>
+        <div class="calc-card" id="yieldCard">
           <div class="calc-controls">
             <div class="calc-slider">
               <div class="calc-slider-head">
@@ -1612,6 +1588,7 @@
           </button>
           <p class="calc-fine">* הערכה בלבד. החישוב אינו כולל מס רכישה, עלויות מימון, שיפוץ ומיסוי על ההכנסה.</p>
         </div>
+        </div><!-- /lead-panel -->
       </div><!-- /yieldWidget -->
     </div><!-- /widgetHome -->
 
@@ -2589,8 +2566,7 @@ function initShowAll(section, items){
 function parkWidgets(){
   const home = document.getElementById('widgetHome');
   if (!home) return;
-  document.querySelectorAll('.lead-banner[data-slot], .tool-widget[data-slot]')
-    .forEach(w => home.appendChild(w));
+  document.querySelectorAll('.lead-banner[data-slot]').forEach(w => home.appendChild(w));
 }
 
 function widgetFor(key){
@@ -3242,9 +3218,6 @@ function prefillYieldFromProperties(props){
 }
 
 function initYieldCalculator(agency){
-  document.getElementById('yieldTeaserIcon').innerHTML = ICON.calc;
-  document.getElementById('yieldTeaserChevron').innerHTML = ICON.chevron;
-  document.getElementById('yieldHeroIcon').innerHTML = ICON.gauge;
   document.getElementById('yieldCtaIcon').innerHTML = ICON.chat;
   document.getElementById('ylIntro').textContent =
     `משאירים פרטים ומתווך/ת מ${agency.name} חוזר/ת אליכם עם נכסים שמתאימים לתשואה שחיפשתם.`;
@@ -3253,15 +3226,11 @@ function initYieldCalculator(agency){
   document.getElementById('ylDoneNote').textContent =
     `מתווך/ת מ${agency.name} יחזור/תחזור אליכם בהקדם.`;
 
-  const teaser = document.getElementById('yieldTeaser');
-  const card = document.getElementById('yieldCard');
-  teaser.addEventListener('click', ()=>{
-    teaser.setAttribute('aria-expanded', 'true');
-    teaser.hidden = true;
-    card.hidden = false;
-    // אחרי הפתיחה הסליידרים כבר נמדדים — לפניה הם היו ב-display:none
-    ['yieldPrice','yieldRent'].forEach(id => setRangeFill(document.getElementById(id)));
-    document.getElementById('yieldPrice').focus();
+  bindLeadBanner({
+    banner:'yieldWidget', teaser:'yieldTeaser', panel:'yieldPanel',
+    // הסליידרים נמדדים רק אחרי הפתיחה — לפניה הם היו בתוך פאנל מוסתר,
+    // ומילוי המסלול שלהם היה מחושב על רוחב 0
+    onOpen(){ ['yieldPrice','yieldRent'].forEach(id => setRangeFill(document.getElementById(id))); },
   });
 
   // הסליידרים
