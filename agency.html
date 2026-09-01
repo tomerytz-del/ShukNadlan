@@ -246,8 +246,10 @@
   }
   /* פער של פיקסל אחד עם רקע בגוון הקו — כך נוצרים קווי ההפרדה בין התאים
      בלי לחשב איזה תא נמצא בקצה איזו שורה */
-  .stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--hair)}
-  @media(min-width:700px){.stat-grid{grid-template-columns:repeat(auto-fit,minmax(0,1fr))}}
+  /* ‏grid-auto-flow:column ולא מספר עמודות קבוע: התאים נפרסים תמיד בשורה
+     אחת ובחלוקה שווה, כך שמשרד שיש לו תא אחד בלבד לא מקבל חצי רשת ריקה
+     ותא שלישי אינו יכול ליצור שורה שנייה עם חור. */
+  .stat-grid{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:1px;background:var(--hair)}
   /* ‏שורת ה"ערך" בכל תא בגובה קבוע (‏--stat-top), ולא בגובה מה שנכנס לתוכה:
      מספר גבוה בכ-25px מהתו, וכשכל תא נמדד לעצמו הכיתובים שמתחת יושבים
      בשני גבהים שונים באותה שורה. עכשיו הערך ממורכז בתוך שורה אחידה
@@ -1839,9 +1841,10 @@ function statCellsHtml(){
   if (agencyStats.activeProperties > 0){
     add(String(agencyStats.activeProperties), agencyStats.activeProperties === 1 ? 'נכס פעיל' : 'נכסים פעילים');
   }
-  if (agencyStats.deals > 0){
-    add(String(agencyStats.deals), agencyStats.deals === 1 ? 'עסקה שנסגרה' : 'עסקאות שנסגרו');
-  }
+  /* מספר העסקאות שנסגרו אינו תא: הסרגל מחזיק שני תאים קבועים — הנכסים
+     הפעילים ותו האיכות — ותא שלישי שמופיע רק לחלק מהמשרדים היה שובר את
+     הרשת לשורה שנייה עם חצי תא ריק. מה שיש למספר הזה לומר נאמר ברצועה
+     שמתחת ("ניסיון מוכח בסגירת עסקאות"), ובמקטע סיפורי ההצלחה עצמו. */
   /* מספר המתווכים אינו תא בסרגל: הוא כתוב ממילא בכותרת "נבחרת המתווכים"
      שמיד מתחת, ובמקומו יושב כאן תו האיכות — מדד אמון ולא מספר. התו עצמו
      נשתל אחרי ה-innerHTML (‏mountBadgeCell), כי הוא כפתור עם מאזין. */
