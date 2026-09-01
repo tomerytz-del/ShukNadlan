@@ -44,7 +44,7 @@
   .login-card .logo{display:flex;align-items:center;gap:8px;margin-bottom:22px;justify-content:center}
   /* לוגו האתר — בכל מקום שהוא מופיע בו הוא גם הקישור לדף הבית */
   .logo-link{display:block;line-height:0}
-  .logo-img{width:64px;height:64px;display:block;border-radius:50%}
+  .logo-img{width:64px;height:64px;display:block}
   .login-card h1{font-size:1.3rem;text-align:center;margin-bottom:6px}
   .login-card p.sub{text-align:center;color:var(--ink-soft);font-size:.85rem;margin-bottom:22px}
   .field{margin-bottom:12px}
@@ -798,7 +798,9 @@
      מזה שבמסך ההתחברות. */
   #dashboard .crm-home{
     position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-    border-radius:50%;transition:transform .16s ease;
+    /* היה 50% בימי הלוגו העגול. האות אינה עגולה, וה-border-radius כאן מעצב
+       רק את טבעת הפוקוס — מסגרת עגולה סביב אות מרובעת נראית שגויה. */
+    border-radius:10px;transition:transform .16s ease;
   }
   #dashboard .crm-home:hover{transform:translate(-50%,-50%) scale(1.06)}
   #dashboard .crm-home:focus-visible{outline:2px solid var(--navy);outline-offset:3px}
@@ -1164,6 +1166,7 @@
   #dashboard .dash-side .acc-body{padding:15px}
   #dashboard .empty-state{color:var(--txt-faint)}
 </style>
+<script defer src="assets/logo-3d.js"></script>
 </head>
 <body>
 
@@ -1171,13 +1174,13 @@
   <!-- כרטיס ההמתנה מוצג ראשון בכל טעינה; showScreen() מחליף אותו בכרטיס הנכון
        ברגע שידוע אם יש חיבור פעיל. ראו "ניהול מסכים" בסקריפט. -->
   <div class="card login-card boot-card" id="bootCard">
-    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
+    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" data-shin3d src="assets/logo-shin-3d.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
     <div class="boot-spinner" role="status" aria-live="polite"></div>
     <p class="sub" id="bootMessage">בודקים אם כבר יש חיבור פעיל…</p>
   </div>
 
   <div class="card login-card" id="loginCardMain" style="display:none">
-    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
+    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" data-shin3d src="assets/logo-shin-3d.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
     <h1>איזור סוכנים</h1>
     <p class="sub">שוק נדל״ן — עפולה והעמק</p>
     <!-- מי שהגיע/ה מקישור הזמנה חייב/ת לראות שההזמנה "נתפסה", אחרת מסך כניסה
@@ -1212,7 +1215,7 @@
        לכאן — ובלי המסך הזה הדרך היחידה שלו/ה קדימה הייתה לפתוח משרד מיותר.
        מספר הרישיון מזהה את הכרטיס, ומנהל/ת המשרד מאשר/ת את החיבור. -->
   <div class="card login-card" id="identifyScreen" style="display:none">
-    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
+    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" data-shin3d src="assets/logo-shin-3d.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
     <h1>ברוך/ה הבא/ה!</h1>
     <p class="sub">החשבון <b id="idEmail"></b> עדיין לא מקושר לכרטיס סוכן/ת. אם מנהל/ת המשרד כבר הוסיף/ה אותך לצוות — נחבר את הכרטיס עכשיו.</p>
     <div id="idNotice" style="font-size:.82rem;text-align:center;margin-bottom:12px;color:var(--brick)"></div>
@@ -1231,7 +1234,7 @@
        של הסוכן/ת (לפני האישור) חייבת לנחות כאן ולא שוב בטופס — אחרת זה נראה
        כאילו הבקשה נעלמה, והתגובה הטבעית היא לשלוח עוד אחת. -->
   <div class="card login-card" id="claimPendingScreen" style="display:none">
-    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
+    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" data-shin3d src="assets/logo-shin-3d.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
     <h1>הבקשה נשלחה</h1>
     <p class="sub">ביקשנו ממנהל/ת המשרד <b id="claimAgencyName"></b> לאשר את חיבור החשבון <b id="claimEmail"></b> לכרטיס שלך. ברגע שיאושר — הכניסה כאן תוביל ישר לאיזור הסוכנים.</p>
     <button type="button" class="btn btn-gold btn-block" id="claimRefreshBtn">בדיקה אם אושר</button>
@@ -1245,7 +1248,7 @@
        ובמכוון הוא **לא** מסך הכניסה ולא "אין לך משרד": מי שהושעה/תה צריך/ה
        לדעת מה קרה, ממי, ושהנכסים לא הלכו לאיבוד אלא עוברים איתו/ה. -->
   <div class="card login-card" id="releasedScreen" style="display:none">
-    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
+    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" data-shin3d src="assets/logo-shin-3d.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
     <h1>הושעית מהמשרד</h1>
     <p class="sub">מנהל/ת המשרד <b id="relAgencyName"></b> השעה/תה אותך, והחשבון שלך כבר לא משויך אליו.</p>
     <div style="background:#F1F6F5;border:1.5px solid var(--teal);border-radius:var(--radius-sm);padding:13px 15px;margin-bottom:16px;font-size:.84rem;line-height:1.65;text-align:right">
@@ -1262,7 +1265,7 @@
   </div>
 
   <div class="card login-card" id="createAgencyScreen" style="display:none">
-    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
+    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" data-shin3d src="assets/logo-shin-3d.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
     <h1 id="caTitle">ברוך/ה הבא/ה!</h1>
     <p class="sub" id="caSubtitle">עדיין לא פתחת משרד תיווך במערכת. כל סוכן יכול להיות בעלים של משרד אחד בלבד — בואו נקים אותו.</p>
     <div id="caAdoptNote" style="display:none;background:#F1F6F5;border:1.5px solid var(--teal);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;font-size:.8rem;line-height:1.6;text-align:right">
@@ -1301,7 +1304,7 @@
   <!-- מסך שגיאה לטעינת החשבון. קיים כדי שכשל בשאילתה (רשת/סכימה) לא יוצג
        כ"עדיין לא פתחת משרד" — מסך פתיחת המשרד שמור למי שבאמת אין לו שורה. -->
   <div class="card login-card" id="loadErrorScreen" style="display:none">
-    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
+    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" data-shin3d src="assets/logo-shin-3d.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a></div>
     <h1>לא הצלחנו לטעון את החשבון</h1>
     <p class="sub">ההתחברות הצליחה, אבל טעינת פרטי המשרד נכשלה. זו לא עדות לכך שאין לך משרד — נסו שוב בעוד רגע.</p>
     <div id="loadErrorDetail" style="font-size:.78rem;color:var(--red);text-align:center;margin-bottom:12px;min-height:1.2em"></div>
@@ -1446,7 +1449,7 @@
            פרופיל ← לוגו ← פעולות, אבל ממורכז ב-absolute ולא כפריט flex —
            ראו .crm-home ב-CSS. -->
       <a href="index.html" class="logo-link crm-home" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית" title="לדף הבית">
-        <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256">
+        <img class="logo-img" data-shin3d src="assets/logo-shin-3d.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256">
       </a>
 
       <div class="header-actions">
