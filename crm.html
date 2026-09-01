@@ -1697,6 +1697,27 @@
         </div>
       </div>
 
+      <!-- ====== מידע תכנוני (מגרש/קרקע) ======
+           נפתח רק כשסוג הנכס הוא קרקע. בדף הנכס השדות האלה מחליפים את סקציית
+           ההדמיות: אין מה לדמות בשטח ריק, ומה שקונה קרקע שואל הוא מה מותר
+           לבנות כאן. גוש וחלקה לא מוצגים בדף הנכס בשום מצב — הם נשארים
+           בכרטיס המידע התכנוני שבמערכת בלבד. -->
+      <div id="npLandPlanningFields" style="display:none">
+        <div class="form-subheading">מידע תכנוני (מגרש/קרקע)</div>
+        <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">מה שיוזן כאן יוצג בדף הנכס בסקציית "מידע תכנוני", יחד עם ייעוד הקרקע ומספרי התוכניות שנקלטו אוטומטית. גוש, חלקה, שטח החלקה והקואורדינטות אינם מוצגים לגולשים.</p>
+        <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="field"><label>ייעוד קרקע (לא חובה)</label><input type="text" id="npLandZoning" placeholder="לדוגמה: מגורים א'"></div>
+          <div class="field"><label>אחוזי בנייה (לא חובה)</label><input type="number" id="npLandBuildingPct" min="0" max="1000" step="1" placeholder="לדוגמה: 60"></div>
+        </div>
+        <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="field"><label>יח״ד מותרות (לא חובה)</label><input type="number" id="npLandMaxUnits" min="0" max="500"></div>
+          <div class="field"><label>קומות מותרות (לא חובה)</label><input type="number" id="npLandMaxFloors" min="0" max="100"></div>
+        </div>
+        <div class="field"><label>הערה תכנונית (לא חובה)</label>
+          <input type="text" id="npLandPlanningNotes" maxlength="400" placeholder="לדוגמה: מאושר לבניית דו משפחתי, טאבו, מוכן לבנייה מיידית">
+        </div>
+      </div>
+
       <div class="form-subheading">מאפייני מודעה</div>
       <div class="checkbox-grid" id="npListingFeatures"></div>
 
@@ -6542,6 +6563,21 @@ function renderFeatureCheckboxes(containerId, items, preselected){
 function getCheckedValues(containerId){
   return Array.from(document.querySelectorAll(`#${containerId} input:checked`)).map(el => el.value);
 }
+/* ---------- קרקע ----------
+   סוג הנכס גובר על ה-category: "מגרשים" יושב ברשימה המסחרית ו-"מגרש"
+   ברשימת המגורים, ושניהם קרקע. אותו ביטוי מופיע ב-assets/specialties.js
+   וב-property.html — שלושת הקבצים סטטיים ובלי מודול משותף, ולכן הסנכרון
+   ידני כמו שאר האוצרות כאן.                                               */
+const LAND_TYPE_RE = /מגרש|קרקע|נחל|משק|חקלא/;
+
+function isLandTypeSelected(){
+  return LAND_TYPE_RE.test(document.getElementById('npType').value || '');
+}
+
+function updateLandPlanningFields(){
+  document.getElementById('npLandPlanningFields').style.display = isLandTypeSelected() ? 'block' : 'none';
+}
+
 function updateFormForCategory(category, preselectedFeatures){
   preselectedFeatures = preselectedFeatures || [];
   populatePropertyTypeSelect(category);
@@ -6550,7 +6586,11 @@ function updateFormForCategory(category, preselectedFeatures){
   document.getElementById('npCommercialLocFields').style.display = isCommercial ? 'block' : 'none';
   renderFeatureCheckboxes('npListingFeatures', LISTING_FEATURES, preselectedFeatures);
   renderFeatureCheckboxes('npPropertyFeatures', isCommercial ? COMMERCIAL_PROPERTY_FEATURES : RESIDENTIAL_PROPERTY_FEATURES, preselectedFeatures);
+  // החלפת קטגוריה מאתחלת את רשימת סוגי הנכס, ולכן גם את השאלה אם זו קרקע
+  updateLandPlanningFields();
 }
+
+document.getElementById('npType').addEventListener('change', updateLandPlanningFields);
 
 let currentCategory = 'residential';
 document.querySelectorAll('[data-category]').forEach(btn=>{
@@ -7278,6 +7318,20 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     mamad_location: currentCategory === 'commercial' ? (document.getElementById('npMamadLoc').value || null) : null,
     features: [...getCheckedValues('npListingFeatures'), ...getCheckedValues('npPropertyFeatures')],
   };
+
+  /* שדות התכנון נשמרים רק כשהנכס באמת קרקע, ומתאפסים כשסוג הנכס שונה בעריכה
+     מ"מגרש" ל"דירה": ערך שנשאר מאחור בשדה מוסתר היה ממשיך להופיע בדף הנכס. */
+  const landValue = (id, parse) => {
+    if (!isLandTypeSelected()) return null;
+    const raw = document.getElementById(id).value.trim();
+    return raw ? (parse ? parse(raw) : raw) : null;
+  };
+  payload.land_zoning              = landValue('npLandZoning');
+  payload.land_building_rights_pct = landValue('npLandBuildingPct', parseFloat);
+  payload.land_max_units           = landValue('npLandMaxUnits', v => parseInt(v, 10));
+  payload.land_max_floors          = landValue('npLandMaxFloors', v => parseInt(v, 10));
+  payload.land_planning_notes      = landValue('npLandPlanningNotes');
+
   if (resolvedLat) payload.lat = parseFloat(resolvedLat);
   if (resolvedLng) payload.lng = parseFloat(resolvedLng);
 
@@ -7585,7 +7639,7 @@ async function loadProperties(agentId){
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   const { data: props, error } = await sb
     .from('properties')
-    .select('id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, post_text, furniture_details, tour_3d_url, video_url, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, restrooms_location, storage_location, mamad_location, shared_with_partners, shared_at, property_owners(owner_name, owner_phone)')
+    .select('id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, post_text, furniture_details, tour_3d_url, video_url, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, shared_with_partners, shared_at, property_owners(owner_name, owner_phone)')
     .eq('agent_id', agentId)
     .order('created_at', { ascending:false });
 
@@ -8403,6 +8457,12 @@ function openEditProperty(p){
   document.querySelectorAll('[data-category]').forEach(b=> b.classList.toggle('active', b.dataset.category === currentCategory));
   updateFormForCategory(currentCategory, p.features || []);
   document.getElementById('npType').value = p.property_type;
+  updateLandPlanningFields(); // אחרי הצבת סוג הנכס, לא לפניה
+  document.getElementById('npLandZoning').value = p.land_zoning || '';
+  document.getElementById('npLandBuildingPct').value = p.land_building_rights_pct ?? '';
+  document.getElementById('npLandMaxUnits').value = p.land_max_units ?? '';
+  document.getElementById('npLandMaxFloors').value = p.land_max_floors ?? '';
+  document.getElementById('npLandPlanningNotes').value = p.land_planning_notes || '';
   document.getElementById('npDeal').value = p.deal_type;
   document.getElementById('npPrice').value = p.price;
   document.getElementById('npRooms').value = p.rooms || '';

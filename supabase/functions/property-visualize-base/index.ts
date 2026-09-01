@@ -6,6 +6,7 @@ import {
   DEFAULT_STYLE,
   ensureTagged,
   hasOwnExterior,
+  isLandType,
   isStyleKey,
   json,
   pickPrivateSources,
@@ -103,6 +104,18 @@ Deno.serve(async (req: Request) => {
     return json(
       { error: "not_available", message: "מנגנון ההדמיות כלול במסלול Premium ודורש נכס פעיל" },
       403
+    );
+  }
+
+  // "מגרש" יושב ברשימת סוגי הנכס של המגורים, ולכן בדיקת הקטגוריה לבדה לא
+  // עוצרת אותו — ראו isLandType.
+  if (isLandType(property.property_type)) {
+    return json(
+      {
+        error: "land_not_supported",
+        message: "בנכסי קרקע מוצג מידע תכנוני בדף הנכס במקום הדמיה",
+      },
+      400
     );
   }
 
