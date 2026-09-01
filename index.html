@@ -121,6 +121,36 @@
   .section-head h2{font-size:1.5rem}
   /* שורת משנה מתחת לכותרת הסקציה — משלימה את המשפט שהכותרת פותחת */
   .section-head .section-sub{font-size:.88rem;color:var(--ink-soft);margin:-4px 0 0;max-width:46ch;text-wrap:balance}
+  /* כותרת + נקודת מידע באותה שורה: שורות המשנה של הסקציות התכווצו לנקודת
+     "i" שנפתחת בריחוף/לחיצה, כדי שהכותרת עצמה תישאר השורה היחידה שנקראת. */
+  .head-line{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;position:relative}
+
+  /* ====== נקודת מידע (tooltip) ======
+     כפתור קטן שנושא את הטקסט ב-data-info ומרחף אותו מתחתיו. בעכבר —
+     ריחוף; במקלדת — פוקוס; במגע — לחיצה שמוסיפה ‎.is-open‎ (ראו ה-JS
+     בתחתית העמוד), כי במסך מגע אין ריחוף בכלל. */
+  .info-dot{
+    width:19px;height:19px;flex:0 0 auto;border-radius:50%;padding:0;
+    display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;
+    border:1.5px solid var(--line);background:#fff;color:var(--ink-soft);
+    font-size:.7rem;font-weight:800;line-height:1;font-family:inherit;
+  }
+  .info-dot:hover,.info-dot.is-open{border-color:var(--gold);color:var(--gold-dark)}
+  /* ‏display:none ולא ‎visibility:hidden‎: אלמנט מוסתר-אך-קיים עדיין נספר
+     בשטח הגלילה של המסמך, ובועה ברוחב 240px שיוצאת מכותרת ממורכזת הוסיפה
+     ~35px של גלילה אופקית לכל העמוד במובייל.
+     הבועה נתלית על ‎.head-line‎ (שהוא ה-ancestor הממוקם) ולא על הנקודה
+     עצמה: הנקודה יושבת בצד הכותרת, ובועה שממורכזת עליה הייתה חורגת מקצה
+     המסך בטלפון — ממורכזת על השורה היא תמיד בתוך רוחב העמוד. */
+  .info-dot::after{
+    content:attr(data-info);display:none;
+    position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);
+    width:max-content;max-width:min(240px,68vw);white-space:normal;text-align:center;
+    background:var(--teal-dark);color:#fff;font-size:.72rem;font-weight:600;line-height:1.45;
+    padding:8px 11px;border-radius:9px;box-shadow:0 8px 22px rgba(6,20,34,.24);
+    pointer-events:none;z-index:30;
+  }
+  .info-dot:hover::after,.info-dot:focus-visible::after,.info-dot.is-open::after{display:block}
   .see-all{font-size:.85rem;font-weight:700;color:var(--teal);border-bottom:1.5px solid var(--gold);padding-bottom:2px;white-space:nowrap}
   .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
   .skip-link{position:absolute;right:-999px;top:0;background:var(--teal);color:#fff;padding:10px 16px;z-index:200;border-radius:0 0 0 8px}
@@ -706,19 +736,19 @@
      אחרת היא נראית כהמשך של הסקציה שמעליה. */
   .ticker{
     background:var(--gold-tint);border-block:1px solid var(--line);
-    display:flex;align-items:center;gap:10px;padding:9px 0;overflow:hidden;
+    display:flex;align-items:center;gap:11px;padding:10px 0;overflow:hidden;
   }
-  .ticker .wrap{display:flex;align-items:center;gap:12px;width:100%}
+  .ticker .wrap{display:flex;align-items:center;gap:13px;width:100%}
   .ticker-flag{
-    display:flex;align-items:center;gap:6px;background:var(--brick);color:#fff;
-    font-size:.7rem;font-weight:800;padding:4px 9px;border-radius:6px;flex:0 0 auto;
+    display:flex;align-items:center;gap:7px;background:var(--brick);color:#fff;
+    font-size:.77rem;font-weight:800;padding:5px 10px;border-radius:6px;flex:0 0 auto;
   }
-  .live-dot{width:7px;height:7px;border-radius:50%;background:#fff;animation:pulse 1.4s infinite}
+  .live-dot{width:8px;height:8px;border-radius:50%;background:#fff;animation:pulse 1.4s infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
   /* הכיתוב עצמו הוא כפתור ולא span: הוא פותח את רשימת המבזקים, ולחיצה על
      שורת חדשות היא הדבר הראשון שמנסים לעשות ברצועה כזו. ‏text-align:start
      ו-font:inherit מבטלים את ברירות המחדל של הדפדפן לכפתור. */
-  .ticker-text{font-size:.85rem;font-weight:600;color:var(--teal-dark);cursor:pointer;flex:1;
+  .ticker-text{font-size:.94rem;font-weight:600;color:var(--teal-dark);cursor:pointer;flex:1;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     background:none;border:0;padding:0;text-align:start;font-family:inherit;min-width:0}
   /* ההחלפה בין מבזקים בהצפה עדינה במקום קפיצה. ‎prefers-reduced-motion‎
@@ -729,7 +759,7 @@
     .ticker-text.swap{animation:none}
     .live-dot{animation:none}
   }
-  .ticker-more{font-size:.75rem;font-weight:700;color:var(--gold-dark);flex:0 0 auto;white-space:nowrap}
+  .ticker-more{font-size:.83rem;font-weight:700;color:var(--gold-dark);flex:0 0 auto;white-space:nowrap}
 
   /* רשימת "כל העדכונים" — עשרת המבזקים האחרונים, במודאל שאפשר לגלול בו.
      כל שורה היא קישור לכתבה המלאה כשיש כזו, ו-<div> כשאין. */
@@ -785,7 +815,8 @@
   }
   .lead-teaser-icon svg{width:23px;height:23px}
   .lead-teaser-copy{flex:1 1 55%;min-width:0;display:flex;flex-direction:column;gap:2px}
-  .lead-teaser-eyebrow{font-size:.68rem;font-weight:800;letter-spacing:.07em;color:#E8C88A}
+  /* הכותרת הקטנה שמעל שם הבאנר ("בעלי נכסים", "מחפשי נכס"…) הוסרה: היא
+     חזרה על מה שהכותרת עצמה כבר אומרת, ובלעדיה הבאנר קצר בשורה. */
   .lead-teaser-title{font-size:1.02rem;font-weight:800;line-height:1.28}
   /* ‏.8 ולא ‎.72‎: הרקע חצי-שקוף, והמשלים הבהיר שמבצבץ מבעדו מעלה את
      הבהירות שמאחורי הטקסט — שורת המשנה הייתה יורדת מתחת ל-4.5:1 */
@@ -1056,7 +1087,6 @@
   }
   .hot-head{text-align:center;padding:0 16px;margin-bottom:6px}
   .hot-head h2{font-size:1.16rem;line-height:1.35}
-  .hot-head .hot-sub{font-size:.76rem;color:var(--ink-soft);margin-top:5px}
   .hot-head .see-all{display:inline-block;margin-top:8px}
 
   /* שלושה כרטיסים בתצוגה בכל רגע: רוחב הכרטיס נגזר מרוחב המסלול עצמו
@@ -1408,6 +1438,16 @@
   .featured-scroll .prop-card .thumb .tf-note,
   .cf-thumb .tf-note,
   .sr-thumb .tf-note{font-size:.6rem}
+  /* ====== פינוי מקום לתגיות שמעל ממלא־המקום ======
+     ‏94px של תמונונת מול תגית עסקה שיושבת ב-top:9px: ממלא־המקום ממורכז
+     אנכית, ולכן הלוגו ושם המשרד נחתו בדיוק מתחת לתגית ונקראו כשתי שכבות
+     דרוסות. הריפוד העליון דוחף את המסר אל מתחת לשורת התגיות, והלוגו
+     מתכווץ כדי שהכל ייכנס בגובה שנשאר. ההודעה "התמונות בדרך" יורדת כאן —
+     שם המשרד הוא מה שחשוב לזהות באריח בגודל הזה — וחוזרת מ-480px ומעלה,
+     שם התמונונת כבר גבוהה מספיק לשניהם. */
+  .featured-scroll .prop-card .thumb .thumb-fallback{padding-top:28px}
+  .featured-scroll .prop-card .thumb .tf-logo{width:26px;height:26px;border-radius:8px;font-size:.78rem}
+  .featured-scroll .prop-card .thumb .tf-note{display:none}
   /* בתמונונת של שורת תוצאה (104px) אין מקום לשם המשרד — הוא ממילא מופיע
      בשורת המטא של אותה שורה, ובלעדיו נשאר מקום להודעה עצמה. הצעיף הלבן
      חזק יותר כאן: הטקסט קטן, והאיור מתחתיו היה בולע אותו. */
@@ -1419,9 +1459,12 @@
       linear-gradient(160deg,#F4F3F0 0%,#E0E7ED 100%);
   }
 
+  /* ‏inset-inline-end ולא ‎right‎: העמוד הוא RTL, ולכן ‎right‎ הוא בדיוק
+     הפינה שבה יושבות תגיות ‎.pc-badges‎ (‏inset-inline-start) — הסרט
+     "מקודם" נחת עליהן. עכשיו כל אחד בפינה שלו. */
   .prop-card .ribbon{
-    position:absolute;top:10px;right:10px;background:var(--gold);color:#fff;font-size:.68rem;
-    font-weight:800;padding:3px 9px;border-radius:5px;
+    position:absolute;top:10px;inset-inline-end:10px;background:var(--gold);color:#fff;font-size:.68rem;
+    font-weight:800;padding:3px 9px;border-radius:5px;z-index:2;
   }
   /* המחיר, שורת המאפיינים והתגיות שעל התמונה מגיעים
      מ-assets/property-card.js — ‏.pc-price, .pc-facts, .pc-badges, .pc-media —
@@ -1439,7 +1482,15 @@
     min-height:var(--card-h);
   }
   .featured-scroll .prop-card .thumb{height:94px}
-  .featured-scroll .prop-card .ribbon{top:6px;right:6px;font-size:.6rem;padding:2px 7px}
+  .featured-scroll .prop-card .ribbon{top:6px;inset-inline-end:6px;font-size:.6rem;padding:2px 7px}
+  /* הכרטיס ברצועה רחב כשליש מהכרטיס המלא, ולכן שמירת 90px לסרט "מקודם"
+     הותירה לתגיות רוחב אפסי — כל תגית ירדה לשורה משלה וערמה שתיים-שלוש
+     שורות על תמונונת של 94px. כאן שומרים רק את רוחב הסרט המוקטן. */
+  .featured-scroll .prop-card .pc-badges{max-width:calc(100% - 56px)}
+  /* ובאריח כזה גם אין מקום ליותר מתגית אחת: שלוש תגיות בזו אחר זו נערמו
+     לשלוש שורות שכיסו את כל התמונונת. תגית העסקה (למכירה/להשכרה) היא
+     הראשונה ברשימה והיא זו שנשארת; השאר נפתחות ככל שהאריח מתרחב. */
+  .featured-scroll .prop-card .pc-badge:nth-child(n+2){display:none}
   .featured-scroll .prop-card .body{padding:9px}
   .featured-scroll .prop-card .pc-price{font-size:.92rem}
   .featured-scroll .prop-card .title{
@@ -1457,6 +1508,9 @@
   @media(min-width:480px){
     .featured-scroll,.article-scroll{--row-gap:12px;--row-peek:18px}
     .featured-scroll .prop-card .thumb{height:112px}
+    /* 112px כבר מכילים גם את שורת התגיות וגם את המסר המלא */
+    .featured-scroll .prop-card .thumb .tf-note{display:block}
+    .featured-scroll .prop-card .pc-badge:nth-child(2){display:block}
     .featured-scroll .prop-card .pc-price{font-size:1rem}
     .featured-scroll .prop-card .title{font-size:.78rem}
     /* גובה הכיסוי נגזר מ‎--card-h‎ שכבר גדל בעצמו בנקודות השבירה */
@@ -1468,7 +1522,15 @@
        הבא תמיד נחתך בקצה המסלול — כך הרצועה נקראת כקרוסלה ולא כגריד. */
     .article-scroll{--article-card-w:min(320px, 30%)}
     .featured-scroll .prop-card .thumb{height:150px}
-    .featured-scroll .prop-card .ribbon{top:10px;right:10px;font-size:.68rem;padding:3px 9px}
+    /* בגובה מלא ממלא־המקום חוזר למידות הרגילות שלו, רק עם ריפוד עליון
+       שמשאיר את שורת התגיות לעצמה */
+    .featured-scroll .prop-card .thumb .thumb-fallback{gap:6px;padding:10px;padding-top:32px}
+    .featured-scroll .prop-card .thumb .tf-logo{width:44px;height:44px;border-radius:12px;font-size:1.1rem}
+    .featured-scroll .prop-card .thumb .tf-agency{font-size:.74rem}
+    .featured-scroll .prop-card .thumb .tf-note{font-size:.68rem}
+    .featured-scroll .prop-card .ribbon{top:10px;inset-inline-end:10px;font-size:.68rem;padding:3px 9px}
+    .featured-scroll .prop-card .pc-badges{max-width:calc(100% - 90px)}
+    .featured-scroll .prop-card .pc-badge:nth-child(3){display:block}
     .featured-scroll .prop-card .body{padding:12px}
     .featured-scroll .prop-card .pc-price{font-size:1.12rem}
     .featured-scroll .prop-card .title{font-size:.85rem}
@@ -1933,7 +1995,7 @@
   <div class="wrap header-inner">
     <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
       <img class="logo-img" data-shin3d src="assets/logo-shin-3d.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256">
-      <span class="logo-word">מרקטפלייס הנדל״ן של <span>עפולה והסביבה</span></span>
+      <span class="logo-word">שוק הנדל״ן של <span>עפולה והסביבה</span></span>
     </a>
     <nav class="primary" aria-label="ניווט ראשי">
       <a href="#listings">נכסים</a>
@@ -1982,7 +2044,7 @@
 
     <div class="hero-overlay">
       <div class="wrap hero-inner">
-        <h1>כל הדירות וכל המתווכים בכתובת אחת</h1>
+        <h1>כל הנכסים בכתובת אחת</h1>
         <p class="lede">מפסיקים לרוץ בין לוחות מודעות — כל המתווכים המובילים בעיר מחכים לך כאן.</p>
 
         <div class="search-shell">
@@ -2413,8 +2475,11 @@
   <section class="hot-band" id="leadingAgencies" aria-labelledby="leadingAgenciesTitle">
     <div class="wrap">
       <div class="hot-head">
-        <h2 id="leadingAgenciesTitle">משרדי תיווך מובילים בעפולה</h2>
-        <p class="hot-sub">הדירוג נקבע לפי ביקורות הלקוחות ופעילות המשרד</p>
+        <div class="head-line">
+          <h2 id="leadingAgenciesTitle">משרדי תיווך מובילים בעפולה</h2>
+          <button type="button" class="info-dot" aria-label="איך נקבע הדירוג?"
+                  data-info="הדירוג נקבע לפי ביקורות הלקוחות ופעילות המשרד">i</button>
+        </div>
         <a href="agencies.html" class="see-all">לכל משרדי התיווך ←</a>
       </div>
       <div class="coverflow" id="leadingAgenciesScroll" role="region" aria-label="משרדי תיווך מובילים"><!-- populated by JS --></div>
@@ -2445,7 +2510,6 @@
           </svg>
         </span>
         <span class="lead-teaser-copy">
-          <span class="lead-teaser-eyebrow">משרדי תיווך</span>
           <span class="lead-teaser-title">איזה משרד תיווך מתאים לכם?</span>
           <span class="lead-teaser-sub">כל המשרדים בעפולה והסביבה — לפי התמחות, דירוג ומלאי נכסים</span>
         </span>
@@ -2507,9 +2571,11 @@
   <section class="section wrap" id="saleProps">
     <div class="section-head">
       <div>
-        <p class="eyebrow">דירות, בתים ומגרשים</p>
-        <h2>נכסים פרטיים למכירה</h2>
-        <p class="section-sub">מכל משרדי התיווך בעפולה והסביבה — החדשים ביותר בראש</p>
+        <div class="head-line">
+          <h2>נכסים פרטיים למכירה</h2>
+          <button type="button" class="info-dot" aria-label="מידע על הרצועה"
+                  data-info="מכל משרדי התיווך בעפולה והסביבה — החדשים ביותר בראש">i</button>
+        </div>
       </div>
       <a href="#heroSection" class="see-all" id="saleSeeAll">כל הנכסים למכירה ←</a>
     </div>
@@ -2535,7 +2601,6 @@
           </svg>
         </span>
         <span class="lead-teaser-copy">
-          <span class="lead-teaser-eyebrow">בעלי נכסים</span>
           <span class="lead-teaser-title">כמה שווה הנכס שלכם היום?</span>
           <span class="lead-teaser-sub">הערכת שווי חינם ממתווך מומלץ באזורכם · פחות מדקה</span>
         </span>
@@ -2643,9 +2708,11 @@
   <section class="section wrap" id="rentProps">
     <div class="section-head">
       <div>
-        <p class="eyebrow">דירות ובתים להשכרה</p>
-        <h2>נכסים פרטיים להשכרה</h2>
-        <p class="section-sub">מכל משרדי התיווך בעפולה והסביבה — החדשים ביותר בראש</p>
+        <div class="head-line">
+          <h2>נכסים פרטיים להשכרה</h2>
+          <button type="button" class="info-dot" aria-label="מידע על הרצועה"
+                  data-info="מכל משרדי התיווך בעפולה והסביבה — החדשים ביותר בראש">i</button>
+        </div>
       </div>
       <a href="#heroSection" class="see-all" id="rentSeeAll">כל הנכסים להשכרה ←</a>
     </div>
@@ -2675,7 +2742,6 @@
           </svg>
         </span>
         <span class="lead-teaser-copy">
-          <span class="lead-teaser-eyebrow">מחפשי נכס</span>
           <span class="lead-teaser-title">מחפשים נכס? תנו לו למצוא אתכם</span>
           <span class="lead-teaser-sub">לקנייה או להשכרה — נעדכן אתכם ראשונים כשעולה נכס שמתאים</span>
         </span>
@@ -2855,7 +2921,6 @@
   <section class="section wrap" id="commercialProps">
     <div class="section-head">
       <div>
-        <p class="eyebrow">משרדים, חנויות ומבני תעשייה</p>
         <h2>נכסים מסחריים בעפולה והסביבה</h2>
       </div>
       <a href="#heroSection" class="see-all" id="commercialSeeAll">כל הנכסים המסחריים ←</a>
@@ -2880,7 +2945,6 @@
           </svg>
         </span>
         <span class="lead-teaser-copy">
-          <span class="lead-teaser-eyebrow">מחשבון משכנתא</span>
           <span class="lead-teaser-title">כמה משכנתא תוכלו לקבל?</span>
           <span class="lead-teaser-sub">מזיזים את הסליידרים ורואים מיד את ההחזר החודשי המשוער</span>
         </span>
@@ -3117,7 +3181,6 @@
           </svg>
         </span>
         <span class="lead-teaser-copy">
-          <span class="lead-teaser-eyebrow">מחשבון תשואה</span>
           <span class="lead-teaser-title">כמה באמת מחזיר נכס להשקעה?</span>
           <span class="lead-teaser-sub">ברוטו, נטו, וכמה שנים עד שההשקעה חוזרת</span>
         </span>
@@ -3712,6 +3775,19 @@ function newsModalOpen(){
   document.getElementById('newsModalClose').focus();
 }
 function newsModalClose(){ newsModal.classList.remove('open'); }
+
+/* ---------- נקודות המידע (.info-dot) ----------
+   שורות המשנה של הסקציות הפכו לנקודת "i". בעכבר היא נפתחת בריחוף ובמקלדת
+   בפוקוס — שניהם ב-CSS; כאן רק מסך המגע, שבו אין ריחוף: לחיצה פותחת,
+   לחיצה נוספת (או בכל מקום אחר בעמוד, או Escape) סוגרת. */
+document.addEventListener('click', (e)=>{
+  const dot = e.target.closest ? e.target.closest('.info-dot') : null;
+  document.querySelectorAll('.info-dot.is-open').forEach(d=>{ if (d !== dot) d.classList.remove('is-open'); });
+  if (dot) dot.classList.toggle('is-open');
+});
+document.addEventListener('keydown', (e)=>{
+  if (e.key === 'Escape') document.querySelectorAll('.info-dot.is-open').forEach(d=> d.classList.remove('is-open'));
+});
 
 document.getElementById('tickerMore').addEventListener('click', newsModalOpen);
 document.getElementById('tickerText').addEventListener('click', newsModalOpen);
