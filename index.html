@@ -751,9 +751,21 @@
      משני מבקרים שבאו לראות נכסים, ולכן המצב הסגור הוא ברירת המחדל והוא
      כחצי מגובה הבאנר הפתוח. שניהם משתמשים באותן מחלקות ‎.wiz-*‎ ונבדלים
      בצבע בלבד: בעלי נכסים בכחול הבית, מחפשי נכס בבורדו. */
-  .lead-banner{color:#fff;border-radius:var(--radius-lg);overflow:hidden}
-  .owner-banner{background:var(--teal)}
-  .buyer-banner{background:linear-gradient(160deg,var(--brick),#3D1119)}
+  /* הרקע חצי-שקוף ולא אטום: הרקע הזורם של הדף (‏.page-bg) נע עם הגלילה,
+     וכשהוא מבצבץ מבעד לבאנר נוצרת תחושת עומק — הבאנר צף מעל הגלים במקום
+     לחסום אותם. ה-blur קל בכוונה (3px): טשטוש חזק היה מוחק את התנועה שהיא
+     כל העניין. אטימות של 84%–88% היא הגבול שבו טקסט לבן עדיין עובר 4.5:1
+     מול הרקע הבהיר של הדף. */
+  .lead-banner{
+    color:#fff;border-radius:var(--radius-lg);overflow:hidden;
+    border:1px solid rgba(255,255,255,.16);
+    box-shadow:0 18px 42px rgba(18,40,64,.22);
+    backdrop-filter:blur(3px) saturate(1.15);
+    -webkit-backdrop-filter:blur(3px) saturate(1.15);
+  }
+  .owner-banner{background:linear-gradient(160deg,rgba(28,58,94,.84),rgba(18,40,64,.72))}
+  .buyer-banner{background:linear-gradient(160deg,rgba(107,26,38,.85),rgba(61,17,25,.74))}
+  .calc-banner{background:linear-gradient(160deg,rgba(18,40,64,.85),rgba(28,58,94,.72))}
 
   /* שורת ההזמנה היא כפתור אחד ולא כותרת עם כפתור קטן בתוכה: כל השורה היא
      שטח לחיצה, וזה ההבדל בין שני מבקרים שפותחים את האשף לבין אחד. */
@@ -770,7 +782,9 @@
   .lead-teaser-copy{flex:1 1 55%;min-width:0;display:flex;flex-direction:column;gap:2px}
   .lead-teaser-eyebrow{font-size:.68rem;font-weight:800;letter-spacing:.07em;color:#E8C88A}
   .lead-teaser-title{font-size:1.02rem;font-weight:800;line-height:1.28}
-  .lead-teaser-sub{font-size:.76rem;line-height:1.45;color:rgba(255,255,255,.72)}
+  /* ‏.8 ולא ‎.72‎: הרקע חצי-שקוף, והמשלים הבהיר שמבצבץ מבעדו מעלה את
+     הבהירות שמאחורי הטקסט — שורת המשנה הייתה יורדת מתחת ל-4.5:1 */
+  .lead-teaser-sub{font-size:.76rem;line-height:1.45;color:rgba(255,255,255,.8)}
   /* אותה שפה של ה-CTA במחשבון המשכנתא: מדרג חם וצל, ולא גלולה שטוחה. */
   .lead-teaser-go{
     flex:none;padding:10px 15px;border-radius:999px;
@@ -821,7 +835,7 @@
     max-width:520px;margin:20px auto 0}
   .wiz-steps{display:flex;gap:6px;list-style:none;margin:0 0 16px;padding:0}
   .wiz-steps li{flex:1;display:flex;align-items:center;gap:6px;font-size:.7rem;font-weight:700;
-    color:rgba(255,255,255,.5);padding-bottom:8px;border-bottom:2px solid rgba(255,255,255,.18)}
+    color:rgba(255,255,255,.62);padding-bottom:8px;border-bottom:2px solid rgba(255,255,255,.22)}
   .wiz-steps li.active{color:#fff;border-bottom-color:var(--gold)}
   .wiz-steps li.done{color:#E8C88A;border-bottom-color:var(--gold)}
   .wiz-steps .dot{width:19px;height:19px;border-radius:50%;background:rgba(255,255,255,.18);
@@ -884,7 +898,7 @@
   .buyer-banner .wiz-done p{color:#F0DADD}
   .buyer-banner :focus-visible{outline-color:#E8C88A}
 
-  .wiz-hint{font-weight:600;font-size:.7rem;color:rgba(255,255,255,.55)}
+  .wiz-hint{font-weight:600;font-size:.7rem;color:rgba(255,255,255,.72)}
   /* ‎.wiz-label‎ הוא display:block, וכלל מחלקה גובר על ‎[hidden]‎ של הדפדפן */
   .wiz-label[hidden]{display:none}
   .buy-range{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
@@ -895,7 +909,7 @@
     border-radius:14px;padding:11px 13px}
   .buy-check input{margin:2px 0 0;flex:none;accent-color:#E8C88A}
   .buy-check:has(input:checked){background:rgba(232,200,138,.22);border-color:#E8C88A}
-  .buy-privacy{font-size:.72rem;color:rgba(255,255,255,.6);margin:10px 0 0}
+  .buy-privacy{font-size:.72rem;color:rgba(255,255,255,.72);margin:10px 0 0}
   /* סיכום מה שנבחר בשני השלבים הקודמים, מעל שדות הקשר: הוא מזכיר על מה
      חותמים בדיוק ברגע שמוסרים טלפון. */
   .buy-recap{font-size:.78rem;line-height:1.5;color:#F0DADD;
@@ -1441,9 +1455,8 @@
   /* ====== Mortgage calculator teaser ======
      האקסנט של הסקציה הוא גרדיאנט חם שנגזר מ---gold של הפלטה ומתחמם לטרקוטה,
      כדי שהסליידרים וה-CTA יבלטו מול הכחול-כהה בלי לייבא צבע זר לאתר.        */
-  /* הכותרת ממורכזת מעל הכרטיס, וכל המידות בפנים הודקו כדי שהכלי כולו
-     ייכנס בגלילה אחת ולא יאכל שטח מסך.                                     */
-  #calc .section-head{margin-bottom:14px}
+  /* הכרטיס יושב בתוך ‎.lead-panel‎ של הבאנר המתקפל, וכל המידות בפנים הודקו
+     כדי שהכלי כולו ייכנס בגלילה אחת ולא יאכל שטח מסך.                      */
   .calc-card{
     --calc-accent:#8B2332; --calc-accent-warm:#C25B34;
     --calc-fill:linear-gradient(to left,var(--calc-accent),var(--calc-accent-warm));
@@ -2709,25 +2722,35 @@
     <div class="featured-scroll" id="commercialScroll"><!-- populated by JS --></div>
   </section>
 
-  <!-- ====== Mortgage calculator ====== -->
+  <!-- ====== Mortgage calculator ======
+       אותו באנר מתקפל של שני באנרי הלידים: המחשבון פרוס הוא הכלי הגבוה
+       ביותר בעמוד הבית (סליידרים, סטפרים, תוצאה ו-CTA), והוא נפתח רק למי
+       שבא לחשב. הכותרת והאייקון שישבו קודם בראש הכרטיס (‎.calc-hero‎) עברו
+       לשורת ההזמנה עצמה, כדי שלא ייאמרו פעמיים. -->
   <section class="section wrap" id="calc">
-    <div class="section-head">
-      <div>
-        <h2>מחשבון משכנתא</h2>
-      </div>
-    </div>
-    <div class="card calc-card">
-      <div class="calc-hero">
-        <span class="calc-hero-icon">
-          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <div class="lead-banner calc-banner" id="calcBanner">
+      <button type="button" class="lead-teaser" id="calcStartBtn"
+              aria-expanded="false" aria-controls="calcPanel">
+        <span class="lead-teaser-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 10.5 12 3l9 7.5"></path>
             <path d="M5.5 9.5V20h13V9.5"></path>
             <path d="M9.5 17.5v-3.2M12 17.5v-5.4M14.5 17.5v-2"></path>
           </svg>
         </span>
-        <h3>כלי פשוט ומתקדם: גלו כמה משכנתא תוכלו לקבל</h3>
-        <p>מזיזים את הסליידרים ורואים מיד את ההחזר החודשי המשוער</p>
-      </div>
+        <span class="lead-teaser-copy">
+          <span class="lead-teaser-eyebrow">מחשבון משכנתא</span>
+          <span class="lead-teaser-title">כמה משכנתא תוכלו לקבל?</span>
+          <span class="lead-teaser-sub">מזיזים את הסליידרים ורואים מיד את ההחזר החודשי המשוער</span>
+        </span>
+        <span class="lead-teaser-go" aria-hidden="true">
+          <span class="lead-teaser-go-open">לחישוב ←</span>
+          <span class="lead-teaser-go-close">סגירה ✕</span>
+        </span>
+      </button>
+
+      <div class="lead-panel" id="calcPanel" hidden>
+    <div class="card calc-card">
 
       <div class="calc-controls">
         <div class="calc-slider">
@@ -2786,6 +2809,11 @@
       </button>
       <p class="calc-fine">* הערכה בלבד ואינה מהווה הצעת מימון מחייבת. אחוזי המימון המקסימליים כפופים לנהלי בנק ישראל ועשויים להשתנות.</p>
     </div>
+      </div>
+    </div>
+
+    <!-- שלושת המודאלים שמתחת יושבים מחוץ ל-‎#calcPanel‎ בכוונה: הם נפתחים
+         מהתפריט ומרצועת המבזק, ומודאל שחי בתוך פאנל מקופל לא ייפתח לעולם. -->
 
     <!-- ====== איך עובד הדירוג (נפתח מתפריט ההמבורגר) ======
          משתמש ב-mlead-overlay ולא ב-filter-modal-overlay מאותה סיבה שמתועדת
@@ -3445,6 +3473,18 @@ document.addEventListener('keydown', (e)=>{
 });
 
 /* ---------- Mortgage calculator (pure JS, live, amortization formula) ---------- */
+/* המחשבון יושב באותו באנר מתקפל של באנרי הלידים. ‏"מחשבון משכנתא" בתפריט
+   ובפוטר הוא קישור אל ‎#calc‎, ולכן הוא גם פותח את הפאנל: קישור שמנחית על
+   שורת הזמנה סגורה נראה כמו קישור שבור. */
+const openCalcPanel = bindLeadBanner({
+  banner:'calcBanner', teaser:'calcStartBtn', panel:'calcPanel',
+});
+function openCalcFromHash(){
+  if (location.hash === '#calc') openCalcPanel(true);
+}
+window.addEventListener('hashchange', openCalcFromHash);
+openCalcFromHash();
+
 const LTV_THRESHOLDS = { single:0.75, replacement:0.70, investment:0.50 }; // מודול 2 §5.5 — קונפיגורבילי
 const nis = n => Math.round(n).toLocaleString('he-IL');
 
@@ -3648,14 +3688,17 @@ function bindLeadBanner({ banner, teaser, panel, onOpen }){
   const bannerEl = document.getElementById(banner);
   const teaserEl = document.getElementById(teaser);
   const panelEl  = document.getElementById(panel);
-  if (!bannerEl || !teaserEl || !panelEl) return;
-  teaserEl.addEventListener('click', ()=>{
-    const opening = panelEl.hidden;
-    panelEl.hidden = !opening;
-    bannerEl.classList.toggle('is-open', opening);
-    teaserEl.setAttribute('aria-expanded', String(opening));
-    if (opening && onOpen) onOpen();
-  });
+  if (!bannerEl || !teaserEl || !panelEl) return ()=>{};
+
+  function setOpen(open){
+    if (panelEl.hidden !== open) return;   // כבר במצב המבוקש
+    panelEl.hidden = !open;
+    bannerEl.classList.toggle('is-open', open);
+    teaserEl.setAttribute('aria-expanded', String(open));
+    if (open && onOpen) onOpen();
+  }
+  teaserEl.addEventListener('click', ()=> setOpen(panelEl.hidden));
+  return setOpen;
 }
 
 bindLeadBanner({
