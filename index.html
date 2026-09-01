@@ -4162,6 +4162,9 @@ wizForm.addEventListener('submit', async (e)=>{
         features: wizState.features,
         name: wizState.name,
         phone: wizState.phone,
+        // מזהה הווידג'ט נשמר ביומן ניתוב הלידים, כדי שמנהל/ת הפלטפורמה
+        // תדע איזה כלי ייצר ליד שאין למי להפנות (ראו docs/lead-routing.md)
+        source: 'homepage_owner_wizard',
       }),
     });
     const data = await res.json();
@@ -6812,6 +6815,7 @@ ssaForm.addEventListener('submit', async (e)=>{
     condition: s.condition,
     free_text: s.free_text,
     consent_agent_contact: document.getElementById('ssaConsent').checked,
+    source: 'homepage_search_agent',
   };
 
   try{
@@ -6870,6 +6874,7 @@ const buyState = {
   rooms:new Set(),
   ptypes:new Set(),
   channel:'whatsapp',
+  source:'homepage_buyer_wizard',   // מתחלף כשהבאנר נפתח ממחשבון התשואה
 };
 
 const buyerForm = document.getElementById('buyerWizardForm');
@@ -6885,6 +6890,7 @@ const openBuyerPanel = bindLeadBanner({
    הרבה מעל המחשבון בעמוד, ולכן הפתיחה מלווה בגלילה אליו — אחרת שום דבר
    לא נראה קורה בלחיצה. */
 function openBuyerSearch(){
+  buyState.source = 'homepage_yield_calc';
   openBuyerPanel(true);
   document.getElementById('buyerBanner').scrollIntoView({ behavior:'smooth', block:'start' });
 }
@@ -7185,6 +7191,9 @@ buyerForm.addEventListener('submit', async (e)=>{
     label: buyBuildLabel(c),
     required_features: [],
     consent_agent_contact: document.getElementById('buyConsent').checked,
+    // מי שהגיע/ה לכאן ממחשבון התשואה מחפש/ת נכס להשקעה, וזה מה שיירשם
+    // ביומן הניתוב — אותו טופס, שני מקורות שונים
+    source: buyState.source,
   };
 
   try{
@@ -7222,6 +7231,7 @@ buyerForm.addEventListener('submit', async (e)=>{
 
 document.getElementById('buyRestart').addEventListener('click', ()=>{
   buyerForm.reset();
+  buyState.source = 'homepage_buyer_wizard';
   buyState.hoods.clear();
   buyState.rooms.clear();
   buyState.ptypes.clear();

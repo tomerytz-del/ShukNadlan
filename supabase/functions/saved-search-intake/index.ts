@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { audienceSize, logLeadRouting, normalizeSource } from "../_shared/lead-routing.ts";
 
 // ============================================================================
 // שמירת חיפוש של מחפש/ת דירה — "הסוכן החכם".
@@ -187,6 +188,46 @@ Deno.serve(async (req: Request) => {
     invalid_criteria: 400,
   };
   if (result?.error) return json(result, statusMap[result.error] ?? 400);
+
+  /* רישום הניתוב.
+     ‏חיפוש שמור נכנס למדף לידי מחפשי הדירה רק אם התקיימו *שני* תנאים: אישור
+     מפורש ליצירת קשר, וציון התעניינות מעל הרף. הבדיקה כאן היא מול המדף עצמו
+     ‏(saved_search_leads_public) ולא מול חישוב מקביל — מדף שמסנן אחרת מהבדיקה
+     הוא בדיוק המצב שבו הליד נעלם בלי שאיש ידע.
+
+     כפילות (‏duplicate) אינה נרשמת: לא נוצר ליד חדש, ואין מה לנתב. */
+  if (result?.search_id) {
+    const consent = row.consent_agent_contact;
+    const agents = consent ? await audienceSize(serviceClient, "agent_buyer") : 0;
+    let onShelf = false;
+    if (consent && agents > 0) {
+      const { data: shelfRow } = await serviceClient
+        .from("saved_search_leads_public").select("id").eq("id", result.search_id).maybeSingle();
+      onShelf = !!shelfRow;
+    }
+
+    await logLeadRouting(serviceClient, {
+      source: normalizeSource(body.source, "homepage_search_agent"),
+      lead_kind: "agent_buyer",
+      lead_table: "saved_searches",
+      lead_id: result.search_id,
+      routing: !consent ? "no_consent" : onShelf ? "shelf" : "unrouted",
+      recipients: Math.max(agents, 0),
+      reason: !consent
+        ? "visitor_declined_agent_contact"
+        : onShelf
+          ? null
+          : agents > 0
+            ? "below_min_intent"
+            : "no_active_agents",
+      summary: [row.label, dealType === "rent" ? "להשכרה" : "למכירה",
+                category === "commercial" ? "מסחרי" : null].filter(Boolean).join(" · "),
+      deal_type: dealType,
+      city: cities[0] ?? null,
+      neighborhood_id: neighborhoodIds[0] ?? null,
+      property_type: propertyTypes[0] ?? null,
+    });
+  }
 
   return json(result, 200);
 });

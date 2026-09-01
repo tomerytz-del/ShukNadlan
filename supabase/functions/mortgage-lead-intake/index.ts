@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { audienceSize, logLeadRouting } from "../_shared/lead-routing.ts";
 
 // ============================================================================
 // קליטת ליד ייעוץ משכנתאות מטופס המחשבון בדף הבית.
@@ -114,6 +115,28 @@ Deno.serve(async (req: Request) => {
     }
     return json({ error: "db_error", detail: error.message }, 500);
   }
+
+  /* רישום הניתוב.
+     ‏ליד משכנתא נכנס למדף שרשאים לקנות ממנו רק חשבונות שסומנו
+     ‏is_mortgage_advisor. כשאין אף אחד כזה הליד יושב במדף שאיש לא רואה —
+     וזה בדיוק המצב היום. הרישום כאן הוא מה שהופך את זה מבעיה שקופה
+     להתראה אצל מנהל/ת הפלטפורמה. */
+  const advisors = await audienceSize(serviceClient, "mortgage_advisor");
+  await logLeadRouting(serviceClient, {
+    source: source === "property_page" ? "property_page_mortgage_calc" : "homepage_mortgage_calc",
+    lead_kind: "mortgage_advisor",
+    lead_table: "mortgage_leads",
+    lead_id: data.id,
+    routing: advisors > 0 ? "shelf" : "unrouted",
+    recipients: Math.max(advisors, 0),
+    reason: advisors > 0 ? null : "no_mortgage_advisor",
+    summary: [
+      propertyPrice !== null ? `נכס ${Math.round(propertyPrice).toLocaleString("he-IL")} ₪` : null,
+      equity !== null ? `הון עצמי ${Math.round(equity).toLocaleString("he-IL")} ₪` : null,
+      ltvPct !== null ? `${ltvPct}% מימון` : null,
+      body.owns_property === true ? "יש ברשותו/ה דירה" : null,
+    ].filter(Boolean).join(" · "),
+  });
 
   return json({ success: true, lead_id: data.id }, 200);
 });

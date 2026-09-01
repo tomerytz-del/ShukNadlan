@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { audienceSize, logLeadRouting, normalizeSource } from "../_shared/lead-routing.ts";
 
 // מודול 2 §5 — מנגנון התאמה/הפצה ללידי בעל-נכס (owner_inbound).
 // רץ עם service_role — צריך לקרוא חוצי-סוכנים (agent_lead_preferences של כל הסוכנים
@@ -322,6 +323,48 @@ Deno.serve(async (req: Request) => {
     }
 
     if (leadErr) return json({ error: "db_error", detail: leadErr.message }, 500);
+
+    /* רישום הניתוב — ומה קורה כשאין למי להפנות.
+       ‏עד היום ליד שלא נמצא לו סוכן/ת נשמר עם agent_id ריק, וההודעה על כך
+       הוחזרה לדפדפן של הפונה: המקום היחיד שבו היא חסרת ערך. מכאן היא נרשמת
+       ‏ב-lead_routing_log, ומנהל/ת הפלטפורמה מקבל/ת התראה.
+
+       שלושה מצבים נפרדים, ולא אחד: ליד מדף משרד שאין לו מנהל/ת פעיל/ה גם
+       הוא ליד תקוע — אבל מסיבה אחרת לגמרי מזו של ליד פלטפורמה בלי סוכנים
+       מתאימים, והתשובה לשתיהן שונה. */
+    const routedAgentId = matchedAgentId;
+    const audience = await audienceSize(supabase, "agent_owner");
+    await logLeadRouting(supabase, {
+      source: normalizeSource(
+        body.source,
+        agencyRouting
+          ? (intent === "investment" ? "agency_page_yield_calc" : "agency_page_owner_wizard")
+          : "homepage_owner_wizard",
+      ),
+      lead_kind: "agent_owner",
+      lead_table: "leads",
+      lead_id: lead.id,
+      routing: routedAgentId ? "assigned" : "unrouted",
+      recipients: routedAgentId ? 1 : Math.max(audience, 0),
+      reason: routedAgentId
+        ? null
+        : agencyRouting
+          ? "agency_without_active_member"
+          : audience > 0
+            ? "no_matching_agent_preferences"
+            : "no_eligible_agents",
+      summary: [
+        deal_type === "rent" ? "להשכרה" : "למכירה",
+        property_type,
+        city,
+        propertyDetails,
+      ].filter(Boolean).join(" · "),
+      city,
+      neighborhood_id: neighborhood_id ?? null,
+      deal_type,
+      property_type,
+      assigned_agent_id: routedAgentId,
+    });
 
     // TODO שלב המשך: חיבור notification_service (Push+CRM→SMS→WhatsApp, מודול 6 §4)
     // כרגע רק יוצר את הליד ומשיב מי שובץ, ללא שליחת התראה בפועל.
