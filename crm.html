@@ -1776,9 +1776,17 @@
       </div>
 
       <div class="form-subheading">סוכן/ת נוסף/ת על המודעה</div>
-      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field"><label>סוכן 2 (לא חובה)</label><input type="text" id="npAgent2Name"></div>
-        <div class="field"><label>טלפון 2 (לא חובה)</label><input type="tel" id="npAgent2Phone"></div>
+      <div class="field">
+        <label for="npAgent2Pick">סוכן 2 (לא חובה)</label>
+        <select id="npAgent2Pick">
+          <option value="">— ללא —</option>
+          <option value="manual">אחר — הקלדת שם וטלפון</option>
+        </select>
+        <div class="hint">אפשר לבחור סוכן/ת מהמשרד — השם והטלפון יתמלאו לבד — או להקליד שם וטלפון של גורם חיצוני.</div>
+      </div>
+      <div class="field-row" id="npAgent2Manual" style="display:none;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field"><label>שם סוכן/ת 2</label><input type="text" id="npAgent2Name"></div>
+        <div class="field"><label>טלפון 2</label><input type="tel" id="npAgent2Phone"></div>
       </div>
 
       <div class="form-subheading">פרטי בעל/ת הנכס — פנימי</div>
@@ -6227,6 +6235,10 @@ const TEAM_DEAL_KINDS = [
 async function loadTeam(agencyId, callerId){
   const el = document.getElementById('teamList');
   el.innerHTML = '<div class="empty-state">טוען…</div>';
+  // רשימת הצוות בבורר "סוכן 2" נטענת פעם אחת ונשמרת במטמון. כל כניסה לרשימת
+  // הצוות (שרצה גם אחרי הוספה, ניתוק או שינוי סוכן/ת) מבטלת אותו, כדי שהבורר
+  // לא יציג צוות ישן עד לרענון הדף.
+  agencyColleagues = null;
   // ‏user_id ו-email נטענים כדי להבחין בין סוכן/ת שכבר נכנס/ה לבין הזמנה
   // שממתינה. בלי ההבחנה הזו כרטיס תקוע נראה ברשימה בדיוק כמו כרטיס פעיל,
   // ואף אחד לא יודע שהמייל לא הגיע ליעד.
@@ -7170,6 +7182,97 @@ async function populateNeighborhoodSelect(selectedId){
   select.value = selectedId || '';
 }
 
+/* ---------- סוכן/ת 2 על המודעה ----------
+   שני מצבים לאותו זוג שדות (agent2_name / agent2_phone): בחירה של חבר/ת צוות
+   מהמשרד — ואז השם והטלפון נכתבים מהכרטיס ולא מהזיכרון — או הקלדה חופשית של
+   גורם חיצוני (סוכן/ת ממשרד אחר, שותף/ה לעסקה). המסד נשאר כפי שהוא: בשני
+   המצבים נשמרים אותם שם וטלפון כטקסט, ולכן עמוד הנכס והייבוא מקובץ לא משתנים.
+
+   הרשימה נקראת מ-agency_members_public ולא מ-agency_members: ה-view קריא לכל
+   משתמש/ת מחובר/ת, מסנן ממילא כרטיסים לא פעילים (וגם מנותקים — ניתוק מכבה
+   active), ואינו חושף אימייל, יתרה או נתוני מנוי של חברי הצוות. */
+let agencyColleagues = null; // null = טרם נטענה; מערך = נטענה (גם אם ריקה)
+
+async function ensureColleaguesLoaded(){
+  if (agencyColleagues) return agencyColleagues;
+  if (!currentAgent?.agency_id){ agencyColleagues = []; return agencyColleagues; }
+  const { data, error } = await sb
+    .from('agency_members_public')
+    .select('id, display_name, phone_e164')
+    .eq('agency_id', currentAgent.agency_id)
+    .neq('id', currentAgent.id)
+    .order('display_name');
+  // כשל בשליפה לא חוסם את הטופס — נשארת ההקלדה החופשית
+  agencyColleagues = error ? [] : (data || []);
+  return agencyColleagues;
+}
+
+/* מנרמל טלפון לצורת "05...", כדי שאפשר יהיה להשוות ‎phone_e164‎ של הכרטיס
+   למספר שנשמר על הנכס (שנכתב בזמנו כטקסט חופשי, עם או בלי מקפים). */
+function localPhone(value){
+  const digits = String(value || '').replace(/\D/g, '');
+  if (!digits) return '';
+  if (digits.startsWith('972')) return '0' + digits.slice(3);
+  return digits.startsWith('0') ? digits : '0' + digits;
+}
+
+function agent2Colleague(id){
+  return (agencyColleagues || []).find(m => m.id === id) || null;
+}
+
+/* מסנכרן את זוג השדות למצב שנבחר בבורר. לא מנקה שדות בעצמו: הניקוי שייך
+   לאירוע ה-change ולפתיחת טופס חדש, כדי שטעינת נכס קיים לא תמחק את מה שנשמר. */
+function syncAgent2Fields(){
+  const mode = document.getElementById('npAgent2Pick').value;
+  const row = document.getElementById('npAgent2Manual');
+  const nameEl = document.getElementById('npAgent2Name');
+  const phoneEl = document.getElementById('npAgent2Phone');
+  const member = agent2Colleague(mode);
+
+  if (member){
+    nameEl.value = member.display_name || '';
+    phoneEl.value = localPhone(member.phone_e164);
+  }
+  // גם בבחירת חבר/ת צוות השדות מוצגים — כדי לראות מה בדיוק ייכתב על המודעה —
+  // אבל לקריאה בלבד: מקור האמת הוא הכרטיס במשרד.
+  const readonly = !!member;
+  [nameEl, phoneEl].forEach(el=>{
+    el.readOnly = readonly;
+    el.style.background = readonly ? 'var(--paper)' : '';
+    el.style.color = readonly ? 'var(--ink-soft)' : '';
+  });
+  row.style.display = mode ? 'grid' : 'none';
+}
+
+/* ‏name/phone הם מה ששמור על הנכס (ריקים בטופס חדש): אם הם תואמים כרטיס של
+   חבר/ת צוות הבורר ייפתח עליו/ה, אחרת כל ערך שמור נחשב הקלדה חופשית. */
+async function populateAgent2Select(name, phone){
+  const select = document.getElementById('npAgent2Pick');
+  const colleagues = await ensureColleaguesLoaded();
+  select.innerHTML = '<option value="">— ללא —</option>' +
+    colleagues.map(m => `<option value="${m.id}">${esc(m.display_name || 'סוכן/ת ללא שם')}</option>`).join('') +
+    '<option value="manual">אחר — הקלדת שם וטלפון</option>';
+
+  const savedName = (name || '').trim();
+  const savedPhone = localPhone(phone);
+  const match = (savedName || savedPhone)
+    ? colleagues.find(m =>
+        (m.display_name || '').trim() === savedName &&
+        (!savedPhone || localPhone(m.phone_e164) === savedPhone))
+    : null;
+
+  select.value = match ? match.id : ((savedName || savedPhone) ? 'manual' : '');
+  syncAgent2Fields();
+}
+
+document.getElementById('npAgent2Pick').addEventListener('change', ()=>{
+  // כל מעבר בין מצבים מנקה תחילה: אחרת שם של חבר/ת צוות היה נשאר בשדה שהפך
+  // להקלדה חופשית (ולהפך). ‏syncAgent2Fields ממלאת מיד מחדש כשנבחר/ה סוכן/ת.
+  document.getElementById('npAgent2Name').value = '';
+  document.getElementById('npAgent2Phone').value = '';
+  syncAgent2Fields();
+});
+
 document.getElementById('npImages').addEventListener('change', async (e)=>{
   const files = Array.from(e.target.files || []);
   e.target.value = ''; // מאפשר לבחור שוב את אותו קובץ אחרי הסרה
@@ -7217,6 +7320,7 @@ toggleBtn.addEventListener('click', ()=>{
     document.getElementById('addPropertyForm').reset();
     document.getElementById('npCity').value = 'עפולה';
     populateNeighborhoodSelect('');
+    populateAgent2Select('', '');
     resetImageState();
     document.getElementById('addPropertyBtn').textContent = 'פרסום הנכס';
     currentCategory = 'residential';
@@ -7457,6 +7561,9 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
 
   document.getElementById('addPropertyForm').reset();
   document.getElementById('npCity').value = 'עפולה';
+  // ‏form.reset() לא מחזיר את בורר סוכן 2 למצב "ללא": האפשרויות שלו נבנות
+  // בקוד, ושדות השם והטלפון עשויים להישאר לקריאה בלבד מהבחירה הקודמת.
+  populateAgent2Select('', '');
   resetImageState();
   editingPropertyId = null;
   editingPropertyOriginalAddress = null;
@@ -8490,6 +8597,8 @@ function openEditProperty(p){
   document.getElementById('npExpiresAt').value = p.listing_expires_at || '';
   document.getElementById('npAgent2Name').value = p.agent2_name || '';
   document.getElementById('npAgent2Phone').value = p.agent2_phone || '';
+  // אסינכרונית (שליפת הצוות) — ולכן אחרי הצבת השדות עצמם, שממנה היא נגזרת
+  populateAgent2Select(p.agent2_name, p.agent2_phone);
   // ‏property_owners הוא יחס 1:1, אבל PostgREST מחזיר אותו כאובייקט או כמערך
   // בן איבר אחד לפי גרסה — מטפלים בשניהם.
   const owner = Array.isArray(p.property_owners) ? p.property_owners[0] : p.property_owners;
