@@ -60,6 +60,9 @@ const KNOWN_SOURCES = new Set([
   "agency_page_owner_wizard",
   "agency_page_yield_calc",
   "agency_page_buyer_wizard",
+  "agent_page_owner_wizard",
+  "agent_page_yield_calc",
+  "agent_page_buyer_wizard",
 ]);
 
 /* ---------------------------------------------------------------------------
@@ -104,6 +107,37 @@ export async function resolveAgencyRouting(
   const list = members ?? [];
   const manager = list.find((m: any) => m.role === "manager") ?? list[0] ?? null;
   return { agencyId: agency.id, agentId: manager?.id ?? null };
+}
+
+/* ---------------------------------------------------------------------------
+ * ליד שהגיע מדף סוכן/ת
+ *
+ * ‏agent_slug נשלח משלושת הווידג'טים של agent.html — אותם שלושה כלים של דף
+ * המשרד, בדף של אדם אחד. ההיגיון זהה, רק צר יותר: מה שהדף של הסוכן/ת מייצר
+ * שייך לסוכן/ת עצמו/ה, ולא למנהל/ת המשרד ולא לרוטציה של הפלטפורמה.
+ *
+ * ‏slug שאינו מוכר — או סוכן/ת שכבר אינו/ה פעיל/ה — אינו שגיאה: הקורא ממשיך
+ * ל-‎resolveAgencyRouting‎ עם ה-slug של המשרד, ורק אם גם הוא אינו מוכר חוזר
+ * למסלול הרגיל. פנייה אמיתית לא נזרקת בגלל כתובת שהשתנתה.
+ * ------------------------------------------------------------------------- */
+export async function resolveAgentRouting(
+  supabase: any,
+  agentSlug: unknown,
+): Promise<AgencyRouting | null> {
+  if (typeof agentSlug !== "string") return null;
+  const slug = agentSlug.trim().slice(0, 120);
+  if (!slug) return null;
+
+  const { data: member } = await supabase
+    .from("agency_members")
+    .select("id, agency_id")
+    .eq("slug", slug)
+    .eq("active", true)
+    .maybeSingle();
+  // ‏agency_id הוא NOT NULL בפועל, אבל סוכן/ת שבין משרדים לא אמור/ה להפיל
+  // את הליד — בלי משרד אין מה לשייך, והקורא ימשיך לניתוב לפי המשרד שבדף.
+  if (!member || !member.agency_id) return null;
+  return { agencyId: member.agency_id, agentId: member.id };
 }
 
 export function normalizeSource(value: unknown, fallback: string): string {
