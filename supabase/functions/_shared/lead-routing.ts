@@ -20,6 +20,13 @@
 const RESEND_KEY = Deno.env.get("RESEND_API_KEY") || "";
 const ALERTS_FROM_EMAIL = Deno.env.get("ALERTS_FROM_EMAIL") || "";
 
+/* כתובת הקשר של הפלטפורמה. ‏reply_to ולא from: ‏Resend שולח רק מדומיין
+   מאומת, ו-gmail.com אינו כזה — הודעה שתנסה לצאת ממנו פשוט תידחה. לכן
+   ה-from נשאר השולח המאומת (‏ALERTS_FROM_EMAIL), והתשובה חוזרת לתיבת
+   הפלטפורמה. מי שמשיב/ה להודעה מגיע/ה לשם, וזו כל המטרה. */
+const PLATFORM_CONTACT_EMAIL =
+  Deno.env.get("PLATFORM_CONTACT_EMAIL") || "shuknadlan@gmail.com";
+
 export type LeadKind = "agent_owner" | "agent_buyer" | "mortgage_advisor";
 export type LeadTable = "leads" | "saved_searches" | "mortgage_leads";
 /** assigned = שויך לסוכן/ת · shelf = פורסם למדף · unrouted = אין למי להפנות
@@ -93,6 +100,7 @@ async function emailPlatformAdmins(
     `נמענים אפשריים: ${input.recipients ?? 0}`,
     input.reason ? `סיבה: ${input.reason}` : "",
     `מזהה: ${input.lead_table}/${input.lead_id}`,
+    `— שוק הנדל״ן של עפולה והסביבה · ${PLATFORM_CONTACT_EMAIL}`,
   ].filter(Boolean);
 
   const esc = (s: string) =>
@@ -105,6 +113,7 @@ async function emailPlatformAdmins(
       headers: { Authorization: `Bearer ${RESEND_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         from: ALERTS_FROM_EMAIL,
+        reply_to: PLATFORM_CONTACT_EMAIL,
         to: emails.slice(0, 10),
         subject: `⚠️ ${kind} ללא יעד — שוק נדל״ן`,
         text: lines.join("\n"),

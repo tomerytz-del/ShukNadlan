@@ -130,7 +130,8 @@ mortgage-lead-intake saved-search-intake`). שלושתן מקבלות את
 
 **המייל** יוצא רק כש-`RESEND_API_KEY` ו-`ALERTS_FROM_EMAIL` מוגדרים
 במשתני הסביבה של הפרויקט (אותם שניים ש-saved-search-notify משתמשת בהם).
-בלעדיהם ההתראה בפעמון עובדת כרגיל, והמייל פשוט אינו נשלח.
+בלעדיהם ההתראה בפעמון עובדת כרגיל, והמייל פשוט אינו נשלח. ה-`reply_to` שלו
+הוא תיבת הפלטפורמה — ראו [docs/platform-contact-email.md](platform-contact-email.md).
 
 ## כלל אחד שלא נשבר
 

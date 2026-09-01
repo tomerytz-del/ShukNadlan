@@ -183,6 +183,7 @@ Dashboard → Project Settings → **Edge Functions → Secrets**:
 | `WHATSAPP_ALERT_TEMPLATE_LANG` | ⬜ | ברירת מחדל `he` |
 | `RESEND_API_KEY` | למייל | מפתח מ-[resend.com](https://resend.com) |
 | `ALERTS_FROM_EMAIL` | למייל | למשל `שוק נדל"ן <alerts@shuknadlan.co.il>` — הדומיין חייב להיות מאומת ב-Resend |
+| `PLATFORM_CONTACT_EMAIL` | ⬜ | ‏`reply_to` של ההתראות. ברירת מחדל `shuknadlan@gmail.com` — ראו [platform-contact-email.md](platform-contact-email.md) |
 | `ALERT_CRON_SECRET` | ⬜ | הידוק הגישה ל-`saved-search-notify` (שלב 4) |
 
 `SUPABASE_URL` ו-`SUPABASE_SERVICE_ROLE_KEY` מוזרקים אוטומטית.

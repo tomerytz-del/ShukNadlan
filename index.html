@@ -6,6 +6,27 @@
 <title>שוק נדל״ן | עפולה והעמק</title>
 <meta name="description" content="העסקה הבאה שלך בעפולה מתחילה בשוק הנדל״ן — כל הדירות, כל המתווכים, בכתובת אחת.">
 <meta property="og:description" content="העסקה הבאה שלך בעפולה מתחילה בשוק הנדל״ן.">
+<!-- זהות הפלטפורמה למנועי חיפוש ולמנועי תשובות: השם, הלוגו וכתובת הקשר
+     במקום אחד קריא-מכונה. בלעדיו הכתובת קיימת רק כטקסט בפוטר, ואף מנוע
+     לא יודע שזו כתובת הקשר של העסק ולא של מישהו שכתבו עליו. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "שוק הנדל״ן של עפולה והסביבה",
+  "alternateName": "שוק נדל״ן",
+  "url": "https://shuknadlan.co.il/",
+  "logo": "https://shuknadlan.co.il/assets/logo-shuknadlan.png",
+  "email": "shuknadlan@gmail.com",
+  "areaServed": "עפולה והעמק",
+  "contactPoint": {
+    "@type": "ContactPoint",
+    "contactType": "customer support",
+    "email": "shuknadlan@gmail.com",
+    "availableLanguage": ["he"]
+  }
+}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
@@ -3281,7 +3302,9 @@
     <div class="footer-col">
       <h4>שוק נדל״ן</h4>
       <a href="#">אודות</a>
-      <a href="#">צור קשר</a>
+      <!-- כתובת המייל של הפלטפורמה. כל עוד אין דף "צור קשר", קישור mailto
+           הוא הדרך הישירה ביותר — ולא href="#" שמבטיח קשר ולא נותן אותו. -->
+      <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
       <!-- שני מסלולי ההצטרפות הם הדפים היחידים כאן שכבר קיימים, ולכן הם
            קישורים אמיתיים ולא href="#" כמו שאר הפוטר. -->
       <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>

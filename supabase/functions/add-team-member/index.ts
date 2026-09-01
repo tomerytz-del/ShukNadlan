@@ -30,6 +30,13 @@ const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
 const RESEND_KEY = Deno.env.get("RESEND_API_KEY") || "";
 const ALERTS_FROM_EMAIL = Deno.env.get("ALERTS_FROM_EMAIL") || "";
+
+/* כתובת הקשר של הפלטפורמה. ‏reply_to ולא from: ‏Resend שולח רק מדומיין
+   מאומת, ו-gmail.com אינו כזה — הודעה שתנסה לצאת ממנו פשוט תידחה. לכן
+   ה-from נשאר השולח המאומת (‏ALERTS_FROM_EMAIL), והתשובה חוזרת לתיבת
+   הפלטפורמה. מי שמשיב/ה להודעה מגיע/ה לשם, וזו כל המטרה. */
+const PLATFORM_CONTACT_EMAIL =
+  Deno.env.get("PLATFORM_CONTACT_EMAIL") || "shuknadlan@gmail.com";
 const SITE_BASE_URL = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/+$/, "");
 
 function corsHeaders() {
@@ -96,7 +103,8 @@ function inviteHtml(a: { name: string; agency: string; inviter: string; url: str
     </p>
     <p style="font-size:12px;color:#98A2B0;margin:14px 0 0;text-align:center">
       קיבלת את ההודעה כי מנהל/ת המשרד הוסיף/ה אותך לצוות בשוק נדל״ן.<br>
-      אם זו טעות, אפשר פשוט להתעלם.
+      אם זו טעות, אפשר פשוט להתעלם.<br>
+      שאלות? אפשר להשיב להודעה או לכתוב ל<a href="mailto:${esc(PLATFORM_CONTACT_EMAIL)}" style="color:#7A8899">${esc(PLATFORM_CONTACT_EMAIL)}</a>.
     </p>
   </div>
 </body></html>`;
@@ -111,6 +119,8 @@ function inviteText(a: { name: string; agency: string; inviter: string; url: str
     `להצטרפות: ${a.url}`,
     "",
     "הכניסה היא עם חשבון Google שלך או עם סיסמה שתגדיר/י בעצמך. הקישור אישי ותקף 30 יום.",
+    "",
+    `שאלות? אפשר להשיב להודעה או לכתוב ל-${PLATFORM_CONTACT_EMAIL}.`,
   ].join("\n");
 }
 
@@ -127,6 +137,7 @@ async function sendInviteEmail(to: string, a: { name: string; agency: string; in
       headers: { Authorization: `Bearer ${RESEND_KEY}`, "Content-Type": "application/json" },
       body: JSON.stringify({
         from: ALERTS_FROM_EMAIL,
+        reply_to: PLATFORM_CONTACT_EMAIL,
         to: [to],
         subject: `${a.inviter} מזמין/ה אותך להצטרף למשרד ${a.agency}`,
         html: inviteHtml(a),

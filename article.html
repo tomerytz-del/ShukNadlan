@@ -353,6 +353,7 @@
       <a href="index.html">דף הבית</a>
       <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
       <a href="professional-signup.html">הצטרפות כבעל מקצוע</a>
+      <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
     </div>
     <div class="footer-col">
       <h4>נכסים</h4>
@@ -667,7 +668,10 @@ function renderMeta(a){
     description,
     datePublished: a.published_at || undefined,
     url: location.href,
-    publisher: { '@type':'Organization', name:'שוק הנדל״ן של עפולה והסביבה' },
+    // ‏email במפרסם: זו כתובת הקשר של המגזין למנועי חיפוש ולמנועי תשובות,
+    // ולא של מי שהכתבה מדברת עליו
+    publisher: { '@type':'Organization', name:'שוק הנדל״ן של עפולה והסביבה',
+                 email:'shuknadlan@gmail.com' },
   };
   if (image) ld.image = image;
   if (a.author_name) ld.author = { '@type':'Person', name:a.author_name };

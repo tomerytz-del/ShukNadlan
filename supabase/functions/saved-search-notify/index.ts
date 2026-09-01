@@ -37,6 +37,13 @@ const WA_TEMPLATE_LANG = Deno.env.get("WHATSAPP_ALERT_TEMPLATE_LANG") || "he";
 const RESEND_KEY = Deno.env.get("RESEND_API_KEY") || "";
 const ALERTS_FROM_EMAIL = Deno.env.get("ALERTS_FROM_EMAIL") || "";
 
+/* כתובת הקשר של הפלטפורמה. ‏reply_to ולא from: ‏Resend שולח רק מדומיין
+   מאומת, ו-gmail.com אינו כזה — הודעה שתנסה לצאת ממנו פשוט תידחה. לכן
+   ה-from נשאר השולח המאומת (‏ALERTS_FROM_EMAIL), והתשובה חוזרת לתיבת
+   הפלטפורמה. מי שמשיב/ה להודעה מגיע/ה לשם, וזו כל המטרה. */
+const PLATFORM_CONTACT_EMAIL =
+  Deno.env.get("PLATFORM_CONTACT_EMAIL") || "shuknadlan@gmail.com";
+
 const FUNCTIONS_BASE = `${supabaseUrl}/functions/v1`;
 const CRON_SECRET = Deno.env.get("ALERT_CRON_SECRET") || "";
 
@@ -91,6 +98,8 @@ function textBody(a: any): string {
     `לצפייה: ${clickUrl(a.click_token)}`,
     "",
     `להפסקת ההתראות: ${unsubUrl(a.unsubscribe_token)}`,
+    "",
+    `שאלות? ${PLATFORM_CONTACT_EMAIL}`,
   ];
   return parts.filter((p) => p !== "").join("\n").slice(0, 4000);
 }
@@ -218,6 +227,7 @@ function emailHtml(a: any): string {
     <p style="font-size:12px;color:#98A2B0;margin:18px 0 0;text-align:center">
       קיבלת את ההודעה כי הגדרת חיפוש שמור בשוק נדל״ן.<br>
       <a href="${esc(unsubUrl(a.unsubscribe_token))}" style="color:#98A2B0">הפסקת ההתראות</a>
+      · <a href="mailto:${esc(PLATFORM_CONTACT_EMAIL)}" style="color:#98A2B0">${esc(PLATFORM_CONTACT_EMAIL)}</a>
     </p>
   </div>
 </body></html>`;
@@ -234,6 +244,7 @@ async function sendEmail(a: any): Promise<void> {
     },
     body: JSON.stringify({
       from: ALERTS_FROM_EMAIL,
+      reply_to: PLATFORM_CONTACT_EMAIL,
       to: [a.email],
       subject: `🔔 ${a.title || "נכס חדש"} — ${nis(a.price)}`,
       html: emailHtml(a),
