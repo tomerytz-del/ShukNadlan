@@ -248,20 +248,31 @@
      בלי לחשב איזה תא נמצא בקצה איזו שורה */
   .stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--hair)}
   @media(min-width:700px){.stat-grid{grid-template-columns:repeat(auto-fit,minmax(0,1fr))}}
-  .stat-cell{background:var(--surface);padding:14px 10px;text-align:center;min-width:0}
+  /* ‏שורת ה"ערך" בכל תא בגובה קבוע (‏--stat-top), ולא בגובה מה שנכנס לתוכה:
+     מספר גבוה בכ-25px מהתו, וכשכל תא נמדד לעצמו הכיתובים שמתחת יושבים
+     בשני גבהים שונים באותה שורה. עכשיו הערך ממורכז בתוך שורה אחידה
+     והכיתובים מתחתיו מתיישרים. */
+  .stat-cell{
+    --stat-top:46px;
+    background:var(--surface);padding:14px 10px;text-align:center;min-width:0;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;
+  }
   .stat-cell .n{
     font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.5rem;line-height:1.1;
     color:var(--brand-dark);display:flex;align-items:center;justify-content:center;gap:5px;
+    min-height:var(--stat-top);
   }
   .stat-cell .n svg{width:17px;height:17px;fill:#F0C14B;color:#F0C14B;flex:none}
-  .stat-cell .l{font-size:.73rem;color:var(--ink-soft);margin-top:3px;font-weight:600}
+  .stat-cell .l{font-size:.73rem;color:var(--ink-soft);margin-top:5px;font-weight:600}
   /* ---------- תא תו האיכות ----------
      התו יושב כאן ולא בבאנר, במקום שבו קודם נספרו המתווכים (המספר הזה כבר
      כתוב בכותרת "נבחרת המתווכים"). התו הוא מדד אמון, ולכן מקומו בין המדדים
      — והכיתוב שמתחתיו מחליף את התגית שהייתה חוזרת עליו ברצועה שמתחת. */
-  .stat-cell.is-badge{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
-  .stat-cell.is-badge .qb-badge img{width:46px!important;height:46px!important}
-  @media(max-width:400px){.stat-cell.is-badge .qb-badge img{width:40px!important;height:40px!important}}
+  /* התו נמדד בדיוק כגובה שורת הערך, כדי שהוא והמספר שלצדו יישבו על אותו
+     ציר ושני הכיתובים שמתחתיהם יתחילו באותה שורה */
+  .stat-cell.is-badge .qb-badge img{
+    width:var(--stat-top)!important;height:var(--stat-top)!important;
+  }
   .stat-cell.is-badge .l{color:var(--accent-ink);font-weight:800}
 
   /* ---------- רצועת ההתמחויות ----------
