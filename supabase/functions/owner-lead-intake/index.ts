@@ -1,6 +1,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { audienceSize, logLeadRouting, normalizeSource } from "../_shared/lead-routing.ts";
+import {
+  audienceSize,
+  logLeadRouting,
+  normalizeSource,
+  resolveAgencyRouting,
+} from "../_shared/lead-routing.ts";
 
 // מודול 2 §5 — מנגנון התאמה/הפצה ללידי בעל-נכס (owner_inbound).
 // רץ עם service_role — צריך לקרוא חוצי-סוכנים (agent_lead_preferences של כל הסוכנים
@@ -60,37 +65,15 @@ function buildPropertyDetails(
 // ---------------------------------------------------------------------------
 // ליד שהגיע מדף משרד מסוים
 //
-// ‏agency_slug נשלח רק מווידג'ט הערכת השווי שבדף המשרד (agency.html). כשהוא
-// מגיע, כל מנגנון ההתאמה והרוטציה נעקף: הליד שייך למשרד שבדף שבו הגולש/ת
-// בחר/ה להשאיר פרטים, ולא למי שתורו הגיע. הוא משויך למנהל/ת המשרד ונפתח
-// מיד (‏status='unlocked'), כלומר מגיע חינם — אין מה לרכוש ואין מה לחכות לו.
+// ‏agency_slug נשלח משני הווידג'טים של דף המשרד שנקלטים כאן — הערכת השווי
+// ומחשבון התשואה. כשהוא מגיע, כל מנגנון ההתאמה והרוטציה נעקף: הליד שייך
+// למשרד שבדף שבו הגולש/ת בחר/ה להשאיר פרטים, ולא למי שתורו הגיע. הוא
+// משויך למנהל/ת המשרד ונפתח מיד (‏status='unlocked'), כלומר מגיע חינם —
+// אין מה לרכוש ואין מה לחכות לו.
 //
-// ‏slug שאינו מוכר אינו שגיאה: הליד ממשיך למסלול הרגיל של הפלטפורמה, כי
-// לזרוק פנייה אמיתית של בעל/ת נכס בגלל כתובת שגויה גרוע מכל חלופה.
+// ‏resolveAgencyRouting יושבת ב-_shared: הווידג'ט השלישי בדף (התאמת נכס)
+// נקלט ב-saved-search-intake וצריך בדיוק את אותה תשובה.
 // ---------------------------------------------------------------------------
-async function resolveAgencyRouting(
-  supabase: any,
-  agencySlug: unknown,
-): Promise<{ agencyId: string; agentId: string | null } | null> {
-  const slug = cleanText(agencySlug, 120);
-  if (!slug) return null;
-
-  const { data: agency } = await supabase
-    .from("agencies").select("id").eq("slug", slug).maybeSingle();
-  if (!agency) return null;
-
-  const { data: members } = await supabase
-    .from("agency_members")
-    .select("id, role")
-    .eq("agency_id", agency.id)
-    .eq("active", true);
-
-  // מנהל/ת המשרד קודם/ת; משרד בלי מנהל/ת פעיל/ה נופל לסוכן/ת הראשון/ה, כדי
-  // שהליד לא יישאר יתום בתיבה שאיש לא פותח.
-  const list = members ?? [];
-  const manager = list.find((m: any) => m.role === "manager") ?? list[0] ?? null;
-  return { agencyId: agency.id, agentId: manager?.id ?? null };
-}
 
 async function getConfigValue(supabase: any, key: string, fallback: number) {
   const { data } = await supabase.from("pricing_config").select("value").eq("key", key).maybeSingle();

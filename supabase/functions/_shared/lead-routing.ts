@@ -62,6 +62,50 @@ const KNOWN_SOURCES = new Set([
   "agency_page_buyer_wizard",
 ]);
 
+/* ---------------------------------------------------------------------------
+ * ליד שהגיע מדף משרד
+ *
+ * ‏agency_slug נשלח משלושת הווידג'טים של agency.html: הערכת השווי, מחשבון
+ * התשואה, והתאמת הנכס. כשהוא מגיע, כל מנגנון ההתאמה והרוטציה נעקף — הליד
+ * שייך למשרד שבדף שבו הגולש/ת בחר/ה להשאיר פרטים, ולא למי שתורו הגיע —
+ * והוא משויך למנהל/ת המשרד.
+ *
+ * משרד בלי מנהל/ת פעיל/ה נופל לסוכן/ת הראשון/ה, כדי שהפנייה לא תישאר
+ * בתיבה שאיש לא פותח. ‏slug שאינו מוכר אינו שגיאה: הקורא ממשיך למסלול
+ * הרגיל של הפלטפורמה, כי לזרוק פנייה אמיתית בגלל כתובת שגויה גרוע מכל
+ * חלופה.
+ *
+ * יושב כאן ולא בפונקציה אחת מהן כי שלוש הפונקציות הקולטות צריכות בדיוק
+ * את אותה תשובה, ושתי גרסאות שלה היו נפרדות בשקט ביום שבו הכלל ישתנה.
+ * ------------------------------------------------------------------------- */
+export interface AgencyRouting {
+  agencyId: string;
+  agentId: string | null;
+}
+
+export async function resolveAgencyRouting(
+  supabase: any,
+  agencySlug: unknown,
+): Promise<AgencyRouting | null> {
+  if (typeof agencySlug !== "string") return null;
+  const slug = agencySlug.trim().slice(0, 120);
+  if (!slug) return null;
+
+  const { data: agency } = await supabase
+    .from("agencies").select("id").eq("slug", slug).maybeSingle();
+  if (!agency) return null;
+
+  const { data: members } = await supabase
+    .from("agency_members")
+    .select("id, role")
+    .eq("agency_id", agency.id)
+    .eq("active", true);
+
+  const list = members ?? [];
+  const manager = list.find((m: any) => m.role === "manager") ?? list[0] ?? null;
+  return { agencyId: agency.id, agentId: manager?.id ?? null };
+}
+
 export function normalizeSource(value: unknown, fallback: string): string {
   return typeof value === "string" && KNOWN_SOURCES.has(value) ? value : fallback;
 }

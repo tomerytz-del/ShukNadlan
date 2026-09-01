@@ -1,6 +1,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { audienceSize, logLeadRouting, normalizeSource } from "../_shared/lead-routing.ts";
+import {
+  audienceSize,
+  logLeadRouting,
+  normalizeSource,
+  resolveAgencyRouting,
+} from "../_shared/lead-routing.ts";
 
 // ============================================================================
 // שמירת חיפוש של מחפש/ת דירה — "הסוכן החכם".
@@ -146,6 +151,21 @@ Deno.serve(async (req: Request) => {
     features.length > 0;
   if (!hasCriteria) return json({ error: "no_criteria" }, 400);
 
+  /* ---- הליד של דף המשרד ----------------------------------------------------
+     ‏agency_slug נשלח מווידג'ט "מחפשים נכס" שבדף המשרד. כשהוא מגיע, החיפוש
+     נשמר בדיוק כרגיל — ההתראות הן ההבטחה למחפש/ת ואינן משתנות — אבל הליד
+     שנוצר ממנו אינו נכנס למדף של הפלטפורמה אלא משויך למנהל/ת המשרד שבדף
+     שבו הגולש/ת בחר/ה להשאיר פרטים, בחינם. זו אותה הבטחה בדיוק ששני
+     הווידג'טים האחרים באותו דף כבר מקיימים.
+
+     השיוך מותנה בהסכמה מפורשת ליצירת קשר, ונאכף פעמיים: כאן וב-
+     ‏create_saved_search. מי שביקש/ה התראות בלבד נשאר/ת עם התראות בלבד. */
+  const serviceClient = createClient(supabaseUrl, serviceRoleKey);
+  const consent = body.consent_agent_contact === true;
+  const agencyRouting = consent
+    ? await resolveAgencyRouting(serviceClient, body.agency_slug)
+    : null;
+
   const row = {
     full_name: fullName,
     phone: phone || null,
@@ -169,19 +189,38 @@ Deno.serve(async (req: Request) => {
     condition: CONDITIONS.includes(body.condition) ? body.condition : null,
     free_text: String(body.free_text ?? "").trim().slice(0, 500) || null,
     // ההסכמה נכתבת מהסימון בלבד. ברירת המחדל היא "לא".
-    consent_agent_contact: body.consent_agent_contact === true,
+    consent_agent_contact: consent,
+    // ‏null בליד רגיל של הפלטפורמה — כלומר בדיוק ההתנהגות שהייתה כאן עד היום
+    agency_id: agencyRouting?.agencyId ?? null,
+    assigned_agent_id: agencyRouting?.agentId ?? null,
   };
 
   // ‏הכתיבה עצמה, התקרה לאותו טלפון וזיהוי הכפילות — הכול בטרנזקציה אחת
   // ב-create_saved_search. הן נשענות על criteria_hash ועל phone_e164
   // שהטריגר במסד מחשב, ולכן אינן יכולות לחיות כאן: כל ניסיון לספור מראש
   // מהקוד הזה היה מחייב לשכפל את normalize_msisdn ואת חישוב ה-hash.
-  const serviceClient = createClient(supabaseUrl, serviceRoleKey);
-  const { data: result, error } = await serviceClient.rpc("create_saved_search", {
+  let { data: result, error } = await serviceClient.rpc("create_saved_search", {
     p_payload: row,
   });
 
+  /* ‏נפילה לאחור לסביבה שטרם הריצה את מיגרציית שיוך המשרד: הפונקציה שם
+     אינה מכירה את שני השדות החדשים ופשוט מתעלמת מהם, אבל אם ה-insert שלה
+     נופל על עמודה לא מוכרת — עדיף חיפוש שנשמר בלי שיוך מאשר מחפש/ת דירה
+     שקיבל/ה שגיאה. */
+  if (error && agencyRouting) {
+    console.warn("create_saved_search with agency failed, retrying unattributed:", error.message);
+    const { agency_id: _a, assigned_agent_id: _b, ...plain } = row;
+    ({ data: result, error } = await serviceClient.rpc("create_saved_search", {
+      p_payload: plain,
+    }));
+  }
+
   if (error) return json({ error: "db_error", detail: error.message }, 500);
+
+  // מה שהמסד באמת עשה, ולא מה שביקשנו ממנו: פונקציה ישנה מחזירה בלי השדות
+  // האלה, וגם הסכמה חסרה מאפסת שם את השיוך.
+  const assignedAgencyId: string | null = result?.agency_id ?? null;
+  const assignedAgentId: string | null = result?.assigned_agent_id ?? null;
 
   const statusMap: Record<string, number> = {
     too_many_searches: 409,
@@ -197,37 +236,45 @@ Deno.serve(async (req: Request) => {
 
      כפילות (‏duplicate) אינה נרשמת: לא נוצר ליד חדש, ואין מה לנתב. */
   if (result?.search_id) {
-    const consent = row.consent_agent_contact;
-    const agents = consent ? await audienceSize(serviceClient, "agent_buyer") : 0;
+    /* ליד של משרד אינו נמדד מול המדף: הוא לא אמור להיות שם, ויש לו נמען
+       אחד ידוע. שלושת המצבים שנשארו הם של ליד הפלטפורמה כמו קודם. */
+    const assigned = !!assignedAgencyId;
+    const agents = (!assigned && consent) ? await audienceSize(serviceClient, "agent_buyer") : 0;
     let onShelf = false;
-    if (consent && agents > 0) {
+    if (!assigned && consent && agents > 0) {
       const { data: shelfRow } = await serviceClient
         .from("saved_search_leads_public").select("id").eq("id", result.search_id).maybeSingle();
       onShelf = !!shelfRow;
     }
 
     await logLeadRouting(serviceClient, {
-      source: normalizeSource(body.source, "homepage_search_agent"),
+      source: normalizeSource(body.source, assigned ? "agency_page_buyer_wizard" : "homepage_search_agent"),
       lead_kind: "agent_buyer",
       lead_table: "saved_searches",
       lead_id: result.search_id,
-      routing: !consent ? "no_consent" : onShelf ? "shelf" : "unrouted",
-      recipients: Math.max(agents, 0),
-      reason: !consent
-        ? "visitor_declined_agent_contact"
-        : onShelf
-          ? null
-          : agents > 0
-            ? "below_min_intent"
-            : "no_active_agents",
+      routing: assigned ? "assigned" : !consent ? "no_consent" : onShelf ? "shelf" : "unrouted",
+      recipients: assigned ? 1 : Math.max(agents, 0),
+      reason: assigned
+        // משרד בלי אף חבר/ת צוות פעיל/ה: הליד שלו, אבל אין למי להתריע
+        ? (assignedAgentId ? null : "agency_without_active_member")
+        : !consent
+          ? "visitor_declined_agent_contact"
+          : onShelf
+            ? null
+            : agents > 0
+              ? "below_min_intent"
+              : "no_active_agents",
       summary: [row.label, dealType === "rent" ? "להשכרה" : "למכירה",
                 category === "commercial" ? "מסחרי" : null].filter(Boolean).join(" · "),
       deal_type: dealType,
       city: cities[0] ?? null,
       neighborhood_id: neighborhoodIds[0] ?? null,
       property_type: propertyTypes[0] ?? null,
+      assigned_agent_id: assignedAgentId,
     });
   }
 
-  return json(result, 200);
+  // ‏assigned_to_agency אומר לדף המשרד אם הפרטים באמת הגיעו למשרד, כדי
+  // שמסך הסיום לא יבטיח משהו שלא קרה (הסכמה שלא ניתנה, ‏slug לא מוכר).
+  return json({ ...result, assigned_to_agency: !!assignedAgencyId }, 200);
 });

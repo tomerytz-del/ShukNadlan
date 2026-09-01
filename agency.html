@@ -133,12 +133,15 @@
   }
   /* גובה מינימלי — באנר שנקבע רק לפי גובה הטקסט שבו נראה כשורת כותרת ולא
      כראש של דף. עם תמונת נושא הוא מקבל עוד מקום, כי יש שם מה להראות. */
-  .banner-inner{position:relative;z-index:1;padding:30px 18px 34px;min-height:230px;display:flex;flex-direction:column;justify-content:flex-end}
+  /* ‏justify-content:center ולא flex-end: משרד מעלה לתמונת הנושא באנר
+     מעוצב שכולל את הלוגו והשם שלו, וזהות שנצמדת לתחתית הבאנר נחתה בדיוק
+     על הכיתוב שבתמונה. מרכוז מרים את הבלוק כולו אל האזור השקט שמעליה. */
+  .banner-inner{position:relative;z-index:1;padding:24px 18px 50px;min-height:230px;display:flex;flex-direction:column;justify-content:center}
   .banner.has-image .banner-inner{min-height:280px}
   @media(min-width:900px){
     .banner-inner{
-      display:grid;grid-template-columns:minmax(0,1fr) auto;gap:26px;align-items:end;
-      padding:48px 18px 42px;min-height:300px;
+      display:grid;grid-template-columns:minmax(0,1fr) auto;gap:26px;align-items:center;
+      padding:44px 18px 52px;min-height:300px;
     }
     .banner.has-image .banner-inner{min-height:360px}
   }
@@ -1476,7 +1479,7 @@
                      יעברו לאף אחד. רק מי שמסמן/ת כאן הופך/ת לליד. -->
                 <label class="buy-check" for="buyConsent">
                   <input type="checkbox" id="buyConsent">
-                  <span>אשמח שמתווך/ת מהאזור ייצור איתי קשר עם נכסים מתאימים</span>
+                  <span id="buyConsentText">אשמח שמתווך/ת מהמשרד ייצור איתי קשר עם נכסים מתאימים</span>
                 </label>
 
                 <p class="wiz-err" id="buyErr3"></p>
@@ -3613,6 +3616,10 @@ async function submitBuyerWizard(e){
     label: buyBuildLabel(c),
     required_features: [],
     consent_agent_contact: document.getElementById('buyConsent').checked,
+    // ה-slug הוא מה שהופך את החיפוש הזה לליד של המשרד: הוא לא נכנס למדף
+    // של הפלטפורמה אלא משויך למנהל/ת המשרד, בדיוק כמו שני הווידג'טים
+    // האחרים בדף. ההתראות למחפש/ת עובדות בשני המקרים אותו דבר.
+    agency_slug: leadContext.slug,
     source: buyState.source,
   };
 
@@ -3633,10 +3640,16 @@ async function submitBuyerWizard(e){
       };
       throw new Error(messages[data.error] || 'השמירה נכשלה — נסו שוב');
     }
-    // ‏duplicate=true פירושו שהחיפוש הזה כבר שמור. מבחינת המחפש/ת זו הצלחה.
+    /* ‏duplicate=true פירושו שהחיפוש הזה כבר שמור. מבחינת המחפש/ת זו הצלחה.
+       ‏assigned_to_agency מגיע מהשרת ולא מנוחש כאן: רק הוא יודע אם הפרטים
+       באמת הגיעו למשרד (הסכמה שניתנה, ‏slug מוכר, מיגרציה שרצה), ומסך סיום
+       שמבטיח משהו שלא קרה גרוע ממסך סיום סתמי. */
+    const office = (currentAgency && currentAgency.name) || 'המשרד';
     document.getElementById('buyDoneText').textContent = data.duplicate
       ? 'החיפוש הזה כבר שמור אצלנו — נעדכן אתכם ברגע שיעלה נכס מתאים.'
-      : 'נעדכן אתכם ברגע שיעלה נכס שמתאים למה שביקשתם.';
+      : data.assigned_to_agency
+        ? `נעדכן אתכם ברגע שיעלה נכס שמתאים, ומתווך/ת מ${office} יחזור/תחזור אליכם עם נכסים מתאימים.`
+        : 'נעדכן אתכם ברגע שיעלה נכס שמתאים למה שביקשתם.';
     buyerForm.hidden = true;
     document.getElementById('buySteps').hidden = true;
     buyDoneEl.hidden = false;
@@ -3652,6 +3665,10 @@ async function submitBuyerWizard(e){
 function initBuyerWizard(agency, sb){
   document.getElementById('buyerLead').textContent =
     `ספרו לנו מה אתם מחפשים — ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.`;
+  // ההסכמה נוקבת בשם המשרד ולא ב"מתווך/ת מהאזור": הפרטים מגיעים לכאן,
+  // למשרד שבדף, ולא לרוטציה של הפלטפורמה
+  document.getElementById('buyConsentText').textContent =
+    `אשמח שמתווך/ת מ${agency.name} ייצור איתי קשר עם נכסים מתאימים`;
   // תיבת האזור נפתחת עם העיר שבה המשרד פועל — זה האזור שהמחפש/ת בא/ה בשבילו
   document.getElementById('buyArea').value = leadContext.city || '';
 
