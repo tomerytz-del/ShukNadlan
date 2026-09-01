@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>כל משרדי התיווך בשוק הנדל״ן</title>
+<meta name="description" content="נבחרת משרדי הנדל״ן המובילים בעפולה והסביבה — סינון לפי תחום התמחות, דירוגי לקוחות ומלאי נכסים עדכני, עם מעבר ישיר לוואטסאפ של המשרד.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="כל משרדי התיווך בשוק הנדל״ן">
+<meta property="og:description" content="נבחרת משרדי הנדל״ן המובילים בעפולה והסביבה — דירוגים, תחומי התמחות ומלאי נכסים עדכני.">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  /* אותה פלטה ואותם רכיבים כמו דף הבית: הרקע הזורם, הכותרת, הפוטר
+     ומשתני הצבע. מה שייחודי לעמוד הזה הוא סרגל הכלים (חיפוש, סינון, מיון
+     ותצוגה) וכרטיס המשרד. */
+  :root{
+    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
+    --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
+    --gold:#8B2332; --gold-dark:#6B1A26; --gold-tint:#F1DFE1;
+    --verified:#1B7A5A; --verified-tint:#E3F3EC;
+    --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --radius-2xl:24px;
+    --shadow:0 4px 20px rgba(15,52,53,.10); --shadow-sm:0 2px 8px rgba(15,52,53,.08);
+    --shadow-lift:0 18px 40px -18px rgba(6,20,34,.42);
+    --maxw:1180px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  [hidden]{display:none !important}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:'Heebo',sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;line-height:1.15;color:var(--teal-dark);margin:0}
+  a{color:inherit;text-decoration:none}
+  img{max-width:100%;display:block}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  input{font-family:inherit;font-size:1rem;min-width:0}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
+  .eyebrow{
+    font-size:.72rem;letter-spacing:.08em;font-weight:700;color:var(--gold-dark);
+    text-transform:uppercase;display:flex;align-items:center;gap:8px;justify-content:center;
+  }
+  .eyebrow::before{content:"";width:18px;height:2px;background:var(--gold-dark);display:inline-block}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:12px 22px;border-radius:999px;font-weight:700;font-size:.9rem;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn-teal{background:var(--teal);color:#fff}
+  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(23,73,74,.3)}
+  :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+  .skip-link{position:absolute;right:-999px;top:0;background:var(--teal);color:#fff;padding:10px 16px;z-index:200;border-radius:0 0 0 8px}
+  .skip-link:focus{right:0}
+  .sr-only{
+    position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+    overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;
+  }
+
+  /* ==========================================================================
+     הרקע הזורם של הדף — אותו רקע של דף הבית (ראו ".page-bg" ב-index.html)
+     --------------------------------------------------------------------------
+     שכבה קבועה (position:fixed) שיושבת מאחורי כל התוכן ולכן לא זזה עם
+     הגלילה: זוהר חמים־זהוב בפינה העליונה כמו שמש, קו רקיע עדין של העיר,
+     ומעליו גלי כחול־נייבי. הגלים נעים כל הזמן לרוחב באנימציית CSS, ובנוסף
+     מוסטים לפי הגלילה מ-JS (pageBgFlow) — כל שכבה בקצב אחר, ולכן הרקע נראה
+     זורם לאורך כל הדף.
+
+     הכל דקורטיבי בלבד: aria-hidden + pointer-events:none, ובמצב
+     prefers-reduced-motion התנועה נכבית לגמרי ונשאר רקע סטטי.
+
+     ‏z-index:-1 מציב את השכבה מתחת לכל תוכן הדף אבל מעל רקע ה-body, ולכן
+     ‎--paper‎ שעל ה-body נשאר רק כרשת ביטחון אם הדפדפן לא צייר את השכבה.
+     ========================================================================== */
+  .page-bg{
+    position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;
+    background:
+      radial-gradient(120% 78% at 74% -12%, rgba(250,201,124,.62) 0%, rgba(252,222,175,.34) 34%, rgba(248,250,252,0) 70%),
+      radial-gradient(100% 66% at 8% 2%, rgba(214,232,248,.90), rgba(248,250,252,0) 74%),
+      linear-gradient(180deg,#fdf8ef 0%,#f7fbfe 38%,#e4eefa 100%);
+  }
+  /* גרעין השמש — הילה חמה שנושמת לאט */
+  .bg-sun{
+    position:absolute;top:-110px;inset-inline-end:12%;width:min(58vw,480px);aspect-ratio:1;
+    border-radius:50%;
+    background:radial-gradient(circle,rgba(249,182,84,.52) 0%,rgba(251,208,136,.28) 40%,rgba(252,228,186,0) 70%);
+    animation:bgSun 16s ease-in-out infinite;
+  }
+  @keyframes bgSun{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.09);opacity:1}}
+
+  /* קו הרקיע: מגדלים ובתים בגוון כחול־אפור דהוי, יושב על "קו המים" של הגלים */
+  .bg-skyline{
+    position:absolute;left:0;right:0;bottom:18%;height:min(30vh,240px);
+    opacity:.16;will-change:transform;
+  }
+  .bg-skyline svg{display:block;width:100%;height:100%}
+
+  /* שכבת גל אחת: רוחב 300% = שלושה מחזורים, כדי שגם ההיסט מהגלילה וגם
+     האנימציה יוכלו להזיז אותה בלי לחשוף קצה */
+  .bg-wave{position:absolute;left:0;width:300%;will-change:transform}
+  .bg-wave svg{display:block;width:100%;height:100%}
+  /* -33.333% = בדיוק מחזור גל אחד, ולכן הלולאה חלקה ובלי קפיצה */
+  @keyframes bgDrift{from{transform:translate3d(0,0,0)}to{transform:translate3d(-33.3333%,0,0)}}
+  .bg-wave>svg{animation:bgDrift linear infinite}
+  .bg-wave-1{top:5%;height:min(30vh,250px);opacity:.55}
+  .bg-wave-1>svg{animation-duration:74s}
+  .bg-wave-2{top:30%;height:min(34vh,280px);opacity:.34}
+  .bg-wave-2>svg{animation-duration:52s;animation-direction:reverse}
+  .bg-wave-3{top:52%;height:min(36vh,300px);opacity:.24}
+  .bg-wave-3>svg{animation-duration:38s}
+  .bg-wave-4{bottom:-22%;height:min(46vh,380px);opacity:.14}
+  .bg-wave-4>svg{animation-duration:28s;animation-direction:reverse}
+
+  @media(prefers-reduced-motion:reduce){
+    .bg-sun,.bg-wave>svg{animation:none}
+  }
+
+  /* ====== Header ====== */
+  header.site{
+    position:sticky;top:0;z-index:100;background:var(--paper-raised);
+    border-bottom:1px solid var(--line);padding:12px 0;
+  }
+  .header-inner{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .logo{display:flex;align-items:center;gap:10px;min-width:0}
+  .logo-img{height:44px;width:44px;flex:0 0 auto;border-radius:50%}
+  .logo-word{
+    font-family:'Rubik','Heebo',sans-serif;font-weight:500;color:var(--teal-dark);
+    font-size:.8rem;line-height:1.3;letter-spacing:-.012em;min-width:0;text-align:center;
+  }
+  .logo-word span{color:var(--gold-dark);font-weight:700}
+  @media(min-width:900px){
+    .logo-img{height:52px;width:52px}
+    .logo-word{font-size:.95rem;white-space:nowrap}
+  }
+  .back-link{font-size:.85rem;font-weight:700;color:var(--teal);white-space:nowrap;border-bottom:1.5px solid var(--gold);padding-bottom:2px}
+
+  /* ====== Hero ====== */
+  .hero{text-align:center;padding:40px 0 22px}
+  .hero h1{font-size:1.75rem;margin-top:10px;text-wrap:balance}
+  @media(min-width:760px){.hero h1{font-size:2.5rem}}
+  .hero .lede{
+    font-size:.95rem;color:var(--ink-soft);margin:12px auto 0;max-width:56ch;text-wrap:balance;
+  }
+  @media(min-width:760px){.hero .lede{font-size:1.05rem}}
+
+  /* ====== סרגל הכלים: חיפוש, סינון, מיון ותצוגה ======
+     כרטיס אחד ולא ארבע שורות נפרדות: כל מה שמצמצם את הרשימה יושב יחד,
+     ומה שמשנה רק את הסידור (מיון/תצוגה) בשורה שמתחתיו — כדי שההבדל בין
+     "פחות תוצאות" ל"אותן תוצאות בסדר אחר" יהיה מובן ממבט. */
+  .toolbar{
+    background:rgba(255,255,255,.9);border:1px solid var(--line);border-radius:var(--radius-2xl);
+    box-shadow:var(--shadow-sm);padding:16px;display:flex;flex-direction:column;gap:14px;
+  }
+  @media(min-width:760px){.toolbar{padding:20px 22px}}
+
+  .search-box{position:relative;width:100%}
+  .search-box input{
+    width:100%;border:1.5px solid var(--line);border-radius:999px;
+    background:#fff;padding:13px 46px 13px 16px;font-size:.95rem;color:var(--ink);
+  }
+  .search-box input:focus{border-color:var(--teal)}
+  .search-box svg{
+    position:absolute;inset-inline-start:17px;top:50%;transform:translateY(-50%);
+    width:19px;height:19px;color:var(--ink-soft);pointer-events:none;
+  }
+
+  /* שורת פקדים: תווית קצרה ואחריה קבוצת כפתורים שנגללת אופקית במסך צר
+     במקום להישבר לארבע שורות */
+  .tool-row{display:flex;align-items:center;gap:10px;min-width:0}
+  .tool-label{
+    font-size:.74rem;font-weight:800;color:var(--ink-soft);white-space:nowrap;flex:0 0 auto;
+    letter-spacing:.02em;
+  }
+  .pill-group{
+    display:flex;gap:8px;flex:1 1 auto;min-width:0;overflow-x:auto;padding-bottom:2px;
+    scrollbar-width:none;-ms-overflow-style:none;
+  }
+  .pill-group::-webkit-scrollbar{display:none}
+  @media(min-width:900px){.pill-group{flex-wrap:wrap;overflow:visible}}
+  .pill{
+    flex:0 0 auto;background:#fff;border:1.5px solid var(--line);color:var(--ink-soft);
+    border-radius:999px;padding:8px 15px;font-size:.82rem;font-weight:700;white-space:nowrap;
+    transition:border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  .pill:hover{border-color:var(--teal);color:var(--teal-dark)}
+  .pill[aria-pressed="true"]{background:var(--teal);border-color:var(--teal);color:#fff}
+  /* המונה שעל הגלולה אומר כמה משרדים יישארו אחרי הלחיצה — סינון שמחזיר
+     אפס נראה כמו תקלה, ולכן עדיף לדעת לפני */
+  .pill .n{opacity:.62;font-weight:600;margin-inline-start:5px;font-size:.76em}
+  .pill[aria-pressed="true"] .n{opacity:.8}
+  .pill:disabled{opacity:.42;cursor:default}
+  .pill:disabled:hover{border-color:var(--line);color:var(--ink-soft)}
+
+  .tool-divider{height:1px;background:var(--line);opacity:.7;margin:0}
+
+  /* מתג התצוגה: שני מצבים על אותו מסלול, כמו מתג ולא כמו שני כפתורים */
+  .view-toggle{
+    display:flex;flex:0 0 auto;background:#fff;border:1.5px solid var(--line);
+    border-radius:999px;overflow:hidden;
+  }
+  .view-toggle button{
+    display:flex;align-items:center;gap:6px;padding:8px 14px;
+    font-size:.82rem;font-weight:700;color:var(--ink-soft);white-space:nowrap;
+  }
+  .view-toggle button svg{width:15px;height:15px}
+  .view-toggle button[aria-pressed="true"]{background:var(--teal);color:#fff}
+  .result-count{font-size:.82rem;color:var(--ink-soft);font-weight:600;min-height:1.2em}
+
+  /* בדסקטופ המיון והתצוגה חולקים שורה: המיון נמתח, והמתג נצמד לקצה */
+  @media(min-width:900px){
+    .tool-row.sort-row{flex-wrap:nowrap}
+    .tool-row.sort-row .view-toggle{margin-inline-start:auto}
+  }
+
+  /* ====== הגריד ====== */
+  .grid{
+    display:grid;grid-template-columns:1fr;gap:18px;padding:22px 0 10px;
+  }
+  @media(min-width:620px){.grid{grid-template-columns:repeat(2,1fr)}}
+  @media(min-width:980px){.grid{grid-template-columns:repeat(3,1fr)}}
+
+  /* ====== כרטיס משרד ======
+     שלושה חלקים: תצוגה מקדימה של נכסי המשרד (עם הלוגו, הבאדג'ים והמונה
+     שיושבים עליה), גוף עם הזהות והדירוג, ורגל עם הפעולות. הכרטיס כולו הוא
+     ‎grid‎ בשלוש שורות כדי שהרגל תיצמד לתחתית גם כשהגוף קצר יותר משכניו. */
+  .ag-card{
+    display:grid;grid-template-rows:auto 1fr auto;
+    background:#fff;border:1px solid var(--line);border-radius:var(--radius-2xl);
+    overflow:hidden;box-shadow:var(--shadow-sm);
+    transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  }
+  .ag-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lift);border-color:#B9C6D4}
+  .ag-card:focus-within{border-color:var(--teal)}
+
+  /* ---- ראש הכרטיס: גלריית נכסים ---- */
+  .ag-media{position:relative;height:170px;background:var(--teal-tint)}
+  /* עד שלוש תמונות: הראשונה גדולה ושתיים לצדה בטור. עם שתיים — חצי־חצי,
+     עם אחת — מלוא הרוחב. הפריסה נקבעת ממחלקה כדי שלא יישאר תא ריק. */
+  .ag-shots{display:grid;gap:2px;height:100%}
+  .ag-shots[data-n="1"]{grid-template-columns:1fr}
+  .ag-shots[data-n="2"]{grid-template-columns:1fr 1fr}
+  .ag-shots[data-n="3"]{grid-template-columns:2fr 1fr;grid-template-rows:1fr 1fr}
+  .ag-shots[data-n="3"] .shot:first-child{grid-row:1 / span 2}
+  .shot{background-size:cover;background-position:center;background-color:var(--teal-tint)}
+  /* אין לנכסי המשרד תמונות — אותו איור ממלא־מקום של אריחי הנכסים באתר,
+     בלי הכיתוב הקטן שלא נקרא בגובה הזה */
+  .ag-shots.is-empty{
+    background:
+      linear-gradient(180deg,rgba(255,255,255,.5),rgba(255,255,255,.24) 55%,rgba(255,255,255,.44)),
+      url('assets/property-placeholder.jpg') center/cover no-repeat,
+      linear-gradient(160deg,#F4F3F0 0%,#E0E7ED 100%);
+  }
+  /* צעיף כהה בתחתית התמונות: הלוגו והמונה יושבים עליהן, ובלעדיו הם נבלעים
+     בתמונה בהירה */
+  .ag-media::after{
+    content:"";position:absolute;inset:auto 0 0 0;height:62%;pointer-events:none;
+    background:linear-gradient(180deg,rgba(6,20,34,0) 0%,rgba(6,20,34,.52) 100%);
+  }
+
+  .ag-media > .ag-overlay{position:absolute;z-index:2}
+  /* ריבוע הלוגו נכנס 18px לתוך גוף הכרטיס, ולכן הוא ה"תפר" שמחבר בין
+     התמונות לטקסט במקום קו הפרדה */
+  .ag-logo-badge{
+    inset-block-end:-18px;inset-inline-start:16px;
+    width:62px;height:62px;border-radius:16px;background:#fff;
+    border:1px solid var(--line);box-shadow:0 6px 18px rgba(6,20,34,.24);
+    display:flex;align-items:center;justify-content:center;overflow:hidden;
+  }
+  .ag-logo-badge img{width:100%;height:100%;object-fit:contain;padding:6px}
+  .ag-logo-badge .initial{
+    font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.6rem;line-height:1;
+    color:#fff;width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(155deg,var(--gold),var(--teal) 65%);
+  }
+  /* מונה הנכסים הוא הסיבה המרכזית להיכנס לעמוד משרד, ולכן הוא תג מלא
+     ולא כיתוב על הצעיף: תמונת נכס בהירה (או איור ממלא-המקום, שבהיר במיוחד)
+     בלעה טקסט לבן גם עם צל, וזה בדיוק המספר שאסור שיהיה קשה לקריאה. */
+  .ag-count{
+    inset-block-end:12px;inset-inline-end:16px;
+    display:inline-flex;align-items:baseline;gap:4px;
+    background:rgba(18,40,64,.92);color:#fff;
+    font-weight:700;font-size:.76rem;padding:5px 11px;border-radius:999px;
+    box-shadow:0 2px 10px rgba(6,20,34,.3);
+  }
+  .ag-count b{font-family:'Frank Ruhl Libre',serif;font-size:1.02rem;font-weight:700}
+  .ag-verified{
+    inset-block-start:12px;inset-inline-start:12px;
+    display:inline-flex;align-items:center;gap:5px;
+    background:var(--verified-tint);color:var(--verified);
+    font-size:.68rem;font-weight:800;padding:4px 10px;border-radius:999px;
+    box-shadow:0 2px 8px rgba(6,20,34,.2);
+  }
+  .ag-verified svg{width:12px;height:12px}
+  .ag-rank{
+    inset-block-start:12px;inset-inline-end:12px;
+    background:rgba(255,255,255,.94);color:var(--gold-dark);
+    font-size:.7rem;font-weight:800;padding:3px 10px;border-radius:999px;
+    box-shadow:0 2px 6px rgba(6,20,34,.22);
+  }
+
+  /* ---- גוף הכרטיס ---- */
+  /* הריפוד העליון פנוי ללוגו שנכנס מלמעלה; מ-620px ומעלה הלוגו נשאר
+     באותו מקום, ולכן הריפוד לא משתנה */
+  .ag-body{padding:26px 16px 14px;display:flex;flex-direction:column;gap:7px}
+  .ag-name{
+    font-family:'Heebo',sans-serif;font-size:1.08rem;font-weight:800;color:var(--ink);line-height:1.3;
+  }
+  .ag-tagline{
+    font-size:.8rem;color:var(--ink-soft);
+    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .ag-meta{display:flex;align-items:center;gap:6px;font-size:.84rem;color:var(--ink-soft)}
+  /* אותו כוכב צהוב של כרטיסי דף הבית — משרד ומתווך/ת הם שני סוגי דירוג
+     בפלטפורמה אחת, ואין סיבה שייראו כמו שתי מערכות */
+  .ag-meta .star{color:#FFD34D}
+  .ag-meta .score{font-weight:800;color:var(--ink)}
+  .ag-meta svg{width:14px;height:14px;flex:0 0 auto;color:var(--gold-dark)}
+  .ag-meta .txt{
+    min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  /* צ'יפים של תחומי התמחות ואזורים: אפור־כחלחל שקט, כדי שלא יתחרו בשם
+     המשרד ובדירוג שמעליהם */
+  .ag-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+  .ag-chip{
+    background:#EEF3F8;border:1px solid #DCE6EF;color:#3D5773;
+    font-size:.7rem;font-weight:700;padding:3px 9px;border-radius:7px;
+  }
+  .ag-chip.area{background:#F5F4F1;border-color:#E4E2DC;color:#5B5F63}
+
+  /* ---- רגל הכרטיס ---- */
+  .ag-actions{
+    display:flex;gap:8px;padding:12px 16px 16px;border-top:1px solid #EEF1F4;margin-top:4px;
+  }
+  .ag-cta{
+    flex:1 1 auto;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    background:var(--teal);color:#fff;border-radius:12px;padding:11px 12px;
+    font-size:.85rem;font-weight:700;transition:background .15s ease;
+  }
+  .ag-cta:hover{background:var(--teal-dark)}
+  .ag-cta.is-static{background:#EDF0F3;color:var(--ink-soft);cursor:default}
+  /* כפתורי הקשר הם אייקון בלבד: הם משניים לכניסה לעמוד המשרד, ושורה של
+     שלושה כפתורי טקסט ברוחב כרטיס אחד לא נושמת */
+  .ag-icon-btn{
+    flex:0 0 auto;width:44px;height:44px;border-radius:12px;
+    display:inline-flex;align-items:center;justify-content:center;
+    border:1.5px solid var(--line);background:#fff;color:var(--ink-soft);
+    transition:border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  .ag-icon-btn svg{width:20px;height:20px;fill:currentColor}
+  .ag-icon-btn.wa:hover{border-color:#25D366;color:#128C4A;background:#EAFBF1}
+  .ag-icon-btn.tel:hover{border-color:var(--teal);color:var(--teal);background:var(--teal-tint)}
+
+  /* ====== תצוגת מפה ======
+     המשרדים עצמם חסרי קואורדינטות; הסימון נגזר ממרכז הכובד של הנכסים
+     הפעילים שלהם (ראו agencyCentroid). לכן הפין אומר "כאן מרוכזת הפעילות
+     של המשרד" ולא "כאן שוכן המשרד", והכיתוב שמעל המפה אומר בדיוק את זה. */
+  .map-panel{padding:22px 0 10px}
+  .map-note{font-size:.8rem;color:var(--ink-soft);margin:0 0 10px}
+  #agenciesMap{
+    height:min(70vh,560px);border-radius:var(--radius-2xl);
+    border:1px solid var(--line);box-shadow:var(--shadow-sm);overflow:hidden;z-index:0;
+  }
+  .map-pin{
+    background:var(--teal);color:#fff;font-size:.72rem;font-weight:800;
+    padding:5px 10px;border-radius:999px;white-space:nowrap;
+    box-shadow:0 3px 10px rgba(6,20,34,.35);border:1.5px solid #fff;
+    transform:translate(50%,-50%);
+  }
+  .map-pop{text-align:right;font-family:'Heebo',sans-serif;min-width:172px}
+  .map-pop .n{font-weight:800;font-size:.95rem;color:var(--teal-dark);margin-bottom:2px}
+  .map-pop .s{font-size:.78rem;color:var(--ink-soft)}
+  .map-pop a{
+    display:inline-block;margin-top:8px;font-weight:700;font-size:.8rem;color:var(--teal);
+    border-bottom:1.5px solid var(--gold);
+  }
+
+  .state{padding:56px 18px;text-align:center;color:var(--ink-soft);font-size:.92rem}
+  .state h2{font-size:1.2rem;margin-bottom:8px}
+
+  /* ====== הזמנה להצטרפות, בתחתית הרשימה ====== */
+  /* לבן חלקית ולא ‎--paper-raised‎ אטום, כמו ‎.card‎ בדף הבית: כך הרקע
+     הזורם מבצבץ גם מתחת לבמה הזו במקום להיחתך בה כמלבן אפור. */
+  .join-band{
+    background:rgba(255,255,255,.88);border:1px solid var(--line);border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-sm);text-align:center;padding:30px 20px;margin-top:26px;
+  }
+  .join-band h2{font-size:1.3rem}
+  .join-band p{font-size:.9rem;color:var(--ink-soft);margin:10px auto 18px;max-width:46ch}
+
+  /* ====== Footer (זהה לדף הבית) ====== */
+  footer.site{background:var(--teal-dark);color:#CFE1DF;padding:38px 0 22px;margin-top:44px}
+  .footer-grid{display:grid;grid-template-columns:1fr;gap:26px}
+  .footer-col h4{color:#fff;font-size:.85rem;margin-bottom:10px}
+  .footer-col a{display:block;font-size:.82rem;color:#AFC7C4;padding:4px 0}
+  .footer-col a:hover{color:#fff}
+  .footer-bottom{
+    border-top:1px solid rgba(255,255,255,.12);margin-top:26px;padding-top:16px;
+    font-size:.72rem;color:#8FADA9;display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;
+  }
+  @media(min-width:760px){.footer-grid{grid-template-columns:repeat(4,1fr)}}
+</style>
+</head>
+<body>
+
+<a href="#main" class="skip-link">דילוג לתוכן</a>
+
+<!-- ---------- הרקע הזורם ----------
+     עיטור בלבד (aria-hidden): שמש חמה, קו רקיע של העיר וארבע שכבות גלים.
+     הגלים נעים לרוחב לבד, ו-pageBgFlow() מוסיף להם היסט לפי הגלילה —
+     כל שכבה בקצב אחר, ולכן הרקע זורם לאורך כל הדף. זהה לזה שבדף הבית. -->
+<div class="page-bg" id="pageBg" aria-hidden="true">
+  <span class="bg-sun"></span>
+
+  <!-- קו הרקיע: מגדלים ובתים צמודים לתחתית האלמנט, ובסיסם מכוסה בגל
+       התחתון. slice ולא meet — במסך צר עדיף להתקרב לכמה בניינים גדולים
+       ורכים מאשר לרסק עיר שלמה לרצועת פסים זעירה. -->
+  <div class="bg-skyline" data-kx="0" data-ky="22">
+    <svg viewBox="0 0 1440 220" preserveAspectRatio="xMidYMax slice">
+      <defs>
+        <linearGradient id="bgSkyGrad" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#7ea6cd"/>
+          <stop offset="100%" stop-color="#1C3A5E"/>
+        </linearGradient>
+      </defs>
+      <g fill="url(#bgSkyGrad)">
+        <!-- מגדלים -->
+        <rect x="40"   y="120" width="64" height="100" rx="4"/>
+        <rect x="112"  y="86"  width="52" height="134" rx="4"/>
+        <rect x="172"  y="140" width="70" height="80"  rx="4"/>
+        <rect x="340"  y="100" width="58" height="120" rx="4"/>
+        <rect x="406"  y="58"  width="74" height="162" rx="5"/>
+        <rect x="440"  y="26"  width="5"  height="34"/>
+        <rect x="488"  y="132" width="62" height="88"  rx="4"/>
+        <rect x="640"  y="110" width="66" height="110" rx="4"/>
+        <rect x="714"  y="74"  width="58" height="146" rx="4"/>
+        <rect x="780"  y="146" width="74" height="74"  rx="4"/>
+        <rect x="956"  y="118" width="60" height="102" rx="4"/>
+        <rect x="1024" y="84"  width="70" height="136" rx="4"/>
+        <rect x="1102" y="150" width="66" height="70"  rx="4"/>
+        <rect x="1266" y="112" width="62" height="108" rx="4"/>
+        <rect x="1336" y="142" width="64" height="78"  rx="4"/>
+        <!-- בתים פרטיים עם גג משופע -->
+        <path d="M250 220v-56l40-32 40 32v56z"/>
+        <path d="M558 220v-50l36-30 36 30v50z"/>
+        <path d="M866 220v-58l42-34 42 34v58z"/>
+        <path d="M1180 220v-52l38-30 38 30v52z"/>
+      </g>
+    </svg>
+  </div>
+
+  <div class="bg-wave bg-wave-1" data-kx="0.10" data-ky="18">
+    <svg viewBox="0 0 2160 320" preserveAspectRatio="none">
+      <defs><linearGradient id="bgWave1" x1="0" y1="0" x2=".3" y2="1">
+        <stop offset="0%" stop-color="#eef5fc"/>
+        <stop offset="55%" stop-color="#d7e7f7" stop-opacity=".6"/>
+        <stop offset="100%" stop-color="#cfe2f4" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path fill="url(#bgWave1)" d="M0,160 C120,205 240,205 360,160 C480,115 600,115 720,160 C840,205 960,205 1080,160 C1200,115 1320,115 1440,160 C1560,205 1680,205 1800,160 C1920,115 2040,115 2160,160 L2160,320 L0,320 Z"/>
+    </svg>
+  </div>
+
+  <div class="bg-wave bg-wave-2" data-kx="0.17" data-ky="-24">
+    <svg viewBox="0 0 2160 320" preserveAspectRatio="none">
+      <defs><linearGradient id="bgWave2" x1="0" y1="0" x2=".35" y2="1">
+        <stop offset="0%" stop-color="#d5e7f7"/>
+        <stop offset="55%" stop-color="#a9cbe8" stop-opacity=".6"/>
+        <stop offset="100%" stop-color="#9dc4e6" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path fill="url(#bgWave2)" d="M0,160 C120,80 240,80 360,160 C480,240 600,240 720,160 C840,80 960,80 1080,160 C1200,240 1320,240 1440,160 C1560,80 1680,80 1800,160 C1920,240 2040,240 2160,160 L2160,320 L0,320 Z"/>
+    </svg>
+  </div>
+
+  <div class="bg-wave bg-wave-3" data-kx="0.26" data-ky="30">
+    <svg viewBox="0 0 2160 320" preserveAspectRatio="none">
+      <defs><linearGradient id="bgWave3" x1="0" y1="0" x2=".35" y2="1">
+        <stop offset="0%" stop-color="#8fbadf"/>
+        <stop offset="55%" stop-color="#5b90c0" stop-opacity=".6"/>
+        <stop offset="100%" stop-color="#3c74a8" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path fill="url(#bgWave3)" d="M0,160 C120,205 240,205 360,160 C480,115 600,115 720,160 C840,205 960,205 1080,160 C1200,115 1320,115 1440,160 C1560,205 1680,205 1800,160 C1920,115 2040,115 2160,160 L2160,320 L0,320 Z"/>
+    </svg>
+  </div>
+
+  <div class="bg-wave bg-wave-4" data-kx="0.38" data-ky="-40">
+    <svg viewBox="0 0 2160 320" preserveAspectRatio="none">
+      <defs><linearGradient id="bgWave4" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0%" stop-color="#2c5a8c"/><stop offset="100%" stop-color="#1C3A5E"/>
+      </linearGradient></defs>
+      <path fill="url(#bgWave4)" d="M0,160 C120,80 240,80 360,160 C480,240 600,240 720,160 C840,80 960,80 1080,160 C1200,240 1320,240 1440,160 C1560,80 1680,80 1800,160 C1920,240 2040,240 2160,160 L2160,320 L0,320 Z"/>
+    </svg>
+  </div>
+</div>
+
+<header class="site">
+  <div class="wrap header-inner">
+    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+      <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256">
+      <span class="logo-word">מרקטפלייס הנדל״ן של <span>עפולה והסביבה</span></span>
+    </a>
+    <a href="index.html" class="back-link">← לדף הבית</a>
+  </div>
+</header>
+
+<main id="main">
+  <div class="wrap">
+
+    <div class="hero">
+      <p class="eyebrow">משרדי תיווך</p>
+      <h1>נבחרת משרדי הנדל״ן המובילים בעפולה והסביבה</h1>
+      <p class="lede">אתרו משרד מומחה לפי אזור התמחות, דירוגים ומלאי נכסים עדכני</p>
+    </div>
+
+    <!-- ====== סרגל חיפוש, סינון, מיון ותצוגה ====== -->
+    <div class="toolbar" id="toolbar" hidden>
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>
+        </svg>
+        <input type="search" id="agencySearch" placeholder="חיפוש לפי שם משרד או שכונה…"
+               aria-label="חיפוש לפי שם משרד או שכונה" autocomplete="off">
+      </div>
+
+      <div class="tool-row">
+        <span class="tool-label" id="specLabel">התמחות</span>
+        <div class="pill-group" id="specPills" role="group" aria-labelledby="specLabel"></div>
+      </div>
+
+      <hr class="tool-divider">
+
+      <div class="tool-row sort-row">
+        <span class="tool-label" id="sortLabel">מיון</span>
+        <div class="pill-group" id="sortPills" role="group" aria-labelledby="sortLabel"></div>
+        <div class="view-toggle" role="group" aria-label="תצוגה">
+          <button type="button" id="viewGridBtn" aria-pressed="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+              <rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/>
+              <rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/>
+            </svg>רשת
+          </button>
+          <button type="button" id="viewMapBtn" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M9 3 3 5.5v15L9 18l6 3 6-2.5v-15L15 6 9 3Z"/><path d="M9 3v15M15 6v15"/>
+            </svg>מפה
+          </button>
+        </div>
+      </div>
+
+      <p class="result-count" id="resultCount" aria-live="polite"></p>
+    </div>
+
+    <div class="state" id="loadingState">טוען את רשימת המשרדים…</div>
+
+    <div class="state" id="emptyState" hidden>
+      <h2>אין כאן משרדים עדיין</h2>
+      <p>הפלטפורמה בהרצה. בינתיים אפשר לחזור לדף הבית ולראות מה חדש בשוק.</p>
+      <a href="index.html" class="btn btn-teal" style="margin-top:16px">לדף הבית</a>
+    </div>
+
+    <div class="state" id="noResultsState" hidden>
+      <h2>לא נמצא משרד מתאים</h2>
+      <p>נסו שם אחר, שכונה אחרת, או בחרו "הכל" בסרגל ההתמחות.</p>
+    </div>
+
+    <div class="grid" id="agenciesGrid"></div>
+
+    <div class="map-panel" id="mapPanel" hidden>
+      <p class="map-note" id="mapNote"></p>
+      <div id="agenciesMap" role="region" aria-label="מפת אזורי הפעילות של משרדי התיווך"></div>
+    </div>
+
+    <section class="join-band" id="joinBand" hidden>
+      <h2>מנהלים משרד תיווך בעפולה?</h2>
+      <p>הצטרפו לפלטפורמה, קבלו עמוד משרד משלכם, פרסמו את הנכסים שלכם ואספו ביקורות מלקוחות.</p>
+      <a href="agency-signup.html" class="btn btn-teal">הצטרפות כמשרד תיווך</a>
+    </section>
+  </div>
+</main>
+
+<footer class="site">
+  <div class="wrap footer-grid">
+    <div class="footer-col">
+      <h4>שוק נדל״ן</h4>
+      <a href="index.html">דף הבית</a>
+      <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
+      <a href="professional-signup.html">הצטרפות כבעל מקצוע</a>
+    </div>
+    <div class="footer-col">
+      <h4>נכסים</h4>
+      <a href="index.html#listings">כל הנכסים</a>
+      <a href="index.html#commercialProps">נכסים מסחריים</a>
+      <a href="agencies.html">כל משרדי התיווך</a>
+    </div>
+    <div class="footer-col">
+      <h4>כלים</h4>
+      <a href="articles.html">כתבות ובלוגים</a>
+      <a href="index.html#calc">מחשבון משכנתא</a>
+      <a href="index.html#pros">בעלי מקצוע</a>
+    </div>
+    <div class="footer-col">
+      <h4>המגזין</h4>
+      <a href="articles.html">כל הכתבות</a>
+      <a href="index.html#articles">הכתבות האחרונות</a>
+    </div>
+  </div>
+  <div class="wrap footer-bottom">
+    <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
+    <span>העסקה הבאה שלך בעפולה מתחילה בשוק הנדל״ן.</span>
+  </div>
+</footer>
+
+<script>
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+
+/* ---------- הרקע הזורם של הדף ----------
+   כל שכבה ב-#pageBg נושאת data-kx (קצב ההיסט האופקי ביחס לגלילה) ו-data-ky
+   (משרעת הנדנוד האנכי בפיקסלים).
+
+   האופקי מקבל ווראפ ברוחב החלון: שם בדיוק נגמר מחזור גל אחד ב-SVG, ולכן
+   הקפיצה בלתי נראית והזרימה נמשכת גם בדף ארוך מאוד. האנכי רץ על סינוס
+   מאותה סיבה — הוא עולה ויורד לאורך הדף במקום לברוח מהמסך.
+
+   העדכון עצמו יושב ב-requestAnimationFrame אחד לפריים (bgFlowTicking), כדי
+   שאירועי הגלילה לא ייצרו עבודה מיותרת. זהה ל-pageBgFlow שבדף הבית, פרט
+   ל"עצירת אנימציות" של תפריט הנגישות — אין תפריט כזה בעמוד הזה. */
+const bgFlowLayers = [...document.querySelectorAll('#pageBg [data-kx]')];
+const bgFlowReduceMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
+let bgFlowTicking = false;
+
+function pageBgFlow(){
+  bgFlowTicking = false;
+  if (bgFlowReduceMQ.matches){
+    bgFlowLayers.forEach(el=>{ el.style.transform = ''; });
+    return;
+  }
+  const w = window.innerWidth || 1;
+  const y = window.pageYOffset || 0;
+  bgFlowLayers.forEach(el=>{
+    const kx = parseFloat(el.dataset.kx) || 0;
+    const ky = parseFloat(el.dataset.ky) || 0;
+    const x = kx ? -((((y * kx) % w) + w) % w) : 0;
+    const dy = ky ? Math.sin(y / 620) * ky : 0;
+    el.style.transform = `translate3d(${x.toFixed(1)}px,${dy.toFixed(1)}px,0)`;
+  });
+}
+
+function requestPageBgFlow(){
+  if (bgFlowTicking) return;
+  bgFlowTicking = true;
+  requestAnimationFrame(pageBgFlow);
+}
+
+if (bgFlowLayers.length){
+  window.addEventListener('scroll', requestPageBgFlow, { passive:true });
+  window.addEventListener('resize', requestPageBgFlow);
+  pageBgFlow();
+}
+
+/* ============================================================================
+   עזרי בטיחות ותצוגה
+   ============================================================================ */
+const el = id => document.getElementById(id);
+function escapeHtml(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
+}
+/* כתובת תמונה שמגיעה מקלט של משרדים ונכנסת ל-src/‏background-image:
+   רק http(s), אחרת מוותרים על התמונה. */
+function safeUrl(u){
+  if (!u) return '';
+  try{
+    const url = new URL(String(u), location.href);
+    return /^https?:$/.test(url.protocol) ? url.href : '';
+  } catch(e){ return ''; }
+}
+/* ‏phone_e164 שמור כספרות בלבד (972521112222) — בדיוק מה ש-wa.me ו-tel:
+   מצפים לו. הבדיקה היא גם שער אבטחה: המספר נכנס ל-href. */
+const PHONE_RE = /^\d{9,15}$/;
+const hasPhone = m => PHONE_RE.test(String(m && m.phone_e164 || ''));
+
+const ICON = {
+  wa: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>',
+  tel: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.2.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.2 1l-2.3 2.2Z"></path></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>',
+  pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/></svg>',
+};
+
+/* קישור וואטסאפ עם פתיח שכבר מספר מאיפה הפנייה הגיעה — אותו נוסח שבעמוד
+   המשרד, כדי שהמשרד יזהה את המקור באותה צורה משני המסלולים. */
+function waLink(phone, agencyName){
+  const text = [
+    'היי,',
+    `הגעתי דרך רשימת משרדי התיווך בשוק הנדל״ן של עפולה והסביבה ואשמח לקבל פרטים מ${agencyName}.`,
+    window.location.href,
+  ].join('\n');
+  return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
+}
+
+/* ============================================================================
+   תחומי התמחות
+   ----------------------------------------------------------------------------
+   הפלטפורמה לא שואלת משרד "במה אתה מתמחה", ועמודת specialties ריקה כמעט
+   אצל כולם. לכן ההתמחות נגזרת מהמלאי הפעיל בפועל: משרד "מתמחה" בתחום אם
+   יש לו בו לפחות נכס פעיל אחד. זה גם מה שהופך את הגלולות לשימושיות —
+   הן מסננות לפי מה שבאמת אפשר למצוא אצל המשרד היום ולא לפי הצהרה.
+   ============================================================================ */
+const LAND_TYPES = new Set(['מגרש','מגרשים','משק חקלאי/נחלה','משק עזר','קרקע חקלאית']);
+/* פרויקט חדש = נכס שנושא סטטוס פרויקט כלשהו (בתכנון/בבנייה/אכלוס) */
+const SPECS = [
+  { key:'all',         label:'הכל',              match:()=> true },
+  { key:'commercial',  label:'נדל״ן מסחרי',      match:p => p.category === 'commercial' && !LAND_TYPES.has(p.property_type) },
+  { key:'residential', label:'דירות מגורים',     match:p => p.category !== 'commercial' && !LAND_TYPES.has(p.property_type) },
+  { key:'land',        label:'קרקעות ומשקים',    match:p => LAND_TYPES.has(p.property_type) },
+  { key:'projects',    label:'פרויקטים חדשים',   match:p => !!p.project_status },
+];
+const SPEC_BY_KEY = Object.fromEntries(SPECS.map(s => [s.key, s]));
+
+const SORTS = [
+  { key:'properties', label:'מספר נכסים' },
+  { key:'rating',     label:'דירוג ביקורות' },
+  { key:'name',       label:'א׳–ב׳' },
+];
+
+/* ============================================================================
+   נתוני דמה — 6 משרדים
+   ----------------------------------------------------------------------------
+   אותה מדיניות של FALLBACK_PROPERTIES בדף הבית: תוכן הדגמה נכנס רק כשה-DB
+   לא זמין או מחזיר ריק, כדי שהעמוד לא ייראה שבור בהדגמה או במצב לא מקוון.
+   המבנה זהה למה ש-shapeAgency מחזיר, ולכן שאר הקוד לא מבחין ביניהם.
+   ============================================================================ */
+const FALLBACK_AGENCIES = [
+  { id:'f1', name:'נדל״ן עפולה', slug:'nadlan-afula', logo_url:null, tagline:'חיפשתם נכס, מצאתם בית',
+    score:92, rating:4.9, reviews_count:18, active_properties_count:54, verified:true,
+    photos:[], specs:['commercial','residential','land'], areas:['עפולה','מרכז העיר','רובע יזרעאל'],
+    phone:null, lat:32.6078, lng:35.2897 },
+  { id:'f2', name:'משרד תיווך העמק', slug:'emek-realty', logo_url:null, tagline:'הבית שלכם בעמק יזרעאל',
+    score:81, rating:4.6, reviews_count:11, active_properties_count:23, verified:true,
+    photos:[], specs:['residential','projects'], areas:['עפולה','רמת דוד','נהלל'],
+    phone:null, lat:32.6120, lng:35.2810 },
+  { id:'f3', name:'בית ונחלה', slug:'bait-venachala', logo_url:null, tagline:'מומחים בבתים פרטיים ונחלות',
+    score:74, rating:4.8, reviews_count:7, active_properties_count:16, verified:true,
+    photos:[], specs:['residential','land'], areas:['גבעת המורה','כפר תבור','דברת'],
+    phone:null, lat:32.6015, lng:35.3005 },
+  { id:'f4', name:'נדל״ן גלבוע', slug:'gilboa-nadlan', logo_url:null, tagline:'מסחרי ועסקים בעמק',
+    score:68, rating:4.4, reviews_count:9, active_properties_count:12, verified:false,
+    photos:[], specs:['commercial'], areas:['עפולה עילית','אזור התעשייה'],
+    phone:null, lat:32.5985, lng:35.2930 },
+  { id:'f5', name:'אופק נכסים', slug:'ofek-nechasim', logo_url:null, tagline:'פרויקטים חדשים מקבלן',
+    score:null, rating:null, reviews_count:0, active_properties_count:8, verified:false,
+    photos:[], specs:['projects','residential'], areas:['רובע יזרעאל','שכונת הפועל'],
+    phone:null, lat:32.6155, lng:35.2960 },
+  { id:'f6', name:'מרכז הנדל״ן עמק המעיינות', slug:'maayanot-nadlan', logo_url:null, tagline:null,
+    score:null, rating:null, reviews_count:0, active_properties_count:5, verified:false,
+    photos:[], specs:['residential'], areas:['בית שאן','מעלה גלבוע'],
+    phone:null, lat:32.5960, lng:35.2870 },
+];
+
+/* ============================================================================
+   מצב התצוגה
+   ============================================================================ */
+let agencies = [];
+let activeSpec = 'all';
+let sortMode = 'properties';
+let query = '';
+let view = 'grid';          // 'grid' | 'map'
+
+/* סדר ה"דירוג" זהה לקרוסלה בדף הבית, כדי ש"#1" כאן יהיה "#1" שם:
+   המדורגים תחילה לפי הציון המשוקלל, ואחריהם מי שטרם דורג — לפי מספר
+   הנכסים הפעילים ואז לפי שם. */
+const byName = (x, y) => String(x.name || '').localeCompare(String(y.name || ''), 'he');
+function byRank(x, y){
+  if (x.score !== null && y.score === null) return -1;
+  if (x.score === null && y.score !== null) return 1;
+  if (x.score !== null && y.score !== null && y.score !== x.score) return y.score - x.score;
+  return y.active_properties_count - x.active_properties_count || byName(x, y);
+}
+const COMPARE = {
+  properties: (x, y) => y.active_properties_count - x.active_properties_count || byName(x, y),
+  // משרד בלי ביקורות יורד לתחתית במיון לפי דירוג במקום להיחשב כאפס כוכבים
+  rating: (x, y) => (y.rating ?? -1) - (x.rating ?? -1) || y.reviews_count - x.reviews_count || byName(x, y),
+  name: byName,
+};
+
+/* תג ה-#1..#3 שייך לדירוג ולא למקום ברשימה: הוא נקבע פעם אחת לפי סדר
+   הדירוג ונשמר על המשרד, כדי שמיון לפי שם או סינון לא יעניקו "#1" למי
+   שפשוט יצא ראשון בתצוגה הנוכחית. */
+function assignRankBadges(list){
+  [...list].sort(byRank).forEach((a, i)=>{ a.rankBadge = (i < 3 && a.score !== null) ? i + 1 : null; });
+}
+
+/* החיפוש נוגע בשם המשרד *ובאזורים שלו*, כי זו ההבטחה שבתיבה עצמה
+   ("שם משרד או שכונה"). הסינון מקומי — הרשימה נטענת במלואה, ואין סיבה
+   לפנות לשרת בכל הקלדה. */
+function matchesQuery(a, q){
+  if (!q) return true;
+  return [a.name, a.tagline, ...a.areas].some(v => String(v || '').toLowerCase().includes(q));
+}
+const matchesSpec = (a, spec) => spec === 'all' || a.specs.includes(spec);
+
+function visibleAgencies(){
+  const q = query.trim().toLowerCase();
+  return agencies
+    .filter(a => matchesSpec(a, activeSpec) && matchesQuery(a, q))
+    .sort(COMPARE[sortMode]);
+}
+
+/* ============================================================================
+   רכיב הכרטיס
+   ============================================================================ */
+function agencyCardHtml(a){
+  const name = a.name || 'משרד תיווך';
+  // agency.html מאתר משרד לפי slug בלבד; בלי slug אין לאן לקשר, ולכן
+  // הכפתור נשאר טקסט ולא הופך לקישור שמוביל לעמוד ריק.
+  const href = a.slug ? 'agency.html?slug=' + encodeURIComponent(a.slug) : null;
+
+  const shots = a.photos.slice(0, 3);
+  const media = shots.length
+    ? `<div class="ag-shots" data-n="${shots.length}">${
+        shots.map(u => `<span class="shot" style="background-image:url('${escapeHtml(u)}')"></span>`).join('')
+      }</div>`
+    : '<div class="ag-shots is-empty" data-n="1"></div>';
+
+  const verified = a.verified
+    ? `<span class="ag-overlay ag-verified" title="המשרד חתום על האמנה האתית של שוק הנדל״ן">${ICON.check} משרד מאומת</span>`
+    : '';
+  const rank = a.rankBadge ? `<span class="ag-overlay ag-rank">#${a.rankBadge}</span>` : '';
+
+  const logo = safeUrl(a.logo_url);
+  const logoBadge = `<span class="ag-overlay ag-logo-badge">${
+    logo
+      ? `<img src="${escapeHtml(logo)}" alt="${escapeHtml(name)}" loading="lazy">`
+      : `<span class="initial" aria-hidden="true">${escapeHtml(name.trim()[0] || 'מ')}</span>`
+  }</span>`;
+
+  const propsLabel = a.active_properties_count === 1 ? 'נכס פעיל' : 'נכסים פעילים';
+  const rating = a.rating !== null
+    ? `<span class="star" aria-hidden="true">★</span>
+       <span class="score">${a.rating.toFixed(1).replace(/\.0$/, '')}</span>
+       <span class="txt">(${a.reviews_count === 1 ? 'ביקורת אחת' : a.reviews_count + ' ביקורות'})</span>`
+    : '<span class="txt">טרם התקבלו ביקורות</span>';
+
+  // תחומי ההתמחות קודם, ואחריהם עד שני אזורים: התחום עונה על "מה הוא
+  // עושה" והאזור על "איפה". חמישה צ'יפים הם התקרה שכרטיס בעמודה של
+  // שליש מסך מחזיק בשתי שורות — מעבר לזה הם מתחילים לדחוק את הפעולות.
+  const specChips = a.specs.slice(0, 3)
+    .map(k => SPEC_BY_KEY[k]?.label).filter(Boolean)
+    .map(l => `<span class="ag-chip">${escapeHtml(l)}</span>`);
+  const areaChips = a.areas.slice(0, 2)
+    .map(l => `<span class="ag-chip area">${escapeHtml(l)}</span>`);
+  const chips = [...specChips, ...areaChips].join('');
+
+  const contact = hasPhone({ phone_e164: a.phone })
+    ? `<a class="ag-icon-btn wa" href="${escapeHtml(waLink(a.phone, name))}"
+          target="_blank" rel="noopener noreferrer"
+          aria-label="${escapeHtml('שליחת הודעת וואטסאפ ל' + name)}" title="וואטסאפ">${ICON.wa}</a>
+       <a class="ag-icon-btn tel" href="tel:+${a.phone}"
+          aria-label="${escapeHtml('חיוג ל' + name)}" title="חיוג">${ICON.tel}</a>`
+    : '';
+
+  return `
+    <article class="ag-card">
+      <div class="ag-media">
+        ${media}
+        ${verified}${rank}${logoBadge}
+        <span class="ag-overlay ag-count"><b>${a.active_properties_count}</b> ${propsLabel}</span>
+      </div>
+      <div class="ag-body">
+        <h2 class="ag-name">${escapeHtml(name)}</h2>
+        ${a.tagline ? `<p class="ag-tagline">${escapeHtml(a.tagline)}</p>` : ''}
+        <div class="ag-meta">${rating}</div>
+        ${a.areas.length ? `<div class="ag-meta">${ICON.pin}<span class="txt">${escapeHtml(a.areas.join(' · '))}</span></div>` : ''}
+        ${chips ? `<div class="ag-chips">${chips}</div>` : ''}
+      </div>
+      <div class="ag-actions">
+        ${href
+          ? `<a class="ag-cta" href="${escapeHtml(href)}">צפייה בכל הנכסים</a>`
+          : '<span class="ag-cta is-static">עמוד המשרד בהכנה</span>'}
+        ${contact}
+      </div>
+    </article>`;
+}
+
+/* ============================================================================
+   רינדור
+   ============================================================================ */
+function renderGrid(list){
+  el('agenciesGrid').innerHTML = list.map(agencyCardHtml).join('');
+}
+
+function renderCounts(list){
+  const many = n => n === 1 ? 'משרד אחד' : n + ' משרדים';
+  const filtered = activeSpec !== 'all' || query.trim();
+  el('resultCount').textContent = list.length
+    ? (filtered ? `${many(list.length)} מתוך ${agencies.length}` : `${many(agencies.length)} בפלטפורמה`)
+    : '';
+
+  // המונה שעל כל גלולה נספר מול החיפוש הפעיל בלבד ולא מול ההתמחות שנבחרה,
+  // אחרת כל גלולה שאינה הנבחרת הייתה מציגה 0
+  const q = query.trim().toLowerCase();
+  const pool = agencies.filter(a => matchesQuery(a, q));
+  el('specPills').querySelectorAll('.pill').forEach(btn=>{
+    const key = btn.dataset.spec;
+    const n = pool.filter(a => matchesSpec(a, key)).length;
+    btn.querySelector('.n').textContent = n;
+    // גלולה שתחזיר רשימה ריקה מעומעמת ומנוטרלת, כדי שלא תוביל למסך ריק
+    btn.disabled = n === 0 && key !== activeSpec;
+  });
+}
+
+function render(){
+  const list = visibleAgencies();
+  renderCounts(list);
+
+  const isMap = view === 'map';
+  el('noResultsState').hidden = list.length > 0;
+  el('agenciesGrid').hidden = isMap || !list.length;
+  el('mapPanel').hidden = !isMap || !list.length;
+
+  if (isMap) renderMap(list);
+  else renderGrid(list);
+}
+
+/* ============================================================================
+   תצוגת המפה
+   ----------------------------------------------------------------------------
+   ל-agencies אין קואורדינטות, ולכן הסימון הוא מרכז הכובד של הנכסים
+   הפעילים של המשרד (agencyCentroid). המפה נוצרת פעם אחת, בפעם הראשונה
+   שעוברים אליה — Leaflet לא מודד נכון קונטיינר מוסתר, ולכן גם
+   invalidateSize אחרי כל מעבר.
+   ============================================================================ */
+const AFULA_CENTER = [32.6078, 35.2897];
+let map = null;
+let mapLayer = null;
+
+function renderMap(list){
+  const located = list.filter(a => a.lat != null && a.lng != null);
+  const missing = list.length - located.length;
+  el('mapNote').textContent = missing
+    ? `הסימון על המפה הוא מרכז אזור הפעילות של כל משרד, לפי הנכסים הפעילים שלו. ${missing === 1 ? 'משרד אחד' : missing + ' משרדים'} עדיין ללא נכסים ממוקמים ואינם מסומנים.`
+    : 'הסימון על המפה הוא מרכז אזור הפעילות של כל משרד, לפי הנכסים הפעילים שלו.';
+
+  if (!window.L){
+    el('mapNote').textContent = 'המפה לא נטענה (בעיית רשת) — אפשר לחזור לתצוגת הרשת.';
+    return;
+  }
+  if (!map){
+    map = L.map('agenciesMap', { scrollWheelZoom:false }).setView(AFULA_CENTER, 13);
+    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom:19,
+      attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
+  }
+  if (mapLayer) mapLayer.remove();
+  mapLayer = L.layerGroup().addTo(map);
+
+  located.forEach(a=>{
+    const name = a.name || 'משרד תיווך';
+    const marker = L.marker([a.lat, a.lng], {
+      icon: L.divIcon({ className:'', html:`<div class="map-pin">${escapeHtml(name)}</div>`, iconSize:[0,0] }),
+      title: name,
+    });
+    const href = a.slug ? 'agency.html?slug=' + encodeURIComponent(a.slug) : null;
+    marker.bindPopup(`
+      <div class="map-pop">
+        <div class="n">${escapeHtml(name)}</div>
+        <div class="s">${a.active_properties_count} ${a.active_properties_count === 1 ? 'נכס פעיל' : 'נכסים פעילים'}${
+          a.rating !== null ? ` · ★ ${a.rating.toFixed(1).replace(/\.0$/, '')}` : ''}</div>
+        ${href ? `<a href="${escapeHtml(href)}">צפייה בכל הנכסים ←</a>` : ''}
+      </div>`);
+    mapLayer.addLayer(marker);
+  });
+
+  // הקונטיינר היה מוסתר עד לפני רגע, ולכן Leaflet עדיין מחזיק את המידות
+  // הישנות; בלי invalidateSize האריחים נשארים חתוכים עד לגרירה הראשונה
+  requestAnimationFrame(()=>{
+    map.invalidateSize();
+    if (located.length) map.fitBounds(L.latLngBounds(located.map(a => [a.lat, a.lng])).pad(0.25), { maxZoom:14 });
+  });
+}
+
+/* ============================================================================
+   פקדי סרגל הכלים
+   ============================================================================ */
+function buildPills(container, items, isActive, onPick, withCount){
+  container.innerHTML = '';
+  items.forEach(item=>{
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pill';
+    btn.dataset.spec = item.key;
+    btn.innerHTML = escapeHtml(item.label) + (withCount ? ' <span class="n"></span>' : '');
+    btn.setAttribute('aria-pressed', String(isActive(item.key)));
+    btn.addEventListener('click', ()=>{
+      onPick(item.key);
+      [...container.children].forEach(c => c.setAttribute('aria-pressed', String(c === btn)));
+      render();
+    });
+    container.appendChild(btn);
+  });
+}
+
+function setView(next){
+  view = next;
+  el('viewGridBtn').setAttribute('aria-pressed', String(next === 'grid'));
+  el('viewMapBtn').setAttribute('aria-pressed', String(next === 'map'));
+  render();
+}
+
+el('agencySearch').addEventListener('input', (e)=>{ query = e.target.value; render(); });
+el('viewGridBtn').addEventListener('click', ()=> setView('grid'));
+el('viewMapBtn').addEventListener('click', ()=> setView('map'));
+
+/* ============================================================================
+   טעינת הנתונים
+   ----------------------------------------------------------------------------
+   אותם מקורות שמזינים את קרוסלת המשרדים בדף הבית, ובאותו היגיון: הדירוג
+   מה-view (שמחושב מהביקורות המפורסמות ברגע הטעינה) ולא מהטבלה שמתרעננת
+   אחת לשבועיים, ומספר הנכסים נספר מהנכסים עצמם ולא מהשדה המחושב — כדי
+   שמשרד שהעלה נכס הבוקר לא יוצג עם מספר של אתמול.
+
+   הנכסים נטענים כאן ממילא (בשביל המונה), ולכן הם משרתים גם את הגלריה,
+   את תחומי ההתמחות, את האזורים ואת מרכז הכובד למפה — הכל משאילתה אחת.
+
+   ‏allSettled ולא all: טבלה שטרם נוצרה בסביבה הזו לא מפילה את העמוד.
+   ============================================================================ */
+const PROPS_SELECT = 'agency_id, category, property_type, project_status, images, lat, lng, city, neighborhoods(name)';
+
+/* מרכז הכובד של נכסי המשרד. ממוצע פשוט ולא מדיאן: כל הנכסים באותה עיר,
+   והפער בין השניים זניח מול הרעש שממילא יש בקואורדינטות. */
+function centroid(points){
+  if (!points.length) return { lat:null, lng:null };
+  const sum = points.reduce((acc, p)=>({ lat:acc.lat + p.lat, lng:acc.lng + p.lng }), { lat:0, lng:0 });
+  return { lat:sum.lat / points.length, lng:sum.lng / points.length };
+}
+
+/* האזורים שהמשרד פעיל בהם, לפי תדירות: שם השכונה כשיש, ואחרת שם העיר.
+   ‏specialty_areas שהוקלד ב-CRM משמש כגיבוי למשרד בלי נכסים ממופים. */
+function topAreas(props, fallback){
+  const counts = new Map();
+  props.forEach(p=>{
+    const area = p.neighborhoods?.name || p.city;
+    if (area) counts.set(area, (counts.get(area) || 0) + 1);
+  });
+  const ranked = [...counts.entries()].sort((a, b)=> b[1] - a[1]).map(([area])=> area);
+  return ranked.length ? ranked.slice(0, 3) : (fallback || []).slice(0, 3);
+}
+
+function shapeAgency(a, props, ranking, rated, propsLoaded){
+  const photos = props
+    .map(p => Array.isArray(p.images) ? safeUrl(p.images[0]) : '')
+    .filter(Boolean)
+    .slice(0, 3);
+  const specs = SPECS
+    .filter(s => s.key !== 'all' && props.some(s.match))
+    .map(s => s.key);
+  const located = props.filter(p => p.lat != null && p.lng != null).map(p => ({ lat:Number(p.lat), lng:Number(p.lng) }));
+
+  return {
+    id: a.id,
+    name: a.name,
+    slug: a.slug,
+    logo_url: a.logo_url,
+    tagline: a.tagline,
+    score: ranking ? Number(ranking.composite_score) : null,
+    // ‏score ב-view הוא null למשרד בלי ביקורות — משרד חדש לא מקבל
+    // "0 כוכבים" אלא פשוט לא מוצג עם דירוג.
+    rating: rated?.score != null ? Number(rated.score) : null,
+    reviews_count: Number(rated?.review_count) || 0,
+    // הספירה מהנכסים עצמם ולא מ-active_properties_count שבטבלת הדירוגים:
+    // זה שדה מחושב שמתעדכן מדי פעם, ומספיק שמשרד יעלה נכס אחד כדי שהכרטיס
+    // יציג מספר ישן. ‏0 הוא ספירה תקפה — הנפילה לשדה המחושב היא רק כששאילתת
+    // הנכסים עצמה נכשלה, אחרת משרד שהמלאי שלו התרוקן היה מציג מספר ישן לנצח.
+    active_properties_count: propsLoaded ? props.length : (ranking?.active_properties_count ?? 0),
+    // ההסכמה לאמנה האתית היא סימן האימות של הפלטפורמה; אין מנגנון אימות אחר,
+    // ולכן הבאדג' נשען עליה והכיתוב שעליו (title) אומר זאת במפורש.
+    verified: !!a.ethics_code_accepted_at && !a.ethics_badge_revoked_at,
+    photos,
+    specs: specs.length ? specs : (Array.isArray(a.specialties) ? a.specialties : []),
+    areas: topAreas(props, a.specialty_areas),
+    phone: null,          // מתמלא מ-agency_members_public אחרי הטעינה
+    ...centroid(located),
+  };
+}
+
+(async function init(){
+  const finish = (list)=>{
+    el('loadingState').hidden = true;
+    if (!list.length){ el('emptyState').hidden = false; return; }
+    agencies = list;
+    assignRankBadges(agencies);
+    buildPills(el('specPills'), SPECS, k => k === activeSpec, k => { activeSpec = k; }, true);
+    buildPills(el('sortPills'), SORTS, k => k === sortMode, k => { sortMode = k; }, false);
+    el('toolbar').hidden = false;
+    el('joinBand').hidden = false;
+    render();
+  };
+
+  if (!window.supabase) return finish(FALLBACK_AGENCIES);
+
+  try{
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const [agenciesRes, rankingsRes, ratingsRes, propsRes, membersRes] = await Promise.allSettled([
+      sb.from('agencies').select('id, name, slug, logo_url, tagline, specialties, specialty_areas, ethics_code_accepted_at, ethics_badge_revoked_at').limit(500),
+      sb.from('agency_rankings').select('agency_id, composite_score, active_properties_count').limit(500),
+      sb.from('agency_ratings_public').select('agency_id, score, review_count').limit(500),
+      sb.from('properties').select(PROPS_SELECT).eq('status', 'active').limit(5000),
+      // ל-agencies אין עמודת טלפון; המספר הפומבי היחיד הוא של חברי הצוות,
+      // ולכן הפנייה מנותבת למנהל/ת המשרד ובהיעדרו לסוכן/ת הראשון/ה עם מספר.
+      sb.from('agency_members_public').select('agency_id, role, phone_e164, active').limit(1000),
+    ]);
+    const rows = agenciesRes.status === 'fulfilled' ? agenciesRes.value.data : null;
+    if (!rows || !rows.length) throw new Error('empty');
+    const dataOf = res => (res.status === 'fulfilled' && res.value.data) || [];
+
+    const byAgency = (list, key = 'agency_id')=>{
+      const map = new Map();
+      list.forEach(r => { if (r[key]) map.set(r[key], r); });
+      return map;
+    };
+    const rankByAgency = byAgency(dataOf(rankingsRes));
+    const ratingByAgency = byAgency(dataOf(ratingsRes));
+
+    const propsLoaded = propsRes.status === 'fulfilled' && !propsRes.value.error;
+    const propsByAgency = new Map();
+    dataOf(propsRes).forEach(p=>{
+      if (!p.agency_id) return;
+      if (!propsByAgency.has(p.agency_id)) propsByAgency.set(p.agency_id, []);
+      propsByAgency.get(p.agency_id).push(p);
+    });
+
+    const phoneByAgency = new Map();
+    dataOf(membersRes)
+      .filter(m => m.active !== false && hasPhone(m))
+      // המנהל/ת קודם/ת: sort יציב, ולכן בתוך כל תפקיד נשמר סדר המקור
+      .sort((x, y)=> (x.role === 'manager' ? 0 : 1) - (y.role === 'manager' ? 0 : 1))
+      .forEach(m => { if (!phoneByAgency.has(m.agency_id)) phoneByAgency.set(m.agency_id, m.phone_e164); });
+
+    finish(rows.map(a => {
+      const shaped = shapeAgency(a, propsByAgency.get(a.id) || [], rankByAgency.get(a.id), ratingByAgency.get(a.id), propsLoaded);
+      shaped.phone = phoneByAgency.get(a.id) || null;
+      return shaped;
+    }));
+  } catch(e){
+    console.warn('טעינת משרדי התיווך נכשלה, משתמש בנתוני fallback:', e);
+    finish(FALLBACK_AGENCIES);
+  }
+})();
+</script>
+</body>
+</html>
