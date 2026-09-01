@@ -7,8 +7,10 @@
    התמונה. הקובץ הזה מספק את שלושת החלקים שחייבים להיראות זהה בכולם:
 
      PropertyCard.priceHtml(p)     // המחיר — שחור עמוק ומודגש
+     PropertyCard.titleHtml(p)     // הכותרת — שתי שורות מלאות בגובה קבוע
+     PropertyCard.whereHtml(p,o)   // שתי שורות מיקום בתבנית קבועה
      PropertyCard.factsHtml(p)     // שורת אייקונים: חדרים · מ״ר · קומה · חניה
-     PropertyCard.badgesHtml(p,o)  // התגיות שעל התמונה
+     PropertyCard.badgesHtml(p,o)  // התגיות שעל התמונה (כולל שכבת ההגנה)
      PropertyCard.sortByMedia(list)// נכסים עם וידאו/סיור/תמונות קודם
 
    ה-CSS מוזרק פעם אחת בשימוש הראשון, כדי שדף שלא מציג אריחים לא ישלם עליו.
@@ -82,7 +84,10 @@
       if (!text) return;
       cells.push('<span class="pc-fact">' + ICONS[fact.icon] + escapeHtml(text) + '</span>');
     });
-    return cells.length ? '<div class="pc-facts">' + cells.join('') + '</div>' : '';
+    // המעטפת נכתבת תמיד, גם כשאין ולו מאפיין אחד: היא שומרת את גובה השורה,
+    // ובלעדיה אריח של מגרש (בלי חדרים, מ״ר או קומה) יצא נמוך משכניו ברשת.
+    // ‏min-height ב-CSS הוא מה שממלא אותה — לא מקפים ולא טקסט ממלא־מקום.
+    return '<div class="pc-facts">' + cells.join('') + '</div>';
   }
 
   /* ---------- המחיר ----------
@@ -100,14 +105,75 @@
     return '<div class="pc-price">' + amount + suffix + '</div>';
   }
 
+  /* ---------- הכותרת ושורות המיקום ----------
+     הכותרת נחתכה עד כה אחרי שורה אחת (ובגריד של דף הבית לא נחתכה בכלל,
+     ולכן אריחים שכנים יצאו בגבהים שונים). כאן היא תמיד שתי שורות: נחתכת
+     רק אחרי השנייה, ושומרת את גובה שתי השורות גם כשהיא קצרה — כך כל
+     האריחים ברצועה נשארים בדיוק באותו גובה בלי תלות באורך הכותרת.
+
+     המיקום מפוצל לתבנית קבועה במקום שרשרת אחת של "‏·‎" שנקטעה באמצע:
+       שורה 1 — סוג הנכס והשכונה/העיר. זה מה שמזהה את הנכס במבט אחד.
+       שורה 2 — שאר הפרטים: הרחוב, העיר (כששורה 1 כבר תפוסה בשכונה)
+                והמשרד המפרסם.
+     שתי השורות תמיד קיימות, גם כשהשנייה ריקה, ולכן גובה אזור הטקסט קבוע. */
+  function titleHtml(p) {
+    ensureStyles();
+    var prop = p || {};
+    var text = prop.title || prop.property_type || '';
+    return '<div class="pc-title">' + escapeHtml(text) + '</div>';
+  }
+
+  /* ‏opts.agency — האם להציג את שם המשרד בשורה השנייה. בדף המשרד ובדף
+     הסוכן/ת התשובה היא לא: כל האריחים בעמוד שייכים לאותו משרד. */
+  function whereHtml(p, opts) {
+    ensureStyles();
+    var o = opts || {};
+    var prop = p || {};
+    var hood = prop.neighborhood_name || null;
+
+    var main = [prop.property_type, hood || prop.city].filter(Boolean).join(' · ');
+    var sub = [
+      prop.street || null,
+      hood && prop.city ? prop.city : null,
+      o.agency === false ? null : (prop.agency_name || null),
+    ].filter(Boolean).join(' · ');
+
+    return '<div class="pc-where">' +
+      '<span class="pc-where-main">' + escapeHtml(main) + '</span>' +
+      '<span class="pc-where-sub">' + escapeHtml(sub) + '</span>' +
+      '</div>';
+  }
+
   /* ---------- התגיות שעל התמונה ----------
      שלוש לכל היותר, בסדר קבוע: סוג העסקה (הלייבל שמכוון קודם), ואחריו מה
      שמבדל את הנכס הזה משאר האריחים באותה רצועה — בלעדיות, הדמיית AI, מסחרי.
      מעבר לשלוש התגיות מתחילות לכסות את התמונה שהן אמורות לקדם.
 
      ‏opts.aiViz — האם לנכס יש הדמיית בסיס מפורסמת. הדף שמציג את האריחים
-     שולף את זה בשאילתה אחת לכל הנכסים (ראו hasVisualizations), ולא פר-אריח. */
+     שולף את זה בשאילתה אחת לכל הנכסים (ראו hasVisualizations), ולא פר-אריח.
+
+     יחד עם התגיות נשלחת גם שכבת ההגנה (‏.pc-scrim): שני גרדיאנטים כהים
+     ושקופים בראש התמונה ובתחתיתה. בלעדיה תגית "למכירה"/"להשכרה" — שהיא
+     חצי-שקופה — נבלעה בתמונות בהירות מאוד (שמיים, קיר לבן, סלון מוצף אור).
+     השכבה מוזרקת רק כשיש תמונה אמיתית: מעל ממלא־המקום הבהיר היא רק הייתה
+     מלכלכת את לוגו המשרד שיושב שם, והתגיות ממילא קריאות עליו.
+     ‏opts.photo מאפשר לדף לכפות את ההחלטה במקום שנגזור אותה מ-p.images. */
   var BADGE_LIMIT = 3;
+
+  // אותו כלל בדיוק שלפיו הדפים מחליטים אם להציג ממלא־מקום (safeImageUrl)
+  function hasPhoto(p) {
+    var first = p && Array.isArray(p.images) ? p.images[0] : null;
+    if (typeof first !== 'string') return false;
+    var url = first.trim();
+    return /^https?:\/\//i.test(url) || /^(\/(?!\/)|assets\/)/i.test(url);
+  }
+
+  function scrimHtml(p, opts) {
+    ensureStyles();
+    var o = opts || {};
+    var show = (o.photo === undefined) ? hasPhoto(p) : !!o.photo;
+    return show ? '<span class="pc-scrim" aria-hidden="true"></span>' : '';
+  }
 
   function badgesHtml(p, opts) {
     ensureStyles();
@@ -123,9 +189,10 @@
     if (o.aiViz) badges.push({ cls:'is-ai', text:'הדמיית AI' });
     if (prop.category === 'commercial') badges.push({ cls:'is-commercial', text:'מסחרי' });
 
-    return '<div class="pc-badges">' + badges.slice(0, BADGE_LIMIT).map(function (b) {
-      return '<span class="pc-badge ' + b.cls + '">' + escapeHtml(b.text) + '</span>';
-    }).join('') + '</div>';
+    return scrimHtml(prop, o) +
+      '<div class="pc-badges">' + badges.slice(0, BADGE_LIMIT).map(function (b) {
+        return '<span class="pc-badge ' + b.cls + '">' + escapeHtml(b.text) + '</span>';
+      }).join('') + '</div>';
   }
 
   /* תגיות המדיה בתחתית התמונה — וידאו וסיור וירטואלי. הן נפרדות מהתגיות
@@ -188,10 +255,52 @@
     '  display:flex;align-items:baseline;gap:5px;flex-wrap:wrap}',
     '.pc-price .pc-per{font-size:.72rem;font-weight:700;letter-spacing:0;',
     '  color:var(--ink-soft,#5A6068)}',
-    '.pc-price-none{font-size:1rem;color:var(--ink-soft,#5A6068);font-weight:800}',
+    /* "לפי בקשה" יושב באותו אלמנט ובאותו גודל של מחיר אמיתי, ורק הגוון
+       והמשקל מרככים אותו. גודל קטן יותר היה מוריד את גובה השורה ומקצר את
+       הכרטיס כולו ביחס לשכניו ברשת. */
+    '.pc-price-none{color:var(--ink-soft,#5A6068);font-weight:800}',
+
+    /* ---------- הכותרת ----------
+       שתי שורות ולא אחת, ו-min-height בגובה שתי שורות כדי שכותרת קצרה
+       תתפוס בדיוק אותו מקום ככותרת ארוכה — זה מה ששומר את כל האריחים
+       ברצועה בגובה זהה. ה-em נגזר מגודל הגופן של הכותרת עצמה, ולכן הגובה
+       מתכווץ יחד איתה בכל נקודת שבירה שבה הדף מקטין אותה.
+       ‏overflow-wrap:anywhere — כתובת ארוכה בלי רווחים לא מרחיבה את האריח. */
+    '.pc-title{',
+    '  font-size:.85rem;font-weight:700;color:var(--ink,#1B1F26);line-height:1.35;margin-top:5px;',
+    '  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;',
+    '  min-height:2.7em;overflow-wrap:anywhere}',
+
+    /* ---------- שתי שורות המיקום ----------
+       תבנית קבועה: השורה הראשונה נושאת את סוג הנכס והשכונה, השנייה את
+       שאר הפרטים. כל שורה נחתכת לעצמה, ושתיהן שומרות את גובהן גם כשהן
+       ריקות — אריח בלי שם משרד לא מקצר את הכרטיס שלו ביחס לשכניו. */
+    '.pc-where{margin-top:3px;display:flex;flex-direction:column}',
+    '.pc-where span{',
+    '  font-size:.74rem;color:var(--ink-soft,#5A6068);line-height:1.4;min-height:1.4em;',
+    '  display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;',
+    '  overflow-wrap:anywhere}',
+    '.pc-where .pc-where-sub{font-size:.92em;opacity:.88}',
+
+    /* ---------- שכבת ההגנה על התמונה ----------
+       שני גרדיאנטים כהים ושקופים — אחד מהראש ואחד מהתחתית — שמבטיחים
+       שהתגיות שמעליהם ייקראו על כל תמונה, גם על שמיים לבנים. ‏z-index:1
+       מציב אותם מעל התמונה ומתחת לתגיות (2) ולכפתור השמירה (3).
+
+       הרמפות נגמרות בסביבות 45% מכל צד, כלומר יותר ממחצית התמונה — בדיוק
+       הנתח שהעין באה לראות — נשארת נקייה לגמרי. שכבה שנמתחה עד האמצע
+       הכהתה גם צילומי סלון בהירים שאין עליהם שום תגית. */
+    '.pc-scrim{',
+    '  position:absolute;inset:0;z-index:1;pointer-events:none;',
+    '  background:',
+    '    linear-gradient(to bottom,rgba(10,18,30,.46) 0%,rgba(10,18,30,.13) 26%,rgba(10,18,30,0) 46%),',
+    '    linear-gradient(to top,rgba(10,18,30,.46) 0%,rgba(10,18,30,.11) 24%,rgba(10,18,30,0) 44%)}',
 
     /* שורת המאפיינים: אייקון ומספר, מופרדים ברווח ולא במסגרת */
-    '.pc-facts{display:flex;flex-wrap:wrap;align-items:center;gap:4px 13px;margin-top:8px}',
+    /* ‏min-height שומר את גובה השורה גם באריח שאין לו אף מאפיין (מגרש,
+       למשל), כדי שכל האריחים ברצועה יישארו באותו גובה בדיוק */
+    '.pc-facts{display:flex;flex-wrap:wrap;align-items:center;gap:4px 13px;margin-top:8px;',
+    '  font-size:.78rem;min-height:1.35em}',
     '.pc-fact{display:inline-flex;align-items:center;gap:4px;',
     '  font-size:.78rem;font-weight:600;color:var(--ink-soft,#5A6068);line-height:1.2;white-space:nowrap}',
     '.pc-fact svg{width:15px;height:15px;flex:none;opacity:.85}',
@@ -229,8 +338,12 @@
   global.PropertyCard = {
     ICONS: ICONS,
     priceHtml: priceHtml,
+    titleHtml: titleHtml,
+    whereHtml: whereHtml,
     factsHtml: factsHtml,
     badgesHtml: badgesHtml,
+    scrimHtml: scrimHtml,
+    hasPhoto: hasPhoto,
     mediaHtml: mediaHtml,
     mediaRank: mediaRank,
     sortByMedia: sortByMedia,

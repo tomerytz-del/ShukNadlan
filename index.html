@@ -794,6 +794,11 @@
     box-shadow:0 18px 42px rgba(18,40,64,.22);
     backdrop-filter:blur(3px) saturate(1.15);
     -webkit-backdrop-filter:blur(3px) saturate(1.15);
+    /* ‏.section נותן 18px מכל צד, כלומר 36px בין שתי סקציות סמוכות. באנר
+       ה-CTA הוא הכבד בעמוד — רקע כהה ברוחב מלא — ורצועת הנכסים שמעליו
+       נראתה נדבקת אליו. עוד 10px מכל צד פותחים אותו לכ-46px ומחזירים לו
+       מעמד של יחידה נפרדת ולא של סיומת לרצועה. */
+    margin-block:10px;
   }
   .owner-banner{background:linear-gradient(160deg,rgba(28,58,94,.84),rgba(18,40,64,.72))}
   .buyer-banner{background:linear-gradient(160deg,rgba(107,26,38,.85),rgba(61,17,25,.74))}
@@ -821,11 +826,17 @@
   /* ‏.8 ולא ‎.72‎: הרקע חצי-שקוף, והמשלים הבהיר שמבצבץ מבעדו מעלה את
      הבהירות שמאחורי הטקסט — שורת המשנה הייתה יורדת מתחת ל-4.5:1 */
   .lead-teaser-sub{font-size:.76rem;line-height:1.45;color:rgba(255,255,255,.8)}
-  /* אותה שפה של ה-CTA במחשבון המשכנתא: מדרג חם וצל, ולא גלולה שטוחה. */
+  /* אותה שפה של ה-CTA במחשבון המשכנתא: מדרג חם וצל, ולא גלולה שטוחה.
+
+     הקצה הבהיר של המדרג היה ‎#C25B34‎, ומולו טקסט לבן ב-‎.82rem‎ הגיע ל-4.16:1
+     בלבד — מתחת ל-4.5:1 ש-WCAG AA דורש לטקסט רגיל (‏13px מודגש עדיין אינו
+     "טקסט גדול", שמתחיל ב-18.66px מודגש). ‏#B85433 הוא אותו גוון חם בדיוק,
+     כהה בשתי דרגות, ומגיע ל-4.8:1 — כלומר גם הצד הבהיר ביותר של הכפתור
+     עובר את התקן, ולא רק הצד הבורדו. */
   .lead-teaser-go{
     flex:none;padding:10px 15px;border-radius:999px;
     font-size:.82rem;font-weight:800;white-space:nowrap;
-    background:linear-gradient(to right,#8B2332,#C25B34);color:#fff;
+    background:linear-gradient(to right,#8B2332,#B85433);color:#fff;
     box-shadow:0 10px 20px rgba(0,0,0,.3);
     transition:transform .15s ease, box-shadow .15s ease;
   }
@@ -839,7 +850,9 @@
   .lead-banner.is-open .lead-teaser-go,
   .buyer-banner.is-open .lead-teaser-go{
     background:transparent;color:#fff;box-shadow:none;
-    border:1.5px solid rgba(255,255,255,.35);
+    /* ‏.55 ולא ‎.35‎: זו המסגרת היחידה שמסמנת את גבול הכפתור במצב הפתוח,
+       ו-WCAG 1.4.11 דורש 3:1 לגבול של פקד פעיל — ‎.35‎ לא הגיע לשם */
+    border:1.5px solid rgba(255,255,255,.55);
   }
   /* במסך צר ה-CTA יורד לשורה משלו ברוחב מלא במקום להצטופף לצד הכותרת
      ולשבור אותה לשלוש שורות */
@@ -1392,7 +1405,15 @@
     background:#fff;border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden;
     flex:0 0 250px;scroll-snap-align:start;
   }
-  .prop-card .thumb{height:150px;background-size:cover;background-position:center;position:relative}
+  /* יחס גובה־רוחב קבוע במקום גובה קבוע: אריח הגריד מתרחב לרוחב העמודה,
+     וגובה של 150px הפך את התמונה לרצועה שטוחה במסך צר. ‏16/10 שומר על
+     אותה פרופורציה בכל רוחב, ו-background-size:cover (המקבילה של
+     object-fit:cover לתמונת רקע) מבטיח שהתמונה תמלא אותה בלי להימתח.
+     רצועות הגלילה (.featured-scroll) קובעות גובה מפורש ולכן גוברות עליו. */
+  .prop-card .thumb{
+    aspect-ratio:16/10;height:auto;position:relative;
+    background-size:cover;background-position:center;background-repeat:no-repeat;
+  }
 
   /* ====== ממלא מקום לנכס בלי תמונות ======
      במקום גרדיאנט אדום שנראה כמו תמונה שבורה: לוגו המשרד שהנכס שייך אליו
@@ -1466,14 +1487,13 @@
     position:absolute;top:10px;inset-inline-end:10px;background:var(--gold);color:#fff;font-size:.68rem;
     font-weight:800;padding:3px 9px;border-radius:5px;z-index:2;
   }
-  /* המחיר, שורת המאפיינים והתגיות שעל התמונה מגיעים
-     מ-assets/property-card.js — ‏.pc-price, .pc-facts, .pc-badges, .pc-media —
-     ולכן הם זהים כאן, בדף המשרד ובדף הסוכן/ת. כאן נשארים רק הכותרת ושורת
-     המיקום. התגיות מפנות מקום לסרט "מקודם" שבפינה הנגדית. */
+  /* המחיר, הכותרת, שתי שורות המיקום, שורת המאפיינים והתגיות שעל התמונה
+     מגיעים כולם מ-assets/property-card.js — ‏.pc-price, .pc-title, .pc-where,
+     .pc-facts, .pc-badges, .pc-media, .pc-scrim — ולכן הם זהים כאן, בדף
+     המשרד, בדף הסוכן/ת ובדף הנכס. מה שנשאר כאן הוא רק גודל הגופן בכל
+     נקודת שבירה. התגיות מפנות מקום לסרט "מקודם" שבפינה הנגדית. */
   .prop-card .body{padding:12px}
   .prop-card .pc-badges{max-width:calc(100% - 90px)}
-  .prop-card .title{font-size:.85rem;color:var(--ink);margin-top:5px;line-height:1.35}
-  .prop-card .where{font-size:.74rem;color:var(--ink-soft);margin-top:3px}
 
   /* אותו גובה אריח כמו בקרוסלות ה-coverflow, כדי שכל הרצועות הנגללות
      בעמוד ייקראו כמידה אחת ולא כשלושה גדלים שונים. */
@@ -1493,10 +1513,8 @@
   .featured-scroll .prop-card .pc-badge:nth-child(n+2){display:none}
   .featured-scroll .prop-card .body{padding:9px}
   .featured-scroll .prop-card .pc-price{font-size:.92rem}
-  .featured-scroll .prop-card .title{
-    font-size:.73rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
-  }
-  .featured-scroll .prop-card .where{font-size:.66rem}
+  .featured-scroll .prop-card .pc-title{font-size:.73rem}
+  .featured-scroll .prop-card .pc-where span{font-size:.66rem}
   .featured-scroll .prop-card .pc-facts{font-size:.66rem;margin-top:5px;gap:3px 9px}
   .featured-scroll .prop-card .pc-fact{font-size:.68rem}
   .featured-scroll .prop-card .pc-fact svg{width:13px;height:13px}
@@ -1512,7 +1530,7 @@
     .featured-scroll .prop-card .thumb .tf-note{display:block}
     .featured-scroll .prop-card .pc-badge:nth-child(2){display:block}
     .featured-scroll .prop-card .pc-price{font-size:1rem}
-    .featured-scroll .prop-card .title{font-size:.78rem}
+    .featured-scroll .prop-card .pc-title{font-size:.78rem}
     /* גובה הכיסוי נגזר מ‎--card-h‎ שכבר גדל בעצמו בנקודות השבירה */
     .article-card h3{font-size:.9rem}
   }
@@ -1533,7 +1551,7 @@
     .featured-scroll .prop-card .pc-badge:nth-child(3){display:block}
     .featured-scroll .prop-card .body{padding:12px}
     .featured-scroll .prop-card .pc-price{font-size:1.12rem}
-    .featured-scroll .prop-card .title{font-size:.85rem}
+    .featured-scroll .prop-card .pc-title{font-size:.85rem}
     .featured-scroll .prop-card .pc-facts{margin-top:8px}
     .featured-scroll .prop-card .pc-fact{font-size:.74rem}
     .featured-scroll .prop-card .pc-fact svg{width:15px;height:15px}
@@ -1798,14 +1816,38 @@
   }
   @media(min-width:760px){.footer-grid{grid-template-columns:repeat(4,1fr)}}
 
-  /* ====== Accessibility FAB + panel ====== */
+  /* ====== Accessibility FAB + panel ======
+     הכפתור צף מעל התוכן, ולכן הוא היה נוחת על אריחי הנכסים בתחתית המסך
+     ומכסה מחיר או כותרת. שלושה תיקונים ביחד:
+       1. ‎--a11y-fab-size‎ ו---a11y-fab-gap הם מקור אחד לגודל ולמרווח,
+          וגם הריפוד התחתון של הדף נגזר מהם (ראו ‎#main‎ למטה) — כך התוכן
+          תמיד יכול להיגלל אל מעבר לכפתור במקום להיעצר מתחתיו.
+       2. ‏env(safe-area-inset-bottom) מרים אותו מעל סרגל הניווט של iOS.
+       3. במסך צר הכפתור מתכווץ ל-44px (עדיין יעד מגע תקני) וניצמד לפינה,
+          כדי לגזול כמה שפחות מרוחב הכרטיס שמאחוריו. */
+  :root{--a11y-fab-size:48px; --a11y-fab-gap:18px}
   .a11y-fab{
-    position:fixed;bottom:18px;left:18px;z-index:150;width:48px;height:48px;border-radius:50%;
+    position:fixed;z-index:150;
+    bottom:calc(var(--a11y-fab-gap) + env(safe-area-inset-bottom, 0px));
+    left:var(--a11y-fab-gap);
+    width:var(--a11y-fab-size);height:var(--a11y-fab-size);border-radius:50%;
     background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;
     box-shadow:var(--shadow);font-size:1.1rem;
   }
+  /* הריפוד התחתון של התוכן: גובה הכפתור, שני המרווחים סביבו ושולי הבטיחות
+     של המכשיר. בלעדיו השורה האחרונה בעמוד נשארה חבויה מתחת לכפתור. */
+  #main{padding-bottom:calc(var(--a11y-fab-size) + var(--a11y-fab-gap) * 2 + env(safe-area-inset-bottom, 0px))}
+  @media(max-width:600px){
+    :root{--a11y-fab-size:44px; --a11y-fab-gap:12px}
+  }
   .a11y-panel{
-    position:fixed;bottom:76px;left:18px;z-index:151;width:266px;background:var(--paper-raised);
+    position:fixed;z-index:151;
+    bottom:calc(var(--a11y-fab-size) + var(--a11y-fab-gap) * 2 + env(safe-area-inset-bottom, 0px));
+    left:var(--a11y-fab-gap);
+    width:min(266px, calc(100vw - var(--a11y-fab-gap) * 2));
+    /* פאנל גבוה ממסך נמוך גלש מעל הכותרת; עכשיו הוא נגלל בתוך עצמו */
+    max-height:calc(100vh - var(--a11y-fab-size) - var(--a11y-fab-gap) * 4);overflow-y:auto;
+    background:var(--paper-raised);
     border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:0 12px 34px rgba(0,0,0,.22);
     padding:14px;display:none;
   }
@@ -7414,18 +7456,17 @@ function propCard(p, i){
   const el = document.createElement('div');
   el.className = 'prop-card';
   el.style.cursor = 'pointer';
-  const where = [p.property_type, p.neighborhood_name || p.city, p.agency_name].filter(Boolean).join(' · ');
   el.innerHTML = `
     <div class="thumb" style="${thumbStyle(p, i)}">
       ${thumbFallback(p)}
       ${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}
-      ${PropertyCard.badgesHtml(p, { aiViz: visualizedProps.has(p.id) })}
+      ${PropertyCard.badgesHtml(p, { aiViz: visualizedProps.has(p.id), photo: hasPhoto(p) })}
       ${PropertyCard.mediaHtml(p)}
     </div>
     <div class="body">
       ${PropertyCard.priceHtml(p)}
-      <div class="title">${escAttr(p.title || '')}</div>
-      ${where ? `<div class="where">${escAttr(where)}</div>` : ''}
+      ${PropertyCard.titleHtml(p)}
+      ${PropertyCard.whereHtml(p)}
       ${PropertyCard.factsHtml(p)}
     </div>`;
   el.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);

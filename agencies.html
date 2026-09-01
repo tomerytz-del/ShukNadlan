@@ -304,12 +304,20 @@
   /* הריפוד העליון פנוי ללוגו שנכנס מלמעלה; מ-620px ומעלה הלוגו נשאר
      באותו מקום, ולכן הריפוד לא משתנה */
   .ag-body{padding:26px 16px 14px;display:flex;flex-direction:column;gap:7px}
+  /* שם המשרד והמוטו — שתי שורות מלאות לכל אחד, ובגובה קבוע.
+     המוטו נחתך עד כה אחרי שורה אחת ובלע את חציו של כל מוטו ארוך מארבע
+     מילים, והשם לא נחתך בכלל — ולכן משרד עם שם ארוך הגביה את הכרטיס שלו
+     מעל שכניו ברשת. עכשיו שניהם נחתכים באותו מקום ושומרים את גובהם גם
+     כשהם קצרים, וכל הכרטיסים ברשת נשארים בדיוק באותו גובה. */
   .ag-name{
     font-family:'Heebo',sans-serif;font-size:1.08rem;font-weight:800;color:var(--ink);line-height:1.3;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+    min-height:2.6em;overflow-wrap:anywhere;
   }
   .ag-tagline{
-    font-size:.8rem;color:var(--ink-soft);
-    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
+    font-size:.8rem;color:var(--ink-soft);line-height:1.4;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+    min-height:2.8em;overflow-wrap:anywhere;
   }
   .ag-meta{display:flex;align-items:center;gap:6px;font-size:.84rem;color:var(--ink-soft)}
   /* אותו כוכב צהוב של כרטיסי דף הבית — משרד ומתווך/ת הם שני סוגי דירוג
@@ -868,7 +876,9 @@ function agencyCardHtml(a){
       </div>
       <div class="ag-body">
         <h2 class="ag-name">${escapeHtml(name)}</h2>
-        ${a.tagline ? `<p class="ag-tagline">${escapeHtml(a.tagline)}</p>` : ''}
+        <!-- נכתב תמיד, גם בלי מוטו: ה-min-height שלו הוא מה שמיישר את
+             הדירוג, האזורים והצ׳יפים לאותו גובה בכל הכרטיסים ברשת -->
+        <p class="ag-tagline">${a.tagline ? escapeHtml(a.tagline) : ''}</p>
         <div class="ag-meta">${rating}</div>
         ${a.areas.length ? `<div class="ag-meta">${ICON.pin}<span class="txt">${escapeHtml(a.areas.join(' · '))}</span></div>` : ''}
         ${chips ? `<div class="ag-chips">${chips}</div>` : ''}
