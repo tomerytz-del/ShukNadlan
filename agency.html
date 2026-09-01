@@ -318,7 +318,9 @@
     content:'';position:absolute;inset-block:3px;inset-inline-start:0;
     width:4px;border-radius:2px;background:var(--accent);
   }
-  .sec-head span{font-size:.78rem;color:var(--ink-soft)}
+  /* רק שורת המידע שלצד הכותרת מוקטנת — ‏span ישיר של ‎.sec-head‎. בורר רחב
+     (‏.sec-head span‎) היה תופס גם span שבתוך ה-h2 עצמו ומקטין חלק מהכותרת. */
+  .sec-head > span{font-size:.78rem;color:var(--ink-soft)}
 
   /* ---------- נבחרת המתווכים ----------
      המקטע הראשון מתחת לכותרת המשרד: אנשים, לא מספרים. הקרוסלה גוללת
@@ -384,8 +386,11 @@
   .team-lic svg{width:11px;height:11px}
   .team-badge{margin-top:8px;display:flex;justify-content:center}
   /* הפעולות נדחפות לתחתית הכרטיס כדי שכל הכרטיסים ברצועה יסתיימו באותו קו,
-     גם כשלאחד/ת יש רישיון ולאחר/ת אין */
-  .team-actions{display:flex;gap:6px;margin-top:auto;padding-top:12px;width:100%}
+     גם כשלאחד/ת יש רישיון ולאחר/ת אין. המכל — ולא שורת הכפתורים — הוא זה
+     שנדחף, כדי שגם הערת הניתוב שמתחתיה תישאר צמודה אליהם. */
+  .team-contact{margin-top:auto;padding-top:12px;width:100%}
+  .team-via{margin-top:6px;font-size:.66rem;line-height:1.35;color:var(--ink-soft)}
+  .team-actions{display:flex;gap:6px;width:100%}
   .team-actions a{
     flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;
     padding:8px 6px;border-radius:999px;font-size:.78rem;font-weight:800;line-height:1;
@@ -2708,6 +2713,40 @@ function initPropertySearch(){
   clear.addEventListener('click', ()=>{ input.value = ''; apply(); input.focus(); });
 }
 
+/* ---------- כפתורי יצירת הקשר בכרטיס הצוות ----------
+   כל כרטיס ברצועה נושא את אותם שני כפתורים שיש למנהל/ת המשרד — וואטסאפ
+   וחיוג — ולא רק מי שהזין/ה מספר ישיר: כרטיס בלי דרך ליצור קשר הוא מבוי
+   סתום, וגולש/ת שמתעניין/ת בסוכן/ת מסוים/ת לא אמור/ה לחפש למי לפנות.
+
+   כשאין לסוכן/ת מספר ישיר הפנייה מנותבת למספר המשרד. ההודעה בוואטסאפ
+   כבר נושאת את שם הסוכן/ת, ושורת ההערה מתחת לכפתורים אומרת במפורש לאן
+   הפנייה מגיעה — כפתור שמחייג למספר אחר ממה שהובטח גרוע מכפתור שאיננו. */
+function teamContactHtml(member, officeContact){
+  const direct = hasPhone(member);
+  const target = direct ? member : officeContact;
+  // אין במשרד ולו מספר אחד אמיתי — אין למי לנתב, ולכן אין כפתורים
+  if (!target) return '';
+
+  const name = member.display_name || 'הסוכן/ת';
+  const agencyName = (currentAgency && currentAgency.name) || 'המשרד';
+  const href = waLink(target.phone_e164,
+    `הגעתי לדף של ${agencyName} בשוק הנדל״ן של עפולה והסביבה ואשמח לדבר עם ${name}.`);
+  const waLabel = direct ? 'שליחת הודעת וואטסאפ ל' + name
+                         : 'שליחת הודעת וואטסאפ למשרד בנוגע ל' + name;
+  const telLabel = direct ? 'חיוג ל' + name
+                          : 'חיוג למשרד בנוגע ל' + name;
+
+  return `<div class="team-contact">
+      <div class="team-actions">
+        <a class="ta-wa" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"
+           aria-label="${escapeHtml(waLabel)}" title="${escapeHtml(waLabel)}">${WA_SVG} וואטסאפ</a>
+        <a class="ta-tel" href="tel:+${target.phone_e164}"
+           aria-label="${escapeHtml(telLabel)}" title="${escapeHtml(telLabel)}">${ICON.phone} חיוג</a>
+      </div>
+      ${direct ? '' : '<p class="team-via">הפנייה מגיעה למשרד</p>'}
+    </div>`;
+}
+
 /* ---------- נבחרת המתווכים ----------
    הקרוסלה הפותחת של הדף. מנהל/ת המשרד תמיד הכרטיס הראשון והבולט: כרטיס
    רחב יותר, טבעת בצבע המשני ותגית תפקיד מעליו. */
@@ -2725,6 +2764,11 @@ async function loadTeam(sb, agencyId){
 
   // sort יציב ב-JS מודרני, ולכן שאר הצוות שומר על סדר ההגעה מהמסד
   const team = agents.slice().sort((a, b) => (b.role === 'manager') - (a.role === 'manager'));
+
+  /* יעד הגיבוי לכפתורי הכרטיסים: אותו איש קשר שמופיע בחותם הדף — מנהל/ת
+     המשרד, ובהיעדר מספר אצלו/ה הסוכן/ת הראשון/ה שיש לו/ה מספר. */
+  const officeContact = agents.find(m => m.role === 'manager' && hasPhone(m))
+    || agents.find(hasPhone) || null;
 
   agencyStats.teamSize = team.length;
   renderTrustBar();
@@ -2746,12 +2790,7 @@ async function loadTeam(sb, agencyId){
       <div class="team-role">${escapeHtml(roleLabel(a))}</div>
       ${a.license_number ? `<span class="team-lic">${ICON.check}רישיון ${escapeHtml(a.license_number)}</span>` : ''}
       ${a.has_ethics_badge ? '<div class="team-badge"></div>' : ''}
-      ${hasPhone(a) ? `<div class="team-actions">
-        <a class="ta-wa" href="${escapeHtml(waLink(a.phone_e164, `הגעתי לדף של ${(currentAgency && currentAgency.name) || 'המשרד'} בשוק הנדל״ן של עפולה והסביבה ואשמח לדבר עם ${name}.`))}"
-           target="_blank" rel="noopener noreferrer"
-           aria-label="${escapeHtml('שליחת הודעת וואטסאפ ל' + name)}">${WA_SVG} וואטסאפ</a>
-        <a class="ta-tel" href="tel:+${a.phone_e164}" aria-label="${escapeHtml('חיוג ל' + name)}">${ICON.phone} חיוג</a>
-      </div>` : ''}`;
+      ${teamContactHtml(a, officeContact)}`;
 
     // התו נשתל אחרי ה-innerHTML כדי שיישא את מאזין הלחיצה שלו
     if (a.has_ethics_badge && window.QualityBadge){

@@ -224,7 +224,10 @@
     content:'';position:absolute;inset-block:3px;inset-inline-start:0;
     width:4px;border-radius:2px;background:var(--accent);
   }
-  .sec-head span{font-size:.78rem;color:var(--ink-soft)}
+  /* רק שורת המידע שלצד הכותרת מוקטנת — ‏span ישיר של ‎.sec-head‎. הבורר
+     הרחב (‏.sec-head span‎) תפס גם את ה-span שבתוך ה-h2 עצמו, וכך שם
+     הסוכן/ת בכותרת "הנכסים של ___" נראה קטן וחיוור מהמילים שלפניו. */
+  .sec-head > span{font-size:.78rem;color:var(--ink-soft)}
 
   /* ---------- מקטע הנכסים ----------
      החיפוש והמעבר בין נכסים פעילים לעסקאות שנסגרו יושבים יחד: שניהם עונים
