@@ -9,6 +9,9 @@
 <script src="assets/quality-badge.js"></script>
 <script src="assets/specialties.js"></script>
 <script src="assets/property-card.js"></script>
+<!-- הרקע הזורם של האתר. נטען בלי data-auto: דף המשרד מרכיב אותו בעצמו
+     אחרי טעינת המיתוג, כי משרד יכול לבחור ב-CRM רקע חלק במקומו. -->
+<script src="assets/page-bg.js"></script>
 <style>
   /* ---------- ערכת הצבעים של המשרד ----------
      ארבעת ה־brand tokens למטה הם היחידים שדף הניהול דורס (setProperty על :root)
@@ -570,21 +573,20 @@
     box-shadow:var(--shadow-xs);transition:box-shadow .15s ease,transform .15s ease;
   }
   .prop-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
+  /* יחס גובה־רוחב קבוע במקום גובה קבוע, כדי שהתמונה תשמור על הפרופורציה
+     שלה בכל רוחב כרטיס. ‏background-size:cover הוא המקבילה של
+     object-fit:cover לתמונת רקע — התמונה ממלאת את המסגרת בלי להימתח. */
   .prop-card .thumb{
-    height:150px;position:relative;background-size:cover;background-position:center;
+    aspect-ratio:16/10;height:auto;position:relative;
+    background-size:cover;background-position:center;background-repeat:no-repeat;
     background-image:linear-gradient(155deg,var(--accent),var(--brand));
   }
-  /* הצללה בתחתית התמונה — בלעדיה תגיות המדיה השקופות נבלעות בתמונות בהירות */
-  .prop-card .thumb::after{
-    content:'';position:absolute;inset:auto 0 0 0;height:52%;pointer-events:none;
-    background:linear-gradient(to top,rgba(10,18,30,.6),rgba(10,18,30,0));
-  }
+  /* ההצללה שהייתה כאן (‏::after בתחתית התמונה) עברה ל-assets/property-card.js
+     כ-‎.pc-scrim‎: שם היא מכסה גם את ראש התמונה, ולכן תגית "למכירה" קריאה
+     גם על שמיים לבנים, והיא מוזרקת רק כשיש תמונה אמיתית. */
   /* ====== נכס שהתמונות שלו עוד לא הועלו ======
-     לוגו המשרד + "תמונות של הנכס יעלו בקרוב" במקום מלבן צבע ריק. ההצללה
-     התחתונה מבוטלת כאן: היא נועדה לתמונות אמיתיות, ועל רקע בהיר היא רק
-     מלכלכת את ממלא המקום. */
+     לוגו המשרד + "תמונות של הנכס יעלו בקרוב" במקום מלבן צבע ריק. */
   .prop-card .thumb.no-photo{background-image:none}
-  .prop-card .thumb.no-photo::after{display:none}
   .thumb-fallback{
     position:absolute;inset:0;z-index:0;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -609,19 +611,15 @@
     max-width:100%;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
   }
   .thumb-fallback .tf-note{font-size:.7rem;font-weight:600;color:var(--ink-soft);line-height:1.25}
-  /* המחיר, שורת המאפיינים והתגיות שעל התמונה מגיעים מ-assets/property-card.js —
-     ‏.pc-price, .pc-facts, .pc-badges, .pc-media. כאן נשארים רק הכותרת
-     ושורת המיקום, שהן ייחודיות לאריח של דף המשרד.
+  /* המחיר, הכותרת, שתי שורות המיקום, שורת המאפיינים והתגיות שעל התמונה
+     מגיעים כולם מ-assets/property-card.js — ‏.pc-price, .pc-title, .pc-where,
+     .pc-facts, .pc-badges, .pc-media, .pc-scrim — ולכן האריח כאן זהה לזה
+     שבדף הבית ובדף הסוכן/ת, כולל גובה אזור הטקסט הקבוע.
 
      שתי התגיות של הערכה נמסרות לרכיב המשותף דרך משתני ה---pc-*, כדי
      שהתגיות על התמונה ימשיכו להיצבע בצבעי המשרד ולא בצבעי ברירת המחדל. */
   .prop-card{--pc-sale-bg:var(--brand-veil);--pc-rent-bg:var(--accent-veil)}
   .prop-card .body{padding:12px 13px 13px}
-  .prop-card .title{
-    font-size:.85rem;margin-top:5px;color:var(--ink);line-height:1.35;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
-  }
-  .prop-card .where{font-size:.74rem;color:var(--ink-soft);margin-top:3px}
 
   /* ---------- הווידג'טים של דף המשרד ----------
      שלושה כלים אינטראקטיביים שהופכים את הדף ממדף לתחנת פנייה, וכל אחד
@@ -630,8 +628,10 @@
      למסחרי. במקטע "כלים מהירים" נפרד הם היו נקראים כנספח בתחתית הדף. */
   .lead-widgets{margin-top:30px;display:flex;flex-direction:column;gap:14px}
   /* המרווח שמפריד ווידג'ט מהרצועה שמעליו ומהכותרת שמתחתיו, כשהוא כבר
-     יושב בתוך ‎#activeProps‎ */
-  #activeProps > .lead-banner{margin:20px 0 4px}
+     יושב בתוך ‎#activeProps‎. הצד התחתון היה 4px — הבאנר, שהוא הכבד
+     במקטע, נראה נדבק לכותרת הרצועה שאחריו — ועכשיו יש לו אוויר משני
+     הצדדים, כמו לבאנרים של דף הבית. */
+  #activeProps > .lead-banner{margin:24px 0 16px}
 
 
   /* ---------- באנרי הלידים ----------
@@ -691,7 +691,9 @@
   .lead-banner.is-open .lead-teaser-go-close{display:inline}
   .lead-banner.is-open .lead-teaser-go{
     background:transparent;color:inherit;box-shadow:none;
-    border:1.5px solid rgba(255,255,255,.35);
+    /* ‏.55 ולא ‎.35‎: זו המסגרת היחידה שמסמנת את גבול הכפתור במצב הפתוח,
+       ו-WCAG 1.4.11 דורש 3:1 לגבול של פקד פעיל — ‎.35‎ לא הגיע לשם */
+    border:1.5px solid rgba(255,255,255,.55);
   }
   @media(max-width:400px){
     .lead-teaser-go{flex:1 0 100%;text-align:center}
@@ -1928,6 +1930,25 @@ function contrastWithWhite(hex){
   return contrastBetween(hex, '#ffffff');
 }
 
+/* ‏--on-brand ו---on-accent: צבע הטקסט שרץ *על* גוון המשרד — בכפתורי ה-CTA
+   של באנרי הלידים, בכותרות הבאנרים ובתגיות. עד כה נבחר לבן בכל פעם שהוא
+   עבר 3.2:1, אבל 3.2 הוא הסף של WCAG לטקסט גדול בלבד — ו-CTA ב-‎.82rem‎
+   מודגש ("לבדיקה ←") הוא טקסט רגיל, שדורש 4.5:1. משרד עם אקסנט בינוני
+   קיבל בדיוק את המצב הזה: לבן שנראה בסדר ולא עבר את התקן.
+
+   הבחירה כאן היא בין שני המועמדים היחידים — לבן ודיו כהה — ומעדיפה את זה
+   שעובר 4.5:1. כשגם וגם, הלבן מנצח (זו שפת האתר); כשאף אחד לא עובר —
+   גוון בינוני שאין עליו טקסט קריא באמת — נבחר הגבוה מבין השניים, שהוא
+   הטוב ביותר שאפשר בלי לשנות את הגוון שהמשרד בחר. */
+const ON_COLOR_INK = '#1B1F26';
+function readableOn(hex){
+  const onWhite = contrastWithWhite(hex);
+  const onInk = contrastBetween(hex, ON_COLOR_INK);
+  if (onWhite >= 4.5) return '#fff';
+  if (onInk >= 4.5) return ON_COLOR_INK;
+  return onWhite >= onInk ? '#fff' : ON_COLOR_INK;
+}
+
 /* כתובת תמונה שמותר להכניס ל-src או ל-url() של CSS.
    מותרים שלושה סוגים: כתובת http(s) מלאה (כך נשמרות תמונות שהועלו דרך
    ה-CRM אל ה-Storage), ונתיב יחסי לאתר עצמו — ‎/…‎ או ‎assets/…‎ — שכך
@@ -1945,19 +1966,19 @@ function safeImageUrl(url){
 function applyBranding(agency){
   const c = agency.colors || {};
   const root = document.documentElement.style;
+  applyPageBackground(c);
   const brand = safeHex(c.primary, null);
   const accent = safeHex(c.accent, null);
   if (brand){
     root.setProperty('--brand', brand);
     root.setProperty('--brand-dark', safeHex(c.primary_dark, brand));
-    // אם המשרד בחר גוון בהיר, טקסט לבן עליו לא יהיה קריא
-    root.setProperty('--on-brand', contrastWithWhite(brand) >= 3.2 ? '#fff' : '#1B1F26');
+    root.setProperty('--on-brand', readableOn(brand));
   }
   if (accent){
     const accentDark = safeHex(c.accent_dark, accent);
     root.setProperty('--accent', accent);
     root.setProperty('--accent-dark', accentDark);
-    root.setProperty('--on-accent', contrastWithWhite(accent) >= 3.2 ? '#fff' : '#1B1F26');
+    root.setProperty('--on-accent', readableOn(accent));
     /* ‏--accent-ink נושא טקסט ואייקונים קטנים (מחיר, כוכבים, אייקוני הקפסולות) על רקע
        הכרטיסים. אקסנט בהיר — צהוב, חול, ובוודאי לבן — נכשל שם בניגודיות,
        ולכן נבחר כאן הגוון הראשון שעובר 4.5:1: קודם המשני הכהה, אחריו המשני
@@ -2388,6 +2409,28 @@ function renderQualityBadge(agency){
   renderTrustBar();
 }
 
+/* ---------- הרקע הזורם של הדף ----------
+   ברירת המחדל של דף המשרד היא הרקע של האתר — אותה שמש, אותו קו רקיע ואותם
+   גלים שיש בדף הבית וב-CRM — כדי שמעבר מדף הבית לדף משרד לא ירגיש כמו
+   מעבר לאתר אחר. מנהל/ת המשרד יכול/ה להחליף אותו לרקע חלק דרך ה-CRM
+   (מיתוג ועיצוב דף המשרד → רקע הדף), ולהחזיר את ברירת המחדל באותו מקום.
+
+   ההעדפה יושבת ב-agencies.colors.page_bg — 'plain' כדי לכבות, וכל ערך אחר
+   (כולל היעדר ערך, שזה מצבם של כל המשרדים הקיימים) הוא ברירת המחדל.
+
+   הרקע מורכב מיד עם טעינת הדף ולא רק אחרי שהמיתוג חוזר מהשרת: ברירת המחדל
+   היא "מוצג", ולכן עדיף להראות אותו מיד ולכבות אצל המיעוט שבחר אחרת מאשר
+   להשאיר את כל השאר עם הבזק של רקע ריק. */
+const PAGE_BG_OFF = 'plain';
+
+function applyPageBackground(colors){
+  if (!window.PageBg) return;
+  if (((colors || {}).page_bg || '') === PAGE_BG_OFF) PageBg.unmount();
+  else PageBg.mount();
+}
+
+if (window.PageBg) PageBg.mount();
+
 async function loadAgency(){
   const slug = new URLSearchParams(window.location.search).get('slug');
   if (!slug || !window.supabase){
@@ -2488,18 +2531,17 @@ let visualizedProps = new Set();
    לדף המשרד הוא ממלא־המקום לנכס בלי תמונות, שנושא את לוגו המשרד. */
 function propertyCardHtml(p){
   const hasPhoto = !!safeImageUrl(p.images && p.images[0]);
-  const where = [p.property_type, p.city].filter(Boolean).join(' · ');
 
   return `
     <div class="thumb${hasPhoto ? '' : ' no-photo'}"${thumbStyle(p)}>
       ${thumbFallback(p)}
-      ${PropertyCard.badgesHtml(p, { aiViz: visualizedProps.has(p.id) })}
+      ${PropertyCard.badgesHtml(p, { aiViz: visualizedProps.has(p.id), photo: hasPhoto })}
       ${PropertyCard.mediaHtml(p)}
     </div>
     <div class="body">
       ${PropertyCard.priceHtml(p)}
-      <div class="title">${escapeHtml(p.title || '')}</div>
-      ${where ? `<div class="where">${escapeHtml(where)}</div>` : ''}
+      ${PropertyCard.titleHtml(p)}
+      ${PropertyCard.whereHtml(p, { agency:false })}
       ${PropertyCard.factsHtml(p)}
     </div>`;
 }

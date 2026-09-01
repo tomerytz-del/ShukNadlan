@@ -8,6 +8,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="assets/quality-badge.js"></script>
 <script src="assets/property-card.js"></script>
+<!-- הרקע הזורם של האתר. נטען בלי data-auto: דף הסוכן/ת מרכיב אותו אחרי
+     שנקראה ההעדפה שלו/ה ושל המשרד מה-CRM (ראו applyPageBackground). -->
+<script src="assets/page-bg.js"></script>
 <style>
   /* ---------- ערכת הצבעים ----------
      בשונה מדף המשרד, דף הסוכן/ת אינו מתחלף בצבעים: הוא של הפלטפורמה, וסוכן/ת
@@ -356,21 +359,20 @@
   }
   .prop-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
   .prop-card:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+  /* יחס גובה־רוחב קבוע במקום גובה קבוע, כדי שהתמונה תשמור על הפרופורציה
+     שלה בכל רוחב כרטיס. ‏background-size:cover הוא המקבילה של
+     object-fit:cover לתמונת רקע — התמונה ממלאת את המסגרת בלי להימתח. */
   .prop-card .thumb{
-    height:150px;position:relative;background-size:cover;background-position:center;
+    aspect-ratio:16/10;height:auto;position:relative;
+    background-size:cover;background-position:center;background-repeat:no-repeat;
     background-image:linear-gradient(155deg,var(--accent),var(--brand));
   }
-  /* הצללה בתחתית התמונה — בלעדיה תגיות המדיה השקופות נבלעות בתמונות בהירות */
-  .prop-card .thumb::after{
-    content:'';position:absolute;inset:auto 0 0 0;height:52%;pointer-events:none;
-    background:linear-gradient(to top,rgba(10,18,30,.6),rgba(10,18,30,0));
-  }
+  /* ההצללה שהייתה כאן (‏::after בתחתית התמונה) עברה ל-assets/property-card.js
+     כ-‎.pc-scrim‎: שם היא מכסה גם את ראש התמונה, ולכן תגית "למכירה" קריאה
+     גם על שמיים לבנים, והיא מוזרקת רק כשיש תמונה אמיתית. */
   /* ====== נכס שהתמונות שלו עוד לא הועלו ======
-     לוגו המשרד + "תמונות של הנכס יעלו בקרוב" במקום מלבן צבע ריק. ההצללה
-     התחתונה מבוטלת כאן: היא נועדה לתמונות אמיתיות, ועל רקע בהיר היא רק
-     מלכלכת את ממלא המקום. */
+     לוגו המשרד + "תמונות של הנכס יעלו בקרוב" במקום מלבן צבע ריק. */
   .prop-card .thumb.no-photo{background-image:none}
-  .prop-card .thumb.no-photo::after{display:none}
   .thumb-fallback{
     position:absolute;inset:0;z-index:0;
     display:flex;flex-direction:column;align-items:center;justify-content:center;
@@ -395,7 +397,9 @@
     max-width:100%;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
   }
   .thumb-fallback .tf-note{font-size:.7rem;font-weight:600;color:var(--ink-soft);line-height:1.25}
-  /* התגיות שעל התמונה, שורת המאפיינים והמחיר מגיעים מ-assets/property-card.js;
+  /* התגיות שעל התמונה, שכבת ההגנה שמתחתיהן, הכותרת, שתי שורות המיקום,
+     שורת המאפיינים והמחיר מגיעים כולם מ-assets/property-card.js, ולכן
+     האריח כאן זהה לזה שבדף הבית ובדף המשרד — כולל גובה אזור הטקסט הקבוע;
      ‏--pc-* מוסרים לו את גווני הערכה כדי שהתגיות יישארו בצבעי האתר. */
   .prop-card{--pc-sale-bg:var(--brand-veil);--pc-rent-bg:var(--accent-veil)}
   /* התגיות מפנות מקום לכפתור השמירה שבפינה הנגדית */
@@ -412,11 +416,6 @@
   .fav-btn svg{width:17px;height:17px;fill:none;stroke:var(--teal-dark);stroke-width:2}
   .fav-btn[aria-pressed="true"] svg{fill:var(--accent);stroke:var(--accent)}
   .prop-card .body{padding:12px 13px 13px}
-  .prop-card .title{
-    font-size:.85rem;margin-top:5px;color:var(--ink);line-height:1.35;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
-  }
-  .prop-card .where{font-size:.74rem;color:var(--ink-soft);margin-top:3px}
 
   .deal-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--hair);font-size:.85rem}
   .deal-row:last-child{border-bottom:none}
@@ -812,6 +811,27 @@ function agencyTint(hex, ratio = 0.14){
     .map(i => Math.round(parseInt(full.slice(i, i+2), 16) * ratio + 255 * (1 - ratio)).toString(16).padStart(2,'0'))
     .join('');
 }
+/* ---------- הרקע הזורם של הדף ----------
+   כמו בדף המשרד: ברירת המחדל היא הרקע של האתר, כדי שדף הסוכן/ת ירגיש חלק
+   מאותו אתר ולא כדף בודד על נייר ריק. ההעדפה נקראת בשתי רמות —
+
+     1. ‏agency_members.page_bg — הבחירה של הסוכן/ת עצמו/ה ב-CRM.
+     2. ‏agencies.colors.page_bg — הבחירה של מנהל/ת המשרד, כשהסוכן/ת לא בחר/ה.
+
+   ובהיעדר שתיהן (מצבם של כל הסוכנים הקיימים) — ברירת המחדל, כלומר מוצג.
+   הרקע מורכב מיד עם הטעינה מאותה סיבה שבדף המשרד: זו ברירת המחדל. */
+const PAGE_BG_OFF = 'plain';
+
+function applyPageBackground(agent){
+  if (!window.PageBg) return;
+  const own = (agent && agent.page_bg) || null;
+  const agency = ((agent && agent.agencies && agent.agencies.colors) || {}).page_bg || null;
+  if ((own || agency || '') === PAGE_BG_OFF) PageBg.unmount();
+  else PageBg.mount();
+}
+
+if (window.PageBg) PageBg.mount();
+
 function applyAgencyChip(el, agency){
   const colors = (agency && agency.colors) || {};
   const brand = agencyHex(colors.primary);
@@ -1070,14 +1090,19 @@ async function loadAgentProfile(){
     // שדות הפרופיל המורחבים (ותק, התמחויות, הסמכות, אזור פעילות והגלריה) נוספו
     // ל-view אחרי שהדף כבר עלה לאוויר. כש-view בסביבה כלשהי עוד לא עודכן,
     // ‏PostgREST מחזיר שגיאת "עמודה לא קיימת" על *כל* השאילתה — והדף כולו
-    // הציג "הסוכן לא נמצא" בגלל תגית חסרה. הניסיון השני מוותר על השדות
-    // המורחבים בלבד, כך שהפרופיל עצמו עולה גם אז והתגיות פשוט לא מוצגות.
+    // הציג "הסוכן לא נמצא" בגלל תגית חסרה. לכן הניסיונות יורדים במדרגות,
+    // מהסט המלא אל הגרעין, וכל מדרגה מוותרת רק על מה שנוסף אחרי קודמתה:
+    // ‏page_bg (החדש מכולם) נופל ראשון ולבדו, אחריו שדות התגיות, ובסוף
+    // נשאר הגרעין שבלעדיו אין דף. כך סביבה שבה ה-view עוד לא עודכן מאבדת
+    // רק את מה שבאמת חסר בה, ולכל מה שנופל יש ממילא ברירת מחדל.
     const CORE_FIELDS = 'id, display_name, bio, photo_url, cover_url, license_number, slug, agency_id, has_ethics_badge, phone_e164, role';
     const HIGHLIGHT_FIELDS = ', years_experience, specialties, credentials, service_area, photo_position, gallery';
-    let { data: agent, error } = await byKey(sb.from('agency_members_public').select(CORE_FIELDS + HIGHLIGHT_FIELDS)).maybeSingle();
-    if (error){
-      console.warn('טעינת שדות הפרופיל המורחבים נכשלה, נטען פרופיל בסיסי:', error);
-      ({ data: agent } = await byKey(sb.from('agency_members_public').select(CORE_FIELDS)).maybeSingle());
+    const BG_FIELD = ', page_bg';
+    let agent = null;
+    for (const fields of [CORE_FIELDS + HIGHLIGHT_FIELDS + BG_FIELD, CORE_FIELDS + HIGHLIGHT_FIELDS, CORE_FIELDS]){
+      const { data, error } = await byKey(sb.from('agency_members_public').select(fields)).maybeSingle();
+      if (!error){ agent = data; break; }
+      console.warn('טעינת הפרופיל בשדות המורחבים נכשלה, מנסה סט מצומצם יותר:', error);
     }
     if (!agent) throw new Error('not found');
 
@@ -1086,6 +1111,8 @@ async function loadAgentProfile(){
         .select('name, slug, logo_url, cover_url, colors').eq('id', agent.agency_id).maybeSingle();
       agent.agencies = agency || null;
     }
+
+    applyPageBackground(agent);
 
     currentAgentProfile = agent;
     document.title = agent.display_name + ' | שוק נדל״ן';
@@ -1160,12 +1187,11 @@ let visualizedProps = new Set();
    שפה בדיוק שבה הם מופיעים בדף הבית ובדף המשרד. */
 function propertyCardHtml(p, saved){
   const hasPhoto = !!safeImageUrl(p.images && p.images[0]);
-  const where = [p.property_type, p.city].filter(Boolean).join(' · ');
 
   return `
     <div class="thumb${hasPhoto ? '' : ' no-photo'}"${thumbStyle(p)}>
       ${thumbFallback(p)}
-      ${PropertyCard.badgesHtml(p, { aiViz: visualizedProps.has(p.id) })}
+      ${PropertyCard.badgesHtml(p, { aiViz: visualizedProps.has(p.id), photo: hasPhoto })}
       ${PropertyCard.mediaHtml(p)}
       <button type="button" class="fav-btn" aria-pressed="${saved}" aria-label="שמירת הנכס למועדפים">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3s-7.5-4.6-7.5-9.6a4.2 4.2 0 0 1 7.5-2.6 4.2 4.2 0 0 1 7.5 2.6c0 5-7.5 9.6-7.5 9.6Z"/></svg>
@@ -1173,8 +1199,8 @@ function propertyCardHtml(p, saved){
     </div>
     <div class="body">
       ${PropertyCard.priceHtml(p)}
-      <div class="title">${escapeHtml(p.title || p.property_type || '')}</div>
-      ${where ? `<div class="where">${escapeHtml(where)}</div>` : ''}
+      ${PropertyCard.titleHtml(p)}
+      ${PropertyCard.whereHtml(p, { agency:false })}
       ${PropertyCard.factsHtml(p)}
     </div>`;
 }

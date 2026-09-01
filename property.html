@@ -13,6 +13,9 @@
 <script src="assets/quality-badge.js"></script>
 <script src="assets/map-gestures.js"></script>
 <script src="assets/property-card.js"></script>
+<!-- הרקע הזורם של האתר — אותו רקע של דף הבית ושל ה-CRM. דף הנכס אינו
+     נצבע בערכת המשרד, ולכן הוא מקבל את הרקע מיד עם הטעינה. -->
+<script src="assets/page-bg.js" data-auto></script>
 <style>
   :root{
     --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
@@ -471,11 +474,9 @@
   .prop-card .pc-facts{margin-top:5px;gap:2px 9px}
   .prop-card .pc-fact{font-size:.68rem}
   .prop-card .pc-fact svg{width:13px;height:13px}
-  .prop-card .title{
-    font-size:.73rem;color:var(--ink);margin-top:4px;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
-  }
-  .prop-card .where{font-size:.66rem;color:var(--ink-soft);margin-top:2px}
+  .prop-card .pc-title{font-size:.73rem;margin-top:4px}
+  .prop-card .pc-where{margin-top:2px}
+  .prop-card .pc-where span{font-size:.66rem}
 
   @media(max-width:759px){
     .featured-scroll{margin-inline:-18px}
@@ -484,7 +485,7 @@
     .featured-scroll{--row-gap:12px;--row-peek:18px}
     .prop-card .thumb{height:112px}
     .prop-card .price{font-size:.94rem}
-    .prop-card .title{font-size:.78rem}
+    .prop-card .pc-title{font-size:.78rem}
   }
   @media(min-width:760px){
     .featured-scroll{--row-gap:16px;--row-peek:24px}
@@ -495,7 +496,7 @@
     .prop-card .thumb .tf-note{font-size:.68rem}
     .prop-card .body{padding:12px}
     .prop-card .price{font-size:1.02rem}
-    .prop-card .title{font-size:.85rem}
+    .prop-card .pc-title{font-size:.85rem}
     .prop-card .meta{font-size:.76rem;margin-top:6px}
     .prop-card .ribbon{top:10px;inset-inline-end:10px;font-size:.68rem;padding:3px 9px}
   }
@@ -2072,17 +2073,16 @@ function renderSimilarProperties(list){
   PropertyCard.sortByMedia(list).forEach((sp, i)=>{
     const card = document.createElement('div');
     card.className = 'prop-card';
-    const where = [sp.property_type, sp.city].filter(Boolean).join(' · ');
     card.innerHTML = `
       <div class="thumb" style="${thumbStyle(sp, i)}">
         ${thumbFallback(sp)}
         ${isPromoted(sp) ? '<span class="ribbon">מקודם</span>' : ''}
-        ${PropertyCard.badgesHtml(sp)}
+        ${PropertyCard.badgesHtml(sp, { photo: !!(sp.images && sp.images[0]) })}
       </div>
       <div class="body">
         ${PropertyCard.priceHtml(sp)}
-        <div class="title">${escapeHtml(sp.title || '')}</div>
-        ${where ? `<div class="where">${escapeHtml(where)}</div>` : ''}
+        ${PropertyCard.titleHtml(sp)}
+        ${PropertyCard.whereHtml(sp)}
         ${PropertyCard.factsHtml(sp)}
       </div>`;
     card.addEventListener('click', ()=> window.location.href = 'property.html?id=' + sp.id);

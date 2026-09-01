@@ -376,6 +376,44 @@
   .palette-card .pname{font-size:.78rem;font-weight:700;color:var(--ink)}
   .palette-card .pdesc{font-size:.68rem;color:var(--ink-soft);line-height:1.35}
 
+  /* ---------- בחירת רקע הדף ----------
+     שתי אפשרויות בלבד, ולכן שני כרטיסים ולא רשימה נפתחת: כל אחד מהם מציג
+     תצוגה מוקטנת של הרקע שהוא מייצג, כדי שהבחירה תיעשה בעין ולא בטקסט.
+     אותה שפה של .palette-card, כי זו אותה סוג החלטה במקטע אחד.
+
+     ‏auto-fit ולא מספר עמודות קבוע: מקטע המיתוג מציג כאן שתי אפשרויות
+     ופרופיל הסוכן/ת שלוש (כולל "כמו המשרד"), ושתיהן צריכות להיערך יפה. */
+  .bg-choice{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px;margin-bottom:4px}
+  .bg-card{
+    border:2px solid var(--line);border-radius:var(--radius-md);padding:10px;background:#fff;
+    text-align:right;display:flex;flex-direction:column;gap:8px;
+  }
+  .bg-card.active{border-color:var(--teal);box-shadow:0 0 0 3px var(--teal-tint)}
+  .bg-card .bg-thumb{
+    height:52px;border-radius:var(--radius-sm);border:1px solid var(--line);overflow:hidden;position:relative;
+  }
+  /* דמות מוקטנת של הרקע הזורם: אותם גוונים של assets/page-bg.js — זריחה
+     חמה למעלה וגלי כחול־נייבי למטה — בשלושה גרדיאנטים ובלי SVG. */
+  .bg-card .bg-thumb.flow{
+    background:
+      radial-gradient(120% 90% at 74% -20%, rgba(250,201,124,.75), rgba(248,250,252,0) 68%),
+      linear-gradient(180deg,#fdf8ef 0%,#f7fbfe 42%,#dbe9f8 72%,#7ea6cd 100%);
+  }
+  .bg-card .bg-thumb.flow::after{
+    content:'';position:absolute;inset:auto 0 0 0;height:42%;
+    background:linear-gradient(180deg,rgba(60,116,168,0),rgba(28,58,94,.75));
+  }
+  .bg-card .bg-thumb.plain{background:var(--paper)}
+  /* "כמו המשרד" — חצי מזה וחצי מזה, כי מה שיוצג בפועל תלוי בבחירת המשרד */
+  .bg-card .bg-thumb.inherit{
+    background:
+      linear-gradient(90deg,var(--paper) 0 50%,transparent 50%),
+      radial-gradient(120% 90% at 74% -20%, rgba(250,201,124,.75), rgba(248,250,252,0) 68%),
+      linear-gradient(180deg,#fdf8ef 0%,#f7fbfe 42%,#dbe9f8 72%,#7ea6cd 100%);
+  }
+  .bg-card .bname{font-size:.78rem;font-weight:700;color:var(--ink)}
+  .bg-card .bdesc{font-size:.68rem;color:var(--ink-soft);line-height:1.35}
+
   /* ---------- תחומי ההתמחות ----------
      רשת של מתגים ולא רשימת צ׳קבוקסים: הבחירה כאן היא מה שהלקוח יראה
      כתגיות בראש דף המשרד, ולכן היא נראית כאן כמו שהיא תיראה שם. */
@@ -2245,6 +2283,17 @@
             <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">עד 4 תחומים — התגיות הראשונות הן אלה שנראות בראש הדף.</p>
           </div>
 
+          <!-- ---------- רקע דף הסוכן/ת ----------
+               ברירת המחדל היא מה שמנהל/ת המשרד בחר/ה במקטע המיתוג, ובהיעדר
+               בחירה — הרקע הזורם של האתר. שתי האפשרויות האחרות הן עקיפה
+               אישית של הדף הזה בלבד, וחזרה ל"כמו המשרד" מחזירה את ברירת
+               המחדל. -->
+          <div class="form-subheading">רקע הדף שלי</div>
+          <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">
+            הרקע שמאחורי תוכן דף הסוכן/ת שלך. ברירת המחדל היא מה שנבחר עבור המשרד.
+          </p>
+          <div class="bg-choice" id="pfBgChoice"></div>
+
           <div class="form-subheading">תמונת סוכן/ת ותמונת נושא</div>
           <div class="single-img-row">
             <div>
@@ -2401,6 +2450,19 @@
         </div>
 
         <div id="brContrastWarn" style="display:none;font-size:.76rem;color:var(--gold-dark);background:var(--gold-tint);border-radius:var(--radius-sm);padding:8px 10px;margin-top:10px"></div>
+
+        <!-- ---------- רקע דף המשרד ----------
+             ברירת המחדל היא הרקע הזורם של האתר — אותה שמש, אותו קו רקיע
+             ואותם גלים שיש בדף הבית ובדשבורד הזה — כדי שמעבר מדף הבית לדף
+             המשרד לא ירגיש כמו מעבר לאתר אחר. משרד עם ערכה כהה, או כזה
+             שרוצה שהתמונות שלו יעמדו לבד, מכבה אותו כאן ומחזיר אותו באותו
+             מקום. הבחירה חלה גם על דפי הסוכנים של המשרד, אלא אם סוכן/ת
+             בחר/ה אחרת בפרופיל האישי. -->
+        <div class="form-subheading">רקע הדף</div>
+        <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">
+          הרקע שמאחורי תוכן דף המשרד. הבחירה חלה גם על דפי הסוכנים של המשרד, אלא אם סוכן/ת בחר/ה אחרת בפרופיל האישי.
+        </p>
+        <div class="bg-choice" id="brBgChoice"></div>
 
         <div class="brand-preview" id="brandPreview">
           <div class="bp-cover" id="bpCover"></div>
@@ -3660,11 +3722,22 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // שם המשרד נטען בשאילתה נפרדת ולא ב-embed‏ (agencies(name)): מאז ש-property_shares
   // מחזיקה שני מפתחות זרים ל-agencies, PostgREST לא יודע לבחור נתיב יחיד בין
   // agency_members ל-agencies ומחזיר PGRST201 (HTTP 300) על כל embed כזה.
-  const { data: agent, error: agentErr } = await sb
+  const AGENT_FIELDS = 'id, agency_id, slug, display_name, bio, photo_url, photo_position, cover_url, license_number, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, is_mortgage_advisor, phone, ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at, years_experience, specialties, credentials, service_area, gallery, released_at';
+  let { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select('id, agency_id, slug, display_name, bio, photo_url, photo_position, cover_url, license_number, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, is_mortgage_advisor, phone, ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at, years_experience, specialties, credentials, service_area, gallery, released_at')
+    .select(AGENT_FIELDS + ', page_bg')
     .eq('user_id', user.id)
     .maybeSingle();
+
+  // ‏page_bg (בחירת רקע דף הסוכן/ת) נוספה אחרי שה-CRM כבר היה באוויר.
+  // ‏PostgREST מפיל את *כל* השאילתה על עמודה חסרה, וזו השאילתה שפותחת את
+  // הדשבורד — ולכן סביבה שהמיגרציה עוד לא רצה בה נכנסת בלעדיה, ובחירת
+  // הרקע פשוט לא מוצגת. ראו supabase/migrations/20260914090000_page_background.sql.
+  if (agentErr && /page_bg/.test(agentErr.message || '')){
+    console.warn('העמודה page_bg עוד לא קיימת — נטען הפרופיל בלעדיה:', agentErr);
+    ({ data: agent, error: agentErr } = await sb
+      .from('agency_members').select(AGENT_FIELDS).eq('user_id', user.id).maybeSingle());
+  }
 
   if (agentErr){ showAuthLoadError('שגיאה: ' + agentErr.message); return; }
   if (!agent){
@@ -4721,8 +4794,12 @@ function loadProfileSettings(agent){
     gallery: (Array.isArray(agent.gallery) ? agent.gallery : [])
       .filter(g => g && g.url)
       .map(g => ({ url: g.url, caption: g.caption || '' })),
+    // ‏'' = "כמו המשרד". ‏agency_members.page_bg יכול להיות NULL (ברירת מחדל)
+    // או 'flow'/'plain' כעקיפה אישית — ראו המיגרציה 20260914090000.
+    pageBg: agent.page_bg === 'flow' || agent.page_bg === 'plain' ? agent.page_bg : '',
     pendingDeletes: [],
   };
+  renderProfileBgChoice();
   document.getElementById('pfName').value = agent.display_name || '';
   document.getElementById('pfLicense').value = agent.license_number || '';
   document.getElementById('pfBio').value = agent.bio || '';
@@ -4736,6 +4813,36 @@ function loadProfileSettings(agent){
   renderProfileImages();
   renderProfilePreview();
   loadAgencyCover(agent.agency_id);
+}
+
+/* ---------- רקע דף הסוכן/ת ----------
+   שלוש אפשרויות, ולא שתיים כמו במקטע המיתוג של המשרד: הראשונה היא "כמו
+   המשרד" — ברירת המחדל, שנשמרת כ-NULL ומשאירה את ההחלטה אצל מנהל/ת המשרד.
+   שתי האחרות הן עקיפה אישית של דף הסוכן/ת בלבד, וחזרה לראשונה מחזירה את
+   ברירת המחדל. אותם כרטיסים ואותו CSS (‏.bg-choice/.bg-card) של המשרד. */
+const PROFILE_BG_OPTIONS = [
+  { id:'',      thumb:'inherit', name:'כמו המשרד (ברירת מחדל)', desc:'מה שנבחר במקטע המיתוג של המשרד' },
+  { id:'flow',  thumb:'flow',    name:'הרקע של האתר',           desc:'שמש, קו רקיע וגלים שזורמים עם הגלילה' },
+  { id:'plain', thumb:'plain',   name:'רקע חלק',                desc:'צבע נייר אחיד, בלי תנועה' },
+];
+
+function renderProfileBgChoice(){
+  const box = document.getElementById('pfBgChoice');
+  if (!box || !profileState) return;
+  box.textContent = '';
+  PROFILE_BG_OPTIONS.forEach(opt=>{
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'bg-card' + (profileState.pageBg === opt.id ? ' active' : '');
+    card.setAttribute('aria-pressed', profileState.pageBg === opt.id ? 'true' : 'false');
+    card.innerHTML = `<div class="bg-thumb ${opt.thumb}"></div>
+      <div><div class="bname">${opt.name}</div><div class="bdesc">${opt.desc}</div></div>`;
+    card.addEventListener('click', ()=>{
+      profileState.pageBg = opt.id;
+      renderProfileBgChoice();
+    });
+    box.appendChild(card);
+  });
 }
 
 function renderProfileImages(){
@@ -5076,7 +5183,7 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     feedback.textContent = 'שומר…';
     // קוראים את השורה חזרה במקום להניח מה נשמר: טריגר ההגנה על agency_members
     // מחזיר שדות נעולים לערכם הישן בשקט, ועדיף להציג את מה שבאמת יושב ב-DB
-    const { data: saved, error } = await sb.from('agency_members').update({
+    const patch = {
       display_name: name,
       license_number: license,
       bio: bio || null,
@@ -5088,10 +5195,25 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
       credentials: credentials || null,
       specialties: specialties.length ? specialties : null,
       gallery: profileState.gallery.map(g => ({ url: g.url, caption: (g.caption || '').trim() })),
+      // ‏'' = "כמו המשרד", ונשמר כ-NULL כדי שדף הסוכן/ת יירש את בחירת המשרד
+      page_bg: profileState.pageBg || null,
       updated_at: new Date().toISOString(),
-    }).eq('id', currentAgent.id)
-      .select('display_name, license_number, bio, photo_url, photo_position, cover_url, years_experience, service_area, credentials, specialties, gallery')
-      .single();
+    };
+    const RETURNED = 'display_name, license_number, bio, photo_url, photo_position, cover_url, ' +
+      'years_experience, service_area, credentials, specialties, gallery';
+
+    const saveProfile = (body, returned) => sb.from('agency_members').update(body)
+      .eq('id', currentAgent.id).select(returned).single();
+
+    let { data: saved, error } = await saveProfile(patch, RETURNED + ', page_bg');
+    // ‏page_bg נוספה אחרי שה-CRM כבר היה באוויר. בסביבה שבה המיגרציה עוד לא
+    // רצה, PostgREST מפיל את *כל* השמירה על עמודה חסרה — ולכן נסיון שני בלי
+    // בחירת הרקע בלבד: לפרופיל עצמו יש חשיבות גדולה יותר מהעדפת התצוגה.
+    if (error && /page_bg/.test(error.message || '')){
+      console.warn('שמירת בחירת הרקע נכשלה (עמודה חסרה), נשמר הפרופיל בלעדיה:', error);
+      const { page_bg, ...withoutBg } = patch;
+      ({ data: saved, error } = await saveProfile(withoutBg, RETURNED));
+    }
     if (error) throw error;
 
     // ניקוי best-effort: השורה כבר לא מצביעה על הקבצים האלה
@@ -5108,6 +5230,10 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     document.getElementById('pfArea').value = saved.service_area || '';
     document.getElementById('pfCredentials').value = saved.credentials || '';
     renderSpecialtyChoices(saved.specialties);
+    // מה שחזר מה-DB, ולא מה שנבחר במסך: אם הנסיון השני ויתר על בחירת הרקע,
+    // הכרטיסים חייבים להראות את מה שבאמת נשמר
+    profileState.pageBg = saved.page_bg === 'flow' || saved.page_bg === 'plain' ? saved.page_bg : '';
+    renderProfileBgChoice();
     renderHeaderAvatar(currentAgent);
     document.getElementById('agentName').textContent = saved.display_name || '';
     accSetCount('accProfile', profileComplete(currentAgent) ? '' : 'להשלמה');
@@ -5767,8 +5893,18 @@ function contrastRatio(a, b){
   const la = relativeLuminance(a), lb = relativeLuminance(b);
   return (Math.max(la,lb) + 0.05) / (Math.min(la,lb) + 0.05);
 }
+/* צבע הטקסט שרץ *על* גוון המשרד — בכפתורי ה-CTA, בכותרות הבאנרים ובתגיות.
+   הכלל חייב להיות זהה בדיוק לזה של agency.html (‏readableOn שם), אחרת
+   התצוגה המקדימה כאן מבטיחה משהו אחר ממה שהלקוח יראה בדף עצמו: מעדיפים
+   את הצבע שעובר 4.5:1 — הסף של WCAG לטקסט רגיל, וה-CTA ב-‎.82rem‎ מודגש
+   הוא טקסט רגיל — כשגם וגם, הלבן מנצח, וכשאף אחד לא עובר נבחר הגבוה. */
+const ON_COLOR_INK = '#1b1f26';
 function readableOn(hex){
-  return contrastRatio(hex, '#ffffff') >= 3.2 ? '#ffffff' : '#1b1f26';
+  const onWhite = contrastRatio(hex, '#ffffff');
+  const onInk = contrastRatio(hex, ON_COLOR_INK);
+  if (onWhite >= 4.5) return '#ffffff';
+  if (onInk >= 4.5) return ON_COLOR_INK;
+  return onWhite >= onInk ? '#ffffff' : ON_COLOR_INK;
 }
 
 async function loadBranding(agencyId){
@@ -5788,6 +5924,7 @@ async function loadBranding(agencyId){
     agencySlug: agency.slug,
     palette: stored.palette || matchPalette(colors) || 'custom',
     colors,
+    pageBg: normalizePageBg(stored.page_bg),
     logo:  agency.logo_url  ? { url: agency.logo_url }  : null,
     cover: agency.cover_url ? { url: agency.cover_url } : null,
     gallery: (Array.isArray(agency.gallery) ? agency.gallery : [])
@@ -5802,6 +5939,7 @@ async function loadBranding(agencyId){
   document.getElementById('brAddress').value = agency.address || '';
   document.getElementById('brViewPageLink').href = 'agency.html?slug=' + encodeURIComponent(agency.slug);
   renderPaletteGrid();
+  renderBgChoice();
   syncColorInputs();
   renderBrandImages();
   renderGalleryAdmin();
@@ -5924,6 +6062,44 @@ function applyPalette(paletteId){
 function syncColorInputs(){
   BRAND_COLOR_KEYS.forEach(k=>{
     document.getElementById(BRAND_COLOR_INPUTS[k]).value = brandingState.colors[k];
+  });
+}
+
+/* ---------- רקע דף המשרד ----------
+   שתי אפשרויות, ולכן שני כרטיסים שמראים את הרקע עצמו במקום שני שמות.
+   'flow' הוא ברירת המחדל של האתר וגם הערך שנשמר כשבוחרים בו במפורש;
+   'plain' מכבה את שכבת הרקע ומשאיר את צבע הנייר של ערכת המשרד. שורה בלי
+   ערך כלל (כל המשרדים שנפתחו לפני השינוי) מתנהגת כמו 'flow'.
+
+   הערך נשמר בתוך ‎colors‎ ולא בעמודה משלו: ‏colors היא כבר ה-blob של "איך
+   דף המשרד נראה", היא נטענת ונשמרת ביחידה אחת כאן, ו-agency.html שולף
+   אותה ב-select('*'). ראו supabase/migrations/20260914090000_page_background.sql. */
+const PAGE_BG_DEFAULT = 'flow';
+const PAGE_BG_OPTIONS = [
+  { id:'flow',  name:'הרקע של האתר (ברירת מחדל)', desc:'שמש, קו רקיע וגלים שזורמים עם הגלילה — כמו בדף הבית' },
+  { id:'plain', name:'רקע חלק',                    desc:'צבע נייר אחיד לפי הערכה שבחרתם, בלי תנועה' },
+];
+
+function normalizePageBg(value){
+  return value === 'plain' ? 'plain' : PAGE_BG_DEFAULT;
+}
+
+function renderBgChoice(){
+  const box = document.getElementById('brBgChoice');
+  if (!box || !brandingState) return;
+  box.textContent = '';
+  PAGE_BG_OPTIONS.forEach(opt=>{
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'bg-card' + (brandingState.pageBg === opt.id ? ' active' : '');
+    card.setAttribute('aria-pressed', brandingState.pageBg === opt.id ? 'true' : 'false');
+    card.innerHTML = `<div class="bg-thumb ${opt.id}"></div>
+      <div><div class="bname">${opt.name}</div><div class="bdesc">${opt.desc}</div></div>`;
+    card.addEventListener('click', ()=>{
+      brandingState.pageBg = opt.id;
+      renderBgChoice();
+    });
+    box.appendChild(card);
   });
 }
 
@@ -6237,7 +6413,7 @@ document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
       if (!item.url) item.url = await uploadBrandingBlob(item.blob, 'gallery');
     }
 
-    const colors = { palette: brandingState.palette };
+    const colors = { palette: brandingState.palette, page_bg: normalizePageBg(brandingState.pageBg) };
     BRAND_COLOR_KEYS.forEach(k => { colors[k] = brandingState.colors[k]; });
 
     feedback.textContent = 'שומר…';
