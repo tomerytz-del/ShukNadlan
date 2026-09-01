@@ -13,19 +13,12 @@
 //   ‏2. **ההסלמה היא של מי שאין לו יעד בלבד.** ‏no_consent אינו תקלה אלא
 //      בחירה של הפונה, ו-assigned/shelf הם המסלול התקין.
 //
-// ההתראה בפעמון נוצרת ב-DB (טריגר על lead_routing_log). המייל נשלח כאן, כי
-// מסד נתונים שממתין לספק מייל הוא מסד נתונים שנתקע כשהספק נתקע.
+// ההתראה בפעמון נוצרת ב-DB (טריגר על lead_routing_log). המייל יוצא מכאן ולא
+// מהמסד, כי מסד נתונים שממתין לספק מייל הוא מסד נתונים שנתקע כשהספק נתקע —
+// והמשלוח עצמו מרוכז ב-platform-mail, שהיא היחידה שמכירה את פרטי השולח.
 // ============================================================================
 
-const RESEND_KEY = Deno.env.get("RESEND_API_KEY") || "";
-const ALERTS_FROM_EMAIL = Deno.env.get("ALERTS_FROM_EMAIL") || "";
-
-/* כתובת הקשר של הפלטפורמה. ‏reply_to ולא from: ‏Resend שולח רק מדומיין
-   מאומת, ו-gmail.com אינו כזה — הודעה שתנסה לצאת ממנו פשוט תידחה. לכן
-   ה-from נשאר השולח המאומת (‏ALERTS_FROM_EMAIL), והתשובה חוזרת לתיבת
-   הפלטפורמה. מי שמשיב/ה להודעה מגיע/ה לשם, וזו כל המטרה. */
-const PLATFORM_CONTACT_EMAIL =
-  Deno.env.get("PLATFORM_CONTACT_EMAIL") || "shuknadlan@gmail.com";
+import { PLATFORM_CONTACT_EMAIL, sendPlatformEmail } from "./platform-mail-client.ts";
 
 export type LeadKind = "agent_owner" | "agent_buyer" | "mortgage_advisor";
 export type LeadTable = "leads" | "saved_searches" | "mortgage_leads";
@@ -90,7 +83,7 @@ async function emailPlatformAdmins(
   emails: string[],
   input: LeadRoutingInput,
 ): Promise<void> {
-  if (!RESEND_KEY || !ALERTS_FROM_EMAIL || emails.length === 0) return;
+  if (emails.length === 0) return;
 
   const kind = KIND_LABELS[input.lead_kind] ?? "ליד";
   const lines = [
@@ -107,27 +100,18 @@ async function emailPlatformAdmins(
     s.replace(/[&<>"']/g, (c) =>
       ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
 
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${RESEND_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: ALERTS_FROM_EMAIL,
-        reply_to: PLATFORM_CONTACT_EMAIL,
-        to: emails.slice(0, 10),
-        subject: `⚠️ ${kind} ללא יעד — שוק נדל״ן`,
-        text: lines.join("\n"),
-        html: `<div dir="rtl" style="font-family:Arial,Helvetica,sans-serif;color:#1B1F26">
+  const result = await sendPlatformEmail({
+    to: emails.slice(0, 10),
+    subject: `⚠️ ${kind} ללא יעד — שוק נדל״ן`,
+    text: lines.join("\n"),
+    html: `<div dir="rtl" style="font-family:Arial,Helvetica,sans-serif;color:#1B1F26">
   <h2 style="margin:0 0 10px;font-size:18px">${esc(kind)} — אין למי להפנות</h2>
   ${lines.slice(1).map((l) => `<p style="margin:4px 0;font-size:14px">${esc(l)}</p>`).join("")}
 </div>`,
-      }),
-    });
-    if (!res.ok) throw new Error(`resend ${res.status}: ${(await res.text()).slice(0, 200)}`);
-  } catch (err) {
-    // הפעמון כבר קיבל את ההתראה מהטריגר; המייל הוא הסלמה נוספת ולא היחידה.
-    console.warn("unrouted-lead email failed:", String(err));
-  }
+  });
+
+  // הפעמון כבר קיבל את ההתראה מהטריגר; המייל הוא הסלמה נוספת ולא היחידה.
+  if (!result.sent) console.warn("unrouted-lead email failed:", result.error);
 }
 
 /**

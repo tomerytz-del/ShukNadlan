@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { PLATFORM_CONTACT_EMAIL, sendPlatformEmail } from "../_shared/platform-mail-client.ts";
 
 // ============================================================================
 // הוספת סוכן/ת לצוות המשרד — בהזמנה, לא בסיסמה שממציאים עבורו/ה
@@ -28,15 +29,6 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const RESEND_KEY = Deno.env.get("RESEND_API_KEY") || "";
-const ALERTS_FROM_EMAIL = Deno.env.get("ALERTS_FROM_EMAIL") || "";
-
-/* כתובת הקשר של הפלטפורמה. ‏reply_to ולא from: ‏Resend שולח רק מדומיין
-   מאומת, ו-gmail.com אינו כזה — הודעה שתנסה לצאת ממנו פשוט תידחה. לכן
-   ה-from נשאר השולח המאומת (‏ALERTS_FROM_EMAIL), והתשובה חוזרת לתיבת
-   הפלטפורמה. מי שמשיב/ה להודעה מגיע/ה לשם, וזו כל המטרה. */
-const PLATFORM_CONTACT_EMAIL =
-  Deno.env.get("PLATFORM_CONTACT_EMAIL") || "shuknadlan@gmail.com";
 const SITE_BASE_URL = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/+$/, "");
 
 function corsHeaders() {
@@ -130,25 +122,13 @@ function inviteText(a: { name: string; agency: string; inviter: string; url: str
  * ויכול/ה לשלוח את הקישור בעצמו/ה. זה בדיוק מה שהיה חסר קודם.
  */
 async function sendInviteEmail(to: string, a: { name: string; agency: string; inviter: string; url: string }) {
-  if (!RESEND_KEY || !ALERTS_FROM_EMAIL) return { sent: false, error: "email_not_configured" };
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${RESEND_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: ALERTS_FROM_EMAIL,
-        reply_to: PLATFORM_CONTACT_EMAIL,
-        to: [to],
-        subject: `${a.inviter} מזמין/ה אותך להצטרף למשרד ${a.agency}`,
-        html: inviteHtml(a),
-        text: inviteText(a),
-      }),
-    });
-    if (!res.ok) return { sent: false, error: `resend ${res.status}: ${(await res.text()).slice(0, 200)}` };
-    return { sent: true, error: null as string | null };
-  } catch (err) {
-    return { sent: false, error: String((err as Error)?.message ?? err).slice(0, 200) };
-  }
+  const result = await sendPlatformEmail({
+    to: [to],
+    subject: `${a.inviter} מזמין/ה אותך להצטרף למשרד ${a.agency}`,
+    html: inviteHtml(a),
+    text: inviteText(a),
+  });
+  return { sent: result.sent, error: result.error };
 }
 
 // ---------------------------------------------------------------------------

@@ -3,3 +3,6 @@
 .venv-test/
 __pycache__/
 *.pyc
+
+# קובץ עזר שה-CLI של Supabase כותב לעצמו
+supabase/.temp/

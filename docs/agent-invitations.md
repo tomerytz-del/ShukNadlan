@@ -118,8 +118,8 @@ https://shuknadlan.co.il/crm.html?invite=<token>
 
 - `RESEND_API_KEY`, `ALERTS_FROM_EMAIL` — כבר קיימים (`saved-search-notify`).
 - `SITE_BASE_URL` — בסיס הקישור בהזמנה. ברירת מחדל `https://shuknadlan.co.il`.
-- `PLATFORM_CONTACT_EMAIL` — תיבת הפלטפורמה, שאליה חוזרת תשובה על ההזמנה.
-  ברירת מחדל `shuknadlan@gmail.com`; ראו
+- `GMAIL_USER`, `GMAIL_APP_PASSWORD` — ההזמנה יוצאת מתיבת הפלטפורמה עצמה,
+  דרך `platform-mail`; ראו
   [docs/platform-contact-email.md](platform-contact-email.md).
 
 **בלי `RESEND_API_KEY` המנגנון עדיין עובד**: ההזמנה נוצרת, המייל מסומן

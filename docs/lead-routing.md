@@ -105,6 +105,8 @@
 | --- | --- |
 | `supabase/migrations/20260913090000_lead_routing.sql` | הטבלה, גודל הקהל, ה-RPC, הטריגר וה-view |
 | `supabase/functions/_shared/lead-routing.ts` | הרישום המשותף + הסלמת המייל |
+| `supabase/functions/_shared/platform-mail-client.ts` | הפנייה ל-`platform-mail` |
+| `supabase/functions/platform-mail/index.ts` | המשלוח עצמו — Gmail SMTP, ו-Resend כרשת ביטחון |
 | `supabase/functions/owner-lead-intake/index.ts` | רישום ליד בעל/ת נכס |
 | `supabase/functions/mortgage-lead-intake/index.ts` | רישום ליד משכנתא |
 | `supabase/functions/saved-search-intake/index.ts` | רישום ליד מחפש/ת דירה |
@@ -128,10 +130,9 @@ mortgage-lead-intake saved-search-intake`). שלושתן מקבלות את
 ביומן ידנית, דרך אותה `log_lead_routing`, כדי שהתור לא ייפתח עם שקר. כל ליד
 מכאן והלאה נרשם מעצמו.
 
-**המייל** יוצא רק כש-`RESEND_API_KEY` ו-`ALERTS_FROM_EMAIL` מוגדרים
-במשתני הסביבה של הפרויקט (אותם שניים ש-saved-search-notify משתמשת בהם).
-בלעדיהם ההתראה בפעמון עובדת כרגיל, והמייל פשוט אינו נשלח. ה-`reply_to` שלו
-הוא תיבת הפלטפורמה — ראו [docs/platform-contact-email.md](platform-contact-email.md).
+**המייל** יוצא דרך `platform-mail`, הפונקציה היחידה שמכירה את פרטי השולח.
+בלעדיה — או כששני מסלולי המשלוח שלה אינם מוגדרים — ההתראה בפעמון עובדת כרגיל
+והמייל פשוט אינו נשלח. ראו [docs/platform-contact-email.md](platform-contact-email.md).
 
 ## כלל אחד שלא נשבר
 

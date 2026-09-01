@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { PLATFORM_CONTACT_EMAIL, sendPlatformEmail } from "../_shared/platform-mail-client.ts";
 
 // ============================================================================
 // שרת ההתראות של הסוכן החכם — מרוקן את תור saved_search_alerts.
@@ -33,16 +34,6 @@ const WA_TOKEN = Deno.env.get("WHATSAPP_TOKEN") || "";
 const WA_PHONE_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") || "";
 const WA_TEMPLATE = Deno.env.get("WHATSAPP_ALERT_TEMPLATE") || "";
 const WA_TEMPLATE_LANG = Deno.env.get("WHATSAPP_ALERT_TEMPLATE_LANG") || "he";
-
-const RESEND_KEY = Deno.env.get("RESEND_API_KEY") || "";
-const ALERTS_FROM_EMAIL = Deno.env.get("ALERTS_FROM_EMAIL") || "";
-
-/* כתובת הקשר של הפלטפורמה. ‏reply_to ולא from: ‏Resend שולח רק מדומיין
-   מאומת, ו-gmail.com אינו כזה — הודעה שתנסה לצאת ממנו פשוט תידחה. לכן
-   ה-from נשאר השולח המאומת (‏ALERTS_FROM_EMAIL), והתשובה חוזרת לתיבת
-   הפלטפורמה. מי שמשיב/ה להודעה מגיע/ה לשם, וזו כל המטרה. */
-const PLATFORM_CONTACT_EMAIL =
-  Deno.env.get("PLATFORM_CONTACT_EMAIL") || "shuknadlan@gmail.com";
 
 const FUNCTIONS_BASE = `${supabaseUrl}/functions/v1`;
 const CRON_SECRET = Deno.env.get("ALERT_CRON_SECRET") || "";
@@ -233,27 +224,16 @@ function emailHtml(a: any): string {
 </body></html>`;
 }
 
+/** זורקת בכוונה: הלולאה למטה תופסת ורושמת `email_status='failed'`, כדי
+ *  שהניסיון החוזר ינסה שוב רק את הערוץ שנכשל. */
 async function sendEmail(a: any): Promise<void> {
-  if (!RESEND_KEY || !ALERTS_FROM_EMAIL) throw new Error("email not configured");
-
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${RESEND_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      from: ALERTS_FROM_EMAIL,
-      reply_to: PLATFORM_CONTACT_EMAIL,
-      to: [a.email],
-      subject: `🔔 ${a.title || "נכס חדש"} — ${nis(a.price)}`,
-      html: emailHtml(a),
-      text: textBody(a),
-    }),
+  const result = await sendPlatformEmail({
+    to: [a.email],
+    subject: `🔔 ${a.title || "נכס חדש"} — ${nis(a.price)}`,
+    html: emailHtml(a),
+    text: textBody(a),
   });
-  if (!res.ok) {
-    throw new Error(`resend ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  }
+  if (!result.sent) throw new Error(result.error ?? "platform-mail failed");
 }
 
 // ---------------------------------------------------------------------------
