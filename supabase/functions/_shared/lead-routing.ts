@@ -59,6 +59,7 @@ const KNOWN_SOURCES = new Set([
   "homepage_yield_calc",
   "agency_page_owner_wizard",
   "agency_page_yield_calc",
+  "agency_page_buyer_wizard",
 ]);
 
 export function normalizeSource(value: unknown, fallback: string): string {

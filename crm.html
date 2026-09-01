@@ -2439,10 +2439,13 @@
           </div>
         </div>
 
+        <!-- ‏60 תווים ולא 120: המוטו מוצג בדף המשרד בשורה אחת מתחת לשם, ומוטו
+             ארוך יותר נחתך שם בשלוש נקודות. עדיף שהגבול יורגש כאן, בזמן
+             הכתיבה, מאשר בדף הציבורי. -->
         <div class="form-subheading">משפט המוטו</div>
         <div class="field">
-          <input type="text" id="brTagline" maxlength="120" placeholder="למשל: חיפשתם נכס, מצאתם בית">
-          <div class="hint">שורה קצרה שמוצגת מתחת לשם המשרד בדף הציבורי. עד 120 תווים.</div>
+          <input type="text" id="brTagline" maxlength="60" placeholder="למשל: חיפשתם נכס, מצאתם בית">
+          <div class="hint">שורה קצרה שמוצגת מתחת לשם המשרד בדף הציבורי, בשורה אחת. עד 60 תווים <span id="brTaglineCount"></span></div>
         </div>
 
         <!-- ---------- כתובת המשרד ----------
@@ -5795,6 +5798,7 @@ async function loadBranding(agencyId){
   };
 
   document.getElementById('brTagline').value = agency.tagline || '';
+  renderTaglineCount();
   document.getElementById('brAddress').value = agency.address || '';
   document.getElementById('brViewPageLink').href = 'agency.html?slug=' + encodeURIComponent(agency.slug);
   renderPaletteGrid();
@@ -5923,8 +5927,20 @@ function syncColorInputs(){
   });
 }
 
+/* אורך המוטו — הגבול שמעבר לו הוא נחתך בדף המשרד (שורה אחת מתחת לשם).
+   אותו מספר יושב ב-maxlength של השדה, במונה שלצדו ובחיתוך שלפני השמירה. */
+const AGENCY_TAGLINE_MAX = 60;
+
+function renderTaglineCount(){
+  const input = document.getElementById('brTagline');
+  const out = document.getElementById('brTaglineCount');
+  if (!input || !out) return;
+  out.textContent = `· ${input.value.trim().length}/${AGENCY_TAGLINE_MAX}`;
+}
+
 // המוטו נראה עכשיו בתצוגה המקדימה, ולכן הוא מתעדכן תוך כדי הקלדה
 document.getElementById('brTagline').addEventListener('input', ()=>{
+  renderTaglineCount();
   if (brandingState) renderBrandPreview();
 });
 
@@ -6227,7 +6243,7 @@ document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
     feedback.textContent = 'שומר…';
     const { error } = await sb.from('agencies').update({
       colors,
-      tagline: document.getElementById('brTagline').value.trim().slice(0, 120) || null,
+      tagline: document.getElementById('brTagline').value.trim().slice(0, AGENCY_TAGLINE_MAX) || null,
       address: document.getElementById('brAddress').value.trim().slice(0, 160) || null,
       specialties: brandingState.specialties.slice(0, Specialties.MAX_SELECTED),
       logo_url:  brandingState.logo  ? brandingState.logo.url  : null,
