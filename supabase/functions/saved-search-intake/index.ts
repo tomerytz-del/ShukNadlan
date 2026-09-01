@@ -5,6 +5,7 @@ import {
   logLeadRouting,
   normalizeSource,
   resolveAgencyRouting,
+  resolveAgentRouting,
 } from "../_shared/lead-routing.ts";
 
 // ============================================================================
@@ -151,20 +152,26 @@ Deno.serve(async (req: Request) => {
     features.length > 0;
   if (!hasCriteria) return json({ error: "no_criteria" }, 400);
 
-  /* ---- הליד של דף המשרד ----------------------------------------------------
-     ‏agency_slug נשלח מווידג'ט "מחפשים נכס" שבדף המשרד. כשהוא מגיע, החיפוש
-     נשמר בדיוק כרגיל — ההתראות הן ההבטחה למחפש/ת ואינן משתנות — אבל הליד
-     שנוצר ממנו אינו נכנס למדף של הפלטפורמה אלא משויך למנהל/ת המשרד שבדף
-     שבו הגולש/ת בחר/ה להשאיר פרטים, בחינם. זו אותה הבטחה בדיוק ששני
+  /* ---- הליד של דף המשרד ושל דף הסוכן/ת --------------------------------------
+     ‏agency_slug נשלח מווידג'ט "מחפשים נכס" שבדף המשרד, ו-agent_slug מאותו
+     ווידג'ט בדף הסוכן/ת. כשאחד מהם מגיע, החיפוש נשמר בדיוק כרגיל — ההתראות
+     הן ההבטחה למחפש/ת ואינן משתנות — אבל הליד שנוצר ממנו אינו נכנס למדף של
+     הפלטפורמה אלא משויך למי שהדף שייך לו/ה, בחינם. זו אותה הבטחה בדיוק ששני
      הווידג'טים האחרים באותו דף כבר מקיימים.
+
+     דף הסוכן/ת נבדק ראשון, והוא הצר מבין השניים: הוא שולח גם את ה-slug של
+     המשרד, וזה משמש רק כרשת ביטחון לפרופיל שעדיין אין לו slug משלו.
 
      השיוך מותנה בהסכמה מפורשת ליצירת קשר, ונאכף פעמיים: כאן וב-
      ‏create_saved_search. מי שביקש/ה התראות בלבד נשאר/ת עם התראות בלבד. */
   const serviceClient = createClient(supabaseUrl, serviceRoleKey);
   const consent = body.consent_agent_contact === true;
-  const agencyRouting = consent
-    ? await resolveAgencyRouting(serviceClient, body.agency_slug)
+  const agentRouting = consent
+    ? await resolveAgentRouting(serviceClient, body.agent_slug)
     : null;
+  const agencyRouting = agentRouting ??
+    (consent ? await resolveAgencyRouting(serviceClient, body.agency_slug) : null);
+  const pageSource = agentRouting ? "agent_page" : "agency_page";
 
   const row = {
     full_name: fullName,
@@ -248,7 +255,7 @@ Deno.serve(async (req: Request) => {
     }
 
     await logLeadRouting(serviceClient, {
-      source: normalizeSource(body.source, assigned ? "agency_page_buyer_wizard" : "homepage_search_agent"),
+      source: normalizeSource(body.source, assigned ? `${pageSource}_buyer_wizard` : "homepage_search_agent"),
       lead_kind: "agent_buyer",
       lead_table: "saved_searches",
       lead_id: result.search_id,

@@ -5,6 +5,7 @@ import {
   logLeadRouting,
   normalizeSource,
   resolveAgencyRouting,
+  resolveAgentRouting,
 } from "../_shared/lead-routing.ts";
 
 // מודול 2 §5 — מנגנון התאמה/הפצה ללידי בעל-נכס (owner_inbound).
@@ -196,7 +197,7 @@ Deno.serve(async (req: Request) => {
 
   const {
     city, neighborhood_id, property_type, deal_type, address, rooms, condition, features,
-    name, phone, agency_slug, intent, note,
+    name, phone, agency_slug, agent_slug, intent, note,
   } = body;
 
   if (!city || !property_type || !deal_type || !name || !phone) {
@@ -210,10 +211,14 @@ Deno.serve(async (req: Request) => {
 
   try {
     let matchedAgentId: string | null = null;
-    let matchType: "neighborhood" | "fallback" | "none" | "agency_page" = "none";
+    let matchType: "neighborhood" | "fallback" | "none" | "agency_page" | "agent_page" = "none";
 
-    // שלב 0: ליד מדף משרד — שייך למשרד שבדף, ולכן עוקף את ההתאמה כולה
-    const agencyRouting = await resolveAgencyRouting(supabase, agency_slug);
+    // שלב 0: ליד מדף סוכן/ת או מדף משרד — שייך לדף שבו נמסרו הפרטים, ולכן
+    // עוקף את ההתאמה כולה. דף הסוכן/ת נבדק ראשון: הוא הצר מבין השניים, והוא
+    // שולח את ה-slug של המשרד לצדו רק כרשת ביטחון לפרופיל בלי slug משלו.
+    const agentRouting = await resolveAgentRouting(supabase, agent_slug);
+    const agencyRouting = agentRouting ?? await resolveAgencyRouting(supabase, agency_slug);
+    const pageSource = agentRouting ? "agent_page" : "agency_page";
 
     // שלב 1: התאמה שכונתית מדויקת (מודול 2 §5, שלב 3a)
     if (!agencyRouting && neighborhood_id) {
@@ -237,7 +242,7 @@ Deno.serve(async (req: Request) => {
     if (agencyRouting) {
       matchedAgentId = agencyRouting.agentId;
       matchedAgencyId = agencyRouting.agencyId;
-      matchType = "agency_page";
+      matchType = pageSource;
     } else if (matchedAgentId) {
       const { data: agentRow } = await supabase
         .from("agency_members")
@@ -255,15 +260,16 @@ Deno.serve(async (req: Request) => {
     const propertyDetails = buildPropertyDetails(rooms, condition, features, note);
     const rawMessage = [cleanAddress, propertyDetails].filter(Boolean).join(" · ") || null;
 
-    // ‏intent מבדיל בין שני הכלים שבדף המשרד. אשף הערכת השווי הוא בעל/ת נכס
-    // (‏owner_inbound); מי שמשאיר/ה פרטים ממחשבון התשואה מחפש/ת דווקא *לקנות*,
-    // ולכן זו פנייה על נכס (‏property_inquiry) ולא פנייה של בעלים. רישום שגוי
-    // כאן היה מגיע לתיבה של המשרד עם התווית ההפוכה.
+    // ‏intent מבדיל בין שני הכלים שיושבים בדף המשרד ובדף הסוכן/ת. אשף הערכת
+    // השווי הוא בעל/ת נכס (‏owner_inbound); מי שמשאיר/ה פרטים ממחשבון התשואה
+    // מחפש/ת דווקא *לקנות*, ולכן זו פנייה על נכס (‏property_inquiry) ולא פנייה
+    // של בעלים. רישום שגוי כאן היה מגיע לתיבה עם התווית ההפוכה.
     const preferredType = intent === "investment" ? "property_inquiry" : "owner_inbound";
 
     // שלב 4: הליד הוא מוסתר תמיד (גם ל-Premium) — מודול 2 §6.
-    // היוצא מן הכלל היחיד הוא ליד מדף משרד: הוא לא נמכר לאיש ולכן אין מה
-    // להסתיר בו. הוא נכנס פתוח, ומנהל/ת המשרד רואה/ה שם וטלפון מיד.
+    // היוצא מן הכלל היחיד הוא ליד מדף משרד או מדף סוכן/ת: הוא לא נמכר לאיש
+    // ולכן אין מה להסתיר בו. הוא נכנס פתוח, ומי שהדף שייך לו/ה רואה/ה שם
+    // וטלפון מיד.
     const baseRow: Record<string, unknown> = {
       deal_type,
       agent_id: matchedAgentId,
@@ -291,7 +297,7 @@ Deno.serve(async (req: Request) => {
        בכל שלושת המקרים השיוך והפתיחה זהים, וזה מה שבאמת חשוב למשרד. */
     const attempts: Record<string, unknown>[] = agencyRouting
       ? [
-        { ...baseRow, lead_type: preferredType, source: "agency_page" },
+        { ...baseRow, lead_type: preferredType, source: pageSource },
         { ...baseRow, lead_type: preferredType },
         { ...baseRow, lead_type: "owner_inbound" },
       ]
@@ -321,7 +327,9 @@ Deno.serve(async (req: Request) => {
       source: normalizeSource(
         body.source,
         agencyRouting
-          ? (intent === "investment" ? "agency_page_yield_calc" : "agency_page_owner_wizard")
+          ? (intent === "investment"
+            ? `${pageSource}_yield_calc`
+            : `${pageSource}_owner_wizard`)
           : "homepage_owner_wizard",
       ),
       lead_kind: "agent_owner",
@@ -359,7 +367,9 @@ Deno.serve(async (req: Request) => {
       matched_agent_id: matchedAgentId,
       matched_agency_id: matchedAgencyId,
       exclusivity_hours: agencyRouting ? 0 : exclusivityHours,
-      note: agencyRouting
+      note: agentRouting
+        ? "ליד מדף הסוכן/ת — שויך לסוכן/ת ונפתח מיד, ללא עלות"
+        : agencyRouting
         ? "ליד מדף המשרד — שויך למנהל/ת המשרד ונפתח מיד, ללא עלות"
         : matchedAgentId
           ? "הליד שויך ונשמר במצב מוסתר (masked). שליחת התראה בפועל עדיין לא מוטמעת בשלב זה"
