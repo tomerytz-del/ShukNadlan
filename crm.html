@@ -1632,7 +1632,7 @@
       </div>
       <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div class="field"><label>מחיר (₪)</label><input type="number" id="npPrice" required></div>
-        <div class="field"><label>חדרים</label><input type="number" id="npRooms" step="0.5"></div>
+        <div class="field"><label>חדרים</label><input type="number" id="npRooms" step="0.1"></div>
       </div>
       <div class="field"><label>עיר</label><input type="text" id="npCity" value="עפולה" required></div>
       <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
@@ -1647,8 +1647,12 @@
       </div>
       <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">אם מולאו רחוב+מספר, מידע תכנוני (גוש/חלקה/ייעוד) ייקלט אוטומטית ברקע, ובדף הנכס תוצג מפת מיקום עם הפין המדויק (מסלולי Mid/Premium בלבד). בלי מספר בית אין מפה: הגאוקודינג נופל למרכז העיר, ופין כזה נראה מדויק ואינו כזה.</p>
       <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field"><label>קו רוחב (lat, לא חובה — מתמלא אוטומטית מהכתובת אם ריק)</label><input type="number" id="npLat" step="0.0001" placeholder="32.6078"></div>
-        <div class="field"><label>קו אורך (lng, לא חובה — מתמלא אוטומטית מהכתובת אם ריק)</label><input type="number" id="npLng" step="0.0001" placeholder="35.2897"></div>
+        <!-- step="any" ולא step="0.0001": הקואורדינטות נשמרות ב-DB ברזולוציה מלאה
+             (double precision — למשל 32.6053163), ואם ה-step מגביל לארבע ספרות
+             אחרי הנקודה, הדפדפן פוסל ערך כזה ברגע שפותחים נכס קיים לעריכה
+             ("יש להזין ערך חוקי…") ולא מאפשר לשמור עד שמוחקים את השדה. -->
+        <div class="field"><label>קו רוחב (lat, לא חובה — מתמלא אוטומטית מהכתובת אם ריק)</label><input type="number" id="npLat" step="any" min="-90" max="90" placeholder="32.6078"></div>
+        <div class="field"><label>קו אורך (lng, לא חובה — מתמלא אוטומטית מהכתובת אם ריק)</label><input type="number" id="npLng" step="any" min="-180" max="180" placeholder="35.2897"></div>
       </div>
 
       <div class="form-subheading">פרטים נוספים — לצורך הופעה בחיפוש המתקדם</div>
@@ -1657,10 +1661,10 @@
         <div class="field"><label>מספר קומות בבניין (לא חובה)</label><input type="number" id="npTotalFloors" min="1"></div>
       </div>
       <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field"><label>גודל נכס במ״ר (לא חובה)</label><input type="number" id="npSizeSqm"></div>
-        <div class="field"><label>מ״ר בנוי (לא חובה)</label><input type="number" id="npBuiltSizeSqm"></div>
+        <div class="field"><label>גודל נכס במ״ר (לא חובה)</label><input type="number" id="npSizeSqm" step="any" min="0"></div>
+        <div class="field"><label>מ״ר בנוי (לא חובה)</label><input type="number" id="npBuiltSizeSqm" step="any" min="0"></div>
       </div>
-      <div class="field"><label>מ״ר גינה (לא חובה)</label><input type="number" id="npGardenSqm" min="0"></div>
+      <div class="field"><label>מ״ר גינה (לא חובה)</label><input type="number" id="npGardenSqm" step="any" min="0"></div>
 
       <div class="field" id="npConditionField"><label>מצב הנכס (לא חובה)</label>
         <select id="npCondition">
@@ -1707,7 +1711,7 @@
         <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">מה שיוזן כאן יוצג בדף הנכס בסקציית "מידע תכנוני", יחד עם ייעוד הקרקע ומספרי התוכניות שנקלטו אוטומטית. גוש, חלקה, שטח החלקה והקואורדינטות אינם מוצגים לגולשים.</p>
         <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div class="field"><label>ייעוד קרקע (לא חובה)</label><input type="text" id="npLandZoning" placeholder="לדוגמה: מגורים א'"></div>
-          <div class="field"><label>אחוזי בנייה (לא חובה)</label><input type="number" id="npLandBuildingPct" min="0" max="1000" step="1" placeholder="לדוגמה: 60"></div>
+          <div class="field"><label>אחוזי בנייה (לא חובה)</label><input type="number" id="npLandBuildingPct" min="0" max="1000" step="any" placeholder="לדוגמה: 60"></div>
         </div>
         <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
           <div class="field"><label>יח״ד מותרות (לא חובה)</label><input type="number" id="npLandMaxUnits" min="0" max="500"></div>
@@ -1990,11 +1994,11 @@
             <div class="field"><label>תקציב מקסימלי (₪)</label><input type="number" id="clMaxPrice"></div>
           </div>
           <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>מינימום חדרים</label><input type="number" id="clMinRooms" step="0.5"></div>
-            <div class="field"><label>מקסימום חדרים</label><input type="number" id="clMaxRooms" step="0.5"></div>
+            <div class="field"><label>מינימום חדרים</label><input type="number" id="clMinRooms" step="0.1"></div>
+            <div class="field"><label>מקסימום חדרים</label><input type="number" id="clMaxRooms" step="0.1"></div>
           </div>
           <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>מ״ר מינימלי</label><input type="number" id="clMinSize"></div>
+            <div class="field"><label>מ״ר מינימלי</label><input type="number" id="clMinSize" step="any" min="0"></div>
             <div class="field"><label>קומה מקסימלית</label><input type="number" id="clMaxFloor"></div>
           </div>
 
@@ -9422,7 +9426,9 @@ function impFixRowHtml(row, colspan, pendingCount){
         ['מכירה','השכרה'].map(o => `<option value="${o}"${impNorm(o) === current ? ' selected' : ''}>${o}</option>`).join('') +
         `</select>`;
     } else if (key === 'price'){
-      control = `<input type="number" min="1" step="1000" placeholder="מחיר בשקלים" value="${impEscape(value ?? '')}" ${attrs}>`;
+      // step="any": עם min="1" ו-step="1000" הדפדפן מחשיב כחוקיים רק 1, 1001, 2001…
+      // כלומר כמעט כל מחיר אמיתי נצבע כשגוי וחיצי ההעלאה/הורדה קופצים לערכים מוזרים.
+      control = `<input type="number" min="1" step="any" placeholder="מחיר בשקלים" value="${impEscape(value ?? '')}" ${attrs}>`;
     } else if (key === 'city'){
       control = `<input type="text" list="impCityList" placeholder="שם היישוב" value="${impEscape(value ?? '')}" ${attrs}>`;
     } else {
