@@ -1804,16 +1804,55 @@
   #pros .section-head{margin-bottom:14px;gap:6px}
   #listings .section-head{margin-bottom:16px}
 
-  /* ====== Footer ====== */
-  footer.site{background:var(--teal-dark);color:#CFE1DF;padding:38px 0 22px;margin-top:30px}
-  .footer-grid{display:grid;grid-template-columns:1fr;gap:26px}
-  .footer-col h4{color:#fff;font-size:.85rem;margin-bottom:10px}
-  .footer-col a{display:block;font-size:.82rem;color:#AFC7C4;padding:4px 0}
-  .footer-bottom{
-    border-top:1px solid rgba(255,255,255,.12);margin-top:26px;padding-top:16px;
-    font-size:.72rem;color:#8FADA9;display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;
+  /* ====== Footer ======
+     הפוטר עמד בטור אחד במובייל, ולכן ארבע רשימות הקישורים נמתחו למסך שלם
+     של גלילה. הרשימות יושבות עכשיו בשני טורים במובייל וארבעה בדסקטופ, גוש
+     המותג נפרד מהן, והקישורים המשפטיים ירדו לשורת התחתית — כך אותו מספר
+     קישורים תופס בערך חצי מהגובה. */
+  footer.site{background:var(--teal-dark);color:#CFE1DF;padding:34px 0 20px;margin-top:30px}
+  .footer-top{display:grid;grid-template-columns:1fr;gap:26px}
+
+  .footer-brand{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+  .footer-brand .footer-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+  .footer-brand .footer-logo img{width:44px;height:auto;flex:0 0 auto}
+  .footer-brand .footer-logo span{
+    font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1rem;color:#fff;line-height:1.3;
   }
-  @media(min-width:760px){.footer-grid{grid-template-columns:repeat(4,1fr)}}
+  .footer-tagline{font-size:.8rem;line-height:1.6;color:#AFC7C4;max-width:34ch;margin:0}
+  .footer-cta{display:flex;flex-wrap:wrap;gap:8px}
+  .footer-cta .btn{font-size:.78rem;padding:8px 14px}
+  .footer-cta .btn-ghost{
+    background:transparent;color:#DCE9E7;border:1px solid rgba(255,255,255,.35);
+  }
+  .footer-cta .btn-ghost:hover{background:rgba(255,255,255,.1);color:#fff}
+
+  .footer-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:22px 18px}
+  .footer-col h4{
+    color:#fff;font-size:.82rem;margin:0 0 8px;letter-spacing:.02em;
+  }
+  .footer-col a{
+    display:block;font-size:.82rem;color:#AFC7C4;padding:5px 0;text-decoration:none;
+    transition:color .15s ease;
+  }
+  .footer-col a:hover,.footer-col a:focus-visible{color:#fff}
+
+  .footer-bottom{
+    border-top:1px solid rgba(255,255,255,.12);margin-top:24px;padding-top:14px;
+    font-size:.72rem;color:#8FADA9;display:flex;flex-wrap:wrap;gap:6px 14px;
+    align-items:center;justify-content:space-between;
+  }
+  .footer-legal{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
+  .footer-legal a{color:#8FADA9;text-decoration:none;padding:2px 0}
+  .footer-legal a:hover,.footer-legal a:focus-visible{color:#fff;text-decoration:underline}
+  .footer-legal .sep{opacity:.45}
+
+  @media(min-width:560px){
+    .footer-grid{grid-template-columns:repeat(4,1fr)}
+  }
+  @media(min-width:900px){
+    .footer-top{grid-template-columns:minmax(230px,1fr) 2.4fr;gap:34px}
+    .footer-grid{gap:24px}
+  }
 
   /* ====== Accessibility FAB + panel ======
      הכפתור צף מעל התוכן, ולכן הוא היה נוחת על אריחי הנכסים בתחתית המסך
@@ -3380,41 +3419,61 @@
 </main>
 
 <footer class="site">
-  <div class="wrap footer-grid">
-    <div class="footer-col">
-      <h4>שוק נדל״ן</h4>
-      <a href="#">אודות</a>
-      <a href="#">צור קשר</a>
-      <!-- שני מסלולי ההצטרפות הם הדפים היחידים כאן שכבר קיימים, ולכן הם
-           קישורים אמיתיים ולא href="#" כמו שאר הפוטר. -->
-      <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
-      <a href="professional-signup.html">הצטרפות כבעל מקצוע</a>
-      <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
+  <div class="wrap footer-top">
+
+    <div class="footer-brand">
+      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+        <img src="assets/logo-shuknadlan.png" alt="" width="512" height="436" loading="lazy">
+        <span>שוק הנדל״ן<br>של עפולה והסביבה</span>
+      </a>
+      <p class="footer-tagline">כל הדירות, כל המתווכים ובעלי המקצוע של עפולה והעמק — בכתובת אחת.</p>
+      <div class="footer-cta">
+        <a href="agency-signup.html" class="btn btn-gold">הצטרפות כמשרד תיווך</a>
+        <a href="professional-signup.html" class="btn btn-ghost">הצטרפות כבעל מקצוע</a>
+      </div>
     </div>
-    <div class="footer-col">
-      <h4>נכסים</h4>
-      <a href="#">למכירה בעפולה</a>
-      <a href="#">להשכרה בעפולה</a>
-      <a href="#">ישובי העמק</a>
-    </div>
-    <div class="footer-col">
-      <h4>כלים</h4>
-      <a href="articles.html">כתבות ובלוגים</a>
-      <a href="agencies.html">כל משרדי התיווך</a>
-      <a href="#calc">מחשבון משכנתא</a>
-      <a href="#leadingAgents">מתווכים מובילים</a>
-      <a href="#pros">בעלי מקצוע</a>
-    </div>
-    <div class="footer-col">
-      <h4>משפטי ונגישות</h4>
-      <a href="#">תנאי שימוש</a>
-      <a href="#">פרטיות</a>
-      <a href="#">הצהרת נגישות</a>
-    </div>
+
+    <nav class="footer-grid" aria-label="ניווט בתחתית העמוד">
+      <div class="footer-col">
+        <h4>נכסים</h4>
+        <a href="#saleProps">למכירה בעפולה</a>
+        <a href="#rentProps">להשכרה בעפולה</a>
+        <a href="#commercialProps">נכסים מסחריים</a>
+        <a href="#listings">כל הנכסים</a>
+      </div>
+      <div class="footer-col">
+        <h4>כלים</h4>
+        <a href="#calc">מחשבון משכנתא</a>
+        <a href="#heroSection">חיפוש על המפה</a>
+        <a href="#featured">נכסים מובחרים</a>
+        <a href="articles.html">כתבות ובלוגים</a>
+      </div>
+      <div class="footer-col">
+        <h4>בעלי מקצוע</h4>
+        <a href="agencies.html">כל משרדי התיווך</a>
+        <a href="#leadingAgents">מתווכים מובילים</a>
+        <a href="#pros">בעלי מקצוע</a>
+        <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
+      </div>
+      <div class="footer-col">
+        <h4>שוק נדל״ן</h4>
+        <!-- הקוד האתי והכניסה למערכת הם הדפים היחידים כאן שכבר קיימים,
+             ולכן הם קישורים אמיתיים ולא href="#" כמו שאר הפוטר. -->
+        <a href="#">אודות</a>
+        <a href="#">צור קשר</a>
+        <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
+        <a href="crm.html">כניסת מתווכים</a>
+      </div>
+    </nav>
+
   </div>
   <div class="wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
-    <span>העסקה הבאה שלך בעפולה מתחילה בשוק הנדל״ן.</span>
+    <div class="footer-legal">
+      <a href="#">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
+      <a href="#">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
+      <a href="#">הצהרת נגישות</a>
+    </div>
   </div>
 </footer>
 
