@@ -798,7 +798,9 @@
      מזה שבמסך ההתחברות. */
   #dashboard .crm-home{
     position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-    border-radius:50%;transition:transform .16s ease;
+    /* היה 50% בימי הלוגו העגול. האות אינה עגולה, וה-border-radius כאן מעצב
+       רק את טבעת הפוקוס — מסגרת עגולה סביב אות מרובעת נראית שגויה. */
+    border-radius:10px;transition:transform .16s ease;
   }
   #dashboard .crm-home:hover{transform:translate(-50%,-50%) scale(1.06)}
   #dashboard .crm-home:focus-visible{outline:2px solid var(--navy);outline-offset:3px}
