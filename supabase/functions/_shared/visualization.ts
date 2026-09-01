@@ -30,6 +30,22 @@ export function hasOwnExterior(propertyType: string | null): boolean {
   return HOUSE_TYPES.some((t) => propertyType.includes(t));
 }
 
+// ---------------------------------------------------------------------------
+// קרקע — אין מה לדמות
+//
+// המנוע כולו הוא img2img: הוא עורך תמונה קיימת ומוגבל למה שכבר בפריים. למגרש
+// אין "מצב קיים" לערוך — הדמיה שלו הייתה מציירת מבנה שלא תוכנן ולא אושר,
+// כלומר מציגה זכויות בנייה שאיש לא התחייב אליהן. דף הנכס מציג לקרקע מידע
+// תכנוני במקום הדמיה, והבדיקה חוזרת גם כאן כדי שהנקודה תיאכף בשרת ולא רק ב-UI.
+//
+// הביטוי זהה ל-TYPE_RULES ב-assets/specialties.js ול-LAND_TYPE_RE ב-HTML.
+// ---------------------------------------------------------------------------
+const LAND_TYPE_RE = /מגרש|קרקע|נחל|משק|חקלא/;
+
+export function isLandType(propertyType: string | null): boolean {
+  return !!propertyType && LAND_TYPE_RE.test(propertyType);
+}
+
 export type PrivateTarget = "exterior" | "living_room" | "kitchen";
 export type CommercialTarget = "exterior" | "interior_main";
 

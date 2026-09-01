@@ -7,6 +7,7 @@ import {
   DEFAULT_STYLE,
   ensureTagged,
   hasOwnExterior,
+  isLandType,
   isStyleKey,
   json,
   pickPrivateSources,
@@ -73,6 +74,15 @@ Deno.serve(async (req: Request) => {
     .eq("id", property_id)
     .single();
   if (!property) return json({ error: "property_not_found" }, 404);
+
+  // מגרש וקרקע אינם ניתנים להדמיה — ראו isLandType. דף הנכס לא מציג להם את
+  // הטופס בכלל, וכאן נסגרת גם הדרך הישירה לפונקציה.
+  if (isLandType(property.property_type)) {
+    return json({
+      error: "land_not_supported",
+      message: "לנכסי קרקע מוצג מידע תכנוני במקום הדמיה",
+    }, 400);
+  }
 
   // ---- בלם קצב ----------------------------------------------------------
   // ‏Gemini עולה כסף לכל קריאה, והנכס פתוח לכל האינטרנט. הבלם הוא פר נכס ליום

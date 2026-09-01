@@ -721,6 +721,20 @@
   .viz-form.open{display:flex}
   .viz-form .field{flex:1 1 160px;margin:0}
   .viz-error{color:var(--gold-dark);font-size:.8rem;margin-top:8px;min-height:1em}
+
+  /* ====== מידע תכנוני (נכסי קרקע) ======
+     הנתונים חוזרים על שפת הקפסולות של סרגל הנתונים (.spec-pill) ולא מקבלים
+     שפה משלהם: קונה קרקע קורא/ת "אחוזי בנייה" באותה תנועת עין שבה קורא/ת
+     "שטח הנכס", ורשת שנייה בעיצוב אחר באותו עמוד רק הייתה מפצלת אותה. */
+  #planningSection h2{font-size:1.05rem}
+  .plan-list{margin-top:14px;border-top:1px solid var(--hair);padding-top:12px}
+  .plan-list-title{font-size:.75rem;font-weight:700;color:var(--ink-soft);margin:0 0 6px}
+  .plan-row{display:flex;gap:10px;align-items:baseline;padding:7px 0;
+    border-bottom:1px solid var(--hair);font-size:.84rem}
+  .plan-row:last-child{border-bottom:0}
+  .plan-row .num{font-weight:800;color:var(--teal-dark);white-space:nowrap}
+  .plan-row .desc{color:var(--ink-soft);min-width:0}
+  .plan-note{margin-top:14px;font-size:.75rem;color:var(--ink-soft);line-height:1.5}
 </style>
 </head>
 <body>
@@ -795,6 +809,27 @@
         <section class="panel" id="videoSection" hidden>
           <h2>סרטון הנכס</h2>
           <div class="video-frame" id="videoFrame"></div>
+        </section>
+
+        <!-- ====== מידע תכנוני ======
+             הסקציה שמחליפה את ההדמיות בנכסי קרקע (מגרש, נחלה, משק, שטח
+             חקלאי). שטח ריק אין לו "מצב קיים" לערוך, ולכן הדמיה שלו הייתה
+             מציירת מבנה שלא תוכנן ולא אושר — כלומר מבטיחה זכויות בנייה שאיש
+             לא התחייב אליהן. מה שקונה קרקע באמת שואל הוא מה מותר לבנות כאן,
+             וזה מה שמוצג במקום.
+
+             מה שלא מוצג כאן לעולם: גוש, חלקה, שטח החלקה הרשום וקואורדינטות.
+             הסינון עצמו יושב ב-RPC ‏property_planning_public ולא כאן — הצד
+             הזה פשוט לא מקבל את השדות האלה. -->
+        <section class="panel" id="planningSection" hidden>
+          <h2>מידע תכנוני</h2>
+          <div class="spec-pills" id="planningFacts"></div>
+          <div class="plan-list" id="planningPlans" hidden></div>
+          <p class="plan-note">
+            המידע התכנוני מוצג באופן כללי בלבד ואינו כולל גוש, חלקה או כתובת מדויקת.
+            הוא נאסף ממקורות תכנון פומביים ומהצהרת הסוכן/ת, עשוי להתעדכן,
+            ואינו תחליף לבדיקה מול הוועדה המקומית לתכנון ובנייה או לייעוץ מקצועי לפני רכישה.
+          </p>
         </section>
 
         <!-- ====== הדמיות AI ======
@@ -1280,7 +1315,11 @@ async function loadProperty(){
     loadSimilarProperties(data).then(renderSimilarProperties);
     // גם ההדמיות נטענות ברקע: הן דורשות קריאת RPC נוספת ואין סיבה שהן
     // יעכבו את רינדור הנכס עצמו.
-    loadVisualizations(data);
+    //
+    // קרקע לא מקבלת הדמיה אלא מידע תכנוני — שתי הסקציות אף פעם לא עולות
+    // יחד, ולכן ההחלטה נופלת כאן פעם אחת ולא בתוך כל אחת מהן.
+    if (isLandProperty(data)) loadPlanningInfo(data);
+    else loadVisualizations(data);
   } catch(e){
     console.warn('טעינת נכס נכשלה:', e);
     document.getElementById('loadingState').style.display = 'none';
@@ -1623,7 +1662,77 @@ document.addEventListener('keydown', (e)=>{
   if (e.key === 'Escape' && document.getElementById('mapFull').classList.contains('open')) mapFullClose();
 });
 
+/* ---------- קרקע: מידע תכנוני במקום הדמיה ----------
+   סוג הנכס גובר על ה-category, בדיוק כמו בגזירת תחומי ההתמחות
+   (assets/specialties.js): מגרש שסומן "מסחרי" הוא עדיין קרקע, ומגרש שסומן
+   "מגורים" הוא עדיין לא דירה. הביטוי כאן הוא עותק של TYPE_RULES שם, וכמו
+   שאר האוצרות בשלושת הקבצים הסטטיים — הסנכרון ידני.
+
+   מה שהסקציה מציגה מגיע כולו מ-property_planning_public, ‏RPC שכבר מסנן
+   בעצמו גוש, חלקה, שטח חלקה וקואורדינטות. הצד הזה לא מחזיק רשימת שדות
+   אסורים משלו, כי שתי רשימות כאלה נפרדות תמיד מתפצלות בסוף.               */
+const LAND_TYPE_RE = /מגרש|קרקע|נחל|משק|חקלא/;
+
+function isLandProperty(p){
+  return LAND_TYPE_RE.test(p?.property_type || '');
+}
+
+async function loadPlanningInfo(p){
+  if (!window.supabase) return;
+  try{
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data, error } = await sb.rpc('property_planning_public', { p_property_id: p.id });
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    if (row) renderPlanningInfo(row);
+  } catch(e){
+    console.warn('טעינת מידע תכנוני נכשלה:', e);
+  }
+}
+
+function renderPlanningInfo(row){
+  const num = v => Number(v).toLocaleString('he-IL');
+  // שטח המגרש עצמו לא חוזר כאן — הוא כבר קפסולה בסרגל הנתונים שמעל.
+  const facts = [
+    row.land_zoning         ? { icon:'area',     v:row.land_zoning,                 k:'ייעוד קרקע' } : null,
+    row.building_rights_pct ? { icon:'building', v:num(row.building_rights_pct) + '%',
+                                k:'אחוזי בנייה', accent:true } : null,
+    row.max_units           ? { icon:'bed',      v:num(row.max_units) + ' יח״ד',    k:'יחידות דיור מותרות' } : null,
+    row.max_floors          ? { icon:'stairs',   v:num(row.max_floors) + ' קומות',  k:'קומות מותרות' } : null,
+    row.parcel_status       ? { icon:'check',    v:row.parcel_status,               k:'סטטוס רישום' } : null,
+    row.planning_notes      ? { icon:'sparkle',  v:row.planning_notes, k:'הערה תכנונית', wide:true } : null,
+  ].filter(Boolean);
+
+  const plans = Array.isArray(row.plans) ? row.plans.filter(pl => pl && pl.number) : [];
+
+  // סקציה עם כותרת ובלי תוכן גרועה מסקציה שלא עלתה: היא מבטיחה מידע תכנוני
+  // ומראה מסגרת ריקה.
+  if (!facts.length && !plans.length) return;
+
+  document.getElementById('planningFacts').innerHTML = facts.map(f => `
+    <div class="spec-pill${f.accent ? ' accent' : ''}${f.wide ? ' wide' : ''}">
+      <span class="ic" aria-hidden="true">${ICON[f.icon]}</span>
+      <span class="txt"><span class="v">${escapeHtml(String(f.v))}</span><span class="k">${escapeHtml(f.k)}</span></span>
+    </div>`).join('');
+
+  const plansEl = document.getElementById('planningPlans');
+  if (plans.length){
+    plansEl.innerHTML =
+      `<p class="plan-list-title">תוכניות תכנון החלות על הקרקע (${plans.length})</p>` +
+      plans.map(pl => {
+        const detail = [pl.description, pl.year].filter(Boolean).join(' · ');
+        return `<div class="plan-row"><span class="num">${escapeHtml(pl.number)}</span>` +
+               (detail ? `<span class="desc">${escapeHtml(detail)}</span>` : '') + `</div>`;
+      }).join('');
+    plansEl.hidden = false;
+  }
+
+  document.getElementById('planningSection').hidden = false;
+}
+
 /* ---------- הדמיות AI ----------
+   נכסי קרקע לא מגיעים לכאן בכלל — ראו loadProperty ו-isLandProperty למעלה.
+
    הסקציה עובדת בשני מצבים לפי category:
 
    ‏residential — ארבעה סגנונות קבועים. סגנון אחד (סט הבסיס) כבר קיים ומוצג
