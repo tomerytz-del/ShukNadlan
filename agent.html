@@ -7,6 +7,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800;900&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="assets/quality-badge.js"></script>
+<script src="assets/property-card.js"></script>
 <style>
   /* ---------- ערכת הצבעים ----------
      בשונה מדף המשרד, דף הסוכן/ת אינו מתחלף בצבעים: הוא של הפלטפורמה, וסוכן/ת
@@ -394,20 +395,11 @@
     max-width:100%;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
   }
   .thumb-fallback .tf-note{font-size:.7rem;font-weight:600;color:var(--ink-soft);line-height:1.25}
-  .card-tags{position:absolute;top:9px;inset-inline-start:9px;z-index:2;display:flex;gap:5px;flex-wrap:wrap;max-width:70%}
-  .card-tag{
-    font-size:.66rem;font-weight:800;padding:3px 9px;border-radius:999px;line-height:1.35;
-    background:var(--brand-veil);color:#fff;border:1px solid rgba(255,255,255,.26);backdrop-filter:blur(8px);
-  }
-  .card-tag.rent{background:var(--accent-veil);color:var(--on-accent)}
-  .card-tag.excl{background:linear-gradient(120deg,var(--accent-dark),var(--accent));color:#fff}
-  .card-media{position:absolute;bottom:9px;inset-inline-start:9px;z-index:2;display:flex;gap:5px;flex-wrap:wrap}
-  .card-media span{
-    display:inline-flex;align-items:center;gap:4px;font-size:.66rem;font-weight:700;
-    background:rgba(15,23,42,.58);color:#fff;border:1px solid rgba(255,255,255,.24);
-    padding:4px 9px;border-radius:999px;backdrop-filter:blur(8px);
-  }
-  .card-media svg{width:12px;height:12px}
+  /* התגיות שעל התמונה, שורת המאפיינים והמחיר מגיעים מ-assets/property-card.js;
+     ‏--pc-* מוסרים לו את גווני הערכה כדי שהתגיות יישארו בצבעי האתר. */
+  .prop-card{--pc-sale-bg:var(--brand-veil);--pc-rent-bg:var(--accent-veil)}
+  /* התגיות מפנות מקום לכפתור השמירה שבפינה הנגדית */
+  .prop-card .pc-badges{max-width:calc(100% - 56px)}
   /* שמירה למועדפים יושבת בפינה ההפוכה לתגיות הסטטוס, כדי ששתיהן לא יתנגשו */
   .fav-btn{
     position:absolute;top:9px;inset-inline-end:9px;z-index:3;
@@ -420,14 +412,11 @@
   .fav-btn svg{width:17px;height:17px;fill:none;stroke:var(--teal-dark);stroke-width:2}
   .fav-btn[aria-pressed="true"] svg{fill:var(--accent);stroke:var(--accent)}
   .prop-card .body{padding:12px 13px 13px}
-  /* המחיר הוא הדבר שהעין נעצרת עליו בכל אריח — ולכן הוא נושא את הצבע המשני */
-  .prop-card .price{font-weight:900;color:var(--accent-ink);font-size:1.05rem;letter-spacing:-.3px}
   .prop-card .title{
-    font-size:.85rem;margin-top:3px;color:var(--ink);
+    font-size:.85rem;margin-top:5px;color:var(--ink);line-height:1.35;
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   }
-  .prop-card .meta{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
-  .prop-card .meta span{font-size:.7rem;font-weight:600;color:var(--ink-soft);background:var(--surface-soft);border:1px solid var(--hair);padding:3px 9px;border-radius:999px}
+  .prop-card .where{font-size:.74rem;color:var(--ink-soft);margin-top:3px}
 
   .deal-row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--hair);font-size:.85rem}
   .deal-row:last-child{border-bottom:none}
@@ -465,7 +454,7 @@
   }
 
   /* ---------- ביקורות ---------- */
-  .reviews-sec{margin-top:30px}
+  .reviews-sec{margin-top:30px;display:none}
   .reviews-grid{display:grid;grid-template-columns:1fr;gap:12px}
   @media(min-width:760px){.reviews-grid{grid-template-columns:1fr 1fr}}
   .reviews-grid .empty-state{grid-column:1/-1}
@@ -520,24 +509,43 @@
 
   .empty-state{padding:34px 18px;text-align:center;color:var(--ink-soft);font-size:.88rem}
 
-  /* ====== סרגל תחתון דביק (מובייל) ======
-     נשאר על המסך לאורך כל הגלילה ברשימת הנכסים, כדי שהדרך לסוכן/ת לא תלויה
-     בכמה גללו. בדסקטופ הוא לא קיים — שם הכפתורים בראש הכרטיס וטופס הפנייה
-     נראים בו־זמנית ממילא. */
+  /* ====== סרגל תחתון דביק ======
+     הכפתורים לפנייה יושבים בכרטיס הפרופיל, בראש הדף. מהרגע שגוללים מעבר
+     אליו — ורוב הדף הוא מה שמתחתיו: הנכסים, הגלריה, הביקורות — אין יותר
+     דרך לפנות עד סוף הדף. הסרגל מחזיק את אותן שתי פעולות בדיוק, עם הפנים
+     של הסוכן/ת, לאורך כל הגלילה.
+
+     קודם הוא היה נוכח מרגע הטעינה ובמובייל בלבד. עכשיו הוא נדלק כשכרטיס
+     הפרופיל יוצא מהמסך, ולכן הוא נכון גם בדסקטופ: כל עוד הכפתורים
+     המקוריים נראים, סרגל שני מעליהם הוא רק רעש. */
   .sticky-bar{
-    position:fixed;inset-inline:0;bottom:0;z-index:220;display:none;align-items:center;gap:9px;
-    padding:9px 12px calc(9px + env(safe-area-inset-bottom));
+    position:fixed;inset-inline:0;bottom:0;z-index:220;display:flex;align-items:center;gap:10px;
+    padding:9px 14px calc(9px + env(safe-area-inset-bottom));
     background:rgba(255,255,255,.92);-webkit-backdrop-filter:blur(16px);backdrop-filter:blur(16px);
     border-top:1px solid var(--hair);box-shadow:0 -6px 22px rgba(18,40,64,.12);
+    /* מוסתר עד שהכרטיס יוצא מהמסך; ההזזה מונעת מהצל להציץ מלמטה */
+    transform:translateY(110%);transition:transform .22s ease;visibility:hidden;
   }
-  body.has-sticky-bar .sticky-bar{display:flex}
-  @media(min-width:760px){body.has-sticky-bar .sticky-bar{display:none}}
+  body.sticky-on .sticky-bar{transform:none;visibility:visible}
   body.has-sticky-bar{padding-bottom:76px}
-  @media(min-width:760px){body.has-sticky-bar{padding-bottom:0}}
-  .sb-text{min-width:0;flex:1 1 auto;font-size:.74rem;font-weight:700;color:var(--teal-dark);line-height:1.3}
+  .sticky-bar .wrap{display:flex;align-items:center;gap:10px;width:100%;padding:0}
+  .sb-avatar{
+    width:40px;height:40px;border-radius:50%;overflow:hidden;flex:none;
+    background:var(--brand);color:var(--on-brand);box-shadow:0 0 0 2px var(--accent);
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.05rem;
+  }
+  .sb-avatar img{width:100%;height:100%;object-fit:cover;display:block;object-position:var(--photo-pos,50% 25%)}
+  .sb-text{min-width:0;flex:1 1 auto;line-height:1.25}
+  .sb-text .who{font-size:.84rem;font-weight:800;color:var(--teal-dark);
+    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+  .sb-text .what{font-size:.72rem;color:var(--ink-soft);
+    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+  @media(max-width:400px){.sb-text .what{display:none}}
   .sticky-bar .btn-wa{flex:0 0 auto;padding:11px 15px;font-size:.85rem;border-radius:12px;white-space:nowrap}
   .sticky-bar .btn-call{flex:0 0 auto;width:44px;padding:11px 0;border-radius:12px}
   .sticky-bar .btn-call span{display:none}
+  @media(max-width:520px){.sticky-bar .btn-wa span{display:none}.sticky-bar .btn-wa{width:46px;padding:11px 0}}
 
   .lightbox{position:fixed;inset:0;background:rgba(8,14,24,.95);display:none;align-items:center;justify-content:center;z-index:300;padding:20px}
   .lightbox.open{display:flex}
@@ -640,7 +648,7 @@
   </section>
 
   <!-- ---------- המלצות וביקורות ---------- -->
-  <section class="reviews-sec" aria-labelledby="reviewsHeading">
+  <section class="reviews-sec" id="reviewsSec" aria-labelledby="reviewsHeading">
     <div class="sec-head">
       <h2 id="reviewsHeading">המלצות וביקורות</h2>
       <span id="reviewsSummary"></span>
@@ -671,20 +679,26 @@
   </section>
 </div>
 
-<!-- ====== סרגל תחתון דביק (מובייל) ======
+<!-- ====== סרגל תחתון דביק ======
      נדלק רק כשהפרופיל נטען ומתברר שיש דרך ליצור קשר — סרגל שמוביל לשום מקום
      גרוע מהיעדר סרגל. בלי טלפון הוא מציג כפתור שגולל לטופס הפנייה. -->
 <div class="sticky-bar" id="stickyBar">
-  <div class="sb-text" id="sbText">רוצים להתייעץ לגבי נכס?</div>
+ <div class="wrap">
+  <div class="sb-avatar" id="sbAvatar" aria-hidden="true"></div>
+  <div class="sb-text">
+    <div class="who" id="sbWho">רוצים להתייעץ לגבי נכס?</div>
+    <div class="what" id="sbWhat"></div>
+  </div>
   <a class="btn-wa" id="sbWaBtn" href="#" target="_blank" rel="noopener noreferrer" hidden>
     <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>
-    וואטסאפ
+    <span>וואטסאפ</span>
   </a>
   <button type="button" class="btn-wa btn-alt" id="sbFormBtn" hidden>השארת פרטים</button>
   <a class="btn-call" id="sbCallBtn" href="#" hidden aria-label="חיוג לסוכן/ת">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8.1 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2Z"/></svg>
     <span>חייגו</span>
   </a>
+ </div>
 </div>
 
 <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="תמונה מוגדלת">
@@ -717,8 +731,6 @@ const ICON = {
   store:   S('<path d="M4 9h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Z"/><path d="M3 9l1.6-5.2A1 1 0 0 1 5.6 3h12.8a1 1 0 0 1 1 .8L21 9"/><path d="M9 21v-6h6v6"/>'),
   star:    S('<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9Z"/>'),
   pin:     S('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>'),
-  cube:    S('<path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="M3 8l9 5 9-5M12 13v8"/><path d="M7.5 5.5 16.5 10.7"/>'),
-  play:    S('<circle cx="12" cy="12" r="9.5"/><path d="M10 8.5v7l6-3.5Z"/>'),
   check:   S('<path d="M20 6 9 17l-5-5"/>'),
   chevron: S('<path d="m14 6-6 6 6 6"/>'),
   chevronR:S('<path d="m10 6 6 6-6 6"/>'),
@@ -756,11 +768,6 @@ function safeImageUrl(url){
   if (typeof url !== 'string') return null;
   const trimmed = url.trim();
   return /^(https?:\/\/|\/|assets\/)/i.test(trimmed) ? trimmed : null;
-}
-
-function priceLabel(price, dealType){
-  const value = '₪' + Number(price).toLocaleString('he-IL');
-  return dealType === 'rent' ? value + '/חוד׳' : value;
 }
 
 /* התמונה הראשית של הנכס; בלי תמונות מוצג ממלא מקום עם לוגו המשרד */
@@ -864,13 +871,35 @@ function waLink(phone, opener){
   return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
 }
 
-/* שני כפתורי יצירת הקשר בראש הכרטיס והסרגל התחתון במובייל — אותו זוג פעולות
-   בשני המקומות, כי זו אותה החלטה שהגולש/ת מקבל/ת בשני רגעים שונים בגלילה. */
+/* ---------- מתי הסרגל התחתון נדלק ----------
+   כשכרטיס הפרופיל יוצא מהמסך, ולא מרגע הטעינה: כל עוד כפתורי הפנייה
+   שבכרטיס נראים, סרגל שני שחוזר עליהם הוא רק רעש שגוזל שורה מהמסך.
+   ‏IntersectionObserver ולא מאזין scroll — הדפדפן כבר יודע לענות על השאלה
+   הזו בלי לחשב מיקומים בכל פריים. */
+function watchStickyBar(){
+  const hero = document.getElementById('heroCard');
+  if (!('IntersectionObserver' in window) || !hero){
+    // בלי Observer עדיף סרגל שנוכח תמיד מאשר סרגל שלא נדלק לעולם
+    document.body.classList.add('sticky-on');
+    return;
+  }
+  new IntersectionObserver(([entry])=>{
+    document.body.classList.toggle('sticky-on', !entry.isIntersecting);
+  }, { rootMargin: '-60px 0px 0px 0px' }).observe(hero);
+}
+
+/* שני כפתורי יצירת הקשר בראש הכרטיס והסרגל התחתון — אותו זוג פעולות בשני
+   המקומות, כי זו אותה החלטה שהגולש/ת מקבל/ת בשני רגעים שונים בגלילה. */
 function renderContactActions(agent){
   document.body.classList.add('has-sticky-bar');
-  const first = (agent.display_name || '').split(' ')[0];
-  document.getElementById('sbText').textContent =
-    first ? `רוצים להתייעץ עם ${first} לגבי נכס?` : 'רוצים להתייעץ לגבי נכס?';
+  const name = agent.display_name || 'סוכן/ת';
+  // בסרגל התחתון מופיעים הפנים והשם, ולא רק שורת טקסט: הפנייה נעשית לאדם,
+  // וכשרואים אותו/ה היא נראית פחות כמו טופס
+  document.getElementById('sbAvatar').innerHTML = agentAvatarInner(agent);
+  document.getElementById('sbWho').textContent = name;
+  document.getElementById('sbWhat').textContent =
+    [roleLabel(agent), agent.agencies && agent.agencies.name].filter(Boolean).join(' · ');
+  watchStickyBar();
 
   const phone = PHONE_RE.test(String(agent.phone_e164 || '')) ? agent.phone_e164 : null;
   if (!phone){
@@ -1111,45 +1140,41 @@ async function loadAgentProperties(sb, agent){
   agentProperties = props;
   setSectionNote('propsCount', props.length === 1 ? 'נכס פעיל אחד' : props.length + ' נכסים פעילים');
   renderPropertyCards(props);
+  // תגית "הדמיית AI" מגיעה בשאילתה שנייה ומצירה את האריחים מחדש — ורק
+  // כשהחיפוש ריק, כדי לא למחוק סינון שהגולש/ת כבר הקליד/ה בינתיים
+  PropertyCard.visualizedIds(sb, props.map(p => p.id)).then(ids=>{
+    if (!ids.size) return;
+    visualizedProps = ids;
+    const search = document.getElementById('propSearch');
+    if (!search || !search.value.trim()) renderPropertyCards(agentProperties);
+  });
   // סרגל החיפוש מופיע רק כשיש בו טעם: בארבעה נכסים העין מהירה ממנו
   if (props.length >= 5) initPropertySearch();
 }
 
+/* הנכסים שיש להם הדמיית AI מפורסמת — נטען פעם אחת לכל הנכסים של הסוכן/ת */
+let visualizedProps = new Set();
+
+/* המחיר, שורת המאפיינים והתגיות מגיעים מ-assets/property-card.js — אותה
+   שפה בדיוק שבה הם מופיעים בדף הבית ובדף המשרד. */
 function propertyCardHtml(p, saved){
-  // רק נתונים שמולאו נכנסים לשורת המטא — מודעה דלילה לא צריכה מקפים
-  const meta = [
-    p.rooms ? p.rooms + ' חדרים' : '',
-    p.size_sqm ? Number(p.size_sqm).toLocaleString('he-IL') + ' מ״ר' : '',
-    (p.floor != null && p.floor !== '') ? 'קומה ' + p.floor : '',
-    p.property_type || '',
-    p.city || '',
-    (p.features || []).includes('parking') ? 'חניה' : '',
-  ].filter(Boolean);
-  // המדיה מגיעה מהעמודות שנוספו לנכס — תגית עולה רק כשיש קישור אמיתי
-  const media = [
-    p.tour_3d_url ? `<span>${ICON.cube}סיור וירטואלי</span>` : '',
-    p.video_url ? `<span>${ICON.play}סרטון</span>` : '',
-  ].filter(Boolean).join('');
   const hasPhoto = !!safeImageUrl(p.images && p.images[0]);
-  // בלעדיות קודמת לסוג העסקה, כי היא הנתון שמבדל את הנכס משאר הרשימה
-  const exclusive = (p.features || []).includes('exclusive');
+  const where = [p.property_type, p.city].filter(Boolean).join(' · ');
 
   return `
     <div class="thumb${hasPhoto ? '' : ' no-photo'}"${thumbStyle(p)}>
       ${thumbFallback(p)}
-      <div class="card-tags">
-        ${exclusive ? '<span class="card-tag excl">בלעדי</span>' : ''}
-        <span class="card-tag${p.deal_type === 'rent' ? ' rent' : ''}">${p.deal_type === 'rent' ? 'להשכרה' : 'למכירה'}</span>
-      </div>
-      ${media ? `<div class="card-media">${media}</div>` : ''}
+      ${PropertyCard.badgesHtml(p, { aiViz: visualizedProps.has(p.id) })}
+      ${PropertyCard.mediaHtml(p)}
       <button type="button" class="fav-btn" aria-pressed="${saved}" aria-label="שמירת הנכס למועדפים">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3s-7.5-4.6-7.5-9.6a4.2 4.2 0 0 1 7.5-2.6 4.2 4.2 0 0 1 7.5 2.6c0 5-7.5 9.6-7.5 9.6Z"/></svg>
       </button>
     </div>
     <div class="body">
-      <div class="price">${priceLabel(p.price, p.deal_type)}</div>
+      ${PropertyCard.priceHtml(p)}
       <div class="title">${escapeHtml(p.title || p.property_type || '')}</div>
-      <div class="meta">${meta.map(m => `<span>${escapeHtml(m)}</span>`).join('')}</div>
+      ${where ? `<div class="where">${escapeHtml(where)}</div>` : ''}
+      ${PropertyCard.factsHtml(p)}
     </div>`;
 }
 
@@ -1219,7 +1244,10 @@ function renderPropertyCards(list){
   const favs = readFavorites();
 
   PROP_GROUPS.forEach(group=>{
-    const items = list.filter(group.match);
+    // נכסים עם סרטון, סיור וירטואלי או תמונות פותחים את הרצועה — את
+    // האריח הראשון רואים גם מי שלא גולל/ה אותה. המיון יציב, ולכן בתוך
+    // אותה דרגת מדיה נשמר סדר ההגעה מהמסד (החדשים קודם).
+    const items = PropertyCard.sortByMedia(list.filter(group.match));
     if (!items.length) return;                 // רצועה בלי נכסים לא נוצרת
 
     const section = document.createElement('section');
@@ -1514,6 +1542,9 @@ function starsHtml(rating){
    שממתינה לאישור המשרד או שנדחתה לא תגיע לכאן גם אם נבקש אותה.
    הממוצע מחושב מאותן שורות עצמן ולא מ-bayesian_rating — כדי שהמספר שמוצג
    יהיה בדיוק מה שהביקורות שמתחתיו אומרות. */
+/* מספר חוות הדעת המינימלי שמצדיק מקטע ביקורות — ודירוג מוצג */
+const MIN_REVIEWS_SHOWN = 2;
+
 async function loadAgentReviews(sb, agentId){
   const el = document.getElementById('reviewsList');
   const { data: reviews, error } = await sb
@@ -1523,11 +1554,13 @@ async function loadAgentReviews(sb, agentId){
     .eq('status', 'published')
     .order('created_at', { ascending:false });
 
-  if (error || !reviews || reviews.length === 0){
-    el.innerHTML = '<div class="empty-state">אין עדיין חוות דעת לסוכן/ת זה/זו.</div>';
-    return;
-  }
+  /* ---------- הסף שמתחתיו אין מקטע בכלל ----------
+     "אין עדיין חוות דעת" הוא לא משפט ניטרלי — הוא נקרא כאזהרה. גם חוות
+     דעת בודדת אינה עדות, ולכן המקטע (וגם הדירוג בראש הדף) נפתח רק משתיים
+     ומעלה. אותו סף בדיוק חל בדף המשרד. */
+  if (error || !reviews || reviews.length < MIN_REVIEWS_SHOWN) return;
 
+  document.getElementById('reviewsSec').style.display = 'block';
   const avg = reviews.reduce((sum, r) => sum + (Number(r.rating) || 0), 0) / reviews.length;
   const countLabel = reviews.length === 1 ? 'ביקורת אחת' : reviews.length + ' ביקורות';
   const score = avg.toFixed(1).replace(/\.0$/, '');

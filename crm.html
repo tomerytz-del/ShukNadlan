@@ -2442,6 +2442,16 @@
           <div class="hint">שורה קצרה שמוצגת מתחת לשם המשרד בדף הציבורי. עד 120 תווים.</div>
         </div>
 
+        <!-- ---------- כתובת המשרד ----------
+             שדה חופשי ולא רחוב/מספר/עיר נפרדים: משרדים יושבים גם בקניונים
+             ובמרכזים מסחריים, וחלוקה לשדות הייתה מכריחה אותם למלא טופס
+             שלא מתאים לכתובת שלהם. -->
+        <div class="form-subheading">כתובת המשרד</div>
+        <div class="field">
+          <input type="text" id="brAddress" maxlength="160" placeholder="למשל: הרצל 24, עפולה" autocomplete="street-address">
+          <div class="hint">מוצגת במקטע יצירת הקשר בדף המשרד, עם קישור למפה. אפשר להשאיר ריק.</div>
+        </div>
+
         <!-- ---------- תחומי התמחות ----------
              מוצגים כתגיות בראש דף המשרד, מעל אזורי הפעילות. משרד שלא בוחר
              כאן דבר לא נשאר בלי תגיות — הדף גוזר אותן מהנכסים שלו — אבל
@@ -5631,7 +5641,7 @@ function readableOn(hex){
 
 async function loadBranding(agencyId){
   const { data: agency, error } = await sb.from('agencies')
-    .select('name, slug, tagline, specialties, logo_url, cover_url, colors, gallery').eq('id', agencyId).single();
+    .select('name, slug, tagline, address, specialties, logo_url, cover_url, colors, gallery').eq('id', agencyId).single();
   if (error || !agency){
     document.getElementById('brFeedback').textContent = 'לא ניתן לטעון את הגדרות המיתוג.';
     return;
@@ -5656,6 +5666,7 @@ async function loadBranding(agencyId){
   };
 
   document.getElementById('brTagline').value = agency.tagline || '';
+  document.getElementById('brAddress').value = agency.address || '';
   document.getElementById('brViewPageLink').href = 'agency.html?slug=' + encodeURIComponent(agency.slug);
   renderPaletteGrid();
   syncColorInputs();
@@ -6088,6 +6099,7 @@ document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
     const { error } = await sb.from('agencies').update({
       colors,
       tagline: document.getElementById('brTagline').value.trim().slice(0, 120) || null,
+      address: document.getElementById('brAddress').value.trim().slice(0, 160) || null,
       specialties: brandingState.specialties.slice(0, Specialties.MAX_SELECTED),
       logo_url:  brandingState.logo  ? brandingState.logo.url  : null,
       cover_url: brandingState.cover ? brandingState.cover.url : null,

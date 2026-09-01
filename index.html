@@ -13,6 +13,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="assets/map-gestures.js"></script>
+<script src="assets/property-card.js"></script>
 <style>
   /* ====== Design tokens — grounded in Jezreel Valley (עמק יזרעאל): wheat gold + cultivated-land teal + Gilboa dusk ====== */
   :root{
@@ -953,7 +954,9 @@
     flex:0 0 auto;display:flex;flex-direction:column;align-items:flex-end;justify-content:center;
     gap:6px;padding:10px 0 10px 12px;
   }
-  .sr-price{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1rem;color:var(--teal-dark);white-space:nowrap}
+  /* שחור עמוק ומודגש, כמו המחיר על האריח — זה אותו נתון בשתי תצוגות */
+  .sr-price{font-weight:900;font-size:1.05rem;color:#0E1116;letter-spacing:-.4px;white-space:nowrap}
+  .sr-row .pc-facts{margin-top:5px;gap:3px 11px}
   .sr-deal{font-size:.65rem;font-weight:700;color:#fff;border-radius:999px;padding:3px 9px;white-space:nowrap}
   .sr-deal[data-deal="sale"]{background:var(--deal-sale)}
   .sr-deal[data-deal="rent"]{background:var(--deal-rent)}
@@ -1349,10 +1352,14 @@
     position:absolute;top:10px;right:10px;background:var(--gold);color:#fff;font-size:.68rem;
     font-weight:800;padding:3px 9px;border-radius:5px;
   }
+  /* המחיר, שורת המאפיינים והתגיות שעל התמונה מגיעים
+     מ-assets/property-card.js — ‏.pc-price, .pc-facts, .pc-badges, .pc-media —
+     ולכן הם זהים כאן, בדף המשרד ובדף הסוכן/ת. כאן נשארים רק הכותרת ושורת
+     המיקום. התגיות מפנות מקום לסרט "מקודם" שבפינה הנגדית. */
   .prop-card .body{padding:12px}
-  .prop-card .price{font-weight:800;color:var(--teal-dark);font-size:1.02rem}
-  .prop-card .title{font-size:.85rem;color:var(--ink);margin-top:3px}
-  .prop-card .meta{font-size:.76rem;color:var(--ink-soft);margin-top:6px;display:flex;gap:10px}
+  .prop-card .pc-badges{max-width:calc(100% - 90px)}
+  .prop-card .title{font-size:.85rem;color:var(--ink);margin-top:5px;line-height:1.35}
+  .prop-card .where{font-size:.74rem;color:var(--ink-soft);margin-top:3px}
 
   /* אותו גובה אריח כמו בקרוסלות ה-coverflow, כדי שכל הרצועות הנגללות
      בעמוד ייקראו כמידה אחת ולא כשלושה גדלים שונים. */
@@ -1363,11 +1370,14 @@
   .featured-scroll .prop-card .thumb{height:94px}
   .featured-scroll .prop-card .ribbon{top:6px;right:6px;font-size:.6rem;padding:2px 7px}
   .featured-scroll .prop-card .body{padding:9px}
-  .featured-scroll .prop-card .price{font-size:.86rem}
+  .featured-scroll .prop-card .pc-price{font-size:.92rem}
   .featured-scroll .prop-card .title{
     font-size:.73rem;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   }
-  .featured-scroll .prop-card .meta{font-size:.66rem;margin-top:5px;gap:8px;flex-wrap:wrap}
+  .featured-scroll .prop-card .where{font-size:.66rem}
+  .featured-scroll .prop-card .pc-facts{font-size:.66rem;margin-top:5px;gap:3px 9px}
+  .featured-scroll .prop-card .pc-fact{font-size:.68rem}
+  .featured-scroll .prop-card .pc-fact svg{width:13px;height:13px}
 
   /* במובייל המסלולים פורצים את ריפוד ה-.wrap, בדיוק כמו .coverflow */
   @media(max-width:759px){
@@ -1376,7 +1386,7 @@
   @media(min-width:480px){
     .featured-scroll,.article-scroll{--row-gap:12px;--row-peek:18px}
     .featured-scroll .prop-card .thumb{height:112px}
-    .featured-scroll .prop-card .price{font-size:.94rem}
+    .featured-scroll .prop-card .pc-price{font-size:1rem}
     .featured-scroll .prop-card .title{font-size:.78rem}
     /* גובה הכיסוי נגזר מ‎--card-h‎ שכבר גדל בעצמו בנקודות השבירה */
     .article-card h3{font-size:.9rem}
@@ -1389,9 +1399,11 @@
     .featured-scroll .prop-card .thumb{height:150px}
     .featured-scroll .prop-card .ribbon{top:10px;right:10px;font-size:.68rem;padding:3px 9px}
     .featured-scroll .prop-card .body{padding:12px}
-    .featured-scroll .prop-card .price{font-size:1.02rem}
+    .featured-scroll .prop-card .pc-price{font-size:1.12rem}
     .featured-scroll .prop-card .title{font-size:.85rem}
-    .featured-scroll .prop-card .meta{font-size:.76rem;margin-top:6px}
+    .featured-scroll .prop-card .pc-facts{margin-top:8px}
+    .featured-scroll .prop-card .pc-fact{font-size:.74rem}
+    .featured-scroll .prop-card .pc-fact svg{width:15px;height:15px}
     .article-card .body{padding:14px;gap:7px}
     .article-card h3{font-size:.95rem}
     .article-card p{font-size:.78rem}
@@ -3079,6 +3091,11 @@ const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const OWNER_LEAD_FUNCTION_URL = SUPABASE_URL + '/functions/v1/owner-lead-intake';
 
+/* הנכסים שיש להם הדמיית AI מפורסמת — נטענים בשאילתה אחת אחרי שהנכסים
+   עצמם עלו, ומזינים את תגית "הדמיית AI" שעל האריח. ‏Set ריק עד אז, ולכן
+   האריחים נבנים בלי להמתין לה. */
+let visualizedProps = new Set();
+
 const FALLBACK_PROPERTIES = [
   {id:'m1', price:1180000, title:'דירת 4 חדרים, שכונת רמת דוד', rooms:4, property_type:'דירה', deal_type:'sale', category:'residential', lat:32.6078, lng:35.2897, agency_name:'משרד תיווך העמק', is_promoted:true},
   {id:'m2', price:4200, title:'דירת 3 חדרים להשכרה, מרכז העיר', rooms:3, property_type:'דירה', deal_type:'rent', category:'residential', lat:32.6100, lng:35.2950, agency_name:'נדל״ן גלבוע', is_promoted:false},
@@ -3842,9 +3859,13 @@ const isPromoted = p => !!p.is_promoted && (!p.promoted_until || new Date(p.prom
 /* created_at נטען אף שהמיון מה-DB כבר עושה בו שימוש: הרשימה חוזרת
    ממוינת מקודמים-קודם, ו"חמשת החדשים בפלטפורמה" (renderListings) צריך
    את התאריך עצמו כדי למיין מחדש בלי הקידום. */
+/* ‏floor, features, video_url ו-tour_3d_url נוספו כדי שאריח הנכס יוכל
+   להציג את שורת המאפיינים (חדרים · מ״ר · קומה · חניה), את תגיות הבלעדיות
+   והמדיה, ולתת עדיפות בתצוגה לנכסים שיש להם וידאו או סיור. כולן עמודות
+   ותיקות שדף הסוכן/ת ודף המשרד כבר שולפים. */
 const PROPERTY_SELECT =
-  'id, price, title, rooms, size_sqm, city, street, address, property_type, deal_type, category, ' +
-  'created_at, lat, lng, is_promoted, promoted_until, images, neighborhood_id, ' +
+  'id, price, title, rooms, size_sqm, floor, city, street, address, property_type, deal_type, category, ' +
+  'created_at, lat, lng, is_promoted, promoted_until, images, features, video_url, tour_3d_url, neighborhood_id, ' +
   'agencies(name, logo_url), neighborhoods(name)';
 
 const shapeProperty = p => ({
@@ -4219,7 +4240,7 @@ async function loadCommercialProperties(){
   try{
     const { data, error } = await sb
       .from('properties')
-      .select('id, price, title, rooms, size_sqm, city, property_type, deal_type, category, images, is_promoted, promoted_until, agencies(name, logo_url)')
+      .select('id, price, title, rooms, size_sqm, floor, city, property_type, deal_type, category, images, features, video_url, tour_3d_url, is_promoted, promoted_until, agencies(name, logo_url)')
       .eq('status', 'active')
       .eq('category', 'commercial')
       .limit(10);
@@ -4235,20 +4256,9 @@ async function loadCommercialProperties(){
   const el = document.getElementById('commercialScroll');
   if (!el) return;
   const items = await loadCommercialProperties();
-  items.forEach((p, i)=>{
-    const card = document.createElement('div');
-    card.className = 'prop-card';
-    card.style.cursor = 'pointer';
-    card.innerHTML = `
-      <div class="thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
-      <div class="body">
-        <div class="price">${priceLabel(p)}</div>
-        <div class="title">${p.title}</div>
-        <div class="meta"><span>${p.property_type}</span><span>${p.size_sqm ? p.size_sqm + ' מ״ר' : (p.city || '')}</span></div>
-      </div>`;
-    card.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
-    el.appendChild(card);
-  });
+  // נכסים עם וידאו, סיור או תמונות פותחים את הרצועה — את האריח הראשון
+  // רואים גם מי שלא גולל/ת אותה
+  PropertyCard.sortByMedia(items).forEach((p, i)=> el.appendChild(propCard(p, i)));
 })();
 
 /* קישורי "כל הנכסים…" מריצים את החיפוש הרגיל בסוג העסקה המתאים במקום
@@ -4300,27 +4310,6 @@ function dealCarouselItems(properties, deal){
 /* אותו אריח של שאר הרצועות בעמוד, עם כל הכותרות של הנכס: סרט "מקודם"
    כשהוא בתשלום, מחיר (שכירות מסומנת ב"/חוד׳" ע"י priceLabel), כותרת,
    חדרים, שטח, סוג הנכס והמשרד שמפרסם אותו. */
-function dealCarouselCard(p, i){
-  const card = document.createElement('article');
-  card.className = 'prop-card';
-  card.style.cursor = 'pointer';
-  const meta = [
-    p.rooms ? p.rooms + ' חדרים' : '',
-    p.size_sqm ? p.size_sqm + ' מ״ר' : '',
-    p.property_type || '',
-    p.agency_name || '',
-  ].filter(Boolean).map(t => `<span>${escAttr(t)}</span>`).join('');
-  card.innerHTML = `
-    <div class="thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
-    <div class="body">
-      <div class="price">${priceLabel(p)}</div>
-      <div class="title">${escAttr(p.title || '')}</div>
-      <div class="meta">${meta}</div>
-    </div>`;
-  card.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
-  return card;
-}
-
 /* רצועה בלי נכסים מוסתרת לגמרי (כמו קרוסלת המשרדים): כותרת סקציה מעל
    מסלול ריק נראית כמו תקלה, ובעפולה יש ימים שבהם אין ולו נכס אחד
    להשכרה במאגר. */
@@ -4328,10 +4317,13 @@ function renderDealCarousel(trackId, sectionId, properties, deal){
   const track = document.getElementById(trackId);
   const section = document.getElementById(sectionId);
   if (!track || !section) return;
-  const items = dealCarouselItems(properties, deal);
+  // עדיפות בתצוגה לנכסים עם מדיה: תמונה רחבה ומוארת מקפיצה את
+  // האטרקטיביות מיד, וסרטון עוד יותר. המיון יציב, ולכן בתוך אותה דרגת
+  // מדיה נשמר הסדר שקבע dealCarouselItems.
+  const items = PropertyCard.sortByMedia(dealCarouselItems(properties, deal));
   section.hidden = !items.length;
   track.innerHTML = '';
-  items.forEach((p, i)=> track.appendChild(dealCarouselCard(p, i)));
+  items.forEach((p, i)=> track.appendChild(propCard(p, i)));
 }
 
 function renderDealCarousels(properties){
@@ -5520,22 +5512,23 @@ try {
     renderDealCarousels(properties);
 
     const featuredScroll = document.getElementById('featuredScroll');
-    properties.filter(isPromoted).forEach((p,i)=>{
-      const el = document.createElement('div');
-      el.className = 'prop-card';
-      el.style.cursor = 'pointer';
-      el.innerHTML = `
-        <div class="thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}<span class="ribbon">מקודם</span></div>
-        <div class="body">
-          <div class="price">${priceLabel(p)}</div>
-          <div class="title">${p.title}</div>
-          <div class="meta"><span>${p.rooms || '—'} חדרים</span><span>${p.property_type}</span></div>
-        </div>`;
-      el.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
-      featuredScroll.appendChild(el);
-    });
+    PropertyCard.sortByMedia(properties.filter(isPromoted))
+      .forEach((p, i)=> featuredScroll.appendChild(propCard(p, i)));
 
     if (!searchHasRun) renderPropertyGrid(properties);
+
+    /* תגית "הדמיית AI" מגיעה בשאילתה שנייה. היא לא מעכבת את הצגת האריחים —
+       אריח בלי התגית הוא אריח שלם — ולכן היא נטענת אחריהם, ומציירת מחדש
+       רק את מה שכבר על המסך. */
+    PropertyCard.visualizedIds(sb, properties.map(p => p.id)).then(ids=>{
+      if (!ids.size) return;
+      visualizedProps = ids;
+      renderDealCarousels(properties);
+      featuredScroll.innerHTML = '';
+      PropertyCard.sortByMedia(properties.filter(isPromoted))
+        .forEach((p, i)=> featuredScroll.appendChild(propCard(p, i)));
+      if (!searchHasRun) renderPropertyGrid(properties);
+    });
   })();
 } catch(e){
   console.warn('טעינת הנכסים נכשלה:', e);
@@ -5939,13 +5932,8 @@ function buildSearchRow(p, i){
     <div class="sr-thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
     <div class="sr-body">
       <div class="sr-title">${p.title}</div>
-      <div class="sr-meta"><span>${locationLabel(p)}</span></div>
-      <div class="sr-meta">
-        ${p.rooms ? `<span>${p.rooms} חדרים</span>` : ''}
-        ${p.size_sqm ? `<span>${p.size_sqm} מ״ר</span>` : ''}
-        ${p.property_type ? `<span>${p.property_type}</span>` : ''}
-        ${p.agency_name ? `<span>${p.agency_name}</span>` : ''}
-      </div>
+      <div class="sr-meta"><span>${locationLabel(p)}</span>${p.property_type ? `<span>${p.property_type}</span>` : ''}${p.agency_name ? `<span>${p.agency_name}</span>` : ''}</div>
+      ${PropertyCard.factsHtml(p)}
     </div>
     <div class="sr-side">
       <span class="sr-deal" data-deal="${dealKind(p)}">${dealBadge(p)}</span>
@@ -6718,16 +6706,30 @@ function filterListings(list){
   });
 }
 
+/* ---------- אריח הנכס ----------
+   עד כה כל תצוגה בעמוד ציירה אריח משלה: הרצועות, הגריד, המסחרי והמקודמים
+   — ארבע פונקציות כמעט זהות שנבדלו בעיקר בשורת המטא. הן אוחדו לכאן, כי
+   ארבע גרסאות של אותו אריח פירושן ששיפור אחד נוחת רק באחת מהן.
+
+   המחיר, שורת המאפיינים והתגיות שעל התמונה מגיעים מ-assets/property-card.js,
+   ולכן הם זהים גם לדף המשרד ולדף הסוכן/ת. */
 function propCard(p, i){
   const el = document.createElement('div');
   el.className = 'prop-card';
   el.style.cursor = 'pointer';
+  const where = [p.property_type, p.neighborhood_name || p.city, p.agency_name].filter(Boolean).join(' · ');
   el.innerHTML = `
-    <div class="thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
+    <div class="thumb" style="${thumbStyle(p, i)}">
+      ${thumbFallback(p)}
+      ${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}
+      ${PropertyCard.badgesHtml(p, { aiViz: visualizedProps.has(p.id) })}
+      ${PropertyCard.mediaHtml(p)}
+    </div>
     <div class="body">
-      <div class="price">${priceLabel(p)}</div>
-      <div class="title">${p.title}</div>
-      <div class="meta"><span>${p.rooms || '—'} חדרים</span><span>${p.property_type}</span><span>${p.agency_name||''}</span></div>
+      ${PropertyCard.priceHtml(p)}
+      <div class="title">${escAttr(p.title || '')}</div>
+      ${where ? `<div class="where">${escAttr(where)}</div>` : ''}
+      ${PropertyCard.factsHtml(p)}
     </div>`;
   el.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
   return el;
