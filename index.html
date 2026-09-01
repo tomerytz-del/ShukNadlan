@@ -196,9 +196,10 @@
   }
   .header-inner{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:10px}
   .logo{display:flex;align-items:center;gap:10px;min-width:0}
-  /* לוגו האתר במקום ריבוע האות "ש": קובץ ריבועי (256×256) שהעיגול שבו כבר
-     חתוך עם שקיפות מסביב, ולכן הוא נשען רק על הגובה והרוחב הזהה לו. */
-  .logo-img{height:46px;width:46px;display:block;flex:0 0 auto;border-radius:50%}
+  /* לוגו האתר — האות שי״ן. קובץ ריבועי (256×256) עם שקיפות מסביב, ולכן הוא
+     נשען רק על הגובה והרוחב הזהה לו. assets/logo-3d.js מניח מעליו שכבת
+     תלת־ממד שמסובבת את האות לאט; ראו docs/logo-3d.md. */
+  .logo-img{height:46px;width:46px;display:block;flex:0 0 auto}
   /* המשפט שהיה ה-eyebrow מעל המפה עבר לכאן והוא עכשיו שם האתר בכותרת.
      הוא ארוך בהרבה מ"שוק נדל״ן" שהיה כאן, ולכן הוא נשבר לשתי שורות במסך
      צר במקום לדחוק את ההמבורגר החוצה — ושתי השורות ממורכזות זו מול זו.
@@ -1836,6 +1837,7 @@
   html.a11y-contrast .chip[aria-pressed="true"],
   html.a11y-contrast .chip[aria-checked="true"]{background:#FFD84D !important;color:#000 !important;border-color:#FFD84D !important}
 </style>
+<script defer src="assets/logo-3d.js"></script>
 </head>
 <body>
 <a href="#main" class="skip-link">דלג לתוכן הראשי</a>
@@ -1930,7 +1932,7 @@
 <header class="site">
   <div class="wrap header-inner">
     <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
-      <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256">
+      <img class="logo-img" data-shin3d src="assets/logo-shin-3d.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256">
       <span class="logo-word">מרקטפלייס הנדל״ן של <span>עפולה והסביבה</span></span>
     </a>
     <nav class="primary" aria-label="ניווט ראשי">

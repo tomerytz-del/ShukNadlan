@@ -22,7 +22,7 @@
   img{max-width:100%}
   .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line);max-width:560px;width:100%;margin:0 auto;padding:30px 24px}
   .logo-link{display:block;width:64px;margin:0 auto 16px;line-height:0}
-  .logo-link img{width:100%;height:auto;display:block;border-radius:50%}
+  .logo-link img{width:100%;height:auto;display:block}
   h1{font-size:1.25rem;text-align:center;margin-bottom:6px}
   p.sub{text-align:center;color:var(--ink-soft);font-size:.85rem;margin:0 0 18px}
   .status-badge{display:block;text-align:center;background:var(--blue-tint);color:var(--blue-dark);font-weight:700;font-size:.8rem;padding:8px;border-radius:var(--radius-sm);margin-bottom:10px}
@@ -105,17 +105,18 @@
   #stateLoading[data-on],#stateError[data-on],#stateForm[data-on]{display:block}
   #stateLoading,#stateError{text-align:center}
 </style>
+<script defer src="assets/logo-3d.js"></script>
 </head>
 <body>
 
 <div class="card">
   <div id="stateLoading" data-on>
-    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a>
+    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img data-shin3d src="assets/logo-shin-3d.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a>
     <h1>טוען את הפרופיל…</h1>
   </div>
 
   <div id="stateError">
-    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256">
+    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img data-shin3d src="assets/logo-shin-3d.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256">
     </a>
     <h1>הקישור לא תקין</h1>
     <p class="sub" id="errorText">קישור העריכה שגוי או פג תוקפו.</p>
@@ -124,7 +125,7 @@
   </div>
 
   <div id="stateForm">
-    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a>
+    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img data-shin3d src="assets/logo-shin-3d.png" alt="שוק הנדל״ן של עפולה והסביבה" width="256" height="256"></a>
     <h1>עמוד בעל המקצוע שלך</h1>
     <p class="sub">השינויים מופיעים באתר מיד לאחר השמירה</p>
     <span class="status-badge" id="statusBadge"></span>
