@@ -10904,7 +10904,7 @@ async function loadPurchasedSavedSearches(agentId){
     .from('saved_searches')
     .select('id, full_name, phone, email, label, deal_type, cities, neighborhood_ids, property_types, ' +
             'min_price, max_price, min_rooms, max_rooms, min_size_sqm, required_features, free_text, ' +
-            'alerts_sent, alerts_clicked, status, sold_at')
+            'alerts_sent, alerts_clicked, status, sold_at, agency_id')
     .eq('sold_to_agent_id', agentId)
     .order('sold_at', { ascending:false });
 
@@ -10913,7 +10913,7 @@ async function loadPurchasedSavedSearches(agentId){
     return;
   }
   if (!leads || leads.length === 0){
-    listEl.innerHTML = '<div class="empty-state">עוד לא רכשת לידים ממדף מחפשי הדירה.</div>';
+    listEl.innerHTML = '<div class="empty-state">עוד לא רכשת לידים ממדף מחפשי הדירה, ועוד לא הגיע ליד כזה מדף המשרד.</div>';
     return;
   }
 
@@ -10922,16 +10922,20 @@ async function loadPurchasedSavedSearches(agentId){
     const el = document.createElement('div');
     el.className = 'card lead-card kind-buyer';
     const waPhone = (lead.phone || '').replace(/\D/g, '').replace(/^0/, '972');
+    /* ליד שהגיע מהווידג'ט בדף המשרד לא נרכש — הוא הגיע חינם, כי הדף של
+       המשרד הוא שייצר אותו. הכיתוב "נרכש" עליו פשוט לא נכון. */
+    const fromAgencyPage = !!lead.agency_id;
     el.innerHTML = `
       <div class="lead-top">
         <div>
           <span class="lead-kind">🔔 ${esc(SS_DEAL_LABELS[lead.deal_type] || 'מחפש/ת')}</span>
           <div class="lead-name">${esc(lead.full_name)}</div>
         </div>
-        <span class="status-pill status-unlocked">נרכש ${hebDate(lead.sold_at)}</span>
+        <span class="status-pill status-unlocked">${fromAgencyPage ? 'מדף המשרד' : 'נרכש'} ${hebDate(lead.sold_at)}</span>
       </div>
       ${tagsHtml([
         { text:'🔎 ' + savedSearchTitle(lead), cls:'tag-key' },
+        fromAgencyPage ? { text:'🏢 הגיע מדף המשרד · ללא עלות', cls:'tag-good' } : null,
         ...savedSearchMetaParts(lead),
         // מי שביטל/ה את ההתראות עדיין ליד לגיטימי, אבל זו עובדה שכדאי לדעת
         // לפני שמרימים טלפון
