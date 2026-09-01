@@ -123,28 +123,34 @@
   .section-head .section-sub{font-size:.88rem;color:var(--ink-soft);margin:-4px 0 0;max-width:46ch;text-wrap:balance}
   /* כותרת + נקודת מידע באותה שורה: שורות המשנה של הסקציות התכווצו לנקודת
      "i" שנפתחת בריחוף/לחיצה, כדי שהכותרת עצמה תישאר השורה היחידה שנקראת. */
-  .head-line{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap}
+  .head-line{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;position:relative}
 
   /* ====== נקודת מידע (tooltip) ======
      כפתור קטן שנושא את הטקסט ב-data-info ומרחף אותו מתחתיו. בעכבר —
      ריחוף; במקלדת — פוקוס; במגע — לחיצה שמוסיפה ‎.is-open‎ (ראו ה-JS
      בתחתית העמוד), כי במסך מגע אין ריחוף בכלל. */
   .info-dot{
-    width:19px;height:19px;flex:0 0 auto;border-radius:50%;padding:0;position:relative;
+    width:19px;height:19px;flex:0 0 auto;border-radius:50%;padding:0;
     display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;
     border:1.5px solid var(--line);background:#fff;color:var(--ink-soft);
     font-size:.7rem;font-weight:800;line-height:1;font-family:inherit;
   }
   .info-dot:hover,.info-dot.is-open{border-color:var(--gold);color:var(--gold-dark)}
+  /* ‏display:none ולא ‎visibility:hidden‎: אלמנט מוסתר-אך-קיים עדיין נספר
+     בשטח הגלילה של המסמך, ובועה ברוחב 240px שיוצאת מכותרת ממורכזת הוסיפה
+     ~35px של גלילה אופקית לכל העמוד במובייל.
+     הבועה נתלית על ‎.head-line‎ (שהוא ה-ancestor הממוקם) ולא על הנקודה
+     עצמה: הנקודה יושבת בצד הכותרת, ובועה שממורכזת עליה הייתה חורגת מקצה
+     המסך בטלפון — ממורכזת על השורה היא תמיד בתוך רוחב העמוד. */
   .info-dot::after{
-    content:attr(data-info);
+    content:attr(data-info);display:none;
     position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);
     width:max-content;max-width:min(240px,68vw);white-space:normal;text-align:center;
     background:var(--teal-dark);color:#fff;font-size:.72rem;font-weight:600;line-height:1.45;
     padding:8px 11px;border-radius:9px;box-shadow:0 8px 22px rgba(6,20,34,.24);
-    opacity:0;visibility:hidden;pointer-events:none;transition:opacity .15s ease;z-index:30;
+    pointer-events:none;z-index:30;
   }
-  .info-dot:hover::after,.info-dot:focus-visible::after,.info-dot.is-open::after{opacity:1;visibility:visible}
+  .info-dot:hover::after,.info-dot:focus-visible::after,.info-dot.is-open::after{display:block}
   .see-all{font-size:.85rem;font-weight:700;color:var(--teal);border-bottom:1.5px solid var(--gold);padding-bottom:2px;white-space:nowrap}
   .visually-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
   .skip-link{position:absolute;right:-999px;top:0;background:var(--teal);color:#fff;padding:10px 16px;z-index:200;border-radius:0 0 0 8px}
