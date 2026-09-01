@@ -198,6 +198,16 @@ comment on function public.lead_audience_size(text) is
 revoke all on function public.lead_audience_size(text) from public;
 revoke all on function public.lead_audience_size(text) from anon;
 
+-- ‏authenticated חייב את ה-EXECUTE הזה: ‏lead_routing_open קורא לפונקציה,
+-- ו-PostgreSQL בודק הרשאת EXECUTE מול המשתמש/ת הקורא/ת ולא מול בעל ה-view.
+-- בלעדיו כל פתיחה של "לידים ללא יעד" ב-CRM הייתה נופלת על
+-- "permission denied for function lead_audience_size". אותו נימוק בדיוק
+-- שבגללו saved_search_intent_score מוענקת ל-authenticated.
+--
+-- אין כאן דליפה: הפונקציה מחזירה מספר אחד — כמה נמענים יש לקהל — ואינה
+-- מקבלת שום נתון של אדם.
+grant execute on function public.lead_audience_size(text) to authenticated;
+
 -- ---------------------------------------------------------------------------
 -- 4. ההתראה למנהל/ת הפלטפורמה
 --
