@@ -1804,142 +1804,6 @@
   #pros .section-head{margin-bottom:14px;gap:6px}
   #listings .section-head{margin-bottom:16px}
 
-  /* ====== Footer ======
-     הפוטר עמד בטור אחד במובייל, ולכן ארבע רשימות הקישורים נמתחו למסך שלם
-     של גלילה. הרשימות יושבות עכשיו בשני טורים במובייל וארבעה בדסקטופ, גוש
-     המותג נפרד מהן, והקישורים המשפטיים ירדו לשורת התחתית — כך אותו מספר
-     קישורים תופס בערך חצי מהגובה. */
-  footer.site{background:var(--teal-dark);color:#CFE1DF;padding:34px 0 20px;margin-top:30px}
-  .footer-top{display:grid;grid-template-columns:1fr;gap:26px}
-
-  .footer-brand{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
-  .footer-brand .footer-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
-  .footer-brand .footer-logo img{width:44px;height:auto;flex:0 0 auto}
-  .footer-brand .footer-logo span{
-    font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1rem;color:#fff;line-height:1.3;
-  }
-  /* שתי שורות נפרדות: המשפט המתאר ומתחתיו משפט המפתח. הגופן מתכווץ מעט
-     במסכים צרים כדי שהמשפט הראשון יישאר בשורה אחת ולא יישבר לשתיים. */
-  .footer-tagline{font-size:clamp(.68rem,3.1vw,.8rem);line-height:1.6;color:#AFC7C4;margin:0}
-  .footer-tagline span{display:block}
-  .footer-tagline-strong{color:#E4EEEC;font-weight:600;margin-top:2px}
-  .footer-cta{display:flex;flex-wrap:wrap;gap:8px}
-  .footer-cta .btn{font-size:.78rem;padding:8px 14px}
-  .footer-cta .btn-ghost{
-    background:transparent;color:#DCE9E7;border:1px solid rgba(255,255,255,.35);
-  }
-  .footer-cta .btn-ghost:hover{background:rgba(255,255,255,.1);color:#fff}
-
-  .footer-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:22px 18px}
-  .footer-col h4{
-    color:#fff;font-size:.82rem;margin:0 0 8px;letter-spacing:.02em;
-  }
-  .footer-col a{
-    display:block;font-size:.82rem;color:#AFC7C4;padding:5px 0;text-decoration:none;
-    transition:color .15s ease;
-  }
-  .footer-col a:hover,.footer-col a:focus-visible{color:#fff}
-
-  .footer-bottom{
-    border-top:1px solid rgba(255,255,255,.12);margin-top:24px;padding-top:14px;
-    font-size:.72rem;color:#8FADA9;display:flex;flex-wrap:wrap;gap:6px 14px;
-    align-items:center;justify-content:space-between;
-  }
-  .footer-legal{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
-  .footer-legal a{color:#8FADA9;text-decoration:none;padding:2px 0}
-  .footer-legal a:hover,.footer-legal a:focus-visible{color:#fff;text-decoration:underline}
-  .footer-legal .sep{opacity:.45}
-
-  /* פרטי הקשר: כתובת פיזית ורשתות חברתיות. השורה עם האייקון היא grid ולא
-     flex כדי שטקסט שנשבר לשתי שורות ייישר מתחת לעצמו ולא מתחת לאייקון. */
-  /* הכתובת והרשתות באותה שורה — שני בלוקים נפרדים היו מוסיפים שורה שלמה
-     לגובה הפוטר במובייל בשביל אייקון אחד */
-  .footer-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;width:100%}
-  .footer-contact{display:grid;gap:8px;font-size:.8rem;color:#AFC7C4}
-  .footer-contact-row{display:grid;grid-template-columns:16px 1fr;gap:8px;align-items:start;margin:0}
-  .footer-contact-row svg{width:16px;height:16px;margin-top:2px;fill:none;stroke:#8FADA9;stroke-width:1.8}
-  .footer-contact-row a{color:#AFC7C4;text-decoration:none}
-  .footer-contact-row a:hover,.footer-contact-row a:focus-visible{color:#fff;text-decoration:underline}
-  .footer-social{display:flex;gap:8px}
-  .footer-social a{
-    width:36px;height:36px;border-radius:50%;display:grid;place-items:center;
-    border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.05);
-    transition:background .15s ease,border-color .15s ease;
-  }
-  .footer-social a:hover,.footer-social a:focus-visible{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.5)}
-  .footer-social svg{width:17px;height:17px;fill:#DCE9E7}
-
-  /* ====== רצועת הניוזלטר ======
-     שורה רוחבית בראש הפוטר: כותרת בצד אחד וטופס בצד השני, כדי שההרשמה
-     תעלה מקום של שורה אחת ולא של בלוק שלם. */
-  .footer-news{border-bottom:1px solid rgba(255,255,255,.12);padding-bottom:22px;margin-bottom:24px}
-  .footer-news-inner{display:grid;gap:12px;align-items:center}
-  .footer-news-text h4{color:#fff;font-size:.95rem;margin:0 0 3px}
-  .footer-news-text p{margin:0;font-size:.76rem;color:#8FADA9}
-  .footer-news-form{display:flex;gap:8px;flex-wrap:wrap}
-  .footer-news-form input{
-    flex:1 1 190px;min-width:0;padding:11px 14px;border-radius:999px;font-size:.85rem;
-    border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.07);color:#fff;
-    font-family:inherit;
-  }
-  .footer-news-form input::placeholder{color:#7F9C99}
-  .footer-news-form input:focus{outline:2px solid #E8C88A;outline-offset:1px;border-color:transparent}
-  .footer-news-form .btn{flex:0 0 auto;font-size:.82rem;padding:11px 20px}
-  .footer-news-form .btn:disabled{opacity:.6}
-  .footer-news-msg{margin:0;font-size:.76rem;min-height:1.1em;color:#AFC7C4}
-  .footer-news-msg[data-state="ok"]{color:#8FD3B0}
-  .footer-news-msg[data-state="error"]{color:#F0A9B2}
-  @media(min-width:760px){
-    .footer-news-inner{grid-template-columns:1fr minmax(320px,420px);gap:12px 26px}
-    .footer-news-msg{grid-column:2}
-  }
-
-  /* ====== ענן החיפושים הפופולריים ======
-     קישורים פנימיים לחיפושים נפוצים — הבלוק שמביא תנועה אורגנית לעמודי
-     התוצאות. צ׳יפים דחוסים כדי שהוא ייקח שתיים-שלוש שורות ולא טור. */
-  .footer-seo{border-top:1px solid rgba(255,255,255,.12);margin-top:24px;padding-top:14px}
-  /* במובייל הענף מקופל (‏details‎) — חמש-עשרה צ׳יפים פרושים תופסים שם שמונה
-     שורות. הקישורים נשארים ב-DOM גם כשהוא סגור, ולכן מנועי החיפוש והחיפוש
-     בדפדפן מוצאים אותם בכל מצב, וב-760px ומעלה הוא נפתח ונשאר פתוח. */
-  .footer-seo > summary{
-    list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:4px 0;
-  }
-  .footer-seo > summary::-webkit-details-marker{display:none}
-  /* גבולות פיזיים ולא לוגיים: החץ הוא צורה גיאומטרית, ו-border-inline-end
-     היה הופך אותו ב-RTL לחץ שמצביע הצידה במקום למטה */
-  .footer-seo > summary::after{
-    content:"";width:8px;height:8px;flex:0 0 auto;
-    border-right:2px solid #8FADA9;border-bottom:2px solid #8FADA9;
-    transform:rotate(45deg);margin-bottom:4px;transition:transform .18s ease;
-  }
-  .footer-seo[open] > summary::after{transform:rotate(-135deg);margin-bottom:-2px}
-  .footer-seo > summary:focus-visible{outline:2px solid #E8C88A;outline-offset:3px;border-radius:6px}
-  .footer-seo h4{color:#fff;font-size:.82rem;margin:0}
-  .footer-seo-links{display:flex;flex-wrap:wrap;gap:7px;padding-top:10px}
-  .footer-seo-links a{
-    font-size:.75rem;color:#AFC7C4;text-decoration:none;padding:5px 11px;border-radius:999px;
-    border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.04);
-    transition:background .15s ease,color .15s ease,border-color .15s ease;
-  }
-  .footer-seo-links a:hover,.footer-seo-links a:focus-visible{
-    background:rgba(255,255,255,.13);color:#fff;border-color:rgba(255,255,255,.4);
-  }
-
-  @media(min-width:560px){
-    .footer-grid{grid-template-columns:repeat(4,1fr)}
-  }
-  /* מ-760px הענף פתוח תמיד (‏JS מסמן ‎open‎), ולכן החץ מיותר והכותרת חוזרת
-     להיות כותרת ולא כפתור */
-  @media(min-width:760px){
-    .footer-seo > summary{cursor:default}
-    .footer-seo > summary::after{display:none}
-  }
-  /* גוש המותג עולה לצד הקישורים רק כשיש לו מספיק רוחב למשפט בשורה אחת */
-  @media(min-width:1024px){
-    .footer-top{grid-template-columns:minmax(370px,1fr) 2fr;gap:34px}
-    .footer-grid{gap:24px}
-  }
-
   /* ====== Accessibility FAB + panel ======
      הכפתור צף מעל התוכן, ולכן הוא היה נוחת על אריחי הנכסים בתחתית המסך
      ומכסה מחיר או כותרת. שלושה תיקונים ביחד:
@@ -2082,6 +1946,7 @@
   "url": "https://shuknadlan.co.il/",
   "logo": "https://shuknadlan.co.il/assets/logo-shuknadlan.png",
   "description": "כל הנכסים, כל המתווכים ובעלי המקצוע בעפולה והעמק בכתובת אחת.",
+  "email": "shuknadlan@gmail.com",
   "address": {
     "@type": "PostalAddress",
     "streetAddress": "רחוב חטיבה תשע 18",
@@ -2097,6 +1962,8 @@
   "sameAs": ["https://www.facebook.com/share/19LytY6L6b/"]
 }
 </script>
+<link rel="stylesheet" href="assets/site-footer.css">
+<script src="assets/site-footer.js" defer></script>
 </head>
 <body>
 <a href="#main" class="skip-link">דלג לתוכן הראשי</a>
@@ -3542,22 +3409,22 @@
        סיבה כמו שאר הטפסים הציבוריים באתר — הכתיבה נעשית ב-service_role
        והטבלה סגורה ל-anon לגמרי (אימייל של אדם פרטי). -->
   <div class="footer-news">
-    <div class="wrap footer-news-inner">
+    <div class="footer-wrap footer-news-inner">
       <div class="footer-news-text">
         <h4>הנכסים החדשים בעפולה — ראשונים אצלכם</h4>
         <p>עדכון אחד בשבוע למייל. בלי ספאם, אפשר להסיר בכל רגע.</p>
       </div>
-      <form class="footer-news-form" id="newsletterForm" novalidate>
-        <label class="visually-hidden" for="newsletterEmail">כתובת אימייל להרשמה לעדכונים</label>
+      <form class="footer-news-form" id="newsletterForm" data-source="homepage_footer" novalidate>
+        <label class="footer-sr-only" for="newsletterEmail">כתובת אימייל להרשמה לעדכונים</label>
         <input type="email" id="newsletterEmail" name="email" autocomplete="email" inputmode="email"
                placeholder="האימייל שלך" required>
-        <button type="submit" class="btn btn-gold" id="newsletterBtn">הרשמה</button>
+        <button type="submit" id="newsletterBtn">הרשמה</button>
       </form>
       <p class="footer-news-msg" id="newsletterMsg" role="status" aria-live="polite"></p>
     </div>
   </div>
 
-  <div class="wrap footer-top">
+  <div class="footer-wrap footer-top">
 
     <div class="footer-brand">
       <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
@@ -3569,8 +3436,8 @@
         <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
       </p>
       <div class="footer-cta">
-        <a href="agency-signup.html" class="btn btn-gold">הצטרפות כמשרד תיווך</a>
-        <a href="professional-signup.html" class="btn btn-ghost">הצטרפות כבעל מקצוע</a>
+        <a href="agency-signup.html" class="footer-btn-primary">הצטרפות כמשרד תיווך</a>
+        <a href="professional-signup.html" class="footer-btn-ghost">הצטרפות כבעל מקצוע</a>
       </div>
 
       <div class="footer-meta">
@@ -3580,6 +3447,12 @@
               <path d="M20 10c0 5.2-8 12-8 12s-8-6.8-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.8"/>
             </svg>
             <span>רחוב חטיבה תשע 18, עפולה</span>
+          </p>
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3.5 6.5h17v11h-17z"/><path d="m3.5 7 8.5 6 8.5-6"/>
+            </svg>
+            <a href="mailto:shuknadlan@gmail.com">shuknadlan@gmail.com</a>
           </p>
         </div>
 
@@ -3618,10 +3491,10 @@
       </div>
       <div class="footer-col">
         <h4>שוק נדל״ן</h4>
-        <!-- "אודות" ו"צור קשר" הם הקישורים היחידים בפוטר שעדיין אין להם
-             דף; כל השאר מצביעים על דפים או על סקציות אמיתיות. -->
+        <!-- "אודות" הוא הקישור היחיד בפוטר שעדיין אין לו דף; כל השאר
+             מצביעים על דפים, על סקציות אמיתיות או על תיבת המייל. -->
         <a href="#">אודות</a>
-        <a href="#">צור קשר</a>
+        <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
         <a href="faq.html">שאלות נפוצות</a>
         <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
         <a href="crm.html">כניסת מתווכים</a>
@@ -3631,9 +3504,9 @@
   </div>
 
   <!-- חיפושים פופולריים: קישורים פנימיים שמגיעים לתוצאות מסוננות דרך
-       פרמטרים ב-URL (ראו applyDeepLinkFilters). זה הבלוק שמאפשר למנוע
-       החיפוש להגיע לעמודי תוצאות ולא רק לדף הבית הכללי. -->
-  <details class="wrap footer-seo" id="footerSeo" open>
+       פרמטרים ב-URL (ראו applyDeepLinkFilters ב-index.html). זה הבלוק
+       שמאפשר למנוע החיפוש להגיע לעמודי תוצאות ולא רק לדף הבית הכללי. -->
+  <details class="footer-wrap footer-seo" id="footerSeo" open>
     <summary><h4>חיפושים פופולריים בעפולה והעמק</h4></summary>
     <div class="footer-seo-links">
       <a href="?deal=sale&amp;rooms=3">דירות 3 חדרים למכירה בעפולה</a>
@@ -3654,7 +3527,7 @@
     </div>
   </details>
 
-  <div class="wrap footer-bottom">
+  <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
     <div class="footer-legal">
       <a href="#">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
@@ -7864,55 +7737,6 @@ function applyDeepLinkFilters(){
 }
 applyDeepLinkFilters();
 
-/* ---------- ענף החיפושים הפופולריים בפוטר ----------
-   ‏open בברירת המחדל ב-HTML כדי שגם בלי JS (ולסורקים) הכול פרוש; כאן הוא
-   נסגר במסכים צרים בלבד, שם חמש-עשרה הצ׳יפים תופסים שמונה שורות שלמות. */
-const footerSeo = document.getElementById('footerSeo');
-if (footerSeo){
-  const seoWide = window.matchMedia('(min-width:760px)');
-  const syncFooterSeo = ()=>{ footerSeo.open = seoWide.matches; };
-  syncFooterSeo();
-  seoWide.addEventListener('change', syncFooterSeo);
-}
-
-/* ---------- הרשמה לעדכוני נכסים חדשים (הניוזלטר שבפוטר) ---------- */
-const NEWSLETTER_FUNCTION_URL = SUPABASE_URL + '/functions/v1/newsletter-subscribe';
-const newsletterForm = document.getElementById('newsletterForm');
-if (newsletterForm){
-  const emailEl = document.getElementById('newsletterEmail');
-  const btn = document.getElementById('newsletterBtn');
-  const msg = document.getElementById('newsletterMsg');
-  const say = (text, state)=>{ msg.textContent = text; msg.dataset.state = state || ''; };
-
-  newsletterForm.addEventListener('submit', async (e)=>{
-    e.preventDefault();
-    const email = emailEl.value.trim();
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
-      say('כתובת האימייל לא נראית תקינה', 'error');
-      emailEl.focus();
-      return;
-    }
-    btn.disabled = true;
-    say('רגע…');
-    try{
-      const res = await fetch(NEWSLETTER_FUNCTION_URL, {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json', apikey: SUPABASE_ANON_KEY, Authorization:'Bearer ' + SUPABASE_ANON_KEY },
-        body: JSON.stringify({ email, source:'homepage_footer' }),
-      });
-      const data = await res.json().catch(()=>({}));
-      if (!res.ok || !data.success) throw new Error(data.error || 'request failed');
-      // הרשמה חוזרת אינה שגיאה: מבחינת הנרשם/ת הוא/היא רשום/ה, וזו האמת
-      say(data.duplicate ? 'כבר רשומים אצלנו — נמשיך לעדכן' : 'נרשמתם! העדכון הבא בדרך אליכם', 'ok');
-      newsletterForm.reset();
-    } catch(err){
-      console.warn('הרשמה לניוזלטר נכשלה:', err);
-      say('ההרשמה נכשלה כרגע. אפשר לנסות שוב בעוד רגע', 'error');
-    } finally {
-      btn.disabled = false;
-    }
-  });
-}
 </script>
 </body>
 </html>

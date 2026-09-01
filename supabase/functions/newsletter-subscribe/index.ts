@@ -2,7 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 
 // ============================================================================
-// הרשמה לרשימת התפוצה — הטופס שבפוטר של דף הבית.
+// הרשמה לרשימת התפוצה — הטופס שבפוטר, בכל עמוד ציבורי באתר.
 //
 // אותה תבנית כמו saved-search-intake ו-mortgage-lead-intake: הקורא/ת הוא
 // מבקר/ת אנונימי/ת עם ה-anon key, והכתיבה נעשית ב-service_role כי
@@ -37,9 +37,12 @@ function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: corsHeaders() });
 }
 
-// מקורות מוכרים בלבד. הערך מגיע מהדפדפן, והוא נכנס לדוחות — טקסט חופשי כאן
-// היה מאפשר לזהם את העמודה מבחוץ.
-const SOURCES = ["homepage_footer", "faq_page", "agency_page", "article_page"];
+// הערך מגיע מהדפדפן ונכנס לדוחות, ולכן הוא חסום לצורה אחת: אותיות קטנות
+// וקו תחתון בלבד. רשימה סגורה הייתה מחייבת פריסה מחדש של הפונקציה בכל פעם
+// שנוסף עמוד עם פוטר (וכבר יש תשעה כאלה), והבעיה שהיא באמת פותרת — זיהום
+// העמודה בטקסט חופשי מבחוץ — נפתרת גם כאן.
+const SOURCE_RE = /^[a-z][a-z0-9_]{2,39}$/;
+const DEFAULT_SOURCE = "homepage_footer";
 
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders() });
@@ -58,7 +61,8 @@ Deno.serve(async (req: Request) => {
   if (email.length < 6 || email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return json({ error: "invalid_email" }, 400);
   }
-  const source = SOURCES.includes(body.source) ? body.source : "homepage_footer";
+  const rawSource = String(body.source ?? "");
+  const source = SOURCE_RE.test(rawSource) ? rawSource : DEFAULT_SOURCE;
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 

@@ -34,21 +34,30 @@
 * **בקשת הסרה קודמת להרשמה.** שורה עם `unsubscribed_at` לא מתאפסת בהרשמה
   חוזרת: אדם שביקש לצאת לא חוזר לרשימה כי מישהו הקליד את כתובתו שוב.
 
-## הפעלה
+## איפה זה יושב באתר
 
-המיגרציה (`20260915090000_newsletter_subscribers.sql`) רצה אוטומטית במיזוג
-ל-`main` דרך `.github/workflows/supabase_migrations.yml` — ראו
-`docs/supabase-migrations.md`.
+הפוטר משותף לכל העמודים הציבוריים (`assets/site-footer.css` +
+`assets/site-footer.js`), ולכן רצועת ההרשמה מופיעה בכולם. ‏`data-source` על
+הטופס אומר מאיזה עמוד הגיעה ההרשמה (`homepage_footer`, `faq_page`,
+`property_page`…), והפונקציה מקבלת כל ערך שעונה על `^[a-z][a-z0-9_]{2,39}$`
+— כך שעמוד חדש לא דורש פריסה מחדש.
 
-**ה-Edge Function אינה נפרסת ב-CI** ודורשת פריסה ידנית אחת:
+## הפעלה — מה כבר נעשה
+
+* **הטבלה קיימת במסד.** המיגרציה הורצה ידנית ב-1.9.2026 והקובץ
+  (`20260915090000_newsletter_subscribers.sql`) אידמפוטנטי, ולכן ההרצה
+  החוזרת של `supabase db push` במיזוג ל-`main` לא תעשה כלום מלבד לרשום את
+  הגרסה בהיסטוריה. ראו `docs/supabase-migrations.md`.
+* **הפונקציה פרוסה** (`newsletter-subscribe`, גרסה 1, `verify_jwt=false`
+  כמו כל שאר פונקציות ה-intake — האתר שולח מפתח פרסום ולא JWT). אין סודות
+  חדשים: היא משתמשת ב-`SUPABASE_URL` וב-`SUPABASE_SERVICE_ROLE_KEY` שכבר
+  קיימים בסביבה.
+
+פריסה חוזרת אחרי שינוי בקוד:
 
 ```bash
 supabase functions deploy newsletter-subscribe
 ```
-
-עד לפריסה הטופס יחזיר "ההרשמה נכשלה כרגע" — הוא לא נשבר, פשוט אין למי
-לפנות. אין סודות חדשים להגדיר: הפונקציה משתמשת ב-`SUPABASE_URL` וב-
-`SUPABASE_SERVICE_ROLE_KEY` שכבר קיימים בסביבה.
 
 ## מה עוד חסר
 

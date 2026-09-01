@@ -164,17 +164,9 @@
   .state h2{font-size:1.2rem;margin-bottom:8px}
 
   /* ====== Footer (זהה לדף הבית) ====== */
-  footer.site{background:var(--teal-dark);color:#CFE1DF;padding:38px 0 22px;margin-top:44px}
-  .footer-grid{display:grid;grid-template-columns:1fr;gap:26px}
-  .footer-col h4{color:#fff;font-size:.85rem;margin-bottom:10px}
-  .footer-col a{display:block;font-size:.82rem;color:#AFC7C4;padding:4px 0}
-  .footer-col a:hover{color:#fff}
-  .footer-bottom{
-    border-top:1px solid rgba(255,255,255,.12);margin-top:26px;padding-top:16px;
-    font-size:.72rem;color:#8FADA9;display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;
-  }
-  @media(min-width:760px){.footer-grid{grid-template-columns:repeat(4,1fr)}}
 </style>
+<link rel="stylesheet" href="assets/site-footer.css">
+<script src="assets/site-footer.js" defer></script>
 </head>
 <body>
 
@@ -227,34 +219,136 @@
 </main>
 
 <footer class="site">
-  <div class="wrap footer-grid">
-    <div class="footer-col">
-      <h4>שוק נדל״ן</h4>
-      <a href="index.html">דף הבית</a>
-      <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
-      <a href="professional-signup.html">הצטרפות כבעל מקצוע</a>
-    </div>
-    <div class="footer-col">
-      <h4>נכסים</h4>
-      <a href="index.html#listings">כל הנכסים</a>
-      <a href="index.html#commercialProps">נכסים מסחריים</a>
-      <a href="agencies.html">כל משרדי התיווך</a>
-    </div>
-    <div class="footer-col">
-      <h4>כלים</h4>
-      <a href="articles.html">כתבות ובלוגים</a>
-      <a href="index.html#calc">מחשבון משכנתא</a>
-      <a href="index.html#pros">בעלי מקצוע</a>
-    </div>
-    <div class="footer-col">
-      <h4>המגזין</h4>
-      <a href="articles.html">כל הכתבות</a>
-      <a href="index.html#articles">הכתבות האחרונות</a>
+
+  <!-- רצועת הניוזלטר: ההרשמה נשלחת ל-Edge Function ולא ישירות לטבלה, מאותה
+       סיבה כמו שאר הטפסים הציבוריים באתר — הכתיבה נעשית ב-service_role
+       והטבלה סגורה ל-anon לגמרי (אימייל של אדם פרטי). -->
+  <div class="footer-news">
+    <div class="footer-wrap footer-news-inner">
+      <div class="footer-news-text">
+        <h4>הנכסים החדשים בעפולה — ראשונים אצלכם</h4>
+        <p>עדכון אחד בשבוע למייל. בלי ספאם, אפשר להסיר בכל רגע.</p>
+      </div>
+      <form class="footer-news-form" id="newsletterForm" data-source="articles_page" novalidate>
+        <label class="footer-sr-only" for="newsletterEmail">כתובת אימייל להרשמה לעדכונים</label>
+        <input type="email" id="newsletterEmail" name="email" autocomplete="email" inputmode="email"
+               placeholder="האימייל שלך" required>
+        <button type="submit" id="newsletterBtn">הרשמה</button>
+      </form>
+      <p class="footer-news-msg" id="newsletterMsg" role="status" aria-live="polite"></p>
     </div>
   </div>
-  <div class="wrap footer-bottom">
+
+  <div class="footer-wrap footer-top">
+
+    <div class="footer-brand">
+      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+        <img src="assets/logo-shuknadlan.png" alt="" width="512" height="436" loading="lazy">
+        <span>שוק הנדל״ן<br>של עפולה והסביבה</span>
+      </a>
+      <p class="footer-tagline">
+        <span>כל הנכסים, כל המתווכים ובעלי המקצוע בעפולה והעמק בכתובת אחת</span>
+        <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
+      </p>
+      <div class="footer-cta">
+        <a href="agency-signup.html" class="footer-btn-primary">הצטרפות כמשרד תיווך</a>
+        <a href="professional-signup.html" class="footer-btn-ghost">הצטרפות כבעל מקצוע</a>
+      </div>
+
+      <div class="footer-meta">
+        <div class="footer-contact">
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 10c0 5.2-8 12-8 12s-8-6.8-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.8"/>
+            </svg>
+            <span>רחוב חטיבה תשע 18, עפולה</span>
+          </p>
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3.5 6.5h17v11h-17z"/><path d="m3.5 7 8.5 6 8.5-6"/>
+            </svg>
+            <a href="mailto:shuknadlan@gmail.com">shuknadlan@gmail.com</a>
+          </p>
+        </div>
+
+        <div class="footer-social">
+          <a href="https://www.facebook.com/share/19LytY6L6b/" target="_blank" rel="noopener noreferrer"
+             aria-label="שוק הנדל״ן בפייסבוק — נפתח בחלון חדש" title="פייסבוק">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06C2 17.08 5.66 21.24 10.44 22v-7.03H7.9v-2.91h2.54V9.85c0-2.52 1.49-3.91 3.77-3.91 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.78-1.63 1.57v1.89h2.78l-.44 2.91h-2.34V22C18.34 21.24 22 17.08 22 12.06Z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <nav class="footer-grid" aria-label="ניווט בתחתית העמוד">
+      <div class="footer-col">
+        <h4>נכסים</h4>
+        <a href="index.html#saleProps">למכירה בעפולה</a>
+        <a href="index.html#rentProps">להשכרה בעפולה</a>
+        <a href="index.html#commercialProps">נכסים מסחריים</a>
+        <a href="index.html#listings">כל הנכסים</a>
+      </div>
+      <div class="footer-col">
+        <h4>כלים</h4>
+        <a href="index.html#calc">מחשבון משכנתא</a>
+        <a href="index.html#heroSection">חיפוש על המפה</a>
+        <a href="index.html#featured">נכסים מובחרים</a>
+        <a href="articles.html">כתבות ובלוגים</a>
+      </div>
+      <div class="footer-col">
+        <h4>בעלי מקצוע</h4>
+        <a href="agencies.html">כל משרדי התיווך</a>
+        <a href="index.html#leadingAgents">מתווכים מובילים</a>
+        <a href="index.html#pros">בעלי מקצוע</a>
+        <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
+      </div>
+      <div class="footer-col">
+        <h4>שוק נדל״ן</h4>
+        <!-- "אודות" הוא הקישור היחיד בפוטר שעדיין אין לו דף; כל השאר
+             מצביעים על דפים, על סקציות אמיתיות או על תיבת המייל. -->
+        <a href="#">אודות</a>
+        <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
+        <a href="faq.html">שאלות נפוצות</a>
+        <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
+        <a href="crm.html">כניסת מתווכים</a>
+      </div>
+    </nav>
+
+  </div>
+
+  <!-- חיפושים פופולריים: קישורים פנימיים שמגיעים לתוצאות מסוננות דרך
+       פרמטרים ב-URL (ראו applyDeepLinkFilters ב-index.html). זה הבלוק
+       שמאפשר למנוע החיפוש להגיע לעמודי תוצאות ולא רק לדף הבית הכללי. -->
+  <details class="footer-wrap footer-seo" id="footerSeo" open>
+    <summary><h4>חיפושים פופולריים בעפולה והעמק</h4></summary>
+    <div class="footer-seo-links">
+      <a href="index.html?deal=sale&amp;rooms=3">דירות 3 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;rooms=4">דירות 4 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;rooms=5">דירות 5 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;maxPrice=1500000">נכסים בעפולה עד 1.5 מיליון ₪</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%93%D7%99%D7%A8%D7%AA%20%D7%92%D7%9F">דירות גן בעפולה</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%92%D7%92%2F%D7%A4%D7%A0%D7%98%D7%94%D7%90%D7%95%D7%96">פנטהאוזים בעפולה</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%91%D7%99%D7%AA%20%D7%A4%D7%A8%D7%98%D7%99%2F%D7%A7%D7%95%D7%98%D7%92'">בתים פרטיים בעפולה והעמק</a>
+      <a href="index.html?deal=sale&amp;q=%D7%92%D7%91%D7%A2%D7%AA%20%D7%94%D7%9E%D7%95%D7%A8%D7%94">נכסים בגבעת המורה</a>
+      <a href="index.html?deal=sale&amp;q=%D7%A2%D7%A4%D7%95%D7%9C%D7%94%20%D7%A2%D7%99%D7%9C%D7%99%D7%AA">נכסים בעפולה עילית</a>
+      <a href="index.html?deal=rent&amp;rooms=3">דירות 3 חדרים להשכרה בעפולה</a>
+      <a href="index.html?deal=rent&amp;rooms=4">דירות 4 חדרים להשכרה בעפולה</a>
+      <a href="index.html?deal=rent&amp;maxPrice=4000">דירות להשכרה בעפולה עד 4,000 ₪</a>
+      <a href="index.html?deal=commercial&amp;ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D">משרדים להשכרה בעפולה</a>
+      <a href="index.html?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
+      <a href="agencies.html">משרדי תיווך בעפולה</a>
+    </div>
+  </details>
+
+  <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
-    <span>העסקה הבאה שלך בעפולה מתחילה בשוק הנדל״ן.</span>
+    <div class="footer-legal">
+      <a href="#">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
+      <a href="#">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
+      <a href="#">הצהרת נגישות</a>
+    </div>
   </div>
 </footer>
 
