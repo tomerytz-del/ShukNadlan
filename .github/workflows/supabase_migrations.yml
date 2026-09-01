@@ -61,6 +61,26 @@ jobs:
         with:
           version: latest
 
+      # ‏SUPABASE_DB_URL ריק הוא מצב שקורה — סוד שלא הוגדר, שהוגדר כ-variable
+      # במקום כ-secret, או שנמחק. בלעדיו ה-CLI לא נכשל על "חסר סוד" אלא נופל
+      # לברירת המחדל שלו, מסד מקומי, ומחזיר:
+      #
+      #   failed to connect to `host=/var/run/postgresql user=runner` (ENOENT)
+      #
+      # ‏16 ההרצות הראשונות של ה-workflow הזה נכשלו כך, ואיש לא זיהה את הסיבה
+      # מהשגיאה: היא נראית כמו תקלת רשת ולא כמו סוד חסר. בינתיים כל מיזוג
+      # פרסם HTML שנשען על סכימה שלא עודכנה. הבדיקה כאן הופכת את המצב הזה
+      # להודעה אחת מפורשת, לפני שנוגעים במסד.
+      - name: ודא שהסוד SUPABASE_DB_URL מוגדר
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ]; then
+            echo "::error::הסוד SUPABASE_DB_URL ריק או לא מוגדר. הגדירו אותו ב-Settings → Secrets and variables → Actions → New repository secret (לא Variable), עם מחרוזת החיבור מ-Supabase → Project Settings → Database → Connection string → URI, פורט 5432. פירוט: docs/supabase-migrations.md"
+            exit 1
+          fi
+          echo "הסוד מוגדר (${#SUPABASE_DB_URL} תווים)."
+
       # מצב ההיסטוריה לפני הנגיעה במסד — כדי שיהיה ברור בלוג מה בדיוק חסר
       # ומה עומד לרוץ, גם כשהשלב הבא נכשל.
       - name: מצב המיגרציות לפני ההרצה
