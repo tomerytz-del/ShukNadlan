@@ -31,8 +31,20 @@ function cleanText(value: unknown, maxLen: number): string | null {
 
 // מפרט הנכס שהאשף בדף הבית אוסף: חדרים, מצב, ומאפיינים (ממ\"ד/מרפסת/מעלית).
 // נשמר בנפרד מהכתובת כי הוא לא מזהה את בעל הנכס — הסוכן רואה אותו גם בליד מוסתר.
-function buildPropertyDetails(rooms: unknown, condition: unknown, features: unknown): string | null {
+//
+// ‏note הוא שדה חופשי קצר שהכלי ששלח את הליד מוסיף לעצמו — כרגע רק מחשבון
+// התשואה בדף המשרד, ששולח דרכו את המספרים שהגולש/ת הזין/ה. הוא נכנס
+// ל-property_details ולא ל-raw_message כי אין בו PII, ולכן הוא מוצג לסוכן/ת
+// כבר בליד המוסתר — וזה כל הערך שלו: בלי המספרים אי אפשר לדעת על מה לחזור.
+function buildPropertyDetails(
+  rooms: unknown,
+  condition: unknown,
+  features: unknown,
+  note?: unknown,
+): string | null {
   const parts: string[] = [];
+  const noteText = cleanText(note, 180);
+  if (noteText) parts.push(noteText);
   const roomsText = cleanText(String(rooms ?? ""), 10);
   if (roomsText) parts.push(`${roomsText} חדרים`);
   const conditionText = cleanText(condition, 40);
@@ -42,6 +54,41 @@ function buildPropertyDetails(rooms: unknown, condition: unknown, features: unkn
     if (clean.length > 0) parts.push(clean.join(", "));
   }
   return parts.length > 0 ? parts.join(" · ") : null;
+}
+
+// ---------------------------------------------------------------------------
+// ליד שהגיע מדף משרד מסוים
+//
+// ‏agency_slug נשלח רק מווידג'ט הערכת השווי שבדף המשרד (agency.html). כשהוא
+// מגיע, כל מנגנון ההתאמה והרוטציה נעקף: הליד שייך למשרד שבדף שבו הגולש/ת
+// בחר/ה להשאיר פרטים, ולא למי שתורו הגיע. הוא משויך למנהל/ת המשרד ונפתח
+// מיד (‏status='unlocked'), כלומר מגיע חינם — אין מה לרכוש ואין מה לחכות לו.
+//
+// ‏slug שאינו מוכר אינו שגיאה: הליד ממשיך למסלול הרגיל של הפלטפורמה, כי
+// לזרוק פנייה אמיתית של בעל/ת נכס בגלל כתובת שגויה גרוע מכל חלופה.
+// ---------------------------------------------------------------------------
+async function resolveAgencyRouting(
+  supabase: any,
+  agencySlug: unknown,
+): Promise<{ agencyId: string; agentId: string | null } | null> {
+  const slug = cleanText(agencySlug, 120);
+  if (!slug) return null;
+
+  const { data: agency } = await supabase
+    .from("agencies").select("id").eq("slug", slug).maybeSingle();
+  if (!agency) return null;
+
+  const { data: members } = await supabase
+    .from("agency_members")
+    .select("id, role")
+    .eq("agency_id", agency.id)
+    .eq("active", true);
+
+  // מנהל/ת המשרד קודם/ת; משרד בלי מנהל/ת פעיל/ה נופל לסוכן/ת הראשון/ה, כדי
+  // שהליד לא יישאר יתום בתיבה שאיש לא פותח.
+  const list = members ?? [];
+  const manager = list.find((m: any) => m.role === "manager") ?? list[0] ?? null;
+  return { agencyId: agency.id, agentId: manager?.id ?? null };
 }
 
 async function getConfigValue(supabase: any, key: string, fallback: number) {
@@ -163,7 +210,10 @@ Deno.serve(async (req: Request) => {
     return json({ error: "invalid_json" }, 400);
   }
 
-  const { city, neighborhood_id, property_type, deal_type, address, rooms, condition, features, name, phone } = body;
+  const {
+    city, neighborhood_id, property_type, deal_type, address, rooms, condition, features,
+    name, phone, agency_slug, intent, note,
+  } = body;
 
   if (!city || !property_type || !deal_type || !name || !phone) {
     return json({ error: "missing_fields", required: ["city", "property_type", "deal_type", "name", "phone"] }, 400);
@@ -176,10 +226,13 @@ Deno.serve(async (req: Request) => {
 
   try {
     let matchedAgentId: string | null = null;
-    let matchType: "neighborhood" | "fallback" | "none" = "none";
+    let matchType: "neighborhood" | "fallback" | "none" | "agency_page" = "none";
+
+    // שלב 0: ליד מדף משרד — שייך למשרד שבדף, ולכן עוקף את ההתאמה כולה
+    const agencyRouting = await resolveAgencyRouting(supabase, agency_slug);
 
     // שלב 1: התאמה שכונתית מדויקת (מודול 2 §5, שלב 3a)
-    if (neighborhood_id) {
+    if (!agencyRouting && neighborhood_id) {
       const candidates = await findCandidateAgentIds(supabase, neighborhood_id, property_type, deal_type);
       if (candidates.length > 0) {
         matchedAgentId = await pickViaRotation(supabase, neighborhood_id, property_type, "mid_or_premium", candidates);
@@ -188,7 +241,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // שלב 2: fallback — אותו סוג-עסקה/נכס, כל שכונה אחרת (שלב 3b)
-    if (!matchedAgentId) {
+    if (!agencyRouting && !matchedAgentId) {
       const fallbackCandidates = await findCandidateAgentIds(supabase, null, property_type, deal_type);
       if (fallbackCandidates.length > 0) {
         matchedAgentId = await pickViaRotation(supabase, null, property_type, "fallback", fallbackCandidates);
@@ -197,7 +250,11 @@ Deno.serve(async (req: Request) => {
     }
 
     let matchedAgencyId: string | null = null;
-    if (matchedAgentId) {
+    if (agencyRouting) {
+      matchedAgentId = agencyRouting.agentId;
+      matchedAgencyId = agencyRouting.agencyId;
+      matchType = "agency_page";
+    } else if (matchedAgentId) {
       const { data: agentRow } = await supabase
         .from("agency_members")
         .select("agency_id")
@@ -211,28 +268,58 @@ Deno.serve(async (req: Request) => {
     // הכתובת המדויקת היא PII של הליד ולכן נכנסת ל-raw_message (נחשף רק בפתיחה),
     // בעוד מפרט הנכס נשמר בנפרד ומוצג לסוכן כבר בליד המוסתר.
     const cleanAddress = cleanText(address, 160);
-    const propertyDetails = buildPropertyDetails(rooms, condition, features);
+    const propertyDetails = buildPropertyDetails(rooms, condition, features, note);
     const rawMessage = [cleanAddress, propertyDetails].filter(Boolean).join(" · ") || null;
 
-    // שלב 4: הליד הוד-מוסתר תמיד (גם ל-Premium) — מודול 2 §6
-    const { data: lead, error: leadErr } = await supabase
-      .from("leads")
-      .insert({
-        lead_type: "owner_inbound",
-        deal_type,
-        agent_id: matchedAgentId,
-        agency_id: matchedAgencyId,
-        status: "masked",
-        raw_name: name,
-        raw_phone: phone,
-        raw_message: rawMessage,
-        property_details: propertyDetails,
-        city,
-        neighborhood_id: neighborhood_id ?? null,
-        property_type,
-      })
-      .select()
-      .single();
+    // ‏intent מבדיל בין שני הכלים שבדף המשרד. אשף הערכת השווי הוא בעל/ת נכס
+    // (‏owner_inbound); מי שמשאיר/ה פרטים ממחשבון התשואה מחפש/ת דווקא *לקנות*,
+    // ולכן זו פנייה על נכס (‏property_inquiry) ולא פנייה של בעלים. רישום שגוי
+    // כאן היה מגיע לתיבה של המשרד עם התווית ההפוכה.
+    const preferredType = intent === "investment" ? "property_inquiry" : "owner_inbound";
+
+    // שלב 4: הליד הוא מוסתר תמיד (גם ל-Premium) — מודול 2 §6.
+    // היוצא מן הכלל היחיד הוא ליד מדף משרד: הוא לא נמכר לאיש ולכן אין מה
+    // להסתיר בו. הוא נכנס פתוח, ומנהל/ת המשרד רואה/ה שם וטלפון מיד.
+    const baseRow: Record<string, unknown> = {
+      deal_type,
+      agent_id: matchedAgentId,
+      agency_id: matchedAgencyId,
+      status: agencyRouting ? "unlocked" : "masked",
+      raw_name: name,
+      raw_phone: phone,
+      raw_message: rawMessage,
+      property_details: propertyDetails,
+      city,
+      neighborhood_id: neighborhood_id ?? null,
+      property_type,
+    };
+
+    /* סדר הניסיונות. ליד רגיל של הפלטפורמה נשאר בדיוק כפי שהיה — שורה אחת,
+       בלי source ובלי הפתעות. ליד מדף משרד מנסה קודם את הצורה המלאה, ואם
+       המסד עדיין לא מכיר אותה הוא נסוג בשני צעדים:
+
+         1. ‏source נוספה במיגרציה נפרדת; בסביבה שטרם הריצה אותה ההוספה
+            נופלת על עמודה לא מוכרת.
+         2. ‏property_inquiry אמור להיות ערך חוקי ב-leads_lead_type_check,
+            אבל אם סביבה כלשהי מגבילה אותו — עדיף ליד שנרשם עם התווית
+            הפחות מדויקת מאשר בעל/ת נכס שקיבל/ה שגיאה.
+
+       בכל שלושת המקרים השיוך והפתיחה זהים, וזה מה שבאמת חשוב למשרד. */
+    const attempts: Record<string, unknown>[] = agencyRouting
+      ? [
+        { ...baseRow, lead_type: preferredType, source: "agency_page" },
+        { ...baseRow, lead_type: preferredType },
+        { ...baseRow, lead_type: "owner_inbound" },
+      ]
+      : [{ ...baseRow, lead_type: "owner_inbound" }];
+
+    let lead: any = null;
+    let leadErr: any = null;
+    for (const row of attempts) {
+      ({ data: lead, error: leadErr } = await supabase
+        .from("leads").insert(row).select().single());
+      if (!leadErr) break;
+    }
 
     if (leadErr) return json({ error: "db_error", detail: leadErr.message }, 500);
 
@@ -244,10 +331,13 @@ Deno.serve(async (req: Request) => {
       lead_id: lead.id,
       match_type: matchType,
       matched_agent_id: matchedAgentId,
-      exclusivity_hours: exclusivityHours,
-      note: matchedAgentId
-        ? "הליד שויך ונשמר במצב מוסתר (masked). שליחת התראה בפועל עדיין לא מוטמעת בשלב זה"
-        : "לא נמצא סוכן Mid/Premium מתאים כרגע — הליד נשמר ללא שיוך",
+      matched_agency_id: matchedAgencyId,
+      exclusivity_hours: agencyRouting ? 0 : exclusivityHours,
+      note: agencyRouting
+        ? "ליד מדף המשרד — שויך למנהל/ת המשרד ונפתח מיד, ללא עלות"
+        : matchedAgentId
+          ? "הליד שויך ונשמר במצב מוסתר (masked). שליחת התראה בפועל עדיין לא מוטמעת בשלב זה"
+          : "לא נמצא סוכן Mid/Premium מתאים כרגע — הליד נשמר ללא שיוך",
     });
   } catch (err: any) {
     return json({ error: "unhandled", detail: String(err?.message ?? err) }, 500);
