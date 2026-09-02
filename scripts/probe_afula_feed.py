@@ -147,9 +147,38 @@ def discover_feeds() -> None:
             print("    ↳ לא הוכרז פיד בדף הזה")
 
 
+def show_block_page() -> None:
+    """
+    מי חוסם ולמה.
+
+    כשגם דף הבית מחזיר 403 לדפדפן, החסימה אינה לפי User-Agent ואינה לפי
+    נתיב — היא לפי מי שמבקש. גוף התשובה והכותרות מזהים את ה-WAF (‏Imperva
+    שותל ‎x-iinfo‎, ‏Cloudflare שותל ‎cf-ray‎) ולעיתים גם מסבירים את הסיבה.
+    """
+    print("\n" + "=" * 78)
+    print("‏3. מה בעצם מחזיר השרת (דף החסימה עצמו)")
+    print("=" * 78)
+    url = "https://www.afula.muni.il/he/"
+    summary, response = fetch(url, "browser")
+    print(f"\n{url}\n  [browser] {summary}")
+    if response is None:
+        return
+    interesting = (
+        "server", "cf-ray", "x-iinfo", "x-cdn", "x-cache", "via",
+        "x-akamai-transformed", "set-cookie", "x-sucuri-id",
+    )
+    print("  כותרות מזהות:")
+    for key, value in response.headers.items():
+        if key.lower() in interesting:
+            print(f"    {key}: {value[:120]}")
+    text = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", response.text)).strip()
+    print(f"  גוף התשובה (טקסט נקי, 400 תווים):\n    {text[:400]}")
+
+
 def main() -> int:
     probe_candidates()
     discover_feeds()
+    show_block_page()
     print("\n" + "=" * 78)
     print("סיום. חפשו ✅ — זו הכתובת (ואולי ה-UA) שצריך להגדיר במקור.")
     print("=" * 78)
