@@ -112,10 +112,27 @@ jobs:
             echo "::warning::הסוד SUPABASE_DB_URL הכיל תווים נסתרים או עוטפים שהוסרו לפני השימוש (${#SUPABASE_DB_URL_RAW} תווים לפני, ${#CLEAN} אחרי). הסיבה הנפוצה: העתקה דרך מסמך בעברית שמוסיף סימן כיווניות. שווה לעדכן את הסוד עצמו."
           fi
 
+          # ההודעה כאן מזהה *מה* הודבק ולא רק שזה שגוי. בלי זה המשתמש/ת מקבל/ת
+          # "לא מתחיל ב-postgresql://" ונשאר/ת לנחש בין טוקן, פקודת psql ומחרוזת
+          # קטועה — שלושה מצבים שנראים זהים בלוג, כי הערך ממוסך.
+          # אף אחת מההודעות אינה חושפת את תוכן הסוד: רק את סוג הדבר שזוהה.
           case "$CLEAN" in
-            postgresql://*|postgres://*) ;;
+            postgresql://*|postgres://*)
+              ;;
+            sbp_*)
+              echo "::error::ב-SUPABASE_DB_URL הודבק טוקן גישה של Supabase (מתחיל ב-sbp_) ולא מחרוזת חיבור. זהו הערך של הסוד השני, SUPABASE_ACCESS_TOKEN, והוא משמש רק לפריסת Edge Functions. ל-SUPABASE_DB_URL צריך את המחרוזת מ-Supabase → Connect → Direct connection / Session pooler → URI, שמתחילה ב-postgresql:// ומכילה את סיסמת המסד. פירוט: docs/supabase-migrations.md"
+              exit 1
+              ;;
+            psql*)
+              echo "::error::ב-SUPABASE_DB_URL הודבקה פקודת psql שלמה ולא המחרוזת עצמה. יש להסיר את המילה psql ואת הגרשיים, ולהשאיר רק את מה שמתחיל ב-postgresql://. פירוט: docs/supabase-migrations.md"
+              exit 1
+              ;;
+            *postgresql://*|*postgres://*)
+              echo "::error::ב-SUPABASE_DB_URL יש טקסט *לפני* המחרוזת. ‏pgx דורש שהערך יתחיל ב-postgresql:// בדיוק. יש למחוק כל מה שקודם לו. פירוט: docs/supabase-migrations.md"
+              exit 1
+              ;;
             *)
-              echo "::error::הסוד SUPABASE_DB_URL אינו מתחיל ב-postgresql:// גם אחרי ניקוי. ודאו שהודבקה מחרוזת החיבור המלאה מ-Supabase → Connect → Direct → URI, בלי גרשיים ובלי טקסט לפניה. פירוט: docs/supabase-migrations.md"
+              echo "::error::הסוד SUPABASE_DB_URL אינו מחרוזת חיבור: הוא אינו מכיל postgresql:// כלל (אורך: ${#CLEAN} תווים). ודאו שהודבקה המחרוזת המלאה מ-Supabase → Connect → Direct connection / Session pooler → URI — לא הסיסמה לבדה, לא ה-project ref ולא מפתח API. פירוט: docs/supabase-migrations.md"
               exit 1
               ;;
           esac
