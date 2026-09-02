@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>שאלות נפוצות | שוק נדל״ן עפולה</title>
+<meta name="description" content="כל מה שרוצים לדעת על שוק הנדל״ן של עפולה והעמק — איך מחפשים נכס, איך מקבלים התראה על נכס מתאים, איך מצטרפים כמשרד תיווך או כבעל מקצוע, ומה עומד מאחורי תו האיכות.">
+<meta property="og:title" content="שאלות נפוצות | שוק נדל״ן עפולה">
+<meta property="og:description" content="התשובות לשאלות שחוזרות הכי הרבה — למחפשי נכס, לבעלי נכסים, למשרדי תיווך ולבעלי מקצוע.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800;900&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
+    --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
+    --gold:#8B2332; --gold-dark:#6B1A26; --gold-tint:#F1DFE1;
+    --brass:#C9A227; --brass-tint:#FAF3DF;
+    --surface:#FFFFFF; --surface-soft:#FBFAF9; --hair:#E6E3DD;
+    --radius-md:12px; --radius-lg:20px; --radius-xl:24px;
+    --shadow-xs:0 1px 2px rgba(18,40,64,.05);
+    --maxw:860px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark);margin:0}
+  a{color:inherit;text-decoration:none}
+  svg{display:block}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
+
+  header.site{background:var(--paper-raised);border-bottom:1px solid var(--line);padding:14px 0}
+  .header-inner{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .logo{display:flex;align-items:center;gap:10px;min-width:0}
+  .logo-img{height:46px;width:auto;display:block;flex:0 0 auto}
+  .logo-word{font-family:'Rubik','Heebo',sans-serif;font-weight:500;color:var(--teal-dark);
+    font-size:.82rem;line-height:1.3;letter-spacing:-.012em;min-width:0;text-align:center}
+  .logo-word span{color:var(--gold-dark);font-weight:700}
+  @media(min-width:900px){.logo-img{height:54px;width:auto}.logo-word{font-size:.95rem;white-space:nowrap}}
+  .back-link{font-size:.85rem;font-weight:700;color:var(--teal);flex:0 0 auto}
+
+  .hero{background:linear-gradient(150deg,#0E2340,#1C3A5E 60%,#2A4E77);color:#fff;padding:30px 0 34px}
+  .hero .kicker{font-size:.74rem;font-weight:800;letter-spacing:.08em;color:var(--brass);margin-bottom:7px}
+  .hero h1{color:#fff;font-size:1.6rem;line-height:1.25}
+  @media(min-width:720px){.hero h1{font-size:2rem}}
+  .hero p{margin:10px 0 0;font-size:.95rem;color:#D6DFE9;max-width:58ch}
+
+  main{padding:24px 0 50px}
+
+  /* ---------- ניווט מהיר בין הקבוצות ----------
+     ארבע קבוצות ולא רשימה אחת ארוכה: מי שמגיע/ה עם שאלה של בעל/ת נכס לא
+     אמור/ה לגלול דרך כל שאלות המחפשים בדרך אליה. */
+  .jump{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
+  .jump a{font-size:.8rem;font-weight:600;color:var(--teal-dark);background:var(--surface);
+    border:1px solid var(--hair);border-radius:999px;padding:8px 14px;box-shadow:var(--shadow-xs)}
+  .jump a:hover,.jump a:focus-visible{background:var(--teal-tint);border-color:var(--line)}
+
+  .group{margin-bottom:30px;scroll-margin-top:16px}
+  .group-title{display:flex;align-items:baseline;gap:10px;margin:0 0 12px}
+  .group-title h2{font-size:1.2rem}
+  .group-title .count{font-size:.74rem;font-weight:700;color:var(--ink-soft)}
+
+  /* ה-details הוא הרכיב הנכון כאן ולא אקורדיון ב-JS: הוא נפתח בלחיצה,
+     נגיש מהמקלדת כברירת מחדל, והתשובות נשארות בתוך ה-DOM כדי שגוגל
+     והחיפוש בדפדפן (Ctrl+F) ימצאו אותן גם כשהן סגורות. */
+  .qa{display:grid;gap:10px}
+  details.q{background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-xs);overflow:hidden}
+  details.q summary{
+    list-style:none;cursor:pointer;padding:14px 18px;display:flex;align-items:flex-start;gap:10px;
+    font-weight:700;font-size:.95rem;color:var(--teal-dark);
+  }
+  details.q summary::-webkit-details-marker{display:none}
+  /* גבולות פיזיים ולא לוגיים: החץ הוא צורה גיאומטרית, ו-border-inline-*
+     היה הופך אותו ב-RTL לחץ שמצביע הצידה במקום למטה */
+  details.q summary::after{
+    content:"";flex:0 0 auto;width:11px;height:11px;margin-top:4px;margin-inline-start:auto;
+    border-right:2px solid var(--gold-dark);border-bottom:2px solid var(--gold-dark);
+    transform:rotate(45deg);transition:transform .18s ease;
+  }
+  details.q[open] summary::after{transform:rotate(-135deg);margin-top:9px}
+  details.q summary:focus-visible{outline:2px solid var(--teal);outline-offset:-2px}
+  .a{padding:0 18px 16px;font-size:.88rem;color:var(--ink-soft)}
+  .a p{margin:0}
+  .a p+p{margin-top:9px}
+  .a ul{margin:9px 0 0;padding-inline-start:18px}
+  .a li{margin-bottom:5px}
+  .a a{color:var(--gold-dark);font-weight:700;text-decoration:underline}
+  .a b{color:var(--teal-dark)}
+
+  .contact-box{background:var(--brass-tint);border:1px solid #EAD9A8;border-radius:var(--radius-xl);
+    padding:20px 22px;margin-top:8px}
+  .contact-box h2{font-size:1.1rem;margin-bottom:6px}
+  .contact-box p{margin:0;font-size:.88rem;color:var(--ink-soft)}
+  .contact-box .addr{margin-top:10px;font-size:.88rem;color:var(--teal-dark);font-weight:700}
+  .contact-box .addr a{color:var(--gold-dark);text-decoration:underline}
+
+  .cta-row{display:grid;gap:10px;margin-top:22px}
+  @media(min-width:520px){.cta-row{grid-template-columns:1fr 1fr}}
+  .cta{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 20px;
+    border-radius:14px;font-weight:800;font-size:.92rem}
+  .cta-primary{background:linear-gradient(120deg,var(--gold-dark),var(--gold) 60%,#A32B3C);color:#fff;
+    box-shadow:0 6px 16px rgba(139,35,50,.24)}
+  .cta-ghost{background:var(--teal-tint);color:var(--teal-dark);border:1px solid var(--line)}
+
+  footer.page{border-top:1px solid var(--line);margin-top:32px;padding-top:16px;
+    font-size:.75rem;color:var(--ink-soft);text-align:center}
+</style>
+
+<!-- FAQPage: זה מה שמאפשר לתשובות להופיע כתוצאה מורחבת בגוגל ולשמש
+     כמקור למנועי החיפוש מבוססי ה-AI. הטקסט כאן חייב להיות זהה למה
+     שמופיע בעמוד — אחרת הסימון נפסל. -->
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {
+      "@type": "Question",
+      "name": "מה זה שוק הנדל״ן של עפולה והסביבה?",
+      "acceptedAnswer": { "@type": "Answer", "text": "פלטפורמה אזורית שמרכזת במקום אחד את הנכסים למכירה ולהשכרה בעפולה ובישובי העמק, את משרדי התיווך והמתווכים שפועלים באזור, ואת בעלי המקצוע שמלווים עסקת נדל״ן — יועצי משכנתאות, שמאים, עורכי דין מקרקעין, אדריכלים ומעצבי פנים. בניגוד ללוח מודעות כללי, כל הנכסים כאן מגיעים ממשרדי תיווך שאישרו את הקוד האתי של הפלטפורמה." }
+    },
+    {
+      "@type": "Question",
+      "name": "האם השימוש באתר עולה כסף למחפשי נכס?",
+      "acceptedAnswer": { "@type": "Answer", "text": "לא. החיפוש, הצפייה בנכסים, המפה, מחשבון המשכנתא וההרשמה להתראות על נכסים חדשים — כולם ללא תשלום ובלי צורך בהרשמה." }
+    },
+    {
+      "@type": "Question",
+      "name": "איך מחפשים נכס באתר?",
+      "acceptedAnswer": { "@type": "Answer", "text": "בסרגל החיפוש בראש דף הבית בוחרים סוג עסקה (מכירה, השכרה או מסחרי), מקלידים עיר, שכונה או רחוב, ואפשר להוסיף סינון לפי מחיר, מספר חדרים, סוג נכס, קומה, שטח ומאפיינים כמו מעלית, חניה, ממ״ד או מרפסת. אפשר גם לסמן שכונה ישירות על המפה ולראות רק את הנכסים שבתוכה." }
+    },
+    {
+      "@type": "Question",
+      "name": "אילו ישובים מכוסים באתר?",
+      "acceptedAnswer": { "@type": "Answer", "text": "עפולה ועפולה עילית, מגדל העמק וישובי עמק יזרעאל שסביבן — מושבים, קיבוצים וישובים קהילתיים. אפשר לסנן לפי שכונות בתוך עפולה, כמו גבעת המורה או רובע יזרעאל." }
+    },
+    {
+      "@type": "Question",
+      "name": "אפשר לקבל התראה כשעולה נכס שמתאים לי?",
+      "acceptedAnswer": { "@type": "Answer", "text": "כן. הסוכן החכם שומר את קריטריוני החיפוש שלכם — אזור, טווח מחירים, מספר חדרים וסוג נכס — ושולח התראה בוואטסאפ או במייל ברגע שעולה נכס שמתאים להם. אפשר לפתוח אותו מכפתור ההתראות שמעל תוצאות החיפוש, וההרשמה לעדכון השבועי במייל נמצאת בתחתית דף הבית." }
+    },
+    {
+      "@type": "Question",
+      "name": "איך יוצרים קשר עם המתווך של נכס מסוים?",
+      "acceptedAnswer": { "@type": "Answer", "text": "בכל מודעת נכס מופיעים שם המתווך והמשרד שמטפלים בו, עם כפתור יצירת קשר ישיר. פנייה בנוגע לנכס מסוים מגיעה למתווך שמטפל באותו נכס." }
+    },
+    {
+      "@type": "Question",
+      "name": "מה זה תו האמון והאיכות שמופיע ליד חלק מהמתווכים?",
+      "acceptedAnswer": { "@type": "Answer", "text": "התו מעיד שהמתווך אישר במפורש את עשרת סעיפי הקוד האתי של הפלטפורמה — רישוי כחוק, שקיפות מלאה מול הלקוח, איסור מודעות פיקטיביות, שכר טרחה מוסכם מראש, שיתוף פעולה עם משרדים אחרים ושמירה על סודיות. הפרה של אחד הסעיפים מובילה להסרת התו מהפרופיל ומכל מודעות הנכסים." }
+    },
+    {
+      "@type": "Question",
+      "name": "מה מחשבון המשכנתא באתר נותן לי?",
+      "acceptedAnswer": { "@type": "Answer", "text": "המחשבון מציג את ההחזר החודשי הצפוי לפי סכום ההלוואה, הריבית ומספר השנים, ומאפשר לבדוק כמה נכס מסוים באמת עולה לכם בחודש. הוא כלי אינדיקטיבי בלבד ואינו מהווה אישור עקרוני או ייעוץ משכנתאות; לייעוץ אישי אפשר לפנות ליועצי המשכנתאות שבעמוד בעלי המקצוע." }
+    },
+    {
+      "@type": "Question",
+      "name": "יש לי דירה למכירה או להשכרה — איך מפרסמים אותה באתר?",
+      "acceptedAnswer": { "@type": "Answer", "text": "הנכסים באתר מתפרסמים דרך משרדי התיווך השותפים. בדף הבית יש באנר ״כמה שווה הנכס שלכם היום?״ — אשף קצר של שלושה שלבים שבסופו מגיעה אליכם הערכת שווי ממתווך מומלץ באזור, והוא זה שמעלה את הנכס לאתר עם התמונות והפרטים המלאים." }
+    },
+    {
+      "@type": "Question",
+      "name": "אני משרד תיווך — איך מצטרפים לפלטפורמה?",
+      "acceptedAnswer": { "@type": "Answer", "text": "דרך עמוד ההצטרפות כמשרד תיווך. ההרשמה פותחת דף משרד ייעודי, מערכת CRM לניהול הנכסים, הסוכנים והלידים, ואישור הקוד האתי במעמד ההרשמה מפעיל את תו האיכות בדף המשרד ובכל מודעות הנכסים." }
+    },
+    {
+      "@type": "Question",
+      "name": "אני בעל מקצוע בתחום הנדל״ן — איך מצטרפים?",
+      "acceptedAnswer": { "@type": "Answer", "text": "דרך עמוד ההצטרפות כבעל מקצוע. כרטיסיית בעל מקצוע עולה 350 ₪ לחודש עם אפשרות ביטול בכל עת, וכוללת כרטיסייה בדף הבית עם תמונות, תיאור, רשימת שירותים וכפתור וואטסאפ ישיר. מיד אחרי ההרשמה נפתח מסך עריכה להעלאת התכנים." }
+    },
+    {
+      "@type": "Question",
+      "name": "מה נעשה עם הפרטים שאני משאיר באתר?",
+      "acceptedAnswer": { "@type": "Answer", "text": "כל טופס באתר משמש למטרה שלשמה נמסר: פנייה על נכס מגיעה למתווך שמטפל בו, בקשת הערכת שווי מגיעה למשרד תיווך מהאזור, ופרטי סוכן חיפוש או בדיקת משכנתא מוצעים לאיש המקצוע הרלוונטי — מתווך או יועץ/ת משכנתאות — רק אם סומנה הסכמה מפורשת ליצירת קשר בטופס עצמו. עד לרגע שבו איש המקצוע פונה אליכם מוצגים לו הקריטריונים בלבד, בלי שם, טלפון או אימייל. אפשר לבקש הסרה מרשימת הדיוור בכל רגע." }
+    }
+  ]
+}
+</script>
+<link rel="stylesheet" href="assets/site-footer.css">
+<script src="assets/site-footer.js" defer></script>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap header-inner">
+    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+      <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="512" height="436">
+      <span class="logo-word">שוק הנדל״ן של <span>עפולה והסביבה</span></span>
+    </a>
+    <a href="index.html" class="back-link">← דף הבית</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div class="kicker">מרכז העזרה</div>
+    <h1>שאלות נפוצות</h1>
+    <p>התשובות לשאלות שחוזרות הכי הרבה — למחפשי נכס, לבעלי נכסים, למשרדי תיווך ולבעלי המקצוע שמלווים עסקה.</p>
+  </div>
+</section>
+
+<main class="wrap">
+
+  <nav class="jump" aria-label="מעבר מהיר לקבוצת שאלות">
+    <a href="#buyers">מחפשי נכס</a>
+    <a href="#owners">בעלי נכסים</a>
+    <a href="#pros">משרדי תיווך ובעלי מקצוע</a>
+    <a href="#privacy">פרטיות ואמון</a>
+  </nav>
+
+  <section class="group" id="buyers">
+    <div class="group-title">
+      <h2>מחפשי נכס</h2>
+      <span class="count">שמונה שאלות</span>
+    </div>
+    <div class="qa">
+
+      <details class="q">
+        <summary>מה זה שוק הנדל״ן של עפולה והסביבה?</summary>
+        <div class="a">
+          <p>פלטפורמה אזורית שמרכזת במקום אחד את הנכסים למכירה ולהשכרה בעפולה ובישובי העמק, את משרדי התיווך והמתווכים שפועלים באזור, ואת בעלי המקצוע שמלווים עסקת נדל״ן — יועצי משכנתאות, שמאים, עורכי דין מקרקעין, אדריכלים ומעצבי פנים.</p>
+          <p>בניגוד ללוח מודעות כללי, כל הנכסים כאן מגיעים ממשרדי תיווך שאישרו את <a href="ethics-code.html">הקוד האתי</a> של הפלטפורמה.</p>
+        </div>
+      </details>
+
+      <details class="q">
+        <summary>האם השימוש באתר עולה כסף למחפשי נכס?</summary>
+        <div class="a">
+          <p>לא. החיפוש, הצפייה בנכסים, המפה, מחשבון המשכנתא וההרשמה להתראות על נכסים חדשים — כולם ללא תשלום ובלי צורך בהרשמה.</p>
+        </div>
+      </details>
+
+      <details class="q">
+        <summary>איך מחפשים נכס באתר?</summary>
+        <div class="a">
+          <p>בסרגל החיפוש בראש <a href="index.html">דף הבית</a> בוחרים סוג עסקה — מכירה, השכרה או מסחרי — ומקלידים עיר, שכונה או רחוב. מכאן אפשר להוסיף סינון לפי:</p>
+          <ul>
+            <li>טווח מחירים ומספר חדרים</li>
+            <li>סוג נכס — דירה, דירת גן, פנטהאוז, בית פרטי, מגרש ועוד</li>
+            <li>קומה, שטח ותאריך כניסה</li>
+            <li>מאפיינים כמו מעלית, חניה, ממ״ד, מרפסת שמש, משופצת או בבלעדיות</li>
+          </ul>
+          <p>אפשר גם לסמן שכונה ישירות על המפה ולראות רק את הנכסים שבתוכה.</p>
+        </div>
+      </details>
+
+      <details class="q">
+        <summary>אילו ישובים מכוסים באתר?</summary>
+        <div class="a">
+          <p>עפולה ועפולה עילית, מגדל העמק וישובי עמק יזרעאל שסביבן — מושבים, קיבוצים וישובים קהילתיים. בתוך עפולה אפשר לסנן ברמת השכונה, למשל <a href="index.html?deal=sale&amp;q=%D7%92%D7%91%D7%A2%D7%AA%20%D7%94%D7%9E%D7%95%D7%A8%D7%94">גבעת המורה</a> או רובע יזרעאל.</p>
+        </div>
+      </details>
+
+      <details class="q">
+        <summary>אפשר לקבל התראה כשעולה נכס שמתאים לי?</summary>
+        <div class="a">
+          <p>כן. <b>הסוכן החכם</b> שומר את קריטריוני החיפוש שלכם — אזור, טווח מחירים, מספר חדרים וסוג נכס — ושולח התראה בוואטסאפ או במייל ברגע שעולה נכס שמתאים להם. אפשר לפתוח אותו מכפתור ההתראות שמעל תוצאות החיפוש.</p>
+          <p>מי שמעדיף/ה סיכום שבועי אחד במקום התראה לכל נכס — טופס ההרשמה לעדכונים נמצא בתחתית דף הבית.</p>
+        </div>
+      </details>
+
+      <details class="q">
+        <summary>איך יוצרים קשר עם המתווך של נכס מסוים?</summary>
+        <div class="a">
+          <p>בכל מודעת נכס מופיעים שם המתווך והמשרד שמטפלים בו, עם כפתור יצירת קשר ישיר. פנייה בנוגע לנכס מסוים מגיעה למתווך שמטפל באותו נכס.</p>
+        </div>
+      </details>
+
+      <details class="q">
+        <summary>מה זה תו האמון והאיכות שמופיע ליד חלק מהמתווכים?</summary>
+        <div class="a">
+          <p>התו מעיד שהמתווך אישר במפורש את עשרת סעיפי הקוד האתי של הפלטפורמה: רישוי כחוק, שקיפות מלאה מול הלקוח, איסור מודעות פיקטיביות, שכר טרחה מוסכם מראש ובכתב, שיתוף פעולה עם משרדים אחרים ושמירה על סודיות.</p>
+          <p>הפרה של אחד הסעיפים מובילה להסרת התו מהפרופיל ומכל מודעות הנכסים. <a href="ethics-code.html">לקוד האתי המלא</a>.</p>
+        </div>
+      </details>
+
+      <details class="q">
+        <summary>מה מחשבון המשכנתא באתר נותן לי?</summary>
+        <div class="a">
+          <p>המחשבון מציג את ההחזר החודשי הצפוי לפי סכום ההלוואה, הריבית ומספר השנים, ומאפשר לבדוק כמה נכס מסוים באמת עולה לכם בחודש.</p>
+          <p>הוא כלי אינדיקטיבי בלבד ואינו מהווה אישור עקרוני או ייעוץ משכנתאות. לייעוץ אישי אפשר לפנות ליועצי המשכנתאות שב<a href="index.html#pros">עמוד בעלי המקצוע</a>.</p>
+        </div>
+      </details>
+
+    </div>
+  </section>
+
+  <section class="group" id="owners">
+    <div class="group-title">
+      <h2>בעלי נכסים</h2>
+      <span class="count">שתי שאלות</span>
+    </div>
+    <div class="qa">
+
+      <details class="q">
+        <summary>יש לי דירה למכירה או להשכרה — איך מפרסמים אותה באתר?</summary>
+        <div class="a">
+          <p>הנכסים באתר מתפרסמים דרך משרדי התיווך השותפים. בדף הבית יש באנר <b>״כמה שווה הנכס שלכם היום?״</b> — אשף קצר של שלושה שלבים שבסופו מגיעה אליכם הערכת שווי ממתווך מומלץ באזור, והוא זה שמעלה את הנכס לאתר עם התמונות והפרטים המלאים.</p>
+        </div>
+      </details>
+
+      <details class="q">
+        <summary>כמה נכסים דומים לשלי נמכרו באזור, ובאיזה מחיר?</summary>
+        <div class="a">
+          <p>בדף הבית יש רצועת נכסים למכירה ולהשכרה לפי אזור, ואפשר לסנן לפי שכונה, מספר חדרים וטווח מחירים כדי לראות מה מוצע כרגע בשוק. שימו לב שמדובר במחירי <b>בקשה</b> ולא במחירי עסקאות סגורות — להערכת שווי מבוססת עסקאות כדאי לפנות לשמאי/ת מקרקעין מ<a href="index.html#pros">רשימת בעלי המקצוע</a>.</p>
+        </div>
+      </details>
+
+    </div>
+  </section>
+
+  <section class="group" id="pros">
+    <div class="group-title">
+      <h2>משרדי תיווך ובעלי מקצוע</h2>
+      <span class="count">שלוש שאלות</span>
+    </div>
+    <div class="qa">
+
+      <details class="q">
+        <summary>אני משרד תיווך — איך מצטרפים לפלטפורמה?</summary>
+        <div class="a">
+          <p>דרך <a href="agency-signup.html">עמוד ההצטרפות כמשרד תיווך</a>. ההרשמה פותחת דף משרד ייעודי, מערכת CRM לניהול הנכסים, הסוכנים והלידים, והוספת סוכני המשרד בהזמנה.</p>
+          <p>אישור הקוד האתי במעמד ההרשמה מפעיל את תו האיכות בדף המשרד ובכל מודעות הנכסים של המשרד.</p>
+        </div>
+      </details>
+
+      <details class="q">
+        <summary>אני בעל מקצוע בתחום הנדל״ן — איך מצטרפים?</summary>
+        <div class="a">
+          <p>דרך <a href="professional-signup.html">עמוד ההצטרפות כבעל מקצוע</a>, שפתוח ליועצי משכנתאות, שמאי מקרקעין, עורכי דין מקרקעין, אדריכלים ומעצבי פנים.</p>
+          <p>כרטיסיית בעל מקצוע עולה <b>350 ₪ לחודש, עם אפשרות ביטול בכל עת</b>, וכוללת כרטיסייה בדף הבית עם תמונות, תיאור, רשימת שירותים וכפתור וואטסאפ ישיר. מיד אחרי ההרשמה נפתח מסך עריכה להעלאת התכנים.</p>
+        </div>
+      </details>
+
+      <details class="q">
+        <summary>איך נקבע הדירוג של משרדי התיווך והמתווכים?</summary>
+        <div class="a">
+          <p>הדירוג מבוסס על ביקורות של לקוחות שסיימו עסקה עם המשרד או הסוכן/ת, ומוצג בדף המשרד ובכרטיס המתווך. את רשימת המשרדים המלאה, עם אזורי הפעילות והתמחויות, אפשר לראות ב<a href="agencies.html">עמוד משרדי התיווך</a>.</p>
+        </div>
+      </details>
+
+    </div>
+  </section>
+
+  <section class="group" id="privacy">
+    <div class="group-title">
+      <h2>פרטיות ואמון</h2>
+      <span class="count">שאלה אחת</span>
+    </div>
+    <div class="qa">
+
+      <details class="q">
+        <summary>מה נעשה עם הפרטים שאני משאיר באתר?</summary>
+        <div class="a">
+          <p>כל טופס באתר משמש למטרה שלשמה נמסר: פנייה על נכס מגיעה למתווך שמטפל בו, ובקשת הערכת שווי מגיעה למשרד תיווך מהאזור.</p>
+          <p>פרטים שנמסרו בסוכן החיפוש החכם או בבדיקת המשכנתא מוצעים לאיש המקצוע הרלוונטי — מתווך או יועץ/ת משכנתאות — <b>רק אם סומנה הסכמה מפורשת ליצירת קשר</b> בטופס עצמו. עד לרגע שבו איש המקצוע פונה אליכם מוצגים לו הקריטריונים בלבד (אזור, טווח מחירים, מספר חדרים), בלי שם, טלפון או אימייל.</p>
+          <p>אפשר לבקש הסרה מרשימת הדיוור, או מחיקה של הפרטים, בכל רגע.</p>
+        </div>
+      </details>
+
+    </div>
+  </section>
+
+  <section class="contact-box">
+    <h2>לא מצאתם את התשובה?</h2>
+    <p>נשמח לענות. כתבו לנו למייל, או פנו דרך העמוד בפייסבוק.</p>
+    <p class="addr"><a href="mailto:shuknadlan@gmail.com">shuknadlan@gmail.com</a></p>
+    <p class="addr">רחוב חטיבה תשע 18, עפולה</p>
+  </section>
+
+  <div class="cta-row">
+    <a class="cta cta-primary" href="index.html">חזרה לחיפוש נכסים</a>
+    <a class="cta cta-ghost" href="agencies.html">כל משרדי התיווך באזור</a>
+  </div>
+
+  <footer class="page">
+    שוק הנדל״ן של עפולה והסביבה · שאלות נפוצות
+  </footer>
+</main>
+
+
+<footer class="site">
+
+  <!-- רצועת הניוזלטר: ההרשמה נשלחת ל-Edge Function ולא ישירות לטבלה, מאותה
+       סיבה כמו שאר הטפסים הציבוריים באתר — הכתיבה נעשית ב-service_role
+       והטבלה סגורה ל-anon לגמרי (אימייל של אדם פרטי). -->
+  <div class="footer-news">
+    <div class="footer-wrap footer-news-inner">
+      <div class="footer-news-text">
+        <h4>הנכסים החדשים בעפולה — ראשונים אצלכם</h4>
+        <p>עדכון אחד בשבוע למייל. בלי ספאם, אפשר להסיר בכל רגע.</p>
+      </div>
+      <form class="footer-news-form" id="newsletterForm" data-source="faq_page" novalidate>
+        <label class="footer-sr-only" for="newsletterEmail">כתובת אימייל להרשמה לעדכונים</label>
+        <input type="email" id="newsletterEmail" name="email" autocomplete="email" inputmode="email"
+               placeholder="האימייל שלך" required>
+        <button type="submit" id="newsletterBtn">הרשמה</button>
+      </form>
+      <p class="footer-news-msg" id="newsletterMsg" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="footer-wrap footer-top">
+
+    <div class="footer-brand">
+      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+        <img src="assets/logo-shuknadlan.png" alt="" width="512" height="436" loading="lazy">
+        <span>שוק הנדל״ן<br>של עפולה והסביבה</span>
+      </a>
+      <p class="footer-tagline">
+        <span>כל הנכסים, כל המתווכים ובעלי המקצוע בעפולה והעמק בכתובת אחת</span>
+        <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
+      </p>
+      <div class="footer-cta">
+        <a href="agency-signup.html" class="footer-btn-primary">הצטרפות כמשרד תיווך</a>
+        <a href="professional-signup.html" class="footer-btn-ghost">הצטרפות כבעל מקצוע</a>
+      </div>
+
+      <div class="footer-meta">
+        <div class="footer-contact">
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 10c0 5.2-8 12-8 12s-8-6.8-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.8"/>
+            </svg>
+            <span>רחוב חטיבה תשע 18, עפולה</span>
+          </p>
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3.5 6.5h17v11h-17z"/><path d="m3.5 7 8.5 6 8.5-6"/>
+            </svg>
+            <a href="mailto:shuknadlan@gmail.com">shuknadlan@gmail.com</a>
+          </p>
+        </div>
+
+        <div class="footer-social">
+          <a href="https://www.facebook.com/share/19LytY6L6b/" target="_blank" rel="noopener noreferrer"
+             aria-label="שוק הנדל״ן בפייסבוק — נפתח בחלון חדש" title="פייסבוק">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06C2 17.08 5.66 21.24 10.44 22v-7.03H7.9v-2.91h2.54V9.85c0-2.52 1.49-3.91 3.77-3.91 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.78-1.63 1.57v1.89h2.78l-.44 2.91h-2.34V22C18.34 21.24 22 17.08 22 12.06Z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <nav class="footer-grid" aria-label="ניווט בתחתית העמוד">
+      <div class="footer-col">
+        <h4>נכסים</h4>
+        <a href="index.html#saleProps">למכירה בעפולה</a>
+        <a href="index.html#rentProps">להשכרה בעפולה</a>
+        <a href="index.html#commercialProps">נכסים מסחריים</a>
+        <a href="index.html#listings">כל הנכסים</a>
+      </div>
+      <div class="footer-col">
+        <h4>כלים</h4>
+        <a href="index.html#calc">מחשבון משכנתא</a>
+        <a href="index.html#heroSection">חיפוש על המפה</a>
+        <a href="index.html#featured">נכסים מובחרים</a>
+        <a href="articles.html">כתבות ובלוגים</a>
+      </div>
+      <div class="footer-col">
+        <h4>בעלי מקצוע</h4>
+        <a href="agencies.html">כל משרדי התיווך</a>
+        <a href="index.html#leadingAgents">מתווכים מובילים</a>
+        <a href="index.html#pros">בעלי מקצוע</a>
+        <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
+      </div>
+      <div class="footer-col">
+        <h4>שוק נדל״ן</h4>
+        <!-- "אודות" הוא הקישור היחיד בפוטר שעדיין אין לו דף; כל השאר
+             מצביעים על דפים, על סקציות אמיתיות או על תיבת המייל. -->
+        <a href="#">אודות</a>
+        <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
+        <a href="faq.html">שאלות נפוצות</a>
+        <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
+        <a href="crm.html">כניסת מתווכים</a>
+      </div>
+    </nav>
+
+  </div>
+
+  <!-- חיפושים פופולריים: קישורים פנימיים שמגיעים לתוצאות מסוננות דרך
+       פרמטרים ב-URL (ראו applyDeepLinkFilters ב-index.html). זה הבלוק
+       שמאפשר למנוע החיפוש להגיע לעמודי תוצאות ולא רק לדף הבית הכללי. -->
+  <details class="footer-wrap footer-seo" id="footerSeo" open>
+    <summary><h4>חיפושים פופולריים בעפולה והעמק</h4></summary>
+    <div class="footer-seo-links">
+      <a href="index.html?deal=sale&amp;rooms=3">דירות 3 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;rooms=4">דירות 4 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;rooms=5">דירות 5 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;maxPrice=1500000">נכסים בעפולה עד 1.5 מיליון ₪</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%93%D7%99%D7%A8%D7%AA%20%D7%92%D7%9F">דירות גן בעפולה</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%92%D7%92%2F%D7%A4%D7%A0%D7%98%D7%94%D7%90%D7%95%D7%96">פנטהאוזים בעפולה</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%91%D7%99%D7%AA%20%D7%A4%D7%A8%D7%98%D7%99%2F%D7%A7%D7%95%D7%98%D7%92'">בתים פרטיים בעפולה והעמק</a>
+      <a href="index.html?deal=sale&amp;q=%D7%92%D7%91%D7%A2%D7%AA%20%D7%94%D7%9E%D7%95%D7%A8%D7%94">נכסים בגבעת המורה</a>
+      <a href="index.html?deal=sale&amp;q=%D7%A2%D7%A4%D7%95%D7%9C%D7%94%20%D7%A2%D7%99%D7%9C%D7%99%D7%AA">נכסים בעפולה עילית</a>
+      <a href="index.html?deal=rent&amp;rooms=3">דירות 3 חדרים להשכרה בעפולה</a>
+      <a href="index.html?deal=rent&amp;rooms=4">דירות 4 חדרים להשכרה בעפולה</a>
+      <a href="index.html?deal=rent&amp;maxPrice=4000">דירות להשכרה בעפולה עד 4,000 ₪</a>
+      <a href="index.html?deal=commercial&amp;ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D">משרדים להשכרה בעפולה</a>
+      <a href="index.html?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
+      <a href="agencies.html">משרדי תיווך בעפולה</a>
+    </div>
+  </details>
+
+  <div class="footer-wrap footer-bottom">
+    <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
+    <div class="footer-legal">
+      <a href="#">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
+      <a href="#">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
+      <a href="#">הצהרת נגישות</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
