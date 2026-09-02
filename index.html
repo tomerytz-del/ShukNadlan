@@ -6,6 +6,15 @@
 <title>שוק נדל״ן | עפולה והעמק</title>
 <meta name="description" content="העסקה הבאה שלך בעפולה מתחילה בשוק הנדל״ן — כל הדירות, כל המתווכים, בכתובת אחת.">
 <meta property="og:description" content="העסקה הבאה שלך בעפולה מתחילה בשוק הנדל״ן.">
+<link rel="canonical" href="https://shuknadlan.co.il/">
+<!-- ‏hreflang: לכל שפה כתובת אמיתית משלה (‏/en/‏, ‏/ru/‏), ולכן מנוע החיפוש
+     יכול להגיש לדובר/ת אנגלית או רוסית את עמוד הנחיתה בשפתו/ה במקום את
+     העמוד העברי. ‏x-default הוא העברי — זו שפת האתר. -->
+<link rel="alternate" hreflang="he" href="https://shuknadlan.co.il/">
+<link rel="alternate" hreflang="en" href="https://shuknadlan.co.il/en/">
+<link rel="alternate" hreflang="ru" href="https://shuknadlan.co.il/ru/">
+<link rel="alternate" hreflang="x-default" href="https://shuknadlan.co.il/">
+<link rel="alternate" type="application/rss+xml" title="שוק הנדל״ן של עפולה — כתבות ובלוגים" href="rss.xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
@@ -3491,9 +3500,9 @@
       </div>
       <div class="footer-col">
         <h4>שוק נדל״ן</h4>
-        <!-- "אודות" הוא הקישור היחיד בפוטר שעדיין אין לו דף; כל השאר
-             מצביעים על דפים, על סקציות אמיתיות או על תיבת המייל. -->
-        <a href="#">אודות</a>
+        <!-- אין יותר href="#" בפוטר: כל קישור מצביע על דף קיים, על סקציה
+             אמיתית או על תיבת המייל. -->
+        <a href="#heroSection">אודות הפלטפורמה</a>
         <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
         <a href="faq.html">שאלות נפוצות</a>
         <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
@@ -3527,13 +3536,27 @@
     </div>
   </details>
 
+  <div class="footer-wrap footer-legal-row">
+    <nav class="footer-legal" aria-label="מסמכי מדיניות">
+      <a href="terms.html">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
+      <a href="privacy.html">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
+      <a href="cookies.html">הצהרת עוגיות</a><span class="sep" aria-hidden="true">·</span>
+      <a href="accessibility.html">הצהרת נגישות</a><span class="sep" aria-hidden="true">·</span>
+      <a href="advertising-terms.html">תנאי פרסום</a>
+    </nav>
+    <!-- מחליף השפה מוביל לעמודי הנחיתה ב-/en/ וב-/ru/ ולא מתרגם את הדף
+         במקום: אלה כתובות אמיתיות עם hreflang משלהן, וזה מה שמנוע החיפוש
+         יודע להגיש לדובר/ת אנגלית או רוסית. -->
+    <nav class="footer-lang" aria-label="שפה">
+      <a href="index.html" aria-current="page" hreflang="he">עברית</a>
+      <a href="en/index.html" lang="en" hreflang="en">English</a>
+      <a href="ru/index.html" lang="ru" hreflang="ru">Русский</a>
+    </nav>
+  </div>
+
   <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
-    <div class="footer-legal">
-      <a href="#">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
-      <a href="#">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
-      <a href="#">הצהרת נגישות</a>
-    </div>
+    <span class="footer-built">העסקה הבאה שלך בעפולה מתחילה בשוק הנדל״ן.</span>
   </div>
 </footer>
 

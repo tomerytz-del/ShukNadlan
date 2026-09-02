@@ -1,0 +1,98 @@
+/* ============================================================================
+   תפריט הנגישות — הגרסה המשותפת
+   ----------------------------------------------------------------------------
+   עד היום התפריט היה קיים בדף הבית בלבד, מוטבע בתוך ה-HTML וה-style שלו.
+   הצהרת נגישות מצהירה על *האתר*, לא על עמוד אחד, ולכן הרכיב הוצא לכאן
+   ומוכלל בכל עמוד ציבורי.
+
+   דף הבית ממשיך להשתמש במימוש המוטבע שלו: יש שם התאמות ניגודיות ספציפיות
+   לעשרות רכיבים (מפה, מסננים, בוררים) שאין להן מקבילה בעמודים אחרים,
+   והסקריפט המשותף מזהה תפריט קיים ולא נטען עליו פעמיים.
+
+   מפתח האחסון (‏shuknadlan_a11y) ושמות המחלקות זהים לאלה של דף הבית, ולכן
+   העדפה שנבחרה בעמוד אחד ממשיכה לעמוד הבא.
+   ============================================================================ */
+
+:root{--a11y-fab-size:48px; --a11y-fab-gap:18px}
+@media(max-width:600px){:root{--a11y-fab-size:44px; --a11y-fab-gap:12px}}
+
+.a11y-fab{
+  position:fixed;z-index:150;
+  bottom:calc(var(--a11y-fab-gap) + env(safe-area-inset-bottom, 0px));
+  left:var(--a11y-fab-gap);
+  width:var(--a11y-fab-size);height:var(--a11y-fab-size);border-radius:50%;
+  background:#1C3A5E;color:#fff;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 8px 24px rgba(18,40,64,.28);font-size:1.1rem;border:none;cursor:pointer;
+}
+.a11y-fab:focus-visible{outline:3px solid #C9A227;outline-offset:2px}
+
+.a11y-panel{
+  position:fixed;z-index:151;
+  bottom:calc(var(--a11y-fab-size) + var(--a11y-fab-gap) * 2 + env(safe-area-inset-bottom, 0px));
+  left:var(--a11y-fab-gap);
+  width:min(266px, calc(100vw - var(--a11y-fab-gap) * 2));
+  /* פאנל גבוה ממסך נמוך היה גולש מעל הכותרת; כאן הוא נגלל בתוך עצמו */
+  max-height:calc(100vh - var(--a11y-fab-size) - var(--a11y-fab-gap) * 4);overflow-y:auto;
+  background:#F4F3F0;border:1px solid #C5C3BC;border-radius:12px;
+  box-shadow:0 12px 34px rgba(0,0,0,.22);padding:14px;display:none;
+  font-family:'Heebo',sans-serif;
+}
+.a11y-panel[data-open="true"]{display:block}
+.a11y-panel h3{font-size:.95rem;margin:0 0 10px;color:#122840;font-family:'Frank Ruhl Libre',serif}
+.a11y-panel button.opt{
+  display:flex;align-items:center;justify-content:space-between;width:100%;text-align:start;
+  border:1.5px solid #C5C3BC;border-radius:9px;background:#fff;cursor:pointer;
+  padding:9px 11px;margin-bottom:7px;font-size:.83rem;font-weight:600;color:#1B1F26;font-family:inherit;
+}
+.a11y-panel button.opt[aria-pressed="true"]{border-color:#1C3A5E;background:#E0E7ED;color:#122840}
+.a11y-panel .state{font-size:.72rem;color:#565C63}
+.a11y-panel .reset{
+  width:100%;border:none;background:#8B2332;color:#fff;border-radius:999px;padding:9px;
+  font-weight:700;font-size:.82rem;margin-top:4px;cursor:pointer;font-family:inherit;
+}
+.a11y-font-row{display:flex;gap:7px;margin-bottom:7px}
+.a11y-font-row button{
+  flex:1;border:1.5px solid #C5C3BC;border-radius:9px;background:#fff;cursor:pointer;
+  padding:9px;font-weight:700;font-size:.9rem;color:#1B1F26;font-family:inherit;
+}
+.a11y-panel button:focus-visible,.a11y-font-row button:focus-visible{outline:2px solid #1C3A5E;outline-offset:1px}
+
+/* קישור הדילוג: מוסתר עד שמגיעים אליו ב-Tab, ואז קופץ לראש המסך */
+.a11y-skip{
+  position:absolute;inset-inline-start:-9999px;top:0;z-index:200;
+  background:#122840;color:#fff;padding:10px 16px;border-radius:0 0 10px 0;
+  font-weight:700;font-size:.85rem;text-decoration:none;
+}
+.a11y-skip:focus{inset-inline-start:0}
+
+/* ====== מצבי הנגישות עצמם ======
+   מוחלים על אלמנט השורש כדי שיחולו על כל העמוד, כולל רכיבים שנוספו אחרי
+   הטעינה. */
+html.a11y-links a{text-decoration:underline !important;font-weight:700 !important}
+html.a11y-readable, html.a11y-readable *{font-family:Arial, Helvetica, sans-serif !important}
+html.a11y-nomotion *{animation:none !important;transition:none !important;scroll-behavior:auto !important}
+
+html.a11y-contrast body{background:#000 !important;color:#fff !important}
+html.a11y-contrast h1, html.a11y-contrast h2, html.a11y-contrast h3,
+html.a11y-contrast p, html.a11y-contrast span, html.a11y-contrast div,
+html.a11y-contrast li, html.a11y-contrast td, html.a11y-contrast th,
+html.a11y-contrast label, html.a11y-contrast summary{color:#fff !important}
+html.a11y-contrast a{color:#FFD84D !important}
+html.a11y-contrast header.site, html.a11y-contrast footer.site,
+html.a11y-contrast section, html.a11y-contrast article,
+html.a11y-contrast .lp-section, html.a11y-contrast .lp-toc,
+html.a11y-contrast .lp-callout, html.a11y-contrast .lp-hero,
+html.a11y-contrast .card, html.a11y-contrast details{
+  background:#000 !important;border-color:#fff !important;
+}
+html.a11y-contrast .lp-table th, html.a11y-contrast .lp-table td{border-color:#fff !important;background:#000 !important}
+html.a11y-contrast input, html.a11y-contrast select, html.a11y-contrast textarea,
+html.a11y-contrast button, html.a11y-contrast .footer-cta a, html.a11y-contrast .lp-related a{
+  background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important;
+}
+html.a11y-contrast .footer-social svg{fill:#FFD84D !important}
+html.a11y-contrast .footer-contact-row svg{stroke:#FFD84D !important}
+/* התפריט עצמו נשאר קריא במצב ניגודיות: כפתור פעיל חייב להיבדל מכבוי */
+html.a11y-contrast .a11y-panel{background:#000 !important;border-color:#FFD84D !important}
+html.a11y-contrast .a11y-panel button.opt[aria-pressed="true"]{background:#FFD84D !important;color:#000 !important}
+html.a11y-contrast .a11y-panel button.opt[aria-pressed="true"] .state{color:#000 !important}

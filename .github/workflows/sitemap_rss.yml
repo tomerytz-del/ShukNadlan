@@ -1,0 +1,87 @@
+name: מפת אתר ופיד כתבות
+
+# מה זה עושה: מריץ את sitemap_rss.py, וכשהתוצאה שונה ממה שכבר בריפו — מגיש
+# אותה ל-main. מרגע המיזוג Netlify מפרסם את שני הקבצים כמו כל HTML אחר.
+#
+# למה בכלל מנגנון ולא קובץ שנכתב פעם אחת: רוב כתובות האתר דינמיות
+# (‏property.html?id=…‏, ‏article.html?slug=…‏) ונולדות בכל פעם שמשרד תיווך
+# מעלה נכס או שמתפרסמת כתבה. קובץ ידני היה מתיישן ביום הראשון.
+#
+# תזמון: פעם ביום ב-04:10 UTC (‏06:10/07:10 שעון ישראל — אחרי שעות ההעלאה
+# של המשרדים ולפני שהסורקים של הבוקר עוברים), בכל מיזוג שנוגע בעמודים
+# הסטטיים או בסקריפט עצמו, וגם ידנית מלשונית Actions.
+on:
+  schedule:
+    - cron: "10 4 * * *"
+  push:
+    branches: [main]
+    paths:
+      - "*.html"
+      - "en/*.html"
+      - "ru/*.html"
+      - "sitemap_rss.py"
+      - ".github/workflows/sitemap_rss.yml"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "הרצת יבש — להציג מה היה משתנה בלי להגיש"
+        type: boolean
+        default: false
+
+# הרצה אחת בכל רגע נתון: שתי הרצות חופפות היו מנסות לדחוף את אותו קובץ
+# ואחת מהן הייתה נדחית על not-a-fast-forward.
+concurrency:
+  group: sitemap-rss
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: משיכת הקוד
+        uses: actions/checkout@v4
+
+      - name: התקנת Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: התקנת תלויות
+        run: pip install -r requirements.txt
+
+      - name: ייצור מפת האתר והפיד
+        env:
+          # אותם סודות של שאר המנועים — אין צורך בחדשים
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          # הדומיין ניתן לדריסה כ-Repository Variable, למקרה של דומיין נוסף
+          SITE_URL: ${{ vars.SITE_URL }}
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          if [ "$DRY_RUN" = "true" ]; then
+            python sitemap_rss.py --dry-run
+          else
+            python sitemap_rss.py
+          fi
+
+      - name: הגשה, רק אם באמת השתנה משהו
+        if: ${{ inputs.dry_run != true }}
+        run: |
+          if [ -z "$(git status --porcelain sitemap.xml rss.xml)" ]; then
+            echo "אין שינוי — אין מה להגיש"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add sitemap.xml rss.xml
+          git commit -m "עדכון אוטומטי של מפת האתר ופיד הכתבות"
+          # ‏rebase לפני הדחיפה: בין ההרצה להגשה יכול היה להיכנס מיזוג אחר
+          git pull --rebase origin main
+          git push origin HEAD:main

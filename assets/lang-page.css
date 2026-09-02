@@ -1,0 +1,129 @@
+/* ============================================================================
+   עמודי השפה — /en/ ו-/ru/
+   ----------------------------------------------------------------------------
+   שני עמודי נחיתה בשפה זרה, ולכן LTR ולא RTL, עם כותרת ופוטר משלהם: פוטר
+   עברי מתחת לעמוד באנגלית הוא לא "אחידות" אלא באג.
+
+   העמודים האלה מסבירים את הפלטפורמה ומובילים אל החיפוש העברי דרך קישורים
+   עם פרמטרים — ולכן הם רדודים בכוונה: אין בהם טפסים, אין תלות ב-Supabase,
+   ואין מה שיישבר כשהאתר הראשי משתנה.
+   ============================================================================ */
+
+:root{
+  --lg-ink:#1B1F26; --lg-ink-soft:#565C63; --lg-paper:#DEDCD6; --lg-paper-raised:#F4F3F0;
+  --lg-line:#C5C3BC; --lg-teal:#1C3A5E; --lg-teal-dark:#122840; --lg-teal-tint:#E0E7ED;
+  --lg-gold:#8B2332; --lg-gold-dark:#6B1A26; --lg-brass:#C9A227; --lg-brass-tint:#FAF3DF;
+  --lg-surface:#FFFFFF; --lg-hair:#E6E3DD;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;background:var(--lg-paper);color:var(--lg-ink);
+  font-family:'Heebo',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
+  line-height:1.7;-webkit-font-smoothing:antialiased;
+}
+h1,h2,h3{font-family:'Frank Ruhl Libre',Georgia,serif;font-weight:700;color:var(--lg-teal-dark);margin:0}
+a{color:inherit;text-decoration:none}
+img{max-width:100%}
+.lang-wrap{max-width:880px;margin:0 auto;padding:0 18px}
+
+/* ---------- כותרת ומחליף השפה ---------- */
+.lang-header{background:var(--lg-paper-raised);border-bottom:1px solid var(--lg-line);padding:12px 0}
+.lang-header .header-inner{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.lang-header .logo{display:flex;align-items:center;gap:10px;min-width:0}
+.lang-header .logo-img{height:44px;width:auto;display:block;flex:0 0 auto}
+.lang-header .logo-word{
+  font-family:'Rubik','Heebo',sans-serif;font-weight:600;color:var(--lg-teal-dark);
+  font-size:.9rem;line-height:1.25;
+}
+.lang-header .logo-word span{color:var(--lg-gold-dark);font-weight:700}
+
+.lang-switch{display:flex;gap:4px;flex:0 0 auto}
+.lang-switch a{
+  font-size:.8rem;font-weight:700;color:var(--lg-teal);padding:6px 11px;border-radius:999px;
+  border:1px solid transparent;
+}
+.lang-switch a:hover{background:var(--lg-teal-tint)}
+/* השפה הנוכחית מסומנת גם בצבע וגם בגבול — ולא בצבע בלבד, שאינו נגיש */
+.lang-switch a[aria-current="page"]{
+  background:var(--lg-teal);color:#fff;border-color:var(--lg-teal);
+}
+
+/* ---------- הירו ---------- */
+.lang-hero{background:linear-gradient(150deg,#0E2340,#1C3A5E 60%,#2A4E77);color:#fff;padding:34px 0 38px}
+.lang-hero .kicker{font-size:.74rem;font-weight:800;letter-spacing:.08em;color:var(--lg-brass);margin-bottom:8px;text-transform:uppercase}
+.lang-hero h1{color:#fff;font-size:1.7rem;line-height:1.2}
+@media(min-width:720px){.lang-hero h1{font-size:2.3rem}}
+.lang-hero p{margin:12px 0 0;font-size:1rem;color:#D6DFE9;max-width:60ch}
+.lang-hero .hero-note{font-size:.82rem;color:#A9BFD4;margin-top:14px;max-width:60ch}
+.hero-cta{display:flex;flex-wrap:wrap;gap:10px;margin-top:18px}
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;
+  padding:12px 22px;border-radius:999px;font-weight:700;font-size:.9rem;
+  transition:transform .15s ease,background .15s ease;
+}
+.btn:hover{transform:translateY(-1px)}
+.btn-primary{background:var(--lg-gold);color:#fff}
+.btn-primary:hover{background:#A32B3C}
+.btn-ghost{background:transparent;color:#fff;border:1px solid rgba(255,255,255,.45)}
+.btn-ghost:hover{background:rgba(255,255,255,.12)}
+
+/* ---------- גוף העמוד ---------- */
+main{padding:26px 0 46px}
+.block{
+  background:var(--lg-surface);border:1px solid var(--lg-hair);border-radius:20px;
+  padding:20px 22px;margin-bottom:16px;
+}
+.block h2{font-size:1.15rem;margin-bottom:10px}
+.block p{margin:0;font-size:.92rem;color:var(--lg-ink-soft)}
+.block p + p{margin-top:10px}
+.block ul{margin:10px 0 0;padding-inline-start:20px;font-size:.92rem;color:var(--lg-ink-soft)}
+.block li{margin-bottom:8px}
+.block b{color:var(--lg-teal-dark)}
+.block a{color:var(--lg-gold-dark);font-weight:700;text-decoration:underline}
+.block .note{
+  margin-top:14px;font-size:.82rem;color:var(--lg-ink-soft);
+  background:var(--lg-brass-tint);border:1px solid #EAD9A8;border-radius:12px;padding:11px 13px;
+}
+
+/* קישורי החיפוש: אותם צ׳יפים כמו בפוטר העברי, בגרסה בהירה */
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.chips a{
+  font-size:.82rem;font-weight:600;color:var(--lg-teal-dark);background:var(--lg-paper-raised);
+  border:1px solid var(--lg-hair);border-radius:999px;padding:8px 14px;text-decoration:none;
+}
+.chips a:hover{background:var(--lg-teal-tint);border-color:var(--lg-line)}
+
+/* מילון המונחים: הטבלה מעורבת LTR ו-RTL, ולכן כל תא עברי נושא dir משלו
+   בסימון עצמו — בלי זה הגרשיים והמקפים נוחתים בצד הלא נכון */
+.table-scroll{overflow-x:auto;margin-top:12px}
+.gloss{width:100%;border-collapse:collapse;font-size:.88rem}
+.gloss th,.gloss td{border:1px solid var(--lg-hair);padding:8px 11px;text-align:start;vertical-align:top}
+.gloss th{background:var(--lg-teal-tint);color:var(--lg-teal-dark);font-weight:700}
+.gloss td{color:var(--lg-ink-soft)}
+.gloss td[lang="he"]{font-weight:700;color:var(--lg-teal-dark);white-space:nowrap}
+
+.contact-block{
+  background:var(--lg-brass-tint);border:1px solid #EAD9A8;border-radius:20px;
+  padding:20px 22px;margin-top:20px;
+}
+.contact-block h2{font-size:1.1rem;margin-bottom:8px}
+.contact-block p{margin:0;font-size:.92rem;color:var(--lg-ink-soft)}
+.contact-block .contact-lines{margin-top:10px;font-weight:600;color:var(--lg-teal-dark);line-height:1.9}
+.contact-block a{color:var(--lg-gold-dark);font-weight:700;text-decoration:underline}
+
+/* ---------- פוטר ---------- */
+.lang-footer{background:#122840;color:#CFE1DF;padding:28px 0 22px;margin-top:30px}
+.lang-footer-links{display:flex;flex-wrap:wrap;gap:8px 18px;margin-bottom:12px}
+.lang-footer-links a{font-size:.85rem;color:#DCE9E7;text-decoration:none}
+.lang-footer-links a:hover,.lang-footer-links a:focus-visible{color:#fff;text-decoration:underline}
+.lang-footer-links.legal a{font-size:.78rem;color:#AFC7C4}
+.lang-footer-note{
+  font-size:.76rem;color:#8FADA9;margin:0 0 14px;padding-top:12px;
+  border-top:1px solid rgba(255,255,255,.12);max-width:70ch;
+}
+.lang-footer-note a{color:#DCE9E7;text-decoration:underline}
+.lang-switch.footer a{color:#DCE9E7;border-color:rgba(255,255,255,.28)}
+.lang-switch.footer a:hover{background:rgba(255,255,255,.12)}
+.lang-switch.footer a[aria-current="page"]{background:#DCE9E7;color:#122840;border-color:#DCE9E7}
+.lang-footer-copy{font-size:.74rem;color:#8FADA9;margin:14px 0 0}

@@ -1,0 +1,20 @@
+# שוק הנדל״ן של עפולה והסביבה
+#
+# עמודי התוכן פתוחים לסריקה. מה שחסום כאן הוא מה שאינו תוכן: מסכי
+# האפליקציה, טפסי ההרשמה ומסכי הניהול. הופעה שלהם בגוגל היא מטרד לגולש/ת
+# (תוצאה שמובילה למסך התחברות) ובזבוז תקציב סריקה על האתר.
+
+User-agent: *
+Allow: /
+
+Disallow: /crm.html
+Disallow: /crm
+Disallow: /professional-manage.html
+Disallow: /review-request.html
+Disallow: /neighborhood-boundary.html
+
+# פרמטרים של מעקב אינם עמוד נפרד; בלי זה אותו נכס נסרק שוב ושוב תחת
+# כתובות שונות
+Disallow: /*?*utm_
+
+Sitemap: https://shuknadlan.co.il/sitemap.xml

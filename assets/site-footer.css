@@ -56,15 +56,34 @@ footer.site *{box-sizing:border-box}
 }
 .footer-col a:hover,.footer-col a:focus-visible{color:#fff}
 
+/* שורת המסמכים והשפות: המסמכים המשפטיים בצד אחד, מחליף השפה בשני. שורה
+   נפרדת מעל שורת הזכויות — חמישה מסמכים ושלוש שפות באותה שורה עם ההצהרה
+   היו נדחסים לשלוש שורות מקוטעות במובייל. */
+.footer-legal-row{
+  border-top:1px solid rgba(255,255,255,.12);margin-top:22px;padding-top:14px;
+  display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;justify-content:space-between;
+}
+.footer-legal{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;font-size:.75rem}
+.footer-legal a{color:#AFC7C4;text-decoration:none;padding:2px 0}
+.footer-legal a:hover,.footer-legal a:focus-visible{color:#fff;text-decoration:underline}
+.footer-legal .sep{opacity:.4;color:#8FADA9}
+
+.footer-lang{display:flex;gap:6px;flex:0 0 auto}
+.footer-lang a{
+  font-size:.75rem;font-weight:600;color:#AFC7C4;text-decoration:none;
+  padding:5px 12px;border-radius:999px;border:1px solid rgba(255,255,255,.18);
+  transition:background .15s ease,color .15s ease,border-color .15s ease;
+}
+.footer-lang a:hover,.footer-lang a:focus-visible{background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.4)}
+/* השפה הנוכחית מסומנת גם בגבול וגם ברקע, ולא בצבע בלבד */
+.footer-lang a[aria-current="page"]{background:#DCE9E7;color:#122840;border-color:#DCE9E7}
+
 .footer-bottom{
-  border-top:1px solid rgba(255,255,255,.12);margin-top:24px;padding-top:14px;
+  border-top:1px solid rgba(255,255,255,.12);margin-top:14px;padding-top:14px;
   font-size:.72rem;color:#8FADA9;display:flex;flex-wrap:wrap;gap:6px 14px;
   align-items:center;justify-content:space-between;
 }
-.footer-legal{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
-.footer-legal a{color:#8FADA9;text-decoration:none;padding:2px 0}
-.footer-legal a:hover,.footer-legal a:focus-visible{color:#fff;text-decoration:underline}
-.footer-legal .sep{opacity:.45}
+.footer-built{color:#7F9C99}
 
 /* פרטי הקשר: כתובת פיזית, אימייל ורשתות חברתיות. השורה עם האייקון היא grid
    ולא flex כדי שטקסט שנשבר לשתי שורות ייישר מתחת לעצמו ולא מתחת לאייקון.
