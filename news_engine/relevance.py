@@ -217,6 +217,94 @@ def heuristic_category(verdict: dict, source_type: str = "news") -> str:
     return "שוק הדיור"
 
 
+# מילים שנושאות אפס מידע מזהה. שתי כתבות על אותו אירוע נבדלות בדיוק בהן,
+# ולכן הן יוצאות מהמפתח לפני ההשוואה.
+_STORY_STOPWORDS = frozenset({
+    "של", "את", "עם", "על", "אל", "מן", "כי", "גם", "או", "אך", "כך",
+    "זה", "זו", "הוא", "היא", "הם", "הן", "יש", "אין", "לא", "כל",
+    "עוד", "רק", "אחרי", "לפני", "בין", "לפי", "כדי", "מה", "מי",
+    "חדש", "חדשה", "גדול", "גדולה", "כך", "בכל", "מתוך", "בתוך",
+})
+
+# גרשיים, נקודות, מקפים וסוגריים הם רעש להשוואה. גם הקו האנכי מפריד — הוא
+# מטופל לפני כן ב-split_story_key, וכאן הוא נמחק כדי שמפתח פגום לא ייצור
+# טוקן מודבק כמו "ישראל|הורדה".
+_STORY_PUNCT_RE = re.compile(r"[^\w\s]", re.UNICODE)
+
+
+def story_tokens(text: str) -> frozenset[str]:
+    """מפרק טקסט לקבוצת מילים משמעותיות, מוכנה להשוואה."""
+    cleaned = _STORY_PUNCT_RE.sub(" ", normalize(text).lower())
+    return frozenset(
+        word for word in cleaned.split()
+        if len(word) > 1 and word not in _STORY_STOPWORDS
+    )
+
+
+def split_story_key(story_key: str) -> tuple[frozenset[str], str]:
+    """
+    מפצל מפתח ‎נושא|אירוע|תקופה‎ לקבוצת מילות התוכן ולתקופה.
+
+    התקופה מופרדת משאר המפתח ואינה נכנסת לקבוצה, כי היא לא "עוד מילה" אלא
+    תנאי נפרד — ראו same_story.
+    """
+    parts = [part.strip() for part in normalize(story_key).split("|")]
+    period = parts[2].lower() if len(parts) >= 3 else ""
+    body = " ".join(parts[:2]) if len(parts) >= 2 else (parts[0] if parts else "")
+    return story_tokens(body), period
+
+
+def same_story(left: str, right: str, *, threshold: float = 0.6) -> bool:
+    """
+    האם שני מפתחות מתארים את אותו אירוע.
+
+    שני מבחנים, ובכוונה לא אחד:
+
+    1. **התקופה חייבת להיות זהה.** זה תנאי חוסם ולא עוד מילה בהשוואה, כי
+       בדיוק כאן טמונה תקלה שקטה: בנק ישראל מוריד ריבית שוב ושוב, ו"ריבית
+       בנק ישראל|הורדה|2026-09" מול "…|2026-10" חולקים כמעט את כל המילים.
+       בלי המבחן הזה הורדת הריבית של החודש הבא הייתה נחסמת כ"כפילות" של
+       זו של החודש שעבר, והרצועה הייתה מפספסת חדשות אמיתיות.
+    2. **דמיון המילים** — ‏Jaccard על נושא+אירוע. לא השוואת מחרוזות: המודל
+       מנסח את המפתח קצת אחרת בכל קריאה, ודרישת זהות מוחלטת הייתה מחזירה
+       אותנו בדיוק לבעיה שהמפתח בא לפתור.
+
+    הסף גבוה (0.6) ומה שמאפשר אותו הוא שהמפתח כבר מנורמל וקצר: שלוש-ארבע
+    מילים נושאות, בלי שם האתר ובלי מילות קישור. על כותרות מלאות סף כזה היה
+    חסר תועלת; כאן הוא מפריד היטב בין "אותו אירוע" לבין "אותו נושא".
+
+    מה שהאיחוד של נושא ואירוע לקבוצה אחת קונה, ומה שהוא עולה: הוא סופג
+    מילים נרדפות — "הורדה" ו"הפחתה" באותו נושא ובאותו חודש יימצאו כאותו
+    אירוע, וזו בדיוק העמידות שרוצים מול ניסוח שמשתנה בין קריאה לקריאה.
+    המחיר הוא שגם שתי מילים *הפוכות* בנות מילה אחת (הורדה מול העלאה) ייראו
+    דומות. זו הכרעה מודעת: בשוק שהמנוע מסקר אין החלטה והיפוכה באותו חודש,
+    ובין שני הסיכונים — לאחד שתי ידיעות שהן אותו אירוע או לפצל אירוע אחד
+    לארבעה מבזקים — הפיצול הוא התקלה שהמשתמש/ת רואה ברצועה.
+    """
+    a_tokens, a_period = split_story_key(left)
+    b_tokens, b_period = split_story_key(right)
+    if not a_tokens or not b_tokens:
+        return False
+    if a_period and b_period and a_period != b_period:
+        return False
+    union = a_tokens | b_tokens
+    return len(a_tokens & b_tokens) / len(union) >= threshold
+
+
+def heuristic_story_key(title: str, verdict: dict) -> str:
+    """
+    מפתח אירוע בלי Claude — מסלול הנפילה.
+
+    בלי המודל אין לנו הבנה של *מה* קרה, ולכן המפתח נבנה מהמילים הנושאות
+    של הכותרת עצמה. זה תופס רק ניסוחים דומים ולא סיקור מנוסח מחדש, אבל
+    הוא עדיף על מפתח ריק — ובעיקר הוא שומר על אותו חוזה נתונים כך ששאר
+    הצינור לא צריך לדעת אם Claude רץ או לא.
+    """
+    tokens = story_tokens(title)
+    lead = " ".join(sorted(tokens)[:6])
+    return f"{lead}|{verdict.get('scope', 'national')}|היוריסטי"
+
+
 def heuristic_analysis(
     title: str, content: str, verdict: dict, *, source_type: str = "news"
 ) -> NewsAnalysis:
@@ -234,5 +322,6 @@ def heuristic_analysis(
         headline=shorten_headline(title or _first_sentences(content, 90)),
         summary=_first_sentences(content),
         relevance_score=heuristic_score(verdict),
+        story_key=heuristic_story_key(title, verdict),
         reasoning="סינון מילות מפתח בלבד (ללא Claude)",
     )

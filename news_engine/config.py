@@ -60,6 +60,11 @@ class Settings:
     # כתבה ישנה מזה לא נכנסת כמבזק גם אם הפיד עדיין מחזיר אותה. "מבזק" הוא
     # הבטחה לגולש/ת, וכותרת בת חודשיים ברצועה שוברת אותה.
     max_age_days: int = 21
+    # חלון הדדופליקציה ברמת האירוע. קצר בכוונה — ראו recent_story_keys.
+    story_dedupe_days: int = 3
+    # תקרת המבזקים הארציים בהרצה. בלעדיה החלטת ריבית אחת ממלאת את
+    # הרצועה של אתר מקומי: בהרצה הראשונה 10 מתוך 11 המבזקים היו ארציים.
+    max_national_per_run: int = 3
     request_user_agent: str = (
         "ShukNadlanNewsBot/1.0 (+https://github.com/tomerytz-del/ShukNadlan)"
     )
@@ -83,4 +88,6 @@ def load_settings() -> Settings:
         min_score_to_publish=_int("MIN_NEWS_SCORE_TO_PUBLISH", 5),
         feed_timeout_seconds=_int("FEED_TIMEOUT_SECONDS", 25),
         max_age_days=_int("NEWS_MAX_AGE_DAYS", 21),
+        story_dedupe_days=_int("NEWS_STORY_DEDUPE_DAYS", 3),
+        max_national_per_run=_int("MAX_NATIONAL_NEWS_PER_RUN", 3),
     )

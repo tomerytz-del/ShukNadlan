@@ -7,7 +7,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Optional, Sequence
 
 from postgrest.exceptions import APIError
@@ -107,6 +107,36 @@ class NewsStore:
             found.update(row["source_url"] for row in (result.data or []))
         return found
 
+    def recent_story_keys(self, days: int) -> list[str]:
+        """
+        מפתחות האירועים שכבר *פורסמו* ברצועה בימים האחרונים.
+
+        רק פריטים מפורסמים, במכוון: המטרה היא שאותו סיפור לא יופיע ברצועה
+        פעמיים, ופריט שנדחה אינו ברצועה. אילו נספרו גם הנדחים, ידיעה חלשה
+        שנדחתה בגלל ציון נמוך הייתה חוסמת סיקור טוב יותר של אותו אירוע
+        שיגיע שעה אחר כך מאתר אחר.
+
+        החלון קצר בכוונה: אירוע חדשותי נסקר במשך יום-יומיים ואז נגמר, ואילו
+        חלון ארוך היה חוסם ידיעת המשך לגיטימית ("הריבית ירדה שוב") רק מפני
+        שהיא דומה לאירוע מלפני חודש.
+        """
+        since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        try:
+            result = (
+                self._client.table(self._settings.items_table)
+                .select("story_key")
+                .eq("status", "published")
+                .not_.is_("story_key", "null")
+                .gte("published_at", since)
+                .execute()
+            )
+        except APIError as err:
+            # נכשל? עדיף לפרסם כפילות מאשר להפיל את ההרצה. הדדופ בתוך ההרצה
+            # עצמה עדיין עובד, ולכן הנזק מוגבל לחפיפה בין הרצות.
+            log.error("שליפת מפתחות האירועים נכשלה: %s", err)
+            return []
+        return [row["story_key"] for row in (result.data or []) if row.get("story_key")]
+
     # --------------------------------------------------------------- שמירה
 
     def insert_item(self, row: dict) -> bool:
@@ -152,6 +182,7 @@ def build_news_row(
         "image_url": image_url or None,
         "category": analysis.category,
         "scope": analysis.scope,
+        "story_key": analysis.story_key or None,
         "relevance_score": analysis.relevance_score,
         "published_at": (published_at or datetime.now(timezone.utc)).isoformat(),
         "status": "published" if publish else "rejected",
