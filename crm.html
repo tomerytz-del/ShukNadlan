@@ -4076,7 +4076,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // ‏page_bg (בחירת רקע דף הסוכן/ת) נוספה אחרי שה-CRM כבר היה באוויר.
   // ‏PostgREST מפיל את *כל* השאילתה על עמודה חסרה, וזו השאילתה שפותחת את
   // הדשבורד — ולכן סביבה שהמיגרציה עוד לא רצה בה נכנסת בלעדיה, ובחירת
-  // הרקע פשוט לא מוצגת. ראו supabase/migrations/20260914090000_page_background.sql.
+  // הרקע פשוט לא מוצגת. ראו supabase/migrations/20260914091000_page_background.sql.
   if (agentErr && /page_bg/.test(agentErr.message || '')){
     console.warn('העמודה page_bg עוד לא קיימת — נטען הפרופיל בלעדיה:', agentErr);
     ({ data: agent, error: agentErr } = await sb
@@ -5532,7 +5532,7 @@ function loadProfileSettings(agent){
       .filter(g => g && g.url)
       .map(g => ({ url: g.url, caption: g.caption || '' })),
     // ‏'' = "כמו המשרד". ‏agency_members.page_bg יכול להיות NULL (ברירת מחדל)
-    // או 'flow'/'plain' כעקיפה אישית — ראו המיגרציה 20260914090000.
+    // או 'flow'/'plain' כעקיפה אישית — ראו המיגרציה 20260914091000.
     pageBg: agent.page_bg === 'flow' || agent.page_bg === 'plain' ? agent.page_bg : '',
     pendingDeletes: [],
   };
@@ -6810,7 +6810,7 @@ function syncColorInputs(){
 
    הערך נשמר בתוך ‎colors‎ ולא בעמודה משלו: ‏colors היא כבר ה-blob של "איך
    דף המשרד נראה", היא נטענת ונשמרת ביחידה אחת כאן, ו-agency.html שולף
-   אותה ב-select('*'). ראו supabase/migrations/20260914090000_page_background.sql. */
+   אותה ב-select('*'). ראו supabase/migrations/20260914091000_page_background.sql. */
 const PAGE_BG_DEFAULT = 'flow';
 const PAGE_BG_OPTIONS = [
   { id:'flow',  name:'הרקע של האתר (ברירת מחדל)', desc:'שמש, קו רקיע וגלים שזורמים עם הגלילה — כמו בדף הבית' },
