@@ -707,9 +707,22 @@
   .qr-actions .btn{flex:1 1 150px}
 
   /* ---------- Test menu (מצב בדיקה) — מוצג רק למנהל פלטפורמה ---------- */
-  #devMenu{position:fixed;bottom:16px;left:16px;z-index:300;display:none;font-size:.8rem}
-  #devMenuToggle{background:var(--teal-dark);color:#fff;border-radius:999px;padding:9px 16px;font-weight:700;font-size:.8rem;box-shadow:0 6px 18px rgba(0,0,0,.28)}
-  #devMenuPanel{display:none;background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:0 10px 30px rgba(0,0,0,.22);padding:14px;width:270px;max-width:calc(100vw - 32px);margin-bottom:8px}
+  /* היה כפתור צף בפינה התחתונה — בדיוק במקום שבו יושב היום סרגל הניווט,
+     והוא חסם אותו. עכשיו אינדיקטור עגול קטן בפינה העליונה, מתחת לכותרת
+     הדביקה: נוכח מספיק כדי לזכור שמצב הבדיקה קיים, קטן מספיק כדי לא להפריע.
+     ‏column-reverse כדי שהפאנל ייפתח כלפי מטה ולא כלפי מעלה. */
+  #devMenu{
+    position:fixed;top:76px;left:10px;z-index:130;display:none;font-size:.8rem;
+    flex-direction:column-reverse;align-items:flex-start;
+  }
+  #devMenuToggle{
+    width:36px;height:36px;padding:0;border-radius:50%;
+    background:var(--teal-dark);color:#fff;font-size:1rem;font-weight:700;
+    box-shadow:0 4px 14px rgba(0,0,0,.22);opacity:.72;transition:opacity .16s ease,transform .16s ease;
+  }
+  #devMenuToggle:hover{opacity:1;transform:scale(1.06)}
+  #devMenu.open #devMenuToggle{opacity:1}
+  #devMenuPanel{display:none;background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:0 10px 30px rgba(0,0,0,.22);padding:14px;width:270px;max-width:calc(100vw - 32px);margin-top:8px}
   #devMenu.open #devMenuPanel{display:block}
   .dev-title{font-size:.72rem;font-weight:800;color:var(--ink-soft);margin:0 0 6px;letter-spacing:.02em}
   .dev-section+.dev-section{margin-top:14px;padding-top:12px;border-top:1px solid var(--line)}
@@ -962,21 +975,59 @@
   .menu-empty{padding:14px 10px;font-size:.8rem;color:var(--txt-soft);text-align:center}
 
   /* ---------- פריסה: sidebar + main ---------- */
-  .dash-shell{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;padding-top:20px;padding-bottom:56px}
+  /* מקום לסרגל הניווט התחתון: בלעדיו הקטגוריה האחרונה בדף יושבת מתחתיו
+     ואי אפשר להגיע אליה. 58px גובה הסרגל + safe-area של האייפון + נשימה. */
+  .dash-shell{
+    display:grid;grid-template-columns:minmax(0,1fr);gap:18px;padding-top:20px;
+    padding-bottom:calc(58px + env(safe-area-inset-bottom,0px) + 22px);
+  }
   .dash-main{min-width:0;display:flex;flex-direction:column;gap:18px}
-  .dash-side{min-width:0;display:flex;flex-direction:column;gap:10px}
+  #toolSections{display:flex;flex-direction:column;gap:10px}
+  .dash-side{display:none}
   @media(min-width:1024px){
-    .dash-shell{grid-template-columns:320px minmax(0,1fr);gap:24px;align-items:start;padding-top:26px}
+    .dash-shell{grid-template-columns:264px minmax(0,1fr);gap:26px;align-items:start;
+                padding-top:26px;padding-bottom:56px}
     .dash-main{grid-column:2;grid-row:1;gap:22px}
-    .dash-side{grid-column:1;grid-row:1;position:sticky;top:84px;max-height:calc(100vh - 104px);overflow-y:auto;padding-bottom:8px;scrollbar-width:thin}
+    .dash-side{
+      display:block;grid-column:1;grid-row:1;position:sticky;top:84px;
+      max-height:calc(100vh - 104px);overflow-y:auto;scrollbar-width:thin;
+      background:rgba(255,255,255,.9);border:1px solid var(--edge);
+      border-radius:var(--r-lg);box-shadow:var(--sh-1);padding:10px;
+    }
   }
-  .side-head{display:flex;align-items:center;gap:9px;padding:2px 4px 6px}
-  .side-ico{
-    width:30px;height:30px;border-radius:9px;background:var(--navy-tint);color:var(--navy);
-    display:flex;align-items:center;justify-content:center;flex-shrink:0;
+
+  /* ---------- ניווט הצד (דסקטופ) ---------- */
+  .sn-group{
+    font-size:.66rem;font-weight:800;letter-spacing:.04em;color:var(--txt-faint);
+    padding:12px 10px 5px;
   }
-  .side-ico svg{width:17px;height:17px}
+  .sn-group:first-child{padding-top:4px}
+  .sn-item{
+    width:100%;display:flex;align-items:center;gap:9px;text-align:start;
+    background:transparent;border:none;border-radius:var(--r-xs);padding:9px 10px;
+    color:var(--txt);font-size:.85rem;font-weight:600;transition:background .14s ease;
+  }
+  .sn-item:hover{background:var(--surface-2)}
+  .sn-item:focus-visible{outline:2px solid var(--navy);outline-offset:-2px}
+  .sn-item.is-on{background:var(--navy-tint);color:var(--navy);font-weight:800}
+  .sn-ico{width:17px;height:17px;flex-shrink:0;color:var(--txt-faint)}
+  .sn-item.is-on .sn-ico{color:var(--navy)}
+  .sn-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sn-count{
+    flex-shrink:0;font-size:.68rem;font-weight:800;color:var(--txt-soft);
+    background:var(--surface-2);border-radius:999px;padding:2px 8px;
+  }
+  .sn-count.is-hot{background:#dc2626;color:#fff}
+
+  /* ---------- ברכה ---------- */
+  .dash-greet{
+    font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;font-weight:700;color:var(--txt);
+    margin:0 0 2px;line-height:1.35;
+  }
+  @media(min-width:700px){.dash-greet{font-size:1.35rem}}
   .section-h{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--txt);font-size:1.05rem;margin:0;display:flex;align-items:center;gap:8px}
+  /* display:flex גובר על [hidden] של הדפדפן — בלי זה כותרת מוסתרת נשארת */
+  .section-h[hidden]{display:none}
   .stack-h{margin-top:6px}
 
   /* ==========================================================================
@@ -999,6 +1050,9 @@
   }
   .dp-admin{--dp-a:#a03449; --dp-b:#6d1725}
   .dash-panel[hidden]{display:none}
+  /* הסינון של הסרגל התחתון. ‏!important כי חלק מהקטגוריות נשלטות ב-display
+     אינליין (מדף המשכנתאות, אזורי הניהול), ומחלקה רגילה לא הייתה מנצחת. */
+  .nav-off{display:none!important}
 
   .dp-head{
     width:100%;display:flex;align-items:center;gap:12px;
@@ -1167,12 +1221,51 @@
   .adm-fact-lbl{font-size:.73rem;color:var(--txt-soft);min-width:0}
   .adm-fact-val{font-size:.84rem;font-weight:800;color:var(--txt);white-space:nowrap;font-variant-numeric:tabular-nums}
 
-  /* ---------- Hero KPI ---------- */
-  /* טור אחד בכל רוחב: הכרטיס הכחול עומד לבדו, והפעולות המהירות מיד אחריו */
-  .hero-kpis{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+  /* ==========================================================================
+     רכבת המדדים
+     --------------------------------------------------------------------------
+     ארבעת המדדים היו ארבעה בלוקים בטור אחד, ובמובייל זה היה מסך שלם של גלילה
+     לפני שהגיעו לפעולה הראשונה. עכשיו הם רכבת אופקית עם scroll-snap: מדד אחד
+     ורבע נראים בו-זמנית (הרבע הוא מה שמסמן שיש עוד), והחלקה מגיעה לשאר.
+
+     מ-700px ומעלה אין בעיית גובה ולכן הרכבת הופכת לגריד — אותם כרטיסים בדיוק,
+     בלי גלילה אופקית שבמסך רחב היא רק מטרד. "כל המדדים" עושה את אותו הדבר
+     ידנית גם במובייל, למי שמעדיף/ה לראות הכול יחד.
+     ========================================================================== */
+  .kpi-rail{
+    display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;
+    /* יציאה אל מחוץ לריפוד של .dash-wrap: רכבת שנחתכת בשוליים קוראת כרכבת,
+       רכבת שנעצרת 18px לפני הקצה קוראת כשגיאת פריסה */
+    margin-inline:-18px;padding-inline:18px;padding-bottom:2px;
+    scrollbar-width:none;-ms-overflow-style:none;
+  }
+  .kpi-rail::-webkit-scrollbar{display:none}
+  .kpi-rail>*{flex:0 0 79%;max-width:320px;scroll-snap-align:start}
+  @media(min-width:700px){
+    .kpi-rail{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+              overflow:visible;margin-inline:0;padding-inline:0}
+    .kpi-rail>*{flex:none;max-width:none}
+  }
+  @media(min-width:1280px){.kpi-rail{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  /* פרישה ידנית במובייל */
+  .kpi-rail.is-open{
+    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
+    overflow:visible;margin-inline:0;padding-inline:0;
+  }
+  .kpi-rail.is-open>*{flex:none;max-width:none}
+  .rail-all{
+    display:block;margin:10px auto 0;background:var(--surface);border:1px solid var(--edge);
+    border-radius:999px;padding:7px 18px;font-size:.76rem;font-weight:800;color:var(--txt-soft);
+    transition:background .16s ease,color .16s ease;
+  }
+  .rail-all:hover{background:var(--navy-tint);color:var(--navy);border-color:#d3e0ee}
+  @media(min-width:700px){.rail-all{display:none}}
+
+  /* ---------- כרטיס מדד ---------- */
   .kpi-card{
-    background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-xl);
-    padding:22px;box-shadow:var(--sh-1);position:relative;overflow:hidden;
+    background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-lg);
+    padding:16px;box-shadow:var(--sh-1);position:relative;overflow:hidden;
+    display:flex;flex-direction:column;text-align:start;
   }
   /* הכרטיס הבולט: נייבי עמוק עם הילה זהובה — זה המספר שהסוכן/ת רודף/ת אחריו */
   .kpi-primary{
@@ -1183,12 +1276,15 @@
     content:'';position:absolute;inset-inline-start:-70px;top:-90px;width:230px;height:230px;
     background:radial-gradient(circle,rgba(201,162,39,.28),transparent 68%);pointer-events:none;
   }
-  .kpi-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:16px;position:relative}
+  .kpi-top{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px;position:relative}
   .kpi-icon{
-    width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
     background:rgba(255,255,255,.14);color:#fff;
   }
-  .kpi-icon svg{width:21px;height:21px}
+  .kpi-icon svg{width:18px;height:18px}
+  /* כל אייקון שאינו על רקע כהה מקבל את אותו רקע ניטרלי ואת אותו כחול מותג.
+     גיוון צבעוני לכל אייקון בנפרד הפך את הדף לקשת, והפך את האדום — שאמור
+     לצעוק "דחוף" — לעוד גוון ברשימה. ראו .qa-icon ו-.todo-ico. */
   .kpi-icon-soft{background:var(--navy-tint);color:var(--navy)}
   .kpi-chip{
     font-size:.72rem;font-weight:800;padding:5px 11px;border-radius:999px;white-space:nowrap;
@@ -1196,32 +1292,37 @@
   }
   .kpi-chip-soft{background:var(--green-tint);color:var(--green)}
   .kpi-chip[hidden]{display:none}
-  .kpi-label{font-size:.8rem;font-weight:700;letter-spacing:.01em;color:rgba(255,255,255,.72);position:relative}
-  .kpi-exclusive .kpi-label{color:var(--txt-soft)}
+  .kpi-label{font-size:.76rem;font-weight:700;letter-spacing:.01em;color:rgba(255,255,255,.72);position:relative}
+  .kpi-card:not(.kpi-primary) .kpi-label{color:var(--txt-soft)}
   .kpi-value{
-    font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:2.5rem;line-height:1.15;
-    margin-top:4px;letter-spacing:-.01em;position:relative;
+    font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.75rem;line-height:1.15;
+    margin-top:3px;letter-spacing:-.01em;position:relative;
     font-variant-numeric:tabular-nums;
   }
-  .kpi-exclusive .kpi-value{color:var(--navy)}
-  @media(min-width:720px){.kpi-value{font-size:2.9rem}}
-  .kpi-note{font-size:.78rem;line-height:1.5;color:rgba(255,255,255,.62);margin:7px 0 0;position:relative}
-  .kpi-exclusive .kpi-note{color:var(--txt-faint)}
-  /* גרף העמודות המינימליסטי */
-  .kpi-spark{display:flex;align-items:flex-end;gap:7px;height:56px;margin-top:18px;position:relative}
+  .kpi-card:not(.kpi-primary) .kpi-value{color:var(--navy)}
+  @media(min-width:700px){.kpi-value{font-size:2.05rem}}
+  /* ההערה נחתכת לשתי שורות: היא הקשר, לא תוכן — וארבע שורות של הקשר הן
+     בדיוק מה שהפך את הכרטיס למסך שלם */
+  .kpi-note{
+    font-size:.73rem;line-height:1.45;color:rgba(255,255,255,.62);margin:5px 0 0;position:relative;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .kpi-card:not(.kpi-primary) .kpi-note{color:var(--txt-faint)}
+  /* גרף העמודות המינימליסטי — נמוך ודק יותר מקודם */
+  .kpi-spark{display:flex;align-items:flex-end;gap:5px;height:30px;margin-top:12px;position:relative}
   .kpi-spark span{
-    flex:1;border-radius:6px 6px 3px 3px;min-height:5px;
+    flex:1;border-radius:4px 4px 2px 2px;min-height:4px;
     background:rgba(255,255,255,.22);transition:height .5s cubic-bezier(.22,1,.36,1);
   }
   .kpi-spark span.is-now{background:linear-gradient(180deg,#e3c463,#c9a227)}
-  .kpi-spark-axis{display:flex;gap:7px;margin-top:7px;position:relative}
-  .kpi-spark-axis span{flex:1;text-align:center;font-size:.63rem;color:rgba(255,255,255,.5);white-space:nowrap}
+  .kpi-spark-axis{display:flex;gap:5px;margin-top:5px;position:relative}
+  .kpi-spark-axis span{flex:1;text-align:center;font-size:.58rem;color:rgba(255,255,255,.45);white-space:nowrap;overflow:hidden}
   /* המדד הטבעתי. הכרטיס נמתח לגובה השכן שלו בגריד, ולכן ה-split לוקח את
      כל השארית ומרכז את עצמו בתוכה במקום להשאיר חלל מת בתחתית. */
-  .kpi-exclusive{display:flex;flex-direction:column}
-  .kpi-split{display:flex;align-items:center;justify-content:space-between;gap:14px;flex:1}
+  .kpi-exclusive{background:var(--navy-tint);border-color:#dde7f2}
+  .kpi-split{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:1}
   .kpi-split-text{min-width:0}
-  .kpi-donut{width:96px;height:96px;flex-shrink:0;position:relative}
+  .kpi-donut{width:72px;height:72px;flex-shrink:0;position:relative}
   .kpi-donut svg{width:100%;height:100%;transform:rotate(-90deg)}
   .kpi-donut .ring-track{stroke:var(--surface-2)}
   .kpi-donut .ring-fill{stroke:url(#donutGrad);transition:stroke-dashoffset .7s cubic-bezier(.22,1,.36,1)}
@@ -1229,16 +1330,22 @@
     position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
     font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--navy);font-size:1.15rem;line-height:1;
   }
-  .kpi-donut-label small{font-family:'Heebo',sans-serif;font-size:.6rem;font-weight:600;color:var(--txt-faint);margin-top:3px}
+  .kpi-donut-label{font-size:1rem}
+  .kpi-donut-label small{font-family:'Heebo',sans-serif;font-size:.55rem;font-weight:600;color:var(--txt-faint);margin-top:2px}
+
+  /* הלידים החמים — הכרטיס היחיד שמותר לו להיות זהוב, כי הוא היחיד שמייצג
+     "יש כאן כסף שממתין לך". התגית האדומה עליו היא התראה, לא קישוט. */
+  .kpi-hot{background:linear-gradient(150deg,#f6e3b0,#e9cd77);border-color:#e0c069}
+  .kpi-hot .kpi-icon{background:rgba(255,255,255,.55);color:#8a6b12}
+  .kpi-hot .kpi-label{color:#7a5f10}
+  .kpi-hot .kpi-value{color:#4a3a06}
+  .kpi-hot .kpi-note{color:#7a5f10}
+  .kpi-chip-alert{background:#dc2626;color:#fff}
 
   /* ---------- מדי משאבים ---------- */
-  .meter-strip{display:grid;grid-template-columns:minmax(0,1fr);gap:12px}
-  /* כרטיס הבלעדיות תופס שורה משלו, ושני המדדים נשארים זוג בגובה אחיד מתחתיו */
-  @media(min-width:600px){
-    .meter-strip{grid-template-columns:1fr 1fr}
-    .meter-strip .kpi-exclusive{grid-column:1 / -1}
-  }
   .meter-card{background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-md);padding:15px 17px;box-shadow:var(--sh-1)}
+  /* המד יושב היום כקלף ברכבת המדדים, ולכן הוא צריך את אותה מעטפת */
+  .kpi-rail>.meter-card{border-radius:var(--r-lg);padding:16px;display:flex;flex-direction:column}
   .meter-top{display:flex;align-items:center;gap:9px}
   .meter-ico{width:28px;height:28px;border-radius:9px;background:var(--surface-2);color:var(--navy);display:flex;align-items:center;justify-content:center;flex-shrink:0}
   .meter-ico svg{width:15px;height:15px}
@@ -1254,7 +1361,60 @@
   .meter-bar span.is-unlimited{background:linear-gradient(90deg,#14b8a6,var(--green))}
   .meter-note{font-size:.72rem;color:var(--txt-faint);margin:8px 0 0}
 
-  /* ---------- פעולות מהירות ---------- */
+  /* ==========================================================================
+     דורש טיפול מיידי
+     --------------------------------------------------------------------------
+     עד היום ההתראות היו תגיות אדומות מפוזרות על כפתורים שונים: אחת על "הלידים
+     שלי", אחת על "התאמות", אחת בתפריט, אחת בפעמון. כדי לדעת מה דחוף היה צריך
+     לסרוק את כל המסך ולהרכיב את התמונה לבד.
+
+     הבלוק הזה הוא התשובה במקום אחד: שורה לכל דבר שממתין, עם המספר שלו, ולחיצה
+     שמובילה ישירות לטיפול. הוא נבנה מאותם מונים בדיוק (accSetCount) — מקור אמת
+     אחד, לא ספירה שנייה שתסטה מהראשונה.
+     ========================================================================== */
+  .todo-list{display:flex;flex-direction:column;gap:8px}
+  .todo-row{
+    width:100%;display:flex;align-items:center;gap:11px;text-align:start;
+    background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-md);
+    padding:12px 14px;box-shadow:var(--sh-1);
+    transition:transform .16s ease,border-color .16s ease,background .16s ease;
+  }
+  .todo-row:hover{background:var(--navy-tint);border-color:#d3e0ee}
+  .todo-row:active{transform:scale(.99)}
+  .todo-row:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+  .todo-ico{
+    width:36px;height:36px;border-radius:11px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--navy-tint);color:var(--navy);
+  }
+  .todo-ico svg{width:18px;height:18px}
+  .todo-text{flex:1;min-width:0}
+  .todo-title{display:block;font-size:.88rem;font-weight:700;color:var(--txt)}
+  .todo-sub{display:block;font-size:.72rem;color:var(--txt-faint);margin-top:2px;
+            overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* אדום — ורק כאן. זו כל הנקודה של הבלוק. */
+  .todo-count{
+    flex-shrink:0;min-width:26px;height:26px;padding:0 8px;border-radius:999px;
+    background:#dc2626;color:#fff;font-size:.78rem;font-weight:800;
+    display:inline-flex;align-items:center;justify-content:center;
+    box-shadow:0 3px 10px rgba(220,38,38,.3);
+  }
+  .todo-chev{width:16px;height:16px;color:var(--txt-faint);flex-shrink:0}
+  .todo-clear{
+    display:flex;align-items:center;gap:9px;background:var(--green-tint);color:var(--green);
+    border-radius:var(--r-md);padding:13px 15px;font-size:.85rem;font-weight:700;
+  }
+  .todo-clear svg{width:18px;height:18px;flex-shrink:0}
+
+  /* ==========================================================================
+     פעולות מהירות
+     --------------------------------------------------------------------------
+     גריד נקי של אייקון + שם, שתי עמודות במובייל. הכרטיסים איבדו את שורת
+     התיאור, את התגיות ואת מצב "עריכת סדר": משהיו להם סרגל ניווט תחתון מתחת
+     ובלוק "דורש טיפול מיידי" מעל, שלושתם ניסו להיות הניווט הראשי — וזה בדיוק
+     העומס שהמסך הזה נועד להוריד. כאן נשאר מה שגריד עושה הכי טוב: קיצור דרך
+     מזוהה במבט.
+     ========================================================================== */
   .section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
   .ghost-chip{
     display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--edge);
@@ -1263,66 +1423,101 @@
   }
   .ghost-chip svg{width:14px;height:14px}
   .ghost-chip:hover{background:var(--navy-tint);color:var(--navy);border-color:#d3e0ee}
-  .ghost-chip[aria-pressed="true"]{background:var(--navy);color:#fff;border-color:var(--navy)}
-  .quick-hint{font-size:.76rem;color:var(--txt-soft);background:var(--navy-tint);border-radius:var(--r-xs);padding:9px 12px;margin:0 0 12px}
-  .quick-hint[hidden]{display:none}
-  .quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  @media(min-width:900px){.quick-grid{grid-template-columns:repeat(3,1fr);gap:14px}}
+  .quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(min-width:900px){.quick-grid{grid-template-columns:repeat(3,1fr);gap:12px}}
   @media(min-width:1400px){.quick-grid{grid-template-columns:repeat(4,1fr)}}
   .qa-card{
-    position:relative;background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-lg);
+    position:relative;background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-md);
     box-shadow:var(--sh-1);transition:transform .18s cubic-bezier(.22,1,.36,1),box-shadow .18s ease,border-color .18s ease;
   }
-  .qa-card:hover{transform:translateY(-3px);box-shadow:var(--sh-2);border-color:#d9e2ec}
+  .qa-card:hover{transform:translateY(-2px);box-shadow:var(--sh-2);border-color:#d9e2ec}
   .qa-hit{
-    width:100%;background:transparent;display:flex;flex-direction:column;align-items:flex-start;gap:11px;
-    padding:17px 16px;text-align:start;border-radius:inherit;
+    width:100%;background:transparent;display:flex;align-items:center;gap:11px;
+    padding:14px 13px;text-align:start;border-radius:inherit;
   }
   .qa-hit:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+  /* רקע ניטרלי אחיד לכל האייקונים — ראו ההערה ב-.kpi-icon-soft */
   .qa-icon{
-    width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
     background:var(--navy-tint);color:var(--navy);transition:background .18s ease;
   }
-  .qa-icon svg{width:21px;height:21px}
+  .qa-icon svg{width:18px;height:18px}
   .qa-card:hover .qa-icon{background:#dde8f3}
-  .qa-card[data-tone="wine"] .qa-icon{background:var(--wine-tint);color:var(--wine)}
-  .qa-card[data-tone="amber"] .qa-icon{background:var(--amber-tint);color:var(--amber)}
-  .qa-card[data-tone="green"] .qa-icon{background:var(--green-tint);color:var(--green)}
-  .qa-title{display:block;font-weight:700;font-size:.95rem;color:var(--txt)}
-  .qa-sub{display:block;font-size:.74rem;color:var(--txt-faint);margin-top:3px;line-height:1.45}
-  .qa-badge{
-    position:absolute;top:14px;inset-inline-end:14px;
-    font-size:.7rem;font-weight:800;padding:3px 10px;border-radius:999px;
-    background:var(--surface-2);color:var(--txt-soft);white-space:nowrap;
-  }
-  .qa-badge:empty{display:none}
-  .qa-badge.is-hot{background:#dc2626;color:#fff;box-shadow:0 3px 10px rgba(220,38,38,.32)}
-  .qa-mini{
-    display:inline-flex;align-items:center;gap:5px;background:var(--navy-tint);color:var(--navy);
-    font-size:.72rem;font-weight:800;padding:6px 12px;border-radius:999px;margin:0 16px 15px;
-  }
-  .qa-mini:hover{background:#dde8f3}
-  /* מצב עריכת סדר */
-  .qa-reorder{display:none;align-items:center;justify-content:center;gap:6px;padding:0 0 12px}
-  .quick-grid.is-editing .qa-reorder{display:flex}
-  .quick-grid.is-editing .qa-card{cursor:grab;border-style:dashed;border-color:#c3d3e4;animation:qaWobble 2.4s ease-in-out infinite}
-  .quick-grid.is-editing .qa-card:nth-child(even){animation-delay:-1.2s}
-  .quick-grid.is-editing .qa-mini{display:none}
-  .qa-card.is-dragging{opacity:.45;transform:scale(.97);animation:none}
-  .qa-move{
-    width:30px;height:30px;border-radius:9px;background:var(--surface-2);color:var(--txt-soft);
-    display:inline-flex;align-items:center;justify-content:center;
-  }
-  .qa-move svg{width:15px;height:15px}
-  .qa-move:hover:not(:disabled){background:var(--navy);color:#fff}
-  .qa-move:disabled{opacity:.35;cursor:not-allowed}
-  .qa-grip{color:var(--txt-faint);display:inline-flex;align-items:center;padding:0 2px}
-  .qa-grip svg{width:17px;height:17px}
-  @keyframes qaWobble{0%,100%{transform:rotate(-.5deg)}50%{transform:rotate(.5deg)}}
+  /* הקיצור היחיד שמקבל את הזהב של המותג: הוא מוציא כסף, לא מנווט */
+  .qa-card[data-tone="gold"] .qa-icon{background:#faf0d4;color:#8a6b12}
+  .qa-title{display:block;font-weight:700;font-size:.86rem;color:var(--txt);min-width:0;
+            overflow:hidden;text-overflow:ellipsis}
   @media(prefers-reduced-motion:reduce){
-    .quick-grid.is-editing .qa-card{animation:none}
     .qa-card,.kpi-spark span,.meter-bar span,.kpi-donut .ring-fill{transition:none}
   }
+
+  /* ==========================================================================
+     סרגל הניווט התחתון
+     --------------------------------------------------------------------------
+     חמש לשוניות שמחליפות את קיר האקורדיונים: במקום חמישה-עשר נושאים בטור אחד,
+     כל לשונית מציגה את הקבוצה שלה בלבד. הסרגל קיים במובייל בלבד — מ-1024px
+     ומעלה יש סרגל צד דביק שמראה את כל המפה בבת אחת, ואז הסינון כבוי לגמרי
+     וכל הנושאים מוצגים (ראו navFilterActive).
+
+     ‏env(safe-area-inset-bottom) — באייפון עם פס המחוות התחתון, בלעדיו
+     הלשוניות יושבות מתחתיו ואי אפשר ללחוץ על החצי התחתון שלהן.
+     ========================================================================== */
+  .bottom-nav{
+    position:fixed;inset-inline:0;bottom:0;z-index:200;
+    display:grid;grid-template-columns:repeat(5,1fr);
+    background:rgba(255,255,255,.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    border-top:1px solid var(--edge);
+    padding-bottom:env(safe-area-inset-bottom,0px);
+    box-shadow:0 -2px 18px rgba(15,23,42,.07);
+  }
+  .bottom-nav[hidden]{display:none}
+  @media(min-width:1024px){.bottom-nav{display:none}}
+  .bn-tab{
+    position:relative;background:transparent;border:none;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+    padding:8px 2px 7px;color:var(--txt-faint);font-size:.66rem;font-weight:700;
+    transition:color .16s ease;
+  }
+  .bn-tab svg{width:22px;height:22px}
+  .bn-tab:focus-visible{outline:2px solid var(--navy);outline-offset:-3px;border-radius:10px}
+  .bn-tab[aria-selected="true"]{color:var(--navy)}
+  /* הפס העליון הוא סימן המיקום — הוא לבדו מספיק כדי לדעת איפה אנחנו,
+     ולכן הלשוניות נשארות שקטות */
+  .bn-tab[aria-selected="true"]::before{
+    content:'';position:absolute;top:0;inset-inline:22%;height:3px;border-radius:0 0 3px 3px;
+    background:linear-gradient(90deg,#e3c463,#c9a227);
+  }
+  .bn-badge{
+    position:absolute;top:4px;inset-inline-end:calc(50% - 20px);
+    min-width:17px;height:17px;padding:0 4px;border-radius:999px;
+    background:#dc2626;color:#fff;font-size:.6rem;font-weight:800;
+    display:inline-flex;align-items:center;justify-content:center;
+    box-shadow:0 0 0 2px rgba(255,255,255,.94);
+  }
+  .bn-badge:empty{display:none}
+
+  /* ==========================================================================
+     מתג תצוגת סוכן/מנהל
+     --------------------------------------------------------------------------
+     מוצג רק ל-is_platform_admin. כלי הפלטפורמה (שכונות, RSS, כתבות, לידים ללא
+     יעד) ירדו מהרשימה הראשית לגמרי — הם עבודה של תפקיד אחר, ולא היה שום רגע
+     שבו סוכן/ת רצה/תה לראות אותם בין "הנכסים שלי" ל"הלידים שלי". המתג הוא
+     המעבר בין שני העולמות, והוא גם מה שקובע מה נכנס לניווט.
+     ========================================================================== */
+  .view-switch{
+    display:grid;grid-template-columns:1fr 1fr;background:var(--surface-2);
+    border-radius:999px;padding:3px;gap:2px;
+  }
+  @media(min-width:700px){.view-switch{display:inline-flex;grid-template-columns:none;align-self:flex-start}}
+  .view-switch[hidden]{display:none}
+  .view-switch button{
+    border:none;background:transparent;border-radius:999px;padding:6px 12px;
+    font-size:.72rem;font-weight:800;color:var(--txt-soft);white-space:nowrap;
+    transition:background .16s ease,color .16s ease;
+  }
+  .view-switch button[aria-pressed="true"]{background:var(--navy);color:#fff}
+  .view-switch button:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+  @media(max-width:620px){.view-switch button{padding:6px 9px;font-size:.68rem}}
 
   /* ---------- פאנל לידים חמים ---------- */
   .panel{background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-xl);box-shadow:var(--sh-1);padding:20px;overflow:hidden}
@@ -1717,108 +1912,122 @@
   <div class="dash-wrap dash-shell">
     <main class="dash-main">
 
+      <!-- ---------- מתג תצוגת סוכן/ת ↔ מנהל/ת ----------
+           מוצג רק ל-is_platform_admin (renderViewSwitch). יושב בראש התוכן ולא
+           בכותרת: הכותרת מחזיקה לוגו ממורכז ב-absolute, והמתג לצידו נחת עליו
+           במסך צר. -->
+      <div class="view-switch" id="viewSwitch" role="group" aria-label="מעבר בין תצוגת סוכן/ת לתצוגת מנהל/ת" hidden>
+        <button type="button" data-view="agent" aria-pressed="true">תצוגת סוכן/ת</button>
+        <button type="button" data-view="admin" aria-pressed="false">תצוגת מנהל/ת</button>
+      </div>
+
       <!-- ==========================================================
-           דשבורד 1 מתוך 2 — "המספרים שלי" (הסוכן/ת)
+           "ראשי" — תמונת המצב
            ----------------------------------------------------------
-           שני הדשבורדים בעמוד יושבים באותה מעטפת .dash-panel: כותרת
-           צבעונית שהיא כפתור, וגוף שמכווץ לחצי מגובהו הטבעי. הגובה נמדד
-           ב-JS (dashPanelsMeasure) ולא מקובע ב-CSS, כי התוכן משתנה לפי
-           המסלול והתפקיד — חצי מגובה *אמיתי* ולא חצי ממספר שהומצא.
-
-           הצבע הוא מה שמבדיל ביניהם: הדשבורד האישי בנייבי של המותג,
-           דשבורד הפלטפורמה בבורדו. ראו --dp-* ב-CSS.
+           שלושה בלוקים בסדר קבוע: המספרים, מה שדורש טיפול, ומה שעושים.
+           זה גם התוכן של לשונית "ראשי" בסרגל התחתון — applyNavFilter מציג
+           או מסתיר את #overviewBlock כיחידה אחת.
            ========================================================== -->
-      <section class="dash-panel dp-agent" id="dashPanelAgent" aria-label="המספרים שלי">
-        <button type="button" class="dp-head" id="dashPanelAgentHead"
-                aria-expanded="false" aria-controls="dashPanelAgentBody">
-          <span class="dp-ico" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 15 3.5-4 3 2.5L20 7"/></svg>
-          </span>
-          <span class="dp-titles">
-            <span class="dp-title">המספרים שלי</span>
-            <span class="dp-sub" id="agentPanelSub">פוטנציאל עמלות, בלעדיות, ארנק ומכסה</span>
-          </span>
-          <span class="dp-toggle">
-            <span class="dp-toggle-label">הרחבה</span>
-            <svg class="dp-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
-          </span>
-        </button>
-        <div class="dp-body" id="dashPanelAgentBody">
-          <div class="dp-inner">
+      <div id="overviewBlock">
 
-      <!-- ---------- Hero KPI ----------
-           המדד שמניע את היום של הסוכן/ת: כמה כסף פתוח על השולחן. מחושב
-           מהנכסים שכבר נטענו ב-loadProperties() — אין כאן שאילתה נוספת
-           ואין נתון מומצא. -->
-      <section class="hero-kpis" aria-label="פוטנציאל העמלות הפתוח">
+        <p class="dash-greet" id="dashGreet">הנה תמונת המצב שלך להיום</p>
 
-        <article class="kpi-card kpi-primary">
-          <div class="kpi-top">
-            <span class="kpi-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
-            </span>
-            <span class="kpi-chip" id="kpiCommissionDelta" hidden></span>
-          </div>
-          <div class="kpi-label">פוטנציאל עמלות פתוח</div>
-          <div class="kpi-value" id="kpiCommissionValue">₪0</div>
-          <p class="kpi-note" id="kpiCommissionNote">טוענים את הנכסים שלך…</p>
-          <div class="kpi-spark" id="kpiCommissionSpark" role="img" aria-label="מגמת פוטנציאל העמלות בששת החודשים האחרונים"></div>
-          <div class="kpi-spark-axis" id="kpiCommissionAxis"></div>
-        </article>
+        <!-- ---------- רכבת המדדים ----------
+             ארבעה מדדים, רכבת אופקית במובייל וגריד בדסקטופ. כל המזהים כאן הם
+             אותם מזהים שהיו בכרטיסים הישנים (kpiCommission*, kpiExclusive*,
+             creditBalance, quota*), ולכן renderCommissionCard, renderExclusiveCard
+             וטעינת הארנק ממשיכות לכתוב אליהם בלי שינוי. -->
+        <section aria-label="המדדים שלי">
+          <div class="kpi-rail" id="kpiRail">
 
-      </section>
+            <article class="kpi-card kpi-primary">
+              <div class="kpi-top">
+                <span class="kpi-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+                </span>
+                <span class="kpi-chip" id="kpiCommissionDelta" hidden></span>
+              </div>
+              <div class="kpi-label">פוטנציאל עמלות פתוח</div>
+              <div class="kpi-value" id="kpiCommissionValue">₪0</div>
+              <p class="kpi-note" id="kpiCommissionNote">טוענים את הנכסים שלך…</p>
+              <div class="kpi-spark" id="kpiCommissionSpark" role="img" aria-label="מגמת פוטנציאל העמלות בששת החודשים האחרונים"></div>
+              <div class="kpi-spark-axis" id="kpiCommissionAxis"></div>
+            </article>
 
-      <!-- ---------- מדדים ומשאבים ----------
-           הבלעדיות, הארנק והמכסה החינמית. #creditBalance ו-#quotaUsed שומרים
-           על אותם מזהים שהיו ב-stats-row הישן, כדי שכל מי שכותב אליהם
-           (loadDashboard, טעינת ארנק) ימשיך לעבוד בלי שינוי. -->
-      <section class="meter-strip" aria-label="מדדים ומשאבים">
-        <article class="kpi-card kpi-exclusive">
-          <div class="kpi-top">
-            <span class="kpi-icon kpi-icon-soft">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 8.8-8.8"/><path d="m17 6 3 3"/></svg>
-            </span>
-            <span class="kpi-chip kpi-chip-soft" id="kpiExclusiveDelta" hidden></span>
-          </div>
-          <div class="kpi-split">
-            <div class="kpi-split-text">
-              <div class="kpi-label">נכסים בבלעדיות</div>
-              <div class="kpi-value" id="kpiExclusiveValue">0</div>
-              <p class="kpi-note" id="kpiExclusiveNote">טוענים את הנכסים שלך…</p>
+            <article class="kpi-card kpi-exclusive">
+              <div class="kpi-top">
+                <span class="kpi-icon kpi-icon-soft">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 8.8-8.8"/><path d="m17 6 3 3"/></svg>
+                </span>
+                <span class="kpi-chip kpi-chip-soft" id="kpiExclusiveDelta" hidden></span>
+              </div>
+              <div class="kpi-split">
+                <div class="kpi-split-text">
+                  <div class="kpi-label">נכסים בבלעדיות</div>
+                  <div class="kpi-value" id="kpiExclusiveValue">0</div>
+                  <p class="kpi-note" id="kpiExclusiveNote">טוענים את הנכסים שלך…</p>
+                </div>
+                <div class="kpi-donut" id="kpiExclusiveDonut" role="img" aria-label="שיעור הנכסים בבלעדיות מתוך התיק הפעיל"></div>
+              </div>
+            </article>
+
+            <!-- הלידים החמים היו עד היום רק תגית אדומה על קטגוריה. כמדד הם
+                 עונים על השאלה שסוכן/ת שואל/ת ראשונה בבוקר: כמה כסף ממתין לי
+                 לפתיחה. הכרטיס עצמו הוא הכפתור שמוביל לשם. -->
+            <button type="button" class="kpi-card kpi-hot" data-goto="accHotLeads" aria-label="לידים חמים שממתינים לפתיחה">
+              <div class="kpi-top">
+                <span class="kpi-icon">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .4-2 .4-2S6 11 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12Z"/></svg>
+                </span>
+                <span class="kpi-chip kpi-chip-alert" id="kpiHotChip" hidden>דחוף לטיפול</span>
+              </div>
+              <div class="kpi-label">לידים חמים</div>
+              <div class="kpi-value" id="kpiHotValue">0</div>
+              <p class="kpi-note" id="kpiHotNote">פניות שעדיין לא נפתחו</p>
+            </button>
+
+            <!-- הארנק והמכסה החינמית — שני מספרים שקשורים זה לזה (המכסה
+                 נגמרת, הארנק משלם את ההמשך), ולכן הם כרטיס אחד ולא שניים. -->
+            <div class="meter-card">
+              <div class="meter-top">
+                <span class="meter-ico">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="14" rx="3"/><path d="M2 10h20"/><circle cx="17.5" cy="15" r="1.3"/></svg>
+                </span>
+                <span class="meter-title">יתרת ארנק</span>
+                <button type="button" class="meter-cta" data-goto="accWallet" data-focus="topupAmount">+ טעינה</button>
+              </div>
+              <div class="meter-value" id="creditBalance">—</div>
+              <div class="meter-top" style="margin-top:12px">
+                <span class="meter-title">לידים חינמיים החודש</span>
+                <span class="meter-value-sm" id="quotaUsed">—</span>
+              </div>
+              <div class="meter-bar"><span id="quotaBar" style="width:0%"></span></div>
+              <p class="meter-note" id="quotaNote">מתעדכן עם כל ליד שנפתח</p>
             </div>
-            <div class="kpi-donut" id="kpiExclusiveDonut" role="img" aria-label="שיעור הנכסים בבלעדיות מתוך התיק הפעיל"></div>
-          </div>
-        </article>
-
-        <div class="meter-card">
-          <div class="meter-top">
-            <span class="meter-ico">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="14" rx="3"/><path d="M2 10h20"/><circle cx="17.5" cy="15" r="1.3"/></svg>
-            </span>
-            <span class="meter-title">יתרת ארנק</span>
-            <button type="button" class="meter-cta" data-goto="accWallet" data-focus="topupAmount">טעינה מהירה</button>
-          </div>
-          <div class="meter-value" id="creditBalance">—</div>
-          <p class="meter-note">היתרה משמשת לפתיחת לידים ולקידום נכסים</p>
-        </div>
-
-        <div class="meter-card">
-          <div class="meter-top">
-            <span class="meter-ico">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            </span>
-            <span class="meter-title">לידים חינמיים החודש</span>
-            <span class="meter-value-sm" id="quotaUsed">—</span>
-          </div>
-          <div class="meter-bar"><span id="quotaBar" style="width:0%"></span></div>
-          <p class="meter-note" id="quotaNote">מתעדכן עם כל ליד שנפתח</p>
-        </div>
-      </section>
 
           </div>
-        </div>
-      </section>
-      <!-- סוף דשבורד 1 -->
+          <button type="button" class="rail-all" id="kpiRailToggle" aria-expanded="false" aria-controls="kpiRail">כל המדדים</button>
+        </section>
+
+        <!-- ---------- דורש טיפול מיידי ----------
+             מרכז את מה שהיה מפוזר כתגיות אדומות על כפתורים שונים. הרשימה
+             נבנית ב-renderTodoList() מאותם מונים של הקטגוריות. -->
+        <section class="todo-section" aria-label="דורש טיפול מיידי">
+          <div class="section-head">
+            <h2 class="section-h">דורש טיפול מיידי</h2>
+          </div>
+          <div class="todo-list" id="todoList"></div>
+        </section>
+
+        <!-- ---------- פעולות מהירות ---------- -->
+        <section class="quick-section" aria-label="פעולות מהירות">
+          <div class="section-head">
+            <h2 class="section-h">פעולות מהירות</h2>
+          </div>
+          <div class="quick-grid" id="quickGrid"></div>
+        </section>
+
+      </div>
 
       <!-- ==========================================================
            דשבורד 2 מתוך 2 — לוח הבקרה החודשי של מנהל/ת הפלטפורמה
@@ -1867,24 +2076,7 @@
       </section>
       <!-- סוף דשבורד 2 -->
 
-      <!-- ---------- פעולות מהירות ----------
-           יושבות *מחוץ* לשני הדשבורדים בכוונה: דשבורד מכווץ הוא בסדר,
-           אבל "פתיחת ליד" שמסתתרת מאחורי לחיצה נוספת אינה. הגריד נבנה
-           ב-JS מ-QUICK_ACTIONS, והסדר נשמר לכל סוכן/ת ב-localStorage.
-           מצב "עריכת סדר" מוסיף גרירה (עכבר) וחיצים (מקלדת/מגע). -->
-      <section class="quick-section" aria-label="פעולות מהירות">
-        <div class="section-head">
-          <h2 class="section-h">פעולות מהירות</h2>
-          <button type="button" class="ghost-chip" id="quickEditToggle" aria-pressed="false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
-            <span id="quickEditLabel">עריכת סדר</span>
-          </button>
-        </div>
-        <p class="quick-hint" id="quickHint" hidden>גררו כרטיס למקום חדש, או הזיזו אותו עם החיצים. הסדר נשמר במכשיר הזה.</p>
-        <div class="quick-grid" id="quickGrid"></div>
-      </section>
-
-      <h2 class="section-h stack-h">הפעילות שלי</h2>
+      <h2 class="section-h stack-h" id="sectionsHead" hidden>הפעילות שלי</h2>
 
     <!-- ---------- לידים חמים אחרונים ----------
          תמצית של accLeads: הלידים שעדיין לא נפתחו, החדשים קודם.
@@ -2472,19 +2664,16 @@
         <div id="purchasedSavedSearchList"></div>
       </div>
     </details>
-    </main>
 
-    <!-- ---------- Sidebar: הכלים הניהוליים ----------
-         בדסקטופ זו עמודה דביקה בצד ימין; במובייל היא נופלת מתחת לתוכן הראשי
-         תחת אותה כותרת. הבלוקים עצמם הם אותם <details class="acc"> שהיו קודם
-         בזרימה הראשית — לא שוכפל שום תוכן ולא נשבר שום מזהה. -->
-    <aside class="dash-side" aria-label="כלים ניהוליים">
-      <div class="side-head">
-        <span class="side-ico">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2 4 6v6c0 5 3.4 9.4 8 10 4.6-.6 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/></svg>
-        </span>
-        <h2 class="section-h">כלים ניהוליים</h2>
-      </div>
+    <!-- ---------- כלים ניהוליים ----------
+         היו עמודה דביקה נפרדת (<aside class="dash-side">), וזו הייתה הבעיה:
+         תוכן הדשבורד ישב בשני מקומות, ולכן גם הניווט אליו היה חייב לחיות
+         בשניים — פעם בגריד הפעולות ופעם ברשימת הצד. היום יש עמודת תוכן אחת,
+         והצד הפך לניווט טהור (#sideNav, נבנה ב-JS מ-NAV_GROUPS).
+
+         הבלוקים עצמם הם בדיוק אותם <details class="acc"> — לא שוכפל שום תוכן
+         ולא נשבר שום מזהה. -->
+    <section id="toolSections" aria-label="כלים ניהוליים">
 
     <!-- ---------- עדכון פרטי הסוכן/ת ----------
          היעד של הלחיצה על האווטאר בכותרת. כותב ישירות ל-agency_members, ולכן
@@ -2905,7 +3094,7 @@
     <div id="platformAdminSection" style="display:none">
       <details class="acc" id="accNeighborhoods">
         <summary>
-          <span class="acc-title">ניהול שכונות (מנהל פלטפורמה)</span>
+          <span class="acc-title">ניהול שכונות</span>
           <span class="acc-count" id="accNeighborhoodsCount"></span>
           <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </summary>
@@ -2930,7 +3119,7 @@
 
       <details class="acc" id="accRssSources">
         <summary>
-          <span class="acc-title">ניהול מקורות RSS (מנהל פלטפורמה)</span>
+          <span class="acc-title">ניהול מקורות RSS</span>
           <span class="acc-count" id="accRssSourcesCount"></span>
           <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </summary>
@@ -2965,7 +3154,7 @@
            לכתוב אותה בכמה ישיבות בלי שהיא תופיע באתר באמצע. -->
       <details class="acc" id="accArticles">
         <summary>
-          <span class="acc-title">כתבות ובלוגים (מנהל פלטפורמה)</span>
+          <span class="acc-title">כתבות ובלוגים</span>
           <span class="acc-count" id="accArticlesCount"></span>
           <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </summary>
@@ -3043,7 +3232,7 @@
            רשומים) הוא בעיה אחרת לגמרי מליד בודד שלא עבר סף. -->
       <details class="acc" id="accUnroutedLeads">
         <summary>
-          <span class="acc-title">לידים ללא יעד (מנהל פלטפורמה)</span>
+          <span class="acc-title">לידים ללא יעד</span>
           <span class="acc-count" id="accUnroutedLeadsCount"></span>
           <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </summary>
@@ -3198,10 +3387,22 @@
       </div>
       </div>
     </details>
-    </aside>
+    </section>
+    </main>
+
+    <!-- ניווט הדשבורד: בדסקטופ עמודה דביקה, במובייל מוסתר לטובת הסרגל התחתון.
+         נבנה ב-JS מ-NAV_GROUPS — אותו מקור שממנו נבנים גם הסרגל התחתון וגם
+         תפריט הבורגר, כדי שלא תהיה רשימת קטגוריות שנייה שצריך לתחזק. -->
+    <aside class="dash-side" id="sideNav" aria-label="ניווט הדשבורד"></aside>
   </div>
 
 </div>
+
+<!-- ---------- סרגל הניווט התחתון (מובייל) ----------
+     נבנה ב-JS מ-NAV_GROUPS, כמו סרגל הצד ותפריט הבורגר. יושב מחוץ ל-#dashboard
+     כי הוא position:fixed ואינו חלק מזרימת התוכן, ומוסתר בכל מסך שאינו
+     הדשבורד (ראו showScreen). -->
+<nav class="bottom-nav" id="bottomNav" role="tablist" aria-label="ניווט ראשי" hidden></nav>
 
 <div class="field-label-fix"></div>
 <style>.field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}</style>
@@ -3249,7 +3450,7 @@
       <p class="dev-note">עמודי משרד/סוכן/נכס דורשים פרמטר (slug או id) — נוח להגיע אליהם מהאתר הציבורי.</p>
     </div>
   </div>
-  <button type="button" id="devMenuToggle">🧪 מצב בדיקה</button>
+  <button type="button" id="devMenuToggle" aria-label="מצב בדיקה" title="מצב בדיקה">🧪</button>
 </div>
 
 <!-- אישור רכישה: כל פעולה שמוציאה כסף מהארנק עוברת דרך כאן -->
@@ -3350,8 +3551,11 @@ function accWriteState(state){
 function accSetCount(accId, value){
   const el = document.getElementById(accId + 'Count');
   if (el) el.textContent = (value === 0 || value == null || value === '') ? '' : String(value);
-  // התגית על כרטיס הפעולה המהירה היא מראה של אותו מונה — ראו syncQuickBadge()
-  syncQuickBadge(accId, value);
+  // המונה נשמר גם כמספר, כי חלק מהקטגוריות מציגות אותו כטקסט ("₪1,240"
+  // בארנק). הניווט ובלוק "דורש טיפול מיידי" צריכים לדעת רק כמה יש כאן.
+  accCounts[accId] = (typeof value === 'number') ? value
+    : Number(String(value == null ? '' : value).replace(/[^\d.-]/g, ''));
+  refreshNavCounts();
 }
 
 function openAcc(accId){
@@ -3579,6 +3783,9 @@ function showScreen(name){
   }
   // תפריט הבדיקה שייך לדשבורד בלבד; renderDevMenu() מדליק אותו מחדש בעת הצורך
   if (!onDashboard) document.getElementById('devMenu').style.display = 'none';
+  // הסרגל התחתון הוא position:fixed, ובלי זה הוא היה נשאר על מסך הכניסה
+  const bnav = document.getElementById('bottomNav');
+  if (bnav) bnav.hidden = !onDashboard || dashView === 'admin';
   // הפאנלים המכווצים נמדדים רק כשהם באמת על המסך: אלמנט בתוך display:none
   // מחזיר scrollHeight אפס, וחצי מאפס אינו חצי
   if (onDashboard) requestAnimationFrame(dashPanelsMeasure);
@@ -4165,16 +4372,14 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
     document.getElementById('ethicsAgencyBlock').hidden = true;
   }
 
-  // דשבורד הפלטפורמה נכנס ויוצא בשני הכיוונים, כמו managerSection: החלפת
-  // תפקיד מתפריט הבדיקה מסתירה אותו בלי לרענן את העמוד
-  document.getElementById('dashPanelAdmin').hidden = !agent.is_platform_admin;
+  // כלי הפלטפורמה נטענים למנהל/ת פלטפורמה, אבל *מוצגים* רק בתצוגת מנהל/ת —
+  // ‏setDashView בסוף הפונקציה הוא מי שקובע. הטעינה כאן ולא שם, כדי שהמעבר
+  // בין התצוגות יהיה מיידי ולא ימתין לרשת.
   if (agent.is_platform_admin){
-    document.getElementById('platformAdminSection').style.display = 'block';
     await loadNeighborhoodsAdmin();
     await loadRssSourcesAdmin();
     await loadArticlesAdmin();
     await loadUnroutedLeads();
-    await loadAdminReport();
   }
 
   // מדף לידי המשכנתאות פתוח רק ליועצ/ת משכנתאות. כמו managerSection, ה-display
@@ -4186,9 +4391,26 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   }
 
   renderDevMenu(agent);
-  // מדידה אחרונה אחרי שכל התוכן נטען: הפאנל האישי גדל/מתכווץ לפי המסלול
-  // והתפקיד, ו"חצי מהגובה" חייב להתייחס לגובה הסופי
+
+  // הניווט נבנה בסוף, אחרי שההרשאות והמונים כבר במקומם: הוא נגזר מה-DOM
+  // (navAccVisible), ובנייה מוקדמת מדי הייתה מייצרת מפה של דשבורד חצי-טעון
+  renderGreeting(agent);
+  renderViewSwitch();
+  setDashView('agent');
+  renderQuickActions();
+  refreshNavCounts();
   dashPanelsMeasure();
+}
+
+/* הברכה נושאת את השם ואת שעת היום — היא הדבר הראשון שנקרא בעמוד, ולכן היא
+   גם המקום הנכון לתת הקשר במקום עוד כותרת גנרית */
+function renderGreeting(agent){
+  const el = document.getElementById('dashGreet');
+  if (!el) return;
+  const first = String(agent.display_name || '').trim().split(/\s+/)[0] || '';
+  const hour = new Date().getHours();
+  const part = hour < 12 ? 'בוקר טוב' : hour < 17 ? 'צהריים טובים' : hour < 21 ? 'ערב טוב' : 'לילה טוב';
+  el.textContent = part + (first ? ', ' + first : '') + ' — הנה תמונת המצב שלך להיום';
 }
 
 /* ---------- Test menu (מצב בדיקה) ----------
@@ -4199,7 +4421,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
 function renderDevMenu(agent){
   const menu = document.getElementById('devMenu');
   if (!agent.is_platform_admin){ menu.style.display = 'none'; return; }
-  menu.style.display = 'block';
+  menu.style.display = 'flex';
   document.querySelectorAll('#devTierPills button').forEach(b =>
     b.classList.toggle('active', b.dataset.tier === agent.tier));
   document.querySelectorAll('#devRolePills button').forEach(b =>
@@ -13295,6 +13517,21 @@ const DASH_ICONS = {
   bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
   chevRight:'<polyline points="9 18 15 12 9 6"/>',
   chevLeft:'<polyline points="15 18 9 12 15 6"/>',
+  home:'<path d="m3 10 9-7 9 7v9a2 2 0 0 1-2 2h-4v-6H9v6H5a2 2 0 0 1-2-2Z"/>',
+  dots:'<circle cx="5" cy="12" r="1.6"/><circle cx="12" cy="12" r="1.6"/><circle cx="19" cy="12" r="1.6"/>',
+  target:'<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/>',
+  star:'<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9Z"/>',
+  user:'<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+  shield:'<path d="M12 2 4 6v6c0 5 3.4 9.4 8 10 4.6-.6 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/>',
+  sliders:'<line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/><line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/><line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/><line x1="1" y1="14" x2="7" y2="14"/><line x1="9" y1="8" x2="15" y2="8"/><line x1="17" y1="16" x2="23" y2="16"/>',
+  brush:'<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/>',
+  chat:'<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 8.9 8.9 0 0 1-4-.9L3 21l1.9-4.6A8.4 8.4 0 0 1 12 3.1a8.4 8.4 0 0 1 9 8.4Z"/>',
+  rss:'<path d="M4 11a9 9 0 0 1 9 9"/><path d="M4 4a16 16 0 0 1 16 16"/><circle cx="5" cy="19" r="1.6"/>',
+  alert:'<path d="M10.3 3.6 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.6a2 2 0 0 0-3.4 0Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+  gauge:'<path d="M3 14a9 9 0 0 1 18 0"/><path d="m12 14 4-4"/><path d="M3 14v3a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-3"/>',
+  handshake:'<path d="m11 17 2 2a1 1 0 0 0 1.4 0l2.6-2.6"/><path d="m14 14 2.5 2.5"/><path d="M3 10 7 6l4 3 3-1 7 4v5l-3 2-4-3"/><path d="M3 10v5l3 2"/>',
+  inbox:'<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13l3.5 7v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5Z"/>',
+  check:'<path d="M20 6 9 17l-5-5"/>',
 };
 
 function dashIcon(name, cls){
@@ -13307,6 +13544,14 @@ function dashIcon(name, cls){
    הכותרת דביקה, ולכן scrollIntoView לבדו היה מסתיר את שורת הכותרת של
    הקטגוריה מתחתיה. מחשבים את ההיסט ידנית. */
 function gotoSection(accId, focusId){
+  // במובייל הקטגוריה עשויה לשבת בלשונית אחרת של הסרגל התחתון. גלילה
+  // לאלמנט מוסתר מגיעה לשום מקום, ולכן המעבר ללשונית קודם לכל השאר —
+  // כאן ולא אצל הקוראים, כי הקוראים הם גם התראות הפעמון, גם data-goto
+  // וגם כרטיסי המדדים.
+  if (navFilterActive()){
+    const tab = NAV_TAB_OF.get(accId) || 'more';
+    if (tab !== navTab) setNavTab(tab, { silent:true });
+  }
   const el = openAcc(accId);
   if (!el) return;
   const header = document.querySelector('#dashboard header.crm');
@@ -13328,188 +13573,391 @@ document.addEventListener('click', (e)=>{
   gotoSection(trigger.dataset.goto, trigger.dataset.focus);
 });
 
-/* ---------- כרטיסי הפעולות המהירות ----------
-   כל כרטיס מצביע על קטגוריה קיימת בדשבורד; התגית שלו היא בדיוק המונה של
-   אותה קטגוריה, מסונכרן דרך accSetCount() — מקור אמת אחד לשני המקומות. */
-const QUICK_ACTIONS = [
-  { key:'properties', acc:'accProperties',   icon:'building', tone:'navy',
-    title:'הנכסים שלי',        sub:'פרסום, קידום ועריכה' },
-  { key:'leads',      acc:'accLeads',        icon:'flame',    tone:'wine',  hot:true,
-    title:'הלידים שלי',        sub:'פניות שממתינות לטיפול' },
-  { key:'wallet',     acc:'accWallet',       icon:'wallet',   tone:'amber',
-    title:'יתרת ארנק',         sub:'לפתיחת לידים וקידום נכסים',
-    mini:{ label:'+ טעינה מהירה', focus:'topupAmount' } },
-  { key:'team',       acc:'accTeam',         icon:'users',    tone:'navy',
-    title:'צוות המשרד',        sub:'סוכנים, הרשאות ותפקידים',
-    when: ()=> currentAgent && currentAgent.role === 'manager' },
-  { key:'shelf',      acc:'accLeadShelf',    icon:'layers',   tone:'green',
-    title:'מדף לידים',         sub:'לידים זמינים לרכישה' },
-  { key:'buyers',     acc:'accSavedSearchShelf', icon:'bell', tone:'green', hot:true,
-    title:'מחפשי דירה',        sub:'לידים עם תקציב ואזור מוגדרים' },
-  { key:'alerts',     acc:'accAlerts',       icon:'bell',     tone:'wine',  hot:true,
-    title:'התראות התאמה',      sub:'נכסים חדשים ללקוחות בקובץ' },
-  { key:'clients',    acc:'accClients',      icon:'contact',  tone:'navy',  hot:true,
-    title:'קובץ הלקוחות',      sub:'התאמות אוטומטיות לנכסים' },
-  { key:'shared',     acc:'accSharedWithMe', icon:'share',    tone:'navy',  hot:true,
-    title:'שותף איתי',         sub:'נכסים ממשרדי שיתוף פעולה' },
-  { key:'planning',   acc:'accPlanning',     icon:'map',      tone:'green',
-    title:'מידע תכנוני עפולה', sub:'גוש, חלקה, ייעוד ותוכניות' },
-  { key:'mortgage',   acc:'accMortgageShelf',icon:'bank',     tone:'green',
-    title:'לידי משכנתאות',     sub:'מדף רכישה ליועצי משכנתאות',
-    when: ()=> currentAgent && currentAgent.is_mortgage_advisor },
-  { key:'articles',   acc:'accArticles',     icon:'article',  tone:'wine',
-    title:'כתבות ובלוגים',     sub:'כתיבה ופרסום למגזין האתר',
-    when: ()=> currentAgent && currentAgent.is_platform_admin },
+/* ==========================================================================
+   מפת הדשבורד — מקור אמת אחד לשלושה ניווטים
+   --------------------------------------------------------------------------
+   סרגל הצד (דסקטופ), הסרגל התחתון (מובייל) ותפריט הבורגר נבנים כולם מהמבנה
+   הזה. קודם כל אחד מהם החזיק רשימת קטגוריות משלו, ולכן קטגוריה חדשה נכנסה
+   לאחד ונשכחה בשניים — וגריד "הפעולות המהירות" הפך לעותק שלישי של אותה
+   רשימה בדיוק, מעל אותם אקורדיונים.
+
+   ‏tab הוא הלשונית בסרגל התחתון שהקטגוריה שייכת אליה. כל <details class="acc">
+   שאינו מופיע כאן נופל אוטומטית ל"עוד" — קטגוריה חדשה בקוד לא תיעלם מהניווט
+   גם אם שכחו לרשום אותה כאן.
+
+   את הגלוּיוּת בפועל קובע ה-DOM (ראו navAccVisible): קטגוריה שיושבת בתוך
+   managerSection מוסתר לא תופיע, בלי לשכפל כאן את כללי ההרשאות.
+   ========================================================================== */
+const NAV_HOME = '__home';
+const NAV_ADMIN_HOME = '__adminHome';
+
+const NAV_GROUPS = [
+  { key:'home', label:'ראשי', items:[
+    { acc:NAV_HOME, label:'דשבורד ראשי', icon:'home', tab:'home' },
+  ]},
+  { key:'work', label:'הפעילות שלי', items:[
+    { acc:'accProperties',       label:'הנכסים שלי',        icon:'building', tab:'props' },
+    { acc:'accSharedWithMe',     label:'שותף איתי',         icon:'share',    tab:'props' },
+    { acc:'accSharePartners',    label:'משרדי שיתוף פעולה', icon:'handshake',tab:'props' },
+    { acc:'accWhatsapp',         label:'נכסים בוואטסאפ',    icon:'chat',     tab:'props' },
+    { acc:'accHotLeads',         label:'לידים חמים',        icon:'flame',    tab:'leads' },
+    { acc:'accLeads',            label:'הלידים שלי',        icon:'inbox',    tab:'leads' },
+    { acc:'accLeadShelf',        label:'מדף לידים',         icon:'layers',   tab:'leads' },
+    { acc:'accSavedSearchShelf', label:'מדף מחפשי דירה',    icon:'bell',     tab:'leads' },
+    { acc:'accMortgageShelf',    label:'מדף משכנתאות',      icon:'bank',     tab:'leads' },
+    { acc:'accClients',          label:'קובץ הלקוחות',      icon:'contact',  tab:'clients' },
+    { acc:'accAlerts',           label:'התראות התאמה',      icon:'target',   tab:'clients' },
+  ]},
+  { key:'tools', label:'כלים וצוות', items:[
+    { acc:'accTeam',     label:'צוות המשרד',     icon:'users', tab:'more' },
+    { acc:'accReviews',  label:'ביקורות לאישור', icon:'star',  tab:'more' },
+    { acc:'accBranding', label:'עיצוב דף המשרד', icon:'brush', tab:'more' },
+    { acc:'accPlanning', label:'מידע תכנוני',    icon:'map',   tab:'more' },
+  ]},
+  { key:'account', label:'ארנק והגדרות', items:[
+    { acc:'accWallet',     label:'יתרת ארנק',    icon:'wallet',  tab:'more' },
+    { acc:'accProfile',    label:'פרטי הסוכן/ת', icon:'user',    tab:'more' },
+    { acc:'accEthics',     label:'הקוד האתי',    icon:'shield',  tab:'more' },
+    { acc:'accPrefs',      label:'העדפות לידים', icon:'sliders', tab:'more' },
+    { acc:'accNotifPrefs', label:'ניהול התראות', icon:'bell',    tab:'more' },
+  ]},
+  /* כלי הפלטפורמה יושבים בקבוצה משלהם ומופיעים אך ורק בתצוגת מנהל/ת. זו כל
+     הנקודה: הם עבודה של תפקיד אחר, ולא היה רגע שבו סוכן/ת רצה/תה לראות
+     "ניהול מקורות RSS" בין "הנכסים שלי" ל"הלידים שלי". */
+  { key:'admin', label:'ניהול מערכת', adminOnly:true, items:[
+    { acc:NAV_ADMIN_HOME,     label:'לוח בקרה חודשי', icon:'gauge',   tab:'admin' },
+    { acc:'accNeighborhoods', label:'ניהול שכונות',   icon:'map',     tab:'admin' },
+    { acc:'accRssSources',    label:'מקורות RSS',     icon:'rss',     tab:'admin' },
+    { acc:'accArticles',      label:'כתבות ובלוגים',  icon:'article', tab:'admin' },
+    { acc:'accUnroutedLeads', label:'לידים ללא יעד',  icon:'alert',   tab:'admin' },
+  ]},
 ];
 
-const QUICK_ORDER_KEY = 'crmQuickActionsOrder';
-let quickEditing = false;
+const NAV_TABS = [
+  { key:'home',    label:'ראשי',   icon:'home' },
+  { key:'props',   label:'נכסים',  icon:'building' },
+  { key:'leads',   label:'לידים',  icon:'flame' },
+  { key:'clients', label:'לקוחות', icon:'contact' },
+  { key:'more',    label:'עוד',    icon:'dots' },
+];
 
-function quickReadOrder(){
-  try{
-    const raw = JSON.parse(localStorage.getItem(QUICK_ORDER_KEY) || '[]');
-    return Array.isArray(raw) ? raw.filter(k => typeof k === 'string') : [];
-  }catch(e){ return []; }
+/* אילו קטגוריות מצדיקות תגית אדומה. "אדום = דורש ממך פעולה עכשיו", ולכן מדף
+   הלידים (הזדמנות, לא חוב) ויתרת הארנק אינם כאן. */
+const NAV_HOT_ACCS = new Set(['accHotLeads','accLeads','accAlerts','accReviews','accUnroutedLeads']);
+const NAV_TAB_BADGE = {
+  props:   [],
+  leads:   ['accHotLeads'],
+  clients: ['accAlerts'],
+  more:    ['accReviews'],
+};
+
+/* accId → הלשונית שהוא שייך אליה */
+const NAV_TAB_OF = new Map();
+NAV_GROUPS.forEach(g => g.items.forEach(it => NAV_TAB_OF.set(it.acc, it.tab)));
+
+/* המונים של הקטגוריות. accSetCount כותב לכאן, וכל מי שמציג מספר (סרגל הצד,
+   הסרגל התחתון, בלוק המשימות, כרטיס הלידים החמים) קורא מכאן — ולכן אין מצב
+   שבו התגית אומרת 3 והרשימה מציגה 2. */
+const accCounts = {};
+
+let dashView = 'agent';   // 'agent' | 'admin'
+let navTab   = 'home';
+
+function accCountOf(accId){
+  const n = Number(accCounts[accId]);
+  return Number.isFinite(n) ? n : 0;
 }
 
-function quickWriteOrder(keys){
-  try{ localStorage.setItem(QUICK_ORDER_KEY, JSON.stringify(keys)); }catch(e){}
+/* קטגוריה "גלויה" = היא קיימת ב-DOM ואף אב שלה אינו מוסתר. זו הבדיקה
+   שמכניסה ומוציאה את managerSection, platformAdminSection ומדף המשכנתאות
+   משלושת הניווטים בבת אחת. ‏offsetParent אינו שמיש כאן, כי הוא מחזיר null גם
+   לקטגוריה שהסינון עצמו הסתיר — ואז הניווט היה מוחק את הלשונית שהוא מציג. */
+function navAccVisible(accId){
+  const el = document.getElementById(accId);
+  if (!el || el.style.display === 'none') return false;
+  for (let n = el.parentElement; n && n !== document.body; n = n.parentElement){
+    if (n.style && n.style.display === 'none') return false;
+  }
+  return true;
 }
 
-/* הסדר השמור מוביל; פעולה חדשה שנוספה לקוד אחרי שהסוכן/ת כבר סידרו את
-   הגריד פשוט נכנסת בסוף במקום להיעלם. */
-function quickVisibleActions(){
-  const available = QUICK_ACTIONS.filter(a => !a.when || a.when());
-  const saved = quickReadOrder();
-  const byKey = new Map(available.map(a => [a.key, a]));
-  const ordered = [];
-  saved.forEach(k => { if (byKey.has(k)){ ordered.push(byKey.get(k)); byKey.delete(k); } });
-  available.forEach(a => { if (byKey.has(a.key)) ordered.push(a); });
-  return ordered;
+function navItemVisible(item){
+  if (item.acc === NAV_HOME) return dashView === 'agent';
+  if (item.acc === NAV_ADMIN_HOME) return dashView === 'admin';
+  return navAccVisible(item.acc);
 }
+
+function navGroupsForView(){
+  const admin = dashView === 'admin';
+  return NAV_GROUPS
+    .filter(g => !!g.adminOnly === admin)
+    .map(g => ({ key:g.key, label:g.label, items:g.items.filter(navItemVisible) }))
+    .filter(g => g.items.length);
+}
+
+function navReduceMotion(){
+  return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+}
+
+/* ---------- סרגל הצד (דסקטופ) ---------- */
+function renderSideNav(){
+  const nav = document.getElementById('sideNav');
+  if (!nav) return;
+  nav.innerHTML = '';
+  navGroupsForView().forEach(group=>{
+    const head = document.createElement('div');
+    head.className = 'sn-group';
+    head.textContent = group.label;
+    nav.appendChild(head);
+    group.items.forEach(item=>{
+      const count = accCountOf(item.acc);
+      const hot = count > 0 && NAV_HOT_ACCS.has(item.acc);
+      const isHome = item.acc === NAV_HOME || item.acc === NAV_ADMIN_HOME;
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'sn-item' + (isHome && navTab === 'home' ? ' is-on' : '');
+      btn.innerHTML = dashIcon(item.icon, 'sn-ico')
+        + '<span class="sn-label">' + esc(item.label) + '</span>'
+        + (count ? '<span class="sn-count' + (hot ? ' is-hot' : '') + '">' + esc(String(count)) + '</span>' : '');
+      btn.addEventListener('click', ()=> navGo(item));
+      nav.appendChild(btn);
+    });
+  });
+}
+
+/* יעד ניווט אחד לכל שלושת הניווטים ולכל הכרטיסים */
+function navGo(item){
+  if (item.acc === NAV_HOME || item.acc === NAV_ADMIN_HOME){
+    setNavTab('home');
+    return;
+  }
+  gotoSection(item.acc, item.focus);   // הוא זה שמעביר ללשונית הנכונה
+}
+
+/* ---------- הסרגל התחתון (מובייל) ---------- */
+function renderBottomNav(){
+  const nav = document.getElementById('bottomNav');
+  if (!nav) return;
+  nav.innerHTML = '';
+  NAV_TABS.forEach(tab=>{
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'bn-tab';
+    btn.setAttribute('role', 'tab');
+    btn.setAttribute('aria-selected', String(navTab === tab.key));
+    const badge = (NAV_TAB_BADGE[tab.key] || [])
+      .filter(navAccVisible)
+      .reduce((sum, acc) => sum + accCountOf(acc), 0);
+    btn.innerHTML = dashIcon(tab.icon)
+      + '<span>' + esc(tab.label) + '</span>'
+      + '<span class="bn-badge">' + (badge ? esc(badge > 9 ? '9+' : String(badge)) : '') + '</span>';
+    btn.addEventListener('click', ()=> setNavTab(tab.key));
+    nav.appendChild(btn);
+  });
+}
+
+/* ---------- הסינון ----------
+   פעיל במובייל, ובכל רוחב בתצוגת מנהל/ת. בדסקטופ יש סרגל צד דביק שמראה את
+   כל המפה בבת אחת, ואז הסתרת קטגוריות רק מסתירה מידע בלי להרוויח מקום. */
+function navFilterActive(){
+  return dashView === 'admin' || !window.matchMedia('(min-width:1024px)').matches;
+}
+
+function applyNavFilter(){
+  const isAdminView = dashView === 'admin';
+  const filtering = navFilterActive();
+  const showHome = !filtering || navTab === 'home';
+
+  const overview = document.getElementById('overviewBlock');
+  if (overview) overview.classList.toggle('nav-off', isAdminView || !showHome);
+  const adminPanel = document.getElementById('dashPanelAdmin');
+  if (adminPanel) adminPanel.classList.toggle('nav-off', !isAdminView);
+
+  document.querySelectorAll('#dashboard details.acc').forEach(acc=>{
+    const tab = NAV_TAB_OF.get(acc.id) || 'more';
+    const isAdminAcc = tab === 'admin';
+    let show;
+    if (isAdminView)     show = isAdminAcc;
+    else if (isAdminAcc) show = false;
+    else if (!filtering) show = true;
+    else                 show = (navTab !== 'home' && tab === navTab);
+    acc.classList.toggle('nav-off', !show);
+  });
+
+  const head = document.getElementById('sectionsHead');
+  if (head) head.hidden = filtering || isAdminView;
+}
+
+function setNavTab(key, opts){
+  navTab = key;
+  applyNavFilter();
+  renderBottomNav();
+  renderSideNav();
+  if (opts && opts.silent) return;
+  window.scrollTo({ top:0, behavior: navReduceMotion() ? 'auto' : 'smooth' });
+  // לשונית שיש בה קטגוריה אחת בלבד נפתחת מיד: לחיצה נוספת רק כדי לראות את
+  // התוכן היחיד שיש שם היא לחיצה מיותרת
+  const shown = [...document.querySelectorAll('#dashboard details.acc')]
+    .filter(a => !a.classList.contains('nav-off') && navAccVisible(a.id));
+  if (shown.length === 1) openAcc(shown[0].id);
+}
+
+/* ---------- תצוגת סוכן/ת מול תצוגת מנהל/ת ---------- */
+function renderViewSwitch(){
+  const sw = document.getElementById('viewSwitch');
+  if (!sw) return;
+  const isAdmin = !!(currentAgent && currentAgent.is_platform_admin);
+  sw.hidden = !isAdmin;
+  if (!isAdmin && dashView === 'admin') dashView = 'agent';
+  sw.querySelectorAll('button').forEach(b =>
+    b.setAttribute('aria-pressed', String(b.dataset.view === dashView)));
+}
+
+function setDashView(view){
+  const isAdmin = !!(currentAgent && currentAgent.is_platform_admin);
+  dashView = (view === 'admin' && isAdmin) ? 'admin' : 'agent';
+  // אזור כלי הפלטפורמה קיים ב-DOM תמיד; מה שקובע אם הוא בעולם הוא כאן בלבד
+  const adminSection = document.getElementById('platformAdminSection');
+  if (adminSection) adminSection.style.display = (dashView === 'admin') ? 'block' : 'none';
+  const adminPanel = document.getElementById('dashPanelAdmin');
+  if (adminPanel) adminPanel.hidden = (dashView !== 'admin');
+  navTab = 'home';
+  renderViewSwitch();
+  applyNavFilter();
+  renderSideNav();
+  renderBottomNav();
+  const bnav = document.getElementById('bottomNav');
+  if (bnav) bnav.hidden = (dashView === 'admin');
+  if (dashView === 'admin') loadAdminReport();
+  window.scrollTo({ top:0, behavior:'auto' });
+}
+
+document.getElementById('viewSwitch').addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-view]');
+  if (btn) setDashView(btn.dataset.view);
+});
+
+/* שינוי רוחב החלון משנה אם הסינון פעיל בכלל — סיבוב מכשיר או גרירת חלון
+   חייבים להחזיר את הקטגוריות למקומן ולא להשאיר אותן מוסתרות */
+window.addEventListener('resize', ()=>{
+  applyNavFilter();
+  renderSideNav();
+});
+
+/* "כל המדדים" — פורש את הרכבת לגריד במובייל */
+document.getElementById('kpiRailToggle').addEventListener('click', (e)=>{
+  const rail = document.getElementById('kpiRail');
+  const open = rail.classList.toggle('is-open');
+  e.currentTarget.setAttribute('aria-expanded', String(open));
+  e.currentTarget.textContent = open ? 'תצוגה מקוצרת' : 'כל המדדים';
+});
+
+/* ==========================================================================
+   דורש טיפול מיידי
+   --------------------------------------------------------------------------
+   הריכוז של מה שהיה מפוזר כתגיות אדומות על כפתורים שונים. כל שורה היא
+   קטגוריה קיימת עם המונה שלה, והלחיצה מובילה ישר לטיפול. אין כאן ספירה
+   שנייה — הכול מ-accCounts.
+   ========================================================================== */
+const TODO_ITEMS = [
+  { acc:'accHotLeads', icon:'flame',   many:n => n + ' לידים חמים שלא נפתחו',
+    one:'ליד חם אחד שלא נפתח',            sub:'כאן נמצא הכסף שממתין לטיפול' },
+  { acc:'accAlerts',   icon:'target',  many:n => n + ' התאמות נכס ללקוחות',
+    one:'התאמת נכס אחת ללקוח/ה',          sub:'נכסים חדשים שעונים על דרישות בקובץ' },
+  { acc:'accReviews',  icon:'star',    many:n => n + ' ביקורות ממתינות לאישור',
+    one:'ביקורת אחת ממתינה לאישור',       sub:'חוות דעת שממתינות למודרציה' },
+  { acc:'accUnroutedLeads', icon:'alert', many:n => n + ' לידים ללא יעד',
+    one:'ליד אחד ללא יעד',                sub:'נקלטו ואין קהל שיקבל אותם' },
+];
+
+function renderTodoList(){
+  const host = document.getElementById('todoList');
+  if (!host) return;
+  host.innerHTML = '';
+  const rows = TODO_ITEMS.filter(item => navAccVisible(item.acc) && accCountOf(item.acc) > 0);
+
+  if (!rows.length){
+    const clear = document.createElement('div');
+    clear.className = 'todo-clear';
+    clear.innerHTML = dashIcon('check') + '<span>הכול מטופל — אין פריטים שממתינים לך</span>';
+    host.appendChild(clear);
+    return;
+  }
+
+  rows.forEach(item=>{
+    const n = accCountOf(item.acc);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'todo-row';
+    btn.innerHTML =
+      '<span class="todo-ico">' + dashIcon(item.icon) + '</span>'
+      + '<span class="todo-text">'
+      +   '<span class="todo-title">' + esc(n === 1 ? item.one : item.many(n)) + '</span>'
+      +   '<span class="todo-sub">' + esc(item.sub) + '</span>'
+      + '</span>'
+      + '<span class="todo-count">' + esc(String(n)) + '</span>'
+      + '<svg class="todo-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>';
+    btn.addEventListener('click', ()=> navGo({ acc:item.acc }));
+    host.appendChild(btn);
+  });
+}
+
+/* ==========================================================================
+   פעולות מהירות
+   --------------------------------------------------------------------------
+   גריד של אייקון + שם, שתי עמודות במובייל. איבד את שורת התיאור, את התגיות
+   ואת מצב "עריכת סדר": משהיו לו סרגל ניווט תחתון מתחת ובלוק "דורש טיפול
+   מיידי" מעל, שלושתם ניסו להיות הניווט הראשי — וזה בדיוק העומס שהמסך הזה
+   נועד להוריד. כאן נשאר מה שגריד עושה הכי טוב: קיצור דרך מזוהה במבט.
+   ========================================================================== */
+const QUICK_ACTIONS = [
+  { acc:'accProperties',    icon:'building', title:'הנכסים שלי' },
+  { acc:'accLeads',         icon:'inbox',    title:'הלידים שלי' },
+  { acc:'accClients',       icon:'contact',  title:'קובץ הלקוחות' },
+  { acc:'accLeadShelf',     icon:'layers',   title:'מדף לידים' },
+  { acc:'accWallet',        icon:'wallet',   title:'טעינת ארנק', tone:'gold', focus:'topupAmount' },
+  { acc:'accTeam',          icon:'users',    title:'צוות המשרד' },
+  { acc:'accSharePartners', icon:'handshake',title:'שיתופי פעולה' },
+  { acc:'accMortgageShelf', icon:'bank',     title:'מדף משכנתאות' },
+];
 
 function renderQuickActions(){
   const grid = document.getElementById('quickGrid');
   if (!grid) return;
-  const actions = quickVisibleActions();
   grid.innerHTML = '';
-
-  actions.forEach((action, index)=>{
+  QUICK_ACTIONS.filter(a => navAccVisible(a.acc)).forEach(action=>{
     const card = document.createElement('div');
     card.className = 'qa-card';
-    // הגריד נבנה מחדש אחרי כל שינוי סדר — בלי זה הגרירה הייתה מפסיקה לעבוד
-    // מיד אחרי ההזזה הראשונה, כי הכרטיס החדש נולד בלי draggable
-    card.draggable = quickEditing;
-    card.dataset.key = action.key;
-    card.dataset.acc = action.acc;
-    card.dataset.tone = action.tone;
-    card.innerHTML = `
-      <span class="qa-badge${action.hot ? ' is-hot' : ''}" id="qaBadge-${action.key}"></span>
-      <button type="button" class="qa-hit">
-        <span class="qa-icon">${dashIcon(action.icon)}</span>
-        <span class="qa-text">
-          <span class="qa-title">${esc(action.title)}</span>
-          <span class="qa-sub">${esc(action.sub)}</span>
-        </span>
-      </button>
-      ${action.mini ? `<button type="button" class="qa-mini" data-goto="${action.acc}" data-focus="${action.mini.focus}">${esc(action.mini.label)}</button>` : ''}
-      <div class="qa-reorder">
-        <button type="button" class="qa-move" data-dir="-1" aria-label="הזזת ${esc(action.title)} קדימה" ${index === 0 ? 'disabled' : ''}>${dashIcon('chevRight')}</button>
-        <span class="qa-grip" aria-hidden="true">${dashIcon('grip')}</span>
-        <button type="button" class="qa-move" data-dir="1" aria-label="הזזת ${esc(action.title)} אחורה" ${index === actions.length - 1 ? 'disabled' : ''}>${dashIcon('chevLeft')}</button>
-      </div>
-    `;
-    card.querySelector('.qa-hit').addEventListener('click', ()=>{
-      if (quickEditing) return;      // בעריכה הכרטיס משמש לגרירה, לא לניווט
-      gotoSection(action.acc);
-    });
-    card.querySelectorAll('.qa-move').forEach(btn=>{
-      btn.addEventListener('click', ()=> quickMove(action.key, Number(btn.dataset.dir)));
-    });
-    quickBindDrag(card);
+    if (action.tone) card.dataset.tone = action.tone;
+    card.innerHTML = '<button type="button" class="qa-hit">'
+      + '<span class="qa-icon">' + dashIcon(action.icon) + '</span>'
+      + '<span class="qa-title">' + esc(action.title) + '</span>'
+      + '</button>';
+    card.querySelector('.qa-hit').addEventListener('click', ()=> navGo(action));
     grid.appendChild(card);
   });
-
-  grid.classList.toggle('is-editing', quickEditing);
-  syncAllQuickBadges();
 }
 
-function quickMove(key, delta){
-  const keys = quickVisibleActions().map(a => a.key);
-  const from = keys.indexOf(key);
-  const to = from + delta;
-  if (from < 0 || to < 0 || to >= keys.length) return;
-  keys.splice(to, 0, keys.splice(from, 1)[0]);
-  quickWriteOrder(keys);
-  renderQuickActions();
-  // מחזירים את המיקוד לאותו כפתור אחרי הרינדור, כדי שאפשר יהיה להזיז ברצף
-  const moved = document.querySelector(`.qa-card[data-key="${key}"] .qa-move[data-dir="${delta}"]`);
-  if (moved && !moved.disabled) moved.focus();
+/* ---------- ריענון כל מה שתלוי במונים ----------
+   accSetCount קורא לכאן, ולכן כל עדכון מונה (ליד חדש, נכס שנוסף, ביקורת
+   שאושרה) מתגלגל לכל הצרכנים בלי שאף קורא יצטרך לדעת שהם קיימים. */
+function refreshNavCounts(){
+  renderTodoList();
+  renderBottomNav();
+  renderSideNav();
+  renderHotKpi();
 }
 
-/* גרירה בעכבר. במגע ובמקלדת החיצים עושים את אותה עבודה — לכן אין כאן
-   מימוש pointer-events נפרד שיצטרך לשכפל את הלוגיקה. */
-let quickDragKey = null;
-function quickBindDrag(card){
-  card.addEventListener('dragstart', (e)=>{
-    if (!quickEditing){ e.preventDefault(); return; }
-    quickDragKey = card.dataset.key;
-    card.classList.add('is-dragging');
-    e.dataTransfer.effectAllowed = 'move';
-    try{ e.dataTransfer.setData('text/plain', card.dataset.key); }catch(err){}
-  });
-  card.addEventListener('dragend', ()=>{
-    card.classList.remove('is-dragging');
-    quickDragKey = null;
-  });
-  card.addEventListener('dragover', (e)=>{
-    if (!quickEditing || !quickDragKey || quickDragKey === card.dataset.key) return;
-    e.preventDefault();
-    e.dataTransfer.dropEffect = 'move';
-  });
-  card.addEventListener('drop', (e)=>{
-    if (!quickEditing || !quickDragKey || quickDragKey === card.dataset.key) return;
-    e.preventDefault();
-    const keys = quickVisibleActions().map(a => a.key);
-    const from = keys.indexOf(quickDragKey);
-    const to = keys.indexOf(card.dataset.key);
-    if (from < 0 || to < 0) return;
-    keys.splice(to, 0, keys.splice(from, 1)[0]);
-    quickWriteOrder(keys);
-    renderQuickActions();
-  });
-}
-
-function setQuickEditing(on){
-  quickEditing = on;
-  const toggle = document.getElementById('quickEditToggle');
-  const label = document.getElementById('quickEditLabel');
-  const hint = document.getElementById('quickHint');
-  if (toggle) toggle.setAttribute('aria-pressed', String(on));
-  if (label) label.textContent = on ? 'סיום עריכה' : 'עריכת סדר';
-  if (hint) hint.hidden = !on;
-  document.querySelectorAll('#quickGrid .qa-card').forEach(c => { c.draggable = on; });
-  const grid = document.getElementById('quickGrid');
-  if (grid) grid.classList.toggle('is-editing', on);
-  if (!on) showToast('סדר הכרטיסים נשמר');
-}
-
-/* התגיות של הגריד הן מראה של מוני הקטגוריות. accSetCount() קורא לפונקציה
-   הזו, ולכן כל עדכון מונה (טעינת ארנק, ליד חדש, נכס שנוסף) מתגלגל לכאן
-   בלי שאף קורא יצטרך לדעת שהגריד קיים. */
-function syncQuickBadge(accId, value){
-  const action = QUICK_ACTIONS.find(a => a.acc === accId);
-  if (!action) return;
-  const badge = document.getElementById('qaBadge-' + action.key);
-  if (!badge) return;
-  badge.textContent = (value === 0 || value == null || value === '') ? '' : String(value);
-}
-
-function syncAllQuickBadges(){
-  QUICK_ACTIONS.forEach(a =>{
-    const source = document.getElementById(a.acc + 'Count');
-    syncQuickBadge(a.acc, source ? source.textContent : '');
-  });
+/* כרטיס הלידים החמים ברכבת המדדים — אותו מונה, תצוגה אחרת */
+function renderHotKpi(){
+  const value = document.getElementById('kpiHotValue');
+  if (!value) return;
+  const n = accCountOf('accHotLeads');
+  value.textContent = String(n);
+  const note = document.getElementById('kpiHotNote');
+  if (note) note.textContent = n ? 'פניות שעדיין לא נפתחו — לחצו לטיפול' : 'אין פניות שממתינות לפתיחה';
+  const chip = document.getElementById('kpiHotChip');
+  if (chip) chip.hidden = !n;
 }
 
 /* ---------- מד המכסה החינמית ---------- */
@@ -13810,63 +14258,41 @@ function focusLeadCard(leadId){
 }
 
 /* ---------- תפריט הבורגר ----------
-   במקום קיצור דרך יחיד להעדפות הלידים, הכפתור פותח את מפת הדשבורד המלאה:
-   כל <details class="acc"> שגלוי לסוכן/ת בפועל. הבדיקה היא על ה-DOM עצמו
-   (offsetParent), ולכן אזור הניהול, אזור מנהל הפלטפורמה ומדף המשכנתאות
-   נכנסים ויוצאים מהתפריט בדיוק לפי מה שמוצג בעמוד — בלי רשימת הרשאות שנייה
-   שצריך לתחזק במקביל. */
-const MENU_GROUPS = [
-  { selector:'.dash-main', label:'העבודה היומית' },
-  { selector:'.dash-side', label:'כלים וניהול' },
-];
-
-function menuSectionsIn(scopeSelector){
-  const scope = document.querySelector('#dashboard ' + scopeSelector);
-  if (!scope) return [];
-  // offsetParent === null גם כשהאב מוסתר (managerSection / platformAdminSection),
-  // וזה בדיוק מה שצריך כאן — קטגוריה מוסתרת לא תופיע בתפריט
-  return [...scope.querySelectorAll('details.acc')].filter(acc => acc.offsetParent !== null);
-}
-
+   אותה מפה בדיוק שממנה נבנים סרגל הצד והסרגל התחתון (NAV_GROUPS), ולכן אין
+   כאן רשימת קטגוריות שנייה. קודם הרשימה נסרקה מה-DOM ישירות, וזה עבד — אבל
+   אז כל אחד משלושת הניווטים הכיר את הדשבורד בדרך אחרת. */
 function buildMenuPanel(){
   const panel = document.getElementById('menuPanel');
   if (!panel) return;
   panel.innerHTML = '';
-  let total = 0;
+  const groups = navGroupsForView();
 
-  MENU_GROUPS.forEach(group=>{
-    const sections = menuSectionsIn(group.selector);
-    if (!sections.length) return;
-    if (total > 0) panel.appendChild(Object.assign(document.createElement('div'), { className:'menu-sep' }));
-
+  groups.forEach((group, gi)=>{
+    if (gi > 0) panel.appendChild(Object.assign(document.createElement('div'), { className:'menu-sep' }));
     const head = document.createElement('div');
     head.className = 'menu-group';
     head.textContent = group.label;
     panel.appendChild(head);
 
-    sections.forEach(acc=>{
-      const titleEl = acc.querySelector('.acc-title');
-      const countEl = acc.querySelector('.acc-count');
-      const count = countEl ? countEl.textContent.trim() : '';
+    group.items.forEach(navItem=>{
+      const count = accCountOf(navItem.acc);
+      const hot = count > 0 && NAV_HOT_ACCS.has(navItem.acc);
       const item = document.createElement('button');
       item.type = 'button';
       item.className = 'menu-item';
-      item.dataset.acc = acc.id;
-      item.innerHTML = `
-        <span class="mi-label">${esc(titleEl ? titleEl.textContent.trim() : acc.id)}</span>
-        ${count ? `<span class="mi-count${countEl.classList.contains('hot') ? ' is-hot' : ''}">${esc(count)}</span>` : ''}
-        <svg class="mi-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
-      `;
+      item.innerHTML =
+        '<span class="mi-label">' + esc(navItem.label) + '</span>'
+        + (count ? '<span class="mi-count' + (hot ? ' is-hot' : '') + '">' + esc(String(count)) + '</span>' : '')
+        + '<svg class="mi-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>';
       item.addEventListener('click', ()=>{
         closeMenuPanel();
-        gotoSection(acc.id);
+        navGo(navItem);
       });
       panel.appendChild(item);
-      total++;
     });
   });
 
-  if (!total){
+  if (!groups.length){
     panel.innerHTML = '<div class="menu-empty">אין קטגוריות להצגה</div>';
   }
 }
@@ -13903,9 +14329,6 @@ document.addEventListener('keydown', (e)=>{
   closeMenuPanel();
   document.getElementById('menuBtn').focus({ preventScroll:true });
 });
-
-/* ---------- חיווט ---------- */
-document.getElementById('quickEditToggle').addEventListener('click', ()=> setQuickEditing(!quickEditing));
 
 /* ---------- Boot: restore existing session if present (handles Google OAuth redirect too) ----------
    אחרי החזרה מ-Google ה-session מוכן רק כשה-client סיים לקרוא את התשובה
