@@ -397,9 +397,19 @@ export interface PhotoTags {
   room_type: string | null;
 }
 
+/**
+ * ‏"התמונה לא ברורה" ו"הקריאה ל-Gemini נכשלה" הן שתי תוצאות שונות לגמרי,
+ * ועד עכשיו שתיהן נראו אותו דבר: unknown/unclassified/null. ההבדל אינו
+ * אקדמי — תמונה לא ברורה סווגה ונגמר, ואילו קריאה שנכשלה נשמרה עם
+ * ‏classified_at ולכן *לעולם* לא נוסתה שוב, גם אחרי שהתקלה תוקנה.
+ *
+ * לכן `error` מוחזר בנפרד, והקוראים לא כותבים classified_at כשהוא קיים.
+ */
+export type ClassifyOutcome = PhotoTags & { error?: string };
+
 const ROOM_TYPES = ["facade", "yard", "living_room", "kitchen", "bedroom", "bathroom", "balcony", "other"];
 
-export async function classifyImage(apiKey: string, mime: string, data: string): Promise<PhotoTags> {
+export async function classifyImage(apiKey: string, mime: string, data: string): Promise<ClassifyOutcome> {
   const prompt =
     'זוהי תמונה של נכס נדל"ן. ענה בדיוק בפורמט TYPE,ROLE,ROOM באנגלית בלבד, בלי רווחים ובלי הסבר.\n' +
     "TYPE: exterior אם התמונה צולמה מבחוץ (חזית, כניסה, חצר, גינה, חניה, רחוב), interior אם מבפנים.\n" +
@@ -418,15 +428,56 @@ export async function classifyImage(apiKey: string, mime: string, data: string):
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ inline_data: { mime_type: mime, data } }, { text: prompt }] }],
-        generationConfig: { temperature: 0, maxOutputTokens: 20 },
+        // ‏maxOutputTokens היה 20 — התשובה עצמה היא שלוש מילים, אז זה נראה
+        // נדיב. זה היה נכון למודל שלא חושב. ‏gemini-3.1-flash-lite הוא מודל
+        // חושב (thinking: true ב-ListModels), והתקציב הזה *כולל* את החשיבה:
+        // המודל שרף את 20 הטוקנים לפני שכתב תו אחד, החזיר 200 עם טקסט ריק,
+        // וכל תמונה סווגה unknown. התקרה כאן רחבה בכוונה — עלות אמיתית היא
+        // לפי מה שנוצר בפועל, והתשובה נשארת שלוש מילים.
+        generationConfig: { temperature: 0, maxOutputTokens: 2048 },
       }),
     }
   );
 
-  if (!res.ok) return { photo_type: "unknown", space_role: "unclassified", room_type: null };
+  // מודל שגוי (404), מכסה (429) או מפתח פסול (403) חוזרים כאן. הגוף נשמר כי
+  // הוא זה שאומר *מה* קרה, וההבדל בין השלושה הוא ההבדל בין תיקון של דקה
+  // לבין חיפוש עיוור.
+  if (!res.ok) {
+    let bodyText = "";
+    try {
+      bodyText = (await res.text()).slice(0, 300);
+    } catch {
+      /* noop */
+    }
+    return {
+      photo_type: "unknown",
+      space_role: "unclassified",
+      room_type: null,
+      error: `HTTP ${res.status}${bodyText ? `: ${bodyText}` : ""}`,
+    };
+  }
 
   const json = await res.json();
-  const text = (json?.candidates?.[0]?.content?.parts?.[0]?.text || "").toLowerCase().trim();
+  // כל החלקים ולא parts[0]: מודל חושב מחזיר לפעמים חלק של מחשבה לפני
+  // התשובה, ואז parts[0] אינו הסיווג אלא ההסבר לעצמו.
+  const text = (json?.candidates?.[0]?.content?.parts ?? [])
+    .map((part: any) => part?.text ?? "")
+    .join(" ")
+    .toLowerCase()
+    .trim();
+
+  // תשובה ריקה אינה "תמונה לא ברורה" אלא קריאה שלא החזירה כלום — בדרך כלל
+  // תקציב טוקנים שנגמר. ‏finishReason הוא מה שאומר את זה, ובלעדיו החיפוש
+  // הזה היה מתחיל מאפס.
+  if (!text) {
+    const finish = json?.candidates?.[0]?.finishReason || json?.promptFeedback?.blockReason;
+    return {
+      photo_type: "unknown",
+      space_role: "unclassified",
+      room_type: null,
+      error: `תשובה ריקה מ-${VISION_MODEL}${finish ? ` (${finish})` : ""}`,
+    };
+  }
 
   const photo_type = text.includes("exterior") ? "exterior" : text.includes("interior") ? "interior" : "unknown";
   const space_role = text.includes("auxiliary") ? "auxiliary" : text.includes("main") ? "main" : "unclassified";
@@ -479,7 +530,13 @@ export async function ensureTagged(
       pending.slice(i, i + BATCH).map(async (row: any) => {
         const img = await fetchAsBase64(row.image_url);
         if (!img) return;
-        const tags = await classifyImage(apiKey, img.mime, img.data);
+        const { error: classifyErr, ...tags } = await classifyImage(apiKey, img.mime, img.data);
+        // קריאה שנכשלה נשארת ללא classified_at ותנוסה שוב בבקשה הבאה,
+        // במקום להיקבע כ-unknown לתמיד.
+        if (classifyErr) {
+          console.error(`סיווג נכשל ל-${row.image_url}: ${classifyErr}`);
+          return;
+        }
         Object.assign(row, tags);
         await supabase
           .from("property_image_tags")

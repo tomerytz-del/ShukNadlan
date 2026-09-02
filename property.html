@@ -1976,7 +1976,15 @@ function initVisualizationForm(){
         body: JSON.stringify(payload),
       });
       const out = await res.json().catch(()=>({}));
-      if (!res.ok || out.error) throw new Error(out.message || out.error || 'שגיאה ביצירת ההדמיה');
+      /* ‏out.error הוא קוד מכונה (gemini_not_configured, db_error) ולא טקסט
+         לגולש/ת. הפונקציה מצרפת message בעברית בכל מקרה שהגולש/ת יכול/ה
+         לעשות איתו משהו — "יש למלא שם וטלפון", "הגעתם למכסה היומית" — וכל
+         מה שאין לו message הוא תקלה שלנו, שאין לה שום ניסוח מועיל בצד הזה.
+         הקוד עצמו נשמר ל-console כדי שלא ילך לאיבוד באבחון. */
+      if (!res.ok || out.error){
+        if (out.error) console.error('property-visualize נכשל:', out.error, out.detail || '');
+        throw new Error(out.message || 'לא הצלחנו ליצור את ההדמיה כרגע. נסו שוב מאוחר יותר.');
+      }
 
       form.classList.remove('open');
       document.getElementById('vizCta').hidden = true;

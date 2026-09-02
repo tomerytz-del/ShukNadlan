@@ -54,7 +54,19 @@ with checks as (
          (select exists (select 1 from vault.secrets where name = 'edge_functions_base_url')),
          'הטריגר האוטומטי רדום — הריצו את חלק 2'
 
-  union all select 8, 'תוכן: יש נכס זכאי עם תמונות',
+  union all select 8, 'שדרוג: טריגר על agency_members',
+         (select tgenabled = 'O' from pg_trigger
+           where tgrelid = 'public.agency_members'::regclass
+             and tgname = 'agency_members_enqueue_visualization_backfill'),
+         'המיגרציה 20260918090000 לא הורצה — שדרוג ל-Premium לא ימלא נכסים קיימים'
+
+  -- בלי ה-cron התור מתמלא ולא מתרוקן, וזה הכשל השקט הקלאסי של המנגנון הזה:
+  -- הכל "עובד", השורות ממתינות, ואף הדמיה לא נוצרת.
+  union all select 9, 'שדרוג: cron שמרוקן את התור',
+         (select active from cron.job where jobname = 'visualization-backfill-drain'),
+         'ה-cron חסר או כובה — התור יתמלא ולא יתרוקן'
+
+  union all select 10, 'תוכן: יש נכס זכאי עם תמונות',
          (select exists (
             select 1 from public.properties p
             join public.agency_members m on m.id = p.agent_id
@@ -145,6 +157,15 @@ end $$;
 -- לעולם בלי דחיפה אחת. השאילתה מחזירה בדיוק את הרשימה הזו.
 --
 -- להרצה בפועל: scripts/visualizations_backfill.sh
+--
+-- שדרוג סוכן/ת כבר לא דורש את זה — הוא נרשם לתור אוטומטית. מצב התור:
+--
+--   select status, count(*) from public.visualization_backfill_queue group by status;
+--
+-- ‏pending שנתקע פירושו שסודות ה-Vault חסרים (חלק 2) או שה-cron כבוי.
+-- לרישום ידני של סוכן/ת לתור, אחרי תיקון נתונים:
+--
+--   select public.queue_agent_visualization_backfill('<AGENT_ID>');
 -- ---------------------------------------------------------------------------
 select p.id,
        p.title,

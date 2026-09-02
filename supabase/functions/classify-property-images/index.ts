@@ -88,6 +88,9 @@ Deno.serve(async (req: Request) => {
 
   let processed = 0;
   let failed = 0;
+  // הסיבות נאספות ומוחזרות בתשובה. בלעדיהן "failed: 5" הוא מספר בלי משמעות,
+  // ולא היה שום הבדל גלוי בין מודל בשם שגוי, מכסה שנגמרה ותמונה פגומה.
+  const reasons = new Set<string>();
   const BATCH = 5;
 
   for (let i = 0; i < pending.length; i += BATCH) {
@@ -96,24 +99,38 @@ Deno.serve(async (req: Request) => {
         const img = await fetchAsBase64(row.image_url);
         if (!img) {
           failed++;
+          reasons.add("לא ניתן להוריד את התמונה");
           return;
         }
-        const tags = await classifyImage(apiKey, img.mime, img.data);
+        const { error: classifyErr, ...tags } = await classifyImage(apiKey, img.mime, img.data);
+        // כשל בקריאה ל-Gemini אינו תיוג. השורה נשארת בלי classified_at כדי
+        // שההרצה הבאה תנסה אותה שוב — אחרת תקלה חולפת הייתה מקבעת את הנכס
+        // כ"אין תמונות מתאימות" לצמיתות.
+        if (classifyErr) {
+          failed++;
+          reasons.add(classifyErr);
+          return;
+        }
         const { error: updErr } = await supabase
           .from("property_image_tags")
           .update({ ...tags, classified_at: new Date().toISOString(), model: VISION_MODEL })
           .eq("id", row.id);
-        if (updErr) failed++;
-        else processed++;
+        if (updErr) {
+          failed++;
+          reasons.add(`db: ${updErr.message}`);
+        } else processed++;
       })
     );
   }
 
   return json({
-    ok: true,
+    // ‏ok משקף את מה שקרה בפועל: ריצה שבה כל התמונות נכשלו אינה הצלחה.
+    ok: failed === 0,
     synced: toSync.length,
     processed,
     failed,
+    ...(reasons.size ? { reasons: [...reasons] } : {}),
+    model: VISION_MODEL,
     more_pending: pending.length === limit,
   });
 });
