@@ -8,9 +8,9 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
-    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
-    --line:#C5C3BC; --blue:#1C3A5E; --blue-dark:#122840; --blue-tint:#E0E7ED;
-    --red:#8B2332; --red-dark:#6B1A26; --red-tint:#F1DFE1;
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
+    --line:#e3e8f4; --blue:#0e2a6b; --blue-dark:#0d1b3d; --blue-tint:#eaf0fb;
+    --red:#0e2a6b; --red-dark:#08194a; --red-tint:#f7f1e2;
     --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(18,40,64,.1);
   }
   *{box-sizing:border-box}
@@ -45,13 +45,16 @@
   .field input,.field textarea{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
   .field textarea{resize:vertical;min-height:90px}
 
-  .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:999px;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:0;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff}
   .btn:disabled{opacity:.5;cursor:not-allowed}
 
   #feedback{font-size:.82rem;text-align:center;margin-top:12px;min-height:1.2em}
   #stateLoading,#stateError,#stateDone{display:none;text-align:center}
   #stateForm{display:none}
 </style>
+<link rel="stylesheet" href="assets/design-system.css">
+<script defer src="assets/brand-logo.js"></script>
+<script src="assets/page-bg.js" data-auto></script>
 </head>
 <body>
 

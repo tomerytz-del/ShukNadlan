@@ -48,7 +48,7 @@
       '.map-gesture-hint{' +
         'position:absolute;top:50%;left:50%;z-index:900;' +
         'transform:translate(-50%,-50%) scale(.96);' +
-        'max-width:calc(100% - 36px);padding:9px 18px;border-radius:999px;' +
+        'max-width:calc(100% - 36px);padding:9px 18px;' +
         'background:rgba(18,40,64,.92);color:#fff;' +
         "font-family:'Heebo',sans-serif;font-size:.84rem;font-weight:700;line-height:1.35;" +
         'text-align:center;white-space:nowrap;' +

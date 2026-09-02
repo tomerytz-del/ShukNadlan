@@ -1,0 +1,60 @@
+/* ============================================================================
+   דפי התוכן — אודות, תנאי שימוש, מדיניות פרטיות והצהרת נגישות
+   ----------------------------------------------------------------------------
+   ארבעה דפים שכל תפקידם הוא טקסט שנקרא מתחילתו ועד סופו, ולכן הם חולקים
+   גיליון אחד קטן במקום ארבעה בלוקים כמעט־זהים בתוך ארבעה קבצים.
+
+   הפלטה, הצורה והטיפוגרפיה מגיעות כולן מ-assets/design-system.css — כאן
+   נמצא רק מה שמיוחד לעמוד טקסט: רוחב שורה שנוח לקריאה, מקצב הכותרות
+   בתוך המאמר, ותוכן העניינים שבראשו.
+   ============================================================================ */
+body{background:var(--paper);color:var(--ink)}
+*{box-sizing:border-box}
+.wrap{max-width:820px;margin:0 auto;padding:0 18px}
+
+header.site{
+  background:var(--glass-strong);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);position:sticky;top:0;z-index:40;
+}
+.header-inner{display:flex;align-items:center;justify-content:space-between;gap:14px;
+  min-height:66px;max-width:1180px;margin:0 auto;padding:0 18px}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none;min-width:0}
+.logo-img{height:42px;width:auto;display:block;flex:0 0 auto}
+.back-link{font-size:.88rem;font-weight:700;color:var(--sapphire);text-decoration:none;white-space:nowrap}
+.back-link:hover{color:var(--sapphire-hover)}
+
+.page-head{background:var(--hero-ground);border-bottom:1px solid var(--line);padding:36px 0 30px}
+.page-head .kicker{font-size:11px;font-weight:800;letter-spacing:.16em;color:var(--brass-ink);
+  margin-bottom:9px;display:block}
+.page-head h1{font-size:clamp(26px,5.4vw,40px);line-height:1.1;margin:0;color:var(--ink)}
+.page-head p{margin:12px 0 0;font-size:17px;line-height:1.7;color:var(--ink-soft);max-width:60ch}
+.page-head .updated{margin-top:14px;font-size:13px;color:var(--ink-muted)}
+
+main.doc{padding:30px 0 46px}
+/* ‏65ch הוא הרוחב שבו העין מוצאת את תחילת השורה הבאה בלי לחפש אותה. */
+.doc p,.doc li{font-size:17px;line-height:1.8;color:var(--ink-soft);max-width:65ch}
+.doc h2{font-size:22px;margin:34px 0 10px;color:var(--ink)}
+.doc h3{font-size:17px;margin:22px 0 6px;color:var(--ink)}
+.doc ul{padding-inline-start:20px;margin:10px 0}
+.doc li{margin-bottom:7px}
+.doc a{color:var(--sapphire);text-decoration:underline;text-underline-offset:3px}
+.doc strong{color:var(--ink);font-weight:700}
+
+/* תוכן העניינים: קופסה אחת בראש הדף, ולא סרגל צף — בעמוד טקסט אחד
+   הקורא/ת רוצה לדעת מה יש כאן, לא לנווט בזמן הקריאה. */
+.toc{background:var(--surface);border:1px solid var(--line);padding:16px 18px;margin-bottom:8px}
+.toc h2{font-size:12px;font-weight:800;letter-spacing:.12em;color:var(--ink-muted);margin:0 0 9px}
+.toc ol{margin:0;padding-inline-start:20px}
+.toc li{margin-bottom:4px;font-size:15px}
+
+/* קופסת הערה: הבהרה שצריכה להיקרא לפני הסעיף שאחריה. */
+.note{background:var(--brass-tint);border-inline-start:3px solid var(--brass);
+  padding:14px 16px;margin:20px 0}
+.note p{margin:0;font-size:15px;color:var(--ink);max-width:none}
+
+.contact-grid{display:grid;grid-template-columns:1fr;gap:12px;margin:18px 0}
+@media(min-width:640px){.contact-grid{grid-template-columns:1fr 1fr}}
+.contact-card{background:var(--surface);border:1px solid var(--line);padding:16px 18px}
+.contact-card h3{margin:0 0 5px;font-size:15px}
+.contact-card p{margin:0;font-size:15px;max-width:none}

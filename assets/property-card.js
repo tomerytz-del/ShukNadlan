@@ -267,7 +267,7 @@
        מתכווץ יחד איתה בכל נקודת שבירה שבה הדף מקטין אותה.
        ‏overflow-wrap:anywhere — כתובת ארוכה בלי רווחים לא מרחיבה את האריח. */
     '.pc-title{',
-    '  font-size:.85rem;font-weight:700;color:var(--ink,#1B1F26);line-height:1.35;margin-top:5px;',
+    '  font-size:.85rem;font-weight:700;color:var(--ink,#0d1b3d);line-height:1.35;margin-top:5px;',
     '  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;',
     '  min-height:2.7em;overflow-wrap:anywhere}',
 
@@ -308,19 +308,19 @@
     /* התגיות שעל התמונה */
     '.pc-badges{position:absolute;top:9px;inset-inline-start:9px;z-index:2;',
     '  display:flex;gap:5px;flex-wrap:wrap;max-width:calc(100% - 18px)}',
-    '.pc-badge{font-size:.66rem;font-weight:800;padding:3px 9px;border-radius:999px;line-height:1.35;',
+    '.pc-badge{font-size:.66rem;font-weight:800;padding:3px 9px;border-radius:0;line-height:1.35;',
     '  color:#fff;border:1px solid rgba(255,255,255,.28);',
     '  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);white-space:nowrap}',
     '.pc-badge.is-sale{background:var(--pc-sale-bg,rgba(18,40,64,.72))}',
-    '.pc-badge.is-rent{background:var(--pc-rent-bg,rgba(139,35,50,.78))}',
-    '.pc-badge.is-excl{background:var(--pc-excl-bg,rgba(154,110,26,.86))}',
-    '.pc-badge.is-ai{background:var(--pc-ai-bg,rgba(58,52,120,.82))}',
-    '.pc-badge.is-commercial{background:var(--pc-commercial-bg,rgba(23,73,74,.8))}',
+    '.pc-badge.is-rent{background:var(--pc-rent-bg,rgba(14,42,107,.78))}',
+    '.pc-badge.is-excl{background:var(--pc-excl-bg,rgba(201,162,39,.86))}',
+    '.pc-badge.is-ai{background:var(--pc-ai-bg,rgba(13,27,61,.82))}',
+    '.pc-badge.is-commercial{background:var(--pc-commercial-bg,rgba(14,42,107,.8))}',
 
     '.pc-media{position:absolute;bottom:9px;inset-inline-start:9px;z-index:2;display:flex;gap:5px;flex-wrap:wrap}',
     '.pc-media span{display:inline-flex;align-items:center;gap:4px;font-size:.66rem;font-weight:700;',
     '  background:rgba(15,23,42,.58);color:#fff;border:1px solid rgba(255,255,255,.24);',
-    '  padding:4px 9px;border-radius:999px;',
+    '  padding:4px 9px;border-radius:0;',
     '  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}',
     '.pc-media svg{width:12px;height:12px}',
   ].join('\n');

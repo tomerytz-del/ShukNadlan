@@ -13,11 +13,11 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
-    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
-    --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
-    --gold:#8B2332; --gold-dark:#6B1A26; --gold-tint:#F1DFE1; --wa:#1F8F5F;
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
+    --line:#e3e8f4; --teal:#0e2a6b; --teal-dark:#0d1b3d; --teal-tint:#eaf0fb;
+    --gold:#0e2a6b; --gold-dark:#08194a; --gold-tint:#f7f1e2; --wa:#25a55a;
     --radius-sm:6px; --radius-md:12px; --radius-lg:20px;
-    --shadow-sm:0 2px 8px rgba(15,52,53,.08); --maxw:900px;
+    --shadow-sm:0 2px 8px rgba(14,42,107,.08); --maxw:900px;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55}
@@ -27,7 +27,7 @@
   img{max-width:100%}
   .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
   .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line)}
-  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;border-radius:999px;font-weight:700;font-size:.9rem}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;border-radius:0;font-weight:700;font-size:.9rem}
   .btn svg{width:19px;height:19px;flex:none}
   .btn-wa{background:var(--wa);color:#fff}
   .btn-teal{background:var(--teal);color:#fff}
@@ -83,7 +83,7 @@
      לה תוכן, ואם אין אף אחת השורה כולה יורדת. */
   .chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px}
   .chip{
-    background:var(--teal-tint);color:var(--teal-dark);border-radius:999px;
+    background:var(--teal-tint);color:var(--teal-dark);border-radius:0;
     padding:5px 12px;font-size:.76rem;font-weight:700;
   }
   .chip.soft{background:#fff;border:1px solid var(--line);color:var(--ink-soft);font-weight:600}
@@ -181,6 +181,9 @@
   .site-note a{color:var(--teal);font-weight:700}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
+<link rel="stylesheet" href="assets/design-system.css">
+<script defer src="assets/brand-logo.js"></script>
+<script src="assets/page-bg.js" data-auto></script>
 <script src="assets/site-footer.js" defer></script>
 </head>
 <body>
@@ -189,7 +192,7 @@
   <div class="wrap header-inner">
     <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
       <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="512" height="436">
-      <span class="logo-word">שוק הנדל״ן של <span>עפולה והסביבה</span></span>
+      <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
     </a>
     <a href="index.html#pros" class="back-link">← כל בעלי המקצוע</a>
   </div>
@@ -638,9 +641,7 @@ function renderMeta(p){
       </div>
       <div class="footer-col">
         <h4>שוק נדל״ן</h4>
-        <!-- "אודות" הוא הקישור היחיד בפוטר שעדיין אין לו דף; כל השאר
-             מצביעים על דפים, על סקציות אמיתיות או על תיבת המייל. -->
-        <a href="#">אודות</a>
+        <a href="about.html">אודות</a>
         <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
         <a href="faq.html">שאלות נפוצות</a>
         <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
@@ -678,9 +679,9 @@ function renderMeta(p){
   <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
     <div class="footer-legal">
-      <a href="#">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
-      <a href="#">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
-      <a href="#">הצהרת נגישות</a>
+      <a href="terms.html">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
+      <a href="privacy.html">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
+      <a href="accessibility.html">הצהרת נגישות</a>
     </div>
   </div>
 </footer>

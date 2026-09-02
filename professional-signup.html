@@ -7,9 +7,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
-    --line:#C5C3BC; --blue:#1C3A5E; --blue-dark:#122840; --blue-tint:#E0E7ED;
-    --red:#8B2332; --red-dark:#6B1A26; --gold-tint:#F1DFE1;
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
+    --line:#e3e8f4; --blue:#0e2a6b; --blue-dark:#0d1b3d; --blue-tint:#eaf0fb;
+    --red:#0e2a6b; --red-dark:#08194a; --gold-tint:#f7f1e2;
     --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(18,40,64,.1);
   }
   *{box-sizing:border-box}
@@ -29,7 +29,7 @@
   .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
   .field input,.field select{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
   .field input:focus,.field select:focus{border-color:var(--blue);outline:none}
-  .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:999px;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff;margin-top:8px}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:0;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff;margin-top:8px}
   .btn:disabled{opacity:.5;cursor:not-allowed}
   #feedback{font-size:.82rem;text-align:center;margin-top:12px;min-height:1.2em}
   .note{font-size:.72rem;color:var(--ink-soft);background:var(--gold-tint);border-radius:var(--radius-sm);padding:10px 12px;margin-top:16px;text-align:center}
@@ -41,6 +41,9 @@
   .manage-box input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:9px 10px;font-size:.76rem;background:#fff;text-align:left;direction:ltr}
   .back-link{display:block;text-align:center;font-size:.8rem;color:var(--blue);margin-top:16px;text-decoration:none}
 </style>
+<link rel="stylesheet" href="assets/design-system.css">
+<script defer src="assets/brand-logo.js"></script>
+<script src="assets/page-bg.js" data-auto></script>
 </head>
 <body>
 

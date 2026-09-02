@@ -7,9 +7,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
-    --line:#C5C3BC; --blue:#1C3A5E; --blue-dark:#122840; --blue-tint:#E0E7ED;
-    --red:#8B2332; --red-dark:#6B1A26;
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
+    --line:#e3e8f4; --blue:#0e2a6b; --blue-dark:#0d1b3d; --blue-tint:#eaf0fb;
+    --red:#0e2a6b; --red-dark:#08194a;
     --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(18,40,64,.1);
   }
   *{box-sizing:border-box}
@@ -41,19 +41,22 @@
   .spec-chips{display:flex;flex-wrap:wrap;gap:7px}
   .spec-chip{
     display:inline-flex;align-items:center;gap:5px;font-size:.76rem;font-weight:700;line-height:1.2;
-    border:1.5px solid var(--line);background:#fff;color:var(--ink);border-radius:999px;padding:7px 12px;
+    border:1.5px solid var(--line);background:#fff;color:var(--ink);border-radius:0;padding:7px 12px;
     transition:border-color .15s ease,background .15s ease,color .15s ease;
   }
   .spec-chip svg{width:13px;height:13px;flex:none}
   .spec-chip.on{border-color:var(--blue);background:var(--blue);color:#fff}
   .spec-chip[disabled]{opacity:.45;cursor:not-allowed}
-  .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:999px;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff;margin-top:6px}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:0;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff;margin-top:6px}
   .btn:disabled{opacity:.5;cursor:not-allowed}
   #feedback{font-size:.82rem;text-align:center;margin-top:12px;min-height:1.2em}
   .back-link{display:block;text-align:center;font-size:.8rem;color:var(--blue);margin-top:16px;text-decoration:none}
   .note{font-size:.72rem;color:var(--ink-soft);background:var(--blue-tint);border-radius:var(--radius-sm);padding:10px 12px;margin-top:16px}
   #stateDone{display:none;text-align:center}
 </style>
+<link rel="stylesheet" href="assets/design-system.css">
+<script defer src="assets/brand-logo.js"></script>
+<script src="assets/page-bg.js" data-auto></script>
 </head>
 <body>
 

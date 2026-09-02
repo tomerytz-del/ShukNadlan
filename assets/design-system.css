@@ -1,0 +1,367 @@
+/* ============================================================================
+   שכבת העיצוב של שוק הנדל״ן — ספיר וזהב
+   ----------------------------------------------------------------------------
+   קובץ אחד שמחזיק את השפה הוויזואלית של האתר: פלטה, טיפוגרפיה, מקצב מרווחים,
+   צורת המשטחים והרכיבים החוזרים (כפתורים, תגיות, תו האמון, סרט "מקודם",
+   שלד טעינה, הרקע הנע). הוא נטען בכל עמוד ציבורי **אחרי** ה-<style> הפנימי
+   ואחרי site-footer.css, ולכן הוא זה שקובע כשיש התנגשות.
+
+   שלושה כללים שמסבירים כמעט כל שורה כאן:
+
+     1. **הפלטה נכתבת מחדש דרך שמות הטוקנים הקיימים.** הדפים כבר מדברים
+        ‎var(--teal)‎ / ‎var(--gold)‎ / ‎var(--paper)‎ בכל מקום, ולכן החלפת
+        *הערך* מחליפה את מראה האתר כולו בלי לגעת ב-450KB של CSS פנימי.
+     2. **‏--teal ו---gold נגזרים מ---brand ומ---accent.** דף המשרד ודף
+        הסוכן/ת מזריקים את צבעי המשרד ב-JS ישירות על ‎documentElement.style‎,
+        וסגנון inline גובר על הקובץ הזה — כך המיתוג הפרטי של כל משרד שורד את
+        המעבר, ומי שלא בחר צבעים מקבל את ספיר ברירת המחדל.
+     3. **זהב אמיתי הוא ‎--brass‎ ולא ‎--gold‎.** ‏--gold הוא תפקיד: "משטח מלא
+        שנושא טקסט לבן" (כל ‎.btn-gold‎ באתר), ולכן הוא ספיר. הזהב ‎#c9a227‎
+        לעולם לא נושא טקסט לבן — הוא טבעת תו האמון, סרט "מקודם", ה-✦ של
+        ההדמיות והקווים הדקים — ולכן הוא טוקן נפרד.
+
+   ‏!important מופיע כאן רק בשני מקומות שבהם השכבה מתווכחת עם כללים פנימיים
+   בעלי ספציפיות גבוהה יותר: איפוס עיגול הפינות, וצבעי הפוטר שנכתבו בקובץ
+   הפוטר בכוונה כערכים מפורשים. בכל שאר הקובץ הקדימות מגיעה מסדר הטעינה.
+   ============================================================================ */
+
+/* ====== 1. טוקנים ====== */
+:root{
+  /* ---- ספיר: הצבע הראשי. פעולות, קישורים, כותרות, הדגשת נתונים ---- */
+  --sapphire:        #0e2a6b;
+  --sapphire-deep:   #0d1b3d;
+  --sapphire-hover:  #08194a;
+
+  /* ---- זהב: אקסנט בלבד. אף פעם לא רקע לטקסט לבן ---- */
+  --brass:           #c9a227;
+  --brass-light:     #e5c76a;   /* זהב כטקסט על רקע כהה */
+  --brass-ink:       #8a6d10;   /* זהב כטקסט על רקע בהיר — 4.6:1 מול לבן */
+  --brass-tint:      #f7f1e2;
+
+  /* ---- בורדו: אך ורק תגית "למכירה". לא כפתור ולא קישור ---- */
+  --burgundy:        #6e1022;
+
+  /* ---- ירוקים ---- */
+  --wa:              #25a55a;   /* וואטסאפ בלבד */
+  --wa-dark:         #1c8546;
+  --positive:        #21a565;   /* "12 נכסים נוספו היום", "נמכר עכשיו" */
+
+  /* ---- הבסיס שממנו נגזרים --teal/--gold; דף המשרד דורס אותו ב-JS ---- */
+  --brand:           #0e2a6b;
+  --brand-dark:      #0d1b3d;
+  --accent:          #0e2a6b;
+  --accent-dark:     #08194a;
+  --accent-ink:      #0e2a6b;
+  --on-brand:        #fff;
+  --on-accent:       #fff;
+
+  /* ---- מיפוי הטוקנים ההיסטוריים ---- */
+  --teal:            var(--brand);
+  --teal-dark:       var(--brand-dark);
+  --teal-tint:       #eaf0fb;
+  --gold:            var(--accent);
+  --gold-dark:       var(--accent-dark);
+  --gold-tint:       var(--brass-tint);
+  --brick:           var(--burgundy);
+  --live:            var(--positive);
+
+  --ink:             #0d1b3d;
+  --ink-soft:        #4a5578;
+  --ink-muted:       #6b7796;
+  --ink-faint:       #8b93b0;
+
+  --paper:           #f4f7fe;   /* רקע העמוד */
+  --paper-raised:    #ffffff;
+  --surface:         #ffffff;
+  --surface-soft:    #f8faff;
+  --hero-ground:     #eaf0fb;
+  --field:           #eef2fb;   /* מסלולי טאבים, צ׳יפים מהירים */
+
+  --line:            #e3e8f4;
+  --hair:            #eef1f8;
+  --hair-strong:     #dde3f2;
+
+  /* ---- צבע לכל סוג עסקה. אותו קוד בפין במפה, במקרא ובתגית בכרטיס ---- */
+  --deal-sale:       #6e1022;   /* למכירה — הבורדו, ורק כאן */
+  --deal-rent:       #0e2a6b;   /* להשכרה — ספיר */
+  --deal-commercial: #9a4e00;   /* מסחרי — חום־כתום; 4.6:1 מול טקסט לבן */
+
+  /* ---- כוכבים ותו אמון ---- */
+  --star:            #c9a227;
+  --star-off:        #d3daea;
+  --verified:        #21a565;
+  --verified-tint:   #e5f5ed;
+
+  /* ---- צורה: הכול מרובע. זו החלטה, לא השמטה ---- */
+  --radius-sm: 0; --radius-md: 0; --radius-lg: 0;
+  --radius-xl: 0; --radius-2xl: 0; --radius: 0;
+
+  /* ---- צללים: ספיר מדולל, לא שחור ---- */
+  --shadow-xs: 0 1px 2px rgba(14,42,107,.06);
+  --shadow-sm: 0 6px 18px -14px rgba(14,42,107,.5);
+  --shadow:    0 10px 30px -24px rgba(14,42,107,.5);
+  --shadow-md: 0 10px 30px -24px rgba(14,42,107,.5);
+  --shadow-lg: 0 22px 50px -30px rgba(14,42,107,.5);
+  --shadow-card: 0 10px 30px -24px rgba(14,42,107,.5);
+  --shadow-lift: 0 22px 50px -30px rgba(14,42,107,.5);
+  --shadow-search: 0 26px 60px -34px rgba(14,42,107,.55);
+
+  /* ---- שכבות זכוכית ---- */
+  --glass:        rgba(255,255,255,.78);
+  --glass-strong: rgba(255,255,255,.9);
+
+  /* ---- ורידים שדפים מסוימים מגדירים לעצמם ---- */
+  --bronze: #8a6d10; --bronze-soft: #c9a227; --bronze-tint: #f7f1e2;
+  --veil-ink: #0d1b3d;
+  --brand-veil: rgba(13,27,61,.62);
+  --accent-veil: rgba(14,42,107,.86);
+  --cover-veil-strong: rgba(13,27,61,.5);
+  --cover-veil-soft: rgba(13,27,61,.05);
+}
+
+/* ====== 2. יסודות ====== */
+body{
+  background:var(--paper);
+  color:var(--ink);
+  font-family:'Heebo',system-ui,sans-serif;
+  font-weight:400;
+}
+
+/* קול טיפוגרפי אחד: Heebo בכל המשקלים במקום שילוב serif+sans. הכותרות
+   דחוסות (letter-spacing שלילי) — זה מה שנותן להן את הנוכחות, לא הגופן. */
+h1,h2,h3,h4,.display,.logo-word,.footer-brand .footer-logo span{
+  font-family:'Heebo',system-ui,sans-serif;
+  font-weight:800;
+  letter-spacing:-.02em;
+  color:var(--ink);
+}
+h4,h5,h6{font-weight:700}
+
+/* גוף הטקסט ב-16px ובניגודיות ‎≥4.5:1‎ — כדי שתפריט הנגישות יהיה עזר
+   ולא תנאי לקריאת האתר. */
+body,p,li,input,select,textarea{font-size:16px}
+p{color:var(--ink-soft);line-height:1.7}
+
+a{color:inherit}
+a:hover{color:var(--sapphire-hover)}
+
+/* מיקוד גלוי ואחיד בכל האתר. מוגדר פעם אחת כאן ולא בכל דף. */
+a:focus-visible,button:focus-visible,input:focus-visible,
+select:focus-visible,textarea:focus-visible,[tabindex]:focus-visible{
+  outline:2px solid var(--brass);
+  outline-offset:2px;
+}
+
+::selection{background:rgba(14,42,107,.16)}
+
+/* ====== 3. צורה מרובעת ======
+   הטוקנים למעלה כבר מאפסים כל ‎var(--radius-*)‎, אבל באתר יש גם ערכים
+   קשיחים (999px לגלולות, 5–12px לתגיות). הרשימה הזאת מכסה אותם. ‏!important
+   נדרש כי חלק מהכללים הפנימיים ממוענים בשתי מחלקות ומנצחים בספציפיות.
+   מה שנשאר עגול הוא רק מה שהוא באמת דיסקה: תו האמון, תמונות פרופיל, נקודות
+   מצב ופיני המפה. */
+.btn,.card,.chip,.tag,.pill,.badge,.thumb,
+input,select,textarea,
+.prop-card,.prop-card .thumb,.prop-card .ribbon,
+.pc-badge,.pc-media,.pc-thumb,.pc-badges span,
+.footer-cta a,.footer-chip,.footer-seo-links a,
+.ad-slot .tag,.hamburger,.mobile-menu,
+[class*="-card"],[class*="-chip"],[class*="-tab"],[class*="-badge"],
+[class*="-modal"],[class*="-panel"],[class*="-btn"],[class*="btn-"]{
+  border-radius:0 !important;
+}
+/* חריגים: מה שהוא באמת דיסקה. הרשימה מפורשת ולא ‎[class*="dot"]‎ — התבנית
+   הרחבה תפסה גם מכולות (‏.cf-dots), כלומר משטח רחב שקיבל פינות של עיגול. */
+.qb-badge img,.avatar,.agent-avatar,.pc-avatar,
+[class*="avatar"],[class*="medal"],
+.live-dot,.info-dot,.ai-handle,
+.cf-dots button,
+.calc-range::-webkit-slider-thumb,.calc-range::-moz-range-thumb,
+.leaflet-marker-icon,.leaflet-marker-icon *{
+  border-radius:50% !important;
+}
+
+/* ====== 4. כפתורים ======
+   על רקע בהיר יש **צבע כפתור מלא אחד** — ספיר. ‏.btn-gold ו-.btn-teal
+   נראים זהים בכוונה: ההיררכיה נוצרת ממלא־מול־מתאר, לא משני צבעים מלאים
+   שמתחרים על אותה תשומת לב. */
+.btn{
+  font-family:'Heebo',system-ui,sans-serif;
+  font-weight:700;font-size:.95rem;letter-spacing:-.01em;
+  padding:13px 24px;
+  transition:background .16s ease,color .16s ease,border-color .16s ease;
+}
+.btn-gold,.btn-teal{background:var(--teal);color:var(--on-brand);box-shadow:none}
+.btn-gold:hover,.btn-teal:hover{
+  background:var(--sapphire-hover);color:#fff;transform:none;box-shadow:none;
+}
+.btn-ghost{background:transparent;border:1.5px solid var(--hair-strong);color:var(--sapphire)}
+.btn-ghost:hover{background:var(--teal-tint);border-color:var(--sapphire);color:var(--sapphire)}
+
+/* הכפתור הזהוב קיים בהקשר אחד בלבד: פעולה ראשית על רצועה כהה, שם ספיר
+   על ספיר לא נקרא. הטקסט עליו כהה — זהב אף פעם לא נושא לבן. */
+.btn-brass{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  background:var(--brass);color:var(--sapphire-deep);
+  font-weight:800;padding:13px 24px;border:none;
+}
+.btn-brass:hover{background:#dcb63c;color:var(--sapphire-deep)}
+
+/* וואטסאפ הוא הצבע היחיד שנשאר ירוק — ואחד למסך. */
+[class*="wa-btn"],[class*="whatsapp"]{background:var(--wa)}
+
+/* ====== 5. משטחים ====== */
+.card,.prop-card{
+  background:var(--surface);
+  border:1px solid var(--line);
+  box-shadow:var(--shadow);
+}
+hr,.divider{border:none;border-top:1px solid var(--hair)}
+
+/* ====== 6. כותרות סקציה ======
+   ה-eyebrow הוא הקו הזהוב היחיד בגוף העמוד — הוא מסמן "כאן מתחיל פרק"
+   ומחזיק את הזהב בשימוש עקבי לאורך כל האתר. */
+.eyebrow{color:var(--brass-ink);font-weight:800;letter-spacing:.14em;font-size:.7rem}
+.eyebrow::before{background:var(--brass);height:2px;width:20px}
+.section-head h2,.section-head h3{color:var(--ink)}
+
+/* ====== 7. הכותרת העליונה ====== */
+header.site{
+  background:var(--glass-strong);
+  -webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  border-bottom:1px solid var(--line);
+  box-shadow:none;
+}
+header.site .primary a{color:var(--ink-soft);font-weight:500}
+header.site .primary a:hover{color:var(--sapphire)}
+/* הפריט הפעיל מסומן בקו זהוב 2px מתחתיו — אותו זהב של ה-eyebrow. */
+header.site .primary a[aria-current],header.site .primary a.is-active{
+  color:var(--sapphire);font-weight:700;
+  box-shadow:inset 0 -2px 0 var(--brass);
+}
+.logo-word{font-family:'Heebo',system-ui,sans-serif;font-weight:800;letter-spacing:-.035em}
+.logo-word span{color:var(--brass-ink)}
+
+/* ---- הנעילה של הלוגו ----
+   הסמל, ומצדו שתי שורות: שם האתר, קו זהב דק ברוחב השם, ומתחתיו האזור
+   במרווח אותיות פתוח. הקו הוא מה שהופך שתי שורות טקסט ליחידה אחת, והוא
+   אותו זהב של ה-eyebrow ושל סרט "מקודם" — הלוגו לא מביא צבע משלו. */
+.logo-word{
+  display:flex;flex-direction:column;align-items:stretch;
+  font-size:21px;line-height:1.05;color:var(--ink);white-space:nowrap;
+}
+.logo-word>span{
+  font-size:9px;font-weight:600;letter-spacing:.18em;
+  color:var(--ink-muted);margin-top:3px;padding-top:3px;
+  border-top:1px solid var(--brass);
+}
+@media(max-width:520px){
+  .logo-word{font-size:17px}
+  .logo-word>span{font-size:8px;letter-spacing:.14em}
+}
+
+/* ---- רצועות כהות (הערכת שווי, מחפשי נכס, המחשבונים) ----
+   קודם הן היו חצי־שקופות מעל הרקע הזורם, ולכן כל אחת קיבלה גוון אחר לפי
+   מה שבמקרה עבר מתחתיה — משטח שאמור להיות "הבמה" של קריאה לפעולה יצא
+   אפרפר ובוצי. עכשיו כולן על אותו ספיר אטום. */
+.owner-banner,.buyer-banner,.calc-banner,.yield-banner{
+  background:linear-gradient(160deg,var(--sapphire) 0%,var(--sapphire-deep) 100%);
+  border:1px solid rgba(255,255,255,.1);
+}
+
+/* ====== 8. תגיות עסקה ======
+   בורדו = למכירה, ספיר = להשכרה, חום־כתום = מסחרי. אותו קוד צבע בפין
+   שבמפה, במקרא שמתחתיה ובתגית שעל הכרטיס. */
+.pc-badge.is-sale{background:var(--deal-sale)}
+.pc-badge.is-rent{background:var(--deal-rent)}
+.pc-badge.is-commercial{background:var(--deal-commercial)}
+.pc-badge.is-excl{background:var(--sapphire-deep)}
+.pc-badge.is-ai{background:var(--sapphire-deep)}
+.pc-badge{font-weight:800;letter-spacing:.02em;font-size:11px}
+:root{
+  --pc-sale-bg:var(--deal-sale);
+  --pc-rent-bg:var(--deal-rent);
+  --pc-commercial-bg:var(--deal-commercial);
+  --pc-excl-bg:var(--sapphire-deep);
+  --pc-ai-bg:var(--sapphire-deep);
+}
+
+/* ====== 9. סרט "מקודם" ======
+   מסומן זהב עם יהלום, בגודל אחד ובפינה אחת בכל האתר — כך הקידום נקרא
+   כשפה משלו ולא מתחרה בתגיות העסקה. */
+.prop-card .ribbon,.promoted-flag{
+  background:var(--brass);color:var(--sapphire-deep);
+  font-size:11px;font-weight:800;letter-spacing:.04em;
+  padding:4px 9px;border:none;box-shadow:none;
+}
+.prop-card .ribbon::before,.promoted-flag::before{content:"◆ ";font-size:.85em}
+
+/* ====== 10. תו האמון ======
+   התו עצמו הוא הקישור להסבר הדירוג — אין לצדו קישור טקסט. הטבעת הזהובה
+   היא מה שמסמן אותו כאלמנט אינטראקטיבי. */
+.qb-badge img{
+  box-shadow:0 0 0 2px var(--brass),0 2px 8px rgba(13,27,61,.2);
+  filter:none;
+}
+/* ‏44×44 שטח נגיעה גם כשהדיסקה קטנה יותר — כלל נגישות, לא קישוט. */
+.qb-badge{min-width:44px;min-height:44px}
+
+/* ====== 11. צ׳יפ הדמיית AI ====== */
+.ai-chip{
+  display:inline-flex;align-items:center;gap:6px;
+  background:var(--sapphire-deep);color:var(--brass-light);
+  font-size:11px;font-weight:800;letter-spacing:.06em;padding:4px 9px;
+}
+.ai-chip::before{content:"✦";color:var(--brass)}
+
+/* ====== 12. שלד טעינה ======
+   מלבן שנושם בגאומטריה הסופית של הכרטיס. אף פעם לא "טוען…" כטקסט:
+   טקסט טעינה מזיז את הפריסה כשהתוכן מגיע, שלד לא. */
+.skeleton,[class*="skeleton"]{
+  background:linear-gradient(90deg,var(--field) 25%,#e4ebf9 37%,var(--field) 63%);
+  background-size:400% 100%;
+  animation:dsShimmer 1.4s ease-in-out infinite;
+}
+@keyframes dsShimmer{0%{background-position:100% 0}100%{background-position:0 0}}
+
+/* ====== 13. שדות ====== */
+input,select,textarea{
+  background:var(--surface);
+  border:1px solid var(--hair-strong);
+  color:var(--ink);
+}
+input::placeholder,textarea::placeholder{color:var(--ink-faint)}
+input:focus,select:focus,textarea:focus{border-color:var(--sapphire)}
+
+/* ====== 14א. רצועת המבזקים ======
+   רצועה דקה על משטח לבן: תגית זהובה, כותרת בספיר. קודם הרצועה ישבה על
+   משטח שמנת עם תגית בורדו — צירוף שקרא כבאנר פרסומי ולא כשורת עדכון. */
+.ticker{background:var(--surface);border-block:1px solid var(--line);padding:9px 0}
+.ticker-flag{background:var(--brass);color:var(--sapphire-deep);font-weight:800}
+.ticker-flag .live-dot{background:var(--sapphire-deep)}
+.ticker-text{color:var(--sapphire);font-weight:600}
+.ticker-more{color:var(--brass-ink);font-weight:700}
+
+/* ====== 15. הרקע הנע ======
+   מוגדר במלואו ב-assets/page-bg.js (שכבות, צבעים ואנימציות), ומורכב בכל דף
+   שטוען אותו עם ‎data-auto‎. הוא לא חוזר כאן כדי שלא יהיו לו שתי הגדרות. */
+
+/* ====== 16. הפוטר ======
+   הצבעים עצמם יושבים ב-site-footer.css (הקובץ ההוא חייב לעמוד בפני עצמו גם
+   בדף בלי טוקנים), ולכן כאן נשארת רק ההתאמה שלא ניתן לבטא שם: הכותרות
+   בלבן מלא מול גוף הטקסט הכחלחל. */
+footer.site h3,footer.site h4,.footer-brand .footer-logo span{color:#fff}
+
+/* ====== 17. תנועה מופחתת ======
+   הכלל הזה מכבה **כל** אנימציה באתר, לא רק את אלה של הקובץ הזה. */
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{
+    animation-duration:.001ms !important;
+    animation-iteration-count:1 !important;
+    transition-duration:.001ms !important;
+    scroll-behavior:auto !important;
+  }
+}
+html.a11y-nomotion *,html.a11y-nomotion *::before,html.a11y-nomotion *::after{
+  animation:none !important;
+}

@@ -12,11 +12,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800;900&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
-    --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
-    --gold:#8B2332; --gold-dark:#6B1A26; --gold-tint:#F1DFE1;
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
+    --line:#e3e8f4; --teal:#0e2a6b; --teal-dark:#0d1b3d; --teal-tint:#eaf0fb;
+    --gold:#0e2a6b; --gold-dark:#08194a; --gold-tint:#f7f1e2;
     --brass:#C9A227; --brass-tint:#FAF3DF;
-    --surface:#FFFFFF; --surface-soft:#FBFAF9; --hair:#E6E3DD;
+    --surface:#FFFFFF; --surface-soft:#f8faff; --hair:#eef1f8;
     --radius-md:12px; --radius-lg:20px; --radius-xl:24px;
     --shadow-xs:0 1px 2px rgba(18,40,64,.05);
     --maxw:860px;
@@ -39,7 +39,7 @@
   @media(min-width:900px){.logo-img{height:54px;width:auto}.logo-word{font-size:.95rem;white-space:nowrap}}
   .back-link{font-size:.85rem;font-weight:700;color:var(--teal);flex:0 0 auto}
 
-  .hero{background:linear-gradient(150deg,#0E2340,#1C3A5E 60%,#2A4E77);color:#fff;padding:30px 0 34px}
+  .hero{background:linear-gradient(150deg,#0E2340,#0e2a6b 60%,#2A4E77);color:#fff;padding:30px 0 34px}
   .hero .kicker{font-size:.74rem;font-weight:800;letter-spacing:.08em;color:var(--brass);margin-bottom:7px}
   .hero h1{color:#fff;font-size:1.6rem;line-height:1.25}
   @media(min-width:720px){.hero h1{font-size:2rem}}
@@ -52,7 +52,7 @@
      אמור/ה לגלול דרך כל שאלות המחפשים בדרך אליה. */
   .jump{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:26px}
   .jump a{font-size:.8rem;font-weight:600;color:var(--teal-dark);background:var(--surface);
-    border:1px solid var(--hair);border-radius:999px;padding:8px 14px;box-shadow:var(--shadow-xs)}
+    border:1px solid var(--hair);border-radius:0;padding:8px 14px;box-shadow:var(--shadow-xs)}
   .jump a:hover,.jump a:focus-visible{background:var(--teal-tint);border-color:var(--line)}
 
   .group{margin-bottom:30px;scroll-margin-top:16px}
@@ -98,9 +98,9 @@
   .cta-row{display:grid;gap:10px;margin-top:22px}
   @media(min-width:520px){.cta-row{grid-template-columns:1fr 1fr}}
   .cta{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 20px;
-    border-radius:14px;font-weight:800;font-size:.92rem}
-  .cta-primary{background:linear-gradient(120deg,var(--gold-dark),var(--gold) 60%,#A32B3C);color:#fff;
-    box-shadow:0 6px 16px rgba(139,35,50,.24)}
+    border-radius:0;font-weight:800;font-size:.92rem}
+  .cta-primary{background:linear-gradient(120deg,var(--gold-dark),var(--gold) 60%,#08194a);color:#fff;
+    box-shadow:0 6px 16px rgba(14,42,107,.24)}
   .cta-ghost{background:var(--teal-tint);color:var(--teal-dark);border:1px solid var(--line)}
 
   footer.page{border-top:1px solid var(--line);margin-top:32px;padding-top:16px;
@@ -179,6 +179,9 @@
 }
 </script>
 <link rel="stylesheet" href="assets/site-footer.css">
+<link rel="stylesheet" href="assets/design-system.css">
+<script defer src="assets/brand-logo.js"></script>
+<script src="assets/page-bg.js" data-auto></script>
 <script src="assets/site-footer.js" defer></script>
 </head>
 <body>
@@ -187,7 +190,7 @@
   <div class="wrap header-inner">
     <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
       <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="512" height="436">
-      <span class="logo-word">שוק הנדל״ן של <span>עפולה והסביבה</span></span>
+      <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
     </a>
     <a href="index.html" class="back-link">← דף הבית</a>
   </div>
@@ -469,9 +472,7 @@
       </div>
       <div class="footer-col">
         <h4>שוק נדל״ן</h4>
-        <!-- "אודות" הוא הקישור היחיד בפוטר שעדיין אין לו דף; כל השאר
-             מצביעים על דפים, על סקציות אמיתיות או על תיבת המייל. -->
-        <a href="#">אודות</a>
+        <a href="about.html">אודות</a>
         <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
         <a href="faq.html">שאלות נפוצות</a>
         <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
@@ -509,9 +510,9 @@
   <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
     <div class="footer-legal">
-      <a href="#">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
-      <a href="#">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
-      <a href="#">הצהרת נגישות</a>
+      <a href="terms.html">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
+      <a href="privacy.html">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
+      <a href="accessibility.html">הצהרת נגישות</a>
     </div>
   </div>
 </footer>
