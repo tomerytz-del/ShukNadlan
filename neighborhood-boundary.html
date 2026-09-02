@@ -13,8 +13,8 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
-    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
-    --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --gold:#8B2332; --gold-dark:#6B1A26;
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
+    --line:#e3e8f4; --teal:#0e2a6b; --teal-dark:#0d1b3d; --gold:#0e2a6b; --gold-dark:#08194a;
   }
   *{box-sizing:border-box}
   body{
@@ -30,10 +30,10 @@
   header .sub{font-size:.76rem;color:var(--ink-soft);flex:1 1 240px;min-width:0}
   select,button{font-family:inherit;font-size:.82rem;font-weight:700}
   select{
-    border:1.5px solid var(--line);border-radius:999px;padding:8px 14px;background:#fff;color:var(--ink);
+    border:1.5px solid var(--line);border-radius:0;padding:8px 14px;background:#fff;color:var(--ink);
   }
   button{
-    border:none;border-radius:999px;padding:8px 15px;cursor:pointer;
+    border:none;border-radius:0;padding:8px 15px;cursor:pointer;
     background:var(--teal);color:#fff;
   }
   button.ghost{background:#fff;color:var(--teal);border:1.5px solid var(--line)}
@@ -174,8 +174,8 @@ function drawOthers(){
     const other = parseBoundary(h.boundary);
     if (other.length < 3) return;
     L.polygon(other, {
-      interactive:false, color:'#1C3A5E', weight:1.5, opacity:.55,
-      dashArray:'4 4', fillColor:'#1C3A5E', fillOpacity:.04,
+      interactive:false, color:'#0e2a6b', weight:1.5, opacity:.55,
+      dashArray:'4 4', fillColor:'#0e2a6b', fillOpacity:.04,
     }).addTo(othersLayer);
   });
 }
@@ -192,8 +192,8 @@ function redraw(){
 
   if (ring.length >= 2){
     poly = L.polygon(ring, {
-      interactive:false, color:'#8B2332', weight:2.5, opacity:.9,
-      fillColor:'#8B2332', fillOpacity:.10,
+      interactive:false, color:'#0e2a6b', weight:2.5, opacity:.9,
+      fillColor:'#0e2a6b', fillOpacity:.10,
     }).addTo(map);
   }
 

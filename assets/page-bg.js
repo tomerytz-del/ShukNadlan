@@ -31,120 +31,76 @@
      ‏z-index:-1 מציב את השכבה מתחת לכל תוכן הדף אבל מעל רקע ה-body, ולכן
      צבע הנייר שעל ה-body נשאר רק כרשת ביטחון אם הדפדפן לא צייר את השכבה. */
   var CSS = [
+    /* ‏z-index:-1 מציב את השכבה מתחת לכל תוכן הדף אבל מעל רקע ה-body, ולכן
+       צבע הנייר שעל ה-body נשאר רק כרשת ביטחון אם הדפדפן לא צייר אותה. */
     '.page-bg{',
     '  position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;',
-    '  background:',
-    '    radial-gradient(120% 78% at 74% -12%, rgba(250,201,124,.62) 0%, rgba(252,222,175,.34) 34%, rgba(248,250,252,0) 70%),',
-    '    radial-gradient(100% 66% at 8% 2%, rgba(214,232,248,.90), rgba(248,250,252,0) 74%),',
-    '    linear-gradient(180deg,#fdf8ef 0%,#f7fbfe 38%,#e4eefa 100%)}',
+    '  background:linear-gradient(180deg,#f7f9ff 0%,#eef3fd 46%,#e7eefb 100%)}',
 
-    /* גרעין השמש — הילה חמה שנושמת לאט */
-    '.page-bg .bg-sun{',
-    '  position:absolute;top:-110px;inset-inline-end:12%;width:min(58vw,480px);aspect-ratio:1;',
-    '  border-radius:50%;',
-    '  background:radial-gradient(circle,rgba(249,182,84,.52) 0%,rgba(251,208,136,.28) 40%,rgba(252,228,186,0) 70%);',
-    '  animation:bgSun 16s ease-in-out infinite}',
-    '@keyframes bgSun{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.09);opacity:1}}',
+    /* ---- כל שכבה היא שתי אלמנטים, ולא אחד ----
+       ההורה נושא את ההיסט מהגלילה (‏flow() כותב לו transform בשורה), והילד
+       נושא את אנימציית הזמן. שניהם כותבים ל-transform, ואנימציית CSS גוברת
+       על סגנון inline — כך ששכבה אחת לא יכולה לשאת את שניהם. */
+    '.page-bg .bg-layer{position:absolute;will-change:transform}',
+    '.page-bg .bg-layer>i{position:absolute;inset:0;display:block}',
 
-    /* קו הרקיע: מגדלים ובתים בגוון כחול־אפור דהוי, יושב על "קו המים" של הגלים */
-    '.page-bg .bg-skyline{position:absolute;left:0;right:0;bottom:18%;height:min(30vh,240px);',
-    '  opacity:.16;will-change:transform}',
-    '.page-bg .bg-skyline svg{display:block;width:100%;height:100%}',
+    /* ---- שלוש הילות צבע ----
+       הרקע הקודם צייר שמש, קו רקיע של עיר וארבעה גלים: איור מלא שהתחרה
+       בתוכן שמעליו. במקומו שלוש הילות רכות שנעות זו מול זו במחזורים
+       לא־שווים (26/32/38 שניות), כך שהצירוף לעולם לא חוזר על עצמו בדיוק
+       והעין קוראת תנועה בלי לזהות לולאה. שתיים בספיר ואחת בזהב. */
+    '.page-bg .bg-halo>i{border-radius:50%}',
+    '.page-bg .bg-halo-1{top:-18%;inset-inline-end:-6%;width:min(74vw,760px);aspect-ratio:1}',
+    '.page-bg .bg-halo-1>i{',
+    '  background:radial-gradient(circle,rgba(14,42,107,.16) 0%,rgba(14,42,107,.06) 42%,rgba(14,42,107,0) 70%);',
+    '  animation:bgDriftA 26s ease-in-out infinite alternate}',
+    '.page-bg .bg-halo-2{top:10%;inset-inline-start:-14%;width:min(66vw,660px);aspect-ratio:1}',
+    '.page-bg .bg-halo-2>i{',
+    '  background:radial-gradient(circle,rgba(201,162,39,.15) 0%,rgba(201,162,39,.05) 44%,rgba(201,162,39,0) 70%);',
+    '  animation:bgDriftB 32s ease-in-out infinite alternate}',
+    '.page-bg .bg-halo-3{bottom:-26%;inset-inline-end:16%;width:min(88vw,900px);aspect-ratio:1}',
+    '.page-bg .bg-halo-3>i{',
+    '  background:radial-gradient(circle,rgba(28,63,142,.14) 0%,rgba(28,63,142,.05) 46%,rgba(28,63,142,0) 72%);',
+    '  animation:bgDriftC 38s ease-in-out infinite alternate}',
+    '@keyframes bgDriftA{to{transform:translate3d(-6%,4%,0) scale(1.12)}}',
+    '@keyframes bgDriftB{to{transform:translate3d(7%,-5%,0) scale(1.09)}}',
+    '@keyframes bgDriftC{to{transform:translate3d(-5%,-6%,0) scale(1.14)}}',
 
-    /* שכבת גל אחת: רוחב 300% = שלושה מחזורים, כדי שגם ההיסט מהגלילה וגם
-       האנימציה יוכלו להזיז אותה בלי לחשוף קצה */
-    '.page-bg .bg-wave{position:absolute;left:0;width:300%;will-change:transform}',
-    '.page-bg .bg-wave svg{display:block;width:100%;height:100%}',
-    /* -33.333% = בדיוק מחזור גל אחד, ולכן הלולאה חלקה ובלי קפיצה */
-    '@keyframes bgDrift{from{transform:translate3d(0,0,0)}to{transform:translate3d(-33.3333%,0,0)}}',
-    '.page-bg .bg-wave>svg{animation:bgDrift linear infinite}',
-    /* השקיפויות נמוכות מאלה שבדשבורד: שם כל התוכן יושב בתוך כרטיסים, ואילו
-       בדפי התוכן כותרות הסקציות יושבות ישירות על הרקע — וכותרת בכחול כהה
-       מעל גל כחול כהה פשוט נעלמת. */
-    '.page-bg .bg-wave-1{top:5%;height:min(30vh,250px);opacity:.55}',
-    '.page-bg .bg-wave-1>svg{animation-duration:74s}',
-    '.page-bg .bg-wave-2{top:30%;height:min(34vh,280px);opacity:.34}',
-    '.page-bg .bg-wave-2>svg{animation-duration:52s;animation-direction:reverse}',
-    '.page-bg .bg-wave-3{top:52%;height:min(36vh,300px);opacity:.24}',
-    '.page-bg .bg-wave-3>svg{animation-duration:38s}',
-    '.page-bg .bg-wave-4{bottom:-22%;height:min(46vh,380px);opacity:.14}',
-    '.page-bg .bg-wave-4>svg{animation-duration:28s;animation-direction:reverse}',
+    /* ---- הרשת ----
+       רשת 56px שנודדת באלכסון בדיוק מרווח משבצת אחת, ולכן הלולאה בלתי
+       נראית. היא מה שנותן לרקע קנה מידה — בלעדיה ההילות מרחפות בחלל ריק.
+       ‏inset שלילי כדי שהנדידה לא תחשוף קצה. */
+    '.page-bg .bg-grid{inset:-70px}',
+    '.page-bg .bg-grid>i{',
+    '  background-image:',
+    '    linear-gradient(rgba(14,42,107,.045) 1px,transparent 1px),',
+    '    linear-gradient(90deg,rgba(14,42,107,.045) 1px,transparent 1px);',
+    '  background-size:56px 56px;',
+    '  animation:bgGridPan 24s linear infinite}',
+    '@keyframes bgGridPan{to{transform:translate3d(-56px,-56px,0)}}',
 
     '@media(prefers-reduced-motion:reduce){',
-    '  .page-bg .bg-sun,.page-bg .bg-wave>svg{animation:none}}',
+    '  .page-bg .bg-layer>i{animation:none}}',
+    'html.a11y-nomotion .page-bg .bg-layer>i{animation:none}',
     /* מצב ניגודיות גבוהה בתפריט הנגישות מכבה את הרקע לגמרי */
     'html.a11y-contrast .page-bg{display:none !important}',
   ].join('\n');
 
   /* ---------- שכבות הרקע ----------
-     ‏data-kx הוא קצב ההיסט האופקי ביחס לגלילה, ו-data-ky משרעת הנדנוד
-     האנכי בפיקסלים. שני ה-id של הגרדיאנטים בתוך ה-SVG מקבלים תחילית
-     ‎pgbg-‎ כדי שלא יתנגשו ב-defs אחרים שכבר יש בדף. */
-  var WAVE_D_UP   = 'M0,160 C120,205 240,205 360,160 C480,115 600,115 720,160 C840,205 960,205 1080,160 ' +
-                    'C1200,115 1320,115 1440,160 C1560,205 1680,205 1800,160 C1920,115 2040,115 2160,160 L2160,320 L0,320 Z';
-  var WAVE_D_DOWN = 'M0,160 C120,80 240,80 360,160 C480,240 600,240 720,160 C840,80 960,80 1080,160 ' +
-                    'C1200,240 1320,240 1440,160 C1560,80 1680,80 1800,160 C1920,240 2040,240 2160,160 L2160,320 L0,320 Z';
-
-  function wave(n, kx, ky, d, stops, x2, y2) {
-    return '<div class="bg-wave bg-wave-' + n + '" data-kx="' + kx + '" data-ky="' + ky + '">' +
-      '<svg viewBox="0 0 2160 320" preserveAspectRatio="none">' +
-      '<defs><linearGradient id="pgbgWave' + n + '" x1="0" y1="0" x2="' + x2 + '" y2="' + y2 + '">' +
-      stops + '</linearGradient></defs>' +
-      '<path fill="url(#pgbgWave' + n + ')" d="' + d + '"/></svg></div>';
+     ‏data-ky הוא משרעת הנדנוד האנכי בפיקסלים ביחס לגלילה — זו הפרלקסה:
+     ההילה הקרובה (3) נעה הכי הרבה, הרחוקה (1) כמעט לא, והרשת נעה מעט
+     בכיוון ההפוך ומספקת את נקודת הייחוס שביחס אליה התנועה נקראת.
+     ‏data-kx נשאר 0 בכל השכבות: היסט אופקי עם ווראפ ברוחב החלון עבד על
+     גלים ברוחב 300%, אבל על הילה עגולה הוא היה חושף את הקצה בכל מחזור. */
+  function layer(cls, ky) {
+    return '<span class="bg-layer ' + cls + '" data-kx="0" data-ky="' + ky + '"><i></i></span>';
   }
 
   var MARKUP =
-    '<span class="bg-sun"></span>' +
-
-    /* קו הרקיע: מגדלים ובתים צמודים לתחתית האלמנט, ובסיסם מכוסה בגל
-       התחתון. slice ולא meet — במסך צר עדיף להתקרב לכמה בניינים גדולים
-       ורכים מאשר לרסק עיר שלמה לרצועת פסים זעירה. */
-    '<div class="bg-skyline" data-kx="0" data-ky="22">' +
-      '<svg viewBox="0 0 1440 220" preserveAspectRatio="xMidYMax slice">' +
-        '<defs><linearGradient id="pgbgSky" x1="0" y1="0" x2="0" y2="1">' +
-          '<stop offset="0%" stop-color="#7ea6cd"/><stop offset="100%" stop-color="#1C3A5E"/>' +
-        '</linearGradient></defs>' +
-        '<g fill="url(#pgbgSky)">' +
-          '<rect x="40"   y="120" width="64" height="100" rx="4"/>' +
-          '<rect x="112"  y="86"  width="52" height="134" rx="4"/>' +
-          '<rect x="172"  y="140" width="70" height="80"  rx="4"/>' +
-          '<rect x="340"  y="100" width="58" height="120" rx="4"/>' +
-          '<rect x="406"  y="58"  width="74" height="162" rx="5"/>' +
-          '<rect x="440"  y="26"  width="5"  height="34"/>' +
-          '<rect x="488"  y="132" width="62" height="88"  rx="4"/>' +
-          '<rect x="640"  y="110" width="66" height="110" rx="4"/>' +
-          '<rect x="714"  y="74"  width="58" height="146" rx="4"/>' +
-          '<rect x="780"  y="146" width="74" height="74"  rx="4"/>' +
-          '<rect x="956"  y="118" width="60" height="102" rx="4"/>' +
-          '<rect x="1024" y="84"  width="70" height="136" rx="4"/>' +
-          '<rect x="1102" y="150" width="66" height="70"  rx="4"/>' +
-          '<rect x="1266" y="112" width="62" height="108" rx="4"/>' +
-          '<rect x="1336" y="142" width="64" height="78"  rx="4"/>' +
-          '<path d="M250 220v-56l40-32 40 32v56z"/>' +
-          '<path d="M558 220v-50l36-30 36 30v50z"/>' +
-          '<path d="M866 220v-58l42-34 42 34v58z"/>' +
-          '<path d="M1180 220v-52l38-30 38 30v52z"/>' +
-        '</g>' +
-      '</svg>' +
-    '</div>' +
-
-    wave(1, '0.10', '18', WAVE_D_UP,
-      '<stop offset="0%" stop-color="#eef5fc"/>' +
-      '<stop offset="55%" stop-color="#d7e7f7" stop-opacity=".6"/>' +
-      '<stop offset="100%" stop-color="#cfe2f4" stop-opacity="0"/>', '.3', '1') +
-
-    wave(2, '0.17', '-24', WAVE_D_DOWN,
-      '<stop offset="0%" stop-color="#d5e7f7"/>' +
-      '<stop offset="55%" stop-color="#a9cbe8" stop-opacity=".6"/>' +
-      '<stop offset="100%" stop-color="#9dc4e6" stop-opacity="0"/>', '.35', '1') +
-
-    wave(3, '0.26', '30', WAVE_D_UP,
-      '<stop offset="0%" stop-color="#8fbadf"/>' +
-      '<stop offset="55%" stop-color="#5b90c0" stop-opacity=".6"/>' +
-      '<stop offset="100%" stop-color="#3c74a8" stop-opacity="0"/>', '.35', '1') +
-
-    wave(4, '0.38', '-40', WAVE_D_DOWN,
-      '<stop offset="0%" stop-color="#2c5a8c"/><stop offset="100%" stop-color="#1C3A5E"/>', '1', '1');
+    layer('bg-halo bg-halo-1', '10') +
+    layer('bg-halo bg-halo-2', '-18') +
+    layer('bg-halo bg-halo-3', '30') +
+    layer('bg-grid', '-8');
 
   /* ---------- הזרימה עם הגלילה ----------
      האופקי מקבל ווראפ ברוחב החלון: שם בדיוק נגמר מחזור גל אחד ב-SVG, ולכן

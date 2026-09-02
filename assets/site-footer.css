@@ -16,7 +16,7 @@
    ============================================================================ */
 
 footer.site{
-  background:#122840;color:#CFE1DF;padding:34px 0 20px;margin-top:30px;
+  background:#0d1b3d;color:#c3cde6;padding:34px 0 20px;margin-top:30px;
   font-family:'Heebo',sans-serif;line-height:1.6;
 }
 footer.site *{box-sizing:border-box}
@@ -31,38 +31,38 @@ footer.site *{box-sizing:border-box}
 }
 /* שתי שורות נפרדות: המשפט המתאר ומתחתיו משפט המפתח. הגופן מתכווץ מעט
    במסכים צרים כדי שהמשפט הראשון יישאר בשורה אחת ולא יישבר לשתיים. */
-.footer-tagline{font-size:clamp(.68rem,3.1vw,.8rem);line-height:1.6;color:#AFC7C4;margin:0}
+.footer-tagline{font-size:clamp(.68rem,3.1vw,.8rem);line-height:1.6;color:#94a3c6;margin:0}
 .footer-tagline span{display:block}
-.footer-tagline-strong{color:#E4EEEC;font-weight:600;margin-top:2px}
+.footer-tagline-strong{color:#e6ecf9;font-weight:600;margin-top:2px}
 
 /* הכפתורים מוגדרים כאן במלואם ולא נשענים על ‎.btn‎ של הדף המארח — ‎.btn‎ לא
    קיים בכל דף, ובחלק מהדפים הוא בצבע אחר לגמרי */
 .footer-cta{display:flex;flex-wrap:wrap;gap:8px}
 .footer-cta a{
   display:inline-flex;align-items:center;justify-content:center;
-  font-size:.78rem;font-weight:700;padding:9px 16px;border-radius:999px;text-decoration:none;
+  font-size:.78rem;font-weight:700;padding:9px 16px;border-radius:0;text-decoration:none;
   transition:background .15s ease,color .15s ease,border-color .15s ease;
 }
-.footer-cta .footer-btn-primary{background:#8B2332;color:#fff;border:1px solid #8B2332}
-.footer-cta .footer-btn-primary:hover{background:#A32B3C;border-color:#A32B3C}
-.footer-cta .footer-btn-ghost{background:transparent;color:#DCE9E7;border:1px solid rgba(255,255,255,.35)}
+.footer-cta .footer-btn-primary{background:#c9a227;color:#0d1b3d;border:1px solid #c9a227}
+.footer-cta .footer-btn-primary:hover{background:#dcb63c;border-color:#dcb63c}
+.footer-cta .footer-btn-ghost{background:transparent;color:#dbe3f5;border:1px solid rgba(255,255,255,.35)}
 .footer-cta .footer-btn-ghost:hover{background:rgba(255,255,255,.1);color:#fff}
 
 .footer-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:22px 18px}
 .footer-col h4{color:#fff;font-size:.82rem;margin:0 0 8px;letter-spacing:.02em;font-weight:700}
 .footer-col a{
-  display:block;font-size:.82rem;color:#AFC7C4;padding:5px 0;text-decoration:none;
+  display:block;font-size:.82rem;color:#94a3c6;padding:5px 0;text-decoration:none;
   transition:color .15s ease;
 }
 .footer-col a:hover,.footer-col a:focus-visible{color:#fff}
 
 .footer-bottom{
   border-top:1px solid rgba(255,255,255,.12);margin-top:24px;padding-top:14px;
-  font-size:.72rem;color:#8FADA9;display:flex;flex-wrap:wrap;gap:6px 14px;
+  font-size:.72rem;color:#aab6d6;display:flex;flex-wrap:wrap;gap:6px 14px;
   align-items:center;justify-content:space-between;
 }
 .footer-legal{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
-.footer-legal a{color:#8FADA9;text-decoration:none;padding:2px 0}
+.footer-legal a{color:#aab6d6;text-decoration:none;padding:2px 0}
 .footer-legal a:hover,.footer-legal a:focus-visible{color:#fff;text-decoration:underline}
 .footer-legal .sep{opacity:.45}
 
@@ -71,10 +71,10 @@ footer.site *{box-sizing:border-box}
    הכתובת, האימייל והרשתות באותה רצועה — בלוקים נפרדים היו מוסיפים שורות
    שלמות לגובה הפוטר במובייל. */
 .footer-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;width:100%}
-.footer-contact{display:grid;gap:6px;font-size:.8rem;color:#AFC7C4}
+.footer-contact{display:grid;gap:6px;font-size:.8rem;color:#94a3c6}
 .footer-contact-row{display:grid;grid-template-columns:16px 1fr;gap:8px;align-items:start;margin:0}
-.footer-contact-row svg{width:16px;height:16px;margin-top:2px;fill:none;stroke:#8FADA9;stroke-width:1.8;display:block}
-.footer-contact-row a{color:#AFC7C4;text-decoration:none}
+.footer-contact-row svg{width:16px;height:16px;margin-top:2px;fill:none;stroke:#aab6d6;stroke-width:1.8;display:block}
+.footer-contact-row a{color:#94a3c6;text-decoration:none}
 .footer-contact-row a:hover,.footer-contact-row a:focus-visible{color:#fff;text-decoration:underline}
 .footer-social{display:flex;gap:8px}
 .footer-social a{
@@ -83,32 +83,35 @@ footer.site *{box-sizing:border-box}
   transition:background .15s ease,border-color .15s ease;
 }
 .footer-social a:hover,.footer-social a:focus-visible{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.5)}
-.footer-social svg{width:17px;height:17px;fill:#DCE9E7;display:block}
+.footer-social svg{width:17px;height:17px;fill:#dbe3f5;display:block}
 
 /* ====== רצועת הניוזלטר ======
    שורה רוחבית בראש הפוטר: כותרת בצד אחד וטופס בצד השני, כדי שההרשמה
    תעלה מקום של שורה אחת ולא של בלוק שלם. */
-.footer-news{border-bottom:1px solid rgba(255,255,255,.12);padding-bottom:22px;margin-bottom:24px}
+/* רצועת ההרשמה היא לוח ספיר בתוך הפוטר הכהה ולא עוד שורה בתוכו: היא
+   מבקשת פעולה, וכל השאר בפוטר הוא ניווט. */
+.footer-news{background:#0e2a6b;padding:20px 22px;margin-bottom:26px}
 .footer-news-inner{display:grid;gap:12px;align-items:center}
 .footer-news-text h4{color:#fff;font-size:.95rem;margin:0 0 3px;font-weight:700}
-.footer-news-text p{margin:0;font-size:.76rem;color:#8FADA9}
+.footer-news-text p{margin:0;font-size:.76rem;color:#aab6d6}
 .footer-news-form{display:flex;gap:8px;flex-wrap:wrap}
 .footer-news-form input{
-  flex:1 1 190px;min-width:0;padding:11px 14px;border-radius:999px;font-size:.85rem;
-  border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.07);color:#fff;
+  flex:1 1 190px;min-width:0;padding:11px 14px;font-size:.85rem;
+  border:1px solid rgba(255,255,255,.34);background:rgba(255,255,255,.08);color:#fff;
   font-family:inherit;
 }
-.footer-news-form input::placeholder{color:#7F9C99}
-.footer-news-form input:focus{outline:2px solid #E8C88A;outline-offset:1px;border-color:transparent}
+.footer-news-form input::placeholder{color:#9aa8cc}
+.footer-news-form input:focus{outline:2px solid #c9a227;outline-offset:1px;border-color:transparent}
 .footer-news-form button{
-  flex:0 0 auto;font-size:.82rem;font-weight:700;padding:11px 20px;border-radius:999px;
-  border:1px solid #8B2332;background:#8B2332;color:#fff;cursor:pointer;font-family:inherit;
+  /* זהב עם טקסט כהה: הרצועה עצמה ספיר, וכפתור ספיר עליה לא נראה בכלל. */
+  flex:0 0 auto;font-size:.82rem;font-weight:800;padding:11px 20px;
+  border:1px solid #c9a227;background:#c9a227;color:#0d1b3d;cursor:pointer;font-family:inherit;
 }
-.footer-news-form button:hover:not(:disabled){background:#A32B3C;border-color:#A32B3C}
+.footer-news-form button:hover:not(:disabled){background:#dcb63c;border-color:#dcb63c}
 .footer-news-form button:disabled{opacity:.6;cursor:not-allowed}
-.footer-news-msg{margin:0;font-size:.76rem;min-height:1.1em;color:#AFC7C4}
-.footer-news-msg[data-state="ok"]{color:#8FD3B0}
-.footer-news-msg[data-state="error"]{color:#F0A9B2}
+.footer-news-msg{margin:0;font-size:.76rem;min-height:1.1em;color:#94a3c6}
+.footer-news-msg[data-state="ok"]{color:#7fd8a8}
+.footer-news-msg[data-state="error"]{color:#f2b0bb}
 @media(min-width:760px){
   .footer-news-inner{grid-template-columns:1fr minmax(320px,420px);gap:12px 26px}
   .footer-news-msg{grid-column:2}
@@ -128,15 +131,15 @@ footer.site *{box-sizing:border-box}
    היה הופך אותו ב-RTL לחץ שמצביע הצידה במקום למטה */
 .footer-seo > summary::after{
   content:"";width:8px;height:8px;flex:0 0 auto;
-  border-right:2px solid #8FADA9;border-bottom:2px solid #8FADA9;
+  border-right:2px solid #aab6d6;border-bottom:2px solid #aab6d6;
   transform:rotate(45deg);margin-bottom:4px;transition:transform .18s ease;
 }
 .footer-seo[open] > summary::after{transform:rotate(-135deg);margin-bottom:-2px}
-.footer-seo > summary:focus-visible{outline:2px solid #E8C88A;outline-offset:3px;border-radius:6px}
+.footer-seo > summary:focus-visible{outline:2px solid #c9a227;outline-offset:3px;border-radius:0}
 .footer-seo h4{color:#fff;font-size:.82rem;margin:0;font-weight:700}
 .footer-seo-links{display:flex;flex-wrap:wrap;gap:7px;padding-top:10px}
 .footer-seo-links a{
-  font-size:.75rem;color:#AFC7C4;text-decoration:none;padding:5px 11px;border-radius:999px;
+  font-size:.75rem;color:#94a3c6;text-decoration:none;padding:5px 11px;border-radius:0;
   border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.04);
   transition:background .15s ease,color .15s ease,border-color .15s ease;
 }

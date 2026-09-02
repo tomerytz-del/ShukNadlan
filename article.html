@@ -15,11 +15,11 @@
   /* הפלטה, הגופנים והרכיבים הבסיסיים זהים לדף הבית — העמוד הזה הוא חלק
      מאותו אתר ולא עולם משלו. --maxw צר יותר בכוונה: זה עמוד קריאה. */
   :root{
-    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
-    --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
-    --gold:#8B2332; --gold-dark:#6B1A26; --gold-tint:#F1DFE1; --wa:#1F8F5F;
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
+    --line:#e3e8f4; --teal:#0e2a6b; --teal-dark:#0d1b3d; --teal-tint:#eaf0fb;
+    --gold:#0e2a6b; --gold-dark:#08194a; --gold-tint:#f7f1e2; --wa:#25a55a;
     --radius-sm:6px; --radius-md:12px; --radius-lg:20px;
-    --shadow:0 4px 20px rgba(15,52,53,.10); --shadow-sm:0 2px 8px rgba(15,52,53,.08);
+    --shadow:0 4px 20px rgba(14,42,107,.10); --shadow-sm:0 2px 8px rgba(14,42,107,.08);
     --maxw:860px;
   }
   *{box-sizing:border-box}
@@ -41,12 +41,12 @@
   .eyebrow::before{content:"";width:18px;height:2px;background:var(--gold-dark);display:inline-block}
   .btn{
     display:inline-flex;align-items:center;justify-content:center;gap:8px;
-    padding:11px 20px;border-radius:999px;font-weight:700;font-size:.88rem;
+    padding:11px 20px;border-radius:0;font-weight:700;font-size:.88rem;
     transition:transform .15s ease, box-shadow .15s ease;
   }
   .btn svg{width:18px;height:18px;flex:none}
   .btn-teal{background:var(--teal);color:#fff}
-  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(23,73,74,.3)}
+  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}
   .btn-wa{background:var(--wa);color:#fff}
   .btn-wa:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(31,143,95,.32)}
   .btn-ghost{background:#fff;border:1.5px solid var(--line);color:var(--ink)}
@@ -246,7 +246,7 @@
   .more-card .b{padding:11px;display:flex;flex-direction:column;gap:6px;flex:1}
   .more-card .k{
     align-self:flex-start;background:var(--gold-tint);color:var(--gold-dark);
-    font-size:.62rem;font-weight:800;padding:2px 8px;border-radius:5px;
+    font-size:.62rem;font-weight:800;padding:2px 8px;border-radius:0;
   }
   .more-card h3{
     font-family:'Heebo',sans-serif;font-size:.84rem;font-weight:700;line-height:1.35;color:var(--ink);
@@ -257,6 +257,9 @@
   /* ====== Footer (זהה לדף הבית) ====== */
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
+<link rel="stylesheet" href="assets/design-system.css">
+<script defer src="assets/brand-logo.js"></script>
+<script src="assets/page-bg.js" data-auto></script>
 <script src="assets/site-footer.js" defer></script>
 </head>
 <body>
@@ -267,7 +270,7 @@
   <div class="wrap header-inner">
     <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
       <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="512" height="436">
-      <span class="logo-word">שוק הנדל״ן של <span>עפולה והסביבה</span></span>
+      <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
     </a>
     <a href="articles.html" class="back-link">← כל הכתבות</a>
   </div>
@@ -425,9 +428,7 @@
       </div>
       <div class="footer-col">
         <h4>שוק נדל״ן</h4>
-        <!-- "אודות" הוא הקישור היחיד בפוטר שעדיין אין לו דף; כל השאר
-             מצביעים על דפים, על סקציות אמיתיות או על תיבת המייל. -->
-        <a href="#">אודות</a>
+        <a href="about.html">אודות</a>
         <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
         <a href="faq.html">שאלות נפוצות</a>
         <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
@@ -465,9 +466,9 @@
   <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
     <div class="footer-legal">
-      <a href="#">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
-      <a href="#">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
-      <a href="#">הצהרת נגישות</a>
+      <a href="terms.html">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
+      <a href="privacy.html">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
+      <a href="accessibility.html">הצהרת נגישות</a>
     </div>
   </div>
 </footer>

@@ -8,11 +8,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800;900&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
-    --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
-    --gold:#8B2332; --gold-dark:#6B1A26; --gold-tint:#F1DFE1;
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
+    --line:#e3e8f4; --teal:#0e2a6b; --teal-dark:#0d1b3d; --teal-tint:#eaf0fb;
+    --gold:#0e2a6b; --gold-dark:#08194a; --gold-tint:#f7f1e2;
     --brass:#C9A227; --brass-tint:#FAF3DF;
-    --surface:#FFFFFF; --surface-soft:#FBFAF9; --hair:#E6E3DD;
+    --surface:#FFFFFF; --surface-soft:#f8faff; --hair:#eef1f8;
     --radius-md:12px; --radius-lg:20px; --radius-xl:24px;
     --shadow-xs:0 1px 2px rgba(18,40,64,.05); --shadow-md:0 8px 24px rgba(18,40,64,.10);
     --maxw:860px;
@@ -37,7 +37,7 @@
   /* ---------- ההירו ----------
      התו עצמו הוא הגיבור של הדף, ולכן הוא מוצג כאן בגודל מלא ולא כאייקון:
      זה הדף שאליו הפופ־אפ שולח את מי שרוצה לדעת מה בדיוק עומד מאחורי החותמת. */
-  .hero{background:linear-gradient(150deg,#0E2340,#1C3A5E 60%,#2A4E77);color:#fff;padding:34px 0 38px}
+  .hero{background:linear-gradient(150deg,#0E2340,#0e2a6b 60%,#2A4E77);color:#fff;padding:34px 0 38px}
   .hero-inner{display:flex;flex-direction:column;align-items:center;text-align:center;gap:16px}
   @media(min-width:720px){
     .hero-inner{flex-direction:row;text-align:right;gap:26px}
@@ -66,7 +66,7 @@
     border-radius:var(--radius-xl);box-shadow:var(--shadow-xs);padding:16px 66px 16px 18px}
   .clause::before{
     counter-increment:clause;content:counter(clause);
-    position:absolute;inset-inline-end:18px;top:16px;width:34px;height:34px;border-radius:11px;
+    position:absolute;inset-inline-end:18px;top:16px;width:34px;height:34px;border-radius:0;
     display:grid;place-items:center;
     background:linear-gradient(150deg,var(--teal-dark),var(--teal));color:#fff;
     font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.05rem;line-height:1;
@@ -87,7 +87,7 @@
   .promise .closing{margin:16px 0 0;font-size:.9rem;font-weight:700;color:var(--teal-dark)}
 
   /* ---------- תוקף התו ---------- */
-  .enforcement{margin-top:24px;background:var(--surface-soft);border:1px dashed #D8D4CC;
+  .enforcement{margin-top:24px;background:var(--surface-soft);border:1px dashed #dde3f2;
     border-radius:var(--radius-lg);padding:18px 20px}
   .enforcement h2{font-size:1.02rem;margin-bottom:8px}
   .enforcement p{margin:0;font-size:.85rem;color:var(--ink-soft)}
@@ -96,15 +96,18 @@
   .cta-row{display:grid;gap:10px;margin-top:26px}
   @media(min-width:520px){.cta-row{grid-template-columns:1fr 1fr}}
   .cta{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:14px 20px;
-    border-radius:14px;font-weight:800;font-size:.92rem}
-  .cta-primary{background:linear-gradient(120deg,var(--gold-dark),var(--gold) 60%,#A32B3C);color:#fff;
-    box-shadow:0 6px 16px rgba(139,35,50,.24)}
+    border-radius:0;font-weight:800;font-size:.92rem}
+  .cta-primary{background:linear-gradient(120deg,var(--gold-dark),var(--gold) 60%,#08194a);color:#fff;
+    box-shadow:0 6px 16px rgba(14,42,107,.24)}
   .cta-ghost{background:var(--teal-tint);color:var(--teal-dark);border:1px solid var(--line)}
 
   footer.page{border-top:1px solid var(--line);margin-top:34px;padding-top:16px;
     font-size:.75rem;color:var(--ink-soft);text-align:center}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
+<link rel="stylesheet" href="assets/design-system.css">
+<script defer src="assets/brand-logo.js"></script>
+<script src="assets/page-bg.js" data-auto></script>
 <script src="assets/site-footer.js" defer></script>
 </head>
 <body>
@@ -113,7 +116,7 @@
   <div class="wrap header-inner">
     <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
       <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="512" height="436">
-      <span class="logo-word">שוק הנדל״ן של <span>עפולה והסביבה</span></span>
+      <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
     </a>
     <a href="index.html" class="back-link">← דף הבית</a>
   </div>
@@ -303,9 +306,7 @@
       </div>
       <div class="footer-col">
         <h4>שוק נדל״ן</h4>
-        <!-- "אודות" הוא הקישור היחיד בפוטר שעדיין אין לו דף; כל השאר
-             מצביעים על דפים, על סקציות אמיתיות או על תיבת המייל. -->
-        <a href="#">אודות</a>
+        <a href="about.html">אודות</a>
         <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
         <a href="faq.html">שאלות נפוצות</a>
         <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
@@ -343,9 +344,9 @@
   <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
     <div class="footer-legal">
-      <a href="#">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
-      <a href="#">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
-      <a href="#">הצהרת נגישות</a>
+      <a href="terms.html">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
+      <a href="privacy.html">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
+      <a href="accessibility.html">הצהרת נגישות</a>
     </div>
   </div>
 </footer>

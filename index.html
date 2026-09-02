@@ -17,32 +17,32 @@
 <style>
   /* ====== Design tokens — grounded in Jezreel Valley (עמק יזרעאל): wheat gold + cultivated-land teal + Gilboa dusk ====== */
   :root{
-    --ink:        #1B1F26;
-    --ink-soft:   #565C63;
-    --paper:      #DEDCD6;
-    --paper-raised:#F4F3F0;
-    --line:       #C5C3BC;
-    --teal:       #1C3A5E;
-    --teal-dark:  #122840;
-    --teal-tint:  #E0E7ED;
-    --gold:       #8B2332;
-    --gold-dark:  #6B1A26;
-    --gold-tint:  #F1DFE1;
-    --brick:      #6B1A26;
-    --live:       #8B2332;
+    --ink:        #0d1b3d;
+    --ink-soft:   #4a5578;
+    --paper:      #f4f7fe;
+    --paper-raised:#ffffff;
+    --line:       #e3e8f4;
+    --teal:       #0e2a6b;
+    --teal-dark:  #0d1b3d;
+    --teal-tint:  #eaf0fb;
+    --gold:       #0e2a6b;
+    --gold-dark:  #08194a;
+    --gold-tint:  #f7f1e2;
+    --brick:      #08194a;
+    --live:       #0e2a6b;
     /* צבע אחד לכל סוג עסקה, משותף לפינים במפה, למקרא שמתחתיה, לבורר סוג
        העסקה בסרגל החיפוש ולתגיות בשורות התוצאות — כך הצבע נקרא כאותו קוד
        בכל מקום בעמוד */
-    --deal-sale:      #1C3A5E;
-    --deal-rent:      #8B2332;
+    --deal-sale:      #0e2a6b;
+    --deal-rent:      #0e2a6b;
     /* כתום כהה ולא בהיר: על הפין יושב טקסט לבן ב-11px מודגש, ורק בגוון הזה
        יחס הניגודיות מולו עובר 4.5:1 */
-    --deal-commercial:#B85C00;
+    --deal-commercial:#9a4e00;
     --radius-sm:  6px;
     --radius-md:  12px;
     --radius-lg:  20px;
-    --shadow:     0 4px 20px rgba(15,52,53,0.10);
-    --shadow-sm:  0 2px 8px rgba(15,52,53,0.08);
+    --shadow:     0 4px 20px rgba(14,42,107,0.10);
+    --shadow-sm:  0 2px 8px rgba(14,42,107,0.08);
     --maxw:       1180px;
     /* גובה אחיד לכל אריחי הרצועות הנגללות בעמוד — קרוסלות ה-coverflow
        (נכסים, משרדי תיווך, מתווכים) ורצועות הנכסים המומלצים/המסחריים.
@@ -90,16 +90,16 @@
   .eyebrow::before{content:"";width:18px;height:2px;background:var(--gold-dark);display:inline-block}
   .btn{
     display:inline-flex;align-items:center;justify-content:center;gap:8px;
-    padding:13px 22px;border-radius:999px;font-weight:700;font-size:.95rem;
+    padding:13px 22px;border-radius:0;font-weight:700;font-size:.95rem;
     transition:transform .15s ease, box-shadow .15s ease;
   }
   /* #241505 היה מתאים ל---gold כשהוא באמת היה זהב; מאז הפלטה עברה לאדום עמוק
-     (#8B2332) והטקסט החום־כהה נשאר — יחס ניגודיות ~1.9:1, כלומר תווית כמעט
+     (#0e2a6b) והטקסט החום־כהה נשאר — יחס ניגודיות ~1.9:1, כלומר תווית כמעט
      בלתי קריאה בכל הכפתורים הראשיים. לבן על אותו רקע נותן 8.8:1. */
   .btn-gold{background:var(--gold);color:#fff}
-  .btn-gold:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(201,138,44,.35)}
+  .btn-gold:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(201,162,39,.35)}
   .btn-teal{background:var(--teal);color:#fff}
-  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(23,73,74,.3)}
+  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}
   .btn-ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
   .btn-block{width:100%}
   /* לבן חלקית: הרקע הזורם של הדף עובר מתחת לכרטיסים ונותן להם עומק,
@@ -147,7 +147,7 @@
     position:absolute;top:calc(100% + 8px);left:50%;transform:translateX(-50%);
     width:max-content;max-width:min(240px,68vw);white-space:normal;text-align:center;
     background:var(--teal-dark);color:#fff;font-size:.72rem;font-weight:600;line-height:1.45;
-    padding:8px 11px;border-radius:9px;box-shadow:0 8px 22px rgba(6,20,34,.24);
+    padding:8px 11px;border-radius:0;box-shadow:0 8px 22px rgba(6,20,34,.24);
     pointer-events:none;z-index:30;
   }
   .info-dot:hover::after,.info-dot:focus-visible::after,.info-dot.is-open::after{display:block}
@@ -157,67 +157,10 @@
   .skip-link:focus{right:0}
   :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
 
-  /* ==========================================================================
-     הרקע הזורם של הדף — אותו רקע של הדשבורד ב-crm.html
-     --------------------------------------------------------------------------
-     שכבה קבועה (position:fixed) שיושבת מאחורי כל התוכן ולכן לא זזה עם
-     הגלילה: זוהר חמים־זהוב בפינה העליונה כמו שמש, קו רקיע עדין של העיר,
-     ומעליו גלי כחול־נייבי. הגלים נעים כל הזמן לרוחב באנימציית CSS, ובנוסף
-     מוסטים לפי הגלילה מ-JS (pageBgFlow) — כל שכבה בקצב אחר, ולכן הרקע נראה
-     זורם לאורך כל הדף.
+  /* הרקע הזורם של הדף חי כולו ב-assets/page-bg.js — שכבות, צבעים, אנימציות
+     והתנהגות במצב תנועה מופחתת. עד כה הוא היה כתוב גם כאן וגם ב-agencies.html
+     וגם בקובץ, בשלוש גרסאות שנפרדו זו מזו עם כל עריכה. עכשיו יש עותק אחד. */
 
-     הכל דקורטיבי בלבד: aria-hidden + pointer-events:none, ובמצב
-     prefers-reduced-motion (או "עצירת אנימציות" בתפריט הנגישות) התנועה
-     נכבית לגמרי ונשאר רקע סטטי.
-
-     ‏z-index:-1 מציב את השכבה מתחת לכל תוכן הדף אבל מעל רקע ה-body, ולכן
-     ‎--paper‎ שעל ה-body נשאר רק כרשת ביטחון אם הדפדפן לא צייר את השכבה.
-     ========================================================================== */
-  .page-bg{
-    position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;
-    background:
-      radial-gradient(120% 78% at 74% -12%, rgba(250,201,124,.62) 0%, rgba(252,222,175,.34) 34%, rgba(248,250,252,0) 70%),
-      radial-gradient(100% 66% at 8% 2%, rgba(214,232,248,.90), rgba(248,250,252,0) 74%),
-      linear-gradient(180deg,#fdf8ef 0%,#f7fbfe 38%,#e4eefa 100%);
-  }
-  /* גרעין השמש — הילה חמה שנושמת לאט */
-  .bg-sun{
-    position:absolute;top:-110px;inset-inline-end:12%;width:min(58vw,480px);aspect-ratio:1;
-    border-radius:50%;
-    background:radial-gradient(circle,rgba(249,182,84,.52) 0%,rgba(251,208,136,.28) 40%,rgba(252,228,186,0) 70%);
-    animation:bgSun 16s ease-in-out infinite;
-  }
-  @keyframes bgSun{0%,100%{transform:scale(1);opacity:.9}50%{transform:scale(1.09);opacity:1}}
-
-  /* קו הרקיע: מגדלים ובתים בגוון כחול־אפור דהוי, יושב על "קו המים" של הגלים */
-  .bg-skyline{
-    position:absolute;left:0;right:0;bottom:18%;height:min(30vh,240px);
-    opacity:.16;will-change:transform;
-  }
-  .bg-skyline svg{display:block;width:100%;height:100%}
-
-  /* שכבת גל אחת: רוחב 300% = שלושה מחזורים, כדי שגם ההיסט מהגלילה וגם
-     האנימציה יוכלו להזיז אותה בלי לחשוף קצה */
-  .bg-wave{position:absolute;left:0;width:300%;will-change:transform}
-  .bg-wave svg{display:block;width:100%;height:100%}
-  /* -33.333% = בדיוק מחזור גל אחד, ולכן הלולאה חלקה ובלי קפיצה */
-  @keyframes bgDrift{from{transform:translate3d(0,0,0)}to{transform:translate3d(-33.3333%,0,0)}}
-  .bg-wave>svg{animation:bgDrift linear infinite}
-  /* השקיפויות נמוכות מאלה שבדשבורד: שם כל התוכן יושב בתוך כרטיסים, ואילו
-     כאן כותרות הסקציות יושבות ישירות על הרקע — וכותרת בכחול כהה מעל גל
-     כחול כהה פשוט נעלמת. הגל התחתון (הכהה מכולם) גם הורד מטה. */
-  .bg-wave-1{top:5%;height:min(30vh,250px);opacity:.55}
-  .bg-wave-1>svg{animation-duration:74s}
-  .bg-wave-2{top:30%;height:min(34vh,280px);opacity:.34}
-  .bg-wave-2>svg{animation-duration:52s;animation-direction:reverse}
-  .bg-wave-3{top:52%;height:min(36vh,300px);opacity:.24}
-  .bg-wave-3>svg{animation-duration:38s}
-  .bg-wave-4{bottom:-22%;height:min(46vh,380px);opacity:.14}
-  .bg-wave-4>svg{animation-duration:28s;animation-direction:reverse}
-
-  @media(prefers-reduced-motion:reduce){
-    .bg-sun,.bg-wave>svg{animation:none}
-  }
 
   /* ====== Header ====== */
   header.site{
@@ -242,7 +185,7 @@
   nav.primary{display:none;gap:26px;font-weight:600;font-size:.92rem;color:var(--ink-soft)}
   nav.primary a:hover{color:var(--teal)}
   .header-actions{display:flex;align-items:center;gap:10px}
-  .hamburger{width:40px;height:40px;border-radius:10px;border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
+  .hamburger{width:40px;height:40px;border-radius:0;border:1px solid var(--line);display:flex;align-items:center;justify-content:center}
   .hamburger span,.hamburger span::before,.hamburger span::after{
     content:"";display:block;width:18px;height:2px;background:var(--ink);position:relative;
   }
@@ -268,7 +211,7 @@
     display:flex;align-items:center;justify-content:center;gap:10px;
     padding-block:10px;font-size:.78rem;color:var(--ink-soft);text-align:center;
   }
-  .ad-slot .tag{background:var(--paper-raised);border:1px solid var(--line);border-radius:6px;padding:2px 8px;font-weight:700;font-size:.68rem}
+  .ad-slot .tag{background:var(--paper-raised);border:1px solid var(--line);border-radius:0;padding:2px 8px;font-weight:700;font-size:.68rem}
 
   /* ====== כל מקומות הפרסום מוסתרים בשלב ההתחלתי ======
      הסימון (Leaderboard, הבאנרים בין הסקציות והפרסומות ה-in-feed) נשאר
@@ -295,7 +238,7 @@
   /* מצב נפילה: אם Leaflet לא נטען, ה-section חוזר להיות בלוק תוכן רגיל
      במקום קופסה בגובה קבוע עם חור באמצע (ראו catch באתחול המפה) */
   .hero.map-failed{height:auto;padding:30px 0 26px;background:
-      radial-gradient(ellipse at 20% 0%, rgba(201,138,44,.14), transparent 55%),
+      radial-gradient(ellipse at 20% 0%, rgba(201,162,39,.14), transparent 55%),
       var(--teal-dark)}
   #hero-map{position:absolute;inset:0;width:100%;height:100%;z-index:0;background:var(--teal-dark)}
   .hero.map-failed #hero-map{position:static;height:auto}
@@ -333,7 +276,7 @@
   }
   .search-card{
     position:relative;display:flex;align-items:center;gap:6px;
-    background:rgba(255,255,255,.97);border-radius:999px;padding:6px;
+    background:rgba(255,255,255,.97);border-radius:0;padding:6px;
     box-shadow:0 22px 44px -16px rgba(6,20,34,.7), 0 4px 14px rgba(6,20,34,.3);
   }
   .search-card:focus-within{box-shadow:0 22px 44px -16px rgba(6,20,34,.7), 0 0 0 2px var(--gold)}
@@ -342,7 +285,7 @@
   .deal-select{
     flex:0 0 auto;-webkit-appearance:none;appearance:none;border:none;cursor:pointer;
     font-family:inherit;font-weight:700;font-size:.86rem;color:#fff;
-    background:var(--teal);border-radius:999px;padding:12px 15px 12px 30px;
+    background:var(--teal);border-radius:0;padding:12px 15px 12px 30px;
     background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.6 6 6.4l5-4.8' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat:no-repeat;background-position:left 11px center;background-size:11px;
   }
@@ -384,7 +327,7 @@
   .hood-bar{margin:10px auto 0;max-width:860px;pointer-events:auto;display:flex;justify-content:center}
   .hood-filter-btn{
     display:inline-flex;align-items:center;gap:7px;cursor:pointer;
-    padding:8px 16px;border-radius:999px;white-space:nowrap;
+    padding:8px 16px;border-radius:0;white-space:nowrap;
     font-size:.8rem;font-weight:700;color:var(--teal-dark);
     background:rgba(255,255,255,.94);border:1.5px solid transparent;
     box-shadow:0 2px 10px rgba(6,20,34,.28);
@@ -400,7 +343,7 @@
   }
   .hood-filter-btn .hood-filter-count{
     display:inline-flex;align-items:center;justify-content:center;
-    min-width:19px;height:19px;padding:0 5px;border-radius:999px;
+    min-width:19px;height:19px;padding:0 5px;border-radius:0;
     background:var(--gold);color:#fff;font-size:.68rem;font-weight:800;
     font-variant-numeric:tabular-nums;
   }
@@ -426,19 +369,19 @@
     border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 8px;
     background:#fff;font-size:.85rem;color:var(--ink-soft);
   }
-  .deal-toggle{display:flex;border:1.5px solid var(--line);border-radius:999px;overflow:hidden;grid-column:1/-1}
+  .deal-toggle{display:flex;border:1.5px solid var(--line);border-radius:0;overflow:hidden;grid-column:1/-1}
   .deal-toggle button{flex:1;padding:9px;font-weight:700;font-size:.85rem;color:var(--ink-soft)}
   .deal-toggle button.active{background:var(--teal);color:#fff}
 
   /* ====== Filter modals ====== */
-  .filter-count-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:999px;background:var(--gold);color:#fff;font-size:.68rem;font-weight:800;padding:0 4px}
+  .filter-count-badge{display:inline-flex;align-items:center;justify-content:center;min-width:18px;height:18px;border-radius:0;background:var(--gold);color:#fff;font-size:.68rem;font-weight:800;padding:0 4px}
 
   /* ‏.mlead-overlay חולק את המעטפת של מודאל הסינונים אבל לא את המחלקה שלו
      בכוונה: ‏runSearch() סוגר כל ‎.filter-modal-overlay‎ פתוח, ובלון הליד אינו
      מודאל סינון — אסור שחיפוש יסגור טופס שממלאים באמצע. */
-  .filter-modal-overlay,.mlead-overlay{display:none;position:fixed;inset:0;background:rgba(15,52,53,.55);z-index:300;align-items:flex-end;justify-content:center}
+  .filter-modal-overlay,.mlead-overlay{display:none;position:fixed;inset:0;background:rgba(14,42,107,.55);z-index:300;align-items:flex-end;justify-content:center}
   .filter-modal-overlay.open,.mlead-overlay.open{display:flex}
-  .filter-modal{background:var(--paper-raised);width:100%;max-width:560px;max-height:88vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;overflow:hidden}
+  .filter-modal{background:var(--paper-raised);width:100%;max-width:560px;max-height:88vh;border-radius:0 20px 0 0;display:flex;flex-direction:column;overflow:hidden}
   @media(min-width:640px){
     .filter-modal-overlay,.mlead-overlay{align-items:center}
     .filter-modal{border-radius:var(--radius-lg);max-height:80vh}
@@ -454,14 +397,14 @@
   .range-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .range-row input,.filter-select{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;font-size:.88rem;background:#fff}
   .pill-group{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
-  .pill-group button{padding:7px 14px;border-radius:999px;border:1.5px solid var(--line);background:#fff;font-size:.8rem;color:var(--ink-soft);font-weight:600}
+  .pill-group button{padding:7px 14px;border-radius:0;border:1.5px solid var(--line);background:#fff;font-size:.8rem;color:var(--ink-soft);font-weight:600}
   .pill-group button.active{background:var(--teal);border-color:var(--teal);color:#fff}
   .ptype-group{margin-bottom:10px}
   .ptype-group::before{content:attr(data-label);display:block;font-size:.72rem;font-weight:700;color:var(--gold-dark);margin-bottom:5px}
   .checkbox-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   .checkbox-item{display:flex;align-items:center;gap:7px;font-size:.82rem;font-weight:400;color:var(--ink)}
   .checkbox-item input{margin:0}
-  .tri-toggle{display:flex;border:1.5px solid var(--line);border-radius:999px;overflow:hidden;max-width:280px}
+  .tri-toggle{display:flex;border:1.5px solid var(--line);border-radius:0;overflow:hidden;max-width:280px}
   .tri-toggle button{flex:1;padding:8px;font-size:.78rem;font-weight:600;color:var(--ink-soft)}
   .tri-toggle button.active{background:var(--teal);color:#fff}
 
@@ -502,7 +445,7 @@
   /* הפאנל המאוחד: שורת המקרא + ההגדלה, ומתחתיה מונה הנכסים */
   .map-panel{
     display:flex;flex-direction:column;align-items:center;gap:1px;max-width:100%;
-    background:rgba(255,255,255,.94);padding:4px 8px;border-radius:16px;
+    background:rgba(255,255,255,.94);padding:4px 8px;border-radius:0;
     box-shadow:var(--shadow-sm);
   }
   .map-panel-row{display:flex;align-items:center;gap:2px;flex-wrap:wrap;justify-content:center}
@@ -513,7 +456,7 @@
      הגלולה הלבנה של המקרא ירדה — הוא יושב עכשיו בתוך .map-panel. */
   .map-legend{display:flex;align-items:center;gap:2px}
   .map-legend button{
-    display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border-radius:999px;
+    display:inline-flex;align-items:center;gap:4px;padding:4px 7px;border-radius:0;
     font-size:.66rem;font-weight:700;color:var(--ink);white-space:nowrap;
   }
   /* מספר הנכסים מכל סוג עסקה, בסוגריים לצד שם הסוג — כך רואים מה יש על
@@ -534,7 +477,7 @@
   .map-style-select{
     -webkit-appearance:none;appearance:none;border:none;cursor:pointer;
     font-family:inherit;font-weight:700;font-size:.68rem;color:#fff;
-    background:var(--teal);border-radius:999px;padding:6px 12px 6px 26px;
+    background:var(--teal);border-radius:0;padding:6px 12px 6px 26px;
     box-shadow:var(--shadow-sm);
     background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.6 6 6.4l5-4.8' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
     background-repeat:no-repeat;background-position:left 9px center;background-size:9px;
@@ -543,11 +486,11 @@
   .map-style-select option{background:#fff;color:var(--ink)}
   /* בתוך הפאנל המאוחד הכפתור אינו עוד גלולה עצמאית אלא פריט אחרון בשורת
      המקרא, מופרד ממנה בקו דק. הקו הוא ::before ולא border — border על אלמנט
-     עם border-radius:999px מתעקם לקשת. */
+     עם border-radius:0 מתעקם לקשת. */
   .map-expand-btn{
     position:relative;display:inline-flex;align-items:center;gap:4px;
     background:none;color:var(--teal);
-    padding:4px 8px;margin-inline-start:7px;border-radius:999px;
+    padding:4px 8px;margin-inline-start:7px;border-radius:0;
     font-size:.66rem;font-weight:700;white-space:nowrap;
   }
   .map-expand-btn::before{
@@ -674,7 +617,7 @@
      הנכס במקום לתלות אותה מהפינה השמאלית-עליונה שלה. */
   .map-pin{
     position:absolute;top:0;left:0;transform:translate(-50%,-50%);
-    background:var(--teal);color:#fff;padding:4px 8px;border-radius:8px;
+    background:var(--teal);color:#fff;padding:4px 8px;border-radius:0;
     font:700 11px/1.35 'Heebo',sans-serif;white-space:nowrap;
     box-shadow:0 2px 6px rgba(0,0,0,.3);
   }
@@ -702,7 +645,7 @@
     width:228px;padding-left:14px;color:var(--ink);text-decoration:none;
   }
   .map-pop-thumb{
-    flex:0 0 58px;width:58px;height:58px;border-radius:8px;
+    flex:0 0 58px;width:58px;height:58px;border-radius:0;
     object-fit:cover;background:var(--paper);display:block;
   }
   /* לוגו משרד במקום תמונת נכס — contain ולא cover, אחרת הלוגו נחתך */
@@ -740,7 +683,7 @@
   .ticker .wrap{display:flex;align-items:center;gap:13px;width:100%}
   .ticker-flag{
     display:flex;align-items:center;gap:7px;background:var(--brick);color:#fff;
-    font-size:.77rem;font-weight:800;padding:5px 10px;border-radius:6px;flex:0 0 auto;
+    font-size:.77rem;font-weight:800;padding:5px 10px;border-radius:0;flex:0 0 auto;
   }
   .live-dot{width:8px;height:8px;border-radius:50%;background:#fff;animation:pulse 1.4s infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
@@ -767,7 +710,7 @@
     padding:12px 14px;background:#fff;color:inherit;text-decoration:none}
   a.news-item:hover{border-color:var(--gold);background:var(--gold-tint)}
   .news-item-top{display:flex;align-items:center;gap:8px;margin-bottom:6px;flex-wrap:wrap}
-  .news-badge{font-size:.62rem;font-weight:800;padding:3px 7px;border-radius:5px;
+  .news-badge{font-size:.62rem;font-weight:800;padding:3px 7px;border-radius:0;
     background:var(--teal);color:#fff;white-space:nowrap}
   .news-badge.local{background:var(--brick)}
   .news-time{font-size:.68rem;font-weight:600;color:var(--ink-soft)}
@@ -800,11 +743,11 @@
     margin-block:10px;
   }
   .owner-banner{background:linear-gradient(160deg,rgba(28,58,94,.84),rgba(18,40,64,.72))}
-  .buyer-banner{background:linear-gradient(160deg,rgba(107,26,38,.85),rgba(61,17,25,.74))}
+  .buyer-banner{background:linear-gradient(160deg,rgba(8,25,74,.85),rgba(61,17,25,.74))}
   .calc-banner{background:linear-gradient(160deg,rgba(18,40,64,.85),rgba(28,58,94,.72))}
   /* מחשבון התשואה בבורדו כמו באנר מחפשי הנכס, ולא בכחול של כלי הבעלים:
      שניהם פונים לאותו צד של העסקה — מי שקונה. */
-  .yield-banner{background:linear-gradient(160deg,rgba(61,17,25,.86),rgba(107,26,38,.74))}
+  .yield-banner{background:linear-gradient(160deg,rgba(61,17,25,.86),rgba(8,25,74,.74))}
 
   /* שורת ההזמנה היא כפתור אחד ולא כותרת עם כפתור קטן בתוכה: כל השורה היא
      שטח לחיצה, וזה ההבדל בין שני מבקרים שפותחים את האשף לבין אחד. */
@@ -813,7 +756,7 @@
     width:100%;padding:15px 16px;text-align:right;color:#fff;
   }
   .lead-teaser-icon{
-    width:42px;height:42px;flex:none;border-radius:14px;
+    width:42px;height:42px;flex:none;border-radius:0;
     display:flex;align-items:center;justify-content:center;
     background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
   }
@@ -829,17 +772,19 @@
 
      הקצה הבהיר של המדרג היה ‎#C25B34‎, ומולו טקסט לבן ב-‎.82rem‎ הגיע ל-4.16:1
      בלבד — מתחת ל-4.5:1 ש-WCAG AA דורש לטקסט רגיל (‏13px מודגש עדיין אינו
-     "טקסט גדול", שמתחיל ב-18.66px מודגש). ‏#B85433 הוא אותו גוון חם בדיוק,
+     "טקסט גדול", שמתחיל ב-18.66px מודגש). ‏#c9a227 הוא אותו גוון חם בדיוק,
      כהה בשתי דרגות, ומגיע ל-4.8:1 — כלומר גם הצד הבהיר ביותר של הכפתור
      עובר את התקן, ולא רק הצד הבורדו. */
   .lead-teaser-go{
-    flex:none;padding:10px 15px;border-radius:999px;
+    flex:none;padding:10px 15px;border-radius:0;
     font-size:.82rem;font-weight:800;white-space:nowrap;
-    background:linear-gradient(to right,#8B2332,#B85433);color:#fff;
+    /* זהב מלא עם טקסט כהה: הבאנר עצמו הוא משטח ספיר כהה, ולכן כפתור ספיר
+       עליו נבלע. זהב לעולם לא נושא טקסט לבן — יחס הניגודיות שם הוא 2.4:1. */
+    background:#c9a227;color:#0d1b3d;
     box-shadow:0 10px 20px rgba(0,0,0,.3);
     transition:transform .15s ease, box-shadow .15s ease;
   }
-  .buyer-banner .lead-teaser-go{background:#E8C88A;color:#3D1119}
+  .buyer-banner .lead-teaser-go{background:#c9a227;color:#0d1b3d}
   .lead-teaser:hover .lead-teaser-go{transform:translateY(-2px);box-shadow:0 14px 26px rgba(0,0,0,.38)}
   /* פתוח: אותה שורה הופכת לכותרת שאפשר לסגור בה, ולכן ה-CTA מתעמעם
      למסגרת — כפתור מלא שקורא "לבדיקה" מעל אשף פתוח הוא הבטחה כפולה. */
@@ -861,12 +806,12 @@
 
   .lead-panel{padding:2px 16px 20px;text-align:center;animation:wizIn .24s ease}
   .lead-banner .owner-intro h2{color:#fff;font-size:1.35rem;max-width:22ch;margin:0 auto}
-  .lead-banner .owner-intro p{color:#CFE1DF;font-size:.9rem;max-width:42ch;margin:8px auto 0}
+  .lead-banner .owner-intro p{color:#c3cde6;font-size:.9rem;max-width:42ch;margin:8px auto 0}
   .buyer-banner .owner-intro p{color:#EFD9DC}
 
   .owner-toggle{display:flex;gap:8px}
   .owner-toggle button{
-    flex:1;padding:9px;border-radius:999px;font-weight:700;font-size:.82rem;
+    flex:1;padding:9px;border-radius:0;font-weight:700;font-size:.82rem;
     border:1.5px solid rgba(255,255,255,.35);color:#fff;
   }
   .owner-toggle button.active{background:var(--gold);border-color:var(--gold);color:#fff}
@@ -885,7 +830,7 @@
   .wiz-steps li{flex:1;display:flex;align-items:center;gap:6px;font-size:.7rem;font-weight:700;
     color:rgba(255,255,255,.62);padding-bottom:8px;border-bottom:2px solid rgba(255,255,255,.22)}
   .wiz-steps li.active{color:#fff;border-bottom-color:var(--gold)}
-  .wiz-steps li.done{color:#E8C88A;border-bottom-color:var(--gold)}
+  .wiz-steps li.done{color:#c9a227;border-bottom-color:var(--gold)}
   .wiz-steps .dot{width:19px;height:19px;border-radius:50%;background:rgba(255,255,255,.18);
     display:flex;align-items:center;justify-content:center;font-size:.68rem;flex:0 0 auto}
   .wiz-steps li.active .dot{background:var(--gold);color:#fff}
@@ -895,7 +840,7 @@
   .wiz-panel.active{display:block;animation:wizIn .22s ease}
   @keyframes wizIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
   .wiz-q{color:#fff;font-weight:700;font-size:1rem;margin:0 0 12px;max-width:none}
-  .wiz-label{display:block;font-size:.74rem;font-weight:700;color:#CFE1DF;margin:14px 0 6px}
+  .wiz-label{display:block;font-size:.74rem;font-weight:700;color:#c3cde6;margin:14px 0 6px}
   .wiz-input{width:100%;min-width:0;border:none;border-radius:var(--radius-sm);padding:12px;font-size:.9rem}
   .wiz-input.invalid{box-shadow:0 0 0 2px var(--gold)}
   .wiz-err{color:#F4C9B0;font-size:.78rem;margin:8px 0 0;min-height:1.1em}
@@ -904,7 +849,7 @@
   .btn-ghost-light{background:transparent;border:1.5px solid rgba(255,255,255,.35);color:#fff}
 
   .chip-row{display:flex;flex-wrap:wrap;gap:7px}
-  .chip{padding:8px 14px;border-radius:999px;font-size:.82rem;font-weight:600;
+  .chip{padding:8px 14px;border-radius:0;font-size:.82rem;font-weight:600;
     background:transparent;border:1.5px solid rgba(255,255,255,.3);color:#fff}
   .chip[aria-checked="true"]{background:var(--gold);border-color:var(--gold);color:#fff}
   /* המונה שעל גלולת ההתמחות במאתר המשרדים, והגלולה שאין מאחוריה תוצאות */
@@ -913,41 +858,41 @@
   .wiz-checks{display:flex;flex-wrap:wrap;gap:10px}
   .wiz-checks label{display:flex;align-items:center;gap:7px;font-size:.85rem;color:#fff;
     background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.22);
-    border-radius:999px;padding:8px 14px;cursor:pointer}
+    border-radius:0;padding:8px 14px;cursor:pointer}
   .wiz-checks input{margin:0;accent-color:var(--gold)}
-  .wiz-checks label:has(input:checked){background:rgba(201,138,44,.3);border-color:var(--gold)}
+  .wiz-checks label:has(input:checked){background:rgba(201,162,39,.3);border-color:var(--gold)}
 
   .wiz-done{text-align:center;padding:10px 0}
   .wiz-done-mark{width:52px;height:52px;border-radius:50%;background:var(--gold);color:#fff;
     font-size:1.6rem;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
   .wiz-done h3{color:#fff;font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;margin:0 0 6px}
-  .wiz-done p{color:#CFE1DF;font-size:.88rem;margin:0 auto 14px;max-width:34ch}
+  .wiz-done p{color:#c3cde6;font-size:.88rem;margin:0 auto 14px;max-width:34ch}
 
   /* ---- אשף מחפשי הנכס (הבאנר הבורדו) ----
      כל מה שנשען כאן על ‎var(--gold)‎ מוחלף בזהב של הכותרות: ‎--gold‎ הוא
-     בורדו (#8B2332) ועל רקע בורדו הוא נעלם — סימון נבחר שאי אפשר לראות
+     בורדו (#0e2a6b) ועל רקע בורדו הוא נעלם — סימון נבחר שאי אפשר לראות
      אינו סימון. */
   /* ‎.lead-toggle‎ ולא ‎.deal-toggle‎: השם השני כבר תפוס על ידי בורר סוג
      העסקה שבמודאל הסינון, שיושב על רקע בהיר — אותן מחלקות היו הופכות שם
      את הטקסט ללבן על לבן. */
   .lead-toggle{display:flex;flex-wrap:wrap;gap:8px}
   .lead-toggle button{
-    flex:1 1 0;min-width:84px;padding:9px;border-radius:999px;
+    flex:1 1 0;min-width:84px;padding:9px;border-radius:0;
     font-weight:700;font-size:.82rem;
     border:1.5px solid rgba(255,255,255,.35);color:#fff;
   }
   .lead-toggle button.active{background:var(--gold);border-color:var(--gold);color:#fff}
   .buyer-banner .lead-toggle button.active,
   .buyer-banner .chip[aria-pressed="true"],
-  .buyer-banner .btn-gold{background:#E8C88A;border-color:#E8C88A;color:#3D1119}
-  .buyer-banner .wiz-steps li.active{border-bottom-color:#E8C88A}
-  .buyer-banner .wiz-steps li.done{color:#F0D6AA;border-bottom-color:#E8C88A}
+  .buyer-banner .btn-gold{background:#c9a227;border-color:#c9a227;color:#0d1b3d}
+  .buyer-banner .wiz-steps li.active{border-bottom-color:#c9a227}
+  .buyer-banner .wiz-steps li.done{color:#F0D6AA;border-bottom-color:#c9a227}
   .buyer-banner .wiz-steps li.active .dot,
   .buyer-banner .wiz-steps li.done .dot,
-  .buyer-banner .wiz-done-mark{background:#E8C88A;color:#3D1119}
+  .buyer-banner .wiz-done-mark{background:#c9a227;color:#0d1b3d}
   .buyer-banner .wiz-label,
   .buyer-banner .wiz-done p{color:#F0DADD}
-  .buyer-banner :focus-visible{outline-color:#E8C88A}
+  .buyer-banner :focus-visible{outline-color:#c9a227}
 
   .wiz-hint{font-weight:600;font-size:.7rem;color:rgba(255,255,255,.72)}
   /* ‎.wiz-label‎ הוא display:block, וכלל מחלקה גובר על ‎[hidden]‎ של הדפדפן */
@@ -957,14 +902,14 @@
   .buy-check{display:flex;align-items:flex-start;gap:9px;margin-top:14px;cursor:pointer;
     font-size:.82rem;line-height:1.45;color:#fff;
     background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.22);
-    border-radius:14px;padding:11px 13px}
-  .buy-check input{margin:2px 0 0;flex:none;accent-color:#E8C88A}
-  .buy-check:has(input:checked){background:rgba(232,200,138,.22);border-color:#E8C88A}
+    border-radius:0;padding:11px 13px}
+  .buy-check input{margin:2px 0 0;flex:none;accent-color:#c9a227}
+  .buy-check:has(input:checked){background:rgba(232,200,138,.22);border-color:#c9a227}
   .buy-privacy{font-size:.72rem;color:rgba(255,255,255,.72);margin:10px 0 0}
   /* סיכום מה שנבחר בשני השלבים הקודמים, מעל שדות הקשר: הוא מזכיר על מה
      חותמים בדיוק ברגע שמוסרים טלפון. */
   .buy-recap{font-size:.78rem;line-height:1.5;color:#F0DADD;
-    background:rgba(0,0,0,.18);border-radius:12px;padding:10px 12px;margin-bottom:4px}
+    background:rgba(0,0,0,.18);border-radius:0;padding:10px 12px;margin-bottom:4px}
 
   /* ---- מאתר משרדי התיווך (הבאנר שמתחת לקרוסלת המשרדים) ----
      הפאנל הוא סרגל הסינון של agencies.html בשפה הכהה של הבאנרים, ומתחתיו
@@ -972,9 +917,9 @@
      לשלושים שורות היה דוחף את כל מה שמתחתיו אל מעבר לאופק. */
   .agency-banner{background:linear-gradient(150deg,rgba(28,58,94,.87),rgba(20,50,78,.76))}
   .agency-banner .lead-toggle button.active,
-  .agency-banner .chip[aria-pressed="true"]{background:#E8C88A;border-color:#E8C88A;color:#20344B}
+  .agency-banner .chip[aria-pressed="true"]{background:#c9a227;border-color:#c9a227;color:#20344B}
   .agency-banner .wiz-label{color:#E4EAF2}
-  .agency-banner :focus-visible{outline-color:#E8C88A}
+  .agency-banner :focus-visible{outline-color:#c9a227}
   .agency-finder{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);
     border-radius:var(--radius-lg);padding:16px;text-align:right;
     max-width:560px;margin:18px auto 0}
@@ -992,28 +937,28 @@
     padding-inline-end:4px;overscroll-behavior:contain}
   .af-row{display:flex;align-items:center;gap:11px;text-align:right;
     background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18);
-    border-radius:14px;padding:10px 11px;color:#fff;
+    border-radius:0;padding:10px 11px;color:#fff;
     transition:transform .14s ease, background .14s ease}
   .af-row:hover{background:rgba(255,255,255,.17);transform:translateX(-3px)}
   /* אריח הלוגו: אות ההתחלה יושבת מתחת לתמונה ונחשפת אם הקובץ נשבר
      (‏onerror מסיר את ה-img) — אותו דפוס של כרטיסי הקרוסלה */
-  .af-logo{width:42px;height:42px;flex:none;border-radius:12px;position:relative;overflow:hidden;
+  .af-logo{width:42px;height:42px;flex:none;border-radius:0;position:relative;overflow:hidden;
     display:grid;place-items:center;background:linear-gradient(150deg,var(--teal),var(--brick));
     font-weight:800;font-size:1.05rem;color:#fff}
   .af-logo img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;background:#fff}
   .af-body{flex:1;min-width:0}
   .af-name{font-weight:800;font-size:.92rem;line-height:1.3;display:flex;align-items:center;gap:6px}
-  .af-verified{font-size:.62rem;font-weight:800;color:#20344B;background:#E8C88A;
-    border-radius:999px;padding:2px 7px;white-space:nowrap}
+  .af-verified{font-size:.62rem;font-weight:800;color:#20344B;background:#c9a227;
+    border-radius:0;padding:2px 7px;white-space:nowrap}
   .af-meta{font-size:.74rem;color:rgba(255,255,255,.78);margin-top:3px;
     display:flex;flex-wrap:wrap;gap:4px 9px}
-  .af-meta .star{color:#E8C88A}
+  .af-meta .star{color:#c9a227}
   .af-areas{font-size:.71rem;color:rgba(255,255,255,.62);margin-top:3px;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .af-go{flex:none;font-size:1.1rem;color:#E8C88A}
+  .af-go{flex:none;font-size:1.1rem;color:#c9a227}
   .af-empty{font-size:.82rem;color:rgba(255,255,255,.78);text-align:center;padding:22px 0}
   .af-all{display:block;text-align:center;margin-top:14px;font-size:.8rem;font-weight:700;
-    color:#E8C88A;border-bottom:1.5px solid rgba(232,200,138,.5);padding-bottom:2px;
+    color:#c9a227;border-bottom:1.5px solid rgba(232,200,138,.5);padding-bottom:2px;
     width:fit-content;margin-inline:auto}
 
   @media(min-width:640px){
@@ -1032,7 +977,7 @@
     position:relative;z-index:4;margin-top:-16px;
     /* לבן חלקית ולא ‎--paper-raised‎ אטום: כך הרקע הזורם מבצבץ גם מתחת
        לבמה שמתחת למפה, בדיוק כמו הכרטיסים בדשבורד */
-    background:rgba(255,255,255,.86);border-radius:26px 26px 0 0;
+    background:rgba(255,255,255,.86);border-radius:0 26px 0 0;
     padding:20px 0 22px;box-shadow:0 -12px 30px rgba(6,20,34,.20);
   }
   .search-results:not([hidden]) + .hot-band{margin-top:0;border-radius:0;box-shadow:none}
@@ -1041,7 +986,7 @@
   .sr-count{font-size:.78rem;color:var(--ink-soft);font-weight:600}
   .sr-clear{
     margin-inline-start:auto;font-size:.75rem;font-weight:700;color:var(--teal);
-    border:1.5px solid var(--line);background:#fff;border-radius:999px;padding:5px 12px;
+    border:1.5px solid var(--line);background:#fff;border-radius:0;padding:5px 12px;
   }
   .sr-rows{display:flex;flex-direction:column;gap:10px}
   /* שורה ולא כרטיס: אחרי חיפוש חשוב לסרוק הרבה תוצאות בגלילה אחת, ולכן
@@ -1071,7 +1016,7 @@
   /* שחור עמוק ומודגש, כמו המחיר על האריח — זה אותו נתון בשתי תצוגות */
   .sr-price{font-weight:900;font-size:1.05rem;color:#0E1116;letter-spacing:-.4px;white-space:nowrap}
   .sr-row .pc-facts{margin-top:5px;gap:3px 11px}
-  .sr-deal{font-size:.65rem;font-weight:700;color:#fff;border-radius:999px;padding:3px 9px;white-space:nowrap}
+  .sr-deal{font-size:.65rem;font-weight:700;color:#fff;border-radius:0;padding:3px 9px;white-space:nowrap}
   .sr-deal[data-deal="sale"]{background:var(--deal-sale)}
   .sr-deal[data-deal="rent"]{background:var(--deal-rent)}
   .sr-deal[data-deal="commercial"]{background:var(--deal-commercial)}
@@ -1093,7 +1038,7 @@
   .hot-band{
     position:relative;z-index:4;margin-top:-16px;
     /* ראו ‎.search-results‎: אותה במה חלקית־שקופה מעל הרקע הזורם */
-    background:rgba(255,255,255,.86);border-radius:26px 26px 0 0;
+    background:rgba(255,255,255,.86);border-radius:0 26px 0 0;
     /* הריפוד התחתון מחזיק את המרווח שהחזיקה קודם שורת נקודות הניווט */
     padding:20px 0 30px;box-shadow:0 -12px 30px rgba(6,20,34,.20);
   }
@@ -1123,7 +1068,7 @@
        במסלול, במקום לחתוך טקסט. */
     min-height:var(--card-h);display:flex;flex-direction:column;
     scroll-snap-align:center;cursor:pointer;
-    background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;
+    background:#fff;border:1px solid var(--line);border-radius:0;overflow:hidden;
     box-shadow:var(--shadow-sm);transform:scale(.93);opacity:.82;
     transition:transform .28s ease, opacity .28s ease, box-shadow .28s ease, border-color .28s ease;
   }
@@ -1134,7 +1079,7 @@
   .cf-thumb{height:94px;flex:none;background-size:cover;background-position:center;position:relative}
   .cf-badge{
     position:absolute;top:6px;right:6px;background:var(--teal);color:#fff;
-    font-size:.6rem;font-weight:800;padding:2px 7px;border-radius:5px;
+    font-size:.6rem;font-weight:800;padding:2px 7px;border-radius:0;
   }
   .cf-card[data-deal="rent"] .cf-badge{background:var(--deal-rent)}
   .cf-card[data-deal="commercial"] .cf-badge{background:var(--deal-commercial)}
@@ -1167,7 +1112,7 @@
 
   .cf-dots{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;padding:0 16px}
   .cf-dots button{
-    width:7px;height:7px;border-radius:999px;background:var(--line);padding:0;
+    width:7px;height:7px;border-radius:0;background:var(--line);padding:0;
     transition:width .25s ease, background .25s ease;
   }
   .cf-dots button.active{width:22px;background:var(--teal-dark)}
@@ -1191,12 +1136,12 @@
     .hot-band{margin-top:-20px;padding:26px 0 32px}
     .hot-head h2{font-size:1.4rem}
     .coverflow{--cf-gap:16px;--cf-peek:24px;padding:16px var(--cf-peek) 12px}
-    .cf-card{border-radius:16px}
+    .cf-card{border-radius:0}
     .cf-thumb{height:150px}
     /* ברוחב הזה אריח ה-coverflow חוזר לגובה מלא, ולכן גם ממלא המקום חוזר
        למידות הרגילות שלו ולא לגרסה המוקטנת */
     .cf-thumb .thumb-fallback{gap:6px;padding:10px}
-    .cf-thumb .tf-logo{width:48px;height:48px;border-radius:12px;font-size:1.15rem}
+    .cf-thumb .tf-logo{width:48px;height:48px;border-radius:0;font-size:1.15rem}
     .cf-thumb .tf-agency{font-size:.74rem}
     .cf-thumb .tf-note{font-size:.68rem}
     .cf-body{padding:10px 12px 14px}
@@ -1223,7 +1168,7 @@
   .ag-logo{width:100%;height:100%;object-fit:contain;padding:8px}
   .ag-rank{
     position:absolute;top:6px;right:6px;background:rgba(255,255,255,.94);color:var(--gold-dark);
-    font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:999px;
+    font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:0;
     box-shadow:0 2px 6px rgba(6,20,34,.22);
   }
   .ag-name{
@@ -1280,7 +1225,7 @@
   .pro-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:var(--photo-pos,center 22%)}
   .agent-rank{
     position:absolute;top:6px;right:6px;background:rgba(255,255,255,.94);color:var(--gold-dark);
-    font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:999px;
+    font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:0;
     box-shadow:0 2px 6px rgba(6,20,34,.22);
   }
   /* תו האיכות על אריח בקרוסלה. הוא יושב בפינה הנגדית לתג הדירוג כדי שהשניים
@@ -1348,7 +1293,7 @@
     padding:16px;font-size:.8rem;font-weight:700;color:var(--teal-dark);text-align:center;
   }
   .ad-strip .tag{
-    background:var(--paper-raised);border:1px solid var(--line);border-radius:6px;
+    background:var(--paper-raised);border:1px solid var(--line);border-radius:0;
     padding:2px 8px;font-size:.68rem;
   }
   .ad-row{padding-block:14px}
@@ -1377,7 +1322,7 @@
   .article-card .body{padding:11px;display:flex;flex-direction:column;gap:6px;flex:1}
   .article-card .kicker{
     align-self:flex-start;background:var(--gold-tint);color:var(--gold-dark);
-    font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:5px;
+    font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:0;
   }
   /* הגבלה לשתי שורות: הכרטיסים צרים יותר עכשיו, וכותרת ארוכה לא תמתח
      כרטיס אחד מעל שכניו. */
@@ -1435,10 +1380,10 @@
     background:
       linear-gradient(180deg,rgba(255,255,255,.66),rgba(255,255,255,.36) 55%,rgba(255,255,255,.56)),
       url('assets/property-placeholder.jpg') center/cover no-repeat,
-      linear-gradient(160deg,#F4F3F0 0%,#E0E7ED 100%);
+      linear-gradient(160deg,#ffffff 0%,#eaf0fb 100%);
   }
   .thumb-fallback .tf-logo{
-    width:48px;height:48px;flex:0 0 auto;border-radius:12px;background:#fff;
+    width:48px;height:48px;flex:0 0 auto;border-radius:0;background:#fff;
     border:1px solid var(--line);object-fit:contain;padding:4px;
     box-shadow:0 4px 14px rgba(18,40,64,.18);
   }
@@ -1458,7 +1403,7 @@
   .sr-thumb .thumb-fallback{gap:4px;padding:6px}
   .featured-scroll .prop-card .thumb .tf-logo,
   .cf-thumb .tf-logo,
-  .sr-thumb .tf-logo{width:32px;height:32px;border-radius:9px;font-size:.9rem}
+  .sr-thumb .tf-logo{width:32px;height:32px;border-radius:0;font-size:.9rem}
   .featured-scroll .prop-card .thumb .tf-agency,
   .cf-thumb .tf-agency,
   .sr-thumb .tf-agency{font-size:.64rem}
@@ -1473,7 +1418,7 @@
      שם המשרד הוא מה שחשוב לזהות באריח בגודל הזה — וחוזרת מ-480px ומעלה,
      שם התמונונת כבר גבוהה מספיק לשניהם. */
   .featured-scroll .prop-card .thumb .thumb-fallback{padding-top:28px}
-  .featured-scroll .prop-card .thumb .tf-logo{width:26px;height:26px;border-radius:8px;font-size:.78rem}
+  .featured-scroll .prop-card .thumb .tf-logo{width:26px;height:26px;border-radius:0;font-size:.78rem}
   .featured-scroll .prop-card .thumb .tf-note{display:none}
   /* בתמונונת של שורת תוצאה (104px) אין מקום לשם המשרד — הוא ממילא מופיע
      בשורת המטא של אותה שורה, ובלעדיו נשאר מקום להודעה עצמה. הצעיף הלבן
@@ -1483,7 +1428,7 @@
     background:
       linear-gradient(180deg,rgba(255,255,255,.84),rgba(255,255,255,.7)),
       url('assets/property-placeholder.jpg') center/cover no-repeat,
-      linear-gradient(160deg,#F4F3F0 0%,#E0E7ED 100%);
+      linear-gradient(160deg,#ffffff 0%,#eaf0fb 100%);
   }
 
   /* ‏inset-inline-end ולא ‎right‎: העמוד הוא RTL, ולכן ‎right‎ הוא בדיוק
@@ -1491,7 +1436,7 @@
      "מקודם" נחת עליהן. עכשיו כל אחד בפינה שלו. */
   .prop-card .ribbon{
     position:absolute;top:10px;inset-inline-end:10px;background:var(--gold);color:#fff;font-size:.68rem;
-    font-weight:800;padding:3px 9px;border-radius:5px;z-index:2;
+    font-weight:800;padding:3px 9px;border-radius:0;z-index:2;
   }
   /* המחיר, הכותרת, שתי שורות המיקום, שורת המאפיינים והתגיות שעל התמונה
      מגיעים כולם מ-assets/property-card.js — ‏.pc-price, .pc-title, .pc-where,
@@ -1559,7 +1504,7 @@
     /* בגובה מלא ממלא־המקום חוזר למידות הרגילות שלו, רק עם ריפוד עליון
        שמשאיר את שורת התגיות לעצמה */
     .featured-scroll .prop-card .thumb .thumb-fallback{gap:6px;padding:10px;padding-top:32px}
-    .featured-scroll .prop-card .thumb .tf-logo{width:44px;height:44px;border-radius:12px;font-size:1.1rem}
+    .featured-scroll .prop-card .thumb .tf-logo{width:44px;height:44px;border-radius:0;font-size:1.1rem}
     .featured-scroll .prop-card .thumb .tf-agency{font-size:.74rem}
     .featured-scroll .prop-card .thumb .tf-note{font-size:.68rem}
     .featured-scroll .prop-card .ribbon{top:10px;inset-inline-end:10px;font-size:.68rem;padding:3px 9px}
@@ -1592,11 +1537,11 @@
      כאן במקום. */
   .listings-tabs{
     display:flex;gap:6px;justify-content:center;margin:-6px auto 16px;
-    background:var(--paper-raised);border:1px solid var(--line);border-radius:999px;
+    background:var(--paper-raised);border:1px solid var(--line);border-radius:0;
     padding:5px;width:max-content;max-width:100%;
   }
   .listings-tab{
-    padding:9px 16px;border-radius:999px;font-weight:700;font-size:.85rem;
+    padding:9px 16px;border-radius:0;font-weight:700;font-size:.85rem;
     color:var(--ink-soft);white-space:nowrap;transition:background .15s ease,color .15s ease;
   }
   .listings-tab[aria-selected="true"]{background:var(--teal);color:#fff}
@@ -1623,7 +1568,7 @@
   /* הכרטיס יושב בתוך ‎.lead-panel‎ של הבאנר המתקפל, וכל המידות בפנים הודקו
      כדי שהכלי כולו ייכנס בגלילה אחת ולא יאכל שטח מסך.                      */
   .calc-card{
-    --calc-accent:#8B2332; --calc-accent-warm:#C25B34;
+    --calc-accent:#0e2a6b; --calc-accent-warm:#C25B34;
     --calc-fill:linear-gradient(to left,var(--calc-accent),var(--calc-accent-warm));
     padding:18px 16px 16px;display:flex;flex-direction:column;gap:14px;
     background:linear-gradient(165deg,#FBFAF8 0%,var(--paper-raised) 55%,var(--teal-tint) 100%);
@@ -1631,7 +1576,7 @@
   }
   .calc-hero{text-align:center;display:flex;flex-direction:column;align-items:center;gap:7px}
   .calc-hero-icon{
-    width:48px;height:48px;border-radius:14px;display:grid;place-items:center;
+    width:48px;height:48px;border-radius:0;display:grid;place-items:center;
     background:linear-gradient(150deg,var(--teal) 0%,var(--teal-dark) 55%,var(--calc-accent) 100%);
     box-shadow:0 8px 22px rgba(27,58,94,.28);
   }
@@ -1647,7 +1592,7 @@
   /* הרקע נצבע על ה-input עצמו (ולא רק על ::-webkit-slider-runnable-track)
      כדי שמילוי המסלול יעבוד גם בפיירפוקס, שם ::-moz-range-track שקוף.      */
   .calc-range{
-    -webkit-appearance:none;appearance:none;width:100%;height:14px;border-radius:999px;margin:0;
+    -webkit-appearance:none;appearance:none;width:100%;height:14px;border-radius:0;margin:0;
     background:linear-gradient(to left,var(--teal-dark) 0%,var(--calc-accent-warm) var(--p,50%),#CFCDC7 var(--p,50%),#CFCDC7 100%);
     cursor:pointer;
   }
@@ -1655,30 +1600,30 @@
   .calc-range::-moz-range-track{background:transparent;height:14px}
   .calc-range::-webkit-slider-thumb{
     -webkit-appearance:none;appearance:none;width:26px;height:26px;border-radius:50%;
-    background:var(--teal-dark);border:3px solid #fff;box-shadow:0 3px 10px rgba(15,52,53,.35);
+    background:var(--teal-dark);border:3px solid #fff;box-shadow:0 3px 10px rgba(14,42,107,.35);
   }
   .calc-range::-moz-range-thumb{
     width:26px;height:26px;border-radius:50%;box-sizing:border-box;
-    background:var(--teal-dark);border:3px solid #fff;box-shadow:0 3px 10px rgba(15,52,53,.35);
+    background:var(--teal-dark);border:3px solid #fff;box-shadow:0 3px 10px rgba(14,42,107,.35);
   }
   .calc-ltv{display:flex;align-items:center;gap:7px;margin-top:7px;font-size:.76rem;font-weight:700;color:var(--gold-dark)}
   .calc-ltv .arrow{color:var(--calc-accent);font-size:.9rem;line-height:1}
-  .calc-ltv-track{flex:0 0 58px;height:4px;border-radius:999px;background:#CFCDC7;overflow:hidden}
+  .calc-ltv-track{flex:0 0 58px;height:4px;border-radius:0;background:#CFCDC7;overflow:hidden}
   .calc-ltv-fill{display:block;height:100%;width:0;background:var(--calc-fill);transition:width .18s ease}
 
   .calc-steppers{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .calc-step .lbl{display:block;font-size:.82rem;font-weight:700;color:var(--ink-soft);text-align:center;margin-bottom:5px}
   .calc-step-ctl{
     display:flex;align-items:center;background:var(--paper-raised);border:1.5px solid var(--line);
-    border-radius:14px;padding:3px;gap:4px;
+    border-radius:0;padding:3px;gap:4px;
   }
   .calc-step-ctl button{
-    width:36px;height:36px;flex:none;border-radius:10px;font-size:1.3rem;font-weight:700;line-height:1;
+    width:36px;height:36px;flex:none;border-radius:0;font-size:1.3rem;font-weight:700;line-height:1;
     color:var(--teal-dark);display:grid;place-items:center;transition:background .15s ease;
   }
   .calc-step-ctl button:hover{background:var(--teal-tint)}
   .calc-step-ctl input{
-    flex:1;min-width:0;width:100%;text-align:center;border:none;background:#fff;border-radius:10px;
+    flex:1;min-width:0;width:100%;text-align:center;border:none;background:#fff;border-radius:0;
     padding:6px 2px;font-size:1.22rem;font-weight:800;color:var(--teal-dark);
     font-family:'Frank Ruhl Libre',serif;
   }
@@ -1704,18 +1649,18 @@
   /* שלוש התוצאות המשניות של מחשבון התשואה. ‏gap:1px על רקע בצבע הקו נותן
      מפרידים בעובי פיקסל בלי שלושה גבולות שנערמים זה על זה. */
   .calc-more{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;
-    background:var(--line);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+    background:var(--line);border:1px solid var(--line);border-radius:0;overflow:hidden}
   .calc-more div{background:var(--paper-raised);padding:11px 6px;text-align:center;min-width:0}
   .calc-more .v{font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.2rem;
     color:var(--teal-dark);line-height:1.15}
   .calc-more .k{font-size:.68rem;color:var(--ink-soft);margin-top:3px;font-weight:600}
   .calc-cta{
-    display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 18px;border-radius:14px;
+    display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 18px;border-radius:0;
     background:linear-gradient(to right,var(--teal-dark),var(--calc-accent) 55%,var(--calc-accent-warm));
-    color:#fff;font-weight:800;font-size:1rem;box-shadow:0 8px 20px rgba(139,35,50,.28);
+    color:#fff;font-weight:800;font-size:1rem;box-shadow:0 8px 20px rgba(14,42,107,.28);
     transition:transform .15s ease, box-shadow .15s ease;
   }
-  .calc-cta:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(139,35,50,.34)}
+  .calc-cta:hover{transform:translateY(-2px);box-shadow:0 12px 26px rgba(14,42,107,.34)}
   .calc-cta svg{width:22px;height:22px;flex:none}
   .calc-fine{font-size:.72rem;color:var(--ink-soft);margin:0;text-align:center}
 
@@ -1756,7 +1701,7 @@
   .ssa-cta{
     display:inline-flex;align-items:center;gap:6px;font-size:.75rem;font-weight:800;
     color:var(--teal-dark);background:var(--teal-tint);border:1.5px solid transparent;
-    border-radius:999px;padding:5px 13px;cursor:pointer;font-family:inherit;
+    border-radius:0;padding:5px 13px;cursor:pointer;font-family:inherit;
   }
   .ssa-cta:hover{border-color:var(--teal)}
   /* אחרי לחיצה על "ניקוי החיפוש" ה-.sr-clear נדחף לקצה; הכפתור שלנו נצמד אליו */
@@ -1806,14 +1751,14 @@
   .pro-card{
     min-height:var(--card-h);display:flex;flex-direction:column;overflow:hidden;
     background:linear-gradient(155deg,var(--gold),var(--teal) 65%);
-    border:1px solid var(--line);border-radius:14px;box-shadow:var(--shadow-sm);
+    border:1px solid var(--line);border-radius:0;box-shadow:var(--shadow-sm);
     transition:transform .2s ease, box-shadow .2s ease;
   }
   a.pro-card:hover{transform:translateY(-2px);box-shadow:0 14px 28px -14px rgba(6,20,34,.42)}
   @media(min-width:480px){.pros-grid{gap:14px}}
   @media(min-width:760px){
     .pros-grid{grid-template-columns:repeat(4,1fr);gap:16px}
-    .pro-card{border-radius:16px}
+    .pro-card{border-radius:0}
   }
   /* סדר הרצועות בסוף העמוד: נכסים מומלצים ← כתבות ← בעלי מקצוע ← נכסים.
      הריפוד של .section (18px) כבר נותן את המרווח ההדוק בכל המעברים, ולכן
@@ -1865,7 +1810,7 @@
   }
   .a11y-panel button.opt[aria-pressed="true"]{border-color:var(--teal);background:var(--teal-tint);color:var(--teal-dark)}
   .a11y-panel .state{font-size:.72rem;color:var(--ink-soft)}
-  .a11y-panel .reset{width:100%;border:none;background:var(--gold);color:#fff;border-radius:999px;padding:9px;font-weight:700;font-size:.82rem;margin-top:4px}
+  .a11y-panel .reset{width:100%;border:none;background:var(--gold);color:#fff;border-radius:0;padding:9px;font-weight:700;font-size:.82rem;margin-top:4px}
   .a11y-font-row{display:flex;gap:7px;margin-bottom:7px}
   .a11y-font-row button{
     flex:1;border:1.5px solid var(--line);border-radius:var(--radius-sm);background:#fff;
@@ -1980,110 +1925,34 @@
 }
 </script>
 <link rel="stylesheet" href="assets/site-footer.css">
+<link rel="stylesheet" href="assets/design-system.css">
+<script defer src="assets/brand-logo.js"></script>
+<script src="assets/page-bg.js" data-auto></script>
+<script defer src="assets/ai-showcase.js" data-mount="#aiShowcase"></script>
 <script src="assets/site-footer.js" defer></script>
 </head>
 <body>
 <a href="#main" class="skip-link">דלג לתוכן הראשי</a>
 
-<!-- ---------- הרקע הזורם ----------
-     עיטור בלבד (aria-hidden): שמש חמה, קו רקיע של העיר וארבע שכבות גלים.
-     הגלים נעים לרוחב לבד, ו-pageBgFlow() מוסיף להם היסט לפי הגלילה —
-     כל שכבה בקצב אחר, ולכן הרקע זורם לאורך כל הדף. ראו ".page-bg" ב-CSS. -->
-<div class="page-bg" id="pageBg" aria-hidden="true">
-  <span class="bg-sun"></span>
-
-  <!-- קו הרקיע: מגדלים ובתים צמודים לתחתית האלמנט, ובסיסם מכוסה בגל
-       התחתון. slice ולא meet — במסך צר עדיף להתקרב לכמה בניינים גדולים
-       ורכים מאשר לרסק עיר שלמה לרצועת פסים זעירה. -->
-  <div class="bg-skyline" data-kx="0" data-ky="22">
-    <svg viewBox="0 0 1440 220" preserveAspectRatio="xMidYMax slice">
-      <defs>
-        <linearGradient id="bgSkyGrad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stop-color="#7ea6cd"/>
-          <stop offset="100%" stop-color="#1C3A5E"/>
-        </linearGradient>
-      </defs>
-      <g fill="url(#bgSkyGrad)">
-        <!-- מגדלים -->
-        <rect x="40"   y="120" width="64" height="100" rx="4"/>
-        <rect x="112"  y="86"  width="52" height="134" rx="4"/>
-        <rect x="172"  y="140" width="70" height="80"  rx="4"/>
-        <rect x="340"  y="100" width="58" height="120" rx="4"/>
-        <rect x="406"  y="58"  width="74" height="162" rx="5"/>
-        <rect x="440"  y="26"  width="5"  height="34"/>
-        <rect x="488"  y="132" width="62" height="88"  rx="4"/>
-        <rect x="640"  y="110" width="66" height="110" rx="4"/>
-        <rect x="714"  y="74"  width="58" height="146" rx="4"/>
-        <rect x="780"  y="146" width="74" height="74"  rx="4"/>
-        <rect x="956"  y="118" width="60" height="102" rx="4"/>
-        <rect x="1024" y="84"  width="70" height="136" rx="4"/>
-        <rect x="1102" y="150" width="66" height="70"  rx="4"/>
-        <rect x="1266" y="112" width="62" height="108" rx="4"/>
-        <rect x="1336" y="142" width="64" height="78"  rx="4"/>
-        <!-- בתים פרטיים עם גג משופע -->
-        <path d="M250 220v-56l40-32 40 32v56z"/>
-        <path d="M558 220v-50l36-30 36 30v50z"/>
-        <path d="M866 220v-58l42-34 42 34v58z"/>
-        <path d="M1180 220v-52l38-30 38 30v52z"/>
-      </g>
-    </svg>
-  </div>
-
-  <div class="bg-wave bg-wave-1" data-kx="0.10" data-ky="18">
-    <svg viewBox="0 0 2160 320" preserveAspectRatio="none">
-      <defs><linearGradient id="bgWave1" x1="0" y1="0" x2=".3" y2="1">
-        <stop offset="0%" stop-color="#eef5fc"/>
-        <stop offset="55%" stop-color="#d7e7f7" stop-opacity=".6"/>
-        <stop offset="100%" stop-color="#cfe2f4" stop-opacity="0"/>
-      </linearGradient></defs>
-      <path fill="url(#bgWave1)" d="M0,160 C120,205 240,205 360,160 C480,115 600,115 720,160 C840,205 960,205 1080,160 C1200,115 1320,115 1440,160 C1560,205 1680,205 1800,160 C1920,115 2040,115 2160,160 L2160,320 L0,320 Z"/>
-    </svg>
-  </div>
-
-  <div class="bg-wave bg-wave-2" data-kx="0.17" data-ky="-24">
-    <svg viewBox="0 0 2160 320" preserveAspectRatio="none">
-      <defs><linearGradient id="bgWave2" x1="0" y1="0" x2=".35" y2="1">
-        <stop offset="0%" stop-color="#d5e7f7"/>
-        <stop offset="55%" stop-color="#a9cbe8" stop-opacity=".6"/>
-        <stop offset="100%" stop-color="#9dc4e6" stop-opacity="0"/>
-      </linearGradient></defs>
-      <path fill="url(#bgWave2)" d="M0,160 C120,80 240,80 360,160 C480,240 600,240 720,160 C840,80 960,80 1080,160 C1200,240 1320,240 1440,160 C1560,80 1680,80 1800,160 C1920,240 2040,240 2160,160 L2160,320 L0,320 Z"/>
-    </svg>
-  </div>
-
-  <div class="bg-wave bg-wave-3" data-kx="0.26" data-ky="30">
-    <svg viewBox="0 0 2160 320" preserveAspectRatio="none">
-      <defs><linearGradient id="bgWave3" x1="0" y1="0" x2=".35" y2="1">
-        <stop offset="0%" stop-color="#8fbadf"/>
-        <stop offset="55%" stop-color="#5b90c0" stop-opacity=".6"/>
-        <stop offset="100%" stop-color="#3c74a8" stop-opacity="0"/>
-      </linearGradient></defs>
-      <path fill="url(#bgWave3)" d="M0,160 C120,205 240,205 360,160 C480,115 600,115 720,160 C840,205 960,205 1080,160 C1200,115 1320,115 1440,160 C1560,205 1680,205 1800,160 C1920,115 2040,115 2160,160 L2160,320 L0,320 Z"/>
-    </svg>
-  </div>
-
-  <div class="bg-wave bg-wave-4" data-kx="0.38" data-ky="-40">
-    <svg viewBox="0 0 2160 320" preserveAspectRatio="none">
-      <defs><linearGradient id="bgWave4" x1="0" y1="0" x2="1" y2="1">
-        <stop offset="0%" stop-color="#2c5a8c"/><stop offset="100%" stop-color="#1C3A5E"/>
-      </linearGradient></defs>
-      <path fill="url(#bgWave4)" d="M0,160 C120,80 240,80 360,160 C480,240 600,240 720,160 C840,80 960,80 1080,160 C1200,240 1320,240 1440,160 C1560,80 1680,80 1800,160 C1920,240 2040,240 2160,160 L2160,320 L0,320 Z"/>
-    </svg>
-  </div>
-</div>
+<!-- הרקע הזורם מורכב על ידי assets/page-bg.js (ראו data-auto על תגית הסקריפט) -->
 
 <header class="site">
   <div class="wrap header-inner">
     <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
       <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="512" height="436">
-      <span class="logo-word">שוק הנדל״ן של <span>עפולה והסביבה</span></span>
+      <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
     </a>
+    <!-- חמישה פריטים, ואותם חמישה בדיוק בתפריט המובייל שלמטה. קודם היו כאן
+         שני תפריטים שונים שחפפו חלקית, ומחשבון המשכנתא והסבר הדירוג ישבו
+         בהם כפריטי ניווט ראשיים — שני כלים שאף אחד לא נכנס לאתר בשבילם.
+         המחשבון נשאר בעמוד ובפוטר, וההסבר על הדירוג עבר לצד הכותרת של
+         רצועת המתווכים, במקום שבו הכוכבים באמת נקראים. -->
     <nav class="primary" aria-label="ניווט ראשי">
       <a href="#listings">נכסים</a>
-      <a href="#leadingAgencies">משרדי תיווך מובילים</a>
-      <a href="#commercialProps">מסחרי</a>
+      <a href="#leadingAgencies">משרדי תיווך</a>
+      <a href="#leadingAgents">מתווכים</a>
+      <a href="#pros">בעלי מקצוע</a>
       <a href="#articles">כתבות</a>
-      <a href="#calc">מחשבון משכנתא</a>
     </nav>
     <div class="header-actions">
       <a href="crm.html" class="btn btn-teal" style="display:none" id="cta-desktop">כניסת מתווכים</a>
@@ -2094,15 +1963,10 @@
   </div>
   <nav id="mobileMenu" class="mobile-menu" aria-label="ניווט למובייל">
     <a href="#listings">נכסים</a>
-    <a href="#leadingAgencies">משרדי תיווך מובילים</a>
-    <a href="#commercialProps">נכסים מסחריים</a>
-    <a href="#leadingAgents">מתווכים מומלצים</a>
-    <a href="articles.html">כתבות ובלוגים</a>
+    <a href="#leadingAgencies">משרדי תיווך</a>
+    <a href="#leadingAgents">מתווכים</a>
     <a href="#pros">בעלי מקצוע</a>
-    <a href="#calc">מחשבון משכנתא</a>
-    <!-- הדירוג לא מוצג ככותרת בדף הבית אלא נשאר כאן, בתפריט: מי שרוצה להבין
-         מה עומד מאחורי הכוכבים על כרטיס המתווך/ת מוצא/ת את ההסבר בלחיצה. -->
-    <a href="#" id="ratingInfoLink">איך עובד הדירוג?</a>
+    <a href="#articles">כתבות</a>
     <!-- עד עכשיו נקודת הכניסה היחידה של בעלי מקצוע הייתה הקישור בתוך
          הרצועה בדף הבית — מי שלא גלל עד אליה לא ידע שאפשר להצטרף. -->
     <a href="professional-signup.html">הצטרפות כבעל מקצוע</a>
@@ -2401,7 +2265,12 @@
 
     <div class="map-toolbar">
       <div class="map-toolbar-side">
-        <select id="mapStyleSelect" class="map-style-select" aria-label="סגנון המפה">
+        <!-- בורר הערכות (טבע / קלאסי / בהיר) הוסתר מהגולשים: בחירת ערכה היא
+             החלטת עיצוב של האתר ולא משימה של מי שמחפש דירה, ושלוש ערכות
+             פירושן שלושה מראות שונים לאותו מוצר. השדה נשאר בקוד — כל
+             ההתנהגות של המפה קוראת את הערך שלו — ומי שרוצה לבחון ערכה אחרת
+             מסיר את ה-hidden. -->
+        <select id="mapStyleSelect" class="map-style-select" aria-label="סגנון המפה" hidden>
           <option value="nature">טבע</option>
           <option value="classic" selected>קלאסי</option>
           <option value="light">בהיר</option>
@@ -2428,7 +2297,7 @@
                רוחב לשתי עמודות, ושם הרשימה ממילא יושבת מיד מתחת למפה. -->
           <button type="button" class="map-expand-btn split-toggle-btn" id="splitToggleBtn" aria-pressed="false" aria-label="הצגת רשימת הנכסים לצד המפה">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M10 4v16"/>
+              <rect x="3" y="4" width="18" height="16" rx="0"/><path d="M10 4v16"/>
             </svg>
             <span class="split-toggle-label">מפה + רשימה</span>
           </button>
@@ -2642,6 +2511,12 @@
       <button type="button" class="ticker-more" id="tickerMore" aria-haspopup="dialog">כל העדכונים ←</button>
     </div>
   </div>
+
+  <!-- ====== רצועת ההדמיות ======
+       נבנית מ-assets/ai-showcase.js על נתוני property_visualizations_public.
+       המכולה ריקה בכוונה: אם אין הדמיות מפורסמות היא נשארת ריקה ולא נוצר
+       באנר שמבטיח יכולת שאין מאחוריה תוכן. -->
+  <div id="aiShowcase"></div>
 
   <!-- ====== נכסים פרטיים למכירה ======
        כל הנכסים למגורים של כל משרדי התיווך בפלטפורמה במסלול אחד: החדשים
@@ -3222,8 +3097,12 @@
        ואחריו מספר הנכסים הפעילים. -->
   <section class="section wrap" id="leadingAgents">
     <div class="section-head">
-      <div>
+      <div class="head-line">
         <h2>המתווכים הכי מומלצים בעפולה והסביבה</h2>
+        <!-- ‏id‏ ‎ratingInfoLink‎ נשמר: אותו מאזין שפתח את המודאל מהתפריט פותח
+             אותו גם מכאן, וזה המקום שבו השאלה באמת עולה — ליד הכוכבים. -->
+        <button type="button" class="info-dot" id="ratingInfoLink" aria-haspopup="dialog"
+                data-info="לחיצה — איך נקבע הדירוג" aria-label="איך עובד הדירוג של המתווכים">i</button>
       </div>
       <!-- הקרוסלה מציגה את כל המתווכים לפי סדר הדירוג, אבל דפדוף אופקי הוא
            לא הדרך למצוא מתווך/ת מסוים/ת. הקישור מוביל לרשימה המלאה, שם יש
@@ -3512,9 +3391,7 @@
       </div>
       <div class="footer-col">
         <h4>שוק נדל״ן</h4>
-        <!-- "אודות" הוא הקישור היחיד בפוטר שעדיין אין לו דף; כל השאר
-             מצביעים על דפים, על סקציות אמיתיות או על תיבת המייל. -->
-        <a href="#">אודות</a>
+        <a href="about.html">אודות</a>
         <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
         <a href="faq.html">שאלות נפוצות</a>
         <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
@@ -3552,9 +3429,9 @@
   <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
     <div class="footer-legal">
-      <a href="#">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
-      <a href="#">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
-      <a href="#">הצהרת נגישות</a>
+      <a href="terms.html">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
+      <a href="privacy.html">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
+      <a href="accessibility.html">הצהרת נגישות</a>
     </div>
   </div>
 </footer>
@@ -3616,7 +3493,7 @@ const FALLBACK_TICKER = [
   {headline:'עדכון: ריבית הפריים נותרה יציבה לחודש השני ברציפות', category:'משכנתאות וריבית', is_local:false},
 ];
 /* גרדיאנטים לכיסויי כתבות שאין להן תמונה (הנכסים עברו לממלא מקום ממותג) */
-const CARD_GRADIENTS = ['linear-gradient(155deg,#8B2332,#1C3A5E)','linear-gradient(155deg,#1C3A5E,#8B2332)','linear-gradient(155deg,#6B1A26,#1C3A5E)','linear-gradient(155deg,#8B2332,#6B1A26)','linear-gradient(155deg,#1C3A5E,#6B1A26)','linear-gradient(155deg,#6B1A26,#8B2332)'];
+const CARD_GRADIENTS = ['linear-gradient(155deg,#0e2a6b,#0d1b3d)','linear-gradient(155deg,#0d1b3d,#1c3f8e)','linear-gradient(155deg,#08194a,#0e2a6b)','linear-gradient(155deg,#0e2a6b,#3a4f86)','linear-gradient(155deg,#0d1b3d,#0e2a6b)','linear-gradient(155deg,#1c3f8e,#08194a)'];
 
 /* ניקוי ערך שמגיע מה-DB לפני הזרקה ל-innerHTML (גם בתוך מאפיין src/alt).
    מוגדר כאן, למעלה, כי הוא משמש גם את קרוסלת המשרדים, גם את בלון המפה
@@ -3665,55 +3542,14 @@ function priceLabel(p){
    ============================================================ */
 
 /* ---------- הרקע הזורם של הדף ----------
-   כל שכבה ב-#pageBg נושאת data-kx (קצב ההיסט האופקי ביחס לגלילה) ו-data-ky
-   (משרעת הנדנוד האנכי בפיקסלים).
-
-   האופקי מקבל ווראפ ברוחב החלון: שם בדיוק נגמר מחזור גל אחד ב-SVG, ולכן
-   הקפיצה בלתי נראית והזרימה נמשכת גם בדף ארוך מאוד. האנכי רץ על סינוס
-   מאותה סיבה — הוא עולה ויורד לאורך הדף במקום לברוח מהמסך.
-
-   העדכון עצמו יושב ב-requestAnimationFrame אחד לפריים (bgFlowTicking),
-   כדי שאירועי הגלילה לא ייצרו עבודה מיותרת. הבלוק הזה מוקדם ל-PART 1
-   ולפני פאנל הנגישות במכוון: applyA11y() קורא ל-requestPageBgFlow() כדי
-   לעצור/להחזיר את התנועה ב"עצירת אנימציות", והוא רץ כבר בטעינה. */
-const bgFlowLayers = [...document.querySelectorAll('#pageBg [data-kx]')];
-const bgFlowReduceMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
-let bgFlowTicking = false;
-
-// שני מקורות עוצרים את התנועה: העדפת המערכת, ו"עצירת אנימציות" בתפריט
-// הנגישות (שגם מכבה את אנימציות ה-CSS דרך html.a11y-nomotion)
-function bgFlowStill(){
-  return bgFlowReduceMQ.matches || document.documentElement.classList.contains('a11y-nomotion');
-}
-
-function pageBgFlow(){
-  bgFlowTicking = false;
-  if (bgFlowStill()){
-    bgFlowLayers.forEach(el=>{ el.style.transform = ''; });
-    return;
-  }
-  const w = window.innerWidth || 1;
-  const y = window.pageYOffset || 0;
-  bgFlowLayers.forEach(el=>{
-    const kx = parseFloat(el.dataset.kx) || 0;
-    const ky = parseFloat(el.dataset.ky) || 0;
-    const x = kx ? -((((y * kx) % w) + w) % w) : 0;
-    const dy = ky ? Math.sin(y / 620) * ky : 0;
-    el.style.transform = `translate3d(${x.toFixed(1)}px,${dy.toFixed(1)}px,0)`;
-  });
-}
-
+   השכבות, האנימציות וההיסט לפי הגלילה יושבים כולם ב-assets/page-bg.js, שכבר
+   רשם לעצמו מאזיני scroll ו-resize כשהרכיב את הרקע. מה שנשאר כאן הוא נקודת
+   הכניסה היחידה שהדף צריך: ‏applyA11y() קורא ל-requestPageBgFlow() כדי
+   לעצור או להחזיר את התנועה ב"עצירת אנימציות", והמעטפת מעבירה את זה הלאה. */
 function requestPageBgFlow(){
-  if (bgFlowTicking) return;
-  bgFlowTicking = true;
-  requestAnimationFrame(pageBgFlow);
+  if (window.PageBg) window.PageBg.refresh();
 }
 
-if (bgFlowLayers.length){
-  window.addEventListener('scroll', requestPageBgFlow, { passive:true });
-  window.addEventListener('resize', requestPageBgFlow);
-  pageBgFlow();
-}
 
 /* ---------- Accessibility panel ----------
    חלק מ-PART 1 בכוונה: ההגדרות חייבות לעבוד גם כשה-CDN של Supabase/Leaflet
@@ -6196,8 +6032,8 @@ function computeHoodGeometry(properties){
    ה-path, ושם ‎var()‎ אינו נתמך. */
 const HOOD_SHAPE_STYLE = {
   interactive:false,
-  color:'#8B2332', weight:2, opacity:.85, dashArray:'6 5',
-  fillColor:'#8B2332', fillOpacity:.06,
+  color:'#0e2a6b', weight:2, opacity:.85, dashArray:'6 5',
+  fillColor:'#0e2a6b', fillOpacity:.06,
 };
 
 /* מצייר סימון לכל אחת מהשכונות הנבחרות. כשנבחרו כמה, כל אחת מקבלת מצולע
