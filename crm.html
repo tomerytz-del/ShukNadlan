@@ -979,6 +979,194 @@
   .section-h{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--txt);font-size:1.05rem;margin:0;display:flex;align-items:center;gap:8px}
   .stack-h{margin-top:6px}
 
+  /* ==========================================================================
+     שני הדשבורדים המכווצים
+     --------------------------------------------------------------------------
+     ‏.dash-panel היא המעטפת של שניהם: כותרת צבעונית שהיא כפתור, וגוף שמכווץ
+     ל-‏--dp-peek (חצי מהגובה הטבעי) עד שלוחצים. שני משתנים בלבד מבדילים בין
+     הדשבורדים — ‏--dp-a ו---dp-b, קצוות הגרדיאנט של הכותרת — וכך אפשר להוסיף
+     דשבורד שלישי בעתיד בלי לשכפל את כל הבלוק.
+
+     ‏--dp-peek ו---dp-full נכתבים מ-JS (dashPanelsMeasure) ולא כאן: התוכן של
+     שני הפאנלים משתנה לפי המסלול, התפקיד והנתונים, ו"חצי" חייב להיות חצי
+     מהגובה האמיתי ולא מקבוע שרירותי. ערכי ברירת המחדל למטה תופסים רק
+     בשבריר השנייה שבין ציור הדף למדידה הראשונה.
+     ========================================================================== */
+  .dash-panel{
+    --dp-a:#22456e; --dp-b:#132a44;
+    border:1px solid var(--edge);border-radius:var(--r-xl);
+    background:rgba(255,255,255,.72);box-shadow:var(--sh-1);overflow:hidden;
+  }
+  .dp-admin{--dp-a:#a03449; --dp-b:#6d1725}
+  .dash-panel[hidden]{display:none}
+
+  .dp-head{
+    width:100%;display:flex;align-items:center;gap:12px;
+    padding:14px 16px;border:none;text-align:start;color:#fff;
+    background:linear-gradient(115deg,var(--dp-a),var(--dp-b));
+    transition:filter .16s ease;
+  }
+  .dp-head:hover{filter:brightness(1.09)}
+  .dp-head:focus-visible{outline:2px solid var(--dp-a);outline-offset:-3px}
+  .dp-ico{
+    width:38px;height:38px;border-radius:12px;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    background:rgba(255,255,255,.15);
+  }
+  .dp-ico svg{width:20px;height:20px}
+  .dp-titles{flex:1;min-width:0}
+  .dp-title{
+    display:block;font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.02rem;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .dp-sub{
+    display:block;font-size:.74rem;color:rgba(255,255,255,.72);margin-top:2px;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .dp-toggle{display:flex;align-items:center;gap:6px;flex-shrink:0;font-size:.75rem;font-weight:800}
+  .dp-toggle-label{display:none}
+  @media(min-width:560px){.dp-toggle-label{display:inline}}
+  .dp-chev{width:18px;height:18px;transition:transform .35s cubic-bezier(.22,1,.36,1)}
+  .dash-panel.is-open .dp-chev{transform:rotate(180deg)}
+
+  .dp-body{
+    max-height:var(--dp-peek,190px);overflow:hidden;position:relative;
+    transition:max-height .45s cubic-bezier(.22,1,.36,1);
+  }
+  .dash-panel.is-open .dp-body{max-height:var(--dp-full,4000px)}
+  /* הדהייה בתחתית היא הסימן שיש עוד — בלעדיה החיתוך נראה כמו באג */
+  .dp-body::after{
+    content:'';position:absolute;inset-inline:0;bottom:0;height:76px;pointer-events:none;
+    background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,.92) 78%);
+    transition:opacity .3s ease;
+  }
+  .dash-panel.is-open .dp-body::after{opacity:0}
+  .dp-inner{padding:16px;display:flex;flex-direction:column;gap:16px}
+  @media(prefers-reduced-motion:reduce){
+    .dp-body,.dp-chev,.dp-body::after{transition:none}
+  }
+
+  /* ==========================================================================
+     לוח הבקרה של מנהל/ת הפלטפורמה
+     --------------------------------------------------------------------------
+     פלטת הבורדו של הדשבורד השני חוזרת בכל רכיב פנימי (--wine), כדי שיהיה
+     ברור במבט אחד באיזה משני הדשבורדים מסתכלים.
+     ========================================================================== */
+  .adm-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .adm-range{display:inline-flex;background:var(--surface-2);border-radius:999px;padding:3px;gap:2px}
+  .adm-range button{
+    border:none;background:transparent;border-radius:999px;padding:6px 13px;
+    font-size:.74rem;font-weight:800;color:var(--txt-soft);white-space:nowrap;
+    transition:background .16s ease,color .16s ease;
+  }
+  .adm-range button.is-on{background:var(--wine);color:#fff;box-shadow:0 2px 8px rgba(139,35,50,.28)}
+  .adm-range button:focus-visible{outline:2px solid var(--wine);outline-offset:2px}
+  .adm-refresh{
+    display:inline-flex;align-items:center;gap:6px;border:1px solid var(--edge);
+    background:var(--surface);border-radius:999px;padding:6px 13px;
+    font-size:.74rem;font-weight:800;color:var(--txt-soft);
+  }
+  .adm-refresh svg{width:14px;height:14px}
+  .adm-refresh:hover{background:var(--wine-tint);color:var(--wine);border-color:#f0d5da}
+  .adm-refresh[disabled]{opacity:.5}
+  .adm-stamp{font-size:.7rem;color:var(--txt-faint);margin-inline-start:auto}
+
+  .adm-block{display:flex;flex-direction:column;gap:9px}
+  .adm-h{
+    font-size:.8rem;font-weight:800;color:var(--txt);display:flex;align-items:center;gap:7px;margin:0;
+  }
+  .adm-h::before{content:'';width:4px;height:14px;border-radius:2px;background:var(--wine);flex-shrink:0}
+  .adm-note{font-size:.72rem;color:var(--txt-faint);margin:0;line-height:1.55}
+
+  /* שורת הכותרות: ארבעת המספרים שעונים על "מה קרה החודש" */
+  .adm-tiles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  @media(min-width:700px){.adm-tiles{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  .adm-tile{
+    background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-md);
+    padding:13px 14px;display:flex;flex-direction:column;gap:3px;min-width:0;
+  }
+  .adm-tile-lbl{font-size:.7rem;font-weight:700;color:var(--txt-soft)}
+  .adm-tile-val{font-family:'Frank Ruhl Libre',serif;font-size:1.5rem;font-weight:700;color:var(--txt);line-height:1.15}
+  .adm-tile-foot{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:.68rem;color:var(--txt-faint)}
+  .adm-tile-wine{background:linear-gradient(150deg,#8B2332,#5d101c);border-color:transparent;color:#fff}
+  .adm-tile-wine .adm-tile-lbl{color:rgba(255,255,255,.7)}
+  .adm-tile-wine .adm-tile-val{color:#fff}
+  .adm-tile-wine .adm-tile-foot{color:rgba(255,255,255,.66)}
+
+  /* חץ העלייה/ירידה. ‏flat = אין שינוי, ואין לו צבע — שינוי אפס אינו הישג
+     ואינו כישלון, וצביעה שלו בירוק הייתה מטעה. */
+  .adm-delta{
+    display:inline-flex;align-items:center;gap:3px;border-radius:999px;
+    padding:2px 8px;font-size:.67rem;font-weight:800;white-space:nowrap;
+  }
+  .adm-delta.up{background:var(--green-tint);color:var(--green)}
+  .adm-delta.down{background:#fdeaea;color:#b91c1c}
+  .adm-delta.flat{background:var(--surface-2);color:var(--txt-faint)}
+  .adm-tile-wine .adm-delta.up{background:rgba(255,255,255,.18);color:#c6f0e5}
+  .adm-tile-wine .adm-delta.down{background:rgba(255,255,255,.18);color:#ffd4d4}
+  .adm-tile-wine .adm-delta.flat{background:rgba(255,255,255,.14);color:rgba(255,255,255,.75)}
+
+  /* שורת נתון עם פס יחס — משמשת גם ללידים לפי סוג וגם להכנסות לפי מקור */
+  .adm-rows{display:flex;flex-direction:column;gap:2px}
+  .adm-row{
+    display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;
+    gap:10px;padding:8px 10px;border-radius:var(--r-xs);
+  }
+  .adm-row:nth-child(odd){background:var(--surface-2)}
+  .adm-row-name{font-size:.79rem;font-weight:700;color:var(--txt);min-width:0}
+  .adm-row-name small{display:block;font-size:.68rem;font-weight:600;color:var(--txt-faint);margin-top:1px}
+  .adm-row-val{font-size:.9rem;font-weight:800;color:var(--txt);white-space:nowrap;font-variant-numeric:tabular-nums}
+  .adm-bar{grid-column:1 / -1;height:5px;border-radius:3px;background:var(--edge);overflow:hidden}
+  .adm-bar span{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#a03449,#8B2332)}
+  .adm-row-total{background:var(--wine-tint)!important;border:1px solid #f2dae0}
+  .adm-row-total .adm-row-name,.adm-row-total .adm-row-val{color:var(--wine)}
+
+  /* התור הפתוח: כרטיס לכל מקום שבו ליד יכול להיתקע */
+  .adm-queue{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  @media(min-width:700px){.adm-queue{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  .adm-q{
+    background:var(--surface);border:1px solid var(--edge);border-inline-start:4px solid var(--edge);
+    border-radius:var(--r-xs);padding:10px 12px;text-align:start;min-width:0;
+    display:flex;flex-direction:column;gap:2px;transition:border-color .16s ease,background .16s ease;
+  }
+  .adm-q.is-hot{border-inline-start-color:#dc2626;background:#fff7f7}
+  .adm-q.is-clear{opacity:.62}
+  button.adm-q:hover{background:var(--wine-tint);border-color:#f0d5da}
+  .adm-q-val{font-family:'Frank Ruhl Libre',serif;font-size:1.25rem;font-weight:700;color:var(--txt);line-height:1.1}
+  .adm-q.is-hot .adm-q-val{color:#b91c1c}
+  .adm-q-lbl{font-size:.72rem;font-weight:700;color:var(--txt-soft)}
+  .adm-q-sub{font-size:.66rem;color:var(--txt-faint);line-height:1.45}
+
+  /* גרף המגמה: עמודה לכל חודש, גובה יחסי לחודש הגבוה ביותר בחלון */
+  .adm-chart{display:flex;align-items:flex-end;gap:6px;height:104px}
+  .adm-col{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;gap:3px;height:100%}
+  .adm-col-bar{border-radius:5px 5px 2px 2px;background:linear-gradient(180deg,#b8556a,#8B2332);min-height:3px}
+  .adm-col-bar.is-now{background:linear-gradient(180deg,#e3c463,#c9a227)}
+  .adm-axis{display:flex;gap:6px;margin-top:5px}
+  .adm-axis span{flex:1;min-width:0;text-align:center;font-size:.62rem;color:var(--txt-faint);white-space:nowrap}
+  .adm-legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.68rem;color:var(--txt-faint)}
+
+  /* טבלת המשרדים — גלילה אופקית משלה, כדי שהדף עצמו לא יגלוש */
+  .adm-table-wrap{overflow-x:auto}
+  .adm-table{width:100%;border-collapse:collapse;font-size:.76rem;min-width:420px}
+  .adm-table th,.adm-table td{padding:8px 10px;text-align:start;white-space:nowrap}
+  .adm-table th{font-size:.68rem;font-weight:800;color:var(--txt-faint);border-bottom:1px solid var(--edge)}
+  .adm-table td{border-bottom:1px solid var(--surface-2)}
+  .adm-table td:first-child{font-weight:700;color:var(--txt);white-space:normal}
+  .adm-table .num{font-variant-numeric:tabular-nums;font-weight:700}
+
+  /* פסקת "עוד מידע": זוגות תווית-ערך צפופים */
+  /* רקע אחיד לכל התאים ולא פסים לסירוגין: בגריד של שלושה טורים "שורה זוגית"
+     נופלת באלכסון ויוצרת לוח שחמט במקום פסים */
+  .adm-facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+  @media(min-width:700px){.adm-facts{grid-template-columns:repeat(3,minmax(0,1fr))}}
+  .adm-fact{
+    display:flex;align-items:baseline;justify-content:space-between;gap:8px;
+    padding:8px 11px;border-radius:var(--r-xs);background:var(--surface-2);
+  }
+  .adm-fact-lbl{font-size:.73rem;color:var(--txt-soft);min-width:0}
+  .adm-fact-val{font-size:.84rem;font-weight:800;color:var(--txt);white-space:nowrap;font-variant-numeric:tabular-nums}
+
   /* ---------- Hero KPI ---------- */
   /* טור אחד בכל רוחב: הכרטיס הכחול עומד לבדו, והפעולות המהירות מיד אחריו */
   .hero-kpis{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
@@ -1529,11 +1717,39 @@
   <div class="dash-wrap dash-shell">
     <main class="dash-main">
 
+      <!-- ==========================================================
+           דשבורד 1 מתוך 2 — "המספרים שלי" (הסוכן/ת)
+           ----------------------------------------------------------
+           שני הדשבורדים בעמוד יושבים באותה מעטפת .dash-panel: כותרת
+           צבעונית שהיא כפתור, וגוף שמכווץ לחצי מגובהו הטבעי. הגובה נמדד
+           ב-JS (dashPanelsMeasure) ולא מקובע ב-CSS, כי התוכן משתנה לפי
+           המסלול והתפקיד — חצי מגובה *אמיתי* ולא חצי ממספר שהומצא.
+
+           הצבע הוא מה שמבדיל ביניהם: הדשבורד האישי בנייבי של המותג,
+           דשבורד הפלטפורמה בבורדו. ראו --dp-* ב-CSS.
+           ========================================================== -->
+      <section class="dash-panel dp-agent" id="dashPanelAgent" aria-label="המספרים שלי">
+        <button type="button" class="dp-head" id="dashPanelAgentHead"
+                aria-expanded="false" aria-controls="dashPanelAgentBody">
+          <span class="dp-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="m7 15 3.5-4 3 2.5L20 7"/></svg>
+          </span>
+          <span class="dp-titles">
+            <span class="dp-title">המספרים שלי</span>
+            <span class="dp-sub">פוטנציאל עמלות, בלעדיות, ארנק ומכסה</span>
+          </span>
+          <span class="dp-toggle">
+            <span class="dp-toggle-label">הרחבה</span>
+            <svg class="dp-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </button>
+        <div class="dp-body" id="dashPanelAgentBody">
+          <div class="dp-inner">
+
       <!-- ---------- Hero KPI ----------
            המדד שמניע את היום של הסוכן/ת: כמה כסף פתוח על השולחן. מחושב
            מהנכסים שכבר נטענו ב-loadProperties() — אין כאן שאילתה נוספת
-           ואין נתון מומצא. מיד אחריו יושבות הפעולות המהירות, ורק אחר כך
-           שאר המדדים (בלעדיות, ארנק, מכסה). -->
+           ואין נתון מומצא. -->
       <section class="hero-kpis" aria-label="פוטנציאל העמלות הפתוח">
 
         <article class="kpi-card kpi-primary">
@@ -1550,21 +1766,6 @@
           <div class="kpi-spark-axis" id="kpiCommissionAxis"></div>
         </article>
 
-      </section>
-
-      <!-- ---------- פעולות מהירות ----------
-           הגריד נבנה ב-JS מ-QUICK_ACTIONS, והסדר נשמר לכל סוכן/ת ב-localStorage.
-           מצב "עריכת סדר" מוסיף גרירה (עכבר) וחיצים (מקלדת/מגע) לכל כרטיס. -->
-      <section class="quick-section" aria-label="פעולות מהירות">
-        <div class="section-head">
-          <h2 class="section-h">פעולות מהירות</h2>
-          <button type="button" class="ghost-chip" id="quickEditToggle" aria-pressed="false">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
-            <span id="quickEditLabel">עריכת סדר</span>
-          </button>
-        </div>
-        <p class="quick-hint" id="quickHint" hidden>גררו כרטיס למקום חדש, או הזיזו אותו עם החיצים. הסדר נשמר במכשיר הזה.</p>
-        <div class="quick-grid" id="quickGrid"></div>
       </section>
 
       <!-- ---------- מדדים ומשאבים ----------
@@ -1612,6 +1813,75 @@
           <div class="meter-bar"><span id="quotaBar" style="width:0%"></span></div>
           <p class="meter-note" id="quotaNote">מתעדכן עם כל ליד שנפתח</p>
         </div>
+      </section>
+
+          </div>
+        </div>
+      </section>
+      <!-- סוף דשבורד 1 -->
+
+      <!-- ==========================================================
+           דשבורד 2 מתוך 2 — לוח הבקרה החודשי של מנהל/ת הפלטפורמה
+           ----------------------------------------------------------
+           מוצג רק ל-is_platform_admin (loadDashboard מסיר את ה-hidden),
+           ונטען בקריאה אחת ל-RPC ‏platform_admin_monthly_report. ה-RPC
+           מחזיר מספרים בלבד — ראו את המיגרציה
+           ‏20260916090000_platform_admin_dashboard.sql להסבר למה זו
+           פונקציה ולא view, ומה בדיוק נספר בכל שדה.
+
+           כל הגופים כאן נבנים ב-JS (renderAdminReport) ולא כתובים
+           ב-HTML: הם תלויים בנתונים, וסקלטון ריק ב-HTML היה רק כפילות
+           שצריך לתחזק פעמיים. -->
+      <section class="dash-panel dp-admin" id="dashPanelAdmin" aria-label="לוח בקרה חודשי — מנהל/ת הפלטפורמה" hidden>
+        <button type="button" class="dp-head" id="dashPanelAdminHead"
+                aria-expanded="false" aria-controls="dashPanelAdminBody">
+          <span class="dp-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 18 0"/><path d="M12 12 8.5 8.5"/><path d="M3 12h2m14 0h2M12 3v2"/><path d="M3 12v5a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-5"/></svg>
+          </span>
+          <span class="dp-titles">
+            <span class="dp-title">לוח בקרה חודשי · הפלטפורמה</span>
+            <span class="dp-sub" id="adminPanelSub">הצטרפויות, לידים, תור ללא טיפול והכנסות</span>
+          </span>
+          <span class="dp-toggle">
+            <span class="dp-toggle-label">הרחבה</span>
+            <svg class="dp-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </button>
+        <div class="dp-body" id="dashPanelAdminBody">
+          <div class="dp-inner">
+            <div class="adm-toolbar">
+              <div class="adm-range" role="group" aria-label="טווח החודשים בדוח">
+                <button type="button" data-months="3">3 חודשים</button>
+                <button type="button" data-months="6" class="is-on">6 חודשים</button>
+                <button type="button" data-months="12">12 חודשים</button>
+              </div>
+              <button type="button" class="adm-refresh" id="adminRefreshBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><polyline points="21 3 21 9 15 9"/></svg>
+                רענון
+              </button>
+              <span class="adm-stamp" id="adminStamp"></span>
+            </div>
+            <div id="adminReport"><div class="empty-state">טוען את נתוני הפלטפורמה…</div></div>
+          </div>
+        </div>
+      </section>
+      <!-- סוף דשבורד 2 -->
+
+      <!-- ---------- פעולות מהירות ----------
+           יושבות *מחוץ* לשני הדשבורדים בכוונה: דשבורד מכווץ הוא בסדר,
+           אבל "פתיחת ליד" שמסתתרת מאחורי לחיצה נוספת אינה. הגריד נבנה
+           ב-JS מ-QUICK_ACTIONS, והסדר נשמר לכל סוכן/ת ב-localStorage.
+           מצב "עריכת סדר" מוסיף גרירה (עכבר) וחיצים (מקלדת/מגע). -->
+      <section class="quick-section" aria-label="פעולות מהירות">
+        <div class="section-head">
+          <h2 class="section-h">פעולות מהירות</h2>
+          <button type="button" class="ghost-chip" id="quickEditToggle" aria-pressed="false">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4Z"/></svg>
+            <span id="quickEditLabel">עריכת סדר</span>
+          </button>
+        </div>
+        <p class="quick-hint" id="quickHint" hidden>גררו כרטיס למקום חדש, או הזיזו אותו עם החיצים. הסדר נשמר במכשיר הזה.</p>
+        <div class="quick-grid" id="quickGrid"></div>
       </section>
 
       <h2 class="section-h stack-h">הפעילות שלי</h2>
@@ -3112,6 +3382,77 @@ function initAccordions(){
 }
 initAccordions();
 
+/* ---------- שני הדשבורדים המכווצים ----------
+   כל ‏.dash-panel נפתח ונסגר בלחיצה על הכותרת שלו, ומתחיל מכווץ לחצי מהגובה
+   הטבעי של התוכן. הגובה נמדד ולא מקובע: התוכן של הדשבורד האישי משתנה לפי
+   המסלול והתפקיד, ושל דשבורד הפלטפורמה לפי הנתונים שחזרו — max-height קבוע
+   ב-CSS היה חותך אצל אחד ומשאיר חלל ריק אצל השני.
+
+   ‏max-height (ולא height/hidden) כדי שהמעבר יהיה מונפש, ו-overflow:hidden
+   על ‏.dp-body דואג שהתוכן החתוך לא ייתפס לגלילה או ל-Tab. */
+const DASH_PANEL_KEY = 'crmDashPanels';
+
+function dashPanelState(){
+  try{ return JSON.parse(localStorage.getItem(DASH_PANEL_KEY) || '{}'); }
+  catch(e){ return {}; }
+}
+
+/* מדידה אחת לכל פאנל. נקראת גם בטעינת הדשבורד וגם מ-ResizeObserver, כי
+   פאנל שנמדד בזמן ש-#dashboard עדיין display:none מקבל 0 — וחצי מאפס הוא
+   פאנל שנראה שבור. */
+function dashPanelsMeasure(){
+  document.querySelectorAll('#dashboard .dash-panel').forEach(panel=>{
+    const inner = panel.querySelector('.dp-inner');
+    if (!inner) return;
+    const full = inner.scrollHeight;
+    if (!full) return;
+    panel.style.setProperty('--dp-full', full + 'px');
+    // חצי מהגובה — עם רצפה ותקרה. הרצפה (150px) כי חצי מפאנל נמוך במיוחד הוא
+    // פס דק שאי אפשר להבין ממנו כלום; התקרה (55% מגובה החלון) כי דשבורד
+    // הפלטפורמה טבעי כמעט 2,000px, וחצי ממנו עדיין ממלא מסך שלם — כלומר
+    // "מכווץ" שנראה בדיוק כמו פתוח.
+    const cap = Math.max(260, Math.round(window.innerHeight * 0.55));
+    panel.style.setProperty('--dp-peek',
+      Math.max(150, Math.min(Math.round(full / 2), cap)) + 'px');
+  });
+}
+// שינוי גובה החלון מזיז את התקרה, ו-ResizeObserver על התוכן לא מרגיש בזה
+window.addEventListener('resize', dashPanelsMeasure);
+
+function dashPanelSetOpen(panel, open, persist){
+  panel.classList.toggle('is-open', open);
+  const head = panel.querySelector('.dp-head');
+  if (head){
+    head.setAttribute('aria-expanded', open ? 'true' : 'false');
+    const label = head.querySelector('.dp-toggle-label');
+    if (label) label.textContent = open ? 'כיווץ' : 'הרחבה';
+  }
+  if (!persist) return;
+  const state = dashPanelState();
+  state[panel.id] = open;
+  try{ localStorage.setItem(DASH_PANEL_KEY, JSON.stringify(state)); }catch(e){}
+}
+
+function initDashPanels(){
+  const state = dashPanelState();
+  document.querySelectorAll('#dashboard .dash-panel').forEach(panel=>{
+    const head = panel.querySelector('.dp-head');
+    const inner = panel.querySelector('.dp-inner');
+    if (!head || !inner) return;
+    // ברירת המחדל היא מכווץ; מי שפתח/ה בביקור קודם חוזר/ת לפתוח
+    dashPanelSetOpen(panel, !!state[panel.id], false);
+    head.addEventListener('click', ()=>{
+      dashPanelsMeasure();
+      dashPanelSetOpen(panel, !panel.classList.contains('is-open'), true);
+    });
+    if (window.ResizeObserver){
+      new ResizeObserver(dashPanelsMeasure).observe(inner);
+    }
+  });
+  dashPanelsMeasure();
+}
+initDashPanels();
+
 /* ---------- Pricing config ----------
    המחירים יושבים ב-pricing_config ב-DB (עם policy קריאה פומבית) ולא מקודדים
    כאן, כדי שדיאלוג האישור יציג בדיוק את הסכום שהשרת עומד לגבות.          */
@@ -3237,6 +3578,9 @@ function showScreen(name){
   }
   // תפריט הבדיקה שייך לדשבורד בלבד; renderDevMenu() מדליק אותו מחדש בעת הצורך
   if (!onDashboard) document.getElementById('devMenu').style.display = 'none';
+  // הפאנלים המכווצים נמדדים רק כשהם באמת על המסך: אלמנט בתוך display:none
+  // מחזיר scrollHeight אפס, וחצי מאפס אינו חצי
+  if (onDashboard) requestAnimationFrame(dashPanelsMeasure);
 }
 
 /* הודעה שממתינה למסך הכניסה. נחוצה כי כשחוזרים מ-Google עם שגיאה, המסך שמוצג
@@ -3820,12 +4164,16 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
     document.getElementById('ethicsAgencyBlock').hidden = true;
   }
 
+  // דשבורד הפלטפורמה נכנס ויוצא בשני הכיוונים, כמו managerSection: החלפת
+  // תפקיד מתפריט הבדיקה מסתירה אותו בלי לרענן את העמוד
+  document.getElementById('dashPanelAdmin').hidden = !agent.is_platform_admin;
   if (agent.is_platform_admin){
     document.getElementById('platformAdminSection').style.display = 'block';
     await loadNeighborhoodsAdmin();
     await loadRssSourcesAdmin();
     await loadArticlesAdmin();
     await loadUnroutedLeads();
+    await loadAdminReport();
   }
 
   // מדף לידי המשכנתאות פתוח רק ליועצ/ת משכנתאות. כמו managerSection, ה-display
@@ -3837,6 +4185,9 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   }
 
   renderDevMenu(agent);
+  // מדידה אחרונה אחרי שכל התוכן נטען: הפאנל האישי גדל/מתכווץ לפי המסלול
+  // והתפקיד, ו"חצי מהגובה" חייב להתייחס לגובה הסופי
+  dashPanelsMeasure();
 }
 
 /* ---------- Test menu (מצב בדיקה) ----------
@@ -4427,6 +4778,392 @@ async function loadUnroutedLeads(){
     listEl.appendChild(item);
   });
 }
+
+/* ==========================================================================
+   לוח הבקרה החודשי של מנהל/ת הפלטפורמה
+   --------------------------------------------------------------------------
+   קריאה אחת ל-RPC ‏platform_admin_monthly_report מחזירה את כל הדוח: שורה
+   לכל חודש בחלון, תמונת "עכשיו" מצטברת, התור הפתוח ופירוט לפי משרד. ה-RPC
+   הוא security definer שמחזיר מספרים בלבד — הוא עוקף את ה-RLS בכוונה, כי
+   ‏agency_members, leads ו-lead_charges חסומות בפני מנהל/ת פלטפורמה בדיוק
+   כמו בפני כל אחד אחר, וזה נכון שהן יישארו כך. ראו את המיגרציה
+   ‏20260916090000_platform_admin_dashboard.sql.
+
+   כל ההשוואות ("עלייה/ירידה") נגזרות כאן ולא ב-SQL: הן תמיד בין החודש
+   האחרון בחלון לזה שלפניו, ואין טעם שהשרת יחשב מה שממילא יושב בשתי שורות
+   סמוכות של אותו מערך.
+   ========================================================================== */
+const ADM_MONTH_NAMES = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני',
+                         'יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+
+/* סוגי הלידים, בסדר שבו מנהל/ת הפלטפורמה חושב/ת עליהם: קודם מה שנכנס
+   מהאתר עצמו, ואחר כך המדפים שנמכרים. המפתחות תואמים ל-jsonb שחוזר מה-RPC. */
+const ADM_LEAD_TYPES = [
+  { key:'property_inquiry',     label:'פנייה על נכס',        sub:'מתעניין/ת שהשאיר/ה פרטים בדף נכס' },
+  { key:'owner_inbound',        label:'ליד בעל/ת נכס',       sub:'מוכר/משכיר מאשף הערכת השווי' },
+  { key:'agent_direct_inquiry', label:'פנייה ישירה',         sub:'מדף הסוכן/ת או מדף המשרד' },
+  { key:'visualization',        label:'בקשת הדמיה',          sub:'גולש/ת שביקש/ה הדמיית עיצוב' },
+  { key:'saved_search',         label:'מחפש/ת דירה',         sub:'חיפוש שמור — ליד קונה מובנה' },
+  { key:'mortgage',             label:'ייעוץ משכנתאות',      sub:'מחשבון המשכנתא בדף הבית ובדף נכס' },
+  { key:'rss',                  label:'ליד ממדף ה-RSS',      sub:'פוסט חיצוני שסווג כליד אמיתי' },
+];
+
+/* מקורות ההכנסה. קידום נכסים אינו מכירת ליד ולכן הוא אחרון ומסומן ככזה —
+   ערבוב שלו לתוך "הכנסות מלידים" היה מייפה את המספר שהוא לא. */
+const ADM_REVENUE_SOURCES = [
+  { key:'site_leads',   label:'פתיחת לידים מהאתר',      sub:'חיוב על פתיחת ליד משויך' },
+  { key:'saved_search', label:'מכירת לידי מחפשי דירה',  sub:'מדף החיפושים השמורים' },
+  { key:'mortgage',     label:'מכירת לידי משכנתאות',    sub:'מדף יועצי המשכנתאות' },
+  { key:'rss_leads',    label:'מכירת לידים ממדף RSS',   sub:'לידים שנאספו מפידים חיצוניים' },
+  { key:'promotions',   label:'קידום נכסים',            sub:'לא מכירת ליד — מוצג בנפרד' },
+];
+
+/* התור הפתוח. ‏goto מוגדר רק היכן שיש באמת לאן ללכת: "לידים ללא טיפול"
+   אינם הלידים *שלי*, ולכן קישור ל-accLeads היה מוביל למסך אחר לגמרי. */
+const ADM_QUEUE = [
+  { key:'site_leads',      label:'לידי אתר שלא נפתחו',   sub:'משויכים לסוכן/ת וממתינים לפתיחה' },
+  { key:'unrouted',        label:'לידים ללא יעד',         sub:'נקלטו ואין קהל שיקבל אותם', goto:'accUnroutedLeads' },
+  { key:'mortgage_leads',  label:'לידי משכנתאות במדף',    sub:'ממתינים ליועצ/ת שירכוש/תרכוש' },
+  { key:'saved_searches',  label:'מחפשי דירה במדף',       sub:'חיפושים שמורים שטרם נמכרו',   goto:'accSavedSearchShelf' },
+  { key:'rss_leads',       label:'לידי RSS במדף',         sub:'לידים חיצוניים שטרם נמכרו',   goto:'accLeadShelf' },
+  { key:'reviews_pending', label:'ביקורות לאישור',        sub:'חוות דעת שממתינות למודרציה' },
+];
+
+const admInt   = n => Number(n || 0).toLocaleString('he-IL');
+const admMoney = n => '₪' + Math.round(Number(n) || 0).toLocaleString('he-IL');
+
+function admMonthLabel(ym, short){
+  const [y, m] = String(ym || '').split('-');
+  const name = ADM_MONTH_NAMES[Number(m) - 1] || ym;
+  return short ? name.slice(0, 3) + '׳' + String(y).slice(2) : name + ' ' + y;
+}
+
+function admEl(tag, cls, text){
+  const el = document.createElement(tag);
+  if (cls) el.className = cls;
+  if (text !== undefined && text !== null) el.textContent = text;
+  return el;
+}
+
+/* חץ ההשוואה מול החודש הקודם. שלושה מצבים בלבד, וכל אחד מהם אומר משהו אחר:
+   ‏"חדש" = היה אפס ועכשיו יש, אחוז = יש ממה להשוות, "ללא שינוי" = זהה או
+   שני החודשים אפס. אחוז מתוך אפס אינו מספר, ולכן הוא לא מוצג כאחוז. */
+function admDeltaChip(current, previous){
+  const cur = Number(current) || 0;
+  const prev = Number(previous) || 0;
+  const chip = admEl('span', 'adm-delta');
+  if (cur === prev){
+    chip.classList.add('flat');
+    chip.textContent = '— ללא שינוי';
+    return chip;
+  }
+  if (prev === 0){
+    chip.classList.add('up');
+    chip.textContent = '▲ חדש החודש';
+    return chip;
+  }
+  const pct = Math.round(((cur - prev) / prev) * 100);
+  chip.classList.add(pct > 0 ? 'up' : 'down');
+  chip.textContent = (pct > 0 ? '▲ ' : '▼ ') + Math.abs(pct) + '%';
+  chip.title = 'החודש ' + admInt(cur) + ' · בחודש הקודם ' + admInt(prev);
+  return chip;
+}
+
+function admTile(label, value, opts){
+  const o = opts || {};
+  const tile = admEl('div', 'adm-tile' + (o.wine ? ' adm-tile-wine' : ''));
+  tile.appendChild(admEl('span', 'adm-tile-lbl', label));
+  tile.appendChild(admEl('span', 'adm-tile-val', value));
+  const foot = admEl('div', 'adm-tile-foot');
+  if (o.delta) foot.appendChild(o.delta);
+  if (o.note) foot.appendChild(admEl('span', null, o.note));
+  tile.appendChild(foot);
+  return tile;
+}
+
+function admBlock(title, note){
+  const block = admEl('section', 'adm-block');
+  block.appendChild(admEl('h3', 'adm-h', title));
+  if (note) block.appendChild(admEl('p', 'adm-note', note));
+  return block;
+}
+
+/* שורת נתון עם פס יחס. ‏share הוא החלק מתוך הסך הכל של החודש — הפס הוא מה
+   שהופך "12" ו-"3" לתמונה במקום לשני מספרים. */
+function admRow(name, sub, value, share, delta, isTotal){
+  const row = admEl('div', 'adm-row' + (isTotal ? ' adm-row-total' : ''));
+  const nameCell = admEl('div', 'adm-row-name', name);
+  if (sub) nameCell.appendChild(admEl('small', null, sub));
+  row.appendChild(nameCell);
+  if (delta) row.appendChild(delta); else row.appendChild(admEl('span'));
+  row.appendChild(admEl('span', 'adm-row-val', value));
+  if (share !== null && share !== undefined){
+    const bar = admEl('div', 'adm-bar');
+    const fill = admEl('span');
+    fill.style.width = Math.max(0, Math.min(100, share)) + '%';
+    bar.appendChild(fill);
+    row.appendChild(bar);
+  }
+  return row;
+}
+
+/* גרף עמודות פשוט: עמודה לכל חודש, גובה יחסי לחודש הגבוה בחלון. החודש
+   הנוכחי מסומן בזהב כי הוא היחיד שעדיין לא נגמר — השוואה שלו לחודש מלא
+   תמיד "נמוכה", וחשוב שזה ייראה. */
+function admChart(months, pick, format){
+  const values = months.map(pick);
+  const max = Math.max(1, ...values);
+  const wrap = admEl('div');
+  const chart = admEl('div', 'adm-chart');
+  values.forEach((v, i)=>{
+    const col = admEl('div', 'adm-col');
+    const bar = admEl('div', 'adm-col-bar' + (i === values.length - 1 ? ' is-now' : ''));
+    bar.style.height = Math.max(3, Math.round((v / max) * 100)) + '%';
+    bar.title = admMonthLabel(months[i].month) + ': ' + format(v);
+    col.appendChild(bar);
+    chart.appendChild(col);
+  });
+  wrap.appendChild(chart);
+  const axis = admEl('div', 'adm-axis');
+  months.forEach(m => axis.appendChild(admEl('span', null, admMonthLabel(m.month, true))));
+  wrap.appendChild(axis);
+  return wrap;
+}
+
+let adminReportMonths = 6;
+let adminReportBusy = false;
+
+async function loadAdminReport(){
+  const host = document.getElementById('adminReport');
+  if (!host || adminReportBusy) return;
+  adminReportBusy = true;
+  const refreshBtn = document.getElementById('adminRefreshBtn');
+  if (refreshBtn) refreshBtn.disabled = true;
+  host.innerHTML = '<div class="empty-state">טוען את נתוני הפלטפורמה…</div>';
+
+  const { data, error } = await sb.rpc('platform_admin_monthly_report', { p_months: adminReportMonths });
+
+  adminReportBusy = false;
+  if (refreshBtn) refreshBtn.disabled = false;
+
+  if (error){
+    // ‏PGRST202/42883 = הפונקציה לא קיימת, כלומר המיגרציה טרם רצה על המסד
+    // (‏PostgREST מחזיר את הראשון כשהיא חסרה מ-schema cache).
+    // ‏42501 = הפונקציה קיימת וסירבה: החשבון אינו מנהל/ת פלטפורמה.
+    host.innerHTML = '';
+    const msg = (error.code === '42883' || error.code === 'PGRST202')
+      ? 'הדוח לא קיים עדיין במסד — הריצו את המיגרציה 20260916090000_platform_admin_dashboard.sql.'
+      : (error.code === '42501' || /not_platform_admin/.test(error.message || ''))
+        ? 'הדוח פתוח למנהל/ת פלטפורמה בלבד.'
+        : 'שגיאה בטעינת הדוח: ' + error.message;
+    host.appendChild(admEl('div', 'empty-state', msg));
+    dashPanelsMeasure();
+    return;
+  }
+
+  renderAdminReport(data || {});
+}
+
+function renderAdminReport(report){
+  const host = document.getElementById('adminReport');
+  if (!host) return;
+  host.innerHTML = '';
+
+  const months = Array.isArray(report.months) ? report.months : [];
+  if (!months.length){
+    host.appendChild(admEl('div', 'empty-state', 'אין עדיין נתונים להצגה.'));
+    dashPanelsMeasure();
+    return;
+  }
+  const now  = months[months.length - 1];
+  const prev = months.length > 1 ? months[months.length - 2] : null;
+  const zero = { leads:{}, revenue:{} };
+  const prevSafe = prev || zero;
+  const totals = report.totals || {};
+  const queue  = report.untreated || {};
+
+  const stamp = document.getElementById('adminStamp');
+  if (stamp && report.generated_at){
+    stamp.textContent = 'עודכן ' + new Date(report.generated_at)
+      .toLocaleString('he-IL', { dateStyle:'short', timeStyle:'short' });
+  }
+
+  /* ---- 1. ארבעת המספרים של החודש ---- */
+  const tiles = admEl('div', 'adm-tiles');
+  tiles.appendChild(admTile('משרדים שהצטרפו', admInt(now.agencies_new), {
+    delta: admDeltaChip(now.agencies_new, prevSafe.agencies_new),
+    note: 'סה״כ ' + admInt(totals.agencies) + ' במערכת',
+  }));
+  tiles.appendChild(admTile('סוכנים שהצטרפו', admInt(now.agents_new), {
+    delta: admDeltaChip(now.agents_new, prevSafe.agents_new),
+    note: 'סה״כ ' + admInt(totals.agents_active) + ' פעילים',
+  }));
+  tiles.appendChild(admTile('לידים שנקלטו', admInt(now.leads_total), {
+    delta: admDeltaChip(now.leads_total, prevSafe.leads_total),
+    note: admInt(admQueueTotal(queue)) + ' ממתינים לטיפול',
+  }));
+  tiles.appendChild(admTile('הכנסות החודש', admMoney(now.revenue_total), {
+    wine: true,
+    delta: admDeltaChip(now.revenue_total, prevSafe.revenue_total),
+    note: 'טעינות ארנק: ' + admMoney(now.topups),
+  }));
+  host.appendChild(tiles);
+
+  /* ---- 2. לידים לפי סוג, עם חץ מול החודש הקודם ---- */
+  const leadsBlock = admBlock('לידים לפי סוג · ' + admMonthLabel(now.month),
+    'החץ משווה לחודש הקודם (' + (prev ? admMonthLabel(prev.month) : 'אין נתוני השוואה') + '). הפס מציג את חלקו של כל סוג מסך הלידים החודש.');
+  const leadRows = admEl('div', 'adm-rows');
+  const leadTotal = Number(now.leads_total) || 0;
+  ADM_LEAD_TYPES.forEach(type=>{
+    const cur = Number((now.leads || {})[type.key]) || 0;
+    const was = Number((prevSafe.leads || {})[type.key]) || 0;
+    leadRows.appendChild(admRow(
+      type.label, type.sub, admInt(cur),
+      leadTotal ? (cur / leadTotal) * 100 : 0,
+      admDeltaChip(cur, was)));
+  });
+  leadRows.appendChild(admRow('סך הלידים החודש', null, admInt(leadTotal), null,
+    admDeltaChip(leadTotal, prevSafe.leads_total), true));
+  leadsBlock.appendChild(leadRows);
+  host.appendChild(leadsBlock);
+
+  /* ---- 3. התור הפתוח ---- */
+  const queueBlock = admBlock('ממתין לטיפול עכשיו',
+    'זהו תור פתוח ולא נתון חודשי: כל מה שנקלט ואיש עדיין לא נגע בו, בלי קשר למועד.'
+    + (queue.oldest_days ? ' הליד הוותיק ביותר שלא נפתח ממתין ' + admInt(queue.oldest_days) + ' ימים.' : ''));
+  const queueGrid = admEl('div', 'adm-queue');
+  ADM_QUEUE.forEach(item=>{
+    const count = Number(queue[item.key]) || 0;
+    const card = admEl(item.goto && count ? 'button' : 'div',
+      'adm-q' + (count ? ' is-hot' : ' is-clear'));
+    if (item.goto && count){
+      card.type = 'button';
+      card.dataset.goto = item.goto;
+    }
+    card.appendChild(admEl('span', 'adm-q-val', admInt(count)));
+    card.appendChild(admEl('span', 'adm-q-lbl', item.label));
+    card.appendChild(admEl('span', 'adm-q-sub', item.sub));
+    queueGrid.appendChild(card);
+  });
+  queueBlock.appendChild(queueGrid);
+  host.appendChild(queueBlock);
+
+  /* ---- 4. הכנסות לפי מקור ---- */
+  const revBlock = admBlock('הכנסות לפי מקור · ' + admMonthLabel(now.month),
+    'הכנסה = חיוב שנגבה בפועל. טעינת ארנק אינה הכנסה — היא כסף שנכנס לארנק ועדיין שייך לסוכן/ת, ולכן היא מוצגת בשורה נפרדת ולא מסתכמת לסך הכל.');
+  const revRows = admEl('div', 'adm-rows');
+  const revTotal = Number(now.revenue_total) || 0;
+  ADM_REVENUE_SOURCES.forEach(src=>{
+    const cur = (now.revenue || {})[src.key] || {};
+    const was = (prevSafe.revenue || {})[src.key] || {};
+    const amount = Number(cur.amount) || 0;
+    const count  = Number(cur.count) || 0;
+    revRows.appendChild(admRow(
+      src.label,
+      src.sub + (count ? ' · ' + admInt(count) + ' חיובים' : ' · אין חיובים החודש'),
+      admMoney(amount),
+      revTotal ? (amount / revTotal) * 100 : 0,
+      admDeltaChip(amount, Number(was.amount) || 0)));
+  });
+  revRows.appendChild(admRow('סך ההכנסות החודש', null, admMoney(revTotal), null,
+    admDeltaChip(revTotal, prevSafe.revenue_total), true));
+  revRows.appendChild(admRow('טעינות ארנק (תזרים, לא הכנסה)', null, admMoney(now.topups), null,
+    admDeltaChip(now.topups, prevSafe.topups)));
+  revBlock.appendChild(revRows);
+  host.appendChild(revBlock);
+
+  /* ---- 5. מגמה על פני החלון ---- */
+  const trendBlock = admBlock('מגמה — ' + admInt(months.length) + ' חודשים אחרונים',
+    'העמודה הזהובה היא החודש הנוכחי, שעדיין לא הסתיים — הוא תמיד ייראה נמוך מחודש מלא.');
+  trendBlock.appendChild(admEl('p', 'adm-legend', 'לידים שנקלטו בכל חודש'));
+  trendBlock.appendChild(admChart(months, m => Number(m.leads_total) || 0, admInt));
+  trendBlock.appendChild(admEl('p', 'adm-legend', 'הכנסות בכל חודש'));
+  trendBlock.appendChild(admChart(months, m => Number(m.revenue_total) || 0, admMoney));
+  host.appendChild(trendBlock);
+
+  /* ---- 6. עוד מידע שחשוב לדעת ---- */
+  const windowSum = key => months.reduce((s, m) => s + (Number(m[key]) || 0), 0);
+  const factsBlock = admBlock('עוד מידע על הפלטפורמה', 'ה"סה״כ" הוא מצב עכשיו; מה שמסומן "בחלון" מסכם את כל החודשים בטווח שנבחר.');
+  const facts = admEl('div', 'adm-facts');
+  [
+    ['משרדים במערכת',            admInt(totals.agencies)],
+    ['סוכנים פעילים',            admInt(totals.agents_active) + ' מתוך ' + admInt(totals.agents)],
+    ['מנהלי משרד',               admInt(totals.managers)],
+    ['פילוח מסלולים',            'חינמי ' + admInt(totals.tier_free) + ' · משודרג ' + admInt(totals.tier_mid) + ' · פרימיום ' + admInt(totals.tier_premium)],
+    ['יועצי משכנתאות רשומים',    admInt(totals.mortgage_advisors)],
+    ['הזמנות סוכנים פתוחות',     admInt(totals.pending_invitations)],
+    ['נכסים פעילים באתר',        admInt(totals.properties_active) + ' מתוך ' + admInt(totals.properties_total)],
+    ['נכסים בקידום בתשלום',      admInt(totals.properties_promoted)],
+    ['נכסים חדשים בחלון',        admInt(windowSum('properties_new'))],
+    ['עסקאות שנסגרו בחלון',      admInt(windowSum('deals_closed')) + ' · ' + admMoney(windowSum('deals_volume'))],
+    ['הכנסות מצטברות בחלון',     admMoney(windowSum('revenue_total'))],
+    ['יתרות בארנקי הסוכנים',     admMoney(totals.wallet_balance)],
+    ['חיפושים שמורים פעילים',    admInt(totals.saved_searches)],
+    ['נרשמים לניוזלטר',          admInt(totals.newsletter) + ' · ' + admInt(windowSum('newsletter_new')) + ' בחלון'],
+    ['ביקורות שהתקבלו בחלון',    admInt(windowSum('reviews_new'))],
+  ].forEach(([label, value])=>{
+    const fact = admEl('div', 'adm-fact');
+    fact.appendChild(admEl('span', 'adm-fact-lbl', label));
+    fact.appendChild(admEl('span', 'adm-fact-val', value));
+    facts.appendChild(fact);
+  });
+  factsBlock.appendChild(facts);
+  host.appendChild(factsBlock);
+
+  /* ---- 7. פירוט לפי משרד ---- */
+  const agencies = Array.isArray(report.agencies) ? report.agencies : [];
+  if (agencies.length){
+    const agencyBlock = admBlock('משרדים — פעילות בחלון הנבחר',
+      'ההכנסה כאן היא רכישות לידים בלבד (פתיחה, מדף RSS, משכנתאות ומחפשי דירה). קידום נכסים אינו משויך למשרד ולכן אינו נספר בטור הזה.');
+    const wrap = admEl('div', 'adm-table-wrap');
+    const table = admEl('table', 'adm-table');
+    const thead = admEl('thead');
+    const hrow = admEl('tr');
+    ['משרד','סוכנים פעילים','בתשלום','נכסים פעילים','רכישות','הכנסה'].forEach(h => hrow.appendChild(admEl('th', null, h)));
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+    const tbody = admEl('tbody');
+    agencies.forEach(a=>{
+      const tr = admEl('tr');
+      tr.appendChild(admEl('td', null, a.name || '—'));
+      tr.appendChild(admEl('td', 'num', admInt(a.members)));
+      tr.appendChild(admEl('td', 'num', admInt(a.paid_members)));
+      tr.appendChild(admEl('td', 'num', admInt(a.active_properties)));
+      tr.appendChild(admEl('td', 'num', admInt(a.purchases)));
+      tr.appendChild(admEl('td', 'num', admMoney(a.revenue)));
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    agencyBlock.appendChild(wrap);
+    host.appendChild(agencyBlock);
+  }
+
+  /* כותרת הפאנל היא התקציר שרואים כשהוא מכווץ — זה מה שהופך "עוד פאנל
+     סגור" ל"יש משהו שדורש תשומת לב". */
+  const sub = document.getElementById('adminPanelSub');
+  if (sub){
+    sub.textContent = admMonthLabel(now.month) + ' · ' + admInt(now.leads_total) + ' לידים · '
+      + admMoney(now.revenue_total) + ' · ' + admInt(admQueueTotal(queue)) + ' ממתינים לטיפול';
+  }
+
+  dashPanelsMeasure();
+}
+
+/* סך התור הפתוח. ‏site_unassigned אינו נספר כאן: ליד בלי סוכן/ת כבר נספר
+   ב-site_leads (הוא גם לא נפתח), וספירה כפולה הייתה מנפחת את המספר. */
+function admQueueTotal(queue){
+  return ADM_QUEUE.reduce((sum, item) => sum + (Number(queue[item.key]) || 0), 0);
+}
+
+document.querySelectorAll('.adm-range button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    adminReportMonths = Number(btn.dataset.months) || 6;
+    document.querySelectorAll('.adm-range button').forEach(b => b.classList.toggle('is-on', b === btn));
+    loadAdminReport();
+  });
+});
+document.getElementById('adminRefreshBtn').addEventListener('click', loadAdminReport);
 
 async function loadArticlesAdmin(){
   const listEl = document.getElementById('articlesAdminList');
