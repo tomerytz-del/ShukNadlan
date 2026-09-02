@@ -214,6 +214,12 @@ POST { property_id }   |   POST { limit: 100 }
 להן תוך כדי. הפונקציה קיימת למילוי לאחור ולהרצה תקופתית שמפזרת את עלות הסיווג
 מראש, כדי שהגולש/ת לא יחכה לה בזמן אמת.
 
+**אימות:** `verify_jwt = false` כאן אינו "פתוח". הפונקציה דורשת כותרת
+`x-alert-cron-secret` ששווה ל-`ALERT_CRON_SECRET`, או
+`Authorization: Bearer <service_role>` — ראו `_shared/cron-auth.ts`. עד
+לאחרונה לא הייתה כאן שום בדיקה, וכל `POST` אנונימי הריץ עד 300 סיווגי Gemini
+לפי ה-`limit` שבגוף הבקשה.
+
 ---
 
 ## שדרוג סוכן/ת ל-Premium
@@ -304,8 +310,9 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ... scripts/visualizations_backfill.sh
 ```
 
 **‏5. סיווג מראש** (אופציונלי) — `POST /functions/v1/classify-property-images
-{ "limit": 200 }`. שתי פונקציות ההדמיה מסווגות מה שחסר להן תוך כדי, ולכן זה
-רק מפזר את העלות מראש כדי שהגולש/ת הראשון/ה לא יחכה לה.
+{ "limit": 200 }`, עם `Authorization: Bearer <service_role>` או עם הכותרת
+`x-alert-cron-secret`. שתי פונקציות ההדמיה מסווגות מה שחסר להן תוך כדי, ולכן
+זה רק מפזר את העלות מראש כדי שהגולש/ת הראשון/ה לא יחכה לה.
 
 ### מי מקבל הדמיה — ולמה זה משתנה מיום ליום
 

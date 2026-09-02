@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { classifyImage, corsHeaders, fetchAsBase64, json } from "../_shared/visualization.ts";
 
 // ============================================================================
@@ -13,8 +14,10 @@ import { classifyImage, corsHeaders, fetchAsBase64, json } from "../_shared/visu
 // לאחור אחרי הפעלת המנגנון, והרצה תקופתית שמפזרת את עלות הסיווג מראש כדי
 // שהגולש/ת לא יחכה לה בזמן אמת.
 //
-// ‏verify_jwt=false כדי שאפשר יהיה לקרוא לה מ-cron/webhook, אבל היא לא מקבלת
-// שום קלט שמשפיע על מה נכתב — רק כמה שורות לעבד.
+// ‏verify_jwt=false כדי שאפשר יהיה לקרוא לה מ-cron/backfill בלי JWT של
+// משתמש/ת. הקלט אמנם אינו משפיע על *מה* שנכתב — רק על כמה שורות לעבד —
+// אבל כל קריאה שורפת GEMINI_API_KEY (עד 300 סיווגים בבקשה, לפי `limit`
+// שמגיע מגוף הבקשה), ולכן היא דורשת אימות פנימי כמו שאר הקוראים של ה-cron.
 // ============================================================================
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -24,6 +27,9 @@ const VISION_MODEL = Deno.env.get("GEMINI_VISION_MODEL") ?? "gemini-3.1-flash-li
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders() });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
+
+  const auth = authorizeInternalCaller(req);
+  if (!auth.ok) return json({ error: auth.error, detail: auth.detail }, auth.status);
 
   const apiKey = Deno.env.get("GEMINI_API_KEY");
   if (!apiKey) return json({ error: "gemini_not_configured" }, 500);

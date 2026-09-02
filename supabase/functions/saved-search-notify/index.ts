@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { sendPlatformEmail } from "../_shared/platform-mail-client.ts";
 
 // ============================================================================
@@ -36,7 +37,6 @@ const WA_TEMPLATE = Deno.env.get("WHATSAPP_ALERT_TEMPLATE") || "";
 const WA_TEMPLATE_LANG = Deno.env.get("WHATSAPP_ALERT_TEMPLATE_LANG") || "he";
 
 const FUNCTIONS_BASE = `${supabaseUrl}/functions/v1`;
-const CRON_SECRET = Deno.env.get("ALERT_CRON_SECRET") || "";
 
 const BATCH = 40;
 
@@ -241,12 +241,11 @@ async function sendEmail(a: any): Promise<void> {
 // הלולאה
 // ---------------------------------------------------------------------------
 Deno.serve(async (req: Request) => {
-  // ‏ALERT_CRON_SECRET הוא אופציונלי בכוונה: בלעדיו המנגנון עובד מיד אחרי
-  // הפריסה, וההידוק הוא צעד אחד בתיעוד. הפונקציה אינה מקבלת תוכן מהקורא
-  // אלא רק מרוקנת תור קיים, ולכן החשיפה מוגבלת להאצת משלוח שממילא היה יוצא.
-  if (CRON_SECRET && req.headers.get("x-alert-cron-secret") !== CRON_SECRET) {
-    return json({ error: "unauthorized" }, 401);
-  }
+  // ‏ALERT_CRON_SECRET היה "אופציונלי בכוונה" — ובפועל לא הוגדר מעולם, ולכן
+  // התנאי דילג על עצמו והפונקציה ענתה 200 לכל קורא. האימות עבר ל-cron-auth
+  // המשותף, שנכשל סגור כשהסוד חסר במקום לוותר על הבדיקה.
+  const auth = authorizeInternalCaller(req);
+  if (!auth.ok) return json({ error: auth.error, detail: auth.detail }, auth.status);
 
   const sb = createClient(supabaseUrl, serviceRoleKey);
 

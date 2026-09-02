@@ -78,7 +78,7 @@
 
 ## הריפו והפרודקשן מסונכרנים
 
-**30 פונקציות פרוסות, 30 בריפו, אותן 30.** זה לא היה המצב: תשע פונקציות היו
+**29 פונקציות פרוסות, 29 בריפו, אותן 29.** זה לא היה המצב: תשע פונקציות היו
 פרוסות בלי שום קוד בגרסאות —
 
 ```
@@ -98,13 +98,54 @@ afula-planning-lookup · dev-switch-mode · geocode-address
 > הוא העתק מדויק של מה שרץ בפרודקשן, ולכן זו אמורה להיות פעולה ללא שינוי
 > התנהגות — אבל זו ההרצה שכדאי להסתכל בה, ולא לסמוך עליה בעיוורון.
 
-### נקודה פתוחה שנחשפה בהורדה
+### הנקודה שנחשפה בהורדה — ומה נמצא כשבדקנו אותה
 
-‏`news-ticker-crawler` היא היחידה מבין הפונקציות עם `verify_jwt = false`
-שאין לה שום אימות עצמי בגוף הפונקציה — לא סוד cron ולא בדיקת service role.
-כלומר כל מי שיודע את הכתובת יכול להפעיל אותה ולגרור קריאות בתשלום
-ל-Anthropic. הערך נשמר כפי שהוא כדי לא לשנות התנהגות, אבל הסגירה פשוטה:
-בדיקת `x-alert-cron-secret` בתחילת ה-handler, בדיוק כמו ב-`saved-search-notify`.
+ההערה שנכתבה כאן קודם אמרה ש-`news-ticker-crawler` היא **היחידה** מבין
+הפונקציות עם `verify_jwt = false` שאין לה אימות עצמי. הבדיקה בפועל מצאה
+תמונה רחבה יותר, ושלושת הממצאים טופלו:
+
+**‏1. `news-ticker-crawler` — נפרשה.** לא היה לה שום אימות: לא סוד cron, לא
+‏service role, ואפילו לא בדיקת method — קריאת `GET` מהדפדפן הריצה את הזחילה
+המלאה על חשבון `ANTHROPIC_API_KEY`. במקביל התברר שמנוע ה-Python
+(‏`news_scraper.py`, כל שעתיים ב-GitHub Actions) כבר החליף אותה לגמרי, והיא
+המשיכה לכתוב ל-`news_items` בעקיפת הדדופ והסינון שלו. לכן היא הוסרה ולא
+הודקה — ראו `supabase/migrations/20260920090000_retire_news_ticker_crawler.sql`.
+
+**‏2. `classify-property-images` — קיבלה אימות.** גם לה לא הייתה שום בדיקה.
+ההצדקה שנרשמה ("לא מקבלת קלט שמשפיע על מה שנכתב") נכונה לגבי *שלמות
+הנתונים*, אבל לא לגבי *עלות*: כל `POST` אנונימי הריץ עד 300 סיווגי
+‏`GEMINI_API_KEY`, כשה-`limit` מגיע מגוף הבקשה.
+
+**‏3. הסוד עצמו לא היה מוגדר — ולכן גם ה"מוגנות" לא היו מוגנות.** הבדיקה
+ב-`saved-search-notify` וב-`property-marketing-publish` נכתבה כ-
+`if (CRON_SECRET && ...)`, כלומר היא מדלגת על עצמה כשהסוד ריק. ‏`ALERT_CRON_SECRET`
+לא הוגדר מעולם ב-Edge Functions Secrets, וגם סוד ה-Vault ‏`alert_cron_secret`
+לא היה קיים — כך שה-cron ממילא לא שלח כותרת. התוצאה: שתי הפונקציות ענו
+‏200 לכל קורא. זה נראה תקין בדיוק כמו שכשל שקט אמור להיראות.
+
+הסגירה: `supabase/functions/_shared/cron-auth.ts`, שאותו מייבאות שלוש
+הפונקציות. הבדיקה שם היא **fail-closed** — סוד חסר מחזיר `503`
+`cron_secret_not_configured` במקום להיפתח — ומקבלת גם `Authorization: Bearer
+<service_role>` למסלול הפנימי והידני. ההשוואה היא בזמן קבוע.
+
+> **סדר הפעולות חשוב.** מיזוג ל-`main` פורס אוטומטית. אם `ALERT_CRON_SECRET`
+> לא מוגדר ב-Edge Functions Secrets ברגע המיזוג, `saved-search-notify`
+> יתחיל להחזיר `503` כל שתי דקות. **הגדירו את הסוד לפני המיזוג.**
+> סוד ה-Vault כבר קיים, ולכן ה-cron כבר שולח את הכותרת; שני הערכים
+> חייבים להיות זהים.
+
+```sql
+-- הערך שה-cron שולח (להשוואה מול מה שהוגדר ב-Secrets):
+select decrypted_secret from vault.decrypted_secrets where name = 'alert_cron_secret';
+```
+
+**נשאר ידני:** הפונקציה `news-ticker-crawler` הוסרה מהריפו ומ-`config.toml`
+וה-cron שלה בוטל, אבל `supabase functions deploy` אינו מוחק פונקציות פרוסות.
+כל עוד היא לא נמחקה היא עדיין נענית לכל קורא שיודע את הכתובת:
+
+```bash
+supabase functions delete news-ticker-crawler --project-ref obookujgolazrwycsiyn
+```
 
 ## סודות שהפונקציות צריכות
 
@@ -116,7 +157,7 @@ Secrets**, ופונקציה שחסר לה סוד נפרסת בהצלחה ונכ�
 | `GEMINI_API_KEY` | `property-visualize`, `property-visualize-base`, `classify-property-images` | `gemini_not_configured` (500) |
 | `ANTHROPIC_API_KEY` | `property-marketing-publish` | הפוסט נכשל על היעדר תיאור שיווקי |
 | `MAKE_FACEBOOK_WEBHOOK_URL` *או* `FACEBOOK_PAGE_ID`+`FACEBOOK_PAGE_ACCESS_TOKEN` | `property-marketing-publish` | `publish_not_configured` — התור לא נשרף, השורות ממתינות |
-| `ALERT_CRON_SECRET` | `saved-search-notify`, `property-marketing-publish` | אופציונלי — בלעדיו אין אימות cron |
+| `ALERT_CRON_SECRET` | `saved-search-notify`, `property-marketing-publish`, `classify-property-images` | **חובה** — בלעדיו שלושתן מחזירות `503 cron_secret_not_configured`. חייב להיות זהה לסוד ה-Vault ‏`alert_cron_secret` שה-cron שולח |
 
 ## אם ההרצה נכשלה
 
