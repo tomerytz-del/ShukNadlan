@@ -1,0 +1,214 @@
+name: פריסת Edge Functions ל-Supabase
+
+# ‏Netlify מפרסם את ה-HTML בכל מיזוג, ה-workflow של המיגרציות מעדכן את
+# הסכימה — אבל את ה-Edge Functions אף אחד לא פרס. הן נפרסו ידנית, ומי
+# ששכח פשוט שכח: ארבע פונקציות (‏property-visualize, ‏property-visualize-base,
+# ‏classify-property-images, ‏property-marketing-publish) ישבו בריפו חודש
+# בלי שיהיו באוויר. מנגנון ההדמיות "עבד" בדף הנכס, הטופס נשלח, והבקשה
+# חזרה 404 — כי הפונקציה שאמורה לענות לה מעולם לא נפרסה.
+#
+# מכאן זה אוטומטי: כל מיזוג ל-main שנוגע ב-supabase/functions מפרס את מה
+# שהשתנה.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/**"
+      - "supabase/config.toml"
+      - ".github/workflows/supabase_functions.yml"
+  workflow_dispatch:
+    inputs:
+      function:
+        description: "שם פונקציה יחידה לפריסה (ריק = לפי מה שהשתנה)"
+        type: string
+      deploy_all:
+        description: "פריסת כל הפונקציות שבריפו"
+        type: boolean
+        default: false
+
+# פריסות במקביל על אותו פרויקט הן הדרך לקבל גרסה חלקית באוויר.
+concurrency:
+  group: supabase-functions
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      # ה-ref גלוי ממילא בכל דף באתר (SUPABASE_URL ב-HTML), ולכן הוא לא סוד
+      # ולא צריך לשבת ב-Secrets. הסוד היחיד הוא טוקן הגישה.
+      PROJECT_REF: obookujgolazrwycsiyn
+
+    steps:
+      # ההיסטוריה המלאה דרושה כדי להשוות מול הקומיט הקודם ולדעת מה השתנה
+      - name: משיכת הקוד
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # אותו לקח כמו ב-workflow של המיגרציות: סוד ריק לא נכשל בהודעה ברורה
+      # אלא בשגיאה שנראית כמו משהו אחר לגמרי. עדיף להיכשל כאן, במפורש.
+      - name: ודא שהסוד SUPABASE_ACCESS_TOKEN מוגדר
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        run: |
+          if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+            echo "::error::הסוד SUPABASE_ACCESS_TOKEN ריק או לא מוגדר. צרו טוקן ב-https://supabase.com/dashboard/account/tokens והוסיפו אותו ב-Settings → Secrets and variables → Actions → New repository secret (לא Variable). פירוט: docs/edge-functions-deploy.md"
+            exit 1
+          fi
+          echo "הסוד מוגדר (${#SUPABASE_ACCESS_TOKEN} תווים)."
+
+      # ‏config.toml הוא מה שקובע verify_jwt לכל פונקציה. בלעדיו ה-CLI מניח
+      # true לכולן ומכבה את כל נקודות הקצה הציבוריות בפריסה אחת.
+      - name: ודא ש-config.toml קיים
+        run: |
+          if [ ! -f supabase/config.toml ]; then
+            echo "::error::supabase/config.toml חסר. בלעדיו הפריסה תדליק verify_jwt על כל הפונקציות ותשבור את נקודות הקצה הציבוריות."
+            exit 1
+          fi
+          MISSING=""
+          for dir in supabase/functions/*/; do
+            fn=$(basename "$dir")
+            [ "$fn" = "_shared" ] && continue
+            grep -q "^\[functions\.$fn\]" supabase/config.toml || MISSING="$MISSING $fn"
+          done
+          if [ -n "$MISSING" ]; then
+            echo "::error::לפונקציות הבאות אין סעיף ב-supabase/config.toml, ולכן הן ייפרסו עם verify_jwt=true (ברירת המחדל של ה-CLI):$MISSING"
+            exit 1
+          fi
+          echo "לכל הפונקציות יש הגדרת verify_jwt מפורשת."
+
+      - name: התקנת Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # מה לפרוס:
+      #   • הרצה ידנית עם deploy_all, או שינוי ב-_shared/config.toml → הכול.
+      #     ‏_shared הוא קוד שמשותף לכמה פונקציות, ושינוי בו לא מגיע לאף אחת
+      #     מהן עד שהיא נפרסת מחדש — הבאנדל נבנה בזמן הפריסה.
+      #   • הרצה ידנית עם שם פונקציה → רק היא.
+      #   • אחרת → רק התיקיות שהשתנו מול הקומיט הקודם.
+      - name: איתור הפונקציות לפריסה
+        id: pick
+        env:
+          INPUT_FUNCTION: ${{ inputs.function }}
+          INPUT_ALL: ${{ inputs.deploy_all }}
+          BEFORE_SHA: ${{ github.event.before }}
+        run: |
+          set -euo pipefail
+          all_functions() {
+            for dir in supabase/functions/*/; do
+              fn=$(basename "$dir")
+              [ "$fn" = "_shared" ] && continue
+              echo "$fn"
+            done
+          }
+
+          if [ -n "${INPUT_FUNCTION:-}" ]; then
+            if [ ! -d "supabase/functions/$INPUT_FUNCTION" ]; then
+              echo "::error::אין תיקייה supabase/functions/$INPUT_FUNCTION"
+              exit 1
+            fi
+            TARGETS="$INPUT_FUNCTION"
+            echo "פריסה ידנית של פונקציה אחת."
+          elif [ "${INPUT_ALL:-false}" = "true" ]; then
+            TARGETS=$(all_functions)
+            echo "פריסה ידנית של כל הפונקציות."
+          else
+            # ‏before ריק או אפסים = דחיפה ראשונה או היסטוריה שנכתבה מחדש.
+            # במצב כזה אין ממה לגזור diff, ולכן פורסים הכול ולא כלום.
+            if [ -z "${BEFORE_SHA:-}" ] || [ "${BEFORE_SHA}" = "0000000000000000000000000000000000000000" ] \
+               || ! git cat-file -e "${BEFORE_SHA}^{commit}" 2>/dev/null; then
+              TARGETS=$(all_functions)
+              echo "אין קומיט קודם להשוואה — פורסים הכול."
+            else
+              CHANGED=$(git diff --name-only "${BEFORE_SHA}" "${GITHUB_SHA}" -- supabase/functions supabase/config.toml || true)
+              echo "קבצים שהשתנו:"; echo "$CHANGED"
+              if echo "$CHANGED" | grep -qE '^supabase/(functions/_shared/|config\.toml$)'; then
+                TARGETS=$(all_functions)
+                echo "‏_shared או config.toml השתנו — פורסים הכול."
+              else
+                # ה-‏`|| true` אינו קישוט: תחת set -o pipefail, ‏grep שלא מצא
+                # התאמה מפיל את כל השלב בקוד יציאה 1 — כלומר מיזוג שנגע רק
+                # בקובץ שנמחק היה נראה ככישלון פריסה. אין התאמה = אין מה
+                # לפרוס, וזו הצלחה.
+                CANDIDATES=$(echo "$CHANGED" \
+                  | grep -E '^supabase/functions/[^/]+/' \
+                  | cut -d/ -f3 | sort -u || true)
+                # תיקייה שנמחקה מופיעה ב-diff אבל כבר לא קיימת בעץ, ואי אפשר
+                # לפרוס אותה. מחיקת פונקציה מ-Supabase נשארת פעולה ידנית.
+                TARGETS=""
+                for fn in $CANDIDATES; do
+                  if [ "$fn" != "_shared" ] && [ -d "supabase/functions/$fn" ]; then
+                    TARGETS="$TARGETS $fn"
+                  fi
+                done
+              fi
+            fi
+          fi
+
+          # שני המקורות מגיעים בפורמט שונה — all_functions מחזירה שורה לכל
+          # פונקציה, וצבירת ה-diff מחזירה רשימה מופרדת ברווחים. הנרמול כאן
+          # הופך את שניהם לשורה-לכל-פונקציה, שזה מה שלולאת הפריסה קוראת.
+          TARGETS=$(echo "${TARGETS:-}" | tr ' ' '\n' | sed '/^$/d')
+          if [ -z "$TARGETS" ]; then
+            echo "אין פונקציה לפרוס."
+            echo "targets=" >> "$GITHUB_OUTPUT"
+          else
+            echo "לפריסה:"; echo "$TARGETS"
+            echo "targets<<EOF" >> "$GITHUB_OUTPUT"
+            echo "$TARGETS" >> "$GITHUB_OUTPUT"
+            echo "EOF" >> "$GITHUB_OUTPUT"
+          fi
+
+      # פריסה אחת לכל פונקציה ולא `deploy` גורף: כישלון בפונקציה אחת מזוהה
+      # בשם, והלוג אומר מה עלה ומה לא. הלולאה לא נעצרת באמצע — פונקציה
+      # שנכשלה לא צריכה למנוע מהשאר לעלות — והסטטוס נקבע בסוף.
+      - name: פריסה
+        if: steps.pick.outputs.targets != ''
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          TARGETS: ${{ steps.pick.outputs.targets }}
+        run: |
+          FAILED=""
+          OK=""
+          while read -r fn; do
+            [ -z "$fn" ] && continue
+            echo "::group::פריסת $fn"
+            if supabase functions deploy "$fn" --project-ref "$PROJECT_REF"; then
+              OK="$OK $fn"
+            else
+              echo "::error::פריסת $fn נכשלה"
+              FAILED="$FAILED $fn"
+            fi
+            echo "::endgroup::"
+          done <<< "$TARGETS"
+
+          echo "נפרסו בהצלחה:${OK:- (אין)}"
+          if [ -n "$FAILED" ]; then
+            echo "::error::הפונקציות האלה לא נפרסו:$FAILED"
+            exit 1
+          fi
+
+      - name: סיכום
+        if: always()
+        env:
+          TARGETS: ${{ steps.pick.outputs.targets }}
+        run: |
+          {
+            echo "### פריסת Edge Functions"
+            if [ -z "${TARGETS:-}" ]; then
+              echo "לא נמצאה פונקציה שהשתנתה — לא נפרס דבר."
+            else
+              echo "היעדים בהרצה הזו:"
+              echo '```'
+              echo "$TARGETS"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

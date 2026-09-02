@@ -1,0 +1,118 @@
+# פריסת Edge Functions
+
+## הבעיה שזה פותר
+
+שלושה דברים עולים לאוויר בכל מיזוג ל-`main`, ועד עכשיו רק שניים מהם היו
+אוטומטיים:
+
+| מה | מי מפרס | מתי |
+|---|---|---|
+| ‏HTML/CSS/JS | Netlify | שניות מהמיזוג |
+| מיגרציות | `.github/workflows/supabase_migrations.yml` | במיזוג |
+| ‏**Edge Functions** | **אף אחד** | **כשמישהו זכר** |
+
+והתוצאה הייתה בדיוק מה שאפשר לצפות: ארבע פונקציות ישבו בריפו בלי להיות
+באוויר — `property-visualize`, `property-visualize-base`,
+`classify-property-images` ו-`property-marketing-publish`.
+
+הכשל הזה שקט במיוחד, כי הוא לא נראה כמו כשל. דף הנכס הציג את סקציית
+ההדמיות, הגולש/ת מילא/ה שם וטלפון, הטופס נשלח — והבקשה חזרה 404 מפונקציה
+שמעולם לא נפרסה. כלומר מנגנון ההדמיות "עבד" במשך חודש בלי לייצר ולו הדמיה
+אחת, ובלי שאיש ידע.
+
+מכאן `.github/workflows/supabase_functions.yml` מפרס בכל מיזוג ל-`main`
+שנוגע ב-`supabase/functions/**`.
+
+## ‏config.toml — החלק שחייבים להבין לפני שנוגעים
+
+‏**`supabase functions deploy` מניח `verify_jwt = true` לכל פונקציה שאין לה
+ערך מפורש ב-`supabase/config.toml`.**
+
+זה לא פרט טכני. בלי הקובץ הזה, הפריסה האוטומטית הראשונה הייתה מדליקה אימות
+‏JWT על כל נקודות הקצה הציבוריות — טופס יצירת הקשר בדף הנכס, הרשמת משרד,
+הוובהוק של וואטסאפ, ה-cron של ההתראות — וכולן היו מתחילות להחזיר 401
+לגולשים אנונימיים. פריסה אחת, חצי אתר מושבת, בלי שגיאה אחת בקוד.
+
+לכן `supabase/config.toml` מחזיק `verify_jwt` מפורש **לכל 21 הפונקציות
+שבריפו**, והערכים הועתקו אחד לאחד ממה שפרוס בפועל ולא נכתבו מחדש.
+ה-workflow נכשל מראש אם נוספה פונקציה בלי סעיף משלה — כלומר אי אפשר לשכוח.
+
+> **שינוי `verify_jwt` בקובץ הזה הוא שינוי אבטחה.** ‏`false` אומר שהפונקציה
+> אחראית לאימות בעצמה (סוד cron, טוקן חד-פעמי, service role) או שהיא נקודת
+> קליטה ציבורית מכוונת. לכל שורה שם יש הערה שמסבירה למה.
+
+## מה צריך להגדיר פעם אחת
+
+סוד אחד — **Settings → Secrets and variables → Actions → New repository secret**:
+
+- **שם:** `SUPABASE_ACCESS_TOKEN`
+- **ערך:** טוקן אישי מ-https://supabase.com/dashboard/account/tokens
+
+> ⚠️ **Secret ולא Variable.** זו בדיוק התקלה שהשביתה את workflow המיגרציות
+> ב-16 הרצות רצופות: סוד ריק לא נכשל בהודעה ברורה אלא בשגיאה שנראית כמו
+> משהו אחר. ה-workflow כאן בודק את הסוד מפורשות לפני שהוא נוגע בפרויקט.
+
+ה-`project_ref` עצמו (`obookujgolazrwycsiyn`) יושב ב-`env` של ה-workflow
+ולא ב-Secrets: הוא גלוי ממילא בכל דף באתר, ב-`SUPABASE_URL` שב-HTML.
+
+## מה נפרס בכל הרצה
+
+| מה השתנה במיזוג | מה נפרס |
+|---|---|
+| תיקייה של פונקציה אחת | רק היא |
+| כמה תיקיות | רק הן |
+| ‏`_shared/**` | **הכול** |
+| ‏`config.toml` | **הכול** |
+| כלום מהנ״ל | כלום — ההרצה מסתיימת בהצלחה |
+
+‏`_shared` גורר פריסה מלאה כי הבאנדל נבנה **בזמן הפריסה**: שינוי בקוד
+המשותף לא מגיע לאף פונקציה עד שהיא עצמה נפרסת מחדש. פריסה חלקית הייתה
+משאירה חלק מהפונקציות עם הגרסה הישנה של אותו קובץ.
+
+**הרצה ידנית** (לשונית Actions → Run workflow) מאפשרת שני מצבים: `function`
+לפריסת פונקציה יחידה, או `deploy_all` לפריסת הכול.
+
+הפריסה היא פונקציה-אחר-פונקציה ולא `deploy` גורף, כדי שכישלון יזוהה בשם.
+הלולאה לא נעצרת באמצע — פונקציה שנכשלה לא מונעת מהשאר לעלות — וקוד היציאה
+נקבע בסוף לפי מה שנכשל.
+
+## פונקציות שקיימות בפרודקשן ולא בריפו
+
+תשע פונקציות פרוסות בפרויקט אבל אין להן קוד בריפו:
+
+```
+lead-claim · property-inquiry-intake · agent-direct-inquiry-intake
+promote-property · wallet-topup · news-ticker-crawler
+afula-planning-lookup · dev-switch-mode · geocode-address
+```
+
+ה-workflow **לא נוגע בהן** — הוא פורס רק מה שקיים ב-`supabase/functions/`.
+זה מכוון (פריסה לא יכולה למחוק מה שאין לה קוד עבורו), אבל זו נקודה פתוחה:
+לקוד שלהן אין מקור אמת בגרסאות, ועריכה שלהן דרך הדשבורד לא מתועדת בשום
+מקום. ‏`property-inquiry-intake` ו-`afula-planning-lookup` הן מהנתיבים
+החמים באתר, ושתיהן בקבוצה הזו.
+
+הדרך לסגור: `supabase functions download <name>` לכל אחת, והכנסת הקוד לריפו
+עם סעיף מתאים ב-`config.toml`.
+
+## סודות שהפונקציות צריכות
+
+הפריסה מעלה קוד, לא סודות. אלה מוגדרים ב-**Supabase → Edge Functions →
+Secrets**, ופונקציה שחסר לה סוד נפרסת בהצלחה ונכשלת בזמן ריצה:
+
+| סוד | מי צריך אותו | מה קורה בלעדיו |
+|---|---|---|
+| `GEMINI_API_KEY` | `property-visualize`, `property-visualize-base`, `classify-property-images` | `gemini_not_configured` (500) |
+| `ANTHROPIC_API_KEY` | `property-marketing-publish` | הפוסט נכשל על היעדר תיאור שיווקי |
+| `MAKE_FACEBOOK_WEBHOOK_URL` *או* `FACEBOOK_PAGE_ID`+`FACEBOOK_PAGE_ACCESS_TOKEN` | `property-marketing-publish` | `publish_not_configured` — התור לא נשרף, השורות ממתינות |
+| `ALERT_CRON_SECRET` | `saved-search-notify`, `property-marketing-publish` | אופציונלי — בלעדיו אין אימות cron |
+
+## אם ההרצה נכשלה
+
+- **`Access token not provided`** — הסוד `SUPABASE_ACCESS_TOKEN` ריק או
+  הוגדר כ-Variable. ה-workflow אמור לתפוס את זה בשלב הראשון.
+- **שגיאת bundling** — שגיאת TypeScript/ייבוא בפונקציה עצמה. הלוג מציין את
+  שם הפונקציה, כי כל אחת נפרסת בנפרד.
+- **ייבוא מ-`_shared` לא נמצא** — הנתיב היחסי חייב להישאר
+  `../_shared/<file>.ts`; ה-CLI בונה את הבאנדל מתיקיית `supabase/functions`
+  כשורש.
