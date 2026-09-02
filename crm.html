@@ -1036,7 +1036,7 @@
   .dash-panel.is-open .dp-body{max-height:var(--dp-full,4000px)}
   /* הדהייה בתחתית היא הסימן שיש עוד — בלעדיה החיתוך נראה כמו באג */
   .dp-body::after{
-    content:'';position:absolute;inset-inline:0;bottom:0;height:76px;pointer-events:none;
+    content:'';position:absolute;inset-inline:0;bottom:0;height:58px;pointer-events:none;
     background:linear-gradient(180deg,rgba(255,255,255,0),rgba(255,255,255,.92) 78%);
     transition:opacity .3s ease;
   }
@@ -1736,7 +1736,7 @@
           </span>
           <span class="dp-titles">
             <span class="dp-title">המספרים שלי</span>
-            <span class="dp-sub">פוטנציאל עמלות, בלעדיות, ארנק ומכסה</span>
+            <span class="dp-sub" id="agentPanelSub">פוטנציאל עמלות, בלעדיות, ארנק ומכסה</span>
           </span>
           <span class="dp-toggle">
             <span class="dp-toggle-label">הרחבה</span>
@@ -3407,11 +3407,12 @@ function dashPanelsMeasure(){
     const full = inner.scrollHeight;
     if (!full) return;
     panel.style.setProperty('--dp-full', full + 'px');
-    // חצי מהגובה — עם רצפה ותקרה. הרצפה (150px) כי חצי מפאנל נמוך במיוחד הוא
-    // פס דק שאי אפשר להבין ממנו כלום; התקרה (55% מגובה החלון) כי דשבורד
-    // הפלטפורמה טבעי כמעט 2,000px, וחצי ממנו עדיין ממלא מסך שלם — כלומר
-    // "מכווץ" שנראה בדיוק כמו פתוח.
-    const cap = Math.max(260, Math.round(window.innerHeight * 0.55));
+    // חצי מהגובה — עם רצפה ותקרה, ושתיהן זהות לשני הפאנלים כדי ששניהם
+    // ייראו מכווצים באותה מידה. בלי התקרה, "חצי" נגזר מהתוכן: הכרטיס הכחול
+    // לבדו גבוה ~350px במסך טלפון, וחצי מהפאנל האישי (מעל 600px) מילא מסך
+    // שלם — בעוד שדשבורד הפלטפורמה, שצפוף הרבה יותר, נראה קומפקטי באותו
+    // חישוב בדיוק. הרצפה (150px) שומרת שהצצה לא תהיה פס דק חסר משמעות.
+    const cap = Math.max(170, Math.min(300, Math.round(window.innerHeight * 0.34)));
     panel.style.setProperty('--dp-peek',
       Math.max(150, Math.min(Math.round(full / 2), cap)) + 'px');
   });
@@ -13675,6 +13676,23 @@ function renderDashboardOverview(){
   const active = dashActiveProperties();
   renderCommissionCard(active);
   renderExclusiveCard(active);
+  renderAgentPanelSummary(active);
+}
+
+/* תקציר בכותרת הפאנל האישי. הפאנל מתחיל מכווץ, ולכן הכותרת היא מה שרואים
+   רוב הזמן — בלי המספרים כאן היא רק שם של משהו סגור. אותו תפקיד בדיוק
+   ממלא #adminPanelSub בדשבורד הפלטפורמה. */
+function renderAgentPanelSummary(active){
+  const sub = document.getElementById('agentPanelSub');
+  if (!sub) return;
+  if (!active.length){
+    sub.textContent = 'אין כרגע נכסים פעילים · לחצו להרחבה';
+    return;
+  }
+  const total = active.reduce((s, p)=> s + propertyCommission(p), 0);
+  const exclusive = active.filter(p => Array.isArray(p.features) && p.features.includes('exclusive')).length;
+  sub.textContent = shekelShort(total) + ' פוטנציאל · ' + active.length + ' נכסים · '
+    + exclusive + ' בבלעדיות';
 }
 
 /* ---------- הרקע הזורם של הדשבורד ----------
