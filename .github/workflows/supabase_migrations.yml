@@ -69,28 +69,83 @@ jobs:
       #
       # ‏16 ההרצות הראשונות של ה-workflow הזה נכשלו כך, ואיש לא זיהה את הסיבה
       # מהשגיאה: היא נראית כמו תקלת רשת ולא כמו סוד חסר. בינתיים כל מיזוג
-      # פרסם HTML שנשען על סכימה שלא עודכנה. הבדיקה כאן הופכת את המצב הזה
-      # להודעה אחת מפורשת, לפני שנוגעים במסד.
-      - name: ודא שהסוד SUPABASE_DB_URL מוגדר
+      # פרסם HTML שנשען על סכימה שלא עודכנה.
+      #
+      # ההרצה שאחריה (#24) נכשלה אחרת, ובאופן מטעה עוד יותר:
+      #
+      #   failed to parse connection string: postgresql://postgres.xxx:[REDACTED]@...:5432/postgres
+      #
+      # המחרוזת בהודעה נראית תקינה לחלוטין — כי התו ששבר אותה בלתי־נראה.
+      # מחרוזת שהועתקה דרך עורך טקסט עשירה בעברית נושאת סימן כיווניות
+      # (‏U+200F/U+200E) בתחילתה. ‏pgx בודק שהמחרוזת *מתחילה* ב-postgresql://,
+      # וכל תו לפני כן — גם ברוחב אפס — מפיל אותה לניתוח כ-DSN ומכשיל אותו.
+      # שוחזר מקומית: RLM/LRM/ZWSP מוביל מפילים, ואחרי הסרתם אותה מחרוזת
+      # בדיוק נפרסת ומתחברת.
+      #
+      # לכן השלב הזה מנקה לפני שהוא בודק, ומדווח בדיוק מה הוסר.
+      - name: ודא שהסוד SUPABASE_DB_URL מוגדר ותקין
         env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          SUPABASE_DB_URL_RAW: ${{ secrets.SUPABASE_DB_URL }}
         run: |
-          if [ -z "$SUPABASE_DB_URL" ]; then
+          if [ -z "$SUPABASE_DB_URL_RAW" ]; then
             echo "::error::הסוד SUPABASE_DB_URL ריק או לא מוגדר. הגדירו אותו ב-Settings → Secrets and variables → Actions → New repository secret (לא Variable), עם מחרוזת החיבור מ-Supabase → Project Settings → Database → Connection string → URI, פורט 5432. פירוט: docs/supabase-migrations.md"
             exit 1
           fi
-          echo "הסוד מוגדר (${#SUPABASE_DB_URL} תווים)."
+
+          # ‏LC_ALL=C כדי ש-sed יעבוד ברמת בתים ולא ינסה לפרש UTF-8. הסדר:
+          # תווי בקרה, סימני כיווניות ורוחב-אפס, NBSP לרווח, גזירת רווחים,
+          # ולבסוף מרכאות עוטפות (הדבקה עם גרשיים גם היא מפילה את הניתוח).
+          CLEAN=$(printf '%s' "$SUPABASE_DB_URL_RAW" | LC_ALL=C tr -d '\000-\037\177' | LC_ALL=C sed -E \
+            -e 's/\xef\xbb\xbf//g' \
+            -e 's/\xe2\x80[\x8b-\x8f]//g' \
+            -e 's/\xe2\x80[\xaa-\xae]//g' \
+            -e 's/\xe2\x81[\xa6-\xa9]//g' \
+            -e 's/\xc2\xa0/ /g' \
+            -e 's/^[[:space:]]+//; s/[[:space:]]+$//' \
+            -e 's/^"(.*)"$/\1/; s/^'"'"'(.*)'"'"'$/\1/')
+
+          # הערך המנוקה אינו הסוד הרשום, ולכן GitHub לא ימסך אותו מעצמו —
+          # הוא מכיל את סיסמת המסד. מיסוך מפורש לפני כל שימוש בו.
+          echo "::add-mask::$CLEAN"
+
+          if [ "$CLEAN" != "$SUPABASE_DB_URL_RAW" ]; then
+            echo "::warning::הסוד SUPABASE_DB_URL הכיל תווים נסתרים או עוטפים שהוסרו לפני השימוש (${#SUPABASE_DB_URL_RAW} תווים לפני, ${#CLEAN} אחרי). הסיבה הנפוצה: העתקה דרך מסמך בעברית שמוסיף סימן כיווניות. שווה לעדכן את הסוד עצמו."
+          fi
+
+          case "$CLEAN" in
+            postgresql://*|postgres://*) ;;
+            *)
+              echo "::error::הסוד SUPABASE_DB_URL אינו מתחיל ב-postgresql:// גם אחרי ניקוי. ודאו שהודבקה מחרוזת החיבור המלאה מ-Supabase → Connect → Direct → URI, בלי גרשיים ובלי טקסט לפניה. פירוט: docs/supabase-migrations.md"
+              exit 1
+              ;;
+          esac
+
+          case "$CLEAN" in
+            *:6543/*)
+              echo "::error::הסוד מצביע על פורט 6543 (Transaction pooler). ל-DDL צריך את Session pooler בפורט 5432 — ‏6543 לא תומך ב-advisory locks ומיגרציות ייכשלו בו."
+              exit 1
+              ;;
+          esac
+
+          # השלבים הבאים קוראים את הערך המנוקה מכאן, ולא מהסוד הגולמי.
+          {
+            echo "SUPABASE_DB_URL<<EOF_DBURL"
+            echo "$CLEAN"
+            echo "EOF_DBURL"
+          } >> "$GITHUB_ENV"
+
+          echo "הסוד תקין (${#CLEAN} תווים, פורט 5432)."
 
       # מצב ההיסטוריה לפני הנגיעה במסד — כדי שיהיה ברור בלוג מה בדיוק חסר
       # ומה עומד לרוץ, גם כשהשלב הבא נכשל.
+      #
+      # אין כאן env: SUPABASE_DB_URL בכוונה — הגדרה כזו הייתה דורסת את הערך
+      # המנוקה שנכתב ל-GITHUB_ENV ומחזירה את התו הנסתר.
       - name: מצב המיגרציות לפני ההרצה
-        env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: supabase migration list --db-url "$SUPABASE_DB_URL"
 
       - name: הרצת המיגרציות
         env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
           # קלט ההרצה הידנית מועבר כמשתנה סביבה ולא משורשר לתוך הפקודה
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
@@ -100,6 +155,4 @@ jobs:
 
       - name: מצב המיגרציות אחרי ההרצה
         if: success()
-        env:
-          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
         run: supabase migration list --db-url "$SUPABASE_DB_URL"
