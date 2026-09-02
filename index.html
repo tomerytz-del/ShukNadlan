@@ -1512,12 +1512,15 @@
   /* ‏105px של כרטיס (שליש ממסך של 360px) לא מכילים גם סרט "מקודם" ברוחב
      ‏42px וגם תגית עסקה ברוחב 55px — שניהם מעוגנים לפינות הנגדיות של אותה
      שורה והם נפגשים באמצע. ‏max-width לבדו לא מנע את זה: התגית היא
-     ‏white-space:nowrap ולכן היא גולשת מהמסגרת שהוקצתה לה. הרצועה כולה היא
-     נכסים מקודמים ("נכסים מומלצים שאסור לכם לפספס"), ולכן הסרט לא מוסיף כאן
-     מידע — הוא יורד ברוחב הזה, והתגית מקבלת את השורה כולה. מ-480px ומעלה
-     הכרטיס כבר רחב מספיק לשניהם והסרט חוזר. */
-  .featured-scroll .prop-card .ribbon{display:none}
-  .featured-scroll .prop-card .pc-badges{max-width:calc(100% - 18px)}
+     ‏white-space:nowrap ולכן היא גולשת מהמסגרת שהוקצתה לה.
+
+     מה שיורד ברוחב הזה הוא התגית, והסרט נשאר: שתי הרצועות מעורבות —
+     "נכסים מומלצים" מציגה את המקודמים בראש ואחריהם את הלא-מקודמים,
+     והרצועה המסחרית מעורבת בהגדרה — ולכן הסרט הוא מידע (מיקום בתשלום)
+     ולא קישוט, בעוד סוג העסקה נקרא ממילא משורת המחיר שמתחתיו. אותה
+     הכרעה בדיוק כמו ברצועת הנכסים הדומים בדף הנכס. מ-480px ומעלה יש מקום
+     לשניהם והתגיות חוזרות. */
+  .featured-scroll .prop-card .pc-badges{display:none}
   /* ====== שורת תגיות אחת בלבד, לפי מדידה ======
      ‏padding-top של ממלא־המקום מפנה מקום לשורת תגיות אחת (22px). כשהשורה
      נשברת לשתיים או לשלוש היא יורדת אל מתחת לריפוד ונוחתת על הלוגו ועל שם
@@ -1550,10 +1553,9 @@
     /* 112px כבר מכילים גם את שורת התגיות וגם את המסר המלא */
     .featured-scroll .prop-card .thumb .tf-note{display:block}
     /* הכרטיס חוצה כאן 140px — הסרט (49px עד הפינה) והתגית (55px מהפינה
-       הנגדית) שוב לא נפגשים, ולכן הסרט חוזר ושומרים לו את מקומו כדי
-       שהתגית השנייה תרד לשורה במקום להיערם עליו. */
-    .featured-scroll .prop-card .ribbon{display:block}
-    .featured-scroll .prop-card .pc-badges{max-width:calc(100% - 56px)}
+       הנגדית) שוב לא נפגשים, ולכן התגיות חוזרות ושומרים מקום לסרט כדי
+       שתגית שנייה תרד לשורה במקום להיערם עליו. */
+    .featured-scroll .prop-card .pc-badges{display:flex;max-width:calc(100% - 56px)}
     .featured-scroll .prop-card .pc-price{font-size:1rem}
     .featured-scroll .prop-card .pc-title{font-size:.78rem}
     /* גובה הכיסוי נגזר מ‎--card-h‎ שכבר גדל בעצמו בנקודות השבירה */
@@ -5123,9 +5125,12 @@ async function loadCommercialProperties(){
   try{
     const { data, error } = await sb
       .from('properties')
-      .select('id, price, title, rooms, size_sqm, floor, city, property_type, deal_type, category, images, features, video_url, tour_3d_url, is_promoted, promoted_until, agencies(name, logo_url)')
+      .select('id, price, title, rooms, size_sqm, floor, city, property_type, deal_type, category, created_at, images, features, video_url, tour_3d_url, is_promoted, promoted_until, agencies(name, logo_url)')
       .eq('status', 'active')
       .eq('category', 'commercial')
+      // סדר ההעלאה הוא הסדר הבסיסי של הרצועה, והמקודמים מורמים מעליו
+      // בצד הלקוח (promotedFirst) — כדי שגם המכסה של 10 תילקח מהחדשים
+      .order('created_at', { ascending:false })
       .limit(10);
     if (error || !data || data.length === 0) throw error || new Error('empty');
     return data.map(p => ({...p, agency_name: p.agencies?.name || '', agency_logo: p.agencies?.logo_url || ''}));
@@ -5139,9 +5144,11 @@ async function loadCommercialProperties(){
   const el = document.getElementById('commercialScroll');
   if (!el) return;
   const items = await loadCommercialProperties();
-  // נכסים עם וידאו, סיור או תמונות פותחים את הרצועה — את האריח הראשון
-  // רואים גם מי שלא גולל/ת אותה
-  PropertyCard.sortByMedia(items).forEach((p, i)=> el.appendChild(propCard(p, i)));
+  // שני מקודמים בראש, בסבב ביניהם, ואחריהם סדר ההעלאה — כמו ברצועות
+  // המכירה וההשכרה. הרצועה הזו מעורבת (לא כל נכס מסחרי מקודם), ולכן
+  // תווית "מקודם" כאן היא מידע ולא קישוט.
+  PropertyCard.promotedFirst(newestFirst(items), { slots: DEAL_CAROUSEL_PROMOTED, isPromoted })
+    .forEach((p, i)=> el.appendChild(propCard(p, i)));
 })();
 
 /* קישורי "כל הנכסים…" מריצים את החיפוש הרגיל בסוג העסקה המתאים במקום
@@ -5178,16 +5185,26 @@ const DEAL_CAROUSEL_MAX = 12;
 /* שני המקומות הראשונים בכל רצועה שמורים לנכסים מקודמים. */
 const DEAL_CAROUSEL_PROMOTED = 2;
 
-/* הסדר ברצועה: עד שני נכסים מקודמים *מאותה קטגוריה* בראש (החדשים שבהם
-   קודם), ואחריהם שאר הנכסים לפי תאריך העלאה יורד.
+/* ---------- רצועת "נכסים מומלצים" ----------
+   כאן, בניגוד לשאר הרצועות, אין שני מקומות שמורים אלא סדר: *כל* המקודמים
+   בראש (כל אחד עם תווית "מקודם"), ואחריהם הלא-מקודמים — בשתי הקבוצות לפי
+   סדר ההעלאה, החדשים קודם. אין כאן סבב: אף מקודם לא נדחק החוצה, כולם
+   בראש. המכסה זהה לשאר הרצועות, כדי שרצועה נגללת לא תימתח לכל המאגר. */
+const featuredItems = properties =>
+  PropertyCard.promotedFirst(newestFirst(properties), { slots: 0, isPromoted })
+    .slice(0, DEAL_CAROUSEL_MAX);
+
+/* הסדר ברצועה: שני נכסים מקודמים *מאותה קטגוריה* בראש, בסבב ביניהם
+   (‏PropertyCard.promotedFirst), ואחריהם שאר הנכסים לפי סדר ההעלאה —
+   החדשים קודם. מקודם שהתור שלו טרם הגיע יושב בין השאר לפי תאריכו,
+   ועדיין נושא את תווית "מקודם".
    המיון נעשה כאן ולא נלקח כמו שהוא מה-DB: הרשימה חוזרת משם ממוינת
    מקודמים-קודם על פני *כל* הקטגוריות יחד, וכך נכס מקודם להשכרה היה
    נדחף לראש רצועת המכירה. קידום מרים נכס בתוך הרצועה שהוא שייך אליה. */
 function dealCarouselItems(properties, deal){
   const pool = newestFirst(properties.filter(p => dealKind(p) === deal));
-  const promoted = pool.filter(isPromoted).slice(0, DEAL_CAROUSEL_PROMOTED);
-  const promotedIds = new Set(promoted.map(p => p.id));
-  return [...promoted, ...pool.filter(p => !promotedIds.has(p.id))].slice(0, DEAL_CAROUSEL_MAX);
+  return PropertyCard.promotedFirst(pool, { slots: DEAL_CAROUSEL_PROMOTED, isPromoted })
+    .slice(0, DEAL_CAROUSEL_MAX);
 }
 
 /* אותו אריח של שאר הרצועות בעמוד, עם כל הכותרות של הנכס: סרט "מקודם"
@@ -5200,10 +5217,10 @@ function renderDealCarousel(trackId, sectionId, properties, deal){
   const track = document.getElementById(trackId);
   const section = document.getElementById(sectionId);
   if (!track || !section) return;
-  // עדיפות בתצוגה לנכסים עם מדיה: תמונה רחבה ומוארת מקפיצה את
-  // האטרקטיביות מיד, וסרטון עוד יותר. המיון יציב, ולכן בתוך אותה דרגת
-  // מדיה נשמר הסדר שקבע dealCarouselItems.
-  const items = PropertyCard.sortByMedia(dealCarouselItems(properties, deal));
+  // הסדר הוא מה ש-dealCarouselItems קבע — שני מקודמים בסבב ואחריהם סדר
+  // ההעלאה. מיון לפי מדיה היה מדלג מעליו: נכס עם סרטון היה עוקף את
+  // המקודמים שקנו את המקום הזה.
+  const items = dealCarouselItems(properties, deal);
   section.hidden = !items.length;
   track.innerHTML = '';
   items.forEach((p, i)=> track.appendChild(propCard(p, i)));
@@ -6395,8 +6412,7 @@ try {
     renderDealCarousels(properties);
 
     const featuredScroll = document.getElementById('featuredScroll');
-    PropertyCard.sortByMedia(properties.filter(isPromoted))
-      .forEach((p, i)=> featuredScroll.appendChild(propCard(p, i)));
+    featuredItems(properties).forEach((p, i)=> featuredScroll.appendChild(propCard(p, i)));
 
     if (!searchHasRun) renderPropertyGrid(properties);
 
@@ -6408,8 +6424,7 @@ try {
       visualizedProps = ids;
       renderDealCarousels(properties);
       featuredScroll.innerHTML = '';
-      PropertyCard.sortByMedia(properties.filter(isPromoted))
-        .forEach((p, i)=> featuredScroll.appendChild(propCard(p, i)));
+      featuredItems(properties).forEach((p, i)=> featuredScroll.appendChild(propCard(p, i)));
       if (!searchHasRun) renderPropertyGrid(properties);
     });
   })();

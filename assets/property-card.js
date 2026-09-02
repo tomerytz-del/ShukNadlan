@@ -12,6 +12,7 @@
      PropertyCard.factsHtml(p)     // שורת אייקונים: חדרים · מ״ר · קומה · חניה
      PropertyCard.badgesHtml(p,o)  // התגיות שעל התמונה (כולל שכבת ההגנה)
      PropertyCard.sortByMedia(list)// נכסים עם וידאו/סיור/תמונות קודם
+     PropertyCard.promotedFirst(list, o) // מקודמים בראש הרצועה, בסבב
 
    ה-CSS מוזרק פעם אחת בשימוש הראשון, כדי שדף שלא מציג אריחים לא ישלם עליו.
    הצבעים נגזרים ממשתני הדף (‏--ink-soft, --accent) עם נפילה־לאחור לערכים
@@ -229,6 +230,54 @@
       .sort(function (a, b) { return mediaRank(b) - mediaRank(a); });
   }
 
+  /* ---------- הסדר ברצועה: מקודמים בראש, בסבב ----------
+     הקידום נמכר, ולכן המקום בראש הרצועה הוא מה שנקנה. שתי צורות:
+
+       slots: 2  — שני מקומות שמורים בראש (רצועות המכירה, ההשכרה,
+                   המסחרי, ורצועות דף המשרד ודף הסוכן/ת).
+       slots: 0  — כל המקודמים בראש ("נכסים מומלצים").
+
+     ‏הסבב: כשיש יותר מקודמים ממקומות שמורים, המקומות עוברים ביניהם לפי
+     חלון זמן (‏PROMO_ROTATION_MS) ולא באקראי — כל הגולשים באותו רגע רואים
+     את אותה רצועה, אותו נכס לא מקבל שני מקומות באותו חלון, וכל מקודם
+     מקבל את תורו לאורך היום. אפשר גם לבדוק את זה: ‎opts.now‎ מזריק שעה.
+
+     שאר הנכסים — וגם מקודמים שהתור שלהם עוד לא הגיע — נשארים בדיוק בסדר
+     שבו הגיעו, כלומר סדר ההעלאה (החדשים קודם), וממשיכים לשאת את תווית
+     "מקודם" במקום שבו הם יושבים.
+
+     ‏opts.isPromoted הוא של הדף הקורא ולא ברירת מחדל מקומית: הבדיקה כוללת
+     גם את ‎promoted_until‎, וכל דף כבר מחזיק את הכלל הזה. */
+  var PROMO_ROTATION_MS = 10 * 60 * 1000;
+
+  function promotedFirst(list, opts) {
+    var o = opts || {};
+    var items = Array.isArray(list) ? list.slice() : [];
+    var isPromo = typeof o.isPromoted === 'function'
+      ? o.isPromoted
+      : function (p) { return !!(p && p.is_promoted); };
+
+    var promoted = items.filter(isPromo);
+    if (!promoted.length) return items;
+
+    var slots = o.slots == null ? 0 : o.slots;
+    // כל המקודמים בראש, בסדר ההעלאה שלהם — אין מה לסובב
+    if (!slots || slots >= promoted.length) {
+      return promoted.concat(items.filter(function (p) { return !isPromo(p); }));
+    }
+
+    var slotMs = o.slotMs || PROMO_ROTATION_MS;
+    var now = o.now == null ? Date.now() : o.now;
+    var start = Math.floor(now / slotMs) % promoted.length;
+    var head = [];
+    for (var i = 0; i < slots; i++) head.push(promoted[(start + i) % promoted.length]);
+
+    // ההשוואה היא על האובייקט עצמו ולא על id: נתוני ה-fallback של הדפים
+    // אינם מבטיחים מזהה לכל רשומה.
+    var tail = items.filter(function (p) { return head.indexOf(p) === -1; });
+    return head.concat(tail);
+  }
+
   /* ---------- אילו נכסים יש להם הדמיית AI ----------
      שאילתה אחת לכל האריחים שבדף, ולא בדיקה פר-נכס. מחזירה Set של מזהים;
      כישלון מחזיר Set ריק, והתגית פשוט לא מופיעה — היא נחמדה שיהיה, לא
@@ -347,6 +396,8 @@
     mediaHtml: mediaHtml,
     mediaRank: mediaRank,
     sortByMedia: sortByMedia,
+    promotedFirst: promotedFirst,
+    PROMO_ROTATION_MS: PROMO_ROTATION_MS,
     visualizedIds: visualizedIds,
     hasFeature: hasFeature,
     injectStyles: ensureStyles,

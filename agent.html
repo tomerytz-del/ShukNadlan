@@ -418,14 +418,28 @@
     .thumb-fallback .tf-agency{font-size:.68rem}
     .thumb-fallback .tf-note{display:none}
   }
-  /* ובתמונונת צרה אין מקום לשלוש תגיות בשורה אחת (197px יחד): השלישית
-     הייתה יורדת לשורה שנייה, שוב על הלוגו. */
-  @container (max-width:250px){
+  /* ובתמונונת צרה אין מקום לשלוש תגיות בשורה אחת: הן דורשות 197px, ועוד
+     56px שמורים לכפתור השמירה שבפינה הנגדית — כלומר תמונונת של 253px.
+     שתי תגיות (124px) דורשות 180px. מתחת לרוחבים האלה השורה הייתה נשברת
+     ונוחתת על הלוגו, ולכן התגית העודפת פשוט לא נפתחת. */
+  @container (max-width:265px){
     .prop-card .pc-badge:nth-child(n+3){display:none}
   }
-  @container (max-width:190px){
+  @container (max-width:195px){
     .prop-card .pc-badge:nth-child(n+2){display:none}
   }
+  /* ====== תווית "מקודם" ======
+     סימון של מיקום בתשלום, ולכן בצבע קבוע של הפלטפורמה ולא בצבעי המשרד
+     שצובעים את שאר האריח. היא יורדת כאן לפינה התחתונה הפנימית: הפינה
+     העליונה באותו צד תפוסה ע"י כפתור השמירה, והנגדית ע"י התגיות. תגיות
+     המדיה (סרטון/סיור) יושבות בתחתית מהצד הנגדי ומקבלות תקרת רוחב, כדי
+     שהשתיים לא ייפגשו באמצע. */
+  .prop-card .ribbon{
+    position:absolute;bottom:9px;inset-inline-end:9px;z-index:2;
+    background:#B45309;color:#fff;font-size:.66rem;font-weight:800;
+    padding:3px 9px;border-radius:6px;line-height:1.35;
+  }
+  .prop-card .pc-media{max-width:calc(100% - 82px)}
   /* התגיות שעל התמונה, שכבת ההגנה שמתחתיהן, הכותרת, שתי שורות המיקום,
      שורת המאפיינים והמחיר מגיעים כולם מ-assets/property-card.js, ולכן
      האריח כאן זהה לזה שבדף הבית ובדף המשרד — כולל גובה אזור הטקסט הקבוע;
@@ -1614,6 +1628,18 @@ function thumbStyle(p){
 const NO_PHOTOS_NOTE = 'תמונות של הנכס יעלו בקרוב';
 const SITE_LOGO = 'assets/logo-shuknadlan.png';
 
+/* קידום נמכר לחלון של 72 שעות. ‏expire_promotions ב-DB מכבה את is_promoted
+   כל רבע שעה, והבדיקה מול promoted_until כאן סוגרת גם את הפער הזה, כדי
+   שנכס לא יישאר עם תווית "מקודם" אחרי שהחלון נגמר. ‏promoted_until ריק =
+   קידום ידני/היסטורי בלי מועד סיום. אותו כלל בדיוק כמו בדף הבית ובדף הנכס.
+
+   הנכסים בעמוד הזה נשלפים כולם עם ‎eq('agent_id', agent.id)‎, ולכן
+   המקודמים שמורמים לראש הרצועות הם תמיד של המתווך/ת הזה בלבד — נכס מקודם
+   של מתווך/ת אחר/ת לא מגיע לכאן מלכתחילה. */
+const isPromoted = p => !!p.is_promoted && (!p.promoted_until || new Date(p.promoted_until) > new Date());
+/* שני המקומות הראשונים בכל רצועה שמורים לנכסים מקודמים של המתווך/ת. */
+const RAIL_PROMOTED = 2;
+
 /* המשרד של הסוכן/ת נטען יחד עם הפרופיל, ומספק את הלוגו והשם שמופיעים על
    אריח של נכס שהתמונות שלו עוד לא הועלו. */
 function thumbFallback(p){
@@ -2009,7 +2035,7 @@ let agentProperties = [];
 async function loadAgentProperties(sb, agent){
   const el = document.getElementById('activeProps');
   const { data: props } = await sb.from('properties')
-    .select('id, title, price, deal_type, category, rooms, property_type, size_sqm, floor, city, street, features, images, tour_3d_url, video_url')
+    .select('id, title, price, deal_type, category, rooms, property_type, size_sqm, floor, city, street, features, images, tour_3d_url, video_url, is_promoted, promoted_until')
     .eq('agent_id', agent.id).eq('status', 'active').order('created_at', { ascending:false });
 
   if (!props || props.length === 0){
@@ -2049,6 +2075,7 @@ function propertyCardHtml(p, saved){
       ${thumbFallback(p)}
       ${PropertyCard.badgesHtml(p, { aiViz: visualizedProps.has(p.id), photo: hasPhoto })}
       ${PropertyCard.mediaHtml(p)}
+      ${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}
       <button type="button" class="fav-btn" aria-pressed="${saved}" aria-label="שמירת הנכס למועדפים">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.3s-7.5-4.6-7.5-9.6a4.2 4.2 0 0 1 7.5-2.6 4.2 4.2 0 0 1 7.5 2.6c0 5-7.5 9.6-7.5 9.6Z"/></svg>
       </button>
@@ -2155,10 +2182,11 @@ function renderPropertyCards(list){
   const favs = readFavorites();
 
   PROP_GROUPS.forEach(group=>{
-    // נכסים עם סרטון, סיור וירטואלי או תמונות פותחים את הרצועה — את
-    // האריח הראשון רואים גם מי שלא גולל/ה אותה. המיון יציב, ולכן בתוך
-    // אותה דרגת מדיה נשמר סדר ההגעה מהמסד (החדשים קודם).
-    const items = PropertyCard.sortByMedia(list.filter(group.match));
+    // שני נכסים מקודמים של המתווך/ת פותחים את הרצועה, בסבב ביניהם,
+    // ואחריהם שאר הנכסים בסדר שהגיע מהמסד — סדר ההעלאה, החדשים קודם.
+    // מקודם שהתור שלו טרם הגיע יושב בין השאר לפי תאריכו ועדיין נושא תווית.
+    const items = PropertyCard.promotedFirst(list.filter(group.match),
+                                             { slots: RAIL_PROMOTED, isPromoted });
     if (!items.length) return;                 // רצועה בלי נכסים לא נוצרת
     const widget = widgetFor(group.key);
 
