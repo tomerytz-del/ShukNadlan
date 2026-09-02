@@ -181,15 +181,18 @@ Dashboard → Project Settings → **Edge Functions → Secrets**:
 | `WHATSAPP_PHONE_NUMBER_ID` | לוואטסאפ | כבר מוגדר |
 | `WHATSAPP_ALERT_TEMPLATE` | לוואטסאפ | שם התבנית המאושרת (ראו למטה) |
 | `WHATSAPP_ALERT_TEMPLATE_LANG` | ⬜ | ברירת מחדל `he` |
-| `RESEND_API_KEY` | למייל | מפתח מ-[resend.com](https://resend.com) |
-| `ALERTS_FROM_EMAIL` | למייל | למשל `שוק נדל"ן <alerts@shuknadlan.co.il>` — הדומיין חייב להיות מאומת ב-Resend |
 | `ALERT_CRON_SECRET` | ⬜ | הידוק הגישה ל-`saved-search-notify` (שלב 4) |
 
 `SUPABASE_URL` ו-`SUPABASE_SERVICE_ROLE_KEY` מוזרקים אוטומטית.
 
-**כל ערוץ עצמאי.** בלי `RESEND_API_KEY` ההתראות במייל נכשלות וההתראות
-בוואטסאפ ממשיכות לצאת, ולהפך — הסטטוס נשמר בנפרד לכל ערוץ (`whatsapp_status`,
-`email_status`), וניסיון חוזר ינסה רק את מה שנכשל.
+**המייל אינו נשלח מכאן** אלא דרך `platform-mail` (ראו `docs/lead-routing.md`),
+ולכן אין לפונקציה הזו משתני סביבה של ספק מייל: מי שמגדיר את `GMAIL_USER`
+ו-`GMAIL_APP_PASSWORD` פעם אחת מכסה גם את ההתראות האלה, וכל המיילים של
+הפלטפורמה יוצאים מאותה כתובת.
+
+**כל ערוץ עצמאי.** כשהמייל נכשל ההתראות בוואטסאפ ממשיכות לצאת, ולהפך —
+הסטטוס נשמר בנפרד לכל ערוץ (`whatsapp_status`, `email_status`), וניסיון חוזר
+ינסה רק את מה שנכשל.
 
 ### תבנית הוואטסאפ — קריטי
 

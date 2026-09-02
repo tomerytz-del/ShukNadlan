@@ -153,7 +153,17 @@ Deno.serve(async (req: Request) => {
       return json({ sent: true, via: "gmail", from: GMAIL_USER, recipients: to.length });
     } catch (err) {
       const detail = String((err as Error)?.message ?? err).slice(0, 300);
-      console.warn("gmail smtp failed:", detail);
+      /* ‏535 BadCredentials הוא כמעט תמיד אי-התאמה בין החשבון לסיסמה, ולא
+         סיסמה שגויה: סיסמת אפליקציה תקפה רק לחשבון שבו נוצרה, ו-GMAIL_USER
+         חייב להיות אותה כתובת בדיוק. בלי השורה הזו אין שום דרך להבדיל בין
+         שלושת המקרים מבחוץ — הסוד אינו קריא, וההודעה של Google זהה בכולם.
+
+         מודפסים החשבון ו**אורך** הסיסמה בלבד. התוכן לעולם לא נכנס ללוג. */
+      console.warn(
+        `gmail smtp failed (user=${GMAIL_USER || "(unset)"}, ` +
+          `app_password_length=${GMAIL_APP_PASSWORD.length} expected=16):`,
+        detail,
+      );
       attempts.push(`gmail: ${detail}`);
     }
   } else {
