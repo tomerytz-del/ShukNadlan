@@ -1,0 +1,124 @@
+# ============================================================================
+# הגדרות ה-CLI של Supabase — ובעיקר: verify_jwt לכל Edge Function
+#
+# למה הקובץ הזה חייב להתקיים לפני שפורסים אוטומטית:
+#
+# ‏`supabase functions deploy` קורא מכאן את verify_jwt של כל פונקציה, וברירת
+# המחדל שלו כשאין ערך היא **true**. כלומר בלי הקובץ הזה, פריסה אוטומטית
+# הייתה מדליקה אימות JWT על כל נקודות הקצה הציבוריות — טופס יצירת הקשר בדף
+# הנכס, הרשמת משרד, הוובהוק של וואטסאפ, ה-cron של ההתראות — וכולן היו
+# מתחילות להחזיר 401 לגולשים. פריסה אחת הייתה מכבה חצי מהאתר בשקט.
+#
+# הערכים כאן הועתקו אחד לאחד ממה שפרוס בפועל היום, ולא נכתבו מחדש. שינוי
+# ערך כאן הוא שינוי אבטחה — ולכן הוא מתועד בשורה שלידו.
+#
+# ‏false = הפונקציה אחראית לאימות בעצמה (סוד, טוקן חד-פעמי, service role),
+#          או שהיא נקודת קליטה ציבורית שנועדה לקבל פנייה מגולש/ת אנונימי/ת.
+# ‏true  = ה-Gateway חוסם כל בקשה בלי JWT תקין, והפונקציה נשענת על זה.
+# ============================================================================
+
+project_id = "obookujgolazrwycsiyn"
+
+# ---------------------------------------------------------------------------
+# ציבורי — נקראות מהדפדפן בלי התחברות
+# ---------------------------------------------------------------------------
+[functions.owner-lead-intake]
+verify_jwt = false          # טופס "רוצה למכור" באתר הציבורי
+
+[functions.mortgage-lead-intake]
+verify_jwt = false          # מחשבון המשכנתא בדף הנכס
+
+[functions.saved-search-intake]
+verify_jwt = false          # "עדכנו אותי על נכסים כאלה" בדף הבית
+
+[functions.saved-search-manage]
+verify_jwt = false          # ניהול/ביטול חיפוש שמור לפי טוקן שבמייל
+
+[functions.professional-manage]
+verify_jwt = false          # עריכת כרטיס בעל מקצוע לפי טוקן שנשלח אליו
+
+[functions.submit-review]
+verify_jwt = false          # כתיבת ביקורת לפי linked_lead_id, בלי חשבון
+
+[functions.agency-signup]
+verify_jwt = false          # הרשמת משרד חדש — אין עדיין חשבון
+
+[functions.professional-signup]
+verify_jwt = false          # הרשמת בעל מקצוע — אין עדיין חשבון
+
+[functions.property-inquiry-intake]
+verify_jwt = false          # טופס יצירת הקשר בדף הנכס — הנתיב החם באתר
+
+[functions.agent-direct-inquiry-intake]
+verify_jwt = false          # פנייה ישירה מדף הסוכן/ת
+
+# ---------------------------------------------------------------------------
+# מערכתי — אימות עצמי בתוך הפונקציה (סוד cron, service role, או webhook)
+# ---------------------------------------------------------------------------
+[functions.whatsapp-webhook]
+verify_jwt = false          # Meta שולחת בלי JWT; האימות הוא בטוקן של הוובהוק
+
+[functions.saved-search-notify]
+verify_jwt = false          # ‏pg_cron + x-alert-cron-secret
+
+[functions.property-marketing-publish]
+verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role / מנהל פלטפורמה
+
+[functions.classify-property-images]
+verify_jwt = false          # קריאת cron/backfill; לא מקבלת קלט שמשפיע על מה שנכתב
+
+[functions.property-visualize]
+verify_jwt = false          # הדמיה לפי דרישת גולש/ת — הזכאות נבדקת ב-DB
+
+# ⚠️ ‏news-ticker-crawler היא היחידה בקבוצה הזו שאין לה אימות עצמי בגוף
+# הפונקציה — לא סוד cron ולא בדיקת service role. כלומר כל אחד שיודע את
+# הכתובת יכול להפעיל אותה ולגרור קריאות בתשלום ל-Anthropic. הערך נשמר כפי
+# שהוא כדי לא לשנות התנהגות בפריסה הראשונה, אבל זו נקודה שכדאי לסגור:
+# להוסיף בדיקת x-alert-cron-secret כמו ב-saved-search-notify.
+[functions.news-ticker-crawler]
+verify_jwt = false          # ‏pg_cron שבועי (weekly-news-ticker-crawler)
+
+# ---------------------------------------------------------------------------
+# מאומת — פעולות של סוכן/ת מחובר/ת, הזהות נגזרת מה-JWT בלבד
+# ---------------------------------------------------------------------------
+[functions.add-team-member]
+verify_jwt = true
+
+[functions.create-own-agency]
+verify_jwt = true
+
+[functions.join-agency]
+verify_jwt = true
+
+[functions.release-team-member]
+verify_jwt = true
+
+[functions.rss-lead-purchase]
+verify_jwt = true
+
+[functions.mortgage-lead-purchase]
+verify_jwt = true
+
+[functions.saved-search-lead-purchase]
+verify_jwt = true
+
+[functions.property-visualize-base]
+verify_jwt = true           # סט הבסיס — הסוכן/ת מה-JWT, או service role מהטריגר
+
+[functions.lead-claim]
+verify_jwt = true           # פתיחת ליד — פעולה שמעבירה כסף
+
+[functions.promote-property]
+verify_jwt = true           # קידום נכס — נוגע ב-credit_balance
+
+[functions.wallet-topup]
+verify_jwt = true           # טעינת ארנק
+
+[functions.afula-planning-lookup]
+verify_jwt = true           # מידע תכנוני מלא — מוגבל למסלול Mid/Premium
+
+[functions.geocode-address]
+verify_jwt = true           # גיאוקוד לכתובת — לכל סוכן/ת פעיל/ה, בלי הגבלת מסלול
+
+[functions.dev-switch-mode]
+verify_jwt = true           # כלי בדיקה — מוגבל ל-is_platform_admin בלבד
