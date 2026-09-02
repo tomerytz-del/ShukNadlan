@@ -402,6 +402,30 @@
     max-width:100%;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
   }
   .thumb-fallback .tf-note{font-size:.7rem;font-weight:600;color:var(--ink-soft);line-height:1.25}
+  /* ====== התאמת ממלא־המקום לגודל התמונונת ======
+     רוחב הכרטיס ברצועה כאן נגזר מרוחב העמודה ולא מרוחב המסך — הוא יורד עד
+     198px דווקא כשהמסך מתרחב והרצועה עוברת לשלושה כרטיסים — ולכן ההתאמה
+     נמדדת מול התמונונת עצמה (container query) ולא מול נקודת שבירה של המסך.
+
+     בתמונונת נמוכה ממלא־המקום במידותיו המלאות (לוגו 54px, שם המשרד
+     וההודעה — 98px יחד) כמעט ממלא את הגובה, ולכן הוא נחת אל מתחת לשורת
+     התגיות שיושבת ב-top:9px ונקרא כשתי שכבות דרוסות. כאן הוא מתכווץ
+     ומפנה לה מקום. */
+  .prop-card .thumb{container-type:size}
+  @container (max-height:170px){
+    .thumb-fallback{gap:4px;padding:8px;padding-top:36px}
+    .thumb-fallback .tf-logo{width:34px;height:34px;border-radius:10px;font-size:1rem}
+    .thumb-fallback .tf-agency{font-size:.68rem}
+    .thumb-fallback .tf-note{display:none}
+  }
+  /* ובתמונונת צרה אין מקום לשלוש תגיות בשורה אחת (197px יחד): השלישית
+     הייתה יורדת לשורה שנייה, שוב על הלוגו. */
+  @container (max-width:250px){
+    .prop-card .pc-badge:nth-child(n+3){display:none}
+  }
+  @container (max-width:190px){
+    .prop-card .pc-badge:nth-child(n+2){display:none}
+  }
   /* התגיות שעל התמונה, שכבת ההגנה שמתחתיהן, הכותרת, שתי שורות המיקום,
      שורת המאפיינים והמחיר מגיעים כולם מ-assets/property-card.js, ולכן
      האריח כאן זהה לזה שבדף הבית ובדף המשרד — כולל גובה אזור הטקסט הקבוע;

@@ -1518,9 +1518,19 @@
      הכרטיס כבר רחב מספיק לשניהם והסרט חוזר. */
   .featured-scroll .prop-card .ribbon{display:none}
   .featured-scroll .prop-card .pc-badges{max-width:calc(100% - 18px)}
-  /* ובאריח כזה גם אין מקום ליותר מתגית אחת: שלוש תגיות בזו אחר זו נערמו
-     לשלוש שורות שכיסו את כל התמונונת. תגית העסקה (למכירה/להשכרה) היא
-     הראשונה ברשימה והיא זו שנשארת; השאר נפתחות ככל שהאריח מתרחב. */
+  /* ====== שורת תגיות אחת בלבד, לפי מדידה ======
+     ‏padding-top של ממלא־המקום מפנה מקום לשורת תגיות אחת (22px). כשהשורה
+     נשברת לשתיים או לשלוש היא יורדת אל מתחת לריפוד ונוחתת על הלוגו ועל שם
+     המשרד — בדיוק מה שקרה בנכס עם "להשכרה"+"מסחרי" ברצועה המסחרית.
+
+     ולכן מספר התגיות כאן נגזר מרוחב הכרטיס ולא מהעדפה: התגיות ברצועה הן
+     ‏60px ("למכירה"/"להשכרה"), 59px ("בלעדיות") ו-68px ("הדמיית AI"),
+     והרוחב הפנוי הוא רוחב הכרטיס פחות המקום השמור לסרט "מקודם".
+     שתי תגיות דורשות 124px פנויים — כלומר כרטיס של 180px, שהוא מסך של
+     ‏640px ומעלה. שלוש תגיות דורשות 197px פנויים, כלומר כרטיס של 287px —
+     יותר מ-250px שהוא התקרה של הכרטיס ברצועה, ולכן שלוש תגיות לעולם לא
+     נכנסות כאן לשורה אחת והתגית השלישית לא נפתחת ברצועה כלל. בגריד
+     הנכסים, שבו הכרטיס רחב מ-320px, שלושתן ממשיכות להופיע. */
   .featured-scroll .prop-card .pc-badge:nth-child(n+2){display:none}
   .featured-scroll .prop-card .body{padding:9px}
   .featured-scroll .prop-card .pc-price{font-size:.92rem}
@@ -1544,11 +1554,16 @@
        שהתגית השנייה תרד לשורה במקום להיערם עליו. */
     .featured-scroll .prop-card .ribbon{display:block}
     .featured-scroll .prop-card .pc-badges{max-width:calc(100% - 56px)}
-    .featured-scroll .prop-card .pc-badge:nth-child(2){display:block}
     .featured-scroll .prop-card .pc-price{font-size:1rem}
     .featured-scroll .prop-card .pc-title{font-size:.78rem}
     /* גובה הכיסוי נגזר מ‎--card-h‎ שכבר גדל בעצמו בנקודות השבירה */
     .article-card h3{font-size:.9rem}
+  }
+  /* ‏640px הוא המסך שבו כרטיס הרצועה מגיע ל-180px, והוא הרוחב שבו שתי
+     התגיות (124px יחד) נכנסות לשורה אחת לצד המקום השמור לסרט. מתחת לזה
+     התגית השנייה הייתה יורדת לשורה שנייה ונוחתת על הלוגו. */
+  @media(min-width:640px){
+    .featured-scroll .prop-card .pc-badge:nth-child(2){display:block}
   }
   @media(min-width:760px){
     .featured-scroll,.article-scroll{--row-gap:16px;--row-peek:24px}
@@ -1563,8 +1578,14 @@
     .featured-scroll .prop-card .thumb .tf-agency{font-size:.74rem}
     .featured-scroll .prop-card .thumb .tf-note{font-size:.68rem}
     .featured-scroll .prop-card .ribbon{top:10px;inset-inline-end:10px;font-size:.68rem;padding:3px 9px}
-    .featured-scroll .prop-card .pc-badges{max-width:calc(100% - 90px)}
-    .featured-scroll .prop-card .pc-badge:nth-child(3){display:block}
+    /* ‏72px ולא 90px: הסרט כאן רחב 50px ויושב 10px מהפינה, כלומר 60px
+       תפוסים — ‏90px שמרו לו יותר משהוא צריך, והשאירו לשתי התגיות 125px
+       מול 124px שהן דורשות. ההפרש של פיקסל אחד הפיל את השנייה לשורה
+       שנייה, על הלוגו, בכרטיס של 760-899px. */
+    .featured-scroll .prop-card .pc-badges{max-width:calc(100% - 72px)}
+    /* התגית השלישית אינה נפתחת כאן: שלוש תגיות דורשות 197px בשורה אחת,
+       והרוחב הפנוי בכרטיס הרחב ביותר ברצועה (250px) הוא 160px. היא הייתה
+       יורדת לשורה שנייה על הלוגו. בגריד הנכסים היא ממשיכה להופיע. */
     .featured-scroll .prop-card .body{padding:12px}
     .featured-scroll .prop-card .pc-price{font-size:1.12rem}
     .featured-scroll .prop-card .pc-title{font-size:.85rem}
