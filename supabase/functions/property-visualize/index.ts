@@ -16,6 +16,7 @@ import {
   type PrivateTarget,
   type StyleKey,
   type WorkItem,
+  readGeminiApiKey,
 } from "../_shared/visualization.ts";
 
 // ============================================================================
@@ -44,8 +45,8 @@ Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders() });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
-  const apiKey = Deno.env.get("GEMINI_API_KEY");
-  if (!apiKey) return json({ error: "gemini_not_configured" }, 500);
+  const { key: apiKey, problem: keyProblem } = readGeminiApiKey();
+  if (!apiKey) return json({ error: "gemini_not_configured", message: keyProblem }, 500);
 
   let body: any;
   try {

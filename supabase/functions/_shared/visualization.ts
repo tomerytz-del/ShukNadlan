@@ -12,6 +12,51 @@
 // מפורשים, כי מודל תמונה שלא נאמר לו אחרת ישמח לצייר בניין חדש לגמרי.
 // ============================================================================
 
+/**
+ * קורא את GEMINI_API_KEY ומנקה אותו לפני השימוש.
+ *
+ * זה אינו זהירות תאורטית. הריפו הזה כבר איבד 16 הרצות workflow על בדיוק
+ * אותה תקלה ב-SUPABASE_ACCESS_TOKEN: מחרוזת שהועתקה דרך מסמך או צ׳אט
+ * בעברית נושאת סימן כיווניות בלתי־נראה (U+200F/U+200E) בתחילתה. בלוג,
+ * בשדה טופס ובכל השוואה ויזואלית היא נראית תקינה לחלוטין — ו-Google
+ * מחזירה עליה API_KEY_INVALID, שגיאה שמפנה את החיפוש לכיוון של מפתח
+ * שגוי או הרשאות במקום לתו אחד שאי אפשר לראות. ‏docs/edge-functions-deploy.md
+ * מתעד את המקרה ואת שלב הניקוי המקביל ב-workflow.
+ *
+ * מוחזר גם `problem` כשהערך אינו נראה כמו מפתח של AI Studio, כדי שהפונקציה
+ * תוכל לומר *מה* פסול בו במקום להעביר אותו הלאה ולקבל 400 מעורפל.
+ */
+export function readGeminiApiKey(): { key: string | null; problem?: string } {
+  const raw = Deno.env.get("GEMINI_API_KEY");
+  if (!raw) return { key: null, problem: "GEMINI_API_KEY אינו מוגדר" };
+
+  const key = raw
+    .replace(/[\u200B-\u200F\u202A-\u202E\u2066-\u2069\uFEFF]/g, "")  // סימני כיווניות ו-BOM
+    .replace(/\u00A0/g, " ")                                             // רווח קשיח
+    .trim()
+    .replace(/^["'](.*)["']$/, "$1");                                    // מרכאות עוטפות
+
+  if (!key) return { key: null, problem: "GEMINI_API_KEY ריק אחרי ניקוי" };
+
+  if (key !== raw) {
+    console.warn(
+      `GEMINI_API_KEY הכיל תווים נסתרים או עוטפים שהוסרו (${raw.length} תווים לפני, ${key.length} אחרי). ` +
+        "הסיבה הנפוצה: העתקה דרך טקסט בעברית. שווה לעדכן את הסוד עצמו."
+    );
+  }
+
+  // מפתח של AI Studio מתחיל תמיד ב-AIza. הבדיקה תופסת גם הדבקה בטעות של
+  // ה-anon key או של מפתח משירות אחר.
+  if (!key.startsWith("AIza")) {
+    return {
+      key: null,
+      problem: `GEMINI_API_KEY אינו מתחיל ב-AIza (${key.length} תווים). ודאו שהודבק מפתח מ-Google AI Studio.`,
+    };
+  }
+
+  return { key };
+}
+
 const IMAGE_MODEL = Deno.env.get("GEMINI_IMAGE_MODEL") ?? "gemini-3.1-flash-image-preview";
 const VISION_MODEL = Deno.env.get("GEMINI_VISION_MODEL") ?? "gemini-3.1-flash-lite";
 
