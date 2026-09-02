@@ -10,6 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="assets/map-tiles.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
@@ -119,8 +120,6 @@
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 
-const MAP_TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-const MAP_TILE_ATTRIBUTION = '&copy; OpenStreetMap, &copy; CARTO';
 const AFULA_CENTER = [32.6078, 35.2897];
 const AFULA_ZOOM = 13;
 
@@ -132,7 +131,7 @@ const statusEl = document.getElementById('status');
 const setStatus = (text)=> { statusEl.textContent = text; };
 
 const map = L.map('map').setView(AFULA_CENTER, AFULA_ZOOM);
-L.tileLayer(MAP_TILE_URL, { attribution:MAP_TILE_ATTRIBUTION, maxZoom:19 }).addTo(map);
+MapTiles.addTo(map);
 
 /* מצב העריכה: טבעת הנקודות של השכונה הנבחרת, והסמנים שמייצגים אותן.
    ‏ring הוא מקור האמת; הסמנים והמצולע נגזרים ממנו בכל ציור מחדש. */

@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="assets/map-tiles.js"></script>
 <script src="assets/specialties.js"></script>
 <script src="assets/map-gestures.js"></script>
 <style>
@@ -6777,9 +6778,9 @@ function renderPlanningResult(d){
   planningMap.on('focus', ()=> planningMap.scrollWheelZoom.enable());
   planningMap.on('blur', ()=> planningMap.scrollWheelZoom.disable());
   if (window.MapGestures) MapGestures.apply(planningMap);
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    attribution:'&copy; OpenStreetMap &copy; CARTO', maxZoom:20
-  }).addTo(planningMap);
+  /* זום 20 גבוה מהזום הטבעי של חלק מהספקים; MapTiles מגדיר maxNativeZoom
+     בהתאם, ולכן מפת התכנון ממשיכה להתקרב במקום להציג ריבועים ריקים. */
+  MapTiles.addTo(planningMap, { maxZoom:20 });
 
   if (d.geometry_wgs84){
     try{

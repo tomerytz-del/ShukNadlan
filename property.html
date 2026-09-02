@@ -9,6 +9,7 @@
 <!-- ‏Leaflet עצמו, ולא רק ה-CSS שלו: בלעדיו סקציית "מיקום וסביבה" נשארת
      מוסתרת, כי אין מפה להציג. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="assets/map-tiles.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="assets/quality-badge.js"></script>
 <script src="assets/map-gestures.js"></script>
@@ -1605,8 +1606,7 @@ document.addEventListener('keydown', (e)=>{
    בפתיחה הראשונה בלבד. אי אפשר להזיז קונטיינר של מפה בין שני מקומות ב-DOM
    בלי לאתחל אותה מחדש, ושכפול פשוט יותר מלנהל העברה.                     */
 
-const PROP_MAP_TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-const PROP_MAP_TILE_ATTRIBUTION = '&copy; OpenStreetMap &copy; CARTO';
+/* ספק האריחים יושב ב-assets/map-tiles.js, משותף לכל המפות באתר. */
 const PROP_MAP_ZOOM = 16;
 const PROP_MAP_FULL_ZOOM = 17;
 
@@ -1620,7 +1620,7 @@ function propMapMarker(p){
   });
 }
 function propMapTiles(map){
-  L.tileLayer(PROP_MAP_TILE_URL, { attribution:PROP_MAP_TILE_ATTRIBUTION, maxZoom:19 }).addTo(map);
+  MapTiles.addTo(map);
 }
 
 async function propertyMapEnabled(id){

@@ -11,6 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="assets/map-tiles.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="assets/map-gestures.js"></script>
 <script src="assets/property-card.js"></script>
@@ -5289,19 +5290,13 @@ function rotateProfessionalsFairly(list, tick){
 let heroMap = null;
 let heroTiles = null;
 
-/* ספק אריחים אחד לכל שלושת הסגנונות.
-   קודם כל סגנון משך אריחים משלו מ-CARTO; מאז ש-CARTO דורשים מפתח API הם
-   חוזרים עם הכיתוב "API KEY REQUIRED" חרוט על כל אריח. בניסיון קודם
-   הועברה המפה למפתח MapTiler עם סגנון "לילה" כהה נוסף — זה לא הצליח
-   טוב מספיק (המפתח לא אומת כמצופה, וסגנון הלילה לא נראה טוב), אז חזרנו
-   לגישה הפשוטה והיציבה: כל הסגנונות נגזרים מאריחי OpenStreetMap
-   הסטנדרטיים בעזרת פילטרים ב-CSS בלבד, ולכן: (1) אין תלות במפתח,
-   (2) מעבר בין סגנונות לא עולה ולו בקשת רשת אחת — אלה בדיוק אותם
-   אריחים, רק עיבוד אחר מעליהם. שימו לב ששרת האריחים הציבורי של OSM
-   מיועד לתעבורה צנועה. */
-const MAP_TILE_URL = 'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
-const MAP_TILE_ATTRIBUTION = '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>';
-const MAP_TILE_MAX_ZOOM = 19;
+/* שלושת הסגנונות נגזרים כולם מאותם אריחים בעזרת פילטרים ב-CSS (ראו
+   ‏body[data-map-style="…"] למעלה), ולכן מעבר בין סגנונות לא עולה ולו בקשת
+   רשת אחת, והם עובדים מול כל ספק אריחים.
+
+   הספק עצמו יושב ב-assets/map-tiles.js, יחד עם ארבע המפות האחרות באתר.
+   קודם הוא היה כתוב כאן, וכשספק האריחים שינה תנאים באוגוסט 2026 תוקן כאן
+   בלבד — ושלוש מפות אחרות נשארו שבורות. */
 
 const MAP_STYLES = ['nature','classic','light'];
 const DEFAULT_MAP_STYLE = 'classic';
@@ -5328,9 +5323,7 @@ try {
   if (!window.L) throw new Error('Leaflet לא נטען (CDN חסום/נכשל)');
 
   heroMap = L.map('hero-map', { scrollWheelZoom:false, zoomControl:false }).setView(AFULA_CENTER, AFULA_ZOOM);
-  heroTiles = L.tileLayer(MAP_TILE_URL, {
-    attribution:MAP_TILE_ATTRIBUTION, maxZoom:MAP_TILE_MAX_ZOOM
-  }).addTo(heroMap);
+  heroTiles = MapTiles.addTo(heroMap);
   // כל החלק העליון של המפה מוסתר ע"י סרגל החיפוש הצף, ולכן פקדי הזום יורדים
   // לתחתית: הזום בצד אחד, הקרדיטים בשני, ו-.map-toolbar במרכז ביניהם
   L.control.zoom({ position:'bottomright' }).addTo(heroMap);

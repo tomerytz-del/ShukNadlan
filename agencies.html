@@ -11,6 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="assets/map-tiles.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   /* אותה פלטה ואותם רכיבים כמו דף הבית: הרקע הזורם, הכותרת, הפוטר
@@ -878,10 +879,7 @@ function renderMap(list){
   }
   if (!map){
     map = L.map('agenciesMap', { scrollWheelZoom:false }).setView(AFULA_CENTER, 13);
-    L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom:19,
-      attribution:'&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    }).addTo(map);
+    MapTiles.addTo(map);
   }
   if (mapLayer) mapLayer.remove();
   mapLayer = L.layerGroup().addTo(map);
