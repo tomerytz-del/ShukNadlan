@@ -52,6 +52,9 @@ verify_jwt = false          # טופס יצירת הקשר בדף הנכס — �
 [functions.agent-direct-inquiry-intake]
 verify_jwt = false          # פנייה ישירה מדף הסוכן/ת
 
+[functions.newsletter-subscribe]
+verify_jwt = false          # טופס רשימת התפוצה בפוטר, בכל עמוד ציבורי
+
 # ---------------------------------------------------------------------------
 # מערכתי — אימות עצמי בתוך הפונקציה (סוד cron, service role, או webhook)
 # ---------------------------------------------------------------------------
@@ -66,6 +69,13 @@ verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role / 
 
 [functions.classify-property-images]
 verify_jwt = false          # קריאת cron/backfill; לא מקבלת קלט שמשפיע על מה שנכתב
+
+# ‏verify_jwt=false כאן אינו "פתוח": ה-handler דורש את מפתח ה-service_role
+# או את PLATFORM_MAIL_SECRET, כי שליחת מייל בשם הפלטפורמה למי שמבקש היא
+# ממסר פתוח. ה-Gateway מושבת דווקא כדי שקוראים פנימיים (pg_net, cron)
+# יוכלו לפנות אליה בלי JWT של משתמש/ת.
+[functions.platform-mail]
+verify_jwt = false          # אימות עצמי: service_role או x-platform-mail-secret
 
 [functions.property-visualize]
 verify_jwt = false          # הדמיה לפי דרישת גולש/ת — הזכאות נבדקת ב-DB
