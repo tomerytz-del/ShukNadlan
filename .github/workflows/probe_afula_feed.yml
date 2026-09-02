@@ -1,0 +1,38 @@
+name: אבחון הפיד של עיריית עפולה
+
+# ‏Workflow זמני לאבחון בלבד. הריצה לא נוגעת ב-Supabase, לא צורכת סודות ולא
+# כותבת כלום — היא רק מנסה למשוך את הפיד של העירייה כדי להבין למה הוא מחזיר
+# 403. סביבת הפיתוח של Claude חסומה ל-afula.muni.il, ו-runner של Actions לא,
+# ולכן זה המקום היחיד שאפשר למדוד בו במקום לנחש.
+#
+# למחוק אחרי שהמקור תוקן.
+on:
+  push:
+    branches:
+      - claude/new-session-84a62f
+    paths:
+      - scripts/probe_afula_feed.py
+      - .github/workflows/probe_afula_feed.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: משיכת הקוד
+        uses: actions/checkout@v4
+
+      - name: התקנת Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: התקנת תלויות
+        run: pip install requests feedparser
+
+      - name: אבחון
+        run: python scripts/probe_afula_feed.py
