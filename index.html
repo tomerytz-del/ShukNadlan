@@ -5288,7 +5288,6 @@ function rotateProfessionalsFairly(list, tick){
    לא נטען — נעלמו איתו גם גריד הנכסים, הנכסים המקודמים ורצועת המפה,
    והמבקר ראה עמוד בית כמעט ריק. עכשיו כישלון של המפה מוריד רק את המפה. */
 let heroMap = null;
-let heroTiles = null;
 
 /* שלושת הסגנונות נגזרים כולם מאותם אריחים בעזרת פילטרים ב-CSS (ראו
    ‏body[data-map-style="…"] למעלה), ולכן מעבר בין סגנונות לא עולה ולו בקשת
@@ -5323,7 +5322,7 @@ try {
   if (!window.L) throw new Error('Leaflet לא נטען (CDN חסום/נכשל)');
 
   heroMap = L.map('hero-map', { scrollWheelZoom:false, zoomControl:false }).setView(AFULA_CENTER, AFULA_ZOOM);
-  heroTiles = MapTiles.addTo(heroMap);
+  MapTiles.addTo(heroMap);
   // כל החלק העליון של המפה מוסתר ע"י סרגל החיפוש הצף, ולכן פקדי הזום יורדים
   // לתחתית: הזום בצד אחד, הקרדיטים בשני, ו-.map-toolbar במרכז ביניהם
   L.control.zoom({ position:'bottomright' }).addTo(heroMap);
