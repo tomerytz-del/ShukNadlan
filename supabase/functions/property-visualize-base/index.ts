@@ -16,6 +16,7 @@ import {
   type StyleKey,
   type WorkItem,
   readGeminiApiKey,
+  isServiceRoleCall,
 } from "../_shared/visualization.ts";
 
 // ============================================================================
@@ -70,7 +71,7 @@ Deno.serve(async (req: Request) => {
   // יכול/ה לכתוב ישירות לכל טבלה, ולכן אין כאן הרחבת הרשאות — רק ויתור על
   // שאלת הבעלות, שאין לה משמעות בקריאה שהמערכת יזמה.
   const supabase = createClient(supabaseUrl, serviceRoleKey);
-  const isInternalCall = authHeader === `Bearer ${serviceRoleKey}`;
+  const isInternalCall = isServiceRoleCall(authHeader, serviceRoleKey);
 
   let agent: { id: string; active: boolean; is_platform_admin: boolean } | null = null;
   if (!isInternalCall) {

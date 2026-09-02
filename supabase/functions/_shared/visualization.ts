@@ -26,6 +26,43 @@
  * מוחזר גם `problem` כשהערך אינו נראה כמו מפתח של AI Studio, כדי שהפונקציה
  * תוכל לומר *מה* פסול בו במקום להעביר אותו הלאה ולקבל 400 מעורפל.
  */
+/**
+ * האם הקריאה הגיעה מהמערכת עצמה ולא ממשתמש/ת.
+ *
+ * הבדיקה הייתה השוואת מחרוזות מול SUPABASE_SERVICE_ROLE_KEY, וזה נשבר ברגע
+ * ששני צדדים מחזיקים מפתחות תקינים בפורמטים שונים: בפרויקט שבו הופעלה
+ * מערכת המפתחות החדשה, הסביבה של ה-Edge Function מקבלת מפתח בפורמט
+ * ‏sb_secret_..., בעוד ש-Settings → API מציג את ה-JWT הישן. שניהם
+ * ‏service_role אמיתיים, שתי מחרוזות שונות, והשוואה מדויקת נכשלת — עם
+ * ‏401 unauthorized שנראה בדיוק כמו מפתח גנוב.
+ *
+ * שני מסלולים:
+ *   1. התאמה מדויקת — מכסה את הפורמט החדש, שאינו JWT ואין בו תביעות לקרוא.
+ *   2. תביעת role ב-JWT — ‏verify_jwt=true על הפונקציה, כלומר השער כבר אימת
+ *      את החתימה מול סוד ה-JWT של הפרויקט לפני שהבקשה הגיעה לכאן. טוקן של
+ *      משתמש/ת רגיל/ה נושא role=authenticated, ואי אפשר לזייף service_role
+ *      בלי הסוד עצמו.
+ *
+ * המסלול השני עמיד גם להחלפת מפתחות, שהיא בדיוק המצב שבו הישן נשבר בשקט.
+ */
+export function isServiceRoleCall(authHeader: string | null, serviceRoleKey: string): boolean {
+  if (!authHeader) return false;
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token) return false;
+
+  if (serviceRoleKey && token === serviceRoleKey) return true;
+
+  const parts = token.split(".");
+  if (parts.length !== 3) return false;
+  try {
+    const b64 = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+    const payload = JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)));
+    return payload?.role === "service_role";
+  } catch {
+    return false;
+  }
+}
+
 export function readGeminiApiKey(): { key: string | null; problem?: string } {
   const raw = Deno.env.get("GEMINI_API_KEY");
   if (!raw) return { key: null, problem: "GEMINI_API_KEY אינו מוגדר" };
