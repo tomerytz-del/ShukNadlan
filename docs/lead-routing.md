@@ -44,7 +44,7 @@
                                      ↓ (רק כש-routing='unrouted')
                     ┌────────────────┴────────────────┐
             טריגר במסד                          המייל מה-Edge Function
-       notifications (פעמון ה-CRM)         Resend → מנהלי הפלטפורמה
+       notifications (פעמון ה-CRM)      platform-mail → מנהלי הפלטפורמה
 ```
 
 ### הטבלה
@@ -84,8 +84,7 @@
 
 טריגר `lead_routing_alert_platform_admin` יוצר התראת `lead_unrouted` לכל
 מנהל/ת פלטפורמה פעיל/ה — אותה תבנית של `alert_platform_admin_on_low_review`
-מהביקורות. במקביל, אם `RESEND_API_KEY` ו-`ALERTS_FROM_EMAIL` מוגדרים, יוצא
-גם מייל.
+מהביקורות. במקביל יוצא גם מייל, דרך `platform-mail` (ראו למטה).
 
 שני דברים ששווה לדעת:
 
@@ -110,6 +109,8 @@
 | --- | --- |
 | `supabase/migrations/20260913090000_lead_routing.sql` | הטבלה, גודל הקהל, ה-RPC, הטריגר וה-view |
 | `supabase/functions/_shared/lead-routing.ts` | הרישום המשותף + הסלמת המייל |
+| `supabase/functions/_shared/platform-mail-client.ts` | הפנייה ל-`platform-mail`; שליחה שנכשלה אינה זורקת |
+| `supabase/functions/platform-mail/index.ts` | המשלוח עצמו: Gmail SMTP, ובנפילה Resend |
 | `supabase/functions/owner-lead-intake/index.ts` | רישום ליד בעל/ת נכס |
 | `supabase/functions/mortgage-lead-intake/index.ts` | רישום ליד משכנתא |
 | `supabase/functions/saved-search-intake/index.ts` | רישום ליד מחפש/ת דירה |
@@ -133,9 +134,25 @@ mortgage-lead-intake saved-search-intake`). שלושתן מקבלות את
 ביומן ידנית, דרך אותה `log_lead_routing`, כדי שהתור לא ייפתח עם שקר. כל ליד
 מכאן והלאה נרשם מעצמו.
 
-**המייל** יוצא רק כש-`RESEND_API_KEY` ו-`ALERTS_FROM_EMAIL` מוגדרים
-במשתני הסביבה של הפרויקט (אותם שניים ש-saved-search-notify משתמשת בהם).
-בלעדיהם ההתראה בפעמון עובדת כרגיל, והמייל פשוט אינו נשלח.
+**המייל** אינו נשלח מכאן ישירות אלא דרך `platform-mail` — ה-Edge Function
+היחידה שמכירה את פרטי השולח. `_shared/lead-routing.ts` פונה אליה דרך
+`_shared/platform-mail-client.ts`, ומקבל `{sent, via, error}`.
+
+‏`platform-mail` מנסה שני מסלולים, בסדר הזה:
+
+| מסלול | מתי | מה נדרש |
+|---|---|---|
+| **Gmail SMTP** | ברירת המחדל | `GMAIL_USER` + `GMAIL_APP_PASSWORD` |
+| **Resend** | רק כשה-SMTP נפל | `RESEND_API_KEY` + `ALERTS_FROM_EMAIL` |
+
+‏Gmail הוא המסלול המועדף כי בו ההודעה יוצאת **באמת** מכתובת הפלטפורמה:
+השרתים של Google חותמים עליה. ספק חיצוני שמצהיר `From: …@gmail.com` נכשל
+ביישור SPF/DKIM, ולכן Resend הוא רשת ביטחון עם השולח המאומת שלו ו-`reply_to`
+לתיבת הפלטפורמה — עדיף מייל מכתובת פחות נכונה מאשר התראה שנעלמת.
+
+הפונקציה סגורה ל-`service_role` (או `PLATFORM_MAIL_SECRET`): שליחה בשם
+הפלטפורמה למי שמבקש היא ממסר פתוח. כשלון משלוח מחזיר 502 ואינו מפיל את
+הקורא — ההתראה בפעמון עובדת כרגיל, והמייל פשוט אינו נשלח.
 
 ## כלל אחד שלא נשבר
 
