@@ -217,44 +217,79 @@ POST { property_id }   |   POST { limit: 100 }
 
 ## התקנה
 
-שתי המיגרציות **כבר הורצו** על `shuknadlan-marketplace`. מה שנשאר:
+הסכמה, הפונקציות והטריגר **כבר באוויר**. מה שנשאר הוא הפעלה תפעולית, ולכל
+שלב יש בדיקה שאומרת אם הוא נעשה — `scripts/visualizations_setup.sql` חלק 1.
 
-1. **סוד Gemini:** Supabase → Edge Functions → Secrets → `GEMINI_API_KEY`.
-   אופציונלי: `GEMINI_IMAGE_MODEL`, `GEMINI_VISION_MODEL`.
-2. **פריסת הפונקציות:**
-   ```
-   supabase functions deploy classify-property-images --no-verify-jwt
-   supabase functions deploy property-visualize        --no-verify-jwt
-   supabase functions deploy property-visualize-base
-   ```
-3. **מילוי לאחור של הסיווג** (אופציונלי — חוסך המתנה לגולש/ת הראשון/ה):
-   ```
-   POST /functions/v1/classify-property-images { "limit": 200 }
-   ```
-4. **הרצה ידנית ראשונה** על הנכסים הפרטיים הקיימים — הטריגר מטפל רק בפרסום
-   חדש, ולכן הנכסים שכבר מפורסמים צריכים דחיפה אחת:
-   ```sql
-   -- הרשימה להרצה
-   select p.id, p.property_type, array_length(p.images,1) as images
-   from public.properties p join public.agency_members m on m.id=p.agent_id
-   where p.category='residential' and p.status='active' and m.tier='premium'
-     and coalesce(array_length(p.images,1),0) > 0;
-   ```
-   ולכל `id`: `POST /functions/v1/property-visualize-base { "property_id": "<id>" }`
-   עם ה-service role key ב-`Authorization`.
-5. **הפעלת האוטומציה:** שני סודות ה-Vault (ראו "הפעלת הטריגר" למעלה). מרגע
-   זה כל נכס פרטי חדש מקבל סט בסיס מעצמו.
+### מה שכבר מוגדר
+
+| רכיב | מצב |
+|---|---|
+| שתי המיגרציות (`20260827180000`, `20260827190000`) | הורצו |
+| חסימת הקרקע בטריגר (`20260910090000`) | הורצה |
+| שלוש ה-Edge Functions | פרוסות — נפרסות מחדש בכל מיזוג, ראו [`docs/edge-functions-deploy.md`](edge-functions-deploy.md) |
+| ‏bucket `property-visualizations` | קיים, ציבורי לקריאה |
+| התוסף `pg_net` | מותקן |
+| הטריגר `properties_enqueue_base_visualization` | קיים ומופעל |
+| הסוד `edge_functions_base_url` ב-Vault | מוגדר |
+| סקציית ההדמיות ב-`property.html` | מחווטת לפונקציה ול-RPC |
+
+### מה שנשאר
+
+**‏1. הסוד `GEMINI_API_KEY`** — Supabase → Edge Functions → Secrets.
+אופציונלי לצדו: `GEMINI_IMAGE_MODEL`, `GEMINI_VISION_MODEL`.
+
+זה החוסם היחיד שמונע *כל* הדמיה. בלעדיו שלוש הפונקציות נפרסות בהצלחה
+ומחזירות `gemini_not_configured` (500) רק בזמן ריצה — כלומר הסקציה בדף
+הנכס עולה, הטופס נשלח, והבקשה נכשלת בשקט. חלק 1 של סקריפט ההתקנה בודק את
+זה בקריאה שאינה עולה כלום.
+
+**‏2. הסוד `visualization_service_key` ב-Vault** — מעיר את הטריגר האוטומטי.
+בלעדיו הטריגר יוצא מיד ובשקט, ונכס פרטי חדש לא יקבל סט בסיס מעצמו. הפעלה
+בחלק 2 של הסקריפט (צריך את ה-service role key מ-Settings → API).
+
+**‏3. נכס זכאי עם תמונות.** שני התנאים חייבים להתקיים יחד, וכרגע אף נכס לא
+מקיים את שניהם — ראו הטבלה למטה.
+
+**‏4. מילוי לאחור** — `scripts/visualizations_backfill.sh`. הטריגר מטפל רק
+באירוע פרסום עתידי, ולכן נכס שכבר מפורסם צריך דחיפה אחת. בטוח להריץ שוב:
+מטרה שכבר קיימת מדולגת, ולכן אין תמונות כפולות ואין קריאות Gemini נוספות.
+
+```bash
+SUPABASE_SERVICE_ROLE_KEY=eyJ... scripts/visualizations_backfill.sh --dry-run
+SUPABASE_SERVICE_ROLE_KEY=eyJ... scripts/visualizations_backfill.sh
+```
+
+**‏5. סיווג מראש** (אופציונלי) — `POST /functions/v1/classify-property-images
+{ "limit": 200 }`. שתי פונקציות ההדמיה מסווגות מה שחסר להן תוך כדי, ולכן זה
+רק מפזר את העלות מראש כדי שהגולש/ת הראשון/ה לא יחכה לה.
 
 ### מצב הנכסים הזכאים כיום
 
-| סוג | תמונות | מטרות שייווצרו |
-|---|---|---|
-| בית פרטי/קוטג' | 6 | חוץ, סלון, מטבח |
-| דו משפחתי | 8 | חוץ, סלון, מטבח |
-| דירה × 2 | 10 סה״כ | סלון, מטבח |
+**אין כרגע נכס אחד שייצר הדמיה**, וזה לא תקלה בקוד אלא הצטלבות של שני תנאים:
 
-בפועל מספר המטרות תלוי בסיווג — מטרה בלי תמונת מקור מתאימה פשוט יורדת, כי
-עדיף שתי הדמיות אמיתיות מאשר שלוש כשאחת נגזרה מתמונה של חדר אחר.
+| מה יש | הבעיה |
+|---|---|
+| סוכן/ת Premium פעיל/ה אחד/ת, עם 2 דירות `active` | לשתיהן **0 תמונות** — אין ממה לערוך |
+| נכסים פרטיים עם תמונות (בית פרטי 6, דו משפחתי 8, דירה 5) | הסוכנים שלהם `free` — לא זכאים |
+
+כלומר גם אחרי ש-`GEMINI_API_KEY` יוגדר, לא תיווצר אף הדמיה עד שאחד משניים
+יקרה: הועלו תמונות לאחת משתי הדירות של הסוכן/ת ה-Premium, או שסוכן/ת שיש
+לו/ה נכסים פרטיים עם תמונות שודרג/ה ל-Premium. שני המקרים יורים את הטריגר
+מעצמם — העלאת תמונות לנכס פעיל היא אירוע פרסום מכוון (ראו למעלה), ושדרוג
+tier אינו, ולכן אחריו צריך להריץ את המילוי לאחור.
+
+בפועל מספר המטרות לכל נכס תלוי בסיווג — מטרה בלי תמונת מקור מתאימה פשוט
+יורדת, כי עדיף שתי הדמיות אמיתיות מאשר שלוש כשאחת נגזרה מתמונה של חדר אחר.
+
+### בדיקת מצב
+
+```
+scripts/visualizations_setup.sql   — חלק 1: מה מוגדר, מה חסר, ולמה אין הדמיות
+```
+
+שמונה בדיקות סכמה והפעלה, ובנוסף בדיקה חיה של `GEMINI_API_KEY` דרך `pg_net`
+(מזהה נכס שאינו קיים מסיים את הפונקציה לפני קריאת Gemini אבל אחרי בדיקת
+המפתח — כלומר בדיקה שאינה עולה כלום ואינה מייצרת דבר).
 
 ---
 
