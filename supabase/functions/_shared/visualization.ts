@@ -428,7 +428,13 @@ export async function classifyImage(apiKey: string, mime: string, data: string):
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         contents: [{ parts: [{ inline_data: { mime_type: mime, data } }, { text: prompt }] }],
-        generationConfig: { temperature: 0, maxOutputTokens: 20 },
+        // ‏maxOutputTokens היה 20 — התשובה עצמה היא שלוש מילים, אז זה נראה
+        // נדיב. זה היה נכון למודל שלא חושב. ‏gemini-3.1-flash-lite הוא מודל
+        // חושב (thinking: true ב-ListModels), והתקציב הזה *כולל* את החשיבה:
+        // המודל שרף את 20 הטוקנים לפני שכתב תו אחד, החזיר 200 עם טקסט ריק,
+        // וכל תמונה סווגה unknown. התקרה כאן רחבה בכוונה — עלות אמיתית היא
+        // לפי מה שנוצר בפועל, והתשובה נשארת שלוש מילים.
+        generationConfig: { temperature: 0, maxOutputTokens: 2048 },
       }),
     }
   );
@@ -452,7 +458,26 @@ export async function classifyImage(apiKey: string, mime: string, data: string):
   }
 
   const json = await res.json();
-  const text = (json?.candidates?.[0]?.content?.parts?.[0]?.text || "").toLowerCase().trim();
+  // כל החלקים ולא parts[0]: מודל חושב מחזיר לפעמים חלק של מחשבה לפני
+  // התשובה, ואז parts[0] אינו הסיווג אלא ההסבר לעצמו.
+  const text = (json?.candidates?.[0]?.content?.parts ?? [])
+    .map((part: any) => part?.text ?? "")
+    .join(" ")
+    .toLowerCase()
+    .trim();
+
+  // תשובה ריקה אינה "תמונה לא ברורה" אלא קריאה שלא החזירה כלום — בדרך כלל
+  // תקציב טוקנים שנגמר. ‏finishReason הוא מה שאומר את זה, ובלעדיו החיפוש
+  // הזה היה מתחיל מאפס.
+  if (!text) {
+    const finish = json?.candidates?.[0]?.finishReason || json?.promptFeedback?.blockReason;
+    return {
+      photo_type: "unknown",
+      space_role: "unclassified",
+      room_type: null,
+      error: `תשובה ריקה מ-${VISION_MODEL}${finish ? ` (${finish})` : ""}`,
+    };
+  }
 
   const photo_type = text.includes("exterior") ? "exterior" : text.includes("interior") ? "interior" : "unknown";
   const space_role = text.includes("auxiliary") ? "auxiliary" : text.includes("main") ? "main" : "unclassified";
