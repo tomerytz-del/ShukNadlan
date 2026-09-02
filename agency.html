@@ -580,9 +580,11 @@
   .prop-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
   /* יחס גובה־רוחב קבוע במקום גובה קבוע, כדי שהתמונה תשמור על הפרופורציה
      שלה בכל רוחב כרטיס. ‏background-size:cover הוא המקבילה של
-     object-fit:cover לתמונת רקע — התמונה ממלאת את המסגרת בלי להימתח. */
+     object-fit:cover לתמונת רקע — התמונה ממלאת את המסגרת בלי להימתח.
+     ‏width:100% מבטיח שאם יוגדר כאן אי־פעם גובה מפורש, הרוחב לא ייגזר מהיחס
+     ויגלוש מהכרטיס (‏94px × 1.6 = 150px) — התמונונת נשארת ברוחב הכרטיס. */
   .prop-card .thumb{
-    aspect-ratio:16/10;height:auto;position:relative;
+    aspect-ratio:16/10;height:auto;width:100%;position:relative;
     background-size:cover;background-position:center;background-repeat:no-repeat;
     background-image:linear-gradient(155deg,var(--accent),var(--brand));
   }

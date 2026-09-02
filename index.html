@@ -1408,9 +1408,16 @@
      וגובה של 150px הפך את התמונה לרצועה שטוחה במסך צר. ‏16/10 שומר על
      אותה פרופורציה בכל רוחב, ו-background-size:cover (המקבילה של
      object-fit:cover לתמונת רקע) מבטיח שהתמונה תמלא אותה בלי להימתח.
-     רצועות הגלילה (.featured-scroll) קובעות גובה מפורש ולכן גוברות עליו. */
+     רצועות הגלילה (.featured-scroll) קובעות גובה מפורש ולכן גוברות עליו.
+
+     ‏width:100% הוא תנאי ולא קישוט: כשרצועה קובעת ‎height‎ מפורש, ‎width:auto‎
+     נגזר מהיחס (94px × 1.6 = 150px) ולא מרוחב הכרטיס. בכרטיס ברוחב 105px
+     התמונונת גלשה 45px אל מחוץ לו, ‎overflow:hidden‎ של הכרטיס חתך את הגלישה,
+     וכל מה שממוקם ביחס לתמונונת — סרט "מקודם" בפינה הפנימית, הלוגו ושם המשרד
+     שבמרכז ממלא־המקום — נדד שמאלה ונחתך. ‏width מפורש גובר על הגזירה מהיחס,
+     ולכן התמונונת נשארת ברוחב הכרטיס והיחס קובע רק כשהגובה אוטומטי. */
   .prop-card .thumb{
-    aspect-ratio:16/10;height:auto;position:relative;
+    aspect-ratio:16/10;height:auto;width:100%;position:relative;
     background-size:cover;background-position:center;background-repeat:no-repeat;
   }
 
@@ -1502,10 +1509,15 @@
   }
   .featured-scroll .prop-card .thumb{height:94px}
   .featured-scroll .prop-card .ribbon{top:6px;inset-inline-end:6px;font-size:.6rem;padding:2px 7px}
-  /* הכרטיס ברצועה רחב כשליש מהכרטיס המלא, ולכן שמירת 90px לסרט "מקודם"
-     הותירה לתגיות רוחב אפסי — כל תגית ירדה לשורה משלה וערמה שתיים-שלוש
-     שורות על תמונונת של 94px. כאן שומרים רק את רוחב הסרט המוקטן. */
-  .featured-scroll .prop-card .pc-badges{max-width:calc(100% - 56px)}
+  /* ‏105px של כרטיס (שליש ממסך של 360px) לא מכילים גם סרט "מקודם" ברוחב
+     ‏42px וגם תגית עסקה ברוחב 55px — שניהם מעוגנים לפינות הנגדיות של אותה
+     שורה והם נפגשים באמצע. ‏max-width לבדו לא מנע את זה: התגית היא
+     ‏white-space:nowrap ולכן היא גולשת מהמסגרת שהוקצתה לה. הרצועה כולה היא
+     נכסים מקודמים ("נכסים מומלצים שאסור לכם לפספס"), ולכן הסרט לא מוסיף כאן
+     מידע — הוא יורד ברוחב הזה, והתגית מקבלת את השורה כולה. מ-480px ומעלה
+     הכרטיס כבר רחב מספיק לשניהם והסרט חוזר. */
+  .featured-scroll .prop-card .ribbon{display:none}
+  .featured-scroll .prop-card .pc-badges{max-width:calc(100% - 18px)}
   /* ובאריח כזה גם אין מקום ליותר מתגית אחת: שלוש תגיות בזו אחר זו נערמו
      לשלוש שורות שכיסו את כל התמונונת. תגית העסקה (למכירה/להשכרה) היא
      הראשונה ברשימה והיא זו שנשארת; השאר נפתחות ככל שהאריח מתרחב. */
@@ -1527,6 +1539,11 @@
     .featured-scroll .prop-card .thumb{height:112px}
     /* 112px כבר מכילים גם את שורת התגיות וגם את המסר המלא */
     .featured-scroll .prop-card .thumb .tf-note{display:block}
+    /* הכרטיס חוצה כאן 140px — הסרט (49px עד הפינה) והתגית (55px מהפינה
+       הנגדית) שוב לא נפגשים, ולכן הסרט חוזר ושומרים לו את מקומו כדי
+       שהתגית השנייה תרד לשורה במקום להיערם עליו. */
+    .featured-scroll .prop-card .ribbon{display:block}
+    .featured-scroll .prop-card .pc-badges{max-width:calc(100% - 56px)}
     .featured-scroll .prop-card .pc-badge:nth-child(2){display:block}
     .featured-scroll .prop-card .pc-price{font-size:1rem}
     .featured-scroll .prop-card .pc-title{font-size:.78rem}
