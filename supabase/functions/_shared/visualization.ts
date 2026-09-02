@@ -397,9 +397,19 @@ export interface PhotoTags {
   room_type: string | null;
 }
 
+/**
+ * ‏"התמונה לא ברורה" ו"הקריאה ל-Gemini נכשלה" הן שתי תוצאות שונות לגמרי,
+ * ועד עכשיו שתיהן נראו אותו דבר: unknown/unclassified/null. ההבדל אינו
+ * אקדמי — תמונה לא ברורה סווגה ונגמר, ואילו קריאה שנכשלה נשמרה עם
+ * ‏classified_at ולכן *לעולם* לא נוסתה שוב, גם אחרי שהתקלה תוקנה.
+ *
+ * לכן `error` מוחזר בנפרד, והקוראים לא כותבים classified_at כשהוא קיים.
+ */
+export type ClassifyOutcome = PhotoTags & { error?: string };
+
 const ROOM_TYPES = ["facade", "yard", "living_room", "kitchen", "bedroom", "bathroom", "balcony", "other"];
 
-export async function classifyImage(apiKey: string, mime: string, data: string): Promise<PhotoTags> {
+export async function classifyImage(apiKey: string, mime: string, data: string): Promise<ClassifyOutcome> {
   const prompt =
     'זוהי תמונה של נכס נדל"ן. ענה בדיוק בפורמט TYPE,ROLE,ROOM באנגלית בלבד, בלי רווחים ובלי הסבר.\n' +
     "TYPE: exterior אם התמונה צולמה מבחוץ (חזית, כניסה, חצר, גינה, חניה, רחוב), interior אם מבפנים.\n" +
@@ -423,7 +433,23 @@ export async function classifyImage(apiKey: string, mime: string, data: string):
     }
   );
 
-  if (!res.ok) return { photo_type: "unknown", space_role: "unclassified", room_type: null };
+  // מודל שגוי (404), מכסה (429) או מפתח פסול (403) חוזרים כאן. הגוף נשמר כי
+  // הוא זה שאומר *מה* קרה, וההבדל בין השלושה הוא ההבדל בין תיקון של דקה
+  // לבין חיפוש עיוור.
+  if (!res.ok) {
+    let bodyText = "";
+    try {
+      bodyText = (await res.text()).slice(0, 300);
+    } catch {
+      /* noop */
+    }
+    return {
+      photo_type: "unknown",
+      space_role: "unclassified",
+      room_type: null,
+      error: `HTTP ${res.status}${bodyText ? `: ${bodyText}` : ""}`,
+    };
+  }
 
   const json = await res.json();
   const text = (json?.candidates?.[0]?.content?.parts?.[0]?.text || "").toLowerCase().trim();
@@ -479,7 +505,13 @@ export async function ensureTagged(
       pending.slice(i, i + BATCH).map(async (row: any) => {
         const img = await fetchAsBase64(row.image_url);
         if (!img) return;
-        const tags = await classifyImage(apiKey, img.mime, img.data);
+        const { error: classifyErr, ...tags } = await classifyImage(apiKey, img.mime, img.data);
+        // קריאה שנכשלה נשארת ללא classified_at ותנוסה שוב בבקשה הבאה,
+        // במקום להיקבע כ-unknown לתמיד.
+        if (classifyErr) {
+          console.error(`סיווג נכשל ל-${row.image_url}: ${classifyErr}`);
+          return;
+        }
         Object.assign(row, tags);
         await supabase
           .from("property_image_tags")
