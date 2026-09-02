@@ -1,5 +1,4 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
-import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 // ============================================================================
 // המייל של הפלטפורמה — נשלח ממקום אחד, לא מחמישה
@@ -75,16 +74,10 @@ function authorized(req: Request): boolean {
 /* ---------------------------------------------------------------------------
  * קידוד כותרות בעברית — RFC 2047
  *
- * ‏denomailer 1.6.0 מקודד כותרות שאינן ASCII ב-Q-encoding **ומשאיר בתוכן
- * רווחים**. ‏encoded-word עם רווח הוא לא חוקי, והתוצאה בפועל (נבדק מול
- * Gmail): הנמען רואה כנושא את המחרוזת המקודדת עצמה, והפרסר מאבד את כל בלוק
- * הכותרות — כך ש-From, To, Date וגבולות ה-MIME נשפכים לגוף ההודעה.
- *
- * לכן הכותרות מקודדות כאן, ב-base64, לפני שהן מגיעות לספרייה: התוצאה היא
- * ‏ASCII נקי, ולכן היא עוברת דרכה כמו שהיא ולא מקודדת פעם שנייה.
- *
  * החיתוך לחלקים הוא בגלל תקרת 75 התווים ל-encoded-word, והוא רץ על נקודות
  * קוד ולא על בתים — אחרת אימוג'י (⚠️, שני surrogates) היה נחתך באמצע.
+ * רווח בין שני encoded-words סמוכים הוא חוקי ומתעלמים ממנו בפענוח; רווח
+ * *בתוך* אחד מהם אינו חוקי, ולכן הוא לעולם לא נכנס לחלק עצמו.
  * ------------------------------------------------------------------------- */
 function base64(bytes: Uint8Array): string {
   let binary = "";
@@ -111,29 +104,172 @@ function encodeHeader(text: string): string {
 
 // ---------------------------------------------------------------------------
 // מסלול 1 — Gmail SMTP
+//
+// ‏כאן דיברה קודם denomailer@1.6.0, וכל הודעה בעברית יצאה שבורה. שלוש תקלות
+// בקידוד הכותרות, כולן ב-config/mail/encoding.ts שלה:
+//
+//   ‏1. `quotedPrintableEncodeInline` מקודדת כל מחרוזת ש**מתחילה** ב-"=?" —
+//      כלומר בדיוק כותרת שכבר מקודדת כהלכה. השורה שנועדה למנוע קידוד כפול
+//      היא זו שגורמת לו.
+//   ‏2. ה-Q-encoder שלה משאיר רווחים כלשונם. ‏encoded-word עם רווח אינו
+//      חוקי, ו-Gmail מגיב בכך שהוא מאבד את כל בלוק הכותרות: From, To, Date
+//      וגבולות ה-MIME נשפכים לגוף ההודעה, והנושא מוצג כמחרוזת מקודדת.
+//   ‏3. היא מקפלת שורה כל 74 תווים, גם באמצע encoded-word. נושא בעברית
+//      באורך רגיל חוצה את הסף.
+//
+// אי אפשר לעקוף את שלושתן מבחוץ: על שם השולח היא מריצה גם `trim()`, ולכן
+// גם לא ניתן להסוות כותרת מקודדת מפני הבדיקה בסעיף 1.
+//
+// ‏SMTP הוא פרוטוקול קצר, וכאן מדברים אותו ישירות. היתרון אינו חיסכון
+// בתלות אלא ודאות: כל בית שיוצא בחוט נכתב כאן.
 // ---------------------------------------------------------------------------
+
+const CRLF = "\r\n";
+const SMTP_TIMEOUT_MS = 20_000;
+const utf8 = new TextEncoder();
+
+interface Session {
+  conn: Deno.TlsConn;
+  buf: string;
+  dec: TextDecoder;
+}
+
+/** ‏write של socket אינו מבטיח כתיבה מלאה, וכתיבה חלקית של פקודה תוקעת. */
+async function writeAll(conn: Deno.TlsConn, text: string): Promise<void> {
+  const data = utf8.encode(text);
+  let off = 0;
+  while (off < data.length) {
+    const n = await conn.write(data.subarray(off));
+    if (n <= 0) throw new Error("smtp: הכתיבה לשקע נכשלה");
+    off += n;
+  }
+}
+
+/**
+ * תשובת SMTP שלמה, אם כבר הגיעה במלואה. שורה "250-" היא המשך ושורה "250 "
+ * היא הסוף, ולכן אי אפשר להסתפק בשורה הראשונה.
+ */
+function takeReply(s: Session): { code: number; text: string } | null {
+  const parts = s.buf.split(CRLF);
+  // האיבר האחרון הוא השארית שטרם הסתיימה ב-CRLF, ולכן אינו נבדק
+  for (let i = 0; i < parts.length - 1; i++) {
+    if (/^\d{3} /.test(parts[i])) {
+      const lines = parts.slice(0, i + 1);
+      s.buf = s.buf.slice(lines.join(CRLF).length + CRLF.length);
+      return { code: Number(parts[i].slice(0, 3)), text: lines.join(" ") };
+    }
+    if (!/^\d{3}-/.test(parts[i])) {
+      throw new Error(`smtp: תשובה לא תקינה ${JSON.stringify(parts[i]).slice(0, 80)}`);
+    }
+  }
+  return null;
+}
+
+async function reply(s: Session, expected: number[]): Promise<string> {
+  for (;;) {
+    const r = takeReply(s);
+    if (r) {
+      if (!expected.includes(r.code)) throw new Error(`smtp ${r.code}: ${r.text.slice(0, 200)}`);
+      return r.text;
+    }
+    const chunk = new Uint8Array(4096);
+    const n = await s.conn.read(chunk);
+    if (n === null) throw new Error("smtp: השרת סגר את החיבור");
+    s.buf += s.dec.decode(chunk.subarray(0, n), { stream: true });
+  }
+}
+
+/** ‏השגיאה נושאת את תשובת השרת בלבד — הפקודה שנשלחה אינה נכנסת אליה,
+    כי אחת מהן היא הסיסמה. */
+async function cmd(s: Session, line: string, expected: number[]): Promise<string> {
+  await writeAll(s.conn, line + CRLF);
+  return reply(s, expected);
+}
+
+function base64Lines(bytes: Uint8Array): string {
+  const b = base64(bytes);
+  const out: string[] = [];
+  for (let i = 0; i < b.length; i += 76) out.push(b.slice(i, i + 76));
+  return out.join(CRLF);
+}
+
+/** ‏toUTCString מחזיר "GMT", שהוא צורה מיושנת. RFC 5322 רוצה היסט מספרי. */
+function rfc2822Date(d: Date): string {
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${days[d.getUTCDay()]}, ${p(d.getUTCDate())} ${months[d.getUTCMonth()]} ${d.getUTCFullYear()} ` +
+    `${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} +0000`;
+}
+
+/**
+ * ‏שני החלקים מקודדים ב-base64 ולא ב-quoted-printable. זו לא העדפה: base64
+ * מבטיח שורות באורך קבוע שאינן מתחילות בנקודה, וכך נופלות מאליהן שתי
+ * המלכודות של DATA — שורה ארוכה מ-998 תווים, ושורה שנפתחת בנקודה ומסיימת
+ * את ההודעה באמצע.
+ */
+function buildMessage(to: string[], subject: string, text: string, html: string): string {
+  const boundary = `__shuknadlan_${crypto.randomUUID().replace(/-/g, "")}`;
+  const domain = GMAIL_USER.split("@")[1] || "gmail.com";
+  return [
+    // ‏Gmail מחייב שה-From יהיה החשבון המאומת עצמו. שם התצוגה חופשי,
+    // הכתובת אינה.
+    `From: ${encodeHeader(FROM_NAME)} <${GMAIL_USER}>`,
+    `To: ${to.join(", ")}`,
+    `Subject: ${encodeHeader(subject)}`,
+    `Date: ${rfc2822Date(new Date())}`,
+    `Message-ID: <${crypto.randomUUID()}@${domain}>`,
+    "MIME-Version: 1.0",
+    `Content-Type: multipart/alternative; boundary="${boundary}"`,
+    "",
+    `--${boundary}`,
+    'Content-Type: text/plain; charset="UTF-8"',
+    "Content-Transfer-Encoding: base64",
+    "",
+    base64Lines(utf8.encode(text)),
+    `--${boundary}`,
+    'Content-Type: text/html; charset="UTF-8"',
+    "Content-Transfer-Encoding: base64",
+    "",
+    base64Lines(utf8.encode(html)),
+    `--${boundary}--`,
+    "",
+  ].join(CRLF);
+}
+
 async function sendViaGmail(to: string[], subject: string, text: string, html: string) {
-  const client = new SMTPClient({
-    connection: {
-      hostname: "smtp.gmail.com",
-      port: 465,
-      tls: true,
-      auth: { username: GMAIL_USER, password: GMAIL_APP_PASSWORD },
-    },
-  });
+  // ‏465 הוא TLS משתמעת: המנהרה קמה לפני הבאנר, ואין STARTTLS שאפשר להוריד.
+  const conn = await Deno.connectTls({ hostname: "smtp.gmail.com", port: 465 });
+  const s: Session = { conn, buf: "", dec: new TextDecoder() };
+
+  // ‏שרת ששותק אינו מחזיר שגיאה — הקריאה פשוט לא נענית, וה-worker מחזיק
+  // את החיבור עד סוף חייו. סגירה כפויה הופכת את השתיקה לכישלון מדווח.
+  const deadline = setTimeout(() => {
+    try { conn.close(); } catch { /* כבר נסגר */ }
+  }, SMTP_TIMEOUT_MS);
+
   try {
-    // ‏Gmail מחייב שה-From יהיה החשבון המאומת עצמו (או כינוי מאושר בתוכו).
-    // שם התצוגה חופשי, הכתובת אינה.
-    await client.send({
-      from: `${encodeHeader(FROM_NAME)} <${GMAIL_USER}>`,
-      to,
-      subject: encodeHeader(subject),
-      content: text,
-      html,
-    });
+    await reply(s, [220]);
+    await cmd(s, "EHLO shuknadlan.co.il", [250]);
+    await cmd(s, "AUTH LOGIN", [334]);
+    await cmd(s, base64(utf8.encode(GMAIL_USER)), [334]);
+    await cmd(s, base64(utf8.encode(GMAIL_APP_PASSWORD)), [235]);
+    await cmd(s, `MAIL FROM:<${GMAIL_USER}>`, [250]);
+    // ‏251 = הכתובת מנותבת הלאה. זו קבלה, לא דחייה.
+    for (const rcpt of to) await cmd(s, `RCPT TO:<${rcpt}>`, [250, 251]);
+    await cmd(s, "DATA", [354]);
+
+    // הכפלת נקודה בתחילת שורה היא דרישת הפרוטוקול. הגוף כולו ב-base64 ולכן
+    // אין שם שורה כזו — זו הגנה על שינוי עתידי בקידוד, לא תיקון של היום.
+    const message = buildMessage(to, subject, text, html).replaceAll(`${CRLF}.`, `${CRLF}..`);
+    await writeAll(conn, message + CRLF + "." + CRLF);
+    await reply(s, [250]);
+
+    // ‏ה-250 שלמעלה הוא הקבלה. פרידה לא מסודרת אחריו אינה כישלון משלוח.
+    try { await cmd(s, "QUIT", [221]); } catch { /* ההודעה כבר התקבלה */ }
   } finally {
-    // חיבור SMTP שלא נסגר משאיר socket פתוח עד סוף חיי ה-worker.
-    await client.close();
+    clearTimeout(deadline);
+    try { conn.close(); } catch { /* נסגר ב-QUIT או בפסק הזמן */ }
   }
 }
 
