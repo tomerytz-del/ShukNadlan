@@ -72,6 +72,43 @@ function authorized(req: Request): boolean {
   return false;
 }
 
+/* ---------------------------------------------------------------------------
+ * קידוד כותרות בעברית — RFC 2047
+ *
+ * ‏denomailer 1.6.0 מקודד כותרות שאינן ASCII ב-Q-encoding **ומשאיר בתוכן
+ * רווחים**. ‏encoded-word עם רווח הוא לא חוקי, והתוצאה בפועל (נבדק מול
+ * Gmail): הנמען רואה כנושא את המחרוזת המקודדת עצמה, והפרסר מאבד את כל בלוק
+ * הכותרות — כך ש-From, To, Date וגבולות ה-MIME נשפכים לגוף ההודעה.
+ *
+ * לכן הכותרות מקודדות כאן, ב-base64, לפני שהן מגיעות לספרייה: התוצאה היא
+ * ‏ASCII נקי, ולכן היא עוברת דרכה כמו שהיא ולא מקודדת פעם שנייה.
+ *
+ * החיתוך לחלקים הוא בגלל תקרת 75 התווים ל-encoded-word, והוא רץ על נקודות
+ * קוד ולא על בתים — אחרת אימוג'י (⚠️, שני surrogates) היה נחתך באמצע.
+ * ------------------------------------------------------------------------- */
+function base64(bytes: Uint8Array): string {
+  let binary = "";
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary);
+}
+
+function encodeHeader(text: string): string {
+  if (!/[^\x20-\x7E]/.test(text)) return text;   // ASCII — אין מה לקודד
+  const enc = new TextEncoder();
+  const chunks: string[] = [];
+  let current = "";
+  for (const ch of text) {
+    // 30 בתים → 40 תווי base64, ועם העטיפה ‎=?UTF-8?B?…?=‎ נשארים הרבה מתחת ל-75
+    if (enc.encode(current + ch).length > 30) {
+      chunks.push(current);
+      current = "";
+    }
+    current += ch;
+  }
+  if (current) chunks.push(current);
+  return chunks.map((c) => `=?UTF-8?B?${base64(enc.encode(c))}?=`).join(" ");
+}
+
 // ---------------------------------------------------------------------------
 // מסלול 1 — Gmail SMTP
 // ---------------------------------------------------------------------------
@@ -88,9 +125,9 @@ async function sendViaGmail(to: string[], subject: string, text: string, html: s
     // ‏Gmail מחייב שה-From יהיה החשבון המאומת עצמו (או כינוי מאושר בתוכו).
     // שם התצוגה חופשי, הכתובת אינה.
     await client.send({
-      from: `${FROM_NAME} <${GMAIL_USER}>`,
+      from: `${encodeHeader(FROM_NAME)} <${GMAIL_USER}>`,
       to,
-      subject,
+      subject: encodeHeader(subject),
       content: text,
       html,
     });
