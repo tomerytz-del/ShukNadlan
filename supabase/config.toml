@@ -46,6 +46,12 @@ verify_jwt = false          # הרשמת משרד חדש — אין עדיין �
 [functions.professional-signup]
 verify_jwt = false          # הרשמת בעל מקצוע — אין עדיין חשבון
 
+[functions.property-inquiry-intake]
+verify_jwt = false          # טופס יצירת הקשר בדף הנכס — הנתיב החם באתר
+
+[functions.agent-direct-inquiry-intake]
+verify_jwt = false          # פנייה ישירה מדף הסוכן/ת
+
 # ---------------------------------------------------------------------------
 # מערכתי — אימות עצמי בתוך הפונקציה (סוד cron, service role, או webhook)
 # ---------------------------------------------------------------------------
@@ -63,6 +69,14 @@ verify_jwt = false          # קריאת cron/backfill; לא מקבלת קלט �
 
 [functions.property-visualize]
 verify_jwt = false          # הדמיה לפי דרישת גולש/ת — הזכאות נבדקת ב-DB
+
+# ⚠️ ‏news-ticker-crawler היא היחידה בקבוצה הזו שאין לה אימות עצמי בגוף
+# הפונקציה — לא סוד cron ולא בדיקת service role. כלומר כל אחד שיודע את
+# הכתובת יכול להפעיל אותה ולגרור קריאות בתשלום ל-Anthropic. הערך נשמר כפי
+# שהוא כדי לא לשנות התנהגות בפריסה הראשונה, אבל זו נקודה שכדאי לסגור:
+# להוסיף בדיקת x-alert-cron-secret כמו ב-saved-search-notify.
+[functions.news-ticker-crawler]
+verify_jwt = false          # ‏pg_cron שבועי (weekly-news-ticker-crawler)
 
 # ---------------------------------------------------------------------------
 # מאומת — פעולות של סוכן/ת מחובר/ת, הזהות נגזרת מה-JWT בלבד
@@ -90,3 +104,21 @@ verify_jwt = true
 
 [functions.property-visualize-base]
 verify_jwt = true           # סט הבסיס — הסוכן/ת מה-JWT, או service role מהטריגר
+
+[functions.lead-claim]
+verify_jwt = true           # פתיחת ליד — פעולה שמעבירה כסף
+
+[functions.promote-property]
+verify_jwt = true           # קידום נכס — נוגע ב-credit_balance
+
+[functions.wallet-topup]
+verify_jwt = true           # טעינת ארנק
+
+[functions.afula-planning-lookup]
+verify_jwt = true           # מידע תכנוני מלא — מוגבל למסלול Mid/Premium
+
+[functions.geocode-address]
+verify_jwt = true           # גיאוקוד לכתובת — לכל סוכן/ת פעיל/ה, בלי הגבלת מסלול
+
+[functions.dev-switch-mode]
+verify_jwt = true           # כלי בדיקה — מוגבל ל-is_platform_admin בלבד
