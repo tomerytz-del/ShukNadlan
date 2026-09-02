@@ -112,10 +112,27 @@ jobs:
             echo "::warning::הסוד SUPABASE_DB_URL הכיל תווים נסתרים או עוטפים שהוסרו לפני השימוש (${#SUPABASE_DB_URL_RAW} תווים לפני, ${#CLEAN} אחרי). הסיבה הנפוצה: העתקה דרך מסמך בעברית שמוסיף סימן כיווניות. שווה לעדכן את הסוד עצמו."
           fi
 
+          # ההודעה כאן מזהה *מה* הודבק ולא רק שזה שגוי. בלי זה המשתמש/ת מקבל/ת
+          # "לא מתחיל ב-postgresql://" ונשאר/ת לנחש בין טוקן, פקודת psql ומחרוזת
+          # קטועה — שלושה מצבים שנראים זהים בלוג, כי הערך ממוסך.
+          # אף אחת מההודעות אינה חושפת את תוכן הסוד: רק את סוג הדבר שזוהה.
           case "$CLEAN" in
-            postgresql://*|postgres://*) ;;
+            postgresql://*|postgres://*)
+              ;;
+            sbp_*)
+              echo "::error::ב-SUPABASE_DB_URL הודבק טוקן גישה של Supabase (מתחיל ב-sbp_) ולא מחרוזת חיבור. זהו הערך של הסוד השני, SUPABASE_ACCESS_TOKEN, והוא משמש רק לפריסת Edge Functions. ל-SUPABASE_DB_URL צריך את המחרוזת מ-Supabase → Connect → Direct connection / Session pooler → URI, שמתחילה ב-postgresql:// ומכילה את סיסמת המסד. פירוט: docs/supabase-migrations.md"
+              exit 1
+              ;;
+            psql*)
+              echo "::error::ב-SUPABASE_DB_URL הודבקה פקודת psql שלמה ולא המחרוזת עצמה. יש להסיר את המילה psql ואת הגרשיים, ולהשאיר רק את מה שמתחיל ב-postgresql://. פירוט: docs/supabase-migrations.md"
+              exit 1
+              ;;
+            *postgresql://*|*postgres://*)
+              echo "::error::ב-SUPABASE_DB_URL יש טקסט *לפני* המחרוזת. ‏pgx דורש שהערך יתחיל ב-postgresql:// בדיוק. יש למחוק כל מה שקודם לו. פירוט: docs/supabase-migrations.md"
+              exit 1
+              ;;
             *)
-              echo "::error::הסוד SUPABASE_DB_URL אינו מתחיל ב-postgresql:// גם אחרי ניקוי. ודאו שהודבקה מחרוזת החיבור המלאה מ-Supabase → Connect → Direct → URI, בלי גרשיים ובלי טקסט לפניה. פירוט: docs/supabase-migrations.md"
+              echo "::error::הסוד SUPABASE_DB_URL אינו מחרוזת חיבור: הוא אינו מכיל postgresql:// כלל (אורך: ${#CLEAN} תווים). ודאו שהודבקה המחרוזת המלאה מ-Supabase → Connect → Direct connection / Session pooler → URI — לא הסיסמה לבדה, לא ה-project ref ולא מפתח API. פירוט: docs/supabase-migrations.md"
               exit 1
               ;;
           esac
@@ -126,6 +143,41 @@ jobs:
               exit 1
               ;;
           esac
+
+          # ------------------------------------------------------------------
+          # תווים בסיסמה שחייבים קידוד אחוזים.
+          #
+          # זו הייתה התקלה בהרצה #26, והיא לא נראית בלוג: הודעת השגיאה של
+          # ה-CLI מסתירה את הסיסמה מאחורי [REDACTED], ולכן התו ששובר את
+          # הניתוח מוסתר יחד איתה והמחרוזת נראית תקינה לחלוטין.
+          #
+          # נבדק מול אותה גרסת CLI, תו-תו: מבין כל תווי ASCII המודפסים,
+          # **רק ארבעה** מפילים את הניתוח כשהם בסיסמה — % # ? / — כי כל אחד
+          # מהם מסיים את אזור הסיסמה מבחינת מנתח ה-URL (escape, fragment,
+          # query, path). כל השאר — כולל רווח, סוגריים, גרשיים, עברית
+          # ותווים מוטעמים — עוברים בשלום.
+          #
+          # רצף %XX תקין מוסר לפני הבדיקה, כדי שסיסמה שכבר מקודדת כראוי לא
+          # תיפסל בטעות.
+          #
+          # אזור הסיסמה: מה-":" הראשון שאחרי "//" עד ה-"@" האחרון. הוא לעולם
+          # לא מודפס — רק שמות התווים הבעייתיים.
+          # ------------------------------------------------------------------
+          AFTER_SCHEME=${CLEAN#*://}
+          USERINFO=${AFTER_SCHEME%@*}
+          PW=${USERINFO#*:}
+          PW_PLAIN=$(printf '%s' "$PW" | LC_ALL=C sed -E 's/%[0-9A-Fa-f]{2}//g')
+
+          BAD=""
+          case "$PW_PLAIN" in *"%"*) BAD="$BAD  %  →  %25" ;; esac
+          case "$PW_PLAIN" in *"#"*) BAD="$BAD  #  →  %23" ;; esac
+          case "$PW_PLAIN" in *"?"*) BAD="$BAD  ?  →  %3F" ;; esac
+          case "$PW_PLAIN" in *"/"*) BAD="$BAD  /  →  %2F" ;; esac
+
+          if [ -n "$BAD" ]; then
+            echo "::error::סיסמת המסד שבתוך SUPABASE_DB_URL מכילה תווים שמנתח ה-URL אינו מרשה בלי קידוד, ולכן החיבור נכשל ב-'failed to parse connection string'. התווים שנמצאו והקידוד שלהם:$BAD . אפשר להחליף אותם ידנית במחרוזת, או — פשוט יותר — לאפס את סיסמת המסד לאותיות וספרות בלבד ב-Supabase → Project Settings → Database → Reset database password. פירוט: docs/supabase-migrations.md"
+            exit 1
+          fi
 
           # השלבים הבאים קוראים את הערך המנוקה מכאן, ולא מהסוד הגולמי.
           {
@@ -144,13 +196,32 @@ jobs:
       - name: מצב המיגרציות לפני ההרצה
         run: supabase migration list --db-url "$SUPABASE_DB_URL"
 
+      # ‏--include-all אינו קיצור דרך אלא תנאי הכרחי בריפו הזה.
+      #
+      # ברירת המחדל של db push היא לסרב למיגרציה שה-version שלה ישן מהרשומה
+      # האחרונה במסד, ולהיכשל ב:
+      #
+      #   Found local migration files to be inserted before the last migration
+      #   on remote database.
+      #
+      # ההנחה מאחורי הסירוב היא שמיגרציות נוצרות בזו אחר זו. כאן זה פשוט לא
+      # נכון: שני ענפים מקבילים בוחרים כל אחד תאריך משלו, והמיזוג השני מכניס
+      # ל-main קובץ עם version ישן יותר מזה שכבר רץ. זה קרה כאן שוב ושוב —
+      # אותה דינמיקה שיצרה גם את התנגשויות ה-version הכפול המתועדות במסמך.
+      #
+      # בלי הדגל, כל מיזוג כזה מפיל את ה-job ועוצר *את כל* המיגרציות שאחריו,
+      # כולל חדשות לגמרי. עם הדגל, db push מחיל כל קובץ שאינו רשום בהיסטוריה
+      # בלי קשר לסדר.
+      #
+      # אומת מקומית מול אותה גרסת CLI: הדגל מחיל את הקובץ הישן ואת החדש יחד,
+      # רושם את שניהם, ו**אינו** מריץ מחדש מיגרציה שכבר רשומה.
       - name: הרצת המיגרציות
         env:
           # קלט ההרצה הידנית מועבר כמשתנה סביבה ולא משורשר לתוך הפקודה
           DRY_RUN: ${{ inputs.dry_run }}
         run: |
-          ARGS=""
-          if [ "$DRY_RUN" = "true" ]; then ARGS="--dry-run"; fi
+          ARGS="--include-all"
+          if [ "$DRY_RUN" = "true" ]; then ARGS="$ARGS --dry-run"; fi
           supabase db push --db-url "$SUPABASE_DB_URL" $ARGS
 
       - name: מצב המיגרציות אחרי ההרצה
