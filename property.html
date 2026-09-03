@@ -752,19 +752,26 @@
     overflow:hidden;background:var(--surface);box-shadow:var(--shadow-xs)}
   .viz-item img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
   .viz-item .viz-room{padding:9px 12px;font-size:.82rem;font-weight:700}
-  /* אריחים קטנים מ-.viz-grid: אלה לא ההדמיות של הנכס הזה אלא ראיה שהכלי
-     עובד, ולכן הם לא מתחרים בגובה עם התוכן של העמוד עצמו. */
+  /* מסלול אופקי ולא רשת: אלה כל ההדמיות של הנכס לאורך זמן, והן יכולות
+     להצטבר לעשרות. רשת הייתה מותחת את העמוד ככל שמפיקים עוד; מסלול
+     נשאר בגובה קבוע וההיסטוריה נגללת בתוכו. אותה שיטת מידוד של
+     ‎.featured-scroll‎ שכבר בעמוד: שלושה אריחים בתצוגה והצצה לרביעי. */
   .viz-recent{margin-top:18px;padding-top:16px;border-top:1px solid var(--hair)}
   .viz-recent-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;margin-bottom:10px}
   .viz-recent-head h3{margin:0;font-size:.95rem;font-weight:800}
   .viz-recent-head span{font-size:.78rem;color:var(--ink-soft)}
-  .viz-recent-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
-  .viz-recent-item{display:block;text-decoration:none;color:inherit;border:1px solid var(--hair);
-    background:var(--surface);position:relative}
+  .viz-recent-rail{
+    --rail-gap:9px;
+    display:flex;gap:var(--rail-gap);overflow-x:auto;scroll-snap-type:x mandatory;
+    padding-bottom:6px;
+  }
+  .viz-recent-item{
+    flex:0 0 min(190px, calc((100% - var(--rail-gap) * 2) / 3));scroll-snap-align:start;
+    border:1px solid var(--hair);background:var(--surface);position:relative;
+  }
   .viz-recent-item img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
   .viz-recent-item span{display:block;padding:7px 9px;font-size:.74rem;font-weight:700;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .viz-recent-item:hover{border-color:var(--brass,#c9a227)}
 
   .viz-badge{position:absolute;top:8px;inset-inline-start:8px;background:rgba(27,31,38,.86);
     color:#fff;font-size:.66rem;font-weight:700;padding:4px 9px;border-radius:0;letter-spacing:.02em}
@@ -906,18 +913,16 @@
           <div class="viz-grid" id="vizGrid"></div>
           <p class="viz-fallback" id="vizFallbackNote" hidden></p>
 
-          <!-- ====== הופקו לאחרונה במערכת ======
-               בנכס מסחרי הרשת שמעל ריקה עד שמישהו/י מבקש/ת הדמיה, ורשת ריקה
-               מעל טופס שמבקש שם וטלפון היא הבטחה בלי כיסוי. כאן יושבות
-               הדמיות אמיתיות שהמערכת כבר הפיקה — הוכחה שהדבר עובד, לפני
-               הבקשה למסור פרטים. כל אריח מקשר לנכס שממנו ההדמיה, כדי שיהיה
-               ברור שאלה לא הדמיות של הנכס הנוכחי. -->
+          <!-- ====== ההדמיות האחרונות של הנכס ======
+               כל מה שהופק לנכס הזה, החדש ביותר קודם — כולל הדמיות שנוצרו
+               לפי דרישה ולא רק סט הבסיס. הרשת שמעל מציגה את הסגנון הנבחר;
+               כאן רואים את הכול במסלול אחד, בלי לבחור סגנון קודם. -->
           <div class="viz-recent" id="vizRecent" hidden>
             <div class="viz-recent-head">
-              <h3>הופקו לאחרונה במערכת</h3>
-              <span>הדמיות אמיתיות שנוצרו לנכסים אחרים בפלטפורמה</span>
+              <h3>ההדמיות האחרונות של הנכס</h3>
+              <span id="vizRecentCount"></span>
             </div>
-            <div class="viz-recent-grid" id="vizRecentGrid"></div>
+            <div class="viz-recent-rail" id="vizRecentGrid"></div>
           </div>
 
           <div class="viz-cta" id="vizCta" hidden>
@@ -1855,13 +1860,28 @@ async function loadVisualizations(p){
     vizState.propertyId = p.id;
     vizState.isPrivate = p.category === 'residential';
 
+    /* ‏property_visualizations_recent ולא ‎_public‎: השני מסנן ‎is_base = true‎,
+       כלומר רק סט הבסיס שנוצר אוטומטית עם פרסום הנכס. כל הדמיה שהופקה לפי
+       דרישה נעלמה ממנו — ולכן הרשת כאן הייתה ריקה בנכסים שכבר היו להם
+       הדמיות מוכנות, והגולש/ת ראה/תה טופס בלי שום ראיה שהכלי עובד.
+       ‏recent מחזיר את שתיהן, מסונן לנכס הזה בלבד. */
     const { data: base } = await sb
-      .from('property_visualizations_public')
-      .select('target, style_key, result_url')
-      .eq('property_id', p.id);
+      .from('property_visualizations_recent')
+      .select('target, style_key, result_url, created_at')
+      .eq('property_id', p.id)
+      .order('created_at', { ascending:false });
 
+    /* דילול לפי סגנון+מטרה, החדש ביותר מנצח. אותו נכס יכול לצבור כמה
+       הדמיות של אותו מטבח באותו סגנון — כל גולש/ת שביקש/ה מוסיף/ה אחת —
+       והרשת שמעל אמורה להראות "המטבח בסגנון הזה", לא ארבע גרסאות שלו.
+       השאילתה ממוינת מהחדש לישן, ולכן הראשון שנתקלים בו הוא הנכון.
+       זהו גם הכלל של mergeVizRows() כשמגיעה תוצאה חדשה בזמן אמת. */
+    const seenViz = new Set();
     (base || []).forEach(r=>{
       const key = r.style_key || '_';
+      const dedupeKey = key + '|' + r.target;
+      if (seenViz.has(dedupeKey)) return;
+      seenViz.add(dedupeKey);
       if (!vizState.byStyle.has(key)) vizState.byStyle.set(key, []);
       vizState.byStyle.get(key).push({ target:r.target, result_url:r.result_url });
     });
@@ -1893,6 +1913,8 @@ async function loadVisualizations(p){
       vizState.current = '_';
       renderVizGrid();
     }
+
+    renderRecentVisualizations();
   } catch(e){
     console.warn('טעינת הדמיות נכשלה:', e);
   }
@@ -1920,63 +1942,44 @@ function renderVizCommercial(){
     '</div>';
   document.getElementById('vizCta').hidden = false;
   document.getElementById('vizOpenBtn').textContent = 'לראות את העסק שלכם בנכס';
-  loadRecentVisualizations();
 }
 
-/* ---------- "הופקו לאחרונה במערכת" ----------
-   נשלף מ-property_visualizations_recent — ה-view שחושף את כל ההדמיות
-   המוכנות של נכסים פעילים, כולל אלה שנוצרו לפי דרישה, בלי job_id ובלי
-   פרטי מי שביקש/ה אותן.
+/* ---------- ההדמיות האחרונות של הנכס ----------
+   נבנה מ-vizState, שכבר מחזיק את כל מה שנשלף לנכס הזה — אין כאן שאילתה
+   שנייה. ‏loadVisualizations() שולף ממוין מהחדש לישן, וסדר ההוספה
+   ל-byStyle נשמר, ולכן שיטוח הדליים חזרה לרשימה אחת מחזיר את אותו סדר.
 
-   כישלון כאן לא מפיל כלום: הבלוק פשוט נשאר מוסתר, ותיבת ההדמיה ממשיכה
-   לעבוד בדיוק כמו קודם. */
-const VIZ_RECENT_LIMIT = 8;
-/* תקרה לכל נכס. בלעדיה נכס אחד עם שמונה סגנונות ממלא לבדו את הגלריה
-   ומציג אותה כאילו המערכת הפיקה בסך הכול נכס אחד; עם דילול של אחד לכל
-   נכס נזרקות רוב התמונות והגלריה נשארת דלילה. שלוש הן האיזון. */
-const VIZ_RECENT_PER_PROPERTY = 3;
+   המסלול מוצג בכל נכס שיש לו הדמיות — פרטי ומסחרי כאחד. בפרטי הרשת שמעל
+   מציגה את הסגנון הנבחר בלבד, וכאן רואים את הכול; במסחרי אין סגנונות
+   ולכן זו פשוט ההיסטוריה של הנכס. */
+const VIZ_RECENT_LIMIT = 12;
 
-async function loadRecentVisualizations(){
+function renderRecentVisualizations(){
   const box = document.getElementById('vizRecent');
-  const grid = document.getElementById('vizRecentGrid');
-  if (!box || !grid || !window.supabase) return;
+  const rail = document.getElementById('vizRecentGrid');
+  const countEl = document.getElementById('vizRecentCount');
+  if (!box || !rail) return;
 
-  try{
-    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    /* נשלפות יותר משורות מהמכסה: הנכס הנוכחי יורד אחר כך, וגם הדמיות
-       כפולות של אותו נכס — בלי מרווח כזה נכס אחד עם שמונה סגנונות היה
-       ממלא לבדו את כל הגלריה. */
-    const { data, error } = await sb
-      .from('property_visualizations_recent')
-      .select('property_id, target, result_url, created_at')
-      .order('created_at', { ascending:false })
-      .limit(60);
-    if (error || !data || !data.length) return;
-
-    const perProperty = new Map();
-    const items = [];
-    for (const row of data){
-      // הנכס הנוכחי יורד: ההדמיות שלו הן הרשת שמעל, והבלוק הזה מציג
-      // במפורש "נכסים אחרים בפלטפורמה"
-      if (!row.result_url || row.property_id === vizState.propertyId) continue;
-      const used = perProperty.get(row.property_id) || 0;
-      if (used >= VIZ_RECENT_PER_PROPERTY) continue;
-      perProperty.set(row.property_id, used + 1);
-      items.push(row);
-      if (items.length === VIZ_RECENT_LIMIT) break;
-    }
-    if (!items.length) return;
-
-    grid.innerHTML = items.map(it=>
-      `<a class="viz-recent-item" href="property.html?id=${encodeURIComponent(it.property_id)}">` +
-        `<img src="${escapeAttr(it.result_url)}" loading="lazy" ` +
-             `alt="הדמיה של ${escapeAttr(VIZ_TARGET_LABELS[it.target] || 'נכס')} בנכס אחר בפלטפורמה">` +
-        `<span>${escapeHtml(VIZ_TARGET_LABELS[it.target] || 'הדמיה')}</span>` +
-      `</a>`).join('');
-    box.hidden = false;
-  } catch(e){
-    console.warn('גלריית ההדמיות האחרונות לא נטענה:', e);
+  const items = [...vizState.byStyle.values()].flat().slice(0, VIZ_RECENT_LIMIT);
+  /* פחות משתיים אינן "קרוסלה" — הדמיה בודדת כבר מוצגת ברשת שמעל, ומסלול
+     גלילה עם אריח אחד הוא רעש. המסלול מתרוקן ולא רק מוסתר: הפונקציה
+     נקראת שוב אחרי כל הדמיה חדשה, ותוכן ישן שנשאר מאחורי hidden הוא
+     תוכן שממתין לרגע שבו משהו יסיר את ה-hidden. */
+  if (items.length < 2){
+    rail.innerHTML = '';
+    if (countEl) countEl.textContent = '';
+    box.hidden = true;
+    return;
   }
+
+  rail.innerHTML = items.map(it=>
+    `<div class="viz-recent-item">` +
+      `<img src="${escapeAttr(it.result_url)}" loading="lazy" ` +
+           `alt="הדמיה של ${escapeAttr(VIZ_TARGET_LABELS[it.target] || 'הנכס')}">` +
+      `<span>${escapeHtml(VIZ_TARGET_LABELS[it.target] || 'הדמיה')}</span>` +
+    `</div>`).join('');
+  if (countEl) countEl.textContent = `${items.length} הדמיות שהופקו לנכס הזה`;
+  box.hidden = false;
 }
 
 function selectVizStyle(styleKey){
@@ -2123,6 +2126,8 @@ function mergeVizResults(rows){
     else list.push({ target:r.target, result_url:r.result_url });
   });
   vizState.byStyle.set(key, list);
+  // הדמיה שהרגע נוצרה נכנסת למסלול בלי לרענן את הדף
+  renderRecentVisualizations();
 }
 
 /* ההדמיה רצה ברקע ב-Edge Function ולכן המעקב הוא polling על ה-RPC.
