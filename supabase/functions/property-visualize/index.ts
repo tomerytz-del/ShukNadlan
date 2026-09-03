@@ -194,18 +194,31 @@ Deno.serve(async (req: Request) => {
   // ---- מה כבר קיים ------------------------------------------------------
   // רק status='done' נחשב שימוש חוזר. שורה שנכשלה או שתקועה ב-processing
   // נוצרת מחדש — עדיף לשלם עוד קריאה מאשר להשאיר גולש/ת מול תמונה חסרה.
-  let ready: Array<{ target: string; style_key: string | null; result_url: string }> = [];
+  //
+  // ‏source_image_url נשלף יחד עם התוצאה: הווילון בדף הנכס משווה כל הדמיה
+  // לצילום שהיא נוצרה ממנו, ותשובה בלעדיו הייתה מחזירה את הדף לניחוש.
+  let ready: Array<{
+    target: string;
+    style_key: string | null;
+    source_image_url: string;
+    result_url: string;
+  }> = [];
   if (isPrivate) {
     const { data: existing } = await supabase
       .from("property_visualizations")
-      .select("target, style_key, result_url, status")
+      .select("target, style_key, source_image_url, result_url, status")
       .eq("property_id", property_id)
       .eq("kind", "private_room")
       .eq("style_key", styleKey)
       .eq("status", "done");
     ready = (existing ?? [])
       .filter((r: any) => r.result_url)
-      .map((r: any) => ({ target: r.target, style_key: r.style_key, result_url: r.result_url }));
+      .map((r: any) => ({
+        target: r.target,
+        style_key: r.style_key,
+        source_image_url: r.source_image_url,
+        result_url: r.result_url,
+      }));
   }
 
   const readyTargets = new Set(ready.map((r) => r.target));

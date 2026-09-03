@@ -1973,10 +1973,6 @@ function renderPropertyShowcase(){
     styles: vizState.isPrivate ? VIZ_STYLES.map(x=>({ key:x.key, label:x.label })) : [],
     activeStyle: vizState.isPrivate ? vizState.current : null,
     leadPick: vizState.leadPick,
-    /* ‏source_image_url הוא הצילום שההדמיה נוצרה ממנו. שורה ישנה שלא שמרה
-       אותו נופלת לתמונה הראשית של הנכס — אותו צילום שהמבקר/ת ראה/תה
-       בגלריה, ולכן השוואה כנה ולא המצאה. */
-    fallbackBefore: galleryImages[0] || '',
     cta: vizBandCta(),
     onCta: onVizBandCta,
     onSelectStyle: (key, resultUrl)=>{ vizState.leadPick = resultUrl || null; selectVizStyle(key); },
@@ -2144,14 +2140,25 @@ function initVisualizationForm(){
   });
 }
 
+/* ‏source_image_url נכנס כאן בדיוק כמו ב-loadVisualizations. הוא נשמט מהמסלול
+   הזה, ולכן כל הדמיה שנוצרה *בזמן הצפייה* הגיעה לרצועה בלי תמונת המקור שלה:
+   הווילון נפל ל-fallback, וב"חלל העסק" של נכס מסחרי הצד ה"לפני" הראה את
+   חזית הבניין מול פנים העסק בצד ה"אחרי" — שני מקומות שונים שמוצגים כאותו
+   מקום לפני ואחרי. הדמיה שנטענה מהשרת לא סבלה מזה, וזו הסיבה שהתקלה נראתה
+   רק אחרי לחיצה על הכפתור. */
 function mergeVizResults(rows){
   const key = vizState.current || '_';
   const list = vizState.byStyle.get(key) || [];
   rows.forEach(r=>{
     if (!r.result_url) return;
+    const source = r.source_image_url || null;
     const existing = list.find(x=>x.target === r.target);
-    if (existing) existing.result_url = r.result_url;
-    else list.push({ target:r.target, result_url:r.result_url });
+    if (existing){
+      existing.result_url = r.result_url;
+      if (source) existing.source_image_url = source;
+    } else {
+      list.push({ target:r.target, result_url:r.result_url, source_image_url:source });
+    }
   });
   vizState.byStyle.set(key, list);
   // הדמיה שהרגע נוצרה נכנסת לרצועה בלי לרענן את הדף
