@@ -102,8 +102,12 @@
     '.ai-range:focus-visible ~ .ai-divider .ai-handle{outline:3px solid #fff;outline-offset:2px}',
     '.ai-label{position:absolute;top:10px;z-index:2;font-size:11px;font-weight:800;',
     '  letter-spacing:.08em;padding:4px 9px;background:rgba(13,27,61,.82);color:#e6ecf9}',
-    '.ai-label-before{inset-inline-end:10px}',
-    '.ai-label-after{inset-inline-start:10px;background:rgba(201,162,39,.92);color:#0d1b3d}',
+    /* איזה חצי כל תווית מסמנת: שכבת ה"אחרי" נחשפת מהקצה שאינו קצה ההתחלה
+       של כיוון הכתיבה — כלומר משמאל בעברית — ולכן "אחרי" יושבת שם
+       ו"לפני" בצד הנגדי. הן היו הפוכות: כל תווית ישבה מעל החצי של
+       השנייה, וקוראים שהאמינו לתווית ראו את הצילום כהדמיה ולהפך. */
+    '.ai-label-before{inset-inline-start:10px}',
+    '.ai-label-after{inset-inline-end:10px;background:rgba(201,162,39,.92);color:#0d1b3d}',
     '.ai-compare-caption{margin:9px 0 0;font-size:12px;color:#8b97ba}',
     /* אותו יחס גובה-רוחב של הווילון: הצד הזה של התיבה לא קורס בין סגנון
        שיש לו הדמיה לסגנון שאין לו. */
@@ -155,8 +159,13 @@
     '.ai-compare[data-idle] .ai-after{animation:aiWipe 9s ease-in-out infinite alternate}',
     '.ai-compare[data-idle] .ai-divider{animation:aiSlide 9s ease-in-out infinite alternate}',
     '.ai-compare[data-idle] .ai-label-before{animation:aiLabel 9s ease-in-out infinite alternate}',
+    /* שני ה-keyframes האלה חייבים לתאר את *אותו* קו. ב-RTL שכבת ה"אחרי"
+       נחשפת דרך ‎inset‎ מימין, והמפריד יושב על ‎inset-inline-start‎ שהוא גם
+       הוא מרחק מימין — ולכן שני הערכים זהים בכל פריים. הם היו הפוכים
+       (‏70%→22% מול 30%→78%), והתוצאה הייתה קו זהב שנוסע לכיוון אחד בזמן
+       שהתמונה נחשפת לכיוון השני. */
     '@keyframes aiWipe{from{clip-path:inset(0 70% 0 0)}to{clip-path:inset(0 22% 0 0)}}',
-    '@keyframes aiSlide{from{inset-inline-start:30%}to{inset-inline-start:78%}}',
+    '@keyframes aiSlide{from{inset-inline-start:70%}to{inset-inline-start:22%}}',
     '@keyframes aiLabel{from{opacity:1}to{opacity:.45}}',
     '@media (prefers-reduced-motion: reduce){',
     '  .ai-compare[data-idle] .ai-after,.ai-compare[data-idle] .ai-divider,',
