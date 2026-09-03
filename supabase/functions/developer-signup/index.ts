@@ -1,6 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { corsHeaders, email, int, json, phoneE164, safeUrl, slugify, text } from "../_shared/projects.ts";
+import {
+  corsHeaders, developerCore, email, int, json, REQUIRED_DEVELOPER_FIELDS, safeUrl, slugify, text,
+} from "../_shared/projects.ts";
 
 // ============================================================================
 // פתיחת חברה יזמית/קבלנית
@@ -26,15 +28,29 @@ Deno.serve(async (req: Request) => {
   let body: Record<string, unknown>;
   try { body = await req.json(); } catch { return json({ error: "invalid_json" }, 400); }
 
-  const companyName = text(body.company_name, 120);
-  const contactName = text(body.contact_name, 120);
+  // ---------------------------------------------------------------------
+  // גרעין פרטי החברה — שם, ח״פ, איש קשר, טלפון, כתובת ועיר — נדרש במלואו.
+  //
+  // ‏developerCore מחזירה את **כל** השדות החסרים והפסולים יחד ולא נעצרת
+  // בראשון: טופס שמצביע על שדה אחד בכל שליחה מכריח את מי שממלא/ת אותו
+  // לשלוח שש פעמים כדי לגלות שש בעיות.
+  //
+  // הבדיקה כאן ולא רק ב-required של הטופס, מאותה סיבה שהיא תמיד גם בשרת:
+  // ‏required בדפדפן הוא בקשה מנומסת, וגוף הבקשה מגיע מהדפדפן.
+  // ---------------------------------------------------------------------
+  const core = developerCore(body);
   const contactEmail = email(body.contact_email);
   const password = typeof body.password === "string" ? body.password : "";
 
-  if (!companyName || !contactName || !contactEmail || !password) {
+  if (!core.ok || !contactEmail || !password) {
+    const missing = core.ok ? [] : [...core.missing];
+    if (!contactEmail) missing.push("contact_email");
+    if (!password) missing.push("password");
     return json({
       error: "missing_fields",
-      required: ["company_name", "contact_name", "contact_email", "password"],
+      missing,
+      invalid: core.ok ? [] : core.invalid,
+      required: [...REQUIRED_DEVELOPER_FIELDS, "contact_email", "password"],
     }, 400);
   }
   if (password.length < 8) {
@@ -51,7 +67,7 @@ Deno.serve(async (req: Request) => {
   try {
     // ‏slug ייחודי לחברה. אותה לולאה של agency-signup — היא רצה פעם אחת
     // כמעט תמיד, וכשהיא רצה פעמיים זה בדיוק המקרה שהיא נועדה לו.
-    const baseSlug = slugify(companyName, "developer");
+    const baseSlug = slugify(core.value.name, "developer");
     let finalSlug = baseSlug;
     for (let attempt = 2; ; attempt++) {
       const { data: taken } = await supabase
@@ -65,7 +81,7 @@ Deno.serve(async (req: Request) => {
       email: contactEmail,
       password,
       email_confirm: true,
-      user_metadata: { full_name: contactName, account_type: "developer" },
+      user_metadata: { full_name: core.value.contact_name, account_type: "developer" },
     });
     if (authErr || !authUser?.user) {
       return json({ error: "auth_error", detail: authErr?.message || "יצירת משתמש נכשלה" }, 400);
@@ -76,17 +92,18 @@ Deno.serve(async (req: Request) => {
       .insert({
         user_id: authUser.user.id,
         slug: finalSlug,
-        name: companyName,
+        name: core.value.name,
+        company_number: core.value.company_number,
+        contact_name: core.value.contact_name,
+        phone: core.value.phone,
+        phone_e164: core.value.phone_e164,
+        address: core.value.address,
+        city: core.value.city,
         legal_name: text(body.legal_name, 160),
-        company_number: text(body.company_number, 40),
         tagline: text(body.tagline, 160),
         description: text(body.description, 4000),
-        phone: text(body.phone, 40),
-        phone_e164: phoneE164(body.phone),
         email: contactEmail,
         website: safeUrl(body.website),
-        address: text(body.address, 200),
-        city: text(body.city, 80),
         founded_year: int(body.founded_year, 1900, new Date().getFullYear()),
         projects_delivered: int(body.projects_delivered, 0, 5000),
       })

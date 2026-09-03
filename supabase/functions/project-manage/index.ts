@@ -1,9 +1,9 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
-  bool, corsHeaders, email, int, json, longText, MEDIA_KINDS, num, oneOf,
-  phoneE164, PROJECT_FEATURES, PROJECT_PROPERTY_TYPES, PROJECT_STAGES, safeUrl,
-  stringList, text, UNIT_AVAILABILITY,
+  bool, corsHeaders, developerCore, email, int, json, longText, MEDIA_KINDS, num, oneOf,
+  phoneE164, PROJECT_FEATURES, PROJECT_PROPERTY_TYPES, PROJECT_STAGES,
+  REQUIRED_DEVELOPER_FIELDS, safeUrl, slugify, stringList, text, UNIT_AVAILABILITY,
 } from "../_shared/projects.ts";
 
 // ============================================================================
@@ -115,10 +115,78 @@ Deno.serve(async (req: Request) => {
 
   const { data: developer } = await supabase
     .from("developers").select("id, status").eq("user_id", userData.user.id).maybeSingle();
-  if (!developer) return json({ error: "no_developer_account" }, 403);
-  if (developer.status !== "active") return json({ error: "developer_suspended" }, 403);
 
   const action = typeof body.action === "string" ? body.action : "";
+
+  // ---------------------------------------------------------------------
+  // פתיחת חברה למי שכבר מחובר/ת
+  //
+  // זהו המסלול של כניסת Google: היא יוצרת משתמש ב-auth.users אבל לא שורת
+  // ‏developers, ולכן הכניסה הראשונה נוחתת על מסך "פתיחת חברה" ומגיעה
+  // לכאן. ‏developer-signup אינו מתאים — הוא יוצר גם את חשבון ה-Auth,
+  // ולמשתמש/ת הזה/הזאת כבר יש אחד.
+  //
+  // הפעולה היחידה שמותרת לפני שיש חברה, ולכן היא נבדקת לפני הבדיקה
+  // שלמטה. גרעין פרטי החברה נדרש כאן במלואו, בדיוק כמו בטופס ההרשמה.
+  // ---------------------------------------------------------------------
+  if (action === "create_developer") {
+    if (developer) return json({ error: "developer_exists" }, 409);
+
+    const core = developerCore(body);
+    if (!core.ok) {
+      return json({
+        error: "missing_fields", missing: core.missing, invalid: core.invalid,
+        required: REQUIRED_DEVELOPER_FIELDS,
+      }, 400);
+    }
+
+    let baseSlug = slugify(core.value.name, "developer");
+    let finalSlug = baseSlug;
+    for (let attempt = 2; ; attempt++) {
+      const { data: taken } = await supabase
+        .from("developers").select("id").eq("slug", finalSlug).maybeSingle();
+      if (!taken) break;
+      finalSlug = `${baseSlug}-${attempt}`;
+      if (attempt > 50) { finalSlug = `${baseSlug}-${crypto.randomUUID().slice(0, 6)}`; break; }
+    }
+
+    const { data: created, error } = await supabase
+      .from("developers")
+      .insert({
+        user_id: userData.user.id,
+        slug: finalSlug,
+        name: core.value.name,
+        company_number: core.value.company_number,
+        contact_name: core.value.contact_name,
+        phone: core.value.phone,
+        phone_e164: core.value.phone_e164,
+        address: core.value.address,
+        city: core.value.city,
+        legal_name: text(body.legal_name, 160),
+        tagline: text(body.tagline, 160),
+        // הכתובת מ-Google היא ברירת המחדל, ולא ערך שהמשתמש/ת בחר/ה
+        // להציג. אפשר לשנות אותה במסך דף החברה.
+        email: email(body.email) ?? userData.user.email ?? null,
+        website: safeUrl(body.website),
+        founded_year: int(body.founded_year, 1900, new Date().getFullYear()),
+        projects_delivered: int(body.projects_delivered, 0, 5000),
+      })
+      .select("id, slug")
+      .single();
+
+    if (error) {
+      // ‏unique על company_number: אותה חברה כבר רשומה תחת חשבון אחר.
+      // ההודעה הזו חשובה — בלעדיה זו "שגיאת מסד" בלי שום דרך קדימה.
+      if (/developers_company_number_key/.test(error.message)) {
+        return json({ error: "company_number_taken" }, 409);
+      }
+      return json({ error: "db_error", detail: error.message }, 500);
+    }
+    return json({ success: true, developer_id: created.id, developer_slug: created.slug });
+  }
+
+  if (!developer) return json({ error: "no_developer_account" }, 403);
+  if (developer.status !== "active") return json({ error: "developer_suspended" }, 403);
   const projectId = typeof body.project_id === "string" ? body.project_id : null;
 
   // כל פעולה שנוגעת בפרויקט מאמתת בעלות פעם אחת, כאן. ה-RPC-ים בודקים
@@ -305,26 +373,44 @@ Deno.serve(async (req: Request) => {
       }
 
       // ---------------------------------------------------------------
+      // ---------------------------------------------------------------
+      // עריכת דף החברה. גרעין החובה נדרש גם כאן: חברה שתוכל לרוקן את
+      // הח״פ במסך העריכה אחרי שמילאה אותו בהרשמה היא בדיוק אותה חברה
+      // בלי ח״פ. ה-CHECK במסד היה תופס את זה בכל מקרה — הבדיקה כאן היא
+      // מה שהופך את זה מ"שגיאת מסד" להודעה שאפשר לפעול לפיה.
       case "save_developer": {
+        const core = developerCore({ ...body, company_name: body.name ?? body.company_name });
+        if (!core.ok) {
+          return json({
+            error: "missing_fields", missing: core.missing, invalid: core.invalid,
+            required: REQUIRED_DEVELOPER_FIELDS,
+          }, 400);
+        }
         const { error } = await supabase.from("developers").update({
-          name: text(body.name, 120) ?? undefined,
+          name: core.value.name,
+          company_number: core.value.company_number,
+          contact_name: core.value.contact_name,
+          phone: core.value.phone,
+          phone_e164: core.value.phone_e164,
+          address: core.value.address,
+          city: core.value.city,
           legal_name: text(body.legal_name, 160),
-          company_number: text(body.company_number, 40),
           logo_url: safeUrl(body.logo_url),
           cover_url: safeUrl(body.cover_url),
           colors: sanitizeColors(body.colors),
           tagline: text(body.tagline, 200),
           description: longText(body.description, 8000),
-          phone: text(body.phone, 40),
-          phone_e164: phoneE164(body.phone),
           email: email(body.email),
           website: safeUrl(body.website),
-          address: text(body.address, 200),
-          city: text(body.city, 80),
           founded_year: int(body.founded_year, 1900, new Date().getFullYear()),
           projects_delivered: int(body.projects_delivered, 0, 5000),
         }).eq("id", developer.id);
-        if (error) return json({ error: "db_error", detail: error.message }, 500);
+        if (error) {
+          if (/developers_company_number_key/.test(error.message)) {
+            return json({ error: "company_number_taken" }, 409);
+          }
+          return json({ error: "db_error", detail: error.message }, 500);
+        }
         return json({ success: true });
       }
 

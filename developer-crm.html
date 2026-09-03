@@ -46,7 +46,7 @@
   .btn-sm{padding:7px 13px;font-size:.78rem}
 
   /* ====== התחברות ====== */
-  #loginScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  #loginScreen,#bootScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
   .login-card{background:#fff;border:1px solid var(--line);max-width:400px;width:100%;padding:30px 26px}
   .login-card .logo-link{display:block;width:60px;margin:0 auto 14px;line-height:0}
   .login-card h1{font-size:1.2rem;text-align:center}
@@ -58,6 +58,19 @@
   .field textarea{resize:vertical;min-height:70px}
   .field .hint{font-size:.7rem;color:var(--ink-muted);margin-top:4px;line-height:1.45}
   .msg{font-size:.82rem;min-height:1.2em;font-weight:700;margin-top:10px}
+  .btn-google{background:#fff;color:var(--ink);border:1.5px solid var(--line);gap:10px;width:100%}
+  .btn-google:hover:not(:disabled){border-color:var(--teal)}
+  .or-divider{text-align:center;font-size:.75rem;color:var(--ink-muted);margin:14px 0}
+  .req::after{content:" *";color:var(--danger);font-weight:800}
+  /* ‏:user-invalid ולא :invalid: שדה חובה ריק הוא invalid כבר בטעינה,
+     וטופס שנצבע אדום לפני שנגעו בו נראה כמו רשימת שגיאות. */
+  .field input:user-invalid{border-color:var(--danger)}
+  /* כרטיס ההמתנה. הוא המסך הראשון ולא טופס הכניסה, מאותה סיבה שתועדה
+     ב-docs/google-login.md: בדיקת ה-session אסינכרונית, וטופס שנצבע לפניה
+     מהבהב לכל מי שכבר מחובר/ת וגם למי שחוזר/ת מ-Google. */
+  .boot-spinner{width:30px;height:30px;margin:14px auto;border:3px solid var(--field);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion: reduce){.boot-spinner{animation-duration:2.4s}}
 
   /* ====== שלד הדשבורד ====== */
   header.app{position:sticky;top:0;z-index:60;background:#fff;border-bottom:1px solid var(--line);padding:10px 0}
@@ -159,11 +172,28 @@
 <body>
 
 <!-- ====== מסך ההתחברות ====== -->
-<div id="loginScreen">
+<!-- ====== מסך ההמתנה ======
+     המסך הראשון בכל טעינה. טופס הכניסה מוצג רק כשידוע שאין חיבור פעיל. -->
+<div id="bootScreen">
+  <div class="login-card" style="text-align:center">
+    <a href="index.html" class="logo-link" aria-label="לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן" width="52" height="62"></a>
+    <div class="boot-spinner" role="status" aria-live="polite"></div>
+    <p class="sub" id="bootMessage">בודקים אם כבר יש חיבור פעיל…</p>
+  </div>
+</div>
+
+<div id="loginScreen" hidden>
   <div class="login-card">
     <a href="index.html" class="logo-link" aria-label="לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן" width="52" height="62"></a>
     <h1>אזור הניהול ליזמים</h1>
     <p class="sub">כניסה עם החשבון של החברה היזמית או הקבלנית</p>
+
+    <button type="button" class="btn btn-google" id="googleBtn">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.94v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.94A9 9 0 0 0 0 9c0 1.45.35 2.83.94 4.03l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .94 4.97l3.01 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
+      <span class="gl-label">התחברות עם Google</span>
+    </button>
+    <p class="or-divider">— או —</p>
+
     <form id="loginForm" novalidate>
       <div class="field"><label for="lgEmail">אימייל</label><input type="email" id="lgEmail" autocomplete="username" required></div>
       <div class="field"><label for="lgPassword">סיסמה</label><input type="password" id="lgPassword" autocomplete="current-password" required></div>
@@ -176,6 +206,56 @@
     <p style="text-align:center;font-size:.78rem;margin:8px 0 0;color:var(--ink-muted)">
       מתווכים וסוכנים — <a href="crm.html" style="color:var(--teal);font-weight:700">הכניסה שלכם כאן</a>
     </p>
+  </div>
+</div>
+
+<!-- ====== פתיחת חברה ======
+     המסך שמי שנכנס/ת עם Google בפעם הראשונה נוחת/ת עליו: יש חשבון Auth,
+     אין עדיין שורת developers. אלה בדיוק שדות החובה של טופס ההרשמה, פחות
+     האימייל והסיסמה — הם כבר הגיעו מ-Google. -->
+<div id="createScreen" hidden style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div class="login-card" style="max-width:520px">
+    <a href="index.html" class="logo-link" aria-label="לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן" width="52" height="62"></a>
+    <h1>פתיחת חברה יזמית</h1>
+    <p class="sub">החשבון <b id="crEmail"></b> עדיין לא מקושר לחברה. נשלים את הפרטים ונפתח אותה.</p>
+
+    <div class="notice" id="crAgentNote" hidden>
+      החשבון הזה משמש גם כסוכן/ת תיווך. פתיחת חברה יזמית כאן אינה משנה דבר
+      בכרטיס הסוכן/ת שלכם — הוא נשאר בדיוק כפי שהוא, וניהולו ממשיך ב-crm.html.
+    </div>
+
+    <div class="notice">
+      פתיחת החברה ודף החברה — ללא עלות. התשלום מתחיל רק כשדף נחיתה של פרויקט
+      עולה לאוויר (<b id="crPricePage">350 ₪ לחודש</b>).
+    </div>
+
+    <form id="createForm" novalidate>
+      <div class="field"><label class="req" for="crName">שם החברה</label><input type="text" id="crName" required></div>
+      <div class="grid2">
+        <div class="field"><label class="req" for="crNumber">ח״פ / עוסק מורשה</label><input type="text" id="crNumber" inputmode="numeric" placeholder="512345678" required><div class="hint">תשע ספרות. מספר בן שמונה יושלם באפס מוביל.</div></div>
+        <div class="field"><label for="crLegal">שם רשמי</label><input type="text" id="crLegal" placeholder="בע״מ"></div>
+      </div>
+      <div class="field"><label class="req" for="crContact">שם איש/אשת הקשר</label><input type="text" id="crContact" required></div>
+      <div class="grid2">
+        <div class="field"><label class="req" for="crPhone">טלפון</label><input type="tel" id="crPhone" inputmode="tel" placeholder="04-6000000" required></div>
+        <div class="field"><label class="req" for="crCity">עיר</label><input type="text" id="crCity" placeholder="עפולה" required></div>
+      </div>
+      <div class="field"><label class="req" for="crAddress">כתובת המשרד</label><input type="text" id="crAddress" placeholder="שדרות ירושלים 40" required></div>
+      <div class="field"><label for="crWebsite">אתר החברה</label><input type="url" id="crWebsite" placeholder="https://"></div>
+
+      <div style="display:flex;align-items:flex-start;gap:9px;background:var(--paper);border:1px solid var(--line);padding:11px 12px;margin:6px 0">
+        <input type="checkbox" id="crTerms" style="margin:2px 0 0;width:17px;height:17px;flex:none;accent-color:var(--teal)">
+        <label for="crTerms" style="font-size:.78rem;line-height:1.45;cursor:pointer">
+          קראתי ואני מסכים/ה ל<a href="terms.html" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">תנאי השימוש</a>
+          ול<a href="privacy.html" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">מדיניות הפרטיות</a>.
+          ידוע לי שהמידע, המחירים והתמונות בדפי הפרויקטים הם באחריות החברה.
+        </label>
+      </div>
+
+      <button type="submit" class="btn btn-teal" style="width:100%" id="crBtn">פתיחת החברה</button>
+      <p class="msg" id="crMsg" role="status" aria-live="polite"></p>
+    </form>
+    <button type="button" class="btn btn-ghost btn-sm" id="crLogout" style="width:100%;margin-top:10px">יציאה</button>
   </div>
 </div>
 
@@ -232,14 +312,19 @@
           <p>הפרטים והמיתוג שמופיעים בדף החברה שלכם, ומלווים כל פרויקט שתעלו — בדף הבית, בדף הפרויקטים ובדף הפרויקט עצמו.</p>
         </div>
       </div>
-      <form id="companyForm">
+      <!-- ‏novalidate בכוונה: השדות נשארים required לצורך נגישות ולסימון
+           ‏:invalid, אבל האימות שמדבר הוא שלנו. אימות הדפדפן עוצר את
+           השליחה ומצביע על שדה **אחד**, וכך ההודעה שמונה את כל מה שחסר
+           לא הייתה מגיעה למסך אף פעם. -->
+      <form id="companyForm" novalidate>
         <div class="card">
           <h3>זהות</h3>
           <p class="sub">מה שרואים בראש דף החברה ובכרטיס היזם שבכל פרויקט.</p>
           <div class="grid2">
-            <div class="field"><label for="coName">שם החברה</label><input type="text" id="coName" required></div>
+            <div class="field"><label class="req" for="coName">שם החברה</label><input type="text" id="coName" required></div>
             <div class="field"><label for="coLegal">שם רשמי</label><input type="text" id="coLegal"></div>
-            <div class="field"><label for="coNumber">ח״פ</label><input type="text" id="coNumber"></div>
+            <div class="field"><label class="req" for="coNumber">ח״פ / עוסק מורשה</label><input type="text" id="coNumber" inputmode="numeric" required><div class="hint">תשע ספרות.</div></div>
+            <div class="field"><label class="req" for="coContact">שם איש/אשת הקשר</label><input type="text" id="coContact" required></div>
             <div class="field"><label for="coFounded">שנת הקמה</label><input type="number" id="coFounded" min="1900" max="2100"></div>
             <div class="field span2"><label for="coTagline">משפט תדמית</label><input type="text" id="coTagline" placeholder="בונים בעמק מאז 1998"></div>
             <div class="field span2"><label for="coDescription">על החברה</label><textarea id="coDescription" rows="5"></textarea></div>
@@ -271,13 +356,13 @@
 
         <div class="card">
           <h3>יצירת קשר</h3>
-          <p class="sub">מוצג בתחתית דף החברה. מספר הטלפון הופך לכפתור חיוג.</p>
+          <p class="sub">מוצג בתחתית דף החברה. מספר הטלפון הופך לכפתור חיוג. שדות המסומנים ב-<span style="color:var(--danger);font-weight:800">*</span> הם חובה ואי אפשר לרוקן אותם.</p>
           <div class="grid2">
-            <div class="field"><label for="coPhone">טלפון</label><input type="tel" id="coPhone" inputmode="tel"></div>
+            <div class="field"><label class="req" for="coPhone">טלפון</label><input type="tel" id="coPhone" inputmode="tel" required></div>
             <div class="field"><label for="coEmail">אימייל</label><input type="email" id="coEmail"></div>
             <div class="field"><label for="coWebsite">אתר</label><input type="url" id="coWebsite" placeholder="https://"></div>
-            <div class="field"><label for="coCity">עיר</label><input type="text" id="coCity"></div>
-            <div class="field span2"><label for="coAddress">כתובת המשרד</label><input type="text" id="coAddress"></div>
+            <div class="field"><label class="req" for="coCity">עיר</label><input type="text" id="coCity" required></div>
+            <div class="field span2"><label class="req" for="coAddress">כתובת המשרד</label><input type="text" id="coAddress" required></div>
             <div class="field"><label for="coDelivered">פרויקטים שנמסרו</label><input type="number" id="coDelivered" min="0"></div>
           </div>
         </div>
@@ -605,8 +690,25 @@ const ERRORS = {
   delete_not_requested: 'לא נפתחה בקשת מחיקה לפרויקט הזה.',
   already_sold: 'הליד כבר נרכש על ידי חברה אחרת.',
   developer_suspended: 'החשבון מושהה. פנו אלינו כדי לחדש אותו.',
+  developer_exists: 'כבר יש חברה מקושרת לחשבון הזה.',
+  company_number_taken: 'מספר הח״פ הזה כבר רשום במערכת. אם זו החברה שלכם — היכנסו לחשבון הקיים.',
 };
-const errText = d => ERRORS[d && d.error] || (d && d.detail) || 'משהו השתבש — נסו שוב';
+
+/* שמות השדות בעברית, כדי ש-missing_fields מהשרת יהפוך להודעה שאפשר
+   לפעול לפיה ולא לרשימת מפתחות באנגלית. */
+const FIELD_LABELS = {
+  company_name:'שם החברה', company_number:'ח״פ', contact_name:'שם איש/אשת הקשר',
+  phone:'טלפון', address:'כתובת המשרד', city:'עיר',
+};
+function errText(d){
+  if (d && d.error === 'missing_fields'){
+    const named = list => (list || []).map(k => FIELD_LABELS[k] || k).join(', ');
+    return (d.invalid && d.invalid.length)
+      ? 'שדות שאינם תקינים: ' + named(d.invalid)
+      : 'חסרים שדות חובה: ' + named(d.missing);
+  }
+  return ERRORS[d && d.error] || (d && d.detail) || 'משהו השתבש — נסו שוב';
+}
 
 function setMsg(id, text, kind){
   const node = el(id);
@@ -615,10 +717,137 @@ function setMsg(id, text, kind){
   node.style.color = kind === 'ok' ? 'var(--positive)' : kind === 'err' ? 'var(--danger)' : 'var(--ink-soft)';
 }
 
-/* ---------- התחברות ---------- */
-function showLogin(){ el('appScreen').hidden = true; el('loginScreen').hidden = false; }
-function showApp(){ el('loginScreen').hidden = true; el('appScreen').hidden = false; }
+/* ---------- מעבר בין המסכים ----------
+   ארבעה מסכים בלעדיים זה לזה, והחלפה עוברת תמיד דרך הפונקציה הזו: מסך
+   שנשאר פתוח מאחורי מסך אחר הוא בדיוק הבאג של "המסכים קופצים". */
+const SCREENS = ['bootScreen', 'loginScreen', 'createScreen', 'appScreen'];
+function show(which){
+  SCREENS.forEach(id => { el(id).hidden = id !== which; });
+}
+const showLogin = (msg)=>{
+  show('loginScreen');
+  if (msg) setMsg('lgMsg', msg, 'err');
+};
+const showApp = ()=> show('appScreen');
 
+/* ---------- ניקוי תשובת OAuth מהכתובת ----------
+   ‏supabase-js קורא את ה-#access_token בזמן האתחול; מרגע שה-session בידינו
+   אין סיבה שהוא יישאר בשורת הכתובת ובהיסטוריה, שם רענון או "חזור" מנסים
+   לעבד שוב תשובה שכבר נוצלה. */
+const AUTH_HASH_KEYS = ['access_token','refresh_token','expires_in','expires_at','token_type','provider_token','type'];
+const AUTH_QUERY_KEYS = ['code','error','error_code','error_description','state'];
+
+function cleanAuthParamsFromUrl(){
+  if (!window.history || !window.history.replaceState) return;
+  const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const query = new URLSearchParams(location.search);
+  const dropHash = AUTH_HASH_KEYS.some(k => hashParams.has(k));
+  let dropped = false;
+  for (const key of AUTH_QUERY_KEYS){
+    if (query.has(key)){ query.delete(key); dropped = true; }
+  }
+  if (!dropHash && !dropped) return;
+  const search = query.toString();
+  history.replaceState(null, '', location.pathname + (search ? '?' + search : '') + (dropHash ? '' : location.hash));
+}
+
+/* שגיאת OAuth נקראת בטעינה, לפני שהכתובת מנוקה. בלי זה מי שחזר/ה מ-Google
+   עם שגיאה פשוט מוצא/ת את עצמו/ה מול טופס הסיסמה בלי הסבר. */
+const oauthError = (()=>{
+  const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const query = new URLSearchParams(location.search);
+  const pick = k => hashParams.get(k) || query.get(k) || '';
+  return { code: pick('error') || pick('error_code'), description: pick('error_description') };
+})();
+const oauthMessage = (oauthError.code || oauthError.description)
+  ? (/access_denied|cancel/i.test(oauthError.code)
+      ? 'ההתחברות עם Google בוטלה. אפשר לנסות שוב, או להיכנס עם אימייל וסיסמה.'
+      : 'ההתחברות עם Google נכשלה: ' + (oauthError.description || oauthError.code))
+  : '';
+
+/* רשת ביטחון: בדיקת התחברות שנתקעת (רשת איטית, שרת שלא עונה) לא תשאיר
+   ספינר אינסופי. */
+const bootWatchdog = setTimeout(()=>{
+  if (!el('bootScreen').hidden) showLogin('בדיקת ההתחברות מתעכבת. אפשר להתחבר כאן, או לרענן את הדף.');
+}, 15000);
+
+/* ‏ח״פ ישראלי הוא תשע ספרות; שמונה מושלם באפס מוביל, כפי שנכתב לא פעם
+   מספר עוסק מורשה. אותה נורמליזציה בדיוק רצה בשרת — שתי הכתיבות של אותו
+   עסק חייבות להגיע לאותו מספר, אחרת ה-unique לא יתפוס אותן. */
+function normalizeCompanyNumber(raw){
+  const digits = String(raw || '').replace(/\D/g, '');
+  if (digits.length === 8) return '0' + digits;
+  return digits.length === 9 ? digits : null;
+}
+
+/* ---------- התחברות עם Google ---------- */
+el('googleBtn').addEventListener('click', async ()=>{
+  const btn = el('googleBtn');
+  setMsg('lgMsg', '');
+  btn.disabled = true;
+  btn.querySelector('.gl-label').textContent = 'מעבירים ל-Google…';
+  // ‏origin + pathname בלי query: הכתובת חייבת להיות זהה בדיוק לזו
+  // שברשימת ה-Redirect URLs של Supabase, אחרת החזרה נוחתת ב-Site URL.
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: location.origin + location.pathname },
+  });
+  if (error){
+    btn.disabled = false;
+    btn.querySelector('.gl-label').textContent = 'התחברות עם Google';
+    setMsg('lgMsg', 'לא הצלחנו לפתוח את החיבור ל-Google: ' + error.message, 'err');
+  }
+});
+
+/* ---------- פתיחת חברה ----------
+   מי שנכנס/ת עם Google בפעם הראשונה מגיע/ה לכאן: יש חשבון Auth, אין
+   שורת developers. הבקשה יוצאת ל-create_developer — הפעולה היחידה
+   ב-project-manage שמותרת לפני שיש חברה. */
+const CREATE_REQUIRED = [
+  ['crName',    'שם החברה'],
+  ['crNumber',  'ח״פ'],
+  ['crContact', 'שם איש/אשת הקשר'],
+  ['crPhone',   'טלפון'],
+  ['crCity',    'עיר'],
+  ['crAddress', 'כתובת המשרד'],
+];
+
+el('createForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const btn = el('crBtn');
+  const val = id => el(id).value.trim();
+
+  const missing = CREATE_REQUIRED.filter(([id]) => !val(id)).map(([, label]) => label);
+  if (missing.length){
+    setMsg('crMsg', (missing.length === 1 ? 'חסר שדה חובה: ' : 'חסרים שדות חובה: ') + missing.join(', '), 'err');
+    return;
+  }
+  const companyNumber = normalizeCompanyNumber(val('crNumber'));
+  if (!companyNumber){ setMsg('crMsg', 'מספר ח״פ / עוסק מורשה צריך להיות בן תשע ספרות', 'err'); return; }
+  if (!el('crTerms').checked){ setMsg('crMsg', 'פתיחת החברה מותנית באישור תנאי השימוש', 'err'); return; }
+
+  btn.disabled = true; btn.textContent = 'פותח חברה…'; setMsg('crMsg', '');
+  const res = await api('create_developer', {
+    company_name: val('crName'),
+    company_number: companyNumber,
+    contact_name: val('crContact'),
+    phone: val('crPhone'),
+    city: val('crCity'),
+    address: val('crAddress'),
+    legal_name: val('crLegal') || null,
+    website: val('crWebsite') || null,
+  });
+  btn.disabled = false; btn.textContent = 'פתיחת החברה';
+  if (!res.ok){ setMsg('crMsg', errText(res.data), 'err'); return; }
+  await boot();
+});
+
+el('crLogout').addEventListener('click', async ()=>{
+  await sb.auth.signOut();
+  location.reload();
+});
+
+/* ---------- התחברות עם אימייל וסיסמה ---------- */
 el('loginForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const btn = el('lgBtn');
@@ -1156,6 +1385,7 @@ function fillCompanyForm(){
   const d = developer;
   const v = (id, val)=> { el(id).value = val ?? ''; };
   v('coName', d.name); v('coLegal', d.legal_name); v('coNumber', d.company_number);
+  v('coContact', d.contact_name);
   v('coFounded', d.founded_year); v('coTagline', d.tagline); v('coDescription', d.description);
   v('coPhone', d.phone); v('coEmail', d.email); v('coWebsite', d.website);
   v('coCity', d.city); v('coAddress', d.address); v('coDelivered', d.projects_delivered);
@@ -1167,14 +1397,36 @@ function fillCompanyForm(){
 wireUpload('coLogoBtn','coLogoFile', async (f)=> setPreview('coLogoPreview', await uploadFile(f, 'company/logo')), { maxMb:4 });
 wireUpload('coCoverBtn','coCoverFile', async (f)=> setPreview('coCoverPreview', await uploadFile(f, 'company/cover')), { maxMb:8 });
 
+const COMPANY_REQUIRED = [
+  ['coName',    'שם החברה'],
+  ['coNumber',  'ח״פ'],
+  ['coContact', 'שם איש/אשת הקשר'],
+  ['coPhone',   'טלפון'],
+  ['coCity',    'עיר'],
+  ['coAddress', 'כתובת המשרד'],
+];
+
 el('companyForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const btn = el('coSaveBtn');
+  const val = id => el(id).value.trim();
+
+  // אותם שדות חובה של ההרשמה. ה-CHECK במסד היה תופס את זה בכל מקרה —
+  // הבדיקה כאן היא מה שהופך את זה מ"שגיאת מסד" להודעה שאפשר לפעול לפיה.
+  const missing = COMPANY_REQUIRED.filter(([id]) => !val(id)).map(([, label]) => label);
+  if (missing.length){
+    setMsg('coMsg', (missing.length === 1 ? 'חסר שדה חובה: ' : 'חסרים שדות חובה: ') + missing.join(', '), 'err');
+    return;
+  }
+  const companyNumber = normalizeCompanyNumber(val('coNumber'));
+  if (!companyNumber){ setMsg('coMsg', 'מספר ח״פ / עוסק מורשה צריך להיות בן תשע ספרות', 'err'); return; }
+
   btn.disabled = true; btn.textContent = 'שומר…'; setMsg('coMsg','');
   const res = await api('save_developer', {
-    name: el('coName').value.trim(),
-    legal_name: el('coLegal').value.trim() || null,
-    company_number: el('coNumber').value.trim() || null,
+    name: val('coName'),
+    company_number: companyNumber,
+    contact_name: val('coContact'),
+    legal_name: val('coLegal') || null,
     founded_year: el('coFounded').value || null,
     tagline: el('coTagline').value.trim() || null,
     description: el('coDescription').value.trim() || null,
@@ -1369,18 +1621,54 @@ async function refresh(){
   renderProjects();
 }
 
+/* ---------- מסך פתיחת החברה ---------- */
+async function showCreateScreen(user){
+  el('crEmail').textContent = user.email || '';
+  if (!el('crContact').value){
+    // ‏Google מחזיר את השם המלא ב-user_metadata. מילוי מראש חוסך הקלדה,
+    // ונשאר ניתן לעריכה — איש/אשת הקשר בחברה אינו/ה בהכרח בעל/ת החשבון.
+    const meta = user.user_metadata || {};
+    el('crContact').value = meta.full_name || meta.name || '';
+  }
+
+  // חשבון שהוא גם סוכן/ת תיווך אינו שגיאה — משרד תיווך יכול להיות גם יזם.
+  // ההערה קיימת כדי שלא ייראה כאילו פתיחת החברה נוגעת בכרטיס הסוכן/ת.
+  try{
+    const { data: agent } = await sb.from('agency_members')
+      .select('id').eq('user_id', user.id).maybeSingle();
+    el('crAgentNote').hidden = !agent;
+  } catch(e){ el('crAgentNote').hidden = true; }
+
+  try{
+    const { data } = await sb.from('pricing_config').select('key, value')
+      .eq('key', 'project_page_monthly_price').maybeSingle();
+    if (data) el('crPricePage').textContent = money(data.value);
+  } catch(e){ /* המחיר שב-HTML נשאר */ }
+
+  show('createScreen');
+}
+
+/* ---------- הניתוב אחרי אימות ----------
+   שלוש תוצאות אפשריות, ולכל אחת מסך משלה: יש חברה → הדשבורד; אין חברה →
+   מסך פתיחת החברה; אין session → מסך הכניסה. חשבון בלי חברה **אינו**
+   מנותק יותר — זה בדיוק המסלול של כניסת Google ראשונה. */
 async function boot(){
+  clearTimeout(bootWatchdog);
   const { data: { session } } = await sb.auth.getSession();
-  if (!session){ showLogin(); return; }
+  if (!session){ showLogin(oauthMessage); return; }
 
   const res = await api('bootstrap', {});
   if (!res.ok){
     if (res.data && res.data.error === 'no_developer_account'){
-      // חשבון קיים שאינו של יזם — כמעט תמיד סוכן/ת שהגיע/ה לדף הלא נכון.
-      setMsg('lgMsg','החשבון הזה אינו חשבון יזם. מתווכים נכנסים דרך crm.html','err');
-      await sb.auth.signOut();
+      await showCreateScreen(session.user);
+      return;
     }
-    showLogin();
+    if (res.data && res.data.error === 'developer_suspended'){
+      showLogin(ERRORS.developer_suspended);
+      await sb.auth.signOut();
+      return;
+    }
+    showLogin('לא הצלחנו לטעון את החשבון. נסו לרענן את הדף.');
     return;
   }
   developer = res.data.developer;
@@ -1393,8 +1681,26 @@ async function boot(){
   showApp();
 }
 
+/* ‏supabase-js משדר SIGNED_IN גם בחזרה ללשונית ובחידוש אסימון, ולכן
+   ‏bootedUserId שומר מי כבר מוצג/ת ואירוע חוזר על אותו משתמש נבלע. בלי זה
+   כל חזרה ללשונית הייתה טוענת מחדש את כל הדשבורד באמצע עבודה.
+
+   העבודה נדחית ב-setTimeout(0) כי ה-callback רץ בתוך הנעילה הפנימית של
+   הלקוח, וקריאה ל-supabase מתוכו עלולה לתקוע את הדף. */
+let bootedUserId = null;
+sb.auth.onAuthStateChange((event, session)=>{
+  if (event === 'SIGNED_OUT'){ bootedUserId = null; return; }
+  if (!session) return;
+  if (bootedUserId === session.user.id) return;
+  bootedUserId = session.user.id;
+  setTimeout(()=>{ cleanAuthParamsFromUrl(); boot(); }, 0);
+});
+
 (async function init(){
-  if (!sb){ showLogin(); return; }
+  if (!sb){ showLogin('החיבור לשרת אינו זמין כרגע. נסו לרענן את הדף.'); return; }
+  cleanAuthParamsFromUrl();
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) bootedUserId = session.user.id;
   await boot();
 })();
 </script>

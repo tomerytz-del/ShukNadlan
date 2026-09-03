@@ -38,9 +38,27 @@ create table if not exists public.developers (
   id             uuid primary key default gen_random_uuid(),
   user_id        uuid unique references auth.users(id) on delete set null,
   slug           text,
+
+  -- ---------------------------------------------------------------------
+  -- גרעין החובה
+  --
+  -- שישה שדות שחברה אינה יכולה להירשם בלעדיהם — ולא יכולה גם לרוקן אחרי
+  -- שנרשמה. ‏not null כאן ולא רק בטופס, כי זו הדרישה עצמה ולא בקשה:
+  -- שלושה מסלולים שונים יוצרים חברה (טופס ההרשמה, מסך פתיחת החברה של
+  -- כניסת Google, ומסך העריכה בדשבורד), ואכיפה בשלושתם היא שלוש הזדמנויות
+  -- לשכוח באחד מהם. ‏NOT NULL ברמת הטבלה הוא המקום היחיד שאי אפשר לעקוף.
+  --
+  -- ‏NOT NULL לבדו אינו מספיק — מחרוזת ריקה עוברת אותו — ולכן ה-CHECK
+  -- שלמטה דורש תוכן אחרי trim.
+  -- ---------------------------------------------------------------------
   name           text not null,
+  company_number text not null,
+  contact_name   text not null,
+  phone          text not null,
+  address        text not null,
+  city           text not null,
+
   legal_name     text,
-  company_number text,
 
   -- מיתוג דף החברה
   logo_url       text,
@@ -50,12 +68,9 @@ create table if not exists public.developers (
   description    text,
 
   -- יצירת קשר
-  phone          text,
   phone_e164     text,
   email          text,
   website        text,
-  address        text,
-  city           text,
 
   -- רקורד
   founded_year      smallint,
@@ -76,6 +91,34 @@ comment on column public.developers.credit_balance is
   'ארנק החברה בשקלים. ממנו יורדים 350 ₪ לחודש לכל דף נחיתה ו-50 ₪ לשבוע לכל קידום. נכתב אך ורק דרך service_role.';
 comment on column public.developers.colors is
   'ערכת הצבעים של דף החברה ({"brand":"#…","accent":"#…"}). מוזרקת ב-JS ל-documentElement, בדיוק כמו בדף המשרד.';
+comment on column public.developers.company_number is
+  'ח״פ / עוסק מורשה, תשע ספרות. מנורמל בפונקציית הקצה — מספר בן שמונה ספרות מקבל אפס מוביל.';
+comment on column public.developers.contact_name is
+  'שם איש/אשת הקשר בחברה. נפרד מ-name (שם החברה) ומ-projects.contact_name (משרד המכירות של פרויקט מסוים).';
+
+-- ‏NOT NULL עוצר NULL ולא מחרוזת ריקה, ו-'' היא בדיוק מה שטופס שולח כשלא
+-- מילאו אותו. ה-CHECK הזה הוא מה שהופך את ששת השדות לחובה בפועל.
+do $$
+begin
+  if not exists (select 1 from pg_constraint where conname = 'developers_core_fields_filled') then
+    alter table public.developers add constraint developers_core_fields_filled check (
+      length(btrim(name)) > 0
+      and length(btrim(contact_name)) > 0
+      and length(btrim(phone)) > 0
+      and length(btrim(address)) > 0
+      and length(btrim(city)) > 0
+    );
+  end if;
+  if not exists (select 1 from pg_constraint where conname = 'developers_company_number_format') then
+    alter table public.developers add constraint developers_company_number_format
+      check (company_number ~ '^[0-9]{9}$');
+  end if;
+end $$;
+
+-- אותו ח״פ אינו נרשם פעמיים. זו הבדיקה היחידה שיש לנו נגד אותה חברה
+-- שפותחת שני חשבונות ומחזיקה שני דפי חברה מתחרים על אותם פרויקטים.
+create unique index if not exists developers_company_number_key
+  on public.developers(company_number);
 
 create unique index if not exists developers_slug_key
   on public.developers(slug) where slug is not null;
@@ -791,7 +834,11 @@ select
   (select count(*) from public.projects p
    where p.developer_id = d.id and p.status = 'active'
      and p.delete_requested_at is null
-     and (p.subscription_expires_at is null or p.subscription_expires_at > now())) as live_projects
+     and (p.subscription_expires_at is null or p.subscription_expires_at > now())) as live_projects,
+  -- עמודה חדשה נוספת בסוף בלבד: ‏create or replace view אינו מרשה לשנות
+  -- סדר או להסיר עמודות (כלל 3 ב-docs/supabase-migrations.md), וה-view
+  -- הזה כבר עשוי להיות קיים במסד מהרצה קודמת של אותו קובץ.
+  d.contact_name
 from public.developers d
 where d.status = 'active';
 
