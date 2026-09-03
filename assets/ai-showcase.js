@@ -102,12 +102,26 @@
     '.ai-range:focus-visible ~ .ai-divider .ai-handle{outline:3px solid #fff;outline-offset:2px}',
     '.ai-label{position:absolute;top:10px;z-index:2;font-size:11px;font-weight:800;',
     '  letter-spacing:.08em;padding:4px 9px;background:rgba(13,27,61,.82);color:#e6ecf9}',
-    '.ai-label-before{inset-inline-end:10px}',
-    '.ai-label-after{inset-inline-start:10px;background:rgba(201,162,39,.92);color:#0d1b3d}',
+    /* איזה חצי כל תווית מסמנת: שכבת ה"אחרי" נחשפת מהקצה שאינו קצה ההתחלה
+       של כיוון הכתיבה — כלומר משמאל בעברית — ולכן "אחרי" יושבת שם
+       ו"לפני" בצד הנגדי. הן היו הפוכות: כל תווית ישבה מעל החצי של
+       השנייה, וקוראים שהאמינו לתווית ראו את הצילום כהדמיה ולהפך. */
+    '.ai-label-before{inset-inline-start:10px}',
+    '.ai-label-after{inset-inline-end:10px;background:rgba(201,162,39,.92);color:#0d1b3d}',
     '.ai-compare-caption{margin:9px 0 0;font-size:12px;color:#8b97ba}',
+    /* אותו יחס גובה-רוחב של הווילון: הצד הזה של התיבה לא קורס בין סגנון
+       שיש לו הדמיה לסגנון שאין לו. */
+    '.ai-empty{aspect-ratio:4/3;display:grid;place-items:center;text-align:center;',
+    '  padding:20px;background:rgba(255,255,255,.04);color:#8b97ba;font-size:14px;',
+    '  border:1px dashed rgba(255,255,255,.18)}',
 
-    /* ---- רצועת התמונונות ---- */
-    '.ai-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}',
+    /* ---- רצועת התמונונות ----
+       מספר העמודות נגזר ממספר התמונות ולא קבוע על שלוש: סגנון שיש לו שני
+       חדרים היה משאיר שליש מהשורה ריק, והאריחים לא היו מתיישרים עם קצה
+       התמונה הראשית שמעליהם. עם ‎--ai-cols‎ הרצועה תמיד ממלאה את הרוחב
+       המלא, ולכל אריח אותו רוחב ואותו גובה. */
+    '.ai-strip{display:grid;grid-template-columns:repeat(var(--ai-cols,3),minmax(0,1fr));',
+    '  gap:8px;margin-top:14px;align-items:start}',
     /* ‏min-width:0 ולא רק ‎1fr‎: תווית שלא נשברת ("הסלון · ים-תיכוני לבן")
        מרחיבה את העמודה שלה מעל חלקה, והתמונונות יוצאות בגדלים שונים. */
     '.ai-thumb{display:block;text-decoration:none;color:#e6ecf9;min-width:0}',
@@ -116,8 +130,11 @@
     /* התווית נשברת לשתי שורות ולא נקטעת בשלוש נקודות: "הסלון · ים-תיכוני
        לבן" בעמודה של שליש מסך טלפון נחתך בדיוק על שם הסגנון — כלומר על
        החלק שבגללו לוחצים. */
+    /* שתי שורות שמורות תמיד ולא רק כתקרה: "חזית הבית" נשבר לשתיים בעמודה
+       צרה בזמן ש"הסלון" נשאר באחת, והאריחים היו יוצאים בגבהים שונים. */
     '.ai-thumb span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;',
-    '  overflow:hidden;font-size:12px;font-weight:700;margin-top:5px;line-height:1.35}',
+    '  overflow:hidden;font-size:12px;font-weight:700;margin-top:5px;line-height:1.35;',
+    '  min-height:calc(2em * 1.35)}',
     '.ai-thumb:hover img{border-color:#c9a227}',
     '.ai-strip-title{font-size:11px;font-weight:800;letter-spacing:.1em;color:#8b97ba;margin:18px 0 0}',
 
@@ -142,8 +159,13 @@
     '.ai-compare[data-idle] .ai-after{animation:aiWipe 9s ease-in-out infinite alternate}',
     '.ai-compare[data-idle] .ai-divider{animation:aiSlide 9s ease-in-out infinite alternate}',
     '.ai-compare[data-idle] .ai-label-before{animation:aiLabel 9s ease-in-out infinite alternate}',
+    /* שני ה-keyframes האלה חייבים לתאר את *אותו* קו. ב-RTL שכבת ה"אחרי"
+       נחשפת דרך ‎inset‎ מימין, והמפריד יושב על ‎inset-inline-start‎ שהוא גם
+       הוא מרחק מימין — ולכן שני הערכים זהים בכל פריים. הם היו הפוכים
+       (‏70%→22% מול 30%→78%), והתוצאה הייתה קו זהב שנוסע לכיוון אחד בזמן
+       שהתמונה נחשפת לכיוון השני. */
     '@keyframes aiWipe{from{clip-path:inset(0 70% 0 0)}to{clip-path:inset(0 22% 0 0)}}',
-    '@keyframes aiSlide{from{inset-inline-start:30%}to{inset-inline-start:78%}}',
+    '@keyframes aiSlide{from{inset-inline-start:70%}to{inset-inline-start:22%}}',
     '@keyframes aiLabel{from{opacity:1}to{opacity:.45}}',
     '@media (prefers-reduced-motion: reduce){',
     '  .ai-compare[data-idle] .ai-after,.ai-compare[data-idle] .ai-divider,',
@@ -214,48 +236,50 @@
     return '';
   }
 
-  /* התווית של תמונון: "הסלון · ים-תיכוני לבן". הסגנון לבדו לא אומר איזה חדר,
-     והחדר לבדו לא מסביר למה יש שלוש גרסאות שלו. */
+  /* התווית של תמונון היא שם החדר בלבד. כשכל התמונות בתיבה הן אותו סגנון,
+     "· מודרני נקי" חוזר על עצמו בכל אחת מהן ורק דוחק את שם החדר לשורה
+     שנייה — הסגנון כבר כתוב בשבב המסומן שמעליהן.
+
+     הכיתוב מתחת לווילון כן נושא את שם הסגנון: הוא אחד, והוא מה שמסביר
+     מה בדיוק רואים. */
   function pairCaption(opts, it) {
-    var where = TARGET_LABELS[it.target] || 'הנכס';
+    return TARGET_LABELS[it.target] || 'הנכס';
+  }
+
+  function leadCaption(opts, it) {
+    var where = pairCaption(opts, it);
     var style = styleLabelOf(opts, it.style_key);
     return style ? where + ' · ' + style : where;
   }
 
-  /* ‏**סדר הרצועה קבוע, והבחירה זזה בתוכו.** שתי הפונקציות האלה היו פעם
-     אחת: המיון החזיר את התמונה הנבחרת ראשונה, והרצועה נבנתה מאותה רשימה.
-     התוצאה הייתה שכל לחיצה על תמונון סידרה מחדש את כל השורה — התמונונות
-     קפצו מתחת לאצבע, ומי שרצה/תה להשוות בין שניים מצא/ה את השני במקום
-     אחר. עכשיו הרצועה ממוינת פעם אחת (לפי סדר הסגנונות ובתוכו לפי סדר
-     החדרים), ומה שמשתנה בלחיצה הוא רק איזה פריט מסומן ומה בווילון. */
+  /* ‏**התיבה מציגה סגנון אחד בכל רגע.** ‏activeStyle הוא לא העדפת מיון
+     אלא מסנן: הווילון והתמונונות שמתחתיו הם אותו כיוון עיצובי, ולחיצה על
+     שבב מחליפה את כל התצוגה. ההצגה של ארבעת הסגנונות יחד הפכה את הרצועה
+     לתריסר תמונות שאי אפשר להשוות ביניהן — ארבעה מטבחים שונים זה ליד זה
+     הם קטלוג, לא הצעה.
+
+     הסדר בתוך הסגנון קבוע (סדר החדרים), ולכן לחיצה על תמונון לא מסדרת
+     מחדש את השורה — היא רק מזיזה את הסימון ואת מה שבווילון. */
   function orderPairs(opts) {
-    var items = (opts.items || []).filter(function (i) { return i && i.result_url; });
-    var styleRank = {};
-    (opts.styles || []).forEach(function (s, i) { styleRank[s.key] = i; });
+    var active = opts.activeStyle || null;
+    var items = (opts.items || []).filter(function (i) {
+      return i && i.result_url && (!active || i.style_key === active);
+    });
     var rank = function (it) {
-      var byStyle = styleRank[it.style_key];
       var byTarget = LEAD_TARGET_ORDER.indexOf(it.target);
-      return (byStyle === undefined ? 90 : byStyle) * 100 + (byTarget < 0 ? 90 : byTarget);
+      return byTarget < 0 ? 90 : byTarget;
     };
     return items.slice().sort(function (a, b) { return rank(a) - rank(b); });
   }
 
   /* איזה פריט נפתח בווילון: ‎leadPick‎ (התמונון שנלחץ ממש עכשיו) גובר על
-     הכול; בלעדיו הסגנון הנבחר, ובתוכו סדר החדרים — הסלון קודם. */
+     הכול; בלעדיו הראשון לפי סדר החדרים — כלומר הסלון. */
   function leadIndexOf(pairs, opts) {
     var pick = opts.leadPick || null;
-    var i;
     if (pick) {
-      for (i = 0; i < pairs.length; i++) if (pairs[i].result_url === pick) return i;
+      for (var i = 0; i < pairs.length; i++) if (pairs[i].result_url === pick) return i;
     }
-    var active = opts.activeStyle || null;
-    var best = 0, bestRank = Infinity;
-    for (i = 0; i < pairs.length; i++) {
-      var byTarget = LEAD_TARGET_ORDER.indexOf(pairs[i].target);
-      var r = (active && pairs[i].style_key === active ? 0 : 100) + (byTarget < 0 ? 90 : byTarget);
-      if (r < bestRank) { bestRank = r; best = i; }
-    }
-    return best;
+    return 0;
   }
 
   /* ‏source_image_url הוא הצילום שההדמיה נוצרה ממנו — הצד ה"לפני" האמיתי.
@@ -268,7 +292,7 @@
   function propertyCompareHtml(opts, it) {
     var where = TARGET_LABELS[it.target] || 'הנכס';
     var before = beforeUrl(opts, it);
-    var caption = pairCaption(opts, it);
+    var caption = leadCaption(opts, it);
 
     if (!before) {
       return '' +
@@ -300,14 +324,14 @@
            '</button>';
   }
 
-  /* הדילול בצד הקורא הוא לפי (סגנון, חדר), ולכן התקרה האמיתית היא ארבעה
-     סגנונות כפול שלושה חדרים. הרצועה מציגה את כולם: "עיצובים נוספים של
-     הנכס" שמסתיר חצי מהם הוא לא מה שהכותרת מבטיחה. */
-  var PROPERTY_STRIP_LIMIT = 12;
+  /* בתוך סגנון אחד יש לכל היותר שלושה חדרים (חזית, סלון, מטבח), ולכן
+     התקרה כאן היא ביטוח ולא מדיניות. */
+  var PROPERTY_STRIP_LIMIT = 4;
 
   function renderProperty(container, opts) {
     var pairs = orderPairs(opts);
     var leadIndex = leadIndexOf(pairs, opts);
+    var activeStyleLabel = styleLabelOf(opts, opts.activeStyle);
     var styles = opts.styles || [];
     var cta = opts.cta || {};
 
@@ -344,22 +368,31 @@
             stylesHtml +
             actionsHtml +
           '</div>' +
-          /* בלי הדמיה אחת אין וילון ואין תמונונות — אבל הכלי עצמו כן
-             מוצג: בנכס זכאי שטרם הופקה לו הדמיה, הכפתור הוא כל מה שיש,
-             והוא בדיוק מה שהמבקר/ת צריך/ה. */
-          (pairs.length
-            ? '<div>' +
-                '<div id="aiPropCompare">' + propertyCompareHtml(opts, pairs[leadIndex]) + '</div>' +
+          /* סגנון שטרם נוצר מקבל מסגרת ריקה ולא היעלמות: התיבה מציגה סגנון
+             אחד בכל רגע, ולחיצה על שבב שאין לו הדמיה הייתה מוחקת את כל
+             הצד הזה — מה שנקרא כתקלה ולא כ"עוד לא יצרתם את זה". */
+          '<div>' +
+            (pairs.length
+              ? '<div id="aiPropCompare">' + propertyCompareHtml(opts, pairs[leadIndex]) + '</div>' +
                 (pairs.length > 1
-                  ? '<p class="ai-strip-title">עיצובים נוספים של הנכס</p>' +
-                    '<div class="ai-strip">' +
+                  /* בנכס מסחרי אין סגנונות — יש חללים של אותו עסק, ו"בסגנון
+                     הזה" שם מצביע על משהו שלא קיים על המסך. */
+                  ? '<p class="ai-strip-title">' +
+                      (opts.activeStyle ? 'עוד חדרים בסגנון הזה' : 'עוד חללים בנכס') +
+                    '</p>' +
+                    '<div class="ai-strip" style="--ai-cols:' +
+                      Math.min(pairs.length, PROPERTY_STRIP_LIMIT, 3) + '">' +
                       pairs.slice(0, PROPERTY_STRIP_LIMIT).map(function (it, i) {
                         return propertyThumbHtml(opts, it, i, i === leadIndex);
                       }).join('') +
                     '</div>'
-                  : '') +
-              '</div>'
-            : '') +
+                  : '')
+              : '<div class="ai-empty">' +
+                  esc(activeStyleLabel
+                    ? 'עדיין אין הדמיה בסגנון ' + activeStyleLabel
+                    : 'עדיין אין הדמיה לנכס הזה') +
+                '</div>') +
+          '</div>' +
           /* ההצהרה יורדת לתחתית התיבה ומתקצרת לשורה אחת. במקומה הקודם —
              בין הכפתור לבין התמונה — היא הייתה פסקה שעוצרת את מי שבא/ה
              לראות; כאן היא נמצאת, ניתנת לקריאה, ולא בדרך. */
