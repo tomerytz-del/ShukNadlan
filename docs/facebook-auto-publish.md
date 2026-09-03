@@ -16,7 +16,7 @@
 
 | קובץ | תפקיד |
 | --- | --- |
-| `supabase/migrations/20260906090000_property_marketing_publish.sql` | התור, הטריגר, פונקציות המשיכה/התפיסה/הסימון, ותזמון ה-cron |
+| `supabase/migrations/20260906092000_property_marketing_publish.sql` | התור, הטריגר, פונקציות המשיכה/התפיסה/הסימון, ותזמון ה-cron |
 | `supabase/functions/property-marketing-publish/index.ts` | השרת: כותב את הטקסט ב-Claude ומפרסם |
 | `docs/facebook-auto-publish.md` | הקובץ הזה |
 
