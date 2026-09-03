@@ -229,7 +229,16 @@
      שהשתנה הוא רק המחשב, שם ממילא רואים את כל העמוד. */
   .content-grid{display:grid;grid-template-columns:1fr;gap:22px;padding:22px 0 40px}
   @media(min-width:760px){
-    .content-grid{grid-template-columns:1.6fr 1fr;align-items:start}
+    /* ‏stretch ולא ‎start‎: שני חצאי הדף נגמרו בגבהים שונים, והקצה המשונן
+       שנוצר ביניהם — בדיוק מעל תיבת ההדמיות שמשתרעת על שניהם — הוא מה
+       שנקרא כאי־סימטריה. עמודת הצד היא ערימה של כרטיסים עצמאיים, ולכן
+       היא זו שסופגת את ההפרש: המרווח *בין* הכרטיסים גדל והאחרון נצמד
+       לתחתית, במקום שכרטיס אחד יימתח ויתמלא בלבן ריק.
+       העמודה הראשית לא נוגעת — פיזור של כותרת, נתונים ופאנלים לאורך
+       הגובה היה הופך רצף קריא לרשימה מפוזרת. */
+    .content-grid{grid-template-columns:1.6fr 1fr;align-items:stretch}
+    .sidebar{display:flex;flex-direction:column}
+    .sidebar > :last-child{margin-top:auto}
     .main-col{grid-column:1;grid-row:1}
     /* עמודת הצד פרושה על שתי שורות התוכן, ולכן אין חלל בין שני חלקי
        ‎.main-col‎ גם כשהיא גבוהה מהראשון שבהם. */
@@ -770,8 +779,28 @@
      לגובה של 640px ואת הפסקה לשורה דקה וארוכה — כלומר מחליפה חלל ריק
      לצד התיבה בחלל ריק בתוכה. */
   @media(min-width:900px){
+    /* ‏align-items:start ולא ‎center‎ שהרכיב מגיע איתו: בשתי עמודות הווילון
+       גבוה בהרבה מהטור שלצדו, ומירכוז אנכי הפיל את הכותרת אל אמצע הגובה
+       שלו — כלומר התחיל את ההבטחה שליש מתחת לראש התיבה, מול תמונה
+       שמתחילה בקצה העליון. שתי העמודות מתחילות עכשיו באותו קו.
+       ‏18px מתחת להצהרה, ולא 30 של ה-gap: מתחת לשורה האחרונה אין עוד
+       שורה שצריך להפריד ממנה — יש רק את קצה התיבה. */
     #aiShowcase .ai-band-inner{grid-template-columns:1.15fr 1fr;
-      gap:30px;padding:30px 26px 18px}
+      align-items:stretch;column-gap:30px;row-gap:16px;padding:30px 26px 18px}
+    /* טור ההבטחה נמתח לגובה הווילון שלצדו, והפקדים נדחפים לתחתיתו.
+       בלי זה הטור מסתיים 170px מעל שכנו ונשאר חור כהה בפינה — והדרך
+       השנייה לסגור אותו, לצמצם את עמודת התמונה, מקטינה בדיוק את הדבר
+       שבגללו נכנסו לתיבה. כך במקום חלל ריק יש הפרדה בין ההבטחה למעלה
+       לבין הפעולה למטה, ושתי העמודות נגמרות באותו קו.
+
+       ‏align-self על התגית: בטור flex הילדים נמתחים לרוחב מלא כברירת
+       מחדל, והתגית — שכל כולה תיבה בגודל המילים שבה — הייתה נמתחת איתם. */
+    #aiShowcase .ai-copy{display:flex;flex-direction:column}
+    #aiShowcase .ai-copy .ai-eyebrow{align-self:flex-start}
+    /* שבבי הסגנון (נכס פרטי) או שדות הבקשה (מסחרי) — מה שקיים הוא
+       שנדחף למטה. הם לעולם לא מופיעים יחד. */
+    #aiShowcase .ai-copy .ai-styles,
+    #aiShowcase .ai-copy .ai-ask:not(:empty){margin-top:auto}
   }
   #aiShowcase .ai-band h3{font-size:clamp(20px,3.4vw,25px)}
   #aiShowcase .ai-band p{font-size:15px}
