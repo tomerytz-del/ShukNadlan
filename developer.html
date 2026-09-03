@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>חברה יזמית | שוק נדל״ן</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta name="description" id="metaDescription" content="דף החברה היזמית — כל הפרויקטים החדשים שלה בעפולה והעמק.">
+<meta property="og:type" content="website">
+<meta property="og:title" id="ogTitle" content="חברה יזמית | שוק נדל״ן">
+<meta property="og:description" id="ogDescription" content="כל הפרויקטים החדשים של החברה במקום אחד.">
+<meta property="og:image" id="ogImage" content="">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  /* אותו שלד של דף המשרד: באנר ממותג בערכת הצבעים של החברה, סרגל
+     מדדים, ואז התוכן. הצבעים נכתבים ב-JS על documentElement. */
+  :root{
+    --ink:#0d1b3d; --ink-soft:#4a5578; --ink-muted:#6b7796;
+    --paper:#f4f7fe; --paper-raised:#ffffff; --surface:#ffffff;
+    --line:#e3e8f4; --hair:#eef1f8; --field:#eef2fb;
+    --teal:#0e2a6b; --teal-dark:#0d1b3d; --teal-tint:#eaf0fb;
+    --gold:#0e2a6b; --gold-dark:#08194a; --gold-tint:#f7f1e2; --brass:#c9a227;
+    --radius-sm:0; --radius-md:0; --radius-lg:0;
+    --shadow:0 10px 30px -24px rgba(14,42,107,.5);
+    --maxw:1120px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  [hidden]{display:none !important}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:'Frank Ruhl Libre',serif;font-weight:700;line-height:1.15;color:var(--teal-dark);margin:0}
+  a{color:inherit;text-decoration:none}
+  img{max-width:100%;display:block}
+  button{font-family:inherit;cursor:pointer;border:none;background:none}
+  input,select,textarea{font-family:inherit;font-size:1rem;min-width:0}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 22px;font-weight:700;font-size:.9rem;border-radius:0;transition:transform .15s ease,box-shadow .15s ease}
+  .btn-teal{background:var(--teal);color:#fff}
+  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}
+  .btn-ghost{border:1.5px solid var(--line);background:#fff;color:var(--teal-dark)}
+  .btn-wa{background:#25a55a;color:#fff}
+  /* כפתור משני על הבאנר הכהה — ראו את אותה הערה ב-project.html:
+     ‏.btn-ghost של design-system.css שקוף עם טקסט ספיר, ולכן נעלם כאן. */
+  .btn-on-dark{border:1.5px solid rgba(255,255,255,.55);background:rgba(255,255,255,.1);color:#fff}
+  .btn-on-dark:hover{background:rgba(255,255,255,.2);border-color:#fff}
+  :focus-visible{outline:3px solid var(--brass);outline-offset:2px}
+  .skip-link{position:absolute;right:-999px;top:0;background:var(--teal);color:#fff;padding:10px 16px;z-index:200}
+  .skip-link:focus{right:0}
+
+  header.site{position:sticky;top:0;z-index:100;background:var(--paper-raised);border-bottom:1px solid var(--line);padding:12px 0}
+  .header-inner{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .logo{display:flex;align-items:center;gap:10px;min-width:0}
+  .logo-img{height:44px;width:auto;flex:0 0 auto}
+  .logo-word{font-family:'Rubik','Heebo',sans-serif;font-weight:500;color:var(--teal-dark);font-size:.8rem;line-height:1.3;min-width:0;text-align:center}
+  .logo-word span{color:var(--gold-dark);font-weight:700}
+  @media(min-width:900px){.logo-img{height:52px}.logo-word{font-size:.95rem;white-space:nowrap}}
+  .back-link{font-size:.85rem;font-weight:700;color:var(--teal);white-space:nowrap;border-bottom:1.5px solid var(--brass);padding-bottom:2px}
+
+  .banner{position:relative;color:#fff;overflow:hidden;background:var(--teal-dark)}
+  .banner-media{position:absolute;inset:0;background-size:cover;background-position:center}
+  .banner::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(13,27,61,.92),rgba(13,27,61,.5) 60%,rgba(13,27,61,.3))}
+  .banner-inner{position:relative;z-index:2;padding:38px 0 26px;display:flex;flex-wrap:wrap;gap:22px;align-items:flex-end;justify-content:space-between}
+  .banner-id{display:flex;gap:14px;align-items:flex-start;min-width:0}
+  .brand-logo{width:78px;height:78px;flex:none;background:#fff center/contain no-repeat;display:flex;align-items:center;justify-content:center;font-family:'Frank Ruhl Libre',serif;font-size:1.9rem;font-weight:700;color:var(--teal)}
+  .eyebrow{font-size:.7rem;letter-spacing:.09em;font-weight:800;color:#e5c76a;text-transform:uppercase;margin:0 0 6px}
+  .banner h1{color:#fff;font-size:1.8rem}
+  @media(min-width:760px){.banner h1{font-size:2.5rem}}
+  .banner .tagline{font-size:.95rem;color:rgba(255,255,255,.88);margin:8px 0 0;max-width:56ch}
+  .banner .where{font-size:.84rem;color:rgba(255,255,255,.76);margin:6px 0 0}
+  .banner-cta{display:flex;flex-wrap:wrap;gap:9px}
+
+  .stat-bar{background:#fff;border:1px solid var(--line);border-top:none;display:grid;grid-template-columns:repeat(2,1fr)}
+  @media(min-width:700px){.stat-bar{grid-template-columns:repeat(4,1fr)}}
+  .stat{padding:14px 12px;border-inline-end:1px solid var(--hair);border-block-start:1px solid var(--hair)}
+  .stat:last-child{border-inline-end:none}
+  .stat b{display:block;font-size:1.05rem;font-weight:800;color:var(--ink)}
+  .stat span{display:block;font-size:.7rem;color:var(--ink-muted);font-weight:700;margin-top:2px}
+
+  .sec{padding:28px 0}
+  .sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  .sec-head h2{font-size:1.3rem}
+  .sec-head p{margin:5px 0 0;font-size:.83rem;color:var(--ink-soft)}
+  .about{background:#fff;border:1px solid var(--line);padding:18px;font-size:.92rem;color:var(--ink-soft);white-space:pre-line}
+  .grid{display:grid;grid-template-columns:1fr;gap:14px}
+  @media(min-width:560px){.grid{grid-template-columns:repeat(2,1fr)}}
+  @media(min-width:900px){.grid{grid-template-columns:repeat(3,1fr)}}
+  .prop-search{display:flex;align-items:center;gap:9px;border:1.5px solid var(--line);background:#fff;padding:10px 13px;margin-bottom:14px}
+  .prop-search input{border:none;outline:none;flex:1;font-size:.9rem;color:var(--ink);background:transparent}
+  .prop-search svg{width:17px;height:17px;stroke:var(--ink-muted);fill:none;stroke-width:2.2;flex:none}
+
+  .contact-card{background:#fff;border:1px solid var(--line);padding:18px;display:grid;gap:12px}
+  @media(min-width:760px){.contact-card{grid-template-columns:1fr 1fr;align-items:center}}
+  .contact-list{display:grid;gap:8px;font-size:.87rem;color:var(--ink-soft)}
+  .contact-list a{color:var(--teal);font-weight:700}
+  .state{padding:56px 18px;text-align:center;color:var(--ink-soft);font-size:.92rem}
+  .state h2{font-size:1.2rem;margin-bottom:8px}
+</style>
+<link rel="stylesheet" href="assets/site-footer.css">
+<link rel="stylesheet" href="assets/design-system.css">
+<script src="assets/page-bg.js" data-auto></script>
+<script src="assets/project-card.js"></script>
+<script src="assets/site-footer.js" defer></script>
+</head>
+<body>
+
+<a href="#main" class="skip-link">דילוג לתוכן</a>
+
+<header class="site">
+  <div class="wrap header-inner">
+    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+      <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
+      <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
+    </a>
+    <a href="projects.html" class="back-link">← כל הפרויקטים החדשים</a>
+  </div>
+</header>
+
+<div class="state" id="loadingState">טוען את החברה…</div>
+
+<div class="state" id="notFoundState" hidden>
+  <h2>החברה לא נמצאה</h2>
+  <p>ייתכן שדף החברה הוסר או שהכתובת השתנתה.</p>
+  <a href="projects.html" class="btn btn-teal" style="margin-top:14px">לכל הפרויקטים החדשים</a>
+</div>
+
+<main id="main" hidden>
+  <section class="banner" aria-labelledby="devName">
+    <div class="banner-media" id="bannerMedia" aria-hidden="true"></div>
+    <div class="wrap banner-inner">
+      <div class="banner-id">
+        <div class="brand-logo" id="brandLogo">·</div>
+        <div style="min-width:0">
+          <p class="eyebrow">חברה יזמית / קבלנית</p>
+          <h1 id="devName">—</h1>
+          <p class="tagline" id="devTagline" hidden></p>
+          <p class="where" id="devWhere"></p>
+        </div>
+      </div>
+      <div class="banner-cta" id="devCta"></div>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <div class="stat-bar" id="statBar"></div>
+
+    <section class="sec" id="aboutSec" hidden>
+      <div class="sec-head"><h2>על החברה</h2></div>
+      <div class="about" id="devAbout"></div>
+    </section>
+
+    <section class="sec" id="projectsSec">
+      <div class="sec-head">
+        <div>
+          <h2>הפרויקטים של החברה</h2>
+          <p id="projectsSub"></p>
+        </div>
+      </div>
+
+      <!-- החיפוש מסנן את מה שכבר נטען לזיכרון ולא יורה שאילתה חדשה —
+           כל הפרויקטים החיים של החברה מגיעים ממילא בטעינת הדף. אותה
+           החלטה בדיוק כמו בחיפוש הנכסים בדף המשרד. -->
+      <div class="prop-search" id="searchBar" hidden>
+        <svg viewBox="0 0 24 24" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+        <input type="search" id="projectSearch" placeholder="חיפוש בפרויקטים — שם, עיר או רחוב" aria-label="חיפוש בפרויקטים של החברה">
+      </div>
+
+      <div class="grid" id="projectsGrid"></div>
+
+      <div class="state" id="noProjectsState" hidden>
+        <h2>אין כרגע פרויקטים פעילים</h2>
+        <p>החברה עדיין לא פרסמה פרויקט, או שכל הפרויקטים שלה הסתיימו.</p>
+      </div>
+      <div class="state" id="noResultsState" hidden>
+        <h2>לא נמצא פרויקט מתאים</h2>
+        <p>אפשר לנקות את החיפוש ולראות את כל הפרויקטים של החברה.</p>
+      </div>
+    </section>
+
+    <section class="sec" id="contactSec" hidden>
+      <div class="sec-head"><h2>יצירת קשר עם החברה</h2></div>
+      <div class="contact-card">
+        <div class="contact-list" id="contactList"></div>
+        <div>
+          <p style="font-size:.86rem;color:var(--ink-soft);margin:0 0 10px">
+            מחפשים פרויקט חדש ולא בטוחים איזה מתאים? השאירו פרטים בדף הפרויקטים ונחבר אתכם ליזמים הרלוונטיים באזור.
+          </p>
+          <a href="projects.html#leadSec" class="btn btn-ghost">להשארת פרטים</a>
+        </div>
+      </div>
+    </section>
+  </div>
+</main>
+<footer class="site">
+
+  <!-- רצועת הניוזלטר: ההרשמה נשלחת ל-Edge Function ולא ישירות לטבלה, מאותה
+       סיבה כמו שאר הטפסים הציבוריים באתר — הכתיבה נעשית ב-service_role
+       והטבלה סגורה ל-anon לגמרי (אימייל של אדם פרטי). -->
+  <div class="footer-news">
+    <div class="footer-wrap footer-news-inner">
+      <div class="footer-news-text">
+        <h4>הנכסים החדשים בעפולה — ראשונים אצלכם</h4>
+        <p>עדכון אחד בשבוע למייל. בלי ספאם, אפשר להסיר בכל רגע.</p>
+      </div>
+      <form class="footer-news-form" id="newsletterForm" data-source="articles_page" novalidate>
+        <label class="footer-sr-only" for="newsletterEmail">כתובת אימייל להרשמה לעדכונים</label>
+        <input type="email" id="newsletterEmail" name="email" autocomplete="email" inputmode="email"
+               placeholder="האימייל שלך" required>
+        <button type="submit" id="newsletterBtn">הרשמה</button>
+      </form>
+      <p class="footer-news-msg" id="newsletterMsg" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="footer-wrap footer-top">
+
+    <div class="footer-brand">
+      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+        <img src="assets/logo-shuknadlan-dark.svg" alt="" width="52" height="62" loading="lazy">
+        <span>שוק הנדל״ן<br>של עפולה והסביבה</span>
+      </a>
+      <p class="footer-tagline">
+        <span>כל הנכסים, כל המתווכים ובעלי המקצוע בעפולה והעמק בכתובת אחת</span>
+        <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
+      </p>
+      <div class="footer-cta">
+        <a href="agency-signup.html" class="footer-btn-primary">הצטרפות כמשרד תיווך</a>
+        <a href="developer-signup.html" class="footer-btn-ghost">הצטרפות כיזם/קבלן</a>
+        <a href="professional-signup.html" class="footer-btn-ghost">הצטרפות כבעל מקצוע</a>
+      </div>
+
+      <div class="footer-meta">
+        <div class="footer-contact">
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 10c0 5.2-8 12-8 12s-8-6.8-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.8"/>
+            </svg>
+            <span>רחוב חטיבה תשע 18, עפולה</span>
+          </p>
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3.5 6.5h17v11h-17z"/><path d="m3.5 7 8.5 6 8.5-6"/>
+            </svg>
+            <a href="mailto:shuknadlan@gmail.com">shuknadlan@gmail.com</a>
+          </p>
+        </div>
+
+        <div class="footer-social">
+          <a href="https://www.facebook.com/share/19LytY6L6b/" target="_blank" rel="noopener noreferrer"
+             aria-label="שוק הנדל״ן בפייסבוק — נפתח בחלון חדש" title="פייסבוק">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06C2 17.08 5.66 21.24 10.44 22v-7.03H7.9v-2.91h2.54V9.85c0-2.52 1.49-3.91 3.77-3.91 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.78-1.63 1.57v1.89h2.78l-.44 2.91h-2.34V22C18.34 21.24 22 17.08 22 12.06Z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <nav class="footer-grid" aria-label="ניווט בתחתית העמוד">
+      <div class="footer-col">
+        <h4>נכסים</h4>
+        <a href="index.html#saleProps">למכירה בעפולה</a>
+        <a href="index.html#rentProps">להשכרה בעפולה</a>
+        <a href="index.html#commercialProps">נכסים מסחריים</a>
+        <a href="index.html#listings">כל הנכסים</a>
+        <a href="projects.html">פרויקטים חדשים</a>
+      </div>
+      <div class="footer-col">
+        <h4>כלים</h4>
+        <a href="index.html#calc">מחשבון משכנתא</a>
+        <a href="index.html#heroSection">חיפוש על המפה</a>
+        <a href="index.html#featured">נכסים מובחרים</a>
+        <a href="articles.html">כתבות ובלוגים</a>
+      </div>
+      <div class="footer-col">
+        <h4>בעלי מקצוע</h4>
+        <a href="agencies.html">כל משרדי התיווך</a>
+        <a href="agents.html">כל המתווכים</a>
+        <a href="index.html#pros">בעלי מקצוע</a>
+        <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
+        <a href="developer-signup.html">הצטרפות כיזם/קבלן</a>
+      </div>
+      <div class="footer-col">
+        <h4>שוק נדל״ן</h4>
+        <a href="about.html">אודות</a>
+        <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
+        <a href="faq.html">שאלות נפוצות</a>
+        <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
+        <a href="crm.html">כניסת מתווכים</a>
+      </div>
+    </nav>
+
+  </div>
+
+  <!-- חיפושים פופולריים: קישורים פנימיים שמגיעים לתוצאות מסוננות דרך
+       פרמטרים ב-URL (ראו applyDeepLinkFilters ב-index.html). זה הבלוק
+       שמאפשר למנוע החיפוש להגיע לעמודי תוצאות ולא רק לדף הבית הכללי. -->
+  <details class="footer-wrap footer-seo" id="footerSeo" open>
+    <summary><h4>חיפושים פופולריים בעפולה והעמק</h4></summary>
+    <div class="footer-seo-links">
+      <a href="index.html?deal=sale&amp;rooms=3">דירות 3 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;rooms=4">דירות 4 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;rooms=5">דירות 5 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;maxPrice=1500000">נכסים בעפולה עד 1.5 מיליון ₪</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%93%D7%99%D7%A8%D7%AA%20%D7%92%D7%9F">דירות גן בעפולה</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%92%D7%92%2F%D7%A4%D7%A0%D7%98%D7%94%D7%90%D7%95%D7%96">פנטהאוזים בעפולה</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%91%D7%99%D7%AA%20%D7%A4%D7%A8%D7%98%D7%99%2F%D7%A7%D7%95%D7%98%D7%92'">בתים פרטיים בעפולה והעמק</a>
+      <a href="index.html?deal=sale&amp;q=%D7%92%D7%91%D7%A2%D7%AA%20%D7%94%D7%9E%D7%95%D7%A8%D7%94">נכסים בגבעת המורה</a>
+      <a href="index.html?deal=sale&amp;q=%D7%A2%D7%A4%D7%95%D7%9C%D7%94%20%D7%A2%D7%99%D7%9C%D7%99%D7%AA">נכסים בעפולה עילית</a>
+      <a href="index.html?deal=rent&amp;rooms=3">דירות 3 חדרים להשכרה בעפולה</a>
+      <a href="index.html?deal=rent&amp;rooms=4">דירות 4 חדרים להשכרה בעפולה</a>
+      <a href="index.html?deal=rent&amp;maxPrice=4000">דירות להשכרה בעפולה עד 4,000 ₪</a>
+      <a href="index.html?deal=commercial&amp;ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D">משרדים להשכרה בעפולה</a>
+      <a href="index.html?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
+      <a href="agencies.html">משרדי תיווך בעפולה</a>
+      <a href="agents.html">מתווכי נדל״ן בעפולה</a>
+    </div>
+  </details>
+
+  <div class="footer-wrap footer-bottom">
+    <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
+    <div class="footer-legal">
+      <a href="terms.html">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
+      <a href="privacy.html">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
+      <a href="accessibility.html">הצהרת נגישות</a>
+    </div>
+  </div>
+</footer>
+<script>
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+
+const el = id => document.getElementById(id);
+const esc = ProjectCard.escapeHtml;
+const safeUrl = ProjectCard.safeUrl;
+const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+const slug = new URLSearchParams(location.search).get('slug') || '';
+let developer = null, projects = [];
+
+function applyBrand(colors){
+  const c = colors && typeof colors === 'object' ? colors : {};
+  const hex = v => (typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v)) ? v : null;
+  const root = document.documentElement.style;
+  const brand = hex(c.brand), accent = hex(c.accent);
+  if (brand){
+    root.setProperty('--brand', brand); root.setProperty('--teal', brand);
+    root.setProperty('--brand-dark', hex(c.brand_dark) || brand);
+    root.setProperty('--teal-dark', hex(c.brand_dark) || brand);
+  }
+  if (accent){
+    root.setProperty('--accent', accent); root.setProperty('--gold', accent);
+    root.setProperty('--accent-dark', hex(c.accent_dark) || accent);
+    root.setProperty('--gold-dark', hex(c.accent_dark) || accent);
+  }
+}
+
+function renderBanner(){
+  const cover = safeUrl(developer.cover_url) ||
+    safeUrl((projects.find(p => p.cover_url) || {}).cover_url);
+  if (cover) el('bannerMedia').style.backgroundImage = "url('" + cover + "')";
+
+  const logo = safeUrl(developer.logo_url);
+  const box = el('brandLogo');
+  if (logo){ box.style.backgroundImage = "url('" + logo + "')"; box.textContent = ''; }
+  else box.textContent = (developer.name || '?')[0];
+
+  el('devName').textContent = developer.name || '';
+  if (developer.tagline){ el('devTagline').textContent = developer.tagline; el('devTagline').hidden = false; }
+
+  const where = [developer.address, developer.city].filter(Boolean).join(' · ');
+  el('devWhere').textContent = where;
+
+  const cta = [];
+  if (developer.phone_e164) cta.push('<a class="btn btn-teal" href="tel:+' + esc(developer.phone_e164) + '">חיוג לחברה</a>');
+  if (developer.website) cta.push('<a class="btn btn-on-dark" href="' + esc(safeUrl(developer.website)) +
+    '" target="_blank" rel="noopener noreferrer">האתר של החברה</a>');
+  el('devCta').innerHTML = cta.join('');
+}
+
+function renderStats(){
+  const stats = [];
+  const live = projects.length;
+  stats.push([live ? String(live) : '—', live === 1 ? 'פרויקט פעיל' : 'פרויקטים פעילים']);
+
+  const units = projects.reduce((sum, p) => sum + (Number(p.total_units) || 0), 0);
+  if (units) stats.push([units.toLocaleString('he-IL'), 'יחידות דיור בשיווק']);
+
+  const cities = [...new Set(projects.map(p => p.city).filter(Boolean))];
+  if (cities.length) stats.push([cities.length === 1 ? cities[0] : String(cities.length), cities.length === 1 ? 'עיר פעילות' : 'ערי פעילות']);
+
+  if (developer.projects_delivered) stats.push([Number(developer.projects_delivered).toLocaleString('he-IL'), 'פרויקטים שנמסרו']);
+  else if (developer.founded_year) stats.push([String(developer.founded_year), 'שנת הקמה']);
+
+  el('statBar').innerHTML = stats.slice(0, 4).map(([v, l]) =>
+    '<div class="stat"><b>' + esc(v) + '</b><span>' + esc(l) + '</span></div>').join('');
+}
+
+function renderProjects(query){
+  const q = (query || '').trim().toLowerCase();
+  const list = q
+    ? projects.filter(p => [p.name, p.city, p.address, p.street, p.tagline]
+        .filter(Boolean).join(' ').toLowerCase().includes(q))
+    : projects;
+
+  const grid = el('projectsGrid');
+  grid.textContent = '';
+  ProjectCard.sortForGallery(list).forEach(p => grid.appendChild(ProjectCard.render(p, { hideDeveloper:true })));
+
+  el('noProjectsState').hidden = projects.length > 0;
+  el('noResultsState').hidden = !(projects.length > 0 && list.length === 0);
+  el('projectsSub').textContent = projects.length
+    ? (q ? (list.length ? list.length + ' מתוך ' + projects.length : 'אין תוצאות') : 'כל הפרויקטים שהחברה משווקת כרגע.')
+    : '';
+}
+
+function renderContact(){
+  const rows = [];
+  if (developer.phone) rows.push('טלפון: <a href="tel:+' + esc(developer.phone_e164 || '') + '">' + esc(developer.phone) + '</a>');
+  if (developer.email) rows.push('אימייל: <a href="mailto:' + esc(developer.email) + '">' + esc(developer.email) + '</a>');
+  if (developer.website) rows.push('אתר: <a href="' + esc(safeUrl(developer.website)) +
+    '" target="_blank" rel="noopener noreferrer">' + esc(developer.website.replace(/^https?:\/\//, '')) + '</a>');
+  if (developer.address) rows.push('כתובת: ' + esc([developer.address, developer.city].filter(Boolean).join(', ')));
+  if (developer.legal_name) rows.push('שם רשמי: ' + esc(developer.legal_name));
+  if (developer.company_number) rows.push('ח״פ: ' + esc(developer.company_number));
+  if (!rows.length) return;
+  el('contactList').innerHTML = rows.map(r => '<p style="margin:0">' + r + '</p>').join('');
+  el('contactSec').hidden = false;
+}
+
+function renderMeta(){
+  const title = (developer.name || 'חברה יזמית') + ' — פרויקטים חדשים | שוק נדל״ן';
+  document.title = title;
+  el('ogTitle').content = title;
+  const desc = (developer.tagline || developer.description || '')
+    .replace(/\s+/g, ' ').trim().slice(0, 200) ||
+    ('כל הפרויקטים החדשים של ' + (developer.name || 'החברה') + ' בעפולה והעמק.');
+  el('metaDescription').content = desc;
+  el('ogDescription').content = desc;
+  const img = safeUrl(developer.cover_url) || safeUrl(developer.logo_url);
+  if (img) el('ogImage').content = img;
+}
+
+el('projectSearch').addEventListener('input', (e)=> renderProjects(e.target.value));
+
+(async function init(){
+  if (!sb || !slug){
+    el('loadingState').hidden = true;
+    el('notFoundState').hidden = false;
+    return;
+  }
+  try{
+    const { data, error } = await sb.from('developers_public').select('*').eq('slug', slug).maybeSingle();
+    if (error) throw error;
+    if (!data){
+      el('loadingState').hidden = true;
+      el('notFoundState').hidden = false;
+      return;
+    }
+    developer = data;
+
+    const { data: rows } = await sb.from('projects_public').select('*')
+      .eq('developer_id', developer.id).order('published_at', { ascending:false });
+    projects = rows || [];
+
+    applyBrand(developer.colors);
+    renderMeta();
+    renderBanner();
+    renderStats();
+
+    if (developer.description){
+      el('devAbout').textContent = developer.description;
+      el('aboutSec').hidden = false;
+    }
+    el('searchBar').hidden = projects.length < 4;
+    renderProjects('');
+    renderContact();
+
+    el('loadingState').hidden = true;
+    el('main').hidden = false;
+  } catch(e){
+    console.warn('טעינת החברה נכשלה:', e);
+    el('loadingState').hidden = true;
+    el('notFoundState').hidden = false;
+  }
+})();
+</script>
+</body>
+</html>

@@ -55,6 +55,12 @@ verify_jwt = false          # פנייה ישירה מדף הסוכן/ת
 [functions.newsletter-subscribe]
 verify_jwt = false          # טופס רשימת התפוצה בפוטר, בכל עמוד ציבורי
 
+[functions.developer-signup]
+verify_jwt = false          # פתיחת חברה יזמית/קבלנית — אין עדיין חשבון
+
+[functions.project-lead-intake]
+verify_jwt = false          # "מחפשים פרויקט חדש?" בדף הפרויקטים ובדף הפרויקט
+
 # ---------------------------------------------------------------------------
 # מערכתי — אימות עצמי בתוך הפונקציה (סוד cron, service role, או webhook)
 #
@@ -131,3 +137,9 @@ verify_jwt = true           # גיאוקוד לכתובת — לכל סוכן/ת
 
 [functions.dev-switch-mode]
 verify_jwt = true           # כלי בדיקה — מוגבל ל-is_platform_admin בלבד
+
+[functions.project-manage]
+verify_jwt = true           # ניהול פרויקטים של יזם — שלוש מהפעולות נוגעות בארנק
+
+[functions.project-lead-purchase]
+verify_jwt = true           # רכישת ליד ממדף היזמים — פעולה שמעבירה כסף

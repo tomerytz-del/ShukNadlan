@@ -16,6 +16,7 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="assets/map-gestures.js"></script>
 <script src="assets/property-card.js"></script>
+<script src="assets/project-card.js"></script>
 <style>
   /* ====== Design tokens — grounded in Jezreel Valley (עמק יזרעאל): wheat gold + cultivated-land teal + Gilboa dusk ====== */
   :root{
@@ -1359,6 +1360,31 @@
      .prop-card משמש גם ברשימת הנכסים המלאה (.property-grid, גריד ולא
      גלילה) — ולכן שינויי המידוד לשלושה-בתצוגה מוגבלים ל-.featured-scroll
      .prop-card בלבד, כדי לא להשפיע על אריחי הגריד הרגילים. */
+  /* ====== גלריית הפרויקטים החדשים ======
+     גריד ולא רצועה נגללת כמו שאר הקטגוריות, ובכוונה: שני האריחים
+     הראשונים הם מקומות בתשלום (50 ₪ לשבוע), ורצועה שנגללת אופקית
+     מסתירה בדיוק אותם ברגע שהאצבע זזה. גריד מציג את שניהם במלואם בכל
+     רוחב מסך — וזה מה שנמכר.
+
+     האריח עצמו מגיע מ-assets/project-card.js, אותו קובץ שמצייר אותו
+     בדף הפרויקטים ובדף החברה. */
+  .projects-gallery{
+    display:grid;grid-template-columns:1fr;gap:12px;padding:0 14px;
+  }
+  @media(min-width:560px){.projects-gallery{grid-template-columns:repeat(2,1fr)}}
+  @media(min-width:980px){.projects-gallery{grid-template-columns:repeat(4,1fr);padding:0}}
+  /* שני המקודמים תופסים חצי רוחב במסך רחב — הם מה שנקנה, והם צריכים
+     להיראות ככה גם לפני שקוראים את התגית "מקודם" שעליהם. */
+  @media(min-width:980px){
+    .projects-gallery > .pj-card.lead{grid-column:span 2}
+    .projects-gallery > .pj-card.lead .pj-cover{aspect-ratio:16/9}
+    .projects-gallery > .pj-card.lead .pj-cover-foot b{font-size:1.3rem}
+  }
+  .projects-note{
+    font-size:.74rem;color:var(--ink-muted);text-align:center;margin:12px 0 0;padding:0 14px;
+  }
+  .projects-cta{display:flex;flex-wrap:wrap;gap:10px;justify-content:center;margin-top:16px;padding:0 14px}
+
   .featured-scroll{
     --row-gap:9px; --row-peek:14px;
     display:flex;gap:var(--row-gap);overflow-x:auto;scroll-snap-type:x mandatory;
@@ -1967,6 +1993,7 @@
          רצועת המתווכים, במקום שבו הכוכבים באמת נקראים. -->
     <nav class="primary" aria-label="ניווט ראשי">
       <a href="#listings">נכסים</a>
+      <a href="#newProjects">פרויקטים חדשים</a>
       <a href="#leadingAgencies">משרדי תיווך</a>
       <a href="#leadingAgents">מתווכים</a>
       <a href="#pros">בעלי מקצוע</a>
@@ -1981,6 +2008,7 @@
   </div>
   <nav id="mobileMenu" class="mobile-menu" aria-label="ניווט למובייל">
     <a href="#listings">נכסים</a>
+    <a href="#newProjects">פרויקטים חדשים</a>
     <a href="#leadingAgencies">משרדי תיווך</a>
     <a href="#leadingAgents">מתווכים</a>
     <a href="#pros">בעלי מקצוע</a>
@@ -1988,6 +2016,7 @@
     <!-- עד עכשיו נקודת הכניסה היחידה של בעלי מקצוע הייתה הקישור בתוך
          הרצועה בדף הבית — מי שלא גלל עד אליה לא ידע שאפשר להצטרף. -->
     <a href="professional-signup.html">הצטרפות כבעל מקצוע</a>
+    <a href="developer-signup.html">הצטרפות כיזם/קבלן</a>
     <a href="crm.html" class="btn btn-teal btn-block" style="margin-top:10px">כניסת מתווכים</a>
   </nav>
 </header>
@@ -2016,6 +2045,10 @@
               <option value="sale">מכירה</option>
               <option value="rent">השכרה</option>
               <option value="commercial">מסחרי</option>
+              <!-- פרויקטים חדשים אינם נכסים בטבלת properties אלא מודול משלהם,
+                   ולכן הבחירה כאן מנווטת לדף הפרויקטים ולא מסננת את המפה.
+                   ראו הטיפול ב-change למטה. -->
+              <option value="projects">פרויקטים חדשים</option>
             </select>
             <input type="text" class="search-input" placeholder="עיר, שכונה או רחוב…" id="searchFreeText">
             <button type="button" class="icon-btn" id="openFiltersBtn" aria-label="סינונים" title="סינונים">
@@ -2909,6 +2942,36 @@
     <div class="featured-scroll" id="commercialScroll"><!-- populated by JS --></div>
   </section>
 
+  <!-- ====== פרויקטים חדשים מקבלנים ויזמים ======
+       הקטגוריה הרביעית של האתר, לצד מכירה/השכרה/מסחרי, ולכן היא יושבת
+       מיד אחרי שלוש רצועות הנכסים ולא בתחתית העמוד.
+
+       שני האריחים הראשונים שמורים לפרויקטים מקודמים — זה בדיוק מה שהיזם
+       קונה ב-50 ₪ לשבוע, וזו הסיבה שהם מסומנים "מקודם" בגלוי ושורת
+       ההסבר מתחת לגלריה אומרת זאת במפורש. פרסום שאינו מסומן ככזה שוחק
+       את האמון בכל שאר הרשימה.
+
+       הסקציה נבנית כולה ב-JS ונשארת מוסתרת כשאין פרויקטים חיים: כותרת
+       "פרויקטים חדשים" מעל גלריה ריקה גרועה מהיעדרה. -->
+  <section class="section wrap" id="newProjects" hidden>
+    <div class="section-head">
+      <div>
+        <div class="head-line">
+          <h2>פרויקטים חדשים מקבלנים ויזמים</h2>
+          <button type="button" class="info-dot" aria-label="מידע על הרצועה"
+                  data-info="דירות מקבלן בעפולה והעמק — ישירות מהיזם, בלי מתווך">i</button>
+        </div>
+      </div>
+      <a href="projects.html" class="see-all">כל הפרויקטים החדשים ←</a>
+    </div>
+    <div class="projects-gallery" id="projectsGallery"><!-- populated by JS --></div>
+    <p class="projects-note" id="projectsNote"></p>
+    <div class="projects-cta">
+      <a href="projects.html" class="btn btn-teal">לכל הפרויקטים החדשים</a>
+      <a href="developer-signup.html" class="btn btn-ghost">אתם יזמים? פתחו דף פרויקט</a>
+    </div>
+  </section>
+
   <!-- ====== Mortgage calculator ======
        אותו באנר מתקפל של שני באנרי הלידים: המחשבון פרוס הוא הכלי הגבוה
        ביותר בעמוד הבית (סליידרים, סטפרים, תוצאה ו-CTA), והוא נפתח רק למי
@@ -3312,6 +3375,7 @@
           <option value="sale">מכירה</option>
           <option value="rent">השכרה</option>
           <option value="commercial">מסחרי</option>
+          <option value="projects">פרויקטים חדשים</option>
         </select>
         <input type="text" class="search-input" id="listingsQuery" placeholder="עיר, שכונה, רחוב או סוג נכס…" autocomplete="off">
         <button type="button" class="search-go" id="listingsGoBtn" aria-label="חיפוש ברשימת הנכסים" title="חיפוש">
@@ -3362,6 +3426,7 @@
       </p>
       <div class="footer-cta">
         <a href="agency-signup.html" class="footer-btn-primary">הצטרפות כמשרד תיווך</a>
+        <a href="developer-signup.html" class="footer-btn-ghost">הצטרפות כיזם/קבלן</a>
         <a href="professional-signup.html" class="footer-btn-ghost">הצטרפות כבעל מקצוע</a>
       </div>
 
@@ -3399,6 +3464,7 @@
         <a href="#rentProps">להשכרה בעפולה</a>
         <a href="#commercialProps">נכסים מסחריים</a>
         <a href="#listings">כל הנכסים</a>
+        <a href="projects.html">פרויקטים חדשים</a>
       </div>
       <div class="footer-col">
         <h4>כלים</h4>
@@ -3413,6 +3479,7 @@
         <a href="agents.html">כל המתווכים</a>
         <a href="#pros">בעלי מקצוע</a>
         <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
+        <a href="developer-signup.html">הצטרפות כיזם/קבלן</a>
       </div>
       <div class="footer-col">
         <h4>שוק נדל״ן</h4>
@@ -3446,6 +3513,7 @@
       <a href="?deal=rent&amp;maxPrice=4000">דירות להשכרה בעפולה עד 4,000 ₪</a>
       <a href="?deal=commercial&amp;ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D">משרדים להשכרה בעפולה</a>
       <a href="?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
+      <a href="projects.html">פרויקטים חדשים בעפולה</a>
       <a href="agencies.html">משרדי תיווך בעפולה</a>
       <a href="agents.html">מתווכי נדל״ן בעפולה</a>
     </div>
@@ -6373,6 +6441,19 @@ function initFilterModals(){
 const dealTypeSelect = document.getElementById('dealTypeSelect');
 if (dealTypeSelect){
   dealTypeSelect.addEventListener('change', ()=>{
+    /* "פרויקטים חדשים" אינו סוג עסקה בטבלת properties אלא מודול נפרד עם
+       מנוע חיפוש משלו, ולכן הבחירה בו מנווטת לדף הפרויקטים במקום לסנן
+       את המפה. הטקסט החופשי שכבר הוקלד נוסע איתו — בלעדיו המשתמש/ת
+       היה/הייתה מקליד/ה אותו פעמיים.
+
+       הבורר מוחזר לערך הקודם לפני הניווט, כדי שחזרה אחורה בדפדפן לא
+       תמצא את דף הבית עם בורר שמצביע על עמוד אחר. */
+    if (dealTypeSelect.value === 'projects'){
+      const q = (document.getElementById('searchFreeText').value || '').trim();
+      dealTypeSelect.value = searchState.activeTab;
+      location.href = 'projects.html' + (q ? '?q=' + encodeURIComponent(q) : '');
+      return;
+    }
     searchState.activeTab = dealTypeSelect.value;
     dealTypeSelect.dataset.mode = dealTypeSelect.value;
     // המונים שברשימת השכונות נספרים לפי סוג העסקה הנבחר, ולכן הם חייבים
@@ -7617,11 +7698,68 @@ const listingsDeal = document.getElementById('listingsDeal');
 listingsQuery.addEventListener('input', renderListings);
 listingsQuery.addEventListener('keydown', (e)=>{ if (e.key === 'Enter'){ e.preventDefault(); renderListings(); } });
 listingsDeal.addEventListener('change', ()=>{
+  // אותה החלטה כמו בבורר שבכותרת: פרויקטים חדשים הם מודול נפרד ולא
+  // סוג עסקה, ולכן הבחירה בהם מנווטת לדף שלהם עם הטקסט שכבר הוקלד.
+  if (listingsDeal.value === 'projects'){
+    const q = (listingsQuery.value || '').trim();
+    listingsDeal.value = '';
+    location.href = 'projects.html' + (q ? '?q=' + encodeURIComponent(q) : '');
+    return;
+  }
   // data-mode צובע את הבורר לפי סוג העסקה, בדיוק כמו בסרגל שבכותרת
   listingsDeal.dataset.mode = listingsDeal.value || 'all';
   renderListings();
 });
 document.getElementById('listingsGoBtn').addEventListener('click', renderListings);
+
+/* ============================================================
+   גלריית הפרויקטים החדשים
+   ------------------------------------------------------------
+   שני האריחים הראשונים שמורים לפרויקטים מקודמים — זה מה שהיזם קונה
+   ב-50 ₪ לשבוע, וזו הסיבה ששורת ההסבר מתחת לגלריה אומרת זאת במפורש
+   ומשתנה לפי מה שבאמת מוצג: כשאין אף מקודם היא לא מבטיחה מקודמים.
+
+   הקידום כבר חושב מול השעון ב-projects_public (‏is_promoted שם הוא
+   ביטוי ולא עמודה), ולכן כאן זה דגל ותו לא — ואין סיכון להציג פרויקט
+   שחלון הקידום שלו נסגר אתמול.
+
+   כישלון בטעינה משאיר את הסקציה מוסתרת ולא מציג הודעת שגיאה: מודול
+   שנפל אינו סיבה לקלקל את דף הבית.
+   ============================================================ */
+(async function renderNewProjects(){
+  const section = document.getElementById('newProjects');
+  const gallery = document.getElementById('projectsGallery');
+  if (!section || !gallery || !window.ProjectCard || !sb) return;
+
+  try{
+    const { data, error } = await sb.from('projects_public')
+      .select('*').order('published_at', { ascending:false }).limit(24);
+    if (error) throw error;
+    const list = ProjectCard.sortForGallery(data || []);
+    if (!list.length) return;
+
+    const PROMOTED_SLOTS = 2;
+    const shown = list.slice(0, 8);
+    shown.forEach((p, i)=>{
+      const card = ProjectCard.render(p);
+      // ‏.lead רק כשהאריח באמת מקודם. פרויקט רגיל שנחת במקום הראשון
+      // בגלל שאין מקודמים לא צריך לקבל את הבמה שנמכרת בכסף.
+      if (i < PROMOTED_SLOTS && p.is_promoted) card.classList.add('lead');
+      gallery.appendChild(card);
+    });
+
+    const promotedShown = shown.slice(0, PROMOTED_SLOTS).filter(p => p.is_promoted).length;
+    document.getElementById('projectsNote').textContent = promotedShown
+      ? (promotedShown === 1
+          ? 'הפרויקט הראשון בגלריה הוא תוכן שיווקי בתשלום של היזם. השאר לפי מועד פרסום.'
+          : 'שני הפרויקטים הראשונים בגלריה הם תוכן שיווקי בתשלום של היזמים. השאר לפי מועד פרסום.')
+      : 'הפרויקטים מסודרים לפי מועד פרסום — החדשים ביותר בראש.';
+
+    section.hidden = false;
+  } catch(e){
+    console.warn('טעינת הפרויקטים החדשים נכשלה:', e);
+  }
+})();
 
 /* ============================================================
    קישורי חיפוש עמוקים (‎?deal=…&rooms=…‎)

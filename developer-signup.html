@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>פתיחת חשבון יזם/קבלן | שוק נדל״ן</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta name="description" content="פתיחת חשבון לחברה יזמית או קבלנית בשוק הנדל״ן — דף חברה, ודף נחיתה לכל פרויקט חדש.">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* אותו כרטיס בדיוק של agency-signup.html — זו אותה פעולה בעולם אחר,
+     ואין סיבה שהיא תיראה אחרת. */
+  :root{
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
+    --line:#e3e8f4; --blue:#0e2a6b; --blue-dark:#0d1b3d; --blue-tint:#eaf0fb;
+    --red:#0e2a6b; --brass-tint:#f7f1e2; --brass-ink:#8a6d10;
+    --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(18,40,64,.1);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  h1,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--blue-dark);margin:0}
+  a{color:inherit}
+  button{font-family:inherit;cursor:pointer;border:none}
+  input,textarea{font-family:inherit;font-size:1rem}
+  .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line);max-width:470px;width:100%;padding:32px 26px}
+  .logo-link{display:block;width:64px;margin:0 auto 16px;line-height:0}
+  .logo-link img{width:100%;height:auto;display:block}
+  h1{font-size:1.25rem;text-align:center;margin-bottom:6px}
+  p.sub{text-align:center;color:var(--ink-soft);font-size:.85rem;margin:0 0 22px}
+  .field{margin-bottom:12px}
+  .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
+  .field input,.field textarea{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
+  .field textarea{resize:vertical;min-height:64px;font-size:.92rem}
+  .field input:focus,.field textarea:focus{border-color:var(--blue);outline:none}
+  .two{display:grid;gap:12px}
+  @media(min-width:440px){.two{grid-template-columns:1fr 1fr}}
+  .section-divider{font-size:.72rem;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 10px;padding-top:14px;border-top:1px solid var(--line)}
+  .consent{display:flex;align-items:flex-start;gap:9px;background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
+  .consent input{margin:2px 0 0;width:17px;height:17px;flex:0 0 auto;accent-color:var(--blue)}
+  .consent label{font-size:.78rem;line-height:1.45;cursor:pointer}
+  .consent a{color:var(--blue);font-weight:700}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:0;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff;margin-top:10px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  #feedback{font-size:.82rem;text-align:center;margin-top:12px;min-height:1.2em}
+  .back-link{display:block;text-align:center;font-size:.8rem;color:var(--blue);margin-top:16px;text-decoration:none}
+  .note{font-size:.74rem;color:var(--ink-soft);background:var(--blue-tint);border-radius:var(--radius-sm);padding:11px 12px;margin-bottom:16px}
+  /* מחירון גלוי כבר בהרשמה. פתיחת החשבון חינם, והתשלום מתחיל רק כשדף
+     נחיתה עולה לאוויר — שני המשפטים האלה צריכים להיאמר לפני ההרשמה
+     ולא אחריה. */
+  .pricing{background:var(--brass-tint);border-radius:var(--radius-sm);padding:12px 13px;margin-bottom:16px;font-size:.78rem;line-height:1.6}
+  .pricing b{color:var(--brass-ink)}
+  .pricing ul{margin:6px 0 0;padding-inline-start:18px}
+  #stateDone{display:none;text-align:center}
+</style>
+<link rel="stylesheet" href="assets/design-system.css">
+<script src="assets/page-bg.js" data-auto></script>
+</head>
+<body>
+
+<div class="card">
+  <div id="stateForm">
+    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
+    <h1>פתיחת חשבון יזם/קבלן</h1>
+    <p class="sub">דף חברה אחד, ודף נחיתה נפרד לכל פרויקט</p>
+
+    <div class="note">
+      תחילה נפתחת החברה — היזמית או הקבלנית. אחר כך, מאזור הניהול, מעלים כל פרויקט לדף נחיתה משלו:
+      לוגו, תמונת נושא, גלריה, סרטונים, סיור 3D, תמהיל דירות וחוברת מכר להורדה.
+      כל פרויקט מוצג בדף הבית, בדף החברה שלכם ובדף שמרכז את כל הפרויקטים.
+    </div>
+
+    <div class="pricing">
+      <b>המחירון, לפני שנתחיל:</b>
+      <ul>
+        <li>פתיחת החברה ודף החברה — <b>ללא עלות</b>.</li>
+        <li>דף נחיתה לפרויקט — <b id="pricePage">350 ₪ לחודש</b>, לכל פרויקט בנפרד.</li>
+        <li>קידום פרויקט בראש הגלריות — <b id="pricePromote">50 ₪ לשבוע</b>, לבחירתכם.</li>
+      </ul>
+    </div>
+
+    <div class="section-divider">פרטי החברה</div>
+    <div class="field"><label>שם החברה (כפי שיוצג באתר)</label><input type="text" id="companyName" required></div>
+    <div class="two">
+      <div class="field"><label>שם רשמי <span style="font-weight:400">(לא חובה)</span></label><input type="text" id="legalName" placeholder="בע״מ"></div>
+      <div class="field"><label>ח״פ <span style="font-weight:400">(לא חובה)</span></label><input type="text" id="companyNumber"></div>
+    </div>
+    <div class="field"><label>משפט תדמית קצר <span style="font-weight:400">(לא חובה)</span></label><input type="text" id="tagline" placeholder="בונים בעמק מאז 1998"></div>
+    <div class="two">
+      <div class="field"><label>עיר</label><input type="text" id="city" placeholder="עפולה"></div>
+      <div class="field"><label>טלפון</label><input type="tel" id="phone" inputmode="tel"></div>
+    </div>
+    <div class="field"><label>אתר החברה <span style="font-weight:400">(לא חובה)</span></label><input type="url" id="website" placeholder="https://"></div>
+
+    <div class="section-divider">הפרטים שלך (כמנהל/ת החשבון)</div>
+    <div class="field"><label>שם מלא</label><input type="text" id="contactName" required></div>
+    <div class="field"><label>אימייל</label><input type="email" id="contactEmail" required autocomplete="username"></div>
+    <div class="field"><label>סיסמה (8 תווים לפחות)</label><input type="password" id="password" required minlength="8" autocomplete="new-password"></div>
+
+    <div class="section-divider">תנאים</div>
+    <div class="consent">
+      <input type="checkbox" id="termsConsent">
+      <label for="termsConsent">קראתי ואני מסכים/ה ל<a href="terms.html" target="_blank" rel="noopener">תנאי השימוש</a> ול<a href="privacy.html" target="_blank" rel="noopener">מדיניות הפרטיות</a>. ידוע לי שהמידע, המחירים והתמונות בדפי הפרויקטים הם באחריות החברה, ואינם מהווים הצעה מחייבת.</label>
+    </div>
+
+    <button class="btn" id="submitBtn">פתיחת החשבון</button>
+    <div id="feedback"></div>
+    <a href="developer-crm.html" class="back-link">כבר יש לך חשבון? כניסה</a>
+  </div>
+
+  <div id="stateDone">
+    <h1>החשבון נפתח!</h1>
+    <p class="sub">אפשר להתחבר עכשיו עם הפרטים שהזנת, לעצב את דף החברה ולהעלות את הפרויקט הראשון.</p>
+    <a href="developer-crm.html" class="btn" style="display:flex;text-decoration:none;margin-top:16px">מעבר לאזור הניהול</a>
+    <a href="#" id="devPageLink" class="back-link" target="_blank" rel="noopener">לדף החברה שנוצר ←</a>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+const SIGNUP_URL = SUPABASE_URL + '/functions/v1/developer-signup';
+const el = id => document.getElementById(id);
+
+/* המחירון נקרא מ-pricing_config ולא נשאר קשיח ב-HTML: שינוי מחיר בטבלה
+   חייב להשתקף בדף שמבטיח אותו, אחרת ההרשמה מבטיחה מחיר שאינו קיים. */
+(async function loadPricing(){
+  if (!window.supabase) return;
+  try{
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data } = await sb.from('pricing_config').select('key, value')
+      .in('key', ['project_page_monthly_price','project_promote_weekly_price']);
+    const map = {};
+    (data || []).forEach(r => { map[r.key] = Number(r.value); });
+    if (map.project_page_monthly_price)
+      el('pricePage').textContent = map.project_page_monthly_price.toLocaleString('he-IL') + ' ₪ לחודש';
+    if (map.project_promote_weekly_price)
+      el('pricePromote').textContent = map.project_promote_weekly_price.toLocaleString('he-IL') + ' ₪ לשבוע';
+  } catch(e){ /* המחירים שב-HTML נשארים */ }
+})();
+
+el('submitBtn').addEventListener('click', async ()=>{
+  const feedback = el('feedback'), btn = el('submitBtn');
+  const companyName = el('companyName').value.trim();
+  const contactName = el('contactName').value.trim();
+  const contactEmail = el('contactEmail').value.trim();
+  const password = el('password').value;
+
+  const fail = (msg)=>{ feedback.style.color = 'var(--red)'; feedback.textContent = msg; };
+
+  if (!companyName || !contactName || !contactEmail || !password) return fail('נא למלא שם חברה, שם, אימייל וסיסמה');
+  if (password.length < 8) return fail('הסיסמה צריכה להכיל לפחות 8 תווים');
+  if (!el('termsConsent').checked) return fail('ההצטרפות מותנית באישור תנאי השימוש');
+
+  btn.disabled = true; btn.textContent = 'פותח חשבון…'; feedback.textContent = '';
+  try{
+    const res = await fetch(SIGNUP_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({
+        company_name: companyName,
+        legal_name: el('legalName').value.trim() || null,
+        company_number: el('companyNumber').value.trim() || null,
+        tagline: el('tagline').value.trim() || null,
+        city: el('city').value.trim() || null,
+        phone: el('phone').value.trim() || null,
+        website: el('website').value.trim() || null,
+        contact_name: contactName,
+        contact_email: contactEmail,
+        password,
+        terms_accepted: true,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      const messages = {
+        weak_password: 'הסיסמה קצרה מדי',
+        auth_error: 'שגיאה ביצירת החשבון — ייתכן שהאימייל כבר בשימוש',
+        terms_not_accepted: 'ההצטרפות מותנית באישור תנאי השימוש',
+      };
+      fail(messages[data.error] || ('שגיאה: ' + (data.detail || data.error)));
+      btn.disabled = false; btn.textContent = 'פתיחת החשבון';
+      return;
+    }
+    el('devPageLink').href = 'developer.html?slug=' + encodeURIComponent(data.developer_slug);
+    el('stateForm').style.display = 'none';
+    el('stateDone').style.display = 'block';
+  } catch(err){
+    console.error(err);
+    fail('שגיאת רשת — נסו שוב');
+    btn.disabled = false; btn.textContent = 'פתיחת החשבון';
+  }
+});
+</script>
+</body>
+</html>
