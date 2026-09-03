@@ -68,14 +68,31 @@
     '.ai-band h3{font-family:Heebo,system-ui,sans-serif;font-size:clamp(22px,4.6vw,30px);',
     '  font-weight:800;letter-spacing:-.02em;line-height:1.15;color:#fff;margin:0 0 10px}',
     '.ai-band p{font-size:16px;line-height:1.7;color:#aab6d6;margin:0 0 18px;max-width:46ch}',
-    '.ai-actions{display:flex;flex-wrap:wrap;align-items:center;gap:14px}',
+    /* הכפתור ממורכז בשורה שלו ולא נצמד לקצה ההתחלה. הוא הפעולה היחידה
+       בתיבה, ופעולה יחידה שיושבת בפינה נקראת כהערת שוליים. */
+    '.ai-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:14px}',
     /* הכפתור הראשי זהוב עם טקסט כהה: על רצועה בספיר, ספיר על ספיר לא נקרא,
-       וזהב שנושא טקסט לבן נופל בניגודיות. */
-    '.ai-cta{display:inline-flex;align-items:center;gap:8px;background:#c9a227;color:#0d1b3d;',
-    '  text-decoration:none;',
-    '  font-family:Heebo,system-ui,sans-serif;font-size:15px;font-weight:800;',
-    '  padding:13px 22px;border:none;cursor:pointer;text-decoration:none}',
-    '.ai-cta:hover{background:#dcb63c;color:#0d1b3d}',
+       וזהב שנושא טקסט לבן נופל בניגודיות.
+
+       הרוחב הוא רוחב העמודה, עם תקרה. כפתור בגודל המילים שבו נבלע בין
+       שדות שנמתחים לרוחב מלא ופסקה שמעליהם — הוא נראה קטן ממה שהוא, וזה
+       בדיוק ההפך ממה שכפתור יחיד אמור לשדר. התקרה קיימת כדי שבמסך רחב
+       הוא יישאר כפתור ולא יהפוך לרצועה.
+
+       הצל זהוב ולא שחור: על ספיר כהה צל שחור אינו נראה, וזוהר עדין בצבע
+       הכפתור עצמו הוא מה שמרים אותו מהרקע. */
+    '.ai-cta{display:flex;align-items:center;justify-content:center;gap:8px;',
+    '  width:100%;max-width:460px;text-align:center;',
+    '  background:#c9a227;color:#0d1b3d;text-decoration:none;',
+    '  font-family:Heebo,system-ui,sans-serif;font-size:16px;font-weight:800;',
+    '  letter-spacing:-.01em;line-height:1.2;',
+    '  padding:16px 26px;border:none;cursor:pointer;',
+    '  box-shadow:0 10px 26px -14px rgba(201,162,39,.9);',
+    '  transition:background .15s ease,box-shadow .15s ease,transform .15s ease}',
+    '.ai-cta:hover{background:#dcb63c;color:#0d1b3d;',
+    '  box-shadow:0 14px 30px -12px rgba(220,182,60,.95);transform:translateY(-1px)}',
+    '.ai-cta:active{transform:translateY(0);box-shadow:0 6px 18px -12px rgba(201,162,39,.9)}',
+    '.ai-cta:focus-visible{outline:3px solid #fff;outline-offset:3px}',
     '.ai-secondary{color:#c3cde6;font-size:14px;text-decoration:underline;text-underline-offset:3px}',
     '.ai-secondary:hover{color:#fff}',
     /* ‏grid-column:1/-1 — ההצהרה חוצה את שתי העמודות ויושבת מתחת לשתיהן,
@@ -152,7 +169,11 @@
     '  border:1px solid rgba(255,255,255,.28)}',
     '.ai-style:hover{border-color:#c9a227;color:#fff}',
     '.ai-style[aria-pressed="true"]{background:#fff;color:#0d1b3d;border-color:#fff}',
+    /* בזמן "יוצרים…" הכפתור לא מגיב למגע: הרמה וזוהר על כפתור מושבת
+       מבטיחים לחיצה שלא תקרה. */
     '.ai-cta[disabled]{opacity:.6;cursor:default}',
+    '.ai-cta[disabled]:hover{background:#c9a227;transform:none;',
+    '  box-shadow:0 10px 26px -14px rgba(201,162,39,.9)}',
 
     /* ---- חריץ הבקשה ----
        הרצועה לא מרכיבה את שדות הבקשה בעצמה — היא רק שומרת להם מקום מעל
@@ -180,7 +201,11 @@
     '@keyframes aiLabel{from{opacity:1}to{opacity:.45}}',
     '@media (prefers-reduced-motion: reduce){',
     '  .ai-compare[data-idle] .ai-after,.ai-compare[data-idle] .ai-divider,',
-    '  .ai-compare[data-idle] .ai-label-before{animation:none}}',
+    '  .ai-compare[data-idle] .ai-label-before{animation:none}',
+    /* ההרמה של הכפתור היא קישוט ולא מידע — היא נופלת יחד עם השאר, והצבע
+       לבדו נשאר לסמן ריחוף. */
+    '  .ai-cta{transition:background .15s ease}',
+    '  .ai-cta:hover,.ai-cta:active{transform:none}}',
   ].join('');
 
   function injectCss() {
