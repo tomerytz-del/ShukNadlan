@@ -736,8 +736,11 @@
      התמונה ולא לידה: מי שישמור או ישתף את התמונה ייקח את התווית איתו. זו
      לא קישוטיות אלא הדרישה שמפרידה בין המחשה שיווקית לבין הצגה מטעה. */
   #aiShowcase .ai-band{margin-block:0}
+  /* ‏gap ו-padding מהודקים: ‎22px‎ בין שורות הגריד ו-‎26px‎ מתחת להצהרה יצרו
+     שני חללים ריקים בתחתית התיבה — אחד בין האריחים להצהרה ואחד מתחתיה —
+     שנקראו כסוף התוכן הרבה לפני שהוא באמת נגמר. */
   #aiShowcase .ai-band-inner{max-width:none;grid-template-columns:1fr;
-    gap:22px;padding:26px 20px}
+    gap:16px;padding:26px 20px 16px}
   #aiShowcase .ai-band h3{font-size:clamp(20px,3.4vw,25px)}
   #aiShowcase .ai-band p{font-size:15px}
 
@@ -747,17 +750,23 @@
   .video-frame video,.video-frame iframe{width:100%;height:100%;display:block;border:0}
   .video-frame video{object-fit:contain}
 
-  /* הבקשה בנכס מסחרי: יושבת מתחת לרצועה ובשפת הטפסים של הדף, לא בשפת
-     הרצועה הכהה — היא חלק מהעמוד, לא חלק מהבאנר. */
-  .viz-ask{margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}
+  /* הבקשה בנכס מסחרי: הטופס נודד לתוך הרצועה הכהה, מעל הכפתור שמפעיל
+     אותו. קודם הוא ישב מתחתיה בשפת הטפסים של הדף — ואז היה לו כפתור
+     "יצירת ההדמיה" משלו, כפול לכפתור שברצועה. עכשיו יש כפתור אחד,
+     והשדות שמעליו לובשים את שפת הרצועה. */
+  .viz-ask{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}
   .viz-ask > .field{flex:1 1 260px;margin:0}
-  .viz-form{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;flex:1 1 340px}
-  .viz-form .field{flex:1 1 160px;margin:0}
   /* שני שדות הקשר כיחידה אחת: הם נדרשים יחד או לא נדרשים בכלל, ומי
      שכבר מסר/ה אותם לנכס הזה לא רואה אף אחד מהם. */
   .viz-contact{display:flex;gap:10px;flex-wrap:wrap;flex:1 1 340px}
   .viz-contact[hidden]{display:none}
   .viz-contact .field{flex:1 1 160px;margin:0}
+  /* שדה לבן על ספיר. הגבול האפור של שפת הטפסים נעלם על רקע כהה ומשאיר
+     קופסה מרחפת, ולכן כאן הגבול הוא המיקוד עצמו — זהב, אותו זהב של
+     הכפתור שמתחת. */
+  #aiPropAsk .field input{border-color:transparent;background:#fff;color:#0f172a}
+  #aiPropAsk .field input::placeholder{color:#5b678a}
+  #aiPropAsk .field input:focus{border-color:#c9a227;background:#fff}
   .viz-error{color:var(--gold-dark);font-size:.8rem;margin:8px 0 0;min-height:1em}
   /* מה עובד עכשיו. בלי זה לחיצה על "יצירת הדמיה" נראית כאילו לא קרה כלום
      עד שהתמונה מופיעה — וזה יכול לקחת דקה. */
@@ -896,21 +905,32 @@
                נקודה. ארבעת הסגנונות הם המוצר, ומסך שדורש שם וטלפון לפני
                שרואים אותם הוא מחסום לפני הערך ולא אחריו.
 
-               בנכס מסחרי הבלוק הזה נפתח מתחת לרצועה: סוג העסק תמיד — בלעדיו
-               אין מה לדמות — ושם וטלפון רק למי שעדיין לא מסר/ה אותם לנכס
-               הזה. ‏#vizContact יורד ברגע שכבר נמסרו. -->
-          <div class="viz-ask" id="vizCta" hidden>
+               בנכס מסחרי נדרשים סוג העסק — בלעדיו אין מה לדמות — ושם וטלפון
+               רק ממי שעדיין לא מסר/ה אותם לנכס הזה. ‏#vizContact יורד ברגע
+               שכבר נמסרו.
+
+               הטופס יושב כאן ב-HTML אבל לא כאן על המסך: אחרי כל רינדור של
+               הרצועה ‏renderPropertyShowcase() מזיז את הצומת הזה אל ‎#aiPropAsk‎
+               שבתוכה, מעל הכפתור. שתי סיבות למקום הזה בקוד:
+
+                 * **כפתור אחד ולא שניים.** קודם היה כאן "יצירת ההדמיה" משלו,
+                   מתחת לרצועה, בזמן ש"יצירת הדמיה לעסק שלכם" שבתוכה עשה
+                   בדיוק אותו דבר. שני כפתורים לאותה פעולה הם שאלה מיותרת
+                   ("מה ההבדל?") לפני פעולה שאין בה בחירה. מה שנשאר הוא
+                   הכפתור שברצועה, ומעליו השדות שהוא זקוק להם.
+                 * **הצומת נודד, לא נבנה מחדש.** הרצועה מורכבת מ-innerHTML
+                   בכל שינוי; שדה שהיה חלק מה-HTML שלה היה מתאפס כשתוצאה
+                   נכנסת באמצע ההקלדה. ‏appendChild מזיז את הצומת עצמו, עם
+                   הערכים והמאזינים שבו. -->
+          <form class="viz-ask" id="vizCta" novalidate hidden>
             <div class="field">
               <input type="text" id="vizBusiness" placeholder="איזה עסק תפתחו כאן? (למשל: בית קפה)">
             </div>
-            <form class="viz-form" id="vizForm" novalidate>
-              <div class="viz-contact" id="vizContact">
-                <div class="field"><input type="text" id="vizName" placeholder="שם מלא" autocomplete="name"></div>
-                <div class="field"><input type="tel" id="vizPhone" placeholder="טלפון" autocomplete="tel" inputmode="tel"></div>
-              </div>
-              <button type="submit" class="btn btn-gold" id="vizSubmit">יצירת ההדמיה</button>
-            </form>
-          </div>
+            <div class="viz-contact" id="vizContact">
+              <div class="field"><input type="text" id="vizName" placeholder="שם מלא" autocomplete="name"></div>
+              <div class="field"><input type="tel" id="vizPhone" placeholder="טלפון" autocomplete="tel" inputmode="tel"></div>
+            </div>
+          </form>
 
           <!-- מחוץ ל-#vizCta בכוונה: במסלול הפרטי אין טופס, ושגיאה עדיין
                צריכה מקום להופיע בו. -->
@@ -1934,12 +1954,13 @@ function vizBandCta(){
 function onVizBandCta(){
   /* נכס פרטי: לחיצה אחת מייצרת. סגנון שכבר קיים לא נוצר מחדש — הצד השרת
      מחזיר אותו מיד — ולכן אין כאן שני מסלולים.
-     נכס מסחרי: הבקשה זקוקה לסוג העסק, והכפתור מוביל אל השדה. */
+
+     נכס מסחרי: הבקשה זקוקה לסוג העסק. השדה יושב עכשיו ישירות מעל הכפתור,
+     ולכן לחיצה על כפתור ריק רק מחזירה אליו את המיקוד — ‏scrollIntoView
+     שהיה כאן גלל את העמוד למקום שכבר על המסך. */
   if (vizState.isPrivate){ requestVisualization(); return; }
   const business = document.getElementById('vizBusiness');
   if (business && !business.value.trim()){
-    document.getElementById('vizCta').hidden = false;
-    business.scrollIntoView({ behavior:'smooth', block:'center' });
     business.focus();
     return;
   }
@@ -1967,20 +1988,52 @@ function renderPropertyShowcase(){
 
   /* גם רשימה ריקה נכנסת: התיבה היא כלי ההדמיה של הנכס, ובנכס זכאי שטרם
      הופקה לו הדמיה היא מציגה כותרת, שבבים וכפתור בלי וילון. */
-  window.AiShowcase.mountProperty(el, {
-    items: vizItemsFlat(),
-    /* ארבעת הסגנונות. בנכס מסחרי אין סגנונות — מדמים עסק, לא עיצוב. */
-    styles: vizState.isPrivate ? VIZ_STYLES.map(x=>({ key:x.key, label:x.label })) : [],
-    activeStyle: vizState.isPrivate ? vizState.current : null,
-    leadPick: vizState.leadPick,
-    /* ‏source_image_url הוא הצילום שההדמיה נוצרה ממנו. שורה ישנה שלא שמרה
-       אותו נופלת לתמונה הראשית של הנכס — אותו צילום שהמבקר/ת ראה/תה
-       בגלריה, ולכן השוואה כנה ולא המצאה. */
-    fallbackBefore: galleryImages[0] || '',
-    cta: vizBandCta(),
-    onCta: onVizBandCta,
-    onSelectStyle: (key, resultUrl)=>{ vizState.leadPick = resultUrl || null; selectVizStyle(key); },
+  withAskPreserved(el, ()=>{
+    window.AiShowcase.mountProperty(el, {
+      items: vizItemsFlat(),
+      /* ארבעת הסגנונות. בנכס מסחרי אין סגנונות — מדמים עסק, לא עיצוב. */
+      styles: vizState.isPrivate ? VIZ_STYLES.map(x=>({ key:x.key, label:x.label })) : [],
+      activeStyle: vizState.isPrivate ? vizState.current : null,
+      leadPick: vizState.leadPick,
+      cta: vizBandCta(),
+      onCta: onVizBandCta,
+      onSelectStyle: (key, resultUrl)=>{ vizState.leadPick = resultUrl || null; selectVizStyle(key); },
+    });
   });
+}
+
+/* טופס הבקשה מוצג *בתוך* הרצועה, מעל הכפתור — אבל הרצועה מוחקת ובונה את
+   עצמה מחדש מ-innerHTML בכל רינדור, וכל מה שבתוכה נהרס איתה. לכן הטופס
+   נשלף החוצה לפני הבנייה וחוזר לחריץ ‎#aiPropAsk‎ אחריה.
+
+   ‏appendChild *מזיז* צומת קיים ולא משכפל אותו, ולכן מה שהוקלד בשדות
+   והמאזינים שעליהם שורדים את המסע. שתי ההזזות והבנייה שביניהן סינכרוניות
+   ברצף אחד — הדפדפן לא מצייר באמצע — ולכן אין הבהוב.
+
+   מה שההזזה כן שוברת הוא המיקוד: דפדפן מוציא מיקוד מצומת שנעקר מהעץ.
+   רינדור בזמן שהמיקוד בשדה הוא נדיר (תוצאה שנכנסת באמצע הקלדה), אבל
+   כשהוא קורה הוא מפיל את הסמן באמצע מילה — ולכן הוא נלכד ומוחזר. */
+function withAskPreserved(bandEl, render){
+  const ask  = document.getElementById('vizCta');
+  const home = document.getElementById('vizSection');
+
+  const focused = ask && ask.contains(document.activeElement) ? document.activeElement : null;
+  const start = focused ? focused.selectionStart : null;
+  const end   = focused ? focused.selectionEnd   : null;
+
+  // חילוץ לפני המחיקה. ‎#vizSection‎ הוא הבית שממנו הטופס יצא, והוא שורד
+  // את הרינדור — הרצועה היא רק ילד שלו.
+  if (ask && home && bandEl.contains(ask)) home.appendChild(ask);
+
+  render();
+
+  const slot = bandEl.querySelector('#aiPropAsk');
+  if (ask && slot && !ask.hidden) slot.appendChild(ask);
+
+  if (focused && focused.isConnected){
+    focused.focus();
+    try{ if (start !== null) focused.setSelectionRange(start, end); }catch(_){}
+  }
 }
 
 function selectVizStyle(styleKey){
@@ -2067,7 +2120,6 @@ async function requestVisualization(){
 
   const errEl = document.getElementById('vizError');
   const business = document.getElementById('vizBusiness');
-  const submitBtn = document.getElementById('vizSubmit');
   errEl.textContent = '';
 
   let name = '', phone = '';
@@ -2086,9 +2138,8 @@ async function requestVisualization(){
   }
 
   vizState.busy = true;
-  if (submitBtn){ submitBtn.disabled = true; submitBtn.textContent = 'יוצרים…'; }
-  // הכפתור שבתיבה נמצא ב-innerHTML שמורכב מחדש, ולכן מצב ה"יוצרים…" שלו
-  // עובר דרך vizState.busy ולא דרך נגיעה ישירה באלמנט.
+  // הכפתור היחיד נמצא ברצועה, בתוך innerHTML שמורכב מחדש, ולכן מצב
+  // ה"יוצרים…" שלו עובר דרך vizState.busy ולא דרך נגיעה ישירה באלמנט.
   renderPropertyShowcase();
 
   try{
@@ -2129,29 +2180,48 @@ async function requestVisualization(){
     errEl.textContent = e.message || 'שגיאה ביצירת ההדמיה';
   } finally{
     vizState.busy = false;
-    if (submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'יצירת ההדמיה'; }
     renderVizPending([]);
     renderPropertyShowcase();
   }
 }
 
+/* ‏Enter בתוך הטופס שולח אותו. עם שדה טקסט אחד גלוי (מבקר/ת חוזר/ת שכבר
+   מסר/ה פרטים) זו שליחה משתמעת של הדפדפן; עם שלושה שדות הדפדפן מוותר עליה,
+   ולכן היא נכתבת כאן במפורש. שני המסלולים מגיעים ל-requestVisualization,
+   ושמירת ה-busy שבראשה מונעת בקשה כפולה אם שניהם ייורו יחד. */
 function initVisualizationForm(){
-  const form = document.getElementById('vizForm');
+  const form = document.getElementById('vizCta');
   if (!form) return;
   form.addEventListener('submit', (ev)=>{
     ev.preventDefault();
     requestVisualization();
   });
+  form.addEventListener('keydown', (ev)=>{
+    if (ev.key !== 'Enter') return;
+    ev.preventDefault();
+    requestVisualization();
+  });
 }
 
+/* ‏source_image_url נכנס כאן בדיוק כמו ב-loadVisualizations. הוא נשמט מהמסלול
+   הזה, ולכן כל הדמיה שנוצרה *בזמן הצפייה* הגיעה לרצועה בלי תמונת המקור שלה:
+   הווילון נפל ל-fallback, וב"חלל העסק" של נכס מסחרי הצד ה"לפני" הראה את
+   חזית הבניין מול פנים העסק בצד ה"אחרי" — שני מקומות שונים שמוצגים כאותו
+   מקום לפני ואחרי. הדמיה שנטענה מהשרת לא סבלה מזה, וזו הסיבה שהתקלה נראתה
+   רק אחרי לחיצה על הכפתור. */
 function mergeVizResults(rows){
   const key = vizState.current || '_';
   const list = vizState.byStyle.get(key) || [];
   rows.forEach(r=>{
     if (!r.result_url) return;
+    const source = r.source_image_url || null;
     const existing = list.find(x=>x.target === r.target);
-    if (existing) existing.result_url = r.result_url;
-    else list.push({ target:r.target, result_url:r.result_url });
+    if (existing){
+      existing.result_url = r.result_url;
+      if (source) existing.source_image_url = source;
+    } else {
+      list.push({ target:r.target, result_url:r.result_url, source_image_url:source });
+    }
   });
   vizState.byStyle.set(key, list);
   // הדמיה שהרגע נוצרה נכנסת לרצועה בלי לרענן את הדף

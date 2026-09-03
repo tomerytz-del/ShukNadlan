@@ -13,8 +13,10 @@
    שלושה כללים:
 
      1. **בלי הדמיה — בלי וילון, אבל כן כלי.** נכס זכאי שטרם הופקה לו
-        הדמיה מקבל את הצד השמאלי בלבד: כותרת, שבבי הסגנונות והכפתור. הם
-        לא הבטחה ריקה — הם הכלי שמייצר את מה שחסר.
+        הדמיה מקבל את הצד השמאלי בלבד: כותרת, שבבי הסגנונות, שדות הבקשה
+        והכפתור. הם לא הבטחה ריקה — הם הכלי שמייצר את מה שחסר. השדות
+        עצמם אינם מורכבים כאן: ‎#aiPropAsk‎ הוא חריץ ריק מעל הכפתור,
+        והדף הקורא מזיז לתוכו את הטופס החי שלו.
      2. **התנועה היא מצב מנוחה בלבד.** סרגל ההשוואה נע לבד כדי לספר מה
         אפשר לעשות איתו; במגע הראשון — עכבר, מגע או מקלדת — האנימציה נעצרת
         והשליטה עוברת לגולש/ת ולא חוזרת.
@@ -63,22 +65,59 @@
     '.ai-eyebrow{display:inline-flex;align-items:center;gap:7px;',
     '  border:1px solid rgba(201,162,39,.55);color:#e5c76a;',
     '  font-size:11px;font-weight:800;letter-spacing:.1em;padding:5px 10px;margin-bottom:14px}',
+    /* שתי המילים שנושאות את ההבטחה צבועות, ושתיהן על כותרת לבנה. שני
+       הצבעים אינם חדשים לאתר — כל אחד מהם הוא צבע ראשי שהובהר לרקע כהה,
+       בדיוק כפי ש---brass-light הוא הזהב של המערכת כטקסט על כהה:
+
+         ‏אחרי  — זהב. באותה תיבה זהב הוא כבר "ההדמיה": תווית ה"אחרי" על
+                  הווילון, קו החשיפה והכפתור. המילה מצטרפת לשפה קיימת.
+         ‏לפני  — כחול ספיר מובהר. גם זה כבר קיים בתיבה: תווית ה"לפני" על
+                  הווילון היא ספיר. שתי המילים בכותרת נצבעות באותם שני
+                  צבעים ששני חצאי התמונה מסומנים בהם, ולכן הכותרת מסבירה
+                  את הפקד שמתחתיה במקום לחזור עליו במילים.
+
+       שניהם עוברים 8:1 מול ‎#0d1b3d‎, כלומר קריאים גם בגודל הקטן ביותר
+       שהכותרת יורדת אליו.
+
+       ‏em ולא span: ההדגשה כאן סמנטית ולא קישוטית, וקורא מסך אמור לשמוע
+       אותה. ‏font-style חוזר לרגיל — נטוי בעברית הוא הטיה מלאכותית של
+       הגופן ולא צורת אות. */
     '.ai-band h3{font-family:Heebo,system-ui,sans-serif;font-size:clamp(22px,4.6vw,30px);',
     '  font-weight:800;letter-spacing:-.02em;line-height:1.15;color:#fff;margin:0 0 10px}',
+    '.ai-band h3 em{font-style:normal;font-weight:800}',
+    '.ai-hl-after{color:#e5c76a}',
+    '.ai-hl-before{color:#8ab6f5}',
     '.ai-band p{font-size:16px;line-height:1.7;color:#aab6d6;margin:0 0 18px;max-width:46ch}',
-    '.ai-actions{display:flex;flex-wrap:wrap;align-items:center;gap:14px}',
+    /* הכפתור ממורכז בשורה שלו ולא נצמד לקצה ההתחלה. הוא הפעולה היחידה
+       בתיבה, ופעולה יחידה שיושבת בפינה נקראת כהערת שוליים. */
+    '.ai-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:14px}',
     /* הכפתור הראשי זהוב עם טקסט כהה: על רצועה בספיר, ספיר על ספיר לא נקרא,
-       וזהב שנושא טקסט לבן נופל בניגודיות. */
-    '.ai-cta{display:inline-flex;align-items:center;gap:8px;background:#c9a227;color:#0d1b3d;',
-    '  text-decoration:none;',
-    '  font-family:Heebo,system-ui,sans-serif;font-size:15px;font-weight:800;',
-    '  padding:13px 22px;border:none;cursor:pointer;text-decoration:none}',
-    '.ai-cta:hover{background:#dcb63c;color:#0d1b3d}',
+       וזהב שנושא טקסט לבן נופל בניגודיות.
+
+       הרוחב הוא רוחב העמודה, עם תקרה. כפתור בגודל המילים שבו נבלע בין
+       שדות שנמתחים לרוחב מלא ופסקה שמעליהם — הוא נראה קטן ממה שהוא, וזה
+       בדיוק ההפך ממה שכפתור יחיד אמור לשדר. התקרה קיימת כדי שבמסך רחב
+       הוא יישאר כפתור ולא יהפוך לרצועה.
+
+       הצל זהוב ולא שחור: על ספיר כהה צל שחור אינו נראה, וזוהר עדין בצבע
+       הכפתור עצמו הוא מה שמרים אותו מהרקע. */
+    '.ai-cta{display:flex;align-items:center;justify-content:center;gap:8px;',
+    '  width:100%;max-width:460px;text-align:center;',
+    '  background:#c9a227;color:#0d1b3d;text-decoration:none;',
+    '  font-family:Heebo,system-ui,sans-serif;font-size:16px;font-weight:800;',
+    '  letter-spacing:-.01em;line-height:1.2;',
+    '  padding:16px 26px;border:none;cursor:pointer;',
+    '  box-shadow:0 10px 26px -14px rgba(201,162,39,.9);',
+    '  transition:background .15s ease,box-shadow .15s ease,transform .15s ease}',
+    '.ai-cta:hover{background:#dcb63c;color:#0d1b3d;',
+    '  box-shadow:0 14px 30px -12px rgba(220,182,60,.95);transform:translateY(-1px)}',
+    '.ai-cta:active{transform:translateY(0);box-shadow:0 6px 18px -12px rgba(201,162,39,.9)}',
+    '.ai-cta:focus-visible{outline:3px solid #fff;outline-offset:3px}',
     '.ai-secondary{color:#c3cde6;font-size:14px;text-decoration:underline;text-underline-offset:3px}',
     '.ai-secondary:hover{color:#fff}',
     /* ‏grid-column:1/-1 — ההצהרה חוצה את שתי העמודות ויושבת מתחת לשתיהן,
        ולכן היא נקראת כהערת שוליים של התיבה כולה ולא של הטור שהיא בו. */
-    '.ai-note{grid-column:1/-1;margin:2px 0 0;font-size:12px;line-height:1.6;color:#7b88ab}',
+    '.ai-note{grid-column:1/-1;margin:0;font-size:12px;line-height:1.55;color:#7b88ab}',
 
     /* ---- ההשוואה ---- */
     '.ai-compare{position:relative;aspect-ratio:4/3;background:#16244a;overflow:hidden;',
@@ -120,8 +159,11 @@
        חדרים היה משאיר שליש מהשורה ריק, והאריחים לא היו מתיישרים עם קצה
        התמונה הראשית שמעליהם. עם ‎--ai-cols‎ הרצועה תמיד ממלאה את הרוחב
        המלא, ולכל אריח אותו רוחב ואותו גובה. */
+    /* ‏10px מעל הרצועה. הכיתוב של הווילון והאריחים שמתחתיו הם אותה יחידה —
+       "מה מוצג" ו"מה עוד אפשר להציג" — ורווח שמפריד ביניהם כמו בין סקציות
+       הופך שורה אחת לשתיים. */
     '.ai-strip{display:grid;grid-template-columns:repeat(var(--ai-cols,3),minmax(0,1fr));',
-    '  gap:8px;margin-top:14px;align-items:start}',
+    '  gap:8px;margin-top:10px;align-items:start}',
     /* ‏min-width:0 ולא רק ‎1fr‎: תווית שלא נשברת ("הסלון · ים-תיכוני לבן")
        מרחיבה את העמודה שלה מעל חלקה, והתמונונות יוצאות בגדלים שונים. */
     '.ai-thumb{display:block;text-decoration:none;color:#e6ecf9;min-width:0}',
@@ -136,7 +178,6 @@
     '  overflow:hidden;font-size:12px;font-weight:700;margin-top:5px;line-height:1.35;',
     '  min-height:calc(2em * 1.35)}',
     '.ai-thumb:hover img{border-color:#c9a227}',
-    '.ai-strip-title{font-size:11px;font-weight:800;letter-spacing:.1em;color:#8b97ba;margin:18px 0 0}',
 
 
     /* ---- מצב נכס: שבבי הסגנונות והתמונונות שאפשר ללחוץ עליהן ----
@@ -150,7 +191,20 @@
     '  border:1px solid rgba(255,255,255,.28)}',
     '.ai-style:hover{border-color:#c9a227;color:#fff}',
     '.ai-style[aria-pressed="true"]{background:#fff;color:#0d1b3d;border-color:#fff}',
+    /* בזמן "יוצרים…" הכפתור לא מגיב למגע: הרמה וזוהר על כפתור מושבת
+       מבטיחים לחיצה שלא תקרה. */
     '.ai-cta[disabled]{opacity:.6;cursor:default}',
+    '.ai-cta[disabled]:hover{background:#c9a227;transform:none;',
+    '  box-shadow:0 10px 26px -14px rgba(201,162,39,.9)}',
+
+    /* ---- חריץ הבקשה ----
+       הרצועה לא מרכיבה את שדות הבקשה בעצמה — היא רק שומרת להם מקום מעל
+       הכפתור, והדף מזיז לתוכו את הצומת החי. הסיבה בקובץ הקורא: הרצועה
+       מורכבת מחדש מ-innerHTML בכל שינוי, ושדה שהיה חלק מה-HTML הזה היה
+       מתאפס באמצע ההקלדה.
+       ‏:empty — במסלול שאין בו בקשה (נכס פרטי) החריץ לא תופס שום מקום. */
+    '.ai-ask{margin:0 0 16px}',
+    '.ai-ask:empty{display:none}',
     'button.ai-thumb{font:inherit;padding:0;border:0;background:none;width:100%;',
     '  text-align:inherit;cursor:pointer}',
     'button.ai-thumb[aria-pressed="true"] img{border-color:#c9a227}',
@@ -169,7 +223,11 @@
     '@keyframes aiLabel{from{opacity:1}to{opacity:.45}}',
     '@media (prefers-reduced-motion: reduce){',
     '  .ai-compare[data-idle] .ai-after,.ai-compare[data-idle] .ai-divider,',
-    '  .ai-compare[data-idle] .ai-label-before{animation:none}}',
+    '  .ai-compare[data-idle] .ai-label-before{animation:none}',
+    /* ההרמה של הכפתור היא קישוט ולא מידע — היא נופלת יחד עם השאר, והצבע
+       לבדו נשאר לסמן ריחוף. */
+    '  .ai-cta{transition:background .15s ease}',
+    '  .ai-cta:hover,.ai-cta:active{transform:none}}',
   ].join('');
 
   function injectCss() {
@@ -219,8 +277,9 @@
           ולכן הווילון נפתח על הסלון אם יש לו הדמיה — ורק אחר כך על המטבח
           או על החזית.
        2. **בלי תמונת מקור אין וילון.** הדמיה ששורתה לא שמרה ‎source_image_url‎
-          מוצגת כתמונה בודדת עם תווית "הדמיה". וילון שמשווה תמונה לעצמה הוא
-          שקר קטן, וכאן הוא היה השקר שהרצועה כולה נשענת עליו.
+          מוצגת כתמונה בודדת עם תווית "הדמיה". אין כאן נפילה לצילום אחר של
+          הנכס: הווילון מבטיח את *אותו מקום* לפני ואחרי, וכל תמונה שאינה
+          המקור של ההדמיה הזאת מפרה את ההבטחה הזאת.
        3. **התמונונות הן של הנכס.** הן לא מנווטות לשום מקום — הן מחליפות את
           מה שבווילון, ולכן הן כפתורים ולא קישורים.
      ========================================================================== */
@@ -282,11 +341,16 @@
     return 0;
   }
 
-  /* ‏source_image_url הוא הצילום שההדמיה נוצרה ממנו — הצד ה"לפני" האמיתי.
-     כשהוא חסר נופלים לתמונה הראשית של הנכס, שהיא הצילום שהמבקר/ת ממילא
-     ראה/תה למעלה; וכשגם היא חסרה אין וילון. */
+  /* ‏source_image_url הוא הצילום שההדמיה נוצרה ממנו — הצד ה"לפני" האמיתי,
+     והיחיד. קודם הייתה כאן נפילה לתמונה הראשית של הנכס, מתוך מחשבה שצילום
+     אמיתי של הנכס עדיף על שום צילום. הוא לא: הווילון מבטיח *אותו מקום* לפני
+     ואחרי, והתמונה הראשית היא מקום אחר. בנכס מסחרי היא החזית, ולכן "חלל
+     העסק" הוצג כחזית הבניין מצד אחד ופנים העסק מצד שני.
+
+     בלי מקור אין וילון — יש תמונה בודדת עם תווית "הדמיה", וזו אמירה נכונה
+     ולא חצי הבטחה. */
   function beforeUrl(opts, it) {
-    return (it && it.source_image_url) || opts.fallbackBefore || '';
+    return (it && it.source_image_url) || '';
   }
 
   function propertyCompareHtml(opts, it) {
@@ -362,10 +426,27 @@
         '<div class="ai-band-inner">' +
           '<div>' +
             '<span class="ai-eyebrow">✦ הדמיות AI · בלעדי לשוק הנדל״ן</span>' +
-            '<h3 id="aiBandTitle">תראו את הנכס אחרי שיפוץ — לפני שאתם קונים</h3>' +
-            '<p>ההדמיה נוצרת מהתמונות של הנכס הזה. החליפו בין כיוונים עיצוביים ' +
-              'וראו את הפוטנציאל.</p>' +
+            /* שתי השבירות כתובות ולא מקריות. הכותרת נשברת על המקף — שני
+               חצאיה הם שני חלקי ההבטחה ("תראו אחרי" / "לפני שקונים"),
+               ושבירה שנופלת אחרי "לפני" מנתקת אותה מהחצי שהיא פותחת.
+
+               הפסקה נשברת בין המשפטים: משפט שני שמתחיל באמצע שורה נקרא
+               כהמשך של הראשון. שני המשפטים קצרים מספיק לשורה כל אחד,
+               ולכן הפסקה נשארת בשתי שורות בכל רוחב.
+
+               המשפט השני משתנה לפי מה שיש על המסך: בנכס מסחרי אין שבבי
+               סגנון, ו"החליפו בין סגנונות" שם מפנה לפקד שאינו קיים. */
+            '<h3 id="aiBandTitle">תראו את הנכס <em class="ai-hl-after">אחרי</em> שיפוץ<br>' +
+              '<em class="ai-hl-before">לפני</em> שאתם קונים</h3>' +
+            '<p>ההדמיה נוצרת מהתמונות של הנכס הזה.<br>' +
+              (styles.length
+                ? 'החליפו סגנון וראו את הפוטנציאל.'
+                : 'ספרו איזה עסק, וראו אותו כאן.') +
+            '</p>' +
             stylesHtml +
+            /* השדות שהבקשה זקוקה להם יושבים *מעל* הכפתור ולא מתחתיו: הכפתור
+               הוא סוף הפעולה, ומה שנדרש כדי ללחוץ עליו בא לפניו. */
+            '<div class="ai-ask" id="aiPropAsk"></div>' +
             actionsHtml +
           '</div>' +
           /* סגנון שטרם נוצר מקבל מסגרת ריקה ולא היעלמות: התיבה מציגה סגנון
@@ -375,12 +456,10 @@
             (pairs.length
               ? '<div id="aiPropCompare">' + propertyCompareHtml(opts, pairs[leadIndex]) + '</div>' +
                 (pairs.length > 1
-                  /* בנכס מסחרי אין סגנונות — יש חללים של אותו עסק, ו"בסגנון
-                     הזה" שם מצביע על משהו שלא קיים על המסך. */
-                  ? '<p class="ai-strip-title">' +
-                      (opts.activeStyle ? 'עוד חדרים בסגנון הזה' : 'עוד חללים בנכס') +
-                    '</p>' +
-                    '<div class="ai-strip" style="--ai-cols:' +
+                  /* בלי כותרת מעל הרצועה. כל אריח נושא את שם החלל שלו,
+                     ושורה שאומרת "עוד חללים בנכס" מעל שורת אריחים שכתוב
+                     עליהם "חלל העסק" ו"חזית הבית" רק חוזרת עליהם בקול. */
+                  ? '<div class="ai-strip" style="--ai-cols:' +
                       Math.min(pairs.length, PROPERTY_STRIP_LIMIT, 3) + '">' +
                       pairs.slice(0, PROPERTY_STRIP_LIMIT).map(function (it, i) {
                         return propertyThumbHtml(opts, it, i, i === leadIndex);
