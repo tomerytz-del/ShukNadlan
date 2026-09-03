@@ -86,17 +86,29 @@ from checks order by ord;
 -- הדרך היחידה לדעת אם הוגדר היא לשאול את הפונקציה עצמה. הקריאה הזו אינה
 -- עולה כלום: מזהה נכס שאינו קיים מסיים את הפונקציה לפני קריאת Gemini, אבל
 -- *אחרי* בדיקת המפתח — כלומר היא בודקת בדיוק את מה שצריך ולא מייצרת דבר.
+-- הכותרת x-alert-cron-secret נשלפת מ-Vault באותה דרך שבה ה-cron שולח אותה.
+-- בלעדיה הפונקציה עונה 401, ובלי שהסוד מוגדר ב-Edge Functions Secrets היא
+-- עונה 503 — שתי תשובות שהשאילתה הבאה מפרשת במפורש.
 select net.http_post(
   url     := 'https://obookujgolazrwycsiyn.supabase.co/functions/v1/classify-property-images',
-  headers := '{"Content-Type":"application/json"}'::jsonb,
+  headers := jsonb_strip_nulls(jsonb_build_object(
+    'Content-Type', 'application/json',
+    'x-alert-cron-secret', (select decrypted_secret from vault.decrypted_secrets
+                             where name = 'alert_cron_secret' limit 1))),
   body    := '{"property_id":"00000000-0000-0000-0000-000000000000"}'::jsonb
 ) as "מזהה בקשה — הריצו את השאילתה הבאה בעוד כמה שניות";
 
--- ‏{"ok":true,...}                  → המפתח מוגדר
--- ‏{"error":"gemini_not_configured"} → הגדירו GEMINI_API_KEY ב-Edge Functions → Secrets
+-- ‏{"ok":true,...}                       → המפתח מוגדר
+-- ‏{"error":"gemini_not_configured"}      → הגדירו GEMINI_API_KEY ב-Edge Functions → Secrets
+-- ‏{"error":"cron_secret_not_configured"} → הגדירו ALERT_CRON_SECRET ב-Edge Functions → Secrets
+-- ‏{"error":"unauthorized"}               → הסוד ב-Vault שונה מזה שב-Secrets
 select status_code,
        content as תשובה,
        case
+         when content::text like '%cron_secret_not_configured%'
+           then '❌ הגדירו ALERT_CRON_SECRET ב-Supabase → Edge Functions → Secrets'
+         when content::text like '%unauthorized%'
+           then '❌ ALERT_CRON_SECRET שונה מסוד ה-Vault alert_cron_secret'
          when content::text like '%gemini_not_configured%'
            then '❌ הגדירו GEMINI_API_KEY ב-Supabase → Edge Functions → Secrets'
          when status_code = 200 then '✅ המפתח מוגדר'

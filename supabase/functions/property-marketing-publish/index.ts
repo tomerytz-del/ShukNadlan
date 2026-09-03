@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 
 // ============================================================================
 // תיאור שיווקי ופרסום לדף הפייסבוק — השרת שמרוקן את property_publications.
@@ -34,7 +35,6 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const CRON_SECRET = Deno.env.get("ALERT_CRON_SECRET") || "";
 const SITE_BASE_URL = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/+$/, "");
 
 const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY") || "";
@@ -393,12 +393,14 @@ async function handle(sb: any, row: any, opts: { force: boolean; dryRun: boolean
 
 // ---------------------------------------------------------------------------
 Deno.serve(async (req: Request) => {
-  // אותה בחירה כמו ב-saved-search-notify: הסוד אופציונלי, כי הפונקציה לא
-  // מקבלת תוכן מהקורא אלא מרוקנת תור קיים. ‏JWT של מנהל/ת פלטפורמה נבדק
-  // בנפרד ומאפשר את המסלול הידני.
+  // האימות של ה-cron ושל ה-service_role עבר ל-cron-auth המשותף. השינוי
+  // המהותי: קודם `!CRON_SECRET` פתח את הפונקציה לגמרי כשהסוד לא הוגדר —
+  // וזה היה המצב בפרודקשן. ‏JWT של מנהל/ת פלטפורמה נבדק בנפרד ומאפשר את
+  // המסלול הידני מהדשבורד.
   const authHeader = req.headers.get("Authorization") || "";
-  const cronOk = !CRON_SECRET || req.headers.get("x-alert-cron-secret") === CRON_SECRET;
-  const serviceOk = authHeader === `Bearer ${serviceRoleKey}`;
+  const internal = authorizeInternalCaller(req);
+  const cronOk = internal.ok;
+  const serviceOk = internal.ok && internal.via === "service_role";
 
   const sb = createClient(supabaseUrl, serviceRoleKey);
 
@@ -416,7 +418,14 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  if (!cronOk && !serviceOk && !adminOk) return json({ error: "unauthorized" }, 401);
+  if (!cronOk && !serviceOk && !adminOk) {
+    // חוסר הגדרה (503) לא מתחפש ל-401: מנהל/ת שנכנס/ת ידנית עדיין מקבל/ת
+    // מעבר, אבל קורא שנדחה מקבל את הסיבה האמיתית.
+    if (!internal.ok && internal.status === 503) {
+      return json({ error: internal.error, detail: internal.detail }, 503);
+    }
+    return json({ error: "unauthorized" }, 401);
+  }
 
   let body: any = {};
   try {

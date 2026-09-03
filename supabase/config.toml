@@ -57,6 +57,13 @@ verify_jwt = false          # טופס רשימת התפוצה בפוטר, בכ�
 
 # ---------------------------------------------------------------------------
 # מערכתי — אימות עצמי בתוך הפונקציה (סוד cron, service role, או webhook)
+#
+# שלוש מהן (‏saved-search-notify, ‏property-marketing-publish,
+# ‏classify-property-images) חולקות את supabase/functions/_shared/cron-auth.ts.
+# הבדיקה שם היא fail-closed: אם ALERT_CRON_SECRET אינו מוגדר בסביבה,
+# הפונקציה מחזירה 503 ולא רצה. הנוסח הקודם, `if (CRON_SECRET && ...)`,
+# דילג על הבדיקה בדיוק במקרה הזה — והסוד לא היה מוגדר בפרודקשן, כך ששתי
+# הפונקציות ה"מוגנות" ענו 200 לכל קורא.
 # ---------------------------------------------------------------------------
 [functions.whatsapp-webhook]
 verify_jwt = false          # Meta שולחת בלי JWT; האימות הוא בטוקן של הוובהוק
@@ -79,14 +86,6 @@ verify_jwt = false          # אימות עצמי: service_role או x-platform-
 
 [functions.property-visualize]
 verify_jwt = false          # הדמיה לפי דרישת גולש/ת — הזכאות נבדקת ב-DB
-
-# ⚠️ ‏news-ticker-crawler היא היחידה בקבוצה הזו שאין לה אימות עצמי בגוף
-# הפונקציה — לא סוד cron ולא בדיקת service role. כלומר כל אחד שיודע את
-# הכתובת יכול להפעיל אותה ולגרור קריאות בתשלום ל-Anthropic. הערך נשמר כפי
-# שהוא כדי לא לשנות התנהגות בפריסה הראשונה, אבל זו נקודה שכדאי לסגור:
-# להוסיף בדיקת x-alert-cron-secret כמו ב-saved-search-notify.
-[functions.news-ticker-crawler]
-verify_jwt = false          # ‏pg_cron שבועי (weekly-news-ticker-crawler)
 
 # ---------------------------------------------------------------------------
 # מאומת — פעולות של סוכן/ת מחובר/ת, הזהות נגזרת מה-JWT בלבד
