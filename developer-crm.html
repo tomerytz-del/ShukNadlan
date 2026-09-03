@@ -57,6 +57,15 @@
   .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--teal);outline:none}
   .field textarea{resize:vertical;min-height:70px}
   .field .hint{font-size:.7rem;color:var(--ink-muted);margin-top:4px;line-height:1.45}
+  /* גובה שמור לרמז הח״פ.
+     הטקסט כאן מתחלף בזמן ההקלדה — "תשע ספרות" → "בודק…" → שם החברה או
+     הודעת שגיאה בת שתי שורות — וכל החלפה כזו הזיזה את כל הטופס שמתחתיה,
+     כולל תיבת אישור התנאים. מי שהושיט/ה יד לתיבה בדיוק כשהתשובה חזרה
+     החטיא/ה אותה. נתפס בבדיקת דפדפן: הלחיצה נחתה על ה-div העוטף. */
+  #crNumberHint,#coNumberHint{min-height:2.6em}
+  .hint.ok{color:#12704a;font-weight:700}
+  .hint.warn{color:var(--danger);font-weight:700}
+  .hint.busy{font-style:italic}
   .msg{font-size:.82rem;min-height:1.2em;font-weight:700;margin-top:10px}
   .btn-google{background:#fff;color:var(--ink);border:1.5px solid var(--line);gap:10px;width:100%}
   .btn-google:hover:not(:disabled){border-color:var(--teal)}
@@ -232,7 +241,7 @@
     <form id="createForm" novalidate>
       <div class="field"><label class="req" for="crName">שם החברה</label><input type="text" id="crName" required></div>
       <div class="grid2">
-        <div class="field"><label class="req" for="crNumber">ח״פ / עוסק מורשה</label><input type="text" id="crNumber" inputmode="numeric" placeholder="512345678" required><div class="hint">תשע ספרות. מספר בן שמונה יושלם באפס מוביל.</div></div>
+        <div class="field"><label class="req" for="crNumber">ח״פ (מספר תאגיד)</label><input type="text" id="crNumber" inputmode="numeric" placeholder="512345678" required><div class="hint" id="crNumberHint">תשע ספרות. נבדק מול רשם החברות.</div></div>
         <div class="field"><label for="crLegal">שם רשמי</label><input type="text" id="crLegal" placeholder="בע״מ"></div>
       </div>
       <div class="field"><label class="req" for="crContact">שם איש/אשת הקשר</label><input type="text" id="crContact" required></div>
@@ -317,13 +326,16 @@
            השליחה ומצביע על שדה **אחד**, וכך ההודעה שמונה את כל מה שחסר
            לא הייתה מגיעה למסך אף פעם. -->
       <form id="companyForm" novalidate>
+        <!-- מצב האימות מוצג ליזם, ולא רק נשמר במסד: מי שרשום כ-unverified
+             צריך לדעת שהאימות עוד לא הושלם, ולא לגלות את זה כשמישהו ישאל. -->
+        <div class="notice" id="regNotice" hidden></div>
         <div class="card">
           <h3>זהות</h3>
           <p class="sub">מה שרואים בראש דף החברה ובכרטיס היזם שבכל פרויקט.</p>
           <div class="grid2">
             <div class="field"><label class="req" for="coName">שם החברה</label><input type="text" id="coName" required></div>
             <div class="field"><label for="coLegal">שם רשמי</label><input type="text" id="coLegal"></div>
-            <div class="field"><label class="req" for="coNumber">ח״פ / עוסק מורשה</label><input type="text" id="coNumber" inputmode="numeric" required><div class="hint">תשע ספרות.</div></div>
+            <div class="field"><label class="req" for="coNumber">ח״פ (מספר תאגיד)</label><input type="text" id="coNumber" inputmode="numeric" required><div class="hint" id="coNumberHint">תשע ספרות. נבדק מול רשם החברות.</div></div>
             <div class="field"><label class="req" for="coContact">שם איש/אשת הקשר</label><input type="text" id="coContact" required></div>
             <div class="field"><label for="coFounded">שנת הקמה</label><input type="number" id="coFounded" min="1900" max="2100"></div>
             <div class="field span2"><label for="coTagline">משפט תדמית</label><input type="text" id="coTagline" placeholder="בונים בעמק מאז 1998"></div>
@@ -642,6 +654,7 @@ const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const MANAGE_URL = SUPABASE_URL + '/functions/v1/project-manage';
 const LEAD_PURCHASE_URL = SUPABASE_URL + '/functions/v1/project-lead-purchase';
+const REGISTRY_URL = SUPABASE_URL + '/functions/v1/company-registry-lookup';
 const IMAGE_BUCKET = 'property-images';
 
 const el = id => document.getElementById(id);
@@ -701,6 +714,8 @@ const FIELD_LABELS = {
   phone:'טלפון', address:'כתובת המשרד', city:'עיר',
 };
 function errText(d){
+  // הודעת רשם החברות מגיעה מוכנה מהשרת ומסבירה בדיוק מה נדחה ולמה
+  if (d && d.error === 'company_registry_rejected') return d.detail || 'מספר הח״פ נדחה על ידי רשם החברות.';
   if (d && d.error === 'missing_fields'){
     const named = list => (list || []).map(k => FIELD_LABELS[k] || k).join(', ');
     return (d.invalid && d.invalid.length)
@@ -779,6 +794,55 @@ function normalizeCompanyNumber(raw){
   if (digits.length === 8) return '0' + digits;
   return digits.length === 9 ? digits : null;
 }
+
+/* ---------- בדיקת ח״פ מול רשם החברות ----------
+   אותו בודק משרת את שני הטפסים — מסך פתיחת החברה ומסך דף החברה — ולכן
+   הוא מקבל את מזהי השדה והרמז כפרמטרים. שני עותקים של אותה לוגיקה היו
+   נפרדים ברגע שאחד מהם מקבל תיקון.
+
+   התוצאה היא חיווי בלבד; השרת מריץ את אותה בדיקה בעצמו. */
+const registrySeq = {};
+
+function wireRegistryCheck(inputId, hintId, idleText){
+  const input = el(inputId), hint = el(hintId);
+  let timer = null;
+
+  async function run(){
+    const raw = input.value.trim();
+    const normalized = normalizeCompanyNumber(raw);
+    if (!raw || !normalized){
+      hint.className = 'hint';
+      hint.textContent = idleText;
+      return;
+    }
+    const seq = (registrySeq[inputId] = (registrySeq[inputId] || 0) + 1);
+    hint.className = 'hint busy';
+    hint.textContent = 'בודק מול רשם החברות…';
+    try{
+      const res = await fetch(REGISTRY_URL, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+        body: JSON.stringify({ company_number: normalized }),
+      });
+      if (seq !== registrySeq[inputId]) return;
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || 'lookup_failed');
+      hint.className = 'hint ' + (data.status === 'verified' ? 'ok'
+        : (data.status === 'inactive' || data.status === 'not_found') ? 'warn' : '');
+      hint.textContent = data.message;
+    } catch(e){
+      if (seq !== registrySeq[inputId]) return;
+      hint.className = 'hint';
+      hint.textContent = 'לא הצלחנו לבדוק מול רשם החברות כרגע. אפשר להמשיך.';
+    }
+  }
+
+  input.addEventListener('input', ()=>{ clearTimeout(timer); timer = setTimeout(run, 450); });
+  input.addEventListener('blur', ()=>{ clearTimeout(timer); run(); });
+}
+
+wireRegistryCheck('crNumber', 'crNumberHint', 'תשע ספרות. נבדק מול רשם החברות.');
+wireRegistryCheck('coNumber', 'coNumberHint', 'תשע ספרות. נבדק מול רשם החברות.');
 
 /* ---------- התחברות עם Google ---------- */
 el('googleBtn').addEventListener('click', async ()=>{
@@ -1389,6 +1453,20 @@ function fillCompanyForm(){
   v('coFounded', d.founded_year); v('coTagline', d.tagline); v('coDescription', d.description);
   v('coPhone', d.phone); v('coEmail', d.email); v('coWebsite', d.website);
   v('coCity', d.city); v('coAddress', d.address); v('coDelivered', d.projects_delivered);
+  const REG_NOTICE = {
+    verified: ['ok', d => 'הח״פ אומת מול ' + (d.registry_source || 'רשם החברות') +
+      (d.registry_name ? ': ' + d.registry_name : '') + '.'],
+    inactive: ['danger', d => 'סטטוס התאגיד במרשם הוא "' + (d.registry_entity_status || 'לא פעיל') +
+      '". פנו אלינו כדי להסדיר.'],
+    not_found: ['danger', () => 'הח״פ לא נמצא ברשם החברות. בדקו שהמספר נכון — פרויקטים של חברה שאינה מאומתת עלולים לא להתפרסם.'],
+    unverified: ['', () => 'האימות מול רשם החברות טרם הושלם. זה קורה כשהמרשם אינו זמין, והוא נבדק שוב מעת לעת.'],
+  };
+  const reg = REG_NOTICE[d.registry_status] || REG_NOTICE.unverified;
+  const notice = el('regNotice');
+  notice.className = 'notice' + (reg[0] ? ' ' + reg[0] : '');
+  notice.textContent = reg[1](d);
+  notice.hidden = false;
+
   el('coBrand').value = (d.colors && d.colors.brand) || '#0e2a6b';
   el('coAccent').value = (d.colors && d.colors.accent) || '#c9a227';
   setPreview('coLogoPreview', d.logo_url);
@@ -1442,8 +1520,11 @@ el('companyForm').addEventListener('submit', async (e)=>{
   });
   btn.disabled = false; btn.textContent = 'שמירת דף החברה';
   if (!res.ok){ setMsg('coMsg', errText(res.data), 'err'); return; }
-  setMsg('coMsg','נשמר. דף החברה מעודכן.','ok');
+  setMsg('coMsg', res.data.registry_message
+    ? 'נשמר. ' + res.data.registry_message
+    : 'נשמר. דף החברה מעודכן.', 'ok');
   await refresh();
+  fillCompanyForm();
 });
 
 /* ---------- פניות ---------- */

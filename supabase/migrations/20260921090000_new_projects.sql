@@ -811,7 +811,18 @@ comment on view public.projects_public is
 grant select on public.projects_public to anon, authenticated;
 
 
-create or replace view public.developers_public
+-- ‏drop + create ולא create or replace, ובכוונה.
+--
+-- ‏create or replace view אינו מרשה להסיר או לשנות סדר עמודות (כלל 3
+-- ב-docs/supabase-migrations.md), וה-view הזה מוגדר ב**שני** קבצי מיגרציה:
+-- כאן, ושוב ב-20260922090000 שמוסיף לו את עמודות האימות. הרצה חוזרת של
+-- הקובץ המוקדם אחרי המאוחר הייתה מנסה "להחליף" view רחב בצר ונופלת על
+-- ‏cannot drop columns from view — כלומר הקובץ מפסיק להיות אידמפוטנטי.
+--
+-- ‏drop ללא cascade בכוונה: אם ביום מן הימים משהו ייסמך על ה-view, עדיף
+-- שההרצה תיפול ברעש מאשר תמחק אותו בשקט.
+drop view if exists public.developers_public;
+create view public.developers_public
 with (security_invoker = true) as
 select
   d.id,
@@ -835,9 +846,6 @@ select
    where p.developer_id = d.id and p.status = 'active'
      and p.delete_requested_at is null
      and (p.subscription_expires_at is null or p.subscription_expires_at > now())) as live_projects,
-  -- עמודה חדשה נוספת בסוף בלבד: ‏create or replace view אינו מרשה לשנות
-  -- סדר או להסיר עמודות (כלל 3 ב-docs/supabase-migrations.md), וה-view
-  -- הזה כבר עשוי להיות קיים במסד מהרצה קודמת של אותו קובץ.
   d.contact_name
 from public.developers d
 where d.status = 'active';

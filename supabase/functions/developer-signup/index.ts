@@ -3,6 +3,8 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
   corsHeaders, developerCore, email, int, json, REQUIRED_DEVELOPER_FIELDS, safeUrl, slugify, text,
 } from "../_shared/projects.ts";
+import { registryMessage, verifyCompanyNumber } from "../_shared/company-registry.ts";
+import { blockUnknown, cachedLookup, registryColumns, registryEnabled } from "../_shared/registry-cache.ts";
 
 // ============================================================================
 // פתיחת חברה יזמית/קבלנית
@@ -64,6 +66,29 @@ Deno.serve(async (req: Request) => {
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+  // ---------------------------------------------------------------------
+  // אימות הח״פ מול רשם החברות
+  //
+  // רץ כאן ולא נסמך על מה שהטופס בדק: הטופס קורא לאותה בדיקה כדי להציג
+  // חיווי חי, אבל גוף הבקשה מגיע מהדפדפן ואפשר לשלוח אותו בלי לעבור שם.
+  //
+  // רק `inactive` חוסם תמיד — הוא מבוסס על תשובה חיובית ומפורשת של
+  // המרשם ("מחוסלת"), ואין סיבה שתאגיד כזה ישווק פרויקטים חדשים.
+  // ‏`not_found` חוסם רק אם company_registry_block_unknown דלוק, ו-
+  // ‏`unverified` לעולם לא: רשם חברות שנפל אינו סוגר את ההרשמה לאתר.
+  // ---------------------------------------------------------------------
+  let registry = null;
+  if (await registryEnabled(supabase)) {
+    registry = await cachedLookup(supabase, core.value.company_number, verifyCompanyNumber);
+    if (registry.status === "inactive" || (registry.status === "not_found" && await blockUnknown(supabase))) {
+      return json({
+        error: "company_registry_rejected",
+        registry_status: registry.status,
+        detail: registryMessage(registry),
+      }, 409);
+    }
+  }
+
   try {
     // ‏slug ייחודי לחברה. אותה לולאה של agency-signup — היא רצה פעם אחת
     // כמעט תמיד, וכשהיא רצה פעמיים זה בדיוק המקרה שהיא נועדה לו.
@@ -106,6 +131,7 @@ Deno.serve(async (req: Request) => {
         website: safeUrl(body.website),
         founded_year: int(body.founded_year, 1900, new Date().getFullYear()),
         projects_delivered: int(body.projects_delivered, 0, 5000),
+        ...(registry ? registryColumns(registry) : {}),
       })
       .select("id, slug")
       .single();
@@ -117,7 +143,14 @@ Deno.serve(async (req: Request) => {
       return json({ error: "db_error", detail: devErr.message }, 500);
     }
 
-    return json({ success: true, developer_id: developer.id, developer_slug: developer.slug });
+    return json({
+      success: true,
+      developer_id: developer.id,
+      developer_slug: developer.slug,
+      registry_status: registry?.status ?? "unverified",
+      registry_name: registry?.name ?? null,
+      registry_message: registry ? registryMessage(registry) : null,
+    });
   } catch (err) {
     return json({ error: "unhandled", detail: String((err as Error)?.message ?? err) }, 500);
   }

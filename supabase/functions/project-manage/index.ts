@@ -5,6 +5,8 @@ import {
   phoneE164, PROJECT_FEATURES, PROJECT_PROPERTY_TYPES, PROJECT_STAGES,
   REQUIRED_DEVELOPER_FIELDS, safeUrl, slugify, stringList, text, UNIT_AVAILABILITY,
 } from "../_shared/projects.ts";
+import { registryMessage, verifyCompanyNumber } from "../_shared/company-registry.ts";
+import { blockUnknown, cachedLookup, registryColumns, registryEnabled } from "../_shared/registry-cache.ts";
 
 // ============================================================================
 // ניהול הפרויקטים של היזם — כל הפעולות בפונקציה אחת
@@ -140,6 +142,20 @@ Deno.serve(async (req: Request) => {
       }, 400);
     }
 
+    // אותה בדיקה בדיוק של developer-signup — מסלול Google אינו פרצה
+    // שעוקפת את רשם החברות.
+    let registry = null;
+    if (await registryEnabled(supabase)) {
+      registry = await cachedLookup(supabase, core.value.company_number, verifyCompanyNumber);
+      if (registry.status === "inactive" || (registry.status === "not_found" && await blockUnknown(supabase))) {
+        return json({
+          error: "company_registry_rejected",
+          registry_status: registry.status,
+          detail: registryMessage(registry),
+        }, 409);
+      }
+    }
+
     let baseSlug = slugify(core.value.name, "developer");
     let finalSlug = baseSlug;
     for (let attempt = 2; ; attempt++) {
@@ -170,6 +186,7 @@ Deno.serve(async (req: Request) => {
         website: safeUrl(body.website),
         founded_year: int(body.founded_year, 1900, new Date().getFullYear()),
         projects_delivered: int(body.projects_delivered, 0, 5000),
+        ...(registry ? registryColumns(registry) : {}),
       })
       .select("id, slug")
       .single();
@@ -182,7 +199,11 @@ Deno.serve(async (req: Request) => {
       }
       return json({ error: "db_error", detail: error.message }, 500);
     }
-    return json({ success: true, developer_id: created.id, developer_slug: created.slug });
+    return json({
+      success: true, developer_id: created.id, developer_slug: created.slug,
+      registry_status: registry?.status ?? "unverified",
+      registry_message: registry ? registryMessage(registry) : null,
+    });
   }
 
   if (!developer) return json({ error: "no_developer_account" }, 403);
@@ -386,9 +407,27 @@ Deno.serve(async (req: Request) => {
             required: REQUIRED_DEVELOPER_FIELDS,
           }, 400);
         }
+        // שינוי הח״פ מבטל את האימות הקודם — הוא נעשה על מספר אחר. בלי
+        // זה אפשר היה להירשם עם מספר תקין ואז להחליף אותו לכל דבר,
+        // והשורה הייתה ממשיכה להציג "מאומת".
+        const { data: before } = await supabase
+          .from("developers").select("company_number").eq("id", developer.id).single();
+        let registry = null;
+        if (before?.company_number !== core.value.company_number && await registryEnabled(supabase)) {
+          registry = await cachedLookup(supabase, core.value.company_number, verifyCompanyNumber);
+          if (registry.status === "inactive" || (registry.status === "not_found" && await blockUnknown(supabase))) {
+            return json({
+              error: "company_registry_rejected",
+              registry_status: registry.status,
+              detail: registryMessage(registry),
+            }, 409);
+          }
+        }
+
         const { error } = await supabase.from("developers").update({
           name: core.value.name,
           company_number: core.value.company_number,
+          ...(registry ? registryColumns(registry) : {}),
           contact_name: core.value.contact_name,
           phone: core.value.phone,
           phone_e164: core.value.phone_e164,
@@ -411,7 +450,11 @@ Deno.serve(async (req: Request) => {
           }
           return json({ error: "db_error", detail: error.message }, 500);
         }
-        return json({ success: true });
+        return json({
+          success: true,
+          registry_status: registry?.status ?? null,
+          registry_message: registry ? registryMessage(registry) : null,
+        });
       }
 
       // ---------------------------------------------------------------

@@ -33,6 +33,17 @@
   .field textarea{resize:vertical;min-height:64px;font-size:.92rem}
   .field input:focus,.field textarea:focus{border-color:var(--blue);outline:none}
   .field .hint{font-size:.7rem;color:var(--ink-soft);margin-top:4px;line-height:1.45}
+  /* שלוש מצבים לחיווי הח״פ: אישור, אזהרה, ומידע ניטרלי. אזהרה אינה
+     אדומה כשהמרשם פשוט לא זמין — זו לא שגיאה של מי שממלא/ת. */
+  /* גובה שמור לרמז הח״פ.
+     הטקסט כאן מתחלף בזמן ההקלדה — "תשע ספרות" → "בודק…" → שם החברה או
+     הודעת שגיאה בת שתי שורות — וכל החלפה כזו הזיזה את כל הטופס שמתחתיה,
+     כולל תיבת אישור התנאים. מי שהושיט/ה יד לתיבה בדיוק כשהתשובה חזרה
+     החטיא/ה אותה. נתפס בבדיקת דפדפן: הלחיצה נחתה על ה-div העוטף. */
+  #cnHint{min-height:2.6em}
+  .hint.ok{color:#12704a;font-weight:700}
+  .hint.warn{color:#b3261e;font-weight:700}
+  .hint.busy{color:var(--ink-soft);font-style:italic}
   .two{display:grid;gap:12px}
   @media(min-width:440px){.two{grid-template-columns:1fr 1fr}}
   .section-divider{font-size:.72rem;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 10px;padding-top:14px;border-top:1px solid var(--line)}
@@ -105,7 +116,7 @@
     <div class="section-divider">פרטי החברה</div>
     <div class="field"><label class="req">שם החברה (כפי שיוצג באתר)</label><input type="text" id="companyName" required></div>
     <div class="two">
-      <div class="field"><label class="req">ח״פ / עוסק מורשה</label><input type="text" id="companyNumber" inputmode="numeric" placeholder="512345678" required><div class="hint">תשע ספרות. מספר בן שמונה יושלם באפס מוביל.</div></div>
+      <div class="field"><label class="req">ח״פ (מספר תאגיד)</label><input type="text" id="companyNumber" inputmode="numeric" placeholder="512345678" required><div class="hint" id="cnHint">תשע ספרות. נבדק מול רשם החברות בזמן ההקלדה.</div></div>
       <div class="field"><label>שם רשמי <span style="font-weight:400">(לא חובה)</span></label><input type="text" id="legalName" placeholder="בע״מ"></div>
     </div>
     <div class="two">
@@ -135,6 +146,7 @@
   <div id="stateDone">
     <h1>החשבון נפתח!</h1>
     <p class="sub">אפשר להתחבר עכשיו עם הפרטים שהזנת, לעצב את דף החברה ולהעלות את הפרויקט הראשון.</p>
+    <p class="hint" id="doneRegistry" hidden style="text-align:center"></p>
     <a href="developer-crm.html" class="btn" style="display:flex;text-decoration:none;margin-top:16px">מעבר לאזור הניהול</a>
     <a href="#" id="devPageLink" class="back-link" target="_blank" rel="noopener">לדף החברה שנוצר ←</a>
   </div>
@@ -145,6 +157,7 @@
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const SIGNUP_URL = SUPABASE_URL + '/functions/v1/developer-signup';
+const REGISTRY_URL = SUPABASE_URL + '/functions/v1/company-registry-lookup';
 const el = id => document.getElementById(id);
 
 /* המחירון נקרא מ-pricing_config ולא נשאר קשיח ב-HTML: שינוי מחיר בטבלה
@@ -225,6 +238,68 @@ function normalizeCompanyNumber(raw){
   return digits.length === 9 ? digits : null;
 }
 
+/* ---------- בדיקת הח״פ מול רשם החברות ----------
+   רצה בזמן ההקלדה כדי שהשם הרשום יופיע מיד — זה גם האישור הטוב ביותר
+   שהמספר נכון, וגם מה שחוסך "נרשמתי וגיליתי אחר כך שהקלדתי ספרה".
+
+   ‏seq מונע מתשובה איטית של בדיקה קודמת לדרוס תשובה חדשה: המשתמש/ת
+   ממשיך/ה להקליד, ובקשות חוזרות אינן חוזרות בסדר שיצאו.
+
+   התוצאה כאן היא **חיווי בלבד**. השרת מריץ את אותה בדיקה בעצמו, ולכן אין
+   טעם לנסות לעקוף אותה מכאן. */
+let registryState = null;
+let registrySeq = 0;
+
+async function checkCompanyNumber(){
+  const raw = el('companyNumber').value.trim();
+  const hint = el('cnHint');
+  const normalized = normalizeCompanyNumber(raw);
+
+  if (!raw){
+    registryState = null;
+    hint.className = 'hint';
+    hint.textContent = 'תשע ספרות. נבדק מול רשם החברות בזמן ההקלדה.';
+    return;
+  }
+  if (!normalized){
+    registryState = null;
+    hint.className = 'hint';
+    hint.textContent = 'תשע ספרות. מספר בן שמונה יושלם באפס מוביל.';
+    return;
+  }
+
+  const seq = ++registrySeq;
+  hint.className = 'hint busy';
+  hint.textContent = 'בודק מול רשם החברות…';
+  try{
+    const res = await fetch(REGISTRY_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({ company_number: normalized }),
+    });
+    if (seq !== registrySeq) return;   // תשובה שאיחרה — כבר יש חדשה
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'lookup_failed');
+
+    registryState = data;
+    hint.className = 'hint ' + (data.status === 'verified' ? 'ok'
+      : data.status === 'inactive' || data.status === 'not_found' ? 'warn' : '');
+    hint.textContent = data.message;
+  } catch(e){
+    if (seq !== registrySeq) return;
+    registryState = null;
+    hint.className = 'hint';
+    hint.textContent = 'לא הצלחנו לבדוק מול רשם החברות כרגע. אפשר להמשיך — נבדוק שוב בהמשך.';
+  }
+}
+
+let cnTimer = null;
+el('companyNumber').addEventListener('input', ()=>{
+  clearTimeout(cnTimer);
+  cnTimer = setTimeout(checkCompanyNumber, 450);
+});
+el('companyNumber').addEventListener('blur', ()=>{ clearTimeout(cnTimer); checkCompanyNumber(); });
+
 el('submitBtn').addEventListener('click', async ()=>{
   const feedback = el('feedback'), btn = el('submitBtn');
   const fail = (msg)=>{ feedback.style.color = 'var(--red)'; feedback.textContent = msg; };
@@ -275,6 +350,7 @@ el('submitBtn').addEventListener('click', async ()=>{
         auth_error: 'שגיאה ביצירת החשבון — ייתכן שהאימייל כבר בשימוש',
         terms_not_accepted: 'ההצטרפות מותנית באישור תנאי השימוש',
         company_number_taken: 'מספר הח״פ הזה כבר רשום במערכת. אם זו החברה שלכם — היכנסו לחשבון הקיים.',
+        company_registry_rejected: data.detail || 'מספר הח״פ נדחה על ידי רשם החברות.',
         missing_fields: data.invalid && data.invalid.length
           ? 'שדות שאינם תקינים: ' + named(data.invalid)
           : 'חסרים שדות חובה: ' + named(data.missing),
@@ -284,6 +360,13 @@ el('submitBtn').addEventListener('click', async ()=>{
       return;
     }
     el('devPageLink').href = 'developer.html?slug=' + encodeURIComponent(data.developer_slug);
+    if (data.registry_status === 'verified' && data.registry_name){
+      el('doneRegistry').textContent = 'אומת מול רשם החברות: ' + data.registry_name;
+      el('doneRegistry').hidden = false;
+    } else if (data.registry_status === 'unverified'){
+      el('doneRegistry').textContent = 'רשם החברות לא היה זמין כרגע — נשלים את האימות מאוחר יותר.';
+      el('doneRegistry').hidden = false;
+    }
     el('stateForm').style.display = 'none';
     el('stateDone').style.display = 'block';
   } catch(err){
