@@ -971,6 +971,23 @@
     .lead-banner .owner-intro h2{font-size:1.75rem}
   }
 
+  /* צ׳יפ המסנן הפעיל: ספיר מלא, כמו במסירת העיצוב. הוא לא כפתור פעולה
+     אלא סימון מצב שאפשר לכבות, ולכן ה-✕ הוא חלק ממנו ולא כפתור נפרד. */
+  .sr-ai-chip{
+    display:inline-flex;align-items:center;gap:7px;
+    background:var(--teal);color:#fff;border:none;
+    font-family:inherit;font-size:.78rem;font-weight:800;letter-spacing:.02em;
+    padding:6px 11px;cursor:pointer;
+  }
+  .sr-ai-chip:hover{background:var(--teal-dark)}
+  .sr-ai-chip-x{opacity:.75;font-weight:700}
+  .sr-ai-chip:hover .sr-ai-chip-x{opacity:1}
+  /* טקסט שנועד לקוראי מסך בלבד — ה-✕ לבדו לא אומר מה הוא מסיר */
+  .sr-only{
+    position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+    overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;
+  }
+
   /* ====== תוצאות החיפוש — שורות מיד מתחת למפה ======
      מוסתר עד לחיפוש הראשון, ואז לוקח על עצמו את תפקיד ה"במה" של המפה
      (אותו קצה מעוגל שנכנס 16px מתחתיה) במקום .hot-band שמתחתיו — ראו
@@ -2322,6 +2339,13 @@
       <div class="sr-head">
         <h2 id="searchResultsTitle">תוצאות החיפוש</h2>
         <span class="sr-count" id="searchResultsCount"></span>
+        <!-- הצ׳יפ של מסנן ההדמיות. מוסתר עד שהמסנן נדלק, ולחיצה על ה-✕
+             מכבה אותו ומריצה את החיפוש מחדש — בלי לגעת בשאר הסינון. -->
+        <button type="button" class="sr-ai-chip" id="aiFilterChip" hidden>
+          <span aria-hidden="true">✦</span> עם הדמיית AI
+          <span class="sr-ai-chip-x" aria-hidden="true">✕</span>
+          <span class="sr-only">— הסרת מסנן ההדמיות</span>
+        </button>
         <button type="button" class="ssa-cta" id="ssaOpenBtn">🔔 עדכנו אותי על נכסים כאלה</button>
         <button type="button" class="sr-clear" id="clearSearchBtn">ניקוי החיפוש</button>
       </div>
@@ -6262,6 +6286,10 @@ const ROOM_OPTIONS = ['1','1.5','2','2.5','3','3.5','4','4.5','5','5.5','+6'];
 const searchState = {
   activeTab: 'sale', // 'sale' | 'rent' | 'commercial'
   freeText: '',
+  /* מסנן ההדמיות יושב מחוץ ל-r/c ולא בתוכם: הוא לא תלוי בסוג העסקה — נכס
+     מסחרי עם הדמיה ודירה עם הדמיה עונים על אותה שאלה — ולכן מעבר בין
+     הטאבים לא מאפס אותו. */
+  hasAi: false,
   r: { priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), condition:'', projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, moveInDate:'', moveInSoon:false, freeText:'' },
   // deal:'' = שני סוגי העסקה המסחריים יחד (ראו ההערה ליד הבורר ב-HTML)
   c: { deal:'', priceMin:null, priceMax:null, rooms:new Set(), ptypes:new Set(), listingFeatures:new Set(), propertyFeatures:new Set(), projectStatus:'', floorMin:null, floorMax:null, sizeMin:null, sizeMax:null, restrooms:'', storage:'', mamad:'', moveInDate:'', moveInSoon:false, freeText:'' },
@@ -6439,6 +6467,7 @@ function collectFormValues(){
 function countActiveFilters(){
   const s = searchState.activeTab === 'commercial' ? searchState.c : searchState.r;
   let n = 0;
+  if (searchState.hasAi) n++;
   if (s.priceMin || s.priceMax) n++;
   if (s.rooms.size) n++;
   if (s.ptypes.size) n++;
@@ -6558,6 +6587,18 @@ async function runSearch(){
     if (freeText){
       const orFilter = await locationOrFilter(freeText);
       if (orFilter) query = query.or(orFilter);
+    }
+
+    /* מסנן ההדמיות הוא היחיד שלא יושב על עמודה ב-properties: ההדמיות הן
+       טבלה נפרדת, ולכן הוא מתורגם לרשימת מזהים ומצורף כ-in. הרשימה קטנה
+       מטבעה (הדמיות נוצרות לנכסי Premium בלבד) והיא נשלפת פעם אחת לעמוד.
+       ‏in על מערך ריק היה מחזיר שגיאה, ולכן אפס נכסים עם הדמיה נענה כאן
+       ברשימה ריקה — שהיא התשובה הנכונה, ולא שגיאת חיפוש. */
+    let aiIds = null;
+    if (searchState.hasAi){
+      aiIds = [...await PropertyCard.allVisualizedIds(sb)];
+      if (!aiIds.length){ renderPropertyGrid([], true); revealSearchResults(); return; }
+      query = query.in('id', aiIds);
     }
 
     const { data, error } = await query
@@ -7492,8 +7533,53 @@ function setListingsTab(expanded){
 /* חזרה מתוצאות החיפוש אל כל הנכסים שבמאגר. בלי כפתור כזה אין דרך לבטל
    חיפוש חוץ מרענון העמוד: חיפוש ריק הוא עדיין חיפוש (הוא מסונן לפי סוג
    העסקה שנבחר) ולא מחזיר את התצוגה המלאה. */
+/* ============================================================
+   מסנן ההדמיות
+   ------------------------------------------------------------
+   נקודת הכניסה אליו היא הכפתור ברצועת ההדמיות ("לכל N הנכסים עם הדמיה"),
+   והיא נחשפת ל-assets/ai-showcase.js דרך window.ShukSearch — כך הרצועה
+   נשארת רכיב עצמאי ולא נוגעת במנוע החיפוש של הדף.
+
+   הכתובת מתעדכנת ל-‎?ai=1‎ ולא רק המצב הפנימי: תוצאות צריכות להיות ניתנות
+   לשיתוף ולאינדוקס, וזו הסיבה שגם applyDeepLinkFilters יודע לקרוא אותו.
+   ============================================================ */
+function setAiFilter(on){
+  searchState.hasAi = !!on;
+  const chip = document.getElementById('aiFilterChip');
+  if (chip) chip.hidden = !on;
+}
+
+/* מדליק את המסנן, מריץ חיפוש, וגולל לתוצאות. נקרא גם מהרצועה וגם
+   מהקישור העמוק, ולכן הוא זה שמחזיק את ההתנהגות במקום אחד. */
+async function applyAiFilter(){
+  setAiFilter(true);
+  try{
+    const url = new URL(location.href);
+    url.searchParams.set('ai', '1');
+    history.replaceState(null, '', url);
+  } catch(e){ /* דפדפן שחוסם היסטוריה — המסנן עדיין עובד */ }
+  await runSearch();
+  document.getElementById('searchResults')
+    ?.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+window.ShukSearch = { applyAiFilter };
+
+/* כיבוי מהצ׳יפ: מוריד את המסנן ואת הפרמטר מהכתובת, ומריץ מחדש את אותו
+   חיפוש בלי לגעת בשאר הסינון — בשונה מ"ניקוי החיפוש" שמאפס הכול. */
+document.getElementById('aiFilterChip')?.addEventListener('click', async ()=>{
+  setAiFilter(false);
+  try{
+    const url = new URL(location.href);
+    url.searchParams.delete('ai');
+    history.replaceState(null, '', url);
+  } catch(e){ /* כנ"ל */ }
+  await runSearch();
+});
+
 async function clearSearch(){
   document.getElementById('searchFreeText').value = '';
+  setAiFilter(false);
   hoodState.selected = new Set();
   hoodState.draft = new Set();
   drawHoodShapes();
@@ -7504,6 +7590,12 @@ async function clearSearch(){
   const badge = document.getElementById('filterCountBadge');
   badge.style.display = 'none';
   badge.textContent = '0';
+
+  try{
+    const url = new URL(location.href);
+    url.searchParams.delete('ai');
+    history.replaceState(null, '', url);
+  } catch(e){ /* דפדפן שחוסם היסטוריה */ }
 
   searchHasRun = false;
   renderPropertyGrid(await loadProperties());
@@ -7578,6 +7670,10 @@ function applyDeepLinkFilters(){
 
   const q = (params.get('q') || '').trim();
   if (q) document.getElementById('searchFreeText').value = q.slice(0, 80);
+
+  // ‏?ai=1 — נכסים שיש להם לפחות הדמיה אחת. זה הקישור שהכפתור ברצועת
+  // ההדמיות מוביל אליו, וזה גם מה שנשלח כששולחים את התוצאות לחבר/ה.
+  setAiFilter(params.get('ai') === '1');
 
   // הטופס נבנה מחדש כדי שהצ׳יפים של החדרים וסוגי הנכס ייראו מסומנים כשמי
   // שהגיע/ה מהקישור יפתח/תפתח את המסננים
