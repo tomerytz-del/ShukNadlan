@@ -111,8 +111,13 @@
     '  padding:20px;background:rgba(255,255,255,.04);color:#8b97ba;font-size:14px;',
     '  border:1px dashed rgba(255,255,255,.18)}',
 
-    /* ---- רצועת התמונונות ---- */
-    '.ai-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}',
+    /* ---- רצועת התמונונות ----
+       מספר העמודות נגזר ממספר התמונות ולא קבוע על שלוש: סגנון שיש לו שני
+       חדרים היה משאיר שליש מהשורה ריק, והאריחים לא היו מתיישרים עם קצה
+       התמונה הראשית שמעליהם. עם ‎--ai-cols‎ הרצועה תמיד ממלאה את הרוחב
+       המלא, ולכל אריח אותו רוחב ואותו גובה. */
+    '.ai-strip{display:grid;grid-template-columns:repeat(var(--ai-cols,3),minmax(0,1fr));',
+    '  gap:8px;margin-top:14px;align-items:start}',
     /* ‏min-width:0 ולא רק ‎1fr‎: תווית שלא נשברת ("הסלון · ים-תיכוני לבן")
        מרחיבה את העמודה שלה מעל חלקה, והתמונונות יוצאות בגדלים שונים. */
     '.ai-thumb{display:block;text-decoration:none;color:#e6ecf9;min-width:0}',
@@ -121,8 +126,11 @@
     /* התווית נשברת לשתי שורות ולא נקטעת בשלוש נקודות: "הסלון · ים-תיכוני
        לבן" בעמודה של שליש מסך טלפון נחתך בדיוק על שם הסגנון — כלומר על
        החלק שבגללו לוחצים. */
+    /* שתי שורות שמורות תמיד ולא רק כתקרה: "חזית הבית" נשבר לשתיים בעמודה
+       צרה בזמן ש"הסלון" נשאר באחת, והאריחים היו יוצאים בגבהים שונים. */
     '.ai-thumb span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;',
-    '  overflow:hidden;font-size:12px;font-weight:700;margin-top:5px;line-height:1.35}',
+    '  overflow:hidden;font-size:12px;font-weight:700;margin-top:5px;line-height:1.35;',
+    '  min-height:calc(2em * 1.35)}',
     '.ai-thumb:hover img{border-color:#c9a227}',
     '.ai-strip-title{font-size:11px;font-weight:800;letter-spacing:.1em;color:#8b97ba;margin:18px 0 0}',
 
@@ -363,7 +371,8 @@
                   ? '<p class="ai-strip-title">' +
                       (opts.activeStyle ? 'עוד חדרים בסגנון הזה' : 'עוד חללים בנכס') +
                     '</p>' +
-                    '<div class="ai-strip">' +
+                    '<div class="ai-strip" style="--ai-cols:' +
+                      Math.min(pairs.length, PROPERTY_STRIP_LIMIT, 3) + '">' +
                       pairs.slice(0, PROPERTY_STRIP_LIMIT).map(function (it, i) {
                         return propertyThumbHtml(opts, it, i, i === leadIndex);
                       }).join('') +
