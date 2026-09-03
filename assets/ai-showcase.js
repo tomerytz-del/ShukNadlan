@@ -149,7 +149,7 @@
      והוא חייב להיות אותו מספר שהמסנן בתוצאות מחזיר. אם הוא היה נספר לפי
      מה שהרצועה מציגה, הוא היה נמוך מהאמת בכל נכס שיש לו הדמיה בלי תמונת
      מקור — והכפתור היה משקר. */
-  function load(client) {
+  function load(client, exclude) {
     var pairs = client
       .from('property_visualizations_public')
       .select('property_id, target, source_image_url, result_url, created_at')
@@ -183,8 +183,15 @@
         .then(function (pRes) {
           var active = (pRes && pRes.data) || [];
           if (pRes.error || !active.length) return null;
+          /* ‏exclude הוא הנכס שבעמוד הנוכחי: אין טעם להציג לו את ההדמיה
+             של עצמו ברצועת "עוד נכסים עם הדמיה", והיא ממילא מוצגת
+             במלואה בסקציה שמעליה.
+
+             הוא יורד מהתצוגה אבל **לא** מהמונה: הכפתור מוביל לתוצאות
+             המסוננות, והנכס הזה נמצא שם. מונה שמחסיר אותו היה מבטיח
+             מספר אחד ומראה אחר. */
           var items = active
-            .filter(function (p) { return byProperty.has(p.id); })
+            .filter(function (p) { return p.id !== exclude && byProperty.has(p.id); })
             .map(function (p) { return { property: p, viz: byProperty.get(p.id) }; });
           return { items: items, total: active.length };
         });
@@ -286,14 +293,19 @@
     });
   }
 
-  function mount(container) {
+  function mount(container, opts) {
     if (!container || !global.supabase || !global.supabase.createClient) return;
+    var o = opts || {};
     var client = global.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    load(client).then(function (data) {
-      /* פחות משני נכסים אינם "רצועת הדמיות" אלא נכס בודד שמתחזה לאחת —
-         במקרה כזה עדיף שהאזור לא יופיע בכלל. הספירה היא על מה שאפשר
-         להציג: בלי זוג לפני/אחרי אין מה לשים ברצועה. */
-      if (!data || !data.items || data.items.length < 2) return;
+    load(client, o.exclude).then(function (data) {
+      /* הרצועה צריכה השוואה אחת להישען עליה — בלי זוג לפני/אחרי אין מה
+         להראות, ורצועה שכל תוכנה הוא כפתור היא הבטחה בלי כיסוי. רצועת
+         התמונונות שמתחתיה אופציונלית ויורדת מעצמה כשאין מה לשים בה.
+
+         הסף הוא אחד ולא שניים: בדף נכס הנכס הנוכחי מוחרג מהתצוגה, ואם
+         נשארה בדיוק השוואה אחת היא עדיין רצועה טובה — ובוודאי כשהכפתור
+         שלצדה מצביע על כל הנכסים עם הדמיה. */
+      if (!data || !data.items || !data.items.length) return;
       injectCss();
       render(container, data);
     }).catch(function (err) {
