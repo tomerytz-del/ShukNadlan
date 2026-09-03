@@ -27,6 +27,17 @@
     --on-brand:#fff;
     /* אותו עיקרון לצבע המשני: טקסט שיושב על גבי --accent */
     --on-accent:#fff;
+    /* ‏--on-brand-fill ו---on-accent-fill: טקסט על משטח שצבוע בגוון המשרד
+       *בתוך* רצועה כהה — השבב הנבחר, הנקודה בשלב הפעיל, כפתור הזהב ועיגול
+       הסיום. עד כה הם קראו ‎--on-brand‎/‎--on-accent‎, ושני תפקידים שונים
+       חיו באותו משתנה: "טקסט על גוון המשרד" ו"טקסט על הרצועה". זה עבד כל
+       עוד הרצועה *הייתה* גוון המשרד. היא כבר לא — ‏design-system.css צובע
+       את כל הרצועות בספיר קבוע — והפיצול כאן הוא מה שמאפשר לרצועה לקבל
+       טקסט לבן בלי לצבוע בלבן גם את השבבים שבתוכה.
+       ‏(מוגדרים גם ב-design-system.css, כדי שדפים שאינם דף המשרד — שבהם
+       אין JS שמחשב אותם — יקבלו ערך תקף.) */
+    --on-brand-fill:#fff;
+    --on-accent-fill:#fff;
     /* ‏--accent-ink הוא הצבע המשני כטקסט על משטח בהיר. הוא נגזר ב-JS ונסוג
        ל-‎--brand-dark‎ כשהמשרד בחר אקסנט בהיר מדי — מחיר בכרטיס נכס חייב
        להיקרא, גם במחיר של ויתור על הגוון שנבחר. */
@@ -716,7 +727,7 @@
     flex:1;padding:9px;border-radius:0;font-weight:700;font-size:.82rem;
     background:transparent;border:1.5px solid rgba(255,255,255,.35);color:var(--on-brand);
   }
-  .owner-toggle button.active{background:var(--gold);border-color:var(--gold);color:var(--on-accent)}
+  .owner-toggle button.active{background:var(--gold);border-color:var(--gold);color:var(--on-accent-fill)}
 
   /* ---- אשף הערכת נכס (3 שלבים) ----
      ‏text-align:right מחזיר את תוכן האשף ליישור RTL רגיל — רק ההודעה
@@ -737,7 +748,7 @@
     width:19px;height:19px;border-radius:50%;background:rgba(255,255,255,.18);
     display:flex;align-items:center;justify-content:center;font-size:.68rem;flex:0 0 auto;
   }
-  .wiz-steps li.active .dot,.wiz-steps li.done .dot{background:var(--gold);color:var(--on-accent)}
+  .wiz-steps li.active .dot,.wiz-steps li.done .dot{background:var(--gold);color:var(--on-accent-fill)}
   .wiz-panel{display:none}
   .wiz-panel.active{display:block;animation:wizIn .22s ease}
   @keyframes wizIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -756,7 +767,7 @@
     padding:13px 22px;border-radius:0;font-weight:700;font-size:.95rem;
     transition:transform .15s ease, box-shadow .15s ease;
   }
-  .btn-gold{background:var(--gold);color:var(--on-accent)}
+  .btn-gold{background:var(--gold);color:var(--on-accent-fill)}
   .btn-gold:hover{transform:translateY(-1px);box-shadow:var(--shadow-md)}
   .btn-gold[disabled]{opacity:.65;cursor:default;transform:none}
   .btn-ghost-light{background:transparent;border:1.5px solid rgba(255,255,255,.35);color:var(--on-brand)}
@@ -765,7 +776,7 @@
     padding:8px 14px;border-radius:0;font-size:.82rem;font-weight:600;
     background:transparent;border:1.5px solid rgba(255,255,255,.3);color:var(--on-brand);
   }
-  .owner-banner .chip[aria-checked="true"]{background:var(--gold);border-color:var(--gold);color:var(--on-accent)}
+  .owner-banner .chip[aria-checked="true"]{background:var(--gold);border-color:var(--gold);color:var(--on-accent-fill)}
   .wiz-checks{display:flex;flex-wrap:wrap;gap:10px}
   .wiz-checks label{
     display:flex;align-items:center;gap:7px;font-size:.85rem;color:var(--on-brand);
@@ -776,7 +787,7 @@
   .wiz-checks label:has(input:checked){background:var(--accent-veil);border-color:var(--gold)}
   .wiz-done{text-align:center;padding:10px 0}
   .wiz-done-mark{
-    width:52px;height:52px;border-radius:50%;background:var(--gold);color:var(--on-accent);
+    width:52px;height:52px;border-radius:50%;background:var(--gold);color:var(--on-accent-fill);
     font-size:1.6rem;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;
   }
   .wiz-done h3{color:var(--on-brand);font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;margin:0 0 6px}
@@ -859,9 +870,12 @@
   .calc-controls{display:flex;flex-direction:column;gap:13px}
   .calc-slider-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:6px}
   .calc-slider-head .lbl{font-size:.82rem;font-weight:700;color:var(--ink-soft)}
+  /* ‏--accent-ink ולא ‎--teal-dark‎: הערך יושב על לוח בהיר, ו---teal-dark הוא
+     גוון המשרד בלי שום בדיקת ניגודיות מולו — משרד עם ראשי בהיר קיבל 2.6:1.
+     ‏--accent-ink הוא בדיוק הטוקן שנבחר בקוד לפי 4.5:1 מול המשטח. */
   .calc-slider-head .val{
     font-family:'Frank Ruhl Libre',serif;font-size:1.28rem;font-weight:700;
-    color:var(--teal-dark);white-space:nowrap;
+    color:var(--accent-ink);white-space:nowrap;
   }
   /* הרקע נצבע על ה-input עצמו (ולא רק על ::-webkit-slider-runnable-track)
      כדי שמילוי המסלול יעבוד גם בפיירפוקס, שם ::-moz-range-track שקוף. */
@@ -909,9 +923,14 @@
   .calc-step-ctl input::-webkit-outer-spin-button,
   .calc-step-ctl input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   .calc-step-ctl input[type=number]{-moz-appearance:textfield;appearance:textfield}
+  /* ספיר קבוע ולא גוון המשרד — אותו כלל של הרצועות הכהות ב-design-system.css.
+     כאן הרקע היה ‎--brand-dark → --brand‎ בזמן שהטקסט שעליו קבוע ‎#fff‎, ולכן
+     משרד עם גוון ראשי בהיר קיבל לבן על זהב (2.9:1). לוח שנושא טקסט לבן קבוע
+     חייב רקע קבוע — או שהטקסט יהפוך למחושב, ולוח שהוא מדרג בין שני גוונים
+     בהירים אין לו צבע טקסט קריא בשני קצותיו. */
   .calc-result{
     display:flex;align-items:center;justify-content:space-between;gap:14px;
-    background:linear-gradient(120deg,var(--brand-dark) 0%,var(--brand) 100%);
+    background:linear-gradient(120deg,var(--sapphire-deep) 0%,var(--sapphire) 100%);
     border-radius:var(--radius-md);padding:13px 18px;box-shadow:var(--shadow-md);
   }
   .calc-result .side{text-align:start}
@@ -929,9 +948,13 @@
   .calc-more .k{font-size:.68rem;color:var(--ink-soft);margin-top:3px;font-weight:600}
   .calc-warn{font-size:.78rem;color:var(--accent-ink);font-weight:700;margin:0;text-align:center}
   .calc-warn:empty{display:none}
+  /* גם כאן ספיר קבוע. המדרג הקודם חצה שתי משפחות גוון (‏--brand-dark ואז
+     --accent-dark → --accent‎) עם ‎#fff‎ קבוע מעליו, ובאקסנט זהוב הוא ירד
+     ל-2.9:1. מדרג כזה אינו ניתן לתיקון בבחירת צבע טקסט: אין צבע אחד שקריא
+     גם על ספיר כהה וגם על זהב בהיר. */
   .calc-cta{
     display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 18px;border-radius:0;
-    background:linear-gradient(to right,var(--brand-dark),var(--accent-dark) 55%,var(--accent));
+    background:linear-gradient(to right,var(--sapphire-deep),var(--sapphire));
     color:#fff;font-weight:800;font-size:1rem;box-shadow:var(--shadow-md);
     transition:transform .15s ease, box-shadow .15s ease;
   }
@@ -1951,9 +1974,15 @@ function contrastWithWhite(hex){
    גוון בינוני שאין עליו טקסט קריא באמת — נבחר הגבוה מבין השניים, שהוא
    הטוב ביותר שאפשר בלי לשנות את הגוון שהמשרד בחר. */
 const ON_COLOR_INK = '#0d1b3d';
-function readableOn(hex){
-  const onWhite = contrastWithWhite(hex);
-  const onInk = contrastBetween(hex, ON_COLOR_INK);
+
+/* הבחירה נמדדת מול *שני* הגוונים שהמשטח באמת צבוע בהם, ולא מול אחד מהם.
+   כמעט כל משטח מלא באתר הוא מדרג — ‎linear-gradient(--brand-dark → --brand)‎
+   בלוח התוצאה, ‎--accent-dark → --accent‎ ב-CTA — ומדידה מול הקצה הבהיר
+   בלבד החזירה דיו כהה שנעלם בקצה הכהה של אותו מדרג בדיוק. הגרוע מבין
+   השניים הוא מה שקובע. */
+function readableOnPair(a, b){
+  const onWhite = Math.min(contrastWithWhite(a), contrastWithWhite(b));
+  const onInk   = Math.min(contrastBetween(a, ON_COLOR_INK), contrastBetween(b, ON_COLOR_INK));
   if (onWhite >= 4.5) return '#fff';
   if (onInk >= 4.5) return ON_COLOR_INK;
   return onWhite >= onInk ? '#fff' : ON_COLOR_INK;
@@ -1980,15 +2009,22 @@ function applyBranding(agency){
   const brand = safeHex(c.primary, null);
   const accent = safeHex(c.accent, null);
   if (brand){
+    const brandDark = safeHex(c.primary_dark, brand);
     root.setProperty('--brand', brand);
-    root.setProperty('--brand-dark', safeHex(c.primary_dark, brand));
-    root.setProperty('--on-brand', readableOn(brand));
+    root.setProperty('--brand-dark', brandDark);
+    root.setProperty('--on-brand', readableOnPair(brand, brandDark));
+    /* ‏--on-brand-fill הוא אותו חישוב בדיוק, בשם שנשאר תקף גם בתוך רצועה
+       כהה: שם ‎--on-brand‎ נדרס ללבן (הרצועה כבר אינה בגוון המשרד), ואילו
+       כפתור מלא שבתוכה — ‎.btn-gold‎, שרקעו ‎--teal‎ — עדיין כן. */
+    root.setProperty('--on-brand-fill', readableOnPair(brand, brandDark));
   }
   if (accent){
     const accentDark = safeHex(c.accent_dark, accent);
     root.setProperty('--accent', accent);
     root.setProperty('--accent-dark', accentDark);
-    root.setProperty('--on-accent', readableOn(accent));
+    root.setProperty('--on-accent', readableOnPair(accent, accentDark));
+    /* המקבילה לצבע המשני: טקסט על שבב ‎--gold‎ (שהוא ‎--accent‎) בתוך רצועה. */
+    root.setProperty('--on-accent-fill', readableOnPair(accent, accentDark));
     /* ‏--accent-ink נושא טקסט ואייקונים קטנים (מחיר, כוכבים, אייקוני הקפסולות) על רקע
        הכרטיסים. אקסנט בהיר — צהוב, חול, ובוודאי לבן — נכשל שם בניגודיות,
        ולכן נבחר כאן הגוון הראשון שעובר 4.5:1: קודם המשני הכהה, אחריו המשני

@@ -54,6 +54,13 @@
   --accent-ink:      #0e2a6b;
   --on-brand:        #fff;
   --on-accent:       #fff;
+  /* ‏"‎-fill‎" = טקסט על משטח שצבוע בגוון המותג, להבדיל מטקסט על רצועה
+     כהה. בדף המשרד השניים נפרדים: הרצועות ספיר קבוע (סעיף 7 למטה) בעוד
+     שכפתור מלא שבתוכן עדיין בגוון המשרד, ולכן ‎--on-brand‎ נדרס שם ללבן
+     ואילו ‎--on-brand-fill‎ ממשיך להימדד מול הגוון עצמו. בשאר הדפים אין
+     ‏JS שמחשב אותם והם פשוט לבן, כמו קודם. */
+  --on-brand-fill:   #fff;
+  --on-accent-fill:  #fff;
 
   /* ---- מיפוי הטוקנים ההיסטוריים ---- */
   --teal:            var(--brand);
@@ -89,7 +96,11 @@
   /* ---- כוכבים ותו אמון ---- */
   --star:            #c9a227;
   --star-off:        #d3daea;
-  --verified:        #21a565;
+  /* ‏--verified משמש *כטקסט* על ‎--verified-tint‎ ולא כצבע מילוי (תגית
+     "משרד מאומת"). ‏#21a565 הוא ירוק המילוי של המערכת — ‎--positive‎ —
+     ועל טינט בהיר הוא נתן 2.8:1. הגוון הכהה נשאר באותה משפחת ירוק
+     ומגיע ל-5.4:1. ‏--positive עצמו לא נגע: שם הוא באמת מילוי. */
+  --verified:        #14713f;
   --verified-tint:   #e5f5ed;
 
   /* ---- צורה: הכול מרובע. זו החלטה, לא השמטה ---- */
@@ -191,7 +202,10 @@ input,select,textarea,
   padding:13px 24px;
   transition:background .16s ease,color .16s ease,border-color .16s ease;
 }
-.btn-gold,.btn-teal{background:var(--teal);color:var(--on-brand);box-shadow:none}
+/* ‏--on-brand-fill ולא ‎--on-brand‎: הרקע כאן הוא ‎--teal‎, כלומר גוון המשרד
+   עצמו — גם כשהכפתור יושב בתוך רצועה שנצבעה בספיר ו---on-brand נדרס שם
+   ללבן. משרד עם גוון ראשי בהיר קיבל בדיוק את הצירוף הזה: לבן על זהב. */
+.btn-gold,.btn-teal{background:var(--teal);color:var(--on-brand-fill);box-shadow:none}
 .btn-gold:hover,.btn-teal:hover{
   background:var(--sapphire-hover);color:#fff;transform:none;box-shadow:none;
 }
@@ -263,10 +277,28 @@ header.site .primary a[aria-current],header.site .primary a.is-active{
 /* ---- רצועות כהות (הערכת שווי, מחפשי נכס, המחשבונים) ----
    קודם הן היו חצי־שקופות מעל הרקע הזורם, ולכן כל אחת קיבלה גוון אחר לפי
    מה שבמקרה עבר מתחתיה — משטח שאמור להיות "הבמה" של קריאה לפעולה יצא
-   אפרפר ובוצי. עכשיו כולן על אותו ספיר אטום. */
-.owner-banner,.buyer-banner,.calc-banner,.yield-banner{
+   אפרפר ובוצי. עכשיו כולן על אותו ספיר אטום.
+
+   ‏**והטקסט שעליהן לבן — כאן, ליד הרקע שקובע זאת.** בדף המשרד הרצועות
+   נצבעו בגוון שהמשרד בחר, והטקסט עליהן נקרא ‎--on-accent‎ / ‎--on-brand‎:
+   משתנים ש-agency.html מחשב לפי ניגודיות מול אותו גוון, ומחזירים דיו כהה
+   כשהמשרד בחר גוון בהיר. הכלל הזה לקח מהן את הרקע והשאיר להן את הטקסט,
+   ולכן משרד עם אקסנט זהוב קיבל דיו כהה על ספיר כהה — כותרת, שאלות האשף,
+   התוויות והשבבים, כולם בלתי נראים. שני משרדים מתוך ארבעה היו במצב הזה.
+
+   התיקון יושב כאן ולא בדף: הרקע והצבע שנקרא מולו חייבים להיקבע באותו
+   מקום, אחרת הם ייפרדו שוב בשינוי הבא. דריסת המשתנים (ולא רק ‎color‎)
+   נחוצה כי צאצאים רבים בתוך הרצועה מציינים ‎color:var(--on-brand)‎
+   במפורש ולכן אינם יורשים.
+
+   ‏--on-gold נשאר כפי שהוא: הוא הטקסט על שבבי הזהב *בתוך* הרצועה, והם
+   עדיין בגוון המשרד. */
+.owner-banner,.buyer-banner,.calc-banner,.yield-banner,.agency-banner{
   background:linear-gradient(160deg,var(--sapphire) 0%,var(--sapphire-deep) 100%);
   border:1px solid rgba(255,255,255,.1);
+  color:#fff;
+  --on-brand:#fff;
+  --on-accent:#fff;
 }
 
 /* ====== 8. תגיות עסקה ======
