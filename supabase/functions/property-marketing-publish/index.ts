@@ -285,7 +285,7 @@ async function publishViaGraph(row: any, message: string, images: string[]) {
   const link = propertyUrl(row.property_id);
   const mediaIds: string[] = [];
 
-  for (const url of images.slice(0, MAX_PHOTOS)) {
+  for (const url of images) {
     const photoForm = new URLSearchParams({
       url,
       published: "false",
@@ -323,11 +323,16 @@ async function publishViaGraph(row: any, message: string, images: string[]) {
 // טיפול בנכס אחד
 // ---------------------------------------------------------------------------
 async function handle(sb: any, row: any, opts: { force: boolean; dryRun: boolean }) {
-  const images: string[] = (row.images ?? []).filter((u: any) => typeof u === "string" && /^https?:\/\//.test(u));
+  const gallery: string[] = (row.images ?? []).filter((u: any) => typeof u === "string" && /^https?:\/\//.test(u));
   if (row.marketing_image && /^https?:\/\//.test(row.marketing_image)) {
     // התמונה השיווקית המעוצבת קודמת לגלריה — היא נבנתה בדיוק בשביל פוסט כזה.
-    images.unshift(row.marketing_image);
+    gallery.unshift(row.marketing_image);
   }
+  // התקרה חלה על שני המסלולים, לא רק על Graph. לנכס יכולות להיות תשע תמונות,
+  // ובמסלול Make כל תמונה היא איטרציה ומודול העלאה — כלומר פי שלושה פעולות
+  // בחבילה על נכס אחד, ופוסט שגולל. חמש הן גם מה שפייסבוק מציג בגריד בלי
+  // לקפל, ולכן זו אותה תקרה בשני המקומות.
+  const images = gallery.slice(0, MAX_PHOTOS);
 
   // 1. תיאור שיווקי — רק אם אין, אלא אם ביקשו במפורש לכתוב מחדש
   let generated = false;
