@@ -12,8 +12,9 @@
 
    שלושה כללים:
 
-     1. **אין תוכן — אין רצועה.** בלי הדמיה אחת לפחות המכולה נשארת ריקה
-        ולא נשאר שלד של באנר שמבטיח ולא מקיים.
+     1. **בלי הדמיה — בלי וילון, אבל כן כלי.** נכס זכאי שטרם הופקה לו
+        הדמיה מקבל את הצד השמאלי בלבד: כותרת, שבבי הסגנונות והכפתור. הם
+        לא הבטחה ריקה — הם הכלי שמייצר את מה שחסר.
      2. **התנועה היא מצב מנוחה בלבד.** סרגל ההשוואה נע לבד כדי לספר מה
         אפשר לעשות איתו; במגע הראשון — עכבר, מגע או מקלדת — האנימציה נעצרת
         והשליטה עוברת לגולש/ת ולא חוזרת.
@@ -122,6 +123,16 @@
        הם כפתורים אמיתיים ולא קישורים — הם לא מנווטים לשום מקום, הם מחליפים
        את מה שכבר על המסך. */
     '.ai-styles{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}',
+    /* טקסט לוואי לצד הכפתור — קטן ומאופק, הוא לא מתחרה בו. */
+    '.ai-fineprint{color:#c3cde6;font-size:14px}',
+    /* אותו טקסט כשאין כפתור לצדו הוא המסר היחיד בשורה, ולכן הוא מקבל קול
+       משלו: נקודה זהובה ומשקל. בלעדיו הוא נקרא כהמשך של האותיות הקטנות
+       שמתחתיו — שתי פסקאות אפורות זו מתחת לזו. */
+    '.ai-hint{display:inline-flex;align-items:center;gap:8px;color:#e6ecf9;',
+    '  font-size:14px;font-weight:600}',
+    '.ai-hint::before{content:"";width:7px;height:7px;flex:none;background:#c9a227;',
+    '  border-radius:50%}',
+    '.ai-actions:has(.ai-hint){margin-bottom:6px}',
     '.ai-style{font-family:Heebo,system-ui,sans-serif;font-size:13px;font-weight:700;',
     '  padding:8px 14px;cursor:pointer;background:transparent;color:#e6ecf9;',
     '  border:1px solid rgba(255,255,255,.28)}',
@@ -280,8 +291,6 @@
 
   function renderProperty(container, opts) {
     var pairs = orderPairs(opts);
-    if (!pairs.length) { container.innerHTML = ''; return; }
-
     var leadIndex = 0;
     var styles = opts.styles || [];
     var cta = opts.cta || {};
@@ -296,12 +305,19 @@
         '</div>'
       : '';
 
-    var actionsHtml = cta.label
+    /* גם ‎hint‎ לבדו מרכיב את השורה: כשכל ההדמיות בסגנון הנבחר כבר קיימות
+       אין כפתור להציע — לחיצה עליו הייתה מייצרת מחדש את מה שכבר על המסך —
+       ומה שנשאר הוא משפט שמסביר איך כן מייצרים עוד. */
+    var actionsHtml = (cta.label || cta.hint)
       ? '<div class="ai-actions">' +
-          '<button class="ai-cta" type="button" id="aiPropCta"' + (cta.busy ? ' disabled' : '') + '>' +
-            esc(cta.busy ? 'יוצרים…' : cta.label) +
-          '</button>' +
-          (cta.hint ? '<span class="ai-secondary" style="text-decoration:none">' + esc(cta.hint) + '</span>' : '') +
+          (cta.label
+            ? '<button class="ai-cta" type="button" id="aiPropCta"' + (cta.busy ? ' disabled' : '') + '>' +
+                esc(cta.busy ? 'יוצרים…' : cta.label) +
+              '</button>'
+            : '') +
+          (cta.hint
+            ? '<span class="' + (cta.label ? 'ai-fineprint' : 'ai-hint') + '">' + esc(cta.hint) + '</span>'
+            : '') +
         '</div>'
       : '';
 
@@ -319,24 +335,29 @@
               'אינה מהווה התחייבות של המוכר או של המשרד, ואינה מעידה על היתרים או על ' +
               'זכויות בנייה בנכס.</p>' +
           '</div>' +
-          '<div>' +
-            '<div id="aiPropCompare">' + propertyCompareHtml(opts, pairs[leadIndex]) + '</div>' +
-            (pairs.length > 1
-              ? '<p class="ai-strip-title">עיצובים נוספים של הנכס</p>' +
-                '<div class="ai-strip">' +
-                  pairs.slice(0, PROPERTY_STRIP_LIMIT).map(function (it, i) {
-                    return propertyThumbHtml(opts, it, i, i === leadIndex);
-                  }).join('') +
-                '</div>'
-              : '') +
-          '</div>' +
+          /* בלי הדמיה אחת אין וילון ואין תמונונות — אבל הכלי עצמו כן
+             מוצג: בנכס זכאי שטרם הופקה לו הדמיה, הכפתור הוא כל מה שיש,
+             והוא בדיוק מה שהמבקר/ת צריך/ה. */
+          (pairs.length
+            ? '<div>' +
+                '<div id="aiPropCompare">' + propertyCompareHtml(opts, pairs[leadIndex]) + '</div>' +
+                (pairs.length > 1
+                  ? '<p class="ai-strip-title">עיצובים נוספים של הנכס</p>' +
+                    '<div class="ai-strip">' +
+                      pairs.slice(0, PROPERTY_STRIP_LIMIT).map(function (it, i) {
+                        return propertyThumbHtml(opts, it, i, i === leadIndex);
+                      }).join('') +
+                    '</div>'
+                  : '') +
+              '</div>'
+            : '') +
         '</div>' +
       '</section>';
 
     wireCompare(container);
 
     var compareBox = container.querySelector('#aiPropCompare');
-    container.querySelectorAll('.ai-thumb').forEach(function (btn) {
+    if (compareBox) container.querySelectorAll('.ai-thumb').forEach(function (btn) {
       btn.addEventListener('click', function () {
         var i = Number(btn.dataset.index);
         var it = pairs[i];
