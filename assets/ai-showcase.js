@@ -139,8 +139,10 @@
        חדרים היה משאיר שליש מהשורה ריק, והאריחים לא היו מתיישרים עם קצה
        התמונה הראשית שמעליהם. עם ‎--ai-cols‎ הרצועה תמיד ממלאה את הרוחב
        המלא, ולכל אריח אותו רוחב ואותו גובה. */
+    /* הרווח מעל גדל מ-14px ל-20px: הכותרת שהייתה כאן החזיקה את ההפרדה בין
+       הכיתוב של הווילון לבין שורת האריחים, ובלעדיה השתיים נדבקו. */
     '.ai-strip{display:grid;grid-template-columns:repeat(var(--ai-cols,3),minmax(0,1fr));',
-    '  gap:8px;margin-top:14px;align-items:start}',
+    '  gap:8px;margin-top:20px;align-items:start}',
     /* ‏min-width:0 ולא רק ‎1fr‎: תווית שלא נשברת ("הסלון · ים-תיכוני לבן")
        מרחיבה את העמודה שלה מעל חלקה, והתמונונות יוצאות בגדלים שונים. */
     '.ai-thumb{display:block;text-decoration:none;color:#e6ecf9;min-width:0}',
@@ -155,7 +157,6 @@
     '  overflow:hidden;font-size:12px;font-weight:700;margin-top:5px;line-height:1.35;',
     '  min-height:calc(2em * 1.35)}',
     '.ai-thumb:hover img{border-color:#c9a227}',
-    '.ai-strip-title{font-size:11px;font-weight:800;letter-spacing:.1em;color:#8b97ba;margin:18px 0 0}',
 
 
     /* ---- מצב נכס: שבבי הסגנונות והתמונונות שאפשר ללחוץ עליהן ----
@@ -420,12 +421,10 @@
             (pairs.length
               ? '<div id="aiPropCompare">' + propertyCompareHtml(opts, pairs[leadIndex]) + '</div>' +
                 (pairs.length > 1
-                  /* בנכס מסחרי אין סגנונות — יש חללים של אותו עסק, ו"בסגנון
-                     הזה" שם מצביע על משהו שלא קיים על המסך. */
-                  ? '<p class="ai-strip-title">' +
-                      (opts.activeStyle ? 'עוד חדרים בסגנון הזה' : 'עוד חללים בנכס') +
-                    '</p>' +
-                    '<div class="ai-strip" style="--ai-cols:' +
+                  /* בלי כותרת מעל הרצועה. כל אריח נושא את שם החלל שלו,
+                     ושורה שאומרת "עוד חללים בנכס" מעל שורת אריחים שכתוב
+                     עליהם "חלל העסק" ו"חזית הבית" רק חוזרת עליהם בקול. */
+                  ? '<div class="ai-strip" style="--ai-cols:' +
                       Math.min(pairs.length, PROPERTY_STRIP_LIMIT, 3) + '">' +
                       pairs.slice(0, PROPERTY_STRIP_LIMIT).map(function (it, i) {
                         return propertyThumbHtml(opts, it, i, i === leadIndex);
