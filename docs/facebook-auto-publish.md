@@ -170,8 +170,8 @@ select vault.create_secret('<סוד אקראי>', 'alert_cron_secret',
 3. **Router** — שני מסלולים, כי מספר התמונות משתנה מנכס לנכס:
 
    ```
-   Webhook (1) ─ Filter: secret ─ Router ─┬─ [images > 0] Iterator (2) → Upload a Photo (3) → Array aggregator (4) → Create a Post (5)
-                                          └─ [Fallback]   Create a Post עם Link (6)
+   Webhook (1) ─ Filter: secret ─ Router ─┬─ [images > 0] Iterator (2) → Array aggregator (3) → Create a Post with Photos (4)
+                                          └─ [Fallback]   Create a Post עם Link (5)
    ```
 
    **למה Router ולא Iterator לבד:** ‏Iterator על מערך ריק מייצר אפס
@@ -184,36 +184,41 @@ select vault.create_secret('<סוד אקראי>', 'alert_cron_secret',
 
 4. **מסלול א׳ — פוסט מרובה תמונות**
 
+   המודול הוא **Facebook Pages → Create a Post with Photos**. הוא עושה
+   בפנים את כל תהליך ה-`published=false` + `attached_media` שהמסלול הישיר
+   עושה ביד, ולכן אין צורך במודול העלאה נפרד.
+
    - **Iterator** (מודול 2) — `Array` = `{{1.images}}`. כל איטרציה מחזירה
      כתובת אחת ב-`{{2.value}}`.
-   - **Facebook Pages → Upload a Photo** (מודול 3) — **Connection** עם
-     החשבון שמנהל את הדף, **Page** = shuknadlan, **Photo URL** =
-     `{{2.value}}`, ו-**Published = No**. זה החלק המהותי: תמונה שמועלית
-     `published=false` לא מופיעה בדף כפוסט נפרד, היא רק מקבלת מזהה.
-   - **Array aggregator** (מודול 4) — **Source module** = מודול 3 (‏Upload a
-     Photo), ומצרפים את השדה `id`. התוצאה: מערך מזהים אחד לכל הנכס.
-   - **Facebook Pages → Create a Post** (מודול 5) — **Page** = shuknadlan,
-     **Message** = `{{1.message}}`, ובשדה **Attached media** מעבירים את
-     הפלט של מודול 4 (‏`{{4.array}}`; אם השדה מבקש פריטים, לוחצים על מתג
-     ה-**Map** ומעבירים את המערך כולו).
+   - **Array aggregator** (מודול 3) — `Source module` = ה-Iterator, ובשדה
+     **`Target structure type`** בוחרים
+     `Facebook Pages – Create a Post with Photos → Photos`. זו הנקודה
+     שהופכת מערך מחרוזות למערך במבנה שהשדה מצפה לו. בתוך המבנה שנפתח:
+     `Image input type` = **האפשרות של כתובת URL**, ו-`URL` = `{{2.value}}`.
+   - **Create a Post with Photos** (מודול 4) — **Page** = הדף,
+     **Message** = `{{1.message}}`, ובשדה **Photos** מדליקים את מתג
+     ה-**Map** ומעבירים `{{3.array}}`.
 
-   > **אם לאפליקציית Facebook Pages ב-Make אין `Published` או `Attached
-   > media`** (השדות משתנים בין גרסאות): מחליפים את מודולים 3 ו-5 ב-**Facebook
-   > Pages → Make an API Call**, שמשתמש באותו חיבור מאושר בלי טוקן משלנו —
-   > ‏`POST /<page-id>/photos` עם `url={{2.value}}&published=false`, ואז
-   > ‏`POST /<page-id>/feed` עם `message` ו-`attached_media`. זו בדיוק אותה
-   > סדרת קריאות שהקוד שלנו עושה במסלול הישיר.
+   > **‏`Image input type` הוא המלכודת.** ברירת המחדל
+   > `Map from previous module` מתכוונת לקובץ בינארי, ולכן היא דורשת
+   > `File name` ו-`Data` ונצבעת אדום. אנחנו שולחים כתובות ציבוריות
+   > (‏bucket `property-images` פתוח לקריאה), ולכן צריך את אפשרות ה-URL.
+
+   > **להתחלה מהירה:** לפני שמוסיפים Iterator ו-aggregator, אפשר להשאיר
+   > פריט אחד בשדה `Photos` עם `URL` = `{{1.images[1]}}`. זה מאמת חיבור,
+   > דף והרשאות בפוסט אחד עם תמונה אחת, ורק אז מרחיבים.
 
 5. **מסלול ב׳ — Fallback, נכס בלי תמונות**
 
-   **Facebook Pages → Create a Post** (מודול 6): **Message** =
-   `{{1.message}}`, **Link** = `{{1.link}}`. פייסבוק ימשוך תצוגה מקדימה
-   מעמוד הנכס. אותה התנהגות בדיוק כמו במסלול הישיר.
+   `Photos` הוא שדה חובה במודול של מסלול א׳, ולכן הוא לא יכול לרוץ על נכס
+   בלי תמונות. כאן משתמשים במודול **Create a Post** הרגיל (מודול 5):
+   **Message** = `{{1.message}}`, **Link** = `{{1.link}}`. פייסבוק ימשוך
+   תצוגה מקדימה מעמוד הנכס — אותה התנהגות בדיוק כמו במסלול הישיר.
 
 6. **Webhook response (אופציונלי)** — מודול `Webhooks → Webhook response`
    בסוף כל מסלול, עם
-   `{"post_id": "{{5.id}}", "post_url": "https://www.facebook.com/{{5.id}}"}`
-   (ובמסלול ה-fallback `{{6.id}}`). אז מזהה הפוסט נשמר ביומן שלנו. בלי זה
+   `{"post_id": "{{4.id}}", "post_url": "https://www.facebook.com/{{4.id}}"}`
+   (ובמסלול ה-fallback `{{5.id}}`). אז מזהה הפוסט נשמר ביומן שלנו. בלי זה
    הכול עובד, פשוט בלי הקישור לפוסט בטבלה.
 
 7. מפעילים את התרחיש (**Scheduling: Immediately**).
@@ -221,10 +226,11 @@ select vault.create_secret('<סוד אקראי>', 'alert_cron_secret',
 > **מספרי המודולים** הם אלה של Make ומשתנים לפי סדר הבנייה. הכלל: `1` הוא
 > תמיד ה-Webhook, ומה שמפנים אליו הוא המודול שמייצר את השדה — לא מספר קבוע.
 
-> **תקציב פעולות:** נכס עם חמש תמונות = ‏1 webhook + 1 iterator + 5 העלאות +
-> 1 aggregator + 1 פרסום ≈ **9 פעולות**. בתקרה של 12 פוסטים ליום זה כ-110
-> פעולות ביום, בערך 3,300 בחודש — בתוך החבילה החינמית של Make (1,000
-> פעולות) רק אם מורידים את התקרה; בחבילת Core (10,000) יש מרווח נוח.
+> **תקציב פעולות:** נכס עם חמש תמונות = ‏1 webhook + 1 iterator + 5
+> איטרציות + 1 aggregator + 1 פרסום ≈ **9 פעולות**. בתקרה של 12 פוסטים
+> ליום זה כ-110 פעולות ביום, בערך 3,300 בחודש — בתוך החבילה החינמית של
+> Make (1,000 פעולות) רק אם מורידים את `facebook_autopost_daily_cap`;
+> בחבילת Core (10,000) יש מרווח נוח.
 
 > **תזמון:** אין צורך ב-scheduling ב-Make. הקצב נקבע אצלנו — cron כל חמש
 > דקות, השהיה של 20 דקות ותקרה יומית. Make רק מפרסם מה שנשלח אליו.
