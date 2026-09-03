@@ -913,14 +913,16 @@
           <div class="viz-grid" id="vizGrid"></div>
           <p class="viz-fallback" id="vizFallbackNote" hidden></p>
 
-          <!-- ====== ההדמיות האחרונות של הנכס ======
-               כל מה שהופק לנכס הזה, החדש ביותר קודם — כולל הדמיות שנוצרו
-               לפי דרישה ולא רק סט הבסיס. הרשת שמעל מציגה את הסגנון הנבחר;
-               כאן רואים את הכול במסלול אחד, בלי לבחור סגנון קודם. -->
+          <!-- ====== עוד הדמיות של הנכס ======
+               כל ההדמיות של הנכס במסלול אחד, בלי לבחור סגנון קודם. הרשת
+               שמעל מציגה את הסגנון הנבחר בלבד.
+
+               בלי מונה ובלי "אחרונות": למי שמסתכל/ת לא משנה כמה הדמיות יש
+               לנכס, מתי הן נוצרו או מי ביקש אותן — זו היסטוריה תפעולית
+               שלנו, לא מידע על הנכס. מה שמעניין הוא לראות את ההדמיה. -->
           <div class="viz-recent" id="vizRecent" hidden>
             <div class="viz-recent-head">
-              <h3>ההדמיות האחרונות של הנכס</h3>
-              <span id="vizRecentCount"></span>
+              <h3>עוד הדמיות של הנכס</h3>
             </div>
             <div class="viz-recent-rail" id="vizRecentGrid"></div>
           </div>
@@ -1944,20 +1946,18 @@ function renderVizCommercial(){
   document.getElementById('vizOpenBtn').textContent = 'לראות את העסק שלכם בנכס';
 }
 
-/* ---------- ההדמיות האחרונות של הנכס ----------
+/* ---------- עוד הדמיות של הנכס ----------
    נבנה מ-vizState, שכבר מחזיק את כל מה שנשלף לנכס הזה — אין כאן שאילתה
-   שנייה. ‏loadVisualizations() שולף ממוין מהחדש לישן, וסדר ההוספה
-   ל-byStyle נשמר, ולכן שיטוח הדליים חזרה לרשימה אחת מחזיר את אותו סדר.
+   שנייה. המסלול מוצג בכל נכס שיש לו הדמיות, פרטי ומסחרי כאחד.
 
-   המסלול מוצג בכל נכס שיש לו הדמיות — פרטי ומסחרי כאחד. בפרטי הרשת שמעל
-   מציגה את הסגנון הנבחר בלבד, וכאן רואים את הכול; במסחרי אין סגנונות
-   ולכן זו פשוט ההיסטוריה של הנכס. */
+   מה שלא מוצג כאן חשוב כמו מה שכן: אין מונה, אין תאריכים ואין סימון של
+   "מי ביקש". הדמיה שכבר קיימת פשוט עולה מיד במקום לדרוש טופס, וזה כל
+   ההבדל שהגולש/ת אמור/ה לחוות. */
 const VIZ_RECENT_LIMIT = 12;
 
 function renderRecentVisualizations(){
   const box = document.getElementById('vizRecent');
   const rail = document.getElementById('vizRecentGrid');
-  const countEl = document.getElementById('vizRecentCount');
   if (!box || !rail) return;
 
   const items = [...vizState.byStyle.values()].flat().slice(0, VIZ_RECENT_LIMIT);
@@ -1967,7 +1967,6 @@ function renderRecentVisualizations(){
      תוכן שממתין לרגע שבו משהו יסיר את ה-hidden. */
   if (items.length < 2){
     rail.innerHTML = '';
-    if (countEl) countEl.textContent = '';
     box.hidden = true;
     return;
   }
@@ -1978,7 +1977,6 @@ function renderRecentVisualizations(){
            `alt="הדמיה של ${escapeAttr(VIZ_TARGET_LABELS[it.target] || 'הנכס')}">` +
       `<span>${escapeHtml(VIZ_TARGET_LABELS[it.target] || 'הדמיה')}</span>` +
     `</div>`).join('');
-  if (countEl) countEl.textContent = `${items.length} הדמיות שהופקו לנכס הזה`;
   box.hidden = false;
 }
 
