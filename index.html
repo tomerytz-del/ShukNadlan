@@ -1983,7 +1983,6 @@
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/design-system.css">
 <script src="assets/page-bg.js" data-auto></script>
-<script defer src="assets/ai-showcase.js" data-mount="#aiShowcase"></script>
 <script src="assets/site-footer.js" defer></script>
 </head>
 <body>
@@ -2580,12 +2579,6 @@
       <button type="button" class="ticker-more" id="tickerMore" aria-haspopup="dialog">כל העדכונים ←</button>
     </div>
   </div>
-
-  <!-- ====== רצועת ההדמיות ======
-       נבנית מ-assets/ai-showcase.js על נתוני property_visualizations_public.
-       המכולה ריקה בכוונה: אם אין הדמיות מפורסמות היא נשארת ריקה ולא נוצר
-       באנר שמבטיח יכולת שאין מאחוריה תוכן. -->
-  <div id="aiShowcase"></div>
 
   <!-- ====== נכסים פרטיים למכירה ======
        כל הנכסים למגורים של כל משרדי התיווך בפלטפורמה במסלול אחד: החדשים
@@ -7614,12 +7607,12 @@ function setListingsTab(expanded){
 /* ============================================================
    מסנן ההדמיות
    ------------------------------------------------------------
-   נקודת הכניסה אליו היא הכפתור ברצועת ההדמיות ("לכל N הנכסים עם הדמיה"),
-   והיא נחשפת ל-assets/ai-showcase.js דרך window.ShukSearch — כך הרצועה
-   נשארת רכיב עצמאי ולא נוגעת במנוע החיפוש של הדף.
+   רצועת ההדמיות הכללית ירדה מהדף, ולכן נקודת הכניסה שנשארה היא הכתובת
+   עצמה: ‎?ai=1‎ מדליק את המסנן דרך applyDeepLinkFilters. ‏window.ShukSearch
+   נשאר חשוף כדי שרכיב חיצוני יוכל להדליק אותו בלי לגעת במנוע החיפוש.
 
-   הכתובת מתעדכנת ל-‎?ai=1‎ ולא רק המצב הפנימי: תוצאות צריכות להיות ניתנות
-   לשיתוף ולאינדוקס, וזו הסיבה שגם applyDeepLinkFilters יודע לקרוא אותו.
+   הכתובת מתעדכנת ולא רק המצב הפנימי: תוצאות צריכות להיות ניתנות לשיתוף
+   ולאינדוקס, וזו הסיבה שגם applyDeepLinkFilters יודע לקרוא אותו.
    ============================================================ */
 function setAiFilter(on){
   searchState.hasAi = !!on;
@@ -7627,8 +7620,8 @@ function setAiFilter(on){
   if (chip) chip.hidden = !on;
 }
 
-/* מדליק את המסנן, מריץ חיפוש, וגולל לתוצאות. נקרא גם מהרצועה וגם
-   מהקישור העמוק, ולכן הוא זה שמחזיק את ההתנהגות במקום אחד. */
+/* מדליק את המסנן, מריץ חיפוש, וגולל לתוצאות. נקרא מהקישור העמוק
+   ומ-window.ShukSearch, ולכן הוא זה שמחזיק את ההתנהגות במקום אחד. */
 async function applyAiFilter(){
   setAiFilter(true);
   try{
@@ -7806,8 +7799,8 @@ function applyDeepLinkFilters(){
   const q = (params.get('q') || '').trim();
   if (q) document.getElementById('searchFreeText').value = q.slice(0, 80);
 
-  // ‏?ai=1 — נכסים שיש להם לפחות הדמיה אחת. זה הקישור שהכפתור ברצועת
-  // ההדמיות מוביל אליו, וזה גם מה שנשלח כששולחים את התוצאות לחבר/ה.
+  // ‏?ai=1 — נכסים שיש להם לפחות הדמיה אחת. זה מה שנשלח כששולחים את
+  // התוצאות לחבר/ה, וזו נקודת הכניסה היחידה למסנן מאז שהרצועה ירדה.
   setAiFilter(params.get('ai') === '1');
 
   // הטופס נבנה מחדש כדי שהצ׳יפים של החדרים וסוגי הנכס ייראו מסומנים כשמי

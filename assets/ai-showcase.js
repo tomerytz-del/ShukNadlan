@@ -1,18 +1,19 @@
 /* ============================================================================
-   רצועת ההדמיות — "לפני ואחרי" כנקודת כניסה, לא כהערת שוליים
+   רצועת ההדמיות של הנכס — "לפני ואחרי" בתוך דף הנכס
    ----------------------------------------------------------------------------
-   ההדמיות היו עד היום רצועה שקטה בתוך דף הנכס: מי שלא הגיע לנכס מסוים לא ידע
-   שהיכולת קיימת. הרצועה הזאת מרימה אותן לדף הבית — הבדל בין תכונה שקוברים
-   לבין סיבה להיכנס לאתר.
+   הרצועה הזאת הייתה עד היום רצועת מרקטפלייס: היא הציגה נכס אקראי שיש לו
+   הדמיה, גם בדף הבית וגם בתוך דף של נכס אחר. זה היה מוזר בדיוק במקום שבו
+   הוא הכי חשוב — מי שנמצא/ת בדף נכס כבר בחר/ה נכס, ורצועה שמראה לו/ה
+   *נכס אחר* אחרי שיפוץ עונה על שאלה שאיש לא שאל.
 
-   הרכיב מושתת על ‎property_visualizations_public‎, שכבר מחזיק את שני הצדדים
-   של ההשוואה: ‎source_image_url‎ (הצילום כפי שהוא) ו-‎result_url‎ (ההדמיה).
-   אין צורך במיגרציה, אין תוכן ידני, וכל נכס פרימיום חדש נכנס לרצועה מעצמו.
+   מה שנשאר הוא מצב אחד: **הנכס שבעמוד**. הווילון משווה את הצילום האמיתי
+   של הנכס להדמיה שלו, והתמונונות שמתחתיו הם שאר הכיוונים העיצוביים שכבר
+   הופקו לאותו נכס.
 
    שלושה כללים:
 
-     1. **אין תוכן — אין רצועה.** בלי תשובה מהשרת, או בלי זוג תמונות אחד
-        לפחות, המכולה נשארת ריקה ולא נשאר שלד של באנר שמבטיח ולא מקיים.
+     1. **אין תוכן — אין רצועה.** בלי הדמיה אחת לפחות המכולה נשארת ריקה
+        ולא נשאר שלד של באנר שמבטיח ולא מקיים.
      2. **התנועה היא מצב מנוחה בלבד.** סרגל ההשוואה נע לבד כדי לספר מה
         אפשר לעשות איתו; במגע הראשון — עכבר, מגע או מקלדת — האנימציה נעצרת
         והשליטה עוברת לגולש/ת ולא חוזרת.
@@ -22,15 +23,16 @@
 
    שימוש:
        <div id="aiShowcase"></div>
-       <script defer src="assets/ai-showcase.js" data-mount="#aiShowcase"></script>
+       <script defer src="assets/ai-showcase.js"></script>
+       ...
+       AiShowcase.mountProperty(el, { items, styles, activeStyle, ... });
 
-   ‏JS גולמי בלי תלויות מלבד supabase-js, שכבר נטען בכל דף שמדבר עם הנתונים.
+   הנתונים מגיעים מבחוץ ולא נשלפים כאן: דף הנכס כבר שלף אותם בשביל הגלריה
+   שלו, ושאילתה שנייה לאותן שורות הייתה מייצרת שני מקורות אמת שיכולים
+   להיפרד. ‏JS גולמי בלי תלויות.
    ========================================================================== */
 (function (global) {
   'use strict';
-
-  var SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
-  var SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 
   var TARGET_LABELS = {
     exterior: 'חזית הבית',
@@ -38,21 +40,15 @@
     kitchen: 'המטבח',
     bedroom: 'חדר השינה',
     business: 'הנכס המסחרי',
+    /* ‏interior_main הוא היעד של הדמיית עסק — אותו שם שדף הנכס מציג לו,
+       כדי שאותה הדמיה לא תיקרא בשני שמות בשתי סקציות באותו עמוד. */
+    interior_main: 'חלל העסק',
   };
 
   function esc(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
       .replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
-
-  /* מחיר בפורמט של שאר האתר: ‎₪‎ אחרי המספר, בלי אגורות, ובשכירות עם "/חודש"
-     כדי ש-4,200 לא ייקרא כמחיר דירה. */
-  function priceLabel(p) {
-    var n = Number(p && p.price);
-    if (!Number.isFinite(n) || n <= 0) return 'לפי בקשה';
-    var s = n.toLocaleString('he-IL') + ' ₪';
-    return p.deal_type === 'rent' ? s + ' לחודש' : s;
   }
 
   var CSS = [
@@ -109,7 +105,9 @@
 
     /* ---- רצועת התמונונות ---- */
     '.ai-strip{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}',
-    '.ai-thumb{display:block;text-decoration:none;color:#e6ecf9}',
+    /* ‏min-width:0 ולא רק ‎1fr‎: תווית שלא נשברת ("הסלון · ים-תיכוני לבן")
+       מרחיבה את העמודה שלה מעל חלקה, והתמונונות יוצאות בגדלים שונים. */
+    '.ai-thumb{display:block;text-decoration:none;color:#e6ecf9;min-width:0}',
     '.ai-thumb img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;',
     '  border:1px solid rgba(255,255,255,.12)}',
     '.ai-thumb span{display:block;font-size:12px;font-weight:700;margin-top:5px;',
@@ -117,6 +115,22 @@
     '.ai-thumb:hover img{border-color:#c9a227}',
     '.ai-strip-title{font-size:11px;font-weight:800;letter-spacing:.1em;color:#8b97ba;margin:18px 0 0}',
 
+
+    /* ---- מצב נכס: שבבי הסגנונות והתמונונות שאפשר ללחוץ עליהן ----
+       הרצועה בדף הנכס מציגה את הנכס עצמו, ולכן היא צריכה גם שליטה: איזה
+       סגנון מוצג בווילון, ואיזו הדמיה קודמת עולה במקומו. השבבים והתמונונות
+       הם כפתורים אמיתיים ולא קישורים — הם לא מנווטים לשום מקום, הם מחליפים
+       את מה שכבר על המסך. */
+    '.ai-styles{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}',
+    '.ai-style{font-family:Heebo,system-ui,sans-serif;font-size:13px;font-weight:700;',
+    '  padding:8px 14px;cursor:pointer;background:transparent;color:#e6ecf9;',
+    '  border:1px solid rgba(255,255,255,.28)}',
+    '.ai-style:hover{border-color:#c9a227;color:#fff}',
+    '.ai-style[aria-pressed="true"]{background:#fff;color:#0d1b3d;border-color:#fff}',
+    '.ai-cta[disabled]{opacity:.6;cursor:default}',
+    'button.ai-thumb{font:inherit;padding:0;border:0;background:none;width:100%;',
+    '  text-align:inherit;cursor:pointer}',
+    'button.ai-thumb[aria-pressed="true"] img{border-color:#c9a227}',
 
     /* ---- מצב מנוחה: הסרגל נע לבד עד המגע הראשון ---- */
     '.ai-compare[data-idle] .ai-after{animation:aiWipe 9s ease-in-out infinite alternate}',
@@ -138,95 +152,11 @@
     document.head.appendChild(style);
   }
 
-  /* ---------- שליפת הנתונים ----------
-     שתי שאילתות: ההדמיות, ואז הנכסים שלהן. אחת לכל טבלה — לא אחת לכל נכס. */
-  /* מחזיר { items, total }:
-       ‏items — הנכסים שיש להם זוג לפני/אחרי, כלומר מה שאפשר להראות ברצועה.
-       ‏total — כל הנכסים הפעילים שיש להם לפחות הדמיה אחת, כולל כאלה שאין
-                להם תמונת מקור להשוואה.
-
-     ההפרדה הזאת נחוצה כי הכפתור מבטיח מספר ("לכל N הנכסים עם הדמיה"),
-     והוא חייב להיות אותו מספר שהמסנן בתוצאות מחזיר. אם הוא היה נספר לפי
-     מה שהרצועה מציגה, הוא היה נמוך מהאמת בכל נכס שיש לו הדמיה בלי תמונת
-     מקור — והכפתור היה משקר. */
-  function load(client, exclude) {
-    var pairs = client
-      .from('property_visualizations_public')
-      .select('property_id, target, source_image_url, result_url, created_at')
-      .not('source_image_url', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(200);
-
-    /* אותו מקור בדיוק שממנו מסנן ההדמיות בדף הבית בונה את הרשימה שלו —
-       ולכן שני המספרים לא יכולים להיפרד. */
-    var allIds = global.PropertyCard
-      ? global.PropertyCard.allVisualizedIds(client)
-      : Promise.resolve(new Set());
-
-    return Promise.all([pairs, allIds]).then(function (res) {
-      var vizRes = res[0], ids = Array.from(res[1] || []);
-      if (!ids.length) return null;
-
-      /* הדמיה אחת לכל נכס — החדשה ביותר. בלי זה נכס עם ארבעה סגנונות
-         היה תופס את כל הרצועה. */
-      var byProperty = new Map();
-      ((vizRes && vizRes.data) || []).forEach(function (v) {
-        if (!v.property_id || !v.result_url) return;
-        if (!byProperty.has(v.property_id)) byProperty.set(v.property_id, v);
-      });
-
-      return client
-        .from('properties')
-        .select('id, title, price, deal_type, city, status')
-        .in('id', ids.slice(0, 300))
-        .eq('status', 'active')
-        .then(function (pRes) {
-          var active = (pRes && pRes.data) || [];
-          if (pRes.error || !active.length) return null;
-          /* ‏exclude הוא הנכס שבעמוד הנוכחי: אין טעם להציג לו את ההדמיה
-             של עצמו ברצועת "עוד נכסים עם הדמיה", והיא ממילא מוצגת
-             במלואה בסקציה שמעליה.
-
-             הוא יורד מהתצוגה אבל **לא** מהמונה: הכפתור מוביל לתוצאות
-             המסוננות, והנכס הזה נמצא שם. מונה שמחסיר אותו היה מבטיח
-             מספר אחד ומראה אחר. */
-          var items = active
-            .filter(function (p) { return p.id !== exclude && byProperty.has(p.id); })
-            .map(function (p) { return { property: p, viz: byProperty.get(p.id) }; });
-          return { items: items, total: active.length };
-        });
-    });
-  }
-
-  /* ---------- ההשוואה ---------- */
-  function compareHtml(item) {
-    var v = item.viz;
-    var where = TARGET_LABELS[v.target] || 'הנכס';
-    return '' +
-      '<div class="ai-compare" data-idle data-rtl>' +
-        '<img class="ai-before" src="' + esc(v.source_image_url) + '" alt="' + esc(where) + ' כפי שהוא היום" loading="lazy">' +
-        '<img class="ai-after" src="' + esc(v.result_url) + '" alt="הדמיה של ' + esc(where) + ' אחרי שיפוץ" loading="lazy">' +
-        '<span class="ai-label ai-label-before">לפני</span>' +
-        '<span class="ai-label ai-label-after">אחרי · הדמיה</span>' +
-        '<input class="ai-range" type="range" min="0" max="100" value="42" step="1" ' +
-               'aria-label="חשיפת ההדמיה — הזיזו כדי להשוות בין לפני לאחרי">' +
-        '<div class="ai-divider"><span class="ai-handle" aria-hidden="true">↔</span></div>' +
-      '</div>' +
-      '<p class="ai-compare-caption">' + esc(item.property.title || 'נכס בעפולה') +
-        ' · ' + esc(priceLabel(item.property)) + '</p>';
-  }
-
-  function thumbHtml(item) {
-    return '<a class="ai-thumb" href="property.html?id=' + encodeURIComponent(item.property.id) + '">' +
-             '<img src="' + esc(item.viz.result_url) + '" alt="הדמיה של ' + esc(item.property.title || 'נכס') + '" loading="lazy">' +
-             '<span>' + esc(priceLabel(item.property)) + '</span>' +
-           '</a>';
-  }
-
   function wireCompare(root) {
     var box = root.querySelector('.ai-compare');
     if (!box) return;
     var range = box.querySelector('.ai-range');
+    if (!range) return;
 
     var apply = function () {
       box.style.setProperty('--ai-pos', range.value + '%');
@@ -244,11 +174,136 @@
     range.addEventListener('input', function () { takeOver(); apply(); });
   }
 
-  function render(container, data) {
-    var items = data.items;
-    var total = data.total;
-    var lead = items[0];
-    var strip = items.slice(1, 4);
+  /* ==========================================================================
+     מצב נכס — הרצועה מציגה את הנכס שבעמוד, לא את המרקטפלייס
+     --------------------------------------------------------------------------
+     מי שנמצא/ת בדף נכס כבר בחר/ה נכס, ולכן השאלה היחידה שהרצועה עונה
+     עליה היא **הנכס הזה**: הצילום שלו מול ההדמיה שלו, ומתחתיהם שאר
+     הכיוונים העיצוביים שכבר הופקו לו.
+
+     הנתונים לא נשלפים כאן: דף הנכס כבר שלף אותם בשביל הגלריה שלו, ושאילתה
+     שנייה לאותן שורות הייתה מייצרת שני מקורות אמת שיכולים להיפרד. הצד הזה
+     מקבל אותם כמו שהם ומחזיר תצוגה.
+
+     שלושה כללים נוספים על אלה שלמעלה:
+
+       1. **הסלון קודם.** מי שמסתכל/ת על נכס מודד/ת אותו לפי החלל המרכזי,
+          ולכן הווילון נפתח על הסלון אם יש לו הדמיה — ורק אחר כך על המטבח
+          או על החזית.
+       2. **בלי תמונת מקור אין וילון.** הדמיה ששורתה לא שמרה ‎source_image_url‎
+          מוצגת כתמונה בודדת עם תווית "הדמיה". וילון שמשווה תמונה לעצמה הוא
+          שקר קטן, וכאן הוא היה השקר שהרצועה כולה נשענת עליו.
+       3. **התמונונות הן של הנכס.** הן לא מנווטות לשום מקום — הן מחליפות את
+          מה שבווילון, ולכן הן כפתורים ולא קישורים.
+     ========================================================================== */
+
+  /* סדר החדרים בווילון: הסלון הוא החלל שמוכר נכס, החזית היא הרושם הראשון,
+     והמטבח הוא מה שנשאר. חלל עסק נכנס אחרי הסלון כי בנכס מסחרי הוא *הוא*
+     הסלון. */
+  var LEAD_TARGET_ORDER = ['living_room', 'interior_main', 'exterior', 'kitchen'];
+
+  function styleLabelOf(opts, key) {
+    var list = opts.styles || [];
+    for (var i = 0; i < list.length; i++) if (list[i].key === key) return list[i].label;
+    return '';
+  }
+
+  /* התווית של תמונון: "הסלון · ים-תיכוני לבן". הסגנון לבדו לא אומר איזה חדר,
+     והחדר לבדו לא מסביר למה יש שלוש גרסאות שלו. */
+  function pairCaption(opts, it) {
+    var where = TARGET_LABELS[it.target] || 'הנכס';
+    var style = styleLabelOf(opts, it.style_key);
+    return style ? where + ' · ' + style : where;
+  }
+
+  /* מיון ההדמיות של הנכס לרשימה אחת שהווילון והתמונונות עובדים עליה.
+     הראשונה היא זו שנפתחת: קודם ‎leadPick‎ אם נמסר (התמונון שנלחץ ממש
+     עכשיו), אחריו הסגנון הנבחר, ובתוכו לפי סדר החדרים. בלי ‎leadPick‎
+     לחיצה על תמונון של סגנון אחר הייתה מחליפה סגנון ואז פותחת את הסלון
+     שלו — כלומר מראה תמונה אחרת מזו שנלחצה. */
+  function orderPairs(opts) {
+    var items = (opts.items || []).filter(function (i) { return i && i.result_url; });
+    var active = opts.activeStyle || null;
+    var pick = opts.leadPick || null;
+    var rank = function (it) {
+      if (pick && it.result_url === pick) return -1;
+      var byStyle = active && it.style_key === active ? 0 : 1;
+      var byTarget = LEAD_TARGET_ORDER.indexOf(it.target);
+      return byStyle * 100 + (byTarget < 0 ? 90 : byTarget);
+    };
+    return items.slice().sort(function (a, b) { return rank(a) - rank(b); });
+  }
+
+  /* ‏source_image_url הוא הצילום שההדמיה נוצרה ממנו — הצד ה"לפני" האמיתי.
+     כשהוא חסר נופלים לתמונה הראשית של הנכס, שהיא הצילום שהמבקר/ת ממילא
+     ראה/תה למעלה; וכשגם היא חסרה אין וילון. */
+  function beforeUrl(opts, it) {
+    return (it && it.source_image_url) || opts.fallbackBefore || '';
+  }
+
+  function propertyCompareHtml(opts, it) {
+    var where = TARGET_LABELS[it.target] || 'הנכס';
+    var before = beforeUrl(opts, it);
+    var caption = pairCaption(opts, it);
+
+    if (!before) {
+      return '' +
+        '<div class="ai-compare" data-single>' +
+          '<img src="' + esc(it.result_url) + '" alt="הדמיה של ' + esc(where) + '" loading="lazy">' +
+          '<span class="ai-label ai-label-after">הדמיה</span>' +
+        '</div>' +
+        '<p class="ai-compare-caption">' + esc(caption) + '</p>';
+    }
+
+    return '' +
+      '<div class="ai-compare" data-idle data-rtl>' +
+        '<img class="ai-before" src="' + esc(before) + '" alt="' + esc(where) + ' כפי שהוא היום" loading="lazy">' +
+        '<img class="ai-after" src="' + esc(it.result_url) + '" alt="הדמיה של ' + esc(where) + ' אחרי שיפוץ" loading="lazy">' +
+        '<span class="ai-label ai-label-before">לפני</span>' +
+        '<span class="ai-label ai-label-after">אחרי · הדמיה</span>' +
+        '<input class="ai-range" type="range" min="0" max="100" value="42" step="1" ' +
+               'aria-label="חשיפת ההדמיה — הזיזו כדי להשוות בין לפני לאחרי">' +
+        '<div class="ai-divider"><span class="ai-handle" aria-hidden="true">↔</span></div>' +
+      '</div>' +
+      '<p class="ai-compare-caption">' + esc(caption) + '</p>';
+  }
+
+  function propertyThumbHtml(opts, it, index, active) {
+    return '<button class="ai-thumb" type="button" data-index="' + index + '" ' +
+             'aria-pressed="' + (active ? 'true' : 'false') + '">' +
+             '<img src="' + esc(it.result_url) + '" alt="הדמיה של ' + esc(pairCaption(opts, it)) + '" loading="lazy">' +
+             '<span>' + esc(pairCaption(opts, it)) + '</span>' +
+           '</button>';
+  }
+
+  var PROPERTY_STRIP_LIMIT = 6;
+
+  function renderProperty(container, opts) {
+    var pairs = orderPairs(opts);
+    if (!pairs.length) { container.innerHTML = ''; return; }
+
+    var leadIndex = 0;
+    var styles = opts.styles || [];
+    var cta = opts.cta || {};
+
+    var stylesHtml = styles.length
+      ? '<div class="ai-styles" role="group" aria-label="כיוון עיצובי">' +
+          styles.map(function (s) {
+            return '<button class="ai-style" type="button" data-style="' + esc(s.key) + '" ' +
+                   'aria-pressed="' + (s.key === opts.activeStyle ? 'true' : 'false') + '">' +
+                   esc(s.label) + '</button>';
+          }).join('') +
+        '</div>'
+      : '';
+
+    var actionsHtml = cta.label
+      ? '<div class="ai-actions">' +
+          '<button class="ai-cta" type="button" id="aiPropCta"' + (cta.busy ? ' disabled' : '') + '>' +
+            esc(cta.busy ? 'יוצרים…' : cta.label) +
+          '</button>' +
+          (cta.hint ? '<span class="ai-secondary" style="text-decoration:none">' + esc(cta.hint) + '</span>' : '') +
+        '</div>'
+      : '';
 
     container.innerHTML = '' +
       '<section class="ai-band" aria-labelledby="aiBandTitle">' +
@@ -256,26 +311,23 @@
           '<div>' +
             '<span class="ai-eyebrow">✦ הדמיות AI · בלעדי לשוק הנדל״ן</span>' +
             '<h3 id="aiBandTitle">תראו את הנכס אחרי שיפוץ — לפני שאתם קונים</h3>' +
-            '<p>אנחנו מייצרים לנכסים שבפלטפורמה הדמיה של המראה אחרי שיפוץ, מתוך ' +
-              'הצילום האמיתי של הנכס. כך אפשר לשקול נכס לפי מה שהוא יכול להיות, ' +
-              'ולא רק לפי איך שהוא נראה ביום הצילום.</p>' +
-            '<div class="ai-actions">' +
-              /* קישור אמיתי ולא כפתור: הכתובת ‎?ai=1‎ ניתנת לשיתוף, לפתיחה
-                 בלשונית חדשה ולאינדוקס. ה-JS למטה רק חוסך את הטעינה מחדש
-                 כשהחיפוש כבר נמצא באותו עמוד. */
-              '<a class="ai-cta" id="aiShowAll" href="index.html?ai=1">' +
-                'לכל ' + total + ' הנכסים עם הדמיה ←</a>' +
-              '<a class="ai-secondary" href="crm.html">מוכרים ומתווכים: הפיקו הדמיה לנכס שלכם</a>' +
-            '</div>' +
+            '<p>ההדמיה נוצרת מהתמונות של הנכס הזה. החליפו בין כיוונים עיצוביים ' +
+              'וראו את הפוטנציאל.</p>' +
+            stylesHtml +
+            actionsHtml +
             '<p class="ai-note">ההדמיה היא המחשה עיצובית בלבד. היא אינה תוכנית בנייה, ' +
               'אינה מהווה התחייבות של המוכר או של המשרד, ואינה מעידה על היתרים או על ' +
               'זכויות בנייה בנכס.</p>' +
           '</div>' +
           '<div>' +
-            compareHtml(lead) +
-            (strip.length
-              ? '<p class="ai-strip-title">הדמיות נוספות השבוע</p>' +
-                '<div class="ai-strip">' + strip.map(thumbHtml).join('') + '</div>'
+            '<div id="aiPropCompare">' + propertyCompareHtml(opts, pairs[leadIndex]) + '</div>' +
+            (pairs.length > 1
+              ? '<p class="ai-strip-title">עיצובים נוספים של הנכס</p>' +
+                '<div class="ai-strip">' +
+                  pairs.slice(0, PROPERTY_STRIP_LIMIT).map(function (it, i) {
+                    return propertyThumbHtml(opts, it, i, i === leadIndex);
+                  }).join('') +
+                '</div>'
               : '') +
           '</div>' +
         '</div>' +
@@ -283,43 +335,44 @@
 
     wireCompare(container);
 
-    /* בדף הבית מנוע החיפוש נמצא כאן, ולכן הקישור מדליק את המסנן במקום
-       לטעון את העמוד מחדש. בכל דף אחר (או אם החיפוש עוד לא אותחל) הקישור
-       פשוט מנווט — אותה תוצאה, דרך ארוכה יותר. */
-    container.querySelector('#aiShowAll').addEventListener('click', function (e) {
-      if (!global.ShukSearch || !global.ShukSearch.applyAiFilter) return;
-      e.preventDefault();
-      global.ShukSearch.applyAiFilter();
+    var compareBox = container.querySelector('#aiPropCompare');
+    container.querySelectorAll('.ai-thumb').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var i = Number(btn.dataset.index);
+        var it = pairs[i];
+        if (!it) return;
+        leadIndex = i;
+        compareBox.innerHTML = propertyCompareHtml(opts, it);
+        wireCompare(container);
+        container.querySelectorAll('.ai-thumb').forEach(function (b) {
+          b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+        });
+        /* בחירת תמונון היא גם בחירת סגנון: הרשת שבסקציה שמעל מציגה את
+           הסגנון הנבחר, והשתיים לא אמורות להראות שני סגנונות שונים. */
+        if (it.style_key && it.style_key !== opts.activeStyle && opts.onSelectStyle) {
+          opts.onSelectStyle(it.style_key, it.result_url);
+        }
+      });
     });
-  }
 
-  function mount(container, opts) {
-    if (!container || !global.supabase || !global.supabase.createClient) return;
-    var o = opts || {};
-    var client = global.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    load(client, o.exclude).then(function (data) {
-      /* הרצועה צריכה השוואה אחת להישען עליה — בלי זוג לפני/אחרי אין מה
-         להראות, ורצועה שכל תוכנה הוא כפתור היא הבטחה בלי כיסוי. רצועת
-         התמונונות שמתחתיה אופציונלית ויורדת מעצמה כשאין מה לשים בה.
-
-         הסף הוא אחד ולא שניים: בדף נכס הנכס הנוכחי מוחרג מהתצוגה, ואם
-         נשארה בדיוק השוואה אחת היא עדיין רצועה טובה — ובוודאי כשהכפתור
-         שלצדה מצביע על כל הנכסים עם הדמיה. */
-      if (!data || !data.items || !data.items.length) return;
-      injectCss();
-      render(container, data);
-    }).catch(function (err) {
-      console.warn('רצועת ההדמיות לא נטענה:', err);
+    container.querySelectorAll('.ai-style').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        if (opts.onSelectStyle) opts.onSelectStyle(btn.dataset.style);
+      });
     });
+
+    var ctaBtn = container.querySelector('#aiPropCta');
+    if (ctaBtn && opts.onCta) ctaBtn.addEventListener('click', function () { opts.onCta(); });
   }
 
-  global.AiShowcase = { mount: mount };
-
-  var self = document.currentScript;
-  if (self && self.dataset.mount) {
-    var target = self.dataset.mount;
-    var go = function () { mount(document.querySelector(target)); };
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', go);
-    else go();
+  /* הרכיב לא מחזיק מצב בין קריאות: כל שינוי בדף הנכס (סגנון אחר, הדמיה
+     שהרגע נוצרה) הוא קריאה נוספת עם אותם ‎opts‎ מעודכנים. */
+  function mountProperty(container, opts) {
+    if (!container || !opts) return;
+    injectCss();
+    renderProperty(container, opts);
   }
+
+  global.AiShowcase = { mountProperty: mountProperty };
+
 })(window);
