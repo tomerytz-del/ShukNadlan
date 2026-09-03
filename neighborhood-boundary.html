@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
 <title>סימון גבולות שכונה | שוק נדל״ן</title>
+<link rel="icon" href="assets/logo-shuknadlan.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
@@ -12,6 +13,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="assets/map-tiles.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script defer src="assets/brand-logo.js"></script>
 <style>
   :root{
     --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
@@ -29,6 +31,9 @@
     padding:10px 16px;background:var(--paper-raised);border-bottom:1px solid var(--line);
   }
   header .sub{font-size:.76rem;color:var(--ink-soft);flex:1 1 240px;min-width:0}
+  /* ‏הלוגו כמו בשאר הדפים: גובה בלבד, והרוחב נגזר מיחס הסמל */
+  .logo-link{display:block;line-height:0;flex:0 0 auto}
+  .logo-img{height:34px;width:auto;display:block}
   select,button{font-family:inherit;font-size:.82rem;font-weight:700}
   select{
     border:1.5px solid var(--line);border-radius:0;padding:8px 14px;background:#fff;color:var(--ink);
@@ -75,6 +80,9 @@
 <body>
 
 <header>
+  <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית" title="לדף הבית">
+    <img class="logo-img" src="assets/logo-shuknadlan.png" alt="" width="512" height="436">
+  </a>
   <h1>סימון גבולות שכונה</h1>
   <select id="hoodSelect" aria-label="בחירת שכונה"><option>טוען…</option></select>
   <span class="sub" id="status">בוחרים שכונה, ואז לוחצים על המפה כדי להניח את נקודות הגבול.</span>
