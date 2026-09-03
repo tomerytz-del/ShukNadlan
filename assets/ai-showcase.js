@@ -88,6 +88,20 @@
     '.ai-hl-after{color:#e5c76a}',
     '.ai-hl-before{color:#8ab6f5}',
     '.ai-band p{font-size:16px;line-height:1.7;color:#aab6d6;margin:0 0 18px;max-width:46ch}',
+    /* הטור כולו ממורכז, בשני הרוחבים. השבבים והכפתור כבר היו ממורכזים
+       בעוד שהתגית, הכותרת והפסקה נצמדו לקצה ההתחלה, ולכן העמודה נקראה
+       כשני בלוקים בשני יישורים שונים במקום כטור אחד.
+
+       הבלוק הזה חייב לבוא *אחרי* ‎.ai-band p‎: לשתי הבחירות אותה
+       ספציפיות, ולכן המאוחרת בקובץ מנצחת. כשהוא ישב מעליה, ה-margin שלה
+       דרס את ‎margin-inline:auto‎ והפסקה נשארה צמודה לקצה — טקסט ממורכז
+       בתוך תיבה שאינה ממורכזת.
+
+       ‏.ai-ask חוזר ליישור הכתיבה: שדה טופס עם טקסט ממורכז נראה כמו
+       תווית ולא כמו מקום להקליד בו. */
+    '.ai-copy{text-align:center}',
+    '.ai-copy p{margin-inline:auto}',
+    '.ai-copy .ai-ask{text-align:start}',
     /* הכפתור ממורכז בשורה שלו ולא נצמד לקצה ההתחלה. הוא הפעולה היחידה
        בתיבה, ופעולה יחידה שיושבת בפינה נקראת כהערת שוליים. */
     '.ai-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:14px}',
@@ -432,7 +446,7 @@
     container.innerHTML = '' +
       '<section class="ai-band" aria-labelledby="aiBandTitle">' +
         '<div class="ai-band-inner">' +
-          '<div>' +
+          '<div class="ai-copy">' +
             '<span class="ai-eyebrow">✦ הדמיות AI · בלעדי לשוק הנדל״ן</span>' +
             /* שתי השבירות כתובות ולא מקריות. הכותרת נשברת על המקף — שני
                חצאיה הם שני חלקי ההבטחה ("תראו אחרי" / "לפני שקונים"),
