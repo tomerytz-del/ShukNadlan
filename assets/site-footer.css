@@ -72,7 +72,12 @@ footer.site *{box-sizing:border-box}
    שלמות לגובה הפוטר במובייל. */
 .footer-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;width:100%}
 .footer-contact{display:grid;gap:6px;font-size:.8rem;color:#94a3c6}
-.footer-contact-row{display:grid;grid-template-columns:16px 1fr;gap:8px;align-items:start;margin:0}
+/* ‏color מפורש: השורה היא ‎<p>‎, ו-design-system.css נותן לכל ‎p‎ את
+   ‎--ink-soft‎ — דיו כהה, שנועד למשטח בהיר. בפוטר הכהה הכתובת יצאה
+   ‎#4a5578‎ על ספיר (‏2.3:1) ונבלעה בו; רק המייל נראה, כי ‎a‎ שמתחתיו כן
+   קיבל צבע משלו. הצבע כאן זהה לזה של הקישור, ולכן שתי השורות נקראות
+   כזוג. */
+.footer-contact-row{display:grid;grid-template-columns:16px 1fr;gap:8px;align-items:start;margin:0;color:#94a3c6}
 .footer-contact-row svg{width:16px;height:16px;margin-top:2px;fill:none;stroke:#aab6d6;stroke-width:1.8;display:block}
 .footer-contact-row a{color:#94a3c6;text-decoration:none}
 .footer-contact-row a:hover,.footer-contact-row a:focus-visible{color:#fff;text-decoration:underline}
