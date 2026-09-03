@@ -73,6 +73,7 @@
     /* הכפתור הראשי זהוב עם טקסט כהה: על רצועה בספיר, ספיר על ספיר לא נקרא,
        וזהב שנושא טקסט לבן נופל בניגודיות. */
     '.ai-cta{display:inline-flex;align-items:center;gap:8px;background:#c9a227;color:#0d1b3d;',
+    '  text-decoration:none;',
     '  font-family:Heebo,system-ui,sans-serif;font-size:15px;font-weight:800;',
     '  padding:13px 22px;border:none;cursor:pointer;text-decoration:none}',
     '.ai-cta:hover{background:#dcb63c;color:#0d1b3d}',
@@ -116,10 +117,6 @@
     '.ai-thumb:hover img{border-color:#c9a227}',
     '.ai-strip-title{font-size:11px;font-weight:800;letter-spacing:.1em;color:#8b97ba;margin:18px 0 0}',
 
-    /* ---- הרשימה המלאה, נפתחת מהכפתור ---- */
-    '.ai-all{border-top:1px solid rgba(255,255,255,.12);margin-top:26px;padding-top:22px}',
-    '.ai-all[hidden]{display:none}',
-    '.ai-all-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}',
 
     /* ---- מצב מנוחה: הסרגל נע לבד עד המגע הראשון ---- */
     '.ai-compare[data-idle] .ai-after{animation:aiWipe 9s ease-in-out infinite alternate}',
@@ -143,38 +140,62 @@
 
   /* ---------- שליפת הנתונים ----------
      שתי שאילתות: ההדמיות, ואז הנכסים שלהן. אחת לכל טבלה — לא אחת לכל נכס. */
-  function load(client) {
-    return client
+  /* מחזיר { items, total }:
+       ‏items — הנכסים שיש להם זוג לפני/אחרי, כלומר מה שאפשר להראות ברצועה.
+       ‏total — כל הנכסים הפעילים שיש להם לפחות הדמיה אחת, כולל כאלה שאין
+                להם תמונת מקור להשוואה.
+
+     ההפרדה הזאת נחוצה כי הכפתור מבטיח מספר ("לכל N הנכסים עם הדמיה"),
+     והוא חייב להיות אותו מספר שהמסנן בתוצאות מחזיר. אם הוא היה נספר לפי
+     מה שהרצועה מציגה, הוא היה נמוך מהאמת בכל נכס שיש לו הדמיה בלי תמונת
+     מקור — והכפתור היה משקר. */
+  function load(client, exclude) {
+    var pairs = client
       .from('property_visualizations_public')
-      .select('property_id, target, style_key, source_image_url, result_url, created_at')
+      .select('property_id, target, source_image_url, result_url, created_at')
       .not('source_image_url', 'is', null)
       .order('created_at', { ascending: false })
-      .limit(60)
-      .then(function (res) {
-        if (res.error || !res.data || !res.data.length) return null;
+      .limit(200);
 
-        /* הדמיה אחת לכל נכס — החדשה ביותר. בלי זה נכס עם ארבעה סגנונות
-           היה תופס את כל הרצועה. */
-        var byProperty = new Map();
-        res.data.forEach(function (v) {
-          if (!v.property_id || !v.result_url) return;
-          if (!byProperty.has(v.property_id)) byProperty.set(v.property_id, v);
-        });
-        var ids = Array.from(byProperty.keys());
-        if (!ids.length) return null;
+    /* אותו מקור בדיוק שממנו מסנן ההדמיות בדף הבית בונה את הרשימה שלו —
+       ולכן שני המספרים לא יכולים להיפרד. */
+    var allIds = global.PropertyCard
+      ? global.PropertyCard.allVisualizedIds(client)
+      : Promise.resolve(new Set());
 
-        return client
-          .from('properties')
-          .select('id, title, price, deal_type, city, status')
-          .in('id', ids)
-          .eq('status', 'active')
-          .then(function (pRes) {
-            if (pRes.error || !pRes.data || !pRes.data.length) return null;
-            return pRes.data.map(function (p) {
-              return { property: p, viz: byProperty.get(p.id) };
-            });
-          });
+    return Promise.all([pairs, allIds]).then(function (res) {
+      var vizRes = res[0], ids = Array.from(res[1] || []);
+      if (!ids.length) return null;
+
+      /* הדמיה אחת לכל נכס — החדשה ביותר. בלי זה נכס עם ארבעה סגנונות
+         היה תופס את כל הרצועה. */
+      var byProperty = new Map();
+      ((vizRes && vizRes.data) || []).forEach(function (v) {
+        if (!v.property_id || !v.result_url) return;
+        if (!byProperty.has(v.property_id)) byProperty.set(v.property_id, v);
       });
+
+      return client
+        .from('properties')
+        .select('id, title, price, deal_type, city, status')
+        .in('id', ids.slice(0, 300))
+        .eq('status', 'active')
+        .then(function (pRes) {
+          var active = (pRes && pRes.data) || [];
+          if (pRes.error || !active.length) return null;
+          /* ‏exclude הוא הנכס שבעמוד הנוכחי: אין טעם להציג לו את ההדמיה
+             של עצמו ברצועת "עוד נכסים עם הדמיה", והיא ממילא מוצגת
+             במלואה בסקציה שמעליה.
+
+             הוא יורד מהתצוגה אבל **לא** מהמונה: הכפתור מוביל לתוצאות
+             המסוננות, והנכס הזה נמצא שם. מונה שמחסיר אותו היה מבטיח
+             מספר אחד ומראה אחר. */
+          var items = active
+            .filter(function (p) { return p.id !== exclude && byProperty.has(p.id); })
+            .map(function (p) { return { property: p, viz: byProperty.get(p.id) }; });
+          return { items: items, total: active.length };
+        });
+    });
   }
 
   /* ---------- ההשוואה ---------- */
@@ -223,10 +244,11 @@
     range.addEventListener('input', function () { takeOver(); apply(); });
   }
 
-  function render(container, items) {
+  function render(container, data) {
+    var items = data.items;
+    var total = data.total;
     var lead = items[0];
     var strip = items.slice(1, 4);
-    var total = items.length;
 
     container.innerHTML = '' +
       '<section class="ai-band" aria-labelledby="aiBandTitle">' +
@@ -238,8 +260,11 @@
               'הצילום האמיתי של הנכס. כך אפשר לשקול נכס לפי מה שהוא יכול להיות, ' +
               'ולא רק לפי איך שהוא נראה ביום הצילום.</p>' +
             '<div class="ai-actions">' +
-              '<button type="button" class="ai-cta" id="aiShowAll" aria-expanded="false" aria-controls="aiAllPanel">' +
-                'לכל ' + total + ' הנכסים עם הדמיה ←</button>' +
+              /* קישור אמיתי ולא כפתור: הכתובת ‎?ai=1‎ ניתנת לשיתוף, לפתיחה
+                 בלשונית חדשה ולאינדוקס. ה-JS למטה רק חוסך את הטעינה מחדש
+                 כשהחיפוש כבר נמצא באותו עמוד. */
+              '<a class="ai-cta" id="aiShowAll" href="index.html?ai=1">' +
+                'לכל ' + total + ' הנכסים עם הדמיה ←</a>' +
               '<a class="ai-secondary" href="crm.html">מוכרים ומתווכים: הפיקו הדמיה לנכס שלכם</a>' +
             '</div>' +
             '<p class="ai-note">ההדמיה היא המחשה עיצובית בלבד. היא אינה תוכנית בנייה, ' +
@@ -254,38 +279,35 @@
               : '') +
           '</div>' +
         '</div>' +
-        '<div class="ai-band-inner ai-all" id="aiAllPanel" hidden>' +
-          '<div style="grid-column:1/-1">' +
-            '<p class="ai-strip-title" style="margin-top:0">כל הנכסים עם הדמיה</p>' +
-            '<div class="ai-all-grid">' + items.map(thumbHtml).join('') + '</div>' +
-          '</div>' +
-        '</div>' +
       '</section>';
 
     wireCompare(container);
 
-    /* הכפתור פותח את הרשימה בתוך הרצועה עצמה ולא מנווט לעמוד תוצאות: כך
-       הוא עובד גם כשהמפה והחיפוש עדיין נטענים, ואין קישור שמוביל ל-#. */
-    var btn = container.querySelector('#aiShowAll');
-    var panel = container.querySelector('#aiAllPanel');
-    btn.addEventListener('click', function () {
-      var open = panel.hidden;
-      panel.hidden = !open;
-      btn.setAttribute('aria-expanded', String(open));
-      btn.textContent = open ? 'סגירת הרשימה' : 'לכל ' + total + ' הנכסים עם הדמיה ←';
-      if (open) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    /* בדף הבית מנוע החיפוש נמצא כאן, ולכן הקישור מדליק את המסנן במקום
+       לטעון את העמוד מחדש. בכל דף אחר (או אם החיפוש עוד לא אותחל) הקישור
+       פשוט מנווט — אותה תוצאה, דרך ארוכה יותר. */
+    container.querySelector('#aiShowAll').addEventListener('click', function (e) {
+      if (!global.ShukSearch || !global.ShukSearch.applyAiFilter) return;
+      e.preventDefault();
+      global.ShukSearch.applyAiFilter();
     });
   }
 
-  function mount(container) {
+  function mount(container, opts) {
     if (!container || !global.supabase || !global.supabase.createClient) return;
+    var o = opts || {};
     var client = global.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    load(client).then(function (items) {
-      /* פחות משני נכסים אינם "רצועת הדמיות" אלא נכס בודד שמתחזה לאחת —
-         במקרה כזה עדיף שהאזור לא יופיע בכלל. */
-      if (!items || items.length < 2) return;
+    load(client, o.exclude).then(function (data) {
+      /* הרצועה צריכה השוואה אחת להישען עליה — בלי זוג לפני/אחרי אין מה
+         להראות, ורצועה שכל תוכנה הוא כפתור היא הבטחה בלי כיסוי. רצועת
+         התמונונות שמתחתיה אופציונלית ויורדת מעצמה כשאין מה לשים בה.
+
+         הסף הוא אחד ולא שניים: בדף נכס הנכס הנוכחי מוחרג מהתצוגה, ואם
+         נשארה בדיוק השוואה אחת היא עדיין רצועה טובה — ובוודאי כשהכפתור
+         שלצדה מצביע על כל הנכסים עם הדמיה. */
+      if (!data || !data.items || !data.items.length) return;
       injectCss();
-      render(container, items);
+      render(container, data);
     }).catch(function (err) {
       console.warn('רצועת ההדמיות לא נטענה:', err);
     });

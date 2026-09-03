@@ -245,6 +245,27 @@
       .catch(function () { return new Set(); });
   }
 
+  /* כל הנכסים שיש להם לפחות הדמיה אחת מפורסמת — בלי רשימת מזהים מראש.
+     ‏visualizedIds למעלה עונה על "מי מתוך אלה שכבר על המסך"; זה עונה על
+     "מי בכלל", וזו השאלה שמסנן ההדמיות בדף הבית שואל.
+
+     התוצאה נשמרת: הרשימה משמשת גם את הבאנר וגם את המסנן באותו עמוד, ואין
+     סיבה לשאול פעמיים. ‏Set ריק הוא תשובה תקפה ("אין נכסים עם הדמיה")
+     ולכן הוא נשמר כמו כל תשובה אחרת. */
+  var allVizPromise = null;
+  function allVisualizedIds(sb) {
+    if (allVizPromise) return allVizPromise;
+    if (!sb) return Promise.resolve(new Set());
+    allVizPromise = sb.from('property_visualizations_public')
+      .select('property_id')
+      .limit(1000)
+      .then(function (res) {
+        return new Set((res && res.data ? res.data : []).map(function (r) { return r.property_id; }));
+      })
+      .catch(function () { return new Set(); });
+    return allVizPromise;
+  }
+
   /* ---------- ה-CSS ----------
      מוזרק פעם אחת. הצבעים נגזרים ממשתני הדף עם נפילה־לאחור, כדי שאותו
      קובץ ייראה נכון גם בדף שנצבע בערכה של משרד מסוים. */
@@ -348,6 +369,7 @@
     mediaRank: mediaRank,
     sortByMedia: sortByMedia,
     visualizedIds: visualizedIds,
+    allVisualizedIds: allVisualizedIds,
     hasFeature: hasFeature,
     injectStyles: ensureStyles,
   };
