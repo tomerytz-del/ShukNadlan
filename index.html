@@ -233,7 +233,7 @@
     position:relative;overflow:hidden;color:#fff;background:var(--teal-dark);
     /* גובה המפה: מה שסרגל החיפוש חוסם בראש והפאנל בתחתית יורד מהשטח שנשאר
        לפינים, ולכן הגובה נמדד במה שנשאר ולא במה שהוגדר. אחרי שה-eyebrow עבר
-       לכותרת העליונה, מונה הנכסים ירד לפאנל שבתחתית ובאנר ה-Leaderboard
+       לכותרת העליונה, מונה הנכסים ירד משורת החיפוש ובאנר ה-Leaderboard
        כובה — החסימה בראש ירדה מ-~190px ל-~120px, והמפה לוקחת את ההפרש. */
     height:clamp(500px,80vh,760px);transition:height .3s ease;
   }
@@ -417,8 +417,8 @@
      שבו, כדי שאפשר יהיה לגרור את המפה גם "דרכו".
      קודם הוא היה מחולק לשתי פינות (כפתור ההגדלה מימין, בורר הסגנון והמקרא
      משמאל) ומונה הנכסים ישב בכלל מתחת לשורת החיפוש — ארבעה איים נפרדים
-     שאכלו יחד את כל תחתית המפה. עכשיו המקרא, המונה וכפתור ההגדלה מאוחדים
-     לפאנל אחד ממורכז, ובורר הסגנון נשאר לבדו בפינה השמאלית מעליו.
+     שאכלו יחד את כל תחתית המפה. עכשיו המקרא וכל הפקדים מאוחדים לפאנל אחד
+     ממורכז בשורה אחת, ובורר הסגנון נשאר לבדו בפינה השמאלית מעליו.
      bottom:38px משאיר מתחתיו בדיוק את הקרדיטים של Leaflet (bottom:18px), שגם
      הם יושבים בפינה השמאלית — בגובה נמוך יותר הפאנל נוחת עליהם. */
   .map-toolbar{
@@ -435,14 +435,16 @@
   /* כשכל מה שנשאר בשורה הצדדית מוסתר (היום — רק בורר הסגנון), גם המכל עצמו
      יורד, אחרת ה-gap שלו מרחיק את הפאנל מתחתית המפה בלי סיבה */
   .map-toolbar .map-toolbar-side:not(:has(> :not([hidden]))){display:none}
-  /* הפאנל המאוחד: שורת המקרא + ההגדלה, ומתחתיה מונה הנכסים */
+  /* הפאנל המאוחד: שורה אחת של מקרא + פקדי המפה. מונה סך הנכסים שהיה מתחתיה
+     ("N נכסים במפה") ירד — הוא חזר על מה שהמונים שבמקרא כבר אומרים לכל סוג
+     עסקה, ועל "N נכסים תואמים" שברשימה שמתחת למפה, ובתמורה גזל שורה שלמה
+     מגובה המפה במובייל. */
   .map-panel{
     display:flex;flex-direction:column;align-items:center;gap:1px;max-width:100%;
     background:rgba(255,255,255,.94);padding:4px 8px;border-radius:0;
     box-shadow:var(--shadow-sm);
   }
   .map-panel-row{display:flex;align-items:center;gap:2px;flex-wrap:wrap;justify-content:center}
-  .map-panel-count{font-size:.66rem;font-weight:700;color:var(--ink-soft);white-space:nowrap}
   /* המקרא הוא גם המסנן: כל כפתור מכבה/מדליק את הפינים של סוג העסקה שלו
      (ראו applyDealFilter ב-JS). aria-pressed הוא מקור האמת גם לעיצוב וגם
      להקראה, כדי שלא יהיו שני מצבים שצריך לסנכרן.
@@ -2338,8 +2340,7 @@
       </div>
       <!-- פאנל אחד לתחתית המפה: מקרא הצבעים שהוא גם המסנן (לחיצה על סוג
            עסקה מסתירה/מחזירה את הפינים שלו) עם מונה לכל סוג, כפתור הגדלת
-           המפה, כפתור מירכוז המפה בקצה השמאלי, ומתחתיהם מונה הנכסים
-           המוצגים -->
+           המפה וכפתור מירכוז המפה בקצה השמאלי -->
       <div class="map-panel">
         <div class="map-panel-row">
           <div class="map-legend" role="group" aria-label="סינון הפינים לפי סוג עסקה">
@@ -2370,7 +2371,6 @@
             </svg>
           </button>
         </div>
-        <span class="map-panel-count" id="mapCount" aria-live="polite">טוען נכסים…</span>
       </div>
     </div>
   </section>
@@ -5694,24 +5694,10 @@ function applyDealFilter({ fit = false } = {}){
     if (fit) fitMapToMarkers();
     relayoutMapPins();
   }
-  updateMapCount();
+  updateLegendCounts();
   // המקרא מסתיר פינים, והפאנל המפוצל מציג רק את מה שמצויר על המפה — ולכן
   // כיבוי "השכרה" חייב להוריד את אותם נכסים גם מהרשימה שלצדה
   updateSplitPanel();
-}
-
-// ה-fallback של המפה מסתיר את הפאנל, ולכן המונה עשוי לא להיות גלוי בכלל
-function updateMapCount(){
-  const el = document.getElementById('mapCount');
-  if (!el) return;
-  const shown = visibleMarkers().length;
-  const total = Object.keys(mapMarkers).length;
-  // כשמסננים לפי סוג עסקה המונה מציג גם את הסך הכול, אחרת הוא נראה כאילו
-  // נכסים נעלמו מהמאגר ולא רק הוסתרו
-  el.textContent = shown === total
-    ? (shown === 1 ? 'נכס אחד במפה' : `${shown} נכסים במפה`)
-    : `${shown} מתוך ${total} נכסים במפה`;
-  updateLegendCounts();
 }
 
 /* המונה שבסוגריים לצד כל סוג עסקה במקרא. הוא סופר תמיד את כל הפינים מאותו
@@ -6785,8 +6771,8 @@ function renderSearchRows(properties, isSearchResult){
   section.hidden = false;
   if (countEl){
     // נכס בלי קואורדינטות לא יכול לקבל פין, ולכן ההבטחה "מסומנים על המפה"
-    // נכונה רק כשלכולם יש מיקום. אחרת נאמר במפורש כמה מהם על המפה — אחרת
-    // המונה שמתחת למפה ("N נכסים במפה") סותר את המונה כאן בלי הסבר.
+    // נכונה רק כשלכולם יש מיקום. אחרת נאמר במפורש כמה מהם על המפה, אחרת
+    // המספר כאן מבטיח יותר פינים ממה שבאמת מצויר.
     const pinned = properties.filter(p => p.lat && p.lng).length;
     countEl.textContent = !properties.length ? ''
       : pinned === properties.length
