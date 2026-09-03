@@ -105,6 +105,8 @@
 | `property_image_tags` | סיווג AI לכל תמונה: `photo_type`, `space_role`, `room_type`. `properties.images` נשאר מקור האמת |
 | `visualization_jobs` | בקשת הדמיה. `trigger_source` = `base` (סוכן/ת) או `ondemand` (גולש/ת) |
 | `property_visualizations` | התמונות שנוצרו. `is_base=true` = מוצג פומבית בדף הנכס |
+| `property_visualizations_public` | ‏view — **סט הבסיס בלבד** (`is_base=true`). מזין את גלריית הנכס, את תגית "הדמיית AI" על הכרטיסים, את רצועת ההדמיות בדף הבית ואת המסנן `?ai=1` |
+| `property_visualizations_recent` | ‏view — **כל ההדמיות המוכנות** של נכסים פעילים וזכאים, כולל אלה שנוצרו לפי דרישה. מזין את גלריית "הופקו לאחרונה במערכת" בתיבת ההדמיה של נכס מסחרי. בלי `job_id` ובלי `error_detail` |
 | `property_visualizations_public` | View ל-anon — סט הבסיס בלבד, של נכסי Premium פעילים |
 | `property_visualizations_enabled(uuid)` | מקור האמת היחיד לזכאות. גם ה-RLS וגם ה-Edge Functions נשענים עליו |
 | `visualization_job_status(uuid)` | מעקב אחרי בקשה. ה-`job_id` הוא הרשאת הגישה |

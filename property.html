@@ -752,6 +752,20 @@
     overflow:hidden;background:var(--surface);box-shadow:var(--shadow-xs)}
   .viz-item img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
   .viz-item .viz-room{padding:9px 12px;font-size:.82rem;font-weight:700}
+  /* אריחים קטנים מ-.viz-grid: אלה לא ההדמיות של הנכס הזה אלא ראיה שהכלי
+     עובד, ולכן הם לא מתחרים בגובה עם התוכן של העמוד עצמו. */
+  .viz-recent{margin-top:18px;padding-top:16px;border-top:1px solid var(--hair)}
+  .viz-recent-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:8px;margin-bottom:10px}
+  .viz-recent-head h3{margin:0;font-size:.95rem;font-weight:800}
+  .viz-recent-head span{font-size:.78rem;color:var(--ink-soft)}
+  .viz-recent-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+  .viz-recent-item{display:block;text-decoration:none;color:inherit;border:1px solid var(--hair);
+    background:var(--surface);position:relative}
+  .viz-recent-item img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
+  .viz-recent-item span{display:block;padding:7px 9px;font-size:.74rem;font-weight:700;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .viz-recent-item:hover{border-color:var(--brass,#c9a227)}
+
   .viz-badge{position:absolute;top:8px;inset-inline-start:8px;background:rgba(27,31,38,.86);
     color:#fff;font-size:.66rem;font-weight:700;padding:4px 9px;border-radius:0;letter-spacing:.02em}
   .viz-item.pending{display:flex;align-items:center;justify-content:center;
@@ -891,6 +905,20 @@
           <div class="viz-styles" id="vizStyles"></div>
           <div class="viz-grid" id="vizGrid"></div>
           <p class="viz-fallback" id="vizFallbackNote" hidden></p>
+
+          <!-- ====== הופקו לאחרונה במערכת ======
+               בנכס מסחרי הרשת שמעל ריקה עד שמישהו/י מבקש/ת הדמיה, ורשת ריקה
+               מעל טופס שמבקש שם וטלפון היא הבטחה בלי כיסוי. כאן יושבות
+               הדמיות אמיתיות שהמערכת כבר הפיקה — הוכחה שהדבר עובד, לפני
+               הבקשה למסור פרטים. כל אריח מקשר לנכס שממנו ההדמיה, כדי שיהיה
+               ברור שאלה לא הדמיות של הנכס הנוכחי. -->
+          <div class="viz-recent" id="vizRecent" hidden>
+            <div class="viz-recent-head">
+              <h3>הופקו לאחרונה במערכת</h3>
+              <span>הדמיות אמיתיות שנוצרו לנכסים אחרים בפלטפורמה</span>
+            </div>
+            <div class="viz-recent-grid" id="vizRecentGrid"></div>
+          </div>
 
           <div class="viz-cta" id="vizCta" hidden>
             <button type="button" class="btn btn-gold" id="vizOpenBtn">לראות את הנכס בסגנון הזה</button>
@@ -1892,6 +1920,63 @@ function renderVizCommercial(){
     '</div>';
   document.getElementById('vizCta').hidden = false;
   document.getElementById('vizOpenBtn').textContent = 'לראות את העסק שלכם בנכס';
+  loadRecentVisualizations();
+}
+
+/* ---------- "הופקו לאחרונה במערכת" ----------
+   נשלף מ-property_visualizations_recent — ה-view שחושף את כל ההדמיות
+   המוכנות של נכסים פעילים, כולל אלה שנוצרו לפי דרישה, בלי job_id ובלי
+   פרטי מי שביקש/ה אותן.
+
+   כישלון כאן לא מפיל כלום: הבלוק פשוט נשאר מוסתר, ותיבת ההדמיה ממשיכה
+   לעבוד בדיוק כמו קודם. */
+const VIZ_RECENT_LIMIT = 8;
+/* תקרה לכל נכס. בלעדיה נכס אחד עם שמונה סגנונות ממלא לבדו את הגלריה
+   ומציג אותה כאילו המערכת הפיקה בסך הכול נכס אחד; עם דילול של אחד לכל
+   נכס נזרקות רוב התמונות והגלריה נשארת דלילה. שלוש הן האיזון. */
+const VIZ_RECENT_PER_PROPERTY = 3;
+
+async function loadRecentVisualizations(){
+  const box = document.getElementById('vizRecent');
+  const grid = document.getElementById('vizRecentGrid');
+  if (!box || !grid || !window.supabase) return;
+
+  try{
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    /* נשלפות יותר משורות מהמכסה: הנכס הנוכחי יורד אחר כך, וגם הדמיות
+       כפולות של אותו נכס — בלי מרווח כזה נכס אחד עם שמונה סגנונות היה
+       ממלא לבדו את כל הגלריה. */
+    const { data, error } = await sb
+      .from('property_visualizations_recent')
+      .select('property_id, target, result_url, created_at')
+      .order('created_at', { ascending:false })
+      .limit(60);
+    if (error || !data || !data.length) return;
+
+    const perProperty = new Map();
+    const items = [];
+    for (const row of data){
+      // הנכס הנוכחי יורד: ההדמיות שלו הן הרשת שמעל, והבלוק הזה מציג
+      // במפורש "נכסים אחרים בפלטפורמה"
+      if (!row.result_url || row.property_id === vizState.propertyId) continue;
+      const used = perProperty.get(row.property_id) || 0;
+      if (used >= VIZ_RECENT_PER_PROPERTY) continue;
+      perProperty.set(row.property_id, used + 1);
+      items.push(row);
+      if (items.length === VIZ_RECENT_LIMIT) break;
+    }
+    if (!items.length) return;
+
+    grid.innerHTML = items.map(it=>
+      `<a class="viz-recent-item" href="property.html?id=${encodeURIComponent(it.property_id)}">` +
+        `<img src="${escapeAttr(it.result_url)}" loading="lazy" ` +
+             `alt="הדמיה של ${escapeAttr(VIZ_TARGET_LABELS[it.target] || 'נכס')} בנכס אחר בפלטפורמה">` +
+        `<span>${escapeHtml(VIZ_TARGET_LABELS[it.target] || 'הדמיה')}</span>` +
+      `</a>`).join('');
+    box.hidden = false;
+  } catch(e){
+    console.warn('גלריית ההדמיות האחרונות לא נטענה:', e);
+  }
 }
 
 function selectVizStyle(styleKey){
