@@ -1,21 +1,12 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 62" role="img"
-     aria-label="שוק הנדל״ן של עפולה והסביבה">
-  <!-- ‏הסמל כקובץ: אותה גאומטריה בדיוק שנמצאת ב-assets/brand-logo.js (PIN /
-       ROOF / האות ש), רק כאן היא סטטית. הקובץ משמש כאייקון הלשונית של כל
-       דפי האתר, ולכן חייב להיות עצמאי — בלי CSS או JS מהדף.
-       כל שינוי בסמל צריך להיעשות בשני המקומות. -->
-  <style>
-    /* ‏בלשונית כהה הנאבי כמעט נעלם, ולכן שם הפין הופך ללבן והגג לנאבי —
-       בדיוק ההיפוך ש-brand-logo.js עושה בתוך הפוטר. */
-    .pin  { fill: #0e2a6b }
-    .roof { stroke: #ffffff }
-    @media (prefers-color-scheme: dark) {
-      .pin  { fill: #ffffff }
-      .roof { stroke: #0e2a6b }
-    }
-  </style>
-  <path class="pin" d="M26 60 C26 60 48 38 48 24 C48 11.8 38.2 2 26 2 C13.8 2 4 11.8 4 24 C4 38 26 60 26 60 Z"/>
-  <path class="roof" d="M13 26 L26 14 L39 26" fill="none" stroke-width="5"
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 62">
+  <!-- ‏הלוגו לרקע בהיר: פין ספיר, גג לבן, אות ש מוזהבת.
+       זהו הקובץ שהדפים מצביעים אליו ישירות ב-<img>, כדי שהסמל הנכון ייצבע
+       בפריים הראשון. אין כאן שאילתת prefers-color-scheme בכוונה: הכותרות
+       באתר בהירות תמיד, וגם למי שמכשירו במצב כהה הפין חייב להישאר ספיר.
+       לרקע כהה יש קובץ נפרד — logo-shuknadlan-dark.svg. -->
+  <path d="M26 60 C26 60 48 38 48 24 C48 11.8 38.2 2 26 2 C13.8 2 4 11.8 4 24 C4 38 26 60 26 60 Z"
+        fill="#0e2a6b"/>
+  <path d="M13 26 L26 14 L39 26" fill="none" stroke="#ffffff" stroke-width="5"
         stroke-linejoin="miter" stroke-linecap="butt"/>
   <text x="26" y="41" text-anchor="middle" fill="#c9a227"
         font-family="Heebo, system-ui, sans-serif" font-weight="800" font-size="18">ש</text>
