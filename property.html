@@ -1913,23 +1913,20 @@ function vizItemsFlat(){
 /* הכפתור משנה משמעות לפי מה שכבר קיים לסגנון הנבחר:
 
      סגנון שטרם נוצר — הזמנה ליצור אותו, וזו הלחיצה שמפעילה את ה-API.
-     סגנון שכבר קיים — אין כפתור. כל החדרים שלו כבר על המסך, ולחיצה
-       שהייתה מייצרת אותם מחדש היא הבטחה ריקה; מה שנשאר הוא משפט
-       שמסביר שהדרך לעוד היא להחליף סגנון.
+     סגנון שכבר קיים — אין כפתור בכלל. כל החדרים שלו כבר על המסך, ולחיצה
+       שהייתה מייצרת אותם מחדש היא הבטחה ריקה. השבבים הם הדרך לייצר עוד,
+       והם כבר שם.
 
    בנכס מסחרי אין סגנונות והשאלה היא איזה עסק — הכפתור שם תמיד פעיל. */
 function vizBandCta(){
   const has = (vizState.byStyle.get(vizState.current) || []).length;
   if (!vizState.isPrivate){
-    return { label:'יצירת הדמיה לעסק שלכם', hint:'להמחשה עיצובית בלבד', busy:vizState.busy };
+    return { label:'יצירת הדמיה לעסק שלכם', busy:vizState.busy };
   }
+  if (has && !vizState.busy) return { label:null };
   const styleLabel = (VIZ_STYLES.find(x => x.key === vizState.current) || {}).label || '';
-  if (has && !vizState.busy){
-    return { label:null, hint:'הסגנון הזה כבר מוכן. בחרו סגנון אחר כדי לייצר עוד.' };
-  }
   return {
     label: styleLabel ? `יצירת הדמיה בסגנון ${styleLabel}` : 'יצירת הדמיה לנכס',
-    hint: 'להמחשה עיצובית בלבד',
     busy: vizState.busy,
   };
 }

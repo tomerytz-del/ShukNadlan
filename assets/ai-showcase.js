@@ -76,7 +76,9 @@
     '.ai-cta:hover{background:#dcb63c;color:#0d1b3d}',
     '.ai-secondary{color:#c3cde6;font-size:14px;text-decoration:underline;text-underline-offset:3px}',
     '.ai-secondary:hover{color:#fff}',
-    '.ai-note{margin:14px 0 0;font-size:12px;line-height:1.6;color:#7b88ab;max-width:46ch}',
+    /* ‏grid-column:1/-1 — ההצהרה חוצה את שתי העמודות ויושבת מתחת לשתיהן,
+       ולכן היא נקראת כהערת שוליים של התיבה כולה ולא של הטור שהיא בו. */
+    '.ai-note{grid-column:1/-1;margin:2px 0 0;font-size:12px;line-height:1.6;color:#7b88ab}',
 
     /* ---- ההשוואה ---- */
     '.ai-compare{position:relative;aspect-ratio:4/3;background:#16244a;overflow:hidden;',
@@ -111,8 +113,11 @@
     '.ai-thumb{display:block;text-decoration:none;color:#e6ecf9;min-width:0}',
     '.ai-thumb img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;',
     '  border:1px solid rgba(255,255,255,.12)}',
-    '.ai-thumb span{display:block;font-size:12px;font-weight:700;margin-top:5px;',
-    '  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+    /* התווית נשברת לשתי שורות ולא נקטעת בשלוש נקודות: "הסלון · ים-תיכוני
+       לבן" בעמודה של שליש מסך טלפון נחתך בדיוק על שם הסגנון — כלומר על
+       החלק שבגללו לוחצים. */
+    '.ai-thumb span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;',
+    '  overflow:hidden;font-size:12px;font-weight:700;margin-top:5px;line-height:1.35}',
     '.ai-thumb:hover img{border-color:#c9a227}',
     '.ai-strip-title{font-size:11px;font-weight:800;letter-spacing:.1em;color:#8b97ba;margin:18px 0 0}',
 
@@ -123,16 +128,6 @@
        הם כפתורים אמיתיים ולא קישורים — הם לא מנווטים לשום מקום, הם מחליפים
        את מה שכבר על המסך. */
     '.ai-styles{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}',
-    /* טקסט לוואי לצד הכפתור — קטן ומאופק, הוא לא מתחרה בו. */
-    '.ai-fineprint{color:#c3cde6;font-size:14px}',
-    /* אותו טקסט כשאין כפתור לצדו הוא המסר היחיד בשורה, ולכן הוא מקבל קול
-       משלו: נקודה זהובה ומשקל. בלעדיו הוא נקרא כהמשך של האותיות הקטנות
-       שמתחתיו — שתי פסקאות אפורות זו מתחת לזו. */
-    '.ai-hint{display:inline-flex;align-items:center;gap:8px;color:#e6ecf9;',
-    '  font-size:14px;font-weight:600}',
-    '.ai-hint::before{content:"";width:7px;height:7px;flex:none;background:#c9a227;',
-    '  border-radius:50%}',
-    '.ai-actions:has(.ai-hint){margin-bottom:6px}',
     '.ai-style{font-family:Heebo,system-ui,sans-serif;font-size:13px;font-weight:700;',
     '  padding:8px 14px;cursor:pointer;background:transparent;color:#e6ecf9;',
     '  border:1px solid rgba(255,255,255,.28)}',
@@ -227,22 +222,40 @@
     return style ? where + ' · ' + style : where;
   }
 
-  /* מיון ההדמיות של הנכס לרשימה אחת שהווילון והתמונונות עובדים עליה.
-     הראשונה היא זו שנפתחת: קודם ‎leadPick‎ אם נמסר (התמונון שנלחץ ממש
-     עכשיו), אחריו הסגנון הנבחר, ובתוכו לפי סדר החדרים. בלי ‎leadPick‎
-     לחיצה על תמונון של סגנון אחר הייתה מחליפה סגנון ואז פותחת את הסלון
-     שלו — כלומר מראה תמונה אחרת מזו שנלחצה. */
+  /* ‏**סדר הרצועה קבוע, והבחירה זזה בתוכו.** שתי הפונקציות האלה היו פעם
+     אחת: המיון החזיר את התמונה הנבחרת ראשונה, והרצועה נבנתה מאותה רשימה.
+     התוצאה הייתה שכל לחיצה על תמונון סידרה מחדש את כל השורה — התמונונות
+     קפצו מתחת לאצבע, ומי שרצה/תה להשוות בין שניים מצא/ה את השני במקום
+     אחר. עכשיו הרצועה ממוינת פעם אחת (לפי סדר הסגנונות ובתוכו לפי סדר
+     החדרים), ומה שמשתנה בלחיצה הוא רק איזה פריט מסומן ומה בווילון. */
   function orderPairs(opts) {
     var items = (opts.items || []).filter(function (i) { return i && i.result_url; });
-    var active = opts.activeStyle || null;
-    var pick = opts.leadPick || null;
+    var styleRank = {};
+    (opts.styles || []).forEach(function (s, i) { styleRank[s.key] = i; });
     var rank = function (it) {
-      if (pick && it.result_url === pick) return -1;
-      var byStyle = active && it.style_key === active ? 0 : 1;
+      var byStyle = styleRank[it.style_key];
       var byTarget = LEAD_TARGET_ORDER.indexOf(it.target);
-      return byStyle * 100 + (byTarget < 0 ? 90 : byTarget);
+      return (byStyle === undefined ? 90 : byStyle) * 100 + (byTarget < 0 ? 90 : byTarget);
     };
     return items.slice().sort(function (a, b) { return rank(a) - rank(b); });
+  }
+
+  /* איזה פריט נפתח בווילון: ‎leadPick‎ (התמונון שנלחץ ממש עכשיו) גובר על
+     הכול; בלעדיו הסגנון הנבחר, ובתוכו סדר החדרים — הסלון קודם. */
+  function leadIndexOf(pairs, opts) {
+    var pick = opts.leadPick || null;
+    var i;
+    if (pick) {
+      for (i = 0; i < pairs.length; i++) if (pairs[i].result_url === pick) return i;
+    }
+    var active = opts.activeStyle || null;
+    var best = 0, bestRank = Infinity;
+    for (i = 0; i < pairs.length; i++) {
+      var byTarget = LEAD_TARGET_ORDER.indexOf(pairs[i].target);
+      var r = (active && pairs[i].style_key === active ? 0 : 100) + (byTarget < 0 ? 90 : byTarget);
+      if (r < bestRank) { bestRank = r; best = i; }
+    }
+    return best;
   }
 
   /* ‏source_image_url הוא הצילום שההדמיה נוצרה ממנו — הצד ה"לפני" האמיתי.
@@ -287,11 +300,14 @@
            '</button>';
   }
 
-  var PROPERTY_STRIP_LIMIT = 6;
+  /* הדילול בצד הקורא הוא לפי (סגנון, חדר), ולכן התקרה האמיתית היא ארבעה
+     סגנונות כפול שלושה חדרים. הרצועה מציגה את כולם: "עיצובים נוספים של
+     הנכס" שמסתיר חצי מהם הוא לא מה שהכותרת מבטיחה. */
+  var PROPERTY_STRIP_LIMIT = 12;
 
   function renderProperty(container, opts) {
     var pairs = orderPairs(opts);
-    var leadIndex = 0;
+    var leadIndex = leadIndexOf(pairs, opts);
     var styles = opts.styles || [];
     var cta = opts.cta || {};
 
@@ -305,19 +321,15 @@
         '</div>'
       : '';
 
-    /* גם ‎hint‎ לבדו מרכיב את השורה: כשכל ההדמיות בסגנון הנבחר כבר קיימות
-       אין כפתור להציע — לחיצה עליו הייתה מייצרת מחדש את מה שכבר על המסך —
-       ומה שנשאר הוא משפט שמסביר איך כן מייצרים עוד. */
-    var actionsHtml = (cta.label || cta.hint)
+    /* כפתור בלבד. כשכל ההדמיות בסגנון הנבחר כבר קיימות אין מה להציע —
+       לחיצה הייתה מייצרת מחדש את מה שכבר על המסך — והשורה פשוט לא
+       מופיעה. השבבים שמעליה הם ממילא הדרך לייצר עוד, ומשפט שמסביר את
+       זה היה עוד פסקה בין המבקר/ת לבין התמונה. */
+    var actionsHtml = cta.label
       ? '<div class="ai-actions">' +
-          (cta.label
-            ? '<button class="ai-cta" type="button" id="aiPropCta"' + (cta.busy ? ' disabled' : '') + '>' +
-                esc(cta.busy ? 'יוצרים…' : cta.label) +
-              '</button>'
-            : '') +
-          (cta.hint
-            ? '<span class="' + (cta.label ? 'ai-fineprint' : 'ai-hint') + '">' + esc(cta.hint) + '</span>'
-            : '') +
+          '<button class="ai-cta" type="button" id="aiPropCta"' + (cta.busy ? ' disabled' : '') + '>' +
+            esc(cta.busy ? 'יוצרים…' : cta.label) +
+          '</button>' +
         '</div>'
       : '';
 
@@ -331,9 +343,6 @@
               'וראו את הפוטנציאל.</p>' +
             stylesHtml +
             actionsHtml +
-            '<p class="ai-note">ההדמיה היא המחשה עיצובית בלבד. היא אינה תוכנית בנייה, ' +
-              'אינה מהווה התחייבות של המוכר או של המשרד, ואינה מעידה על היתרים או על ' +
-              'זכויות בנייה בנכס.</p>' +
           '</div>' +
           /* בלי הדמיה אחת אין וילון ואין תמונונות — אבל הכלי עצמו כן
              מוצג: בנכס זכאי שטרם הופקה לו הדמיה, הכפתור הוא כל מה שיש,
@@ -351,6 +360,11 @@
                   : '') +
               '</div>'
             : '') +
+          /* ההצהרה יורדת לתחתית התיבה ומתקצרת לשורה אחת. במקומה הקודם —
+             בין הכפתור לבין התמונה — היא הייתה פסקה שעוצרת את מי שבא/ה
+             לראות; כאן היא נמצאת, ניתנת לקריאה, ולא בדרך. */
+          '<p class="ai-note">ההדמיות הן המחשה עיצובית בלבד — לא תוכנית בנייה, ' +
+            'לא התחייבות של המוכר או המשרד, ולא עדות להיתרים או לזכויות בנייה.</p>' +
         '</div>' +
       '</section>';
 
