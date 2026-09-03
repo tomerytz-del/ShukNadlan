@@ -153,27 +153,51 @@ Deno.serve(async (req: Request) => {
   }
 
   // ---- מה כבר קיים -----------------------------------------------------
+  // ‏is_base נשלף גם הוא, וזה העיקר: הדמיה שהופקה לפי דרישת גולש/ת יושבת
+  // באותה טבלה, עם אותו target ואותו style_key, אבל עם is_base=false.
   const { data: existing } = await supabase
     .from("property_visualizations")
-    .select("id, target, status, result_url")
+    .select("id, target, status, result_url, is_base")
     .eq("property_id", property_id)
     .eq("kind", "private_room")
     .eq("style_key", styleKey);
 
   const existingByTarget = new Map((existing ?? []).map((r: any) => [r.target, r]));
-  const todo = force
-    ? found
-    : found.filter((t) => {
-        const row = existingByTarget.get(t);
-        return !(row && row.status === "done" && row.result_url);
-      });
+  const isReady = (row: any) => Boolean(row && row.status === "done" && row.result_url);
+
+  /* הדמיה מוכנה שאינה מסומנת כבסיס מקודמת במקום להיווצר מחדש.
+     קודם הבדיקה למטה ספרה כל הדמיה מוכנה כאילו היא סט הבסיס, בלי להסתכל
+     על is_base — ולכן נכס שגולש/ת הפיק/ה לו הדמיה קיבל "כבר קיים" ונשאר
+     בלי סט בסיס לתמיד, כלומר מחוץ לכל מה שנשען על התצוגה הפומבית.
+
+     הכיוון ההפוך — לייצר מחדש — היה משלם ל-Gemini על תמונה שכבר קיימת
+     וטובה, רק כדי לקבל שורה עם דגל אחר. התמונה היא התמונה; מה שחסר הוא
+     הסימון, וזה מה שמתוקן כאן. */
+  const promote = force
+    ? []
+    : found
+        .map((t) => existingByTarget.get(t))
+        .filter((row: any) => isReady(row) && !row.is_base)
+        .map((row: any) => row.id);
+
+  if (promote.length > 0) {
+    await supabase
+      .from("property_visualizations")
+      .update({ is_base: true })
+      .in("id", promote);
+  }
+
+  const todo = force ? found : found.filter((t) => !isReady(existingByTarget.get(t)));
 
   if (todo.length === 0) {
     return json({
       ok: true,
       job_id: null,
       style: styleKey,
-      note: "סט הבסיס בסגנון הזה כבר קיים",
+      note: promote.length > 0
+        ? "סט הבסיס הושלם מהדמיות שכבר היו לנכס"
+        : "סט הבסיס בסגנון הזה כבר קיים",
+      promoted: promote.length,
       ready: (existing ?? []).filter((r: any) => r.status === "done").map((r: any) => r.target),
     });
   }
