@@ -31,4 +31,10 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
-        run: python scripts/probe_filter.py --scope afula
+        run: |
+          python scripts/probe_filter.py --scope afula \
+          --feed 'https://news.google.com/rss/search?q=%D7%A2%D7%A4%D7%95%D7%9C%D7%94%20%28%D7%A0%D7%93%D7%9C%22%D7%9F%20OR%20%D7%93%D7%99%D7%95%D7%A8%20OR%20%D7%93%D7%99%D7%A8%D7%95%D7%AA%20OR%20%D7%A9%D7%9B%D7%95%D7%A0%D7%94%20OR%20%D7%94%D7%AA%D7%97%D7%93%D7%A9%D7%95%D7%AA%20OR%20%D7%AA%D7%91%22%D7%A2%29%20when%3A14d&hl=iw&gl=IL&ceid=IL:he' \
+          --feed 'https://news.google.com/rss/search?q=%22%D7%A0%D7%93%D7%9C%22%D7%9F%20%D7%91%D7%A2%D7%A4%D7%95%D7%9C%D7%94%22%20OR%20%22%D7%93%D7%99%D7%A8%D7%95%D7%AA%20%D7%91%D7%A2%D7%A4%D7%95%D7%9C%D7%94%22%20OR%20%22%D7%9E%D7%97%D7%99%D7%A8%D7%99%20%D7%94%D7%93%D7%99%D7%A8%D7%95%D7%AA%20%D7%91%D7%A2%D7%A4%D7%95%D7%9C%D7%94%22%20OR%20%22%D7%94%D7%AA%D7%97%D7%93%D7%A9%D7%95%D7%AA%20%D7%A2%D7%99%D7%A8%D7%95%D7%A0%D7%99%D7%AA%20%D7%91%D7%A2%D7%A4%D7%95%D7%9C%D7%94%22%20when%3A30d&hl=iw&gl=IL&ceid=IL:he' \
+          --feed 'https://news.google.com/rss/search?q=intitle%3A%D7%A2%D7%A4%D7%95%D7%9C%D7%94%20%28%D7%93%D7%99%D7%A8%D7%95%D7%AA%20OR%20%22%D7%A0%D7%93%D7%9C%22%D7%9F%22%20OR%20%D7%93%D7%99%D7%95%D7%A8%20OR%20%D7%AA%D7%91%22%D7%A2%29%20when%3A30d&hl=iw&gl=IL&ceid=IL:he' \
+          --feed 'https://news.google.com/rss/search?q=%28site%3Aglobes.co.il%20OR%20site%3Acalcalist.co.il%20OR%20site%3Athemarker.com%20OR%20site%3Aynet.co.il%20OR%20site%3Abizportal.co.il%20OR%20site%3Amadlan.co.il%29%20%D7%A2%D7%A4%D7%95%D7%9C%D7%94%20when%3A30d&hl=iw&gl=IL&ceid=IL:he'
+

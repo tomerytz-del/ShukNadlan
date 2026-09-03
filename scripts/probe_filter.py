@@ -57,12 +57,24 @@ def why_rejected(verdict: dict) -> str:
 def main() -> int:
     parser = argparse.ArgumentParser(description="אבחון סינון מילות המפתח")
     parser.add_argument("--scope", default="afula", help="afula / region / national / all")
+    parser.add_argument(
+        "--feed", action="append", default=[], metavar="URL",
+        help="כתובת פיד לבדיקה במקום טבלת המקורות. ניתן לחזור עליו כדי להשוות "
+             "ניסוחי שאילתה זה מול זה. במצב הזה אין צורך בסודות Supabase.",
+    )
     args = parser.parse_args()
 
     settings = load_settings()
-    sources = NewsStore(settings).active_sources()
-    if args.scope != "all":
-        sources = [s for s in sources if (s.get("scope") or "national") == args.scope]
+    if args.feed:
+        # השוואת שאילתות מועמדות: כל כתובת נבדקת כאילו היא מקור בהיקף הנתון.
+        sources = [
+            {"id": None, "name": f"מועמדת #{i + 1}", "url": url, "scope": args.scope}
+            for i, url in enumerate(args.feed)
+        ]
+    else:
+        sources = NewsStore(settings).active_sources()
+        if args.scope != "all":
+            sources = [s for s in sources if (s.get("scope") or "national") == args.scope]
 
     if not sources:
         print(f"אין מקורות פעילים בהיקף {args.scope}")
@@ -94,6 +106,7 @@ def main() -> int:
             limit=settings.max_entries_per_feed,
         )))
         print(f"  {len(entries)} פריטים אחרי פירסור ודדופ\n")
+        source_kept = 0
 
         for entry in entries:
             total_items += 1
@@ -102,6 +115,7 @@ def main() -> int:
             reasons[reason] += 1
             if verdict["keep"]:
                 total_kept += 1
+                source_kept += 1
 
             mark = "✅" if verdict["keep"] else "❌"
             body = entry.content or ""
@@ -113,6 +127,8 @@ def main() -> int:
                 f"רעש={verdict['noise_hits']}"
             )
             print(f"      גוף: {len(body)} תווים{' (ריק!)' if not body else ''} · {reason}")
+
+        print(f"\n  → {source_kept}/{len(entries)} עברו את הסינון")
 
     print("\n" + "=" * 78)
     print(f"סה\"כ {total_items} פריטים · {total_kept} עברו · {total_items - total_kept} נפסלו")
