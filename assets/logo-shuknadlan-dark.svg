@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 62">
+  <!-- ‏הלוגו לרקע כהה — הפוטר. הפין לבן והגג ספיר, היפוך של
+       logo-shuknadlan.svg. הצבעים קבועים ולא תלויים בערכת הצבעים של
+       המכשיר: הפוטר כהה בכל מצב, ולכן גם הפין חייב להיות לבן בכל מצב. -->
+  <path d="M26 60 C26 60 48 38 48 24 C48 11.8 38.2 2 26 2 C13.8 2 4 11.8 4 24 C4 38 26 60 26 60 Z"
+        fill="#ffffff"/>
+  <path d="M13 26 L26 14 L39 26" fill="none" stroke="#0e2a6b" stroke-width="5"
+        stroke-linejoin="miter" stroke-linecap="butt"/>
+  <text x="26" y="41" text-anchor="middle" fill="#c9a227"
+        font-family="Heebo, system-ui, sans-serif" font-weight="800" font-size="18">ש</text>
+</svg>
