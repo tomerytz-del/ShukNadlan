@@ -432,19 +432,9 @@
      בשורה עצמה (RTL) האיבר האחרון הוא השמאלי ביותר, ולכן כפתור המירכוז
      יושב ממש בפינה. */
   .map-toolbar .map-toolbar-side{align-self:flex-end;display:flex;align-items:center;gap:6px}
-  /* כפתור מירכוז המפה: עיגול לבן קטן עם פין אדום בפינה השמאלית התחתונה.
-     עגול ולא גלולה עם טקסט — כדי שיהיה מזוהה מייד אבל יכסה כמה שפחות מפה.
-     לחיצה מחזירה את המפה למרכז עפולה ולזום ההתחלתי בלי לגעת בחיפוש
-     (ראו recenterHeroMap ב-JS). */
-  .map-recenter-btn{
-    display:inline-flex;align-items:center;justify-content:center;
-    width:32px;height:32px;border-radius:50%;flex:0 0 auto;
-    background:rgba(255,255,255,.94);box-shadow:var(--shadow-sm);
-    color:#D6262B;cursor:pointer;transition:background .2s ease,transform .15s ease;
-  }
-  .map-recenter-btn svg{width:17px;height:17px;display:block}
-  .map-recenter-btn:hover{background:#fff;transform:scale(1.06)}
-  .map-recenter-btn:active{transform:scale(.96)}
+  /* כשכל מה שנשאר בשורה הצדדית מוסתר (היום — רק בורר הסגנון), גם המכל עצמו
+     יורד, אחרת ה-gap שלו מרחיק את הפאנל מתחתית המפה בלי סיבה */
+  .map-toolbar .map-toolbar-side:not(:has(> :not([hidden]))){display:none}
   /* הפאנל המאוחד: שורת המקרא + ההגדלה, ומתחתיה מונה הנכסים */
   .map-panel{
     display:flex;flex-direction:column;align-items:center;gap:1px;max-width:100%;
@@ -502,6 +492,25 @@
   }
   .map-expand-btn svg{width:13px;height:13px;flex:0 0 auto}
   .map-expand-btn:hover{color:var(--teal-dark)}
+  /* כפתור מירכוז המפה: פין אדום בקצה השמאלי של שורת הפאנל. קודם הוא ריחף
+     לבדו כעיגול לבן בפינה השמאלית של המפה — אי נוסף שכיסה עוד פיסת מפה
+     ונראה כאילו נשכח שם. עכשיו הוא פריט אחרון באותה שורה, באותו גובה
+     ובאותו ריפוד כמו "הגדל" ומופרד ממנו באותו קו דק בדיוק, ורק הצבע (אדום
+     של פין, לא טורקיז) מבדיל אותו. לחיצה מחזירה את המפה למרכז עפולה ולזום
+     ההתחלתי בלי לגעת בחיפוש (ראו recenterHeroMap ב-JS). */
+  .map-recenter-btn{
+    position:relative;display:inline-flex;align-items:center;justify-content:center;
+    background:none;color:#D6262B;cursor:pointer;flex:0 0 auto;
+    padding:4px 7px;margin-inline-start:7px;border-radius:0;
+    transition:color .2s ease,transform .15s ease;
+  }
+  .map-recenter-btn::before{
+    content:"";position:absolute;inset-block:3px;inset-inline-start:-4px;
+    width:1px;background:var(--line);
+  }
+  .map-recenter-btn svg{width:14px;height:14px;display:block}
+  .map-recenter-btn:hover{color:#A81E22;transform:scale(1.08)}
+  .map-recenter-btn:active{transform:scale(.94)}
   /* במסך צר במיוחד הכפתור יורד לשורה שנייה בתוך הפאנל, ואז הקו המפריד
      תלוי באוויר בתחילת השורה במקום להפריד בין שני דברים */
   @media(max-width:379px){
@@ -2326,17 +2335,11 @@
           <option value="classic" selected>קלאסי</option>
           <option value="light">בהיר</option>
         </select>
-        <!-- מירכוז המפה חזרה למרכז עפולה, לתצוגה שאיתה הדף נפתח. משנה רק
-             את תצוגת המפה — החיפוש והפינים שעליה נשארים כמו שהם. -->
-        <button type="button" class="map-recenter-btn" id="mapRecenterBtn" title="מירכוז המפה על עפולה" aria-label="מירכוז המפה על עפולה">
-          <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M12 2c-3.87 0-7 3.13-7 7 0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/>
-          </svg>
-        </button>
       </div>
       <!-- פאנל אחד לתחתית המפה: מקרא הצבעים שהוא גם המסנן (לחיצה על סוג
            עסקה מסתירה/מחזירה את הפינים שלו) עם מונה לכל סוג, כפתור הגדלת
-           המפה, ומתחתיהם מונה הנכסים המוצגים -->
+           המפה, כפתור מירכוז המפה בקצה השמאלי, ומתחתיהם מונה הנכסים
+           המוצגים -->
       <div class="map-panel">
         <div class="map-panel-row">
           <div class="map-legend" role="group" aria-label="סינון הפינים לפי סוג עסקה">
@@ -2357,6 +2360,14 @@
               <path d="M9 3H3v6M15 3h6v6M9 21H3v-6M15 21h6v-6"/>
             </svg>
             <span class="map-expand-label">הגדל</span>
+          </button>
+          <!-- מירכוז המפה חזרה למרכז עפולה, לתצוגה שאיתה הדף נפתח. משנה רק
+               את תצוגת המפה — החיפוש והפינים שעליה נשארים כמו שהם. אחרון
+               בשורה, כלומר הפריט השמאלי ביותר ב-RTL. -->
+          <button type="button" class="map-recenter-btn" id="mapRecenterBtn" title="מירכוז המפה על עפולה" aria-label="מירכוז המפה על עפולה">
+            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2c-3.87 0-7 3.13-7 7 0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/>
+            </svg>
           </button>
         </div>
         <span class="map-panel-count" id="mapCount" aria-live="polite">טוען נכסים…</span>
