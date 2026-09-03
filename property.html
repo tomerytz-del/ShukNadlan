@@ -722,52 +722,46 @@
   /* ההודעה הצפה מתרוממת מעל הסרגל כשהוא פתוח, בכל רוחב */
   body.sticky-on .toast{bottom:88px}
 
-  /* רצועת ההדמיות מגיעה מקובץ משותף עם דף הבית, שרוחבו 1180px. דף הנכס
-     צר יותר, ורצועה שחורגת מרוחב התוכן שמעליה נקראת כאלמנט זר. */
-  #aiShowcase .ai-band-inner{max-width:var(--maxw)}
-
   /* ====== הדמיות AI ======
-     כל תמונה כאן היא הדמיה ולא צילום, ולכן תגית ה-"הדמיה" יושבת *על* התמונה
-     ולא לידה: מי שישמור או ישתף את התמונה ייקח את התווית איתו. זו לא קישוטיות
-     אלא הדרישה שמפרידה בין המחשה שיווקית לבין הצגה מטעה של נכס. */
-  /* הריווח והכותרת עברו ל-#vizSection: מחלקת ‎.section‎ שהבלוק הזה נשען
-     עליה הוחלפה ב-.panel, ובלעדיהן הסקציה נצמדת לרצועת המשרד וכותרתה
-     נשארת בגודל ברירת המחדל של הדפדפן — גדולה מכל כותרת אחרת בדף. */
-  #vizSection h2{font-size:1.05rem}
+     הרצועה מגיעה מקובץ משותף (assets/ai-showcase.js) שנבנה לרוחב מלא של
+     ‏1180px. כאן היא יושבת בתוך עמודת התוכן — כ-520px במסך רחב — ולכן
+     שתי התאמות:
+
+       * הפריסה נשארת בעמודה אחת בכל רוחב. שאילתת המדיה שבקובץ מודדת את
+         *המסך* ולא את המכולה, ובמסך רחב היא הייתה דוחסת שתי עמודות לתוך
+         חצי מהרוחב שהן תוכננו לו.
+       * הריפוד מתקצר. ‏44px בצד היו אוכלים שישית מהעמודה.
+
+     כל תמונה שם היא הדמיה ולא צילום, ולכן תגית ה-"הדמיה" יושבת *על*
+     התמונה ולא לידה: מי שישמור או ישתף את התמונה ייקח את התווית איתו. זו
+     לא קישוטיות אלא הדרישה שמפרידה בין המחשה שיווקית לבין הצגה מטעה. */
+  #aiShowcase .ai-band{margin-block:0}
+  #aiShowcase .ai-band-inner{max-width:none;grid-template-columns:1fr;
+    gap:22px;padding:26px 20px}
+  #aiShowcase .ai-band h3{font-size:clamp(20px,3.4vw,25px)}
+  #aiShowcase .ai-band p{font-size:15px}
+
   /* ‏16:9 קבוע לנגן: גובה שנקבע מהמדיה עצמה גורם לקפיצת פריסה כשה-metadata
      נטענת, וסרטוני נכסים מגיעים גם לאורך וגם לרוחב. */
   .video-frame{position:relative;aspect-ratio:16/9;border-radius:var(--radius-lg);overflow:hidden;background:#000}
   .video-frame video,.video-frame iframe{width:100%;height:100%;display:block;border:0}
   .video-frame video{object-fit:contain}
 
-  .viz-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
-  .viz-head .viz-sub{font-size:.82rem;color:var(--ink-soft)}
-  .viz-styles{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px}
-  .viz-style{border:1.5px solid var(--hair-strong);background:var(--surface);border-radius:0;
-    padding:8px 16px;font-size:.84rem;font-weight:700;color:var(--ink);cursor:pointer}
-  .viz-style.active{border-color:var(--gold);background:var(--gold-tint);color:var(--gold-dark)}
-  .viz-style-tag{display:block;font-size:.68rem;font-weight:400;color:var(--ink-soft);margin-top:2px}
-  .viz-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:14px}
-  .viz-item{position:relative;border:1px solid var(--hair);border-radius:0;
-    overflow:hidden;background:var(--surface);box-shadow:var(--shadow-xs)}
-  .viz-item img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
-  .viz-item .viz-room{padding:9px 12px;font-size:.82rem;font-weight:700}
-  .viz-badge{position:absolute;top:8px;inset-inline-start:8px;background:rgba(27,31,38,.86);
-    color:#fff;font-size:.66rem;font-weight:700;padding:4px 9px;border-radius:0;letter-spacing:.02em}
-  .viz-item.pending{display:flex;align-items:center;justify-content:center;
-    aspect-ratio:4/3;color:var(--ink-soft);font-size:.84rem;background:var(--surface-soft)}
-  .viz-fallback{margin:12px 0 0;font-size:.78rem;font-weight:600;color:var(--ink-soft)}
-  .viz-note{margin-top:14px;font-size:.75rem;color:var(--ink-soft);line-height:1.5}
-  .viz-cta{margin-top:14px}
-  .viz-form{margin-top:14px;display:none;gap:10px;flex-wrap:wrap;align-items:flex-start}
-  .viz-form.open{display:flex}
+  /* הבקשה בנכס מסחרי: יושבת מתחת לרצועה ובשפת הטפסים של הדף, לא בשפת
+     הרצועה הכהה — היא חלק מהעמוד, לא חלק מהבאנר. */
+  .viz-ask{margin-top:14px;display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}
+  .viz-ask > .field{flex:1 1 260px;margin:0}
+  .viz-form{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-start;flex:1 1 340px}
   .viz-form .field{flex:1 1 160px;margin:0}
   /* שני שדות הקשר כיחידה אחת: הם נדרשים יחד או לא נדרשים בכלל, ומי
      שכבר מסר/ה אותם לנכס הזה לא רואה אף אחד מהם. */
   .viz-contact{display:flex;gap:10px;flex-wrap:wrap;flex:1 1 340px}
   .viz-contact[hidden]{display:none}
   .viz-contact .field{flex:1 1 160px;margin:0}
-  .viz-error{color:var(--gold-dark);font-size:.8rem;margin-top:8px;min-height:1em}
+  .viz-error{color:var(--gold-dark);font-size:.8rem;margin:8px 0 0;min-height:1em}
+  /* מה עובד עכשיו. בלי זה לחיצה על "יצירת הדמיה" נראית כאילו לא קרה כלום
+     עד שהתמונה מופיעה — וזה יכול לקחת דקה. */
+  .viz-pending{margin:6px 0 0;font-size:.82rem;font-weight:600;color:var(--ink-soft)}
 
   /* ====== מידע תכנוני (נכסי קרקע) ======
      הנתונים חוזרים על שפת הקפסולות של סרגל הנתונים (.spec-pill) ולא מקבלים
@@ -883,34 +877,32 @@
         </section>
 
         <!-- ====== הדמיות AI ======
-             מוצגת רק בנכסי Premium שיש להם הדמיות בסיס, ולכן היא hidden
-             כברירת מחדל ונפתחת רק אחרי ש-loadVisualizations מצא משהו להראות.
+             התיבה הזאת *היא* כלי ההדמיה של הנכס — לא נספח לו. היא מחליפה
+             את הסקציה "איך זה יכול להיראות" שהייתה כאן: אותם ארבעה
+             סגנונות, אותה יצירה לפי דרישה, אבל הצגה שמתחילה מהשוואה
+             במקום מרשת. הכותרת, השבבים, הכפתור, הווילון והתמונונות
+             מגיעים כולם מ-assets/ai-showcase.js.
+
              מקומה כאן ולא בסוף העמוד: אחרי רשת התוכן היא נחתה מתחת לכל
-             עמודת הצד, ובמובייל זה עומק שגולש/ת כמעט לא מגיע/ה אליו. -->
-        <section class="panel" id="vizSection" hidden>
-          <div class="viz-head">
-            <h2>איך זה יכול להיראות</h2>
-            <span class="viz-sub">הדמיות AI על בסיס התמונות האמיתיות של הנכס</span>
-          </div>
+             עמודת הצד, ובמובייל זה עומק שגולש/ת כמעט לא מגיע/ה אליו.
 
-          <div class="viz-styles" id="vizStyles"></div>
-          <div class="viz-grid" id="vizGrid"></div>
-          <p class="viz-fallback" id="vizFallbackNote" hidden></p>
-
-          <!-- ‏"עוד הדמיות של הנכס" ירד מכאן ועבר לרצועה שבתחתית העמוד,
-               מתחת לווילון: שם הוא יושב ליד ההשוואה שהוא מרחיב, ולא
-               פעמיים באותו עמוד. -->
+             ‏hidden כברירת מחדל ונפתחת רק אחרי ש-loadVisualizations אישרה
+             שהנכס זכאי. -->
+        <section id="vizSection" hidden>
+          <div id="aiShowcase"></div>
 
           <!-- ====== הבקשה ======
-               בנכס פרטי אין כאן טופס בכלל: ארבעת הסגנונות הם המוצר, ומסך
-               שדורש שם וטלפון לפני שרואים אותם הוא מחסום לפני הערך ולא
-               אחריו. הכפתור מייצר את ההדמיה, נקודה.
+               בנכס פרטי אין כאן כלום: הכפתור שברצועה מייצר את ההדמיה,
+               נקודה. ארבעת הסגנונות הם המוצר, ומסך שדורש שם וטלפון לפני
+               שרואים אותם הוא מחסום לפני הערך ולא אחריו.
 
-               בנכס מסחרי כן נדרשים פרטים — מי שמדמה עסק בנכס מסחרי הוא
-               לקוח בפועל, וזו הפנייה שהסוכן/ת מקבל/ת. גם שם נשאלים פעם
-               אחת: ‏#vizContact יורד ברגע שהפרטים כבר נמסרו לנכס הזה. -->
-          <div class="viz-cta" id="vizCta" hidden>
-            <button type="button" class="btn btn-gold" id="vizOpenBtn">לראות את הנכס בסגנון הזה</button>
+               בנכס מסחרי הבלוק הזה נפתח מתחת לרצועה: סוג העסק תמיד — בלעדיו
+               אין מה לדמות — ושם וטלפון רק למי שעדיין לא מסר/ה אותם לנכס
+               הזה. ‏#vizContact יורד ברגע שכבר נמסרו. -->
+          <div class="viz-ask" id="vizCta" hidden>
+            <div class="field">
+              <input type="text" id="vizBusiness" placeholder="איזה עסק תפתחו כאן? (למשל: בית קפה)">
+            </div>
             <form class="viz-form" id="vizForm" novalidate>
               <div class="viz-contact" id="vizContact">
                 <div class="field"><input type="text" id="vizName" placeholder="שם מלא" autocomplete="name"></div>
@@ -918,13 +910,12 @@
               </div>
               <button type="submit" class="btn btn-gold" id="vizSubmit">יצירת ההדמיה</button>
             </form>
-            <p class="viz-error" id="vizError" role="alert"></p>
           </div>
 
-          <p class="viz-note">
-            התמונות בסקציה זו הן הדמיות ממוחשבות שנוצרו מהתמונות האמיתיות של הנכס, ונועדו להמחשת פוטנציאל עיצובי בלבד.
-            אין בהן התחייבות לביצוע עבודות, לחומרים או לתוצאה בפועל, והן אינן מתעדות את מצב הנכס כיום.
-          </p>
+          <!-- מחוץ ל-#vizCta בכוונה: במסלול הפרטי אין טופס, ושגיאה עדיין
+               צריכה מקום להופיע בו. -->
+          <p class="viz-error" id="vizError" role="alert"></p>
+          <p class="viz-pending" id="vizPending" hidden></p>
         </section>
 
         <!-- ====== מיקום וסביבה ======
@@ -1056,13 +1047,6 @@
       </div>
     </div>
   </div>
-
-  <!-- ====== רצועת ההדמיות של הנכס ======
-       יושבת אחרי גוף הנכס (והמיקום בסופו) ולפני "נכסים דומים", ברוחב מלא.
-       הווילון שבתוכה משווה את הצילום האמיתי של הנכס להדמיה שלו, ומתחתיו
-       שאר הכיוונים העיצוביים שכבר הופקו לו. ריקה עד ש-loadVisualizations()
-       מרכיב אותה, ובנכס בלי הדמיות היא נשארת ריקה ולא תופסת מקום. -->
-  <div id="aiShowcase"></div>
 
   <!-- ====== נכסים דומים ======
        אותה שיטת מידוד כמו קרוסלות דף הבית: שלושה כרטיסים בתצוגה בכל רגע,
@@ -1880,53 +1864,29 @@ async function loadVisualizations(p){
       });
     });
 
-    // נכס מסחרי בלי הדמיה קיימת עדיין שווה הצגה — שם ההצעה עצמה ("איך
-    // ייראה כאן העסק שלך") היא המוצר. נכס פרטי בלי סט בסיס כן מוצג, כי
-    // ארבעת הסגנונות זמינים לפי דרישה.
+    // נכס בלי הדמיה קיימת עדיין שווה הצגה: התיבה היא הכלי שמייצר אותה,
+    // ובנכס מסחרי שם ההצעה עצמה ("איך ייראה כאן העסק שלך") היא המוצר.
     section.hidden = false;
     revealVizJumpButton();
-    if (vizState.isPrivate) renderVizStyles();
-    else renderVizCommercial();
 
     if (vizState.isPrivate){
       // פותחים על הסגנון שכבר קיים כדי שהמבקר/ת יראה תמונה מיד; אם אין סט
       // בסיס בכלל, נופלים לסגנון הראשון וכל הארבעה זמינים לפי דרישה.
       const first = vizState.byStyle.keys().next();
-      selectVizStyle(first.done ? VIZ_STYLES[0].key : first.value);
+      vizState.current = first.done ? VIZ_STYLES[0].key : first.value;
     } else {
-      // במסחרי אין סגנונות — כל התוצאות יושבות תחת מפתח יחיד
+      // במסחרי אין סגנונות — כל התוצאות יושבות תחת מפתח יחיד, והשאלה
+      // היחידה היא איזה עסק מדמים. הבלוק נפתח מיד ולא אחרי לחיצה: בלעדיו
+      // הכפתור שברצועה לא יודע מה ליצור.
       vizState.current = '_';
-      renderVizGrid();
+      document.getElementById('vizCta').hidden = false;
+      applyVizContactFields();
     }
 
     renderPropertyShowcase();
   } catch(e){
     console.warn('טעינת הדמיות נכשלה:', e);
   }
-}
-
-function renderVizStyles(){
-  const wrap = document.getElementById('vizStyles');
-  wrap.innerHTML = '';
-  VIZ_STYLES.forEach(s=>{
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'viz-style';
-    btn.dataset.style = s.key;
-    btn.innerHTML = `${s.label}<span class="viz-style-tag">${s.tag}</span>`;
-    btn.addEventListener('click', ()=>selectVizStyle(s.key));
-    wrap.appendChild(btn);
-  });
-}
-
-function renderVizCommercial(){
-  const wrap = document.getElementById('vizStyles');
-  wrap.innerHTML =
-    '<div class="field" style="flex:1 1 260px;margin:0">' +
-    '<input type="text" id="vizBusiness" placeholder="איזה עסק תפתחו כאן? (למשל: בית קפה)">' +
-    '</div>';
-  document.getElementById('vizCta').hidden = false;
-  document.getElementById('vizOpenBtn').textContent = 'לראות את העסק שלכם בנכס';
 }
 
 /* ---------- רצועת ההדמיות של הנכס ----------
@@ -1950,32 +1910,40 @@ function vizItemsFlat(){
   return out;
 }
 
-/* הכפתור ברצועה משנה משמעות לפי מה שכבר קיים: סגנון שיש לו הדמיות מוביל
-   לרשת שמציגה את כל החדרים שלו, וסגנון שטרם נוצר הוא הזמנה ליצור אותו.
-   בנכס מסחרי הוא תמיד מוביל לטופס — שם הפרטים באמת נדרשים. */
+/* הכפתור משנה משמעות לפי מה שכבר קיים לסגנון הנבחר:
+
+     סגנון שטרם נוצר — הזמנה ליצור אותו, וזו הלחיצה שמפעילה את ה-API.
+     סגנון שכבר קיים — אין כפתור בכלל. כל החדרים שלו כבר על המסך, ולחיצה
+       שהייתה מייצרת אותם מחדש היא הבטחה ריקה. השבבים הם הדרך לייצר עוד,
+       והם כבר שם.
+
+   בנכס מסחרי אין סגנונות והשאלה היא איזה עסק — הכפתור שם תמיד פעיל. */
 function vizBandCta(){
   const has = (vizState.byStyle.get(vizState.current) || []).length;
   if (!vizState.isPrivate){
-    return { label:'לראות את העסק שלכם בנכס', hint:'להמחשה עיצובית בלבד', busy:vizState.busy };
+    return { label:'יצירת הדמיה לעסק שלכם', busy:vizState.busy };
   }
+  if (has && !vizState.busy) return { label:null };
   const styleLabel = (VIZ_STYLES.find(x => x.key === vizState.current) || {}).label || '';
   return {
-    label: has ? 'לראות את כל החדרים בסגנון הזה'
-               : (styleLabel ? `יצירת הדמיה בסגנון ${styleLabel}` : 'יצירת הדמיה לנכס'),
-    hint: 'להמחשה עיצובית בלבד',
+    label: styleLabel ? `יצירת הדמיה בסגנון ${styleLabel}` : 'יצירת הדמיה לנכס',
     busy: vizState.busy,
   };
 }
 
 function onVizBandCta(){
-  const has = (vizState.byStyle.get(vizState.current) || []).length;
-  const section = document.getElementById('vizSection');
-  if (vizState.isPrivate && !has){ requestVisualization(); return; }
-  if (section && !section.hidden) section.scrollIntoView({ behavior:'smooth', block:'start' });
-  if (!vizState.isPrivate){
-    const openBtn = document.getElementById('vizOpenBtn');
-    if (openBtn && !openBtn.hidden) openBtn.click();
+  /* נכס פרטי: לחיצה אחת מייצרת. סגנון שכבר קיים לא נוצר מחדש — הצד השרת
+     מחזיר אותו מיד — ולכן אין כאן שני מסלולים.
+     נכס מסחרי: הבקשה זקוקה לסוג העסק, והכפתור מוביל אל השדה. */
+  if (vizState.isPrivate){ requestVisualization(); return; }
+  const business = document.getElementById('vizBusiness');
+  if (business && !business.value.trim()){
+    document.getElementById('vizCta').hidden = false;
+    business.scrollIntoView({ behavior:'smooth', block:'center' });
+    business.focus();
+    return;
   }
+  requestVisualization();
 }
 
 /* ‏ai-showcase.js נטען עם defer, ו-loadVisualizations יכול לסיים לפניו
@@ -1997,16 +1965,11 @@ function renderPropertyShowcase(){
     return;
   }
 
-  const items = vizItemsFlat();
-  /* בלי הדמיה אחת לפחות אין מה להשוות, והמכולה נשארת ריקה במקום להציג
-     שלד של רצועה. */
-  if (!items.length){ el.innerHTML = ''; return; }
-
+  /* גם רשימה ריקה נכנסת: התיבה היא כלי ההדמיה של הנכס, ובנכס זכאי שטרם
+     הופקה לו הדמיה היא מציגה כותרת, שבבים וכפתור בלי וילון. */
   window.AiShowcase.mountProperty(el, {
-    items,
-    /* השבבים הם אותם ארבעת הסגנונות של הסקציה שלמעלה ומסונכרנים איתה:
-       שני מקומות שמראים "הסגנון הנבחר" חייבים להראות את אותו סגנון.
-       בנכס מסחרי אין סגנונות — מדמים עסק, לא עיצוב. */
+    items: vizItemsFlat(),
+    /* ארבעת הסגנונות. בנכס מסחרי אין סגנונות — מדמים עסק, לא עיצוב. */
     styles: vizState.isPrivate ? VIZ_STYLES.map(x=>({ key:x.key, label:x.label })) : [],
     activeStyle: vizState.isPrivate ? vizState.current : null,
     leadPick: vizState.leadPick,
@@ -2022,68 +1985,22 @@ function renderPropertyShowcase(){
 
 function selectVizStyle(styleKey){
   vizState.current = styleKey;
-  document.querySelectorAll('.viz-style').forEach(b=>{
-    b.classList.toggle('active', b.dataset.style === styleKey);
-  });
-  renderVizGrid();
+  document.getElementById('vizError').textContent = '';
   renderPropertyShowcase();
 }
 
-function renderVizGrid(pendingTargets){
-  const grid = document.getElementById('vizGrid');
-  const cta = document.getElementById('vizCta');
-  const note = document.getElementById('vizFallbackNote');
-  const items = vizState.byStyle.get(vizState.current) || [];
-
-  /* הרשת לעולם לא מתרוקנת: כשהסגנון הנבחר טרם נוצר לנכס, נשארות על המסך
-     ההדמיות שכבר קיימות. גולש/ת שרואה תוצאה אמיתית לפני שנדרש/ת למסור פרטים
-     יודע/ת שהדבר הזה עובד — רשת ריקה עם טופס נראית כמו הבטחה על תנאי. */
-  const readyKey = [...vizState.byStyle.keys()].find(k => (vizState.byStyle.get(k) || []).length);
-  const readyItems = readyKey ? vizState.byStyle.get(readyKey) : [];
-  const isFallback = !items.length && readyItems.length > 0;
-  const shown = items.length ? items : readyItems;
-
-  grid.innerHTML = '';
-  shown.forEach(it=>{
-    const card = document.createElement('div');
-    card.className = 'viz-item';
-    card.innerHTML =
-      `<img src="${it.result_url}" alt="הדמיה של ${VIZ_TARGET_LABELS[it.target] || it.target}" loading="lazy">` +
-      `<span class="viz-badge">הדמיה</span>` +
-      `<div class="viz-room">${VIZ_TARGET_LABELS[it.target] || it.target}</div>`;
-    grid.appendChild(card);
-  });
-
-  (pendingTargets || []).forEach(t=>{
-    const card = document.createElement('div');
-    card.className = 'viz-item pending';
-    card.textContent = `יוצרים את ${VIZ_TARGET_LABELS[t] || t}…`;
-    grid.appendChild(card);
-  });
-
-  // הכפתור מוצג רק כשהסגנון הנבחר עצמו טרם נוצר — אין טעם להציע ליצור
-  // תמונה שכבר על המסך. מעבר בין סגנונות חייב להחזיר את הטופס למצב הסגור,
-  // אחרת מי שכבר פתח אותו פעם רואה שדות ריקים בלי כפתור.
-  if (vizState.isPrivate){
-    const stillWorking = !!(pendingTargets && pendingTargets.length);
-    cta.hidden = items.length > 0 || stillWorking;
-    const styleLabel = (VIZ_STYLES.find(x => x.key === vizState.current) || {}).label || '';
-    if (note){
-      note.hidden = !(isFallback && !stillWorking);
-      note.textContent = isFallback && styleLabel
-        ? `למעלה סט ההדמיות שכבר קיים לנכס. סגנון ${styleLabel} נוצר לפי בקשה.`
-        : '';
-    }
-    if (!cta.hidden && !vizState.busy){
-      document.getElementById('vizForm').classList.remove('open');
-      const openBtn = document.getElementById('vizOpenBtn');
-      openBtn.hidden = false;
-      openBtn.disabled = false;
-      // לחיצה אחת מייצרת — ולכן הכפתור אומר מה יקרה, לא לאן הוא מוביל
-      openBtn.textContent = styleLabel ? `יצירת הדמיה בסגנון ${styleLabel}` : 'יצירת הדמיה לנכס';
-      document.getElementById('vizError').textContent = '';
-    }
-  }
+/* ---------- מה עובד ברקע ----------
+   הרשת של "יוצרים את המטבח…" ירדה יחד עם הרשת עצמה; מה שנשאר הוא שורת
+   מצב אחת מתחת לתיבה. שני החדרים של אותה בקשה מסתיימים בפער של שניות,
+   ורשת שמראה אריח ממתין לכל אחד מהם הייתה רעש ולא מידע. */
+function renderVizPending(targets){
+  const el = document.getElementById('vizPending');
+  if (!el) return;
+  const list = targets || [];
+  if (!list.length){ el.hidden = true; el.textContent = ''; return; }
+  const names = list.map(t => VIZ_TARGET_LABELS[t] || t).join(', ');
+  el.textContent = `יוצרים את ${names}… זה יכול לקחת עד דקה.`;
+  el.hidden = false;
 }
 
 /* ---------- זיכרון הפרטים של המבקר/ת ----------
@@ -2151,7 +2068,6 @@ async function requestVisualization(){
   const errEl = document.getElementById('vizError');
   const business = document.getElementById('vizBusiness');
   const submitBtn = document.getElementById('vizSubmit');
-  const form = document.getElementById('vizForm');
   errEl.textContent = '';
 
   let name = '', phone = '';
@@ -2171,8 +2087,8 @@ async function requestVisualization(){
 
   vizState.busy = true;
   if (submitBtn){ submitBtn.disabled = true; submitBtn.textContent = 'יוצרים…'; }
-  const openBtn = document.getElementById('vizOpenBtn');
-  if (openBtn){ openBtn.disabled = true; openBtn.textContent = 'יוצרים…'; }
+  // הכפתור שבתיבה נמצא ב-innerHTML שמורכב מחדש, ולכן מצב ה"יוצרים…" שלו
+  // עובר דרך vizState.busy ולא דרך נגיעה ישירה באלמנט.
   renderPropertyShowcase();
 
   try{
@@ -2198,50 +2114,30 @@ async function requestVisualization(){
     }
 
     if (name && phone) rememberContact(name, phone, vizState.propertyId);
+    // הפרטים כבר נמסרו — הבלוק סוגר את עצמו, וההדמיה הבאה לאותו נכס
+    // תיווצר בלחיצה אחת.
+    if (!vizState.isPrivate) applyVizContactFields();
 
-    if (form) form.classList.remove('open');
-    document.getElementById('vizCta').hidden = true;
     mergeVizResults(out.ready || []);
 
     if (out.job_id) await pollVisualizationJob(out.job_id, out.pending_targets || []);
-    else renderVizGrid();
 
     showToast(vizState.isPrivate
       ? 'ההדמיה מוכנה'
       : 'ההדמיה מוכנה. הסוכן/ת יחזור/תחזור אליכם בקרוב');
   } catch(e){
     errEl.textContent = e.message || 'שגיאה ביצירת ההדמיה';
-    const btn = document.getElementById('vizOpenBtn');
-    if (btn) btn.hidden = false;
-    document.getElementById('vizCta').hidden = false;
   } finally{
     vizState.busy = false;
     if (submitBtn){ submitBtn.disabled = false; submitBtn.textContent = 'יצירת ההדמיה'; }
-    const btn = document.getElementById('vizOpenBtn');
-    if (btn) btn.disabled = false;
-    renderVizGrid();
+    renderVizPending([]);
     renderPropertyShowcase();
   }
 }
 
 function initVisualizationForm(){
-  const openBtn = document.getElementById('vizOpenBtn');
   const form = document.getElementById('vizForm');
-  if (!openBtn || !form) return;
-
-  /* בנכס פרטי הכפתור *הוא* הבקשה — אין טופס להיפתח. בנכס מסחרי הוא פותח
-     את הטופס, ובו רק מה שבאמת חסר: סוג העסק תמיד, שם וטלפון רק למי
-     שעדיין לא מסר/ה אותם לנכס הזה. */
-  openBtn.addEventListener('click', ()=>{
-    if (vizState.isPrivate){ requestVisualization(); return; }
-    form.classList.add('open');
-    openBtn.hidden = true;
-    applyVizContactFields();
-    const first = form.querySelector('input:not([hidden])');
-    const business = document.getElementById('vizBusiness');
-    (business && !business.value.trim() ? business : first)?.focus();
-  });
-
+  if (!form) return;
   form.addEventListener('submit', (ev)=>{
     ev.preventDefault();
     requestVisualization();
@@ -2269,7 +2165,7 @@ async function pollVisualizationJob(jobId, pendingTargets){
   const DEADLINE = Date.now() + 180000;
   let remaining = pendingTargets.slice();
 
-  renderVizGrid(remaining);
+  renderVizPending(remaining);
 
   while (Date.now() < DEADLINE){
     await new Promise(r=>setTimeout(r, 4000));
@@ -2278,13 +2174,13 @@ async function pollVisualizationJob(jobId, pendingTargets){
 
     mergeVizResults(rows.filter(r=>r.item_status === 'done'));
     remaining = remaining.filter(t=>!rows.some(r=>r.target === t && r.item_status !== 'pending' && r.item_status !== 'processing'));
-    renderVizGrid(remaining);
+    renderVizPending(remaining);
 
     const jobStatus = rows[0] && rows[0].job_status;
     if (jobStatus === 'done' || jobStatus === 'failed') break;
   }
 
-  renderVizGrid();
+  renderVizPending([]);
 }
 
 /* ---------- נכסים דומים ----------
