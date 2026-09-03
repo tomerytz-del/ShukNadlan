@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>פרויקטים חדשים מקבלנים ויזמים בעפולה והעמק | שוק נדל״ן</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta name="description" content="כל הפרויקטים החדשים מקבלנים ויזמים בעפולה, עפולה עילית והעמק — דירות מקבלן, מחירון, תמהיל דירות, סיורי 3D וחוברות מכר. חיפוש ייעודי לפרויקטים חדשים.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="פרויקטים חדשים מקבלנים ויזמים | שוק נדל״ן">
+<meta property="og:description" content="כל הפרויקטים החדשים בעפולה והעמק במקום אחד — דירות מקבלן, תמהיל, סיורי 3D וחומר שיווקי להורדה.">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  /* אותה פלטה ואותם רכיבים כמו דף הבית ודף הכתבות — הקובץ
+     assets/design-system.css נטען אחרי הבלוק הזה והוא זה שמכריע. */
+  :root{
+    --ink:#0d1b3d; --ink-soft:#4a5578; --ink-muted:#6b7796;
+    --paper:#f4f7fe; --paper-raised:#ffffff; --surface:#ffffff;
+    --line:#e3e8f4; --hair:#eef1f8; --field:#eef2fb;
+    --teal:#0e2a6b; --teal-dark:#0d1b3d; --teal-tint:#eaf0fb;
+    --gold:#0e2a6b; --gold-dark:#08194a; --gold-tint:#f7f1e2; --brass:#c9a227;
+    --radius-sm:0; --radius-md:0; --radius-lg:0;
+    --shadow:0 10px 30px -24px rgba(14,42,107,.5); --shadow-sm:0 2px 8px rgba(14,42,107,.08);
+    --maxw:1180px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  [hidden]{display:none !important}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;line-height:1.15;color:var(--teal-dark);margin:0}
+  a{color:inherit;text-decoration:none}
+  img{max-width:100%;display:block}
+  button{font-family:inherit;cursor:pointer;border:none;background:none}
+  input,select,textarea{font-family:inherit;font-size:1rem;min-width:0}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
+  .eyebrow{font-size:.72rem;letter-spacing:.08em;font-weight:700;color:var(--gold-dark);text-transform:uppercase;display:flex;align-items:center;gap:8px}
+  .eyebrow::before{content:"";width:18px;height:2px;background:var(--gold-dark);display:inline-block}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 22px;border-radius:0;font-weight:700;font-size:.9rem;transition:transform .15s ease,box-shadow .15s ease}
+  .btn-teal{background:var(--teal);color:#fff}
+  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}
+  .btn-ghost{border:1.5px solid var(--line);background:#fff;color:var(--teal-dark)}
+  .btn-ghost:hover{border-color:var(--teal)}
+  :focus-visible{outline:3px solid var(--brass);outline-offset:2px}
+  .skip-link{position:absolute;right:-999px;top:0;background:var(--teal);color:#fff;padding:10px 16px;z-index:200}
+  .skip-link:focus{right:0}
+
+  /* ====== Header ====== */
+  header.site{position:sticky;top:0;z-index:100;background:var(--paper-raised);border-bottom:1px solid var(--line);padding:12px 0}
+  .header-inner{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .logo{display:flex;align-items:center;gap:10px;min-width:0}
+  .logo-img{height:44px;width:auto;flex:0 0 auto}
+  .logo-word{font-family:'Rubik','Heebo',sans-serif;font-weight:500;color:var(--teal-dark);font-size:.8rem;line-height:1.3;letter-spacing:-.012em;min-width:0;text-align:center}
+  .logo-word span{color:var(--gold-dark);font-weight:700}
+  @media(min-width:900px){.logo-img{height:52px}.logo-word{font-size:.95rem;white-space:nowrap}}
+  .head-links{display:flex;align-items:center;gap:14px}
+  .back-link{font-size:.85rem;font-weight:700;color:var(--teal);white-space:nowrap;border-bottom:1.5px solid var(--brass);padding-bottom:2px}
+  .head-cta{display:none}
+  @media(min-width:760px){.head-cta{display:inline-flex}}
+
+  /* ====== ראש העמוד + סרגל החיפוש הייעודי ======
+     בורר סוג העסקה כאן זהה לזה שבדף הבית, כולל האפשרות הרביעית. הוא
+     נשאר בעמוד כדי שמי שהגיע/ה לפרויקטים ומחפש/ת בעצם דירה יד שנייה
+     יוכל/תוכל לעבור בלי לחזור אחורה — בחירה בשלוש הראשונות מעבירה
+     לדף הבית עם אותו טקסט חופשי. */
+  .hero{background:linear-gradient(160deg,#0d1b3d 0%,#0e2a6b 62%,#123a8f 100%);color:#fff;padding:34px 0 30px;position:relative;overflow:hidden}
+  .hero::after{content:"";position:absolute;inset-inline-start:-80px;bottom:-120px;width:340px;height:340px;border:1px solid rgba(255,255,255,.09);border-radius:50%}
+  .hero .eyebrow{color:#e5c76a}
+  .hero .eyebrow::before{background:#e5c76a}
+  .hero h1{color:#fff;font-size:1.75rem;margin-top:10px}
+  @media(min-width:760px){.hero h1{font-size:2.45rem}}
+  .hero .lede{color:rgba(255,255,255,.86);font-size:.95rem;margin:10px 0 0;max-width:60ch}
+  .search-card{background:#fff;padding:10px;display:grid;gap:8px;margin-top:20px;box-shadow:0 26px 60px -34px rgba(0,0,0,.6);position:relative;z-index:2}
+  @media(min-width:860px){.search-card{grid-template-columns:170px 1fr auto;align-items:center}}
+  .deal-select{border:1.5px solid var(--line);background:var(--field);color:var(--teal-dark);font-weight:700;font-size:.88rem;padding:12px 12px;appearance:none;background-image:url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230e2a6b' stroke-width='2.4' stroke-linecap='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:left 10px center;background-size:15px}
+  .search-input{border:1.5px solid var(--line);padding:12px 14px;font-size:.92rem;color:var(--ink)}
+  .search-input:focus{border-color:var(--teal);outline:none}
+  .search-go{background:var(--teal);color:#fff;font-weight:700;padding:12px 26px;font-size:.92rem}
+  .quick-row{display:flex;flex-wrap:wrap;gap:7px;margin-top:12px;position:relative;z-index:2}
+  .quick-chip{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.24);color:#fff;font-size:.76rem;font-weight:700;padding:6px 13px}
+  .quick-chip[aria-pressed="true"]{background:#fff;color:var(--teal-dark);border-color:#fff}
+
+  /* ====== מסננים ====== */
+  .filters{background:#fff;border:1px solid var(--line);padding:14px;margin-top:-1px;display:grid;gap:10px}
+  @media(min-width:760px){.filters{grid-template-columns:repeat(4,1fr)}}
+  @media(min-width:1040px){.filters{grid-template-columns:repeat(5,1fr)}}
+  .filters label{font-size:.7rem;font-weight:800;color:var(--ink-soft);display:block;margin-bottom:4px;letter-spacing:.02em}
+  .filters select,.filters input{width:100%;border:1.5px solid var(--line);padding:9px 10px;font-size:.85rem;background:#fff;color:var(--ink)}
+  .filters-foot{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-top:4px}
+  .result-count{font-size:.82rem;color:var(--ink-soft);font-weight:700}
+  .link-btn{font-size:.8rem;font-weight:700;color:var(--teal);border-bottom:1.5px solid var(--brass);padding-bottom:1px}
+
+  /* ====== רצועות וגריד ====== */
+  .section{padding:30px 0}
+  .section-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:14px;flex-wrap:wrap}
+  .section-head h2{font-size:1.35rem}
+  .section-head p{margin:5px 0 0;font-size:.84rem;color:var(--ink-soft)}
+  .grid{display:grid;grid-template-columns:1fr;gap:14px}
+  @media(min-width:560px){.grid{grid-template-columns:repeat(2,1fr)}}
+  @media(min-width:900px){.grid{grid-template-columns:repeat(3,1fr)}}
+  @media(min-width:1120px){.grid{grid-template-columns:repeat(4,1fr)}}
+  /* גלריית המקודמים: שני האריחים הראשונים גדולים יותר — זה מה שנקנה. */
+  .grid.promoted-rail{grid-template-columns:1fr}
+  @media(min-width:760px){
+    .grid.promoted-rail{grid-template-columns:repeat(2,1fr)}
+    /* האריח המקודם רחב פי שניים מהרגיל, ולכן 4/3 הופך אותו לחצי מסך.
+       ‏16/9 שומר עליו בולט בלי שיבלע את הרשימה שמתחתיו. */
+    .grid.promoted-rail .pj-card .pj-cover{aspect-ratio:16/9}
+    .grid.promoted-rail .pj-card .pj-cover-foot b{font-size:1.3rem}
+  }
+  .state{padding:48px 18px;text-align:center;color:var(--ink-soft);font-size:.92rem}
+  .state h2{font-size:1.2rem;margin-bottom:8px}
+
+  /* ====== תיבת הלידים ======
+     יושבת בין המקודמים לרשימה המלאה ולא בתחתית העמוד: מי שגלל/ה את
+     ארבעת הפרויקטים הראשונים ולא מצא/ה — זה הרגע שבו הוא/היא עוזב/ת. */
+  .lead-box{background:var(--teal-dark);color:#fff;padding:22px 18px;position:relative;overflow:hidden}
+  @media(min-width:900px){.lead-box{padding:28px 30px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.15fr);gap:30px;align-items:center}}
+  .lead-box h2{color:#fff;font-size:1.35rem}
+  .lead-box p{color:rgba(255,255,255,.84);font-size:.88rem;margin:9px 0 0;max-width:46ch}
+  .lead-box .perks{list-style:none;padding:0;margin:14px 0 0;display:flex;flex-wrap:wrap;gap:8px 16px;font-size:.79rem;color:rgba(255,255,255,.8)}
+  .lead-box .perks li::before{content:"✓ ";color:#e5c76a;font-weight:800}
+  .lead-form{background:#fff;padding:16px;margin-top:18px;display:grid;gap:9px}
+  @media(min-width:900px){.lead-form{margin-top:0}}
+  .lead-form .row{display:grid;gap:9px}
+  @media(min-width:520px){.lead-form .row{grid-template-columns:1fr 1fr}}
+  .lead-form label{font-size:.7rem;font-weight:800;color:var(--ink-soft);display:block;margin-bottom:4px}
+  .lead-form input,.lead-form select,.lead-form textarea{width:100%;border:1.5px solid var(--line);padding:10px;font-size:.87rem;color:var(--ink);background:#fff}
+  .lead-form textarea{resize:vertical;min-height:62px}
+  .lead-form .consent{display:flex;gap:8px;align-items:flex-start;font-size:.74rem;color:var(--ink-soft);line-height:1.45}
+  .lead-form .consent input{width:16px;height:16px;flex:none;margin-top:2px;accent-color:var(--teal)}
+  .lead-msg{font-size:.82rem;min-height:1.2em;font-weight:700}
+
+  /* ====== רצועת היזמים ====== */
+  .dev-rail{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+  .dev-tile{background:#fff;border:1px solid var(--line);padding:14px;display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;transition:border-color .15s ease,transform .15s ease}
+  .dev-tile:hover{border-color:var(--teal);transform:translateY(-2px)}
+  .dev-tile .mark{width:56px;height:56px;background:var(--teal-tint) center/contain no-repeat;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--teal);font-size:1.2rem}
+  .dev-tile b{font-size:.86rem;line-height:1.3}
+  .dev-tile span{font-size:.72rem;color:var(--ink-muted)}
+
+  /* ====== באנר הצטרפות ליזמים ====== */
+  .join-banner{border:1px solid var(--line);background:#fff;padding:20px;display:flex;flex-wrap:wrap;gap:14px;align-items:center;justify-content:space-between}
+  .join-banner h3{font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;margin:0;color:var(--teal-dark)}
+  .join-banner p{margin:6px 0 0;font-size:.84rem;color:var(--ink-soft);max-width:62ch}
+  .price-pill{display:inline-flex;align-items:center;gap:6px;background:var(--gold-tint);color:#8a6d10;font-weight:800;font-size:.76rem;padding:4px 10px;margin-inline-start:8px}
+</style>
+<link rel="stylesheet" href="assets/site-footer.css">
+<link rel="stylesheet" href="assets/design-system.css">
+<script src="assets/page-bg.js" data-auto></script>
+<script src="assets/project-card.js"></script>
+<script src="assets/site-footer.js" defer></script>
+</head>
+<body>
+
+<a href="#main" class="skip-link">דילוג לתוכן</a>
+
+<header class="site">
+  <div class="wrap header-inner">
+    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+      <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
+      <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
+    </a>
+    <div class="head-links">
+      <a href="developer-crm.html" class="btn btn-ghost head-cta" style="padding:9px 16px;font-size:.82rem">כניסת יזמים</a>
+      <a href="index.html" class="back-link">← לדף הבית</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ====== ראש העמוד וסרגל החיפוש הייעודי ====== -->
+  <section class="hero">
+    <div class="wrap">
+      <p class="eyebrow">פרויקטים חדשים</p>
+      <h1>דירות מקבלן בעפולה והעמק</h1>
+      <p class="lede">כל הפרויקטים החדשים של הקבלנים והיזמים באזור במקום אחד — תמהיל דירות, מחירים, סיורי 3D וחוברות מכר להורדה, בלי לרדוף אחרי משרדי מכירות.</p>
+
+      <div class="search-card">
+        <select id="dealTypeSelect" class="deal-select" data-mode="projects" aria-label="סוג עסקה">
+          <option value="sale">מכירה</option>
+          <option value="rent">השכרה</option>
+          <option value="commercial">מסחרי</option>
+          <option value="projects" selected>פרויקטים חדשים</option>
+        </select>
+        <input type="search" class="search-input" id="projectSearch" placeholder="שם פרויקט, עיר, שכונה או רחוב…" aria-label="חיפוש בפרויקטים החדשים" autocomplete="off">
+        <button type="button" class="search-go" id="searchGo">חיפוש</button>
+      </div>
+
+      <div class="quick-row" id="quickChips" role="group" aria-label="סינון מהיר לפי שלב הפרויקט"></div>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <!-- ====== מסננים ייעודיים לפרויקטים ======
+         שלב, עיר, חדרים ותקציב — ארבעת הדברים שמחפש/ת פרויקט חדש שואל/ת
+         עליהם, ובסדר הזה. הכול מסנן את מה שכבר נטען בדפדפן: מספר
+         הפרויקטים באזור קטן מכדי להצדיק שאילתה בכל הקלדה. -->
+    <div class="filters" id="filters" hidden>
+      <div>
+        <label for="fCity">עיר</label>
+        <select id="fCity"><option value="">כל הערים</option></select>
+      </div>
+      <div>
+        <label for="fRooms">חדרים</label>
+        <select id="fRooms">
+          <option value="">הכל</option>
+          <option value="2">2 ומעלה</option>
+          <option value="3">3 ומעלה</option>
+          <option value="4">4 ומעלה</option>
+          <option value="5">5 ומעלה</option>
+          <option value="6">6 ומעלה</option>
+        </select>
+      </div>
+      <div>
+        <label for="fMaxPrice">תקציב עד</label>
+        <select id="fMaxPrice">
+          <option value="">ללא הגבלה</option>
+          <option value="1200000">1.2 מיליון ₪</option>
+          <option value="1500000">1.5 מיליון ₪</option>
+          <option value="1800000">1.8 מיליון ₪</option>
+          <option value="2200000">2.2 מיליון ₪</option>
+          <option value="3000000">3 מיליון ₪</option>
+        </select>
+      </div>
+      <div>
+        <label for="fStage">שלב הפרויקט</label>
+        <select id="fStage"><option value="">כל השלבים</option></select>
+      </div>
+      <div>
+        <label for="fSort">מיון</label>
+        <select id="fSort">
+          <option value="promoted">מקודמים ואז החדשים</option>
+          <option value="price_asc">מחיר — מהנמוך לגבוה</option>
+          <option value="price_desc">מחיר — מהגבוה לנמוך</option>
+          <option value="occupancy">אכלוס קרוב</option>
+        </select>
+      </div>
+      <div class="filters-foot" style="grid-column:1/-1">
+        <p class="result-count" id="resultCount" aria-live="polite"></p>
+        <button type="button" class="link-btn" id="clearFilters">ניקוי כל הסינונים</button>
+      </div>
+    </div>
+
+    <div class="state" id="loadingState">טוען פרויקטים…</div>
+
+    <div class="state" id="emptyState" hidden>
+      <h2>עוד אין פרויקטים חדשים באוויר</h2>
+      <p>הקבלנים והיזמים הראשונים בונים עכשיו את הדפים שלהם. בינתיים אפשר לראות מה יש בשוק היד־שנייה.</p>
+      <a href="index.html#listings" class="btn btn-teal" style="margin-top:14px">לכל הנכסים</a>
+    </div>
+
+    <!-- ====== הפרויקטים המקודמים ======
+         שני המקומות האלה הם מה שנמכר ב-50 ₪ לשבוע, והם מסומנים ככאלה
+         בגלוי: "מקודם" על האריח, ושורת ההסבר מתחת לכותרת. פרסום שלא
+         מסומן כפרסום שוחק את האמון בכל שאר הרשימה. -->
+    <section class="section" id="promotedSec" hidden>
+      <div class="section-head">
+        <div>
+          <h2>פרויקטים מקודמים</h2>
+          <p>תוכן שיווקי בתשלום של היזם. שאר הרשימה מסודרת לפי מועד פרסום בלבד.</p>
+        </div>
+      </div>
+      <div class="grid promoted-rail" id="promotedGrid"></div>
+    </section>
+
+    <!-- ====== תיבת הלידים ====== -->
+    <section class="section" id="leadSec">
+      <div class="lead-box">
+        <div>
+          <p class="eyebrow" style="color:#e5c76a">שירות חינם למחפשים</p>
+          <h2>מחפשים פרויקט חדש ולא מוצאים?</h2>
+          <p>השאירו פרטים ומה אתם מחפשים — ונחבר אתכם ליזמים ולקבלנים שיש להם בדיוק את זה, כולל פרויקטים שעוד לא יצאו לשיווק פומבי.</p>
+          <ul class="perks">
+            <li>בלי עלות ובלי התחייבות</li>
+            <li>פנייה ישירה ממשרד המכירות</li>
+            <li>גם פרויקטים לפני שיווק</li>
+          </ul>
+        </div>
+
+        <form class="lead-form" id="leadForm" novalidate>
+          <div class="row">
+            <div>
+              <label for="ldName">שם מלא</label>
+              <input type="text" id="ldName" name="name" autocomplete="name" required>
+            </div>
+            <div>
+              <label for="ldPhone">טלפון</label>
+              <input type="tel" id="ldPhone" name="phone" autocomplete="tel" inputmode="tel" required>
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label for="ldCity">עיר מבוקשת</label>
+              <input type="text" id="ldCity" name="city" list="cityList" placeholder="עפולה, מגדל העמק…">
+              <datalist id="cityList"></datalist>
+            </div>
+            <div>
+              <label for="ldRooms">חדרים</label>
+              <select id="ldRooms">
+                <option value="">לא משנה</option>
+                <option value="2">2 חדרים</option>
+                <option value="3">3 חדרים</option>
+                <option value="4">4 חדרים</option>
+                <option value="5">5 חדרים</option>
+                <option value="6">6 חדרים ומעלה</option>
+              </select>
+            </div>
+          </div>
+          <div class="row">
+            <div>
+              <label for="ldBudget">תקציב עד</label>
+              <select id="ldBudget">
+                <option value="">לא הוגדר</option>
+                <option value="1200000">1.2 מיליון ₪</option>
+                <option value="1500000">1.5 מיליון ₪</option>
+                <option value="1800000">1.8 מיליון ₪</option>
+                <option value="2200000">2.2 מיליון ₪</option>
+                <option value="3000000">3 מיליון ₪ ומעלה</option>
+              </select>
+            </div>
+            <div>
+              <label for="ldTimeline">מתי רלוונטי</label>
+              <select id="ldTimeline">
+                <option value="now">מיד</option>
+                <option value="3_months">בשלושה חודשים</option>
+                <option value="6_months" selected>בחצי שנה</option>
+                <option value="12_months">בשנה</option>
+                <option value="exploring">רק בודק/ת</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label for="ldNote">משהו נוסף שחשוב שנדע</label>
+            <textarea id="ldNote" rows="2" placeholder="למשל: קומה גבוהה, מרפסת גדולה, קרוב לבית ספר…"></textarea>
+          </div>
+          <label class="consent">
+            <input type="checkbox" id="ldConsent" checked>
+            <span>אני מאשר/ת שיזמים וקבלנים רלוונטיים ייצרו איתי קשר בטלפון או בוואטסאפ בנוגע לפרויקטים מתאימים. אפשר להסיר בכל רגע.</span>
+          </label>
+          <button type="submit" class="btn btn-teal" id="ldSubmit">שלחו לי הצעות</button>
+          <p class="lead-msg" id="leadMsg" role="status" aria-live="polite"></p>
+        </form>
+      </div>
+    </section>
+
+    <!-- ====== כל הפרויקטים ====== -->
+    <section class="section" id="allSec">
+      <div class="section-head">
+        <div>
+          <h2 id="allHeading">כל הפרויקטים החדשים</h2>
+          <p id="allSub">לפי מועד פרסום — החדשים ביותר בראש.</p>
+        </div>
+      </div>
+      <div class="grid" id="projectsGrid"></div>
+      <div class="state" id="noResultsState" hidden>
+        <h2>לא נמצאו פרויקטים</h2>
+        <p>אף פרויקט לא עונה על הסינון הזה. אפשר לנקות את הסינונים או להשאיר פרטים בתיבה שלמעלה — נחפש בשבילכם.</p>
+      </div>
+    </section>
+
+    <!-- ====== היזמים והקבלנים ====== -->
+    <section class="section" id="devsSec" hidden>
+      <div class="section-head">
+        <div>
+          <h2>הקבלנים והיזמים באזור</h2>
+          <p>לכל חברה דף משלה עם כל הפרויקטים הפעילים שלה.</p>
+        </div>
+      </div>
+      <div class="dev-rail" id="devRail"></div>
+    </section>
+
+    <!-- ====== הצטרפות ליזמים ====== -->
+    <section class="section">
+      <div class="join-banner">
+        <div>
+          <h3>אתם קבלנים או יזמים?</h3>
+          <p>פתחו דף חברה, והעלו כל פרויקט לדף נחיתה משלו — לוגו, תמונת נושא, גלריה, סרטונים, סיור 3D, תמהיל דירות וחוברת מכר להורדה. הפרויקט מוצג בדף הבית, בדף החברה שלכם ובדף הזה.</p>
+          <p style="margin-top:8px">
+            <span class="price-pill" id="pricePage">דף נחיתה · 350 ₪ לחודש</span>
+            <span class="price-pill" id="pricePromote">קידום · 50 ₪ לשבוע</span>
+          </p>
+        </div>
+        <a href="developer-signup.html" class="btn btn-teal">פתיחת חשבון יזם</a>
+      </div>
+    </section>
+  </div>
+</main>
+<footer class="site">
+
+  <!-- רצועת הניוזלטר: ההרשמה נשלחת ל-Edge Function ולא ישירות לטבלה, מאותה
+       סיבה כמו שאר הטפסים הציבוריים באתר — הכתיבה נעשית ב-service_role
+       והטבלה סגורה ל-anon לגמרי (אימייל של אדם פרטי). -->
+  <div class="footer-news">
+    <div class="footer-wrap footer-news-inner">
+      <div class="footer-news-text">
+        <h4>הנכסים החדשים בעפולה — ראשונים אצלכם</h4>
+        <p>עדכון אחד בשבוע למייל. בלי ספאם, אפשר להסיר בכל רגע.</p>
+      </div>
+      <form class="footer-news-form" id="newsletterForm" data-source="articles_page" novalidate>
+        <label class="footer-sr-only" for="newsletterEmail">כתובת אימייל להרשמה לעדכונים</label>
+        <input type="email" id="newsletterEmail" name="email" autocomplete="email" inputmode="email"
+               placeholder="האימייל שלך" required>
+        <button type="submit" id="newsletterBtn">הרשמה</button>
+      </form>
+      <p class="footer-news-msg" id="newsletterMsg" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="footer-wrap footer-top">
+
+    <div class="footer-brand">
+      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+        <img src="assets/logo-shuknadlan-dark.svg" alt="" width="52" height="62" loading="lazy">
+        <span>שוק הנדל״ן<br>של עפולה והסביבה</span>
+      </a>
+      <p class="footer-tagline">
+        <span>כל הנכסים, כל המתווכים ובעלי המקצוע בעפולה והעמק בכתובת אחת</span>
+        <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
+      </p>
+      <div class="footer-cta">
+        <a href="agency-signup.html" class="footer-btn-primary">הצטרפות כמשרד תיווך</a>
+        <a href="developer-signup.html" class="footer-btn-ghost">הצטרפות כיזם/קבלן</a>
+        <a href="professional-signup.html" class="footer-btn-ghost">הצטרפות כבעל מקצוע</a>
+      </div>
+
+      <div class="footer-meta">
+        <div class="footer-contact">
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 10c0 5.2-8 12-8 12s-8-6.8-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.8"/>
+            </svg>
+            <span>רחוב חטיבה תשע 18, עפולה</span>
+          </p>
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3.5 6.5h17v11h-17z"/><path d="m3.5 7 8.5 6 8.5-6"/>
+            </svg>
+            <a href="mailto:shuknadlan@gmail.com">shuknadlan@gmail.com</a>
+          </p>
+        </div>
+
+        <div class="footer-social">
+          <a href="https://www.facebook.com/share/19LytY6L6b/" target="_blank" rel="noopener noreferrer"
+             aria-label="שוק הנדל״ן בפייסבוק — נפתח בחלון חדש" title="פייסבוק">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06C2 17.08 5.66 21.24 10.44 22v-7.03H7.9v-2.91h2.54V9.85c0-2.52 1.49-3.91 3.77-3.91 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.78-1.63 1.57v1.89h2.78l-.44 2.91h-2.34V22C18.34 21.24 22 17.08 22 12.06Z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <nav class="footer-grid" aria-label="ניווט בתחתית העמוד">
+      <div class="footer-col">
+        <h4>נכסים</h4>
+        <a href="index.html#saleProps">למכירה בעפולה</a>
+        <a href="index.html#rentProps">להשכרה בעפולה</a>
+        <a href="index.html#commercialProps">נכסים מסחריים</a>
+        <a href="index.html#listings">כל הנכסים</a>
+        <a href="projects.html">פרויקטים חדשים</a>
+      </div>
+      <div class="footer-col">
+        <h4>כלים</h4>
+        <a href="index.html#calc">מחשבון משכנתא</a>
+        <a href="index.html#heroSection">חיפוש על המפה</a>
+        <a href="index.html#featured">נכסים מובחרים</a>
+        <a href="articles.html">כתבות ובלוגים</a>
+      </div>
+      <div class="footer-col">
+        <h4>בעלי מקצוע</h4>
+        <a href="agencies.html">כל משרדי התיווך</a>
+        <a href="agents.html">כל המתווכים</a>
+        <a href="index.html#pros">בעלי מקצוע</a>
+        <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
+        <a href="developer-signup.html">הצטרפות כיזם/קבלן</a>
+      </div>
+      <div class="footer-col">
+        <h4>שוק נדל״ן</h4>
+        <a href="about.html">אודות</a>
+        <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
+        <a href="faq.html">שאלות נפוצות</a>
+        <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
+        <a href="crm.html">כניסת מתווכים</a>
+      </div>
+    </nav>
+
+  </div>
+
+  <!-- חיפושים פופולריים: קישורים פנימיים שמגיעים לתוצאות מסוננות דרך
+       פרמטרים ב-URL (ראו applyDeepLinkFilters ב-index.html). זה הבלוק
+       שמאפשר למנוע החיפוש להגיע לעמודי תוצאות ולא רק לדף הבית הכללי. -->
+  <details class="footer-wrap footer-seo" id="footerSeo" open>
+    <summary><h4>חיפושים פופולריים בעפולה והעמק</h4></summary>
+    <div class="footer-seo-links">
+      <a href="index.html?deal=sale&amp;rooms=3">דירות 3 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;rooms=4">דירות 4 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;rooms=5">דירות 5 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;maxPrice=1500000">נכסים בעפולה עד 1.5 מיליון ₪</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%93%D7%99%D7%A8%D7%AA%20%D7%92%D7%9F">דירות גן בעפולה</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%92%D7%92%2F%D7%A4%D7%A0%D7%98%D7%94%D7%90%D7%95%D7%96">פנטהאוזים בעפולה</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%91%D7%99%D7%AA%20%D7%A4%D7%A8%D7%98%D7%99%2F%D7%A7%D7%95%D7%98%D7%92'">בתים פרטיים בעפולה והעמק</a>
+      <a href="index.html?deal=sale&amp;q=%D7%92%D7%91%D7%A2%D7%AA%20%D7%94%D7%9E%D7%95%D7%A8%D7%94">נכסים בגבעת המורה</a>
+      <a href="index.html?deal=sale&amp;q=%D7%A2%D7%A4%D7%95%D7%9C%D7%94%20%D7%A2%D7%99%D7%9C%D7%99%D7%AA">נכסים בעפולה עילית</a>
+      <a href="index.html?deal=rent&amp;rooms=3">דירות 3 חדרים להשכרה בעפולה</a>
+      <a href="index.html?deal=rent&amp;rooms=4">דירות 4 חדרים להשכרה בעפולה</a>
+      <a href="index.html?deal=rent&amp;maxPrice=4000">דירות להשכרה בעפולה עד 4,000 ₪</a>
+      <a href="index.html?deal=commercial&amp;ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D">משרדים להשכרה בעפולה</a>
+      <a href="index.html?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
+      <a href="agencies.html">משרדי תיווך בעפולה</a>
+      <a href="agents.html">מתווכי נדל״ן בעפולה</a>
+    </div>
+  </details>
+
+  <div class="footer-wrap footer-bottom">
+    <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
+    <div class="footer-legal">
+      <a href="terms.html">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
+      <a href="privacy.html">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
+      <a href="accessibility.html">הצהרת נגישות</a>
+    </div>
+  </div>
+</footer>
+<script>
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+const LEAD_INTAKE_URL = SUPABASE_URL + '/functions/v1/project-lead-intake';
+
+const el = id => document.getElementById(id);
+const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+/* ---------- מצב העמוד ----------
+   כל הפרויקטים החיים נטענים פעם אחת, וכל סינון ומיון רץ כאן בזיכרון.
+   זו לא קמצנות אלא התאמה לגודל: מספר הפרויקטים החדשים באזור נמדד
+   בעשרות, ושאילתה בכל הקלדה הייתה מוסיפה השהיה בלי להוסיף דיוק. */
+let all = [];
+let state = { q:'', city:'', rooms:'', maxPrice:'', stage:'', sort:'promoted' };
+
+/* ---------- בורר סוג העסקה ----------
+   שלוש האפשרויות הראשונות אינן קיימות בעמוד הזה — הן שייכות למנוע
+   החיפוש של דף הבית. הבחירה בהן מעבירה לשם, ולוקחת איתה את הטקסט
+   החופשי שכבר הוקלד כאן; בלי זה המשתמש/ת היה/הייתה מקליד/ה פעמיים. */
+el('dealTypeSelect').addEventListener('change', (e)=>{
+  const mode = e.target.value;
+  if (mode === 'projects') return;
+  const q = el('projectSearch').value.trim();
+  location.href = 'index.html?deal=' + encodeURIComponent(mode) + (q ? '&q=' + encodeURIComponent(q) : '');
+});
+
+/* ---------- צ׳יפים מהירים לשלב הפרויקט ---------- */
+const STAGE_ORDER = ['pre_sale','under_construction','ready','planning','completed'];
+
+function renderQuickChips(){
+  const box = el('quickChips');
+  const present = STAGE_ORDER.filter(s => all.some(p => p.project_stage === s));
+  box.textContent = '';
+  if (!present.length) return;
+
+  const add = (label, value)=>{
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'quick-chip';
+    btn.textContent = label;
+    btn.setAttribute('aria-pressed', String(state.stage === value));
+    btn.addEventListener('click', ()=>{
+      state.stage = state.stage === value ? '' : value;
+      el('fStage').value = state.stage;
+      syncChips();
+      render();
+    });
+    box.appendChild(btn);
+  };
+  add('הכל', '');
+  present.forEach(s => add(ProjectCard.STAGES[s], s));
+}
+
+function syncChips(){
+  const box = el('quickChips');
+  const values = [''].concat(STAGE_ORDER.filter(s => all.some(p => p.project_stage === s)));
+  [...box.children].forEach((btn, i)=> btn.setAttribute('aria-pressed', String(values[i] === state.stage)));
+}
+
+/* ---------- בניית רשימות הבחירה מהנתונים עצמם ----------
+   עיר או שלב שאין לו פרויקטים פשוט לא מופיע. רשימה קשיחה בקוד הייתה
+   מציעה "מגדל העמק" גם כשהבחירה בה מחזירה אפס תוצאות. */
+function fillSelects(){
+  const cities = [...new Set(all.map(p => p.city).filter(Boolean))].sort((a,b)=> a.localeCompare(b,'he'));
+  const citySel = el('fCity');
+  cities.forEach(c=>{
+    const o = document.createElement('option'); o.value = c; o.textContent = c; citySel.appendChild(o);
+  });
+  const dl = el('cityList');
+  cities.forEach(c=>{ const o = document.createElement('option'); o.value = c; dl.appendChild(o); });
+
+  const stageSel = el('fStage');
+  STAGE_ORDER.filter(s => all.some(p => p.project_stage === s)).forEach(s=>{
+    const o = document.createElement('option'); o.value = s; o.textContent = ProjectCard.STAGES[s]; stageSel.appendChild(o);
+  });
+}
+
+/* ---------- הסינון ----------
+   ‏maxPrice נבדק מול min_price ולא מול max_price בכוונה: פרויקט שהדירה
+   הזולה בו בתקציב הוא פרויקט רלוונטי, גם אם הפנטהאוז שבו יקר פי שלושה.
+   הבדיקה ההפוכה הייתה מסתירה כמעט כל פרויקט מכל תקציב. */
+function matches(p){
+  if (state.q){
+    const hay = [p.name, p.tagline, p.city, p.address, p.street, p.developer_name, p.description]
+      .filter(Boolean).join(' ').toLowerCase();
+    if (!hay.includes(state.q.toLowerCase())) return false;
+  }
+  if (state.city && p.city !== state.city) return false;
+  if (state.stage && p.project_stage !== state.stage) return false;
+  if (state.rooms){
+    const want = Number(state.rooms);
+    const hi = Number(p.max_rooms) || Number(p.min_rooms) || 0;
+    if (hi && hi < want) return false;
+  }
+  if (state.maxPrice){
+    const cap = Number(state.maxPrice);
+    const lo = Number(p.min_price) || 0;
+    if (lo && lo > cap) return false;
+  }
+  return true;
+}
+
+function sortList(list){
+  const byDate = (a,b)=> new Date(b.published_at||0) - new Date(a.published_at||0);
+  if (state.sort === 'price_asc')  return list.slice().sort((a,b)=> (a.min_price||Infinity) - (b.min_price||Infinity));
+  if (state.sort === 'price_desc') return list.slice().sort((a,b)=> (b.max_price||b.min_price||0) - (a.max_price||a.min_price||0));
+  if (state.sort === 'occupancy'){
+    return list.slice().sort((a,b)=>{
+      const av = a.occupancy_date ? new Date(a.occupancy_date) : Infinity;
+      const bv = b.occupancy_date ? new Date(b.occupancy_date) : Infinity;
+      return av - bv;
+    });
+  }
+  return ProjectCard.sortForGallery(list);
+}
+
+function render(){
+  const filtered = all.filter(matches);
+  const list = sortList(filtered);
+
+  /* הרצועה המקודמת מוצגת רק כשהעמוד במצב הרגיל שלו. ברגע שיש סינון או
+     מיון אחר, המשתמש/ת ביקש/ה סדר מסוים — ורצועה שיושבת מעליו ומראה
+     פרויקטים שלא עונים על הסינון היא בדיוק ההפרה של הבקשה הזו. */
+  const pristine = !state.q && !state.city && !state.rooms && !state.maxPrice && !state.stage && state.sort === 'promoted';
+  const promoted = pristine ? list.filter(p => p.is_promoted).slice(0, 2) : [];
+  const promotedIds = new Set(promoted.map(p => p.id));
+
+  const promotedGrid = el('promotedGrid');
+  promotedGrid.textContent = '';
+  promoted.forEach(p => promotedGrid.appendChild(ProjectCard.render(p)));
+  el('promotedSec').hidden = promoted.length === 0;
+
+  const grid = el('projectsGrid');
+  grid.textContent = '';
+  const rest = list.filter(p => !promotedIds.has(p.id));
+  rest.forEach(p => grid.appendChild(ProjectCard.render(p)));
+
+  el('noResultsState').hidden = list.length > 0;
+  const many = n => n === 1 ? 'פרויקט אחד' : n + ' פרויקטים';
+  const isFiltered = !pristine;
+  el('resultCount').textContent = isFiltered
+    ? (list.length ? many(list.length) + ' מתוך ' + all.length : 'אין תוצאות')
+    : many(all.length) + ' באזור';
+
+  const sortLabels = {
+    promoted:'לפי מועד פרסום — החדשים ביותר בראש.',
+    price_asc:'לפי מחיר, מהנמוך לגבוה.',
+    price_desc:'לפי מחיר, מהגבוה לנמוך.',
+    occupancy:'לפי מועד אכלוס, הקרוב ביותר בראש.',
+  };
+  el('allSub').textContent = sortLabels[state.sort] || sortLabels.promoted;
+  el('allHeading').textContent = isFiltered ? 'תוצאות החיפוש' : 'כל הפרויקטים החדשים';
+}
+
+/* ---------- חיווט המסננים ---------- */
+const bind = (id, key, transform)=>{
+  el(id).addEventListener('change', (e)=>{
+    state[key] = transform ? transform(e.target.value) : e.target.value;
+    if (key === 'stage') syncChips();
+    render();
+  });
+};
+bind('fCity','city'); bind('fRooms','rooms'); bind('fMaxPrice','maxPrice');
+bind('fStage','stage'); bind('fSort','sort');
+
+let searchTimer = null;
+el('projectSearch').addEventListener('input', (e)=>{
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(()=>{ state.q = e.target.value.trim(); render(); }, 160);
+});
+el('projectSearch').addEventListener('keydown', (e)=>{
+  if (e.key === 'Enter'){ e.preventDefault(); state.q = e.target.value.trim(); render(); }
+});
+el('searchGo').addEventListener('click', ()=>{
+  state.q = el('projectSearch').value.trim();
+  render();
+  el('allSec').scrollIntoView({ behavior:'smooth', block:'start' });
+});
+el('clearFilters').addEventListener('click', ()=>{
+  state = { q:'', city:'', rooms:'', maxPrice:'', stage:'', sort:'promoted' };
+  el('projectSearch').value = '';
+  ['fCity','fRooms','fMaxPrice','fStage'].forEach(id => el(id).value = '');
+  el('fSort').value = 'promoted';
+  syncChips();
+  render();
+});
+
+/* ---------- תיבת הלידים ----------
+   נשלחת ל-Edge Function ולא ישירות לטבלה: ‏project_leads סגורה ל-anon
+   לגמרי, כי יש בה שם, טלפון ואימייל של אדם פרטי. */
+el('leadForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const msg = el('leadMsg'), btn = el('ldSubmit');
+  const name = el('ldName').value.trim();
+  const phone = el('ldPhone').value.trim();
+
+  if (!name || !phone){
+    msg.style.color = 'var(--teal)';
+    msg.textContent = 'נא למלא שם וטלפון';
+    return;
+  }
+  if (!el('ldConsent').checked){
+    msg.style.color = 'var(--teal)';
+    msg.textContent = 'צריך לאשר יצירת קשר כדי שנוכל לחבר אתכם ליזמים';
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'שולח…'; msg.textContent = '';
+  try{
+    const city = el('ldCity').value.trim();
+    const rooms = el('ldRooms').value;
+    const res = await fetch(LEAD_INTAKE_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({
+        full_name:name, phone,
+        cities: city ? [city] : [],
+        rooms: rooms ? [Number(rooms)] : [],
+        max_price: el('ldBudget').value ? Number(el('ldBudget').value) : null,
+        timeline: el('ldTimeline').value,
+        message: el('ldNote').value.trim() || null,
+        consent_contact: true,
+        source: 'projects_page',
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      const messages = {
+        bad_phone: 'מספר הטלפון אינו תקין',
+        rate_limited: 'כבר קיבלנו ממך כמה פניות היום. נחזור אליך בקרוב.',
+        consent_required: 'צריך לאשר יצירת קשר',
+      };
+      msg.style.color = '#b3261e';
+      msg.textContent = messages[data.error] || 'משהו השתבש — נסו שוב';
+      btn.disabled = false; btn.textContent = 'שלחו לי הצעות';
+      return;
+    }
+    el('leadForm').innerHTML =
+      '<h3 style="font-family:\'Frank Ruhl Libre\',serif;font-size:1.15rem;margin:0;color:var(--teal-dark)">קיבלנו, תודה!</h3>' +
+      '<p style="font-size:.87rem;color:var(--ink-soft);margin:8px 0 0">' +
+      'העברנו את הבקשה ליזמים ולקבלנים הרלוונטיים באזור. מי שיש לו מה להציע ייצור איתך קשר ישירות.</p>';
+  } catch(err){
+    console.warn(err);
+    msg.style.color = '#b3261e';
+    msg.textContent = 'שגיאת רשת — נסו שוב';
+    btn.disabled = false; btn.textContent = 'שלחו לי הצעות';
+  }
+});
+
+/* ---------- רצועת היזמים ---------- */
+function renderDevelopers(devs){
+  const rail = el('devRail');
+  rail.textContent = '';
+  const withProjects = (devs || []).filter(d => Number(d.live_projects) > 0);
+  if (!withProjects.length) return;
+  withProjects.forEach(d=>{
+    const a = document.createElement('a');
+    a.className = 'dev-tile';
+    a.href = 'developer.html?slug=' + encodeURIComponent(d.slug || d.id);
+    const logo = ProjectCard.safeUrl(d.logo_url);
+    const n = Number(d.live_projects);
+    a.innerHTML =
+      '<span class="mark"' + (logo ? ' style="background-image:url(\'' + ProjectCard.escapeHtml(logo) + '\')"' : '') + '>' +
+        (logo ? '' : ProjectCard.escapeHtml((d.name || '?')[0])) + '</span>' +
+      '<b>' + ProjectCard.escapeHtml(d.name || '') + '</b>' +
+      '<span>' + (n === 1 ? 'פרויקט אחד' : n + ' פרויקטים') + '</span>';
+    rail.appendChild(a);
+  });
+  el('devsSec').hidden = false;
+}
+
+/* ---------- המחירים מהטבלה, לא מהקוד ----------
+   ‏pricing_config הוא מקור האמת לכל מספר עסקי באתר. שינוי מחיר שם צריך
+   להשתקף כאן בלי לגעת ב-HTML — אחרת הבאנר ימשיך להבטיח 350 ₪ אחרי
+   שהמחיר עלה. */
+async function renderPricing(){
+  if (!sb) return;
+  try{
+    const { data } = await sb.from('pricing_config').select('key, value')
+      .in('key', ['project_page_monthly_price','project_promote_weekly_price']);
+    const map = {};
+    (data || []).forEach(r => { map[r.key] = Number(r.value); });
+    if (map.project_page_monthly_price)
+      el('pricePage').textContent = 'דף נחיתה · ' + map.project_page_monthly_price.toLocaleString('he-IL') + ' ₪ לחודש';
+    if (map.project_promote_weekly_price)
+      el('pricePromote').textContent = 'קידום · ' + map.project_promote_weekly_price.toLocaleString('he-IL') + ' ₪ לשבוע';
+  } catch(e){ /* המחירים בברירת המחדל שב-HTML נשארים */ }
+}
+
+/* ---------- קישור עמוק ---------- */
+function applyDeepLink(){
+  const params = new URLSearchParams(location.search);
+  const q = params.get('q');
+  if (q){ state.q = q; el('projectSearch').value = q; }
+  const city = params.get('city');
+  if (city){ state.city = city; }
+  const stage = params.get('stage');
+  if (stage && ProjectCard.STAGES[stage]){ state.stage = stage; }
+}
+
+(async function init(){
+  if (!sb){
+    el('loadingState').hidden = true;
+    el('emptyState').hidden = false;
+    return;
+  }
+  renderPricing();
+  try{
+    const [{ data: projects, error }, { data: devs }] = await Promise.all([
+      sb.from('projects_public').select('*').order('published_at', { ascending:false }),
+      sb.from('developers_public').select('id, slug, name, logo_url, live_projects'),
+    ]);
+    if (error) throw error;
+
+    all = projects || [];
+    el('loadingState').hidden = true;
+
+    if (!all.length){
+      el('emptyState').hidden = false;
+      el('allSec').hidden = true;
+      return;
+    }
+
+    fillSelects();
+    applyDeepLink();
+    el('fCity').value = state.city;
+    el('fStage').value = state.stage;
+    el('filters').hidden = false;
+    renderQuickChips();
+    renderDevelopers(devs);
+    render();
+  } catch(e){
+    console.warn('טעינת הפרויקטים נכשלה:', e);
+    el('loadingState').hidden = true;
+    el('emptyState').hidden = false;
+  }
+})();
+</script>
+</body>
+</html>

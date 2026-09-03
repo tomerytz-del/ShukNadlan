@@ -83,6 +83,11 @@ Google OAuth דרך Supabase Auth. המסמך הזה מתאר את מסלול ה
   בכוונה, כדי שהכתובת תהיה זהה בדיוק לזו שברשימה. אם עובדים גם מקומית, יש
   להוסיף גם את כתובת הפיתוח (`http://localhost:<port>/crm.html`).
 
+> **המסמך הזה מתאר את כניסת הסוכנים ל-`crm.html`.** מודול הפרויקטים
+> החדשים (`developer-crm.html`) משתמש באותו ספק ובאותן הגדרות, ודורש
+> תוספת אחת: הוספת `https://<הדומיין>/developer-crm.html` לרשימת
+> ה-**Redirect URLs**. הפירוט ב-`docs/new-projects.md`.
+
 **Supabase → Authentication → Providers → Google**
 
 - הספק מופעל, עם ה-Client ID וה-Client Secret מ-Google Cloud.

@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>פרויקט חדש | שוק נדל״ן</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta name="description" id="metaDescription" content="פרויקט חדש מקבלן — תמהיל דירות, מחירים, גלריה, סיור 3D וחוברת מכר להורדה.">
+<meta property="og:type" content="website">
+<meta property="og:title" id="ogTitle" content="פרויקט חדש | שוק נדל״ן">
+<meta property="og:description" id="ogDescription" content="פרויקט חדש מקבלן בעפולה והעמק.">
+<meta property="og:image" id="ogImage" content="">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  /* הדף הזה נצבע בערכת הצבעים של הפרויקט: --brand ו---accent נכתבים
+     ב-JS ישירות על documentElement, וסגנון inline גובר על design-system.css
+     (ראו הערה 2 בראש הקובץ ההוא). מי שלא בחר צבעים מקבל את ספיר. */
+  :root{
+    --ink:#0d1b3d; --ink-soft:#4a5578; --ink-muted:#6b7796;
+    --paper:#f4f7fe; --paper-raised:#ffffff; --surface:#ffffff;
+    --line:#e3e8f4; --hair:#eef1f8; --field:#eef2fb;
+    --teal:#0e2a6b; --teal-dark:#0d1b3d; --teal-tint:#eaf0fb;
+    --gold:#0e2a6b; --gold-dark:#08194a; --gold-tint:#f7f1e2; --brass:#c9a227;
+    --radius-sm:0; --radius-md:0; --radius-lg:0;
+    --shadow:0 10px 30px -24px rgba(14,42,107,.5);
+    --maxw:1120px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  [hidden]{display:none !important}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;line-height:1.15;color:var(--teal-dark);margin:0}
+  a{color:inherit;text-decoration:none}
+  img{max-width:100%;display:block}
+  button{font-family:inherit;cursor:pointer;border:none;background:none}
+  input,select,textarea{font-family:inherit;font-size:1rem;min-width:0}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 22px;font-weight:700;font-size:.9rem;border-radius:0;transition:transform .15s ease,box-shadow .15s ease}
+  .btn-teal{background:var(--teal);color:#fff}
+  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}
+  .btn-ghost{border:1.5px solid var(--line);background:#fff;color:var(--teal-dark)}
+  .btn-ghost:hover{border-color:var(--teal)}
+  .btn-wa{background:#25a55a;color:#fff}
+  /* כפתור משני על רקע כהה. ‏.btn-ghost אינו משמש כאן בכוונה:
+     ‏design-system.css נטען אחרי הבלוק הזה ומגדיר אותו כשקוף עם טקסט
+     ספיר — קריא על לבן, בלתי נראה על הבאנר. */
+  .btn-on-dark{border:1.5px solid rgba(255,255,255,.55);background:rgba(255,255,255,.1);color:#fff}
+  .btn-on-dark:hover{background:rgba(255,255,255,.2);border-color:#fff}
+  :focus-visible{outline:3px solid var(--brass);outline-offset:2px}
+  .skip-link{position:absolute;right:-999px;top:0;background:var(--teal);color:#fff;padding:10px 16px;z-index:200}
+  .skip-link:focus{right:0}
+
+  header.site{position:sticky;top:0;z-index:100;background:var(--paper-raised);border-bottom:1px solid var(--line);padding:12px 0}
+  .header-inner{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .logo{display:flex;align-items:center;gap:10px;min-width:0}
+  .logo-img{height:44px;width:auto;flex:0 0 auto}
+  .logo-word{font-family:'Rubik','Heebo',sans-serif;font-weight:500;color:var(--teal-dark);font-size:.8rem;line-height:1.3;min-width:0;text-align:center}
+  .logo-word span{color:var(--gold-dark);font-weight:700}
+  @media(min-width:900px){.logo-img{height:52px}.logo-word{font-size:.95rem;white-space:nowrap}}
+  .back-link{font-size:.85rem;font-weight:700;color:var(--teal);white-space:nowrap;border-bottom:1.5px solid var(--brass);padding-bottom:2px}
+
+  /* ====== הבאנר ======
+     הזהות של הפרויקט מופיעה כאן פעם אחת: לוגו, שם, מוטו, יזם ושלב, על
+     גבי תמונת הנושא. אותה החלטה שנלקחה בדף המשרד, מאותה סיבה — שם הם
+     היו פעמיים במסך אחד. */
+  .banner{position:relative;color:#fff;overflow:hidden;background:var(--teal-dark)}
+  .banner-media{position:absolute;inset:0;background-size:cover;background-position:center}
+  .banner::after{content:"";position:absolute;inset:0;background:linear-gradient(to top,rgba(13,27,61,.92),rgba(13,27,61,.45) 55%,rgba(13,27,61,.25))}
+  .banner-inner{position:relative;z-index:2;padding:38px 0 26px;display:flex;flex-wrap:wrap;gap:22px;align-items:flex-end;justify-content:space-between}
+  .banner-id{display:flex;gap:14px;align-items:flex-start;min-width:0}
+  .brand-logo{width:74px;height:74px;flex:none;background:#fff center/contain no-repeat;display:flex;align-items:center;justify-content:center;font-family:'Frank Ruhl Libre',serif;font-size:1.8rem;font-weight:700;color:var(--teal)}
+  .banner-flags{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}
+  .flag{font-size:.68rem;font-weight:800;padding:4px 10px;background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.3)}
+  .flag.promoted{background:var(--brass);color:#3b2f05;border-color:var(--brass)}
+  .flag.promoted::before{content:"◆ ";font-size:.85em}
+  .banner h1{color:#fff;font-size:1.8rem;line-height:1.15}
+  @media(min-width:760px){.banner h1{font-size:2.6rem}}
+  .banner .tagline{font-size:.95rem;color:rgba(255,255,255,.88);margin:8px 0 0;max-width:56ch}
+  .banner .where{font-size:.85rem;color:rgba(255,255,255,.76);margin:6px 0 0;display:flex;flex-wrap:wrap;gap:5px 12px}
+  .banner-cta{display:flex;flex-wrap:wrap;gap:9px}
+
+  /* ====== סרגל הנתונים ====== */
+  .facts{background:#fff;border:1px solid var(--line);border-top:none;display:grid;grid-template-columns:repeat(2,1fr)}
+  @media(min-width:700px){.facts{grid-template-columns:repeat(4,1fr)}}
+  @media(min-width:980px){.facts{grid-template-columns:repeat(6,1fr)}}
+  .fact{padding:14px 12px;border-inline-end:1px solid var(--hair);border-block-start:1px solid var(--hair)}
+  .fact:last-child{border-inline-end:none}
+  .fact b{display:block;font-size:1rem;font-weight:800;color:var(--ink);letter-spacing:-.01em}
+  .fact span{display:block;font-size:.7rem;color:var(--ink-muted);font-weight:700;margin-top:2px}
+
+  /* ====== מבנה שתי העמודות ====== */
+  .layout{display:grid;gap:24px;padding:26px 0 40px}
+  /* ‏min-width:0 על ילדי הגריד: בלעדיו טבלת התמהיל (‏min-width:520px)
+     מותחת את העמודה מעבר למסך, וכל הדף מקבל גלילה אופקית בטלפון —
+     ‏overflow-x:auto על העוטף לא עוזר כשהעוטף עצמו רחב מהמסך. */
+  .layout > *{min-width:0}
+  @media(min-width:980px){.layout{grid-template-columns:minmax(0,1fr) 330px;align-items:start}}
+  .sec{background:#fff;border:1px solid var(--line);padding:18px;margin-bottom:18px}
+  .sec > h2{font-size:1.2rem;margin-bottom:4px}
+  .sec > .sub{font-size:.82rem;color:var(--ink-soft);margin:0 0 14px}
+  .sec p.body{font-size:.92rem;color:var(--ink-soft);white-space:pre-line;margin:0}
+
+  /* ====== גלריה ====== */
+  .gal{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+  @media(min-width:620px){.gal{grid-template-columns:repeat(3,1fr)}}
+  .gal button{position:relative;aspect-ratio:4/3;background:var(--teal-tint) center/cover no-repeat;padding:0;border:none;width:100%}
+  .gal button:first-child{grid-column:1/-1;aspect-ratio:16/9}
+  @media(min-width:620px){.gal button:first-child{grid-column:span 2;grid-row:span 2;aspect-ratio:auto}}
+  .gal .more{position:absolute;inset:0;background:rgba(13,27,61,.62);color:#fff;font-weight:800;font-size:1.05rem;display:flex;align-items:center;justify-content:center}
+  /* לייטבוקס: dialog מקורי ולא שכבה ב-JS — הוא נותן מלכודת פוקוס וסגירה
+     ב-Esc בלי שורת קוד. */
+  dialog.lightbox{border:none;padding:0;background:transparent;max-width:96vw;max-height:96vh}
+  dialog.lightbox::backdrop{background:rgba(13,27,61,.92)}
+  dialog.lightbox img{max-width:96vw;max-height:84vh;object-fit:contain}
+  .lb-bar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 4px;color:#fff}
+  .lb-bar button{color:#fff;font-size:1.4rem;font-weight:800;padding:4px 14px;line-height:1}
+  .lb-bar span{font-size:.82rem;opacity:.8}
+
+  /* ====== מדיה: סרטון וסיור 3D ====== */
+  .media-frame{position:relative;aspect-ratio:16/9;background:#0d1b3d;border:1px solid var(--line)}
+  .media-frame iframe{position:absolute;inset:0;width:100%;height:100%;border:none}
+  .media-link{display:flex;align-items:center;gap:12px;padding:16px;border:1px solid var(--line);background:var(--field);font-weight:700;color:var(--teal-dark);font-size:.9rem}
+  .media-link svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.9;flex:none}
+
+  /* ====== תמהיל הדירות ====== */
+  .units-wrap{overflow-x:auto}
+  table.units{width:100%;border-collapse:collapse;font-size:.85rem;min-width:520px}
+  table.units th{text-align:start;font-size:.71rem;font-weight:800;color:var(--ink-muted);padding:8px 10px;border-bottom:1.5px solid var(--line);white-space:nowrap}
+  table.units td{padding:10px;border-bottom:1px solid var(--hair);vertical-align:middle}
+  table.units tr:last-child td{border-bottom:none}
+  table.units .name{font-weight:800;color:var(--ink)}
+  .avail{font-size:.68rem;font-weight:800;padding:3px 8px;white-space:nowrap}
+  .avail.available{background:#e5f5ed;color:#12704a}
+  .avail.few_left{background:var(--gold-tint);color:#8a6d10}
+  .avail.sold_out{background:#f3e6e9;color:#6e1022}
+  .plan-link{font-size:.76rem;font-weight:700;color:var(--teal);border-bottom:1.5px solid var(--brass)}
+
+  /* ====== מאפיינים ====== */
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .chip{font-size:.78rem;font-weight:700;color:var(--ink-soft);background:var(--field);padding:6px 12px}
+
+  /* ====== חומר שיווקי ====== */
+  .docs{display:grid;gap:8px}
+  .doc{display:flex;align-items:center;gap:12px;padding:12px 13px;border:1px solid var(--line);background:#fff;transition:border-color .15s ease}
+  .doc:hover{border-color:var(--teal)}
+  .doc svg{width:22px;height:22px;stroke:var(--teal);fill:none;stroke-width:1.8;flex:none}
+  .doc b{font-size:.87rem;display:block}
+  .doc span{font-size:.72rem;color:var(--ink-muted)}
+  .doc .go{margin-inline-start:auto;font-size:.76rem;font-weight:800;color:var(--teal)}
+
+  /* ====== שיתוף ====== */
+  .share-row{display:flex;flex-wrap:wrap;gap:8px}
+  .share-btn{display:inline-flex;align-items:center;gap:7px;border:1.5px solid var(--line);background:#fff;padding:9px 14px;font-size:.8rem;font-weight:700;color:var(--ink-soft)}
+  .share-btn:hover{border-color:var(--teal);color:var(--teal-dark)}
+  .share-btn svg{width:15px;height:15px;fill:currentColor}
+
+  /* ====== העמודה הצדית ====== */
+  .side{position:sticky;top:86px;display:flex;flex-direction:column;gap:14px}
+  @media(max-width:979px){.side{position:static}}
+  .card{background:#fff;border:1px solid var(--line);padding:16px}
+  .card h3{font-family:'Frank Ruhl Libre',serif;font-size:1.05rem;margin:0 0 4px;color:var(--teal-dark)}
+  .card .sub{font-size:.79rem;color:var(--ink-soft);margin:0 0 12px}
+  .form-grid{display:grid;gap:9px}
+  .form-grid label{font-size:.7rem;font-weight:800;color:var(--ink-soft);display:block;margin-bottom:4px}
+  .form-grid input,.form-grid select,.form-grid textarea{width:100%;border:1.5px solid var(--line);padding:10px;font-size:.87rem;color:var(--ink);background:#fff}
+  .form-grid textarea{resize:vertical;min-height:60px}
+  .consent{display:flex;gap:8px;align-items:flex-start;font-size:.72rem;color:var(--ink-soft);line-height:1.45}
+  .consent input{width:16px;height:16px;flex:none;margin-top:2px;accent-color:var(--teal)}
+  .form-msg{font-size:.8rem;min-height:1.1em;font-weight:700}
+  .dev-card{display:flex;gap:12px;align-items:center}
+  .dev-card .mark{width:52px;height:52px;flex:none;background:var(--teal-tint) center/contain no-repeat;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--teal)}
+  .dev-card b{display:block;font-size:.95rem}
+  .dev-card span{font-size:.75rem;color:var(--ink-muted)}
+  .side-note{font-size:.72rem;color:var(--ink-muted);line-height:1.5}
+
+  /* ====== פרויקטים נוספים של אותו יזם ====== */
+  .more-grid{display:grid;grid-template-columns:1fr;gap:14px}
+  @media(min-width:560px){.more-grid{grid-template-columns:repeat(2,1fr)}}
+  @media(min-width:900px){.more-grid{grid-template-columns:repeat(3,1fr)}}
+
+  .state{padding:56px 18px;text-align:center;color:var(--ink-soft);font-size:.92rem}
+  .state h2{font-size:1.2rem;margin-bottom:8px}
+</style>
+<link rel="stylesheet" href="assets/site-footer.css">
+<link rel="stylesheet" href="assets/design-system.css">
+<script src="assets/page-bg.js" data-auto></script>
+<script src="assets/project-card.js"></script>
+<script src="assets/site-footer.js" defer></script>
+</head>
+<body>
+
+<a href="#main" class="skip-link">דילוג לתוכן</a>
+
+<header class="site">
+  <div class="wrap header-inner">
+    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+      <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
+      <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
+    </a>
+    <a href="projects.html" class="back-link">← כל הפרויקטים החדשים</a>
+  </div>
+</header>
+
+<div class="state" id="loadingState">טוען פרויקט…</div>
+
+<div class="state" id="notFoundState" hidden>
+  <h2>הפרויקט לא נמצא</h2>
+  <p>ייתכן שדף הפרויקט הוסר או שהכתובת השתנתה.</p>
+  <a href="projects.html" class="btn btn-teal" style="margin-top:14px">לכל הפרויקטים החדשים</a>
+</div>
+
+<main id="main" hidden>
+
+  <!-- ====== הבאנר ====== -->
+  <section class="banner" id="banner" aria-labelledby="projectName">
+    <div class="banner-media" id="bannerMedia" aria-hidden="true"></div>
+    <div class="wrap banner-inner">
+      <div class="banner-id">
+        <div class="brand-logo" id="brandLogo">·</div>
+        <div style="min-width:0">
+          <div class="banner-flags" id="bannerFlags"></div>
+          <h1 id="projectName">—</h1>
+          <p class="tagline" id="projectTagline" hidden></p>
+          <p class="where" id="projectWhere"></p>
+        </div>
+      </div>
+      <div class="banner-cta" id="bannerCta"></div>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <div class="facts" id="factsBar"></div>
+
+    <div class="layout">
+      <div>
+        <!-- ====== על הפרויקט ====== -->
+        <section class="sec" id="aboutSec" hidden>
+          <h2>על הפרויקט</h2>
+          <p class="body" id="projectDescription"></p>
+        </section>
+
+        <!-- ====== גלריה ====== -->
+        <section class="sec" id="gallerySec" hidden>
+          <h2>גלריית הפרויקט</h2>
+          <p class="sub" id="gallerySub"></p>
+          <div class="gal" id="gallery"></div>
+        </section>
+
+        <!-- ====== סרטון ====== -->
+        <section class="sec" id="videoSec" hidden>
+          <h2>סרטון הפרויקט</h2>
+          <p class="sub">סיור וידאו במתחם ובדירות לדוגמה.</p>
+          <div id="videoSlot"></div>
+        </section>
+
+        <!-- ====== סיור 3D ======
+             הסיור נטען ב-iframe רק כשהמקור מוכר (Matterport, Kuula,
+             YouTube ודומיהם). מקור אחר מוצג ככפתור שנפתח בלשונית חדשה:
+             הטמעה עיוורת של דומיין שרירותי בתוך הדף היא הרשאה שאין סיבה
+             לתת לו. -->
+        <section class="sec" id="tourSec" hidden>
+          <h2>סיור וירטואלי 3D</h2>
+          <p class="sub">להסתובב בדירה לפני שהיא נבנתה.</p>
+          <div id="tourSlot"></div>
+        </section>
+
+        <!-- ====== תמהיל הדירות ====== -->
+        <section class="sec" id="unitsSec" hidden>
+          <h2>תמהיל הדירות</h2>
+          <p class="sub">הדגמים שמוצעים בפרויקט. המחירים נכונים למועד עדכון הדף על ידי היזם.</p>
+          <div class="units-wrap"><table class="units" id="unitsTable"></table></div>
+        </section>
+
+        <!-- ====== מה יש בפרויקט ====== -->
+        <section class="sec" id="featuresSec" hidden>
+          <h2>מה יש בפרויקט</h2>
+          <div class="chips" id="featureChips" style="margin-top:10px"></div>
+        </section>
+
+        <!-- ====== חומר שיווקי ====== -->
+        <section class="sec" id="docsSec" hidden>
+          <h2>חומר שיווקי להורדה</h2>
+          <p class="sub">חוברת מכר, תוכניות ומפרט טכני — כפי שהיזם פרסם אותם.</p>
+          <div class="docs" id="docsList"></div>
+        </section>
+
+        <!-- ====== שיתוף ====== -->
+        <section class="sec">
+          <h2>שיתוף הפרויקט</h2>
+          <p class="sub">לשלוח את הדף למי שמחפש/ת איתכם.</p>
+          <div class="share-row" id="shareRow"></div>
+        </section>
+
+        <!-- ====== פרויקטים נוספים של אותו יזם ====== -->
+        <section class="sec" id="moreSec" hidden>
+          <h2 id="moreHeading">פרויקטים נוספים של היזם</h2>
+          <div class="more-grid" id="moreGrid" style="margin-top:12px"></div>
+        </section>
+      </div>
+
+      <!-- ====== העמודה הצדית ====== -->
+      <aside class="side">
+        <!-- טופס הפנייה. ליד שנשלח מכאן שייך ליזם של הפרויקט הזה, מגיע
+             אליו מיד וחינם, ואינו נמכר לאיש — מי שהשאיר/ה פרטים בדף
+             הזה ביקש/ה לדבר עם מי שבנה אותו. -->
+        <div class="card">
+          <h3>לקבלת פרטים ומחירון</h3>
+          <p class="sub">הפנייה מגיעה ישירות למשרד המכירות של הפרויקט.</p>
+          <form class="form-grid" id="inquiryForm" novalidate>
+            <div>
+              <label for="inName">שם מלא</label>
+              <input type="text" id="inName" autocomplete="name" required>
+            </div>
+            <div>
+              <label for="inPhone">טלפון</label>
+              <input type="tel" id="inPhone" autocomplete="tel" inputmode="tel" required>
+            </div>
+            <div>
+              <label for="inEmail">אימייל <span style="font-weight:400">(לא חובה)</span></label>
+              <input type="email" id="inEmail" autocomplete="email">
+            </div>
+            <div>
+              <label for="inRooms">כמה חדרים מעניינים אתכם</label>
+              <select id="inRooms"><option value="">לא משנה</option></select>
+            </div>
+            <div>
+              <label for="inNote">הודעה</label>
+              <textarea id="inNote" rows="2" placeholder="למשל: מעוניין/ת בדגם 4 חדרים עם מרפסת"></textarea>
+            </div>
+            <label class="consent">
+              <input type="checkbox" id="inConsent" checked>
+              <span>אני מאשר/ת שמשרד המכירות של הפרויקט ייצור איתי קשר.</span>
+            </label>
+            <button type="submit" class="btn btn-teal" id="inSubmit">שליחת פנייה</button>
+            <p class="form-msg" id="inMsg" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+
+        <!-- כרטיס היזם -->
+        <a class="card dev-card" id="devCard" href="#" hidden></a>
+
+        <div class="card">
+          <p class="side-note" id="sideNote">
+            דף הפרויקט נבנה ומתוחזק על ידי היזם. המידע, המחירים והתמונות באחריותו — ואינם מהווים הצעה מחייבת.
+          </p>
+        </div>
+      </aside>
+    </div>
+  </div>
+</main>
+
+<dialog class="lightbox" id="lightbox" aria-label="גלריית תמונות הפרויקט">
+  <div class="lb-bar">
+    <button type="button" id="lbPrev" aria-label="התמונה הקודמת">‹</button>
+    <span id="lbCount"></span>
+    <button type="button" id="lbClose" aria-label="סגירת הגלריה">✕</button>
+  </div>
+  <img id="lbImage" alt="">
+  <p class="lb-bar" id="lbCaption" style="justify-content:center;font-size:.85rem"></p>
+</dialog>
+<footer class="site">
+
+  <!-- רצועת הניוזלטר: ההרשמה נשלחת ל-Edge Function ולא ישירות לטבלה, מאותה
+       סיבה כמו שאר הטפסים הציבוריים באתר — הכתיבה נעשית ב-service_role
+       והטבלה סגורה ל-anon לגמרי (אימייל של אדם פרטי). -->
+  <div class="footer-news">
+    <div class="footer-wrap footer-news-inner">
+      <div class="footer-news-text">
+        <h4>הנכסים החדשים בעפולה — ראשונים אצלכם</h4>
+        <p>עדכון אחד בשבוע למייל. בלי ספאם, אפשר להסיר בכל רגע.</p>
+      </div>
+      <form class="footer-news-form" id="newsletterForm" data-source="articles_page" novalidate>
+        <label class="footer-sr-only" for="newsletterEmail">כתובת אימייל להרשמה לעדכונים</label>
+        <input type="email" id="newsletterEmail" name="email" autocomplete="email" inputmode="email"
+               placeholder="האימייל שלך" required>
+        <button type="submit" id="newsletterBtn">הרשמה</button>
+      </form>
+      <p class="footer-news-msg" id="newsletterMsg" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="footer-wrap footer-top">
+
+    <div class="footer-brand">
+      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+        <img src="assets/logo-shuknadlan-dark.svg" alt="" width="52" height="62" loading="lazy">
+        <span>שוק הנדל״ן<br>של עפולה והסביבה</span>
+      </a>
+      <p class="footer-tagline">
+        <span>כל הנכסים, כל המתווכים ובעלי המקצוע בעפולה והעמק בכתובת אחת</span>
+        <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
+      </p>
+      <div class="footer-cta">
+        <a href="agency-signup.html" class="footer-btn-primary">הצטרפות כמשרד תיווך</a>
+        <a href="developer-signup.html" class="footer-btn-ghost">הצטרפות כיזם/קבלן</a>
+        <a href="professional-signup.html" class="footer-btn-ghost">הצטרפות כבעל מקצוע</a>
+      </div>
+
+      <div class="footer-meta">
+        <div class="footer-contact">
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 10c0 5.2-8 12-8 12s-8-6.8-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.8"/>
+            </svg>
+            <span>רחוב חטיבה תשע 18, עפולה</span>
+          </p>
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3.5 6.5h17v11h-17z"/><path d="m3.5 7 8.5 6 8.5-6"/>
+            </svg>
+            <a href="mailto:shuknadlan@gmail.com">shuknadlan@gmail.com</a>
+          </p>
+        </div>
+
+        <div class="footer-social">
+          <a href="https://www.facebook.com/share/19LytY6L6b/" target="_blank" rel="noopener noreferrer"
+             aria-label="שוק הנדל״ן בפייסבוק — נפתח בחלון חדש" title="פייסבוק">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06C2 17.08 5.66 21.24 10.44 22v-7.03H7.9v-2.91h2.54V9.85c0-2.52 1.49-3.91 3.77-3.91 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.78-1.63 1.57v1.89h2.78l-.44 2.91h-2.34V22C18.34 21.24 22 17.08 22 12.06Z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <nav class="footer-grid" aria-label="ניווט בתחתית העמוד">
+      <div class="footer-col">
+        <h4>נכסים</h4>
+        <a href="index.html#saleProps">למכירה בעפולה</a>
+        <a href="index.html#rentProps">להשכרה בעפולה</a>
+        <a href="index.html#commercialProps">נכסים מסחריים</a>
+        <a href="index.html#listings">כל הנכסים</a>
+        <a href="projects.html">פרויקטים חדשים</a>
+      </div>
+      <div class="footer-col">
+        <h4>כלים</h4>
+        <a href="index.html#calc">מחשבון משכנתא</a>
+        <a href="index.html#heroSection">חיפוש על המפה</a>
+        <a href="index.html#featured">נכסים מובחרים</a>
+        <a href="articles.html">כתבות ובלוגים</a>
+      </div>
+      <div class="footer-col">
+        <h4>בעלי מקצוע</h4>
+        <a href="agencies.html">כל משרדי התיווך</a>
+        <a href="agents.html">כל המתווכים</a>
+        <a href="index.html#pros">בעלי מקצוע</a>
+        <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
+        <a href="developer-signup.html">הצטרפות כיזם/קבלן</a>
+      </div>
+      <div class="footer-col">
+        <h4>שוק נדל״ן</h4>
+        <a href="about.html">אודות</a>
+        <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
+        <a href="faq.html">שאלות נפוצות</a>
+        <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
+        <a href="crm.html">כניסת מתווכים</a>
+      </div>
+    </nav>
+
+  </div>
+
+  <!-- חיפושים פופולריים: קישורים פנימיים שמגיעים לתוצאות מסוננות דרך
+       פרמטרים ב-URL (ראו applyDeepLinkFilters ב-index.html). זה הבלוק
+       שמאפשר למנוע החיפוש להגיע לעמודי תוצאות ולא רק לדף הבית הכללי. -->
+  <details class="footer-wrap footer-seo" id="footerSeo" open>
+    <summary><h4>חיפושים פופולריים בעפולה והעמק</h4></summary>
+    <div class="footer-seo-links">
+      <a href="index.html?deal=sale&amp;rooms=3">דירות 3 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;rooms=4">דירות 4 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;rooms=5">דירות 5 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;maxPrice=1500000">נכסים בעפולה עד 1.5 מיליון ₪</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%93%D7%99%D7%A8%D7%AA%20%D7%92%D7%9F">דירות גן בעפולה</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%92%D7%92%2F%D7%A4%D7%A0%D7%98%D7%94%D7%90%D7%95%D7%96">פנטהאוזים בעפולה</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%91%D7%99%D7%AA%20%D7%A4%D7%A8%D7%98%D7%99%2F%D7%A7%D7%95%D7%98%D7%92'">בתים פרטיים בעפולה והעמק</a>
+      <a href="index.html?deal=sale&amp;q=%D7%92%D7%91%D7%A2%D7%AA%20%D7%94%D7%9E%D7%95%D7%A8%D7%94">נכסים בגבעת המורה</a>
+      <a href="index.html?deal=sale&amp;q=%D7%A2%D7%A4%D7%95%D7%9C%D7%94%20%D7%A2%D7%99%D7%9C%D7%99%D7%AA">נכסים בעפולה עילית</a>
+      <a href="index.html?deal=rent&amp;rooms=3">דירות 3 חדרים להשכרה בעפולה</a>
+      <a href="index.html?deal=rent&amp;rooms=4">דירות 4 חדרים להשכרה בעפולה</a>
+      <a href="index.html?deal=rent&amp;maxPrice=4000">דירות להשכרה בעפולה עד 4,000 ₪</a>
+      <a href="index.html?deal=commercial&amp;ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D">משרדים להשכרה בעפולה</a>
+      <a href="index.html?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
+      <a href="agencies.html">משרדי תיווך בעפולה</a>
+      <a href="agents.html">מתווכי נדל״ן בעפולה</a>
+    </div>
+  </details>
+
+  <div class="footer-wrap footer-bottom">
+    <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
+    <div class="footer-legal">
+      <a href="terms.html">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
+      <a href="privacy.html">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
+      <a href="accessibility.html">הצהרת נגישות</a>
+    </div>
+  </div>
+</footer>
+<script>
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+const LEAD_INTAKE_URL = SUPABASE_URL + '/functions/v1/project-lead-intake';
+
+const el = id => document.getElementById(id);
+const esc = ProjectCard.escapeHtml;
+const safeUrl = ProjectCard.safeUrl;
+const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+const slug = new URLSearchParams(location.search).get('slug') || '';
+let project = null, media = [], images = [], units = [];
+
+/* ---------- מיתוג ----------
+   הצבעים נכתבים על documentElement ולא על :root בקובץ העיצוב, כי inline
+   גובר על design-system.css. פרויקט בלי צבעים נשאר בספיר של האתר — וזו
+   ההתנהגות הנכונה, לא נפילה. */
+function applyBrand(colors){
+  const c = colors && typeof colors === 'object' ? colors : {};
+  const hex = v => (typeof v === 'string' && /^#[0-9a-fA-F]{6}$/.test(v)) ? v : null;
+  const brand = hex(c.brand), accent = hex(c.accent);
+  const root = document.documentElement.style;
+  if (brand){
+    root.setProperty('--brand', brand);
+    root.setProperty('--teal', brand);
+    root.setProperty('--brand-dark', hex(c.brand_dark) || brand);
+    root.setProperty('--teal-dark', hex(c.brand_dark) || brand);
+  }
+  if (accent){
+    root.setProperty('--accent', accent);
+    root.setProperty('--gold', accent);
+    root.setProperty('--accent-dark', hex(c.accent_dark) || accent);
+    root.setProperty('--gold-dark', hex(c.accent_dark) || accent);
+  }
+}
+
+function fmtPrice(n){
+  const v = Number(n);
+  return isFinite(v) && v > 0 ? v.toLocaleString('he-IL') + ' ₪' : '';
+}
+function trimNum(n){ return String(Number(n)).replace(/\.0$/, ''); }
+
+/* ---------- הטמעת מדיה ----------
+   רשימת מקורות סגורה, ולא "כל מה שנראה כמו קישור". ‏iframe מקבל גישה
+   לחלון האב במקרים מסוימים, ודומיין שרירותי שהיזם הדביק בטופס אינו
+   מקום להתחיל בו. מה שלא ברשימה מוצג ככפתור שנפתח בלשונית חדשה — אותה
+   חוויה, בלי לתת לו דריסת רגל בדף. */
+function embedUrl(raw){
+  const url = safeUrl(raw);
+  if (!url) return null;
+  let u;
+  try { u = new URL(url); } catch(e){ return null; }
+  const host = u.hostname.replace(/^www\./, '');
+
+  if (host === 'youtube.com' || host === 'm.youtube.com'){
+    const id = u.searchParams.get('v');
+    if (id) return 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id);
+    const m = u.pathname.match(/^\/(?:embed|shorts)\/([\w-]+)/);
+    if (m) return 'https://www.youtube-nocookie.com/embed/' + m[1];
+  }
+  if (host === 'youtu.be'){
+    const id = u.pathname.slice(1);
+    if (id) return 'https://www.youtube-nocookie.com/embed/' + encodeURIComponent(id);
+  }
+  if (host === 'vimeo.com'){
+    const id = u.pathname.split('/').filter(Boolean)[0];
+    if (/^\d+$/.test(id)) return 'https://player.vimeo.com/video/' + id;
+  }
+  if (host === 'my.matterport.com' || host === 'matterport.com') return url;
+  if (host === 'kuula.co') return url;
+  return null;
+}
+
+const ICON_PLAY = '<svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="m15.5 11 6-3.2v8.4l-6-3.2z"/></svg>';
+const ICON_CUBE = '<svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>';
+const ICON_DOC  = '<svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5"/><path d="M9 13h6M9 17h4"/></svg>';
+
+function mediaSlot(container, url, title){
+  const embed = embedUrl(url);
+  container.textContent = '';
+  if (embed){
+    const frame = document.createElement('div');
+    frame.className = 'media-frame';
+    const iframe = document.createElement('iframe');
+    iframe.src = embed;
+    iframe.loading = 'lazy';
+    iframe.title = title;
+    iframe.setAttribute('allowfullscreen', '');
+    iframe.setAttribute('referrerpolicy', 'no-referrer');
+    frame.appendChild(iframe);
+    container.appendChild(frame);
+    return;
+  }
+  const link = document.createElement('a');
+  link.className = 'media-link';
+  link.href = safeUrl(url);
+  link.target = '_blank';
+  link.rel = 'noopener noreferrer';
+  link.innerHTML = (title.includes('3D') ? ICON_CUBE : ICON_PLAY) +
+    '<span>' + esc(title) + ' — נפתח בלשונית חדשה</span>';
+  container.appendChild(link);
+}
+
+/* ---------- הבאנר וסרגל הנתונים ---------- */
+function renderBanner(){
+  const cover = safeUrl(project.cover_url) || safeUrl(images[0] && images[0].url);
+  if (cover) el('bannerMedia').style.backgroundImage = "url('" + cover + "')";
+
+  const logo = safeUrl(project.logo_url) || safeUrl(project.developer_logo_url);
+  const logoBox = el('brandLogo');
+  if (logo){ logoBox.style.backgroundImage = "url('" + logo + "')"; logoBox.textContent = ''; }
+  else logoBox.textContent = (project.name || '?')[0];
+
+  const flags = [];
+  if (project.is_promoted) flags.push('<span class="flag promoted">מקודם</span>');
+  const stage = ProjectCard.stageLabel(project);
+  if (stage) flags.push('<span class="flag">' + esc(stage) + '</span>');
+  if (project.developer_name) flags.push('<span class="flag">' + esc(project.developer_name) + '</span>');
+  el('bannerFlags').innerHTML = flags.join('');
+
+  el('projectName').textContent = project.name || '';
+  if (project.tagline){
+    el('projectTagline').textContent = project.tagline;
+    el('projectTagline').hidden = false;
+  }
+
+  const where = [project.address || project.street, project.city].filter(Boolean);
+  const occ = ProjectCard.occupancyLabel(project);
+  if (occ) where.push(occ);
+  el('projectWhere').innerHTML = where.map(w => '<span>' + esc(w) + '</span>').join('');
+
+  const cta = [];
+  if (project.contact_phone_e164){
+    cta.push('<a class="btn btn-teal" href="tel:+' + esc(project.contact_phone_e164) + '">חיוג למשרד המכירות</a>');
+  }
+  if (project.whatsapp_e164){
+    const text = encodeURIComponent('שלום, ראיתי את הפרויקט ' + (project.name || '') + ' בשוק הנדל״ן ואשמח לפרטים');
+    cta.push('<a class="btn btn-wa" href="https://wa.me/' + esc(project.whatsapp_e164) + '?text=' + text +
+      '" target="_blank" rel="noopener noreferrer">וואטסאפ</a>');
+  }
+  cta.push('<a class="btn btn-on-dark" href="#inquiryForm">השארת פרטים</a>');
+  el('bannerCta').innerHTML = cta.join('');
+}
+
+function renderFacts(){
+  const facts = [];
+  const price = ProjectCard.priceLabel(project);
+  if (price) facts.push([price, 'טווח מחירים']);
+  const rooms = ProjectCard.roomsLabel(project);
+  if (rooms) facts.push([rooms, 'תמהיל']);
+  if (project.min_size_sqm || project.max_size_sqm){
+    const lo = Number(project.min_size_sqm) || 0, hi = Number(project.max_size_sqm) || 0;
+    facts.push([(lo && hi && hi > lo ? trimNum(lo) + '–' + trimNum(hi) : trimNum(lo || hi)) + ' מ״ר', 'שטחים']);
+  }
+  if (project.total_units) facts.push([Number(project.total_units).toLocaleString('he-IL'), 'יחידות דיור']);
+  if (project.buildings_count) facts.push([Number(project.buildings_count).toLocaleString('he-IL'), 'בניינים']);
+  if (project.floors_count) facts.push([Number(project.floors_count).toLocaleString('he-IL'), 'קומות']);
+  const occ = ProjectCard.occupancyLabel(project);
+  if (occ && facts.length < 6) facts.push([occ.replace(/^אכלוס /, ''), 'אכלוס']);
+  if (project.available_units && facts.length < 6){
+    facts.push([Number(project.available_units).toLocaleString('he-IL'), 'דירות פנויות']);
+  }
+
+  el('factsBar').innerHTML = facts.slice(0, 6).map(([v, l]) =>
+    '<div class="fact"><b>' + esc(v) + '</b><span>' + esc(l) + '</span></div>').join('');
+}
+
+/* ---------- גלריה ולייטבוקס ---------- */
+let lbIndex = 0;
+
+function renderGallery(){
+  if (!images.length) return;
+  const box = el('gallery');
+  const shown = images.slice(0, 6);
+  box.textContent = '';
+  shown.forEach((img, i)=>{
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.style.backgroundImage = "url('" + safeUrl(img.thumb_url || img.url) + "')";
+    btn.setAttribute('aria-label', 'הגדלת תמונה ' + (i + 1) + ' מתוך ' + images.length);
+    if (i === shown.length - 1 && images.length > shown.length){
+      btn.innerHTML = '<span class="more">+' + (images.length - shown.length) + '</span>';
+    }
+    btn.addEventListener('click', ()=> openLightbox(i));
+    box.appendChild(btn);
+  });
+  el('gallerySub').textContent = images.length === 1 ? 'תמונה אחת' : images.length + ' תמונות';
+  el('gallerySec').hidden = false;
+}
+
+function openLightbox(i){
+  lbIndex = (i + images.length) % images.length;
+  const img = images[lbIndex];
+  el('lbImage').src = safeUrl(img.url);
+  el('lbImage').alt = img.title || img.caption || ('תמונה ' + (lbIndex + 1) + ' מהפרויקט');
+  el('lbCaption').textContent = img.caption || img.title || '';
+  el('lbCount').textContent = (lbIndex + 1) + ' / ' + images.length;
+  const dlg = el('lightbox');
+  if (!dlg.open) dlg.showModal();
+}
+el('lbClose').addEventListener('click', ()=> el('lightbox').close());
+el('lbPrev').addEventListener('click', ()=> openLightbox(lbIndex - 1));
+document.addEventListener('keydown', (e)=>{
+  if (!el('lightbox').open) return;
+  if (e.key === 'ArrowRight') openLightbox(lbIndex - 1);
+  if (e.key === 'ArrowLeft') openLightbox(lbIndex + 1);
+});
+
+/* ---------- תמהיל הדירות ---------- */
+const AVAIL = { available:'פנוי', few_left:'אחרונות', sold_out:'אזל' };
+
+function renderUnits(){
+  if (!units.length) return;
+  const rows = units.map(u => {
+    const cells = [
+      '<td class="name">' + esc(u.name || '') + '</td>',
+      '<td>' + (u.rooms ? trimNum(u.rooms) + ' חד׳' : '—') + '</td>',
+      '<td>' + (u.size_sqm ? trimNum(u.size_sqm) + ' מ״ר' : '—') + '</td>',
+      '<td>' + (u.balcony_sqm ? trimNum(u.balcony_sqm) + ' מ״ר' : (u.garden_sqm ? trimNum(u.garden_sqm) + ' מ״ר גינה' : '—')) + '</td>',
+      '<td>' + (fmtPrice(u.price) || 'בהתאמה') + '</td>',
+      '<td><span class="avail ' + esc(u.availability || 'available') + '">' +
+        esc(AVAIL[u.availability] || 'פנוי') + '</span></td>',
+      '<td>' + (safeUrl(u.floor_plan_url)
+        ? '<a class="plan-link" href="' + esc(safeUrl(u.floor_plan_url)) + '" target="_blank" rel="noopener noreferrer">תוכנית</a>'
+        : '') + '</td>',
+    ];
+    return '<tr>' + cells.join('') + '</tr>';
+  });
+  el('unitsTable').innerHTML =
+    '<thead><tr><th>דגם</th><th>חדרים</th><th>שטח</th><th>מרפסת/גינה</th><th>מחיר</th><th>זמינות</th><th></th></tr></thead>' +
+    '<tbody>' + rows.join('') + '</tbody>';
+  el('unitsSec').hidden = false;
+
+  /* בורר החדרים בטופס הפנייה נבנה מהדגמים בפועל: אין טעם להציע "6
+     חדרים" בפרויקט שהדגם הגדול בו הוא 4. */
+  const roomsSel = el('inRooms');
+  [...new Set(units.map(u => Number(u.rooms)).filter(r => r > 0))].sort((a,b)=>a-b).forEach(r=>{
+    const o = document.createElement('option');
+    o.value = String(r); o.textContent = trimNum(r) + ' חדרים';
+    roomsSel.appendChild(o);
+  });
+}
+
+/* ---------- חומר שיווקי ----------
+   הקבצים נפתחים בלשונית חדשה ולא יורדים דרך <a download>: הם מתארחים
+   ב-Storage של Supabase, כלומר בדומיין אחר, ו-download חוצה־מקור מתעלם
+   מהתכונה בכל הדפדפנים — הקישור היה נראה כמו הורדה ומתנהג כמו ניווט. */
+function renderDocs(){
+  const docs = media.filter(m => (m.kind === 'document' || m.kind === 'floor_plan') && safeUrl(m.url));
+  if (project.brochure_url && safeUrl(project.brochure_url)){
+    docs.unshift({ url: project.brochure_url, title: 'חוברת המכר של הפרויקט', kind: 'document' });
+  }
+  if (!docs.length) return;
+
+  const sizeLabel = (bytes)=>{
+    const n = Number(bytes);
+    if (!isFinite(n) || n <= 0) return '';
+    return n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.round(n / 1024) + ' KB';
+  };
+
+  el('docsList').innerHTML = docs.map(d => {
+    const meta = [d.kind === 'floor_plan' ? 'תוכנית' : 'מסמך', sizeLabel(d.file_size)].filter(Boolean).join(' · ');
+    return '<a class="doc" href="' + esc(safeUrl(d.url)) + '" target="_blank" rel="noopener noreferrer">' +
+      ICON_DOC +
+      '<span><b>' + esc(d.title || 'חומר שיווקי') + '</b><span>' + esc(meta) + '</span></span>' +
+      '<span class="go">פתיחה ←</span></a>';
+  }).join('');
+  el('docsSec').hidden = false;
+}
+
+/* ---------- שיתוף ---------- */
+function renderShare(){
+  const url = location.href;
+  const title = (project.name || 'פרויקט חדש') + ' — ' + (project.city || '');
+  const row = el('shareRow');
+
+  const item = (label, icon, href)=>
+    '<a class="share-btn" href="' + href + '" target="_blank" rel="noopener noreferrer">' + icon + label + '</a>';
+
+  const waIcon = '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.6 15l-1.3 4.7 4.8-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.1.2-3.2-.7-2.7-1.1-4.4-3.8-4.5-4-.1-.2-1.1-1.4-1.1-2.7 0-1.3.7-1.9.9-2.2.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.8 2c.1.2.1.4 0 .5l-.4.5c-.1.2-.3.3-.1.6.1.3.6 1.1 1.4 1.8 1 .9 1.8 1.1 2 1.2.3.1.4.1.6-.1l.8-.9c.2-.2.4-.2.6-.1l1.9.9c.2.1.4.2.5.3.1.2.1.7-.1 1.3Z"/></svg>';
+  const fbIcon = '<svg viewBox="0 0 24 24"><path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06C2 17.08 5.66 21.24 10.44 22v-7.03H7.9v-2.91h2.54V9.85c0-2.52 1.49-3.91 3.77-3.91 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.78-1.63 1.57v1.89h2.78l-.44 2.91h-2.34V22C18.34 21.24 22 17.08 22 12.06Z"/></svg>';
+  const mailIcon = '<svg viewBox="0 0 24 24"><path d="M3 5h18v14H3z" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="m3 6 9 6.5L21 6" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>';
+  const linkIcon = '<svg viewBox="0 0 24 24"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
+
+  row.innerHTML =
+    item('וואטסאפ', waIcon, 'https://wa.me/?text=' + encodeURIComponent(title + ' ' + url)) +
+    item('פייסבוק', fbIcon, 'https://www.facebook.com/sharer/sharer.php?u=' + encodeURIComponent(url)) +
+    item('אימייל', mailIcon, 'mailto:?subject=' + encodeURIComponent(title) + '&body=' + encodeURIComponent(url)) +
+    '<button type="button" class="share-btn" id="copyLink">' + linkIcon + 'העתקת קישור</button>';
+
+  el('copyLink').addEventListener('click', async (e)=>{
+    const btn = e.currentTarget;
+    try{
+      /* ‏navigator.clipboard חסום ב-http ובחלק מהדפדפנים בתוך iframe.
+         הנפילה ל-execCommand היא מה שמשאיר את הכפתור עובד שם. */
+      if (navigator.clipboard && window.isSecureContext){
+        await navigator.clipboard.writeText(url);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = url; ta.style.position = 'fixed'; ta.style.opacity = '0';
+        document.body.appendChild(ta); ta.select();
+        document.execCommand('copy'); ta.remove();
+      }
+      const before = btn.innerHTML;
+      btn.innerHTML = linkIcon + 'הועתק ✓';
+      setTimeout(()=>{ btn.innerHTML = before; }, 1800);
+    } catch(err){ /* דפדפן שחוסם העתקה — הקישור בשורת הכתובת ממילא */ }
+  });
+}
+
+/* ---------- כרטיס היזם ופרויקטים נוספים ---------- */
+function renderDeveloper(){
+  if (!project.developer_slug) return;
+  const card = el('devCard');
+  card.href = 'developer.html?slug=' + encodeURIComponent(project.developer_slug);
+  const logo = safeUrl(project.developer_logo_url);
+  card.innerHTML =
+    '<span class="mark"' + (logo ? ' style="background-image:url(\'' + esc(logo) + '\')"' : '') + '>' +
+      (logo ? '' : esc((project.developer_name || '?')[0])) + '</span>' +
+    '<span><b>' + esc(project.developer_name || '') + '</b>' +
+    '<span>לדף החברה ולכל הפרויקטים שלה ←</span></span>';
+  card.hidden = false;
+}
+
+async function renderMoreProjects(){
+  if (!sb || !project.developer_id) return;
+  const { data } = await sb.from('projects_public').select('*')
+    .eq('developer_id', project.developer_id).neq('id', project.id)
+    .order('published_at', { ascending:false }).limit(3);
+  if (!data || !data.length) return;
+  const grid = el('moreGrid');
+  ProjectCard.sortForGallery(data).forEach(p => grid.appendChild(ProjectCard.render(p, { hideDeveloper:true })));
+  el('moreHeading').textContent = 'פרויקטים נוספים של ' + (project.developer_name || 'היזם');
+  el('moreSec').hidden = false;
+}
+
+/* ---------- טופס הפנייה ---------- */
+el('inquiryForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const msg = el('inMsg'), btn = el('inSubmit');
+  const name = el('inName').value.trim(), phone = el('inPhone').value.trim();
+
+  if (!name || !phone){
+    msg.style.color = 'var(--teal)'; msg.textContent = 'נא למלא שם וטלפון';
+    return;
+  }
+  if (!el('inConsent').checked){
+    msg.style.color = 'var(--teal)'; msg.textContent = 'צריך לאשר יצירת קשר';
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'שולח…'; msg.textContent = '';
+  try{
+    const rooms = el('inRooms').value;
+    const res = await fetch(LEAD_INTAKE_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({
+        project_slug: project.slug,
+        full_name:name, phone,
+        email: el('inEmail').value.trim() || null,
+        rooms: rooms ? [Number(rooms)] : [],
+        cities: project.city ? [project.city] : [],
+        message: el('inNote').value.trim() || null,
+        timeline: 'now',
+        consent_contact: true,
+        source: 'project_page',
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      const messages = {
+        bad_phone:'מספר הטלפון אינו תקין',
+        rate_limited:'כבר קיבלנו ממך כמה פניות היום. נחזור אליך בקרוב.',
+        project_not_found:'דף הפרויקט אינו פעיל כרגע',
+      };
+      msg.style.color = '#b3261e';
+      msg.textContent = messages[data.error] || 'משהו השתבש — נסו שוב';
+      btn.disabled = false; btn.textContent = 'שליחת פנייה';
+      return;
+    }
+    el('inquiryForm').innerHTML =
+      '<h3 style="font-family:\'Frank Ruhl Libre\',serif;font-size:1.05rem;margin:0;color:var(--teal-dark)">הפנייה נשלחה</h3>' +
+      '<p style="font-size:.83rem;color:var(--ink-soft);margin:8px 0 0">' +
+      'משרד המכירות של הפרויקט קיבל את הפרטים וייצור איתך קשר.</p>';
+  } catch(err){
+    console.warn(err);
+    msg.style.color = '#b3261e';
+    msg.textContent = 'שגיאת רשת — נסו שוב';
+    btn.disabled = false; btn.textContent = 'שליחת פנייה';
+  }
+});
+
+/* ---------- מונה הצפיות ----------
+   שורה אחת לכל טעינת דף, עם מזהה סשן שיושב ב-sessionStorage כדי
+   שרענון לא ייספר כביקור חדש. הכתיבה היא insert בלבד — הטבלה לא
+   נקראת מהדפדפן. */
+function logView(){
+  if (!sb || !project) return;
+  try{
+    let sid = sessionStorage.getItem('pj_sid');
+    if (!sid){ sid = crypto.randomUUID(); sessionStorage.setItem('pj_sid', sid); }
+    if (sessionStorage.getItem('pj_seen_' + project.id)) return;
+    sessionStorage.setItem('pj_seen_' + project.id, '1');
+    sb.from('project_views').insert({ project_id: project.id, visitor_session_id: sid })
+      .then(()=>{}, ()=>{});
+  } catch(e){ /* דפדפן שחוסם אחסון — הצפייה פשוט לא נספרת */ }
+}
+
+function renderMeta(){
+  const title = (project.name || 'פרויקט חדש') +
+    (project.city ? ' — ' + project.city : '') + ' | שוק נדל״ן';
+  document.title = title;
+  el('ogTitle').content = title;
+  const desc = (project.tagline || project.description || '')
+    .replace(/\s+/g, ' ').trim().slice(0, 200) ||
+    ('פרויקט חדש מקבלן' + (project.city ? ' ב' + project.city : '') + ' — תמהיל דירות, מחירים וגלריה.');
+  el('metaDescription').content = desc;
+  el('ogDescription').content = desc;
+  const cover = safeUrl(project.cover_url) || safeUrl(images[0] && images[0].url);
+  if (cover) el('ogImage').content = cover;
+}
+
+(async function init(){
+  if (!sb || !slug){
+    el('loadingState').hidden = true;
+    el('notFoundState').hidden = false;
+    return;
+  }
+  try{
+    const { data, error } = await sb.from('projects_public').select('*').eq('slug', slug).maybeSingle();
+    if (error) throw error;
+    if (!data){
+      el('loadingState').hidden = true;
+      el('notFoundState').hidden = false;
+      return;
+    }
+    project = data;
+
+    const [{ data: mediaRows }, { data: unitRows }] = await Promise.all([
+      sb.from('project_media_public').select('*').eq('project_id', project.id).order('sort_order'),
+      sb.from('project_unit_types_public').select('*').eq('project_id', project.id).order('sort_order'),
+    ]);
+    media = mediaRows || [];
+    units = unitRows || [];
+    images = media.filter(m => m.kind === 'image' && safeUrl(m.url));
+
+    applyBrand(project.colors);
+    renderMeta();
+    renderBanner();
+    renderFacts();
+
+    if (project.description){
+      el('projectDescription').textContent = project.description;
+      el('aboutSec').hidden = false;
+    }
+    renderGallery();
+
+    /* ‏video_url על הפרויקט הוא הסרטון הראשי; סרטונים נוספים יושבים
+       ב-project_media ומוצגים מתחתיו באותה סקציה. */
+    const videos = media.filter(m => m.kind === 'video' && safeUrl(m.url));
+    const mainVideo = safeUrl(project.video_url) || (videos[0] && safeUrl(videos[0].url));
+    if (mainVideo){
+      mediaSlot(el('videoSlot'), mainVideo, 'סרטון הפרויקט');
+      const extra = videos.filter(v => safeUrl(v.url) !== mainVideo);
+      extra.slice(0, 3).forEach(v=>{
+        const holder = document.createElement('div');
+        holder.style.marginTop = '10px';
+        mediaSlot(holder, v.url, v.title || 'סרטון נוסף');
+        el('videoSlot').appendChild(holder);
+      });
+      el('videoSec').hidden = false;
+    }
+
+    const tours = media.filter(m => m.kind === 'tour_3d' && safeUrl(m.url));
+    const mainTour = safeUrl(project.tour_3d_url) || (tours[0] && safeUrl(tours[0].url));
+    if (mainTour){
+      mediaSlot(el('tourSlot'), mainTour, 'סיור 3D בפרויקט');
+      tours.filter(t => safeUrl(t.url) !== mainTour).slice(0, 3).forEach(t=>{
+        const holder = document.createElement('div');
+        holder.style.marginTop = '10px';
+        mediaSlot(holder, t.url, t.title || 'סיור 3D נוסף');
+        el('tourSlot').appendChild(holder);
+      });
+      el('tourSec').hidden = false;
+    }
+
+    renderUnits();
+
+    const features = ProjectCard.featureLabels(project, 24);
+    if (features.length){
+      el('featureChips').innerHTML = features.map(f => '<span class="chip">' + esc(f) + '</span>').join('');
+      el('featuresSec').hidden = false;
+    }
+
+    renderDocs();
+    renderShare();
+    renderDeveloper();
+
+    if (project.marketing_summary){
+      el('sideNote').textContent = project.marketing_summary;
+    }
+
+    el('loadingState').hidden = true;
+    el('main').hidden = false;
+
+    logView();
+    renderMoreProjects();
+  } catch(e){
+    console.warn('טעינת הפרויקט נכשלה:', e);
+    el('loadingState').hidden = true;
+    el('notFoundState').hidden = false;
+  }
+})();
+</script>
+</body>
+</html>

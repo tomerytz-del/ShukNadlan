@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>פתיחת חשבון יזם/קבלן | שוק נדל״ן</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta name="description" content="פתיחת חשבון לחברה יזמית או קבלנית בשוק הנדל״ן — דף חברה, ודף נחיתה לכל פרויקט חדש.">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  /* אותו כרטיס בדיוק של agency-signup.html — זו אותה פעולה בעולם אחר,
+     ואין סיבה שהיא תיראה אחרת. */
+  :root{
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
+    --line:#e3e8f4; --blue:#0e2a6b; --blue-dark:#0d1b3d; --blue-tint:#eaf0fb;
+    --red:#0e2a6b; --brass-tint:#f7f1e2; --brass-ink:#8a6d10;
+    --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(18,40,64,.1);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  h1,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--blue-dark);margin:0}
+  a{color:inherit}
+  button{font-family:inherit;cursor:pointer;border:none}
+  input,textarea{font-family:inherit;font-size:1rem}
+  .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line);max-width:470px;width:100%;padding:32px 26px}
+  .logo-link{display:block;width:64px;margin:0 auto 16px;line-height:0}
+  .logo-link img{width:100%;height:auto;display:block}
+  h1{font-size:1.25rem;text-align:center;margin-bottom:6px}
+  p.sub{text-align:center;color:var(--ink-soft);font-size:.85rem;margin:0 0 22px}
+  .field{margin-bottom:12px}
+  .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
+  .field input,.field textarea{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
+  .field textarea{resize:vertical;min-height:64px;font-size:.92rem}
+  .field input:focus,.field textarea:focus{border-color:var(--blue);outline:none}
+  .field .hint{font-size:.7rem;color:var(--ink-soft);margin-top:4px;line-height:1.45}
+  /* שלוש מצבים לחיווי הח״פ: אישור, אזהרה, ומידע ניטרלי. אזהרה אינה
+     אדומה כשהמרשם פשוט לא זמין — זו לא שגיאה של מי שממלא/ת. */
+  /* גובה שמור לרמז הח״פ.
+     הטקסט כאן מתחלף בזמן ההקלדה — "תשע ספרות" → "בודק…" → שם החברה או
+     הודעת שגיאה בת שתי שורות — וכל החלפה כזו הזיזה את כל הטופס שמתחתיה,
+     כולל תיבת אישור התנאים. מי שהושיט/ה יד לתיבה בדיוק כשהתשובה חזרה
+     החטיא/ה אותה. נתפס בבדיקת דפדפן: הלחיצה נחתה על ה-div העוטף. */
+  #cnHint{min-height:2.6em}
+  .hint.ok{color:#12704a;font-weight:700}
+  .hint.warn{color:#b3261e;font-weight:700}
+  .hint.busy{color:var(--ink-soft);font-style:italic}
+  .two{display:grid;gap:12px}
+  @media(min-width:440px){.two{grid-template-columns:1fr 1fr}}
+  .section-divider{font-size:.72rem;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 10px;padding-top:14px;border-top:1px solid var(--line)}
+  .consent{display:flex;align-items:flex-start;gap:9px;background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
+  .consent input{margin:2px 0 0;width:17px;height:17px;flex:0 0 auto;accent-color:var(--blue)}
+  .consent label{font-size:.78rem;line-height:1.45;cursor:pointer}
+  .consent a{color:var(--blue);font-weight:700}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:0;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff;margin-top:10px}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  #feedback{font-size:.82rem;text-align:center;margin-top:12px;min-height:1.2em}
+  .back-link{display:block;text-align:center;font-size:.8rem;color:var(--blue);margin-top:16px;text-decoration:none}
+  .note{font-size:.74rem;color:var(--ink-soft);background:var(--blue-tint);border-radius:var(--radius-sm);padding:11px 12px;margin-bottom:16px}
+  /* מחירון גלוי כבר בהרשמה. פתיחת החשבון חינם, והתשלום מתחיל רק כשדף
+     נחיתה עולה לאוויר — שני המשפטים האלה צריכים להיאמר לפני ההרשמה
+     ולא אחריה. */
+  .pricing{background:var(--brass-tint);border-radius:var(--radius-sm);padding:12px 13px;margin-bottom:16px;font-size:.78rem;line-height:1.6}
+  .pricing b{color:var(--brass-ink)}
+  .pricing ul{margin:6px 0 0;padding-inline-start:18px}
+  /* כפתור Google — אותו עיצוב בדיוק של crm.html, כדי שמי שמכיר/ה את
+     כניסת הסוכנים יזהה אותו מיד. */
+  .btn-google{background:#fff;color:var(--ink);border:1.5px solid var(--line);gap:10px;margin-top:0}
+  .btn-google:hover:not(:disabled){border-color:var(--blue)}
+  .or-divider{text-align:center;font-size:.75rem;color:var(--ink-soft);margin:14px 0}
+  /* כוכבית על כל שדה חובה. היא לא קישוט: הטופס הזה ארוך, ובלי סימון
+     ויזואלי ההבדל בין "שם החברה" ל"שם רשמי" מתגלה רק בשליחה. */
+  .req::after{content:" *";color:#b3261e;font-weight:800}
+  /* ‏:user-invalid ולא :invalid — שדה חובה ריק הוא :invalid כבר בטעינת
+     הדף, וצביעה אדומה של טופס שאיש עוד לא נגע בו נראית כמו שמונה
+     שגיאות. ‏:user-invalid נדלק רק אחרי שנגעו בשדה ויצאו ממנו. דפדפן
+     שאינו מכיר אותו פשוט לא צובע — וזו נפילה־לאחור נכונה. */
+  .field input:user-invalid{border-color:#b3261e}
+  #stateDone{display:none;text-align:center}
+</style>
+<link rel="stylesheet" href="assets/design-system.css">
+<script src="assets/page-bg.js" data-auto></script>
+</head>
+<body>
+
+<div class="card">
+  <div id="stateForm">
+    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
+    <h1>פתיחת חשבון יזם/קבלן</h1>
+    <p class="sub">דף חברה אחד, ודף נחיתה נפרד לכל פרויקט</p>
+
+    <div class="note">
+      תחילה נפתחת החברה — היזמית או הקבלנית. אחר כך, מאזור הניהול, מעלים כל פרויקט לדף נחיתה משלו:
+      לוגו, תמונת נושא, גלריה, סרטונים, סיור 3D, תמהיל דירות וחוברת מכר להורדה.
+      כל פרויקט מוצג בדף הבית, בדף החברה שלכם ובדף שמרכז את כל הפרויקטים.
+    </div>
+
+    <div class="pricing">
+      <b>המחירון, לפני שנתחיל:</b>
+      <ul>
+        <li>פתיחת החברה ודף החברה — <b>ללא עלות</b>.</li>
+        <li>דף נחיתה לפרויקט — <b id="pricePage">350 ₪ לחודש</b>, לכל פרויקט בנפרד.</li>
+        <li>קידום פרויקט בראש הגלריות — <b id="pricePromote">50 ₪ לשבוע</b>, לבחירתכם.</li>
+      </ul>
+    </div>
+
+    <!-- ‏Google ראשון, ולא אחרי הטופס: מי שיש לו/ה חשבון Google לא צריך/ה
+         לקרוא שמונה שדות כדי לגלות שאפשר בלחיצה. ההרשמה עצמה זהה — אחרי
+         החזרה מ-Google נפתח אותו מסך "פתיחת חברה" עם אותם שדות חובה,
+         בלי שדות האימייל והסיסמה. -->
+    <button type="button" class="btn btn-google" id="googleBtn">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.94v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.94A9 9 0 0 0 0 9c0 1.45.35 2.83.94 4.03l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .94 4.97l3.01 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
+      <span class="gl-label">הרשמה עם Google</span>
+    </button>
+    <p class="or-divider">— או במילוי הטופס —</p>
+
+    <div class="section-divider">פרטי החברה</div>
+    <div class="field"><label class="req">שם החברה (כפי שיוצג באתר)</label><input type="text" id="companyName" required></div>
+    <div class="two">
+      <div class="field"><label class="req">ח״פ (מספר תאגיד)</label><input type="text" id="companyNumber" inputmode="numeric" placeholder="512345678" required><div class="hint" id="cnHint">תשע ספרות. נבדק מול רשם החברות בזמן ההקלדה.</div></div>
+      <div class="field"><label>שם רשמי <span style="font-weight:400">(לא חובה)</span></label><input type="text" id="legalName" placeholder="בע״מ"></div>
+    </div>
+    <div class="two">
+      <div class="field"><label class="req">טלפון</label><input type="tel" id="phone" inputmode="tel" placeholder="04-6000000" required></div>
+      <div class="field"><label class="req">עיר</label><input type="text" id="city" placeholder="עפולה" required></div>
+    </div>
+    <div class="field"><label class="req">כתובת המשרד</label><input type="text" id="address" placeholder="שדרות ירושלים 40" required></div>
+    <div class="field"><label>משפט תדמית קצר <span style="font-weight:400">(לא חובה)</span></label><input type="text" id="tagline" placeholder="בונים בעמק מאז 1998"></div>
+    <div class="field"><label>אתר החברה <span style="font-weight:400">(לא חובה)</span></label><input type="url" id="website" placeholder="https://"></div>
+
+    <div class="section-divider">איש/אשת הקשר בחברה</div>
+    <div class="field"><label class="req">שם מלא</label><input type="text" id="contactName" required></div>
+    <div class="field"><label class="req">אימייל</label><input type="email" id="contactEmail" required autocomplete="username"></div>
+    <div class="field"><label class="req">סיסמה (8 תווים לפחות)</label><input type="password" id="password" required minlength="8" autocomplete="new-password"></div>
+
+    <div class="section-divider">תנאים</div>
+    <div class="consent">
+      <input type="checkbox" id="termsConsent">
+      <label for="termsConsent">קראתי ואני מסכים/ה ל<a href="terms.html" target="_blank" rel="noopener">תנאי השימוש</a> ול<a href="privacy.html" target="_blank" rel="noopener">מדיניות הפרטיות</a>. ידוע לי שהמידע, המחירים והתמונות בדפי הפרויקטים הם באחריות החברה, ואינם מהווים הצעה מחייבת.</label>
+    </div>
+
+    <button class="btn" id="submitBtn">פתיחת החשבון</button>
+    <div id="feedback"></div>
+    <a href="developer-crm.html" class="back-link">כבר יש לך חשבון? כניסה</a>
+  </div>
+
+  <div id="stateDone">
+    <h1>החשבון נפתח!</h1>
+    <p class="sub">אפשר להתחבר עכשיו עם הפרטים שהזנת, לעצב את דף החברה ולהעלות את הפרויקט הראשון.</p>
+    <p class="hint" id="doneRegistry" hidden style="text-align:center"></p>
+    <a href="developer-crm.html" class="btn" style="display:flex;text-decoration:none;margin-top:16px">מעבר לאזור הניהול</a>
+    <a href="#" id="devPageLink" class="back-link" target="_blank" rel="noopener">לדף החברה שנוצר ←</a>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script>
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+const SIGNUP_URL = SUPABASE_URL + '/functions/v1/developer-signup';
+const REGISTRY_URL = SUPABASE_URL + '/functions/v1/company-registry-lookup';
+const el = id => document.getElementById(id);
+
+/* המחירון נקרא מ-pricing_config ולא נשאר קשיח ב-HTML: שינוי מחיר בטבלה
+   חייב להשתקף בדף שמבטיח אותו, אחרת ההרשמה מבטיחה מחיר שאינו קיים. */
+(async function loadPricing(){
+  if (!window.supabase) return;
+  try{
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data } = await sb.from('pricing_config').select('key, value')
+      .in('key', ['project_page_monthly_price','project_promote_weekly_price']);
+    const map = {};
+    (data || []).forEach(r => { map[r.key] = Number(r.value); });
+    if (map.project_page_monthly_price)
+      el('pricePage').textContent = map.project_page_monthly_price.toLocaleString('he-IL') + ' ₪ לחודש';
+    if (map.project_promote_weekly_price)
+      el('pricePromote').textContent = map.project_promote_weekly_price.toLocaleString('he-IL') + ' ₪ לשבוע';
+  } catch(e){ /* המחירים שב-HTML נשארים */ }
+})();
+
+/* ---------- הרשמה עם Google ----------
+   הכפתור רק מנתב; ההרשמה עצמה נגמרת במסך "פתיחת חברה" ב-developer-crm.html,
+   כי חשבון Google יוצר משתמש ב-auth.users אבל לא שורת developers.
+
+   ‏redirectTo נבנה יחסית לכתובת הנוכחית ולא כ-origin + '/developer-crm.html'‎,
+   כדי שהאתר יעבוד גם כשהוא מוגש מתת-תיקייה. הוא נשלח בלי query ובלי hash,
+   כדי שיתאים בדיוק לכתובת שברשימת ה-Redirect URLs של Supabase — כתובת שאינה
+   ברשימה מוחלפת ב-Site URL, והחזרה מ-Google נוחתת בדף הבית במקום כאן. */
+function crmUrl(){
+  const u = new URL('developer-crm.html', location.href);
+  u.search = ''; u.hash = '';
+  return u.href;
+}
+
+el('googleBtn').addEventListener('click', async ()=>{
+  const btn = el('googleBtn'), feedback = el('feedback');
+  if (!window.supabase){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'החיבור ל-Google אינו זמין כרגע. אפשר להירשם עם אימייל וסיסמה.';
+    return;
+  }
+  feedback.textContent = '';
+  // נעילה וחיווי: הניתוב לוקח רגע, ובלי זה לחיצה נוספת פותחת ניתוב שני
+  btn.disabled = true;
+  btn.querySelector('.gl-label').textContent = 'מעבירים ל-Google…';
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: crmUrl() },
+  });
+  if (error){
+    btn.disabled = false;
+    btn.querySelector('.gl-label').textContent = 'הרשמה עם Google';
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'לא הצלחנו לפתוח את החיבור ל-Google: ' + error.message;
+  }
+});
+
+/* ---------- הרשמה עם אימייל וסיסמה ----------
+   כל השדות החסרים נאספים יחד ומוצגים בהודעה אחת. טופס בן שמונה שדות
+   שמצביע על אחד בכל שליחה מכריח את מי שממלא/ת אותו לשלוח שמונה פעמים. */
+const REQUIRED = [
+  ['companyName',  'שם החברה'],
+  ['companyNumber','ח״פ'],
+  ['phone',        'טלפון'],
+  ['city',         'עיר'],
+  ['address',      'כתובת המשרד'],
+  ['contactName',  'שם איש/אשת הקשר'],
+  ['contactEmail', 'אימייל'],
+  ['password',     'סיסמה'],
+];
+
+/* ‏ח״פ ישראלי הוא תשע ספרות. שמונה מתקבל ומושלם באפס מוביל — כך נכתב לא
+   פעם מספר עוסק מורשה, והשלמה כאן מונעת שתי רשומות לאותו עסק. אותה
+   נורמליזציה בדיוק רצה גם בשרת. */
+function normalizeCompanyNumber(raw){
+  const digits = String(raw || '').replace(/\D/g, '');
+  if (digits.length === 8) return '0' + digits;
+  return digits.length === 9 ? digits : null;
+}
+
+/* ---------- בדיקת הח״פ מול רשם החברות ----------
+   רצה בזמן ההקלדה כדי שהשם הרשום יופיע מיד — זה גם האישור הטוב ביותר
+   שהמספר נכון, וגם מה שחוסך "נרשמתי וגיליתי אחר כך שהקלדתי ספרה".
+
+   ‏seq מונע מתשובה איטית של בדיקה קודמת לדרוס תשובה חדשה: המשתמש/ת
+   ממשיך/ה להקליד, ובקשות חוזרות אינן חוזרות בסדר שיצאו.
+
+   התוצאה כאן היא **חיווי בלבד**. השרת מריץ את אותה בדיקה בעצמו, ולכן אין
+   טעם לנסות לעקוף אותה מכאן. */
+let registryState = null;
+let registrySeq = 0;
+
+async function checkCompanyNumber(){
+  const raw = el('companyNumber').value.trim();
+  const hint = el('cnHint');
+  const normalized = normalizeCompanyNumber(raw);
+
+  if (!raw){
+    registryState = null;
+    hint.className = 'hint';
+    hint.textContent = 'תשע ספרות. נבדק מול רשם החברות בזמן ההקלדה.';
+    return;
+  }
+  if (!normalized){
+    registryState = null;
+    hint.className = 'hint';
+    hint.textContent = 'תשע ספרות. מספר בן שמונה יושלם באפס מוביל.';
+    return;
+  }
+
+  const seq = ++registrySeq;
+  hint.className = 'hint busy';
+  hint.textContent = 'בודק מול רשם החברות…';
+  try{
+    const res = await fetch(REGISTRY_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({ company_number: normalized }),
+    });
+    if (seq !== registrySeq) return;   // תשובה שאיחרה — כבר יש חדשה
+    const data = await res.json();
+    if (!res.ok || data.error) throw new Error(data.error || 'lookup_failed');
+
+    registryState = data;
+    hint.className = 'hint ' + (data.status === 'verified' ? 'ok'
+      : data.status === 'inactive' || data.status === 'not_found' ? 'warn' : '');
+    hint.textContent = data.message;
+  } catch(e){
+    if (seq !== registrySeq) return;
+    registryState = null;
+    hint.className = 'hint';
+    hint.textContent = 'לא הצלחנו לבדוק מול רשם החברות כרגע. אפשר להמשיך — נבדוק שוב בהמשך.';
+  }
+}
+
+let cnTimer = null;
+el('companyNumber').addEventListener('input', ()=>{
+  clearTimeout(cnTimer);
+  cnTimer = setTimeout(checkCompanyNumber, 450);
+});
+el('companyNumber').addEventListener('blur', ()=>{ clearTimeout(cnTimer); checkCompanyNumber(); });
+
+el('submitBtn').addEventListener('click', async ()=>{
+  const feedback = el('feedback'), btn = el('submitBtn');
+  const fail = (msg)=>{ feedback.style.color = 'var(--red)'; feedback.textContent = msg; };
+  const val = id => el(id).value.trim();
+
+  const missing = REQUIRED.filter(([id]) => !val(id)).map(([, label]) => label);
+  if (missing.length){
+    return fail(missing.length === 1
+      ? 'חסר שדה חובה: ' + missing[0]
+      : 'חסרים שדות חובה: ' + missing.join(', '));
+  }
+
+  const companyNumber = normalizeCompanyNumber(val('companyNumber'));
+  if (!companyNumber) return fail('מספר ח״פ / עוסק מורשה צריך להיות בן תשע ספרות');
+  if (val('password').length < 8) return fail('הסיסמה צריכה להכיל לפחות 8 תווים');
+  if (!el('termsConsent').checked) return fail('ההצטרפות מותנית באישור תנאי השימוש');
+
+  btn.disabled = true; btn.textContent = 'פותח חשבון…'; feedback.textContent = '';
+  try{
+    const res = await fetch(SIGNUP_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({
+        company_name: val('companyName'),
+        company_number: companyNumber,
+        contact_name: val('contactName'),
+        phone: val('phone'),
+        address: val('address'),
+        city: val('city'),
+        legal_name: val('legalName') || null,
+        tagline: val('tagline') || null,
+        website: val('website') || null,
+        contact_email: val('contactEmail'),
+        password: el('password').value,
+        terms_accepted: true,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      const LABELS = {
+        company_name:'שם החברה', company_number:'ח״פ', contact_name:'שם איש/אשת הקשר',
+        phone:'טלפון', address:'כתובת המשרד', city:'עיר',
+        contact_email:'אימייל', password:'סיסמה',
+      };
+      const named = (list)=> (list || []).map(k => LABELS[k] || k).join(', ');
+      const messages = {
+        weak_password: 'הסיסמה קצרה מדי',
+        auth_error: 'שגיאה ביצירת החשבון — ייתכן שהאימייל כבר בשימוש',
+        terms_not_accepted: 'ההצטרפות מותנית באישור תנאי השימוש',
+        company_number_taken: 'מספר הח״פ הזה כבר רשום במערכת. אם זו החברה שלכם — היכנסו לחשבון הקיים.',
+        company_registry_rejected: data.detail || 'מספר הח״פ נדחה על ידי רשם החברות.',
+        missing_fields: data.invalid && data.invalid.length
+          ? 'שדות שאינם תקינים: ' + named(data.invalid)
+          : 'חסרים שדות חובה: ' + named(data.missing),
+      };
+      fail(messages[data.error] || ('שגיאה: ' + (data.detail || data.error)));
+      btn.disabled = false; btn.textContent = 'פתיחת החשבון';
+      return;
+    }
+    el('devPageLink').href = 'developer.html?slug=' + encodeURIComponent(data.developer_slug);
+    if (data.registry_status === 'verified' && data.registry_name){
+      el('doneRegistry').textContent = 'אומת מול רשם החברות: ' + data.registry_name;
+      el('doneRegistry').hidden = false;
+    } else if (data.registry_status === 'unverified'){
+      el('doneRegistry').textContent = 'רשם החברות לא היה זמין כרגע — נשלים את האימות מאוחר יותר.';
+      el('doneRegistry').hidden = false;
+    }
+    el('stateForm').style.display = 'none';
+    el('stateDone').style.display = 'block';
+  } catch(err){
+    console.error(err);
+    fail('שגיאת רשת — נסו שוב');
+    btn.disabled = false; btn.textContent = 'פתיחת החשבון';
+  }
+});
+</script>
+</body>
+</html>
