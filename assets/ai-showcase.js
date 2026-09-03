@@ -185,10 +185,18 @@
        סגנון מוצג בווילון, ואיזו הדמיה קודמת עולה במקומו. השבבים והתמונונות
        הם כפתורים אמיתיים ולא קישורים — הם לא מנווטים לשום מקום, הם מחליפים
        את מה שכבר על המסך. */
-    '.ai-styles{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}',
+    /* רשת של שתי עמודות ולא שורת flex עוטפת. ארבעת הסגנונות הם קבוצה אחת
+       של בחירות שקולות, ו-flex-wrap נתן לכל שבב את רוחב המילים שבו: שורה
+       ראשונה של שניים ברוחבים שונים, שנייה של שניים אחרים, וקצוות שלא
+       מתיישרים עם שום דבר בתיבה. שתי עמודות שוות מציגות אותן כארבע
+       אפשרויות שוות־ערך, וזה מה שהן. */
+    /* אותה תקרה ואותו מירכוז של הכפתור שמתחת: השבבים והכפתור הם צעד אחד
+       אחרי השני, ובמסך רחב שני בלוקים ברוחב שונה קוראים כשני מקטעים. */
+    '.ai-styles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));',
+    '  gap:8px;margin:0 auto 16px;max-width:460px}',
     '.ai-style{font-family:Heebo,system-ui,sans-serif;font-size:13px;font-weight:700;',
-    '  padding:8px 14px;cursor:pointer;background:transparent;color:#e6ecf9;',
-    '  border:1px solid rgba(255,255,255,.28)}',
+    '  padding:10px 12px;cursor:pointer;background:transparent;color:#e6ecf9;',
+    '  text-align:center;border:1px solid rgba(255,255,255,.28)}',
     '.ai-style:hover{border-color:#c9a227;color:#fff}',
     '.ai-style[aria-pressed="true"]{background:#fff;color:#0d1b3d;border-color:#fff}',
     /* בזמן "יוצרים…" הכפתור לא מגיב למגע: הרמה וזוהר על כפתור מושבת
