@@ -15167,7 +15167,7 @@ function agrNewWizard(){
     properties:[],          // [{property_id, label, fields:{}, notes}]
     signers:[],             // [{uid, party, full_name, id_number, phone, email, address, client_id}]
     commission:{ pct:2, amount:'', basis:'' },
-    exclusive:{ from:'', until:'', actions:[] },
+    exclusive:{ from:'', until:'' },
     questionnaire:[],
     notes:'', language:'he',
     agreementId:null, record:null,
@@ -15344,20 +15344,18 @@ function agrRenderStepDetails(){
     '<p class="imp-note">המחירים המצוינים אינם כוללים מע״מ.</p>' +
   '</div>';
 
-  /* --- בלעדיות --- */
+  /* --- בלעדיות ---
+     רק התאריכים. נספח פעולות השיווק מודפס במסמך במלואו ואינו נבחר —
+     ההסכם הוא "יבוצעו לפחות שתיים מהאמור כדלקמן", ובחירה מראש הייתה
+     מצמצמת אותו ומחייבת דווקא בשתיים שסומנו. */
   if (tpl.exclusive){
-    html += '<div class="agr-sec"><h4>תקופת הבלעדיות ופעולות השיווק</h4><div class="agr-grid">' +
+    html += '<div class="agr-sec"><h4>תקופת הבלעדיות</h4><div class="agr-grid">' +
       `<div class="agr-field"><label>מיום</label><input type="date" id="agrExFrom" value="${esc(w.exclusive.from)}"></div>` +
       `<div class="agr-field"><label>ועד ליום</label><input type="date" id="agrExUntil" value="${esc(w.exclusive.until)}"></div>` +
       '</div>' +
-      '<div class="agr-field" style="margin-top:10px"><label>פעולות השיווק שאני מתחייב/ת לבצע</label>' +
-      '<div class="share-partner-list" id="agrActions">' +
-        window.AgreementTemplates.marketingActions.map((a, i) =>
-          `<label class="checkbox-item"><input type="checkbox" data-agr-action="${i}"${
-            w.exclusive.actions.includes(a) ? ' checked' : ''}> ${esc(a)}</label>`).join('') +
-      '</div></div>' +
-      '<p class="imp-note">תקנות המתווכים במקרקעין (פעולות שיווק), התשס״ה-2004 מתנות את הבלעדיות בביצוע ' +
-      'לפחות שתי פעולות שיווק תוך 30 יום. סמנו רק את מה שתבצעו בפועל.</p>' +
+      '<p class="imp-note">התאריכים נכנסים לסעיף 1 של ההסכם. נספח פעולות השיווק, לפי תקנות ' +
+      'המתווכים במקרקעין (פעולות שיווק), התשס״ה-2004, מודפס במסמך במלואו — ההתחייבות היא ' +
+      'לבצע לפחות שתיים מהפעולות שברשימה.</p>' +
     '</div>';
   }
 
@@ -15573,9 +15571,6 @@ function agrCollectDetails(){
   if (tpl.exclusive){
     w.exclusive.from = agrEl('agrExFrom').value;
     w.exclusive.until = agrEl('agrExUntil').value;
-    w.exclusive.actions = [...document.querySelectorAll('[data-agr-action]')]
-      .filter(cb => cb.checked)
-      .map(cb => window.AgreementTemplates.marketingActions[Number(cb.dataset.agrAction)]);
   }
 
   if (tpl.questionnaire){
@@ -15600,9 +15595,8 @@ function agrValidate(){
   const hasPct = w.commission.pct !== '' && Number(w.commission.pct) > 0;
   const hasAmount = w.commission.amount !== '' && Number(w.commission.amount) > 0;
   if (!hasPct && !hasAmount) missing.push('לא הוזנה עמלה — אחוזים או סכום');
-  if (tpl.exclusive){
-    if (!w.exclusive.from || !w.exclusive.until) missing.push('חסרה תקופת הבלעדיות');
-    if (w.exclusive.actions.length < 2) missing.push('יש לסמן לפחות שתי פעולות שיווק');
+  if (tpl.exclusive && (!w.exclusive.from || !w.exclusive.until)){
+    missing.push('חסרה תקופת הבלעדיות');
   }
   if (!currentAgent || !currentAgent.id_number) missing.push('חסרה ת.ז. בפרטי הסוכן/ת — עדכנו אותה ב"עדכון פרטי הסוכן/ת"');
   return missing;
@@ -15704,7 +15698,6 @@ async function agrSaveAndGoSign(btn){
       commission_note: w.commission.basis || null,
       exclusive_from: tpl.exclusive && w.exclusive.from ? w.exclusive.from : null,
       exclusive_until: tpl.exclusive && w.exclusive.until ? w.exclusive.until : null,
-      marketing_actions: tpl.exclusive ? w.exclusive.actions : [],
       language: w.language,
       notes: w.notes || null,
       /* אימות בקוד דלוק כברירת מחדל בטופסי קונה ושוכר בלבד: שם רשימת

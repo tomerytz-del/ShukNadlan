@@ -46,6 +46,17 @@
     return isNaN(t.getTime()) ? String(d) : t.toLocaleDateString('he-IL');
   }
 
+  /* ‏04/09/2026 ולא 4.9.2026 — כך תקופת הבלעדיות מודפסת בטופס, וזה תאריך
+     שנקרא כתחילת מרוץ זמן ולא כציון יום. אפסים מובילים מונעים את הקריאה
+     השגויה של 4/3 כארבעה במרץ במקום כארבעה בחודש השלישי. */
+  function slashDate(d) {
+    if (!d) return '';
+    var t = new Date(d);
+    if (isNaN(t.getTime())) return String(d);
+    var pad = function (n) { return String(n).padStart(2, '0'); };
+    return pad(t.getDate()) + '/' + pad(t.getMonth() + 1) + '/' + t.getFullYear();
+  }
+
   function shekel(n) {
     if (n === null || n === undefined || n === '') return '';
     var num = Number(n);
@@ -126,7 +137,7 @@
 
     out += '<p style="' + pStyle + '">' +
       '<span style="' + labelStyle + '">לבין</span><br>' +
-      ', ' + agentBits.join(', ') +
+      agentBits.join(', ') +
       (agent.agency_name ? '<br>' + esc(agent.agency_name) : '') +
       (agent.agency_address ? ', ' + esc(agent.agency_address) : '') +
       (agent.phone ? '<br>טלפון: ' + esc(agent.phone) : '') +
@@ -189,7 +200,12 @@
   function clausesHtml(tpl, vars, injectAfter, injected) {
     var clauses = tpl.clauses || [];
     var listStyle = 'font-size:12.5px;line-height:1.65;padding-inline-start:20px;margin:14px 0';
-    var out = '<ol style="' + listStyle + '">';
+    var out = '';
+    if (tpl.clausesHeading) {
+      out += '<div style="font-family:\'Frank Ruhl Libre\',Georgia,serif;font-weight:700;' +
+        'font-size:19px;margin:18px 0 2px">' + esc(tpl.clausesHeading) + '</div>';
+    }
+    out += '<ol style="' + listStyle + '">';
 
     clauses.forEach(function (c, i) {
       out += '<li style="margin-bottom:7px">' +
@@ -222,6 +238,29 @@
       '</div>';
   }
 
+  /* ---------- נספח פעולות השיווק ----------
+     ‏<ol> מקונן ולא רשימה שטוחה: "1.1 הצבת שלט על הנכס" הוא תת-סעיף של
+     "1. פרסום באמצעות שילוט", והשטחה שלו הייתה משנה את מבנה ההתחייבות. */
+  function marketingHtml(section) {
+    if (!section) return '';
+    var items = section.items.map(function (item) {
+      var sub = (item.sub || []).length
+        ? '<ol style="margin:5px 0 0;padding-inline-start:20px">' +
+          item.sub.map(function (t) { return '<li style="margin-bottom:3px">' + esc(t) + '</li>'; }).join('') +
+          '</ol>'
+        : '';
+      return '<li style="margin-bottom:7px">' + esc(item.text) + sub + '</li>';
+    }).join('');
+
+    return '<div style="margin-top:24px">' +
+      '<div style="font-family:\'Frank Ruhl Libre\',Georgia,serif;font-weight:700;font-size:19px">' +
+        esc(section.title) + '</div>' +
+      '<div style="font-size:11px;color:#565c63;margin:2px 0 10px">' + esc(section.lawNote) + '</div>' +
+      '<p style="font-size:12.5px;margin:0 0 8px">' + esc(section.intro) + '</p>' +
+      '<ol style="font-size:12.5px;line-height:1.65;padding-inline-start:20px;margin:0">' + items + '</ol>' +
+    '</div>';
+  }
+
   /* ---------- המסמך השלם ---------- */
   function buildHtml(input) {
     var tpl = input.template;
@@ -231,11 +270,8 @@
       subject: tpl.commissionSubject || '',
       commission: commissionText(input.commission),
       notes: input.notes || '',
-      from: input.exclusive && input.exclusive.from ? hebDate(input.exclusive.from) : '__________',
-      until: input.exclusive && input.exclusive.until ? hebDate(input.exclusive.until) : '__________',
-      actions: input.exclusive && (input.exclusive.actions || []).length
-        ? input.exclusive.actions.join('; ')
-        : '__________'
+      from: input.exclusive && input.exclusive.from ? slashDate(input.exclusive.from) : '__________',
+      until: input.exclusive && input.exclusive.until ? slashDate(input.exclusive.until) : '__________'
     };
 
     /* משבצות ריקות עד למינימום שהטופס דורש — ראו minPropertySlots */
@@ -266,6 +302,7 @@
     }
 
     body += questionnaireHtml(tpl.questionnaire, input.questionnaire);
+    body += marketingHtml(tpl.marketingSection);
 
     body += '<div style="margin-top:20px;padding-top:10px;border-top:1px solid #e0ded7;font-size:10.5px;color:#565c63">' +
       'נוצר ב-' + esc(hebDate(input.createdAt || new Date())) +
