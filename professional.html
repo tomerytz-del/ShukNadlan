@@ -173,13 +173,28 @@
   body.has-sticky-bar #proContent{padding-bottom:86px}
   @media(max-width:759px){body.has-sticky-bar .sticky-bar{display:flex}}
 
-  /* נשארה כאן רק שורת ההזמנה לבעלי מקצוע — משפט ההסבר על הפרסום בתשלום
-     ירד, ולכן זו כבר לא הערת שוליים אלא קריאה לפעולה בפני עצמה. */
-  .site-note{
-    margin-top:28px;font-size:.84rem;text-align:center;
-    border-top:1px solid var(--line);padding-top:16px;
+  /* ====== הבאנר הכהה: הצטרפות לפרסום באתר ======
+     קודם זו הייתה שורת קישור בגודל הערת שוליים בתחתית העמוד, והיא נבלעה
+     בדיוק במקום שבו בעל/ת מקצוע אחר/ת שהגיע/ה לראות "איך נראה פרופיל כאן"
+     שואל/ת איך מקבלים אחד. עכשיו זה אותו באנר בדיוק של ‎professionals.html‎:
+     רקע כהה וכפתור זהב, כי זו אותה קריאה לפעולה ובאותה עוצמה. */
+  .cta-band{
+    background:var(--teal-dark);color:#fff;border-radius:var(--radius-lg);
+    padding:26px 20px;margin-top:30px;text-align:center;
+    box-shadow:0 18px 40px -22px rgba(6,20,34,.6);
   }
-  .site-note a{color:var(--teal);font-weight:700}
+  .cta-band h2{color:#fff;font-size:1.22rem;text-wrap:balance}
+  .cta-band p{font-size:.88rem;color:rgba(255,255,255,.84);margin:10px auto 18px;max-width:50ch;text-wrap:balance}
+  .cta-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+  .cta-band .btn-gold{background:#c9a227;color:#0d1b3d;font-size:.92rem;padding:13px 28px}
+  .cta-band .btn-outline{
+    background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.5);
+    padding:13px 24px;font-size:.92rem;
+  }
+  @media(min-width:760px){
+    .cta-band{padding:34px 28px}
+    .cta-band h2{font-size:1.5rem}
+  }
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/design-system.css">
@@ -194,7 +209,7 @@
       <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
       <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
     </a>
-    <a href="index.html#pros" class="back-link">← כל בעלי המקצוע</a>
+    <a href="professionals.html" class="back-link">← כל בעלי המקצוע</a>
   </div>
 </header>
 
@@ -205,7 +220,7 @@
   <p style="font-size:.9rem;color:var(--ink-soft);max-width:46ch;margin:10px auto 0">
     ייתכן שתקופת הפרסום של בעל/ת המקצוע הסתיימה, או שהקישור שגוי.
   </p>
-  <a href="index.html#pros" class="btn btn-teal" style="margin-top:18px">לכל בעלי המקצוע</a>
+  <a href="professionals.html" class="btn btn-teal" style="margin-top:18px">לכל בעלי המקצוע</a>
 </div>
 
 <div id="proContent">
@@ -249,9 +264,17 @@
       <div class="gallery" id="gallery"></div>
     </section>
 
-    <p class="site-note">
-      <a href="professional-signup.html">גם אתם בעלי מקצוע? הצטרפו</a>
-    </p>
+    <section class="cta-band">
+      <h2>גם אתם מלווים עסקאות נדל״ן בעפולה והעמק?</h2>
+      <p>
+        פרופיל כמו זה — תמונות, שירותים, גלריה, וידאו וכפתור וואטסאפ ישיר —
+        מול מי שכבר מחפש דירה, בודק משכנתא או שוקל השקעה באזור.
+      </p>
+      <div class="cta-actions">
+        <a href="professional-signup.html" class="btn btn-gold">לפרסום באתר ←</a>
+        <a href="professionals.html" class="btn btn-outline">כל בעלי המקצוע</a>
+      </div>
+    </section>
   </div>
 </div>
 
@@ -638,7 +661,7 @@ function renderMeta(p){
         <h4>בעלי מקצוע</h4>
         <a href="agencies.html">כל משרדי התיווך</a>
         <a href="agents.html">כל המתווכים</a>
-        <a href="index.html#pros">בעלי מקצוע</a>
+        <a href="professionals.html">כל בעלי המקצוע</a>
         <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
         <a href="developer-signup.html">הצטרפות כיזם/קבלן</a>
       </div>

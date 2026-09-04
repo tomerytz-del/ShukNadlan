@@ -127,6 +127,10 @@
   /* כותרת + נקודת מידע באותה שורה: שורות המשנה של הסקציות התכווצו לנקודת
      "i" שנפתחת בריחוף/לחיצה, כדי שהכותרת עצמה תישאר השורה היחידה שנקראת. */
   .head-line{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;position:relative}
+  /* כותרת ארוכה שנשברת לשתי שורות דוחקת פריט flex אח לשורה משלו, ולכן
+     כותרת כזו מחזיקה את הנקודה *בתוכה* כאלמנט inline — כך היא נצמדת לסוף
+     השורה האחרונה של הכותרת, כמו בכותרות הקצרות שנשארות בשורה אחת. */
+  .head-line h2 > .info-dot{margin-inline-start:7px;translate:0 -2px}
 
   /* ====== נקודת מידע (tooltip) ======
      כפתור קטן שנושא את הטקסט ב-data-info ומרחף אותו מתחתיו. בעכבר —
@@ -1293,14 +1297,10 @@
     .agent-meta,.ag-meta{font-size:.72rem}
   }
 
-  /* לשתי רצועות הקרוסלה יש נקודות ניווט (.cf-dots) שנושאות מרווח משלהן
-     מתחת למסלול, ולכן הריפוד התחתון שלהן מהודק מעט מתחת לברירת המחדל
-     של .section / .hot-band כדי שהמעבר לסקציה הבאה יישאר זהה לשאר העמוד.
-     ‏#leadingAgencies הוא הרצועה הראשונה מתחת למפה ונושא את .hot-band,
-     ולכן הריפוד שלו נגזר משם ורק התחתון מהודק כאן. */
+  /* ‏#leadingAgencies נושא את .hot-band (הבמה שנכנסת מתחת למפה) ולכן הריפוד
+     שלו נגזר משם; רק התחתון מיושר כאן ל-18px של ‎.section‎, כדי שהמעבר ממנו
+     לסקציה הבאה יהיה זהה לכל שאר המעברים בעמוד. */
   #leadingAgencies{padding-bottom:18px}
-  #leadingAgents{padding-top:12px}
-  #leadingAgents .section-head{margin-bottom:12px}
   /* הכותרת ארוכה ונשברת לשתי שורות במובייל; ‎balance‎ מחלק אותה לשתי
      שורות שוות־אורך במקום שורה מלאה ומילה בודדת מתחתיה, ושתיהן ממורכזות. */
   #leadingAgents .section-head > div,
@@ -1318,7 +1318,9 @@
     background:var(--paper-raised);border:1px solid var(--line);border-radius:0;
     padding:2px 8px;font-size:.68rem;
   }
-  .ad-row{padding-block:14px}
+  /* אותו ריפוד של ‎.section‎: שורת הפרסומת היא עוד מקטע ברצף העמוד, ומרווח
+     צר משלה שבר את הקצב במעבר אליה וממנה. */
+  .ad-row{padding-block:18px}
 
   /* ====== כתבות ובלוגים ======
      קרוסלה של ממש ולא רצועה של אריחים קטנים: הכרטיס תופס כשני שליש
@@ -1808,10 +1810,9 @@
     .pro-card{border-radius:0}
   }
   /* סדר הרצועות בסוף העמוד: נכסים מומלצים ← כתבות ← בעלי מקצוע ← נכסים.
-     הריפוד של .section (18px) כבר נותן את המרווח ההדוק בכל המעברים, ולכן
-     כאן נשארים רק תיקונים נקודתיים לכותרות שנושאות eyebrow או שורת משנה. */
-  #pros .section-head{margin-bottom:14px;gap:6px}
-  #listings .section-head{margin-bottom:16px}
+     הריפוד של .section (18px) נותן את המרווח בכל המעברים, ו-.section-head
+     נותן את אותם 22px בין הכותרת לתוכן שלה בכל הסקציות — בלי חריגים לפי
+     סקציה, שהם מה שגרם למרווחים לא אחידים לאורך העמוד. */
 
   /* ====== Accessibility FAB + panel ======
      הכפתור צף מעל התוכן, ולכן הוא היה נוחת על אריחי הנכסים בתחתית המסך
@@ -3181,11 +3182,15 @@
   <section class="section wrap" id="leadingAgents">
     <div class="section-head">
       <div class="head-line">
-        <h2>המתווכים הכי מומלצים בעפולה והסביבה</h2>
-        <!-- ‏id‏ ‎ratingInfoLink‎ נשמר: אותו מאזין שפתח את המודאל מהתפריט פותח
+        <!-- הנקודה יושבת *בתוך* ה-h2 ולא לצידו: הכותרת כאן נשברת לשתי שורות
+             במובייל, ופריט flex אחיו נדחק בגללה לשורה שלישית משלו. כאלמנט
+             inline בתוך הכותרת היא נצמדת לסוף השורה האחרונה, כמו בשאר
+             הכותרות שבהן הכותרת קצרה ונשארת בשורה אחת.
+             ‏id‏ ‎ratingInfoLink‎ נשמר: אותו מאזין שפתח את המודאל מהתפריט פותח
              אותו גם מכאן, וזה המקום שבו השאלה באמת עולה — ליד הכוכבים. -->
-        <button type="button" class="info-dot" id="ratingInfoLink" aria-haspopup="dialog"
-                data-info="לחיצה — איך נקבע הדירוג" aria-label="איך עובד הדירוג של המתווכים">i</button>
+        <h2>המתווכים הכי מומלצים בעפולה והסביבה<button type="button" class="info-dot" id="ratingInfoLink"
+                aria-haspopup="dialog" data-info="לחיצה — איך נקבע הדירוג"
+                aria-label="איך עובד הדירוג של המתווכים">i</button></h2>
       </div>
       <!-- הקרוסלה מציגה את כל המתווכים לפי סדר הדירוג, אבל דפדוף אופקי הוא
            לא הדרך למצוא מתווך/ת מסוים/ת. הקישור מוביל לרשימה המלאה, שם יש
@@ -3316,7 +3321,6 @@
   <section class="section wrap" id="articles">
     <div class="section-head">
       <div>
-        <p class="eyebrow">מגזין שוק נדל״ן</p>
         <h2>כתבות ובלוגים</h2>
       </div>
       <a href="articles.html" class="see-all">כל הכתבות ←</a>
@@ -3331,7 +3335,10 @@
         <h2>בעלי מקצוע נבחרים</h2>
         <p class="section-sub">שילוו אתכם בדרך לעסקת הנדל״ן הבאה שלכם</p>
       </div>
-      <a href="professional-signup.html" class="see-all">הצטרפות כבעל מקצוע ←</a>
+      <!-- הרצועה מציגה ארבעה מתוך הרשימה, והקישור מוביל לרשימה המלאה עם
+           חיפוש — לא לטופס ההצטרפות. ההזמנה להצטרף היא הבאנר שבתחתית
+           ‎professionals.html‎, אחרי שראו מי כבר שם. -->
+      <a href="professionals.html" class="see-all">כל בעלי המקצוע ←</a>
     </div>
     <div class="pros-grid" id="prosGrid"><!-- populated by JS, fallback to static below on failure --></div>
   </section>
@@ -3472,7 +3479,7 @@
         <h4>בעלי מקצוע</h4>
         <a href="agencies.html">כל משרדי התיווך</a>
         <a href="agents.html">כל המתווכים</a>
-        <a href="#pros">בעלי מקצוע</a>
+        <a href="professionals.html">כל בעלי המקצוע</a>
         <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
         <a href="developer-signup.html">הצטרפות כיזם/קבלן</a>
       </div>
