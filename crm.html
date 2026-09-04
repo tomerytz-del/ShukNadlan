@@ -185,6 +185,23 @@
   .mkt-label{font-size:.74rem;font-weight:800;color:var(--ink);margin:10px 0 4px}
   .mkt-card textarea{width:100%;font:inherit;font-size:.85rem;line-height:1.6;padding:10px 12px;border:1.5px solid var(--line);border-radius:var(--radius-sm);background:#fff;resize:vertical}
 
+  /* ‏חלון הסרטון השיווקי. שתי הרמות מוצגות ככרטיסי בחירה ולא כרשימה
+     נפתחת: ההבדל ביניהן הוא בעלות ובתוצאה, ושתיהן צריכות להיקרא לפני
+     שלוחצים — בחירה שמתגלה רק אחרי שנפתחה היא בחירה שנעשית בלי לקרוא. */
+  .vid-card{max-width:640px;display:flex;flex-direction:column;max-height:92vh}
+  .vid-card .pm-body{overflow:auto}
+  .vid-opts{display:grid;gap:10px;grid-template-columns:1fr 1fr}
+  @media (max-width:560px){ .vid-opts{grid-template-columns:1fr} }
+  .vid-opt{text-align:right;border:1.5px solid var(--line);border-radius:var(--radius-sm);background:var(--paper-raised);padding:12px 13px;cursor:pointer;display:block;width:100%}
+  .vid-opt:hover:not(:disabled){border-color:var(--teal);background:var(--teal-tint)}
+  .vid-opt:disabled{opacity:.55;cursor:not-allowed}
+  .vid-opt-title{font-size:.86rem;font-weight:800;color:var(--ink);margin-bottom:3px}
+  .vid-opt-desc{font-size:.72rem;color:var(--ink-soft);line-height:1.45}
+  .vid-stage{display:flex;align-items:center;gap:9px;font-size:.8rem;font-weight:700;color:var(--ink);background:var(--paper-raised);border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 13px}
+  .vid-spin{width:15px;height:15px;border:2.5px solid var(--line);border-top-color:var(--teal);border-radius:50%;animation:vidSpin .8s linear infinite;flex:none}
+  @keyframes vidSpin{to{transform:rotate(360deg)}}
+  .vid-player{width:100%;border-radius:var(--radius-sm);background:#000;display:block;max-height:52vh}
+
   /* ‏אשף ייבוא הנכסים מקובץ. כרטיס רחב יותר מ-pm-card כי שלב הבדיקה מציג
      טבלת תצוגה מקדימה, ועם max-height + overflow פנימי כדי שהכותרת
      והכפתורים יישארו קבועים כשגוללים בטבלה. */
@@ -3553,6 +3570,24 @@
       <button type="button" class="btn btn-gold" id="mktSave">שמירה לנכס</button>
       <button type="button" class="btn btn-ghost" id="mktRegen">✨ נוסח נוסף</button>
       <button type="button" class="btn btn-ghost" id="mktClose">סגירה</button>
+    </div>
+  </div>
+</div>
+
+<!-- סרטון שיווקי מתמונות הנכס. גוף החלון מתחלף לפי המצב — בחירה, המתנה או
+     נגן — ולכן הוא נבנה ב-JS; מה שקבוע כאן הוא רק המסגרת. -->
+<div class="pm-overlay" id="vidModal" role="dialog" aria-modal="true" aria-labelledby="vidTitle" style="display:none">
+  <div class="pm-card vid-card">
+    <div class="pm-title" id="vidTitle">סרטון שיווקי לנכס</div>
+    <div class="pm-body">
+      <div class="mkt-facts" id="vidFacts"></div>
+      <div id="vidStatePanel"></div>
+      <p class="mkt-note" id="vidHint" style="margin-top:10px"></p>
+    </div>
+    <div class="pm-actions">
+      <button type="button" class="btn btn-gold" id="vidPublish" style="display:none">📺 הצגה במודעה</button>
+      <a class="btn btn-ghost" id="vidDownload" style="display:none" download>⬇️ הורדה</a>
+      <button type="button" class="btn btn-ghost" id="vidClose">סגירה</button>
     </div>
   </div>
 </div>
@@ -9235,6 +9270,14 @@ function renderPropertyCards(listEl, props, agentId){
         title: mktState.note,
         onClick: btn => openMarketingCopy(p, btn, agentId),
       });
+
+      // סרטון מהתמונות שכבר הועלו. הכפתור מוצג לכל סוכן/ת — מסלול המצגת
+      // פתוח לכולם — והבחירה בין שתי הרמות נעשית בתוך החלון, שם אפשר
+      // לקרוא מה ההבדל ביניהן.
+      addCardAction(actions, {
+        label:'🎬 סרטון שיווקי', title:'הפקת סרטון קצר מתמונות הנכס',
+        onClick: btn => openPropertyVideo(p, btn, agentId),
+      });
     }
 
     if (planning){
@@ -9488,6 +9531,244 @@ document.getElementById('mktSave').addEventListener('click', async (e)=>{
   closeMarketingCopy();
   showToast('התיאור השיווקי נשמר ומוצג בדף הנכס');
   if (agentId) await loadProperties(agentId);
+});
+
+/* ---------- סרטון שיווקי מתמונות הנכס ----------
+   המנגנון יושב במסד וב-Edge Function (מיגרציה 20260926090000): הבקשה נכנסת
+   לתור, ה-Edge Function מפיקה, ו-pg_cron מקדם כל דקה כל בקשה שנשארה פתוחה.
+   המסך הזה עושה שלושה דברים בלבד: שולח בקשה, עוקב אחריה, ומציג את התוצאה.
+
+   שתי רמות, ושתיהן מוצגות לפני הלחיצה ולא אחריה:
+     • מצגת — התמונות עצמן. בלי שום מודל AI, פתוח לכולם.
+     • רחפן AI — כל תמונה מקבלת תנועת מצלמה. עולה כסף, ולכן Premium.
+
+   והכלל שנשמר מהתיאור השיווקי: **המערכת מציעה, הסוכן/ת מחליט/ה.** סרטון
+   שהופק אינו עולה למודעה לבד — הוא מוצג כאן, וההצבה ב-video_url היא לחיצה
+   נפרדת של מי שצפה/תה בו. וידאו AI שיצא מוזר הוא תוכן פומבי.               */
+
+const VIDEO_FUNCTION_URL = SUPABASE_URL + '/functions/v1/property-video';
+
+const VID_ERRORS = {
+  not_authenticated:  'צריך להתחבר מחדש',
+  not_your_property:  'הנכס אינו שלך',
+  property_not_found: 'הנכס לא נמצא',
+  property_not_active:'אפשר להפיק סרטון רק לנכס פעיל',
+  not_enough_images:  'צריך לפחות שתי תמונות בנכס כדי להפיק סרטון',
+  ai_not_available:   'סרטון הרחפן זמין במסלול Premium',
+  daily_cap_reached:  'הגענו למכסת סרטוני ה-AI היומית. אפשר להפיק מצגת, או לנסות מחר',
+  cooldown_active:    'הופק סרטון לנכס הזה ממש עכשיו — אפשר לבקש שוב בעוד כמה דקות',
+  disabled:           'הפקת הסרטונים מושבתת כרגע',
+  fal_not_configured: 'הפקת הסרטונים לא מוגדרת עדיין במערכת',
+};
+
+const VID_STAGES = {
+  pending: 'בוחר את התמונות הטובות ביותר…',
+  clips:   'מפיק את הקליפים — זה החלק שלוקח דקה או שתיים…',
+  compose: 'מחבר את הקליפים לסרטון אחד…',
+};
+
+let vidProperty = null;
+let vidAgentId  = null;
+let vidJob      = null;
+let vidTimer    = null;
+
+function vidStopPolling(){
+  if (vidTimer){ clearInterval(vidTimer); vidTimer = null; }
+}
+
+async function openPropertyVideo(property, btn, agentId){
+  const original = btn ? btn.textContent : '';
+  if (btn){ btn.disabled = true; btn.textContent = 'טוען…'; }
+  try{
+    vidProperty = property;
+    vidAgentId  = agentId;
+    vidJob      = null;
+
+    document.getElementById('vidFacts').textContent =
+      [`מודעה #${property.listing_number ?? '—'}`, property.title, shekel(property.price)].filter(Boolean).join(' · ');
+
+    // הבקשה האחרונה על הנכס: אם היא עדיין רצה ממשיכים לעקוב, ואם היא
+    // הסתיימה מציגים את הסרטון במקום להפיק אותו שוב.
+    const { data } = await sb.from('property_video_jobs')
+      .select('id, kind, stage, video_url, thumbnail_url, last_error, created_at')
+      .eq('property_id', property.id)
+      .order('created_at', { ascending:false })
+      .limit(1);
+
+    const last = (data || [])[0] || null;
+    if (last && last.stage !== 'failed'){
+      vidJob = last;
+      if (last.stage !== 'done') vidStartPolling(last.id);
+    }
+
+    renderVideoState();
+    document.getElementById('vidModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  } catch(err){
+    showToast('שגיאה בטעינת מצב הסרטון: ' + err.message);
+  } finally {
+    if (btn){ btn.disabled = false; btn.textContent = original; }
+  }
+}
+
+function closePropertyVideo(){
+  vidStopPolling();
+  const player = document.querySelector('#vidStatePanel video');
+  if (player) player.pause();
+  document.getElementById('vidModal').style.display = 'none';
+  document.body.style.overflow = '';
+  vidProperty = null; vidJob = null;
+}
+
+/* מצייר את גוף החלון לפי מצב הבקשה. שלושה מצבים בלבד: אין בקשה (בחירה),
+   בקשה שרצה (המתנה), בקשה שנגמרה (נגן). */
+function renderVideoState(){
+  const panel   = document.getElementById('vidStatePanel');
+  const hint    = document.getElementById('vidHint');
+  const publish = document.getElementById('vidPublish');
+  const dl      = document.getElementById('vidDownload');
+
+  publish.style.display = 'none';
+  dl.style.display = 'none';
+  hint.className = 'mkt-note';
+
+  // --- אין בקשה: בחירת רמה ---
+  if (!vidJob){
+    const isPremium = currentAgent && currentAgent.tier === 'premium';
+    panel.innerHTML = `
+      <div class="vid-opts">
+        <button type="button" class="vid-opt" data-kind="slideshow">
+          <div class="vid-opt-title">🖼️ מצגת מהתמונות</div>
+          <div class="vid-opt-desc">התמונות שכבר העליתם, בזו אחר זו. בלי AI, מוכן בשניות.</div>
+        </button>
+        <button type="button" class="vid-opt" data-kind="ai_reel" ${isPremium ? '' : 'disabled'}>
+          <div class="vid-opt-title">🚁 רחפן AI ${isPremium ? '' : '· Premium'}</div>
+          <div class="vid-opt-desc">${isPremium
+            ? 'כל תמונה מקבלת תנועת מצלמה — דחיפה בחזית, פאן בסלון. אורך כדקה-שתיים.'
+            : 'תנועת מצלמה אמיתית על כל תמונה. זמין במסלול Premium.'}</div>
+        </button>
+      </div>`;
+    panel.querySelectorAll('.vid-opt').forEach(b =>
+      b.addEventListener('click', () => startPropertyVideo(b.dataset.kind)));
+    hint.textContent = 'הסרטון נבנה מהתמונות שכבר בגלריה. הוא לא יעלה למודעה לבד — תראו אותו כאן קודם.';
+    return;
+  }
+
+  // --- בקשה שנכשלה ---
+  if (vidJob.stage === 'failed'){
+    panel.innerHTML = '<div class="vid-stage">⚠️ ההפקה לא הושלמה</div>';
+    hint.className = 'mkt-note warn';
+    hint.textContent = vidJob.last_error || 'ההפקה נכשלה. אפשר לנסות שוב בעוד כמה דקות.';
+    return;
+  }
+
+  // --- בקשה שרצה ---
+  if (vidJob.stage !== 'done'){
+    const progress = vidJob.clips_total
+      ? ` (${vidJob.clips_done || 0}/${vidJob.clips_total})`
+      : '';
+    panel.innerHTML = `<div class="vid-stage"><span class="vid-spin"></span>` +
+      `<span>${esc((VID_STAGES[vidJob.stage] || 'מפיק…') + progress)}</span></div>`;
+    hint.textContent = 'אפשר לסגור את החלון — ההפקה ממשיכה ברקע, והסרטון יחכה כאן.';
+    return;
+  }
+
+  // --- מוכן ---
+  panel.innerHTML =
+    `<video class="vid-player" controls playsinline preload="metadata"` +
+    (vidJob.thumbnail_url ? ` poster="${esc(vidJob.thumbnail_url)}"` : '') +
+    `><source src="${esc(vidJob.video_url)}" type="video/mp4"></video>`;
+
+  const isLive = vidProperty && vidProperty.video_url === vidJob.video_url;
+  publish.style.display = isLive ? 'none' : '';
+  dl.style.display = '';
+  // ‏?download= של Storage ולא התכונה download: הקובץ יושב בדומיין אחר,
+  // ושם הדפדפן מתעלם מהתכונה ופשוט מנגן את הווידאו במקום להוריד אותו.
+  dl.href = vidJob.video_url + '?download=' + encodeURIComponent(
+    'shuknadlan-' + (vidProperty?.listing_number ?? 'video') + '.mp4');
+  hint.textContent = isLive
+    ? 'הסרטון מוצג במודעה. אפשר להוריד אותו ולשתף גם בוואטסאפ ובפייסבוק.'
+    : 'צפו לפני שמפרסמים. "הצגה במודעה" תציב את הסרטון בדף הנכס במקום הסרטון הנוכחי.';
+}
+
+async function startPropertyVideo(kind){
+  const panel = document.getElementById('vidStatePanel');
+  panel.innerHTML = '<div class="vid-stage"><span class="vid-spin"></span><span>שולח בקשה…</span></div>';
+
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(VIDEO_FUNCTION_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY,
+                'Authorization':'Bearer ' + session.access_token },
+      body: JSON.stringify({ property_id: vidProperty.id, kind }),
+    });
+    const data = await res.json().catch(()=> ({}));
+    if (!res.ok || data.error){
+      const base = VID_ERRORS[data.error] || 'שגיאה בהפקת הסרטון';
+      throw new Error(data.error === 'cooldown_active' && data.retry_after_seconds
+        ? `הופק סרטון לנכס הזה ממש עכשיו — אפשר לבקש שוב בעוד ${Math.ceil(data.retry_after_seconds / 60)} דקות`
+        : base);
+    }
+    vidJob = { id: data.job_id, kind, stage:'pending' };
+    renderVideoState();
+    vidStartPolling(data.job_id);
+  } catch(err){
+    vidJob = null;
+    renderVideoState();
+    const hint = document.getElementById('vidHint');
+    hint.className = 'mkt-note warn';
+    hint.textContent = err.message;
+  }
+}
+
+/* מעקב אחרי בקשה שרצה. ארבע שניות — מספיק תכוף כדי שהמסך ירגיש חי, ומספיק
+   רחוק כדי שחלון פתוח לא יהיה עומס על המסד. הספירה של הקליפים נשלפת בנפרד
+   כי היא מה שהופך "מפיק…" למשהו שאפשר להעריך לפיו כמה נשאר.               */
+function vidStartPolling(jobId){
+  vidStopPolling();
+  vidTimer = setInterval(async ()=>{
+    const { data: job } = await sb.from('property_video_jobs')
+      .select('id, kind, stage, video_url, thumbnail_url, last_error')
+      .eq('id', jobId).maybeSingle();
+    if (!job) return;
+
+    if (job.stage === 'clips'){
+      const { data: clips } = await sb.from('property_video_clips')
+        .select('status').eq('job_id', jobId);
+      job.clips_total = (clips || []).length;
+      job.clips_done  = (clips || []).filter(c => c.status === 'done').length;
+    }
+
+    vidJob = job;
+    renderVideoState();
+
+    if (job.stage === 'done' || job.stage === 'failed') vidStopPolling();
+  }, 4000);
+}
+
+document.getElementById('vidClose').addEventListener('click', closePropertyVideo);
+document.getElementById('vidModal').addEventListener('click', (e)=>{
+  if (e.target.id === 'vidModal') closePropertyVideo();
+});
+
+document.getElementById('vidPublish').addEventListener('click', async (e)=>{
+  if (!vidJob || vidJob.stage !== 'done') return;
+  const btn = e.currentTarget;
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'מציב…';
+
+  const { data, error } = await sb.rpc('publish_property_video', { p_job_id: vidJob.id });
+  btn.disabled = false; btn.textContent = original;
+
+  if (error || data?.error){
+    showToast(VID_ERRORS[data?.error] || 'שגיאה בהצבת הסרטון');
+    return;
+  }
+  if (vidProperty) vidProperty.video_url = data.video_url;
+  renderVideoState();
+  showToast('הסרטון מוצג עכשיו בדף הנכס');
+  if (vidAgentId) await loadProperties(vidAgentId);
 });
 
 async function bumpProperty(propertyId, btn, agentId){

@@ -95,6 +95,13 @@ verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role / 
 [functions.classify-property-images]
 verify_jwt = false          # קריאת cron/backfill; לא מקבלת קלט שמשפיע על מה שנכתב
 
+# אותם שני קהלים כמו ב-property-description: ‏pg_cron מקדם בקשות פתוחות בלי
+# JWT, וסוכן/ת מבקש/ת סרטון עם JWT. ‏verify_jwt=true היה חוסם את הראשון.
+# האימות עצמי: cron-auth לקורא הפנימי, ובמסלול של הסוכן/ת ההרשאה, הזכאות
+# ל-AI, ה-cooldown והתקרה היומית נבדקים במסד (‏request_property_video).
+[functions.property-video]
+verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role / JWT של סוכן/ת
+
 # ‏verify_jwt=false כאן אינו "פתוח": ה-handler דורש את מפתח ה-service_role
 # או את PLATFORM_MAIL_SECRET, כי שליחת מייל בשם הפלטפורמה למי שמבקש היא
 # ממסר פתוח. ה-Gateway מושבת דווקא כדי שקוראים פנימיים (pg_net, cron)
