@@ -11668,16 +11668,24 @@ document.getElementById('leadsSwitch').addEventListener('click', (e)=>{
   renderLeads(currentAgent?.id);
 });
 
-/* טבלה שטרם נוצרה (המיגרציה לא הורצה) מחזירה 42P01. הדשבורד לא נופל בגללה:
-   בלי ארכיון פשוט אין מה להסתיר, וכל הלידים נשארים ברשימה הפעילה — בדיוק
-   ההתנהגות שהייתה לפני התכונה. */
+/* טבלה שטרם נוצרה מחזירה שני קודים שונים, ושניהם צריכים להיתפס: ‏42P01 הוא
+   השגיאה של Postgres עצמו, אבל ‏PostgREST כמעט תמיד עוצר קודם — הוא בונה את
+   הבקשה מול ה-schema cache שלו, ומה שלא נמצא שם נדחה כ-‏PGRST205 ("Could not
+   find the table … in the schema cache") בלי שהשאילתה בכלל הגיעה למסד. בדיקה
+   של ‏42P01 בלבד מפספסת בדיוק את המקרה הנפוץ. */
+function isMissingTableError(error){
+  return error?.code === '42P01' || error?.code === 'PGRST205';
+}
+
+/* הדשבורד לא נופל על טבלה חסרה: בלי ארכיון פשוט אין מה להסתיר, וכל הלידים
+   נשארים ברשימה הפעילה — בדיוק ההתנהגות שהייתה לפני התכונה. */
 async function loadArchivedLeadIds(agentId){
   const { data, error } = await sb
     .from('lead_archives')
     .select('lead_id')
     .eq('agent_id', agentId);
   if (error){
-    if (error.code !== '42P01') console.warn('טעינת ארכיון הלידים נכשלה:', error.message);
+    if (!isMissingTableError(error)) console.warn('טעינת ארכיון הלידים נכשלה:', error.message);
     return new Set();
   }
   return new Set((data || []).map(r => r.lead_id));
@@ -11688,7 +11696,7 @@ async function archiveLead(lead, btn, agentId){
   const { error } = await sb.from('lead_archives').insert({ lead_id: lead.id, agent_id: agentId });
   btn.disabled = false;
   if (error){
-    showToast(error.code === '42P01'
+    showToast(isMissingTableError(error)
       ? 'הארכיון עדיין לא קיים — הריצו את המיגרציה 20260924090000_lead_archive.sql ב-Supabase.'
       : 'העברה לארכיון נכשלה: ' + error.message);
     return;
