@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>העותק החתום | שוק נדל״ן</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
+    --line:#e3e8f4; --blue:#0e2a6b; --blue-dark:#0d1b3d; --blue-tint:#eaf0fb;
+    --ok:#21a565; --brick:#8B2332;
+    --radius-lg:20px; --shadow-sm:0 2px 8px rgba(18,40,64,.1);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;padding:20px 14px 40px}
+  h1{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--blue-dark);margin:0}
+  button{font-family:inherit;cursor:pointer;border:none}
+
+  .shell{max-width:860px;margin:0 auto}
+  .logo-link{display:block;width:58px;margin:0 auto 14px;line-height:0}
+  .logo-link img{width:100%;height:auto;display:block}
+  .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line)}
+
+  .head{padding:20px 22px;text-align:center;margin-bottom:14px}
+  .head h1{font-size:1.2rem;margin-bottom:8px}
+  .badge{display:inline-flex;align-items:center;gap:6px;font-size:.76rem;font-weight:800;
+    padding:4px 12px;border-radius:999px;background:#e4f6ec;color:#14663d}
+  .badge.pending{background:var(--blue-tint);color:var(--blue)}
+  .meta{font-size:.8rem;color:var(--ink-soft);margin:10px 0 0}
+  .code{display:inline-block;margin-top:10px;background:var(--blue-tint);color:var(--blue-dark);
+    border-radius:6px;padding:5px 12px;font-size:.76rem;letter-spacing:.08em;font-weight:700}
+
+  .actions{display:flex;gap:9px;justify-content:center;flex-wrap:wrap;margin-top:16px}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 24px;border-radius:10px;
+       font-weight:700;font-size:.9rem;background:var(--blue);color:#fff;text-decoration:none}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn-ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
+
+  .doc-wrap{overflow-x:auto}
+  .doc-wrap .agr-inner{min-width:min(760px,100%)}
+
+  .state{display:none}
+  .state.is-on{display:block}
+  .msg-card{padding:34px 24px;text-align:center}
+  .msg-card .big{font-size:2.2rem;line-height:1;margin-bottom:12px}
+  .msg-card p{color:var(--ink-soft);font-size:.87rem;margin:8px auto 0;max-width:440px}
+  .spin{width:32px;height:32px;margin:0 auto 14px;border-radius:50%;
+    border:3px solid var(--line);border-top-color:var(--blue);animation:sp .9s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){ .spin{animation-duration:2.4s} }
+
+  /* בהדפסה נשאר רק המסמך: הכותרת, הכפתורים והלוגו אינם חלק ממנו */
+  @media print{
+    body{background:#fff;padding:0}
+    .head,.logo-link{display:none}
+    .card{border:none;box-shadow:none;border-radius:0}
+  }
+  @media (max-width:520px){ .head{padding:16px 14px} }
+</style>
+<link rel="stylesheet" href="assets/design-system.css">
+<script src="assets/agreement-templates.js"></script>
+<script src="assets/agreement-doc.js"></script>
+</head>
+<body>
+<div class="shell">
+  <a class="logo-link" href="index.html" aria-label="שוק הנדל״ן — לדף הבית">
+    <img src="assets/logo-shuknadlan.svg" alt="שוק נדל״ן">
+  </a>
+
+  <div class="state is-on" id="stateLoading">
+    <div class="card msg-card"><div class="spin"></div><p>טוען את המסמך…</p></div>
+  </div>
+
+  <div class="state" id="stateError">
+    <div class="card msg-card">
+      <div class="big">⚠️</div>
+      <h1 id="errTitle">המסמך לא נמצא</h1>
+      <p id="errDetail"></p>
+    </div>
+  </div>
+
+  <div class="state" id="stateDoc">
+    <div class="card head">
+      <h1 id="docTitle"></h1>
+      <span class="badge" id="statusBadge"></span>
+      <p class="meta" id="docMeta"></p>
+      <div class="code" id="verifyCode"></div>
+      <div class="actions">
+        <button type="button" class="btn" id="pdfBtn">הורדה כ-PDF</button>
+        <button type="button" class="btn btn-ghost" id="printBtn">הדפסה</button>
+      </div>
+    </div>
+    <div class="card doc-wrap"><div class="agr-inner" id="docBody"></div></div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+const FN_URL = SUPABASE_URL + '/functions/v1/agreement-sign';
+
+const token = new URLSearchParams(location.search).get('t') || '';
+let docTitle = 'הסכם';
+
+function showState(id){
+  ['stateLoading','stateError','stateDoc']
+    .forEach(s => document.getElementById(s).classList.toggle('is-on', s === id));
+}
+
+function fail(title, detail){
+  document.getElementById('errTitle').textContent = title;
+  document.getElementById('errDetail').textContent = detail || '';
+  showState('stateError');
+}
+
+async function init(){
+  if (!token) return fail('הקישור אינו תקין', 'חסר מזהה בכתובת. פתחו את הקישור המלא מההודעה שקיבלתם.');
+
+  let data = {};
+  try {
+    const res = await fetch(FN_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', apikey: SUPABASE_ANON_KEY },
+      body: JSON.stringify({ action:'view', token }),
+    });
+    data = await res.json().catch(()=> ({}));
+    if (!res.ok || !data.ok){
+      if (data.error === 'cancelled') return fail('ההסכם בוטל', 'ההסכם הזה בוטל ואינו בתוקף.');
+      return fail('המסמך לא נמצא', 'ייתכן שהקישור הועתק חלקית. בקשו מהסוכן/ת לשלוח אותו שוב.');
+    }
+  } catch(err){
+    console.error(err);
+    return fail('שגיאת רשת', 'נסו לרענן את העמוד בעוד רגע.');
+  }
+
+  const a = data.agreement;
+  docTitle = a.title || 'הסכם';
+  document.getElementById('docTitle').textContent = docTitle;
+
+  const badge = document.getElementById('statusBadge');
+  const signed = a.status === 'signed';
+  badge.textContent = signed ? '✓ נחתם' : 'ממתין לחתימה';
+  badge.classList.toggle('pending', !signed);
+
+  const parts = [];
+  if (data.agent && data.agent.name){
+    parts.push('נערך על ידי ' + data.agent.name + (data.agent.agency ? ' · ' + data.agent.agency : ''));
+  }
+  if (signed && a.signed_at) parts.push('נחתם ב-' + new Date(a.signed_at).toLocaleString('he-IL'));
+  document.getElementById('docMeta').textContent = parts.join(' · ');
+  document.getElementById('verifyCode').textContent = 'קוד אימות המסמך: ' + (a.verify_code || '');
+
+  /* ‏document_html נכתב בדפדפן של הסוכן/ת ונחסם לשינוי במסד — אין בו קלט
+     של גולש/ת. תמונות החתימה נבדקות בנפרד ב-signatureBlockHtml. */
+  document.getElementById('docBody').innerHTML =
+    (a.document_html || '') + window.AgreementDoc.signatureBlockHtml(data.signers || []);
+
+  showState('stateDoc');
+}
+
+document.getElementById('printBtn').addEventListener('click', ()=> window.print());
+
+document.getElementById('pdfBtn').addEventListener('click', async (e)=>{
+  const btn = e.currentTarget;
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'מכין את הקובץ…';
+  try {
+    await window.AgreementDoc.downloadPdf(
+      document.getElementById('docBody'),
+      docTitle.replace(/[\\/:*?"<>|]/g, '-') + '.pdf');
+  } catch(err){
+    console.error(err);
+    btn.textContent = 'לא הצלחנו להפיק PDF — נסו שוב';
+    setTimeout(()=>{ btn.textContent = original; btn.disabled = false; }, 2600);
+    return;
+  }
+  btn.textContent = original;
+  btn.disabled = false;
+});
+
+init();
+</script>
+</body>
+</html>
