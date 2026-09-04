@@ -85,6 +85,13 @@ verify_jwt = false          # ‏pg_cron + x-alert-cron-secret
 [functions.property-marketing-publish]
 verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role / מנהל פלטפורמה
 
+# שני קהלים לאותה נקודת קצה: ‏pg_cron מרוקן את התור בלי JWT, וסוכן/ת מחובר/ת
+# מבקש/ת רענון תיאור עם JWT. ‏verify_jwt=true היה חוסם את הראשון, ולכן האימות
+# עצמי: cron-auth לקורא הפנימי, ובמסלול הידני ההרשאה על הנכס וה-cooldown
+# נבדקים במסד (‏request_property_description) בהקשר ה-JWT עצמו.
+[functions.property-description]
+verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role / JWT של סוכן/ת
+
 [functions.classify-property-images]
 verify_jwt = false          # קריאת cron/backfill; לא מקבלת קלט שמשפיע על מה שנכתב
 

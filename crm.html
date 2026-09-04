@@ -171,6 +171,20 @@
   .pm-actions .btn{flex:1}
   .pm-actions .btn:disabled{opacity:.45;cursor:not-allowed}
 
+  /* ‏התיאור השיווקי — כפתור הכתיבה בטופס, וחלון ההצעה מכרטיס הנכס.
+     החלון רחב מ-pm-card כי מה שמוצג בו הוא טקסט לקריאה ולעריכה, לא שאלה
+     של כן/לא: הסוכן/ת קורא/ת את הנוסח, מתקן/ת אותו במקום, ורק אז שומר/ת. */
+  .mkt-row{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:6px}
+  .mkt-btn{background:var(--teal-tint);color:var(--teal);border-radius:999px;padding:7px 14px;font-size:.78rem;font-weight:700;white-space:nowrap}
+  .mkt-btn:disabled{opacity:.5;cursor:not-allowed}
+  .mkt-note{font-size:.72rem;color:var(--ink-soft);line-height:1.45;flex:1;min-width:160px}
+  .mkt-note.warn{color:var(--gold-dark);font-weight:700}
+  .mkt-card{max-width:600px;display:flex;flex-direction:column;max-height:92vh}
+  .mkt-card .pm-body{overflow:auto}
+  .mkt-facts{font-size:.78rem;color:var(--ink-soft);background:var(--paper-raised);border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:9px 11px;margin-bottom:12px;line-height:1.5}
+  .mkt-label{font-size:.74rem;font-weight:800;color:var(--ink);margin:10px 0 4px}
+  .mkt-card textarea{width:100%;font:inherit;font-size:.85rem;line-height:1.6;padding:10px 12px;border:1.5px solid var(--line);border-radius:var(--radius-sm);background:#fff;resize:vertical}
+
   /* ‏אשף ייבוא הנכסים מקובץ. כרטיס רחב יותר מ-pm-card כי שלב הבדיקה מציג
      טבלת תצוגה מקדימה, ועם max-height + overflow פנימי כדי שהכותרת
      והכפתורים יישארו קבועים כשגוללים בטבלה. */
@@ -2248,8 +2262,16 @@
       <div class="field"><label>תיאור המודעה (לא חובה — מוצג בדף הנכס)</label>
         <textarea id="npDescription" rows="4" placeholder="מה חשוב שיידעו על הנכס: מצב, נוף, שכנים, קרבה לשירותים…"></textarea>
       </div>
-      <div class="field"><label>תיאור שיווקי (לא חובה — נוסח פרסומי לשימוש פנימי)</label>
+      <!-- התיאור השיווקי הוא השדה היחיד בטופס שהמערכת יודעת למלא לבד: הוא
+           נגזר כולו מהנתונים שמעליו. השדה נשאר פתוח לעריכה — הכפתור מציע
+           נוסח, והשמירה היא של הסוכן/ת. נכס שנשמר בלי תיאור מקבל אחד
+           אוטומטית כעבור עשר דקות, ולכן הכפתור אינו חובה בשום שלב. -->
+      <div class="field"><label>תיאור שיווקי (לא חובה — נוסח פרסומי המוצג בדף הנכס כשאין תיאור מודעה)</label>
         <textarea id="npMarketingDescription" rows="3"></textarea>
+        <div class="mkt-row">
+          <button type="button" class="mkt-btn" id="npGenDesc">✨ כתיבת נוסח מהנתונים</button>
+          <span class="mkt-note" id="npGenDescHint"></span>
+        </div>
       </div>
       <div class="field"><label>טקסט פוסט (לא חובה — מוכן להעתקה לרשתות/וואטסאפ)</label>
         <textarea id="npPostText" rows="3"></textarea>
@@ -3509,6 +3531,28 @@
       <button type="button" class="btn btn-ghost" id="qrShareBtn" style="display:none">שיתוף</button>
       <button type="button" class="btn btn-ghost" id="qrPngBtn">הורדה כתמונה</button>
       <button type="button" class="btn btn-ghost" id="qrCloseBtn">סגירה</button>
+    </div>
+  </div>
+</div>
+
+<!-- הצעת תיאור שיווקי: הנוסח שנכתב מהנתונים, פתוח לעריכה לפני השמירה.
+     שני הכפתורים אינם סימטריים בכוונה — "שמירה לנכס" היא הפעולה היחידה
+     שנוגעת במודעה, וכל השאר יוצא מכאן בלי לשנות דבר. -->
+<div class="pm-overlay" id="mktModal" role="dialog" aria-modal="true" aria-labelledby="mktTitle" style="display:none">
+  <div class="pm-card mkt-card">
+    <div class="pm-title" id="mktTitle">הצעת תיאור שיווקי</div>
+    <div class="pm-body">
+      <div class="mkt-facts" id="mktFacts"></div>
+      <div class="mkt-label">תיאור שיווקי</div>
+      <textarea id="mktDesc" rows="6"></textarea>
+      <div class="mkt-label">טקסט פוסט לרשתות</div>
+      <textarea id="mktPost" rows="4"></textarea>
+      <p class="mkt-note" id="mktHint" style="margin-top:8px"></p>
+    </div>
+    <div class="pm-actions">
+      <button type="button" class="btn btn-gold" id="mktSave">שמירה לנכס</button>
+      <button type="button" class="btn btn-ghost" id="mktRegen">✨ נוסח נוסף</button>
+      <button type="button" class="btn btn-ghost" id="mktClose">סגירה</button>
     </div>
   </div>
 </div>
@@ -7933,6 +7977,7 @@ document.querySelectorAll('[data-category]').forEach(btn=>{
   });
 });
 updateFormForCategory('residential'); // אתחול ראשוני כשהעמוד נטען
+syncMarketingCopyField(null);         // הטופס נפתח במצב "נכס חדש"
 
 /* ---------- Property images (2.1) ----------
    ההקטנה נעשית בצד הלקוח לפני ההעלאה: תמונה מהטלפון היא 3-6MB, ואחרי
@@ -8637,6 +8682,7 @@ toggleBtn.addEventListener('click', ()=>{
     populateNeighborhoodSelect('');
     populateAgent2Select('', '');
     resetImageState();
+    syncMarketingCopyField(null);
     document.getElementById('addPropertyBtn').textContent = 'פרסום הנכס';
     currentCategory = 'residential';
     document.querySelectorAll('[data-category]').forEach(b=> b.classList.toggle('active', b.dataset.category === 'residential'));
@@ -8880,6 +8926,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   // בקוד, ושדות השם והטלפון עשויים להישאר לקריאה בלבד מהבחירה הקודמת.
   populateAgent2Select('', '');
   resetImageState();
+  syncMarketingCopyField(null);
   editingPropertyId = null;
   editingPropertyOriginalAddress = null;
   currentCategory = 'residential';
@@ -9065,7 +9112,7 @@ async function loadProperties(agentId){
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   const { data: props, error } = await sb
     .from('properties')
-    .select('id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, post_text, furniture_details, tour_3d_url, video_url, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, shared_with_partners, shared_at, property_owners(owner_name, owner_phone)')
+    .select('id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, video_url, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, shared_with_partners, shared_at, property_owners(owner_name, owner_phone)')
     .eq('agent_id', agentId)
     .order('created_at', { ascending:false });
 
@@ -9127,6 +9174,7 @@ function renderPropertyCards(listEl, props, agentId){
     const ownerRow = Array.isArray(p.property_owners) ? p.property_owners[0] : p.property_owners;
     const ownerLine = [ownerRow?.owner_name, ownerRow?.owner_phone].filter(Boolean).join(' · ');
     const planning = planningByProperty[p.id];
+    const mktState = marketingCopyState(p);
     const el = document.createElement('div');
     el.className = 'card lead-card' + (isCurrentlyPromoted ? ' is-promoted' : '');
     const thumbHtml = (p.images && p.images.length)
@@ -9145,6 +9193,9 @@ function renderPropertyCards(listEl, props, agentId){
       expired ? { text:`⏳ פג תוקף ${hebDate(p.listing_expires_at)}`, cls:'tag-warn' }
               : p.listing_expires_at && { text:`⏳ בתוקף עד ${hebDate(p.listing_expires_at)}` },
       (!p.images || !p.images.length) && { text:'📷 ללא תמונות', cls:'tag-warn' },
+      // התיאור השיווקי הוא מה שמופיע בדף הנכס כשאין תיאור מודעה, ולכן
+      // היעדרו הוא חוסר במודעה עצמה — באותו גוון אזהרה של "ללא תמונות".
+      p.status === 'active' && mktState.tag && { text: mktState.tag, cls:'tag-warn' },
     ]);
 
     el.innerHTML = `
@@ -9174,6 +9225,17 @@ function renderPropertyCards(listEl, props, agentId){
     // סדר הפעולות: קודם כלי העבודה היומיומיים ברשת עמודות שוות, ורק בסוף
     // הפעולות שמשנות את מצב הנכס (שת"פ / סגירת עסקה) ברוחב מלא.
     addCardAction(actions, { label:'✏️ עריכה', onClick:()=> openEditProperty(p) });
+
+    // כתיבת נוסח מהנתונים — הצעה בלבד, נשמרת רק באישור בתוך החלון.
+    // "רענון" ולא "יצירה" כשכבר יש תיאור: זו אותה פעולה, אבל המילה אומרת
+    // לסוכן/ת מה עומד להשתנות.
+    if (p.status === 'active'){
+      addCardAction(actions, {
+        label: mktState.level === 'missing' ? '✨ תיאור שיווקי' : '♻️ רענון תיאור',
+        title: mktState.note,
+        onClick: btn => openMarketingCopy(p, btn, agentId),
+      });
+    }
 
     if (planning){
       addCardAction(actions, {
@@ -9251,6 +9313,182 @@ function renderPropertyCards(listEl, props, agentId){
     listEl.appendChild(el);
   });
 }
+
+/* ---------- תיאור שיווקי מהנתונים ----------
+   המנגנון עצמו יושב במסד וב-Edge Function (מיגרציה 20260925090000): נכס
+   שנשמר בלי תיאור שיווקי מקבל אחד אוטומטית כעבור עשר דקות, וכשנתוני הנכס
+   משתנים אחרי שהתיאור נכתב — הוא מסומן `marketing_description_stale` וכאן
+   מוצעת כתיבה מחדש.
+
+   הכלל שמנחה את כל המסך הזה: **המערכת מציעה, הסוכן/ת מחליט/ה.** הכפתורים
+   כאן מבקשים נוסח (mode=preview) ואינם שומרים דבר; השמירה היא פעולה נפרדת
+   של הסוכן/ת, ולכן גם הטקסט שנשמר ממנה נרשם על שמו/ה ולא על שם המכונה —
+   מי שקרא/ה, ערך/ה ואישר/ה מודעה אחראי/ת לה.                              */
+
+const DESCRIPTION_FUNCTION_URL = SUPABASE_URL + '/functions/v1/property-description';
+
+const MKT_ERRORS = {
+  not_authenticated: 'צריך להתחבר מחדש',
+  not_your_property: 'הנכס אינו שלך',
+  property_not_found: 'הנכס לא נמצא',
+  cooldown_active: 'רגע — בקשה קודמת עדיין בטיפול. נסו שוב בעוד כמה שניות',
+  copy_not_configured: 'כתיבת התיאורים לא מוגדרת עדיין במערכת',
+  generation_failed: 'כתיבת הנוסח נכשלה — נסו שוב',
+};
+
+/** מבקשת נוסח מהשרת. לא שומרת כלום — מחזירה טקסט למסך. */
+async function fetchMarketingCopy(propertyId){
+  const { data: { session } } = await sb.auth.getSession();
+  const res = await fetch(DESCRIPTION_FUNCTION_URL, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+    body: JSON.stringify({ property_id: propertyId, mode:'preview' }),
+  });
+  const data = await res.json().catch(()=> ({}));
+  if (!res.ok || data.error){
+    const base = MKT_ERRORS[data.error] || 'שגיאה בכתיבת הנוסח';
+    throw new Error(data.error === 'cooldown_active' && data.retry_after_seconds
+      ? `רגע — אפשר לבקש נוסח נוסף בעוד ${data.retry_after_seconds} שניות`
+      : base);
+  }
+  return data;
+}
+
+/* מצב התיאור של נכס, בשפה אחת לכרטיס ולטופס. הסדר הוא סדר הדחיפות: נכס בלי
+   תיאור הוא מודעה חסרה, נכס שהנתונים שלו השתנו הוא מודעה לא מדויקת, וכל
+   השאר הוא רק מידע. */
+function marketingCopyState(p){
+  if (!(p.marketing_description || '').trim()){
+    return { level:'missing', tag:'✍️ ללא תיאור שיווקי',
+             note:'לנכס אין תיאור שיווקי. המערכת כותבת אחד אוטומטית מהנתונים, ואפשר לבקש נוסח עכשיו.' };
+  }
+  if (p.marketing_description_stale){
+    return { level:'stale', tag:'♻️ כדאי לרענן תיאור',
+             note:'נתוני הנכס השתנו מאז שהתיאור נכתב — כדאי לבקש נוסח מעודכן.' };
+  }
+  if (p.marketing_description_source === 'ai'){
+    return { level:'ai', tag:null,
+             note:'התיאור נכתב אוטומטית מהנתונים' + (p.marketing_description_at ? ' ב-' + hebDate(p.marketing_description_at) : '') + '. אפשר לערוך אותו בחופשיות.' };
+  }
+  return { level:'ok', tag:null, note:'התיאור נכתב על ידיכם. בקשת נוסח חדש תציע חלופה — היא לא תדרוס כלום עד שתשמרו.' };
+}
+
+/* ---- הטופס: כפתור "כתיבת נוסח מהנתונים" ---- */
+
+function syncMarketingCopyField(p){
+  const btn = document.getElementById('npGenDesc');
+  const hint = document.getElementById('npGenDescHint');
+  if (!btn || !hint) return;
+  if (!p){
+    // נכס חדש: אין עדיין id, ולכן אין מה לקרוא ממנו נתונים. זה לא חסך —
+    // הנכס ייכנס לתור בשמירה ויקבל תיאור לבד.
+    btn.disabled = true;
+    hint.className = 'mkt-note';
+    hint.textContent = 'אחרי הפרסום המערכת כותבת תיאור שיווקי מהנתונים לבד. אפשר גם לבקש נוסח בכל שלב מכרטיס הנכס.';
+    return;
+  }
+  const state = marketingCopyState(p);
+  btn.disabled = false;
+  hint.className = 'mkt-note' + (state.level === 'missing' || state.level === 'stale' ? ' warn' : '');
+  hint.textContent = state.note;
+}
+
+document.getElementById('npGenDesc').addEventListener('click', async ()=>{
+  if (!editingPropertyId) return;
+  const btn = document.getElementById('npGenDesc');
+  const hint = document.getElementById('npGenDescHint');
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'כותב…';
+  try{
+    const data = await fetchMarketingCopy(editingPropertyId);
+    document.getElementById('npMarketingDescription').value = data.marketing_description || '';
+    // טקסט פוסט שנכתב ביד לא נדרס גם כאן: המערכת משלימה מה שחסר.
+    const postField = document.getElementById('npPostText');
+    if (!postField.value.trim()) postField.value = data.post_text || '';
+    hint.className = 'mkt-note warn';
+    hint.textContent = 'נוסח חדש נכתב מהנתונים העדכניים. אפשר לערוך אותו — הוא נשמר רק בלחיצה על "שמירת שינויים".';
+  } catch(err){
+    hint.className = 'mkt-note warn';
+    hint.textContent = err.message;
+  } finally {
+    btn.disabled = false; btn.textContent = original;
+  }
+});
+
+/* ---- הכרטיס: חלון ההצעה ---- */
+
+let mktProperty = null;
+let mktAgentId = null;
+
+async function openMarketingCopy(property, btn, agentId){
+  const original = btn ? btn.textContent : '';
+  if (btn){ btn.disabled = true; btn.textContent = 'כותב…'; }
+  try{
+    const data = await fetchMarketingCopy(property.id);
+    mktProperty = property;
+    mktAgentId = agentId;
+    document.getElementById('mktFacts').textContent =
+      [`מודעה #${property.listing_number ?? '—'}`, property.title, shekel(property.price)].filter(Boolean).join(' · ');
+    document.getElementById('mktDesc').value = data.marketing_description || '';
+    document.getElementById('mktPost').value = data.post_text || '';
+    const hasExisting = Boolean((property.marketing_description || '').trim());
+    document.getElementById('mktHint').textContent = hasExisting
+      ? 'הנוסח נכתב מהנתונים העדכניים של הנכס. שמירה תחליף את התיאור והפוסט הקיימים.'
+      : 'הנוסח נכתב מנתוני הנכס. אפשר לערוך אותו לפני השמירה.';
+    document.getElementById('mktModal').style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  } catch(err){
+    showToast(err.message);
+  } finally {
+    if (btn){ btn.disabled = false; btn.textContent = original; }
+  }
+}
+
+function closeMarketingCopy(){
+  document.getElementById('mktModal').style.display = 'none';
+  document.body.style.overflow = '';
+  mktProperty = null;
+}
+
+document.getElementById('mktClose').addEventListener('click', closeMarketingCopy);
+document.getElementById('mktModal').addEventListener('click', (e)=>{
+  if (e.target.id === 'mktModal') closeMarketingCopy();
+});
+
+document.getElementById('mktRegen').addEventListener('click', async (e)=>{
+  if (!mktProperty) return;
+  const btn = e.currentTarget;
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'כותב…';
+  try{
+    const data = await fetchMarketingCopy(mktProperty.id);
+    document.getElementById('mktDesc').value = data.marketing_description || '';
+    document.getElementById('mktPost').value = data.post_text || '';
+  } catch(err){
+    showToast(err.message);
+  } finally {
+    btn.disabled = false; btn.textContent = original;
+  }
+});
+
+document.getElementById('mktSave').addEventListener('click', async (e)=>{
+  if (!mktProperty) return;
+  const desc = document.getElementById('mktDesc').value.trim();
+  if (!desc){ showToast('אין מה לשמור — התיאור ריק'); return; }
+  const btn = e.currentTarget;
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'שומר…';
+  const { error } = await sb.from('properties').update({
+    marketing_description: desc,
+    post_text: document.getElementById('mktPost').value.trim() || null,
+  }).eq('id', mktProperty.id);
+  btn.disabled = false; btn.textContent = original;
+  if (error){ showToast('שגיאה בשמירה: ' + error.message); return; }
+  const agentId = mktAgentId;
+  closeMarketingCopy();
+  showToast('התיאור השיווקי נשמר ומוצג בדף הנכס');
+  if (agentId) await loadProperties(agentId);
+});
 
 async function bumpProperty(propertyId, btn, agentId){
   const original = btn.textContent;
@@ -9907,6 +10145,7 @@ function openEditProperty(p){
   document.getElementById('npDescription').value = p.description || '';
   document.getElementById('npMarketingDescription').value = p.marketing_description || '';
   document.getElementById('npPostText').value = p.post_text || '';
+  syncMarketingCopyField(p);
   document.getElementById('npFurnitureDetails').value = p.furniture_details || '';
   document.getElementById('npTour3dUrl').value = p.tour_3d_url || '';
   document.getElementById('npExpiresAt').value = p.listing_expires_at || '';
@@ -13416,6 +13655,9 @@ const NOTIF_TYPES = [
     title:'עסקה שנסגרה בצוות',
     sub:'נכס שסומן כנמכר או כהושכר אצל אחד הסוכנים במשרד, כולל שם הסוכן/ת ופרטי הנכס.',
     when: ()=> currentAgent && currentAgent.role === 'manager' },
+  { type:'marketing_copy', tone:'',       goto:'accProperties', focus:'#propertiesList',
+    title:'תיאור שיווקי שנכתב אוטומטית',
+    sub:'נכס שנשמר בלי תיאור שיווקי וקיבל אחד מהנתונים שהוזנו. כדאי לעבור עליו.' },
   { type:'system',         tone:'',       goto:'accSharedWithMe', focus:'#sharedWithMeList',
     title:'שיתופי נכסים ועדכוני מערכת',
     sub:'נכס שמשרד שותף פתח לשיתוף פעולה, והודעות מערכת כלליות.' },
