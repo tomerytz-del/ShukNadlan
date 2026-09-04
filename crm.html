@@ -15707,6 +15707,10 @@ async function agrSaveAndGoSign(btn){
       marketing_actions: tpl.exclusive ? w.exclusive.actions : [],
       language: w.language,
       notes: w.notes || null,
+      /* אימות בקוד דלוק כברירת מחדל בטופסי קונה ושוכר בלבד: שם רשימת
+         הנכסים שבמסמך היא עצמה המידע שמוגן, וקישור שהועבר הלאה חושף אותה.
+         בטופס של בעל/ת הנכס אין מה להגן עליו — הוא כבר יודע מה יש לו. */
+      require_otp: tpl.side === 'client',
       property_ids: w.properties.map(p => p.property_id).filter(Boolean),
       client_ids: w.signers.map(s => s.client_id).filter(Boolean),
       snapshot: {
@@ -15828,6 +15832,30 @@ function agrRenderStepSign(){
     </div>`;
   }).join('');
 
+  /* ---- חתימה מרחוק ----
+     שתי ההגדרות יושבות כאן ולא בשלב הפרטים בכוונה: הן אינן חלק מהנוסח
+     שנחתם אלא מהאופן שבו הוא נמסר, ולכן הן ניתנות לשינוי גם אחרי שגוף
+     המסמך כבר ננעל. */
+  if (!done){
+    const anyEmail = rec.signers.some(s => !s.signed_at && s.email);
+    html += '<div class="agr-sec" style="margin-top:18px">' +
+      '<h4>חתימה מרחוק</h4>' +
+      '<label class="checkbox-item" style="align-items:flex-start;margin-bottom:10px">' +
+        `<input type="checkbox" data-agr-flag="allow_passport"${rec.allow_passport ? ' checked' : ''}>` +
+        '<span>אפשר זיהוי באמצעות מס׳ דרכון</span></label>' +
+      '<label class="checkbox-item" style="align-items:flex-start;margin-bottom:12px">' +
+        `<input type="checkbox" data-agr-flag="require_otp"${rec.require_otp ? ' checked' : ''}>` +
+        '<span><b>דרוש אימות בקוד לפני הצגת פרטי ההסכם המלאים.</b> ' +
+        'הלקוח/ה יידרש/תידרש לאמת את זהותו/ה בקוד חד-פעמי שיישלח לכתובת המייל שלו/ה. ' +
+        'חשוב במיוחד בטופס קונים/שוכרים, כי האימות מתבצע לפני שאפשר לצפות בפרטי הנכס — ' +
+        'וקישור שהועבר הלאה בוואטסאפ לא יחשוף אותם.</span></label>' +
+      (anyEmail
+        ? '<button type="button" class="btn btn-gold btn-block" data-agr="send-all">✈ שלח לחתימה מרחוק</button>'
+        : '<p class="agr-missing" style="margin:0">אין כתובת מייל לאף חותם/ת שטרם חתם/ה — ' +
+          'הוסיפו כתובת, או השתמשו בכפתור וואטסאפ/העתקת קישור שליד כל חותם/ת.</p>') +
+    '</div>';
+  }
+
   html += '<div class="form-subheading" style="margin-top:18px">המסמך</div>' +
     '<div class="agr-preview">' + (rec.document_html || '') + '</div>';
 
@@ -15835,8 +15863,7 @@ function agrRenderStepSign(){
 
   agrEl('agrFoot').innerHTML =
     '<button type="button" class="btn btn-ghost" data-agr="close">סגירה</button>' +
-    '<button type="button" class="btn btn-ghost" data-agr="pdf">⬇ הורדה כ-PDF</button>' +
-    (done ? '' : '<button type="button" class="btn btn-gold" data-agr="send-all">✉️ שליחה לכל מי שטרם חתם/ה</button>');
+    '<button type="button" class="btn btn-ghost" data-agr="pdf">⬇ הורדה כ-PDF</button>';
 
   // לוחות החתימה נבנים אחרי שה-DOM קיים, אחרת ה-canvas עדיין חסר גודל
   w.pads = {};
@@ -16010,9 +16037,25 @@ agrEl('agrModal').addEventListener('click', async (e)=>{
 });
 
 /* עריכה בשדות של האשף — האזנה אחת במקום מאות מאזינים */
-agrEl('agrBody').addEventListener('input', (e)=>{
+agrEl('agrBody').addEventListener('input', async (e)=>{
   if (!agrWizard) return;
   const t = e.target;
+
+  /* שני דגלי החתימה מרחוק נשמרים מיד ולא ב"שמירה" נפרדת: הם משנים את
+     ההתנהגות של הקישור הבא שנשלח, והמרחק בין הסימון לשליחה הוא לחיצה אחת. */
+  if (t.dataset.agrFlag){
+    const patch = {};
+    patch[t.dataset.agrFlag] = t.checked;
+    const { error } = await sb.from('agreements').update(patch).eq('id', agrWizard.agreementId);
+    if (error){
+      showToast('העדכון נכשל: ' + error.message);
+      t.checked = !t.checked;
+      return;
+    }
+    if (agrWizard.record) agrWizard.record[t.dataset.agrFlag] = t.checked;
+    showToast(t.checked ? 'ההגדרה הופעלה' : 'ההגדרה כובתה');
+    return;
+  }
 
   if (t.dataset.agrPf){
     const entry = agrWizard.properties.find(p => p.uid === t.dataset.agrPf);

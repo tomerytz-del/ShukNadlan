@@ -80,6 +80,24 @@
 
   .done-actions{display:flex;flex-direction:column;gap:9px;max-width:320px;margin:20px auto 0}
 
+  /* ---- שער האימות ----
+     הספרות גדולות ומרווחות כי מקלידים אותן מתוך הודעה פתוחה במסך אחר,
+     והקלדה מוטעית כאן עולה בניסיון מתוך חמישה. */
+  .otp-card{padding:30px 24px;text-align:center;max-width:440px;margin:0 auto}
+  .otp-card h1{font-size:1.15rem;margin-bottom:8px}
+  .otp-card p{color:var(--ink-soft);font-size:.86rem;margin:0 0 4px}
+  .otp-input{width:100%;max-width:250px;margin:20px auto 0;display:block;
+    border:1.5px solid var(--line);border-radius:10px;padding:14px 12px;background:#fff;color:inherit;
+    font-size:1.6rem;font-weight:800;letter-spacing:.34em;text-align:center;direction:ltr}
+  .otp-input:focus{border-color:var(--blue);outline:none}
+  .otp-actions{max-width:250px;margin:14px auto 0;display:flex;flex-direction:column;gap:9px}
+
+  /* ---- בורר סוג המזהה ---- */
+  .id-kind{display:flex;gap:6px;margin-bottom:6px}
+  .id-kind button{flex:1;padding:7px 12px;border-radius:999px;border:1.5px solid var(--line);
+    background:#fff;font-size:.78rem;font-weight:700;color:var(--ink-soft)}
+  .id-kind button.is-on{background:var(--blue);border-color:var(--blue);color:#fff}
+
   .spin{width:32px;height:32px;margin:0 auto 14px;border-radius:50%;
     border:3px solid var(--line);border-top-color:var(--blue);animation:sp .9s linear infinite}
   @keyframes sp{to{transform:rotate(360deg)}}
@@ -117,6 +135,23 @@
     </div>
   </div>
 
+  <!-- שער האימות: מוצג רק כשההסכם מסומן "דרוש אימות בקוד" -->
+  <div class="state" id="stateOtp">
+    <div class="card otp-card">
+      <div class="big" style="font-size:2rem;line-height:1;margin-bottom:10px">🔒</div>
+      <h1>אימות לפני צפייה בהסכם</h1>
+      <p id="otpIntro"></p>
+      <p style="margin-top:8px">שלחנו קוד בן 6 ספרות אל <b id="otpTarget"></b>.</p>
+      <input type="text" id="otpInput" class="otp-input" inputmode="numeric" autocomplete="one-time-code"
+             maxlength="6" placeholder="------" aria-label="קוד האימות">
+      <div class="otp-actions">
+        <button type="button" class="btn" id="otpVerifyBtn" disabled>אימות וצפייה בהסכם</button>
+        <button type="button" class="btn btn-ghost" id="otpResendBtn">שליחת קוד חדש</button>
+      </div>
+      <div id="otpFeedback" style="font-size:.84rem;margin-top:11px;min-height:1.2em"></div>
+    </div>
+  </div>
+
   <!-- ההסכם + החתימה -->
   <div class="state" id="stateForm">
     <div class="card task">
@@ -137,7 +172,11 @@
       </div>
 
       <div class="field" id="idField">
-        <label for="signerId">מספר תעודת זהות</label>
+        <label for="signerId" id="idLabel">מספר תעודת זהות</label>
+        <div class="id-kind" id="idKind" hidden>
+          <button type="button" class="is-on" data-id-kind="id_card">תעודת זהות</button>
+          <button type="button" data-id-kind="passport">דרכון</button>
+        </div>
         <input type="text" id="signerId" inputmode="numeric" dir="ltr" style="text-align:right"
                placeholder="9 ספרות" maxlength="20">
       </div>
@@ -188,7 +227,7 @@ let pad = null;
 let loaded = null;
 
 function showState(id){
-  ['stateLoading','stateError','stateForm','stateDone']
+  ['stateLoading','stateError','stateOtp','stateForm','stateDone']
     .forEach(s => document.getElementById(s).classList.toggle('is-on', s === id));
   window.scrollTo({ top:0, behavior:'auto' });
 }
@@ -221,7 +260,70 @@ const ERROR_MESSAGES = {
   not_found: ['הקישור אינו תקין', 'ייתכן שהקישור הועתק חלקית. בקשו מהסוכן/ת לשלוח אותו שוב.'],
   expired:   ['תוקף הקישור פג',  'הקישור לחתימה פג. בקשו מהסוכן/ת לשלוח קישור חדש.'],
   cancelled: ['ההסכם בוטל',      'ההסכם הזה בוטל ואינו ניתן לחתימה.'],
+  no_email:  ['אין כתובת מייל',  'להסכם הזה נדרש אימות בקוד, ולא נשמרה כתובת מייל. פנו לסוכן/ת.'],
+  otp_required: ['נדרש אימות',   'יש לאמת את הזהות בקוד לפני החתימה. רעננו את העמוד.'],
 };
+
+/* ---------- שער האימות ----------
+   הקוד נשלח לתיבה שאליה נשלח גם הקישור, ולכן הוא אינו מזהה את האדם — הוא
+   מוכיח שליטה בתיבה. זה בדיוק מה שקישור שהועבר הלאה בוואטסאפ אינו נותן,
+   וזו הסיבה שהוא נדרש בטופסי קונה ושוכר: רשימת הנכסים שבהם היא הסחורה. */
+function renderOtpGate(data){
+  document.getElementById('otpIntro').textContent =
+    data.agent.name + ' מבקש/ת את חתימתך על ' + data.agreement.title + '.';
+  document.getElementById('otpTarget').textContent = data.me.email_masked || '';
+  showState('stateOtp');
+  document.getElementById('otpInput').focus();
+}
+
+const otpInput = document.getElementById('otpInput');
+otpInput.addEventListener('input', ()=>{
+  otpInput.value = otpInput.value.replace(/\D/g, '').slice(0, 6);
+  document.getElementById('otpVerifyBtn').disabled = otpInput.value.length !== 6;
+});
+otpInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && otpInput.value.length === 6) document.getElementById('otpVerifyBtn').click();
+});
+
+const OTP_ERRORS = {
+  wrong_code:        'הקוד שגוי',
+  code_expired:      'תוקף הקוד פג — בקשו קוד חדש',
+  too_many_attempts: 'יותר מדי ניסיונות. בקשו קוד חדש',
+  no_code:           'לא נשלח קוד. לחצו על "שליחת קוד חדש"',
+};
+
+document.getElementById('otpVerifyBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('otpVerifyBtn');
+  const fb = document.getElementById('otpFeedback');
+  fb.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'בודק…';
+
+  const { ok, data } = await callFn({ action:'otp_verify', token, code: otpInput.value });
+  btn.textContent = 'אימות וצפייה בהסכם';
+
+  if (!ok || !data.ok){
+    fb.style.color = 'var(--brick)';
+    fb.textContent = (OTP_ERRORS[data.error] || 'האימות נכשל') +
+      (data.attempts_left !== undefined ? ` · נותרו ${data.attempts_left} ניסיונות` : '');
+    btn.disabled = otpInput.value.length !== 6;
+    return;
+  }
+  await init();   // אותו מסלול טעינה, הפעם בלי השער
+});
+
+document.getElementById('otpResendBtn').addEventListener('click', async (e)=>{
+  const btn = e.currentTarget;
+  const fb = document.getElementById('otpFeedback');
+  btn.disabled = true;
+  btn.textContent = 'שולח…';
+  const { ok, data } = await callFn({ action:'otp_send', token });
+  btn.textContent = 'שליחת קוד חדש';
+  btn.disabled = false;
+  fb.style.color = ok ? 'var(--ink-soft)' : 'var(--brick)';
+  fb.textContent = !ok ? 'שליחת הקוד נכשלה — נסו שוב בעוד רגע'
+    : (data.throttled ? 'קוד כבר נשלח. בדקו את התיבה, כולל דואר זבל.' : 'קוד חדש נשלח');
+});
 
 async function init(){
   if (!token) return fail('הקישור אינו תקין', 'חסר מזהה בכתובת. פתחו את הקישור המלא מההודעה שקיבלתם.');
@@ -233,6 +335,9 @@ async function init(){
   }
 
   loaded = data;
+
+  // ההסכם דורש אימות והוא טרם בוצע — גוף המסמך בכלל לא הגיע לכאן
+  if (data.locked) return renderOtpGate(data);
 
   // כבר חתם/ה — אין טעם להציג לוח חתימה ריק
   if (data.me.signed_at) return renderDone(data, false);
@@ -248,6 +353,9 @@ async function init(){
     idInput.value = data.me.id_number;
     idInput.readOnly = true;
   }
+  // מי שאין לו/לה ת״ז ישראלית חייב/ת דרך להזדהות, ובלי הבורר הזה הטופס
+  // דורש ממנו/ה מספר שאינו קיים
+  document.getElementById('idKind').hidden = !data.agreement.allow_passport;
 
   /* בלוק החתימות שמתחת למסמך מציג את **שאר** הצדדים בלבד: לוח החתימה של
      החותם/ת הנוכחי/ת נמצא ממש מתחתיו, ומשבצת "טרם נחתם" שלו/ה מעליו הייתה
@@ -272,6 +380,20 @@ function refreshSubmit(){
   document.getElementById('submitBtn').disabled = !ready;
 }
 
+let signerIdKind = 'id_card';
+document.getElementById('idKind').addEventListener('click', (e)=>{
+  const btn = e.target.closest('[data-id-kind]');
+  if (!btn) return;
+  signerIdKind = btn.dataset.idKind;
+  document.querySelectorAll('#idKind button')
+    .forEach(b => b.classList.toggle('is-on', b === btn));
+  const isPassport = signerIdKind === 'passport';
+  const input = document.getElementById('signerId');
+  document.getElementById('idLabel').textContent = isPassport ? 'מספר דרכון' : 'מספר תעודת זהות';
+  input.placeholder = isPassport ? 'מספר הדרכון' : '9 ספרות';
+  input.inputMode = isPassport ? 'text' : 'numeric';
+});
+
 document.getElementById('ackRead').addEventListener('change', refreshSubmit);
 document.getElementById('padClear').addEventListener('click', ()=>{
   if (pad) pad.clear();
@@ -292,6 +414,7 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     token,
     signature: pad.toDataURL(),
     id_number: document.getElementById('signerId').value.trim(),
+    id_kind: signerIdKind,
   });
 
   if (!ok || !data.ok){

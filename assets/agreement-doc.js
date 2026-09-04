@@ -71,15 +71,39 @@
   }
 
   /* ---------- בלוק הצדדים ----------
-     "בין / ובין / לבין" — בדיוק הסדר שבטופס הנייר: החותם/ת הראשי/ת, בן/בת
-     הזוג או השותף/ה, ואז המתווך/ת. */
-  function partiesHtml(signers, agent) {
+     שני נוסחים, ושניהם מהטפסים עצמם:
+
+       ‏owner  — "בין / ובין / לבין". הצד הוא בעל/ת הנכס ובן/בת הזוג, שניהם
+                 מזוהים בשמם, ולכן לכל אחד/ת שורה משלו/ה.
+       ‏client — "בין / ו/או / ו/או מי מטעמו (כולם יחד וכ״א לחוד, להלן:
+                 ״הלקוח״) / לבין". בטופס הקונה והשוכר כל החותמים הם ישות
+                 חוזית אחת — "הלקוח" — וזו לא קוסמטיקה: המשמעות היא חבות
+                 יחד ולחוד, והנוסח הזה הוא מה שיוצר אותה.
+
+     במסלול ה-client מוצגות תמיד שתי משבצות, גם כשנבחר חותם אחד, בדיוק כמו
+     בטופס הנייר — כדי שאפשר יהיה להוסיף שם בכתב יד. */
+  function partiesHtml(signers, agent, style) {
     var pStyle = 'margin:0 0 10px;font-size:13px;line-height:1.7';
     var labelStyle = 'font-weight:700;font-size:13px';
+    var clients = (signers || []).filter(function (s) { return s.party !== 'agent'; });
     var out = '';
 
-    (signers || []).filter(function (s) { return s.party !== 'agent'; })
-      .forEach(function (s, i) {
+    if (style === 'client') {
+      var slots = Math.max(2, clients.length);
+      for (var i = 0; i < slots; i++) {
+        var c = clients[i] || {};
+        out += '<p style="' + pStyle + '">' +
+          '<span style="' + labelStyle + '">' + (i === 0 ? 'בין' : 'ו/או') + '</span><br>' +
+          (c.full_name ? esc(c.full_name) + ' ' : '') +
+          'ת.ז.: ' + valueOrBlank(c.id_number) + ' ' +
+          (c.address ? esc(c.address) + ' ' : '') +
+          'טלפון: ' + valueOrBlank(c.phone) +
+          '</p>';
+      }
+      out += '<p style="' + pStyle + ';margin-top:-4px">' +
+        'ו/או מי מטעמו (כולם יחד וכ"א לחוד, להלן: "הלקוח")</p>';
+    } else {
+      clients.forEach(function (s, i) {
         var bits = [];
         if (s.id_number) bits.push('ת.ז. ' + esc(s.id_number));
         if (s.address) bits.push(esc(s.address));
@@ -90,6 +114,11 @@
           (s.email ? ' · אימייל: ' + esc(s.email) : '') +
           '</p>';
       });
+      if (!clients.length) {
+        out += '<p style="' + pStyle + '"><span style="' + labelStyle + '">בין</span><br>' +
+          BLANK + '<br>טלפון: ' + BLANK + '</p>';
+      }
+    }
 
     var agentBits = [esc(agent.name || '')];
     if (agent.id_number) agentBits.push('ת.ז. ' + esc(agent.id_number));
@@ -97,7 +126,7 @@
 
     out += '<p style="' + pStyle + '">' +
       '<span style="' + labelStyle + '">לבין</span><br>' +
-      agentBits.join(', ') +
+      ', ' + agentBits.join(', ') +
       (agent.agency_name ? '<br>' + esc(agent.agency_name) : '') +
       (agent.agency_address ? ', ' + esc(agent.agency_address) : '') +
       (agent.phone ? '<br>טלפון: ' + esc(agent.phone) : '') +
@@ -114,26 +143,33 @@
     var overrides = tpl.propertyLabelOverrides || {};
     var data = (prop && prop.fields) || {};
 
-    var heading = tpl.propertyHeading || 'תאור הנכס:';
-    if (total > 1) heading = 'נכס ' + (index + 1) + ' מתוך ' + total;
-
     var rows = '';
     for (var i = 0; i < fields.length; i += 2) {
       var a = fields[i], b = fields[i + 1];
-      rows += '<tr>' + cellPair(a, data, overrides) + (b ? cellPair(b, data, overrides) : '<td></td><td></td>') + '</tr>';
+      rows += '<tr>' + cellPair(a, data, overrides) +
+        (b ? cellPair(b, data, overrides) : '<td></td><td></td>') + '</tr>';
     }
+    var table = '<table role="presentation" cellpadding="0" cellspacing="0" ' +
+      'style="width:100%;border-collapse:collapse;font-size:12.5px">' + rows + '</table>';
+
+    /* ‏plain — רשימת ההצעות בטופס הקונה/השוכר. אין כותרת ואין מסגרת: זו
+       רשימה בתוך סעיף, ומסגרת סביבה הייתה מנתקת אותה ממנו. */
+    if (tpl.propertyBoxStyle === 'plain') {
+      return '<div style="padding:10px 0' +
+        (index > 0 ? ';border-top:1px solid #c5c3bc' : '') + '">' + table + '</div>';
+    }
+
+    var heading = tpl.propertyHeading || 'תאור הנכס:';
+    if (total > 1) heading = 'נכס ' + (index + 1) + ' מתוך ' + total;
 
     return '' +
       '<div style="border:1px solid #c5c3bc;border-radius:10px;padding:14px 16px;margin:14px 0">' +
         '<div style="font-family:\'Frank Ruhl Libre\',Georgia,serif;font-weight:700;font-size:16px;margin-bottom:10px">' +
           esc(heading) +
         '</div>' +
-        '<table role="presentation" cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:12.5px">' +
-          rows +
-        '</table>' +
-        (prop && prop.notes
-          ? '<div style="margin-top:10px;font-size:12.5px"><b>הערות לנכס:</b> ' + escMultiline(prop.notes) + '</div>'
-          : '<div style="margin-top:10px;font-size:12.5px"><b>הערות לנכס:</b> ' + BLANK + '</div>') +
+        table +
+        '<div style="margin-top:10px;font-size:12.5px"><b>הערות לנכס:</b> ' +
+          (prop && prop.notes ? escMultiline(prop.notes) : BLANK) + '</div>' +
       '</div>';
   }
 
@@ -146,12 +182,24 @@
            '<td style="padding:3px 4px">' + valueOrBlank(raw) + '</td>';
   }
 
-  /* ---------- הסעיפים ---------- */
-  function clausesHtml(tpl, vars) {
-    var items = (tpl.clauses || []).map(function (c) {
-      return '<li style="margin-bottom:7px">' + escMultiline(T.fill(c, vars)).replace(/\{\{\w+\}\}/g, '') + '</li>';
-    }).join('');
-    return '<ol style="font-size:12.5px;line-height:1.65;padding-inline-start:20px;margin:14px 0">' + items + '</ol>';
+  /* ---------- הסעיפים ----------
+     ‏injectAfter מאפשר לתלות בלוק (רשימת ההצעות) בתוך מניין הסעיפים, בין
+     שני פריטי <ol>. ‏</ol>…<ol start="N"> ולא <li> מקונן: כך המספור נשאר
+     רציף, והבלוק יושב ברוחב מלא ולא בתוך תבליט. */
+  function clausesHtml(tpl, vars, injectAfter, injected) {
+    var clauses = tpl.clauses || [];
+    var listStyle = 'font-size:12.5px;line-height:1.65;padding-inline-start:20px;margin:14px 0';
+    var out = '<ol style="' + listStyle + '">';
+
+    clauses.forEach(function (c, i) {
+      out += '<li style="margin-bottom:7px">' +
+        escMultiline(T.fill(c, vars)).replace(/\{\{\w+\}\}/g, '') + '</li>';
+      if (injectAfter && (i + 1) === injectAfter) {
+        out += '</ol>' + injected + '<ol start="' + (i + 2) + '" style="' + listStyle + '">';
+      }
+    });
+
+    return out + '</ol>';
   }
 
   /* ---------- המשאלון ----------
@@ -190,6 +238,15 @@
         : '__________'
     };
 
+    /* משבצות ריקות עד למינימום שהטופס דורש — ראו minPropertySlots */
+    var slots = props.slice();
+    var minSlots = tpl.minPropertySlots || 1;
+    while (slots.length < minSlots) slots.push({ fields: {}, notes: '' });
+
+    var propertiesBlock = slots.map(function (p, i) {
+      return propertyBoxHtml(tpl, p, i, slots.length);
+    }).join('');
+
     var body = '';
     body += '<div style="text-align:center;border-bottom:1px solid #c5c3bc;padding-bottom:12px;margin-bottom:16px">' +
       '<div style="font-family:\'Frank Ruhl Libre\',Georgia,serif;font-weight:700;font-size:21px;line-height:1.3">' +
@@ -197,16 +254,17 @@
       '<div style="font-size:11px;color:#565c63;margin-top:4px">' + esc(tpl.lawNote || '') + '</div>' +
     '</div>';
 
-    body += partiesHtml(input.signers, input.agent || {});
-    body += '<p style="font-size:13px;font-weight:600;margin:14px 0 0">' + esc(tpl.intro) + '</p>';
+    body += partiesHtml(input.signers, input.agent || {}, tpl.partiesStyle);
 
-    if (props.length) {
-      props.forEach(function (p, i) { body += propertyBoxHtml(tpl, p, i, props.length); });
+    if (tpl.propertiesAfterClause) {
+      // טופס קונה/שוכר: הסעיפים ראשונים, ורשימת ההצעות תלויה בתוכם
+      body += clausesHtml(tpl, vars, tpl.propertiesAfterClause, propertiesBlock);
     } else {
-      body += propertyBoxHtml(tpl, { fields: {}, notes: '' }, 0, 1);
+      if (tpl.intro) body += '<p style="font-size:13px;font-weight:600;margin:14px 0 0">' + esc(tpl.intro) + '</p>';
+      body += propertiesBlock;
+      body += clausesHtml(tpl, vars);
     }
 
-    body += clausesHtml(tpl, vars);
     body += questionnaireHtml(tpl.questionnaire, input.questionnaire);
 
     body += '<div style="margin-top:20px;padding-top:10px;border-top:1px solid #e0ded7;font-size:10.5px;color:#565c63">' +
@@ -247,7 +305,9 @@
       return '' +
         '<div style="border:1px dashed #9aa0a6;border-radius:8px;padding:10px;margin:0 0 14px">' +
           '<div style="font-weight:700;font-size:13.5px;margin-bottom:6px">' + esc(s.full_name || '') +
-            (s.id_number ? ' · ת.ז. ' + esc(s.id_number) : '') + ', חתום כאן:</div>' +
+            (s.id_number
+              ? ' · ' + (s.id_kind === 'passport' ? 'דרכון' : 'ת.ז.') + ' ' + esc(s.id_number)
+              : '') + ', חתום כאן:</div>' +
           '<div style="min-height:110px;display:flex;align-items:center;justify-content:center">' + img + '</div>' +
           (meta ? '<div style="font-size:10.5px;color:#565c63;margin-top:6px">' + meta + '</div>' : '') +
         '</div>';
