@@ -12,6 +12,8 @@
 <script src="assets/map-tiles.js"></script>
 <script src="assets/specialties.js"></script>
 <script src="assets/map-gestures.js"></script>
+<script src="assets/agreement-templates.js"></script>
+<script src="assets/agreement-doc.js"></script>
 <style>
   :root{
     --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
@@ -1480,7 +1482,9 @@
      ========================================================================== */
   .bottom-nav{
     position:fixed;inset-inline:0;bottom:0;z-index:200;
-    display:grid;grid-template-columns:repeat(5,1fr);
+    /* ‏auto-flow ולא repeat(5,1fr): מספר הלשוניות משתנה (נוספה "הסכמים"),
+       ומספר קבוע כאן היה דוחס את האחרונה מחוץ לרצועה. */
+    display:grid;grid-auto-flow:column;grid-auto-columns:1fr;
     background:rgba(255,255,255,.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
     border-top:1px solid var(--edge);
     padding-bottom:env(safe-area-inset-bottom,0px);
@@ -1611,6 +1615,71 @@
   #dashboard .dash-side .acc>summary{font-size:.92rem;padding:13px 15px}
   #dashboard .dash-side .acc-body{padding:15px}
   #dashboard .empty-state{color:var(--txt-faint)}
+
+  /* ---------- הסכמים והחתמות ----------
+     האשף משתמש במחלקות של חלון הייבוא (‏.imp-*) — אותה מעטפת, אותם שלבים,
+     אותו פוטר. מה שנוסף כאן הוא רק מה שאין שם: תפריט סוגי ההסכם, שדות
+     המסמך, לוח החתימה והמסמך עצמו. */
+  .agr-row{padding:14px 16px;margin-bottom:10px}
+  .agr-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start}
+  .agr-title{font-weight:700;font-size:.95rem}
+  .agr-sub{font-size:.78rem;color:var(--ink-soft);margin-top:3px}
+  .agr-progress{font-size:.74rem;color:var(--ink-soft);margin-top:5px}
+  .agr-missing{color:var(--brick);font-size:.76rem;margin-top:5px}
+
+  .agr-kind-list{display:grid;gap:8px}
+  .agr-kind-group{font-size:.78rem;font-weight:800;color:var(--gold-dark);
+    text-transform:uppercase;letter-spacing:.03em;margin:14px 0 2px}
+  .agr-kind-group:first-child{margin-top:0}
+  .agr-kind{display:block;width:100%;text-align:right;padding:13px 18px;border-radius:999px;
+    border:1.5px solid var(--line);background:#fff;font-weight:700;font-size:.88rem;color:var(--ink)}
+  .agr-kind:hover{border-color:var(--teal);background:var(--teal-tint)}
+  .agr-kind .hint{display:block;font-weight:400;font-size:.74rem;color:var(--ink-soft);margin-top:2px}
+  /* קו מקווקו = נוסח שממתין לאישור. הצורה אומרת "טיוטה" בלי להוסיף עוד תגית */
+  .agr-kind.is-draft{border-style:dashed}
+
+  .agr-warn{background:#FAF2DF;border:1.5px solid #E6D5A8;border-radius:var(--radius-sm);
+    padding:10px 12px;font-size:.79rem;color:#6B5310;margin-bottom:12px;line-height:1.55}
+
+  .agr-sec{border:1.5px solid var(--line);border-radius:var(--radius-md);padding:14px;
+    margin-bottom:12px;background:var(--paper-raised)}
+  .agr-sec>h4{margin:0 0 10px;font-size:.9rem;font-family:'Frank Ruhl Libre',serif;color:var(--teal-dark)}
+  .agr-grid,.agr-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  @media(max-width:560px){.agr-grid,.agr-fields{grid-template-columns:1fr}}
+  .agr-field label{font-size:.72rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:3px}
+  .agr-field input,.agr-field select,.agr-field textarea{width:100%;border:1.5px solid var(--line);
+    border-radius:var(--radius-sm);padding:8px 10px;font-family:inherit;font-size:.85rem;
+    background:#fff;color:inherit}
+  .agr-field textarea{resize:vertical;line-height:1.5}
+  .agr-field input:focus,.agr-field select:focus,.agr-field textarea:focus{border-color:var(--teal);outline:none}
+
+  .agr-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;
+    border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:9px 11px;
+    background:#fff;margin-bottom:7px;font-size:.83rem}
+  .agr-chip .x{background:none;color:var(--brick);font-weight:800;padding:2px 6px;font-size:.95rem}
+
+  /* המסמך עצמו נכתב ברוחב 820px קבוע, ולכן התיבה גוללת לרוחב במקום לדחוס אותו */
+  .agr-preview{border:1.5px solid var(--line);border-radius:var(--radius-sm);background:#fff;
+    overflow:auto;max-height:56vh}
+
+  .agr-signer{border:1.5px solid var(--line);border-radius:var(--radius-md);padding:13px;
+    margin-bottom:11px;background:#fff}
+  .agr-signer h5{margin:0 0 3px;font-size:.9rem;font-weight:700}
+  .agr-signer .who{font-size:.75rem;color:var(--ink-soft);margin-bottom:9px}
+  .agr-pad{position:relative;border:2px dashed #9aa0a6;border-radius:8px;background:#fff;
+    height:150px;overflow:hidden}
+  .agr-pad canvas{width:100%;height:100%;display:block;cursor:crosshair;touch-action:none}
+  .agr-pad-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:#9aa0a6;font-size:.85rem;pointer-events:none}
+  .agr-pad-hint.is-off{display:none}
+  .agr-signed{display:flex;flex-direction:column;align-items:center;gap:6px;padding:8px;
+    border:1.5px solid #C9E0D0;border-radius:8px;background:#F4F9F5}
+  .agr-signed img{max-height:96px;max-width:100%}
+  .agr-signed .when{font-size:.72rem;color:#2A5B36;font-weight:700}
+  .agr-signer-acts{display:grid;grid-template-columns:repeat(auto-fit,minmax(126px,1fr));gap:7px;margin-top:9px}
+  .agr-signer-acts .btn{width:100%;padding:9px 10px;font-size:.79rem;min-width:0}
+  .agr-signer-acts .btn-ghost{background:#fff}
+  .agr-signer-acts .btn-share{background:#2A5B36;color:#EAF4EC}
 </style>
 </head>
 <body>
@@ -2507,6 +2576,47 @@
       </div>
     </details>
 
+    <!-- ---------- הסכמים והחתמות ----------
+         הזמנת שירותי תיווך, מהאשף ועד העותק החתום במייל. ‏document_html של כל
+         הסכם נכתב כאן פעם אחת ונחסם לעריכה במסד — ראו
+         supabase/migrations/20260926090000_client_agreements.sql. -->
+    <details class="acc" id="accAgreements">
+      <summary>
+        <span class="acc-title">הסכמים והחתמות</span>
+        <span class="acc-count" id="accAgreementsCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">הזמנת שירותי תיווך בכתב — קניה, מכירה, שכירות ובלעדיות. הפרטים שכבר במערכת נכנסים למסמך לבד, והחתימה אפשרית בשתי דרכים: הלקוח/ה חותם/ת על המכשיר שלך במעמד הפגישה, או מקבל/ת קישור אישי במייל או בוואטסאפ וחותם/ת מהטלפון. כשכל הצדדים חתמו, העותק החתום נשלח לכולם במייל.</p>
+
+        <button class="btn btn-gold btn-block" id="newAgreementBtn" style="margin-bottom:12px">+ הסכם חדש</button>
+
+        <div class="list-toolbar">
+          <input type="search" id="agrSearch" class="filter-input"
+                 placeholder="חיפוש הסכם — שם החותם/ת, טלפון, כתובת הנכס או סוג ההסכם">
+          <div class="toolbar-row">
+            <select id="agrStatusFilter" class="filter-input" aria-label="סינון לפי סטטוס">
+              <option value="">כל הסטטוסים</option>
+              <option value="draft">טיוטה</option>
+              <option value="sent">נשלח לחתימה</option>
+              <option value="viewed">נצפה</option>
+              <option value="signed">נחתם</option>
+              <option value="cancelled">בוטל</option>
+            </select>
+            <select id="agrKindFilter" class="filter-input" aria-label="סינון לפי סוג ההסכם">
+              <option value="">כל סוגי ההסכם</option>
+            </select>
+          </div>
+          <div class="toolbar-foot">
+            <p class="list-count" id="agrFilterCount"></p>
+            <button type="button" class="clear-filters" id="agrClearFilters" hidden>ניקוי הסינון</button>
+          </div>
+        </div>
+
+        <div id="agreementsList"></div>
+      </div>
+    </details>
+
     <details class="acc" id="accClients" open>
       <summary>
         <span class="acc-title">קובץ הלקוחות שלי</span>
@@ -2756,6 +2866,14 @@
             <label for="pfLicense">מספר רישיון תיווך</label>
             <input type="text" id="pfLicense" maxlength="30" dir="ltr" style="text-align:right" required>
             <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">מספר הרישיון מוצג ללקוחות בדף הסוכן/ת. אפשר לתקן אותו כאן, אבל לא להשאיר ריק.</p>
+          </div>
+          <!-- ‏ת.ז. נדרשת בהזמנת שירותי תיווך בכתב (תקנות המתווכים במקרקעין
+               (פרטי הזמנה בכתב), התשנ״ז-1997), ולכן היא נשמרת בפרופיל פעם אחת
+               ולא מוקלדת מחדש בכל הסכם. אינה נחשפת בדף הסוכן/ת הציבורי. -->
+          <div class="field">
+            <label for="pfIdNumber">ת.ז. / ח״פ</label>
+            <input type="text" id="pfIdNumber" maxlength="20" dir="ltr" style="text-align:right" inputmode="numeric">
+            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">נדרשת להפקת הזמנת שירותי תיווך בכתב. אינה מוצגת בדף הסוכן/ת ואינה נשלחת לאיש מלבד הצדדים להסכם.</p>
           </div>
           <div class="field">
             <label for="pfBio">תיאור</label>
@@ -3576,6 +3694,20 @@
   </div>
 </div>
 
+<!-- אשף ההסכם: סוג → פרטים → תצוגה מקדימה → חתימה. גוף החלון והפוטר
+     נבנים ב-JS לפי השלב, כמו באשף הייבוא — כל שלב הוא מסך אחר. -->
+<div class="imp-overlay" id="agrModal" role="dialog" aria-modal="true" aria-labelledby="agrTitle" style="display:none">
+  <div class="imp-card">
+    <div class="imp-head">
+      <div class="imp-title" id="agrTitle">הסכם חדש</div>
+      <button type="button" class="imp-close" id="agrClose" aria-label="סגירת החלון">✕</button>
+    </div>
+    <div class="imp-steps" id="agrSteps"></div>
+    <div class="imp-body" id="agrBody"></div>
+    <div class="imp-foot" id="agrFoot"></div>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -4343,7 +4475,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   const AGENT_FIELDS = 'id, agency_id, slug, display_name, bio, photo_url, photo_position, cover_url, license_number, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, is_mortgage_advisor, phone, ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at, years_experience, specialties, credentials, service_area, gallery, released_at';
   let { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select(AGENT_FIELDS + ', page_bg')
+    .select(AGENT_FIELDS + ', page_bg, id_number')
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -4351,7 +4483,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // ‏PostgREST מפיל את *כל* השאילתה על עמודה חסרה, וזו השאילתה שפותחת את
   // הדשבורד — ולכן סביבה שהמיגרציה עוד לא רצה בה נכנסת בלעדיה, ובחירת
   // הרקע פשוט לא מוצגת. ראו supabase/migrations/20260914091000_page_background.sql.
-  if (agentErr && /page_bg/.test(agentErr.message || '')){
+  if (agentErr && /page_bg|id_number/.test(agentErr.message || '')){
     console.warn('העמודה page_bg עוד לא קיימת — נטען הפרופיל בלעדיה:', agentErr);
     ({ data: agent, error: agentErr } = await sb
       .from('agency_members').select(AGENT_FIELDS).eq('user_id', user.id).maybeSingle());
@@ -4373,8 +4505,10 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
 
   let agencyName = '';
   if (agent.agency_id){
-    const { data: agency } = await sb.from('agencies').select('name').eq('id', agent.agency_id).maybeSingle();
+    // הכתובת נטענת יחד עם השם כי היא נכנסת לבלוק "לבין" בהסכמי התיווך
+    const { data: agency } = await sb.from('agencies').select('name, address').eq('id', agent.agency_id).maybeSingle();
     agencyName = agency?.name || '';
+    window.currentAgency = agency || null;
   }
 
   // ניתוק מהמשרד קודם לכל השאר, ובפרט לשער הקוד האתי: מי שכבר לא במשרד לא
@@ -4420,6 +4554,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   await loadSharedWithMe();
   await loadClients();
   await loadClientAlerts();
+  await loadAgreements();
   await loadNotifications(agent.id);
   await loadNotifPrefs(agent.id);
   await loadPreferences(agent.id);
@@ -5828,6 +5963,7 @@ function loadProfileSettings(agent){
   renderProfileBgChoice();
   document.getElementById('pfName').value = agent.display_name || '';
   document.getElementById('pfLicense').value = agent.license_number || '';
+  document.getElementById('pfIdNumber').value = agent.id_number || '';
   document.getElementById('pfBio').value = agent.bio || '';
   document.getElementById('pfYears').value = agent.years_experience == null ? '' : agent.years_experience;
   document.getElementById('pfArea').value = agent.service_area || '';
@@ -6212,6 +6348,7 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     const patch = {
       display_name: name,
       license_number: license,
+      id_number: document.getElementById('pfIdNumber').value.trim() || null,
       bio: bio || null,
       photo_url: profileState.photo ? profileState.photo.url : null,
       photo_position: profileState.photo ? photoPositionCss(profileState.photoPos) : null,
@@ -6225,7 +6362,7 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
       page_bg: profileState.pageBg || null,
       updated_at: new Date().toISOString(),
     };
-    const RETURNED = 'display_name, license_number, bio, photo_url, photo_position, cover_url, ' +
+    const RETURNED = 'display_name, license_number, id_number, bio, photo_url, photo_position, cover_url, ' +
       'years_experience, service_area, credentials, specialties, gallery';
 
     const saveProfile = (body, returned) => sb.from('agency_members').update(body)
@@ -6235,10 +6372,10 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     // ‏page_bg נוספה אחרי שה-CRM כבר היה באוויר. בסביבה שבה המיגרציה עוד לא
     // רצה, PostgREST מפיל את *כל* השמירה על עמודה חסרה — ולכן נסיון שני בלי
     // בחירת הרקע בלבד: לפרופיל עצמו יש חשיבות גדולה יותר מהעדפת התצוגה.
-    if (error && /page_bg/.test(error.message || '')){
-      console.warn('שמירת בחירת הרקע נכשלה (עמודה חסרה), נשמר הפרופיל בלעדיה:', error);
-      const { page_bg, ...withoutBg } = patch;
-      ({ data: saved, error } = await saveProfile(withoutBg, RETURNED));
+    if (error && /page_bg|id_number/.test(error.message || '')){
+      console.warn('שמירה נכשלה על עמודה חסרה — נשמר הפרופיל בלעדיה:', error);
+      const { page_bg, id_number, ...core } = patch;
+      ({ data: saved, error } = await saveProfile(core, RETURNED.replace('id_number, ', '')));
     }
     if (error) throw error;
 
@@ -6251,6 +6388,7 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
     Object.assign(currentAgent, saved);
     document.getElementById('pfName').value = saved.display_name || '';
     document.getElementById('pfLicense').value = saved.license_number || '';
+    document.getElementById('pfIdNumber').value = saved.id_number || '';
     document.getElementById('pfBio').value = saved.bio || '';
     document.getElementById('pfYears').value = saved.years_experience == null ? '' : saved.years_experience;
     document.getElementById('pfArea').value = saved.service_area || '';
@@ -9225,6 +9363,13 @@ function renderPropertyCards(listEl, props, agentId){
     // סדר הפעולות: קודם כלי העבודה היומיומיים ברשת עמודות שוות, ורק בסוף
     // הפעולות שמשנות את מצב הנכס (שת"פ / סגירת עסקה) ברוחב מלא.
     addCardAction(actions, { label:'✏️ עריכה', onClick:()=> openEditProperty(p) });
+
+    // החתמת בעל/ת הנכס — הטופס נפתח כשפרטי הנכס והבעלים כבר בתוכו
+    addCardAction(actions, {
+      label:'✍️ החתמת בעלים',
+      title:'הזמנת שירותי תיווך מבעל/ת הנכס, עם פרטי הנכס שכבר במערכת',
+      onClick:()=> openAgreementWizard({ kind: p.deal_type === 'rent' ? 'landlord' : 'sell', propertyId: p.id }),
+    });
 
     // כתיבת נוסח מהנתונים — הצעה בלבד, נשמרת רק באישור בתוך החלון.
     // "רענון" ולא "יצירה" כשכבר יש תיאור: זו אותה פעולה, אבל המילה אומרת
@@ -13073,6 +13218,13 @@ function renderClients(){
 
     addCardAction(actions, { label:'✏️ עריכה', onClick:()=> openEditClient(c) });
     addCardAction(actions, { label:'🗑 מחיקה', onClick:()=> deleteClient(c) });
+    // הזמנת שירותי תיווך נחתמת מול הלקוח/ה, ולכן הכפתור יושב על הכרטיס שלו/ה
+    // ולא רק בקטגוריית ההסכמים. סוג העסקה בכרטיס הוא שקובע איזה טופס נפתח.
+    addCardAction(actions, {
+      label:'✍️ החתמה על הסכם',
+      title:'פתיחת הסכם תיווך עם הלקוח/ה, עם הפרטים שכבר בכרטיס',
+      onClick:()=> openAgreementWizard({ kind: c.deal_type === 'rent' ? 'tenant' : 'buy', clientId: c.id }),
+    });
     addCardAction(actions, {
       label: matches ? `🔍 הצגת ${matches} התאמות` : '🔍 חיפוש התאמות',
       cls:'btn-gold act-wide',
@@ -13909,6 +14061,7 @@ const DASH_ICONS = {
   handshake:'<path d="m11 17 2 2a1 1 0 0 0 1.4 0l2.6-2.6"/><path d="m14 14 2.5 2.5"/><path d="M3 10 7 6l4 3 3-1 7 4v5l-3 2-4-3"/><path d="M3 10v5l3 2"/>',
   inbox:'<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13l3.5 7v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5Z"/>',
   check:'<path d="M20 6 9 17l-5-5"/>',
+  sign:'<path d="M3 19c2.5 0 2.5-3 5-3s2.5 3 5 3 2.5-3 5-3 2.5 3 3 3"/><path d="M8.5 13.5 17 5a2.1 2.1 0 0 1 3 3l-8.5 8.5"/><path d="m14.5 7.5 3 3"/>',
 };
 
 function dashIcon(name, cls){
@@ -13984,6 +14137,7 @@ const NAV_GROUPS = [
     { acc:'accMortgageShelf',    label:'מדף משכנתאות',      icon:'bank',     tab:'leads' },
     { acc:'accClients',          label:'קובץ הלקוחות',      icon:'contact',  tab:'clients' },
     { acc:'accAlerts',           label:'התראות התאמה',      icon:'target',   tab:'clients' },
+    { acc:'accAgreements',       label:'הסכמים והחתמות',    icon:'sign',     tab:'docs' },
   ]},
   { key:'tools', label:'כלים וצוות', items:[
     { acc:'accTeam',     label:'צוות המשרד',     icon:'users', tab:'more' },
@@ -14015,6 +14169,7 @@ const NAV_TABS = [
   { key:'props',   label:'נכסים',  icon:'building' },
   { key:'leads',   label:'לידים',  icon:'flame' },
   { key:'clients', label:'לקוחות', icon:'contact' },
+  { key:'docs',    label:'הסכמים', icon:'sign' },
   { key:'more',    label:'עוד',    icon:'dots' },
 ];
 
@@ -14025,6 +14180,9 @@ const NAV_TAB_BADGE = {
   props:   [],
   leads:   ['accHotLeads'],
   clients: ['accAlerts'],
+  /* ‏docs נשארת בלי תגית אדומה בכוונה: המונה שם הוא "ממתינים לחתימה", וזו
+     המתנה ללקוח/ה ולא חוב של הסוכן/ת. */
+  docs:    [],
   more:    ['accReviews'],
 };
 
@@ -14730,6 +14888,1157 @@ sb.auth.onAuthStateChange((event, session)=>{
     if (session) routeAfterAuth(session);
     else if (event === 'INITIAL_SESSION') showLoginCard();
   }, 0);
+});
+
+/* ==========================================================================
+   הסכמים והחתמות — הזמנת שירותי תיווך, ידנית ומרחוק
+   --------------------------------------------------------------------------
+   ‏ארבעה שלבים, ובסדר הזה בכוונה:
+
+     ‏1. סוג ההסכם  → 2. פרטי ההסכם → 3. תצוגה מקדימה → 4. חתימה
+
+   השלב השלישי הוא לא קישוט. הוא הרגע שבו הסוכן/ת רואה את המסמך **בדיוק
+   כפי שהלקוח/ה יראה/תראה אותו**, לפני שהוא נשמר ונחסם לעריכה. אחריו
+   ההסכם קיים במסד, גוף המסמך קפוא, והדרך היחידה לשנות טקסט היא לבטל
+   ולהוציא חדש — כמו בנייר, ומאותה סיבה: הסכם שאפשר לערוך אחרי החתימה
+   הוא הסכם שאפשר לטעון נגדו שנערך אחרי החתימה.
+
+   ‏שני מסלולי חתימה לכל חותם/ת בנפרד, ולא לכל ההסכם:
+     • **ידנית** — הסוכן/ת מעביר/ה את המכשיר, החותם/ת חותם/ת על המסך.
+     • **מרחוק** — קישור אישי במייל או בוואטסאפ. לכל חותם/ת אסימון משלו/ה,
+       כי בני זוג לא תמיד יושבים באותו חדר.
+   אפשר לערבב: אחד/ת חותם/ת כאן ועכשיו, והשני/ה מקבל/ת קישור.
+
+   כשכל החותמים חתמו, הטריגר במסד מסמן את ההסכם כחתום ו-agreement-sign
+   שולח את העותק החתום לכולם.
+   ========================================================================== */
+
+const AGREEMENT_FN_URL = SUPABASE_URL + '/functions/v1/agreement-sign';
+
+const AGR_STATUS = {
+  draft:     { label:'טיוטה',            cls:'status-off' },
+  sent:      { label:'נשלח לחתימה',      cls:'status-masked' },
+  viewed:    { label:'נצפה ע״י הלקוח/ה', cls:'status-masked' },
+  signed:    { label:'נחתם',             cls:'status-shared' },
+  cancelled: { label:'בוטל',             cls:'status-off' },
+};
+
+const AGR_CONDITION_LABELS = {
+  new_from_contractor:'חדש מקבלן', new:'חדש', renovated:'משופץ',
+  maintained:'שמור', needs_renovation:'דרוש שיפוץ',
+};
+
+let agreementRows = [];   // ההסכמים של הסוכן/ת, כולל החותמים
+let agrWizard = null;     // מצב האשף הפתוח, או null
+
+const agrTpl = kind => (window.AgreementTemplates && window.AgreementTemplates.get(kind)) || null;
+const agrKindLabel = kind => { const t = agrTpl(kind); return t ? t.docTitle : kind; };
+
+/* ---------- טעינה ורשימה ---------- */
+
+async function loadAgreements(){
+  const listEl = document.getElementById('agreementsList');
+  if (!listEl) return;
+  listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+
+  const { data, error } = await sb
+    .from('agreements')
+    .select('*, signers:agreement_signers(*)')
+    .order('created_at', { ascending:false });
+
+  if (error){
+    listEl.innerHTML = '<div class="empty-state">' + (missingSchema(error)
+      ? 'מנגנון ההסכמים לא הופעל עדיין בפרויקט הזה.'
+      : 'שגיאה בטעינת ההסכמים: ' + esc(error.message)) + '</div>';
+    accSetCount('accAgreements', '');
+    return;
+  }
+
+  agreementRows = (data || []).map(a => Object.assign({}, a, {
+    signers: (a.signers || []).slice().sort((x, y) => (x.ord || 0) - (y.ord || 0)),
+  }));
+
+  const pending = agreementRows.filter(a => a.status === 'sent' || a.status === 'viewed').length;
+  accSetCount('accAgreements',
+    pending ? pending + ' ממתינים לחתימה'
+            : (agreementRows.length ? agreementRows.length + ' הסכמים' : ''));
+
+  agrFillKindFilter();
+  renderAgreements();
+}
+
+function agrFillKindFilter(){
+  const sel = document.getElementById('agrKindFilter');
+  if (!sel || sel.dataset.filled) return;
+  sel.innerHTML = '<option value="">כל סוגי ההסכם</option>' +
+    window.AgreementTemplates.keys()
+      .map(k => `<option value="${esc(k)}">${esc(agrTpl(k).docTitle)}</option>`).join('');
+  sel.dataset.filled = '1';
+}
+
+function agrSearchBlob(a){
+  return [a.title, agrKindLabel(a.kind), a.notes,
+    ...(a.signers || []).map(s => [s.full_name, s.phone, s.email, s.id_number].join(' ')),
+    (a.snapshot && a.snapshot.property_line) || '',
+  ].filter(Boolean).join(' ').toLowerCase();
+}
+
+function agrSignedCount(a){
+  const total = (a.signers || []).length;
+  return { signed: (a.signers || []).filter(s => s.signed_at).length, total };
+}
+
+function renderAgreements(){
+  const listEl = document.getElementById('agreementsList');
+  if (!listEl) return;
+
+  const q = (document.getElementById('agrSearch').value || '').trim().toLowerCase();
+  const status = document.getElementById('agrStatusFilter').value;
+  const kind = document.getElementById('agrKindFilter').value;
+  const active = !!(q || status || kind);
+
+  const rows = agreementRows.filter(a => {
+    if (status && a.status !== status) return false;
+    if (kind && a.kind !== kind) return false;
+    return !q || agrSearchBlob(a).includes(q);
+  });
+
+  updateFilterFoot('agrFilterCount', 'agrClearFilters', rows.length, agreementRows.length, active);
+
+  if (!rows.length){
+    listEl.innerHTML = '<div class="empty-state">' + (agreementRows.length === 0
+      ? 'עדיין לא יצרת הסכמים. "הסכם חדש" פותח את האשף — סוג ההסכם, הפרטים, תצוגה מקדימה וחתימה.'
+      : 'אין הסכם שמתאים לסינון הנוכחי.') + '</div>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  rows.forEach(a => {
+    const st = AGR_STATUS[a.status] || { label:a.status, cls:'status-off' };
+    const prog = agrSignedCount(a);
+    const names = (a.signers || []).filter(s => s.party !== 'agent').map(s => s.full_name).join(' · ');
+    const propLine = (a.snapshot && a.snapshot.property_line) || '';
+
+    const el = document.createElement('div');
+    el.className = 'card agr-row';
+    el.innerHTML = `
+      <div class="agr-top">
+        <div style="min-width:0">
+          <div class="agr-title">${esc(a.title)}</div>
+          ${names ? `<div class="agr-sub">${esc(names)}</div>` : ''}
+          ${propLine ? `<div class="agr-sub">📍 ${esc(propLine)}</div>` : ''}
+          <div class="agr-progress">${prog.signed}/${prog.total} חתמו · נוצר ב-${esc(hebDateTime(a.created_at))}${
+            a.signed_at ? ' · נחתם ב-' + esc(hebDateTime(a.signed_at)) : ''}</div>
+          ${a.signed_copy_error ? `<div class="agr-missing">העותק החתום לא נשלח במייל (${esc(a.signed_copy_error)}) — אפשר לשלוח שוב</div>` : ''}
+        </div>
+        <div class="pill-row"><span class="status-pill ${st.cls}">${esc(st.label)}</span></div>
+      </div>
+      <div class="lead-actions"></div>`;
+
+    const actions = el.querySelector('.lead-actions');
+
+    if (a.status !== 'cancelled'){
+      addCardAction(actions, {
+        label: prog.signed < prog.total ? '✍️ החתמה' : '📄 המסמך החתום',
+        cls:'btn-gold act-wide',
+        onClick: ()=> openAgreementSigning(a.id),
+      });
+    }
+
+    addCardAction(actions, {
+      label:'👁 צפייה', title:'פתיחת המסמך בלשונית חדשה',
+      href:'agreement.html?t=' + encodeURIComponent(a.view_token), blank:true,
+    });
+
+    if (a.status !== 'signed' && a.status !== 'cancelled' && (a.signers || []).some(s => !s.signed_at && s.email)){
+      addCardAction(actions, {
+        label:'✉️ שליחת קישורים', title:'שליחת קישור חתימה אישי לכל מי שטרם חתם/ה',
+        onClick: btn => agrSendLinks(a.id, null, btn),
+      });
+    }
+
+    if (a.status === 'signed'){
+      addCardAction(actions, {
+        label:'📤 שליחת עותק שוב', title:'שליחה חוזרת של העותק החתום לכל הצדדים',
+        onClick: btn => agrResendSigned(a.id, btn),
+      });
+    }
+
+    if (a.status === 'draft'){
+      addCardAction(actions, { label:'🗑 מחיקה', onClick:()=> agrDelete(a) });
+    } else if (a.status !== 'cancelled'){
+      addCardAction(actions, { label:'✖ ביטול ההסכם', onClick:()=> agrCancel(a) });
+    }
+
+    listEl.appendChild(el);
+  });
+}
+
+/* ---------- פעולות על הסכם קיים ---------- */
+
+async function agrCallFn(payload, btn, busyLabel){
+  const original = btn ? btn.textContent : null;
+  if (btn){ btn.disabled = true; btn.textContent = busyLabel || 'שולח…'; }
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(AGREEMENT_FN_URL, {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        apikey: SUPABASE_ANON_KEY,
+        Authorization: 'Bearer ' + (session ? session.access_token : SUPABASE_ANON_KEY),
+      },
+      body: JSON.stringify(payload),
+    });
+    const data = await res.json().catch(()=> ({}));
+    return { ok: res.ok && data.ok, data };
+  } catch(err){
+    console.error(err);
+    return { ok:false, data:{ error:'network' } };
+  } finally {
+    if (btn){ btn.disabled = false; btn.textContent = original; }
+  }
+}
+
+const AGR_FN_ERRORS = {
+  network:              'שגיאת רשת — נסו שוב בעוד רגע',
+  not_your_agreement:   'ההסכם אינו שלך',
+  agreement_not_found:  'ההסכם לא נמצא',
+  not_fully_signed:     'ההסכם עדיין לא נחתם על ידי כל הצדדים',
+  agent_inactive:       'החשבון אינו פעיל',
+};
+
+async function agrSendLinks(agreementId, signerIds, btn){
+  const { ok, data } = await agrCallFn(
+    { action:'send', agreement_id:agreementId, signer_ids:signerIds || undefined }, btn, 'שולח…');
+  if (!ok){
+    showToast('הקישורים לא נשלחו: ' + (AGR_FN_ERRORS[data.error] || data.error || 'שגיאה'));
+    return false;
+  }
+  if (data.sent === 0 && data.candidates === 0){
+    showToast('אין למי לשלוח — לאף חותם/ת שטרם חתם/ה אין כתובת מייל');
+  } else if (data.failed){
+    showToast(`נשלחו ${data.sent} קישורים · ${data.failed} נכשלו`);
+  } else {
+    showToast(`נשלחו ${data.sent} קישורי חתימה`);
+  }
+  await loadAgreements();
+  if (agrWizard && agrWizard.agreementId === agreementId) await agrRefreshWizardRecord();
+  return true;
+}
+
+async function agrResendSigned(agreementId, btn){
+  const { ok, data } = await agrCallFn({ action:'finalize', agreement_id:agreementId }, btn, 'שולח…');
+  if (!ok){
+    showToast('העותק לא נשלח: ' + (AGR_FN_ERRORS[data.error] || data.error || 'שגיאה'));
+    return;
+  }
+  showToast(data.copies_sent ? `העותק החתום נשלח ל-${data.copies_sent} נמענים`
+                             : 'אין נמענים עם כתובת מייל');
+  await loadAgreements();
+}
+
+async function agrCancel(a){
+  if (!confirm('לבטל את ההסכם "' + a.title + '"?\n\nההסכם יישאר בארכיון כמבוטל, והקישורים לחתימה יפסיקו לעבוד.')) return;
+  const { error } = await sb.from('agreements')
+    .update({ status:'cancelled', cancelled_at:new Date().toISOString() }).eq('id', a.id);
+  if (error) return showToast('הביטול נכשל: ' + error.message);
+  showToast('ההסכם בוטל');
+  await loadAgreements();
+}
+
+async function agrDelete(a){
+  if (!confirm('למחוק את הטיוטה "' + a.title + '"?')) return;
+  const { error } = await sb.from('agreements').delete().eq('id', a.id);
+  if (error) return showToast('המחיקה נכשלה: ' + error.message);
+  showToast('הטיוטה נמחקה');
+  await loadAgreements();
+}
+
+/* ==========================================================================
+   האשף
+   ========================================================================== */
+
+const agrEl = id => document.getElementById(id);
+
+function agrNewWizard(){
+  return {
+    step:1, kind:null,
+    properties:[],          // [{property_id, label, fields:{}, notes}]
+    signers:[],             // [{uid, party, full_name, id_number, phone, email, address, client_id}]
+    commission:{ pct:2, amount:'', basis:'' },
+    exclusive:{ from:'', until:'', actions:[] },
+    questionnaire:[],
+    notes:'', language:'he',
+    agreementId:null, record:null,
+    pads:{},
+  };
+}
+
+let agrUid = 0;
+const agrNextUid = () => 'p' + (++agrUid);
+
+async function openAgreementWizard(opts){
+  opts = opts || {};
+  agrWizard = agrNewWizard();
+  agrEl('agrModal').style.display = 'flex';
+  if (opts.kind) agrSetKind(opts.kind, { silent:true });
+  // ‏await ולא "שגר ושכח": ‏agrAddProperty מושכת את הבעלים ואת הגוש/חלקה
+  // משתי טבלאות, וציור השלב לפניה היה מציג טופס ריק שמתמלא רגע אחר כך
+  if (opts.propertyId) await agrAddProperty(opts.propertyId, { silent:true });
+  if (opts.clientId) agrAddClientSigner(opts.clientId, { silent:true });
+  agrWizard.step = opts.kind ? 2 : 1;
+  agrRender();
+}
+
+function agrCloseWizard(){
+  agrEl('agrModal').style.display = 'none';
+  agrWizard = null;
+}
+
+/* פתיחת האשף ישירות על שלב החתימה של הסכם שכבר קיים */
+async function openAgreementSigning(agreementId){
+  const row = agreementRows.find(a => a.id === agreementId);
+  if (!row) return;
+  agrWizard = agrNewWizard();
+  agrWizard.kind = row.kind;
+  agrWizard.agreementId = row.id;
+  agrWizard.record = row;
+  agrWizard.step = 4;
+  agrEl('agrModal').style.display = 'flex';
+  agrRender();
+}
+
+const AGR_STEP_LABELS = ['1 · סוג ההסכם', '2 · פרטי ההסכם', '3 · תצוגה מקדימה', '4 · חתימה'];
+
+function agrRender(){
+  if (!agrWizard) return;
+  const w = agrWizard;
+  const tpl = agrTpl(w.kind);
+
+  agrEl('agrTitle').textContent = tpl ? tpl.docTitle : 'הסכם חדש';
+  agrEl('agrSteps').innerHTML = AGR_STEP_LABELS.map((label, i) => {
+    const n = i + 1;
+    const cls = n === w.step ? 'active' : (n < w.step ? 'done' : '');
+    return `<span class="${cls}">${esc(label)}</span>`;
+  }).join('');
+
+  if (w.step === 1) agrRenderStepKind();
+  else if (w.step === 2) agrRenderStepDetails();
+  else if (w.step === 3) agrRenderStepPreview();
+  else agrRenderStepSign();
+
+  agrEl('agrBody').scrollTop = 0;
+}
+
+/* ---------- שלב 1: סוג ההסכם ---------- */
+
+function agrRenderStepKind(){
+  const html = window.AgreementTemplates.menu.map(group => {
+    const items = group.keys.map(k => {
+      const t = agrTpl(k);
+      if (!t) return '';
+      return `<button type="button" class="agr-kind${t.verified ? '' : ' is-draft'}" data-agr-kind="${esc(k)}">` +
+        esc(t.label) +
+        `<span class="hint">${esc(t.menuHint)}${t.verified ? '' : ' · נוסח לאישור'}</span></button>`;
+    }).join('');
+    return `<div class="agr-kind-group">${esc(group.label)}</div>` + items;
+  }).join('');
+
+  agrEl('agrBody').innerHTML =
+    '<p style="margin:0 0 12px;color:var(--ink-soft)">בחרו את סוג ההסכם. הטופס, הסעיפים והמשאלון נקבעים לפי הבחירה.</p>' +
+    '<div class="agr-kind-list">' + html + '</div>' +
+    '<p class="imp-note" style="margin-top:14px">טופס המסומן ב"נוסח לאישור" נבנה במבנה של טופס המכירה וממתין לאישור משפטי — ' +
+    'בדקו את הנוסח בתצוגה המקדימה לפני שאתם מחתימים עליו לקוח/ה.</p>';
+
+  agrEl('agrFoot').innerHTML = '<button type="button" class="btn btn-ghost" data-agr="close">סגירה</button>';
+}
+
+function agrSetKind(kind, opts){
+  const tpl = agrTpl(kind);
+  if (!tpl) return;
+  agrWizard.kind = kind;
+  agrWizard.commission.basis = (window.AgreementTemplates.commissionBases[tpl.dealType] || [])[0]?.key || '';
+  agrWizard.questionnaire = tpl.questionnaire ? tpl.questionnaire.items.map(()=> '') : [];
+  if (tpl.propertyMode === 'single' && agrWizard.properties.length > 1){
+    agrWizard.properties = agrWizard.properties.slice(0, 1);
+  }
+  // החלפת סוג הטופס מחליפה גם את רשימת שדות הנכס (מלאה מול מקוצרת). מה
+  // שכבר מולא נשמר, ומה שהטופס החדש דורש ואינו קיים נפתח ריק.
+  agrWizard.properties.forEach(entry => {
+    tpl.propertyFields.forEach(f => {
+      if (!(f.key in entry.fields)) entry.fields[f.key] = '';
+    });
+  });
+  if (!(opts && opts.silent)){
+    agrWizard.step = 2;
+    agrRender();
+  }
+}
+
+/* ---------- שלב 2: פרטי ההסכם ---------- */
+
+function agrRenderStepDetails(){
+  const w = agrWizard;
+  const tpl = agrTpl(w.kind);
+  const bases = window.AgreementTemplates.commissionBases[tpl.dealType] || [];
+
+  const propOptions = myPropertyRows.map(p =>
+    `<option value="${esc(p.id)}">${esc(agrPropertyLabel(p))}</option>`).join('');
+
+  const clientOptions = clientRows.map(c =>
+    `<option value="${esc(c.id)}">${esc(c.full_name)}${c.phone ? ' · ' + esc(c.phone) : ''}</option>`).join('');
+
+  let html = '';
+
+  if (!tpl.verified){
+    html += '<div class="agr-warn"><b>הנוסח של הטופס הזה טרם אושר.</b> הוא נבנה במבנה של טופס המכירה ' +
+      'ובהתאם לחוק המתווכים במקרקעין, אך לא הועתק מטופס קיים. קראו אותו בתצוגה המקדימה לפני החתמה.</div>';
+  }
+
+  /* --- נכסים --- */
+  html += '<div class="agr-sec"><h4>' +
+    (tpl.propertyMode === 'multi' ? 'הנכסים בהסכם' : 'הנכס בהסכם') + '</h4>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">' +
+      `<div class="agr-field" style="flex:1;min-width:190px"><label>בחירת נכס מהמערכת</label>
+         <select id="agrPropPick"><option value="">— בחרו נכס —</option>${propOptions}</select></div>` +
+      '<button type="button" class="btn btn-ghost" data-agr="add-prop" style="padding:9px 16px">הוספה</button>' +
+      '<button type="button" class="btn btn-ghost" data-agr="add-prop-blank" style="padding:9px 16px">נכס ידני</button>' +
+    '</div>' +
+    '<div id="agrPropChips" style="margin-top:10px"></div>' +
+    (tpl.propertyMode === 'single'
+      ? '<p class="imp-note">בטופס הזה מתואר נכס אחד. בחירת נכס נוסף תחליף את הקיים.</p>'
+      : '<p class="imp-note">אפשר לצרף כמה נכסים — כל אחד מהם יופיע במסמך בנפרד.</p>') +
+  '</div>';
+
+  /* --- צדדים --- */
+  html += '<div class="agr-sec"><h4>הצדדים החותמים</h4>' +
+    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">' +
+      `<div class="agr-field" style="flex:1;min-width:190px"><label>מקובץ הלקוחות</label>
+         <select id="agrClientPick"><option value="">— בחרו לקוח/ה —</option>${clientOptions}</select></div>` +
+      '<button type="button" class="btn btn-ghost" data-agr="add-client" style="padding:9px 16px">הוספה</button>' +
+      '<button type="button" class="btn btn-ghost" data-agr="add-blank-signer" style="padding:9px 16px">הזנה ידנית</button>' +
+    '</div>' +
+    '<div id="agrSignerForms" style="margin-top:10px"></div>' +
+    '<p class="imp-note">החותם/ת הראשון/ה מופיע/ה במסמך כ"בין", והשני/ה כ"ובין" — בן/בת זוג או שותף/ה. ' +
+    'מספר תעודת זהות נדרש בהזמנת שירותי תיווך בכתב.</p>' +
+  '</div>';
+
+  /* --- שדות הנכס --- */
+  html += '<div class="agr-sec"><h4>פרטי הנכס במסמך</h4>' +
+    '<p class="imp-note" style="margin:0 0 10px">מה שידוע במערכת מולא לבד. שדה שנשאר ריק מודפס במסמך כקו לחתימה ידנית.</p>' +
+    '<div id="agrPropFields"></div></div>';
+
+  /* --- עמלה --- */
+  html += '<div class="agr-sec"><h4>עמלה</h4><div class="agr-grid">' +
+    `<div class="agr-field"><label>אחוזים</label>
+       <input type="number" id="agrPct" step="0.01" min="0" max="100" value="${esc(w.commission.pct)}"></div>` +
+    `<div class="agr-field"><label>סכום עמלה (₪, לא חובה)</label>
+       <input type="number" id="agrAmount" min="0" step="1" value="${esc(w.commission.amount)}" placeholder="מינימום או סכום קבוע"></div>` +
+    '</div>' +
+    (bases.length > 1
+      ? `<div class="agr-field" style="margin-top:8px"><label>בסיס החישוב</label><select id="agrBasis">` +
+        bases.map(b => `<option value="${esc(b.key)}"${b.key === w.commission.basis ? ' selected' : ''}>${esc(b.label)}</option>`).join('') +
+        '</select></div>'
+      : '') +
+    '<p class="imp-note">המחירים המצוינים אינם כוללים מע״מ.</p>' +
+  '</div>';
+
+  /* --- בלעדיות --- */
+  if (tpl.exclusive){
+    html += '<div class="agr-sec"><h4>תקופת הבלעדיות ופעולות השיווק</h4><div class="agr-grid">' +
+      `<div class="agr-field"><label>מיום</label><input type="date" id="agrExFrom" value="${esc(w.exclusive.from)}"></div>` +
+      `<div class="agr-field"><label>ועד ליום</label><input type="date" id="agrExUntil" value="${esc(w.exclusive.until)}"></div>` +
+      '</div>' +
+      '<div class="agr-field" style="margin-top:10px"><label>פעולות השיווק שאני מתחייב/ת לבצע</label>' +
+      '<div class="share-partner-list" id="agrActions">' +
+        window.AgreementTemplates.marketingActions.map((a, i) =>
+          `<label class="checkbox-item"><input type="checkbox" data-agr-action="${i}"${
+            w.exclusive.actions.includes(a) ? ' checked' : ''}> ${esc(a)}</label>`).join('') +
+      '</div></div>' +
+      '<p class="imp-note">תקנות המתווכים במקרקעין (פעולות שיווק), התשס״ה-2004 מתנות את הבלעדיות בביצוע ' +
+      'לפחות שתי פעולות שיווק תוך 30 יום. סמנו רק את מה שתבצעו בפועל.</p>' +
+    '</div>';
+  }
+
+  /* --- משאלון --- */
+  if (tpl.questionnaire){
+    html += '<div class="agr-sec"><h4>' + esc(tpl.questionnaire.title) + '</h4>' +
+      '<p class="imp-note" style="margin:0 0 10px">תשובות בעל/ת הנכס. שאלה שנשארת ריקה מודפסת במסמך עם שורה ריקה למילוי ידני.</p>' +
+      tpl.questionnaire.items.map((q, i) =>
+        `<div class="agr-field" style="margin-bottom:9px"><label>${i + 1}. ${esc(q)}</label>
+         <textarea rows="2" data-agr-q="${i}">${esc(w.questionnaire[i] || '')}</textarea></div>`).join('') +
+    '</div>';
+  }
+
+  /* --- שונות --- */
+  html += '<div class="agr-sec"><h4>שונות</h4>' +
+    `<div class="agr-field"><label>שפת ההסכם</label><select id="agrLang">` +
+      ['he','en','ru','ar','fr'].map(l => `<option value="${l}"${w.language === l ? ' selected' : ''}>${
+        ({he:'עברית',en:'אנגלית',ru:'רוסית',ar:'ערבית',fr:'צרפתית'})[l]}</option>`).join('') +
+    '</select><p class="imp-note">כרגע המסמך מופק בעברית. הבחירה נשמרת לצורך תרגום עתידי.</p></div>' +
+    `<div class="agr-field" style="margin-top:10px"><label>הערות להסכם (נכנסות לסעיף "הערות")</label>
+       <textarea id="agrNotes" rows="3" placeholder="לדוגמה: העמלה תשולם בשני תשלומים">${esc(w.notes)}</textarea></div>` +
+  '</div>';
+
+  agrEl('agrBody').innerHTML = html;
+
+  agrEl('agrFoot').innerHTML =
+    '<button type="button" class="btn btn-ghost" data-agr="back-to-kind">חזרה</button>' +
+    '<button type="button" class="btn btn-gold" data-agr="to-preview">הצג הסכם ←</button>';
+
+  agrRenderPropChips();
+  agrRenderSignerForms();
+  agrRenderPropFields();
+}
+
+function agrPropertyLabel(p){
+  const address = [p.street, p.house_number].filter(Boolean).join(' ');
+  return [p.title, [address, p.city].filter(Boolean).join(', ')].filter(Boolean).join(' — ');
+}
+
+function agrRenderPropChips(){
+  const host = agrEl('agrPropChips');
+  if (!host) return;
+  if (!agrWizard.properties.length){
+    host.innerHTML = '<p class="imp-note" style="margin:0">לא נבחר נכס.</p>';
+    return;
+  }
+  host.innerHTML = agrWizard.properties.map(p =>
+    `<div class="agr-chip"><span>${esc(p.label)}</span>
+       <button type="button" class="x" data-agr="rm-prop" data-uid="${esc(p.uid)}" aria-label="הסרה">✕</button></div>`).join('');
+}
+
+/* מושך מהמערכת את מה שידוע על הנכס — כולל בעלים וגוש/חלקה, ששוכנים
+   בטבלאות נפרדות דווקא כי הם רגישים מכדי לשבת ב-properties. */
+async function agrAddProperty(propertyId, opts){
+  const w = agrWizard;
+  const tpl = agrTpl(w.kind);
+  const p = myPropertyRows.find(x => x.id === propertyId);
+  if (!p) return;
+  if (w.properties.some(x => x.property_id === propertyId)) return;
+
+  const [ownerRes, planRes] = await Promise.all([
+    sb.from('property_owners').select('*').eq('property_id', propertyId).maybeSingle(),
+    sb.from('property_planning_info').select('gush, helka').eq('property_id', propertyId).maybeSingle(),
+  ]);
+  const owner = ownerRes.data || null;
+  const planning = planRes.data || null;
+
+  const fields = {};
+  (tpl ? tpl.propertyFields : window.AgreementTemplates.propertyFieldsFull).forEach(f => {
+    fields[f.key] = agrFieldFromProperty(f, p, planning);
+  });
+
+  const entry = {
+    uid: agrNextUid(), property_id: propertyId, label: agrPropertyLabel(p),
+    fields, notes: p.description || '',
+  };
+
+  if (tpl && tpl.propertyMode === 'single') w.properties = [entry];
+  else w.properties.push(entry);
+
+  // בטופס של צד הנכס, בעל/ת הנכס הוא/היא החותם/ת המתבקש/ת
+  if (owner && owner.owner_name && tpl && tpl.side === 'owner' && !w.signers.length){
+    w.signers.push({
+      uid: agrNextUid(), party:'client', full_name: owner.owner_name,
+      id_number: owner.owner_id_number || '', phone: owner.owner_phone || '',
+      email: owner.owner_email || '', address: owner.owner_address || '', client_id: null,
+    });
+  }
+
+  if (!(opts && opts.silent)){
+    agrRenderPropChips();
+    agrRenderPropFields();
+    agrRenderSignerForms();
+  }
+}
+
+function agrAddBlankProperty(){
+  const tpl = agrTpl(agrWizard.kind);
+  const fields = {};
+  tpl.propertyFields.forEach(f => { fields[f.key] = ''; });
+  const entry = { uid: agrNextUid(), property_id:null, label:'נכס במילוי ידני', fields, notes:'' };
+  if (tpl.propertyMode === 'single') agrWizard.properties = [entry];
+  else agrWizard.properties.push(entry);
+  agrRenderPropChips();
+  agrRenderPropFields();
+}
+
+function agrFieldFromProperty(field, p, planning){
+  const src = field.src;
+  if (!src) return '';
+  if (src.indexOf('feature:') === 0){
+    const key = src.slice(8);
+    return (p.features || []).includes(key) ? 'יש' : '';
+  }
+  if (src === 'gush')  return (planning && planning.gush)  || '';
+  if (src === 'helka') return (planning && planning.helka) || '';
+  if (src === 'neighborhood') return p.sales_area || '';
+  if (src === 'condition') return AGR_CONDITION_LABELS[p.condition] || '';
+  const v = p[src];
+  return (v === null || v === undefined) ? '' : String(v);
+}
+
+function agrRenderPropFields(){
+  const host = agrEl('agrPropFields');
+  if (!host) return;
+  const tpl = agrTpl(agrWizard.kind);
+  if (!agrWizard.properties.length){
+    host.innerHTML = '<p class="imp-note" style="margin:0">בחרו נכס כדי למלא את פרטיו.</p>';
+    return;
+  }
+  const overrides = tpl.propertyLabelOverrides || {};
+
+  host.innerHTML = agrWizard.properties.map((entry, idx) => {
+    const inputs = tpl.propertyFields.map(f =>
+      `<div class="agr-field"><label>${esc(overrides[f.key] || f.label)}</label>
+         <input type="text" data-agr-pf="${esc(entry.uid)}" data-key="${esc(f.key)}" value="${esc(entry.fields[f.key] || '')}"></div>`
+    ).join('');
+    return (agrWizard.properties.length > 1
+        ? `<div class="form-subheading">נכס ${idx + 1} · ${esc(entry.label)}</div>` : '') +
+      '<div class="agr-fields">' + inputs + '</div>' +
+      `<div class="agr-field" style="margin-top:9px"><label>הערות לנכס</label>
+         <textarea rows="2" data-agr-pnotes="${esc(entry.uid)}">${esc(entry.notes || '')}</textarea></div>`;
+  }).join('<hr style="border:none;border-top:1px dashed var(--line);margin:14px 0">');
+}
+
+function agrAddClientSigner(clientId, opts){
+  const c = clientRows.find(x => x.id === clientId);
+  if (!c) return;
+  if (agrWizard.signers.some(s => s.client_id === clientId)) return;
+  agrWizard.signers.push({
+    uid: agrNextUid(), party: agrWizard.signers.length ? 'partner' : 'client',
+    full_name: c.full_name || '', id_number: c.id_number || '', phone: c.phone || '',
+    email: c.email || '', address: c.address || '', client_id: c.id,
+  });
+  if (!(opts && opts.silent)) agrRenderSignerForms();
+}
+
+function agrAddBlankSigner(){
+  agrWizard.signers.push({
+    uid: agrNextUid(), party: agrWizard.signers.length ? 'partner' : 'client',
+    full_name:'', id_number:'', phone:'', email:'', address:'', client_id:null,
+  });
+  agrRenderSignerForms();
+}
+
+function agrRenderSignerForms(){
+  const host = agrEl('agrSignerForms');
+  if (!host) return;
+  if (!agrWizard.signers.length){
+    host.innerHTML = '<p class="imp-note" style="margin:0">לא נבחרו חותמים.</p>';
+    return;
+  }
+  host.innerHTML = agrWizard.signers.map((s, i) => `
+    <div class="agr-sec" style="background:#fff;margin-bottom:9px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <b style="font-size:.84rem">${i === 0 ? 'בין' : 'ובין'} — חותם/ת ${i + 1}</b>
+        <button type="button" class="x" data-agr="rm-signer" data-uid="${esc(s.uid)}" aria-label="הסרה"
+                style="background:none;color:var(--brick);font-weight:800;padding:2px 6px">✕</button>
+      </div>
+      <div class="agr-grid">
+        <div class="agr-field"><label>שם מלא</label>
+          <input type="text" data-agr-sf="${esc(s.uid)}" data-key="full_name" value="${esc(s.full_name)}"></div>
+        <div class="agr-field"><label>ת.ז. / ח״פ</label>
+          <input type="text" data-agr-sf="${esc(s.uid)}" data-key="id_number" value="${esc(s.id_number)}"></div>
+        <div class="agr-field"><label>טלפון</label>
+          <input type="tel" dir="ltr" style="text-align:right" data-agr-sf="${esc(s.uid)}" data-key="phone" value="${esc(s.phone)}"></div>
+        <div class="agr-field"><label>אימייל (נדרש לחתימה מרחוק)</label>
+          <input type="email" dir="ltr" style="text-align:right" data-agr-sf="${esc(s.uid)}" data-key="email" value="${esc(s.email)}"></div>
+      </div>
+      <div class="agr-field" style="margin-top:8px"><label>כתובת (לא חובה)</label>
+        <input type="text" data-agr-sf="${esc(s.uid)}" data-key="address" value="${esc(s.address)}"></div>
+    </div>`).join('');
+}
+
+/* ---------- קריאת הטופס ---------- */
+
+function agrCollectDetails(){
+  const w = agrWizard;
+  const tpl = agrTpl(w.kind);
+
+  const pct = agrEl('agrPct');
+  const amount = agrEl('agrAmount');
+  const basis = agrEl('agrBasis');
+  if (pct) w.commission.pct = pct.value.trim();
+  if (amount) w.commission.amount = amount.value.trim();
+  if (basis) w.commission.basis = basis.value;
+
+  const notes = agrEl('agrNotes');
+  if (notes) w.notes = notes.value.trim();
+  const lang = agrEl('agrLang');
+  if (lang) w.language = lang.value;
+
+  if (tpl.exclusive){
+    w.exclusive.from = agrEl('agrExFrom').value;
+    w.exclusive.until = agrEl('agrExUntil').value;
+    w.exclusive.actions = [...document.querySelectorAll('[data-agr-action]')]
+      .filter(cb => cb.checked)
+      .map(cb => window.AgreementTemplates.marketingActions[Number(cb.dataset.agrAction)]);
+  }
+
+  if (tpl.questionnaire){
+    document.querySelectorAll('[data-agr-q]').forEach(t => {
+      w.questionnaire[Number(t.dataset.agrQ)] = t.value.trim();
+    });
+  }
+}
+
+/* ---------- שלב 3: תצוגה מקדימה ---------- */
+
+function agrValidate(){
+  const w = agrWizard;
+  const tpl = agrTpl(w.kind);
+  const missing = [];
+  if (!w.properties.length) missing.push('לא נבחרו נכסים להסכם');
+  if (!w.signers.length) missing.push('לא נבחרו לקוחות להסכם');
+  w.signers.forEach((s, i) => {
+    if (!s.full_name.trim()) missing.push(`חסר שם לחותם/ת ${i + 1}`);
+    if (!s.id_number.trim()) missing.push(`חסרה ת.ז. לחותם/ת ${i + 1} (${s.full_name || 'ללא שם'})`);
+  });
+  const hasPct = w.commission.pct !== '' && Number(w.commission.pct) > 0;
+  const hasAmount = w.commission.amount !== '' && Number(w.commission.amount) > 0;
+  if (!hasPct && !hasAmount) missing.push('לא הוזנה עמלה — אחוזים או סכום');
+  if (tpl.exclusive){
+    if (!w.exclusive.from || !w.exclusive.until) missing.push('חסרה תקופת הבלעדיות');
+    if (w.exclusive.actions.length < 2) missing.push('יש לסמן לפחות שתי פעולות שיווק');
+  }
+  if (!currentAgent || !currentAgent.id_number) missing.push('חסרה ת.ז. בפרטי הסוכן/ת — עדכנו אותה ב"עדכון פרטי הסוכן/ת"');
+  return missing;
+}
+
+function agrBuildDoc(){
+  const w = agrWizard;
+  const tpl = agrTpl(w.kind);
+  const bases = window.AgreementTemplates.commissionBases[tpl.dealType] || [];
+  const basis = bases.find(b => b.key === w.commission.basis);
+
+  return {
+    template: tpl,
+    agent: {
+      name: currentAgent.display_name,
+      id_number: currentAgent.id_number,
+      license_number: currentAgent.license_number,
+      phone: currentAgent.phone,
+      agency_name: (currentAgent.agencies && currentAgent.agencies.name) || agrAgencyName(),
+      agency_address: agrAgencyAddress(),
+    },
+    signers: w.signers.map(s => ({
+      full_name:s.full_name, id_number:s.id_number, phone:s.phone,
+      email:s.email, address:s.address, party:s.party,
+    })),
+    properties: w.properties.map(p => ({ fields:p.fields, notes:p.notes })),
+    commission: { pct:w.commission.pct, amount:w.commission.amount, basisSuffix: basis ? basis.suffix : '' },
+    exclusive: tpl.exclusive ? w.exclusive : null,
+    questionnaire: w.questionnaire,
+    notes: w.notes,
+    createdAt: new Date(),
+    verifyCode: w.record ? w.record.verify_code : '—',
+  };
+}
+
+/* שם המשרד וכתובתו יושבים על currentAgent רק בחלק מהמסלולים; שתי
+   הפונקציות האלה מונעות ריצה על undefined בלי לפזר בדיקות בקוד המסמך. */
+function agrAgencyName(){
+  return (window.currentAgency && window.currentAgency.name) || '';
+}
+function agrAgencyAddress(){
+  return (window.currentAgency && window.currentAgency.address) || '';
+}
+
+function agrRenderStepPreview(){
+  const missing = agrValidate();
+  const body = agrEl('agrBody');
+
+  if (missing.length){
+    body.innerHTML =
+      '<div style="text-align:center;padding:8px 0 16px">' +
+        '<div style="font-size:2rem">⚠️</div>' +
+        '<h3 style="font-family:\'Frank Ruhl Libre\',serif;margin:6px 0 4px">הנתונים הבאים חסרים ליצירת ההסכם:</h3>' +
+      '</div>' +
+      '<p style="color:var(--ink-soft);margin:0 0 10px">אנו צריכים לוודא שכל השדות הנדרשים להסכם מולאו כראוי. ' +
+      'שדות כמו ת.ז., טלפון ואימייל דרושים לנו ליצירת הסכם תקין.</p>' +
+      '<ul style="margin:0 0 4px;padding-inline-start:20px">' +
+        missing.map(m => `<li style="margin-bottom:5px">${esc(m)}</li>`).join('') +
+      '</ul>';
+    agrEl('agrFoot').innerHTML =
+      '<button type="button" class="btn btn-ghost" data-agr="close">סגירה</button>' +
+      '<button type="button" class="btn btn-gold" data-agr="back-to-details">לחץ לעריכת ההסכם</button>';
+    return;
+  }
+
+  const html = window.AgreementDoc.buildHtml(agrBuildDoc());
+  agrWizard.previewHtml = html;
+
+  body.innerHTML =
+    '<p class="imp-note" style="margin:0 0 10px">זה בדיוק מה שהלקוח/ה יראה/תראה. אחרי המעבר לשלב החתימה ' +
+    'גוף המסמך ננעל לעריכה — לשינוי טקסט חוזרים לשלב הקודם.</p>' +
+    '<div class="agr-preview">' + html + '</div>';
+
+  agrEl('agrFoot').innerHTML =
+    '<button type="button" class="btn btn-ghost" data-agr="back-to-details">✏️ עריכה</button>' +
+    '<button type="button" class="btn btn-gold" data-agr="to-sign">המשך לחתימה ←</button>';
+}
+
+/* ---------- שמירה ---------- */
+
+async function agrSaveAndGoSign(btn){
+  const w = agrWizard;
+  const tpl = agrTpl(w.kind);
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'שומר…';
+
+  try {
+    const doc = agrBuildDoc();
+    const propertyLine = w.properties.map(p => p.label).join(' · ');
+
+    const payload = {
+      agent_id: currentAgent.id,
+      agency_id: currentAgent.agency_id || null,
+      kind: w.kind,
+      title: tpl.docTitle,
+      commission_pct: w.commission.pct === '' ? null : Number(w.commission.pct),
+      commission_amount: w.commission.amount === '' ? null : Number(w.commission.amount),
+      commission_note: w.commission.basis || null,
+      exclusive_from: tpl.exclusive && w.exclusive.from ? w.exclusive.from : null,
+      exclusive_until: tpl.exclusive && w.exclusive.until ? w.exclusive.until : null,
+      marketing_actions: tpl.exclusive ? w.exclusive.actions : [],
+      language: w.language,
+      notes: w.notes || null,
+      property_ids: w.properties.map(p => p.property_id).filter(Boolean),
+      client_ids: w.signers.map(s => s.client_id).filter(Boolean),
+      snapshot: {
+        property_line: propertyLine,
+        properties: w.properties.map(p => ({ property_id:p.property_id, fields:p.fields, notes:p.notes })),
+        signers: doc.signers,
+        commission: doc.commission,
+        exclusive: doc.exclusive,
+        questionnaire: w.questionnaire,
+        agent: doc.agent,
+      },
+    };
+
+    let agreementId = w.agreementId;
+
+    if (!agreementId){
+      const { data, error } = await sb.from('agreements').insert(payload).select().single();
+      if (error) throw error;
+      agreementId = data.id;
+      // ‏verify_code נוצר במסד, והוא מודפס בתחתית המסמך — ולכן ה-HTML
+      // נבנה מחדש אחרי ההוספה ורק אז נשמר
+      w.record = data;
+    } else {
+      const { data, error } = await sb.from('agreements').update(payload).eq('id', agreementId).select().single();
+      if (error) throw error;
+      w.record = data;
+      await sb.from('agreement_signers').delete().eq('agreement_id', agreementId);
+    }
+
+    const finalHtml = window.AgreementDoc.buildHtml(
+      Object.assign(agrBuildDoc(), { verifyCode: w.record.verify_code, createdAt: w.record.created_at }));
+
+    const { error: htmlErr } = await sb.from('agreements')
+      .update({ document_html: finalHtml }).eq('id', agreementId);
+    if (htmlErr) throw htmlErr;
+
+    const signerRows = w.signers.map((s, i) => ({
+      agreement_id: agreementId, ord: i, party: s.party,
+      full_name: s.full_name.trim(), id_number: s.id_number.trim() || null,
+      phone: s.phone.trim() || null, email: s.email.trim() || null,
+      address: s.address.trim() || null,
+    }));
+    const { error: signersErr } = await sb.from('agreement_signers').insert(signerRows);
+    if (signersErr) throw signersErr;
+
+    w.agreementId = agreementId;
+    await loadAgreements();
+    await agrRefreshWizardRecord();
+    w.step = 4;
+    agrRender();
+  } catch(err){
+    console.error(err);
+    showToast('שמירת ההסכם נכשלה: ' + (err.message || 'שגיאה'));
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+async function agrRefreshWizardRecord(){
+  if (!agrWizard || !agrWizard.agreementId) return;
+  const { data } = await sb.from('agreements')
+    .select('*, signers:agreement_signers(*)').eq('id', agrWizard.agreementId).maybeSingle();
+  if (data){
+    data.signers = (data.signers || []).slice().sort((a, b) => (a.ord || 0) - (b.ord || 0));
+    agrWizard.record = data;
+  }
+}
+
+/* ---------- שלב 4: חתימה ---------- */
+
+function agrRenderStepSign(){
+  const w = agrWizard;
+  const rec = w.record;
+  if (!rec){
+    agrEl('agrBody').innerHTML = '<div class="empty-state">ההסכם לא נטען.</div>';
+    agrEl('agrFoot').innerHTML = '<button type="button" class="btn btn-ghost" data-agr="close">סגירה</button>';
+    return;
+  }
+
+  const prog = agrSignedCount(rec);
+  const done = prog.signed === prog.total && prog.total > 0;
+
+  let html = '<p style="margin:0 0 12px;font-weight:600">בחתימתי, אני מאשר בזאת כי קראתי את ההסכם.</p>';
+
+  if (done){
+    html = '<div class="agr-warn" style="background:#F4F9F5;border-color:#C9E0D0;color:#2A5B36">' +
+      '<b>ההסכם נחתם על ידי כל הצדדים.</b> העותק החתום נשלח במייל לכל מי שיש לו/לה כתובת.</div>' + html;
+  }
+
+  html += rec.signers.map(s => {
+    if (s.signed_at){
+      return `<div class="agr-signer">
+        <h5>${esc(s.full_name)}${s.id_number ? ' · ת.ז. ' + esc(s.id_number) : ''}</h5>
+        <div class="who">נחתם ב-${esc(hebDateTime(s.signed_at))} · ${
+          s.method === 'remote' ? 'חתימה מרחוק' : 'חתימה במעמד הסוכן/ת'}</div>
+        <div class="agr-signed">
+          <img src="${esc(window.AgreementDoc.safeSignatureSrc(s.signature))}" alt="חתימת ${esc(s.full_name)}">
+          <span class="when">✓ נחתם</span>
+        </div></div>`;
+    }
+
+    const wa = waLink(s.phone);
+    return `<div class="agr-signer" data-signer="${esc(s.id)}">
+      <h5>${esc(s.full_name)}${s.id_number ? ' · ת.ז. ' + esc(s.id_number) : ''}, חתום כאן:</h5>
+      <div class="who">${s.email ? esc(s.email) : 'ללא כתובת מייל — חתימה מרחוק אינה אפשרית'}${
+        s.mail_sent_at ? ' · קישור נשלח ב-' + esc(hebDateTime(s.mail_sent_at)) : ''}${
+        s.mail_error ? ' · שליחה נכשלה' : ''}</div>
+      <div class="agr-pad">
+        <canvas data-agr-canvas="${esc(s.id)}"></canvas>
+        <div class="agr-pad-hint" data-agr-hint="${esc(s.id)}">חתימה כאן על המסך</div>
+      </div>
+      <div class="agr-signer-acts">
+        <button type="button" class="btn btn-gold" data-agr="save-sign" data-signer="${esc(s.id)}" disabled>שמירת החתימה</button>
+        <button type="button" class="btn btn-ghost" data-agr="clear-sign" data-signer="${esc(s.id)}">ניקוי</button>
+        ${s.email ? `<button type="button" class="btn btn-ghost" data-agr="mail-sign" data-signer="${esc(s.id)}">✉️ שליחה במייל</button>` : ''}
+        ${wa ? `<button type="button" class="btn btn-share" data-agr="wa-sign" data-signer="${esc(s.id)}">💬 וואטסאפ</button>` : ''}
+        <button type="button" class="btn btn-ghost" data-agr="copy-sign" data-signer="${esc(s.id)}">🔗 העתקת קישור</button>
+      </div>
+    </div>`;
+  }).join('');
+
+  html += '<div class="form-subheading" style="margin-top:18px">המסמך</div>' +
+    '<div class="agr-preview">' + (rec.document_html || '') + '</div>';
+
+  agrEl('agrBody').innerHTML = html;
+
+  agrEl('agrFoot').innerHTML =
+    '<button type="button" class="btn btn-ghost" data-agr="close">סגירה</button>' +
+    '<button type="button" class="btn btn-ghost" data-agr="pdf">⬇ הורדה כ-PDF</button>' +
+    (done ? '' : '<button type="button" class="btn btn-gold" data-agr="send-all">✉️ שליחה לכל מי שטרם חתם/ה</button>');
+
+  // לוחות החתימה נבנים אחרי שה-DOM קיים, אחרת ה-canvas עדיין חסר גודל
+  w.pads = {};
+  rec.signers.filter(s => !s.signed_at).forEach(s => {
+    const canvas = agrEl('agrBody').querySelector(`[data-agr-canvas="${s.id}"]`);
+    if (!canvas) return;
+    w.pads[s.id] = window.AgreementDoc.signaturePad(canvas, {
+      onChange: drawn => {
+        const hint = agrEl('agrBody').querySelector(`[data-agr-hint="${s.id}"]`);
+        if (hint) hint.classList.toggle('is-off', drawn);
+        const saveBtn = agrEl('agrBody').querySelector(`[data-agr="save-sign"][data-signer="${s.id}"]`);
+        if (saveBtn) saveBtn.disabled = !drawn;
+      },
+    });
+  });
+}
+
+async function agrSaveManualSignature(signerId, btn){
+  const w = agrWizard;
+  const pad = w.pads[signerId];
+  if (!pad || pad.isEmpty()) return;
+
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'שומר…';
+
+  const { error } = await sb.from('agreement_signers').update({
+    signature: pad.toDataURL(),
+    signed_at: new Date().toISOString(),
+    method: 'manual',
+    signed_ua: navigator.userAgent.slice(0, 400),
+  }).eq('id', signerId).is('signed_at', null);
+
+  if (error){
+    showToast('שמירת החתימה נכשלה: ' + error.message);
+    btn.disabled = false;
+    btn.textContent = original;
+    return;
+  }
+
+  await agrRefreshWizardRecord();
+  await loadAgreements();
+
+  // כשהחתימה האחרונה נכנסה, הטריגר סימן את ההסכם כחתום — וזה הרגע לשלוח
+  // את העותק לכל הצדדים. ‏שליחה שנכשלת אינה מבטלת את החתימה.
+  if (agrWizard.record && agrWizard.record.status === 'signed'){
+    const { ok, data } = await agrCallFn({ action:'finalize', agreement_id:agrWizard.agreementId });
+    showToast(ok && data.copies_sent
+      ? `ההסכם נחתם · העותק החתום נשלח ל-${data.copies_sent} נמענים`
+      : 'ההסכם נחתם. שליחת העותק במייל לא הצליחה — אפשר לנסות שוב מכרטיס ההסכם.');
+    await loadAgreements();
+  } else {
+    showToast('החתימה נשמרה');
+  }
+
+  agrRender();
+}
+
+function agrSignUrl(signer){
+  return location.origin + '/sign.html?t=' + encodeURIComponent(signer.sign_token);
+}
+
+function agrSignerById(id){
+  return (agrWizard.record.signers || []).find(s => s.id === id);
+}
+
+async function agrCopySignLink(signerId){
+  const s = agrSignerById(signerId);
+  if (!s) return;
+  const url = agrSignUrl(s);
+  try {
+    await navigator.clipboard.writeText(url);
+    showToast('הקישור האישי הועתק — אפשר להדביק אותו בכל מקום');
+  } catch(err){
+    console.error(err);
+    prompt('העתיקו את הקישור:', url);
+  }
+}
+
+function agrWhatsappSign(signerId){
+  const s = agrSignerById(signerId);
+  if (!s) return;
+  const wa = waLink(s.phone);
+  if (!wa) return showToast('אין מספר טלפון תקין לחותם/ת');
+  const text = `שלום ${s.full_name}, מצורף קישור אישי לקריאה ולחתימה על ` +
+    `${agrWizard.record.title}:\n${agrSignUrl(s)}\n\nהקישור אישי — אין להעביר אותו הלאה.`;
+  window.open(wa + '?text=' + encodeURIComponent(text), '_blank', 'noopener');
+}
+
+async function agrDownloadPdf(btn){
+  const rec = agrWizard.record;
+  const host = document.createElement('div');
+  // ‏left ולא inset-inline-start: בדף RTL הלוגי מתמפה ל-right, וההסתרה
+  // הייתה גוררת את הגוף ימינה ומרחיבה את הגלילה האופקית של הדשבורד
+  host.style.cssText = 'position:fixed;left:-10000px;top:0;width:820px;background:#fff';
+  host.innerHTML = (rec.document_html || '') +
+    window.AgreementDoc.signatureBlockHtml(rec.signers || []);
+  document.body.appendChild(host);
+
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'מכין את הקובץ…';
+  try {
+    await window.AgreementDoc.downloadPdf(host, rec.title.replace(/[\\/:*?"<>|]/g, '-') + '.pdf');
+  } catch(err){
+    console.error(err);
+    showToast('לא הצלחנו להפיק PDF — נסו שוב');
+  } finally {
+    host.remove();
+    btn.disabled = false;
+    btn.textContent = original;
+  }
+}
+
+/* ---------- חיווט האשף ---------- */
+
+agrEl('agrModal').addEventListener('click', async (e)=>{
+  if (e.target.id === 'agrModal') return;   // הרקע אינו סוגר: אשף חתימה שנסגר בטעות הוא עבודה שאבדה
+
+  const kindBtn = e.target.closest('[data-agr-kind]');
+  if (kindBtn) return agrSetKind(kindBtn.dataset.agrKind);
+
+  const btn = e.target.closest('[data-agr]');
+  if (!btn) return;
+  const act = btn.dataset.agr;
+
+  if (act === 'close') return agrCloseWizard();
+  if (act === 'back-to-kind'){ agrCollectDetails(); agrWizard.step = 1; return agrRender(); }
+  if (act === 'back-to-details'){ agrWizard.step = 2; return agrRender(); }
+  if (act === 'to-preview'){ agrCollectDetails(); agrWizard.step = 3; return agrRender(); }
+  if (act === 'to-sign') return agrSaveAndGoSign(btn);
+  if (act === 'add-prop'){
+    const id = agrEl('agrPropPick').value;
+    if (id) await agrAddProperty(id);
+    return;
+  }
+  if (act === 'add-prop-blank') return agrAddBlankProperty();
+  if (act === 'rm-prop'){
+    agrWizard.properties = agrWizard.properties.filter(p => p.uid !== btn.dataset.uid);
+    agrRenderPropChips();
+    return agrRenderPropFields();
+  }
+  if (act === 'add-client'){
+    const id = agrEl('agrClientPick').value;
+    if (id) agrAddClientSigner(id);
+    return;
+  }
+  if (act === 'add-blank-signer') return agrAddBlankSigner();
+  if (act === 'rm-signer'){
+    agrWizard.signers = agrWizard.signers.filter(s => s.uid !== btn.dataset.uid);
+    agrWizard.signers.forEach((s, i) => { s.party = i === 0 ? 'client' : 'partner'; });
+    return agrRenderSignerForms();
+  }
+  if (act === 'save-sign') return agrSaveManualSignature(btn.dataset.signer, btn);
+  if (act === 'clear-sign'){
+    const pad = agrWizard.pads[btn.dataset.signer];
+    if (pad) pad.clear();
+    return;
+  }
+  if (act === 'mail-sign'){
+    await agrSendLinks(agrWizard.agreementId, [btn.dataset.signer], btn);
+    return agrRender();
+  }
+  if (act === 'wa-sign') return agrWhatsappSign(btn.dataset.signer);
+  if (act === 'copy-sign') return agrCopySignLink(btn.dataset.signer);
+  if (act === 'send-all'){
+    await agrSendLinks(agrWizard.agreementId, null, btn);
+    return agrRender();
+  }
+  if (act === 'pdf') return agrDownloadPdf(btn);
+});
+
+/* עריכה בשדות של האשף — האזנה אחת במקום מאות מאזינים */
+agrEl('agrBody').addEventListener('input', (e)=>{
+  if (!agrWizard) return;
+  const t = e.target;
+
+  if (t.dataset.agrPf){
+    const entry = agrWizard.properties.find(p => p.uid === t.dataset.agrPf);
+    if (entry) entry.fields[t.dataset.key] = t.value;
+    return;
+  }
+  if (t.dataset.agrPnotes){
+    const entry = agrWizard.properties.find(p => p.uid === t.dataset.agrPnotes);
+    if (entry) entry.notes = t.value;
+    return;
+  }
+  if (t.dataset.agrSf){
+    const signer = agrWizard.signers.find(s => s.uid === t.dataset.agrSf);
+    if (signer) signer[t.dataset.key] = t.value;
+  }
+});
+
+agrEl('agrClose').addEventListener('click', agrCloseWizard);
+agrEl('newAgreementBtn').addEventListener('click', ()=> openAgreementWizard());
+
+agrEl('agrSearch').addEventListener('input', renderAgreements);
+['agrStatusFilter','agrKindFilter'].forEach(id =>
+  agrEl(id).addEventListener('change', renderAgreements));
+agrEl('agrClearFilters').addEventListener('click', ()=>{
+  ['agrSearch','agrStatusFilter','agrKindFilter'].forEach(id => { agrEl(id).value = ''; });
+  renderAgreements();
 });
 
 (async function boot(){

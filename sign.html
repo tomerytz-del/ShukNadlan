@@ -1,0 +1,352 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>חתימה על הסכם | שוק נדל״ן</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
+    --line:#e3e8f4; --blue:#0e2a6b; --blue-dark:#0d1b3d; --blue-tint:#eaf0fb;
+    --brick:#8B2332;
+    --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(18,40,64,.1);
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;padding:20px 14px 40px}
+  h1,h2,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--blue-dark);margin:0}
+  button{font-family:inherit;cursor:pointer;border:none}
+  input{font-family:inherit;font-size:1rem}
+
+  .shell{max-width:860px;margin:0 auto}
+  .logo-link{display:block;width:58px;margin:0 auto 14px;line-height:0}
+  .logo-link img{width:100%;height:auto;display:block}
+
+  .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line)}
+
+  /* ---- כותרת המשימה ---- */
+  .task{padding:20px 22px;text-align:center;margin-bottom:14px}
+  .task h1{font-size:1.22rem;margin-bottom:5px}
+  .task p{margin:0;color:var(--ink-soft);font-size:.86rem}
+  .task .who{font-weight:700;color:var(--blue)}
+
+  /* ---- המסמך ----
+     הגלילה היא של העמוד ולא של תיבה פנימית: הסכם שנקרא בחלון בגובה 300px
+     הוא הסכם שלא נקרא. הרוחב מוגבל, הגובה לא. */
+  .doc-wrap{overflow-x:auto;padding:0;margin-bottom:14px}
+  .doc-wrap .agr-inner{min-width:min(760px,100%)}
+
+  /* ---- החתימה ---- */
+  .sign-card{padding:20px 22px}
+  .sign-card h2{font-size:1.02rem;margin-bottom:4px}
+  .sign-sub{font-size:.82rem;color:var(--ink-soft);margin:0 0 16px}
+
+  .field{margin-bottom:12px}
+  .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
+  .field input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;background:#fff;color:inherit}
+  .field input:focus{border-color:var(--blue);outline:none}
+
+  .pad-label{font-size:.75rem;font-weight:700;color:var(--ink-soft);margin-bottom:5px}
+  .pad-box{position:relative;border:2px dashed #9aa0a6;border-radius:10px;background:#fff;height:190px;overflow:hidden}
+  .pad-box canvas{width:100%;height:100%;display:block;cursor:crosshair}
+  .pad-hint{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:#9aa0a6;font-size:.9rem;pointer-events:none}
+  .pad-hint.is-off{display:none}
+  .pad-foot{display:flex;justify-content:space-between;align-items:center;margin-top:7px}
+  .pad-foot .hint{font-size:.72rem;color:var(--ink-soft)}
+  .link-btn{background:none;color:var(--blue);font-size:.78rem;text-decoration:underline;padding:2px 0;font-weight:600}
+
+  .ack{display:flex;gap:9px;align-items:flex-start;margin:16px 0 14px;font-size:.85rem;line-height:1.5}
+  .ack input{margin:3px 0 0;width:auto;flex-shrink:0}
+
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:14px 22px;border-radius:10px;
+       font-weight:700;font-size:.95rem;width:100%;background:var(--blue);color:#fff}
+  .btn:disabled{opacity:.45;cursor:not-allowed}
+  .btn-ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
+
+  #feedback{font-size:.84rem;text-align:center;margin-top:11px;min-height:1.2em}
+
+  .state{display:none}
+  .state.is-on{display:block}
+  .msg-card{padding:34px 24px;text-align:center}
+  .msg-card .big{font-size:2.2rem;line-height:1;margin-bottom:12px}
+  .msg-card h1{font-size:1.15rem;margin-bottom:8px}
+  .msg-card p{color:var(--ink-soft);font-size:.87rem;margin:0 auto;max-width:440px}
+  .code{display:inline-block;margin-top:14px;background:var(--blue-tint);color:var(--blue-dark);
+    border-radius:6px;padding:6px 12px;font-size:.78rem;letter-spacing:.08em;font-weight:700}
+
+  .done-actions{display:flex;flex-direction:column;gap:9px;max-width:320px;margin:20px auto 0}
+
+  .spin{width:32px;height:32px;margin:0 auto 14px;border-radius:50%;
+    border:3px solid var(--line);border-top-color:var(--blue);animation:sp .9s linear infinite}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){ .spin{animation-duration:2.4s} }
+
+  @media (max-width:520px){
+    .task,.sign-card{padding:16px 14px}
+    .pad-box{height:160px}
+  }
+</style>
+<link rel="stylesheet" href="assets/design-system.css">
+<script src="assets/agreement-templates.js"></script>
+<script src="assets/agreement-doc.js"></script>
+</head>
+<body>
+<div class="shell">
+  <a class="logo-link" href="index.html" aria-label="שוק הנדל״ן — לדף הבית">
+    <img src="assets/logo-shuknadlan.svg" alt="שוק נדל״ן">
+  </a>
+
+  <!-- טעינה -->
+  <div class="state is-on" id="stateLoading">
+    <div class="card msg-card">
+      <div class="spin"></div>
+      <p>טוען את ההסכם…</p>
+    </div>
+  </div>
+
+  <!-- שגיאה -->
+  <div class="state" id="stateError">
+    <div class="card msg-card">
+      <div class="big">⚠️</div>
+      <h1 id="errTitle">הקישור אינו תקין</h1>
+      <p id="errDetail"></p>
+    </div>
+  </div>
+
+  <!-- ההסכם + החתימה -->
+  <div class="state" id="stateForm">
+    <div class="card task">
+      <h1 id="docTitle"></h1>
+      <p><span class="who" id="agentName"></span> מבקש/ת את חתימתך על ההסכם שלהלן.</p>
+      <p style="margin-top:6px">נא לקרוא אותו במלואו לפני החתימה.</p>
+    </div>
+
+    <div class="card doc-wrap"><div class="agr-inner" id="docBody"></div></div>
+
+    <div class="card sign-card">
+      <h2>חתימה</h2>
+      <p class="sign-sub">בחתימתי, אני מאשר בזאת כי קראתי את ההסכם.</p>
+
+      <div class="field" id="nameField">
+        <label for="signerName">שם החותם/ת</label>
+        <input type="text" id="signerName" readonly>
+      </div>
+
+      <div class="field" id="idField">
+        <label for="signerId">מספר תעודת זהות</label>
+        <input type="text" id="signerId" inputmode="numeric" dir="ltr" style="text-align:right"
+               placeholder="9 ספרות" maxlength="20">
+      </div>
+
+      <div class="pad-label" id="padLabel">חתום כאן:</div>
+      <div class="pad-box">
+        <canvas id="padCanvas"></canvas>
+        <div class="pad-hint" id="padHint">חתמו כאן באצבע או בעכבר</div>
+      </div>
+      <div class="pad-foot">
+        <span class="hint">אפשר לחתום באצבע בטלפון, בעט דיגיטלי או בעכבר</span>
+        <button type="button" class="link-btn" id="padClear">ניקוי החתימה</button>
+      </div>
+
+      <label class="ack">
+        <input type="checkbox" id="ackRead">
+        <span>קראתי את ההסכם במלואו, הבנתי את תוכנו, ואני מאשר/ת אותו בחתימתי.</span>
+      </label>
+
+      <button type="button" class="btn" id="submitBtn" disabled>חתימה ואישור ההסכם</button>
+      <div id="feedback"></div>
+    </div>
+  </div>
+
+  <!-- אחרי החתימה -->
+  <div class="state" id="stateDone">
+    <div class="card msg-card">
+      <div class="big">✅</div>
+      <h1>ההסכם נחתם</h1>
+      <p id="doneDetail"></p>
+      <div class="code" id="doneCode"></div>
+      <div class="done-actions">
+        <button type="button" class="btn" id="donePdf">הורדת ההסכם כ-PDF</button>
+        <a class="btn btn-ghost" id="doneView" href="#" style="display:none;text-decoration:none">צפייה בעותק החתום</a>
+      </div>
+    </div>
+    <div class="card doc-wrap" style="margin-top:14px"><div class="agr-inner" id="doneDoc"></div></div>
+  </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+const FN_URL = SUPABASE_URL + '/functions/v1/agreement-sign';
+
+const token = new URLSearchParams(location.search).get('t') || '';
+let pad = null;
+let loaded = null;
+
+function showState(id){
+  ['stateLoading','stateError','stateForm','stateDone']
+    .forEach(s => document.getElementById(s).classList.toggle('is-on', s === id));
+  window.scrollTo({ top:0, behavior:'auto' });
+}
+
+function fail(title, detail){
+  document.getElementById('errTitle').textContent = title;
+  document.getElementById('errDetail').textContent = detail || '';
+  showState('stateError');
+}
+
+async function callFn(payload){
+  const res = await fetch(FN_URL, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', apikey: SUPABASE_ANON_KEY },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(()=> ({}));
+  return { ok: res.ok, data };
+}
+
+/* המסמך שנשמר בעת היצירה הוא HTML שנכתב בדפדפן של הסוכן/ת ונחסם לשינוי
+   במסד. אין כאן קלט של גולש/ת, ולכן ההזרקה בטוחה — וזו בדיוק הסיבה
+   שהחותם/ת אינו/ה שולח/ת HTML אלא תמונת PNG בלבד. */
+function paintDoc(host, html, signers){
+  host.innerHTML = (html || '') +
+    (signers ? window.AgreementDoc.signatureBlockHtml(signers) : '');
+}
+
+const ERROR_MESSAGES = {
+  not_found: ['הקישור אינו תקין', 'ייתכן שהקישור הועתק חלקית. בקשו מהסוכן/ת לשלוח אותו שוב.'],
+  expired:   ['תוקף הקישור פג',  'הקישור לחתימה פג. בקשו מהסוכן/ת לשלוח קישור חדש.'],
+  cancelled: ['ההסכם בוטל',      'ההסכם הזה בוטל ואינו ניתן לחתימה.'],
+};
+
+async function init(){
+  if (!token) return fail('הקישור אינו תקין', 'חסר מזהה בכתובת. פתחו את הקישור המלא מההודעה שקיבלתם.');
+
+  const { ok, data } = await callFn({ action:'open', token });
+  if (!ok || !data.ok){
+    const m = ERROR_MESSAGES[data.error] || ['שגיאה בטעינת ההסכם', 'נסו שוב בעוד רגע, או פנו לסוכן/ת.'];
+    return fail(m[0], m[1]);
+  }
+
+  loaded = data;
+
+  // כבר חתם/ה — אין טעם להציג לוח חתימה ריק
+  if (data.me.signed_at) return renderDone(data, false);
+
+  document.getElementById('docTitle').textContent = data.agreement.title;
+  document.getElementById('agentName').textContent =
+    data.agent.name + (data.agent.agency ? ' · ' + data.agent.agency : '');
+  document.getElementById('signerName').value = data.me.full_name || '';
+  document.getElementById('padLabel').textContent = (data.me.full_name || '') + ', חתום כאן:';
+
+  const idInput = document.getElementById('signerId');
+  if (data.me.id_number){
+    idInput.value = data.me.id_number;
+    idInput.readOnly = true;
+  }
+
+  /* בלוק החתימות שמתחת למסמך מציג את **שאר** הצדדים בלבד: לוח החתימה של
+     החותם/ת הנוכחי/ת נמצא ממש מתחתיו, ומשבצת "טרם נחתם" שלו/ה מעליו הייתה
+     רק כפילות. כשאין צד נוסף, הבלוק אינו מוצג כלל. */
+  const others = (data.signers || []).filter(s => !s.is_me);
+  paintDoc(document.getElementById('docBody'), data.agreement.document_html,
+           others.length ? others : null);
+
+  pad = window.AgreementDoc.signaturePad(document.getElementById('padCanvas'), {
+    onChange: drawn => {
+      document.getElementById('padHint').classList.toggle('is-off', drawn);
+      refreshSubmit();
+    },
+  });
+
+  showState('stateForm');
+  pad.resize();
+}
+
+function refreshSubmit(){
+  const ready = !!pad && !pad.isEmpty() && document.getElementById('ackRead').checked;
+  document.getElementById('submitBtn').disabled = !ready;
+}
+
+document.getElementById('ackRead').addEventListener('change', refreshSubmit);
+document.getElementById('padClear').addEventListener('click', ()=>{
+  if (pad) pad.clear();
+  refreshSubmit();
+});
+
+document.getElementById('submitBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('submitBtn');
+  const feedback = document.getElementById('feedback');
+  if (!pad || pad.isEmpty()) return;
+
+  feedback.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'שולח…';
+
+  const { ok, data } = await callFn({
+    action: 'sign',
+    token,
+    signature: pad.toDataURL(),
+    id_number: document.getElementById('signerId').value.trim(),
+  });
+
+  if (!ok || !data.ok){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = ERROR_MESSAGES[data.error]
+      ? ERROR_MESSAGES[data.error][1]
+      : 'החתימה לא נשמרה. נסו שוב בעוד רגע.';
+    btn.disabled = false;
+    btn.textContent = 'חתימה ואישור ההסכם';
+    return;
+  }
+
+  // טעינה מחדש כדי להציג את המסמך עם החתימות כפי שנשמרו בפועל
+  const fresh = await callFn({ action:'open', token });
+  renderDone(fresh.ok && fresh.data.ok ? fresh.data : loaded, data.agreement_status === 'signed');
+});
+
+function renderDone(data, justCompleted){
+  const allSigned = data.agreement.status === 'signed' || justCompleted;
+  document.getElementById('doneDetail').textContent = allSigned
+    ? 'העותק החתום נשלח במייל לכל הצדדים. אפשר להוריד אותו גם מכאן.'
+    : 'חתימתך נקלטה. ההסכם ממתין לחתימת יתר הצדדים, ובסיומה יישלח לכולם העותק החתום במייל.';
+
+  document.getElementById('doneCode').textContent =
+    'קוד אימות המסמך: ' + (data.agreement.verify_code || '');
+
+  const viewLink = document.getElementById('doneView');
+  if (data.agreement.view_url){
+    viewLink.href = data.agreement.view_url;
+    viewLink.style.display = 'flex';
+  }
+
+  paintDoc(document.getElementById('doneDoc'), data.agreement.document_html, data.signers);
+  showState('stateDone');
+}
+
+document.getElementById('donePdf').addEventListener('click', async (e)=>{
+  const btn = e.currentTarget;
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'מכין את הקובץ…';
+  try {
+    const name = (loaded && loaded.agreement.title ? loaded.agreement.title : 'הסכם').replace(/[\\/:*?"<>|]/g, '-');
+    await window.AgreementDoc.downloadPdf(document.getElementById('doneDoc'), name + '.pdf');
+  } catch(err){
+    console.error(err);
+    btn.textContent = 'לא הצלחנו להפיק PDF — נסו שוב';
+    setTimeout(()=>{ btn.textContent = original; btn.disabled = false; }, 2600);
+    return;
+  }
+  btn.textContent = original;
+  btn.disabled = false;
+});
+
+init();
+</script>
+</body>
+</html>
