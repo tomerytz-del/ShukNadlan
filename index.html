@@ -127,6 +127,10 @@
   /* כותרת + נקודת מידע באותה שורה: שורות המשנה של הסקציות התכווצו לנקודת
      "i" שנפתחת בריחוף/לחיצה, כדי שהכותרת עצמה תישאר השורה היחידה שנקראת. */
   .head-line{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;position:relative}
+  /* כותרת ארוכה שנשברת לשתי שורות דוחקת פריט flex אח לשורה משלו, ולכן
+     כותרת כזו מחזיקה את הנקודה *בתוכה* כאלמנט inline — כך היא נצמדת לסוף
+     השורה האחרונה של הכותרת, כמו בכותרות הקצרות שנשארות בשורה אחת. */
+  .head-line h2 > .info-dot{margin-inline-start:7px;translate:0 -2px}
 
   /* ====== נקודת מידע (tooltip) ======
      כפתור קטן שנושא את הטקסט ב-data-info ומרחף אותו מתחתיו. בעכבר —
@@ -1185,57 +1189,17 @@
     .cf-meta{font-size:.74rem;margin-top:5px}
   }
 
-  /* ====== קרוסלת משרדי תיווך מובילים ======
-     גרסת "משרד" לכרטיס ה-coverflow: ריבוע הלוגו תופס את מקום התמונה
-     והדירוג יושב עליו, כך שגוף הכרטיס נשאר לשם המשרד ולמספר הנכסים
-     הפעילים. הכותרת כאן לא מתחלפת בין כרטיס פעיל לצדדי (אין "מחיר"
-     שיחליף אותה), ולכן .ag-name ולא .cf-title. */
-  .cf-card.ag-card .cf-thumb{
-    display:flex;align-items:center;justify-content:center;
-    background:linear-gradient(155deg,var(--gold),var(--teal) 65%);color:#fff;
-    font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.7rem;line-height:1;
-  }
-  /* למשרד עם לוגו מוצג הלוגו עצמו במקום אות ההתחלה; contain (ולא cover)
-     כדי שלוגו לא ייחתך, על רקע לבן שמתאים לרוב הלוגואים. */
-  .cf-card.ag-card .cf-thumb:has(.ag-logo){background:#fff}
-  .cf-card.ag-card .cf-thumb:has(.ag-logo) .ag-initial{display:none}
-  .ag-logo{width:100%;height:100%;object-fit:contain;padding:8px}
-  .ag-rank{
-    position:absolute;top:6px;right:6px;background:rgba(255,255,255,.94);color:var(--gold-dark);
-    font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:0;
-    box-shadow:0 2px 6px rgba(6,20,34,.22);
-  }
-  .ag-name{
-    font-weight:700;font-size:.76rem;color:var(--ink);line-height:1.3;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
-  }
-  .ag-stat{font-size:.64rem;color:var(--ink-soft);margin-top:4px}
-  /* אותו כוכב צהוב של כרטיסי המתווכים — משרד ומתווך/ת הם שני סוגי דירוג
-     בפלטפורמה אחת, ואין סיבה שייראו כמו שתי מערכות */
-  .ag-stat .star{color:#FFD34D;margin-inline-end:2px}
-  @media(min-width:480px){
-    .cf-card.ag-card .cf-thumb{font-size:2rem}
-    .ag-name{font-size:.82rem}
-    .ag-stat{font-size:.7rem}
-  }
-  @media(min-width:760px){
-    .cf-card.ag-card .cf-thumb{font-size:2.5rem}
-    .ag-rank{top:9px;right:9px;font-size:.7rem;padding:3px 10px}
-    .ag-name{font-size:.9rem}
-    .ag-stat{font-size:.76rem}
-  }
-
-  /* ====== קרוסלת מתווכים מומלצים ======
-     גרסת "מתווך/ת" לכרטיס ה-coverflow, על אותו מנוע כמו משרדי התיווך:
-     כאן התמונה *היא* הכרטיס — היא ממלאת את כל האריח, והשם ושם המשרד
-     יושבים בתחתיתו על scrim כהה במקום בגוף כרטיס נפרד מתחת לתמונה.
-     הגרדיאנט עם אות ההתחלה נשאר מתחת לתמונה כרשת ביטחון: מתווך/ת בלי
-     תמונה (או קובץ שנשבר וה-img הסיר את עצמו) מקבל/ת אריח צבעוני
-     ולא ריבוע ריק. */
-     אותו אריח בדיוק משמש גם את כרטיסיות "בעלי מקצוע נבחרים" (‎.pro-*‎):
-     ההגדרות משותפות כאן כדי ששתי הרצועות יישארו זהות בעיצוב ובגודל,
+  /* ====== קרוסלת מתווכים, משרדי תיווך ובעלי מקצוע ======
+     שלוש הרצועות חולקות את אותו אריח: התמונה (או הלוגו) *היא* הכרטיס —
+     היא ממלאת את כל גובהו, והשם ושורת הנתונים יושבים בתחתיתו על scrim
+     כהה במקום בגוף כרטיס לבן נפרד מתחת לתמונונת.
+     הגרדיאנט עם אות ההתחלה נשאר מתחת לתמונה כרשת ביטחון: מי שאין לו
+     תמונה (או שהקובץ נשבר וה-img הסיר את עצמו) מקבל אריח צבעוני
+     ולא ריבוע ריק.
+     ההגדרות משותפות כאן כדי ששלוש הרצועות יישארו זהות בעיצוב ובגודל,
      והשמות נפרדים רק כדי שה-markup של כל אחת יקרא לעצמו בשמו. */
-  .cf-card.agent-card{background:linear-gradient(155deg,var(--gold),var(--teal) 65%)}
+  .cf-card.agent-card,
+  .cf-card.ag-card{background:linear-gradient(155deg,var(--gold),var(--teal) 65%)}
   /* הריפוד התחתון ממרכז את אות ההתחלה בשטח *שמעל* רצועת השם ולא באמצע
      האריח (התמונה והרצועה מרחפות ולכן לא מושפעות ממנו), כדי שהאות לא
      תיחתך מאחורי הרצועה.
@@ -1243,11 +1207,13 @@
      ריבוע ברוחב הכרטיס יצא נמוך משמעותית מכרטיס הנכס, והרצועה נראתה
      קטנה משאר הקרוסלות. כך התמונה גם מקבלת את כל השטח שיש. */
   .agent-tile,
+  .ag-tile,
   .pro-tile{
     position:relative;flex:1;overflow:hidden;padding-bottom:38px;
     display:flex;align-items:center;justify-content:center;
   }
   .agent-initial,
+  .ag-initial,
   .pro-initial{
     font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:2.1rem;
     color:#fff;line-height:1;
@@ -1257,7 +1223,27 @@
      נקודת מיקוד ב-CRM דורס/ת את ברירת המחדל הזו דרך --photo-pos. */
   .agent-photo,
   .pro-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:var(--photo-pos,center 22%)}
-  .agent-rank{
+  /* לוגו משרד הוא לא תמונת פורטרט: חיתוך ב-cover היה קוטע אותיות, ולכן
+     הלוגו עצמו נשאר שלם (contain) וממלא את כל שטח האריח שמעל רצועת השם,
+     ומאחוריו אותו קובץ בדיוק בגרסה מוגדלת ומטושטשת שממלאת את השוליים —
+     כך האריח נראה מלא ורציף כמו תמונת מתווך/ת, ולא לוגו קטן על ריבוע ריק.
+     הרקע הלבן מתחת לשניהם מתאים לרוב הלוגואים (כולל שקופים). */
+  .cf-card.ag-card:has(.ag-logo){background:#fff}
+  .cf-card.ag-card:has(.ag-logo) .ag-initial{display:none}
+  .ag-logo-bg{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+    transform:scale(1.3);filter:blur(18px) saturate(1.15) brightness(.94);
+  }
+  /* ‏width/height מפורשים ולא ‎inset‎ בלבד: לתמונה (אלמנט מוחלף) עם
+     ‎width:auto‎ נגזר הגודל *הפנימי* של הקובץ גם כשכל ה-insets מוגדרים,
+     והלוגו היה נפרש בגודלו המקורי מעבר לאריח במקום להתכווץ לתוכו. */
+  .ag-logo{
+    position:absolute;top:0;inset-inline:0;
+    width:100%;height:calc(100% - 38px);object-fit:contain;padding:8px;
+  }
+  @media(min-width:760px){.ag-logo{padding:14px}}
+  .agent-rank,
+  .ag-rank{
     position:absolute;top:6px;right:6px;background:rgba(255,255,255,.94);color:var(--gold-dark);
     font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:0;
     box-shadow:0 2px 6px rgba(6,20,34,.22);
@@ -1271,11 +1257,13 @@
   }
   @media(min-width:760px){.badge-mini{width:30px;height:30px;top:8px;left:8px}}
   .agent-overlay,
+  .ag-overlay,
   .pro-overlay{
     position:absolute;inset-inline:0;bottom:0;padding:26px 8px 9px;text-align:center;color:#fff;
     background:linear-gradient(to top, rgba(6,20,34,.94) 30%, rgba(6,20,34,.66) 62%, rgba(6,20,34,0));
   }
   .agent-name,
+  .ag-name,
   .pro-name{
     font-weight:700;font-size:.78rem;line-height:1.25;
     display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
@@ -1285,34 +1273,34 @@
     font-size:.66rem;color:rgba(255,255,255,.86);margin-top:2px;
     display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
   }
-  .agent-meta{
+  .agent-meta,
+  .ag-meta{
     display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;
     font-size:.6rem;color:rgba(255,255,255,.9);margin-top:5px;
   }
-  .agent-meta .star{color:#FFD34D;margin-inline-end:2px}
+  /* אותו כוכב צהוב בשתי הרצועות — משרד ומתווך/ת הם שני סוגי דירוג
+     בפלטפורמה אחת, ואין סיבה שייראו כמו שתי מערכות */
+  .agent-meta .star,
+  .ag-meta .star{color:#FFD34D;margin-inline-end:2px}
   @media(min-width:480px){
-    .agent-initial,.pro-initial{font-size:2.6rem}
-    .agent-name,.pro-name{font-size:.86rem}
+    .agent-initial,.ag-initial,.pro-initial{font-size:2.6rem}
+    .agent-name,.ag-name,.pro-name{font-size:.86rem}
     .agent-agency,.pro-business{font-size:.72rem}
-    .agent-meta{font-size:.66rem}
+    .agent-meta,.ag-meta{font-size:.66rem}
   }
   @media(min-width:760px){
-    .agent-initial,.pro-initial{font-size:3.2rem}
-    .agent-rank{top:9px;right:9px;font-size:.7rem;padding:3px 10px}
-    .agent-overlay,.pro-overlay{padding:32px 12px 12px}
-    .agent-name,.pro-name{font-size:.95rem}
+    .agent-initial,.ag-initial,.pro-initial{font-size:3.2rem}
+    .agent-rank,.ag-rank{top:9px;right:9px;font-size:.7rem;padding:3px 10px}
+    .agent-overlay,.ag-overlay,.pro-overlay{padding:32px 12px 12px}
+    .agent-name,.ag-name,.pro-name{font-size:.95rem}
     .agent-agency,.pro-business{font-size:.78rem}
-    .agent-meta{font-size:.72rem}
+    .agent-meta,.ag-meta{font-size:.72rem}
   }
 
-  /* לשתי רצועות הקרוסלה יש נקודות ניווט (.cf-dots) שנושאות מרווח משלהן
-     מתחת למסלול, ולכן הריפוד התחתון שלהן מהודק מעט מתחת לברירת המחדל
-     של .section / .hot-band כדי שהמעבר לסקציה הבאה יישאר זהה לשאר העמוד.
-     ‏#leadingAgencies הוא הרצועה הראשונה מתחת למפה ונושא את .hot-band,
-     ולכן הריפוד שלו נגזר משם ורק התחתון מהודק כאן. */
+  /* ‏#leadingAgencies נושא את .hot-band (הבמה שנכנסת מתחת למפה) ולכן הריפוד
+     שלו נגזר משם; רק התחתון מיושר כאן ל-18px של ‎.section‎, כדי שהמעבר ממנו
+     לסקציה הבאה יהיה זהה לכל שאר המעברים בעמוד. */
   #leadingAgencies{padding-bottom:18px}
-  #leadingAgents{padding-top:12px}
-  #leadingAgents .section-head{margin-bottom:12px}
   /* הכותרת ארוכה ונשברת לשתי שורות במובייל; ‎balance‎ מחלק אותה לשתי
      שורות שוות־אורך במקום שורה מלאה ומילה בודדת מתחתיה, ושתיהן ממורכזות. */
   #leadingAgents .section-head > div,
@@ -1330,7 +1318,9 @@
     background:var(--paper-raised);border:1px solid var(--line);border-radius:0;
     padding:2px 8px;font-size:.68rem;
   }
-  .ad-row{padding-block:14px}
+  /* אותו ריפוד של ‎.section‎: שורת הפרסומת היא עוד מקטע ברצף העמוד, ומרווח
+     צר משלה שבר את הקצב במעבר אליה וממנה. */
+  .ad-row{padding-block:18px}
 
   /* ====== כתבות ובלוגים ======
      קרוסלה של ממש ולא רצועה של אריחים קטנים: הכרטיס תופס כשני שליש
@@ -1820,10 +1810,9 @@
     .pro-card{border-radius:0}
   }
   /* סדר הרצועות בסוף העמוד: נכסים מומלצים ← כתבות ← בעלי מקצוע ← נכסים.
-     הריפוד של .section (18px) כבר נותן את המרווח ההדוק בכל המעברים, ולכן
-     כאן נשארים רק תיקונים נקודתיים לכותרות שנושאות eyebrow או שורת משנה. */
-  #pros .section-head{margin-bottom:14px;gap:6px}
-  #listings .section-head{margin-bottom:16px}
+     הריפוד של .section (18px) נותן את המרווח בכל המעברים, ו-.section-head
+     נותן את אותם 22px בין הכותרת לתוכן שלה בכל הסקציות — בלי חריגים לפי
+     סקציה, שהם מה שגרם למרווחים לא אחידים לאורך העמוד. */
 
   /* ====== Accessibility FAB + panel ======
      הכפתור צף מעל התוכן, ולכן הוא היה נוחת על אריחי הנכסים בתחתית המסך
@@ -3193,11 +3182,15 @@
   <section class="section wrap" id="leadingAgents">
     <div class="section-head">
       <div class="head-line">
-        <h2>המתווכים הכי מומלצים בעפולה והסביבה</h2>
-        <!-- ‏id‏ ‎ratingInfoLink‎ נשמר: אותו מאזין שפתח את המודאל מהתפריט פותח
+        <!-- הנקודה יושבת *בתוך* ה-h2 ולא לצידו: הכותרת כאן נשברת לשתי שורות
+             במובייל, ופריט flex אחיו נדחק בגללה לשורה שלישית משלו. כאלמנט
+             inline בתוך הכותרת היא נצמדת לסוף השורה האחרונה, כמו בשאר
+             הכותרות שבהן הכותרת קצרה ונשארת בשורה אחת.
+             ‏id‏ ‎ratingInfoLink‎ נשמר: אותו מאזין שפתח את המודאל מהתפריט פותח
              אותו גם מכאן, וזה המקום שבו השאלה באמת עולה — ליד הכוכבים. -->
-        <button type="button" class="info-dot" id="ratingInfoLink" aria-haspopup="dialog"
-                data-info="לחיצה — איך נקבע הדירוג" aria-label="איך עובד הדירוג של המתווכים">i</button>
+        <h2>המתווכים הכי מומלצים בעפולה והסביבה<button type="button" class="info-dot" id="ratingInfoLink"
+                aria-haspopup="dialog" data-info="לחיצה — איך נקבע הדירוג"
+                aria-label="איך עובד הדירוג של המתווכים">i</button></h2>
       </div>
       <!-- הקרוסלה מציגה את כל המתווכים לפי סדר הדירוג, אבל דפדוף אופקי הוא
            לא הדרך למצוא מתווך/ת מסוים/ת. הקישור מוביל לרשימה המלאה, שם יש
@@ -3328,7 +3321,6 @@
   <section class="section wrap" id="articles">
     <div class="section-head">
       <div>
-        <p class="eyebrow">מגזין שוק נדל״ן</p>
         <h2>כתבות ובלוגים</h2>
       </div>
       <a href="articles.html" class="see-all">כל הכתבות ←</a>
@@ -3343,7 +3335,10 @@
         <h2>בעלי מקצוע נבחרים</h2>
         <p class="section-sub">שילוו אתכם בדרך לעסקת הנדל״ן הבאה שלכם</p>
       </div>
-      <a href="professional-signup.html" class="see-all">הצטרפות כבעל מקצוע ←</a>
+      <!-- הרצועה מציגה ארבעה מתוך הרשימה, והקישור מוביל לרשימה המלאה עם
+           חיפוש — לא לטופס ההצטרפות. ההזמנה להצטרף היא הבאנר שבתחתית
+           ‎professionals.html‎, אחרי שראו מי כבר שם. -->
+      <a href="professionals.html" class="see-all">כל בעלי המקצוע ←</a>
     </div>
     <div class="pros-grid" id="prosGrid"><!-- populated by JS, fallback to static below on failure --></div>
   </section>
@@ -3484,7 +3479,7 @@
         <h4>בעלי מקצוע</h4>
         <a href="agencies.html">כל משרדי התיווך</a>
         <a href="agents.html">כל המתווכים</a>
-        <a href="#pros">בעלי מקצוע</a>
+        <a href="professionals.html">כל בעלי המקצוע</a>
         <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
         <a href="developer-signup.html">הצטרפות כיזם/קבלן</a>
       </div>
@@ -4674,23 +4669,31 @@ async function loadLeadingAgencies(){
     const rank = (i < 3 && a.score !== null) ? `<span class="ag-rank">#${i + 1}</span>` : '';
     // אות ההתחלה נשארת ב-DOM גם כשיש לוגו ורק מוסתרת ב-CSS; אם קובץ
     // הלוגו נשבר ה-img מסיר את עצמו, ה-:has מפסיק להתאים והכרטיס חוזר
-    // לאות על הגרדיאנט במקום לאייקון תמונה שבורה.
+    // לאות על הגרדיאנט במקום לאייקון תמונה שבורה. אותו קובץ מוזרק פעמיים:
+    // פעם כרקע מטושטש שממלא את האריח ופעם כלוגו שלם מעליו (ראו CSS).
+    // ה-onerror של הרקע מסיר רק את עצמו — ‏:has בודק את ‎.ag-logo‎ ולכן
+    // ההסתמכות על אות ההתחלה נשארת תלויה בלוגו הקדמי בלבד.
     const logo = a.logo_url
-      ? `<img class="ag-logo" src="${escAttr(a.logo_url)}" alt="${escAttr(name)}" loading="lazy" onerror="this.remove()">`
+      ? `<img class="ag-logo-bg" src="${escAttr(a.logo_url)}" alt="" aria-hidden="true" loading="lazy" onerror="this.remove()">
+         <img class="ag-logo" src="${escAttr(a.logo_url)}" alt="${escAttr(name)}" loading="lazy" onerror="this.remove()">`
       : '';
     const agencyBadge = (a.ethics_code_accepted_at && !a.ethics_badge_revoked_at) ? ETHICS_BADGE_MINI : '';
-    // הדירוג בשורה נפרדת מעל מספר הנכסים ולא לצידו: כמות נכסים היא מדד גודל
-    // ודירוג הוא מדד איכות, וצירופם לשורה אחת קורא כאילו הגדול הוא גם הטוב.
-    const ratingLine = a.rating !== null
-      ? `<div class="ag-stat"><span class="star">★</span>${a.rating.toFixed(1).replace(/\.0$/, '')} · ${
-          a.reviews_count === 1 ? 'ביקורת אחת' : a.reviews_count + ' ביקורות'}</div>`
-      : '';
+    // אותה שורת נתונים של כרטיס המתווך/ת: דירוג (כשיש) ומספר נכסים פעילים,
+    // כדי ששתי הרצועות ייקראו כאותה מערכת.
+    const meta = [];
+    if (a.rating !== null){
+      const reviews = a.reviews_count === 1 ? 'ביקורת אחת' : `${a.reviews_count} ביקורות`;
+      meta.push(`<span><span class="star">★</span>${a.rating.toFixed(1).replace(/\.0$/, '')} · ${reviews}</span>`);
+    }
+    meta.push(`<span>${a.active_properties_count === 1 ? 'נכס פעיל אחד' : a.active_properties_count + ' נכסים פעילים'}</span>`);
     card.innerHTML = `
-      <div class="cf-thumb">${rank}${logo}${agencyBadge}<span class="ag-initial">${escAttr(name.trim()[0] || 'מ')}</span></div>
-      <div class="cf-body">
-        <div class="ag-name">${escAttr(name)}</div>
-        ${ratingLine}
-        <div class="ag-stat">${a.active_properties_count} נכסים פעילים</div>
+      <div class="ag-tile">
+        <span class="ag-initial">${escAttr(name.trim()[0] || 'מ')}</span>
+        ${logo}${rank}${agencyBadge}
+        <div class="ag-overlay">
+          <div class="ag-name">${escAttr(name)}</div>
+          <div class="ag-meta">${meta.join('')}</div>
+        </div>
       </div>`;
     // נגיעה אחת פותחת את עמוד המשרד, גם בכרטיס צדדי: כל מה שיש בכרטיס
     // (שם, לוגו ומספר נכסים) גלוי ממילא בכל המצבים, ולכן אין מה "לחשוף"

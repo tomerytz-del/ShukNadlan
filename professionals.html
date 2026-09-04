@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>כל המתווכים בשוק הנדל״ן</title>
+<title>כל בעלי המקצוע בשוק הנדל״ן</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
-<meta name="description" content="כל המתווכים והמתווכות בעפולה והסביבה בעמוד אחד — חיפוש לפי שם, משרד תיווך, תחום התמחות ודירוג כוכבים, עם מעבר ישיר לעמוד האישי ולוואטסאפ.">
+<meta name="description" content="כל בעלי המקצוע של עולם הנדל״ן בעפולה והעמק בעמוד אחד — יועצי משכנתאות, שמאים, עורכי דין, אדריכלים ומעצבי פנים. חיפוש לפי שם, תחום ואזור פעילות, עם מעבר ישיר לפרופיל ולוואטסאפ.">
 <meta property="og:type" content="website">
-<meta property="og:title" content="כל המתווכים בשוק הנדל״ן">
-<meta property="og:description" content="כל המתווכים והמתווכות בעפולה והסביבה — דירוגי לקוחות, תחומי התמחות ומספר הנכסים הפעילים של כל אחד ואחת.">
+<meta property="og:title" content="כל בעלי המקצוע בשוק הנדל״ן">
+<meta property="og:description" content="יועצי משכנתאות, שמאים, עורכי דין, אדריכלים ומעצבי פנים בעפולה והעמק — חיפוש לפי תחום ואזור פעילות.">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <!-- הרקע הזורם של האתר, מאותו קובץ משותף של שאר הדפים -->
@@ -291,6 +291,51 @@
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/design-system.css">
 <script src="assets/site-footer.js" defer></script>
+<style>
+  /* ====== מה שנוסף מעל הגיליון המשותף עם agents.html ======
+     העמוד הזה הוא אותו סוג עמוד בדיוק — רשימה מלאה עם סרגל חיפוש מעליה —
+     ולכן הוא נשען על אותם ‎.toolbar‎, ‎.pill‎, ‎.grid‎ ו-‎.ag-card‎. כאן יושבים
+     רק ההבדלים: תג התחום שעל התמונה (במקום מונה הנכסים), משפט הפתיחה
+     שבגוף הכרטיס, והבאנר הכהה שקורא להצטרף. */
+
+  /* תג התחום יושב במקום ‎.ag-count‎ ובאותה פינה: זו הזהות המקצועית, וזה מה
+     שהעין מחפשת כשעוברים על רשת של כרטיסים. */
+  .pro-role{
+    inset-block-end:12px;inset-inline-end:14px;
+    background:rgba(18,40,64,.92);color:#fff;
+    font-weight:700;font-size:.78rem;padding:5px 12px;border-radius:0;
+    box-shadow:0 2px 10px rgba(6,20,34,.3);
+  }
+  /* משפט הפתיחה מוגבל לשתי שורות: הוא טקסט חופשי, וכרטיס אחד ארוך היה
+     מותח את כל השורה ברשת. */
+  .pro-headline{
+    font-size:.85rem;color:var(--ink-soft);line-height:1.45;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+
+  /* ====== הבאנר הכהה: הצטרפות לפרסום באתר ======
+     אותו באנר של "איזה משרד תיווך מתאים לכם?" בדף הבית — רקע כהה, כפתור
+     זהב — כי זו אותה קריאה לפעולה ובאותה עוצמה. הוא יושב מתחת לרשימה:
+     קודם רואים מי כבר שם, ואז מוזמנים להצטרף. */
+  .cta-band{
+    background:var(--teal-dark);color:#fff;border-radius:var(--radius-lg);
+    padding:28px 22px;margin:30px 0 10px;text-align:center;
+    box-shadow:0 18px 40px -22px rgba(6,20,34,.6);
+  }
+  .cta-band h2{color:#fff;font-size:1.35rem;text-wrap:balance}
+  .cta-band p{font-size:.92rem;color:rgba(255,255,255,.84);margin:12px auto 20px;max-width:54ch;text-wrap:balance}
+  .cta-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+  .cta-band .btn-gold{background:var(--star);color:#0d1b3d;font-size:.95rem;padding:14px 30px}
+  .cta-band .btn-gold:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(201,162,39,.35)}
+  .cta-band .btn-outline{
+    background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.5);padding:14px 26px;font-size:.95rem;
+  }
+  .cta-band .btn-outline:hover{border-color:#fff}
+  @media(min-width:760px){
+    .cta-band{padding:38px 30px}
+    .cta-band h2{font-size:1.7rem}
+  }
+</style>
 </head>
 <body>
 
@@ -310,34 +355,34 @@
   <div class="wrap">
 
     <div class="hero">
-      <p class="eyebrow">מתווכי נדל״ן</p>
-      <h1>כל המתווכים והמתווכות בעפולה והסביבה</h1>
-      <p class="lede">חפשו לפי שם, לפי משרד התיווך, לפי תחום התמחות או לפי דירוג הכוכבים שקיבלו מלקוחות</p>
+      <p class="eyebrow">בעלי מקצוע</p>
+      <h1>כל בעלי המקצוע בעפולה והעמק</h1>
+      <p class="lede">
+        יועצי משכנתאות, שמאי מקרקעין, עורכי דין, אדריכלים ומעצבי פנים —
+        חפשו לפי שם, לפי תחום או לפי אזור הפעילות
+      </p>
     </div>
 
-    <!-- ====== סרגל חיפוש, סינון ומיון ====== -->
+    <!-- ====== סרגל חיפוש, סינון ומיון ======
+         אותו סרגל של עמוד המתווכים ועמוד משרדי התיווך: תיבת חיפוש חופשי
+         ואחריה שורות גלולות שמצמצמות את הרשימה, ומתחת לקו — המיון. -->
     <div class="toolbar" id="toolbar" hidden>
       <div class="search-box">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
           <circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>
         </svg>
-        <input type="search" id="agentSearch" placeholder="חיפוש לפי שם, שם משרד או תחום התמחות…"
-               aria-label="חיפוש לפי שם מתווך/ת, שם משרד או תחום התמחות" autocomplete="off">
+        <input type="search" id="proSearch" placeholder="חיפוש לפי שם, עסק, תחום או שירות…"
+               aria-label="חיפוש לפי שם בעל/ת מקצוע, שם עסק, תחום או שירות" autocomplete="off">
       </div>
 
       <div class="tool-row">
-        <span class="tool-label" id="agencyLabel">משרד</span>
-        <div class="pill-group" id="agencyPills" role="group" aria-labelledby="agencyLabel"></div>
+        <span class="tool-label" id="typeLabel">תחום</span>
+        <div class="pill-group" id="typePills" role="group" aria-labelledby="typeLabel"></div>
       </div>
 
-      <div class="tool-row" id="specRow">
-        <span class="tool-label" id="specLabel">התמחות</span>
-        <div class="pill-group" id="specPills" role="group" aria-labelledby="specLabel"></div>
-      </div>
-
-      <div class="tool-row">
-        <span class="tool-label" id="rateLabel">דירוג</span>
-        <div class="pill-group" id="ratePills" role="group" aria-labelledby="rateLabel"></div>
+      <div class="tool-row" id="areaRow">
+        <span class="tool-label" id="areaLabel">אזור</span>
+        <div class="pill-group" id="areaPills" role="group" aria-labelledby="areaLabel"></div>
       </div>
 
       <hr class="tool-divider">
@@ -350,31 +395,34 @@
       <p class="result-count" id="resultCount" aria-live="polite"></p>
     </div>
 
-    <div class="state" id="loadingState">טוען את רשימת המתווכים…</div>
+    <div class="state" id="loadingState">טוען את רשימת בעלי המקצוע…</div>
 
     <div class="state" id="emptyState" hidden>
-      <h2>אין כאן מתווכים עדיין</h2>
-      <p>הפלטפורמה בהרצה. בינתיים אפשר לחזור לדף הבית ולראות מה חדש בשוק.</p>
-      <a href="index.html" class="btn btn-teal" style="margin-top:16px">לדף הבית</a>
+      <h2>אין כאן בעלי מקצוע עדיין</h2>
+      <p>הרשימה בהרצה. אם אתם מלווים עסקאות נדל״ן באזור — זה בדיוק הרגע להיות הראשונים כאן.</p>
+      <a href="professional-signup.html" class="btn btn-teal" style="margin-top:16px">הצטרפות כבעל/ת מקצוע</a>
     </div>
 
     <div class="state" id="noResultsState" hidden>
-      <h2>לא נמצא מתווך/ת מתאים/ה</h2>
-      <p>נסו שם אחר, משרד אחר, או אפסו את הסינון וחזרו לרשימה המלאה.</p>
+      <h2>לא נמצא בעל/ת מקצוע מתאים/ה</h2>
+      <p>נסו מילה אחרת, תחום אחר, או אפסו את הסינון וחזרו לרשימה המלאה.</p>
       <button type="button" class="btn btn-ghost" id="noResultsReset" style="margin-top:16px">איפוס הסינון</button>
     </div>
 
-    <div class="grid" id="agentsGrid"></div>
+    <div class="grid" id="prosGrid"></div>
 
-    <section class="join-band" id="joinBand" hidden>
-      <h2>מתווכים ומתווכות — רוצים עמוד משלכם?</h2>
+    <!-- ====== ההזמנה להצטרף ======
+         מוצג תמיד, גם כשהרשימה ריקה וגם כשהיא מלאה: זו הדרך של בעל/ת מקצוע
+         להגיע לעמוד הזה, והמקום הטבעי לשאול היא אחרי שרואים מי כבר בפנים. -->
+    <section class="cta-band" id="ctaBand">
+      <h2>גם אתם מלווים עסקאות נדל״ן בעפולה והעמק?</h2>
       <p>
-        כרטיס מתווך/ת נפתח דרך משרד התיווך: אם המשרד שלכם כבר בפלטפורמה, בקשו
-        מהמנהל/ת לצרף אתכם לצוות, ואם עוד לא — זו נקודת ההתחלה.
+        פרופיל מלא באתר — תמונות, שירותים, גלריה, וידאו וכפתור וואטסאפ ישיר —
+        מול מי שכבר מחפש דירה, בודק משכנתא או שוקל השקעה באזור. בלי עמלות, בלי לידים שנמכרים פעמיים.
       </p>
-      <div class="join-actions">
-        <a href="agency-signup.html" class="btn btn-teal">הצטרפות כמשרד תיווך</a>
-        <a href="crm.html" class="btn btn-ghost">כניסת מתווכים</a>
+      <div class="cta-actions">
+        <a href="professional-signup.html" class="btn btn-gold">לפרסום באתר ←</a>
+        <a href="mailto:shuknadlan@gmail.com?subject=%D7%A4%D7%A8%D7%A1%D7%95%D7%9D%20%D7%9B%D7%91%D7%A2%D7%9C%20%D7%9E%D7%A7%D7%A6%D7%95%D7%A2" class="btn btn-outline">יש לי שאלה לפני</a>
       </div>
     </section>
   </div>
@@ -391,7 +439,7 @@
         <h4>הנכסים החדשים בעפולה — ראשונים אצלכם</h4>
         <p>עדכון אחד בשבוע למייל. בלי ספאם, אפשר להסיר בכל רגע.</p>
       </div>
-      <form class="footer-news-form" id="newsletterForm" data-source="agents_page" novalidate>
+      <form class="footer-news-form" id="newsletterForm" data-source="professionals_page" novalidate>
         <label class="footer-sr-only" for="newsletterEmail">כתובת אימייל להרשמה לעדכונים</label>
         <input type="email" id="newsletterEmail" name="email" autocomplete="email" inputmode="email"
                placeholder="האימייל שלך" required>
@@ -523,9 +571,9 @@ const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 /* ============================================================================
    עזרי בטיחות ותצוגה
    ----------------------------------------------------------------------------
-   שמות, שמות משרדים, תחומי התמחות וכתובות תמונה מגיעים מקלט של סוכנים
-   ונכנסים כאן ל-innerHTML (וגם למאפיינים כמו src ו-href), ולכן כל ערך כזה
-   עובר escapeHtml/safeUrl לפני ההזרקה.
+   שמות, שמות עסק, שירותים וכתובות תמונה מגיעים מטופס הרשמה פתוח ונכנסים
+   כאן ל-innerHTML (וגם למאפיינים כמו src ו-href), ולכן כל ערך כזה עובר
+   escapeHtml/safeUrl לפני ההזרקה — בדיוק כמו בעמוד המתווכים.
    ============================================================================ */
 const el = id => document.getElementById(id);
 function escapeHtml(s){
@@ -542,7 +590,6 @@ function safeUrl(u){
    מצפים לו. הבדיקה היא גם שער אבטחה: המספר נכנס ל-href. */
 const PHONE_RE = /^\d{9,15}$/;
 const hasPhone = v => PHONE_RE.test(String(v || ''));
-const fmtRating = r => r.toFixed(1).replace(/\.0$/, '');
 
 const ICON = {
   wa: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>',
@@ -551,17 +598,22 @@ const ICON = {
   pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/></svg>',
 };
 
-/* תו האמון והאיכות, באותה גרסה מוקטנת שמופיעה על כרטיסי הקרוסלה בדף הבית */
-const ETHICS_BADGE_MINI =
-  '<span class="ag-overlay ag-badge"><img src="assets/badge-ethics.png" width="384" height="384" loading="lazy" ' +
-  'alt="עומד בתקן האתי" title="עומד בתקן האתי של שוק הנדל״ן של עפולה"></span>';
+/* אותן תוויות של דף הבית ושל עמוד הפרופיל — התחום נשמר כמפתח באנגלית
+   ומתורגם רק בתצוגה, ושלוש הנקודות שבהן הוא מוצג חייבות לומר את אותו דבר. */
+const TYPE_LABELS = {
+  mortgage_advisor:'יועץ/ת משכנתאות', appraiser:'שמאי/ת מקרקעין', architect:'אדריכל/ית',
+  interior_designer:'מעצב/ת פנים', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל/ת מקצוע',
+};
+/* סדר קבוע לגלולות התחום, כדי שהשורה לא תתחלף בין טעינות. תחום שלא ברשימה
+   (‏advertiser_type שנוסף בעתיד) נופל לסוף לפי א׳–ב׳. */
+const TYPE_ORDER = ['mortgage_advisor','appraiser','real_estate_lawyer','architect','interior_designer','general'];
 
 /* קישור וואטסאפ עם פתיח שכבר מספר מאיפה הפנייה הגיעה — אותו נוסח שבעמוד
-   המתווך/ת, כדי שהפנייה תיראה זהה משני המסלולים. */
+   הפרופיל, כדי שהפנייה תיראה זהה משני המסלולים. */
 function waLink(phone, name){
   const text = [
     'היי' + (name ? ' ' + name : '') + ',',
-    'הגעתי דרך רשימת המתווכים בשוק הנדל״ן של עפולה והסביבה ואשמח להתייעץ לגבי נכס.',
+    'הגעתי דרך רשימת בעלי המקצוע בשוק הנדל״ן של עפולה והסביבה ואשמח לפרטים.',
     window.location.href,
   ].join('\n');
   return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
@@ -570,163 +622,116 @@ function waLink(phone, name){
 /* ============================================================================
    מצב התצוגה
    ============================================================================ */
-let agents = [];
-let agencyOptions = [];   // [{key, label}] — נבנה מהמתווכים שנטענו בפועל
-let specOptions = [];     // [{key, label}] — תחומי ההתמחות שהוקלדו ב-CRM
-let filters = { query:'', agency:'all', spec:'all', rate:'all' };
-let sortMode = 'rating';
-
-/* מדרגות הדירוג. "עם ביקורות" הוא לא סף אלא שאלה אחרת לגמרי — "הראו לי רק
-   מי שכבר יש עליו/ה מה לומר" — ולכן הוא גלולה בפני עצמה ולא ערך של 0.1. */
-const RATES = [
-  { key:'all',   label:'הכל',            match:()=> true },
-  { key:'4.5',   label:'4.5 ומעלה',      match:a => a.rating !== null && a.rating >= 4.5, star:true },
-  { key:'4',     label:'4 ומעלה',        match:a => a.rating !== null && a.rating >= 4,   star:true },
-  { key:'3',     label:'3 ומעלה',        match:a => a.rating !== null && a.rating >= 3,   star:true },
-  { key:'rated', label:'עם ביקורות',     match:a => a.reviews_count > 0 },
-];
-const RATE_BY_KEY = Object.fromEntries(RATES.map(r => [r.key, r]));
+let pros = [];
+let typeOptions = [];   // [{key, label}] — נבנה מהתחומים שנטענו בפועל
+let areaOptions = [];   // [{key, label}] — אזורי הפעילות שהוקלדו בפרופיל
+let filters = { query:'', type:'all', area:'all' };
+let sortMode = 'type';
 
 const SORTS = [
-  { key:'rating',     label:'דירוג ביקורות' },
-  { key:'properties', label:'מספר נכסים' },
+  { key:'type',       label:'לפי תחום' },
+  { key:'experience', label:'ותק' },
   { key:'name',       label:'א׳–ב׳' },
 ];
 
-const byName = (x, y) => String(x.display_name || '').localeCompare(String(y.display_name || ''), 'he');
-/* מתווך/ת בלי ביקורות יורד/ת לתחתית המיון לפי דירוג במקום להיחשב כאפס
-   כוכבים — בדיוק כמו בקרוסלה בדף הבית ובעמוד משרדי התיווך. */
+const byName = (x, y) => String(x.name || '').localeCompare(String(y.name || ''), 'he');
+/* מיון "לפי תחום" שוזר לפי הסדר הקבוע של TYPE_ORDER ולא לפי א׳–ב׳ של
+   המפתח באנגלית — הרשימה נקראת אז כמו תוכן עניינים ולא כמו ערבוב. */
+const typeRank = p => {
+  const i = TYPE_ORDER.indexOf(p.type);
+  return i === -1 ? TYPE_ORDER.length : i;
+};
 const COMPARE = {
-  rating: (x, y) =>
-    (y.rating ?? -1) - (x.rating ?? -1) ||
-    y.reviews_count - x.reviews_count ||
-    y.active_properties_count - x.active_properties_count ||
-    byName(x, y),
-  properties: (x, y) => y.active_properties_count - x.active_properties_count || byName(x, y),
+  type: (x, y) => typeRank(x) - typeRank(y) || byName(x, y),
+  experience: (x, y) => (y.years || 0) - (x.years || 0) || byName(x, y),
   name: byName,
 };
-
-/* תג ה-#1..#3 שייך לדירוג ולא למקום ברשימה: הוא נקבע פעם אחת לפי סדר
-   הדירוג הכללי ונשמר על המתווך/ת, כדי שמיון לפי שם או סינון לא יעניקו
-   "#1" למי שפשוט יצא/ה ראשון/ה בתצוגה הנוכחית. זהו בדיוק הסדר של קרוסלת
-   "המתווכים הכי מומלצים" בדף הבית, כך ש-#1 כאן הוא #1 שם. */
-function assignRankBadges(list){
-  [...list].sort(COMPARE.rating).forEach((a, i)=>{
-    const ranked = a.rating !== null || a.active_properties_count > 0;
-    a.rankBadge = (i < 3 && ranked) ? i + 1 : null;
-  });
-}
 
 /* ============================================================================
    סינון
    ----------------------------------------------------------------------------
-   הכל מקומי: הרשימה נטענת במלואה בטעינה אחת, ואין סיבה לפנות לשרת בכל
-   הקלדה. החיפוש החופשי נוגע בדיוק במה שהתיבה מבטיחה — שם, שם משרד ותחום
-   התמחות — ובנוסף באזור הפעילות, שהוא ניסוח נפוץ של אותה שאלה ("מי עובד
-   בגבעת המורה").
+   הכל מקומי: הרשימה נטענת במלואה בטעינה אחת. החיפוש החופשי נוגע בדיוק במה
+   שהתיבה מבטיחה — שם, שם עסק, תחום ושירותים — ובנוסף באזורי הפעילות
+   ובמשפט הפתיחה, שהם ניסוח נפוץ של אותה שאלה ("מי עושה הום סטיילינג").
    ============================================================================ */
-function matchesQuery(a, q){
+function matchesQuery(p, q){
   if (!q) return true;
-  return [a.display_name, a.agency_name, a.service_area, ...a.specialties]
+  return [p.name, p.business, p.typeLabel, p.headline, ...p.services, ...p.areas]
     .some(v => String(v || '').toLowerCase().includes(q));
 }
-const matchesAgency = (a, key) => key === 'all' || a.agency_id === key;
-const matchesSpec = (a, key) => key === 'all' || a.specialties.some(s => s === key);
-const matchesRate = (a, key) => (RATE_BY_KEY[key] || RATES[0]).match(a);
+const matchesType = (p, key) => key === 'all' || p.type === key;
+const matchesArea = (p, key) => key === 'all' || p.areas.includes(key);
 
 const TESTS = {
-  query:  (a, f) => matchesQuery(a, f.query.trim().toLowerCase()),
-  agency: (a, f) => matchesAgency(a, f.agency),
-  spec:   (a, f) => matchesSpec(a, f.spec),
-  rate:   (a, f) => matchesRate(a, f.rate),
+  query: (p, f) => matchesQuery(p, f.query.trim().toLowerCase()),
+  type:  (p, f) => matchesType(p, f.type),
+  area:  (p, f) => matchesArea(p, f.area),
 };
-
-function passes(a, f, except){
-  return Object.keys(TESTS).every(k => k === except || TESTS[k](a, f));
+function passes(p, f, except){
+  return Object.keys(TESTS).every(k => k === except || TESTS[k](p, f));
 }
-function visibleAgents(){
-  return agents.filter(a => passes(a, filters)).sort(COMPARE[sortMode]);
+function visiblePros(){
+  return pros.filter(p => passes(p, filters)).sort(COMPARE[sortMode]);
 }
-const isFiltered = ()=> !!filters.query.trim() || filters.agency !== 'all' ||
-  filters.spec !== 'all' || filters.rate !== 'all';
+const isFiltered = ()=> !!filters.query.trim() || filters.type !== 'all' || filters.area !== 'all';
 
 /* ============================================================================
    רכיב הכרטיס
    ============================================================================ */
-function starsHtml(rating){
-  const pct = Math.max(0, Math.min(100, (rating / 5) * 100));
-  return `<span class="stars" role="img" aria-label="${escapeHtml(fmtRating(rating))} מתוך 5 כוכבים"
-                ><i style="width:${pct.toFixed(1)}%"></i></span>`;
-}
+function proCardHtml(p){
+  // professional.html מאתר לפי slug או לפי id גולמי; בלי שניהם אין לאן
+  // לקשר, ולכן הכפתור נשאר טקסט ולא הופך לקישור שמוביל לעמוד ריק.
+  const key = p.slug || p.id;
+  const href = key ? 'professional.html?slug=' + encodeURIComponent(key) : null;
 
-function agentCardHtml(a){
-  const name = a.display_name || 'מתווך/ת';
-  // agent.html מאתר לפי slug או לפי id גולמי; בלי שניהם אין לאן לקשר,
-  // ולכן הכפתור נשאר טקסט ולא הופך לקישור שמוביל לעמוד ריק.
-  const key = a.slug || a.id;
-  const href = key ? 'agent.html?slug=' + encodeURIComponent(key) : null;
-
-  // נקודת המיקוד שהסוכן/ת סימן/ה ב-CRM. הערך נכנס ל-CSS ולכן נבדק כאן
-  // בדיוק כפי שהוא נבדק ב-DB: שני אחוזים ותו לא.
-  const focus = /^\d{1,3}% \d{1,3}%$/.test(a.photo_position || '') ? a.photo_position : '';
-  const photo = safeUrl(a.photo_url);
+  const photo = safeUrl(p.photo);
   const media = photo
-    ? `<img class="ag-photo" src="${escapeHtml(photo)}" alt="${escapeHtml(name)}" loading="lazy"
-            ${focus ? `style="--photo-pos:${escapeHtml(focus)}"` : ''} onerror="this.remove()">`
+    ? `<img class="ag-photo" src="${escapeHtml(photo)}" alt="${escapeHtml(p.name)}" loading="lazy" onerror="this.remove()">`
     : '';
 
-  const rank = a.rankBadge ? `<span class="ag-overlay ag-rank">#${a.rankBadge}</span>` : '';
-  const badge = a.has_ethics_badge ? ETHICS_BADGE_MINI : '';
-  const propsLabel = a.active_properties_count === 1 ? 'נכס פעיל' : 'נכסים פעילים';
+  // ראשי תיבות ולא אות אחת: לבעל/ת מקצוע בלי תמונה זה כל מה שיש על
+  // האריח, ושתי אותיות מזהות טוב יותר מאחת — בדיוק כמו ברצועה בדף הבית.
+  const initials = String(p.name).trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('') || 'ב';
 
-  const rating = a.rating !== null
-    ? `${starsHtml(a.rating)}
-       <span class="score">${escapeHtml(fmtRating(a.rating))}</span>
-       <span class="txt">(${a.reviews_count === 1 ? 'ביקורת אחת' : a.reviews_count + ' ביקורות'})</span>`
-    : `${starsHtml(0)}<span class="txt">טרם התקבלו ביקורות</span>`;
-
-  // שם המשרד הוא קישור בפני עצמו כשיש למשרד עמוד — "אצל מי הוא עובד" היא
-  // שאלה שממשיכה לעמוד המשרד, ולא לעמוד המתווך/ת שאליו מוביל הכפתור למטה.
-  const agencyRow = a.agency_name
-    ? (a.agency_slug
-        ? `<a class="ag-agency" href="agency.html?slug=${escapeHtml(encodeURIComponent(a.agency_slug))}"
-              >${ICON.office}<span class="txt">${escapeHtml(a.agency_name)}</span></a>`
-        : `<span class="ag-agency">${ICON.office}<span class="txt">${escapeHtml(a.agency_name)}</span></span>`)
+  const businessRow = p.business
+    ? `<span class="ag-agency">${ICON.office}<span class="txt">${escapeHtml(p.business)}</span></span>`
     : '<span class="ag-agency"></span>';
 
-  // ההתמחויות קודם, ואחרי הן הוותק: התחום עונה על "במה הוא עוסק" והוותק על
-  // "כמה זמן". שלוש התמחויות הן התקרה שכרטיס בעמודה של שליש מסך מחזיק
-  // בשתי שורות — מעבר לזה הן מתחילות לדחוק את הפעולות.
+  const areaText = p.areas.join(' · ') || p.region;
+
+  // השירותים קודם ואחריהם הוותק: השירות עונה על "מה הוא עושה" והוותק על
+  // "כמה זמן". שלושה שירותים הם התקרה שכרטיס בעמודה של שליש מסך מחזיק
+  // בשתי שורות — מעבר לזה הם מתחילים לדחוק את הפעולות.
   const chips = [
-    ...a.specialties.slice(0, 3).map(s => `<span class="ag-chip">${escapeHtml(s)}</span>`),
-    ...(a.years_experience > 0 ? [`<span class="ag-chip exp">${a.years_experience}+ שנות ניסיון</span>`] : []),
+    ...p.services.slice(0, 3).map(s => `<span class="ag-chip">${escapeHtml(s)}</span>`),
+    ...(p.years > 0 ? [`<span class="ag-chip exp">${p.years}+ שנות ניסיון</span>`] : []),
   ].join('');
 
-  const contact = hasPhone(a.phone_e164)
-    ? `<a class="ag-icon-btn wa" href="${escapeHtml(waLink(a.phone_e164, name))}"
+  const contact = hasPhone(p.phone)
+    ? `<a class="ag-icon-btn wa" href="${escapeHtml(waLink(p.phone, p.name))}"
           target="_blank" rel="noopener noreferrer"
-          aria-label="${escapeHtml('שליחת הודעת וואטסאפ ל' + name)}" title="וואטסאפ">${ICON.wa}</a>
-       <a class="ag-icon-btn tel" href="tel:+${escapeHtml(a.phone_e164)}"
-          aria-label="${escapeHtml('חיוג ל' + name)}" title="חיוג">${ICON.tel}</a>`
+          aria-label="${escapeHtml('שליחת הודעת וואטסאפ ל' + p.name)}" title="וואטסאפ">${ICON.wa}</a>
+       <a class="ag-icon-btn tel" href="tel:+${escapeHtml(p.phone)}"
+          aria-label="${escapeHtml('חיוג ל' + p.name)}" title="חיוג">${ICON.tel}</a>`
     : '';
 
   return `
     <article class="ag-card">
       <div class="ag-media">
-        <span class="ag-initial" aria-hidden="true">${escapeHtml(name.trim()[0] || 'מ')}</span>
-        ${media}${rank}${badge}
-        <span class="ag-overlay ag-count"><b>${a.active_properties_count}</b> ${propsLabel}</span>
+        <span class="ag-initial" aria-hidden="true">${escapeHtml(initials)}</span>
+        ${media}
+        <span class="ag-overlay pro-role">${escapeHtml(p.typeLabel)}</span>
       </div>
       <div class="ag-body">
-        <h2 class="ag-name">${escapeHtml(name)}</h2>
-        ${agencyRow}
-        <div class="ag-rating">${rating}</div>
-        ${a.service_area ? `<div class="ag-meta">${ICON.pin}<span class="txt">${escapeHtml(a.service_area)}</span></div>` : ''}
+        <h2 class="ag-name">${escapeHtml(p.name)}</h2>
+        ${businessRow}
+        ${p.headline ? `<p class="pro-headline">${escapeHtml(p.headline)}</p>` : ''}
+        ${areaText ? `<div class="ag-meta">${ICON.pin}<span class="txt">${escapeHtml(areaText)}</span></div>` : ''}
         ${chips ? `<div class="ag-chips">${chips}</div>` : ''}
       </div>
       <div class="ag-actions">
         ${href
-          ? `<a class="ag-cta" href="${escapeHtml(href)}">לעמוד המתווך/ת</a>`
+          ? `<a class="ag-cta" href="${escapeHtml(href)}">לעמוד בעל/ת המקצוע</a>`
           : '<span class="ag-cta is-static">העמוד האישי בהכנה</span>'}
         ${contact}
       </div>
@@ -737,29 +742,28 @@ function agentCardHtml(a){
    רינדור
    ============================================================================ */
 function renderCounts(list){
-  const many = n => n === 1 ? 'מתווך/ת אחד/ת' : n + ' מתווכים';
+  const many = n => n === 1 ? 'בעל/ת מקצוע אחד/ת' : n + ' בעלי מקצוע';
   el('resultCount').innerHTML = list.length
     ? (isFiltered()
-        ? `${escapeHtml(many(list.length))} מתוך ${agents.length} <button type="button" class="reset-btn" id="resetBtn">איפוס הסינון</button>`
-        : `${escapeHtml(many(agents.length))} בפלטפורמה`)
+        ? `${escapeHtml(many(list.length))} מתוך ${pros.length} <button type="button" class="reset-btn" id="resetBtn">איפוס הסינון</button>`
+        : `${escapeHtml(many(pros.length))} בפלטפורמה`)
     : '';
   const reset = el('resetBtn');
   if (reset) reset.addEventListener('click', resetFilters);
 
   // המונה שעל כל גלולה נספר מול שאר הסינונים הפעילים ולא מול הסינון שהיא
   // עצמה שייכת לו — אחרת כל גלולה שאינה הנבחרת הייתה מציגה 0
-  countPills('agencyPills', 'agency', (a, key)=> matchesAgency(a, key));
-  countPills('specPills',   'spec',   (a, key)=> matchesSpec(a, key));
-  countPills('ratePills',   'rate',   (a, key)=> matchesRate(a, key));
+  countPills('typePills', 'type', matchesType);
+  countPills('areaPills', 'area', matchesArea);
 }
 
 function countPills(containerId, group, test){
   const container = el(containerId);
   if (!container) return;
-  const pool = agents.filter(a => passes(a, filters, group));
+  const pool = pros.filter(p => passes(p, filters, group));
   container.querySelectorAll('.pill').forEach(btn=>{
     const key = btn.dataset.key;
-    const n = pool.filter(a => test(a, key)).length;
+    const n = pool.filter(p => test(p, key)).length;
     const slot = btn.querySelector('.n');
     if (slot) slot.textContent = n;
     // גלולה שתחזיר רשימה ריקה מעומעמת ומנוטרלת, כדי שלא תוביל למסך ריק
@@ -768,15 +772,15 @@ function countPills(containerId, group, test){
 }
 
 function render(){
-  const list = visibleAgents();
+  const list = visiblePros();
   renderCounts(list);
   el('noResultsState').hidden = list.length > 0;
-  el('agentsGrid').hidden = !list.length;
-  el('agentsGrid').innerHTML = list.map(agentCardHtml).join('');
+  el('prosGrid').hidden = !list.length;
+  el('prosGrid').innerHTML = list.map(proCardHtml).join('');
 }
 
 /* ============================================================================
-   פקדי סרגל הכלים
+   פקדי סרגל הכלים — זהים לאלה של עמוד המתווכים
    ============================================================================ */
 function buildPills(container, items, group, withCount){
   container.innerHTML = '';
@@ -785,8 +789,7 @@ function buildPills(container, items, group, withCount){
     btn.type = 'button';
     btn.className = 'pill';
     btn.dataset.key = item.key;
-    btn.innerHTML = (item.star ? '<span class="pill-star" aria-hidden="true">★</span>' : '') +
-      escapeHtml(item.label) + (withCount ? ' <span class="n"></span>' : '');
+    btn.innerHTML = escapeHtml(item.label) + (withCount ? ' <span class="n"></span>' : '');
     btn.setAttribute('aria-pressed', String(filters[group] === item.key));
     btn.addEventListener('click', ()=>{
       filters[group] = item.key;
@@ -820,250 +823,112 @@ function syncPills(container, key){
 }
 
 function resetFilters(){
-  filters = { query:'', agency:'all', spec:'all', rate:'all' };
-  el('agentSearch').value = '';
-  syncPills(el('agencyPills'), 'all');
-  syncPills(el('specPills'), 'all');
-  syncPills(el('ratePills'), 'all');
+  filters = { query:'', type:'all', area:'all' };
+  el('proSearch').value = '';
+  syncPills(el('typePills'), 'all');
+  syncPills(el('areaPills'), 'all');
   render();
   el('toolbar').scrollIntoView({ block:'start', behavior:'smooth' });
 }
 
-el('agentSearch').addEventListener('input', (e)=>{ filters.query = e.target.value; render(); });
+el('proSearch').addEventListener('input', (e)=>{ filters.query = e.target.value; render(); });
 el('noResultsReset').addEventListener('click', resetFilters);
 
-/* ============================================================================
-   נתוני דמה
-   ----------------------------------------------------------------------------
-   אותה מדיניות של FALLBACK_AGENCIES בעמוד המשרדים ושל FALLBACK_PROPERTIES
-   בדף הבית: תוכן הדגמה נכנס רק כשה-DB לא זמין או מחזיר ריק, כדי שהעמוד לא
-   ייראה שבור בהדגמה או במצב לא מקוון. המבנה זהה למה ש-shapeAgent מחזיר,
-   ולכן שאר הקוד לא מבחין ביניהם.
-   ============================================================================ */
-const FALLBACK_AGENTS = [
-  { id:'a1', display_name:'טל אטדגי', slug:null, photo_url:null, photo_position:null,
-    agency_id:'f1', agency_name:'נדל״ן עפולה', agency_slug:'nadlan-afula', has_ethics_badge:true,
-    phone_e164:null, rating:4.9, reviews_count:14, active_properties_count:12,
-    specialties:['מגורים','השקעות ונכסים מניבים'], service_area:'עפולה והעמק', years_experience:6 },
-  { id:'a2', display_name:'רועי לוי', slug:null, photo_url:null, photo_position:null,
-    agency_id:'f4', agency_name:'נדל״ן גלבוע', agency_slug:'gilboa-nadlan', has_ethics_badge:false,
-    phone_e164:null, rating:4.6, reviews_count:9, active_properties_count:7,
-    specialties:['מסחרי','יזמות ופרויקטים'], service_area:'עפולה עילית', years_experience:11 },
-  { id:'a3', display_name:'עמית לוין', slug:null, photo_url:null, photo_position:null,
-    agency_id:'f2', agency_name:'משרד תיווך העמק', agency_slug:'emek-realty', has_ethics_badge:true,
-    phone_e164:null, rating:4.4, reviews_count:5, active_properties_count:9,
-    specialties:['שכירות','מגורים'], service_area:'עמק יזרעאל', years_experience:3 },
-  { id:'a4', display_name:'נועה ברקת', slug:null, photo_url:null, photo_position:null,
-    agency_id:'f3', agency_name:'בית ונחלה', agency_slug:'bait-venachala', has_ethics_badge:false,
-    phone_e164:null, rating:null, reviews_count:0, active_properties_count:4,
-    specialties:['מגרשים וקרקעות','משקי בית ונחלות'], service_area:'גבעת המורה', years_experience:2 },
-];
+/* ‏?type=appraiser בכתובת פותח את העמוד כשהסינון כבר מוחל — זה מה שמאפשר
+   לקשר מבחוץ (ומהפוטר) ישירות ל"שמאים בעפולה" ולא רק לרשימה הכללית. */
+function applyDeepLink(){
+  const type = new URLSearchParams(location.search).get('type');
+  if (type && typeOptions.some(o => o.key === type)) filters.type = type;
+}
 
 /* ============================================================================
    טעינת הנתונים
    ----------------------------------------------------------------------------
-   אותם מקורות שמזינים את קרוסלת "המתווכים הכי מומלצים" בדף הבית, ובאותו
-   היגיון: ממוצע הביקורות מחושב מהביקורות המפורסמות עצמן ולא נלקח מהשדה
-   המחושב שבטבלת הדירוגים, ומספר הנכסים נספר מהנכסים הפעילים עצמם — כדי
-   שמתווך/ת שהעלה/תה נכס הבוקר לא יוצג/תוצג עם מספר של אתמול.
+   ‏professional_cards_public הוא ה-view הציבורי, אותו מקור שמזין את הרצועה
+   בדף הבית ואת עמוד הפרופיל: הוא כבר מסנן לכרטיסיות פעילות שבתוך חלון
+   הפרסום (status לבדו לא מספיק — כרטיסייה שתקופתה הסתיימה נשארת active
+   בטבלה), והוא לא כולל את כתובת החיוב של המפרסם.
 
-   ‏allSettled ולא all: טבלה או עמודה שטרם נוצרו בסביבה הזו לא מפילות את
-   העמוד — כל מה שנופל יש לו ברירת מחדל.
+   אין כאן נתוני דמה: עמוד ייעודי שמציג בעלי מקצוע מומצאים הוא הבטחה שאי
+   אפשר לעמוד בה. רשימה ריקה מציגה את מצב ה"אין עדיין" יחד עם ההזמנה
+   להצטרף — וזה בדיוק מה שהיא.
    ============================================================================ */
+const dedupe = arr => [...new Set(arr.map(v => String(v || '').trim()).filter(Boolean))];
 
-/* שדות הפרופיל המורחבים (ותק, התמחויות, אזור פעילות ונקודת המיקוד בתמונה)
-   נוספו ל-view אחרי שהאתר כבר עלה לאוויר. כש-view בסביבה כלשהי עוד לא
-   עודכן, PostgREST מחזיר שגיאת "עמודה לא קיימת" על *כל* השאילתה — ולכן
-   הניסיונות יורדים במדרגות, מהסט המלא אל הגרעין שבלעדיו אין רשימה. אותה
-   מדרגות בדיוק כמו ב-agent.html. */
-const MEMBER_BASE = 'id, display_name, slug, photo_url, agency_id, has_ethics_badge, phone_e164';
-const MEMBER_ACTIVE = ', active';
-const MEMBER_EXTRAS = ', photo_position, years_experience, specialties, service_area';
-const MEMBER_TIERS = [
-  MEMBER_BASE + MEMBER_ACTIVE + MEMBER_EXTRAS,
-  MEMBER_BASE + MEMBER_ACTIVE,
-  MEMBER_BASE + MEMBER_EXTRAS,
-  MEMBER_BASE,
-];
-
-async function loadMembers(sb){
-  for (const fields of MEMBER_TIERS){
-    const { data, error } = await sb.from('agency_members_public').select(fields).limit(500);
-    if (!error) return data || [];
-    console.warn('טעינת המתווכים בשדות המורחבים נכשלה, מנסה סט מצומצם יותר:', error);
-  }
-  return [];
-}
-
-/* תחומי ההתמחות של מתווך/ת נבחרים ב-CRM מאוצר מילים סגור
-   (‏SPECIALTY_OPTIONS ב-crm.html), אבל העמודה עצמה היא text[] פתוח — שורות
-   ישנות או ייבוא ידני יכולים להחזיק כל דבר. לכן הערכים מנוקים כאן: רווחים
-   מיותרים נחתכים, כפילויות נופלות, וערך ריק לא הופך לצ׳יפ ריק. הרשימה
-   נשמרת כדי לסדר לפיה את גלולות הסינון — שורת ההתמחות תיראה אותו דבר בכל
-   ביקור, ולא תשתנה בכל פעם שמתווך/ת חדש/ה נוסף/ת. */
-const SPECIALTY_ORDER = [
-  'מגורים', 'מסחרי', 'מגרשים וקרקעות', 'השקעות ונכסים מניבים',
-  'יזמות ופרויקטים', 'שכירות', 'תמ״א והתחדשות עירונית', 'משקי בית ונחלות',
-];
-
-function cleanSpecialties(raw){
-  if (!Array.isArray(raw)) return [];
-  const seen = new Set();
-  return raw
-    .map(s => String(s == null ? '' : s).trim())
-    .filter(s => {
-      if (!s || s.length > 40 || seen.has(s)) return false;
-      seen.add(s);
-      return true;
-    })
-    .slice(0, 6);
-}
-
-function shapeAgent(m, agency, agg, ranking, liveCount, propsLoaded){
+function shapePro(row){
+  const type = row.advertiser_type || 'general';
   return {
-    id: m.id,
-    display_name: m.display_name,
-    slug: m.slug || null,
-    photo_url: m.photo_url || null,
-    photo_position: m.photo_position || null,
-    agency_id: m.agency_id || null,
-    agency_name: agency?.name || '',
-    agency_slug: agency?.slug || null,
-    has_ethics_badge: !!m.has_ethics_badge,
-    phone_e164: m.phone_e164 || null,
-    // מתווך/ת בלי ביקורות הוא/היא null ולא 0: מי שרק התחיל/ה לא מקבל/ת
-    // "אפס כוכבים" אלא פשוט מוצג/ת בלי דירוג.
-    rating: agg && agg.count ? agg.sum / agg.count : null,
-    reviews_count: agg?.count || 0,
-    // הספירה מהנכסים עצמם, ונפילה ל-active_properties_count המחושב רק
-    // כששאילתת הנכסים עצמה נכשלה — אחרת מי שהמלאי שלו התרוקן היה מציג
-    // מספר ישן לנצח.
-    active_properties_count: propsLoaded ? (liveCount || 0) : (ranking?.active_properties_count ?? 0),
-    specialties: cleanSpecialties(m.specialties),
-    service_area: m.service_area ? String(m.service_area).trim() : '',
-    years_experience: Number(m.years_experience) > 0 ? Number(m.years_experience) : 0,
+    id: row.id,
+    slug: row.slug,
+    name: row.advertiser_name || 'בעל/ת מקצוע',
+    business: row.business_name || '',
+    type,
+    typeLabel: TYPE_LABELS[type] || TYPE_LABELS.general,
+    headline: row.headline || row.description || '',
+    services: dedupe(Array.isArray(row.services) ? row.services : []),
+    areas: dedupe(Array.isArray(row.service_areas) ? row.service_areas : []),
+    region: String(row.target_region || '').trim(),
+    photo: row.creative_url || '',
+    phone: row.phone_e164 || '',
+    years: Number(row.years_experience) || 0,
   };
 }
 
-/* רשימות הגלולות נבנות מהמתווכים שנטענו בפועל ולא מקטלוג קבוע: משרד בלי
-   מתווכים או תחום שאיש לא סימן לא אמורים לתפוס מקום בסרגל.
-
-   ‏order (אם נמסר) שומר על סדר קבוע לערכים המוכרים — שורת ההתמחות היא
-   אותה שורה בכל ביקור. כל השאר, ובראשם המשרדים, מסודרים לפי מספר
-   המתווכים, כך שהגדולים נמצאים בהישג יד ולא בסוף גלילה אופקית. */
-function buildOptions(list, keyOf, labelOf, order){
-  const counts = new Map();
-  const labels = new Map();
-  list.forEach(a => keyOf(a).forEach(k => {
-    counts.set(k, (counts.get(k) || 0) + 1);
-    if (!labels.has(k)) labels.set(k, labelOf(a, k));
-  }));
-  const rank = k => {
-    const i = order ? order.indexOf(k) : -1;
-    return i === -1 ? Infinity : i;
-  };
-  return [...counts.entries()]
-    .sort((x, y)=>
-      rank(x[0]) - rank(y[0]) ||
-      y[1] - x[1] ||
-      String(labels.get(x[0])).localeCompare(String(labels.get(y[0])), 'he'))
-    .map(([key])=> ({ key, label: labels.get(key) }));
+/* גלולה נבנית רק מערכים שקיימים בפועל ברשימה שנטענה: שורת סינון שמציעה
+   תחום שאין בו אף אחד היא מבוי סתום. */
+function buildTypeOptions(list){
+  const keys = dedupe(list.map(p => p.type));
+  keys.sort((a, b)=>{
+    const ia = TYPE_ORDER.indexOf(a), ib = TYPE_ORDER.indexOf(b);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b, 'he');
+  });
+  return keys.map(k => ({ key:k, label: TYPE_LABELS[k] || TYPE_LABELS.general }));
 }
-
-/* קישור עמוק: ‏?q= פותח את העמוד עם חיפוש, ו-?agency=<slug> עם משרד נבחר —
-   כך אפשר לקשר לכאן מעמוד משרד ("כל המתווכים של המשרד") בלי מסך נוסף. */
-function applyDeepLink(){
-  const params = new URLSearchParams(location.search);
-  const q = params.get('q');
-  if (q){
-    filters.query = q;
-    el('agentSearch').value = q;
-  }
-  const agencySlug = params.get('agency');
-  if (agencySlug){
-    const match = agents.find(a => a.agency_slug === agencySlug || a.agency_id === agencySlug);
-    if (match && match.agency_id) filters.agency = match.agency_id;
-  }
+function buildAreaOptions(list){
+  const areas = dedupe(list.flatMap(p => p.areas));
+  areas.sort((a, b)=> a.localeCompare(b, 'he'));
+  return areas.map(a => ({ key:a, label:a }));
 }
 
 (async function init(){
   const finish = (list)=>{
+    pros = list;
     el('loadingState').hidden = true;
-    if (!list.length){ el('emptyState').hidden = false; return; }
+    el('loadingState').style.display = 'none';
 
-    agents = list;
-    assignRankBadges(agents);
+    if (!pros.length){
+      el('emptyState').hidden = false;
+      return;
+    }
 
-    agencyOptions = buildOptions(agents,
-      a => a.agency_id && a.agency_name ? [a.agency_id] : [],
-      a => a.agency_name);
-    specOptions = buildOptions(agents, a => a.specialties, (a, k)=> k, SPECIALTY_ORDER);
-
+    typeOptions = buildTypeOptions(pros);
+    areaOptions = buildAreaOptions(pros);
     applyDeepLink();
 
-    buildPills(el('agencyPills'), [{ key:'all', label:'כל המשרדים' }, ...agencyOptions], 'agency', true);
-    buildPills(el('specPills'), [{ key:'all', label:'הכל' }, ...specOptions], 'spec', true);
-    buildPills(el('ratePills'), RATES, 'rate', true);
+    buildPills(el('typePills'), [{ key:'all', label:'כל התחומים' }, ...typeOptions], 'type', true);
+    buildPills(el('areaPills'), [{ key:'all', label:'הכל' }, ...areaOptions], 'area', true);
     buildSortPills(el('sortPills'));
-    // אף מתווך/ת לא סימן/ה תחומי התמחות — שורה עם גלולה אחת ("הכל") היא
-    // רעש, ולכן היא פשוט לא מוצגת עד שיהיה בה מה לסנן
-    el('specRow').hidden = specOptions.length === 0;
+    // אף אחד לא מילא אזורי פעילות — שורה עם גלולה אחת ("הכל") היא רעש,
+    // ולכן היא פשוט לא מוצגת עד שיהיה בה מה לסנן
+    el('areaRow').hidden = areaOptions.length === 0;
 
     el('toolbar').hidden = false;
-    el('joinBand').hidden = false;
     render();
   };
 
-  if (!window.supabase) return finish(FALLBACK_AGENTS);
+  if (!window.supabase) return finish([]);
 
   try{
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-    const members = (await loadMembers(sb)).filter(m => m.active !== false);
-    if (!members.length) throw new Error('empty');
-
-    // שם המשרד נטען בשאילתה נפרדת ולא ב-embed: מאז ש-property_shares
-    // מחזיקה שני מפתחות זרים ל-agencies, embed מ-agency_members ל-agencies
-    // מחזיר PGRST201 (HTTP 300) במקום את השורה.
-    const agencyIds = [...new Set(members.map(m => m.agency_id).filter(Boolean))];
-    const [agenciesRes, rankingsRes, reviewsRes, propsRes] = await Promise.allSettled([
-      agencyIds.length
-        ? sb.from('agencies').select('id, name, slug').in('id', agencyIds)
-        : Promise.resolve({ data: [] }),
-      sb.from('agent_rankings').select('agent_id, active_properties_count').limit(500),
-      sb.from('reviews').select('agent_id, rating').eq('status', 'published').limit(5000),
-      sb.from('properties').select('agent_id').eq('status', 'active').limit(5000),
-    ]);
-    const dataOf = res => (res.status === 'fulfilled' && res.value.data) || [];
-
-    const agencyById = new Map(dataOf(agenciesRes).map(a => [a.id, a]));
-    const rankByAgent = new Map(dataOf(rankingsRes).map(r => [r.agent_id, r]));
-
-    const reviewAgg = new Map();
-    dataOf(reviewsRes).forEach(r=>{
-      if (!r.agent_id) return;
-      const agg = reviewAgg.get(r.agent_id) || { sum:0, count:0 };
-      agg.sum += Number(r.rating) || 0;
-      agg.count += 1;
-      reviewAgg.set(r.agent_id, agg);
-    });
-
-    const propsLoaded = propsRes.status === 'fulfilled' && !propsRes.value.error;
-    const liveCount = new Map();
-    dataOf(propsRes).forEach(p=>{
-      if (p.agent_id) liveCount.set(p.agent_id, (liveCount.get(p.agent_id) || 0) + 1);
-    });
-
-    finish(members.map(m => shapeAgent(
-      m,
-      agencyById.get(m.agency_id),
-      reviewAgg.get(m.id),
-      rankByAgent.get(m.id),
-      liveCount.get(m.id),
-      propsLoaded,
-    )));
+    const { data, error } = await sb
+      .from('professional_cards_public')
+      .select('id, slug, advertiser_name, business_name, advertiser_type, target_region, headline, description, services, service_areas, creative_url, phone_e164, years_experience')
+      .limit(200);
+    if (error) throw error;
+    finish((data || []).map(shapePro));
   } catch(e){
-    console.warn('טעינת רשימת המתווכים נכשלה, משתמש בנתוני fallback:', e);
-    finish(FALLBACK_AGENTS);
+    console.warn('טעינת רשימת בעלי המקצוע נכשלה:', e);
+    finish([]);
   }
 })();
 </script>
