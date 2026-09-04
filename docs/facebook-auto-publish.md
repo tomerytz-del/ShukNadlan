@@ -12,12 +12,23 @@
 מה שהסוכן/ת כתב/ה **לא נדרס לעולם**: תיאור שיווקי קיים נשאר כמו שהוא, ופוסט
 שנכתב ידנית ב-`post_text` הוא זה שיוצא.
 
+> **שלב 1 כאן הוא היום רשת ביטחון בלבד.** מאז מיגרציה `20260925090000`
+> לתיאור השיווקי יש מסלול משלו — `property-description` — שרץ על כל נכס בלי
+> קשר לפרסום ברשתות, מקדים את הפוסט בעשר דקות, ומטפל גם בנכסים ותיקים
+> ובעדכוני נתונים. הפרומפט ועובדות הנכס משותפים לשני המסלולים
+> (`supabase/functions/_shared/marketing-copy.ts`), כך שהטקסט זהה בכל דרך
+> שבה הוא נכתב. ראו **`docs/marketing-description.md`**.
+>
+> המשמעות המעשית: ברוב הפעמים הפוסט כאן ימצא תיאור מוכן ולא יקרא ל-Claude
+> בכלל.
+
 ## הקבצים
 
 | קובץ | תפקיד |
 | --- | --- |
 | `supabase/migrations/20260906090000_property_marketing_publish.sql` | התור, הטריגר, פונקציות המשיכה/התפיסה/הסימון, ותזמון ה-cron |
-| `supabase/functions/property-marketing-publish/index.ts` | השרת: כותב את הטקסט ב-Claude ומפרסם |
+| `supabase/functions/property-marketing-publish/index.ts` | השרת: מרכיב את הפוסט ומפרסם |
+| `supabase/functions/_shared/marketing-copy.ts` | הפרומפט ועובדות הנכס — משותף עם `property-description` |
 | `docs/facebook-auto-publish.md` | הקובץ הזה |
 
 המיגרציה אידמפוטנטית.

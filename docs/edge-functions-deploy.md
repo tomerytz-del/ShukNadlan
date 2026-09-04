@@ -159,9 +159,9 @@ Secrets**, ופונקציה שחסר לה סוד נפרסת בהצלחה ונכ�
 | סוד | מי צריך אותו | מה קורה בלעדיו |
 |---|---|---|
 | `GEMINI_API_KEY` | `property-visualize`, `property-visualize-base`, `classify-property-images` | `gemini_not_configured` (500) |
-| `ANTHROPIC_API_KEY` | `property-marketing-publish` | הפוסט נכשל על היעדר תיאור שיווקי |
+| `ANTHROPIC_API_KEY` | `property-description`, `property-marketing-publish` | `copy_not_configured` (503) — התור לא נשרף, ונכסים חדשים נשארים בלי תיאור שיווקי |
 | `MAKE_FACEBOOK_WEBHOOK_URL` *או* `FACEBOOK_PAGE_ID`+`FACEBOOK_PAGE_ACCESS_TOKEN` | `property-marketing-publish` | `publish_not_configured` — התור לא נשרף, השורות ממתינות |
-| `ALERT_CRON_SECRET` | `saved-search-notify`, `property-marketing-publish`, `classify-property-images` | **חובה** — בלעדיו שלושתן מחזירות `503 cron_secret_not_configured`. חייב להיות זהה לסוד ה-Vault ‏`alert_cron_secret` שה-cron שולח |
+| `ALERT_CRON_SECRET` | `saved-search-notify`, `property-marketing-publish`, `classify-property-images`, `property-description` | **חובה** — בלעדיו כולן מחזירות `503 cron_secret_not_configured` לקורא ה-cron. חייב להיות זהה לסוד ה-Vault ‏`alert_cron_secret` שה-cron שולח. ב-`property-description` זה חוסם רק את המסלול האוטומטי; בקשת רענון של סוכן/ת מגיעה עם JWT ועובדת גם בלעדיו |
 
 ## אם ההרצה נכשלה
 

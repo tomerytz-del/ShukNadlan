@@ -1,6 +1,12 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
+import {
+  generateMarketingCopy,
+  placeLine,
+  priceLine,
+  specLine,
+} from "../_shared/marketing-copy.ts";
 
 // ============================================================================
 // תיאור שיווקי ופרסום לדף הפייסבוק — השרת שמרוקן את property_publications.
@@ -13,6 +19,11 @@ import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 //      ל-CRM, לדף הנכס ולכל ערוץ שיתווסף אחר כך. מה שהסוכן/ת כתב/ה לא
 //      נדרס לעולם — בלי `force` הקוד לא נוגע בשדה מלא.
 //   2. הפוסט יוצא לדף הפייסבוק של האתר.
+//
+// שלב 1 כאן הוא היום **רשת ביטחון בלבד**: מאז מיגרציה 20260925090000 יש
+// לתיאור השיווקי מסלול משלו (‏property-description), שרץ על כל נכס בלי קשר
+// לפרסום ברשתות ומקדים את הפוסט בעשר דקות. הנוסח, הפרומפט ועובדות הנכס
+// חיים ב-_shared/marketing-copy.ts, כך ששני המסלולים כותבים אותו דבר בדיוק.
 //
 // שני מסלולי פרסום, לפי מה שמוגדר בסודות:
 //
@@ -61,139 +72,15 @@ function json(obj: unknown, status = 200) {
 }
 
 // ---------------------------------------------------------------------------
-// עובדות הנכס — אותה שפה שהאתר מדבר בה
+// עובדות הנכס והנוסח עצמו יושבים ב-_shared/marketing-copy.ts. כאן נשאר רק מה
+// ששייך לפוסט: הקישור לעמוד הנכס והרכבת ההודעה.
 // ---------------------------------------------------------------------------
-
-const nis = (n: number | null | undefined) =>
-  n === null || n === undefined ? "" : "₪" + Math.round(Number(n)).toLocaleString("he-IL");
-
-/** "₪1,850,000" למכירה · "₪4,800 לחודש" להשכרה. */
-function priceLine(row: any): string {
-  if (row.price === null || row.price === undefined) return "";
-  return row.deal_type === "rent" ? `${nis(row.price)} לחודש` : nis(row.price);
-}
-
-/** "4 חדרים · 98 מ״ר · קומה 3 מתוך 8" — רק מה שקיים במודעה. */
-function specLine(row: any): string {
-  const floor = row.floor === null || row.floor === undefined
-    ? null
-    : row.total_floors ? `קומה ${row.floor} מתוך ${row.total_floors}` : `קומה ${row.floor}`;
-  return [
-    row.rooms ? `${row.rooms} חדרים` : null,
-    row.size_sqm ? `${Math.round(row.size_sqm)} מ״ר` : null,
-    row.garden_sqm ? `גינה ${Math.round(row.garden_sqm)} מ״ר` : null,
-    floor,
-  ].filter(Boolean).join(" · ");
-}
-
-/** "רובע יזרעאל, עפולה" — השכונה קודמת, היא מה שמזהה את המיקום בעין. */
-function placeLine(row: any): string {
-  return [row.neighborhood, row.street, row.city].filter(Boolean).join(", ");
-}
 
 const propertyUrl = (id: string) =>
   `${SITE_BASE_URL}/property.html?id=${encodeURIComponent(id)}`;
 
-/** כל מה שידוע על הנכס, בטקסט אחד — הקלט של Claude ושל בונה הפוסט. */
-function facts(row: any): string {
-  const dealType = row.deal_type === "rent" ? "להשכרה" : "למכירה";
-  return [
-    row.title ? `כותרת המודעה: ${row.title}` : null,
-    `סוג עסקה: ${dealType}`,
-    row.property_type ? `סוג נכס: ${row.property_type}` : null,
-    placeLine(row) ? `מיקום: ${placeLine(row)}` : null,
-    specLine(row) ? `נתונים: ${specLine(row)}` : null,
-    priceLine(row) ? `מחיר: ${priceLine(row)}` : null,
-    row.condition ? `מצב הנכס: ${row.condition}` : null,
-    row.features?.length ? `מאפיינים: ${row.features.join(", ")}` : null,
-    row.furniture_details ? `ריהוט: ${row.furniture_details}` : null,
-    row.move_in_date ? `כניסה: ${row.move_in_date}` : null,
-    row.description ? `תיאור המודעה כפי שנכתב על ידי הסוכן/ת: ${row.description}` : null,
-    row.agent_name ? `סוכן/ת: ${row.agent_name}` : null,
-    row.agency_name ? `משרד: ${row.agency_name}` : null,
-  ].filter(Boolean).join("\n");
-}
-
-// ---------------------------------------------------------------------------
-// יצירת התיאור השיווקי
-//
-// ‏שתי תוצרות בקריאה אחת: תיאור ארוך (marketing_description, נשאר במערכת
-// ומשמש בכל ערוץ) ופוסט קצר (post_text). הפרדה לשתי קריאות הייתה מכפילה
-// עלות ומזמינה שני נוסחים שלא מדברים זה עם זה.
-//
-// המגבלה החשובה בפרומפט היא "רק מה שכתוב": מודל שממציא "קרוב לפארק" על נכס
-// שלא נאמר עליו דבר יוצר מודעה שקרית, וזו חשיפה משפטית של הפלטפורמה — לא
-// רק טקסט פחות טוב.
-// ---------------------------------------------------------------------------
-
-const SYSTEM_PROMPT = `את/ה קופירייטר/ית נדל"ן ישראלי/ת שכותב/ת עבור לוח הנכסים שוק נדל"ן.
-
-חוקים מוחלטים:
-1. מותר להשתמש אך ורק בעובדות שמופיעות בנתוני הנכס. אסור להמציא מרחק ממוסדות,
-   נוף, שכנים, פוטנציאל השבחה, תשואה, או כל פרט שלא נמסר.
-2. אין הבטחות תשואה, אין "השקעה בטוחה", אין הצהרות על מגמות מחירים.
-3. אין אזכור של מוצא, דת, לאום או הרכב משפחתי — לא ישיר ולא ברמז.
-4. לא לכתוב טלפונים, אימיילים או קישורים. המערכת מוסיפה אותם בעצמה.
-5. עברית תקנית, גוף שלישי, ללא סימני קריאה כפולים וללא מילים כמו "מדהים",
-   "חלומי", "הזדמנות שלא תחזור".
-6. כשהנתונים דלים — לכתוב קצר. טקסט קצר ומדויק עדיף על טקסט ארוך ומנופח.
-
-פלט: JSON תקין בלבד, בלי טקסט לפניו או אחריו, במבנה:
-{"marketing_description": "...", "post_text": "..."}
-
-marketing_description — 50 עד 90 מילים, פסקה אחת רציפה, מתארת את הנכס
-ומסתיימת בהזמנה לצפייה.
-
-post_text — פוסט לפייסבוק, עד 45 מילים, משפט פותח שמושך את העין, שתיים עד
-שלוש אימוג'י לכל היותר, ובסוף שורה אחת עם 3 עד 5 האשטגים בעברית
-(לדוגמה: #נדלן #עפולה #דירהלמכירה). בלי קישור ובלי טלפון.`;
-
-async function generateMarketing(row: any): Promise<{ description: string; post: string } | null> {
-  if (!ANTHROPIC_KEY) return null;
-
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": ANTHROPIC_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: CLAUDE_MODEL,
-      max_tokens: 1000,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: `נתוני הנכס:\n${facts(row)}` }],
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  }
-
-  const data = await res.json();
-  const text = (data?.content ?? [])
-    .filter((b: any) => b?.type === "text")
-    .map((b: any) => b.text)
-    .join("")
-    .trim();
-
-  // המודל התבקש ל-JSON נקי, אבל גדר ```json היא הסטייה הנפוצה ולא שווה
-  // להיכשל עליה.
-  const raw = text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
-  let parsed: any;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    const m = raw.match(/\{[\s\S]*\}/);
-    if (!m) throw new Error(`תשובת Claude אינה JSON: ${raw.slice(0, 200)}`);
-    parsed = JSON.parse(m[0]);
-  }
-
-  const description = String(parsed?.marketing_description ?? "").trim();
-  const post = String(parsed?.post_text ?? "").trim();
-  if (!description) throw new Error("Claude החזיר תיאור ריק");
-  return { description, post: post || description };
-}
+const generateMarketing = (row: any) =>
+  generateMarketingCopy(row, { apiKey: ANTHROPIC_KEY, model: CLAUDE_MODEL });
 
 // ---------------------------------------------------------------------------
 // הרכבת הפוסט
@@ -347,11 +234,14 @@ async function handle(sb: any, row: any, opts: { force: boolean; dryRun: boolean
       marketing = fresh;
       generated = true;
       if (!opts.dryRun) {
-        const patch: Record<string, string> = { marketing_description: fresh.description };
-        // ‏post_text של הסוכן/ת נשאר שלו/ה גם בכתיבה מחדש: המערכת משלימה
-        // מה שחסר, לא מחליפה מה שנכתב ביד.
-        if (!row.post_text?.trim()) patch.post_text = fresh.post;
-        const { error } = await sb.from("properties").update(patch).eq("id", row.property_id);
+        // דרך ה-RPC ולא בעדכון ישיר: היא מה שמסמן את הטקסט כ"נכתב אוטומטית"
+        // ומעדכן את טביעת האצבע שלפיה נמדדת ההתיישנות. ‏post_text של
+        // הסוכן/ת נשמר בתוכה — המערכת משלימה מה שחסר, לא מחליפה מה שנכתב ביד.
+        const { error } = await sb.rpc("apply_property_marketing_description", {
+          p_property_id: row.property_id,
+          p_description: fresh.description,
+          p_post_text: fresh.post,
+        });
         if (error) throw new Error(`שמירת התיאור נכשלה: ${error.message}`);
       }
     } else if (!marketing.description) {
