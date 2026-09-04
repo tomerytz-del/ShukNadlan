@@ -249,6 +249,117 @@ async function agentCard(agentId: string) {
 }
 
 /* ---------------------------------------------------------------------------
+ * הודעה למנהל/ת המשרד על בלעדיות חדשה
+ *
+ * ‏רק על בלעדיות. הזמנת תיווך רגילה היא עניין של הסוכן/ת מול הלקוח/ה,
+ * ובלעדיות היא התחייבות של המשרד: היא כובלת את הנכס לתקופה, מחייבת פעולות
+ * שיווק בפועל, ומטילה על המשרד חשיפה אם הן לא בוצעו.
+ *
+ * ‏**ההודעה מכילה את מה שהמנהל/ת צריך/ה לדעת ולא יותר** — סוכן/ת, כתובת,
+ * מחיר, בעל/ת הנכס ותקופת הבלעדיות. אין בה קישור למסמך עצמו: ה-RLS על
+ * agreements מצומצמת לסוכן/ת בכוונה (הסכם הוא מסמך בין הלקוח/ה לסוכן/ת,
+ * ומנהל/ת המשרד אינו/ה צד לו), וקישור לעותק המלא היה עוקף את ההחלטה הזו
+ * ומוסר גם את ת״ז של הבעלים.
+ * ------------------------------------------------------------------------- */
+function isExclusive(kind: string): boolean {
+  return kind === "exclusive_sell" || kind === "exclusive_landlord";
+}
+
+/** ‏dd/mm/yyyy — אותו פורמט שבו תקופת הבלעדיות מודפסת במסמך עצמו. */
+function slashDate(d: string | null): string {
+  if (!d) return "—";
+  const t = new Date(d);
+  if (isNaN(t.getTime())) return String(d);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${pad(t.getDate())}/${pad(t.getMonth() + 1)}/${t.getFullYear()}`;
+}
+
+function shekel(v: unknown): string {
+  const n = Number(v);
+  if (v === null || v === undefined || v === "" || isNaN(n)) return "—";
+  return "₪" + n.toLocaleString("he-IL");
+}
+
+async function notifyManagerOfExclusive(agreementId: string) {
+  const { data: agreement } = await db
+    .from("agreements")
+    .select("id, kind, title, agent_id, agency_id, snapshot, exclusive_from, exclusive_until, " +
+            "signed_at, manager_notified_at")
+    .eq("id", agreementId)
+    .maybeSingle();
+
+  if (!agreement || !isExclusive(agreement.kind)) return { sent: 0 };
+  if (agreement.manager_notified_at) return { sent: 0, skipped: "already_notified" };
+  if (!agreement.agency_id) return { sent: 0, skipped: "no_agency" };
+
+  // מנהל/ת פעיל/ה במשרד, שאינו/ה הסוכן/ת עצמו/ה: סוכן/ת שהוא/היא גם
+  // המנהל/ת כבר קיבל/ה את העותק החתום, והודעה שנייה על עצמו/ה היא רעש
+  const { data: managers } = await db
+    .from("agency_members")
+    .select("id, display_name, email")
+    .eq("agency_id", agreement.agency_id)
+    .eq("role", "manager")
+    .eq("active", true)
+    .neq("id", agreement.agent_id);
+
+  const to = (managers || []).map((m) => m.email).filter(Boolean) as string[];
+  if (!to.length) return { sent: 0, skipped: "no_manager_email" };
+
+  const agent = await agentCard(agreement.agent_id);
+  const snap = (agreement.snapshot ?? {}) as Record<string, any>;
+  const fields = (snap.properties?.[0]?.fields ?? {}) as Record<string, string>;
+
+  const street = [fields.address || fields.street, fields.house_number].filter(Boolean).join(" ");
+  const address = [street, fields.apartment_number ? "דירה " + fields.apartment_number : "", fields.city]
+    .filter(Boolean).join(", ") || snap.property_line || "—";
+
+  const signers = await signersOf(agreement.id);
+  const owners = signers.filter((x) => x.party !== "agent").map((x) => x.full_name).filter(Boolean);
+
+  const row = (label: string, value: string) =>
+    `<tr><td style="padding:6px 0;font-weight:700;white-space:nowrap;vertical-align:top">${esc(label)}</td>` +
+    `<td style="padding:6px 0 6px 14px">${esc(value)}</td></tr>`;
+
+  const inner =
+    `<div style="padding:18px 24px;font-size:13px;line-height:1.75">` +
+      `<p style="margin:0 0 12px"><b>${esc(agent.name)}</b> מהמשרד שלך החתים/ה בלעדיות חדשה.</p>` +
+      `<table role="presentation" cellpadding="0" cellspacing="0" style="font-size:13px">` +
+        row("סוג ההסכם", agreement.title) +
+        row("כתובת הנכס", address) +
+        row(agreement.kind === "exclusive_landlord" ? "דמי שכירות מבוקשים" : "מחיר מבוקש",
+            shekel(fields.price)) +
+        row(owners.length > 1 ? "בעלי הנכס" : "בעל/ת הנכס", owners.join(" · ") || "—") +
+        row("תקופת הבלעדיות",
+            `${slashDate(agreement.exclusive_from)} — ${slashDate(agreement.exclusive_until)}`) +
+        row("נחתם ב-", agreement.signed_at ? new Date(agreement.signed_at).toLocaleString("he-IL") : "—") +
+      `</table>` +
+      `<p style="margin:14px 0 0;font-size:11.5px;color:#565c63">` +
+        `ההודעה נשלחת אוטומטית על כל בלעדיות שנחתמת במשרד. ` +
+        `העותק החתום המלא נשלח לצדדים להסכם ולסוכן/ת.</p>` +
+    `</div>`;
+
+  const result = await sendPlatformEmail({
+    to,
+    subject: `בלעדיות חדשה במשרד — ${address}`,
+    html: mailShell("בלעדיות חדשה במשרד", inner),
+    text: `${agent.name} מהמשרד שלך החתים/ה בלעדיות חדשה.\n` +
+          `סוג ההסכם: ${agreement.title}\nכתובת: ${address}\n` +
+          `מחיר מבוקש: ${shekel(fields.price)}\nבעל/ת הנכס: ${owners.join(" · ") || "—"}\n` +
+          `תקופת הבלעדיות: ${slashDate(agreement.exclusive_from)} — ${slashDate(agreement.exclusive_until)}`,
+  });
+
+  // גם כשהשליחה נכשלה: ניסיון חוזר יקרה רק בשליחה חוזרת יזומה של העותק
+  // החתום, ועדיף על הודעה כפולה בכל לחיצה
+  if (result.sent) {
+    await db.from("agreements")
+      .update({ manager_notified_at: new Date().toISOString() })
+      .eq("id", agreementId);
+  }
+
+  return { sent: result.sent ? to.length : 0, error: result.error };
+}
+
+/* ---------------------------------------------------------------------------
  * שליחת העותק החתום
  *
  * יוצאת לכל מי שיש לו/לה כתובת: החותמים והסוכן/ת. ‏שליחה שנכשלת אינה
@@ -308,7 +419,15 @@ async function sendSignedCopies(agreementId: string) {
     signed_copy_error: result.sent ? null : (result.error || "send_failed"),
   }).eq("id", agreementId);
 
-  return { sent: result.sent ? recipients.size : 0, error: result.error };
+  // בלעדיות מודיעה גם למנהל/ת המשרד. אינה תלויה בהצלחת העותק החתום ואינה
+  // מפילה אותו: שתי ההודעות עצמאיות זו מזו.
+  const managerNotice = await notifyManagerOfExclusive(agreementId);
+
+  return {
+    sent: result.sent ? recipients.size : 0,
+    error: result.error,
+    manager_notified: managerNotice.sent > 0,
+  };
 }
 
 /* ---------------------------------------------------------------------------
