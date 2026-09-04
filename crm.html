@@ -15366,6 +15366,11 @@ function agrRenderStepDetails(){
         ' placeholder="חיפוש בקובץ הלקוחות — שם, טלפון, אימייל או עיר" autocomplete="off">' +
       '<div class="agr-results" id="agrClientResults"></div>' +
     '</div>' +
+    /* מפורש, כי לנכסים יש שלושה מאגרים ולכאן רק אחד: קובץ הלקוחות הוא
+       אישי (‏RLS על agent_clients מצומצמת לסוכן/ת עצמו/ה, בלי מנהל/ת
+       המשרד), ובלי השורה הזו נראה כאילו החיפוש פשוט לא מצא. */
+    '<p class="imp-note" style="margin:8px 0 0">מחפש בקובץ הלקוחות שלך בלבד. ' +
+      'חותם/ת שאינו/ה בקובץ נכנס/ת בהזנה ידנית.</p>' +
     '<button type="button" class="btn btn-ghost btn-block" data-agr="add-blank-signer"' +
       ' style="margin-top:10px">✏️ הזנת חותם/ת ידנית</button>' +
     '<div id="agrSignerForms" style="margin-top:12px"></div>' +
