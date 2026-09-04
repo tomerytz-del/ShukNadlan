@@ -1653,6 +1653,29 @@
   .agr-field textarea{resize:vertical;line-height:1.5}
   .agr-field input:focus,.agr-field select:focus,.agr-field textarea:focus{border-color:var(--teal);outline:none}
 
+  /* ---- מחפש הנכסים ----
+     תוצאה אחת בשורה, עם תגית מקור. הרוחב הצר של הטלפון הוא מה שקובע את
+     המבנה: הכתובת נשברת לשורה שנייה, והכפתור אינו מתכווץ. */
+  .agr-search{position:relative}
+  .agr-results{max-height:270px;overflow-y:auto;border:1.5px solid var(--line);
+    border-radius:var(--radius-sm);background:#fff;margin-top:8px}
+  .agr-results:empty{display:none}
+  .agr-res{display:flex;align-items:center;gap:9px;padding:9px 11px;border-bottom:1px solid var(--line);
+    text-align:right;width:100%;background:#fff;font:inherit;color:inherit}
+  .agr-res:last-child{border-bottom:none}
+  .agr-res:hover,.agr-res:focus-visible{background:var(--teal-tint);outline:none}
+  .agr-res.is-picked{opacity:.5;cursor:default}
+  .agr-res-main{flex:1;min-width:0}
+  .agr-res-title{font-weight:700;font-size:.84rem;line-height:1.35}
+  .agr-res-sub{font-size:.75rem;color:var(--ink-soft);margin-top:2px}
+  .agr-src{font-size:.66rem;font-weight:800;padding:2px 7px;border-radius:5px;white-space:nowrap;flex-shrink:0}
+  .agr-src-own{background:var(--teal-tint);color:var(--teal)}
+  /* ניטרלי ולא ‏--gold-tint: הוורוד באתר הזה אומר "דורש טיפול", ומקור של
+     נכס אינו התראה */
+  .agr-src-agency{background:#E9E4D8;color:#6B6450}
+  .agr-src-shared{background:#DFEDE3;color:#2A5B36}
+  .agr-res-empty{padding:14px;text-align:center;color:var(--ink-soft);font-size:.8rem}
+
   .agr-chip{display:flex;align-items:center;justify-content:space-between;gap:8px;
     border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:9px 11px;
     background:#fff;margin-bottom:7px;font-size:.83rem}
@@ -15283,12 +15306,6 @@ function agrRenderStepDetails(){
   const tpl = agrTpl(w.kind);
   const bases = window.AgreementTemplates.commissionBases[tpl.dealType] || [];
 
-  const propOptions = myPropertyRows.map(p =>
-    `<option value="${esc(p.id)}">${esc(agrPropertyLabel(p))}</option>`).join('');
-
-  const clientOptions = clientRows.map(c =>
-    `<option value="${esc(c.id)}">${esc(c.full_name)}${c.phone ? ' · ' + esc(c.phone) : ''}</option>`).join('');
-
   let html = '';
 
   if (!tpl.verified){
@@ -15296,30 +15313,62 @@ function agrRenderStepDetails(){
       'ובהתאם לחוק המתווכים במקרקעין, אך לא הועתק מטופס קיים. קראו אותו בתצוגה המקדימה לפני החתמה.</div>';
   }
 
-  /* --- נכסים --- */
+  /* --- נכסים ---
+     חיפוש חופשי על שלושת המאגרים במקום רשימה נפתחת של הנכסים שלי בלבד:
+     הסכם תיווך נחתם גם על נכס של עמית/ה במשרד ועל נכס שמשרד שת"פ שיתף,
+     ו-<select> של הנכסים שלי הכריח להקליד אותם ידנית. --- */
   html += '<div class="agr-sec"><h4>' +
     (tpl.propertyMode === 'multi' ? 'הנכסים בהסכם' : 'הנכס בהסכם') + '</h4>' +
-    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">' +
-      `<div class="agr-field" style="flex:1;min-width:190px"><label>בחירת נכס מהמערכת</label>
-         <select id="agrPropPick"><option value="">— בחרו נכס —</option>${propOptions}</select></div>` +
-      '<button type="button" class="btn btn-ghost" data-agr="add-prop" style="padding:9px 16px">הוספה</button>' +
-      '<button type="button" class="btn btn-ghost" data-agr="add-prop-blank" style="padding:9px 16px">נכס ידני</button>' +
+    '<div class="agr-search">' +
+      '<input type="search" id="agrPropSearch" class="filter-input" style="width:100%"' +
+        ' placeholder="חיפוש נכס — כתובת, עיר, סוג נכס או מספר מודעה" autocomplete="off">' +
+      '<div class="agr-results" id="agrPropResults"></div>' +
     '</div>' +
-    '<div id="agrPropChips" style="margin-top:10px"></div>' +
+    '<p class="imp-note" style="margin:8px 0 0">מחפש בנכסים שלך, בנכסי המשרד ובנכסים ' +
+      'ששותפו איתך.</p>' +
+
+    '<button type="button" class="btn btn-ghost btn-block" data-agr="toggle-manual-prop"' +
+      ' style="margin-top:10px">✏️ הזנת נכס ידנית</button>' +
+    '<div id="agrManualProp" hidden style="margin-top:10px;border:1.5px dashed var(--line);' +
+      'border-radius:var(--radius-sm);padding:12px;background:#fff">' +
+      '<div class="agr-fields">' +
+        '<div class="agr-field"><label>סוג הנכס</label>' +
+          '<input type="text" id="agrMpType" list="agrPtypeList" placeholder="דירה"></div>' +
+        '<div class="agr-field"><label>עיר</label>' +
+          '<input type="text" id="agrMpCity" value="עפולה"></div>' +
+        '<div class="agr-field"><label>רחוב</label><input type="text" id="agrMpStreet"></div>' +
+        '<div class="agr-field"><label>מס׳ בית</label><input type="text" id="agrMpHouse"></div>' +
+        '<div class="agr-field"><label>מס׳ דירה</label><input type="text" id="agrMpApt"></div>' +
+        '<div class="agr-field"><label>מחיר מבוקש (₪)</label>' +
+          '<input type="number" id="agrMpPrice" min="0" step="1000"></div>' +
+      '</div>' +
+      `<datalist id="agrPtypeList">${
+        [...RESIDENTIAL_PTYPE_OPTIONS, ...COMMERCIAL_PTYPE_OPTIONS]
+          .map(o => `<option value="${esc(o)}"></option>`).join('')}</datalist>` +
+      '<button type="button" class="btn btn-gold btn-block" data-agr="add-manual-prop"' +
+        ' style="margin-top:10px">הוספת הנכס</button>' +
+      '<p class="imp-note" style="margin:8px 0 0">אלה השדות שנדרשים כדי לזהות את הנכס. ' +
+        'כל היתר נפתח לעריכה מיד למטה, ומה שיישאר ריק מודפס במסמך כקו.</p>' +
+    '</div>' +
+
+    '<div id="agrPropChips" style="margin-top:12px"></div>' +
     (tpl.propertyMode === 'single'
       ? '<p class="imp-note">בטופס הזה מתואר נכס אחד. בחירת נכס נוסף תחליף את הקיים.</p>'
       : '<p class="imp-note">אפשר לצרף כמה נכסים — כל אחד מהם יופיע במסמך בנפרד.</p>') +
   '</div>';
 
-  /* --- צדדים --- */
+  /* --- צדדים ---
+     אותו מחפש כמו בנכסים, ומאותה סיבה: קובץ לקוחות של מאות שורות ברשימה
+     נפתחת אחת אינו ניתן לשימוש בטלפון. --- */
   html += '<div class="agr-sec"><h4>הצדדים החותמים</h4>' +
-    '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end">' +
-      `<div class="agr-field" style="flex:1;min-width:190px"><label>מקובץ הלקוחות</label>
-         <select id="agrClientPick"><option value="">— בחרו לקוח/ה —</option>${clientOptions}</select></div>` +
-      '<button type="button" class="btn btn-ghost" data-agr="add-client" style="padding:9px 16px">הוספה</button>' +
-      '<button type="button" class="btn btn-ghost" data-agr="add-blank-signer" style="padding:9px 16px">הזנה ידנית</button>' +
+    '<div class="agr-search">' +
+      '<input type="search" id="agrClientSearch" class="filter-input" style="width:100%"' +
+        ' placeholder="חיפוש בקובץ הלקוחות — שם, טלפון, אימייל או עיר" autocomplete="off">' +
+      '<div class="agr-results" id="agrClientResults"></div>' +
     '</div>' +
-    '<div id="agrSignerForms" style="margin-top:10px"></div>' +
+    '<button type="button" class="btn btn-ghost btn-block" data-agr="add-blank-signer"' +
+      ' style="margin-top:10px">✏️ הזנת חותם/ת ידנית</button>' +
+    '<div id="agrSignerForms" style="margin-top:12px"></div>' +
     '<p class="imp-note">החותם/ת הראשון/ה מופיע/ה במסמך כ"בין", והשני/ה כ"ובין" — בן/בת זוג או שותף/ה. ' +
     'מספר תעודת זהות נדרש בהזמנת שירותי תיווך בכתב.</p>' +
   '</div>';
@@ -15388,11 +15437,125 @@ function agrRenderStepDetails(){
   agrRenderPropChips();
   agrRenderSignerForms();
   agrRenderPropFields();
+  agrRenderClientResults();
+
+  // נכסי המשרד נטענים ברקע; הרשימה מצטיירת מחדש כשהם מגיעים
+  agrRenderPropResults();
+  agrLoadAgencyProperties().then(()=>{ if (agrEl('agrPropResults')) agrRenderPropResults(); });
 }
 
 function agrPropertyLabel(p){
   const address = [p.street, p.house_number].filter(Boolean).join(' ');
   return [p.title, [address, p.city].filter(Boolean).join(', ')].filter(Boolean).join(' — ');
+}
+
+/* ==========================================================================
+   מאיפה מגיעים הנכסים לאשף
+   --------------------------------------------------------------------------
+   שלושה מאגרים, בדיוק אלה שמנוע ההתאמות כבר מצליב מולם: הנכסים של
+   הסוכן/ת, הנכסים של המשרד, ומה שמשרדי שת"פ שיתפו איתנו. הסכם תיווך נחתם
+   גם על נכס שאינו שלי — זה בדיוק מה ששת"פ הוא — ורשימה שמראה רק את הנכסים
+   שלי הייתה מכריחה להקליד אותו ידנית.
+
+   שניים מהשלושה כבר בזיכרון (‏myPropertyRows, ‏sharedWithMeRows). נכסי
+   המשרד נטענים פעם אחת, בפתיחה הראשונה של האשף: הם אינם דרושים לשום מסך
+   אחר, וטעינה מוקדמת שלהם הייתה שאילתה שרוב הכניסות ל-CRM לא צריכות.
+   ========================================================================== */
+
+const AGR_SOURCE_LABELS = { own:'שלי', agency:'המשרד', shared:'שותף איתי' };
+
+let agrAgencyPropertyRows = null;   // null = טרם נטען
+
+async function agrLoadAgencyProperties(){
+  if (agrAgencyPropertyRows) return agrAgencyPropertyRows;
+  agrAgencyPropertyRows = [];
+  if (!currentAgent || !currentAgent.agency_id) return agrAgencyPropertyRows;
+
+  const { data, error } = await sb.from('properties')
+    .select('id, listing_number, title, price, deal_type, property_type, rooms, floor, total_floors, ' +
+            'size_sqm, built_size_sqm, garden_sqm, city, street, house_number, sales_area, features, ' +
+            'condition, move_in_date, description, status, agent_id')
+    .eq('agency_id', currentAgent.agency_id)
+    .neq('agent_id', currentAgent.id)
+    .order('created_at', { ascending:false });
+
+  // ‏RLS כבר מגבילה למה שמותר לראות; שגיאה כאן רק מרוקנת את המאגר הזה
+  if (error) console.warn('טעינת נכסי המשרד לאשף ההסכמים נכשלה:', error);
+  agrAgencyPropertyRows = data || [];
+  return agrAgencyPropertyRows;
+}
+
+/* ‏shared_properties_for_me הוא view עם מפתח בשם אחר (‏property_id) ועם
+   חלק מהשדות בלבד. הנרמול כאן הוא מה שמאפשר לשלושת המאגרים לזרום דרך
+   אותו קוד מיפוי שדות. */
+function agrNormalizeShared(r){
+  return Object.assign({}, r, { id: r.property_id, agency_label: r.owner_agency_name });
+}
+
+function agrPropertyCandidates(){
+  const out = [];
+  (myPropertyRows || []).forEach(p => out.push({ source:'own', row:p }));
+  (agrAgencyPropertyRows || []).forEach(p => out.push({ source:'agency', row:p }));
+  (sharedWithMeRows || []).forEach(r => out.push({ source:'shared', row:agrNormalizeShared(r) }));
+  return out;
+}
+
+function agrCandidateById(id){
+  return agrPropertyCandidates().find(c => c.row.id === id) || null;
+}
+
+function agrCandidateBlob(c){
+  const p = c.row;
+  return [p.title, p.city, p.street, p.house_number, p.property_type, p.sales_area,
+          p.listing_number, p.agency_label, AGR_SOURCE_LABELS[c.source]]
+    .filter(Boolean).join(' ').toLowerCase();
+}
+
+/* ---------- רשימת התוצאות ----------
+   בלי חיפוש מוצגים שמונה האחרונים מכל המאגרים — מספיק כדי שברוב המקרים
+   הנכס כבר יהיה על המסך, ולא כל כך הרבה שהרשימה תחליף את הטופס. */
+function agrRenderPropResults(){
+  const host = agrEl('agrPropResults');
+  if (!host) return;
+  const q = (agrEl('agrPropSearch').value || '').trim().toLowerCase();
+  const picked = new Set(agrWizard.properties.map(p => p.property_id).filter(Boolean));
+
+  let rows = agrPropertyCandidates();
+  if (q) rows = rows.filter(c => agrCandidateBlob(c).includes(q));
+  const total = rows.length;
+  if (!q) rows = rows.slice(0, 8);
+
+  if (!total){
+    host.innerHTML = '<div class="agr-res-empty">' +
+      (q ? 'אין נכס שמתאים לחיפוש. אפשר להזין אותו ידנית.'
+         : 'אין נכסים במערכת — הזינו את הנכס ידנית.') + '</div>';
+    return;
+  }
+
+  host.innerHTML = rows.map(c => {
+    const p = c.row;
+    const address = [[p.street, p.house_number].filter(Boolean).join(' '), p.city].filter(Boolean).join(', ');
+    const bits = [
+      address,
+      p.property_type,
+      p.rooms ? p.rooms + ' חד׳' : '',
+      p.price ? shekel(p.price) : '',
+      c.source === 'shared' && p.agency_label ? '🤝 ' + p.agency_label : '',
+    ].filter(Boolean).join(' · ');
+    const isPicked = picked.has(p.id);
+    return `<button type="button" class="agr-res${isPicked ? ' is-picked' : ''}"
+              data-agr="pick-prop" data-id="${esc(p.id)}"${isPicked ? ' disabled' : ''}>
+        <span class="agr-src agr-src-${esc(c.source)}">${esc(AGR_SOURCE_LABELS[c.source])}</span>
+        <span class="agr-res-main">
+          <span class="agr-res-title">${esc(p.title || address || 'נכס ללא כותרת')}</span>
+          ${bits ? `<span class="agr-res-sub">${esc(bits)}</span>` : ''}
+        </span>
+        <span style="font-size:1.1rem;color:var(--teal)">${isPicked ? '✓' : '+'}</span>
+      </button>`;
+  }).join('') +
+  (q && total > rows.length ? '' : '') +
+  (!q && total > 8
+    ? `<div class="agr-res-empty">מוצגים 8 מתוך ${total} — הקלידו כדי לחפש</div>` : '');
 }
 
 function agrRenderPropChips(){
@@ -15403,22 +15566,34 @@ function agrRenderPropChips(){
     return;
   }
   host.innerHTML = agrWizard.properties.map(p =>
-    `<div class="agr-chip"><span>${esc(p.label)}</span>
-       <button type="button" class="x" data-agr="rm-prop" data-uid="${esc(p.uid)}" aria-label="הסרה">✕</button></div>`).join('');
+    `<div class="agr-chip">
+       <span style="min-width:0"><span class="agr-src agr-src-${esc(p.source)}">${
+         esc(AGR_SOURCE_LABELS[p.source] || 'ידני')}</span> ${esc(p.label)}</span>
+       <button type="button" class="x" data-agr="rm-prop" data-uid="${esc(p.uid)}" aria-label="הסרה">✕</button>
+     </div>`).join('');
 }
 
 /* מושך מהמערכת את מה שידוע על הנכס — כולל בעלים וגוש/חלקה, ששוכנים
-   בטבלאות נפרדות דווקא כי הם רגישים מכדי לשבת ב-properties. */
+   בטבלאות נפרדות דווקא כי הם רגישים מכדי לשבת ב-properties.
+
+   ‏שתי השאילתות רצות גם על נכס של המשרד ושל שת"פ, ושתיהן עשויות לחזור
+   ריקות: ה-RLS על property_owners ועל property_planning_info מצומצמת
+   לסוכן/ת שהנכס שלו/ה. זה לא כשל — הסוכן/ת ימלא/תמלא את מה שחסר, וזה
+   ממילא מידע שהוא/היא צריך/ה לאמת מול הבעלים לפני שהוא נכנס להסכם. */
 async function agrAddProperty(propertyId, opts){
   const w = agrWizard;
   const tpl = agrTpl(w.kind);
-  const p = myPropertyRows.find(x => x.id === propertyId);
-  if (!p) return;
+  const cand = agrCandidateById(propertyId);
+  if (!cand) return;
   if (w.properties.some(x => x.property_id === propertyId)) return;
+  const p = cand.row;
 
   const [ownerRes, planRes] = await Promise.all([
     sb.from('property_owners').select('*').eq('property_id', propertyId).maybeSingle(),
-    sb.from('property_planning_info').select('gush, helka').eq('property_id', propertyId).maybeSingle(),
+    // הנכסים שלי כבר נשאלו פעם אחת בטעינת הדשבורד — אין טעם בשאילתה שנייה
+    propertyPlanningInfo[propertyId]
+      ? Promise.resolve({ data: propertyPlanningInfo[propertyId] })
+      : sb.from('property_planning_info').select('gush, helka').eq('property_id', propertyId).maybeSingle(),
   ]);
   const owner = ownerRes.data || null;
   const planning = planRes.data || null;
@@ -15429,8 +15604,8 @@ async function agrAddProperty(propertyId, opts){
   });
 
   const entry = {
-    uid: agrNextUid(), property_id: propertyId, label: agrPropertyLabel(p),
-    fields, notes: p.description || '',
+    uid: agrNextUid(), property_id: propertyId, source: cand.source,
+    label: agrPropertyLabel(p), fields, notes: p.description || '',
   };
 
   if (tpl && tpl.propertyMode === 'single') w.properties = [entry];
@@ -15449,16 +15624,50 @@ async function agrAddProperty(propertyId, opts){
     agrRenderPropChips();
     agrRenderPropFields();
     agrRenderSignerForms();
+    agrRenderPropResults();
   }
 }
 
-function agrAddBlankProperty(){
+/* ---------- הזנה ידנית ----------
+   ששת השדות כאן הם מה שנדרש כדי לזהות נכס, ולא כל מה שמופיע במסמך. השאר
+   נפתח מיד למטה בטופס המלא — כך שנכס שאינו במערכת נכנס בשלוש-עשרה שניות
+   ולא בשלושים ושמונה שדות. */
+function agrAddManualProperty(){
   const tpl = agrTpl(agrWizard.kind);
+  const val = id => (agrEl(id) ? agrEl(id).value.trim() : '');
+  const seed = {
+    property_type: val('agrMpType'),
+    city:          val('agrMpCity'),
+    street:        val('agrMpStreet'),
+    address:       val('agrMpStreet'),   // ‏sell/landlord קוראים לרחוב "כתובת"
+    house_number:  val('agrMpHouse'),
+    apartment_number: val('agrMpApt'),
+    price:         val('agrMpPrice'),
+  };
+
+  if (!seed.property_type && !seed.street && !seed.city){
+    showToast('מלאו לפחות סוג נכס, רחוב או עיר');
+    return;
+  }
+
   const fields = {};
-  tpl.propertyFields.forEach(f => { fields[f.key] = ''; });
-  const entry = { uid: agrNextUid(), property_id:null, label:'נכס במילוי ידני', fields, notes:'' };
+  tpl.propertyFields.forEach(f => { fields[f.key] = seed[f.key] || ''; });
+
+  const address = [seed.street, seed.house_number].filter(Boolean).join(' ');
+  const entry = {
+    uid: agrNextUid(), property_id: null, source: 'manual',
+    label: [seed.property_type, [address, seed.city].filter(Boolean).join(', ')]
+      .filter(Boolean).join(' — ') || 'נכס במילוי ידני',
+    fields, notes: '',
+  };
+
   if (tpl.propertyMode === 'single') agrWizard.properties = [entry];
   else agrWizard.properties.push(entry);
+
+  ['agrMpType','agrMpStreet','agrMpHouse','agrMpApt','agrMpPrice']
+    .forEach(id => { if (agrEl(id)) agrEl(id).value = ''; });
+  agrEl('agrManualProp').hidden = true;
+
   agrRenderPropChips();
   agrRenderPropFields();
 }
@@ -15501,6 +15710,45 @@ function agrRenderPropFields(){
   }).join('<hr style="border:none;border-top:1px dashed var(--line);margin:14px 0">');
 }
 
+/* ---------- תוצאות קובץ הלקוחות ----------
+   בלי חיפוש מוצגים שמונה האחרונים, כמו בנכסים. מי שכבר נבחר/ה מסומן/ת
+   ואינו/ה ניתן/ת ללחיצה — הוספה כפולה של אותו/ה לקוח/ה כחותם/ת היא שגיאה
+   שקטה שמתגלה רק במסמך. */
+function agrRenderClientResults(){
+  const host = agrEl('agrClientResults');
+  if (!host) return;
+  const q = (agrEl('agrClientSearch').value || '').trim().toLowerCase();
+  const picked = new Set(agrWizard.signers.map(s => s.client_id).filter(Boolean));
+
+  let rows = clientRows || [];
+  if (q) rows = rows.filter(c => clientSearchBlob(c).includes(q));
+  const total = rows.length;
+  if (!q) rows = rows.slice(0, 8);
+
+  if (!total){
+    host.innerHTML = '<div class="agr-res-empty">' +
+      (q ? 'אין לקוח/ה שמתאים/ה לחיפוש. אפשר להזין ידנית.'
+         : 'קובץ הלקוחות ריק — הזינו את החותם/ת ידנית.') + '</div>';
+    return;
+  }
+
+  host.innerHTML = rows.map(c => {
+    const bits = [c.phone, c.email, (c.cities || []).join(', ')].filter(Boolean).join(' · ');
+    const isPicked = picked.has(c.id);
+    return `<button type="button" class="agr-res${isPicked ? ' is-picked' : ''}"
+              data-agr="pick-client" data-id="${esc(c.id)}"${isPicked ? ' disabled' : ''}>
+        <span class="agr-src agr-src-own">${esc(CLIENT_STATUS_LABELS[c.status] || c.status)}</span>
+        <span class="agr-res-main">
+          <span class="agr-res-title">${esc(c.full_name)}</span>
+          ${bits ? `<span class="agr-res-sub">${esc(bits)}</span>` : ''}
+        </span>
+        <span style="font-size:1.1rem;color:var(--teal)">${isPicked ? '✓' : '+'}</span>
+      </button>`;
+  }).join('') +
+  (!q && total > 8
+    ? `<div class="agr-res-empty">מוצגים 8 מתוך ${total} — הקלידו כדי לחפש</div>` : '');
+}
+
 function agrAddClientSigner(clientId, opts){
   const c = clientRows.find(x => x.id === clientId);
   if (!c) return;
@@ -15510,7 +15758,10 @@ function agrAddClientSigner(clientId, opts){
     full_name: c.full_name || '', id_number: c.id_number || '', phone: c.phone || '',
     email: c.email || '', address: c.address || '', client_id: c.id,
   });
-  if (!(opts && opts.silent)) agrRenderSignerForms();
+  if (!(opts && opts.silent)){
+    agrRenderSignerForms();
+    agrRenderClientResults();
+  }
 }
 
 function agrAddBlankSigner(){
@@ -15519,6 +15770,7 @@ function agrAddBlankSigner(){
     full_name:'', id_number:'', phone:'', email:'', address:'', client_id:null,
   });
   agrRenderSignerForms();
+  agrRenderClientResults();
 }
 
 function agrRenderSignerForms(){
@@ -15988,27 +16240,27 @@ agrEl('agrModal').addEventListener('click', async (e)=>{
   if (act === 'back-to-details'){ agrWizard.step = 2; return agrRender(); }
   if (act === 'to-preview'){ agrCollectDetails(); agrWizard.step = 3; return agrRender(); }
   if (act === 'to-sign') return agrSaveAndGoSign(btn);
-  if (act === 'add-prop'){
-    const id = agrEl('agrPropPick').value;
-    if (id) await agrAddProperty(id);
+  if (act === 'pick-prop') return agrAddProperty(btn.dataset.id);
+  if (act === 'toggle-manual-prop'){
+    const box = agrEl('agrManualProp');
+    box.hidden = !box.hidden;
+    if (!box.hidden) agrEl('agrMpType').focus();
     return;
   }
-  if (act === 'add-prop-blank') return agrAddBlankProperty();
+  if (act === 'add-manual-prop') return agrAddManualProperty();
   if (act === 'rm-prop'){
     agrWizard.properties = agrWizard.properties.filter(p => p.uid !== btn.dataset.uid);
     agrRenderPropChips();
-    return agrRenderPropFields();
+    agrRenderPropFields();
+    return agrRenderPropResults();
   }
-  if (act === 'add-client'){
-    const id = agrEl('agrClientPick').value;
-    if (id) agrAddClientSigner(id);
-    return;
-  }
+  if (act === 'pick-client') return agrAddClientSigner(btn.dataset.id);
   if (act === 'add-blank-signer') return agrAddBlankSigner();
   if (act === 'rm-signer'){
     agrWizard.signers = agrWizard.signers.filter(s => s.uid !== btn.dataset.uid);
     agrWizard.signers.forEach((s, i) => { s.party = i === 0 ? 'client' : 'partner'; });
-    return agrRenderSignerForms();
+    agrRenderSignerForms();
+    return agrRenderClientResults();
   }
   if (act === 'save-sign') return agrSaveManualSignature(btn.dataset.signer, btn);
   if (act === 'clear-sign'){
@@ -16063,7 +16315,10 @@ agrEl('agrBody').addEventListener('input', async (e)=>{
   if (t.dataset.agrSf){
     const signer = agrWizard.signers.find(s => s.uid === t.dataset.agrSf);
     if (signer) signer[t.dataset.key] = t.value;
+    return;
   }
+  if (t.id === 'agrPropSearch') return agrRenderPropResults();
+  if (t.id === 'agrClientSearch') agrRenderClientResults();
 });
 
 agrEl('agrClose').addEventListener('click', agrCloseWizard);
