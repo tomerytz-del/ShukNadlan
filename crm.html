@@ -1520,6 +1520,15 @@
   .view-switch button[aria-pressed="true"]{background:var(--navy);color:#fff}
   .view-switch button:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
   @media(max-width:620px){.view-switch button{padding:6px 9px;font-size:.68rem}}
+  /* אותו מתג בדיוק, בתוך גוף אקורדיון ולא בכותרת: פעילים מול ארכיון
+     בקטגוריית הלידים. רק המרווח מתחתיו נוסף — שאר השפה כבר מוגדרת. */
+  .lead-switch{margin-bottom:12px}
+  /* כרטיס בארכיון הוא אותו כרטיס במשטח ניטרלי. הצבע שמסמן את צד הליד (זהב
+     לבעל/ת נכס, כחול למתעניין/ת) הוא שפת ה"מה דחוף עכשיו", ובלשונית שכל
+     כולה דברים שהורדו מהמסך בכוונה הוא כבר לא מפריד בין כלום. ‏opacity על
+     הכרטיס כולו היה מעמעם גם את הכפתורים — וההחזרה מהארכיון היא הפעולה
+     שבגללה נכנסים לכאן. */
+  .acc-body .card.lead-card.is-archived{background:var(--surface-2);border-inline-start-color:#cbd5e1}
 
   /* ---------- פאנל לידים חמים ---------- */
   .panel{background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-xl);box-shadow:var(--sh-1);padding:20px;overflow:hidden}
@@ -2383,6 +2392,18 @@
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
+        <!-- ====== פעילים / ארכיון ======
+             הקטגוריה הזו רק צוברת: כל ליד שנכנס אי פעם נשאר בה לנצח, והליד
+             שהגיע הבוקר יושב בראש רשימה של מאות כרטיסים שכבר נסגרו. המתג
+             מוריד מהמסך את מה שכבר טופל בלי למחוק אותו — הארכיון הוא לשונית
+             מלאה עם אותם כרטיסים ואותם כפתורים, והחזרה משם היא לחיצה אחת.
+
+             מוסתר כשאין ארכיון וגם אין לידים: מתג שמציע "פעילים / ארכיון (0)"
+             מעל רשימה ריקה הוא שאלה על משהו שעוד לא קרה. -->
+        <div class="view-switch lead-switch" id="leadsSwitch" role="group" aria-label="מעבר בין לידים פעילים לארכיון" hidden>
+          <button type="button" data-leads-view="active" aria-pressed="true">פעילים · <span id="leadsActiveCount">0</span></button>
+          <button type="button" data-leads-view="archived" aria-pressed="false">ארכיון · <span id="leadsArchivedCount">0</span></button>
+        </div>
         <div id="leadsList"></div>
       </div>
     </details>
@@ -11163,34 +11184,135 @@ async function impDownloadErrors(rows){
 document.getElementById('openImportProperties').addEventListener('click', impOpen);
 document.getElementById('impClose').addEventListener('click', impClose);
 
+/* ---------- ארכיון הלידים ----------
+   הקטגוריה צוברת לנצח: כל ליד שנכנס אי פעם נשאר בה, והליד שהגיע הבוקר יושב
+   בראש רשימה של מאות שכבר נסגרו. הארכיון הוא הדרך להוריד כרטיס מהמסך *בלי*
+   למחוק אותו — הליד, הבעלות עליו והחיוב שכבר נגבה לא משתנים, וההחזרה היא
+   מחיקת שורה בטבלת ‎lead_archives‎.
+
+   מה שהארכוב משנה בפועל: הכרטיס עובר ללשונית הארכיון, יורד מהמונה שבכותרת
+   ויורד מפאנל "הלידים החמים". השלישייה הזו היא כל העניין — ליד מטופל שממשיך
+   לצוץ בתור הדחוף הוא בדיוק הרעש שהפעולה נועדה להוריד.
+
+   ‏Set של מזהים ולא שדה על הליד: ‎leads_masked‎ הוא ה-view שהדשבורד קורא,
+   והוא לא מכיר את הארכיון. */
+let archivedLeadIds = new Set();
+let allLeads = [];
+let leadsView = 'active';
+
+/* המתג יושב ב-HTML ולא נבנה מחדש בכל רינדור, ולכן המאזין נרשם פעם אחת.
+   ‏currentAgent הוא מקור ה-agentId גם כאן: ‎renderLeads‎ מעביר אותו הלאה
+   לכפתורי הארכוב שבכרטיסים. */
+document.getElementById('leadsSwitch').addEventListener('click', (e)=>{
+  const btn = e.target.closest('[data-leads-view]');
+  if (!btn || btn.dataset.leadsView === leadsView) return;
+  leadsView = btn.dataset.leadsView;
+  renderLeads(currentAgent?.id);
+});
+
+/* טבלה שטרם נוצרה (המיגרציה לא הורצה) מחזירה 42P01. הדשבורד לא נופל בגללה:
+   בלי ארכיון פשוט אין מה להסתיר, וכל הלידים נשארים ברשימה הפעילה — בדיוק
+   ההתנהגות שהייתה לפני התכונה. */
+async function loadArchivedLeadIds(agentId){
+  const { data, error } = await sb
+    .from('lead_archives')
+    .select('lead_id')
+    .eq('agent_id', agentId);
+  if (error){
+    if (error.code !== '42P01') console.warn('טעינת ארכיון הלידים נכשלה:', error.message);
+    return new Set();
+  }
+  return new Set((data || []).map(r => r.lead_id));
+}
+
+async function archiveLead(lead, btn, agentId){
+  btn.disabled = true;
+  const { error } = await sb.from('lead_archives').insert({ lead_id: lead.id, agent_id: agentId });
+  btn.disabled = false;
+  if (error){
+    showToast(error.code === '42P01'
+      ? 'הארכיון עדיין לא קיים — הריצו את המיגרציה 20260924090000_lead_archive.sql ב-Supabase.'
+      : 'העברה לארכיון נכשלה: ' + error.message);
+    return;
+  }
+  archivedLeadIds.add(lead.id);
+  showToast('הליד הועבר לארכיון');
+  renderLeads(agentId);
+}
+
+async function unarchiveLead(lead, btn, agentId){
+  btn.disabled = true;
+  const { error } = await sb.from('lead_archives').delete().eq('lead_id', lead.id);
+  btn.disabled = false;
+  if (error){ showToast('החזרה מהארכיון נכשלה: ' + error.message); return; }
+  archivedLeadIds.delete(lead.id);
+  showToast('הליד חזר לרשימה הפעילה');
+  renderLeads(agentId);
+}
+
 async function loadLeads(agentId){
   const listEl = document.getElementById('leadsList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
 
-  const { data: leads, error } = await sb
-    .from('leads_masked')
-    .select('*')
-    .eq('agent_id', agentId)
-    .order('created_at', { ascending:false });
+  // שתי השאילתות אינן תלויות זו בזו, ובטעינת דשבורד שממילא מריצה עשר
+  // טעינות בזו אחר זו אין סיבה לשלם על השנייה בהמתנה נפרדת.
+  const [{ data: leads, error }, archived] = await Promise.all([
+    sb.from('leads_masked')
+      .select('*')
+      .eq('agent_id', agentId)
+      .order('created_at', { ascending:false }),
+    loadArchivedLeadIds(agentId),
+  ]);
 
   if (error){
     listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת לידים: ' + error.message + '</div>';
     return;
   }
-  // המונה בכותרת מציג לידים שעדיין לא נפתחו — זה מה שדורש טיפול
-  accSetCount('accLeads', (leads||[]).filter(l => l.status !== 'unlocked').length);
-  dashLeads = leads || [];
+  archivedLeadIds = archived;
+  allLeads = leads || [];
+  renderLeads(agentId);
+}
+
+/* הפרדה בין הטעינה לתצוגה: מעבר בין הלשוניות וארכוב של כרטיס בודד מציירים
+   מחדש מהנתונים שכבר ביד, בלי לחזור לשרת. */
+function renderLeads(agentId){
+  const listEl = document.getElementById('leadsList');
+  const active   = allLeads.filter(l => !archivedLeadIds.has(l.id));
+  const archived = allLeads.filter(l =>  archivedLeadIds.has(l.id));
+
+  // המונה בכותרת מציג לידים שעדיין לא נפתחו — זה מה שדורש טיפול. ליד שארוכב
+  // הוצא מהמסך בכוונה, ולכן הוא לא נספר גם אם לא נפתח.
+  accSetCount('accLeads', active.filter(l => l.status !== 'unlocked').length);
+  dashLeads = active;
   renderHotLeads();
-  if (!leads || leads.length === 0){
-    listEl.innerHTML = '<div class="empty-state">אין עדיין לידים משויכים אליך.<br>ברגע שמתעניין יפנה על אחד הנכסים שלך, הוא יופיע כאן.</div>';
+
+  const sw = document.getElementById('leadsSwitch');
+  document.getElementById('leadsActiveCount').textContent = active.length;
+  document.getElementById('leadsArchivedCount').textContent = archived.length;
+  // המתג מופיע רק כשיש בין מה למה לעבור. עד אז הוא שאלה על משהו שלא קיים.
+  sw.hidden = archived.length === 0;
+  if (sw.hidden) leadsView = 'active';
+  sw.querySelectorAll('[data-leads-view]').forEach(b =>
+    b.setAttribute('aria-pressed', b.dataset.leadsView === leadsView ? 'true' : 'false'));
+
+  const showing = leadsView === 'archived' ? archived : active;
+  if (showing.length === 0){
+    listEl.innerHTML = '<div class="empty-state">' + (
+      leadsView === 'archived'
+        ? 'אין לידים בארכיון.'
+        : (allLeads.length === 0
+            ? 'אין עדיין לידים משויכים אליך.<br>ברגע שמתעניין יפנה על אחד הנכסים שלך, הוא יופיע כאן.'
+            : 'כל הלידים שלך בארכיון. עברו ללשונית הארכיון כדי להחזיר מהם.')
+    ) + '</div>';
     return;
   }
 
   listEl.innerHTML = '';
-  leads.forEach(lead=>{
+  showing.forEach(lead=>{
+    const isArchived = archivedLeadIds.has(lead.id);
     const kind = leadKind(lead);
     const el = document.createElement('div');
-    el.className = 'card lead-card ' + kind.cls;
+    el.className = 'card lead-card ' + kind.cls + (isArchived ? ' is-archived' : '');
     el.dataset.leadId = lead.id;
     const statusLabel = lead.status === 'unlocked' ? 'פתוח' : (lead.status === 'pending_charge' ? 'בתהליך פתיחה' : 'מוסתר');
     const dealLabel = lead.deal_type === 'rent' ? 'השכרה' : (lead.deal_type === 'sale' ? 'מכירה' : '');
@@ -11238,6 +11360,17 @@ async function loadLeads(agentId){
         onClick: btn => copyReviewLink(lead.id, btn),
       });
     }
+    /* הארכוב אחרון בשורת הפעולות ועל רוחב מלא: הוא לא מתחרה על העין עם
+       "פתיחת ליד" או "בקשת חוות דעת" — הוא מה שעושים *אחרי* שסיימו. */
+    addCardAction(actions, isArchived ? {
+      label:'↩️ החזרה מהארכיון', cls:'btn-ghost act-wide',
+      title:'הליד יחזור לרשימת הלידים הפעילים',
+      onClick: btn => unarchiveLead(lead, btn, agentId),
+    } : {
+      label:'🗄️ העברה לארכיון', cls:'btn-ghost act-wide',
+      title:'הליד יורד מהרשימה ומהתור החם ונשמר בארכיון — אפשר להחזיר אותו בכל רגע',
+      onClick: btn => archiveLead(lead, btn, agentId),
+    });
     listEl.appendChild(el);
   });
 }
@@ -14205,7 +14338,10 @@ function renderHotLeads(){
   accSetCount('accHotLeads', hot.length);
 
   if (hot.length === 0){
-    body.innerHTML = dashLeads.length === 0
+    // ‏allLeads ולא dashLeads: השני כבר מסונן מארכיון, וסוכן/ת שארכב/ה את כל
+    // הלידים שלו/ה היה/תה מקבל/ת "אין עדיין לידים משויכים אליך" — משפט על
+    // מצב שאינו נכון.
+    body.innerHTML = allLeads.length === 0
       ? '<div class="empty-state">אין עדיין לידים משויכים אליך. ברגע שמתעניין יפנה על אחד הנכסים שלך, הוא יופיע כאן.</div>'
       : '<div class="empty-state">כל הכבוד — כל הלידים שלך כבר פתוחים ומטופלים. 🎉</div>';
     return;

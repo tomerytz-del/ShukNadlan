@@ -48,6 +48,34 @@
     interior_main: 'חלל העסק',
   };
 
+  /* אותו יעד, שם אחר לפי קטגוריית הנכס. בדף של חנות או משרד הרצועה הציגה
+     "חלל העסק" ליד "חזית הבית" — שתי תוויות שמדברות על אותו נכס בשתי
+     שפות, ואחת מהן מדברת על בית שאינו קיים. מה שנשאר בחוץ חשוב לא פחות:
+     שאר החללים (סלון, מטבח) אינם מופיעים בנכס מסחרי בכלל, ולכן אין להם
+     כאן גרסה. */
+  var COMMERCIAL_TARGET_LABELS = {
+    exterior: 'חזית העסק',
+  };
+
+  /* אותו סימן שהכפתור "הדמיית AI לנכס" נושא בדף הנכס — כוכב גדול וניצוץ
+     קטן לצדו. תגית שכתוב עליה רק "הדמיה" באותיות זהב נקראה כתווית טכנית;
+     הסימן הזה הוא כבר השפה שבה האתר מסמן תוכן שנוצר ב-AI (האריחים, התגית
+     שברצועות, הכפתור על התמונה הראשית), והתגית מצטרפת אליה במקום להמציא
+     סימון שני לאותו דבר. */
+  var SPARKLE_SVG =
+    '<svg class="ai-spark" viewBox="0 0 24 24" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<path d="m12 3 1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9Z"/>' +
+      '<path d="M18 16.5 18.7 18l1.5.7-1.5.7L18 21l-.7-1.6-1.5-.7 1.5-.7Z"/>' +
+    '</svg>';
+
+  function targetLabel(opts, target) {
+    if (opts && opts.commercial && COMMERCIAL_TARGET_LABELS[target]) {
+      return COMMERCIAL_TARGET_LABELS[target];
+    }
+    return TARGET_LABELS[target] || 'הנכס';
+  }
+
   function esc(s) {
     return String(s == null ? '' : s)
       .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
@@ -158,6 +186,15 @@
        השנייה, וקוראים שהאמינו לתווית ראו את הצילום כהדמיה ולהפך. */
     '.ai-label-before{inset-inline-start:10px}',
     '.ai-label-after{inset-inline-end:10px;background:rgba(201,162,39,.92);color:#0d1b3d}',
+    /* תמונה בודדת (בלי "לפני") אינה חצי של השוואה, ולכן היא לא נושאת את
+       תווית ה"אחרי" הזהובה אלא את סימון ה-AI של האתר: לוח לבן, כיתוב
+       כהה וניצוץ זהב בצד — אותו מראה בדיוק של הכפתור "הדמיית AI לנכס"
+       שיושב על התמונה הראשית של אותו עמוד.
+       הכלל בא *אחרי* ‎.ai-label-after‎ בכוונה: לשניהם אותה ספציפיות,
+       והמאוחר בקובץ הוא שגובר על הרקע ועל צבע הטקסט. */
+    '.ai-label-ai{display:inline-flex;align-items:center;gap:6px;letter-spacing:normal;',
+    '  background:rgba(255,255,255,.92);color:#0d1b3d}',
+    '.ai-label-ai .ai-spark{width:14px;height:14px;flex:none;color:#c9a227}',
     '.ai-compare-caption{margin:9px 0 0;font-size:12px;color:#8b97ba}',
     /* אותו יחס גובה-רוחב של הווילון: הצד הזה של התיבה לא קורס בין סגנון
        שיש לו הדמיה לסגנון שאין לו. */
@@ -321,7 +358,7 @@
      הכיתוב מתחת לווילון כן נושא את שם הסגנון: הוא אחד, והוא מה שמסביר
      מה בדיוק רואים. */
   function pairCaption(opts, it) {
-    return TARGET_LABELS[it.target] || 'הנכס';
+    return targetLabel(opts, it.target);
   }
 
   function leadCaption(opts, it) {
@@ -373,7 +410,7 @@
   }
 
   function propertyCompareHtml(opts, it) {
-    var where = TARGET_LABELS[it.target] || 'הנכס';
+    var where = targetLabel(opts, it.target);
     var before = beforeUrl(opts, it);
     var caption = leadCaption(opts, it);
 
@@ -381,7 +418,7 @@
       return '' +
         '<div class="ai-compare" data-single>' +
           '<img src="' + esc(it.result_url) + '" alt="הדמיה של ' + esc(where) + '" loading="lazy">' +
-          '<span class="ai-label ai-label-after">הדמיה</span>' +
+          '<span class="ai-label ai-label-after ai-label-ai">' + SPARKLE_SVG + 'הדמיית AI</span>' +
         '</div>' +
         '<p class="ai-compare-caption">' + esc(caption) + '</p>';
     }
@@ -477,7 +514,7 @@
                 (pairs.length > 1
                   /* בלי כותרת מעל הרצועה. כל אריח נושא את שם החלל שלו,
                      ושורה שאומרת "עוד חללים בנכס" מעל שורת אריחים שכתוב
-                     עליהם "חלל העסק" ו"חזית הבית" רק חוזרת עליהם בקול. */
+                     עליהם "חלל העסק" ו"חזית העסק" רק חוזרת עליהם בקול. */
                   ? '<div class="ai-strip" style="--ai-cols:' +
                       Math.min(pairs.length, PROPERTY_STRIP_LIMIT, 3) + '">' +
                       pairs.slice(0, PROPERTY_STRIP_LIMIT).map(function (it, i) {
