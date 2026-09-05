@@ -171,6 +171,27 @@
   .pm-body div:first-child{color:var(--ink);font-weight:700;font-size:.92rem}
   .pm-price{margin:14px 0;padding:12px 14px;border-radius:var(--radius-sm);background:var(--gold-tint);color:var(--gold-dark);font-weight:800;text-align:center;font-size:.95rem}
   .pm-price.free{background:var(--teal-tint);color:var(--teal)}
+  /* ---------- יתרת הארנק בתוך דיאלוג הרכישה ----------
+     הסכום לחיוב לבדו לא עונה על השאלה היחידה שנשאלת לפני "אישור": יש לי
+     מספיק? היתרה נקראת מחדש מהשרת ברגע פתיחת החלון (ולא מהמסך, שיכול להיות
+     ישן בכמה רכישות), ומתחתיה השורה שבאמת מעניינת — מה יישאר אחרי. כשאין
+     כיסוי הכפתור נחסם והקישור לטעינה הופך לפעולה הראשית, כדי שהמסלול יהיה
+     "לטעון ולחזור" ולא "לאשר ולקבל שגיאה". */
+  .pm-wallet{margin:-4px 0 14px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 13px;background:var(--paper-raised)}
+  .pm-wallet[hidden]{display:none}
+  .pm-wallet-row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.83rem;color:var(--ink-soft)}
+  .pm-wallet-row + .pm-wallet-row{margin-top:5px;padding-top:5px;border-top:1px dashed var(--line)}
+  .pm-wallet-row b{color:var(--ink);font-weight:800;font-variant-numeric:tabular-nums}
+  .pm-wallet.is-short .pm-wallet-row b#pmWalletAfter{color:var(--gold-dark)}
+  .pm-wallet-note{margin:8px 0 0;font-size:.78rem;line-height:1.5;color:var(--gold-dark);font-weight:700}
+  .pm-wallet-note[hidden]{display:none}
+  .pm-wallet-link{
+    margin-top:9px;width:100%;background:transparent;border:1.5px solid var(--line);border-radius:var(--radius-sm);
+    padding:8px 12px;font-size:.8rem;font-weight:800;color:var(--teal);cursor:pointer;
+  }
+  .pm-wallet-link:hover{background:#fff;border-color:var(--teal)}
+  .pm-wallet.is-short .pm-wallet-link{background:var(--gold);border-color:var(--gold);color:#fff}
+  .pm-wallet.is-short .pm-wallet-link:hover{background:var(--gold-dark);border-color:var(--gold-dark)}
   .pm-ack{display:flex;align-items:flex-start;gap:9px;font-size:.83rem;line-height:1.45;background:var(--paper-raised);border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;cursor:pointer}
   .pm-actions{display:flex;gap:8px;margin-top:16px}
   .pm-actions .btn{flex:1}
@@ -4136,6 +4157,14 @@
     <div class="pm-title" id="pmTitle">אישור רכישה</div>
     <div class="pm-body" id="pmBody"></div>
     <div class="pm-price" id="pmPrice"></div>
+    <!-- היתרה לפני החיוב, מה יישאר אחריו, וקיצור דרך לטעינה. מוצג רק
+         ברכישות בתשלום (ראו confirmPurchase). -->
+    <div class="pm-wallet" id="pmWallet" hidden>
+      <div class="pm-wallet-row"><span>יתרת הארנק</span><b id="pmWalletNow">—</b></div>
+      <div class="pm-wallet-row"><span>אחרי החיוב</span><b id="pmWalletAfter">—</b></div>
+      <p class="pm-wallet-note" id="pmWalletNote" hidden></p>
+      <button type="button" class="pm-wallet-link" id="pmWalletTopup">טעינת הארנק ←</button>
+    </div>
     <label class="pm-ack" id="pmAckWrap">
       <input type="checkbox" id="pmAck">
       <span id="pmAckText"></span>
@@ -4458,6 +4487,29 @@ function shelfKind(side){
    את אותו "אישרתי שוב שאני בטוח/ה" — ניתוק סוכן/ת מהמשרד הוא כזה. תיבת
    הסימון היא מה שהופך לחיצה מהירה להחלטה, ולכן עדיף להשתמש בדיאלוג הקיים
    מאשר לשרשר שני confirm() של הדפדפן זה אחרי זה. */
+/* ---------- יתרת הארנק ----------
+   מספר אחד בשלושה מקומות (פס המדדים, כותרת קטגוריית הארנק ודיאלוג הרכישה),
+   ולכן כתיבה אחת: כל מי שמעדכן יתרה עובר דרך כאן ולא מרענן חצי מסך.        */
+function setAgentBalance(value){
+  const n = Number(value) || 0;
+  if (currentAgent) currentAgent.credit_balance = n;
+  const el = document.getElementById('creditBalance');
+  if (el) el.textContent = shekel(n);
+  accSetCount('accWallet', shekel(n));
+  return n;
+}
+
+/* היתרה שעל המסך מתיישנת אחרי כל רכישה, וברגע שמציגים אותה לפני חיוב היא
+   חייבת להיות אמיתית. השאילתה היא שורה אחת, והחלון כבר פתוח בזמן שהיא רצה —
+   לכן היא לא מעכבת כלום. נכשלה? נשארים עם מה שידוע, בלי להיתקע. */
+async function refreshAgentBalance(){
+  if (!currentAgent) return 0;
+  const { data, error } = await sb.from('agency_members')
+    .select('credit_balance').eq('id', currentAgent.id).single();
+  if (error || !data) return Number(currentAgent.credit_balance) || 0;
+  return setAgentBalance(data.credit_balance);
+}
+
 function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel, requireAck = false, hidePrice = false }){
   const overlay   = document.getElementById('purchaseModal');
   const ackBox    = document.getElementById('pmAck');
@@ -4465,8 +4517,13 @@ function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel, 
   const confirmBtn= document.getElementById('pmConfirm');
   const cancelBtn = document.getElementById('pmCancel');
   const priceEl   = document.getElementById('pmPrice');
+  const walletEl  = document.getElementById('pmWallet');
+  const topupBtn  = document.getElementById('pmWalletTopup');
+  const noteEl    = document.getElementById('pmWalletNote');
   const paid = Number(price) > 0;
   const needAck = paid || requireAck;      // מה שמדליק את כפתור האישור
+  const showWallet = paid && !hidePrice;
+  let enough = true;                       // מתעדכן כשהיתרה האמיתית חוזרת
 
   document.getElementById('pmTitle').textContent = title;
   document.getElementById('pmBody').innerHTML = lines.map(l => `<div>${esc(l)}</div>`).join('');
@@ -4480,19 +4537,53 @@ function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel, 
   ackBox.checked = false;
   confirmBtn.textContent = confirmLabel || (paid ? `אישור רכישה וחיוב ${shekel(price)}` : 'אישור');
   confirmBtn.disabled = needAck;           // נדלק רק אחרי סימון ה"אני מבין/ה"
+
+  /* היתרה מצוירת פעמיים: מיד מהערך שביד, כדי שהחלון לא ייפתח על מקף, ושוב
+     כשהקריאה לשרת חוזרת. אין כיסוי — הכפתור נחסם וההצעה היא לטעון. */
+  function paintWallet(balance){
+    const after = balance - Number(price);
+    enough = after >= 0;
+    document.getElementById('pmWalletNow').textContent   = shekel(balance);
+    // אין כיסוי? השורה מודדת את החוסר ולא מציגה "₪0" שנשמע כמו יתרה
+    document.getElementById('pmWalletAfter').textContent =
+      enough ? shekel(after) : `חסרים ${shekel(Math.abs(after))}`;
+    walletEl.classList.toggle('is-short', !enough);
+    noteEl.hidden = enough;
+    if (!enough) noteEl.textContent = 'טענו את הארנק וחזרו לרכישה — הסכום ייגבה רק באישור.';
+    topupBtn.textContent = enough ? 'טעינת הארנק ←' : 'טעינת הארנק עכשיו ←';
+    syncConfirm();
+  }
+
+  function syncConfirm(){
+    confirmBtn.disabled = (needAck && !ackBox.checked) || (showWallet && !enough);
+  }
+
+  walletEl.hidden = !showWallet;
+  if (showWallet){
+    paintWallet(Number(currentAgent && currentAgent.credit_balance) || 0);
+    refreshAgentBalance().then(balance => {
+      // החלון אולי כבר נסגר בינתיים — אז אין למי לצייר
+      if (overlay.style.display !== 'none') paintWallet(balance);
+    });
+  }
+
   overlay.style.display = 'flex';
 
   return new Promise(resolve => {
-    const onAck     = ()=> { confirmBtn.disabled = needAck && !ackBox.checked; };
+    const onAck     = ()=> syncConfirm();
     const onConfirm = ()=> { if (!confirmBtn.disabled) done(true); };
     const onCancel  = ()=> done(false);
     const onKey     = (e)=> { if (e.key === 'Escape') done(false); };
     const onBackdrop= (e)=> { if (e.target === overlay) done(false); };
+    // הרכישה מבוטלת ולא "ממתינה ברקע": אחרי הטעינה חוזרים לליד ולוחצים שוב,
+    // וזה עדיף על חלון פתוח מעל קטגוריית הארנק
+    const onTopup   = ()=> { done(false); gotoSection('accWallet', 'topupAmount'); };
 
     function done(value){
       ackBox.removeEventListener('change', onAck);
       confirmBtn.removeEventListener('click', onConfirm);
       cancelBtn.removeEventListener('click', onCancel);
+      topupBtn.removeEventListener('click', onTopup);
       overlay.removeEventListener('click', onBackdrop);
       document.removeEventListener('keydown', onKey);
       overlay.style.display = 'none';
@@ -4502,6 +4593,7 @@ function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel, 
     ackBox.addEventListener('change', onAck);
     confirmBtn.addEventListener('click', onConfirm);
     cancelBtn.addEventListener('click', onCancel);
+    topupBtn.addEventListener('click', onTopup);
     overlay.addEventListener('click', onBackdrop);
     document.addEventListener('keydown', onKey);
     (paid ? ackBox : confirmBtn).focus();
@@ -5089,8 +5181,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   const tierLabels = { free:'חינמי', mid:'משודרג', premium:'פרימיום' };
   badge.innerHTML = '<span class="tier-word">מסלול </span>' + esc(tierLabels[agent.tier] || agent.tier);
   badge.className = 'tier-badge tier-' + agent.tier;
-  document.getElementById('creditBalance').textContent = '₪' + Number(agent.credit_balance).toLocaleString('he-IL');
-  accSetCount('accWallet', '₪' + Number(agent.credit_balance).toLocaleString('he-IL'));
+  setAgentBalance(agent.credit_balance);
 
   // המחירים נטענים לפני הלידים, כי דיאלוג האישור מציג את הסכום שייגבה בפועל
   await loadPricing();
@@ -7391,12 +7482,7 @@ document.getElementById('topupBtn').addEventListener('click', async ()=>{
     feedback.style.color = 'var(--blue)';
     feedback.textContent = `נטענו ₪${data.amount} בהצלחה (מצב בדיקה)`;
     // מרענן את היתרה המוצגת בלי לטעון את כל הדשבורד מחדש
-    const { data: agent } = await sb.from('agency_members').select('credit_balance').eq('id', currentAgent.id).single();
-    if (agent){
-      currentAgent.credit_balance = agent.credit_balance;
-      document.getElementById('creditBalance').textContent = '₪' + Number(agent.credit_balance).toLocaleString('he-IL');
-      accSetCount('accWallet', '₪' + Number(agent.credit_balance).toLocaleString('he-IL'));
-    }
+    await refreshAgentBalance();
   } catch(err){
     console.error(err);
     feedback.style.color = 'var(--red)';
@@ -10247,6 +10333,8 @@ async function promoteProperty(property, btn, agentId){
       return;
     }
     showToast(`הנכס מקודם ל-${data.duration_hours || hours} השעות הקרובות! חויבת ${shekel(data.price_charged)} · עד ${hebDateTime(data.promoted_until)}`);
+    // הקידום חייב את הארנק — היתרה שעל המסך צריכה לדעת על כך מיד
+    await refreshAgentBalance();
     await loadProperties(agentId);
   } catch(err){
     console.error(err);
