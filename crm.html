@@ -2708,6 +2708,15 @@
             <div class="field"><label>טלפון (לא חובה)</label><input type="tel" id="clPhone" dir="ltr" style="text-align:right" placeholder="050-1234567"></div>
             <div class="field"><label>אימייל (לא חובה)</label><input type="email" id="clEmail" dir="ltr" style="text-align:right"></div>
           </div>
+          <!-- ‏ת.ז. וכתובת אינן חלק מהתאמת הנכסים — הן יושבות כאן מפני שהן
+               מה שתקנות המתווכים במקרקעין (פרטי הזמנה בכתב) דורשות בהזמנת
+               שירותי תיווך. בלעדיהן אשף ההסכמים עוצר בשלב התצוגה המקדימה,
+               ומי שממלא/ת אותן פעם אחת כאן לא נדרש/ת להן שוב בכל הסכם. -->
+          <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field"><label>ת.ז. / ח״פ (נדרש להסכם תיווך)</label>
+              <input type="text" id="clIdNumber" inputmode="numeric" dir="ltr" style="text-align:right" placeholder="123456789"></div>
+            <div class="field"><label>כתובת (לא חובה)</label><input type="text" id="clAddress" placeholder="רחוב ומספר, עיר"></div>
+          </div>
 
           <div class="form-subheading">מה הם מחפשים</div>
           <div class="field"><label>קטגוריה</label>
@@ -13438,6 +13447,8 @@ function openEditClient(c){
   document.getElementById('clName').value  = c.full_name;
   document.getElementById('clPhone').value = c.phone || '';
   document.getElementById('clEmail').value = c.email || '';
+  document.getElementById('clIdNumber').value = c.id_number || '';
+  document.getElementById('clAddress').value  = c.address || '';
   document.getElementById('clDeal').value  = c.deal_type;
   document.getElementById('clCities').value = (c.cities || []).join(', ');
   document.getElementById('clMinPrice').value = c.min_price ?? '';
@@ -13509,6 +13520,8 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     full_name: document.getElementById('clName').value.trim(),
     phone:  document.getElementById('clPhone').value.trim() || null,
     email:  document.getElementById('clEmail').value.trim() || null,
+    id_number: document.getElementById('clIdNumber').value.trim() || null,
+    address:   document.getElementById('clAddress').value.trim() || null,
     notes:  document.getElementById('clNotes').value.trim() || null,
     deal_type: document.getElementById('clDeal').value,
     category:  clientFormCategory,
@@ -15396,8 +15409,18 @@ function agrRenderStepDetails(){
     '<div id="agrManualProp" hidden style="margin-top:10px;border:1.5px dashed var(--line);' +
       'border-radius:var(--radius-sm);padding:12px;background:#fff">' +
       '<div class="agr-fields">' +
+        /* ‏<select> ולא <input list> ‏(datalist): בכרום לאנדרואיד הרשימה של
+           datalist אינה נפתחת בלחיצה — החץ מצויר, ולא קורה דבר. הסוכן/ת
+           נשאר/ת מול שדה שנראה כמו תפריט ומתנהג כמו טקסט חופשי, וכותב/ת
+           "משרד" במקום "משרדים". זו גם רשימה סגורה, ולכן <select> הוא
+           הפקד הנכון לה ממילא — וכך היא מוצגת בכל שאר ה-CRM (‏npType,
+           אשף הייבוא). האפשרות הריקה נדרשת כדי שאיפוס הטופס אחרי ההוספה
+           באמת ירוקן את השדה. */
         '<div class="agr-field"><label>סוג הנכס</label>' +
-          '<input type="text" id="agrMpType" list="agrPtypeList" placeholder="דירה"></div>' +
+          '<select id="agrMpType"><option value="">— בחרו סוג נכס —</option>' +
+            `<optgroup label="מגורים">${agrPtypeOptions(RESIDENTIAL_PTYPE_OPTIONS)}</optgroup>` +
+            `<optgroup label="מסחרי">${agrPtypeOptions(COMMERCIAL_PTYPE_OPTIONS)}</optgroup>` +
+          '</select></div>' +
         '<div class="agr-field"><label>עיר</label>' +
           '<input type="text" id="agrMpCity" value="עפולה"></div>' +
         '<div class="agr-field"><label>רחוב</label><input type="text" id="agrMpStreet"></div>' +
@@ -15406,9 +15429,6 @@ function agrRenderStepDetails(){
         '<div class="agr-field"><label>מחיר מבוקש (₪)</label>' +
           '<input type="number" id="agrMpPrice" min="0" step="1000"></div>' +
       '</div>' +
-      `<datalist id="agrPtypeList">${
-        [...RESIDENTIAL_PTYPE_OPTIONS, ...COMMERCIAL_PTYPE_OPTIONS]
-          .map(o => `<option value="${esc(o)}"></option>`).join('')}</datalist>` +
       '<button type="button" class="btn btn-gold btn-block" data-agr="add-manual-prop"' +
         ' style="margin-top:10px">הוספת הנכס</button>' +
       '<p class="imp-note" style="margin:8px 0 0">אלה השדות שנדרשים כדי לזהות את הנכס. ' +
@@ -15519,6 +15539,10 @@ function agrRenderStepDetails(){
 function agrPropertyLabel(p){
   const address = [p.street, p.house_number].filter(Boolean).join(' ');
   return [p.title, [address, p.city].filter(Boolean).join(', ')].filter(Boolean).join(' — ');
+}
+
+function agrPtypeOptions(list){
+  return list.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('');
 }
 
 /* ==========================================================================
@@ -15808,6 +15832,262 @@ function agrFieldFromProperty(field, p, planning){
   return (v === null || v === undefined) ? '' : String(v);
 }
 
+/* ==========================================================================
+   מה שמולא כאן חוזר לכרטיס הנכס
+   --------------------------------------------------------------------------
+   עד כאן פרטי הנכס במסמך היו חד-כיווניים: הם נקראו מ-properties, נשמרו
+   ב-snapshot של ההסכם וב-HTML הקפוא — ונעצרו שם. גוש וחלקה הם הדוגמה
+   החדה: ה-RLS על property_planning_info מצומצמת לסוכן/ת שהנכס שלו/ה,
+   ולכן הם חוזרים ריקים לרוב, הסוכן/ת מברר/ת אותם מול הבעלים ומקליד/ה
+   אותם כאן — וההסכם הבא על אותו נכס פותח אותם ריקים שוב.
+
+   שתי הגבלות שהופכות את הכיוון ההפוך לבטוח:
+
+     1. **השלמה בלבד, לא דריסה.** שדה שכבר יושב בכרטיס הנכס אינו נוגע.
+        מסמך אינו מקור אמת על מודעה חיה — "מחיר מבוקש" בהסכם עשוי להיות
+        המחיר שסוכם, ולא זה שמפורסם — ושמירה שקטה שמשנה מודעה באתר היא
+        בדיוק מה שאסור שיקרה מאחורי הגב.
+     2. **רק נכס שלי.** ה-RLS ממילא חוסמת כתיבה לנכס של עמית/ה או של
+        משרד שת"פ, וכפתור שנכשל תמיד גרוע מכפתור שאינו מוצג.
+
+   ‏feature:* אינם ברשימה בכוונה: במסמך הם טקסט חופשי ("2", "מקורה"),
+   ובנכס הם דגל במערך — ותרגום לאחור היה הופך "2 חניות" ל"יש חניה".
+   ‏condition בחוץ מאותה סיבה: "שמור מאוד" אינו אחד מחמשת הערכים הסגורים.
+   ========================================================================== */
+const AGR_WRITEBACK = {
+  property_type:  { col:'property_type' },
+  street:         { col:'street' },
+  house_number:   { col:'house_number' },
+  city:           { col:'city' },
+  neighborhood:   { col:'sales_area' },
+  rooms:          { col:'rooms',          num:{ min:0 } },
+  floor:          { col:'floor',          num:{ int:true } },
+  total_floors:   { col:'total_floors',   num:{ int:true, min:1, max:200 } },
+  price:          { col:'price',          num:{ min:0 } },
+  built_size_sqm: { col:'built_size_sqm', num:{ min:0 } },
+  garden_sqm:     { col:'garden_sqm',     num:{ min:0 } },
+  gush:           { col:'gush',   planning:true },
+  helka:          { col:'helka',  planning:true },
+};
+
+/* מספר מתוך טקסט של מסמך: "1,850,000 ₪" הוא מה שמקלידים, ולא מה
+   ש-numeric מקבל. ההפרדה בין "אין ספרות" ל-0 חיונית — בלעדיה "קומת
+   קרקע" הייתה נשמרת כקומה 0. ערך שאינו עומד במגבלות הטבלה מוחזר null
+   ופשוט אינו מוצע לשמירה, במקום להפיל את כל העדכון. */
+function agrNumField(raw, rule){
+  const digits = String(raw).replace(/[^\d.\-]/g, '');
+  if (!digits || digits === '-' || digits === '.') return null;
+  const n = Number(digits);
+  if (!Number.isFinite(n)) return null;
+  if (rule.int && !Number.isInteger(n)) return null;
+  if (rule.min !== undefined && n < rule.min) return null;
+  if (rule.max !== undefined && n > rule.max) return null;
+  return n;
+}
+
+/* מה מהמסמך חסר בכרטיס הנכס. מחושב בזמן הלחיצה ולא בזמן הציור, כדי
+   שלא יציג ספירה שהתיישנה בזמן שהקלידו. */
+function agrWritebackPlan(entry){
+  const tpl = agrTpl(agrWizard.kind);
+  const cand = entry.property_id ? agrCandidateById(entry.property_id) : null;
+  if (!cand || !tpl) return [];
+  const p = cand.row;
+  const planning = propertyPlanningInfo[entry.property_id] || null;
+  const plan = [];
+
+  tpl.propertyFields.forEach(f => {
+    const map = f.src && AGR_WRITEBACK[f.src];
+    if (!map) return;
+    const raw = (entry.fields[f.key] || '').trim();
+    if (!raw) return;
+    const value = map.num ? agrNumField(raw, map.num) : raw;
+    if (value === null) return;
+    const current = map.planning ? (planning && planning[map.col]) : p[map.col];
+    if (current !== null && current !== undefined && String(current).trim() !== '') return;
+    plan.push({ label: f.label, col: map.col, value, planning: !!map.planning });
+  });
+  return plan;
+}
+
+/* בטופס של צד הנכס החותם/ת הוא/היא הבעלים — וזה בדיוק המידע ש-
+   ‏agrAddProperty מנסה לקרוא בכיוון ההפוך כדי למלא את החותם/ת מראש.
+   גם כאן: השלמה בלבד, ולכן צריך לקרוא את השורה הקיימת. */
+async function agrOwnerPatch(entry){
+  const tpl = agrTpl(agrWizard.kind);
+  const signer = agrWizard.signers[0];
+  if (!tpl || tpl.side !== 'owner' || !signer || !entry.property_id) return null;
+
+  const { data } = await sb.from('property_owners').select('*')
+    .eq('property_id', entry.property_id).maybeSingle();
+  const cur = data || {};
+  const patch = {};
+  const fill = (col, val) => {
+    if (val && !String(cur[col] || '').trim()) patch[col] = val;
+  };
+  fill('owner_name',      signer.full_name.trim());
+  fill('owner_phone',     signer.phone.trim());
+  fill('owner_email',     signer.email.trim());
+  fill('owner_id_number', signer.id_number.trim());
+  fill('owner_address',   signer.address.trim());
+  return Object.keys(patch).length ? patch : null;
+}
+
+async function agrSaveToProperty(uid, btn){
+  const entry = agrWizard.properties.find(p => p.uid === uid);
+  if (!entry || !entry.property_id) return;
+
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'שומר…';
+
+  const plan = agrWritebackPlan(entry);
+  const ownerPatch = await agrOwnerPatch(entry);
+
+  if (!plan.length && !ownerPatch){
+    btn.disabled = false; btn.textContent = original;
+    showToast('כל מה שמולא כאן כבר שמור בכרטיס הנכס');
+    return;
+  }
+
+  const propPatch = {}, planPatch = {};
+  plan.forEach(x => { (x.planning ? planPatch : propPatch)[x.col] = x.value; });
+  const failed = [];
+
+  if (Object.keys(propPatch).length){
+    const { error } = await sb.from('properties').update(propPatch).eq('id', entry.property_id);
+    if (error){ console.warn('שמירת פרטי הנכס נכשלה:', error); failed.push('פרטי הנכס'); }
+    else {
+      // ‏המטמון בזיכרון מתעדכן, אחרת לחיצה שנייה תציע לשמור את אותו הדבר
+      const cand = agrCandidateById(entry.property_id);
+      if (cand) Object.assign(cand.row, propPatch);
+    }
+  }
+  if (Object.keys(planPatch).length){
+    const { error } = await sb.from('property_planning_info')
+      .upsert(Object.assign({ property_id: entry.property_id }, planPatch),
+              { onConflict: 'property_id' });
+    if (error){ console.warn('שמירת גוש/חלקה נכשלה:', error); failed.push('גוש/חלקה'); }
+    else propertyPlanningInfo[entry.property_id] =
+      Object.assign({}, propertyPlanningInfo[entry.property_id] || {}, planPatch);
+  }
+  if (ownerPatch){
+    const { error } = await sb.from('property_owners')
+      .upsert(Object.assign({ property_id: entry.property_id }, ownerPatch),
+              { onConflict: 'property_id' });
+    if (error){ console.warn('שמירת פרטי הבעלים נכשלה:', error); failed.push('פרטי הבעלים'); }
+  }
+
+  btn.disabled = false; btn.textContent = original;
+
+  if (failed.length){
+    showToast('חלק מהפרטים לא נשמרו בכרטיס הנכס (' + failed.join(', ') + ') — ההסכם עצמו לא נפגע');
+    return;
+  }
+  const names = plan.map(x => x.label);
+  if (ownerPatch) names.push('פרטי הבעלים');
+  showToast('נשמר בכרטיס הנכס: ' + names.join(', '));
+  agrRenderPropFields();
+}
+
+/* ---------- נכס שהוזן ידנית → מודעה במאגר ----------
+   ‏המסלול הידני נועד לנכס שאינו במערכת, והוא הוליד עד כה נתונים שחיים
+   רק בתוך ההסכם: הסכם שני על אותו נכס דרש להקליד הכול שוב, והוספתו
+   כמודעה דרשה מעבר לטופס הנכסים ומילוי שלישי. הכפתור הזה סוגר את זה. */
+const AGR_KIND_DEAL_TYPE = {
+  sell:'sale', buy:'sale', exclusive_sell:'sale',
+  landlord:'rent', tenant:'rent', exclusive_landlord:'rent',
+};
+
+async function agrAddPropertyToCatalog(uid, btn){
+  const entry = agrWizard.properties.find(p => p.uid === uid);
+  if (!entry || entry.property_id) return;
+  if (!currentAgent || !currentAgent.agency_id){
+    showToast('אפשר להוסיף נכסים למאגר רק מחשבון המשויך למשרד');
+    return;
+  }
+  const f = entry.fields;
+  const txt = k => (f[k] || '').trim();
+  const propertyType = txt('property_type');
+  const city   = txt('city');
+  const street = txt('street') || txt('address');
+  const price  = agrNumField(txt('price'), { min:0 });
+
+  /* ‏properties דורשת את השלושה האלה ב-NOT NULL. עדיף להגיד מה חסר
+     מאשר לשלוח insert שייפול על constraint. */
+  const missing = [];
+  if (!propertyType) missing.push('סוג הנכס');
+  if (!city)  missing.push('עיר');
+  if (price === null) missing.push('מחיר מבוקש');
+  if (missing.length){
+    showToast('כדי להוסיף למאגר חסר: ' + missing.join(', ') + ' — מלאו בפרטי הנכס במסמך');
+    return;
+  }
+
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'מוסיף…';
+
+  const address = [street, txt('house_number')].filter(Boolean).join(' ');
+  const num = (k, rule) => agrNumField(txt(k), rule);
+  const payload = {
+    agent_id: currentAgent.id,
+    agency_id: currentAgent.agency_id,
+    status: 'active',
+    title: [propertyType, [address, city].filter(Boolean).join(', ')].filter(Boolean).join(', '),
+    property_type: propertyType,
+    category: COMMERCIAL_PTYPE_OPTIONS.includes(propertyType) ? 'commercial' : 'residential',
+    // ‏dealType של התבנית הוא בסיס חישוב העמלה ותמיד 'sale'; סוג העסקה
+    // של הנכס נגזר מסוג ההסכם עצמו
+    deal_type: AGR_KIND_DEAL_TYPE[agrWizard.kind] || 'sale',
+    city,
+    street: street || null,
+    house_number: txt('house_number') || null,
+    price,
+    rooms:          num('rooms', { min:0 }),
+    floor:          num('floor', { int:true }),
+    total_floors:   num('total_floors', { int:true, min:1, max:200 }),
+    built_size_sqm: num('built_sqm', { min:0 }),
+    garden_sqm:     num('plot_sqm', { min:0 }),
+    sales_area:     txt('location') || null,
+    description:    entry.notes || null,
+  };
+
+  const { data: created, error } = await sb.from('properties')
+    .insert(payload).select('id').single();
+  if (error){
+    btn.disabled = false; btn.textContent = original;
+    showToast('הוספת הנכס למאגר נכשלה: ' + error.message);
+    return;
+  }
+
+  entry.property_id = created.id;
+  entry.source = 'own';
+
+  // גוש/חלקה ובעלים — best-effort, בדיוק כמו בטופס הנכסים עצמו
+  const gush = txt('gush'), helka = txt('helka');
+  if (gush || helka){
+    const { error: planErr } = await sb.from('property_planning_info').upsert(
+      { property_id: created.id, gush: gush || null, helka: helka || null },
+      { onConflict: 'property_id' });
+    if (planErr) console.warn('שמירת גוש/חלקה לנכס החדש נכשלה:', planErr);
+    else propertyPlanningInfo[created.id] = { gush: gush || null, helka: helka || null };
+  }
+  const ownerPatch = await agrOwnerPatch(entry);
+  if (ownerPatch){
+    const { error: ownErr } = await sb.from('property_owners').upsert(
+      Object.assign({ property_id: created.id }, ownerPatch), { onConflict: 'property_id' });
+    if (ownErr) console.warn('שמירת פרטי הבעלים לנכס החדש נכשלה:', ownErr);
+  }
+
+  // ‏loadProperties מרענן גם את myPropertyRows, ולכן הנכס החדש נמצא מיד
+  // בחיפוש של האשף ובלשונית הנכסים — בלי לרענן את הדף
+  await loadProperties(currentAgent.id);
+
+  btn.disabled = false; btn.textContent = original;
+  showToast('הנכס נוסף למאגר שלך — השלימו תמונות ותיאור בלשונית "הנכסים שלי"');
+  agrRenderPropChips();
+  agrRenderPropFields();
+  agrRenderPropResults();
+}
+
 function agrRenderPropFields(){
   const host = agrEl('agrPropFields');
   if (!host) return;
@@ -15827,8 +16107,37 @@ function agrRenderPropFields(){
         ? `<div class="form-subheading">נכס ${idx + 1} · ${esc(entry.label)}</div>` : '') +
       '<div class="agr-fields">' + inputs + '</div>' +
       `<div class="agr-field" style="margin-top:9px"><label>הערות לנכס</label>
-         <textarea rows="2" data-agr-pnotes="${esc(entry.uid)}">${esc(entry.notes || '')}</textarea></div>`;
+         <textarea rows="2" data-agr-pnotes="${esc(entry.uid)}">${esc(entry.notes || '')}</textarea></div>` +
+      agrPropFieldsFooter(entry);
   }).join('<hr style="border:none;border-top:1px dashed var(--line);margin:14px 0">');
+}
+
+/* שורת "ומה קורה למה שמילאתי כאן" מתחת לכל נכס. היא נכתבת גם כשאין מה
+   לעשות (נכס של המשרד או של שת"פ), כי השאלה נשאלת בכל מקרה — והתשובה
+   השקטה עד כה הייתה "כלום". */
+function agrPropFieldsFooter(entry){
+  const box = inner =>
+    '<div style="margin-top:10px;border-top:1px dashed var(--line);padding-top:10px">' + inner + '</div>';
+
+  if (!entry.property_id){
+    return box(
+      `<button type="button" class="btn btn-ghost btn-block" data-agr="add-to-catalog"
+               data-uid="${esc(entry.uid)}">➕ הוספת הנכס למאגר שלי</button>` +
+      '<p class="imp-note" style="margin:8px 0 0">הנכס הוזן ידנית וחי כרגע בהסכם הזה בלבד. ' +
+      'ההוספה יוצרת ממנו מודעה בלשונית "הנכסים שלי" — עם מה שמולא כאן, כולל גוש/חלקה ' +
+      'ופרטי הבעלים — כך שלא תצטרכו להזין אותו שוב.</p>');
+  }
+  if (entry.source !== 'own'){
+    return box('<p class="imp-note" style="margin:0">הנכס אינו שלך (' +
+      esc(AGR_SOURCE_LABELS[entry.source] || entry.source) + '), ולכן מה שמולא כאן נשמר ' +
+      'בהסכם בלבד ואינו נכתב לכרטיס הנכס.</p>');
+  }
+  return box(
+    `<button type="button" class="btn btn-ghost btn-block" data-agr="save-to-property"
+             data-uid="${esc(entry.uid)}">💾 שמירת הפרטים גם בכרטיס הנכס</button>` +
+    '<p class="imp-note" style="margin:8px 0 0">מה שהשלמתם כאן — גוש, חלקה, שטח וכל השאר — ' +
+    'ייכנס לכרטיס הנכס, כך שההסכם הבא עליו כבר יימצא אותו מלא. ' +
+    'שדה שכבר קיים בכרטיס אינו נדרס.</p>');
 }
 
 /* ---------- תוצאות קובץ הלקוחות ----------
@@ -15955,24 +16264,57 @@ function agrCollectDetails(){
 
 /* ---------- שלב 3: תצוגה מקדימה ---------- */
 
+/* ‏מחזירה פריטים ולא מחרוזות, וזו כל הנקודה: רוב מה שחסר כאן הוא **שדה
+   אחד קצר** — ת.ז. של חותם/ת, ת.ז. של הסוכן/ת, שיעור העמלה. המסך הישן
+   רק הודיע עליו ושלח את הסוכן/ת חזרה לשלב הקודם, לגלול עד הטופס הנכון,
+   למלא, ולעבור שוב את כל האשף — בשביל תשע ספרות. פריט עם `fields` נפתח
+   בשלב 3 כתיבה למילוי מהיר; פריט בלעדיהם (אין נכס, אין חותם/ת) הוא חסר
+   מבני שאין לו קיצור דרך. */
 function agrValidate(){
   const w = agrWizard;
   const tpl = agrTpl(w.kind);
-  const missing = [];
-  if (!w.properties.length) missing.push('לא נבחרו נכסים להסכם');
-  if (!w.signers.length) missing.push('לא נבחרו לקוחות להסכם');
+  const items = [];
+  const add = (text, fields) => items.push({ text, fields: fields || [] });
+
+  if (!w.properties.length) add('לא נבחרו נכסים להסכם');
+  if (!w.signers.length) add('לא נבחרו לקוחות להסכם');
+
   w.signers.forEach((s, i) => {
-    if (!s.full_name.trim()) missing.push(`חסר שם לחותם/ת ${i + 1}`);
-    if (!s.id_number.trim()) missing.push(`חסרה ת.ז. לחותם/ת ${i + 1} (${s.full_name || 'ללא שם'})`);
+    const who = s.full_name.trim() || `חותם/ת ${i + 1}`;
+    if (!s.full_name.trim()){
+      add(`חסר שם לחותם/ת ${i + 1}`, [{
+        scope:'signer', uid:s.uid, key:'full_name',
+        label:`שם מלא — חותם/ת ${i + 1}`, value:s.full_name }]);
+    }
+    if (!s.id_number.trim()){
+      add(`חסרה ת.ז. לחותם/ת ${i + 1} (${who})`, [{
+        scope:'signer', uid:s.uid, key:'id_number',
+        label:`ת.ז. / ח״פ — ${who}`, value:s.id_number, inputmode:'numeric', ltr:true }]);
+    }
   });
+
   const hasPct = w.commission.pct !== '' && Number(w.commission.pct) > 0;
   const hasAmount = w.commission.amount !== '' && Number(w.commission.amount) > 0;
-  if (!hasPct && !hasAmount) missing.push('לא הוזנה עמלה — אחוזים או סכום');
-  if (tpl.exclusive && (!w.exclusive.from || !w.exclusive.until)){
-    missing.push('חסרה תקופת הבלעדיות');
+  if (!hasPct && !hasAmount){
+    add('לא הוזנה עמלה — אחוזים או סכום', [
+      { scope:'commission', key:'pct',    label:'עמלה באחוזים',
+        type:'number', step:'0.01', value:w.commission.pct },
+      { scope:'commission', key:'amount', label:'או סכום עמלה (₪)',
+        type:'number', value:w.commission.amount },
+    ]);
   }
-  if (!currentAgent || !currentAgent.id_number) missing.push('חסרה ת.ז. בפרטי הסוכן/ת — עדכנו אותה ב"עדכון פרטי הסוכן/ת"');
-  return missing;
+  if (tpl.exclusive && (!w.exclusive.from || !w.exclusive.until)){
+    add('חסרה תקופת הבלעדיות', [
+      { scope:'exclusive', key:'from',  label:'בלעדיות מיום', type:'date', value:w.exclusive.from },
+      { scope:'exclusive', key:'until', label:'ועד ליום',     type:'date', value:w.exclusive.until },
+    ]);
+  }
+  if (!currentAgent || !currentAgent.id_number){
+    add('חסרה ת.ז. בפרטי הסוכן/ת', [{
+      scope:'agent', key:'id_number', label:'ת.ז. / ח״פ שלך — תישמר בפרופיל',
+      value:'', inputmode:'numeric', ltr:true }]);
+  }
+  return items;
 }
 
 function agrBuildDoc(){
@@ -16014,24 +16356,109 @@ function agrAgencyAddress(){
   return (window.currentAgency && window.currentAgency.address) || '';
 }
 
+/* תיבה אחת לכל שדה חסר. ה-data-* הם מה שמחזיר את הערך למקומו באשף —
+   מזהה החותם/ת נשמר על התיבה עצמה, כדי שהאיסוף לא יצטרך לנחש סדר. */
+function agrQuickFillField(f){
+  return '<div class="agr-field"><label>' + esc(f.label) + '</label>' +
+    `<input type="${f.type || 'text'}"` +
+    (f.step ? ` step="${esc(f.step)}"` : '') +
+    (f.inputmode ? ` inputmode="${esc(f.inputmode)}"` : '') +
+    (f.ltr ? ' dir="ltr" style="text-align:right"' : '') +
+    ' data-agr-qf="1"' +
+    ` data-qf-scope="${esc(f.scope)}" data-qf-key="${esc(f.key)}"` +
+    (f.uid ? ` data-qf-uid="${esc(f.uid)}"` : '') +
+    ` value="${esc(f.value ?? '')}"></div>`;
+}
+
+/* ‏מילוי מהיר: כותב את מה שהוזן חזרה לאשף, מנציח את מה ששייך למסד,
+   ומצייר את השלב מחדש. מה שנשאר חסר יוצג שוב — עם מה שכבר הוקלד. */
+async function agrQuickFill(btn){
+  const w = agrWizard;
+  let agentIdNumber = null;
+  const clientIdNumbers = new Map();   // client_id → ת.ז. שהוקלדה
+
+  agrEl('agrBody').querySelectorAll('[data-agr-qf]').forEach(el => {
+    const v = el.value.trim();
+    const { qfScope: scope, qfKey: key, qfUid: uid } = el.dataset;
+    if (scope === 'signer'){
+      const s = w.signers.find(x => x.uid === uid);
+      if (!s) return;
+      s[key] = v;
+      if (v && key === 'id_number' && s.client_id) clientIdNumbers.set(s.client_id, v);
+    }
+    else if (scope === 'commission') w.commission[key] = v;
+    else if (scope === 'exclusive')  w.exclusive[key]  = v;
+    else if (scope === 'agent' && v) agentIdNumber = v;
+  });
+
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'שומר…';
+
+  /* ‏currentAgent מתעדכן בכל מקרה: המסמך נבנה ממנו, וכשל שמירה בפרופיל
+     אינו סיבה לעצור הסכם שהת.ז. עבורו כבר הוקלדה. */
+  if (agentIdNumber){
+    currentAgent.id_number = agentIdNumber;
+    const { error } = await sb.from('agency_members')
+      .update({ id_number: agentIdNumber }).eq('id', currentAgent.id);
+    if (error){
+      console.warn('שמירת ת.ז. בפרופיל הסוכן/ת נכשלה:', error);
+      showToast('הת.ז. תשמש בהסכם הזה אך לא נשמרה בפרופיל — עדכנו אותה ב"עדכון פרטי הסוכן/ת"');
+    }
+  }
+
+  // ‏best-effort, ומאותה סיבה: ההסכם ממשיך גם אם כרטיס הלקוח/ה לא עודכן
+  for (const [clientId, idNumber] of clientIdNumbers){
+    const { error } = await sb.from('agent_clients')
+      .update({ id_number: idNumber }).eq('id', clientId);
+    if (error){ console.warn('שמירת ת.ז. בכרטיס הלקוח/ה נכשלה:', error); continue; }
+    const row = (clientRows || []).find(c => c.id === clientId);
+    if (row) row.id_number = idNumber;
+  }
+
+  btn.disabled = false; btn.textContent = original;
+  agrRender();
+}
+
 function agrRenderStepPreview(){
   const missing = agrValidate();
   const body = agrEl('agrBody');
 
   if (missing.length){
+    const fixable  = missing.filter(m => m.fields.length);
+    const blocking = missing.filter(m => !m.fields.length);
+    const fields   = fixable.reduce((all, m) => all.concat(m.fields), []);
+
     body.innerHTML =
-      '<div style="text-align:center;padding:8px 0 16px">' +
+      '<div style="text-align:center;padding:8px 0 12px">' +
         '<div style="font-size:2rem">⚠️</div>' +
-        '<h3 style="font-family:\'Frank Ruhl Libre\',serif;margin:6px 0 4px">הנתונים הבאים חסרים ליצירת ההסכם:</h3>' +
+        '<h3 style="font-family:\'Frank Ruhl Libre\',serif;margin:6px 0 4px">' +
+          (fixable.length ? 'חסרים כמה פרטים ליצירת ההסכם' : 'הנתונים הבאים חסרים ליצירת ההסכם:') +
+        '</h3>' +
       '</div>' +
-      '<p style="color:var(--ink-soft);margin:0 0 10px">אנו צריכים לוודא שכל השדות הנדרשים להסכם מולאו כראוי. ' +
-      'שדות כמו ת.ז., טלפון ואימייל דרושים לנו ליצירת הסכם תקין.</p>' +
-      '<ul style="margin:0 0 4px;padding-inline-start:20px">' +
-        missing.map(m => `<li style="margin-bottom:5px">${esc(m)}</li>`).join('') +
-      '</ul>';
+      (fixable.length
+        ? '<p style="color:var(--ink-soft);margin:0 0 10px">ת.ז., עמלה ותקופת בלעדיות נדרשות כדי שההזמנה ' +
+          'תהיה הזמנה בכתב כדין. אפשר להשלים אותן כאן — בלי לחזור אחורה באשף.</p>' +
+          '<div style="border:1.5px dashed var(--line);border-radius:var(--radius-sm);' +
+            'padding:12px;background:#fff">' +
+            '<div class="agr-fields">' + fields.map(agrQuickFillField).join('') + '</div>' +
+            '<p class="imp-note" style="margin:9px 0 0">מה שתמלאו כאן נשמר גם במקור: ת.ז. של חותם/ת ' +
+            'שנבחר/ה מקובץ הלקוחות נכנסת לכרטיס שלו/ה, והת.ז. שלכם נשמרת בפרופיל — כדי שההסכם הבא ' +
+            'לא ייעצר כאן שוב.</p>' +
+          '</div>'
+        : '') +
+      (blocking.length
+        ? `<p style="margin:${fixable.length ? '14px' : '0'} 0 6px;font-weight:700">` +
+            (fixable.length ? 'ואלה דורשים חזרה לשלב פרטי ההסכם:' : '') + '</p>' +
+          '<ul style="margin:0;padding-inline-start:20px;color:var(--ink-soft)">' +
+            blocking.map(m => `<li style="margin-bottom:5px">${esc(m.text)}</li>`).join('') +
+          '</ul>'
+        : '');
+
     agrEl('agrFoot').innerHTML =
-      '<button type="button" class="btn btn-ghost" data-agr="close">סגירה</button>' +
-      '<button type="button" class="btn btn-gold" data-agr="back-to-details">לחץ לעריכת ההסכם</button>';
+      '<button type="button" class="btn btn-ghost" data-agr="back-to-details">חזרה לעריכה</button>' +
+      (fixable.length
+        ? '<button type="button" class="btn btn-gold" data-agr="quick-fill">שמירה והמשך ←</button>'
+        : '');
     return;
   }
 
@@ -16360,6 +16787,7 @@ agrEl('agrModal').addEventListener('click', async (e)=>{
   if (act === 'back-to-kind'){ agrCollectDetails(); agrWizard.step = 1; return agrRender(); }
   if (act === 'back-to-details'){ agrWizard.step = 2; return agrRender(); }
   if (act === 'to-preview'){ agrCollectDetails(); agrWizard.step = 3; return agrRender(); }
+  if (act === 'quick-fill') return agrQuickFill(btn);
   if (act === 'to-sign') return agrSaveAndGoSign(btn);
   if (act === 'pick-prop') return agrAddProperty(btn.dataset.id);
   if (act === 'toggle-manual-prop'){
@@ -16369,6 +16797,8 @@ agrEl('agrModal').addEventListener('click', async (e)=>{
     return;
   }
   if (act === 'add-manual-prop') return agrAddManualProperty();
+  if (act === 'save-to-property') return agrSaveToProperty(btn.dataset.uid, btn);
+  if (act === 'add-to-catalog')   return agrAddPropertyToCatalog(btn.dataset.uid, btn);
   if (act === 'rm-prop'){
     agrWizard.properties = agrWizard.properties.filter(p => p.uid !== btn.dataset.uid);
     agrRenderPropChips();
