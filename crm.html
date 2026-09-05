@@ -1075,6 +1075,35 @@
     padding:10px 10px 6px;
   }
   .menu-group + .menu-item{margin-top:0}
+  /* ---------- הקבוצות בתפריט הבורגר מתקפלות ----------
+     עשרים ושניים פריטים בטור אחד הם גלילה ארוכה בכל פתיחה, גם כשמחפשים
+     פריט שיושב שני מלמעלה. עכשיו שלוש קבוצות, ורק זו שהמשתמש/ת נמצא/ת בה
+     פתוחה — הרשימה מתחילה בשליש מהאורך, ומצב הפתיחה נשמר ל-localStorage
+     כדי שמי שפותח/ת את "כלים וצוות" בכל פעם לא יצטרך לפתוח אותה שוב. */
+  .menu-gtoggle{
+    width:100%;display:flex;align-items:center;gap:8px;text-align:start;
+    background:transparent;border:none;border-radius:var(--r-xs);padding:9px 10px;
+    font-size:.72rem;font-weight:800;letter-spacing:.03em;color:var(--txt-soft);
+    transition:background .14s ease;
+  }
+  .menu-gtoggle:hover{background:var(--surface-2)}
+  .menu-gtoggle:focus-visible{outline:2px solid var(--navy);outline-offset:-2px}
+  .menu-gtoggle .mg-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* המונה על הקבוצה הסגורה הוא מה שמונע "קיפול שמסתיר עבודה": אם יש שלושה
+     לידים חמים בפנים, זה נראה מבחוץ בלי לפתוח */
+  .menu-gtoggle .mg-count{
+    flex-shrink:0;font-size:.66rem;font-weight:800;color:var(--txt-soft);
+    background:var(--surface-2);border-radius:999px;padding:2px 8px;
+  }
+  .menu-gtoggle .mg-count.is-hot{background:#dc2626;color:#fff}
+  .menu-gtoggle .mg-chev{
+    flex-shrink:0;width:15px;height:15px;color:var(--txt-faint);
+    transition:transform .18s cubic-bezier(.22,1,.36,1);
+  }
+  .menu-gtoggle[aria-expanded="true"] .mg-chev{transform:rotate(180deg)}
+  .menu-gtoggle[aria-expanded="true"] .mg-count{display:none}
+  .menu-sub[hidden]{display:none}
+  @media(prefers-reduced-motion:reduce){.menu-gtoggle .mg-chev{transition:none}}
   .menu-item{
     width:100%;display:flex;align-items:center;gap:10px;text-align:start;
     background:transparent;border:none;border-radius:var(--r-xs);padding:10px;
@@ -1471,6 +1500,19 @@
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   }
   .kpi-card:not(.kpi-primary) .kpi-note{color:var(--txt-faint)}
+  /* הקישור לגרף המגמה מתוך הכרטיס שהגרף מתאר. שורה, לא כפתור: היא לא
+     מתחרה על תשומת הלב עם המספר שמעליה. */
+  /* ‏nowrap: הכרטיס הוא שליש שורה במובייל, ותווית שנשברת לשתי שורות מגביהה
+     את כל רכבת המדדים — בדיוק מה שהעברת הגרף החוצה באה לחסוך */
+  .kpi-link{
+    align-self:flex-start;margin-top:9px;display:inline-flex;align-items:center;gap:4px;
+    background:rgba(255,255,255,.14);color:#fff;border:none;white-space:nowrap;
+    font-size:.7rem;font-weight:800;padding:4px 10px;border-radius:999px;
+    transition:background .16s ease;
+  }
+  .kpi-link svg{width:12px;height:12px}
+  .kpi-link:hover{background:rgba(255,255,255,.26)}
+  .kpi-link:focus-visible{outline:2px solid #fff;outline-offset:2px}
   /* שני המדדים הבהירים בשורה: נכסים פעילים ונכסים בבלעדיות */
   .kpi-exclusive,.kpi-active{background:var(--navy-tint);border-color:#dde7f2}
 
@@ -1482,6 +1524,26 @@
   .kpi-hot .kpi-value{color:#4a3a06}
   .kpi-hot .kpi-note{color:#7a5f10}
   .kpi-chip-alert{background:#dc2626;color:#fff}
+  /* ---------- אפס לידים חמים ----------
+     צהוב הוא צבע של "פעל עכשיו". כרטיס צהוב שמראה 0 מלמד את העין להתעלם
+     מהצהוב, וביום שבו יגיעו שלושה לידים היא כבר לא תיעצר. במצב הזה הכרטיס
+     יורד לניטרלי — ובמקום מספר מת הוא מציע את המדף, שם יש לידים לקחת. */
+  .kpi-hot.is-idle{background:var(--surface);border-color:var(--edge)}
+  .kpi-hot.is-idle .kpi-icon{background:var(--surface-2);color:var(--txt-faint)}
+  .kpi-hot.is-idle .kpi-label{color:var(--txt-soft)}
+  .kpi-hot.is-idle .kpi-value{color:var(--txt-faint)}
+  .kpi-hot.is-idle .kpi-note{color:var(--txt-faint)}
+  /* ‏span ולא button: הכרטיס כולו כבר כפתור (data-goto), וכפתור בתוך כפתור
+     הוא HTML לא תקין שדפדפנים מפרקים בדרכים שונות. השבב הוא הסימן שיש לאן
+     ללחוץ — הלחיצה עצמה היא על הכרטיס. */
+  .kpi-idle-cta{
+    align-self:flex-start;margin-top:11px;display:inline-flex;align-items:center;gap:6px;
+    background:var(--navy-tint);color:var(--navy);
+    font-size:.74rem;font-weight:800;padding:7px 13px;border-radius:999px;
+    transition:background .16s ease;
+  }
+  .kpi-idle-cta svg{width:13px;height:13px}
+  .kpi-hot.is-idle:hover .kpi-idle-cta{background:#dde8f3}
 
   /* ---------- מדי משאבים ---------- */
   .meter-card{background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-md);padding:15px 17px;box-shadow:var(--sh-1)}
@@ -1632,8 +1694,145 @@
   .qa-card[data-tone="gold"] .qa-icon{background:#faf0d4;color:#8a6b12}
   .qa-title{display:block;font-weight:700;font-size:.86rem;color:var(--txt);min-width:0;
             overflow:hidden;text-overflow:ellipsis}
+  /* ==========================================================================
+     אנימציות גלילה
+     --------------------------------------------------------------------------
+     חמש אנימציות, כולן על אותו עיקרון: ה-CSS מחזיק את שני המצבים, ו-JS רק
+     מוסיף ומוריד מחלקה. אין כאן ספריית אנימציות — IntersectionObserver
+     ומאזין גלילה אחד מכוסה ב-requestAnimationFrame עושים בדיוק את זה,
+     ו-70KB של ספרייה בדף שנפתח עשרים פעם ביום הם מחיר שלא משתלם.
+
+     ‏prefers-reduced-motion מבטל את כולן בבת אחת בסוף הבלוק: מי שביקש/ה
+     פחות תנועה מקבל/ת את אותו ממשק בדיוק, רק בלי המעברים.
+     ========================================================================== */
+
+  /* ---------- 1. כיווץ הכותרת והמדדים לפס דביק ---------- */
+  /* הברכה מתפוגגת ראשונה — היא ההקשר, לא הנתון */
+  .dash-greet{
+    transition:opacity .2s ease,max-height .26s cubic-bezier(.22,1,.36,1),margin-bottom .26s ease;
+    max-height:80px;overflow:hidden;
+  }
+  #dashboard.is-compact .dash-greet{opacity:0;max-height:0;margin-bottom:0;pointer-events:none}
+
+  /* בכותרת: השם, המסלול ושם המשרד מתפוגגים והאווטאר מתכווץ. האווטאר עצמו
+     נשאר — הוא תפריט הפרופיל והיציאה, וכפתור שנעלם בגלילה הוא תכונה שאבדה
+     ולא רק פיקסלים שנחסכו. */
+  #dashboard header.crm{transition:padding .24s cubic-bezier(.22,1,.36,1)}
+  #dashboard.is-compact header.crm{padding:7px 0}
+  /* ‏max-width:400px הוא מעבר לכל רוחב שהטקסט מגיע אליו בפועל (‏.agent-id
+     כבר חוסם ב-calc(50% - 34px)), ולכן הוא לא חותך כלום — הוא רק נותן
+     ל-transition ערך התחלתי לרוץ ממנו אל אפס */
+  #dashboard .agent-id-text{
+    transition:opacity .18s ease,max-width .24s cubic-bezier(.22,1,.36,1);
+    overflow:hidden;max-width:400px;
+  }
+  #dashboard.is-compact .agent-id-text{opacity:0;max-width:0}
+  #dashboard.is-compact .avatar{width:34px;height:34px;border-radius:11px;font-size:.95rem}
+  #dashboard.is-compact .crm-home .logo-img{height:30px}
+
+  /* הפס עצמו: גובה 0 עד שהוא נפתח, ולכן הוא לא תופס מקום ולא מזיז את הדף
+     כשהוא סגור. הוא בתוך הכותרת, ולכן גובה הכותרת גדל איתו לבד. */
+  /* ‏visibility ולא רק גובה 0: כפתור בגובה אפס עדיין נמצא בסדר ה-Tab, ופס
+     סגור שאפשר להגיע אליו במקלדת הוא שלוש תחנות רפאים בדרך לתוכן */
+  .kpi-sticky{
+    height:0;opacity:0;overflow:hidden;visibility:hidden;
+    transition:height .24s cubic-bezier(.22,1,.36,1),opacity .18s ease,
+               margin-top .24s ease,visibility 0s linear .24s;
+  }
+  .kpi-sticky.is-on{
+    height:30px;opacity:1;margin-top:7px;visibility:visible;
+    transition-delay:0s;
+  }
+  .kpi-sticky-inner{
+    display:flex;align-items:center;justify-content:center;gap:8px;height:30px;
+    white-space:nowrap;overflow-x:auto;scrollbar-width:none;
+  }
+  .kpi-sticky-inner::-webkit-scrollbar{display:none}
+  .ks-item{
+    display:inline-flex;align-items:center;gap:5px;background:transparent;border:none;
+    padding:3px 7px;border-radius:9px;color:var(--txt-soft);flex-shrink:0;
+    transition:background .16s ease;
+  }
+  .ks-item:hover{background:var(--navy-tint)}
+  .ks-item:focus-visible{outline:2px solid var(--navy);outline-offset:1px}
+  .ks-ico{display:inline-flex;color:var(--navy)}
+  .ks-ico svg{width:14px;height:14px}
+  .ks-val{font-weight:800;font-size:.88rem;color:var(--navy);font-variant-numeric:tabular-nums}
+  .ks-lbl{font-size:.72rem;font-weight:700;color:var(--txt-faint)}
+  .ks-dot{color:var(--txt-faint);opacity:.5;flex-shrink:0}
+  @media(max-width:380px){.ks-lbl{display:none}}
+
+  /* ---------- 2. הבלטת "דורש טיפול מיידי" בכניסה למרכז המסך ---------- */
+  /* התג האדום קופץ פעם אחת כשהשורה מגיעה למרכז — לא לולאה. תג שפועם בלי
+     הפסקה מפסיק להיות התראה תוך שלוש שניות. */
+  @keyframes todoPop{
+    0%{transform:scale(1)}
+    45%{transform:scale(1.1)}
+    100%{transform:scale(1)}
+  }
+  .todo-count.is-pop{animation:todoPop 180ms cubic-bezier(.34,1.4,.64,1)}
+
+  /* ---------- 3. "החתם לקוח" כאייקון צף ---------- */
+  /* הכרטיס הרחב מתכווץ ומתפוגג כשהוא עומד לצאת מהמסך, והעיגול נפתח באותו
+     רגע — שני חצאים של אותה תנועה, ולכן אותו עקום ואותו משך. */
+  .sign-cta{transition:transform .18s cubic-bezier(.22,1,.36,1),box-shadow .18s ease,opacity .22s ease}
+  .sign-cta.is-morphed{opacity:.25;transform:scale(.97)}
+  .sign-fab{
+    /* ‏left פיזי ולא inset-inline-start: הדף כולו RTL, ושם "start" הוא צד
+       ימין — והבקשה כאן היא לפינה השמאלית, זו שהאגודל מגיע אליה בלי לכסות
+       את הלשונית הנבחרת בסרגל */
+    position:fixed;left:16px;z-index:190;
+    /* מעל סרגל הניווט התחתון ומעל פס המחוות של האייפון */
+    bottom:calc(env(safe-area-inset-bottom,0px) + 74px);
+    width:56px;height:56px;border-radius:50%;border:none;padding:0;
+    display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(150deg,#22456e 0%,#1C3A5E 55%,#122840 100%);
+    color:#fff;box-shadow:0 10px 26px rgba(18,40,64,.42);
+    /* ‏visibility מוציאה אותו גם מסדר ה-Tab, ולא רק מהעין */
+    opacity:0;transform:scale(.4) translateY(14px);visibility:hidden;
+    transition:opacity .2s ease,transform .26s cubic-bezier(.34,1.3,.64,1),
+               visibility 0s linear .26s;
+  }
+  .sign-fab svg{width:26px;height:26px}
+  .sign-fab[hidden]{display:none}
+  .sign-fab.is-on{
+    opacity:1;transform:scale(1) translateY(0);visibility:visible;
+    transition-delay:0s;
+  }
+  .sign-fab:active{transform:scale(.93)}
+  .sign-fab:focus-visible{outline:2px solid var(--navy);outline-offset:3px}
+  /* בדסקטופ אין סרגל תחתון, ולכן אין מעל מה לרחף */
+  @media(min-width:1024px){.sign-fab{bottom:24px}}
+
+  /* ---------- 4. כניסה מדורגת של הפעולות המהירות ---------- */
+  /* ‏--d נכתב מ-JS לפי מספר העמודות בפועל (renderQuickActions לא יודע אם
+     הגריד הוא 2, 3 או 4 עמודות — getComputedStyle יודע), ולכן ההשהיה היא
+     לפי שורה ולא לפי כרטיס: שש השהיות נפרדות בגריד של שתי עמודות היו
+     מרגישות כמו טעינה איטית, לא כמו זריזות. */
+  .quick-grid.is-staged .qa-card{
+    opacity:0;transform:translateY(8px);
+    transition:opacity .3s ease var(--d,0ms),transform .3s cubic-bezier(.22,1,.36,1) var(--d,0ms);
+  }
+  .quick-grid.is-staged.is-in .qa-card{opacity:1;transform:none}
+
+  /* ---------- 5. מילוי עמודות גרף המגמה ---------- */
+  /* הגובה הסופי יושב ב---h (renderCommissionTrend כותב אותו), והעמודה
+     מתחילה מאפס עד ש-.is-grown משחררת אותה. בלי ‏--h העמודה פשוט מוצגת
+     במלוא גובהה — גרף שלא זז עדיף על גרף ריק. */
+  .trend-chart span{height:var(--h,100%)}
+  /* ‏min-height:0 גם: ל-.trend-chart span יש min-height של 5px כדי שחודש
+     ריק לא ייעלם, ובלי הביטול הזה "גובה 0" היה גובה חמישה פיקסלים */
+  .trend-chart.is-staged span{height:0;min-height:0;transition-delay:calc(var(--i,0) * 55ms)}
+  .trend-chart.is-staged.is-grown span{height:var(--h,100%);min-height:5px}
+
   @media(prefers-reduced-motion:reduce){
-    .qa-card,.trend-chart span,.meter-bar span,.kpi-ratio span{transition:none}
+    .qa-card,.trend-chart span,.meter-bar span,.kpi-ratio span,
+    .dash-greet,.kpi-sticky,.sign-cta,.sign-fab,
+    #dashboard header.crm,#dashboard .agent-id-text{transition:none}
+    .todo-count.is-pop{animation:none}
+    /* בלי מעברים אין מה להסתיר: הכרטיסים והעמודות מוצגים כמו שהם */
+    .quick-grid.is-staged .qa-card{opacity:1;transform:none}
+    .trend-chart.is-staged span{height:var(--h,100%);min-height:5px}
   }
 
   /* ==========================================================================
@@ -2233,6 +2432,37 @@
         </button>
       </div>
     </div>
+
+    <!-- ---------- פס המדדים הדביק ----------
+         שלושת המדדים העליונים תופסים כ-40% מגובה המסך במובייל, ואחרי 80px של
+         גלילה הם כבר מחוץ לתמונה. הפס הזה הוא מה שנשאר מהם: אותם שלושה
+         מספרים בשורה אחת, בלי הכותרות ובלי ההערות.
+
+         הוא יושב בתוך הכותרת ולא מתחתיה בכוונה: הכותרת היא ה-position:sticky
+         היחיד כאן, וכל מי שמודד אותה (gotoSection, dashPanelsMeasure) מקבל
+         את הגובה הנכון לבד ברגע שהפס נפתח. המספרים מועתקים מאותם אלמנטים
+         של המדדים (syncStickyKpis) — אין כאן חישוב שני שיכול לסטות. -->
+    <div class="kpi-sticky" id="kpiSticky" aria-hidden="true">
+      <div class="dash-wrap kpi-sticky-inner">
+        <button type="button" class="ks-item" data-goto="accReports">
+          <span class="ks-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>
+          </span>
+          <span class="ks-val" id="ksCommission">₪0</span>
+          <span class="ks-lbl">עמלות</span>
+        </button>
+        <span class="ks-dot" aria-hidden="true">·</span>
+        <button type="button" class="ks-item" data-goto="accProperties">
+          <span class="ks-val" id="ksActive">0</span>
+          <span class="ks-lbl">נכסים</span>
+        </button>
+        <span class="ks-dot" aria-hidden="true">·</span>
+        <button type="button" class="ks-item" data-goto="accProperties">
+          <span class="ks-val" id="ksExclusive">0</span>
+          <span class="ks-lbl">בלעדיות</span>
+        </button>
+      </div>
+    </div>
   </header>
 
   <div class="dash-wrap dash-shell">
@@ -2276,6 +2506,13 @@
               <div class="kpi-label">עמלות פוטנציאליות</div>
               <div class="kpi-value" id="kpiCommissionValue">₪0</div>
               <p class="kpi-note" id="kpiCommissionNote">טוענים את הנכסים שלך…</p>
+              <!-- הדרך היחידה לגרף המגמה מדף הבית: שורה אחת בכרטיס שהגרף
+                   מתאר, במקום גרף שלם שתופס שטח גלילה בכל ביקור -->
+              <button type="button" class="kpi-link" data-goto="accReports"
+                      aria-label="מגמת פוטנציאל העמלות — דוחות וביצועים">
+                מגמה
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              </button>
             </article>
 
             <!-- הנכסים הפעילים היו עד היום שורת הערה בתוך כרטיס העמלות. הם
@@ -2352,22 +2589,10 @@
           <div class="quick-grid" id="quickGrid"></div>
         </section>
 
-        <!-- ---------- מגמת פוטנציאל העמלות ----------
-             הגרף עצמו נבנה ב-renderCommissionCard: עמודה לכל חודש, החודש
-             הנוכחי בזהב ועם הסכום שלו כתוב מעליו, והמקרא מסביר את הצבעים. -->
-        <section class="kpi-trend" aria-label="מגמת פוטנציאל העמלות">
-          <div class="kpi-trend-head">
-            <span class="kpi-trend-title">מגמת פוטנציאל העמלות · 6 חודשים</span>
-            <span class="kpi-trend-now" id="kpiTrendNow">₪0</span>
-          </div>
-          <p class="kpi-trend-legend">
-            <span><i class="now"></i>החודש הנוכחי</span>
-            <span><i class="past"></i>חודשים קודמים</span>
-          </p>
-          <div class="trend-chart" id="kpiCommissionSpark" role="img" aria-label="מגמת פוטנציאל העמלות בששת החודשים האחרונים"></div>
-          <div class="trend-axis" id="kpiCommissionAxis"></div>
-          <p class="kpi-trend-note" id="kpiTrendNote">סך העמלה הצפויה מהנכסים הפעילים שכבר היו מפורסמים בסוף כל חודש.</p>
-        </section>
+        <!-- גרף מגמת העמלות ירד מכאן לקטגוריית "דוחות וביצועים" (‏#accReports).
+             גרף היסטורי הוא מסך שנכנסים אליו כשרוצים לבדוק מגמה, לא שטח גלילה
+             קבוע בדף שנפתח עשרים פעם ביום כדי לראות מה עושים עכשיו. הקישור
+             אליו יושב בכרטיס העמלות עצמו — ראו .kpi-link. -->
 
         <!-- ---------- מדדי המשנה ----------
              לידים חמים ויתרת הארנק. שניהם חשובים, שניהם כבר צועקים ממקום
@@ -3814,6 +4039,37 @@
       </div>
     </details>
 
+    <!-- ---------- דוחות וביצועים ----------
+         גרף מגמת העמלות ישב עד היום בדף הבית, בין הפעולות המהירות למדדי
+         המשנה. הוא נשאר אותו גרף בדיוק (renderCommissionTrend כותב לאותם
+         מזהים), רק במקום שבו מסתכלים על מגמה — קטגוריה שנכנסים אליה, ולא
+         שטח גלילה קבוע בדף שנפתח עשרים פעם ביום.
+
+         העמודות עצמן מתמלאות בגלילה: ‏--h מחזיק את הגובה הסופי והמחלקה
+         ‏.is-grown היא זו שמשחררת אותו (ראו initTrendGrowth). -->
+    <details class="acc" id="accReports">
+      <summary>
+        <span class="acc-title">דוחות וביצועים</span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">מגמת פוטנציאל העמלות לאורך זמן — מאיפה הגיע התיק הפעיל שלך והאם הוא צומח</p>
+        <section class="kpi-trend" aria-label="מגמת פוטנציאל העמלות">
+          <div class="kpi-trend-head">
+            <span class="kpi-trend-title">מגמת פוטנציאל העמלות · 6 חודשים</span>
+            <span class="kpi-trend-now" id="kpiTrendNow">₪0</span>
+          </div>
+          <p class="kpi-trend-legend">
+            <span><i class="now"></i>החודש הנוכחי</span>
+            <span><i class="past"></i>חודשים קודמים</span>
+          </p>
+          <div class="trend-chart" id="kpiCommissionSpark" role="img" aria-label="מגמת פוטנציאל העמלות בששת החודשים האחרונים"></div>
+          <div class="trend-axis" id="kpiCommissionAxis"></div>
+          <p class="kpi-trend-note" id="kpiTrendNote">סך העמלה הצפויה מהנכסים הפעילים שכבר היו מפורסמים בסוף כל חודש.</p>
+        </section>
+      </div>
+    </details>
+
     <details class="acc" id="accPlanning">
       <summary>
         <span class="acc-title">מידע תכנוני על נכס (עפולה)</span>
@@ -3860,6 +4116,20 @@
      כי הוא position:fixed ואינו חלק מזרימת התוכן, ומוסתר בכל מסך שאינו
      הדשבורד (ראו showScreen). -->
 <nav class="bottom-nav" id="bottomNav" role="tablist" aria-label="ניווט ראשי" hidden></nav>
+
+<!-- ---------- "החתם לקוח" כשהכרטיס יצא מהמסך ----------
+     הכרטיס הרחב הוא הפעולה שמייצרת את ההכנסה, והוא יושב גבוה בדף — כלומר
+     נעלם אחרי חצי גלילה. במקום להשאיר לו רצועה קבועה בכל גובה הדף, הוא
+     "מתנתק" לאייקון עגול בפינה השמאלית התחתונה מעל סרגל הניווט, וחוזר
+     למקומו כשגוללים חזרה למעלה. אותה פעולה בדיוק — הכפתור כאן לוחץ על
+     ‏#signClientCta ולא מכיר את האשף בעצמו. -->
+<button type="button" class="sign-fab" id="signClientFab" aria-label="החתם לקוח" title="החתם לקוח" hidden>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M3 19c2.5 0 2.5-3 5-3s2.5 3 5 3 2.5-3 5-3 2.5 3 3 3"></path>
+    <path d="M8.5 13.5 17 5a2.1 2.1 0 0 1 3 3l-8.5 8.5"></path>
+    <path d="m14.5 7.5 3 3"></path>
+  </svg>
+</button>
 
 <div class="field-label-fix"></div>
 <style>.field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}</style>
@@ -4318,6 +4588,8 @@ function showScreen(name){
   // הסרגל התחתון הוא position:fixed, ובלי זה הוא היה נשאר על מסך הכניסה
   const bnav = document.getElementById('bottomNav');
   if (bnav) bnav.hidden = !onDashboard || dashView === 'admin';
+  // ה-FAB של ההחתמה הוא position:fixed מאותה סיבה בדיוק, ויורד מכאן איתו
+  updateScrollUi();
   // הפאנלים המכווצים נמדדים רק כשהם באמת על המסך: אלמנט בתוך display:none
   // מחזיר scrollHeight אפס, וחצי מאפס אינו חצי
   if (onDashboard) requestAnimationFrame(dashPanelsMeasure);
@@ -14535,6 +14807,7 @@ const DASH_ICONS = {
   handshake:'<path d="m11 17 2 2a1 1 0 0 0 1.4 0l2.6-2.6"/><path d="m14 14 2.5 2.5"/><path d="M3 10 7 6l4 3 3-1 7 4v5l-3 2-4-3"/><path d="M3 10v5l3 2"/>',
   inbox:'<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13l3.5 7v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5Z"/>',
   check:'<path d="M20 6 9 17l-5-5"/>',
+  chart:'<path d="M3 3v18h18"/><path d="m7 14 3.5-3.5 3 3L20 7"/>',
   sign:'<path d="M3 19c2.5 0 2.5-3 5-3s2.5 3 5 3 2.5-3 5-3 2.5 3 3 3"/><path d="M8.5 13.5 17 5a2.1 2.1 0 0 1 3 3l-8.5 8.5"/><path d="m14.5 7.5 3 3"/>',
 };
 
@@ -14595,11 +14868,14 @@ document.addEventListener('click', (e)=>{
 const NAV_HOME = '__home';
 const NAV_ADMIN_HOME = '__adminHome';
 
+/* שלוש קבוצות ולא חמש. הרשימה לא התקצרה — היא הפסיקה להיות טור אחד ארוך:
+   בתפריט הבורגר כל קבוצה מתקפלת (ראו buildMenuPanel), ורק זו שנמצאים בה
+   פתוחה. חמש כותרות מעל עשרים ושניים פריטים היו חמישה גבולות שאף אחד לא
+   נעצר בהם; שלוש קבוצות הן חלוקה שאפשר לזכור: מה שעושים, במה משתמשים,
+   ומה שמגדירים פעם בחודש. */
 const NAV_GROUPS = [
-  { key:'home', label:'ראשי', items:[
-    { acc:NAV_HOME, label:'דשבורד ראשי', icon:'home', tab:'home' },
-  ]},
-  { key:'work', label:'הפעילות שלי', items:[
+  { key:'work', label:'פעילות עסקית', items:[
+    { acc:NAV_HOME,              label:'דשבורד ראשי',       icon:'home',     tab:'home' },
     { acc:'accProperties',       label:'הנכסים שלי',        icon:'building', tab:'props' },
     { acc:'accSharedWithMe',     label:'שותף איתי',         icon:'share',    tab:'props' },
     { acc:'accSharePartners',    label:'משרדי שיתוף פעולה', icon:'handshake',tab:'props' },
@@ -14611,20 +14887,18 @@ const NAV_GROUPS = [
     { acc:'accMortgageShelf',    label:'מדף משכנתאות',      icon:'bank',     tab:'leads' },
     { acc:'accClients',          label:'קובץ הלקוחות',      icon:'contact',  tab:'clients' },
     { acc:'accAlerts',           label:'התראות התאמה',      icon:'target',   tab:'clients' },
-  ]},
-  /* קבוצה משלה, ולא פריט שנים-עשר בתוך "הפעילות שלי": איתור הסכם שנחתם
-     הוא משימה בפני עצמה, ו-focus על שדה החיפוש שם את הסמן במקום שאליו
-     באו — לא בראש רשימה שצריך לגלול. */
-  { key:'docs', label:'הסכמים', items:[
-    { acc:'accAgreements', label:'הסכמים והחתמות', icon:'sign', tab:'docs', focus:'agrSearch' },
+    /* ‏focus על שדה החיפוש שם את הסמן במקום שאליו באו — לא בראש רשימה
+       שצריך לגלול */
+    { acc:'accAgreements',       label:'הסכמים והחתמות',    icon:'sign',     tab:'docs', focus:'agrSearch' },
   ]},
   { key:'tools', label:'כלים וצוות', items:[
+    { acc:'accReports',  label:'דוחות וביצועים', icon:'chart', tab:'more' },
     { acc:'accTeam',     label:'צוות המשרד',     icon:'users', tab:'more' },
     { acc:'accReviews',  label:'ביקורות לאישור', icon:'star',  tab:'more' },
     { acc:'accBranding', label:'עיצוב דף המשרד', icon:'brush', tab:'more' },
     { acc:'accPlanning', label:'מידע תכנוני',    icon:'map',   tab:'more' },
   ]},
-  { key:'account', label:'ארנק והגדרות', items:[
+  { key:'account', label:'הגדרות חשבון', items:[
     { acc:'accWallet',     label:'יתרת ארנק',    icon:'wallet',  tab:'more' },
     { acc:'accProfile',    label:'פרטי הסוכן/ת', icon:'user',    tab:'more' },
     { acc:'accEthics',     label:'הקוד האתי',    icon:'shield',  tab:'more' },
@@ -14800,6 +15074,10 @@ function applyNavFilter(){
 
   const head = document.getElementById('sectionsHead');
   if (head) head.hidden = filtering || isAdminView;
+
+  // הפס הדביק וה-FAB שייכים לדף הבית בלבד, ומעבר לשונית הוא בדיוק הרגע
+  // שבו הם צריכים להיעלם — בלי גלילה שתודיע להם על כך
+  updateScrollUi();
 }
 
 function setNavTab(key, opts){
@@ -14911,6 +15189,9 @@ function renderTodoList(){
     btn.addEventListener('click', ()=> navGo({ acc:item.acc }));
     host.appendChild(btn);
   });
+
+  // הרשימה נבנית מחדש בכל שינוי מונה — התגים החדשים צריכים משקיף חדש
+  armTodoPop();
 }
 
 /* ==========================================================================
@@ -14977,7 +15258,197 @@ function renderQuickActions(){
       ()=> action.run ? action.run() : navGo(action));
     grid.appendChild(card);
   });
+  armQuickStagger();
 }
+
+/* ==========================================================================
+   אנימציות הגלילה
+   --------------------------------------------------------------------------
+   חמש התנהגויות, מנוע אחד: ‏IntersectionObserver למה שנדרך בכניסה לתצוגה,
+   ומאזין גלילה יחיד מכוסה ב-requestAnimationFrame למה שתלוי במיקום מדויק
+   (הכיווץ וה-FAB). אין כאן ספריית אנימציות — מה שהיא הייתה נותנת כאן הוא
+   בדיוק שתי השורות האלה, בתוספת משקל שנטען בכל פתיחה של הדשבורד.
+
+   כלל אחד חוצה את כל הבלוק: ה-CSS מחזיק את שני המצבים, ה-JS רק מוסיף
+   ומוריד מחלקה. מי שביקש/ה prefers-reduced-motion מקבל/ת את מצב הסיום
+   מיד — הפס הדביק וה-FAB הם ממשק ולא קישוט, ולכן הם נשארים; מה שנעלם הוא
+   המעבר אליהם.
+   ========================================================================== */
+
+const SCROLL_COMPACT_ON  = 80;   // הרף שממנו מתחיל הכיווץ
+const SCROLL_COMPACT_OFF = 56;   // חוזרים למצב מלא רק מתחתיו — בלי זה גלילה
+                                 // קטנה סביב 80px הייתה מהבהבת בין המצבים
+
+/* הפס הדביק מציג את אותם שלושה מספרים של רכבת המדדים. הוא מעתיק אותם ולא
+   מחשב אותם מחדש: מספר שני שמחושב לבד הוא מספר שיסטה ביום שבו מישהו ישנה
+   את הפורמט של אחד מהם. */
+function syncStickyKpis(){
+  const pairs = [
+    ['kpiCommissionValue', 'ksCommission'],
+    ['kpiActiveValue',     'ksActive'],
+    ['kpiExclusiveValue',  'ksExclusive'],
+  ];
+  pairs.forEach(([from, to])=>{
+    const src = document.getElementById(from);
+    const dst = document.getElementById(to);
+    if (src && dst && dst.textContent !== src.textContent) dst.textContent = src.textContent;
+  });
+}
+
+/* דף הבית פעיל = ‏#overviewBlock קיים ולא סונן החוצה. הפס הדביק וה-FAB
+   שייכים לו בלבד: בלשונית "נכסים" הם היו מציגים מדדים של מסך אחר. */
+function overviewOnScreen(){
+  const dash = document.getElementById('dashboard');
+  const block = document.getElementById('overviewBlock');
+  if (!dash || !block) return false;
+  if (dash.style.display === 'none') return false;
+  return !block.classList.contains('nav-off');
+}
+
+/* ---------- 1 + 3: הכיווץ ל-Sticky Bar וה-FAB ---------- */
+function updateScrollUi(){
+  const dash = document.getElementById('dashboard');
+  const sticky = document.getElementById('kpiSticky');
+  const fab = document.getElementById('signClientFab');
+  const cta = document.getElementById('signClientCta');
+  if (!dash) return;
+
+  const live = overviewOnScreen();
+  const y = window.pageYOffset || document.documentElement.scrollTop || 0;
+  const wasCompact = dash.classList.contains('is-compact');
+  const compact = live && (wasCompact ? y > SCROLL_COMPACT_OFF : y > SCROLL_COMPACT_ON);
+
+  if (compact !== wasCompact) dash.classList.toggle('is-compact', compact);
+  if (sticky){
+    sticky.classList.toggle('is-on', compact);
+    // ‏aria-hidden ולא רק גובה 0: המספרים כאן הם כפילות של רכבת המדדים,
+    // וקורא מסך שיקריא את שניהם יקריא את אותו דבר פעמיים
+    sticky.setAttribute('aria-hidden', String(!compact));
+    if (compact) syncStickyKpis();
+  }
+
+  /* ה-FAB נכנס כשהכרטיס הרחב עומד לצאת מהמסך מלמעלה — כלומר כשהקצה
+     התחתון שלו עובר מתחת לכותרת הדביקה. בדיקה על המיקום עצמו ולא
+     IntersectionObserver, כי גובה הכותרת משתנה בדיוק באותו רגע. */
+  if (fab && cta){
+    let show = false;
+    if (live && cta.offsetParent !== null){
+      const header = document.querySelector('#dashboard header.crm');
+      const hdrH = header ? header.getBoundingClientRect().height : 0;
+      show = cta.getBoundingClientRect().bottom < hdrH + 8;
+    }
+    fab.hidden = !live;
+    fab.classList.toggle('is-on', show);
+    cta.classList.toggle('is-morphed', show);
+  }
+}
+
+function initScrollUi(){
+  let ticking = false;
+  const onScroll = ()=>{
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(()=>{ ticking = false; updateScrollUi(); });
+  };
+  window.addEventListener('scroll', onScroll, { passive:true });
+  window.addEventListener('resize', onScroll, { passive:true });
+
+  const fab = document.getElementById('signClientFab');
+  // ה-FAB לא מכיר את אשף ההחתמה: הוא לוחץ על הכרטיס, וכל שינוי עתידי
+  // בפעולה נשאר במקום אחד
+  if (fab) fab.addEventListener('click', ()=>{
+    const cta = document.getElementById('signClientCta');
+    if (cta) cta.click();
+  });
+
+  updateScrollUi();
+}
+
+/* ---------- 2: הבלטת התג האדום בכניסה למרכז המסך ---------- */
+/* ‏rootMargin שחותך 45% מלמעלה ומלמטה משאיר רצועה של 10% במרכז המסך —
+   התג קופץ כשהשורה עוברת בה, ורק פעם אחת לכל שורה. */
+let todoPopObserver = null;
+
+function armTodoPop(){
+  if (navReduceMotion()) return;
+  if (!('IntersectionObserver' in window)) return;
+  if (todoPopObserver) todoPopObserver.disconnect();
+  todoPopObserver = new IntersectionObserver((entries, obs)=>{
+    entries.forEach(entry=>{
+      if (!entry.isIntersecting) return;
+      const el = entry.target;
+      obs.unobserve(el);
+      el.classList.add('is-pop');
+      el.addEventListener('animationend', ()=> el.classList.remove('is-pop'), { once:true });
+    });
+  }, { rootMargin:'-45% 0px -45% 0px', threshold:0 });
+  document.querySelectorAll('#todoList .todo-count').forEach(el => todoPopObserver.observe(el));
+}
+
+/* ---------- 4: כניסה מדורגת של הפעולות המהירות ---------- */
+/* ההשהיה היא לפי שורה ולא לפי כרטיס, ומספר העמודות נקרא מהגריד עצמו —
+   הוא 2 במובייל, 3 מ-900px ו-4 מ-1400px, ורק ה-CSS יודע מה מהם בתוקף. */
+let quickStaggerObserver = null;
+
+function armQuickStagger(){
+  const grid = document.getElementById('quickGrid');
+  if (!grid || !grid.children.length) return;
+
+  /* בזמן שהגריד מוסתר (‏.nav-off) הדפדפן מחזיר את הערך המוצהר ולא מדוד,
+     ובדפדפן שמחזיר "none" נופלים לשתי עמודות — המצב במובייל, ששם ההשהיה
+     בכלל נראית */
+  const track = getComputedStyle(grid).gridTemplateColumns;
+  const cols = (track && track !== 'none') ? track.split(/\s+/).filter(Boolean).length : 2;
+  [...grid.children].forEach((card, i)=>{
+    card.style.setProperty('--d', (Math.floor(i / cols) * 40) + 'ms');
+  });
+  grid.classList.add('is-staged');
+
+  if (navReduceMotion() || !('IntersectionObserver' in window)){
+    grid.classList.add('is-in');
+    return;
+  }
+  grid.classList.remove('is-in');
+  if (quickStaggerObserver) quickStaggerObserver.disconnect();
+  quickStaggerObserver = new IntersectionObserver((entries, obs)=>{
+    entries.forEach(entry=>{
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add('is-in');
+      obs.unobserve(entry.target);
+    });
+  }, { rootMargin:'0px 0px -10% 0px', threshold:0.1 });
+  quickStaggerObserver.observe(grid);
+}
+
+/* ---------- 5: מילוי עמודות גרף המגמה ---------- */
+/* הגרף יושב היום בתוך <details> מקופל, ולכן אין צורך בטריגר נפרד לפתיחה:
+   עמודה בתוך אקורדיון סגור היא בגודל אפס ואינה חותכת את התצוגה, ופתיחת
+   האקורדיון מייצרת בדיוק את שינוי החיתוך ש-IntersectionObserver מדווח
+   עליו. */
+let trendGrowthObserver = null;
+
+function armTrendGrowth(){
+  const chart = document.getElementById('kpiCommissionSpark');
+  if (!chart) return;
+  chart.classList.add('is-staged');
+
+  if (navReduceMotion() || !('IntersectionObserver' in window)){
+    chart.classList.add('is-grown');
+    return;
+  }
+  chart.classList.remove('is-grown');
+  if (trendGrowthObserver) trendGrowthObserver.disconnect();
+  trendGrowthObserver = new IntersectionObserver((entries, obs)=>{
+    entries.forEach(entry=>{
+      if (!entry.isIntersecting) return;
+      entry.target.classList.add('is-grown');
+      obs.unobserve(entry.target);
+    });
+  }, { threshold:0.25 });
+  trendGrowthObserver.observe(chart);
+}
+
+initScrollUi();
 
 /* ==========================================================================
    שיתוף נכס בוואטסאפ
@@ -15075,16 +15546,55 @@ function refreshNavCounts(){
   renderHotKpi();
 }
 
-/* כרטיס הלידים החמים ברכבת המדדים — אותו מונה, תצוגה אחרת */
+/* כרטיס הלידים החמים ברכבת המדדים — אותו מונה, תצוגה אחרת.
+
+   הכרטיס היה זהוב־בולט גם כשהוא הראה 0. צבע חם הוא הבטחה שיש כאן משהו
+   לעשות, וכרטיס שמבטיח ולא מקיים מלמד את העין לדלג עליו — כולל ביום שבו
+   באמת יגיעו שלושה לידים. במצב 0 הוא יורד לניטרלי, ובמקום מספר מת הוא
+   מפנה למדף הלידים: שם יש פניות פתוחות שאפשר לקחת עכשיו.
+
+   אם המדף אינו גלוי לסוכן/ת (מסלול, הרשאה) הכרטיס נשאר מפנה ללידים החמים
+   ומציג טיפ במקום הצעה שתוביל לדלת נעולה. */
 function renderHotKpi(){
   const value = document.getElementById('kpiHotValue');
   if (!value) return;
+  const card = value.closest('.kpi-hot');
   const n = accCountOf('accHotLeads');
   value.textContent = String(n);
-  const note = document.getElementById('kpiHotNote');
-  if (note) note.textContent = n ? 'פניות שעדיין לא נפתחו — לחצו לטיפול' : 'אין פניות שממתינות לפתיחה';
+
   const chip = document.getElementById('kpiHotChip');
   if (chip) chip.hidden = !n;
+  if (card) card.classList.toggle('is-idle', !n);
+
+  const note = document.getElementById('kpiHotNote');
+  const shelfOpen = navAccVisible('accLeadShelf');
+  if (note){
+    note.textContent = n ? 'פניות שעדיין לא נפתחו — לחצו לטיפול'
+      : shelfOpen ? 'אין פניות שממתינות — מדף הלידים פתוח לבחירה'
+                  : 'אין פניות שממתינות לפתיחה';
+  }
+
+  // הצעה יזומה במקום שטח מת, ורק כשיש לאן לשלוח
+  let cta = card ? card.querySelector('.kpi-idle-cta') : null;
+  if (card && !n && shelfOpen){
+    if (!cta){
+      cta = document.createElement('span');
+      cta.className = 'kpi-idle-cta';
+      card.appendChild(cta);
+    }
+    cta.innerHTML = dashIcon('layers') + '<span>חיפוש לידים במדף</span>';
+  } else if (cta){
+    cta.remove();
+  }
+
+  // הכרטיס כולו הוא הכפתור, ולכן היעד שלו הוא זה שמשתנה — לא כפתור נוסף
+  if (card){
+    const target = (!n && shelfOpen) ? 'accLeadShelf' : 'accHotLeads';
+    card.dataset.goto = target;
+    card.setAttribute('aria-label', target === 'accLeadShelf'
+      ? 'מדף הלידים — פניות פתוחות שאפשר לקחת'
+      : 'לידים חמים שממתינים לפתיחה');
+  }
 }
 
 /* ---------- מד המכסה החינמית ---------- */
@@ -15218,15 +15728,20 @@ function renderCommissionTrend(active, total){
   const series = commissionSeries(active);
   if (!sparkEl) return series;
 
+  /* הגובה יושב ב---h ולא ב-height: כך אנימציית הגדילה בגלילה (‏.is-staged
+     ב-CSS) יכולה להחזיק את העמודה על 0 ולשחרר אותה בכניסה לתצוגה, בלי
+     שהמידע עצמו ייכתב פעמיים. ‏--i הוא סדר העמודה, לדירוג ההשהיה. */
   const max = Math.max(...series.map(s => s.total), 1);
   sparkEl.innerHTML = series.map((s, i)=>{
     const h = Math.max(5, Math.round(s.total / max * 100));
     const isNow = i === series.length - 1;
-    return `<span class="${isNow ? 'is-now' : ''}" style="height:${h}%"`
+    return `<span class="${isNow ? 'is-now' : ''}" style="--h:${h}%;--i:${i}"`
       + (isNow ? ` data-value="${esc(shekelCompact(s.total))}"` : '')
       + ` title="${esc(s.label)}: ${esc(shekelShort(s.total))}"></span>`;
   }).join('');
   axisEl.innerHTML = series.map(s => `<span>${esc(s.label)}</span>`).join('');
+  // הגרף נבנה מחדש בכל טעינת נכסים — האנימציה נדרכת מחדש איתו
+  armTrendGrowth();
 
   if (nowEl){
     nowEl.textContent = shekelShort(total);
@@ -15308,6 +15823,9 @@ function renderDashboardOverview(){
   renderActiveCard(active);
   renderExclusiveCard(active);
   renderAgentPanelSummary(active);
+  // ‏countUp מגלגל את המספרים לאורך 650ms; הפס הדביק מסתנכרן בסופם
+  setTimeout(syncStickyKpis, 700);
+  syncStickyKpis();
 }
 
 /* תקציר בכותרת הפאנל האישי. הפאנל מתחיל מכווץ, ולכן הכותרת היא מה שרואים
@@ -15449,20 +15967,74 @@ function focusLeadCard(leadId){
 /* ---------- תפריט הבורגר ----------
    אותה מפה בדיוק שממנה נבנים סרגל הצד והסרגל התחתון (NAV_GROUPS), ולכן אין
    כאן רשימת קטגוריות שנייה. קודם הרשימה נסרקה מה-DOM ישירות, וזה עבד — אבל
-   אז כל אחד משלושת הניווטים הכיר את הדשבורד בדרך אחרת. */
+   אז כל אחד משלושת הניווטים הכיר את הדשבורד בדרך אחרת.
+
+   הקבוצות כאן מתקפלות, ובסרגל הצד לא: בדסקטופ הרשימה כולה נראית בלי גלילה
+   ואין מה לקפל, ובמובייל היא הייתה טור של עשרים ושניים פריטים שנפתח מעל כל
+   המסך. הקבוצה שהמשתמש/ת נמצא/ת בה נפתחת לבד — אחריה מה שנשמר בפעם הקודמת. */
+
+const MENU_GROUP_KEY = 'crmMenuGroupsOpen';
+
+function menuGroupsOpen(){
+  try {
+    const raw = JSON.parse(localStorage.getItem(MENU_GROUP_KEY) || '{}');
+    return (raw && typeof raw === 'object') ? raw : {};
+  } catch { return {}; }
+}
+
+function menuGroupSetOpen(key, open){
+  const state = menuGroupsOpen();
+  state[key] = open;
+  try { localStorage.setItem(MENU_GROUP_KEY, JSON.stringify(state)); } catch {}
+}
+
+/* קבוצה נפתחת אם היא מכילה את הלשונית הנוכחית, ואחרת לפי מה שנשמר. הכלל
+   הראשון גובר: מי שנמצא/ת ב"לידים" ופותח/ת את התפריט מחפש/ת שם משהו. */
+function menuGroupInitiallyOpen(group, saved){
+  if (group.items.some(it => it.tab === navTab)) return true;
+  return saved[group.key] === true;
+}
+
 function buildMenuPanel(){
   const panel = document.getElementById('menuPanel');
   if (!panel) return;
   panel.innerHTML = '';
   const groups = navGroupsForView();
+  const saved = menuGroupsOpen();
 
   groups.forEach((group, gi)=>{
     if (gi > 0) panel.appendChild(Object.assign(document.createElement('div'), { className:'menu-sep' }));
-    const head = document.createElement('div');
-    head.className = 'menu-group';
-    head.textContent = group.label;
-    panel.appendChild(head);
 
+    const sub = document.createElement('div');
+    sub.className = 'menu-sub';
+    sub.id = 'menuGroup-' + group.key;
+
+    /* הסכום שמופיע על קבוצה סגורה. בלעדיו קיפול היה מסתיר עבודה שממתינה:
+       "לידים חמים 3" בתוך קבוצה מקופלת הוא בדיוק ההתראה שהמסך הזה נועד
+       להבליט. נספרות רק הקטגוריות שמותר להן להיות אדומות (NAV_HOT_ACCS). */
+    const hotSum = group.items.reduce(
+      (s, it) => s + (NAV_HOT_ACCS.has(it.acc) ? accCountOf(it.acc) : 0), 0);
+
+    const open = menuGroupInitiallyOpen(group, saved);
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.className = 'menu-gtoggle';
+    toggle.setAttribute('aria-expanded', String(open));
+    toggle.setAttribute('aria-controls', sub.id);
+    toggle.innerHTML =
+      '<span class="mg-label">' + esc(group.label) + '</span>'
+      + (hotSum ? '<span class="mg-count is-hot">' + esc(String(hotSum)) + '</span>'
+                : '<span class="mg-count">' + esc(String(group.items.length)) + '</span>')
+      + '<svg class="mg-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+    toggle.addEventListener('click', ()=>{
+      const nowOpen = toggle.getAttribute('aria-expanded') !== 'true';
+      toggle.setAttribute('aria-expanded', String(nowOpen));
+      sub.hidden = !nowOpen;
+      menuGroupSetOpen(group.key, nowOpen);
+    });
+    panel.appendChild(toggle);
+
+    sub.hidden = !open;
     group.items.forEach(navItem=>{
       const count = accCountOf(navItem.acc);
       const hot = count > 0 && NAV_HOT_ACCS.has(navItem.acc);
@@ -15477,8 +16049,9 @@ function buildMenuPanel(){
         closeMenuPanel();
         navGo(navItem);
       });
-      panel.appendChild(item);
+      sub.appendChild(item);
     });
+    panel.appendChild(sub);
   });
 
   if (!groups.length){
@@ -15506,7 +16079,8 @@ document.getElementById('menuBtn').addEventListener('click', (e)=>{
   buildMenuPanel();
   panel.classList.add('is-open');
   document.getElementById('menuBtn').setAttribute('aria-expanded', 'true');
-  const first = panel.querySelector('.menu-item');
+  // הפריט הראשון הוא כותרת קבוצה מאז שהקבוצות מתקפלות, ולא פריט ניווט
+  const first = panel.querySelector('.menu-gtoggle,.menu-item');
   if (first) first.focus({ preventScroll:true });
 });
 
