@@ -119,7 +119,10 @@
   .acc-sub{font-size:.8rem;color:var(--ink-soft);margin:0 0 12px}
   /* כרטיסים פנימיים בלבנים, כדי שייבדלו מרקע הקטגוריה */
   .acc-body .card{background:#fff}
-  .lead-card{padding:16px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px}
+  /* ריווח הכרטיסים הודק: רשימה של עשרים כרטיסים ב-16px ריפוד ו-12px מרווח
+     היא מסך וחצי של גלילה לפני שרואים את הכרטיס הרביעי. הצפיפות כאן היא
+     מה שמאפשר לסרוק רשימה במקום לגלול בה. */
+  .lead-card{padding:13px 14px;margin-bottom:9px;display:flex;flex-direction:column;gap:6px}
   .lead-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
   .lead-name{font-weight:700;font-size:.95rem}
   /* מוני הנכסים הפעילים לצד שם חבר/ת הצוות. שני הקודים זהים ל---deal-sale
@@ -186,6 +189,30 @@
   .mkt-facts{font-size:.78rem;color:var(--ink-soft);background:var(--paper-raised);border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:9px 11px;margin-bottom:12px;line-height:1.5}
   .mkt-label{font-size:.74rem;font-weight:800;color:var(--ink);margin:10px 0 4px}
   .mkt-card textarea{width:100%;font:inherit;font-size:.85rem;line-height:1.6;padding:10px 12px;border:1.5px solid var(--line);border-radius:var(--radius-sm);background:#fff;resize:vertical}
+
+  /* ---------- בורר הנכס לשיתוף בוואטסאפ ----------
+     רשימה קצרה ומטרה אחת: להגיע מ"אני רוצה לשלוח את הנכס" ללחיצה אחת.
+     ‏max-height פנימי כדי שהחיפוש והכפתור יישארו במקום כשגוללים ברשימה. */
+  .wa-card{max-width:480px;display:flex;flex-direction:column;max-height:88vh}
+  .wa-sub{font-size:.82rem;color:var(--ink-soft);line-height:1.5;margin:0 0 12px}
+  .wa-search{
+    width:100%;font:inherit;font-size:.88rem;padding:10px 12px;margin-bottom:10px;
+    border:1.5px solid var(--line);border-radius:var(--radius-sm);background:#fff;
+  }
+  .wa-pick{overflow-y:auto;display:flex;flex-direction:column;gap:6px;min-height:80px}
+  .wa-pick-row{
+    display:flex;align-items:center;gap:10px;width:100%;text-align:start;
+    padding:11px 12px;border:1.5px solid var(--line);border-radius:var(--radius-sm);
+    background:#fff;transition:border-color .16s ease,background .16s ease;
+  }
+  .wa-pick-row:hover{border-color:var(--teal);background:var(--teal-tint)}
+  .wa-pick-row:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+  .wa-pick-text{flex:1;min-width:0}
+  .wa-pick-title{display:block;font-weight:700;font-size:.88rem;color:var(--ink);
+                 overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .wa-pick-meta{display:block;font-size:.76rem;color:var(--ink-soft);margin-top:2px;
+                overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .wa-pick-go{font-size:1.1rem;flex-shrink:0}
 
   /* ‏אשף ייבוא הנכסים מקובץ. כרטיס רחב יותר מ-pm-card כי שלב הבדיקה מציג
      טבלת תצוגה מקדימה, ועם max-height + overflow פנימי כדי שהכותרת
@@ -359,7 +386,61 @@
   /* ---------- קובץ הלקוחות ומנוע ההתאמות ----------
      כרטיס ההתאמה צר יותר מכרטיס ליד: הוא יושב *בתוך* כרטיס הלקוח/ה, ולכן
      הוא ויתר על התמונה ועל הריווח הגדול לטובת השורה התחתונה — הציון והפער. */
-  .client-card{padding:16px;margin-bottom:12px;display:flex;flex-direction:column;gap:8px}
+  .client-card{padding:13px 14px;margin-bottom:9px;display:flex;flex-direction:column;gap:6px}
+
+  /* ---------- יצירת קשר בלחיצה אחת ----------
+     מספר הטלפון היה טקסט. סוכן/ת שרצה/תה להתקשר סימן/ה אותו, העתיק/ה
+     והדביק/ה — או הקליד/ה מחדש. שני העיגולים לצידו הם החיוג והוואטסאפ
+     עצמם, ולכן הם צמודים למספר ולא יורדים לרשת הפעולות שלמטה: שם הם היו
+     נראים כמו עוד שתי אפשרויות מתוך שש. */
+  .contact-line{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+  .contact-quick{
+    width:30px;height:30px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+    font-size:.9rem;line-height:1;text-decoration:none;flex-shrink:0;
+    border:1.5px solid var(--line);background:#fff;transition:background .16s ease,border-color .16s ease;
+  }
+  .contact-quick:hover{background:var(--teal-tint);border-color:var(--teal)}
+  .contact-quick:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+  .contact-quick.is-wa:hover{background:#DFEDE3;border-color:#2A5B36}
+
+  /* ---------- תפריט שלוש הנקודות ----------
+     "מחיקה" ישבה באותה רמת בולטות של "עריכה" ו"החתמה" — שלושה כפתורים
+     זהים בגודל, בצבע ובמשקל, שאחד מהם בלתי הפיך. בשטח, עם אצבע ובשמש, זו
+     לחיצה שגויה שממתינה לקרות. הפעולות ההרסניות עברו לכאן. */
+  .card-menu{position:relative;flex-shrink:0}
+  .card-menu-btn{
+    width:32px;height:32px;border-radius:9px;color:var(--ink-soft);background:transparent;
+    font-size:1.15rem;line-height:1;display:inline-flex;align-items:center;justify-content:center;
+    transition:background .16s ease,color .16s ease;
+  }
+  .card-menu-btn:hover{background:var(--paper);color:var(--ink)}
+  .card-menu-btn:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+  .card-menu-pop{
+    display:none;position:absolute;inset-inline-end:0;top:calc(100% + 4px);z-index:60;
+    min-width:170px;background:#fff;border:1.5px solid var(--line);border-radius:var(--radius-sm);
+    box-shadow:0 10px 28px rgba(0,0,0,.16);padding:5px;
+  }
+  .card-menu.is-open .card-menu-pop{display:block}
+  .card-menu-pop button{
+    display:block;width:100%;text-align:start;padding:9px 11px;border-radius:6px;
+    font-size:.83rem;font-weight:600;color:var(--ink);background:transparent;
+  }
+  .card-menu-pop button:hover{background:var(--paper)}
+  .card-menu-pop button.is-danger{color:var(--brick)}
+  .card-menu-pop button.is-danger:hover{background:#FBEDEE}
+
+  /* ---------- תצוגה מקדימה של ההתאמה הטובה ביותר ----------
+     "הצגת 14 התאמות" הוא כפתור שדורש אמונה: לוחצים כדי לגלות אם יש שם
+     משהו. השורה הזו עונה על זה עוד לפני הלחיצה — הנכס שקיבל את הציון
+     הגבוה ביותר, עם הציון והכתובת שלו. */
+  .match-peek{
+    display:flex;align-items:center;gap:8px;background:var(--teal-tint);border-radius:var(--radius-sm);
+    padding:8px 10px;font-size:.78rem;color:var(--teal);line-height:1.4;
+  }
+  .match-peek .score-pill{flex-shrink:0}
+  .match-peek b{font-weight:800}
+  .match-peek-text{min-width:0;overflow:hidden;text-overflow:ellipsis}
+
   .match-panel{margin-top:8px;border-top:1px dashed var(--line);padding-top:10px}
   .match-card{border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;margin-bottom:8px;background:var(--paper-raised)}
   .match-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
@@ -971,6 +1052,24 @@
     display:none;z-index:160;padding:6px;
   }
   .menu-panel.is-open{display:block}
+  /* ‏[hidden] מנוצח על ידי ה-display של .icon-btn, ולכן הוא נאמר כאן במפורש */
+  .icon-btn[hidden]{display:none}
+  /* ---------- תפריט הפרופיל ----------
+     נפתח מהאווטאר שבצד הימני של הכותרת, ולכן הוא מיושר לימין פיזית (‏right)
+     ולא לפי כיוון הכתיבה: הקצה שאסור לו לחרוג מהמסך הוא הימני. */
+  .profile-wrap{position:relative}
+  .profile-panel{left:auto;right:0;width:250px}
+  @media(max-width:720px){
+    #dashboard .profile-wrap{position:static}
+    #dashboard .profile-panel{top:calc(100% + 12px);inset-inline:12px;width:auto;max-width:none}
+  }
+  .menu-item.is-signout{color:var(--wine);font-weight:700}
+  .menu-item.is-signout:hover{background:var(--wine-tint)}
+  /* שם הסוכן/ת בראש התפריט — התפריט נפתח מהאווטאר, וכותרת שאומרת של מי
+     החשבון הזה היא ההבדל בין "תפריט" ל"התפריט שלי" */
+  .menu-head{padding:10px 10px 4px}
+  .menu-head b{display:block;font-size:.9rem;color:var(--txt);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .menu-head span{display:block;font-size:.72rem;color:var(--txt-faint);margin-top:2px}
   .menu-group{
     font-size:.66rem;font-weight:800;letter-spacing:.04em;color:var(--txt-faint);
     padding:10px 10px 6px;
@@ -1240,44 +1339,90 @@
   .adm-fact-val{font-size:.84rem;font-weight:800;color:var(--txt);white-space:nowrap;font-variant-numeric:tabular-nums}
 
   /* ==========================================================================
-     רכבת המדדים
+     שורת המדדים
      --------------------------------------------------------------------------
-     ארבעת המדדים היו ארבעה בלוקים בטור אחד, ובמובייל זה היה מסך שלם של גלילה
-     לפני שהגיעו לפעולה הראשונה. עכשיו הם רכבת אופקית עם scroll-snap: מדד אחד
-     ורבע נראים בו-זמנית (הרבע הוא מה שמסמן שיש עוד), והחלקה מגיעה לשאר.
+     קודם זו הייתה רכבת אופקית: ארבעה כרטיסים ברוחב 79% כל אחד, שמהם נראה אחד
+     ורבע. הרבע נועד לרמוז "יש עוד" — ובפועל נקרא ככרטיס חתוך, והכרטיס שנחתך
+     היה דווקא "נכסים בבלעדיות". מדד שנראה שבור אינו מדד.
 
-     מ-700px ומעלה אין בעיית גובה ולכן הרכבת הופכת לגריד — אותם כרטיסים בדיוק,
-     בלי גלילה אופקית שבמסך רחב היא רק מטרד. "כל המדדים" עושה את אותו הדבר
-     ידנית גם במובייל, למי שמעדיף/ה לראות הכול יחד.
+     עכשיו שלושה מדדים קומפקטיים בשורה אחת שנכנסת בכל רוחב מסך, בלי גלילה
+     אופקית ובלי חיתוך, והם עונים על שלוש השאלות שנשאלות בבוקר בסדר הזה:
+     כמה כסף פתוח בתיק, כמה נכסים פעילים מייצרים אותו, וכמה מהם בבלעדיות.
+
+     שני מדדי המשנה — לידים חמים ויתרת הארנק — ירדו אל מתחת לפעולות המהירות
+     (.kpi-more). הם נחוצים, אבל לא לפני שרואים מה עושים היום; הלידים החמים
+     ממילא צועקים מבלוק "דורש טיפול מיידי" וממונה הסרגל התחתון.
      ========================================================================== */
-  .kpi-rail{
-    display:flex;gap:12px;overflow-x:auto;scroll-snap-type:x mandatory;
-    /* יציאה אל מחוץ לריפוד של .dash-wrap: רכבת שנחתכת בשוליים קוראת כרכבת,
-       רכבת שנעצרת 18px לפני הקצה קוראת כשגיאת פריסה */
-    margin-inline:-18px;padding-inline:18px;padding-bottom:2px;
-    scrollbar-width:none;-ms-overflow-style:none;
+  .kpi-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  @media(min-width:560px){.kpi-strip{gap:12px}}
+  .kpi-more{display:grid;grid-template-columns:1fr;gap:10px;margin-top:14px}
+  @media(min-width:640px){.kpi-more{grid-template-columns:1fr 1fr;gap:12px}}
+
+  /* המדדים בשורה צרים פי שלושה מכרטיס מלא, ולכן כל מידה בהם קטנה בהתאם.
+     במסך של 360px זו עמודה של ~105px — שם המספר הוא מה שחייב להיקרא. */
+  .kpi-strip .kpi-card{padding:12px 11px}
+  .kpi-strip .kpi-top{margin-bottom:7px}
+  .kpi-strip .kpi-icon{width:26px;height:26px;border-radius:9px}
+  .kpi-strip .kpi-icon svg{width:14px;height:14px}
+  .kpi-strip .kpi-chip{font-size:.6rem;padding:3px 7px}
+  .kpi-strip .kpi-label{font-size:.68rem}
+  .kpi-strip .kpi-value{font-size:1.12rem}
+  .kpi-strip .kpi-note{font-size:.65rem;line-height:1.4;margin-top:4px}
+  @media(min-width:560px){
+    .kpi-strip .kpi-card{padding:15px 16px}
+    .kpi-strip .kpi-value{font-size:1.55rem}
+    .kpi-strip .kpi-label{font-size:.74rem}
+    .kpi-strip .kpi-note{font-size:.72rem}
+    .kpi-strip .kpi-icon{width:32px;height:32px;border-radius:10px}
+    .kpi-strip .kpi-icon svg{width:17px;height:17px}
   }
-  .kpi-rail::-webkit-scrollbar{display:none}
-  .kpi-rail>*{flex:0 0 79%;max-width:320px;scroll-snap-align:start}
-  @media(min-width:700px){
-    .kpi-rail{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
-              overflow:visible;margin-inline:0;padding-inline:0}
-    .kpi-rail>*{flex:none;max-width:none}
+  @media(min-width:1024px){.kpi-strip .kpi-value{font-size:1.8rem}}
+
+  /* היחס בין בלעדיות לתיק הפעיל. קודם זו הייתה טבעת בקוטר 72px לצד הטקסט —
+     ברוחב של שליש שורה היא זו שדחפה את המספר החוצה. בר יחס דק אומר את אותו
+     דבר בגובה 6px, והאחוז עצמו יושב כתגית לצד הכותרת. */
+  .kpi-ratio{height:6px;border-radius:999px;background:rgba(28,58,94,.12);overflow:hidden;margin-top:9px}
+  .kpi-ratio span{display:block;height:100%;border-radius:999px;
+    background:linear-gradient(90deg,#2c5a8c,#c9a227);transition:width .6s cubic-bezier(.22,1,.36,1)}
+
+  /* ==========================================================================
+     מגמת פוטנציאל העמלות
+     --------------------------------------------------------------------------
+     הגרף היה שש עמודות בתחתית הכרטיס הכהה, בלי ערך מספרי ובלי הסבר למה אחת
+     מהן זהובה. עמודות בלי מספרים הן קישוט, וצבע בלי מקרא הוא חידה.
+
+     כאן הוא בלוק בפני עצמו: הסכום של החודש הנוכחי מופיע בכותרת וגם מעל
+     העמודה הפעילה, מקרא בשורה אחת אומר מה זהוב ומה אפור, ותחתית הבלוק
+     מסבירה במשפט מה בכלל נספר.
+     ========================================================================== */
+  .kpi-trend{
+    background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-lg);
+    padding:14px 16px;box-shadow:var(--sh-1);margin-top:18px;
   }
-  @media(min-width:1280px){.kpi-rail{grid-template-columns:repeat(4,minmax(0,1fr))}}
-  /* פרישה ידנית במובייל */
-  .kpi-rail.is-open{
-    display:grid;grid-template-columns:repeat(2,minmax(0,1fr));
-    overflow:visible;margin-inline:0;padding-inline:0;
+  .kpi-trend-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .kpi-trend-title{font-size:.8rem;font-weight:800;color:var(--txt-soft)}
+  .kpi-trend-now{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.05rem;
+                 color:var(--navy);font-variant-numeric:tabular-nums}
+  .kpi-trend-legend{display:flex;gap:14px;font-size:.68rem;color:var(--txt-faint);margin:7px 0 0}
+  .kpi-trend-legend span{display:inline-flex;align-items:center;gap:5px}
+  .kpi-trend-legend i{width:9px;height:9px;border-radius:3px;display:inline-block}
+  .kpi-trend-legend i.now{background:linear-gradient(180deg,#e3c463,#c9a227)}
+  .kpi-trend-legend i.past{background:#cdd8e4}
+  /* ‏padding-top עושה מקום לתווית שיושבת מעל העמודה הפעילה */
+  .trend-chart{display:flex;align-items:flex-end;gap:6px;height:64px;padding-top:18px;margin-top:8px}
+  .trend-chart span{
+    flex:1;border-radius:5px 5px 2px 2px;min-height:5px;background:#cdd8e4;position:relative;
+    transition:height .5s cubic-bezier(.22,1,.36,1);
   }
-  .kpi-rail.is-open>*{flex:none;max-width:none}
-  .rail-all{
-    display:block;margin:10px auto 0;background:var(--surface);border:1px solid var(--edge);
-    border-radius:999px;padding:7px 18px;font-size:.76rem;font-weight:800;color:var(--txt-soft);
-    transition:background .16s ease,color .16s ease;
+  .trend-chart span.is-now{background:linear-gradient(180deg,#e3c463,#c9a227)}
+  .trend-chart span.is-now::after{
+    content:attr(data-value);position:absolute;bottom:calc(100% + 5px);left:50%;transform:translateX(-50%);
+    font-size:.66rem;font-weight:800;color:var(--navy);white-space:nowrap;
   }
-  .rail-all:hover{background:var(--navy-tint);color:var(--navy);border-color:#d3e0ee}
-  @media(min-width:700px){.rail-all{display:none}}
+  .trend-axis{display:flex;gap:6px;margin-top:6px}
+  .trend-axis span{flex:1;text-align:center;font-size:.62rem;color:var(--txt-faint);
+                   white-space:nowrap;overflow:hidden}
+  .kpi-trend-note{font-size:.7rem;color:var(--txt-faint);margin:9px 0 0;line-height:1.45}
 
   /* ---------- כרטיס מדד ---------- */
   .kpi-card{
@@ -1326,30 +1471,8 @@
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   }
   .kpi-card:not(.kpi-primary) .kpi-note{color:var(--txt-faint)}
-  /* גרף העמודות המינימליסטי — נמוך ודק יותר מקודם */
-  .kpi-spark{display:flex;align-items:flex-end;gap:5px;height:30px;margin-top:12px;position:relative}
-  .kpi-spark span{
-    flex:1;border-radius:4px 4px 2px 2px;min-height:4px;
-    background:rgba(255,255,255,.22);transition:height .5s cubic-bezier(.22,1,.36,1);
-  }
-  .kpi-spark span.is-now{background:linear-gradient(180deg,#e3c463,#c9a227)}
-  .kpi-spark-axis{display:flex;gap:5px;margin-top:5px;position:relative}
-  .kpi-spark-axis span{flex:1;text-align:center;font-size:.58rem;color:rgba(255,255,255,.45);white-space:nowrap;overflow:hidden}
-  /* המדד הטבעתי. הכרטיס נמתח לגובה השכן שלו בגריד, ולכן ה-split לוקח את
-     כל השארית ומרכז את עצמו בתוכה במקום להשאיר חלל מת בתחתית. */
-  .kpi-exclusive{background:var(--navy-tint);border-color:#dde7f2}
-  .kpi-split{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:1}
-  .kpi-split-text{min-width:0}
-  .kpi-donut{width:72px;height:72px;flex-shrink:0;position:relative}
-  .kpi-donut svg{width:100%;height:100%;transform:rotate(-90deg)}
-  .kpi-donut .ring-track{stroke:var(--surface-2)}
-  .kpi-donut .ring-fill{stroke:url(#donutGrad);transition:stroke-dashoffset .7s cubic-bezier(.22,1,.36,1)}
-  .kpi-donut-label{
-    position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;
-    font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--navy);font-size:1.15rem;line-height:1;
-  }
-  .kpi-donut-label{font-size:1rem}
-  .kpi-donut-label small{font-family:'Heebo',sans-serif;font-size:.55rem;font-weight:600;color:var(--txt-faint);margin-top:2px}
+  /* שני המדדים הבהירים בשורה: נכסים פעילים ונכסים בבלעדיות */
+  .kpi-exclusive,.kpi-active{background:var(--navy-tint);border-color:#dde7f2}
 
   /* הלידים החמים — הכרטיס היחיד שמותר לו להיות זהוב, כי הוא היחיד שמייצג
      "יש כאן כסף שממתין לך". התגית האדומה עליו היא התראה, לא קישוט. */
@@ -1362,8 +1485,8 @@
 
   /* ---------- מדי משאבים ---------- */
   .meter-card{background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-md);padding:15px 17px;box-shadow:var(--sh-1)}
-  /* המד יושב היום כקלף ברכבת המדדים, ולכן הוא צריך את אותה מעטפת */
-  .kpi-rail>.meter-card{border-radius:var(--r-lg);padding:16px;display:flex;flex-direction:column}
+  /* המד יושב היום כקלף בשורת מדדי המשנה, ולכן הוא צריך את אותה מעטפת */
+  .kpi-more>.meter-card{border-radius:var(--r-lg);padding:16px;display:flex;flex-direction:column}
   .meter-top{display:flex;align-items:center;gap:9px}
   .meter-ico{width:28px;height:28px;border-radius:9px;background:var(--surface-2);color:var(--navy);display:flex;align-items:center;justify-content:center;flex-shrink:0}
   .meter-ico svg{width:15px;height:15px}
@@ -1456,6 +1579,17 @@
     border-radius:var(--r-md);padding:13px 15px;font-size:.85rem;font-weight:700;
   }
   .todo-clear svg{width:18px;height:18px;flex-shrink:0}
+  /* ---------- כשאין מה לטפל בו ----------
+     "הכול מטופל" הוא בשורה טובה, לא כותרת פרק. כשהרשימה ריקה הבלוק מתכווץ
+     לשורת סטטוס אחת דקה והכותרת "דורש טיפול מיידי" יורדת איתו — כותרת מעל
+     הודעת "אין כלום" היא שתי שורות שאומרות אפס, בדיוק בגובה שבו צריכות
+     לשבת הפעולות המהירות. */
+  .todo-section.is-clear{margin-bottom:6px}
+  .todo-section.is-clear .section-head{display:none}
+  .todo-section.is-clear .todo-clear{
+    display:inline-flex;padding:7px 13px;font-size:.78rem;border-radius:999px;
+  }
+  .todo-section.is-clear .todo-clear svg{width:15px;height:15px}
 
   /* ==========================================================================
      פעולות מהירות
@@ -1499,7 +1633,7 @@
   .qa-title{display:block;font-weight:700;font-size:.86rem;color:var(--txt);min-width:0;
             overflow:hidden;text-overflow:ellipsis}
   @media(prefers-reduced-motion:reduce){
-    .qa-card,.kpi-spark span,.meter-bar span,.kpi-donut .ring-fill{transition:none}
+    .qa-card,.trend-chart span,.meter-bar span,.kpi-ratio span{transition:none}
   }
 
   /* ==========================================================================
@@ -1557,11 +1691,14 @@
      שבו סוכן/ת רצה/תה לראות אותם בין "הנכסים שלי" ל"הלידים שלי". המתג הוא
      המעבר בין שני העולמות, והוא גם מה שקובע מה נכנס לניווט.
      ========================================================================== */
+  /* המתג מוצג אך ורק ל-is_platform_admin (ראו renderViewSwitch), ולסוכן/ת
+     רגיל/ה הוא לא קיים על המסך בכלל. גם למנהל/ת הוא ויתר על רוחב מלא: מתג
+     בין שתי תצוגות הוא פקד, לא כותרת של המסך, ורצועה מקצה לקצה בראש הדף
+     היא בדיוק השטח שהמדדים צריכים. */
   .view-switch{
-    display:grid;grid-template-columns:1fr 1fr;background:var(--surface-2);
-    border-radius:999px;padding:3px;gap:2px;
+    display:inline-flex;background:var(--surface-2);
+    border-radius:999px;padding:3px;gap:2px;align-self:flex-start;max-width:100%;
   }
-  @media(min-width:700px){.view-switch{display:inline-flex;grid-template-columns:none;align-self:flex-start}}
   .view-switch[hidden]{display:none}
   .view-switch button{
     border:none;background:transparent;border-radius:999px;padding:6px 12px;
@@ -1634,13 +1771,26 @@
     box-shadow:var(--sh-1);margin-bottom:10px;
   }
   #dashboard .dash-main>.acc{border-radius:var(--r-lg)}
-  #dashboard .acc>summary{color:var(--txt);font-size:.98rem;padding:15px 17px;border-radius:inherit}
+  #dashboard .acc>summary{color:var(--txt);font-size:.98rem;padding:13px 16px;border-radius:inherit}
   #dashboard .acc>summary:hover{background:var(--surface-2)}
   #dashboard .acc[open]>summary{border-bottom:1px solid var(--edge);border-end-start-radius:0;border-end-end-radius:0}
   #dashboard .acc-count{background:var(--surface-2);color:var(--txt-soft);border-radius:999px;padding:3px 10px;font-size:.7rem}
   #dashboard .acc-count.hot{background:#dc2626;color:#fff}
+  /* ---------- שורת הסיכום בכותרת האקורדיון ----------
+     קטגוריה סגורה הראתה עד היום מספר ותו לא: "7". שבעה מה, באיזה טווח
+     מחירים, באיזה אזור — לזה היה צריך לפתוח את הקטגוריה ולסרוק את
+     הכרטיסים. השורה הזו אומרת את השורה התחתונה בלי פתיחה.
+
+     היא יושבת *בתוך* ‏.acc-title ולא לצידה: ברוחב טלפון, כותרת + מונה +
+     סיכום + חץ באותה שורה דוחסים את הכול לאותיות בודדות. */
+  #dashboard .acc-title{display:flex;flex-direction:column;align-items:flex-start;gap:1px}
+  .acc-sum{
+    font-family:'Heebo',sans-serif;font-size:.7rem;font-weight:700;color:var(--txt-faint);
+    max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .acc-sum:empty{display:none}
   #dashboard .acc-chev{color:var(--txt-faint)}
-  #dashboard .acc-body{padding:17px}
+  #dashboard .acc-body{padding:14px}
   #dashboard .acc-sub{color:var(--txt-soft)}
   /* כרטיסים פנימיים: משטח slate בהיר בתוך כרטיס לבן, במקום לבן-על-לבן */
   #dashboard .acc-body .card{background:var(--surface-2);border:1px solid var(--edge);border-radius:var(--r-md);box-shadow:none}
@@ -1997,11 +2147,18 @@
 
   <header class="crm">
     <div class="dash-wrap crm-header-inner">
-      <div class="agent-id">
-        <!-- האווטאר הוא הכניסה לעדכון הפרופיל: לחיצה פותחת וגוללת לקטגוריית
-             "עדכון פרטי הסוכן/ת" דרך אותו מנגנון data-goto של שאר הדשבורד -->
-        <button type="button" class="avatar" id="avatarBtn" data-goto="accProfile"
-                aria-label="עדכון פרטי הסוכן/ת" title="עדכון פרטי הסוכן/ת">
+      <!-- ---------- זהות ופרופיל ----------
+           הכותרת החזיקה קודם חמישה פקדים נפרדים: אווטאר שמוביל לפרופיל,
+           פעמון, המבורגר, לוגו וכפתור יציאה. שלושה מהם היו "ההגדרות שלי"
+           בשלוש דרכים שונות.
+
+           עכשיו האווטאר הוא תפריט הפרופיל: הפרטים האישיים, ההעדפות, ניהול
+           ההתראות, הקוד האתי והיציאה — כולם תחתיו. הפעמון (מה חדש) וההמבורגר
+           (לאן ללכת) נשארו, כי הם עונים על שאלות אחרות לגמרי. -->
+      <div class="agent-id menu-wrap profile-wrap">
+        <button type="button" class="avatar" id="avatarBtn"
+                aria-haspopup="true" aria-expanded="false" aria-controls="profilePanel"
+                aria-label="הפרופיל וההגדרות שלי" title="הפרופיל וההגדרות שלי">
           <span id="avatarInitial">·</span>
           <img id="avatarPhoto" alt="" hidden>
         </button>
@@ -2012,6 +2169,7 @@
             <span class="agent-agency" id="agentAgency"></span>
           </div>
         </div>
+        <nav class="menu-panel profile-panel" id="profilePanel" aria-label="הפרופיל וההגדרות שלי"></nav>
       </div>
 
       <!-- לוגו הפלטפורמה במרכז הכותרת, מוביל תמיד חזרה לדף הבית כמו בשאר
@@ -2051,7 +2209,11 @@
           </button>
           <nav class="menu-panel" id="menuPanel" aria-label="קטגוריות הדשבורד"></nav>
         </div>
-        <button type="button" class="icon-btn icon-btn-wide" id="logoutBtn" aria-label="יציאה">
+        <!-- כפתור היציאה ירד מהכותרת ונכנס לתפריט הפרופיל: הוא נלחץ פעם
+             ביום, וישב באותה בולטות של הפעמון שנלחץ עשרים. הכפתור עצמו
+             נשאר ב-DOM (מוסתר) כי הוא נקודת היציאה היחידה בקוד, ופריט
+             "יציאה" בתפריט פשוט לוחץ עליו. -->
+        <button type="button" class="icon-btn icon-btn-wide" id="logoutBtn" aria-label="יציאה" hidden>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21h4a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-4"/><polyline points="8 17 3 12 8 7"/><line x1="3" y1="12" x2="15" y2="12"/></svg>
           <span class="icon-btn-label">יציאה</span>
         </button>
@@ -2082,13 +2244,13 @@
 
         <p class="dash-greet" id="dashGreet">הנה תמונת המצב שלך להיום</p>
 
-        <!-- ---------- רכבת המדדים ----------
-             ארבעה מדדים, רכבת אופקית במובייל וגריד בדסקטופ. כל המזהים כאן הם
-             אותם מזהים שהיו בכרטיסים הישנים (kpiCommission*, kpiExclusive*,
-             creditBalance, quota*), ולכן renderCommissionCard, renderExclusiveCard
-             וטעינת הארנק ממשיכות לכתוב אליהם בלי שינוי. -->
+        <!-- ---------- שורת המדדים ----------
+             שלושה מדדים קומפקטיים בשורה אחת, בלי גלילה אופקית ובלי כרטיס
+             שנחתך בקצה: פוטנציאל העמלות, הנכסים הפעילים שמייצרים אותו,
+             והבלעדיות מתוכם. מדדי המשנה (לידים חמים, ארנק) יושבים ב-.kpi-more
+             מתחת לפעולות המהירות. -->
         <section aria-label="המדדים שלי">
-          <div class="kpi-rail" id="kpiRail">
+          <div class="kpi-strip">
 
             <article class="kpi-card kpi-primary">
               <div class="kpi-top">
@@ -2097,11 +2259,24 @@
                 </span>
                 <span class="kpi-chip" id="kpiCommissionDelta" hidden></span>
               </div>
-              <div class="kpi-label">פוטנציאל עמלות פתוח</div>
+              <div class="kpi-label">עמלות פוטנציאליות</div>
               <div class="kpi-value" id="kpiCommissionValue">₪0</div>
               <p class="kpi-note" id="kpiCommissionNote">טוענים את הנכסים שלך…</p>
-              <div class="kpi-spark" id="kpiCommissionSpark" role="img" aria-label="מגמת פוטנציאל העמלות בששת החודשים האחרונים"></div>
-              <div class="kpi-spark-axis" id="kpiCommissionAxis"></div>
+            </article>
+
+            <!-- הנכסים הפעילים היו עד היום שורת הערה בתוך כרטיס העמלות. הם
+                 המכנה של כל שאר המדדים (העמלות מהם, הבלעדיות מתוכם), ולכן
+                 הם מדד ולא הערת שוליים. -->
+            <article class="kpi-card kpi-active">
+              <div class="kpi-top">
+                <span class="kpi-icon kpi-icon-soft">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-5h6v5"/></svg>
+                </span>
+                <span class="kpi-chip kpi-chip-soft" id="kpiActiveDelta" hidden></span>
+              </div>
+              <div class="kpi-label">נכסים פעילים</div>
+              <div class="kpi-value" id="kpiActiveValue">0</div>
+              <p class="kpi-note" id="kpiActiveNote">טוענים את הנכסים שלך…</p>
             </article>
 
             <article class="kpi-card kpi-exclusive">
@@ -2111,52 +2286,27 @@
                 </span>
                 <span class="kpi-chip kpi-chip-soft" id="kpiExclusiveDelta" hidden></span>
               </div>
-              <div class="kpi-split">
-                <div class="kpi-split-text">
-                  <div class="kpi-label">נכסים בבלעדיות</div>
-                  <div class="kpi-value" id="kpiExclusiveValue">0</div>
-                  <p class="kpi-note" id="kpiExclusiveNote">טוענים את הנכסים שלך…</p>
-                </div>
-                <div class="kpi-donut" id="kpiExclusiveDonut" role="img" aria-label="שיעור הנכסים בבלעדיות מתוך התיק הפעיל"></div>
-              </div>
+              <div class="kpi-label">נכסים בבלעדיות</div>
+              <div class="kpi-value" id="kpiExclusiveValue">0</div>
+              <p class="kpi-note" id="kpiExclusiveNote">טוענים את הנכסים שלך…</p>
+              <div class="kpi-ratio" id="kpiExclusiveRatio" role="img" aria-label="שיעור הנכסים בבלעדיות מתוך התיק הפעיל"><span style="width:0%"></span></div>
             </article>
 
-            <!-- הלידים החמים היו עד היום רק תגית אדומה על קטגוריה. כמדד הם
-                 עונים על השאלה שסוכן/ת שואל/ת ראשונה בבוקר: כמה כסף ממתין לי
-                 לפתיחה. הכרטיס עצמו הוא הכפתור שמוביל לשם. -->
-            <button type="button" class="kpi-card kpi-hot" data-goto="accHotLeads" aria-label="לידים חמים שממתינים לפתיחה">
-              <div class="kpi-top">
-                <span class="kpi-icon">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .4-2 .4-2S6 11 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12Z"/></svg>
-                </span>
-                <span class="kpi-chip kpi-chip-alert" id="kpiHotChip" hidden>דחוף לטיפול</span>
-              </div>
-              <div class="kpi-label">לידים חמים</div>
-              <div class="kpi-value" id="kpiHotValue">0</div>
-              <p class="kpi-note" id="kpiHotNote">פניות שעדיין לא נפתחו</p>
-            </button>
-
-            <!-- הארנק והמכסה החינמית — שני מספרים שקשורים זה לזה (המכסה
-                 נגמרת, הארנק משלם את ההמשך), ולכן הם כרטיס אחד ולא שניים. -->
-            <div class="meter-card">
-              <div class="meter-top">
-                <span class="meter-ico">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="14" rx="3"/><path d="M2 10h20"/><circle cx="17.5" cy="15" r="1.3"/></svg>
-                </span>
-                <span class="meter-title">יתרת ארנק</span>
-                <button type="button" class="meter-cta" data-goto="accWallet" data-focus="topupAmount">+ טעינה</button>
-              </div>
-              <div class="meter-value" id="creditBalance">—</div>
-              <div class="meter-top" style="margin-top:12px">
-                <span class="meter-title">לידים חינמיים החודש</span>
-                <span class="meter-value-sm" id="quotaUsed">—</span>
-              </div>
-              <div class="meter-bar"><span id="quotaBar" style="width:0%"></span></div>
-              <p class="meter-note" id="quotaNote">מתעדכן עם כל ליד שנפתח</p>
-            </div>
-
           </div>
-          <button type="button" class="rail-all" id="kpiRailToggle" aria-expanded="false" aria-controls="kpiRail">כל המדדים</button>
+        </section>
+
+        <!-- ---------- דורש טיפול מיידי ----------
+             מרכז את מה שהיה מפוזר כתגיות אדומות על כפתורים שונים. הרשימה
+             נבנית ב-renderTodoList() מאותם מונים של הקטגוריות, והבלוק כולו
+             מתכווץ לשורת סטטוס אחת כשאין מה לטפל בו (‏.is-clear).
+
+             הוא עלה מעל כפתור ההחתמה בכוונה: כשיש דחוף — הוא הדבר הראשון
+             אחרי המספרים; כשאין — הוא שורה דקה, והפעולות עולות במקומו. -->
+        <section class="todo-section" aria-label="דורש טיפול מיידי" id="todoSection">
+          <div class="section-head">
+            <h2 class="section-h">דורש טיפול מיידי</h2>
+          </div>
+          <div class="todo-list" id="todoList"></div>
         </section>
 
         <!-- ---------- החתמת לקוח ----------
@@ -2177,23 +2327,70 @@
           <svg class="sign-cta-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
         </button>
 
-        <!-- ---------- דורש טיפול מיידי ----------
-             מרכז את מה שהיה מפוזר כתגיות אדומות על כפתורים שונים. הרשימה
-             נבנית ב-renderTodoList() מאותם מונים של הקטגוריות. -->
-        <section class="todo-section" aria-label="דורש טיפול מיידי">
-          <div class="section-head">
-            <h2 class="section-h">דורש טיפול מיידי</h2>
-          </div>
-          <div class="todo-list" id="todoList"></div>
-        </section>
-
-        <!-- ---------- פעולות מהירות ---------- -->
+        <!-- ---------- פעולות מהירות ----------
+             פעולות בלבד — לא ניווט. כל יעד שיש לו לשונית בסרגל התחתון,
+             שורה בסרגל הצד ופריט בתפריט הבורגר ירד מכאן: שלוש דרכים לאותו
+             מקום הן לא נגישות, הן רעש. ראו QUICK_ACTIONS. -->
         <section class="quick-section" aria-label="פעולות מהירות">
           <div class="section-head">
             <h2 class="section-h">פעולות מהירות</h2>
           </div>
           <div class="quick-grid" id="quickGrid"></div>
         </section>
+
+        <!-- ---------- מגמת פוטנציאל העמלות ----------
+             הגרף עצמו נבנה ב-renderCommissionCard: עמודה לכל חודש, החודש
+             הנוכחי בזהב ועם הסכום שלו כתוב מעליו, והמקרא מסביר את הצבעים. -->
+        <section class="kpi-trend" aria-label="מגמת פוטנציאל העמלות">
+          <div class="kpi-trend-head">
+            <span class="kpi-trend-title">מגמת פוטנציאל העמלות · 6 חודשים</span>
+            <span class="kpi-trend-now" id="kpiTrendNow">₪0</span>
+          </div>
+          <p class="kpi-trend-legend">
+            <span><i class="now"></i>החודש הנוכחי</span>
+            <span><i class="past"></i>חודשים קודמים</span>
+          </p>
+          <div class="trend-chart" id="kpiCommissionSpark" role="img" aria-label="מגמת פוטנציאל העמלות בששת החודשים האחרונים"></div>
+          <div class="trend-axis" id="kpiCommissionAxis"></div>
+          <p class="kpi-trend-note" id="kpiTrendNote">סך העמלה הצפויה מהנכסים הפעילים שכבר היו מפורסמים בסוף כל חודש.</p>
+        </section>
+
+        <!-- ---------- מדדי המשנה ----------
+             לידים חמים ויתרת הארנק. שניהם חשובים, שניהם כבר צועקים ממקום
+             אחר (בלוק "דורש טיפול" והתגית בסרגל התחתון), ולכן הם כאן ולא
+             בשורה העליונה. -->
+        <div class="kpi-more">
+          <button type="button" class="kpi-card kpi-hot" data-goto="accHotLeads" aria-label="לידים חמים שממתינים לפתיחה">
+            <div class="kpi-top">
+              <span class="kpi-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .4-2 .4-2S6 11 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12Z"/></svg>
+              </span>
+              <span class="kpi-chip kpi-chip-alert" id="kpiHotChip" hidden>דחוף לטיפול</span>
+            </div>
+            <div class="kpi-label">לידים חמים</div>
+            <div class="kpi-value" id="kpiHotValue">0</div>
+            <p class="kpi-note" id="kpiHotNote">פניות שעדיין לא נפתחו</p>
+          </button>
+
+          <!-- הארנק והמכסה החינמית — שני מספרים שקשורים זה לזה (המכסה
+               נגמרת, הארנק משלם את ההמשך), ולכן הם כרטיס אחד ולא שניים. -->
+          <div class="meter-card">
+            <div class="meter-top">
+              <span class="meter-ico">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="20" height="14" rx="3"/><path d="M2 10h20"/><circle cx="17.5" cy="15" r="1.3"/></svg>
+              </span>
+              <span class="meter-title">יתרת ארנק</span>
+              <button type="button" class="meter-cta" data-goto="accWallet" data-focus="topupAmount">+ טעינה</button>
+            </div>
+            <div class="meter-value" id="creditBalance">—</div>
+            <div class="meter-top" style="margin-top:12px">
+              <span class="meter-title">לידים חינמיים החודש</span>
+              <span class="meter-value-sm" id="quotaUsed">—</span>
+            </div>
+            <div class="meter-bar"><span id="quotaBar" style="width:0%"></span></div>
+            <p class="meter-note" id="quotaNote">מתעדכן עם כל ליד שנפתח</p>
+          </div>
+        </div>
 
       </div>
 
@@ -2255,7 +2452,7 @@
         <span class="panel-ico" aria-hidden="true">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .4-2 .4-2S6 11 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12Z"/></svg>
         </span>
-        <span class="acc-title">לידים חמים אחרונים</span>
+        <span class="acc-title">לידים חמים אחרונים<span class="acc-sum" id="accHotLeadsSum"></span></span>
         <span class="acc-count hot" id="accHotLeadsCount"></span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
@@ -2270,7 +2467,7 @@
 
     <details class="acc" id="accProperties" open>
       <summary>
-        <span class="acc-title">הנכסים שלי</span>
+        <span class="acc-title">הנכסים שלי<span class="acc-sum" id="accPropertiesSum"></span></span>
         <span class="acc-count" id="accPropertiesCount"></span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
@@ -2552,7 +2749,7 @@
 
     <details class="acc" id="accLeads" open>
       <summary>
-        <span class="acc-title">הלידים שלי</span>
+        <span class="acc-title">הלידים שלי<span class="acc-sum" id="accLeadsSum"></span></span>
         <span class="acc-count hot" id="accLeadsCount"></span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
@@ -2575,7 +2772,7 @@
 
     <details class="acc" id="accSharedWithMe" open>
       <summary>
-        <span class="acc-title">נכסים ששותפו איתי</span>
+        <span class="acc-title">נכסים ששותפו איתי<span class="acc-sum" id="accSharedWithMeSum"></span></span>
         <span class="acc-count hot" id="accSharedWithMeCount"></span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
@@ -2693,7 +2890,7 @@
 
     <details class="acc" id="accClients" open>
       <summary>
-        <span class="acc-title">קובץ הלקוחות שלי</span>
+        <span class="acc-title">קובץ הלקוחות שלי<span class="acc-sum" id="accClientsSum"></span></span>
         <span class="acc-count hot" id="accClientsCount"></span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
@@ -2818,7 +3015,7 @@
 
     <details class="acc" id="accLeadShelf">
       <summary>
-        <span class="acc-title">מדף לידים — רכישה</span>
+        <span class="acc-title">מדף לידים — רכישה<span class="acc-sum" id="accLeadShelfSum"></span></span>
         <span class="acc-count" id="accLeadShelfCount"></span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
@@ -3758,6 +3955,20 @@
   </div>
 </div>
 
+<!-- בורר הנכס לשיתוף בוואטסאפ. הרשימה עצמה נבנית ב-renderWaShareList
+     מהנכסים שכבר נטענו לדשבורד — אין כאן שאילתה נוספת. -->
+<div class="pm-overlay" id="waShareModal" role="dialog" aria-modal="true" aria-labelledby="waShareTitle" style="display:none">
+  <div class="pm-card wa-card">
+    <div class="pm-title" id="waShareTitle">שיתוף נכס בוואטסאפ</div>
+    <p class="wa-sub">בוחרים נכס — וואטסאפ נפתחת עם הודעה מוכנה, פרטי הנכס וקישור לדף שלו באתר.</p>
+    <input type="search" id="waShareSearch" class="wa-search" placeholder="חיפוש לפי כותרת, כתובת או מספר מודעה" aria-label="חיפוש נכס לשיתוף">
+    <div class="wa-pick" id="waShareList"></div>
+    <div class="pm-actions">
+      <button type="button" class="btn btn-ghost" id="waShareClose">סגירה</button>
+    </div>
+  </div>
+</div>
+
 <!-- אשף ייבוא נכסים מקובץ חיצוני (xlsx/csv). גוף החלון והכפתורים נבנים
      ב-JS לפי השלב, כי כל שלב הוא מסך אחר לגמרי. -->
 <div class="imp-overlay" id="importModal" role="dialog" aria-modal="true" aria-labelledby="impTitle" style="display:none">
@@ -3838,6 +4049,31 @@ function accSetCount(accId, value){
   accCounts[accId] = (typeof value === 'number') ? value
     : Number(String(value == null ? '' : value).replace(/[^\d.-]/g, ''));
   refreshNavCounts();
+}
+
+/* שורת הסיכום שמתחת לשם הקטגוריה. בניגוד ל-accSetCount היא טקסט בלבד ולא
+   נכנסת ל-accCounts: היא מספרת מה יש שם, לא כמה דחוף. קטגוריה בלי סיכום
+   פשוט לא מקבלת שורה (‏.acc-sum:empty). */
+function accSetSummary(accId, text){
+  const el = document.getElementById(accId + 'Sum');
+  if (el) el.textContent = text || '';
+}
+
+/* טווח מחירים לשורת סיכום. שני קצוות ולא ממוצע: מה שסוכן/ת צריך/ה לדעת
+   בלי לפתוח הוא אם יש כאן משהו בתקציב שלו/ה. */
+function priceRangeLabel(values){
+  const nums = (values || []).map(Number).filter(n => Number.isFinite(n) && n > 0);
+  if (!nums.length) return '';
+  const min = Math.min(...nums), max = Math.max(...nums);
+  return min === max ? shekelCompact(min) : shekelCompact(min) + '–' + shekelCompact(max);
+}
+
+/* הערך השכיח ברשימה — האזור/העיר שמייצג/ת את הרשימה בשורה אחת */
+function topValue(values){
+  const counts = {};
+  (values || []).filter(Boolean).forEach(v => { counts[v] = (counts[v] || 0) + 1; });
+  const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  return entries.length ? entries[0][0] : '';
 }
 
 function openAcc(accId){
@@ -9342,6 +9578,11 @@ async function loadProperties(agentId){
     return;
   }
   accSetCount('accProperties', (props||[]).length);
+  // סיכום ללא פתיחה: כמה מהם חיים באתר עכשיו, וכמה כסף הם מייצגים
+  const activeProps = (props||[]).filter(p => p.status === 'active');
+  accSetSummary('accProperties', activeProps.length
+    ? activeProps.length + ' פעילים · ' + priceRangeLabel(activeProps.map(p => p.price))
+    : ((props||[]).length ? 'אין נכסים פעילים' : ''));
   dashProperties = props || [];
   myPropertyRows = props || [];
   myPropertyAgentId = agentId;
@@ -11758,6 +11999,10 @@ function renderLeads(agentId){
   // המונה בכותרת מציג לידים שעדיין לא נפתחו — זה מה שדורש טיפול. ליד שארוכב
   // הוצא מהמסך בכוונה, ולכן הוא לא נספר גם אם לא נפתח.
   accSetCount('accLeads', active.filter(l => l.status !== 'unlocked').length);
+  // המונה אומר "כמה ממתינים"; הסיכום אומר מה יש שם בכלל
+  accSetSummary('accLeads', active.length
+    ? active.length + ' לידים · ' + active.filter(l => l.status === 'unlocked').length + ' נפתחו'
+    : '');
   dashLeads = active;
   renderHotLeads();
 
@@ -12068,6 +12313,11 @@ async function loadLeadShelf(agentId){
 
   shelfLeads = leads || [];
   accSetCount('accLeadShelf', shelfLeads.length ? shelfLeads.length + ' זמינים' : '');
+  // האזור המרכזי במדף ומחיר הליד — מה שקובע אם בכלל שווה לפתוח אותו היום
+  accSetSummary('accLeadShelf', shelfLeads.length
+    ? [topValue(shelfLeads.map(l => l.city)), shekel(rssLeadPrice) + ' לליד']
+        .filter(Boolean).join(' · ')
+    : '');
   syncShelfCityFilter();
   renderLeadShelf();
   await loadPurchasedLeads(agentId);
@@ -12974,6 +13224,11 @@ async function loadSharedWithMe(){
 
   sharedWithMeRows = data || [];
   accSetCount('accSharedWithMe', sharedWithMeRows.length);
+  // טווח המחירים והאזור המרכזי — שתי השאלות שנשאלות על רשימה של נכסי אחרים
+  accSetSummary('accSharedWithMe', sharedWithMeRows.length
+    ? [priceRangeLabel(sharedWithMeRows.map(r => r.price)),
+       topValue(sharedWithMeRows.map(r => r.city))].filter(Boolean).join(' · ')
+    : '');
   syncSharedFilters();
   renderSharedWithMe();
 }
@@ -13159,6 +13414,7 @@ const MATCH_SOURCE_LABELS = { own:'הנכס שלי', agency:'נכס של המש�
 
 let clientRows = [];
 let clientMatchCounts = {};   // client_id → מספר התאמות
+let clientMatchTop = {};      // client_id → שורת ההתאמה החזקה ביותר (לתצוגה המקדימה)
 let editingClientId = null;
 let clientFormCategory = 'residential';
 
@@ -13184,14 +13440,28 @@ async function loadClients(){
 
   clientRows = data || [];
 
-  // ספירה אחת לכל הלקוחות במקום שאילתת התאמות לכל שורה
+  // ספירה אחת לכל הלקוחות במקום שאילתת התאמות לכל שורה.
+  // ‏client_match_top מחזירה את אותה ספירה ובנוסף את ההתאמה החזקה ביותר,
+  // ומשם באה התצוגה המקדימה בכרטיס. נפילה חזרה ל-client_match_counts היא
+  // בשביל מסד שהמיגרציה החדשה עדיין לא רצה בו — אז פשוט אין תצוגה מקדימה.
   clientMatchCounts = {};
-  const { data: counts } = await sb.rpc('client_match_counts');
-  (counts || []).forEach(r => { clientMatchCounts[r.client_id] = r.match_count; });
+  clientMatchTop = {};
+  const { data: tops, error: topError } = await sb.rpc('client_match_top');
+  if (!topError){
+    (tops || []).forEach(r =>{
+      clientMatchCounts[r.client_id] = r.match_count;
+      if (r.top_score) clientMatchTop[r.client_id] = r;
+    });
+  } else {
+    const { data: counts } = await sb.rpc('client_match_counts');
+    (counts || []).forEach(r => { clientMatchCounts[r.client_id] = r.match_count; });
+  }
 
   const totalMatches = Object.values(clientMatchCounts).reduce((a, b) => a + b, 0);
-  accSetCount('accClients', clientRows.length
-    ? clientRows.length + ' לקוחות · ' + totalMatches + ' התאמות'
+  accSetCount('accClients', clientRows.length || '');
+  // ההתאמות הן מנוע הכסף של הקטגוריה הזו, ולכן הן השורה שנקראת בלי לפתוח
+  accSetSummary('accClients', clientRows.length
+    ? (totalMatches ? totalMatches + ' התאמות ממתינות' : 'אין כרגע התאמות')
     : '');
   syncClientFilterOptions();
   renderClients();
@@ -13285,19 +13555,31 @@ function renderClients(){
   listEl.innerHTML = '';
   filtered.forEach(c => {
     const matches = clientMatchCounts[c.id];
+    const wa = waLink(c.phone);
     const el = document.createElement('div');
     el.className = 'card client-card';
     el.innerHTML = `
       <div class="lead-top">
-        <div>
+        <div style="min-width:0">
           <div class="lead-name">${esc(c.full_name)}</div>
-          ${c.phone ? `<div class="lead-phone">${esc(c.phone)}</div>` : ''}
+          ${c.phone ? `<div class="contact-line">
+              <span class="lead-phone">${esc(c.phone)}</span>
+              <a class="contact-quick" href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}"
+                 title="חיוג ל${esc(c.full_name)}" aria-label="חיוג ל${esc(c.full_name)}">📞</a>
+              ${wa ? `<a class="contact-quick is-wa" href="${esc(wa)}" target="_blank" rel="noopener noreferrer"
+                 title="וואטסאפ ל${esc(c.full_name)}" aria-label="וואטסאפ ל${esc(c.full_name)}">💬</a>` : ''}
+            </div>` : ''}
           <div class="req-line">${esc(clientRequirementLine(c))}</div>
           ${c.notes ? `<div class="lead-meta">${esc(c.notes)}</div>` : ''}
         </div>
         <div class="pill-row">
           <span class="status-pill status-unlocked">${CLIENT_STATUS_LABELS[c.status] || c.status}</span>
           ${matches ? `<span class="status-pill status-shared">${matches} התאמות</span>` : ''}
+        </div>
+        <div class="card-menu">
+          <button type="button" class="card-menu-btn" aria-haspopup="true" aria-expanded="false"
+                  title="פעולות נוספות" aria-label="פעולות נוספות על ${esc(c.full_name)}">⋯</button>
+          <div class="card-menu-pop"></div>
         </div>
       </div>
       <div class="lead-actions"></div>
@@ -13307,8 +13589,11 @@ function renderClients(){
     const actions = el.querySelector('.lead-actions');
     const panel = el.querySelector('.match-panel');
 
+    // תצוגה מקדימה של ההתאמה החזקה ביותר — לפני שלוחצים על שום דבר
+    const peek = clientMatchPeek(c, () => el.querySelector('.match-cta'));
+    if (peek) el.querySelector('.lead-top').insertAdjacentElement('afterend', peek);
+
     addCardAction(actions, { label:'✏️ עריכה', onClick:()=> openEditClient(c) });
-    addCardAction(actions, { label:'🗑 מחיקה', onClick:()=> deleteClient(c) });
     // הזמנת שירותי תיווך נחתמת מול הלקוח/ה, ולכן הכפתור יושב על הכרטיס שלו/ה
     // ולא רק בקטגוריית ההסכמים. סוג העסקה בכרטיס הוא שקובע איזה טופס נפתח.
     addCardAction(actions, {
@@ -13316,15 +13601,87 @@ function renderClients(){
       title:'פתיחת הסכם תיווך עם הלקוח/ה, עם הפרטים שכבר בכרטיס',
       onClick:()=> openAgreementWizard({ kind: c.deal_type === 'rent' ? 'tenant' : 'buy', clientId: c.id }),
     });
-    addCardAction(actions, {
+    const matchBtn = addCardAction(actions, {
       label: matches ? `🔍 הצגת ${matches} התאמות` : '🔍 חיפוש התאמות',
       cls:'btn-gold act-wide',
       onClick: btn => toggleClientMatches(c, btn, panel),
     });
+    matchBtn.classList.add('match-cta');
+
+    // מחיקה היא הפעולה היחידה כאן שאי אפשר לבטל, ולכן היא לא יושבת ברשת
+    // הפעולות לצד "עריכה" ו"החתמה" — שלושה כפתורים באותו גודל ובאותו צבע,
+    // שאחד מהם בלתי הפיך, זו לחיצה שגויה שממתינה לקרות בשטח.
+    buildCardMenu(el.querySelector('.card-menu'), [
+      { label:'🗑 מחיקת הלקוח/ה', danger:true, onClick:()=> deleteClient(c) },
+    ]);
 
     listEl.appendChild(el);
   });
 }
+
+/* ---------- תצוגה מקדימה של ההתאמה ----------
+   ‏client_match_top מחזירה, לצד המונה, את שורת ההתאמה החזקה ביותר לכל
+   לקוח/ה. כשהיא לא זמינה (מיגרציה שטרם רצה) פשוט אין תצוגה מקדימה —
+   הכפתור והמונה ממשיכים לעבוד בדיוק כמו קודם.                          */
+function clientMatchPeek(client, ctaGetter){
+  const top = clientMatchTop[client.id];
+  if (!top || !top.top_score) return null;
+
+  const address = [top.top_city, [top.top_street, top.top_house_number].filter(Boolean).join(' ')]
+    .filter(Boolean).join(', ');
+  const what = top.top_property_type || 'נכס';
+  const price = top.top_deal_type === 'rent'
+    ? shekel(top.top_price) + ' לחודש' : shekel(top.top_price);
+
+  const row = document.createElement('button');
+  row.type = 'button';
+  row.className = 'match-peek';
+  row.title = 'פתיחת רשימת ההתאמות המלאה';
+  row.innerHTML =
+    `<span class="score-pill ${top.top_score >= 85 ? 'score-high' : 'score-mid'}">${esc(String(top.top_score))}%</span>`
+    + `<span class="match-peek-text">הכי מתאים: <b>${esc(what)}</b>`
+    + (address ? ' ב' + esc(address) : '') + ` · ${esc(price)}</span>`;
+  row.addEventListener('click', ()=>{
+    const cta = ctaGetter();
+    if (cta) cta.click();
+  });
+  return row;
+}
+
+/* ---------- תפריט שלוש הנקודות ----------
+   נבנה בכל כרטיס שיש בו פעולה הרסנית. תפריט אחד פתוח בכל רגע, ולחיצה
+   בכל מקום אחר סוגרת אותו — כולל גלילה עם האצבע על כרטיס אחר.          */
+function buildCardMenu(wrap, items){
+  if (!wrap) return;
+  const btn = wrap.querySelector('.card-menu-btn');
+  const pop = wrap.querySelector('.card-menu-pop');
+  pop.innerHTML = '';
+  items.forEach(item=>{
+    const b = document.createElement('button');
+    b.type = 'button';
+    if (item.danger) b.className = 'is-danger';
+    b.textContent = item.label;
+    b.addEventListener('click', ()=>{ closeCardMenus(); item.onClick(); });
+    pop.appendChild(b);
+  });
+  btn.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    const open = wrap.classList.contains('is-open');
+    closeCardMenus();
+    wrap.classList.toggle('is-open', !open);
+    btn.setAttribute('aria-expanded', String(!open));
+  });
+}
+
+function closeCardMenus(){
+  document.querySelectorAll('.card-menu.is-open').forEach(m=>{
+    m.classList.remove('is-open');
+    const b = m.querySelector('.card-menu-btn');
+    if (b) b.setAttribute('aria-expanded', 'false');
+  });
+}
+document.addEventListener('click', closeCardMenus);
+document.addEventListener('keydown', (e)=>{ if (e.key === 'Escape') closeCardMenus(); });
 
 async function toggleClientMatches(client, btn, panel){
   if (panel.style.display !== 'none'){
@@ -14479,14 +14836,6 @@ window.addEventListener('resize', ()=>{
   renderSideNav();
 });
 
-/* "כל המדדים" — פורש את הרכבת לגריד במובייל */
-document.getElementById('kpiRailToggle').addEventListener('click', (e)=>{
-  const rail = document.getElementById('kpiRail');
-  const open = rail.classList.toggle('is-open');
-  e.currentTarget.setAttribute('aria-expanded', String(open));
-  e.currentTarget.textContent = open ? 'תצוגה מקוצרת' : 'כל המדדים';
-});
-
 /* ==========================================================================
    דורש טיפול מיידי
    --------------------------------------------------------------------------
@@ -14509,12 +14858,17 @@ function renderTodoList(){
   const host = document.getElementById('todoList');
   if (!host) return;
   host.innerHTML = '';
+  const section = document.getElementById('todoSection');
   const rows = TODO_ITEMS.filter(item => navAccVisible(item.acc) && accCountOf(item.acc) > 0);
+
+  // ‏is-clear מכווץ את הבלוק לשורת סטטוס אחת ומוריד את הכותרת (ראו CSS).
+  // בלוק בגובה מלא שאומר "אין כלום" הוא בדיוק השטח שהפעולות צריכות.
+  if (section) section.classList.toggle('is-clear', !rows.length);
 
   if (!rows.length){
     const clear = document.createElement('div');
     clear.className = 'todo-clear';
-    clear.innerHTML = dashIcon('check') + '<span>הכול מטופל — אין פריטים שממתינים לך</span>';
+    clear.innerHTML = dashIcon('check') + '<span>הכול מטופל</span>';
     host.appendChild(clear);
     return;
   }
@@ -14540,20 +14894,49 @@ function renderTodoList(){
 /* ==========================================================================
    פעולות מהירות
    --------------------------------------------------------------------------
-   גריד של אייקון + שם, שתי עמודות במובייל. איבד את שורת התיאור, את התגיות
-   ואת מצב "עריכת סדר": משהיו לו סרגל ניווט תחתון מתחת ובלוק "דורש טיפול
-   מיידי" מעל, שלושתם ניסו להיות הניווט הראשי — וזה בדיוק העומס שהמסך הזה
-   נועד להוריד. כאן נשאר מה שגריד עושה הכי טוב: קיצור דרך מזוהה במבט.
+   הגריד הזה היה עותק שלישי של תפריט הניווט: "הנכסים שלי", "הלידים שלי",
+   "קובץ הלקוחות" — כולם כבר לשונית בסרגל התחתון, שורה בסרגל הצד ופריט
+   בתפריט הבורגר. שלוש דרכים לאותו מקום אינן נגישות, הן רעש; והן גם דחקו
+   למטה את מה שבאמת נעשה מהבית.
+
+   מה שנשאר כאן הן פעולות בלבד — דברים שקורים עכשיו ואין להם כניסה בתפריט:
+   פתיחת נכס חדש, לקוח/ה חדש/ה, שיתוף נכס בוואטסאפ, ייבוא מקובץ, טעינת
+   ארנק והזמנת סוכן/ת. ‏acc הוא רק שער הגלוּיוּת (ראו navAccVisible), ‏run
+   הוא הפעולה עצמה.
    ========================================================================== */
+
+/* פתיחת טופס פנימי שמקופל בתוך קטגוריה: מנווטים לקטגוריה, ורק אז לוחצים על
+   כפתור הפתיחה שלה — ורק אם הטופס אכן סגור, כדי שהלחיצה לא תסגור טופס
+   שכבר פתוח. ההשהיה היא זמן הגלילה החלקה של gotoSection. */
+function openInlineForm(accId, formId, toggleId){
+  gotoSection(accId);
+  const reduce = navReduceMotion();
+  setTimeout(()=>{
+    const form = document.getElementById(formId);
+    const btn  = document.getElementById(toggleId);
+    if (!form || !btn) return;
+    if (getComputedStyle(form).display === 'none') btn.click();
+    const first = form.querySelector('input:not([type=hidden]),select,textarea');
+    if (first) first.focus({ preventScroll:true });
+    form.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block:'center' });
+  }, reduce ? 0 : 420);
+}
+
 const QUICK_ACTIONS = [
-  { acc:'accProperties',    icon:'building', title:'הנכסים שלי' },
-  { acc:'accLeads',         icon:'inbox',    title:'הלידים שלי' },
-  { acc:'accClients',       icon:'contact',  title:'קובץ הלקוחות' },
-  { acc:'accLeadShelf',     icon:'layers',   title:'מדף לידים' },
-  { acc:'accWallet',        icon:'wallet',   title:'טעינת ארנק', tone:'gold', focus:'topupAmount' },
-  { acc:'accTeam',          icon:'users',    title:'צוות המשרד' },
-  { acc:'accSharePartners', icon:'handshake',title:'שיתופי פעולה' },
-  { acc:'accMortgageShelf', icon:'bank',     title:'מדף משכנתאות' },
+  { acc:'accProperties', icon:'building', title:'הוספת נכס חדש',
+    run:()=> openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty') },
+  { acc:'accClients',    icon:'contact',  title:'הוספת לקוח/ה',
+    run:()=> openInlineForm('accClients', 'addClientForm', 'toggleAddClient') },
+  { acc:'accProperties', icon:'chat',     title:'שיתוף נכס בוואטסאפ',
+    run:()=> openWaShare() },
+  { acc:'accProperties', icon:'layers',   title:'ייבוא נכסים מקובץ',
+    run:()=>{ gotoSection('accProperties');
+              setTimeout(()=> document.getElementById('openImportProperties').click(),
+                         navReduceMotion() ? 0 : 420); } },
+  { acc:'accWallet',     icon:'wallet',   title:'טעינת ארנק', tone:'gold',
+    run:()=> gotoSection('accWallet', 'topupAmount') },
+  { acc:'accTeam',       icon:'users',    title:'הזמנת סוכן/ת',
+    run:()=> gotoSection('accTeam', 'nmEmail') },
 ];
 
 function renderQuickActions(){
@@ -14568,10 +14951,97 @@ function renderQuickActions(){
       + '<span class="qa-icon">' + dashIcon(action.icon) + '</span>'
       + '<span class="qa-title">' + esc(action.title) + '</span>'
       + '</button>';
-    card.querySelector('.qa-hit').addEventListener('click', ()=> navGo(action));
+    card.querySelector('.qa-hit').addEventListener('click',
+      ()=> action.run ? action.run() : navGo(action));
     grid.appendChild(card);
   });
 }
+
+/* ==========================================================================
+   שיתוף נכס בוואטסאפ
+   --------------------------------------------------------------------------
+   הפעולה שסוכן/ת עושה עשר פעמים ביום, ועד היום דרשה: לפתוח את "הנכסים
+   שלי", למצוא את הנכס, לפתוח את דף הנכס, להעתיק כתובת, לעבור לוואטסאפ
+   ולהקליד את הפרטים. כאן: בוחרים נכס — ונפתחת וואטסאפ עם הודעה מוכנה.
+
+   ‏wa.me בלי מספר פותח את בורר אנשי הקשר של וואטסאפ, ולכן אין צורך לבחור
+   נמען כאן. הרשימה היא הנכסים הפעילים בלבד: דף הנכס באתר מוצג רק לנכס
+   פעיל, ולינק לנכס שהוסר הוא לינק שבור.
+   ========================================================================== */
+function waShareText(p){
+  const address = [p.city, [p.street, p.house_number].filter(Boolean).join(' ')]
+    .filter(Boolean).join(', ');
+  const facts = [
+    p.rooms ? p.rooms + ' חדרים' : null,
+    p.size_sqm ? p.size_sqm + ' מ״ר' : null,
+    p.floor != null ? 'קומה ' + p.floor : null,
+  ].filter(Boolean).join(' · ');
+  return [
+    p.title || 'נכס למכירה',
+    address,
+    p.deal_type === 'rent' ? shekel(p.price) + ' לחודש' : shekel(p.price),
+    facts,
+    propertyPublicLink(p.id),
+  ].filter(Boolean).join('\n');
+}
+
+function waShareCandidates(){
+  const q = (document.getElementById('waShareSearch').value || '').trim().toLowerCase();
+  return dashProperties
+    .filter(p => p.status === 'active')
+    .filter(p => !q || [p.title, p.city, p.street, p.house_number, p.property_type,
+                        p.listing_number].filter(Boolean).join(' ').toLowerCase().includes(q));
+}
+
+function renderWaShareList(){
+  const host = document.getElementById('waShareList');
+  const rows = waShareCandidates();
+  if (!rows.length){
+    host.innerHTML = '<div class="empty-state">'
+      + (dashProperties.some(p => p.status === 'active')
+          ? 'אין נכס פעיל שמתאים לחיפוש.'
+          : 'אין כרגע נכסים פעילים לשיתוף. נכס מתפרסם באתר ברגע שהוא נשמר כפעיל.')
+      + '</div>';
+    return;
+  }
+  host.innerHTML = '';
+  rows.forEach(p=>{
+    const address = [p.city, [p.street, p.house_number].filter(Boolean).join(' ')]
+      .filter(Boolean).join(', ');
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'wa-pick-row';
+    btn.innerHTML = '<span class="wa-pick-text">'
+      + '<span class="wa-pick-title">' + esc(p.title || 'נכס ללא כותרת') + '</span>'
+      + '<span class="wa-pick-meta">' + esc([address, p.deal_type === 'rent'
+          ? shekel(p.price) + ' לחודש' : shekel(p.price)].filter(Boolean).join(' · ')) + '</span>'
+      + '</span><span class="wa-pick-go">💬</span>';
+    btn.addEventListener('click', ()=>{
+      window.open('https://wa.me/?text=' + encodeURIComponent(waShareText(p)),
+                  '_blank', 'noopener');
+      closeWaShare();
+    });
+    host.appendChild(btn);
+  });
+}
+
+function openWaShare(){
+  const modal = document.getElementById('waShareModal');
+  document.getElementById('waShareSearch').value = '';
+  renderWaShareList();
+  modal.style.display = 'flex';
+  document.getElementById('waShareSearch').focus({ preventScroll:true });
+}
+
+function closeWaShare(){
+  document.getElementById('waShareModal').style.display = 'none';
+}
+
+document.getElementById('waShareSearch').addEventListener('input', renderWaShareList);
+document.getElementById('waShareClose').addEventListener('click', closeWaShare);
+document.getElementById('waShareModal').addEventListener('click', (e)=>{
+  if (e.target.id === 'waShareModal') closeWaShare();
+});
 
 /* ---------- ריענון כל מה שתלוי במונים ----------
    accSetCount קורא לכאן, ולכן כל עדכון מונה (ליד חדש, נכס שנוסף, ביקורת
@@ -14633,6 +15103,19 @@ function shekelShort(n){
   return '₪' + v.toLocaleString('he-IL');
 }
 
+/* מספר מקוצר לעמודה צרה. במדד שרוחבו שליש שורה במסך של 360px אין מקום
+   ל-"₪1,240,000" — והמספר המלא שנחתך גרוע מהמספר המעוגל שנקרא. הסכום
+   המדויק נשאר ב-title של אותו אלמנט ובכרטיסי הנכסים עצמם. */
+function shekelCompact(n){
+  const v = Math.round(Number(n) || 0);
+  if (v >= 1000000){
+    const m = v / 1000000;
+    return '₪' + (m >= 10 ? Math.round(m) : Math.round(m * 10) / 10).toLocaleString('he-IL') + ' מ׳';
+  }
+  if (v >= 10000) return '₪' + Math.round(v / 1000).toLocaleString('he-IL') + ' א׳';
+  return '₪' + v.toLocaleString('he-IL');
+}
+
 /* סדרת 6 חודשים: לכל חודש, סך הפוטנציאל של הנכסים הפעילים שכבר היו
    מפורסמים בסופו. הסטטוס הידוע לנו הוא הנוכחי, ולכן זו מגמת צבירה של
    התיק הפעיל לפי מועד הפרסום — וכך גם כתוב מתחת לגרף. */
@@ -14677,43 +15160,95 @@ function renderCommissionCard(active){
   const valueEl = document.getElementById('kpiCommissionValue');
   const noteEl = document.getElementById('kpiCommissionNote');
   const deltaEl = document.getElementById('kpiCommissionDelta');
-  const sparkEl = document.getElementById('kpiCommissionSpark');
-  const axisEl = document.getElementById('kpiCommissionAxis');
   if (!valueEl) return;
 
   const total = active.reduce((s, p)=> s + propertyCommission(p), 0);
-  countUp(valueEl, total, v => shekelShort(v));
+  // המספר במדד מקוצר כדי להיקרא ברוחב של שליש שורה; הסכום המלא ב-title
+  countUp(valueEl, total, v => shekelCompact(v));
+  valueEl.title = shekelShort(total);
 
-  const forSale = active.filter(p => p.deal_type !== 'rent').length;
-  const forRent = active.length - forSale;
   noteEl.textContent = active.length === 0
-    ? 'אין כרגע נכסים פעילים — כל נכס שתפרסמו ייכנס למדד הזה'
-    : `${active.length} נכסים פעילים · ${forSale} למכירה (${Math.round(COMMISSION_SALE_RATE * 1000) / 10}%) ו-${forRent} להשכרה (חודש שכירות)`;
+    ? 'כל נכס שתפרסמו ייכנס למדד הזה'
+    : `${Math.round(COMMISSION_SALE_RATE * 1000) / 10}% ממכירה · חודש שכירות מהשכרה`;
 
-  const series = commissionSeries(active);
-  const max = Math.max(...series.map(s => s.total), 1);
-  sparkEl.innerHTML = series.map((s, i)=>{
-    const h = Math.max(5, Math.round(s.total / max * 100));
-    const isNow = i === series.length - 1;
-    return `<span class="${isNow ? 'is-now' : ''}" style="height:${h}%" title="${esc(s.label)}: ${esc(shekelShort(s.total))}"></span>`;
-  }).join('');
-  axisEl.innerHTML = series.map(s => `<span>${esc(s.label)}</span>`).join('');
+  const series = renderCommissionTrend(active, total);
 
   const prev = series.length > 1 ? series[series.length - 2].total : 0;
   const diff = total - prev;
   if (diff > 0){
     deltaEl.hidden = false;
-    deltaEl.textContent = '▲ ' + shekelShort(diff) + ' החודש';
+    deltaEl.textContent = '▲ ' + shekelCompact(diff);
+    deltaEl.title = 'עלייה של ' + shekelShort(diff) + ' החודש';
   } else {
     deltaEl.hidden = true;
   }
+}
+
+/* ---------- גרף המגמה ----------
+   הגרף היה שש עמודות בלי מספר ובלי מקרא, ולכן לא היה ברור מה גובה העמודה
+   שווה ולמה אחת מהן זהובה. עכשיו: הסכום הנוכחי בכותרת, אותו סכום כתווית
+   מעל העמודה הפעילה (data-value → ‏::after ב-CSS), ומקרא קבוע ב-HTML. */
+function renderCommissionTrend(active, total){
+  const sparkEl = document.getElementById('kpiCommissionSpark');
+  const axisEl = document.getElementById('kpiCommissionAxis');
+  const nowEl = document.getElementById('kpiTrendNow');
+  const noteEl = document.getElementById('kpiTrendNote');
+  const series = commissionSeries(active);
+  if (!sparkEl) return series;
+
+  const max = Math.max(...series.map(s => s.total), 1);
+  sparkEl.innerHTML = series.map((s, i)=>{
+    const h = Math.max(5, Math.round(s.total / max * 100));
+    const isNow = i === series.length - 1;
+    return `<span class="${isNow ? 'is-now' : ''}" style="height:${h}%"`
+      + (isNow ? ` data-value="${esc(shekelCompact(s.total))}"` : '')
+      + ` title="${esc(s.label)}: ${esc(shekelShort(s.total))}"></span>`;
+  }).join('');
+  axisEl.innerHTML = series.map(s => `<span>${esc(s.label)}</span>`).join('');
+
+  if (nowEl){
+    nowEl.textContent = shekelShort(total);
+    nowEl.title = 'פוטנציאל העמלות בתיק הפעיל כרגע';
+  }
+  if (noteEl){
+    noteEl.textContent = active.length === 0
+      ? 'אין כרגע נכסים פעילים — הגרף יתמלא עם הנכס הראשון שתפרסמו.'
+      : 'סך העמלה הצפויה מהנכסים הפעילים שכבר היו מפורסמים בסוף כל חודש.';
+  }
+  return series;
+}
+
+/* ---------- נכסים פעילים ----------
+   היה שורת הערה בתוך כרטיס העמלות ("12 נכסים פעילים · 8 למכירה…"), ושם אף
+   אחד לא קרא אותו. זה המכנה של כל שאר המדדים, ולכן הוא מדד. */
+function renderActiveCard(active){
+  const valueEl = document.getElementById('kpiActiveValue');
+  const noteEl = document.getElementById('kpiActiveNote');
+  const deltaEl = document.getElementById('kpiActiveDelta');
+  if (!valueEl) return;
+
+  const forRent = active.filter(p => p.deal_type === 'rent').length;
+  const forSale = active.length - forRent;
+
+  countUp(valueEl, active.length, v => String(Math.round(v)));
+  noteEl.textContent = active.length === 0
+    ? 'אין כרגע נכסים פעילים בתיק'
+    : `${forSale} מכירה · ${forRent} השכרה`;
+
+  const now = new Date();
+  const thisMonth = active.filter(p =>{
+    const d = p.created_at ? new Date(p.created_at) : null;
+    return d && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+  }).length;
+  deltaEl.hidden = thisMonth === 0;
+  if (thisMonth > 0) deltaEl.textContent = '▲ +' + thisMonth;
 }
 
 function renderExclusiveCard(active){
   const valueEl = document.getElementById('kpiExclusiveValue');
   const noteEl = document.getElementById('kpiExclusiveNote');
   const deltaEl = document.getElementById('kpiExclusiveDelta');
-  const donutEl = document.getElementById('kpiExclusiveDonut');
+  const ratioEl = document.getElementById('kpiExclusiveRatio');
   if (!valueEl) return;
 
   // "בבלעדיות" הוא מאפיין הנכס exclusive — אותו אחד שמסומן בטופס הוספת נכס
@@ -14722,8 +15257,8 @@ function renderExclusiveCard(active){
 
   countUp(valueEl, exclusive.length, v => String(Math.round(v)));
   noteEl.textContent = active.length === 0
-    ? 'סמנו "בבלעדיות" בטופס הנכס כדי שהמדד יתמלא'
-    : `${pct}% מהתיק הפעיל שלך (${exclusive.length} מתוך ${active.length})`;
+    ? 'סמנו "בבלעדיות" בטופס הנכס'
+    : `${pct}% מהתיק (${exclusive.length} מתוך ${active.length})`;
 
   const now = new Date();
   const thisMonth = exclusive.filter(p =>{
@@ -14732,32 +15267,23 @@ function renderExclusiveCard(active){
   }).length;
   if (thisMonth > 0){
     deltaEl.hidden = false;
-    deltaEl.textContent = '▲ +' + thisMonth + ' החודש';
+    deltaEl.textContent = '▲ +' + thisMonth;
+    deltaEl.title = thisMonth + ' נכסים בבלעדיות נוספו החודש';
   } else {
     deltaEl.hidden = true;
   }
 
-  const r = 40, circ = 2 * Math.PI * r;
-  const offset = circ * (1 - pct / 100);
-  donutEl.innerHTML = `
-    <svg viewBox="0 0 96 96">
-      <defs>
-        <linearGradient id="donutGrad" x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0%" stop-color="#2c5a8c"/>
-          <stop offset="100%" stop-color="#c9a227"/>
-        </linearGradient>
-      </defs>
-      <circle class="ring-track" cx="48" cy="48" r="${r}" fill="none" stroke-width="9"/>
-      <circle class="ring-fill" cx="48" cy="48" r="${r}" fill="none" stroke-width="9" stroke-linecap="round"
-              stroke-dasharray="${circ.toFixed(1)}" stroke-dashoffset="${offset.toFixed(1)}"/>
-    </svg>
-    <div class="kpi-donut-label">${pct}%<small>בבלעדיות</small></div>
-  `;
+  if (ratioEl){
+    ratioEl.querySelector('span').style.width = pct + '%';
+    ratioEl.setAttribute('aria-label',
+      active.length ? pct + '% מהתיק הפעיל בבלעדיות' : 'אין עדיין נכסים פעילים');
+  }
 }
 
 function renderDashboardOverview(){
   const active = dashActiveProperties();
   renderCommissionCard(active);
+  renderActiveCard(active);
   renderExclusiveCard(active);
   renderAgentPanelSummary(active);
 }
@@ -14836,6 +15362,9 @@ function renderHotLeads(){
   const hot = dashLeads.filter(l => l.status !== 'unlocked').slice(0, 5);
   // המונה בכותרת האקורדיון מציג כמה לידים חמים מוצגים כאן בפועל
   accSetCount('accHotLeads', hot.length);
+  // "מתי הגיע האחרון" הוא מה שקובע אם פותחים עכשיו או אחרי הפגישה
+  accSetSummary('accHotLeads', hot.length
+    ? 'האחרון ' + dashRelTime(hot[0].created_at) : '');
 
   if (hot.length === 0){
     // ‏allLeads ולא dashLeads: השני כבר מסונן מארכיון, וסוכן/ת שארכב/ה את כל
@@ -14966,6 +15495,93 @@ document.addEventListener('keydown', (e)=>{
   if (!document.getElementById('menuPanel').classList.contains('is-open')) return;
   closeMenuPanel();
   document.getElementById('menuBtn').focus({ preventScroll:true });
+});
+
+/* ==========================================================================
+   תפריט הפרופיל
+   --------------------------------------------------------------------------
+   כל מה שהוא "החשבון שלי" תחת פקד אחד: הפרטים האישיים, ההעדפות, ההתראות,
+   הקוד האתי והיציאה. קודם הם היו מפוזרים בין האווטאר (שקפץ לפרופיל), כפתור
+   יציאה קבוע בכותרת, ופריטים שהיו קבורים בעומק תפריט הבורגר בין הקטגוריות
+   התפעוליות.
+
+   הרשימה מסוננת ב-navAccVisible בדיוק כמו שאר הניווטים, ולכן קטגוריה
+   שאינה קיימת לסוכן/ת הזה/הזו לא תופיע כאן.
+   ========================================================================== */
+const PROFILE_MENU = [
+  { acc:'accProfile',    label:'פרטי הסוכן/ת' },
+  { acc:'accPrefs',      label:'העדפות לידים' },
+  { acc:'accNotifPrefs', label:'ניהול התראות' },
+  { acc:'accEthics',     label:'הקוד האתי' },
+];
+
+function buildProfilePanel(){
+  const panel = document.getElementById('profilePanel');
+  if (!panel) return;
+  panel.innerHTML = '';
+
+  const head = document.createElement('div');
+  head.className = 'menu-head';
+  const agency = document.getElementById('agentAgency');
+  head.innerHTML = '<b>' + esc(document.getElementById('agentName').textContent || '') + '</b>'
+    + (agency && agency.textContent ? '<span>' + esc(agency.textContent) + '</span>' : '');
+  panel.appendChild(head);
+
+  PROFILE_MENU.filter(item => navAccVisible(item.acc)).forEach(item=>{
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'menu-item';
+    const count = accCountOf(item.acc);
+    btn.innerHTML = '<span class="mi-label">' + esc(item.label) + '</span>'
+      + (count ? '<span class="mi-count">' + esc(String(count)) + '</span>' : '')
+      + '<svg class="mi-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>';
+    btn.addEventListener('click', ()=>{ closeProfilePanel(); gotoSection(item.acc); });
+    panel.appendChild(btn);
+  });
+
+  panel.appendChild(Object.assign(document.createElement('div'), { className:'menu-sep' }));
+
+  const out = document.createElement('button');
+  out.type = 'button';
+  out.className = 'menu-item is-signout';
+  out.innerHTML = '<span class="mi-label">יציאה מהחשבון</span>';
+  // הכפתור המקורי נשאר נקודת היציאה היחידה — כאן רק לוחצים עליו
+  out.addEventListener('click', ()=>{
+    closeProfilePanel();
+    document.getElementById('logoutBtn').click();
+  });
+  panel.appendChild(out);
+}
+
+function closeProfilePanel(){
+  const panel = document.getElementById('profilePanel');
+  if (!panel || !panel.classList.contains('is-open')) return;
+  panel.classList.remove('is-open');
+  document.getElementById('avatarBtn').setAttribute('aria-expanded', 'false');
+}
+
+document.getElementById('avatarBtn').addEventListener('click', (e)=>{
+  e.stopPropagation();
+  const panel = document.getElementById('profilePanel');
+  if (panel.classList.contains('is-open')){ closeProfilePanel(); return; }
+  closeMenuPanel();
+  const bell = document.getElementById('bellPanel');
+  bell.style.display = 'none';
+  document.getElementById('bellBtn').setAttribute('aria-expanded', 'false');
+  buildProfilePanel();
+  panel.classList.add('is-open');
+  document.getElementById('avatarBtn').setAttribute('aria-expanded', 'true');
+  const first = panel.querySelector('.menu-item');
+  if (first) first.focus({ preventScroll:true });
+});
+
+document.getElementById('profilePanel').addEventListener('click', e => e.stopPropagation());
+document.addEventListener('click', closeProfilePanel);
+document.addEventListener('keydown', (e)=>{
+  if (e.key !== 'Escape') return;
+  if (!document.getElementById('profilePanel').classList.contains('is-open')) return;
+  closeProfilePanel();
+  document.getElementById('avatarBtn').focus({ preventScroll:true });
 });
 
 /* ---------- Boot: restore existing session if present (handles Google OAuth redirect too) ----------
