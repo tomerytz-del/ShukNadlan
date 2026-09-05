@@ -40,7 +40,7 @@ purchase_mortgage_lead()  ניכוי ארנק + status='sold' + יומן חיו�
 | `supabase/functions/mortgage-lead-intake/index.ts` | קליטת הליד מהאתר (anon) — ולידציה וכתיבה ב-service_role |
 | `supabase/functions/mortgage-lead-purchase/index.ts` | הרכישה (JWT) — עטיפה ל-`purchase_mortgage_lead` |
 | `index.html` | המחשבון, כפתור ה-CTA והבלון |
-| `crm.html` | מדף הלידים ליועצ/ת + "הלידים שרכשתי" |
+| `crm.html` | מגירת "משכנתאות" בחנות הלידים (ליועצ/ת בלבד) + "הלידים שרכשתי" |
 
 ## שלב 1 — מסד הנתונים
 
