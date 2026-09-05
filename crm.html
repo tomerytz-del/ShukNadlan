@@ -3806,6 +3806,19 @@ function showToast(msg, ms=3200){
   showToast._t = setTimeout(()=> toastEl.style.display='none', ms);
 }
 
+/* ---------- טבלה שטרם נוצרה ----------
+   הדשבורד קורא לטבלאות ו-views שנוצרים במיגרציות, וסביבה שבה מיגרציה מסוימת
+   טרם רצה אמורה לקבל הסבר בעברית ("הריצו את X ב-Supabase") ולא שגיאה גולמית.
+
+   הזיהוי דורש שני קודים, לא אחד: ‏42P01 הוא ‎undefined_table‎ של Postgres, אבל
+   ‏PostgREST כמעט תמיד עוצר לפניו — הוא בונה את הבקשה מול ה-schema cache שלו,
+   ומה שלא נמצא שם נדחה כ-‏PGRST205 ("Could not find the table … in the schema
+   cache") בלי שהשאילתה בכלל הגיעה למסד. בדיקה של ‏42P01 בלבד מפספסת בדיוק את
+   המקרה הנפוץ, ואז מוצג למשתמש/ת הטקסט האנגלי של PostgREST. */
+function isMissingTableError(error){
+  return error?.code === '42P01' || error?.code === 'PGRST205';
+}
+
 /* ---------- Accordion sections ----------
    כל נושא בדשבורד הוא <details class="acc"> מקופל. מצב הפתיחה נשמר ב-localStorage
    כדי שהסוכן/ת יחזרו לאותה תצוגה, ו-openAcc() פותח קטגוריה כשמגיעים אליה מקישור
@@ -4849,9 +4862,9 @@ async function loadRssSourcesAdmin(){
     .order('created_at');
 
   if (error){
-    // 42P01 = הטבלה לא קיימת עדיין — כלומר schema.sql טרם הורץ בפרויקט
+    // טבלה שלא קיימת עדיין — כלומר schema.sql טרם הורץ בפרויקט
     listEl.innerHTML = '<div class="empty-state">' +
-      (error.code === '42P01'
+      (isMissingTableError(error)
         ? 'טבלת rss_sources לא קיימת עדיין — הריצו את schema.sql ב-Supabase.'
         : 'שגיאה: ' + error.message) + '</div>';
     return;
@@ -5210,9 +5223,9 @@ async function loadUnroutedLeads(){
     .limit(50);
 
   if (error){
-    // 42P01 = ה-view עדיין לא קיים, כלומר המיגרציה טרם רצה על המסד
+    // ה-view עדיין לא קיים, כלומר המיגרציה טרם רצה על המסד
     listEl.innerHTML = '<div class="empty-state">' +
-      (error.code === '42P01'
+      (isMissingTableError(error)
         ? 'יומן ניתוב הלידים לא קיים עדיין — הריצו את המיגרציה 20260913090000_lead_routing.sql ב-Supabase.'
         : 'שגיאה: ' + error.message) + '</div>';
     return;
@@ -5674,9 +5687,9 @@ async function loadArticlesAdmin(){
     .order('updated_at', { ascending:false });
 
   if (error){
-    // 42P01 = הטבלה לא קיימת עדיין — כלומר המיגרציה טרם הורצה בפרויקט
+    // טבלה שלא קיימת עדיין — כלומר המיגרציה טרם הורצה בפרויקט
     listEl.innerHTML = '<div class="empty-state">' +
-      (error.code === '42P01'
+      (isMissingTableError(error)
         ? 'טבלת articles לא קיימת עדיין — הריצו את המיגרציה 20260829180000_articles.sql ב-Supabase.'
         : 'שגיאה: ' + error.message) + '</div>';
     return;
@@ -11667,15 +11680,6 @@ document.getElementById('leadsSwitch').addEventListener('click', (e)=>{
   leadsView = btn.dataset.leadsView;
   renderLeads(currentAgent?.id);
 });
-
-/* טבלה שטרם נוצרה מחזירה שני קודים שונים, ושניהם צריכים להיתפס: ‏42P01 הוא
-   השגיאה של Postgres עצמו, אבל ‏PostgREST כמעט תמיד עוצר קודם — הוא בונה את
-   הבקשה מול ה-schema cache שלו, ומה שלא נמצא שם נדחה כ-‏PGRST205 ("Could not
-   find the table … in the schema cache") בלי שהשאילתה בכלל הגיעה למסד. בדיקה
-   של ‏42P01 בלבד מפספסת בדיוק את המקרה הנפוץ. */
-function isMissingTableError(error){
-  return error?.code === '42P01' || error?.code === 'PGRST205';
-}
 
 /* הדשבורד לא נופל על טבלה חסרה: בלי ארכיון פשוט אין מה להסתיר, וכל הלידים
    נשארים ברשימה הפעילה — בדיוק ההתנהגות שהייתה לפני התכונה. */
