@@ -15396,8 +15396,18 @@ function agrRenderStepDetails(){
     '<div id="agrManualProp" hidden style="margin-top:10px;border:1.5px dashed var(--line);' +
       'border-radius:var(--radius-sm);padding:12px;background:#fff">' +
       '<div class="agr-fields">' +
+        /* ‏<select> ולא <input list> ‏(datalist): בכרום לאנדרואיד הרשימה של
+           datalist אינה נפתחת בלחיצה — החץ מצויר, ולא קורה דבר. הסוכן/ת
+           נשאר/ת מול שדה שנראה כמו תפריט ומתנהג כמו טקסט חופשי, וכותב/ת
+           "משרד" במקום "משרדים". זו גם רשימה סגורה, ולכן <select> הוא
+           הפקד הנכון לה ממילא — וכך היא מוצגת בכל שאר ה-CRM (‏npType,
+           אשף הייבוא). האפשרות הריקה נדרשת כדי שאיפוס הטופס אחרי ההוספה
+           באמת ירוקן את השדה. */
         '<div class="agr-field"><label>סוג הנכס</label>' +
-          '<input type="text" id="agrMpType" list="agrPtypeList" placeholder="דירה"></div>' +
+          '<select id="agrMpType"><option value="">— בחרו סוג נכס —</option>' +
+            `<optgroup label="מגורים">${agrPtypeOptions(RESIDENTIAL_PTYPE_OPTIONS)}</optgroup>` +
+            `<optgroup label="מסחרי">${agrPtypeOptions(COMMERCIAL_PTYPE_OPTIONS)}</optgroup>` +
+          '</select></div>' +
         '<div class="agr-field"><label>עיר</label>' +
           '<input type="text" id="agrMpCity" value="עפולה"></div>' +
         '<div class="agr-field"><label>רחוב</label><input type="text" id="agrMpStreet"></div>' +
@@ -15406,9 +15416,6 @@ function agrRenderStepDetails(){
         '<div class="agr-field"><label>מחיר מבוקש (₪)</label>' +
           '<input type="number" id="agrMpPrice" min="0" step="1000"></div>' +
       '</div>' +
-      `<datalist id="agrPtypeList">${
-        [...RESIDENTIAL_PTYPE_OPTIONS, ...COMMERCIAL_PTYPE_OPTIONS]
-          .map(o => `<option value="${esc(o)}"></option>`).join('')}</datalist>` +
       '<button type="button" class="btn btn-gold btn-block" data-agr="add-manual-prop"' +
         ' style="margin-top:10px">הוספת הנכס</button>' +
       '<p class="imp-note" style="margin:8px 0 0">אלה השדות שנדרשים כדי לזהות את הנכס. ' +
@@ -15519,6 +15526,10 @@ function agrRenderStepDetails(){
 function agrPropertyLabel(p){
   const address = [p.street, p.house_number].filter(Boolean).join(' ');
   return [p.title, [address, p.city].filter(Boolean).join(', ')].filter(Boolean).join(' — ');
+}
+
+function agrPtypeOptions(list){
+  return list.map(o => `<option value="${esc(o)}">${esc(o)}</option>`).join('');
 }
 
 /* ==========================================================================
