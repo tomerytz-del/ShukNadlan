@@ -193,6 +193,19 @@
   .pm-wallet.is-short .pm-wallet-link{background:var(--gold);border-color:var(--gold);color:#fff}
   .pm-wallet.is-short .pm-wallet-link:hover{background:var(--gold-dark);border-color:var(--gold-dark)}
   .pm-ack{display:flex;align-items:flex-start;gap:9px;font-size:.83rem;line-height:1.45;background:var(--paper-raised);border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;cursor:pointer}
+  /* ---------- חלון הנכס הכפול ----------
+     תמצית המודעה הקיימת מוצגת ככרטיס ולא כשורת טקסט: ההחלטה כאן היא "זה
+     אותו נכס או לא", ובשביל להכריע צריך לראות מספר מודעה, כתובת, מחיר
+     וסטטוס במבט אחד. שלוש הפעולות יורדות זו מתחת לזו — שתיים מהן משנות
+     נתונים, וטור אחד מונע לחיצה שגויה מהירה. */
+  .dup-card{border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:12px 13px;background:var(--paper-raised);margin:12px 0 10px}
+  .dup-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px}
+  .dup-listing{font-size:.72rem;font-weight:800;color:var(--teal);background:var(--teal-tint);border-radius:5px;padding:2px 8px}
+  .dup-name{font-weight:800;font-size:.92rem;line-height:1.4}
+  .dup-meta{font-size:.79rem;color:var(--ink-soft);line-height:1.6;margin-top:3px}
+  .dup-note{font-size:.82rem;color:var(--ink-soft);line-height:1.6;margin:0}
+  .dup-actions{flex-direction:column}
+  .dup-actions .dup-cancel{color:var(--ink-soft)}
   .pm-actions{display:flex;gap:8px;margin-top:16px}
   .pm-actions .btn{flex:1}
   .pm-actions .btn:disabled{opacity:.45;cursor:not-allowed}
@@ -4176,6 +4189,30 @@
   </div>
 </div>
 
+<!-- ---------- נכס כפול ----------
+     נפתח בדרך אל ה-insert, כשהכתובת שהוקלדה כבר קיימת אצל הסוכן/ת. הפעולה
+     הראשית היא להחזיר את המודעה הקיימת ולעדכן אותה, ולא לפתוח שנייה: מספר
+     המודעה, הצפיות, המידע התכנוני, הלידים וההסכמים תלויים בשורה הקיימת. -->
+<div class="pm-overlay" id="dupModal" role="dialog" aria-modal="true" aria-labelledby="dupTitle" style="display:none">
+  <div class="pm-card">
+    <div class="pm-title" id="dupTitle">נכס דומה כבר קיים אצלך</div>
+    <div class="dup-card">
+      <div class="dup-head">
+        <span class="dup-listing" id="dupListing"></span>
+        <span class="status-pill" id="dupStatus"></span>
+      </div>
+      <div class="dup-name" id="dupName"></div>
+      <div class="dup-meta" id="dupMeta"></div>
+    </div>
+    <p class="dup-note" id="dupNote"></p>
+    <div class="pm-actions dup-actions">
+      <button type="button" class="btn btn-gold" id="dupRestore">↩ החזרה לפרסום ועדכון</button>
+      <button type="button" class="btn btn-ghost" id="dupNew">פרסום כנכס חדש</button>
+      <button type="button" class="btn btn-ghost dup-cancel" id="dupCancel">ביטול</button>
+    </div>
+  </div>
+</div>
+
 <!-- מדבקת QR לשלט: תצוגה מקדימה של המדבקה, והורדה כ-PDF להדפסה -->
 <div class="pm-overlay qr-overlay" id="qrModal" role="dialog" aria-modal="true" aria-labelledby="qrTitle" style="display:none">
   <div class="pm-card qr-card">
@@ -5672,9 +5709,9 @@ document.getElementById('arCancelBtn').addEventListener('click', resetArticleFor
 async function uploadArticleCover(blob){
   // הקידומת היא מזהה הסוכן/ת, כמו בכל שאר ההעלאות מה-CRM: זה הנתיב
   // שמדיניות ה-Storage של ה-bucket מצפה לו.
-  const name = `${currentAgent.id}/articles/${crypto.randomUUID()}.jpg`;
+  const name = `${currentAgent.id}/articles/${crypto.randomUUID()}.${imageBlobExt(blob)}`;
   const { error } = await sb.storage.from(ARTICLES_BUCKET).upload(name, blob, {
-    contentType:'image/jpeg', cacheControl:'31536000', upsert:false,
+    contentType:imageBlobType(blob), cacheControl:'31536000', upsert:false,
   });
   if (error) throw error;
   return sb.storage.from(ARTICLES_BUCKET).getPublicUrl(name).data.publicUrl;
@@ -6933,9 +6970,9 @@ function renderProfilePreview(){
 });
 
 async function uploadProfileBlob(blob, prefix){
-  const name = `${currentAgent.id}/profile/${prefix}-${crypto.randomUUID()}.jpg`;
+  const name = `${currentAgent.id}/profile/${prefix}-${crypto.randomUUID()}.${imageBlobExt(blob)}`;
   const { error } = await sb.storage.from(PROFILE_BUCKET).upload(name, blob, {
-    contentType:'image/jpeg', cacheControl:'31536000', upsert:false,
+    contentType:imageBlobType(blob), cacheControl:'31536000', upsert:false,
   });
   if (error) throw error;
   return sb.storage.from(PROFILE_BUCKET).getPublicUrl(name).data.publicUrl;
@@ -8191,9 +8228,9 @@ function moveGalleryImage(i, delta){
 
 /* ---------- שמירה ---------- */
 async function uploadBrandingBlob(blob, prefix){
-  const name = `${currentAgent.id}/branding/${prefix}-${crypto.randomUUID()}.jpg`;
+  const name = `${currentAgent.id}/branding/${prefix}-${crypto.randomUUID()}.${imageBlobExt(blob)}`;
   const { error } = await sb.storage.from(BRANDING_BUCKET).upload(name, blob, {
-    contentType:'image/jpeg', cacheControl:'31536000', upsert:false,
+    contentType:imageBlobType(blob), cacheControl:'31536000', upsert:false,
   });
   if (error) throw error;
   return sb.storage.from(BRANDING_BUCKET).getPublicUrl(name).data.publicUrl;
@@ -8760,8 +8797,9 @@ syncMarketingCopyField(null);         // הטופס נפתח במצב "נכס ח
 
 /* ---------- Property images (2.1) ----------
    ההקטנה נעשית בצד הלקוח לפני ההעלאה: תמונה מהטלפון היא 3-6MB, ואחרי
-   resize ל-1600px ו-JPEG q=0.82 היא יורדת לכ-200-400KB. ה-bucket חוסם
-   מעל 3MB ממילא, אז בלי ההקטנה העלאות מהמובייל היו נכשלות.                */
+   resize ל-1600px ו-q=0.82 היא יורדת לכ-150-300KB ב-WebP (‏200-400KB
+   ב-JPEG, בדפדפן שלא מקודד WebP). ה-bucket חוסם מעל 3MB ממילא, אז בלי
+   ההקטנה העלאות מהמובייל היו נכשלות.                                      */
 const IMAGES_BUCKET = 'property-images';
 const MAX_IMAGES = 8;
 const MAX_IMAGE_DIM = 1600;
@@ -8769,6 +8807,14 @@ const MAX_IMAGE_DIM = 1600;
 // רשימה מסודרת אחת, כי הסדר הוא נתון בפני עצמו (איבר 0 = התמונה הראשית).
 // כל איבר הוא { url } לתמונה ששמורה כבר, או { blob, previewUrl } לקובץ חדש.
 let imageSlots = [];
+
+/* ‏WebP במקום JPEG באותה איכות נראית — כ-30% פחות בייטים על כל תמונה שתעלה
+   מכאן והלאה, בלי לגעת בשום תמונה קיימת. דפדפן שלא יודע לקודד WebP
+   (‏canvas.toBlob מחזיר null או נופל חזרה ל-PNG) מקבל JPEG כמו קודם, ולכן
+   הסיומת ו-Content-Type נגזרים מה-blob שחזר ולא מקובעים מראש. */
+const IMAGE_BLOB_EXT = { 'image/webp':'webp', 'image/jpeg':'jpg', 'image/png':'png' };
+function imageBlobExt(blob){ return IMAGE_BLOB_EXT[blob && blob.type] || 'jpg'; }
+function imageBlobType(blob){ return IMAGE_BLOB_EXT[blob && blob.type] ? blob.type : 'image/jpeg'; }
 
 function fileToResizedBlob(file, maxDim = MAX_IMAGE_DIM, quality = 0.82){
   return new Promise((resolve, reject)=>{
@@ -8782,7 +8828,11 @@ function fileToResizedBlob(file, maxDim = MAX_IMAGE_DIM, quality = 0.82){
       canvas.height = Math.round(img.height * scale);
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      canvas.toBlob(b => b ? resolve(b) : reject(new Error('encode failed')), 'image/jpeg', quality);
+      const encode = (type)=> new Promise(res => canvas.toBlob(res, type, quality));
+      encode('image/webp')
+        .then(webp => (webp && webp.type === 'image/webp') ? webp : encode('image/jpeg'))
+        .then(blob => blob ? resolve(blob) : reject(new Error('encode failed')))
+        .catch(reject);
     };
     img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('לא ניתן לקרוא את הקובץ')); };
     img.src = url;
@@ -8884,9 +8934,9 @@ document.getElementById('npMarketingImage').addEventListener('change', async (e)
 async function resolveMarketingImageUrl(propertyId){
   if (!marketingImageSlot) return null;
   if (marketingImageSlot.url) return marketingImageSlot.url;
-  const name = `${currentAgent.id}/${propertyId}/marketing-${crypto.randomUUID()}.jpg`;
+  const name = `${currentAgent.id}/${propertyId}/marketing-${crypto.randomUUID()}.${imageBlobExt(marketingImageSlot.blob)}`;
   const { error } = await sb.storage.from(IMAGES_BUCKET).upload(name, marketingImageSlot.blob, {
-    contentType:'image/jpeg', cacheControl:'31536000', upsert:false,
+    contentType:imageBlobType(marketingImageSlot.blob), cacheControl:'31536000', upsert:false,
   });
   if (error) throw error;
   const url = sb.storage.from(IMAGES_BUCKET).getPublicUrl(name).data.publicUrl;
@@ -9435,9 +9485,9 @@ async function resolveImageUrls(propertyId){
   const urls = [];
   for (const slot of imageSlots){
     if (slot.url){ urls.push(slot.url); continue; }
-    const name = `${currentAgent.id}/${propertyId}/${crypto.randomUUID()}.jpg`;
+    const name = `${currentAgent.id}/${propertyId}/${crypto.randomUUID()}.${imageBlobExt(slot.blob)}`;
     const { error } = await sb.storage.from(IMAGES_BUCKET).upload(name, slot.blob, {
-      contentType:'image/jpeg', cacheControl:'31536000', upsert:false,
+      contentType:imageBlobType(slot.blob), cacheControl:'31536000', upsert:false,
     });
     if (error) throw error;
     const url = sb.storage.from(IMAGES_BUCKET).getPublicUrl(name).data.publicUrl;
@@ -9468,6 +9518,150 @@ toggleBtn.addEventListener('click', ()=>{
     updateFormForCategory('residential');
   }
 });
+
+/* ==========================================================================
+   נכס כפול
+   --------------------------------------------------------------------------
+   אותה דירה נקלטה פעמיים: פעם כשנמכרה לפני שנה, ופעם עכשיו כשחזרה לשוק.
+   התוצאה היא שתי מודעות לאותה כתובת — שתי היסטוריות צפיות, שני מספרי
+   מודעה שהסוכן/ת מוסר/ת בטלפון, ולידים שמתחלקים בין השתיים.
+
+   הבדיקה רצה רק בדרך ל-insert (בעריכה אין מה לבדוק), על הנכסים של הסוכן/ת
+   עצמו/ה — ‏RLS ממילא לא מחזירה אחרים. ההשוואה נעשית בדפדפן ולא ב-SQL כי
+   "עלייה 20" ו"עלייה  20 " הם אותה כתובת, ו-eq לא יודע את זה.
+   ========================================================================== */
+
+/* השוואת טקסט חופשי: רווחים כפולים, גרשיים וסימני פיסוק אינם הבדל אמיתי
+   בין שתי כתובות. "רח׳"/"רחוב" יורדים כי חצי מהסוכנים כותבים אותם וחצי לא. */
+function propNormText(value){
+  return String(value == null ? '' : value)
+    .replace(/^\s*(רחוב|רח['׳]?)\s+/u, '')
+    .replace(/["'׳״,.\-]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+/* מספרים משווים רק כששניהם קיימים: נכס ישן בלי קומה רשומה לא אמור להיפסל
+   מול טופס שבו הוזנה קומה, אבל קומה 2 מול קומה 5 היא דירה אחרת בבניין. */
+function propNumEq(a, b){
+  if (a == null || a === '' || b == null || b === '') return true;
+  return Number(a) === Number(b);
+}
+
+/* מחזירה את הנכס הקיים שהכי סביר שהוא אותו נכס, או null.
+   נכס פעיל קודם לארכיון: מודעה כפולה *באוויר* היא הנזק הגדול יותר. */
+async function findPropertyDuplicate(payload){
+  if (!currentAgent) return null;
+  const city   = propNormText(payload.city);
+  const street = propNormText(payload.street);
+  const house  = propNormText(payload.house_number);
+  const title  = propNormText(payload.title);
+  if (!city || (!street && !title)) return null;
+
+  const { data, error } = await sb.from('properties')
+    .select('id, listing_number, title, price, rooms, floor, deal_type, property_type, city, street, house_number, status, images, marketing_image, video_url, listing_expires_at, updated_at')
+    .eq('agent_id', currentAgent.id)
+    .limit(500);
+  if (error){ console.warn('duplicate check failed', error.message); return null; }
+
+  const sameAddress = p => !!(street && house
+    && propNormText(p.city) === city
+    && propNormText(p.street) === street
+    && propNormText(p.house_number) === house);
+
+  // גיבוי לנכס בלי כתובת מלאה — אותו מפתח שבו משתמשת בדיקת הכפילות בייבוא
+  const sameTitlePrice = p => !!(title && propNormText(p.title) === title
+    && Number(p.price) === Number(payload.price));
+
+  // אותה כתובת אך דירה אחרת בבניין: מספר חדרים או קומה שונים
+  const sameUnit = p => propNumEq(p.rooms, payload.rooms) && propNumEq(p.floor, payload.floor)
+    && (!p.deal_type || !payload.deal_type || p.deal_type === payload.deal_type);
+
+  const matches = (data || []).filter(p => (sameAddress(p) && sameUnit(p)) || sameTitlePrice(p));
+  if (!matches.length) return null;
+
+  matches.sort((a, b) => {
+    const liveA = a.status === 'active' ? 0 : 1;
+    const liveB = b.status === 'active' ? 0 : 1;
+    if (liveA !== liveB) return liveA - liveB;
+    return new Date(b.updated_at || 0) - new Date(a.updated_at || 0);
+  });
+  return { match: matches[0], total: matches.length };
+}
+
+/* 'restore' = לעדכן את המודעה הקיימת (ולהחזיר לפרסום אם היא בארכיון),
+   'new' = לפרסם בכל זאת מודעה שנייה, 'cancel' = חזרה לטופס.               */
+function confirmDuplicateProperty({ match, total }){
+  const overlay = document.getElementById('dupModal');
+  const restoreBtn = document.getElementById('dupRestore');
+  const newBtn     = document.getElementById('dupNew');
+  const cancelBtn  = document.getElementById('dupCancel');
+  const isLive = match.status === 'active';
+
+  document.getElementById('dupTitle').textContent = isLive
+    ? 'הנכס הזה כבר מפורסם אצלך'
+    : 'נכס דומה קיים אצלך בארכיון';
+  document.getElementById('dupListing').textContent = 'מודעה #' + (match.listing_number ?? '—');
+  const statusEl = document.getElementById('dupStatus');
+  statusEl.className = 'status-pill ' + (isLive ? 'status-unlocked' : 'status-off');
+  statusEl.textContent = PROPERTY_STATUS_LABELS[match.status] || match.status;
+  document.getElementById('dupName').textContent =
+    [match.property_type, [match.street, match.house_number].filter(Boolean).join(' '), match.city]
+      .filter(Boolean).join(', ') || (match.title || 'נכס ללא כותרת');
+  document.getElementById('dupMeta').textContent = [
+    shekel(match.price),
+    match.rooms ? match.rooms + ' חדרים' : '',
+    (match.floor || match.floor === 0) ? 'קומה ' + match.floor : '',
+    'עודכן ' + hebDate(match.updated_at),
+    total > 1 ? `ועוד ${total - 1} מודעות דומות` : '',
+  ].filter(Boolean).join(' · ');
+  document.getElementById('dupNote').textContent = isLive
+    ? 'עדכון המודעה הקיימת ישמור על מספר המודעה, הצפיות, הלידים והמידע התכנוני שנצברו עליה. פרסום כנכס חדש ייצור מודעה שנייה לאותה כתובת.'
+    : 'החזרה לפרסום תעדכן את המודעה הקיימת בפרטים שמילאת ותחזיר אותה לאתר — עם מספר המודעה, הצפיות, הלידים והמידע התכנוני שכבר נצברו. שדות שהשארת ריקים יישארו כפי שהיו.';
+  restoreBtn.textContent = isLive ? '✏️ עדכון המודעה הקיימת' : '↩ החזרה לפרסום ועדכון';
+
+  overlay.style.display = 'flex';
+
+  return new Promise(resolve => {
+    const onRestore = ()=> done('restore');
+    const onNew     = ()=> done('new');
+    const onCancel  = ()=> done('cancel');
+    const onKey     = (e)=> { if (e.key === 'Escape') done('cancel'); };
+    const onBackdrop= (e)=> { if (e.target === overlay) done('cancel'); };
+
+    function done(value){
+      restoreBtn.removeEventListener('click', onRestore);
+      newBtn.removeEventListener('click', onNew);
+      cancelBtn.removeEventListener('click', onCancel);
+      overlay.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKey);
+      overlay.style.display = 'none';
+      resolve(value);
+    }
+
+    restoreBtn.addEventListener('click', onRestore);
+    newBtn.addEventListener('click', onNew);
+    cancelBtn.addEventListener('click', onCancel);
+    overlay.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKey);
+    restoreBtn.focus();
+  });
+}
+
+/* בעדכון של נכס קיים מתוך טופס "נכס חדש" — שדה ריק בטופס אינו הוראה למחוק.
+   מי שמילא/ה מחיר וחדרים בלבד לא התכוון/ה למחוק את התיאור השיווקי שנכתב
+   בפעם הקודמת, ולכן ריקים יורדים מה-payload ורק מה שהוקלד גובר.            */
+function propNonEmptyPatch(payload){
+  const patch = {};
+  Object.entries(payload).forEach(([key, value])=>{
+    if (value === null || value === undefined || value === '') return;
+    if (Array.isArray(value) && !value.length) return;
+    if (typeof value === 'number' && Number.isNaN(value)) return;
+    patch[key] = value;
+  });
+  return patch;
+}
 
 document.getElementById('addPropertyForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
@@ -9592,15 +9786,40 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   // property_id, שקיים רק אחרי ה-insert. אם ההעלאה תיכשל, הנכס עצמו כבר
   // שמור והסוכן יכול לנסות שוב דרך "עריכה" במקום לאבד את כל הטופס.
   let error, newPropertyId = editingPropertyId;
+  // הנכס שהוחזר מהארכיון (או עודכן במקום פרסום כפול) — נשמר כדי שהמדיה
+  // הקיימת לא תימחק בהמשך ושההודעה בסוף תגיד מה באמת קרה
+  let restoredProperty = null;
   if (editingPropertyId){
     ({ error } = await sb.from('properties').update(payload).eq('id', editingPropertyId));
   } else {
-    payload.agency_id = currentAgent.agency_id;
-    payload.agent_id = currentAgent.id;
-    payload.status = 'active';
-    const { data: inserted, error: insertErr } = await sb.from('properties').insert(payload).select('id').single();
-    error = insertErr;
-    newPropertyId = inserted?.id;
+    btn.textContent = 'בודק כפילות…';
+    const duplicate = await findPropertyDuplicate(payload);
+    const choice = duplicate ? await confirmDuplicateProperty(duplicate) : 'new';
+    if (choice === 'cancel'){
+      btn.disabled = false; btn.textContent = 'פרסום הנכס';
+      return;
+    }
+    btn.textContent = 'מפרסם…';
+
+    if (choice === 'restore'){
+      restoredProperty = duplicate.match;
+      const patch = propNonEmptyPatch(payload);
+      patch.status = 'active';
+      // תוקף שכבר עבר היה מחזיר את המודעה למצב "פג תוקף" באותו רגע — כמו
+      // ב-republishProperty, הוא מתאפס והסוכן/ת יכול/ה להגדיר חדש בעריכה
+      if (propertyIsExpired(restoredProperty) && !payload.listing_expires_at){
+        patch.listing_expires_at = null;
+      }
+      ({ error } = await sb.from('properties').update(patch).eq('id', restoredProperty.id));
+      newPropertyId = restoredProperty.id;
+    } else {
+      payload.agency_id = currentAgent.agency_id;
+      payload.agent_id = currentAgent.id;
+      payload.status = 'active';
+      const { data: inserted, error: insertErr } = await sb.from('properties').insert(payload).select('id').single();
+      error = insertErr;
+      newPropertyId = inserted?.id;
+    }
   }
 
   // פרטי הבעלים יושבים בטבלה נפרדת (property_owners) כי properties נקראת
@@ -9635,9 +9854,18 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
       const uploadedVideoUrl = await resolveVideoUrl(newPropertyId);
 
       mediaStage = 'שמירת קישורי המדיה';
-      const { error: imgErr } = await sb.from('properties')
-        .update({ images: urls, marketing_image: marketingUrl, video_url: uploadedVideoUrl ?? videoUrl })
-        .eq('id', newPropertyId);
+      const mediaPatch = { images: urls, marketing_image: marketingUrl, video_url: uploadedVideoUrl ?? videoUrl };
+      // נכס שהוחזר מהארכיון: טופס "נכס חדש" נפתח בלי מדיה, ולכן ערך ריק כאן
+      // הוא "לא העליתי כלום" ולא "מחקו את התמונות שכבר יש"
+      if (restoredProperty){
+        if (!urls.length && (restoredProperty.images || []).length) delete mediaPatch.images;
+        if (!marketingUrl && restoredProperty.marketing_image) delete mediaPatch.marketing_image;
+        if (!mediaPatch.video_url && restoredProperty.video_url) delete mediaPatch.video_url;
+      }
+      // כל שלושת השדות נשמרו כפי שהיו — אין מה לכתוב, ו-update ריק הוא שגיאה
+      const { error: imgErr } = Object.keys(mediaPatch).length
+        ? await sb.from('properties').update(mediaPatch).eq('id', newPropertyId)
+        : {};
       if (imgErr) throw imgErr;
       cleanupReplacedVideo(uploadedVideoUrl ?? videoUrl);
     } catch(imgError){
@@ -9658,11 +9886,16 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     return;
   }
   feedback.style.color = 'var(--teal)';
-  feedback.textContent = editingPropertyId ? 'הנכס עודכן בהצלחה!' : 'הנכס פורסם בהצלחה!';
+  feedback.textContent = restoredProperty
+    ? (restoredProperty.status === 'active'
+        ? `המודעה הקיימת (#${restoredProperty.listing_number ?? '—'}) עודכנה — לא נוצרה מודעה כפולה`
+        : `המודעה הוחזרה מהארכיון ועודכנה (#${restoredProperty.listing_number ?? '—'})`)
+    : (editingPropertyId ? 'הנכס עודכן בהצלחה!' : 'הנכס פורסם בהצלחה!');
 
   // קליטת/עדכון מידע תכנוני: (א) פעם ראשונה בקליטת נכס חדש, או (ב) כשהכתובת השתנתה
   // בעריכה — כדי לשמור על דיוק המידע. לא נשלף מחדש בשמירות שלא נוגעות לכתובת.
-  const shouldFetchPlanning = (!editingPropertyId && newPropertyId && street && houseNumber) ||
+  // נכס שהוחזר מהארכיון כבר נסרק בעבר על אותה כתובת — אין טעם בקריאת WFS נוספת
+  const shouldFetchPlanning = (!editingPropertyId && !restoredProperty && newPropertyId && street && houseNumber) ||
     (addressActuallyChanged && street && houseNumber);
 
   if (shouldFetchPlanning){
@@ -11844,7 +12077,7 @@ function impMarkDuplicates(){
   importState.parsed.forEach(row=>{
     if (row.errors.length) return;
     if (existingKeys.has(`${impNorm(row.payload.title)}|${Number(row.payload.price)}`)){
-      row.warnings.push('נכס עם אותה כותרת ומחיר כבר קיים אצלך — ייתכן שזו כפילות');
+      row.warnings.push('נכס עם אותה כותרת ומחיר כבר קיים אצלך (פעיל או בארכיון) — ייתכן שזו כפילות');
     }
   });
 }
@@ -11989,8 +12222,10 @@ async function impRenderStep3(){
   if (!importState.existingKeys){
     importState.existingKeys = new Set();
     try{
+      // כל הסטטוסים ולא רק פעיל: נכס שנמכר וחוזר לשוק הוא בדיוק המקרה שבו
+      // הייבוא מייצר מודעה שנייה לאותה דירה
       const { data: existing } = await sb.from('properties')
-        .select('title, price').eq('agent_id', currentAgent.id).eq('status', 'active');
+        .select('title, price').eq('agent_id', currentAgent.id);
       (existing || []).forEach(p => importState.existingKeys.add(`${impNorm(p.title)}|${Number(p.price)}`));
     } catch(err){ console.warn('duplicate check failed', err); }
   }
