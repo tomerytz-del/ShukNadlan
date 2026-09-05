@@ -2708,6 +2708,15 @@
             <div class="field"><label>טלפון (לא חובה)</label><input type="tel" id="clPhone" dir="ltr" style="text-align:right" placeholder="050-1234567"></div>
             <div class="field"><label>אימייל (לא חובה)</label><input type="email" id="clEmail" dir="ltr" style="text-align:right"></div>
           </div>
+          <!-- ‏ת.ז. וכתובת אינן חלק מהתאמת הנכסים — הן יושבות כאן מפני שהן
+               מה שתקנות המתווכים במקרקעין (פרטי הזמנה בכתב) דורשות בהזמנת
+               שירותי תיווך. בלעדיהן אשף ההסכמים עוצר בשלב התצוגה המקדימה,
+               ומי שממלא/ת אותן פעם אחת כאן לא נדרש/ת להן שוב בכל הסכם. -->
+          <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+            <div class="field"><label>ת.ז. / ח״פ (נדרש להסכם תיווך)</label>
+              <input type="text" id="clIdNumber" inputmode="numeric" dir="ltr" style="text-align:right" placeholder="123456789"></div>
+            <div class="field"><label>כתובת (לא חובה)</label><input type="text" id="clAddress" placeholder="רחוב ומספר, עיר"></div>
+          </div>
 
           <div class="form-subheading">מה הם מחפשים</div>
           <div class="field"><label>קטגוריה</label>
@@ -13438,6 +13447,8 @@ function openEditClient(c){
   document.getElementById('clName').value  = c.full_name;
   document.getElementById('clPhone').value = c.phone || '';
   document.getElementById('clEmail').value = c.email || '';
+  document.getElementById('clIdNumber').value = c.id_number || '';
+  document.getElementById('clAddress').value  = c.address || '';
   document.getElementById('clDeal').value  = c.deal_type;
   document.getElementById('clCities').value = (c.cities || []).join(', ');
   document.getElementById('clMinPrice').value = c.min_price ?? '';
@@ -13509,6 +13520,8 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     full_name: document.getElementById('clName').value.trim(),
     phone:  document.getElementById('clPhone').value.trim() || null,
     email:  document.getElementById('clEmail').value.trim() || null,
+    id_number: document.getElementById('clIdNumber').value.trim() || null,
+    address:   document.getElementById('clAddress').value.trim() || null,
     notes:  document.getElementById('clNotes').value.trim() || null,
     deal_type: document.getElementById('clDeal').value,
     category:  clientFormCategory,
@@ -15966,24 +15979,57 @@ function agrCollectDetails(){
 
 /* ---------- שלב 3: תצוגה מקדימה ---------- */
 
+/* ‏מחזירה פריטים ולא מחרוזות, וזו כל הנקודה: רוב מה שחסר כאן הוא **שדה
+   אחד קצר** — ת.ז. של חותם/ת, ת.ז. של הסוכן/ת, שיעור העמלה. המסך הישן
+   רק הודיע עליו ושלח את הסוכן/ת חזרה לשלב הקודם, לגלול עד הטופס הנכון,
+   למלא, ולעבור שוב את כל האשף — בשביל תשע ספרות. פריט עם `fields` נפתח
+   בשלב 3 כתיבה למילוי מהיר; פריט בלעדיהם (אין נכס, אין חותם/ת) הוא חסר
+   מבני שאין לו קיצור דרך. */
 function agrValidate(){
   const w = agrWizard;
   const tpl = agrTpl(w.kind);
-  const missing = [];
-  if (!w.properties.length) missing.push('לא נבחרו נכסים להסכם');
-  if (!w.signers.length) missing.push('לא נבחרו לקוחות להסכם');
+  const items = [];
+  const add = (text, fields) => items.push({ text, fields: fields || [] });
+
+  if (!w.properties.length) add('לא נבחרו נכסים להסכם');
+  if (!w.signers.length) add('לא נבחרו לקוחות להסכם');
+
   w.signers.forEach((s, i) => {
-    if (!s.full_name.trim()) missing.push(`חסר שם לחותם/ת ${i + 1}`);
-    if (!s.id_number.trim()) missing.push(`חסרה ת.ז. לחותם/ת ${i + 1} (${s.full_name || 'ללא שם'})`);
+    const who = s.full_name.trim() || `חותם/ת ${i + 1}`;
+    if (!s.full_name.trim()){
+      add(`חסר שם לחותם/ת ${i + 1}`, [{
+        scope:'signer', uid:s.uid, key:'full_name',
+        label:`שם מלא — חותם/ת ${i + 1}`, value:s.full_name }]);
+    }
+    if (!s.id_number.trim()){
+      add(`חסרה ת.ז. לחותם/ת ${i + 1} (${who})`, [{
+        scope:'signer', uid:s.uid, key:'id_number',
+        label:`ת.ז. / ח״פ — ${who}`, value:s.id_number, inputmode:'numeric', ltr:true }]);
+    }
   });
+
   const hasPct = w.commission.pct !== '' && Number(w.commission.pct) > 0;
   const hasAmount = w.commission.amount !== '' && Number(w.commission.amount) > 0;
-  if (!hasPct && !hasAmount) missing.push('לא הוזנה עמלה — אחוזים או סכום');
-  if (tpl.exclusive && (!w.exclusive.from || !w.exclusive.until)){
-    missing.push('חסרה תקופת הבלעדיות');
+  if (!hasPct && !hasAmount){
+    add('לא הוזנה עמלה — אחוזים או סכום', [
+      { scope:'commission', key:'pct',    label:'עמלה באחוזים',
+        type:'number', step:'0.01', value:w.commission.pct },
+      { scope:'commission', key:'amount', label:'או סכום עמלה (₪)',
+        type:'number', value:w.commission.amount },
+    ]);
   }
-  if (!currentAgent || !currentAgent.id_number) missing.push('חסרה ת.ז. בפרטי הסוכן/ת — עדכנו אותה ב"עדכון פרטי הסוכן/ת"');
-  return missing;
+  if (tpl.exclusive && (!w.exclusive.from || !w.exclusive.until)){
+    add('חסרה תקופת הבלעדיות', [
+      { scope:'exclusive', key:'from',  label:'בלעדיות מיום', type:'date', value:w.exclusive.from },
+      { scope:'exclusive', key:'until', label:'ועד ליום',     type:'date', value:w.exclusive.until },
+    ]);
+  }
+  if (!currentAgent || !currentAgent.id_number){
+    add('חסרה ת.ז. בפרטי הסוכן/ת', [{
+      scope:'agent', key:'id_number', label:'ת.ז. / ח״פ שלך — תישמר בפרופיל',
+      value:'', inputmode:'numeric', ltr:true }]);
+  }
+  return items;
 }
 
 function agrBuildDoc(){
@@ -16025,24 +16071,109 @@ function agrAgencyAddress(){
   return (window.currentAgency && window.currentAgency.address) || '';
 }
 
+/* תיבה אחת לכל שדה חסר. ה-data-* הם מה שמחזיר את הערך למקומו באשף —
+   מזהה החותם/ת נשמר על התיבה עצמה, כדי שהאיסוף לא יצטרך לנחש סדר. */
+function agrQuickFillField(f){
+  return '<div class="agr-field"><label>' + esc(f.label) + '</label>' +
+    `<input type="${f.type || 'text'}"` +
+    (f.step ? ` step="${esc(f.step)}"` : '') +
+    (f.inputmode ? ` inputmode="${esc(f.inputmode)}"` : '') +
+    (f.ltr ? ' dir="ltr" style="text-align:right"' : '') +
+    ' data-agr-qf="1"' +
+    ` data-qf-scope="${esc(f.scope)}" data-qf-key="${esc(f.key)}"` +
+    (f.uid ? ` data-qf-uid="${esc(f.uid)}"` : '') +
+    ` value="${esc(f.value ?? '')}"></div>`;
+}
+
+/* ‏מילוי מהיר: כותב את מה שהוזן חזרה לאשף, מנציח את מה ששייך למסד,
+   ומצייר את השלב מחדש. מה שנשאר חסר יוצג שוב — עם מה שכבר הוקלד. */
+async function agrQuickFill(btn){
+  const w = agrWizard;
+  let agentIdNumber = null;
+  const clientIdNumbers = new Map();   // client_id → ת.ז. שהוקלדה
+
+  agrEl('agrBody').querySelectorAll('[data-agr-qf]').forEach(el => {
+    const v = el.value.trim();
+    const { qfScope: scope, qfKey: key, qfUid: uid } = el.dataset;
+    if (scope === 'signer'){
+      const s = w.signers.find(x => x.uid === uid);
+      if (!s) return;
+      s[key] = v;
+      if (v && key === 'id_number' && s.client_id) clientIdNumbers.set(s.client_id, v);
+    }
+    else if (scope === 'commission') w.commission[key] = v;
+    else if (scope === 'exclusive')  w.exclusive[key]  = v;
+    else if (scope === 'agent' && v) agentIdNumber = v;
+  });
+
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'שומר…';
+
+  /* ‏currentAgent מתעדכן בכל מקרה: המסמך נבנה ממנו, וכשל שמירה בפרופיל
+     אינו סיבה לעצור הסכם שהת.ז. עבורו כבר הוקלדה. */
+  if (agentIdNumber){
+    currentAgent.id_number = agentIdNumber;
+    const { error } = await sb.from('agency_members')
+      .update({ id_number: agentIdNumber }).eq('id', currentAgent.id);
+    if (error){
+      console.warn('שמירת ת.ז. בפרופיל הסוכן/ת נכשלה:', error);
+      showToast('הת.ז. תשמש בהסכם הזה אך לא נשמרה בפרופיל — עדכנו אותה ב"עדכון פרטי הסוכן/ת"');
+    }
+  }
+
+  // ‏best-effort, ומאותה סיבה: ההסכם ממשיך גם אם כרטיס הלקוח/ה לא עודכן
+  for (const [clientId, idNumber] of clientIdNumbers){
+    const { error } = await sb.from('agent_clients')
+      .update({ id_number: idNumber }).eq('id', clientId);
+    if (error){ console.warn('שמירת ת.ז. בכרטיס הלקוח/ה נכשלה:', error); continue; }
+    const row = (clientRows || []).find(c => c.id === clientId);
+    if (row) row.id_number = idNumber;
+  }
+
+  btn.disabled = false; btn.textContent = original;
+  agrRender();
+}
+
 function agrRenderStepPreview(){
   const missing = agrValidate();
   const body = agrEl('agrBody');
 
   if (missing.length){
+    const fixable  = missing.filter(m => m.fields.length);
+    const blocking = missing.filter(m => !m.fields.length);
+    const fields   = fixable.reduce((all, m) => all.concat(m.fields), []);
+
     body.innerHTML =
-      '<div style="text-align:center;padding:8px 0 16px">' +
+      '<div style="text-align:center;padding:8px 0 12px">' +
         '<div style="font-size:2rem">⚠️</div>' +
-        '<h3 style="font-family:\'Frank Ruhl Libre\',serif;margin:6px 0 4px">הנתונים הבאים חסרים ליצירת ההסכם:</h3>' +
+        '<h3 style="font-family:\'Frank Ruhl Libre\',serif;margin:6px 0 4px">' +
+          (fixable.length ? 'חסרים כמה פרטים ליצירת ההסכם' : 'הנתונים הבאים חסרים ליצירת ההסכם:') +
+        '</h3>' +
       '</div>' +
-      '<p style="color:var(--ink-soft);margin:0 0 10px">אנו צריכים לוודא שכל השדות הנדרשים להסכם מולאו כראוי. ' +
-      'שדות כמו ת.ז., טלפון ואימייל דרושים לנו ליצירת הסכם תקין.</p>' +
-      '<ul style="margin:0 0 4px;padding-inline-start:20px">' +
-        missing.map(m => `<li style="margin-bottom:5px">${esc(m)}</li>`).join('') +
-      '</ul>';
+      (fixable.length
+        ? '<p style="color:var(--ink-soft);margin:0 0 10px">ת.ז., עמלה ותקופת בלעדיות נדרשות כדי שההזמנה ' +
+          'תהיה הזמנה בכתב כדין. אפשר להשלים אותן כאן — בלי לחזור אחורה באשף.</p>' +
+          '<div style="border:1.5px dashed var(--line);border-radius:var(--radius-sm);' +
+            'padding:12px;background:#fff">' +
+            '<div class="agr-fields">' + fields.map(agrQuickFillField).join('') + '</div>' +
+            '<p class="imp-note" style="margin:9px 0 0">מה שתמלאו כאן נשמר גם במקור: ת.ז. של חותם/ת ' +
+            'שנבחר/ה מקובץ הלקוחות נכנסת לכרטיס שלו/ה, והת.ז. שלכם נשמרת בפרופיל — כדי שההסכם הבא ' +
+            'לא ייעצר כאן שוב.</p>' +
+          '</div>'
+        : '') +
+      (blocking.length
+        ? `<p style="margin:${fixable.length ? '14px' : '0'} 0 6px;font-weight:700">` +
+            (fixable.length ? 'ואלה דורשים חזרה לשלב פרטי ההסכם:' : '') + '</p>' +
+          '<ul style="margin:0;padding-inline-start:20px;color:var(--ink-soft)">' +
+            blocking.map(m => `<li style="margin-bottom:5px">${esc(m.text)}</li>`).join('') +
+          '</ul>'
+        : '');
+
     agrEl('agrFoot').innerHTML =
-      '<button type="button" class="btn btn-ghost" data-agr="close">סגירה</button>' +
-      '<button type="button" class="btn btn-gold" data-agr="back-to-details">לחץ לעריכת ההסכם</button>';
+      '<button type="button" class="btn btn-ghost" data-agr="back-to-details">חזרה לעריכה</button>' +
+      (fixable.length
+        ? '<button type="button" class="btn btn-gold" data-agr="quick-fill">שמירה והמשך ←</button>'
+        : '');
     return;
   }
 
@@ -16371,6 +16502,7 @@ agrEl('agrModal').addEventListener('click', async (e)=>{
   if (act === 'back-to-kind'){ agrCollectDetails(); agrWizard.step = 1; return agrRender(); }
   if (act === 'back-to-details'){ agrWizard.step = 2; return agrRender(); }
   if (act === 'to-preview'){ agrCollectDetails(); agrWizard.step = 3; return agrRender(); }
+  if (act === 'quick-fill') return agrQuickFill(btn);
   if (act === 'to-sign') return agrSaveAndGoSign(btn);
   if (act === 'pick-prop') return agrAddProperty(btn.dataset.id);
   if (act === 'toggle-manual-prop'){
