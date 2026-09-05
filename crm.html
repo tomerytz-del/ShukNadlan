@@ -1925,45 +1925,13 @@
   .panel-ico{width:26px;height:26px;border-radius:8px;background:var(--wine-tint);color:var(--wine);display:inline-flex;align-items:center;justify-content:center}
   .panel-ico svg{width:15px;height:15px}
   .panel-sub{font-size:.76rem;color:var(--txt-faint);margin:5px 0 0}
-  /* שורת הכותרת בתוך גוף האקורדיון: הסבר קצר + קיצור דרך לכל הלידים */
-  .hot-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:12px}
-  .hot-head .panel-sub{margin:0}
-  #dashboard .acc-hot>summary .panel-ico{flex-shrink:0}
-  .hot-row{
-    display:flex;flex-direction:column;gap:8px;padding:13px 14px;border-radius:var(--r-md);
-    border:1px solid var(--edge);margin-bottom:9px;transition:border-color .16s ease,background .16s ease;
-  }
-  .hot-row:last-child{margin-bottom:0}
-  .hot-row:hover{border-color:#d3e0ee;background:#fbfdff}
-  .hot-main{display:flex;align-items:center;gap:10px;min-width:0}
-  .hot-avatar{
-    width:36px;height:36px;border-radius:11px;flex-shrink:0;display:flex;align-items:center;justify-content:center;
-    background:var(--navy-tint);color:var(--navy);font-weight:700;font-size:.9rem;
-  }
-  .hot-row[data-kind="owner"] .hot-avatar{background:var(--amber-tint);color:var(--amber)}
-  .hot-id{min-width:0;flex:1}
-  .hot-name{display:block;font-weight:700;font-size:.9rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .hot-meta{display:block;font-size:.74rem;color:var(--txt-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .hot-tags{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-  .hot-tag{font-size:.68rem;font-weight:800;padding:3px 9px;border-radius:999px;background:var(--surface-2);color:var(--txt-soft);white-space:nowrap}
-  .hot-tag.t-owner{background:var(--amber-tint);color:var(--amber)}
-  .hot-tag.t-buyer{background:var(--navy-tint);color:var(--navy)}
-  .hot-tag.t-new{background:#dc2626;color:#fff}
-  .hot-when{font-size:.7rem;color:var(--txt-faint);white-space:nowrap}
-  .hot-cta{
-    background:var(--navy);color:#fff;font-size:.76rem;font-weight:800;padding:8px 15px;border-radius:999px;
-    white-space:nowrap;align-self:flex-start;transition:background .16s ease;
-  }
-  .hot-cta:hover{background:var(--navy-2)}
-  @media(min-width:720px){
-    .hot-row{flex-direction:row;align-items:center;gap:14px}
-    .hot-main{flex:1.6}
-    .hot-tags{flex:1;justify-content:flex-start}
-    .hot-cta{align-self:auto}
-  }
-  /* הבהוב קצר אחרי ניווט מהטבלה אל כרטיס הליד המלא */
-  .lead-card.is-flash{animation:cardFlash 1.6s ease-out}
-  @keyframes cardFlash{0%{box-shadow:0 0 0 3px rgba(28,58,94,.45)}100%{box-shadow:0 0 0 0 rgba(28,58,94,0)}}
+  /* ---------- חנות הלידים ----------
+     מגירה אחת גלויה בכל רגע. המתג הוא אותו .view-switch של "פעילים/ארכיון",
+     כדי שהמעבר בין מדפי החנות יורגש כמו כל מעבר תצוגה אחר בדשבורד. */
+  .shelf-switch{margin-bottom:14px;flex-wrap:wrap}
+  .shelf-switch button[hidden]{display:none}
+  .shelf-note{font-size:.78rem;color:var(--txt-faint);margin:0 0 12px;line-height:1.6}
+  .shelf-pane[hidden]{display:none}
 
   /* ---------- האקורדיונים בשפה החדשה ----------
      ה-<details> נשארו בדיוק כפי שהיו מבחינת מבנה והתנהגות; רק המשטח התעדכן. */
@@ -2601,7 +2569,7 @@
              אחר (בלוק "דורש טיפול" והתגית בסרגל התחתון), ולכן הם כאן ולא
              בשורה העליונה. -->
         <div class="kpi-more">
-          <button type="button" class="kpi-card kpi-hot" data-goto="accHotLeads" aria-label="לידים חמים שממתינים לפתיחה">
+          <button type="button" class="kpi-card kpi-hot" data-goto="accLeads" aria-label="לידים חמים שממתינים לפתיחה">
             <div class="kpi-top">
               <span class="kpi-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .4-2 .4-2S6 11 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12Z"/></svg>
@@ -2683,28 +2651,6 @@
       <!-- סוף דשבורד 2 -->
 
       <h2 class="section-h stack-h" id="sectionsHead" hidden>הפעילות שלי</h2>
-
-    <!-- ---------- לידים חמים אחרונים ----------
-         תמצית של accLeads: הלידים שעדיין לא נפתחו, החדשים קודם.
-         מקופל ל-<details> כמו שאר הקטגוריות, כך שמצב הפתיחה נשמר
-         ב-localStorage דרך initAccordions() והקטגוריה מופיעה גם בתפריט. -->
-    <details class="acc acc-hot" id="accHotLeads" open>
-      <summary>
-        <span class="panel-ico" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .4-2 .4-2S6 11 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12Z"/></svg>
-        </span>
-        <span class="acc-title">לידים חמים אחרונים<span class="acc-sum" id="accHotLeadsSum"></span></span>
-        <span class="acc-count hot" id="accHotLeadsCount"></span>
-        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-      </summary>
-      <div class="acc-body">
-        <div class="hot-head">
-          <p class="panel-sub">פניות שעדיין לא נפתחו — כאן נמצא הכסף שממתין לטיפול</p>
-          <button type="button" class="ghost-chip" data-goto="accLeads">לכל הלידים</button>
-        </div>
-        <div id="hotLeadsBody"><div class="empty-state">טוען…</div></div>
-      </div>
-    </details>
 
     <details class="acc" id="accProperties" open>
       <summary>
@@ -3254,90 +3200,92 @@
       </div>
     </details>
 
+    <!-- ---------- חנות הלידים ----------
+         שלושה מדפים נפרדים היו שלוש קטגוריות שונות באותה לשונית, וסוכן/ת
+         שחיפש/ה ליד לקנות היה/תה צריך/ה לפתוח שלושתן כדי לדעת מה יש היום.
+         זה מדף אחד עם שלוש מגירות: מלאי אחר בכל אחת, אותו מחיר ואותה שפה.
+         המגירה של המשכנתאות מוצגת רק ליועצ/ת משכנתאות (ראו loadDashboard). -->
     <details class="acc" id="accLeadShelf">
       <summary>
-        <span class="acc-title">מדף לידים — רכישה<span class="acc-sum" id="accLeadShelfSum"></span></span>
+        <span class="acc-title">חנות הלידים<span class="acc-sum" id="accLeadShelfSum"></span></span>
         <span class="acc-count" id="accLeadShelfCount"></span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-        <p class="acc-sub">לידים שמנוע ה-RSS אסף מקבוצות ומלוחות וסיווג אוטומטית. הרכישה מנכה <b id="shelfPriceLabel">₪50</b> מיתרת הארנק וחושפת את הפוסט המקורי ואת פרטי הפונה. כל ליד נמכר לסוכן/ת אחד/ת בלבד.</p>
+        <p class="acc-sub">כל הלידים שעומדים למכירה במקום אחד — מוכרים, קונים ומשכנתאות. כל ליד עולה <b id="shelfPriceLabel">₪50</b> מיתרת הארנק ונמכר לסוכן/ת אחד/ת בלבד.</p>
 
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-          <select id="shelfSideFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
-            <option value="">כל סוגי הפונים</option>
-            <option value="מוכר פרטי">מוכר פרטי</option>
-            <option value="משכיר">משכיר</option>
-            <option value="קונה פרטי">קונה פרטי</option>
-            <option value="שוכר">שוכר</option>
-          </select>
-          <select id="shelfCityFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
-            <option value="">כל הערים</option>
-          </select>
-          <button type="button" class="btn btn-ghost" id="shelfRefreshBtn" style="white-space:nowrap">רענון</button>
+        <div class="view-switch shelf-switch" id="shelfTabs" role="group" aria-label="מעבר בין מדפי חנות הלידים">
+          <button type="button" data-shelf-tab="rss" aria-pressed="true">מוכרים וקונים · <span id="shelfTabRssCount">0</span></button>
+          <button type="button" data-shelf-tab="saved" aria-pressed="false">מחפשי דירה · <span id="shelfTabSavedCount">0</span></button>
+          <button type="button" data-shelf-tab="mortgage" aria-pressed="false" hidden>משכנתאות · <span id="shelfTabMortgageCount">0</span></button>
         </div>
 
-        <div id="leadShelfList"></div>
+        <!-- מדף ה-RSS: מוכרים, משכירים, קונים ושוכרים שנאספו מקבוצות ומלוחות -->
+        <div class="shelf-pane" data-shelf-pane="rss">
+          <p class="shelf-note">לידים שמנוע ה-RSS אסף מקבוצות ומלוחות וסיווג אוטומטית. הרכישה חושפת את הפוסט המקורי ואת פרטי הפונה.</p>
 
-        <div class="form-subheading">הלידים שרכשתי</div>
-        <div id="purchasedLeadsList"></div>
-      </div>
-    </details>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+            <select id="shelfSideFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
+              <option value="">כל סוגי הפונים</option>
+              <option value="מוכר פרטי">מוכר פרטי</option>
+              <option value="משכיר">משכיר</option>
+              <option value="קונה פרטי">קונה פרטי</option>
+              <option value="שוכר">שוכר</option>
+            </select>
+            <select id="shelfCityFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
+              <option value="">כל הערים</option>
+            </select>
+            <button type="button" class="btn btn-ghost" id="shelfRefreshBtn" style="white-space:nowrap">רענון</button>
+          </div>
 
-    <!-- מוצג רק ל-is_mortgage_advisor. ראו loadDashboard() -->
-    <details class="acc" id="accMortgageShelf" style="display:none">
-      <summary>
-        <span class="acc-title">מדף לידי משכנתאות — רכישה</span>
-        <span class="acc-count" id="accMortgageShelfCount"></span>
-        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-      </summary>
-      <div class="acc-body">
-        <p class="acc-sub">פניות שהושארו במחשבון המשכנתא בדף הבית. הרכישה מנכה <b id="mortgageShelfPriceLabel">₪50</b> מיתרת הארנק וחושפת שם, טלפון ואימייל. כל ליד נמכר ליועצ/ת אחד/ת בלבד.</p>
+          <div id="leadShelfList"></div>
 
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-          <select id="mortgageOwnsFilter" style="flex:1;min-width:150px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
-            <option value="">כל הפונים</option>
-            <option value="no">דירה יחידה (אין דירה בבעלות)</option>
-            <option value="yes">יש דירה בבעלות</option>
-          </select>
-          <button type="button" class="btn btn-ghost" id="mortgageShelfRefreshBtn" style="white-space:nowrap">רענון</button>
+          <div class="form-subheading">הלידים שרכשתי</div>
+          <div id="purchasedLeadsList"></div>
         </div>
 
-        <div id="mortgageShelfList"></div>
+        <!-- מחפשי דירה: חיפושים שמורים שבהם ניתן אישור מפורש ליצירת קשר.
+             מלאי אחר לגמרי מזה של מדף ה-RSS — כאן הפונה הגדיר/ה בעצמו/ה
+             תקציב, אזור וחדרים, וההתראות שנשלחו אליו/ה מודדות התעניינות. -->
+        <div class="shelf-pane" data-shelf-pane="saved" hidden>
+          <p class="shelf-note">אנשים שהגדירו באתר "סוכן חכם" — חיפוש שמור עם תקציב ואזור — ואישרו שמתווך/ת ייצור איתם קשר. הרכישה (<b id="savedSearchPriceLabel">₪50</b>) חושפת שם וטלפון, וגם את הנכסים שכבר נשלחו אליהם ומה מתוכם נלחץ.</p>
 
-        <div class="form-subheading">הלידים שרכשתי</div>
-        <div id="purchasedMortgageList"></div>
-      </div>
-    </details>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+            <select id="savedSearchDealFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
+              <option value="">מכירה והשכרה</option>
+              <option value="sale">מחפשי קנייה</option>
+              <option value="rent">מחפשי שכירות</option>
+            </select>
+            <select id="savedSearchHoodFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
+              <option value="">כל האזורים</option>
+            </select>
+            <button type="button" class="btn btn-ghost" id="savedSearchRefreshBtn" style="white-space:nowrap">רענון</button>
+          </div>
 
-    <!-- מדף מחפשי הדירה: חיפושים שמורים שבהם ניתן אישור מפורש ליצירת קשר.
-         מלאי אחר לגמרי מזה של מדף ה-RSS — כאן הפונה הגדיר/ה בעצמו/ה תקציב,
-         אזור וחדרים, וההתראות שנשלחו אליו/ה מודדות התעניינות אמיתית. -->
-    <details class="acc" id="accSavedSearchShelf">
-      <summary>
-        <span class="acc-title">מדף מחפשי דירה — רכישה</span>
-        <span class="acc-count" id="accSavedSearchShelfCount"></span>
-        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-      </summary>
-      <div class="acc-body">
-        <p class="acc-sub">אנשים שהגדירו באתר "סוכן חכם" — חיפוש שמור עם תקציב ואזור — ואישרו שמתווך/ת ייצור איתם קשר. הרכישה מנכה <b id="savedSearchPriceLabel">₪60</b> מיתרת הארנק וחושפת שם וטלפון, וגם את הנכסים שכבר נשלחו אליהם ומה מתוכם נלחץ. כל ליד נמכר לסוכן/ת אחד/ת בלבד.</p>
+          <div id="savedSearchShelfList"></div>
 
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-          <select id="savedSearchDealFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
-            <option value="">מכירה והשכרה</option>
-            <option value="sale">מחפשי קנייה</option>
-            <option value="rent">מחפשי שכירות</option>
-          </select>
-          <select id="savedSearchHoodFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
-            <option value="">כל האזורים</option>
-          </select>
-          <button type="button" class="btn btn-ghost" id="savedSearchRefreshBtn" style="white-space:nowrap">רענון</button>
+          <div class="form-subheading">הלידים שרכשתי</div>
+          <div id="purchasedSavedSearchList"></div>
         </div>
 
-        <div id="savedSearchShelfList"></div>
+        <!-- משכנתאות: מוצג רק ל-is_mortgage_advisor. ראו loadDashboard() -->
+        <div class="shelf-pane" data-shelf-pane="mortgage" hidden>
+          <p class="shelf-note">פניות שהושארו במחשבון המשכנתא בדף הבית. הרכישה (<b id="mortgageShelfPriceLabel">₪50</b>) חושפת שם, טלפון ואימייל.</p>
 
-        <div class="form-subheading">הלידים שרכשתי</div>
-        <div id="purchasedSavedSearchList"></div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+            <select id="mortgageOwnsFilter" style="flex:1;min-width:150px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
+              <option value="">כל הפונים</option>
+              <option value="no">דירה יחידה (אין דירה בבעלות)</option>
+              <option value="yes">יש דירה בבעלות</option>
+            </select>
+            <button type="button" class="btn btn-ghost" id="mortgageShelfRefreshBtn" style="white-space:nowrap">רענון</button>
+          </div>
+
+          <div id="mortgageShelfList"></div>
+
+          <div class="form-subheading">הלידים שרכשתי</div>
+          <div id="purchasedMortgageList"></div>
+        </div>
       </div>
     </details>
 
@@ -5191,10 +5139,10 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
     await loadUnroutedLeads();
   }
 
-  // מדף לידי המשכנתאות פתוח רק ליועצ/ת משכנתאות. כמו managerSection, ה-display
-  // נקבע בשני הכיוונים כדי שהסרת הדגל תסתיר את המדף בלי לרענן את העמוד.
-  const mortgageAcc = document.getElementById('accMortgageShelf');
-  mortgageAcc.style.display = agent.is_mortgage_advisor ? 'block' : 'none';
+  // מגירת המשכנתאות בחנות הלידים פתוחה רק ליועצ/ת משכנתאות. כמו
+  // managerSection, המצב נקבע בשני הכיוונים כדי שהסרת הדגל תסגור את המגירה
+  // בלי לרענן את העמוד.
+  setShelfMortgageVisible(agent.is_mortgage_advisor);
   if (agent.is_mortgage_advisor){
     await loadMortgageShelf(agent.id);
   }
@@ -5855,9 +5803,9 @@ const ADM_REVENUE_SOURCES = [
 const ADM_QUEUE = [
   { key:'site_leads',      label:'לידי אתר שלא נפתחו',   sub:'משויכים לסוכן/ת וממתינים לפתיחה' },
   { key:'unrouted',        label:'לידים ללא יעד',         sub:'נקלטו ואין קהל שיקבל אותם', goto:'accUnroutedLeads' },
-  { key:'mortgage_leads',  label:'לידי משכנתאות במדף',    sub:'ממתינים ליועצ/ת שירכוש/תרכוש' },
-  { key:'saved_searches',  label:'מחפשי דירה במדף',       sub:'חיפושים שמורים שטרם נמכרו',   goto:'accSavedSearchShelf' },
-  { key:'rss_leads',       label:'לידי RSS במדף',         sub:'לידים חיצוניים שטרם נמכרו',   goto:'accLeadShelf' },
+  { key:'mortgage_leads',  label:'לידי משכנתאות בחנות',   sub:'ממתינים ליועצ/ת שירכוש/תרכוש' },
+  { key:'saved_searches',  label:'מחפשי דירה בחנות',      sub:'חיפושים שמורים שטרם נמכרו',   goto:'accLeadShelf' },
+  { key:'rss_leads',       label:'לידי RSS בחנות',        sub:'לידים חיצוניים שטרם נמכרו',   goto:'accLeadShelf' },
   { key:'reviews_pending', label:'ביקורות לאישור',        sub:'חוות דעת שממתינות למודרציה' },
 ];
 
@@ -7480,7 +7428,7 @@ async function loadBillingHistory(){
     ...(charges||[]).map(c=>({ label:'פתיחת ליד', amount: -c.amount, status: c.status, date: c.created_at })),
     ...(promotions||[]).map(p=>({ label:'קידום נכס', amount: -p.amount, status: p.status, date: p.created_at })),
     ...(topups||[]).map(t=>({ label:'טעינת ארנק' + (t.test_mode ? ' (בדיקה)' : ''), amount: t.amount, status: t.status, date: t.created_at })),
-    ...(shelfPurchases||[]).map(p=>({ label:'רכישת ליד מהמדף', amount: -p.amount, status: p.status, date: p.created_at })),
+    ...(shelfPurchases||[]).map(p=>({ label:'רכישת ליד מהחנות', amount: -p.amount, status: p.status, date: p.created_at })),
     ...(mortgagePurchases||[]).map(p=>({ label:'רכישת ליד משכנתאות', amount: -p.amount, status: p.status, date: p.created_at })),
   ].sort((a,b)=> new Date(b.date) - new Date(a.date));
 
@@ -12291,8 +12239,6 @@ function renderLeads(agentId){
   accSetSummary('accLeads', active.length
     ? active.length + ' לידים · ' + active.filter(l => l.status === 'unlocked').length + ' נפתחו'
     : '');
-  dashLeads = active;
-  renderHotLeads();
 
   const sw = document.getElementById('leadsSwitch');
   document.getElementById('leadsActiveCount').textContent = active.length;
@@ -12303,7 +12249,16 @@ function renderLeads(agentId){
   sw.querySelectorAll('[data-leads-view]').forEach(b =>
     b.setAttribute('aria-pressed', b.dataset.leadsView === leadsView ? 'true' : 'false'));
 
-  const showing = leadsView === 'archived' ? archived : active;
+  /* פאנל "הלידים החמים" ירד — הוא היה תמצית של הרשימה הזו במקום נפרד. מה
+     שהוא נתן, הסדר נותן: ליד שעדיין לא נפתח עולה לראש הרשימה הפעילה, ובתוך
+     כל קבוצה החדש קודם. הארכיון נשאר כרונולוגי — שם אין "דורש טיפול". */
+  const showing = leadsView === 'archived' ? archived
+    : active.slice().sort((a,b)=>{
+        const openA = a.status === 'unlocked' ? 1 : 0;
+        const openB = b.status === 'unlocked' ? 1 : 0;
+        if (openA !== openB) return openA - openB;
+        return new Date(b.created_at || 0) - new Date(a.created_at || 0);
+      });
   if (showing.length === 0){
     listEl.innerHTML = '<div class="empty-state">' + (
       leadsView === 'archived'
@@ -12571,6 +12526,63 @@ function timeLeftLabel(ts){
    credit_balance שלא הגיע מ-service_role — חיוב מהדפדפן היה נבלע בשקט.
    אחרי הרכישה השורה המלאה נקראת ישירות מ-rss_leads: ה-policy
    "buyer reads purchased rss lead" מחזירה אותה לקונה בלבד.                */
+/* ---------- חנות הלידים: המגירות והמונה המשותף ----------
+   שלושת המדפים חולקים קטגוריה אחת, ולכן גם מונה אחד: מה שנספר בכותרת הוא
+   כמה לידים אפשר לקנות עכשיו בחנות כולה, וההפרדה לפי מלאי חיה בכפתורי
+   המגירות. מגירת המשכנתאות נפתחת רק ליועצ/ת משכנתאות — הבדיקה האמיתית
+   יושבת ב-purchase_mortgage_lead, וזו כאן היא נוחות בלבד.                */
+let shelfTab = 'rss';
+let shelfMortgageOpen = false;
+
+function renderShelfTabs(){
+  document.querySelectorAll('#shelfTabs [data-shelf-tab]').forEach(b =>
+    b.setAttribute('aria-pressed', String(b.dataset.shelfTab === shelfTab)));
+  document.querySelectorAll('[data-shelf-pane]').forEach(pane =>
+    pane.hidden = pane.dataset.shelfPane !== shelfTab);
+}
+
+function setShelfTab(tab){
+  if (tab === 'mortgage' && !shelfMortgageOpen) return;
+  shelfTab = tab;
+  renderShelfTabs();
+}
+
+// נקרא מ-loadDashboard בשני הכיוונים, כדי שהסרת הדגל תסגור את המגירה בלי
+// לרענן את העמוד — בדיוק כמו managerSection
+function setShelfMortgageVisible(open){
+  shelfMortgageOpen = !!open;
+  const btn = document.querySelector('#shelfTabs [data-shelf-tab="mortgage"]');
+  if (btn) btn.hidden = !shelfMortgageOpen;
+  if (!shelfMortgageOpen && shelfTab === 'mortgage') shelfTab = 'rss';
+  renderShelfTabs();
+  refreshShelfCounts();
+}
+
+/* המונה של הקטגוריה והמונים שעל המגירות נכתבים ממקום אחד, כדי שלא ייווצר
+   מצב שבו הכותרת אומרת 12 והמגירות מסתכמות ל-9. */
+function refreshShelfCounts(){
+  const rss      = shelfLeads.length;
+  const saved    = savedSearchLeads.length;
+  const mortgage = shelfMortgageOpen ? mortgageShelfLeads.length : 0;
+  const setText = (id, n)=>{ const el = document.getElementById(id); if (el) el.textContent = n; };
+  setText('shelfTabRssCount', rss);
+  setText('shelfTabSavedCount', saved);
+  setText('shelfTabMortgageCount', mortgage);
+
+  const total = rss + saved + mortgage;
+  accSetCount('accLeadShelf', total ? total + ' זמינים' : '');
+  // מה שקובע אם שווה לפתוח את החנות היום: כמה יש, ובכמה
+  accSetSummary('accLeadShelf', total
+    ? [topValue(shelfLeads.map(l => l.city)), shekel(rssLeadPrice) + ' לליד']
+        .filter(Boolean).join(' · ')
+    : '');
+}
+
+document.getElementById('shelfTabs').addEventListener('click', (e)=>{
+  const btn = e.target.closest('[data-shelf-tab]');
+  if (btn) setShelfTab(btn.dataset.shelfTab);
+});
+
 let rssLeadPrice = 50;
 let shelfLeads = [];
 
@@ -12593,19 +12605,15 @@ async function loadLeadShelf(agentId){
     // הטבלאות נוצרות ב-schema.sql + מיגרציית הרכישה; עד שהן קיימות אין טעם להבהיל
     const missing = /does not exist|schema cache/i.test(error.message || '');
     listEl.innerHTML = '<div class="empty-state">' +
-      (missing ? 'מדף הלידים לא הופעל עדיין בפרויקט הזה.' : 'שגיאה בטעינת המדף: ' + esc(error.message)) +
+      (missing ? 'מדף המוכרים והקונים לא הופעל עדיין בפרויקט הזה.' : 'שגיאה בטעינת המדף: ' + esc(error.message)) +
       '</div>';
-    accSetCount('accLeadShelf', '');
+    shelfLeads = [];
+    refreshShelfCounts();
     return;
   }
 
   shelfLeads = leads || [];
-  accSetCount('accLeadShelf', shelfLeads.length ? shelfLeads.length + ' זמינים' : '');
-  // האזור המרכזי במדף ומחיר הליד — מה שקובע אם בכלל שווה לפתוח אותו היום
-  accSetSummary('accLeadShelf', shelfLeads.length
-    ? [topValue(shelfLeads.map(l => l.city)), shekel(rssLeadPrice) + ' לליד']
-        .filter(Boolean).join(' · ')
-    : '');
+  refreshShelfCounts();
   syncShelfCityFilter();
   renderLeadShelf();
   await loadPurchasedLeads(agentId);
@@ -12631,7 +12639,7 @@ function renderLeadShelf(){
   if (filtered.length === 0){
     listEl.innerHTML = '<div class="empty-state">' +
       (shelfLeads.length === 0
-        ? 'אין כרגע לידים פנויים במדף.<br>המנוע סורק את המקורות כל 30 דקות.'
+        ? 'אין כרגע לידים פנויים בחנות.<br>המנוע סורק את המקורות כל 30 דקות.'
         : 'אין לידים שמתאימים לסינון הנוכחי.') +
       '</div>';
     return;
@@ -12694,7 +12702,7 @@ async function loadPurchasedLeads(agentId){
     return;
   }
   if (!leads || leads.length === 0){
-    listEl.innerHTML = '<div class="empty-state">עוד לא רכשת לידים מהמדף.</div>';
+    listEl.innerHTML = '<div class="empty-state">עוד לא רכשת לידים מהחנות.</div>';
     return;
   }
 
@@ -12730,7 +12738,7 @@ async function buyRssLead(lead, btn){
     title: 'אישור רכישת ליד',
     lines: [
       `${kind.icon} ${kind.label}`,
-      lead.teaser_title || 'ליד ממדף הלידים',
+      lead.teaser_title || 'ליד מחנות הלידים',
       shelfMetaParts(lead).join(' · '),
       'הרכישה חושפת את הפוסט המקורי ואת פרטי הפונה, ומשייכת את הליד אליך בלבד.',
     ].filter(Boolean),
@@ -12810,12 +12818,13 @@ async function loadMortgageShelf(agentId){
     listEl.innerHTML = '<div class="empty-state">' +
       (missing ? 'מדף לידי המשכנתאות לא הופעל עדיין בפרויקט הזה.' : 'שגיאה בטעינת המדף: ' + esc(error.message)) +
       '</div>';
-    accSetCount('accMortgageShelf', '');
+    mortgageShelfLeads = [];
+    refreshShelfCounts();
     return;
   }
 
   mortgageShelfLeads = leads || [];
-  accSetCount('accMortgageShelf', mortgageShelfLeads.length ? mortgageShelfLeads.length + ' זמינים' : '');
+  refreshShelfCounts();
   await loadMortgageLeadProperties(mortgageShelfLeads);
   renderMortgageShelf();
   await loadPurchasedMortgageLeads(agentId);
@@ -12876,7 +12885,7 @@ function renderMortgageShelf(){
   if (filtered.length === 0){
     listEl.innerHTML = '<div class="empty-state">' +
       (mortgageShelfLeads.length === 0
-        ? 'אין כרגע לידים פנויים במדף.<br>לידים חדשים נכנסים מטופס מחשבון המשכנתא בדף הבית.'
+        ? 'אין כרגע לידי משכנתאות פנויים בחנות.<br>לידים חדשים נכנסים מטופס מחשבון המשכנתא בדף הבית.'
         : 'אין לידים שמתאימים לסינון הנוכחי.') +
       '</div>';
     return;
@@ -12924,7 +12933,7 @@ async function loadPurchasedMortgageLeads(agentId){
     return;
   }
   if (!leads || leads.length === 0){
-    listEl.innerHTML = '<div class="empty-state">עוד לא רכשת לידים מהמדף.</div>';
+    listEl.innerHTML = '<div class="empty-state">עוד לא רכשת לידים מהחנות.</div>';
     return;
   }
 
@@ -13035,7 +13044,7 @@ document.getElementById('mortgageShelfRefreshBtn').addEventListener('click', ()=
    טלפון או אימייל — והרכישה עוברת ב-Edge Function saved-search-lead-purchase,
    כי גם כאן הטריגר protect_sensitive_agency_member_fields מבטל שינוי
    ‏credit_balance שלא הגיע מ-service_role.                                  */
-let savedSearchPrice = 60;
+let savedSearchPrice = 50;
 let savedSearchLeads = [];
 let savedSearchHoods = new Map();   // מזהה שכונה → שם
 
@@ -13059,7 +13068,7 @@ async function loadSavedSearchShelf(agentId){
     .order('created_at', { ascending:false })
     .limit(60);
 
-  savedSearchPrice = priceOf('saved_search_lead_price', 60);
+  savedSearchPrice = priceOf('saved_search_lead_price', 50);
   document.getElementById('savedSearchPriceLabel').textContent = shekel(savedSearchPrice);
 
   if (error){
@@ -13069,13 +13078,14 @@ async function loadSavedSearchShelf(agentId){
     listEl.innerHTML = '<div class="empty-state">' +
       (missing ? 'מדף מחפשי הדירה לא הופעל עדיין בפרויקט הזה.' : 'שגיאה בטעינת המדף: ' + esc(error.message)) +
       '</div>';
-    accSetCount('accSavedSearchShelf', '');
+    savedSearchLeads = [];
+    refreshShelfCounts();
     return;
   }
 
   await loadSavedSearchHoods();
   savedSearchLeads = leads || [];
-  accSetCount('accSavedSearchShelf', savedSearchLeads.length ? savedSearchLeads.length + ' זמינים' : '');
+  refreshShelfCounts();
   syncSavedSearchHoodFilter();
   renderSavedSearchShelf();
   await loadPurchasedSavedSearches(agentId);
@@ -13140,7 +13150,7 @@ function renderSavedSearchShelf(){
   if (filtered.length === 0){
     listEl.innerHTML = '<div class="empty-state">' +
       (savedSearchLeads.length === 0
-        ? 'אין כרגע מחפשי דירה פנויים במדף.<br>לידים נוספים נכנסים כשמבקרים באתר שומרים חיפוש.'
+        ? 'אין כרגע מחפשי דירה פנויים בחנות.<br>לידים נוספים נכנסים כשמבקרים באתר שומרים חיפוש.'
         : 'אין לידים שמתאימים לסינון הנוכחי.') +
       '</div>';
     return;
@@ -13196,7 +13206,7 @@ async function loadPurchasedSavedSearches(agentId){
     return;
   }
   if (!leads || leads.length === 0){
-    listEl.innerHTML = '<div class="empty-state">עוד לא רכשת לידים ממדף מחפשי הדירה, ועוד לא הגיע ליד כזה מדף המשרד.</div>';
+    listEl.innerHTML = '<div class="empty-state">עוד לא רכשת מחפשי דירה מהחנות, ועוד לא הגיע ליד כזה מדף המשרד.</div>';
     return;
   }
 
@@ -14766,13 +14776,12 @@ document.getElementById('notifPrefsForm').addEventListener('submit', async (e)=>
 /* ==========================================================================
    דשבורד הביצועים של הסוכן/ת
    --------------------------------------------------------------------------
-   כל מה שכאן מחושב מהנתונים שכבר נטענו לדשבורד (dashProperties/dashLeads/
+   כל מה שכאן מחושב מהנתונים שכבר נטענו לדשבורד (dashProperties/
    currentAgent) — אין שאילתה נוספת ל-Supabase ואין נתון מומצא. אם עוד לא
    הגיעו נתונים, הכרטיסים מציגים אפס ומסבירים למה.
    ========================================================================== */
 
 let dashProperties = [];
-let dashLeads = [];
 
 /* עמלת התיווך המקובלת: 2% ממחיר המכירה, או דמי שכירות של חודש אחד.
    זה אומדן פוטנציאל בלבד — לא התחייבות ולא הכנסה בפועל. */
@@ -14882,11 +14891,11 @@ const NAV_GROUPS = [
     { acc:'accSharedWithMe',     label:'שותף איתי',         icon:'share',    tab:'props' },
     { acc:'accSharePartners',    label:'משרדי שיתוף פעולה', icon:'handshake',tab:'props' },
     { acc:'accWhatsapp',         label:'נכסים בוואטסאפ',    icon:'chat',     tab:'props' },
-    { acc:'accHotLeads',         label:'לידים חמים',        icon:'flame',    tab:'leads' },
+    /* לשונית הלידים היא שתי קטגוריות בלבד: מה ששלי, ומה שאפשר לקנות.
+       מדפי המשכנתאות ומחפשי הדירה אינם קטגוריות נפרדות עוד — הם מגירות
+       בתוך חנות הלידים (ראו #shelfTabs). */
     { acc:'accLeads',            label:'הלידים שלי',        icon:'inbox',    tab:'leads' },
-    { acc:'accLeadShelf',        label:'מדף לידים',         icon:'layers',   tab:'leads' },
-    { acc:'accSavedSearchShelf', label:'מדף מחפשי דירה',    icon:'bell',     tab:'leads' },
-    { acc:'accMortgageShelf',    label:'מדף משכנתאות',      icon:'bank',     tab:'leads' },
+    { acc:'accLeadShelf',        label:'חנות הלידים',       icon:'layers',   tab:'leads' },
     { acc:'accClients',          label:'קובץ הלקוחות',      icon:'contact',  tab:'clients' },
     { acc:'accAlerts',           label:'התראות התאמה',      icon:'target',   tab:'clients' },
     /* ‏focus על שדה החיפוש שם את הסמן במקום שאליו באו — לא בראש רשימה
@@ -14930,10 +14939,10 @@ const NAV_TABS = [
 
 /* אילו קטגוריות מצדיקות תגית אדומה. "אדום = דורש ממך פעולה עכשיו", ולכן מדף
    הלידים (הזדמנות, לא חוב) ויתרת הארנק אינם כאן. */
-const NAV_HOT_ACCS = new Set(['accHotLeads','accLeads','accAlerts','accReviews','accUnroutedLeads']);
+const NAV_HOT_ACCS = new Set(['accLeads','accAlerts','accReviews','accUnroutedLeads']);
 const NAV_TAB_BADGE = {
   props:   [],
-  leads:   ['accHotLeads'],
+  leads:   ['accLeads'],
   clients: ['accAlerts'],
   /* ‏docs נשארת בלי תגית אדומה בכוונה: המונה שם הוא "ממתינים לחתימה", וזו
      המתנה ללקוח/ה ולא חוב של הסוכן/ת. */
@@ -14959,7 +14968,7 @@ function accCountOf(accId){
 }
 
 /* קטגוריה "גלויה" = היא קיימת ב-DOM ואף אב שלה אינו מוסתר. זו הבדיקה
-   שמכניסה ומוציאה את managerSection, platformAdminSection ומדף המשכנתאות
+   שמכניסה ומוציאה את managerSection ואת platformAdminSection
    משלושת הניווטים בבת אחת. ‏offsetParent אינו שמיש כאן, כי הוא מחזיר null גם
    לקטגוריה שהסינון עצמו הסתיר — ואז הניווט היה מוחק את הלשונית שהוא מציג. */
 function navAccVisible(accId){
@@ -15146,7 +15155,7 @@ window.addEventListener('resize', ()=>{
    שנייה — הכול מ-accCounts.
    ========================================================================== */
 const TODO_ITEMS = [
-  { acc:'accHotLeads', icon:'flame',   many:n => n + ' לידים חמים שלא נפתחו',
+  { acc:'accLeads',    icon:'flame',   many:n => n + ' לידים חמים שלא נפתחו',
     one:'ליד חם אחד שלא נפתח',            sub:'כאן נמצא הכסף שממתין לטיפול' },
   { acc:'accAlerts',   icon:'target',  many:n => n + ' התאמות נכס ללקוחות',
     one:'התאמת נכס אחת ללקוח/ה',          sub:'נכסים חדשים שעונים על דרישות בקובץ' },
@@ -15553,15 +15562,15 @@ function refreshNavCounts(){
    הכרטיס היה זהוב־בולט גם כשהוא הראה 0. צבע חם הוא הבטחה שיש כאן משהו
    לעשות, וכרטיס שמבטיח ולא מקיים מלמד את העין לדלג עליו — כולל ביום שבו
    באמת יגיעו שלושה לידים. במצב 0 הוא יורד לניטרלי, ובמקום מספר מת הוא
-   מפנה למדף הלידים: שם יש פניות פתוחות שאפשר לקחת עכשיו.
+   מפנה לחנות הלידים: שם יש פניות פתוחות שאפשר לקנות עכשיו.
 
-   אם המדף אינו גלוי לסוכן/ת (מסלול, הרשאה) הכרטיס נשאר מפנה ללידים החמים
-   ומציג טיפ במקום הצעה שתוביל לדלת נעולה. */
+   אם החנות אינה גלויה לסוכן/ת (מסלול, הרשאה) הכרטיס נשאר מפנה ל"הלידים
+   שלי" ומציג טיפ במקום הצעה שתוביל לדלת נעולה. */
 function renderHotKpi(){
   const value = document.getElementById('kpiHotValue');
   if (!value) return;
   const card = value.closest('.kpi-hot');
-  const n = accCountOf('accHotLeads');
+  const n = accCountOf('accLeads');
   value.textContent = String(n);
 
   const chip = document.getElementById('kpiHotChip');
@@ -15572,7 +15581,7 @@ function renderHotKpi(){
   const shelfOpen = navAccVisible('accLeadShelf');
   if (note){
     note.textContent = n ? 'פניות שעדיין לא נפתחו — לחצו לטיפול'
-      : shelfOpen ? 'אין פניות שממתינות — מדף הלידים פתוח לבחירה'
+      : shelfOpen ? 'אין פניות שממתינות — חנות הלידים פתוחה לבחירה'
                   : 'אין פניות שממתינות לפתיחה';
   }
 
@@ -15584,17 +15593,17 @@ function renderHotKpi(){
       cta.className = 'kpi-idle-cta';
       card.appendChild(cta);
     }
-    cta.innerHTML = dashIcon('layers') + '<span>חיפוש לידים במדף</span>';
+    cta.innerHTML = dashIcon('layers') + '<span>חיפוש לידים בחנות</span>';
   } else if (cta){
     cta.remove();
   }
 
   // הכרטיס כולו הוא הכפתור, ולכן היעד שלו הוא זה שמשתנה — לא כפתור נוסף
   if (card){
-    const target = (!n && shelfOpen) ? 'accLeadShelf' : 'accHotLeads';
+    const target = (!n && shelfOpen) ? 'accLeadShelf' : 'accLeads';
     card.dataset.goto = target;
     card.setAttribute('aria-label', target === 'accLeadShelf'
-      ? 'מדף הלידים — פניות פתוחות שאפשר לקחת'
+      ? 'חנות הלידים — פניות פתוחות שאפשר לקנות'
       : 'לידים חמים שממתינים לפתיחה');
   }
 }
@@ -15882,88 +15891,6 @@ if (bgFlowLayers.length && !window.matchMedia('(prefers-reduced-motion: reduce)'
   window.addEventListener('scroll', requestDashBgFlow, { passive:true });
   window.addEventListener('resize', requestDashBgFlow);
   dashBgFlow();
-}
-
-/* ---------- לידים חמים אחרונים ---------- */
-function dashRelTime(ts){
-  if (!ts) return '';
-  const diff = Date.now() - new Date(ts).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return 'ממש עכשיו';
-  if (mins < 60) return 'לפני ' + mins + ' דק׳';
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return 'לפני ' + hours + ' שע׳';
-  const days = Math.floor(hours / 24);
-  if (days < 30) return 'לפני ' + days + ' ימים';
-  return new Date(ts).toLocaleDateString('he-IL', { day:'numeric', month:'short' });
-}
-
-function renderHotLeads(){
-  const body = document.getElementById('hotLeadsBody');
-  if (!body) return;
-  const hot = dashLeads.filter(l => l.status !== 'unlocked').slice(0, 5);
-  // המונה בכותרת האקורדיון מציג כמה לידים חמים מוצגים כאן בפועל
-  accSetCount('accHotLeads', hot.length);
-  // "מתי הגיע האחרון" הוא מה שקובע אם פותחים עכשיו או אחרי הפגישה
-  accSetSummary('accHotLeads', hot.length
-    ? 'האחרון ' + dashRelTime(hot[0].created_at) : '');
-
-  if (hot.length === 0){
-    // ‏allLeads ולא dashLeads: השני כבר מסונן מארכיון, וסוכן/ת שארכב/ה את כל
-    // הלידים שלו/ה היה/תה מקבל/ת "אין עדיין לידים משויכים אליך" — משפט על
-    // מצב שאינו נכון.
-    body.innerHTML = allLeads.length === 0
-      ? '<div class="empty-state">אין עדיין לידים משויכים אליך. ברגע שמתעניין יפנה על אחד הנכסים שלך, הוא יופיע כאן.</div>'
-      : '<div class="empty-state">כל הכבוד — כל הלידים שלך כבר פתוחים ומטופלים. 🎉</div>';
-    return;
-  }
-
-  const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
-  body.innerHTML = '';
-  hot.forEach(lead=>{
-    const kind = leadKind(lead);
-    const isOwner = lead.lead_type === 'owner_inbound';
-    const dealLabel = lead.deal_type === 'rent' ? 'השכרה' : (lead.deal_type === 'sale' ? 'מכירה' : '');
-    const isNew = lead.created_at && new Date(lead.created_at).getTime() > dayAgo;
-    const cost = claimCost(lead);
-    const row = document.createElement('div');
-    row.className = 'hot-row';
-    row.dataset.kind = isOwner ? 'owner' : 'buyer';
-    row.innerHTML = `
-      <div class="hot-main">
-        <span class="hot-avatar">${esc((lead.display_name || '?').trim()[0] || '?')}</span>
-        <span class="hot-id">
-          <span class="hot-name">${esc(lead.display_name || 'ליד חדש')}</span>
-          <span class="hot-meta">${esc([dealLabel, lead.city, lead.property_type].filter(Boolean).join(' · ') || 'ללא פרטים נוספים')}</span>
-        </span>
-      </div>
-      <div class="hot-tags">
-        <span class="hot-tag ${isOwner ? 't-owner' : 't-buyer'}">${esc(kind.icon + ' ' + kind.label)}</span>
-        ${isNew ? '<span class="hot-tag t-new">חדש</span>' : ''}
-        <span class="hot-when">${esc(dashRelTime(lead.created_at))}</span>
-      </div>
-      <button type="button" class="hot-cta">${cost.price > 0 ? 'פתיחה — ' + esc(shekel(cost.price)) : 'פתיחת הליד'}</button>
-    `;
-    // הפתיחה עצמה נשארת בכרטיס המלא בקטגוריית הלידים — כדי שדיאלוג האישור,
-    // הגבייה והרענון יעברו דרך מסלול אחד בלבד (claimLead) ולא יישכפלו כאן.
-    row.querySelector('.hot-cta').addEventListener('click', ()=> focusLeadCard(lead.id));
-    body.appendChild(row);
-  });
-}
-
-function focusLeadCard(leadId){
-  gotoSection('accLeads');
-  setTimeout(()=>{
-    const card = document.querySelector(`#leadsList .lead-card[data-lead-id="${leadId}"]`);
-    if (!card) return;
-    const header = document.querySelector('#dashboard header.crm');
-    const offset = (header ? header.offsetHeight : 0) + 14;
-    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    window.scrollTo({ top: Math.max(0, card.getBoundingClientRect().top + window.pageYOffset - offset), behavior: reduce ? 'auto' : 'smooth' });
-    card.classList.remove('is-flash');
-    void card.offsetWidth;   // מאלץ reflow כדי שהאנימציה תרוץ שוב על אותו כרטיס
-    card.classList.add('is-flash');
-  }, 260);
 }
 
 /* ---------- תפריט הבורגר ----------
