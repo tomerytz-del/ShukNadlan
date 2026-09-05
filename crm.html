@@ -1727,7 +1727,9 @@
     overflow:hidden;max-width:400px;
   }
   #dashboard.is-compact .agent-id-text{opacity:0;max-width:0}
-  #dashboard.is-compact .avatar{width:34px;height:34px;border-radius:11px;font-size:.95rem}
+  /* האווטאר נשאר בגודלו המלא גם בכיווץ: הוא התמונה של הסוכן/ת וגם תפריט
+     הפרופיל והיציאה, והוא ממילא אינו מה שגוזל את הגובה — זה היו המדדים
+     והברכה. הכותרת מתקצרת מה-padding, מהטקסט שיורד ומהלוגו. */
   #dashboard.is-compact .crm-home .logo-img{height:30px}
 
   /* הפס עצמו: גובה 0 עד שהוא נפתח, ולכן הוא לא תופס מקום ולא מזיז את הדף
@@ -15989,9 +15991,15 @@ function menuGroupSetOpen(key, open){
 }
 
 /* קבוצה נפתחת אם היא מכילה את הלשונית הנוכחית, ואחרת לפי מה שנשמר. הכלל
-   הראשון גובר: מי שנמצא/ת ב"לידים" ופותח/ת את התפריט מחפש/ת שם משהו. */
+   הראשון גובר: מי שנמצא/ת ב"לידים" ופותח/ת את התפריט מחפש/ת שם משהו.
+
+   הלשונית "ראשי" היא היוצא מן הכלל: היא יושבת בתוך "פעילות עסקית", שהיא
+   הקבוצה הגדולה — ולכן הכלל היה פותח את שלושה-עשר הפריטים בדיוק במצב
+   ברירת המחדל, כלומר כמעט תמיד. מדף הבית התפריט נפתח סגור כולו: שלוש
+   שורות, ומהן בוחרים לאן. מי שפתח/ה קבוצה ידנית מקבל/ת אותה פתוחה גם
+   כאן — זו העדפה מפורשת, לא ניחוש. */
 function menuGroupInitiallyOpen(group, saved){
-  if (group.items.some(it => it.tab === navTab)) return true;
+  if (navTab !== 'home' && group.items.some(it => it.tab === navTab)) return true;
   return saved[group.key] === true;
 }
 
