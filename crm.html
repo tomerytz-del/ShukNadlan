@@ -8811,12 +8811,24 @@ let imageSlots = [];
 /* ‏WebP במקום JPEG באותה איכות נראית — כ-30% פחות בייטים על כל תמונה שתעלה
    מכאן והלאה, בלי לגעת בשום תמונה קיימת. דפדפן שלא יודע לקודד WebP
    (‏canvas.toBlob מחזיר null או נופל חזרה ל-PNG) מקבל JPEG כמו קודם, ולכן
-   הסיומת ו-Content-Type נגזרים מה-blob שחזר ולא מקובעים מראש. */
+   הסיומת ו-Content-Type נגזרים מה-blob שחזר ולא מקובעים מראש.
+
+   אבל לא בכל מקום: תמונות הנכס יוצאות אל מחוץ לדפדפן שלנו —
+   ‏property-marketing-publish מעלה אותן ל-‎/photos‎ של פייסבוק (‏Graph מתעד
+   JPEG/PNG/GIF/BMP/TIFF, לא WebP; תמונה שנדחית נבלעת ב-console.warn והפוסט
+   יוצא בלעדיה), ו-saved-search-notify מטמיעה את הראשונה כ-<img> במייל
+   ההתראה (‏Outlook ל-Windows לא מרנדר WebP). לכן המדיה של הנכס נשארת JPEG,
+   ו-WebP רץ במקומות שהצרכן היחיד שלהם הוא דפדפן: פרופיל, מיתוג וכתבות.
+
+   להעביר גם את הנכסים ל-WebP = לשנות את הקבוע הזה, אחרי פוסט בדיקה אחד
+   בעמוד הפייסבוק ובדיקת מייל התראה ב-Outlook. */
+const IMAGE_TYPE_BROWSER  = 'image/webp';   // נצפה רק בדפדפן שלנו
+const IMAGE_TYPE_EXTERNAL = 'image/jpeg';   // יוצא לפייסבוק ולמיילים
 const IMAGE_BLOB_EXT = { 'image/webp':'webp', 'image/jpeg':'jpg', 'image/png':'png' };
 function imageBlobExt(blob){ return IMAGE_BLOB_EXT[blob && blob.type] || 'jpg'; }
 function imageBlobType(blob){ return IMAGE_BLOB_EXT[blob && blob.type] ? blob.type : 'image/jpeg'; }
 
-function fileToResizedBlob(file, maxDim = MAX_IMAGE_DIM, quality = 0.82){
+function fileToResizedBlob(file, maxDim = MAX_IMAGE_DIM, quality = 0.82, preferType = IMAGE_TYPE_BROWSER){
   return new Promise((resolve, reject)=>{
     const url = URL.createObjectURL(file);
     const img = new Image();
@@ -8829,8 +8841,8 @@ function fileToResizedBlob(file, maxDim = MAX_IMAGE_DIM, quality = 0.82){
       const ctx = canvas.getContext('2d');
       ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
       const encode = (type)=> new Promise(res => canvas.toBlob(res, type, quality));
-      encode('image/webp')
-        .then(webp => (webp && webp.type === 'image/webp') ? webp : encode('image/jpeg'))
+      encode(preferType)
+        .then(first => (first && first.type === preferType) ? first : encode('image/jpeg'))
         .then(blob => blob ? resolve(blob) : reject(new Error('encode failed')))
         .catch(reject);
     };
@@ -8920,7 +8932,8 @@ document.getElementById('npMarketingImage').addEventListener('change', async (e)
   e.target.value = '';
   if (!file) return;
   try{
-    const blob = await fileToResizedBlob(file);
+    // התמונה הראשונה בפוסט הפייסבוק ובמייל ההתראה — ראו fileToResizedBlob
+    const blob = await fileToResizedBlob(file, MAX_IMAGE_DIM, 0.82, IMAGE_TYPE_EXTERNAL);
     if (marketingImageSlot?.previewUrl) URL.revokeObjectURL(marketingImageSlot.previewUrl);
     marketingImageSlot = { blob, previewUrl: URL.createObjectURL(blob) };
     renderMarketingImagePreview();
@@ -9469,7 +9482,9 @@ document.getElementById('npImages').addEventListener('change', async (e)=>{
   if (room <= 0){ showToast(`אפשר עד ${MAX_IMAGES} תמונות לנכס`); return; }
   for (const file of files.slice(0, room)){
     try{
-      const blob = await fileToResizedBlob(file);
+      // תמונות הנכס מתפרסמות בפייסבוק ונשלחות במיילי ההתראות — ראו
+      // fileToResizedBlob. לכן JPEG ולא WebP.
+      const blob = await fileToResizedBlob(file, MAX_IMAGE_DIM, 0.82, IMAGE_TYPE_EXTERNAL);
       imageSlots.push({ blob, previewUrl: URL.createObjectURL(blob) });
     } catch(err){
       console.warn('resize failed', file.name, err);
