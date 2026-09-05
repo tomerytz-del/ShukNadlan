@@ -33,11 +33,23 @@
     return esc(s).replace(/\r?\n/g, '<br>');
   }
 
-  var BLANK = '<span style="display:inline-block;min-width:90px;border-bottom:1px solid #9aa0a6">&nbsp;</span>';
+  /* ‏שני סוגי "קו למילוי ידני", ולא אחד, וזה בדיוק מה שנשבר קודם:
 
-  function valueOrBlank(v) {
+       ‏BLANK      — בתוך משפט ("ת.ז.: ____ טלפון: ____"). רוחב מינימלי
+                     קבוע, כי הוא צריך להיראות כמו מקום לכתוב בו בעט.
+       ‏CELL_BLANK — בתוך תא בטבלת פרטי הנכס. ‏display:block ורוחב מלא של
+                     התא, בלי רוחב מינימלי כלל.
+
+     ‏מינימום קבוע בתוך תא הוא מה שגרם לקווים לחרוג מהמסגרת בטלפון: ארבע
+     עמודות עם קווים של 90px כל אחד אינן נכנסות ל-330px, והטבלה גדלה מעבר
+     לתיבה שסביבה. */
+  var BLANK = '<span style="display:inline-block;min-width:70px;max-width:100%;' +
+    'border-bottom:1px solid #9aa0a6">&nbsp;</span>';
+  var CELL_BLANK = '<span style="display:block;border-bottom:1px solid #b6b2a8">&nbsp;</span>';
+
+  function valueOrBlank(v, blank) {
     var s = (v === null || v === undefined) ? '' : String(v).trim();
-    return s ? esc(s) : BLANK;
+    return s ? esc(s) : (blank || BLANK);
   }
 
   function hebDate(d) {
@@ -148,7 +160,11 @@
 
   /* ---------- תיאור הנכס ----------
      טבלה של ארבע עמודות (תווית · ערך · תווית · ערך), כי זו הצורה היחידה
-     ששורדת גם בלקוח מייל וגם בדפדפן צר. */
+     ששורדת גם בלקוח מייל וגם בדפדפן צר.
+
+     ‏table-layout:fixed עם colgroup הוא מה שמחזיק אותה בתוך הרוחב: בלעדיו
+     תא עם "קומות בנכס/בניין" או עם ₪1,650,000 מרחיב את הטבלה, והיא גולשת
+     מהמסגרת. ברוחב טלפון הזוגות נערמים שניים בשורה (ראו DOC_CSS). */
   function propertyBoxHtml(tpl, prop, index, total) {
     var fields = tpl.propertyFields || [];
     var overrides = tpl.propertyLabelOverrides || {};
@@ -158,10 +174,14 @@
     for (var i = 0; i < fields.length; i += 2) {
       var a = fields[i], b = fields[i + 1];
       rows += '<tr>' + cellPair(a, data, overrides) +
-        (b ? cellPair(b, data, overrides) : '<td></td><td></td>') + '</tr>';
+        (b ? cellPair(b, data, overrides)
+           : '<td class="pad" colspan="2" style="' + CELL_STYLE + '"></td>') + '</tr>';
     }
-    var table = '<table role="presentation" cellpadding="0" cellspacing="0" ' +
-      'style="width:100%;border-collapse:collapse;font-size:12.5px">' + rows + '</table>';
+    var table = '<table role="presentation" cellpadding="0" cellspacing="0" class="agr-doc-fields" ' +
+      'style="width:100%;border-collapse:collapse;font-size:12.5px;table-layout:fixed">' +
+      '<colgroup><col style="width:23%"><col style="width:27%">' +
+      '<col style="width:23%"><col style="width:27%"></colgroup>' +
+      rows + '</table>';
 
     /* ‏plain — רשימת ההצעות בטופס הקונה/השוכר. אין כותרת ואין מסגרת: זו
        רשימה בתוך סעיף, ומסגרת סביבה הייתה מנתקת אותה ממנו. */
@@ -179,18 +199,27 @@
           esc(heading) +
         '</div>' +
         table +
+        /* הערה שלא מולאה מקבלת שורה ברוחב מלא ולא קו קצר: זה המקום שבו
+           כותבים בעט על העותק המודפס, ושורה של 70px אינה מקום לכתוב בו */
         '<div style="margin-top:10px;font-size:12.5px"><b>הערות לנכס:</b> ' +
-          (prop && prop.notes ? escMultiline(prop.notes) : BLANK) + '</div>' +
+          (prop && prop.notes
+            ? escMultiline(prop.notes)
+            : '<span style="display:block;margin-top:4px;border-bottom:1px solid #b6b2a8">&nbsp;</span>') +
+        '</div>' +
       '</div>';
   }
+
+  /* קו הפרדה דק בין השורות: הוא מה שמאפשר לעין לרוץ על טבלה של שנים-עשר
+     שדות בלי לאבד את השורה, וגם מה שמסמן לאן ממלאים בעט על עותק מודפס. */
+  var CELL_STYLE = 'padding:5px 5px;vertical-align:top;border-bottom:1px solid #ece9e2';
 
   function cellPair(field, data, overrides) {
     var label = overrides[field.key] || field.label;
     var raw = data[field.key];
     if (field.money && raw !== '' && raw !== null && raw !== undefined && !isNaN(Number(raw))) raw = shekel(raw);
     if (field.date && raw) raw = hebDate(raw);
-    return '<td style="padding:3px 4px;white-space:nowrap;font-weight:700;width:1%">' + esc(label) + ':</td>' +
-           '<td style="padding:3px 4px">' + valueOrBlank(raw) + '</td>';
+    return '<td class="k" style="' + CELL_STYLE + ';font-weight:700">' + esc(label) + ':</td>' +
+           '<td class="v" style="' + CELL_STYLE + '">' + valueOrBlank(raw, CELL_BLANK) + '</td>';
   }
 
   /* ---------- הסעיפים ----------
@@ -261,6 +290,42 @@
     '</div>';
   }
 
+  /* ---------- גיליון הסגנון של המסמך ----------
+     ‏החריג היחיד לכלל ה-inline, ומסיבה אחת: **media query אי אפשר לכתוב
+     בתוך תכונת style**. הסגנון ה-inline נשאר מקור האמת ומספיק לכל לקוח
+     מייל; מה שכאן רק *מתקן* אותו במסך צר — שם ארבע עמודות אינן נכנסות
+     ל-330px, ובלעדיו קווי המילוי חורגים מהמסגרת (כפי שאכן קרה בטלפון).
+
+     לקוח מייל שמסנן ‎<style>‎ מקבל בדיוק את מה שקיבל עד היום. */
+  var DOC_CSS =
+    '.agr-doc{overflow-wrap:anywhere;container-type:inline-size}' +
+    '.agr-doc img{max-width:100%}' +
+    /* ‏@container ולא @media, וזה לא קפריזה: הורדת ה-PDF מציירת את המסמך
+       בתיבה נסתרת ברוחב 820px גם כשהמכשיר הוא טלפון. שאילתת מדיה הייתה
+       מפרקת שם את הטבלה לשורות ומייצרת PDF שונה מזה שנשלח במייל; שאילתת
+       מיכל שואלת את מה שבאמת קובע — רוחב המסמך עצמו.
+       דפדפן ישן שאינו תומך מקבל את טבלת ארבע העמודות, שממילא כבר אינה
+       חורגת מהמסגרת (‏table-layout:fixed וקווי מילוי ברוחב התא). */
+    '@container (max-width:620px){' +
+      /* הטבלה מתפרקת לשורות, וכל זוג תווית-ערך יושב בשורה משלו: שני זוגות
+         בשורה אחת הם מה שלא נכנס בטלפון, ולא הטבלה עצמה */
+      '.agr-doc .agr-doc-fields,.agr-doc .agr-doc-fields tbody,.agr-doc .agr-doc-fields tr{display:block;width:100%}' +
+      '.agr-doc .agr-doc-fields td{display:inline-block;box-sizing:border-box;vertical-align:top}' +
+      '.agr-doc .agr-doc-fields td.k{width:41%;padding-inline-start:0}' +
+      '.agr-doc .agr-doc-fields td.v{width:59%;padding-inline-end:0}' +
+      /* תא ריק שנועד רק להשלים שורה בת ארבע עמודות — במבנה שורה-לזוג אין
+         לו קיום, והצגתו הייתה שורה ריקה באמצע התיאור */
+      '.agr-doc .agr-doc-fields td.pad{display:none}' +
+    '}' +
+    '@media (max-width:640px){' +
+      '.agr-doc{padding:18px 14px!important}' +
+      '.agr-doc ol{padding-inline-start:18px}' +
+    '}';
+
+  function docStyleTag() {
+    return '<style>' + DOC_CSS + '</style>';
+  }
+
   /* ---------- המסמך השלם ---------- */
   function buildHtml(input) {
     var tpl = input.template;
@@ -309,8 +374,10 @@
       ' · קוד אימות המסמך: <b style="letter-spacing:.08em">' + esc(input.verifyCode || '') + '</b>' +
     '</div>';
 
-    return '<div dir="rtl" lang="he" style="direction:rtl;text-align:right;font-family:Heebo,Arial,sans-serif;' +
-      'color:#1B1F26;background:#fff;max-width:820px;margin:0 auto;padding:26px 24px;line-height:1.55">' +
+    return docStyleTag() +
+      '<div dir="rtl" lang="he" class="agr-doc" style="direction:rtl;text-align:right;' +
+      'font-family:Heebo,Arial,sans-serif;color:#1B1F26;background:#fff;max-width:820px;' +
+      'margin:0 auto;padding:26px 24px;line-height:1.55">' +
       body + '</div>';
   }
 

@@ -38,6 +38,12 @@
      הוא הסכם שלא נקרא. הרוחב מוגבל, הגובה לא. */
   .doc-wrap{overflow-x:auto;padding:0;margin-bottom:14px}
   .doc-wrap .agr-inner{min-width:min(760px,100%)}
+  /* מסמכים שנוצרו לפני שקווי המילוי הפכו לרוחב התא נושאים רוחב מינימלי
+     קבוע של 90px. ארבעה כאלה בשורה אינם נכנסים לטלפון, והטבלה חרגה
+     מהמסגרת. גוף המסמך קפוא ואי אפשר לתקן אותו — אבל אפשר לרסן אותו כאן. */
+  .agr-inner table{max-width:100%}
+  .agr-inner span[style*="min-width:90px"]{min-width:44px!important}
+  @media (max-width:640px){ .agr-inner span[style*="min-width:90px"]{min-width:24px!important} }
 
   /* ---- החתימה ---- */
   .sign-card{padding:20px 22px}

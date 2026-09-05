@@ -1835,6 +1835,15 @@
     background:#fff;color:inherit}
   .agr-field textarea{resize:vertical;line-height:1.5}
   .agr-field input:focus,.agr-field select:focus,.agr-field textarea:focus{border-color:var(--teal);outline:none}
+  .agr-field input[readonly]{background:var(--paper);color:var(--ink-soft)}
+
+  /* בורר משך הבלעדיות: שישה מספרים ומילת מפלט. מספרים ולא רשימה נפתחת —
+     בחירת "3 חודשים" היא לחיצה אחת, וזה הרוב המוחלט של המקרים. */
+  .agr-chip-row{display:flex;flex-wrap:wrap;gap:6px}
+  .agr-chip-btn{min-width:42px;padding:8px 12px;border-radius:999px;border:1.5px solid var(--line);
+    background:#fff;font-family:inherit;font-size:.85rem;font-weight:700;color:var(--ink-soft);cursor:pointer}
+  .agr-chip-btn.is-wide{font-size:.78rem;font-weight:600}
+  .agr-chip-btn.is-on{background:var(--teal);border-color:var(--teal);color:#fff}
 
   /* ---- מחפש הנכסים ----
      תוצאה אחת בשורה, עם תגית מקור. הרוחב הצר של הטלפון הוא מה שקובע את
@@ -1867,6 +1876,11 @@
   /* המסמך עצמו נכתב ברוחב 820px קבוע, ולכן התיבה גוללת לרוחב במקום לדחוס אותו */
   .agr-preview{border:1.5px solid var(--line);border-radius:var(--radius-sm);background:#fff;
     overflow:auto;max-height:56vh}
+  /* ראו sign.html: קווי המילוי במסמכים שנוצרו לפני התיקון נושאים רוחב
+     מינימלי קבוע, וארבעה כאלה בשורה חורגים מהמסגרת בטלפון */
+  .agr-preview table{max-width:100%}
+  .agr-preview span[style*="min-width:90px"]{min-width:44px!important}
+  @media(max-width:640px){ .agr-preview span[style*="min-width:90px"]{min-width:24px!important} }
 
   .agr-signer{border:1.5px solid var(--line);border-radius:var(--radius-md);padding:13px;
     margin-bottom:11px;background:#fff}
@@ -14262,6 +14276,13 @@ const NOTIF_TYPES = [
   { type:'marketing_copy', tone:'',       goto:'accProperties', focus:'#propertiesList',
     title:'תיאור שיווקי שנכתב אוטומטית',
     sub:'נכס שנשמר בלי תיאור שיווקי וקיבל אחד מהנתונים שהוזנו. כדאי לעבור עליו.' },
+  /* ‏refresh ולא רק ניווט: החתימה נכנסה למסד אחרי שהרשימה נטענה, ובלי
+     טעינה מחדש ההסכם היה ממשיך להופיע כ"ממתין לחתימה" בדיוק במסך שאליו
+     ההתראה הובילה. */
+  { type:'agreement_signed', tone:'deal', goto:'accAgreements', focus:'#agreementsList',
+    title:'הסכם שנחתם מרחוק',
+    sub:'לקוח/ה חתם/ה בקישור שנשלח אליו/ה. חתימה במעמדך אינה מצלצלת — ראית אותה קורית.',
+    refresh: ()=> loadAgreements() },
   { type:'system',         tone:'',       goto:'accSharedWithMe', focus:'#sharedWithMeList',
     title:'שיתופי נכסים ועדכוני מערכת',
     sub:'נכס שמשרד שותף פתח לשיתוף פעולה, והודעות מערכת כלליות.' },
@@ -14326,6 +14347,7 @@ async function loadNotifications(agentId){
       // לסוכן/ת רגיל/ה): פתיחת details מוסתר הייתה גוללת לשום מקום
       if (accEl && accEl.offsetParent !== null){
         openAcc(target.goto);
+        if (target.refresh) target.refresh();
         if (target.focus) document.querySelector(target.focus)?.scrollIntoView({ behavior:'smooth' });
       }
     });
@@ -15883,7 +15905,9 @@ function agrNewWizard(){
     properties:[],          // [{property_id, label, fields:{}, notes}]
     signers:[],             // [{uid, party, full_name, id_number, phone, email, address, client_id}]
     commission:{ pct:2, amount:'', basis:'' },
-    exclusive:{ from:'', until:'' },
+    /* ‏months הוא מצב הבורר ולא נתון נוסף בהסכם: מה שנחתם ומודפס בסעיף 1
+       הם שני התאריכים בלבד. ריק = הזנה ידנית של שניהם. */
+    exclusive:{ from:'', until:'', months:'' },
     questionnaire:[],
     notes:'', language:'he',
     agreementId:null, record:null,
@@ -16103,10 +16127,28 @@ function agrRenderStepDetails(){
      ההסכם הוא "יבוצעו לפחות שתיים מהאמור כדלקמן", ובחירה מראש הייתה
      מצמצמת אותו ומחייבת דווקא בשתיים שסומנו. */
   if (tpl.exclusive){
-    html += '<div class="agr-sec"><h4>תקופת הבלעדיות</h4><div class="agr-grid">' +
-      `<div class="agr-field"><label>מיום</label><input type="date" id="agrExFrom" value="${esc(w.exclusive.from)}"></div>` +
-      `<div class="agr-field"><label>ועד ליום</label><input type="date" id="agrExUntil" value="${esc(w.exclusive.until)}"></div>` +
+    /* שני מסלולים לאותם שני תאריכים: בחירת מספר חודשים, או הזנה ידנית.
+       ‏רוב הבלעדיות נחתמת ל"שלושה חודשים מהיום", והחישוב הזה בראש מול לוח
+       שנה הוא בדיוק המקום שבו נופלת טעות של חודש. מה שנשמר בהסכם הם עדיין
+       שני התאריכים — הבורר רק ממלא אותם. */
+    const months = String(w.exclusive.months || '');
+    const chips = [1,2,3,4,5,6].map(n =>
+      `<button type="button" class="agr-chip-btn${months === String(n) ? ' is-on' : ''}"` +
+      ` data-agr="ex-months" data-months="${n}">${n}</button>`).join('');
+
+    html += '<div class="agr-sec"><h4>תקופת הבלעדיות</h4>' +
+      '<div class="agr-field"><label>משך הבלעדיות — מספר חודשים</label>' +
+        '<div class="agr-chip-row">' + chips +
+          `<button type="button" class="agr-chip-btn is-wide${months ? '' : ' is-on'}"` +
+          ' data-agr="ex-months" data-months="">תאריכים ידניים</button>' +
+        '</div></div>' +
+      '<div class="agr-grid" style="margin-top:10px">' +
+        `<div class="agr-field"><label>מיום</label>
+           <input type="date" id="agrExFrom" value="${esc(w.exclusive.from)}"></div>` +
+        `<div class="agr-field"><label>ועד ליום</label>
+           <input type="date" id="agrExUntil" value="${esc(w.exclusive.until)}"${months ? ' readonly' : ''}></div>` +
       '</div>' +
+      `<p class="imp-note" id="agrExSummary">${esc(agrExclusiveSummary())}</p>` +
       '<p class="imp-note">התאריכים נכנסים לסעיף 1 של ההסכם. נספח פעולות השיווק, לפי תקנות ' +
       'המתווכים במקרקעין (פעולות שיווק), התשס״ה-2004, מודפס במסמך במלואו — ההתחייבות היא ' +
       'לבצע לפחות שתיים מהפעולות שברשימה.</p>' +
@@ -16848,6 +16890,83 @@ function agrRenderSignerForms(){
     </div>`).join('');
 }
 
+/* ---------- תקופת הבלעדיות ----------
+   ‏"שלושה חודשים מהיום" הוא איך שסוכן/ת חושב/ת על בלעדיות, ושני תאריכים
+   הם מה שההסכם דורש. הבורר מתרגם בין השניים, וההזנה הידנית נשארת פתוחה
+   לתקופה שאינה עגולה (למשל בלעדיות שמסתיימת ביום מסירת הנכס). */
+
+/* חודש קלנדרי ולא 30 יום: בלעדיות מ-31.1 לחודש מסתיימת בסוף פברואר, ולכן
+   היום נחתך לאורך החודש היעד. הסיום הוא **יום לפני** אותו תאריך — תקופה של
+   שלושה חודשים מ-17.09 היא עד 16.12, ולא עד 17.12 שהם שלושה חודשים ויום. */
+function agrAddMonthsIso(iso, months){
+  const parts = String(iso || '').split('-').map(Number);
+  if (parts.length !== 3 || parts.some(n => !n || isNaN(n))) return '';
+  const n = Number(months);
+  if (!n) return '';
+  const [y, m, d] = parts;
+  const end = new Date(y, m - 1 + n, 1);
+  const lastDay = new Date(end.getFullYear(), end.getMonth() + 1, 0).getDate();
+  end.setDate(Math.min(d, lastDay));
+  end.setDate(end.getDate() - 1);
+  const pad = v => String(v).padStart(2, '0');
+  return `${end.getFullYear()}-${pad(end.getMonth() + 1)}-${pad(end.getDate())}`;
+}
+
+function agrTodayIso(){
+  const t = new Date();
+  const pad = v => String(v).padStart(2, '0');
+  return `${t.getFullYear()}-${pad(t.getMonth() + 1)}-${pad(t.getDate())}`;
+}
+
+/* ‏dd/mm/yyyy — אותו פורמט שבו התאריכים מודפסים בסעיף 1 של ההסכם */
+function agrSlashDate(iso){
+  const parts = String(iso || '').split('-');
+  return parts.length === 3 ? `${parts[2]}/${parts[1]}/${parts[0]}` : '';
+}
+
+/* השורה שמתחת לבורר. היא לא קישוט: היא מה שמוודא שהסוכן/ת רואה את התקופה
+   שתודפס בפועל לפני שהמסמך נוצר ונחסם לעריכה. */
+function agrExclusiveSummary(){
+  const ex = agrWizard ? agrWizard.exclusive : null;
+  if (!ex) return '';
+  if (!ex.from || !ex.until){
+    return 'בחרו משך בחודשים — "מיום" יתמלא בתאריך של היום ו"עד ליום" יחושב לפי המשך; ' +
+           'או בחרו "תאריכים ידניים" והזינו את שניהם.';
+  }
+  const days = Math.round(
+    (new Date(ex.until + 'T00:00:00') - new Date(ex.from + 'T00:00:00')) / 86400000) + 1;
+  return 'בהסכם יודפס: מ-' + agrSlashDate(ex.from) + ' עד ' + agrSlashDate(ex.until) +
+    (ex.months ? ` · ${ex.months} חודשי בלעדיות` : ' · תאריכים ידניים') +
+    (days > 0 ? ` · ${days} ימים` : ' · שימו לב: תאריך הסיום קודם לתאריך ההתחלה');
+}
+
+/* מעדכנת את השדות במקום לצייר את השלב מחדש: ציור מחדש היה מחזיר את הגלילה
+   לראש הטופס הארוך, בדיוק אחרי לחיצה שנעשתה בתחתיתו. */
+function agrPaintExclusive(){
+  const w = agrWizard;
+  const from = agrEl('agrExFrom'), until = agrEl('agrExUntil'), note = agrEl('agrExSummary');
+  if (from) from.value = w.exclusive.from || '';
+  if (until){
+    until.value = w.exclusive.until || '';
+    until.readOnly = !!w.exclusive.months;
+  }
+  document.querySelectorAll('[data-agr="ex-months"]').forEach(b =>
+    b.classList.toggle('is-on', b.dataset.months === String(w.exclusive.months || '')));
+  if (note) note.textContent = agrExclusiveSummary();
+}
+
+function agrSetExclusiveMonths(months){
+  const w = agrWizard;
+  if (!w) return;
+  w.exclusive.months = months || '';
+  if (w.exclusive.months){
+    // בלי תאריך התחלה אין מה לחשב, ו"היום" הוא ההתחלה בכל בלעדיות שנחתמת עכשיו
+    if (!w.exclusive.from) w.exclusive.from = agrTodayIso();
+    w.exclusive.until = agrAddMonthsIso(w.exclusive.from, w.exclusive.months);
+  }
+  agrPaintExclusive();
+}
+
 /* ---------- קריאת הטופס ---------- */
 
 function agrCollectDetails(){
@@ -17006,6 +17125,12 @@ async function agrQuickFill(btn){
     else if (scope === 'exclusive')  w.exclusive[key]  = v;
     else if (scope === 'agent' && v) agentIdNumber = v;
   });
+
+  // מי שבחר/ה משך בחודשים והשלים/ה כאן רק את תאריך ההתחלה מקבל/ת את הסיום
+  // המחושב, ולא נשלח/ת חזרה לבורר שנשאר בשלב הקודם
+  if (w.exclusive.months && w.exclusive.from && !w.exclusive.until){
+    w.exclusive.until = agrAddMonthsIso(w.exclusive.from, w.exclusive.months);
+  }
 
   const original = btn.textContent;
   btn.disabled = true; btn.textContent = 'שומר…';
@@ -17403,6 +17528,7 @@ agrEl('agrModal').addEventListener('click', async (e)=>{
   if (act === 'back-to-kind'){ agrCollectDetails(); agrWizard.step = 1; return agrRender(); }
   if (act === 'back-to-details'){ agrWizard.step = 2; return agrRender(); }
   if (act === 'to-preview'){ agrCollectDetails(); agrWizard.step = 3; return agrRender(); }
+  if (act === 'ex-months') return agrSetExclusiveMonths(btn.dataset.months);
   if (act === 'quick-fill') return agrQuickFill(btn);
   if (act === 'to-sign') return agrSaveAndGoSign(btn);
   if (act === 'pick-prop') return agrAddProperty(btn.dataset.id);
@@ -17484,6 +17610,16 @@ agrEl('agrBody').addEventListener('input', async (e)=>{
     if (signer) signer[t.dataset.key] = t.value;
     return;
   }
+  /* תאריכי הבלעדיות: במצב "חודשים" תאריך הסיום נגזר מתאריך ההתחלה ומתעדכן
+     בכל שינוי שלו. במצב ידני שני השדות פתוחים, והשורה שמתחתם רק מסכמת. */
+  if (t.id === 'agrExFrom' || t.id === 'agrExUntil'){
+    agrWizard.exclusive[t.id === 'agrExFrom' ? 'from' : 'until'] = t.value;
+    if (t.id === 'agrExFrom' && agrWizard.exclusive.months){
+      agrWizard.exclusive.until = agrAddMonthsIso(t.value, agrWizard.exclusive.months);
+    }
+    return agrPaintExclusive();
+  }
+
   if (t.id === 'agrPropSearch') return agrRenderPropResults();
   if (t.id === 'agrClientSearch') agrRenderClientResults();
 });

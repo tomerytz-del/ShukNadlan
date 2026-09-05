@@ -41,6 +41,11 @@
 
   .doc-wrap{overflow-x:auto}
   .doc-wrap .agr-inner{min-width:min(760px,100%)}
+  /* ראו sign.html: קווי המילוי במסמכים ישנים נושאים רוחב מינימלי קבוע
+     שהגליש את טבלת פרטי הנכס בטלפון. הגוף קפוא, הריסון כאן. */
+  .agr-inner table{max-width:100%}
+  .agr-inner span[style*="min-width:90px"]{min-width:44px!important}
+  @media (max-width:640px){ .agr-inner span[style*="min-width:90px"]{min-width:24px!important} }
 
   .state{display:none}
   .state.is-on{display:block}
