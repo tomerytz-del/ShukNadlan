@@ -135,10 +135,20 @@ const TOOLS: Anthropic.Tool[] = [
     description:
       "יוצר נכס חדש בשם הסוכן/ת ומפרסם אותו במצב active. תמונות שהגיעו בשיחה " +
       "וטרם שויכו לנכס מתחברות אליו אוטומטית. כשהעיר עפולה ויש רחוב ומספר בית, " +
-      "המערכת מנסה למצוא קואורדינטות בעצמה כדי שהנכס יופיע על המפה.",
+      "המערכת מנסה למצוא קואורדינטות בעצמה כדי שהנכס יופיע על המפה. " +
+      "אם אותה כתובת כבר קיימת אצל הסוכן/ת (גם אם נמכרה או בארכיון) הכלי לא " +
+      "יוצר כפילות אלא מחזיר duplicate — ראו את הכלל בהוראות.",
     input_schema: {
       type: "object",
-      properties: propertyFields,
+      properties: {
+        ...propertyFields,
+        force_new: {
+          type: "boolean",
+          description:
+            "רק אחרי שהסוכן/ת אישר/ה במפורש שמדובר בנכס אחר ולא בכפילות. " +
+            "מדלג על בדיקת הכפילות ויוצר מודעה נוספת.",
+        },
+      },
       required: ["property_type", "deal_type", "price"],
     },
   },
@@ -246,6 +256,64 @@ async function ownedProperty(ctx: ToolContext, propertyId: string) {
   return data;
 }
 
+// ---------------------------------------------------------------------------
+// כפילות
+//
+// אותו היגיון שרץ בטופס "נכס חדש" בדשבורד (‏findPropertyDuplicate ב-crm.html):
+// אותה כתובת אחרי נרמול, ורק כשמספר החדרים, הקומה וסוג העסקה מתאימים —
+// אחרת זו דירה אחרת באותו בניין. בוואטסאפ זה קריטי אפילו יותר: "תעלה את
+// הדירה בעלייה 20" נאמר בלי לראות את הרשימה, ובלי הבדיקה נוצרת מודעה שנייה.
+// ---------------------------------------------------------------------------
+function normText(value: unknown): string {
+  return String(value ?? "")
+    .replace(/^\s*(רחוב|רח['׳]?)\s+/u, "")
+    .replace(/["'׳״,.\-]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+}
+
+function numEq(a: unknown, b: unknown): boolean {
+  if (a === null || a === undefined || a === "" || b === null || b === undefined || b === "") return true;
+  return Number(a) === Number(b);
+}
+
+async function findDuplicateProperty(ctx: ToolContext, payload: Record<string, unknown>) {
+  const city = normText(payload.city);
+  const street = normText(payload.street);
+  const house = normText(payload.house_number);
+  const title = normText(payload.title);
+  if (!city || (!street && !title)) return null;
+
+  const { data, error } = await ctx.supabase
+    .from("properties")
+    .select("id, listing_number, title, price, rooms, floor, deal_type, property_type, city, street, house_number, status, updated_at")
+    .eq("agent_id", ctx.agent.id)
+    .limit(500);
+  if (error || !data) return null;
+
+  const sameAddress = (p: Record<string, unknown>) =>
+    !!(street && house && normText(p.city) === city &&
+       normText(p.street) === street && normText(p.house_number) === house);
+  const sameTitlePrice = (p: Record<string, unknown>) =>
+    !!(title && normText(p.title) === title && Number(p.price) === Number(payload.price));
+  const sameUnit = (p: Record<string, unknown>) =>
+    numEq(p.rooms, payload.rooms) && numEq(p.floor, payload.floor) &&
+    (!p.deal_type || !payload.deal_type || p.deal_type === payload.deal_type);
+
+  const matches = data.filter((p) => (sameAddress(p) && sameUnit(p)) || sameTitlePrice(p));
+  if (!matches.length) return null;
+
+  // נכס פעיל קודם לארכיון: מודעה כפולה *באוויר* היא הנזק הגדול יותר
+  matches.sort((a, b) => {
+    const liveA = a.status === "active" ? 0 : 1;
+    const liveB = b.status === "active" ? 0 : 1;
+    if (liveA !== liveB) return liveA - liveB;
+    return new Date(b.updated_at ?? 0).getTime() - new Date(a.updated_at ?? 0).getTime();
+  });
+  return { match: matches[0], total: matches.length };
+}
+
 async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknown>) {
   if (!ctx.agent.agency_id) {
     return { ok: false, error: "לסוכן/ת אין משרד משויך — צריך להשלים הרשמה בדשבורד." };
@@ -271,6 +339,32 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
     if (coords) {
       payload.lat = coords.lat;
       payload.lng = coords.lng;
+    }
+  }
+
+  // כפילות: לא יוצרים, אלא מחזירים למודל את המודעה הקיימת כדי שישאל/תשאל
+  // את הסוכן/ת. ‏force_new הוא האישור המפורש לעקוף.
+  if (!input.force_new) {
+    const duplicate = await findDuplicateProperty(ctx, payload);
+    if (duplicate) {
+      const m = duplicate.match;
+      ctx.conv.last_property_id = m.id;
+      return {
+        ok: false,
+        duplicate: true,
+        property_id: m.id,
+        listing_number: m.listing_number,
+        status: m.status,
+        title: m.title,
+        address: [m.street, m.house_number, m.city].filter(Boolean).join(" "),
+        price: m.price,
+        rooms: m.rooms,
+        floor: m.floor,
+        also_similar: duplicate.total - 1,
+        error:
+          "כבר קיימת מודעה לאותה כתובת אצל הסוכן/ת. לא נוצרה מודעה חדשה — " +
+          "שאל/י את הסוכן/ת אם להחזיר ולעדכן את הקיימת או לפרסם מודעה נוספת.",
+      };
     }
   }
 
@@ -442,6 +536,10 @@ function systemPrompt(agent: AgentRow, conv: ConversationState): string {
     "- אם חסר אחד מהשלושה, בקש/י בשאלה אחת קצרה רק את מה שחסר.",
     "- לפני שינוי או ארכוב של נכס קיים — ודא/י שאת/ה יודע/ת על איזה נכס מדובר. אם לא, קרא/י ל-list_properties.",
     "- \"תמחק את הנכס\" = set_property_status עם archived. אין מחיקה אמיתית.",
+    "- אם create_property החזיר duplicate: אל תיצור/י מודעה נוספת. אמור/אמרי לסוכן/ת " +
+      "מה קיים (כתובת, מספר מודעה וסטטוס) ושאל/י בשאלה אחת: להחזיר ולעדכן את הקיימת, " +
+      "או לפרסם מודעה נוספת? להחזרה: update_property עם ה-property_id והפרטים החדשים, " +
+      "ואז set_property_status עם active. למודעה נוספת: create_property שוב עם force_new.",
     "- לעולם אל תמציא/י פרטים שלא נאמרו (מחיר, שטח, קומה). מה שלא ידוע נשאר ריק.",
     "- אחרי פעולה מוצלחת אשר/י אותה במשפט אחד עם מה שנוצר/השתנה. אם התקבל link, צרף/י אותו.",
     "- אל תציג/י UUID לסוכן/ת. התייחס/י לנכסים לפי כתובת או כותרת.",
