@@ -34,8 +34,8 @@ saved_searches   status='active'  lead_status='new'
    │      ↓ קליק על הקישור → saved-search-manage?action=click   │
    │    alerts_clicked++  →  ציון ההתעניינות עולה               │
    │                                                            │
-   └─── CRM → "מדף מחפשי דירה" (‏saved_search_leads_public) ─────┘
-          ↓ "רכישה — ₪60" → saved-search-lead-purchase  [JWT]
+   └─── CRM → חנות הלידים / "מחפשי דירה" (saved_search_leads_public) ┘
+          ↓ "רכישה — ₪50" → saved-search-lead-purchase  [JWT]
         purchase_saved_search_lead()  ניכוי ארנק + lead_status='sold'
           ↓
         שם, טלפון, והנכסים שכבר נשלחו — לקונה בלבד
@@ -51,7 +51,7 @@ saved_searches   status='active'  lead_status='new'
 | `supabase/functions/saved-search-manage/index.ts` | הקישורים שבהודעה: קליק, ביטול, השהיה |
 | `supabase/functions/saved-search-lead-purchase/index.ts` | רכישת הליד (JWT) |
 | `index.html` | ה-CTA בתוצאות החיפוש והבלון, ובאנר מחפשי הנכס בעמוד הבית |
-| `crm.html` | מדף מחפשי הדירה + "הלידים שרכשתי" |
+| `crm.html` | מגירת "מחפשי דירה" בחנות הלידים + "הלידים שרכשתי" |
 
 המיגרציה אידמפוטנטית.
 
@@ -65,7 +65,7 @@ saved_searches   status='active'  lead_status='new'
 | **מסחרי** | לפי הטאב הפעיל בסרגל החיפוש | בחירה מפורשת, ואחריה שאלה משלימה לקנייה/השכרה |
 
 שניהם שולחים את אותו payload אל ‎saved-search-intake‎ ונשמרים באותה טבלה,
-ולכן ההתראות ומדף הלידים אינם יודעים — ולא צריכים לדעת — מאיזה מסלול הגיע
+ולכן ההתראות וחנות הלידים אינן יודעות — ולא צריכים לדעת — מאיזה מסלול הגיע
 החיפוש. הבאנר קיים כי מי שגלל/ה את רצועות הנכסים בעמוד הבית מעולם לא הריץ/ה
 חיפוש, ולכן ה-CTA שמעל התוצאות לעולם לא הוצג לו/ה.
 
@@ -304,7 +304,7 @@ update public.pricing_config set value = 80 where key = 'saved_search_lead_price
 
 | מפתח | ברירת מחדל | מה |
 | --- | --- | --- |
-| `saved_search_lead_price` | 60 | ₪ לרכישת ליד |
+| `saved_search_lead_price` | 50 | ₪ לרכישת ליד (מחיר אחיד לכל חנות הלידים) |
 | `saved_search_daily_cap` | 5 | מקסימום התראות ליממה לחיפוש אחד |
 | `saved_search_max_per_phone` | 5 | מקסימום חיפושים פעילים לאותו טלפון |
 | `saved_search_quiet_from_hour` | 22 | תחילת שעות השקט (שעון ישראל) |
@@ -316,9 +316,9 @@ update public.pricing_config set value = 80 where key = 'saved_search_lead_price
 
 ---
 
-## מדף הלידים
+## המגירה בחנות הלידים
 
-### מי נכנס אליו
+### מי נכנס אליה
 
 שלושה תנאים, וכולם עקרוניים:
 
