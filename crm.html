@@ -18,6 +18,8 @@
 <script src="assets/map-gestures.js"></script>
 <script src="assets/agreement-templates.js"></script>
 <script src="assets/agreement-doc.js"></script>
+<!-- מורכב בסוף הסקריפט הראשי, עם בדיקת הטפסים שלא נשמרו. ראו crmUnsavedInput -->
+<script src="assets/exit-guard.js"></script>
 <style>
   :root{
     --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
@@ -5093,6 +5095,7 @@ function clearInviteToken(){
 readInviteToken();
 
 function cleanAuthParamsFromUrl(){
+  // ‏history.state ולא null: הרשומה עשויה להיות הזקיף של exit-guard.js
   if (!window.history || !window.history.replaceState) return;
   const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   const query = new URLSearchParams(window.location.search);
@@ -5103,7 +5106,7 @@ function cleanAuthParamsFromUrl(){
   }
   if (!dropHash && !dropped) return;
   const search = query.toString();
-  history.replaceState(null, '',
+  history.replaceState(history.state, '',
     window.location.pathname + (search ? '?' + search : '') + (dropHash ? '' : window.location.hash));
 }
 
@@ -19120,6 +19123,62 @@ agrEl('agrClearFilters').addEventListener('click', ()=>{
   ['agrSearch','agrStatusFilter','agrKindFilter'].forEach(id => { agrEl(id).value = ''; });
   renderAgreements();
 });
+
+/* ==========================================================================
+   שאלה לפני יציאה מה-CRM
+   --------------------------------------------------------------------------
+   ‏assets/exit-guard.js מחזיק את המנגנון (זקיף בהיסטוריה שתופס את "אחורה"),
+   וכאן נמסרת לו הסיבה השנייה לשאול: טופס שהוקלד ולא נשמר. הראשונה — יציאה
+   אמיתית מהאתר — נבדקת שם לבד.
+
+   הסיבה השנייה קיימת רק כאן, ובצדק: טופס הנכס הוא מסך וחצי של הקלדה, והוא
+   נמחק בלי שאריות ברגע שהדף עוזב. "אחורה" בטלפון נלחץ תוך כדי גלילה.
+   ========================================================================== */
+
+/* "נגעו בטופס" נרשם מהאירוע ולא מהשוואה לערכי ברירת המחדל: חצי מהשדות כאן
+   מוזנים מהקוד (עיר ברירת מחדל, טופס עריכה שנטען מהשרת), והשוואה לבדה
+   הייתה מדווחת גם על טופס שאיש לא נגע בו. ‏isTrusted מפריד בין הקלדה של
+   אדם לבין השמה של הקוד. */
+['input','change'].forEach(type => document.addEventListener(type, (e)=>{
+  if (!e.isTrusted || !e.target.closest) return;
+  const form = e.target.closest('#dashboard form');
+  if (form) form.dataset.touched = '1';
+}, true));
+
+/* ‏submit הוא הבקשה לשמור, וכל הטפסים בדשבורד נשמרים דרכו. אם השמירה תיכשל
+   התוכן יישאר על המסך בלי הסימון — מחיר מודע: אזהרת שווא על טופס שכבר נשמר
+   מטרידה יותר מהחמצה של מקרה הכישלון. */
+document.addEventListener('submit', (e)=>{
+  if (e.target && e.target.dataset) delete e.target.dataset.touched;
+}, true);
+
+/* התוכן עצמו ולא רק הנגיעה: "ביטול" בטופס פנימי מריץ reset() ומחזיר את כל
+   השדות לברירת המחדל, ולכן טופס ריק אינו טופס שממתין לשמירה — גם אם הוקלד
+   בו משהו קודם לכן. ההשוואה היא מול defaultValue ולא מול מחרוזת ריקה, כי
+   "עפולה" בשדה העיר כתוב ב-HTML. רשימות נפתחות נבנות בקוד ואין להן ברירת
+   מחדל אמינה, ולכן הן נספרות דרך הנגיעה בלבד. */
+function crmFormHasContent(form){
+  return Array.from(form.elements).some(el=>{
+    if (el.disabled) return false;
+    if (el.type === 'hidden' || el.type === 'submit' || el.type === 'button' || el.type === 'reset') return false;
+    if (el.type === 'checkbox' || el.type === 'radio') return el.checked !== el.defaultChecked;
+    if (el.tagName === 'SELECT') return false;
+    return typeof el.value === 'string' && el.value !== el.defaultValue;
+  });
+}
+
+function crmUnsavedInput(){
+  return Array.from(document.querySelectorAll('#dashboard form'))
+    .some(form => form.dataset.touched === '1' && crmFormHasContent(form));
+}
+
+// אחרי cleanAuthParamsFromUrl: היא כותבת מחדש את הרשומה הנוכחית בהיסטוריה,
+// ורשומה שנכתבת אחרי שהזקיף נדחף היא כבר הזקיף עצמו
+if (window.ExitGuard){
+  ExitGuard.mount({
+    unsaved: ()=> crmUnsavedInput() ? 'יש פרטים שהוקלדו ולא נשמרו. לצאת בלי לשמור?' : null,
+  });
+}
 
 (async function boot(){
   // ‏INITIAL_SESSION אמור לכסות את המקרה הזה, אבל אם הוא לא הגיע (גרסת
