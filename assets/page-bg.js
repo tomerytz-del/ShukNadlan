@@ -1,10 +1,15 @@
 /* ============================================================================
    הרקע הזורם של האתר — שכבה אחת לכל הדפים
    ----------------------------------------------------------------------------
-   עד כה הרקע הזה (שמש חמה, קו רקיע של העיר וארבע שכבות גלים) היה כתוב
-   פעמיים: פעם ב-index.html ופעם ב-agencies.html, וכל שאר הדפים — המשרד,
-   הסוכן/ת והנכס — נשארו על רקע נייר שטוח. הקובץ הזה מחזיק את אותו רקע
-   בדיוק במקום אחד, כדי שכל דף שיטען אותו ייראה כמו דף הבית וכמו ה-CRM.
+   עד כה הרקע הזה היה כתוב פעמיים: פעם ב-index.html ופעם ב-agencies.html,
+   וכל שאר הדפים — המשרד, הסוכן/ת והנכס — נשארו על רקע נייר שטוח. הקובץ
+   הזה מחזיק את אותו רקע בדיוק במקום אחד, כדי שכל דף שיטען אותו ייראה כמו
+   דף הבית וכמו ה-CRM.
+
+   מה שהוא מצייר: שקיעה — אור זהוב־כתום גבוה מהצד, תכלת מולו ותכלת עמוקה
+   בתחתית — בארבע הילות רכות מעל רשת דקה. כל הילה נודדת במחזור משלה
+   (‏46-70 שניות) וגם מוסטת לפי הגלילה במשרעת משלה, וההפרש בין השכבות הוא
+   הפרלקסה. ‏"עדין" כאן הוא דרישה ולא טעם: הרקע יושב מתחת לטקסט.
 
      PageBg.mount()    // מזריק את ה-CSS, את השכבות ואת מאזיני הגלילה
      PageBg.unmount()  // מסיר את השכבות (משרד שביקש רקע חלק)
@@ -33,9 +38,17 @@
   var CSS = [
     /* ‏z-index:-1 מציב את השכבה מתחת לכל תוכן הדף אבל מעל רקע ה-body, ולכן
        צבע הנייר שעל ה-body נשאר רק כרשת ביטחון אם הדפדפן לא צייר אותה. */
+    /* ‏הבסיס הוא "שקיעה": אור זהוב־כתום נכנס מלמעלה־מהצד, והנייר מתקרר
+       כלפי מטה לתכלת. שלוש שכבות — שתי הילות אור ומדרג אנכי — ולא צבע
+       אחיד, כי הן מה שנותן לדף עומק עוד לפני שמשהו זז. */
     '.page-bg{',
     '  position:fixed;inset:0;z-index:-1;overflow:hidden;pointer-events:none;',
-    '  background:linear-gradient(180deg,#f7f9ff 0%,#eef3fd 46%,#e7eefb 100%)}',
+    '  background:',
+    '    radial-gradient(126% 84% at 82% -14%,rgba(232,161,78,.22) 0%,rgba(241,196,132,.09) 38%,rgba(250,250,252,0) 70%),',
+    '    radial-gradient(96% 70% at 6% 4%,rgba(96,180,214,.17) 0%,rgba(250,250,252,0) 68%),',
+    /* ‏#fdfcf9 ולא גוון חם ממש: כל החום מגיע מהילת הזהב שמעליו, ובסיס חם
+       *וגם* הילת תכלת מעליו נותנים ירקרק־עכור ולא תכלת. */
+    '    linear-gradient(180deg,#fdfcf9 0%,#f9fbfc 34%,#f0f7fa 68%,#e6f1f6 100%)}',
 
     /* ---- כל שכבה היא שתי אלמנטים, ולא אחד ----
        ההורה נושא את ההיסט מהגלילה (‏flow() כותב לו transform בשורה), והילד
@@ -44,39 +57,55 @@
     '.page-bg .bg-layer{position:absolute;will-change:transform}',
     '.page-bg .bg-layer>i{position:absolute;inset:0;display:block}',
 
-    /* ---- שלוש הילות צבע ----
-       הרקע הקודם צייר שמש, קו רקיע של עיר וארבעה גלים: איור מלא שהתחרה
-       בתוכן שמעליו. במקומו שלוש הילות רכות שנעות זו מול זו במחזורים
-       לא־שווים (26/32/38 שניות), כך שהצירוף לעולם לא חוזר על עצמו בדיוק
-       והעין קוראת תנועה בלי לזהות לולאה. שתיים בספיר ואחת בזהב. */
+    /* ---- ארבע הילות צבע ----
+       ‏"שמש" זהובה־כתומה למעלה, גחלת חמה מתחתיה, תכלת מולן ותכלת עמוקה
+       בתחתית: אותה שקיעה של הבסיס, מפורקת לגופים שיכולים לזוז זה מול זה.
+       המחזורים לא־שווים ולא כפולות זה של זה (46/54/62/70 שניות), ולכן
+       הצירוף לעולם לא חוזר על עצמו בדיוק והעין קוראת תנועה בלי לזהות
+       לולאה. איטי בכוונה: ברקע, תנועה שאפשר לעקוב אחריה היא הסחה.
+
+       ‏right/left פיזיים ולא ‎inset-inline-*‎: מיקום לוגי היה מתהפך ב-RTL
+       בעוד שהגרדיאנטים של הבסיס (‏at 82%‎ / ‏at 6%‎) נשארים במקומם, ואז
+       הזהב יושב בשתי הפינות העליונות במקום באחת — מקור אור אחד הופך
+       לשניים והתכלת שמתחת לזהב נקראת ירקרקה. כל האתר ‎dir="rtl"‎, ולכן
+       הצד הפיזי הוא הצד היחיד שמחזיק את שתי השכבות מיושרות.
+
+       החום כולו על ימין והקור כולו על שמאל — האלכסון הזה הוא מה שקורא
+       כשקיעה. הילה חמה שמונחת מעל תכלת נותנת אפור, לא עניין. */
     '.page-bg .bg-halo>i{border-radius:50%}',
-    '.page-bg .bg-halo-1{top:-18%;inset-inline-end:-6%;width:min(74vw,760px);aspect-ratio:1}',
-    '.page-bg .bg-halo-1>i{',
-    '  background:radial-gradient(circle,rgba(14,42,107,.16) 0%,rgba(14,42,107,.06) 42%,rgba(14,42,107,0) 70%);',
-    '  animation:bgDriftA 26s ease-in-out infinite alternate}',
-    '.page-bg .bg-halo-2{top:10%;inset-inline-start:-14%;width:min(66vw,660px);aspect-ratio:1}',
-    '.page-bg .bg-halo-2>i{',
-    '  background:radial-gradient(circle,rgba(201,162,39,.15) 0%,rgba(201,162,39,.05) 44%,rgba(201,162,39,0) 70%);',
-    '  animation:bgDriftB 32s ease-in-out infinite alternate}',
-    '.page-bg .bg-halo-3{bottom:-26%;inset-inline-end:16%;width:min(88vw,900px);aspect-ratio:1}',
-    '.page-bg .bg-halo-3>i{',
-    '  background:radial-gradient(circle,rgba(28,63,142,.14) 0%,rgba(28,63,142,.05) 46%,rgba(28,63,142,0) 72%);',
-    '  animation:bgDriftC 38s ease-in-out infinite alternate}',
-    '@keyframes bgDriftA{to{transform:translate3d(-6%,4%,0) scale(1.12)}}',
-    '@keyframes bgDriftB{to{transform:translate3d(7%,-5%,0) scale(1.09)}}',
-    '@keyframes bgDriftC{to{transform:translate3d(-5%,-6%,0) scale(1.14)}}',
+    '.page-bg .bg-halo-sun{top:-20%;right:-8%;width:min(76vw,780px);aspect-ratio:1}',
+    '.page-bg .bg-halo-sun>i{',
+    '  background:radial-gradient(circle,rgba(230,155,68,.20) 0%,rgba(238,183,110,.07) 44%,rgba(238,183,110,0) 70%);',
+    '  animation:bgDriftSun 46s ease-in-out infinite alternate}',
+    '.page-bg .bg-halo-ember{top:32%;right:-14%;width:min(58vw,580px);aspect-ratio:1}',
+    '.page-bg .bg-halo-ember>i{',
+    '  background:radial-gradient(circle,rgba(216,126,62,.11) 0%,rgba(216,126,62,.04) 46%,rgba(216,126,62,0) 72%);',
+    '  animation:bgDriftEmber 62s ease-in-out infinite alternate}',
+    '.page-bg .bg-halo-sky{top:6%;left:-16%;width:min(68vw,680px);aspect-ratio:1}',
+    '.page-bg .bg-halo-sky>i{',
+    '  background:radial-gradient(circle,rgba(88,178,204,.19) 0%,rgba(88,178,204,.06) 44%,rgba(88,178,204,0) 70%);',
+    '  animation:bgDriftSky 54s ease-in-out infinite alternate}',
+    '.page-bg .bg-halo-deep{bottom:-28%;left:2%;width:min(92vw,940px);aspect-ratio:1}',
+    '.page-bg .bg-halo-deep>i{',
+    '  background:radial-gradient(circle,rgba(30,108,136,.16) 0%,rgba(30,108,136,.05) 46%,rgba(30,108,136,0) 72%);',
+    '  animation:bgDriftDeep 70s ease-in-out infinite alternate}',
+    '@keyframes bgDriftSun{to{transform:translate3d(-5%,4%,0) scale(1.11)}}',
+    '@keyframes bgDriftSky{to{transform:translate3d(6%,-5%,0) scale(1.09)}}',
+    '@keyframes bgDriftEmber{to{transform:translate3d(8%,-4%,0) scale(1.13)}}',
+    '@keyframes bgDriftDeep{to{transform:translate3d(-6%,-6%,0) scale(1.14)}}',
 
     /* ---- הרשת ----
        רשת 56px שנודדת באלכסון בדיוק מרווח משבצת אחת, ולכן הלולאה בלתי
-       נראית. היא מה שנותן לרקע קנה מידה — בלעדיה ההילות מרחפות בחלל ריק.
+       נראית. היא מה שנותן לרקע קנה מידה — בלעדיה ההילות מרחפות בחלל ריק,
+       ובלי קנה מידה אין פרלקסה: התנועה של ההילות נמדדת ביחס אליה.
        ‏inset שלילי כדי שהנדידה לא תחשוף קצה. */
     '.page-bg .bg-grid{inset:-70px}',
     '.page-bg .bg-grid>i{',
     '  background-image:',
-    '    linear-gradient(rgba(14,42,107,.045) 1px,transparent 1px),',
-    '    linear-gradient(90deg,rgba(14,42,107,.045) 1px,transparent 1px);',
+    '    linear-gradient(rgba(26,92,116,.038) 1px,transparent 1px),',
+    '    linear-gradient(90deg,rgba(26,92,116,.038) 1px,transparent 1px);',
     '  background-size:56px 56px;',
-    '  animation:bgGridPan 24s linear infinite}',
+    '  animation:bgGridPan 40s linear infinite}',
     '@keyframes bgGridPan{to{transform:translate3d(-56px,-56px,0)}}',
 
     '@media(prefers-reduced-motion:reduce){',
@@ -87,25 +116,31 @@
   ].join('\n');
 
   /* ---------- שכבות הרקע ----------
-     ‏data-ky הוא משרעת הנדנוד האנכי בפיקסלים ביחס לגלילה — זו הפרלקסה:
-     ההילה הקרובה (3) נעה הכי הרבה, הרחוקה (1) כמעט לא, והרשת נעה מעט
-     בכיוון ההפוך ומספקת את נקודת הייחוס שביחס אליה התנועה נקראת.
-     ‏data-kx נשאר 0 בכל השכבות: היסט אופקי עם ווראפ ברוחב החלון עבד על
-     גלים ברוחב 300%, אבל על הילה עגולה הוא היה חושף את הקצה בכל מחזור. */
-  function layer(cls, ky) {
-    return '<span class="bg-layer ' + cls + '" data-kx="0" data-ky="' + ky + '"><i></i></span>';
+     ‏data-ky ו-data-kx הם משרעת הנדנוד בפיקסלים ביחס לגלילה — זו הפרלקסה:
+     ההילה הקרובה (deep, 44) נעה הכי הרבה, הרחוקה (sun, 9) כמעט לא, והרשת
+     נעה מעט בכיוון ההפוך ומספקת את נקודת הייחוס שביחס אליה התנועה נקראת.
+     סימנים מנוגדים בין שכבות שכנות: שתי שכבות שנעות יחד נקראות כשכבה אחת,
+     והעומק מגיע דווקא מכך שהן נפרדות.
+
+     ‏data-kx כאן הוא משרעת ולא מהירות: היסט אופקי מצטבר עם ווראפ ברוחב
+     החלון עבד על גלים ברוחב 300%, אבל על הילה עגולה הוא היה חושף את הקצה
+     בכל מחזור. משרעת חסומה שומרת כל הילה במקומה ועדיין מזיזה אותה. */
+  function layer(cls, kx, ky) {
+    return '<span class="bg-layer ' + cls + '" data-kx="' + kx + '" data-ky="' + ky + '"><i></i></span>';
   }
 
   var MARKUP =
-    layer('bg-halo bg-halo-1', '10') +
-    layer('bg-halo bg-halo-2', '-18') +
-    layer('bg-halo bg-halo-3', '30') +
-    layer('bg-grid', '-8');
+    layer('bg-halo bg-halo-sun', '7', '9') +
+    layer('bg-halo bg-halo-ember', '13', '28') +
+    layer('bg-halo bg-halo-sky', '-11', '-20') +
+    layer('bg-halo bg-halo-deep', '-15', '44') +
+    layer('bg-grid', '0', '-12');
 
   /* ---------- הזרימה עם הגלילה ----------
-     האופקי מקבל ווראפ ברוחב החלון: שם בדיוק נגמר מחזור גל אחד ב-SVG, ולכן
-     הקפיצה בלתי נראית והזרימה נמשכת גם בדף ארוך מאוד. האנכי רץ על סינוס
-     מאותה סיבה — הוא עולה ויורד לאורך הדף במקום לברוח מהמסך.
+     שני הצירים רצים על סינוס, ולכן שכבה לעולם לא בורחת מהמסך גם בדף ארוך
+     מאוד — היא עולה ויורדת לאורכו. המכנים שונים (‏620 אנכית, 940 אופקית)
+     כדי שהשניים לא יהיו בפאזה: אחרת כל הילה הייתה נעה על קו אלכסוני אחד,
+     ובמקום ריחוף היה יוצא שרטוט.
 
      העדכון עצמו יושב ב-requestAnimationFrame אחד לפריים, כדי שאירועי
      הגלילה לא ייצרו עבודה מיותרת. */
@@ -127,14 +162,13 @@
       layers.forEach(function (el) { el.style.transform = ''; });
       return;
     }
-    var w = global.innerWidth || 1;
     var y = global.pageYOffset || 0;
     layers.forEach(function (el) {
       var kx = parseFloat(el.dataset.kx) || 0;
       var ky = parseFloat(el.dataset.ky) || 0;
-      var x = kx ? -((((y * kx) % w) + w) % w) : 0;
+      var dx = kx ? Math.sin(y / 940) * kx : 0;
       var dy = ky ? Math.sin(y / 620) * ky : 0;
-      el.style.transform = 'translate3d(' + x.toFixed(1) + 'px,' + dy.toFixed(1) + 'px,0)';
+      el.style.transform = 'translate3d(' + dx.toFixed(1) + 'px,' + dy.toFixed(1) + 'px,0)';
     });
   }
 
