@@ -3349,28 +3349,32 @@
   </div>
 
   <!-- ====== Property grid ====== -->
-  <!-- שני מצבים על אותו גריד (ראו renderListings): ברירת המחדל היא חמשת
-       הנכסים החדשים בפלטפורמה, מעורבבים בין כל משרדי התיווך, והטאב השני
-       פותח את כל המאגר יחד עם סרגל חיפוש שמסנן אותו כאן במקום. תוצאות
+  <!-- שני מצבים על אותו גריד (ראו renderListings): ברירת המחדל היא כל
+       הנכסים הפעילים יחד עם סרגל החיפוש שמסנן אותם כאן, והטאב השני מצמצם
+       לחמשת הנכסים החדשים בפלטפורמה, מעורבבים בין כל משרדי התיווך. תוצאות
        חיפוש (runSearch) מתעדכנות במפה ובשורות שמתחתיה, והסקציה הזו
-       מוסתרת בזמן חיפוש. -->
+       מוסתרת בזמן חיפוש.
+
+       ה-HTML כאן כתוב כבר במצב ברירת המחדל (הטאב "כל הנכסים" נבחר וסרגל
+       החיפוש גלוי) כדי שלא תהיה הבהוב של המצב המצומצם עד ש-setListingsTab
+       רץ. -->
   <section class="section wrap" id="listings">
     <div class="section-head">
       <div>
-        <h2 id="listingsTitle">הנכסים הכי חדשים</h2>
+        <h2 id="listingsTitle">כל הנכסים הפעילים</h2>
       </div>
     </div>
 
     <div class="listings-tabs" role="tablist" aria-label="תצוגת הנכסים">
-      <button type="button" class="listings-tab" id="listingsTabNew" role="tab" aria-selected="true" aria-controls="propertyGrid">החדשים ביותר</button>
-      <button type="button" class="listings-tab" id="listingsTabAll" role="tab" aria-selected="false" aria-controls="propertyGrid">
+      <button type="button" class="listings-tab" id="listingsTabNew" role="tab" aria-selected="false" aria-controls="propertyGrid">החדשים ביותר</button>
+      <button type="button" class="listings-tab" id="listingsTabAll" role="tab" aria-selected="true" aria-controls="propertyGrid">
         כל הנכסים <span class="tab-count" id="listingsAllCount"></span>
       </button>
     </div>
 
     <!-- אותו סרגל של הכותרת (.search-card), אבל הוא מסנן את הרשימה שכבר
          נטענה כאן בדפדפן ולא מריץ חיפוש חדש מול ה-DB -->
-    <div class="listings-search" id="listingsSearch" hidden>
+    <div class="listings-search" id="listingsSearch">
       <div class="search-card">
         <select id="listingsDeal" class="deal-select" data-mode="all" aria-label="סוג עסקה">
           <option value="">כל הסוגים</option>
@@ -7461,7 +7465,9 @@ renderBuyerHoods();
    ולא לצד renderListings שמתחתיו — ‎let‎ ב-TDZ עד שורת ההצהרה. */
 const LISTINGS_PREVIEW = 5;
 let listingsAll = [];
-let listingsExpanded = false;
+// ברירת המחדל היא הרשימה המלאה עם סרגל החיפוש הפתוח — אותו מצב שכתוב
+// ב-HTML של הסקציה, כדי שהמבקר יראה מיד את כל הנכסים ואת תיבת החיפוש.
+let listingsExpanded = true;
 
 function renderPropertyGrid(properties, isSearchResult){
   // נקודת הסנכרון היחידה בין המפה, שורות התוצאות והגריד: כל קריאה
@@ -7478,11 +7484,11 @@ function renderPropertyGrid(properties, isSearchResult){
   if (isSearchResult) return;
 
   listingsAll = properties;
-  setListingsTab(false);
+  setListingsTab(listingsExpanded);
 }
 
 /* ============================================================
-   רשימת הנכסים: חמישה חדשים כברירת מחדל, כל המאגר בטאב השני
+   רשימת הנכסים: כל המאגר כברירת מחדל, חמישה חדשים בטאב השני
    ============================================================ */
 
 /* הרשימה חוזרת מה-DB ממוינת מקודמים-קודם, ולכן נכס מקודם ישן היה נכנס
@@ -7675,6 +7681,12 @@ async function clearSearch(){
   } catch(e){ /* דפדפן שחוסם היסטוריה */ }
 
   searchHasRun = false;
+  // סרגל החיפוש של הרשימה מסנן אותה בדפדפן, ולכן "ניקוי החיפוש" חייב
+  // לאפס גם אותו — אחרת הרשימה שחוזרת נראית חלקית בלי סיבה נראית לעין.
+  const lq = document.getElementById('listingsQuery');
+  const ld = document.getElementById('listingsDeal');
+  if (lq) lq.value = '';
+  if (ld){ ld.value = ''; ld.dataset.mode = 'all'; }
   renderPropertyGrid(await loadProperties());
   document.getElementById('heroSection').scrollIntoView({ behavior:'smooth', block:'start' });
 }
