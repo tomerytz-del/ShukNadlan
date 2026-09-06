@@ -1541,9 +1541,11 @@
      אופקית ובלי חיתוך, והם עונים על שלוש השאלות שנשאלות בבוקר בסדר הזה:
      כמה כסף פתוח בתיק, כמה נכסים פעילים מייצרים אותו, וכמה מהם בבלעדיות.
 
-     שני מדדי המשנה — לידים חמים ויתרת הארנק — ירדו אל מתחת לפעולות המהירות
-     (.kpi-more). הם נחוצים, אבל לא לפני שרואים מה עושים היום; הלידים החמים
-     ממילא צועקים מבלוק "דורש טיפול מיידי" וממונה הסרגל התחתון.
+     יתרת הארנק ירדה אל מתחת לפעולות המהירות (.kpi-more): היא נחוצה, אבל לא
+     לפני שרואים מה עושים היום. כרטיס "לידים חמים" ישב לצידה ונמחק — אותו
+     מונה בדיוק כבר צועק מבלוק "דורש טיפול מיידי", מהתגית על לשונית "לידים"
+     בסרגל התחתון ומהמונה האדום על הקבוצה בתפריט. ארבעה עותקים של מספר אחד
+     אינם ארבע התראות, הם רעש שמלמד את העין לדלג על כולם.
      ========================================================================== */
   /* ‏ארבע שורות משותפות לשלושת הכרטיסים: אייקון, כותרת, מספר, וכל השאר.
      הכרטיסים יורשים אותן ב-subgrid, ולכן המספרים יושבים בדיוק באותו גובה
@@ -1563,8 +1565,9 @@
     .kpi-strip .kpi-foot{flex:1}
   }
   @media(min-width:560px){.kpi-strip{gap:12px}}
+  /* כרטיס אחד (הארנק) — טור אחד בכל רוחב. קודם היו כאן שניים ומ-640px הם
+     נפרשו זה לצד זה; טור שני ריק היה משאיר את הארנק חצי מסך בלי סיבה. */
   .kpi-more{display:grid;grid-template-columns:1fr;gap:10px;margin-top:14px}
-  @media(min-width:640px){.kpi-more{grid-template-columns:1fr 1fr;gap:12px}}
 
   /* המדדים בשורה צרים פי שלושה מכרטיס מלא, ולכן כל מידה בהם קטנה בהתאם.
      במסך של 360px זו עמודה של ~105px — שם המספר הוא מה שחייב להיקרא. */
@@ -1802,37 +1805,6 @@
   }
   .kpi-active .kpi-link-soft:focus-visible{outline-color:var(--sand-deep)}
 
-  /* הלידים החמים — הכרטיס היחיד שמותר לו להיות זהוב רווי, כי הוא היחיד
-     שמייצג "יש כאן כסף שממתין לך". התגית האדומה עליו היא התראה, לא קישוט.
-     הזהב הזה עמוק מגוון החול של משפחת הנכסים (‏--sand-surf) בכוונה: אותה
-     משפחה, מדרגה אחת פנימה, כדי שהוא לא ייקרא כעוד כרטיס נכסים. */
-  .kpi-hot{background:linear-gradient(150deg,#f6e3b0,#e9cd77);border-color:#e0c069}
-  .kpi-hot .kpi-icon{background:rgba(255,255,255,.55);color:#8a6b12}
-  .kpi-hot .kpi-label{color:#7a5f10}
-  .kpi-hot .kpi-value{color:#4a3a06}
-  .kpi-hot .kpi-note{color:#7a5f10}
-  .kpi-chip-alert{background:#dc2626;color:#fff}
-  /* ---------- אפס לידים חמים ----------
-     צהוב הוא צבע של "פעל עכשיו". כרטיס צהוב שמראה 0 מלמד את העין להתעלם
-     מהצהוב, וביום שבו יגיעו שלושה לידים היא כבר לא תיעצר. במצב הזה הכרטיס
-     יורד לניטרלי — ובמקום מספר מת הוא מציע את המדף, שם יש לידים לקחת. */
-  .kpi-hot.is-idle{background:var(--surface);border-color:var(--edge)}
-  .kpi-hot.is-idle .kpi-icon{background:var(--surface-2);color:var(--txt-faint)}
-  .kpi-hot.is-idle .kpi-label{color:var(--txt-soft)}
-  .kpi-hot.is-idle .kpi-value{color:var(--txt-faint)}
-  .kpi-hot.is-idle .kpi-note{color:var(--txt-faint)}
-  /* ‏span ולא button: הכרטיס כולו כבר כפתור (data-goto), וכפתור בתוך כפתור
-     הוא HTML לא תקין שדפדפנים מפרקים בדרכים שונות. השבב הוא הסימן שיש לאן
-     ללחוץ — הלחיצה עצמה היא על הכרטיס. */
-  .kpi-idle-cta{
-    align-self:flex-start;margin-top:11px;display:inline-flex;align-items:center;gap:6px;
-    background:var(--navy-tint);color:var(--navy);
-    font-size:.74rem;font-weight:800;padding:7px 13px;border-radius:999px;
-    transition:background .16s ease;
-  }
-  .kpi-idle-cta svg{width:13px;height:13px}
-  .kpi-hot.is-idle:hover .kpi-idle-cta{background:#dde8f3}
-
   /* ---------- מדי משאבים ---------- */
   .meter-card{background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-md);padding:15px 17px;box-shadow:var(--sh-1)}
   /* המד יושב היום כקלף בשורת מדדי המשנה, ולכן הוא צריך את אותה מעטפת */
@@ -2042,23 +2014,49 @@
   }
   .ghost-chip svg{width:14px;height:14px}
   .ghost-chip:hover{background:var(--navy-tint);color:var(--navy);border-color:#d3e0ee}
-  /* רכבת אופקית במובייל, גריד בדסקטופ. ‏grid-auto-columns ולא רוחב על
-     הכרטיס עצמו: כך כל הכפתורים באותו רוחב בדיוק, וחצי הכפתור הבא שמציץ
-     מהקצה הוא מה שאומר "יש כאן עוד" בלי פס גלילה. */
+  /* ---------- קרוסלת הפעולות ----------
+     קודם הייתה כאן רכבת של כפתורים ברוחב 41% וגובה 132px: שניים וחצי במסך,
+     כל אחד מהם גדול מכרטיס מדד שלם. שורת המדדים שמעליהם היא שלוש עמודות
+     צרות, והכפתורים שמתחתיה נראו כמו מסך אחר שהודבק לאותו דף.
+
+     עכשיו הם על אותה רשת בדיוק: שלושה כפתורים ברוחב עמודת מדד, קו בקו עם
+     הכרטיסים הצבעוניים שמעל. ‏grid-auto-columns מחושב מאותה נוסחה של
+     ‏.kpi-strip — ‏(100% פחות שני מרווחים) חלקי שלוש — ולכן היישור נשמר בכל
+     רוחב מסך בלי מספרי קסם.
+
+     שלוש דרכים לדעת שיש עוד: הרכבת גולשת אל מעבר לשולי הדף (‏margin שלילי
+     בגודל ה-padding של ‏.dash-wrap) ולכן הכפתור הרביעי מציץ בקצה המסך;
+     החצים בשורת הכותרת נדלקים בדיוק כשיש לאן לגלול; והכפתור שבראש המסלול
+     מורם מעל השאר (‏.is-lead) — כך שהעין רואה שהיא עומדת בתחילת רצף ולא
+     מול שלושה כפתורים שזה כל מה שיש. */
   .quick-grid{
-    display:grid;grid-auto-flow:column;grid-auto-columns:41%;gap:10px;
+    --qa-gap:8px;      /* אותו מרווח של .kpi-strip — היישור תלוי בזה */
+    --qa-bleed:18px;   /* ה-padding של .dash-wrap */
+    display:grid;grid-auto-flow:column;
+    grid-auto-columns:calc((100% - 2 * var(--qa-gap)) / 3);
+    gap:var(--qa-gap);
     overflow-x:auto;overscroll-behavior-inline:contain;
-    scroll-snap-type:x proximity;scroll-padding-inline-start:2px;
-    padding:2px 2px 10px;margin:0 -2px;scrollbar-width:none;
+    scroll-snap-type:x proximity;
+    scroll-padding-inline-start:var(--qa-bleed);
+    padding:2px var(--qa-bleed) 10px;margin-inline:calc(var(--qa-bleed) * -1);
+    scrollbar-width:none;
   }
   .quick-grid::-webkit-scrollbar{display:none}
   .quick-grid>*{scroll-snap-align:start}
-  @media(min-width:560px){.quick-grid{grid-auto-columns:29%}}
+  @media(min-width:560px){.quick-grid{--qa-gap:12px}}
+  /* מ-900px אין יותר רכבת: כל הכפתורים על המסך, ולכן גם אין גלישה מהשוליים
+     ואין "ראש מסלול" (‏syncQuickRail מנקה את המחלקות ומסתיר את החצים). */
   @media(min-width:900px){
-    .quick-grid{grid-auto-flow:row;grid-template-columns:repeat(3,1fr);gap:12px;
-                overflow:visible;padding-bottom:2px}
+    /* ‏padding אופקי אפס: אין כאן חיתוך שהצל צריך לנשום בתוכו (overflow
+       גלוי), ושני פיקסלים היו מזיזים את הכפתורים מקו העמודות שמעל */
+    .quick-grid{grid-auto-flow:row;grid-template-columns:repeat(4,1fr);
+                overflow:visible;padding:2px 0;margin-inline:0}
+    .quick-section .rail-nav{display:none}
   }
-  @media(min-width:1400px){.quick-grid{grid-template-columns:repeat(4,1fr)}}
+  /* מ-1200px כל שבעת הכפתורים בשורה אחת, וברוחב כמעט זהה לזה שבמובייל:
+     ארבעה כפתורים רחבים בשורה עליונה ושלושה מתחתיהם היו שתי שורות של שטח
+     ריק בתוך כל כפתור. */
+  @media(min-width:1200px){.quick-grid{grid-template-columns:repeat(7,1fr)}}
   /* הכרטיסים נבלעו ברקע: לבן-שקוף על תכלת בהיר, מסגרת בגוון אחד מהרקע וצל
      רך. שלושתם יחד הפכו שישה כפתורים למלבנים שקשה לראות. עכשיו משטח צבוע
      מלא, מסגרת בגוון מעמיק וצל שמרים אותם מהדף — הרקע הזורם ממשיך לבצבץ
@@ -2071,6 +2069,17 @@
                border-color .18s ease,opacity .22s ease;
   }
   .qa-card:hover{transform:translateY(-2px);box-shadow:var(--sh-2)}
+  /* ---------- ראש המסלול ----------
+     בקרוסלה צריך להיות ברור מי הכפתור שעומדים עליו עכשיו. ‏syncQuickRail
+     מסמן את זה שבתחילת המסלול (ימין ב-RTL) כ-.is-lead ואת השאר כ-.is-rear,
+     וההבדל הוא בצל בלבד: המורם קדימה והשאר שטוחים אחריו.
+
+     צל ולא אטימות ולא סקייל — אלה שני הערוצים שהאנימציות כאן כבר תופסות
+     (‏.is-staged לכניסה, ‏.is-morphed ל-FAB), וכלל שני שכותב עליהם היה
+     נלחם איתם על אותה תכונה. */
+  .qa-card.is-rear{box-shadow:0 1px 3px rgba(15,23,42,.07)}
+  .qa-card.is-lead{box-shadow:0 4px 8px rgba(15,23,42,.08), 0 16px 30px rgba(15,23,42,.14)}
+  .qa-card.is-rear:hover{box-shadow:var(--sh-2)}
   /* ---------- שלוש המשפחות ---------- */
   .qa-mint{
     background:linear-gradient(158deg,var(--mint-surf-1) 0%,var(--mint-surf-2) 100%);
@@ -2085,22 +2094,30 @@
     border-color:transparent;color:#fff;box-shadow:var(--sh-navy);
   }
   .qa-navy:hover{box-shadow:0 14px 38px rgba(28,58,94,.34)}
-  /* הכפתור עצמו הוא עמודה: הסמל למעלה, השם בתחתית. בגובה קבוע, כדי
-     ששישה כפתורים שאורך השם שלהם שונה יעמדו על אותו קו. */
+  .qa-navy.is-rear{box-shadow:0 2px 8px rgba(28,58,94,.20)}
+  .qa-navy.is-lead{box-shadow:var(--sh-navy)}
+  .qa-navy.is-rear:hover{box-shadow:0 14px 38px rgba(28,58,94,.34)}
+  /* הכפתור עצמו הוא עמודה: הסמל למעלה, השם בתחתית. הגובה קטן מ-132px
+     ל-106px יחד עם הרוחב — כפתור צר וגבוה הוא מלבן עומד, וששה כאלה נראים
+     כמו קיר ולא כמו שורת פעולות. */
   .qa-hit{
-    width:100%;height:100%;min-height:132px;background:transparent;color:inherit;
-    display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:14px;
-    padding:15px 14px 14px;text-align:start;border-radius:inherit;
+    width:100%;height:100%;min-height:100px;background:transparent;color:inherit;
+    display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:9px;
+    padding:11px 11px 10px;text-align:start;border-radius:inherit;
   }
   .qa-hit:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
   .qa-navy .qa-hit:focus-visible{outline-color:#fff;outline-offset:3px}
-  @media(min-width:900px){.qa-hit{min-height:124px}}
+  @media(min-width:560px){.qa-hit{min-height:108px;padding:13px 13px 12px}}
   /* הריבוע לובש את גוון המשפחה: לבן שקוף על הנייבי, לבן מלא על הבהירים */
   .qa-icon{
-    width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+    width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;
     flex-shrink:0;background:var(--navy);color:#fff;transition:background .18s ease,transform .18s ease;
   }
-  .qa-icon svg{width:23px;height:23px}
+  .qa-icon svg{width:19px;height:19px}
+  @media(min-width:560px){
+    .qa-icon{width:40px;height:40px;border-radius:13px}
+    .qa-icon svg{width:20px;height:20px}
+  }
   .qa-navy .qa-icon{background:rgba(255,255,255,.15);color:#fff}
   .qa-mint .qa-icon{background:rgba(255,255,255,.72);color:var(--mint-deep);
                     box-shadow:inset 0 0 0 1px rgba(13,122,104,.16)}
@@ -2112,14 +2129,16 @@
      במבט חטוף תוך כדי גלילה — משקל 800 עושה את זה טוב יותר מסריף בגודל
      הזה.
 
-     שורה אחת, תמיד. תווית שנשברת לשתי שורות מזיזה את קו הבסיס של הכפתור
-     שלידה, ושורה שנייה בת מילה אחת נראית כמו תקלה. השמות עצמם קצרים בשתי
-     מילים (‏QUICK_ACTIONS), והמידה נבחרה כך שהארוך שבהם נכנס ברוחב כפתור
-     במסך הצר ביותר. */
-  .qa-title{font-weight:800;font-size:.95rem;line-height:1.3;color:inherit;
-            min-width:0;max-width:100%;
-            white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  @media(max-width:360px){.qa-title{font-size:.9rem}}
+     עד שתי שורות, ולא שורה אחת עם ellipsis: ברוחב עמודת מדד ‏(~100px)
+     "שתף בוואטסאפ" נחתך באמצע, ותווית חתוכה היא כפתור שצריך לנחש מה הוא
+     עושה. השם צמוד לתחתית הכפתור (‏justify-content:space-between), ולכן
+     שורה שנייה גדלה כלפי מעלה והשורה האחרונה נשארת על אותו קו בכל
+     הכפתורים — בדיוק מה שהשורה היחידה נועדה להבטיח. */
+  .qa-title{font-weight:800;font-size:.78rem;line-height:1.28;color:inherit;
+            min-width:0;max-width:100%;overflow-wrap:break-word;
+            display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+  @media(min-width:560px){.qa-title{font-size:.86rem}}
+  @media(min-width:900px){.qa-title{font-size:.9rem}}
   /* ==========================================================================
      אנימציות גלילה
      --------------------------------------------------------------------------
@@ -2834,7 +2853,7 @@
         <!-- ---------- שורת המדדים ----------
              שלושה מדדים קומפקטיים בשורה אחת, בלי גלילה אופקית ובלי כרטיס
              שנחתך בקצה: פוטנציאל העמלות, הנכסים הפעילים שמייצרים אותו,
-             והבלעדיות מתוכם. מדדי המשנה (לידים חמים, ארנק) יושבים ב-.kpi-more
+             והבלעדיות מתוכם. מדד המשנה היחיד (הארנק) יושב ב-.kpi-more
              מתחת לפעולות המהירות. -->
         <section aria-label="המדדים שלי">
           <div class="kpi-strip">
@@ -2939,6 +2958,14 @@
         <section class="quick-section" aria-label="פעולות מהירות">
           <div class="section-head">
             <h2 class="section-h">פעולות מהירות</h2>
+            <div class="rail-nav" id="quickRailNav" hidden>
+              <button type="button" class="rail-arrow" data-rail="quickGrid" data-dir="prev" aria-label="הקודם">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </button>
+              <button type="button" class="rail-arrow" data-rail="quickGrid" data-dir="next" aria-label="הבא">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              </button>
+            </div>
           </div>
           <div class="quick-grid" id="quickGrid"></div>
         </section>
@@ -2948,23 +2975,12 @@
              קבוע בדף שנפתח עשרים פעם ביום כדי לראות מה עושים עכשיו. הקישור
              אליו יושב בכרטיס העמלות עצמו — ראו .kpi-link. -->
 
-        <!-- ---------- מדדי המשנה ----------
-             לידים חמים ויתרת הארנק. שניהם חשובים, שניהם כבר צועקים ממקום
-             אחר (בלוק "דורש טיפול" והתגית בסרגל התחתון), ולכן הם כאן ולא
-             בשורה העליונה. -->
+        <!-- ---------- מדד המשנה ----------
+             יתרת הארנק בלבד. כרטיס "לידים חמים" ישב כאן ונמחק: אותו מונה
+             בדיוק כבר מופיע בשלושה מקומות אחרים — בלוק "דורש טיפול מיידי",
+             התגית על לשונית "לידים" בסרגל התחתון, והמונה האדום על הקבוצה
+             בתפריט. מספר רביעי לא הוסיף התראה, הוא רק תפס חצי שורה. -->
         <div class="kpi-more">
-          <button type="button" class="kpi-card kpi-hot" data-goto="accLeads" aria-label="לידים חמים שממתינים לפתיחה">
-            <div class="kpi-top">
-              <span class="kpi-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2s4 4.5 4 8a4 4 0 0 1-8 0c0-1 .4-2 .4-2S6 11 6 14a6 6 0 0 0 12 0c0-5-6-12-6-12Z"/></svg>
-              </span>
-              <span class="kpi-chip kpi-chip-alert" id="kpiHotChip" hidden>דחוף לטיפול</span>
-            </div>
-            <div class="kpi-label">לידים חמים</div>
-            <div class="kpi-value" id="kpiHotValue">0</div>
-            <p class="kpi-note" id="kpiHotNote">פניות שעדיין לא נפתחו</p>
-          </button>
-
           <!-- הארנק והמכסה החינמית — שני מספרים שקשורים זה לזה (המכסה
                נגמרת, הארנק משלם את ההמשך), ולכן הם כרטיס אחד ולא שניים. -->
           <div class="meter-card">
@@ -15961,6 +15977,9 @@ function applyNavFilter(){
   // הפס הדביק וה-FAB שייכים לדף הבית בלבד, ומעבר לשונית הוא בדיוק הרגע
   // שבו הם צריכים להיעלם — בלי גלילה שתודיע להם על כך
   updateScrollUi();
+  // רכבת שהייתה מוסתרת לא ידעה למדוד את עצמה: ברגע שהיא חוזרת למסך צריך
+  // לקבוע מחדש מי בראש המסלול והאם יש בכלל לאן לגלול
+  if (typeof syncQuickRail === 'function') syncQuickRail();
 }
 
 function setNavTab(key, opts){
@@ -16242,8 +16261,75 @@ function renderQuickActions(){
     grid.appendChild(card);
   });
   armQuickStagger();
+  armQuickRail();
+  syncQuickRail();
   // ה-FAB נשען על מיקומו של כפתור ההחתמה, והוא נולד מחדש בכל רינדור
   if (typeof updateScrollUi === 'function') updateScrollUi();
+}
+
+/* ==========================================================================
+   קרוסלת הפעולות — החצים והכפתור שבראש המסלול
+   --------------------------------------------------------------------------
+   הכפתורים ירדו לרוחב עמודת מדד (ראו ה-CSS של .quick-grid), ושלושה מהם
+   ממלאים בדיוק את רוחב המסך. כדי שלא ייראו כמו כל מה שיש, שלוש הרמזים
+   שהפונקציות כאן מתחזקות:
+
+     · הרביעי מציץ בקצה — זה ה-CSS לבדו (הרכבת גולשת אל מעבר לשוליים)
+     · החצים בשורת הכותרת — מוצגים רק כשיש לאן לגלול, ומכבים את עצמם בקצה
+     · ‏.is-lead על הכפתור שבתחילת המסלול — הוא מורם, השאר שטוחים אחריו
+
+   מ-900px זה גריד רגיל ולא רכבת: אין ראש מסלול ואין חצים, ושתי הפונקציות
+   מנקות אחריהן במקום להשאיר סימון ממצב קודם.
+   ========================================================================== */
+function syncQuickRail(){
+  const rail = document.getElementById('quickGrid');
+  if (!rail) return;
+  const nav   = document.getElementById('quickRailNav');
+  const cards = [...rail.children];
+  const isRail = (getComputedStyle(rail).gridAutoFlow || '').includes('column');
+  const scrollable = rail.scrollWidth - rail.clientWidth > 2;
+
+  if (nav){
+    nav.hidden = !(isRail && scrollable);
+    if (!nav.hidden) syncRailNav(rail, nav);
+  }
+
+  if (!isRail || !cards.length){
+    cards.forEach(c => c.classList.remove('is-lead', 'is-rear'));
+    return;
+  }
+
+  /* ‏RTL: תחילת המסלול היא הקצה הימני, ולכן "מי בראש" נמדד במרחק בין הקצה
+     הימני של הכרטיס לקצה הימני של הרכבת. מדידה במיקום ולא ב-scrollLeft:
+     דפדפנים לא מסכימים על הסימן של scrollLeft ב-RTL. */
+  const startX = rail.getBoundingClientRect().right;
+  let lead = cards[0], best = Infinity;
+  cards.forEach(card=>{
+    const d = Math.abs(card.getBoundingClientRect().right - startX);
+    if (d < best){ best = d; lead = card; }
+  });
+  cards.forEach(card=>{
+    card.classList.toggle('is-lead', card === lead);
+    card.classList.toggle('is-rear', card !== lead);
+  });
+}
+
+/* מאזין אחד לרכבת ואחד לחלון, שניהם מכוסים ב-requestAnimationFrame:
+   הסימון נקרא ממיקומים אמיתיים, וקריאה כזו בכל אירוע גלילה היא בדיוק
+   הדרך להפוך גרירה חלקה לגרירה קופצת. ‏dataset שומר שהקשירה תקרה פעם
+   אחת — renderQuickActions נקרא מחדש בכל שינוי הרשאות. */
+function armQuickRail(){
+  const rail = document.getElementById('quickGrid');
+  if (!rail || rail.dataset.quickArmed) return;
+  rail.dataset.quickArmed = '1';
+  let ticking = false;
+  const onMove = ()=>{
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(()=>{ ticking = false; syncQuickRail(); });
+  };
+  rail.addEventListener('scroll', onMove, { passive:true });
+  window.addEventListener('resize', onMove, { passive:true });
 }
 
 /* ==========================================================================
@@ -16540,58 +16626,6 @@ function refreshNavCounts(){
   renderTodoList();
   renderBottomNav();
   renderSideNav();
-  renderHotKpi();
-}
-
-/* כרטיס הלידים החמים ברכבת המדדים — אותו מונה, תצוגה אחרת.
-
-   הכרטיס היה זהוב־בולט גם כשהוא הראה 0. צבע חם הוא הבטחה שיש כאן משהו
-   לעשות, וכרטיס שמבטיח ולא מקיים מלמד את העין לדלג עליו — כולל ביום שבו
-   באמת יגיעו שלושה לידים. במצב 0 הוא יורד לניטרלי, ובמקום מספר מת הוא
-   מפנה לחנות הלידים: שם יש פניות פתוחות שאפשר לקנות עכשיו.
-
-   אם החנות אינה גלויה לסוכן/ת (מסלול, הרשאה) הכרטיס נשאר מפנה ל"הלידים
-   שלי" ומציג טיפ במקום הצעה שתוביל לדלת נעולה. */
-function renderHotKpi(){
-  const value = document.getElementById('kpiHotValue');
-  if (!value) return;
-  const card = value.closest('.kpi-hot');
-  const n = accCountOf('accLeads');
-  value.textContent = String(n);
-
-  const chip = document.getElementById('kpiHotChip');
-  if (chip) chip.hidden = !n;
-  if (card) card.classList.toggle('is-idle', !n);
-
-  const note = document.getElementById('kpiHotNote');
-  const shelfOpen = navAccVisible('accLeadShelf');
-  if (note){
-    note.textContent = n ? 'פניות שעדיין לא נפתחו — לחצו לטיפול'
-      : shelfOpen ? 'אין פניות שממתינות — חנות הלידים פתוחה לבחירה'
-                  : 'אין פניות שממתינות לפתיחה';
-  }
-
-  // הצעה יזומה במקום שטח מת, ורק כשיש לאן לשלוח
-  let cta = card ? card.querySelector('.kpi-idle-cta') : null;
-  if (card && !n && shelfOpen){
-    if (!cta){
-      cta = document.createElement('span');
-      cta.className = 'kpi-idle-cta';
-      card.appendChild(cta);
-    }
-    cta.innerHTML = dashIcon('layers') + '<span>חיפוש לידים בחנות</span>';
-  } else if (cta){
-    cta.remove();
-  }
-
-  // הכרטיס כולו הוא הכפתור, ולכן היעד שלו הוא זה שמשתנה — לא כפתור נוסף
-  if (card){
-    const target = (!n && shelfOpen) ? 'accLeadShelf' : 'accLeads';
-    card.dataset.goto = target;
-    card.setAttribute('aria-label', target === 'accLeadShelf'
-      ? 'חנות הלידים — פניות פתוחות שאפשר לקנות'
-      : 'לידים חמים שממתינים לפתיחה');
-  }
 }
 
 /* ---------- מד המכסה החינמית ---------- */
