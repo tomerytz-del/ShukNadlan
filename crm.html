@@ -15684,9 +15684,18 @@ function dashIcon(name, cls){
          (DASH_ICONS[name] || '') + '</svg>';
 }
 
-/* ---------- ניווט מהדשבורד אל הקטגוריה המלאה ----------
-   הכותרת דביקה, ולכן scrollIntoView לבדו היה מסתיר את שורת הכותרת של
-   הקטגוריה מתחתיה. מחשבים את ההיסט ידנית. */
+/* ---------- גלילה שמעמידה את ראש האלמנט מתחת לכותרת הדביקה ----------
+   ‏scrollIntoView לבדו היה מסתיר את השורה הראשונה מתחת לכותרת, ולכן
+   מחשבים את ההיסט ידנית. */
+function scrollToTopOf(el){
+  if (!el) return;
+  const header = document.querySelector('#dashboard header.crm');
+  const offset = (header ? header.offsetHeight : 0) + 14;
+  const top = el.getBoundingClientRect().top + window.pageYOffset - offset;
+  window.scrollTo({ top: Math.max(0, top), behavior: navReduceMotion() ? 'auto' : 'smooth' });
+}
+
+/* ---------- ניווט מהדשבורד אל הקטגוריה המלאה ---------- */
 function gotoSection(accId, focusId){
   // במובייל הקטגוריה עשויה לשבת בלשונית אחרת של הסרגל התחתון. גלילה
   // לאלמנט מוסתר מגיעה לשום מקום, ולכן המעבר ללשונית קודם לכל השאר —
@@ -15698,11 +15707,8 @@ function gotoSection(accId, focusId){
   }
   const el = openAcc(accId);
   if (!el) return;
-  const header = document.querySelector('#dashboard header.crm');
-  const offset = (header ? header.offsetHeight : 0) + 14;
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const top = el.getBoundingClientRect().top + window.pageYOffset - offset;
-  window.scrollTo({ top: Math.max(0, top), behavior: reduce ? 'auto' : 'smooth' });
+  const reduce = navReduceMotion();
+  scrollToTopOf(el);
   if (focusId){
     setTimeout(()=>{
       const target = document.getElementById(focusId);
@@ -16172,7 +16178,11 @@ function renderTodoList(){
 
 /* פתיחת טופס פנימי שמקופל בתוך קטגוריה: מנווטים לקטגוריה, ורק אז לוחצים על
    כפתור הפתיחה שלה — ורק אם הטופס אכן סגור, כדי שהלחיצה לא תסגור טופס
-   שכבר פתוח. ההשהיה היא זמן הגלילה החלקה של gotoSection. */
+   שכבר פתוח. ההשהיה היא זמן הגלילה החלקה של gotoSection.
+
+   הגלילה בסוף היא אל ראש הטופס ולא אל מרכזו: טופס הנכס גבוה בהרבה מהמסך,
+   ו-block:'center' הביא את אמצעו למרכז החלון — כלומר נחת באמצע השדות
+   במקום בשדה הראשון. */
 function openInlineForm(accId, formId, toggleId){
   gotoSection(accId);
   const reduce = navReduceMotion();
@@ -16183,7 +16193,7 @@ function openInlineForm(accId, formId, toggleId){
     if (getComputedStyle(form).display === 'none') btn.click();
     const first = form.querySelector('input:not([type=hidden]),select,textarea');
     if (first) first.focus({ preventScroll:true });
-    form.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block:'center' });
+    scrollToTopOf(form);
   }, reduce ? 0 : 420);
 }
 
