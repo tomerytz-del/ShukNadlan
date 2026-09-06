@@ -7,7 +7,7 @@ import {
   corsHeaders,
   falSubmit,
   FAL_VIDEO_MODEL,
-  isDurationRejection,
+  isTransientFailure,
   json,
   pickScenes,
 } from "../_shared/property-video.ts";
@@ -191,31 +191,36 @@ Deno.serve(async (req: Request) => {
   let submitted = 0;
   const failures: string[] = [];
 
-  // האורך שבו נשלחת הבקשה בפועל. מתחיל ב-clipSeconds, ומדלג ל-sourceSeconds
-  // ברגע שמודל דוחה אותו — פעם אחת לכל הבקשה ולא פעם לכל קליף, כדי שלא נשלם
-  // על שמונה ניסיונות כושלים כשכבר ידוע שהערך אינו נתמך.
-  let askSeconds = clipSeconds;
-  let trimToSeconds: number | null = null;
+  // ---- באיזה אורך מבקשים -------------------------------------------------
+  // **החלטה דטרמיניסטית ולא ניסוי.** הגרסה הקודמת ניסתה לבקש 2.5 שניות
+  // וליפול חזרה ל-5 אם המודל דוחה — וזה נכשל בפרודקשן מסיבה מלמדת: ‏Kling
+  // **קיבל** את הבקשה (‎200‎ עם ‎request_id‎) ורק בזמן הריצה החזיר ‎422‎, דרך
+  // ה-webhook. כלומר הדחייה אינה מגיעה בתשובת ה-submit בכלל, ובדיקה עליה
+  // לעולם לא תתפוס. חמישה קליפים נשלחו, כולם נכשלו, והבקשה נסגרה ב-
+  // ‎too_few_clips: 0/3‎.
+  //
+  // הניסוי הזה כבר ענה על השאלה: המודל לא מייצר 2.5 שניות. לכן מבקשים
+  // ישירות את אורך המקור וחותכים במיזוג — מסלול אחד, בלי הימור ובלי קליפים
+  // מבוזבזים. כשמישהו יגדיר מודל שכן תומך באורך המבוקש, ‎source_seconds‎
+  // יורד ל-2.5 ב-pricing_config והחיתוך מכבה את עצמו.
+  const needsTrim = clipSeconds < sourceSeconds;
+  const askSeconds = needsTrim ? sourceSeconds : clipSeconds;
+  const trimToSeconds: number | null = needsTrim ? clipSeconds : null;
 
   for (const clip of insertedClips ?? []) {
     const hook = `${base}?token=${encodeURIComponent(webhookToken)}&job=${jobId}&clip=${clip.id}`;
+    const input = buildClipInput(clip.source_image_url, clip.prompt, askSeconds, aspectRatio);
 
-    let result = await falSubmit(
-      FAL_VIDEO_MODEL,
-      buildClipInput(clip.source_image_url, clip.prompt, askSeconds, aspectRatio),
-      hook
-    );
+    let result = await falSubmit(FAL_VIDEO_MODEL, input, hook);
 
-    // המודל לא מכיר את האורך המבוקש (‏Kling מקבל "5"/"10" בלבד). מייצרים
-    // באורך המקור וחותכים במיזוג — ראו buildComposeInput.
-    if (!result.ok && askSeconds !== sourceSeconds && isDurationRejection(result.error)) {
-      askSeconds = sourceSeconds;
-      trimToSeconds = clipSeconds;
-      result = await falSubmit(
-        FAL_VIDEO_MODEL,
-        buildClipInput(clip.source_image_url, clip.prompt, askSeconds, aspectRatio),
-        hook
-      );
+    // ניסיון שני לכשל שנראה חולף. בהרצה האחרונה קליף אחד קיבל ‎403‎ של יתרה
+    // בעוד שהקליף **שאחריו** נשלח בהצלחה — כלומר זה לא היה מצב חשבון אלא
+    // רעש רגעי, ותמונה אחת ירדה מהסרטון בלי סיבה אמיתית. ניסיון אחד נוסף
+    // הוא המחיר הזול ביותר לכך ש"לא יתפספסו תמונות".
+    //
+    // ‏422 אינו נכלל: הוא אומר שהקלט עצמו פסול, ושליחה חוזרת שלו רק תשלם שוב.
+    if (!result.ok && isTransientFailure(result.error)) {
+      result = await falSubmit(FAL_VIDEO_MODEL, input, hook);
     }
 
     if (result.ok) {
