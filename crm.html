@@ -10854,6 +10854,24 @@ function buildPropertyCard(p, agentId){
       });
     }
 
+    /* הפקת סרטון שיווקי מהתמונות של הנכס.
+       הכפתור מוצג ל-mid ול-premium בלבד — ‎free‎ אינו רואה אותו, וה-gating
+       האמיתי נאכף ב-‎property_video_tier‎ ב-DB ולא כאן. שתי מילים שונות לאותה
+       פעולה: נכס בלי סרטון "מפיק", ונכס שכבר יש לו סרטון "מחליף" — כי זו
+       בדיוק ההבחנה שהסוכן/ת צריך/ה לעשות לפני שהקיים נמחק. */
+    if (currentAgent && (currentAgent.tier === 'mid' || currentAgent.tier === 'premium')){
+      const hasVideo = !!p.video_url;
+      const isMid = currentAgent.tier === 'mid';
+      const vidPrice = priceOf('property_video_price_mid', 20);
+      addCardAction(actions, {
+        label: (hasVideo ? '🎬 סרטון חדש' : '🎬 הפקת סרטון') + (isMid ? ` · ${shekel(vidPrice)}` : ''),
+        title: hasVideo
+          ? 'הפקת סרטון שיווקי חדש מהתמונות — יחליף את הסרטון הקיים'
+          : 'הפקת סרטון שיווקי קצר מהתמונות של הנכס',
+        onClick: btn => produceMarketingVideo(p, btn, agentId),
+      });
+    }
+
     if (p.shared_with_partners){
       addCardAction(actions, { label:'✖ ביטול שת״פ', onClick:btn => unshareProperty(p, btn, agentId) });
     }
@@ -11120,6 +11138,121 @@ async function promoteProperty(property, btn, agentId){
     showToast('שגיאת רשת — נסו שוב');
     btn.disabled = false; btn.textContent = original;
   }
+}
+
+/* ---------- הפקת סרטון שיווקי ----------
+   התמונות של הנכס נשלחות ל-fal.ai, כל אחת הופכת לקליפ קצר בתנועת מצלמה,
+   והרצף נשמר על הנכס ב-‎video_url‎ — אותו שקע שאליו מעלים סרטון מהמכשיר.
+
+   ההפקה לוקחת דקות ולכן היא **לא** תלויה בחלון הזה: הבקשה נשלחת, fal מחזיר/ה
+   תשובה ל-‎property-video-callback‎, והסרטון נשמר גם אם ה-CRM נסגר באמצע.
+   ה-polling כאן הוא רק כדי להראות התקדמות למי שנשאר/ת לחכות.               */
+const VIDEO_POLL_MS = 5000;
+const VIDEO_POLL_TIMEOUT_MS = 12 * 60 * 1000;
+
+async function produceMarketingVideo(property, btn, agentId){
+  const isMid = currentAgent?.tier === 'mid';
+  const price = isMid ? priceOf('property_video_price_mid', 20) : 0;
+  const clips = priceOf('property_video_clip_count', 4);
+  const secs  = priceOf('property_video_clip_seconds', 5);
+  const hasVideo = !!property.video_url;
+
+  const lines = [
+    `🎬 סרטון שיווקי · ${property.title || 'הנכס שלך'}`,
+    `מהתמונות של הנכס ייווצר סרטון של כ-${clips * secs} שניות, בתנועת מצלמה כמו מרחפן.`,
+    'ההפקה נמשכת כמה דקות ורצה בשרת — אפשר לסגור את החלון בינתיים.',
+  ];
+  // ההחלפה נאמרת במפורש ובשורה נפרדת: זה החלק שאי אפשר לבטל.
+  if (hasVideo) lines.push('⚠️ לנכס כבר יש סרטון. הסרטון החדש יחליף אותו, והישן יימחק.');
+
+  const approved = await confirmPurchase({
+    title: hasVideo ? 'החלפת הסרטון בסרטון מופק' : 'אישור הפקת סרטון',
+    lines,
+    price,
+    requireAck: true,
+    ackText: isMid
+      ? `אני מבין/ה שזו רכישה, ושאישור הפעולה יחייב את הארנק שלי ב-${shekel(price)} עבור סרטון אחד.`
+      : (hasVideo
+          ? 'אני מבין/ה שהסרטון הקיים יימחק ויוחלף בסרטון המופק.'
+          : 'אני מאשר/ת הפקת סרטון שיווקי לנכס הזה.'),
+    confirmLabel: isMid ? `אישור והפקה · חיוב ${shekel(price)}` : 'אישור והפקה',
+  });
+  if (!approved) return;
+
+  const original = btn.textContent;
+  btn.disabled = true;
+  btn.textContent = 'שולח…';
+
+  let jobId = null;
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/property-video-create', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      body: JSON.stringify({ property_id: property.id, replace_existing: hasVideo }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      const messages = {
+        insufficient_balance: `יתרה לא מספיקה — נדרש ${shekel(data.required)}. טענו קרדיט ונסו שוב`,
+        not_eligible:         'הפקת סרטון זמינה לסוכני MID ו-Premium בלבד',
+        monthly_cap_reached:  `נוצלה המכסה החודשית (${data.used}/${data.cap} סרטונים). המכסה מתחדשת בתחילת החודש`,
+        job_in_progress:      'כבר רצה הפקת סרטון לנכס הזה — יש להמתין לסיומה',
+        video_exists:         'לנכס כבר יש סרטון — יש לאשר החלפה',
+        no_images:            'אין תמונות לנכס הזה — אי אפשר להפיק ממנו סרטון',
+        not_enough_images:    data.message || 'אין מספיק תמונות מתאימות להפקת סרטון',
+        fal_not_configured:   'שירות הווידאו לא מוגדר במערכת — יש לפנות לתמיכה',
+        fal_submit_failed:    'שירות הווידאו לא זמין כרגע — לא בוצע חיוב, נסו שוב בהמשך',
+      };
+      showToast(messages[data.error] || 'שגיאה בהפקת הסרטון');
+      btn.disabled = false; btn.textContent = original;
+      return;
+    }
+    jobId = data.job_id;
+    // חיוב יצא — היתרה שעל המסך צריכה לדעת מיד, כמו בקידום
+    if (data.amount_charged > 0) await refreshAgentBalance();
+    showToast(`ההפקה החלה · ${data.clips} קליפים · כ-${data.estimated_seconds} שניות. אפשר לסגור את החלון`);
+  } catch(err){
+    console.error(err);
+    showToast('שגיאת רשת — נסו שוב');
+    btn.disabled = false; btn.textContent = original;
+    return;
+  }
+
+  // ---- מעקב ----
+  // כישלון מזכה את הארנק אוטומטית בצד השרת, ולכן גם כאן מרעננים את היתרה.
+  const started = Date.now();
+  const poll = async ()=>{
+    if (Date.now() - started > VIDEO_POLL_TIMEOUT_MS){
+      btn.disabled = false; btn.textContent = original;
+      showToast('ההפקה נמשכת יותר מהצפוי — היא ממשיכה ברקע. רעננו את הדף בעוד כמה דקות');
+      return;
+    }
+    const { data, error } = await sb.rpc('property_video_job_status', { p_job_id: jobId });
+    const row = Array.isArray(data) ? data[0] : data;
+    if (error || !row){ setTimeout(poll, VIDEO_POLL_MS); return; }
+
+    if (row.status === 'done'){
+      showToast('הסרטון מוכן והוצמד לנכס 🎬');
+      await loadProperties(agentId);
+      return;
+    }
+    if (row.status === 'failed'){
+      btn.disabled = false; btn.textContent = original;
+      showToast(price > 0
+        ? 'ההפקה נכשלה — החיוב הוחזר לארנק. אפשר לנסות שוב'
+        : 'ההפקה נכשלה — לא נוצלה מכסה. אפשר לנסות שוב');
+      if (price > 0) await refreshAgentBalance();
+      return;
+    }
+
+    const label = row.status === 'merging' ? 'מחבר…'
+      : row.status === 'uploading' ? 'שומר…'
+      : `מפיק… ${row.clips_done}/${row.clips_total}`;
+    btn.textContent = label;
+    setTimeout(poll, VIDEO_POLL_MS);
+  };
+  setTimeout(poll, VIDEO_POLL_MS);
 }
 
 async function markPropertyStatus(propertyId, newStatus, agentId){
