@@ -1751,6 +1751,15 @@ function renderMediaButtons(p){
   const embed = videoEmbed(p.video_url);
   if (!embed){ link('videoBtn', p.video_url, ICON.play, 'סרטון הנכס'); return; }
 
+  /* הסרטון כבר מנגן בתמונה הראשית — נגן שני של אותו קובץ בהמשך העמוד הוא
+     רק אותו סיור פעם שנייה, וכפתור שמוביל אליו הוא קיצור דרך למקום שהצופה
+     כבר נמצא בו. שניהם יורדים.
+
+     הסקציה נשארת בקוד ולא נמחקה, כי היא עדיין המסלול היחיד בכל מקרה
+     שבו השער ויתר על הסרטון: יוטיוב ווימאו (שלא נכנסים לשער כ-iframe),
+     ‏reduced-motion, ‏Save-Data וחיבור 2G. */
+  if (heroVideoEl) return;
+
   // כשהסרטון מנוגן בעמוד, הכפתור בהירו הוא קיצור דרך אליו ולא יציאה מהעמוד
   renderVideoPanel(embed);
   const btn = document.getElementById('videoBtn');

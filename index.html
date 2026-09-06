@@ -1501,7 +1501,6 @@
     flex-basis:min(250px, calc((100% - var(--row-gap) * 2) / 3));
     min-height:var(--card-h);
   }
-  .featured-scroll .prop-card .thumb{height:94px}
   .featured-scroll .prop-card .ribbon{top:6px;inset-inline-end:6px;font-size:.6rem;padding:2px 7px}
   /* ‏105px של כרטיס (שליש ממסך של 360px) לא מכילים גם סרט "מקודם" ברוחב
      ‏42px וגם תגית עסקה ברוחב 55px — שניהם מעוגנים לפינות הנגדיות של אותה
@@ -1516,6 +1515,15 @@
      לשלוש שורות שכיסו את כל התמונונת. תגית העסקה (למכירה/להשכרה) היא
      הראשונה ברשימה והיא זו שנשארת; השאר נפתחות ככל שהאריח מתרחב. */
   .featured-scroll .prop-card .pc-badge:nth-child(n+2){display:none}
+  /* ובאותו רוחב יורדת גם שורת המיקום השנייה. ‏122px מכילים "בית
+     פרטי/קוטג׳ · שכון עובדים" או "שיבולים · תיווך העמק" — לא את שניהם,
+     ושתי שורות מיקום דחקו את התמונה למחצית העליונה של הכיסוי. מה שנשאר
+     הוא סדר העדיפויות של אריח ברצועה: מחיר, מה והיכן, ומספרים.
+     הרחוב ושם המשרד חוזרים ב-760px, שם הכרטיס כבר ברוחב 242px. */
+  .featured-scroll .prop-card.pc-cover .pc-where-sub{display:none}
+  @media(min-width:760px){
+    .featured-scroll .prop-card.pc-cover .pc-where-sub{display:-webkit-box}
+  }
   .featured-scroll .prop-card .body{padding:9px}
   .featured-scroll .prop-card .pc-price{font-size:.92rem}
   .featured-scroll .prop-card .pc-title{font-size:.73rem}
@@ -1573,6 +1581,9 @@
   }
 
   .property-grid{display:grid;grid-template-columns:1fr;gap:16px}
+  /* ברשת האריח רחב בהרבה מאשר ברצועה, ולכן הגובה נגזר כאן מיחס ולא
+     מ-‎--card-h‎: ‏196px על עמודה ברוחב מסך מלא הם רצועה שטוחה, לא כיסוי. */
+  .property-grid .prop-card.pc-cover{--pc-cover-h:auto;aspect-ratio:16/11}
   .infeed-ad{
     grid-column:1/-1;background:var(--gold-tint);border:1px dashed var(--gold-dark);border-radius:var(--radius-md);
     padding:16px;display:flex;align-items:center;justify-content:center;font-size:.8rem;color:var(--gold-dark);font-weight:700;
@@ -7539,11 +7550,12 @@ function filterListings(list){
    ולכן הם זהים גם לדף המשרד ולדף הסוכן/ת. */
 function propCard(p, i){
   const el = document.createElement('div');
-  el.className = 'prop-card';
+  el.className = 'prop-card pc-cover';
   el.style.cursor = 'pointer';
   el.innerHTML = `
     <div class="thumb" style="${thumbStyle(p, i)}">
       ${thumbFallback(p)}
+      ${PropertyCard.coverVideoHtml(p)}
       ${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}
       ${PropertyCard.badgesHtml(p, { aiViz: visualizedProps.has(p.id), photo: hasPhoto(p) })}
       ${PropertyCard.mediaHtml(p)}
