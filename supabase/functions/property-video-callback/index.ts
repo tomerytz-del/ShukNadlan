@@ -13,6 +13,7 @@ import {
   FAL_MERGE_MODEL,
   FAL_VIDEO_MODEL,
   json,
+  measureMp4Seconds,
   removeStoredVideo,
   storeFinalVideo,
   tokensMatch,
@@ -291,6 +292,77 @@ Deno.serve(async (req: Request) => {
     if (!auth.ok) return json({ error: auth.error, detail: auth.detail }, auth.status);
     const stats = await reconcile(supabase);
     return json({ ok: true, ...stats });
+  }
+
+  // ---- מסלול הבדיקה ------------------------------------------------------
+  // כלי פיתוח, לא נתיב מוצר. נולד מתוך כישלון אמיתי: ‏`compose` החזיר
+  // "הצלחה" על בקשת חיתוך שלא חתכה, ולכן כל תיקון של הסכימה חייב היה סבב
+  // שלם — חמישה קליפים ב-Kling (‎~1.75$‎) רק כדי לגלות אם שם שדה נכון.
+  //
+  // כאן הקלט ל-fal עובר **כמו שהוא** מגוף הבקשה, והתשובה חוזרת גולמית יחד
+  // עם **אורך הפלט הנמדד**. כך אפשר לנסות צורות payload עד שהחיתוך תופס,
+  // בלי לייצר ולו קליפ אחד ובלי פריסה מחדש לכל ניסיון.
+  //
+  // שני מעצורים:
+  //   • ‏authorizeInternalCaller — ‏service_role או סוד ה-cron, כמו ה-reconcile.
+  //   • רשימת מודלים סגורה ל-‎ffmpeg-api‎ בלבד (‎0.0002$‎ לשנייה). בלעדיה זו
+  //     הייתה נקודת קצה שמריצה כל מודל ב-fal על חשבון החשבון שלנו.
+  if (url.searchParams.get("mode") === "probe") {
+    const auth = authorizeInternalCaller(req);
+    if (!auth.ok) return json({ error: auth.error, detail: auth.detail }, auth.status);
+
+    let body: any;
+    try {
+      body = await req.json();
+    } catch {
+      return json({ error: "invalid_json" }, 400);
+    }
+
+    const model = String(body?.model ?? FAL_COMPOSE_MODEL);
+    if (!model.startsWith("fal-ai/ffmpeg-api/")) {
+      return json({ error: "model_not_allowed", detail: "רק fal-ai/ffmpeg-api/*" }, 400);
+    }
+    if (!body?.input || typeof body.input !== "object") {
+      return json({ error: "missing_input" }, 400);
+    }
+
+    const key = Deno.env.get("FAL_KEY");
+    if (!key) return json({ error: "fal_not_configured" }, 500);
+
+    // ‏fal.run הוא הנתיב הסינכרוני — מחכה לתוצאה ומחזיר אותה. מתאים כאן כי
+    // ‏ffmpeg מסיים בשניות, ובלי תור אין גם webhook לחכות לו.
+    let falStatusCode = 0;
+    let raw = "";
+    try {
+      const res = await fetch(`https://fal.run/${model}`, {
+        method: "POST",
+        headers: { "Authorization": `Key ${key}`, "Content-Type": "application/json" },
+        body: JSON.stringify(body.input),
+      });
+      falStatusCode = res.status;
+      raw = await res.text();
+    } catch (err) {
+      return json({ error: "fal_network", detail: (err as Error).message }, 502);
+    }
+
+    let parsed: unknown = null;
+    try {
+      parsed = JSON.parse(raw);
+    } catch {
+      /* נשאר null; raw עדיין מוחזר */
+    }
+
+    const videoUrl = parsed ? extractVideoUrl(parsed) : null;
+    const seconds = videoUrl ? await measureMp4Seconds(videoUrl) : null;
+
+    return json({
+      ok: falStatusCode >= 200 && falStatusCode < 300,
+      model,
+      fal_status: falStatusCode,
+      video_url: videoUrl,
+      duration_seconds: seconds,
+      raw: raw.slice(0, 1200),
+    });
   }
 
   // ---- מסלול ה-webhook ---------------------------------------------------
