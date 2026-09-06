@@ -11153,13 +11153,19 @@ const VIDEO_POLL_TIMEOUT_MS = 12 * 60 * 1000;
 async function produceMarketingVideo(property, btn, agentId){
   const isMid = currentAgent?.tier === 'mid';
   const price = isMid ? priceOf('property_video_price_mid', 20) : 0;
-  const clips = priceOf('property_video_clip_count', 4);
-  const secs  = priceOf('property_video_clip_seconds', 5);
+  const maxClips = priceOf('property_video_clip_count', 8);
+  const secs  = priceOf('property_video_clip_seconds', 2.5);
   const hasVideo = !!property.video_url;
+
+  // התקרה היא תקרה, לא יעד: הסרטון לוקח סצנה לכל תמונה עד המקסימום, ולכן
+  // המספר שמוצג הוא מה שהנכס הזה באמת יקבל ולא הבטחה גנרית.
+  const nImages = Array.isArray(property.images) ? property.images.filter(Boolean).length : 0;
+  const scenes  = Math.max(1, Math.min(nImages, maxClips));
+  const total   = Math.round(scenes * secs * 10) / 10;
 
   const lines = [
     `🎬 סרטון שיווקי · ${property.title || 'הנכס שלך'}`,
-    `מהתמונות של הנכס ייווצר סרטון של כ-${clips * secs} שניות, בתנועת מצלמה כמו מרחפן.`,
+    `${scenes} סצנות של ${secs} שניות — סרטון של כ-${total} שניות, בתנועת מצלמה כמו מרחפן.`,
     'ההפקה נמשכת כמה דקות ורצה בשרת — אפשר לסגור את החלון בינתיים.',
   ];
   // ההחלפה נאמרת במפורש ובשורה נפרדת: זה החלק שאי אפשר לבטל.

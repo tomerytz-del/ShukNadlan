@@ -7,6 +7,7 @@ import {
   corsHeaders,
   falSubmit,
   FAL_VIDEO_MODEL,
+  isDurationRejection,
   json,
   pickScenes,
 } from "../_shared/property-video.ts";
@@ -106,10 +107,17 @@ Deno.serve(async (req: Request) => {
     return json({ error: "no_images", message: "אין תמונות לנכס הזה — אי אפשר להפיק ממנו סרטון" }, 400);
   }
 
-  // ---- כמה קליפים --------------------------------------------------------
-  const clipCount = Math.max(1, Math.round(await pricing(supabase, "property_video_clip_count", 4)));
-  const clipSeconds = Math.max(1, Math.round(await pricing(supabase, "property_video_clip_seconds", 5)));
-  const minClips = Math.max(1, Math.round(await pricing(supabase, "property_video_min_clips", 2)));
+  // ---- כמה קליפים ובאיזה אורך -------------------------------------------
+  // ‏clipCount הוא **תקרה** ולא יעד: pickScenes לוקחת min(תמונות, התקרה), ולכן
+  // נכס עם חמש תמונות מקבל חמש סצנות ולא נשאר עם תמונה שלא נכנסה לסרטון.
+  //
+  // שני אורכים ולא אחד — ראו המיגרציה 20261005090000: clipSeconds הוא מה
+  // שנכנס לסרטון (2.5), ו-sourceSeconds הוא מה שמבקשים מהמודל אם הוא דוחה
+  // את הראשון (5). ‏Math.round הוסר מ-clipSeconds בכוונה: הוא היה מעגל 2.5 ל-2.
+  const clipCount = Math.max(1, Math.round(await pricing(supabase, "property_video_clip_count", 8)));
+  const clipSeconds = Math.max(0.5, await pricing(supabase, "property_video_clip_seconds", 2.5));
+  const sourceSeconds = Math.max(clipSeconds, await pricing(supabase, "property_video_source_seconds", 5));
+  const minClips = Math.max(1, Math.round(await pricing(supabase, "property_video_min_clips", 3)));
 
   // ---- אילו תמונות -------------------------------------------------------
   // הסיווג הקיים (‎property_image_tags‎) הוא מה שמאפשר סדר של מודעה: חוץ,
@@ -183,13 +191,32 @@ Deno.serve(async (req: Request) => {
   let submitted = 0;
   const failures: string[] = [];
 
+  // האורך שבו נשלחת הבקשה בפועל. מתחיל ב-clipSeconds, ומדלג ל-sourceSeconds
+  // ברגע שמודל דוחה אותו — פעם אחת לכל הבקשה ולא פעם לכל קליף, כדי שלא נשלם
+  // על שמונה ניסיונות כושלים כשכבר ידוע שהערך אינו נתמך.
+  let askSeconds = clipSeconds;
+  let trimToSeconds: number | null = null;
+
   for (const clip of insertedClips ?? []) {
     const hook = `${base}?token=${encodeURIComponent(webhookToken)}&job=${jobId}&clip=${clip.id}`;
-    const result = await falSubmit(
+
+    let result = await falSubmit(
       FAL_VIDEO_MODEL,
-      buildClipInput(clip.source_image_url, clip.prompt, clipSeconds, aspectRatio),
+      buildClipInput(clip.source_image_url, clip.prompt, askSeconds, aspectRatio),
       hook
     );
+
+    // המודל לא מכיר את האורך המבוקש (‏Kling מקבל "5"/"10" בלבד). מייצרים
+    // באורך המקור וחותכים במיזוג — ראו buildComposeInput.
+    if (!result.ok && askSeconds !== sourceSeconds && isDurationRejection(result.error)) {
+      askSeconds = sourceSeconds;
+      trimToSeconds = clipSeconds;
+      result = await falSubmit(
+        FAL_VIDEO_MODEL,
+        buildClipInput(clip.source_image_url, clip.prompt, askSeconds, aspectRatio),
+        hook
+      );
+    }
 
     if (result.ok) {
       await supabase
@@ -205,6 +232,13 @@ Deno.serve(async (req: Request) => {
       failures.push(result.error ?? "unknown");
     }
   }
+
+  // נרשם אחרי הלולאה כי הוא מתגלה תוך כדיה. ‎advanceJob‎ קורא/ת אותו בשלב
+  // המיזוג ובוחר/ת בין compose (עם חיתוך) ל-merge-videos (בלי).
+  await supabase
+    .from("property_video_jobs")
+    .update({ source_seconds: askSeconds, trim_to_seconds: trimToSeconds })
+    .eq("id", jobId);
 
   // אף קליף לא נשלח — אין למה לחכות, והארנק מזוכה עכשיו ולא בעוד שעה.
   if (submitted === 0) {
@@ -224,6 +258,9 @@ Deno.serve(async (req: Request) => {
     amount_charged: started.amount_charged,
     clips: submitted,
     clips_failed: (insertedClips?.length ?? 0) - submitted,
-    estimated_seconds: submitted * clipSeconds,
+    // אורך הסרטון הסופי הוא תמיד לפי clipSeconds, גם כשהמודל ייצר ארוך יותר
+    // וייחתך במיזוג — זה מה שהסוכן/ת יראה/תראה בפועל.
+    estimated_seconds: Math.round(submitted * clipSeconds * 10) / 10,
+    trimmed: trimToSeconds != null,
   });
 });
