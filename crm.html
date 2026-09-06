@@ -1116,27 +1116,29 @@
      כדי שמי שפותח/ת את "כלים וצוות" בכל פעם לא יצטרך לפתוח אותה שוב. */
   /* שלוש כותרות הקבוצה הן הגבולות היחידים ברשימה, ולכן הן צבועות ולא אפורות:
      בגרסה הקודמת הן נראו כמו עוד שורה חלשה בין הפריטים, וקבוצה סגורה לא
-     נקראה כמו כותרת שאפשר לפתוח. רקע כחול-בהיר, טקסט נייבי ופס נייבי בתחילת
-     השורה — אותו כחול של המותג, בעוצמה שמפרידה בין הקבוצות במבט אחד. */
+     נקראה כמו כותרת שאפשר לפתוח. נייבי מלא על טקסט לבן — אותם צבעים הפוכים
+     של כפתור הבית, כך שכל מה שהוא כותרת בתפריט נראה אותו דבר. */
   .menu-gtoggle{
-    width:100%;display:flex;align-items:center;gap:8px;text-align:start;
-    background:var(--navy-tint);border:none;border-inline-start:3px solid var(--navy);
-    border-radius:var(--r-xs);padding:10px;margin:2px 0;
-    font-size:.78rem;font-weight:800;letter-spacing:.03em;color:var(--navy);
+    width:100%;display:flex;align-items:center;gap:9px;text-align:start;
+    background:var(--navy);border:none;
+    border-radius:var(--r-xs);padding:11px 10px;margin:2px 0;
+    font-size:.8rem;font-weight:800;letter-spacing:.03em;color:#fff;
     transition:background .14s ease;
   }
-  .menu-gtoggle:hover{background:#dfe9f5}
-  .menu-gtoggle:focus-visible{outline:2px solid var(--navy);outline-offset:-2px}
+  .menu-gtoggle:hover{background:var(--navy-2)}
+  /* מסגרת המיקוד לבנה ופנימה: נייבי על נייבי אינו נראה */
+  .menu-gtoggle:focus-visible{outline:2px solid #fff;outline-offset:-4px}
+  .menu-gtoggle .mg-ico{flex-shrink:0;width:18px;height:18px}
   .menu-gtoggle .mg-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   /* המונה על הקבוצה הסגורה הוא מה שמונע "קיפול שמסתיר עבודה": אם יש שלושה
      לידים חמים בפנים, זה נראה מבחוץ בלי לפתוח */
   .menu-gtoggle .mg-count{
-    flex-shrink:0;font-size:.66rem;font-weight:800;color:var(--navy);
-    background:rgba(255,255,255,.75);border-radius:999px;padding:2px 8px;
+    flex-shrink:0;font-size:.66rem;font-weight:800;color:#fff;
+    background:rgba(255,255,255,.22);border-radius:999px;padding:2px 8px;
   }
   .menu-gtoggle .mg-count.is-hot{background:#dc2626;color:#fff}
   .menu-gtoggle .mg-chev{
-    flex-shrink:0;width:15px;height:15px;color:var(--navy);
+    flex-shrink:0;width:15px;height:15px;color:rgba(255,255,255,.85);
     transition:transform .18s cubic-bezier(.22,1,.36,1);
   }
   .menu-gtoggle[aria-expanded="true"] .mg-chev{transform:rotate(180deg)}
@@ -1156,6 +1158,11 @@
     background:var(--surface-2);border-radius:999px;padding:2px 8px;
   }
   .menu-item .mi-count.is-hot{background:#dc2626;color:#fff}
+  /* האייקון של הפריט — אותו אחד שבסרגל הצד. בנייבי ולא באפור: הוא מה שקושר
+     את השורה לכותרת הצבועה שמעליה, ובטור של שורות טקסט בעברית הוא הסימן
+     שמאפשר לזהות שורה בלי לקרוא אותה. */
+  .menu-item .mi-ico{flex-shrink:0;width:18px;height:18px;color:var(--navy);opacity:.72}
+  .menu-item:hover .mi-ico{opacity:1}
   .menu-item .mi-chev{flex-shrink:0;width:15px;height:15px;color:var(--txt-faint)}
   /* ---------- כפתור הבית בתפריט ----------
      היעד היחיד שאינו קטגוריה אלא חזרה להתחלה, ולכן הוא הפוך: נייבי מלא על
@@ -1167,7 +1174,7 @@
   }
   .menu-item.is-home:hover{background:var(--navy-2)}
   .menu-item.is-home:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
-  .menu-item.is-home .mi-ico{flex-shrink:0;width:18px;height:18px}
+  .menu-item.is-home .mi-ico{color:#fff;opacity:1}
   .menu-item.is-home .mi-count{background:rgba(255,255,255,.2);color:#fff}
   .menu-empty{padding:14px 10px;font-size:.8rem;color:var(--txt-soft);text-align:center}
 
@@ -15174,6 +15181,12 @@ const DASH_ICONS = {
   inbox:'<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13l3.5 7v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5Z"/>',
   check:'<path d="M20 6 9 17l-5-5"/>',
   chart:'<path d="M3 3v18h18"/><path d="m7 14 3.5-3.5 3 3L20 7"/>',
+  /* שלושת האייקונים של כותרות הקבוצות בתפריט: מה שעושים (תיק), במה
+     משתמשים (מפתח ברגים) ומה שמגדירים (גלגל שיניים) */
+  briefcase:'<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M2 13h20"/>',
+  wrench:'<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-8 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-8l-3.7 3.9Z"/>',
+  /* גלגל שיניים ולא שמש: הטבעת החיצונית היא ההבדל בין השניים בגודל 18px */
+  cog:'<circle cx="12" cy="12" r="2.8"/><circle cx="12" cy="12" r="7.2"/><path d="M19.2 12h2.4"/><path d="M2.4 12h2.4"/><path d="M12 4.8V2.4"/><path d="M12 19.2v2.4"/><path d="m17.1 6.9 1.7-1.7"/><path d="m5.2 18.8 1.7-1.7"/><path d="m17.1 17.1 1.7 1.7"/><path d="m5.2 5.2 1.7 1.7"/>',
   sign:'<path d="M3 19c2.5 0 2.5-3 5-3s2.5 3 5 3 2.5-3 5-3 2.5 3 3 3"/><path d="M8.5 13.5 17 5a2.1 2.1 0 0 1 3 3l-8.5 8.5"/><path d="m14.5 7.5 3 3"/>',
 };
 
@@ -15242,7 +15255,7 @@ const NAV_ADMIN_HOME = '__adminHome';
 const NAV_GROUPS = [
   /* סדר הפריטים כאן הוא סדר יום העבודה ולא סדר הקוד: נכסים, לקוחות והתאמות
      קודמים ללידים, והמידע התכנוני סוגר. */
-  { key:'work', label:'פעילות עסקית', items:[
+  { key:'work', label:'פעילות עסקית', icon:'briefcase', items:[
     /* דף הבית אינו "עוד סעיף ברשימה" אלא הדרך חזרה, ולכן הוא מצויר כפתור
        הפוך (ראו .menu-item.is-home) ונושא את שם הלשונית בסרגל התחתון. */
     { acc:NAV_HOME,              label:'ראשי',              icon:'home',     tab:'home' },
@@ -15260,7 +15273,7 @@ const NAV_GROUPS = [
     { acc:'accAgreements',       label:'הסכמים והחתמות',    icon:'sign',     tab:'docs', focus:'agrSearch' },
     { acc:'accPlanning',         label:'מידע תכנוני',       icon:'map',      tab:'more' },
   ]},
-  { key:'tools', label:'כלים וצוות', items:[
+  { key:'tools', label:'כלים וצוות', icon:'wrench', items:[
     { acc:'accReports',  label:'דוחות וביצועים', icon:'chart', tab:'more' },
     { acc:'accTeam',     label:'צוות המשרד',     icon:'users', tab:'more' },
     { acc:'accReviews',  label:'ביקורות לאישור', icon:'star',  tab:'more' },
@@ -15269,7 +15282,7 @@ const NAV_GROUPS = [
   /* משרדי שת״פ והנכסים מוואטסאפ הם הגדרה שמבצעים פעם אחת ולא עבודה יומית,
      ולכן הם יושבים כאן ולא בין הנכסים. ‏tab:'more' ולא 'props' כדי שהקטגוריה
      בעמוד תשב באותה לשונית שבה התפריט מבטיח אותה. */
-  { key:'account', label:'הגדרות חשבון', items:[
+  { key:'account', label:'הגדרות חשבון', icon:'cog', items:[
     { acc:'accWallet',        label:'יתרת ארנק',         icon:'wallet',   tab:'more' },
     { acc:'accProfile',       label:'פרטי הסוכן/ת',      icon:'user',     tab:'more' },
     { acc:'accEthics',        label:'הקוד האתי',         icon:'shield',   tab:'more' },
@@ -15281,7 +15294,7 @@ const NAV_GROUPS = [
   /* כלי הפלטפורמה יושבים בקבוצה משלהם ומופיעים אך ורק בתצוגת מנהל/ת. זו כל
      הנקודה: הם עבודה של תפקיד אחר, ולא היה רגע שבו סוכן/ת רצה/תה לראות
      "ניהול מקורות RSS" בין "הנכסים שלי" ל"הלידים שלי". */
-  { key:'admin', label:'ניהול מערכת', adminOnly:true, items:[
+  { key:'admin', label:'ניהול מערכת', icon:'shield', adminOnly:true, items:[
     { acc:NAV_ADMIN_HOME,     label:'לוח בקרה חודשי', icon:'gauge',   tab:'admin' },
     { acc:'accNeighborhoods', label:'ניהול שכונות',   icon:'map',     tab:'admin' },
     { acc:'accRssSources',    label:'מקורות RSS',     icon:'rss',     tab:'admin' },
@@ -15352,7 +15365,7 @@ function navGroupsForView(){
   const admin = dashView === 'admin';
   return NAV_GROUPS
     .filter(g => !!g.adminOnly === admin)
-    .map(g => ({ key:g.key, label:g.label, items:g.items.filter(navItemVisible) }))
+    .map(g => ({ key:g.key, label:g.label, icon:g.icon, items:g.items.filter(navItemVisible) }))
     .filter(g => g.items.length);
 }
 
@@ -16305,8 +16318,10 @@ function menuItemButton(navItem){
   const item = document.createElement('button');
   item.type = 'button';
   item.className = 'menu-item' + (isHome ? ' is-home' : '');
+  /* אותו אייקון שמופיע בשורה של הקטגוריה בסרגל הצד. בטור של עשרים שורות
+     טקסט בעברית האייקון הוא מה שמאפשר לזהות שורה בלי לקרוא אותה. */
   item.innerHTML =
-    (isHome ? dashIcon(navItem.icon, 'mi-ico') : '')
+    dashIcon(navItem.icon, 'mi-ico')
     + '<span class="mi-label">' + esc(navItem.label) + '</span>'
     + (count ? '<span class="mi-count' + (hot ? ' is-hot' : '') + '">' + esc(String(count)) + '</span>' : '')
     + (isHome ? '' : '<svg class="mi-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>');
@@ -16331,6 +16346,7 @@ function buildMenuPanel(){
     .map(g => ({
       key:   g.key,
       label: g.label,
+      icon:  g.icon,
       items: g.items.filter(it => { if (navIsHomeItem(it)){ homeItems.push(it); return false; } return true; }),
     }))
     .filter(g => g.items.length);
@@ -16357,7 +16373,8 @@ function buildMenuPanel(){
     toggle.setAttribute('aria-expanded', String(open));
     toggle.setAttribute('aria-controls', sub.id);
     toggle.innerHTML =
-      '<span class="mg-label">' + esc(group.label) + '</span>'
+      dashIcon(group.icon, 'mg-ico')
+      + '<span class="mg-label">' + esc(group.label) + '</span>'
       + (hotSum ? '<span class="mg-count is-hot">' + esc(String(hotSum)) + '</span>'
                 : '<span class="mg-count">' + esc(String(group.items.length)) + '</span>')
       + '<svg class="mg-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>';
