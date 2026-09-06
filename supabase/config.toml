@@ -174,3 +174,12 @@ verify_jwt = true           # ניהול פרויקטים של יזם — שלו
 
 [functions.project-lead-purchase]
 verify_jwt = true           # רכישת ליד ממדף היזמים — פעולה שמעבירה כסף
+
+[functions.property-video-create]
+verify_jwt = true           # הפקת סרטון שיווקי — נוגע ב-credit_balance של סוכן/ת mid
+
+# ‏fal.ai קורא/ת לכאן מבחוץ ואין לו/ה JWT שלנו, ולכן זו נקודת קצה פתוחה.
+# האימות הוא webhook_token ייחודי לכל בקשה, שנשלח בכתובת ומושווה מול השורה
+# ב-property_video_jobs; מסלול ה-reconcile מאומת דרך _shared/cron-auth.ts.
+[functions.property-video-callback]
+verify_jwt = false
