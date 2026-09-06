@@ -1486,7 +1486,7 @@
   /* היחס בין בלעדיות לתיק הפעיל. קודם זו הייתה טבעת בקוטר 72px לצד הטקסט —
      ברוחב של שליש שורה היא זו שדחפה את המספר החוצה. בר יחס דק אומר את אותו
      דבר בגובה 6px, והאחוז עצמו יושב כתגית לצד הכותרת. */
-  .kpi-ratio{height:6px;border-radius:999px;background:rgba(28,58,94,.12);overflow:hidden;margin-top:9px}
+  .kpi-ratio{height:6px;border-radius:999px;background:rgba(28,58,94,.18);overflow:hidden;margin-top:9px}
   .kpi-ratio span{display:block;height:100%;border-radius:999px;
     background:linear-gradient(90deg,#2c5a8c,#c9a227);transition:width .6s cubic-bezier(.22,1,.36,1)}
 
@@ -1608,32 +1608,45 @@
   .kpi-link:hover svg{transform:translateX(-2px)}
   .kpi-link:active{transform:scale(.96)}
   .kpi-link:focus-visible{outline:2px solid #fff;outline-offset:2px}
-  /* אותו שער על הכרטיסים הבהירים — נייבי על תכלת במקום לבן על נייבי */
+  /* אותו שער על הכרטיסים הבהירים, הפוך: לבן מורם על תכלת במקום לבן שקוף
+     על נייבי. אותה לוגיקה בשניהם — הכפתור לוקח את הניגוד הגבוה ביותר
+     שהמשטח שלו מאפשר, ולכן שלושת השערים נראים בני אותו גיל */
   .kpi-link-soft{
-    background:#e6eff8;color:var(--navy);
-    box-shadow:inset 0 0 0 1px rgba(28,58,94,.14);
+    background:rgba(255,255,255,.88);color:var(--navy);
+    box-shadow:inset 0 0 0 1px rgba(28,58,94,.16),0 1px 2px rgba(15,23,42,.06);
   }
-  .kpi-link-soft:hover{background:#d8e5f3}
+  .kpi-link-soft:hover{background:#fff}
   .kpi-link-soft:focus-visible{outline-color:var(--navy)}
 
   /* ---------- שני המדדים הבהירים: נכסים פעילים ובלעדיות ----------
      קודם היה להם משטח שונה זה מזה (‏navy-tint אטום מול לבן שקוף למחצה),
-     ולכן שני כרטיסים שאומרים אותו סוג דבר נראו כמו שתי משפחות. עכשיו אותו
-     שיפוע בהיר בדיוק לשניהם, שקוף מספיק כדי שהרקע הזורם יבצבץ מתחתיו,
-     עם קו אור בקצה העליון ונגיעת נייבי בפינה — הד שקט להילה הזהובה של
-     כרטיס העמלות. */
+     ולכן שני כרטיסים שאומרים אותו סוג דבר נראו כמו שתי משפחות.
+
+     ואז שניהם היו בהירים מדי: לבן־כמעט על רקע בהיר הוא כרטיס בלי קצה. הקצה
+     הוא מה שמגדיר מרווח — ובלעדיו נראה היה שהמרווח בין שני הבהירים גדול
+     מהמרווח שלידם, למרות ששניהם ‎8px בדיוק. עכשיו תכלת־נייבי עם גבול נראה
+     לעין: שלושת הכרטיסים תחומים באותה מידה, ושלושת המרווחים נקראים שווים.
+
+     השקיפות נשמרה (‏rgba ולא צבע אטום) כדי שהרקע הזורם ימשיך לבצבץ, וכך גם
+     קו האור בקצה העליון ונגיעת הנייבי בפינה — הד שקט להילה הזהובה של כרטיס
+     העמלות. */
   .kpi-exclusive,.kpi-active{
-    background:linear-gradient(158deg,rgba(255,255,255,.97) 0%,rgba(239,244,250,.9) 100%);
-    border-color:#dde7f2;box-shadow:var(--sh-1),inset 0 1px 0 rgba(255,255,255,.9);
+    background:linear-gradient(158deg,rgba(207,224,240,.97) 0%,rgba(185,207,230,.95) 100%);
+    border-color:#a8c1dd;
+    box-shadow:var(--sh-1),inset 0 1px 0 rgba(255,255,255,.55);
   }
   .kpi-exclusive::after,.kpi-active::after{
     content:'';position:absolute;inset-inline-start:-60px;top:-80px;width:200px;height:200px;
     background:radial-gradient(circle,rgba(28,58,94,.10),transparent 68%);pointer-events:none;
   }
+  /* הטקסט מעמיק יחד עם המשטח — ‏txt-soft ו-txt-faint נבנו לכרטיס לבן, ועל
+     תכלת הם היו מטשטשים אל תוך הרקע */
+  .kpi-active .kpi-label,.kpi-exclusive .kpi-label{color:#33506f}
+  .kpi-active .kpi-note,.kpi-exclusive .kpi-note{color:#3d5570}
   /* האייקון הבהיר מקבל את אותו טיפול: שיפוע עדין וטבעת דקה במקום ריבוע שטוח */
   .kpi-icon-soft{
-    background:linear-gradient(150deg,#fff,var(--navy-tint));
-    box-shadow:inset 0 0 0 1px rgba(28,58,94,.10);
+    background:linear-gradient(150deg,#fff,#e7eff9);
+    box-shadow:inset 0 0 0 1px rgba(28,58,94,.14);
   }
 
   /* הלידים החמים — הכרטיס היחיד שמותר לו להיות זהוב, כי הוא היחיד שמייצג
