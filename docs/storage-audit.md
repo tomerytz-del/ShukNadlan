@@ -67,10 +67,18 @@ select p.status,
 ```sql
 with used as (
   select unnest(coalesce(images, '{}')) as url from public.properties
-  union all select marketing_image from public.properties where marketing_image is not null
-  union all select video_url        from public.properties where video_url is not null
+  union all select marketing_image from public.properties     where marketing_image is not null
+  union all select video_url        from public.properties     where video_url is not null
   union all select photo_url        from public.agency_members where photo_url is not null
   union all select cover_url        from public.agency_members where cover_url is not null
+  union all select logo_url         from public.agencies       where logo_url is not null
+  union all select cover_url        from public.agencies       where cover_url is not null
+  union all select cover_url        from public.articles       where cover_url is not null
+  union all select cover_url        from public.ad_placements  where cover_url is not null
+  union all select creative_url     from public.ad_placements  where creative_url is not null
+  union all select unnest(coalesce(gallery_urls, '{}')) from public.ad_placements
+  union all select cover_url        from public.projects       where cover_url is not null
+  union all select logo_url         from public.projects       where logo_url is not null
 )
 select o.bucket_id,
        count(*)                                          as orphan_files,
@@ -83,10 +91,11 @@ select o.bucket_id,
  group by o.bucket_id;
 ```
 
-> שימו לב: הרשימה `used` מכסה את הנכסים ואת תמונות הפרופיל. אם נוספו בינתיים
-> טבלאות שמחזיקות כתובות בדליים האלה (מיתוג משרד, כתבות, בעלי מקצוע), הוסיפו
-> אותן ל-`union` **לפני** שמוחקים משהו — קובץ שנחשב יתום בטעות הוא תמונה
-> שנעלמת מהאתר.
+> שימו לב: הרשימה `used` חייבת לכסות **כל** טבלה שמחזיקה כתובת בדליים האלה.
+> בהרצה הראשונה (5.9.2026) היא כללה רק נכסים ופרופילים, וכל קבצי המיתוג
+> והכתבות נספרו כ"יתומים" — 16 קבצים שאסור היה לגעת בהם. אם נוספה טבלה
+> חדשה, הוסיפו אותה ל-`union` **לפני** שמוחקים משהו: קובץ שנחשב יתום בטעות
+> הוא תמונה שנעלמת מהאתר.
 
 להצצה בקבצים עצמם לפני החלטה, החליפו את הבלוק האחרון ב:
 
@@ -116,6 +125,23 @@ select p.listing_number, p.status, p.city, p.street, p.house_number,
 ```
 
 ---
+
+## מה יצא בהרצה הראשונה (5.9.2026)
+
+| דלי | קבצים | נפח |
+| --- | --- | --- |
+| `property-visualizations` | 29 | 18 MB |
+| `property-videos` | 1 | 4.5 MB |
+| `property-images` | 20 | 4.4 MB |
+| **סה״כ** | **50** | **~27 MB** |
+
+**יתומים אמיתיים: אפס.** הרצה ראשונה החזירה 16 "יתומים", וכולם התבררו כקבצי
+מיתוג, כתבות ופרופיל שהשאילתה פשוט לא ידעה לחפש (מאז תוקנה, ראו למעלה).
+
+**המסקנה: אין מה לנקות.** ‏27MB הם שבריר מהמכסה, וכל מנגנון ניקוי שייבנה
+היום יעלה יותר בתחזוקה ובסיכון ממה שיחסוך. הנתון שכן שווה מעקב הוא
+`property-visualizations` — 18MB על 29 קבצים, כלומר ~620KB להדמיה, והוא
+הדלי שיצמח הכי מהר. **למדוד שוב כשהאתר יגיע לכמה מאות נכסים.**
 
 ## איך קוראים את התוצאות
 
