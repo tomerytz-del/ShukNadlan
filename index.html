@@ -5047,17 +5047,27 @@ const FALLBACK_COMMERCIAL = [
   {id:'c4', price:640000, title:'קליניקה מרווחת עם חניה צמודה', rooms:2, size_sqm:52, city:'עפולה', property_type:'קליניקות', deal_type:'sale', category:'commercial', agency_name:'נדל״ן גלבוע'},
 ];
 
+/* כמה אריחים ברצועה המסחרית, וכמה נשלפים כדי לבחור מתוכם. הבריכה גדולה
+   מהרצועה בכוונה: בלעדיה "עדיפות לנכסים עם תמונה" הייתה מילה ריקה — אי
+   אפשר להעדיף מתוך עשרה כשמציגים עשרה. */
+const COMMERCIAL_CAROUSEL_MAX = 10;
+const COMMERCIAL_POOL = 30;
+
 async function loadCommercialProperties(){
   if (!sb) return FALLBACK_COMMERCIAL;
   try{
     const { data, error } = await sb
       .from('properties')
-      .select('id, price, title, rooms, size_sqm, floor, city, property_type, deal_type, category, images, features, video_url, tour_3d_url, is_promoted, promoted_until, agencies(name, logo_url)')
+      .select('id, price, title, rooms, size_sqm, floor, city, property_type, deal_type, category, images, features, video_url, tour_3d_url, is_promoted, promoted_until, created_at, agencies(name, logo_url)')
       .eq('status', 'active')
       .eq('category', 'commercial')
-      .limit(10);
+      // בלי סדר מפורש ה-DB מחזיר שורות בסדר לא מוגדר, ואז גם הבריכה שממנה
+      // בוחרים משתנה מטעינה לטעינה. החדשים קודם, כמו בשתי הרצועות האחרות.
+      .order('created_at', { ascending: false })
+      .limit(COMMERCIAL_POOL);
     if (error || !data || data.length === 0) throw error || new Error('empty');
-    return data.map(p => ({...p, agency_name: p.agencies?.name || '', agency_logo: p.agencies?.logo_url || ''}));
+    const rows = data.map(p => ({...p, agency_name: p.agencies?.name || '', agency_logo: p.agencies?.logo_url || ''}));
+    return PropertyCard.photosFirst(rows).slice(0, COMMERCIAL_CAROUSEL_MAX);
   } catch(e){
     console.warn('טעינת נכסים מסחריים נכשלה, משתמש בנתוני fallback:', e);
     return FALLBACK_COMMERCIAL;
@@ -5111,9 +5121,19 @@ const DEAL_CAROUSEL_PROMOTED = 2;
    קודם), ואחריהם שאר הנכסים לפי תאריך העלאה יורד.
    המיון נעשה כאן ולא נלקח כמו שהוא מה-DB: הרשימה חוזרת משם ממוינת
    מקודמים-קודם על פני *כל* הקטגוריות יחד, וכך נכס מקודם להשכרה היה
-   נדחף לראש רצועת המכירה. קידום מרים נכס בתוך הרצועה שהוא שייך אליה. */
+   נדחף לראש רצועת המכירה. קידום מרים נכס בתוך הרצועה שהוא שייך אליה.
+
+   ‏photosFirst רץ על הבריכה *לפני* החיתוך לשנים־עשר, וזה כל העניין: הוא
+   שינוי בבחירה ולא בסידור. עד כה נכס בלי ולו תמונה אחת תפס מקום ברצועה
+   רק בזכות היותו חדש ודחף החוצה נכס מצולם שנכנס יום לפניו; ‏sortByMedia
+   שרצה אחר כך רק הורידה אותו לסוף אותה רצועה. ברצועת המכירה, שבה שבעה
+   מארבעה־עשר הנכסים הם בלי תמונה, זה חצי מהמלאי שנראה.
+
+   הוא רץ גם לפני בחירת המקודמים, ולכן שני המקומות בתשלום מתמלאים במקודם
+   מצולם כשיש כזה. קידום עדיין גובר על תמונה — הוא נשאר בראש הרצועה גם
+   בלעדיה, כי זה מה שנקנה. */
 function dealCarouselItems(properties, deal){
-  const pool = newestFirst(properties.filter(p => dealKind(p) === deal));
+  const pool = PropertyCard.photosFirst(newestFirst(properties.filter(p => dealKind(p) === deal)));
   const promoted = pool.filter(isPromoted).slice(0, DEAL_CAROUSEL_PROMOTED);
   const promotedIds = new Set(promoted.map(p => p.id));
   return [...promoted, ...pool.filter(p => !promotedIds.has(p.id))].slice(0, DEAL_CAROUSEL_MAX);
