@@ -11,6 +11,10 @@
    אל הזקיף, ואז אפשר לשאול. אישור מריץ history.back() אמיתי וממשיך לאן
    שהמשתמש/ת ביקש/ה; ביטול דוחף זקיף חדש ומשאיר את הדף במקומו.
 
+   ולא כל "אחורה" הוא יציאה מהדף: קישור עוגן פנימי (‎#listings‎ בדף הבית)
+   מוסיף רשומה משלו, ו"אחורה" ממנה רק מבטל את הקפיצה. לכן גם רשומת הדף
+   עצמה מסומנת, והשאלה עולה רק כשנוחתים עליה.
+
    מתי בכלל שואלים:
      • כשה"אחורה" באמת יוצא מהאתר — כלומר הדף נפתח מבחוץ (גוגל, קישור
        בוואטסאפ, סימנייה, כתובת שהוקלדה) ואין מאחוריו דף פנימי לחזור אליו.
@@ -39,31 +43,61 @@
 (function (global) {
   'use strict';
 
-  /* הסימון שמבדיל את הזקיף מהרשומה האמיתית של הדף. הוא נבדק דרך
-     history.state ולא דרך דגל ב-JS, כי חלון שדוחף רשומה משלו (מדבקת ה-QR
-     ב-CRM) מחזיר אותנו אל הזקיף — ואת החזרה הזו אסור לפרש כיציאה. */
+  /* שני סימונים ב-history.state, ולא דגל ב-JS: ההיסטוריה אינה קריאה, וכל מה
+     שיש לנו כדי לדעת על איזו רשומה נחתנו הוא מה שכתבנו עליה בעצמנו.
+
+     ‏STATE_KEY על הזקיף — חלון שדוחף רשומה משלו (מדבקת ה-QR ב-CRM) מחזיר
+     אותנו אליו כשהוא נסגר, ואת החזרה הזו אסור לפרש כיציאה.
+
+     ‏PAGE_KEY על הרשומה האמיתית של הדף — היא היעד היחיד שבו שואלים. בלעדיו
+     כל חזרה מקישור עוגן פנימי (‎#listings‎ בדף הבית) הייתה נקראת יציאה
+     מהאתר: רשומת עוגן נוצרת בדפדפן עם state ריק, ו"לא הזקיף" אינו מספיק
+     כדי להבדיל בינה לבין הדף עצמו. */
   var STATE_KEY = 'shukExitGuard';
+  var PAGE_KEY  = 'shukExitGuardPage';
 
-  var mounted  = false;
-  var armed    = false;   // האם הזקיף עומד כרגע בראש ההיסטוריה
-  var leaves   = false;   // האם "אחורה" מהדף הזה מוציא מהאתר
-  var leaveMsg = 'לצאת מהאתר?';
-  var unsaved  = null;
+  var mounted   = false;
+  var armed     = false;   // האם הזקיף עומד כרגע בראש ההיסטוריה
+  var pageTagged = false;  // האם הצלחנו לסמן את רשומת הדף
+  var leaves    = false;   // האם "אחורה" מהדף הזה מוציא מהאתר
+  var leaveMsg  = 'לצאת מהאתר?';
+  var unsaved   = null;
 
-  function sentinelState(){
-    var state = {};
-    state[STATE_KEY] = true;
+  function stateWith(key){
+    var base = global.history.state;
+    var state = (base && typeof base === 'object') ? base : {};
+    state[key] = true;
     return state;
   }
 
-  function onSentinel(){
-    var state = global.history.state;
-    return !!(state && state[STATE_KEY]);
+  /* הרשומה שעליה הדף נטען היא זו שאליה נחזור כשהזקיף ייפול, ולכן היא נושאת
+     את הסימון. ‏replaceState ולא pushState: אנחנו עומדים עליה ממש עכשיו. */
+  function tagPage(){
+    try {
+      global.history.replaceState(stateWith(PAGE_KEY), '');
+      var state = global.history.state;
+      pageTagged = !!(state && state[PAGE_KEY]);
+    } catch (e) { pageTagged = false; }
   }
 
+  /* הזקיף מקבל state נקי משלו ולא העתק של רשומת הדף: הוא רשומה שאנחנו
+     יצרנו, ואין בה מצב של הדף שצריך לשרוד. */
   function arm(){
-    try { global.history.pushState(sentinelState(), ''); armed = true; }
+    var state = {};
+    state[STATE_KEY] = true;
+    try { global.history.pushState(state, ''); armed = true; }
     catch (e) { armed = false; }   // דפדפן שחוסם היסטוריה — הדף עובד בלי השמירה
+  }
+
+  /* על איזו רשומה נחתנו: הזקיף עצמו, רשומת הדף, או רשומה שאינה שלנו (עוגן,
+     או חלון שדחף רשומה משלו). דפדפן שלא שמר את הסימון על רשומת הדף מקבל את
+     הכלל הישן — כל מה שאינו הזקיף נחשב לרשומת הדף — כדי שכישלון בסימון יעלה
+     שאלה מיותרת ולא יבטל את השמירה כולה. */
+  function landedOn(){
+    var state = global.history.state;
+    if (state && state[STATE_KEY]) return 'sentinel';
+    if (!pageTagged) return 'page';
+    return (state && state[PAGE_KEY]) ? 'page' : 'other';
   }
 
   /* היסטוריה באורך 1 היא ודאות ולא הערכה: אין לאן לחזור, ו"אחורה" סוגר את
@@ -85,10 +119,12 @@
     return null;
   }
 
+  /* ‏'sentinel' — הגענו אל הזקיף ולא דרכו (חלון שדחף רשומה משלו ונסגר עכשיו).
+     ‏'other'    — רשומת עוגן בתוך הדף; "אחורה" ממנה הוא ניווט פנימי, והזקיף
+                   נשאר עומד למקרה שימשיכו אחורה עד לדף עצמו.
+     ‏'page'     — הזקיף נפל, וזו הלחיצה שעומדת לעזוב את הדף. */
   function onPopState(){
-    if (!armed) return;
-    // הגענו אל הזקיף ולא דרכו — למשל חלון שדחף רשומה משלו ונסגר עכשיו
-    if (onSentinel()) return;
+    if (!armed || landedOn() !== 'page') return;
     armed = false;
     var reason = reasonToAsk();
     // אין מה לשאול: הלחיצה הייתה אמיתית, וכל מה שהיא בזבזה הוא את הזקיף
@@ -107,6 +143,7 @@
     if (!leaves && !unsaved) return;
     mounted = true;
     global.addEventListener('popstate', onPopState);
+    tagPage();
     arm();
   }
 
