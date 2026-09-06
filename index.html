@@ -17,6 +17,8 @@
 <script src="assets/map-gestures.js"></script>
 <script src="assets/property-card.js"></script>
 <script src="assets/project-card.js"></script>
+<!-- "אחורה" מדף הבית הוא לרוב יציאה מהאתר: שואלים לפניה. ראו assets/exit-guard.js -->
+<script src="assets/exit-guard.js" data-auto></script>
 <style>
   /* ====== Design tokens — grounded in Jezreel Valley (עמק יזרעאל): wheat gold + cultivated-land teal + Gilboa dusk ====== */
   :root{
@@ -7633,13 +7635,17 @@ function setAiFilter(on){
 }
 
 /* מדליק את המסנן, מריץ חיפוש, וגולל לתוצאות. נקרא מהקישור העמוק
-   ומ-window.ShukSearch, ולכן הוא זה שמחזיק את ההתנהגות במקום אחד. */
+   ומ-window.ShukSearch, ולכן הוא זה שמחזיק את ההתנהגות במקום אחד.
+
+   שלושת ה-replaceState בקטע הזה מעבירים את history.state הקיים ולא null:
+   הרשומה שהם כותבים עליה היא הזקיף של assets/exit-guard.js, וסימון שנמחק
+   ממנה היה מבלבל את השאלה שלפני היציאה מהאתר. */
 async function applyAiFilter(){
   setAiFilter(true);
   try{
     const url = new URL(location.href);
     url.searchParams.set('ai', '1');
-    history.replaceState(null, '', url);
+    history.replaceState(history.state, '', url);
   } catch(e){ /* דפדפן שחוסם היסטוריה — המסנן עדיין עובד */ }
   await runSearch();
   document.getElementById('searchResults')
@@ -7655,7 +7661,7 @@ document.getElementById('aiFilterChip')?.addEventListener('click', async ()=>{
   try{
     const url = new URL(location.href);
     url.searchParams.delete('ai');
-    history.replaceState(null, '', url);
+    history.replaceState(history.state, '', url);
   } catch(e){ /* כנ"ל */ }
   await runSearch();
 });
@@ -7677,7 +7683,7 @@ async function clearSearch(){
   try{
     const url = new URL(location.href);
     url.searchParams.delete('ai');
-    history.replaceState(null, '', url);
+    history.replaceState(history.state, '', url);
   } catch(e){ /* דפדפן שחוסם היסטוריה */ }
 
   searchHasRun = false;
