@@ -358,6 +358,50 @@
      הפעולות יושבות ברשת עמודות שוות. */
   .prop-price{font-weight:800;font-size:.92rem;color:var(--teal-dark);margin-top:2px}
   .prop-price .per{font-weight:600;font-size:.78rem;color:var(--ink-soft)}
+
+  /* ---------- "הנכסים שלי" כרשימת טאבים ----------
+     שורה אחת לנכס — סוג, כתובת ומחיר — וכל השאר מאחורי לחיצה. עשרה טאבים
+     נכנסים למסך טלפון אחד, וזה ההבדל בין לסרוק רשימה לבין לגלול בה. */
+  .prop-tabs{display:grid;gap:6px}
+  .prop-tab{border:1px solid var(--edge,var(--line));border-radius:var(--r-md,var(--radius-sm));
+    background:var(--surface,#fff);overflow:hidden}
+  .prop-tab.is-open{box-shadow:var(--sh-1,var(--shadow-sm))}
+  .prop-tab-head{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;
+    background:none;border:none;font:inherit;color:inherit;text-align:start;cursor:pointer}
+  .prop-tab-head:hover{background:var(--surface-2,rgba(28,58,94,.04))}
+  .prop-tab-head:focus-visible{outline:2px solid var(--teal);outline-offset:-2px}
+  .prop-tab-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+  /* ‏nowrap+ellipsis: כתובת ארוכה שנשברת לשתי שורות מבטלת את כל הרווח שנחסך */
+  .prop-tab-title,.prop-tab-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .prop-tab-title{font-weight:700;font-size:.88rem}
+  .prop-tab-sub{font-size:.72rem;color:var(--txt-faint,var(--ink-soft))}
+  .prop-tab-price{font-weight:800;font-size:.85rem;color:var(--teal-dark);white-space:nowrap;flex-shrink:0}
+  .prop-tab-price .per{font-weight:600;font-size:.72rem;color:var(--txt-faint,var(--ink-soft))}
+  .prop-tab-chev{width:17px;height:17px;flex-shrink:0;color:var(--txt-faint,var(--ink-soft));
+    transition:transform .18s ease}
+  .prop-tab.is-open .prop-tab-chev{transform:rotate(180deg)}
+  /* טאב פתוח מסומן גם כשהעכבר לא עליו — אחרת רק החץ מבדיל בינו לבין שכניו */
+  .prop-tab.is-open .prop-tab-head{background:var(--surface-2,rgba(28,58,94,.04))}
+  .prop-tab-panel{padding:0 8px 8px;border-top:1px solid var(--edge,var(--line))}
+  .prop-tab-panel[hidden]{display:none}
+  /* הכרטיס שנפתח הוא אותו כרטיס שהיה ברשימה — רק בלי המרווח התחתון שהפריד
+     בינו לבין הכרטיס הבא, שכבר לא קיים */
+  .prop-tab-panel .lead-card{margin-bottom:0;margin-top:8px}
+  @media(max-width:420px){
+    .prop-tab-head{gap:7px;padding:9px 10px}
+    .prop-tab-price{font-size:.8rem}
+  }
+
+  /* דפדוף: עמוד של עשרה, עם המיקום ברשימה בין הכפתורים */
+  .prop-pager{display:flex;align-items:center;justify-content:space-between;gap:8px;
+    margin-top:10px;flex-wrap:wrap}
+  .prop-pager-btn{border:1.5px solid var(--edge,var(--line));background:var(--surface,#fff);
+    border-radius:999px;padding:7px 14px;font:inherit;font-size:.78rem;font-weight:700;
+    color:var(--txt,var(--ink));cursor:pointer;white-space:nowrap}
+  .prop-pager-btn:hover:not(:disabled){border-color:var(--teal);color:var(--teal)}
+  .prop-pager-btn:disabled{opacity:.45;cursor:not-allowed}
+  .prop-pager-btn:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+  .prop-pager-label{font-size:.74rem;color:var(--txt-faint,var(--ink-soft));white-space:nowrap}
   .card-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
   .card-tag{display:inline-flex;align-items:center;gap:4px;font-size:.71rem;font-weight:600;line-height:1.7;
     color:var(--ink-soft);background:#fff;border:1px solid var(--line);border-radius:999px;padding:1px 9px;white-space:nowrap}
@@ -10012,6 +10056,17 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
    על כל תו. לכן loadProperties() אחראית רק על הבאת הנתונים ועל המידע הנלווה
    (צפיות, מידע תכנוני, ספירת שת״פ), ו-renderProperties() על התצוגה.       */
 const PROPERTY_STATUS_LABELS = { active:'פעיל', sold:'נמכר', rented:'הושכר', archived:'הוסר' };
+
+/* ---------- הרשימה כטאבים ----------
+   כרטיס נכס מלא הוא חצי מסך טלפון, וסוכן/ת עם חמישים נכסים גלל/ה עשרים
+   מסכים כדי למצוא אחד. לכן הרשימה מציגה עשרה טאבים קצרים — סוג, כתובת
+   ומחיר — ורק לחיצה על טאב פותחת מתחתיו את הכרטיס המלא כפי שהיה, על כל
+   התגיות והפעולות שבו. הדפדוף הוא עמוד שלם: עשרה הבאים או עשרה הקודמים. */
+const PROP_TABS_WINDOW = 10;
+const PROP_TABS_STEP   = 10;
+let propTabsStart = 0;
+const expandedPropertyIds = new Set();
+
 let myPropertyRows = [];
 let myPropertyAgentId = null;
 let propertyViewCounts = {};
@@ -10155,18 +10210,30 @@ function renderProperties(){
     listEl.innerHTML = '<div class="empty-state">אין נכס שמתאים לחיפוש או לסינון הנוכחי.</div>';
     return;
   }
-  renderPropertyCards(listEl, rows, myPropertyAgentId);
+  // סינון או מחיקה יכולים לקצר את הרשימה מתחת לעמוד הנוכחי — הדפדוף נסוג
+  // לעמוד האחרון שקיים במקום להציג עמוד ריק
+  propTabsStart = Math.min(Math.max(propTabsStart, 0),
+    Math.floor((rows.length - 1) / PROP_TABS_WINDOW) * PROP_TABS_WINDOW);
+  renderPropertyTabs(listEl, rows, myPropertyAgentId);
 }
 
 function clearPropertyFilters(){
   ['propSearch','propStatusFilter','propDealFilter','propTypeFilter','propCityFilter','propExtraFilter']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+  propTabsStart = 0;
   renderProperties();
 }
 
-document.getElementById('propSearch').addEventListener('input', renderProperties);
+// כל שינוי בסינון/מיון מחזיר את הדפדוף להתחלה: "עמוד 4" של רשימה קודמת
+// אינו עמוד 4 של הרשימה החדשה
+function renderPropertiesFromTop(){
+  propTabsStart = 0;
+  renderProperties();
+}
+
+document.getElementById('propSearch').addEventListener('input', renderPropertiesFromTop);
 ['propStatusFilter','propDealFilter','propTypeFilter','propCityFilter','propExtraFilter','propSort']
-  .forEach(id => document.getElementById(id).addEventListener('change', renderProperties));
+  .forEach(id => document.getElementById(id).addEventListener('change', renderPropertiesFromTop));
 document.getElementById('propClearFilters').addEventListener('click', clearPropertyFilters);
 
 async function loadProperties(agentId){
@@ -10224,168 +10291,259 @@ async function loadProperties(agentId){
   renderProperties();
 }
 
-function renderPropertyCards(listEl, props, agentId){
+/* ---- הטאבים: השורה הקצרה, הדפדוף, והכרטיס שנפתח מתחתיה ---- */
+
+// הכתובת כפי שהיא נמסרת בטלפון — רחוב ומספר, ואז העיר. אין רחוב (קרקע
+// חקלאית, מגרש) — נופלים לכותרת המודעה, שתמיד קיימת.
+function propertyTabAddress(p){
+  const street = [p.street, p.house_number].filter(Boolean).join(' ');
+  return [street, p.city].filter(Boolean).join(', ') || (p.title || '').trim();
+}
+
+function renderPropertyTabs(listEl, rows, agentId){
+  listEl.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'prop-tabs';
+  rows.slice(propTabsStart, propTabsStart + PROP_TABS_WINDOW)
+      .forEach(p => wrap.appendChild(buildPropertyTab(p, agentId)));
+  listEl.appendChild(wrap);
+  const pager = buildPropertyPager(rows.length);
+  if (pager) listEl.appendChild(pager);
+}
+
+function buildPropertyTab(p, agentId){
+  const isOpen = expandedPropertyIds.has(p.id);
+  const el = document.createElement('div');
+  el.className = 'prop-tab' + (isOpen ? ' is-open' : '');
+  const panelId = 'propTabPanel-' + esc(String(p.id));
+  const priceHtml = shekel(p.price) + (p.deal_type === 'rent' ? ' <span class="per">לחודש</span>' : '');
+  // השורה השנייה היא רק מה שמזהה ומה שדחוף: המספר שנמסר בטלפון, הסטטוס,
+  // וכוכב הקידום. כל השאר מחכה לפתיחת הכרטיס.
+  const sub = [
+    `מודעה #${esc(String(p.listing_number ?? '—'))}`,
+    esc(PROPERTY_STATUS_LABELS[p.status] || p.status || ''),
+    propertyIsPromoted(p) ? '🌟 מקודם' : '',
+  ].filter(Boolean).join(' · ');
+
+  el.innerHTML = `
+    <button type="button" class="prop-tab-head" aria-expanded="${isOpen}" aria-controls="${panelId}">
+      <span class="prop-tab-main">
+        <span class="prop-tab-title">${esc(p.property_type || 'נכס')} · ${esc(propertyTabAddress(p))}</span>
+        <span class="prop-tab-sub">${sub}</span>
+      </span>
+      <span class="prop-tab-price">${priceHtml}</span>
+      <svg class="prop-tab-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </button>
+    <div class="prop-tab-panel" id="${panelId}"${isOpen ? '' : ' hidden'}></div>`;
+
+  const head = el.querySelector('.prop-tab-head');
+  const panel = el.querySelector('.prop-tab-panel');
+  // הכרטיס נבנה בפתיחה ונזרק בסגירה: עשרה כרטיסים מלאים בזיכרון הם בדיוק
+  // המסך שממנו ברחנו, וגם מאזיני הפעולות שבהם נשארים תלויים
+  const fillPanel = ()=> panel.appendChild(buildPropertyCard(p, agentId));
+  if (isOpen) fillPanel();
+
+  head.addEventListener('click', ()=>{
+    const opening = !expandedPropertyIds.has(p.id);
+    if (opening){
+      expandedPropertyIds.add(p.id);
+      panel.innerHTML = '';
+      fillPanel();
+    } else {
+      expandedPropertyIds.delete(p.id);
+      panel.innerHTML = '';
+    }
+    panel.hidden = !opening;
+    el.classList.toggle('is-open', opening);
+    head.setAttribute('aria-expanded', String(opening));
+  });
+  return el;
+}
+
+function buildPropertyPager(total){
+  if (total <= PROP_TABS_WINDOW) return null;
+  const start = propTabsStart;
+  const end = Math.min(start + PROP_TABS_WINDOW, total);
+  const wrap = document.createElement('div');
+  wrap.className = 'prop-pager';
+  wrap.innerHTML = `
+    <button type="button" class="prop-pager-btn" ${start === 0 ? 'disabled' : ''}>→ ${PROP_TABS_STEP} הקודמים</button>
+    <span class="prop-pager-label">נכסים <bdi>${start + 1}–${end}</bdi> מתוך <bdi>${total}</bdi></span>
+    <button type="button" class="prop-pager-btn" ${end >= total ? 'disabled' : ''}>${PROP_TABS_STEP} הבאים ←</button>`;
+  const [prevBtn, nextBtn] = wrap.querySelectorAll('.prop-pager-btn');
+  prevBtn.addEventListener('click', ()=> movePropertyWindow(-PROP_TABS_STEP));
+  nextBtn.addEventListener('click', ()=> movePropertyWindow(PROP_TABS_STEP));
+  return wrap;
+}
+
+function movePropertyWindow(delta){
+  propTabsStart = Math.max(0, propTabsStart + delta);
+  renderProperties();
+  // אחרי דפדוף העין צריכה לחזור לראש הרשימה — אחרת העמוד החדש נפתח באמצע
+  document.getElementById('propertiesList')
+    ?.scrollIntoView({ behavior:'smooth', block:'nearest' });
+}
+
+function buildPropertyCard(p, agentId){
   const statusLabels = PROPERTY_STATUS_LABELS;
   const viewCounts = propertyViewCounts;
   const planningByProperty = propertyPlanningInfo;
 
-  listEl.innerHTML = '';
-  props.forEach(p=>{
-    const priceHtml = shekel(p.price) + (p.deal_type === 'rent' ? ' <span class="per">לחודש</span>' : '');
-    // ‏promoted_until ריק = קידום ידני/היסטורי בלי מועד סיום, נחשב פעיל
-    const isCurrentlyPromoted = propertyIsPromoted(p);
-    // תוקף המודעה הוא תזכורת לסוכן/ת בלבד — הוא לא מוריד את הנכס מהאתר
-    const expired = propertyIsExpired(p);
-    // ‏property_owners מוגן ב-RLS, ולכן השורה הזו מגיעה רק לסוכן/ת של הנכס
-    // ולמנהל/ת המשרד — ולכל האחרים היא פשוט לא קיימת בתשובה.
-    const ownerRow = Array.isArray(p.property_owners) ? p.property_owners[0] : p.property_owners;
-    const ownerLine = [ownerRow?.owner_name, ownerRow?.owner_phone].filter(Boolean).join(' · ');
-    const planning = planningByProperty[p.id];
-    const mktState = marketingCopyState(p);
-    const el = document.createElement('div');
-    el.className = 'card lead-card' + (isCurrentlyPromoted ? ' is-promoted' : '');
-    const thumbHtml = (p.images && p.images.length)
-      ? `<img class="prop-thumb-mini" src="${p.images[0]}" alt="">`
-      : '';
-    // כל פרט הוא תגית קצרה משלו: קודם המזהה שהסוכן/ת מוסר/ת בטלפון, אחר כך
-    // מאפייני הנכס, ובסוף התגיות שדורשות פעולה (פג תוקף / ללא תמונות) בגוון
-    // אזהרה — כדי שהעין תתפוס אותן בסריקה מהירה של הרשימה.
-    const tags = tagsHtml([
-      { text:`מודעה #${p.listing_number ?? '—'}`, cls:'tag-key' },
-      p.rooms && { html:`🛏 <b>${esc(p.rooms)}</b> חדרים` },
-      p.property_type && { text:'🏠 ' + p.property_type },
-      { html:`👁 <b>${viewCounts[p.id]||0}</b> צפיות` },
-      p.price_per_sqm && { text:`📐 ${shekel(p.price_per_sqm)} למ״ר` },
-      planning && { text:`📍 גוש ${planning.gush||'—'} · חלקה ${planning.helka||'—'}`, cls:'tag-info' },
-      expired ? { text:`⏳ פג תוקף ${hebDate(p.listing_expires_at)}`, cls:'tag-warn' }
-              : p.listing_expires_at && { text:`⏳ בתוקף עד ${hebDate(p.listing_expires_at)}` },
-      (!p.images || !p.images.length) && { text:'📷 ללא תמונות', cls:'tag-warn' },
-      // התיאור השיווקי הוא מה שמופיע בדף הנכס כשאין תיאור מודעה, ולכן
-      // היעדרו הוא חוסר במודעה עצמה — באותו גוון אזהרה של "ללא תמונות".
-      p.status === 'active' && mktState.tag && { text: mktState.tag, cls:'tag-warn' },
-    ]);
+  const priceHtml = shekel(p.price) + (p.deal_type === 'rent' ? ' <span class="per">לחודש</span>' : '');
+  // ‏promoted_until ריק = קידום ידני/היסטורי בלי מועד סיום, נחשב פעיל
+  const isCurrentlyPromoted = propertyIsPromoted(p);
+  // תוקף המודעה הוא תזכורת לסוכן/ת בלבד — הוא לא מוריד את הנכס מהאתר
+  const expired = propertyIsExpired(p);
+  // ‏property_owners מוגן ב-RLS, ולכן השורה הזו מגיעה רק לסוכן/ת של הנכס
+  // ולמנהל/ת המשרד — ולכל האחרים היא פשוט לא קיימת בתשובה.
+  const ownerRow = Array.isArray(p.property_owners) ? p.property_owners[0] : p.property_owners;
+  const ownerLine = [ownerRow?.owner_name, ownerRow?.owner_phone].filter(Boolean).join(' · ');
+  const planning = planningByProperty[p.id];
+  const mktState = marketingCopyState(p);
+  const el = document.createElement('div');
+  el.className = 'card lead-card' + (isCurrentlyPromoted ? ' is-promoted' : '');
+  const thumbHtml = (p.images && p.images.length)
+    ? `<img class="prop-thumb-mini" src="${p.images[0]}" alt="">`
+    : '';
+  // כל פרט הוא תגית קצרה משלו: קודם המזהה שהסוכן/ת מוסר/ת בטלפון, אחר כך
+  // מאפייני הנכס, ובסוף התגיות שדורשות פעולה (פג תוקף / ללא תמונות) בגוון
+  // אזהרה — כדי שהעין תתפוס אותן בסריקה מהירה של הרשימה.
+  const tags = tagsHtml([
+    { text:`מודעה #${p.listing_number ?? '—'}`, cls:'tag-key' },
+    p.rooms && { html:`🛏 <b>${esc(p.rooms)}</b> חדרים` },
+    p.property_type && { text:'🏠 ' + p.property_type },
+    { html:`👁 <b>${viewCounts[p.id]||0}</b> צפיות` },
+    p.price_per_sqm && { text:`📐 ${shekel(p.price_per_sqm)} למ״ר` },
+    planning && { text:`📍 גוש ${planning.gush||'—'} · חלקה ${planning.helka||'—'}`, cls:'tag-info' },
+    expired ? { text:`⏳ פג תוקף ${hebDate(p.listing_expires_at)}`, cls:'tag-warn' }
+            : p.listing_expires_at && { text:`⏳ בתוקף עד ${hebDate(p.listing_expires_at)}` },
+    (!p.images || !p.images.length) && { text:'📷 ללא תמונות', cls:'tag-warn' },
+    // התיאור השיווקי הוא מה שמופיע בדף הנכס כשאין תיאור מודעה, ולכן
+    // היעדרו הוא חוסר במודעה עצמה — באותו גוון אזהרה של "ללא תמונות".
+    p.status === 'active' && mktState.tag && { text: mktState.tag, cls:'tag-warn' },
+  ]);
 
-    el.innerHTML = `
-      <div class="lead-top">
-        <div style="display:flex;gap:10px;align-items:flex-start;min-width:0">
-          ${thumbHtml}
-          <div style="min-width:0">
-            ${isCurrentlyPromoted && p.promoted_until ? `<span class="lead-kind">🌟 מקודם · ${esc(timeLeftLabel(p.promoted_until))}</span>` : (isCurrentlyPromoted ? '<span class="lead-kind">🌟 מקודם</span>' : '')}
-            <div class="lead-name">${esc(p.title)}</div>
-            <div class="prop-price">${priceHtml}</div>
-          </div>
-        </div>
-        <div class="pill-row">
-          <span class="status-pill ${p.status === 'active' ? 'status-unlocked' : 'status-off'}">${statusLabels[p.status] || p.status}</span>
-          ${p.shared_with_partners
-            ? `<span class="status-pill status-shared" title="בשת״פ · הופץ ${hebDate(p.shared_at)}">🤝 ${propertyShareCounts[p.id] || 0} משרדים</span>`
-            : ''}
+  el.innerHTML = `
+    <div class="lead-top">
+      <div style="display:flex;gap:10px;align-items:flex-start;min-width:0">
+        ${thumbHtml}
+        <div style="min-width:0">
+          ${isCurrentlyPromoted && p.promoted_until ? `<span class="lead-kind">🌟 מקודם · ${esc(timeLeftLabel(p.promoted_until))}</span>` : (isCurrentlyPromoted ? '<span class="lead-kind">🌟 מקודם</span>' : '')}
+          <div class="lead-name">${esc(p.title)}</div>
+          <div class="prop-price">${priceHtml}</div>
         </div>
       </div>
-      ${tags}
-      ${ownerLine ? `<div class="lead-meta">בעלים: ${esc(ownerLine)}</div>` : ''}
-      ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
-      <div class="lead-actions"></div>
-    `;
-    const actions = el.querySelector('.lead-actions');
+      <div class="pill-row">
+        <span class="status-pill ${p.status === 'active' ? 'status-unlocked' : 'status-off'}">${statusLabels[p.status] || p.status}</span>
+        ${p.shared_with_partners
+          ? `<span class="status-pill status-shared" title="בשת״פ · הופץ ${hebDate(p.shared_at)}">🤝 ${propertyShareCounts[p.id] || 0} משרדים</span>`
+          : ''}
+      </div>
+    </div>
+    ${tags}
+    ${ownerLine ? `<div class="lead-meta">בעלים: ${esc(ownerLine)}</div>` : ''}
+    ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
+    <div class="lead-actions"></div>
+  `;
+  const actions = el.querySelector('.lead-actions');
 
-    // סדר הפעולות: קודם כלי העבודה היומיומיים ברשת עמודות שוות, ורק בסוף
-    // הפעולות שמשנות את מצב הנכס (שת"פ / סגירת עסקה) ברוחב מלא.
-    addCardAction(actions, { label:'✏️ עריכה', onClick:()=> openEditProperty(p) });
+  // סדר הפעולות: קודם כלי העבודה היומיומיים ברשת עמודות שוות, ורק בסוף
+  // הפעולות שמשנות את מצב הנכס (שת"פ / סגירת עסקה) ברוחב מלא.
+  addCardAction(actions, { label:'✏️ עריכה', onClick:()=> openEditProperty(p) });
 
-    // החתמת בעל/ת הנכס — הטופס נפתח כשפרטי הנכס והבעלים כבר בתוכו
+  // החתמת בעל/ת הנכס — הטופס נפתח כשפרטי הנכס והבעלים כבר בתוכו
+  addCardAction(actions, {
+    label:'✍️ החתמת בעלים',
+    title:'הזמנת שירותי תיווך מבעל/ת הנכס, עם פרטי הנכס שכבר במערכת',
+    onClick:()=> openAgreementWizard({ kind: p.deal_type === 'rent' ? 'landlord' : 'sell', propertyId: p.id }),
+  });
+
+  // כתיבת נוסח מהנתונים — הצעה בלבד, נשמרת רק באישור בתוך החלון.
+  // "רענון" ולא "יצירה" כשכבר יש תיאור: זו אותה פעולה, אבל המילה אומרת
+  // לסוכן/ת מה עומד להשתנות.
+  if (p.status === 'active'){
     addCardAction(actions, {
-      label:'✍️ החתמת בעלים',
-      title:'הזמנת שירותי תיווך מבעל/ת הנכס, עם פרטי הנכס שכבר במערכת',
-      onClick:()=> openAgreementWizard({ kind: p.deal_type === 'rent' ? 'landlord' : 'sell', propertyId: p.id }),
+      label: mktState.level === 'missing' ? '✨ תיאור שיווקי' : '♻️ רענון תיאור',
+      title: mktState.note,
+      onClick: btn => openMarketingCopy(p, btn, agentId),
+    });
+  }
+
+  if (planning){
+    addCardAction(actions, {
+      label:'🗺️ מידע תכנוני', title:'המידע התכנוני השמור של הנכס',
+      onClick:()=>{
+        document.getElementById('planResultPanel').scrollIntoView({ behavior:'smooth', block:'start' });
+        renderPlanningResult(planning);
+      },
+    });
+  }
+
+  // הכפתור מוצג רק ל-mid/premium; ה-gating עצמו נאכף ב-cma_report ב-DB
+  if (currentAgent && (currentAgent.tier === 'mid' || currentAgent.tier === 'premium')){
+    addCardAction(actions, { label:'📊 דוח CMA', onClick:btn => openCmaReport(p.id, btn) });
+  }
+
+  if (p.status === 'active'){
+    // הדרך לראות את המודעה כמו שהיא נראית ללקוח/ה — אותו עמוד שה-QR מוביל
+    // אליו. בלשונית חדשה כדי שה-CRM יישאר פתוח מאחור, ורק לנכס פעיל: דף
+    // הנכס טוען ‎status=active‎ בלבד ולכל השאר יציג "לא נמצא".
+    addCardAction(actions, {
+      label:'🏠 צפייה בדף הנכס', title:'פתיחת עמוד הנכס באתר בלשונית חדשה',
+      href:'property.html?id=' + encodeURIComponent(p.id), blank:true,
     });
 
-    // כתיבת נוסח מהנתונים — הצעה בלבד, נשמרת רק באישור בתוך החלון.
-    // "רענון" ולא "יצירה" כשכבר יש תיאור: זו אותה פעולה, אבל המילה אומרת
-    // לסוכן/ת מה עומד להשתנות.
-    if (p.status === 'active'){
+    // מדבקה להדבקה על השלט בשטח — עמוד הנכס באתר מוצג רק לנכס פעיל,
+    // ולכן גם הכפתור נמצא כאן ולא לצד "עריכה"
+    addCardAction(actions, {
+      label:'🏷️ מדבקת QR', title:'הפקת מדבקת QR להדבקה על השלט',
+      onClick:btn => openQrSticker(p, btn),
+    });
+
+    addCardAction(actions, {
+      label:'⬆️ הקפצה חינם', title:'העלאת הנכס לראש התוצאות · פעם ב-24 שעות',
+      onClick:btn => bumpProperty(p.id, btn, agentId),
+    });
+
+    if (!isCurrentlyPromoted){
+      const price = shekel(priceOf('promote_price', 20));
+      const hours = priceOf('promote_duration_hours', 72);
       addCardAction(actions, {
-        label: mktState.level === 'missing' ? '✨ תיאור שיווקי' : '♻️ רענון תיאור',
-        title: mktState.note,
-        onClick: btn => openMarketingCopy(p, btn, agentId),
+        label:`📣 קידום · ${price}`,
+        title:`קידום בתשלום — ${price} ל-${hours} שעות בסלוטים המקודמים`,
+        onClick:btn => promoteProperty(p, btn, agentId),
       });
     }
 
-    if (planning){
-      addCardAction(actions, {
-        label:'🗺️ מידע תכנוני', title:'המידע התכנוני השמור של הנכס',
-        onClick:()=>{
-          document.getElementById('planResultPanel').scrollIntoView({ behavior:'smooth', block:'start' });
-          renderPlanningResult(planning);
-        },
-      });
+    if (p.shared_with_partners){
+      addCardAction(actions, { label:'✖ ביטול שת״פ', onClick:btn => unshareProperty(p, btn, agentId) });
     }
 
-    // הכפתור מוצג רק ל-mid/premium; ה-gating עצמו נאכף ב-cma_report ב-DB
-    if (currentAgent && (currentAgent.tier === 'mid' || currentAgent.tier === 'premium')){
-      addCardAction(actions, { label:'📊 דוח CMA', onClick:btn => openCmaReport(p.id, btn) });
-    }
+    // סימון הנכס כפתוח לשת"פ — ההפצה יוצאת מיד למשרדים שברשימת השת"פ.
+    // ירוק ולא זהוב: זו שפת הצבע של השת"פ בכל הכרטיס, והיא משאירה את
+    // הזהב לפעולה היחידה שסוגרת את המודעה.
+    addCardAction(actions, {
+      label: p.shared_with_partners ? '🤝 עדכון הפצה' : '🤝 פתיחה לשת״פ',
+      cls: (p.shared_with_partners ? 'btn-ghost' : 'btn-share') + ' act-wide',
+      onClick: btn => shareProperty(p, btn, agentId),
+    });
 
-    if (p.status === 'active'){
-      // הדרך לראות את המודעה כמו שהיא נראית ללקוח/ה — אותו עמוד שה-QR מוביל
-      // אליו. בלשונית חדשה כדי שה-CRM יישאר פתוח מאחור, ורק לנכס פעיל: דף
-      // הנכס טוען ‎status=active‎ בלבד ולכל השאר יציג "לא נמצא".
-      addCardAction(actions, {
-        label:'🏠 צפייה בדף הנכס', title:'פתיחת עמוד הנכס באתר בלשונית חדשה',
-        href:'property.html?id=' + encodeURIComponent(p.id), blank:true,
-      });
-
-      // מדבקה להדבקה על השלט בשטח — עמוד הנכס באתר מוצג רק לנכס פעיל,
-      // ולכן גם הכפתור נמצא כאן ולא לצד "עריכה"
-      addCardAction(actions, {
-        label:'🏷️ מדבקת QR', title:'הפקת מדבקת QR להדבקה על השלט',
-        onClick:btn => openQrSticker(p, btn),
-      });
-
-      addCardAction(actions, {
-        label:'⬆️ הקפצה חינם', title:'העלאת הנכס לראש התוצאות · פעם ב-24 שעות',
-        onClick:btn => bumpProperty(p.id, btn, agentId),
-      });
-
-      if (!isCurrentlyPromoted){
-        const price = shekel(priceOf('promote_price', 20));
-        const hours = priceOf('promote_duration_hours', 72);
-        addCardAction(actions, {
-          label:`📣 קידום · ${price}`,
-          title:`קידום בתשלום — ${price} ל-${hours} שעות בסלוטים המקודמים`,
-          onClick:btn => promoteProperty(p, btn, agentId),
-        });
-      }
-
-      if (p.shared_with_partners){
-        addCardAction(actions, { label:'✖ ביטול שת״פ', onClick:btn => unshareProperty(p, btn, agentId) });
-      }
-
-      // סימון הנכס כפתוח לשת"פ — ההפצה יוצאת מיד למשרדים שברשימת השת"פ.
-      // ירוק ולא זהוב: זו שפת הצבע של השת"פ בכל הכרטיס, והיא משאירה את
-      // הזהב לפעולה היחידה שסוגרת את המודעה.
-      addCardAction(actions, {
-        label: p.shared_with_partners ? '🤝 עדכון הפצה' : '🤝 פתיחה לשת״פ',
-        cls: (p.shared_with_partners ? 'btn-ghost' : 'btn-share') + ' act-wide',
-        onClick: btn => shareProperty(p, btn, agentId),
-      });
-
-      const isRent = p.deal_type === 'rent';
-      addCardAction(actions, {
-        label: isRent ? '✅ סמן כהושכר' : '✅ סמן כנמכר', cls:'btn-gold act-wide',
-        onClick:()=> markPropertyStatus(p.id, isRent ? 'rented' : 'sold', agentId),
-      });
-    } else {
-      // נכס שסומן כהושכר/נמכר/הוסר לא נעלם — עסקה שהתבטלה או שוכר שעזב מחזירים
-      // אותו לפרסום מאותו כרטיס, בלי לפתוח מודעה חדשה ולאבד את מספר המודעה,
-      // הצפיות והמידע התכנוני שכבר נצברו עליו.
-      addCardAction(actions, {
-        label:'↩ החזרה לפרסום', cls:'btn-gold act-wide',
-        onClick:btn => republishProperty(p, btn, agentId),
-      });
-    }
-    listEl.appendChild(el);
-  });
+    const isRent = p.deal_type === 'rent';
+    addCardAction(actions, {
+      label: isRent ? '✅ סמן כהושכר' : '✅ סמן כנמכר', cls:'btn-gold act-wide',
+      onClick:()=> markPropertyStatus(p.id, isRent ? 'rented' : 'sold', agentId),
+    });
+  } else {
+    // נכס שסומן כהושכר/נמכר/הוסר לא נעלם — עסקה שהתבטלה או שוכר שעזב מחזירים
+    // אותו לפרסום מאותו כרטיס, בלי לפתוח מודעה חדשה ולאבד את מספר המודעה,
+    // הצפיות והמידע התכנוני שכבר נצברו עליו.
+    addCardAction(actions, {
+      label:'↩ החזרה לפרסום', cls:'btn-gold act-wide',
+      onClick:btn => republishProperty(p, btn, agentId),
+    });
+  }
+  return el;
 }
 
 /* ---------- תיאור שיווקי מהנתונים ----------
