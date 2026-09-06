@@ -196,6 +196,125 @@ jobs:
       - name: מצב המיגרציות לפני ההרצה
         run: supabase migration list --db-url "$SUPABASE_DB_URL"
 
+      # ------------------------------------------------------------------
+      # רשומה במסד בלי קובץ מקומי — החסימה שהפילה את הרצה #37.
+      #
+      # ‏db push מסרב לרוץ כשההיסטוריה מכילה version שאין לו קובץ בריפו:
+      #
+      #   Remote migration versions not found in local migrations directory.
+      #
+      # בפעם הראשונה (2.9) המקור היה 100 רשומות מתקופת ההרצה הידנית, והן
+      # נוקו פעם אחת. הפעם המקור היה **חדש**: המיגרציה news_story_key הוחלה
+      # על המסד דרך כלי MCP בזמן פיתוח PR ‎#137, וכלי כזה רושם את ההחלה תחת
+      # חותמת רגע ההרצה (‏20260902221109) ולא תחת ה-version שבשם הקובץ
+      # (‏20260919090000). אותה מיגרציה בדיוק, שני versions — ומיד אחרי
+      # המיזוג כל צינור המיגרציות ננעל.
+      #
+      # זה יקרה שוב: כל כלי שמחיל DDL ישירות רושם חותמת זמן משלו, וכלל
+      # "אין להריץ ידנית" הוא כלל אנושי. לכן ה-workflow מיישר בעצמו — אבל
+      # רק במקרה שבו היישור בטוח באמת:
+      #
+      #   • לרשומה יש name, ובריפו יש קובץ בשם *_<name>.sql — כלומר אותה
+      #     מיגרציה נמצאת אצלנו תחת version אחר. מוחקים את הרשומה, ‏db push
+      #     מריץ את הקובץ המקומי (אידמפוטנטי לפי כלל 2 במסמך, ולכן לא משנה
+      #     כלום בסכימה) ורושם אותו תחת ה-version הנכון.
+      #
+      #   • אין name, או שאין קובץ תואם — אין דרך לדעת מה הרשומה הזאת עשתה.
+      #     נכשלים, ומדפיסים את ה-DDL שלה כדי שההחלטה תהיה מבוססת.
+      #
+      # המחיקה נוגעת **רק בטבלת הרישום**. הסכימה — עמודות, אינדקסים, views,
+      # policies — אינה משתנה, לא כאן ולא ב-migration repair.
+      #
+      # לפני כל מחיקה מודפס ל-summary ה-insert שמחזיר את הרשומה כלשונה,
+      # ‏statements כלולים, באותו פורמט של docs/migration-history-archive-*.sql.
+      # ------------------------------------------------------------------
+      - name: יישור רשומות שאין להן קובץ מקומי
+        env:
+          DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -euo pipefail
+
+          # ‏psql מותקן על ubuntu-latest. ההתקנה היא רשת ביטחון לשינוי בתמונה.
+          if ! command -v psql >/dev/null 2>&1; then
+            sudo apt-get update -qq && sudo apt-get install -y -qq postgresql-client
+          fi
+
+          # ‏-A ללא עימוד, -t בלי כותרות, -F מפריד; שם מיגרציה לא מכיל "|".
+          # ‏ON_ERROR_STOP כדי שכשל בשאילתה יפיל את השלב ולא יחזיר פלט ריק
+          # שייראה כמו "ההיסטוריה תקינה".
+          REMOTE=$(psql "$SUPABASE_DB_URL" -Atq -F '|' -v ON_ERROR_STOP=1 \
+            -c "select version, coalesce(name, '') from supabase_migrations.schema_migrations order by version")
+
+          # ‏nullglob כדי שדפוס בלי התאמה יחזיר רשימה ריקה ולא את עצמו.
+          shopt -s nullglob
+
+          SAFE=""
+          UNKNOWN=""
+          while IFS='|' read -r VERSION NAME; do
+            if [ -z "$VERSION" ]; then continue; fi
+
+            SELF=(supabase/migrations/"$VERSION"_*.sql)
+            if [ ${#SELF[@]} -gt 0 ]; then continue; fi   # יש קובץ תואם — תקין
+
+            TWIN=()
+            if [ -n "$NAME" ]; then
+              TWIN=(supabase/migrations/*_"$NAME".sql)
+            fi
+
+            if [ ${#TWIN[@]} -gt 0 ]; then
+              echo "רשומה $VERSION (${NAME}) היא אותה מיגרציה כמו ${TWIN[0]} תחת version אחר."
+              SAFE="$SAFE $VERSION"
+            else
+              UNKNOWN="$UNKNOWN $VERSION"
+            fi
+          done <<< "$REMOTE"
+
+          shopt -u nullglob
+
+          if [ -n "$UNKNOWN" ]; then
+            for VERSION in $UNKNOWN; do
+              echo "--- ה-DDL של הרשומה $VERSION ---"
+              psql "$SUPABASE_DB_URL" -Atq \
+                -c "select coalesce(array_to_string(statements, E'\n'), '(אין statements שמורים)') from supabase_migrations.schema_migrations where version = '$VERSION'"
+            done
+            echo "::error::בהיסטוריית המסד יש רשומות בלי קובץ מקומי מתאים, ואין דרך אוטומטית לדעת מה הן עשו:$UNKNOWN . ‏db push יסרב לרוץ עד שיוכרע מה הן. ה-DDL של כל אחת מודפס למעלה. אם היא מיגרציה שהוחלה מחוץ לצינור — להוסיף לריפו קובץ אידמפוטנטי מקביל ואז להריץ 'supabase migration repair --status reverted <version>'. פירוט: docs/supabase-migrations.md"
+            exit 1
+          fi
+
+          if [ -z "$SAFE" ]; then
+            echo "כל רשומה בהיסטוריה מותאמת לקובץ בריפו."
+            exit 0
+          fi
+
+          {
+            echo "### רשומות שנמחקו מהיסטוריית המיגרציות"
+            echo
+            echo "אותה מיגרציה נרשמה תחת version של רגע ההחלה. ה-insert הבא מחזיר אותה:"
+            echo
+            echo '```sql'
+            for VERSION in $SAFE; do
+              psql "$SUPABASE_DB_URL" -Atq -v ON_ERROR_STOP=1 -c "
+                select format(
+                  E'insert into supabase_migrations.schema_migrations (version, name, statements) values (\n  %L,\n  %L,\n  array[%s]\n);',
+                  version,
+                  name,
+                  coalesce((select string_agg(quote_literal(s), E',\n  ') from unnest(statements) s), '')
+                )
+                from supabase_migrations.schema_migrations where version = '$VERSION'"
+            done
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "::notice::הרצה יבשה — הרשומות$SAFE היו נמחקות מההיסטוריה (הסכימה לא הייתה משתנה)."
+            exit 0
+          fi
+
+          for VERSION in $SAFE; do
+            supabase migration repair --status reverted "$VERSION" --db-url "$SUPABASE_DB_URL"
+          done
+          echo "::warning::נמחקו מהיסטוריית המיגרציות רשומות שנרשמו תחת version של רגע ההחלה:$SAFE . הסכימה לא השתנתה, והקובץ המקביל בריפו ירוץ עכשיו תחת ה-version שבשמו. המקור הוא החלת מיגרציה מחוץ לצינור (כלי MCP או הדשבורד) — ראו docs/supabase-migrations.md."
+
       # ‏--include-all אינו קיצור דרך אלא תנאי הכרחי בריפו הזה.
       #
       # ברירת המחדל של db push היא לסרב למיגרציה שה-version שלה ישן מהרשומה
