@@ -28,6 +28,10 @@ export const FAL_VIDEO_MODEL =
   Deno.env.get("FAL_VIDEO_MODEL") || "fal-ai/kling-video/v2.5-turbo/pro/image-to-video";
 export const FAL_MERGE_MODEL =
   Deno.env.get("FAL_MERGE_MODEL") || "fal-ai/ffmpeg-api/merge-videos";
+// ‏compose משמש/ת רק כשצריך לחתוך כל קליף לאורך קצר יותר ממה שהמודל ייצר.
+// ‏merge-videos מדביק/ה כמו שהוא ואינו/ה יודע/ת לחתוך, ולכן שתי נקודות קצה.
+export const FAL_COMPOSE_MODEL =
+  Deno.env.get("FAL_COMPOSE_MODEL") || "fal-ai/ffmpeg-api/compose";
 
 const FAL_QUEUE = "https://queue.fal.run";
 
@@ -324,6 +328,8 @@ export function buildClipInput(
   return {
     image_url: imageUrl,
     prompt,
+    // ‏String(5) הוא "5" ולא "5.0" — חשוב, כי מודל עם רשימה סגורה משווה
+    // מחרוזות ו-"5.0" ייפול אצלו. שבר נשלח כמו שהוא ("2.5").
     duration: String(seconds),
     aspect_ratio: aspectRatio,
     // תנועת מצלמה בלבד — ההוראה חוזרת גם כ-negative prompt כי זה הערוץ
@@ -333,9 +339,60 @@ export function buildClipInput(
   };
 }
 
+// ---------------------------------------------------------------------------
+// אורך שהמודל אינו מכיר
+//
+// רוב מודלי ה-i2v מקבלים ‎duration‎ כרשימה סגורה (‏Kling: ‎"5"‎ / ‎"10"‎), ולכן
+// בקשה ל-2.5 שניות עשויה להידחות. השגיאה הזאת שונה מהותית מ-403 של יתרה או
+// מ-5xx של תקלה זמנית: היא אומרת "הערך לא חוקי", והתשובה הנכונה לה היא
+// לנסות שוב באורך המקור ולחתוך אחר כך — לא להיכשל ולא לנסות שוב באותו ערך.
+//
+// ‏422 הוא הקוד הרגיל לוולידציה ב-fal; ‏400 נכלל כי לא כל מודל עקבי.
+// ---------------------------------------------------------------------------
+export function isDurationRejection(error: string | undefined): boolean {
+  if (!error) return false;
+  if (!/^fal_(422|400)/.test(error)) return false;
+  return /duration|enum|literal|permitted|allowed|input should be/i.test(error);
+}
+
+// חיבור פשוט, בלי חיתוך. זה המסלול שנבדק בפרודקשן ועבד.
 export function buildMergeInput(clipUrls: string[], aspectRatio: string): Record<string, unknown> {
   return {
     video_urls: clipUrls,
+    resolution: aspectRatio === "9:16" ? "portrait_16_9" : "landscape_16_9",
+  };
+}
+
+// ---------------------------------------------------------------------------
+// חיבור עם חיתוך
+//
+// כשהמודל ייצר 5 שניות ואנחנו רוצים 2.5, החיתוך קורה כאן — ב-ffmpeg אצל fal,
+// כי אין לנו ffmpeg ואין תקציב זמן לקודד וידאו ב-Edge Function.
+//
+// ‏compose מקבל/ת ציר זמן: כל keyframe הוא קליף שמתחיל ב-‎timestamp‎ ונמשך
+// ‎duration‎. הערכים במילישניות — זו הצורה שבה ‎ffmpeg-api/compose‎ עובד/ת.
+// ‏`start_from` חותך מתחילת הקליף: לוקחים את 2.5 השניות הראשונות, כי שם
+// תנועת המצלמה עוד קרובה לפריים המקורי ולכן נאמנה יותר לנכס.
+// ---------------------------------------------------------------------------
+export function buildComposeInput(
+  clipUrls: string[],
+  secondsEach: number,
+  aspectRatio: string
+): Record<string, unknown> {
+  const ms = Math.round(secondsEach * 1000);
+  return {
+    tracks: [
+      {
+        id: "video",
+        type: "video",
+        keyframes: clipUrls.map((url, i) => ({
+          url,
+          timestamp: i * ms,
+          duration: ms,
+          start_from: 0,
+        })),
+      },
+    ],
     resolution: aspectRatio === "9:16" ? "portrait_16_9" : "landscape_16_9",
   };
 }

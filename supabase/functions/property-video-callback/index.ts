@@ -2,12 +2,14 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import {
+  buildComposeInput,
   buildMergeInput,
   corsHeaders,
   extractVideoUrl,
   falResult,
   falStatus,
   falSubmit,
+  FAL_COMPOSE_MODEL,
   FAL_MERGE_MODEL,
   FAL_VIDEO_MODEL,
   json,
@@ -69,7 +71,7 @@ async function pricing(supabase: any, key: string, fallback: number): Promise<nu
 async function advanceJob(supabase: any, jobId: string): Promise<string> {
   const { data: job } = await supabase
     .from("property_video_jobs")
-    .select("id, status, agent_id, property_id, aspect_ratio, previous_video_url, fal_merge_request_id")
+    .select("id, status, agent_id, property_id, aspect_ratio, previous_video_url, fal_merge_request_id, trim_to_seconds")
     .eq("id", jobId)
     .maybeSingle();
   if (!job) return "job_not_found";
@@ -108,7 +110,18 @@ async function advanceJob(supabase: any, jobId: string): Promise<string> {
 
     const urls = ready.sort((a: any, b: any) => a.idx - b.idx).map((c: any) => c.clip_url);
     const hook = `${callbackBase()}?token=${encodeURIComponent(claimed.webhook_token)}&job=${jobId}&merge=1`;
-    const submit = await falSubmit(FAL_MERGE_MODEL, buildMergeInput(urls, job.aspect_ratio), hook);
+
+    // שני מסלולי מיזוג. ‏trim_to_seconds מתמלא רק כשהמודל לא ידע לייצר את
+    // האורך המבוקש (‏Kling מקבל "5"/"10" בלבד), ואז יש קליפים ארוכים מדי
+    // שצריך לחתוך — וזה מה ש-compose יודע/ת לעשות ו-merge-videos לא.
+    // כשהמודל כן ייצר את האורך הנכון, נשארים במסלול הפשוט שנבדק בפרודקשן.
+    const trim = job.trim_to_seconds != null ? Number(job.trim_to_seconds) : null;
+    const mergeModel = trim ? FAL_COMPOSE_MODEL : FAL_MERGE_MODEL;
+    const mergeInput = trim
+      ? buildComposeInput(urls, trim, job.aspect_ratio)
+      : buildMergeInput(urls, job.aspect_ratio);
+
+    const submit = await falSubmit(mergeModel, mergeInput, hook);
 
     if (!submit.ok) {
       await supabase.rpc("fail_property_video_job", {
@@ -187,7 +200,7 @@ async function reconcile(supabase: any): Promise<Record<string, number>> {
   const cutoff = new Date(Date.now() - STALE_MINUTES * 60 * 1000).toISOString();
   const { data: jobs } = await supabase
     .from("property_video_jobs")
-    .select("id, status, agent_id, property_id, aspect_ratio, previous_video_url, fal_merge_request_id, created_at")
+    .select("id, status, agent_id, property_id, aspect_ratio, previous_video_url, fal_merge_request_id, trim_to_seconds, created_at")
     .in("status", ["generating_clips", "merging", "uploading"])
     .lt("updated_at", cutoff)
     .limit(20);
@@ -243,9 +256,12 @@ async function reconcile(supabase: any): Promise<Record<string, number>> {
     }
 
     if (job.status === "merging" && job.fal_merge_request_id) {
-      const status = await falStatus(FAL_MERGE_MODEL, job.fal_merge_request_id);
+      // חייב להיות אותו מודל שאליו נשלחה הבקשה — שאילתת סטטוס על נקודת קצה
+      // אחרת מחזירה 404, וה-reconcile היה מדלג על הבקשה לנצח עד שתפוג.
+      const mergeModel = job.trim_to_seconds != null ? FAL_COMPOSE_MODEL : FAL_MERGE_MODEL;
+      const status = await falStatus(mergeModel, job.fal_merge_request_id);
       if (status !== "COMPLETED") continue;
-      const payload = await falResult(FAL_MERGE_MODEL, job.fal_merge_request_id);
+      const payload = await falResult(mergeModel, job.fal_merge_request_id);
       const url = extractVideoUrl(payload);
       if (!url) {
         await supabase.rpc("fail_property_video_job", { p_job_id: job.id, p_reason: "merge_no_video" });
