@@ -392,16 +392,75 @@
     .prop-tab-price{font-size:.8rem}
   }
 
-  /* דפדוף: עמוד של עשרה, עם המיקום ברשימה בין הכפתורים */
-  .prop-pager{display:flex;align-items:center;justify-content:space-between;gap:8px;
-    margin-top:10px;flex-wrap:wrap}
-  .prop-pager-btn{border:1.5px solid var(--edge,var(--line));background:var(--surface,#fff);
-    border-radius:999px;padding:7px 14px;font:inherit;font-size:.78rem;font-weight:700;
-    color:var(--txt,var(--ink));cursor:pointer;white-space:nowrap}
-  .prop-pager-btn:hover:not(:disabled){border-color:var(--teal);color:var(--teal)}
-  .prop-pager-btn:disabled{opacity:.45;cursor:not-allowed}
-  .prop-pager-btn:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
-  .prop-pager-label{font-size:.74rem;color:var(--txt-faint,var(--ink-soft));white-space:nowrap}
+  /* ---------- אזור הגלילה של הרשימה ----------
+     גובה של כעשרה טאבים, וגלילה בתוכו במקום כפתורי דפדוף. ‏overscroll-behavior
+     חוסם את המשך הגלילה לעמוד כשמגיעים לקצה הרשימה — בלעדיו כל גלילה בתוך
+     הרשימה הייתה בורחת לדשבורד ברגע שהיא נגמרת. */
+  .prop-scroll{max-height:min(70vh,600px);overflow-y:auto;overscroll-behavior:contain;
+    scrollbar-width:thin;scrollbar-color:var(--edge,var(--line)) transparent}
+  .prop-scroll:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+  .prop-scroll::-webkit-scrollbar{width:7px}
+  .prop-scroll::-webkit-scrollbar-thumb{background:var(--edge,var(--line));border-radius:999px}
+  .prop-tail{height:1px}
+  .prop-scroll-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;
+    margin-top:8px;flex-wrap:wrap}
+  .prop-scroll-hint{font-size:.74rem;color:var(--txt-faint,var(--ink-soft))}
+  .prop-to-top{border:1.5px solid var(--edge,var(--line));background:var(--surface,#fff);
+    border-radius:999px;padding:5px 12px;font:inherit;font-size:.74rem;font-weight:700;
+    color:var(--txt,var(--ink));cursor:pointer;white-space:nowrap;
+    animation:propToTopIn .22s ease both}
+  .prop-to-top:hover{border-color:var(--teal);color:var(--teal)}
+  .prop-to-top[hidden]{display:none}
+  @keyframes propToTopIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+  /* ---------- אנימציות גלילה ----------
+     שתיהן ‏scroll-driven animations של ה-CSS: אין כאן מאזין scroll ואין
+     requestAnimationFrame, הדפדפן מקדם אותן מול מיקום הגלילה עצמו. הן
+     עטופות ב-@supports (מי שאין לו — פשוט לא רואה אותן) וב-prefers-reduced-
+     motion, כי תנועה על כל שורה ברשימה היא בדיוק מה שהעדפה הזו מבקשת לכבות. */
+
+  /* מד התקדמות דק בראש הרשימה: כמה מתוכה כבר נגללה. הוא מחליף את
+     "נכסים 11–20 מתוך 55" שהיה בכפתורי הדפדוף. */
+  /* בלי ‎overflow:hidden‎ על המסילה: ‎overflow‎ הופך אלמנט ל-scroll container
+     בעצמו, ואז ‎scroll(nearest)‎ של המילוי נתפס עליו — על מסילה שאין בה מה
+     לגלול — במקום על רשימת הנכסים. העיגול יושב על המילוי עצמו. */
+  .prop-progress{display:none;position:sticky;top:0;z-index:3;height:3px;margin-bottom:6px;
+    border-radius:999px;background:var(--surface-2,rgba(28,58,94,.08))}
+  .prop-progress span{display:block;height:100%;border-radius:999px;background:var(--teal);
+    transform:scaleX(0);transform-origin:right center}
+  /* ‏longhand ולא הקיצור ‎animation:‎ — הקיצור מאפס את ‎animation-duration‎
+     ל-0s, ואנימציה מונעת-גלילה חייבת ‎auto‎ כדי להימתח על כל הציר. */
+  @supports (animation-timeline: scroll()){
+    /* רק כשיש מה לגלול — רשימה של שלושה נכסים לא צריכה מד התקדמות */
+    .prop-scroll.is-scrollable .prop-progress{display:block}
+    .prop-progress span{
+      animation-name:propScrollProgress;animation-duration:auto;
+      animation-timing-function:linear;animation-fill-mode:both;
+      animation-timeline:scroll(nearest);
+    }
+  }
+  @keyframes propScrollProgress{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+
+  /* מתחילים מ-‎.2‎ ולא מ-0: השורה שנחשפת בקצה התחתון של הרשימה נראית עמומה
+     ולא חסרה — הדהייה אומרת "יש עוד", היא לא מסתירה שורה שאפשר לקרוא. */
+  @keyframes cardReveal{from{opacity:.2;transform:translateY(12px) scale(.99)}to{opacity:1;transform:none}}
+  @media(prefers-reduced-motion: no-preference){
+    @supports (animation-timeline: view()){
+      /* טאב שנכנס לאזור הגלילה עולה ומתבהר — הסימן שיש עוד רשימה מתחת.
+         ואותה שפה בשאר רשימות הדשבורד: לידים, לקוחות, הסכמים ומדדי הפתיחה. */
+      .prop-tab,
+      #dashboard .acc-body .lead-card,
+      #dashboard .acc-body .client-card,
+      #dashboard .acc-body .agr-row,
+      .kpi-strip .kpi-card{
+        animation-name:cardReveal;animation-duration:auto;
+        animation-timing-function:linear;animation-fill-mode:both;
+        animation-timeline:view(block);animation-range:entry 0% entry 50%;
+      }
+      /* הכרטיס שנפתח בתוך טאב כבר קיבל את התנועה של הטאב עצמו */
+      #dashboard .prop-tab-panel .lead-card{animation-name:none}
+    }
+  }
   .card-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
   .card-tag{display:inline-flex;align-items:center;gap:4px;font-size:.71rem;font-weight:600;line-height:1.7;
     color:var(--ink-soft);background:#fff;border:1px solid var(--line);border-radius:999px;padding:1px 9px;white-space:nowrap}
@@ -10059,12 +10118,17 @@ const PROPERTY_STATUS_LABELS = { active:'פעיל', sold:'נמכר', rented:'ה�
 
 /* ---------- הרשימה כטאבים ----------
    כרטיס נכס מלא הוא חצי מסך טלפון, וסוכן/ת עם חמישים נכסים גלל/ה עשרים
-   מסכים כדי למצוא אחד. לכן הרשימה מציגה עשרה טאבים קצרים — סוג, כתובת
-   ומחיר — ורק לחיצה על טאב פותחת מתחתיו את הכרטיס המלא כפי שהיה, על כל
-   התגיות והפעולות שבו. הדפדוף הוא עמוד שלם: עשרה הבאים או עשרה הקודמים. */
-const PROP_TABS_WINDOW = 10;
-const PROP_TABS_STEP   = 10;
-let propTabsStart = 0;
+   מסכים כדי למצוא אחד. לכן הרשימה מציגה טאבים קצרים — סוג, כתובת ומחיר —
+   ורק לחיצה על טאב פותחת מתחתיו את הכרטיס המלא כפי שהיה, על כל התגיות
+   והפעולות שבו.
+
+   הרשימה עצמה היא אזור גלילה בגובה של כעשרה טאבים: גוללים בתוכה למעלה
+   ולמטה, בלי כפתורי דפדוף. הטאבים נבנים בקבוצות של עשרה תוך כדי גלילה
+   (‏IntersectionObserver על סוף הרשימה) — כך גם חמש מאות נכסים לא בונים
+   חמש מאות שורות DOM בטעינה הראשונה. */
+const PROP_TABS_CHUNK = 10;
+let propTabsShown = PROP_TABS_CHUNK;
+let propTabsObserver = null;
 const expandedPropertyIds = new Set();
 
 let myPropertyRows = [];
@@ -10210,24 +10274,21 @@ function renderProperties(){
     listEl.innerHTML = '<div class="empty-state">אין נכס שמתאים לחיפוש או לסינון הנוכחי.</div>';
     return;
   }
-  // סינון או מחיקה יכולים לקצר את הרשימה מתחת לעמוד הנוכחי — הדפדוף נסוג
-  // לעמוד האחרון שקיים במקום להציג עמוד ריק
-  propTabsStart = Math.min(Math.max(propTabsStart, 0),
-    Math.floor((rows.length - 1) / PROP_TABS_WINDOW) * PROP_TABS_WINDOW);
   renderPropertyTabs(listEl, rows, myPropertyAgentId);
 }
 
 function clearPropertyFilters(){
   ['propSearch','propStatusFilter','propDealFilter','propTypeFilter','propCityFilter','propExtraFilter']
     .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-  propTabsStart = 0;
-  renderProperties();
+  renderPropertiesFromTop();
 }
 
-// כל שינוי בסינון/מיון מחזיר את הדפדוף להתחלה: "עמוד 4" של רשימה קודמת
-// אינו עמוד 4 של הרשימה החדשה
+// כל שינוי בסינון/מיון מחזיר את הרשימה לראשה: מקום הגלילה של רשימה קודמת
+// אינו אומר דבר על הרשימה החדשה
 function renderPropertiesFromTop(){
-  propTabsStart = 0;
+  propTabsShown = PROP_TABS_CHUNK;
+  const scroller = document.querySelector('#propertiesList .prop-scroll');
+  if (scroller) scroller.scrollTop = 0;
   renderProperties();
 }
 
@@ -10291,7 +10352,7 @@ async function loadProperties(agentId){
   renderProperties();
 }
 
-/* ---- הטאבים: השורה הקצרה, הדפדוף, והכרטיס שנפתח מתחתיה ---- */
+/* ---- הטאבים: השורה הקצרה, אזור הגלילה, והכרטיס שנפתח מתחתיה ---- */
 
 // הכתובת כפי שהיא נמסרת בטלפון — רחוב ומספר, ואז העיר. אין רחוב (קרקע
 // חקלאית, מגרש) — נופלים לכותרת המודעה, שתמיד קיימת.
@@ -10301,14 +10362,80 @@ function propertyTabAddress(p){
 }
 
 function renderPropertyTabs(listEl, rows, agentId){
-  listEl.innerHTML = '';
-  const wrap = document.createElement('div');
-  wrap.className = 'prop-tabs';
-  rows.slice(propTabsStart, propTabsStart + PROP_TABS_WINDOW)
-      .forEach(p => wrap.appendChild(buildPropertyTab(p, agentId)));
-  listEl.appendChild(wrap);
-  const pager = buildPropertyPager(rows.length);
-  if (pager) listEl.appendChild(pager);
+  // פעולה על נכס (קידום, סימון כנמכר, עריכה) טוענת את הרשימה מחדש. בלי
+  // שמירת מקום הגלילה הרשימה הייתה קופצת לראשה אחרי כל פעולה, והנכס
+  // שעבדו עליו נעלם מהמסך.
+  const keepScroll = listEl.querySelector('.prop-scroll')?.scrollTop || 0;
+  propTabsObserver?.disconnect();
+  propTabsObserver = null;
+  propTabsShown = Math.min(Math.max(propTabsShown, PROP_TABS_CHUNK), rows.length);
+
+  listEl.innerHTML = `
+    <div class="prop-scroll" tabindex="0" role="region" aria-label="רשימת הנכסים שלי — ניתן לגלול">
+      <div class="prop-progress" aria-hidden="true"><span></span></div>
+      <div class="prop-tabs"></div>
+      <div class="prop-tail" aria-hidden="true"></div>
+    </div>
+    <div class="prop-scroll-foot">
+      <span class="prop-scroll-hint" aria-live="polite"></span>
+      <button type="button" class="prop-to-top" hidden>↑ לראש הרשימה</button>
+    </div>`;
+
+  const scroller = listEl.querySelector('.prop-scroll');
+  const tabsWrap = listEl.querySelector('.prop-tabs');
+  const tail     = listEl.querySelector('.prop-tail');
+  const hint     = listEl.querySelector('.prop-scroll-hint');
+  const toTop    = listEl.querySelector('.prop-to-top');
+
+  const drawTabs = ()=>{
+    for (let i = tabsWrap.childElementCount; i < propTabsShown; i++){
+      tabsWrap.appendChild(buildPropertyTab(rows[i], agentId));
+    }
+    hint.textContent = propTabsShown >= rows.length
+      ? `כל ${rows.length} הנכסים ברשימה`
+      : `מוצגים ${propTabsShown} מתוך ${rows.length} · גללו להמשך`;
+    // מד ההתקדמות מופיע רק כשיש מה לגלול
+    scroller.classList.toggle('is-scrollable', scroller.scrollHeight > scroller.clientHeight + 4);
+  };
+
+  const growList = ()=>{
+    if (propTabsShown >= rows.length) return;
+    propTabsShown = Math.min(propTabsShown + PROP_TABS_CHUNK, rows.length);
+    drawTabs();
+    if (propTabsShown >= rows.length){ propTabsObserver?.disconnect(); propTabsObserver = null; }
+    fillViewport();
+  };
+
+  // ‏IntersectionObserver מדווח על *שינוי* חיתוך, ולכן סוף רשימה שנשאר גלוי
+  // אחרי הוספת קבוצה לא היה מדווח שוב והטעינה הייתה נעצרת. הבדיקה הזו
+  // ממשיכה למלא כל עוד סוף הרשימה עדיין בתוך אזור הגלילה.
+  const fillViewport = ()=> requestAnimationFrame(()=>{
+    if (propTabsShown >= rows.length || !tail.isConnected) return;
+    if (tail.getBoundingClientRect().top <= scroller.getBoundingClientRect().bottom + 160) growList();
+  });
+
+  drawTabs();
+  if (propTabsShown < rows.length){
+    if ('IntersectionObserver' in window){
+      propTabsObserver = new IntersectionObserver(entries => {
+        if (entries.some(e => e.isIntersecting)) growList();
+      }, { root: scroller, rootMargin: '160px' });
+      propTabsObserver.observe(tail);
+      fillViewport();
+    } else {
+      propTabsShown = rows.length;
+      drawTabs();
+    }
+  }
+
+  scroller.scrollTop = keepScroll;
+  const syncToTop = ()=>{ toTop.hidden = scroller.scrollTop < 240; };
+  scroller.addEventListener('scroll', syncToTop, { passive:true });
+  toTop.addEventListener('click', ()=>{
+    scroller.scrollTo({ top:0, behavior:'smooth' });
+    scroller.focus({ preventScroll:true });
+  });
+  syncToTop();
 }
 
 function buildPropertyTab(p, agentId){
@@ -10357,32 +10484,11 @@ function buildPropertyTab(p, agentId){
     panel.hidden = !opening;
     el.classList.toggle('is-open', opening);
     head.setAttribute('aria-expanded', String(opening));
+    // כרטיס שנפתח בתחתית אזור הגלילה נפתח מחוץ למסך — ‏nearest מזיז את
+    // המינימום הדרוש כדי לראות אותו, ולא מקפיץ את הדף כולו
+    if (opening) el.scrollIntoView({ behavior:'smooth', block:'nearest' });
   });
   return el;
-}
-
-function buildPropertyPager(total){
-  if (total <= PROP_TABS_WINDOW) return null;
-  const start = propTabsStart;
-  const end = Math.min(start + PROP_TABS_WINDOW, total);
-  const wrap = document.createElement('div');
-  wrap.className = 'prop-pager';
-  wrap.innerHTML = `
-    <button type="button" class="prop-pager-btn" ${start === 0 ? 'disabled' : ''}>→ ${PROP_TABS_STEP} הקודמים</button>
-    <span class="prop-pager-label">נכסים <bdi>${start + 1}–${end}</bdi> מתוך <bdi>${total}</bdi></span>
-    <button type="button" class="prop-pager-btn" ${end >= total ? 'disabled' : ''}>${PROP_TABS_STEP} הבאים ←</button>`;
-  const [prevBtn, nextBtn] = wrap.querySelectorAll('.prop-pager-btn');
-  prevBtn.addEventListener('click', ()=> movePropertyWindow(-PROP_TABS_STEP));
-  nextBtn.addEventListener('click', ()=> movePropertyWindow(PROP_TABS_STEP));
-  return wrap;
-}
-
-function movePropertyWindow(delta){
-  propTabsStart = Math.max(0, propTabsStart + delta);
-  renderProperties();
-  // אחרי דפדוף העין צריכה לחזור לראש הרשימה — אחרת העמוד החדש נפתח באמצע
-  document.getElementById('propertiesList')
-    ?.scrollIntoView({ behavior:'smooth', block:'nearest' });
 }
 
 function buildPropertyCard(p, agentId){
