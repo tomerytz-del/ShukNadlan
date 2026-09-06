@@ -101,6 +101,12 @@ verify_jwt = false          # קריאת cron/backfill; לא מקבלת קלט �
 [functions.migrate-legacy-videos]
 verify_jwt = false          # אימות עצמי: service_role / x-alert-cron-secret
 
+# העברה חד-פעמית של תמונות הנכסים מהפרויקט הישן. התור מגיע מ-legacy_photo_queue
+# ולא מהקלט, ולכן קריאה לא יכולה להפנות אותה לקובץ אחר; ה-handler דורש
+# service_role או x-alert-cron-secret.
+[functions.migrate-legacy-photos]
+verify_jwt = false          # אימות עצמי: service_role / x-alert-cron-secret
+
 # ‏verify_jwt=false כאן אינו "פתוח": ה-handler דורש את מפתח ה-service_role
 # או את PLATFORM_MAIL_SECRET, כי שליחת מייל בשם הפלטפורמה למי שמבקש היא
 # ממסר פתוח. ה-Gateway מושבת דווקא כדי שקוראים פנימיים (pg_net, cron)
