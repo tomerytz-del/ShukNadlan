@@ -361,6 +361,9 @@
     background:var(--surface);border:1px solid var(--hair);border-radius:0;overflow:hidden;cursor:pointer;
     box-shadow:var(--shadow-xs);transition:box-shadow .15s ease,transform .15s ease;
   }
+  /* אריח הכיסוי כאן רחב — ‏82% מהמסך ברצועה, עמודה שלמה ברשת — ולכן
+     הגובה נגזר מיחס ולא ממידה קבועה, בדיוק כמו שהתמונונת עשתה קודם. */
+  .prop-card.pc-cover{--pc-cover-h:auto;aspect-ratio:16/11}
   .prop-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
   .prop-card:focus-visible{outline:3px solid var(--brand);outline-offset:2px}
   /* יחס גובה־רוחב קבוע במקום גובה קבוע, כדי שהתמונה תשמור על הפרופורציה
@@ -2025,6 +2028,7 @@ function propertyCardHtml(p, saved){
   return `
     <div class="thumb${hasPhoto ? '' : ' no-photo'}"${thumbStyle(p)}>
       ${thumbFallback(p)}
+      ${PropertyCard.coverVideoHtml(p)}
       ${PropertyCard.badgesHtml(p, { aiViz: visualizedProps.has(p.id), photo: hasPhoto })}
       ${PropertyCard.mediaHtml(p)}
       <button type="button" class="fav-btn" aria-pressed="${saved}" aria-label="שמירת הנכס למועדפים">
@@ -2148,7 +2152,7 @@ function renderPropertyCards(list){
     const rail = section.querySelector('.rail');
     items.forEach(p=>{
       const card = document.createElement('article');
-      card.className = 'prop-card';
+      card.className = 'prop-card pc-cover';
       card.tabIndex = 0;
       card.setAttribute('role', 'link');
       card.innerHTML = propertyCardHtml(p, favs.includes(p.id));

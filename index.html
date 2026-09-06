@@ -1475,6 +1475,11 @@
      בשורת המטא של אותה שורה, ובלעדיו נשאר מקום להודעה עצמה. הצעיף הלבן
      חזק יותר כאן: הטקסט קטן, והאיור מתחתיו היה בולע אותו. */
   .sr-thumb .tf-agency{display:none}
+  /* בתמונונת של שורת הרשימה (74px) נכנס רק הלוגו: שם המשרד וההודעה היו
+     שני קווי טקסט בגובה 6px שאיש לא קורא, והם ממילא מופיעים בדף הנכס. */
+  .pr-thumb .thumb-fallback{gap:0;padding:4px}
+  .pr-thumb .tf-logo{width:30px;height:30px;padding:2px;box-shadow:none}
+  .pr-thumb .tf-agency,.pr-thumb .tf-note{display:none}
   .sr-thumb .thumb-fallback{
     background:
       linear-gradient(180deg,rgba(255,255,255,.84),rgba(255,255,255,.7)),
@@ -1503,7 +1508,6 @@
     flex-basis:min(250px, calc((100% - var(--row-gap) * 2) / 3));
     min-height:var(--card-h);
   }
-  .featured-scroll .prop-card .thumb{height:94px}
   .featured-scroll .prop-card .ribbon{top:6px;inset-inline-end:6px;font-size:.6rem;padding:2px 7px}
   /* ‏105px של כרטיס (שליש ממסך של 360px) לא מכילים גם סרט "מקודם" ברוחב
      ‏42px וגם תגית עסקה ברוחב 55px — שניהם מעוגנים לפינות הנגדיות של אותה
@@ -1518,6 +1522,15 @@
      לשלוש שורות שכיסו את כל התמונונת. תגית העסקה (למכירה/להשכרה) היא
      הראשונה ברשימה והיא זו שנשארת; השאר נפתחות ככל שהאריח מתרחב. */
   .featured-scroll .prop-card .pc-badge:nth-child(n+2){display:none}
+  /* ובאותו רוחב יורדת גם שורת המיקום השנייה. ‏122px מכילים "בית
+     פרטי/קוטג׳ · שכון עובדים" או "שיבולים · תיווך העמק" — לא את שניהם,
+     ושתי שורות מיקום דחקו את התמונה למחצית העליונה של הכיסוי. מה שנשאר
+     הוא סדר העדיפויות של אריח ברצועה: מחיר, מה והיכן, ומספרים.
+     הרחוב ושם המשרד חוזרים ב-760px, שם הכרטיס כבר ברוחב 242px. */
+  .featured-scroll .prop-card.pc-cover .pc-where-sub{display:none}
+  @media(min-width:760px){
+    .featured-scroll .prop-card.pc-cover .pc-where-sub{display:-webkit-box}
+  }
   .featured-scroll .prop-card .body{padding:9px}
   .featured-scroll .prop-card .pc-price{font-size:.92rem}
   .featured-scroll .prop-card .pc-title{font-size:.73rem}
@@ -1574,13 +1587,66 @@
     .article-card .stamp{font-size:.7rem}
   }
 
-  .property-grid{display:grid;grid-template-columns:1fr;gap:16px}
-  .infeed-ad{
-    grid-column:1/-1;background:var(--gold-tint);border:1px dashed var(--gold-dark);border-radius:var(--radius-md);
-    padding:16px;display:flex;align-items:center;justify-content:center;font-size:.8rem;color:var(--gold-dark);font-weight:700;
+  /* ====== רשימת הנכסים בתחתית העמוד: שורות, לא כרטיסים ======
+     כאן יושב כל המאגר, ואריח כיסוי הוא כשליש ממסך טלפון — כלומר שלושה
+     נכסים למסך, ועשרים מסכים כדי לעבור על שישים מודעות. הרצועות שלמעלה
+     הן ויטרינה ושם הכרטיס הגדול עובד; הרשימה הזו היא כלי סריקה, ולכן היא
+     מדברת עכשיו באותה שפה של "הנכסים שלי" ב-CRM: שורה לנכס, שלוש שורות
+     טקסט ותמונונת, וגלילה בתוך הרשימה במקום גלילה של העמוד כולו.
+
+     שמונה שורות נכנסות למסך אחד במקום שלושה כרטיסים. */
+  .listings-scroll{
+    max-height:min(72vh,620px);overflow-y:auto;overscroll-behavior:contain;
+    /* פס הגלילה נצמד לקצה במקום לרחף על השורות */
+    padding-inline-end:2px;
+    scrollbar-width:thin;scrollbar-color:var(--line) transparent;
   }
-  @media(min-width:640px){.property-grid{grid-template-columns:1fr 1fr}}
-  @media(min-width:960px){.property-grid{grid-template-columns:1fr 1fr 1fr}}
+  .listings-scroll::-webkit-scrollbar{width:7px}
+  .listings-scroll::-webkit-scrollbar-thumb{background:var(--line);border-radius:999px}
+  .property-grid{display:grid;gap:7px}
+
+  .prop-row{
+    display:flex;align-items:center;gap:11px;padding:8px 10px;
+    background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-md);
+    color:inherit;text-align:start;cursor:pointer;
+    transition:border-color .15s ease, box-shadow .15s ease;
+  }
+  .prop-row:hover{border-color:var(--teal);box-shadow:var(--shadow-sm)}
+  .prop-row:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
+  /* התמונונת היא זיהוי ולא ראיה — היא אומרת "זה הנכס שראיתי" ולא מוכרת
+     אותו, ולכן היא קטנה וקבועה. ‏flex:none כדי שלא תתכווץ מול טקסט ארוך. */
+  .prop-row .pr-thumb{
+    flex:none;width:74px;height:60px;border-radius:var(--radius-sm);overflow:hidden;position:relative;
+    background:var(--teal-tint);background-size:cover;background-position:center;
+  }
+  .prop-row .pr-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+  /* ‏nowrap+ellipsis בכל שלוש השורות: שורה שנשברת לשתיים מבטלת בדיוק את
+     הרווח שהרשימה הזו באה לחסוך. */
+  .prop-row .pr-line{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .prop-row .pr-what{font-weight:700;font-size:.86rem;color:var(--ink)}
+  .prop-row .pr-facts{font-size:.74rem;color:var(--ink-soft)}
+  .prop-row .pr-price{font-weight:800;font-size:.92rem;color:var(--teal-dark);margin-top:1px}
+  .prop-row .pr-price .per{font-weight:600;font-size:.76rem;color:var(--ink-soft)}
+  /* תגית העסקה יושבת בשורת המחיר ולא על התמונונת: על 74px היא הייתה מכסה
+     את מה שהיא יושבת עליו. */
+  .prop-row .pr-deal{
+    font-size:.64rem;font-weight:800;padding:2px 7px;border-radius:0;color:#fff;
+    background:var(--teal);margin-inline-start:6px;vertical-align:1px;
+  }
+  .prop-row[data-deal="rent"] .pr-deal{background:var(--deal-rent)}
+  .prop-row .pr-promo{
+    position:absolute;inset-inline-start:0;bottom:0;background:var(--gold);color:#fff;
+    font-size:.56rem;font-weight:800;padding:1px 5px;
+  }
+  .prop-row .pr-chev{width:17px;height:17px;flex:none;color:var(--ink-soft)}
+  .infeed-ad{
+    background:var(--gold-tint);border:1px dashed var(--gold-dark);border-radius:var(--radius-md);
+    padding:12px;display:flex;align-items:center;justify-content:center;font-size:.8rem;color:var(--gold-dark);font-weight:700;
+  }
+  @media(max-width:400px){
+    .prop-row{gap:9px;padding:7px 8px}
+    .prop-row .pr-thumb{width:64px;height:54px}
+  }
 
   /* ====== רשימת הנכסים: תצוגת חמישה חדשים מול כל המאגר ======
      ברירת המחדל היא חמישה נכסים בלבד (הרשימה המלאה גלשה לאורך מסכים
@@ -3395,7 +3461,11 @@
       <p class="listings-count" id="listingsCount" aria-live="polite"></p>
     </div>
 
-    <div class="property-grid" id="propertyGrid"><!-- populated by JS --></div>
+    <!-- הגלילה יושבת על מעטפת ולא על הרשימה עצמה, כדי ש-‎:focus-visible‎ של
+         שורה לא ייחתך בקצה אזור הגלילה -->
+    <div class="listings-scroll" id="listingsScroll" tabindex="-1">
+      <div class="property-grid" id="propertyGrid"><!-- populated by JS --></div>
+    </div>
   </section>
 
 </main>
@@ -5042,17 +5112,27 @@ const FALLBACK_COMMERCIAL = [
   {id:'c4', price:640000, title:'קליניקה מרווחת עם חניה צמודה', rooms:2, size_sqm:52, city:'עפולה', property_type:'קליניקות', deal_type:'sale', category:'commercial', agency_name:'נדל״ן גלבוע'},
 ];
 
+/* כמה אריחים ברצועה המסחרית, וכמה נשלפים כדי לבחור מתוכם. הבריכה גדולה
+   מהרצועה בכוונה: בלעדיה "עדיפות לנכסים עם תמונה" הייתה מילה ריקה — אי
+   אפשר להעדיף מתוך עשרה כשמציגים עשרה. */
+const COMMERCIAL_CAROUSEL_MAX = 10;
+const COMMERCIAL_POOL = 30;
+
 async function loadCommercialProperties(){
   if (!sb) return FALLBACK_COMMERCIAL;
   try{
     const { data, error } = await sb
       .from('properties')
-      .select('id, price, title, rooms, size_sqm, floor, city, property_type, deal_type, category, images, features, video_url, tour_3d_url, is_promoted, promoted_until, agencies(name, logo_url)')
+      .select('id, price, title, rooms, size_sqm, floor, city, property_type, deal_type, category, images, features, video_url, tour_3d_url, is_promoted, promoted_until, created_at, agencies(name, logo_url)')
       .eq('status', 'active')
       .eq('category', 'commercial')
-      .limit(10);
+      // בלי סדר מפורש ה-DB מחזיר שורות בסדר לא מוגדר, ואז גם הבריכה שממנה
+      // בוחרים משתנה מטעינה לטעינה. החדשים קודם, כמו בשתי הרצועות האחרות.
+      .order('created_at', { ascending: false })
+      .limit(COMMERCIAL_POOL);
     if (error || !data || data.length === 0) throw error || new Error('empty');
-    return data.map(p => ({...p, agency_name: p.agencies?.name || '', agency_logo: p.agencies?.logo_url || ''}));
+    const rows = data.map(p => ({...p, agency_name: p.agencies?.name || '', agency_logo: p.agencies?.logo_url || ''}));
+    return PropertyCard.photosFirst(rows).slice(0, COMMERCIAL_CAROUSEL_MAX);
   } catch(e){
     console.warn('טעינת נכסים מסחריים נכשלה, משתמש בנתוני fallback:', e);
     return FALLBACK_COMMERCIAL;
@@ -5106,9 +5186,19 @@ const DEAL_CAROUSEL_PROMOTED = 2;
    קודם), ואחריהם שאר הנכסים לפי תאריך העלאה יורד.
    המיון נעשה כאן ולא נלקח כמו שהוא מה-DB: הרשימה חוזרת משם ממוינת
    מקודמים-קודם על פני *כל* הקטגוריות יחד, וכך נכס מקודם להשכרה היה
-   נדחף לראש רצועת המכירה. קידום מרים נכס בתוך הרצועה שהוא שייך אליה. */
+   נדחף לראש רצועת המכירה. קידום מרים נכס בתוך הרצועה שהוא שייך אליה.
+
+   ‏photosFirst רץ על הבריכה *לפני* החיתוך לשנים־עשר, וזה כל העניין: הוא
+   שינוי בבחירה ולא בסידור. עד כה נכס בלי ולו תמונה אחת תפס מקום ברצועה
+   רק בזכות היותו חדש ודחף החוצה נכס מצולם שנכנס יום לפניו; ‏sortByMedia
+   שרצה אחר כך רק הורידה אותו לסוף אותה רצועה. ברצועת המכירה, שבה שבעה
+   מארבעה־עשר הנכסים הם בלי תמונה, זה חצי מהמלאי שנראה.
+
+   הוא רץ גם לפני בחירת המקודמים, ולכן שני המקומות בתשלום מתמלאים במקודם
+   מצולם כשיש כזה. קידום עדיין גובר על תמונה — הוא נשאר בראש הרצועה גם
+   בלעדיה, כי זה מה שנקנה. */
 function dealCarouselItems(properties, deal){
-  const pool = newestFirst(properties.filter(p => dealKind(p) === deal));
+  const pool = PropertyCard.photosFirst(newestFirst(properties.filter(p => dealKind(p) === deal)));
   const promoted = pool.filter(isPromoted).slice(0, DEAL_CAROUSEL_PROMOTED);
   const promotedIds = new Set(promoted.map(p => p.id));
   return [...promoted, ...pool.filter(p => !promotedIds.has(p.id))].slice(0, DEAL_CAROUSEL_MAX);
@@ -7502,10 +7592,16 @@ const newestFirst = list => [...list].sort((a,b)=>
 
 /* "החדשים ביותר" בסבב בין המשרדים: משרד עם עשרה נכסים טריים היה ממלא
    לבדו את כל חמשת המקומות, ולכן נלקח נכס אחד מכל משרד בתורו (סדר
-   המשרדים נקבע לפי הנכס החדש ביותר שיש לכל אחד) עד שמתמלאת המכסה. */
+   המשרדים נקבע לפי הנכס החדש ביותר שיש לכל אחד) עד שמתמלאת המכסה.
+
+   ‏photosFirst נכנס לפני בניית התורים, כמו ברצועות: כאן יש חמישה מקומות
+   בלבד, ולכן נכס בלי תמונה שנכנס לאחד מהם עולה חמישית מהתצוגה. כיוון
+   שהחלוקה יציבה, כל תור נשאר ממוין לפי תאריך בתוך כל קבוצה, וסבב
+   המשרדים נשמר כפי שהוא — הוא רק מתחיל מהמשרדים שיש להם מה להראות.
+   משרד שכל נכסיו בלי תמונות עדיין מגיע בתורו, אחריהם. */
 function newestMixedByAgency(list, count){
   const queues = new Map();
-  newestFirst(list).forEach(p=>{
+  PropertyCard.photosFirst(newestFirst(list)).forEach(p=>{
     const key = p.agency_name || p.agency_id || '—';
     if (!queues.has(key)) queues.set(key, []);
     queues.get(key).push(p);
@@ -7547,11 +7643,12 @@ function filterListings(list){
    ולכן הם זהים גם לדף המשרד ולדף הסוכן/ת. */
 function propCard(p, i){
   const el = document.createElement('div');
-  el.className = 'prop-card';
+  el.className = 'prop-card pc-cover';
   el.style.cursor = 'pointer';
   el.innerHTML = `
     <div class="thumb" style="${thumbStyle(p, i)}">
       ${thumbFallback(p)}
+      ${PropertyCard.coverVideoHtml(p)}
       ${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}
       ${PropertyCard.badgesHtml(p, { aiViz: visualizedProps.has(p.id), photo: hasPhoto(p) })}
       ${PropertyCard.mediaHtml(p)}
@@ -7566,14 +7663,73 @@ function propCard(p, i){
   return el;
 }
 
+/* ---------- שורת הנכס ברשימה שבתחתית העמוד ----------
+   האריח שלמעלה הוא ויטרינה: הוא מוכר נכס אחד בכל פעם, ולכן התמונה בו
+   היא הכרטיס. הרשימה כאן היא ההפך — כל המאגר, וכלי לסרוק אותו — ואריח
+   כיסוי בגובה שליש מסך פירושו שלושה נכסים למסך ועשרים מסכים על שישים
+   מודעות.
+
+   שלוש שורות ותמונונת, בדיוק כמו "הנכסים שלי" ב-CRM:
+     ‏1. סוג הנכס והשכונה — מה זה ואיפה
+     ‏2. חדרים, שטח וקומה — המספרים שמסננים
+     ‏3. המחיר, ולצידו תגית העסקה
+
+   השורה כולה היא הקישור ולא כפתור בקצה: שטח נגיעה של 74px על 400px גדול
+   פי כמה מכפתור, וה-‎<a>‎ נותן גם פתיחה בלשונית חדשה ותפריט הקשר, שני
+   דברים שכרטיס עם מאזין click לא נתן מעולם. החץ הוא הסימן שזה קישור. */
+function propRow(p){
+  const el = document.createElement('a');
+  el.className = 'prop-row';
+  el.href = 'property.html?id=' + encodeURIComponent(p.id);
+  // התגית אומרת מכירה או השכרה, ולכן גם הגוון שלה נגזר מזה בלבד. גוון
+  // "מסחרי" על תגית שכתוב בה "למכירה" הוא שני מסרים באותו מקום, ומסחריות
+  // ממילא כתובה בשורה הראשונה ("חנויות/שטח מסחרי", "משרדים").
+  el.setAttribute('data-deal', p.deal_type === 'rent' ? 'rent' : 'sale');
+
+  const hood = p.neighborhood_name || p.city || '';
+  const what = [p.property_type, hood].filter(Boolean).join(' · ');
+
+  // אותם מאפיינים ובאותו סדר של האריח, כדי ששתי התצוגות לא יספרו סיפור שונה
+  const facts = [];
+  if (p.rooms) facts.push(`${Math.round(Number(p.rooms) * 10) / 10} חד׳`);
+  if (p.size_sqm) facts.push(`${Number(p.size_sqm).toLocaleString('he-IL')} מ״ר`);
+  if (p.floor !== null && p.floor !== undefined && p.floor !== ''){
+    facts.push(Number(p.floor) === 0 ? 'קומת קרקע' : `קומה ${p.floor}`);
+  }
+  if (PropertyCard.hasFeature(p, 'parking')) facts.push('חניה');
+
+  const price = Number(p.price);
+  const priceText = (isFinite(price) && price > 0)
+    ? `₪${price.toLocaleString('he-IL')}${p.deal_type === 'rent' ? '<span class="per"> לחודש</span>' : ''}`
+    : 'לפי בקשה';
+  const deal = p.deal_type === 'rent' ? 'להשכרה' : 'למכירה';
+
+  el.innerHTML = `
+    <span class="pr-thumb" style="${thumbStyle(p)}">
+      ${thumbFallback(p)}
+      ${isPromoted(p) ? '<span class="pr-promo">מקודם</span>' : ''}
+    </span>
+    <span class="pr-main">
+      <span class="pr-line pr-what">${escAttr(what)}</span>
+      <span class="pr-line pr-facts">${escAttr(facts.join(' · '))}</span>
+      <span class="pr-line pr-price">${priceText}<span class="pr-deal">${deal}</span></span>
+    </span>
+    <svg class="pr-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>`;
+  return el;
+}
+
 function renderListings(){
   const grid = document.getElementById('propertyGrid');
   const heading = document.getElementById('listingsTitle');
   const countEl = document.getElementById('listingsCount');
   if (!grid) return;
 
+  /* בטאב המלא אין תקרה ולכן אין ממי להעדיף — אף נכס לא נדחק החוצה, וכל
+     מה ש-photosFirst עושה שם הוא לסדר: המצולמים ראשונים, ומי שאין לו
+     תמונה יורד לתחתית הרשימה במקום להתפזר בתוכה. */
   const shown = listingsExpanded
-    ? filterListings(listingsAll)
+    ? PropertyCard.photosFirst(filterListings(listingsAll))
     : newestMixedByAgency(listingsAll, LISTINGS_PREVIEW);
 
   if (heading) heading.textContent = listingsExpanded ? 'כל הנכסים הפעילים' : 'הנכסים הכי חדשים';
@@ -7590,16 +7746,20 @@ function renderListings(){
     return;
   }
   shown.forEach((p, i)=>{
-    grid.appendChild(propCard(p, i));
+    grid.appendChild(propRow(p));
     // הפרסומת מוצגת רק ברשימה המלאה; בתצוגת חמשת החדשים היא הייתה
     // חוצה רשימה קצרה ממילא.
     if (listingsExpanded && i === 1){
       const ad = document.createElement('div');
       ad.className = 'infeed-ad';
-      ad.textContent = 'פרסומת — באנר רוחבי בין אריחי הנכסים';
+      ad.textContent = 'פרסומת — באנר רוחבי בין שורות הנכסים';
       grid.appendChild(ad);
     }
   });
+  // מעבר בין הטאבים או סינון מחזירים את הגלילה לראש הרשימה: המשתמש/ת
+  // מסתכל/ת על רשימה אחרת, ולהשאיר אותה באמצע הגלילה הקודמת נראה כאילו
+  // חלק מהתוצאות חסרות.
+  document.getElementById('listingsScroll')?.scrollTo({ top: 0 });
 }
 
 function setListingsTab(expanded){

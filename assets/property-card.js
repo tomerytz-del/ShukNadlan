@@ -116,10 +116,94 @@
        שורה 2 — שאר הפרטים: הרחוב, העיר (כששורה 1 כבר תפוסה בשכונה)
                 והמשרד המפרסם.
      שתי השורות תמיד קיימות, גם כשהשנייה ריקה, ולכן גובה אזור הטקסט קבוע. */
+  /* ---------- הכותרת, בלי מה שכבר כתוב מתחתיה ----------
+     הכותרת של רוב המודעות נבנית בתבנית אחת: ‏"<סוג>, <אזור> <רחוב> <מספר>
+     — <שטח> מ״ר". כל אחד מהחלקים האלה כבר מופיע באריח בשורה אחרת — הסוג
+     והאזור בשורת המיקום הראשונה, הרחוב בשנייה, השטח והחדרים בשורת
+     המאפיינים — ולכן האריח קרא את אותו מידע שלוש פעמים, ובגרסת הכיסוי
+     הוא גם גזל את המקום מהתמונה עצמה.
+
+     ‏60 המודעות הפעילות בזמן הכתיבה: ‏48 מהן נכתבו בתבנית הזו בדיוק ולא
+     הוסיפו בכותרת ולו מילה אחת. השאר כן — "משופצת", "סטודיו", "פינתית
+     במיקום מעולה", "שכונת גבעת המורה" — וזה בדיוק מה שנשאר כאן.
+
+     לכן לא מוחקים את הכותרת ולא משאירים אותה כמו שהיא, אלא מקזזים ממנה
+     את מה שהאריח כבר אומר. מה שנשאר בלי אותיות של ממש נופל לגמרי.
+
+     ההשוואה לסוג הנכס היא לפי גזע ולא לפי מחרוזת: הכותרת כותבת "דירת"
+     ו-"דירות" מול ‎property_type‎ "דירה", ו-"חנות" מול "חנויות/שטח מסחרי". */
+  var HEB = /[\u0590-\u05FF]/;
+
+  function stem(word) {
+    // הסרת אות שימוש מובילה (בכל"ם והו"ה) ושלוש אותיות ראשונות — מספיק
+    // כדי לזהות "משרד" מול "משרדים" בלי לאחד מילים שאינן קרובות
+    return word.replace(/["'\u05F4\u05F3]/g, '').replace(/^[\u05D4\u05D5\u05D1\u05DC\u05DE\u05E9\u05DB]/, '').slice(0, 3);
+  }
+
+  function escapeRe(s) {
+    return String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
+
+  function numText(v) {
+    return (v === null || v === undefined || v === '') ? null : String(Number(v));
+  }
+
+  function distinctTitle(p) {
+    var prop = p || {};
+    var t = String(prop.title || '').replace(/\s+/g, ' ').trim();
+    if (!t) return '';
+
+    // 1. השטח והקומה — שורת המאפיינים אומרת את שניהם
+    var size = numText(prop.size_sqm);
+    if (size) t = t.replace(new RegExp('[\u2014\u2013-]?\\s*' + escapeRe(size) + '\\s*\u05DE["\u05F4\u05F3\']?\\s*\u05E8', 'g'), ' ');
+    t = t.replace(/,?\s*\u05E7\u05D5\u05DE\u05D4\s*\d+/g, ' ');
+
+    // 2. מספר החדרים — גם הוא שם
+    var rooms = numText(prop.rooms);
+    if (rooms) t = t.replace(new RegExp(escapeRe(rooms) + '\\s*(\u05D7\u05D3\u05E8\u05D9\u05DD|\u05D7\u05D3[\'\u05F3]?)', 'g'), ' ');
+
+    // 3. "למכירה"/"להשכרה" — זו התגית שיושבת על התמונה. גבולות המילה
+    //    נכתבים כטווח עברי, כי ‎\b‎ ב-JS לא מכיר אותיות עבריות בכלל.
+    t = t.replace(/(^|[^\u0590-\u05FF])(\u05DC\u05D4\u05E9\u05DB\u05E8\u05D4|\u05DC\u05DE\u05DB\u05D9\u05E8\u05D4)(?![\u0590-\u05FF])/g, '$1 ');
+
+    // 4. המיקום — שתי שורות המיקום אומרות את כולו. מהארוך לקצר, אחרת
+    //    אזור המכירה ("רובע יזרעאל") נחתך מתוך שם הרחוב שמכיל אותו
+    //    ("סביוני העמק שדרות רובע יזרעאל") והרחוב כבר לא נמצא.
+    [prop.sales_area, prop.neighborhood_name, prop.street, prop.city]
+      .filter(Boolean)
+      .map(function (v) { return String(v).trim(); })
+      .sort(function (a, b) { return b.length - a.length; })
+      .forEach(function (v) { t = t.replace(new RegExp(escapeRe(v), 'g'), ' '); });
+    if (prop.house_number) {
+      t = t.replace(new RegExp('(^|[^\\d])' + escapeRe(String(prop.house_number)) + '(?!\\d)', 'g'), '$1 ');
+    }
+
+    // 5. סוג הנכס — הפריט הראשון בשורת המיקום. רק במקטע הראשון של
+    //    הכותרת, ששם התבנית שמה אותו; "משרד/חנות" מאבד את "חנות"
+    //    ושומר את "משרד", וזה בדיוק ההבדל שהוא בא לספר.
+    var typeStems = {};
+    String(prop.property_type || '').split(/[\s/]+/).forEach(function (w) {
+      if (HEB.test(w)) typeStems[stem(w)] = true;
+    });
+    var parts = t.split(',');
+    var headWords = parts[0].split(/[\s/]+/).filter(Boolean);
+    var kept = headWords.filter(function (w) { return !(HEB.test(w) && typeStems[stem(w)]); });
+    if (kept.length !== headWords.length) {
+      parts[0] = kept.join(' ');
+      t = parts.join(',');
+    }
+
+    // 6. ניקוי המפרידים שנשארו תלויים באוויר
+    t = t.replace(/[,\u00B7\u2014\u2013-]+/g, ' ').replace(/\s+/g, ' ').trim();
+    // פחות משלוש אותיות אינו כותרת אלא שארית
+    return t.replace(/[^\u0590-\u05FFa-zA-Z]/g, '').length < 3 ? '' : t;
+  }
+
+  /* המעטפת נכתבת תמיד גם כשאין מה לכתוב בה — היא שומרת את גובה השורה,
+     ובלעדיה אריח שכותרתו לא הוסיפה כלום יצא נמוך משכניו. */
   function titleHtml(p) {
     ensureStyles();
-    var prop = p || {};
-    var text = prop.title || prop.property_type || '';
+    var text = distinctTitle(p);
     return '<div class="pc-title">' + escapeHtml(text) + '</div>';
   }
 
@@ -206,6 +290,112 @@
     return items.length ? '<div class="pc-media">' + items.join('') + '</div>' : '';
   }
 
+  /* ---------- הסרטון כתמונת האריח ----------
+     אריח עם סרטון מנגן אותו מושתק בלולאה במקום להציג פריים קפוא. זה
+     הנתון שמבדיל את המודעה ברצועה, והתגית "סרטון" לבדה לא מכרה אותו.
+
+     שני תנאים ותו לא:
+       • קובץ מדיה שלנו. ‏iframe של יוטיוב בתוך אריח ברוחב 250px הוא נגן
+         של צד שלישי עם הפקדים והלוגו שלו על כל שטח התמונה, והוא גם בולע
+         את הלחיצה שאמורה לפתוח את הנכס.
+       • הדפדפן לא ביקש אחרת: ‏reduced-motion, ‏Save-Data או חיבור 2G.
+
+     ומעל הכל — עצלנות. רצועה מחזיקה עשרים אריחים, וסרטון נכס שוקל עד
+     50MB: ‏src נכתב רק כשהאריח באמת נכנס למסך, ונמחק כשהוא יוצא. בלי זה
+     גלילה אחת בדף הבית הייתה מושכת מאות מגהבייטים לכיס של הגולש/ת.
+     ‏preload="none" הוא רשת הביטחון לדפדפן שלא מריץ את ה-observer. */
+  var MEDIA_FILE = /\.(mp4|webm|ogg|ogv|mov|m4v)$/i;
+  // כמה סרטונים מנגנים יחד לכל היותר. שלושה הם מה שנראה ברצועה בבת אחת,
+  // ומעבר לזה זו רק סוללה שנשרפת על אריחים שממילא מחוץ למסך.
+  var MAX_PLAYING = 3;
+
+  function playableVideo(p) {
+    var raw = p && p.video_url;
+    if (!raw) return null;
+    var u;
+    try { u = new URL(raw, location.href); } catch (e) { return null; }
+    if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+    return MEDIA_FILE.test(u.pathname) ? u.href : null;
+  }
+
+  function motionAllowed() {
+    if (typeof window === 'undefined') return false;
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false;
+    var conn = navigator.connection;
+    if (conn && conn.saveData) return false;
+    if (conn && /^(slow-)?2g$/.test(conn.effectiveType || '')) return false;
+    return true;
+  }
+
+  /* ‏src ריק בכוונה: ‎hydrateVideos‎ ממלא אותו כשהאריח נראה. עד אז זהו
+     אלמנט שקוף שדרכו נראית תמונת הרקע של ‎.thumb‎ — כלומר האריח נראה
+     בדיוק כמו קודם עד שיש מה לנגן, ואין צורך ב-poster שיוריד את התמונה
+     בשנייה. */
+  function coverVideoHtml(p) {
+    ensureStyles();
+    var src = playableVideo(p);
+    if (!src || !motionAllowed()) return '';
+    // הצופה נרשם מכאן ולא מכל דף בנפרד: הפונקציה הזו נקראת בזמן בניית
+    // ה-markup, והאריח נכנס ל-DOM לפני ה-rAF שאחריה. כך אף דף לא צריך
+    // לזכור לקרוא ל-hydrateVideos אחרי כל רינדור — וזה בדיוק הסוג של
+    // "לזכור" ששוכחים בו את הרצועה הרביעית.
+    scheduleHydrate();
+    return '<video class="pc-cover-video" muted loop playsinline preload="none" ' +
+      'aria-hidden="true" tabindex="-1" data-pc-video="' + escapeHtml(src) + '"></video>';
+  }
+
+  var hydrateQueued = false;
+  function scheduleHydrate() {
+    if (hydrateQueued || typeof requestAnimationFrame === 'undefined') return;
+    hydrateQueued = true;
+    requestAnimationFrame(function () {
+      hydrateQueued = false;
+      hydrateVideos();
+    });
+  }
+
+  var playing = [];
+
+  function startVideo(v) {
+    if (!v.src) v.src = v.getAttribute('data-pc-video') || '';
+    if (!v.src) return;
+    v.muted = true;   // גם אחרי הצבת src — דפדפן חוסם ניגון אוטומטי עם קול
+    var res = v.play();
+    if (res && res.catch) res.catch(function () {});
+    if (playing.indexOf(v) === -1) playing.push(v);
+    // מעל התקרה — עוצרים את הוותיק ביותר, זה שהגלילה כבר הרחיקה ממנו
+    while (playing.length > MAX_PLAYING) stopVideo(playing[0], false);
+  }
+
+  function stopVideo(v, release) {
+    var i = playing.indexOf(v);
+    if (i !== -1) playing.splice(i, 1);
+    v.pause();
+    // מחיקת ה-src משחררת את מה שכבר ירד. חוזרים לאריח? הדפדפן מגיש מהמטמון.
+    if (release) { v.removeAttribute('src'); v.load(); }
+  }
+
+  /* נקראת אחרי שהאריחים נכנסו ל-DOM. אידמפוטנטית: אלמנט שכבר מנוטר
+     מסומן, ולכן קריאה חוזרת אחרי הוספת אריחים לא כופלת צופים. */
+  function hydrateVideos(root) {
+    if (typeof IntersectionObserver === 'undefined') return;
+    var scope = root || document;
+    var list = scope.querySelectorAll('video.pc-cover-video:not([data-pc-watched])');
+    if (!list.length) return;
+    if (!hydrateVideos._io) {
+      hydrateVideos._io = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) {
+          if (entry.isIntersecting) startVideo(entry.target);
+          else stopVideo(entry.target, true);
+        });
+      }, { threshold: 0.6 });
+    }
+    Array.prototype.forEach.call(list, function (v) {
+      v.setAttribute('data-pc-watched', '');
+      hydrateVideos._io.observe(v);
+    });
+  }
+
   /* ---------- עדיפות לנכסים עם מדיה ----------
      תמונה רחבה ומוארת מקפיצה את האטרקטיביות של האריח מיד, וסרטון עוד יותר.
      נכס בלי תמונה בכלל מקבל ממלא־מקום — הוא עדיין מוצג, אבל בסוף הרצועה.
@@ -227,6 +417,29 @@
   function sortByMedia(list) {
     return (Array.isArray(list) ? list.slice() : [])
       .sort(function (a, b) { return mediaRank(b) - mediaRank(a); });
+  }
+
+  /* ---------- מי בכלל נכנס לרצועה ----------
+     ‏sortByMedia שמעל היא סידור: היא קובעת מי ראשון בין מי שכבר נבחרו.
+     זו בחירה: היא קובעת מי נכנס בכלל, וזה הבדל שהיה חסר. רצועה מציגה
+     שנים־עשר נכסים מתוך המאגר, והבחירה נעשתה לפי תאריך בלבד — כלומר נכס
+     בלי ולו תמונה אחת תפס מקום בשנים־עשר רק בזכות היותו חדש, ודחף החוצה
+     נכס מצולם שנכנס יום לפניו. ‏sortByMedia רק הורידה אותו לסוף הרצועה,
+     והאריח הראשון שממשיכים לראות שם הוא ממלא־מקום.
+
+     ‏48 מתוך 61 המודעות הפעילות בזמן הכתיבה הן עם תמונה — אבל בקטגוריית
+     המכירה, שבה הרצועה מציגה כמעט את כל המלאי, שבע מתוך ארבע־עשרה הן
+     בלי. שם ההפרש הזה הוא חצי מהרצועה.
+
+     חלוקה יציבה ולא מיון: בתוך כל קבוצה נשמר הסדר שנכנס — לרוב לפי
+     תאריך — ולכן זו העדפה על פני מי שאין לו תמונה, ולא דירוג מחדש.
+     ‏hasPhoto הוא אותו כלל שלפיו האריח מחליט להציג ממלא־מקום, ולכן
+     "נכס עם תמונה" כאן פירושו בדיוק "אריח שיש בו תמונה". */
+  function photosFirst(list) {
+    var arr = Array.isArray(list) ? list : [];
+    var withPhoto = [], without = [];
+    arr.forEach(function (p) { (hasPhoto(p) ? withPhoto : without).push(p); });
+    return withPhoto.concat(without);
   }
 
   /* ---------- אילו נכסים יש להם הדמיית AI ----------
@@ -344,6 +557,75 @@
     '  padding:4px 9px;border-radius:0;',
     '  -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}',
     '.pc-media svg{width:12px;height:12px}',
+
+    /* ---------- אריח הכיסוי ----------
+       עד כה התמונה הייתה רצועה של 94px בראש האריח, ומתחתיה גוף לבן שתפס
+       את רוב הגובה — כלומר הנתון שמוכר נכס קיבל את החלק הקטן, ורצועת
+       הנכסים נראתה קטנה לצד קרוסלת המתווכים שבאותו עמוד, שבה התמונה *היא*
+       הכרטיס.
+
+       כאן אותו מבנה בדיוק כמו באריח המתווך/ת: התמונה נפרשת על כל הכרטיס,
+       והטקסט יורד עליה על scrim כהה בתחתית. ה-markup לא משתנה — ‎.thumb‎
+       ו-‎.body‎ נשארים איפה שהם, רק שהראשון נעשה מוחלט והשני מרחף מעליו —
+       ולכן שלושת הדפים שמציירים אריח נכס מקבלים את זה מאותו קובץ.
+
+       ‏--pc-cover-h הוא הגובה, ומי שמגדיר ‎--card-h‎ (דף הבית) מקבל בדיוק
+       את גובה שאר הקרוסלות שלו. */
+    '.prop-card.pc-cover{',
+    '  position:relative;display:flex;flex-direction:column;overflow:hidden;',
+    '  min-height:var(--pc-cover-h,var(--card-h,215px));background:#0b1420}',
+    /* ‏inset:0 עם specificity שגובר על גובה קבוע שדף מסוים נתן לתמונונת */
+    '.prop-card.pc-cover > .thumb{',
+    '  position:absolute;inset:0;width:100%;height:100%;aspect-ratio:auto;z-index:0}',
+    /* הריפוד העליון הוא הרמפה של הגרדיאנט ולא מרווח לטקסט, ולכן הוא
+       באחוזים מרוחב האריח: ‏38px קבועים על אריח ברוחב 105px הכהו כמעט את
+       כולו, ועל אריח ברשת הם היו פס דק מדי מכדי להפריד את הטקסט מהתמונה. */
+    '.prop-card.pc-cover > .body{',
+    '  position:relative;z-index:2;margin-top:auto;color:#fff;padding:9% 10px 10px;',
+    '  background:linear-gradient(to top,rgba(6,20,34,.95) 38%,rgba(6,20,34,.66) 72%,rgba(6,20,34,0))}',
+    /* הסרטון יושב מעל תמונת הרקע ומתחת לכל השאר. ‏pointer-events:none —
+       לחיצה על האריח פותחת את הנכס, ואסור שהווידאו יבלע אותה. */
+    '.pc-cover-video{',
+    '  position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block;',
+    '  z-index:0;pointer-events:none}',
+    /* ‏scrim העליון של התגיות מיותר כאן — ה-scrim התחתון של הטקסט חזק
+       הרבה יותר, ושניהם יחד הכהו את התמונה כולה. */
+    '.prop-card.pc-cover .pc-scrim{',
+    '  background:linear-gradient(to bottom,rgba(10,18,30,.5) 0%,rgba(10,18,30,.14) 26%,rgba(10,18,30,0) 48%)}',
+    /* הטקסט על התמונה. גדלי הגופן נשארים של הדף — רצועה צרה כבר מקטינה
+       אותם אצלה — וכאן משתנים רק הצבע והמרווחים. כל ‎min-height‎ שנועד
+       ליישר אריחים בגוף לבן יורד: כאן הוא רק דוחף את הטקסט כלפי מעלה
+       וגוזל מהתמונה, והאריחים מיושרים ממילא בגובה משותף.
+
+       שלוש שורות בסך הכול — מחיר, מיקום, מאפיינים — בדיוק כמו באריח
+       המתווך/ת שממנו נגזר המבנה. הכותרת מצטרפת רק כשנשאר בה משהו. */
+    '.prop-card.pc-cover .pc-price{color:#fff}',
+    '.prop-card.pc-cover .pc-price .pc-per{color:rgba(255,255,255,.84)}',
+    '.prop-card.pc-cover .pc-price-none{color:rgba(255,255,255,.92)}',
+    '.prop-card.pc-cover .pc-title{',
+    '  color:#fff;-webkit-line-clamp:1;min-height:0;margin-top:2px;font-weight:600;opacity:.95}',
+    '.prop-card.pc-cover .pc-title:empty{display:none}',
+    '.prop-card.pc-cover .pc-where{margin-top:2px}',
+    '.prop-card.pc-cover .pc-where span{color:rgba(255,255,255,.88);min-height:0;line-height:1.3}',
+    '.prop-card.pc-cover .pc-where span:empty{display:none}',
+    /* שורת המאפיינים הופכת לשורת טקסט אחת. ‏flex עם ‎flex-wrap‎ פרש ארבעה
+       מאפיינים על ארבע שורות באריח ברוחב 125px — כלומר רוב גובה הכיסוי
+       הלך על "3 חד׳ / 137 מ״ר / קומה 2 / חניה" בזה אחר זה, והתמונה נדחקה
+       למעלה. האייקונים יורדים כאן ומפרידה ביניהם נקודה: בגודל הזה הם
+       ממילא היו כתמים, והמילים אומרות את אותו הדבר ברבע מהרוחב. */
+    '.prop-card.pc-cover .pc-facts{',
+    '  display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;',
+    '  margin-top:6px;min-height:0}',
+    '.prop-card.pc-cover .pc-fact{display:inline;color:#fff;opacity:.94}',
+    '.prop-card.pc-cover .pc-fact svg{display:none}',
+    '.prop-card.pc-cover .pc-fact + .pc-fact::before{content:" · ";opacity:.65}',
+    '.prop-card.pc-cover .pc-facts:empty{display:none}',
+    /* תגיות המדיה יורדות באריח הכיסוי: הן ישבו בדיוק במקום שהטקסט תופס
+       עכשיו, ותגית "סרטון" מיותרת ממילא כשהסרטון מנגן מול העיניים. */
+    '.prop-card.pc-cover .pc-media{display:none}',
+    /* ממלא־המקום של נכס בלי תמונות היה ממורכז בגובה 94px; עכשיו יש לו
+       כרטיס שלם, והוא נדחף מעל ה-scrim כדי שלא ייקרא מבעד לטקסט. */
+    '.prop-card.pc-cover .thumb-fallback{justify-content:flex-start;padding-top:16%}',
   ].join('\n');
 
   var stylesInjected = false;
@@ -366,8 +648,12 @@
     scrimHtml: scrimHtml,
     hasPhoto: hasPhoto,
     mediaHtml: mediaHtml,
+    distinctTitle: distinctTitle,
+    coverVideoHtml: coverVideoHtml,
+    hydrateVideos: hydrateVideos,
     mediaRank: mediaRank,
     sortByMedia: sortByMedia,
+    photosFirst: photosFirst,
     visualizedIds: visualizedIds,
     allVisualizedIds: allVisualizedIds,
     hasFeature: hasFeature,
