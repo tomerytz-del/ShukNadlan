@@ -362,56 +362,64 @@
   /* ---------- "הנכסים שלי" כרשימת טאבים ----------
      שורה אחת לנכס — סוג, כתובת ומחיר — וכל השאר מאחורי לחיצה. עשרה טאבים
      נכנסים למסך טלפון אחד, וזה ההבדל בין לסרוק רשימה לבין לגלול בה. */
-  .prop-tabs{display:grid;gap:6px}
-  .prop-tab{border:1px solid var(--edge,var(--line));border-radius:var(--r-md,var(--radius-sm));
+  .card-tabs{display:grid;gap:6px}
+  .card-tab{border:1px solid var(--edge,var(--line));border-radius:var(--r-md,var(--radius-sm));
     background:var(--surface,#fff);overflow:hidden}
-  .prop-tab.is-open{box-shadow:var(--sh-1,var(--shadow-sm))}
-  .prop-tab-head{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;
+  .card-tab.is-open{box-shadow:var(--sh-1,var(--shadow-sm))}
+  .card-tab-head{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;
     background:none;border:none;font:inherit;color:inherit;text-align:start;cursor:pointer}
-  .prop-tab-head:hover{background:var(--surface-2,rgba(28,58,94,.04))}
-  .prop-tab-head:focus-visible{outline:2px solid var(--teal);outline-offset:-2px}
-  .prop-tab-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+  .card-tab-head:hover{background:var(--surface-2,rgba(28,58,94,.04))}
+  .card-tab-head:focus-visible{outline:2px solid var(--teal);outline-offset:-2px}
+  .card-tab-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
   /* ‏nowrap+ellipsis: כתובת ארוכה שנשברת לשתי שורות מבטלת את כל הרווח שנחסך */
-  .prop-tab-title,.prop-tab-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .prop-tab-title{font-weight:700;font-size:.88rem}
-  .prop-tab-sub{font-size:.72rem;color:var(--txt-faint,var(--ink-soft))}
-  .prop-tab-price{font-weight:800;font-size:.85rem;color:var(--teal-dark);white-space:nowrap;flex-shrink:0}
-  .prop-tab-price .per{font-weight:600;font-size:.72rem;color:var(--txt-faint,var(--ink-soft))}
-  .prop-tab-chev{width:17px;height:17px;flex-shrink:0;color:var(--txt-faint,var(--ink-soft));
+  .card-tab-title,.card-tab-sub{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .card-tab-title{font-weight:700;font-size:.88rem}
+  .card-tab-sub{font-size:.72rem;color:var(--txt-faint,var(--ink-soft))}
+  .card-tab-side{font-weight:800;font-size:.85rem;color:var(--teal-dark);white-space:nowrap;flex-shrink:0}
+  .card-tab-side .per{font-weight:600;font-size:.72rem;color:var(--txt-faint,var(--ink-soft))}
+  .card-tab-chev{width:17px;height:17px;flex-shrink:0;color:var(--txt-faint,var(--ink-soft));
     transition:transform .18s ease}
-  .prop-tab.is-open .prop-tab-chev{transform:rotate(180deg)}
+  .card-tab.is-open .card-tab-chev{transform:rotate(180deg)}
+  /* פס צבע בתחילת השורה, באותה שפה של הכרטיסים: זהב לנכס מקודם וללידים של
+     בעל/ת נכס, כחול למתעניין/ת, ירוק לשת״פ, ואפור-דהוי למה שכבר בארכיון. */
+  .card-tab.tab-gold{border-inline-start:3px solid #B08A2E}
+  .card-tab.tab-teal{border-inline-start:3px solid var(--teal)}
+  .card-tab.tab-green{border-inline-start:3px solid #2A5B36}
+  .card-tab.tab-wine{border-inline-start:3px solid var(--brick,#8B2332)}
+  .card-tab.tab-muted .card-tab-title{color:var(--txt-soft,var(--ink-soft))}
   /* טאב פתוח מסומן גם כשהעכבר לא עליו — אחרת רק החץ מבדיל בינו לבין שכניו */
-  .prop-tab.is-open .prop-tab-head{background:var(--surface-2,rgba(28,58,94,.04))}
-  .prop-tab-panel{padding:0 8px 8px;border-top:1px solid var(--edge,var(--line))}
-  .prop-tab-panel[hidden]{display:none}
+  .card-tab.is-open .card-tab-head{background:var(--surface-2,rgba(28,58,94,.04))}
+  .card-tab-panel{padding:0 8px 8px;border-top:1px solid var(--edge,var(--line))}
+  .card-tab-panel[hidden]{display:none}
   /* הכרטיס שנפתח הוא אותו כרטיס שהיה ברשימה — רק בלי המרווח התחתון שהפריד
      בינו לבין הכרטיס הבא, שכבר לא קיים */
-  .prop-tab-panel .lead-card{margin-bottom:0;margin-top:8px}
+  .card-tab-panel>.card,
+  .card-tab-panel>.match-card{margin-bottom:0;margin-top:8px}
   @media(max-width:420px){
-    .prop-tab-head{gap:7px;padding:9px 10px}
-    .prop-tab-price{font-size:.8rem}
+    .card-tab-head{gap:7px;padding:9px 10px}
+    .card-tab-side{font-size:.8rem}
   }
 
   /* ---------- אזור הגלילה של הרשימה ----------
      גובה של כעשרה טאבים, וגלילה בתוכו במקום כפתורי דפדוף. ‏overscroll-behavior
      חוסם את המשך הגלילה לעמוד כשמגיעים לקצה הרשימה — בלעדיו כל גלילה בתוך
      הרשימה הייתה בורחת לדשבורד ברגע שהיא נגמרת. */
-  .prop-scroll{max-height:min(70vh,600px);overflow-y:auto;overscroll-behavior:contain;
+  .card-scroll{max-height:min(70vh,600px);overflow-y:auto;overscroll-behavior:contain;
     scrollbar-width:thin;scrollbar-color:var(--edge,var(--line)) transparent}
-  .prop-scroll:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
-  .prop-scroll::-webkit-scrollbar{width:7px}
-  .prop-scroll::-webkit-scrollbar-thumb{background:var(--edge,var(--line));border-radius:999px}
-  .prop-tail{height:1px}
-  .prop-scroll-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  .card-scroll:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+  .card-scroll::-webkit-scrollbar{width:7px}
+  .card-scroll::-webkit-scrollbar-thumb{background:var(--edge,var(--line));border-radius:999px}
+  .card-tail{height:1px}
+  .card-scroll-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;
     margin-top:8px;flex-wrap:wrap}
-  .prop-scroll-hint{font-size:.74rem;color:var(--txt-faint,var(--ink-soft))}
-  .prop-to-top{border:1.5px solid var(--edge,var(--line));background:var(--surface,#fff);
+  .card-scroll-hint{font-size:.74rem;color:var(--txt-faint,var(--ink-soft))}
+  .card-to-top{border:1.5px solid var(--edge,var(--line));background:var(--surface,#fff);
     border-radius:999px;padding:5px 12px;font:inherit;font-size:.74rem;font-weight:700;
     color:var(--txt,var(--ink));cursor:pointer;white-space:nowrap;
-    animation:propToTopIn .22s ease both}
-  .prop-to-top:hover{border-color:var(--teal);color:var(--teal)}
-  .prop-to-top[hidden]{display:none}
-  @keyframes propToTopIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+    animation:cardToTopIn .22s ease both}
+  .card-to-top:hover{border-color:var(--teal);color:var(--teal)}
+  .card-to-top[hidden]{display:none}
+  @keyframes cardToTopIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
 
   /* ---------- אנימציות גלילה ----------
      שתיהן ‏scroll-driven animations של ה-CSS: אין כאן מאזין scroll ואין
@@ -424,22 +432,22 @@
   /* בלי ‎overflow:hidden‎ על המסילה: ‎overflow‎ הופך אלמנט ל-scroll container
      בעצמו, ואז ‎scroll(nearest)‎ של המילוי נתפס עליו — על מסילה שאין בה מה
      לגלול — במקום על רשימת הנכסים. העיגול יושב על המילוי עצמו. */
-  .prop-progress{display:none;position:sticky;top:0;z-index:3;height:3px;margin-bottom:6px;
+  .card-progress{display:none;position:sticky;top:0;z-index:3;height:3px;margin-bottom:6px;
     border-radius:999px;background:var(--surface-2,rgba(28,58,94,.08))}
-  .prop-progress span{display:block;height:100%;border-radius:999px;background:var(--teal);
+  .card-progress span{display:block;height:100%;border-radius:999px;background:var(--teal);
     transform:scaleX(0);transform-origin:right center}
   /* ‏longhand ולא הקיצור ‎animation:‎ — הקיצור מאפס את ‎animation-duration‎
      ל-0s, ואנימציה מונעת-גלילה חייבת ‎auto‎ כדי להימתח על כל הציר. */
   @supports (animation-timeline: scroll()){
     /* רק כשיש מה לגלול — רשימה של שלושה נכסים לא צריכה מד התקדמות */
-    .prop-scroll.is-scrollable .prop-progress{display:block}
-    .prop-progress span{
-      animation-name:propScrollProgress;animation-duration:auto;
+    .card-scroll.is-scrollable .card-progress{display:block}
+    .card-progress span{
+      animation-name:cardScrollProgress;animation-duration:auto;
       animation-timing-function:linear;animation-fill-mode:both;
       animation-timeline:scroll(nearest);
     }
   }
-  @keyframes propScrollProgress{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+  @keyframes cardScrollProgress{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 
   /* מתחילים מ-‎.2‎ ולא מ-0: השורה שנחשפת בקצה התחתון של הרשימה נראית עמומה
      ולא חסרה — הדהייה אומרת "יש עוד", היא לא מסתירה שורה שאפשר לקרוא. */
@@ -448,7 +456,7 @@
     @supports (animation-timeline: view()){
       /* טאב שנכנס לאזור הגלילה עולה ומתבהר — הסימן שיש עוד רשימה מתחת.
          ואותה שפה בשאר רשימות הדשבורד: לידים, לקוחות, הסכמים ומדדי הפתיחה. */
-      .prop-tab,
+      .card-tab,
       #dashboard .acc-body .lead-card,
       #dashboard .acc-body .client-card,
       #dashboard .acc-body .agr-row,
@@ -458,7 +466,9 @@
         animation-timeline:view(block);animation-range:entry 0% entry 50%;
       }
       /* הכרטיס שנפתח בתוך טאב כבר קיבל את התנועה של הטאב עצמו */
-      #dashboard .prop-tab-panel .lead-card{animation-name:none}
+      #dashboard .card-tab-panel .lead-card,
+      #dashboard .card-tab-panel .client-card,
+      #dashboard .card-tab-panel .agr-row{animation-name:none}
     }
   }
   .card-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}
@@ -7584,44 +7594,58 @@ async function loadPendingReviews(agencyId){
   accSetCount('accReviews', (reviews||[]).length);
   if (!reviews || reviews.length === 0){ el.innerHTML = '<div class="empty-state">אין ביקורות הממתינות לאישור.</div>'; return; }
 
-  el.innerHTML = '';
-  reviews.forEach(r=>{
-    const card = document.createElement('div');
-    card.className = 'card lead-card';
-    card.innerHTML = `
-      <div class="lead-top">
-        <div>
-          <div class="lead-name">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div>
-        </div>
-      </div>
-      ${tagsHtml([
-        { text:'👤 ' + (r.reviewer_display_name || 'לקוח מאומת'), cls:'tag-key' },
-        { text:`⭐ המתווך/ת ${r.rating}/5`, cls: r.rating >= 4 ? 'tag-good' : 'tag-warn' },
-        // הדירוג הישיר של המשרד הוא שאלה אופציונלית בטופס, ולכן התגית מופיעה
-        // רק כשניתנה תשובה. מנהל/ת המשרד מאשר/ת את הביקורת — וצריך/ה לראות
-        // את שני הדירוגים שהאישור מפרסם, לא רק את זה של המתווך/ת.
-        ...(r.agency_rating ? [{
-          text:`🏢 המשרד ${r.agency_rating}/5`,
-          cls: r.agency_rating >= 4 ? 'tag-good' : 'tag-warn',
-        }] : []),
-        { text:'📅 ' + hebDate(r.created_at) },
-      ])}
-      ${r.text ? `<div class="lead-meta" style="margin-top:6px">${esc(r.text)}</div>` : ''}
-      <div class="lead-actions"></div>
-    `;
-    const actions = card.querySelector('.lead-actions');
-
-    addCardAction(actions, {
-      label:'✅ אישור ופרסום', cls:'btn-gold',
-      onClick:()=> moderateReview(r.id, 'published', agencyId),
-    });
-    addCardAction(actions, {
-      label:'✖ דחייה',
-      onClick:()=> moderateReview(r.id, 'rejected', agencyId),
-    });
-
-    el.appendChild(card);
+  mountCardList(el, reviews, {
+    key:'reviews', label:'ביקורות לאישור', noun:'הביקורות',
+    id: r => r.id,
+    /* בביקורת ממתינה מה שקובע הוא הכוכבים ומי כתב/ה — הטקסט עצמו הוא מה
+       שקוראים לפני שמאשרים, ולכן הוא נפתח בלחיצה. */
+    tab: r => ({
+      title: `${'★'.repeat(r.rating)}${'☆'.repeat(5 - r.rating)} ${r.reviewer_display_name || 'לקוח מאומת'}`,
+      sub: [(r.text || '').trim().slice(0, 80) || 'ללא טקסט', hebDate(r.created_at)]
+        .filter(Boolean).join(' · '),
+      side: `${r.rating}/5`,
+      cls: r.rating >= 4 ? 'tab-green' : 'tab-wine',
+    }),
+    card: r => buildReviewCard(r, agencyId),
   });
+}
+
+function buildReviewCard(r, agencyId){
+  const card = document.createElement('div');
+  card.className = 'card lead-card';
+  card.innerHTML = `
+    <div class="lead-top">
+      <div>
+        <div class="lead-name">${'★'.repeat(r.rating)}${'☆'.repeat(5-r.rating)}</div>
+      </div>
+    </div>
+    ${tagsHtml([
+      { text:'👤 ' + (r.reviewer_display_name || 'לקוח מאומת'), cls:'tag-key' },
+      { text:`⭐ המתווך/ת ${r.rating}/5`, cls: r.rating >= 4 ? 'tag-good' : 'tag-warn' },
+      // הדירוג הישיר של המשרד הוא שאלה אופציונלית בטופס, ולכן התגית מופיעה
+      // רק כשניתנה תשובה. מנהל/ת המשרד מאשר/ת את הביקורת — וצריך/ה לראות
+      // את שני הדירוגים שהאישור מפרסם, לא רק את זה של המתווך/ת.
+      ...(r.agency_rating ? [{
+        text:`🏢 המשרד ${r.agency_rating}/5`,
+        cls: r.agency_rating >= 4 ? 'tag-good' : 'tag-warn',
+      }] : []),
+      { text:'📅 ' + hebDate(r.created_at) },
+    ])}
+    ${r.text ? `<div class="lead-meta" style="margin-top:6px">${esc(r.text)}</div>` : ''}
+    <div class="lead-actions"></div>
+  `;
+  const actions = card.querySelector('.lead-actions');
+
+  addCardAction(actions, {
+    label:'✅ אישור ופרסום', cls:'btn-gold',
+    onClick:()=> moderateReview(r.id, 'published', agencyId),
+  });
+  addCardAction(actions, {
+    label:'✖ דחייה',
+    onClick:()=> moderateReview(r.id, 'rejected', agencyId),
+  });
+
+  return card;
 }
 
 async function moderateReview(reviewId, newStatus, agencyId){
@@ -8591,126 +8615,144 @@ async function loadTeam(agencyId, callerId){
     }
   }
 
-  const roleLabels = { manager:'מנהל/ת', agent:'סוכן/ת' };
-  const tierLabels = { free:'חינמי', mid:'משודרג', premium:'פרימיום' };
-  el.innerHTML = '';
-  members.forEach(m=>{
-    const counts = dealCounts && dealCounts[m.id];
-    // סוג שאין בו נכסים לא מקבל מספר — שורת שם עם "0" משולש היא רעש.
-    const shown = counts ? TEAM_DEAL_KINDS.filter(k => counts[k.key] > 0) : [];
-    // role="img" + aria-label: הצבע לבדו לא נגיש, ולכן הסוגריים מוסתרות
-    // מהקורא ומוחלפות במשפט מלא
-    const dealsHtml = !counts ? '' : ` <span class="team-deals" role="img"
-          title="${shown.length ? 'נכסים פעילים: ' + shown.map(k => counts[k.key] + ' ' + k.label).join(', ') : 'אין נכסים פעילים'}"
-          aria-label="${shown.length ? 'נכסים פעילים: ' + shown.map(k => counts[k.key] + ' ' + k.label).join(', ') : 'אין נכסים פעילים'}"
-      >(${shown.length
-            ? shown.map(k => `<b class="td-${k.key}">${counts[k.key]}</b>`).join(' · ')
-            : '<b class="td-none">0</b>'})</span>`;
-    // כרטיס בלי user_id הוא הזמנה שטרם נענתה. זה הסימן היחיד שמגלה כתובת
-    // שהוקלדה שגוי — קודם לא היה סימן כזה בכלל, כי הכרטיס נקשר מיד לחשבון
-    // שנוצר על הכתובת השגויה ונראה פעיל לחלוטין.
-    const pending = !m.user_id;
-    // מנותק/ת: המנהל/ת כבר השעה, והסוכן/ת עוד לא פתח/ה משרד משלו/ה. זהו
-    // החלון היחיד שבו אפשר לבטל — ברגע שהמשרד נפתח השורה כבר לא כאן.
-    const released = !!m.released_at;
-    const statusLabel = pending ? 'ממתין/ה' : released ? 'מנותק/ת' : (m.active ? 'פעיל' : 'לא פעיל');
-    const el2 = document.createElement('div');
-    el2.className = 'card lead-card';
-    el2.innerHTML = `
-      <div class="lead-top">
-        <div>
-          <div class="lead-name">${esc(m.display_name)}${m.id === callerId ? ' (את/ה)' : ''}${dealsHtml}</div>
-          ${pending ? `<div style="font-size:.75rem;color:var(--ink-soft);margin-top:3px;direction:ltr;text-align:right">${esc(m.email || '')}</div>` : ''}
-        </div>
-        <span class="status-pill status-${(pending || released || !m.active) ? 'masked' : 'unlocked'}">${statusLabel}</span>
-      </div>
-      ${tagsHtml([
-        { text:roleLabels[m.role], cls: m.role === 'manager' ? 'tag-key' : '' },
-        { text:'מסלול ' + tierLabels[m.tier], cls: m.tier === 'free' ? '' : 'tag-info' },
-        { text:'🪪 רישיון ' + m.license_number },
-      ])}
-      ${pending ? `<p style="font-size:.75rem;color:var(--ink-soft);line-height:1.5;margin:8px 0 0">
-        ההזמנה נשלחה ועדיין לא נענתה. אם הכתובת שגויה — כאן מתקנים ושולחים שוב.
-      </p>` : ''}
-      ${released ? `<p style="font-size:.75rem;color:var(--brick);line-height:1.5;margin:8px 0 0">
-        הושעה/תה מהמשרד ב-${esc(hebDate(m.released_at))}. בכניסה הבאה יתבקש/תתבקש לפתוח משרד משלו/ה,
-        והנכסים${counts && counts.sale + counts.rent + counts.commercial > 0 ? ` (${counts.sale + counts.rent + counts.commercial})` : ''} יעברו איתו/ה.
-        עד אז אפשר לבטל.
-      </p>` : ''}
-      <div class="lead-actions"></div>
-    `;
-    if (pending){
-      const actions = el2.querySelector('.lead-actions');
-      addCardAction(actions, {
-        label: '✉️ שליחה מחדש / תיקון כתובת',
-        cls: 'btn-gold',
-        onClick: async ()=>{
-          const next = prompt('כתובת האימייל לשליחת ההזמנה:', m.email || '');
-          if (next === null) return;
-          const { ok, data } = await callTeamInvite({ action:'resend', member_id:m.id, member_email:next.trim() });
-          if (!ok){ showToast(TEAM_INVITE_ERRORS[data.error] || 'השליחה נכשלה'); return; }
-          showInviteResult(data, data.email);
-          showToast(data.email_sent ? 'ההזמנה נשלחה מחדש' : 'ההזמנה נוצרה — המייל לא נשלח, אפשר להעתיק קישור');
-          await loadTeam(agencyId, callerId);
-        },
-      });
-      addCardAction(actions, {
-        label: '🗑 ביטול ההזמנה',
-        onClick: async ()=>{
-          if (!confirm('לבטל את ההזמנה ולמחוק את הכרטיס של ' + m.display_name + '?')) return;
-          const { ok, data } = await callTeamInvite({ action:'revoke', member_id:m.id });
-          if (!ok){ showToast(TEAM_INVITE_ERRORS[data.error] || 'הביטול נכשל'); return; }
-          showToast('ההזמנה בוטלה');
-          await loadTeam(agencyId, callerId);
-        },
-      });
-    } else if (released){
-      const actions = el2.querySelector('.lead-actions');
-      addCardAction(actions, {
-        label: '↩ ביטול ההשעיה',
-        cls: 'btn-gold',
-        onClick: async ()=>{
-          if (!confirm('להחזיר את ' + m.display_name + ' למשרד? הכרטיס והנכסים נשארים כאן.')) return;
-          const { ok, data } = await callRelease({ action:'undo', member_id:m.id });
-          if (!ok){ showToast(RELEASE_ERRORS[data.error] || 'הפעולה נכשלה'); return; }
-          showToast('הסוכן/ת חזר/ה למשרד');
-          await loadTeam(agencyId, callerId);
-        },
-      });
-    } else if (m.id !== callerId){
-      // עריכת תפקיד/סטטוס זמינה רק לחברי צוות אחרים — לא לעצמך (הטריגר ב-DB חוסם
-      // עריכה-עצמית של role/active בכל מקרה, כדי שאף אחד לא "יקדם את עצמו" בעצמו)
-      const actions = el2.querySelector('.lead-actions');
-      const newRole = m.role === 'manager' ? 'agent' : 'manager';
-
-      addCardAction(actions, {
-        label: m.role === 'manager' ? '↓ הורדה לסוכן/ת' : '↑ קידום למנהל/ת',
-        onClick: ()=> updateMemberField(m.id, { role: newRole }, agencyId, callerId),
-      });
-
-      // השעיה = ניתוק מהמשרד. הכפתור אומר את זה במפורש, כי הפעולה הישנה
-      // ("השעיה" שלא חסמה כלום) לימדה שזו לחיצה קלה בלי משמעות.
-      //
-      // שורה לא-פעילה שאינה מנותקת יכולה להיווצר רק מעריכה ישירה במסד, אבל
-      // בלי הענף הזה היא הייתה נשארת בלי שום דרך להחזיר אותה לפעילות.
-      if (m.active){
-        const owned = counts ? counts.sale + counts.rent + counts.commercial : 0;
-        addCardAction(actions, {
-          label: '⏸ השעיה וניתוק מהמשרד',
-          onClick: ()=> releaseMember(m, owned, agencyId, callerId),
-        });
-      } else {
-        addCardAction(actions, {
-          label: '▶ הפעלה מחדש',
-          cls: 'btn-gold',
-          onClick: ()=> updateMemberField(m.id, { active: true }, agencyId, callerId),
-        });
-      }
-    }
-    el.appendChild(el2);
+  mountCardList(el, members, {
+    key:'team', label:'הצוות שלי', noun:'חברי הצוות',
+    id: m => m.id,
+    /* בשורת הצוות מה שמעניין הוא מי, באיזה תפקיד, ומה מצב הכרטיס — הזמנה
+       שממתינה או סוכן/ת שהושעה/תה הם מה שדורש טיפול. */
+    tab: m => ({
+      title: (m.display_name || '—') + (m.role === 'manager' ? ' · מנהל/ת' : ''),
+      sub: [ { free:'חינמי', mid:'משודרג', premium:'פרימיום' }[m.tier] || m.tier || '',
+             !m.user_id ? '✉️ הזמנה ממתינה' : '',
+             m.released_at ? 'מנותק/ת' : (m.active ? '' : 'מושעה/ית'),
+             m.license_number ? 'רישיון ' + m.license_number : '' ].filter(Boolean).join(' · '),
+      side: (dealCounts && dealCounts[m.id])
+        ? TEAM_DEAL_KINDS.reduce((n, k) => n + (dealCounts[m.id][k.key] || 0), 0) + ' נכסים'
+        : '',
+      cls: !m.user_id ? 'tab-gold' : (m.active && !m.released_at ? 'tab-teal' : 'tab-muted'),
+    }),
+    card: m => buildTeamCard(m, dealCounts, agencyId, callerId),
   });
 
   await loadClaimRequests(agencyId, callerId);
+}
+
+function buildTeamCard(m, dealCounts, agencyId, callerId){
+  const roleLabels = { manager:'מנהל/ת', agent:'סוכן/ת' };
+  const tierLabels = { free:'חינמי', mid:'משודרג', premium:'פרימיום' };
+  const counts = dealCounts && dealCounts[m.id];
+  // סוג שאין בו נכסים לא מקבל מספר — שורת שם עם "0" משולש היא רעש.
+  const shown = counts ? TEAM_DEAL_KINDS.filter(k => counts[k.key] > 0) : [];
+  // role="img" + aria-label: הצבע לבדו לא נגיש, ולכן הסוגריים מוסתרות
+  // מהקורא ומוחלפות במשפט מלא
+  const dealsHtml = !counts ? '' : ` <span class="team-deals" role="img"
+        title="${shown.length ? 'נכסים פעילים: ' + shown.map(k => counts[k.key] + ' ' + k.label).join(', ') : 'אין נכסים פעילים'}"
+        aria-label="${shown.length ? 'נכסים פעילים: ' + shown.map(k => counts[k.key] + ' ' + k.label).join(', ') : 'אין נכסים פעילים'}"
+    >(${shown.length
+          ? shown.map(k => `<b class="td-${k.key}">${counts[k.key]}</b>`).join(' · ')
+          : '<b class="td-none">0</b>'})</span>`;
+  // כרטיס בלי user_id הוא הזמנה שטרם נענתה. זה הסימן היחיד שמגלה כתובת
+  // שהוקלדה שגוי — קודם לא היה סימן כזה בכלל, כי הכרטיס נקשר מיד לחשבון
+  // שנוצר על הכתובת השגויה ונראה פעיל לחלוטין.
+  const pending = !m.user_id;
+  // מנותק/ת: המנהל/ת כבר השעה, והסוכן/ת עוד לא פתח/ה משרד משלו/ה. זהו
+  // החלון היחיד שבו אפשר לבטל — ברגע שהמשרד נפתח השורה כבר לא כאן.
+  const released = !!m.released_at;
+  const statusLabel = pending ? 'ממתין/ה' : released ? 'מנותק/ת' : (m.active ? 'פעיל' : 'לא פעיל');
+  const el2 = document.createElement('div');
+  el2.className = 'card lead-card';
+  el2.innerHTML = `
+    <div class="lead-top">
+      <div>
+        <div class="lead-name">${esc(m.display_name)}${m.id === callerId ? ' (את/ה)' : ''}${dealsHtml}</div>
+        ${pending ? `<div style="font-size:.75rem;color:var(--ink-soft);margin-top:3px;direction:ltr;text-align:right">${esc(m.email || '')}</div>` : ''}
+      </div>
+      <span class="status-pill status-${(pending || released || !m.active) ? 'masked' : 'unlocked'}">${statusLabel}</span>
+    </div>
+    ${tagsHtml([
+      { text:roleLabels[m.role], cls: m.role === 'manager' ? 'tag-key' : '' },
+      { text:'מסלול ' + tierLabels[m.tier], cls: m.tier === 'free' ? '' : 'tag-info' },
+      { text:'🪪 רישיון ' + m.license_number },
+    ])}
+    ${pending ? `<p style="font-size:.75rem;color:var(--ink-soft);line-height:1.5;margin:8px 0 0">
+      ההזמנה נשלחה ועדיין לא נענתה. אם הכתובת שגויה — כאן מתקנים ושולחים שוב.
+    </p>` : ''}
+    ${released ? `<p style="font-size:.75rem;color:var(--brick);line-height:1.5;margin:8px 0 0">
+      הושעה/תה מהמשרד ב-${esc(hebDate(m.released_at))}. בכניסה הבאה יתבקש/תתבקש לפתוח משרד משלו/ה,
+      והנכסים${counts && counts.sale + counts.rent + counts.commercial > 0 ? ` (${counts.sale + counts.rent + counts.commercial})` : ''} יעברו איתו/ה.
+      עד אז אפשר לבטל.
+    </p>` : ''}
+    <div class="lead-actions"></div>
+  `;
+  if (pending){
+    const actions = el2.querySelector('.lead-actions');
+    addCardAction(actions, {
+      label: '✉️ שליחה מחדש / תיקון כתובת',
+      cls: 'btn-gold',
+      onClick: async ()=>{
+        const next = prompt('כתובת האימייל לשליחת ההזמנה:', m.email || '');
+        if (next === null) return;
+        const { ok, data } = await callTeamInvite({ action:'resend', member_id:m.id, member_email:next.trim() });
+        if (!ok){ showToast(TEAM_INVITE_ERRORS[data.error] || 'השליחה נכשלה'); return; }
+        showInviteResult(data, data.email);
+        showToast(data.email_sent ? 'ההזמנה נשלחה מחדש' : 'ההזמנה נוצרה — המייל לא נשלח, אפשר להעתיק קישור');
+        await loadTeam(agencyId, callerId);
+      },
+    });
+    addCardAction(actions, {
+      label: '🗑 ביטול ההזמנה',
+      onClick: async ()=>{
+        if (!confirm('לבטל את ההזמנה ולמחוק את הכרטיס של ' + m.display_name + '?')) return;
+        const { ok, data } = await callTeamInvite({ action:'revoke', member_id:m.id });
+        if (!ok){ showToast(TEAM_INVITE_ERRORS[data.error] || 'הביטול נכשל'); return; }
+        showToast('ההזמנה בוטלה');
+        await loadTeam(agencyId, callerId);
+      },
+    });
+  } else if (released){
+    const actions = el2.querySelector('.lead-actions');
+    addCardAction(actions, {
+      label: '↩ ביטול ההשעיה',
+      cls: 'btn-gold',
+      onClick: async ()=>{
+        if (!confirm('להחזיר את ' + m.display_name + ' למשרד? הכרטיס והנכסים נשארים כאן.')) return;
+        const { ok, data } = await callRelease({ action:'undo', member_id:m.id });
+        if (!ok){ showToast(RELEASE_ERRORS[data.error] || 'הפעולה נכשלה'); return; }
+        showToast('הסוכן/ת חזר/ה למשרד');
+        await loadTeam(agencyId, callerId);
+      },
+    });
+  } else if (m.id !== callerId){
+    // עריכת תפקיד/סטטוס זמינה רק לחברי צוות אחרים — לא לעצמך (הטריגר ב-DB חוסם
+    // עריכה-עצמית של role/active בכל מקרה, כדי שאף אחד לא "יקדם את עצמו" בעצמו)
+    const actions = el2.querySelector('.lead-actions');
+    const newRole = m.role === 'manager' ? 'agent' : 'manager';
+
+    addCardAction(actions, {
+      label: m.role === 'manager' ? '↓ הורדה לסוכן/ת' : '↑ קידום למנהל/ת',
+      onClick: ()=> updateMemberField(m.id, { role: newRole }, agencyId, callerId),
+    });
+
+    // השעיה = ניתוק מהמשרד. הכפתור אומר את זה במפורש, כי הפעולה הישנה
+    // ("השעיה" שלא חסמה כלום) לימדה שזו לחיצה קלה בלי משמעות.
+    //
+    // שורה לא-פעילה שאינה מנותקת יכולה להיווצר רק מעריכה ישירה במסד, אבל
+    // בלי הענף הזה היא הייתה נשארת בלי שום דרך להחזיר אותה לפעילות.
+    if (m.active){
+      const owned = counts ? counts.sale + counts.rent + counts.commercial : 0;
+      addCardAction(actions, {
+        label: '⏸ השעיה וניתוק מהמשרד',
+        onClick: ()=> releaseMember(m, owned, agencyId, callerId),
+      });
+    } else {
+      addCardAction(actions, {
+        label: '▶ הפעלה מחדש',
+        cls: 'btn-gold',
+        onClick: ()=> updateMemberField(m.id, { active: true }, agencyId, callerId),
+      });
+    }
+  }
+  return el2;
 }
 
 /* ---------- בקשות שיוך ממתינות ----------
@@ -10116,21 +10158,6 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
    (צפיות, מידע תכנוני, ספירת שת״פ), ו-renderProperties() על התצוגה.       */
 const PROPERTY_STATUS_LABELS = { active:'פעיל', sold:'נמכר', rented:'הושכר', archived:'הוסר' };
 
-/* ---------- הרשימה כטאבים ----------
-   כרטיס נכס מלא הוא חצי מסך טלפון, וסוכן/ת עם חמישים נכסים גלל/ה עשרים
-   מסכים כדי למצוא אחד. לכן הרשימה מציגה טאבים קצרים — סוג, כתובת ומחיר —
-   ורק לחיצה על טאב פותחת מתחתיו את הכרטיס המלא כפי שהיה, על כל התגיות
-   והפעולות שבו.
-
-   הרשימה עצמה היא אזור גלילה בגובה של כעשרה טאבים: גוללים בתוכה למעלה
-   ולמטה, בלי כפתורי דפדוף. הטאבים נבנים בקבוצות של עשרה תוך כדי גלילה
-   (‏IntersectionObserver על סוף הרשימה) — כך גם חמש מאות נכסים לא בונים
-   חמש מאות שורות DOM בטעינה הראשונה. */
-const PROP_TABS_CHUNK = 10;
-let propTabsShown = PROP_TABS_CHUNK;
-let propTabsObserver = null;
-const expandedPropertyIds = new Set();
-
 let myPropertyRows = [];
 let myPropertyAgentId = null;
 let propertyViewCounts = {};
@@ -10283,12 +10310,8 @@ function clearPropertyFilters(){
   renderPropertiesFromTop();
 }
 
-// כל שינוי בסינון/מיון מחזיר את הרשימה לראשה: מקום הגלילה של רשימה קודמת
-// אינו אומר דבר על הרשימה החדשה
 function renderPropertiesFromTop(){
-  propTabsShown = PROP_TABS_CHUNK;
-  const scroller = document.querySelector('#propertiesList .prop-scroll');
-  if (scroller) scroller.scrollTop = 0;
+  resetCardList('properties', 'propertiesList');
   renderProperties();
 }
 
@@ -10352,57 +10375,83 @@ async function loadProperties(agentId){
   renderProperties();
 }
 
-/* ---- הטאבים: השורה הקצרה, אזור הגלילה, והכרטיס שנפתח מתחתיה ---- */
+/* ==========================================================================
+   רשימת טאבים גלילה — התבנית של כל רשימות הדשבורד
+   --------------------------------------------------------------------------
+   כרטיס מלא הוא חצי מסך טלפון, ורשימה של חמישים כרטיסים היא עשרים מסכי
+   גלילה לפני שמוצאים שורה אחת. לכן כל רשימה בדשבורד מדברת עכשיו את אותה
+   שפה: שורה קצרה לכל פריט (כותרת, שורת זיהוי ונתון אחד בצד), לחיצה פותחת
+   מתחתיה את הכרטיס המלא בדיוק כפי שהיה, והרשימה עצמה היא אזור גלילה
+   שנטען בקבוצות תוך כדי גלילה.
 
-// הכתובת כפי שהיא נמסרת בטלפון — רחוב ומספר, ואז העיר. אין רחוב (קרקע
-// חקלאית, מגרש) — נופלים לכותרת המודעה, שתמיד קיימת.
-function propertyTabAddress(p){
-  const street = [p.street, p.house_number].filter(Boolean).join(' ');
-  return [street, p.city].filter(Boolean).join(', ') || (p.title || '').trim();
+   כל רשימה מספקת ארבעה דברים: ‏key (מפתח המצב), ‏id של שורה, ‏tab שמתאר את
+   השורה הקצרה, ו-card שבונה את הכרטיס המלא. כל השאר — הגלילה, הטעינה
+   בקבוצות, שמירת מקום הגלילה בין רענונים ומצב הפתיחה — משותף.
+   ========================================================================== */
+const CARD_LIST_CHUNK = 10;
+const cardListStates = new Map();
+
+function cardListState(key){
+  if (!cardListStates.has(key)){
+    cardListStates.set(key, { shown: CARD_LIST_CHUNK, expanded: new Set(), observer: null });
+  }
+  return cardListStates.get(key);
 }
 
-function renderPropertyTabs(listEl, rows, agentId){
-  // פעולה על נכס (קידום, סימון כנמכר, עריכה) טוענת את הרשימה מחדש. בלי
-  // שמירת מקום הגלילה הרשימה הייתה קופצת לראשה אחרי כל פעולה, והנכס
+/* חיפוש, סינון, מיון או מעבר לשונית מחזירים את הרשימה לראשה: מקום הגלילה
+   של רשימה קודמת אינו אומר דבר על הרשימה החדשה. מצב הפתיחה נשמר בכוונה —
+   פריט שפתחתם ואז חיפשתם אותו נשאר פתוח. */
+function resetCardList(key, listId){
+  cardListState(key).shown = CARD_LIST_CHUNK;
+  const scroller = document.querySelector('#' + listId + ' .card-scroll');
+  if (scroller) scroller.scrollTop = 0;
+}
+
+function mountCardList(listEl, rows, opts){
+  const st = cardListState(opts.key);
+  const chunk = opts.chunk || CARD_LIST_CHUNK;
+  // פעולה על פריט (פתיחת ליד, סימון נכס כנמכר) טוענת את הרשימה מחדש. בלי
+  // שמירת מקום הגלילה הרשימה הייתה קופצת לראשה אחרי כל פעולה, והפריט
   // שעבדו עליו נעלם מהמסך.
-  const keepScroll = listEl.querySelector('.prop-scroll')?.scrollTop || 0;
-  propTabsObserver?.disconnect();
-  propTabsObserver = null;
-  propTabsShown = Math.min(Math.max(propTabsShown, PROP_TABS_CHUNK), rows.length);
+  const keepScroll = listEl.querySelector('.card-scroll')?.scrollTop || 0;
+  st.observer?.disconnect();
+  st.observer = null;
+  st.shown = Math.min(Math.max(st.shown, chunk), rows.length);
 
   listEl.innerHTML = `
-    <div class="prop-scroll" tabindex="0" role="region" aria-label="רשימת הנכסים שלי — ניתן לגלול">
-      <div class="prop-progress" aria-hidden="true"><span></span></div>
-      <div class="prop-tabs"></div>
-      <div class="prop-tail" aria-hidden="true"></div>
+    <div class="card-scroll" tabindex="0" role="region" aria-label="${esc(opts.label || 'רשימה')} — ניתן לגלול">
+      <div class="card-progress" aria-hidden="true"><span></span></div>
+      <div class="card-tabs"></div>
+      <div class="card-tail" aria-hidden="true"></div>
     </div>
-    <div class="prop-scroll-foot">
-      <span class="prop-scroll-hint" aria-live="polite"></span>
-      <button type="button" class="prop-to-top" hidden>↑ לראש הרשימה</button>
+    <div class="card-scroll-foot">
+      <span class="card-scroll-hint" aria-live="polite"></span>
+      <button type="button" class="card-to-top" hidden>↑ לראש הרשימה</button>
     </div>`;
 
-  const scroller = listEl.querySelector('.prop-scroll');
-  const tabsWrap = listEl.querySelector('.prop-tabs');
-  const tail     = listEl.querySelector('.prop-tail');
-  const hint     = listEl.querySelector('.prop-scroll-hint');
-  const toTop    = listEl.querySelector('.prop-to-top');
+  const scroller = listEl.querySelector('.card-scroll');
+  const tabsWrap = listEl.querySelector('.card-tabs');
+  const tail     = listEl.querySelector('.card-tail');
+  const hint     = listEl.querySelector('.card-scroll-hint');
+  const toTop    = listEl.querySelector('.card-to-top');
+  const noun     = opts.noun || 'הפריטים';
 
   const drawTabs = ()=>{
-    for (let i = tabsWrap.childElementCount; i < propTabsShown; i++){
-      tabsWrap.appendChild(buildPropertyTab(rows[i], agentId));
+    for (let i = tabsWrap.childElementCount; i < st.shown; i++){
+      tabsWrap.appendChild(buildCardTab(rows[i], opts, st));
     }
-    hint.textContent = propTabsShown >= rows.length
-      ? `כל ${rows.length} הנכסים ברשימה`
-      : `מוצגים ${propTabsShown} מתוך ${rows.length} · גללו להמשך`;
+    hint.textContent = st.shown >= rows.length
+      ? `כל ${rows.length} ${noun} ברשימה`
+      : `מוצגים ${st.shown} מתוך ${rows.length} · גללו להמשך`;
     // מד ההתקדמות מופיע רק כשיש מה לגלול
     scroller.classList.toggle('is-scrollable', scroller.scrollHeight > scroller.clientHeight + 4);
   };
 
   const growList = ()=>{
-    if (propTabsShown >= rows.length) return;
-    propTabsShown = Math.min(propTabsShown + PROP_TABS_CHUNK, rows.length);
+    if (st.shown >= rows.length) return;
+    st.shown = Math.min(st.shown + chunk, rows.length);
     drawTabs();
-    if (propTabsShown >= rows.length){ propTabsObserver?.disconnect(); propTabsObserver = null; }
+    if (st.shown >= rows.length){ st.observer?.disconnect(); st.observer = null; }
     fillViewport();
   };
 
@@ -10410,20 +10459,20 @@ function renderPropertyTabs(listEl, rows, agentId){
   // אחרי הוספת קבוצה לא היה מדווח שוב והטעינה הייתה נעצרת. הבדיקה הזו
   // ממשיכה למלא כל עוד סוף הרשימה עדיין בתוך אזור הגלילה.
   const fillViewport = ()=> requestAnimationFrame(()=>{
-    if (propTabsShown >= rows.length || !tail.isConnected) return;
+    if (st.shown >= rows.length || !tail.isConnected) return;
     if (tail.getBoundingClientRect().top <= scroller.getBoundingClientRect().bottom + 160) growList();
   });
 
   drawTabs();
-  if (propTabsShown < rows.length){
+  if (st.shown < rows.length){
     if ('IntersectionObserver' in window){
-      propTabsObserver = new IntersectionObserver(entries => {
+      st.observer = new IntersectionObserver(entries => {
         if (entries.some(e => e.isIntersecting)) growList();
       }, { root: scroller, rootMargin: '160px' });
-      propTabsObserver.observe(tail);
+      st.observer.observe(tail);
       fillViewport();
     } else {
-      propTabsShown = rows.length;
+      st.shown = rows.length;
       drawTabs();
     }
   }
@@ -10438,49 +10487,37 @@ function renderPropertyTabs(listEl, rows, agentId){
   syncToTop();
 }
 
-function buildPropertyTab(p, agentId){
-  const isOpen = expandedPropertyIds.has(p.id);
+function buildCardTab(row, opts, st){
+  const id = String(opts.id(row));
+  const spec = opts.tab(row) || {};
+  const isOpen = st.expanded.has(id);
+  const panelId = `cardPanel-${opts.key}-${id}`.replace(/[^A-Za-z0-9_-]/g, '');
   const el = document.createElement('div');
-  el.className = 'prop-tab' + (isOpen ? ' is-open' : '');
-  const panelId = 'propTabPanel-' + esc(String(p.id));
-  const priceHtml = shekel(p.price) + (p.deal_type === 'rent' ? ' <span class="per">לחודש</span>' : '');
-  // השורה השנייה היא רק מה שמזהה ומה שדחוף: המספר שנמסר בטלפון, הסטטוס,
-  // וכוכב הקידום. כל השאר מחכה לפתיחת הכרטיס.
-  const sub = [
-    `מודעה #${esc(String(p.listing_number ?? '—'))}`,
-    esc(PROPERTY_STATUS_LABELS[p.status] || p.status || ''),
-    propertyIsPromoted(p) ? '🌟 מקודם' : '',
-  ].filter(Boolean).join(' · ');
+  el.className = 'card-tab' + (spec.cls ? ' ' + spec.cls : '') + (isOpen ? ' is-open' : '');
 
   el.innerHTML = `
-    <button type="button" class="prop-tab-head" aria-expanded="${isOpen}" aria-controls="${panelId}">
-      <span class="prop-tab-main">
-        <span class="prop-tab-title">${esc(p.property_type || 'נכס')} · ${esc(propertyTabAddress(p))}</span>
-        <span class="prop-tab-sub">${sub}</span>
+    <button type="button" class="card-tab-head" aria-expanded="${isOpen}" aria-controls="${esc(panelId)}">
+      <span class="card-tab-main">
+        <span class="card-tab-title">${esc(spec.title || '—')}</span>
+        ${spec.sub ? `<span class="card-tab-sub">${esc(spec.sub)}</span>` : ''}
       </span>
-      <span class="prop-tab-price">${priceHtml}</span>
-      <svg class="prop-tab-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+      ${spec.sideHtml || spec.side ? `<span class="card-tab-side">${spec.sideHtml || esc(spec.side)}</span>` : ''}
+      <svg class="card-tab-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
            stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
     </button>
-    <div class="prop-tab-panel" id="${panelId}"${isOpen ? '' : ' hidden'}></div>`;
+    <div class="card-tab-panel" id="${esc(panelId)}"${isOpen ? '' : ' hidden'}></div>`;
 
-  const head = el.querySelector('.prop-tab-head');
-  const panel = el.querySelector('.prop-tab-panel');
+  const head = el.querySelector('.card-tab-head');
+  const panel = el.querySelector('.card-tab-panel');
   // הכרטיס נבנה בפתיחה ונזרק בסגירה: עשרה כרטיסים מלאים בזיכרון הם בדיוק
   // המסך שממנו ברחנו, וגם מאזיני הפעולות שבהם נשארים תלויים
-  const fillPanel = ()=> panel.appendChild(buildPropertyCard(p, agentId));
+  const fillPanel = ()=> panel.appendChild(opts.card(row));
   if (isOpen) fillPanel();
 
   head.addEventListener('click', ()=>{
-    const opening = !expandedPropertyIds.has(p.id);
-    if (opening){
-      expandedPropertyIds.add(p.id);
-      panel.innerHTML = '';
-      fillPanel();
-    } else {
-      expandedPropertyIds.delete(p.id);
-      panel.innerHTML = '';
-    }
+    const opening = !st.expanded.has(id);
+    panel.innerHTML = '';
+    if (opening){ st.expanded.add(id); fillPanel(); } else { st.expanded.delete(id); }
     panel.hidden = !opening;
     el.classList.toggle('is-open', opening);
     head.setAttribute('aria-expanded', String(opening));
@@ -10490,6 +10527,36 @@ function buildPropertyTab(p, agentId){
   });
   return el;
 }
+
+/* ---- הנכסים שלי: השורה הקצרה שלהם ---- */
+
+// הכתובת כפי שהיא נמסרת בטלפון — רחוב ומספר, ואז העיר. אין רחוב (קרקע
+// חקלאית, מגרש) — נופלים לכותרת המודעה, שתמיד קיימת.
+function propertyTabAddress(p){
+  const street = [p.street, p.house_number].filter(Boolean).join(' ');
+  return [street, p.city].filter(Boolean).join(', ') || (p.title || '').trim();
+}
+
+function renderPropertyTabs(listEl, rows, agentId){
+  mountCardList(listEl, rows, {
+    key:'properties', label:'רשימת הנכסים שלי', noun:'הנכסים',
+    id: p => p.id,
+    // השורה השנייה היא רק מה שמזהה ומה שדחוף: המספר שנמסר בטלפון, הסטטוס,
+    // וכוכב הקידום. כל השאר מחכה לפתיחת הכרטיס.
+    tab: p => ({
+      title: `${p.property_type || 'נכס'} · ${propertyTabAddress(p)}`,
+      sub: [
+        `מודעה #${p.listing_number ?? '—'}`,
+        PROPERTY_STATUS_LABELS[p.status] || p.status || '',
+        propertyIsPromoted(p) ? '🌟 מקודם' : '',
+      ].filter(Boolean).join(' · '),
+      sideHtml: shekel(p.price) + (p.deal_type === 'rent' ? ' <span class="per">לחודש</span>' : ''),
+      cls: propertyIsPromoted(p) ? 'tab-gold' : '',
+    }),
+    card: p => buildPropertyCard(p, agentId),
+  });
+}
+
 
 function buildPropertyCard(p, agentId){
   const statusLabels = PROPERTY_STATUS_LABELS;
@@ -12788,6 +12855,8 @@ document.getElementById('leadsSwitch').addEventListener('click', (e)=>{
   const btn = e.target.closest('[data-leads-view]');
   if (!btn || btn.dataset.leadsView === leadsView) return;
   leadsView = btn.dataset.leadsView;
+  // מעבר בין "פעילים" ל"ארכיון" הוא רשימה אחרת לגמרי — היא מתחילה מראשה
+  resetCardList('leads', 'leadsList');
   renderLeads(currentAgent?.id);
 });
 
@@ -12907,72 +12976,92 @@ function renderLeads(agentId){
     return;
   }
 
-  listEl.innerHTML = '';
-  showing.forEach(lead=>{
-    const isArchived = archivedLeadIds.has(lead.id);
-    const kind = leadKind(lead);
-    const el = document.createElement('div');
-    el.className = 'card lead-card ' + kind.cls + (isArchived ? ' is-archived' : '');
-    el.dataset.leadId = lead.id;
-    const statusLabel = lead.status === 'unlocked' ? 'פתוח' : (lead.status === 'pending_charge' ? 'בתהליך פתיחה' : 'מוסתר');
-    const dealLabel = lead.deal_type === 'rent' ? 'השכרה' : (lead.deal_type === 'sale' ? 'מכירה' : '');
-    el.innerHTML = `
-      <div class="lead-top">
-        <div>
-          <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
-          <div class="lead-name">${esc(lead.display_name || '—')}</div>
-          <div class="lead-phone">${esc(lead.display_phone || '—')}</div>
-        </div>
-        <span class="status-pill status-${lead.status === 'unlocked' ? 'unlocked' : 'masked'}">${statusLabel}</span>
+  mountCardList(listEl, showing, {
+    key:'leads', label:'רשימת הלידים שלי', noun:'הלידים',
+    id: lead => lead.id,
+    /* הטאב עונה על שתי השאלות שבגללן פותחים ליד: מי זה, ומה מצבו. השם
+       והטלפון (מוסתר או פתוח) בשורה הראשונה, סוג הליד והתאריך מתחת,
+       והסטטוס בצד — כי "מוסתר" הוא מה שדורש פעולה. */
+    tab: lead => {
+      const kind = leadKind(lead);
+      const isArchived = archivedLeadIds.has(lead.id);
+      return {
+        title: `${kind.icon} ${lead.display_name || '—'}`,
+        sub: [kind.label, lead.city, lead.property_type, hebDate(lead.created_at)]
+          .filter(Boolean).join(' · '),
+        side: lead.status === 'unlocked' ? 'פתוח'
+            : (lead.status === 'pending_charge' ? 'בתהליך' : '🔒 מוסתר'),
+        cls: (isArchived ? 'tab-muted' : (kind.cls === 'kind-owner' ? 'tab-gold' : 'tab-teal')),
+      };
+    },
+    card: lead => buildLeadCard(lead, agentId),
+  });
+}
+
+function buildLeadCard(lead, agentId){
+  const isArchived = archivedLeadIds.has(lead.id);
+  const kind = leadKind(lead);
+  const el = document.createElement('div');
+  el.className = 'card lead-card ' + kind.cls + (isArchived ? ' is-archived' : '');
+  el.dataset.leadId = lead.id;
+  const statusLabel = lead.status === 'unlocked' ? 'פתוח' : (lead.status === 'pending_charge' ? 'בתהליך פתיחה' : 'מוסתר');
+  const dealLabel = lead.deal_type === 'rent' ? 'השכרה' : (lead.deal_type === 'sale' ? 'מכירה' : '');
+  el.innerHTML = `
+    <div class="lead-top">
+      <div>
+        <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
+        <div class="lead-name">${esc(lead.display_name || '—')}</div>
+        <div class="lead-phone">${esc(lead.display_phone || '—')}</div>
       </div>
-      ${tagsHtml([
-        dealLabel && { text:dealLabel, cls:'tag-key' },
-        lead.city && { text:'📍 ' + lead.city },
-        lead.property_type && { text:'🏠 ' + lead.property_type },
-        { text:'📅 ' + hebDate(lead.created_at) },
-      ])}
-      ${lead.property_details ? `<div class="lead-meta">🏠 ${esc(lead.property_details)}</div>` : ''}
-      ${lead.display_message ? `<div class="lead-meta">📍 ${esc(lead.display_message)}</div>` : ''}
-      <div class="lead-actions"></div>
-    `;
-    const actions = el.querySelector('.lead-actions');
-    if (lead.status !== 'unlocked'){
-      const cost = claimCost(lead);
+      <span class="status-pill status-${lead.status === 'unlocked' ? 'unlocked' : 'masked'}">${statusLabel}</span>
+    </div>
+    ${tagsHtml([
+      dealLabel && { text:dealLabel, cls:'tag-key' },
+      lead.city && { text:'📍 ' + lead.city },
+      lead.property_type && { text:'🏠 ' + lead.property_type },
+      { text:'📅 ' + hebDate(lead.created_at) },
+    ])}
+    ${lead.property_details ? `<div class="lead-meta">🏠 ${esc(lead.property_details)}</div>` : ''}
+    ${lead.display_message ? `<div class="lead-meta">📍 ${esc(lead.display_message)}</div>` : ''}
+    <div class="lead-actions"></div>
+  `;
+  const actions = el.querySelector('.lead-actions');
+  if (lead.status !== 'unlocked'){
+    const cost = claimCost(lead);
+    addCardAction(actions, {
+      label: cost.price > 0 ? `🔓 פתיחת ליד · ${shekel(cost.price)}` : '🔓 פתיחת ליד',
+      cls:'btn-gold act-wide',
+      title: cost.note || cost.blocked || undefined,
+      onClick: btn => claimLead(lead, btn, agentId),
+    });
+  } else {
+    // הליד פתוח — כלומר הטלפון האמיתי כבר חשוף ב-display_phone, וזו הנקודה
+    // היחידה במערכת שממנה אפשר לבקש חוות דעת (הביקורת מאומתת מול הליד).
+    // וואטסאפ ראשון כי זו הדרך שבה זה באמת נשלח; העתקת קישור נשארת לגיבוי.
+    const wa = waLink(lead.display_phone);
+    if (wa){
       addCardAction(actions, {
-        label: cost.price > 0 ? `🔓 פתיחת ליד · ${shekel(cost.price)}` : '🔓 פתיחת ליד',
-        cls:'btn-gold act-wide',
-        title: cost.note || cost.blocked || undefined,
-        onClick: btn => claimLead(lead, btn, agentId),
-      });
-    } else {
-      // הליד פתוח — כלומר הטלפון האמיתי כבר חשוף ב-display_phone, וזו הנקודה
-      // היחידה במערכת שממנה אפשר לבקש חוות דעת (הביקורת מאומתת מול הליד).
-      // וואטסאפ ראשון כי זו הדרך שבה זה באמת נשלח; העתקת קישור נשארת לגיבוי.
-      const wa = waLink(lead.display_phone);
-      if (wa){
-        addCardAction(actions, {
-          label:'⭐ בקשת חוות דעת', cls:'btn-gold', title:'שליחת הקישור ללקוח/ה בוואטסאפ',
-          onClick: () => sendReviewLinkWhatsApp(lead),
-        });
-      }
-      addCardAction(actions, {
-        label:'📋 העתקת קישור', title:'העתקת קישור לבקשת חוות דעת מהלקוח/ה',
-        onClick: btn => copyReviewLink(lead.id, btn),
+        label:'⭐ בקשת חוות דעת', cls:'btn-gold', title:'שליחת הקישור ללקוח/ה בוואטסאפ',
+        onClick: () => sendReviewLinkWhatsApp(lead),
       });
     }
-    /* הארכוב אחרון בשורת הפעולות ועל רוחב מלא: הוא לא מתחרה על העין עם
-       "פתיחת ליד" או "בקשת חוות דעת" — הוא מה שעושים *אחרי* שסיימו. */
-    addCardAction(actions, isArchived ? {
-      label:'↩️ החזרה מהארכיון', cls:'btn-ghost act-wide',
-      title:'הליד יחזור לרשימת הלידים הפעילים',
-      onClick: btn => unarchiveLead(lead, btn, agentId),
-    } : {
-      label:'🗄️ העברה לארכיון', cls:'btn-ghost act-wide',
-      title:'הליד יורד מהרשימה ומהתור החם ונשמר בארכיון — אפשר להחזיר אותו בכל רגע',
-      onClick: btn => archiveLead(lead, btn, agentId),
+    addCardAction(actions, {
+      label:'📋 העתקת קישור', title:'העתקת קישור לבקשת חוות דעת מהלקוח/ה',
+      onClick: btn => copyReviewLink(lead.id, btn),
     });
-    listEl.appendChild(el);
+  }
+  /* הארכוב אחרון בשורת הפעולות ועל רוחב מלא: הוא לא מתחרה על העין עם
+     "פתיחת ליד" או "בקשת חוות דעת" — הוא מה שעושים *אחרי* שסיימו. */
+  addCardAction(actions, isArchived ? {
+    label:'↩️ החזרה מהארכיון', cls:'btn-ghost act-wide',
+    title:'הליד יחזור לרשימת הלידים הפעילים',
+    onClick: btn => unarchiveLead(lead, btn, agentId),
+  } : {
+    label:'🗄️ העברה לארכיון', cls:'btn-ghost act-wide',
+    title:'הליד יורד מהרשימה ומהתור החם ונשמר בארכיון — אפשר להחזיר אותו בכל רגע',
+    onClick: btn => archiveLead(lead, btn, agentId),
   });
+  return el;
 }
 
 /* הכתובת מורכבת מתיקיית הדף הנוכחי ולא מהחלפת 'crm.html' בנתיב: בפרודקשן
@@ -13282,36 +13371,53 @@ function renderLeadShelf(){
     return;
   }
 
-  listEl.innerHTML = '';
-  filtered.forEach(lead => {
-    const kind = shelfKind(lead.lead_side);
-    const el = document.createElement('div');
-    el.className = 'card lead-card ' + kind.cls;
-    el.innerHTML = `
-      <div class="lead-top">
-        <div>
-          <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
-          <div class="lead-name">${esc(lead.teaser_title || lead.lead_side || 'ליד')}</div>
-        </div>
-        <span class="status-pill status-masked">${shekel(rssLeadPrice)}</span>
-      </div>
-      ${tagsHtml([
-        // ציון האיכות הוא השיקול הראשון ברכישה — ולכן הוא התגית הפותחת
-        { text:`⭐ איכות ${lead.lead_quality_score ?? '—'}/10`,
-          cls: lead.lead_quality_score >= 8 ? 'tag-good' : 'tag-key' },
-        lead.urgency_level && { text:'⚡ דחיפות ' + lead.urgency_level, cls:'tag-info' },
-        ...shelfMetaParts(lead),
-        { text:'📅 נוסף ' + hebDate(lead.created_at) },
-      ])}
-      ${lead.teaser_description ? `<div class="lead-meta">${esc(lead.teaser_description)}</div>` : ''}
-      <div class="lead-actions"></div>
-    `;
-    addCardAction(el.querySelector('.lead-actions'), {
-      label:`🛒 רכישה · ${shekel(rssLeadPrice)}`, cls:'btn-gold act-wide',
-      onClick: btn => buyRssLead(lead, btn),
-    });
-    listEl.appendChild(el);
+  mountCardList(listEl, filtered, {
+    key:'leadShelf', label:'חנות הלידים', noun:'הלידים',
+    id: lead => lead.id,
+    /* ברכישה השאלה היא "שווה את זה?": מה הליד, מה ציון האיכות, וכמה הוא
+       עולה. שלושתם בשורה, והמחיר בצד. */
+    tab: lead => {
+      const kind = shelfKind(lead.lead_side);
+      return {
+        title: `${kind.icon} ${lead.teaser_title || lead.lead_side || 'ליד'}`,
+        sub: [`⭐ איכות ${lead.lead_quality_score ?? '—'}/10`, lead.city,
+              'נוסף ' + hebDate(lead.created_at)].filter(Boolean).join(' · '),
+        side: shekel(rssLeadPrice),
+        cls: kind.cls === 'kind-owner' ? 'tab-gold' : 'tab-teal',
+      };
+    },
+    card: lead => buildShelfLeadCard(lead),
   });
+}
+
+function buildShelfLeadCard(lead){
+  const kind = shelfKind(lead.lead_side);
+  const el = document.createElement('div');
+  el.className = 'card lead-card ' + kind.cls;
+  el.innerHTML = `
+    <div class="lead-top">
+      <div>
+        <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
+        <div class="lead-name">${esc(lead.teaser_title || lead.lead_side || 'ליד')}</div>
+      </div>
+      <span class="status-pill status-masked">${shekel(rssLeadPrice)}</span>
+    </div>
+    ${tagsHtml([
+      // ציון האיכות הוא השיקול הראשון ברכישה — ולכן הוא התגית הפותחת
+      { text:`⭐ איכות ${lead.lead_quality_score ?? '—'}/10`,
+        cls: lead.lead_quality_score >= 8 ? 'tag-good' : 'tag-key' },
+      lead.urgency_level && { text:'⚡ דחיפות ' + lead.urgency_level, cls:'tag-info' },
+      ...shelfMetaParts(lead),
+      { text:'📅 נוסף ' + hebDate(lead.created_at) },
+    ])}
+    ${lead.teaser_description ? `<div class="lead-meta">${esc(lead.teaser_description)}</div>` : ''}
+    <div class="lead-actions"></div>
+  `;
+  addCardAction(el.querySelector('.lead-actions'), {
+    label:`🛒 רכישה · ${shekel(rssLeadPrice)}`, cls:'btn-gold act-wide',
+    onClick: btn => buyRssLead(lead, btn),
+  });
+  return el;
 }
 
 // טקסט גולמי — הדיאלוג מבריח בעצמו, ובכרטיס tagsHtml מבריח כל תגית
@@ -13343,30 +13449,44 @@ async function loadPurchasedLeads(agentId){
     return;
   }
 
-  listEl.innerHTML = '';
-  leads.forEach(lead => {
-    const kind = shelfKind(lead.lead_side);
-    const el = document.createElement('div');
-    el.className = 'card lead-card ' + kind.cls;
-    el.innerHTML = `
-      <div class="lead-top">
-        <div>
-          <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
-          <div class="lead-name">${esc(lead.teaser_title || lead.raw_title || lead.lead_side || 'ליד')}</div>
-        </div>
-        <span class="status-pill status-unlocked">נרכש ${hebDate(lead.sold_at)}</span>
-      </div>
-      ${tagsHtml([
-        ...shelfMetaParts(lead),
-        lead.source_name && { text:'🔗 ' + lead.source_name, cls:'tag-info' },
-      ])}
-      ${lead.raw_content ? `<div class="lead-meta" style="white-space:pre-wrap">${esc(lead.raw_content.slice(0, 600))}${lead.raw_content.length > 600 ? '…' : ''}</div>` : ''}
-      <div class="lead-actions">
-        <a class="btn btn-gold act-wide" href="${esc(lead.source_url)}" target="_blank" rel="noopener noreferrer">🔗 פתיחת הפוסט המקורי</a>
-      </div>
-    `;
-    listEl.appendChild(el);
+  mountCardList(listEl, leads, {
+    key:'purchasedLeads', label:'לידים שנרכשו', noun:'הלידים',
+    id: lead => lead.id,
+    tab: lead => {
+      const kind = shelfKind(lead.lead_side);
+      return {
+        title: `${kind.icon} ${lead.teaser_title || lead.raw_title || lead.lead_side || 'ליד'}`,
+        sub: [lead.city, lead.source_name, 'נרכש ' + hebDate(lead.sold_at)]
+          .filter(Boolean).join(' · '),
+        cls: kind.cls === 'kind-owner' ? 'tab-gold' : 'tab-teal',
+      };
+    },
+    card: lead => buildPurchasedShelfLeadCard(lead),
   });
+}
+
+function buildPurchasedShelfLeadCard(lead){
+  const kind = shelfKind(lead.lead_side);
+  const el = document.createElement('div');
+  el.className = 'card lead-card ' + kind.cls;
+  el.innerHTML = `
+    <div class="lead-top">
+      <div>
+        <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
+        <div class="lead-name">${esc(lead.teaser_title || lead.raw_title || lead.lead_side || 'ליד')}</div>
+      </div>
+      <span class="status-pill status-unlocked">נרכש ${hebDate(lead.sold_at)}</span>
+    </div>
+    ${tagsHtml([
+      ...shelfMetaParts(lead),
+      lead.source_name && { text:'🔗 ' + lead.source_name, cls:'tag-info' },
+    ])}
+    ${lead.raw_content ? `<div class="lead-meta" style="white-space:pre-wrap">${esc(lead.raw_content.slice(0, 600))}${lead.raw_content.length > 600 ? '…' : ''}</div>` : ''}
+    <div class="lead-actions">
+      <a class="btn btn-gold act-wide" href="${esc(lead.source_url)}" target="_blank" rel="noopener noreferrer">🔗 פתיחת הפוסט המקורי</a>
+    </div>
+  `;
+  return el;
 }
 
 async function buyRssLead(lead, btn){
@@ -13418,8 +13538,10 @@ async function buyRssLead(lead, btn){
   }
 }
 
-document.getElementById('shelfSideFilter').addEventListener('change', renderLeadShelf);
-document.getElementById('shelfCityFilter').addEventListener('change', renderLeadShelf);
+// סינון = רשימה אחרת, ולכן היא מתחילה מראשה
+const renderLeadShelfFromTop = ()=>{ resetCardList('leadShelf', 'leadShelfList'); renderLeadShelf(); };
+document.getElementById('shelfSideFilter').addEventListener('change', renderLeadShelfFromTop);
+document.getElementById('shelfCityFilter').addEventListener('change', renderLeadShelfFromTop);
 document.getElementById('shelfRefreshBtn').addEventListener('click', ()=> {
   if (currentAgent) loadLeadShelf(currentAgent.id);
 });
@@ -13528,33 +13650,48 @@ function renderMortgageShelf(){
     return;
   }
 
-  listEl.innerHTML = '';
-  filtered.forEach(lead => {
-    const kind = mortgageKind(lead);
-    const el = document.createElement('div');
-    el.className = 'card lead-card ' + kind.cls;
-    el.innerHTML = `
-      <div class="lead-top">
-        <div>
-          <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
-          <div class="lead-name">החזר חודשי מבוקש ${shekel(lead.monthly_payment)}</div>
-        </div>
-        <span class="status-pill status-masked">${shekel(mortgageLeadPrice)}</span>
-      </div>
-      ${tagsHtml([
-        ...mortgageMetaParts(lead),
-        { text: lead.has_email ? '📇 שם, טלפון ואימייל' : '📇 שם וטלפון', cls:'tag-info' },
-        { text:'📅 נוסף ' + hebDate(lead.created_at) },
-      ])}
-      <div class="lead-meta">${mortgageSourceLine(lead)}</div>
-      <div class="lead-actions"></div>
-    `;
-    addCardAction(el.querySelector('.lead-actions'), {
-      label:`🛒 רכישה · ${shekel(mortgageLeadPrice)}`, cls:'btn-gold act-wide',
-      onClick: btn => buyMortgageLead(lead, btn),
-    });
-    listEl.appendChild(el);
+  mountCardList(listEl, filtered, {
+    key:'mortgageShelf', label:'לידי משכנתא בחנות', noun:'הלידים',
+    id: lead => lead.id,
+    tab: lead => {
+      const kind = mortgageKind(lead);
+      return {
+        title: `${kind.icon} החזר חודשי ${shekel(lead.monthly_payment)}`,
+        sub: [kind.label, lead.has_email ? 'שם, טלפון ואימייל' : 'שם וטלפון',
+              'נוסף ' + hebDate(lead.created_at)].filter(Boolean).join(' · '),
+        side: shekel(mortgageLeadPrice),
+        cls: kind.cls === 'kind-owner' ? 'tab-gold' : 'tab-teal',
+      };
+    },
+    card: lead => buildMortgageShelfCard(lead),
   });
+}
+
+function buildMortgageShelfCard(lead){
+  const kind = mortgageKind(lead);
+  const el = document.createElement('div');
+  el.className = 'card lead-card ' + kind.cls;
+  el.innerHTML = `
+    <div class="lead-top">
+      <div>
+        <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
+        <div class="lead-name">החזר חודשי מבוקש ${shekel(lead.monthly_payment)}</div>
+      </div>
+      <span class="status-pill status-masked">${shekel(mortgageLeadPrice)}</span>
+    </div>
+    ${tagsHtml([
+      ...mortgageMetaParts(lead),
+      { text: lead.has_email ? '📇 שם, טלפון ואימייל' : '📇 שם וטלפון', cls:'tag-info' },
+      { text:'📅 נוסף ' + hebDate(lead.created_at) },
+    ])}
+    <div class="lead-meta">${mortgageSourceLine(lead)}</div>
+    <div class="lead-actions"></div>
+  `;
+  addCardAction(el.querySelector('.lead-actions'), {
+    label:`🛒 רכישה · ${shekel(mortgageLeadPrice)}`, cls:'btn-gold act-wide',
+    onClick: btn => buyMortgageLead(lead, btn),
+  });
+  return el;
 }
 
 async function loadPurchasedMortgageLeads(agentId){
@@ -13577,37 +13714,49 @@ async function loadPurchasedMortgageLeads(agentId){
   // הכותרות של הנכסים בלידים שנרכשו לא בהכרח נטענו במדף (ליד שנמכר יורד ממנו)
   await loadMortgageLeadProperties(leads);
 
-  listEl.innerHTML = '';
-  leads.forEach(lead => {
-    const kind = mortgageKind(lead);
-    const el = document.createElement('div');
-    el.className = 'card lead-card ' + kind.cls;
-    // ‏wa.me דורש מספר בינלאומי בלי + ובלי האפס המוביל
-    const waDigits = String(lead.phone).replace(/\D/g, '').replace(/^0/, '972');
-    el.innerHTML = `
-      <div class="lead-top">
-        <div>
-          <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
-          <div class="lead-name">${esc(lead.full_name)}</div>
-        </div>
-        <span class="status-pill status-unlocked">נרכש ${hebDate(lead.sold_at)}</span>
-      </div>
-      ${tagsHtml([
-        { text:`💳 החזר חודשי ${shekel(lead.monthly_payment)}`, cls:'tag-key' },
-        lead.loan_amount != null && { text:'🏦 הלוואה ' + shekel(lead.loan_amount) },
-        ...mortgageMetaParts(lead),
-      ])}
-      <div class="lead-meta">${mortgageSourceLine(lead)}</div>
-      <div class="lead-actions">
-        <a class="btn btn-gold" href="tel:${esc(lead.phone)}">📞 ${esc(lead.phone)}</a>
-        <a class="btn btn-ghost" href="https://wa.me/${esc(waDigits)}" target="_blank" rel="noopener noreferrer">💬 וואטסאפ</a>
-        ${lead.email ? `<a class="btn btn-ghost" href="mailto:${esc(lead.email)}">✉️ אימייל</a>` : ''}
-        ${lead.property_id && mortgagePropertyTitles[lead.property_id]
-          ? `<a class="btn btn-ghost" href="property.html?id=${esc(lead.property_id)}" target="_blank" rel="noopener noreferrer">🏠 הנכס</a>` : ''}
-      </div>
-    `;
-    listEl.appendChild(el);
+  mountCardList(listEl, leads, {
+    key:'purchasedMortgage', label:'לידי משכנתא שנרכשו', noun:'הלידים',
+    id: lead => lead.id,
+    tab: lead => ({
+      title: `${mortgageKind(lead).icon} ${lead.full_name}`,
+      sub: [`החזר חודשי ${shekel(lead.monthly_payment)}`, lead.phone || '',
+            'נרכש ' + hebDate(lead.sold_at)].filter(Boolean).join(' · '),
+      side: lead.loan_amount != null ? shekel(lead.loan_amount) : '',
+      cls: mortgageKind(lead).cls === 'kind-owner' ? 'tab-gold' : 'tab-teal',
+    }),
+    card: lead => buildPurchasedMortgageCard(lead),
   });
+}
+
+function buildPurchasedMortgageCard(lead){
+  const kind = mortgageKind(lead);
+  const el = document.createElement('div');
+  el.className = 'card lead-card ' + kind.cls;
+  // ‏wa.me דורש מספר בינלאומי בלי + ובלי האפס המוביל
+  const waDigits = String(lead.phone).replace(/\D/g, '').replace(/^0/, '972');
+  el.innerHTML = `
+    <div class="lead-top">
+      <div>
+        <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
+        <div class="lead-name">${esc(lead.full_name)}</div>
+      </div>
+      <span class="status-pill status-unlocked">נרכש ${hebDate(lead.sold_at)}</span>
+    </div>
+    ${tagsHtml([
+      { text:`💳 החזר חודשי ${shekel(lead.monthly_payment)}`, cls:'tag-key' },
+      lead.loan_amount != null && { text:'🏦 הלוואה ' + shekel(lead.loan_amount) },
+      ...mortgageMetaParts(lead),
+    ])}
+    <div class="lead-meta">${mortgageSourceLine(lead)}</div>
+    <div class="lead-actions">
+      <a class="btn btn-gold" href="tel:${esc(lead.phone)}">📞 ${esc(lead.phone)}</a>
+      <a class="btn btn-ghost" href="https://wa.me/${esc(waDigits)}" target="_blank" rel="noopener noreferrer">💬 וואטסאפ</a>
+      ${lead.email ? `<a class="btn btn-ghost" href="mailto:${esc(lead.email)}">✉️ אימייל</a>` : ''}
+      ${lead.property_id && mortgagePropertyTitles[lead.property_id]
+        ? `<a class="btn btn-ghost" href="property.html?id=${esc(lead.property_id)}" target="_blank" rel="noopener noreferrer">🏠 הנכס</a>` : ''}
+    </div>
+  `;
+  return el;
 }
 
 async function buyMortgageLead(lead, btn){
@@ -13661,7 +13810,10 @@ async function buyMortgageLead(lead, btn){
   }
 }
 
-document.getElementById('mortgageOwnsFilter').addEventListener('change', renderMortgageShelf);
+document.getElementById('mortgageOwnsFilter').addEventListener('change', ()=>{
+  resetCardList('mortgageShelf', 'mortgageShelfList');
+  renderMortgageShelf();
+});
 document.getElementById('mortgageShelfRefreshBtn').addEventListener('click', ()=> {
   if (currentAgent) loadMortgageShelf(currentAgent.id);
 });
@@ -13793,39 +13945,52 @@ function renderSavedSearchShelf(){
     return;
   }
 
-  listEl.innerHTML = '';
-  filtered.forEach(lead => {
-    const el = document.createElement('div');
-    el.className = 'card lead-card kind-buyer';
-    el.innerHTML = `
-      <div class="lead-top">
-        <div>
-          <span class="lead-kind">🔔 ${esc(SS_DEAL_LABELS[lead.deal_type] || 'מחפש/ת')}</span>
-          <div class="lead-name">${esc(savedSearchTitle(lead))}</div>
-        </div>
-        <span class="status-pill status-masked">${shekel(savedSearchPrice)}</span>
-      </div>
-      ${tagsHtml([
-        // ציון ההתעניינות הוא השיקול הראשון ברכישה, ולכן התגית הפותחת
-        { text:`⭐ התעניינות ${lead.intent_score}/100`,
-          cls: lead.intent_score >= 75 ? 'tag-good' : 'tag-key' },
-        // הקליקים הם הראיה היחידה שאינה הצהרה של הפונה על עצמו/ה
-        lead.alerts_clicked > 0
-          ? { text:`👆 ${lead.alerts_clicked} נכסים נפתחו`, cls:'tag-good' }
-          : (lead.alerts_sent > 0 ? { text:`📤 ${lead.alerts_sent} התראות נשלחו`, cls:'tag-info' } : null),
-        ...savedSearchMetaParts(lead),
-        lead.has_phone ? '📞 יש טלפון' : null,
-        { text:'📅 נשמר ' + hebDate(lead.created_at) },
-      ])}
-      ${lead.free_text ? `<div class="lead-meta">חיפש/ה: “${esc(lead.free_text)}”</div>` : ''}
-      <div class="lead-actions"></div>
-    `;
-    addCardAction(el.querySelector('.lead-actions'), {
-      label:`🛒 רכישה · ${shekel(savedSearchPrice)}`, cls:'btn-gold act-wide',
-      onClick: btn => buySavedSearchLead(lead, btn),
-    });
-    listEl.appendChild(el);
+  mountCardList(listEl, filtered, {
+    key:'savedSearchShelf', label:'מחפשים בחנות', noun:'המחפשים',
+    id: lead => lead.id,
+    tab: lead => ({
+      title: `🔔 ${savedSearchTitle(lead)}`,
+      sub: [`⭐ התעניינות ${lead.intent_score}/100`,
+            SS_DEAL_LABELS[lead.deal_type] || 'מחפש/ת',
+            'נשמר ' + hebDate(lead.created_at)].filter(Boolean).join(' · '),
+      side: shekel(savedSearchPrice),
+      cls:'tab-teal',
+    }),
+    card: lead => buildSavedSearchShelfCard(lead),
   });
+}
+
+function buildSavedSearchShelfCard(lead){
+  const el = document.createElement('div');
+  el.className = 'card lead-card kind-buyer';
+  el.innerHTML = `
+    <div class="lead-top">
+      <div>
+        <span class="lead-kind">🔔 ${esc(SS_DEAL_LABELS[lead.deal_type] || 'מחפש/ת')}</span>
+        <div class="lead-name">${esc(savedSearchTitle(lead))}</div>
+      </div>
+      <span class="status-pill status-masked">${shekel(savedSearchPrice)}</span>
+    </div>
+    ${tagsHtml([
+      // ציון ההתעניינות הוא השיקול הראשון ברכישה, ולכן התגית הפותחת
+      { text:`⭐ התעניינות ${lead.intent_score}/100`,
+        cls: lead.intent_score >= 75 ? 'tag-good' : 'tag-key' },
+      // הקליקים הם הראיה היחידה שאינה הצהרה של הפונה על עצמו/ה
+      lead.alerts_clicked > 0
+        ? { text:`👆 ${lead.alerts_clicked} נכסים נפתחו`, cls:'tag-good' }
+        : (lead.alerts_sent > 0 ? { text:`📤 ${lead.alerts_sent} התראות נשלחו`, cls:'tag-info' } : null),
+      ...savedSearchMetaParts(lead),
+      lead.has_phone ? '📞 יש טלפון' : null,
+      { text:'📅 נשמר ' + hebDate(lead.created_at) },
+    ])}
+    ${lead.free_text ? `<div class="lead-meta">חיפש/ה: “${esc(lead.free_text)}”</div>` : ''}
+    <div class="lead-actions"></div>
+  `;
+  addCardAction(el.querySelector('.lead-actions'), {
+    label:`🛒 רכישה · ${shekel(savedSearchPrice)}`, cls:'btn-gold act-wide',
+    onClick: btn => buySavedSearchLead(lead, btn),
+  });
+  return el;
 }
 
 async function loadPurchasedSavedSearches(agentId){
@@ -13847,46 +14012,59 @@ async function loadPurchasedSavedSearches(agentId){
     return;
   }
 
-  listEl.innerHTML = '';
-  leads.forEach(lead => {
-    const el = document.createElement('div');
-    el.className = 'card lead-card kind-buyer';
-    const waPhone = (lead.phone || '').replace(/\D/g, '').replace(/^0/, '972');
-    /* ליד שהגיע מהווידג'ט בדף המשרד לא נרכש — הוא הגיע חינם, כי הדף של
-       המשרד הוא שייצר אותו. הכיתוב "נרכש" עליו פשוט לא נכון. */
-    const fromAgencyPage = !!lead.agency_id;
-    el.innerHTML = `
-      <div class="lead-top">
-        <div>
-          <span class="lead-kind">🔔 ${esc(SS_DEAL_LABELS[lead.deal_type] || 'מחפש/ת')}</span>
-          <div class="lead-name">${esc(lead.full_name)}</div>
-        </div>
-        <span class="status-pill status-unlocked">${fromAgencyPage ? 'מדף המשרד' : 'נרכש'} ${hebDate(lead.sold_at)}</span>
-      </div>
-      ${tagsHtml([
-        { text:'🔎 ' + savedSearchTitle(lead), cls:'tag-key' },
-        fromAgencyPage ? { text:'🏢 הגיע מדף המשרד · ללא עלות', cls:'tag-good' } : null,
-        ...savedSearchMetaParts(lead),
-        // מי שביטל/ה את ההתראות עדיין ליד לגיטימי, אבל זו עובדה שכדאי לדעת
-        // לפני שמרימים טלפון
-        lead.status === 'unsubscribed' ? { text:'🔕 הפסיק/ה את ההתראות', cls:'tag-warn' } : null,
-      ])}
-      ${lead.free_text ? `<div class="lead-meta">חיפש/ה: “${esc(lead.free_text)}”</div>` : ''}
-      <div class="lead-meta" id="ssAct-${esc(lead.id)}">טוען פעילות…</div>
-      <div class="lead-actions"></div>
-    `;
-    const actions = el.querySelector('.lead-actions');
-    if (lead.phone){
-      addCardAction(actions, { label:'📞 חיוג', href:'tel:' + lead.phone });
-      addCardAction(actions, { label:'💬 וואטסאפ', cls:'btn-share',
-        href:'https://wa.me/' + waPhone, blank:true });
-    }
-    if (lead.email){
-      addCardAction(actions, { label:'✉️ מייל', href:'mailto:' + lead.email });
-    }
-    listEl.appendChild(el);
-    renderSavedSearchActivity(lead.id);
+  mountCardList(listEl, leads, {
+    key:'purchasedSavedSearch', label:'מחפשים שנרכשו', noun:'המחפשים',
+    id: lead => lead.id,
+    tab: lead => ({
+      title: `🔔 ${lead.full_name}`,
+      sub: [savedSearchTitle(lead), lead.phone || '', hebDate(lead.sold_at)].filter(Boolean).join(' · '),
+      side: lead.agency_id ? 'מדף המשרד' : 'נרכש',
+      cls:'tab-teal',
+    }),
+    card: lead => buildPurchasedSavedSearchCard(lead),
   });
+}
+
+function buildPurchasedSavedSearchCard(lead){
+  const el = document.createElement('div');
+  el.className = 'card lead-card kind-buyer';
+  const waPhone = (lead.phone || '').replace(/\D/g, '').replace(/^0/, '972');
+  /* ליד שהגיע מהווידג'ט בדף המשרד לא נרכש — הוא הגיע חינם, כי הדף של
+     המשרד הוא שייצר אותו. הכיתוב "נרכש" עליו פשוט לא נכון. */
+  const fromAgencyPage = !!lead.agency_id;
+  el.innerHTML = `
+    <div class="lead-top">
+      <div>
+        <span class="lead-kind">🔔 ${esc(SS_DEAL_LABELS[lead.deal_type] || 'מחפש/ת')}</span>
+        <div class="lead-name">${esc(lead.full_name)}</div>
+      </div>
+      <span class="status-pill status-unlocked">${fromAgencyPage ? 'מדף המשרד' : 'נרכש'} ${hebDate(lead.sold_at)}</span>
+    </div>
+    ${tagsHtml([
+      { text:'🔎 ' + savedSearchTitle(lead), cls:'tag-key' },
+      fromAgencyPage ? { text:'🏢 הגיע מדף המשרד · ללא עלות', cls:'tag-good' } : null,
+      ...savedSearchMetaParts(lead),
+      // מי שביטל/ה את ההתראות עדיין ליד לגיטימי, אבל זו עובדה שכדאי לדעת
+      // לפני שמרימים טלפון
+      lead.status === 'unsubscribed' ? { text:'🔕 הפסיק/ה את ההתראות', cls:'tag-warn' } : null,
+    ])}
+    ${lead.free_text ? `<div class="lead-meta">חיפש/ה: “${esc(lead.free_text)}”</div>` : ''}
+    <div class="lead-meta" id="ssAct-${esc(lead.id)}">טוען פעילות…</div>
+    <div class="lead-actions"></div>
+  `;
+  const actions = el.querySelector('.lead-actions');
+  if (lead.phone){
+    addCardAction(actions, { label:'📞 חיוג', href:'tel:' + lead.phone });
+    addCardAction(actions, { label:'💬 וואטסאפ', cls:'btn-share',
+      href:'https://wa.me/' + waPhone, blank:true });
+  }
+  if (lead.email){
+    addCardAction(actions, { label:'✉️ מייל', href:'mailto:' + lead.email });
+  }
+  // הפעילות נשלפת לפי מזהה מה-DOM, ולכן רק אחרי שהכרטיס נכנס לטאב הפתוח.
+  // ‏queueMicrotask מריץ אותה מיד אחרי ההוספה, בלי לחכות לציור.
+  queueMicrotask(()=> renderSavedSearchActivity(lead.id));
+  return el;
 }
 
 /* הנכסים שכבר נשלחו למחפש/ת ומה מתוכם נלחץ. זו הסיבה שהליד הזה שווה יותר
@@ -13956,8 +14134,12 @@ async function buySavedSearchLead(lead, btn){
   }
 }
 
-document.getElementById('savedSearchDealFilter').addEventListener('change', renderSavedSearchShelf);
-document.getElementById('savedSearchHoodFilter').addEventListener('change', renderSavedSearchShelf);
+const renderSavedSearchShelfFromTop = ()=>{
+  resetCardList('savedSearchShelf', 'savedSearchShelfList');
+  renderSavedSearchShelf();
+};
+document.getElementById('savedSearchDealFilter').addEventListener('change', renderSavedSearchShelfFromTop);
+document.getElementById('savedSearchHoodFilter').addEventListener('change', renderSavedSearchShelfFromTop);
 document.getElementById('savedSearchRefreshBtn').addEventListener('click', ()=> {
   if (currentAgent) loadSavedSearchShelf(currentAgent.id);
 });
@@ -14254,57 +14436,70 @@ function renderSharedWithMe(){
     return;
   }
 
-  listEl.innerHTML = '';
-  filtered.forEach(r => {
-    const address = sharedAddressLine(r);
-    const tags = tagsHtml([
-      r.rooms && { html:`🛏 <b>${esc(r.rooms)}</b> חדרים` },
-      r.property_type && { text:'🏠 ' + r.property_type },
-      r.size_sqm && { text:`📐 ${r.size_sqm} מ״ר` },
-      r.floor != null && { text:'🏢 קומה ' + r.floor },
-      address && { text:'📍 ' + address, cls:'tag-info' },
-    ]);
+  mountCardList(listEl, filtered, {
+    key:'shared', label:'נכסים ששותפו איתי', noun:'הנכסים',
+    id: r => r.property_id,
+    tab: r => ({
+      title: `${r.property_type || 'נכס'} · ${sharedAddressLine(r) || r.title}`,
+      sub: [r.owner_agency_name || 'משרד שותף', r.rooms ? r.rooms + ' חדרים' : '',
+            'שותף ' + hebDate(r.shared_at)].filter(Boolean).join(' · '),
+      sideHtml: shekel(r.price) + (r.deal_type === 'rent' ? ' <span class="per">לחודש</span>' : ''),
+      cls:'tab-green',
+    }),
+    card: r => buildSharedCard(r),
+  });
+}
 
-    const el = document.createElement('div');
-    el.className = 'card lead-card kind-shared';
-    const thumbHtml = (r.images && r.images.length)
-      ? `<img class="prop-thumb-mini" src="${esc(r.images[0])}" alt="">` : '';
-    el.innerHTML = `
-      <div class="lead-top">
-        <div style="display:flex;gap:10px;align-items:flex-start;min-width:0">
-          ${thumbHtml}
-          <div style="min-width:0">
-            <span class="lead-kind">🤝 ${esc(r.owner_agency_name || 'משרד שותף')}</span>
-            <div class="lead-name">${esc(r.title)}</div>
-            <div class="prop-price">${shekel(r.price)}${r.deal_type === 'rent' ? ' <span class="per">לחודש</span>' : ''}</div>
-          </div>
-        </div>
-        <div class="pill-row">
-          <span class="status-pill status-shared">${r.deal_type === 'rent' ? 'השכרה' : 'מכירה'}</span>
+function buildSharedCard(r){
+
+  const address = sharedAddressLine(r);
+  const tags = tagsHtml([
+    r.rooms && { html:`🛏 <b>${esc(r.rooms)}</b> חדרים` },
+    r.property_type && { text:'🏠 ' + r.property_type },
+    r.size_sqm && { text:`📐 ${r.size_sqm} מ״ר` },
+    r.floor != null && { text:'🏢 קומה ' + r.floor },
+    address && { text:'📍 ' + address, cls:'tag-info' },
+  ]);
+
+  const el = document.createElement('div');
+  el.className = 'card lead-card kind-shared';
+  const thumbHtml = (r.images && r.images.length)
+    ? `<img class="prop-thumb-mini" src="${esc(r.images[0])}" alt="">` : '';
+  el.innerHTML = `
+    <div class="lead-top">
+      <div style="display:flex;gap:10px;align-items:flex-start;min-width:0">
+        ${thumbHtml}
+        <div style="min-width:0">
+          <span class="lead-kind">🤝 ${esc(r.owner_agency_name || 'משרד שותף')}</span>
+          <div class="lead-name">${esc(r.title)}</div>
+          <div class="prop-price">${shekel(r.price)}${r.deal_type === 'rent' ? ' <span class="per">לחודש</span>' : ''}</div>
         </div>
       </div>
-      ${tags}
-      <div class="lead-meta">שותף ${hebDate(r.shared_at)} · אחראי/ת: ${esc(r.owner_agent_name || '—')}${
-        r.owner_agent_phone ? ' · <span class="lead-phone">' + esc(r.owner_agent_phone) + '</span>' : ''}</div>
-      <div class="lead-actions"></div>
-    `;
+      <div class="pill-row">
+        <span class="status-pill status-shared">${r.deal_type === 'rent' ? 'השכרה' : 'מכירה'}</span>
+      </div>
+    </div>
+    ${tags}
+    <div class="lead-meta">שותף ${hebDate(r.shared_at)} · אחראי/ת: ${esc(r.owner_agent_name || '—')}${
+      r.owner_agent_phone ? ' · <span class="lead-phone">' + esc(r.owner_agent_phone) + '</span>' : ''}</div>
+    <div class="lead-actions"></div>
+  `;
 
-    const actions = el.querySelector('.lead-actions');
-    if (r.owner_agent_phone){
-      addCardAction(actions, {
-        label:'📞 התקשרות לסוכן/ת', cls:'btn-gold',
-        href:'tel:' + String(r.owner_agent_phone).replace(/[^\d+]/g, ''),
-      });
-      const wa = waLink(r.owner_agent_phone);
-      if (wa) addCardAction(actions, { label:'💬 וואטסאפ', href:wa, blank:true });
-    }
+  const actions = el.querySelector('.lead-actions');
+  if (r.owner_agent_phone){
     addCardAction(actions, {
-      label:'🏠 עמוד הנכס', blank:true,
-      href:'property.html?id=' + encodeURIComponent(r.property_id),
+      label:'📞 התקשרות לסוכן/ת', cls:'btn-gold',
+      href:'tel:' + String(r.owner_agent_phone).replace(/[^\d+]/g, ''),
     });
-
-    listEl.appendChild(el);
+    const wa = waLink(r.owner_agent_phone);
+    if (wa) addCardAction(actions, { label:'💬 וואטסאפ', href:wa, blank:true });
+  }
+  addCardAction(actions, {
+    label:'🏠 עמוד הנכס', blank:true,
+    href:'property.html?id=' + encodeURIComponent(r.property_id),
   });
+
+  return el;
 }
 
 document.getElementById('partnerSearch').addEventListener('input', renderSharePartners);
@@ -14318,13 +14513,18 @@ document.getElementById('partnerClearAll').addEventListener('click', ()=>{
 });
 document.getElementById('savePartnersBtn').addEventListener('click', saveSharePartners);
 
-document.getElementById('sharedSearch').addEventListener('input', renderSharedWithMe);
+// כל שינוי בסינון מחזיר את הרשימה לראשה
+function renderSharedFromTop(){
+  resetCardList('shared', 'sharedWithMeList');
+  renderSharedWithMe();
+}
+document.getElementById('sharedSearch').addEventListener('input', renderSharedFromTop);
 ['sharedAgencyFilter','sharedDealFilter','sharedCityFilter','sharedTypeFilter','sharedSort'].forEach(id =>
-  document.getElementById(id).addEventListener('change', renderSharedWithMe));
+  document.getElementById(id).addEventListener('change', renderSharedFromTop));
 document.getElementById('sharedClearFilters').addEventListener('click', ()=>{
   ['sharedSearch','sharedAgencyFilter','sharedDealFilter','sharedCityFilter','sharedTypeFilter']
     .forEach(id => { document.getElementById(id).value = ''; });
-  renderSharedWithMe();
+  renderSharedFromTop();
 });
 document.getElementById('sharedRefreshBtn').addEventListener('click', ()=> loadSharedWithMe());
 
@@ -14487,71 +14687,84 @@ function renderClients(){
     return;
   }
 
-  listEl.innerHTML = '';
-  filtered.forEach(c => {
-    const matches = clientMatchCounts[c.id];
-    const wa = waLink(c.phone);
-    const el = document.createElement('div');
-    el.className = 'card client-card';
-    el.innerHTML = `
-      <div class="lead-top">
-        <div style="min-width:0">
-          <div class="lead-name">${esc(c.full_name)}</div>
-          ${c.phone ? `<div class="contact-line">
-              <span class="lead-phone">${esc(c.phone)}</span>
-              <a class="contact-quick" href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}"
-                 title="חיוג ל${esc(c.full_name)}" aria-label="חיוג ל${esc(c.full_name)}">📞</a>
-              ${wa ? `<a class="contact-quick is-wa" href="${esc(wa)}" target="_blank" rel="noopener noreferrer"
-                 title="וואטסאפ ל${esc(c.full_name)}" aria-label="וואטסאפ ל${esc(c.full_name)}">💬</a>` : ''}
-            </div>` : ''}
-          <div class="req-line">${esc(clientRequirementLine(c))}</div>
-          ${c.notes ? `<div class="lead-meta">${esc(c.notes)}</div>` : ''}
-        </div>
-        <div class="pill-row">
-          <span class="status-pill status-unlocked">${CLIENT_STATUS_LABELS[c.status] || c.status}</span>
-          ${matches ? `<span class="status-pill status-shared">${matches} התאמות</span>` : ''}
-        </div>
-        <div class="card-menu">
-          <button type="button" class="card-menu-btn" aria-haspopup="true" aria-expanded="false"
-                  title="פעולות נוספות" aria-label="פעולות נוספות על ${esc(c.full_name)}">⋯</button>
-          <div class="card-menu-pop"></div>
-        </div>
-      </div>
-      <div class="lead-actions"></div>
-      <div class="match-panel" style="display:none"></div>
-    `;
-
-    const actions = el.querySelector('.lead-actions');
-    const panel = el.querySelector('.match-panel');
-
-    // תצוגה מקדימה של ההתאמה החזקה ביותר — לפני שלוחצים על שום דבר
-    const peek = clientMatchPeek(c, () => el.querySelector('.match-cta'));
-    if (peek) el.querySelector('.lead-top').insertAdjacentElement('afterend', peek);
-
-    addCardAction(actions, { label:'✏️ עריכה', onClick:()=> openEditClient(c) });
-    // הזמנת שירותי תיווך נחתמת מול הלקוח/ה, ולכן הכפתור יושב על הכרטיס שלו/ה
-    // ולא רק בקטגוריית ההסכמים. סוג העסקה בכרטיס הוא שקובע איזה טופס נפתח.
-    addCardAction(actions, {
-      label:'✍️ החתמה על הסכם',
-      title:'פתיחת הסכם תיווך עם הלקוח/ה, עם הפרטים שכבר בכרטיס',
-      onClick:()=> openAgreementWizard({ kind: c.deal_type === 'rent' ? 'tenant' : 'buy', clientId: c.id }),
-    });
-    const matchBtn = addCardAction(actions, {
-      label: matches ? `🔍 הצגת ${matches} התאמות` : '🔍 חיפוש התאמות',
-      cls:'btn-gold act-wide',
-      onClick: btn => toggleClientMatches(c, btn, panel),
-    });
-    matchBtn.classList.add('match-cta');
-
-    // מחיקה היא הפעולה היחידה כאן שאי אפשר לבטל, ולכן היא לא יושבת ברשת
-    // הפעולות לצד "עריכה" ו"החתמה" — שלושה כפתורים באותו גודל ובאותו צבע,
-    // שאחד מהם בלתי הפיך, זו לחיצה שגויה שממתינה לקרות בשטח.
-    buildCardMenu(el.querySelector('.card-menu'), [
-      { label:'🗑 מחיקת הלקוח/ה', danger:true, onClick:()=> deleteClient(c) },
-    ]);
-
-    listEl.appendChild(el);
+  mountCardList(listEl, filtered, {
+    key:'clients', label:'קובץ הלקוחות שלי', noun:'הלקוחות',
+    id: c => c.id,
+    /* מה שמזהה לקוח/ה בסריקה מהירה: השם, ומה הוא/היא מחפש/ת. מספר
+       ההתאמות בצד — זה הנתון שבגללו נכנסים לכרטיס. */
+    tab: c => ({
+      title: c.full_name,
+      sub: clientRequirementLine(c),
+      side: clientMatchCounts[c.id] ? `${clientMatchCounts[c.id]} התאמות` : (CLIENT_STATUS_LABELS[c.status] || ''),
+      cls: clientMatchCounts[c.id] ? 'tab-gold' : 'tab-teal',
+    }),
+    card: c => buildClientCard(c),
   });
+}
+
+function buildClientCard(c){
+  const matches = clientMatchCounts[c.id];
+  const wa = waLink(c.phone);
+  const el = document.createElement('div');
+  el.className = 'card client-card';
+  el.innerHTML = `
+    <div class="lead-top">
+      <div style="min-width:0">
+        <div class="lead-name">${esc(c.full_name)}</div>
+        ${c.phone ? `<div class="contact-line">
+            <span class="lead-phone">${esc(c.phone)}</span>
+            <a class="contact-quick" href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}"
+               title="חיוג ל${esc(c.full_name)}" aria-label="חיוג ל${esc(c.full_name)}">📞</a>
+            ${wa ? `<a class="contact-quick is-wa" href="${esc(wa)}" target="_blank" rel="noopener noreferrer"
+               title="וואטסאפ ל${esc(c.full_name)}" aria-label="וואטסאפ ל${esc(c.full_name)}">💬</a>` : ''}
+          </div>` : ''}
+        <div class="req-line">${esc(clientRequirementLine(c))}</div>
+        ${c.notes ? `<div class="lead-meta">${esc(c.notes)}</div>` : ''}
+      </div>
+      <div class="pill-row">
+        <span class="status-pill status-unlocked">${CLIENT_STATUS_LABELS[c.status] || c.status}</span>
+        ${matches ? `<span class="status-pill status-shared">${matches} התאמות</span>` : ''}
+      </div>
+      <div class="card-menu">
+        <button type="button" class="card-menu-btn" aria-haspopup="true" aria-expanded="false"
+                title="פעולות נוספות" aria-label="פעולות נוספות על ${esc(c.full_name)}">⋯</button>
+        <div class="card-menu-pop"></div>
+      </div>
+    </div>
+    <div class="lead-actions"></div>
+    <div class="match-panel" style="display:none"></div>
+  `;
+
+  const actions = el.querySelector('.lead-actions');
+  const panel = el.querySelector('.match-panel');
+
+  // תצוגה מקדימה של ההתאמה החזקה ביותר — לפני שלוחצים על שום דבר
+  const peek = clientMatchPeek(c, () => el.querySelector('.match-cta'));
+  if (peek) el.querySelector('.lead-top').insertAdjacentElement('afterend', peek);
+
+  addCardAction(actions, { label:'✏️ עריכה', onClick:()=> openEditClient(c) });
+  // הזמנת שירותי תיווך נחתמת מול הלקוח/ה, ולכן הכפתור יושב על הכרטיס שלו/ה
+  // ולא רק בקטגוריית ההסכמים. סוג העסקה בכרטיס הוא שקובע איזה טופס נפתח.
+  addCardAction(actions, {
+    label:'✍️ החתמה על הסכם',
+    title:'פתיחת הסכם תיווך עם הלקוח/ה, עם הפרטים שכבר בכרטיס',
+    onClick:()=> openAgreementWizard({ kind: c.deal_type === 'rent' ? 'tenant' : 'buy', clientId: c.id }),
+  });
+  const matchBtn = addCardAction(actions, {
+    label: matches ? `🔍 הצגת ${matches} התאמות` : '🔍 חיפוש התאמות',
+    cls:'btn-gold act-wide',
+    onClick: btn => toggleClientMatches(c, btn, panel),
+  });
+  matchBtn.classList.add('match-cta');
+
+  // מחיקה היא הפעולה היחידה כאן שאי אפשר לבטל, ולכן היא לא יושבת ברשת
+  // הפעולות לצד "עריכה" ו"החתמה" — שלושה כפתורים באותו גודל ובאותו צבע,
+  // שאחד מהם בלתי הפיך, זו לחיצה שגויה שממתינה לקרות בשטח.
+  buildCardMenu(el.querySelector('.card-menu'), [
+    { label:'🗑 מחיקת הלקוח/ה', danger:true, onClick:()=> deleteClient(c) },
+  ]);
+
+  return el;
 }
 
 /* ---------- תצוגה מקדימה של ההתאמה ----------
@@ -14850,13 +15063,17 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
   await loadClients();
 });
 
-document.getElementById('clientSearch').addEventListener('input', renderClients);
+function renderClientsFromTop(){
+  resetCardList('clients', 'clientsList');
+  renderClients();
+}
+document.getElementById('clientSearch').addEventListener('input', renderClientsFromTop);
 ['clientStatusFilter','clientDealFilter','clientCategoryFilter','clientTypeFilter','clientCityFilter','clientSort']
-  .forEach(id => document.getElementById(id).addEventListener('change', renderClients));
+  .forEach(id => document.getElementById(id).addEventListener('change', renderClientsFromTop));
 document.getElementById('clientClearFilters').addEventListener('click', ()=>{
   ['clientSearch','clientStatusFilter','clientDealFilter','clientCategoryFilter','clientTypeFilter','clientCityFilter']
     .forEach(id => { document.getElementById(id).value = ''; });
-  renderClients();
+  renderClientsFromTop();
 });
 
 /* ---------- התראות התאמה ----------
@@ -14917,89 +15134,104 @@ function renderClientAlerts(){
     return;
   }
 
-  listEl.innerHTML = '';
-  alertRows.forEach(a => {
-    const address = [a.city, [a.street, a.house_number].filter(Boolean).join(' ')]
-      .filter(Boolean).join(', ');
-
-    const alertTags = tagsHtml([
-      { text: a.deal_type === 'rent' ? shekel(a.price) + ' לחודש' : shekel(a.price), cls:'tag-key' },
-      a.rooms && { html:`🛏 <b>${esc(a.rooms)}</b> חדרים` },
-      a.property_type && { text:'🏠 ' + a.property_type },
-      a.size_sqm && { text:`📐 ${a.size_sqm} מ״ר` },
-      a.floor != null && { text:'🏢 קומה ' + a.floor },
-      address && { text:'📍 ' + address },
-    ]);
-
-    const gaps = [
-      ...(a.reasons || []),
-      ...((a.missing_features || []).length
-        ? ['חסר: ' + a.missing_features.map(featureLabel).join(', ')] : []),
-    ];
-
-    // המשרד שמפרסם רלוונטי רק כשהוא לא שלי — בנכס שלי זה רעש
-    const sourceLabel = a.source === 'shared'
-      ? '🤝 ' + (a.listing_agency_name || 'משרד שותף')
-      : MATCH_SOURCE_LABELS[a.source] || a.source;
-
-    const card = document.createElement('div');
-    card.className = 'match-card alert-card' + (a.status === 'new' ? ' is-new' : '');
-    card.innerHTML = `
-      <div class="match-head">
-        <div>
-          <span class="src-tag src-${esc(a.source)}">${esc(sourceLabel)}</span>
-          <div class="alert-for">מתאים ל${esc(a.client_name)}</div>
-          <div class="match-title">${esc(a.title)}</div>
-        </div>
-        <div style="text-align:left">
-          <span class="score-pill ${a.score >= 85 ? 'score-high' : 'score-mid'}">${a.score}%</span>
-          <div class="alert-when">${esc(hebDateTime(a.created_at))}</div>
-        </div>
-      </div>
-      ${alertTags}
-      ${gaps.length ? `<div class="match-gap">${gaps.map(esc).join(' · ')}</div>` : ''}
-      <div class="lead-actions"></div>
-    `;
-
-    const actions = card.querySelector('.lead-actions');
-    addCardAction(actions, {
-      label:'🏠 עמוד הנכס', blank:true,
-      href:'property.html?id=' + encodeURIComponent(a.property_id),
-    });
-
-    // ההצעה ללקוח/ה היא הפעולה שההתראה נועדה לה, ולכן הקישור נולד מוכן:
-    // שם, כותרת הנכס, מחיר וקישור ציבורי — בלי להקליד כלום
-    const clientWa = waLink(a.client_phone);
-    if (clientWa){
-      const lines = [
-        `שלום ${a.client_name},`,
-        `מצאתי נכס שיכול להתאים למה שאתם מחפשים: ${a.title}` + (address ? ` ב${address}` : '') + '.',
-        (a.deal_type === 'rent' ? shekel(a.price) + ' לחודש' : shekel(a.price)) + '.',
-        propertyPublicLink(a.property_id),
-      ];
-      addCardAction(actions, {
-        label:'💬 שליחה ללקוח/ה', cls:'btn-gold', blank:true,
-        href: clientWa + '?text=' + encodeURIComponent(lines.join('\n')),
-      });
-    }
-
-    if (a.source !== 'own' && a.listing_agent_phone){
-      addCardAction(actions, {
-        label:'📞 ' + (a.listing_agent_name || 'הסוכן/ת'),
-        href:'tel:' + String(a.listing_agent_phone).replace(/[^\d+]/g, ''),
-      });
-    }
-
-    if (a.status === 'new'){
-      addCardAction(actions, { label:'✓ נצפתה', onClick: btn => setAlertStatus(a, 'seen', btn) });
-    }
-    addCardAction(actions, {
-      label:'✕ הסרה', title:'ההתראה לא תוצג שוב. הנכס עצמו נשאר בפאנל ההתאמות של הלקוח/ה.',
-      onClick: btn => setAlertStatus(a, 'dismissed', btn),
-    });
-
-    listEl.appendChild(card);
+  mountCardList(listEl, alertRows, {
+    key:'alerts', label:'התראות התאמה', noun:'ההתראות',
+    id: a => a.id,
+    /* ההתראה היא זוג: לקוח/ה ונכס. שניהם בשורה הראשונה, הציון בצד —
+       ‏100% ו-72% הם לא אותה שיחת טלפון. */
+    tab: a => ({
+      title: `מתאים ל${a.client_name} · ${a.title}`,
+      sub: [[a.city, [a.street, a.house_number].filter(Boolean).join(' ')].filter(Boolean).join(', '),
+            a.deal_type === 'rent' ? shekel(a.price) + ' לחודש' : shekel(a.price),
+            hebDate(a.created_at)].filter(Boolean).join(' · '),
+      side: a.score + '%',
+      cls: a.status === 'new' ? 'tab-wine' : 'tab-muted',
+    }),
+    card: a => buildAlertCard(a),
   });
+}
+
+function buildAlertCard(a){
+  const address = [a.city, [a.street, a.house_number].filter(Boolean).join(' ')]
+    .filter(Boolean).join(', ');
+
+  const alertTags = tagsHtml([
+    { text: a.deal_type === 'rent' ? shekel(a.price) + ' לחודש' : shekel(a.price), cls:'tag-key' },
+    a.rooms && { html:`🛏 <b>${esc(a.rooms)}</b> חדרים` },
+    a.property_type && { text:'🏠 ' + a.property_type },
+    a.size_sqm && { text:`📐 ${a.size_sqm} מ״ר` },
+    a.floor != null && { text:'🏢 קומה ' + a.floor },
+    address && { text:'📍 ' + address },
+  ]);
+
+  const gaps = [
+    ...(a.reasons || []),
+    ...((a.missing_features || []).length
+      ? ['חסר: ' + a.missing_features.map(featureLabel).join(', ')] : []),
+  ];
+
+  // המשרד שמפרסם רלוונטי רק כשהוא לא שלי — בנכס שלי זה רעש
+  const sourceLabel = a.source === 'shared'
+    ? '🤝 ' + (a.listing_agency_name || 'משרד שותף')
+    : MATCH_SOURCE_LABELS[a.source] || a.source;
+
+  const card = document.createElement('div');
+  card.className = 'match-card alert-card' + (a.status === 'new' ? ' is-new' : '');
+  card.innerHTML = `
+    <div class="match-head">
+      <div>
+        <span class="src-tag src-${esc(a.source)}">${esc(sourceLabel)}</span>
+        <div class="alert-for">מתאים ל${esc(a.client_name)}</div>
+        <div class="match-title">${esc(a.title)}</div>
+      </div>
+      <div style="text-align:left">
+        <span class="score-pill ${a.score >= 85 ? 'score-high' : 'score-mid'}">${a.score}%</span>
+        <div class="alert-when">${esc(hebDateTime(a.created_at))}</div>
+      </div>
+    </div>
+    ${alertTags}
+    ${gaps.length ? `<div class="match-gap">${gaps.map(esc).join(' · ')}</div>` : ''}
+    <div class="lead-actions"></div>
+  `;
+
+  const actions = card.querySelector('.lead-actions');
+  addCardAction(actions, {
+    label:'🏠 עמוד הנכס', blank:true,
+    href:'property.html?id=' + encodeURIComponent(a.property_id),
+  });
+
+  // ההצעה ללקוח/ה היא הפעולה שההתראה נועדה לה, ולכן הקישור נולד מוכן:
+  // שם, כותרת הנכס, מחיר וקישור ציבורי — בלי להקליד כלום
+  const clientWa = waLink(a.client_phone);
+  if (clientWa){
+    const lines = [
+      `שלום ${a.client_name},`,
+      `מצאתי נכס שיכול להתאים למה שאתם מחפשים: ${a.title}` + (address ? ` ב${address}` : '') + '.',
+      (a.deal_type === 'rent' ? shekel(a.price) + ' לחודש' : shekel(a.price)) + '.',
+      propertyPublicLink(a.property_id),
+    ];
+    addCardAction(actions, {
+      label:'💬 שליחה ללקוח/ה', cls:'btn-gold', blank:true,
+      href: clientWa + '?text=' + encodeURIComponent(lines.join('\n')),
+    });
+  }
+
+  if (a.source !== 'own' && a.listing_agent_phone){
+    addCardAction(actions, {
+      label:'📞 ' + (a.listing_agent_name || 'הסוכן/ת'),
+      href:'tel:' + String(a.listing_agent_phone).replace(/[^\d+]/g, ''),
+    });
+  }
+
+  if (a.status === 'new'){
+    addCardAction(actions, { label:'✓ נצפתה', onClick: btn => setAlertStatus(a, 'seen', btn) });
+  }
+  addCardAction(actions, {
+    label:'✕ הסרה', title:'ההתראה לא תוצג שוב. הנכס עצמו נשאר בפאנל ההתאמות של הלקוח/ה.',
+    onClick: btn => setAlertStatus(a, 'dismissed', btn),
+  });
+
+  return card;
 }
 
 /* ‏dismissed יורדת מהרשימה תמיד (הפיד לא מחזיר אותה), ו-seen יורדת רק
@@ -15042,7 +15274,10 @@ async function markAllAlertsSeen(btn){
   await loadClientAlerts();
 }
 
-document.getElementById('alertScopeFilter').addEventListener('change', ()=> loadClientAlerts());
+document.getElementById('alertScopeFilter').addEventListener('change', ()=>{
+  resetCardList('alerts', 'alertsList');
+  loadClientAlerts();
+});
 document.getElementById('alertsRefreshBtn').addEventListener('click', ()=> loadClientAlerts());
 document.getElementById('alertsMarkAll').addEventListener('click', e => markAllAlertsSeen(e.currentTarget));
 
@@ -16898,66 +17133,86 @@ function renderAgreements(){
     return;
   }
 
-  listEl.innerHTML = '';
-  rows.forEach(a => {
-    const st = AGR_STATUS[a.status] || { label:a.status, cls:'status-off' };
-    const prog = agrSignedCount(a);
-    const names = (a.signers || []).filter(s => s.party !== 'agent').map(s => s.full_name).join(' · ');
-    const propLine = (a.snapshot && a.snapshot.property_line) || '';
-
-    const el = document.createElement('div');
-    el.className = 'card agr-row';
-    el.innerHTML = `
-      <div class="agr-top">
-        <div style="min-width:0">
-          <div class="agr-title">${esc(a.title)}</div>
-          ${names ? `<div class="agr-sub">${esc(names)}</div>` : ''}
-          ${propLine ? `<div class="agr-sub">📍 ${esc(propLine)}</div>` : ''}
-          <div class="agr-progress">${prog.signed}/${prog.total} חתמו · נוצר ב-${esc(hebDateTime(a.created_at))}${
-            a.signed_at ? ' · נחתם ב-' + esc(hebDateTime(a.signed_at)) : ''}</div>
-          ${a.signed_copy_error ? `<div class="agr-missing">העותק החתום לא נשלח במייל (${esc(a.signed_copy_error)}) — אפשר לשלוח שוב</div>` : ''}
-        </div>
-        <div class="pill-row"><span class="status-pill ${st.cls}">${esc(st.label)}</span></div>
-      </div>
-      <div class="lead-actions"></div>`;
-
-    const actions = el.querySelector('.lead-actions');
-
-    if (a.status !== 'cancelled'){
-      addCardAction(actions, {
-        label: prog.signed < prog.total ? '✍️ החתמה' : '📄 המסמך החתום',
-        cls:'btn-gold act-wide',
-        onClick: ()=> openAgreementSigning(a.id),
-      });
-    }
-
-    addCardAction(actions, {
-      label:'👁 צפייה', title:'פתיחת המסמך בלשונית חדשה',
-      href:'agreement.html?t=' + encodeURIComponent(a.view_token), blank:true,
-    });
-
-    if (a.status !== 'signed' && a.status !== 'cancelled' && (a.signers || []).some(s => !s.signed_at && s.email)){
-      addCardAction(actions, {
-        label:'✉️ שליחת קישורים', title:'שליחת קישור חתימה אישי לכל מי שטרם חתם/ה',
-        onClick: btn => agrSendLinks(a.id, null, btn),
-      });
-    }
-
-    if (a.status === 'signed'){
-      addCardAction(actions, {
-        label:'📤 שליחת עותק שוב', title:'שליחה חוזרת של העותק החתום לכל הצדדים',
-        onClick: btn => agrResendSigned(a.id, btn),
-      });
-    }
-
-    if (a.status === 'draft'){
-      addCardAction(actions, { label:'🗑 מחיקה', onClick:()=> agrDelete(a) });
-    } else if (a.status !== 'cancelled'){
-      addCardAction(actions, { label:'✖ ביטול ההסכם', onClick:()=> agrCancel(a) });
-    }
-
-    listEl.appendChild(el);
+  mountCardList(listEl, rows, {
+    key:'agreements', label:'ההסכמים שלי', noun:'ההסכמים',
+    id: a => a.id,
+    /* בהסכם השאלה היחידה היא כמה חתימות חסרות — ולכן היא בצד, ולא
+       קבורה בשורת ההתקדמות בתוך הכרטיס. */
+    tab: a => {
+      const prog = agrSignedCount(a);
+      const st = AGR_STATUS[a.status] || { label:a.status };
+      return {
+        title: a.title,
+        sub: [(a.signers || []).filter(s => s.party !== 'agent').map(s => s.full_name).join(' · '),
+              (a.snapshot && a.snapshot.property_line) || '',
+              hebDate(a.created_at)].filter(Boolean).join(' · '),
+        side: `${prog.signed}/${prog.total} חתמו`,
+        cls: a.status === 'signed' ? 'tab-green'
+           : (a.status === 'cancelled' ? 'tab-muted' : 'tab-gold'),
+      };
+    },
+    card: a => buildAgreementCard(a),
   });
+}
+
+function buildAgreementCard(a){
+  const st = AGR_STATUS[a.status] || { label:a.status, cls:'status-off' };
+  const prog = agrSignedCount(a);
+  const names = (a.signers || []).filter(s => s.party !== 'agent').map(s => s.full_name).join(' · ');
+  const propLine = (a.snapshot && a.snapshot.property_line) || '';
+
+  const el = document.createElement('div');
+  el.className = 'card agr-row';
+  el.innerHTML = `
+    <div class="agr-top">
+      <div style="min-width:0">
+        <div class="agr-title">${esc(a.title)}</div>
+        ${names ? `<div class="agr-sub">${esc(names)}</div>` : ''}
+        ${propLine ? `<div class="agr-sub">📍 ${esc(propLine)}</div>` : ''}
+        <div class="agr-progress">${prog.signed}/${prog.total} חתמו · נוצר ב-${esc(hebDateTime(a.created_at))}${
+          a.signed_at ? ' · נחתם ב-' + esc(hebDateTime(a.signed_at)) : ''}</div>
+        ${a.signed_copy_error ? `<div class="agr-missing">העותק החתום לא נשלח במייל (${esc(a.signed_copy_error)}) — אפשר לשלוח שוב</div>` : ''}
+      </div>
+      <div class="pill-row"><span class="status-pill ${st.cls}">${esc(st.label)}</span></div>
+    </div>
+    <div class="lead-actions"></div>`;
+
+  const actions = el.querySelector('.lead-actions');
+
+  if (a.status !== 'cancelled'){
+    addCardAction(actions, {
+      label: prog.signed < prog.total ? '✍️ החתמה' : '📄 המסמך החתום',
+      cls:'btn-gold act-wide',
+      onClick: ()=> openAgreementSigning(a.id),
+    });
+  }
+
+  addCardAction(actions, {
+    label:'👁 צפייה', title:'פתיחת המסמך בלשונית חדשה',
+    href:'agreement.html?t=' + encodeURIComponent(a.view_token), blank:true,
+  });
+
+  if (a.status !== 'signed' && a.status !== 'cancelled' && (a.signers || []).some(s => !s.signed_at && s.email)){
+    addCardAction(actions, {
+      label:'✉️ שליחת קישורים', title:'שליחת קישור חתימה אישי לכל מי שטרם חתם/ה',
+      onClick: btn => agrSendLinks(a.id, null, btn),
+    });
+  }
+
+  if (a.status === 'signed'){
+    addCardAction(actions, {
+      label:'📤 שליחת עותק שוב', title:'שליחה חוזרת של העותק החתום לכל הצדדים',
+      onClick: btn => agrResendSigned(a.id, btn),
+    });
+  }
+
+  if (a.status === 'draft'){
+    addCardAction(actions, { label:'🗑 מחיקה', onClick:()=> agrDelete(a) });
+  } else if (a.status !== 'cancelled'){
+    addCardAction(actions, { label:'✖ ביטול ההסכם', onClick:()=> agrCancel(a) });
+  }
+
+  return el;
 }
 
 /* ---------- פעולות על הסכם קיים ---------- */
@@ -18780,12 +19035,16 @@ agrEl('newAgreementBtn').addEventListener('click', ()=> openAgreementWizard());
    של הסכמים קודמים. */
 agrEl('signClientCta').addEventListener('click', ()=> openAgreementWizard());
 
-agrEl('agrSearch').addEventListener('input', renderAgreements);
+function renderAgreementsFromTop(){
+  resetCardList('agreements', 'agreementsList');
+  renderAgreements();
+}
+agrEl('agrSearch').addEventListener('input', renderAgreementsFromTop);
 ['agrStatusFilter','agrKindFilter'].forEach(id =>
-  agrEl(id).addEventListener('change', renderAgreements));
+  agrEl(id).addEventListener('change', renderAgreementsFromTop));
 agrEl('agrClearFilters').addEventListener('click', ()=>{
   ['agrSearch','agrStatusFilter','agrKindFilter'].forEach(id => { agrEl(id).value = ''; });
-  renderAgreements();
+  renderAgreementsFromTop();
 });
 
 (async function boot(){
