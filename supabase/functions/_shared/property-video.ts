@@ -455,6 +455,59 @@ export async function removeStoredVideo(supabase: any, url: string | null): Prom
   await supabase.storage.from(VIDEOS_BUCKET).remove([path]).catch(() => {});
 }
 
+// ---------------------------------------------------------------------------
+// מדידת אורך של MP4 — בלי ffmpeg ובלי שירות חיצוני
+//
+// **למה זה נדרש:** ‏`compose` החזיר "הצלחה" על בקשת חיתוך שלא חתכה כלום.
+// כישלון שקט כזה אי אפשר לזהות מהסטטוס — רק מהאורך של הקובץ שיצא. בלי
+// המדידה הזאת כל ניסיון לתקן את הסכימה היה מחייב אדם שיפתח את הסרטון
+// ויספור שניות.
+//
+// הקופסה ‎mvhd‎ (בתוך ‎moov‎) מחזיקה ‎timescale‎ ו-‎duration‎, והחלוקה ביניהם
+// היא האורך בשניות. מחפשים את החתימה בבתים במקום לפרסר את עץ הקופסאות:
+// ‏‎moov‎ יכול לשבת בתחילת הקובץ או בסופו, וסריקה פשוטה עובדת בשני המקרים.
+// ---------------------------------------------------------------------------
+export async function measureMp4Seconds(url: string): Promise<number | null> {
+  let bytes: Uint8Array;
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    bytes = new Uint8Array(await res.arrayBuffer());
+  } catch {
+    return null;
+  }
+
+  // חיפוש "mvhd" כרצף בתים
+  const sig = [0x6d, 0x76, 0x68, 0x64]; // m v h d
+  let at = -1;
+  for (let i = 0; i + 4 <= bytes.length; i++) {
+    if (bytes[i] === sig[0] && bytes[i + 1] === sig[1] && bytes[i + 2] === sig[2] && bytes[i + 3] === sig[3]) {
+      at = i;
+      break;
+    }
+  }
+  if (at === -1) return null;
+
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const base = at + 4; // אחרי שם הקופסה מגיע version+flags
+  if (base + 32 > bytes.length) return null;
+
+  const version = bytes[base];
+  let timescale: number;
+  let duration: number;
+  if (version === 1) {
+    timescale = view.getUint32(base + 20);
+    // ‏duration הוא 64 ביט; ‏Number מספיק בשלמות עד 2^53 וסרטון לא מתקרב לזה
+    duration = Number(view.getBigUint64(base + 24));
+  } else {
+    timescale = view.getUint32(base + 12);
+    duration = view.getUint32(base + 16);
+  }
+
+  if (!timescale || !duration) return null;
+  return Math.round((duration / timescale) * 100) / 100;
+}
+
 export function corsHeaders() {
   return {
     "Content-Type": "application/json",
