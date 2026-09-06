@@ -956,7 +956,6 @@
      מבצבצת ביניהם, והדף מרגיש שכבתי במקום לבן־על־לבן */
   #dashboard .acc,
   #dashboard .panel,
-  #dashboard .qa-card,
   #dashboard .meter-card,
   #dashboard .kpi-exclusive{background:rgba(255,255,255,.88)}
 
@@ -1731,25 +1730,31 @@
   .quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   @media(min-width:900px){.quick-grid{grid-template-columns:repeat(3,1fr);gap:12px}}
   @media(min-width:1400px){.quick-grid{grid-template-columns:repeat(4,1fr)}}
+  /* הכרטיסים נבלעו ברקע: לבן-שקוף על תכלת בהיר, מסגרת בגוון אחד מהרקע וצל
+     רך. שלושתם יחד הפכו שישה כפתורים למלבנים שקשה לראות. עכשיו לבן מלא,
+     מסגרת כחלחלה שנראית, וצל שמרים אותם מהדף — הרקע הזורם ממשיך לבצבץ
+     מסביבם ולא דרכם. */
   .qa-card{
-    position:relative;background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-md);
-    box-shadow:var(--sh-1);transition:transform .18s cubic-bezier(.22,1,.36,1),box-shadow .18s ease,border-color .18s ease;
+    position:relative;background:#fff;border:1px solid #cfdcea;border-radius:var(--r-md);
+    box-shadow:0 2px 4px rgba(15,23,42,.06), 0 10px 22px rgba(15,23,42,.09);
+    transition:transform .18s cubic-bezier(.22,1,.36,1),box-shadow .18s ease,border-color .18s ease;
   }
-  .qa-card:hover{transform:translateY(-2px);box-shadow:var(--sh-2);border-color:#d9e2ec}
+  .qa-card:hover{transform:translateY(-2px);box-shadow:var(--sh-2);border-color:var(--navy)}
   .qa-hit{
     width:100%;background:transparent;display:flex;align-items:center;gap:11px;
     padding:14px 13px;text-align:start;border-radius:inherit;
   }
   .qa-hit:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
-  /* רקע ניטרלי אחיד לכל האייקונים — ראו ההערה ב-.kpi-icon-soft */
+  /* אותו נייבי מלא של כפתורי התפריט — ריבוע צבוע אחד לכל כרטיס הוא מה
+     שמפריד אותו מהרקע במבט מרחוק. אחיד לכולם ובלי גיוון צבעוני לכל אייקון
+     בנפרד, מאותה סיבה שב-.kpi-icon-soft: קשת של גוונים הופכת את האדום
+     שאמור לצעוק "דחוף" לעוד גוון ברשימה. */
   .qa-icon{
-    width:36px;height:36px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
-    background:var(--navy-tint);color:var(--navy);transition:background .18s ease;
+    width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    background:var(--navy);color:#fff;transition:background .18s ease;
   }
-  .qa-icon svg{width:18px;height:18px}
-  .qa-card:hover .qa-icon{background:#dde8f3}
-  /* הקיצור היחיד שמקבל את הזהב של המותג: הוא מוציא כסף, לא מנווט */
-  .qa-card[data-tone="gold"] .qa-icon{background:#faf0d4;color:#8a6b12}
+  .qa-icon svg{width:19px;height:19px}
+  .qa-card:hover .qa-icon{background:var(--navy-2)}
   .qa-title{display:block;font-weight:700;font-size:.86rem;color:var(--txt);min-width:0;
             overflow:hidden;text-overflow:ellipsis}
   /* ==========================================================================
@@ -15588,10 +15593,13 @@ function renderTodoList(){
    בתפריט הבורגר. שלוש דרכים לאותו מקום אינן נגישות, הן רעש; והן גם דחקו
    למטה את מה שבאמת נעשה מהבית.
 
-   מה שנשאר כאן הן פעולות בלבד — דברים שקורים עכשיו ואין להם כניסה בתפריט:
-   פתיחת נכס חדש, לקוח/ה חדש/ה, שיתוף נכס בוואטסאפ, ייבוא מקובץ, טעינת
-   ארנק והזמנת סוכן/ת. ‏acc הוא רק שער הגלוּיוּת (ראו navAccVisible), ‏run
-   הוא הפעולה עצמה.
+   שלושת הראשונים הם פעולות טהורות — דברים שקורים עכשיו ואין להם כניסה
+   בתפריט: פתיחת נכס חדש, לקוח/ה חדש/ה ושיתוף נכס בוואטסאפ. שלושת האחרונים
+   הם קיצורי דרך שנבחרו במפורש (מידע תכנוני, מצא התאמות, חנות הלידים): הם
+   כן קיימים בתפריט, אבל אלה שלושת המקומות שאליהם חוזרים מהבית הכי הרבה,
+   ושורה בתפריט מקופל אינה אותו דבר ככפתור על המסך הראשון.
+
+   ‏acc הוא רק שער הגלוּיוּת (ראו navAccVisible), ‏run הוא הפעולה עצמה.
    ========================================================================== */
 
 /* פתיחת טופס פנימי שמקופל בתוך קטגוריה: מנווטים לקטגוריה, ורק אז לוחצים על
@@ -15618,14 +15626,12 @@ const QUICK_ACTIONS = [
     run:()=> openInlineForm('accClients', 'addClientForm', 'toggleAddClient') },
   { acc:'accProperties', icon:'chat',     title:'שיתוף נכס בוואטסאפ',
     run:()=> openWaShare() },
-  { acc:'accProperties', icon:'layers',   title:'ייבוא נכסים מקובץ',
-    run:()=>{ gotoSection('accProperties');
-              setTimeout(()=> document.getElementById('openImportProperties').click(),
-                         navReduceMotion() ? 0 : 420); } },
-  { acc:'accWallet',     icon:'wallet',   title:'טעינת ארנק', tone:'gold',
-    run:()=> gotoSection('accWallet', 'topupAmount') },
-  { acc:'accTeam',       icon:'users',    title:'הזמנת סוכן/ת',
-    run:()=> gotoSection('accTeam', 'nmEmail') },
+  { acc:'accPlanning',   icon:'map',      title:'מידע תכנוני על נכס',
+    run:()=> gotoSection('accPlanning') },
+  { acc:'accAlerts',     icon:'target',   title:'מצא התאמות',
+    run:()=> gotoSection('accAlerts') },
+  { acc:'accLeadShelf',  icon:'layers',   title:'חנות הלידים',
+    run:()=> gotoSection('accLeadShelf') },
 ];
 
 function renderQuickActions(){
@@ -15635,7 +15641,6 @@ function renderQuickActions(){
   QUICK_ACTIONS.filter(a => navAccVisible(a.acc)).forEach(action=>{
     const card = document.createElement('div');
     card.className = 'qa-card';
-    if (action.tone) card.dataset.tone = action.tone;
     card.innerHTML = '<button type="button" class="qa-hit">'
       + '<span class="qa-icon">' + dashIcon(action.icon) + '</span>'
       + '<span class="qa-title">' + esc(action.title) + '</span>'
