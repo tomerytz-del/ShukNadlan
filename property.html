@@ -102,6 +102,12 @@
   .bento-thumb{aspect-ratio:4/3}
   .bento[data-count="1"] .bento-main{aspect-ratio:16/10}
   .bento[data-count="2"] .bento-thumb{grid-column:1/-1;aspect-ratio:16/7}
+  /* סרטון בתא הראשי: תמונת שער שזזה. בלי פקדים — הוא ממלא כאן את מקומה של
+     התמונה ולא את מקומו של הנגן שבהמשך העמוד, ופס פקדים היה מתנגש ממילא
+     בתגית המחיר ובכפתורי המדיה שיושבים על אותה פינה. הקול נדלק מהכפתור
+     שב-hero-tools. ‏object-fit:cover כמו בתמונה, כדי שסרטון אנכי מהטלפון
+     ימלא את התא במקום להשאיר שתי רצועות שחורות. */
+  .bento-video video{width:100%;height:100%;object-fit:cover;display:block}
   /* שכבת הצללה בתחתית התמונה הראשית — בלעדיה תגית המחיר השקופה נבלעת
      בתמונות בהירות (קירות לבנים, שמיים) */
   .bento-main::after{
@@ -902,6 +908,10 @@
         <button type="button" class="hero-tool" id="shareBtn" aria-label="שיתוף הנכס" title="שיתוף">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>
         </button>
+        <!-- נדלק רק כשהסרטון תפס את תמונת השער, ולכן הוא שני: כפתור השיתוף
+             קיים בכל נכס ונשאר מעוגן בפינה. זה לא פקד ניגון אלא מתג קול —
+             הסרטון רץ בלולאה ממילא, והשאלה היחידה היא אם שומעים אותו. -->
+        <button type="button" class="hero-tool" id="heroSoundBtn" hidden></button>
       </div>
       <div class="hero-price" id="heroPrice" hidden>
         <div class="num" id="heroPriceNum"></div>
@@ -1326,6 +1336,8 @@ const ICON = {
   star:    S('<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9Z"/>'),
   cube:    S('<path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="M3 8l9 5 9-5M12 13v8"/><path d="M7.5 5.5 16.5 10.7"/>'),
   play:    S('<circle cx="12" cy="12" r="9.5"/><path d="M10 8.5v7l6-3.5Z"/>'),
+  soundOff:S('<path d="M11 5 6 9H2v6h4l5 4Z"/><path d="m16.5 9.5 5 5M21.5 9.5l-5 5"/>'),
+  soundOn: S('<path d="M11 5 6 9H2v6h4l5 4Z"/><path d="M15.5 8.8a4.5 4.5 0 0 1 0 6.4M18.6 5.7a9 9 0 0 1 0 12.6"/>'),
   key:     S('<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.8 12.2 8-8M17 6l2 2M14.5 8.5l2 2"/>'),
   window:  S('<rect x="3" y="3" width="18" height="18" rx="0"/><path d="M12 3v18M3 12h18"/>'),
   image:   S('<rect x="3" y="3" width="18" height="18" rx="0"/><circle cx="8.5" cy="9" r="1.8"/><path d="m21 15-5-5L5 21"/>'),
@@ -1495,16 +1507,48 @@ async function loadProperty(){
    תמונה אחת או שתיים, ולכן ה-data-count קובע את פריסת הרשת: תמונה בודדת
    פורשת לרוחב מלא במקום להשאיר עמודה ריקה.                                 */
 let galleryImages = [];
+// הווידאו שתפס את תמונת השער, כשיש כזה. גם ‎renderVideoPanel‎ מסתכל עליו,
+// כדי ששני הנגנים של אותו סרטון לא ישמיעו קול בו-זמנית.
+let heroVideoEl = null;
+
+/* ---------- מתי הסרטון תופס את תמונת השער ----------
+   רק קובץ מדיה שלנו. ‏iframe של יוטיוב בתא הראשי היה גורר לשם נגן של צד
+   שלישי — עם הפקדים, הלוגו והמלצות ההמשך שלו — בדיוק למקום שבו יושבים
+   המחיר והתגיות, ובלי דרך להשתיק או לעצור אותו משם.
+
+   ושלושה מצבים שבהם הוא מוותר על המקום וחוזר להיות תמונה. סרטון הנכס שוקל
+   עד 50MB, ואת החשבון על ההורדה הזו משלם מי שגולל לעמוד ולא מי שבנה אותו:
+
+     • ‏prefers-reduced-motion — בקשה מפורשת של המשתמש/ת לוותר על תנועה.
+     • ‏Save-Data — הצהרה מפורשת "אני על חבילה מדודה".
+     • חיבור 2G — שם הסרטון לא באמת יתחיל לנגן, הוא רק יחנוק את שאר העמוד.
+
+   בכל שלושת המקרים לא נעלם כלום: התמונה הראשית חוזרת למקומה, והסרטון
+   נשאר בנגן המלא שבהמשך העמוד עם הכפתור שמוביל אליו.                       */
+function heroVideoSource(p){
+  const embed = videoEmbed(p.video_url);
+  if (!embed || embed.type !== 'video') return null;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return null;
+  const conn = navigator.connection;
+  if (conn && conn.saveData) return null;
+  if (conn && /^(slow-)?2g$/.test(conn.effectiveType || '')) return null;
+  return embed.src;
+}
 
 function renderGallery(p){
   const grid = document.getElementById('bentoGrid');
   grid.innerHTML = '';
+  heroVideoEl = null;
   galleryImages = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
 
-  const shown = Math.min(galleryImages.length, 3);
+  // כשהסרטון תופס את התא הראשי, התמונות המשניות מתחילות לרוץ מהראשונה ולא
+  // מהשנייה — אחרת תמונת השער הייתה נעלמת מהרשת בלי סיבה.
+  const videoSrc = heroVideoSource(p);
+  const thumbStart = videoSrc ? 0 : 1;
+  const thumbEnd = Math.max(thumbStart, Math.min(galleryImages.length, thumbStart + 2));
   // נכס בלי תמונות מקבל תא ראשי ברוחב מלא (data-count=1) עם גרדיאנט המותג,
   // כדי שהתגיות המרחפות יישארו במקומן ולא ייפלו על רשת ריקה
-  grid.setAttribute('data-count', String(Math.max(shown, 1)));
+  grid.setAttribute('data-count', String(1 + thumbEnd - thumbStart));
 
   // כל תא הוא ‎div‎ עם כפתור פרוש בתוכו ולא ‎button‎ בעצמו, כדי שיוכל לשאת
   // תגיות מרחפות — כפתור בתוך כפתור אינו HTML חוקי.
@@ -1523,7 +1567,28 @@ function renderGallery(p){
 
   const main = document.createElement('div');
   main.className = 'bento-cell bento-main';
-  if (!galleryImages.length){
+  if (videoSrc){
+    main.classList.add('bento-video');
+    const v = document.createElement('video');
+    v.src = videoSrc;
+    // ‏muted חייב להיות מוגדר לפני ‎play()‎ — ניגון אוטומטי עם קול חסום בכל
+    // דפדפן, וסרטון שמתחיל להשמיע קול מעצמו הוא ממילא לא מה שביקשו כאן.
+    v.muted = true;
+    v.loop = true;
+    v.playsInline = true;   // בלעדיו אייפון פותח את הסרטון במסך מלא
+    v.autoplay = true;
+    v.setAttribute('aria-label', 'סרטון הנכס — מנגן מושתק');
+    // התמונה הראשית היא ה-poster: כך התא נראה כמו קודם עד שהפריים הראשון
+    // מגיע, ובמקום שבו הניגון ייחסם נשארת התמונה במקום מלבן שחור.
+    if (galleryImages[0]) v.poster = galleryImages[0];
+    main.appendChild(v);
+    heroVideoEl = v;
+    grid.appendChild(main);
+    // ‏play() נדחית בשקט כשהדפדפן מסרב — מצב חיסכון בסוללה באייפון הוא
+    // המקרה הנפוץ. אז הפוסטר נשאר, ופס הפקדים נדלק כדי שיהיה אפשר לנגן ביד.
+    const played = v.play();
+    if (played && played.catch) played.catch(()=>{ v.controls = true; });
+  } else if (!galleryImages.length){
     main.classList.add('bento-empty');
     // לוגו המשרד שהנכס שייך אליו + הודעה שהתמונות בדרך, במקום מלבן צבעוני
     // ריק שנקרא כמו תמונה שבורה
@@ -1548,12 +1613,12 @@ function renderGallery(p){
     if (el) mainCell.appendChild(el);
   });
 
-  const rest = galleryImages.length - shown;
-  for (let i = 1; i < shown; i++){
+  const rest = galleryImages.length - thumbEnd;
+  for (let i = thumbStart; i < thumbEnd; i++){
     // התמונה האחרונה שמוצגת נושאת את שאר התמונות: לחיצה עליה פותחת את
     // הלייטבוקס בתמונה הראשונה שלא נראית ברשת.
-    const isLast = i === shown - 1;
-    const cell = makeCell('bento-thumb', i, (isLast && rest > 0) ? shown : i);
+    const isLast = i === thumbEnd - 1;
+    const cell = makeCell('bento-thumb', i, (isLast && rest > 0) ? thumbEnd : i);
     if (isLast) cell.classList.add('carries-count');
     grid.appendChild(cell);
   }
@@ -1564,12 +1629,60 @@ function renderGallery(p){
   const btn = document.getElementById('photoCountBtn');
   if (galleryImages.length > 1 && countHost){
     btn.innerHTML = `${ICON.image}<span>כל התמונות (${galleryImages.length})</span>`;
-    btn.addEventListener('click', ()=> lbOpen(rest > 0 ? shown : 0));
+    btn.addEventListener('click', ()=> lbOpen(rest > 0 ? thumbEnd : 0));
     btn.hidden = false;
     countHost.appendChild(btn);
   } else {
     btn.hidden = true;
   }
+
+  setupHeroSound();
+}
+
+/* ---------- מתג הקול של תמונת השער ----------
+   הסרטון רץ בלולאה ממילא, ולכן אין כאן כפתור ניגון אלא שאלה אחת: שומעים
+   אותו או לא. הכפתור מצייר את עצמו מ-‎volumechange‎ ולא מהלחיצה, כדי שגם
+   השתקה שנעשתה במקום אחר (התחלת הנגן שבהמשך העמוד) תשתקף בו.               */
+function setupHeroSound(){
+  const btn = document.getElementById('heroSoundBtn');
+  if (!btn) return;
+  if (!heroVideoEl){ btn.hidden = true; return; }
+  const video = heroVideoEl;
+
+  const paint = ()=>{
+    btn.innerHTML = video.muted ? ICON.soundOff : ICON.soundOn;
+    btn.setAttribute('aria-label', video.muted ? 'השמעת הקול של הסרטון' : 'השתקת הסרטון');
+    btn.setAttribute('aria-pressed', String(!video.muted));
+    btn.title = video.muted ? 'השמעת הקול' : 'השתקה';
+  };
+
+  const toggle = ()=>{
+    video.muted = !video.muted;
+    // ביטול השתקה על סרטון שנעצר הוא בקשה לנגן אותו, לא רק להוסיף לו קול
+    if (!video.muted){
+      if (panelVideoEl) panelVideoEl.pause();
+      video.play().catch(()=>{});
+    }
+  };
+  btn.addEventListener('click', toggle);
+  // גם הסרטון עצמו — מי שרואה וידאו מנגן מושתק מקיש עליו, לא מחפש כפתור.
+  // הכפתור נשאר בכל זאת: הקשה על ‎<video>‎ אינה נגישה למקלדת ולקורא מסך.
+  video.addEventListener('click', toggle);
+  video.addEventListener('volumechange', paint);
+  paint();
+  btn.hidden = false;
+
+  /* סרטון שממשיך לרוץ אחרי שגללו ממנו הוא סוללה וגלישה שנשרפות על משהו
+     שאיש לא רואה. מושתק = תמונת שער שזזה, ואפשר לעצור אותה בשקט; אחרי
+     שביקשו קול זו כבר האזנה מכוונת, ועצירה כאן הייתה קוטעת אותה. */
+  if (!('IntersectionObserver' in window)) return;
+  new IntersectionObserver((entries)=>{
+    for (const entry of entries){
+      if (!video.muted) continue;
+      if (entry.isIntersecting) video.play().catch(()=>{});
+      else video.pause();
+    }
+  }, { threshold: 0.15 }).observe(video);
 }
 
 /* ---------- סיור וירטואלי וסרטון ----------
@@ -1605,12 +1718,23 @@ function videoEmbed(raw){
   return null;
 }
 
+// הנגן המלא שבהמשך העמוד, כשהוא קובץ מדיה. נשמר כדי לתאם בינו לבין תמונת
+// השער: אותו סרטון בשני מקומות בעמוד אחד, ואם שניהם משמיעים קול הצופה שומע
+// את אותו סיור פעמיים בהפרש של כמה שניות.
+let panelVideoEl = null;
+
 function renderVideoPanel(embed){
   const frame = document.getElementById('videoFrame');
   frame.innerHTML = embed.type === 'iframe'
     ? `<iframe src="${escapeAttr(embed.src)}" title="סרטון הנכס" loading="lazy" ` +
       `allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture" allowfullscreen></iframe>`
     : `<video src="${escapeAttr(embed.src)}" controls preload="metadata" playsinline></video>`;
+  panelVideoEl = frame.querySelector('video');
+  // מי שלחץ/ה נגן כאן ביקש/ה לצפות כאן. תמונת השער חוזרת להיות מושתקת,
+  // וה-‏IntersectionObserver שלה ממילא יעצור אותה ברגע שיגללו לכאן.
+  if (panelVideoEl) panelVideoEl.addEventListener('play', ()=>{
+    if (heroVideoEl) heroVideoEl.muted = true;
+  });
   document.getElementById('videoSection').hidden = false;
 }
 
