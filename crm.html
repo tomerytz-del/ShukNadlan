@@ -1635,9 +1635,17 @@
     border-color:#a8c1dd;
     box-shadow:var(--sh-1),inset 0 1px 0 rgba(255,255,255,.55);
   }
+  /* אותה הילה זהובה של כרטיס העמלות, באותה פינה (‏inset-inline-start — ימין
+     ב-RTL) ובאותו גודל, כדי ששלושת הכרטיסים יהיו מוארים מאותו מקור ויקראו
+     כסט אחד ולא כשלושה כרטיסים שנפגשו במקרה.
+
+     הזהב עצמו בגוון בהיר יותר (‏#ffe096 במקום ‎#c9a227): על נייבי הזהב
+     הכהה מאיר, ועל תכלת בהיר הוא היה מכהה — צהוב על תכלת נותן חאקי, לא
+     נגיעת זהב. גוון בהיר יותר מאיר את הפינה גם כאן, וזה מה שההילה אמורה
+     לעשות. */
   .kpi-exclusive::after,.kpi-active::after{
-    content:'';position:absolute;inset-inline-start:-60px;top:-80px;width:200px;height:200px;
-    background:radial-gradient(circle,rgba(28,58,94,.10),transparent 68%);pointer-events:none;
+    content:'';position:absolute;inset-inline-start:-70px;top:-90px;width:230px;height:230px;
+    background:radial-gradient(circle,rgba(255,224,150,.5),transparent 68%);pointer-events:none;
   }
   /* הטקסט מעמיק יחד עם המשטח — ‏txt-soft ו-txt-faint נבנו לכרטיס לבן, ועל
      תכלת הם היו מטשטשים אל תוך הרקע */
@@ -1987,27 +1995,46 @@
      ‏env(safe-area-inset-bottom) — באייפון עם פס המחוות התחתון, בלעדיו
      הלשוניות יושבות מתחתיו ואי אפשר ללחוץ על החצי התחתון שלהן.
      ========================================================================== */
+  /* הסרגל התחתון לובש את אותה חליפה של כרטיס העמלות: נייבי עמוק עם הילה
+     זהובה בפינה הימנית (‏inset-inline-start ב-RTL), טקסט ואייקונים לבנים.
+     קודם הוא היה רצועה לבנה על דף בהיר — הגבול היחיד בינו לבין התוכן היה
+     קו אפור של פיקסל, וברשימה ארוכה הוא נבלע בתוכה. משטח כהה הוא מה
+     שמפריד רצועת ניווט קבועה מהדף שגולל מתחתיה, וזה גם מה שקושר אותה
+     לכרטיס הכהה שבראש המסך: אותם שני משטחי המותג, אחד בכל קצה. */
   .bottom-nav{
     position:fixed;inset-inline:0;bottom:0;z-index:200;
     /* ‏auto-flow ולא repeat(5,1fr): מספר הלשוניות משתנה (נוספה "הסכמים"),
        ומספר קבוע כאן היה דוחס את האחרונה מחוץ לרצועה. */
     display:grid;grid-auto-flow:column;grid-auto-columns:1fr;
-    background:rgba(255,255,255,.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-    border-top:1px solid var(--edge);
+    background:linear-gradient(150deg,rgba(34,69,110,.96) 0%,rgba(28,58,94,.97) 48%,rgba(18,40,64,.98) 100%);
+    backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+    border-top:1px solid rgba(255,255,255,.10);
     padding-bottom:env(safe-area-inset-bottom,0px);
-    box-shadow:0 -2px 18px rgba(15,23,42,.07);
+    box-shadow:0 -6px 24px rgba(15,23,42,.24);
+    /* ההילה נחתכת בגבולות הרצועה. ‏isolation: הפסאודו יושב מעל הרקע ומתחת
+       ללשוניות, בלי לפתוח שכבה שתטפס על תפריט הבורגר. */
+    overflow:hidden;isolation:isolate;
+  }
+  /* ‏position:absolute מוציא את הפסאודו מזרימת הגריד, ולכן הוא לא נחשב
+     לשונית שישית ולא מקבל עמודה משלו */
+  .bottom-nav::before{
+    content:'';position:absolute;inset-inline-start:-70px;top:-90px;width:230px;height:230px;
+    background:radial-gradient(circle,rgba(201,162,39,.28),transparent 68%);
+    pointer-events:none;z-index:0;
   }
   .bottom-nav[hidden]{display:none}
   @media(min-width:1024px){.bottom-nav{display:none}}
   .bn-tab{
-    position:relative;background:transparent;border:none;
+    position:relative;z-index:1;background:transparent;border:none;
     display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
-    padding:8px 2px 7px;color:var(--txt-faint);font-size:.66rem;font-weight:700;
+    /* ‏.78 ולא ‎.66: לשונית לא־נבחרת צריכה להיות שקטה, אבל מעל ההילה הזהובה
+       המשטח מתבהר, ו-‎.66 שם כבר יורד מתחת ל-4.5:1 */
+    padding:8px 2px 7px;color:rgba(255,255,255,.78);font-size:.66rem;font-weight:700;
     transition:color .16s ease;
   }
   .bn-tab svg{width:22px;height:22px}
-  .bn-tab:focus-visible{outline:2px solid var(--navy);outline-offset:-3px;border-radius:10px}
-  .bn-tab[aria-selected="true"]{color:var(--navy)}
+  .bn-tab:focus-visible{outline:2px solid #fff;outline-offset:-3px;border-radius:10px}
+  .bn-tab[aria-selected="true"]{color:#fff}
   /* הפס העליון הוא סימן המיקום — הוא לבדו מספיק כדי לדעת איפה אנחנו,
      ולכן הלשוניות נשארות שקטות */
   .bn-tab[aria-selected="true"]::before{
@@ -2017,9 +2044,11 @@
   .bn-badge{
     position:absolute;top:4px;inset-inline-end:calc(50% - 20px);
     min-width:17px;height:17px;padding:0 4px;border-radius:999px;
-    background:#dc2626;color:#fff;font-size:.6rem;font-weight:800;
+    background:#f04545;color:#fff;font-size:.6rem;font-weight:800;
     display:inline-flex;align-items:center;justify-content:center;
-    box-shadow:0 0 0 2px rgba(255,255,255,.94);
+    /* הטבעת מפרידה את התגית מהאייקון שמאחוריה, ולכן היא בצבע הרצועה
+       עצמה — לבן על נייבי היה הופך אותה לנקודה זוהרת בפני עצמה */
+    box-shadow:0 0 0 2px rgba(20,44,70,.95);
   }
   .bn-badge:empty{display:none}
 
