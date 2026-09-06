@@ -1001,6 +1001,22 @@
     --wine:#8B2332; --wine-tint:#fbeef0;
     --green:#0f766e; --green-tint:#e6f5f2;
     --amber:#a16207; --amber-tint:#fef6e3;
+    /* ---------- שלוש משפחות הצבע של המסך הראשי ----------
+       עד היום כל משטח פעולה היה נייבי, וכל כרטיס בהיר היה אותו תכלת: שישה
+       כפתורים זהים שהעין צריכה לקרוא כדי לדעת מה כל אחד עושה. עכשיו לצבע
+       יש משמעות אחת קבועה, והיא חוזרת בכל מקום שבו הוא מופיע — במדדים,
+       בפעולות המהירות ובכפתורי הפעולה של "דורש טיפול מיידי":
+
+         מנטה — אנשים: לידים, לקוחות, בלעדיות שהושגה מהם
+         חול   — נכסים: מה שיש בתיק ומה שנוסף אליו
+         נייבי — כסף והתחייבות: עמלות, והחתמה שמייצרת אותן
+
+       שלושה גוונים ולא שישה: קשת של צבעים הופכת את האדום של "דחוף" לעוד
+       גוון ברשימה, וזו בדיוק הסיבה שהצבעים כאן ספורים. */
+    --mint:#0d7a68; --mint-deep:#0a5c4e; --mint-ink:#134e46;
+    --mint-surf-1:#d5f0e9; --mint-surf-2:#bce5da; --mint-edge:#9bd6c7;
+    --sand:#8a6b12; --sand-deep:#6b520a; --sand-ink:#4a3a06;
+    --sand-surf-1:#f7e9c3; --sand-surf-2:#eeda9f; --sand-edge:#e2c882;
     --r-xl:24px; --r-lg:20px; --r-md:16px; --r-xs:10px;
     --sh-1:0 1px 2px rgba(15,23,42,.04), 0 4px 14px rgba(15,23,42,.05);
     --sh-2:0 2px 6px rgba(15,23,42,.05), 0 14px 34px rgba(15,23,42,.09);
@@ -1043,27 +1059,42 @@
   }
   .dash-wrap{max-width:1240px;margin:0 auto;padding:0 18px}
   #dashboard .crm-header-inner{display:flex;align-items:center;justify-content:space-between;gap:12px;position:relative}
+  /* ‏row-reverse ב-RTL מניח את הפריט הראשון בשמאל: אווטאר, סמל הבית ואז
+     השם — אשכול זהות אחד בקצה הסיום של הכותרת. ‏flex:1 ‏+ ‏min-width:0
+     נותנים לשם את כל מה שנשאר אחרי הפעולות, ולהיחתך ב-ellipsis במקום לדחוף
+     אותן. */
   #dashboard .agent-id{
-    display:flex;align-items:center;gap:11px;min-width:0;
-    /* משאיר את מרכז הכותרת פנוי ללוגו: שם ארוך נחתך ב-ellipsis במקום
-       לרוץ מתחתיו */
-    max-width:calc(50% - 34px);
+    display:flex;flex-direction:row-reverse;align-items:center;gap:11px;
+    flex:1;min-width:0;justify-content:flex-start;
   }
-  /* הלוגו ממורכז מול הכותרת כולה ולא "בין" שני הצדדים, ולכן absolute ולא
-     פריט flex — כך הוא לא זז כששם הסוכן/ת ארוך או קצר. בדשבורד הוא קטן
-     מזה שבמסך ההתחברות. */
+  /* הלוגו ירד מהמרכז אל תוך אשכול הזהות, ולבש עיגול לבן: על רקע הכותרת
+     השקוף למחצה סמל בלי משטח נבלע, והעיגול גם מזווג אותו לאווטאר העגול
+     שלצידו. בדשבורד הוא קטן מזה שבמסך ההתחברות. */
   #dashboard .crm-home{
-    position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
-    /* היה 50% בימי הלוגו העגול. הסמל אינו עגול, וה-border-radius כאן מעצב
-       רק את טבעת הפוקוס — מסגרת עגולה סביב סמל מלבני נראית שגויה. */
-    border-radius:10px;transition:transform .16s ease;
+    flex-shrink:0;width:42px;height:42px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--surface);border:1px solid var(--edge);box-shadow:var(--sh-1);
+    transition:transform .16s ease,width .24s cubic-bezier(.22,1,.36,1),
+               height .24s cubic-bezier(.22,1,.36,1);
   }
-  #dashboard .crm-home:hover{transform:translate(-50%,-50%) scale(1.06)}
+  #dashboard .crm-home:hover{transform:translateY(-1px) scale(1.05)}
   #dashboard .crm-home:focus-visible{outline:2px solid var(--navy);outline-offset:3px}
-  #dashboard .crm-home .logo-img{height:38px;width:auto}
-  @media(max-width:520px){#dashboard .crm-home .logo-img{height:32px;width:auto}}
+  #dashboard .crm-home .logo-img{height:26px;width:auto;transition:height .24s cubic-bezier(.22,1,.36,1)}
+  @media(max-width:520px){
+    #dashboard .crm-home{width:38px;height:38px}
+    #dashboard .crm-home .logo-img{height:23px;width:auto}
+  }
+  /* ---------- הפעמון וההמבורגר ----------
+     בלי מסגרת ובלי משטח: שני סמלים על הכותרת הבהירה. הריבועים הלבנים סביבם
+     היו שני כפתורים שמתחרים בבולטות עם האווטאר ועם הלוגו שלצידם, וכל מה
+     שהם הוסיפו הוא קו. שטח הלחיצה נשאר 40px — מה שירד הוא הקו, לא היעד. */
+  #dashboard header.crm .icon-btn{
+    background:transparent;border-color:transparent;box-shadow:none;color:var(--txt);
+  }
+  #dashboard header.crm .icon-btn:hover{background:var(--navy-tint);color:var(--navy);border-color:transparent}
+  #dashboard header.crm .icon-btn svg{width:22px;height:22px}
   #dashboard .avatar{
-    width:44px;height:44px;border-radius:14px;flex-shrink:0;
+    width:44px;height:44px;border-radius:50%;flex-shrink:0;
     background:linear-gradient(150deg,var(--navy-2),var(--navy) 70%);
     color:#fff;display:flex;align-items:center;justify-content:center;
     font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.15rem;
@@ -1561,6 +1592,9 @@
   .kpi-ratio{height:6px;border-radius:999px;background:rgba(28,58,94,.18);overflow:hidden;margin-top:9px}
   .kpi-ratio span{display:block;height:100%;border-radius:999px;
     background:linear-gradient(90deg,#2c5a8c,#c9a227);transition:width .6s cubic-bezier(.22,1,.36,1)}
+  /* הבר יושב היום בכרטיס הבלעדיות, ולוקח את דיו המשפחה שלו */
+  .kpi-exclusive .kpi-ratio{background:rgba(13,122,104,.2)}
+  .kpi-exclusive .kpi-ratio span{background:linear-gradient(90deg,var(--mint),var(--mint-deep))}
 
   /* ==========================================================================
      מגמת פוטנציאל העמלות
@@ -1701,11 +1735,23 @@
 
      השקיפות נשמרה (‏rgba ולא צבע אטום) כדי שהרקע הזורם ימשיך לבצבץ, וכך גם
      קו האור בקצה העליון ונגיעת הנייבי בפינה — הד שקט להילה הזהובה של כרטיס
-     העמלות. */
+     העמלות.
+
+     ואז שניהם היו זהים: שני כרטיסים באותו תכלת בדיוק, שנקראו כמדד אחד רחב
+     שנחתך באמצע. עכשיו כל אחד לובש את המשפחה שלו — הבלעדיות במנטה (היא
+     מגיעה מאנשים), הנכסים הפעילים בחול (הם התיק) והעמלות בנייבי — ואותם
+     שלושה גוונים חוזרים בכפתורים המהירים מתחת. כך שורת המדדים והפעולות
+     נקראות כמערכת אחת, ולא כשתי שורות שנפגשו במקרה. */
   .kpi-exclusive,.kpi-active{
-    background:linear-gradient(158deg,rgba(207,224,240,.97) 0%,rgba(185,207,230,.95) 100%);
-    border-color:#a8c1dd;
     box-shadow:var(--sh-1),inset 0 1px 0 rgba(255,255,255,.55);
+  }
+  .kpi-exclusive{
+    background:linear-gradient(158deg,var(--mint-surf-1) 0%,var(--mint-surf-2) 100%);
+    border-color:var(--mint-edge);
+  }
+  .kpi-active{
+    background:linear-gradient(158deg,var(--sand-surf-1) 0%,var(--sand-surf-2) 100%);
+    border-color:var(--sand-edge);
   }
   /* אותה הילה זהובה של כרטיס העמלות, באותה פינה (‏inset-inline-start — ימין
      ב-RTL) ובאותו גודל, כדי ששלושת הכרטיסים יהיו מוארים מאותו מקור ויקראו
@@ -1717,20 +1763,47 @@
      לעשות. */
   .kpi-exclusive::after,.kpi-active::after{
     content:'';position:absolute;inset-inline-start:-70px;top:-90px;width:230px;height:230px;
-    background:radial-gradient(circle,rgba(255,224,150,.5),transparent 68%);pointer-events:none;
+    background:radial-gradient(circle,rgba(255,255,255,.55),transparent 68%);pointer-events:none;
   }
-  /* הטקסט מעמיק יחד עם המשטח — ‏txt-soft ו-txt-faint נבנו לכרטיס לבן, ועל
-     תכלת הם היו מטשטשים אל תוך הרקע */
-  .kpi-active .kpi-label,.kpi-exclusive .kpi-label{color:#33506f}
-  .kpi-active .kpi-note,.kpi-exclusive .kpi-note{color:#3d5570}
+  /* הטקסט מעמיק יחד עם המשטח, וכל כרטיס בדיו של המשפחה שלו — ‏txt-soft
+     ו-txt-faint נבנו לכרטיס לבן, ועל משטח צבוע הם מטשטשים אל תוך הרקע */
+  .kpi-exclusive .kpi-label{color:var(--mint-deep)}
+  .kpi-exclusive .kpi-note{color:var(--mint-ink)}
+  .kpi-exclusive .kpi-value{color:var(--mint-ink)}
+  .kpi-active .kpi-label{color:var(--sand-deep)}
+  .kpi-active .kpi-note{color:var(--sand-ink)}
+  .kpi-active .kpi-value{color:var(--sand-ink)}
   /* האייקון הבהיר מקבל את אותו טיפול: שיפוע עדין וטבעת דקה במקום ריבוע שטוח */
   .kpi-icon-soft{
     background:linear-gradient(150deg,#fff,#e7eff9);
     box-shadow:inset 0 0 0 1px rgba(28,58,94,.14);
   }
+  .kpi-exclusive .kpi-icon-soft{
+    background:linear-gradient(150deg,#fff,#dff1ec);color:var(--mint-deep);
+    box-shadow:inset 0 0 0 1px rgba(13,122,104,.2);
+  }
+  .kpi-active .kpi-icon-soft{
+    background:linear-gradient(150deg,#fff,#f8ecd1);color:var(--sand-deep);
+    box-shadow:inset 0 0 0 1px rgba(138,107,18,.22);
+  }
+  .kpi-exclusive .kpi-chip-soft{background:rgba(255,255,255,.75);color:var(--mint-deep)}
+  .kpi-active .kpi-chip-soft{background:rgba(255,255,255,.75);color:var(--sand-deep)}
+  /* שער הכניסה לוקח את דיו המשפחה במקום את הנייבי הכללי */
+  .kpi-exclusive .kpi-link-soft{
+    color:var(--mint-deep);
+    box-shadow:inset 0 0 0 1px rgba(13,122,104,.2),0 1px 2px rgba(15,23,42,.06);
+  }
+  .kpi-exclusive .kpi-link-soft:focus-visible{outline-color:var(--mint-deep)}
+  .kpi-active .kpi-link-soft{
+    color:var(--sand-deep);
+    box-shadow:inset 0 0 0 1px rgba(138,107,18,.22),0 1px 2px rgba(15,23,42,.06);
+  }
+  .kpi-active .kpi-link-soft:focus-visible{outline-color:var(--sand-deep)}
 
-  /* הלידים החמים — הכרטיס היחיד שמותר לו להיות זהוב, כי הוא היחיד שמייצג
-     "יש כאן כסף שממתין לך". התגית האדומה עליו היא התראה, לא קישוט. */
+  /* הלידים החמים — הכרטיס היחיד שמותר לו להיות זהוב רווי, כי הוא היחיד
+     שמייצג "יש כאן כסף שממתין לך". התגית האדומה עליו היא התראה, לא קישוט.
+     הזהב הזה עמוק מגוון החול של משפחת הנכסים (‏--sand-surf) בכוונה: אותה
+     משפחה, מדרגה אחת פנימה, כדי שהוא לא ייקרא כעוד כרטיס נכסים. */
   .kpi-hot{background:linear-gradient(150deg,#f6e3b0,#e9cd77);border-color:#e0c069}
   .kpi-hot .kpi-icon{background:rgba(255,255,255,.55);color:#8a6b12}
   .kpi-hot .kpi-label{color:#7a5f10}
@@ -1784,20 +1857,50 @@
      שלי", אחת על "התאמות", אחת בתפריט, אחת בפעמון. כדי לדעת מה דחוף היה צריך
      לסרוק את כל המסך ולהרכיב את התמונה לבד.
 
-     הבלוק הזה הוא התשובה במקום אחד: שורה לכל דבר שממתין, עם המספר שלו, ולחיצה
-     שמובילה ישירות לטיפול. הוא נבנה מאותם מונים בדיוק (accSetCount) — מקור אמת
-     אחד, לא ספירה שנייה שתסטה מהראשונה.
+     הבלוק הזה הוא התשובה במקום אחד: כרטיס לכל דבר שממתין, עם המספר שלו,
+     ולחיצה שמובילה ישירות לטיפול. הוא נבנה מאותם מונים בדיוק (accSetCount) —
+     מקור אמת אחד, לא ספירה שנייה שתסטה מהראשונה.
+
+     הרשימה הפכה לרכבת אופקית של כרטיסים, ולא בגלל האופנה: שורה שאומרת
+     "יש כאן משהו" ומובילה לרשימה מלאה השאירה את הפעולה עצמה שני מסכים
+     משם. עכשיו לכל כרטיס יש כפתור פעולה משלו — "שלח וואטסאפ ללקוח" על
+     ההתאמות, "פתח את הליד" על הלידים החמים — והדבר הדחוף נגמר במקום שבו
+     הוא נקרא. אופקי ולא מוערם, כי כרטיס עם כפתור הוא גבוה פי שניים משורה,
+     וארבעה כאלה זה מסך שלם של דברים שממתינים לפני שרואים משהו אחר.
      ========================================================================== */
-  .todo-list{display:flex;flex-direction:column;gap:8px}
+  /* ‏scroll-padding מיישר את הכרטיס לקצה ההתחלה (ימין ב-RTL) ולא לקצה
+     המסך, וה-padding מסביב הוא מה שמאפשר לצל של הכרטיס לנשום בתוך גלילה
+     עם overflow חתוך */
+  .todo-rail{
+    display:grid;grid-auto-flow:column;grid-auto-columns:min(85%,340px);gap:10px;
+    overflow-x:auto;overscroll-behavior-inline:contain;
+    scroll-snap-type:x mandatory;scroll-padding-inline-start:2px;
+    padding:2px 2px 10px;margin:0 -2px;
+    scrollbar-width:none;
+  }
+  .todo-rail::-webkit-scrollbar{display:none}
+  .todo-rail>*{scroll-snap-align:start}
+  /* כרטיס יחיד אינו רכבת — הוא נפרש על הרוחב כדי שלא ייראה כמו חצי מסך ריק */
+  .todo-rail.is-single{grid-auto-columns:100%;overflow:visible}
+  @media(min-width:700px){
+    .todo-rail{grid-auto-columns:minmax(0,1fr);grid-auto-flow:row;
+               grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+               overflow:visible;padding-bottom:2px}
+  }
+  .todo-card{
+    display:flex;flex-direction:column;gap:11px;min-width:0;
+    background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-lg);
+    padding:13px 14px 12px;box-shadow:var(--sh-1);
+  }
   .todo-row{
     width:100%;display:flex;align-items:center;gap:11px;text-align:start;
-    background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-md);
-    padding:12px 14px;box-shadow:var(--sh-1);
-    transition:transform .16s ease,border-color .16s ease,background .16s ease;
+    background:transparent;border:none;border-radius:var(--r-md);
+    padding:0;
+    transition:transform .16s ease,opacity .16s ease;
   }
-  .todo-row:hover{background:var(--navy-tint);border-color:#d3e0ee}
+  .todo-row:hover{opacity:.86}
   .todo-row:active{transform:scale(.99)}
-  .todo-row:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+  .todo-row:focus-visible{outline:2px solid var(--navy);outline-offset:3px}
   .todo-ico{
     width:36px;height:36px;border-radius:11px;flex-shrink:0;
     display:flex;align-items:center;justify-content:center;
@@ -1805,9 +1908,14 @@
   }
   .todo-ico svg{width:18px;height:18px}
   .todo-text{flex:1;min-width:0}
-  .todo-title{display:block;font-size:.88rem;font-weight:700;color:var(--txt)}
-  .todo-sub{display:block;font-size:.72rem;color:var(--txt-faint);margin-top:2px;
-            overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* שורה אחת לכותרת ושורה אחת להקשר: הכרטיס מחזיק כפתור פעולה מתחתיו,
+     וכותרת שנשברת לשתיים דוחפת אותו וגורמת לכרטיסים ברכבת להיות בגבהים
+     שונים. ‏.todo-count ו-.todo-ico הם רוחב קבוע, ולכן מה שנשאר כאן הוא
+     בדיוק מה שהטקסט מקבל. */
+  .todo-title{display:block;font-size:.86rem;font-weight:700;color:var(--txt);
+              white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .todo-sub{display:block;font-size:.72rem;line-height:1.4;color:var(--txt-faint);
+            margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   /* אדום — ורק כאן. זו כל הנקודה של הבלוק. */
   .todo-count{
     flex-shrink:0;min-width:26px;height:26px;padding:0 8px;border-radius:999px;
@@ -1815,40 +1923,70 @@
     display:inline-flex;align-items:center;justify-content:center;
     box-shadow:0 3px 10px rgba(220,38,38,.3);
   }
-  .todo-chev{width:16px;height:16px;color:var(--txt-faint);flex-shrink:0}
-  /* ==========================================================================
-     "החתם לקוח" — הפעולה שמייצרת את ההכנסה
-     --------------------------------------------------------------------------
-     היא יושבת מיד מתחת למדדים ומעל "דורש טיפול מיידי", ובכוונה מחוץ לגריד
-     הפעולות המהירות: כל השאר בגריד הזה הוא ניווט לרשימה, וזו הפעולה
-     היחידה שם שמסתיימת בהתחייבות חתומה. הנייבי המלא הוא מה שמפריד בין
-     "לך לראות" ל"תעשה עכשיו", והוא מופיע פעם אחת במסך.
+  /* האייקון לובש את משפחת הצבע של מה שממתין — אנשים במנטה, נכסים בחול —
+     ואותו גוון חוזר בכפתור הפעולה שמתחתיו. שני סימנים שאומרים "אותו עולם",
+     בלי להוסיף עוד טקסט לכרטיס. */
+  .todo-card.tone-mint .todo-ico{background:var(--mint-surf-1);color:var(--mint-deep)}
+  .todo-card.tone-sand .todo-ico{background:var(--sand-surf-1);color:var(--sand-deep)}
 
-     הלחיצה פותחת את האשף עצמו ולא את קטגוריית ההסכמים — איתור הסכם קיים
-     הוא מסלול אחר ויושב בתפריט הבורגר.
-     ========================================================================== */
-  .sign-cta{
-    display:flex;align-items:center;gap:13px;width:100%;text-align:start;margin:14px 0 22px;
-    padding:16px 18px;border:none;border-radius:var(--r-lg);
-    background:linear-gradient(150deg,#22456e 0%,#1C3A5E 48%,#122840 100%);
-    color:#fff;box-shadow:var(--sh-navy);
-    transition:transform .18s cubic-bezier(.22,1,.36,1),box-shadow .18s ease;
+  /* ---------- כפתור הפעולה של הכרטיס ----------
+     גלולה רחבה בתחתית הכרטיס: הסמל בקצה ההתחלה (ימין ב-RTL), התווית
+     במרכז והחץ בקצה השני. הסמל הוא מה שמזהים לפני שקוראים — ולכן הוא
+     בצבע האמיתי של השירות ולא בגוון של הדף. */
+  .todo-cta{
+    display:flex;align-items:center;gap:10px;width:100%;text-align:start;
+    padding-block:5px;padding-inline:6px 14px;border-radius:999px;
+    background:var(--surface-2);border:1px solid var(--edge);
+    transition:transform .16s cubic-bezier(.22,1,.36,1),background .16s ease,
+               border-color .16s ease,box-shadow .16s ease;
   }
-  .sign-cta:hover{transform:translateY(-2px);box-shadow:0 14px 38px rgba(28,58,94,.34)}
-  .sign-cta:focus-visible{outline:2px solid #fff;outline-offset:3px}
-  .sign-cta-ico{
-    width:44px;height:44px;flex-shrink:0;border-radius:14px;display:flex;align-items:center;
-    justify-content:center;background:rgba(255,255,255,.14)
+  .todo-cta:hover{background:#fff;border-color:#d3dce8;box-shadow:var(--sh-1);transform:translateY(-1px)}
+  .todo-cta:active{transform:scale(.99)}
+  .todo-cta:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+  .todo-cta-logo{
+    width:34px;height:34px;border-radius:50%;flex-shrink:0;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--navy);color:#fff;
   }
-  .sign-cta-ico svg{width:23px;height:23px}
-  /* ‏display:block על שניהם: הם <span> בתוך <button>, ובלעדיו הכותרת
-     ותת-הכותרת נמרחות לשורה אחת רצופה */
-  .sign-cta-txt{flex:1;min-width:0}
-  .sign-cta-title{display:block;font-family:'Frank Ruhl Libre',serif;font-weight:700;
-    font-size:1.12rem;line-height:1.25}
-  .sign-cta-sub{display:block;font-size:.78rem;opacity:.78;margin-top:3px;line-height:1.35}
-  .sign-cta-arrow{width:20px;height:20px;flex-shrink:0;opacity:.7}
+  .todo-cta-logo svg{width:19px;height:19px}
+  .todo-cta-label{flex:1;min-width:0;font-size:.86rem;font-weight:800;color:var(--txt);
+                  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .todo-cta-chev{width:15px;height:15px;flex-shrink:0;color:var(--txt-faint);
+                 transition:transform .16s ease}
+  .todo-cta:hover .todo-cta-chev{transform:translateX(-2px)}
+  /* ---------- הוואטסאפ ----------
+     הירוק כאן הוא הירוק של וואטסאפ ולא הירוק של הדף: זה הסימן היחיד במסך
+     שאומר "ההודעה יוצאת מכאן אל הטלפון של הלקוח/ה", והוא מזוהה במבט
+     בדיוק בגלל שהוא הצבע המקורי. הוא נשאר בעיגול בקצה הכפתור, ולא נמרח
+     על כולו — כפתור ירוק שלם היה מתחרה עם האדום של "דחוף". */
+  .todo-cta-wa .todo-cta-logo{
+    background:linear-gradient(150deg,#4ce07a 0%,#25D366 45%,#128C7E 100%);
+    box-shadow:0 3px 10px rgba(18,140,126,.32);
+  }
+  .todo-cta-wa .todo-cta-logo svg{width:21px;height:21px}
+  .todo-cta-wa .todo-cta-em{color:#0d7a4e;font-weight:800}
+  .todo-cta-wa:hover{border-color:#a9e0c4;background:#f4fdf8}
+  .todo-cta-wa:focus-visible{outline-color:#128C7E}
+  .todo-card.tone-mint .todo-cta:not(.todo-cta-wa) .todo-cta-logo{background:var(--mint-deep)}
+  .todo-card.tone-sand .todo-cta:not(.todo-cta-wa) .todo-cta-logo{background:var(--sand-deep)}
 
+  /* ---------- חצי הדפדוף של הרכבת ----------
+     שני עיגולים קטנים בשורת הכותרת, לא על הכרטיסים: יד שגוררת היא הדרך
+     הראשית כאן, והחצים הם למי שמנווט/ת בעכבר או במקלדת. הם נעלמים
+     כשיש כרטיס אחד — חץ שלא מזיז כלום הוא כפתור שבור. */
+  .rail-nav{display:flex;align-items:center;gap:6px}
+  .rail-nav[hidden]{display:none}
+  .rail-arrow{
+    width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    background:var(--surface);border:1px solid var(--edge);color:var(--navy);
+    box-shadow:var(--sh-1);transition:background .16s ease,opacity .16s ease,transform .16s ease;
+  }
+  .rail-arrow svg{width:15px;height:15px}
+  .rail-arrow:hover{background:var(--navy-tint)}
+  .rail-arrow:active{transform:scale(.94)}
+  .rail-arrow:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+  .rail-arrow[disabled]{opacity:.35;box-shadow:none}
+  @media(min-width:700px){.todo-section .rail-nav{display:none}}
   .todo-clear{
     display:flex;align-items:center;gap:9px;background:var(--green-tint);color:var(--green);
     border-radius:var(--r-md);padding:13px 15px;font-size:.85rem;font-weight:700;
@@ -1861,6 +1999,9 @@
      לשבת הפעולות המהירות. */
   .todo-section.is-clear{margin-bottom:6px}
   .todo-section.is-clear .section-head{display:none}
+  /* אין רכבת כשאין כרטיסים: הודעת "הכול מטופל" היא גלולה אחת, ומסלול
+     גלילה ברוחב 85% מסביבה הוא שטח ריק שדוחף למטה את הפעולות */
+  .todo-section.is-clear .todo-rail{display:block;overflow:visible;padding-bottom:0}
   .todo-section.is-clear .todo-clear{
     display:inline-flex;padding:7px 13px;font-size:.78rem;border-radius:999px;
   }
@@ -1874,7 +2015,23 @@
      ובלוק "דורש טיפול מיידי" מעל, שלושתם ניסו להיות הניווט הראשי — וזה בדיוק
      העומס שהמסך הזה נועד להוריד. כאן נשאר מה שגריד עושה הכי טוב: קיצור דרך
      מזוהה במבט.
+
+     ומכאן שני שינויים. הראשון: הכרטיסים היו שישה מלבנים לבנים זהים עם ריבוע
+     נייבי אחד בכל אחד, ולכן היה צריך לקרוא את כולם כדי למצוא אחד. עכשיו כל
+     כפתור לובש את משפחת הצבע של מה שהוא עושה — מנטה לאנשים, חול לנכסים,
+     נייבי לכסף ולהתחייבות — ואותה משמעות בדיוק חוזרת בשורת המדדים שמעל.
+     הצבע כאן הוא לא קישוט, הוא הדרך למצוא כפתור בלי לקרוא.
+
+     השני: "החתם לקוח" ירד לכאן מהכרטיס הרחב שהיה מעל. הוא נשאר הפעולה
+     הראשונה, והיא עדיין היחידה שנייבי מלא — אבל היא כפתור בשורה ולא באנר
+     בגובה 90px שדחף למטה את כל השאר. הפעולה לא איבדה דבר: היא הראשונה
+     ברכבת, היא היחידה בנייבי, וה-FAB הצף ממשיך להחזיר אותה כשהיא נגללת
+     מהמסך.
      ========================================================================== */
+  /* המרווח בין בלוקי דף הבית. עד היום הוא הגיע מהשוליים של כרטיס ההחתמה
+     הרחב שישב ביניהם — ומשירד לרכבת הפעולות, המרווח צריך הצהרה משלו ולא
+     תלות בשוליים של אלמנט שעשוי לזוז שוב. */
+  #overviewBlock>section+section{margin-top:20px}
   .section-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
   .ghost-chip{
     display:inline-flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--edge);
@@ -1883,36 +2040,84 @@
   }
   .ghost-chip svg{width:14px;height:14px}
   .ghost-chip:hover{background:var(--navy-tint);color:var(--navy);border-color:#d3e0ee}
-  .quick-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-  @media(min-width:900px){.quick-grid{grid-template-columns:repeat(3,1fr);gap:12px}}
+  /* רכבת אופקית במובייל, גריד בדסקטופ. ‏grid-auto-columns ולא רוחב על
+     הכרטיס עצמו: כך כל הכפתורים באותו רוחב בדיוק, וחצי הכפתור הבא שמציץ
+     מהקצה הוא מה שאומר "יש כאן עוד" בלי פס גלילה. */
+  .quick-grid{
+    display:grid;grid-auto-flow:column;grid-auto-columns:41%;gap:10px;
+    overflow-x:auto;overscroll-behavior-inline:contain;
+    scroll-snap-type:x proximity;scroll-padding-inline-start:2px;
+    padding:2px 2px 10px;margin:0 -2px;scrollbar-width:none;
+  }
+  .quick-grid::-webkit-scrollbar{display:none}
+  .quick-grid>*{scroll-snap-align:start}
+  @media(min-width:560px){.quick-grid{grid-auto-columns:29%}}
+  @media(min-width:900px){
+    .quick-grid{grid-auto-flow:row;grid-template-columns:repeat(3,1fr);gap:12px;
+                overflow:visible;padding-bottom:2px}
+  }
   @media(min-width:1400px){.quick-grid{grid-template-columns:repeat(4,1fr)}}
   /* הכרטיסים נבלעו ברקע: לבן-שקוף על תכלת בהיר, מסגרת בגוון אחד מהרקע וצל
-     רך. שלושתם יחד הפכו שישה כפתורים למלבנים שקשה לראות. עכשיו לבן מלא,
-     מסגרת כחלחלה שנראית, וצל שמרים אותם מהדף — הרקע הזורם ממשיך לבצבץ
+     רך. שלושתם יחד הפכו שישה כפתורים למלבנים שקשה לראות. עכשיו משטח צבוע
+     מלא, מסגרת בגוון מעמיק וצל שמרים אותם מהדף — הרקע הזורם ממשיך לבצבץ
      מסביבם ולא דרכם. */
   .qa-card{
-    position:relative;background:#fff;border:1px solid #cfdcea;border-radius:var(--r-md);
+    position:relative;border-radius:var(--r-lg);min-width:0;
+    background:#fff;border:1px solid #cfdcea;color:var(--txt);
     box-shadow:0 2px 4px rgba(15,23,42,.06), 0 10px 22px rgba(15,23,42,.09);
-    transition:transform .18s cubic-bezier(.22,1,.36,1),box-shadow .18s ease,border-color .18s ease;
+    transition:transform .18s cubic-bezier(.22,1,.36,1),box-shadow .18s ease,
+               border-color .18s ease,opacity .22s ease;
   }
-  .qa-card:hover{transform:translateY(-2px);box-shadow:var(--sh-2);border-color:var(--navy)}
+  .qa-card:hover{transform:translateY(-2px);box-shadow:var(--sh-2)}
+  /* ---------- שלוש המשפחות ---------- */
+  .qa-mint{
+    background:linear-gradient(158deg,var(--mint-surf-1) 0%,var(--mint-surf-2) 100%);
+    border-color:var(--mint-edge);color:var(--mint-ink);
+  }
+  .qa-sand{
+    background:linear-gradient(158deg,var(--sand-surf-1) 0%,var(--sand-surf-2) 100%);
+    border-color:var(--sand-edge);color:var(--sand-ink);
+  }
+  .qa-navy{
+    background:linear-gradient(150deg,#22456e 0%,#1C3A5E 48%,#122840 100%);
+    border-color:transparent;color:#fff;box-shadow:var(--sh-navy);
+  }
+  .qa-navy:hover{box-shadow:0 14px 38px rgba(28,58,94,.34)}
+  /* הכפתור עצמו הוא עמודה: הסמל למעלה, השם בתחתית. בגובה קבוע, כדי
+     ששישה כפתורים שאורך השם שלהם שונה יעמדו על אותו קו. */
   .qa-hit{
-    width:100%;background:transparent;display:flex;align-items:center;gap:11px;
-    padding:14px 13px;text-align:start;border-radius:inherit;
+    width:100%;height:100%;min-height:132px;background:transparent;color:inherit;
+    display:flex;flex-direction:column;align-items:flex-start;justify-content:space-between;gap:14px;
+    padding:15px 14px 14px;text-align:start;border-radius:inherit;
   }
   .qa-hit:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
-  /* אותו נייבי מלא של כפתורי התפריט — ריבוע צבוע אחד לכל כרטיס הוא מה
-     שמפריד אותו מהרקע במבט מרחוק. אחיד לכולם ובלי גיוון צבעוני לכל אייקון
-     בנפרד, מאותה סיבה שב-.kpi-icon-soft: קשת של גוונים הופכת את האדום
-     שאמור לצעוק "דחוף" לעוד גוון ברשימה. */
+  .qa-navy .qa-hit:focus-visible{outline-color:#fff;outline-offset:3px}
+  @media(min-width:900px){.qa-hit{min-height:124px}}
+  /* הריבוע לובש את גוון המשפחה: לבן שקוף על הנייבי, לבן מלא על הבהירים */
   .qa-icon{
-    width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0;
-    background:var(--navy);color:#fff;transition:background .18s ease;
+    width:48px;height:48px;border-radius:14px;display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;background:var(--navy);color:#fff;transition:background .18s ease,transform .18s ease;
   }
-  .qa-icon svg{width:19px;height:19px}
-  .qa-card:hover .qa-icon{background:var(--navy-2)}
-  .qa-title{display:block;font-weight:700;font-size:.86rem;color:var(--txt);min-width:0;
-            overflow:hidden;text-overflow:ellipsis}
+  .qa-icon svg{width:23px;height:23px}
+  .qa-navy .qa-icon{background:rgba(255,255,255,.15);color:#fff}
+  .qa-mint .qa-icon{background:rgba(255,255,255,.72);color:var(--mint-deep);
+                    box-shadow:inset 0 0 0 1px rgba(13,122,104,.16)}
+  .qa-sand .qa-icon{background:rgba(255,255,255,.72);color:var(--sand-deep);
+                    box-shadow:inset 0 0 0 1px rgba(138,107,18,.18)}
+  .qa-card:hover .qa-icon{transform:translateY(-1px)}
+  .qa-navy:hover .qa-icon{background:rgba(255,255,255,.24)}
+  /* סאנס כבד ולא הסריף של הכותרות: השם כאן הוא תווית של כפתור, והוא נקרא
+     במבט חטוף תוך כדי גלילה — משקל 800 עושה את זה טוב יותר מסריף בגודל
+     הזה.
+
+     שורה אחת, תמיד. תווית שנשברת לשתי שורות מזיזה את קו הבסיס של הכפתור
+     שלידה, ושורה שנייה בת מילה אחת נראית כמו תקלה. השמות עצמם קצרים בשתי
+     מילים (‏QUICK_ACTIONS), והמידה נבחרה כך שהארוך שבהם נכנס ברוחב כפתור
+     במסך הצר ביותר. */
+  .qa-title{font-weight:800;font-size:.95rem;line-height:1.3;color:inherit;
+            min-width:0;max-width:100%;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  @media(max-width:360px){.qa-title{font-size:.9rem}}
   /* ==========================================================================
      אנימציות גלילה
      --------------------------------------------------------------------------
@@ -1938,8 +2143,8 @@
      ולא רק פיקסלים שנחסכו. */
   #dashboard header.crm{transition:padding .24s cubic-bezier(.22,1,.36,1)}
   #dashboard.is-compact header.crm{padding:7px 0}
-  /* ‏max-width:400px הוא מעבר לכל רוחב שהטקסט מגיע אליו בפועל (‏.agent-id
-     כבר חוסם ב-calc(50% - 34px)), ולכן הוא לא חותך כלום — הוא רק נותן
+  /* ‏max-width:400px הוא מעבר לכל רוחב שהטקסט מגיע אליו בפועל (השם עצמו
+     נחתך ב-ellipsis ממילא), ולכן הוא לא חותך כלום — הוא רק נותן
      ל-transition ערך התחלתי לרוץ ממנו אל אפס */
   #dashboard .agent-id-text{
     transition:opacity .18s ease,max-width .24s cubic-bezier(.22,1,.36,1);
@@ -1949,7 +2154,8 @@
   /* האווטאר נשאר בגודלו המלא גם בכיווץ: הוא התמונה של הסוכן/ת וגם תפריט
      הפרופיל והיציאה, והוא ממילא אינו מה שגוזל את הגובה — זה היו המדדים
      והברכה. הכותרת מתקצרת מה-padding, מהטקסט שיורד ומהלוגו. */
-  #dashboard.is-compact .crm-home .logo-img{height:30px}
+  #dashboard.is-compact .crm-home{width:34px;height:34px}
+  #dashboard.is-compact .crm-home .logo-img{height:21px}
 
   /* הפס עצמו: גובה 0 עד שהוא נפתח, ולכן הוא לא תופס מקום ולא מזיז את הדף
      כשהוא סגור. הוא בתוך הכותרת, ולכן גובה הכותרת גדל איתו לבד. */
@@ -1994,10 +2200,11 @@
   .todo-count.is-pop{animation:todoPop 180ms cubic-bezier(.34,1.4,.64,1)}
 
   /* ---------- 3. "החתם לקוח" כאייקון צף ---------- */
-  /* הכרטיס הרחב מתכווץ ומתפוגג כשהוא עומד לצאת מהמסך, והעיגול נפתח באותו
-     רגע — שני חצאים של אותה תנועה, ולכן אותו עקום ואותו משך. */
-  .sign-cta{transition:transform .18s cubic-bezier(.22,1,.36,1),box-shadow .18s ease,opacity .22s ease}
-  .sign-cta.is-morphed{opacity:.25;transform:scale(.97)}
+  /* הכפתור מתפוגג כשהוא עומד לצאת מהמסך, והעיגול נפתח באותו רגע — שני
+     חצאים של אותה תנועה, ולכן אותו עקום ואותו משך. */
+  /* ‏#quickGrid ולא ‎.qa-card לבד: הכניסה המדורגת מטה כותבת אטימות על
+     אותם כרטיסים משרשרת של שלוש מחלקות, וכלל חלש ממנה לא היה נראה */
+  #quickGrid .qa-card.is-morphed{opacity:.3;transform:scale(.97)}
   .sign-fab{
     /* ‏left פיזי ולא inset-inline-start: הדף כולו RTL, ושם "start" הוא צד
        ימין — והבקשה כאן היא לפינה השמאלית, זו שהאגודל מגיע אליה בלי לכסות
@@ -2048,8 +2255,10 @@
 
   @media(prefers-reduced-motion:reduce){
     .qa-card,.trend-chart span,.meter-bar span,.kpi-ratio span,
-    .dash-greet,.kpi-sticky,.sign-cta,.sign-fab,
+    .dash-greet,.kpi-sticky,.sign-fab,.todo-cta,.rail-arrow,
     #dashboard header.crm,#dashboard .agent-id-text{transition:none}
+    /* גלילת הרכבות עם החצים קופצת ישר ליעד — ראו railScroll */
+    .todo-rail,.quick-grid{scroll-behavior:auto}
     .todo-count.is-pop{animation:none}
     /* בלי מעברים אין מה להסתיר: הכרטיסים והעמודות מוצגים כמו שהם */
     .quick-grid.is-staged .qa-card{opacity:1;transform:none}
@@ -2483,40 +2692,21 @@
 
   <header class="crm">
     <div class="dash-wrap crm-header-inner">
-      <!-- ---------- זהות ופרופיל ----------
-           הכותרת החזיקה קודם חמישה פקדים נפרדים: אווטאר שמוביל לפרופיל,
-           פעמון, המבורגר, לוגו וכפתור יציאה. שלושה מהם היו "ההגדרות שלי"
-           בשלוש דרכים שונות.
-
-           עכשיו האווטאר הוא תפריט הפרופיל: הפרטים האישיים, ההעדפות, ניהול
-           ההתראות, הקוד האתי והיציאה — כולם תחתיו. הפעמון (מה חדש) וההמבורגר
-           (לאן ללכת) נשארו, כי הם עונים על שאלות אחרות לגמרי. -->
-      <div class="agent-id menu-wrap profile-wrap">
-        <button type="button" class="avatar" id="avatarBtn"
-                aria-haspopup="true" aria-expanded="false" aria-controls="profilePanel"
-                aria-label="הפרופיל וההגדרות שלי" title="הפרופיל וההגדרות שלי">
-          <span id="avatarInitial">·</span>
-          <img id="avatarPhoto" alt="" hidden>
-        </button>
-        <div class="agent-id-text">
-          <div class="agent-name" id="agentName">—</div>
-          <div class="agent-id-meta">
-            <span class="tier-badge" id="tierBadge">—</span>
-            <span class="agent-agency" id="agentAgency"></span>
-          </div>
-        </div>
-        <nav class="menu-panel profile-panel" id="profilePanel" aria-label="הפרופיל וההגדרות שלי"></nav>
-      </div>
-
-      <!-- לוגו הפלטפורמה במרכז הכותרת, מוביל תמיד חזרה לדף הבית כמו בשאר
-           הדפים. יושב בין שני צידי הכותרת ב-DOM כדי שסדר ה-Tab יהיה
-           פרופיל ← לוגו ← פעולות, אבל ממורכז ב-absolute ולא כפריט flex —
-           ראו .crm-home ב-CSS. -->
-      <a href="index.html" class="logo-link crm-home" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית" title="לדף הבית">
-        <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
-      </a>
-
+      <!-- ---------- הפעולות ----------
+           הן פותחות את הכותרת בקצה ההתחלה (ימין): ההמבורגר הוא "לאן ללכת",
+           והפעמון הוא "מה חדש". הזהות עברה לקצה השני — ראו למטה. -->
       <div class="header-actions">
+        <!-- תפריט הבורגר: מפת כל הקטגוריות שגלויות לסוכן/ת בדשבורד. הרשימה
+             נבנית ב-buildMenuPanel() מה-DOM עצמו בכל פתיחה. הוא ראשון בשורה,
+             כלומר בפינה הימנית ממש: "לאן ללכת" הוא השאלה הראשונה במסך, והיד
+             מגיעה לפינה הזו בלי לחצות אותו. -->
+        <div class="menu-wrap">
+          <button type="button" class="icon-btn" id="menuBtn" aria-label="תפריט הדשבורד" title="תפריט הדשבורד"
+                  aria-haspopup="true" aria-expanded="false" aria-controls="menuPanel">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+          </button>
+          <nav class="menu-panel" id="menuPanel" aria-label="קטגוריות הדשבורד"></nav>
+        </div>
         <div class="bell-wrap">
           <button class="icon-btn bell-btn" id="bellBtn" aria-label="התראות" aria-expanded="false">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></svg>
@@ -2536,15 +2726,6 @@
             <div id="notifList"><div class="empty-state" style="padding:18px">טוען…</div></div>
           </div>
         </div>
-        <!-- תפריט הבורגר: מפת כל הקטגוריות שגלויות לסוכן/ת בדשבורד. הרשימה
-             נבנית ב-buildMenuPanel() מה-DOM עצמו בכל פתיחה. -->
-        <div class="menu-wrap">
-          <button type="button" class="icon-btn" id="menuBtn" aria-label="תפריט הדשבורד" title="תפריט הדשבורד"
-                  aria-haspopup="true" aria-expanded="false" aria-controls="menuPanel">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
-          </button>
-          <nav class="menu-panel" id="menuPanel" aria-label="קטגוריות הדשבורד"></nav>
-        </div>
         <!-- כפתור היציאה ירד מהכותרת ונכנס לתפריט הפרופיל: הוא נלחץ פעם
              ביום, וישב באותה בולטות של הפעמון שנלחץ עשרים. הכפתור עצמו
              נשאר ב-DOM (מוסתר) כי הוא נקודת היציאה היחידה בקוד, ופריט
@@ -2553,6 +2734,43 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21h4a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2h-4"/><polyline points="8 17 3 12 8 7"/><line x1="3" y1="12" x2="15" y2="12"/></svg>
           <span class="icon-btn-label">יציאה</span>
         </button>
+      </div>
+
+      <!-- ---------- זהות ופרופיל ----------
+           הכותרת החזיקה קודם חמישה פקדים נפרדים: אווטאר שמוביל לפרופיל,
+           פעמון, המבורגר, לוגו וכפתור יציאה. שלושה מהם היו "ההגדרות שלי"
+           בשלוש דרכים שונות.
+
+           עכשיו האווטאר הוא תפריט הפרופיל: הפרטים האישיים, ההעדפות, ניהול
+           ההתראות, הקוד האתי והיציאה — כולם תחתיו. הפעמון (מה חדש) וההמבורגר
+           (לאן ללכת) נשארו, כי הם עונים על שאלות אחרות לגמרי.
+
+           הקבוצה כולה עברה לקצה הסיום של הכותרת, והלוגו נכנס לתוכה: קודם הוא
+           היה מרחף ממורכז ב-absolute בין שני הצדדים, ושני הצדדים היו צריכים
+           להתקצר כדי לא לגעת בו (‏max-width:calc(50% - 34px) על הזהות). עכשיו
+           שלושתם אשכול אחד — תמונה, סמל הבית ושם — והמרכז פנוי.
+
+           ‏row-reverse: ב-RTL הוא מניח את הפריט הראשון בצד שמאל, ולכן סדר
+           ה-DOM (אווטאר ← לוגו ← שם) הוא גם סדר ה-Tab וגם הסדר שנראה על
+           המסך משמאל לימין, בלי לסדר מחדש את הקוד. -->
+      <div class="agent-id menu-wrap profile-wrap">
+        <button type="button" class="avatar" id="avatarBtn"
+                aria-haspopup="true" aria-expanded="false" aria-controls="profilePanel"
+                aria-label="הפרופיל וההגדרות שלי" title="הפרופיל וההגדרות שלי">
+          <span id="avatarInitial">·</span>
+          <img id="avatarPhoto" alt="" hidden>
+        </button>
+        <a href="index.html" class="logo-link crm-home" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית" title="לדף הבית">
+          <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
+        </a>
+        <div class="agent-id-text">
+          <div class="agent-name" id="agentName">—</div>
+          <div class="agent-id-meta">
+            <span class="tier-badge" id="tierBadge">—</span>
+            <span class="agent-agency" id="agentAgency"></span>
+          </div>
+        </div>
+        <nav class="menu-panel profile-panel" id="profilePanel" aria-label="הפרופיל וההגדרות שלי"></nav>
       </div>
     </div>
 
@@ -2686,41 +2904,36 @@
         </section>
 
         <!-- ---------- דורש טיפול מיידי ----------
-             מרכז את מה שהיה מפוזר כתגיות אדומות על כפתורים שונים. הרשימה
+             מרכז את מה שהיה מפוזר כתגיות אדומות על כפתורים שונים. הרכבת
              נבנית ב-renderTodoList() מאותם מונים של הקטגוריות, והבלוק כולו
              מתכווץ לשורת סטטוס אחת כשאין מה לטפל בו (‏.is-clear).
 
-             הוא עלה מעל כפתור ההחתמה בכוונה: כשיש דחוף — הוא הדבר הראשון
-             אחרי המספרים; כשאין — הוא שורה דקה, והפעולות עולות במקומו. -->
+             כל כרטיס נגמר בכפתור הפעולה של עצמו — שליחת וואטסאפ ללקוח/ה על
+             התאמת נכס, פתיחת הליד החם על ליד — ולכן הדחוף לא רק נקרא כאן,
+             הוא גם נסגר כאן. -->
         <section class="todo-section" aria-label="דורש טיפול מיידי" id="todoSection">
           <div class="section-head">
             <h2 class="section-h">דורש טיפול מיידי</h2>
+            <div class="rail-nav" id="todoRailNav" hidden>
+              <button type="button" class="rail-arrow" data-rail="todoList" data-dir="prev" aria-label="הקודם">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+              </button>
+              <button type="button" class="rail-arrow" data-rail="todoList" data-dir="next" aria-label="הבא">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+              </button>
+            </div>
           </div>
-          <div class="todo-list" id="todoList"></div>
+          <div class="todo-rail" id="todoList"></div>
         </section>
-
-        <!-- ---------- החתמת לקוח ----------
-             קבוע, ולא תלוי במונים: זו הפעולה שהסוכן/ת חוזר/ת אליה, ולא
-             התראה שנעלמת כשהיא מטופלת. -->
-        <button type="button" class="sign-cta" id="signClientCta">
-          <span class="sign-cta-ico">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M3 19c2.5 0 2.5-3 5-3s2.5 3 5 3 2.5-3 5-3 2.5 3 3 3"></path>
-              <path d="M8.5 13.5 17 5a2.1 2.1 0 0 1 3 3l-8.5 8.5"></path>
-              <path d="m14.5 7.5 3 3"></path>
-            </svg>
-          </span>
-          <span class="sign-cta-txt">
-            <span class="sign-cta-title">החתם לקוח</span>
-            <span class="sign-cta-sub">הזמנת שירותי תיווך — חתימה כאן או קישור לחתימה מרחוק</span>
-          </span>
-          <svg class="sign-cta-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
-        </button>
 
         <!-- ---------- פעולות מהירות ----------
              פעולות בלבד — לא ניווט. כל יעד שיש לו לשונית בסרגל התחתון,
              שורה בסרגל הצד ופריט בתפריט הבורגר ירד מכאן: שלוש דרכים לאותו
-             מקום הן לא נגישות, הן רעש. ראו QUICK_ACTIONS. -->
+             מקום הן לא נגישות, הן רעש. ראו QUICK_ACTIONS.
+
+             "החתם לקוח" הוא הראשון ברכבת והיחיד בנייבי מלא: הפעולה שמסתיימת
+             בהתחייבות חתומה היא זו שמייצרת את ההכנסה, וצבע אחד מלא במסך הוא
+             מה שמפריד בין "לך לראות" ל"תעשה עכשיו". -->
         <section class="quick-section" aria-label="פעולות מהירות">
           <div class="section-head">
             <h2 class="section-h">פעולות מהירות</h2>
@@ -4236,12 +4449,12 @@
      הדשבורד (ראו showScreen). -->
 <nav class="bottom-nav" id="bottomNav" role="tablist" aria-label="ניווט ראשי" hidden></nav>
 
-<!-- ---------- "החתם לקוח" כשהכרטיס יצא מהמסך ----------
-     הכרטיס הרחב הוא הפעולה שמייצרת את ההכנסה, והוא יושב גבוה בדף — כלומר
-     נעלם אחרי חצי גלילה. במקום להשאיר לו רצועה קבועה בכל גובה הדף, הוא
-     "מתנתק" לאייקון עגול בפינה השמאלית התחתונה מעל סרגל הניווט, וחוזר
-     למקומו כשגוללים חזרה למעלה. אותה פעולה בדיוק — הכפתור כאן לוחץ על
-     ‏#signClientCta ולא מכיר את האשף בעצמו. -->
+<!-- ---------- "החתם לקוח" כשהכפתור יצא מהמסך ----------
+     זו הפעולה שמייצרת את ההכנסה, והיא יושבת גבוה בדף — כלומר נעלמת אחרי
+     חצי גלילה. במקום להשאיר לה רצועה קבועה בכל גובה הדף, היא "מתנתקת"
+     לאייקון עגול בפינה השמאלית התחתונה מעל סרגל הניווט, וחוזרת למקומה
+     כשגוללים חזרה למעלה. אותה פעולה בדיוק — הכפתור כאן לוחץ על
+     ‏#signClientCta (הכפתור הראשון ברכבת הפעולות) ולא מכיר את האשף בעצמו. -->
 <button type="button" class="sign-fab" id="signClientFab" aria-label="החתם לקוח" title="החתם לקוח" hidden>
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <path d="M3 19c2.5 0 2.5-3 5-3s2.5 3 5 3 2.5-3 5-3 2.5 3 3 3"></path>
@@ -15804,27 +16017,89 @@ window.addEventListener('resize', ()=>{
    קטגוריה קיימת עם המונה שלה, והלחיצה מובילה ישר לטיפול. אין כאן ספירה
    שנייה — הכול מ-accCounts.
    ========================================================================== */
+/* ‏cta הוא הפעולה עצמה, ולא עוד דרך להגיע לרשימה: ‏html שלו הוא טקסט
+   קבוע מכאן (ולכן מותר לו סימון), ו-run הוא מה שקורה בלחיצה. ‏kind:'wa'
+   מלביש עליו את הסמל הירוק של וואטסאפ — הסימן היחיד במסך שאומר "ההודעה
+   יוצאת מכאן אל הטלפון שלהם". */
 const TODO_ITEMS = [
-  { acc:'accLeads',    icon:'flame',   many:n => n + ' לידים חמים שלא נפתחו',
-    one:'ליד חם אחד שלא נפתח',            sub:'כאן נמצא הכסף שממתין לטיפול' },
-  { acc:'accAlerts',   icon:'target',  many:n => n + ' התאמות נכס ללקוחות',
-    one:'התאמת נכס אחת ללקוח/ה',          sub:'נכסים חדשים שעונים על דרישות בקובץ' },
-  { acc:'accReviews',  icon:'star',    many:n => n + ' ביקורות ממתינות לאישור',
-    one:'ביקורת אחת ממתינה לאישור',       sub:'חוות דעת שממתינות למודרציה' },
+  /* הכותרת וההקשר הם שורה אחת כל אחד בכרטיס (ראו ‎.todo-title‎), ולכן הם
+     נכתבים קצרים כאן ולא נסמכים על חיתוך ב-ellipsis: משפט שנחתך באמצע
+     במסך צר הוא משפט שלא נכתב. */
+  { acc:'accLeads',    icon:'flame',   tone:'mint',  many:n => n + ' לידים חמים שלא נפתחו',
+    one:'ליד חם אחד שלא נפתח',            sub:'הכסף שממתין לטיפול',
+    cta:{ html:'פתחו את הליד עכשיו', icon:'flame', run:()=> gotoSection('accLeads') } },
+  { acc:'accAlerts',   icon:'target',  tone:'sand',  many:n => n + ' התאמות נכס ללקוחות',
+    one:'התאמת נכס אחת ללקוח/ה',          sub:'נכסים שעונים על הדרישות',
+    cta:{ kind:'wa', html:'שלח <span class="todo-cta-em">וואטסאפ</span> ללקוח',
+          run:()=> openWaShare() } },
+  { acc:'accReviews',  icon:'star',    tone:'mint',  many:n => n + ' ביקורות לאישור',
+    one:'ביקורת אחת לאישור',              sub:'חוות דעת שממתינות לך',
+    cta:{ html:'לאישור הביקורות', icon:'check', run:()=> gotoSection('accReviews') } },
   { acc:'accUnroutedLeads', icon:'alert', many:n => n + ' לידים ללא יעד',
-    one:'ליד אחד ללא יעד',                sub:'נקלטו ואין קהל שיקבל אותם' },
+    one:'ליד אחד ללא יעד',                sub:'אין קהל שיקבל אותם',
+    cta:{ html:'נתבו אותם לקהל', icon:'target', run:()=> gotoSection('accUnroutedLeads') } },
 ];
+
+/* הסמל של וואטסאפ עצמו — נתיב מלא ולא קו, ולכן הוא לא עובר דרך dashIcon
+   (שכל האייקונים שלו הם fill:none עם stroke). זה הסמל המסחרי של השירות,
+   והשימוש בו כאן הוא בדיוק מה שהוא נועד לו: לסמן את הכפתור ששולח הודעה. */
+function waGlyph(){
+  return '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">' +
+    '<path d="M17.47 14.38c-.3-.15-1.76-.87-2.03-.97-.28-.1-.47-.15-.67.15-.2.3-.77.97-.94 1.16-.18.2-.35.23-.65.08-.3-.15-1.25-.47-2.39-1.48-.88-.79-1.48-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.14-.14.3-.35.45-.53.15-.17.2-.3.3-.5.1-.2.05-.37-.03-.52-.07-.15-.66-1.61-.91-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.8.37-.27.3-1.04 1.02-1.04 2.48 0 1.46 1.07 2.88 1.22 3.07.15.2 2.1 3.2 5.08 4.49.7.3 1.26.49 1.69.62.71.23 1.36.2 1.87.12.57-.09 1.76-.72 2-1.41.25-.7.25-1.29.18-1.42-.08-.12-.28-.2-.57-.34M12.05 21.79h-.01a9.87 9.87 0 0 1-5.03-1.38l-.36-.21-3.74.98 1-3.65-.24-.37a9.86 9.86 0 0 1-1.51-5.26c0-5.45 4.44-9.89 9.89-9.89 2.64 0 5.12 1.03 6.99 2.9a9.83 9.83 0 0 1 2.89 6.99c0 5.45-4.43 9.89-9.88 9.89M20.46 3.49A11.82 11.82 0 0 0 12.05 0C5.5 0 .16 5.34.16 11.89c0 2.1.55 4.14 1.59 5.95L.06 24l6.3-1.65a11.88 11.88 0 0 0 5.69 1.45h.005c6.55 0 11.89-5.34 11.89-11.89 0-3.18-1.24-6.17-3.49-8.42"/>' +
+    '</svg>';
+}
+
+/* ---------- גלילת רכבת בחצים ----------
+   ‏RTL: הפריט הבא יושב שמאלה, ולכן "הבא" הוא דלתא שלילית. הצעד הוא רוחב
+   כרטיס אחד ולא רוחב המסך — רכבת שמדלגת על שניים בכל לחיצה מרגישה שבורה. */
+function railScroll(rail, dir){
+  if (!rail) return;
+  const first = rail.firstElementChild;
+  const gap = parseFloat(getComputedStyle(rail).columnGap) || 10;
+  const step = first ? first.getBoundingClientRect().width + gap : rail.clientWidth * .85;
+  rail.scrollBy({ left:(dir === 'next' ? -step : step),
+                  behavior: navReduceMotion() ? 'auto' : 'smooth' });
+}
+
+/* החצים מכבים את עצמם בקצוות: חץ שלא מזיז כלום הוא כפתור שבור. הקשירה
+   נעשית פעם אחת לרכבת (‏dataset.railArmed) — ‏renderTodoList נקרא בכל
+   שינוי מונה, ובלי השמירה הזו היה נערם מאזין חדש בכל פעם. */
+function syncRailNav(rail, nav){
+  if (!rail || !nav) return;
+  const max = rail.scrollWidth - rail.clientWidth;
+  const x = Math.abs(rail.scrollLeft);
+  const prev = nav.querySelector('[data-dir="prev"]');
+  const next = nav.querySelector('[data-dir="next"]');
+  if (prev) prev.disabled = x <= 2;
+  if (next) next.disabled = x >= max - 2;
+}
+
+function armRail(rail, nav){
+  if (!rail || !nav || rail.dataset.railArmed) return;
+  rail.dataset.railArmed = '1';
+  rail.addEventListener('scroll', ()=> syncRailNav(rail, nav), { passive:true });
+  window.addEventListener('resize', ()=> syncRailNav(rail, nav), { passive:true });
+}
+
+document.addEventListener('click', (e)=>{
+  const arrow = e.target.closest('.rail-arrow[data-rail]');
+  if (!arrow) return;
+  railScroll(document.getElementById(arrow.dataset.rail), arrow.dataset.dir);
+});
 
 function renderTodoList(){
   const host = document.getElementById('todoList');
   if (!host) return;
   host.innerHTML = '';
   const section = document.getElementById('todoSection');
+  const nav = document.getElementById('todoRailNav');
   const rows = TODO_ITEMS.filter(item => navAccVisible(item.acc) && accCountOf(item.acc) > 0);
 
   // ‏is-clear מכווץ את הבלוק לשורת סטטוס אחת ומוריד את הכותרת (ראו CSS).
   // בלוק בגובה מלא שאומר "אין כלום" הוא בדיוק השטח שהפעולות צריכות.
   if (section) section.classList.toggle('is-clear', !rows.length);
+  host.classList.toggle('is-single', rows.length === 1);
+  if (nav) nav.hidden = rows.length < 2;
 
   if (!rows.length){
     const clear = document.createElement('div');
@@ -15836,23 +16111,46 @@ function renderTodoList(){
 
   rows.forEach(item=>{
     const n = accCountOf(item.acc);
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'todo-row';
-    btn.innerHTML =
+    const card = document.createElement('article');
+    card.className = 'todo-card' + (item.tone ? ' tone-' + item.tone : '');
+
+    const open = document.createElement('button');
+    open.type = 'button';
+    open.className = 'todo-row';
+    open.innerHTML =
       '<span class="todo-ico">' + dashIcon(item.icon) + '</span>'
       + '<span class="todo-text">'
       +   '<span class="todo-title">' + esc(n === 1 ? item.one : item.many(n)) + '</span>'
       +   '<span class="todo-sub">' + esc(item.sub) + '</span>'
       + '</span>'
-      + '<span class="todo-count">' + esc(String(n)) + '</span>'
-      + '<svg class="todo-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>';
-    btn.addEventListener('click', ()=> navGo({ acc:item.acc }));
-    host.appendChild(btn);
+      // בלי חץ כאן: הכרטיס נגמר בכפתור פעולה שיש לו חץ משלו, ושני חצים
+      // בכרטיס אחד הם רעש — ובמסך צר הם גם 27px שהכותרת צריכה כדי לא
+      // להיחתך
+      + '<span class="todo-count">' + esc(String(n)) + '</span>';
+    open.addEventListener('click', ()=> navGo({ acc:item.acc }));
+    card.appendChild(open);
+
+    if (item.cta){
+      const wa = item.cta.kind === 'wa';
+      const cta = document.createElement('button');
+      cta.type = 'button';
+      cta.className = 'todo-cta' + (wa ? ' todo-cta-wa' : '');
+      // ‏html כאן הוא טקסט קבוע מ-TODO_ITEMS ולא נתון מהשרת — ראו ההערה שם
+      cta.innerHTML =
+        '<span class="todo-cta-logo">' + (wa ? waGlyph() : dashIcon(item.cta.icon || 'chevLeft')) + '</span>'
+        + '<span class="todo-cta-label">' + item.cta.html + '</span>'
+        + '<svg class="todo-cta-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>';
+      cta.addEventListener('click', ()=> item.cta.run());
+      card.appendChild(cta);
+    }
+
+    host.appendChild(card);
   });
 
   // הרשימה נבנית מחדש בכל שינוי מונה — התגים החדשים צריכים משקיף חדש
   armTodoPop();
+  armRail(host, nav);
+  syncRailNav(host, nav);
 }
 
 /* ==========================================================================
@@ -15889,18 +16187,27 @@ function openInlineForm(accId, formId, toggleId){
   }, reduce ? 0 : 420);
 }
 
+/* ‏tone הוא המשפחה שאליה הפעולה שייכת, ולא קישוט לכל כפתור בנפרד:
+   ‏mint לאנשים, ‏sand לנכסים, ‏navy לכסף ולהתחייבות. אותם שלושה גוונים
+   בדיוק לובשים גם את שורת המדדים שמעל — ראו ההערה בטוקנים של #dashboard. */
 const QUICK_ACTIONS = [
-  { acc:'accProperties', icon:'building', title:'הוספת נכס חדש',
-    run:()=> openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty') },
-  { acc:'accClients',    icon:'contact',  title:'הוספת לקוח/ה',
+  /* ראשון וניווי מלא: הפעולה היחידה כאן שנגמרת בהתחייבות חתומה, וזו
+     שמייצרת את ההכנסה. ‏id נשאר עליה כי ה-FAB הצף וגם אשף ההחתמה מחפשים
+     אותה בשם הזה. */
+  { acc:'accAgreements', icon:'sign',     tone:'navy', title:'החתם לקוח',
+    id:'signClientCta',  aria:'החתם לקוח — הזמנת שירותי תיווך',
+    run:()=> openAgreementWizard() },
+  { acc:'accClients',    icon:'contact',  tone:'mint', title:'הוסף לקוח',
     run:()=> openInlineForm('accClients', 'addClientForm', 'toggleAddClient') },
-  { acc:'accProperties', icon:'chat',     title:'שיתוף נכס בוואטסאפ',
+  { acc:'accProperties', icon:'building', tone:'sand', title:'הוסף נכס',
+    run:()=> openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty') },
+  { acc:'accProperties', icon:'chat',     tone:'mint', title:'שתף בוואטסאפ',
     run:()=> openWaShare() },
-  { acc:'accPlanning',   icon:'map',      title:'מידע תכנוני על נכס',
-    run:()=> gotoSection('accPlanning') },
-  { acc:'accAlerts',     icon:'target',   title:'מצא התאמות',
+  { acc:'accAlerts',     icon:'target',   tone:'sand', title:'מצא התאמות',
     run:()=> gotoSection('accAlerts') },
-  { acc:'accLeadShelf',  icon:'layers',   title:'חנות הלידים',
+  { acc:'accPlanning',   icon:'map',      tone:'navy', title:'מידע תכנוני',
+    run:()=> gotoSection('accPlanning') },
+  { acc:'accLeadShelf',  icon:'layers',   tone:'mint', title:'חנות הלידים',
     run:()=> gotoSection('accLeadShelf') },
 ];
 
@@ -15910,8 +16217,10 @@ function renderQuickActions(){
   grid.innerHTML = '';
   QUICK_ACTIONS.filter(a => navAccVisible(a.acc)).forEach(action=>{
     const card = document.createElement('div');
-    card.className = 'qa-card';
-    card.innerHTML = '<button type="button" class="qa-hit">'
+    card.className = 'qa-card qa-' + (action.tone || 'navy');
+    card.innerHTML = '<button type="button" class="qa-hit"'
+      + (action.id ? ' id="' + action.id + '"' : '')
+      + (action.aria ? ' aria-label="' + esc(action.aria) + '"' : '') + '>'
       + '<span class="qa-icon">' + dashIcon(action.icon) + '</span>'
       + '<span class="qa-title">' + esc(action.title) + '</span>'
       + '</button>';
@@ -15920,6 +16229,8 @@ function renderQuickActions(){
     grid.appendChild(card);
   });
   armQuickStagger();
+  // ה-FAB נשען על מיקומו של כפתור ההחתמה, והוא נולד מחדש בכל רינדור
+  if (typeof updateScrollUi === 'function') updateScrollUi();
 }
 
 /* ==========================================================================
@@ -15998,9 +16309,14 @@ function updateScrollUi(){
       const hdrH = header ? header.getBoundingClientRect().height : 0;
       show = cta.getBoundingClientRect().bottom < hdrH + 8;
     }
-    fab.hidden = !live;
+    fab.hidden = !live || !cta.isConnected;
     fab.classList.toggle('is-on', show);
-    cta.classList.toggle('is-morphed', show);
+    // המעטפת ולא הכפתור: היא זו שנושאת את המשטח והצל של הכרטיס
+    (cta.closest('.qa-card') || cta).classList.toggle('is-morphed', show);
+  } else if (fab){
+    // הפעולה מוסתרת לחלוטין (למשל בלי גישה להסכמים) — אין מה להציף
+    fab.hidden = true;
+    fab.classList.remove('is-on');
   }
 }
 
@@ -16057,11 +16373,18 @@ function armQuickStagger(){
 
   /* בזמן שהגריד מוסתר (‏.nav-off) הדפדפן מחזיר את הערך המוצהר ולא מדוד,
      ובדפדפן שמחזיר "none" נופלים לשתי עמודות — המצב במובייל, ששם ההשהיה
-     בכלל נראית */
-  const track = getComputedStyle(grid).gridTemplateColumns;
+     בכלל נראית.
+
+     ברכבת האופקית (‏grid-auto-flow:column) כל הכפתורים יושבים בשורה אחת,
+     ולכן ההשהיה שם היא לפי כפתור ולא לפי שורה: אחרת ששת הכפתורים היו
+     נכנסים כגוש אחד. */
+  const cs = getComputedStyle(grid);
+  const rail = (cs.gridAutoFlow || '').includes('column');
+  const track = cs.gridTemplateColumns;
   const cols = (track && track !== 'none') ? track.split(/\s+/).filter(Boolean).length : 2;
   [...grid.children].forEach((card, i)=>{
-    card.style.setProperty('--d', (Math.floor(i / cols) * 40) + 'ms');
+    const step = rail ? i : Math.floor(i / cols);
+    card.style.setProperty('--d', (step * 40) + 'ms');
   });
   grid.classList.add('is-staged');
 
@@ -18775,10 +19098,10 @@ agrEl('agrBody').addEventListener('input', async (e)=>{
 agrEl('agrClose').addEventListener('click', agrCloseWizard);
 agrEl('newAgreementBtn').addEventListener('click', ()=> openAgreementWizard());
 
-/* הכפתור הקבוע בדשבורד. פותח את האשף ולא את הקטגוריה: הדרך הקצרה ביותר
-   מ"יש לי לקוח/ה מולי" ל"המסמך על המסך" היא בחירת סוג ההסכם, ולא רשימה
-   של הסכמים קודמים. */
-agrEl('signClientCta').addEventListener('click', ()=> openAgreementWizard());
+/* הכפתור הקבוע בדשבורד ("החתם לקוח") יושב היום ברכבת הפעולות המהירות,
+   נבנה ב-renderQuickActions ופותח את האשף משם — ולא את קטגוריית ההסכמים:
+   הדרך הקצרה ביותר מ"יש לי לקוח/ה מולי" ל"המסמך על המסך" היא בחירת סוג
+   ההסכם, ולא רשימה של הסכמים קודמים. ראו QUICK_ACTIONS. */
 
 agrEl('agrSearch').addEventListener('input', renderAgreements);
 ['agrStatusFilter','agrKindFilter'].forEach(id =>
