@@ -95,6 +95,12 @@ verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role / 
 [functions.classify-property-images]
 verify_jwt = false          # קריאת cron/backfill; לא מקבלת קלט שמשפיע על מה שנכתב
 
+# העברה חד-פעמית של שישה סרטונים מהפרויקט הישן. רשימת הנכסים והקבצים קבועה
+# בקוד, ולכן הקלט לא יכול להפנות אותה לנכס אחר; ה-handler דורש service_role
+# או x-alert-cron-secret. ‏verify_jwt=false כדי שקריאה פנימית מ-pg_net תגיע.
+[functions.migrate-legacy-videos]
+verify_jwt = false          # אימות עצמי: service_role / x-alert-cron-secret
+
 # ‏verify_jwt=false כאן אינו "פתוח": ה-handler דורש את מפתח ה-service_role
 # או את PLATFORM_MAIL_SECRET, כי שליחת מייל בשם הפלטפורמה למי שמבקש היא
 # ממסר פתוח. ה-Gateway מושבת דווקא כדי שקוראים פנימיים (pg_net, cron)
