@@ -1114,24 +1114,29 @@
      פריט שיושב שני מלמעלה. עכשיו שלוש קבוצות, ורק זו שהמשתמש/ת נמצא/ת בה
      פתוחה — הרשימה מתחילה בשליש מהאורך, ומצב הפתיחה נשמר ל-localStorage
      כדי שמי שפותח/ת את "כלים וצוות" בכל פעם לא יצטרך לפתוח אותה שוב. */
+  /* שלוש כותרות הקבוצה הן הגבולות היחידים ברשימה, ולכן הן צבועות ולא אפורות:
+     בגרסה הקודמת הן נראו כמו עוד שורה חלשה בין הפריטים, וקבוצה סגורה לא
+     נקראה כמו כותרת שאפשר לפתוח. רקע כחול-בהיר, טקסט נייבי ופס נייבי בתחילת
+     השורה — אותו כחול של המותג, בעוצמה שמפרידה בין הקבוצות במבט אחד. */
   .menu-gtoggle{
     width:100%;display:flex;align-items:center;gap:8px;text-align:start;
-    background:transparent;border:none;border-radius:var(--r-xs);padding:9px 10px;
-    font-size:.72rem;font-weight:800;letter-spacing:.03em;color:var(--txt-soft);
+    background:var(--navy-tint);border:none;border-inline-start:3px solid var(--navy);
+    border-radius:var(--r-xs);padding:10px;margin:2px 0;
+    font-size:.78rem;font-weight:800;letter-spacing:.03em;color:var(--navy);
     transition:background .14s ease;
   }
-  .menu-gtoggle:hover{background:var(--surface-2)}
+  .menu-gtoggle:hover{background:#dfe9f5}
   .menu-gtoggle:focus-visible{outline:2px solid var(--navy);outline-offset:-2px}
   .menu-gtoggle .mg-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   /* המונה על הקבוצה הסגורה הוא מה שמונע "קיפול שמסתיר עבודה": אם יש שלושה
      לידים חמים בפנים, זה נראה מבחוץ בלי לפתוח */
   .menu-gtoggle .mg-count{
-    flex-shrink:0;font-size:.66rem;font-weight:800;color:var(--txt-soft);
-    background:var(--surface-2);border-radius:999px;padding:2px 8px;
+    flex-shrink:0;font-size:.66rem;font-weight:800;color:var(--navy);
+    background:rgba(255,255,255,.75);border-radius:999px;padding:2px 8px;
   }
   .menu-gtoggle .mg-count.is-hot{background:#dc2626;color:#fff}
   .menu-gtoggle .mg-chev{
-    flex-shrink:0;width:15px;height:15px;color:var(--txt-faint);
+    flex-shrink:0;width:15px;height:15px;color:var(--navy);
     transition:transform .18s cubic-bezier(.22,1,.36,1);
   }
   .menu-gtoggle[aria-expanded="true"] .mg-chev{transform:rotate(180deg)}
@@ -1152,6 +1157,18 @@
   }
   .menu-item .mi-count.is-hot{background:#dc2626;color:#fff}
   .menu-item .mi-chev{flex-shrink:0;width:15px;height:15px;color:var(--txt-faint)}
+  /* ---------- כפתור הבית בתפריט ----------
+     היעד היחיד שאינו קטגוריה אלא חזרה להתחלה, ולכן הוא הפוך: נייבי מלא על
+     טקסט לבן במקום טקסט כהה על לבן. שורה אחת צבועה בראש התפריט היא הדרך
+     חזרה, ואי אפשר לפספס אותה בתוך רשימה של עשרים שורות זהות. */
+  .menu-item.is-home{
+    background:var(--navy);color:#fff;font-weight:800;margin:2px 0 6px;
+    box-shadow:0 2px 8px rgba(28,58,94,.22);
+  }
+  .menu-item.is-home:hover{background:var(--navy-2)}
+  .menu-item.is-home:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+  .menu-item.is-home .mi-ico{flex-shrink:0;width:18px;height:18px}
+  .menu-item.is-home .mi-count{background:rgba(255,255,255,.2);color:#fff}
   .menu-empty{padding:14px 10px;font-size:.8rem;color:var(--txt-soft);text-align:center}
 
   /* ---------- פריסה: sidebar + main ---------- */
@@ -15223,36 +15240,43 @@ const NAV_ADMIN_HOME = '__adminHome';
    נעצר בהם; שלוש קבוצות הן חלוקה שאפשר לזכור: מה שעושים, במה משתמשים,
    ומה שמגדירים פעם בחודש. */
 const NAV_GROUPS = [
+  /* סדר הפריטים כאן הוא סדר יום העבודה ולא סדר הקוד: נכסים, לקוחות והתאמות
+     קודמים ללידים, והמידע התכנוני סוגר. */
   { key:'work', label:'פעילות עסקית', items:[
-    { acc:NAV_HOME,              label:'דשבורד ראשי',       icon:'home',     tab:'home' },
+    /* דף הבית אינו "עוד סעיף ברשימה" אלא הדרך חזרה, ולכן הוא מצויר כפתור
+       הפוך (ראו .menu-item.is-home) ונושא את שם הלשונית בסרגל התחתון. */
+    { acc:NAV_HOME,              label:'ראשי',              icon:'home',     tab:'home' },
     { acc:'accProperties',       label:'הנכסים שלי',        icon:'building', tab:'props' },
+    { acc:'accClients',          label:'קובץ הלקוחות',      icon:'contact',  tab:'clients' },
+    { acc:'accAlerts',           label:'התראות התאמה',      icon:'target',   tab:'clients' },
     { acc:'accSharedWithMe',     label:'שותף איתי',         icon:'share',    tab:'props' },
-    { acc:'accSharePartners',    label:'משרדי שיתוף פעולה', icon:'handshake',tab:'props' },
-    { acc:'accWhatsapp',         label:'נכסים בוואטסאפ',    icon:'chat',     tab:'props' },
     /* לשונית הלידים היא שתי קטגוריות בלבד: מה ששלי, ומה שאפשר לקנות.
        מדפי המשכנתאות ומחפשי הדירה אינם קטגוריות נפרדות עוד — הם מגירות
        בתוך חנות הלידים (ראו #shelfTabs). */
     { acc:'accLeads',            label:'הלידים שלי',        icon:'inbox',    tab:'leads' },
     { acc:'accLeadShelf',        label:'חנות הלידים',       icon:'layers',   tab:'leads' },
-    { acc:'accClients',          label:'קובץ הלקוחות',      icon:'contact',  tab:'clients' },
-    { acc:'accAlerts',           label:'התראות התאמה',      icon:'target',   tab:'clients' },
     /* ‏focus על שדה החיפוש שם את הסמן במקום שאליו באו — לא בראש רשימה
        שצריך לגלול */
     { acc:'accAgreements',       label:'הסכמים והחתמות',    icon:'sign',     tab:'docs', focus:'agrSearch' },
+    { acc:'accPlanning',         label:'מידע תכנוני',       icon:'map',      tab:'more' },
   ]},
   { key:'tools', label:'כלים וצוות', items:[
     { acc:'accReports',  label:'דוחות וביצועים', icon:'chart', tab:'more' },
     { acc:'accTeam',     label:'צוות המשרד',     icon:'users', tab:'more' },
     { acc:'accReviews',  label:'ביקורות לאישור', icon:'star',  tab:'more' },
     { acc:'accBranding', label:'עיצוב דף המשרד', icon:'brush', tab:'more' },
-    { acc:'accPlanning', label:'מידע תכנוני',    icon:'map',   tab:'more' },
   ]},
+  /* משרדי שת״פ והנכסים מוואטסאפ הם הגדרה שמבצעים פעם אחת ולא עבודה יומית,
+     ולכן הם יושבים כאן ולא בין הנכסים. ‏tab:'more' ולא 'props' כדי שהקטגוריה
+     בעמוד תשב באותה לשונית שבה התפריט מבטיח אותה. */
   { key:'account', label:'הגדרות חשבון', items:[
-    { acc:'accWallet',     label:'יתרת ארנק',    icon:'wallet',  tab:'more' },
-    { acc:'accProfile',    label:'פרטי הסוכן/ת', icon:'user',    tab:'more' },
-    { acc:'accEthics',     label:'הקוד האתי',    icon:'shield',  tab:'more' },
-    { acc:'accPrefs',      label:'העדפות לידים', icon:'sliders', tab:'more' },
-    { acc:'accNotifPrefs', label:'ניהול התראות', icon:'bell',    tab:'more' },
+    { acc:'accWallet',        label:'יתרת ארנק',         icon:'wallet',   tab:'more' },
+    { acc:'accProfile',       label:'פרטי הסוכן/ת',      icon:'user',     tab:'more' },
+    { acc:'accEthics',        label:'הקוד האתי',         icon:'shield',   tab:'more' },
+    { acc:'accPrefs',         label:'העדפות לידים',      icon:'sliders',  tab:'more' },
+    { acc:'accNotifPrefs',    label:'ניהול התראות',      icon:'bell',     tab:'more' },
+    { acc:'accSharePartners', label:'משרדי שיתוף פעולה', icon:'handshake',tab:'more' },
+    { acc:'accWhatsapp',      label:'נכסים בוואטסאפ',    icon:'chat',     tab:'more' },
   ]},
   /* כלי הפלטפורמה יושבים בקבוצה משלהם ומופיעים אך ורק בתצוגת מנהל/ת. זו כל
      הנקודה: הם עבודה של תפקיד אחר, ולא היה רגע שבו סוכן/ת רצה/תה לראות
@@ -16258,9 +16282,8 @@ function menuGroupSetOpen(key, open){
 /* קבוצה נפתחת אם היא מכילה את הלשונית הנוכחית, ואחרת לפי מה שנשמר. הכלל
    הראשון גובר: מי שנמצא/ת ב"לידים" ופותח/ת את התפריט מחפש/ת שם משהו.
 
-   הלשונית "ראשי" היא היוצא מן הכלל: היא יושבת בתוך "פעילות עסקית", שהיא
-   הקבוצה הגדולה — ולכן הכלל היה פותח את שלושה-עשר הפריטים בדיוק במצב
-   ברירת המחדל, כלומר כמעט תמיד. מדף הבית התפריט נפתח סגור כולו: שלוש
+   הלשונית "ראשי" היא היוצא מן הכלל: היא אינה שייכת לאף קבוצה (כפתור הבית
+   נעוץ בראש התפריט), ולכן מדף הבית התפריט נפתח סגור כולו — כפתור בית ושלוש
    שורות, ומהן בוחרים לאן. מי שפתח/ה קבוצה ידנית מקבל/ת אותה פתוחה גם
    כאן — זו העדפה מפורשת, לא ניחוש. */
 function menuGroupInitiallyOpen(group, saved){
@@ -16268,12 +16291,51 @@ function menuGroupInitiallyOpen(group, saved){
   return saved[group.key] === true;
 }
 
+function navIsHomeItem(item){
+  return item.acc === NAV_HOME || item.acc === NAV_ADMIN_HOME;
+}
+
+/* פריט ניווט אחד בתפריט. דף הבית הוא היעד היחיד שאינו קטגוריה בעמוד אלא
+   חזרה להתחלה, ולכן הוא נראה אחרת מכל השאר: כפתור מלא בצבעים הפוכים ועם
+   אייקון בית, בלי חץ "המשך לקטגוריה" שאין לו לאן להוביל. */
+function menuItemButton(navItem){
+  const count  = accCountOf(navItem.acc);
+  const hot    = count > 0 && NAV_HOT_ACCS.has(navItem.acc);
+  const isHome = navIsHomeItem(navItem);
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.className = 'menu-item' + (isHome ? ' is-home' : '');
+  item.innerHTML =
+    (isHome ? dashIcon(navItem.icon, 'mi-ico') : '')
+    + '<span class="mi-label">' + esc(navItem.label) + '</span>'
+    + (count ? '<span class="mi-count' + (hot ? ' is-hot' : '') + '">' + esc(String(count)) + '</span>' : '')
+    + (isHome ? '' : '<svg class="mi-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>');
+  item.addEventListener('click', ()=>{
+    closeMenuPanel();
+    navGo(navItem);
+  });
+  return item;
+}
+
 function buildMenuPanel(){
   const panel = document.getElementById('menuPanel');
   if (!panel) return;
   panel.innerHTML = '';
-  const groups = navGroupsForView();
   const saved = menuGroupsOpen();
+
+  /* כפתור הבית יוצא מהקבוצה ונעוץ בראש התפריט. בתוך קבוצה מתקפלת הוא היה
+     נעלם בדיוק במצב ברירת המחדל — והדרך חזרה היא הדבר האחרון שצריך לחפש
+     מאחורי לחיצה נוספת. */
+  const homeItems = [];
+  const groups = navGroupsForView()
+    .map(g => ({
+      key:   g.key,
+      label: g.label,
+      items: g.items.filter(it => { if (navIsHomeItem(it)){ homeItems.push(it); return false; } return true; }),
+    }))
+    .filter(g => g.items.length);
+
+  homeItems.forEach(it => panel.appendChild(menuItemButton(it)));
 
   groups.forEach((group, gi)=>{
     if (gi > 0) panel.appendChild(Object.assign(document.createElement('div'), { className:'menu-sep' }));
@@ -16308,26 +16370,11 @@ function buildMenuPanel(){
     panel.appendChild(toggle);
 
     sub.hidden = !open;
-    group.items.forEach(navItem=>{
-      const count = accCountOf(navItem.acc);
-      const hot = count > 0 && NAV_HOT_ACCS.has(navItem.acc);
-      const item = document.createElement('button');
-      item.type = 'button';
-      item.className = 'menu-item';
-      item.innerHTML =
-        '<span class="mi-label">' + esc(navItem.label) + '</span>'
-        + (count ? '<span class="mi-count' + (hot ? ' is-hot' : '') + '">' + esc(String(count)) + '</span>' : '')
-        + '<svg class="mi-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>';
-      item.addEventListener('click', ()=>{
-        closeMenuPanel();
-        navGo(navItem);
-      });
-      sub.appendChild(item);
-    });
+    group.items.forEach(navItem => sub.appendChild(menuItemButton(navItem)));
     panel.appendChild(sub);
   });
 
-  if (!groups.length){
+  if (!groups.length && !homeItems.length){
     panel.innerHTML = '<div class="menu-empty">אין קטגוריות להצגה</div>';
   }
 }
