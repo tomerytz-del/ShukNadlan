@@ -431,11 +431,18 @@
      ייחתך סביב הפנים ולא סביב מרכז הקובץ */
   .agent-photo img{width:100%;height:100%;object-fit:cover;object-position:var(--photo-pos,50% 25%)}
   .agent-name{font-weight:800;font-size:1.02rem;line-height:1.25}
+  /* התג נושא שני נתונים — ההסמכה ומספר הרישיון — ולכן שתי שורות ולא אחת:
+     בעמודת צד ברוחב כרטיס, "מתווך/ת מורשה/ית · רישיון 3134355" בשורה אחת
+     נשבר באמצע הצירוף ומשאיר את "ית" או את הספרות תלויות לבד בשורה
+     הבאה. ‏nowrap על כל שורה מבטיח שהשבירה תקרה רק במקום שנבחר לה. */
   .agent-cred{
-    display:inline-flex;align-items:center;gap:5px;margin-top:4px;font-size:.72rem;font-weight:700;
-    background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);padding:3px 9px;border-radius:0;
+    display:inline-flex;align-items:center;gap:6px;margin-top:4px;font-size:.72rem;font-weight:700;
+    background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);padding:4px 9px;border-radius:0;
   }
   .agent-cred svg{width:13px;height:13px;flex:none;color:#9BD5A3}
+  .agent-cred .cred-lines{display:flex;flex-direction:column;align-items:flex-start;line-height:1.28;min-width:0}
+  .agent-cred .cred-title,.agent-cred .cred-license{white-space:nowrap}
+  .agent-cred .cred-license{font-weight:600;opacity:.9}
   .agent-agency{font-size:.75rem;opacity:.8;margin-top:4px}
   /* תו האיכות בקצה השני של ראש הכרטיס. ‎:empty‎ — כשלסוכן/ת אין תו הרכיב לא
      מוזרק בכלל, והמשבצת לא צריכה לתפוס מקום או להיקרא במקלט מסך. */
@@ -1096,7 +1103,7 @@
           <div class="agency-avatar" id="agencyAvatar">·</div>
           <div>
             <div class="agency-name" id="agencyName">—</div>
-            <div class="agency-sub" id="agentName">—</div>
+            <div class="agency-sub" id="agentName" hidden></div>
           </div>
           <span class="chev" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
@@ -1111,7 +1118,10 @@
               <div class="agent-name" id="agentCardName">צוות שוק נדל״ן</div>
               <div class="agent-cred" id="agentCred" hidden>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                <span id="agentCredText">מתווך/ת מורשה/ית</span>
+                <span class="cred-lines">
+                  <span class="cred-title" id="agentCredText">מתווך/ת מורשה/ית</span>
+                  <span class="cred-license" id="agentCredLicense" hidden></span>
+                </span>
               </div>
               <div class="agent-agency" id="agentCardAgency"></div>
             </div>
@@ -1500,7 +1510,7 @@ async function loadProperty(){
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const { data, error } = await sb
       .from('properties')
-      .select('*, agencies(name, slug, logo_url, colors)')
+      .select('*, agencies(name, slug, logo_url, colors), neighborhoods(name)')
       .eq('id', id)
       .eq('status', 'active')
       .single();
@@ -2776,8 +2786,47 @@ function renderTags(p){
     `<span class="badge ${b.cls}">${b.icon}${escapeHtml(b.text)}</span>`).join('');
 }
 
+/* ---------- כתובת ציבורית: רחוב ושכונה, בלי מספר בית ----------
+   דף הנכס הוא הדף הפומבי היחיד שהציג כתובת מלאה. מספר בית הופך מודעה
+   לכתובת של דירה מסוימת — מי שרואה אותה יודע בדיוק על איזו דלת מדובר,
+   וזה מידע ששייך לסוכן/ת ולא לרחוב. אריחי הנכסים כבר מציגים רחוב ושכונה
+   בלבד (‏assets/property-card.js), והשורה כאן פשוט מיישרת אליהם.
+
+   מספר הבית עצמו נשאר במסד ובטופס הנכס ב-CRM: הוא נחוץ לניווט, להסכמים
+   ולזיהוי כפילויות. הוא פשוט לא נכתב בעמוד הציבורי — לא בשורת הכתובת,
+   לא בכותרת H1 ולא בכותרת המפה. גוש וחלקה ממילא אינם מגיעים לצד הזה:
+   ‏property_planning_public מסנן אותם עוד ב-RPC.
+
+   ‏maskHouseNumber עובד על טקסט חופשי (כותרת שנשמרה במסד) ולכן הוא מוחק
+   *מספר* ולא מילה: גבולות ספרה משני הצדדים, כדי ש-"52" לא ייחתך מתוך
+   "152" ולא מתוך "128 מ״ר".                                              */
+function maskHouseNumber(text, houseNumber){
+  const t = String(text || '');
+  const hn = String(houseNumber ?? '').trim();
+  if (!t || !hn) return t;
+  const re = new RegExp('(^|[^\\d])' + hn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?!\\d)', 'g');
+  return t.replace(re, '$1')
+          .replace(/\s+/g, ' ')
+          .replace(/\s+([,\u00B7])/g, '$1')
+          .replace(/^[\s,\u00B7\u2014\u2013-]+|[\s,\u00B7\u2014\u2013-]+$/g, '')
+          .trim();
+}
+
+/* השכונה מגיעה מטבלת ה-neighborhoods; ‏sales_area הוא הגיבוי כשלנכס לא
+   שויכה שכונה. שכונה ששמה כשם העיר לא נכתבת פעמיים. */
+function publicAddressText(p){
+  const hood = p.neighborhoods?.name || p.sales_area || '';
+  const street = maskHouseNumber(p.address || p.street || '', p.house_number);
+  return [street, hood && hood !== p.city ? hood : '', p.city]
+    .filter(Boolean).join(', ');
+}
+
+function publicTitle(p){
+  return maskHouseNumber(p.title || '', p.house_number) || (p.title || '');
+}
+
 function renderProperty(p){
-  document.title = p.title + ' | שוק נדל״ן';
+  document.title = publicTitle(p) + ' | שוק נדל״ן';
   renderGallery(p);
   renderMediaButtons(p);
   // הקידום נמכר לחלון של 72 שעות. ‏expire_promotions ב-DB מכבה את is_promoted
@@ -2792,8 +2841,8 @@ function renderProperty(p){
     p.price_per_sqm ? Number(p.price_per_sqm).toLocaleString('he-IL') + ' ₪ למ״ר' : (p.deal_type === 'rent' ? 'להשכרה' : 'למכירה');
   document.getElementById('heroPrice').hidden = false;
 
-  document.getElementById('propTitle').textContent = p.title;
-  const addressText = [p.address || [p.street, p.house_number].filter(Boolean).join(' '), p.city].filter(Boolean).join(', ');
+  document.getElementById('propTitle').textContent = publicTitle(p);
+  const addressText = publicAddressText(p);
   const addressEl = document.getElementById('propAddress');
   addressEl.innerHTML = addressText ? ICON.pin + `<span>${escapeHtml(addressText)}</span>` : '';
 
@@ -2811,13 +2860,15 @@ function renderProperty(p){
   document.getElementById('agencyName').textContent = p.agencies?.name || 'משרד תיווך';
   renderAgencyAvatar(p.agencies);
   applyAgencyAccent(p.agencies);
+  // שם הסוכן/ת המטפל/ת לא חוזר כאן: הרצועה היא הקישור למשרד, והכרטיס שמתחתיה
+  // כבר נושא את השם, התמונה, הרישיון וכפתורי הפנייה. שתי הופעות של אותו שם
+  // בשתי שורות סמוכות רק גזלו מקום מהזהות של המשרד.
   // הטלפון של סוכן/ת 2 לא מוצג באתר, בדיוק כמו של סוכן/ת 1 — הפנייה עוברת
   // בטופס או בכפתורי הוואטסאפ של הסוכן/ת הראשי/ת
-  const agentLine = [
-    p.agency_members?.display_name ? 'סוכן: ' + p.agency_members.display_name : '',
-    p.agent2_name ? 'בשיתוף: ' + p.agent2_name : '',
-  ].filter(Boolean).join(' · ');
-  document.getElementById('agentName').textContent = agentLine;
+  const agentLine = p.agent2_name ? 'בשיתוף: ' + p.agent2_name : '';
+  const agentLineEl = document.getElementById('agentName');
+  agentLineEl.textContent = agentLine;
+  agentLineEl.hidden = !agentLine;
   renderAgentCard(p);
   renderContactButtons(p);
   prefillInquiryMessage(p);
@@ -2867,7 +2918,9 @@ function renderAgentCard(p){
   }
 
   if (agent?.license_number){
-    document.getElementById('agentCredText').textContent = 'מתווך/ת מורשה/ית · רישיון ' + agent.license_number;
+    const licenseEl = document.getElementById('agentCredLicense');
+    licenseEl.textContent = 'רישיון: ' + agent.license_number;
+    licenseEl.hidden = false;
     document.getElementById('agentCred').hidden = false;
   }
 
