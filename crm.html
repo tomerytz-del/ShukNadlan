@@ -165,6 +165,30 @@
   .acc-body{padding:16px}
   .acc-body>:last-child{margin-bottom:0}
   .acc-sub{font-size:.8rem;color:var(--ink-soft);margin:0 0 12px}
+
+  /* ---------- ניהול מנויים (מנהל/ת פלטפורמה) ----------
+     תמונת המצב היא שש מספרים ולא גרף: השאלה כאן היא "כמה, ומה דחוף",
+     ושישה מספרים בשורה עונים עליה מהר יותר מכל ויזואליזציה. */
+  .subs-overview{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px;margin-bottom:16px}
+  .subs-stat{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-sm);padding:9px 10px;text-align:center}
+  .subs-stat b{display:block;font-size:1.25rem;line-height:1.2}
+  .subs-stat span{font-size:.7rem;color:var(--ink-soft)}
+  /* "נגמרות החודש" צבוע רק כשהמספר אינו אפס — צבע קבוע מפסיק להיקרא */
+  .subs-stat.is-hot{border-color:#c0873a;background:#fff8ee}
+  .subs-stat.is-hot b{color:#8a6d10}
+
+  .subs-req{border:1.5px solid var(--gold);border-radius:var(--radius-sm);padding:12px 13px;margin-bottom:10px;background:#fff}
+  .subs-req .sr-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
+  .subs-req .sr-name{font-weight:700;font-size:.9rem}
+  .subs-req .sr-move{font-size:.86rem;font-weight:700;white-space:nowrap}
+  .subs-req .sr-meta{font-size:.74rem;color:var(--ink-soft);margin-top:3px;line-height:1.5}
+  .subs-req .sr-acts{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+  .subs-req .sr-acts .btn{font-size:.78rem;padding:8px 14px;white-space:nowrap}
+  .subs-req a.sr-mail{font-size:.74rem;color:var(--teal);font-weight:700;text-decoration:none;align-self:center}
+
+  .subs-log-row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:.78rem}
+  .subs-log-row:last-child{border-bottom:0}
+  .subs-log-row .sl-when{color:var(--ink-soft);white-space:nowrap;font-size:.72rem}
   /* כרטיסים פנימיים בלבנים, כדי שייבדלו מרקע הקטגוריה */
   .acc-body .card{background:#fff}
   /* ריווח הכרטיסים הודק: רשימה של עשרים כרטיסים ב-16px ריפוד ו-12px מרווח
@@ -4245,6 +4269,30 @@
         </div>
       </details>
 
+      <!-- ניהול המנויים. יושב מיד אחרי תור ההחזרים ומאותה סיבה: גם כאן יש
+           אדם שממתין, ובקשת שדרוג שלא נענתה היא הכנסה שלא נכנסה. -->
+      <details class="acc" id="accSubscriptions">
+        <summary>
+          <span class="acc-title">מנויים ובקשות שדרוג</span>
+          <span class="acc-count hot" id="accSubscriptionsCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <div id="subsOverview" class="subs-overview"></div>
+
+          <p class="acc-sub">
+            סוכן/ת שבוחר/ת מסלול בתשלום מדף המסלולים אינו/ה מקבל/ת אותו בלחיצה —
+            נרשמת בקשה, והיא מאושרת כאן אחרי שהתשלום הוסדר. אישור מחיל את המסלול
+            מיד ורושם אותו ביומן.
+          </p>
+          <div id="subsRequests"><div class="empty-state">טוען…</div></div>
+
+          <div class="form-subheading" style="margin-top:20px">יומן שינויי מסלול</div>
+          <p class="acc-sub">כל שינוי מסלול במערכת, כולל הענקות הטבה אוטומטיות ובקשות שנדחו.</p>
+          <div id="subsLog"><div class="empty-state">טוען…</div></div>
+        </div>
+      </details>
+
       <details class="acc" id="accNeighborhoods">
         <summary>
           <span class="acc-title">ניהול שכונות</span>
@@ -5771,6 +5819,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // בין התצוגות יהיה מיידי ולא ימתין לרשת.
   if (agent.is_platform_admin){
     await loadRefundQueue();
+    await loadSubscriptionsAdmin();
     await loadNeighborhoodsAdmin();
     await loadRssSourcesAdmin();
     await loadArticlesAdmin();
@@ -7684,6 +7733,21 @@ function renderPromoStrip(agent){
   const strip = document.getElementById('promoStrip');
   if (!strip) return;
   const promo = promoOf(agent);
+
+  // בקשת שדרוג פתוחה קודמת להטבה: מי שביקש/ה מסלול וקיבל/ה "ניצור קשר"
+  // צריך/ה לראות שהבקשה עדיין קיימת. בלי זה הבקשה נעלמת מהמסך ברגע שהמסך
+  // נסגר, והשאלה "מה קרה עם זה?" מגיעה בטלפון.
+  if (agent.pending_tier_change){
+    strip.classList.remove('is-urgent');
+    strip.href = pricingUrl(agent);
+    document.getElementById('promoStripTitle').textContent =
+      'בקשת המעבר ל-' + Tiers.label(agent.pending_tier_change) + ' נקלטה';
+    document.getElementById('promoStripSub').textContent =
+      'ניצור קשר להסדרת התשלום, והמסלול יופעל מיד אחריה. עד אז לא חל שינוי.';
+    strip.hidden = false;
+    return;
+  }
+
   if (!promo.active){ strip.hidden = true; return; }
 
   const urgent = promo.daysLeft <= 30;
@@ -8580,6 +8644,163 @@ async function loadRefundQueue(){
     showToast('הבקשה נדחתה והיתרה הוחזרה');
     await loadRefundQueue();
   }));
+}
+
+/* ============================================================================
+   ניהול מנויים — מנהל/ת פלטפורמה
+   ----------------------------------------------------------------------------
+   ‏set_tier רושמת בקשה כשמסלול בתשלום נבחר מחוץ לתקופת ההטבה, ומייל יוצא
+   להנהלה. כאן נסגר הצד השני: אישור, דחייה, ותמונת מצב של מי נמצא איפה.
+
+   כל הכתיבה עוברת בשלוש פונקציות מסד (‏admin_apply_tier_change,
+   ‏admin_reject_tier_change) שבודקות ‎current_is_platform_admin()‎ בעצמן.
+   הכפתורים כאן מוסתרים ממי שאינו/ה מנהל/ת פלטפורמה, אבל זו נוחות ולא
+   הגנה — ההגנה היא שם.                                                      */
+
+async function loadSubscriptionsAdmin(){
+  const reqHost = document.getElementById('subsRequests');
+  const logHost = document.getElementById('subsLog');
+  const ovHost  = document.getElementById('subsOverview');
+  if (!reqHost) return;
+
+  const [{ data: overview }, { data: requests, error: reqErr }, { data: log }] = await Promise.all([
+    sb.rpc('subscription_overview'),
+    sb.rpc('pending_tier_requests'),
+    sb.rpc('recent_tier_changes', { p_limit: 40 }),
+  ]);
+
+  // ---- תמונת המצב ----
+  const ov = overview || {};
+  // הסדר הוא סדר הדחיפות ולא סדר המסלולים: ב-RTL הפריט הראשון יושב מימין,
+  // ושתי השאלות שדורשות פעולה — כמה בקשות פתוחות וכמה הטבות נגמרות — הן
+  // הראשונות שהעין פוגשת.
+  const stats = [
+    { n: ov.pending,         label: 'בקשות פתוחות', hot: true },
+    { n: ov.promo_ending_30, label: 'הטבות שנגמרות החודש', hot: true },
+    { n: ov.promo_active,    label: 'בתוך ההטבה' },
+    { n: ov.premium,         label: Tiers.label('premium') },
+    { n: ov.mid,             label: Tiers.label('mid') },
+    { n: ov.free,            label: Tiers.label('free') },
+  ];
+  ovHost.innerHTML = stats.map(s =>
+    `<div class="subs-stat${s.hot && s.n > 0 ? ' is-hot' : ''}">
+       <b>${Number(s.n || 0).toLocaleString('he-IL')}</b><span>${esc(s.label)}</span>
+     </div>`).join('');
+
+  // ---- תור הבקשות ----
+  if (reqErr){
+    reqHost.innerHTML = '<div class="empty-state">שגיאה בטעינת הבקשות: ' + esc(reqErr.message) + '</div>';
+    return;
+  }
+  const rows = requests || [];
+  accSetCount('accSubscriptions', rows.length || '');
+
+  if (!rows.length){
+    reqHost.innerHTML = '<div class="empty-state">אין בקשות שדרוג פתוחות.</div>';
+  } else {
+    reqHost.innerHTML = rows.map(r => {
+      const price = Tiers.byId(r.wanted_tier)?.priceMonthly || 0;
+      // המייל מוכן מראש עם השם והמסלול: הפעולה האמיתית כאן היא שיחה עם
+      // אדם על תשלום, והמסך צריך להוביל אליה ולא רק לעדכן עמודה.
+      const mail = 'mailto:' + encodeURIComponent(r.member_email || '') +
+        '?subject=' + encodeURIComponent(`שדרוג ל-${Tiers.label(r.wanted_tier)} — שוק נדל״ן`) +
+        '&body=' + encodeURIComponent(
+          `שלום ${r.member_name || ''},\n\nקיבלנו את בקשתך לעבור למסלול ${Tiers.label(r.wanted_tier)} ` +
+          `(₪${price} לחודש + מע״מ).\n\n`);
+      return `
+      <div class="subs-req" data-member="${esc(r.member)}" data-tier="${esc(r.wanted_tier)}">
+        <div class="sr-top">
+          <span class="sr-name">${esc(r.member_name || 'סוכן/ת')}</span>
+          <!-- "מ-X ל-Y" ולא "X ← Y": ב-RTL חץ בין שני שמות נקרא לשני
+               הכיוונים, ופה ההבדל הוא בין שדרוג לירידה. -->
+          <span class="sr-move">מ-${esc(Tiers.label(r.now_tier))} ל-<b>${esc(Tiers.label(r.wanted_tier))}</b>
+            ${price ? '· ₪' + price.toLocaleString('he-IL') + ' לחודש' : ''}</span>
+        </div>
+        <div class="sr-meta">
+          ${esc(r.agency_name || 'ללא משרד')}
+          ${r.asked_on ? ' · הבקשה מ-' + esc(hebDate(r.asked_on)) : ''}
+          ${r.member_email ? ' · <span style="direction:ltr;display:inline-block">' + esc(r.member_email) + '</span>' : ''}
+          · יתרת ארנק ${shekel(r.wallet_balance || 0)}
+        </div>
+        <div class="sr-acts">
+          <button type="button" class="btn btn-gold subsApproveBtn">אישור והחלה</button>
+          <button type="button" class="btn btn-ghost subsRejectBtn">דחייה</button>
+          ${r.member_email ? `<a class="sr-mail" href="${mail}">מייל לסוכן/ת ←</a>` : ''}
+        </div>
+      </div>`;
+    }).join('');
+
+    reqHost.querySelectorAll('.subsApproveBtn').forEach(btn => btn.addEventListener('click', async ()=>{
+      const card = btn.closest('[data-member]');
+      const tier = card.dataset.tier;
+      const name = card.querySelector('.sr-name').textContent;
+      // ‏requireAck: זו החלטה כספית. תיבת הסימון היא מה שהופך לחיצה מהירה
+      // להחלטה, בדיוק כמו ברכישות ובהשעיית סוכן/ת.
+      const okToGo = await confirmPurchase({
+        title: 'אישור מסלול ' + Tiers.label(tier),
+        lines: [`${name} יעבור/תעבור למסלול ${Tiers.label(tier)} מיד עם האישור.`,
+                'המסלול נכנס לתוקף עכשיו, והחיוב מוסדר מחוץ למערכת.'],
+        price: 0, hidePrice: true, requireAck: true,
+        ackText: 'התשלום הוסדר.', confirmLabel: 'אישור המסלול',
+      });
+      if (!okToGo) return;
+      btn.disabled = true;
+      const { data, error } = await sb.rpc('admin_apply_tier_change', {
+        p_member_id: card.dataset.member, p_tier: tier, p_note: null,
+      });
+      if (error || data?.error){
+        showToast('שגיאה: ' + (data?.error || error.message));
+        btn.disabled = false;
+        return;
+      }
+      showToast(`${data.name || name} עבר/ה ל-${Tiers.label(data.to_tier)}`);
+      await loadSubscriptionsAdmin();
+    }));
+
+    reqHost.querySelectorAll('.subsRejectBtn').forEach(btn => btn.addEventListener('click', async ()=>{
+      const card = btn.closest('[data-member]');
+      // נימוק חובה: הדחייה נרשמת ביומן, ושורה בלי סיבה לא עונה על השאלה
+      // שנשאלת עליה חודש אחר כך.
+      const reason = prompt('סיבת הדחייה (נרשמת ביומן):');
+      if (!reason || !reason.trim()) return;
+      btn.disabled = true;
+      const { data, error } = await sb.rpc('admin_reject_tier_change', {
+        p_member_id: card.dataset.member, p_note: reason.trim(),
+      });
+      if (error || data?.error){
+        showToast('שגיאה: ' + (data?.error || error.message));
+        btn.disabled = false;
+        return;
+      }
+      showToast('הבקשה נדחתה ונרשמה ביומן');
+      await loadSubscriptionsAdmin();
+    }));
+  }
+
+  // ---- היומן ----
+  const SRC_LABELS = {
+    launch_promo:           'הטבת השקה',
+    launch_promo_accepted:  'אישור ההטבה',
+    self:                   'בחירה עצמית',
+    platform_admin:         'אישור הנהלה',
+    promo_expired:          'תום ההטבה',
+    requested:              'בקשת שדרוג',
+    request_rejected:       'בקשה נדחתה',
+  };
+  const entries = log || [];
+  logHost.innerHTML = entries.length
+    ? entries.map(e => `
+      <div class="subs-log-row">
+        <span>
+          <b>${esc(e.member_name || '')}</b>
+          ${e.was_tier && e.was_tier !== e.became_tier
+              ? 'מ-' + esc(Tiers.label(e.was_tier)) + ' ל-' + esc(Tiers.label(e.became_tier))
+              : esc(Tiers.label(e.became_tier))}
+          <span style="color:var(--ink-soft)">· ${esc(SRC_LABELS[e.change_src] || e.change_src)}</span>
+        </span>
+        <span class="sl-when">${esc(hebDate(e.changed_on))}</span>
+      </div>`).join('')
+    : '<div class="empty-state">אין עדיין שינויי מסלול.</div>';
 }
 
 const toggleBillingBtn = document.getElementById('toggleBillingHistory');
@@ -16677,6 +16898,7 @@ const NAV_GROUPS = [
      "ניהול מקורות RSS" בין "הנכסים שלי" ל"הלידים שלי". */
   { key:'admin', label:'ניהול מערכת', icon:'shield', adminOnly:true, items:[
     { acc:NAV_ADMIN_HOME,     label:'לוח בקרה חודשי', icon:'gauge',   tab:'admin' },
+    { acc:'accSubscriptions', label:'מנויים ומסלולים', icon:'shield',  tab:'admin' },
     { acc:'accNeighborhoods', label:'ניהול שכונות',   icon:'map',     tab:'admin' },
     { acc:'accRssSources',    label:'מקורות RSS',     icon:'rss',     tab:'admin' },
     { acc:'accArticles',      label:'כתבות ובלוגים',  icon:'article', tab:'admin' },
