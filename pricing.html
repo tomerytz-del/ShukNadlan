@@ -174,10 +174,14 @@
      שצריך אותו, כי הוא היחיד שנקרא כרשימה. */
   tbody th{font-weight:500;color:var(--ink);position:sticky;inset-inline-start:0;
     background:var(--paper);z-index:1;border-bottom:1px solid var(--line)}
+  /* הנושא ("לידים ופניות", "שיווק הנכס") ירד לשורת משנה כשהמיון עבר להיות
+     לפי זמינות. הוא עדיין נחוץ — בלעדיו "מפת מיקום מדויקת" ו"מדבקת QR"
+     יושבות זו לצד זו בלי שום הקשר — אבל הוא כבר לא מה שמארגן את הרשימה. */
+  tbody th .topic{display:block;font-size:.7rem;font-weight:600;color:#8b95ad;margin-top:2px}
 
   /* --- כותרת קבוצה: פס לרוחב שמחלק את הרשימה לנושאים --- */
   tbody tr.group th{background:var(--paper);font-family:'Frank Ruhl Libre',serif;font-weight:700;
-    font-size:1rem;color:var(--sapphire-deep);padding-top:22px;border-bottom:0}
+    font-size:1.02rem;color:var(--sapphire-deep);padding-top:24px;border-bottom:0}
   tbody tr.group td{background:inherit}
   tbody tr.group td.col-paygo{background:#fbfcff}
   tbody tr.group td.col-pro{background:#eef2fb}
@@ -534,6 +538,41 @@ function cell(value, col){
   return '<td' + c + ' txt">' + esc(value) + '</td>';
 }
 
+/* ---------- הסדר: לפי זמינות, לא לפי נושא ----------
+   קודם כל מה שכלול בשלושת המסלולים, אחר כך מה שנפתח ב-PROFESSIONAL, ובסוף
+   מה שיש רק ב-Elite. הסיבה שיווקית ופשוטה: מי שקורא/ת השוואה שואל/ת "מה
+   ההבדל", ורשימה שמתחילה בעשר שורות זהות עונה על השאלה הזו בשורה הראשונה
+   שבה מופיע ✗.
+
+   הציון נגזר מהנתונים ולא נכתב ביד — שורה חדשה נוחתת בקבוצה הנכונה מעצמה,
+   ואי אפשר לשכוח להזיז אותה. ‏sort יציב ב-ES2019 ומעלה, ולכן שורות עם אותו
+   ציון שומרות על סדר הכתיבה שלהן, וזה מה ששומר על ההיגיון הפנימי (הקפצה
+   לפני קידום, לידי קונה לפני לידי בעל-נכס).
+
+   הנושא הישן (‏"שיווק הנכס", "לידים") לא נמחק — הוא ירד לשורת משנה קטנה
+   מתחת לשם היכולת, כדי שהמיון לא יאבד את ההקשר. */
+var GROUP_TITLES = {
+  3: 'כלול בכל המסלולים',
+  2: 'נפתח ב-PROFESSIONAL ומעלה',
+  1: 'ב-Elite בלבד',
+  0: 'לא כלול באף מסלול',
+};
+
+var ROWS = [];
+COMPARE.forEach(function(group){
+  group[1].forEach(function(row){
+    ROWS.push({
+      label: row[0],
+      topic: group[0],
+      values: row.slice(1),
+      // ‏✗ הוא הדבר היחיד שאינו "כלול": מחיר לפי ליד או מכסה חודשית הם
+      // עדיין יכולת שיש לך, ולכן הם נספרים.
+      score: row.slice(1).filter(function(v){ return v !== false; }).length,
+    });
+  });
+});
+ROWS.sort(function(a, b){ return b.score - a.score; });
+
 document.getElementById('compareTable').innerHTML =
   // הכותרת חוזרת על השם והמחיר: מי שגלל/ה עד לכאן כבר לא רואה את הכרטיסים,
   // ועמודה בלי מחיר מכריחה לגלול חזרה כדי להשוות.
@@ -542,13 +581,15 @@ document.getElementById('compareTable').innerHTML =
       '<span class="cprice">' + esc(t.priceMonthly ? '₪' + t.priceMonthly.toLocaleString('he-IL') + ' / חודש + מע״מ' : 'ללא דמי מנוי') +
       '</span></th>';
   }).join('') + '</tr></thead><tbody>' +
-  COMPARE.map(function(group){
-    return '<tr class="group"><th scope="colgroup">' + esc(group[0]) + '</th>' +
-      COLS.map(function(t){ return '<td class="col-' + t.color + '"></td>'; }).join('') + '</tr>' +
-      group[1].map(function(row){
-        return '<tr class="crow"><th scope="row">' + esc(row[0]) + '</th>' +
-          row.slice(1).map(function(v, i){ return cell(v, COLS[i].color); }).join('') + '</tr>';
-      }).join('');
+  ROWS.map(function(row, i){
+    var head = '';
+    if (i === 0 || ROWS[i - 1].score !== row.score){
+      head = '<tr class="group"><th scope="colgroup">' + esc(GROUP_TITLES[row.score] || '') + '</th>' +
+        COLS.map(function(t){ return '<td class="col-' + t.color + '"></td>'; }).join('') + '</tr>';
+    }
+    return head + '<tr class="crow"><th scope="row">' + esc(row.label) +
+      '<span class="topic">' + esc(row.topic) + '</span></th>' +
+      row.values.map(function(v, c){ return cell(v, COLS[c].color); }).join('') + '</tr>';
   }).join('') + '</tbody>' +
   // אותו CTA של הכרטיסים, בקצה השני של הדף: מי שירד/ה עד לכאן קרא/ה את כל
   // ההשוואה, וזה בדיוק הרגע להחליט — בלי לגלול חזרה למעלה.
