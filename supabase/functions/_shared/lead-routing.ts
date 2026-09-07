@@ -56,6 +56,11 @@ const KNOWN_SOURCES = new Set([
   "homepage_search_agent",
   "homepage_mortgage_calc",
   "property_page_mortgage_calc",
+  // תיבת ההדמיות בדף הנכס: "חושבים למכור/להשכיר?". הליד נושא agent_slug
+  // ולכן היה נרשם ביומן כ-agent_page_owner_wizard — נכון לגבי היעד, מטעה
+  // לגבי המקור. שני הכלים מייצרים לידים באותה כמות ובאותו מסלול, וההבדל
+  // ביניהם הוא בדיוק מה שהיומן קיים כדי לענות עליו.
+  "property_page_owner_wizard",
   "homepage_yield_calc",
   "agency_page_owner_wizard",
   "agency_page_yield_calc",

@@ -451,10 +451,10 @@
     '.ai-lead:focus-visible{outline:3px solid #fff;outline-offset:3px}',
     /* השורה הראשונה כהה-רכה והשנייה כהה-מלאה: על זהב שתיהן קריאות הרבה
        מעל 4.5:1, וההבדל ביניהן הוא מה שאומר מה הכותרת ומה הפעולה. */
-    '.ai-lead-intro{display:block;font-size:13.5px;font-weight:700;line-height:1.5;',
+    '.ai-lead-intro{display:block;font-size:13.5px;font-weight:700;line-height:1.45;',
     '  color:rgba(13,27,61,.82)}',
     '.ai-lead-intro strong{color:#0d1b3d;font-weight:900}',
-    '.ai-lead-main{display:block;margin-top:2px;font-size:16px;font-weight:900;',
+    '.ai-lead-main{display:block;margin-top:4px;font-size:16px;font-weight:900;',
     '  color:#0d1b3d;letter-spacing:-.01em}',
     '@media (prefers-reduced-motion: reduce){.ai-lead:hover,.ai-lead:active{transform:none}}',
     /* בזמן "יוצרים…" הכפתור לא מגיב למגע: הרמה וזוהר על כפתור מושבת
@@ -691,14 +691,18 @@
       : '';
 
     /* תיבת "השאירו פרטים" מופיעה רק כשיש למי לפנות: הדף הקורא מספק גם את
-       הטקסט וגם את הפעולה. בלי ‎onLead‎ אין כאן הבטחה ריקה. */
+       הטקסט וגם את הפעולה. בלי ‎onLead‎ אין כאן הבטחה ריקה.
+
+       ‏lines הוא מערך ולא שדה אחד: השאלה שהכפתור שואל נפרשת על כמה שורות
+       ‏("חושבים למכור/להשכיר" / "ורוצים לראות את הנכס שלכם גם בהדמיות?"),
+       ושבירה שנופלת באמצע אחת מהן הופכת אותה למשפט אחר. ‏label היא השורה
+       המודגשת — הפעולה עצמה. */
+    var leadLines = Array.isArray(lead.lines) ? lead.lines : (lead.intro ? [lead.intro] : []);
     var leadHtml = (opts.onLead && lead.label)
       ? '<button class="ai-lead" type="button" id="aiPropLead">' +
-          (lead.intro
-            ? '<span class="ai-lead-intro">' + esc(lead.intro) +
-                (lead.emphasis ? ' <strong>' + esc(lead.emphasis) + '</strong>' : '') +
-              '</span>'
-            : '') +
+          leadLines.map(function (line) {
+            return '<span class="ai-lead-intro">' + esc(line) + '</span>';
+          }).join('') +
           '<span class="ai-lead-main">' + esc(lead.label) + '</span>' +
         '</button>'
       : '';
