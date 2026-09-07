@@ -3895,10 +3895,13 @@
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-      <div style="margin-bottom:10px">
+      <!-- התג והמשפט מתמלאים מ-probeTopupMode(). הם מתחילים ריקים בכוונה:
+           "מצב בדיקה" שמוצג לרגע לפני שהתשובה חוזרת גרוע משום הודעה, כי מי
+           שקורא/ת אותו מסיק/ה שלא ייגבה תשלום — ואז נגבה. -->
+      <div id="topupModeBadge" style="margin-bottom:10px;display:none">
         <span style="font-size:.68rem;font-weight:800;background:var(--gold-tint);color:var(--gold-dark);padding:3px 9px;border-radius:5px">מצב בדיקה — ללא חיוב אמיתי</span>
       </div>
-      <p class="acc-sub">טרם חובר ספק סליקה אמיתי — הטעינה כאן להדגמה/בדיקה בלבד, לא כרטיס אשראי אמיתי.</p>
+      <p class="acc-sub" id="topupModeNote">הסכום שתטענו יעמוד לרשותכם לרכישת לידים ולהקפצת נכסים.</p>
       <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
         <select id="topupAmount" style="flex:1;min-width:120px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px">
           <option value="100">₪100</option>
@@ -5589,6 +5592,11 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   badge.innerHTML = '<span class="tier-word">מסלול </span>' + esc(tierLabels[agent.tier] || agent.tier);
   badge.className = 'tier-badge tier-' + agent.tier;
   setAgentBalance(agent.credit_balance);
+
+  // מצב הסליקה והחזרה מעמוד התשלום — שניהם ברקע. הראשון רק צובע טקסט,
+  // והשני מחכה ל-webhook; לא מעכבים בגללם את בניית הדשבורד.
+  probeTopupMode();
+  handleTopupReturn();
 
   // המחירים נטענים לפני הלידים, כי דיאלוג האישור מציג את הסכום שייגבה בפועל
   await loadPricing();
@@ -7866,12 +7874,46 @@ async function moderateReview(reviewId, newStatus, agencyId){
   await loadPendingReviews(agencyId);
 }
 
-/* ---------- Wallet top-up ---------- */
+/* ---------- Wallet top-up ----------
+   טעינת ארנק היא שתי פעולות ולא אחת: כאן נפתח התשלום, והזיכוי קורה בשרת
+   אחרי שמורנינג מאשר/ת את החיוב. לכן שום דבר בקובץ הזה לא מצהיר "נטענו" —
+   היתרה שמגיעה מהמסד היא ההצהרה היחידה, והיא גם היחידה שאפשר לסמוך עליה. */
+
+/* מצב הסליקה נקבע בשרת לפי הסודות שמוגדרים בו, ולא בקוד הדף. כך המעבר
+   ממצב בדיקה לסליקה אמיתית קורה בהגדרת סוד — בלי לפרסם HTML מחדש ובלי
+   רגע שבו הכפתור אומר דבר אחד והשרת עושה אחר. */
+async function probeTopupMode(){
+  const badge = document.getElementById('topupModeBadge');
+  const note  = document.getElementById('topupModeNote');
+  const btn   = document.getElementById('topupBtn');
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return;
+    const res = await fetch(SUPABASE_URL + '/functions/v1/wallet-topup', {
+      headers:{ 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+    });
+    if (!res.ok) return;
+    const data = await res.json();
+    const live = data.configured === true;
+
+    badge.style.display = live ? 'none' : '';
+    note.textContent = live
+      ? 'התשלום מתבצע בעמוד מאובטח של מורנינג. פרטי הכרטיס אינם עוברים דרך האתר, וחשבונית תונפק אוטומטית.'
+      : 'טרם חובר ספק סליקה — הטעינה כאן להדגמה/בדיקה בלבד, לא כרטיס אשראי אמיתי.';
+    btn.textContent = live ? 'מעבר לתשלום' : 'טעינת הארנק';
+  } catch(err){
+    // הבדיקה נכשלה. משאירים את הממשק כמו שהוא — עדיף בלי הצהרה על מצב
+    // מאשר הצהרה שאולי שגויה. הכפתור עדיין עובד, והשרת יחליט.
+    console.error('probeTopupMode', err);
+  }
+}
+
 document.getElementById('topupBtn').addEventListener('click', async ()=>{
   const amount = document.getElementById('topupAmount').value;
   const btn = document.getElementById('topupBtn');
   const feedback = document.getElementById('topupFeedback');
-  btn.disabled = true; btn.textContent = 'טוען…'; feedback.textContent = '';
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'רגע…'; feedback.textContent = '';
   try{
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/wallet-topup', {
@@ -7882,22 +7924,93 @@ document.getElementById('topupBtn').addEventListener('click', async ()=>{
     const data = await res.json();
     if (!res.ok || data.error){
       feedback.style.color = 'var(--red)';
-      feedback.textContent = 'שגיאה בטעינה — נסו שוב';
-      btn.disabled = false; btn.textContent = 'טעינת הארנק';
+      feedback.textContent = data.error === 'too_many_open_topups'
+        ? 'יש כמה טעינות שטרם הושלמו. השלימו או המתינו מעט ונסו שוב.'
+        : 'שגיאה בפתיחת התשלום — נסו שוב';
+      btn.disabled = false; btn.textContent = label;
       return;
     }
+
+    // סליקה אמיתית: יוצאים מהדף אל מורנינג. אין כאן הודעת הצלחה — עוד לא
+    // קרה כלום חוץ מפתיחת ניסיון תשלום.
+    if (data.redirect_url){
+      feedback.style.color = 'var(--muted)';
+      feedback.textContent = 'מעבירים לעמוד התשלום…';
+      window.location.href = data.redirect_url;
+      return;
+    }
+
+    // מצב בדיקה: הזיכוי כבר קרה בשרת, ולכן מותר להצהיר עליו.
     feedback.style.color = 'var(--blue)';
     feedback.textContent = `נטענו ₪${data.amount} בהצלחה (מצב בדיקה)`;
-    // מרענן את היתרה המוצגת בלי לטעון את כל הדשבורד מחדש
     await refreshAgentBalance();
   } catch(err){
     console.error(err);
     feedback.style.color = 'var(--red)';
     feedback.textContent = 'שגיאת רשת — נסו שוב';
   } finally {
-    btn.disabled = false; btn.textContent = 'טעינת הארנק';
+    btn.disabled = false; btn.textContent = label;
   }
 });
+
+/* ---------- החזרה מעמוד התשלום ----------
+   ‏?topup=success אינו הוכחה שהכסף נכנס: הוא רק אומר שמורנינג החזיר/ה את
+   הגולש/ת דרך כתובת ההצלחה. הזיכוי עצמו קורה ב-webhook, שעשוי להגיע שנייה
+   אחרי — או, אם משהו השתבש, רק ב-reconcile. לכן כאן לא מציגים סכום ולא
+   כותבים "נטען", אלא בודקים את השורה במסד עד שהיא נסגרת.
+
+   הכתובת מנוקה מיד — רענון דף אחרי טעינה לא אמור להיראות כמו טעינה חדשה —
+   אבל **רק שני המפתחות שלנו**, ובדיוק כמו ב-cleanAuthParamsFromUrl(): מחיקת
+   כל ה-query הייתה מוחקת גם את invite, ו-replaceState עם null במקום
+   history.state הורס את הזקיף של exit-guard.js. */
+async function handleTopupReturn(){
+  const params = new URLSearchParams(location.search);
+  const outcome = params.get('topup');
+  const topupId = params.get('topup_id');
+  if (!outcome) return;
+
+  if (window.history && window.history.replaceState){
+    params.delete('topup'); params.delete('topup_id');
+    const search = params.toString();
+    history.replaceState(history.state, '',
+      location.pathname + (search ? '?' + search : '') + location.hash);
+  }
+  document.getElementById('accWallet')?.setAttribute('open', '');
+  const feedback = document.getElementById('topupFeedback');
+  if (!feedback) return;
+
+  if (outcome !== 'success'){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'התשלום לא הושלם. לא בוצע חיוב.';
+    return;
+  }
+
+  feedback.style.color = 'var(--muted)';
+  feedback.textContent = 'התשלום התקבל — מעדכנים את היתרה…';
+
+  // חמישה ניסיונות על פני ~12 שניות. אם ה-webhook מאחר יותר מזה, ההודעה
+  // מפנה להיסטוריה במקום להיתקע על "מעדכנים" — הכסף לא אבד, הוא בדרך.
+  for (let i = 0; i < 5; i++){
+    await new Promise(r => setTimeout(r, i === 0 ? 1200 : 2600));
+    if (!topupId){ await refreshAgentBalance(); break; }
+    const { data } = await sb.from('wallet_topups')
+      .select('status, amount').eq('id', topupId).maybeSingle();
+    if (data?.status === 'success'){
+      await refreshAgentBalance();
+      feedback.style.color = 'var(--blue)';
+      feedback.textContent = `נטענו ₪${data.amount} לארנק.`;
+      return;
+    }
+    if (data?.status === 'failed'){
+      feedback.style.color = 'var(--red)';
+      feedback.textContent = 'התשלום לא אושר. לא בוצע חיוב.';
+      return;
+    }
+  }
+  await refreshAgentBalance();
+  feedback.style.color = 'var(--muted)';
+  feedback.textContent = 'התשלום נקלט והיתרה תתעדכן בדקות הקרובות. אפשר לעקוב בהיסטוריית החיובים.';
+}
 
 const toggleBillingBtn = document.getElementById('toggleBillingHistory');
 const billingHistoryList = document.getElementById('billingHistoryList');
@@ -7920,17 +8033,31 @@ async function loadBillingHistory(){
   const items = [
     ...(charges||[]).map(c=>({ label:'פתיחת ליד', amount: -c.amount, status: c.status, date: c.created_at })),
     ...(promotions||[]).map(p=>({ label:'קידום נכס', amount: -p.amount, status: p.status, date: p.created_at })),
-    ...(topups||[]).map(t=>({ label:'טעינת ארנק' + (t.test_mode ? ' (בדיקה)' : ''), amount: t.amount, status: t.status, date: t.created_at })),
+    // טעינה עשויה להיות תלויה או כושלת, ולא רק מוצלחת. בלי הסימון הזה שורת
+    // 'pending' נראית זהה לטעינה שנכנסה — כלומר הסוכן/ת סופר/ת כסף שאין.
+    ...(topups||[]).map(t=>({
+      label:'טעינת ארנק' + (t.test_mode ? ' (בדיקה)' : '') +
+            (t.status === 'pending' ? ' — ממתין לתשלום' :
+             t.status === 'failed'  ? ' — לא הושלמה' : ''),
+      amount: t.amount, status: t.status, date: t.created_at,
+      settled: t.status === 'success',
+    })),
     ...(shelfPurchases||[]).map(p=>({ label:'רכישת ליד מהחנות', amount: -p.amount, status: p.status, date: p.created_at })),
     ...(mortgagePurchases||[]).map(p=>({ label:'רכישת ליד משכנתאות', amount: -p.amount, status: p.status, date: p.created_at })),
   ].sort((a,b)=> new Date(b.date) - new Date(a.date));
 
   if (items.length === 0){ billingHistoryList.innerHTML = '<div class="empty-state">אין עדיין היסטוריית חיובים.</div>'; return; }
-  billingHistoryList.innerHTML = items.map(it => `
-    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:.82rem">
+  /* שורה שלא נסגרה מוצגת דהויה ובלי צבע של סכום שנכנס. ‏settled מוגדר רק
+     על טעינות; לכל שאר הסוגים הוא undefined, והם נשארים כפי שהיו. */
+  billingHistoryList.innerHTML = items.map(it => {
+    const unsettled = it.settled === false;
+    const color = unsettled ? 'var(--muted)' : (it.amount<0 ? 'var(--red)' : 'var(--blue)');
+    return `
+    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--line);font-size:.82rem${unsettled?';opacity:.6':''}">
       <span>${it.label}</span>
-      <span style="font-weight:700;color:${it.amount<0?'var(--red)':'var(--blue)'}">${it.amount<0?'-':'+'}₪${Math.abs(it.amount)}</span>
-    </div>`).join('');
+      <span style="font-weight:700;color:${color}">${unsettled?'':(it.amount<0?'-':'+')}₪${Math.abs(it.amount)}</span>
+    </div>`;
+  }).join('');
 }
 
 /* ---------- Planning lookup tool: clean fields + parcel map (not raw JSON) ---------- */

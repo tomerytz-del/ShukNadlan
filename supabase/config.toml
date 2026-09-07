@@ -183,3 +183,14 @@ verify_jwt = true           # הפקת סרטון שיווקי — נוגע ב-c
 # ב-property_video_jobs; מסלול ה-reconcile מאומת דרך _shared/cron-auth.ts.
 [functions.property-video-callback]
 verify_jwt = false
+
+# מורנינג קורא/ת לכאן מבחוץ בסיום תשלום, ואין לו/ה JWT שלנו.
+#
+# זו נקודת הקצה היחידה שמזכה ארנק, ולכן שווה לומר במפורש מה מגן עליה: סוד
+# בכתובת (‏MORNING_WEBHOOK_SECRET, בהשוואת זמן קבוע) הוא רק השכבה הראשונה.
+# השכבה שבאמת סופרת היא שגוף ה-webhook **אינו נאמן** — ממנו נלקח מזהה בלבד,
+# והמצב האמיתי נשלף בקריאה חוזרת ל-API של מורנינג מול המפתח הפרטי שלנו.
+# גם מי שיודע/ת את הסוד לא יכול/ה לזכות ארנק בתשלום שלא קרה.
+# מסלול ה-reconcile מאומת בנפרד דרך _shared/cron-auth.ts.
+[functions.wallet-topup-callback]
+verify_jwt = false
