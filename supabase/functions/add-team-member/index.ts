@@ -57,8 +57,16 @@ function normalizeEmail(raw: unknown): string {
 }
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
 
+/**
+ * הקישור מוביל לדף המסלולים ולא ישר ל-CRM, וזה שינוי מכוון: הצטרפות מתחילה
+ * בבחירת מסלול. ‏pricing.html קורא/ת את האסימון, מציג/ה את המסלולים, וכל CTA
+ * שם מחזיר/ה ל-‎crm.html?invite=<token>&tier=<id>‎ — כלומר האסימון ממשיך הלאה
+ * בדיוק כמו קודם, והתנהגות ה-CRM לא השתנתה. מי שיגיע/ה עם קישור ישן
+ * ל-‎crm.html?invite=…‎ עדיין ייקלט/תיקלט: הבחירה פשוט תוצג לו/ה בשער המסלול
+ * שאחרי ההתחברות.
+ */
 const inviteUrl = (token: string) =>
-  `${SITE_BASE_URL}/crm.html?invite=${encodeURIComponent(token)}`;
+  `${SITE_BASE_URL}/pricing.html?invite=${encodeURIComponent(token)}`;
 
 // ---------------------------------------------------------------------------
 // מכתב ההזמנה
@@ -90,7 +98,7 @@ function inviteHtml(a: { name: string; agency: string; inviter: string; url: str
       </p>
       <a href="${esc(a.url)}"
          style="display:inline-block;background:#1B2A41;color:#fff;text-decoration:none;padding:13px 26px;border-radius:9px;font-size:15px;font-weight:bold">
-        הצטרפות למשרד
+        בחירת מסלול והצטרפות
       </a>
       <p style="margin:20px 0 0;font-size:13px;color:#7A8899;line-height:1.6">
         הכניסה היא עם חשבון Google שלך או עם סיסמה שתגדיר/י בעצמך — אף אחד
@@ -117,7 +125,7 @@ function inviteText(a: { name: string; agency: string; inviter: string; url: str
     "",
     PROMO_LINE,
     "",
-    `להצטרפות: ${a.url}`,
+    `לבחירת מסלול והצטרפות: ${a.url}`,
     "",
     "הכניסה היא עם חשבון Google שלך או עם סיסמה שתגדיר/י בעצמך. הקישור אישי ותקף 30 יום.",
   ].join("\n");

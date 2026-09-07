@@ -123,7 +123,11 @@
   .plan.is-current{outline:2.5px solid var(--sapphire);outline-offset:2px}
   .ribbon{position:absolute;top:12px;inset-inline-end:12px;font-size:.68rem;font-weight:800;
     background:var(--sapphire);color:#fff;border-radius:6px;padding:3px 9px}
-  .plan-cta.is-disabled{background:#eef1f8;border:1.6px solid var(--line);color:var(--ink-soft);
+  /* ‏.plan .plan-cta.is-disabled ולא רק ‎.plan-cta.is-disabled‎: הצבע של כל
+     מסלול נכתב כ-‎.plan.pro .plan-cta‎ — שלוש מחלקות — וכלל של שתיים אינו גובר
+     עליו. בלי התוספת הזו כפתור נעול נשאר ספיר כהה ומלא, ונראה לחיץ יותר
+     מהכפתור היחיד שבאמת אפשר ללחוץ עליו. */
+  .plan .plan-cta.is-disabled{background:#eef1f8;border:1.6px solid var(--line);color:var(--ink-soft);
     box-shadow:none;cursor:default;filter:none}
 
   /* ==========================================================================
@@ -395,6 +399,18 @@ const esc = (s) => String(s == null ? '' : s)
   box.hidden = false;
 })();
 
+/* מי שהגיע/ה מקישור הזמנה כבר יודע/ת לאיזה משרד — מה שהוא/היא לא יודע/ת זה
+   למה עוצרים אותו/ה כאן לפני הכניסה. שורה אחת מסבירה: בוחרים מסלול, וממשיכים
+   להשלמת הפרטים. */
+if (inviteTok){
+  document.getElementById('heroTitle').textContent = 'ברוך/ה הבא/ה — נותר לבחור מסלול';
+  document.getElementById('heroLead').textContent = promoOpen
+    ? 'ההזמנה למשרד ממתינה לך. בתקופת ההשקה כל מצטרף/ת חדש/ה מקבל/ת ' +
+      Tiers.PROMO.months + ' חודשים במסלול ' + Tiers.label(Tiers.PROMO.tier) +
+      ' ללא תשלום — בוחרים, ממשיכים להשלמת הפרטים, ומתחילים לעבוד.'
+    : 'ההזמנה למשרד ממתינה לך. בוחרים מסלול, ממשיכים להשלמת הפרטים, ומתחילים לעבוד.';
+}
+
 /* ---------- שלושת הכרטיסים ----------
    ה-CTA הוא כל ההבדל בין הדף הזה לבין טבלת מחירים: בכל מצב יש בדיוק פעולה
    אחת נכונה לכל כרטיס, והיא נכתבת כאן במפורש ולא נגזרת בדרך אגב. */
@@ -421,19 +437,30 @@ function ctaFor(tier){
     };
   }
 
+  /* בתקופת ההשקה יש מסלול אחד להצטרפות, וזה Elite. הנעילה כאן אינה קישוט:
+     ‏agency-signup, create-own-agency ו-join-agency מעניקים את ההטבה בכל
+     מקרה (‏grantLaunchPromo), ולכן כרטיס Pay&GO לחיץ היה מבטיח בחירה שהשרת
+     לא מכבד — ומי שלוחץ/ת עליו מקבל/ת Elite ומגלה זאת אחר כך. עדיף לומר את
+     האמת מראש: המסלולים הנמוכים ייפתחו בתום ההטבה. */
+  const launchLocked = promoOpen && tier.id !== Tiers.PROMO.tier;
+  if (launchLocked){
+    return { label: 'ייפתח בתום ההטבה', disabled: true,
+             foot: 'בתקופת ההשקה כל המצטרפים מקבלים ' + Tiers.label(Tiers.PROMO.tier) };
+  }
+
   if (inviteTok){
     return {
-      label: tier.cta,
+      label: promoOpen ? 'מצטרפים למשרד — ' + Tiers.PROMO.months + ' חודשים במתנה' : tier.cta,
       href: 'crm.html?invite=' + encodeURIComponent(inviteTok) + '&tier=' + encodeURIComponent(tier.id),
-      foot: '',
+      foot: promoOpen ? 'בלי כרטיס אשראי' : '',
     };
   }
 
   // הדף הציבורי: הצטרפות למערכת היא פתיחת משרד.
   return {
-    label: promoOpen && tier.id === Tiers.PROMO.tier ? 'מתחילים — 6 חודשים במתנה' : tier.cta,
+    label: promoOpen ? 'מתחילים — ' + Tiers.PROMO.months + ' חודשים במתנה' : tier.cta,
     href: 'agency-signup.html?tier=' + encodeURIComponent(tier.id),
-    foot: promoOpen && tier.id === Tiers.PROMO.tier ? 'בלי כרטיס אשראי' : '',
+    foot: promoOpen ? 'בלי כרטיס אשראי' : '',
   };
 }
 

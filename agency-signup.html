@@ -122,7 +122,23 @@
 </div>
 
 <script src="assets/specialties.js"></script>
+<script src="assets/tiers.js"></script>
 <script>
+/* ---------- המסלול שנבחר בדף המסלולים ----------
+   ‏?tier= הוא אישור ולא הגדרה: הוא מאשר למי שהגיע/ה מדף המסלולים שהבחירה
+   שלו/ה לא נעלמה בדרך. המסלול עצמו נקבע בשרת — ‏agency-signup מעניק/ה את
+   הטבת ההשקה לכל משרד חדש (‏grant_launch_promo), ולכן ערך שנערך בכתובת אינו
+   משנה דבר מלבד השורה הזו. */
+(function showChosenTier(){
+  const raw = new URLSearchParams(location.search).get('tier');
+  const tier = (raw && window.Tiers) ? Tiers.byId(raw) : null;
+  if (!tier) return;
+  const line = document.createElement('div');
+  line.style.cssText = 'margin-top:8px;font-weight:700;color:var(--blue)';
+  line.textContent = 'המסלול שבחרת: ' + tier.name;
+  document.getElementById('promoNote').appendChild(line);
+})();
+
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const SIGNUP_FUNCTION_URL = SUPABASE_URL + '/functions/v1/agency-signup';
