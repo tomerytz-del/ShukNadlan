@@ -123,6 +123,19 @@ post_text — פוסט לפייסבוק, עד 45 מילים, משפט פותח �
 // התקנה, שצריך לומר אותו במפורש) לבין "נכשל" (שצריך לנסות שוב).
 // ---------------------------------------------------------------------------
 
+/** מפתח שקיים אבל Anthropic דוחה אותו — תקלת התקנה, בדיוק כמו מפתח חסר.
+ *
+ *  ההבחנה הזו אינה קוסמטית. מפתח שפג או הודבק חסר תו נכשל בכל קריאה, ובלי
+ *  הסיווג הנפרד הוא נראה כמו כישלון כתיבה: הסוכן/ת מקבל/ת "נסו שוב" על משהו
+ *  שלא יעבוד גם בניסיון המאה, והתור שורף ארבעה ניסיונות לכל נכס ומסמן אותו
+ *  ‏failed — כך שגם אחרי החלפת המפתח הנכסים לא חוזרים לבד. */
+export class MarketingCopyAuthError extends Error {
+  constructor(detail: string) {
+    super(`ANTHROPIC_API_KEY נדחה על ידי Anthropic: ${detail}`);
+    this.name = "MarketingCopyAuthError";
+  }
+}
+
 export async function generateMarketingCopy(
   row: PropertyFacts,
   opts: { apiKey: string; model: string },
@@ -144,6 +157,9 @@ export async function generateMarketingCopy(
     }),
   });
 
+  if (res.status === 401 || res.status === 403) {
+    throw new MarketingCopyAuthError((await res.text()).slice(0, 200));
+  }
   if (!res.ok) {
     throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`);
   }

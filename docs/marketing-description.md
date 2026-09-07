@@ -213,8 +213,9 @@ select queue_property_description('<uuid>', 'manual', true, 0);
 
 | מה רואים | מה זה |
 | --- | --- |
-| `copy_not_configured` (503) | ‏`ANTHROPIC_API_KEY` לא מוגדר ב-Edge Functions → Secrets. התור לא נשרף — השורות ממתינות |
+| `copy_not_configured` (503) | ‏`ANTHROPIC_API_KEY` חסר — או קיים ו-Anthropic דוחה אותו (‏401/403: מפתח שפג, שהוחלף או שהודבק חסר תו). מגדירים אותו ב-Edge Functions → Secrets. בשני המקרים התור לא נשרף: השורות נשארות `pending`, חוזרות כעבור רבע שעה, ונכתבות מעצמן ברגע שהמפתח תקין |
 | `cron_secret_not_configured` (503) | ‏`ALERT_CRON_SECRET` חסר. חוסם רק את המסלול האוטומטי; רענון של סוכן/ת עובד |
 | `cooldown_active` (429) | לחיצה חוזרת תוך פחות מ-45 שניות על אותו נכס |
 | נכס נשאר בלי תיאור והתור ריק | ‏`marketing_description_auto_enabled = 0`, או שהתקרה היומית נגמרה — השורות ימשיכו מחר |
 | שורה ב-`failed` | ארבעה ניסיונות נכשלו. ‏`last_error` אומר למה; `queue_property_description(..., true)` מחזיר לתור |
+| הכפתור ב-CRM נכשל בלי הודעה מהשרת | תשובת ה-preflight. ‏`property-description` נקראת גם מהדפדפן, ולכן היא **חייבת** לענות ל-`OPTIONS` ולהחזיר כותרות CORS בכל תשובה — בלי זה הדפדפן חוסם את הבקשה לפני שהיא מגיעה לשרת, וביומן רואים `OPTIONS \| 405` בלי POST אחריו |
