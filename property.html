@@ -802,7 +802,7 @@
      שני חללים ריקים בתחתית התיבה — אחד בין האריחים להצהרה ואחד מתחתיה —
      שנקראו כסוף התוכן הרבה לפני שהוא באמת נגמר. */
   #aiShowcase .ai-band-inner{max-width:none;grid-template-columns:1fr;
-    gap:16px;padding:26px 20px 16px}
+    gap:16px;padding:24px 16px 14px}
   /* התיבה כמכולה: הכלל שמתחת שואל את רוחבה שלה, כי היא יושבת בעמודת
      גריד שרוחבה אינו רוחב המסך. */
   #vizSection{container-type:inline-size}
@@ -816,27 +816,31 @@
        גבוה בהרבה מהטור שלצדו, ומירכוז אנכי הפיל את הכותרת אל אמצע הגובה
        שלו — כלומר התחיל את ההבטחה שליש מתחת לראש התיבה, מול תמונה
        שמתחילה בקצה העליון. שתי העמודות מתחילות עכשיו באותו קו.
-       ‏18px מתחת להצהרה, ולא 30 של ה-gap: מתחת לשורה האחרונה אין עוד
-       שורה שצריך להפריד ממנה — יש רק את קצה התיבה. */
+       ‏16px מתחת להצהרה, ולא 26 של ה-gap: מתחת לשורה האחרונה אין עוד
+       שורה שצריך להפריד ממנה — יש רק את קצה התיבה.
+
+       ‏24px של ריפוד צדדי ו-26 בין העמודות, במקום 26/30 שהיו כאן: מה
+       שיורד מהשוליים נכנס לתמונות. אותו רוחב תיבה בדיוק, ולוח הסגנונות
+       והווילון גדלים בכמה נקודות אחוז כל אחד. */
     #aiShowcase .ai-band-inner{grid-template-columns:1.15fr 1fr;
-      align-items:stretch;column-gap:30px;row-gap:16px;padding:30px 26px 18px}
+      align-items:stretch;column-gap:26px;row-gap:14px;padding:28px 24px 16px}
     /* טור ההבטחה נמתח לגובה הווילון שלצדו, והפקדים נדחפים לתחתיתו.
        בלי זה הטור מסתיים 170px מעל שכנו ונשאר חור כהה בפינה — והדרך
        השנייה לסגור אותו, לצמצם את עמודת התמונה, מקטינה בדיוק את הדבר
        שבגללו נכנסו לתיבה. כך במקום חלל ריק יש הפרדה בין ההבטחה למעלה
-       לבין הפעולה למטה, ושתי העמודות נגמרות באותו קו.
-
-       ‏align-self על התגית: בטור flex הילדים נמתחים לרוחב מלא כברירת
-       מחדל, והתגית — שכל כולה תיבה בגודל המילים שבה — הייתה נמתחת איתם. */
+       לבין הפעולה למטה, ושתי העמודות נגמרות באותו קו. */
     #aiShowcase .ai-copy{display:flex;flex-direction:column}
-    #aiShowcase .ai-copy .ai-eyebrow{align-self:flex-start}
-    /* שבבי הסגנון (נכס פרטי) או שדות הבקשה (מסחרי) — מה שקיים הוא
+    /* לוח הסגנונות (נכס פרטי) או שדות הבקשה (מסחרי) — מה שקיים הוא
        שנדחף למטה. הם לעולם לא מופיעים יחד. */
-    #aiShowcase .ai-copy .ai-styles,
+    #aiShowcase .ai-copy .ai-styles-card,
     #aiShowcase .ai-copy .ai-ask:not(:empty){margin-top:auto}
   }
   #aiShowcase .ai-band h3{font-size:clamp(20px,3.4vw,25px)}
-  #aiShowcase .ai-band p{font-size:15px}
+  /* ‏.ai-copy > p‎ ולא ‎.ai-band p‎: בתיבה יש עכשיו שלוש פסקאות נוספות
+     (כותרת לוח הסגנונות, הכיתוב שבתוך הלוח הלבן וההצהרה שבתחתית), ובורר
+     עם מזהה היה גובר על הכללים הייעודיים של כל אחת מהן. */
+  #aiShowcase .ai-copy > p{font-size:15px}
+  #aiShowcase .ai-points li{font-size:14px}
 
   /* ‏16:9 קבוע לנגן: גובה שנקבע מהמדיה עצמה גורם לקפיצת פריסה כשה-metadata
      נטענת, וסרטוני נכסים מגיעים גם לאורך וגם לרוחב. */
@@ -2265,9 +2269,48 @@ function renderPropertyShowcase(){
       leadPick: vizState.leadPick,
       cta: vizBandCta(),
       onCta: onVizBandCta,
+      /* ההזמנה לפגישה. הטקסט יושב כאן ולא ברכיב כי הרכיב לא יודע למי
+         הליד הולך — הדף כן. */
+      lead: {
+        intro: 'רוצים לראות את הנכס שלכם בהדמיה?',
+        emphasis: 'תתקשרו אלינו!',
+        label: 'השאירו פרטים לקבלת פגישה בחינם',
+      },
+      onLead: onVizLeadCta,
       onSelectStyle: (key, resultUrl)=>{ vizState.leadPick = resultUrl || null; selectVizStyle(key); },
     });
   });
+}
+
+/* ---------- "השאירו פרטים לקבלת פגישה בחינם" ----------
+   מי שראה/תה מה AI עושה לנכס של מישהו אחר שואל/ת מיד מה זה היה עושה לשלו/ה,
+   וזו הפנייה שהתיבה קולטת. היא לא נשלחת מכאן ולא פותחת טופס משלה: היא
+   מקפיצה את טופס "תיאום ביקור בנכס" שכבר בעמוד ומעבירה אליו את המיקוד.
+
+   **וזו הנקודה שבגללה זה נכתב כך.** הטופס ההוא שולח ל-‎property-inquiry-intake‎,
+   והפונקציה הזאת משייכת את הליד ל-‎property.agent_id‎ — הסוכן/ת שהנכס שלו/ה —
+   ופותחת אותו **לפי התוכנית של אותו סוכן/ת**: ‏Mid ו-Premium מקבלים אותו
+   פתוח מיד וללא עלות, ‏Free מקבל/ת אותו מוסתר ופותח/ת דרך ה-CRM. טופס שני
+   שהיה שולח לאותה כתובת היה מכפיל את הלוגיקה הזאת בלי להוסיף כלום, וטופס
+   שהיה שולח למקום אחר היה מנתק את הליד מהתוכנית של הסוכן/ת.
+
+   ההודעה המוכנה מוחלפת רק כשהיא ריקה או כשהיא זו שהדף כתב בעצמו: מי
+   שהתחיל/ה לכתוב הודעה משלו/ה לא מאבד/ת אותה. */
+const INQUIRY_AUTO_PREFIX = 'שלום, ראיתי בשוק הנדל״ן את מודעה מספר ';
+function onVizLeadCta(){
+  const card = document.querySelector('.agent-card');
+  const msg  = document.getElementById('inqMessage');
+  if (msg && (!msg.value.trim() || msg.value.startsWith(INQUIRY_AUTO_PREFIX))){
+    msg.value = 'שלום, ראיתי את ההדמיות בדף הנכס ואשמח לפגישה ללא עלות על הדמיה לנכס שלי';
+  }
+  prefillInquiryContact();
+  if (card) card.scrollIntoView({ behavior:'smooth', block:'center' });
+  // אחרי הגלילה ולא לפניה: מיקוד קופץ לשדה בעצמו, ושתי קפיצות באותו רגע
+  // נראות כמו תקלה.
+  setTimeout(()=>{
+    const nameEl = document.getElementById('inqName');
+    if (nameEl) nameEl.focus();
+  }, 420);
 }
 
 /* טופס הבקשה מוצג *בתוך* הרצועה, מעל הכפתור — אבל הרצועה מוחקת ובונה את
@@ -2703,7 +2746,7 @@ function prefillInquiryMessage(p){
   if (!p.listing_number) return;
   const box = document.getElementById('inqMessage');
   if (box.value.trim()) return;
-  box.value = 'שלום, ראיתי בשוק הנדל״ן את מודעה מספר ' + p.listing_number + ' ורציתי לקבל עוד פרטים';
+  box.value = INQUIRY_AUTO_PREFIX + p.listing_number + ' ורציתי לקבל עוד פרטים';
 }
 
 /* מי שכבר מסר/ה שם וטלפון באתר לא מקליד/ה אותם שוב. השדות מלאים מראש

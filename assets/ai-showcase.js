@@ -23,12 +23,28 @@
      3. **הסרגל הוא ‎<input type=range>‎ אמיתי.** גרירה מותאמת אישית הייתה
         משאירה את הרכיב בלתי נגיש למקלדת; כאן החצים, Home/End ו-PageUp/Down
         עובדים בחינם, וקורא מסך מכריז עליו כמחוון עם ערך.
+     4. **הרכיב לא שולח לידים.** תיבת "השאירו פרטים לקבלת פגישה בחינם"
+        היא כפתור שקורא ל-‎onLead‎ של הדף, ותו לא. מי שמקבל/ת את הפנייה
+        ובאיזו תוכנית היא נפתחת נקבע במסלול של הדף הקורא — בדף הנכס זה
+        טופס הפנייה שכבר בעמוד, שמשייך את הליד לסוכן/ת של הנכס ופותח
+        אותו לפי התוכנית שלו/ה. רכיב תצוגה שהיה מכיר טבלת לידים היה
+        קובע את הניתוב במקום שבו אין לו מושג לאן.
 
    שימוש:
        <div id="aiShowcase"></div>
        <script defer src="assets/ai-showcase.js"></script>
        ...
        AiShowcase.mountProperty(el, { items, styles, activeStyle, ... });
+
+   ‏opts:
+       items          — ההדמיות: { target, style_key, result_url, source_image_url }
+       styles         — [{ key, label }] · ריק בנכס מסחרי
+       activeStyle    — מפתח הסגנון המוצג · ‏null במסחרי
+       commercial     — משנה את תוויות החללים ואת שורות ההסבר
+       leadPick       — ‎result_url‎ של התמונון שנבחר עכשיו
+       cta / onCta    — הכפתור שמייצר הדמיה חדשה
+       lead / onLead  — { intro, emphasis, label } + הפעולה של "השאירו פרטים"
+       onSelectStyle  — (styleKey, resultUrl)
 
    הנתונים מגיעים מבחוץ ולא נשלפים כאן: דף הנכס כבר שלף אותם בשביל הגלריה
    שלו, ושאילתה שנייה לאותן שורות הייתה מייצרת שני מקורות אמת שיכולים
@@ -69,6 +85,49 @@
       '<path d="M18 16.5 18.7 18l1.5.7-1.5.7L18 21l-.7-1.6-1.5-.7 1.5-.7Z"/>' +
     '</svg>';
 
+  /* ---- אייקונים ----
+     כל אייקון הוא קו בלבד (‏fill:none, ‏currentColor), ולכן הוא לובש את צבע
+     ההקשר שהוא יושב בו: זהב בשורות ההסבר, לבן בשבב סגנון פעיל. אין כאן
+     קובץ תמונה ואין תלות בספריית אייקונים — רצועה שנטענת בכל דף נכס לא
+     צריכה להביא איתה 40KB בשביל ארבעה סמלים. */
+  function icon(paths, cls) {
+    return '<svg class="' + (cls || 'ai-ico') + '" viewBox="0 0 24 24" fill="none" ' +
+      'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" ' +
+      'stroke-linejoin="round" aria-hidden="true">' + paths + '</svg>';
+  }
+
+  /* הסמן שמסמן "לחצו" והמחוונים שמסמנים "החליפו סגנון" — שני האייקונים
+     שמובילים את שורות ההסבר. הם לא קישוט: כל שורה מצביעה על פקד אחר
+     בתיבה, והסמל הוא מה שקושר בין המשפט לבין הפקד שהוא מדבר עליו. */
+  var ICON_TAP = '<path d="m5 4 6 16 2.2-6.6L20 11Z"/><path d="M15.5 15.5 20 20"/>';
+  var ICON_SLIDERS =
+    '<path d="M4 6h9"/><path d="M17 6h3"/><circle cx="15" cy="6" r="2"/>' +
+    '<path d="M4 12h4"/><path d="M12 12h8"/><circle cx="10" cy="12" r="2"/>' +
+    '<path d="M4 18h9"/><path d="M17 18h3"/><circle cx="15" cy="18" r="2"/>';
+
+  /* אייקון לכל סגנון — הקו העיצובי שלו בסמל אחד: קופסאות נקיות למודרני,
+     קרשי עץ לסקנדינבי, קשת וצמח לים-תיכוני, יהלום מעל ספה ליוקרה. ‏DEFAULT
+     קיים כדי שסגנון חדש שיתווסף בעתיד יקבל סמל ולא חור בכפתור. */
+  var STYLE_ICONS = {
+    modern_clean:        '<path d="M3 21h18"/><path d="M6 21V10h6v11"/><path d="M6 15h6"/><path d="M15 21v-7h4v7"/>',
+    /* שלושה קווי עץ ולא קרשים מלבניים: מלבנים מוערמים קרובים מדי לאייקון
+       המחוונים שיושב בשורת ההסבר שמעליהם, ושני סמלים דומים באותה תיבה
+       נקראים כאותו פקד. */
+    warm_scandi:         '<path d="M3.5 6c4 2.2 13 2.2 17 0"/>' +
+                         '<path d="M3.5 12c4 2.2 13 2.2 17 0"/>' +
+                         '<path d="M3.5 18c4 2.2 13 2.2 17 0"/>',
+    mediterranean_white: '<path d="M5 21V11a7 7 0 0 1 14 0v10"/><path d="M12 21v-5.5"/>' +
+                         '<path d="M12 15.5c-2.2 0-3.4-1.3-3.4-3.4 2.2 0 3.4 1.3 3.4 3.4Z"/>',
+    modern_luxury:       '<path d="m12 2.5 4 4-4 5-4-5Z"/>' +
+                         '<path d="M4 21v-4.5A2.5 2.5 0 0 1 6.5 14h11a2.5 2.5 0 0 1 2.5 2.5V21"/>' +
+                         '<path d="M4 18h16"/>',
+  };
+  var STYLE_ICON_DEFAULT = '<circle cx="12" cy="12" r="8"/><path d="M12 8v8M8 12h8"/>';
+
+  function styleIcon(key) {
+    return icon(STYLE_ICONS[key] || STYLE_ICON_DEFAULT, 'ai-style-ico');
+  }
+
   function targetLabel(opts, target) {
     if (opts && opts.commercial && COMMERCIAL_TARGET_LABELS[target]) {
       return COMMERCIAL_TARGET_LABELS[target];
@@ -90,43 +149,51 @@
     '@media(min-width:900px){.ai-band-inner{grid-template-columns:1.15fr 1fr;gap:34px;padding:44px 32px}}',
 
     /* ---- העמודה הימנית: ההבטחה ---- */
-    '.ai-eyebrow{display:inline-flex;align-items:center;gap:7px;',
-    '  border:1px solid rgba(201,162,39,.55);color:#e5c76a;',
-    '  font-size:11px;font-weight:800;letter-spacing:.1em;padding:5px 10px;margin-bottom:14px}',
-    /* שתי המילים שנושאות את ההבטחה צבועות, ושתיהן על כותרת לבנה. שני
-       הצבעים אינם חדשים לאתר — כל אחד מהם הוא צבע ראשי שהובהר לרקע כהה,
-       בדיוק כפי ש---brass-light הוא הזהב של המערכת כטקסט על כהה:
-
-         ‏אחרי  — זהב. באותה תיבה זהב הוא כבר "ההדמיה": תווית ה"אחרי" על
-                  הווילון, קו החשיפה והכפתור. המילה מצטרפת לשפה קיימת.
-         ‏לפני  — כחול ספיר מובהר. גם זה כבר קיים בתיבה: תווית ה"לפני" על
-                  הווילון היא ספיר. שתי המילים בכותרת נצבעות באותם שני
-                  צבעים ששני חצאי התמונה מסומנים בהם, ולכן הכותרת מסבירה
-                  את הפקד שמתחתיה במקום לחזור עליו במילים.
-
-       שניהם עוברים 8:1 מול ‎#0d1b3d‎, כלומר קריאים גם בגודל הקטן ביותר
-       שהכותרת יורדת אליו.
+    /* הכותרת נושאת שני צבעים: החצי הראשון — ההבטחה עצמה — בזהב, והחצי
+       השני בלבן. זהב הוא כבר "ההדמיה" בתיבה הזאת (המסגרת של לוח הסגנונות,
+       הידית שעל הווילון, הכפתור), ולכן החצי שמדבר על הפוטנציאל נצבע בו
+       ‏והחצי שמדבר על הטכנולוגיה נשאר לבן. שניהם עוברים 8:1 מול ‎#0d1b3d‎.
 
        ‏em ולא span: ההדגשה כאן סמנטית ולא קישוטית, וקורא מסך אמור לשמוע
        אותה. ‏font-style חוזר לרגיל — נטוי בעברית הוא הטיה מלאכותית של
        הגופן ולא צורת אות. */
     '.ai-band h3{font-family:Heebo,system-ui,sans-serif;font-size:clamp(22px,4.6vw,30px);',
-    '  font-weight:800;letter-spacing:-.02em;line-height:1.15;color:#fff;margin:0 0 10px}',
+    '  font-weight:800;letter-spacing:-.02em;line-height:1.2;color:#fff;margin:0 0 14px}',
     '.ai-band h3 em{font-style:normal;font-weight:800}',
     '.ai-hl-after{color:#e5c76a}',
-    '.ai-hl-before{color:#8ab6f5}',
-    '.ai-band p{font-size:16px;line-height:1.7;color:#aab6d6;margin:0 0 18px;max-width:46ch}',
-    /* הכותרת והפסקה ממורכזות — ורק הן. התגית שמעליהן נשארת בקצה ההתחלה:
-       היא סימון של המקטע ("הדמיות AI"), לא חלק מההבטחה שמתחתיה, ותגית
-       ממורכזת מעל כותרת ממורכזת מאבדת את התפקיד הזה. מאותה סיבה הבחירה
-       היא ‎.ai-copy > h3‎ ו-‎.ai-copy > p‎ ולא ‎text-align‎ על הטור כולו.
+    /* ‏.ai-copy > p‎ ולא ‎.ai-band p‎. הכלל הזה נכתב כשהפסקה היחידה בתיבה
+       הייתה פסקת ההבטחה; מאז נוספו לה שכנות — כותרת לוח הסגנונות, הכיתוב
+       שמתחת לווילון וההצהרה שבתחתית — וכולן ‎<p>‎. ‏0,1,1 מול ‎0,1,0‎ של
+       הכללים הייעודיים שלהן פירושו שהן קיבלו את הצבע, הגודל והמרווח
+       התחתון של פסקת ההבטחה: הכיתוב יצא תכלת על הלוח הלבן, ומתחתיו נפתחו
+       ‏18px של לבן ריק. */
+    '.ai-copy > p{font-size:16px;line-height:1.7;color:#aab6d6;margin:0 0 18px;max-width:46ch}',
+    /* ---- שורות ההסבר ----
+       הפסקה הרצופה שהייתה כאן הפכה לשתי שורות, ולכל אחת אייקון משלה
+       בקצה ההתחלה. הסיבה אינה קישוט: כל שורה מדברת על פקד אחר בתיבה —
+       האחת על כפתורי הסגנון והשנייה על החלפת הסגנון — והסמל הוא מה שקושר
+       בין המשפט לפקד בלי לכתוב "הכפתור שמשמאל".
 
-       שני הכללים חייבים לבוא *אחרי* ‎.ai-band h3‎ ו-‎.ai-band p‎: לכולם
-       אותה ספציפיות, ולכן המאוחר בקובץ מנצח. ‏margin-inline:auto נדרש
-       בנוסף ל-‎text-align‎ כי הפסקה מוגבלת ל-46 תווים, וטקסט ממורכז בתוך
-       תיבה שנצמדת לקצה עדיין נראה צמוד לקצה. */
+       ‏ul ולא שתי פסקאות: אלה שתי הוראות שקולות, וזו רשימה. ‏list-style
+       יורד כי הסמל *הוא* התבליט. */
+    '.ai-points{list-style:none;margin:0 0 18px;padding:0;',
+    '  display:flex;flex-direction:column;gap:9px;max-width:46ch}',
+    '.ai-points li{display:flex;align-items:flex-start;gap:9px;',
+    '  font-size:15px;line-height:1.6;color:#c2cce6}',
+    /* ‏flex:none — אייקון בתוך flex מתכווץ כשהטקסט לצדו ארוך, והקו הדק
+       שלו הופך לכתם. ‏margin-top מיישר את מרכז הסמל עם השורה הראשונה. */
+    '.ai-points .ai-ico{width:20px;height:20px;flex:none;color:#e5c76a;margin-top:2px}',
+    /* הכותרת ושורות ההסבר ממורכזות יחד. הן יחידה אחת — ההבטחה — ומרכוז
+       חלקי היה מייצר שני קצוות שמאליים שונים באותו טור.
+
+       הכללים חייבים לבוא *אחרי* ‎.ai-band h3‎ ו-‎.ai-points‎: לכולם אותה
+       ספציפיות, ולכן המאוחר בקובץ מנצח. ‏margin-inline:auto נדרש בנוסף
+       ל-‎text-align‎ כי הרשימה מוגבלת ל-46 תווים, וטקסט ממורכז בתוך תיבה
+       שנצמדת לקצה עדיין נראה צמוד לקצה. */
     '.ai-copy > h3,.ai-copy > p{text-align:center}',
     '.ai-copy > p{margin-inline:auto}',
+    '.ai-points{margin-inline:auto}',
+    '.ai-compare-caption,.ai-styles-title{line-height:1.5}',
     /* הכפתור ממורכז בשורה שלו ולא נצמד לקצה ההתחלה. הוא הפעולה היחידה
        בתיבה, ופעולה יחידה שיושבת בפינה נקראת כהערת שוליים. */
     '.ai-actions{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:14px}',
@@ -156,11 +223,23 @@
     '.ai-secondary:hover{color:#fff}',
     /* ‏grid-column:1/-1 — ההצהרה חוצה את שתי העמודות ויושבת מתחת לשתיהן,
        ולכן היא נקראת כהערת שוליים של התיבה כולה ולא של הטור שהיא בו. */
-    '.ai-note{grid-column:1/-1;margin:0;font-size:12px;line-height:1.55;color:#7b88ab}',
+    /* ---- שורת התחתית ----
+       ‏grid-column:1/-1 — ההצהרה חוצה את שתי העמודות ויושבת מתחת לשתיהן,
+       ולכן היא נקראת כהערת שוליים של התיבה כולה ולא של הטור שהיא בו. */
+    '.ai-foot{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center}',
+    '.ai-note{margin:0;font-size:12px;line-height:1.55;color:#7b88ab;',
+    '  display:inline-flex;align-items:center;gap:6px}',
+    '.ai-note .ai-spark{width:13px;height:13px;flex:none;color:#c9a227}',
 
-    /* ---- ההשוואה ---- */
-    '.ai-compare{position:relative;aspect-ratio:4/3;background:#16244a;overflow:hidden;',
+    /* ---- ההשוואה ----
+       המסגרת הלבנה אינה קישוט. כל מה שבתוכה הוא הדמיה — תוכן שנוצר במכונה —
+       והלוח הלבן הוא מה שמפריד אותו מהרצועה הכהה שמסביב ומסמן אותו כפריט
+       מוצג ולא כצילום של הנכס. הכיתוב יורד לתוך הלוח מאותה סיבה: הוא חלק
+       ‏מהתצוגה, לא שורה שנשרכת אחריה על הרקע. */
+    '.ai-frame{background:#fff;padding:9px;border-radius:16px;',
     '  box-shadow:0 22px 50px -30px rgba(0,0,0,.8)}',
+    '.ai-compare{position:relative;aspect-ratio:4/3;background:#16244a;overflow:hidden;',
+    '  border-radius:10px}',
     '.ai-compare img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}',
     /* שכבת ה"אחרי" נחשפת דרך clip-path — התמונה עצמה לא נמתחת בזמן הגרירה. */
     '.ai-after{clip-path:inset(0 0 0 var(--ai-pos,42%))}',
@@ -170,22 +249,55 @@
     /* ‏left ולא inset-inline-start: הידית ממורכזת על קו ברוחב 2px, וקיזוז
        פיזי הוא היחיד שיוצא זהה בשני כיווני הכתיבה. */
     '.ai-handle{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);',
-    '  width:32px;height:32px;border-radius:50%;background:#c9a227;color:#0d1b3d;',
-    '  display:grid;place-items:center;font-size:15px;font-weight:800;',
-    '  box-shadow:0 4px 14px rgba(0,0,0,.45)}',
+    '  width:34px;height:34px;border-radius:50%;background:#c9a227;color:#0d1b3d;',
+    '  display:grid;place-items:center;font-size:16px;font-weight:800;',
+    '  border:2px solid rgba(255,255,255,.85);',
+    '  box-shadow:0 4px 14px rgba(0,0,0,.45);z-index:2}',
+    /* ---- התווית שעל הווילון ----
+       "גרו כדי לראות את ההבדל" הוא מה שהופך את הסרגל מקו זהב על תמונה
+       לפקד שמזמין נגיעה. הוא נצמד לידית ונע איתה, ולכן הוא תמיד במקום
+       שאליו העין כבר מסתכלת.
+
+       הוא חי רק ב-‎[data-idle]‎ — כלומר עד המגע הראשון. אחרי שגררו פעם
+       אחת ההוראה כבר מיותרת, והיא הופכת לכתם שמכסה שליש מהתמונה בדיוק
+       בזמן שמשווים. ‏aria-hidden בצד ה-HTML: הטקסט הזה מדבר על עכבר,
+       ולמחוון עצמו יש ‎aria-label‎ שמסביר את אותו דבר למקלדת.
+
+       ‏white-space:nowrap כדי שהתווית לא תישבר לשתי שורות מתחת לידית,
+       ‏translateX(-50%) כדי שתישאר ממורכזת על הקו בשני כיווני הכתיבה. */
+    '.ai-drag-hint{position:absolute;top:calc(50% + 26px);left:50%;',
+    '  transform:translateX(-50%);white-space:nowrap;',
+    '  background:linear-gradient(180deg,#e0bf50,#c9a227);color:#0d1b3d;',
+    '  font-size:11.5px;font-weight:800;letter-spacing:-.01em;',
+    '  padding:6px 14px;border-radius:999px;',
+    '  border:1px solid rgba(255,255,255,.55);',
+    '  box-shadow:0 6px 16px rgba(0,0,0,.4);opacity:0;transition:opacity .25s ease}',
+    '.ai-compare[data-idle] .ai-drag-hint{opacity:1}',
     /* המחוון עצמו שקוף ופרוש על כל הרוחב: הוא נותן גרירה, מגע, מקלדת
        והכרזה לקורא מסך, וכל מה שנראה הוא הקו והידית שמעליו. */
     '.ai-range{position:absolute;inset:0;width:100%;height:100%;margin:0;opacity:0;',
     '  cursor:ew-resize;z-index:4;-webkit-appearance:none;appearance:none;background:none}',
     '.ai-range:focus-visible ~ .ai-divider .ai-handle{outline:3px solid #fff;outline-offset:2px}',
-    '.ai-label{position:absolute;top:10px;z-index:2;font-size:11px;font-weight:800;',
-    '  letter-spacing:.08em;padding:4px 9px;background:rgba(13,27,61,.82);color:#e6ecf9}',
+    /* שתי התוויות הן זוג ולכן הן נראות כזוג: אותה צורה, אותו גודל, ורק
+       הצבע מבדיל ביניהן — לבן ל"לפני" (הצילום), ספיר ל"אחרי" (ההדמיה).
+       הן פינתיות ומעוגלות כדי שלא ייקראו כחלק מהתמונה עצמה. */
+    '.ai-label{position:absolute;top:10px;z-index:2;font-size:11.5px;font-weight:800;',
+    '  letter-spacing:.04em;padding:5px 12px;border-radius:8px;',
+    '  background:rgba(13,27,61,.86);color:#e6ecf9;',
+    '  box-shadow:0 4px 12px rgba(0,0,0,.28)}',
     /* איזה חצי כל תווית מסמנת: שכבת ה"אחרי" נחשפת מהקצה שאינו קצה ההתחלה
        של כיוון הכתיבה — כלומר משמאל בעברית — ולכן "אחרי" יושבת שם
        ו"לפני" בצד הנגדי. הן היו הפוכות: כל תווית ישבה מעל החצי של
        השנייה, וקוראים שהאמינו לתווית ראו את הצילום כהדמיה ולהפך. */
-    '.ai-label-before{inset-inline-start:10px}',
-    '.ai-label-after{inset-inline-end:10px;background:rgba(201,162,39,.92);color:#0d1b3d}',
+    '.ai-label-before{inset-inline-start:10px;background:#fff;color:#0d1b3d}',
+    /* התווית של החצי המדומיין נושאת את הניצוץ ולא רק את המילה "After".
+       הניצוץ הוא הסימן שבו האתר מסמן תוכן שנוצר ב-AI (הכפתור על התמונה
+       הראשית, התגית שעל האריחים), ומי ששומר או משתף את התמונה לוקח אותו
+       איתו. בלעדיו נשארת על התמונה רק מילה באנגלית שאינה אומרת דבר על
+       כך שמה שמתחתיה לא צולם. */
+    '.ai-label-after{inset-inline-end:10px;background:rgba(13,27,61,.92);color:#f0e4bd;',
+    '  display:inline-flex;align-items:center;gap:6px}',
+    '.ai-label-after .ai-spark{width:13px;height:13px;flex:none;color:#e5c76a}',
     /* תמונה בודדת (בלי "לפני") אינה חצי של השוואה, ולכן היא לא נושאת את
        תווית ה"אחרי" הזהובה אלא את סימון ה-AI של האתר: לוח לבן, כיתוב
        כהה וניצוץ זהב בצד — אותו מראה בדיוק של הכפתור "הדמיית AI לנכס"
@@ -195,7 +307,8 @@
     '.ai-label-ai{display:inline-flex;align-items:center;gap:6px;letter-spacing:normal;',
     '  background:rgba(255,255,255,.92);color:#0d1b3d}',
     '.ai-label-ai .ai-spark{width:14px;height:14px;flex:none;color:#c9a227}',
-    '.ai-compare-caption{margin:9px 0 0;font-size:12px;color:#8b97ba}',
+    /* הכיתוב יושב בתוך הלוח הלבן, ולכן הוא כהה על לבן ולא בהיר על ספיר. */
+    '.ai-compare-caption{margin:8px 4px 1px;font-size:12.5px;font-weight:700;color:#0d1b3d}',
     /* אותו יחס גובה-רוחב של הווילון: הצד הזה של התיבה לא קורס בין סגנון
        שיש לו הדמיה לסגנון שאין לו. */
     '.ai-empty{aspect-ratio:4/3;display:grid;place-items:center;text-align:center;',
@@ -211,12 +324,12 @@
        "מה מוצג" ו"מה עוד אפשר להציג" — ורווח שמפריד ביניהם כמו בין סקציות
        הופך שורה אחת לשתיים. */
     '.ai-strip{display:grid;grid-template-columns:repeat(var(--ai-cols,3),minmax(0,1fr));',
-    '  gap:8px;margin-top:10px;align-items:start}',
+    '  gap:10px;margin-top:12px;align-items:start}',
     /* ‏min-width:0 ולא רק ‎1fr‎: תווית שלא נשברת ("הסלון · ים-תיכוני לבן")
        מרחיבה את העמודה שלה מעל חלקה, והתמונונות יוצאות בגדלים שונים. */
-    '.ai-thumb{display:block;text-decoration:none;color:#e6ecf9;min-width:0}',
-    '.ai-thumb img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;',
-    '  border:1px solid rgba(255,255,255,.12)}',
+    '.ai-thumb{display:block;text-decoration:none;color:#e6ecf9;min-width:0;text-align:center}',
+    '.ai-thumb img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;border-radius:8px;',
+    '  border:1px solid rgba(255,255,255,.18)}',
     /* התווית נשברת לשתי שורות ולא נקטעת בשלוש נקודות: "הסלון · ים-תיכוני
        לבן" בעמודה של שליש מסך טלפון נחתך בדיוק על שם הסגנון — כלומר על
        החלק שבגללו לוחצים. */
@@ -240,13 +353,58 @@
        אפשרויות שוות־ערך, וזה מה שהן. */
     /* אותה תקרה ואותו מירכוז של הכפתור שמתחת: השבבים והכפתור הם צעד אחד
        אחרי השני, ובמסך רחב שני בלוקים ברוחב שונה קוראים כשני מקטעים. */
-    '.ai-styles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));',
-    '  gap:8px;margin:0 auto 16px;max-width:460px}',
-    '.ai-style{font-family:Heebo,system-ui,sans-serif;font-size:13px;font-weight:700;',
-    '  padding:10px 12px;cursor:pointer;background:transparent;color:#e6ecf9;',
-    '  text-align:center;border:1px solid rgba(255,255,255,.28)}',
+    /* ---- לוח הסגנונות ----
+       ארבעת השבבים היו יושבים על הרקע כמו כל שאר האלמנטים בטור, ולכן הם
+       נקראו כהמשך של הפסקה שמעליהם. הלוח עוטף אותם וכותרת קטנה מבקשת את
+       הפעולה במפורש — "בחרו את הסגנון המועדף עליכם!" — וכך ארבעה כפתורים
+       הופכים לשאלה אחת עם ארבע תשובות. */
+    '.ai-styles-card{border:1px solid rgba(201,162,39,.42);border-radius:16px;',
+    '  background:rgba(255,255,255,.035);padding:15px 15px 22px;',
+    '  margin:0 auto 16px;max-width:460px}',
+    '.ai-styles-title{margin:0 0 12px;text-align:center;color:#fff;',
+    '  font-family:Heebo,system-ui,sans-serif;font-size:15px;font-weight:800}',
+    '.ai-styles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}',
+    /* ‏position:relative בשביל הנקודה שמסמנת את הנבחר (‏::after למטה). */
+    '.ai-style{position:relative;font-family:Heebo,system-ui,sans-serif;font-size:13px;',
+    '  font-weight:700;padding:11px 10px;cursor:pointer;background:transparent;color:#e6ecf9;',
+    '  display:flex;flex-direction:column;align-items:center;gap:6px;line-height:1.25;',
+    '  text-align:center;border:1px solid rgba(255,255,255,.28);border-radius:12px;',
+    '  transition:border-color .15s ease,box-shadow .15s ease,color .15s ease}',
+    '.ai-style-ico{width:26px;height:26px;flex:none;color:#e5c76a}',
     '.ai-style:hover{border-color:#c9a227;color:#fff}',
-    '.ai-style[aria-pressed="true"]{background:#fff;color:#0d1b3d;border-color:#fff}',
+    /* הנבחר מסומן בשלושה סימנים שלא תלויים זה בזה: מסגרת זהב, זוהר רך,
+       ונקודת זהב שיושבת על הקצה התחתון. שלושה ולא אחד כי מי שלא מבחין/ה
+       בגוני זהב על ספיר עדיין רואה את הנקודה, ומי שמסתכל/ת בזווית עדיין
+       רואה את הזוהר. הרקע נשאר כהה — היפוך ללבן היה מנתק את השבב הנבחר
+       מהלוח שהוא יושב בו. */
+    '.ai-style[aria-pressed="true"]{border-color:#e5c76a;color:#fff;',
+    '  background:rgba(201,162,39,.12);box-shadow:0 0 0 1px rgba(229,199,106,.5),',
+    '  0 8px 24px -10px rgba(201,162,39,.85)}',
+    '.ai-style[aria-pressed="true"]::after{content:"";position:absolute;',
+    '  bottom:-9px;left:50%;transform:translateX(-50%);width:16px;height:16px;',
+    '  border-radius:50%;background:#e5c76a;border:3px solid #0d1b3d}',
+    '.ai-style:focus-visible{outline:3px solid #fff;outline-offset:2px}',
+
+    /* ---- הזמנת הפגישה ----
+       התיבה הזאת עונה על השאלה שנשאלת מיד אחרי שרואים מה AI עשה לנכס של
+       מישהו אחר: "ומה עם שלי?". היא יושבת מתחת לתמונות ולא בטור ההבטחה
+       בכוונה — היא לא חלק מהסבר הכלי אלא מה שבא *אחרי* שהשתמשו בו.
+
+       ‏button ולא קישור: היא לא מנווטת לשום מקום — היא מקפיצה את טופס
+       הפנייה שכבר בעמוד ומעבירה אליו את המיקוד. */
+    '.ai-lead{display:block;width:100%;margin-top:12px;cursor:pointer;',
+    '  font-family:Heebo,system-ui,sans-serif;text-align:center;',
+    '  border:1px solid rgba(201,162,39,.55);border-radius:14px;',
+    '  background:rgba(201,162,39,.10);color:#e6ecf9;padding:12px 16px;',
+    '  transition:background .15s ease,border-color .15s ease,transform .15s ease}',
+    '.ai-lead:hover{background:rgba(201,162,39,.2);border-color:#c9a227;transform:translateY(-1px)}',
+    '.ai-lead:active{transform:translateY(0)}',
+    '.ai-lead:focus-visible{outline:3px solid #fff;outline-offset:3px}',
+    '.ai-lead-intro{display:block;font-size:13.5px;font-weight:600;line-height:1.5}',
+    '.ai-lead-intro strong{color:#e5c76a;font-weight:800}',
+    '.ai-lead-main{display:block;margin-top:3px;font-size:15px;font-weight:800;',
+    '  color:#e5c76a;text-decoration:underline;text-underline-offset:4px}',
+    '@media (prefers-reduced-motion: reduce){.ai-lead:hover{transform:none}}',
     /* בזמן "יוצרים…" הכפתור לא מגיב למגע: הרמה וזוהר על כפתור מושבת
        מבטיחים לחיצה שלא תקרה. */
     '.ai-cta[disabled]{opacity:.6;cursor:default}',
@@ -416,24 +574,31 @@
 
     if (!before) {
       return '' +
-        '<div class="ai-compare" data-single>' +
-          '<img src="' + esc(it.result_url) + '" alt="הדמיה של ' + esc(where) + '" loading="lazy">' +
-          '<span class="ai-label ai-label-after ai-label-ai">' + SPARKLE_SVG + 'הדמיית AI</span>' +
-        '</div>' +
-        '<p class="ai-compare-caption">' + esc(caption) + '</p>';
+        '<div class="ai-frame">' +
+          '<div class="ai-compare" data-single>' +
+            '<img src="' + esc(it.result_url) + '" alt="הדמיה של ' + esc(where) + '" loading="lazy">' +
+            '<span class="ai-label ai-label-after ai-label-ai">' + SPARKLE_SVG + 'הדמיית AI</span>' +
+          '</div>' +
+          '<p class="ai-compare-caption">' + esc(caption) + '</p>' +
+        '</div>';
     }
 
     return '' +
-      '<div class="ai-compare" data-idle data-rtl>' +
-        '<img class="ai-before" src="' + esc(before) + '" alt="' + esc(where) + ' כפי שהוא היום" loading="lazy">' +
-        '<img class="ai-after" src="' + esc(it.result_url) + '" alt="הדמיה של ' + esc(where) + ' אחרי שיפוץ" loading="lazy">' +
-        '<span class="ai-label ai-label-before">לפני</span>' +
-        '<span class="ai-label ai-label-after">אחרי · הדמיה</span>' +
-        '<input class="ai-range" type="range" min="0" max="100" value="42" step="1" ' +
-               'aria-label="חשיפת ההדמיה — הזיזו כדי להשוות בין לפני לאחרי">' +
-        '<div class="ai-divider"><span class="ai-handle" aria-hidden="true">↔</span></div>' +
-      '</div>' +
-      '<p class="ai-compare-caption">' + esc(caption) + '</p>';
+      '<div class="ai-frame">' +
+        '<div class="ai-compare" data-idle data-rtl>' +
+          '<img class="ai-before" src="' + esc(before) + '" alt="' + esc(where) + ' כפי שהוא היום" loading="lazy">' +
+          '<img class="ai-after" src="' + esc(it.result_url) + '" alt="הדמיה של ' + esc(where) + ' אחרי שיפוץ" loading="lazy">' +
+          '<span class="ai-label ai-label-before">Before</span>' +
+          '<span class="ai-label ai-label-after">' + SPARKLE_SVG + 'After</span>' +
+          '<input class="ai-range" type="range" min="0" max="100" value="42" step="1" ' +
+                 'aria-label="חשיפת ההדמיה — הזיזו כדי להשוות בין לפני לאחרי">' +
+          '<div class="ai-divider">' +
+            '<span class="ai-handle" aria-hidden="true">↔</span>' +
+            '<span class="ai-drag-hint" aria-hidden="true">גרו כדי לראות את ההבדל</span>' +
+          '</div>' +
+        '</div>' +
+        '<p class="ai-compare-caption">' + esc(caption) + '</p>' +
+      '</div>';
   }
 
   function propertyThumbHtml(opts, it, index, active) {
@@ -455,14 +620,35 @@
     var styles = opts.styles || [];
     var cta = opts.cta || {};
 
+    var lead = opts.lead || {};
+
+    /* לוח הסגנונות: כותרת שמבקשת את הפעולה, ומתחתיה ארבעה שבבים שלכל אחד
+       אייקון משלו. האייקון אינו קישוט — ארבע שורות טקסט זהות באורכן נקראות
+       כרשימה, וארבעה סמלים שונים נקראים כארבע אפשרויות. */
     var stylesHtml = styles.length
-      ? '<div class="ai-styles" role="group" aria-label="כיוון עיצובי">' +
-          styles.map(function (s) {
-            return '<button class="ai-style" type="button" data-style="' + esc(s.key) + '" ' +
-                   'aria-pressed="' + (s.key === opts.activeStyle ? 'true' : 'false') + '">' +
-                   esc(s.label) + '</button>';
-          }).join('') +
+      ? '<div class="ai-styles-card">' +
+          '<p class="ai-styles-title">בחרו את הסגנון המועדף עליכם!</p>' +
+          '<div class="ai-styles" role="group" aria-label="כיוון עיצובי">' +
+            styles.map(function (s) {
+              return '<button class="ai-style" type="button" data-style="' + esc(s.key) + '" ' +
+                     'aria-pressed="' + (s.key === opts.activeStyle ? 'true' : 'false') + '">' +
+                     styleIcon(s.key) + '<span>' + esc(s.label) + '</span></button>';
+            }).join('') +
+          '</div>' +
         '</div>'
+      : '';
+
+    /* תיבת "השאירו פרטים" מופיעה רק כשיש למי לפנות: הדף הקורא מספק גם את
+       הטקסט וגם את הפעולה. בלי ‎onLead‎ אין כאן הבטחה ריקה. */
+    var leadHtml = (opts.onLead && lead.label)
+      ? '<button class="ai-lead" type="button" id="aiPropLead">' +
+          (lead.intro
+            ? '<span class="ai-lead-intro">' + esc(lead.intro) +
+                (lead.emphasis ? ' <strong>' + esc(lead.emphasis) + '</strong>' : '') +
+              '</span>'
+            : '') +
+          '<span class="ai-lead-main">' + esc(lead.label) + '</span>' +
+        '</button>'
       : '';
 
     /* כפתור בלבד. כשכל ההדמיות בסגנון הנבחר כבר קיימות אין מה להציע —
@@ -481,24 +667,23 @@
       '<section class="ai-band" aria-labelledby="aiBandTitle">' +
         '<div class="ai-band-inner">' +
           '<div class="ai-copy">' +
-            '<span class="ai-eyebrow">✦ הדמיות AI · בלעדי לשוק הנדל״ן</span>' +
-            /* שתי השבירות כתובות ולא מקריות. הכותרת נשברת על המקף — שני
-               חצאיה הם שני חלקי ההבטחה ("תראו אחרי" / "לפני שקונים"),
-               ושבירה שנופלת אחרי "לפני" מנתקת אותה מהחצי שהיא פותחת.
-
-               הפסקה נשברת בין המשפטים: משפט שני שמתחיל באמצע שורה נקרא
-               כהמשך של הראשון. שני המשפטים קצרים מספיק לשורה כל אחד,
-               ולכן הפסקה נשארת בשתי שורות בכל רוחב.
-
-               המשפט השני משתנה לפי מה שיש על המסך: בנכס מסחרי אין שבבי
-               סגנון, ו"החליפו בין סגנונות" שם מפנה לפקד שאינו קיים. */
-            '<h3 id="aiBandTitle">תראו את הנכס <em class="ai-hl-after">אחרי</em> שיפוץ<br>' +
-              '<em class="ai-hl-before">לפני</em> שאתם קונים</h3>' +
-            '<p>ההדמיה נוצרת מהתמונות של הנכס הזה.<br>' +
+            /* השבירה כתובה ולא מקרית: שני חצאי הכותרת הם שתי אמירות שונות
+               — מה מקבלים ("הפוטנציאל של הנכס שלכם") ובאיזה כלי ("AI") —
+               ושבירה שנופלת באמצע אחד מהם מפרקת את שניהם. */
+            '<h3 id="aiBandTitle"><em class="ai-hl-after">תראו את פוטנציאל הנכס</em><br>' +
+              'עם טכנולוגיית AI מהפכנית!</h3>' +
+            /* שתי שורות ההסבר משתנות לפי מה שיש על המסך: בנכס מסחרי אין
+               שבבי סגנון, ו"לחצו על כפתורי הסגנון" שם מפנה לפקד שאינו
+               קיים — מה שנדרש שם הוא סוג העסק. */
+            '<ul class="ai-points">' +
               (styles.length
-                ? 'החליפו סגנון וראו את הפוטנציאל.'
-                : 'ספרו איזה עסק, וראו אותו כאן.') +
-            '</p>' +
+                ? '<li>' + icon(ICON_TAP) + '<span>לחצו על כפתורי הסגנון וצפו בהדמיות מיידיות ' +
+                    'של הנכס המשופץ — עוד לפני שאתם קונים.</span></li>' +
+                  '<li>' + icon(ICON_SLIDERS) + '<span>שנו סגנון וראו את הפוטנציאל.</span></li>'
+                : '<li>' + icon(ICON_TAP) + '<span>ספרו איזה עסק תפתחו כאן וצפו בהדמיה מיידית ' +
+                    'של הנכס — עוד לפני שחתמתם.</span></li>' +
+                  '<li>' + icon(ICON_SLIDERS) + '<span>ההדמיה נוצרת מהתמונות של הנכס הזה בלבד.</span></li>') +
+            '</ul>' +
             stylesHtml +
             /* השדות שהבקשה זקוקה להם יושבים *מעל* הכפתור ולא מתחתיו: הכפתור
                הוא סוף הפעולה, ומה שנדרש כדי ללחוץ עליו בא לפניו. */
@@ -508,7 +693,7 @@
           /* סגנון שטרם נוצר מקבל מסגרת ריקה ולא היעלמות: התיבה מציגה סגנון
              אחד בכל רגע, ולחיצה על שבב שאין לו הדמיה הייתה מוחקת את כל
              הצד הזה — מה שנקרא כתקלה ולא כ"עוד לא יצרתם את זה". */
-          '<div>' +
+          '<div class="ai-show">' +
             (pairs.length
               ? '<div id="aiPropCompare">' + propertyCompareHtml(opts, pairs[leadIndex]) + '</div>' +
                 (pairs.length > 1
@@ -527,6 +712,7 @@
                     ? 'עדיין אין הדמיה בסגנון ' + activeStyleLabel
                     : 'עדיין אין הדמיה לנכס הזה') +
                 '</div>') +
+            leadHtml +
           '</div>' +
           /* ההצהרה יורדת לתחתית התיבה ומתקצרת לשורה אחת. במקומה הקודם —
              בין הכפתור לבין התמונה — היא הייתה פסקה שעוצרת את מי שבא/ה
@@ -537,7 +723,13 @@
              לא נמחק מהאתר: תנאי השימוש מפרטים אותו במלואו, וזה המקום שבו
              הצהרה משפטית מחייבת. כאן נשאר המשפט שאומר לגולש/ת את מה
              שהיא/הוא צריך/ה לדעת בזמן ההסתכלות. */
-          '<p class="ai-note">ההדמיות הן להמחשה עיצובית בלבד.</p>' +
+          /* שורה אחת ולא שתיים. לצד ההצהרה הזאת ישבה כאן "תוכן שהופק על ידי
+             בינה מלאכותית" — נכונה, אבל אומרת את אותו דבר פעם שלישית: תווית
+             ה-After שעל התמונה כבר נושאת את הניצוץ שמסמן תוכן שנוצר במכונה,
+             וההצהרה הזאת כבר אומרת שמדובר בהמחשה. */
+          '<div class="ai-foot">' +
+            '<p class="ai-note">' + SPARKLE_SVG + 'ההדמיות הן להמחשה עיצובית בלבד.</p>' +
+          '</div>' +
         '</div>' +
       '</section>';
 
@@ -571,6 +763,9 @@
 
     var ctaBtn = container.querySelector('#aiPropCta');
     if (ctaBtn && opts.onCta) ctaBtn.addEventListener('click', function () { opts.onCta(); });
+
+    var leadBtn = container.querySelector('#aiPropLead');
+    if (leadBtn && opts.onLead) leadBtn.addEventListener('click', function () { opts.onLead(); });
   }
 
   /* הרכיב לא מחזיק מצב בין קריאות: כל שינוי בדף הנכס (סגנון אחר, הדמיה
