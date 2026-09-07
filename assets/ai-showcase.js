@@ -128,6 +128,39 @@
     return icon(STYLE_ICONS[key] || STYLE_ICON_DEFAULT, 'ai-style-ico');
   }
 
+  /* ---- הלוגו של האתר, לרקע כהה ----
+     העתק של ‎assets/logo-shuknadlan-dark.svg‎ בתוך הקוד ולא ‎<img src>‎:
+     המסגרת הזאת מופיעה בדיוק ברגע שבו הרשת כבר עסוקה בבקשת ההדמיה, ותמונה
+     שנטענת אז מהבהבת ריקה בפריים הראשון — כלומר בדיוק בפריים היחיד שבשבילו
+     היא קיימת. ‏inline גם מאפשר לאנימציה לגעת בחלקי הלוגו.
+
+     הצבעים קבועים ולא יורשים מההקשר: הרצועה כהה תמיד, ולכן הפין לבן תמיד. */
+  var LOGO_DARK_SVG =
+    '<svg class="ai-loader-logo" viewBox="0 0 52 62" aria-hidden="true">' +
+      '<path d="M26 60 C26 60 48 38 48 24 C48 11.8 38.2 2 26 2 C13.8 2 4 11.8 4 24 C4 38 26 60 26 60 Z" ' +
+        'fill="#ffffff"/>' +
+      '<path d="M13 26 L26 14 L39 26" fill="none" stroke="#0e2a6b" stroke-width="5" ' +
+        'stroke-linejoin="miter" stroke-linecap="butt"/>' +
+      '<text x="26" y="41" text-anchor="middle" fill="#c9a227" ' +
+        'font-family="Heebo, system-ui, sans-serif" font-weight="800" font-size="18">ש</text>' +
+    '</svg>';
+
+  /* מה שמופיע במסגרת הריקה בזמן שההדמיה נוצרת. שתי הטבעות הן פינג של מפה
+     שיוצא מהפין — אותה תנועה שהאתר כבר עושה בסמל שלו — ולא ספינר גנרי:
+     ההמתנה הזאת היא שלנו, ומי שמחכה לה מסתכל/ת על הלוגו ולא על גלגל. */
+  function loaderHtml() {
+    return '' +
+      '<div class="ai-loader" role="status">' +
+        '<div class="ai-loader-stage">' +
+          '<span class="ai-loader-ping" aria-hidden="true"></span>' +
+          '<span class="ai-loader-ping ai-loader-ping-2" aria-hidden="true"></span>' +
+          LOGO_DARK_SVG +
+        '</div>' +
+        '<p class="ai-loader-title">יוצרים לך את ההדמיה…</p>' +
+        '<p class="ai-loader-sub">קצת סבלנות, זה לוקח כמה שניות</p>' +
+      '</div>';
+  }
+
   function targetLabel(opts, target) {
     if (opts && opts.commercial && COMMERCIAL_TARGET_LABELS[target]) {
       return COMMERCIAL_TARGET_LABELS[target];
@@ -326,6 +359,33 @@
     '  padding:20px;background:rgba(255,255,255,.04);color:#8b97ba;font-size:14px;',
     '  border:1px dashed rgba(255,255,255,.18)}',
 
+    /* ---- "יוצרים לך את ההדמיה" ----
+       אותה מסגרת בדיוק, בשני מצבים: כשאין הדמיה בסגנון הנבחר היא מודיעה
+       על כך במשפט אחד, וברגע שנלחץ הכפתור היא הופכת למקום שבו ההדמיה
+       *נוצרת*. הגבול עובר ממקווקו למלא ומאפור לזהב — מקווקו הוא "אין כאן
+       כלום", ומלא הוא "כאן קורה משהו". */
+    '.ai-empty[data-busy]{border-style:solid;border-color:rgba(201,162,39,.4);',
+    '  background:rgba(201,162,39,.06)}',
+    '.ai-loader{display:grid;justify-items:center}',
+    '.ai-loader-stage{position:relative;width:76px;height:76px;',
+    '  display:grid;place-items:center;margin-bottom:12px}',
+    '.ai-loader-logo{width:44px;height:auto;position:relative;z-index:2;',
+    '  animation:aiPinBob 1.6s ease-in-out infinite}',
+    /* שתי טבעות באותה אנימציה ובהיסט של חצי מחזור: אחת יוצאת בזמן
+       שהשנייה עדיה בדרך, וכך הפינג רציף ולא מהבהב. */
+    '.ai-loader-ping{position:absolute;inset:0;border-radius:50%;',
+    '  border:2px solid rgba(201,162,39,.75);opacity:0;',
+    '  animation:aiPing 2.2s ease-out infinite}',
+    '.ai-loader-ping-2{animation-delay:1.1s}',
+    '.ai-loader-title{margin:0;font-size:14.5px;font-weight:800;color:#fff}',
+    '.ai-loader-sub{margin:3px 0 0;font-size:12.5px;color:#aab6d6}',
+    '@keyframes aiPinBob{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}',
+    /* הטבעת נכנסת מהר ודוהה לאט: ‏0%‎ שקוף כדי שהיא לא "תיוולד" בקצה הפין
+       כקו חד, ורוב המחזור הוא הדעיכה — זה מה שקורא כגל שיוצא החוצה ולא
+       כמסגרת שמהבהבת. */
+    '@keyframes aiPing{0%{transform:scale(.4);opacity:0}',
+    '  18%{opacity:.9}100%{transform:scale(1);opacity:0}}',
+
     /* ---- רצועת התמונונות ----
        מספר העמודות נגזר ממספר התמונות ולא קבוע על שלוש: סגנון שיש לו שני
        חדרים היה משאיר שליש מהשורה ריק, והאריחים לא היו מתיישרים עם קצה
@@ -493,7 +553,11 @@
     /* ההרמה של הכפתור היא קישוט ולא מידע — היא נופלת יחד עם השאר, והצבע
        לבדו נשאר לסמן ריחוף. */
     '  .ai-cta{transition:background .15s ease}',
-    '  .ai-cta:hover,.ai-cta:active{transform:none}}',
+    '  .ai-cta:hover,.ai-cta:active{transform:none}',
+    /* הלוגו נשאר, הפינג יורד. הלוגו הוא *מה* מחכה והטקסט אומר *למה*;
+       הטבעות היו רק התנועה, ובלעדיהן המסך עדיין אומר את כל מה שצריך. */
+    '  .ai-loader-logo{animation:none}',
+    '  .ai-loader-ping{display:none}}',
   ].join('');
 
   function injectCss() {
@@ -763,10 +827,15 @@
                       }).join('') +
                     '</div>'
                   : '')
-              : '<div class="ai-empty">' +
-                  esc(activeStyleLabel
-                    ? 'עדיין אין הדמיה בסגנון ' + activeStyleLabel
-                    : 'עדיין אין הדמיה לנכס הזה') +
+              /* אותה מסגרת, שני מצבים. ‏cta.busy הוא הרגע שבו הבקשה כבר
+                 בדרך: במקום להודיע שאין הדמיה, המסגרת מראה שהיא נוצרת
+                 עכשיו — במקום שבו היא עצמה תופיע בעוד כמה שניות. */
+              : '<div class="ai-empty"' + (cta.busy ? ' data-busy' : '') + '>' +
+                  (cta.busy
+                    ? loaderHtml()
+                    : esc(activeStyleLabel
+                        ? 'עדיין אין הדמיה בסגנון ' + activeStyleLabel
+                        : 'עדיין אין הדמיה לנכס הזה')) +
                 '</div>') +
           '</div>' +
           /* ההזמנה לפגישה היא פריט גריד בפני עצמו ולא ילד של אחד הטורים,
