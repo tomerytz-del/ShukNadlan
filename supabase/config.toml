@@ -160,6 +160,11 @@ verify_jwt = true           # קידום נכס — נוגע ב-credit_balance
 [functions.wallet-topup]
 verify_jwt = true           # טעינת ארנק
 
+# בקשת החזר יתרה. ‏verify_jwt=true כי כל חמש הפעולות מזוהות: שתיים על
+# הסוכן/ת עצמו/ה, ושלוש מוגבלות ל-is_platform_admin שנבדק בתוך הפונקציה.
+[functions.wallet-refund]
+verify_jwt = true           # החזר יתרה — נוגע ב-credit_balance
+
 [functions.afula-planning-lookup]
 verify_jwt = true           # מידע תכנוני מלא — מוגבל למסלול Mid/Premium
 
