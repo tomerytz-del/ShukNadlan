@@ -126,28 +126,103 @@
   .plan-cta.is-disabled{background:#eef1f8;border:1.6px solid var(--line);color:var(--ink-soft);
     box-shadow:none;cursor:default;filter:none}
 
-  /* ---------- טבלת ההשוואה ---------- */
-  .compare{margin:42px 0 10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
-  .compare h2{font-size:1.15rem;padding:18px 20px;border-bottom:1px solid var(--line)}
-  /* הטבלה רחבה מ-360px, ולכן היא גוללת בתוך המסגרת שלה ולא דוחפת את הדף.
+  /* ==========================================================================
+     ההשוואה — שלוש עמודות, לא טבלה
+     --------------------------------------------------------------------------
+     אותם נתונים בדיוק היו קודם טבלה אפורה עם קווי רשת. ההבדל אינו קוסמטי:
+     בטבלה העין קוראת **שורות** ("מה זה דוח CMA?"), ובעמודות היא קוראת
+     **מסלול** ("מה אני מקבל/ת ב-Elite?") — וזו השאלה שמובילה להחלטה.
+
+     לכן כל עמודה צבועה מלמעלה עד למטה בצבע של המסלול שלה, ממשיכה את
+     הכרטיס שמעליה, ונגמרת באותו CTA. הרשת האופקית ירדה: מה שמפריד בין
+     השורות הוא רווח, ומה שמפריד בין העמודות הוא צבע.
+
+     טכנית זו עדיין ‎<table>‎ — הנתונים טבלאיים, וקורא מסך צריך לשמוע
+     "שורה: דוח CMA, עמודה: Elite, ערך: כלול". ‏border-collapse:separate
+     כדי שאפשר יהיה לעגל את קצות העמודות.
+     ========================================================================== */
+  .compare{margin:42px 0 10px}
+  .compare h2{font-size:1.35rem;margin-bottom:4px}
+  .compare .sub{color:var(--ink-soft);font-size:.9rem;margin:0 0 16px}
+  /* הטבלה רחבה מ-360px ולכן גוללת בתוך המסגרת שלה ולא דוחפת את הדף.
      עמודת השם דביקה: בגלילה אופקית "✓ ✕ ✓" בלי השורה שהוא שייך אליה הוא
      חידה, לא השוואה. */
-  .compare-scroll{overflow-x:auto}
-  table{border-collapse:collapse;width:100%;min-width:620px;font-size:.88rem}
-  th,td{padding:10px 12px;text-align:start;border-bottom:1px solid var(--line)}
-  thead th{background:#f7f9fe;font-size:.86rem;color:var(--sapphire-deep);font-weight:800;
-    white-space:nowrap;text-align:center;position:sticky;top:0;z-index:2}
-  thead th.col-pro{background:#eef2fb}
-  thead th.col-elite{background:var(--brass-tint)}
-  tbody th{font-weight:500;color:var(--ink);position:sticky;inset-inline-start:0;background:var(--surface);z-index:1}
-  tbody tr.group th{background:#f7f9fe;font-family:'Frank Ruhl Libre',serif;font-weight:700;
-    font-size:.94rem;color:var(--sapphire-deep);position:static}
-  tbody tr:hover th, tbody tr:hover td{background:#fbfcff}
-  tbody tr.group:hover th{background:#f7f9fe}
-  td{text-align:center;white-space:nowrap}
-  td.txt{font-size:.82rem;color:var(--ink-soft);white-space:normal;min-width:110px}
-  .yes{color:#1c8546;font-weight:800;font-size:1.05rem}
+  .compare-scroll{overflow-x:auto;padding-bottom:4px}
+  table{border-collapse:separate;border-spacing:0;width:100%;min-width:660px;font-size:.88rem}
+  th,td{padding:11px 14px;text-align:start;vertical-align:middle}
+
+  /* --- כותרות העמודות: המשך הכרטיס, בזעיר --- */
+  thead th{text-align:center;font-weight:800;font-size:1.02rem;padding:16px 14px 14px;
+    font-family:'Frank Ruhl Libre',serif;border-radius:var(--radius) var(--radius) 0 0}
+  thead th .cprice{display:block;font-family:'Heebo',sans-serif;font-size:.78rem;
+    font-weight:600;opacity:.85;margin-top:3px}
+  thead th.col-paygo{background:#f7f9fe;color:var(--sapphire-deep);border:1.5px solid var(--line);border-bottom:0}
+  thead th.col-pro{background:linear-gradient(160deg,#12306f,var(--sapphire-deep));color:#fff;
+    border:1.5px solid var(--sapphire-deep);border-bottom:0}
+  thead th.col-elite{background:linear-gradient(160deg,#fffdf6,#f6e9c8);color:var(--sapphire-deep);
+    border:1.5px solid var(--brass);border-bottom:0}
+  thead th.corner{background:transparent;border:0}
+
+  /* --- גוף העמודות: הצבע ממשיך, והקווים אנכיים בלבד --- */
+  tbody td{text-align:center;white-space:nowrap;border-inline:1.5px solid var(--line)}
+  tbody td.col-paygo{background:#fbfcff}
+  tbody td.col-pro{background:#eef2fb;border-inline-color:#cdd8ee}
+  tbody td.col-elite{background:var(--brass-tint);border-inline-color:#eadfbc}
+  tbody td.txt{font-size:.8rem;color:var(--ink-soft);white-space:normal;min-width:112px;line-height:1.4}
+
+  /* שם היכולת. דביק בגלילה אופקית, ועם קו מפריד דק משלו — הוא היחיד
+     שצריך אותו, כי הוא היחיד שנקרא כרשימה. */
+  tbody th{font-weight:500;color:var(--ink);position:sticky;inset-inline-start:0;
+    background:var(--paper);z-index:1;border-bottom:1px solid var(--line)}
+
+  /* --- כותרת קבוצה: פס לרוחב שמחלק את הרשימה לנושאים --- */
+  tbody tr.group th{background:var(--paper);font-family:'Frank Ruhl Libre',serif;font-weight:700;
+    font-size:1rem;color:var(--sapphire-deep);padding-top:22px;border-bottom:0}
+  tbody tr.group td{background:inherit}
+  tbody tr.group td.col-paygo{background:#fbfcff}
+  tbody tr.group td.col-pro{background:#eef2fb}
+  tbody tr.group td.col-elite{background:var(--brass-tint)}
+
+  /* ‏.crow ולא .feat: ‏.feat כבר תפוס ברשימת היתרונות שבכרטיסים והוא
+     ‎display:flex‎ — שם מחלקה משותף היה הופך כל שורת טבלה ל-flex ומפרק את
+     פריסת העמודות. */
+  tbody tr.crow:hover th{background:#f0f4fd}
+  tbody tr.crow:hover td.col-paygo{background:#f4f7ff}
+
+  /* --- שורת ה-CTA שסוגרת את העמודות --- */
+  tfoot td{padding:14px;border-inline:1.5px solid var(--line);border-bottom:1.5px solid var(--line);
+    border-radius:0 0 var(--radius) var(--radius);text-align:center}
+  tfoot td.col-paygo{background:#f7f9fe}
+  tfoot td.col-pro{background:linear-gradient(200deg,#12306f,var(--sapphire-deep));
+    border-color:var(--sapphire-deep)}
+  tfoot td.col-elite{background:linear-gradient(200deg,#fffdf6,#f6e9c8);border-color:var(--brass)}
+  tfoot td.corner{background:transparent;border:0}
+  .ccta{display:inline-block;text-decoration:none;font-weight:700;font-size:.84rem;
+    padding:9px 18px;border-radius:8px;white-space:nowrap}
+  .col-paygo .ccta{background:#fff;border:1.5px solid var(--sapphire);color:var(--sapphire)}
+  .col-pro .ccta{background:#fff;color:var(--sapphire-deep)}
+  .col-elite .ccta{background:linear-gradient(135deg,#d9b53c,#a8841a);color:#fff}
+  .ccta.is-disabled{background:rgba(255,255,255,.7);border:1.5px solid var(--line);
+    color:var(--ink-soft);cursor:default}
+
+  .yes{color:#1c8546;font-weight:800;font-size:1.08rem}
   .no{color:#c0392b;font-weight:800;font-size:1rem}
+
+  /* במסך צר עמודת השם לוקחת חצי מהרוחב, ושם יכולת מתפרק לחמש שורות —
+     שורה בגובה 90px שכל תוכנה הוא ✓ אחד. תקרה לעמודה, וטקסט קטן יותר:
+     שתי שורות במקום חמש, והעמודות נשארות ברוחב שאפשר להשוות בו. */
+  /* רמז הגלילה מוצג רק כשבאמת צריך לגלול — במסך רחב הטבלה שלמה. */
+  .scroll-hint{display:none}
+  @media(max-width:700px){
+    .scroll-hint{display:block;margin-top:4px;font-size:.78rem;font-weight:700;color:var(--sapphire)}
+    table{min-width:600px;font-size:.82rem}
+    th,td{padding:9px 10px}
+    tbody th{min-width:184px;max-width:200px}
+    tbody td{min-width:104px}
+    tbody td.txt{min-width:104px;font-size:.75rem}
+    thead th{font-size:.92rem;padding:13px 10px 11px}
+    .ccta{font-size:.78rem;padding:8px 12px;white-space:normal}
+  }
 
   /* ---------- שאלות נפוצות ---------- */
   .faq{margin:40px 0 10px}
@@ -207,6 +282,8 @@
 
     <section class="compare">
       <h2>מה כלול בכל מסלול</h2>
+      <p class="sub">כל היכולות של המערכת, אחת אחת. מה שכתוב כאן הוא מה שהשרת אוכף — לא רשימת כוונות.
+        <span class="scroll-hint">↔ אפשר לגלול הצידה בין המסלולים</span></p>
       <div class="compare-scroll"><table id="compareTable"></table></div>
     </section>
 
@@ -410,8 +487,8 @@ const COMPARE = [
     ['פרסום נכסים',                    'ללא הגבלה', 'ללא הגבלה', 'ללא הגבלה'],
     ['החתמת מסמכי תיווך דיגיטלית',     'ללא הגבלה', 'ללא הגבלה', 'ללא הגבלה'],
     ['דף סוכן/ת אישי ודף משרד ממותג',                     true, true, true],
-    ['שיתופי פעולה בין משרדים (Co-Broke)',                true, true, true],
-    ['ניהול לקוחות והתאמה אוטומטית לנכסים',               true, true, true],
+    ['שיתוף נכסים עם כל המתווכים בפלטפורמה (Co-Broke)',   true, true, true],
+    ['מערכת התאמות בין נכסים ללקוחות, עם התראה על התאמה', true, true, true],
     ['מדבקת QR לשלט בשטח',                                true, true, true],
     ['סוכן עוזר אישי בוואטסאפ — נכס נכנס בהודעה, תמונה או הקלטה', false, true, true],
   ]],
@@ -445,22 +522,42 @@ const COMPARE = [
   ]],
 ];
 
-function cell(value){
-  if (value === true)  return '<td><span class="yes" role="img" aria-label="כלול">✓</span></td>';
-  if (value === false) return '<td><span class="no" role="img" aria-label="לא כלול">✕</span></td>';
-  return '<td class="txt">' + esc(value) + '</td>';
+/* כל תא נושא את מחלקת העמודה שלו — ‏.col-paygo / .col-pro / .col-elite —
+   וזה מה שהופך את הטבלה לשלוש עמודות צבועות: הצבע רץ מהכותרת עד ל-CTA
+   דרך כל תא באמצע, כולל שורות הקבוצה שאין בהן ערך. */
+var COLS = Tiers.list();
+
+function cell(value, col){
+  var c = ' class="col-' + col;
+  if (value === true)  return '<td' + c + '"><span class="yes" role="img" aria-label="כלול">✓</span></td>';
+  if (value === false) return '<td' + c + '"><span class="no" role="img" aria-label="לא כלול">✕</span></td>';
+  return '<td' + c + ' txt">' + esc(value) + '</td>';
 }
 
 document.getElementById('compareTable').innerHTML =
-  '<thead><tr><th></th>' + Tiers.list().map(function(t){
-    return '<th class="col-' + t.color + '">' + esc(t.name) + '</th>';
+  // הכותרת חוזרת על השם והמחיר: מי שגלל/ה עד לכאן כבר לא רואה את הכרטיסים,
+  // ועמודה בלי מחיר מכריחה לגלול חזרה כדי להשוות.
+  '<thead><tr><th class="corner"></th>' + COLS.map(function(t){
+    return '<th class="col-' + t.color + '" scope="col">' + esc(t.name) +
+      '<span class="cprice">' + esc(t.priceMonthly ? '₪' + t.priceMonthly.toLocaleString('he-IL') + ' / חודש + מע״מ' : 'ללא דמי מנוי') +
+      '</span></th>';
   }).join('') + '</tr></thead><tbody>' +
   COMPARE.map(function(group){
-    return '<tr class="group"><th colspan="4">' + esc(group[0]) + '</th></tr>' +
+    return '<tr class="group"><th scope="colgroup">' + esc(group[0]) + '</th>' +
+      COLS.map(function(t){ return '<td class="col-' + t.color + '"></td>'; }).join('') + '</tr>' +
       group[1].map(function(row){
-        return '<tr><th scope="row">' + esc(row[0]) + '</th>' + row.slice(1).map(cell).join('') + '</tr>';
+        return '<tr class="crow"><th scope="row">' + esc(row[0]) + '</th>' +
+          row.slice(1).map(function(v, i){ return cell(v, COLS[i].color); }).join('') + '</tr>';
       }).join('');
-  }).join('') + '</tbody>';
+  }).join('') + '</tbody>' +
+  // אותו CTA של הכרטיסים, בקצה השני של הדף: מי שירד/ה עד לכאן קרא/ה את כל
+  // ההשוואה, וזה בדיוק הרגע להחליט — בלי לגלול חזרה למעלה.
+  '<tfoot><tr><td class="corner"></td>' + COLS.map(function(t){
+    var c = ctaFor(t);
+    return '<td class="col-' + t.color + '">' + (c.disabled
+      ? '<span class="ccta is-disabled">' + esc(c.label) + '</span>'
+      : '<a class="ccta" href="' + esc(c.href) + '">' + esc(c.label) + '</a>') + '</td>';
+  }).join('') + '</tr></tfoot>';
 
 /* ---------- הסיום, וקישורי החזרה ---------- */
 if (fromCrm || inviteTok){
