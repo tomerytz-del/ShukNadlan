@@ -258,6 +258,18 @@
   .pm-actions .btn{flex:1}
   .pm-actions .btn:disabled{opacity:.45;cursor:not-allowed}
 
+  /* ---------- חלון ייצוא הנכסים ----------
+     שני פקדים לכל היותר, ולכן אין כאן כרטיס משלו. ה-select מקבל את העיצוב
+     של ‎.field input‎ במפורש: ‏select גולמי בתוך pm-card נראה כמו פקד של
+     דפדפן אחר, ולא כמו שדה של הטופס שלידו. */
+  .exp-scope select{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);
+    padding:11px 12px;background:#fff;font-family:inherit;font-size:1rem;color:inherit}
+  .exp-scope select:focus{border-color:var(--teal);outline:none}
+  .exp-note{font-size:.78rem;color:var(--ink-soft);line-height:1.55;margin:12px 0 0}
+  /* ‏.pm-ack הוא display:flex, שגובר על ‎[hidden]‎ של הדפדפן — בלי הכלל הזה
+     תיבת "רק מה שמסונן" נשארת על המסך גם כשאין סינון פעיל. */
+  .exp-scope [hidden]{display:none!important}
+
   /* ‏התיאור השיווקי — כפתור הכתיבה בטופס, וחלון ההצעה מכרטיס הנכס.
      החלון רחב מ-pm-card כי מה שמוצג בו הוא טקסט לקריאה ולעריכה, לא שאלה
      של כן/לא: הסוכן/ת קורא/ת את הנוסח, מתקן/ת אותו במקום, ורק אז שומר/ת. */
@@ -3136,9 +3148,16 @@
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-    <div style="display:flex;gap:8px;margin-bottom:12px">
-      <button class="btn btn-ghost" id="toggleAddProperty" style="flex:1">+ הוספת נכס חדש</button>
-      <button class="btn btn-ghost" id="openImportProperties" style="flex:1">⭳ ייבוא מקובץ</button>
+    <!-- שלושה כפתורים בשורה אחת נחתכים בטלפון, ו-flex-wrap היה מחלק אותם
+         אחרת בכל רוחב מסך. במקום זה חלוקה קבועה לפי משמעות: הוספת נכס היא
+         הפעולה הראשית ויושבת לבדה, ושתי פעולות הקובץ — ייבוא וייצוא —
+         חולקות את השורה שמתחתיה בכל רוחב. -->
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
+      <button class="btn btn-ghost" id="toggleAddProperty">+ הוספת נכס חדש</button>
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-ghost" id="openImportProperties" style="flex:1">⭳ ייבוא מקובץ</button>
+        <button class="btn btn-ghost" id="openExportProperties" style="flex:1">⭱ ייצוא לאקסל</button>
+      </div>
     </div>
     <form id="addPropertyForm" class="card" style="display:none;padding:18px;margin-bottom:18px">
       <div class="field"><label>כותרת</label><input type="text" id="npTitle" required placeholder="לדוגמה: דירת 3 חדרים, שכונת רמת דוד"></div>
@@ -4772,6 +4791,31 @@
     </div>
     <div class="imp-body" id="impBody"></div>
     <div class="imp-foot" id="impFoot"></div>
+  </div>
+</div>
+
+<!-- ---------- ייצוא הנכסים לאקסל ----------
+     התאום של אשף הייבוא, וחלון אחד מספיק לו: מבנה הקובץ קבוע, והשאלה
+     היחידה היא *אילו* נכסים. בורר ההיקף מוצג למנהל/ת משרד בלבד — לסוכן/ת
+     רגיל/ה יש היקף אחד, והבורר היה שאלה בלי תשובות. -->
+<div class="pm-overlay" id="exportModal" role="dialog" aria-modal="true" aria-labelledby="expTitle" style="display:none">
+  <div class="pm-card">
+    <div class="pm-title" id="expTitle">ייצוא הנכסים לאקסל</div>
+    <div class="exp-scope">
+      <div class="field" id="expScopeField" hidden>
+        <label for="expScope">אילו נכסים לייצא</label>
+        <select id="expScope"></select>
+      </div>
+      <label class="pm-ack" id="expFilteredWrap" hidden>
+        <input type="checkbox" id="expFiltered">
+        <span id="expFilteredText"></span>
+      </label>
+      <p class="exp-note" id="expNote"></p>
+    </div>
+    <div class="pm-actions">
+      <button type="button" class="btn btn-ghost" id="expCancel">ביטול</button>
+      <button type="button" class="btn btn-gold" id="expRun">הורדת הקובץ</button>
+    </div>
   </div>
 </div>
 
@@ -9491,6 +9535,9 @@ async function loadTeam(agencyId, callerId){
   // הצוות (שרצה גם אחרי הוספה, ניתוק או שינוי סוכן/ת) מבטלת אותו, כדי שהבורר
   // לא יציג צוות ישן עד לרענון הדף.
   agencyColleagues = null;
+  // מאותה סיבה גם בורר ההיקף בייצוא לאקסל: סוכן/ת שהתווסף/ה או הושעה/תה
+  // צריך/ה להופיע שם כמו שהוא/היא מופיע/ה ברשימה שמתחת
+  expTeamCache = null;
   // ‏user_id ו-email נטענים כדי להבחין בין סוכן/ת שכבר נכנס/ה לבין הזמנה
   // שממתינה. בלי ההבחנה הזו כרטיס תקוע נראה ברשימה בדיוק כמו כרטיס פעיל,
   // ואף אחד לא יודע שהמייל לא הגיע ליעד.
@@ -11236,12 +11283,17 @@ document.getElementById('propSearch').addEventListener('input', renderProperties
   .forEach(id => document.getElementById(id).addEventListener('change', renderPropertiesFromTop));
 document.getElementById('propClearFilters').addEventListener('click', clearPropertyFilters);
 
+/* רשימת העמודות של "הנכסים שלי". קבוע ולא מחרוזת אינליין, כי גם ייצוא
+   הנכסים לאקסל שולף את אותן עמודות — עמודה שנוספת כאן חייבת להגיע גם לקובץ
+   שיורד, ושתי רשימות היו נפרדות תוך שבוע. */
+const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, video_url, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, shared_with_partners, shared_at, property_owners(owner_name, owner_phone)';
+
 async function loadProperties(agentId){
   const listEl = document.getElementById('propertiesList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
   const { data: props, error } = await sb
     .from('properties')
-    .select('id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, video_url, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, shared_with_partners, shared_at, property_owners(owner_name, owner_phone)')
+    .select(PROPERTY_SELECT_COLUMNS)
     .eq('agent_id', agentId)
     .order('created_at', { ascending:false });
 
@@ -12805,8 +12857,11 @@ const IMP_CONDITION = {
   'שמור':'maintained','במצב שמור':'maintained','maintained':'maintained',
   'דרוש שיפוץ':'needs_renovation','זקוק לשיפוץ':'needs_renovation','needs_renovation':'needs_renovation',
 };
+/* סדר המילים הנרדפות אינו משנה לייבוא (זו שליפה לפי מפתח), אבל כן לייצוא:
+   ‏expReverse() לוקחת את המילה העברית הראשונה לכל קוד, ולכן הראשונה חייבת
+   להיות זו שמופיעה בטופס — "תכנון ראשוני" ולא "תכנון". */
 const IMP_PROJECT_STATUS = {
-  'תכנון':'planning','תכנון ראשוני':'planning','planning':'planning',
+  'תכנון ראשוני':'planning','תכנון':'planning','planning':'planning',
   'הוגשה בקשה להיתר':'permit_requested','בקשה להיתר':'permit_requested','permit_requested':'permit_requested',
   'ניתן היתר בנייה':'permit_issued','יש היתר':'permit_issued','היתר':'permit_issued','permit_issued':'permit_issued',
   'הבנייה הסתיימה':'construction_complete','הסתיימה':'construction_complete','construction_complete':'construction_complete',
@@ -13864,6 +13919,342 @@ async function impDownloadErrors(rows){
 
 document.getElementById('openImportProperties').addEventListener('click', impOpen);
 document.getElementById('impClose').addEventListener('click', impClose);
+
+/* ---------- ייצוא הנכסים לקובץ אקסל ----------
+   הכיוון ההפוך של אשף הייבוא, ובכוונה באותו מבנה עמודות בדיוק: הקובץ שיוצא
+   כאן נקרא בחזרה על ידי האשף בלי מיפוי ידני. מזה נגזרות שלוש התכליות שלו —
+   גיבוי מקומי של תיק הנכסים, העברת מלאי בין מערכות, ועריכה המונית באקסל
+   (שינוי מחירים לעשרים נכסים) שחוזרת פנימה כייבוא.
+
+   **ההרשאה נשמרת ב-RLS ולא כאן.** ה-policy
+   ‏"read active or own or agency properties" כבר מחזירה למנהל/ת משרד את כל
+   נכסי המשרד ולסוכן/ת רגיל/ה רק את שלו/ה, וכך גם
+   ‏"listing agent manages property owner" על פרטי הבעלים. בורר ההיקף מוצג
+   למנהל/ת בלבד לא בגלל בדיקה בדפדפן, אלא כי לאף אחד אחר אין מה לבחור בו:
+   סוכן/ת שתשנה את ה-select ידנית תקבל בדיוק את אותן שורות.
+
+   ‏SheetJS היא אותה ספרייה של הייבוא (‏loadImportLib) — 900KB שנטענים
+   בלחיצה ולא בטעינת ה-CRM.
+
+   מה שהקובץ *לא* כולל: מספר צפיות בייצוא של נכסי סוכן/ת אחר/ת. ה-policy על
+   ‎property_views‎ צרה יותר ומחזירה רק צפיות בנכסים של הקורא/ת, ועמודה של
+   אפסים גרועה מעמודה שאינה קיימת.                                          */
+
+const exportModal = document.getElementById('exportModal');
+
+/* היפוך מפות הייבוא: הערך העברי הראשון לכל קוד. כך אוצר המילים של הקובץ
+   שיוצא זהה לזה של הקובץ שנכנס בלי רשימה שנייה לתחזק — והשינוי הבא ב-IMP_*
+   מגיע לשני הכיוונים יחד. מפתחות באנגלית מדולגים: הם קיימים במפות כדי לקלוט
+   קבצים ממערכות אחרות, ולא בשביל להיכתב. */
+function expReverse(map){
+  const out = Object.create(null);
+  for (const [word, code] of Object.entries(map)){
+    if (!(code in out) && /[\u0590-\u05FF]/.test(word)) out[code] = word;
+  }
+  return out;
+}
+const EXP_CATEGORY       = expReverse(IMP_CATEGORY);
+const EXP_DEAL           = expReverse(IMP_DEAL);
+const EXP_CONDITION      = expReverse(IMP_CONDITION);
+const EXP_PROJECT_STATUS = expReverse(IMP_PROJECT_STATUS);
+const EXP_LOCATION       = expReverse(IMP_LOCATION);
+const EXP_STATUS         = expReverse(IMP_PROPERTY_STATUS);
+
+// ‏null ("לא נשאל") ו-false ("לא") אינם אותו דבר, ולכן ריק ולא "לא"
+function expYesNo(value){
+  if (value === true) return 'כן';
+  if (value === false) return 'לא';
+  return '';
+}
+
+/* dd/mm/yyyy — הצורה שנקראת בעברית, ושאשף הייבוא קורא בחזרה.
+   עמודת DATE חוזרת כ-'yyyy-mm-dd' בלי שעה, ו-new Date() הייתה קוראת אותה
+   כחצות UTC ומזיזה אותה יום אחורה בכל אזור זמן ממערב לגריניץ'. */
+function expDate(value){
+  if (!value) return '';
+  const s = String(value);
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) return `${m[3]}/${m[2]}/${m[1]}`;
+  const d = new Date(s);
+  return isNaN(d) ? '' : `${impPad(d.getDate())}/${impPad(d.getMonth() + 1)}/${d.getFullYear()}`;
+}
+
+/* מספרים נכתבים כמספרים ולא כטקסט: עמודת מחיר שיורדת כמחרוזת אינה ניתנת
+   לסכימה, למיון או לגרף — וזו בדיוק הסיבה שמורידים אקסל ולא PDF. */
+function expNumber(value){
+  if (value === null || value === undefined || value === '') return '';
+  const n = Number(value);
+  return isFinite(n) ? n : '';
+}
+
+const EXPORT_NUMERIC_KEYS = new Set([
+  'price','rooms','floor','total_floors','size_sqm','built_size_sqm','garden_sqm','lat','lng',
+]);
+
+// ערך תא אחד, לפי אותו מפתח שדה שבו משתמש הייבוא
+function expFieldValue(p, key){
+  if (EXPORT_NUMERIC_KEYS.has(key)) return expNumber(p[key]);
+  switch (key){
+    case 'status':          return EXP_STATUS[p.status] || p.status || '';
+    case 'category':        return EXP_CATEGORY[p.category] || p.category || '';
+    case 'deal_type':       return EXP_DEAL[p.deal_type] || p.deal_type || '';
+    case 'condition':       return EXP_CONDITION[p.condition] || p.condition || '';
+    case 'project_status':  return EXP_PROJECT_STATUS[p.project_status] || p.project_status || '';
+    case 'restrooms_location':
+    case 'storage_location':
+    case 'mamad_location':  return EXP_LOCATION[p[key]] || p[key] || '';
+    // בקובץ נכתב שם השכונה ולא המזהה — הוא גם מה שהייבוא מחפש בחזרה
+    case 'neighborhood':    return allNeighborhoods.find(n => n.id === p.neighborhood_id)?.name || '';
+    case 'move_in_soon':    return expYesNo(p.move_in_soon);
+    case 'move_in_date':
+    case 'listing_expires_at': return expDate(p[key]);
+    case 'features':        return (p.features || []).map(featureLabel).join(', ');
+    case 'images':          return (p.images || []).join(', ');
+    case 'owner_name':
+    case 'owner_phone': {
+      const owner = Array.isArray(p.property_owners) ? p.property_owners[0] : p.property_owners;
+      return owner?.[key] || '';
+    }
+    default: return p[key] ?? '';
+  }
+}
+
+/* עמודות שהתוכן שלהן הוא פסקה ולא ערך — בלי רוחב מיוחד הן יורדות לקו דק
+   שאי אפשר לקרוא בלי להרחיב ידנית כל אחת מהן. */
+const EXPORT_WIDE_LABELS = new Set([
+  'כותרת','תיאור המודעה','תיאור שיווקי','טקסט פוסט','מאפיינים','קישורי תמונות',
+  'פירוט ריהוט','תמונה שיווקית','קישור לסיור וירטואלי','קישור לסרטון',
+]);
+
+/* גיליון הנכסים. עמודות הייבוא נשמרות בשמות ובסדר שלהן בדיוק, ומה שאין לו
+   מקבילה בייבוא (מספר מודעה, סוכן/ת, תאריכים, צפיות) עוטף אותן משני הצדדים.
+   הסדר הזה גם מה שמאפשר להעלות את הקובץ בחזרה: ‏impAutoMap() מתאים לפי שם
+   העמודה, והעמודות הנוספות פשוט נשארות בלי שדה. */
+function expBuildPropertiesSheet(XLSX, rows, opts){
+  const headers = [
+    'מספר מודעה', 'סוכן/ת אחראי/ת',
+    ...IMPORT_FIELDS.map(f => f.label),
+    'מקודם', 'שותף עם משרדים',
+    ...(opts.withViews ? ['צפיות בעמוד הנכס'] : []),
+    'תאריך פרסום', 'עודכן לאחרונה',
+  ];
+  const data = rows.map(p => [
+    p.listing_number ?? '',
+    opts.agentName(p),
+    ...IMPORT_FIELDS.map(f => expFieldValue(p, f.key)),
+    expYesNo(propertyIsPromoted(p)),
+    expYesNo(!!p.shared_with_partners),
+    ...(opts.withViews ? [propertyViewCounts[p.id] || 0] : []),
+    expDate(p.created_at),
+    expDate(p.updated_at),
+  ]);
+  const sheet = XLSX.utils.aoa_to_sheet([headers, ...data]);
+  sheet['!cols'] = headers.map(h => ({ wch: EXPORT_WIDE_LABELS.has(h) ? 42 : 16 }));
+  return sheet;
+}
+
+/* גיליון שני, בייצוא של כל המשרד בלבד: שורה לכל סוכן/ת. זו השאלה הראשונה
+   שמנהל/ת שואל/ת על קובץ כזה ("כמה יש לכל אחד ומה פעיל"), ובלי הגיליון היא
+   דורשת PivotTable על מאות שורות.
+
+   שווי המלאי מסוכם על נכסי המכירה בלבד: מחיר של נכס להשכרה הוא סכום חודשי,
+   וחיבור של השניים מייצר מספר שנראה כמו כסף ואינו כסף. */
+function expBuildTeamSheet(XLSX, rows, agentNameOf){
+  const byAgent = new Map();
+  rows.forEach(p => {
+    const key = p.agent_id || '—';
+    if (!byAgent.has(key)){
+      byAgent.set(key, { name: agentNameOf(p) || '—', total:0, active:0, sale:0, rent:0, closed:0, value:0 });
+    }
+    const row = byAgent.get(key);
+    row.total++;
+    if (p.status === 'active'){
+      row.active++;
+      if (p.deal_type === 'rent') row.rent++;
+      else { row.sale++; row.value += Number(p.price) || 0; }
+    }
+    if (p.status === 'sold' || p.status === 'rented') row.closed++;
+  });
+  const data = [...byAgent.values()]
+    .sort((a, b) => b.active - a.active || hebCompare(a.name, b.name))
+    .map(r => [r.name, r.total, r.active, r.sale, r.rent, r.closed, r.value]);
+  const sheet = XLSX.utils.aoa_to_sheet([
+    ['סוכן/ת','סה"כ נכסים','פעילים','פעילים למכירה','פעילים להשכרה','נמכרו / הושכרו','שווי המלאי הפעיל למכירה (₪)'],
+    ...data,
+  ]);
+  sheet['!cols'] = [{ wch:26 },{ wch:13 },{ wch:11 },{ wch:15 },{ wch:16 },{ wch:16 },{ wch:26 }];
+  return sheet;
+}
+
+/* ---------- מקורות השורות ---------- */
+
+/* ‏PostgREST מחזירה 1000 שורות בברירת המחדל. משרד גדול חוצה את הגבול, וקובץ
+   שנחתך בשקט גרוע מקובץ שלא ירד בכלל — לכן השליפה היא בדפים. המיון המשני לפי
+   ‎id‎ נדרש כדי ששורות עם אותו ‎created_at‎ לא יקפצו בין דף לדף. */
+const EXPORT_PAGE = 1000;
+const EXPORT_MAX_PAGES = 20;
+async function expFetchRows(agentId){
+  const rows = [];
+  for (let page = 0; page < EXPORT_MAX_PAGES; page++){
+    let query = sb.from('properties')
+      .select(PROPERTY_SELECT_COLUMNS + ', agent_id')
+      .order('created_at', { ascending:false })
+      .order('id', { ascending:true })
+      .range(page * EXPORT_PAGE, (page + 1) * EXPORT_PAGE - 1);
+    query = agentId
+      ? query.eq('agent_id', agentId)
+      : query.eq('agency_id', currentAgent.agency_id);
+    const { data, error } = await query;
+    if (error) throw new Error(error.message);
+    rows.push(...(data || []));
+    if (!data || data.length < EXPORT_PAGE) break;
+  }
+  return rows;
+}
+
+/* רשימת הצוות לבורר. ‏agency_members ולא agency_members_public: מנהל/ת צריך/ה
+   לראות גם סוכן/ת מושעה או מנותק/ת — הנכסים שלו/ה נשארו במשרד, וייצוא שלהם
+   הוא בדיוק מה שמבקשים כשמישהו עוזב. */
+let expTeamCache = null;
+async function expLoadTeam(){
+  if (expTeamCache) return expTeamCache;
+  const { data, error } = await sb.from('agency_members')
+    .select('id, display_name, active')
+    .eq('agency_id', currentAgent.agency_id)
+    .order('display_name');
+  expTeamCache = error ? [] : (data || []);
+  return expTeamCache;
+}
+
+/* ---------- החלון ---------- */
+
+const expScopeSelect   = document.getElementById('expScope');
+const expFilteredWrap  = document.getElementById('expFilteredWrap');
+const expFilteredCheck = document.getElementById('expFiltered');
+
+function expCurrentScope(){
+  return document.getElementById('expScopeField').hidden ? 'own' : (expScopeSelect.value || 'own');
+}
+
+/* תיבת "רק מה שמסונן" מופיעה רק כשיש סינון פעיל וההיקף הוא הנכסים שלי:
+   הסינון הוא של הרשימה שעל המסך, ואין לו משמעות על שורות שנשלפות מהשרת. */
+function expSyncFilteredOption(){
+  const f = propertyFilterState();
+  const active = !!(f.q || f.status || f.deal || f.type || f.city || f.extra);
+  if (expCurrentScope() !== 'own' || !active){
+    expFilteredWrap.hidden = true;
+    expFilteredCheck.checked = false;
+    return;
+  }
+  const shown = filterProperties(myPropertyRows, f).length;
+  document.getElementById('expFilteredText').textContent =
+    `לייצא רק את ${shown} הנכסים שברשימה לפי הסינון הפעיל, במקום את כל ${myPropertyRows.length}`;
+  expFilteredWrap.hidden = false;
+}
+
+async function expOpen(){
+  if (!currentAgent) return;
+  const isManager = currentAgent.role === 'manager';
+  if (!isManager && !myPropertyRows.length){
+    showToast('אין עדיין נכסים לייצוא');
+    return;
+  }
+
+  const scopeField = document.getElementById('expScopeField');
+  scopeField.hidden = !isManager;
+  if (isManager){
+    // הבורר נבנה מחדש בכל פתיחה — סוכן/ת שנוסף/ה לצוות אחרי הכניסה לדף
+    // חייב/ת להופיע בו בלי רענון
+    const team = (await expLoadTeam()).filter(m => m.id !== currentAgent.id);
+    expScopeSelect.innerHTML =
+      '<option value="own">הנכסים שלי בלבד</option>' +
+      '<option value="agency">כל נכסי המשרד — שלי ושל כל הסוכנים</option>' +
+      (team.length
+        ? '<optgroup label="סוכן/ת מסוים/ת">' + team.map(m =>
+            `<option value="${esc(m.id)}">${esc(m.display_name || 'ללא שם')}${m.active ? '' : ' (מושעה/ת)'}</option>`
+          ).join('') + '</optgroup>'
+        : '');
+    expScopeSelect.value = 'own';
+  }
+
+  expSyncFilteredOption();
+  document.getElementById('expNote').textContent =
+    'הקובץ נבנה במבנה של תבנית הייבוא — אפשר לערוך אותו באקסל ולהעלות אותו בחזרה דרך "ייבוא מקובץ". ' +
+    'הוא כולל גם שם וטלפון של בעלי הנכסים, שאינם מוצגים באתר — שמרו אותו בהתאם.';
+  exportModal.style.display = 'flex';
+}
+
+function expClose(){ exportModal.style.display = 'none'; }
+
+/* שם הסוכן/ת נכנס לשם הקובץ, והוא טקסט חופשי שהוקלד בכרטיס. תו נתיב בתוכו
+   ישבור את ההורדה בחלק מהדפדפנים, ולכן כל מה שאינו חוקי בשם קובץ יורד. */
+function expFileName(label){
+  const now = new Date();
+  const clean = String(label).replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim() || 'נכסים';
+  return `${clean} ${impPad(now.getDate())}-${impPad(now.getMonth() + 1)}-${now.getFullYear()}.xlsx`;
+}
+
+async function expDownload(){
+  const button = document.getElementById('expRun');
+  const label = button.textContent;
+  button.disabled = true;
+  button.textContent = 'מכין את הקובץ…';
+  try {
+    let XLSX;
+    try { XLSX = await loadImportLib(); }
+    catch(err){ showToast(err.message); return; }
+    // שם השכונה נכתב בקובץ, ובייצוא של נכסי סוכן/ת אחר/ת המטמון עשוי להיות ריק
+    await ensureNeighborhoodsLoaded();
+
+    const scope = expCurrentScope();
+    let rows, agentName, withViews = false, fileLabel, teamSheet = false;
+
+    if (scope === 'own'){
+      const useFilter = !expFilteredWrap.hidden && expFilteredCheck.checked;
+      const f = propertyFilterState();
+      rows = useFilter ? sortProperties(filterProperties(myPropertyRows, f), f.sort) : myPropertyRows;
+      agentName = ()=> currentAgent.display_name || '';
+      // הצפיות כבר בזיכרון מ-loadProperties, והן קריאות רק על נכסים של הסוכן/ת
+      withViews = true;
+      fileLabel = 'הנכסים שלי';
+    } else {
+      const team = await expLoadTeam();
+      const names = Object.fromEntries(team.map(m => [m.id, m.display_name || '']));
+      const agentId = scope === 'agency' ? null : scope;
+      rows = await expFetchRows(agentId);
+      agentName = p => names[p.agent_id] || '';
+      teamSheet = !agentId;
+      fileLabel = agentId ? ('נכסי ' + (names[agentId] || 'סוכן')) : 'נכסי המשרד';
+    }
+
+    if (!rows.length){ showToast('אין נכסים לייצוא בבחירה הזו'); return; }
+
+    const book = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(book, expBuildPropertiesSheet(XLSX, rows, { withViews, agentName }), 'נכסים');
+    if (teamSheet){
+      XLSX.utils.book_append_sheet(book, expBuildTeamSheet(XLSX, rows, agentName), 'סיכום לפי סוכן');
+    }
+    XLSX.writeFile(book, expFileName(fileLabel));
+    expClose();
+    showToast(`${rows.length} נכסים ירדו לקובץ`);
+  } catch(err){
+    showToast('הייצוא נכשל: ' + (err?.message || 'שגיאה לא ידועה'));
+  } finally {
+    button.disabled = false;
+    button.textContent = label;
+  }
+}
+
+document.getElementById('openExportProperties').addEventListener('click', expOpen);
+document.getElementById('expCancel').addEventListener('click', expClose);
+document.getElementById('expRun').addEventListener('click', expDownload);
+expScopeSelect.addEventListener('change', expSyncFilteredOption);
+exportModal.addEventListener('click', e => { if (e.target === exportModal) expClose(); });
+document.addEventListener('keydown', (e)=>{
+  if (e.key !== 'Escape' || exportModal.style.display === 'none') return;
+  expClose();
+  document.getElementById('openExportProperties').focus({ preventScroll:true });
+});
 
 /* ---------- ארכיון הלידים ----------
    הקטגוריה צוברת לנצח: כל ליד שנכנס אי פעם נשאר בה, והליד שהגיע הבוקר יושב
