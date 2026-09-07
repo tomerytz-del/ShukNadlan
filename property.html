@@ -2598,6 +2598,14 @@ function renderVizPending(targets){
   if (!el) return;
   const list = targets || [];
   if (!list.length){ el.hidden = true; el.textContent = ''; return; }
+  /* כשהתיבה עצמה מציגה את מסך "יוצרים לך את ההדמיה" — כלומר בסגנון שאין
+     לו עדיין אף הדמיה — השורה הזאת היא הודעה שנייה על אותו דבר, בשני
+     ניסוחים ובשני אומדני זמן. במצב הזה היא יורדת, והמסגרת עצמה מדברת.
+     כשכבר יש הדמיה בסגנון הנבחר הווילון תופס את המסגרת, אין שם מסך
+     המתנה, והשורה היא הסימן היחיד שמשהו רץ ברקע. */
+  if (!(vizState.byStyle.get(vizState.current) || []).length){
+    el.hidden = true; el.textContent = ''; return;
+  }
   const names = list.map(vizTargetLabel).join(', ');
   el.textContent = `יוצרים את ${names}… זה יכול לקחת עד דקה.`;
   el.hidden = false;
