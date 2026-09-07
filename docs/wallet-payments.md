@@ -119,10 +119,18 @@ Webhook הוא הבטחה, לא ערובה. אם מורנינג ניסה/תה ל
 לכן `wallet-topup-callback?mode=reconcile` סורק ניסיונות פתוחים ושואל את
 מורנינג בעצמו:
 
-- ישן מ-15 דקות → נבדק מול ה-API. שולם? מזוכה עכשיו.
+- ישן מ-10 דקות → נבדק מול ה-API. שולם? מזוכה עכשיו.
 - ישן מ-3 שעות ועדיין לא שולם → נסגר ככושל.
 - מורנינג לא ענה/תה → **השורה לא נגעה בה**. סבב הבא ינסה שוב; סגירה ככושלת
   בגלל תקלת רשת רגעית הייתה מוחקת תשלום אמיתי.
+
+**התזמון נכנס עם המיגרציה** — `cron.schedule('wallet-topup-reconcile', '*/5 * * * *')`,
+באותה תבנית של `property-video-reconcile`. אין מה להגדיר ידנית. מול הסף של
+10 דקות, מי שנתקע/ה מקבל/ת תשובה תוך רבע שעה במקרה הגרוע.
+
+ה-cron קורא דרך `pg_net` עם `x-alert-cron-secret` מ-Vault, ולכן **`ALERT_CRON_SECRET`
+חייב להיות מוגדר** גם ב-Edge Functions → Secrets וגם כסוד `alert_cron_secret`
+ב-Vault, באותו ערך. זה אותו סוד שכבר משמש את שאר ה-crons.
 
 המסלול מאומת דרך `_shared/cron-auth.ts` — `service_role` או
 `x-alert-cron-secret`. הרצה ידנית:
@@ -131,8 +139,6 @@ Webhook הוא הבטחה, לא ערובה. אם מורנינג ניסה/תה ל
 curl -X POST "https://obookujgolazrwycsiyn.supabase.co/functions/v1/wallet-topup-callback?mode=reconcile" \
   -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY"
 ```
-
-כדאי לתזמן אותו ב-`pg_cron` כל 10 דקות, כמו ה-reconcile של הסרטונים.
 
 ## חשבוניות
 
