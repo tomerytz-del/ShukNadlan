@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מסלולים ומחירים | שוק נדל״ן</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta name="description" content="שלושה מסלולים לסוכני נדל״ן בעפולה והעמק: Pay&amp;GO ללא דמי מנוי, PROFESSIONAL ב-₪750 ו-Elite ב-₪950 לחודש. מצטרפים חדשים מקבלים 6 חודשי Elite במתנה.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site-footer.css">
+<link rel="stylesheet" href="assets/design-system.css">
+<style>
+  /* ==========================================================================
+     דף המסלולים
+     --------------------------------------------------------------------------
+     שלושה כרטיסים, שלוש שפות צבע — וזו לא קישוט: מסלול נבחר בהשוואה, וכרטיס
+     שנראה כמו שכנו מכריח לקרוא את שניהם כדי להבין מה ההבדל.
+
+       Pay&GO       — בהיר. כרטיס נייר רגיל, ספיר רק בפרטים.
+       PROFESSIONAL — ספיר כהה מלא. הכרטיס "העסקי".
+       Elite        — שמפניה וזהב, עם הילה ותגית. הוא זה שאמור לתפוס את העין.
+
+     הכרטיסים עצמם נבנים ב-JS מ-assets/tiers.js ולא נכתבים כאן: אותם שמות,
+     מחירים ויתרונות מוצגים גם במסך בחירת המסלול ב-CRM, ומחיר שמתעדכן בקובץ
+     אחד ולא בשני הוא בדיוק סוג הטעות שנתגלה מלקוח.
+     ========================================================================== */
+  :root{
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --surface:#fff;
+    --line:#e3e8f4; --sapphire:#0e2a6b; --sapphire-deep:#0d1b3d;
+    --brass:#c9a227; --brass-ink:#8a6d10; --brass-tint:#fdf8ec;
+    --radius:14px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.6}
+  h1,h2,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;margin:0}
+  a{color:inherit}
+  button{font-family:inherit;cursor:pointer;border:none}
+  .wrap{max-width:1120px;margin:0 auto;padding:0 20px}
+
+  /* ---------- כותרת האתר ---------- */
+  header.site{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30}
+  .header-inner{max-width:1120px;margin:0 auto;padding:10px 20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .logo{display:flex;align-items:center;gap:9px;text-decoration:none}
+  .logo-img{width:34px;height:auto;display:block}
+  .logo-word{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1rem;line-height:1.1;color:var(--sapphire-deep)}
+  .logo-word span{display:block;font-family:'Heebo',sans-serif;font-weight:400;font-size:.68rem;color:var(--ink-soft)}
+  .head-links{display:flex;align-items:center;gap:14px;font-size:.85rem}
+  .head-links a{text-decoration:none;color:var(--sapphire);font-weight:600}
+
+  /* ---------- ההירו ---------- */
+  .hero{padding:46px 0 26px;text-align:center}
+  .hero h1{font-size:clamp(1.7rem,4.4vw,2.6rem);line-height:1.25;margin-bottom:12px}
+  .hero p.lead{font-size:1.02rem;color:var(--ink-soft);max-width:640px;margin:0 auto}
+
+  /* באנר ההטבה. זהב ולא ספיר — הוא לא עוד הודעה בדף, הוא הסיבה להישאר בו. */
+  .promo{
+    max-width:760px;margin:24px auto 0;background:linear-gradient(135deg,#fffdf6,var(--brass-tint));
+    border:1.5px solid var(--brass);border-radius:var(--radius);padding:16px 20px;
+    box-shadow:0 10px 30px -18px rgba(201,162,39,.75);
+  }
+  .promo b{display:block;font-family:'Frank Ruhl Libre',serif;font-size:1.22rem;color:var(--sapphire-deep);margin-bottom:4px}
+  .promo span{font-size:.9rem;color:#5c5330;line-height:1.55}
+  .promo .promo-ends{display:inline-block;margin-top:8px;font-size:.82rem;font-weight:700;color:var(--brass-ink);
+    background:#fff;border:1px solid var(--brass);border-radius:99px;padding:4px 12px}
+
+  /* ---------- שלושת הכרטיסים ---------- */
+  .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:start;padding:34px 0 10px}
+  @media(max-width:900px){.plans{grid-template-columns:1fr;max-width:460px;margin:0 auto}}
+
+  /* ‏overflow גלוי ולא hidden: תגית "הבחירה של המובילים" יושבת חצי מחוץ
+     לכרטיס, ו-hidden היה חותך אותה בדיוק באמצע. הפינות של רצועת הכותרת
+     מעוגלות בעצמן במקום להסתמך על החיתוך. */
+  .plan{background:var(--surface);border:1.5px solid var(--line);border-radius:var(--radius);
+    display:flex;flex-direction:column;position:relative;transition:transform .18s ease,box-shadow .18s ease}
+  .plan:hover{transform:translateY(-3px);box-shadow:0 18px 40px -26px rgba(13,27,61,.55)}
+
+  .plan-head{padding:22px 20px 18px;border-bottom:1px solid var(--line);
+    border-radius:calc(var(--radius) - 2px) calc(var(--radius) - 2px) 0 0}
+  .plan-name{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.42rem;letter-spacing:.01em}
+  .plan-tagline{font-size:.84rem;opacity:.85;margin-top:2px}
+  .plan-price{display:flex;align-items:baseline;gap:6px;margin-top:14px;flex-wrap:wrap}
+  .plan-price .num{font-family:'Frank Ruhl Libre',serif;font-size:2.5rem;font-weight:700;line-height:1}
+  .plan-price .per{font-size:.9rem;opacity:.8}
+  .plan-price .vat{font-size:.74rem;opacity:.7;width:100%}
+  .plan-note{font-size:.76rem;opacity:.75;margin-top:8px}
+
+  .plan-body{padding:18px 20px 22px;display:flex;flex-direction:column;gap:11px;flex:1}
+  .feat{display:flex;align-items:flex-start;gap:9px;font-size:.87rem;line-height:1.45}
+  .feat svg{width:17px;height:17px;flex:none;margin-top:2px}
+  .feat.off{opacity:.5}
+  .plan-cta{margin:18px 20px 20px;display:block;text-align:center;text-decoration:none;
+    padding:13px 18px;border-radius:9px;font-weight:700;font-size:.95rem;width:calc(100% - 40px)}
+  .plan-foot{font-size:.74rem;text-align:center;margin:-8px 20px 16px;opacity:.75;min-height:1.1em}
+
+  /* --- Pay&GO: בהיר --- */
+  .plan.paygo .plan-head{background:#f7f9fe}
+  .plan.paygo .plan-name{color:var(--sapphire-deep)}
+  .plan.paygo .plan-cta{background:#fff;border:1.6px solid var(--sapphire);color:var(--sapphire)}
+  .plan.paygo .plan-cta:hover{background:var(--sapphire);color:#fff}
+
+  /* --- PROFESSIONAL: ספיר כהה --- */
+  .plan.pro{border-color:var(--sapphire-deep)}
+  .plan.pro .plan-head{background:linear-gradient(160deg,#12306f,var(--sapphire-deep));color:#fff;border-bottom-color:rgba(255,255,255,.16)}
+  .plan.pro .plan-cta{background:var(--sapphire);color:#fff}
+  .plan.pro .plan-cta:hover{background:#08194a}
+
+  /* --- Elite: שמפניה, זהב והילה --- */
+  .plan.elite{border-color:var(--brass);box-shadow:0 20px 50px -28px rgba(201,162,39,.9)}
+  .plan.elite .plan-head{background:linear-gradient(160deg,#fffdf6,#f6e9c8);border-bottom-color:#e8d9a8}
+  .plan.elite .plan-name{color:var(--sapphire-deep)}
+  .plan.elite .plan-cta{background:linear-gradient(135deg,#d9b53c,#a8841a);color:#fff;
+    box-shadow:0 8px 18px -10px rgba(168,132,26,.9)}
+  .plan.elite .plan-cta:hover{filter:brightness(1.06)}
+  .plan-badge{position:absolute;top:0;inset-inline-start:50%;transform:translate(50%,-50%);
+    background:var(--sapphire-deep);color:#f6e0a3;font-size:.72rem;font-weight:800;
+    padding:5px 14px;border-radius:99px;white-space:nowrap;box-shadow:0 6px 14px -8px rgba(13,27,61,.9)}
+  .plan.elite{margin-top:14px}
+  @media(max-width:900px){.plan.elite{margin-top:20px}}
+
+  /* מצבים: המסלול הנוכחי, ומסלול שנעול בתקופת ההטבה */
+  .plan.is-current{outline:2.5px solid var(--sapphire);outline-offset:2px}
+  .ribbon{position:absolute;top:12px;inset-inline-end:12px;font-size:.68rem;font-weight:800;
+    background:var(--sapphire);color:#fff;border-radius:6px;padding:3px 9px}
+  .plan-cta.is-disabled{background:#eef1f8;border:1.6px solid var(--line);color:var(--ink-soft);
+    box-shadow:none;cursor:default;filter:none}
+
+  /* ---------- טבלת ההשוואה ---------- */
+  .compare{margin:42px 0 10px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+  .compare h2{font-size:1.15rem;padding:18px 20px;border-bottom:1px solid var(--line)}
+  /* הטבלה רחבה מ-360px, ולכן היא גוללת בתוך המסגרת שלה ולא דוחפת את הדף.
+     עמודת השם דביקה: בגלילה אופקית "✓ ✕ ✓" בלי השורה שהוא שייך אליה הוא
+     חידה, לא השוואה. */
+  .compare-scroll{overflow-x:auto}
+  table{border-collapse:collapse;width:100%;min-width:620px;font-size:.88rem}
+  th,td{padding:10px 12px;text-align:start;border-bottom:1px solid var(--line)}
+  thead th{background:#f7f9fe;font-size:.86rem;color:var(--sapphire-deep);font-weight:800;
+    white-space:nowrap;text-align:center;position:sticky;top:0;z-index:2}
+  thead th.col-pro{background:#eef2fb}
+  thead th.col-elite{background:var(--brass-tint)}
+  tbody th{font-weight:500;color:var(--ink);position:sticky;inset-inline-start:0;background:var(--surface);z-index:1}
+  tbody tr.group th{background:#f7f9fe;font-family:'Frank Ruhl Libre',serif;font-weight:700;
+    font-size:.94rem;color:var(--sapphire-deep);position:static}
+  tbody tr:hover th, tbody tr:hover td{background:#fbfcff}
+  tbody tr.group:hover th{background:#f7f9fe}
+  td{text-align:center;white-space:nowrap}
+  td.txt{font-size:.82rem;color:var(--ink-soft);white-space:normal;min-width:110px}
+  .yes{color:#1c8546;font-weight:800;font-size:1.05rem}
+  .no{color:#c0392b;font-weight:800;font-size:1rem}
+
+  /* ---------- שאלות נפוצות ---------- */
+  .faq{margin:40px 0 10px}
+  .faq h2{font-size:1.35rem;margin-bottom:14px}
+  details{background:var(--surface);border:1px solid var(--line);border-radius:10px;margin-bottom:9px;overflow:hidden}
+  summary{padding:14px 16px;font-weight:700;font-size:.92rem;cursor:pointer;list-style:none;display:flex;justify-content:space-between;gap:10px}
+  summary::-webkit-details-marker{display:none}
+  summary::after{content:'+';color:var(--sapphire);font-weight:800}
+  details[open] summary::after{content:'−'}
+  details p{margin:0;padding:0 16px 15px;font-size:.88rem;color:var(--ink-soft);line-height:1.65}
+
+  /* ---------- סיום ---------- */
+  .closer{text-align:center;padding:38px 0 56px}
+  .closer h2{font-size:1.5rem;margin-bottom:10px}
+  .closer p{color:var(--ink-soft);margin:0 0 18px}
+  .btn-main{display:inline-block;text-decoration:none;background:var(--sapphire);color:#fff;
+    padding:14px 30px;border-radius:9px;font-weight:700}
+  .fineprint{font-size:.76rem;color:var(--ink-soft);text-align:center;margin:6px 0 0}
+</style>
+<script src="assets/page-bg.js" data-auto></script>
+<script defer src="assets/site-footer.js"></script>
+</head>
+<body>
+
+<header class="site">
+  <div class="header-inner">
+    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+      <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
+      <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
+    </a>
+    <div class="head-links">
+      <a href="index.html">דף הבית</a>
+      <a href="crm.html" id="crmLink">איזור סוכנים</a>
+    </div>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <h1 id="heroTitle">בחרו את המסלול שיקפיץ את העסק שלכם קדימה</h1>
+    <p class="lead" id="heroLead">
+      כל הנכסים, הלידים והלקוחות שלכם במקום אחד — ודף סוכן/ת אישי שמופיע מול כל מי שמחפש דירה בעפולה והעמק.
+      בלי התחייבות, בלי הפתעות, ואפשר לעבור בין מסלולים בכל חודש.
+    </p>
+    <div class="promo" id="promoBanner" hidden>
+      <b id="promoHead"></b>
+      <span id="promoSub"></span>
+      <span class="promo-ends" id="promoEnds" hidden></span>
+    </div>
+  </div>
+</section>
+
+<main>
+  <div class="wrap">
+    <div class="plans" id="plans"></div>
+    <p class="fineprint" id="finePrint">המחירים לחודש ואינם כוללים מע״מ · ללא התחייבות · המעבר בין מסלולים נכנס לתוקף בחודש העוקב</p>
+
+    <section class="compare">
+      <h2>מה כלול בכל מסלול</h2>
+      <div class="compare-scroll"><table id="compareTable"></table></div>
+    </section>
+
+    <section class="faq">
+      <h2>שאלות נפוצות</h2>
+
+      <details>
+        <summary>מה זה בעצם "ליד", ומתי אני מחויב/ת עליו?</summary>
+        <p>ליד הוא פנייה של אדם אמיתי — מישהו שהשאיר פרטים על נכס, על חיפוש שמור או דרך דף הסוכן/ת.
+        החיוב הוא רק ברגע שאתם <b>פותחים</b> את הפנייה ורואים את פרטי הקשר, ולא על הצגתה. במסלול Pay&amp;GO
+        עשר פניות קונה/שוכר בחודש כלולות, ומעבר לזה ₪10 לפנייה. ב-PROFESSIONAL וב-Elite פניות
+        קונה/שוכר כלולות ללא הגבלה.</p>
+      </details>
+
+      <details>
+        <summary>מה ההבדל בין ליד קונה/שוכר לליד בעל-נכס?</summary>
+        <p>ליד בעל-נכס הוא מי שרוצה למכור או להשכיר — כלומר נכס פוטנציאלי לתיק שלכם, ולכן הוא שווה
+        הרבה יותר. ב-Pay&amp;GO הוא אינו זמין, ב-PROFESSIONAL הוא ₪50 לליד, וב-Elite הוא כלול ללא עלות.</p>
+      </details>
+
+      <details>
+        <summary>יש התחייבות? אפשר לבטל?</summary>
+        <p>אין התחייבות ואין קנס יציאה. אפשר לרדת ל-Pay&amp;GO בכל עת, והמעבר נכנס לתוקף בסוף מחזור החיוב
+        שכבר שולם. הנכסים, הלידים, הלקוחות, דף הסוכן/ת ויתרת הארנק נשארים אצלכם בכל מקרה.</p>
+      </details>
+
+      <details id="faqPromo">
+        <summary>מה קורה בתום שישה חודשי ההטבה?</summary>
+        <p>חודש לפני הסיום ושבועיים לפני הסיום תקבלו התראה במייל, וביום הסיום הודעה נוספת עם קישור
+        לדף הזה. מי שבוחר/ת מסלול — ממשיך/ה בו. מי שלא בוחר/ת עובר/ת אוטומטית ל-Pay&amp;GO, בלי דמי מנוי
+        ובלי לאבד דבר: הנכסים, הלידים, הלקוחות והארנק נשארים במקומם, ורק היכולות של המסלולים בתשלום
+        (לידי בעל-נכס, דוח CMA, מידע תכנוני, סרטונים והדמיות) מפסיקות להיות זמינות עד שמשדרגים שוב.</p>
+      </details>
+
+      <details>
+        <summary>אני מנהל/ת משרד — איך אני מצרף/ת את הסוכנים שלי?</summary>
+        <p>מתוך איזור הסוכנים, בקטגוריית <b>צוות המשרד</b>, מזינים שם, מספר רישיון ואימייל — והמערכת
+        שולחת קישור הזמנה אישי. הסוכן/ת נכנס/ת עם חשבון Google או עם סיסמה שהוא/היא מגדיר/ה,
+        משויך/ת אוטומטית למשרד שלכם, ובוחר/ת את המסלול שלו/ה בעצמו/ה. אתם רואים ברשימת הצוות איזה
+        מסלול נבחר, והחיוב הוא פר-סוכן/ת.</p>
+      </details>
+
+      <details>
+        <summary>האם המחירים כוללים מע״מ?</summary>
+        <p>לא. ₪750 ו-₪950 הם לחודש לפני מע״מ. חשבונית מס נשלחת אוטומטית לאחר כל חיוב.</p>
+      </details>
+    </section>
+
+    <section class="closer">
+      <h2 id="closerTitle">מוכנים להתחיל?</h2>
+      <p id="closerLead">פתיחת משרד לוקחת שתי דקות, והסוכנים שלכם מצטרפים בקישור אחד.</p>
+      <a class="btn-main" id="closerCta" href="agency-signup.html">פתיחת משרד תיווך</a>
+    </section>
+  </div>
+</main>
+
+<script src="assets/tiers.js"></script>
+<script>
+/* ============================================================================
+   ארבעה מצבים לאותו דף, והם נקבעים ב-query string:
+
+     (ריק)                    — הדף השיווקי. כל CTA מוביל לפתיחת משרד חדש.
+     ?invite=<token>          — סוכן/ת שהגיע/ה מהזמנה. ה-CTA מחזיר/ה אותו/ה
+                                ל-CRM עם האסימון, שם השיוך והבחירה נסגרים.
+     ?current=<tier>&from=crm — סוכן/ת מחובר/ת שלחץ/ה על תגית המסלול. המסלול
+                                שלו/ה מסומן, והאחרים הופכים ל"שדרוג".
+     ?promo_ends=<ISO>        — נלווה ל-current: כמה זמן נשאר להטבה.
+
+   ‏**הפרמטרים משפיעים על התצוגה בלבד.** מי שיערוך את הכתובת ידנית יראה
+   כרטיס מסומן אחרת, ולא יקבל מסלול: הבחירה נסגרת ב-‎join-agency/set_tier‎ מול
+   ה-JWT, ושם גם נאכפת נעילת ההטבה.
+   ========================================================================== */
+const params    = new URLSearchParams(location.search);
+const inviteTok = params.get('invite') || '';
+const current   = params.get('current') || '';
+const promoEnds = params.get('promo_ends') || '';
+const fromCrm   = params.get('from') === 'crm' || !!current;
+
+const promoState = Tiers.promoState({ promo_ends_at: promoEnds });
+/* ההטבה מוצגת כשהיא פעילה למי שמולנו (סוכן/ת עם תאריך סיום), או כשהיא פתוחה
+   לכולם ואין עדיין חשבון — כלומר בדף השיווקי ובמסלול ההזמנה. */
+const promoOpen = promoState.active || (Tiers.PROMO.active && !current);
+
+const ICON_YES = '<svg viewBox="0 0 24 24" fill="none" stroke="#1c8546" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
+const ICON_NO  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
+
+const esc = (s) => String(s == null ? '' : s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+/* ---------- באנר ההטבה ---------- */
+(function renderPromo(){
+  if (!promoOpen) return;
+  const box = document.getElementById('promoBanner');
+  document.getElementById('promoHead').textContent = '🎁 ' + Tiers.PROMO.headline;
+  document.getElementById('promoSub').textContent  = Tiers.PROMO.sub;
+  if (promoState.active){
+    const ends = document.getElementById('promoEnds');
+    ends.textContent = 'ההטבה שלך פעילה עד ' + Tiers.formatDate(promoState.endsAt) +
+                       ' · נשארו ' + promoState.daysLeft + ' ימים';
+    ends.hidden = false;
+    document.getElementById('heroTitle').textContent = 'המסלול שלך, ומה אפשר לשדרג';
+    document.getElementById('heroLead').textContent =
+      'בתקופת ההשקה כל סוכן/ת נמצא/ת ב-Elite ללא תשלום. כאן אפשר לראות מה כלול בכל מסלול, ולבחור מה ממשיך אחרי.';
+  }
+  box.hidden = false;
+})();
+
+/* ---------- שלושת הכרטיסים ----------
+   ה-CTA הוא כל ההבדל בין הדף הזה לבין טבלת מחירים: בכל מצב יש בדיוק פעולה
+   אחת נכונה לכל כרטיס, והיא נכתבת כאן במפורש ולא נגזרת בדרך אגב. */
+function ctaFor(tier){
+  // בתקופת ההטבה של סוכן/ת מחובר/ת אין מה לבחור: כולם על Elite עד הסיום.
+  if (promoState.active){
+    if (tier.id === (promoState.tier || Tiers.PROMO.tier)){
+      return { label: 'ההטבה שלך — פעיל עכשיו', disabled: true,
+               foot: 'עד ' + Tiers.formatDate(promoState.endsAt) };
+    }
+    return { label: 'ייפתח בתום ההטבה', disabled: true,
+             foot: 'בתקופת ההשקה כל הסוכנים על Elite' };
+  }
+
+  if (current){
+    if (tier.id === current){
+      return { label: 'המסלול הנוכחי שלך', disabled: true, foot: '' };
+    }
+    const up = Tiers.isUpgrade(current, tier.id);
+    return {
+      label: (up ? 'שדרוג ל-' : 'מעבר ל-') + tier.name,
+      href: 'crm.html?tier=' + encodeURIComponent(tier.id),
+      foot: up && tier.priceMonthly ? 'נציג/ה יחזור/תחזור אליך להסדרת התשלום' : '',
+    };
+  }
+
+  if (inviteTok){
+    return {
+      label: tier.cta,
+      href: 'crm.html?invite=' + encodeURIComponent(inviteTok) + '&tier=' + encodeURIComponent(tier.id),
+      foot: '',
+    };
+  }
+
+  // הדף הציבורי: הצטרפות למערכת היא פתיחת משרד.
+  return {
+    label: promoOpen && tier.id === Tiers.PROMO.tier ? 'מתחילים — 6 חודשים במתנה' : tier.cta,
+    href: 'agency-signup.html?tier=' + encodeURIComponent(tier.id),
+    foot: promoOpen && tier.id === Tiers.PROMO.tier ? 'בלי כרטיס אשראי' : '',
+  };
+}
+
+function priceBlock(tier){
+  if (!tier.priceMonthly){
+    return '<div class="plan-price"><span class="num">₪0</span><span class="per">/ חודש</span>' +
+           '<span class="vat">משלמים רק על פניות שנפתחו</span></div>';
+  }
+  return '<div class="plan-price"><span class="num">₪' + tier.priceMonthly.toLocaleString('he-IL') + '</span>' +
+         '<span class="per">/ חודש</span><span class="vat">+ מע״מ · חיוב חודשי</span></div>';
+}
+
+document.getElementById('plans').innerHTML = Tiers.list().map(function(tier){
+  const cta = ctaFor(tier);
+  const isCurrent = tier.id === current;
+  const feats = tier.features.map(function(f){
+    return '<div class="feat' + (f.on ? '' : ' off') + '">' + (f.on ? ICON_YES : ICON_NO) +
+           '<span>' + esc(f.text) + '</span></div>';
+  }).join('');
+
+  const ctaHtml = cta.disabled
+    ? '<span class="plan-cta is-disabled">' + esc(cta.label) + '</span>'
+    : '<a class="plan-cta" href="' + esc(cta.href) + '">' + esc(cta.label) + '</a>';
+
+  return '<article class="plan ' + tier.color + (isCurrent ? ' is-current' : '') + '">' +
+    (tier.badge && !isCurrent ? '<span class="plan-badge">★ ' + esc(tier.badge) + '</span>' : '') +
+    (isCurrent ? '<span class="ribbon">המסלול שלך</span>' : '') +
+    '<div class="plan-head">' +
+      '<div class="plan-name">' + esc(tier.name) + '</div>' +
+      '<div class="plan-tagline">' + esc(tier.tagline) + '</div>' +
+      priceBlock(tier) +
+      '<div class="plan-note">' + esc(tier.priceNote) + '</div>' +
+    '</div>' +
+    '<div class="plan-body">' + feats + '</div>' +
+    ctaHtml +
+    '<div class="plan-foot">' + esc(cta.foot || '') + '</div>' +
+  '</article>';
+}).join('');
+
+/* ---------- טבלת ההשוואה ----------
+   כל היכולות של המערכת, שורה לכל אחת, מקובצות לפי מה שהסוכן/ת בא/ה לעשות
+   ולא לפי איך זה בנוי אצלנו. שלושה ערכים אפשריים בתא:
+
+     true   — ✓ ירוק, כלול במסלול
+     false  — ✗ אדום, לא כלול
+     טקסט   — כלול במגבלה או בתשלום נפרד ("₪20 להפקה"). דווקא התאים האלה
+              מוכרים: הם מראים שאין הפתעות בחשבון.
+
+   השורות קבועות ואינן נגזרות מרשימות היתרונות שבכרטיסים: השוואה טובה שואלת
+   את אותה שאלה בכל שלוש העמודות, ואילו הכרטיסים מנוסחים כל אחד בשפה של
+   המסלול שלו. */
+const COMPARE = [
+  ['ניהול העסק', [
+    ['מערכת CRM מלאה — נכסים, לידים, לקוחות ועמלות',      true, true, true],
+    ['פרסום נכסים',                    'ללא הגבלה', 'ללא הגבלה', 'ללא הגבלה'],
+    ['החתמת מסמכי תיווך דיגיטלית',     'ללא הגבלה', 'ללא הגבלה', 'ללא הגבלה'],
+    ['דף סוכן/ת אישי ודף משרד ממותג',                     true, true, true],
+    ['שיתופי פעולה בין משרדים (Co-Broke)',                true, true, true],
+    ['ניהול לקוחות והתאמה אוטומטית לנכסים',               true, true, true],
+    ['מדבקת QR לשלט בשטח',                                true, true, true],
+    ['סוכן עוזר אישי בוואטסאפ — נכס נכנס בהודעה, תמונה או הקלטה', false, true, true],
+  ]],
+  ['שיווק הנכס וחשיפה', [
+    ['הקפצת מודעה לראש התוצאות',  'חינם · כל 24 שעות', 'חינם · כל 24 שעות', 'חינם · כל 24 שעות'],
+    ['קידום מודעה בסלוטים המקודמים', '₪20 ל-72 שעות', '₪20 ל-72 שעות', '₪20 ל-72 שעות'],
+    ['תיאור שיווקי אוטומטי ב-AI',                        false, true, true],
+    ['פרסום אוטומטי ברשתות החברתיות',                    false, true, true],
+    ['סרטון שיווקי אוטומטי מהתמונות', false, '₪20 להפקה', '8 בחודש · ללא חיוב'],
+    ['הדמיות AI לנכס פרטי — 4 סגנונות עיצוב',            false, false, true],
+    ['הדמיות AI לנכסים מסחריים',                         false, false, true],
+    ['מפת מיקום מדויקת בדף הנכס',                        false, true, true],
+  ]],
+  ['מידע וניתוח', [
+    ['דוח CMA — ניתוח שוק והשוואת מחירים',               false, true, true],
+    ['מידע תכנוני — גוש, חלקה וייעוד קרקע',              false, true, true],
+  ]],
+  ['לידים ופניות', [
+    ['לידי קונה/שוכר', '10 בחודש, ואז ₪10', 'ללא הגבלה', 'ללא הגבלה'],
+    ['לידי בעל-נכס (מוכר/משכיר)',      false, '₪50 לליד', 'כלול ללא עלות'],
+    ['הפניה אוטומטית של לידי בעל-נכס אליך',              false, true, true],
+    ['פניות ממחשבון המשכנתא בדף הנכס',                    true, true, true],
+    ['פניות ממחשבון התשואה בדף הסוכן/ת ובדף המשרד',       true, true, true],
+    ['פניות מהערכת השווי ומהתאמת הנכס',                   true, true, true],
+    ['חנות הלידים — משכנתאות, חיפושים שמורים ולידים חיצוניים',
+      'בתשלום לפי ליד', 'בתשלום לפי ליד', 'בתשלום לפי ליד'],
+  ]],
+  ['אמון ומוניטין', [
+    ['תו האמון והאיכות',                                  true, true, true],
+    ['ביקורות ודירוג לקוחות',                             true, true, true],
+  ]],
+];
+
+function cell(value){
+  if (value === true)  return '<td><span class="yes" role="img" aria-label="כלול">✓</span></td>';
+  if (value === false) return '<td><span class="no" role="img" aria-label="לא כלול">✕</span></td>';
+  return '<td class="txt">' + esc(value) + '</td>';
+}
+
+document.getElementById('compareTable').innerHTML =
+  '<thead><tr><th></th>' + Tiers.list().map(function(t){
+    return '<th class="col-' + t.color + '">' + esc(t.name) + '</th>';
+  }).join('') + '</tr></thead><tbody>' +
+  COMPARE.map(function(group){
+    return '<tr class="group"><th colspan="4">' + esc(group[0]) + '</th></tr>' +
+      group[1].map(function(row){
+        return '<tr><th scope="row">' + esc(row[0]) + '</th>' + row.slice(1).map(cell).join('') + '</tr>';
+      }).join('');
+  }).join('') + '</tbody>';
+
+/* ---------- הסיום, וקישורי החזרה ---------- */
+if (fromCrm || inviteTok){
+  document.getElementById('closerTitle').textContent = 'חוזרים לאיזור הסוכנים';
+  document.getElementById('closerLead').textContent =
+    'כל מה שכאן אפשר לשנות גם אחר כך — המסלול לא נועל אתכם.';
+  const back = document.getElementById('closerCta');
+  back.textContent = 'חזרה לאיזור הסוכנים';
+  back.href = inviteTok ? 'crm.html?invite=' + encodeURIComponent(inviteTok) : 'crm.html';
+  document.getElementById('crmLink').textContent = 'חזרה ל-CRM';
+}
+if (promoState.active) document.getElementById('faqPromo').open = true;
+</script>
+</body>
+</html>

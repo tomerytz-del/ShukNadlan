@@ -53,6 +53,9 @@
   #feedback{font-size:.82rem;text-align:center;margin-top:12px;min-height:1.2em}
   .back-link{display:block;text-align:center;font-size:.8rem;color:var(--blue);margin-top:16px;text-decoration:none}
   .note{font-size:.72rem;color:var(--ink-soft);background:var(--blue-tint);border-radius:var(--radius-sm);padding:10px 12px;margin-top:16px}
+  .promo-note{font-size:.78rem;line-height:1.6;background:linear-gradient(135deg,#fffdf6,#f7f1e2);
+    border:1.5px solid #e5c76a;border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:4px}
+  .promo-note a{color:var(--blue);font-weight:700;text-decoration:none}
   #stateDone{display:none;text-align:center}
 </style>
 <link rel="stylesheet" href="assets/design-system.css">
@@ -66,7 +69,16 @@
     <h1>פתיחת משרד תיווך</h1>
     <p class="sub">הצטרפות למרכזי — כמנהל/ת המשרד</p>
 
-    <div class="note">הצטרפות למערכת אפשרית רק דרך פתיחת משרד. סוכנים בודדים אינם יכולים להירשם עצמאית — לאחר פתיחת המשרד תוכל/י להוסיף סוכנים מתוך איזור הניהול.</div>
+    <!-- ההטבה ראשונה, לפני ההסבר על מבנה ההרשמה: מי שהגיע/ה מדף המסלולים
+         כבר בחר/ה, וצריך/ה לראות שמה שנבחר עדיין תקף. ‏?tier= מגיע משם
+         ומשמש לתצוגה בלבד — המסלול נקבע בשרת בכל מקרה. -->
+    <div class="promo-note" id="promoNote">
+      🎁 <b>6 חודשים במסלול Elite במתנה</b> — המסלול המלא, בלי תשלום ובלי כרטיס אשראי.
+      בתום התקופה בוחרים מסלול, ומי שלא בוחר/ת ממשיך/ה ב-Pay&amp;GO בלי דמי מנוי.
+      <a href="pricing.html">פירוט המסלולים ←</a>
+    </div>
+
+    <div class="note">הצטרפות למערכת אפשרית רק דרך פתיחת משרד. סוכנים בודדים אינם יכולים להירשם עצמאית — לאחר פתיחת המשרד תוכל/י להוסיף סוכנים מתוך איזור הניהול, והם בוחרים את המסלול שלהם בעצמם.</div>
 
     <div class="section-divider">פרטי המשרד</div>
     <div class="field"><label>שם המשרד</label><input type="text" id="agencyName" required></div>

@@ -70,6 +70,11 @@ const inviteUrl = (token: string) =>
  */
 const PITCH = "כל הנכסים, הלידים והלקוחות שלך במקום אחד — ודף סוכן/ת אישי שמופיע מול כל מי שמחפש דירה בעפולה והעמק.";
 
+/* הטבת ההשקה נאמרת כבר במכתב ההזמנה, ולא רק במסך שאחרי ההתחברות: היא הסיבה
+   הטובה ביותר ללחוץ על הקישור היום ולא "מתישהו". הענקתה עצמה נעשית בשרת
+   (‏grant_launch_promo) ברגע השיוך. */
+const PROMO_LINE = "ההצטרפות עכשיו כוללת 6 חודשים במסלול Elite — המסלול המלא, ללא תשלום וללא כרטיס אשראי.";
+
 function inviteHtml(a: { name: string; agency: string; inviter: string; url: string }) {
   return `<!doctype html>
 <html lang="he" dir="rtl"><body style="margin:0;background:#F5F2ED;font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;color:#1B2A41">
@@ -79,7 +84,10 @@ function inviteHtml(a: { name: string; agency: string; inviter: string; url: str
       <h1 style="margin:0 0 12px;font-size:21px;line-height:1.35">
         ${esc(a.name)}, ${esc(a.inviter)} מזמין/ה אותך למשרד ${esc(a.agency)}
       </h1>
-      <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#3D4A5C">${esc(PITCH)}</p>
+      <p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#3D4A5C">${esc(PITCH)}</p>
+      <p style="margin:0 0 20px;padding:11px 13px;background:#F7F1E2;border:1px solid #E5C76A;border-radius:9px;font-size:14px;line-height:1.55;color:#3D4A5C">
+        🎁 ${esc(PROMO_LINE)}
+      </p>
       <a href="${esc(a.url)}"
          style="display:inline-block;background:#1B2A41;color:#fff;text-decoration:none;padding:13px 26px;border-radius:9px;font-size:15px;font-weight:bold">
         הצטרפות למשרד
@@ -106,6 +114,8 @@ function inviteText(a: { name: string; agency: string; inviter: string; url: str
     `${a.name}, ${a.inviter} מזמין/ה אותך להצטרף למשרד ${a.agency} בשוק נדל״ן.`,
     "",
     PITCH,
+    "",
+    PROMO_LINE,
     "",
     `להצטרפות: ${a.url}`,
     "",
@@ -252,8 +262,11 @@ Deno.serve(async (req: Request) => {
       }, 409);
     }
 
-    const tier = ["free", "mid", "premium"].includes(body?.initial_tier) ? body.initial_tier : "free";
-
+    // ‏אין כאן יותר initial_tier. המסלול הוא החלטה של מי שמשלם עליו, והוא
+    // נקבע אצל הסוכן/ת בכניסה הראשונה (מסך בחירת המסלול ב-CRM →
+    // ‎join-agency/set_tier‎). השורה נוצרת על ברירת המחדל של העמודה, ‎free‎,
+    // ומיד עם השיוך היא מקבלת את הטבת ההשקה. גוף בקשה ישן ששולח
+    // ‎initial_tier‎ פשוט מתעלמים ממנו — לא נכשלים בגללו.
     let baseSlug = slugify(member_name) || "agent";
     let finalSlug = baseSlug;
     let attempt = 1;
@@ -278,7 +291,6 @@ Deno.serve(async (req: Request) => {
         display_name: member_name,
         email: member_email,
         license_number,
-        tier,
       })
       .select("id")
       .single();

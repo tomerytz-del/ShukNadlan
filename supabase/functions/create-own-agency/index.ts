@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { grantLaunchPromo } from "../_shared/launch-promo.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -46,7 +47,10 @@ Deno.serve(async (req: Request) => {
   if (body.ethics_code_accepted !== true) {
     return json({ error: "ethics_not_accepted", detail: "פתיחת המשרד מותנית באישור הקוד האתי" }, 400);
   }
-  const tier = ["free","mid","premium"].includes(initial_tier) ? initial_tier : "free";
+  // ‏initial_tier לא נקרא יותר: המסלול של מי שפותח/ת משרד נקבע כמו של כל
+  // מצטרף/ת אחר/ת — הטבת ההשקה בכניסה, ובחירה בתום התקופה. ‏הפרמטר מתקבל
+  // ומתעלמים ממנו בשקט, כדי שגרסת HTML ישנה שעוד שולחת אותו לא תיכשל.
+  void initial_tier;
 
   const authedClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } } });
   const { data: userData, error: userErr } = await authedClient.auth.getUser();
@@ -142,7 +146,6 @@ Deno.serve(async (req: Request) => {
       display_name: manager_name,
       email: userData.user.email,
       license_number: license_number,
-      tier: tier,
     }).select().single();
 
     if (memberErr) {
@@ -170,7 +173,19 @@ Deno.serve(async (req: Request) => {
       console.error("ethics stamp failed", memberEthics.error ?? agencyEthics.error);
     }
 
-    return json({ success: true, agency_slug: finalSlug, member_slug: finalMemberSlug, tier, ethics_recorded: ethicsRecorded });
+    // הטבת ההשקה — אותה פונקציה בדיוק שמעניקה אותה בשיוך לפי הזמנה. כישלון
+    // כאן אינו מפיל את פתיחת המשרד: המשרד קיים, וההטבה תוענק בכניסה הבאה
+    // (‏grant_launch_promo אידמפוטנטית ורצה גם מ-join-agency/resolve).
+    const promo = await grantLaunchPromo(supabase, member.id);
+
+    return json({
+      success: true,
+      agency_slug: finalSlug,
+      member_slug: finalMemberSlug,
+      tier: promo?.tier ?? "free",
+      promo,
+      ethics_recorded: ethicsRecorded,
+    });
   } catch (err: any) {
     return json({ error: "unhandled", detail: String(err?.message ?? err) }, 500);
   }

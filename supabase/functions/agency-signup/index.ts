@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { grantLaunchPromo } from "../_shared/launch-promo.ts";
 
 // פתיחת משרד חדש ("פתיחת משרד"). זו הדרך היחידה שמישהו נכנסת
 // למערכת לראשונה (רובמנו) — אין הרשמה עצמאית לסוכן, רק למשרד.
@@ -128,7 +129,6 @@ Deno.serve(async (req: Request) => {
         display_name: manager_name,
         email: manager_email,
         license_number: license_number,
-        tier: "free",
       })
       .select()
       .single();
@@ -162,7 +162,18 @@ Deno.serve(async (req: Request) => {
       console.error("ethics stamp failed", memberEthics.error ?? agencyEthics.error);
     }
 
-    return json({ success: true, agency_slug: finalSlug, member_slug: finalMemberSlug, ethics_recorded: ethicsRecorded });
+    // הטבת ההשקה: 6 חודשים Elite למי שפותח/ת משרד חדש, בדיוק כמו לסוכן/ת
+    // שמצטרף/ת לצוות קיים. כישלון כאן אינו מפיל את ההרשמה — ‎grant_launch_promo‎
+    // אידמפוטנטית, ו-join-agency/resolve יעניק/תעניק אותה בכניסה הראשונה.
+    const promo = await grantLaunchPromo(supabase, member.id);
+
+    return json({
+      success: true,
+      agency_slug: finalSlug,
+      member_slug: finalMemberSlug,
+      promo,
+      ethics_recorded: ethicsRecorded,
+    });
   } catch (err: any) {
     return json({ error: "unhandled", detail: String(err?.message ?? err) }, 500);
   }

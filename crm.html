@@ -15,6 +15,9 @@
 <script src="assets/page-bg.js"></script>
 <script src="assets/map-tiles.js"></script>
 <script src="assets/specialties.js"></script>
+<!-- קטלוג המסלולים: אותם שמות, מחירים ויתרונות שדף pricing.html מציג. מסך
+     בחירת המסלול והתגית בכותרת קוראים מכאן, כדי שמחיר לא יתעדכן בדף אחד. -->
+<script src="assets/tiers.js"></script>
 <script src="assets/map-gestures.js"></script>
 <script src="assets/agreement-templates.js"></script>
 <script src="assets/agreement-doc.js"></script>
@@ -57,6 +60,45 @@
   .logo-img{height:64px;width:auto;display:block}
   .login-card h1{font-size:1.3rem;text-align:center;margin-bottom:6px}
   .login-card p.sub{text-align:center;color:var(--ink-soft);font-size:.85rem;margin-bottom:22px}
+
+  /* ---------- שער בחירת המסלול ----------
+     כרטיס רחב יותר משאר מסכי הכניסה: שלושה מסלולים זה לצד זה לא נכנסים
+     ל-380px, ומסלול שצריך לגלול כדי לראות אותו אינו באמת מוצע. הכרטיסים
+     עצמם נערמים תמיד (עמודה אחת) — ההשוואה הרוחבית היא של pricing.html,
+     וכאן צריך רק להחליט. */
+  .tier-gate{max-width:520px}
+  .tier-gate .tg-plan{
+    border:1.5px solid var(--line);border-radius:var(--radius-md);padding:14px 15px;margin-bottom:10px;
+    background:#fff;text-align:start;position:relative;transition:border-color .15s ease,box-shadow .15s ease;
+  }
+  .tier-gate .tg-plan.is-hero{border-color:var(--brass,#c9a227);box-shadow:0 14px 34px -22px rgba(201,162,39,.95)}
+  .tier-gate .tg-plan.is-locked{opacity:.62;background:var(--paper)}
+  .tier-gate .tg-head{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap}
+  .tier-gate .tg-name{font-weight:800;font-size:1.05rem}
+  .tier-gate .tg-price{font-size:.86rem;color:var(--ink-soft);font-weight:700;white-space:nowrap}
+  .tier-gate .tg-line{font-size:.8rem;color:var(--ink-soft);margin-top:4px;line-height:1.5}
+  .tier-gate .tg-feats{margin:9px 0 0;padding:0;list-style:none;font-size:.8rem;line-height:1.6}
+  .tier-gate .tg-feats li{padding-inline-start:16px;position:relative}
+  .tier-gate .tg-feats li::before{content:'✓';position:absolute;inset-inline-start:0;color:var(--positive,#21a565);font-weight:800}
+  .tier-gate .tg-gift{
+    display:inline-block;font-size:.72rem;font-weight:800;color:#8a6d10;background:#f7f1e2;
+    border:1px solid #e5c76a;border-radius:99px;padding:3px 10px;margin-bottom:8px;
+  }
+  .tier-gate .tg-plan .btn{margin-top:12px}
+  .tier-gate .tg-locked-note{font-size:.74rem;color:var(--ink-soft);margin-top:10px;text-align:center}
+
+  /* ---------- רצועת ההטבה בדשבורד ---------- */
+  .promo-strip{
+    display:flex;align-items:center;gap:11px;text-decoration:none;color:inherit;
+    background:linear-gradient(135deg,#fffdf6,#f7f1e2);border:1.5px solid #e5c76a;
+    border-radius:var(--radius-md);padding:11px 14px;margin-bottom:14px;
+  }
+  .promo-strip.is-urgent{border-color:#c0873a;background:linear-gradient(135deg,#fff8ee,#f6e3cb)}
+  .promo-strip .ps-gift{font-size:1.2rem;line-height:1}
+  .promo-strip .ps-text{display:flex;flex-direction:column;min-width:0;flex:1}
+  .promo-strip .ps-text b{font-size:.87rem}
+  .promo-strip .ps-text span{font-size:.76rem;color:var(--ink-soft);line-height:1.45}
+  .promo-strip .ps-cta{font-size:1.1rem;color:#8a6d10;flex:none}
   .field{margin-bottom:12px}
   .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
   .field input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
@@ -1124,7 +1166,10 @@
     font-size:.66rem;font-weight:800;padding:3px 10px;border-radius:999px;margin-top:0;
     display:inline-block;vertical-align:middle;white-space:nowrap;
     min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;
+    /* התגית היא קישור לדף המסלולים; הקו התחתון היה הופך אותה לטקסט */
+    text-decoration:none;cursor:pointer;
   }
+  #dashboard .tier-badge:hover{filter:brightness(1.07)}
   @media(max-width:430px){#dashboard .tier-word{display:none}}
   #dashboard .tier-free{background:var(--surface-2);color:var(--txt-soft)}
   #dashboard .tier-mid{background:var(--navy-tint);color:var(--navy)}
@@ -2573,7 +2618,9 @@
       <button type="submit" class="btn btn-gold btn-block" id="loginBtn">כניסה</button>
       <div id="loginError"></div>
     </form>
-    <a href="agency-signup.html" style="display:block;text-align:center;font-size:.82rem;color:var(--teal);margin-top:14px">עדיין אין לך משרד? פתיחת משרד חדש ←</a>
+    <!-- הקישור מוביל לדף המסלולים ולא ישר לטופס: מי שפותח/ת משרד בוחר/ת קודם
+         מסלול, ורק אחר כך ממלא/ת פרטים. הטופס עצמו נשאר במרחק קליק אחד משם. -->
+    <a href="pricing.html" style="display:block;text-align:center;font-size:.82rem;color:var(--teal);margin-top:14px">עדיין אין לך משרד? מסלולים ופתיחת משרד ←</a>
     <div class="test-creds">
       <b>סביבת בדיקה:</b> dana@test.shuknadlan.co.il · roi@test.shuknadlan.co.il · michal@test.shuknadlan.co.il<br>
       סיסמה לכולם: <b>Test1234!</b>
@@ -2648,22 +2695,15 @@
     <div class="field"><label>שם המשרד</label><input type="text" id="caAgencyName" required></div>
     <div class="field"><label>השם המלא שלך</label><input type="text" id="caManagerName" required></div>
     <div class="field"><label>מספר רישיון תיווך</label><input type="text" id="caLicense" required placeholder="לדוגמה: 123456"></div>
-    <div class="field" id="caTierField">
-      <label>מסלול מנוי</label>
-      <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px">
-        <label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:.85rem;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;cursor:pointer">
-          <input type="radio" name="caTier" value="free" checked style="margin:0">
-          <span><b>חינמי</b> — 10 לידי קונה/שוכר בחודש, ₪10 לליד נוסף</span>
-        </label>
-        <label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:.85rem;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;cursor:pointer">
-          <input type="radio" name="caTier" value="mid" style="margin:0">
-          <span><b>משודרג</b> — לידי קונה/שוכר ללא הגבלה, כלים טכנולוגיים, מידע תכנוני, מפת מיקום בדף הנכס</span>
-        </label>
-        <label style="display:flex;align-items:center;gap:8px;font-weight:400;font-size:.85rem;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;cursor:pointer">
-          <input type="radio" name="caTier" value="premium" style="margin:0">
-          <span><b>פרימיום</b> — הכל כלול, כולל לידי בעל-נכס ללא עלות</span>
-        </label>
-      </div>
+    <!-- ---------- המסלול ----------
+         בורר המסלול ירד מכאן. בתקופת ההשקה כל מי שפותח/ת משרד מקבל/ת את
+         המסלול המלא לחצי שנה, ובחירה אמיתית תיפתח בתומה — במסך בחירת
+         המסלול או בדף המסלולים. כרטיס בחירה שכל אפשרויותיו זהות הוא רק
+         שדה נוסף למלא. -->
+    <div id="caTierField" style="background:#f7f1e2;border:1.5px solid #e5c76a;border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:14px;font-size:.82rem;line-height:1.6;text-align:right">
+      🎁 <b>6 חודשים במסלול Elite במתנה</b> — המסלול המלא, בלי תשלום ובלי כרטיס אשראי.
+      בתום התקופה תוכל/י לבחור מסלול, ומי שלא בוחר/ת ממשיך/ה ב-Pay&amp;GO בלי דמי מנוי.
+      <a href="pricing.html" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">פירוט המסלולים ←</a>
     </div>
     <div class="ethics-consent" style="margin-bottom:12px">
       <input type="checkbox" id="caEthicsConsent">
@@ -2704,8 +2744,31 @@
       <label for="gateConsent">קראתי את עשרת סעיפי הקוד האתי ואני מסכים/ה לכולם. ידוע לי שהתו יוסר במקרה של הפרת התקנון.</label>
     </div>
     <button type="button" class="btn btn-gold btn-block" id="gateAcceptBtn">אישור הקוד וכניסה למערכת</button>
-    <div id="gateFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
+    <div id="gateFeedback" style="font-size:.82rem;text-align:center;min-height:1.2em;margin-top:10px"></div>
     <button type="button" class="btn btn-ghost btn-block" id="gateLogoutBtn" style="margin-top:8px">יציאה</button>
+  </div>
+
+  <!-- ---------- שער בחירת המסלול ----------
+       הרגע שבו הסוכן/ת בוחר/ת מה הוא/היא מקבל/ת — ולא מגלה/ת את זה מהתגית
+       בכותרת. עד היום מנהל/ת המשרד בחר/ה "מסלול התחלתי" בטופס ההזמנה, כלומר
+       החליט/ה על ההוצאה של מישהו אחר; טופס ההזמנה כבר לא שואל את זה.
+
+       בתקופת ההשקה אין כאן בחירה אמיתית אלא הודעה: כולם מקבלים Elite לחצי
+       שנה, והמסלולים האחרים מוצגים אפורים עם "ייפתח בתום ההטבה". בתום
+       התקופה אותו מסך בדיוק הופך לבחירה של ממש — ‎renderTierGate()‎ בונה את
+       שניהם מאותו קטלוג.
+
+       המסך מוצג **אחרי** שער הקוד האתי: קודם ההתחייבות המקצועית, אחר כך
+       הכסף. -->
+  <div class="card login-card tier-gate" id="tierGateScreen" style="display:none">
+    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
+    <h1 id="tgTitle">בחירת מסלול</h1>
+    <p class="sub" id="tgSubtitle"></p>
+    <div id="tgPlans"></div>
+    <div id="tgFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
+    <a href="pricing.html" target="_blank" rel="noopener" id="tgCompare"
+       style="display:block;text-align:center;font-size:.8rem;color:var(--teal);margin-top:12px">השוואה מלאה בין המסלולים ←</a>
+    <button type="button" class="btn btn-ghost btn-block" id="tgLogoutBtn" style="margin-top:8px">יציאה</button>
   </div>
 </div>
 
@@ -2786,8 +2849,13 @@
         </a>
         <div class="agent-id-text">
           <div class="agent-name" id="agentName">—</div>
+          <!-- התגית היא קישור ולא תווית: "מה יש לי" ו"מה אפשר לשדרג" הן אותה
+               שאלה, והרגע שבו שואלים אותה הוא בדיוק הרגע שמסתכלים על התגית.
+               ‏href נכתב ב-renderTierBadge() עם המסלול הנוכחי ותאריך ההטבה,
+               כדי שדף המסלולים יסמן את הכרטיס הנכון. -->
           <div class="agent-id-meta">
-            <span class="tier-badge" id="tierBadge">—</span>
+            <a class="tier-badge" id="tierBadge" href="pricing.html" target="_blank" rel="noopener"
+               title="המסלול שלי ואפשרויות השדרוג">—</a>
             <span class="agent-agency" id="agentAgency"></span>
           </div>
         </div>
@@ -2838,6 +2906,15 @@
         <button type="button" data-view="agent" aria-pressed="true">תצוגת סוכן/ת</button>
         <button type="button" data-view="admin" aria-pressed="false">תצוגת מנהל/ת</button>
       </div>
+
+      <!-- רצועת הטבת ההשקה. מוצגת רק כשההטבה פעילה, ובחודש האחרון היא
+           מחליפה צבע: התראה במייל אפשר לפספס, ו"נשארו 12 ימים" בראש המסך
+           שאליו נכנסים כל בוקר — פחות. ‏renderPromoStrip() מחליט/ה. -->
+      <a class="promo-strip" id="promoStrip" href="pricing.html" target="_blank" rel="noopener" hidden>
+        <span class="ps-gift" aria-hidden="true">🎁</span>
+        <span class="ps-text"><b id="promoStripTitle"></b><span id="promoStripSub"></span></span>
+        <span class="ps-cta" aria-hidden="true">←</span>
+      </a>
 
       <!-- ==========================================================
            "ראשי" — תמונת המצב
@@ -3099,7 +3176,7 @@
         <div class="field"><label>רחוב (לא חובה)</label><input type="text" id="npStreet" placeholder="לדוגמה: דפנה"></div>
         <div class="field"><label>מספר בית (לא חובה)</label><input type="text" id="npHouseNumber"></div>
       </div>
-      <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">אם מולאו רחוב+מספר, מידע תכנוני (גוש/חלקה/ייעוד) ייקלט אוטומטית ברקע, ובדף הנכס תוצג מפת מיקום עם הפין המדויק (מסלולי Mid/Premium בלבד). בלי מספר בית אין מפה: הגאוקודינג נופל למרכז העיר, ופין כזה נראה מדויק ואינו כזה.</p>
+      <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">אם מולאו רחוב+מספר, מידע תכנוני (גוש/חלקה/ייעוד) ייקלט אוטומטית ברקע, ובדף הנכס תוצג מפת מיקום עם הפין המדויק (מסלולי PROFESSIONAL ו-Elite בלבד). בלי מספר בית אין מפה: הגאוקודינג נופל למרכז העיר, ופין כזה נראה מדויק ואינו כזה.</p>
       <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <!-- step="any" ולא step="0.0001": הקואורדינטות נשמרות ב-DB ברזולוציה מלאה
              (double precision — למשל 32.6053163), ואם ה-step מגביל לארבע ספרות
@@ -4085,12 +4162,13 @@
             לכתובת הזו נשלח קישור הזמנה אישי. שווה לוודא אותה — סוכן/ת שלא קיבל/ה מייל תופיע ברשימה כ"ממתין/ה", ואפשר לתקן ולשלוח שוב.
           </p>
         </div>
-        <div class="field"><label>מסלול התחלתי</label>
-          <select id="nmTier" style="width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px">
-            <option value="free">חינמי</option>
-            <option value="mid">משודרג</option>
-            <option value="premium">פרימיום</option>
-          </select>
+        <!-- אין כאן בחירת מסלול. המסלול הוא הוצאה חודשית של הסוכן/ת, והוא
+             נבחר על ידו/ה בכניסה הראשונה — לא נקבע מראש בטופס של מישהו אחר.
+             מה שכן מוצג כאן הוא מה שההזמנה שווה: חצי שנה במסלול המלא. -->
+        <div style="background:#f7f1e2;border:1.5px solid #e5c76a;border-radius:var(--radius-sm);padding:11px 13px;font-size:.78rem;line-height:1.55">
+          🎁 <b>ההזמנה כוללת 6 חודשי Elite במתנה.</b>
+          הסוכן/ת נכנס/ת עם הקישור, משויך/ת אוטומטית למשרד, ובוחר/ת את המסלול שלו/ה
+          בעצמו/ה בתום התקופה. המסלול שנבחר יופיע כאן ברשימת הצוות.
         </div>
         <!-- המנהל/ת מצהיר/ה שהציג/ה את הקוד; החתימה עצמה נעשית בידי הסוכן/ת
              בכניסה הראשונה — הטריגר במסד חוסם חתימה בשם מישהו אחר. -->
@@ -4503,9 +4581,9 @@
     <div class="dev-section">
       <p class="dev-title">מסלול מנוי</p>
       <div class="dev-pills" id="devTierPills">
-        <button type="button" data-tier="free">חינמי</button>
-        <button type="button" data-tier="mid">משודרג</button>
-        <button type="button" data-tier="premium">פרימיום</button>
+        <button type="button" data-tier="free">Pay&amp;GO</button>
+        <button type="button" data-tier="mid">PROFESSIONAL</button>
+        <button type="button" data-tier="premium">Elite</button>
       </div>
     </div>
     <div class="dev-section">
@@ -5020,6 +5098,7 @@ const SCREEN_CARDS = {
   createAgency: 'createAgencyScreen',
   loadError:    'loadErrorScreen',
   ethicsGate:   'ethicsGateScreen',
+  tierGate:     'tierGateScreen',
 };
 
 function showScreen(name){
@@ -5213,9 +5292,6 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
   const agencyName = document.getElementById('caAgencyName').value.trim();
   const managerName = document.getElementById('caManagerName').value.trim();
   const license = document.getElementById('caLicense').value.trim();
-  // סוכן/ת שנותק/ה שומר/ת על המסלול והארנק הקיימים, ובורר המסלול מוסתר —
-  // השרת מתעלם מהערך הזה במסלול הזה בכל מקרה
-  const selectedTier = document.querySelector('input[name="caTier"]:checked').value;
   const feedback = document.getElementById('createAgencyFeedback');
   const btn = document.getElementById('createAgencyBtn');
   if (!agencyName || !managerName || !license){
@@ -5234,7 +5310,10 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
     const res = await fetch(SUPABASE_URL + '/functions/v1/create-own-agency', {
       method:'POST',
       headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
-      body: JSON.stringify({ agency_name: agencyName, manager_name: managerName, license_number: license, initial_tier: selectedTier, ethics_code_accepted: true }),
+      // בלי initial_tier: המסלול נקבע בשרת — הטבת ההשקה למשרד חדש, ובחירה
+      // אמיתית בתום התקופה. סוכן/ת שנותק/ה שומר/ת בכל מקרה על המסלול
+      // והארנק הקיימים (‏adopt_released_member_into_agency).
+      body: JSON.stringify({ agency_name: agencyName, manager_name: managerName, license_number: license, ethics_code_accepted: true }),
     });
     const data = await res.json();
     if (!res.ok || data.error){
@@ -5530,9 +5609,13 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // מחזיקה שני מפתחות זרים ל-agencies, PostgREST לא יודע לבחור נתיב יחיד בין
   // agency_members ל-agencies ומחזיר PGRST201 (HTTP 300) על כל embed כזה.
   const AGENT_FIELDS = 'id, agency_id, slug, display_name, bio, photo_url, photo_position, cover_url, license_number, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, is_mortgage_advisor, phone, ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at, years_experience, specialties, credentials, service_area, gallery, released_at';
+  // עמודות המסלול וההטבה נוספו במיגרציה מאוחרת יותר, ולכן הן בסל אחד עם
+  // page_bg: אם המיגרציה עוד לא רצה, ה-fallback למטה טוען את הפרופיל בלעדיהן
+  // והדשבורד נפתח כרגיל — בלי שער בחירת מסלול ובלי באנר הטבה.
+  const TIER_FIELDS = 'tier_selected_at, tier_source, pending_tier_change, promo_tier, promo_started_at, promo_ends_at, promo_ended_at';
   let { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select(AGENT_FIELDS + ', page_bg, id_number')
+    .select(AGENT_FIELDS + ', page_bg, id_number, ' + TIER_FIELDS)
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -5540,8 +5623,8 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // ‏PostgREST מפיל את *כל* השאילתה על עמודה חסרה, וזו השאילתה שפותחת את
   // הדשבורד — ולכן סביבה שהמיגרציה עוד לא רצה בה נכנסת בלעדיה, ובחירת
   // הרקע פשוט לא מוצגת. ראו supabase/migrations/20260914091000_page_background.sql.
-  if (agentErr && /page_bg|id_number/.test(agentErr.message || '')){
-    console.warn('העמודה page_bg עוד לא קיימת — נטען הפרופיל בלעדיה:', agentErr);
+  if (agentErr && /page_bg|id_number|promo_|tier_selected_at|tier_source/.test(agentErr.message || '')){
+    console.warn('עמודה שנוספה במיגרציה מאוחרת עוד לא קיימת — נטען הפרופיל בלעדיה:', agentErr);
     ({ data: agent, error: agentErr } = await sb
       .from('agency_members').select(AGENT_FIELDS).eq('user_id', user.id).maybeSingle());
   }
@@ -5578,6 +5661,17 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // בשום טופס הרשמה, והכניסה הזו היא ההזדמנות הראשונה לאישור אישי.
   if (ethicsNeedsGate(agent)){ showEthicsGate(); return; }
 
+  // ואחריו שער המסלול: מה שההצטרפות נותנת, ומה ממשיך אחריה. גם הוא מוצג
+  // פעם אחת — או פעם נוספת ביום שההטבה נגמרת. ‏?tier=… הוא חזרה מדף
+  // המסלולים עם בחירה, והיא נסגרת על אותו מסך כדי שהתשובה (נכנס לתוקף /
+  // בקשה נקלטה / נעול בתקופת ההטבה) תוצג במקום אחד.
+  const requestedTier = pendingTierFromUrl();
+  if (tierNeedsGate(agent) || requestedTier){
+    showTierGate();
+    if (requestedTier) chooseTier(requestedTier, null);
+    return;
+  }
+
   showScreen('dashboard');
   // הגריד נבנה לפני הטעינות, כדי שהמונים שמגיעים מהן ימצאו תגית לכתוב אליה
   renderQuickActions();
@@ -5585,12 +5679,8 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   renderHeaderAvatar(agent);
   document.getElementById('agentName').textContent = agent.display_name;
   document.getElementById('agentAgency').textContent = agencyName;
-  const badge = document.getElementById('tierBadge');
-  // המילה "מסלול" יורדת במסך צר (ראו .tier-word ב-CSS) — שם אין מקום גם לה
-  // וגם ללוגו שבמרכז הכותרת, ו"פרימיום" לבדו נושא את כל המידע
-  const tierLabels = { free:'חינמי', mid:'משודרג', premium:'פרימיום' };
-  badge.innerHTML = '<span class="tier-word">מסלול </span>' + esc(tierLabels[agent.tier] || agent.tier);
-  badge.className = 'tier-badge tier-' + agent.tier;
+  renderTierBadge(agent);
+  renderPromoStrip(agent);
   setAgentBalance(agent.credit_balance);
 
   // מצב הסליקה והחזרה מעמוד התשלום — שניהם ברקע. הראשון רק צובע טקסט,
@@ -5713,9 +5803,9 @@ async function devSwitch(changes, pills){
       showToast(messages[data.error] || ('שגיאה: ' + (data.error || 'לא ידועה')));
       return;
     }
-    const tierLabels = { free:'חינמי', mid:'משודרג', premium:'פרימיום' };
+
     const roleLabels = { agent:'סוכן/ת', manager:'מנהל/ת משרד' };
-    showToast(`מצב בדיקה: ${roleLabels[data.role]} · מסלול ${tierLabels[data.tier]}`);
+    showToast(`מצב בדיקה: ${roleLabels[data.role]} · מסלול ${Tiers.label(data.tier)}`);
     await loadDashboard();
   } catch(err){
     console.error(err);
@@ -6169,7 +6259,7 @@ const UNROUTED_KIND_LABELS = {
 };
 const UNROUTED_REASONS = {
   no_mortgage_advisor:'אין יועצ/ת משכנתאות רשומ/ה בפלטפורמה',
-  no_eligible_agents:'אין סוכני Mid/Premium עם העדפות לידים פעילות',
+  no_eligible_agents:'אין סוכני PROFESSIONAL/Elite עם העדפות לידים פעילות',
   no_matching_agent_preferences:'יש סוכנים, אך אף אחד לא מוגדר לאזור/סוג הנכס הזה',
   no_active_agents:'אין סוכנים פעילים שיכולים לקנות את הליד',
   below_min_intent:'ציון ההתעניינות נמוך מהסף למדף מחפשי הדירה',
@@ -6575,7 +6665,9 @@ function renderAdminReport(report){
     ['משרדים במערכת',            admInt(totals.agencies)],
     ['סוכנים פעילים',            admInt(totals.agents_active) + ' מתוך ' + admInt(totals.agents)],
     ['מנהלי משרד',               admInt(totals.managers)],
-    ['פילוח מסלולים',            'חינמי ' + admInt(totals.tier_free) + ' · משודרג ' + admInt(totals.tier_mid) + ' · פרימיום ' + admInt(totals.tier_premium)],
+    ['פילוח מסלולים',            Tiers.label('free') + ' ' + admInt(totals.tier_free) +
+                                 ' · ' + Tiers.label('mid') + ' ' + admInt(totals.tier_mid) +
+                                 ' · ' + Tiers.label('premium') + ' ' + admInt(totals.tier_premium)],
     ['יועצי משכנתאות רשומים',    admInt(totals.mortgage_advisors)],
     ['הזמנות סוכנים פתוחות',     admInt(totals.pending_invitations)],
     ['נכסים פעילים באתר',        admInt(totals.properties_active) + ' מתוך ' + admInt(totals.properties_total)],
@@ -7505,6 +7597,229 @@ const ETHICS_CLAUSES = [
   'מקצועיות ולמידה מתמדת — עדכון שוטף בחקיקה, במגמות ובכלים חדשים.',
   'תרבות של גישור וכבוד הדדי — משא ומתן מגשר וקידום עסקאות Win-Win.',
 ];
+
+/* ============================================================================
+   המסלול: תגית, רצועה ושער הבחירה
+   ----------------------------------------------------------------------------
+   שלושת אלה קוראים את אותם שדות מ-currentAgent ומאותו קטלוג (assets/tiers.js),
+   ולכן הם תמיד מספרים את אותו סיפור: מה יש עכשיו, עד מתי, ומה הצעד הבא.
+
+   ‏**המסלול עצמו לעולם לא נכתב מכאן.** ‏tier ושדות ההטבה נעולים בטריגר
+   ‎protect_sensitive_agency_member_fields‎ מול הדפדפן — כל בחירה עוברת ב-
+   ‎join-agency‎ עם ה-JWT, ושם גם נאכפת נעילת תקופת ההשקה. שורת update מה-
+   console לא תשנה מסלול, וזו בדיוק הכוונה.
+   ========================================================================== */
+
+/** מצב ההטבה של השורה שבידינו, בפורמט אחד לכל הצרכנים. */
+function promoOf(agent){
+  return (window.Tiers ? Tiers.promoState(agent || {}) : { active:false, ended:false, daysLeft:null, endsAt:null, tier:null });
+}
+
+/** הכתובת לדף המסלולים עם ההקשר של הסוכן/ת — כדי שהכרטיס הנכון יסומן שם. */
+function pricingUrl(agent){
+  const params = new URLSearchParams({ from: 'crm' });
+  if (agent?.tier) params.set('current', agent.tier);
+  if (agent?.promo_ends_at && !agent?.promo_ended_at) params.set('promo_ends', agent.promo_ends_at);
+  return 'pricing.html?' + params.toString();
+}
+
+function renderTierBadge(agent){
+  const badge = document.getElementById('tierBadge');
+  if (!badge) return;
+  // המילה "מסלול" יורדת במסך צר (ראו .tier-word ב-CSS) — שם אין מקום גם לה
+  // וגם ללוגו שבמרכז הכותרת, ושם המסלול לבדו נושא את כל המידע
+  const name = window.Tiers ? Tiers.label(agent.tier) : agent.tier;
+  badge.innerHTML = '<span class="tier-word">מסלול </span>' + esc(name);
+  badge.className = 'tier-badge tier-' + agent.tier;
+  badge.href = pricingUrl(agent);
+  const promo = promoOf(agent);
+  badge.title = promo.active
+    ? `מסלול ${name} · הטבת ההשקה פעילה עד ${Tiers.formatDate(promo.endsAt)}`
+    : `המסלול שלי (${name}) ואפשרויות השדרוג`;
+}
+
+function renderPromoStrip(agent){
+  const strip = document.getElementById('promoStrip');
+  if (!strip) return;
+  const promo = promoOf(agent);
+  if (!promo.active){ strip.hidden = true; return; }
+
+  const urgent = promo.daysLeft <= 30;
+  strip.classList.toggle('is-urgent', urgent);
+  strip.href = pricingUrl(agent);
+  document.getElementById('promoStripTitle').textContent = urgent
+    ? `הטבת ההשקה מסתיימת בעוד ${promo.daysLeft} ימים`
+    : `${Tiers.label(promo.tier)} במתנה — עד ${Tiers.formatDate(promo.endsAt)}`;
+  document.getElementById('promoStripSub').textContent = urgent
+    ? 'אחרי התאריך הזה מי שלא בחר/ה מסלול ממשיך/ה ב-Pay&GO. לבחירת המסלול ←'
+    : 'כל היכולות פתוחות, בלי תשלום. לפירוט המסלולים ←';
+  strip.hidden = false;
+}
+
+/* ---------- שער הבחירה ----------
+   מוצג בשני רגעים, ורק בהם: בכניסה הראשונה (המסלול הגיע מההטבה ואיש לא
+   אישר אותו), וביום שההטבה נגמרה (‏tier_source = 'promo_expired' — השרת כבר
+   העביר ל-Pay&GO, וזו ההזדמנות לבחור אחרת).
+
+   מי שבחר/ה בעצמו/ה — ‎tier_source = 'self'‎ — לא רואה אותו יותר, וגם לא
+   סוכן/ת ותיק/ה מלפני המיגרציה: אצלו/ה ‎tier_source‎ ריק אבל אין הטבה, ואין
+   סיבה לעצור אותו/ה בדרך לדשבורד. */
+function tierNeedsGate(agent){
+  if (!agent || !window.Tiers) return false;
+  // בקשת שדרוג פתוחה = הבחירה כבר נעשתה וממתינה להסדרת תשלום. להציג שוב את
+  // אותו מסך היה נראה כאילו הבקשה לא נקלטה, וזו הזמנה לשלוח אותה שוב.
+  if (agent.pending_tier_change) return false;
+  if (agent.tier_source === 'promo_expired') return true;
+  return !agent.tier_selected_at && agent.tier_source === 'launch_promo';
+}
+
+function showTierGate(){
+  renderTierGate();
+  document.getElementById('tgFeedback').textContent = '';
+  showScreen('tierGate');
+}
+
+function renderTierGate(){
+  const agent = currentAgent || {};
+  const promo = promoOf(agent);
+  const box = document.getElementById('tgPlans');
+  const title = document.getElementById('tgTitle');
+  const sub = document.getElementById('tgSubtitle');
+  document.getElementById('tgCompare').href = pricingUrl(agent);
+
+  if (promo.active){
+    const gift = Tiers.byId(promo.tier || Tiers.PROMO.tier);
+    title.textContent = 'קיבלת ' + gift.name + ' במתנה';
+    sub.textContent = `${Tiers.PROMO.months} חודשים של המסלול המלא, ללא תשלום — עד ${Tiers.formatDate(promo.endsAt)}. ` +
+                      'בתום התקופה תוכל/י לבחור מסלול, ומי שלא בוחר/ת ממשיך/ה ב-Pay&GO.';
+  } else if (agent.tier_source === 'promo_expired'){
+    title.textContent = 'תקופת ההטבה הסתיימה';
+    sub.textContent = 'החשבון עבר ל-Pay&GO — בלי דמי מנוי, עם 10 לידי קונה/שוכר בחודש. ' +
+                      'הנכסים, הלידים והלקוחות נשארו במקומם. אפשר להישאר כך, או לשדרג.';
+  } else {
+    title.textContent = 'בחירת מסלול';
+    sub.textContent = 'אפשר לעבור בין המסלולים בכל חודש. מה שנבחר כאן הוא נקודת הפתיחה.';
+  }
+
+  box.textContent = '';
+  // בתקופת ההטבה המסלול שניתן במתנה עולה לראש: הוא הכרטיס היחיד שאפשר
+  // ללחוץ עליו, וכרטיס פעיל שיושב אחרי שניים אפורים נראה כמו הערת שוליים.
+  const order = Tiers.list();
+  if (promo.active){
+    const giftId = promo.tier || Tiers.PROMO.tier;
+    order.sort((a, b) => (b.id === giftId) - (a.id === giftId));
+  }
+  order.forEach(tier => {
+    const isGift = promo.active && tier.id === (promo.tier || Tiers.PROMO.tier);
+    const locked = promo.active && !isGift;      // בתקופת ההשקה אין ירידה מ-Elite
+    const isCurrent = !promo.active && tier.id === agent.tier;
+
+    const card = document.createElement('div');
+    card.className = 'tg-plan' + (isGift ? ' is-hero' : '') + (locked ? ' is-locked' : '');
+
+    // שלושה יתרונות ולא שבעה: זה מסך החלטה, לא דף מכירה. הפירוט המלא
+    // נמצא בקישור להשוואה שמתחת לכרטיסים.
+    const feats = tier.features.filter(f => f.on).slice(0, 3)
+      .map(f => '<li>' + esc(f.text) + '</li>').join('');
+
+    card.innerHTML =
+      (isGift ? '<span class="tg-gift">מתנת ההצטרפות · ' + Tiers.PROMO.months + ' חודשים</span>' : '') +
+      '<div class="tg-head"><span class="tg-name">' + esc(tier.name) + '</span>' +
+      '<span class="tg-price">' + esc(isGift ? 'ללא תשלום' : Tiers.priceText(tier.id)) +
+      (tier.vat && !isGift ? ' + מע״מ' : '') + '</span></div>' +
+      '<div class="tg-line">' + esc(tier.pitch) + '</div>' +
+      '<ul class="tg-feats">' + feats + '</ul>';
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'btn btn-block ' + (isGift || (!promo.active && !isCurrent && tier.id !== 'free') ? 'btn-gold' : 'btn-ghost');
+    btn.textContent = locked ? 'ייפתח בתום ההטבה'
+      : isGift ? 'מתחילים'
+      : isCurrent ? 'המסלול הנוכחי שלי — להמשיך'
+      : 'בחירה ב-' + tier.name;
+    btn.disabled = locked;
+    btn.addEventListener('click', () => chooseTier(tier.id, btn));
+    card.appendChild(btn);
+    box.appendChild(card);
+  });
+
+  if (promo.active){
+    const note = document.createElement('p');
+    note.className = 'tg-locked-note';
+    note.textContent = 'בתקופת ההשקה כל הסוכנים נמצאים ב-' +
+      Tiers.label(promo.tier || Tiers.PROMO.tier) + '. בחירה בין מסלולים תיפתח בתום התקופה.';
+    box.appendChild(note);
+  }
+}
+
+/* בחירת מסלול — הקריאה היחידה שמשנה מסלול בכל ה-CRM.
+   שלוש תשובות מהשרת, וכל אחת מסך אחר: applied נכנס לדשבורד, requested
+   מציג שהבקשה נקלטה (מסלול בתשלום אינו מופעל בלחיצה — הוא נסגר מול
+   ההנהלה), ו-promo_locked הוא ניסיון לעקוף את נעילת ההשקה. */
+async function chooseTier(tierId, btn){
+  const feedback = document.getElementById('tgFeedback');
+  const original = btn ? btn.textContent : '';
+  if (btn){ btn.disabled = true; btn.textContent = 'רגע…'; }
+  feedback.style.color = 'var(--ink-soft)';
+  feedback.textContent = '';
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + '/functions/v1/join-agency', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY,
+                 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ action: 'set_tier', tier: tierId }),
+    });
+    const data = await res.json().catch(() => ({}));
+
+    if (data.status === 'promo_locked'){
+      feedback.style.color = 'var(--red)';
+      feedback.textContent = data.detail || 'בתקופת ההשקה אי אפשר לשנות מסלול.';
+      return;
+    }
+    if (!res.ok || data.error){
+      feedback.style.color = 'var(--red)';
+      feedback.textContent = 'שגיאה: ' + (data.detail || data.error || res.status);
+      return;
+    }
+
+    if (data.status === 'requested'){
+      // המסלול לא השתנה, ולכן גם המסך לא מתיימר לומר שהוא כן.
+      feedback.style.color = 'var(--ink)';
+      feedback.textContent = data.detail || 'הבקשה נקלטה. ניצור קשר להסדרת התשלום.';
+      // מסמנים שהבקשה פתוחה, כדי שהמסך לא יחזור עד שהיא תטופל
+      if (currentAgent) currentAgent.pending_tier_change = tierId;
+      setTimeout(()=>{ showBootCard('טוענים את איזור הסוכנים…'); loadDashboard(); }, 2600);
+      return;
+    }
+
+    showBootCard('טוענים את איזור הסוכנים…');
+    await loadDashboard();
+    if (window.Tiers) showToast('המסלול שלך: ' + Tiers.label(data.tier || tierId));
+  } catch(err){
+    console.error('set_tier failed', err);
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'שגיאת רשת — נסו שוב';
+  } finally{
+    if (btn){ btn.disabled = false; btn.textContent = original; }
+  }
+}
+
+document.getElementById('tgLogoutBtn').addEventListener('click', async ()=>{
+  await sb.auth.signOut();
+  location.reload();
+});
+
+/* חזרה מדף המסלולים עם בחירה (‏crm.html?tier=mid). הפרמטר נצרך מיד ונמחק
+   מהכתובת — רענון של הדף אחרי הבחירה לא אמור לשלוח אותה שוב. */
+function pendingTierFromUrl(){
+  const raw = new URLSearchParams(location.search).get('tier');
+  if (!raw || !window.Tiers || !Tiers.byId(raw)) return null;
+  const url = new URL(location.href);
+  url.searchParams.delete('tier');
+  history.replaceState(null, '', url.pathname + url.search + url.hash);
+  return raw;
+}
 
 let ethicsAgency = null;   // שורת המשרד, נטענת רק למנהל/ת משרד
 
@@ -8871,7 +9186,6 @@ document.getElementById('addMemberForm').addEventListener('submit', async (e)=>{
       member_name: document.getElementById('nmName').value,
       license_number: document.getElementById('nmLicense').value,
       member_email: email,
-      initial_tier: document.getElementById('nmTier').value,
     });
     if (!ok){
       feedback.style.color = 'var(--red)';
@@ -8951,7 +9265,7 @@ async function loadTeam(agencyId, callerId){
   }
 
   const roleLabels = { manager:'מנהל/ת', agent:'סוכן/ת' };
-  const tierLabels = { free:'חינמי', mid:'משודרג', premium:'פרימיום' };
+
   el.innerHTML = '';
   members.forEach(m=>{
     const counts = dealCounts && dealCounts[m.id];
@@ -8985,7 +9299,7 @@ async function loadTeam(agencyId, callerId){
       </div>
       ${tagsHtml([
         { text:roleLabels[m.role], cls: m.role === 'manager' ? 'tag-key' : '' },
-        { text:'מסלול ' + tierLabels[m.tier], cls: m.tier === 'free' ? '' : 'tag-info' },
+        { text:'מסלול ' + Tiers.label(m.tier), cls: m.tier === 'free' ? '' : 'tag-info' },
         { text:'🪪 רישיון ' + m.license_number },
       ])}
       ${pending ? `<p style="font-size:.75rem;color:var(--ink-soft);line-height:1.5;margin:8px 0 0">
@@ -10434,7 +10748,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
         }, { onConflict: 'property_id' });
         planningStatus.textContent = 'מידע תכנוני עודכן ונשמר לנכס ✓';
       } else if (planData.error === 'upgrade_required'){
-        planningStatus.textContent = 'מידע תכנוני לא נקלט — זמין רק במסלולי Mid/Premium';
+        planningStatus.textContent = 'מידע תכנוני לא נקלט — זמין ב-PROFESSIONAL וב-Elite';
       } else {
         planningStatus.textContent = 'לא נמצא מידע תכנוני לכתובת זו';
       }
@@ -13526,8 +13840,8 @@ function quotaUsedThisCycle(){
 function claimCost(lead){
   const tier = currentAgent?.tier || 'free';
   if (lead.lead_type === 'owner_inbound'){
-    if (tier === 'free')    return { price:0, blocked:'לידי בעל-נכס לא זמינים במסלול החינמי' };
-    if (tier === 'premium') return { price:0, note:'לידי בעל-נכס כלולים במסלול פרימיום' };
+    if (tier === 'free')    return { price:0, blocked:'לידי בעל-נכס אינם זמינים במסלול Pay&GO' };
+    if (tier === 'premium') return { price:0, note:'לידי בעל-נכס כלולים במסלול Elite' };
     return { price: priceOf('ppl_price_owner_mid', 50) };
   }
   if (tier === 'mid' || tier === 'premium') return { price:0, note:'לידי קונה/שוכר כלולים במסלול שלך, ללא הגבלה' };
@@ -13568,7 +13882,7 @@ async function claimLead(lead, btn, agentId){
       const errorMessages = {
         exclusive_to_another_agent: 'הליד עדיין בבלעדיות לסוכן אחר',
         insufficient_balance: `יתרה לא מספיקה — נדרש ₪${data.required}. טענו קרדיט ונסו שוב`,
-        free_tier_not_eligible_owner_lead: 'לידי בעל-נכס לא זמינים במסלול החינמי',
+        free_tier_not_eligible_owner_lead: 'לידי בעל-נכס אינם זמינים במסלול Pay&GO',
         lead_already_claimed_by_someone_else: 'הליד כבר נתפס',
         already_unlocked: 'הליד כבר פתוח',
       };
@@ -15553,7 +15867,7 @@ async function openCmaReport(propertyId, btn){
   if (error){ showToast('שגיאה בהפקת הדוח: ' + error.message); return; }
   if (data?.error){
     const messages = {
-      upgrade_required: data.detail || 'דוח CMA זמין רק למנוי Mid/Premium',
+      upgrade_required: data.detail || 'דוח CMA זמין ב-PROFESSIONAL וב-Elite',
       property_not_found: 'הנכס לא נמצא',
       no_matching_agent_profile: 'שגיאת הרשאה',
     };
