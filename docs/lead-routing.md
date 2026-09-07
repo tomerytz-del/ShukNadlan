@@ -19,6 +19,7 @@
 | מחשבון משכנתא | `mortgage_leads` | יועצ/ת משכנתאות | מדף `mortgage_leads_public` |
 | מחשבון תשואה | — | — | ה-CTA פותח את באנר מחפשי הנכס; הליד נרשם עם `source=homepage_yield_calc` |
 | מאתר משרדי התיווך | — | — | ניווט בלבד. הוא מוביל לדף המשרד, ושם יושבים כלי הקליטה של המשרד |
+| "חושבים למכור/להשכיר?" בתיבת ההדמיות (דף הנכס) | `leads` | סוכן/ת תיווך | `agent_slug` של הסוכן/ת שהנכס שלו/ה — עוקף רוטציה, נפתח מיד |
 
 שלושת הווידג'טים חוזרים גם בדף המשרד (`agency.html`) וגם בדף הסוכן/ת
 (`agent.html`), ושם הם עוקפים את הרוטציה: `agency_slug` משייך את הליד
@@ -54,7 +55,7 @@
 
 | שדה | מה יש בו |
 | --- | --- |
-| `source` | מזהה הווידג'ט (`homepage_owner_wizard`, `homepage_mortgage_calc`…) — לא "דף הבית" |
+| `source` | מזהה הווידג'ט (`homepage_owner_wizard`, `property_page_owner_wizard`…) — לא "דף הבית" |
 | `lead_kind` | קהל היעד: `agent_owner` · `agent_buyer` · `mortgage_advisor` |
 | `lead_table` + `lead_id` | היכן יושב הליד עצמו |
 | `routing` | `assigned` · `shelf` · `unrouted` · `no_consent` |

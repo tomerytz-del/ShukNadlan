@@ -809,7 +809,12 @@
      שני חללים ריקים בתחתית התיבה — אחד בין האריחים להצהרה ואחד מתחתיה —
      שנקראו כסוף התוכן הרבה לפני שהוא באמת נגמר. */
   #aiShowcase .ai-band-inner{max-width:none;grid-template-columns:1fr;
-    gap:16px;padding:26px 20px 16px}
+    gap:16px;padding:24px 16px 14px}
+  /* ביטול מיקום שתי העמודות של הרכיב. שאילתת המדיה שלו מודדת את *המסך*,
+     ובלפטופ עם עמודת תוכן צרה היא נדלקת בזמן שהתיבה כאן היא עמודה אחת —
+     ‏grid-column:2 היה יוצר עמודה מרומזת שנייה שאין לה מקום. השאילתה
+     שמתחת, שמודדת את התיבה עצמה, מחזירה את המיקום כשהוא באמת נכון. */
+  #aiShowcase .ai-band-inner > .ai-show{grid-column:auto;grid-row:auto}
   /* התיבה כמכולה: הכלל שמתחת שואל את רוחבה שלה, כי היא יושבת בעמודת
      גריד שרוחבה אינו רוחב המסך. */
   #vizSection{container-type:inline-size}
@@ -823,27 +828,42 @@
        גבוה בהרבה מהטור שלצדו, ומירכוז אנכי הפיל את הכותרת אל אמצע הגובה
        שלו — כלומר התחיל את ההבטחה שליש מתחת לראש התיבה, מול תמונה
        שמתחילה בקצה העליון. שתי העמודות מתחילות עכשיו באותו קו.
-       ‏18px מתחת להצהרה, ולא 30 של ה-gap: מתחת לשורה האחרונה אין עוד
-       שורה שצריך להפריד ממנה — יש רק את קצה התיבה. */
+       ‏16px מתחת להצהרה, ולא 26 של ה-gap: מתחת לשורה האחרונה אין עוד
+       שורה שצריך להפריד ממנה — יש רק את קצה התיבה.
+
+       ‏24px של ריפוד צדדי ו-26 בין העמודות, במקום 26/30 שהיו כאן: מה
+       שיורד מהשוליים נכנס לתמונות. אותו רוחב תיבה בדיוק, ולוח הסגנונות
+       והווילון גדלים בכמה נקודות אחוז כל אחד. */
     #aiShowcase .ai-band-inner{grid-template-columns:1.15fr 1fr;
-      align-items:stretch;column-gap:30px;row-gap:16px;padding:30px 26px 18px}
+      align-items:stretch;column-gap:26px;row-gap:14px;padding:28px 24px 12px}
     /* טור ההבטחה נמתח לגובה הווילון שלצדו, והפקדים נדחפים לתחתיתו.
        בלי זה הטור מסתיים 170px מעל שכנו ונשאר חור כהה בפינה — והדרך
        השנייה לסגור אותו, לצמצם את עמודת התמונה, מקטינה בדיוק את הדבר
        שבגללו נכנסו לתיבה. כך במקום חלל ריק יש הפרדה בין ההבטחה למעלה
-       לבין הפעולה למטה, ושתי העמודות נגמרות באותו קו.
-
-       ‏align-self על התגית: בטור flex הילדים נמתחים לרוחב מלא כברירת
-       מחדל, והתגית — שכל כולה תיבה בגודל המילים שבה — הייתה נמתחת איתם. */
+       לבין הפעולה למטה, ושתי העמודות נגמרות באותו קו. */
     #aiShowcase .ai-copy{display:flex;flex-direction:column}
-    #aiShowcase .ai-copy .ai-eyebrow{align-self:flex-start}
-    /* שבבי הסגנון (נכס פרטי) או שדות הבקשה (מסחרי) — מה שקיים הוא
+    /* לוח הסגנונות (נכס פרטי) או שדות הבקשה (מסחרי) — מה שקיים הוא
        שנדחף למטה. הם לעולם לא מופיעים יחד. */
-    #aiShowcase .ai-copy .ai-styles,
+    #aiShowcase .ai-copy .ai-styles-card,
     #aiShowcase .ai-copy .ai-ask:not(:empty){margin-top:auto}
+    /* ההזמנה לפגישה יורדת לשורה השנייה של העמודה הראשונה — מתחת להבטחה —
+       וטור התמונות נפרש על שתי השורות. בלי הפרישה הזאת התמונונות היו
+       נגמרות בגובה ההבטחה, ולצד ההזמנה היה נפתח מלבן כהה ריק. */
+    #aiShowcase .ai-band-inner > .ai-show{grid-column:2;grid-row:1/span 2}
+    /* הכפתור נגמר על **הקו התחתון של התמונות** ולא על תחתית הטור.
+       ‏align-self ברירת המחדל (‏stretch) מתח אותו עד סוף השורה — כלומר עד
+       מתחת לשורת התוויות של התמונונות — וקצהו ירד מתחת לקו שהעין מודדת
+       לפיו. ‏end מצמיד אותו לתחתית, וה-margin מרים אותו בדיוק בגובה שורת
+       התווית (‏--ai-thumb-label, מוגדר על הרצועה). */
+    #aiShowcase .ai-band-inner > .ai-lead{align-self:end;
+      margin-bottom:var(--ai-thumb-label,0px)}
   }
   #aiShowcase .ai-band h3{font-size:clamp(20px,3.4vw,25px)}
-  #aiShowcase .ai-band p{font-size:15px}
+  /* ‏.ai-copy > p‎ ולא ‎.ai-band p‎: בתיבה יש עכשיו שלוש פסקאות נוספות
+     (כותרת לוח הסגנונות, הכיתוב שבתוך הלוח הלבן וההצהרה שבתחתית), ובורר
+     עם מזהה היה גובר על הכללים הייעודיים של כל אחת מהן. */
+  #aiShowcase .ai-copy > p{font-size:15px}
+  #aiShowcase .ai-points li{font-size:14px}
 
   /* ‏16:9 קבוע לנגן: גובה שנקבע מהמדיה עצמה גורם לקפיצת פריסה כשה-metadata
      נטענת, וסרטוני נכסים מגיעים גם לאורך וגם לרוחב. */
@@ -881,6 +901,43 @@
   /* מה עובד עכשיו. בלי זה לחיצה על "יצירת הדמיה" נראית כאילו לא קרה כלום
      עד שהתמונה מופיעה — וזה יכול לקחת דקה. */
   .viz-pending{margin:6px 0 0;font-size:.82rem;font-weight:600;color:var(--ink-soft)}
+
+  /* ====== "חושבים למכור/להשכיר?" ======
+     הטופס נפתח מתחת לתיבת ההדמיות ולובש את שפת הפאנלים של הדף ולא את
+     שפת הרצועה הכהה: הוא כבר לא חלק מהכלי — הוא מה שבא אחריו. */
+  #ownerLeadPanel{margin-top:14px}
+  .owner-lead-sub{font-size:.86rem;line-height:1.55;color:var(--ink-soft);margin:0 0 14px;max-width:56ch}
+  /* כפתור הסגירה. ‏36px ולא בגודל התו: יעד מגע קטן מזה מפספסים בטלפון,
+     והתו עצמו נשאר קטן — מה שגדל הוא השטח סביבו. */
+  .ol-close{
+    flex:none;width:36px;height:36px;display:grid;place-items:center;
+    font-size:1rem;line-height:1;color:var(--ink-soft);background:transparent;
+    border:1.5px solid transparent;transition:color .15s ease,border-color .15s ease,background .15s ease;
+  }
+  .ol-close:hover{color:var(--ink);border-color:var(--hair-strong);background:var(--surface-soft)}
+  .ol-close:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+  /* שתי אפשרויות שקולות, ולכן שתי עמודות שוות ולא שורה עוטפת: "רוצה
+     למכור" ו"רוצה להשכיר" ברוחב המילים שבהן היו נקראות כשני כפתורים
+     בגדלים שונים, כלומר כאילו אחת מהן ראשית. */
+  .owner-lead-toggle{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+  .owner-lead-toggle button{
+    padding:11px 12px;font-weight:700;font-size:.9rem;
+    border:1.5px solid var(--hair-strong);background:var(--surface-soft);color:var(--ink);
+    transition:border-color .15s ease,background .15s ease,color .15s ease;
+  }
+  .owner-lead-toggle button:hover{border-color:var(--teal)}
+  .owner-lead-toggle button[aria-pressed="true"]{background:var(--teal);border-color:var(--teal);color:#fff}
+  /* שם וטלפון הם יחידה אחת — שניהם נדרשים יחד — ולכן שורה אחת כשיש מקום. */
+  .owner-lead-row{display:flex;gap:9px;flex-wrap:wrap}
+  .owner-lead-row .field{flex:1 1 150px;margin-bottom:9px}
+  .owner-lead-done{text-align:center;padding:8px 0 2px}
+  .owner-lead-done h3{font-size:1.05rem;margin:10px 0 6px}
+  .owner-lead-done p{font-size:.86rem;color:var(--ink-soft);margin:0}
+  .owner-lead-mark{
+    width:44px;height:44px;margin:0 auto;border-radius:50%;
+    display:grid;place-items:center;font-size:1.3rem;font-weight:900;
+    background:var(--teal-tint);color:var(--teal);
+  }
 
   /* ====== מידע תכנוני (נכסי קרקע) ======
      הנתונים חוזרים על שפת הקפסולות של סרגל הנתונים (.spec-pill) ולא מקבלים
@@ -1064,6 +1121,54 @@
                צריכה מקום להופיע בו. -->
           <p class="viz-error" id="vizError" role="alert"></p>
           <p class="viz-pending" id="vizPending" hidden></p>
+
+          <!-- ====== "חושבים למכור/להשכיר?" ======
+                 הטופס שכפתור ההזמנה שבתיבה פותח. הוא **אינו** טופס
+                 "תיאום ביקור בנכס" שבעמודת הצד: זה שואל על *הנכס שבעמוד*
+                 בשם מי שרוצה לקנות אותו, וזה שואל על *נכס אחר* בשם מי
+                 שרוצה למכור או להשכיר אותו. שתי פניות הפוכות בכיוונן,
+                 ושתי תיבות שונות ב-CRM.
+
+                 הליד נשלח ל-‎owner-lead-intake‎ — אותה Edge Function שקולטת
+                 את אשף בעלי הנכסים בדף הסוכן/ת ובדף המשרד — עם ה-slug של
+                 הסוכן/ת שהנכס שלו/ה. ראו ‎submitOwnerLead()‎ למטה.
+
+                 ‏hidden עד הלחיצה: הוא תשובה לשאלה שנשאלה, ולא טופס שלישי
+                 שיושב בעמוד ומחכה. -->
+          <section class="panel owner-lead" id="ownerLeadPanel" hidden>
+            <div class="panel-head">
+              <h2 id="olTitle">חושבים למכור או להשכיר?</h2>
+              <!-- ‏aria-label ולא כיתוב: הסמל לבדו אינו שם נגיש, ו-✕ עצמו
+                   מוסתר מקורא מסך כדי שלא יוקרא כתו. -->
+              <button type="button" class="ol-close" id="olClose" aria-label="סגירת הטופס">
+                <span aria-hidden="true">✕</span>
+              </button>
+            </div>
+            <p class="owner-lead-sub" id="olSub">
+              השאירו פרטים ונחזור אליכם לתיאום פגישה — כולל הדמיות AI לנכס שלכם.
+            </p>
+            <form id="ownerLeadForm" novalidate>
+              <div class="owner-lead-toggle" role="group" aria-label="מה תרצו לעשות עם הנכס">
+                <button type="button" data-deal="sale" aria-pressed="true">רוצה למכור</button>
+                <button type="button" data-deal="rent" aria-pressed="false">רוצה להשכיר</button>
+              </div>
+              <div class="field">
+                <input type="text" id="olAddress" placeholder="כתובת הנכס שלכם (לדוגמה: הרצל 24, עפולה)"
+                       autocomplete="street-address">
+              </div>
+              <div class="owner-lead-row">
+                <div class="field"><input type="text" id="olName" placeholder="שם מלא" autocomplete="name"></div>
+                <div class="field"><input type="tel" id="olPhone" placeholder="טלפון" autocomplete="tel" inputmode="tel"></div>
+              </div>
+              <button type="submit" class="btn-submit" id="olSubmit">שליחת הפרטים</button>
+            </form>
+            <p class="viz-error" id="olError" role="alert"></p>
+            <div class="owner-lead-done" id="olDone" hidden>
+              <div class="owner-lead-mark" aria-hidden="true">✓</div>
+              <h3>הפרטים נשלחו</h3>
+              <p id="olDoneNote">נחזור אליכם בזמן קצר לתיאום פגישה.</p>
+            </div>
+          </section>
       </section>
 
       <!-- ====== מיקום וסביבה ======
@@ -2275,9 +2380,173 @@ function renderPropertyShowcase(){
       leadPick: vizState.leadPick,
       cta: vizBandCta(),
       onCta: onVizBandCta,
+      /* ההזמנה לפגישה. הטקסט יושב כאן ולא ברכיב כי הרכיב לא יודע למי
+         הליד הולך — הדף כן. */
+      lead: {
+        lines: ['חושבים למכור/להשכיר', 'ורוצים לראות את הנכס שלכם גם בהדמיות?'],
+        label: 'השאירו פרטים לתאום פגישה',
+      },
+      onLead: onVizLeadCta,
       onSelectStyle: (key, resultUrl)=>{ vizState.leadPick = resultUrl || null; selectVizStyle(key); },
     });
   });
+}
+
+const INQUIRY_AUTO_PREFIX = 'שלום, ראיתי בשוק הנדל״ן את מודעה מספר ';
+
+/* ============================================================================
+   "חושבים למכור/להשכיר?" — הפנייה של בעל/ת נכס
+   ----------------------------------------------------------------------------
+   מי שראה/תה מה AI עושה לנכס של מישהו אחר שואל/ת מיד מה זה היה עושה לשלו/ה,
+   וזו הפנייה שהכפתור שבתיבה קולט.
+
+   **זו לא פניית "תיאום ביקור".** הטופס שבעמודת הצד שואל על *הנכס שבעמוד*
+   בשם מי שרוצה לקנות אותו (‏lead_type='property_inquiry'); כאן מדובר על
+   *נכס אחר לגמרי* בשם מי שרוצה למכור או להשכיר אותו (‏'owner_inbound').
+   שתי פניות הפוכות בכיוונן, ושתי תיבות שונות ב-CRM — ולכן שני מסלולים.
+
+   המסלול הזה אינו חדש: זו בדיוק ‎owner-lead-intake‎, אותה Edge Function
+   שקולטת את אשף בעלי הנכסים בדף הסוכן/ת ובדף המשרד. מה שהיא עושה עם
+   ‎agent_slug‎ הוא כל העניין — הליד **עוקף את הרוטציה של הפלטפורמה** ומשויך
+   ישירות לסוכן/ת שהנכס שלו/ה, בלי תור ובלי מכסה. ‏agency_slug נשלח לצדו
+   כרשת ביטחון: סוכן/ת בלי slug עדיין שייך/ת למשרד, ועדיף שהפנייה תגיע
+   למנהל/ת המשרד מאשר שתיפול לרוטציה.
+
+   ‏fetch טהור ולא דרך ה-SDK, כמו בשאר הכלים באתר: הקליטה חייבת לעבוד גם
+   כשה-CDN של supabase-js נכשל בטעינה.
+   ========================================================================== */
+const OWNER_LEAD_FUNCTION_URL = SUPABASE_URL + '/functions/v1/owner-lead-intake';
+let ownerLeadDeal = 'sale';
+
+function onVizLeadCta(){
+  const panel = document.getElementById('ownerLeadPanel');
+  if (!panel) return;
+  panel.hidden = false;
+
+  // מי שכבר מסר/ה שם וטלפון באתר לא מקליד/ה אותם שוב
+  const saved = savedContact();
+  if (saved){
+    const nameEl = document.getElementById('olName');
+    const phoneEl = document.getElementById('olPhone');
+    if (nameEl && !nameEl.value.trim()) nameEl.value = saved.name;
+    if (phoneEl && !phoneEl.value.trim()) phoneEl.value = saved.phone;
+  }
+
+  panel.scrollIntoView({ behavior:'smooth', block:'center' });
+  // אחרי הגלילה ולא לפניה: מיקוד קופץ לשדה בעצמו, ושתי קפיצות באותו רגע
+  // נראות כמו תקלה. ‏preventScroll כדי שהמיקוד לא יבטל את הגלילה החלקה.
+  setTimeout(()=>{
+    const el = document.getElementById('olAddress');
+    if (el) el.focus({ preventScroll:true });
+  }, 420);
+}
+
+/* שם הסוכן/ת נכנס לכותרות הטופס ברגע שהנכס נטען. הפנייה הזאת הולכת
+   לאדם ספציפי, ו"נחזור אליכם" בגוף רבים סתמי מסתיר בדיוק את מי שעומד
+   מאחוריה. */
+function applyOwnerLeadAgent(p){
+  const who = p?.agency_members?.display_name;
+  if (!who) return;
+  const sub = document.getElementById('olSub');
+  const done = document.getElementById('olDoneNote');
+  if (sub) sub.textContent =
+    `השאירו פרטים ו${who} יחזור/תחזור אליכם לתיאום פגישה — כולל הדמיות AI לנכס שלכם.`;
+  if (done) done.textContent = `${who} יחזור/תחזור אליכם בזמן קצר לתיאום פגישה.`;
+}
+
+/* הסגירה מחזירה את המיקוד לכפתור שפתח את הפאנל, ולא משאירה אותו על צומת
+   שנעלם — מי שניווט/ה במקלדת היה נופל/ת לתחילת העמוד. הכפתור נשלף מחדש
+   בכל פעם ולא נשמר: הרצועה מורכבת מ-innerHTML בכל רינדור, והצומת שהיה
+   כאן קודם כבר לא בעץ.
+
+   ‏Escape סוגר גם הוא: הפאנל נפתח מעל תוכן שהגולש/ת קרא/ה, וכל דבר
+   שנפתח כך צריך דרך יציאה שאינה דורשת לחפש כפתור. */
+function closeOwnerLead(){
+  const panel = document.getElementById('ownerLeadPanel');
+  if (!panel || panel.hidden) return;
+  panel.hidden = true;
+  const opener = document.getElementById('aiPropLead');
+  if (opener) opener.focus({ preventScroll:true });
+}
+
+function initOwnerLeadForm(){
+  const form = document.getElementById('ownerLeadForm');
+  if (!form) return;
+
+  const closeBtn = document.getElementById('olClose');
+  if (closeBtn) closeBtn.addEventListener('click', closeOwnerLead);
+  document.addEventListener('keydown', (ev)=>{
+    if (ev.key !== 'Escape') return;
+    const panel = document.getElementById('ownerLeadPanel');
+    if (panel && !panel.hidden) closeOwnerLead();
+  });
+
+  form.querySelectorAll('.owner-lead-toggle button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      ownerLeadDeal = btn.dataset.deal;
+      form.querySelectorAll('.owner-lead-toggle button').forEach(b=>{
+        b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+      });
+      const title = document.getElementById('olTitle');
+      if (title) title.textContent = ownerLeadDeal === 'rent' ? 'חושבים להשכיר?' : 'חושבים למכור?';
+    });
+  });
+
+  form.addEventListener('submit', submitOwnerLead);
+}
+
+async function submitOwnerLead(ev){
+  ev.preventDefault();
+  const err  = document.getElementById('olError');
+  const btn  = document.getElementById('olSubmit');
+  const name  = document.getElementById('olName').value.trim();
+  const phone = document.getElementById('olPhone').value.trim();
+  const address = document.getElementById('olAddress').value.trim();
+  err.textContent = '';
+  if (!name || !phone){ err.textContent = 'יש למלא שם וטלפון'; return; }
+
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'שולח…';
+  try{
+    const p = currentProperty || {};
+    const res = await fetch(OWNER_LEAD_FUNCTION_URL, {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization':'Bearer ' + SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({
+        agent_slug:  p.agency_members?.slug || null,
+        agency_slug: p.agencies?.slug || null,
+        // עירו של הנכס שבעמוד היא ההערכה הטובה ביותר שיש כאן לעיר של
+        // הפונה: מי שמתעניין/ת בנכס בעפולה מוכר/ת בעפולה. השדה חובה
+        // בפונקציה, והכתובת המדויקת ממילא נשלחת לצדו.
+        city: p.city || 'עפולה',
+        // ‏'דירה' כברירת מחדל, בדיוק כמו באשף שבדף הסוכן/ת: הטופס הזה
+        // מבקש שלושה שדות ולא סוג נכס, והסוכן/ת מברר/ת בשיחה.
+        property_type: 'דירה',
+        deal_type: ownerLeadDeal,
+        address: address || null,
+        name, phone,
+        // נכנס ל-property_details, כלומר נראה לסוכן/ת כבר בליד המוסתר —
+        // וזה כל הערך שלו: בלי ההקשר אי אפשר לדעת על מה לחזור.
+        note: 'פנייה מתיבת ההדמיות בדף הנכס',
+        source: 'property_page_owner_wizard',
+      }),
+    });
+    const data = await res.json().catch(()=>({}));
+    if (!res.ok || data.error) throw new Error(data.error || 'שגיאה');
+
+    rememberContact(name, phone, p.id || vizState.propertyId);
+    document.getElementById('ownerLeadForm').hidden = true;
+    document.getElementById('olDone').hidden = false;
+  } catch(e){
+    console.error('owner-lead-intake נכשל:', e);
+    err.textContent = 'השליחה נכשלה — בדקו חיבור לאינטרנט ונסו שוב';
+    btn.textContent = original;
+    btn.disabled = false;
+  }
 }
 
 /* טופס הבקשה מוצג *בתוך* הרצועה, מעל הכפתור — אבל הרצועה מוחקת ובונה את
@@ -2713,7 +2982,7 @@ function prefillInquiryMessage(p){
   if (!p.listing_number) return;
   const box = document.getElementById('inqMessage');
   if (box.value.trim()) return;
-  box.value = 'שלום, ראיתי בשוק הנדל״ן את מודעה מספר ' + p.listing_number + ' ורציתי לקבל עוד פרטים';
+  box.value = INQUIRY_AUTO_PREFIX + p.listing_number + ' ורציתי לקבל עוד פרטים';
 }
 
 /* מי שכבר מסר/ה שם וטלפון באתר לא מקליד/ה אותם שוב. השדות מלאים מראש
@@ -2872,6 +3141,7 @@ function renderProperty(p){
   renderAgentCard(p);
   renderContactButtons(p);
   prefillInquiryMessage(p);
+  applyOwnerLeadAgent(p);
   prefillInquiryContact();
   document.getElementById('agencyStrip').addEventListener('click', ()=>{
     if (p.agencies?.slug) window.location.href = 'agency.html?slug=' + p.agencies.slug;
@@ -3241,6 +3511,7 @@ document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
 });
 
 initVisualizationForm();
+initOwnerLeadForm();
 loadProperty();
 </script>
 
