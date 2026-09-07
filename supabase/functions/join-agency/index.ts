@@ -303,7 +303,10 @@ Deno.serve(async (req: Request) => {
 
       const { data: me } = await supabase
         .from("agency_members")
-        .select("id, agency_id, display_name, email, tier, tier_source, promo_tier, promo_ends_at, promo_ended_at, active, released_at")
+        // ‏pending_tier_change נטען כאן ולא רק נכתב: בלעדיו הבדיקה שמתחת
+        // ("בקשה זהה כבר פתוחה") משווה מול undefined, לעולם אינה מתקיימת, וכל
+        // לחיצה חוזרת שולחת מייל נוסף להנהלה על אותה בקשה בדיוק.
+        .select("id, agency_id, display_name, email, tier, tier_source, pending_tier_change, promo_tier, promo_ends_at, promo_ended_at, active, released_at")
         .eq("user_id", user.id).maybeSingle();
       if (!me) return json({ error: "no_matching_agent_profile" }, 403);
       if (!me.active || me.released_at) return json({ error: "member_inactive" }, 403);

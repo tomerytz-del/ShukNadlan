@@ -114,8 +114,6 @@
   .checkbox-item input{margin:0;width:auto}
   .form-subheading{font-size:.78rem;font-weight:700;color:var(--gold-dark);margin:14px 0 8px;text-transform:uppercase;letter-spacing:.03em}
   #loginError{color:var(--brick);font-size:.82rem;margin-top:10px;text-align:center;min-height:1.2em}
-  .test-creds{margin-top:20px;padding:12px;background:var(--teal-tint);border-radius:var(--radius-sm);font-size:.74rem;color:var(--ink-soft)}
-  .test-creds b{color:var(--teal-dark)}
   /* ---------- מסך המתנה ----------
      זה המסך הראשון שנצבע בכל טעינה, במקום כרטיס הכניסה. בלעדיו כל כניסה —
      גם של מי שכבר מחובר/ת וגם החזרה מ-Google — התחילה בהבזק של טופס הסיסמה,
@@ -2617,7 +2615,7 @@
          רגיל נראה בדיוק כמו קישור שלא עבד. האסימון עצמו נשמר בזיכרון הדף
          ומופעל מיד אחרי ההתחברות. -->
     <div id="inviteBanner" style="display:none;background:#F1F6F5;border:1.5px solid var(--teal);border-radius:var(--radius-sm);padding:11px 13px;margin-bottom:14px;font-size:.82rem;line-height:1.55;text-align:center">
-      ✉️ הוזמנת להצטרף לצוות משרד. יש להתחבר כאן — עם Google או עם אימייל וסיסמה — והחיבור לכרטיס ייעשה אוטומטית.
+      ✉️ הוזמנת להצטרף לצוות משרד. אפשר להיכנס עם Google, או ליצור כאן חשבון עם אימייל וסיסמה — והחיבור לכרטיס ייעשה אוטומטית.
     </div>
     <button type="button" class="btn btn-ghost btn-block" id="googleLoginBtn" style="margin-bottom:14px;gap:10px">
       <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.94v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.94A9 9 0 0 0 0 9c0 1.45.35 2.83.94 4.03l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .94 4.97l3.01 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
@@ -2630,13 +2628,25 @@
       <button type="submit" class="btn btn-gold btn-block" id="loginBtn">כניסה</button>
       <div id="loginError"></div>
     </form>
+    <!-- ---------- יצירת חשבון למוזמן/ת ----------
+         מוצג רק כשיש אסימון הזמנה, וזו הייתה חור ממש בתהליך: מכתב ההזמנה
+         מבטיח "סיסמה שתגדיר/י בעצמך", אבל למסך הזה הייתה רק כניסה. מי
+         שהוזמן/ה ואינו/ה משתמש/ת ב-Google הגיע/ה לכאן, הקליד/ה את הכתובת
+         שקיבלה את ההזמנה, וקיבל/ה "אימייל או סיסמה שגויים" — בלי שום דרך
+         קדימה. הכפתור הזה הוא הדרך.
+
+         חשוב: אין כאן שום הרשאה חדשה. יצירת המשתמש היא יצירת חשבון Auth
+         בלבד; השיוך לכרטיס נעשה אחריה ב-join-agency, מול האסימון או מול
+         התאמת האימייל — בדיוק כמו במסלול Google. -->
+    <div id="inviteSignup" style="display:none;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)">
+      <div style="font-size:.78rem;color:var(--ink-soft);line-height:1.55;text-align:center;margin-bottom:9px">
+        זו הכניסה הראשונה שלך? כאן יוצרים חשבון — עם הכתובת שאליה נשלחה ההזמנה, ובסיסמה שתבחר/י (8 תווים לפחות).
+      </div>
+      <button type="button" class="btn btn-ghost btn-block" id="inviteSignupBtn">יצירת חשבון וסיסמה</button>
+    </div>
     <!-- הקישור מוביל לדף המסלולים ולא ישר לטופס: מי שפותח/ת משרד בוחר/ת קודם
          מסלול, ורק אחר כך ממלא/ת פרטים. הטופס עצמו נשאר במרחק קליק אחד משם. -->
     <a href="pricing.html" style="display:block;text-align:center;font-size:.82rem;color:var(--teal);margin-top:14px">עדיין אין לך משרד? מסלולים ופתיחת משרד ←</a>
-    <div class="test-creds">
-      <b>סביבת בדיקה:</b> dana@test.shuknadlan.co.il · roi@test.shuknadlan.co.il · michal@test.shuknadlan.co.il<br>
-      סיסמה לכולם: <b>Test1234!</b>
-    </div>
   </div>
 
   <!-- ---------- מי את/ה? ----------
@@ -5225,7 +5235,11 @@ function showLoginCard(message){
   if (text || !alreadyOnLogin) document.getElementById('loginError').textContent = text || '';
   // בלי הבאנר, מי שלחץ/ה על קישור ההזמנה רואה מסך כניסה סתמי ואין לו/ה שום
   // דרך לדעת שהקישור נקלט ושההצטרפות תושלם מיד אחרי ההתחברות.
-  document.getElementById('inviteBanner').style.display = readInviteToken() ? 'block' : 'none';
+  const invited = !!readInviteToken();
+  document.getElementById('inviteBanner').style.display = invited ? 'block' : 'none';
+  // יצירת החשבון נפתחת רק למי שבאמת הוזמן/ה. זו לא "הרשמה לאתר": חשבון בלי
+  // כרטיס ממתין במשרד לא יוביל לשום מקום מלבד מסך "מי את/ה?".
+  document.getElementById('inviteSignup').style.display = invited ? 'block' : 'none';
   resetGoogleButton();
   showScreen('login');
 }
@@ -5242,9 +5256,9 @@ function showBootCard(message){
    ורענון או "חזור" מנסים לעבד שוב תשובה שכבר נוצלה ומחזירים את המשתמש/ת
    למסך הכניסה. הקריאה לפונקציה נעשית רק אחרי שה-session בידינו. */
 const AUTH_HASH_KEYS  = ['access_token','refresh_token','provider_token','provider_refresh_token','expires_in','expires_at','token_type','error','error_code','error_description'];
-// ‏invite נכלל בניקוי מאותה סיבה כמו האסימונים: הוא נקרא פעם אחת לזיכרון הדף
-// (pendingInviteToken למטה), ומרגע שנוצל אין סיבה שיישאר בהיסטוריה ובשיתוף.
-const AUTH_QUERY_KEYS = ['code','state','error','error_code','error_description','invite'];
+// ‏invite ו-tier נכללים בניקוי מאותה סיבה כמו האסימונים: שניהם נקראים פעם אחת
+// ל-sessionStorage (למטה), ומרגע שנוצלו אין סיבה שיישארו בהיסטוריה ובשיתוף.
+const AUTH_QUERY_KEYS = ['code','state','error','error_code','error_description','invite','tier'];
 
 /* ---------- אסימון ההזמנה ----------
    נקרא בטעינת הדף לפני כל ניקוי, ונשמר ב-sessionStorage ולא רק במשתנה: מי
@@ -5275,6 +5289,32 @@ function clearInviteToken(){
 // למסך הכניסה. בלי ההעברה הזו ל-sessionStorage לפניה, כל הזמנה שנפתחה בחשבון
 // לא מחובר הייתה נמחקת מהכתובת לפני שמישהו הספיק לקרוא אותה.
 readInviteToken();
+
+/* ---------- המסלול שנבחר בדף המסלולים ----------
+   אותו סיפור בדיוק כמו אסימון ההזמנה, ומאותה סיבה: ‏pricing.html מחזיר/ה
+   לכאן עם ‎?tier=premium‎, וברוב המקרים הכניסה שאחרי היא Google — שטוענת את
+   הדף מחדש בלי ה-query. בלי השמירה, כל מי שנכנס/ת עם Google היה/הייתה מגיע/ה
+   לשער הבחירה בלי שהבחירה שכבר נעשתה בדף המסלולים תיזכר, ונדרש/ת לבחור שוב.
+
+   הבחירה נצרכת פעם אחת (‏consumePendingTier) ונמחקת — רענון אחרי הבחירה לא
+   אמור לשלוח אותה שוב. וכמו כל שאר הפרמטרים כאן, זו תצוגה בלבד: מה שנקבע
+   בפועל נקבע ב-‎join-agency/set_tier‎ מול ה-JWT, כולל נעילת ההטבה. */
+const TIER_STORE_KEY = 'shuknadlan.pending_tier';
+
+function readPendingTier(){
+  try{
+    const fromUrl = new URLSearchParams(window.location.search).get('tier');
+    if (fromUrl){ sessionStorage.setItem(TIER_STORE_KEY, fromUrl); return fromUrl; }
+    return sessionStorage.getItem(TIER_STORE_KEY) || '';
+  } catch(_){
+    try { return new URLSearchParams(window.location.search).get('tier') || ''; }
+    catch(__){ return ''; }
+  }
+}
+function clearPendingTier(){
+  try { sessionStorage.removeItem(TIER_STORE_KEY); } catch(_){ /* ראו למעלה */ }
+}
+readPendingTier();
 
 function cleanAuthParamsFromUrl(){
   // ‏history.state ולא null: הרשומה עשויה להיות הזקיף של exit-guard.js
@@ -5358,6 +5398,51 @@ document.getElementById('loginForm').addEventListener('submit', async (e)=>{
     return;
   }
   await routeAfterAuth(data.session);
+});
+
+/* יצירת חשבון למי שהוזמן/ה — שני מסלולי סיום, ושניהם מסתיימים בשיוך:
+
+   ‏1. הפרויקט לא דורש אימות אימייל → חוזר session, ומכאן זה בדיוק כמו כניסה
+      רגילה: ‏routeAfterAuth → join-agency מול האסימון → הכרטיס מחובר.
+   ‏2. הפרויקט דורש אימות → אין session, ונשלח מייל. אחרי האישור הסוכן/ת
+      נוחת/ת כאן בלי האסימון שבכתובת — ודווקא אז נכנס לפעולה מסלול התאמת
+      האימייל ב-join-agency (השלב השני ב-resolve), כי הכרטיס נושא בדיוק את
+      הכתובת שאליה נשלחה ההזמנה. לכן אין כאן מבוי סתום בשום מקרה.
+
+   כתובת שכבר רשומה אינה מדווחת ככזו — ‏Supabase מטשטש/ת את זה בכוונה, כדי
+   שלא ניתן יהיה לברר מהמסך הזה מי רשום/ה. לכן ההודעה מכסה את שני המצבים. */
+document.getElementById('inviteSignupBtn').addEventListener('click', async ()=>{
+  const email = document.getElementById('email').value.trim();
+  const password = document.getElementById('password').value;
+  const btn = document.getElementById('inviteSignupBtn');
+  const errEl = document.getElementById('loginError');
+  // ריק ולא צבע מפורש: ‏#loginError כבר צבוע ב-var(--brick), וזה הצבע שכל
+  // שאר השגיאות במסך הזה מקבלות.
+  errEl.style.color = '';
+  errEl.textContent = '';
+  if (!email){ errEl.textContent = 'יש להזין את האימייל שקיבל את ההזמנה.'; return; }
+  if ((password || '').length < 8){ errEl.textContent = 'הסיסמה צריכה להיות באורך 8 תווים לפחות.'; return; }
+
+  btn.disabled = true; btn.textContent = 'יוצר חשבון…';
+  try{
+    const { data, error } = await sb.auth.signUp({
+      email, password,
+      options: { emailRedirectTo: window.location.origin + window.location.pathname },
+    });
+    if (error){
+      errEl.textContent = 'יצירת החשבון נכשלה: ' + error.message;
+      return;
+    }
+    if (data.session){ await routeAfterAuth(data.session); return; }
+    errEl.style.color = 'var(--ink)';
+    errEl.textContent = 'שלחנו מייל לאישור הכתובת. אחרי האישור אפשר להיכנס כאן, וההצטרפות למשרד תושלם אוטומטית. ' +
+                        'אם כבר יש לך חשבון — אפשר פשוט להיכנס עם הסיסמה הקיימת.';
+  } catch(err){
+    console.error('invite signup failed', err);
+    errEl.textContent = 'שגיאת רשת — נסו שוב';
+  } finally{
+    btn.disabled = false; btn.textContent = 'יצירת חשבון וסיסמה';
+  }
 });
 
 document.getElementById('logoutBtn').addEventListener('click', async ()=>{
@@ -5749,7 +5834,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // פעם אחת — או פעם נוספת ביום שההטבה נגמרת. ‏?tier=… הוא חזרה מדף
   // המסלולים עם בחירה, והיא נסגרת על אותו מסך כדי שהתשובה (נכנס לתוקף /
   // בקשה נקלטה / נעול בתקופת ההטבה) תוצג במקום אחד.
-  const requestedTier = pendingTierFromUrl();
+  const requestedTier = consumePendingTier();
   if (tierNeedsGate(agent) || requestedTier){
     showTierGate();
     if (requestedTier) chooseTier(requestedTier, null);
@@ -7896,14 +7981,14 @@ document.getElementById('tgLogoutBtn').addEventListener('click', async ()=>{
   location.reload();
 });
 
-/* חזרה מדף המסלולים עם בחירה (‏crm.html?tier=mid). הפרמטר נצרך מיד ונמחק
-   מהכתובת — רענון של הדף אחרי הבחירה לא אמור לשלוח אותה שוב. */
-function pendingTierFromUrl(){
-  const raw = new URLSearchParams(location.search).get('tier');
+/* חזרה מדף המסלולים עם בחירה (‏crm.html?tier=mid). הבחירה נשמרה כבר בטעינת
+   הדף (‏readPendingTier), וכאן היא נצרכת פעם אחת ונמחקת — רענון של הדף אחרי
+   הבחירה לא אמור לשלוח אותה שוב. ערך שאינו מסלול מוכר נזרק בשקט: הוא יכול
+   להגיע רק מכתובת שנערכה ביד. */
+function consumePendingTier(){
+  const raw = readPendingTier();
+  clearPendingTier();
   if (!raw || !window.Tiers || !Tiers.byId(raw)) return null;
-  const url = new URL(location.href);
-  url.searchParams.delete('tier');
-  history.replaceState(null, '', url.pathname + url.search + url.hash);
   return raw;
 }
 
@@ -9612,7 +9697,13 @@ async function loadTeam(agencyId, callerId){
       </div>
       ${tagsHtml([
         { text:roleLabels[m.role], cls: m.role === 'manager' ? 'tag-key' : '' },
-        { text:'מסלול ' + Tiers.label(m.tier), cls: m.tier === 'free' ? '' : 'tag-info' },
+        // כרטיס שממתין להזמנה עדיין לא בחר מסלול: העמודה יושבת על ברירת
+        // המחדל ‎free‎, והבחירה נעשית אצל הסוכן/ת בכניסה הראשונה. להציג כאן
+        // "מסלול Pay&GO" היה מדווח על החלטה שאיש לא קיבל — ובתקופת ההשקה גם
+        // סותר את מה שיקרה בפועל, כי השיוך מעניק Elite.
+        pending
+          ? { text:'מסלול — טרם נבחר' }
+          : { text:'מסלול ' + Tiers.label(m.tier), cls: m.tier === 'free' ? '' : 'tag-info' },
         { text:'🪪 רישיון ' + m.license_number },
       ])}
       ${pending ? `<p style="font-size:.75rem;color:var(--ink-soft);line-height:1.5;margin:8px 0 0">
