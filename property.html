@@ -228,8 +228,8 @@
   /* ====== היררכיית התוכן ====== */
   /* ‏**שתי עמודות, ובעמודת התוכן הכול בזה אחר זה.**
 
-       עמודת התוכן   פרטי הנכס ← ההדמיות ← מיקום וסביבה ← רצועת המשרד
-       עמודת הצד     כרטיס הפנייה + מחשבון המשכנתא
+       עמודת התוכן   פרטי הנכס ← ההדמיות ← מיקום וסביבה
+       עמודת הצד     רצועת המשרד ← כרטיס הפנייה ← מחשבון המשכנתא
 
      קודם ישבה תיבת ההדמיות בתחתית הדף, אחרי המפה ואחרי פרטי המשרד:
      הרכיב הכי ויזואלי בעמוד היה הדבר האחרון שמגיעים אליו. עכשיו היא
@@ -247,13 +247,18 @@
   /* ההדמיות צמודות לפרטי הנכס — הן ההמשך שלהם ולא מקטע חדש. שאר
      הבלוקים בעמודה שומרים על מרווח מלא, כי הם כן מקטעים נפרדים. */
   .content-col > #vizSection{margin-top:10px}
-  .content-col > .main-col-rest{margin-top:22px}
+  .content-col > #mapSection{margin-top:22px}
   @media(min-width:760px){
     /* ‏start ולא ‎stretch‎: שתי העמודות מתחילות באותו קו ונגמרות איפה
        שהתוכן שלהן נגמר. עמודת התוכן ארוכה מעמודת הצד ברוב הנכסים, ומתיחה
        של הצד לגובהה רק מפזרת את שני הכרטיסים שבה על פני מסך שלם. */
     .content-grid{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);align-items:start}
     .sidebar{display:flex;flex-direction:column}
+    /* ‏24px ולא 40 מתחת לרשת: במחשב הקרוסלה נפתחת מיד אחרי העמודה
+       הקצרה מבין השתיים, ו-40px של ריפוד מתווספים שם לחלל שנוצר ממילא
+       מהפרש הגבהים. במובייל הריפוד נשאר — שם אין עמודה קצרה, ו-40px הם
+       ההפרדה בין סוף הנכס לבין הצעה לנכס אחר. */
+    .content-grid{padding-bottom:24px}
   }
   /* מסך רחב: עמודת צד ברוחב קבוע וכל השאר לתוכן. ‎1fr‎ מתוך רשת רחבה נתן
      לכרטיס הפנייה 420px — טופס בן שלושה שדות לא מתרחב יפה, הוא רק
@@ -290,15 +295,6 @@
     background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-xl);
     box-shadow:var(--shadow-xs);padding:18px;margin-top:18px;
   }
-  /* ‏.main-col-rest מקבל את המרווח שלו מ-‎.content-col > .main-col-rest‎,
-     ולכן ‎margin-top‎ של הכרטיס הראשון שבו רק נערם עליו והפך 22px
-     לארבעים ומשהו — חלל שנקרא כסוף העמוד מיד אחרי התמונה שבאו לראות.
-     המרווח עובר מ-‎margin-top‎ ל-‎margin-bottom‎ ולא מתבטל בכרטיס הראשון
-     בלבד: ‎#mapSection‎ מוסתר בנכס שאינו זכאי למפה, ואז "הראשון" הוא
-     הבא אחריו. אלמנט ב-‎display:none‎ לא תורם מרווח, ולכן הצורה הזו נכונה
-     בכל צירוף של כרטיסים גלויים. */
-  .main-col-rest > .panel{margin-top:0;margin-bottom:18px}
-  .main-col-rest > .panel:last-child{margin-bottom:0}
   .panel > h2{font-size:1.05rem;margin-bottom:12px}
   .panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
   .panel-head h2{font-size:1.05rem}
@@ -413,6 +409,11 @@
   /* ====== כרטיס ההמרה של הסוכן/ת ====== */
   .sidebar > *{margin-bottom:16px}
   .sidebar > *:last-child{margin-bottom:0}
+  /* רצועת המשרד היא ‎.panel‎, ו-‎.panel‎ מביא איתו ‎margin-top:18px‎ שנועד
+     לרצף פאנלים בעמודת התוכן. בעמודת הצד הקצב הוא ‎margin-bottom‎ של
+     16px בין הכרטיסים, ו-18 נוספים מעל הראשון היו מזיזים את כל העמודה
+     כלפי מטה ביחס לעמודת התוכן שלצדה. */
+  .sidebar > .panel{margin-top:0}
   .agent-card{
     background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-xl);
     box-shadow:var(--shadow-md);overflow:hidden;
@@ -943,8 +944,8 @@
 
     <div class="content-grid">
       <!-- ====== עמודת התוכן ======
-           פרטי הנכס, ההדמיות, המפה ורצועת המשרד הם ארבעה בלוקים בעמודה
-           *אחת*, ולא ארבעה איברים ברשת. הם היו איברים נפרדים, ועמודת הצד
+           פרטי הנכס, ההדמיות והמפה הם שלושה בלוקים בעמודה *אחת*, ולא
+           שלושה איברים ברשת. הם היו איברים נפרדים, ועמודת הצד
            (כרטיס פנייה + מחשבון) נפרשה על שתי שורות מהן. כשהיא גבוהה
            מסכום השורות שהיא פרושה עליהן — וזה המצב ברוב הנכסים — הרשת
            מחלקת את ההפרש *בין* השורות, ואז נפער חלל לבן בין פרטי הנכס
@@ -1058,13 +1059,11 @@
           <p class="viz-pending" id="vizPending" hidden></p>
       </section>
 
-      <div class="main-col main-col-rest">
-
-        <!-- ====== מיקום וסביבה ======
-             מוצגת רק לנכס זכאי (מסלול Mid ומעלה + כתובת מדויקת), ולכן hidden
-             כברירת מחדל ונפתחת רק אחרי ש-initPropertyMap אישר את הזכאות
-             והמפה עלתה בפועל. -->
-        <section class="panel" id="mapSection" hidden>
+      <!-- ====== מיקום וסביבה ======
+           מוצגת רק לנכס זכאי (מסלול Mid ומעלה + כתובת מדויקת), ולכן hidden
+           כברירת מחדל ונפתחת רק אחרי ש-initPropertyMap אישר את הזכאות
+           והמפה עלתה בפועל. -->
+      <section class="panel" id="mapSection" hidden>
           <div class="panel-head">
             <h2>מיקום וסביבה</h2>
             <a class="panel-link" id="mapDirections" href="#" target="_blank" rel="noopener noreferrer" hidden>
@@ -1079,9 +1078,20 @@
               הגדלת המפה
             </button>
           </div>
-          <p class="map-note" id="mapNote"></p>
-        </section>
+        <p class="map-note" id="mapNote"></p>
+      </section>
+      </div><!-- /content-col -->
 
+      <div class="sidebar">
+        <!-- ====== רצועת המשרד ======
+             ראשונה בעמודת הצד, מעל כרטיס הסוכן/ת: שתיהן עונות על אותה
+             שאלה — מי עומד מאחורי המודעה — והמשרד הוא הכותרת של התשובה
+             הזאת, לא הערת שוליים בסוף עמודת התוכן.
+
+             מקומה כאן ב-DOM גם מייצר את הסדר של המובייל בלי מדיה קווירי:
+             היא הייתה האיבר האחרון בעמודת התוכן, ועמודת הצד באה מיד
+             אחריה — ולכן בעמודה אחת הרצף (מפה ← משרד ← כרטיס הסוכן/ת)
+             נשאר בדיוק כפי שהיה. -->
         <div class="panel agency-strip" id="agencyStrip">
           <div class="agency-avatar" id="agencyAvatar">·</div>
           <div>
@@ -1093,10 +1103,6 @@
           </span>
         </div>
 
-      </div>
-      </div><!-- /content-col -->
-
-      <div class="sidebar">
         <!-- ====== כרטיס ההמרה ====== -->
         <div class="agent-card">
           <div class="agent-top">
