@@ -38,7 +38,9 @@ permissions:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # ‏20 ולא 15: שלושת סבבי הפריסה (ראו "שלושה סבבים" למטה) לוקחים במקרה
+    # הגרוע כשבע דקות — שלוש פריסות מלאות ועוד דקה וחצי של המתנות.
+    timeout-minutes: 20
     env:
       # ה-ref גלוי ממילא בכל דף באתר (SUPABASE_URL ב-HTML), ולכן הוא לא סוד
       # ולא צריך לשבת ב-Secrets. הסוד היחיד הוא טוקן הגישה.
@@ -207,28 +209,87 @@ jobs:
       # שנכשלה לא צריכה למנוע מהשאר לעלות — והסטטוס נקבע בסוף.
       # אין כאן env: SUPABASE_ACCESS_TOKEN בכוונה — הגדרה כזו הייתה דורסת את
       # הערך המנוקה שנכתב ל-GITHUB_ENV ומחזירה את התו הנסתר.
+      # ---------------------------------------------------------------------
+      # שלושה סבבים, ולא ניסיון אחד
+      #
+      # ב-7.9.2026, המיזוג של מסלולי המנוי (‏PR #192) פרס 45 פונקציות ו-37
+      # מהן נכשלו — כולן על אותה שורה:
+      #
+      #     Could not find npm package '@supabase/realtime-js' matching '2.116.0'
+      #         at https://jsr.io/@supabase/supabase-js/2.116.0/src/lib/types.ts
+      #
+      # גרסה חדשה של supabase-js פורסמה ל-JSR, והתלות שלה טרם התפשטה ל-npm.
+      # הראיה שזה חולף נמצאה באותה הרצה עצמה: שמונה הפונקציות האחרונות **כן**
+      # עלו, אחרי שהרישום התיישר תוך כדי. הרצה חוזרת ידנית פתרה הכול.
+      #
+      # ‏שינוי ב-_shared פורס את כל 45 הפונקציות, כלומר 45 הזדמנויות להיתקל
+      # בתקלת רישום חולפת אחת — ובשלב הזה כבר לא משנה אם היא בקוד שלנו: ה-HTML
+      # והסכימה כבר באוויר, והפונקציות לא.
+      #
+      # לכן: סבב ראשון על הכול, ואם נשארו כשלים — עוד שניים, רק עליהם, בהפרשי
+      # 30 ו-60 שניות. הפסקה בין סבבים ולא ניסיון חוזר מיידי לכל פונקציה, כי
+      # התקלה מתפוגגת בזמן ולא בניסיון: 37 המתנות של דקה היו חורגות מה-timeout,
+      # ואילו שתי המתנות גלובליות מכסות בדיוק את חלון ההתפשטות.
+      #
+      # כשל שהתאושש בסבב מאוחר יוצא כ-warning ולא כ-error: הבנייה ירוקה, אבל
+      # מי שמסתכל/ת רואה שהיה גמגום. רק כשל בסבב האחרון מפיל את ה-job.
+      # ---------------------------------------------------------------------
       - name: פריסה
         if: steps.pick.outputs.targets != ''
         env:
           TARGETS: ${{ steps.pick.outputs.targets }}
         run: |
-          FAILED=""
-          OK=""
-          while read -r fn; do
-            [ -z "$fn" ] && continue
-            echo "::group::פריסת $fn"
-            if supabase functions deploy "$fn" --project-ref "$PROJECT_REF"; then
-              OK="$OK $fn"
-            else
-              echo "::error::פריסת $fn נכשלה"
-              FAILED="$FAILED $fn"
-            fi
-            echo "::endgroup::"
-          done <<< "$TARGETS"
+          PASS_OK=""
+          PASS_FAILED=""
 
-          echo "נפרסו בהצלחה:${OK:- (אין)}"
-          if [ -n "$FAILED" ]; then
-            echo "::error::הפונקציות האלה לא נפרסו:$FAILED"
+          # סבב אחד על רשימת פונקציות מ-stdin. ממלאת PASS_OK ו-PASS_FAILED.
+          deploy_pass() {
+            local pass="$1"
+            PASS_OK=""
+            PASS_FAILED=""
+            local fn
+            while read -r fn; do
+              [ -z "$fn" ] && continue
+              echo "::group::פריסת $fn (סבב $pass)"
+              if supabase functions deploy "$fn" --project-ref "$PROJECT_REF"; then
+                PASS_OK="$PASS_OK $fn"
+              else
+                # לא ::error:: כאן — סבב הבא עוד עשוי להצליח, והודעת שגיאה
+                # על כשל שהתאושש היא בדיוק מה שמלמד להתעלם מהלוג.
+                echo "פריסת $fn נכשלה בסבב $pass"
+                PASS_FAILED="$PASS_FAILED $fn"
+              fi
+              echo "::endgroup::"
+            done
+          }
+
+          DEPLOYED=""
+          REMAINING="$TARGETS"
+          RECOVERED=""
+
+          for pass in 1 2 3; do
+            [ -z "$(echo "$REMAINING" | tr -d '[:space:]')" ] && break
+
+            if [ "$pass" -gt 1 ]; then
+              WAIT=$(( (pass - 1) * 30 ))
+              echo "::warning::סבב $pass: $(echo $REMAINING | wc -w) פונקציות לא נפרסו בסבב הקודם. ממתין ${WAIT}s ומנסה שוב."
+              sleep "$WAIT"
+            fi
+
+            deploy_pass "$pass" <<< "$REMAINING"
+            DEPLOYED="$DEPLOYED$PASS_OK"
+            [ "$pass" -gt 1 ] && RECOVERED="$RECOVERED$PASS_OK"
+
+            # רשימת הנותרים לסבב הבא, שורה לכל פונקציה
+            REMAINING=$(echo "$PASS_FAILED" | tr ' ' '\n' | sed '/^$/d')
+          done
+
+          echo "נפרסו בהצלחה:${DEPLOYED:- (אין)}"
+          if [ -n "$RECOVERED" ]; then
+            echo "::warning::הפונקציות האלה נפרסו רק אחרי ניסיון חוזר:$RECOVERED"
+          fi
+          if [ -n "$(echo "$REMAINING" | tr -d '[:space:]')" ]; then
+            echo "::error::הפונקציות האלה לא נפרסו גם אחרי שלושה סבבים: $(echo $REMAINING | tr '\n' ' ')"
             exit 1
           fi
 
