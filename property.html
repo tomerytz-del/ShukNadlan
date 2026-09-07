@@ -900,6 +900,15 @@
      שפת הרצועה הכהה: הוא כבר לא חלק מהכלי — הוא מה שבא אחריו. */
   #ownerLeadPanel{margin-top:14px}
   .owner-lead-sub{font-size:.86rem;line-height:1.55;color:var(--ink-soft);margin:0 0 14px;max-width:56ch}
+  /* כפתור הסגירה. ‏36px ולא בגודל התו: יעד מגע קטן מזה מפספסים בטלפון,
+     והתו עצמו נשאר קטן — מה שגדל הוא השטח סביבו. */
+  .ol-close{
+    flex:none;width:36px;height:36px;display:grid;place-items:center;
+    font-size:1rem;line-height:1;color:var(--ink-soft);background:transparent;
+    border:1.5px solid transparent;transition:color .15s ease,border-color .15s ease,background .15s ease;
+  }
+  .ol-close:hover{color:var(--ink);border-color:var(--hair-strong);background:var(--surface-soft)}
+  .ol-close:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
   /* שתי אפשרויות שקולות, ולכן שתי עמודות שוות ולא שורה עוטפת: "רוצה
      למכור" ו"רוצה להשכיר" ברוחב המילים שבהן היו נקראות כשני כפתורים
      בגדלים שונים, כלומר כאילו אחת מהן ראשית. */
@@ -1122,6 +1131,11 @@
           <section class="panel owner-lead" id="ownerLeadPanel" hidden>
             <div class="panel-head">
               <h2 id="olTitle">חושבים למכור או להשכיר?</h2>
+              <!-- ‏aria-label ולא כיתוב: הסמל לבדו אינו שם נגיש, ו-✕ עצמו
+                   מוסתר מקורא מסך כדי שלא יוקרא כתו. -->
+              <button type="button" class="ol-close" id="olClose" aria-label="סגירת הטופס">
+                <span aria-hidden="true">✕</span>
+              </button>
             </div>
             <p class="owner-lead-sub" id="olSub">
               השאירו פרטים ונחזור אליכם לתיאום פגישה — כולל הדמיות AI לנכס שלכם.
@@ -2430,9 +2444,32 @@ function applyOwnerLeadAgent(p){
   if (done) done.textContent = `${who} יחזור/תחזור אליכם בזמן קצר לתיאום פגישה.`;
 }
 
+/* הסגירה מחזירה את המיקוד לכפתור שפתח את הפאנל, ולא משאירה אותו על צומת
+   שנעלם — מי שניווט/ה במקלדת היה נופל/ת לתחילת העמוד. הכפתור נשלף מחדש
+   בכל פעם ולא נשמר: הרצועה מורכבת מ-innerHTML בכל רינדור, והצומת שהיה
+   כאן קודם כבר לא בעץ.
+
+   ‏Escape סוגר גם הוא: הפאנל נפתח מעל תוכן שהגולש/ת קרא/ה, וכל דבר
+   שנפתח כך צריך דרך יציאה שאינה דורשת לחפש כפתור. */
+function closeOwnerLead(){
+  const panel = document.getElementById('ownerLeadPanel');
+  if (!panel || panel.hidden) return;
+  panel.hidden = true;
+  const opener = document.getElementById('aiPropLead');
+  if (opener) opener.focus({ preventScroll:true });
+}
+
 function initOwnerLeadForm(){
   const form = document.getElementById('ownerLeadForm');
   if (!form) return;
+
+  const closeBtn = document.getElementById('olClose');
+  if (closeBtn) closeBtn.addEventListener('click', closeOwnerLead);
+  document.addEventListener('keydown', (ev)=>{
+    if (ev.key !== 'Escape') return;
+    const panel = document.getElementById('ownerLeadPanel');
+    if (panel && !panel.hidden) closeOwnerLead();
+  });
 
   form.querySelectorAll('.owner-lead-toggle button').forEach(btn=>{
     btn.addEventListener('click', ()=>{
