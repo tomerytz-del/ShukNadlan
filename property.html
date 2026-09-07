@@ -828,7 +828,7 @@
        שיורד מהשוליים נכנס לתמונות. אותו רוחב תיבה בדיוק, ולוח הסגנונות
        והווילון גדלים בכמה נקודות אחוז כל אחד. */
     #aiShowcase .ai-band-inner{grid-template-columns:1.15fr 1fr;
-      align-items:stretch;column-gap:26px;row-gap:14px;padding:28px 24px 16px}
+      align-items:stretch;column-gap:26px;row-gap:14px;padding:28px 24px 12px}
     /* טור ההבטחה נמתח לגובה הווילון שלצדו, והפקדים נדחפים לתחתיתו.
        בלי זה הטור מסתיים 170px מעל שכנו ונשאר חור כהה בפינה — והדרך
        השנייה לסגור אותו, לצמצם את עמודת התמונה, מקטינה בדיוק את הדבר
@@ -843,6 +843,13 @@
        וטור התמונות נפרש על שתי השורות. בלי הפרישה הזאת התמונונות היו
        נגמרות בגובה ההבטחה, ולצד ההזמנה היה נפתח מלבן כהה ריק. */
     #aiShowcase .ai-band-inner > .ai-show{grid-column:2;grid-row:1/span 2}
+    /* הכפתור נגמר על **הקו התחתון של התמונות** ולא על תחתית הטור.
+       ‏align-self ברירת המחדל (‏stretch) מתח אותו עד סוף השורה — כלומר עד
+       מתחת לשורת התוויות של התמונונות — וקצהו ירד מתחת לקו שהעין מודדת
+       לפיו. ‏end מצמיד אותו לתחתית, וה-margin מרים אותו בדיוק בגובה שורת
+       התווית (‏--ai-thumb-label, מוגדר על הרצועה). */
+    #aiShowcase .ai-band-inner > .ai-lead{align-self:end;
+      margin-bottom:var(--ai-thumb-label,0px)}
   }
   #aiShowcase .ai-band h3{font-size:clamp(20px,3.4vw,25px)}
   /* ‏.ai-copy > p‎ ולא ‎.ai-band p‎: בתיבה יש עכשיו שלוש פסקאות נוספות

@@ -143,7 +143,13 @@
 
   var CSS = [
     /* ---- הרצועה ---- */
-    '.ai-band{background:#0d1b3d;color:#e6ecf9;margin-block:26px;overflow:hidden}',
+    /* ‏--ai-thumb-label — הגובה המדויק של שורת התווית שמתחת לכל תמונון
+       (‏16px של שורת טקסט + 5px של מרווח). הוא משתנה ולא מספר כתוב כי
+       הוא נדרש בשני מקומות: כאן, כדי לקבע את גובה התווית, ובדף הקורא,
+       כדי להעלות את כפתור ההזמנה בדיוק בגובה הזה — כך קצהו התחתון נופל
+       על **הקו התחתון של התמונות** ולא על תחתית התוויות שמתחתיהן. */
+    '.ai-band{background:#0d1b3d;color:#e6ecf9;margin-block:26px;overflow:hidden;',
+    '  --ai-thumb-label:21px}',
     '.ai-band-inner{max-width:1180px;margin:0 auto;padding:34px 18px;',
     '  display:grid;grid-template-columns:1fr;gap:24px;align-items:center}',
     /* בשתי עמודות ההזמנה לפגישה יורדת לשורה השנייה של העמודה הראשונה —
@@ -352,14 +358,16 @@
     '.ai-thumb{display:block;text-decoration:none;color:#e6ecf9;min-width:0;text-align:center}',
     '.ai-thumb img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;border-radius:8px;',
     '  border:1px solid rgba(255,255,255,.18);flex:1 0 auto;min-height:0}',
-    /* התווית נשברת לשתי שורות ולא נקטעת בשלוש נקודות: "הסלון · ים-תיכוני
-       לבן" בעמודה של שליש מסך טלפון נחתך בדיוק על שם הסגנון — כלומר על
-       החלק שבגללו לוחצים. */
-    /* שתי שורות שמורות תמיד ולא רק כתקרה: "חזית הבית" נשבר לשתיים בעמודה
-       צרה בזמן ש"הסלון" נשאר באחת, והאריחים היו יוצאים בגבהים שונים. */
-    '.ai-thumb span{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;',
-    '  overflow:hidden;font-size:12px;font-weight:700;margin-top:5px;line-height:1.35;',
-    '  min-height:calc(2em * 1.35)}',
+    /* שורה אחת, ובקצה שלוש נקודות אם צריך. קודם היו כאן שתי שורות שמורות
+       תמיד — כי "חזית הבית" נשבר לשתיים בעמודה צרה בזמן ש"הסלון" נשאר
+       באחת, והאריחים היו יוצאים בגבהים שונים. מאז התווית נושאת את שם
+       החלל בלבד (שתיים־שלוש מילים), והשריון הזה היה שורה ריקה קבועה
+       בתחתית הטור — בדיוק החלל המיותר שנפתח מתחת לתמונות.
+
+       ‏nowrap ולא שבירה: שורה אחת לכולם היא מה ששומר על גובה אחיד לכל
+       האריחים עכשיו כשהתמונה שמעליה נמתחת. */
+    '.ai-thumb span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;',
+    '  font-size:12px;font-weight:700;margin-top:5px;line-height:16px;height:16px}',
     '.ai-thumb:hover img{border-color:#c9a227}',
 
 
@@ -380,19 +388,31 @@
        נקראו כהמשך של הפסקה שמעליהם. הלוח עוטף אותם וכותרת קטנה מבקשת את
        הפעולה במפורש — "בחרו את הסגנון המועדף עליכם!" — וכך ארבעה כפתורים
        הופכים לשאלה אחת עם ארבע תשובות. */
+    /* ‏max-width:none — הלוח נמתח לרוחב הטור המלא, ונגמר באותו קו של כפתור
+       ההזמנה שמתחתיו. התקרה של 460px שהייתה כאן השאירה אותו צר מהכפתור,
+       ואת הרוחב שנחסך שילמו השבבים בגובה: מילה שנשברת לשתי שורות מוסיפה
+       לכל אחד מהם שורה שלמה, וארבעה שבבים כאלה דחפו את הכפתור מתחת לקו
+       התחתון של התמונות שלצדם. */
+    /* ‏margin-inline:0 ולא ‎auto‎. ‏.ai-copy הוא טור flex, ובטור כזה שוליים
+       אוטומטיים בציר הרוחב *מבטלים* את המתיחה: הלוח הצטמצם לרוחב התוכן
+       שלו (‏258px מול 487 של הטור) והתמרכז, והרוחב שאבד שולם בגובה —
+       שמות סגנון שנשברו לשתי שורות והוסיפו שורה לכל אחד מארבעת השבבים. */
     '.ai-styles-card{border:1px solid rgba(201,162,39,.42);border-radius:16px;',
-    '  background:rgba(255,255,255,.035);padding:15px 15px 22px;',
-    '  margin:0 auto 16px;max-width:460px}',
-    '.ai-styles-title{margin:0 0 12px;text-align:center;color:#fff;',
-    '  font-family:Heebo,system-ui,sans-serif;font-size:15px;font-weight:800}',
-    '.ai-styles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}',
+    '  background:rgba(255,255,255,.035);padding:13px 13px 18px;',
+    '  margin:0 0 14px;max-width:none}',
+    '.ai-styles-title{margin:0 0 10px;text-align:center;color:#fff;',
+    '  font-family:Heebo,system-ui,sans-serif;font-size:14.5px;font-weight:800}',
+    '.ai-styles{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}',
     /* ‏position:relative בשביל הנקודה שמסמנת את הנבחר (‏::after למטה). */
     '.ai-style{position:relative;font-family:Heebo,system-ui,sans-serif;font-size:13px;',
-    '  font-weight:700;padding:11px 10px;cursor:pointer;background:transparent;color:#e6ecf9;',
-    '  display:flex;flex-direction:column;align-items:center;gap:6px;line-height:1.25;',
+    '  font-weight:700;padding:8px 10px;cursor:pointer;background:transparent;color:#e6ecf9;',
+    '  display:flex;flex-direction:column;align-items:center;gap:3px;line-height:1.25;',
     '  text-align:center;border:1px solid rgba(255,255,255,.28);border-radius:12px;',
     '  transition:border-color .15s ease,box-shadow .15s ease,color .15s ease}',
-    '.ai-style-ico{width:26px;height:26px;flex:none;color:#e5c76a}',
+    /* השם בשורה אחת: "ים-תיכוני לבן" ו"יוקרה מודרנית" נשברים לשתיים
+       בשבב צר, וזה מה שמגדיל את גובה כל הלוח. */
+    '.ai-style > span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}',
+    '.ai-style-ico{width:21px;height:21px;flex:none;color:#e5c76a}',
     '.ai-style:hover{border-color:#c9a227;color:#fff}',
     /* הנבחר מסומן בשלושה סימנים שלא תלויים זה בזה: מסגרת זהב, זוהר רך,
        ונקודת זהב שיושבת על הקצה התחתון. שלושה ולא אחד כי מי שלא מבחין/ה
