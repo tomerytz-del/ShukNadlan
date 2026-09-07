@@ -82,6 +82,11 @@ verify_jwt = false          # Meta שולחת בלי JWT; האימות הוא ב
 [functions.saved-search-notify]
 verify_jwt = false          # ‏pg_cron + x-alert-cron-secret
 
+# מחזור החיים של הטבת ההשקה — שתי התראות לפני הסיום, והורדה ל-Pay&GO אחריו.
+# רצה פעם ביום מ-pg_cron בלבד ואינה מקבלת קלט שמשפיע על מי מטופל/ת.
+[functions.promo-lifecycle]
+verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
+
 [functions.property-marketing-publish]
 verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role / מנהל פלטפורמה
 
