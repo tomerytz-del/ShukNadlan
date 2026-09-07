@@ -11241,7 +11241,9 @@ function buildPropertyCard(p, agentId){
   // כתיבת נוסח מהנתונים — הצעה בלבד, נשמרת רק באישור בתוך החלון.
   // "רענון" ולא "יצירה" כשכבר יש תיאור: זו אותה פעולה, אבל המילה אומרת
   // לסוכן/ת מה עומד להשתנות.
-  if (p.status === 'active'){
+  // הכפתור מוצג ל-mid/premium בלבד, בדיוק כמו דוח CMA; ה-gating עצמו נאכף
+  // ב-request_property_description ובתור עצמו, ולא כאן.
+  if (p.status === 'active' && descriptionTierOk()){
     addCardAction(actions, {
       label: mktState.level === 'missing' ? '✨ תיאור שיווקי' : '♻️ רענון תיאור',
       title: mktState.note,
@@ -11356,12 +11358,20 @@ function buildPropertyCard(p, agentId){
 
 const DESCRIPTION_FUNCTION_URL = SUPABASE_URL + '/functions/v1/property-description';
 
+/* התיאור השיווקי הוא יכולת של המסלולים בתשלום (‏docs/pricing-and-tiers.md).
+   כאן זו שאלה של תצוגה בלבד — האכיפה יושבת ב-request_property_description
+   ובתור עצמו, ולכן גם מי שיקרא לפונקציה מה-console יקבל upgrade_required. */
+function descriptionTierOk(){
+  return currentAgent?.tier === 'mid' || currentAgent?.tier === 'premium';
+}
+
 const MKT_ERRORS = {
   not_authenticated: 'צריך להתחבר מחדש',
   not_your_property: 'הנכס אינו שלך',
   property_not_found: 'הנכס לא נמצא',
   cooldown_active: 'רגע — בקשה קודמת עדיין בטיפול. נסו שוב בעוד כמה שניות',
   copy_not_configured: 'כתיבת התיאורים לא מוגדרת עדיין במערכת',
+  upgrade_required: 'כתיבת תיאור שיווקי ב-AI זמינה במסלולים PROFESSIONAL ו-Elite',
   generation_failed: 'כתיבת הנוסח נכשלה — נסו שוב',
 };
 
@@ -11388,8 +11398,12 @@ async function fetchMarketingCopy(propertyId){
    השאר הוא רק מידע. */
 function marketingCopyState(p){
   if (!(p.marketing_description || '').trim()){
+    // הכתיבה האוטומטית היא יכולת של המסלולים בתשלום, ולכן ההבטחה הזו
+    // נאמרת רק למי שהיא באמת חלה עליו/ה.
     return { level:'missing', tag:'✍️ ללא תיאור שיווקי',
-             note:'לנכס אין תיאור שיווקי. המערכת כותבת אחד אוטומטית מהנתונים, ואפשר לבקש נוסח עכשיו.' };
+             note: descriptionTierOk()
+               ? 'לנכס אין תיאור שיווקי. המערכת כותבת אחד אוטומטית מהנתונים, ואפשר לבקש נוסח עכשיו.'
+               : 'לנכס אין תיאור שיווקי. כתיבה אוטומטית ב-AI זמינה במסלולים PROFESSIONAL ו-Elite — בינתיים אפשר לכתוב תיאור בעריכת הנכס.' };
   }
   if (p.marketing_description_stale){
     return { level:'stale', tag:'♻️ כדאי לרענן תיאור',
@@ -11414,6 +11428,14 @@ function syncMarketingCopyField(p){
     btn.disabled = true;
     hint.className = 'mkt-note';
     hint.textContent = 'אחרי הפרסום המערכת כותבת תיאור שיווקי מהנתונים לבד. אפשר גם לבקש נוסח בכל שלב מכרטיס הנכס.';
+    return;
+  }
+  // ‏Pay&GO: הכפתור נשאר על המסך ומסביר מה חסר, במקום להיעלם בלי סיבה.
+  // כפתור שנעלם נראה כמו באג; כפתור שאומר "זמין ב-PROFESSIONAL" הוא הצעה.
+  if (!descriptionTierOk()){
+    btn.disabled = true;
+    hint.className = 'mkt-note';
+    hint.textContent = 'כתיבת תיאור שיווקי ב-AI זמינה במסלולים PROFESSIONAL ו-Elite. במסלול הנוכחי אפשר לכתוב תיאור ידני בשדה שמעל.';
     return;
   }
   const state = marketingCopyState(p);

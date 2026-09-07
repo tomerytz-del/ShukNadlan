@@ -172,12 +172,19 @@ Deno.serve(async (req: Request) => {
     const codes: Record<string, number> = {
       not_authenticated: 401,
       not_your_property: 403,
+      // המסלול אינו כולל את היכולת. ‏403 ולא 402: אין כאן תשלום שממתין,
+      // יש הרשאה שאין — וזו גם התשובה שהממשק כבר יודע להציג (upgrade_required).
+      upgrade_required: 403,
       property_not_found: 404,
       cooldown_active: 429,
     };
     if (gate?.error) {
       return json(
-        { error: gate.error, retry_after_seconds: gate.retry_after_seconds ?? null },
+        {
+          error: gate.error,
+          detail: gate.detail ?? null,
+          retry_after_seconds: gate.retry_after_seconds ?? null,
+        },
         codes[gate.error] ?? 400,
       );
     }

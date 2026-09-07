@@ -32,6 +32,15 @@ const UNKNOWN_SENDER_MSG =
 const INACTIVE_AGENT_MSG =
   "החשבון שלך במערכת אינו פעיל כרגע. אפשר לפנות למנהל/ת המשרד.";
 
+/* הסוכן העוזר בוואטסאפ זמין ב-PROFESSIONAL וב-Elite. ‏Pay&GO מקבל/ת תשובה
+   שמסבירה מה זה ולאן ללכת, ולא שתיקה: הודעה שלא נענית נראית כמו תקלה, וזה
+   בדיוק הרגע שבו כדאי להסביר מה המסלול נותן. */
+const TIER_ALLOWED = new Set(["mid", "premium"]);
+const TIER_REQUIRED_MSG =
+  "הסוכן העוזר בוואטסאפ זמין במסלולים PROFESSIONAL ו-Elite. " +
+  "במסלול Pay&GO אפשר להוסיף ולעדכן נכסים ישירות באיזור הסוכנים. " +
+  "לפרטים ולשדרוג: https://shuknadlan.co.il/pricing.html";
+
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 
 // ---------------------------------------------------------------------------
@@ -213,6 +222,12 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   }
   if (!agent.active) {
     await reply(from, INACTIVE_AGENT_MSG, agent.id);
+    return;
+  }
+  // הגייטינג נעשה כאן, לפני שההודעה מומרת לקלט ל-LLM: הבדיקה חייבת לקדום
+  // לכל דבר שעולה כסף (Whisper, Claude, אחסון תמונה) ולכל דבר שכותב למסד.
+  if (!TIER_ALLOWED.has(String(agent.tier))) {
+    await reply(from, TIER_REQUIRED_MSG, agent.id);
     return;
   }
 
