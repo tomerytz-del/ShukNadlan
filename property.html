@@ -803,6 +803,11 @@
      שנקראו כסוף התוכן הרבה לפני שהוא באמת נגמר. */
   #aiShowcase .ai-band-inner{max-width:none;grid-template-columns:1fr;
     gap:16px;padding:24px 16px 14px}
+  /* ביטול מיקום שתי העמודות של הרכיב. שאילתת המדיה שלו מודדת את *המסך*,
+     ובלפטופ עם עמודת תוכן צרה היא נדלקת בזמן שהתיבה כאן היא עמודה אחת —
+     ‏grid-column:2 היה יוצר עמודה מרומזת שנייה שאין לה מקום. השאילתה
+     שמתחת, שמודדת את התיבה עצמה, מחזירה את המיקום כשהוא באמת נכון. */
+  #aiShowcase .ai-band-inner > .ai-show{grid-column:auto;grid-row:auto}
   /* התיבה כמכולה: הכלל שמתחת שואל את רוחבה שלה, כי היא יושבת בעמודת
      גריד שרוחבה אינו רוחב המסך. */
   #vizSection{container-type:inline-size}
@@ -834,6 +839,10 @@
        שנדחף למטה. הם לעולם לא מופיעים יחד. */
     #aiShowcase .ai-copy .ai-styles-card,
     #aiShowcase .ai-copy .ai-ask:not(:empty){margin-top:auto}
+    /* ההזמנה לפגישה יורדת לשורה השנייה של העמודה הראשונה — מתחת להבטחה —
+       וטור התמונות נפרש על שתי השורות. בלי הפרישה הזאת התמונונות היו
+       נגמרות בגובה ההבטחה, ולצד ההזמנה היה נפתח מלבן כהה ריק. */
+    #aiShowcase .ai-band-inner > .ai-show{grid-column:2;grid-row:1/span 2}
   }
   #aiShowcase .ai-band h3{font-size:clamp(20px,3.4vw,25px)}
   /* ‏.ai-copy > p‎ ולא ‎.ai-band p‎: בתיבה יש עכשיו שלוש פסקאות נוספות

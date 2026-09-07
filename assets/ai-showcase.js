@@ -146,7 +146,12 @@
     '.ai-band{background:#0d1b3d;color:#e6ecf9;margin-block:26px;overflow:hidden}',
     '.ai-band-inner{max-width:1180px;margin:0 auto;padding:34px 18px;',
     '  display:grid;grid-template-columns:1fr;gap:24px;align-items:center}',
-    '@media(min-width:900px){.ai-band-inner{grid-template-columns:1.15fr 1fr;gap:34px;padding:44px 32px}}',
+    /* בשתי עמודות ההזמנה לפגישה יורדת לשורה השנייה של העמודה הראשונה —
+       מתחת להבטחה — וטור התמונות נפרש על שתי השורות. כך התמונונות גדלות
+       לגובה של שני הבלוקים שלצדן במקום להשאיר חלל כהה מתחתיהן. */
+    '@media(min-width:900px){',
+    '  .ai-band-inner{grid-template-columns:1.15fr 1fr;gap:34px;padding:44px 32px}',
+    '  .ai-band-inner > .ai-show{grid-column:2;grid-row:1/span 2}}',
 
     /* ---- העמודה הימנית: ההבטחה ---- */
     /* הכותרת נושאת שני צבעים: החצי הראשון — ההבטחה עצמה — בזהב, והחצי
@@ -323,13 +328,30 @@
     /* ‏10px מעל הרצועה. הכיתוב של הווילון והאריחים שמתחתיו הם אותה יחידה —
        "מה מוצג" ו"מה עוד אפשר להציג" — ורווח שמפריד ביניהם כמו בין סקציות
        הופך שורה אחת לשתיים. */
+    /* ---- הטור השמאלי כעמודה שנמתחת ----
+       טור התמונות והטור שלצדו נגמרים באותו קו, ומי שגדל כדי לסגור את
+       הפער הוא **הרצועה**: הלוח הלבן שמעליה קבוע ביחס 4:3, וכל מה שנשאר
+       מעליו הוא בדיוק מה שהתמונונות היו מוותרות עליו כחלל כהה ריק.
+
+       ‏flex ולא ‎height:100%‎ על התמונונות: הגובה הפנוי אינו ידוע מראש —
+       הוא ההפרש בין שני הטורים — ורק פריסה שמחלקת שארית יודעת לחשב אותו.
+
+       במסך צר אין שארית (עמודה אחת, הגובה נגזר מהתוכן), והרצועה נשארת
+       בדיוק בגודל התוכן שלה. */
+    '.ai-show{display:flex;flex-direction:column;min-width:0}',
+    /* ‏flex-shrink:0 ולא ‎1‎: הרצועה גדלה כשיש מקום, אבל לעולם לא מתכווצת
+       מתחת ליחס 4:3 של האריחים שבה. */
     '.ai-strip{display:grid;grid-template-columns:repeat(var(--ai-cols,3),minmax(0,1fr));',
-    '  gap:10px;margin-top:12px;align-items:start}',
+    '  gap:10px;margin-top:12px;align-items:stretch;flex:1 0 auto}',
+    /* האריח נמתח לגובה השורה, והתמונה שבתוכו לוקחת את מה שנשאר אחרי
+       התווית. ‏min-height:0 כדי שהיא תוכל גם לרדת מגובה התוכן שלה כשהטור
+       צר, במקום לדחוף את התווית החוצה. */
+    'button.ai-thumb,a.ai-thumb{display:flex;flex-direction:column}',
     /* ‏min-width:0 ולא רק ‎1fr‎: תווית שלא נשברת ("הסלון · ים-תיכוני לבן")
        מרחיבה את העמודה שלה מעל חלקה, והתמונונות יוצאות בגדלים שונים. */
     '.ai-thumb{display:block;text-decoration:none;color:#e6ecf9;min-width:0;text-align:center}',
     '.ai-thumb img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block;border-radius:8px;',
-    '  border:1px solid rgba(255,255,255,.18)}',
+    '  border:1px solid rgba(255,255,255,.18);flex:1 0 auto;min-height:0}',
     /* התווית נשברת לשתי שורות ולא נקטעת בשלוש נקודות: "הסלון · ים-תיכוני
        לבן" בעמודה של שליש מסך טלפון נחתך בדיוק על שם הסגנון — כלומר על
        החלק שבגללו לוחצים. */
@@ -387,24 +409,34 @@
 
     /* ---- הזמנת הפגישה ----
        התיבה הזאת עונה על השאלה שנשאלת מיד אחרי שרואים מה AI עשה לנכס של
-       מישהו אחר: "ומה עם שלי?". היא יושבת מתחת לתמונות ולא בטור ההבטחה
-       בכוונה — היא לא חלק מהסבר הכלי אלא מה שבא *אחרי* שהשתמשו בו.
+       מישהו אחר: "ומה עם שלי?".
+
+       היא זהובה מלאה ולא מסגרת זהב על ספיר. מסגרת על רקע כהה נקראת
+       כהודעה — משהו שכתוב, לא משהו שלוחצים עליו — וזו הפעולה שכל התיבה
+       מובילה אליה. הזהב המלא הוא כבר שפת הפעולה של האתר (‏.ai-cta‎ ממש
+       באותה תיבה), והצל הזהוב הוא מה שמרים אותה מהספיר: צל שחור על רקע
+       כהה אינו נראה.
 
        ‏button ולא קישור: היא לא מנווטת לשום מקום — היא מקפיצה את טופס
        הפנייה שכבר בעמוד ומעבירה אליו את המיקוד. */
-    '.ai-lead{display:block;width:100%;margin-top:12px;cursor:pointer;',
+    '.ai-lead{display:block;width:100%;cursor:pointer;',
     '  font-family:Heebo,system-ui,sans-serif;text-align:center;',
-    '  border:1px solid rgba(201,162,39,.55);border-radius:14px;',
-    '  background:rgba(201,162,39,.10);color:#e6ecf9;padding:12px 16px;',
-    '  transition:background .15s ease,border-color .15s ease,transform .15s ease}',
-    '.ai-lead:hover{background:rgba(201,162,39,.2);border-color:#c9a227;transform:translateY(-1px)}',
-    '.ai-lead:active{transform:translateY(0)}',
+    '  border:none;border-radius:14px;padding:13px 18px;',
+    '  background:linear-gradient(180deg,#e0bf50,#c9a227);color:#0d1b3d;',
+    '  box-shadow:0 12px 28px -14px rgba(201,162,39,.95);',
+    '  transition:filter .15s ease,box-shadow .15s ease,transform .15s ease}',
+    '.ai-lead:hover{filter:brightness(1.08);',
+    '  box-shadow:0 16px 32px -12px rgba(220,182,60,1);transform:translateY(-1px)}',
+    '.ai-lead:active{transform:translateY(0);box-shadow:0 8px 20px -14px rgba(201,162,39,.95)}',
     '.ai-lead:focus-visible{outline:3px solid #fff;outline-offset:3px}',
-    '.ai-lead-intro{display:block;font-size:13.5px;font-weight:600;line-height:1.5}',
-    '.ai-lead-intro strong{color:#e5c76a;font-weight:800}',
-    '.ai-lead-main{display:block;margin-top:3px;font-size:15px;font-weight:800;',
-    '  color:#e5c76a;text-decoration:underline;text-underline-offset:4px}',
-    '@media (prefers-reduced-motion: reduce){.ai-lead:hover{transform:none}}',
+    /* השורה הראשונה כהה-רכה והשנייה כהה-מלאה: על זהב שתיהן קריאות הרבה
+       מעל 4.5:1, וההבדל ביניהן הוא מה שאומר מה הכותרת ומה הפעולה. */
+    '.ai-lead-intro{display:block;font-size:13.5px;font-weight:700;line-height:1.5;',
+    '  color:rgba(13,27,61,.82)}',
+    '.ai-lead-intro strong{color:#0d1b3d;font-weight:900}',
+    '.ai-lead-main{display:block;margin-top:2px;font-size:16px;font-weight:900;',
+    '  color:#0d1b3d;letter-spacing:-.01em}',
+    '@media (prefers-reduced-motion: reduce){.ai-lead:hover,.ai-lead:active{transform:none}}',
     /* בזמן "יוצרים…" הכפתור לא מגיב למגע: הרמה וזוהר על כפתור מושבת
        מבטיחים לחיצה שלא תקרה. */
     '.ai-cta[disabled]{opacity:.6;cursor:default}',
@@ -712,8 +744,15 @@
                     ? 'עדיין אין הדמיה בסגנון ' + activeStyleLabel
                     : 'עדיין אין הדמיה לנכס הזה') +
                 '</div>') +
-            leadHtml +
           '</div>' +
+          /* ההזמנה לפגישה היא פריט גריד בפני עצמו ולא ילד של אחד הטורים,
+             וזה מה שמאפשר לה לשבת בשני מקומות שונים בשתי הפריסות: בשתי
+             עמודות היא חותמת את טור ההבטחה (שורה שנייה בעמודה הראשונה,
+             ‏CSS למטה), ובעמודה אחת היא פשוט באה אחרי התמונות.
+
+             הסדר הזה חשוב במובייל: כילדה של ‎.ai-copy‎ היא הופיעה *לפני*
+             הווילון — כלומר ביקשה פרטים לפני שהראתה משהו. */
+          leadHtml +
           /* ההצהרה יורדת לתחתית התיבה ומתקצרת לשורה אחת. במקומה הקודם —
              בין הכפתור לבין התמונה — היא הייתה פסקה שעוצרת את מי שבא/ה
              לראות; כאן היא נמצאת, ניתנת לקריאה, ולא בדרך.
