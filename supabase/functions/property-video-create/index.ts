@@ -111,13 +111,13 @@ Deno.serve(async (req: Request) => {
   // ‏clipCount הוא **תקרה** ולא יעד: pickScenes לוקחת min(תמונות, התקרה), ולכן
   // נכס עם חמש תמונות מקבל חמש סצנות ולא נשאר עם תמונה שלא נכנסה לסרטון.
   //
-  // שני אורכים ולא אחד — ראו המיגרציה 20261005090000: clipSeconds הוא מה
-  // שנכנס לסרטון (2.5), ו-sourceSeconds הוא מה שמבקשים מהמודל אם הוא דוחה
-  // את הראשון (5). ‏Math.round הוסר מ-clipSeconds בכוונה: הוא היה מעגל 2.5 ל-2.
-  const clipCount = Math.max(1, Math.round(await pricing(supabase, "property_video_clip_count", 8)));
-  const clipSeconds = Math.max(0.5, await pricing(supabase, "property_video_clip_seconds", 2.5));
+  // ‏clipSeconds ו-sourceSeconds אמורים להיות שווים — ראו askSeconds למטה
+  // ואת המיגרציה 20261006090000. ‏Math.round הוסר מ-clipSeconds בכוונה:
+  // הוא היה מעגל ערך שברירי בשקט.
+  const clipCount = Math.max(1, Math.round(await pricing(supabase, "property_video_clip_count", 5)));
+  const clipSeconds = Math.max(0.5, await pricing(supabase, "property_video_clip_seconds", 5));
   const sourceSeconds = Math.max(clipSeconds, await pricing(supabase, "property_video_source_seconds", 5));
-  const minClips = Math.max(1, Math.round(await pricing(supabase, "property_video_min_clips", 3)));
+  const minClips = Math.max(1, Math.round(await pricing(supabase, "property_video_min_clips", 2)));
 
   // ---- אילו תמונות -------------------------------------------------------
   // הסיווג הקיים (‎property_image_tags‎) הוא מה שמאפשר סדר של מודעה: חוץ,
@@ -151,7 +151,7 @@ Deno.serve(async (req: Request) => {
     p_property_id: propertyId,
     p_agent_id: agentRow.id,
     p_webhook_token: webhookToken,
-    p_clip_seconds: clipSeconds,
+    p_clip_seconds: askSeconds,
     p_aspect_ratio: aspectRatio,
     p_replace_existing: replaceExisting,
   });
@@ -192,20 +192,21 @@ Deno.serve(async (req: Request) => {
   const failures: string[] = [];
 
   // ---- באיזה אורך מבקשים -------------------------------------------------
-  // **החלטה דטרמיניסטית ולא ניסוי.** הגרסה הקודמת ניסתה לבקש 2.5 שניות
-  // וליפול חזרה ל-5 אם המודל דוחה — וזה נכשל בפרודקשן מסיבה מלמדת: ‏Kling
-  // **קיבל** את הבקשה (‎200‎ עם ‎request_id‎) ורק בזמן הריצה החזיר ‎422‎, דרך
-  // ה-webhook. כלומר הדחייה אינה מגיעה בתשובת ה-submit בכלל, ובדיקה עליה
-  // לעולם לא תתפוס. חמישה קליפים נשלחו, כולם נכשלו, והבקשה נסגרה ב-
-  // ‎too_few_clips: 0/3‎.
+  // **אורך אחד בלבד, כי אין דרך לקצר קליף אחרי שנוצר.**
   //
-  // הניסוי הזה כבר ענה על השאלה: המודל לא מייצר 2.5 שניות. לכן מבקשים
-  // ישירות את אורך המקור וחותכים במיזוג — מסלול אחד, בלי הימור ובלי קליפים
-  // מבוזבזים. כשמישהו יגדיר מודל שכן תומך באורך המבוקש, ‎source_seconds‎
-  // יורד ל-2.5 ב-pricing_config והחיתוך מכבה את עצמו.
-  const needsTrim = clipSeconds < sourceSeconds;
-  const askSeconds = needsTrim ? sourceSeconds : clipSeconds;
-  const trimToSeconds: number | null = needsTrim ? clipSeconds : null;
+  // שתי הנחות נוסו כאן ושתיהן הופרכו מול ה-API החי:
+  //
+  //   1. "אפשר לבקש מ-Kling 2.5 שניות" — הבקשה מתקבלת עם ‎200‎ ונכשלת מאוחר
+  //      יותר ב-‎422‎ דרך ה-webhook. עשרה קליפים, שתי בקשות, אפס תוצרים.
+  //   2. "אפשר לייצר 5 שניות ולחתוך במיזוג" — ‏compose מתעלם מ-‎duration‎,
+  //      מ-‎timestamp‎ ומ-‎start_from‎, ומשרשר קליפים שלמים. ‏‎/trim‎, ‎/cut‎,
+  //      ‎/split‎ ו-‎/speed‎ אינם קיימים (404).
+  //
+  // לכן ‎clip_seconds‎ חייב להיות שווה ל-‎source_seconds‎. ערך קטן יותר לא
+  // היה מתממש — הוא רק היה גורם למערכת להבטיח סרטון קצר ולספק ארוך, בלי
+  // שום שגיאה שתסגיר את זה. ‏Math.max שומר על השוויון גם אם מישהו יוריד את
+  // הערך ב-pricing_config בלי לקרוא את התיעוד.
+  const askSeconds = Math.max(clipSeconds, sourceSeconds);
 
   for (const clip of insertedClips ?? []) {
     const hook = `${base}?token=${encodeURIComponent(webhookToken)}&job=${jobId}&clip=${clip.id}`;
@@ -238,11 +239,11 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  // נרשם אחרי הלולאה כי הוא מתגלה תוך כדיה. ‎advanceJob‎ קורא/ת אותו בשלב
-  // המיזוג ובוחר/ת בין compose (עם חיתוך) ל-merge-videos (בלי).
+  // ‏trim_to_seconds נשאר ריק: אין חיתוך, ולכן אורך הסצנה הסופי הוא בדיוק
+  // מה שנשלח ל-fal.
   await supabase
     .from("property_video_jobs")
-    .update({ source_seconds: askSeconds, trim_to_seconds: trimToSeconds })
+    .update({ source_seconds: askSeconds })
     .eq("id", jobId);
 
   // אף קליף לא נשלח — אין למה לחכות, והארנק מזוכה עכשיו ולא בעוד שעה.
@@ -263,9 +264,8 @@ Deno.serve(async (req: Request) => {
     amount_charged: started.amount_charged,
     clips: submitted,
     clips_failed: (insertedClips?.length ?? 0) - submitted,
-    // אורך הסרטון הסופי הוא תמיד לפי clipSeconds, גם כשהמודל ייצר ארוך יותר
-    // וייחתך במיזוג — זה מה שהסוכן/ת יראה/תראה בפועל.
-    estimated_seconds: Math.round(submitted * clipSeconds * 10) / 10,
-    trimmed: trimToSeconds != null,
+    // ‏askSeconds ולא clipSeconds: זה מה ש-fal באמת מייצר, ובלי חיתוך זה גם
+    // מה שהסוכן/ת יראה/תראה בפועל.
+    estimated_seconds: Math.round(submitted * askSeconds * 10) / 10,
   });
 });

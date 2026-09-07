@@ -11153,8 +11153,8 @@ const VIDEO_POLL_TIMEOUT_MS = 12 * 60 * 1000;
 async function produceMarketingVideo(property, btn, agentId){
   const isMid = currentAgent?.tier === 'mid';
   const price = isMid ? priceOf('property_video_price_mid', 20) : 0;
-  const maxClips = priceOf('property_video_clip_count', 8);
-  const secs  = priceOf('property_video_clip_seconds', 2.5);
+  const maxClips = priceOf('property_video_clip_count', 5);
+  const secs  = priceOf('property_video_clip_seconds', 5);
   const hasVideo = !!property.video_url;
 
   // התקרה היא תקרה, לא יעד: הסרטון לוקח סצנה לכל תמונה עד המקסימום, ולכן

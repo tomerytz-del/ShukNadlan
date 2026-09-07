@@ -28,8 +28,10 @@ export const FAL_VIDEO_MODEL =
   Deno.env.get("FAL_VIDEO_MODEL") || "fal-ai/kling-video/v2.5-turbo/pro/image-to-video";
 export const FAL_MERGE_MODEL =
   Deno.env.get("FAL_MERGE_MODEL") || "fal-ai/ffmpeg-api/merge-videos";
-// ‏compose משמש/ת רק כשצריך לחתוך כל קליף לאורך קצר יותר ממה שהמודל ייצר.
-// ‏merge-videos מדביק/ה כמו שהוא ואינו/ה יודע/ת לחתוך, ולכן שתי נקודות קצה.
+// ‏compose **אינו** משמש למיזוג. נמדד מול ה-API החי ונמצא שהוא מתעלם
+// מ-‎duration‎, מ-‎timestamp‎ ומ-‎start_from‎ ומשרשר קליפים שלמים — כלומר הוא
+// ‎merge-videos‎ עם סכימה מסובכת יותר. נשאר כאן רק כברירת המחדל של
+// ‎?mode=probe‎, כלי הבדיקה שבו נמדדה המסקנה הזאת.
 export const FAL_COMPOSE_MODEL =
   Deno.env.get("FAL_COMPOSE_MODEL") || "fal-ai/ffmpeg-api/compose";
 
@@ -360,40 +362,6 @@ export function isTransientFailure(error: string | undefined): boolean {
 export function buildMergeInput(clipUrls: string[], aspectRatio: string): Record<string, unknown> {
   return {
     video_urls: clipUrls,
-    resolution: aspectRatio === "9:16" ? "portrait_16_9" : "landscape_16_9",
-  };
-}
-
-// ---------------------------------------------------------------------------
-// חיבור עם חיתוך
-//
-// כשהמודל ייצר 5 שניות ואנחנו רוצים 2.5, החיתוך קורה כאן — ב-ffmpeg אצל fal,
-// כי אין לנו ffmpeg ואין תקציב זמן לקודד וידאו ב-Edge Function.
-//
-// ‏compose מקבל/ת ציר זמן: כל keyframe הוא קליף שמתחיל ב-‎timestamp‎ ונמשך
-// ‎duration‎. הערכים במילישניות — זו הצורה שבה ‎ffmpeg-api/compose‎ עובד/ת.
-// ‏`start_from` חותך מתחילת הקליף: לוקחים את 2.5 השניות הראשונות, כי שם
-// תנועת המצלמה עוד קרובה לפריים המקורי ולכן נאמנה יותר לנכס.
-// ---------------------------------------------------------------------------
-export function buildComposeInput(
-  clipUrls: string[],
-  secondsEach: number,
-  aspectRatio: string
-): Record<string, unknown> {
-  const ms = Math.round(secondsEach * 1000);
-  return {
-    tracks: [
-      {
-        id: "video",
-        type: "video",
-        keyframes: clipUrls.map((url, i) => ({
-          url,
-          timestamp: i * ms,
-          duration: ms,
-          start_from: 0,
-        })),
-      },
-    ],
     resolution: aspectRatio === "9:16" ? "portrait_16_9" : "landscape_16_9",
   };
 }
