@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
-import { generateMarketingCopy } from "../_shared/marketing-copy.ts";
+import { generateMarketingCopy, MarketingCopyAuthError } from "../_shared/marketing-copy.ts";
 
 // ============================================================================
 // תיאור שיווקי לנכס — השרת של שני המסלולים.
@@ -39,11 +39,21 @@ const CLAUDE_MODEL = Deno.env.get("CLAUDE_MODEL") || "claude-sonnet-5";
 // זו רק הגנה על זמן הריצה — כל נכס הוא קריאה אחת ל-Anthropic.
 const BATCH = 5;
 
+// ‏CORS. הקוראת השנייה של הפונקציה הזו היא לא pg_cron אלא דפדפן — כפתור
+// "תיאור שיווקי" ב-CRM — ובקשה עם Content-Type: application/json ועם apikey
+// אינה בקשה פשוטה: הדפדפן שולח OPTIONS לפניה. בלי התשובה כאן הכפתור נכשל
+// עוד לפני שהשרת רואה אותו, וזה נראה כמו תקלת רשת ולא כמו הרשאה חסרה.
+function corsHeaders() {
+  return {
+    "Content-Type": "application/json",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+  };
+}
+
 function json(obj: unknown, status = 200) {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: { "Content-Type": "application/json" },
-  });
+  return new Response(JSON.stringify(obj), { status, headers: corsHeaders() });
 }
 
 // deno-lint-ignore no-explicit-any
@@ -100,6 +110,13 @@ async function drainQueue(sb: Sb, limit: number) {
       await sb.rpc("mark_property_description", { p_job_id: job.job_id, p_ok: true, p_error: null });
       results.push({ property_id: job.property_id, reason: job.reason, generated: true });
     } catch (e) {
+      // מפתח שנדחה מפיל את כל השורות באותה מידה. עוצרים את הסבב ולא מסמנים
+      // כישלון — בדיוק כמו במפתח חסר: השורות נשארות pending, ממתינות רבע שעה
+      // (ה-backoff שנקבע בתפיסה) וממשיכות מעצמן ברגע שהמפתח יתוקן.
+      if (e instanceof MarketingCopyAuthError) {
+        console.error("כתיבת תיאור שיווקי נעצרה", e.message);
+        return json({ error: "copy_not_configured", detail: e.message, processed: results.length }, 503);
+      }
       const message = e instanceof Error ? e.message : String(e);
       console.error("כתיבת תיאור שיווקי נכשלה", job.property_id, message);
       await sb.rpc("mark_property_description", {
@@ -116,6 +133,7 @@ async function drainQueue(sb: Sb, limit: number) {
 
 // ---------------------------------------------------------------------------
 Deno.serve(async (req: Request) => {
+  if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders() });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
 
   const internal = authorizeInternalCaller(req);
@@ -250,6 +268,12 @@ Deno.serve(async (req: Request) => {
       replaced: false,
     });
   } catch (e) {
+    // אותה הבחנה כמו בתור: מפתח שנדחה הוא מצב התקנה, והתשובה לסוכן/ת צריכה
+    // לומר את זה ולא "נסו שוב". שורת התור נשארת כפי שהיא.
+    if (e instanceof MarketingCopyAuthError) {
+      console.error("כתיבת תיאור שיווקי נעצרה", propertyId, e.message);
+      return json({ error: "copy_not_configured", detail: e.message }, 503);
+    }
     const message = e instanceof Error ? e.message : String(e);
     console.error("כתיבת תיאור שיווקי נכשלה", propertyId, message);
     if (jobId) {
