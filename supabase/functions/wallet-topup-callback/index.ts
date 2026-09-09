@@ -60,29 +60,54 @@ const STALE_MINUTES = 10;
 const EXPIRE_MINUTES = 180;
 
 // ---------------------------------------------------------------------------
-// סגירת ניסיון בודד מול מורנינג
+// שני סוגי תשלום, מכונת מצבים אחת
 //
-// הלב של שתי הכניסות גם יחד: אותה שאלה, אותה החלטה, בלי קשר למי העיר אותנו.
+// טעינת ארנק ורכישת מנוי הן אותו מסלול בדיוק: שורת pending, טופס תשלום,
+// אימות מול מורנינג, ואז הפעולה. ההבדל היחיד הוא שם הטבלה ושמות שלוש
+// הפונקציות — ולכן הוא נתון, ולא ענף שני בקוד.
+//
+// למה שתיהן על אותה נקודת קצה: ה-notifyUrl הוא סוד שנשלח לצד שלישי, וסוד
+// שני היה סוד נוסף לנהל, לסובב ולשכוח. ההפרדה נעשית לפי המזהה שחוזר —
+// ‏UUID של שורה, שממילא ייחודי בין הטבלאות.
 // ---------------------------------------------------------------------------
-async function settleTopup(
+type OrderKind = "topup" | "subscription";
+
+const KINDS: Record<OrderKind, { table: string; complete: string; fail: string; idParam: string }> = {
+  topup: {
+    table: "wallet_topups",
+    complete: "complete_wallet_topup",
+    fail: "fail_wallet_topup",
+    idParam: "p_topup_id",
+  },
+  subscription: {
+    table: "subscription_orders",
+    complete: "complete_subscription_order",
+    fail: "fail_subscription_order",
+    idParam: "p_order_id",
+  },
+};
+
+async function settleOrder(
   supabase: any,
-  topup: { id: string; amount: number; status: string; provider_form_id: string | null },
+  kind: OrderKind,
+  order: { id: string; amount: number; status: string; provider_form_id: string | null },
 ): Promise<string> {
-  if (topup.status !== "pending") return topup.status;
+  const k = KINDS[kind];
+  if (order.status !== "pending") return order.status;
 
   // אין מזהה טופס — כלומר יצירת הטופס נכשלה אחרי שהשורה כבר נפתחה. אין למה
   // לפנות, ואין תשלום שיכול היה להיווצר.
-  if (!topup.provider_form_id) {
-    await supabase.rpc("fail_wallet_topup", { p_topup_id: topup.id, p_reason: "no_provider_form_id" });
+  if (!order.provider_form_id) {
+    await supabase.rpc(k.fail, { [k.idParam]: order.id, p_reason: "no_provider_form_id" });
     return "failed";
   }
 
-  const status = await verifyPayment(topup.provider_form_id);
+  const status = await verifyPayment(order.provider_form_id);
 
   // מורנינג לא ענה/תה. **לא נוגעים בשורה** — היא נשארת pending והסבב הבא
   // ינסה שוב. סגירה ככושלת כאן הייתה מוחקת תשלום אמיתי בגלל תקלת רשת רגעית.
   if (!status.ok) {
-    console.error("wallet-topup-callback: lookup failed", topup.id, status.error);
+    console.error(`wallet-topup-callback: lookup failed (${kind})`, order.id, status.error);
     return "pending";
   }
 
@@ -91,8 +116,8 @@ async function settleTopup(
     return "pending";
   }
 
-  const { data: result, error } = await supabase.rpc("complete_wallet_topup", {
-    p_topup_id: topup.id,
+  const { data: result, error } = await supabase.rpc(k.complete, {
+    [k.idParam]: order.id,
     p_verified_amount: status.amount,
     p_provider_charge_id: status.transactionId,
     p_document_id: status.documentId,
@@ -100,11 +125,11 @@ async function settleTopup(
   });
 
   if (error) {
-    console.error("wallet-topup-callback: complete failed", topup.id, error.message);
+    console.error(`wallet-topup-callback: complete failed (${kind})`, order.id, error.message);
     return "pending";
   }
   if (result?.error) {
-    console.error("wallet-topup-callback: complete rejected", topup.id, JSON.stringify(result));
+    console.error(`wallet-topup-callback: complete rejected (${kind})`, order.id, JSON.stringify(result));
     return result.error === "amount_mismatch" ? "failed" : "pending";
   }
   return "success";
@@ -113,33 +138,39 @@ async function settleTopup(
 // ---------------------------------------------------------------------------
 // ה-reconcile
 // ---------------------------------------------------------------------------
+// סורק את שתי הטבלאות. מנוי תקוע יקר יותר מטעינה תקועה — הסוכן/ת שילם/ה
+// ‏₪750 ועובד/ת במסלול החינמי — ולכן אין שום סיבה שהוא ייסרק בתדירות נמוכה
+// יותר או יחכה למחזור נפרד.
 async function reconcile(supabase: any): Promise<Record<string, number>> {
   const staleCutoff = new Date(Date.now() - STALE_MINUTES * 60_000).toISOString();
   const expireCutoff = new Date(Date.now() - EXPIRE_MINUTES * 60_000).toISOString();
 
-  const { data: rows } = await supabase
-    .from("wallet_topups")
-    .select("id, amount, status, provider_form_id, created_at")
-    .eq("status", "pending")
-    .lt("created_at", staleCutoff)
-    .order("created_at", { ascending: true })
-    .limit(50);
-
   const stats = { checked: 0, credited: 0, failed: 0, still_pending: 0 };
 
-  for (const row of rows ?? []) {
-    stats.checked++;
-    const outcome = await settleTopup(supabase, row);
+  for (const kind of ["topup", "subscription"] as OrderKind[]) {
+    const k = KINDS[kind];
+    const { data: rows } = await supabase
+      .from(k.table)
+      .select("id, amount, status, provider_form_id, created_at")
+      .eq("status", "pending")
+      .lt("created_at", staleCutoff)
+      .order("created_at", { ascending: true })
+      .limit(50);
 
-    if (outcome === "success") { stats.credited++; continue; }
-    if (outcome === "failed") { stats.failed++; continue; }
+    for (const row of rows ?? []) {
+      stats.checked++;
+      const outcome = await settleOrder(supabase, kind, row);
 
-    // עדיין תלוי, וכבר זקן מדי מכדי להיות אמיתי.
-    if (row.created_at < expireCutoff) {
-      await supabase.rpc("fail_wallet_topup", { p_topup_id: row.id, p_reason: "expired_unpaid" });
-      stats.failed++;
-    } else {
-      stats.still_pending++;
+      if (outcome === "success") { stats.credited++; continue; }
+      if (outcome === "failed") { stats.failed++; continue; }
+
+      // עדיין תלוי, וכבר זקן מדי מכדי להיות אמיתי.
+      if (row.created_at < expireCutoff) {
+        await supabase.rpc(k.fail, { [k.idParam]: row.id, p_reason: "expired_unpaid" });
+        stats.failed++;
+      } else {
+        stats.still_pending++;
+      }
     }
   }
 
@@ -184,18 +215,23 @@ Deno.serve(async (req: Request) => {
   const { topupId, formId } = extractReference(body);
   if (!topupId && !formId) return json({ error: "missing_reference" }, 400);
 
-  const query = supabase
-    .from("wallet_topups")
-    .select("id, amount, status, provider_form_id");
-  const { data: topup } = topupId
-    ? await query.eq("id", topupId).maybeSingle()
-    : await query.eq("provider_form_id", formId).maybeSingle();
+  // איזו משתי הטבלאות. אין כאן ניחוש: המזהה הוא UUID של שורה, ולכן הוא
+  // נמצא באחת מהן בלבד. הסדר הוא לפי שכיחות ולא לפי חשיבות.
+  let found: { kind: OrderKind; row: any } | null = null;
+  for (const kind of ["topup", "subscription"] as OrderKind[]) {
+    const q = supabase.from(KINDS[kind].table)
+      .select("id, amount, status, provider_form_id");
+    const { data } = topupId
+      ? await q.eq("id", topupId).maybeSingle()
+      : await q.eq("provider_form_id", formId).maybeSingle();
+    if (data) { found = { kind, row: data }; break; }
+  }
 
-  if (!topup) return json({ error: "topup_not_found" }, 404);
+  if (!found) return json({ error: "order_not_found" }, 404);
 
-  const outcome = await settleTopup(supabase, topup);
+  const outcome = await settleOrder(supabase, found.kind, found.row);
 
   // ‏200 גם כשעדיין pending: מבחינת מורנינג ההודעה נקלטה. תשובת שגיאה כאן
   // הייתה מייצרת סבב ניסיונות חוזרים על מצב שאיננו שגיאה.
-  return json({ ok: true, status: outcome });
+  return json({ ok: true, kind: found.kind, status: outcome });
 });
