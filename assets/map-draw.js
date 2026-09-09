@@ -78,13 +78,20 @@
     /* ‏top:58px ולא 12: הקורא של הרכיב מציב את כפתורי "סימון אזור"/"רדיוס"
        בראש המפה, והרמז חייב לשבת מתחתיהם ולא עליהם.
 
-       המרכוז נעשה ב-inset אופקי משני הצדדים + margin אוטומטי, ולא
+       המרכוז נעשה ב-inset משני הצדדים + margin אוטומטי, ולא
        ב-‏translateX(±50%): ה-transform אינו מאפיין לוגי, ולכן הוא זז לכיוון
-       ההפוך ב-RTL ודחף את השורה אל מחוץ למפה. */
+       ההפוך ב-RTL ודחף את השורה אל מחוץ למפה.
+
+       ה-inset עצמו הוא *השטח הפנוי* ולא קצות הקונטיינר: בדף הבית חצי מהמפה
+       יושב מתחת לעמודת הכותרת והחיפוש, ורמז שממורכז בקונטיינר נעלם מתחתיה
+       בדיוק ברגע שצריך אותו — כשמסמנים אזור. הדף כותב את המשתנים על
+       הקונטיינר (‏syncMapFreeArea); בלעדיהם ברירת המחדל 0 מחזירה מרכוז רגיל. */
     '.mapdraw-hint{',
-    '  position:absolute;z-index:640;inset-inline:0;margin-inline:auto;width:max-content;',
+    '  position:absolute;z-index:640;margin-inline:auto;width:max-content;',
+    '  left:var(--map-free-start,0px);right:var(--map-free-end,0px);',
     '  top:58px;display:none;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;',
-    '  max-width:min(92%,560px);padding:8px 12px;',
+    '  max-width:min(560px, calc(100% - var(--map-free-start,0px) - var(--map-free-end,0px) - 24px));',
+    '  padding:8px 12px;',
     '  background:rgba(13,27,61,.94);color:#fff;font-size:.78rem;font-weight:500;',
     '  box-shadow:0 12px 28px -16px rgba(13,27,61,.9);pointer-events:auto}',
     '.mapdraw-hint.is-on{display:flex}',
