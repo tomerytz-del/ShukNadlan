@@ -440,10 +440,16 @@ function ctaFor(tier){
       return { label: 'המסלול הנוכחי שלך', disabled: true, foot: '' };
     }
     const up = Tiers.isUpgrade(current, tier.id);
+    /* מסלול בתשלום מוביל עכשיו לעמוד התשלום ולא ל-CRM. עד כה הכיתוב הבטיח
+       ש"נציג/ה יחזור/תחזור להסדרת התשלום" — כלומר מחיר מפורסם בלי דרך לשלם
+       עליו, שגם נפל בבדיקת חברת הסליקה. המסלול החינמי ממשיך ל-CRM: אין
+       עליו מה לגבות. */
     return {
       label: (up ? 'שדרוג ל-' : 'מעבר ל-') + tier.name,
-      href: 'crm.html?tier=' + encodeURIComponent(tier.id),
-      foot: up && tier.priceMonthly ? 'נציג/ה יחזור/תחזור אליך להסדרת התשלום' : '',
+      href: tier.priceMonthly
+        ? 'checkout.html?product=subscription&tier=' + encodeURIComponent(tier.id)
+        : 'crm.html?tier=' + encodeURIComponent(tier.id),
+      foot: tier.priceMonthly ? 'תשלום מראש לתקופה, בעמוד מאובטח' : '',
     };
   }
 

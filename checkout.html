@@ -54,9 +54,9 @@
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
         <div>
           <strong id="productName">טעינת ארנק</strong>
-          <div style="font-size:.85rem;color:var(--muted)">הסכום נטען לארנק ומשמש לרכישת לידים, קידום נכסים וכלים שיווקיים.</div>
+          <div style="font-size:.85rem;color:var(--muted)" id="productDesc">הסכום נטען לארנק ומשמש לרכישת לידים, קידום נכסים וכלים שיווקיים.</div>
         </div>
-        <div>
+        <div id="amountWrap">
           <label for="amount" style="font-size:.85rem;display:block;margin-bottom:4px">סכום</label>
           <select id="amount" style="border:1.5px solid var(--line);border-radius:8px;padding:10px 12px;min-width:120px">
             <option value="100">₪100</option>
@@ -64,6 +64,15 @@
             <option value="300">₪300</option>
             <option value="400">₪400</option>
             <option value="500">₪500</option>
+          </select>
+        </div>
+        <div id="monthsWrap" style="display:none">
+          <label for="months" style="font-size:.85rem;display:block;margin-bottom:4px">תקופה</label>
+          <select id="months" style="border:1.5px solid var(--line);border-radius:8px;padding:10px 12px;min-width:120px">
+            <option value="1">חודש</option>
+            <option value="3">3 חודשים</option>
+            <option value="6">6 חודשים</option>
+            <option value="12">12 חודשים</option>
           </select>
         </div>
       </div>
@@ -145,20 +154,56 @@ const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const ALLOWED = [100, 200, 300, 400, 500];
+const TIER_LABELS = { mid: 'PROFESSIONAL', premium: 'Elite' };
 const amountEl = document.getElementById('amount');
+const monthsEl = document.getElementById('months');
 const totalEl  = document.getElementById('total');
 const ackEl    = document.getElementById('acceptTerms');
 const payBtn   = document.getElementById('payBtn');
 const msgEl    = document.getElementById('checkoutMsg');
 let signedIn = false;
 
-/* הסכום מגיע מהכתובת (למשל מהמחירון), אבל נבדק מול הרשימה הסגורה ולא נלקח
-   כמו שהוא — ‏?amount=1 בכתובת לא אמור לייצר טעינה של שקל. */
-const urlAmount = Number(new URLSearchParams(location.search).get('amount'));
-if (ALLOWED.includes(urlAmount)) amountEl.value = String(urlAmount);
+/* שני מוצרים על אותו עמוד: טעינת ארנק ומנוי. הסוג מגיע מהכתובת, וכל מה
+   שמגיע משם נבדק — ‏?amount=1 לא אמור לייצר טעינה של שקל, ו-?tier=admin לא
+   אמור לייצר כלום. */
+const params  = new URLSearchParams(location.search);
+const isSub   = params.get('product') === 'subscription';
+const subTier = ['mid','premium'].includes(params.get('tier')) ? params.get('tier') : 'mid';
 
-function paintTotal(){ totalEl.textContent = '₪' + Number(amountEl.value).toLocaleString('he-IL'); }
+const urlAmount = Number(params.get('amount'));
+if (ALLOWED.includes(urlAmount)) amountEl.value = String(urlAmount);
+const urlMonths = Number(params.get('months'));
+if ([1,3,6,12].includes(urlMonths)) monthsEl.value = String(urlMonths);
+
+/* **הסכום של המנוי נשאל מהשרת ולא מחושב כאן.** ‏₪750 כפול חודשים כפול מע״מ
+   הוא חישוב שקל לכתוב בדפדפן ונכון להיום — ואז שיעור המע״מ משתנה, או המחיר,
+   והעמוד מציג סכום אחד בעוד שנגבה אחר. מקור האמת הוא subscription_price. */
+async function paintTotal(){
+  if (!isSub){
+    totalEl.textContent = '₪' + Number(amountEl.value).toLocaleString('he-IL');
+    return;
+  }
+  totalEl.textContent = 'מחשבים…';
+  try{
+    const { data, error } = await sb.rpc('subscription_price',
+      { p_tier: subTier, p_months: Number(monthsEl.value) });
+    if (error || !data || data.error){ totalEl.textContent = '—'; return; }
+    totalEl.textContent = '₪' + Number(data.amount).toLocaleString('he-IL',
+      { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  } catch(err){ console.error(err); totalEl.textContent = '—'; }
+}
+
+if (isSub){
+  document.getElementById('amountWrap').style.display = 'none';
+  document.getElementById('monthsWrap').style.display = '';
+  document.getElementById('productName').textContent = 'מנוי ' + TIER_LABELS[subTier];
+  document.getElementById('productDesc').textContent =
+    'המסלול נפתח לתקופה ששולמה. אין כרטיס שמור ואין חיוב אוטומטי — לפני שהתקופה נגמרת תישלח תזכורת לחידוש.';
+  document.title = 'תשלום מנוי ' + TIER_LABELS[subTier] + ' | שוק נדל״ן';
+}
+
 amountEl.addEventListener('change', paintTotal);
+monthsEl.addEventListener('change', paintTotal);
 paintTotal();
 
 /* הכפתור נעול עד סימון התקנון. זו דרישת הסליקה, והיא גם פשוט נכונה: אישור
@@ -189,7 +234,7 @@ syncBtn();
 
 document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
-  const amount = Number(amountEl.value);
+  const amount = isSub ? null : Number(amountEl.value);
   const name  = document.getElementById('fullName').value.trim();
   const email = document.getElementById('email').value.trim();
   const phone = document.getElementById('phone').value.trim();
@@ -202,7 +247,11 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
   if (!signedIn){
     msgEl.style.color = 'var(--muted)';
     msgEl.textContent = 'מעבירים להתחברות — הפרטים יישמרו וניתן יהיה להשלים את התשלום מיד אחריה.';
-    sessionStorage.setItem('shuknadlan.checkout', JSON.stringify({ amount, name, email, phone }));
+    try{
+      sessionStorage.setItem('shuknadlan.checkout', JSON.stringify(
+        { product: isSub ? 'subscription' : 'wallet', tier: subTier,
+          months: Number(monthsEl.value), amount, name, email, phone }));
+    } catch(_){ /* גלישה פרטית — ההתחברות עדיין תעבוד, רק בלי מילוי אוטומטי */ }
     setTimeout(()=>{ location.href = 'crm.html'; }, 900);
     return;
   }
@@ -212,17 +261,26 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
   msgEl.textContent = 'פותחים את עמוד התשלום…';
   try{
     const { data: { session } } = await sb.auth.getSession();
-    const res = await fetch(SUPABASE_URL + '/functions/v1/wallet-topup', {
+    /* שתי נקודות קצה, אותה תבנית. שתיהן מחזירות redirect_url ולא מאשרות
+       כלום בעצמן — הזיכוי או פתיחת המסלול קורים רק אחרי אימות מול מורנינג. */
+    const endpoint = isSub ? 'subscription-purchase' : 'wallet-topup';
+    const payload  = isSub
+      ? { tier: subTier, months: Number(monthsEl.value), client_phone: phone }
+      : { amount, client_phone: phone };
+    const res = await fetch(SUPABASE_URL + '/functions/v1/' + endpoint, {
       method: 'POST',
       headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY,
                  'Authorization': 'Bearer ' + session.access_token },
-      body: JSON.stringify({ amount, client_phone: phone }),
+      body: JSON.stringify(payload),
     });
     const data = await res.json();
     if (!res.ok || data.error){
       msgEl.style.color = 'var(--red)';
-      msgEl.textContent = data.error === 'no_matching_agent_profile'
-        ? 'החשבון אינו משויך למשרד או לבעל/ת מקצוע. פנו אלינו ונסדר.'
+      msgEl.textContent =
+        data.error === 'no_matching_agent_profile'
+          ? 'החשבון אינו משויך למשרד או לבעל/ת מקצוע. פנו אלינו ונסדר.'
+        : data.error === 'morning_not_configured' || data.error === 'morning_misconfigured'
+          ? 'הסליקה עדיין לא פעילה. פנו אלינו ונפתח את המסלול ידנית.'
         : 'שגיאה בפתיחת התשלום — נסו שוב.';
       payBtn.disabled = false;
       return;

@@ -170,6 +170,11 @@ verify_jwt = true           # טעינת ארנק
 [functions.wallet-refund]
 verify_jwt = true           # החזר יתרה — נוגע ב-credit_balance
 
+# רכישת מנוי לתקופה מראש. הסכום מחושב במסד ולא מגיע מהדפדפן, והמסלול נפתח
+# רק ב-wallet-topup-callback אחרי אימות מול מורנינג.
+[functions.subscription-purchase]
+verify_jwt = true           # רכישת מנוי — פותחת מסלול בתשלום
+
 [functions.afula-planning-lookup]
 verify_jwt = true           # מידע תכנוני מלא — מוגבל למסלול Mid/Premium
 
