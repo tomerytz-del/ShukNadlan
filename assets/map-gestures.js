@@ -1,31 +1,38 @@
 /* ============================================================================
-   מחוות מגע במפה — יציאה מ"מלכודת הגלילה"
+   מחוות במפה — יציאה מ"מלכודת הגלילה"
    ----------------------------------------------------------------------------
-   מפה שתופסת חצי מסך במובייל בולעת את הגלילה: אצבע שנוחתת עליה מזיזה את המפה
-   במקום להמשיך במורד הדף, והגולש/ת נתקע/ת. הפתרון כאן הוא "מחוות משתפות
-   פעולה" (cooperative gestures), אותו דפוס שגוגל מפות מפעילה במפות מוטמעות:
+   מפה שתופסת חצי מסך בולעת את הגלילה: מחווה שנוחתת עליה מזיזה את המפה במקום
+   להמשיך במורד הדף, והגולש/ת נתקע/ת. הפתרון כאן הוא "מחוות משתפות פעולה"
+   (cooperative gestures), אותו דפוס שגוגל מפות מפעילה במפות מוטמעות:
 
      • אצבע אחת — גוללת את הדף כרגיל, כאילו המפה תמונה.
      • שתי אצבעות — מזיזות ומקרבות את המפה עצמה.
-     • ניסיון גרירה באצבע אחת מציג בועית עדינה שמסבירה את הכלל, ונעלמת לבד.
+     • גלגלת לבדה — גוללת את הדף.
+     • ‏Ctrl/⌘ + גלגלת — מקרבת ומרחיקה את המפה.
+     • מחווה "שגויה" מציגה בועית עדינה שמסבירה את הכלל, ונעלמת לבד.
 
-   המימוש נשען על התנהגות מובנית ב-Leaflet ולא על שכתוב של מנגנון המגע:
+   במגע המימוש נשען על התנהגות מובנית ב-Leaflet ולא על שכתוב של מנגנון המגע:
    ‏handler הגרירה מוסיף לקונטיינר ‎.leaflet-touch-drag‎ (‏touch-action:none —
    הדפדפן לא גולל), ו-handler הזום מוסיף ‎.leaflet-touch-zoom‎
    (‏touch-action:pan-x pan-y — הדפדפן כן גולל). כיבוי הגרירה בלבד משאיר בדיוק
    את הצירוף הרצוי: גלילת דף באצבע אחת, ו-touchZoom של Leaflet — שמזיז את
    המפה לפי מרכז שתי האצבעות וגם מקרב — בשתיים.
 
+   בגלגלת אין מקבילה מובנית ולכן היא ממומשת כאן: ‏scrollWheelZoom של Leaflet
+   נשאר כבוי, וזום נעשה רק כשמקש Ctrl/⌘ לחוץ. הדפוס הקודם באתר —
+   ‏`map.on('focus', … scrollWheelZoom.enable())` — היה בדיוק המלכודת שהמודול
+   הזה נועד למנוע: ‏Leaflet יורה focus על *לחיצה* בתוך המפה, ומאותו רגע כל
+   גלילה מעל המפה מקרבת אותה במקום לגלול את הדף, עד שלוחצים במקום אחר.
+
    לכן גם לא נוסף כאן פלאגין חיצוני (‏leaflet-gesture-handling‎): הוא היה עוד
-   תלות CDN לדף שכבר תלוי בשלוש, עם טקסט באנגלית וברירת מחדל שמשנה גם את
-   התנהגות הגלגלת בדסקטופ. כאן ההתערבות היא בשורה אחת, והדסקטופ לא נוגע.
+   תלות CDN לדף שכבר תלוי בשלוש, עם טקסט באנגלית.
 
    שימוש:
-     MapGestures.apply(map);                       // בועית ברירת המחדל
-     MapGestures.apply(map, { text:'…' });         // נוסח משלכם
+     MapGestures.apply(map);                       // בועיות ברירת המחדל
+     MapGestures.apply(map, { text:'…' });         // נוסח משלכם למגע
 
-   הפונקציה לא עושה דבר בדסקטופ (מצביע מדויק), ולכן אפשר לקרוא לה תמיד. במפה
-   שממילא אין מתחתיה דף לגלול — מסך מלא, כלי הסימון — אין צורך לקרוא לה.
+   אפשר לקרוא תמיד: החלק של המגע נדלק רק במסך מגע, החלק של הגלגלת רק כשבאמת
+   מגיע אירוע גלגלת. במפה שממילא אין מתחתיה דף לגלול — מסך מלא — אין צורך.
 
    ‏JS גולמי בלי תלויות, בדיוק כמו שאר הדפים באתר.
    ========================================================================== */
@@ -35,7 +42,18 @@
   var HINT_TEXT = 'מזיזים את המפה בשתי אצבעות';
   var HINT_MS = 1800;        // כמה זמן הבועית נשארת אחרי שהוצגה
   var DRAG_TOLERANCE = 10;   // ‏px — מתחת לזה זו נגיעה ולא ניסיון גרירה
+  var WHEEL_STEP = 40;       // כמה delta נצבר לפני רמת זום אחת
   var cssInjected = false;
+
+  /* ‏⌘ במק, ‏Ctrl בכל השאר — הכתיבה חייבת להתאים למקש שבאמת עובד, אחרת
+     הבועית מלמדת מחווה שלא קורית. */
+  function wheelHintText() {
+    var mac = false;
+    try {
+      mac = /Mac|iPad|iPhone/.test((global.navigator && (navigator.platform || navigator.userAgent)) || '');
+    } catch (e) { /* סביבה בלי navigator */ }
+    return (mac ? '⌘' : 'Ctrl') + ' + גלילה כדי לקרב את המפה';
+  }
 
   /* ה-CSS מוזרק פעם אחת ובלחיצה הראשונה על apply, כדי שדף בלי מפה (או
      דסקטופ) לא ישלם עליו דבר. ‏z-index:900 מציב את הבועית מעל כל ה-panes של
@@ -81,7 +99,7 @@
   }
 
   function apply(map, opts) {
-    if (!map || !map.dragging || !coarsePointer()) return false;
+    if (!map || !map.dragging) return false;
 
     var container = map.getContainer();
     if (!container || container.dataset.gestureHandling === 'on') return false;
@@ -89,20 +107,16 @@
 
     injectCss();
 
-    // הלב של הכל: בלי הגרירה, הקונטיינר נשאר עם touch-action של הזום בלבד
-    map.dragging.disable();
-    if (map.touchZoom) map.touchZoom.enable();
-
     var hint = document.createElement('div');
     hint.className = 'map-gesture-hint';
     // עיטור לגולש/ת הרואה/ה: מי שמנווט/ת בקורא מסך לא גורר/ת את המפה בכלל
     hint.setAttribute('aria-hidden', 'true');
-    hint.textContent = (opts && opts.text) || HINT_TEXT;
     container.appendChild(hint);
 
-    var hideTimer = null, tracking = false, startX = 0, startY = 0;
+    var hideTimer = null;
 
-    function show() {
+    function show(text) {
+      hint.textContent = text;
       hint.classList.add('is-on');
       clearTimeout(hideTimer);
       hideTimer = setTimeout(hide, HINT_MS);
@@ -111,6 +125,49 @@
       clearTimeout(hideTimer);
       hint.classList.remove('is-on');
     }
+
+    /* ====== גלגלת ======
+       ‏passive:false כי כשהמקש לחוץ אנחנו כן עוצרים את ברירת המחדל (שהיא זום
+       של הדפדפן עצמו). בלי המקש הפונקציה לא נוגעת באירוע, והדף גולל כרגיל. */
+    var wheelAcc = 0, wheelHint = wheelHintText();
+
+    function onWheel(e) {
+      if (!(e.ctrlKey || e.metaKey)) { show(wheelHint); return; }
+      e.preventDefault();
+      hide();
+      // deltaMode: 0=פיקסלים, 1=שורות, 2=עמודים. בלי הנרמול, גלגלת שמדווחת
+      // בשורות הייתה מזיזה רמת זום על כל נקישה זעירה
+      var delta = e.deltaMode === 1 ? e.deltaY * 20 : e.deltaMode === 2 ? e.deltaY * 60 : e.deltaY;
+      wheelAcc += delta;
+      if (Math.abs(wheelAcc) < WHEEL_STEP) return;
+      var dir = wheelAcc > 0 ? -1 : 1;
+      wheelAcc = 0;
+      try {
+        // סביב הסמן ולא סביב מרכז המפה: זו ההתנהגות שכל מפה בדפדפן עושה,
+        // ובלעדיה נקודת העניין בורחת מתחת לעכבר בכל נקישה
+        map.setZoomAround(map.mouseEventToContainerPoint(e), map.getZoom() + dir);
+      } catch (err) { /* אירוע מחוץ למפה — מתעלמים */ }
+    }
+
+    container.addEventListener('wheel', onWheel, { passive: false });
+    // ‏scrollWheelZoom של Leaflet וההנדלר כאן היו מזיזים את הזום פעמיים על
+    // אותה נקישה; זה של Leaflet גם לא יודע לבדוק את המקש
+    if (map.scrollWheelZoom) map.scrollWheelZoom.disable();
+
+    /* ====== מגע ======
+       מכאן והלאה רק במסך מגע: בדסקטופ אין מלכודת גרירה, ואסור לכבות שם את
+       גרירת המפה בעכבר. */
+    if (!coarsePointer()) {
+      map.on('unload', teardown);
+      return true;
+    }
+
+    // הלב של הכל: בלי הגרירה, הקונטיינר נשאר עם touch-action של הזום בלבד
+    map.dragging.disable();
+    if (map.touchZoom) map.touchZoom.enable();
+
+    var touchHint = (opts && opts.text) || HINT_TEXT;
+    var tracking = false, startX = 0, startY = 0;
 
     function onTouchStart(e) {
       if (e.touches.length > 1) { tracking = false; hide(); return; }
@@ -125,16 +182,25 @@
       var dy = e.touches[0].clientY - startY;
       if (dx * dx + dy * dy < DRAG_TOLERANCE * DRAG_TOLERANCE) return;
       tracking = false;   // בועית אחת לכל מחווה, לא אחת לכל touchmove
-      show();
+      show(touchHint);
     }
     function onTouchEnd() { tracking = false; }
 
     /* מחשב נייד עם מסך מגע שדיווח על עצמו כ-coarse: ברגע שנעשה שימוש בעכבר
-       ברור שיש כאן גלגלת לגלול בה, והמפה חוזרת להתנהגות מלאה. */
+       ברור שיש כאן עכבר לגרור בו וגלגלת לגלול בה, והגרירה חוזרת. שכבת
+       הגלגלת נשארת — היא הרלוונטית מכאן והלאה. */
     function onPointerDown(e) {
       if (e.pointerType !== 'mouse') return;
-      teardown();
+      releaseTouch();
       map.dragging.enable();
+    }
+
+    function releaseTouch() {
+      hide();
+      container.removeEventListener('touchstart', onTouchStart);
+      container.removeEventListener('touchmove', onTouchMove);
+      container.removeEventListener('touchend', onTouchEnd);
+      container.removeEventListener('pointerdown', onPointerDown);
     }
 
     /* מפה שנבנית מחדש על אותו div (‏planMap ב-CRM: ‏map.remove() ואז יצירה
@@ -142,12 +208,9 @@
        ובעיקר dataset שחוסם את ההפעלה על המופע החדש, כלומר חזרה של המלכודת
        בחיפוש השני. Leaflet יורה unload ב-remove, וזו נקודת הניקוי. */
     function teardown() {
-      hide();
+      releaseTouch();
       container.dataset.gestureHandling = 'off';
-      container.removeEventListener('touchstart', onTouchStart);
-      container.removeEventListener('touchmove', onTouchMove);
-      container.removeEventListener('touchend', onTouchEnd);
-      container.removeEventListener('pointerdown', onPointerDown);
+      container.removeEventListener('wheel', onWheel);
       if (hint.parentNode) hint.parentNode.removeChild(hint);
     }
 

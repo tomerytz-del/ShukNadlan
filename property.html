@@ -2054,10 +2054,11 @@ async function initPropertyMap(p, addressText){
       .setView([p.lat, p.lng], PROP_MAP_ZOOM);
     propMapTiles(map);
     propMapMarker(p).addTo(map);
-    /* ‏scrollWheelZoom:false מטפל בגלגלת; זו המקבילה שלו במגע. המפה יושבת
-       באמצע דף ארוך, ובלעדיה אצבע שנחתה עליה בדרך לפרטי הנכס הזיזה את המפה
-       במקום להמשיך לגלול. במסך המלא (propMapFull) לא קוראים לזה בכוונה: שם
-       אין דף מתחת לגלול, והמפה היא כל המסך. */
+    /* מחוות משתפות פעולה בשתי דרכי הקלט. המפה יושבת באמצע דף ארוך, ובלעדיהן
+       אצבע שנחתה עליה בדרך לפרטי הנכס הזיזה את המפה במקום להמשיך לגלול.
+       ‏MapGestures משאיר את הגלילה לדף — אצבע אחת וגלגלת לבדה — ומחזיר את
+       המפה בשתי אצבעות או ב-Ctrl/⌘ + גלגלת. במסך המלא (propMapFull) לא
+       קוראים לזה בכוונה: שם אין דף מתחת לגלול, והמפה היא כל המסך. */
     if (window.MapGestures) MapGestures.apply(map);
 
     const google = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`;
