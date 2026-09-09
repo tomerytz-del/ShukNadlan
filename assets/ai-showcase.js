@@ -41,6 +41,8 @@
        styles         — [{ key, label }] · ריק בנכס מסחרי
        activeStyle    — מפתח הסגנון המוצג · ‏null במסחרי
        commercial     — משנה את תוויות החללים ואת שורות ההסבר
+       staging        — נכס להשכרה: ההדמיה היא ריהוט ועיצוב ולא שיפוץ, ושורות
+                        ההסבר אומרות את זה. הדף הקורא מחליט לפי ‎deal_type‎
        leadPick       — ‎result_url‎ של התמונון שנבחר עכשיו
        cta / onCta    — הכפתור שמייצר הדמיה חדשה
        lead / onLead  — { intro, emphasis, label } + הפעולה של "השאירו פרטים"
@@ -161,9 +163,17 @@
       '</div>';
   }
 
+  /* בנכס להשכרה הדמיית החוץ נגזרת מתמונת החצר ולא מהחזית — שם אסור לגעת
+     בחזית בכלל, וכל מה שקורה בפריים קורה בחצר. אותה תמונה, שם אחר, בדיוק
+     כמו במסלול המסחרי. */
+  var STAGING_TARGET_LABELS = { exterior: 'החצר' };
+
   function targetLabel(opts, target) {
     if (opts && opts.commercial && COMMERCIAL_TARGET_LABELS[target]) {
       return COMMERCIAL_TARGET_LABELS[target];
+    }
+    if (opts && opts.staging && STAGING_TARGET_LABELS[target]) {
+      return STAGING_TARGET_LABELS[target];
     }
     return TARGET_LABELS[target] || 'הנכס';
   }
@@ -616,8 +626,9 @@
 
   /* סדר החדרים בווילון: הסלון הוא החלל שמוכר נכס, החזית היא הרושם הראשון,
      והמטבח הוא מה שנשאר. חלל עסק נכנס אחרי הסלון כי בנכס מסחרי הוא *הוא*
-     הסלון. */
-  var LEAD_TARGET_ORDER = ['living_room', 'interior_main', 'exterior', 'kitchen'];
+     הסלון. חדר השינה אחרון — הוא קיים רק בנכס להשכרה, והוא החלל שנבדק
+     אחרי שכבר החליטו שהדירה מעניינת. */
+  var LEAD_TARGET_ORDER = ['living_room', 'interior_main', 'exterior', 'kitchen', 'bedroom'];
 
   function styleLabelOf(opts, key) {
     var list = opts.styles || [];
@@ -703,7 +714,8 @@
       '<div class="ai-frame">' +
         '<div class="ai-compare" data-idle data-rtl>' +
           '<img class="ai-before" src="' + esc(before) + '" alt="' + esc(where) + ' כפי שהוא היום" loading="lazy">' +
-          '<img class="ai-after" src="' + esc(it.result_url) + '" alt="הדמיה של ' + esc(where) + ' אחרי שיפוץ" loading="lazy">' +
+          '<img class="ai-after" src="' + esc(it.result_url) + '" alt="הדמיה של ' + esc(where) +
+            (opts && opts.staging ? ' אחרי ריהוט ועיצוב' : ' אחרי שיפוץ') + '" loading="lazy">' +
           '<span class="ai-label ai-label-before">Before</span>' +
           '<span class="ai-label ai-label-after">' + SPARKLE_SVG + 'After</span>' +
           '<input class="ai-range" type="range" min="0" max="100" value="42" step="1" ' +
@@ -725,8 +737,8 @@
            '</button>';
   }
 
-  /* בתוך סגנון אחד יש לכל היותר שלושה חדרים (חזית, סלון, מטבח), ולכן
-     התקרה כאן היא ביטוח ולא מדיניות. */
+  /* בתוך סגנון אחד יש לכל היותר ארבעה חללים — למכירה חזית, סלון ומטבח,
+     ולהשכרה גם חדר שינה — ולכן התקרה כאן היא ביטוח ולא מדיניות. */
   var PROPERTY_STRIP_LIMIT = 4;
 
   function renderProperty(container, opts) {
@@ -794,12 +806,20 @@
               'עם טכנולוגיית AI מהפכנית!</h3>' +
             /* שתי שורות ההסבר משתנות לפי מה שיש על המסך: בנכס מסחרי אין
                שבבי סגנון, ו"לחצו על כפתורי הסגנון" שם מפנה לפקד שאינו
-               קיים — מה שנדרש שם הוא סוג העסק. */
+               קיים — מה שנדרש שם הוא סוג העסק.
+
+               בנכס להשכרה "הנכס המשופץ" ו"לפני שאתם קונים" הן שתי הבטחות
+               שגויות באותה שורה: השוכר/ת לא קונה ולא ישפץ, וההדמיה שהוא
+               רואה היא אותו נכס בדיוק עם ריהוט אחר. */
             '<ul class="ai-points">' +
               (styles.length
-                ? '<li>' + icon(ICON_TAP) + '<span>לחצו על כפתורי הסגנון וצפו בהדמיות מיידיות ' +
-                    'של הנכס המשופץ — עוד לפני שאתם קונים.</span></li>' +
-                  '<li>' + icon(ICON_SLIDERS) + '<span>שנו סגנון וראו את הפוטנציאל.</span></li>'
+                ? (opts.staging
+                    ? '<li>' + icon(ICON_TAP) + '<span>לחצו על כפתורי הסגנון וצפו בהדמיות מיידיות ' +
+                        'של הנכס מרוהט ומעוצב — בלי לשנות דבר בנכס עצמו.</span></li>' +
+                      '<li>' + icon(ICON_SLIDERS) + '<span>אותו נכס בדיוק, רק עם ריהוט אחר.</span></li>'
+                    : '<li>' + icon(ICON_TAP) + '<span>לחצו על כפתורי הסגנון וצפו בהדמיות מיידיות ' +
+                        'של הנכס המשופץ — עוד לפני שאתם קונים.</span></li>' +
+                      '<li>' + icon(ICON_SLIDERS) + '<span>שנו סגנון וראו את הפוטנציאל.</span></li>')
                 : '<li>' + icon(ICON_TAP) + '<span>ספרו איזה עסק תפתחו כאן וצפו בהדמיה מיידית ' +
                     'של הנכס — עוד לפני שחתמתם.</span></li>' +
                   '<li>' + icon(ICON_SLIDERS) + '<span>ההדמיה נוצרת מהתמונות של הנכס הזה בלבד.</span></li>') +
@@ -820,8 +840,13 @@
                   /* בלי כותרת מעל הרצועה. כל אריח נושא את שם החלל שלו,
                      ושורה שאומרת "עוד חללים בנכס" מעל שורת אריחים שכתוב
                      עליהם "חלל העסק" ו"חזית העסק" רק חוזרת עליהם בקול. */
+                  /* עד שלושה חללים — שורה אחת. ארבעה (נכס להשכרה: חצר,
+                     סלון, מטבח וחדר שינה) יורדים לשתיים על שתיים ולא
+                     לשלושה ואחד יתום, ובלי לכווץ כל אריח לרבע מהטור. */
                   ? '<div class="ai-strip" style="--ai-cols:' +
-                      Math.min(pairs.length, PROPERTY_STRIP_LIMIT, 3) + '">' +
+                      (Math.min(pairs.length, PROPERTY_STRIP_LIMIT) > 3
+                        ? 2
+                        : Math.min(pairs.length, 3)) + '">' +
                       pairs.slice(0, PROPERTY_STRIP_LIMIT).map(function (it, i) {
                         return propertyThumbHtml(opts, it, i, i === leadIndex);
                       }).join('') +

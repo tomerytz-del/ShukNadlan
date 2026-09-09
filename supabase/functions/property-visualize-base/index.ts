@@ -5,11 +5,12 @@ import {
   corsHeaders,
   DEFAULT_STYLE,
   ensureTagged,
-  hasOwnExterior,
   isLandType,
   isStyleKey,
   json,
   pickPrivateSources,
+  privateTargetsFor,
+  renderModeFor,
   runVisualizationJob,
   STYLES,
   type PrivateTarget,
@@ -88,7 +89,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: property } = await supabase
     .from("properties")
-    .select("id, category, property_type, rooms, size_sqm, area_sqm, agent_id, images")
+    .select("id, category, property_type, deal_type, rooms, size_sqm, area_sqm, agent_id, images")
     .eq("id", property_id)
     .maybeSingle();
   if (!property) return json({ error: "property_not_found" }, 404);
@@ -135,17 +136,22 @@ Deno.serve(async (req: Request) => {
 
   const tags = await ensureTagged(supabase, apiKey, property_id, images);
 
-  const targets: PrivateTarget[] = hasOwnExterior(property.property_type)
-    ? ["exterior", "living_room", "kitchen"]
-    : ["living_room", "kitchen"];
+  // נכס להשכרה מקבל הלבשת בית ולא שיפוץ, ומטרה אחת יותר (חדר שינה) —
+  // ראו RenderMode ו-privateTargetsFor ב-_shared.
+  const mode = renderModeFor(property.deal_type);
+  const targets: PrivateTarget[] = privateTargetsFor(property.property_type, mode);
 
-  const picked = pickPrivateSources(tags, targets);
+  const picked = pickPrivateSources(tags, targets, mode);
   const found = targets.filter((t) => picked[t]);
   if (found.length === 0) {
     return json(
       {
         error: "no_suitable_images",
-        message: "לא זוהו תמונות של סלון או מטבח. הוסיפו תמונות ברורות של החללים האלה ונסו שוב.",
+        // הודעה למי שמעלה תמונות, ולכן היא אומרת אילו חללים חסרים *לנכס
+        // הזה*: בהשכרה מדמים סלון וחדר שינה, לא מטבח.
+        message: mode === "staging"
+          ? "לא זוהו תמונות של סלון או חדר שינה. הוסיפו תמונות ברורות של החללים האלה ונסו שוב."
+          : "לא זוהו תמונות של סלון או מטבח. הוסיפו תמונות ברורות של החללים האלה ונסו שוב.",
         classified: tags.map((t) => ({ image_url: t.image_url, room_type: t.room_type })),
       },
       400
@@ -155,12 +161,16 @@ Deno.serve(async (req: Request) => {
   // ---- מה כבר קיים -----------------------------------------------------
   // ‏is_base נשלף גם הוא, וזה העיקר: הדמיה שהופקה לפי דרישת גולש/ת יושבת
   // באותה טבלה, עם אותו target ואותו style_key, אבל עם is_base=false.
+  // ‏mode הוא חלק מהמפתח: הדמיית סלון-שיפוץ והדמיית סלון-הלבשה הן שתי
+  // תמונות שונות של אותו חדר. בלי הסינון הזה נכס שהוחלף בו deal_type היה
+  // מקבל "סט הבסיס כבר קיים" על סט שנוצר בדוקטרינה שכבר אינה נכונה לו.
   const { data: existing } = await supabase
     .from("property_visualizations")
     .select("id, target, status, result_url, is_base")
     .eq("property_id", property_id)
     .eq("kind", "private_room")
-    .eq("style_key", styleKey);
+    .eq("style_key", styleKey)
+    .eq("mode", mode);
 
   const existingByTarget = new Map((existing ?? []).map((r: any) => [r.target, r]));
   const isReady = (row: any) => Boolean(row && row.status === "done" && row.result_url);
@@ -229,6 +239,7 @@ Deno.serve(async (req: Request) => {
       kind: "private_room",
       target,
       style_key: styleKey,
+      mode,
       source_image_url: sourceUrl,
       status: "pending",
       is_base: true,
@@ -258,6 +269,7 @@ Deno.serve(async (req: Request) => {
         propertyType: property.property_type,
         sizeSqm: sizeSqm ? Number(sizeSqm) : null,
         rooms: property.rooms ? Number(property.rooms) : null,
+        mode,
       }),
     });
   }

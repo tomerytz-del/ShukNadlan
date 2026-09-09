@@ -6,11 +6,12 @@ import {
   corsHeaders,
   DEFAULT_STYLE,
   ensureTagged,
-  hasOwnExterior,
   isLandType,
   isStyleKey,
   json,
   pickPrivateSources,
+  privateTargetsFor,
+  renderModeFor,
   runVisualizationJob,
   type CommercialTarget,
   type PrivateTarget,
@@ -112,6 +113,14 @@ Deno.serve(async (req: Request) => {
   const isPrivate = property.category === "residential";
   const kind = isPrivate ? "private_room" : "commercial_business";
 
+  // נכס להשכרה מקבל הלבשת בית ולא שיפוץ — ראו RenderMode ב-_shared. המצב
+  // נשמר על כל שורה: הוא חלק ממפתח הייחודיות, ומה שמחליט אילו הדמיות
+  // קיימות הוא (מטרה, סגנון, **מצב**) ולא רק השניים הראשונים. בלעדיו נכס
+  // שהוחלף בו deal_type היה מקבל "כבר קיים" על הדמיות של המצב הישן.
+  // בהדמיה מסחרית אין מצב — הוא נגזר מסוג העסק ולא מסוג העסקה — והעמודה
+  // נשארת בברירת המחדל שלה.
+  const mode = renderModeFor(property.deal_type);
+
   // ---- מי נדרש/ת לפרטים -------------------------------------------------
   // נכס פרטי: אף אחד. ההדמיה היא המוצר, ומסך שדורש שם וטלפון לפני שרואים
   // אותה הוא מחסום לפני הערך ולא אחריו — ובמסלול הפרטי גם מיותר, כי ארבעת
@@ -143,12 +152,9 @@ Deno.serve(async (req: Request) => {
   const sources: Array<{ target: PrivateTarget | CommercialTarget; url: string; prompt: string }> = [];
 
   if (isPrivate) {
-    // חוץ רק לבית פרטי — בדירה בבניין החזית היא רכוש משותף
-    const targets: PrivateTarget[] = hasOwnExterior(property.property_type)
-      ? ["exterior", "living_room", "kitchen"]
-      : ["living_room", "kitchen"];
+    const targets: PrivateTarget[] = privateTargetsFor(property.property_type, mode);
 
-    const picked = pickPrivateSources(tags, targets);
+    const picked = pickPrivateSources(tags, targets, mode);
     for (const target of targets) {
       const url = picked[target];
       if (!url) continue;
@@ -159,6 +165,7 @@ Deno.serve(async (req: Request) => {
           propertyType: property.property_type,
           sizeSqm: sizeSqm ? Number(sizeSqm) : null,
           rooms: property.rooms ? Number(property.rooms) : null,
+          mode,
         }),
       });
     }
@@ -210,6 +217,7 @@ Deno.serve(async (req: Request) => {
       .eq("property_id", property_id)
       .eq("kind", "private_room")
       .eq("style_key", styleKey)
+      .eq("mode", mode)
       .eq("status", "done");
     ready = (existing ?? [])
       .filter((r: any) => r.result_url)
@@ -234,8 +242,10 @@ Deno.serve(async (req: Request) => {
   if (hasContact) {
     const tier = (property as any).agency_members?.tier ?? "free";
     const autoUnlock = tier === "mid" || tier === "premium";
+    // בנכס להשכרה ההדמיה היא הלבשת בית ולא שיפוץ, והשורה שהסוכן/ת רואה
+    // ב-CRM אומרת את זה: היא מה שקובע איזו שיחה מתקיימת אחר כך.
     const details = isPrivate
-      ? `הדמיית נכס פרטי · סגנון: ${styleKey}`
+      ? `${mode === "staging" ? "הדמיית הלבשת בית" : "הדמיית נכס פרטי"} · סגנון: ${styleKey}`
       : `הדמיית עסק · סוג: ${business_type}${business_description ? ` · ${business_description}` : ""}`;
 
     const leadPayload: Record<string, unknown> = {
@@ -297,6 +307,7 @@ Deno.serve(async (req: Request) => {
         .eq("kind", "private_room")
         .eq("target", s.target)
         .eq("style_key", styleKey)
+        .eq("mode", mode)
         .maybeSingle();
       if (prior) {
         await supabase
@@ -316,6 +327,8 @@ Deno.serve(async (req: Request) => {
           kind,
           target: s.target,
           style_key: styleKey,
+          // המצב נשמר בהדמיה פרטית בלבד; במסחרית העמודה נשארת בברירת המחדל
+          ...(isPrivate ? { mode } : {}),
           source_image_url: s.url,
           status: "pending",
         })

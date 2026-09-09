@@ -2198,8 +2198,14 @@ const VIZ_STYLES = [
 ];
 
 const VIZ_TARGET_LABELS = {
-  exterior:'חזית הבית והחצר', living_room:'הסלון', kitchen:'המטבח', interior_main:'חלל העסק',
+  exterior:'חזית הבית והחצר', living_room:'הסלון', kitchen:'המטבח',
+  bedroom:'חדר השינה', interior_main:'חלל העסק',
 };
+
+/* בנכס להשכרה ההדמיה של החוץ נגזרת מתמונת החצר ולא מהחזית (החזית אינה
+   משתנה שם בכלל), ולכן היא נקראת בשמה. ‏חדר השינה הוא יחידת ההורים כשיש
+   תמונה שלה, ולכן התווית נשארת "חדר השינה" ולא מבטיחה איזה חדר בדיוק. */
+const VIZ_TARGET_LABELS_STAGING = { exterior:'החצר והגינה' };
 
 /* בנכס מסחרי אין בית ואין חצר — יש עסק. שורת ההמתנה ("יוצרים את…") ורצועת
    ההדמיות חייבות להגיד את אותו שם על אותה תמונה, ולכן שתיהן נגזרות
@@ -2210,11 +2216,20 @@ function vizTargetLabel(target){
   if (!vizState.isPrivate && VIZ_TARGET_LABELS_COMMERCIAL[target]){
     return VIZ_TARGET_LABELS_COMMERCIAL[target];
   }
+  if (vizState.staging && VIZ_TARGET_LABELS_STAGING[target]){
+    return VIZ_TARGET_LABELS_STAGING[target];
+  }
   return VIZ_TARGET_LABELS[target] || target;
 }
 
 const vizState = {
   propertyId:null, isPrivate:true, byStyle:new Map(), current:null, busy:false,
+  /* נכס פרטי להשכרה מקבל הלבשת בית ולא הדמיית שיפוץ — הפרומפט נקבע בצד
+     השרת לפי ‎deal_type‎ (ראו RenderMode ב-_shared/visualization.ts), והדגל
+     הזה רק דואג שהטקסט על המסך יגיד את אותו דבר. שוכר/ת לא קונה ולא
+     משפץ/ת, ו"הנכס המשופץ / לפני שאתם קונים" הוא בדיוק ההבטחה שאסור לתת
+     לו/ה. */
+  staging:false,
   /* ‏result_url של ההדמיה שנבחרה ידנית ברצועה. בלעדיו לחיצה על תמונון של
      סגנון אחר הייתה מחליפה סגנון ואז פותחת את הסלון שלו — כלומר מראה
      תמונה אחרת מזו שנלחצה. */
@@ -2234,6 +2249,7 @@ async function loadVisualizations(p){
 
     vizState.propertyId = p.id;
     vizState.isPrivate = p.category === 'residential';
+    vizState.staging = vizState.isPrivate && p.deal_type === 'rent';
 
     /* ‏property_visualizations_recent ולא ‎_public‎: השני מסנן ‎is_base = true‎,
        כלומר רק סט הבסיס שנוצר אוטומטית עם פרסום הנכס. כל הדמיה שהופקה לפי
@@ -2377,6 +2393,10 @@ function renderPropertyShowcase(){
          הדגל נשלח מכאן ולא נגזר שם מ-‎styles.length‎: היעדר סגנונות הוא
          *תוצאה* של היות הנכס מסחרי, לא ההגדרה שלו. */
       commercial: !vizState.isPrivate,
+      /* נכס להשכרה: הרצועה מדברת על ריהוט ועיצוב ולא על שיפוץ, בדיוק כמו
+         הפרומפט שבצד השרת. שני הצדדים נגזרים מ-‎deal_type‎ ולא זה מזה, כי
+         הרכיב מציג ואינו יודע מה נשלח ל-Gemini. */
+      staging: vizState.staging,
       leadPick: vizState.leadPick,
       cta: vizBandCta(),
       onCta: onVizBandCta,
