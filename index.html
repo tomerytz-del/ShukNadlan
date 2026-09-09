@@ -15,6 +15,7 @@
 <script src="assets/map-tiles.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="assets/map-gestures.js"></script>
+<script src="assets/map-draw.js"></script>
 <script src="assets/property-card.js"></script>
 <script src="assets/project-card.js"></script>
 <!-- "אחורה" מדף הבית הוא לרוב יציאה מהאתר: שואלים לפניה. ראו assets/exit-guard.js -->
@@ -262,15 +263,57 @@
     background:linear-gradient(180deg, rgba(6,20,34,.92) 0%, rgba(6,20,34,.74) 34%, rgba(6,20,34,.36) 66%, rgba(6,20,34,0) 100%);
   }
   .hero.map-failed .hero-overlay{position:static;background:none;padding:0}
-  /* הכותרת יושבת על שורה אחת בכל רוחב מסך. הטקסט ב-Frank Ruhl Libre רחב
-     פי ~14.26 מגודל הגופן, כלומר הוא נכנס לרוחב ה-wrap (100vw פחות 36px
-     padding) עד 7.01vw−2.5px; ה-calc כאן משאיר ~6% ביטחון מתחת לגבול הזה,
-     וה-min מקבע 21.6px מ-~368px ומעלה כדי שהמסכים הרגילים לא ינפחו אותה. */
+  /* הכותרת נשברת לשתי שורות בכל רוחב מסך, כמו בעיצוב: "כל הנכסים בעפולה
+     והעמק" מעל "בכתובת אחת". קודם היא נכפתה לשורה אחת (‏white-space:nowrap
+     וגודל שנגזר מ-vw), אבל אז היא הייתה קצרה בשלוש מילים; בנוסח הזה שורה
+     אחת גולשת מהמסך בטלפון. השבירה נעשית ב-span שהוא block ולא בגלישה
+     טבעית, כדי שהיא תיפול תמיד באותו מקום. */
   .hero-inner h1{
-    color:#fff;font-size:min(1.35rem, calc(6.6vw - 2.4px));font-weight:700;
-    white-space:nowrap;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,.6);
+    color:#fff;font-size:clamp(1.35rem, 6.2vw, 1.7rem);font-weight:700;line-height:1.1;
+    text-align:center;text-shadow:0 2px 8px rgba(0,0,0,.6);
   }
-  .hero-inner p.lede{display:none;color:#DCE6E4;margin:6px auto 0;font-size:.9rem;max-width:46ch;text-align:center;text-shadow:0 2px 8px rgba(0,0,0,.6)}
+  .hero-h1-break{display:block}
+
+  /* ====== שורת התגיות שמעל הכותרת ====== */
+  .hero-badges{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:center;pointer-events:auto;margin-bottom:10px}
+  /* שתי התגיות נשארות hidden עד שיש להן מספר אמיתי, והשורה עצמה יורדת כשאין
+     אף אחת מהן — אחרת נשאר כאן רווח בגובה שורה מעל הכותרת בלי סיבה */
+  .hero-badges:not(:has(> :not([hidden]))){display:none}
+  .hero-badge{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:5px 11px;font-size:.72rem;font-weight:700;border-radius:0;
+    background:rgba(255,255,255,.9);color:#6b5209;border:1px solid rgba(201,162,39,.6);
+    font-family:inherit;line-height:1.3;
+  }
+  .hero-badge-ai{cursor:pointer;transition:background .15s ease,transform .15s ease}
+  .hero-badge-ai:hover{background:#fff;transform:translateY(-1px)}
+  .hero-badge-star{color:var(--brass,#c9a227);font-size:.85rem}
+  .hero-badge-live{background:rgba(13,27,61,.6);border-color:rgba(255,255,255,.25);color:#dbe3f5;font-weight:500}
+  .hero-badge-live .live-dot{background:#21a565;width:7px;height:7px}
+
+  /* ====== "מחפשים …" — גלגל המילים ======
+     חלון בגובה שורה אחת שבתוכו מסלול של שלוש שורות זהות בגובהן; האנימציה
+     מזיזה את המסלול ב-100%/200% ולכן היא לא תלויה בגובה בפיקסלים ולא
+     נשברת כשגודל הגופן משתנה בין נקודות השבירה. */
+  .hero-roll{
+    display:flex;align-items:baseline;justify-content:center;gap:8px;
+    margin:6px 0 0;color:#dbe3f5;font-size:1rem;font-weight:300;
+    text-shadow:0 2px 8px rgba(0,0,0,.6);
+  }
+  .hero-roll-window{display:inline-block;overflow:hidden;height:1.5em;min-width:8.6em}
+  .hero-roll-track{display:block;animation:rollWords 9s ease-in-out infinite}
+  .hero-roll-track>span{display:block;height:1.5em;font-weight:700;color:#fff}
+  @keyframes rollWords{
+    0%,26%{transform:translateY(0)}
+    33%,59%{transform:translateY(-100%)}
+    66%,92%{transform:translateY(-200%)}
+    100%{transform:translateY(0)}
+  }
+  .hero-caret{width:2px;height:1.05em;background:var(--brass,#c9a227);animation:caretBlink 1.1s step-end infinite;align-self:center}
+  @keyframes caretBlink{0%,49%{opacity:1}50%,100%{opacity:0}}
+  @media(prefers-reduced-motion:reduce){
+    .hero-roll-track,.hero-caret{animation:none}
+  }
 
   /* ====== סרגל חיפוש בשורה אחת ====== */
   /* max-width: בלי זה הסרגל נמתח על כל רוחב ה-wrap בדסקטופ ותיבת הטקסט
@@ -321,6 +364,117 @@
      בגודל אייקון אין לו מקום פנימי, ולכן הוא נתלה על הפינה שלו. */
   .search-card .filter-count-badge{position:absolute;top:-1px;inset-inline-start:-1px}
   .map-fallback-note{margin-top:16px;font-size:.85rem;color:#DCE6E4}
+
+  /* ====== שבבי החיפוש המהיר ======
+     יושבים בתוך ה-shell מתחת לשורת החיפוש ונראים כחלק אחד איתה: הם דוגמאות
+     למה שאפשר להקליד בשדה, ולא ניווט נפרד. */
+  .hero-quick{
+    display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+    padding:9px 12px;background:rgba(255,255,255,.97);
+    border-top:1px solid rgba(14,42,107,.08);
+  }
+  .hero-quick-label{font-size:.7rem;color:var(--ink-soft)}
+  .hero-chip{
+    font-family:inherit;font-size:.72rem;font-weight:500;line-height:1.3;
+    padding:6px 10px;border:0;border-radius:0;cursor:pointer;
+    background:var(--teal-tint);color:var(--teal);
+    transition:background .15s ease,color .15s ease;
+  }
+  .hero-chip:hover{background:var(--teal);color:#fff}
+  .hero-chip-ai{background:var(--teal-dark);color:#f4f7fe;display:inline-flex;align-items:center;gap:5px}
+  .hero-chip-ai>span{color:var(--brass,#c9a227)}
+  .hero-chip-ai:hover{background:#000d24;color:#fff}
+
+  /* ====== הרצועה שמזמינה לסמן אזור על המפה ======
+     הכלי הזה הוא היכולת שאיש לא מחפש לבד — ולכן הוא לא מסתפק בכפתור על
+     המפה אלא מקבל שורה שאומרת מה הוא עושה. הכפתור עצמו הוא הרצועה כולה. */
+  .hero-mapcta{
+    display:flex;align-items:center;gap:9px;width:100%;
+    padding:10px 12px;border:0;border-radius:0;cursor:pointer;text-align:start;
+    background:var(--teal);color:#fff;font-family:inherit;
+    transition:background .15s ease;
+  }
+  .hero-mapcta:hover{background:var(--teal-dark)}
+  .hero-mapcta-ico{
+    flex:none;width:25px;height:25px;display:flex;align-items:center;justify-content:center;
+    border:1.5px dashed var(--brass-light,#e5c76a);color:var(--brass-light,#e5c76a);font-size:.75rem;
+  }
+  .hero-mapcta-text{flex:1;font-size:.78rem;font-weight:500;line-height:1.35}
+  .hero-mapcta-go{flex:none;font-size:.76rem;font-weight:700;color:var(--brass-light,#e5c76a);white-space:nowrap}
+  /* בנייד אין כלי סימון (ראו initMapDraw) — הרצועה הופכת להסבר בלי חץ */
+  .hero-mapcta.is-static{cursor:default;background:rgba(13,27,61,.72)}
+  .hero-mapcta.is-static:hover{background:rgba(13,27,61,.72)}
+
+  /* ====== שורת המספרים ותו האמון ====== */
+  .hero-stats{
+    display:none;align-items:center;justify-content:center;gap:16px;flex-wrap:wrap;
+    margin-top:14px;pointer-events:auto;
+  }
+  .hero-stat{display:flex;flex-direction:column;line-height:1.15;color:#fff;text-shadow:0 2px 8px rgba(0,0,0,.6)}
+  /* ‏renderHeroStats מוריד פריט שהמספר שלו אפס (ההסתרה עצמה מגיעה מכלל
+     ‎[hidden]‎ הגלובלי למעלה), והקו המפריד יורד איתו — אחרת נשאר קו תלוי
+     בין שני פריטים שאין ביניהם כלום. */
+  .hero-stat[hidden] + .hero-stat-sep,
+  .hero-stat-sep:has(+ .hero-stat[hidden]){display:none}
+  .hero-stat b{font-size:1.3rem;font-weight:800;letter-spacing:-.02em}
+  .hero-stat i{font-style:normal;font-size:.7rem;color:#c3cee6}
+  .hero-stat-sep{width:1px;height:26px;background:rgba(255,255,255,.28)}
+  .hero-trust{display:flex;align-items:center;gap:8px;text-decoration:none}
+  .hero-trust-seal{
+    flex:none;width:33px;height:33px;border-radius:50%;
+    background:var(--teal);border:2px solid var(--brass,#c9a227);
+    display:flex;align-items:center;justify-content:center;text-align:center;
+    font-size:.4rem;font-weight:700;color:var(--brass-light,#e5c76a);line-height:1.05;
+  }
+  .hero-trust-text{font-size:.68rem;color:#c3cee6;line-height:1.35;text-shadow:0 2px 8px rgba(0,0,0,.6)}
+  .hero-trust:hover .hero-trust-text{color:#fff}
+
+  /* ====== כלי הסימון על המפה ======
+     יושבים בפינה העליונה־שמאלית (‏inset-inline-end ב-RTL) — הצד שבו המפה
+     פנויה מהעמודה של החיפוש. מוצגים רק בדסקטופ, וההסתרה כפולה: גם
+     ‎hidden‎ מה-JS וגם ה-media query כאן, כדי ששינוי רוחב חלון בלי טעינה
+     מחדש לא ישאיר אותם על המסך.
+     ‏z-index:5 — מעל .map-toolbar (3) ומתחת ל-.split-panel (6). */
+  .map-tools{
+    position:absolute;top:14px;inset-inline-end:14px;z-index:5;
+    display:none;align-items:stretch;background:#fff;
+    box-shadow:0 10px 26px -16px rgba(14,42,107,.65);
+  }
+  .map-tool{
+    display:inline-flex;align-items:center;gap:6px;cursor:pointer;
+    padding:9px 13px;border:0;border-radius:0;background:transparent;
+    font-family:inherit;font-size:.74rem;font-weight:600;color:var(--teal);
+    transition:background .15s ease,color .15s ease;
+  }
+  .map-tool + .map-tool{border-inline-start:1px solid var(--line)}
+  .map-tool:hover{background:var(--teal-tint)}
+  .map-tool[aria-pressed="true"]{background:var(--teal);color:#fff}
+  .map-tool-ico{font-size:.85rem}
+  .map-tool-clear{color:var(--ink-soft);font-weight:500}
+  @media(min-width:1024px){
+    .map-tools:not([hidden]){display:flex}
+  }
+  .hero.map-failed .map-tools,.hero.map-failed .area-result{display:none}
+
+  /* מונה התוצאות שבתוך הסימון — הפינה התחתונה־ימנית של המפה, מעל סרגל
+     הפקדים. הוא כפתור: הסימון הוא חיפוש, והמקום שבו רואים אותו הוא רשימת
+     התוצאות שמתחת למפה. */
+  .area-result{
+    position:absolute;bottom:74px;inset-inline-end:16px;z-index:5;
+    display:flex;align-items:center;gap:10px;cursor:pointer;
+    padding:9px 13px;border:0;border-radius:0;font-family:inherit;
+    background:var(--teal);color:#fff;
+    box-shadow:0 12px 28px -16px rgba(13,27,61,.8);
+    animation:areaPop .28s ease;
+  }
+  .area-result:hover{background:var(--teal-dark)}
+  .area-result-count{font-size:.78rem;font-weight:700}
+  .area-result-go{
+    font-size:.72rem;color:var(--brass-light,#e5c76a);font-weight:600;
+    border-inline-start:1px solid rgba(255,255,255,.25);padding-inline-start:10px;
+  }
+  @keyframes areaPop{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  @media(prefers-reduced-motion:reduce){.area-result{animation:none}}
 
   /* ====== סינון לפי שכונות ======
      בעפולה ובעמק המיקום שקובע הוא ברמת השכונה ("רובע יזרעאל", "לב העמק C1"),
@@ -547,8 +701,25 @@
     /* ‏#hero-map מוגדר ב-width:100% על גבי inset:0; בלי הביטול הזה הוא היה
        גולש מתחת לפאנל במקום להתקצר מולו. */
     .hero.split-on #hero-map{width:auto}
-    .hero.split-on .hero-inner h1{font-size:1.3rem}
-    .hero.split-on .hero-inner p.lede{display:none}
+    /* במצב מפוצל ה-hero הוא סביבת עבודה ולא כרזה: הכותרת מתכווצת, וכל מה
+       שנועד לשכנע — התגיות, גלגל המילים, השבבים, שורת המספרים — יורד. מה
+       שנשאר הוא שורת החיפוש עצמה, וגם היא ממורכזת מעל המפה המצומצמת.
+       ‏.map-tools לא יורד: הסימון הוא בדיוק הכלי של מי שכבר עובד/ת. */
+    .hero.split-on .hero-inner h1{font-size:1.3rem;max-width:none;text-align:center;white-space:nowrap}
+    .hero.split-on .hero-h1-break{display:inline}
+    .hero.split-on .hero-badges,
+    .hero.split-on .hero-roll,
+    .hero.split-on .hero-quick,
+    .hero.split-on .hero-stats{display:none}
+    .hero.split-on .hero-overlay{
+      display:block;bottom:auto;padding:16px 0 48px;
+      background:linear-gradient(180deg, rgba(6,20,34,.92) 0%, rgba(6,20,34,.74) 34%, rgba(6,20,34,.36) 66%, rgba(6,20,34,0) 100%);
+    }
+    .hero.split-on .search-shell{margin-inline:auto;max-width:640px}
+    .hero.split-on .hood-bar{margin-inline:auto;max-width:640px;justify-content:center}
+    /* הכלים והמונה יושבים ממילא בצד ה-inline-end של ה-hero, והפאנל המפוצל
+       תופס את ה-inline-start — ולכן שניהם נשארים מעל המפה גם במצב מפוצל
+       ואין מה להזיז. */
     .hero.split-on .split-panel{display:flex}
     .split-panel{
       position:absolute;inset-block:0;inset-inline-start:0;width:var(--split-w);z-index:6;
@@ -648,6 +819,25 @@
     width:13px;height:13px;padding:0;border-radius:50%;
     font-size:0;overflow:hidden;box-shadow:0 0 0 2px rgba(255,255,255,.8), 0 2px 6px rgba(0,0,0,.4);
   }
+  /* ההילה הפועמת של פין מקודם. נשענת על אותו מרכוז של ‎.map-pin‎ (ל-divIcon
+     יש iconSize 0×0, ולכן הכול מתמקם מהנקודה עצמה ב-translate), ומצוירת
+     מתחתיו — היא לא צריכה להתחרות בטקסט המחיר, רק להביא אליו את העין.
+     ‏pointer-events:none כדי שהיא לא תיגנוב את הלחיצה על הפין. */
+  .map-pin-halo{
+    position:absolute;top:0;left:0;width:34px;height:34px;margin:-17px 0 0 -17px;
+    border-radius:50%;background:var(--brass,#c9a227);pointer-events:none;
+    animation:pinPulse 3s ease-out infinite;
+  }
+  @keyframes pinPulse{
+    0%{transform:scale(.35);opacity:.75}
+    70%{transform:scale(1.5);opacity:0}
+    100%{transform:scale(1.5);opacity:0}
+  }
+  @media(prefers-reduced-motion:reduce){
+    /* בלי תנועה ההילה יורדת לגמרי ולא נעצרת על מצב אמצע: עיגול זהב סטטי
+       סביב פין אחד נקרא כשגיאה, לא כהדגשה */
+    .map-pin-halo{display:none}
+  }
   .leaflet-control-attribution{font-size:.62rem !important;background:rgba(255,255,255,.7) !important}
 
   /* ====== בלון המידע של פין במפה ======
@@ -687,9 +877,55 @@
     .hero{height:clamp(540px,80vh,820px)}
     .hero-overlay{padding:16px 0 48px}
     .hero-inner h1{font-size:2rem}
-    .hero-inner p.lede{display:block}
+    .hero-roll{font-size:1.1rem}
+    /* שורת המספרים מ-760px ומעלה בלבד. בטלפון ה-hero הוא מפה עם שורת
+       חיפוש מעליה וכל שורה נוספת גוזלת ממנה גובה — ובעיצוב למובייל היא
+       ממילא לא מופיעה. ‏:not([hidden]) כדי שהכלל הזה לא ידרוס את ההסתרה
+       שלפני שהמספרים חוזרים מהשרת. */
+    .hero-stats:not([hidden]){display:flex}
     .search-shell{margin-top:14px}
     .map-toolbar{padding:0 16px}
+  }
+
+  /* ====== דסקטופ: התוכן בעמודה בצד ההתחלה, והמפה היא כל השאר ======
+     זו הפריסה של העיצוב: טקסט וחיפוש בצד אחד, מפה חיה בשני. במקום לחתוך את
+     המפה לחצי קופסה היא נשארת פרוסה על כל ה-hero, והעמודה יושבת עליה עם
+     סקרים אופקי — כך מי שגורר את המפה מקבל אותה שלמה מתחת לעמודה, והפינים
+     לא נחתכים בקו תפר.
+
+     מ-1024px ומעלה זו גם נקודת השבירה של התצוגה המפוצלת ושל כלי הסימון,
+     במכוון: שלושתם אותה הנחה — "יש כאן מסך ועכבר". */
+  @media(min-width:1024px){
+    .hero{height:clamp(600px,86vh,880px)}
+    .hero-overlay{
+      display:flex;align-items:center;bottom:0;padding:0;
+      background:linear-gradient(to left,
+        rgba(6,20,34,.94) 0%, rgba(6,20,34,.88) 34%,
+        rgba(6,20,34,.5) 54%, rgba(6,20,34,0) 70%);
+    }
+    /* ‏to left ב-RTL הוא "מקצה הכותרת והלאה": העמודה יושבת בימין, והמפה
+       נשארת קריאה בשליש השמאלי שבו יושבים כלי הסימון והמונה. */
+    html[dir="ltr"] .hero-overlay{background:linear-gradient(to right,
+        rgba(6,20,34,.94) 0%, rgba(6,20,34,.88) 34%,
+        rgba(6,20,34,.5) 54%, rgba(6,20,34,0) 70%)}
+    .hero-inner{width:100%}
+    /* העמודה עצמה: כל התוכן מיושר להתחלה ולא ממורכז, ורוחב שנעצר הרבה לפני
+       אמצע המסך כדי שהמפה תישאר הבמה השנייה ולא רקע מוסתר. */
+    .hero-inner>*{text-align:start}
+    /* השבירה לשתי שורות נעשית ב-span ולא בגלישה, ולכן אין כאן max-width:
+       הגודל נבחר כדי שהשורה הארוכה ("כל הנכסים בעפולה והעמק") תיכנס
+       לעמודה בכל רוחב מסך מ-1024px ומעלה. */
+    .hero-inner h1{
+      font-size:clamp(1.9rem,2.6vw,2.55rem);line-height:1.06;
+      letter-spacing:-.035em;text-align:start;
+    }
+    .hero-badges{justify-content:flex-start}
+    .hero-roll{justify-content:flex-start;font-size:1.28rem;margin-top:10px}
+    .search-shell{margin-inline:0;max-width:min(560px,46vw)}
+    .hero-stats{justify-content:flex-start;gap:22px;margin-top:18px}
+    .hood-bar{justify-content:flex-start;margin-inline:0;max-width:min(560px,46vw)}
+    /* הסקרים כבר מכהה את הצד הזה; ההילה שמתחת לסרגל החיפוש הייתה כתם שני */
+    .search-shell::before{display:none}
   }
 
   /* ====== Newsflash ticker ====== */
@@ -722,6 +958,146 @@
     .live-dot{animation:none}
   }
   .ticker-more{font-size:.83rem;font-weight:700;color:var(--gold-dark);flex:0 0 auto;white-space:nowrap}
+
+  /* ====== רצועת ההדמיות ======
+     הרצועה הכהה היחידה באמצע דף בהיר, ובכוונה: היא לא עוד רצועת נכסים אלא
+     הצגה של יכולת, והניגוד הוא מה שאומר את זה בלי כותרת שמסבירה. הזהב כאן
+     הוא הדגש ולא המשטח (ראו assets/design-system.css) — חוץ מקופסת ה-CTA,
+     שנושאת טקסט כהה ולכן מותר לה להיות זהב מלא. */
+  .ai-band{background:var(--teal-dark);padding:26px 0;overflow:hidden}
+  .ai-band-inner{position:relative;display:grid;gap:20px}
+  /* שתי הילות שנעות לאט מתחת לתוכן — אותה שפה של הרקע הנע שבשאר הדף
+     (assets/page-bg.js), בגרסה מקומית לרצועה אחת. */
+  .ai-band-glow{
+    position:absolute;inset:-26px 0;pointer-events:none;
+    background:
+      radial-gradient(circle at 18% 20%, rgba(63,110,255,.32), rgba(13,27,61,0) 62%),
+      radial-gradient(circle at 85% 85%, rgba(201,162,39,.26), rgba(13,27,61,0) 60%);
+    animation:aiSheen 14s ease-in-out infinite;
+  }
+  @keyframes aiSheen{0%,100%{opacity:.4}50%{opacity:.85}}
+  .ai-band-shots{position:relative;display:flex;flex-direction:column;gap:10px}
+  .ai-shot{
+    position:relative;height:170px;overflow:hidden;background:#b9c4de;
+    border:1px solid rgba(255,255,255,.14);
+  }
+  .ai-shot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+  /* השכבה ה"אחרי" יושבת בדיוק על השכבה שמתחתיה — אותו inset, אותו
+     object-fit — ורק ה-clip משתנה. זה העיקר: וילון שמצומצם ב-width היה
+     מכווץ איתו את התמונה, ושתי התמונות היו נחתכות אחרת ומפסיקות להיות
+     "אותו חדר". ‏clip-path חותך בלי לגעת בפריסה, ולכן כל פיקסל בגבול
+     הווילון הוא אותו פיקסל בשתי התמונות.
+
+     ‏clip-path אינו מאפיין לוגי ואין לו גרסת inline-start/end, ולכן הוא
+     נכתב פיזית: הדף כולו ‎dir="rtl"‎, והחשיפה היא משמאל ימינה — הכיוון
+     שבו ‎inset-inline-end‎ של הידית זז. */
+  .ai-shot-after{
+    position:absolute;inset:0;
+    clip-path:inset(0 48% 0 0);
+    animation:revealWipe 9s ease-in-out infinite;
+  }
+  .ai-shot-handle{
+    position:absolute;inset-block:0;inset-inline-end:52%;width:2px;background:var(--brass,#c9a227);
+    animation:handleSlide 9s ease-in-out infinite;
+  }
+  .ai-shot-handle::after{
+    content:"↔";position:absolute;top:50%;inset-inline-start:-16px;
+    width:32px;height:32px;margin-top:-16px;border-radius:50%;
+    background:#fff;border:2px solid var(--brass,#c9a227);
+    display:flex;align-items:center;justify-content:center;
+    font-size:.75rem;color:var(--ink);box-shadow:0 6px 16px rgba(13,27,61,.45);
+  }
+  /* שני ה-keyframes חייבים להישאר משלימים: הידית יושבת על גבול החיתוך
+     בדיוק (‏30% חשיפה ⇔ 70% חיתוך מימין), ולכן כל שינוי כאן הוא שינוי
+     בשניהם. */
+  @keyframes revealWipe{0%,100%{clip-path:inset(0 70% 0 0)}50%{clip-path:inset(0 22% 0 0)}}
+  @keyframes handleSlide{0%,100%{inset-inline-end:30%}50%{inset-inline-end:78%}}
+  .ai-shot-tag{
+    position:absolute;z-index:2;display:inline-flex;align-items:center;gap:5px;
+    padding:4px 10px;font-size:.65rem;font-weight:700;border-radius:999px;
+  }
+  .ai-shot-tag.before{top:10px;inset-inline-start:10px;background:#fff;color:var(--ink)}
+  .ai-shot-tag.after{top:10px;inset-inline-end:10px;background:var(--teal-dark);color:var(--brass-light,#e5c76a)}
+  .ai-shot-what{
+    position:absolute;z-index:2;bottom:10px;inset-inline-start:10px;
+    padding:4px 9px;font-size:.65rem;font-weight:600;border-radius:999px;
+    background:rgba(13,27,61,.86);color:var(--paper);
+  }
+  /* מימורכז בלי transform: ‏inset אופקי משני הצדדים + margin אוטומטי עובד
+     זהה בשני כיווני הכתיבה, בעוד ש-translateX(±50%) היה צריך כלל נגדי */
+  .ai-shot-hint{
+    position:absolute;z-index:4;bottom:12px;inset-inline:0;margin-inline:auto;width:max-content;
+    padding:7px 15px;border-radius:999px;white-space:nowrap;pointer-events:none;
+    background:var(--brass,#c9a227);color:var(--ink);font-size:.7rem;font-weight:700;
+    box-shadow:0 8px 18px rgba(13,27,61,.4);
+  }
+  /* ====== הווילון נגרר באמת ======
+     "גררו כדי לראות את ההבדל" חייב להיות נכון, ולכן מתחת לכל התמונה יושב
+     ‎<input type=range>‎ שקוף במלוא השטח: העכבר גורר אותו, המקלדת מזיזה
+     אותו בחצים, וקורא מסך מכריז עליו כמחוון עם ערך. גרירה ידנית מותאמת
+     אישית הייתה משאירה את הרכיב בלתי נגיש למקלדת — אותו שיקול בדיוק
+     שב-assets/ai-showcase.js.
+
+     התנועה היא מצב מנוחה בלבד: במגע הראשון (‏.is-manual) האנימציה נעצרת
+     והשליטה עוברת לגולש/ת ולא חוזרת. */
+  .ai-shot-range{
+    position:absolute;inset:0;z-index:3;width:100%;height:100%;margin:0;
+    opacity:0;cursor:ew-resize;appearance:none;background:transparent;
+  }
+  .ai-shot:has(.ai-shot-range:focus-visible){outline:2px solid var(--brass-light,#e5c76a);outline-offset:2px}
+  .ai-shot.is-manual .ai-shot-after{animation:none;clip-path:inset(0 calc(100% - var(--wipe,52) * 1%) 0 0)}
+  .ai-shot.is-manual .ai-shot-handle{animation:none;inset-inline-end:calc(var(--wipe,52) * 1%)}
+  .ai-shot.is-manual .ai-shot-hint{display:none}
+  @media(prefers-reduced-motion:reduce){
+    .ai-band-glow{animation:none}
+    /* בלי תנועה הווילון נעצר על חצי־חצי: שתי התמונות נראות, וההשוואה
+       עדיין נקראת — רק בלי מה שמושך את העין. הסרגל עצמו עדיין עובד. */
+    .ai-shot-after{animation:none;clip-path:inset(0 50% 0 0)}
+    .ai-shot-handle{animation:none;inset-inline-end:50%}
+    .ai-shot-hint{display:none}
+  }
+
+  .ai-band-copy{position:relative;display:flex;flex-direction:column;gap:13px}
+  .ai-band-copy h2{
+    font-size:1.35rem;font-weight:800;line-height:1.25;letter-spacing:-.02em;
+    color:var(--brass-light,#e5c76a);
+  }
+  .ai-band-copy h2 span{color:#fff}
+  .ai-band-star{color:var(--brass,#c9a227);font-size:1.1rem;margin-inline-start:5px}
+  .ai-band-styles{border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:14px;
+    display:flex;flex-direction:column;gap:12px}
+  .ai-band-styles-title{font-size:.9rem;font-weight:700;color:#fff;text-align:center}
+  .ai-band-styles ul{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;list-style:none}
+  .ai-band-styles li{
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+    padding:11px 8px;border:1px solid rgba(255,255,255,.2);border-radius:10px;
+    font-size:.78rem;font-weight:500;color:#dbe3f5;
+  }
+  .ai-band-styles li span{font-size:1rem;color:#b9c6e8}
+  /* סגנון אחד מודגש כדי שהרשת תיקרא כ"בחירה" ולא כארבע תוויות. הוא מציין
+     את מה שמוצג בווילון שלצדו, ולכן ההדגשה אינה שרירותית. */
+  .ai-band-styles li.is-on{border-color:var(--brass,#c9a227);background:rgba(201,162,39,.1);color:#fff;font-weight:700}
+  .ai-band-styles li.is-on span{color:var(--brass-light,#e5c76a)}
+  .ai-band-cta{
+    display:flex;flex-direction:column;gap:4px;align-items:center;text-align:center;
+    padding:14px 16px;border:0;border-radius:14px;cursor:pointer;font-family:inherit;
+    background:linear-gradient(135deg,#e0bf4f,var(--brass,#c9a227));
+    transition:transform .15s ease,box-shadow .15s ease;
+  }
+  .ai-band-cta:hover{transform:translateY(-2px);box-shadow:0 14px 30px -18px rgba(0,0,0,.8)}
+  .ai-band-cta b{font-size:1.05rem;font-weight:800;color:var(--ink)}
+  .ai-band-cta span{font-size:.8rem;color:#40350f;line-height:1.5;max-width:44ch}
+  .ai-band-note{display:flex;align-items:flex-start;gap:7px;font-size:.7rem;color:#8fa3d4;line-height:1.5}
+  .ai-band-note>span{color:var(--brass,#c9a227)}
+
+  @media(min-width:760px){
+    .ai-band{padding:30px 0}
+    .ai-band-inner{grid-template-columns:1.02fr 1fr;gap:24px;align-items:stretch}
+    .ai-band-copy h2{font-size:1.65rem}
+    .ai-band-styles ul{grid-template-columns:repeat(4,1fr)}
+    .ai-shot{height:100%;min-height:170px}
+    .ai-band-shots{height:100%}
+  }
 
   /* רשימת "כל העדכונים" — עשרת המבזקים האחרונים, במודאל שאפשר לגלול בו.
      כל שורה היא קישור לכתבה המלאה כשיש כזו, ו-<div> כשאין. */
@@ -2104,10 +2480,64 @@
   <section class="hero" id="heroSection">
     <div id="hero-map" role="region" aria-label="מפת הנכסים המוצגים"></div>
 
+    <!-- ====== כלי הסימון על המפה — דסקטופ בלבד ======
+         "סימון אזור" ו"רדיוס" הם מחוות של עכבר: לחיצה־לחיצה על פינות, וגרירת
+         ידית קטנה. במסך מגע אותה אצבע כבר עושה משהו אחר — היא גוללת את הדף
+         (ראו assets/map-gestures.js) — ולכן הכלים לא מוצגים שם בכלל, ולא
+         מוצגים־ואז־לא־עובדים. הסינון הזמין בנייד הוא השכונות והסינונים.
+         ההצגה עצמה נעשית ב-JS ולא ב-CSS בלבד, כדי שגם ה-DOM לא יחזיק כפתור
+         שאין לו משמעות — ראו initMapDraw(). -->
+    <div class="map-tools" id="mapTools" role="group" aria-label="חיפוש לפי אזור על המפה" hidden>
+      <button type="button" class="map-tool" id="drawAreaBtn" aria-pressed="false">
+        <span class="map-tool-ico" aria-hidden="true">✥</span> סימון אזור
+      </button>
+      <button type="button" class="map-tool" id="drawRadiusBtn" aria-pressed="false">
+        <span class="map-tool-ico" aria-hidden="true">◎</span> רדיוס
+      </button>
+      <button type="button" class="map-tool map-tool-clear" id="drawClearBtn" hidden>
+        ניקוי הסימון <span aria-hidden="true">✕</span>
+      </button>
+    </div>
+
+    <!-- תוצאת הסימון, בפינה התחתונה של המפה. הכפתור גולל לרשימת התוצאות —
+         הסימון הוא חיפוש, ולא רק ציור. -->
+    <button type="button" class="area-result" id="areaResult" hidden>
+      <span class="area-result-count" id="areaResultCount"></span>
+      <span class="area-result-go">הצגת התוצאות ←</span>
+    </button>
+
     <div class="hero-overlay">
       <div class="wrap hero-inner">
-        <h1>כל הנכסים בכתובת אחת</h1>
-        <p class="lede">מפסיקים לרוץ בין לוחות מודעות — כל המתווכים המובילים בעיר מחכים לך כאן.</p>
+        <!-- שני המספרים כאן נכתבים מהנתונים ולא מקובעים בטקסט: תגית שמבטיחה
+             "340 נכסים עם הדמיה" ומתחתיה שלושה נכסים היא הדרך המהירה ביותר
+             לאבד אמון. עד שהנתון חוזר מהשרת השורה פשוט לא מוצגת. -->
+        <div class="hero-badges">
+          <button type="button" class="hero-badge hero-badge-ai" id="heroAiBadge" hidden>
+            <span class="hero-badge-star" aria-hidden="true">✦</span>
+            <span id="heroAiCount"></span>
+          </button>
+          <span class="hero-badge hero-badge-live" id="heroTodayBadge" hidden>
+            <span class="live-dot" aria-hidden="true"></span>
+            <span id="heroTodayCount"></span>
+          </span>
+        </div>
+
+        <h1>כל הנכסים בעפולה והעמק <span class="hero-h1-break">בכתובת אחת</span></h1>
+
+        <!-- שורת המילים המתחלפות. ‏aria-label נושא את כל שלוש האפשרויות
+             כמשפט אחד, והגלגל עצמו aria-hidden: קורא מסך שמכריז "דירה
+             למשפחה" ושנייה אחר כך "חנות במרכז" מתאר תקלה, לא עיצוב. -->
+        <p class="hero-roll" aria-label="מחפשים דירה למשפחה, חנות במרכז או נכס להשקעה — הכול כאן">
+          <span>מחפשים</span>
+          <span class="hero-roll-window" aria-hidden="true">
+            <span class="hero-roll-track">
+              <span>דירה למשפחה</span>
+              <span>חנות במרכז</span>
+              <span>נכס להשקעה</span>
+            </span>
+          </span>
+          <span class="hero-caret" aria-hidden="true"></span>
+        </p>
 
         <div class="search-shell">
           <div class="search-card">
@@ -2136,6 +2566,29 @@
               </svg>
             </button>
           </div>
+
+          <!-- חיפושים מוכנים. הם לא קיצור־דרך לעצלנים אלא הדגמה: מי שרואה
+               "3 חדרים בגבעת המורה" מבין שאפשר לכתוב בשדה משפט ולא רק עיר.
+               כל שבב ממלא את השדה ומריץ חיפוש אמיתי, ולכן אין כאן הבטחה
+               לתוצאה שלא תגיע. -->
+          <div class="hero-quick" id="heroQuick">
+            <span class="hero-quick-label">מהיר:</span>
+            <button type="button" class="hero-chip" data-q="3 חדרים בגבעת המורה">3 חדרים בגבעת המורה</button>
+            <button type="button" class="hero-chip" data-q="חנויות להשכרה">חנויות להשכרה</button>
+            <button type="button" class="hero-chip" data-q="בתים בעפולה עילית">בתים בעפולה עילית</button>
+            <button type="button" class="hero-chip hero-chip-ai" data-ai="1">
+              <span aria-hidden="true">✦</span> עם הדמיה
+            </button>
+          </div>
+
+          <!-- הרצועה שמסבירה את הכלי שאיש לא מחפש לבד: אפשר לסמן אזור על
+               המפה ולקבל בדיוק את מה שבתוכו. בנייד היא מוחלפת בנוסח שמסביר
+               מה כן אפשר — ראו initMapDraw(). -->
+          <button type="button" class="hero-mapcta" id="heroMapCta">
+            <span class="hero-mapcta-ico" aria-hidden="true">✥</span>
+            <span class="hero-mapcta-text" id="heroMapCtaText">התמקדו באזור על המפה וקבלו את כל הנכסים שבתוכו</span>
+            <span class="hero-mapcta-go" aria-hidden="true">חיפוש במפה ←</span>
+          </button>
         </div>
 
         <!-- סינון לפי שכונות. הכפתור פותח מודאל בחירה מרובה שנבנה מהנכסים
@@ -2149,6 +2602,20 @@
             <span id="hoodFilterLabel">סינון לפי שכונות</span>
             <span class="hood-filter-count" id="hoodFilterCount" hidden>0</span>
           </button>
+        </div>
+
+        <!-- שורת המספרים. שני המונים נמשכים מהמאגר (renderHeroStats), ותו
+             האמון לצדם הוא קישור ולא קישוט: מי שרואה כוכבים באתר נדל״ן שואל
+             מיד מי נתן אותם, וזו התשובה. -->
+        <div class="hero-stats" id="heroStats" hidden>
+          <span class="hero-stat"><b id="heroStatProps">—</b><i>נכסים פעילים</i></span>
+          <span class="hero-stat-sep" aria-hidden="true"></span>
+          <span class="hero-stat"><b id="heroStatAgencies">—</b><i>משרדי תיווך</i></span>
+          <span class="hero-stat-sep" aria-hidden="true"></span>
+          <a class="hero-trust" href="ethics-code.html" title="תו האמון של שוק הנדל״ן">
+            <span class="hero-trust-seal" aria-hidden="true">תו<br>האמון</span>
+            <span class="hero-trust-text">דירוג רק מלקוחות<br>שסגרו עסקה</span>
+          </a>
         </div>
 
         <p class="map-fallback-note" id="mapFallbackNote" hidden>המפה לא נטענה (בעיית רשת) — רשימת הנכסים למטה עדיין זמינה.</p>
@@ -2639,6 +3106,56 @@
       <button type="button" class="ticker-more" id="tickerMore" aria-haspopup="dialog">כל העדכונים ←</button>
     </div>
   </div>
+
+  <!-- ====== רצועת ההדמיות: "לפני ואחרי" ======
+       הרצועה הכללית שהייתה כאן פעם ירדה מהדף, ובצדק: היא הציגה נכס אקראי
+       אחרי שיפוץ, כלומר ענתה על שאלה שאיש לא שאל. מה שחוזר כאן הוא דבר אחר
+       לגמרי — לא ויטרינה של נכס מסוים אלא הצגה של *היכולת*, ולכן היא לא
+       מקשרת לנכס שבתמונה אלא לשני מקומות שבהם היא באמת שימושית: מסנן
+       ההדמיות (למי שמחפש/ת) ובאנר הערכת השווי (למי שמוכר/ת).
+
+       שתי התמונות אמיתיות ונטענות מ-property_visualizations_public — אחת
+       ממגורים ואחת ממסחרי, בדיוק שני המצבים שהמנוע יודע לייצר. אין הדמיות
+       במסד → הרצועה כולה לא מוצגת. הבטחה מצוירת שאין מאחוריה תוצר היא
+       בדיוק מה שהרצועה הקודמת נכשלה בו. ראו docs/property-visualizations.md. -->
+  <section class="ai-band" id="aiBand" aria-labelledby="aiBandTitle" hidden>
+    <div class="wrap ai-band-inner">
+      <div class="ai-band-glow" aria-hidden="true"></div>
+
+      <div class="ai-band-shots" id="aiBandShots"><!-- populated by JS --></div>
+
+      <div class="ai-band-copy">
+        <h2 id="aiBandTitle">
+          תראו את פוטנציאל הנכס<br>
+          <span>עם טכנולוגיית AI מהפכנית!</span>
+          <span class="ai-band-star" aria-hidden="true">✦</span>
+        </h2>
+
+        <div class="ai-band-styles">
+          <span class="ai-band-styles-title">ארבעה סגנונות בכל נכס</span>
+          <ul>
+            <li><span aria-hidden="true">▢</span>מודרני נקי</li>
+            <li><span aria-hidden="true">☾</span>ים־תיכוני לבן</li>
+            <li><span aria-hidden="true">≡</span>סקנדינבי חמים</li>
+            <li class="is-on"><span aria-hidden="true">◈</span>יוקרה מודרנית</li>
+          </ul>
+        </div>
+
+        <!-- ה-CTA לא פותח טופס משלו אלא את אשף הערכת השווי שכבר בעמוד:
+             שני טפסים שמבקשים את אותם פרטים ומנתבים לאותו מקום הם שני
+             מקורות אמת לאותו ליד. ראו bindLeadBanner(). -->
+        <button type="button" class="ai-band-cta" id="aiBandCta">
+          <b>חושבים למכור או להשכיר?</b>
+          <span>השאירו פרטים וסוכן/ת יחזרו אליכם לתיאום פגישה — כולל הדמיות AI לנכס שלכם.</span>
+        </button>
+
+        <p class="ai-band-note">
+          <span aria-hidden="true">✦</span>
+          ההדמיה היא המחשה עיצובית ואינה מתחייבת לביצוע עבודות או לתוצאה בפועל.
+        </p>
+      </div>
+    </div>
+  </section>
 
   <!-- ====== נכסים פרטיים למכירה ======
        כל הנכסים למגורים של כל משרדי התיווך בפלטפורמה במסלול אחד: החדשים
@@ -4735,6 +5252,9 @@ async function loadLeadingAgencies(){
   // המאתר שמתחת לקרוסלה חי מאותה רשימה, ולכן הוא מוזן לפני כל יציאה
   // מוקדמת של הקרוסלה עצמה
   initAgencyFinder(agencies);
+  // אותה רשימה מזינה גם את המונה שב-hero
+  heroStatsState.agencies = agencies.length;
+  renderHeroStats();
   const track = document.getElementById('leadingAgenciesScroll');
   const dots = document.getElementById('leadingAgenciesDots');
   const section = document.getElementById('leadingAgencies');
@@ -5493,6 +6013,18 @@ function rotateProfessionalsFairly(list, tick){
    לא נטען — נעלמו איתו גם גריד הנכסים, הנכסים המקודמים ורצועת המפה,
    והמבקר ראה עמוד בית כמעט ריק. עכשיו כישלון של המפה מוריד רק את המפה. */
 let heroMap = null;
+/* כלי הסימון (assets/map-draw.js). מוצהר כאן ולא לצד initMapDraw שמאתחל
+   אותו, כי applyDealFilter — שרץ בכל רינדור של המפה — קורא ל-inDrawnArea
+   שמסתכל עליו, והצהרה מאוחרת יותר בקובץ הייתה משאירה אותו ב-TDZ. */
+let mapDraw = null;
+
+/* המספרים שבראש ה-hero. שלושה טוענים שונים ממלאים אותו במועדים שונים,
+   ו-renderHeroStats מצייר בכל פעם את מה שכבר יש — ראו שם.
+
+   ‏initLeadingAgencies יושב מוקדם יותר בקובץ מהשורה הזאת, וכותב לכאן —
+   אבל רק *אחרי* ה-await שלו, כלומר במיקרו־משימה שרצה כשכל הסקריפט כבר
+   הורץ. אין TDZ, וגם לא תלות בסדר הכתיבה בקובץ. */
+const heroStatsState = { props:null, agencies:null, ai:null, today:null };
 
 /* שלושת הסגנונות נגזרים כולם מאותם אריחים בעזרת פילטרים ב-CSS (ראו
    ‏body[data-map-style="…"] למעלה), ולכן מעבר בין סגנונות לא עולה ולו בקשת
@@ -5744,9 +6276,14 @@ function renderMap(properties){
       // למפה ובבורר סוג העסקה בסרגל החיפוש, כדי לזהות סוג נכס במבט חטוף
       // בלי לפתוח פופאפ
       const kind = dealKind(p);
+      /* הילה פועמת סביב פין של נכס מקודם, ורק שלו. פעימה על כל פין הייתה
+         הופכת מפה עם ארבעים נכסים לשדה מהבהב שאי אפשר לקרוא בו כלום —
+         תנועה מסמנת משהו רק כשהיא נדירה. */
+      const promoted = isPromoted(p);
       const icon = L.divIcon({
         className:'',
-        html:`<div class="map-pin" style="background:${DEAL_COLORS[kind]}">${priceLabel(p)}</div>`,
+        html:(promoted ? '<span class="map-pin-halo" aria-hidden="true"></span>' : '') +
+             `<div class="map-pin" style="background:${DEAL_COLORS[kind]}">${priceLabel(p)}</div>`,
         iconSize:[0,0]
       });
       // pinRank מכריע מי שומר על תווית מלאה כשפינים נחתכים (relayoutMapPins):
@@ -5789,7 +6326,10 @@ function resetDealFilter(){
 function applyDealFilter({ fit = false } = {}){
   if (heroMap){
     Object.values(mapMarkers).forEach(m => {
-      const on = activeDealKinds.has(m.options.dealKind);
+      // שני מסננים על אותו פין: המקרא (סוג העסקה) והאזור שסומן. שניהם
+      // חיים בשכבת התצוגה בלבד ואינם נוגעים ברשימת הנכסים עצמה.
+      const at = m.getLatLng();
+      const on = activeDealKinds.has(m.options.dealKind) && inDrawnArea({ lat:at.lat, lng:at.lng });
       if (on && !heroMap.hasLayer(m)) m.addTo(heroMap);
       else if (!on && heroMap.hasLayer(m)) heroMap.removeLayer(m);
     });
@@ -6024,7 +6564,17 @@ function propertiesInView(){
   return mapProperties.filter(p =>
     p.lat && p.lng &&
     activeDealKinds.has(dealKind(p)) &&
+    inDrawnArea(p) &&
     bounds.contains([Number(p.lat), Number(p.lng)]));
+}
+
+/* הנכסים שבתוך האזור שסומן, בלי קשר לתחום התצוגה. זו הרשימה שהמונה שעל
+   המפה מציג ושכפתור "הצגת התוצאות" שולח לרשימה — הסימון הוא חיפוש שנשאר
+   נכון גם כשגוררים את המפה הצידה, בשונה מתחום התצוגה שהוא ההפך מזה. */
+function propertiesInDrawnArea(){
+  if (!mapDraw || !mapDraw.hasShape()) return [];
+  return mapProperties.filter(p =>
+    p.lat && p.lng && activeDealKinds.has(dealKind(p)) && inDrawnArea(p));
 }
 
 function splitRowFor(id){
@@ -6114,6 +6664,308 @@ if (splitCloseBtn) splitCloseBtn.addEventListener('click', ()=> setSplitView(fal
 // המצב נזכר בין ביקורים, אבל רק במסך שיש בו מקום לשתי עמודות. remember:false
 // כדי שפתיחה במסך צר לא תמחק את ההעדפה שנשמרה בדסקטופ.
 setSplitView(splitOn && splitSupported(), { remember:false });
+
+/* ============================================================
+   סימון אזור ורדיוס על המפה
+   ------------------------------------------------------------
+   הכלי עצמו יושב ב-assets/map-draw.js ולא יודע מה זה נכס; כאן מחברים אותו
+   לחיפוש: הצורה מסננת את הפינים, את הרשימה שלצד המפה ואת רשימת התוצאות.
+
+   **דסקטופ בלבד, במכוון.** ציור מצולע הוא סדרת לחיצות מדויקות, וגרירת ידית
+   היא מחווה של עכבר. במסך מגע אותה אצבע כבר עושה דבר אחר — היא גוללת את
+   הדף, וזו הייתה החלטה מפורשת (ראו assets/map-gestures.js: אצבע אחת גוללת,
+   שתיים מזיזות את המפה). כלי ציור שם היה או חוטף את הגלילה חזרה או פשוט לא
+   עובד. בנייד נשארים סינון השכונות והסינונים המלאים, ששניהם עונים על אותה
+   שאלה בלי לדרוש יד יציבה.
+
+   הרף הוא 1024px — אותו רף בדיוק של התצוגה המפוצלת (SPLIT_MIN_WIDTH), כי
+   שניהם נשענים על אותה הנחה: יש כאן מסך רחב ומצביע מדויק.
+   ============================================================ */
+
+/* הבדיקה נקראת מ-propertiesInView שרץ בכל גרירה של המפה, ולכן היא חייבת
+   להיות זולה כשאין סימון — וזה המצב הרגיל. */
+function inDrawnArea(p){
+  if (!mapDraw || !mapDraw.hasShape()) return true;
+  return mapDraw.contains(p.lat, p.lng);
+}
+
+const MAP_DRAW_COPY = {
+  live: 'התמקדו באזור על המפה וקבלו את כל הנכסים שבתוכו',
+  // בטלפון אין כלי סימון, ולכן הרצועה מתארת את מה שכן אפשר לעשות שם:
+  // גרירת המפה היא עצמה חיפוש (ראו updateSplitPanel)
+  touch: 'גררו את המפה — הרשימה שמתחתיה מתעדכנת לפי מה שרואים',
+};
+
+/* נקראת בטעינה ושוב בכל מעבר מעל/מתחת לרף הדסקטופ (סיבוב טאבלט, שינוי
+   גודל חלון). ההרכבה עצמה קורית פעם אחת — mapDraw שכבר קיים לא נבנה שוב
+   ולא מאבד את הצורה שסומנה בו. */
+function initMapDraw(){
+  const tools = document.getElementById('mapTools');
+  const areaBtn = document.getElementById('drawAreaBtn');
+  const radiusBtn = document.getElementById('drawRadiusBtn');
+  const clearBtn = document.getElementById('drawClearBtn');
+  const mapCta = document.getElementById('heroMapCta');
+  const ctaText = document.getElementById('heroMapCtaText');
+  const ctaGo = mapCta && mapCta.querySelector('.hero-mapcta-go');
+
+  const canDraw = !!heroMap && !!window.MapDraw && splitSupported();
+
+  if (mapCta){
+    mapCta.classList.toggle('is-static', !canDraw);
+    if (canDraw) mapCta.removeAttribute('aria-disabled');
+    else mapCta.setAttribute('aria-disabled', 'true');
+    if (ctaText) ctaText.textContent = canDraw ? MAP_DRAW_COPY.live : MAP_DRAW_COPY.touch;
+    if (ctaGo) ctaGo.hidden = !canDraw;
+  }
+
+  if (!canDraw){
+    if (tools) tools.hidden = true;
+    return;
+  }
+  tools.hidden = false;
+  // הכלי כבר מורכב — נשאר רק להחזיר את הסרגל למסך
+  if (mapDraw) return;
+
+  mapDraw = MapDraw.attach(heroMap, {
+    onChange: onDrawnAreaChange,
+    onModeChange: (mode)=>{
+      areaBtn.setAttribute('aria-pressed', String(mode === 'area'));
+      radiusBtn.setAttribute('aria-pressed', String(mode === 'radius'));
+    }
+  });
+
+  areaBtn.addEventListener('click', ()=>{
+    if (mapDraw.mode() === 'area') mapDraw.cancel();
+    else mapDraw.startArea();
+  });
+  radiusBtn.addEventListener('click', ()=>{
+    if (mapDraw.mode() === 'radius') mapDraw.cancel();
+    else mapDraw.startRadius();
+  });
+  clearBtn.addEventListener('click', ()=> mapDraw.clear());
+
+  // הרצועה שבתוך סרגל החיפוש היא נקודת הכניסה השנייה לאותו כלי: מי שקורא/ת
+  // אותה נמצא/ת בעמודת החיפוש ולא על המפה, ולכן היא גם גוללת את המפה למרכז
+  // המסך לפני שהמצב נדלק — אחרת הלחיצה "לא עושה כלום" למראית עין.
+  mapCta.addEventListener('click', ()=>{
+    document.getElementById('heroSection')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    mapDraw.startArea();
+  });
+}
+
+/* התוצאה של הסימון בשלושה מקומות: הפינים שמחוץ לאזור יורדים מהמפה, הרשימה
+   שלצדה מצטמצמת, והמונה שבפינה מודיע כמה נשארו. */
+function onDrawnAreaChange(shape){
+  const clearBtn = document.getElementById('drawClearBtn');
+  const result = document.getElementById('areaResult');
+  const countEl = document.getElementById('areaResultCount');
+
+  if (clearBtn) clearBtn.hidden = !shape;
+
+  // אותה לוגיקה של המקרא: פין שאינו רלוונטי יורד מהמפה במקום להתעמעם
+  Object.values(mapMarkers).forEach(m => {
+    const on = activeDealKinds.has(m.options.dealKind) && (!shape || mapDraw.contains(m.getLatLng().lat, m.getLatLng().lng));
+    if (on && !heroMap.hasLayer(m)) m.addTo(heroMap);
+    else if (!on && heroMap.hasLayer(m)) heroMap.removeLayer(m);
+  });
+  relayoutMapPins();
+  updateSplitPanel();
+
+  if (!shape){
+    if (result) result.hidden = true;
+    return;
+  }
+
+  const found = propertiesInDrawnArea();
+  if (countEl){
+    countEl.textContent = found.length === 0 ? 'אין נכסים באזור שסימנתם'
+      : found.length === 1 ? 'נכס אחד באזור שסימנתם'
+      : `${found.length} נכסים באזור שסימנתם`;
+  }
+  if (result){
+    result.hidden = false;
+    // אזור ריק הוא תשובה, אבל אין מה להציג ברשימה מתחת
+    result.querySelector('.area-result-go').hidden = !found.length;
+  }
+  // מתקרבים למה שסומן: הצורה עצמה היא עכשיו החיפוש
+  const b = mapDraw.bounds();
+  if (b) heroMap.fitBounds(b, { padding:[60,60], maxZoom:16 });
+}
+
+/* "הצגת התוצאות" — הסימון הוא חיפוש, והמקום שבו קוראים תוצאות הוא רשימת
+   התוצאות שמתחת למפה, לא הפינים. */
+document.getElementById('areaResult')?.addEventListener('click', ()=>{
+  const found = propertiesInDrawnArea();
+  if (!found.length) return;
+  renderSearchRows(found, true);
+  document.getElementById('searchResults')?.scrollIntoView({ behavior:'smooth', block:'start' });
+});
+
+initMapDraw();
+// סיבוב טאבלט או שינוי גודל חלון חוצה את הרף — הכלים נכנסים ויוצאים איתו,
+// והצורה שכבר סומנה שורדת את המעבר
+window.matchMedia(`(min-width:${SPLIT_MIN_WIDTH}px)`).addEventListener('change', initMapDraw);
+
+/* ============================================================
+   שורת המספרים והתגיות שמעל הכותרת
+   ------------------------------------------------------------
+   כל מספר כאן נספר מהנתונים שכבר נטענו לעמוד — ולא נכתב בטקסט. תגית
+   שמבטיחה "340 נכסים עם הדמיה" מעל מלאי של שלושה היא הדרך המהירה ביותר
+   לאבד את מי שהגיע/ה, ולכן כל אלמנט כאן נשאר hidden עד שיש לו מה להראות.
+   ‏hidden ולא "0": שורת מספרים שכולה אפסים גרועה מהיעדרה.
+
+   ‏heroStatsState עצמו מוצהר למעלה, לצד heroMap — שם גם ההסבר למה.
+   ============================================================ */
+function renderHeroStats(){
+  const box = document.getElementById('heroStats');
+  /* "0 משרדי תיווך" הוא לא נתון אלא הודעת תקלה שמתחזה לנתון — שאילתה
+     שנכשלה ומאגר ריק נראים אותו דבר. מספר שהוא אפס מוריד את הפריט שלו,
+     ואיתו את הקו המפריד שלפניו. */
+  const setNum = (id, v)=>{
+    const el = document.getElementById(id);
+    if (!el) return;
+    const stat = el.closest('.hero-stat');
+    if (!v){ if (stat) stat.hidden = true; return; }
+    el.textContent = v.toLocaleString('he-IL');
+    if (stat) stat.hidden = false;
+  };
+  setNum('heroStatProps', heroStatsState.props);
+  setNum('heroStatAgencies', heroStatsState.agencies);
+  if (box && (heroStatsState.props || heroStatsState.agencies)) box.hidden = false;
+
+  const aiBadge = document.getElementById('heroAiBadge');
+  const aiCount = document.getElementById('heroAiCount');
+  if (aiBadge && aiCount && heroStatsState.ai){
+    aiCount.textContent = heroStatsState.ai === 1
+      ? 'נכס אחד עם הדמיית AI'
+      : `${heroStatsState.ai.toLocaleString('he-IL')} נכסים עם הדמיית AI`;
+    aiBadge.hidden = false;
+  }
+
+  const todayBadge = document.getElementById('heroTodayBadge');
+  const todayCount = document.getElementById('heroTodayCount');
+  if (todayBadge && todayCount && heroStatsState.today){
+    todayCount.textContent = heroStatsState.today === 1
+      ? 'נכס אחד נוסף היום'
+      : `${heroStatsState.today} נכסים נוספו היום`;
+    todayBadge.hidden = false;
+  }
+}
+
+/* "נוסף היום" נמדד מול חצות המקומית ולא מול "לפני 24 שעות": מי שקורא/ת
+   "נוספו היום" מתכוון/ת ליום קלנדרי. */
+function countAddedToday(properties){
+  const midnight = new Date();
+  midnight.setHours(0, 0, 0, 0);
+  return properties.filter(p => p.created_at && new Date(p.created_at) >= midnight).length;
+}
+
+// התגית היא הדרך הקצרה ביותר למסנן ההדמיות, שעד היום הגיעו אליו רק דרך ‎?ai=1‎
+document.getElementById('heroAiBadge')?.addEventListener('click', ()=> ShukSearch.applyAiFilter());
+
+/* ---------- שבבי החיפוש המהיר ---------- */
+document.getElementById('heroQuick')?.addEventListener('click', (e)=>{
+  const chip = e.target.closest('.hero-chip');
+  if (!chip) return;
+  if (chip.dataset.ai){ ShukSearch.applyAiFilter(); return; }
+  const field = document.getElementById('searchFreeText');
+  if (!field) return;
+  field.value = chip.dataset.q || '';
+  document.getElementById('searchSubmitBtn')?.click();
+});
+
+/* ============================================================
+   רצועת ההדמיות — "לפני ואחרי" בדף הבית
+   ------------------------------------------------------------
+   שני וילונות: אחד ממגורים ואחד ממסחרי, שני המצבים שהמנוע יודע לייצר
+   (ראו docs/property-visualizations.md). התמונות אמיתיות ונטענות מהמסד;
+   אין הדמיות → הרצועה כולה נשארת hidden. זה העיקר כאן: הרצועה מציגה
+   יכולת, והמחיר של הצגת יכולת בתמונות מומצאות הוא בדיוק האמון שהיא באה
+   לבנות.
+
+   הרצועה לא מקשרת לנכס שבתמונה. היא לא ויטרינה של מודעה מסוימת אלא של
+   היכולת עצמה, ולכן שתי הדרכים החוצה ממנה הן שתי השאלות שהיא מעוררת:
+   "איפה עוד יש כאלה" (מסנן ההדמיות) ו"מה עם הנכס שלי" (הערכת השווי).
+   ============================================================ */
+const AI_BAND_TARGETS = {
+  living_room:   'הסלון',
+  kitchen:       'המטבח',
+  exterior:      'חזית הנכס',
+  interior_main: 'החלל המרכזי',
+};
+
+async function initAiBand(){
+  const band = document.getElementById('aiBand');
+  const shots = document.getElementById('aiBandShots');
+  if (!band || !shots || !sb) return;
+
+  let rows = [];
+  try{
+    const { data, error } = await sb.from('property_visualizations_public')
+      .select('kind, target, source_image_url, result_url')
+      .order('created_at', { ascending:false })
+      .limit(60);
+    if (error) throw error;
+    rows = (data || []).filter(r => r.source_image_url && r.result_url && AI_BAND_TARGETS[r.target]);
+  } catch(e){
+    console.warn('טעינת ההדמיות לרצועה נכשלה, הרצועה לא תוצג:', e);
+    return;
+  }
+  if (!rows.length) return;
+
+  /* אחד מכל סוג, ובסדר הזה: הסלון הוא ההדמיה שהכי קל לקרוא במבט אחד,
+     ולכן הוא מועדף על המטבח והחזית כשיש בחירה. */
+  const pick = (kind, prefer)=>{
+    const same = rows.filter(r => r.kind === kind);
+    return same.find(r => r.target === prefer) || same[0] || null;
+  };
+  const chosen = [
+    { row: pick('private_room', 'living_room'), scope: 'מגורים' },
+    { row: pick('commercial_business', 'interior_main'), scope: 'מסחרי' },
+  ].filter(x => x.row);
+  if (!chosen.length) return;
+
+  chosen.forEach(({ row, scope }, i)=>{
+    const what = AI_BAND_TARGETS[row.target];
+    const shot = document.createElement('div');
+    shot.className = 'ai-shot';
+    /* ‏escAttr על הכתובות בלבד — הן היחידות כאן שמגיעות מהמסד. ‏scope
+       ו-what נלקחים מקבועים בקובץ הזה, ואין מה לברוח מהם. */
+    shot.innerHTML =
+      `<img src="${escAttr(row.source_image_url)}" alt="${what} לפני ההדמיה" loading="lazy" decoding="async">` +
+      `<span class="ai-shot-tag before">לפני</span>` +
+      `<span class="ai-shot-what">${scope} · ${what} כיום</span>` +
+      `<div class="ai-shot-after">` +
+        `<img src="${escAttr(row.result_url)}" alt="${what} אחרי הדמיית AI" loading="lazy" decoding="async">` +
+        `<span class="ai-shot-tag after"><span aria-hidden="true">✦</span> אחרי</span>` +
+      `</div>` +
+      `<div class="ai-shot-handle" aria-hidden="true"></div>` +
+      (i === 0 ? `<span class="ai-shot-hint">גררו כדי לראות את ההבדל</span>` : '') +
+      `<input type="range" class="ai-shot-range" min="0" max="100" value="52" ` +
+        `aria-label="השוואה בין ${what} לפני ההדמיה ואחריה">`;
+
+    // מגע ראשון — עכבר, מגע או מקלדת — עוצר את האנימציה ומעביר את השליטה
+    const range = shot.querySelector('.ai-shot-range');
+    range.addEventListener('input', ()=>{
+      shot.classList.add('is-manual');
+      shot.style.setProperty('--wipe', range.value);
+    });
+    shots.appendChild(shot);
+  });
+
+  band.hidden = false;
+}
+
+/* ה-CTA פותח את אשף הערכת השווי שכבר בעמוד במקום טופס שני משלו: שני
+   טפסים שמבקשים את אותם פרטים ומנתבים לאותו מקום הם שני מקורות אמת
+   לאותו ליד. הכפתור פותח את הבאנר אם הוא סגור, וגולל אליו בכל מקרה. */
+document.getElementById('aiBandCta')?.addEventListener('click', ()=>{
+  const start = document.getElementById('ownerStartBtn');
+  if (start && start.getAttribute('aria-expanded') !== 'true') start.click();
+  document.getElementById('ownerBanner')?.scrollIntoView({ behavior:'smooth', block:'center' });
+});
+
+initAiBand();
 
 /* ============================================================
    שכונות: סינון לפי שכונות וסימון על המפה
@@ -6382,6 +7234,9 @@ try {
     // שברשימת הבחירה הוא "כמה יש בשכונה", ואם הוא היה מצטמצם עם כל חיפוש
     // הוא היה מפסיק לענות על השאלה שבגללה מסתכלים עליו
     allActiveProperties = properties;
+    heroStatsState.props = properties.length;
+    heroStatsState.today = countAddedToday(properties);
+    renderHeroStats();
     computeHoodGeometry(properties);
     renderHoodFilter();
     // אותה רשימת שכונות מזינה גם את הבחירה המרובה בבאנר מחפשי הנכס
@@ -6404,6 +7259,10 @@ try {
     PropertyCard.visualizedIds(sb, properties.map(p => p.id)).then(ids=>{
       if (!ids.size) return;
       visualizedProps = ids;
+      // התגית שב-hero סופרת את אותה קבוצה בדיוק — נכסים *פעילים* עם הדמיה
+      // מפורסמת — ולא את כל ההדמיות שבמסד, שרובן שייכות למודעות שכבר ירדו
+      heroStatsState.ai = ids.size;
+      renderHeroStats();
       renderDealCarousels(properties);
       featuredScroll.innerHTML = '';
       PropertyCard.sortByMedia(properties.filter(isPromoted))
