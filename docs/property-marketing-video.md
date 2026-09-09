@@ -113,6 +113,18 @@ fal ──webhook──> property-video-callback ?job=&merge=1&token=
 אידמפוטנטית — החזר יוצא פעם אחת בלבד). בלעדיו הבקשה גם הייתה חוסמת את הנכס
 מהפקה חדשה, כי יש אינדקס ייחודי על בקשה פתוחה אחת לנכס.
 
+### ⚠️ מה שה-reconcile *אינו* מכסה
+
+הוא סורק שורות ב-`property_video_jobs`, ולכן הוא רואה רק בקשות שכבר נפתחו.
+כישלון של `property-video-create` **לפני** `start_property_video_job` —
+שגיאת קוד, סוד חסר, נכס בלי תמונות — אינו משאיר שום שורה, וממילא אין מה
+לפייס. הסוכן/ת מקבל/ת שגיאה בדפדפן, והמסד נראה שקט לגמרי.
+
+לכן **היעדר שורה אינו הוכחה שאיש לא ניסה**. ב-9.9.2026 סוכן/ת ברובע יזרעאל
+לחץ/ה על הכפתור ולא קיבל/ה דבר; ב-`property_video_jobs` לא הייתה שום עדות,
+והראיה היחידה הייתה `POST | 500` ביומני ה-Edge Functions. הבדיקה הראשונה
+בתקלה כזו היא `function_logs`, לא הטבלה.
+
 ---
 
 ## סכמה
@@ -176,10 +188,10 @@ fal ──webhook──> property-video-callback ?job=&merge=1&token=
 |---|---|---|
 | `FAL_VIDEO_MODEL` | `fal-ai/kling-video/v2.5-turbo/pro/image-to-video` | ✅ אומת — מקבל `image_url` + `prompt` + `duration`. **`duration` הוא `"5"`/`"10"` בלבד**, ולכן קיים מסלול החיתוך |
 | `FAL_MERGE_MODEL` | `fal-ai/ffmpeg-api/merge-videos` | ✅ אומת בפרודקשן — מקבל `video_urls` |
-| `FAL_COMPOSE_MODEL` | `fal-ai/ffmpeg-api/compose` | ⚠️ **לא אומת עדיין** — ומשמש בכל הפקה כל עוד `clip_seconds < source_seconds` |
+| `FAL_COMPOSE_MODEL` | `fal-ai/ffmpeg-api/compose` | **אינו בצינור ההפקה.** נשאר רק כברירת המחדל של `mode=probe`, הכלי שבו נמדד שאין דרך לחתוך — ראו למטה |
 
 כולם נקראים מהסביבה בכוונה: החלפת מודל היא שינוי משתנה, לא פריסה מחדש.
-אם שם שדה בקלט שונה — `buildClipInput()` / `buildMergeInput()` / `buildComposeInput()`
+אם שם שדה בקלט שונה — `buildClipInput()` / `buildMergeInput()`
 ב-`_shared/property-video.ts` הן הפונקציות היחידות שצריך לגעת בהן.
 
 ### ⛔ אורך הסצנה — למה אי אפשר לקצר
