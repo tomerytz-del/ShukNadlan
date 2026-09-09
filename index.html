@@ -177,6 +177,18 @@
     position:sticky;top:0;z-index:100;background:var(--paper-raised);
     border-bottom:1px solid var(--line);
   }
+  /* ====== גלילה אל סקציה שלא נחתכת מאחורי הכותרת ======
+     ‏scrollIntoView(block:'start') מיישר את קצה היעד לקצה החלון, והכותרת
+     הדביקה יושבת שם ומכסה את ראשו: כותרת הסקציה, ובמצב מפוצל גם שורת
+     החיפוש עצמה. ‏scroll-margin-top הוא המענה של הדפדפן לזה — הוא מזיז את
+     נקודת העגינה של הגלילה מטה בגובה הכותרת, ולכן הוא חל על *כל* קריאת
+     גלילה אל היעד, גם כאלה שייכתבו בעתיד וגם קפיצה לעוגן ‎#id‎.
+
+     הגובה נכתב ל-‎--header-h‎ מהמדידה ב-syncHeaderHeight(): הוא 67px בנייד
+     ו-75px מ-1024px ומעלה, ולכן ערך קבוע היה נכון בדיוק ברוחב אחד. הערך
+     שכאן הוא נפילה לאחור לרגע שלפני שה-JS רץ. */
+  :root{--header-h:76px}
+  section,.lead-banner{scroll-margin-top:var(--header-h)}
   .header-inner{display:flex;align-items:center;justify-content:space-between;gap:10px;padding-block:10px}
   .logo{display:flex;align-items:center;gap:10px;min-width:0}
   /* לוגו האתר — סמל הבית והדלת. הקובץ רחב מעט מגובהו (512×436) ורקעו שקוף,
@@ -4309,6 +4321,30 @@
    blocked CDN (ad-blocker, corporate proxy, file:// restrictions)
    degrades to fallback content instead of breaking the whole page.
    ============================================================ */
+/* גובה הכותרת הדביקה, ל-‎--header-h‎ שממנו נגזר ה-scroll-margin-top של כל
+   סקציה (ראו את הכלל שליד header.site ב-CSS). נמדד ולא מקובע: הכותרת היא
+   67px בנייד ו-75px מ-1024px ומעלה, ולכן ערך קבוע היה נכון ברוחב אחד
+   ושגוי בשני. יושב כאן, בראש החיווט, כי הוא לא תלוי בשום CDN — גם דף
+   ש-Supabase ו-Leaflet לא עלו בו עדיין גולל נכון. */
+function syncHeaderHeight(){
+  const header = document.querySelector('header.site');
+  if (!header) return;
+  document.documentElement.style.setProperty(
+    '--header-h', Math.round(header.getBoundingClientRect().height) + 'px');
+}
+syncHeaderHeight();
+/* ‏ResizeObserver ולא אירוע resize: גובה הכותרת משתנה גם בלי שהחלון זז —
+   הגדלת הגופן בתפריט הנגישות שוברת את שם האתר לשתי שורות, והלוגו נטען
+   אחרי ה-HTML. מדידה שמחוברת לאלמנט עצמו תופסת את כל המקרים האלה מבלי
+   שכל אחד מהם יצטרך לזכור לקרוא לה. */
+if (window.ResizeObserver){
+  const header = document.querySelector('header.site');
+  if (header) new ResizeObserver(syncHeaderHeight).observe(header);
+} else {
+  addEventListener('resize', syncHeaderHeight);
+  addEventListener('load', syncHeaderHeight);
+}
+
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const OWNER_LEAD_FUNCTION_URL = SUPABASE_URL + '/functions/v1/owner-lead-intake';
@@ -6909,21 +6945,6 @@ const MAP_DRAW_COPY = {
   touch: 'גררו את המפה — הרשימה שמתחתיה מתעדכנת לפי מה שרואים',
 };
 
-/* גלילה אל ה-hero שמשאירה אותו *מתחת* לכותרת הדביקה, ולא מאחוריה.
-   ‏scrollIntoView(block:'start') מיישר את קצה הסקציה לקצה החלון, ו-header
-   דביק בגובה ~75px מסתיר בדיוק את מה שהלחיצה באה להראות: במצב מפוצל עמודת
-   החיפוש נצמדת לראש ה-hero (‏.hero-overlay הופך ל-display:block עם padding
-   מלמעלה), ולכן הכותרת ושורת החיפוש נחתכות מאחורי הכותרת הדביקה. הגובה
-   נמדד מה-DOM ולא מקובע, כי הוא משתנה בין רוחבי מסך. */
-function scrollHeroBelowHeader(){
-  const hero = document.getElementById('heroSection');
-  if (!hero) return;
-  const header = document.querySelector('header.site');
-  const offset = header ? header.getBoundingClientRect().height : 0;
-  const y = hero.getBoundingClientRect().top + window.scrollY - offset;
-  window.scrollTo({ top: Math.max(0, y), behavior:'smooth' });
-}
-
 /* נקראת בטעינה ושוב בכל מעבר מעל/מתחת לרף הדסקטופ (סיבוב טאבלט, שינוי
    גודל חלון). ההרכבה עצמה קורית פעם אחת — mapDraw שכבר קיים לא נבנה שוב
    ולא מאבד את הצורה שסומנה בו. */
@@ -6982,7 +7003,7 @@ function initMapDraw(){
   // שנמצא בו זה לצד זה. ‏setSplitView נקראת לפני startArea כדי ש-Leaflet
   // יקבל את הרוחב החדש (‏invalidateSize) לפני שמתחילים לצייר עליו.
   mapCta.addEventListener('click', ()=>{
-    scrollHeroBelowHeader();
+    document.getElementById('heroSection')?.scrollIntoView({ behavior:'smooth', block:'start' });
     if (!splitOn) setSplitView(true);
     mapDraw.startArea();
   });
