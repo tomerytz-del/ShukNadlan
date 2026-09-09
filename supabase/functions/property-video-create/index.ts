@@ -111,13 +111,34 @@ Deno.serve(async (req: Request) => {
   // ‏clipCount הוא **תקרה** ולא יעד: pickScenes לוקחת min(תמונות, התקרה), ולכן
   // נכס עם חמש תמונות מקבל חמש סצנות ולא נשאר עם תמונה שלא נכנסה לסרטון.
   //
-  // ‏clipSeconds ו-sourceSeconds אמורים להיות שווים — ראו askSeconds למטה
+  // ‏clipSeconds ו-sourceSeconds אמורים להיות שווים — ראו askSeconds מיד אחריהם
   // ואת המיגרציה 20261006090000. ‏Math.round הוסר מ-clipSeconds בכוונה:
   // הוא היה מעגל ערך שברירי בשקט.
   const clipCount = Math.max(1, Math.round(await pricing(supabase, "property_video_clip_count", 5)));
   const clipSeconds = Math.max(0.5, await pricing(supabase, "property_video_clip_seconds", 5));
   const sourceSeconds = Math.max(clipSeconds, await pricing(supabase, "property_video_source_seconds", 5));
   const minClips = Math.max(1, Math.round(await pricing(supabase, "property_video_min_clips", 2)));
+
+  // ---- באיזה אורך מבקשים -------------------------------------------------
+  // **אורך אחד בלבד, כי אין דרך לקצר קליף אחרי שנוצר.**
+  //
+  // שתי הנחות נוסו כאן ושתיהן הופרכו מול ה-API החי:
+  //
+  //   1. "אפשר לבקש מ-Kling 2.5 שניות" — הבקשה מתקבלת עם ‎200‎ ונכשלת מאוחר
+  //      יותר ב-‎422‎ דרך ה-webhook. עשרה קליפים, שתי בקשות, אפס תוצרים.
+  //   2. "אפשר לייצר 5 שניות ולחתוך במיזוג" — ‏compose מתעלם מ-‎duration‎,
+  //      מ-‎timestamp‎ ומ-‎start_from‎, ומשרשר קליפים שלמים. ‏‎/trim‎, ‎/cut‎,
+  //      ‎/split‎ ו-‎/speed‎ אינם קיימים (404).
+  //
+  // לכן ‎clip_seconds‎ חייב להיות שווה ל-‎source_seconds‎. ערך קטן יותר לא
+  // היה מתממש — הוא רק היה גורם למערכת להבטיח סרטון קצר ולספק ארוך, בלי
+  // שום שגיאה שתסגיר את זה. ‏Math.max שומר על השוויון גם אם מישהו יוריד את
+  // הערך ב-pricing_config בלי לקרוא את התיעוד.
+  //
+  // ‏**ההצהרה יושבת כאן ולא ליד לולאת השליחה** — ‎start_property_video_job‎
+  // מקבלת אותה כ-‎p_clip_seconds‎ הרבה לפני שהקליפים נשלחים. הצהרה מאוחרת
+  // יותר הפילה כל בקשה ב-‎ReferenceError‎ עוד לפני שנפתחה שורת בקשה.
+  const askSeconds = Math.max(clipSeconds, sourceSeconds);
 
   // ---- אילו תמונות -------------------------------------------------------
   // הסיווג הקיים (‎property_image_tags‎) הוא מה שמאפשר סדר של מודעה: חוץ,
@@ -190,23 +211,6 @@ Deno.serve(async (req: Request) => {
   const base = callbackBase();
   let submitted = 0;
   const failures: string[] = [];
-
-  // ---- באיזה אורך מבקשים -------------------------------------------------
-  // **אורך אחד בלבד, כי אין דרך לקצר קליף אחרי שנוצר.**
-  //
-  // שתי הנחות נוסו כאן ושתיהן הופרכו מול ה-API החי:
-  //
-  //   1. "אפשר לבקש מ-Kling 2.5 שניות" — הבקשה מתקבלת עם ‎200‎ ונכשלת מאוחר
-  //      יותר ב-‎422‎ דרך ה-webhook. עשרה קליפים, שתי בקשות, אפס תוצרים.
-  //   2. "אפשר לייצר 5 שניות ולחתוך במיזוג" — ‏compose מתעלם מ-‎duration‎,
-  //      מ-‎timestamp‎ ומ-‎start_from‎, ומשרשר קליפים שלמים. ‏‎/trim‎, ‎/cut‎,
-  //      ‎/split‎ ו-‎/speed‎ אינם קיימים (404).
-  //
-  // לכן ‎clip_seconds‎ חייב להיות שווה ל-‎source_seconds‎. ערך קטן יותר לא
-  // היה מתממש — הוא רק היה גורם למערכת להבטיח סרטון קצר ולספק ארוך, בלי
-  // שום שגיאה שתסגיר את זה. ‏Math.max שומר על השוויון גם אם מישהו יוריד את
-  // הערך ב-pricing_config בלי לקרוא את התיעוד.
-  const askSeconds = Math.max(clipSeconds, sourceSeconds);
 
   for (const clip of insertedClips ?? []) {
     const hook = `${base}?token=${encodeURIComponent(webhookToken)}&job=${jobId}&clip=${clip.id}`;
