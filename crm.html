@@ -164,6 +164,42 @@
   .acc-body>:last-child{margin-bottom:0}
   .acc-sub{font-size:.8rem;color:var(--ink-soft);margin:0 0 12px}
 
+  /* ---------- אזור הסכנה: סגירת חשבון ----------
+     האדום כאן אינו קישוט. הקטגוריה הזו יושבת ברשימה אחת עם "עדכון פרטים"
+     ו"ניהול התראות", וכל השאר בה נראה אותו דבר בדיוק; בלי הבדל ויזואלי,
+     הפעולה שאין ממנה חזרה נראית כמו עוד טופס שמירה. הצבעים כתובים כאן
+     במפורש ולא כמשתני מותג, כי המשתנים של הדשבורד ושל שאר הדף שונים
+     ואדום צריך להיראות אותו דבר בשניהם. */
+  .acc-danger{border-color:#e7c3c3}
+  .acc-danger>summary{color:#b42318}
+  #dashboard .acc-danger{border-color:#e7c3c3}
+  #dashboard .acc-danger>summary{color:#b42318}
+  .acc-danger .acc-chev{color:#b42318}
+  .danger-zone{border:1.5px solid #e7c3c3;background:#fdf5f4;border-radius:var(--radius-sm);padding:13px 15px;margin-bottom:12px}
+  .danger-zone.dz-money{border-color:#e5c76a;background:#f9f4e6}
+  .danger-zone.dz-block{border-color:#d9a441;background:#fbf3e3}
+  .dz-h{margin:0 0 7px;font-weight:800;font-size:.86rem;color:#7a271a}
+  .dz-money .dz-h,.dz-block .dz-h{color:#7a5300}
+  .dz-p{margin:0 0 7px;font-size:.82rem;line-height:1.65;color:#4a4340}
+  .dz-p:last-child{margin-bottom:0}
+  .dz-fine{margin:8px 0 0;font-size:.74rem;line-height:1.6;color:#6b625d}
+  .dz-list{margin:0;padding-inline-start:18px;font-size:.82rem;line-height:1.75;color:#4a4340}
+  .danger-pending{border:1.5px solid #d9a441;background:#fbf3e3;border-radius:var(--radius-sm);padding:13px 15px}
+  .danger-pending[hidden]{display:none}
+  .btn-danger{background:#b42318;color:#fff;border:1.5px solid #b42318}
+  .btn-danger:hover{background:#912018;border-color:#912018}
+  .btn-danger:disabled{opacity:.5;cursor:not-allowed}
+
+  /* שני שלבי האישור חיים באותו חלון ומתחלפים בו. שלב אחד = מסך אחד:
+     תיבת סימון ואז הקלדה, ולעולם לא שניהם יחד — אחרת "אישור כפול" הוא רק
+     שני שדות בטופס אחד, ולוחצים עליהם ברצף בלי לעצור. */
+  .ca-step[hidden]{display:none}
+  .ca-confirm-input{width:100%;padding:11px 13px;border:1.5px solid var(--line);border-radius:var(--radius-sm);
+    font-size:1rem;font-weight:700;text-align:center;letter-spacing:.02em}
+  .ca-confirm-input:focus{outline:2px solid #b42318;outline-offset:-1px}
+  .ca-phrase{display:inline-block;background:#fdf5f4;border:1px solid #e7c3c3;border-radius:6px;
+    padding:1px 8px;font-weight:800;color:#b42318}
+
   /* ---------- ניהול מנויים (מנהל/ת פלטפורמה) ----------
      תמונת המצב היא שש מספרים ולא גרף: השאלה כאן היא "כמה, ומה דחוף",
      ושישה מספרים בשורה עונים עליה מהר יותר מכל ויזואליזציה. */
@@ -2730,6 +2766,24 @@
     <button type="button" class="btn btn-ghost btn-block" id="relLogoutBtn" style="margin-top:12px">יציאה</button>
   </div>
 
+  <!-- ---------- חשבון סגור ----------
+       מי שסגר/ה את החשבון בעצמו/ה ומתחבר/ת שוב. המסך הזה לא מנסה להחזיר
+       אותו/ה: הוא מאשר שמה שביקשו קרה, אומר מה כן נשאר (בקשת ההחזר, אם
+       נפתחה), ונותן קצה חוט אחד — טלפון לתמיכה. פתיחה מחדש היא לא פעולה
+       של לחיצה: המודעות אורכבו, הדף הוסר מהאינדקס וההחזר כבר בדרך. -->
+  <div class="card login-card" id="closedScreen" style="display:none">
+    <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
+    <h1>החשבון נסגר</h1>
+    <p class="sub">סגרת את החשבון ב-<b id="closedDate">—</b>. דף הסוכן/ת והמודעות ירדו מהאוויר, ואנחנו לא פונים אליך יותר.</p>
+    <div style="background:#fdf5f4;border:1.5px solid #e7c3c3;border-radius:var(--radius-sm);padding:13px 15px;margin-bottom:16px;font-size:.84rem;line-height:1.65;text-align:right">
+      <span id="closedRefundNote"></span>
+      רוצה לחזור? זה אפשרי, אבל לא בלחיצה — צריך לפתוח את החשבון מחדש מולנו.
+      התמיכה זמינה בטלפון <a href="tel:+972546929991" dir="ltr" style="color:var(--teal);font-weight:700">054-6929991</a>.
+    </div>
+    <a class="btn btn-gold btn-block" href="index.html" style="justify-content:center">חזרה לדף הבית</a>
+    <button type="button" class="btn btn-ghost btn-block" id="closedLogoutBtn" style="margin-top:12px">יציאה</button>
+  </div>
+
   <div class="card login-card" id="createAgencyScreen" style="display:none">
     <div class="logo"><a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a></div>
     <h1 id="caTitle">ברוך/ה הבא/ה!</h1>
@@ -4587,6 +4641,70 @@
       </div>
     </details>
 
+    <!-- ---------- סגירת החשבון ----------
+         הקטגוריה האחרונה ב"הגדרות חשבון", ובכוונה: זו הפעולה שאין ממנה
+         חזרה, והיא לא צריכה להיות שכנה של "שמירת הפרטים".
+
+         שלושה דברים שהמקטע הזה חייב לומר לפני שנוגעים בכפתור, ולכן הם
+         כתובים כאן ולא בדיאלוג בלבד: מה יורד מהאוויר (הדף והמודעות), מה
+         חוזר (יתרת הארנק שנטענה ולא מומשה — ורק היא), ומתי זה קורה (מיד,
+         או בסוף תקופת החיוב למי שבמנוי חודשי). ‏loadClosureSection ממלא/ת
+         את שלושתם מהשרת, כי כל אחד מהם תלוי בחשבון עצמו.
+
+         הכפתור אינו סוגר כלום. הוא פותח את האישור הכפול (closeAccountModal),
+         ושם — סימון הבנה ואז הקלדת "סגירת חשבון" במלואו. -->
+    <details class="acc acc-danger" id="accCloseAccount">
+      <summary>
+        <span class="acc-title">סגירת החשבון והפסקת ההתקשרות</span>
+        <span class="acc-count" id="accCloseAccountCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">כאן אפשר לסגור את החשבון, להוריד את דף הסוכן/ת מהאוויר ולהפסיק כל פנייה מאיתנו. זו פעולה שאין ממנה חזרה, ולכן היא דורשת שני אישורים.</p>
+
+        <!-- בקשה שכבר נרשמה ועדיין לא נכנסה לתוקף. מוצג במקום כפתור הסגירה. -->
+        <div class="danger-pending" id="closurePending" hidden>
+          <p class="dz-h" id="closurePendingTitle">בקשת הסגירה נרשמה</p>
+          <p class="dz-p" id="closurePendingBody"></p>
+          <button type="button" class="btn btn-ghost btn-block" id="closureCancelBtn">ביטול בקשת הסגירה — אני נשאר/ת</button>
+        </div>
+
+        <div id="closureOffer">
+          <div class="danger-zone">
+            <p class="dz-h">מה קורה כשסוגרים</p>
+            <ul class="dz-list">
+              <li><b>דף הסוכן/ת יורד מהאוויר</b> — גם הכרטיס בספריית המתווכים וגם הנוכחות בדף המשרד.</li>
+              <li><b>כל המודעות הפעילות יורדות</b> מהאתר ומהחיפוש (<span id="closureProps">—</span>).</li>
+              <li><b>מפסיקים לפנות אליך</b> — אין עוד לידים, התראות, מיילים או הודעות מהמערכת, והמייל שלך יוצא מרשימת התפוצה.</li>
+              <li><b>הכניסה לאיזור הסוכנים נסגרת.</b> הנתונים נשמרים אצלנו לפי מדיניות הפרטיות, אבל אינם נגישים לך מהמסך.</li>
+            </ul>
+          </div>
+
+          <div class="danger-zone dz-money">
+            <p class="dz-h">הכסף</p>
+            <p class="dz-p" id="closureMoney">—</p>
+            <p class="dz-fine">הזיכוי היחיד הוא יתרת הארנק שנטענה ולא מומשה. אין זיכוי יחסי על דמי מנוי באמצע חודש; למי שבמנוי חודשי ההתקשרות נפסקת בתום תקופת החיוב ששולמה.</p>
+          </div>
+
+          <!-- חסם: מנהל/ת אחרון/ה במשרד שיש בו עוד סוכנים פעילים. מוצג
+               במקום הכפתור, עם הדרך קדימה ומספר התמיכה. -->
+          <div class="danger-zone dz-block" id="closureBlocked" hidden>
+            <p class="dz-h">אי אפשר לסגור עדיין</p>
+            <p class="dz-p">את/ה המנהל/ת הפעיל/ה היחיד/ה במשרד, ויש בו עוד סוכנים. משרד בלי מנהל/ת הוא משרד נעול — אי אפשר להוסיף אליו סוכנים, לאשר בקשות שיוך או לערוך את המיתוג שלו.</p>
+            <p class="dz-p">כדי להמשיך: למנות מנהל/ת נוסף/ת ב"צוות המשרד", או לשחרר את הסוכנים שנותרו. לעזרה אפשר לפנות לתמיכה בטלפון <a href="tel:+972546929991" dir="ltr">054-6929991</a>.</p>
+          </div>
+
+          <div class="field" id="closureReasonField">
+            <label for="closureReason">למה סוגרים? (רשות)</label>
+            <textarea id="closureReason" rows="2" maxlength="500" placeholder="מה גרם להחלטה. זה לא מעכב כלום — אנחנו רק רוצים ללמוד."></textarea>
+          </div>
+
+          <button type="button" class="btn btn-block btn-danger" id="closeAccountBtn">סגירת החשבון והפסקת ההתקשרות</button>
+        </div>
+        <div id="closureFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+      </div>
+    </details>
+
     <!-- ---------- דוחות וביצועים ----------
          גרף מגמת העמלות ישב עד היום בדף הבית, בין הפעולות המהירות למדדי
          המשנה. הוא נשאר אותו גרף בדיוק (renderCommissionTrend כותב לאותם
@@ -4755,6 +4873,52 @@
     <div class="pm-actions">
       <button type="button" class="btn btn-ghost" id="pmCancel">ביטול</button>
       <button type="button" class="btn btn-gold" id="pmConfirm">אישור וחיוב</button>
+    </div>
+  </div>
+</div>
+
+<!-- ---------- האישור הכפול לסגירת חשבון ----------
+     שני שלבים, ולא שני כפתורים זה מתחת לזה. השלב הראשון הוא ההבנה: מה
+     בדיוק יורד ומה חוזר, מסוכם שוב במספרים של החשבון הזה, מאחורי תיבת
+     סימון. השלב השני הוא הכוונה: הקלדה מלאה של "סגירת חשבון". הקלדה היא
+     המחסום שלחיצה כפולה מהירה לא עוברת, ולכן היא זו שפותחת את הכפתור
+     האדום — ולא עוד "אישור" שנמצא במקום שבו האצבע כבר נמצאת. -->
+<div class="pm-overlay" id="closeAccountModal" role="dialog" aria-modal="true" aria-labelledby="caModalTitle" style="display:none">
+  <div class="pm-card">
+    <div class="pm-title" id="caModalTitle">סגירת החשבון</div>
+
+    <div class="ca-step" id="caStep1">
+      <div class="danger-zone">
+        <p class="dz-h">אחרי האישור, מיד:</p>
+        <ul class="dz-list" id="caStep1List"></ul>
+      </div>
+      <div class="danger-zone dz-money">
+        <p class="dz-h">הכסף</p>
+        <p class="dz-p" id="caStep1Money">—</p>
+      </div>
+      <label class="pm-ack">
+        <input type="checkbox" id="caAck">
+        <span>קראתי והבנתי. אני מבקש/ת לסגור את החשבון ולהפסיק את ההתקשרות.</span>
+      </label>
+      <div class="pm-actions">
+        <button type="button" class="btn btn-ghost" id="caCancel1">ביטול</button>
+        <button type="button" class="btn btn-danger" id="caNext" disabled>המשך לאישור האחרון</button>
+      </div>
+    </div>
+
+    <div class="ca-step" id="caStep2" hidden>
+      <p class="pm-body" style="margin-bottom:12px">
+        זה האישור האחרון. כדי לוודא שזו לא לחיצה בטעות, הקלידו
+        <span class="ca-phrase">סגירת חשבון</span> בשדה שלמטה.
+      </p>
+      <input type="text" class="ca-confirm-input" id="caPhrase" autocomplete="off"
+             autocorrect="off" spellcheck="false" aria-label="הקלדת המילים סגירת חשבון לאישור">
+      <p class="dz-fine" id="caStep2Note"></p>
+      <div id="caModalFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
+      <div class="pm-actions">
+        <button type="button" class="btn btn-ghost" id="caBack">חזרה</button>
+        <button type="button" class="btn btn-danger" id="caConfirm" disabled>סגירת החשבון</button>
+      </div>
     </div>
   </div>
 </div>
@@ -5312,6 +5476,7 @@ const SCREEN_CARDS = {
   identify:     'identifyScreen',
   claimPending: 'claimPendingScreen',
   released:     'releasedScreen',
+  closed:       'closedScreen',
   createAgency: 'createAgencyScreen',
   loadError:    'loadErrorScreen',
   ethicsGate:   'ethicsGateScreen',
@@ -5683,6 +5848,32 @@ document.getElementById('relLogoutBtn').addEventListener('click', async ()=>{
   await sb.auth.signOut(); routedUserId = null; releasedAgent = null; showLoginCard();
 });
 
+/* ---------- חשבון סגור ----------
+   נקרא/ת מ-loadDashboard לפני כל שער אחר שאחרי הניתוק. אין מכאן המשך:
+   הכניסה נגמרת במסך הזה. */
+function showClosedScreen(agent){
+  document.getElementById('closedDate').textContent = hebDate(agent.closed_at);
+  showScreen('closed');
+  // בקשת ההחזר, אם נפתחה, היא הדבר היחיד שעוד "רץ" אחרי הסגירה — ולכן היא
+  // הדבר היחיד שהמסך הזה טורח לשלוף מהשרת.
+  const note = document.getElementById('closedRefundNote');
+  note.textContent = '';
+  sb.from('wallet_refunds')
+    .select('amount, status').eq('agent_id', agent.id)
+    .in('status', ['requested','completed'])
+    .order('requested_at', { ascending:false }).limit(1).maybeSingle()
+    .then(({ data })=>{
+      if (!data) return;
+      note.textContent = data.status === 'completed'
+        ? 'ההחזר על יתרת הארנק (' + shekel(data.amount) + ') בוצע. '
+        : 'בקשת ההחזר על יתרת הארנק (' + shekel(data.amount) + ') נפתחה ומטופלת. ';
+    })
+    .catch(()=>{ /* המסך עומד גם בלי השורה הזו */ });
+}
+document.getElementById('closedLogoutBtn').addEventListener('click', async ()=>{
+  await sb.auth.signOut(); routedUserId = null; showLoginCard();
+});
+
 /* ---------- זיהוי חשבון שאין לו כרטיס משויך ----------
    נקודה אחת שמפרידה בין "אין לך משרד" לבין "יש לך כרטיס, הוא פשוט לא מחובר".
    הבירור עצמו נעשה ב-join-agency, כי הוא דורש service role: השוואה מול כרטיסים
@@ -5905,9 +6096,13 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // page_bg: אם המיגרציה עוד לא רצה, ה-fallback למטה טוען את הפרופיל בלעדיהן
   // והדשבורד נפתח כרגיל — בלי שער בחירת מסלול ובלי באנר הטבה.
   const TIER_FIELDS = 'tier_selected_at, tier_source, pending_tier_change, promo_tier, promo_started_at, promo_ends_at, promo_ended_at';
+  // עמודות סגירת החשבון נוספו במיגרציה 20261018090000, ולכן הן נוסעות באותו
+  // סל סובלני: סביבה שהמיגרציה עוד לא רצה בה נכנסת לדשבורד בלי מקטע הסגירה,
+  // ולא נתקעת במסך שגיאה.
+  const CLOSURE_FIELDS = 'closure_requested_at, closure_effective_at, closed_at';
   let { data: agent, error: agentErr } = await sb
     .from('agency_members')
-    .select(AGENT_FIELDS + ', page_bg, id_number, ' + TIER_FIELDS)
+    .select(AGENT_FIELDS + ', page_bg, id_number, ' + TIER_FIELDS + ', ' + CLOSURE_FIELDS)
     .eq('user_id', user.id)
     .maybeSingle();
 
@@ -5915,7 +6110,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // ‏PostgREST מפיל את *כל* השאילתה על עמודה חסרה, וזו השאילתה שפותחת את
   // הדשבורד — ולכן סביבה שהמיגרציה עוד לא רצה בה נכנסת בלעדיה, ובחירת
   // הרקע פשוט לא מוצגת. ראו supabase/migrations/20260914091000_page_background.sql.
-  if (agentErr && /page_bg|id_number|promo_|tier_selected_at|tier_source/.test(agentErr.message || '')){
+  if (agentErr && /page_bg|id_number|promo_|tier_selected_at|tier_source|closure_|closed_at/.test(agentErr.message || '')){
     console.warn('עמודה שנוספה במיגרציה מאוחרת עוד לא קיימת — נטען הפרופיל בלעדיה:', agentErr);
     ({ data: agent, error: agentErr } = await sb
       .from('agency_members').select(AGENT_FIELDS).eq('user_id', user.id).maybeSingle());
@@ -5946,6 +6141,11 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // ניתוק מהמשרד קודם לכל השאר, ובפרט לשער הקוד האתי: מי שכבר לא במשרד לא
   // אמור/ה להתבקש לחתום על משהו בשמו לפני שהוא/היא בכלל יודע/ת שהושעה/תה.
   if (agent.released_at){ showReleasedScreen(agent, agencyName); return; }
+
+  // חשבון שנסגר ביוזמת הסוכן/ת. אחרי בדיקת הניתוק ולא לפניה: מי שהושעה/תה
+  // **וגם** סגר/ה צריך/ה לראות קודם שהוא/היא מחוץ למשרד — זו ההודעה
+  // שמסבירה את הכפתור "פתיחת משרד". מכאן אין המשך לדשבורד.
+  if (agent.closed_at){ showClosedScreen(agent); return; }
 
   currentAgent = agent;
 
@@ -5980,6 +6180,9 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   probeTopupMode();
   handleTopupReturn();
   refreshRefundSection();
+  // מקטע הסגירה נטען ברקע כמו שאר מקטעי ההגדרות: הוא לא על המסך הראשון,
+  // והמצב שבו הוא תלוי (בקשה פתוחה, חסם, סכום להחזר) מגיע מהשרת.
+  loadClosureSection().catch(err => console.warn('טעינת מקטע סגירת החשבון נכשלה:', err));
 
   // המחירים נטענים לפני הלידים, כי דיאלוג האישור מציג את הסכום שייגבה בפועל
   await loadPricing();
@@ -8767,6 +8970,238 @@ document.getElementById('refundCancelBtn').addEventListener('click', async ()=>{
     feedback.style.color = 'var(--red)';
     feedback.textContent = 'שגיאת רשת — נסו שוב';
   }
+});
+
+/* ============================================================================
+   סגירת החשבון והפסקת ההתקשרות
+   ============================================================================
+   המקטע כאן לא מחליט כלום — כל מה שהוא מציג מגיע מ-close-account בפעולת
+   ‏preview, כי כל שורה בו תלויה בחשבון עצמו: כמה מודעות ירדו, כמה כסף
+   יוחזר, מאיזה תאריך, ומה (אם בכלל) חוסם. מסך שמבקש אישור על "מה שיקרה"
+   ומנחש את מה שיקרה הוא לא אישור.
+
+   שני האישורים אינם שני כפתורים: הראשון הוא סימון הבנה, והשני הוא הקלדה
+   מלאה של "סגירת חשבון". ההקלדה נבדקת שוב בשרת — נקודת קצה שסוגרת חשבון
+   בקריאה אחת מסקריפט מבטלת את כל מה שהחלון הזה בא לעשות.
+   ============================================================================ */
+
+const CLOSE_PHRASE = 'סגירת חשבון';
+let closureSummary = null;
+
+async function callCloseAccount(payload){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return { ok:false, data:{ error:'no_session' } };
+  const res = await fetch(SUPABASE_URL + '/functions/v1/close-account', {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+    body: JSON.stringify(payload),
+  });
+  let data = {};
+  try { data = await res.json(); } catch(_){ /* ראו callJoinAgency */ }
+  return { ok: res.ok && !data.error, data };
+}
+
+/* המשפט על הכסף. הוא נבנה פעם אחת ומוצג בשני מקומות — במקטע ובדיאלוג —
+   כי אלה בדיוק אותם נתונים, ושתי גרסאות של אותו משפט הן שתי הזדמנויות
+   לסתור זו את זו. */
+function closureMoneyText(s){
+  const parts = [];
+  if (s.refund_already_open != null){
+    parts.push('כבר יש בקשת החזר פתוחה על ' + shekel(s.refund_already_open) + ', והיא ממשיכה כרגיל.');
+  } else if (s.refundable > 0){
+    parts.push('יתרת הארנק שנטענה ולא מומשה — ' + shekel(s.refundable) + ' — תיפתח אוטומטית כבקשת החזר.');
+  } else if (s.credit_balance > 0){
+    parts.push('בארנק יש ' + shekel(s.credit_balance) + ', אבל אין מזה סכום שנטען בתשלום וטרם מומש, ולכן אין מה להחזיר.');
+  } else {
+    parts.push('אין יתרה בארנק, ולכן אין החזר.');
+  }
+  if (s.subscription_until){
+    parts.push('את/ה במנוי חודשי ששולם עד ' + hebDate(s.subscription_until) +
+               '. אין זיכוי יחסי על החודש שכבר שולם, ולכן ההתקשרות נפסקת בתאריך הזה — ועד אז הכול ממשיך לעבוד כרגיל.');
+  } else {
+    parts.push('אינך במנוי חודשי בתשלום, ולכן הסגירה נכנסת לתוקף מיד.');
+  }
+  return parts.join(' ');
+}
+
+async function loadClosureSection(){
+  const acc = document.getElementById('accCloseAccount');
+  if (!acc) return;
+  const { ok, data } = await callCloseAccount({ action:'preview' });
+  // הפונקציה עוד לא פרוסה, או שהמיגרציה עוד לא רצה. הקטגוריה יורדת מהמסך
+  // במקום להציג "סגירת חשבון" שלא תעבוד — ראו את אותה דוקטרינה ב-page_bg.
+  // ‏style.display ולא hidden: זה מה ש-navAccVisible בודק, וקטגוריה שירדה
+  // מהעמוד צריכה לרדת גם משלושת הניווטים.
+  if (!ok || !data.summary){
+    acc.style.display = 'none';
+    refreshNavCounts();
+    return;
+  }
+  acc.style.display = '';
+
+  const s = data.summary;
+  closureSummary = s;
+
+  const pending  = document.getElementById('closurePending');
+  const offer    = document.getElementById('closureOffer');
+  const blocked  = document.getElementById('closureBlocked');
+  const isPending = !!s.closure_requested_at && !s.closed_at;
+
+  pending.hidden = !isPending;
+  offer.hidden   = isPending;
+
+  if (isPending){
+    const due = new Date(s.closure_effective_at);
+    const overdue = !isNaN(due.getTime()) && due.getTime() <= Date.now();
+    document.getElementById('closurePendingTitle').textContent =
+      overdue ? 'הסגירה ממתינה להשלמה' : 'בקשת הסגירה נרשמה';
+    document.getElementById('closurePendingBody').textContent = overdue
+      // המועד עבר והשורה עדיין פתוחה — כמעט תמיד החסם של מנהל/ת אחרון/ה.
+      ? 'המועד שנקבע (' + hebDate(s.closure_effective_at) + ') כבר עבר, והסגירה עדיין לא הושלמה. '
+        + 'ברוב המקרים הסיבה היא שאת/ה המנהל/ת הפעיל/ה היחיד/ה במשרד ויש בו עוד סוכנים — '
+        + 'מינוי מנהל/ת נוסף/ת ב"צוות המשרד" משחרר את זה. לעזרה: 054-6929991.'
+      : 'החשבון ייסגר ב-' + hebDate(s.closure_effective_at) + ' — בתום תקופת החיוב ששולמה. '
+        + 'עד אז הדף, המודעות והלידים ממשיכים כרגיל, ואפשר לבטל את הבקשה.';
+    accSetCount('accCloseAccount', 'בקשה פתוחה');
+    return;
+  }
+
+  accSetCount('accCloseAccount', '');
+  blocked.hidden = s.blocker !== 'last_manager';
+  document.getElementById('closeAccountBtn').disabled = !!s.blocker;
+  document.getElementById('closureProps').textContent =
+    s.active_properties === 0 ? 'אין כרגע מודעות פעילות'
+    : s.active_properties === 1 ? 'מודעה פעילה אחת'
+    : s.active_properties + ' מודעות פעילות';
+  document.getElementById('closureMoney').textContent = closureMoneyText(s);
+}
+
+/* ---------- האישור הכפול ---------- */
+const caModal = document.getElementById('closeAccountModal');
+
+function closeCaModal(){
+  caModal.style.display = 'none';
+  document.getElementById('caStep1').hidden = false;
+  document.getElementById('caStep2').hidden = true;
+  document.getElementById('caAck').checked = false;
+  document.getElementById('caNext').disabled = true;
+  document.getElementById('caPhrase').value = '';
+  document.getElementById('caConfirm').disabled = true;
+  document.getElementById('caModalFeedback').textContent = '';
+}
+
+document.getElementById('closeAccountBtn').addEventListener('click', async ()=>{
+  const feedback = document.getElementById('closureFeedback');
+  feedback.textContent = '';
+  // המצב נקרא מחדש לפני הפתיחה: המסך יכול להיות פתוח מאז הבוקר, ובינתיים
+  // נטענו לידים, נוספו סוכנים למשרד או ירדה מודעה.
+  await loadClosureSection();
+  const s = closureSummary;
+  if (!s) return;
+  // בקשה נפתחה בינתיים (טאב אחר, מכשיר אחר) — המקטע כבר עבר למצב "ממתין",
+  // ואין מה לאשר שוב.
+  if (s.closure_requested_at || s.closed_at) return;
+  if (s.blocker){
+    feedback.style.color = '#b42318';
+    feedback.textContent = s.blocker === 'last_manager'
+      ? 'אי אפשר לסגור כל עוד את/ה המנהל/ת היחיד/ה במשרד עם סוכנים פעילים.'
+      : 'לא ניתן לסגור את החשבון כרגע.';
+    return;
+  }
+
+  const list = document.getElementById('caStep1List');
+  list.textContent = '';
+  [
+    'דף הסוכן/ת שלך יורד מהאוויר, וגם הכרטיס שלך בספריית המתווכים.',
+    s.active_properties > 0
+      ? String(s.active_properties) + ' מודעות פעילות יורדות מהאתר ומהחיפוש.'
+      : 'אין כרגע מודעות פעילות שיירדו.',
+    'לא נשלחות אליך יותר פניות, התראות או מיילים, והמייל שלך יוצא מרשימת התפוצה.',
+    'הכניסה לאיזור הסוכנים נסגרת. אין לזה כפתור חזרה.',
+  ].forEach(text=>{
+    const li = document.createElement('li');
+    li.textContent = text;
+    list.appendChild(li);
+  });
+  document.getElementById('caStep1Money').textContent = closureMoneyText(s);
+  document.getElementById('caStep2Note').textContent = s.subscription_until
+    ? 'לאחר האישור הבקשה תירשם, והסגירה תבוצע ב-' + hebDate(s.subscription_until) + '. עד אז אפשר לבטל אותה מכאן.'
+    : 'לאחר האישור הסגירה מתבצעת מיד.';
+  document.getElementById('caConfirm').textContent =
+    s.subscription_until ? 'רישום בקשת הסגירה' : 'סגירת החשבון';
+
+  caModal.style.display = 'flex';
+  document.getElementById('caAck').focus();
+});
+
+document.getElementById('caAck').addEventListener('change', e=>{
+  document.getElementById('caNext').disabled = !e.target.checked;
+});
+document.getElementById('caNext').addEventListener('click', ()=>{
+  document.getElementById('caStep1').hidden = true;
+  document.getElementById('caStep2').hidden = false;
+  document.getElementById('caPhrase').focus();
+});
+document.getElementById('caBack').addEventListener('click', ()=>{
+  document.getElementById('caStep2').hidden = true;
+  document.getElementById('caStep1').hidden = false;
+});
+document.getElementById('caPhrase').addEventListener('input', e=>{
+  document.getElementById('caConfirm').disabled = e.target.value.trim() !== CLOSE_PHRASE;
+});
+document.getElementById('caCancel1').addEventListener('click', closeCaModal);
+caModal.addEventListener('click', e=>{ if (e.target === caModal) closeCaModal(); });
+document.addEventListener('keydown', e=>{
+  if (e.key === 'Escape' && caModal.style.display !== 'none') closeCaModal();
+});
+
+document.getElementById('caConfirm').addEventListener('click', async ()=>{
+  const btn = document.getElementById('caConfirm');
+  const modalFeedback = document.getElementById('caModalFeedback');
+  btn.disabled = true;
+  modalFeedback.style.color = 'var(--ink-soft)';
+  modalFeedback.textContent = 'סוגרים…';
+
+  const { ok, data } = await callCloseAccount({
+    action: 'request',
+    confirm: CLOSE_PHRASE,
+    reason: (document.getElementById('closureReason').value || '').trim() || null,
+  });
+
+  if (!ok){
+    modalFeedback.style.color = '#b42318';
+    modalFeedback.textContent = data.error === 'last_manager'
+      ? 'אי אפשר לסגור כל עוד את/ה המנהל/ת היחיד/ה במשרד עם סוכנים פעילים. לעזרה: 054-6929991'
+      : data.error === 'closure_already_requested' ? 'כבר קיימת בקשת סגירה פתוחה.'
+      : data.error === 'already_closed' ? 'החשבון כבר סגור.'
+      : 'הפעולה נכשלה. אפשר לנסות שוב, או לפנות לתמיכה: 054-6929991';
+    btn.disabled = false;
+    return;
+  }
+
+  closeCaModal();
+  // סגירה מיידית: אין למה לחזור בדשבורד — טוענים מחדש, ו-loadDashboard
+  // ינחית על מסך "החשבון נסגר". סגירה מתוזמנת: רק מרעננים את המקטע.
+  if (data.closed) location.reload();
+  else await loadClosureSection();
+});
+
+document.getElementById('closureCancelBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('closureCancelBtn');
+  const feedback = document.getElementById('closureFeedback');
+  btn.disabled = true;
+  const { ok, data } = await callCloseAccount({ action:'cancel' });
+  btn.disabled = false;
+  if (!ok){
+    feedback.style.color = '#b42318';
+    feedback.textContent = data.error === 'already_closed'
+      ? 'החשבון כבר נסגר ואי אפשר לבטל מכאן. התמיכה: 054-6929991'
+      : 'ביטול הבקשה נכשל — אפשר לנסות שוב.';
+    return;
+  }
+  feedback.style.color = '#1c6b4a';
+  feedback.textContent = 'בקשת הסגירה בוטלה. החשבון ממשיך כרגיל.';
+  await loadClosureSection();
 });
 
 /* ---------- תור בקשות ההחזר (מנהל/ת פלטפורמה) ----------
@@ -17450,6 +17885,9 @@ const NAV_GROUPS = [
     { acc:'accNotifPrefs',    label:'ניהול התראות',      icon:'bell',     tab:'more' },
     { acc:'accSharePartners', label:'משרדי שיתוף פעולה', icon:'handshake',tab:'more' },
     { acc:'accWhatsapp',      label:'נכסים בוואטסאפ',    icon:'chat',     tab:'more' },
+    /* אחרון בקבוצה, ובכוונה: הדרך החוצה קיימת ואינה מוסתרת, אבל היא גם לא
+       שכנה של פעולה שעושים כל יום. */
+    { acc:'accCloseAccount',  label:'סגירת החשבון',      icon:'alert',    tab:'more' },
   ]},
   /* כלי הפלטפורמה יושבים בקבוצה משלהם ומופיעים אך ורק בתצוגת מנהל/ת. זו כל
      הנקודה: הם עבודה של תפקיד אחר, ולא היה רגע שבו סוכן/ת רצה/תה לראות

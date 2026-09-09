@@ -2798,15 +2798,29 @@ function teamContactHtml(member, officeContact){
    רחב יותר, טבעת בצבע המשני ותגית תפקיד מעליו. */
 async function loadTeam(sb, agencyId){
   const rail = document.getElementById('teamRail');
-  const { data: agents } = await sb.from('agency_members_public')
+  const { data: agents, error: teamErr } = await sb.from('agency_members_public')
     .select('id, slug, display_name, role, photo_url, photo_position, license_number, has_ethics_badge, phone_e164')
     .eq('agency_id', agencyId);
 
   // כפתורי יצירת הקשר — בראש הדף ובחותם שלו — ניזונים מאותה שליפה
   renderAgencyContact(agents);
   renderManagerContact(agents);
-  // בלי צוות אין מה להציג: מקטע "נבחרת" ריק פוגע יותר משהוא מוסיף
-  if (!agents || agents.length === 0) return;
+  // ---------- משרד בלי אף סוכן/ת פעיל/ה ----------
+  // ‏agency_members_public מציג/ה רק שורות active, ולכן רשימה ריקה כאן
+  // פירושה שאין במשרד אף אחד — כולם סגרו חשבון, הושעו או לא חיברו כרטיס.
+  // דף כזה הוא שלט של משרד שאין מאחוריו איש: אין למי להתקשר, ומודעות אין
+  // (מודעותיו של מי שסגר/ה חשבון אורכבו). הוא יורד לגמרי ולא מוצג ריק —
+  // זו המשמעות של "למחוק את הדף" עבור מי שהיה/הייתה לבד במשרד שלו/ה.
+  //
+  // ‏teamErr נבדק בנפרד ובכוונה: שאילתה שנכשלה מחזירה data ריק בדיוק כמו
+  // משרד ריק, והורדת דף חי בגלל תקלת רשת חמורה בהרבה ממקטע "נבחרת" חסר.
+  if (teamErr){ if (rail) rail.textContent = ''; return; }
+  if (!agents || agents.length === 0){
+    document.getElementById('agencyContent').style.display = 'none';
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('notFoundState').style.display = 'block';
+    return;
+  }
 
   // sort יציב ב-JS מודרני, ולכן שאר הצוות שומר על סדר ההגעה מהמסד
   const team = agents.slice().sort((a, b) => (b.role === 'manager') - (a.role === 'manager'));

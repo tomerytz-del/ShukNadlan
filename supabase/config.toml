@@ -144,6 +144,12 @@ verify_jwt = true
 [functions.release-team-member]
 verify_jwt = true
 
+# סגירת חשבון ביוזמת הסוכן/ת. ‏verify_jwt=true כי הפעולה היא תמיד על
+# החשבון של בעל/ת ה-JWT ועל אף אחד אחר — אין כאן פרמטר "מי", ולכן אין דרך
+# להפנות אותה למישהו אחר.
+[functions.close-account]
+verify_jwt = true
+
 [functions.rss-lead-purchase]
 verify_jwt = true
 
