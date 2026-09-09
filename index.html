@@ -1821,14 +1821,16 @@
   }
   .dm-row::-webkit-scrollbar{display:none}
 
-  /* תיבת החיפוש היא הכרטיס הראשון בשורה ובגודל כרטיס מלא, ולא באנר נפרד
-     מעליה או מתחתיה. ‏sticky על ‎inset-inline-start‎ מצמיד אותה לקצה *הימני*
-     במסמך RTL, כך שהיא נשארת במקומה בזמן שהכרטיסים חולפים תחתיה; הצל
-     שמאחוריה הוא מה שמראה שהם עוברים מתחת ולא נעצרים בה. הנייבי המלא הוא
-     ההיפוך של הכרטיסים הלבנים שלצידה — כך היא נקראת כפעולה ולא ככרטיס
-     נוסף ברצועה. */
+  /* תיבת החיפוש היא קובייה קבועה בקצה *השמאלי* של השורה, ישר מתחת
+     ללשוניות שיושבות באותו צד — כך הבחירה בלשונית והפעולה שנגזרת ממנה
+     נמצאות באותו מקום במסך. ‏sticky על ‎inset-inline-end‎ הוא השמאלי במסמך
+     RTL, ו-‎order:1‎ מציב אותה אחרי הכרטיסים בשורה בלי לשנות את סדר ה-DOM
+     (בגלילה במקלדת מגיעים לחיפוש לפני הרשימה שהוא מסנן, וזה הסדר הנכון).
+     הכרטיסים חולפים תחתיה בזמן גלילה, והצל שמאחוריה הוא מה שמראה שהם
+     עוברים מתחת ולא נעצרים בה. הנייבי המלא הוא ההיפוך של הכרטיסים הלבנים
+     שלצידה — כך היא נקראת כפעולה ולא ככרטיס נוסף ברצועה. */
   .dm-search{
-    position:sticky;inset-inline-start:16px;z-index:2;
+    position:sticky;inset-inline-end:16px;order:1;margin-inline-start:auto;z-index:2;
     flex:0 0 min(248px, calc(100% - 46px));min-width:0;min-height:var(--card-h);
     display:flex;flex-direction:column;padding:14px;
     background:linear-gradient(155deg,#0e2a6b,#08194a 72%);
@@ -1900,7 +1902,7 @@
      והקישור בקצה, כמו שאר הרשימות בעמוד. */
   @media(max-width:759px){
     .dm-row{flex-direction:column;gap:10px;overflow:visible;scroll-snap-type:none}
-    .dm-search{position:static;flex:none;width:100%;min-height:0}
+    .dm-search{position:static;order:0;flex:none;width:100%;min-height:0;margin-inline-start:0}
     .dm-search h3{font-size:1rem}
     /* שורת ההסבר יורדת בטלפון: הכותרת והתיבה אומרות את אותו הדבר בשליש
        מהגובה, וכל שורה כאן נגרעת מהכרטיסים שמתחת */
