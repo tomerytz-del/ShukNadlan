@@ -254,6 +254,10 @@ const ROOM_TO_TARGET: Record<string, SceneTarget> = {
   yard: "exterior",
   living_room: "living_room",
   kitchen: "kitchen",
+  // ‏master_bedroom הוא סיווג של מנוע ההדמיות (יחידת הורים). בסרטון אין לו
+  // תפקיד נפרד — הוא חדר שינה — אבל בלי השורה הזאת הוא היה נופל ל-"other"
+  // ומאבד את מקומו ברצף.
+  master_bedroom: "bedroom",
   bedroom: "bedroom",
   bathroom: "bathroom",
   balcony: "balcony",

@@ -163,9 +163,17 @@
       '</div>';
   }
 
+  /* בנכס להשכרה הדמיית החוץ נגזרת מתמונת החצר ולא מהחזית — שם אסור לגעת
+     בחזית בכלל, וכל מה שקורה בפריים קורה בחצר. אותה תמונה, שם אחר, בדיוק
+     כמו במסלול המסחרי. */
+  var STAGING_TARGET_LABELS = { exterior: 'החצר' };
+
   function targetLabel(opts, target) {
     if (opts && opts.commercial && COMMERCIAL_TARGET_LABELS[target]) {
       return COMMERCIAL_TARGET_LABELS[target];
+    }
+    if (opts && opts.staging && STAGING_TARGET_LABELS[target]) {
+      return STAGING_TARGET_LABELS[target];
     }
     return TARGET_LABELS[target] || 'הנכס';
   }
@@ -618,8 +626,9 @@
 
   /* סדר החדרים בווילון: הסלון הוא החלל שמוכר נכס, החזית היא הרושם הראשון,
      והמטבח הוא מה שנשאר. חלל עסק נכנס אחרי הסלון כי בנכס מסחרי הוא *הוא*
-     הסלון. */
-  var LEAD_TARGET_ORDER = ['living_room', 'interior_main', 'exterior', 'kitchen'];
+     הסלון. חדר השינה אחרון — הוא קיים רק בנכס להשכרה, והוא החלל שנבדק
+     אחרי שכבר החליטו שהדירה מעניינת. */
+  var LEAD_TARGET_ORDER = ['living_room', 'interior_main', 'exterior', 'kitchen', 'bedroom'];
 
   function styleLabelOf(opts, key) {
     var list = opts.styles || [];
@@ -728,8 +737,8 @@
            '</button>';
   }
 
-  /* בתוך סגנון אחד יש לכל היותר שלושה חדרים (חזית, סלון, מטבח), ולכן
-     התקרה כאן היא ביטוח ולא מדיניות. */
+  /* בתוך סגנון אחד יש לכל היותר ארבעה חללים — למכירה חזית, סלון ומטבח,
+     ולהשכרה גם חדר שינה — ולכן התקרה כאן היא ביטוח ולא מדיניות. */
   var PROPERTY_STRIP_LIMIT = 4;
 
   function renderProperty(container, opts) {
@@ -831,8 +840,13 @@
                   /* בלי כותרת מעל הרצועה. כל אריח נושא את שם החלל שלו,
                      ושורה שאומרת "עוד חללים בנכס" מעל שורת אריחים שכתוב
                      עליהם "חלל העסק" ו"חזית העסק" רק חוזרת עליהם בקול. */
+                  /* עד שלושה חללים — שורה אחת. ארבעה (נכס להשכרה: חצר,
+                     סלון, מטבח וחדר שינה) יורדים לשתיים על שתיים ולא
+                     לשלושה ואחד יתום, ובלי לכווץ כל אריח לרבע מהטור. */
                   ? '<div class="ai-strip" style="--ai-cols:' +
-                      Math.min(pairs.length, PROPERTY_STRIP_LIMIT, 3) + '">' +
+                      (Math.min(pairs.length, PROPERTY_STRIP_LIMIT) > 3
+                        ? 2
+                        : Math.min(pairs.length, 3)) + '">' +
                       pairs.slice(0, PROPERTY_STRIP_LIMIT).map(function (it, i) {
                         return propertyThumbHtml(opts, it, i, i === leadIndex);
                       }).join('') +

@@ -2198,8 +2198,14 @@ const VIZ_STYLES = [
 ];
 
 const VIZ_TARGET_LABELS = {
-  exterior:'חזית הבית והחצר', living_room:'הסלון', kitchen:'המטבח', interior_main:'חלל העסק',
+  exterior:'חזית הבית והחצר', living_room:'הסלון', kitchen:'המטבח',
+  bedroom:'חדר השינה', interior_main:'חלל העסק',
 };
+
+/* בנכס להשכרה ההדמיה של החוץ נגזרת מתמונת החצר ולא מהחזית (החזית אינה
+   משתנה שם בכלל), ולכן היא נקראת בשמה. ‏חדר השינה הוא יחידת ההורים כשיש
+   תמונה שלה, ולכן התווית נשארת "חדר השינה" ולא מבטיחה איזה חדר בדיוק. */
+const VIZ_TARGET_LABELS_STAGING = { exterior:'החצר והגינה' };
 
 /* בנכס מסחרי אין בית ואין חצר — יש עסק. שורת ההמתנה ("יוצרים את…") ורצועת
    ההדמיות חייבות להגיד את אותו שם על אותה תמונה, ולכן שתיהן נגזרות
@@ -2209,6 +2215,9 @@ const VIZ_TARGET_LABELS_COMMERCIAL = { exterior:'חזית העסק' };
 function vizTargetLabel(target){
   if (!vizState.isPrivate && VIZ_TARGET_LABELS_COMMERCIAL[target]){
     return VIZ_TARGET_LABELS_COMMERCIAL[target];
+  }
+  if (vizState.staging && VIZ_TARGET_LABELS_STAGING[target]){
+    return VIZ_TARGET_LABELS_STAGING[target];
   }
   return VIZ_TARGET_LABELS[target] || target;
 }

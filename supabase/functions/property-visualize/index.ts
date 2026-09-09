@@ -6,11 +6,11 @@ import {
   corsHeaders,
   DEFAULT_STYLE,
   ensureTagged,
-  hasOwnExterior,
   isLandType,
   isStyleKey,
   json,
   pickPrivateSources,
+  privateTargetsFor,
   renderModeFor,
   runVisualizationJob,
   type CommercialTarget,
@@ -144,15 +144,12 @@ Deno.serve(async (req: Request) => {
   const sources: Array<{ target: PrivateTarget | CommercialTarget; url: string; prompt: string }> = [];
 
   if (isPrivate) {
-    // חוץ רק לבית פרטי — בדירה בבניין החזית היא רכוש משותף
-    const targets: PrivateTarget[] = hasOwnExterior(property.property_type)
-      ? ["exterior", "living_room", "kitchen"]
-      : ["living_room", "kitchen"];
-
-    // נכס להשכרה מקבל הלבשת בית ולא שיפוץ — ראו RenderMode ב-_shared.
+    // נכס להשכרה מקבל הלבשת בית ולא שיפוץ, ומטרה אחת יותר (חדר שינה) —
+    // ראו RenderMode ו-privateTargetsFor ב-_shared.
     const mode = renderModeFor(property.deal_type);
+    const targets: PrivateTarget[] = privateTargetsFor(property.property_type, mode);
 
-    const picked = pickPrivateSources(tags, targets);
+    const picked = pickPrivateSources(tags, targets, mode);
     for (const target of targets) {
       const url = picked[target];
       if (!url) continue;

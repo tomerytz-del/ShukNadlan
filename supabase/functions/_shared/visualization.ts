@@ -49,8 +49,18 @@ export function isLandType(propertyType: string | null): boolean {
   return !!propertyType && LAND_TYPE_RE.test(propertyType);
 }
 
-export type PrivateTarget = "exterior" | "living_room" | "kitchen";
+export type PrivateTarget = "exterior" | "living_room" | "kitchen" | "bedroom";
 export type CommercialTarget = "exterior" | "interior_main";
+
+/**
+ * מטרות שיש להן הנחיות שיפוץ.
+ *
+ * חדר השינה אינו בהן, וזו לא השמטה: הוא נוסף בשביל מסלול ההשכרה, שבו כל
+ * מה שקורה בחדר הוא ריהוט. "שיפוץ חדר שינה" הוא ממילא צבע קיר ופרקט —
+ * שתי החלטות שנראות בסלון ובמטבח טוב יותר, ובחדר שינה היו רק מכפילות
+ * עלות. ראו buildPrivatePrompt: מטרת bedroom נבנית תמיד בדוקטרינת הריהוט.
+ */
+export type RenovationTarget = Exclude<PrivateTarget, "bedroom">;
 
 // ---------------------------------------------------------------------------
 // שני מצבי הדמיה — שיפוץ מול הלבשת בית
@@ -75,11 +85,29 @@ export function renderModeFor(dealType: string | null | undefined): RenderMode {
   return dealType === "rent" ? "staging" : "renovation";
 }
 
-// התמונה שמזינה כל מטרה, לפי התיוג של classify-property-images
+// התמונה שמזינה כל מטרה, לפי התיוג של classify-property-images.
+// הסדר בכל רשימה הוא סדר עדיפות — הראשון שנמצא מנצח.
 export const PRIVATE_TARGET_ROOMS: Record<PrivateTarget, string[]> = {
   exterior: ["facade", "yard"],
   living_room: ["living_room"],
   kitchen: ["kitchen"],
+  // יחידת הורים לפני חדר ילדים: היא החדר שמוכר את הדירה, והיא גם היחידה
+  // שמצולמת בדרך כלל ריקה מספיק כדי שהלבשה שלה תיראה. תמונות שסווגו לפני
+  // שהתיוג הזה נוסף נשארו bedroom, ולכן הוא חייב להישאר כנפילה.
+  bedroom: ["master_bedroom", "bedroom"],
+};
+
+/**
+ * דריסות למצב הלבשת בית.
+ *
+ * בחוץ נשארת תמונת חצר בלבד, בלי הנפילה לחזית. בהדמיית שיפוץ החזית היא
+ * העיקר — היא זו שמשתנה — ואילו בהלבשת בית אסור לגעת בה בכלל, וכל מה
+ * שאפשר לעשות בתמונת חזית הוא להזיז פח אשפה: קריאת Gemini שמחזירה את
+ * התמונה שנכנסה. תמונת חצר לעומת זאת מקבלת פינת ישיבה, כדים ותאורה, וזה
+ * מה ששוכר/ת בא/ה לראות. אין תמונת חצר — המטרה פשוט יורדת.
+ */
+const STAGING_TARGET_ROOMS: Partial<Record<PrivateTarget, string[]>> = {
+  exterior: ["yard"],
 };
 
 // ---------------------------------------------------------------------------
@@ -100,8 +128,8 @@ interface StyleDef {
   key: StyleKey;
   label: string;
   tagline: string;
-  /** הנחיות הסגנון לכל מטרה — הטקסט שנדבק אחרי בלוק האיסורים */
-  directives: Record<PrivateTarget, string>;
+  /** הנחיות הסגנון לכל מטרת שיפוץ — הטקסט שנדבק אחרי בלוק האיסורים */
+  directives: Record<RenovationTarget, string>;
   /**
    * אותו סגנון, אבל בפריטים ניידים בלבד — לנכס להשכרה.
    *
@@ -152,6 +180,12 @@ export const STYLES: Record<StyleKey, StyleDef> = {
         "כיסאות בר בקו ישר עם רגלי מתכת שחורה ומושב אלון בהיר, אם יש אי או משטח מוגבה. " +
         "ראנר או שטיח מטבח צר בדוגמה גיאומטרית אפורה, מגבות לבנות תלויות, " +
         "וצמח ירוק קטן בעציץ לבן. אווירה של מטבח מסודר ומוכן לכניסה.",
+      bedroom:
+        "מיטה זוגית בראש מיטה מרופד בגוון אפור בהיר, מצעים לבנים נקיים וכרית טקסטורה אפורה אחת. " +
+        "שתי שידות לילה בגימור אלון טבעי עם מנורות שולחן קטנות בשחור מט, ושטיח בגוון אפור בהיר משני צדי המיטה. " +
+        "וילונות פשתן לבנים על החלונות הקיימים, בלי לשנות את מידות הפתח. " +
+        "צמח ירוק אחד בעציץ בגוון בטון ותמונה אחת שקטה על הקיר הקיים. " +
+        "החדר נראה מסודר, נקי ואוורירי — בלי חפצים אישיים ובלי עומס.",
     },
   },
 
@@ -194,6 +228,11 @@ export const STYLES: Record<StyleKey, StyleDef> = {
         "כיסאות בר מעץ טבעי או קש, אם יש אי או משטח מוגבה. " +
         "ראנר פשתן בגוון חול, מגבות פשתן תלויות, סלסלת קש ועציץ רוזמרין או בזיליקום. " +
         "אווירה של מטבח ים-תיכוני חי ומסודר.",
+      bedroom:
+        "מיטה זוגית עם ראש מיטה מעץ טבעי או מחושק, מצעי פשתן בגוון שמנת וכריות ברקמה עדינה בגווני חול. " +
+        "שידות לילה מעץ טבעי עם מנורות קש או קרמיקה, ושטיח ברבר ארוג בגווני חול לצד המיטה. " +
+        "וילונות פשתן קלים בגוון שמנת על החלונות הקיימים, בלי לשנות את מידות הפתח. " +
+        "כד חרס עם ענפי זית, סלסלת קש ועציץ ירוק. אווירה חמה, רגועה ואוורירית — בלי חפצים אישיים.",
     },
   },
 
@@ -237,6 +276,11 @@ export const STYLES: Record<StyleKey, StyleDef> = {
         "כיסאות בר מעץ אלון טבעי, אם יש אי או משטח מוגבה. " +
         "ראנר ארוג בגוון חול, סל קש, מגבות פשתן וצמח ירוק בעציץ חרס. " +
         "אווירה ביתית וחמה, לא סטרילית.",
+      bedroom:
+        "מיטה זוגית עם ראש מיטה מרופד בבד ארוג בגוון חול, מצעי כותנה בגוון שמנת, שמיכת צמר מקופלת וכריות פשתן. " +
+        "שתי שידות לילה מעץ אלון בהיר עם מנורות שולחן בגוון פשתן, ושטיח צמר עבה בגוון טבעי לצד המיטה. " +
+        "וילונות פשתן שכבתיים בגוון שמנת על החלונות הקיימים, בלי לשנות את מידות הפתח. " +
+        "צמח ירוק בעציץ חרס וספר על השידה. גימורים מטים בלבד — חם, רגוע ולא סטרילי.",
     },
   },
 
@@ -281,6 +325,12 @@ export const STYLES: Record<StyleKey, StyleDef> = {
         "כיסאות בר מרופדים בגוון כהה עם פרזול פליז, אם יש אי או משטח מוגבה. " +
         "ראנר בגוון עמוק, מגבות פשתן וצמח ירוק בעציץ בגימור מט. " +
         "אווירה של מטבח מסודר, מוקפד ומוכן לצילום.",
+      bedroom:
+        "מיטה זוגית עם ראש מיטה גבוה ומרופד בבד קטיפתי בגוון שמנת או אפור עמוק, מצעים לבנים מוקפדים " +
+        "וכריות נוי בגוונים תואמים. שתי שידות לילה בגימור עץ אגוז כהה עם מנורות שולחן בפליז, " +
+        "ושטיח בעל מרקם עשיר לצד המיטה. " +
+        "וילונות כבדים ונופלים בגוון שמנת על החלונות הקיימים, בלי לשנות את מידות הפתח. " +
+        "אגרטל עם ענפים ותמונה אחת גדולה וממוסגרת על הקיר הקיים. אווירה מלונאית מוקפדת ומאופקת.",
     },
   },
 };
@@ -361,7 +411,7 @@ const INVARIANTS_STAGING_INTERIOR =
   `- זווית הצילום, נקודת המבט וכמות אור היום הנכנס מהחלונות הקיימים\n\n` +
   `מותר לשנות אך ורק פריטים ניידים — דברים שנכנסים בדלת ויוצאים בסוף החוזה:\n` +
   `- להסיר את כל הריהוט הקיים, החפצים האישיים והבלגן שבתמונה\n` +
-  `- להציב ריהוט חדש: ספות, כורסאות, שולחנות, כיסאות, כונניות וארונות חופשיים\n` +
+  `- להציב ריהוט חדש: ספות, כורסאות, שולחנות, כיסאות, מיטות, שידות, כונניות וארונות חופשיים\n` +
   `- שטיחים, וילונות על החלונות הקיימים, כריות, טקסטיל ומצעים\n` +
   `- מנורות רצפה ושולחן ניידות, צמחייה בעציצים, תמונות ואביזרי נוי\n\n` +
   `הכלל שקובע בכל מקרה של ספק: אם משהו בתמונה מחובר לקיר, לרצפה או לתקרה — הוא נשאר בדיוק כפי שהוא.\n\n`;
@@ -411,7 +461,9 @@ export function buildPrivatePrompt(
   }
 ): string {
   const def = STYLES[style];
-  const staging = ctx.mode === "staging";
+  // חדר שינה נבנה תמיד בדוקטרינת הריהוט, גם אם מישהו יבקש אותו אי-פעם על
+  // נכס למכירה: אין לו הנחיות שיפוץ, ולא נמציא לו כאלה כדי למלא ענף.
+  const staging = ctx.mode === "staging" || target === "bedroom";
 
   const sizeLine = ctx.sizeSqm ? `שטח הנכס כ-${ctx.sizeSqm} מ"ר` : "";
   const roomsLine = ctx.rooms ? `${ctx.rooms} חדרים` : "";
@@ -593,7 +645,14 @@ export interface PhotoTags {
  */
 export type ClassifyOutcome = PhotoTags & { error?: string };
 
-const ROOM_TYPES = ["facade", "yard", "living_room", "kitchen", "bedroom", "bathroom", "balcony", "other"];
+// ‏master_bedroom נוסף כדי שהדמיית חדר השינה בנכס להשכרה תיפול על יחידת
+// ההורים ולא על חדר הילדים — ראו PRIVATE_TARGET_ROOMS. תמונות שסווגו לפני
+// שהוא נוסף נשארו bedroom ולא מסווגות מחדש (הסיווג עולה כסף וכבר נרשם
+// classified_at), ולכן הוא העדפה ולא תנאי.
+const ROOM_TYPES = [
+  "facade", "yard", "living_room", "kitchen",
+  "master_bedroom", "bedroom", "bathroom", "balcony", "other",
+];
 
 export async function classifyImage(apiKey: string, mime: string, data: string): Promise<ClassifyOutcome> {
   const prompt =
@@ -602,9 +661,11 @@ export async function classifyImage(apiKey: string, mime: string, data: string):
     "ROLE: main אם זה החלל המרכזי של הנכס (סלון, חלל מכירה או עבודה פתוח, משרד ראשי), " +
     "auxiliary אם זה חלל עזר (מסדרון, חדר מדרגות, מעלית, שירותים, מחסן, מטבחון). לתמונות exterior תמיד main.\n" +
     `ROOM: אחד מ-${ROOM_TYPES.join("/")} בלבד. facade לחזית בניין או בית, yard לחצר/גינה/חניה, ` +
-    "living_room לסלון או פינת ישיבה מרכזית, kitchen למטבח, bedroom לחדר שינה, bathroom לשירותים או מקלחת, " +
+    "living_room לסלון או פינת ישיבה מרכזית, kitchen למטבח, " +
+    "master_bedroom לחדר שינה ראשי (יחידת הורים — המיטה הזוגית הגדולה, ולרוב עם חדר רחצה או ארון צמוד), " +
+    "bedroom לכל חדר שינה אחר, bathroom לשירותים או מקלחת, " +
     "balcony למרפסת, other לכל השאר.\n" +
-    "דוגמאות תקינות: interior,main,living_room · exterior,main,facade · interior,auxiliary,bathroom\n" +
+    "דוגמאות תקינות: interior,main,living_room · exterior,main,facade · interior,auxiliary,master_bedroom\n" +
     "אם התמונה לא ברורה — ענה unknown,unclassified,other";
 
   const res = await fetch(
@@ -736,19 +797,51 @@ export async function ensureTagged(
 }
 
 /**
+ * מטרות ההדמיה של נכס פרטי, לפי סוג הנכס ומצב ההדמיה.
+ *
+ * ‏**חוץ בהדמיית שיפוץ — רק לבית פרטי.** בדירה בבניין החזית היא רכוש משותף,
+ * והדמיית שיפוץ שלה מציגה שדרוג שאיש לא מתחייב אליו ואינו בשליטת המוכר/ת.
+ *
+ * ‏**בהלבשת בית — לכל נכס שיש לו תמונת חצר.** הנימוק שמעליו לא חל כאן: אין
+ * שיפוץ חזית להבטיח, והשינוי היחיד הוא ריהוט גן בחצר שממילא מושכרת יחד עם
+ * הנכס. דירת גן להשכרה תקבל את הגינה שלה; דירה בקומה שאין לה תמונת חצר לא
+ * תקבל כלום, כי המטרה יורדת מאליה בהיעדר מקור (ראו STAGING_TARGET_ROOMS,
+ * שבמצב הזה אינו נופל לתמונת חזית).
+ *
+ * ‏**חדר שינה רק בהשכרה, ורק אחד.** שוכר/ת בוחר/ת דירה לפי הסלון, המטבח
+ * וחדר השינה שלו/ה — ולכן החדר נכנס דווקא שם. אחד ולא יותר: חדר שינה שני
+ * ושלישי הם אותה מיטה באותו סגנון בחדר קטן יותר, כלומר עוד קריאת Gemini
+ * לכל סגנון בלי שום מידע חדש. ראו PRIVATE_TARGET_ROOMS לעדיפות יחידת ההורים.
+ *
+ * הפונקציה משותפת לשתי ה-Edge Functions בכוונה: הרשימה הזאת היא ההגדרה של
+ * "מה מקבל הדמיה", ושני עותקים שלה היו נפרדים ביום שבו אחד מהם משתנה.
+ */
+export function privateTargetsFor(propertyType: string | null, mode: RenderMode): PrivateTarget[] {
+  const targets: PrivateTarget[] = [];
+  if (mode === "staging" || hasOwnExterior(propertyType)) targets.push("exterior");
+  targets.push("living_room", "kitchen");
+  if (mode === "staging") targets.push("bedroom");
+  return targets;
+}
+
+/**
  * בוחר את תמונת המקור לכל מטרה.
  *
- * ‏exterior בנכס פרטי מעדיף חזית על חצר: הדמיית חזית מוכרת את הבית, הדמיית
- * חצר מוכרת גינה. כשאין תמונה מתאימה המטרה פשוט יורדת — עדיף שתי הדמיות
- * אמיתיות מאשר שלוש כשאחת מהן נגזרה מתמונה של חדר אחר.
+ * ‏exterior בהדמיית שיפוץ מעדיף חזית על חצר: הדמיית חזית מוכרת את הבית,
+ * הדמיית חצר מוכרת גינה. בהלבשת בית ההעדפה מתהפכת — ראו STAGING_TARGET_ROOMS.
+ * כשאין תמונה מתאימה המטרה פשוט יורדת — עדיף שתי הדמיות אמיתיות מאשר שלוש
+ * כשאחת מהן נגזרה מתמונה של חדר אחר.
  */
 export function pickPrivateSources(
   tags: Array<{ image_url: string } & PhotoTags>,
-  targets: PrivateTarget[]
+  targets: PrivateTarget[],
+  mode: RenderMode = "renovation"
 ): Partial<Record<PrivateTarget, string>> {
   const out: Partial<Record<PrivateTarget, string>> = {};
   for (const target of targets) {
-    for (const room of PRIVATE_TARGET_ROOMS[target]) {
+    const rooms =
+      (mode === "staging" ? STAGING_TARGET_ROOMS[target] : undefined) ?? PRIVATE_TARGET_ROOMS[target];
+    for (const room of rooms) {
       const hit = tags.find((t) => t.room_type === room);
       if (hit) {
         out[target] = hit.image_url;

@@ -5,11 +5,11 @@ import {
   corsHeaders,
   DEFAULT_STYLE,
   ensureTagged,
-  hasOwnExterior,
   isLandType,
   isStyleKey,
   json,
   pickPrivateSources,
+  privateTargetsFor,
   renderModeFor,
   runVisualizationJob,
   STYLES,
@@ -136,11 +136,12 @@ Deno.serve(async (req: Request) => {
 
   const tags = await ensureTagged(supabase, apiKey, property_id, images);
 
-  const targets: PrivateTarget[] = hasOwnExterior(property.property_type)
-    ? ["exterior", "living_room", "kitchen"]
-    : ["living_room", "kitchen"];
+  // נכס להשכרה מקבל הלבשת בית ולא שיפוץ, ומטרה אחת יותר (חדר שינה) —
+  // ראו RenderMode ו-privateTargetsFor ב-_shared.
+  const mode = renderModeFor(property.deal_type);
+  const targets: PrivateTarget[] = privateTargetsFor(property.property_type, mode);
 
-  const picked = pickPrivateSources(tags, targets);
+  const picked = pickPrivateSources(tags, targets, mode);
   const found = targets.filter((t) => picked[t]);
   if (found.length === 0) {
     return json(
@@ -220,8 +221,6 @@ Deno.serve(async (req: Request) => {
   if (jobErr) return json({ error: "db_error", detail: jobErr.message }, 500);
 
   const sizeSqm = property.size_sqm ?? property.area_sqm ?? null;
-  // נכס להשכרה מקבל הלבשת בית ולא שיפוץ — ראו RenderMode ב-_shared.
-  const mode = renderModeFor(property.deal_type);
   const items: WorkItem[] = [];
 
   for (const target of todo) {
