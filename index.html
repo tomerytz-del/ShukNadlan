@@ -6909,6 +6909,21 @@ const MAP_DRAW_COPY = {
   touch: 'גררו את המפה — הרשימה שמתחתיה מתעדכנת לפי מה שרואים',
 };
 
+/* גלילה אל ה-hero שמשאירה אותו *מתחת* לכותרת הדביקה, ולא מאחוריה.
+   ‏scrollIntoView(block:'start') מיישר את קצה הסקציה לקצה החלון, ו-header
+   דביק בגובה ~75px מסתיר בדיוק את מה שהלחיצה באה להראות: במצב מפוצל עמודת
+   החיפוש נצמדת לראש ה-hero (‏.hero-overlay הופך ל-display:block עם padding
+   מלמעלה), ולכן הכותרת ושורת החיפוש נחתכות מאחורי הכותרת הדביקה. הגובה
+   נמדד מה-DOM ולא מקובע, כי הוא משתנה בין רוחבי מסך. */
+function scrollHeroBelowHeader(){
+  const hero = document.getElementById('heroSection');
+  if (!hero) return;
+  const header = document.querySelector('header.site');
+  const offset = header ? header.getBoundingClientRect().height : 0;
+  const y = hero.getBoundingClientRect().top + window.scrollY - offset;
+  window.scrollTo({ top: Math.max(0, y), behavior:'smooth' });
+}
+
 /* נקראת בטעינה ושוב בכל מעבר מעל/מתחת לרף הדסקטופ (סיבוב טאבלט, שינוי
    גודל חלון). ההרכבה עצמה קורית פעם אחת — mapDraw שכבר קיים לא נבנה שוב
    ולא מאבד את הצורה שסומנה בו. */
@@ -6967,7 +6982,7 @@ function initMapDraw(){
   // שנמצא בו זה לצד זה. ‏setSplitView נקראת לפני startArea כדי ש-Leaflet
   // יקבל את הרוחב החדש (‏invalidateSize) לפני שמתחילים לצייר עליו.
   mapCta.addEventListener('click', ()=>{
-    document.getElementById('heroSection')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    scrollHeroBelowHeader();
     if (!splitOn) setSplitView(true);
     mapDraw.startArea();
   });
