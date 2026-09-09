@@ -1050,9 +1050,19 @@
      שב-assets/ai-showcase.js.
 
      התנועה היא מצב מנוחה בלבד: במגע הראשון (‏.is-manual) האנימציה נעצרת
-     והשליטה עוברת לגולש/ת ולא חוזרת. */
+     והשליטה עוברת לגולש/ת ולא חוזרת.
+
+     ‏direction:ltr על המחוון הוא תיקון ולא קישוט: ‎input[type=range]‎ מתהפך
+     בכיוון כתיבה RTL — הערך 0 יושב בקצה הימני — בעוד שהווילון ממוקם
+     *פיזית* (‏clip-path משמאל). התוצאה הייתה שגרירה שמאלה העלתה את
+     ‎--wipe‎ והזיזה את הווילון ימינה, כלומר לכיוון ההפוך מהאצבע. שני
+     הקצוות חייבים לדבר באותה מערכת צירים, וזו הפיזית.
+
+     ‏touch-action:pan-y משאיר לדפדפן את הגלילה האנכית מעל התמונה: בלעדיו
+     גלילה שמתחילה על ההדמיה נבלעת במחוון ומזיזה את הווילון במקום לגלול. */
   .ai-shot-range{
     position:absolute;inset:0;z-index:3;width:100%;height:100%;margin:0;
+    direction:ltr;touch-action:pan-y;
     opacity:0;cursor:ew-resize;appearance:none;background:transparent;
   }
   .ai-shot:has(.ai-shot-range:focus-visible){outline:2px solid var(--brass-light,#e5c76a);outline-offset:2px}
@@ -1068,23 +1078,33 @@
     .ai-shot-hint{display:none}
   }
 
-  .ai-band-copy{position:relative;display:flex;flex-direction:column;gap:13px}
-  .ai-band-copy h2{
+  /* הכותרת יושבת בראש הרצועה ולא בעמודת הטקסט: היא מכריזה על מה ששתי
+     העמודות מראות יחד — הוילונות והסגנונות — ולכן היא פורשת על שתיהן
+     ומרוכזת, בנייד ובמסך רחב כאחד. */
+  .ai-band-title{
+    position:relative;grid-column:1/-1;margin:0;text-align:center;
     font-size:1.35rem;font-weight:800;line-height:1.25;letter-spacing:-.02em;
     color:var(--brass-light,#e5c76a);
   }
-  .ai-band-copy h2 span{color:#fff}
-  .ai-band-star{color:var(--brass,#c9a227);font-size:1.1rem;margin-inline-start:5px}
-  .ai-band-styles{border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:14px;
-    display:flex;flex-direction:column;gap:12px}
-  .ai-band-styles-title{font-size:.9rem;font-weight:700;color:#fff;text-align:center}
-  .ai-band-styles ul{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;list-style:none}
+  .ai-band-title span{color:#fff}
+  .ai-band-star{font-size:1.1rem;margin-inline-start:5px}
+  .ai-band-copy{position:relative;display:flex;flex-direction:column;gap:13px}
+  .ai-band-styles{border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:11px 12px;
+    display:flex;flex-direction:column;gap:9px}
+  .ai-band-styles-title{font-size:.85rem;font-weight:700;color:#fff;text-align:center}
+  /* איפוס ה-ul הוא תיקון מרכוז: ‏padding-inline-start של 40px מגיליון
+     הסגנון של הדפדפן דחף את כל הרשת לצד אחד בתוך המסגרת, והאריחים נראו
+     מוסטים. ‏list-style:none לבדו לא מסיר את ה-padding הזה. */
+  .ai-band-styles ul{margin:0;padding:0;display:grid;grid-template-columns:repeat(2,1fr);gap:7px;list-style:none}
+  /* ארבע תוויות ולא ארבעה כפתורים: אין מה ללחוץ עליהן, ולכן הן שורות
+     שטוחות (אייקון וטקסט זה לצד זה) ולא אריחים מרובעים — אותו מידע בכחצי
+     מהגובה, ובלי להבטיח לחיצה שלא קיימת. */
   .ai-band-styles li{
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
-    padding:11px 8px;border:1px solid rgba(255,255,255,.2);border-radius:10px;
-    font-size:.78rem;font-weight:500;color:#dbe3f5;
+    display:flex;flex-direction:row;align-items:center;justify-content:center;gap:6px;
+    padding:6px 8px;border:1px solid rgba(255,255,255,.2);border-radius:999px;
+    font-size:.75rem;font-weight:500;color:#dbe3f5;
   }
-  .ai-band-styles li span{font-size:1rem;color:#b9c6e8}
+  .ai-band-styles li span{font-size:.9rem;line-height:1;color:#b9c6e8}
   /* סגנון אחד מודגש כדי שהרשת תיקרא כ"בחירה" ולא כארבע תוויות. הוא מציין
      את מה שמוצג בווילון שלצדו, ולכן ההדגשה אינה שרירותית. */
   .ai-band-styles li.is-on{border-color:var(--brass,#c9a227);background:rgba(201,162,39,.1);color:#fff;font-weight:700}
@@ -1104,7 +1124,7 @@
   @media(min-width:760px){
     .ai-band{padding:30px 0}
     .ai-band-inner{grid-template-columns:1.02fr 1fr;gap:24px;align-items:stretch}
-    .ai-band-copy h2{font-size:1.65rem}
+    .ai-band-title{font-size:1.65rem}
     .ai-band-styles ul{grid-template-columns:repeat(4,1fr)}
     .ai-shot{height:100%;min-height:170px}
     .ai-band-shots{height:100%}
@@ -3137,15 +3157,15 @@
     <div class="wrap ai-band-inner">
       <div class="ai-band-glow" aria-hidden="true"></div>
 
+      <h2 id="aiBandTitle" class="ai-band-title">
+        תראו את פוטנציאל הנכס<br>
+        <span>עם טכנולוגיית AI מהפכנית!</span>
+        <span class="ai-band-star" aria-hidden="true">✦</span>
+      </h2>
+
       <div class="ai-band-shots" id="aiBandShots"><!-- populated by JS --></div>
 
       <div class="ai-band-copy">
-        <h2 id="aiBandTitle">
-          תראו את פוטנציאל הנכס<br>
-          <span>עם טכנולוגיית AI מהפכנית!</span>
-          <span class="ai-band-star" aria-hidden="true">✦</span>
-        </h2>
-
         <div class="ai-band-styles">
           <span class="ai-band-styles-title">ארבעה סגנונות בכל נכס</span>
           <ul>
