@@ -544,15 +544,26 @@
      מודאל סינון — אסור שחיפוש יסגור טופס שממלאים באמצע. */
   .filter-modal-overlay,.mlead-overlay{display:none;position:fixed;inset:0;background:rgba(14,42,107,.55);z-index:300;align-items:flex-end;justify-content:center}
   .filter-modal-overlay.open,.mlead-overlay.open{display:flex}
-  .filter-modal{background:var(--paper-raised);width:100%;max-width:560px;max-height:88vh;border-radius:0 20px 0 0;display:flex;flex-direction:column;overflow:hidden}
+  /* ‏dvh ולא רק vh: במובייל ‎vh‎ נמדד לפי המסך בלי שורת הכתובת ובלי המקלדת,
+     ולכן 88vh גבוה מהחלון שבאמת רואים ברגע שהמקלדת עולה — והשוליים
+     התחתונים של המודאל, כלומר כפתור האישור, יוצאים מהמסך. */
+  .filter-modal{background:var(--paper-raised);width:100%;max-width:560px;max-height:88vh;max-height:88dvh;border-radius:0 20px 0 0;display:flex;flex-direction:column;overflow:hidden}
   @media(min-width:640px){
     .filter-modal-overlay,.mlead-overlay{align-items:center}
-    .filter-modal{border-radius:var(--radius-lg);max-height:80vh}
+    .filter-modal{border-radius:var(--radius-lg);max-height:80vh;max-height:80dvh}
   }
   .filter-modal-header{display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--line);flex:0 0 auto}
   .filter-modal-header h3{font-size:1.05rem}
   .filter-modal-close{width:32px;height:32px;border-radius:50%;background:var(--paper);font-size:1rem;color:var(--ink-soft)}
-  .filter-modal-body{padding:16px 18px;overflow-y:auto;flex:1 1 auto}
+  /* הטופס יושב בין המודאל לבין הגוף והפוטר, ולכן הוא חייב להיות flex column
+     בעצמו: בלי זה ‎.filter-modal-body‎ אינו פריט flex, ‎flex:1 1 auto‎ ו-
+     ‎overflow-y:auto‎ שלו לא עושים דבר, הטופס מתארך לגובה תוכנו ו-
+     ‎overflow:hidden‎ של המודאל חותך את מה שחורג — קודם כל את הפוטר, שבו
+     כפתור האישור. כך זה נראה בסוכן החכם ב"שניהם", שבו מוצגים גם טלפון וגם
+     אימייל: הכפתור פשוט לא היה במסך. ‏min-height:0 בשני המפלסים הוא מה
+     שמתיר לגוף להתכווץ מתחת לגובה תוכנו ולגלול במקום לדחוף. */
+  .filter-modal>form{display:flex;flex-direction:column;flex:1 1 auto;min-height:0}
+  .filter-modal-body{padding:16px 18px;overflow-y:auto;overscroll-behavior:contain;flex:1 1 auto;min-height:0}
   .filter-modal-footer{display:flex;gap:10px;padding:14px 18px;border-top:1px solid var(--line);flex:0 0 auto}
   .filter-section{margin-bottom:20px}
   .filter-section h4{font-size:.85rem;font-weight:700;margin-bottom:8px;color:var(--ink)}
@@ -2166,8 +2177,12 @@
   }
   .mlead-field{margin-bottom:12px}
   .mlead-field label{font-size:.76rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
+  /* ‏input[type=number] נמצא ברשימה כי שדות החדרים והתקציב של הסוכן החכם
+     הם מספריים: בלי ‎width:100%‎ הם נמתחים לרוחב ברירת המחדל של הדפדפן,
+     חורגים מהעמודה שלהם ב-‎.ssa-row‎ ונחתכים בקצה המודאל. */
   .mlead-field input[type=text],
   .mlead-field input[type=tel],
+  .mlead-field input[type=number],
   .mlead-field input[type=email]{
     width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;background:#fff;
   }
