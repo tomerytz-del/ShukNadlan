@@ -404,6 +404,22 @@
   .hero-chip-ai>span{color:var(--brass,#c9a227)}
   .hero-chip-ai:hover{background:#000d24;color:#fff}
 
+  /* סינון השכונות בתוך אותה שורה, נעוץ בקצה השמאלי (‏inline-end ב-RTL).
+     ‏margin-inline-start:auto בולע את כל המרווח שנשאר אחרי השבבים ודוחף אותו
+     לקצה, כך שהמיקום שלו קבוע ואינו תלוי בכמה שבבים יש לפניו. */
+  .hero-quick .hood-bar{margin-inline-start:auto}
+  .hero-quick .hood-filter-btn{
+    padding:6px 10px;gap:6px;font-size:.72rem;
+    background:#fff;color:var(--teal-dark);
+    border:1px solid rgba(14,42,107,.22);box-shadow:none;
+  }
+  /* ‎:not([data-active])‎ ולא ‎:hover‎ בלבד — סלקטור עם שתי מחלקות היה גובר על
+     ‎.hood-filter-btn[data-active="true"]‎ וצובע בחירה פעילה בטיל בהיר מתחת
+     לטקסט לבן. */
+  .hero-quick .hood-filter-btn:not([data-active="true"]):hover{background:var(--teal-tint)}
+  .hero-quick .hood-filter-btn svg{width:14px;height:14px}
+  .hero-quick .hood-filter-btn .hood-filter-count{min-width:17px;height:17px;font-size:.65rem}
+
   /* ====== הרצועה שמזמינה לסמן אזור על המפה ======
      הכלי הזה הוא היכולת שאיש לא מחפש לבד — ולכן הוא לא מסתפק בכפתור על
      המפה אלא מקבל שורה שאומרת מה הוא עושה. הכפתור עצמו הוא הרצועה כולה. */
@@ -505,8 +521,9 @@
      ולהשוות מהזיכרון. הכפתור כאן פותח מודאל בחירה מרובה: כל השכונות שיש בהן
      נכסים, עם המונה שלהן, וכמה מהן יחד על אותה מפה (ראו renderHoodFilter).
 
-     הכפתור מרכזי ובודד, ולכן אין כאן גלילה אופקית ואין מה לחתוך בקצה. */
-  .hood-bar{margin:10px auto 0;max-width:860px;pointer-events:auto;display:flex;justify-content:center}
+     הכפתור יושב בשורת השבבים שמתחת לסרגל החיפוש (ראו ‎.hero-quick‎ למעלה),
+     ולכן אין כאן גלילה אופקית ואין מה לחתוך בקצה. */
+  .hood-bar{display:flex;pointer-events:auto}
   .hood-filter-btn{
     display:inline-flex;align-items:center;gap:7px;cursor:pointer;
     padding:8px 16px;border-radius:0;white-space:nowrap;
@@ -732,21 +749,27 @@
        גולש מתחת לפאנל במקום להתקצר מולו. */
     .hero.split-on #hero-map{width:auto}
     /* במצב מפוצל ה-hero הוא סביבת עבודה ולא כרזה: הכותרת מתכווצת, וכל מה
-       שנועד לשכנע — התגיות, גלגל המילים, השבבים, שורת המספרים — יורד. מה
-       שנשאר הוא שורת החיפוש עצמה, וגם היא ממורכזת מעל המפה המצומצמת.
-       ‏.map-tools לא יורד: הסימון הוא בדיוק הכלי של מי שכבר עובד/ת. */
+       שנועד לשכנע — התגיות, גלגל המילים, שבבי החיפוש, שורת המספרים — יורד.
+       מה שנשאר הוא שורת החיפוש עצמה עם סינון השכונות שמתחתיה, וגם היא
+       ממורכזת מעל המפה המצומצמת. ‏.map-tools לא יורד: הסימון הוא בדיוק
+       הכלי של מי שכבר עובד/ת. */
     .hero.split-on .hero-inner h1{font-size:1.3rem;max-width:none;text-align:center;white-space:nowrap}
     .hero.split-on .hero-h1-break{display:inline}
     .hero.split-on .hero-badges,
     .hero.split-on .hero-roll,
-    .hero.split-on .hero-quick,
     .hero.split-on .hero-stats{display:none}
+    /* שורת השבבים היא היחידה שלא יורדת במלואה: השבבים עצמם הם הצעות חיפוש
+       ויורדים, אבל סינון השכונות שיושב בקצה שלה הוא כלי עבודה — בדיוק כמו
+       כלי הסימון — ומי שכבר במצב מפוצל זקוק/ה לו יותר, לא פחות. */
+    .hero.split-on .hero-quick{justify-content:center}
+    .hero.split-on .hero-quick-label,
+    .hero.split-on .hero-quick .hero-chip{display:none}
+    .hero.split-on .hero-quick .hood-bar{margin-inline:0}
     .hero.split-on .hero-overlay{
       display:block;bottom:auto;padding:16px 0 48px;
       background:linear-gradient(180deg, rgba(6,20,34,.92) 0%, rgba(6,20,34,.74) 34%, rgba(6,20,34,.36) 66%, rgba(6,20,34,0) 100%);
     }
     .hero.split-on .search-shell{margin-inline:auto;max-width:640px}
-    .hero.split-on .hood-bar{margin-inline:auto;max-width:640px;justify-content:center}
     /* הכלים והמונה יושבים ממילא בצד ה-inline-end של ה-hero, והפאנל המפוצל
        תופס את ה-inline-start — ולכן שניהם נשארים מעל המפה גם במצב מפוצל
        ואין מה להזיז. */
@@ -953,7 +976,6 @@
     .hero-roll{justify-content:flex-start;font-size:1.28rem;margin-top:10px}
     .search-shell{margin-inline:0;max-width:min(560px,46vw)}
     .hero-stats{justify-content:flex-start;gap:22px;margin-top:18px}
-    .hood-bar{justify-content:flex-start;margin-inline:0;max-width:min(560px,46vw)}
     /* הסקרים כבר מכהה את הצד הזה; ההילה שמתחת לסרגל החיפוש הייתה כתם שני */
     .search-shell::before{display:none}
   }
@@ -990,7 +1012,7 @@
   .ticker-more{font-size:.83rem;font-weight:700;color:var(--gold-dark);flex:0 0 auto;white-space:nowrap}
 
   /* ====== רצועת ההדמיות ======
-     הרצועה הכהה היחידה באמצע דף בהיר, ובכוונה: היא לא עוד רצועת נכסים אלא
+     הרצועה הכהה הראשונה שאחרי ה-hero, ובכוונה: היא לא עוד רצועת נכסים אלא
      הצגה של יכולת, והניגוד הוא מה שאומר את זה בלי כותרת שמסבירה. הזהב כאן
      הוא הדגש ולא המשטח (ראו assets/design-system.css) — חוץ מקופסת ה-CTA,
      שנושאת טקסט כהה ולכן מותר לה להיות זהב מלא. */
@@ -2679,6 +2701,22 @@
             <button type="button" class="hero-chip hero-chip-ai" data-ai="1">
               <span aria-hidden="true">✦</span> עם הדמיה
             </button>
+
+            <!-- סינון לפי שכונות. יושב בקצה השמאלי של שורת השבבים ונשאר שם
+                 קבוע: הוא לא הצעת חיפוש כמו שכניו אלא המסנן שנשאל ראשון כאן
+                 ("איזו שכונה?"), ולכן הוא נצמד לקצה ולא נסחף עם רשימת השבבים.
+                 הכפתור פותח מודאל בחירה מרובה שנבנה מהנכסים הפעילים עצמם
+                 (renderHoodOptions), ולכן מוצגות בו רק שכונות שבאמת יש בהן מה
+                 למצוא. -->
+            <div class="hood-bar" id="hoodBar" hidden>
+              <button type="button" class="hood-filter-btn" id="hoodFilterBtn" aria-haspopup="dialog">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/>
+                </svg>
+                <span id="hoodFilterLabel">סינון לפי שכונות</span>
+                <span class="hood-filter-count" id="hoodFilterCount" hidden>0</span>
+              </button>
+            </div>
           </div>
 
           <!-- הרצועה שמסבירה את הכלי שאיש לא מחפש לבד: אפשר לסמן אזור על
@@ -2688,19 +2726,6 @@
             <span class="hero-mapcta-ico" aria-hidden="true">✥</span>
             <span class="hero-mapcta-text" id="heroMapCtaText">התמקדו באזור על המפה וקבלו את כל הנכסים שבתוכו</span>
             <span class="hero-mapcta-go" aria-hidden="true">חיפוש במפה ←</span>
-          </button>
-        </div>
-
-        <!-- סינון לפי שכונות. הכפתור פותח מודאל בחירה מרובה שנבנה מהנכסים
-             הפעילים עצמם (renderHoodOptions), ולכן מוצגות בו רק שכונות
-             שבאמת יש בהן מה למצוא. -->
-        <div class="hood-bar" id="hoodBar" hidden>
-          <button type="button" class="hood-filter-btn" id="hoodFilterBtn" aria-haspopup="dialog">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/>
-            </svg>
-            <span id="hoodFilterLabel">סינון לפי שכונות</span>
-            <span class="hood-filter-count" id="hoodFilterCount" hidden>0</span>
           </button>
         </div>
 
@@ -3023,6 +3048,76 @@
     </div>
   </section>
 
+  <!-- ====== רצועת ההדמיות: "לפני ואחרי" ======
+       יושבת מיד אחרי תוצאות החיפוש, כלומר מיד מתחת למפה כל עוד לא חיפשו:
+       מי שסיים/ה לעבור על השורות שואל/ת "מה עוד אפשר לראות על נכס לפני
+       שנוסעים אליו", וזו התשובה. עמוק בתוך הדף היא הייתה נקראת אחרי שכבר
+       התקבלה ההחלטה.
+
+       הרצועה הכללית שהייתה כאן פעם ירדה מהדף, ובצדק: היא הציגה נכס אקראי
+       אחרי שיפוץ, כלומר ענתה על שאלה שאיש לא שאל. מה שחוזר כאן הוא דבר אחר
+       לגמרי — לא ויטרינה של נכס מסוים אלא הצגה של *היכולת*, ולכן היא לא
+       מקשרת לנכס שבתמונה אלא לשני מקומות שבהם היא באמת שימושית: מסנן
+       ההדמיות (למי שמחפש/ת) ובאנר הערכת השווי (למי שמוכר/ת).
+
+       שתי התמונות אמיתיות ונטענות מ-property_visualizations_public — אחת
+       ממגורים ואחת ממסחרי, בדיוק שני המצבים שהמנוע יודע לייצר. אין הדמיות
+       במסד → הרצועה כולה לא מוצגת. הבטחה מצוירת שאין מאחוריה תוצר היא
+       בדיוק מה שהרצועה הקודמת נכשלה בו. ראו docs/property-visualizations.md. -->
+  <section class="ai-band" id="aiBand" aria-labelledby="aiBandTitle" hidden>
+    <div class="wrap ai-band-inner">
+      <div class="ai-band-glow" aria-hidden="true"></div>
+
+      <!-- ‏הכותרת והמשפט עטופים יחד כדי שבנייד המרווח ביניהם יהיה של
+           כותרת ומשנה־כותרת. במסך רחב העטיפה מתפרקת (‏display:contents)
+           והמשפט יורד לראש עמודת הטקסט — ראו את שאילתת המדיה ב-CSS. -->
+      <div class="ai-band-head">
+        <h2 id="aiBandTitle" class="ai-band-title">
+          תראו את פוטנציאל הנכס<br class="ai-band-title-br">
+          <span>עם טכנולוגיית AI מהפכנית!</span>
+          <span class="ai-band-star" aria-hidden="true">✦</span>
+        </h2>
+
+        <!-- "בנכסים שההדמיות פעילות בהם" אינו סייג משפטי אלא דיוק: בדף
+             הנכס הכפתור מייצר הדמיה בלחיצה אחת, בלי הרשמה ובלי תשלום, אבל
+             רק בנכסים שהיכולת פעילה בהם (ראו vizBandCta() ב-property.html).
+             הבטחה גורפת יותר הייתה נשברת בדיוק בדף שאליו היא שולחת. -->
+        <p class="ai-band-lede">
+          כדי שתקבלו את ההחלטה הטובה על הנכס: בנכסים שההדמיות פעילות בהם
+          תוכלו לייצר הדמיה בעצמכם, בחינם ובלחיצה אחת, ולראות אם החלום שלכם
+          מתלבש על הנכס שמולכם.
+        </p>
+      </div>
+
+      <div class="ai-band-shots" id="aiBandShots"><!-- populated by JS --></div>
+
+      <div class="ai-band-copy">
+        <div class="ai-band-styles">
+          <span class="ai-band-styles-title">ארבעה סגנונות בכל נכס</span>
+          <ul>
+            <li><span aria-hidden="true">▢</span>מודרני נקי</li>
+            <li><span aria-hidden="true">☾</span>ים־תיכוני לבן</li>
+            <li><span aria-hidden="true">≡</span>סקנדינבי חמים</li>
+            <li class="is-on"><span aria-hidden="true">◈</span>יוקרה מודרנית</li>
+          </ul>
+        </div>
+
+        <!-- ה-CTA לא פותח טופס משלו אלא את אשף הערכת השווי שכבר בעמוד:
+             שני טפסים שמבקשים את אותם פרטים ומנתבים לאותו מקום הם שני
+             מקורות אמת לאותו ליד. ראו bindLeadBanner(). -->
+        <button type="button" class="ai-band-cta" id="aiBandCta">
+          <b>חושבים למכור או להשכיר?</b>
+          <span>השאירו פרטים וסוכן/ת יחזרו אליכם לתיאום פגישה — כולל הדמיות AI לנכס שלכם.</span>
+        </button>
+
+        <p class="ai-band-note">
+          <span aria-hidden="true">✦</span>
+          ההדמיה היא המחשה עיצובית ואינה מתחייבת לביצוע עבודות או לתוצאה בפועל.
+        </p>
+      </div>
+    </div>
+  </section>
+
   <!-- ====== הסוכן החכם: שמירת חיפוש וקבלת התראות ======
        נפתח מ-#ssaOpenBtn שבכותרת התוצאות ומ-#ssaEmptyBtn שנבנה בקוד כשאין
        תוצאות. הקריטריונים נלכדים מ-searchState ומגלולת השכונה ברגע הפתיחה,
@@ -3206,71 +3301,6 @@
       <button type="button" class="ticker-more" id="tickerMore" aria-haspopup="dialog">כל העדכונים ←</button>
     </div>
   </div>
-
-  <!-- ====== רצועת ההדמיות: "לפני ואחרי" ======
-       הרצועה הכללית שהייתה כאן פעם ירדה מהדף, ובצדק: היא הציגה נכס אקראי
-       אחרי שיפוץ, כלומר ענתה על שאלה שאיש לא שאל. מה שחוזר כאן הוא דבר אחר
-       לגמרי — לא ויטרינה של נכס מסוים אלא הצגה של *היכולת*, ולכן היא לא
-       מקשרת לנכס שבתמונה אלא לשני מקומות שבהם היא באמת שימושית: מסנן
-       ההדמיות (למי שמחפש/ת) ובאנר הערכת השווי (למי שמוכר/ת).
-
-       שתי התמונות אמיתיות ונטענות מ-property_visualizations_public — אחת
-       ממגורים ואחת ממסחרי, בדיוק שני המצבים שהמנוע יודע לייצר. אין הדמיות
-       במסד → הרצועה כולה לא מוצגת. הבטחה מצוירת שאין מאחוריה תוצר היא
-       בדיוק מה שהרצועה הקודמת נכשלה בו. ראו docs/property-visualizations.md. -->
-  <section class="ai-band" id="aiBand" aria-labelledby="aiBandTitle" hidden>
-    <div class="wrap ai-band-inner">
-      <div class="ai-band-glow" aria-hidden="true"></div>
-
-      <!-- ‏הכותרת והמשפט עטופים יחד כדי שבנייד המרווח ביניהם יהיה של
-           כותרת ומשנה־כותרת. במסך רחב העטיפה מתפרקת (‏display:contents)
-           והמשפט יורד לראש עמודת הטקסט — ראו את שאילתת המדיה ב-CSS. -->
-      <div class="ai-band-head">
-        <h2 id="aiBandTitle" class="ai-band-title">
-          תראו את פוטנציאל הנכס<br class="ai-band-title-br">
-          <span>עם טכנולוגיית AI מהפכנית!</span>
-          <span class="ai-band-star" aria-hidden="true">✦</span>
-        </h2>
-
-        <!-- "בנכסים שההדמיות פעילות בהם" אינו סייג משפטי אלא דיוק: בדף
-             הנכס הכפתור מייצר הדמיה בלחיצה אחת, בלי הרשמה ובלי תשלום, אבל
-             רק בנכסים שהיכולת פעילה בהם (ראו vizBandCta() ב-property.html).
-             הבטחה גורפת יותר הייתה נשברת בדיוק בדף שאליו היא שולחת. -->
-        <p class="ai-band-lede">
-          כדי שתקבלו את ההחלטה הטובה על הנכס: בנכסים שההדמיות פעילות בהם
-          תוכלו לייצר הדמיה בעצמכם, בחינם ובלחיצה אחת, ולראות אם החלום שלכם
-          מתלבש על הנכס שמולכם.
-        </p>
-      </div>
-
-      <div class="ai-band-shots" id="aiBandShots"><!-- populated by JS --></div>
-
-      <div class="ai-band-copy">
-        <div class="ai-band-styles">
-          <span class="ai-band-styles-title">ארבעה סגנונות בכל נכס</span>
-          <ul>
-            <li><span aria-hidden="true">▢</span>מודרני נקי</li>
-            <li><span aria-hidden="true">☾</span>ים־תיכוני לבן</li>
-            <li><span aria-hidden="true">≡</span>סקנדינבי חמים</li>
-            <li class="is-on"><span aria-hidden="true">◈</span>יוקרה מודרנית</li>
-          </ul>
-        </div>
-
-        <!-- ה-CTA לא פותח טופס משלו אלא את אשף הערכת השווי שכבר בעמוד:
-             שני טפסים שמבקשים את אותם פרטים ומנתבים לאותו מקום הם שני
-             מקורות אמת לאותו ליד. ראו bindLeadBanner(). -->
-        <button type="button" class="ai-band-cta" id="aiBandCta">
-          <b>חושבים למכור או להשכיר?</b>
-          <span>השאירו פרטים וסוכן/ת יחזרו אליכם לתיאום פגישה — כולל הדמיות AI לנכס שלכם.</span>
-        </button>
-
-        <p class="ai-band-note">
-          <span aria-hidden="true">✦</span>
-          ההדמיה היא המחשה עיצובית ואינה מתחייבת לביצוע עבודות או לתוצאה בפועל.
-        </p>
-      </div>
-    </div>
-  </section>
 
   <!-- ====== נכסים פרטיים למכירה ======
        כל הנכסים למגורים של כל משרדי התיווך בפלטפורמה במסלול אחד: החדשים
@@ -6930,8 +6960,15 @@ function initMapDraw(){
   // הרצועה שבתוך סרגל החיפוש היא נקודת הכניסה השנייה לאותו כלי: מי שקורא/ת
   // אותה נמצא/ת בעמודת החיפוש ולא על המפה, ולכן היא גם גוללת את המפה למרכז
   // המסך לפני שהמצב נדלק — אחרת הלחיצה "לא עושה כלום" למראית עין.
+  //
+  // היא גם מדליקה את התצוגה המפוצלת: הסימון הוא שאלה ("מה יש בתוך האזור
+  // הזה?"), והתשובה היא רשימה. בלי הרשימה שלצד המפה התוצאה של הסימון הייתה
+  // מונה בפינה וכפתור שגולל למטה — כלומר עוד מסך — במקום מה שמסומן ומה
+  // שנמצא בו זה לצד זה. ‏setSplitView נקראת לפני startArea כדי ש-Leaflet
+  // יקבל את הרוחב החדש (‏invalidateSize) לפני שמתחילים לצייר עליו.
   mapCta.addEventListener('click', ()=>{
     document.getElementById('heroSection')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    if (!splitOn) setSplitView(true);
     mapDraw.startArea();
   });
 }
