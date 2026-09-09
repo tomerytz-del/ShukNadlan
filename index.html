@@ -975,8 +975,8 @@
      הצגה של יכולת, והניגוד הוא מה שאומר את זה בלי כותרת שמסבירה. הזהב כאן
      הוא הדגש ולא המשטח (ראו assets/design-system.css) — חוץ מקופסת ה-CTA,
      שנושאת טקסט כהה ולכן מותר לה להיות זהב מלא. */
-  .ai-band{background:var(--teal-dark);padding:26px 0;overflow:hidden}
-  .ai-band-inner{position:relative;display:grid;gap:20px}
+  .ai-band{background:var(--teal-dark);padding:22px 0;overflow:hidden}
+  .ai-band-inner{position:relative;display:grid;gap:16px}
   /* שתי הילות שנעות לאט מתחת לתוכן — אותה שפה של הרקע הנע שבשאר הדף
      (assets/page-bg.js), בגרסה מקומית לרצועה אחת. */
   .ai-band-glow{
@@ -1093,9 +1093,12 @@
     font-size:1.35rem;font-weight:800;line-height:1.25;letter-spacing:-.02em;
     color:var(--brass-light,#e5c76a);
   }
+  /* ‏.82rem ולא .85rem: בנייד ההפרש הזה הוא שורה שלמה פחות במשפט (שלוש
+     שורות במקום ארבע ברוב המסכים), וזו הסיבה היחידה שהוא כאן. במסך רחב
+     הגודל נדרס בחזרה ל-.9rem בשאילתת המדיה. */
   .ai-band-lede{
     position:relative;margin:0;max-width:52ch;text-align:center;
-    font-size:.85rem;line-height:1.6;color:#c3cfeb;
+    font-size:.82rem;line-height:1.55;color:#c3cfeb;
   }
   .ai-band-title span{color:#fff}
   .ai-band-star{font-size:1.1rem;margin-inline-start:5px}
@@ -1133,15 +1136,20 @@
   .ai-band-note>span{color:var(--brass,#c9a227)}
 
   @media(min-width:760px){
-    .ai-band{padding:30px 0}
-    .ai-band-inner{grid-template-columns:1.02fr 1fr;row-gap:16px;column-gap:24px;align-items:stretch}
+    .ai-band{padding:24px 0}
+    .ai-band-inner{grid-template-columns:1.02fr 1fr;row-gap:12px;column-gap:24px;align-items:stretch}
     /* ‏.ai-band-head מפסיק להיות קופסה (‏display:contents) ושני ילדיו הופכים
        לפריטי גריד בזכות עצמם: הכותרת נשארת בראש הרצועה על שתי העמודות,
        ומשפט הפתיחה יורד לראש עמודת הטקסט — מעל לוח הסגנונות, כלומר צמוד
        למה שהוא מזמין אליו. עמודת הוילונות פורשת על שתי השורות שנוצרו
        ולכן היא נשארת עמודה אחת רציפה לצדן. */
     .ai-band-head{display:contents}
-    .ai-band-title{grid-column:1/-1;grid-row:1;font-size:1.65rem}
+    /* במסך רחב הכותרת נקראת כמשפט אחד: השבירה הידנית מבוטלת (‏<br> מוסתר,
+       והרווח שאחריו הוא שמפריד בין שני חלקיה), והיא גדלה עם רוחב המסך.
+       ה-clamp הוא מה שמחזיק אותה בשורה אחת גם ממש בגבול השאילתה — בלעדיו
+       גופן קבוע בגודל הזה היה נשבר שם בחזרה לשתי שורות. */
+    .ai-band-title-br{display:none}
+    .ai-band-title{grid-column:1/-1;grid-row:1;font-size:clamp(1.5rem,2.4vw,2rem)}
     /* ‏text-wrap:balance כדי שהשורה האחרונה בטור לא תישאר מילה בודדת
        (‏"שמולכם.") מתחת לשלוש שורות מלאות. דפדפן שאינו מכיר את הערך
        פשוט שובר כרגיל. */
@@ -1151,7 +1159,9 @@
        הטור — כלומר הכפתור נתלה באמצע ומתחתיו חור. ‏space-between מחלק
        אותה: הלוח נשאר בראש, ההצהרה יורדת לקו התחתון של התמונות, והכפתור
        יושב ביניהם במרווח שווה. */
-    .ai-band-copy{grid-column:2;grid-row:3;justify-content:space-between}
+    .ai-band-copy{grid-column:2;grid-row:3;justify-content:space-between;gap:11px}
+    .ai-band-styles{padding:9px 12px}
+    .ai-band-cta{padding:12px 16px}
     .ai-band-styles ul{grid-template-columns:repeat(4,1fr)}
     .ai-shot{height:100%;min-height:170px}
     .ai-band-shots{height:100%}
@@ -3189,7 +3199,7 @@
            והמשפט יורד לראש עמודת הטקסט — ראו את שאילתת המדיה ב-CSS. -->
       <div class="ai-band-head">
         <h2 id="aiBandTitle" class="ai-band-title">
-          תראו את פוטנציאל הנכס<br>
+          תראו את פוטנציאל הנכס<br class="ai-band-title-br">
           <span>עם טכנולוגיית AI מהפכנית!</span>
           <span class="ai-band-star" aria-hidden="true">✦</span>
         </h2>
@@ -3199,9 +3209,9 @@
              רק בנכסים שהיכולת פעילה בהם (ראו vizBandCta() ב-property.html).
              הבטחה גורפת יותר הייתה נשברת בדיוק בדף שאליו היא שולחת. -->
         <p class="ai-band-lede">
-          כדי שתקבלו את ההחלטה הכי טובה על הנכס שלכם: בנכסים שההדמיות פעילות
-          בהם תוכלו לייצר הדמיה בעצמכם, בחינם ובלחיצה אחת, ולראות אם החלום
-          שלכם מתלבש על הנכס שמולכם.
+          כדי שתקבלו את ההחלטה הטובה על הנכס: בנכסים שההדמיות פעילות בהם
+          תוכלו לייצר הדמיה בעצמכם, בחינם ובלחיצה אחת, ולראות אם החלום שלכם
+          מתלבש על הנכס שמולכם.
         </p>
       </div>
 
