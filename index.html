@@ -1628,223 +1628,6 @@
     /* הריפוד התחתון מחזיק את המרווח שהחזיקה קודם שורת נקודות הניווט */
     padding:20px 0 30px;box-shadow:0 -12px 30px rgba(6,20,34,.20);
   }
-  .hot-head{text-align:center;padding:0 16px;margin-bottom:6px}
-  .hot-head h2{font-size:1.16rem;line-height:1.35}
-  .hot-head .see-all{display:inline-block;margin-top:8px}
-
-  /* שלושה כרטיסים בתצוגה בכל רגע: רוחב הכרטיס נגזר מרוחב המסלול עצמו
-     (‎(100% − הרווחים)/3‎), כך שגם במסך צר רואים את הנכס הפעיל במרכז ואת
-     שכניו משני צדדיו — במקום כרטיס בודד שממלא את המסך. הריפוד בצדדים
-     הוא ה"הצצה" לכרטיס הרביעי/החמישי ורומז שאפשר להמשיך לגלול.
-     min() חוסם את הכרטיס מלהימתח במסכים רחבים: שם 3 כרטיסים כאלה היו
-     יוצאים ענקיים, ולכן הרוחב נעצר והתצוגה פשוט מציגה עוד כרטיסים.
-     scroll-snap-align:center עדיין ממרכז כל כרטיס תוך כדי גלילה;
-     הראשון/האחרון נעצרים הכי קרוב שאפשר למרכז בלי לחרוג מגבול התוכן. */
-  .coverflow{
-    --cf-gap:9px; --cf-peek:14px; --cf-max-card:248px;
-    display:flex;gap:var(--cf-gap);overflow-x:auto;scroll-snap-type:x mandatory;
-    padding:14px var(--cf-peek) 10px;
-    scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch;
-  }
-  .coverflow::-webkit-scrollbar{display:none}
-  .cf-card{
-    flex:0 0 min(var(--cf-max-card), calc((100% - var(--cf-gap) * 2) / 3));
-    /* ‎min-height‎ ולא ‎height‎: הגובה המשותף הוא רצפה, וכרטיס שתוכנו חורג
-       ממנו (כותרת יוצאת דופן) עדיין גדל — ומותח איתו את שאר הכרטיסים
-       במסלול, במקום לחתוך טקסט. */
-    min-height:var(--card-h);display:flex;flex-direction:column;
-    scroll-snap-align:center;cursor:pointer;
-    background:#fff;border:1px solid var(--line);border-radius:0;overflow:hidden;
-    box-shadow:var(--shadow-sm);transform:scale(.93);opacity:.82;
-    transition:transform .28s ease, opacity .28s ease, box-shadow .28s ease, border-color .28s ease;
-  }
-  .cf-card.is-active{
-    transform:scale(1);opacity:1;border-color:#C9A227;
-    box-shadow:0 16px 34px -12px rgba(6,20,34,.36), 0 0 0 2px rgba(201,162,39,.5);
-  }
-  .cf-thumb{height:94px;flex:none;background-size:cover;background-position:center;position:relative}
-  .cf-badge{
-    position:absolute;top:6px;right:6px;background:var(--teal);color:#fff;
-    font-size:.6rem;font-weight:800;padding:2px 7px;border-radius:0;
-  }
-  .cf-card[data-deal="rent"] .cf-badge{background:var(--deal-rent)}
-  .cf-card[data-deal="commercial"] .cf-badge{background:var(--deal-commercial)}
-  /* הגובה של הכרטיס קבוע עכשיו, ולכן הגוף לוקח את כל מה שנשאר מתחת
-     לתמונונת וממרכז בתוכו את התוכן — גם כשיש פחות טקסט (כותרת בשורה
-     אחת, או המחיר שמחליף אותה בכרטיס הפעיל) הוא לא נתלה בראש הכרטיס. */
-  .cf-body{padding:8px 8px 11px;text-align:center;flex:1;display:flex;flex-direction:column;justify-content:center}
-  /* בכרטיס הפעיל המחיר הוא הגיבור ומחליף את הכותרת; בכרטיסים שבצדדים
-     הכותרת היא שמזהה את הנכס. אותו markup, רק תצוגה שונה. */
-  .cf-price{
-    display:none;font-family:'Frank Ruhl Libre',serif;font-weight:700;
-    font-size:1.02rem;color:var(--teal-dark);white-space:nowrap;
-  }
-  .cf-card.is-active .cf-price{display:block}
-  /* הגבלה לשתי שורות שומרת על גובה אחיד לשלושת הכרטיסים גם כשהכותרות
-     באורכים שונים (הכרטיסים צרים יותר עכשיו, ולכן טקסט נשבר מהר). */
-  .cf-title{
-    font-size:.73rem;color:var(--ink);line-height:1.3;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
-  }
-  .cf-card.is-active .cf-title{display:none}
-  .cf-meta{
-    font-size:.67rem;color:var(--ink-soft);margin-top:4px;
-    display:flex;align-items:center;justify-content:center;gap:4px;
-  }
-  /* פחות משלושה נכסים (בעיקר בתוצאות חיפוש ממוקדות) — אין גלילה בכלל,
-     ולכן ממרכזים את מה שיש במקום להשאיר אותו נצמד לצד אחד. */
-  .coverflow.is-sparse{justify-content:center}
-  .cf-empty{width:100%;text-align:center;padding:26px 10px;color:var(--ink-soft);font-size:.85rem}
-
-  .cf-dots{display:flex;justify-content:center;align-items:center;gap:6px;margin-top:6px;flex-wrap:wrap;padding:0 16px}
-  .cf-dots button{
-    width:7px;height:7px;border-radius:0;background:var(--line);padding:0;
-    transition:width .25s ease, background .25s ease;
-  }
-  .cf-dots button.active{width:22px;background:var(--teal-dark)}
-
-  /* במובייל המסלול פורץ את ריפוד ה-.wrap ומשתמש בכל רוחב המסך, כדי
-     שהשלישייה תקבל כמה שיותר רוחב וההצצה לכרטיס הבא תיגע בקצה המסך. */
-  @media(max-width:759px){
-    .coverflow{margin-inline:-18px}
-  }
-
-  /* במסכים בינוניים יש מקום לכרטיסים גדולים יותר בלי לוותר על השלישייה */
-  @media(min-width:480px){
-    .coverflow{--cf-gap:12px;--cf-peek:18px}
-    .cf-thumb{height:112px}
-    .cf-price{font-size:1.16rem}
-    .cf-title{font-size:.79rem}
-    .cf-meta{font-size:.72rem}
-  }
-
-  @media(min-width:760px){
-    .hot-band{margin-top:-20px;padding:26px 0 32px}
-    .hot-head h2{font-size:1.4rem}
-    .coverflow{--cf-gap:16px;--cf-peek:24px;padding:16px var(--cf-peek) 12px}
-    .cf-card{border-radius:0}
-    .cf-thumb{height:150px}
-    /* ברוחב הזה אריח ה-coverflow חוזר לגובה מלא, ולכן גם ממלא המקום חוזר
-       למידות הרגילות שלו ולא לגרסה המוקטנת */
-    .cf-thumb .thumb-fallback{gap:6px;padding:10px}
-    .cf-thumb .tf-logo{width:48px;height:48px;border-radius:0;font-size:1.15rem}
-    .cf-thumb .tf-agency{font-size:.74rem}
-    .cf-thumb .tf-note{font-size:.68rem}
-    .cf-body{padding:10px 12px 14px}
-    .cf-price{font-size:1.3rem}
-    .cf-title{font-size:.83rem}
-    .cf-badge{top:9px;right:9px;font-size:.66rem;padding:3px 10px}
-    .cf-meta{font-size:.74rem;margin-top:5px}
-  }
-
-  /* ====== קרוסלת מתווכים, משרדי תיווך ובעלי מקצוע ======
-     שלוש הרצועות חולקות את אותו אריח: התמונה (או הלוגו) *היא* הכרטיס —
-     היא ממלאת את כל גובהו, והשם ושורת הנתונים יושבים בתחתיתו על scrim
-     כהה במקום בגוף כרטיס לבן נפרד מתחת לתמונונת.
-     הגרדיאנט עם אות ההתחלה נשאר מתחת לתמונה כרשת ביטחון: מי שאין לו
-     תמונה (או שהקובץ נשבר וה-img הסיר את עצמו) מקבל אריח צבעוני
-     ולא ריבוע ריק.
-     ההגדרות משותפות כאן כדי ששלוש הרצועות יישארו זהות בעיצוב ובגודל,
-     והשמות נפרדים רק כדי שה-markup של כל אחת יקרא לעצמו בשמו. */
-  .cf-card.agent-card,
-  .cf-card.ag-card{background:linear-gradient(155deg,var(--gold),var(--teal) 65%)}
-  /* הריפוד התחתון ממרכז את אות ההתחלה בשטח *שמעל* רצועת השם ולא באמצע
-     האריח (התמונה והרצועה מרחפות ולכן לא מושפעות ממנו), כדי שהאות לא
-     תיחתך מאחורי הרצועה.
-     האריח ממלא את גובה הכרטיס המשותף (‎--card-h‎) במקום להיות ריבוע:
-     ריבוע ברוחב הכרטיס יצא נמוך משמעותית מכרטיס הנכס, והרצועה נראתה
-     קטנה משאר הקרוסלות. כך התמונה גם מקבלת את כל השטח שיש. */
-  .agent-tile,
-  .ag-tile,
-  .pro-tile{
-    position:relative;flex:1;overflow:hidden;padding-bottom:38px;
-    display:flex;align-items:center;justify-content:center;
-  }
-  .agent-initial,
-  .ag-initial,
-  .pro-initial{
-    font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:2.1rem;
-    color:#fff;line-height:1;
-  }
-  /* object-position גבוה מהמרכז: בתמונות פרופיל הפנים יושבות בשליש
-     העליון, וחיתוך למרכז היה קוטע אותן בתחתית האריח הריבועי. סוכן/ת שסימן/ה
-     נקודת מיקוד ב-CRM דורס/ת את ברירת המחדל הזו דרך --photo-pos. */
-  .agent-photo,
-  .pro-photo{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:var(--photo-pos,center 22%)}
-  /* לוגו משרד הוא לא תמונת פורטרט: חיתוך ב-cover היה קוטע אותיות, ולכן
-     הלוגו עצמו נשאר שלם (contain) וממלא את כל שטח האריח שמעל רצועת השם,
-     ומאחוריו אותו קובץ בדיוק בגרסה מוגדלת ומטושטשת שממלאת את השוליים —
-     כך האריח נראה מלא ורציף כמו תמונת מתווך/ת, ולא לוגו קטן על ריבוע ריק.
-     הרקע הלבן מתחת לשניהם מתאים לרוב הלוגואים (כולל שקופים). */
-  .cf-card.ag-card:has(.ag-logo){background:#fff}
-  .cf-card.ag-card:has(.ag-logo) .ag-initial{display:none}
-  .ag-logo-bg{
-    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
-    transform:scale(1.3);filter:blur(18px) saturate(1.15) brightness(.94);
-  }
-  /* ‏width/height מפורשים ולא ‎inset‎ בלבד: לתמונה (אלמנט מוחלף) עם
-     ‎width:auto‎ נגזר הגודל *הפנימי* של הקובץ גם כשכל ה-insets מוגדרים,
-     והלוגו היה נפרש בגודלו המקורי מעבר לאריח במקום להתכווץ לתוכו. */
-  .ag-logo{
-    position:absolute;top:0;inset-inline:0;
-    width:100%;height:calc(100% - 38px);object-fit:contain;padding:8px;
-  }
-  @media(min-width:760px){.ag-logo{padding:14px}}
-  .agent-rank,
-  .ag-rank{
-    position:absolute;top:6px;right:6px;background:rgba(255,255,255,.94);color:var(--gold-dark);
-    font-size:.62rem;font-weight:800;padding:2px 7px;border-radius:0;
-    box-shadow:0 2px 6px rgba(6,20,34,.22);
-  }
-  /* תו האיכות על אריח בקרוסלה. הוא יושב בפינה הנגדית לתג הדירוג כדי שהשניים
-     לא יתנגשו, ואינו לחיץ: לחיצה על אריח בקרוסלה ממרכזת אותו או מנווטת לדף
-     המתווך/ת, ושם התו הגדול נלחץ ופותח את הפופ־אפ. */
-  .badge-mini{
-    position:absolute;top:6px;left:6px;width:26px;height:26px;border-radius:50%;
-    box-shadow:0 2px 7px rgba(6,20,34,.4);pointer-events:none;
-  }
-  @media(min-width:760px){.badge-mini{width:30px;height:30px;top:8px;left:8px}}
-  .agent-overlay,
-  .ag-overlay,
-  .pro-overlay{
-    position:absolute;inset-inline:0;bottom:0;padding:26px 8px 9px;text-align:center;color:#fff;
-    background:linear-gradient(to top, rgba(6,20,34,.94) 30%, rgba(6,20,34,.66) 62%, rgba(6,20,34,0));
-  }
-  .agent-name,
-  .ag-name,
-  .pro-name{
-    font-weight:700;font-size:.78rem;line-height:1.25;
-    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
-  }
-  .agent-agency,
-  .pro-business{
-    font-size:.66rem;color:rgba(255,255,255,.86);margin-top:2px;
-    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
-  }
-  .agent-meta,
-  .ag-meta{
-    display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;
-    font-size:.6rem;color:rgba(255,255,255,.9);margin-top:5px;
-  }
-  /* אותו כוכב צהוב בשתי הרצועות — משרד ומתווך/ת הם שני סוגי דירוג
-     בפלטפורמה אחת, ואין סיבה שייראו כמו שתי מערכות */
-  .agent-meta .star,
-  .ag-meta .star{color:#FFD34D;margin-inline-end:2px}
-  @media(min-width:480px){
-    .agent-initial,.ag-initial,.pro-initial{font-size:2.6rem}
-    .agent-name,.ag-name,.pro-name{font-size:.86rem}
-    .agent-agency,.pro-business{font-size:.72rem}
-    .agent-meta,.ag-meta{font-size:.66rem}
-  }
-  @media(min-width:760px){
-    .agent-initial,.ag-initial,.pro-initial{font-size:3.2rem}
-    .agent-rank,.ag-rank{top:9px;right:9px;font-size:.7rem;padding:3px 10px}
-    .agent-overlay,.ag-overlay,.pro-overlay{padding:32px 12px 12px}
-    .agent-name,.ag-name,.pro-name{font-size:.95rem}
-    .agent-agency,.pro-business{font-size:.78rem}
-    .agent-meta,.ag-meta{font-size:.72rem}
-  }
-
   /* ====== האנשים מאחורי העסקאות ======
      ‏#dealmakers נושא את .hot-band (הבמה שנכנסת מתחת למפה) ולכן הריפוד שלו
      נגזר משם; רק התחתון מיושר כאן ל-18px של ‎.section‎, כדי שהמעבר ממנו
@@ -1852,7 +1635,7 @@
   #dealmakers{padding-bottom:18px}
   .dm-head{display:flex;flex-direction:column;gap:12px;padding:0 16px;margin-bottom:10px}
   .dm-head h2{font-size:1.16rem;line-height:1.35}
-  .dm-sub{font-size:.8rem;color:var(--ink-soft);margin:5px 0 0;line-height:1.5}
+  .dm-sub-line{font-size:.8rem;color:var(--ink-soft);margin:5px 0 0;line-height:1.5}
 
   /* הלשוניות הן פקד ניווט ולא קישוט, ולכן הן נצבעות ולא רק מסומנות: המגש
      בגוון ‎--teal-tint‎ מחזיק את השלוש כקבוצה אחת, והפעילה מקבלת נייבי מלא
@@ -1868,25 +1651,25 @@
   .dm-tabs button:disabled{opacity:.45;cursor:default}
   .dm-tabs .n{font-weight:800;font-size:.72rem;opacity:.72;margin-inline-start:4px}
 
+  /* גוף הסקציה: תיבת החיפוש היא עמודה קבועה בקצה השמאלי, ושורת הכרטיסים
+     נגללת לצידה בעצמה. שני אחים ב-flex ולא ‎sticky‎ בתוך אותה שורה: כך
+     התיבה באמת מחוץ למסלול הגלילה, ולא צריכה להיאבק בו. */
+  .dm-body{display:flex;flex-direction:column;gap:12px;padding:4px 16px 14px}
+
   .dm-row{
     display:flex;gap:12px;align-items:stretch;overflow-x:auto;
-    padding:4px 16px 14px;scroll-snap-type:x proximity;
+    scroll-snap-type:x proximity;
+    /* במובייל המסלול פורץ את ריפוד הגוף ונוגע בקצה המסך, כדי שההצצה
+       לאריח הבא תרמז שאפשר להמשיך לגלול */
+    margin-inline:-16px;padding-inline:16px;
     scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch;
   }
   .dm-row::-webkit-scrollbar{display:none}
 
-  /* תיבת החיפוש היא קובייה קבועה בקצה *השמאלי* של השורה, ישר מתחת
-     ללשוניות שיושבות באותו צד — כך הבחירה בלשונית והפעולה שנגזרת ממנה
-     נמצאות באותו מקום במסך. ‏sticky על ‎inset-inline-end‎ הוא השמאלי במסמך
-     RTL, ו-‎order:1‎ מציב אותה אחרי הכרטיסים בשורה בלי לשנות את סדר ה-DOM
-     (בגלילה במקלדת מגיעים לחיפוש לפני הרשימה שהוא מסנן, וזה הסדר הנכון).
-     הכרטיסים חולפים תחתיה בזמן גלילה, והצל שמאחוריה הוא מה שמראה שהם
-     עוברים מתחת ולא נעצרים בה. הנייבי המלא הוא ההיפוך של הכרטיסים הלבנים
-     שלצידה — כך היא נקראת כפעולה ולא ככרטיס נוסף ברצועה. */
+  /* תיבת החיפוש — קובייה קבועה, בגודל אריח מלא ובצבע הפוך לאריחים שלצידה,
+     כדי שתיקרא כפעולה ולא כאריח נוסף ברצועה. */
   .dm-search{
-    position:sticky;inset-inline-end:16px;order:1;margin-inline-start:auto;z-index:2;
-    flex:0 0 min(248px, calc(100% - 46px));min-width:0;min-height:var(--card-h);
-    display:flex;flex-direction:column;padding:14px;
+    flex:none;min-width:0;display:flex;flex-direction:column;padding:14px;
     background:linear-gradient(155deg,#0e2a6b,#08194a 72%);
     border-top:3px solid #C9A227;box-shadow:0 10px 26px -10px rgba(6,20,34,.45);
   }
@@ -1896,8 +1679,8 @@
   .dm-search h3{font-family:'Frank Ruhl Libre',serif;font-size:1.02rem;font-weight:700;
     line-height:1.35;color:#fff;margin:10px 0 0}
   .dm-search > p{font-size:.76rem;line-height:1.5;color:rgba(255,255,255,.82);margin:6px 0 0}
-  /* ‏margin-top:auto דוחף את התיבה והקישור לתחתית הכרטיס, כך שהם מיושרים
-     עם שורת ה"לדף המשרד" של הכרטיסים שלצידם בכל גובה כרטיס */
+  /* ‏margin-top:auto דוחף את התיבה והקישור לתחתית, כך שהם מיושרים עם
+     רצועת השם של האריחים שלצידם בכל גובה אריח */
   .dm-field{display:flex;align-items:center;gap:8px;background:#fff;
     height:44px;padding:0 12px;margin-top:auto;color:var(--ink-soft)}
   .dm-field svg{width:17px;height:17px;flex:none}
@@ -1909,87 +1692,96 @@
   .dm-search-all a{font-size:.82rem;font-weight:700;color:#fff;
     border-bottom:1.5px solid #C9A227;padding-bottom:2px}
 
+  /* ====== אריח אדם/משרד ======
+     התמונה *היא* האריח: היא ממלאת אותו לגובה ולרוחב, והשם והנתונים יושבים
+     בתחתיתו על scrim כהה במקום בגוף כרטיס לבן נפרד. שלושת הסוגים חולקים
+     את אותו אריח בדיוק, כדי שהמעבר בין הלשוניות לא ייראה כמעבר בין שלוש
+     מערכות.
+     הגרדיאנט עם אות ההתחלה נשאר מתחת לתמונה כרשת ביטחון: מי שאין לו תמונה
+     (או שהקובץ נשבר וה-img הסיר את עצמו) מקבל אריח צבעוני ולא ריבוע ריק.
+     הריפוד התחתון ממרכז את האות בשטח שמעל רצועת השם ולא באמצע האריח. */
   .dm-card{
     flex:0 0 min(248px, calc(100% - 46px));min-width:0;min-height:var(--card-h);
-    display:flex;flex-direction:column;padding:14px;scroll-snap-align:end;
-    background:#fff;border:1px solid var(--line);border-top:3px solid #C9A227;
-    box-shadow:var(--shadow-sm);color:var(--ink);
+    position:relative;overflow:hidden;scroll-snap-align:end;
+    display:flex;align-items:center;justify-content:center;padding-bottom:38px;
+    background:linear-gradient(155deg,var(--gold),var(--teal) 65%);
+    border:1px solid var(--line);box-shadow:var(--shadow-sm);color:#fff;
     transition:transform .18s ease, box-shadow .18s ease;
   }
-  .dm-card:hover{transform:translateY(-2px);box-shadow:0 14px 28px -14px rgba(6,20,34,.34)}
-  .dm-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
-  .dm-name{font-weight:700;font-size:.95rem;line-height:1.3}
-  .dm-verified{font-size:.62rem;font-weight:800;color:#fff;background:var(--teal);
-    padding:2px 7px;white-space:nowrap}
-  .dm-role{font-size:.74rem;color:var(--ink-soft);margin-top:5px;line-height:1.4;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  /* אריח התמונה: אות ההתחלה יושבת מתחתיו ונחשפת אם הקובץ נשבר — אותו
-     דפוס של כרטיסי הקרוסלה. לוגו משרד נשאר שלם (contain) ותצלום אדם
-     ממלא את האריח (cover). */
-  .dm-logo{
-    flex:none;width:56px;height:56px;position:relative;overflow:hidden;
-    display:grid;place-items:center;background:var(--teal-tint);border:1px solid var(--line);
-    font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.5rem;color:var(--teal);
-  }
-  .dm-logo img{position:absolute;inset:0;width:100%;height:100%;
-    object-fit:cover;object-position:center 22%;background:#fff}
-  .dm-logo img.is-contain{object-fit:contain;object-position:center;padding:4px}
-  .dm-meta{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;
-    font-size:.74rem;color:var(--ink-soft);margin-top:14px}
-  .dm-meta b{color:var(--ink);font-weight:700}
-  .dm-meta .star{color:#C9A227}
-  .dm-sep{color:var(--line)}
-  .dm-card-text{min-width:0}
-  .dm-tags{font-size:.76rem;color:var(--ink-soft);line-height:1.5;margin-top:8px;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .dm-go{margin-top:auto;min-height:44px;display:flex;align-items:flex-end;padding-bottom:2px}
-  .dm-go span{font-size:.82rem;font-weight:700;color:var(--teal);
-    border-bottom:1.5px solid #C9A227;padding-bottom:2px}
+  .dm-card:hover{transform:translateY(-2px);box-shadow:0 14px 28px -14px rgba(6,20,34,.42)}
+  .dm-initial{font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:2.1rem;
+    color:#fff;line-height:1}
+  /* ‏object-position גבוה מהמרכז: בתמונות פרופיל הפנים יושבות בשליש
+     העליון, וחיתוך למרכז היה קוטע אותן בתחתית האריח. מי שסימן/ה נקודת
+     מיקוד ב-CRM דורס/ת את ברירת המחדל דרך ‎--photo-pos‎. */
+  .dm-photo{position:absolute;inset:0;width:100%;height:100%;
+    object-fit:cover;object-position:var(--photo-pos,center 22%)}
+  /* לוגו משרד הוא לא תמונת פורטרט: חיתוך ב-cover היה קוטע אותיות, ולכן
+     הלוגו נשאר שלם (contain) ומאחוריו אותו קובץ בגרסה מוגדלת ומטושטשת
+     שממלאת את השוליים — כך האריח נראה מלא ורציף, ולא לוגו קטן על ריבוע ריק. */
+  .dm-card:has(.dm-logo){background:#fff}
+  .dm-card:has(.dm-logo) .dm-initial{display:none}
+  .dm-logo-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+    transform:scale(1.3);filter:blur(18px) saturate(1.15) brightness(.94)}
+  /* ‏width/height מפורשים ולא ‎inset‎ בלבד: לתמונה עם ‎width:auto‎ נגזר
+     הגודל הפנימי של הקובץ גם כשכל ה-insets מוגדרים. */
+  .dm-logo{position:absolute;top:0;inset-inline:0;width:100%;height:calc(100% - 38px);
+    object-fit:contain;padding:8px}
+  .dm-rank{position:absolute;top:6px;right:6px;background:rgba(255,255,255,.94);
+    color:var(--gold-dark);font-size:.62rem;font-weight:800;padding:2px 7px;
+    box-shadow:0 2px 6px rgba(6,20,34,.22)}
+  /* תו האיכות יושב בפינה הנגדית לתג הדירוג כדי שהשניים לא יתנגשו, ואינו
+     לחיץ: האריח כולו כבר מוביל לדף, ושם התו הגדול נלחץ ופותח את ההסבר. */
+  .dm-badge{position:absolute;top:6px;left:6px;width:26px;height:26px;border-radius:50%;
+    box-shadow:0 2px 7px rgba(6,20,34,.4);pointer-events:none}
+  .dm-overlay{position:absolute;inset-inline:0;bottom:0;padding:26px 8px 9px;
+    text-align:center;color:#fff;
+    background:linear-gradient(to top, rgba(6,20,34,.94) 30%, rgba(6,20,34,.66) 62%, rgba(6,20,34,0))}
+  .dm-name{font-weight:700;font-size:.78rem;line-height:1.25;
+    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+  .dm-sub{font-size:.66rem;color:rgba(255,255,255,.86);margin-top:2px;
+    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+  .dm-meta{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;
+    font-size:.6rem;color:rgba(255,255,255,.9);margin-top:5px}
+  .dm-meta .star{color:#FFD34D;margin-inline-end:2px}
+
   .dm-empty{flex:1;min-width:min(280px,100%);min-height:var(--card-h);
     display:grid;place-items:center;text-align:center;border:1px dashed #cfd8ec;
     padding:20px;margin:0;font-size:.82rem;color:var(--ink-soft);line-height:1.6}
   .dm-all{display:flex;justify-content:center;align-items:center;min-height:44px;margin:0}
 
-  /* בטלפון אין שורה נגללת: תיבה ברוחב כרטיס הייתה תופסת כמעט את כל
-     המסך ומשאירה לכרטיסים רצועה של 100px. לכן התיבה נפרשת לרוחב מעל
-     הרשימה, והכרטיסים יורדים לשורות — הלוגו מימין, השם והנתונים לצידו
-     והקישור בקצה, כמו שאר הרשימות בעמוד. */
-  @media(max-width:759px){
-    .dm-row{flex-direction:column;gap:10px;overflow:visible;scroll-snap-type:none}
-    .dm-search{position:static;order:0;flex:none;width:100%;min-height:0;margin-inline-start:0}
-    .dm-search h3{font-size:1rem}
-    /* שורת ההסבר יורדת בטלפון: הכותרת והתיבה אומרות את אותו הדבר בשליש
-       מהגובה, וכל שורה כאן נגרעת מהכרטיסים שמתחת */
-    .dm-search > p{display:none}
-    .dm-field{margin-top:12px}
-
-    .dm-card{flex:none;width:100%;min-height:0;padding:12px;
-      flex-direction:row;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:6px}
-    .dm-card-top{flex:1 1 0;min-width:0;flex-direction:row-reverse;align-items:center;gap:12px}
-    .dm-card-text{flex:1}
-    .dm-logo{width:46px;height:46px;font-size:1.25rem}
-    .dm-role{-webkit-line-clamp:1}
-    .dm-meta{order:3;flex-basis:100%;margin-top:0}
-    .dm-tags{order:4;flex-basis:100%;margin-top:0;-webkit-line-clamp:1}
-    .dm-go{order:2;flex:none;margin-top:0;min-height:44px;align-items:center;padding-bottom:0}
-    .dm-empty{min-height:0;padding:26px 16px}
+  @media(min-width:480px){
+    .dm-initial{font-size:2.6rem}
+    .dm-name{font-size:.86rem}
+    .dm-sub{font-size:.72rem}
+    .dm-meta{font-size:.66rem}
   }
 
   @media(min-width:760px){
+    .hot-band{margin-top:-20px;padding:26px 0 32px}
     .dm-head{flex-direction:row;justify-content:space-between;align-items:flex-end;
       gap:24px;margin-bottom:14px}
     .dm-head h2{font-size:1.4rem}
-    .dm-sub{font-size:.88rem}
+    .dm-sub-line{font-size:.88rem}
     .dm-tabs{flex:0 0 auto}
     .dm-tabs button{flex:0 0 auto;padding:0 18px;font-size:.84rem}
-    .dm-row{gap:16px;padding:4px 16px 16px}
-    .dm-search,.dm-card{padding:16px 16px 14px}
+    /* מכאן ומעלה יש מקום לשתי עמודות: החיפוש קבוע בשמאל (‏order:1 הוא
+       הקצה השמאלי במסמך RTL) והמסלול לוקח את כל השאר ונגלל בעצמו */
+    .dm-body{flex-direction:row;align-items:stretch;gap:16px;padding:4px 16px 16px}
+    .dm-search{order:1;flex:0 0 248px;padding:16px 16px 14px}
+    .dm-row{order:0;flex:1;min-width:0;gap:16px;margin-inline:0;padding-inline:0}
+    .dm-initial{font-size:3.2rem}
+    .dm-rank{top:9px;right:9px;font-size:.7rem;padding:3px 10px}
+    .dm-badge{width:30px;height:30px;top:8px;left:8px}
+    .dm-overlay{padding:32px 12px 12px}
+    .dm-name{font-size:.95rem}
+    .dm-sub{font-size:.78rem}
+    .dm-meta{font-size:.72rem}
+    .dm-logo{padding:14px}
   }
   /* הכותרת ארוכה ונשברת לשתי שורות במובייל; ‎balance‎ מחלק אותה לשתי
      שורות שוות־אורך במקום שורה מלאה ומילה בודדת מתחתיה, ושתיהן ממורכזות. */
-  #leadingAgents .section-head > div,
   #featured .section-head > div{width:100%;text-align:center}
-  #leadingAgents .section-head h2,
   #featured .section-head h2{text-align:center;margin-inline:auto;text-wrap:balance}
 
   /* ====== שורת פרסומת בין הסקציות ====== */
@@ -2701,7 +2493,6 @@
   html.a11y-contrast .sr-row,
   html.a11y-contrast .map-panel,
   html.a11y-contrast .ad-strip,
-  html.a11y-contrast .cf-card,
   html.a11y-contrast .dm-card,
   html.a11y-contrast .article-card{background:#000 !important;border-color:#fff !important;color:#fff !important}
   html.a11y-contrast .sr-price,
@@ -2776,9 +2567,9 @@
     <nav class="primary" aria-label="ניווט ראשי">
       <a href="#listings">נכסים</a>
       <a href="#newProjects">פרויקטים חדשים</a>
-      <a href="#dealmakers">משרדי תיווך</a>
-      <a href="#leadingAgents">מתווכים</a>
-      <a href="#pros">בעלי מקצוע</a>
+      <a href="#dealmakers" data-dm-tab="agencies">משרדי תיווך</a>
+      <a href="#dealmakers" data-dm-tab="agents">מתווכים</a>
+      <a href="#dealmakers" data-dm-tab="pros">בעלי מקצוע</a>
       <a href="#articles">כתבות</a>
     </nav>
     <div class="header-actions">
@@ -2791,9 +2582,9 @@
   <nav id="mobileMenu" class="mobile-menu" aria-label="ניווט למובייל">
     <a href="#listings">נכסים</a>
     <a href="#newProjects">פרויקטים חדשים</a>
-    <a href="#dealmakers">משרדי תיווך</a>
-    <a href="#leadingAgents">מתווכים</a>
-    <a href="#pros">בעלי מקצוע</a>
+    <a href="#dealmakers" data-dm-tab="agencies">משרדי תיווך</a>
+    <a href="#dealmakers" data-dm-tab="agents">מתווכים</a>
+    <a href="#dealmakers" data-dm-tab="pros">בעלי מקצוע</a>
     <a href="#articles">כתבות</a>
     <!-- עד עכשיו נקודת הכניסה היחידה של בעלי מקצוע הייתה הקישור בתוך
          הרצועה בדף הבית — מי שלא גלל עד אליה לא ידע שאפשר להצטרף. -->
@@ -3474,10 +3265,11 @@
         <div>
           <div class="head-line">
             <h2 id="dealmakersTitle">האנשים מאחורי העסקאות</h2>
-            <button type="button" class="info-dot" aria-label="איך נקבע הדירוג?"
-                    data-info="הדירוג נקבע לפי ביקורות הלקוחות והפעילות בפלטפורמה">i</button>
+            <button type="button" class="info-dot" id="ratingInfoLink"
+                    aria-haspopup="dialog" data-info="לחיצה — איך נקבע הדירוג"
+                    aria-label="איך עובד הדירוג של המשרדים והמתווכים">i</button>
           </div>
-          <p class="dm-sub">כל מי שמלווה עסקת נדל״ן בעפולה והעמק, במקום אחד</p>
+          <p class="dm-sub-line">כל מי שמלווה עסקת נדל״ן בעפולה והעמק, במקום אחד</p>
         </div>
 
         <div class="dm-tabs" role="tablist" aria-label="סוג אנשי המקצוע">
@@ -3490,7 +3282,7 @@
         </div>
       </div>
 
-      <div class="dm-row" id="dmRow" role="tabpanel" aria-labelledby="dmTabAgencies">
+      <div class="dm-body">
         <div class="dm-search">
           <span class="dm-eyebrow">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
@@ -3509,7 +3301,9 @@
           </label>
           <span class="dm-search-all"><a href="agencies.html" id="dmSearchAll">לרשימה המלאה ←</a></span>
         </div>
-        <!-- הכרטיסים מוזרקים ב-JS (initDealmakers) -->
+
+        <!-- האריחים מוזרקים ב-JS (initDealmakers) -->
+        <div class="dm-row" id="dmRow" role="tabpanel" aria-labelledby="dmTabAgencies"></div>
       </div>
 
       <p class="dm-all"><a href="agencies.html" class="see-all" id="dmSeeAll">לכל משרדי התיווך ←</a></p>
@@ -4119,31 +3913,6 @@
     <div class="ad-strip"><span class="tag">פרסומת</span> מיקום פרסום — באנר רוחבי מתחת למחשבון המשכנתא</div>
   </div>
 
-  <!-- ====== Leading Agents (module 3 §5.1) ======
-       קרוסלה על אותו מנוע coverflow של משרדי התיווך: כל המתווכים
-       שבפלטפורמה נמצאים במסלול אחד שאפשר לדפדף בו, לפי דירוג הביקורות
-       ואחריו מספר הנכסים הפעילים. -->
-  <section class="section wrap" id="leadingAgents">
-    <div class="section-head">
-      <div class="head-line">
-        <!-- הנקודה יושבת *בתוך* ה-h2 ולא לצידו: הכותרת כאן נשברת לשתי שורות
-             במובייל, ופריט flex אחיו נדחק בגללה לשורה שלישית משלו. כאלמנט
-             inline בתוך הכותרת היא נצמדת לסוף השורה האחרונה, כמו בשאר
-             הכותרות שבהן הכותרת קצרה ונשארת בשורה אחת.
-             ‏id‏ ‎ratingInfoLink‎ נשמר: אותו מאזין שפתח את המודאל מהתפריט פותח
-             אותו גם מכאן, וזה המקום שבו השאלה באמת עולה — ליד הכוכבים. -->
-        <h2>המתווכים הכי מומלצים בעפולה והסביבה<button type="button" class="info-dot" id="ratingInfoLink"
-                aria-haspopup="dialog" data-info="לחיצה — איך נקבע הדירוג"
-                aria-label="איך עובד הדירוג של המתווכים">i</button></h2>
-      </div>
-      <!-- הקרוסלה מציגה את כל המתווכים לפי סדר הדירוג, אבל דפדוף אופקי הוא
-           לא הדרך למצוא מתווך/ת מסוים/ת. הקישור מוביל לרשימה המלאה, שם יש
-           חיפוש לפי שם, משרד, תחום התמחות ודירוג כוכבים. -->
-      <a href="agents.html" class="see-all">כל המתווכים ←</a>
-    </div>
-    <div class="coverflow" id="leadingAgentsScroll" role="region" aria-label="מתווכים מומלצים"><!-- populated by JS --></div>
-    <div class="cf-dots" id="leadingAgentsDots" aria-label="מעבר בין מתווכים"></div>
-  </section>
 
   <!-- ====== Featured (Premium rotation) ====== -->
   <section class="section wrap" id="featured">
@@ -4272,24 +4041,10 @@
     <div class="article-scroll" id="articlesScroll"><!-- populated by JS --></div>
   </section>
 
-  <!-- ====== Professionals ====== -->
-  <section class="section wrap" id="pros">
-    <div class="section-head">
-      <div>
-        <h2>בעלי מקצוע נבחרים</h2>
-        <p class="section-sub">שילוו אתכם בדרך לעסקת הנדל״ן הבאה שלכם</p>
-      </div>
-      <!-- הרצועה מציגה ארבעה מתוך הרשימה, והקישור מוביל לרשימה המלאה עם
-           חיפוש — לא לטופס ההצטרפות. ההזמנה להצטרף היא הבאנר שבתחתית
-           ‎professionals.html‎, אחרי שראו מי כבר שם. -->
-      <a href="professionals.html" class="see-all">כל בעלי המקצוע ←</a>
-    </div>
-    <div class="pros-grid" id="prosGrid"><!-- populated by JS, fallback to static below on failure --></div>
-  </section>
 
   <!-- ====== שורת פרסומת ====== -->
   <div class="ad-row wrap">
-    <div class="ad-strip"><span class="tag">פרסומת</span> מיקום פרסום — באנר רוחבי מתחת לבעלי המקצוע</div>
+    <div class="ad-strip"><span class="tag">פרסומת</span> מיקום פרסום — באנר רוחבי מתחת לכתבות</div>
   </div>
 
   <!-- ====== Property grid ====== -->
@@ -5501,14 +5256,6 @@ async function loadTicker(){
 (async function initTicker(){
   setTickerItems(await loadTicker());
 })();
-/* תו האיכות על אריחי הקרוסלות. הטקסט השיווקי של התו מבקש מהגולש/ת "לחפש את
-   תו האיכות בפרופיל המתווך ובמודעות הנכסים", ודף הבית הוא המקום הראשון שבו
-   מדפדפים בין מתווכים — ולכן הוא מופיע גם כאן. מחרוזת קבועה בלי קלט משתמש,
-   ולכן בטוחה להזרקה ל-innerHTML. */
-const ETHICS_BADGE_MINI =
-  '<img class="badge-mini" src="assets/badge-ethics.png" width="384" height="384" loading="lazy" ' +
-  'alt="עומד בתקן האתי" title="עומד בתקן האתי של שוק הנדל״ן של עפולה">';
-
 /* ============================================================
    מאתר משרדי התיווך — תחומי התמחות ואזורי פעילות
    ------------------------------------------------------------
@@ -5719,63 +5466,10 @@ async function loadLeadingAgents(){
   }
 }
 
-// שמות, שמות משרדים וכתובות תמונה מגיעים מקלט של סוכנים ונכנסים כאן גם
-// לתוך מאפיינים (src/alt), ולכן עוברים דרך escAttr לפני ההזרקה ל-innerHTML.
+
+/* הרשימה נטענת פעם אחת ומשמשת את לשונית "מתווכים" בסקציית האנשים מאחורי
+   העסקאות. ‏Promise ולא קריאה כפולה, מאותו נימוק כמו במשרדים. */
 const agentsReady = loadLeadingAgents();
-
-(async function initLeadingAgents(){
-  const agents = await agentsReady;
-  const track = document.getElementById('leadingAgentsScroll');
-  const dots = document.getElementById('leadingAgentsDots');
-  const section = document.getElementById('leadingAgents');
-  if (!track || !dots) return;
-  if (!agents.length){ section.style.display = 'none'; return; }
-
-  const flow = createCoverflow(track, dots);
-  flow.reset();
-  agents.forEach((a, i)=>{
-    const name = a.display_name || 'מתווך/ת';
-    const card = document.createElement('article');
-    card.className = 'cf-card agent-card';
-    // התג הוא סימן דירוג ולא מספר סידורי: הוא נשמר לשלושה המדורגים
-    // הראשונים, ורק כשיש בכלל על מה לדרג אותם (ביקורות או נכסים פעילים).
-    const ranked = a.rating !== null || a.active_properties_count > 0;
-    const rank = (i < 3 && ranked) ? `<span class="agent-rank">#${i + 1}</span>` : '';
-    // אות ההתחלה נשארת ב-DOM גם כשיש תמונה ופשוט מכוסה על ידה; אם קובץ
-    // התמונה נשבר ה-img מסיר את עצמו והאריח חוזר לאות על הגרדיאנט
-    // במקום לאייקון תמונה שבורה.
-    // נקודת המיקוד שהסוכן/ת סימן/ה ב-CRM. הערך נכנס ל-CSS ולכן נבדק כאן
-    // בדיוק כפי שהוא נבדק ב-DB: שני אחוזים ותו לא.
-    const focus = /^\d{1,3}% \d{1,3}%$/.test(a.photo_position || '') ? a.photo_position : '';
-    const photo = a.photo_url
-      ? `<img class="agent-photo" src="${escAttr(a.photo_url)}" alt="${escAttr(name)}" loading="lazy"
-              ${focus ? `style="--photo-pos:${focus}"` : ''} onerror="this.remove()">`
-      : '';
-    const meta = [];
-    if (a.rating !== null){
-      const reviews = a.reviews_count === 1 ? 'ביקורת אחת' : `${a.reviews_count} ביקורות`;
-      meta.push(`<span><span class="star">★</span>${a.rating.toFixed(1).replace(/\.0$/, '')} · ${reviews}</span>`);
-    }
-    meta.push(`<span>${a.active_properties_count === 1 ? 'נכס פעיל אחד' : a.active_properties_count + ' נכסים פעילים'}</span>`);
-    card.innerHTML = `
-      <div class="agent-tile">
-        <span class="agent-initial">${escAttr(name.trim()[0] || 'מ')}</span>
-        ${photo}${rank}${a.has_ethics_badge ? ETHICS_BADGE_MINI : ''}
-        <div class="agent-overlay">
-          <div class="agent-name">${escAttr(name)}</div>
-          <div class="agent-agency">${escAttr(a.agency_name)}</div>
-          <div class="agent-meta">${meta.join('')}</div>
-        </div>
-      </div>`;
-    // כמו בקרוסלת המשרדים: נגיעה אחת פותחת את עמוד המתווך/ת גם בכרטיס צדדי.
-    flow.bindOpen(card, ()=>{
-      const key = a.slug || a.id;
-      if (key) window.location.href = 'agent.html?slug=' + encodeURIComponent(key);
-    });
-    flow.add(card, `מעבר למתווך/ת ${i + 1} מתוך ${agents.length}`);
-  });
-  flow.done();
-})();
 
 /* ---------- נכסים מסחריים ---------- */
 /* אותה מדיניות כמו FALLBACK_PROPERTIES: תוכן הדגמה נכנס רק כשה-DB לא זמין
@@ -6003,29 +5697,10 @@ async function loadArticles(){
   });
 })();
 
-/* ---------- Professionals (module 2 §5.6) — live ad_placements, static fallback ---------- */
-/* ברירת המחדל היא מקומות פנויים ולא בעלי-מקצוע אמיתיים: השורה הראשונה
-   היא התחום והשנייה תיאור קצר שלו, כדי שהרצועה תיראה מאוישת גם לפני
-   שנרשם מישהו. ‎business_name‎ מפורש כאן ולא נשען על הנפילה לתחום העיסוק,
-   אחרת שתי השורות היו חוזרות על אותו טקסט. */
-const FALLBACK_PROS = [
-  {advertiser_name:'יועץ משכנתאות', business_name:'ליווי מימון ומשכנתאות', advertiser_type:'mortgage_advisor', target_region:'מומלץ באזור עפולה'},
-  {advertiser_name:'שמאי מקרקעין', business_name:'הערכות שווי', advertiser_type:'appraiser', target_region:'עפולה והעמק'},
-  {advertiser_name:'אדריכל', business_name:'תכנון ועיצוב', advertiser_type:'architect', target_region:'עפולה והעמק'},
-  {advertiser_name:'מעצבת פנים', business_name:"שיפוצים והום סטייג'ינג", advertiser_type:'interior_designer', target_region:'עפולה והעמק'},
-  {advertiser_name:'עו״ד מקרקעין', business_name:'ליווי עסקאות', advertiser_type:'real_estate_lawyer', target_region:'עפולה והעמק'},
-];
-/* שם העסק הוא שדה נפרד מהשם הפרטי (business_name), אבל הוא התווסף אחרי
-   שכבר נרשמו בעלי מקצוע — ולכן יש נפילה מסודרת: שם העסק, ואם אין אותו
-   תחום העיסוק, ואם גם הוא חסר האזור. הרצועה התחתונה של האריח לעולם לא
-   נשארת חצי ריקה. */
-function proSecondLine(p){
-  return p.business_name || TYPE_LABELS[p.advertiser_type] || p.target_region || '';
-}
 
-/* קישור התמונה וקישור הכרטיסייה מגיעים מטופס הרשמה פתוח ונכנסים ישירות
-   ל-href/src, ולכן מסוננים לפרוטוקול בטוח בלבד: ‎javascript:‎ בשדה הקישור
-   היה הופך לכתובת שהכרטיסייה כולה מפעילה בלחיצה. */
+/* קישורי תמונה שמגיעים מטופס הרשמה פתוח נכנסים ישירות ל-href/src, ולכן
+   מסוננים לפרוטוקול בטוח בלבד: ‎javascript:‎ בשדה הקישור היה הופך לכתובת
+   שהכרטיס כולו מפעיל בלחיצה. */
 function safeExternalUrl(u){
   if (!u) return '';
   try{
@@ -6038,69 +5713,11 @@ const TYPE_LABELS = {
   interior_designer:'מעצב/ת פנים', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל/ת מקצוע',
 };
 
-/* הרצועה מציגה ארבעה אריחים בדיוק — שורה מלאה אחת בדסקטופ ו-2×2 בנייד —
-   ולכן שאר בעלי המקצוע מתחלפים ברוטציה במקום להיערם בשורות נוספות. */
-const PROS_VISIBLE = 4;
-
-/* מונה הרוטציה מתקדם בצעד אחד בכל טעינת עמוד, כך שריענון מביא את בעלי
-   המקצוע הבאים בתור. מונה מתמיד (localStorage) ולא הגרלה אקראית, כדי
-   שהחשיפה תתחלק שווה בשווה ולא תיפול פעמיים על אותו מפרסם. אם האחסון
-   חסום (גלישה פרטית, דחיית עוגיות) יש נפילה להגרלה — עדיין מתחלף בכל
-   ריענון, פשוט בלי הבטחת הסבב.
-   בכוונה חסרת-state בצד השרת: התצוגה קורית לגולשים אנונימיים שאין להם
-   הרשאת כתיבה, ורישום שורת רוטציה בכל צפיית עמוד היה מייצר עומס כתיבה
-   מיותר. (priority_rotation_state נשאר בשימוש לרוטציה של Promote, שם יש
-   סוכן מזוהה ומדובר בבחירה חד-פעמית ולא בכל rendering.)                  */
-function nextProsRotationTick(){
-  try{
-    const prev = parseInt(localStorage.getItem('prosRotationTick') || '0', 10);
-    const tick = (Number.isFinite(prev) ? prev : 0) + 1;
-    // גלילה לפני הגעה לגבולות המספר השלם; כל ערך גדול דיו כדי לא לחזור
-    localStorage.setItem('prosRotationTick', String(tick % 1000000));
-    return tick;
-  } catch(e){
-    return Math.floor(Math.random() * 1000000);
-  }
-}
-
-/* רוטציה הוגנת בין בעלי-מקצוע באותה קטגוריה, ובין הקטגוריות עצמן.
-   שתי הרמות מסתובבות: בתוך הקטגוריה עולה לראש מפרסם אחר בכל ריענון,
-   וגם סדר הקטגוריות מזדחל — אחרת קטגוריה שיש בה בעל מקצוע יחיד הייתה
-   נעולה לנצח על אותו מקום בגריד ולעולם לא יוצאת מארבעת הראשונים.       */
-function rotateProfessionalsFairly(list, tick){
-  const byType = new Map();
-  list.forEach(p=>{
-    const key = p.advertiser_type || 'general';
-    if (!byType.has(key)) byType.set(key, []);
-    byType.get(key).push(p);
-  });
-
-  const groups = Array.from(byType.keys()).sort().map(key=>{
-    // סדר בסיס יציב, כדי שהרוטציה תהיה צפויה ולא תלויה בסדר שהגיע מה-DB
-    const items = byType.get(key).slice().sort((a, b)=>
-      String(a.id || a.advertiser_name).localeCompare(String(b.id || b.advertiser_name)));
-    const offset = tick % items.length;
-    return items.slice(offset).concat(items.slice(0, offset));
-  });
-
-  const gOffset = groups.length ? tick % groups.length : 0;
-  const ordered = groups.slice(gOffset).concat(groups.slice(0, gOffset));
-
-  // שזירה בין הקטגוריות — אחרת שלושה שמאים היו תופסים את כל השורה
-  const out = [];
-  for (let i = 0; ordered.some(g => g[i]); i++){
-    ordered.forEach(g => { if (g[i]) out.push(g[i]); });
-  }
-  return out;
-}
-
-/* טעינה אחת שמשרתת גם את הרצועה הזו וגם את לשונית "בעלי מקצוע"
-   שבסקציית האנשים מאחורי העסקאות. מחזירה את הכרטיסיות החיות בלבד:
-   הנפילה ל-FALLBACK_PROS היא החלטה של הרצועה, לא של הטעינה — הלשונית
-   מעדיפה להישאר ריקה על פני להציג מקומות פנויים ככרטיסי אנשים.
-   ‏professional_cards_public הוא ה-view הציבורי: הוא כבר מסנן לכרטיסיות
+/* ‏professional_cards_public הוא ה-view הציבורי: הוא כבר מסנן לכרטיסיות
    פעילות שבתוך חלון הפרסום (status לבדו לא מספיק — כרטיסייה שתקופתה
-   הסתיימה נשארת active בטבלה), והוא לא כולל את כתובת החיוב של המפרסם. */
+   הסתיימה נשארת active בטבלה), והוא לא כולל את כתובת החיוב של המפרסם.
+   מוחזרות רק הכרטיסיות החיות: אין כאן נפילה ל"מקומות פנויים", כי לשונית
+   של אנשים אמיתיים לא מציגה מצייני מקום כאילו הם נרשמו. */
 const professionalsReady = (async function loadProfessionals(){
   try{
     if (!sb) return [];
@@ -6111,58 +5728,9 @@ const professionalsReady = (async function loadProfessionals(){
     if (error) throw error;
     return data || [];
   } catch(e){
-    console.warn('טעינת בעלי מקצוע נכשלה, מציג ברירת מחדל:', e);
+    console.warn('טעינת בעלי מקצוע נכשלה:', e);
     return [];
   }
-})();
-
-(async function initProfessionals(){
-  const el = document.getElementById('prosGrid');
-  const live = await professionalsReady;
-  let pros = live.length ? live : FALLBACK_PROS;
-
-  // הרוטציה חלה גם על ברירת המחדל ולא רק על הנתונים החיים: גם ברשימת
-  // המקומות הפנויים יש חמישה תחומים וארבעה מקומות, ולכן הריענון מחליף
-  // ביניהם במקום להסתיר תמיד את אותו תחום.
-  pros = rotateProfessionalsFairly(pros, nextProsRotationTick()).slice(0, PROS_VISIBLE);
-
-  // שמות ושם עסק מגיעים מטופס הרשמה פתוח, וכתובת התמונה נכנסת גם לתוך
-  // מאפיין (src) — ולכן הכול עובר דרך escAttr לפני ההזרקה ל-innerHTML.
-  el.innerHTML = '';
-  pros.forEach(p=>{
-    const name = p.advertiser_name || 'בעל/ת מקצוע';
-    const initials = name.trim().split(/\s+/).map(w=>w[0]).slice(0,2).join('');
-    // הכרטיסייה מובילה עכשיו פנימה, לעמוד הפרופיל — שם יושבים התיאור,
-    // השירותים, הגלריה, הווידאו וכפתור הוואטסאפ. האתר החיצוני של בעל/ת
-    // המקצוע הוא כפתור *בתוך* העמוד; קודם הוא היה היעד של הכרטיסייה,
-    // והלחיצה הוציאה את הגולש מהאתר מיד. כרטיסייה בלי עמוד (אין slug ואין
-    // מזהה) נשארת אריח לא-לחיץ ולא קישור לשום מקום.
-    const profileKey = p.slug || p.id;
-    const card = document.createElement(profileKey ? 'a' : 'div');
-    card.className = 'pro-card';
-    if (profileKey){
-      card.href = 'professional.html?slug=' + encodeURIComponent(profileKey);
-      card.style.textDecoration = 'none';
-      card.style.color = 'inherit';
-    }
-    // אות ההתחלה נשארת ב-DOM גם כשיש תמונה ופשוט מכוסה על ידה; אם קובץ
-    // התמונה נשבר ה-img מסיר את עצמו והאריח חוזר לאות על הגרדיאנט
-    // במקום לאייקון תמונה שבורה — בדיוק כמו באריח המתווך/ת.
-    const photoUrl = safeExternalUrl(p.creative_url);
-    const photo = photoUrl
-      ? `<img class="pro-photo" src="${escAttr(photoUrl)}" alt="${escAttr(name)}" loading="lazy" onerror="this.remove()">`
-      : '';
-    card.innerHTML = `
-      <div class="pro-tile">
-        <span class="pro-initial">${escAttr(initials)}</span>
-        ${photo}
-        <div class="pro-overlay">
-          <div class="pro-name">${escAttr(name)}</div>
-          <div class="pro-business">${escAttr(proSecondLine(p))}</div>
-        </div>
-      </div>`;
-    el.appendChild(card);
-  });
 })();
 
 /* ============================================================
@@ -6209,37 +5777,38 @@ const DM_TABS = {
 /* שלושת סוגי הרשומות נורמלו לאותו כרטיס: שם, שורת זיהוי, מונה, דירוג
    ושורת תגיות. כך שורת הכרטיסים היא markup אחד ולא שלושה, והלשוניות
    באמת מחליפות רק נתונים. ‏search הוא הטקסט שהחיפוש רץ עליו. */
-function dmFromAgency(a){
+function dmFromAgency(a, i){
   const name = a.name || 'משרד תיווך';
   const areas = a.areas || [];
+  const specs = AGENCY_SPECS.filter(sp => sp.key !== 'all' && (a.specs || []).includes(sp.key)).map(sp => sp.label);
   return {
     name,
     href: a.slug ? 'agency.html?slug=' + encodeURIComponent(a.slug) : null,
     photo: a.logo_url, contain: true,
     initial: name.trim()[0] || 'מ',
-    role: areas.length ? areas.join(' · ') : 'משרד תיווך',
+    sub: areas.length ? areas.join(' · ') : 'משרד תיווך',
     count: a.active_properties_count === 1 ? 'נכס פעיל אחד' : a.active_properties_count + ' נכסים פעילים',
     rating: a.rating, reviews: a.reviews_count,
-    tags: AGENCY_SPECS.filter(sp => sp.key !== 'all' && (a.specs || []).includes(sp.key)).map(sp => sp.label).join(' · '),
+    // התג הוא סימן דירוג ולא מספר סידורי, ולכן הוא שמור לשלושה המדורגים
+    // הראשונים בלבד; לשאר האריחים אין תג
+    rank: (i < 3 && a.score !== null) ? i + 1 : 0,
     verified: !!(a.ethics_code_accepted_at && !a.ethics_badge_revoked_at),
-    cta: 'לדף המשרד ←',
-    search: [name, ...areas].join(' '),
+    search: [name, ...areas, ...specs].join(' '),
   };
 }
 
-function dmFromAgent(m){
+function dmFromAgent(m, i){
   const name = m.display_name || 'מתווך/ת';
   return {
     name,
     href: (m.slug || m.id) ? 'agent.html?slug=' + encodeURIComponent(m.slug || m.id) : null,
-    photo: m.photo_url, contain: false,
+    photo: m.photo_url, contain: false, photoPos: m.photo_position,
     initial: name.trim()[0] || 'מ',
-    role: m.agency_name || 'מתווך/ת',
+    sub: m.agency_name || 'מתווך/ת',
     count: m.active_properties_count === 1 ? 'נכס פעיל אחד' : m.active_properties_count + ' נכסים פעילים',
     rating: m.rating, reviews: m.reviews_count,
-    tags: '',
+    rank: (i < 3 && m.rating !== null) ? i + 1 : 0,
     verified: !!m.has_ethics_badge,
-    cta: 'לדף המתווך/ת ←',
     search: [name, m.agency_name].join(' '),
   };
 }
@@ -6251,17 +5820,17 @@ function dmFromPro(p){
   return {
     name,
     href: key ? 'professional.html?slug=' + encodeURIComponent(key) : null,
-    photo: safeExternalUrl(p.creative_url), contain: false,
+    photo: p.creative_url, contain: false,
     initial: name.trim()[0] || 'ב',
-    role: field,
-    // לבעל/ת מקצוע אין מלאי נכסים; שורת המונה נושאת את שם העסק במקומו
-    count: p.business_name || '',
+    // שם העסק הוא שדה נפרד מהשם הפרטי, והוא התווסף אחרי שכבר נרשמו בעלי
+    // מקצוע — ולכן יש נפילה מסודרת לתחום העיסוק, כדי שהרצועה התחתונה של
+    // האריח לא תישאר חצי ריקה
+    sub: p.business_name || field,
+    count: p.target_region || (p.business_name ? field : ''),
     // בעלי מקצוע אינם מדורגים בפלטפורמה, ולכן שורת הדירוג לא נכתבת אצלם
-    // בכלל — לא כוכבים ולא "טרם דורג"
     rating: undefined, reviews: 0,
-    tags: p.target_region || '',
+    rank: 0,
     verified: false,
-    cta: 'לפרופיל ←',
     search: [name, p.business_name, field, p.target_region].join(' '),
   };
 }
@@ -6273,8 +5842,8 @@ function dmFromPro(p){
 
   const [agencies, agents, pros] = await Promise.all([agenciesReady, agentsReady, professionalsReady]);
   const data = {
-    agencies: agencies.map(dmFromAgency),
-    agents: agents.map(dmFromAgent),
+    agencies: agencies.map((a, i)=> dmFromAgency(a, i)),
+    agents: agents.map((m, i)=> dmFromAgent(m, i)),
     pros: pros.map(dmFromPro),
   };
 
@@ -6304,97 +5873,97 @@ function dmFromPro(p){
     btn.disabled = data[btn.dataset.tab].length === 0;
   });
 
+  /* אריח אחד לשלושת הסוגים. שמות, שמות משרדים וכתובות תמונה מגיעים מקלט
+     של משרדים, סוכנים ומפרסמים — ולכן הטקסט נכנס דרך ‎textContent‎ וכתובות
+     התמונה עוברות סינון פרוטוקול לפני שהן נוגעות ב-src. */
   function card(item){
     const el = document.createElement(item.href ? 'a' : 'div');
     el.className = 'dm-card';
     if (item.href) el.href = item.href;
 
-    const top = document.createElement('div');
-    top.className = 'dm-card-top';
+    // אות ההתחלה נשארת ב-DOM גם כשיש תמונה ופשוט מכוסה על ידה; אם הקובץ
+    // נשבר ה-img מסיר את עצמו והאריח חוזר לאות על הגרדיאנט במקום לאייקון
+    // תמונה שבורה
+    const initial = document.createElement('span');
+    initial.className = 'dm-initial';
+    initial.textContent = item.initial;
+    el.appendChild(initial);
 
-    const text = document.createElement('div');
-    text.className = 'dm-card-text';
-    const nameEl = document.createElement('div');
-    nameEl.className = 'dm-name';
-    // ‏textContent: השמות מוקלדים על ידי המשרדים ובעלי המקצוע עצמם
-    nameEl.textContent = item.name;
+    const url = safeExternalUrl(item.photo);
+    if (url && item.contain){
+      // אותו קובץ פעמיים: רקע מטושטש שממלא את השוליים, ומעליו הלוגו השלם.
+      // ה-onerror של הרקע מסיר רק את עצמו — ‏:has בודק את ‎.dm-logo‎, ולכן
+      // הנפילה לאות ההתחלה תלויה בלוגו הקדמי בלבד.
+      const bg = document.createElement('img');
+      bg.className = 'dm-logo-bg';
+      bg.src = url; bg.alt = ''; bg.loading = 'lazy';
+      bg.setAttribute('aria-hidden', 'true');
+      bg.addEventListener('error', ()=> bg.remove());
+      el.appendChild(bg);
+
+      const logo = document.createElement('img');
+      logo.className = 'dm-logo';
+      logo.src = url; logo.alt = item.name; logo.loading = 'lazy';
+      logo.addEventListener('error', ()=> logo.remove());
+      el.appendChild(logo);
+    } else if (url){
+      const photo = document.createElement('img');
+      photo.className = 'dm-photo';
+      photo.src = url; photo.alt = item.name; photo.loading = 'lazy';
+      if (item.photoPos) photo.style.setProperty('--photo-pos', item.photoPos);
+      photo.addEventListener('error', ()=> photo.remove());
+      el.appendChild(photo);
+    }
+
+    if (item.rank){
+      const rank = document.createElement('span');
+      rank.className = 'dm-rank';
+      rank.textContent = '#' + item.rank;
+      el.appendChild(rank);
+    }
     if (item.verified){
-      const badge = document.createElement('span');
-      badge.className = 'dm-verified';
-      badge.textContent = 'מאומת';
-      badge.title = 'חתום/ה על האמנה האתית של שוק הנדל״ן';
-      nameEl.append(' ', badge);
+      const badge = document.createElement('img');
+      badge.className = 'dm-badge';
+      badge.src = 'assets/badge-ethics.png';
+      badge.width = 384; badge.height = 384; badge.loading = 'lazy';
+      badge.alt = 'עומד בתקן האתי';
+      badge.title = 'עומד בתקן האתי של שוק הנדל״ן של עפולה';
+      el.appendChild(badge);
     }
-    text.appendChild(nameEl);
-    if (item.role){
-      const role = document.createElement('div');
-      role.className = 'dm-role';
-      role.textContent = item.role;
-      text.appendChild(role);
-    }
-    top.appendChild(text);
 
-    // אריח התמונה: אות ההתחלה יושבת מתחת לתמונה ונחשפת אם הקובץ נשבר
-    // (‏onerror מסיר את ה-img) — אותו דפוס של כרטיסי הקרוסלה
-    const logo = document.createElement('span');
-    logo.className = 'dm-logo';
-    logo.textContent = item.initial;
-    const url = safeExternalUrl(item.photo) || item.photo;
-    if (url){
-      const img = document.createElement('img');
-      img.src = url;
-      img.alt = '';
-      img.loading = 'lazy';
-      if (item.contain) img.classList.add('is-contain');
-      img.addEventListener('error', ()=> img.remove());
-      logo.appendChild(img);
+    const overlay = document.createElement('div');
+    overlay.className = 'dm-overlay';
+
+    const name = document.createElement('div');
+    name.className = 'dm-name';
+    name.textContent = item.name;
+    overlay.appendChild(name);
+
+    if (item.sub){
+      const sub = document.createElement('div');
+      sub.className = 'dm-sub';
+      sub.textContent = item.sub;
+      overlay.appendChild(sub);
     }
-    top.appendChild(logo);
-    el.appendChild(top);
 
     const meta = document.createElement('div');
     meta.className = 'dm-meta';
-    if (item.count){
-      const c = document.createElement('b');
-      c.textContent = item.count;
-      meta.appendChild(c);
-    }
-    const rated = item.rating !== null && item.rating !== undefined;
-    if (item.count && item.rating !== undefined){
-      const sep = document.createElement('span');
-      sep.className = 'dm-sep';
-      sep.setAttribute('aria-hidden', 'true');
-      sep.textContent = '|';
-      meta.appendChild(sep);
-    }
-    if (rated){
-      const r = document.createElement('span');
-      r.innerHTML = '<span class="star">★</span> ';
-      r.append(`${item.rating.toFixed(1).replace(/\.0$/, '')} · ${
+    // מי שאין לו ביקורות לא מקבל "0 כוכבים" אלא פשוט לא מוצג עם דירוג
+    if (item.rating !== null && item.rating !== undefined){
+      const rating = document.createElement('span');
+      rating.innerHTML = '<span class="star">★</span>';
+      rating.append(`${item.rating.toFixed(1).replace(/\.0$/, '')} · ${
         item.reviews === 1 ? 'ביקורת אחת' : item.reviews + ' ביקורות'}`);
-      meta.appendChild(r);
-    } else if (item.rating !== undefined){
-      // משרד או מתווך/ת בלי ביקורות לא מקבל/ת "0 כוכבים" אלא נאמר עליו
-      // במפורש שטרם דורג — אותה החלטה שבכרטיסי הקרוסלה
-      const none = document.createElement('span');
-      none.textContent = 'טרם דורג';
-      meta.appendChild(none);
+      meta.appendChild(rating);
     }
-    if (meta.childNodes.length) el.appendChild(meta);
-
-    if (item.tags){
-      const tags = document.createElement('div');
-      tags.className = 'dm-tags';
-      tags.textContent = item.tags;
-      el.appendChild(tags);
+    if (item.count){
+      const count = document.createElement('span');
+      count.textContent = item.count;
+      meta.appendChild(count);
     }
+    if (meta.childNodes.length) overlay.appendChild(meta);
 
-    const go = document.createElement('div');
-    go.className = 'dm-go';
-    const goText = document.createElement('span');
-    goText.textContent = item.cta;
-    go.appendChild(goText);
-    el.appendChild(go);
+    el.appendChild(overlay);
     return el;
   }
 
@@ -6403,8 +5972,7 @@ function dmFromPro(p){
     const q = state.query.trim().toLowerCase();
     const list = data[state.tab].filter(it => !q || it.search.toLowerCase().includes(q));
 
-    // התיבה עצמה נשארת במקומה — רק הכרטיסים שאחריה מוחלפים
-    [...row.querySelectorAll('.dm-card, .dm-empty')].forEach(el => el.remove());
+    row.innerHTML = '';
     if (!list.length){
       const empty = document.createElement('p');
       empty.className = 'dm-empty';
@@ -6427,6 +5995,17 @@ function dmFromPro(p){
     // באמצע הגלילה של הקודמת
     row.scrollLeft = 0;
   }
+
+  /* פריטי הניווט "משרדי תיווך" / "מתווכים" / "בעלי מקצוע" הובילו קודם
+     לשלוש סקציות נפרדות; היום הם שלוש לשוניות של אותה סקציה, ולכן כל אחד
+     מהם בוחר את הלשונית שלו בדרך אליה. העוגן עצמו נשאר ‎#dealmakers‎ ועושה
+     את הגלילה — כאן רק נבחרת הלשונית. */
+  document.querySelectorAll('a[href="#dealmakers"][data-dm-tab]').forEach(link=>{
+    link.addEventListener('click', ()=>{
+      const target = tabs.find(b => b.dataset.tab === link.dataset.dmTab);
+      if (target && !target.disabled) target.click();
+    });
+  });
 
   tabs.forEach(btn=>{
     btn.addEventListener('click', ()=>{
@@ -6926,116 +6505,6 @@ document.querySelectorAll('.map-legend button').forEach(btn=>{
   });
 });
 
-/* ---------- מנוע קרוסלת coverflow ----------
-   הכרטיס שמרכזו הכי קרוב למרכז המסלול מקבל .is-active: בו המחיר מחליף את
-   הכותרת ומסגרת הזהב מדגישה אותו, בדיוק כמו בעיצוב. הזיהוי נעשה מול
-   getBoundingClientRect ולא מול scrollLeft בכוונה — ב-RTL הסימן והאפס של
-   scrollLeft שונים בין דפדפנים, בעוד שמרכז מלבן במרחב התצוגה תמיד מדויק
-   (וגם לא מושפע מה-scale() שעל הכרטיסים, שממורכז ממילא).
-   שני מסלולים משתמשים במנוע — "משרדי תיווך מובילים" ו"מתווכים מובילים" —
-   ולכן המצב (הכרטיסים והאינדקס הפעיל) יושב במופע ולא במשתנים גלובליים. */
-function trackCenter(el){
-  const r = el.getBoundingClientRect();
-  return r.left + r.width / 2;
-}
-
-/* ‏dots יכול להיות null: רצועה שמספר הפריטים בה אינו חסום (הנכסים החמים)
-   מוותרת על שורת הנקודות, כי היא הייתה נשברת לשורות רבות ודוחפת את שאר
-   העמוד מטה. שאר המנוע — הכרטיס הפעיל, הפתיחה בנגיעה — זהה בשני המצבים. */
-function createCoverflow(track, dots){
-  let cards = [];
-  let activeIndex = -1;
-
-  function sync(){
-    if (!cards.length) return;
-    const mid = trackCenter(track);
-    let best = 0, bestDist = Infinity;
-    cards.forEach((card, i)=>{
-      const dist = Math.abs(trackCenter(card) - mid);
-      if (dist < bestDist){ bestDist = dist; best = i; }
-    });
-    if (best === activeIndex) return;
-    activeIndex = best;
-    cards.forEach((c, i)=> c.classList.toggle('is-active', i === best));
-    if (dots) dots.querySelectorAll('button').forEach((d, i)=> d.classList.toggle('active', i === best));
-  }
-
-  // scrollBy עם הפרש יחסי, ולא scrollLeft מוחלט או scrollIntoView: הראשון
-  // שובר ב-RTL, והשני גורר גם את גלילת העמוד עצמו כשהקרוסלה בקצה המסך.
-  function goTo(index){
-    const card = cards[index];
-    if (!card) return;
-    track.scrollBy({ left: trackCenter(card) - trackCenter(track), behavior:'smooth' });
-  }
-
-  let raf = null;
-  const queueSync = ()=>{
-    if (raf) return;
-    raf = requestAnimationFrame(()=>{ raf = null; sync(); });
-  };
-  track.addEventListener('scroll', queueSync, { passive:true });
-  window.addEventListener('resize', queueSync);
-
-  /* פתיחת כרטיס בנגיעה אחת, גם כשהוא לא הכרטיס המרוכז.
-     הדרישה שהכרטיס יהיה קודם במרכז נועדה למנוע "בריחה" מהעמוד בזמן
-     החלקה — אבל היא גם גרמה לכך שהנגיעה הראשונה בכרטיס צדדי לא עושה
-     כלום למראית עין, והכרטיס נראה מקולקל. במקום זה מבחינים כאן בין נגיעה
-     לבין סוף החלקה: אם האצבע זזה, אם הדפדפן לקח את המחווה לגלילה
-     (pointercancel) או אם המסלול נגלל בין הלחיצה לשחרור — לא מנווטים.
-     ‏DRAG_SLOP נדיב במכוון: אצבע על מסך נעה מעט גם ב"נגיעה" נקייה. */
-  const DRAG_SLOP = 12;
-  function bindOpen(card, open){
-    let startX = 0, startY = 0, startScroll = 0, dragged = false;
-    card.addEventListener('pointerdown', e=>{
-      startX = e.clientX; startY = e.clientY;
-      startScroll = track.scrollLeft;
-      dragged = false;
-    });
-    card.addEventListener('pointermove', e=>{
-      // ‏buttons===0 הוא ריחוף עכבר בלי לחיצה, לא גרירה
-      if (!e.buttons && e.pointerType === 'mouse') return;
-      if (Math.abs(e.clientX - startX) > DRAG_SLOP || Math.abs(e.clientY - startY) > DRAG_SLOP) dragged = true;
-    });
-    // הדפדפן מבטל את ה-pointer ברגע שהוא מחליט שהמחווה היא גלילה
-    card.addEventListener('pointercancel', ()=>{ dragged = true; });
-    card.addEventListener('click', ()=>{
-      const wasDragged = dragged || Math.abs(track.scrollLeft - startScroll) > 4;
-      dragged = false;
-      if (!wasDragged) open();
-    });
-    // הכרטיס הוא יעד ניווט לכל דבר, ולכן גם מקבל מיקוד ונפתח ב-Enter/רווח
-    card.tabIndex = 0;
-    card.setAttribute('role', 'link');
-    card.addEventListener('keydown', e=>{
-      if (e.key !== 'Enter' && e.key !== ' ') return;
-      e.preventDefault();
-      open();
-    });
-  }
-
-  return {
-    goTo,
-    bindOpen,
-    isActive(index){ return index === activeIndex; },
-    reset(){ track.innerHTML = ''; if (dots) dots.innerHTML = ''; cards = []; activeIndex = -1; },
-    add(card, dotLabel){
-      const index = cards.length;
-      track.appendChild(card);
-      cards.push(card);
-      if (!dots) return;
-      const dot = document.createElement('button');
-      dot.type = 'button';
-      dot.setAttribute('aria-label', dotLabel);
-      dot.addEventListener('click', ()=> goTo(index));
-      dots.appendChild(dot);
-    },
-    // פחות משלושה כרטיסים — אין גלילה בכלל, ולכן ממרכזים את מה שיש
-    done(){
-      track.classList.toggle('is-sparse', cards.length < 3);
-      requestAnimationFrame(sync);
-    },
-  };
-}
 
 function dealBadge(p){ return DEAL_LABELS[dealKind(p)]; }
 
