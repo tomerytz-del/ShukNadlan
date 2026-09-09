@@ -2215,6 +2215,12 @@ function vizTargetLabel(target){
 
 const vizState = {
   propertyId:null, isPrivate:true, byStyle:new Map(), current:null, busy:false,
+  /* נכס פרטי להשכרה מקבל הלבשת בית ולא הדמיית שיפוץ — הפרומפט נקבע בצד
+     השרת לפי ‎deal_type‎ (ראו RenderMode ב-_shared/visualization.ts), והדגל
+     הזה רק דואג שהטקסט על המסך יגיד את אותו דבר. שוכר/ת לא קונה ולא
+     משפץ/ת, ו"הנכס המשופץ / לפני שאתם קונים" הוא בדיוק ההבטחה שאסור לתת
+     לו/ה. */
+  staging:false,
   /* ‏result_url של ההדמיה שנבחרה ידנית ברצועה. בלעדיו לחיצה על תמונון של
      סגנון אחר הייתה מחליפה סגנון ואז פותחת את הסלון שלו — כלומר מראה
      תמונה אחרת מזו שנלחצה. */
@@ -2234,6 +2240,7 @@ async function loadVisualizations(p){
 
     vizState.propertyId = p.id;
     vizState.isPrivate = p.category === 'residential';
+    vizState.staging = vizState.isPrivate && p.deal_type === 'rent';
 
     /* ‏property_visualizations_recent ולא ‎_public‎: השני מסנן ‎is_base = true‎,
        כלומר רק סט הבסיס שנוצר אוטומטית עם פרסום הנכס. כל הדמיה שהופקה לפי
@@ -2377,6 +2384,10 @@ function renderPropertyShowcase(){
          הדגל נשלח מכאן ולא נגזר שם מ-‎styles.length‎: היעדר סגנונות הוא
          *תוצאה* של היות הנכס מסחרי, לא ההגדרה שלו. */
       commercial: !vizState.isPrivate,
+      /* נכס להשכרה: הרצועה מדברת על ריהוט ועיצוב ולא על שיפוץ, בדיוק כמו
+         הפרומפט שבצד השרת. שני הצדדים נגזרים מ-‎deal_type‎ ולא זה מזה, כי
+         הרכיב מציג ואינו יודע מה נשלח ל-Gemini. */
+      staging: vizState.staging,
       leadPick: vizState.leadPick,
       cta: vizBandCta(),
       onCta: onVizBandCta,

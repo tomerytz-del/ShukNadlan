@@ -41,6 +41,8 @@
        styles         — [{ key, label }] · ריק בנכס מסחרי
        activeStyle    — מפתח הסגנון המוצג · ‏null במסחרי
        commercial     — משנה את תוויות החללים ואת שורות ההסבר
+       staging        — נכס להשכרה: ההדמיה היא ריהוט ועיצוב ולא שיפוץ, ושורות
+                        ההסבר אומרות את זה. הדף הקורא מחליט לפי ‎deal_type‎
        leadPick       — ‎result_url‎ של התמונון שנבחר עכשיו
        cta / onCta    — הכפתור שמייצר הדמיה חדשה
        lead / onLead  — { intro, emphasis, label } + הפעולה של "השאירו פרטים"
@@ -703,7 +705,8 @@
       '<div class="ai-frame">' +
         '<div class="ai-compare" data-idle data-rtl>' +
           '<img class="ai-before" src="' + esc(before) + '" alt="' + esc(where) + ' כפי שהוא היום" loading="lazy">' +
-          '<img class="ai-after" src="' + esc(it.result_url) + '" alt="הדמיה של ' + esc(where) + ' אחרי שיפוץ" loading="lazy">' +
+          '<img class="ai-after" src="' + esc(it.result_url) + '" alt="הדמיה של ' + esc(where) +
+            (opts && opts.staging ? ' אחרי ריהוט ועיצוב' : ' אחרי שיפוץ') + '" loading="lazy">' +
           '<span class="ai-label ai-label-before">Before</span>' +
           '<span class="ai-label ai-label-after">' + SPARKLE_SVG + 'After</span>' +
           '<input class="ai-range" type="range" min="0" max="100" value="42" step="1" ' +
@@ -794,12 +797,20 @@
               'עם טכנולוגיית AI מהפכנית!</h3>' +
             /* שתי שורות ההסבר משתנות לפי מה שיש על המסך: בנכס מסחרי אין
                שבבי סגנון, ו"לחצו על כפתורי הסגנון" שם מפנה לפקד שאינו
-               קיים — מה שנדרש שם הוא סוג העסק. */
+               קיים — מה שנדרש שם הוא סוג העסק.
+
+               בנכס להשכרה "הנכס המשופץ" ו"לפני שאתם קונים" הן שתי הבטחות
+               שגויות באותה שורה: השוכר/ת לא קונה ולא ישפץ, וההדמיה שהוא
+               רואה היא אותו נכס בדיוק עם ריהוט אחר. */
             '<ul class="ai-points">' +
               (styles.length
-                ? '<li>' + icon(ICON_TAP) + '<span>לחצו על כפתורי הסגנון וצפו בהדמיות מיידיות ' +
-                    'של הנכס המשופץ — עוד לפני שאתם קונים.</span></li>' +
-                  '<li>' + icon(ICON_SLIDERS) + '<span>שנו סגנון וראו את הפוטנציאל.</span></li>'
+                ? (opts.staging
+                    ? '<li>' + icon(ICON_TAP) + '<span>לחצו על כפתורי הסגנון וצפו בהדמיות מיידיות ' +
+                        'של הנכס מרוהט ומעוצב — בלי לשנות דבר בנכס עצמו.</span></li>' +
+                      '<li>' + icon(ICON_SLIDERS) + '<span>אותו נכס בדיוק, רק עם ריהוט אחר.</span></li>'
+                    : '<li>' + icon(ICON_TAP) + '<span>לחצו על כפתורי הסגנון וצפו בהדמיות מיידיות ' +
+                        'של הנכס המשופץ — עוד לפני שאתם קונים.</span></li>' +
+                      '<li>' + icon(ICON_SLIDERS) + '<span>שנו סגנון וראו את הפוטנציאל.</span></li>')
                 : '<li>' + icon(ICON_TAP) + '<span>ספרו איזה עסק תפתחו כאן וצפו בהדמיה מיידית ' +
                     'של הנכס — עוד לפני שחתמתם.</span></li>' +
                   '<li>' + icon(ICON_SLIDERS) + '<span>ההדמיה נוצרת מהתמונות של הנכס הזה בלבד.</span></li>') +

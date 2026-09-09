@@ -10,6 +10,7 @@ import {
   isStyleKey,
   json,
   pickPrivateSources,
+  renderModeFor,
   runVisualizationJob,
   STYLES,
   type PrivateTarget,
@@ -88,7 +89,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: property } = await supabase
     .from("properties")
-    .select("id, category, property_type, rooms, size_sqm, area_sqm, agent_id, images")
+    .select("id, category, property_type, deal_type, rooms, size_sqm, area_sqm, agent_id, images")
     .eq("id", property_id)
     .maybeSingle();
   if (!property) return json({ error: "property_not_found" }, 404);
@@ -219,6 +220,8 @@ Deno.serve(async (req: Request) => {
   if (jobErr) return json({ error: "db_error", detail: jobErr.message }, 500);
 
   const sizeSqm = property.size_sqm ?? property.area_sqm ?? null;
+  // נכס להשכרה מקבל הלבשת בית ולא שיפוץ — ראו RenderMode ב-_shared.
+  const mode = renderModeFor(property.deal_type);
   const items: WorkItem[] = [];
 
   for (const target of todo) {
@@ -258,6 +261,7 @@ Deno.serve(async (req: Request) => {
         propertyType: property.property_type,
         sizeSqm: sizeSqm ? Number(sizeSqm) : null,
         rooms: property.rooms ? Number(property.rooms) : null,
+        mode,
       }),
     });
   }
