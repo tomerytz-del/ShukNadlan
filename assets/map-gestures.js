@@ -57,19 +57,30 @@
 
   /* ה-CSS מוזרק פעם אחת ובלחיצה הראשונה על apply, כדי שדף בלי מפה (או
      דסקטופ) לא ישלם עליו דבר. ‏z-index:900 מציב את הבועית מעל כל ה-panes של
-     Leaflet ומעל הפקדים (800). */
+     Leaflet ומעל הפקדים (800).
+
+     המרכוז הוא במרכז ה*שטח הפנוי* ולא במרכז הקונטיינר. בדף הבית חצי מהמפה
+     יושב מתחת לעמודת הכותרת והחיפוש, ובועית שממורכזת בקונטיינר נעלמה
+     מתחתיה — הסבר שלא נקרא הוא הסבר שאינו קיים. ארבעת המשתנים נכתבים על
+     הקונטיינר ע"י הדף שמכיר את הפריסה שלו (‏syncMapFreeArea בדף הבית);
+     בדף בלי חסימות הם פשוט לא מוגדרים, וברירת המחדל 0 מחזירה מרכוז רגיל. */
   function injectCss() {
     if (cssInjected) return;
     cssInjected = true;
+    var free = 'var(--map-free-start,0px)', freeEnd = 'var(--map-free-end,0px)';
     var style = document.createElement('style');
     style.textContent =
       '.map-gesture-hint{' +
-        'position:absolute;top:50%;left:50%;z-index:900;' +
+        'position:absolute;z-index:900;' +
+        'top:calc(50% + (var(--map-free-top,0px) - var(--map-free-bottom,0px)) / 2);' +
+        'left:calc(50% + (' + free + ' - ' + freeEnd + ') / 2);' +
         'transform:translate(-50%,-50%) scale(.96);' +
-        'max-width:calc(100% - 36px);padding:9px 18px;' +
+        'max-width:calc(100% - ' + free + ' - ' + freeEnd + ' - 24px);padding:9px 18px;' +
         'background:rgba(18,40,64,.92);color:#fff;' +
         "font-family:'Heebo',sans-serif;font-size:.84rem;font-weight:700;line-height:1.35;" +
-        'text-align:center;white-space:nowrap;' +
+        // בלי nowrap: הבועית מוגבלת לרוחב השטח הפנוי, ומשפט ארוך מדי צריך
+        // לרדת שורה בתוכה במקום לגלוש ממנה החוצה
+        'text-align:center;' +
         'box-shadow:0 6px 20px rgba(0,0,0,.28);' +
         'opacity:0;pointer-events:none;' +
         'transition:opacity .18s ease,transform .18s ease}' +

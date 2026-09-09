@@ -6382,6 +6382,13 @@ try {
   // שלצדה מצטמצמת למה שנמצא בתחום הנראה. moveend/zoomend נורים פעם אחת בסוף
   // המחווה, ולכן אין כאן צורך ב-debounce.
   heroMap.on('moveend zoomend resize', ()=> updateSplitPanel());
+
+  /* השטח הפנוי משתנה רק כשהפריסה משתנה — שינוי גודל חלון, פתיחת התצוגה
+     המפוצלת, הגדלת המפה — וכל אלה מגיעים ל-Leaflet כאירוע resize (המצבים
+     קוראים ל-invalidateSize). ‏moveend/zoomend לא נכללים כאן בכוונה: הם
+     נורים בכל גרירה, והפריסה לא זזה איתם. */
+  heroMap.on('resize', syncMapFreeArea);
+  syncMapFreeArea();
 } catch(e){
   console.warn('אתחול המפה נכשל, ממשיכים בלי המפה:', e);
   const hero = document.getElementById('heroSection');
@@ -6460,6 +6467,28 @@ function visibleMapPadding(){
     bottom: Math.max(0, Math.round(bottom * scale)),
     ...side,
   };
+}
+
+/* אותו שטח פנוי, הפעם כמשתני CSS על קונטיינר המפה.
+   ------------------------------------------------------------
+   הבועיות שיושבות *על* המפה — הרמז של המחוות (‏assets/map-gestures.js) ושורת
+   ההוראות של סימון האזור (‏assets/map-draw.js) — ממרכזות את עצמן בין
+   ‎--map-free-start‎ ל-‎--map-free-end‎ ולא בין קצות הקונטיינר. בלי זה הן נחתו
+   במרכז המפה, כלומר מתחת לעמודת הכותרת והחיפוש שמכסה את חציה בדסקטופ,
+   ונעלמו מהעין בדיוק ברגע שנועדו להסביר משהו.
+
+   שני המודולים גנריים ואינם יודעים דבר על הפריסה של הדף הזה; מה שהם יודעים
+   הוא לקרוא ארבעה משתנים, ומי שמכיר את הפריסה — הדף — כותב אותם. בדף בלי
+   חסימות (דף הנכס, ה-CRM) הם פשוט לא מוגדרים והמרכוז נשאר כשהיה. */
+function syncMapFreeArea(){
+  if (!heroMap) return;
+  const el = heroMap.getContainer();
+  if (!el) return;
+  const pad = visibleMapPadding();
+  el.style.setProperty('--map-free-start', pad.left + 'px');
+  el.style.setProperty('--map-free-end', pad.right + 'px');
+  el.style.setProperty('--map-free-top', pad.top + 'px');
+  el.style.setProperty('--map-free-bottom', pad.bottom + 'px');
 }
 
 /* החסימה האופקית — בדסקטופ בלבד.
@@ -7070,6 +7099,9 @@ function initMapDraw(){
     return;
   }
   tools.hidden = false;
+  // כלי הסימון הם חלק מהחסימות של השטח הפנוי (ראו visibleMapPadding), ולכן
+  // הופעתם והיעלמותם מזיזה את הבועיות שיושבות על המפה
+  syncMapFreeArea();
   // הכלי כבר מורכב — נשאר רק להחזיר את הסרגל למסך
   if (mapDraw) return;
 
