@@ -376,7 +376,11 @@
     83.33%,96.03%{transform:translateY(-7.5em)}
     100%{transform:translateY(-9em)}
   }
-  .hero-caret{width:2px;height:1.05em;background:var(--teal);animation:caretBlink 1.1s step-end infinite;align-self:center}
+  /* הסמן בזהב ולא בנייבי: הוא הפרט היחיד שזז בראש המסך, ובכחול הוא נראה
+     כהמשך של הטקסט שלצדו במקום כמחוון הקלדה. הזהב הוא ‎--brass‎ של מערכת
+     העיצוב — אותו צבע של קו הלוגו ושל תגית "מבזק" — ולא ‎--gold‎, שהוא בפועל
+     נייבי בפלטה הזו (ראו טוקנים למעלה). */
+  .hero-caret{width:2px;height:1.05em;background:var(--brass,#c9a227);animation:caretBlink 1.1s step-end infinite;align-self:center}
   @keyframes caretBlink{0%,49%{opacity:1}50%,100%{opacity:0}}
   @media(prefers-reduced-motion:reduce){
     .hero-roll-track,.hero-caret{animation:none}
@@ -448,11 +452,43 @@
   /* ====== שבבי החיפוש המהיר ======
      יושבים בתוך ה-shell מתחת לשורת החיפוש ונראים כחלק אחד איתה: הם דוגמאות
      למה שאפשר להקליד בשדה, ולא ניווט נפרד. */
+  /* שורה אחת ולא רשת נשברת. קודם כל הפריטים כאן היו ילדים ישירים של אותו
+     ‎flex-wrap:wrap‎, וברוחב טלפון הם נשברו לשלוש שורות — שתיים של שבבים
+     ושלישית שכל כולה כפתור השכונות, שנדחף אליה ע"י ‎margin-inline-start:auto‎.
+     שלוש שורות בתוך כרטיס החיפוש הן הגובה שדחף את המפה למטה.
+
+     עכשיו השבבים יושבים ברצועה נגללת אחת (‏.hero-quick-chips‎) וכפתור
+     השכונות נעוץ בקצה מחוץ לה. ההפרדה היא העיקר: הכפתור אינו הצעת חיפוש
+     כמו שכניו אלא המסנן שנשאל ראשון ("איזו שכונה?"), ולכן הוא לא נגלל
+     איתם ולא זז לפי כמה שבבים יש — מקומו קבוע בכל רוחב מסך. */
   .hero-quick{
-    display:flex;align-items:center;gap:6px;flex-wrap:wrap;
+    display:flex;align-items:center;gap:8px;flex-wrap:nowrap;
     padding:9px 12px;background:#fff;
     border-top:1px solid rgba(14,42,107,.08);
   }
+  /* ‏min-width:0 הוא מה שמאפשר לרצועה להצטמצם: פריט flex לא יורד מתחת
+     ל-‎min-content‎ שלו בלי זה, והשבבים היו דוחפים את כפתור השכונות מהמסך
+     במקום להיגלל. */
+  /* הדעיכה בקצה ה-inline-end היא ההבדל בין "יש עוד, גללו" לבין שבב שנראה
+     חתוך באמצע בגלל תקלה. היא כנה מעצמה ולא צריכה JS: לרצועה אין רקע משלה
+     (‏.hero-quick‎ הלבן שמתחתיה הוא שנראה), ולכן כשאין גלישה הקצה ריק
+     והמסכה לא מדגימה דבר — היא נראית בדיוק כשיש שם תוכן, כלומר כשיש מה
+     לגלול. */
+  .hero-quick-chips{
+    flex:1 1 auto;min-width:0;
+    display:flex;align-items:center;gap:6px;flex-wrap:nowrap;
+    overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;
+    scrollbar-width:none;-ms-overflow-style:none;
+    -webkit-mask-image:linear-gradient(to left, transparent 0, #000 20px);
+    mask-image:linear-gradient(to left, transparent 0, #000 20px);
+  }
+  html[dir="ltr"] .hero-quick-chips{
+    -webkit-mask-image:linear-gradient(to right, transparent 0, #000 20px);
+    mask-image:linear-gradient(to right, transparent 0, #000 20px);
+  }
+  .hero-quick-chips::-webkit-scrollbar{display:none}
+  /* בלי זה השבבים היו מתכווצים לרוחב הרצועה במקום לגלוש ממנה */
+  .hero-quick-chips>*{flex:0 0 auto}
   .hero-quick-label{font-size:.7rem;color:var(--ink-soft)}
   .hero-chip{
     font-family:inherit;font-size:.72rem;font-weight:500;line-height:1.3;
@@ -466,9 +502,10 @@
   .hero-chip-ai:hover{background:#000d24;color:#fff}
 
   /* סינון השכונות בתוך אותה שורה, נעוץ בקצה השמאלי (‏inline-end ב-RTL).
-     ‏margin-inline-start:auto בולע את כל המרווח שנשאר אחרי השבבים ודוחף אותו
-     לקצה, כך שהמיקום שלו קבוע ואינו תלוי בכמה שבבים יש לפניו. */
-  .hero-quick .hood-bar{margin-inline-start:auto}
+     ‏flex:0 0 auto — הוא לא נגלל עם השבבים ולא נדחס על ידם; רצועת השבבים
+     שלצדו היא זו שסופגת את השינוי ברוחב. קודם עמד כאן
+     ‎margin-inline-start:auto‎, שדחף אותו לקצה ובדרך גם לשורה משלו. */
+  .hero-quick .hood-bar{flex:0 0 auto}
   .hero-quick .hood-filter-btn{
     padding:6px 10px;gap:6px;font-size:.72rem;
     background:#fff;color:var(--teal-dark);
@@ -832,9 +869,9 @@
        ויורדים, אבל סינון השכונות שיושב בקצה שלה הוא כלי עבודה — בדיוק כמו
        כלי הסימון — ומי שכבר במצב מפוצל זקוק/ה לו יותר, לא פחות. */
     .hero.split-on .hero-quick{justify-content:center}
-    .hero.split-on .hero-quick-label,
-    .hero.split-on .hero-quick .hero-chip{display:none}
-    .hero.split-on .hero-quick .hood-bar{margin-inline:0}
+    /* הרצועה כולה ולא השבבים שבתוכה: רצועה ריקה עם ‎flex:1‎ עדיין תופסת את
+       כל הרוחב ודוחפת את כפתור השכונות לקצה במקום למרכז. */
+    .hero.split-on .hero-quick-chips{display:none}
     .hero.split-on .hero-overlay{
       display:block;bottom:auto;padding:16px 0 48px;
       background:linear-gradient(180deg,
@@ -2560,6 +2597,9 @@
   html.a11y-contrast .hero-chip span,
   html.a11y-contrast .hero-mapcta span{color:#FFD84D !important}
   html.a11y-contrast .hero-quick{background:#000 !important;border-color:#FFD84D !important}
+  /* הסמן הוא ‎background‎ ולא ‎color‎, ולכן אף כלל טקסט גורף לא נגע בו: בנייבי
+     הוא היה שחור־על־שחור כאן. הזהב של המצב הזה הוא ‎#FFD84D‎ ולא ‎--brass‎. */
+  html.a11y-contrast .hero-caret{background:#FFD84D !important}
   /* ההילה הלבנה שמפרידה את סרגל החיפוש מהמפה מכתימה כאן את השחור המלא */
   html.a11y-contrast .search-shell::before{display:none !important}
   html.a11y-contrast .hero-inner h1,
@@ -2800,17 +2840,24 @@
                כל שבב ממלא את השדה ומריץ חיפוש אמיתי, ולכן אין כאן הבטחה
                לתוצאה שלא תגיע. -->
           <div class="hero-quick" id="heroQuick">
-            <span class="hero-quick-label">מהיר:</span>
-            <button type="button" class="hero-chip" data-q="3 חדרים בגבעת המורה">3 חדרים בגבעת המורה</button>
-            <button type="button" class="hero-chip" data-q="חנויות להשכרה">חנויות להשכרה</button>
-            <button type="button" class="hero-chip" data-q="בתים בעפולה עילית">בתים בעפולה עילית</button>
-            <button type="button" class="hero-chip hero-chip-ai" data-ai="1">
-              <span aria-hidden="true">✦</span> עם הדמיה
-            </button>
+            <!-- רצועה נגללת אחת. השבבים גולשים ממנה הצדה ולא נשברים לשורה
+                 שנייה, כדי שגובה כרטיס החיפוש יהיה קבוע ולא ייגזר ממספר
+                 השבבים וממה שנכנס בשורה ברוחב מסך נתון. -->
+            <div class="hero-quick-chips">
+              <span class="hero-quick-label">מהיר:</span>
+              <button type="button" class="hero-chip" data-q="3 חדרים בגבעת המורה">3 חדרים בגבעת המורה</button>
+              <button type="button" class="hero-chip" data-q="חנויות להשכרה">חנויות להשכרה</button>
+              <!-- התווית מקוצרת אבל ‎data-q‎ שלם: הוא מה שנכתב בשדה החיפוש
+                   ומורץ בפועל, ו-"בתים בע.עילית" אינו שאילתה שתחזיר משהו. -->
+              <button type="button" class="hero-chip" data-q="בתים בעפולה עילית">בתים בע.עילית</button>
+              <button type="button" class="hero-chip hero-chip-ai" data-ai="1">
+                <span aria-hidden="true">✦</span> עם הדמיה
+              </button>
+            </div>
 
-            <!-- סינון לפי שכונות. יושב בקצה השמאלי של שורת השבבים ונשאר שם
-                 קבוע: הוא לא הצעת חיפוש כמו שכניו אלא המסנן שנשאל ראשון כאן
-                 ("איזו שכונה?"), ולכן הוא נצמד לקצה ולא נסחף עם רשימת השבבים.
+            <!-- סינון לפי שכונות. נעוץ בקצה השמאלי של שורת השבבים, מחוץ
+                 לרצועה הנגללת: הוא לא הצעת חיפוש כמו שכניו אלא המסנן שנשאל
+                 ראשון כאן ("איזו שכונה?"), ולכן הוא לא נגלל איתם ומקומו קבוע.
                  הכפתור פותח מודאל בחירה מרובה שנבנה מהנכסים הפעילים עצמם
                  (renderHoodOptions), ולכן מוצגות בו רק שכונות שבאמת יש בהן מה
                  למצוא. -->
