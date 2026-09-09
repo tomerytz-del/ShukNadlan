@@ -292,22 +292,41 @@
   .hero-badge-live .live-dot{background:#21a565;width:7px;height:7px}
 
   /* ====== "מחפשים …" — גלגל המילים ======
-     חלון בגובה שורה אחת שבתוכו מסלול של שלוש שורות זהות בגובהן; האנימציה
-     מזיזה את המסלול ב-100%/200% ולכן היא לא תלויה בגובה בפיקסלים ולא
-     נשברת כשגודל הגופן משתנה בין נקודות השבירה. */
+     חלון בגובה שורה אחת שבתוכו מסלול של שורות זהות בגובהן, והאנימציה
+     מגלגלת אותו שורה אחת בכל פעם.
+
+     ‏em ולא אחוזים, וזו הייתה כאן תקלה אמיתית: אחוזים ב-translateY נמדדים
+     מול הגובה של *האלמנט המוזז* — כלומר מול המסלול כולו — ולא מול שורה
+     אחת. ‏‎translateY(-100%)‎ הזיז את כל המסלול בבת אחת, שלוש שורות ביחד,
+     וכל המילים שביניהן חלפו בהבזק; מה שנראה על המסך היה מילה, ואז ריצה
+     מהירה של כמה מילים, ואז מילה. ‏‎-1.5em‎ הוא בדיוק גובה שורה אחת
+     (‏‎.hero-roll-track>span{height:1.5em}‎, באותו font-size), ולכן כל
+     מדרגה מחליפה מילה אחת — וזה נשאר נכון גם כשגודל הגופן משתנה בין
+     נקודות השבירה.
+
+     המסלול נושא שש מילים ואת **המילה הראשונה שוב** בסופו. השורה השביעית
+     היא זו שמאפשרת לגלגל להתקדם תמיד קדימה: בסוף המחזור הוא עומד על
+     העותק, והחזרה ל-0 מתרחשת בין שתי שורות זהות ואינה נראית כלל.
+
+     התזמון: שש מדרגות של 1.9 שניות (‎11.4s/6‎), מתוכן ‎~1.45s‎ המילה עומדת
+     ו-‎~0.45s‎ היא מחליקה. אחוזי המדרגה הם 16.667%, וההחלקה בתוך כל מדרגה
+     מתחילה ב-12.7% ממנה. */
   .hero-roll{
     display:flex;align-items:baseline;justify-content:center;gap:8px;
     margin:6px 0 0;color:#dbe3f5;font-size:1rem;font-weight:300;
     text-shadow:0 2px 8px rgba(0,0,0,.6);
   }
   .hero-roll-window{display:inline-block;overflow:hidden;height:1.5em;min-width:8.6em}
-  .hero-roll-track{display:block;animation:rollWords 9s ease-in-out infinite}
-  .hero-roll-track>span{display:block;height:1.5em;font-weight:700;color:#fff}
+  .hero-roll-track{display:block;animation:rollWords 11.4s ease-in-out infinite}
+  .hero-roll-track>span{display:block;height:1.5em;font-weight:700;color:#fff;white-space:nowrap}
   @keyframes rollWords{
-    0%,26%{transform:translateY(0)}
-    33%,59%{transform:translateY(-100%)}
-    66%,92%{transform:translateY(-200%)}
-    100%{transform:translateY(0)}
+    0%,12.7%{transform:translateY(0)}
+    16.67%,29.37%{transform:translateY(-1.5em)}
+    33.33%,46.03%{transform:translateY(-3em)}
+    50%,62.7%{transform:translateY(-4.5em)}
+    66.67%,79.37%{transform:translateY(-6em)}
+    83.33%,96.03%{transform:translateY(-7.5em)}
+    100%{transform:translateY(-9em)}
   }
   .hero-caret{width:2px;height:1.05em;background:var(--brass,#c9a227);animation:caretBlink 1.1s step-end infinite;align-self:center}
   @keyframes caretBlink{0%,49%{opacity:1}50%,100%{opacity:0}}
@@ -2586,16 +2605,25 @@
 
         <h1>כל הנכסים בעפולה והעמק <span class="hero-h1-break">בכתובת אחת</span></h1>
 
-        <!-- שורת המילים המתחלפות. ‏aria-label נושא את כל שלוש האפשרויות
-             כמשפט אחד, והגלגל עצמו aria-hidden: קורא מסך שמכריז "דירה
-             למשפחה" ושנייה אחר כך "חנות במרכז" מתאר תקלה, לא עיצוב. -->
-        <p class="hero-roll" aria-label="מחפשים דירה למשפחה, חנות במרכז או נכס להשקעה — הכול כאן">
+        <!-- שורת המילים המתחלפות. ‏aria-label נושא את כל האפשרויות כמשפט
+             אחד, והגלגל עצמו aria-hidden: קורא מסך שמכריז "דירה למשפחה"
+             ושנייה אחר כך "חנות במרכז" מתאר תקלה, לא עיצוב.
+
+             השורה האחרונה במסלול היא עותק של הראשונה, ואינה מילה שביעית:
+             היא זו שמאפשרת לגלגל לחזור לתחילת המחזור בלי לגלול אחורה דרך
+             כל המילים (ראו @keyframes rollWords). מי שמוסיף/ה מילה חייב/ת
+             להוסיף מדרגה ל-keyframes, ולהשאיר את העותק אחרון. -->
+        <p class="hero-roll" aria-label="מחפשים דירה למשפחה, נכס להשקעה, דירה להשכרה, חנות במרכז, בית עם גינה או מגרש לבנייה — הכול כאן">
           <span>מחפשים</span>
           <span class="hero-roll-window" aria-hidden="true">
             <span class="hero-roll-track">
               <span>דירה למשפחה</span>
-              <span>חנות במרכז</span>
               <span>נכס להשקעה</span>
+              <span>דירה להשכרה</span>
+              <span>חנות במרכז</span>
+              <span>בית עם גינה</span>
+              <span>מגרש לבנייה</span>
+              <span>דירה למשפחה</span>
             </span>
           </span>
           <span class="hero-caret" aria-hidden="true"></span>
@@ -6119,6 +6147,30 @@ const DEFAULT_MAP_STYLE = 'classic';
    להיפרד זה מזה. */
 const AFULA_CENTER = [32.6078, 35.2897];
 const AFULA_ZOOM = 13;
+// הרף שממנו הכותרת והחיפוש יורדים לעמודה בצד המפה. חייב להתאים ל-@media
+// בגיליון הסגנונות, ומוצהר כאן — לפני אתחול המפה — כי horizontalMapPadding
+// נקראת כבר בתצוגה הראשונה, בזמן ריצת הסקריפט עצמו.
+const MAP_COLUMN_MIN_WIDTH = 1024;
+
+/* מרכז עפולה, מוזז אל החצי הפנוי של המפה.
+   ------------------------------------------------------------
+   בדסקטופ העמודה של הכותרת והחיפוש שוכבת על צד אחד של המפה, ומרכז
+   הקונטיינר — שבו setView מניח את מרכז העיר — נופל בדיוק מתחתיה, כך שהדף
+   נפתח עם עפולה מוסתרת. הפונקציה מחזירה את *מרכז התצוגה* שבו העיר עצמה
+   נוחתת במרכז השטח הפנוי (משמאל לעמודה ב-RTL), באותו זום בדיוק ובלי לגעת
+   בחיפוש או בפילטרים.
+
+   מתחת ל-1024px ‏horizontalMapPadding מחזירה אפס, החישוב יוצא זהות,
+   והמפה בטלפון נשארת ממורכזת בדיוק כפי שהייתה. */
+function afulaViewCenter(zoom){
+  if (!heroMap) return AFULA_CENTER;
+  try{
+    const pad = visibleMapPadding();
+    if (!pad.left && !pad.right) return AFULA_CENTER;
+    const pt = heroMap.project(AFULA_CENTER, zoom).subtract([(pad.left - pad.right) / 2, 0]);
+    return heroMap.unproject(pt, zoom);
+  } catch(e){ return AFULA_CENTER; }
+}
 
 function applyMapStyle(style){
   if (!MAP_STYLES.includes(style)) style = DEFAULT_MAP_STYLE;
@@ -6136,6 +6188,9 @@ try {
   if (!window.L) throw new Error('Leaflet לא נטען (CDN חסום/נכשל)');
 
   heroMap = L.map('hero-map', { scrollWheelZoom:false, zoomControl:false }).setView(AFULA_CENTER, AFULA_ZOOM);
+  // ההזזה אל השטח הפנוי נמדדת מה-DOM, ולכן היא באה אחרי שהמפה כבר קיימת
+  // ויודעת את גודלה — לא כארגומנט ל-setView שלמעלה
+  heroMap.setView(afulaViewCenter(AFULA_ZOOM), AFULA_ZOOM, { animate:false });
   MapTiles.addTo(heroMap);
   // כל החלק העליון של המפה מוסתר ע"י סרגל החיפוש הצף, ולכן פקדי הזום יורדים
   // לתחתית: הזום בצד אחד, הקרדיטים בשני, ו-.map-toolbar במרכז ביניהם
@@ -6209,7 +6264,7 @@ let searchHasRun = false;
 // הפין העליון נחת מתחת לסרגל החיפוש. את הריסון של הזום עושה עכשיו
 // fitMapToMarkers עצמו, שלא נותן לריפוד לגנוב יותר מרמת זום אחת.
 function visibleMapPadding(){
-  const fallback = { top:150, bottom:70 };
+  const fallback = { top:150, bottom:70, left:0, right:0 };
   if (!heroMap) return fallback;
   const hero = document.getElementById('heroSection');
   // ה-shell ולא ה-card: ההילה המטושטשת של ה-shell גולשת מתחת לכרטיס,
@@ -6218,8 +6273,9 @@ function visibleMapPadding(){
   const bar = document.querySelector('.map-toolbar');
   if (!hero || !shell || !bar) return fallback;
   const heroRect = hero.getBoundingClientRect();
+  const shellRect = shell.getBoundingClientRect();
   const height = heroMap.getSize().y || heroRect.height;
-  const top = shell.getBoundingClientRect().bottom - heroRect.top + 16;
+  const top = shellRect.bottom - heroRect.top + 16;
   const bottom = heroRect.bottom - bar.getBoundingClientRect().top + 16;
   // רשת ביטחון בלבד, למקרה קיצון שבו החסימות גבוהות מהמפה עצמה
   const cap = height * 0.8;
@@ -6228,7 +6284,42 @@ function visibleMapPadding(){
   return {
     top: Math.max(0, Math.round(top * scale)),
     bottom: Math.max(0, Math.round(bottom * scale)),
+    ...horizontalMapPadding(shellRect),
   };
+}
+
+/* החסימה האופקית — בדסקטופ בלבד.
+   ------------------------------------------------------------
+   מ-1024px ומעלה הכותרת וסרגל החיפוש יושבים בעמודה מעל צד אחד של המפה
+   (ימין ב-RTL), ומרכז המפה — כלומר מרכז עפולה — נחת בדיוק מתחתיה. הריפוד
+   כאן הוא רוחב העמודה, וממנו נגזרת ההזזה שמביאה את העיר אל החצי הפנוי.
+
+   מתחת ל-1024px זה מוחזר אפס בכוונה: בטלפון ובטאבלט העמודה ממורכזת ברוחב
+   מלא, אין "צד פנוי" להזיז אליו, והמפה נשארת בדיוק כפי שהייתה.
+
+   הצד נמדד מה-DOM ולא מכיוון הכתיבה: כך גם ‎html[dir=ltr]‎ וגם המצב המפוצל
+   (שבו העמודה ממורכזת מעל מפה מצומצמת, ושני הצדדים יוצאים שווים) נופלים
+   נכון מאליהם, בלי רשימת מקרים. */
+function horizontalMapPadding(shellRect){
+  const none = { left:0, right:0 };
+  const mapEl = document.getElementById('hero-map');
+  if (!mapEl || !heroMap || !window.matchMedia(`(min-width:${MAP_COLUMN_MIN_WIDTH}px)`).matches) return none;
+  const mapRect = mapEl.getBoundingClientRect();
+  const width = heroMap.getSize().x || mapRect.width;
+  if (!width) return none;
+  const freeStart = shellRect.left - mapRect.left;   // פנוי משמאל לעמודה
+  const freeEnd = mapRect.right - shellRect.right;   // פנוי מימין לעמודה
+  // הפרש קטן בין הצדדים = עמודה ממורכזת, ואין כאן צד מוסתר להתחשב בו.
+  // הסף השני מוודא שנשאר שטח אמיתי לעבוד בו אחרי ההזזה.
+  const MIN_GAP = 120, MIN_FREE = 260;
+  const cap = width * 0.7;
+  if (freeStart - freeEnd > MIN_GAP && freeStart > MIN_FREE){
+    return { left:0, right: Math.min(cap, Math.round(mapRect.right - shellRect.left)) };
+  }
+  if (freeEnd - freeStart > MIN_GAP && freeEnd > MIN_FREE){
+    return { left: Math.min(cap, Math.round(shellRect.right - mapRect.left)), right:0 };
+  }
+  return none;
 }
 
 // ממרכזת את המפה על הפינים המוצגים כרגע בתוך החלק הנראה שלה. נקראת גם אחרי
@@ -6256,13 +6347,15 @@ function fitMapToMarkers(){
     // החסימות מותר להן לעלות רמת זום אחת לכל היותר. גבולות שבאמת רחבים
     // (חיפוש על פני כל העמק) עדיין מתרחקים כרגיל, אבל אשכול צפוף נשאר קריא
     // וגולש קלות אל מתחת לסרגלים במקום להתכווץ.
-    const withChrome = heroMap.getBoundsZoom(bounds, false, L.point(48, pad.top + pad.bottom));
+    const withChrome = heroMap.getBoundsZoom(bounds, false, L.point(48 + pad.left + pad.right, pad.top + pad.bottom));
     const withoutChrome = heroMap.getBoundsZoom(bounds, false, L.point(48, 48));
     const zoom = Math.min(MAP_FIT_MAX_ZOOM, Math.max(withChrome, withoutChrome - 1));
 
     // מרכוז על מרכז החלון הפנוי ולא על מרכז הקונטיינר, אחרת האשכול יושב
-    // גבוה מדי ונחתך ע"י סרגל החיפוש
-    const center = heroMap.project(bounds.getCenter(), zoom).subtract([0, (pad.top - pad.bottom) / 2]);
+    // גבוה מדי ונחתך ע"י סרגל החיפוש — ובדסקטופ גם נבלע מתחת לעמודת
+    // הכותרת והחיפוש שבצד (ראו horizontalMapPadding)
+    const center = heroMap.project(bounds.getCenter(), zoom)
+      .subtract([(pad.left - pad.right) / 2, (pad.top - pad.bottom) / 2]);
     heroMap.setView(heroMap.unproject(center, zoom), zoom, { animate:true });
   } catch(e){ /* גבולות לא תקינים — משאירים את התצוגה הנוכחית */ }
 }
@@ -6559,8 +6652,11 @@ function dealBadge(p){ return DEAL_LABELS[dealKind(p)]; }
 function recenterHeroMap(){
   if (!heroMap) return;
   heroMap.closePopup();
-  if (heroMap.flyTo) heroMap.flyTo(AFULA_CENTER, AFULA_ZOOM, { duration:.7 });
-  else heroMap.setView(AFULA_CENTER, AFULA_ZOOM, { animate:true });
+  // אותה תצוגה בדיוק שאיתה הדף נפתח, כולל ההזזה אל הצד הפנוי בדסקטופ:
+  // כפתור שמחזיר את העיר אל מתחת לעמודת הכותרת הוא לא "מירכוז"
+  const center = afulaViewCenter(AFULA_ZOOM);
+  if (heroMap.flyTo) heroMap.flyTo(center, AFULA_ZOOM, { duration:.7 });
+  else heroMap.setView(center, AFULA_ZOOM, { animate:true });
 }
 const mapRecenterBtn = document.getElementById('mapRecenterBtn');
 if (mapRecenterBtn) mapRecenterBtn.addEventListener('click', recenterHeroMap);
