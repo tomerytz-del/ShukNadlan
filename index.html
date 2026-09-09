@@ -1039,9 +1039,11 @@
   }
 
   /* ====== Newsflash ticker ====== */
-  /* הרצועה יושבת בין קרוסלת משרדי התיווך לרצועת הנכסים למכירה — שתי
-     סקציות על אותו רקע בהיר — ולכן היא תחומה משני הצדדים ולא רק מלמטה,
-     אחרת היא נראית כהמשך של הסקציה שמעליה. */
+  /* הרצועה יושבת מיד אחרי המפה ותוצאות החיפוש ולפני רצועת ההדמיות — כלומר
+     בשליש הראשון של הדף ולא באמצעו: מבזק נדל"ן הוא מידע שנקרא *לפני*
+     שמתחילים לגלול בין נכסים, ועמוק בדף הוא הגיע אחרי שכבר עברו על שלוש
+     רצועות. הגבול העליון והתחתון נשארים משני הצדדים גם כאן, כי מתחתיה
+     יושבת רצועת ההדמיות הכהה ומעליה רקע בהיר. */
   .ticker{
     background:var(--gold-tint);border-block:1px solid var(--line);
     display:flex;align-items:center;gap:11px;padding:10px 0;overflow:hidden;
@@ -3135,8 +3137,21 @@
     </div>
   </section>
 
+  <!-- ====== Newsflash ticker ====== -->
+  <div class="ticker">
+    <div class="wrap">
+      <span class="ticker-flag"><span class="live-dot"></span> מבזק</span>
+      <!-- ‏aria-live הוסר בכוונה: שורה שמתחלפת כל חמש שניות באזור חי פירושה
+           שקורא מסך קוטע את עצמו כל חמש שניות. עכשיו כל המבזקים נגישים
+           ברשימה שהכפתור פותח, ולכן ההכרזה החוזרת הפכה לרעש בלבד. -->
+      <button type="button" class="ticker-text" id="tickerText"
+              aria-haspopup="dialog" title="לחיצה פותחת את כל המבזקים"></button>
+      <button type="button" class="ticker-more" id="tickerMore" aria-haspopup="dialog">כל העדכונים ←</button>
+    </div>
+  </div>
+
   <!-- ====== רצועת ההדמיות: "לפני ואחרי" ======
-       יושבת מיד אחרי תוצאות החיפוש, כלומר מיד מתחת למפה כל עוד לא חיפשו:
+       יושבת מיד אחרי תוצאות החיפוש ורצועת המבזקים, כלומר קרוב למפה:
        מי שסיים/ה לעבור על השורות שואל/ת "מה עוד אפשר לראות על נכס לפני
        שנוסעים אליו", וזו התשובה. עמוק בתוך הדף היא הייתה נקראת אחרי שכבר
        התקבלה ההחלטה.
@@ -3373,19 +3388,6 @@
           <a class="af-all" href="agencies.html">לאינדקס המלא של משרדי התיווך ←</a>
         </div>
       </div>
-    </div>
-  </div>
-
-  <!-- ====== Newsflash ticker ====== -->
-  <div class="ticker">
-    <div class="wrap">
-      <span class="ticker-flag"><span class="live-dot"></span> מבזק</span>
-      <!-- ‏aria-live הוסר בכוונה: שורה שמתחלפת כל חמש שניות באזור חי פירושה
-           שקורא מסך קוטע את עצמו כל חמש שניות. עכשיו כל המבזקים נגישים
-           ברשימה שהכפתור פותח, ולכן ההכרזה החוזרת הפכה לרעש בלבד. -->
-      <button type="button" class="ticker-text" id="tickerText"
-              aria-haspopup="dialog" title="לחיצה פותחת את כל המבזקים"></button>
-      <button type="button" class="ticker-more" id="tickerMore" aria-haspopup="dialog">כל העדכונים ←</button>
     </div>
   </div>
 
@@ -6311,14 +6313,18 @@ const MAP_COLUMN_MIN_WIDTH = 1024;
    נוחתת במרכז השטח הפנוי (משמאל לעמודה ב-RTL), באותו זום בדיוק ובלי לגעת
    בחיפוש או בפילטרים.
 
-   מתחת ל-1024px ‏horizontalMapPadding מחזירה אפס, החישוב יוצא זהות,
-   והמפה בטלפון נשארת ממורכזת בדיוק כפי שהייתה. */
+   אותו חישוב חל גם על הציר האנכי, ומאותה סיבה: בטלפון סרגל החיפוש חוסם את
+   ראש המפה וסרגל הפקדים את תחתיתה, והעיר צריכה לנחות במרכז מה שנשאר. זו גם
+   בדיוק הנוסחה של fitMapToMarkers, כדי שהתצוגה שאיתה הדף נפתח והתצוגה שאחרי
+   טעינת הנכסים לא ייפרדו זו מזו. */
 function afulaViewCenter(zoom){
   if (!heroMap) return AFULA_CENTER;
   try{
     const pad = visibleMapPadding();
-    if (!pad.left && !pad.right) return AFULA_CENTER;
-    const pt = heroMap.project(AFULA_CENTER, zoom).subtract([(pad.left - pad.right) / 2, 0]);
+    const dx = (pad.left - pad.right) / 2;
+    const dy = (pad.top - pad.bottom) / 2;
+    if (!dx && !dy) return AFULA_CENTER;
+    const pt = heroMap.project(AFULA_CENTER, zoom).subtract([dx, dy]);
     return heroMap.unproject(pt, zoom);
   } catch(e){ return AFULA_CENTER; }
 }
@@ -6347,15 +6353,19 @@ try {
   // לתחתית: הזום בצד אחד, הקרדיטים בשני, ו-.map-toolbar במרכז ביניהם
   L.control.zoom({ position:'bottomright' }).addTo(heroMap);
   heroMap.attributionControl.setPosition('bottomleft');
-  heroMap.on('focus', ()=> heroMap.scrollWheelZoom.enable());
-  heroMap.on('blur', ()=> heroMap.scrollWheelZoom.disable());
 
-  /* המקבילה של scrollWheelZoom:false למגע. המפה כאן פותחת את הדף וגובהה
-     כמעט מסך שלם במובייל, ולכן היא הייתה המלכודת הגדולה מכולן: אצבע שנחתה
-     עליה בדרך למטה הזיזה את המפה במקום להמשיך בדף. עכשיו אצבע אחת גוללת,
-     ושתיים מזיזות ומקרבות. הזזה בשתי אצבעות ממשיכה לירות moveend/zoomend,
-     ולכן הפאנל המפוצל וסינון התחום הנראה לא מושפעים.
-     ‏MapGestures לא נטען (קובץ חסר/נכשל) — המפה פשוט נשארת כשהייתה. */
+  /* מחוות משתפות פעולה, במגע ובגלגלת גם יחד. המפה כאן פותחת את הדף וגובהה
+     כמעט מסך שלם, ולכן היא הייתה המלכודת הגדולה מכולן — בשני הכיוונים:
+     אצבע שנחתה עליה בדרך למטה הזיזה את המפה במקום להמשיך בדף, ובעכבר
+     ‏`on('focus', … scrollWheelZoom.enable())` שהיה כאן הדליק את זום הגלגלת
+     בכל *לחיצה* על המפה (כך Leaflet מגדיר focus) — ומאותו רגע גלילה מעל
+     המפה קירבה אותה במקום לגלול את הדף, עד לחיצה במקום אחר.
+
+     עכשיו: אצבע אחת ובגלגלת לבדה — הדף גולל; שתי אצבעות או ‏Ctrl/⌘ + גלגלת
+     — המפה זזה ומתקרבת. שתיהן ממשיכות לירות moveend/zoomend, ולכן הפאנל
+     המפוצל וסינון התחום הנראה לא מושפעים.
+     ‏MapGestures לא נטען (קובץ חסר/נכשל) — המפה פשוט נשארת כשהייתה, ובלי
+     זום גלגלת כלל (‏scrollWheelZoom:false למעלה). */
   if (window.MapGestures) MapGestures.apply(heroMap);
 
   const tintPane = heroMap.createPane('tintPane');
@@ -6426,7 +6436,20 @@ function visibleMapPadding(){
   const heroRect = hero.getBoundingClientRect();
   const shellRect = shell.getBoundingClientRect();
   const height = heroMap.getSize().y || heroRect.height;
-  const top = shellRect.bottom - heroRect.top + 16;
+  const side = horizontalMapPadding(shellRect);
+  /* ספירה כפולה שדחפה את המפה למטה: בדסקטופ העמודה יושבת *בצד* המפה,
+     וההזזה האופקית כבר מוציאה את הנכסים מתחתיה — אבל הגובה שלה נספר כאן
+     שוב כחסימה עליונה (עד תחתית סרגל החיפוש, מאות פיקסלים), ו-fitMapToMarkers
+     הוריד את האשכול בחצי ממנו. התוצאה היא מה שנראה בדף: עפולה והפינים
+     נמוכים מדי, חלקם מתחת לסרגל הפקדים.
+
+     כשההזזה האופקית פעילה, מה שבאמת חוסם בשטח הפנוי הוא רק כלי הסימון
+     שבפינה העליונה שלו — וגם הם רק כשהם מוצגים (דסקטופ, ולא במפה שנפלה). */
+  const tools = document.getElementById('mapTools');
+  const toolsRect = tools && !tools.hidden && tools.offsetParent ? tools.getBoundingClientRect() : null;
+  const top = (side.left || side.right)
+    ? (toolsRect ? toolsRect.bottom - heroRect.top + 16 : 0)
+    : shellRect.bottom - heroRect.top + 16;
   const bottom = heroRect.bottom - bar.getBoundingClientRect().top + 16;
   // רשת ביטחון בלבד, למקרה קיצון שבו החסימות גבוהות מהמפה עצמה
   const cap = height * 0.8;
@@ -6435,7 +6458,7 @@ function visibleMapPadding(){
   return {
     top: Math.max(0, Math.round(top * scale)),
     bottom: Math.max(0, Math.round(bottom * scale)),
-    ...horizontalMapPadding(shellRect),
+    ...side,
   };
 }
 
