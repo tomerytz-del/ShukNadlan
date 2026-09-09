@@ -1077,7 +1077,21 @@ function shapeAgency(a, props, ranking, rated, propsLoaded){
       .sort((x, y)=> (x.role === 'manager' ? 0 : 1) - (y.role === 'manager' ? 0 : 1))
       .forEach(m => { if (!phoneByAgency.has(m.agency_id)) phoneByAgency.set(m.agency_id, m.phone_e164); });
 
-    finish(rows.map(a => {
+    // ---------- משרדים שאין בהם אף סוכן/ת פעיל/ה ----------
+    // ‏agency_members_public מחזיר/ה שורות active בלבד, ולכן משרד שאינו
+    // מופיע כאן הוא משרד ריק — כולם סגרו חשבון או הושעו. שלט בלי איש
+    // מאחוריו אינו תוצאת חיפוש: אין למי לפנות, ומודעות אין. הסינון חל רק
+    // כשהשליפה הצליחה; אחרת עדיף להציג את כולם מאשר לרוקן את הספרייה
+    // בגלל תקלת רשת.
+    // התקרה של 1000 חברי צוות בשליפה היא גם התנאי: רשימה שנחתכה בתקרה אינה
+    // תמונה מלאה של מי פעיל/ה, ומשרד שחבריו נפלו מעברה היה נעלם בלי סיבה.
+    const members = dataOf(membersRes);
+    const membersComplete = membersRes.status === 'fulfilled'
+      && !membersRes.value.error && members.length < 1000;
+    const staffedAgencies = new Set(members.filter(m => m.active !== false).map(m => m.agency_id));
+    const visible = membersComplete ? rows.filter(a => staffedAgencies.has(a.id)) : rows;
+
+    finish(visible.map(a => {
       const shaped = shapeAgency(a, propsByAgency.get(a.id) || [], rankByAgency.get(a.id), ratingByAgency.get(a.id), propsLoaded);
       shaped.phone = phoneByAgency.get(a.id) || null;
       return shaped;

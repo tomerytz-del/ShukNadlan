@@ -5553,7 +5553,7 @@ function agencyAreasOf(props, fallback){
 async function loadLeadingAgencies(){
   try{
     if (!sb) return [];
-    const [agenciesRes, rankingsRes, ratingsRes, activeRes] = await Promise.all([
+    const [agenciesRes, rankingsRes, ratingsRes, activeRes, membersRes] = await Promise.all([
       // התקרות כאן הן רק גבול בטיחות לגודל התשובה, לא מכסת תצוגה.
       sb.from('agencies').select('id, name, slug, logo_url, specialty_areas, ethics_code_accepted_at, ethics_badge_revoked_at').limit(200),
       sb.from('agency_rankings').select('agency_id, composite_score, active_properties_count').limit(200),
@@ -5569,9 +5569,21 @@ async function loadLeadingAgencies(){
       sb.from('properties')
         .select('agency_id, category, property_type, project_status, city, neighborhoods(name)')
         .eq('status', 'active').limit(2000),
+      // מי מאויש. ‏agency_members_public מחזיר/ה שורות active בלבד, ולכן
+      // משרד שאינו כאן הוא משרד שכל חבריו סגרו חשבון או הושעו — שלט בלי
+      // איש מאחוריו, שאין למי לפנות בו.
+      sb.from('agency_members_public').select('agency_id, active').limit(1000),
     ]);
-    const agencies = agenciesRes.data;
-    if (agenciesRes.error || !agencies) throw agenciesRes.error || new Error('empty');
+    const allAgencies = agenciesRes.data;
+    if (agenciesRes.error || !allAgencies) throw agenciesRes.error || new Error('empty');
+
+    // הסינון חל רק על רשימה מלאה ותקינה: שליפה שנכשלה או נחתכה בתקרה אינה
+    // תמונה מלאה של מי פעיל/ה, ועדיף להציג משרד ריק מלהעלים משרד חי.
+    const members = membersRes.data || [];
+    const staffed = new Set(members.filter(m => m.active !== false).map(m => m.agency_id));
+    const agencies = (!membersRes.error && members.length && members.length < 1000)
+      ? allAgencies.filter(a => staffed.has(a.id))
+      : allAgencies;
 
     const rankByAgency = {};
     (rankingsRes.data || []).forEach(r => { rankByAgency[r.agency_id] = r; });
