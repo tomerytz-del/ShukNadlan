@@ -5134,6 +5134,20 @@ function setAgentBalance(value){
 /* היתרה שעל המסך מתיישנת אחרי כל רכישה, וברגע שמציגים אותה לפני חיוב היא
    חייבת להיות אמיתית. השאילתה היא שורה אחת, והחלון כבר פתוח בזמן שהיא רצה —
    לכן היא לא מעכבת כלום. נכשלה? נשארים עם מה שידוע, בלי להיתקע. */
+
+/* כמה צריך לטעון כדי שהרכישה תעבור. הטעינות הן בקפיצות של 100, ולכן זו
+   העלייה לסכום המותר הקרוב ביותר שמכסה את החוסר — לא החוסר עצמו.
+   מחזירה null כשיש כיסוי.
+
+   ‏gap גדול מ-500 אינו אפשרי היום (הפריט היקר ביותר הוא ₪350), אבל אם ייווצר
+   כזה עדיף להציע את המקסימום מאשר להחזיר undefined ולשבור את הכפתור. */
+const TOPUP_AMOUNTS = [100, 200, 300, 400, 500];
+function topupNeeded(balance, price){
+  const gap = Number(price) - Number(balance);
+  if (!(gap > 0)) return null;
+  return TOPUP_AMOUNTS.find(a => a >= gap) || TOPUP_AMOUNTS[TOPUP_AMOUNTS.length - 1];
+}
+
 async function refreshAgentBalance(){
   if (!currentAgent) return 0;
   const { data, error } = await sb.from('agency_members')
@@ -5181,8 +5195,16 @@ function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel, 
       enough ? shekel(after) : `חסרים ${shekel(Math.abs(after))}`;
     walletEl.classList.toggle('is-short', !enough);
     noteEl.hidden = enough;
-    if (!enough) noteEl.textContent = 'טענו את הארנק וחזרו לרכישה — הסכום ייגבה רק באישור.';
-    topupBtn.textContent = enough ? 'טעינת הארנק ←' : 'טעינת הארנק עכשיו ←';
+    /* החוסר מתורגם לסכום טעינה קונקרטי, וכך גם הכפתור. הניסוח הקודם —
+       "טענו את הארנק וחזרו לרכישה" — הטיל על הסוכן/ת לחשב כמה חסר, לנווט
+       לקטגוריה אחרת, לבחור סכום, ולזכור לחזור. */
+    if (!enough){
+      const need = topupNeeded(balance, price);
+      noteEl.textContent = `חסרים ${shekel(Math.abs(after))}. טעינה של ${shekel(need)} תכסה את הרכישה.`;
+      topupBtn.textContent = `טעינה מהירה של ${shekel(need)} ←`;
+    } else {
+      topupBtn.textContent = 'טעינת הארנק ←';
+    }
     syncConfirm();
   }
 
@@ -5207,9 +5229,56 @@ function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel, 
     const onCancel  = ()=> done(false);
     const onKey     = (e)=> { if (e.key === 'Escape') done(false); };
     const onBackdrop= (e)=> { if (e.target === overlay) done(false); };
-    // הרכישה מבוטלת ולא "ממתינה ברקע": אחרי הטעינה חוזרים לליד ולוחצים שוב,
-    // וזה עדיף על חלון פתוח מעל קטגוריית הארנק
-    const onTopup   = ()=> { done(false); gotoSection('accWallet', 'topupAmount'); };
+    /* ---------- טעינה מהירה ----------
+       הכפתור טוען את הסכום שחסר בדיוק, בלי לעזוב את הרכישה.
+
+       שני מסלולים, לפי מה שהשרת מחזיר:
+
+       ‏redirect_url  — סליקה אמיתית. יציאה לעמוד התשלום היא בלתי נמנעת (שם
+                       נמסרים פרטי הכרטיס), ולכן שומרים לאן לחזור וממשיכים.
+       אין redirect  — מצב בדיקה. הזיכוי כבר קרה, ולכן **נשארים בדיאלוג**,
+                       מרעננים את היתרה ומציירים מחדש. הרכישה ממשיכה מהמקום
+                       שבו נעצרה.
+
+       נפילה חזרה לקטגוריית הארנק נשמרת לשגיאות: עדיף מסלול ארוך שעובד על
+       פני הודעת שגיאה שמשאירה את הסוכן/ת בלי מוצא. */
+    const onTopup = async ()=>{
+      const balance = Number(currentAgent && currentAgent.credit_balance) || 0;
+      const need = topupNeeded(balance, price);
+      if (!need){ done(false); gotoSection('accWallet', 'topupAmount'); return; }
+
+      const prevLabel = topupBtn.textContent;
+      topupBtn.disabled = true;
+      topupBtn.textContent = 'רגע…';
+      try{
+        const { data: { session } } = await sb.auth.getSession();
+        const res = await fetch(SUPABASE_URL + '/functions/v1/wallet-topup', {
+          method:'POST',
+          headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY,
+                    'Authorization':'Bearer ' + session.access_token },
+          body: JSON.stringify({ amount: need }),
+        });
+        const data = await res.json();
+
+        if (!res.ok || data.error){
+          // לא מסתירים את הכישלון ולא משאירים תקועים — הדרך הארוכה עדיין פתוחה
+          done(false); gotoSection('accWallet', 'topupAmount'); return;
+        }
+        if (data.redirect_url){
+          done(false);
+          location.href = data.redirect_url;
+          return;
+        }
+
+        const bal = await refreshAgentBalance();
+        if (overlay.style.display !== 'none') paintWallet(bal);
+        topupBtn.disabled = false;
+        topupBtn.textContent = prevLabel;
+      } catch(err){
+        console.error('quick topup', err);
+        done(false); gotoSection('accWallet', 'topupAmount');
+      }
+    };
 
     function done(value){
       ackBox.removeEventListener('change', onAck);
@@ -14845,7 +14914,7 @@ function claimCost(lead){
   const quota = priceOf('free_lead_quota_monthly', 10);
   const used = quotaUsedThisCycle();
   if (used < quota) return { price:0, note:`נכלל במכסה החינמית — ${used + 1} מתוך ${quota} החודש` };
-  return { price: priceOf('ppl_price_buyer_renter', 10), note:`המכסה החינמית (${quota} לחודש) נוצלה` };
+  return { price: priceOf('ppl_price_buyer_renter', 20), note:`המכסה החינמית (${quota} לחודש) נוצלה` };
 }
 
 async function claimLead(lead, btn, agentId){
