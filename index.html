@@ -1635,7 +1635,7 @@
   #dealmakers{padding-bottom:18px}
   .dm-head{display:flex;flex-direction:column;gap:12px;padding:0 16px;margin-bottom:10px}
   .dm-head h2{font-size:1.16rem;line-height:1.35}
-  .dm-sub{font-size:.8rem;color:var(--ink-soft);margin:5px 0 0;line-height:1.5}
+  .dm-sub-line{font-size:.8rem;color:var(--ink-soft);margin:5px 0 0;line-height:1.5}
 
   /* הלשוניות הן פקד ניווט ולא קישוט, ולכן הן נצבעות ולא רק מסומנות: המגש
      בגוון ‎--teal-tint‎ מחזיק את השלוש כקבוצה אחת, והפעילה מקבלת נייבי מלא
@@ -1651,25 +1651,25 @@
   .dm-tabs button:disabled{opacity:.45;cursor:default}
   .dm-tabs .n{font-weight:800;font-size:.72rem;opacity:.72;margin-inline-start:4px}
 
+  /* גוף הסקציה: תיבת החיפוש היא עמודה קבועה בקצה השמאלי, ושורת הכרטיסים
+     נגללת לצידה בעצמה. שני אחים ב-flex ולא ‎sticky‎ בתוך אותה שורה: כך
+     התיבה באמת מחוץ למסלול הגלילה, ולא צריכה להיאבק בו. */
+  .dm-body{display:flex;flex-direction:column;gap:12px;padding:4px 16px 14px}
+
   .dm-row{
     display:flex;gap:12px;align-items:stretch;overflow-x:auto;
-    padding:4px 16px 14px;scroll-snap-type:x proximity;
+    scroll-snap-type:x proximity;
+    /* במובייל המסלול פורץ את ריפוד הגוף ונוגע בקצה המסך, כדי שההצצה
+       לאריח הבא תרמז שאפשר להמשיך לגלול */
+    margin-inline:-16px;padding-inline:16px;
     scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch;
   }
   .dm-row::-webkit-scrollbar{display:none}
 
-  /* תיבת החיפוש היא קובייה קבועה בקצה *השמאלי* של השורה, ישר מתחת
-     ללשוניות שיושבות באותו צד — כך הבחירה בלשונית והפעולה שנגזרת ממנה
-     נמצאות באותו מקום במסך. ‏sticky על ‎inset-inline-end‎ הוא השמאלי במסמך
-     RTL, ו-‎order:1‎ מציב אותה אחרי הכרטיסים בשורה בלי לשנות את סדר ה-DOM
-     (בגלילה במקלדת מגיעים לחיפוש לפני הרשימה שהוא מסנן, וזה הסדר הנכון).
-     הכרטיסים חולפים תחתיה בזמן גלילה, והצל שמאחוריה הוא מה שמראה שהם
-     עוברים מתחת ולא נעצרים בה. הנייבי המלא הוא ההיפוך של הכרטיסים הלבנים
-     שלצידה — כך היא נקראת כפעולה ולא ככרטיס נוסף ברצועה. */
+  /* תיבת החיפוש — קובייה קבועה, בגודל אריח מלא ובצבע הפוך לאריחים שלצידה,
+     כדי שתיקרא כפעולה ולא כאריח נוסף ברצועה. */
   .dm-search{
-    position:sticky;inset-inline-end:16px;order:1;margin-inline-start:auto;z-index:2;
-    flex:0 0 min(248px, calc(100% - 46px));min-width:0;min-height:var(--card-h);
-    display:flex;flex-direction:column;padding:14px;
+    flex:none;min-width:0;display:flex;flex-direction:column;padding:14px;
     background:linear-gradient(155deg,#0e2a6b,#08194a 72%);
     border-top:3px solid #C9A227;box-shadow:0 10px 26px -10px rgba(6,20,34,.45);
   }
@@ -1679,8 +1679,8 @@
   .dm-search h3{font-family:'Frank Ruhl Libre',serif;font-size:1.02rem;font-weight:700;
     line-height:1.35;color:#fff;margin:10px 0 0}
   .dm-search > p{font-size:.76rem;line-height:1.5;color:rgba(255,255,255,.82);margin:6px 0 0}
-  /* ‏margin-top:auto דוחף את התיבה והקישור לתחתית הכרטיס, כך שהם מיושרים
-     עם שורת ה"לדף המשרד" של הכרטיסים שלצידם בכל גובה כרטיס */
+  /* ‏margin-top:auto דוחף את התיבה והקישור לתחתית, כך שהם מיושרים עם
+     רצועת השם של האריחים שלצידם בכל גובה אריח */
   .dm-field{display:flex;align-items:center;gap:8px;background:#fff;
     height:44px;padding:0 12px;margin-top:auto;color:var(--ink-soft)}
   .dm-field svg{width:17px;height:17px;flex:none}
@@ -1692,70 +1692,69 @@
   .dm-search-all a{font-size:.82rem;font-weight:700;color:#fff;
     border-bottom:1.5px solid #C9A227;padding-bottom:2px}
 
+  /* ====== אריח אדם/משרד ======
+     התמונה *היא* האריח: היא ממלאת אותו לגובה ולרוחב, והשם והנתונים יושבים
+     בתחתיתו על scrim כהה במקום בגוף כרטיס לבן נפרד. שלושת הסוגים חולקים
+     את אותו אריח בדיוק, כדי שהמעבר בין הלשוניות לא ייראה כמעבר בין שלוש
+     מערכות.
+     הגרדיאנט עם אות ההתחלה נשאר מתחת לתמונה כרשת ביטחון: מי שאין לו תמונה
+     (או שהקובץ נשבר וה-img הסיר את עצמו) מקבל אריח צבעוני ולא ריבוע ריק.
+     הריפוד התחתון ממרכז את האות בשטח שמעל רצועת השם ולא באמצע האריח. */
   .dm-card{
     flex:0 0 min(248px, calc(100% - 46px));min-width:0;min-height:var(--card-h);
-    display:flex;flex-direction:column;padding:14px;scroll-snap-align:end;
-    background:#fff;border:1px solid var(--line);border-top:3px solid #C9A227;
-    box-shadow:var(--shadow-sm);color:var(--ink);
+    position:relative;overflow:hidden;scroll-snap-align:end;
+    display:flex;align-items:center;justify-content:center;padding-bottom:38px;
+    background:linear-gradient(155deg,var(--gold),var(--teal) 65%);
+    border:1px solid var(--line);box-shadow:var(--shadow-sm);color:#fff;
     transition:transform .18s ease, box-shadow .18s ease;
   }
-  .dm-card:hover{transform:translateY(-2px);box-shadow:0 14px 28px -14px rgba(6,20,34,.34)}
-  .dm-card-top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
-  .dm-name{font-weight:700;font-size:.95rem;line-height:1.3}
-  .dm-verified{font-size:.62rem;font-weight:800;color:#fff;background:var(--teal);
-    padding:2px 7px;white-space:nowrap}
-  .dm-role{font-size:.74rem;color:var(--ink-soft);margin-top:5px;line-height:1.4;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  /* אריח התמונה: אות ההתחלה יושבת מתחתיו ונחשפת אם הקובץ נשבר — אותו
-     דפוס של כרטיסי הקרוסלה. לוגו משרד נשאר שלם (contain) ותצלום אדם
-     ממלא את האריח (cover). */
-  .dm-logo{
-    flex:none;width:56px;height:56px;position:relative;overflow:hidden;
-    display:grid;place-items:center;background:var(--teal-tint);border:1px solid var(--line);
-    font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.5rem;color:var(--teal);
-  }
-  .dm-logo img{position:absolute;inset:0;width:100%;height:100%;
-    object-fit:cover;object-position:center 22%;background:#fff}
-  .dm-logo img.is-contain{object-fit:contain;object-position:center;padding:4px}
-  .dm-meta{display:flex;align-items:center;flex-wrap:wrap;gap:4px 8px;
-    font-size:.74rem;color:var(--ink-soft);margin-top:14px}
-  .dm-meta b{color:var(--ink);font-weight:700}
-  .dm-meta .star{color:#C9A227}
-  .dm-sep{color:var(--line)}
-  .dm-card-text{min-width:0}
-  .dm-tags{font-size:.76rem;color:var(--ink-soft);line-height:1.5;margin-top:8px;
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
-  .dm-go{margin-top:auto;min-height:44px;display:flex;align-items:flex-end;padding-bottom:2px}
-  .dm-go span{font-size:.82rem;font-weight:700;color:var(--teal);
-    border-bottom:1.5px solid #C9A227;padding-bottom:2px}
+  .dm-card:hover{transform:translateY(-2px);box-shadow:0 14px 28px -14px rgba(6,20,34,.42)}
+  .dm-initial{font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:2.1rem;
+    color:#fff;line-height:1}
+  /* ‏object-position גבוה מהמרכז: בתמונות פרופיל הפנים יושבות בשליש
+     העליון, וחיתוך למרכז היה קוטע אותן בתחתית האריח. מי שסימן/ה נקודת
+     מיקוד ב-CRM דורס/ת את ברירת המחדל דרך ‎--photo-pos‎. */
+  .dm-photo{position:absolute;inset:0;width:100%;height:100%;
+    object-fit:cover;object-position:var(--photo-pos,center 22%)}
+  /* לוגו משרד הוא לא תמונת פורטרט: חיתוך ב-cover היה קוטע אותיות, ולכן
+     הלוגו נשאר שלם (contain) ומאחוריו אותו קובץ בגרסה מוגדלת ומטושטשת
+     שממלאת את השוליים — כך האריח נראה מלא ורציף, ולא לוגו קטן על ריבוע ריק. */
+  .dm-card:has(.dm-logo){background:#fff}
+  .dm-card:has(.dm-logo) .dm-initial{display:none}
+  .dm-logo-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+    transform:scale(1.3);filter:blur(18px) saturate(1.15) brightness(.94)}
+  /* ‏width/height מפורשים ולא ‎inset‎ בלבד: לתמונה עם ‎width:auto‎ נגזר
+     הגודל הפנימי של הקובץ גם כשכל ה-insets מוגדרים. */
+  .dm-logo{position:absolute;top:0;inset-inline:0;width:100%;height:calc(100% - 38px);
+    object-fit:contain;padding:8px}
+  .dm-rank{position:absolute;top:6px;right:6px;background:rgba(255,255,255,.94);
+    color:var(--gold-dark);font-size:.62rem;font-weight:800;padding:2px 7px;
+    box-shadow:0 2px 6px rgba(6,20,34,.22)}
+  /* תו האיכות יושב בפינה הנגדית לתג הדירוג כדי שהשניים לא יתנגשו, ואינו
+     לחיץ: האריח כולו כבר מוביל לדף, ושם התו הגדול נלחץ ופותח את ההסבר. */
+  .dm-badge{position:absolute;top:6px;left:6px;width:26px;height:26px;border-radius:50%;
+    box-shadow:0 2px 7px rgba(6,20,34,.4);pointer-events:none}
+  .dm-overlay{position:absolute;inset-inline:0;bottom:0;padding:26px 8px 9px;
+    text-align:center;color:#fff;
+    background:linear-gradient(to top, rgba(6,20,34,.94) 30%, rgba(6,20,34,.66) 62%, rgba(6,20,34,0))}
+  .dm-name{font-weight:700;font-size:.78rem;line-height:1.25;
+    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+  .dm-sub{font-size:.66rem;color:rgba(255,255,255,.86);margin-top:2px;
+    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
+  .dm-meta{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;
+    font-size:.6rem;color:rgba(255,255,255,.9);margin-top:5px}
+  .dm-meta .star{color:#FFD34D;margin-inline-end:2px}
+
   .dm-empty{flex:1;min-width:min(280px,100%);min-height:var(--card-h);
     display:grid;place-items:center;text-align:center;border:1px dashed #cfd8ec;
     padding:20px;margin:0;font-size:.82rem;color:var(--ink-soft);line-height:1.6}
   .dm-all{display:flex;justify-content:center;align-items:center;min-height:44px;margin:0}
 
-  /* בטלפון אין שורה נגללת: תיבה ברוחב כרטיס הייתה תופסת כמעט את כל
-     המסך ומשאירה לכרטיסים רצועה של 100px. לכן התיבה נפרשת לרוחב מעל
-     הרשימה, והכרטיסים יורדים לשורות — הלוגו מימין, השם והנתונים לצידו
-     והקישור בקצה, כמו שאר הרשימות בעמוד. */
-  @media(max-width:759px){
-    .dm-row{flex-direction:column;gap:10px;overflow:visible;scroll-snap-type:none}
-    .dm-search{position:static;order:0;flex:none;width:100%;min-height:0;margin-inline-start:0}
-    .dm-search h3{font-size:1rem}
-    /* שורת ההסבר יורדת בטלפון: הכותרת והתיבה אומרות את אותו הדבר בשליש
-       מהגובה, וכל שורה כאן נגרעת מהכרטיסים שמתחת */
-    .dm-search > p{display:none}
-    .dm-field{margin-top:12px}
-
-    .dm-card{flex:none;width:100%;min-height:0;padding:12px;
-      flex-direction:row;flex-wrap:wrap;align-items:center;column-gap:12px;row-gap:6px}
-    .dm-card-top{flex:1 1 0;min-width:0;flex-direction:row-reverse;align-items:center;gap:12px}
-    .dm-card-text{flex:1}
-    .dm-logo{width:46px;height:46px;font-size:1.25rem}
-    .dm-role{-webkit-line-clamp:1}
-    .dm-meta{order:3;flex-basis:100%;margin-top:0}
-    .dm-tags{order:4;flex-basis:100%;margin-top:0;-webkit-line-clamp:1}
-    .dm-go{order:2;flex:none;margin-top:0;min-height:44px;align-items:center;padding-bottom:0}
-    .dm-empty{min-height:0;padding:26px 16px}
+  @media(min-width:480px){
+    .dm-initial{font-size:2.6rem}
+    .dm-name{font-size:.86rem}
+    .dm-sub{font-size:.72rem}
+    .dm-meta{font-size:.66rem}
   }
 
   @media(min-width:760px){
@@ -1763,11 +1762,22 @@
     .dm-head{flex-direction:row;justify-content:space-between;align-items:flex-end;
       gap:24px;margin-bottom:14px}
     .dm-head h2{font-size:1.4rem}
-    .dm-sub{font-size:.88rem}
+    .dm-sub-line{font-size:.88rem}
     .dm-tabs{flex:0 0 auto}
     .dm-tabs button{flex:0 0 auto;padding:0 18px;font-size:.84rem}
-    .dm-row{gap:16px;padding:4px 16px 16px}
-    .dm-search,.dm-card{padding:16px 16px 14px}
+    /* מכאן ומעלה יש מקום לשתי עמודות: החיפוש קבוע בשמאל (‏order:1 הוא
+       הקצה השמאלי במסמך RTL) והמסלול לוקח את כל השאר ונגלל בעצמו */
+    .dm-body{flex-direction:row;align-items:stretch;gap:16px;padding:4px 16px 16px}
+    .dm-search{order:1;flex:0 0 248px;padding:16px 16px 14px}
+    .dm-row{order:0;flex:1;min-width:0;gap:16px;margin-inline:0;padding-inline:0}
+    .dm-initial{font-size:3.2rem}
+    .dm-rank{top:9px;right:9px;font-size:.7rem;padding:3px 10px}
+    .dm-badge{width:30px;height:30px;top:8px;left:8px}
+    .dm-overlay{padding:32px 12px 12px}
+    .dm-name{font-size:.95rem}
+    .dm-sub{font-size:.78rem}
+    .dm-meta{font-size:.72rem}
+    .dm-logo{padding:14px}
   }
   /* הכותרת ארוכה ונשברת לשתי שורות במובייל; ‎balance‎ מחלק אותה לשתי
      שורות שוות־אורך במקום שורה מלאה ומילה בודדת מתחתיה, ושתיהן ממורכזות. */
@@ -3259,7 +3269,7 @@
                     aria-haspopup="dialog" data-info="לחיצה — איך נקבע הדירוג"
                     aria-label="איך עובד הדירוג של המשרדים והמתווכים">i</button>
           </div>
-          <p class="dm-sub">כל מי שמלווה עסקת נדל״ן בעפולה והעמק, במקום אחד</p>
+          <p class="dm-sub-line">כל מי שמלווה עסקת נדל״ן בעפולה והעמק, במקום אחד</p>
         </div>
 
         <div class="dm-tabs" role="tablist" aria-label="סוג אנשי המקצוע">
@@ -3272,7 +3282,7 @@
         </div>
       </div>
 
-      <div class="dm-row" id="dmRow" role="tabpanel" aria-labelledby="dmTabAgencies">
+      <div class="dm-body">
         <div class="dm-search">
           <span class="dm-eyebrow">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
@@ -3291,7 +3301,9 @@
           </label>
           <span class="dm-search-all"><a href="agencies.html" id="dmSearchAll">לרשימה המלאה ←</a></span>
         </div>
-        <!-- הכרטיסים מוזרקים ב-JS (initDealmakers) -->
+
+        <!-- האריחים מוזרקים ב-JS (initDealmakers) -->
+        <div class="dm-row" id="dmRow" role="tabpanel" aria-labelledby="dmTabAgencies"></div>
       </div>
 
       <p class="dm-all"><a href="agencies.html" class="see-all" id="dmSeeAll">לכל משרדי התיווך ←</a></p>
@@ -5765,37 +5777,38 @@ const DM_TABS = {
 /* שלושת סוגי הרשומות נורמלו לאותו כרטיס: שם, שורת זיהוי, מונה, דירוג
    ושורת תגיות. כך שורת הכרטיסים היא markup אחד ולא שלושה, והלשוניות
    באמת מחליפות רק נתונים. ‏search הוא הטקסט שהחיפוש רץ עליו. */
-function dmFromAgency(a){
+function dmFromAgency(a, i){
   const name = a.name || 'משרד תיווך';
   const areas = a.areas || [];
+  const specs = AGENCY_SPECS.filter(sp => sp.key !== 'all' && (a.specs || []).includes(sp.key)).map(sp => sp.label);
   return {
     name,
     href: a.slug ? 'agency.html?slug=' + encodeURIComponent(a.slug) : null,
     photo: a.logo_url, contain: true,
     initial: name.trim()[0] || 'מ',
-    role: areas.length ? areas.join(' · ') : 'משרד תיווך',
+    sub: areas.length ? areas.join(' · ') : 'משרד תיווך',
     count: a.active_properties_count === 1 ? 'נכס פעיל אחד' : a.active_properties_count + ' נכסים פעילים',
     rating: a.rating, reviews: a.reviews_count,
-    tags: AGENCY_SPECS.filter(sp => sp.key !== 'all' && (a.specs || []).includes(sp.key)).map(sp => sp.label).join(' · '),
+    // התג הוא סימן דירוג ולא מספר סידורי, ולכן הוא שמור לשלושה המדורגים
+    // הראשונים בלבד; לשאר האריחים אין תג
+    rank: (i < 3 && a.score !== null) ? i + 1 : 0,
     verified: !!(a.ethics_code_accepted_at && !a.ethics_badge_revoked_at),
-    cta: 'לדף המשרד ←',
-    search: [name, ...areas].join(' '),
+    search: [name, ...areas, ...specs].join(' '),
   };
 }
 
-function dmFromAgent(m){
+function dmFromAgent(m, i){
   const name = m.display_name || 'מתווך/ת';
   return {
     name,
     href: (m.slug || m.id) ? 'agent.html?slug=' + encodeURIComponent(m.slug || m.id) : null,
-    photo: m.photo_url, contain: false,
+    photo: m.photo_url, contain: false, photoPos: m.photo_position,
     initial: name.trim()[0] || 'מ',
-    role: m.agency_name || 'מתווך/ת',
+    sub: m.agency_name || 'מתווך/ת',
     count: m.active_properties_count === 1 ? 'נכס פעיל אחד' : m.active_properties_count + ' נכסים פעילים',
     rating: m.rating, reviews: m.reviews_count,
-    tags: '',
+    rank: (i < 3 && m.rating !== null) ? i + 1 : 0,
     verified: !!m.has_ethics_badge,
-    cta: 'לדף המתווך/ת ←',
     search: [name, m.agency_name].join(' '),
   };
 }
@@ -5807,17 +5820,17 @@ function dmFromPro(p){
   return {
     name,
     href: key ? 'professional.html?slug=' + encodeURIComponent(key) : null,
-    photo: safeExternalUrl(p.creative_url), contain: false,
+    photo: p.creative_url, contain: false,
     initial: name.trim()[0] || 'ב',
-    role: field,
-    // לבעל/ת מקצוע אין מלאי נכסים; שורת המונה נושאת את שם העסק במקומו
-    count: p.business_name || '',
+    // שם העסק הוא שדה נפרד מהשם הפרטי, והוא התווסף אחרי שכבר נרשמו בעלי
+    // מקצוע — ולכן יש נפילה מסודרת לתחום העיסוק, כדי שהרצועה התחתונה של
+    // האריח לא תישאר חצי ריקה
+    sub: p.business_name || field,
+    count: p.target_region || (p.business_name ? field : ''),
     // בעלי מקצוע אינם מדורגים בפלטפורמה, ולכן שורת הדירוג לא נכתבת אצלם
-    // בכלל — לא כוכבים ולא "טרם דורג"
     rating: undefined, reviews: 0,
-    tags: p.target_region || '',
+    rank: 0,
     verified: false,
-    cta: 'לפרופיל ←',
     search: [name, p.business_name, field, p.target_region].join(' '),
   };
 }
@@ -5829,8 +5842,8 @@ function dmFromPro(p){
 
   const [agencies, agents, pros] = await Promise.all([agenciesReady, agentsReady, professionalsReady]);
   const data = {
-    agencies: agencies.map(dmFromAgency),
-    agents: agents.map(dmFromAgent),
+    agencies: agencies.map((a, i)=> dmFromAgency(a, i)),
+    agents: agents.map((m, i)=> dmFromAgent(m, i)),
     pros: pros.map(dmFromPro),
   };
 
@@ -5860,97 +5873,97 @@ function dmFromPro(p){
     btn.disabled = data[btn.dataset.tab].length === 0;
   });
 
+  /* אריח אחד לשלושת הסוגים. שמות, שמות משרדים וכתובות תמונה מגיעים מקלט
+     של משרדים, סוכנים ומפרסמים — ולכן הטקסט נכנס דרך ‎textContent‎ וכתובות
+     התמונה עוברות סינון פרוטוקול לפני שהן נוגעות ב-src. */
   function card(item){
     const el = document.createElement(item.href ? 'a' : 'div');
     el.className = 'dm-card';
     if (item.href) el.href = item.href;
 
-    const top = document.createElement('div');
-    top.className = 'dm-card-top';
+    // אות ההתחלה נשארת ב-DOM גם כשיש תמונה ופשוט מכוסה על ידה; אם הקובץ
+    // נשבר ה-img מסיר את עצמו והאריח חוזר לאות על הגרדיאנט במקום לאייקון
+    // תמונה שבורה
+    const initial = document.createElement('span');
+    initial.className = 'dm-initial';
+    initial.textContent = item.initial;
+    el.appendChild(initial);
 
-    const text = document.createElement('div');
-    text.className = 'dm-card-text';
-    const nameEl = document.createElement('div');
-    nameEl.className = 'dm-name';
-    // ‏textContent: השמות מוקלדים על ידי המשרדים ובעלי המקצוע עצמם
-    nameEl.textContent = item.name;
+    const url = safeExternalUrl(item.photo);
+    if (url && item.contain){
+      // אותו קובץ פעמיים: רקע מטושטש שממלא את השוליים, ומעליו הלוגו השלם.
+      // ה-onerror של הרקע מסיר רק את עצמו — ‏:has בודק את ‎.dm-logo‎, ולכן
+      // הנפילה לאות ההתחלה תלויה בלוגו הקדמי בלבד.
+      const bg = document.createElement('img');
+      bg.className = 'dm-logo-bg';
+      bg.src = url; bg.alt = ''; bg.loading = 'lazy';
+      bg.setAttribute('aria-hidden', 'true');
+      bg.addEventListener('error', ()=> bg.remove());
+      el.appendChild(bg);
+
+      const logo = document.createElement('img');
+      logo.className = 'dm-logo';
+      logo.src = url; logo.alt = item.name; logo.loading = 'lazy';
+      logo.addEventListener('error', ()=> logo.remove());
+      el.appendChild(logo);
+    } else if (url){
+      const photo = document.createElement('img');
+      photo.className = 'dm-photo';
+      photo.src = url; photo.alt = item.name; photo.loading = 'lazy';
+      if (item.photoPos) photo.style.setProperty('--photo-pos', item.photoPos);
+      photo.addEventListener('error', ()=> photo.remove());
+      el.appendChild(photo);
+    }
+
+    if (item.rank){
+      const rank = document.createElement('span');
+      rank.className = 'dm-rank';
+      rank.textContent = '#' + item.rank;
+      el.appendChild(rank);
+    }
     if (item.verified){
-      const badge = document.createElement('span');
-      badge.className = 'dm-verified';
-      badge.textContent = 'מאומת';
-      badge.title = 'חתום/ה על האמנה האתית של שוק הנדל״ן';
-      nameEl.append(' ', badge);
+      const badge = document.createElement('img');
+      badge.className = 'dm-badge';
+      badge.src = 'assets/badge-ethics.png';
+      badge.width = 384; badge.height = 384; badge.loading = 'lazy';
+      badge.alt = 'עומד בתקן האתי';
+      badge.title = 'עומד בתקן האתי של שוק הנדל״ן של עפולה';
+      el.appendChild(badge);
     }
-    text.appendChild(nameEl);
-    if (item.role){
-      const role = document.createElement('div');
-      role.className = 'dm-role';
-      role.textContent = item.role;
-      text.appendChild(role);
-    }
-    top.appendChild(text);
 
-    // אריח התמונה: אות ההתחלה יושבת מתחת לתמונה ונחשפת אם הקובץ נשבר
-    // (‏onerror מסיר את ה-img) — אותו דפוס של כרטיסי הקרוסלה
-    const logo = document.createElement('span');
-    logo.className = 'dm-logo';
-    logo.textContent = item.initial;
-    const url = safeExternalUrl(item.photo) || item.photo;
-    if (url){
-      const img = document.createElement('img');
-      img.src = url;
-      img.alt = '';
-      img.loading = 'lazy';
-      if (item.contain) img.classList.add('is-contain');
-      img.addEventListener('error', ()=> img.remove());
-      logo.appendChild(img);
+    const overlay = document.createElement('div');
+    overlay.className = 'dm-overlay';
+
+    const name = document.createElement('div');
+    name.className = 'dm-name';
+    name.textContent = item.name;
+    overlay.appendChild(name);
+
+    if (item.sub){
+      const sub = document.createElement('div');
+      sub.className = 'dm-sub';
+      sub.textContent = item.sub;
+      overlay.appendChild(sub);
     }
-    top.appendChild(logo);
-    el.appendChild(top);
 
     const meta = document.createElement('div');
     meta.className = 'dm-meta';
-    if (item.count){
-      const c = document.createElement('b');
-      c.textContent = item.count;
-      meta.appendChild(c);
-    }
-    const rated = item.rating !== null && item.rating !== undefined;
-    if (item.count && item.rating !== undefined){
-      const sep = document.createElement('span');
-      sep.className = 'dm-sep';
-      sep.setAttribute('aria-hidden', 'true');
-      sep.textContent = '|';
-      meta.appendChild(sep);
-    }
-    if (rated){
-      const r = document.createElement('span');
-      r.innerHTML = '<span class="star">★</span> ';
-      r.append(`${item.rating.toFixed(1).replace(/\.0$/, '')} · ${
+    // מי שאין לו ביקורות לא מקבל "0 כוכבים" אלא פשוט לא מוצג עם דירוג
+    if (item.rating !== null && item.rating !== undefined){
+      const rating = document.createElement('span');
+      rating.innerHTML = '<span class="star">★</span>';
+      rating.append(`${item.rating.toFixed(1).replace(/\.0$/, '')} · ${
         item.reviews === 1 ? 'ביקורת אחת' : item.reviews + ' ביקורות'}`);
-      meta.appendChild(r);
-    } else if (item.rating !== undefined){
-      // משרד או מתווך/ת בלי ביקורות לא מקבל/ת "0 כוכבים" אלא נאמר עליו
-      // במפורש שטרם דורג — אותה החלטה שבכרטיסי הקרוסלה
-      const none = document.createElement('span');
-      none.textContent = 'טרם דורג';
-      meta.appendChild(none);
+      meta.appendChild(rating);
     }
-    if (meta.childNodes.length) el.appendChild(meta);
-
-    if (item.tags){
-      const tags = document.createElement('div');
-      tags.className = 'dm-tags';
-      tags.textContent = item.tags;
-      el.appendChild(tags);
+    if (item.count){
+      const count = document.createElement('span');
+      count.textContent = item.count;
+      meta.appendChild(count);
     }
+    if (meta.childNodes.length) overlay.appendChild(meta);
 
-    const go = document.createElement('div');
-    go.className = 'dm-go';
-    const goText = document.createElement('span');
-    goText.textContent = item.cta;
-    go.appendChild(goText);
-    el.appendChild(go);
+    el.appendChild(overlay);
     return el;
   }
 
@@ -5959,8 +5972,7 @@ function dmFromPro(p){
     const q = state.query.trim().toLowerCase();
     const list = data[state.tab].filter(it => !q || it.search.toLowerCase().includes(q));
 
-    // התיבה עצמה נשארת במקומה — רק הכרטיסים שאחריה מוחלפים
-    [...row.querySelectorAll('.dm-card, .dm-empty')].forEach(el => el.remove());
+    row.innerHTML = '';
     if (!list.length){
       const empty = document.createElement('p');
       empty.className = 'dm-empty';
