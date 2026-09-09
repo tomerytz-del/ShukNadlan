@@ -147,7 +147,11 @@ Deno.serve(async (req: Request) => {
     return json(
       {
         error: "no_suitable_images",
-        message: "לא זוהו תמונות של סלון או מטבח. הוסיפו תמונות ברורות של החללים האלה ונסו שוב.",
+        // הודעה למי שמעלה תמונות, ולכן היא אומרת אילו חללים חסרים *לנכס
+        // הזה*: בהשכרה מדמים סלון וחדר שינה, לא מטבח.
+        message: mode === "staging"
+          ? "לא זוהו תמונות של סלון או חדר שינה. הוסיפו תמונות ברורות של החללים האלה ונסו שוב."
+          : "לא זוהו תמונות של סלון או מטבח. הוסיפו תמונות ברורות של החללים האלה ונסו שוב.",
         classified: tags.map((t) => ({ image_url: t.image_url, room_type: t.room_type })),
       },
       400
@@ -157,12 +161,16 @@ Deno.serve(async (req: Request) => {
   // ---- מה כבר קיים -----------------------------------------------------
   // ‏is_base נשלף גם הוא, וזה העיקר: הדמיה שהופקה לפי דרישת גולש/ת יושבת
   // באותה טבלה, עם אותו target ואותו style_key, אבל עם is_base=false.
+  // ‏mode הוא חלק מהמפתח: הדמיית סלון-שיפוץ והדמיית סלון-הלבשה הן שתי
+  // תמונות שונות של אותו חדר. בלי הסינון הזה נכס שהוחלף בו deal_type היה
+  // מקבל "סט הבסיס כבר קיים" על סט שנוצר בדוקטרינה שכבר אינה נכונה לו.
   const { data: existing } = await supabase
     .from("property_visualizations")
     .select("id, target, status, result_url, is_base")
     .eq("property_id", property_id)
     .eq("kind", "private_room")
-    .eq("style_key", styleKey);
+    .eq("style_key", styleKey)
+    .eq("mode", mode);
 
   const existingByTarget = new Map((existing ?? []).map((r: any) => [r.target, r]));
   const isReady = (row: any) => Boolean(row && row.status === "done" && row.result_url);
@@ -231,6 +239,7 @@ Deno.serve(async (req: Request) => {
       kind: "private_room",
       target,
       style_key: styleKey,
+      mode,
       source_image_url: sourceUrl,
       status: "pending",
       is_base: true,
