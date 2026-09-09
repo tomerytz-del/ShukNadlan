@@ -976,7 +976,10 @@
      הוא הדגש ולא המשטח (ראו assets/design-system.css) — חוץ מקופסת ה-CTA,
      שנושאת טקסט כהה ולכן מותר לה להיות זהב מלא. */
   .ai-band{background:var(--teal-dark);padding:26px 0;overflow:hidden}
-  .ai-band-inner{position:relative;display:grid;gap:20px}
+  /* ‏row-gap צנוע מ-20px: משפט הפתיחה הוסיף שורת גריד רביעית בנייד, וגריד
+     יודע מרווח שורות אחד בלבד — 14px משאיר את גובה הרצועה במקום שבו היה
+     לפני שנוספה. */
+  .ai-band-inner{position:relative;display:grid;gap:14px}
   /* שתי הילות שנעות לאט מתחת לתוכן — אותה שפה של הרקע הנע שבשאר הדף
      (assets/page-bg.js), בגרסה מקומית לרצועה אחת. */
   .ai-band-glow{
@@ -987,7 +990,7 @@
     animation:aiSheen 14s ease-in-out infinite;
   }
   @keyframes aiSheen{0%,100%{opacity:.4}50%{opacity:.85}}
-  .ai-band-shots{position:relative;display:flex;flex-direction:column;gap:10px}
+  .ai-band-shots{position:relative;order:2;display:flex;flex-direction:column;gap:10px}
   .ai-shot{
     position:relative;height:170px;overflow:hidden;background:#b9c4de;
     border:1px solid rgba(255,255,255,.14);
@@ -1078,27 +1081,26 @@
     .ai-shot-hint{display:none}
   }
 
-  /* הכותרת ומשפט הפתיחה יושבים בראש הרצועה ולא בעמודת הטקסט: הם מכריזים
-     על מה ששתי העמודות מראות יחד — הוילונות והסגנונות — ולכן הם פורשים על
-     שתיהן וממורכזים, בנייד ובמסך רחב כאחד. שניהם בלוק אחד ולא שני פריטי
-     גריד: המרווח ביניהם הוא של כותרת ומשנה־כותרת (‏8px), ולא של שני
-     בלוקים ברצועה (‏20px). */
-  .ai-band-head{
-    position:relative;grid-column:1/-1;
-    display:flex;flex-direction:column;align-items:center;gap:8px;
-  }
+  /* הכותרת פורשת על שתי העמודות בראש הרצועה, ולא יושבת בעמודת הטקסט: היא
+     מכריזה על מה ששתי העמודות מראות יחד — הוילונות והסגנונות. */
   .ai-band-title{
+    position:relative;grid-column:1/-1;order:1;
     margin:0;text-align:center;
     font-size:1.35rem;font-weight:800;line-height:1.25;letter-spacing:-.02em;
     color:var(--brass-light,#e5c76a);
   }
+  /* משפט הפתיחה הוא פריט גריד נפרד ולא ילד של הכותרת או של עמודת הטקסט,
+     כי מקומו שונה בשתי הפריסות (‏order): בנייד הוא יורד אל *מעל לוח
+     הסגנונות*, כלומר צמוד לפעולה שהוא מזמין אליה ואחרי שכבר ראו הדמיה,
+     ובמסך רחב הוא נשאר משנה־כותרת מתחת לכותרת. הוא ממורכז בשתיהן. */
   .ai-band-lede{
-    margin:0;max-width:52ch;text-align:center;
+    position:relative;grid-column:1/-1;order:3;
+    margin:0;max-width:52ch;justify-self:center;text-align:center;
     font-size:.85rem;line-height:1.6;color:#c3cfeb;
   }
   .ai-band-title span{color:#fff}
   .ai-band-star{font-size:1.1rem;margin-inline-start:5px}
-  .ai-band-copy{position:relative;display:flex;flex-direction:column;gap:13px}
+  .ai-band-copy{position:relative;order:4;display:flex;flex-direction:column;gap:13px}
   .ai-band-styles{border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:11px 12px;
     display:flex;flex-direction:column;gap:9px}
   .ai-band-styles-title{font-size:.85rem;font-weight:700;color:#fff;text-align:center}
@@ -1119,7 +1121,11 @@
      את מה שמוצג בווילון שלצדו, ולכן ההדגשה אינה שרירותית. */
   .ai-band-styles li.is-on{border-color:var(--brass,#c9a227);background:rgba(201,162,39,.1);color:#fff;font-weight:700}
   .ai-band-styles li.is-on span{color:var(--brass-light,#e5c76a)}
+  /* בנייד הכפתור נצמד לקצה השמאלי בתחתית הרצועה ואינו נמתח לכל הרוחב:
+     ‏align-self:end בטור flex הוא הקצה של ציר החוצה, כלומר inline-end —
+     שמאל בעמוד RTL. ‏max-width שומר עליו בתוך הטור גם כשהטקסט ארוך. */
   .ai-band-cta{
+    align-self:end;max-width:100%;
     display:flex;flex-direction:column;gap:4px;align-items:center;text-align:center;
     padding:14px 16px;border:0;border-radius:14px;cursor:pointer;font-family:inherit;
     background:linear-gradient(135deg,#e0bf4f,var(--brass,#c9a227));
@@ -1127,17 +1133,26 @@
   }
   .ai-band-cta:hover{transform:translateY(-2px);box-shadow:0 14px 30px -18px rgba(0,0,0,.8)}
   .ai-band-cta b{font-size:1.05rem;font-weight:800;color:var(--ink)}
-  .ai-band-cta span{font-size:.8rem;color:#40350f;line-height:1.5;max-width:44ch}
+  /* ‏34ch בנייד ולא 44: רוחב הכפתור נגזר מהשורה הזאת, ובמידה הרחבה הוא
+     מילא כמעט את כל הטור — כלומר "נצמד לשמאל" לא היה נראה כלל. */
+  .ai-band-cta span{font-size:.8rem;color:#40350f;line-height:1.5;max-width:34ch}
   .ai-band-note{display:flex;align-items:flex-start;gap:7px;font-size:.7rem;color:#8fa3d4;line-height:1.5}
   .ai-band-note>span{color:var(--brass,#c9a227)}
 
   @media(min-width:760px){
     .ai-band{padding:30px 0}
-    .ai-band-inner{grid-template-columns:1.02fr 1fr;gap:24px;align-items:stretch}
+    .ai-band-inner{grid-template-columns:1.02fr 1fr;row-gap:18px;column-gap:24px;align-items:stretch}
     .ai-band-title{font-size:1.65rem}
-    /* מידת קריאה רחבה יותר במסך רחב: ב-52ch המשפט נשבר לשלוש שורות קצרות
-       מתחת לכותרת רחבה, ובשתי שורות הוא נקרא כמשנה־כותרת אחת. */
-    .ai-band-lede{font-size:.9rem;max-width:72ch}
+    /* במסך רחב המשפט חוזר להיות משנה־כותרת מתחת לכותרת (‏order:2, לפני
+       הוילונות), ומידת הקריאה נפתחת ל-72ch: ב-52ch הוא נשבר לשלוש שורות
+       קצרות מתחת לכותרת רחבה, ובשתי שורות הוא נקרא כמשפט אחד. */
+    .ai-band-lede{order:2;font-size:.9rem;max-width:72ch}
+    .ai-band-shots{order:3}
+    /* הכפתור חוזר להימתח לרוחב הטור: כאן הוא לא הפריט האחרון בעמוד אלא
+       הפעולה של עמודה שלמה, וטור שכולו ברוחב מלא עם פריט אחד צר קורא
+       כתקלה ולא כהדגשה. */
+    .ai-band-cta{align-self:stretch}
+    .ai-band-cta span{max-width:44ch}
     .ai-band-styles ul{grid-template-columns:repeat(4,1fr)}
     .ai-shot{height:100%;min-height:170px}
     .ai-band-shots{height:100%}
@@ -3170,22 +3185,26 @@
     <div class="wrap ai-band-inner">
       <div class="ai-band-glow" aria-hidden="true"></div>
 
-      <div class="ai-band-head">
-        <h2 id="aiBandTitle" class="ai-band-title">
-          תראו את פוטנציאל הנכס<br>
-          <span>עם טכנולוגיית AI מהפכנית!</span>
-          <span class="ai-band-star" aria-hidden="true">✦</span>
-        </h2>
-        <!-- "בנכסים שההדמיות פעילות בהם" אינו סייג משפטי אלא דיוק: בדף
-             הנכס הכפתור מייצר הדמיה בלחיצה אחת, בלי הרשמה ובלי תשלום, אבל
-             רק בנכסים שהיכולת פעילה בהם (ראו vizBandCta() ב-property.html).
-             הבטחה גורפת יותר הייתה נשברת בדיוק בדף שאליו היא שולחת. -->
-        <p class="ai-band-lede">
-          כדי שתקבלו את ההחלטה הכי טובה על הנכס שלכם: בנכסים שההדמיות פעילות
-          בהם תוכלו לייצר הדמיה בעצמכם, בחינם ובלחיצה אחת, ולראות אם החלום
-          שלכם מתלבש על הנכס שמולכם.
-        </p>
-      </div>
+      <h2 id="aiBandTitle" class="ai-band-title">
+        תראו את פוטנציאל הנכס<br>
+        <span>עם טכנולוגיית AI מהפכנית!</span>
+        <span class="ai-band-star" aria-hidden="true">✦</span>
+      </h2>
+
+      <!-- ‏סדר ה-DOM הוא סדר הקריאה של קורא מסך ושל המקלדת, ולכן המשפט
+           כתוב כאן — מיד אחרי הכותרת, כמו במסך רחב. בנייד ‎order‎ מזיז
+           אותו ויזואלית אל מעל לוח הסגנונות; זו הסטה של שני בלוקים
+           סמוכים ולא ערבוב סדר, ולכן היא לא מנתקת את הקריאה מהמסך.
+
+           "בנכסים שההדמיות פעילות בהם" אינו סייג משפטי אלא דיוק: בדף הנכס
+           הכפתור מייצר הדמיה בלחיצה אחת, בלי הרשמה ובלי תשלום, אבל רק
+           בנכסים שהיכולת פעילה בהם (ראו vizBandCta() ב-property.html).
+           הבטחה גורפת יותר הייתה נשברת בדיוק בדף שאליו היא שולחת. -->
+      <p class="ai-band-lede">
+        כדי שתקבלו את ההחלטה הכי טובה על הנכס שלכם: בנכסים שההדמיות פעילות
+        בהם תוכלו לייצר הדמיה בעצמכם, בחינם ובלחיצה אחת, ולראות אם החלום
+        שלכם מתלבש על הנכס שמולכם.
+      </p>
 
       <div class="ai-band-shots" id="aiBandShots"><!-- populated by JS --></div>
 
