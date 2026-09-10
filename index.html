@@ -2101,6 +2101,95 @@
     .article-card .stamp{font-size:.7rem}
   }
 
+  /* ====== נכסים פרטיים: מכירה והשכרה בגריד אחד ======
+     שתי הרצועות הנגללות שישבו כאן קודם הציגו שנים־עשר נכסים כל אחת
+     במסלול אופקי, וכל השאר נשאר מחוץ לתמונה. הגריד מציג את אותו מלאי
+     בעמודות: ארבע בדסקטופ, שתיים בטאבלט ואחת בטלפון — כלומר שמונה נכסים
+     נראים במסך אחד במקום שלושה־וחצי כרטיסים שנחתכים בקצה המסלול.
+
+     ‏.prop-card עצמו לא משתנה כאן: הוא נבנה ב-propCard() כמו בכל תצוגה
+     אחרת בעמוד, ורק ה-flex-basis הקבוע שלו (250px, מידה של מסלול גלילה)
+     לא רלוונטי לפריט בגריד. */
+  .pp-head{
+    display:flex;align-items:baseline;justify-content:space-between;
+    gap:6px 14px;flex-wrap:wrap;margin-bottom:12px;
+  }
+  /* ‏.head-line ממורכז בכל הסקציות שיש להן ‎.section-head‎; כאן הכותרת פותחת
+     שורה שבסופה יושב המונה, ולכן היא נצמדת לתחילת השורה. */
+  .pp-head .head-line{justify-content:flex-start}
+  .pp-head h2{font-size:var(--h2)}
+  .pp-count{margin:0;font-size:.8rem;font-weight:700;color:var(--ink-soft)}
+
+  /* התגיות ממלאות את הרוחב והמיון נשאר מעוגן בקצה השני — גם כשהתגיות
+     נשברות לשתי שורות. ב-flex-wrap הבורר היה יורד לשורה האחרונה איתן. */
+  .pp-controls{
+    display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;
+    gap:10px;margin-bottom:16px;
+  }
+  .pp-tags{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
+  .pp-tag{
+    display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:0;
+    border:1.5px solid var(--line);background:var(--paper-raised);color:var(--ink);
+    font-family:inherit;font-size:.8rem;font-weight:700;white-space:nowrap;
+    transition:background .15s ease,border-color .15s ease,color .15s ease;
+  }
+  .pp-tag:hover{border-color:var(--teal)}
+  .pp-tag .pp-tag-n{font-size:.72rem;font-weight:600;color:var(--ink-soft)}
+  .pp-tag[aria-pressed="true"]{background:var(--teal);border-color:var(--teal);color:#fff}
+  .pp-tag[aria-pressed="true"] .pp-tag-n{color:rgba(255,255,255,.72)}
+  .pp-tag .pp-tag-x{font-size:.7rem;opacity:.85}
+  /* "ניקוי הכל" הוא פעולה ולא תגית, ולכן הוא לא לובש את המסגרת שלהן */
+  .pp-clear{
+    font-family:inherit;font-size:.8rem;font-weight:700;color:var(--teal);
+    background:none;padding:2px 4px;border-bottom:1.5px solid var(--gold);
+  }
+  .pp-sort{display:inline-flex;align-items:center;gap:7px;font-size:.78rem;font-weight:700;color:var(--ink-soft)}
+  .pp-sort select{
+    padding:7px 10px;border:1.5px solid var(--line);border-radius:0;
+    background:var(--paper-raised);color:var(--ink);
+    font-family:inherit;font-size:.8rem;font-weight:700;
+  }
+
+  /* ‏minmax(min(100%,240px),1fr): ה-min פנימי מונע עמודה רחבה מהמסך עצמו
+     בטלפון צר — בלעדיו הגריד גולש והעמוד נגלל הצידה. */
+  .pp-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(min(100%,240px),1fr))}
+  /* ‏.prop-card נושא ‎flex:0 0 250px‎ בשביל מסלולי הגלילה. ‏flex לא חל על
+     פריט בגריד, אבל ‎flex-basis‎ שנשאר 250px כן היה מונע ממנו למלא עמודה
+     צרה יותר — ולכן הרוחב נכתב כאן במפורש. */
+  .pp-grid .prop-card{
+    flex:1 1 auto;width:100%;cursor:pointer;
+    transition:border-color .15s ease,box-shadow .15s ease;
+  }
+  .pp-grid .prop-card:hover{border-color:var(--teal);box-shadow:var(--shadow-sm)}
+  .pp-empty{
+    grid-column:1/-1;margin:0;text-align:center;padding:26px 16px;
+    font-size:.9rem;font-weight:600;color:var(--ink-soft);
+    background:var(--paper-raised);border:1px dashed var(--line);border-radius:var(--radius-md);
+  }
+  .pp-more-wrap{display:flex;justify-content:center;margin-top:16px}
+  .pp-more{
+    font-family:inherit;font-size:.88rem;font-weight:700;color:var(--ink);
+    background:var(--paper-raised);border:1.5px solid var(--line);
+    padding:12px 26px;border-radius:0;
+    transition:border-color .15s ease,color .15s ease;
+  }
+  .pp-more:hover{border-color:var(--teal);color:var(--teal)}
+  .pp-more[hidden]{display:none}
+  /* בטלפון התגיות לא נשברות לארבע שורות שדוחפות את הנכס הראשון מתחת לקו
+     הקיפול, אלא נגללות במסלול אחד — ובורר המיון נשאר מעוגן בקצה לצידן,
+     בדיוק כמו במסך רחב. */
+  @media(max-width:520px){
+    .pp-tags{
+      flex-wrap:nowrap;overflow-x:auto;padding-bottom:3px;
+      scrollbar-width:none;-ms-overflow-style:none;
+    }
+    .pp-tags::-webkit-scrollbar{display:none}
+    .pp-tag{padding:7px 11px;font-size:.78rem}
+    .pp-sort span{font-size:.74rem}
+    .pp-sort select{padding:7px 8px;font-size:.78rem}
+    .pp-grid{gap:10px}
+  }
+
   /* ====== רשימת הנכסים בתחתית העמוד: שורות, לא כרטיסים ======
      כאן יושב כל המאגר, ואריח כיסוי הוא כשליש ממסך טלפון — כלומר שלושה
      נכסים למסך, ועשרים מסכים כדי לעבור על שישים מודעות. הרצועות שלמעלה
@@ -3198,6 +3287,48 @@
     </div>
   </section>
 
+  <!-- ====== נכסים פרטיים: מכירה והשכרה בתצוגה אחת ======
+       יושבת מיד מתחת לרצועת ההדמיות, ובמקומן של שתי הרצועות הנגללות
+       ("נכסים פרטיים למכירה" ו"נכסים פרטיים להשכרה") שישבו עמוק יותר
+       בעמוד משני צידי באנר הערכת השווי. מי שמחפש דירה לא מחפש "רצועת
+       מכירה" ו"רצועת השכרה" — הוא מחפש נכס, וסוג העסקה הוא תגית עליו.
+
+       הסדר הוא סדר ההעלאה (החדשים ראשונים) עם עדיפות לנכסים שיש להם
+       סרטון או תמונות, ובראשו עד שני נכסים מקודמים.
+       התגיות המובנות שמעל הגריד נבנות מהמלאי עצמו — מכירה, השכרה, דירות
+       לפי מספר חדרים, ושאר סוגי הנכס שיש בפלטפורמה (יחידת דיור, בית
+       פרטי, מגרש…) — ולכן אף תגית לא מחזירה תוצאה ריקה.
+       ראו renderPrivateProps() ו-docs/home-private-properties.md. -->
+  <section class="section wrap" id="privateProps" aria-labelledby="privatePropsTitle" hidden>
+    <div class="pp-head">
+      <div class="head-line">
+        <h2 id="privatePropsTitle">נכסים פרטיים<button
+                type="button" class="info-dot" aria-label="מידע על התצוגה"
+                data-info="מכירה והשכרה יחד, מכל משרדי התיווך בעפולה והסביבה — לפי סדר ההעלאה, ובראש שני נכסים מקודמים">i</button></h2>
+      </div>
+      <p class="pp-count" id="ppCount" aria-live="polite"></p>
+    </div>
+
+    <div class="pp-controls">
+      <!-- התגיות נבנות ב-JS מתוך המלאי (renderPpTags) -->
+      <div class="pp-tags" id="ppTags" role="group" aria-label="תגיות סינון מהירות"></div>
+      <label class="pp-sort" for="ppSort">
+        <span>מיון</span>
+        <select id="ppSort">
+          <option value="new">חדשים ראשונים</option>
+          <option value="price-asc">מחיר: מהנמוך לגבוה</option>
+          <option value="price-desc">מחיר: מהגבוה לנמוך</option>
+        </select>
+      </label>
+    </div>
+
+    <div class="pp-grid" id="ppGrid"><!-- populated by JS --></div>
+
+    <div class="pp-more-wrap">
+      <button type="button" class="pp-more" id="ppMore" hidden></button>
+    </div>
+  </section>
+
   <!-- ====== הסוכן החכם: שמירת חיפוש וקבלת התראות ======
        נפתח מ-#ssaOpenBtn שבכותרת התוצאות ומ-#ssaEmptyBtn שנבנה בקוד כשאין
        תוצאות. הקריטריונים נלכדים מ-searchState ומגלולת השכונה ברגע הפתיחה,
@@ -3353,26 +3484,6 @@
     </div>
   </section>
 
-  <!-- ====== נכסים פרטיים למכירה ======
-       כל הנכסים למגורים של כל משרדי התיווך בפלטפורמה במסלול אחד: החדשים
-       ראשונים, ולפניהם שני נכסים מקודמים *מאותה קטגוריה* (מגורים למכירה)
-       — קידום מציב נכס בראש הרצועה שהוא שייך אליה ולא בראש רצועה אחרת.
-       שתי הרצועות (מכירה/השכרה) מוזנות מאותה רשימת נכסים פעילים שמזינה
-       את המפה ואת הגריד שלמטה — ראו renderDealCarousels(). -->
-  <section class="section wrap" id="saleProps">
-    <div class="section-head">
-      <div>
-        <div class="head-line">
-          <h2>נכסים פרטיים למכירה</h2>
-          <button type="button" class="info-dot" aria-label="מידע על הרצועה"
-                  data-info="מכל משרדי התיווך בעפולה והסביבה — החדשים ביותר בראש">i</button>
-        </div>
-      </div>
-      <a href="#heroSection" class="see-all" id="saleSeeAll">כל הנכסים למכירה ←</a>
-    </div>
-    <div class="featured-scroll" id="saleScroll"><!-- populated by JS --></div>
-  </section>
-
   <!-- ====== Owner-lead banner ======
        יושב מיד מתחת לרצועת הנכסים למכירה: מי שגלל/ה את מחירי השכנים הוא/היא
        בדיוק מי ששואל/ת "כמה שלי שווה", וזו הנקודה שבה השאלה עולה.
@@ -3494,21 +3605,6 @@
       </div>
     </div>
   </div>
-
-  <!-- ====== נכסים פרטיים להשכרה ====== -->
-  <section class="section wrap" id="rentProps">
-    <div class="section-head">
-      <div>
-        <div class="head-line">
-          <h2>נכסים פרטיים להשכרה</h2>
-          <button type="button" class="info-dot" aria-label="מידע על הרצועה"
-                  data-info="מכל משרדי התיווך בעפולה והסביבה — החדשים ביותר בראש">i</button>
-        </div>
-      </div>
-      <a href="#heroSection" class="see-all" id="rentSeeAll">כל הנכסים להשכרה ←</a>
-    </div>
-    <div class="featured-scroll" id="rentScroll"><!-- populated by JS --></div>
-  </section>
 
   <!-- ====== Buyer-lead banner (מחפשי נכס) ======
        התאום של באנר בעלי הנכסים, בצד השני של העסקה: זה שואל "כמה שווה
@@ -4220,8 +4316,8 @@
     <nav class="footer-grid" aria-label="ניווט בתחתית העמוד">
       <div class="footer-col">
         <h4>נכסים</h4>
-        <a href="#saleProps">למכירה בעפולה</a>
-        <a href="#rentProps">להשכרה בעפולה</a>
+        <a href="#privateProps-sale">למכירה בעפולה</a>
+        <a href="#privateProps-rent">להשכרה בעפולה</a>
         <a href="#commercialProps">נכסים מסחריים</a>
         <a href="#listings">כל הנכסים</a>
         <a href="projects.html">פרויקטים חדשים</a>
@@ -5562,10 +5658,14 @@ async function loadCommercialProperties(){
   PropertyCard.sortByMedia(items).forEach((p, i)=> el.appendChild(propCard(p, i)));
 })();
 
-/* קישורי "כל הנכסים…" מריצים את החיפוש הרגיל בסוג העסקה המתאים במקום
-   לקשר לעמוד שעדיין לא קיים — כך המפה ושורות התוצאות מסתננות יחד לאותה
+/* קישור "כל הנכסים…" מריץ את החיפוש הרגיל בסוג העסקה המתאים במקום לקשר
+   לעמוד שעדיין לא קיים — כך המפה ושורות התוצאות מסתננות יחד לאותה
    קטגוריה. היעד לגלילה הוא ה-hero: שם יושבים גם בורר סוג העסקה שהשתנה
-   וגם המפה, ותוצאות החיפוש נפתחות מיד מתחתיהם. */
+   וגם המפה, ותוצאות החיפוש נפתחות מיד מתחתיהם.
+
+   נשאר כאן מקישור אחד: הרצועה המסחרית. שתי רצועות המגורים שהיו לו שני
+   הקישורים האחרים התאחדו לתצוגת "נכסים פרטיים", ושם הסינון הוא התגיות
+   שמעל הגריד ולא קפיצה חזרה לסרגל החיפוש. */
 function seeAllByDeal(mode){
   const select = document.getElementById('dealTypeSelect');
   if (!select) return;
@@ -5581,66 +5681,280 @@ function seeAllByDeal(mode){
   select.dispatchEvent(new Event('change'));
   document.getElementById('heroSection')?.scrollIntoView({ behavior:'smooth', block:'start' });
 }
-[['commercialSeeAll','commercial'], ['saleSeeAll','sale'], ['rentSeeAll','rent']].forEach(([id, mode])=>{
+[['commercialSeeAll','commercial']].forEach(([id, mode])=>{
   document.getElementById(id)?.addEventListener('click', (e)=>{ e.preventDefault(); seeAllByDeal(mode); });
 });
 
-/* ---------- קרוסלות הנכסים למגורים: למכירה ולהשכרה ----------
-   שתי רצועות שמוזנות מאותה רשימת נכסים פעילים שמזינה את המפה ואת הגריד
-   שלמטה (renderDealCarousels נקראת מ-initPropertyUI), ולכן אין כאן
-   שאילתה נוספת ל-DB ואין סיכון שהן יציגו מלאי אחר ממה שעל המפה. */
+/* ---------- נכסים פרטיים: מכירה והשכרה בתצוגה אחת ----------
+   כאן ישבו עד כה שתי קרוסלות — "נכסים פרטיים למכירה" ו"נכסים פרטיים
+   להשכרה" — משני צידי באנר הערכת השווי, כל אחת עם שנים־עשר נכסים במסלול
+   גלילה אופקי. הן התאחדו לגריד אחד שיושב מיד מתחת לרצועת ההדמיות: אותו
+   מלאי בדיוק, בלי הפיצול שדרש לגלול פעמיים כדי לראות מה יש בעפולה,
+   ובלי התקרה של שנים־עשר.
 
-/* כמה כרטיסים נכנסים לרצועה. מספיק כדי שהגלילה תרגיש עשירה ולא כל
-   המאגר — לרשימה המלאה יש גריד משלה בתחתית העמוד. */
-const DEAL_CAROUSEL_MAX = 12;
-/* שני המקומות הראשונים בכל רצועה שמורים לנכסים מקודמים. */
-const DEAL_CAROUSEL_PROMOTED = 2;
+   הרשימה מגיעה מאותה רשימת נכסים פעילים שמזינה את המפה ואת הגריד שלמטה
+   (renderPrivateProps נקראת מ-initPropertyUI), ולכן אין כאן שאילתה נוספת
+   ל-DB ואין סיכון שהתצוגה תראה מלאי אחר ממה שעל המפה.
 
-/* הסדר ברצועה: עד שני נכסים מקודמים *מאותה קטגוריה* בראש (החדשים שבהם
-   קודם), ואחריהם שאר הנכסים לפי תאריך העלאה יורד.
-   המיון נעשה כאן ולא נלקח כמו שהוא מה-DB: הרשימה חוזרת משם ממוינת
-   מקודמים-קודם על פני *כל* הקטגוריות יחד, וכך נכס מקודם להשכרה היה
-   נדחף לראש רצועת המכירה. קידום מרים נכס בתוך הרצועה שהוא שייך אליה.
+   מסחרי לא נכנס: יש לו רצועה משלו בעמוד, ו"נכסים פרטיים" הוא בדיוק מה
+   שהוא לא. */
 
-   ‏photosFirst רץ על הבריכה *לפני* החיתוך לשנים־עשר, וזה כל העניין: הוא
-   שינוי בבחירה ולא בסידור. עד כה נכס בלי ולו תמונה אחת תפס מקום ברצועה
-   רק בזכות היותו חדש ודחף החוצה נכס מצולם שנכנס יום לפניו; ‏sortByMedia
-   שרצה אחר כך רק הורידה אותו לסוף אותה רצועה. ברצועת המכירה, שבה שבעה
-   מארבעה־עשר הנכסים הם בלי תמונה, זה חצי מהמלאי שנראה.
+/* כמה אריחים בעמוד אחד — שתי שורות של ארבעה בדסקטופ. כפתור "עוד נכסים"
+   מוסיף עמוד נוסף, ולא שולף שלוש־מאות אריחים עם התמונות שלהם בלחיצה. */
+const PP_PAGE = 12;
+/* שני המקומות הראשונים שמורים לנכסים מקודמים. */
+const PP_PROMOTED = 2;
+/* כמה תגיות "סוג נכס" מוצגות לכל היותר. מעבר לזה שורת התגיות מתחילה
+   להתחרות בנכסים עצמם על גובה המסך. */
+const PP_KIND_TAGS_MAX = 8;
 
-   הוא רץ גם לפני בחירת המקודמים, ולכן שני המקומות בתשלום מתמלאים במקודם
-   מצולם כשיש כזה. קידום עדיין גובר על תמונה — הוא נשאר בראש הרצועה גם
-   בלעדיה, כי זה מה שנקנה. */
-function dealCarouselItems(properties, deal){
-  const pool = PropertyCard.photosFirst(newestFirst(properties.filter(p => dealKind(p) === deal)));
-  const promoted = pool.filter(isPromoted).slice(0, DEAL_CAROUSEL_PROMOTED);
+const ppState = {
+  all: [],            // כל הנכסים הפרטיים הפעילים (מכירה + השכרה)
+  tags: new Set(),    // מפתחות התגיות הדלוקות
+  sort: 'new',
+  shown: PP_PAGE,
+};
+let ppTags = [];                 // התגיות שנבנו מהמלאי, לפי סדר התצוגה
+let ppTagByKey = new Map();
+let ppHashApplied = false;
+
+/* ---------- התגיות המובנות ----------
+   שתי קבוצות. **עסקה** — מכירה/השכרה, מה שהפרדת הרצועות אמרה קודם בלי
+   שאפשר היה לבטל אותה. **סוג נכס** — נבנית מהמלאי עצמו ולא מרשימה קשיחה:
+   דירה מתפצלת לפי מספר חדרים ("דירות 4 חד׳"), וכל סוג אחר שיש בפלטפורמה
+   נכנס בשמו ("יחידת דיור", "בית פרטי/קוטג׳", "מגרש"…). תגית שאין מאחוריה
+   ולו נכס אחד פשוט לא נבנית, ולכן אין כאן לחיצה שמחזירה רשימה ריקה.
+
+   בתוך קבוצה התגיות מצטברות (מכירה *או* השכרה), ובין הקבוצות הן מצטלבות
+   (השכרה *וגם* 3 חדרים) — ההתנהגות שכל שורת סינון מתנהגת בה.
+
+   ‏הספירה שעל התגית היא מתוך כל המלאי הפרטי ולא מתוך התוצאה הנוכחית: מספר
+   שמשתנה בכל לחיצה מפסיק לענות על השאלה שבגללה מסתכלים עליו. */
+const PP_ROOM_TYPE = 'דירה';
+
+function ppTypeOf(p){ return String((p && p.property_type) || '').trim(); }
+
+/* 4.0 → "4", 3.5 נשאר 3.5 — אותה נורמליזציה של שורת המאפיינים באריח */
+function ppRoomsKey(p){
+  const n = Number(p && p.rooms);
+  if (!isFinite(n) || n <= 0) return '';
+  return String(Math.round(n * 10) / 10);
+}
+
+function ppBuildTags(){
+  const list = ppState.all;
+  const deals = [
+    { key:'sale', group:'deal', label:'מכירה', test: p => p.deal_type !== 'rent' },
+    { key:'rent', group:'deal', label:'השכרה', test: p => p.deal_type === 'rent' },
+  ].map(t => ({ ...t, count: list.filter(t.test).length })).filter(t => t.count > 0);
+
+  const rooms = new Map();   // '4' → כמה דירות 4 חדרים
+  const types = new Map();   // 'יחידת דיור' → כמה
+  list.forEach(p => {
+    const type = ppTypeOf(p);
+    const key = ppRoomsKey(p);
+    if (type === PP_ROOM_TYPE && key){
+      rooms.set(key, (rooms.get(key) || 0) + 1);
+    } else if (type){
+      types.set(type, (types.get(type) || 0) + 1);
+    }
+  });
+
+  const roomTags = [...rooms.entries()]
+    .sort((a, b) => Number(a[0]) - Number(b[0]))
+    .map(([key, count]) => ({
+      key: 'rooms:' + key, group:'kind', label: `דירות ${key} חד׳`, count,
+      test: p => ppTypeOf(p) === PP_ROOM_TYPE && ppRoomsKey(p) === key,
+    }));
+
+  const typeTags = [...types.entries()]
+    .sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0]), 'he'))
+    .map(([type, count]) => ({
+      key: 'type:' + type, group:'kind', label: type, count,
+      test: p => ppTypeOf(p) === type,
+    }));
+
+  /* החדרים קודם — הם השאלה הראשונה של מי שמחפש דירה — ושאר הסוגים
+     ממלאים את מה שנשאר עד התקרה, לפי כמה מהם יש. */
+  ppTags = [...deals, ...roomTags.concat(typeTags).slice(0, PP_KIND_TAGS_MAX)];
+  ppTagByKey = new Map(ppTags.map(t => [t.key, t]));
+  // תגית שנעלמה מהמלאי (הנכס האחרון שלה ירד) לא נשארת דלוקה בשקט
+  ppState.tags = new Set([...ppState.tags].filter(k => ppTagByKey.has(k)));
+}
+
+function ppMatches(p){
+  const byGroup = new Map();
+  ppState.tags.forEach(key => {
+    const tag = ppTagByKey.get(key);
+    if (!tag) return;
+    if (!byGroup.has(tag.group)) byGroup.set(tag.group, []);
+    byGroup.get(tag.group).push(tag);
+  });
+  for (const tags of byGroup.values()){
+    if (!tags.some(t => t.test(p))) return false;
+  }
+  return true;
+}
+
+/* הסדר: סדר ההעלאה (החדשים ראשונים), עדיפות למי שיש לו מה להראות,
+   ובראש הכול עד שני נכסים מקודמים.
+
+   ‏sortByMedia הוא מה שמפריד בין "לפי סדר ההעלאה" לבין דף בית שמתחיל
+   בשלושה ממלאי־מקום: סרטון קודם לתמונות, תמונות קודמות לאין־תמונה. הוא
+   מיון *יציב*, ולכן בתוך כל דרגת מדיה סדר ההעלאה נשמר במלואו — כלומר זו
+   העדפה בתצוגה ולא דירוג מחדש של המלאי. נכס בלי תמונה עדיין מוצג, בסוף.
+
+   הקידום מוצמד לראש אחרי כן, ולכן הוא גובר גם על תמונה — זה מה שנקנה.
+
+   במיון לפי מחיר אין הצמדה של מקודמים לראש ואין עדיפות למדיה: רשימה
+   שמתחילה במחיר הגבוה ביותר כשביקשו "מהנמוך לגבוה" היא רשימה שבורה, וגם
+   נכס בתשלום לא שווה את זה. שניהם חוזרים במיון ברירת המחדל. */
+function ppOrdered(){
+  const list = ppState.all.filter(ppMatches);
+
+  if (ppState.sort === 'price-asc' || ppState.sort === 'price-desc'){
+    const dir = ppState.sort === 'price-asc' ? 1 : -1;
+    const value = p => { const n = Number(p.price); return (isFinite(n) && n > 0) ? n : null; };
+    // "לפי בקשה" יורד לסוף בשני הכיוונים: הוא לא המחיר הנמוך ביותר, הוא
+    // היעדר מחיר.
+    return [...list].sort((a, b)=>{
+      const x = value(a), y = value(b);
+      if (x === null || y === null) return (x === null) - (y === null);
+      return (x - y) * dir;
+    });
+  }
+
+  const pool = PropertyCard.sortByMedia(newestFirst(list));
+  const promoted = pool.filter(isPromoted).slice(0, PP_PROMOTED);
   const promotedIds = new Set(promoted.map(p => p.id));
-  return [...promoted, ...pool.filter(p => !promotedIds.has(p.id))].slice(0, DEAL_CAROUSEL_MAX);
+  return [...promoted, ...pool.filter(p => !promotedIds.has(p.id))];
 }
 
-/* אותו אריח של שאר הרצועות בעמוד, עם כל הכותרות של הנכס: סרט "מקודם"
-   כשהוא בתשלום, מחיר (שכירות מסומנת ב"/חוד׳" ע"י priceLabel), כותרת,
-   חדרים, שטח, סוג הנכס והמשרד שמפרסם אותו. */
-/* רצועה בלי נכסים מוסתרת לגמרי (כמו קרוסלת המשרדים): כותרת סקציה מעל
-   מסלול ריק נראית כמו תקלה, ובעפולה יש ימים שבהם אין ולו נכס אחד
-   להשכרה במאגר. */
-function renderDealCarousel(trackId, sectionId, properties, deal){
-  const track = document.getElementById(trackId);
-  const section = document.getElementById(sectionId);
-  if (!track || !section) return;
-  // עדיפות בתצוגה לנכסים עם מדיה: תמונה רחבה ומוארת מקפיצה את
-  // האטרקטיביות מיד, וסרטון עוד יותר. המיון יציב, ולכן בתוך אותה דרגת
-  // מדיה נשמר הסדר שקבע dealCarouselItems.
-  const items = PropertyCard.sortByMedia(dealCarouselItems(properties, deal));
-  section.hidden = !items.length;
-  track.innerHTML = '';
-  items.forEach((p, i)=> track.appendChild(propCard(p, i)));
+function renderPpTags(){
+  const box = document.getElementById('ppTags');
+  if (!box) return;
+  box.innerHTML = '';
+  ppTags.forEach(tag=>{
+    const on = ppState.tags.has(tag.key);
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pp-tag';
+    btn.dataset.ppTag = tag.key;
+    btn.setAttribute('aria-pressed', String(on));
+    btn.innerHTML = `${escAttr(tag.label)}` +
+      `<span class="pp-tag-n">${tag.count.toLocaleString('he-IL')}</span>` +
+      (on ? '<span class="pp-tag-x" aria-hidden="true">✕</span>' : '');
+    box.appendChild(btn);
+  });
+  if (ppState.tags.size){
+    const clear = document.createElement('button');
+    clear.type = 'button';
+    clear.className = 'pp-clear';
+    clear.id = 'ppClear';
+    clear.textContent = 'ניקוי הכל';
+    box.appendChild(clear);
+  }
 }
 
-function renderDealCarousels(properties){
-  renderDealCarousel('saleScroll', 'saleProps', properties, 'sale');
-  renderDealCarousel('rentScroll', 'rentProps', properties, 'rent');
+/* בלי נכסים פרטיים במאגר הסקציה כולה יורדת, כמו שהרצועות ירדו לפניה:
+   כותרת מעל גריד ריק נראית כמו תקלה. */
+function renderPpGrid(){
+  const section = document.getElementById('privateProps');
+  const grid = document.getElementById('ppGrid');
+  const countEl = document.getElementById('ppCount');
+  const more = document.getElementById('ppMore');
+  if (!section || !grid) return;
+
+  section.hidden = !ppState.all.length;
+  if (!ppState.all.length) return;
+
+  const items = ppOrdered();
+  const shown = items.slice(0, ppState.shown);
+
+  grid.innerHTML = '';
+  if (!items.length){
+    const empty = document.createElement('p');
+    empty.className = 'pp-empty';
+    empty.textContent = 'אין נכסים שמתאימים לתגיות שנבחרו.';
+    grid.appendChild(empty);
+  } else {
+    shown.forEach((p, i)=> grid.appendChild(propCard(p, i)));
+  }
+
+  if (countEl){
+    const total = ppState.all.length.toLocaleString('he-IL');
+    countEl.textContent = (items.length === ppState.all.length)
+      ? `${total} נכסים למכירה ולהשכרה בעפולה והעמק`
+      : `${items.length.toLocaleString('he-IL')} מתוך ${total} נכסים`;
+  }
+
+  if (more){
+    const rest = items.length - shown.length;
+    more.hidden = rest <= 0;
+    // המספר על הכפתור הוא מה שהלחיצה תוסיף, ולא הזנב כולו: כפתור שמבטיח
+    // "עוד 62 נכסים" ומוסיף שנים־עשר הוא כפתור שמשקר פעם אחת לכל לחיצה.
+    more.textContent = `עוד ${Math.min(rest, PP_PAGE).toLocaleString('he-IL')} נכסים`;
+  }
 }
+
+function renderPrivateProps(properties){
+  ppState.all = properties.filter(p => dealKind(p) !== 'commercial');
+  ppBuildTags();
+  renderPpTags();
+  renderPpGrid();
+  if (!ppHashApplied && ppState.all.length){
+    ppHashApplied = true;
+    ppApplyHash();
+  }
+}
+
+/* ---------- עוגן עם תגית ----------
+   הפוטר בכל דפי האתר מקשר ל"למכירה בעפולה" ול"להשכרה בעפולה", ושתי
+   הכתובות האלה הובילו עד כה לשתי הרצועות שהוסרו. עכשיו שתיהן מגיעות
+   לאותה תצוגה — עם התגית המתאימה כבר דלוקה — ולכן הן עדיין שני קישורים
+   שונים ולא אותו עוגן פעמיים. הגלילה נעשית כאן ולא בדפדפן: אין אלמנט
+   שה-id שלו הוא ‎privateProps-sale‎. */
+function ppApplyHash(){
+  const match = /^#privateProps-(sale|rent)$/.exec(window.location.hash || '');
+  if (!match) return;
+  ppState.tags = new Set([match[1]]);
+  ppState.shown = PP_PAGE;
+  renderPpTags();
+  renderPpGrid();
+  document.getElementById('privateProps')?.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+window.addEventListener('hashchange', ppApplyHash);
+
+/* המאזינים נקשרים פעם אחת לקונטיינרים שקיימים ב-HTML, ולא לכפתורים
+   שנבנים מחדש בכל ציור. */
+document.getElementById('ppTags')?.addEventListener('click', (e)=>{
+  const clear = e.target.closest('.pp-clear');
+  if (clear){
+    ppState.tags.clear();
+  } else {
+    const btn = e.target.closest('.pp-tag');
+    if (!btn) return;
+    const key = btn.dataset.ppTag;
+    if (ppState.tags.has(key)) ppState.tags.delete(key);
+    else ppState.tags.add(key);
+  }
+  // כל שינוי בסינון מחזיר לעמוד הראשון: "עוד נכסים" שנלחץ לפני הסינון
+  // היה משאיר גריד ארוך של תוצאות אחרות.
+  ppState.shown = PP_PAGE;
+  renderPpTags();
+  renderPpGrid();
+});
+
+document.getElementById('ppSort')?.addEventListener('change', (e)=>{
+  ppState.sort = e.target.value;
+  ppState.shown = PP_PAGE;
+  renderPpGrid();
+});
+
+document.getElementById('ppMore')?.addEventListener('click', ()=>{
+  ppState.shown += PP_PAGE;
+  renderPpGrid();
+});
 
 /* ---------- כתבות ובלוגים ---------- */
 const FALLBACK_ARTICLES = [
@@ -7332,10 +7646,10 @@ try {
     // אותה רשימת שכונות מזינה גם את הבחירה המרובה בבאנר מחפשי הנכס
     renderBuyerHoods();
 
-    // שתי הרצועות למגורים (מכירה/השכרה) מוזנות מהרשימה המלאה ולא מתוצאות
-    // חיפוש: הן ויטרינה קבועה של המלאי בעמוד הבית, ותוצאות החיפוש מוצגות
-    // בשורות שמתחת למפה.
-    renderDealCarousels(properties);
+    // תצוגת הנכסים הפרטיים מוזנת מהרשימה המלאה ולא מתוצאות חיפוש: היא
+    // ויטרינה קבועה של המלאי בעמוד הבית, ותוצאות החיפוש מוצגות בשורות
+    // שמתחת למפה.
+    renderPrivateProps(properties);
 
     const featuredScroll = document.getElementById('featuredScroll');
     PropertyCard.sortByMedia(properties.filter(isPromoted))
@@ -7353,7 +7667,7 @@ try {
       // מפורסמת — ולא את כל ההדמיות שבמסד, שרובן שייכות למודעות שכבר ירדו
       heroStatsState.ai = ids.size;
       renderHeroStats();
-      renderDealCarousels(properties);
+      renderPrivateProps(properties);
       featuredScroll.innerHTML = '';
       PropertyCard.sortByMedia(properties.filter(isPromoted))
         .forEach((p, i)=> featuredScroll.appendChild(propCard(p, i)));
