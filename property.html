@@ -422,6 +422,18 @@
     display:flex;align-items:center;gap:12px;padding:16px;
     background:linear-gradient(140deg,var(--teal-dark),var(--teal) 78%);color:#fff;
   }
+  /* ראש הכרטיס — הפנים, השם והרישיון — הוא הזהות של הסוכן/ת, ולכן הוא גם
+     הדלת לעמוד שלו/ה, בדיוק כמו שרצועת המשרד שמעליו היא הדלת למשרד.
+     ‏is-link נדלק רק כשיש לאן לקשר, כדי שלא ייווצר סמן יד על אזור מת. */
+  .agent-top.is-link{cursor:pointer;transition:filter .15s ease}
+  .agent-top.is-link:hover{filter:brightness(1.09)}
+  .agent-top.is-link:focus-visible{outline:2px solid #fff;outline-offset:-3px}
+  /* תו האיכות והחץ יושבים יחד בקצה השני של הראש. ה-‎auto‎ עבר לעטיפה כדי
+     ששניהם יידחפו יחד לקצה ולא יתחלקו בחלל הפנוי בין שתי מסגרות. */
+  .agent-top-end{margin-inline-start:auto;flex:none;display:flex;align-items:center;gap:10px}
+  .agent-chev{display:none;color:rgba(255,255,255,.75);flex:none}
+  .agent-top.is-link .agent-chev{display:flex}
+  .agent-chev svg{width:18px;height:18px}
   .agent-photo{
     width:56px;height:56px;border-radius:50%;flex:none;overflow:hidden;background:rgba(255,255,255,.18);
     display:grid;place-items:center;font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.35rem;
@@ -446,7 +458,7 @@
   .agent-agency{font-size:.75rem;opacity:.8;margin-top:4px}
   /* תו האיכות בקצה השני של ראש הכרטיס. ‎:empty‎ — כשלסוכן/ת אין תו הרכיב לא
      מוזרק בכלל, והמשבצת לא צריכה לתפוס מקום או להיקרא במקלט מסך. */
-  .agent-badge-slot{margin-inline-start:auto;flex:none;display:flex;align-items:center}
+  .agent-badge-slot{flex:none;display:flex;align-items:center}
   .agent-badge-slot:empty{display:none}
   .agent-body{padding:16px}
   .agent-price{
@@ -1230,7 +1242,12 @@
               </div>
               <div class="agent-agency" id="agentCardAgency"></div>
             </div>
-            <div class="agent-badge-slot" id="agentBadge"></div>
+            <div class="agent-top-end">
+              <div class="agent-badge-slot" id="agentBadge"></div>
+              <span class="agent-chev" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
+              </span>
+            </div>
           </div>
           <div class="agent-body">
             <div class="agent-price">
@@ -3221,6 +3238,26 @@ function renderAgentCard(p){
     licenseEl.textContent = 'רישיון: ' + agent.license_number;
     licenseEl.hidden = false;
     document.getElementById('agentCred').hidden = false;
+  }
+
+  // ראש הכרטיס מוביל לעמוד הסוכן/ת. ‏slug ובהיעדרו ה-id הגולמי — בדיוק
+  // המפתח ש-agent.html יודע לקבל, ואותו קישור שכבר קיים ב-agents.html
+  // וב-agency.html. אין שורת סוכן/ת במסד = אין קישור: ראש הכרטיס נושא אז
+  // את שם המשרד בלבד, ואין עמוד להוביל אליו.
+  const agentKey = agent && (agent.slug || p.agent_id);
+  if (agentKey){
+    const topEl = document.querySelector('.agent-top');
+    topEl.classList.add('is-link');
+    topEl.setAttribute('role', 'link');
+    topEl.tabIndex = 0;
+    topEl.setAttribute('aria-label', 'לעמוד של ' + name);
+    const openAgent = ()=>{ window.location.href = 'agent.html?slug=' + encodeURIComponent(agentKey); };
+    topEl.addEventListener('click', openAgent);
+    // ‏role=link בלי מקלדת הוא תג ריק: אנטר ורווח חייבים לעשות את מה
+    // שהעכבר עושה, כי הראש הוא ‎div‎ ולא ‎a‎.
+    topEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openAgent(); }
+    });
   }
 
   // תו האיכות של הסוכן/ת המטפל/ת, לצד התמונה שלו/ה בראש כרטיס ההמרה: זה
