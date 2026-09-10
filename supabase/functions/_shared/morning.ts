@@ -113,6 +113,24 @@ export type PaymentFormResult =
   | { ok: true; formId: string; url: string }
   | { ok: false; error: string };
 
+// ---------------------------------------------------------------------------
+// שם הלקוח/ה לחשבונית
+//
+// עמוד התשלום מבקש שם פרטי ושם משפחה בנפרד — דרישה של חברת הסליקה מעמוד
+// צ'קאאוט — והשם שהוקלד שם הוא השם שצריך להופיע על החשבונית: הוא נכון יותר
+// מ-display_name של הפרופיל, שהוא כינוי תצוגה ועשוי להיות "משרד כהן" או
+// שם פרטי בלבד. השם היחיד שמותר לו להגיע מהדפדפן הוא זה — הסכום, המסלול
+// והזכאות נקבעים בשרת בלבד, ולעולם לא מגוף הבקשה.
+//
+// הניקוי אינו קישוט: שם הוא שדה טקסט חופשי שנשלח לצד שלישי ומודפס במסמך.
+// שורה אחת, רווחים מכווצים, אורך סביר.
+// ---------------------------------------------------------------------------
+export function clientNameFrom(body: unknown, fallback?: string | null): string {
+  const raw = (body as Record<string, unknown> | null)?.client_name;
+  const clean = typeof raw === "string" ? raw.replace(/\s+/g, " ").trim().slice(0, 100) : "";
+  return clean || (fallback || "").trim() || "סוכן/ת";
+}
+
 export async function createPaymentForm(req: PaymentFormRequest): Promise<PaymentFormResult> {
   const auth = await morningToken();
   if (!auth.token) return { ok: false, error: auth.error ?? "morning_not_configured" };

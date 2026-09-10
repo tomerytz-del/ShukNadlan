@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
+  clientNameFrom,
   corsHeaders,
   createPaymentForm,
   json,
@@ -143,7 +144,7 @@ Deno.serve(async (req: Request) => {
   const form = await createPaymentForm({
     amount,
     description: `טעינת ארנק — שוק נדל"ן`,
-    clientName: agent.display_name || "סוכן/ת",
+    clientName: clientNameFrom(body, agent.display_name),
     clientEmail: email,
     // ‏topup_id ולא id: ‏crm.html מנקה מהכתובת רק את שני המפתחות האלה, ושם
     // גנרי היה מתנגש עם פרמטרים אחרים שהדף כבר קורא (‏invite, מפתחות OAuth).
