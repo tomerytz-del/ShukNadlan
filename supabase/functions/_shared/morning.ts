@@ -102,6 +102,12 @@ export type PaymentFormRequest = {
   description: string;
   clientName: string;
   clientEmail?: string | null;
+  /** ‏ח.פ / ע.מ, אם נמסר בעמוד התשלום. מה שהופך את המסמך לחשבונית לעסק. */
+  clientTaxId?: string | null;
+  /** טלפון ב-E.164, מעמוד התשלום. */
+  clientPhone?: string | null;
+  /** קוד מדינה דו-אותי (ISO 3166-1 alpha-2), מעמוד התשלום. */
+  clientCountry?: string | null;
   successUrl: string;
   failureUrl: string;
   notifyUrl: string;
@@ -114,21 +120,45 @@ export type PaymentFormResult =
   | { ok: false; error: string };
 
 // ---------------------------------------------------------------------------
-// שם הלקוח/ה לחשבונית
+// פרטי הלקוח/ה לחשבונית, מתוך גוף הבקשה
 //
-// עמוד התשלום מבקש שם פרטי ושם משפחה בנפרד — דרישה של חברת הסליקה מעמוד
-// צ'קאאוט — והשם שהוקלד שם הוא השם שצריך להופיע על החשבונית: הוא נכון יותר
-// מ-display_name של הפרופיל, שהוא כינוי תצוגה ועשוי להיות "משרד כהן" או
-// שם פרטי בלבד. השם היחיד שמותר לו להגיע מהדפדפן הוא זה — הסכום, המסלול
-// והזכאות נקבעים בשרת בלבד, ולעולם לא מגוף הבקשה.
+// עמוד התשלום אוסף שם פרטי, שם משפחה, טלפון, מדינה, שם עסק ו-ח.פ — דרישת
+// חברת הסליקה מעמוד צ'קאאוט — וכל אלה מקומם על החשבונית. הם נכונים יותר
+// מ-display_name של הפרופיל, שהוא כינוי תצוגה ועשוי להיות "משרד כהן" או שם
+// פרטי בלבד.
 //
-// הניקוי אינו קישוט: שם הוא שדה טקסט חופשי שנשלח לצד שלישי ומודפס במסמך.
-// שורה אחת, רווחים מכווצים, אורך סביר.
+// **אלה השדות היחידים שמותר להם להגיע מהדפדפן.** הסכום, המסלול והזכאות
+// נקבעים בשרת בלבד ולעולם לא מגוף הבקשה — ההפרדה הזו היא מה שמונע מטופס
+// לקבוע כמה נגבה.
+//
+// הניקוי אינו קישוט: אלה שדות טקסט חופשי שנשלחים לצד שלישי ומודפסים במסמך.
+// שורה אחת, רווחים מכווצים, אורך סביר, ובטלפון וב-ח.פ ספרות בלבד.
 // ---------------------------------------------------------------------------
-export function clientNameFrom(body: unknown, fallback?: string | null): string {
-  const raw = (body as Record<string, unknown> | null)?.client_name;
-  const clean = typeof raw === "string" ? raw.replace(/\s+/g, " ").trim().slice(0, 100) : "";
-  return clean || (fallback || "").trim() || "סוכן/ת";
+type ClientDetails = {
+  clientName: string;
+  clientTaxId: string | null;
+  clientPhone: string | null;
+  clientCountry: string | null;
+};
+
+export function clientFrom(body: unknown, fallbackName?: string | null): ClientDetails {
+  const b = (body ?? {}) as Record<string, unknown>;
+  const text = (v: unknown, max: number) =>
+    typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "";
+
+  // שם העסק גובר על השם הפרטי: כשיש ח.פ, החשבונית היא לעסק ולא לאדם.
+  const person = text(b.client_name, 100);
+  const business = text(b.client_business, 100);
+  const taxId = text(b.client_tax_id, 20).replace(/\D/g, "");
+  const phone = text(b.client_phone, 25).replace(/[^\d+]/g, "");
+  const country = text(b.client_country, 2).toUpperCase();
+
+  return {
+    clientName: (business || person) || (fallbackName || "").trim() || "סוכן/ת",
+    clientTaxId: taxId || null,
+    clientPhone: phone || null,
+    clientCountry: /^[A-Z]{2}$/.test(country) ? country : null,
+  };
 }
 
 export async function createPaymentForm(req: PaymentFormRequest): Promise<PaymentFormResult> {
@@ -139,7 +169,13 @@ export async function createPaymentForm(req: PaymentFormRequest): Promise<Paymen
   //   type 320  = חשבונית מס/קבלה (הפקה אוטומטית עם סיום התשלום)
   //   vatType 0 = כולל מע"מ
   //   lang/currency לפי התיעוד
-  const payload: Record<string, unknown> = {
+  //
+  // ‼ לאימות במיוחד: ‏taxId/phone/country ב-client. הם נשלחים כי בלעדיהם
+  //   ה-ח.פ שהוקלד בעמוד התשלום לא מגיע לחשבונית — אבל שם שדה שגוי כאן
+  //   מפיל את **פתיחת התשלום כולה**, ולא רק את השדה. לכן buildPayload
+  //   מקבל דגל, וניסיון שנדחה חוזר מיד בלי השדות האלה (ראו למטה). זה מה
+  //   שמאפשר לשלוח אותם לפני שהתיעוד אומת, בלי להמר על נתיב הכסף.
+  const buildPayload = (withClientExtras: boolean): Record<string, unknown> => ({
     description: req.description,
     type: 320,
     lang: "he",
@@ -151,6 +187,13 @@ export async function createPaymentForm(req: PaymentFormRequest): Promise<Paymen
     client: {
       name: req.clientName,
       ...(req.clientEmail ? { emails: [req.clientEmail] } : {}),
+      ...(withClientExtras
+        ? {
+          ...(req.clientTaxId ? { taxId: req.clientTaxId } : {}),
+          ...(req.clientPhone ? { phone: req.clientPhone } : {}),
+          ...(req.clientCountry ? { country: req.clientCountry } : {}),
+        }
+        : {}),
     },
     income: [{
       description: req.description,
@@ -166,11 +209,10 @@ export async function createPaymentForm(req: PaymentFormRequest): Promise<Paymen
     // בלעדיו היינו צריכים לנחש לפי סכום וזמן, וזה לא ניחוש שעושים על כסף.
     remarks: req.reference,
     ...(PLUGIN_ID ? { pluginId: PLUGIN_ID } : {}),
-  };
+  });
 
-  let res: Response;
-  try {
-    res = await fetch(`${API_BASE}/payments/form`, {
+  const post = async (payload: Record<string, unknown>) =>
+    await fetch(`${API_BASE}/payments/form`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -178,6 +220,19 @@ export async function createPaymentForm(req: PaymentFormRequest): Promise<Paymen
       },
       body: JSON.stringify(payload),
     });
+
+  const hasExtras = Boolean(req.clientTaxId || req.clientPhone || req.clientCountry);
+  let res: Response;
+  try {
+    res = await post(buildPayload(hasExtras));
+    // דחייה בטווח 4xx על בקשה שנשאה שדות שטרם אומתו: מנסים פעם אחת בלי
+    // אותם שדות. עדיף חשבונית בלי ח.פ מאשר תשלום שלא נפתח — ומי שקורא/ת
+    // את הלוג רואה בדיוק מה נדחה ומה תוקן.
+    if (!res.ok && hasExtras && res.status >= 400 && res.status < 500) {
+      console.warn("morning: client extras rejected, retrying without them",
+        res.status, (await res.clone().text()).slice(0, 300));
+      res = await post(buildPayload(false));
+    }
   } catch (err) {
     return { ok: false, error: `morning_network: ${(err as Error).message}` };
   }

@@ -196,18 +196,21 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const ALLOWED = [100, 200, 300, 400, 500];
 const TIER_LABELS = { mid: 'PROFESSIONAL', premium: 'Elite' };
-const amountEl  = document.getElementById('amount');
-const monthsEl  = document.getElementById('months');
-const totalEl   = document.getElementById('total');
-const ackEl     = document.getElementById('acceptTerms');
-const payBtn    = document.getElementById('payBtn');
-const msgEl     = document.getElementById('checkoutMsg');
-const firstEl   = document.getElementById('firstName');
-const lastEl    = document.getElementById('lastName');
-const emailEl   = document.getElementById('email');
-const countryEl = document.getElementById('country');
-const phoneEl   = document.getElementById('phone');
-const dialEl    = document.getElementById('dialCode');
+const amountEl   = document.getElementById('amount');
+const monthsEl   = document.getElementById('months');
+const totalEl    = document.getElementById('total');
+const ackEl      = document.getElementById('acceptTerms');
+const payBtn     = document.getElementById('payBtn');
+const msgEl      = document.getElementById('checkoutMsg');
+const firstEl    = document.getElementById('firstName');
+const lastEl     = document.getElementById('lastName');
+const emailEl    = document.getElementById('email');
+const countryEl  = document.getElementById('country');
+const phoneEl    = document.getElementById('phone');
+const dialEl     = document.getElementById('dialCode');
+const businessEl = document.getElementById('business');
+const taxIdEl    = document.getElementById('taxId');
+
 let signedIn = false;
 
 /* הקידומת אינה שדה קלט אלא תצוגה שנגזרת מהמדינה. שדה הטלפון מבקש מספר
@@ -299,6 +302,8 @@ syncBtn();
     setIfEmpty(lastEl,  saved.last_name);
     setIfEmpty(emailEl, saved.email);
     setIfEmpty(phoneEl, saved.phone_local);
+    setIfEmpty(businessEl, saved.business);
+    setIfEmpty(taxIdEl, saved.tax_id);
     if (saved.country && countryEl.querySelector('option[value="' + saved.country + '"]')){
       countryEl.value = saved.country;
       syncDial();
@@ -361,6 +366,13 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
     fail('מספר הטלפון אינו תקין. יש להזין מספר ללא קידומת מדינה — הקידומת נקבעת לפי המדינה שנבחרה.');
     return;
   }
+  /* ה-ח.פ אינו חובה, אבל אם הוקלד הוא מודפס על החשבונית — ומספר שגוי שם
+     הוא חשבונית שצריך לבטל ולהפיק מחדש. */
+  const taxDigits = taxIdEl.value.replace(/\D/g, '');
+  if (taxIdEl.value.trim() && (taxDigits.length < 8 || taxDigits.length > 9)){
+    fail('מספר ח.פ / ע.מ אינו תקין — 9 ספרות. אפשר גם להשאיר את השדה ריק.');
+    return;
+  }
   if (!signedIn){
     msgEl.style.color = 'var(--muted)';
     msgEl.textContent = 'מעבירים להתחברות — הפרטים יישמרו וניתן יהיה להשלים את התשלום מיד אחריה.';
@@ -368,7 +380,8 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
       sessionStorage.setItem('shuknadlan.checkout', JSON.stringify(
         { product: isSub ? 'subscription' : 'wallet', tier: subTier,
           months: Number(monthsEl.value), amount, first_name: first, last_name: last,
-          email, country: countryEl.value, phone_local: phoneEl.value.trim(), phone }));
+          email, country: countryEl.value, phone_local: phoneEl.value.trim(), phone,
+          business: businessEl.value.trim(), tax_id: taxIdEl.value.trim() }));
     } catch(_){ /* גלישה פרטית — ההתחברות עדיין תעבוד, רק בלי מילוי אוטומטי */ }
     setTimeout(()=>{ location.href = 'crm.html'; }, 900);
     return;
@@ -382,9 +395,16 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
     /* שתי נקודות קצה, אותה תבנית. שתיהן מחזירות redirect_url ולא מאשרות
        כלום בעצמן — הזיכוי או פתיחת המסלול קורים רק אחרי אימות מול מורנינג. */
     const endpoint = isSub ? 'subscription-purchase' : 'wallet-topup';
-    /* השם שהוקלד כאן הוא השם שעל החשבונית. הסכום, המסלול והזכאות נקבעים
-       בשרת בלבד — מהטופס עוברים רק פרטי הזיהוי של הלקוח/ה. */
-    const client   = { client_name: name, client_phone: phone, client_country: countryEl.value };
+    /* מה שהוקלד כאן הוא מה שיופיע על החשבונית — כולל ה-ח.פ, שבלעדיו המסמך
+       אינו חשבונית לעסק. הסכום, המסלול והזכאות נקבעים בשרת בלבד; מהטופס
+       עוברים אך ורק פרטי הזיהוי של הלקוח/ה. */
+    const client = {
+      client_name: name,
+      client_phone: phone,
+      client_country: countryEl.value,
+      client_business: businessEl.value.trim(),
+      client_tax_id: taxIdEl.value.trim(),
+    };
     const payload  = isSub
       ? { tier: subTier, months: Number(monthsEl.value), ...client }
       : { amount, ...client };
