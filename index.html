@@ -9,7 +9,11 @@
 <meta property="og:description" content="העסקה הבאה שלך בעפולה מתחילה בשוק הנדל״ן.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
+<!-- ‏Heebo בלבד. ‏Frank Ruhl Libre ו-Rubik ירדו מהבקשה: אחרי שכל הכותרות בעמוד
+     עברו ל-Heebo — הקול הטיפוגרפי היחיד של האתר, ראו assets/design-system.css —
+     לא נשאר להם שימוש אחד שמגיע למסך (‏.logo-word‎ נדרס ל-Heebo באותו קובץ),
+     והם עדיין נטענו: שישה משקלים של שני גופנים בכל כניסה לעמוד. -->
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script src="assets/map-tiles.js"></script>
@@ -64,6 +68,20 @@
        תקבל גובה משלה. שלושת הערכים תואמים לנקודות השבירה של התמונונת
        (94px‏ / 112px‏ / 150px). */
     --card-h:     196px;
+    /* ====== מדרג הכותרות ======
+       כותרת של סקציה בעמוד נראית אותו דבר בכל הסקציות: אותו גודל, אותו
+       גופן (‏Heebo מכלל ה-‎h1,h2,h3‎ למטה) ואותו משקל 800. עד כה כל סקציה
+       נשאה גודל משלה — ‎1.5rem‎ ברצועות הנכסים, ‎1.16rem‎ ב"האנשים מאחורי
+       העסקאות" ובתוצאות החיפוש (עם קפיצה ל-‎1.4rem‎ בדסקטופ), ‎1.35rem‎
+       בבאנרים וברצועת ההדמיות — וארבעה גדלים בגלילה אחת נקראים כארבעה
+       עמודים שהודבקו יחד. שני הטוקנים כאן הם המקום היחיד שבו הגדלים
+       נקבעים, ומי שמשנה אותם משנה את כל העמוד.
+
+       ה-clamp הוא בשביל טלפונים צרים (‏360px ומטה): שם כותרת בת שלוש מילים
+       ב-‎1.5rem‎ נשברת לשתי שורות וגוררת איתה את נקודת ה-"i" לשורה משלה.
+       מ-‎445px‎ ומעלה — כלומר בכל טלפון רגיל ומעלה — הערך הוא ‎1.5rem‎ קבוע. */
+    --h2:         clamp(1.3rem, 5.4vw, 1.5rem);  /* כותרת סקציה */
+    --h2-sub:     .88rem;                        /* שורת המשנה שמתחתיה */
   }
   @media(min-width:480px){ :root{--card-h:219px} }
   @media(min-width:760px){ :root{--card-h:272px} }
@@ -81,9 +99,14 @@
     line-height:1.55;
     -webkit-font-smoothing:antialiased;
   }
+  /* קול טיפוגרפי אחד לכל האתר: ‏Heebo בכל המשקלים, בלי שילוב serif+sans.
+     ‏assets/design-system.css הוא שקובע את זה (הוא נטען אחרי הבלוק הזה,
+     והכלל שם זהה בספציפיות ולכן גובר), והשורות כאן היו עדיין Frank Ruhl
+     במשקל 700 — כלומר קוד מת שסתר את מה שנראה בפועל על המסך, ושממנו
+     הועתקו לאורך הדף כותרות סריפיות בודדות. עכשיו הן אומרות את אותו דבר. */
   h1,h2,h3,.display{
-    font-family:'Frank Ruhl Libre',serif;
-    font-weight:700;
+    font-family:'Heebo',sans-serif;
+    font-weight:800;
     line-height:1.15;
     margin:0;
     color:var(--teal-dark);
@@ -131,9 +154,9 @@
      בקצה הנגדי): הכותרת והתגית שמעליה יושבות במרכז, וקישור ה-see-all
      יורד שורה מתחתיהן וממורכז גם הוא. */
   .section-head{display:flex;flex-direction:column;align-items:center;text-align:center;gap:10px;margin-bottom:22px}
-  .section-head h2{font-size:1.5rem}
+  .section-head h2{font-size:var(--h2)}
   /* שורת משנה מתחת לכותרת הסקציה — משלימה את המשפט שהכותרת פותחת */
-  .section-head .section-sub{font-size:.88rem;color:var(--ink-soft);margin:-4px 0 0;max-width:46ch;text-wrap:balance}
+  .section-head .section-sub{font-size:var(--h2-sub);color:var(--ink-soft);margin:-4px 0 0;max-width:46ch;text-wrap:balance;line-height:1.5}
   /* כותרת + נקודת מידע באותה שורה: שורות המשנה של הסקציות התכווצו לנקודת
      "i" שנפתחת בריחוף/לחיצה, כדי שהכותרת עצמה תישאר השורה היחידה שנקראת. */
   .head-line{display:flex;align-items:center;justify-content:center;gap:7px;flex-wrap:wrap;position:relative}
@@ -204,10 +227,11 @@
   /* המשפט שהיה ה-eyebrow מעל המפה עבר לכאן והוא עכשיו שם האתר בכותרת.
      הוא ארוך בהרבה מ"שוק נדל״ן" שהיה כאן, ולכן הוא נשבר לשתי שורות במסך
      צר במקום לדחוק את ההמבורגר החוצה — ושתי השורות ממורכזות זו מול זו.
-     הגופן כאן הוא Rubik ולא ה-serif של הכותרות: גיאומטרי ומודרני, ומבדיל
-     את שם האתר משאר הטיפוגרפיה של העמוד. */
+     הגופן הוא Heebo כמו כל השאר: ‏assets/design-system.css קובע ל-‎.logo-word‎
+     ‏Heebo 800 והוא נטען אחרי הבלוק הזה, כך שה-Rubik שהיה כאן מעולם לא הופיע
+     על המסך — רק נטען. */
   .logo-word{
-    font-family:'Rubik','Heebo',sans-serif;font-weight:500;color:var(--teal-dark);
+    font-family:'Heebo',sans-serif;font-weight:800;color:var(--teal-dark);
     font-size:.82rem;line-height:1.3;letter-spacing:-.012em;min-width:0;text-align:center;
   }
   .logo-word span{color:var(--gold-dark);font-weight:700}
@@ -313,7 +337,7 @@
      אחת גולשת מהמסך בטלפון. השבירה נעשית ב-span שהוא block ולא בגלישה
      טבעית, כדי שהיא תיפול תמיד באותו מקום. */
   .hero-inner h1{
-    color:var(--ink);font-size:clamp(1.35rem, 6.2vw, 1.7rem);font-weight:700;line-height:1.1;
+    color:var(--ink);font-size:clamp(1.35rem, 6.2vw, 1.7rem);font-weight:800;line-height:1.1;
     text-align:center;text-shadow:0 1px 0 rgba(255,255,255,.7);
   }
   .hero-h1-break{display:block}
@@ -366,7 +390,14 @@
   }
   .hero-roll-window{display:inline-block;overflow:hidden;height:1.5em;min-width:8.6em}
   .hero-roll-track{display:block;animation:rollWords 11.4s ease-in-out infinite}
-  .hero-roll-track>span{display:block;height:1.5em;font-weight:700;color:var(--teal);white-space:nowrap}
+  /* המילה המתחלפת בזהב ולא בנייבי: היא והסמן שלצידה הם הדבר היחיד שזז
+     בראש המסך, וכשהיא בנייבי היא נקראת כהמשך של "מחפשים" שלפניה במקום
+     כדבר שמתחלף. הגוון הוא ‎--brass-ink‎ ולא ‎--brass‎ עצמו (‏#c9a227, הזהב
+     של הסמן): זהב מלא על רצועת התכלת נותן יחס ניגודיות של ‎1.9:1‎ — כלומר
+     טקסט שאי אפשר לקרוא — ו-‎--brass-ink‎ הוא בדיוק הטוקן שהוגדר במערכת
+     העיצוב לזהב *כטקסט על רקע בהיר*. הסמן עצמו נשאר בזהב המלא: הוא פס
+     של 2px ולא טקסט. */
+  .hero-roll-track>span{display:block;height:1.5em;font-weight:700;color:var(--brass-ink,#8a6d10);white-space:nowrap}
   @keyframes rollWords{
     0%,12.7%{transform:translateY(0)}
     16.67%,29.37%{transform:translateY(-1.5em)}
@@ -1243,9 +1274,12 @@
     position:relative;grid-column:1/-1;
     display:flex;flex-direction:column;align-items:center;gap:8px;
   }
+  /* ‏--h2 כמו כל כותרת סקציה בעמוד, ולא ‎1.35rem‎ משלה. במסך רחב היא כן
+     גדלה (ראו שאילתת המדיה למטה) — זו רצועת שיווק ולא רצועת נכסים — אבל
+     היא מתחילה מאותו גודל. */
   .ai-band-title{
     position:relative;margin:0;text-align:center;
-    font-size:1.35rem;font-weight:800;line-height:1.25;letter-spacing:-.02em;
+    font-size:var(--h2);font-weight:800;line-height:1.25;letter-spacing:-.02em;
     color:var(--brass-light,#e5c76a);
   }
   /* ‏.82rem ולא .85rem: בנייד ההפרש הזה הוא שורה שלמה פחות במשפט (שלוש
@@ -1383,6 +1417,8 @@
   .lead-teaser-copy{flex:1 1 55%;min-width:0;display:flex;flex-direction:column;gap:2px}
   /* הכותרת הקטנה שמעל שם הבאנר ("בעלי נכסים", "מחפשי נכס"…) הוסרה: היא
      חזרה על מה שהכותרת עצמה כבר אומרת, ובלעדיה הבאנר קצר בשורה. */
+  /* אותו גופן ומשקל של כותרות העמוד (‏Heebo 800). הגודל נשאר קומפקטי כי זו
+     שורה אחת עם אייקון ו-CTA לצידה, ולא כותרת סקציה. */
   .lead-teaser-title{font-size:1.02rem;font-weight:800;line-height:1.28}
   /* ‏.8 ולא ‎.72‎: הרקע חצי-שקוף, והמשלים הבהיר שמבצבץ מבעדו מעלה את
      הבהירות שמאחורי הטקסט — שורת המשנה הייתה יורדת מתחת ל-4.5:1 */
@@ -1424,8 +1460,10 @@
   }
 
   .lead-panel{padding:2px 16px 20px;text-align:center;animation:wizIn .24s ease}
-  .lead-banner .owner-intro h2{color:#fff;font-size:1.35rem;max-width:22ch;margin:0 auto}
-  .lead-banner .owner-intro p{color:#c3cde6;font-size:.9rem;max-width:42ch;margin:8px auto 0}
+  /* כותרת הבאנר היא כותרת סקציה לכל דבר, ולכן היא נושאת את ‎--h2‎ כמו כל
+     האחרות ולא גודל משלה (‏1.35rem/1.75rem קודם) */
+  .lead-banner .owner-intro h2{color:#fff;font-size:var(--h2);max-width:22ch;margin:0 auto}
+  .lead-banner .owner-intro p{color:#c3cde6;font-size:var(--h2-sub);line-height:1.5;max-width:42ch;margin:8px auto 0}
   .buyer-banner .owner-intro p{color:#EFD9DC}
 
   .owner-toggle{display:flex;gap:8px}
@@ -1484,7 +1522,7 @@
   .wiz-done{text-align:center;padding:10px 0}
   .wiz-done-mark{width:52px;height:52px;border-radius:50%;background:var(--gold);color:#fff;
     font-size:1.6rem;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 12px}
-  .wiz-done h3{color:#fff;font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;margin:0 0 6px}
+  .wiz-done h3{color:#fff;font-size:1.15rem;margin:0 0 6px}
   .wiz-done p{color:#c3cde6;font-size:.88rem;margin:0 auto 14px;max-width:34ch}
 
   /* ---- אשף מחפשי הנכס (הבאנר הבורדו) ----
@@ -1535,7 +1573,6 @@
     .lead-teaser-title{font-size:1.2rem}
     .lead-teaser-sub{font-size:.83rem}
     .lead-panel{padding:6px 32px 32px}
-    .lead-banner .owner-intro h2{font-size:1.75rem}
   }
 
   /* צ׳יפ המסנן הפעיל: ספיר מלא, כמו במסירת העיצוב. הוא לא כפתור פעולה
@@ -1568,7 +1605,8 @@
   }
   .search-results:not([hidden]) + .hot-band{margin-top:0;border-radius:0;box-shadow:none}
   .sr-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-bottom:12px}
-  .sr-head h2{font-size:1.16rem}
+  /* אותו גודל של כל כותרת סקציה בעמוד (‏--h2), ולא גודל משלה */
+  .sr-head h2{font-size:var(--h2)}
   .sr-count{font-size:.78rem;color:var(--ink-soft);font-weight:600}
   .sr-clear{
     margin-inline-start:auto;font-size:.75rem;font-weight:700;color:var(--teal);
@@ -1609,7 +1647,6 @@
   .sr-empty{text-align:center;padding:26px 12px;color:var(--ink-soft);font-size:.88rem}
   @media(min-width:760px){
     .search-results{margin-top:-20px;padding:26px 0 28px}
-    .sr-head h2{font-size:1.4rem}
     .sr-thumb{flex:0 0 152px;min-height:106px}
     .sr-title{font-size:.98rem}
     .sr-meta{font-size:.8rem}
@@ -1634,8 +1671,12 @@
      לסקציה הבאה יהיה זהה לכל שאר המעברים בעמוד. */
   #dealmakers{padding-bottom:18px}
   .dm-head{display:flex;flex-direction:column;gap:12px;padding:0 16px;margin-bottom:10px}
-  .dm-head h2{font-size:1.16rem;line-height:1.35}
-  .dm-sub-line{font-size:.8rem;color:var(--ink-soft);margin:5px 0 0;line-height:1.5}
+  .dm-head h2{font-size:var(--h2)}
+  .dm-sub-line{font-size:var(--h2-sub);color:var(--ink-soft);margin:5px 0 0;line-height:1.5}
+  /* הכותרת ושורת המשנה ממורכזות כמו בכל שאר הסקציות בעמוד; במסך רחב הבלוק
+     חוזר לשורה אחת עם הלשוניות בקצה הנגדי, ואז היישור חוזר לתחילת השורה
+     (ראו שאילתת המדיה למטה). ‏.head-line ממילא ממורכז בעצמו. */
+  .dm-head > div{text-align:center}
 
   /* הלשוניות הן פקד ניווט ולא קישוט, ולכן הן נצבעות ולא רק מסומנות: המגש
      בגוון ‎--teal-tint‎ מחזיק את השלוש כקבוצה אחת, והפעילה מקבלת נייבי מלא
@@ -1676,7 +1717,7 @@
   .dm-eyebrow{display:flex;align-items:center;gap:8px;
     font-size:.68rem;font-weight:800;letter-spacing:.08em;color:#F0D089}
   .dm-eyebrow svg{width:18px;height:18px;flex:none}
-  .dm-search h3{font-family:'Frank Ruhl Libre',serif;font-size:1.02rem;font-weight:700;
+  .dm-search h3{font-size:1.02rem;font-weight:800;
     line-height:1.35;color:#fff;margin:10px 0 0}
   .dm-search > p{font-size:.76rem;line-height:1.5;color:rgba(255,255,255,.82);margin:6px 0 0}
   /* ‏margin-top:auto דוחף את התיבה והקישור לתחתית, כך שהם מיושרים עם
@@ -1709,7 +1750,7 @@
     transition:transform .18s ease, box-shadow .18s ease;
   }
   .dm-card:hover{transform:translateY(-2px);box-shadow:0 14px 28px -14px rgba(6,20,34,.42)}
-  .dm-initial{font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:2.1rem;
+  .dm-initial{font-weight:800;font-size:2.1rem;
     color:#fff;line-height:1}
   /* ‏object-position גבוה מהמרכז: בתמונות פרופיל הפנים יושבות בשליש
      העליון, וחיתוך למרכז היה קוטע אותן בתחתית האריח. מי שסימן/ה נקודת
@@ -1761,8 +1802,7 @@
     .hot-band{margin-top:-20px;padding:26px 0 32px}
     .dm-head{flex-direction:row;justify-content:space-between;align-items:flex-end;
       gap:24px;margin-bottom:14px}
-    .dm-head h2{font-size:1.4rem}
-    .dm-sub-line{font-size:.88rem}
+    .dm-head > div{text-align:start}
     .dm-tabs{flex:0 0 auto}
     .dm-tabs button{flex:0 0 auto;padding:0 18px;font-size:.84rem}
     /* מכאן ומעלה יש מקום לשתי עמודות: החיפוש קבוע בשמאל (‏order:1 הוא
@@ -1915,7 +1955,7 @@
   .thumb-fallback .tf-initial{
     display:flex;align-items:center;justify-content:center;padding:0;
     background:linear-gradient(155deg,var(--gold),var(--teal) 65%);color:#fff;border-color:transparent;
-    font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.15rem;line-height:1;
+    font-weight:800;font-size:1.15rem;line-height:1;
   }
   .thumb-fallback .tf-agency{
     font-size:.74rem;font-weight:700;color:var(--teal-dark);line-height:1.25;
@@ -2178,7 +2218,7 @@
   .calc-controls{display:flex;flex-direction:column;gap:13px}
   .calc-slider-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:6px}
   .calc-slider-head .lbl{font-size:.82rem;font-weight:700;color:var(--ink-soft)}
-  .calc-slider-head .val{font-family:'Frank Ruhl Libre',serif;font-size:1.28rem;font-weight:700;color:var(--teal-dark);white-space:nowrap}
+  .calc-slider-head .val{font-size:1.28rem;font-weight:800;color:var(--teal-dark);white-space:nowrap}
 
   /* הרקע נצבע על ה-input עצמו (ולא רק על ::-webkit-slider-runnable-track)
      כדי שמילוי המסלול יעבוד גם בפיירפוקס, שם ::-moz-range-track שקוף.      */
@@ -2216,7 +2256,6 @@
   .calc-step-ctl input{
     flex:1;min-width:0;width:100%;text-align:center;border:none;background:#fff;border-radius:0;
     padding:6px 2px;font-size:1.22rem;font-weight:800;color:var(--teal-dark);
-    font-family:'Frank Ruhl Libre',serif;
   }
   /* חצי ה-spinner של הדפדפן מיותרים — יש כפתורי ‎−/+‎ משלנו */
   .calc-step-ctl input::-webkit-outer-spin-button,
@@ -2232,7 +2271,7 @@
   .calc-result .ttl{font-size:1rem;font-weight:800;color:#fff}
   .calc-result .lbl{font-size:.74rem;color:rgba(255,255,255,.72);margin-top:2px;max-width:14ch}
   .calc-result .num{
-    font-family:'Frank Ruhl Libre',serif;font-size:2.1rem;font-weight:900;line-height:1;
+    font-size:2.1rem;font-weight:800;line-height:1;
     color:#F0B07A;text-shadow:0 0 22px rgba(194,91,52,.55);white-space:nowrap;
   }
   .calc-warn{font-size:.78rem;color:var(--brick);font-weight:700;margin:0;text-align:center}
@@ -2242,7 +2281,7 @@
   .calc-more{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;
     background:var(--line);border:1px solid var(--line);border-radius:0;overflow:hidden}
   .calc-more div{background:var(--paper-raised);padding:11px 6px;text-align:center;min-width:0}
-  .calc-more .v{font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.2rem;
+  .calc-more .v{font-weight:800;font-size:1.2rem;
     color:var(--teal-dark);line-height:1.15}
   .calc-more .k{font-size:.68rem;color:var(--ink-soft);margin-top:3px;font-weight:600}
   .calc-cta{
@@ -2287,7 +2326,7 @@
     width:56px;height:56px;border-radius:50%;margin:0 auto 12px;display:grid;place-items:center;
     background:var(--teal-tint);color:var(--teal-dark);font-size:1.7rem;
   }
-  .mlead-done h4{font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;color:var(--teal-dark);margin:0 0 6px}
+  .mlead-done h4{font-size:1.15rem;color:var(--teal-dark);margin:0 0 6px}
   .mlead-done p{font-size:.85rem;color:var(--ink-soft);margin:0}
 
   /* ====== הסוכן החכם — שמירת חיפוש וקבלת התראות ======
@@ -3263,11 +3302,15 @@
     <div class="wrap">
       <div class="dm-head">
         <div>
+          <!-- הנקודה יושבת *בתוך* ה-h2 ולא כאחות שלו: הכותרת בגודל כותרת
+               סקציה מלאה תופסת את כל השורה בטלפון צר, ואח ב-flex היה יורד
+               אז לשורה משלו — נקודת "i" בודדת ומרחפת מתחת לכותרת. ראו
+               ‎.head-line h2 > .info-dot‎ ב-CSS. -->
           <div class="head-line">
-            <h2 id="dealmakersTitle">האנשים מאחורי העסקאות</h2>
-            <button type="button" class="info-dot" id="ratingInfoLink"
+            <h2 id="dealmakersTitle">האנשים מאחורי העסקאות<button
+                    type="button" class="info-dot" id="ratingInfoLink"
                     aria-haspopup="dialog" data-info="לחיצה — איך נקבע הדירוג"
-                    aria-label="איך עובד הדירוג של המשרדים והמתווכים">i</button>
+                    aria-label="איך עובד הדירוג של המשרדים והמתווכים">i</button></h2>
           </div>
           <p class="dm-sub-line">כל מי שמלווה עסקת נדל״ן בעפולה והעמק, במקום אחד</p>
         </div>
@@ -3691,9 +3734,11 @@
     <div class="section-head">
       <div>
         <div class="head-line">
-          <h2>פרויקטים חדשים מקבלנים ויזמים</h2>
-          <button type="button" class="info-dot" aria-label="מידע על הרצועה"
-                  data-info="דירות מקבלן בעפולה והעמק — ישירות מהיזם, בלי מתווך">i</button>
+          <!-- הנקודה בתוך הכותרת: היא נשברת לשתי שורות בטלפון, ואח ב-flex
+               היה יורד לשורה שלישית משלו (ראו ‎.head-line h2 > .info-dot‎) -->
+          <h2>פרויקטים חדשים מקבלנים ויזמים<button
+                  type="button" class="info-dot" aria-label="מידע על הרצועה"
+                  data-info="דירות מקבלן בעפולה והעמק — ישירות מהיזם, בלי מתווך">i</button></h2>
         </div>
       </div>
       <a href="projects.html" class="see-all">כל הפרויקטים החדשים ←</a>
