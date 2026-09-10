@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
+  clientFrom,
   corsHeaders,
   createPaymentForm,
   json,
@@ -105,7 +106,7 @@ Deno.serve(async (req: Request) => {
   const form = await createPaymentForm({
     amount,
     description: `${desc} — שוק נדל"ן`,
-    clientName: agent.display_name || "סוכן/ת",
+    ...clientFrom(body, agent.display_name),
     clientEmail: userData.user.email ?? null,
     successUrl: `${siteBaseUrl}/crm.html?subscription=success&order_id=${orderId}`,
     failureUrl: `${siteBaseUrl}/crm.html?subscription=failure&order_id=${orderId}`,
