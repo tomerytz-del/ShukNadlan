@@ -42,7 +42,7 @@
 
 ## המדיניות הכספית
 
-מעוגנת ב-`terms.html` **§9 — סגירת חשבון והפסקת ההתקשרות**, וב-`privacy.html`
+מעוגנת ב-`terms.html` **§19 — סגירת חשבון והפסקת ההתקשרות**, וב-`privacy.html`
 תחת "כמה זמן המידע נשמר". שתי השורות שלמטה נאמרות למשתמש/ת גם בדיאלוג עצמו
 ולא רק בתקנון:
 
@@ -130,7 +130,7 @@
 | `supabase/functions/close-account/index.ts` | ‏`preview` / `request` / `cancel`, האימות והחסמים |
 | `crm.html` | `#accCloseAccount`, `#closeAccountModal`, `#closedScreen`, `loadClosureSection()` |
 | `agency.html` · `agencies.html` · `index.html` | הסתרת משרד שנשאר בלי אף סוכן/ת פעיל/ה |
-| `terms.html` §9 · `privacy.html` | העיגון המשפטי: מועד הכניסה לתוקף, ההחזר, החסם ומה נשמר |
+| `terms.html` §19 · `privacy.html` | העיגון המשפטי: מועד הכניסה לתוקף, ההחזר, החסם ומה נשמר |
 
 > שינוי במדיניות (מועד הכניסה לתוקף, מה מוחזר, מה נשמר) חייב לעדכן את שלושת
 > המקומות יחד — התקנון, מדיניות הפרטיות, והנוסח בדיאלוג ב-`crm.html`. שלוש
