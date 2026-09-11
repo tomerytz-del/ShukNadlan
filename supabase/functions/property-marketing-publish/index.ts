@@ -351,6 +351,10 @@ Deno.serve(async (req: Request) => {
     // חוסר הגדרה (503) לא מתחפש ל-401: מנהל/ת שנכנס/ת ידנית עדיין מקבל/ת
     // מעבר, אבל קורא שנדחה מקבל את הסיבה האמיתית.
     if (!internal.ok && internal.status === 503) {
+      // תקלת הגדרה שלנו, ולכן היא נרשמת — בניגוד ל-401 שמתחתיה, שקורא
+      // חיצוני יכול לייצר בכמות ולהציף את היומן. בלי השורה הזו סוד cron
+      // שנמחק מ-Vault היה עוצר את כל התור בשקט מוחלט.
+      console.error("cron auth לא מוגדר", internal.error, internal.detail ?? "");
       return json({ error: internal.error, detail: internal.detail }, 503);
     }
     return json({ error: "unauthorized" }, 401);
