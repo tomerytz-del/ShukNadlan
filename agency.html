@@ -2307,6 +2307,9 @@ function applyPageBackground(colors){
 
 if (window.PageBg) PageBg.mount();
 
+// האם הדף כבר הוצג בפועל — ראו ה-catch של loadAgency
+let agencyShown = false;
+
 async function loadAgency(){
   const slug = new URLSearchParams(window.location.search).get('slug');
   if (!slug || !window.supabase){
@@ -2342,6 +2345,7 @@ async function loadAgency(){
 
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('agencyContent').style.display = 'block';
+    agencyShown = true;
 
     // ההקשר שכל ליד מהדף הזה נושא: המשרד עצמו, והעיר שבה הוא פועל
     leadContext.slug = agency.slug || null;
@@ -2361,7 +2365,10 @@ async function loadAgency(){
   } catch(e){
     console.warn('טעינת משרד נכשלה:', e);
     document.getElementById('loadingState').style.display = 'none';
-    document.getElementById('notFoundState').style.display = 'block';
+    // ‏"המשרד לא נמצא" נאמר רק כשבאמת אין מה להציג. שגיאה שנזרקת אחרי
+    // שהדף כבר עומד — באתחול אחד הווידג'טים, למשל — לא מוחקת משרד קיים
+    // מהמסך: היא נרשמת ב-console, והדף נשאר על מכונו.
+    if (!agencyShown) document.getElementById('notFoundState').style.display = 'block';
   }
 }
 
@@ -3357,8 +3364,13 @@ const buyState = {
   source:'agency_page_buyer_wizard',
 };
 
-const buyerForm = document.getElementById('buyerWizardForm');
-const buyDoneEl = document.getElementById('buyDone');
+/* אשף המחפשים ירד לפוטר, כלומר למקום שבקובץ נמצא *אחרי* הסקריפט הזה.
+   שתי ההפניות נלקחו כאן, בזמן ריצת הסקריפט, ולכן חזרו null — והקריאה
+   הראשונה אליהן ב-initBuyerWizard זרקה שגיאה שנפלה ל-catch של loadAgency
+   והדליקה את "המשרד לא נמצא" מעל דף שכבר היה טעון ומוצג. ההפניות נלקחות
+   עכשיו ב-initBuyerWizard, שרץ ממילא רק אחרי שהדף כולו נבנה. */
+let buyerForm = null;
+let buyDoneEl = null;
 
 function buyGoToStep(n){
   buyerForm.querySelectorAll('.wiz-panel').forEach(p=>{
@@ -3629,6 +3641,17 @@ async function submitBuyerWizard(e){
 }
 
 function initBuyerWizard(agency, sb){
+  // כל ה-DOM של האשף יושב בפוטר, שבקובץ נמצא אחרי הסקריפט הזה. כשהתשובה
+  // מהמסד חוזרת מהר, לפני שהדפדפן סיים לנתח את סוף הדף, האלמנטים עדיין
+  // אינם שם — ואז מאתחלים כשהם כן.
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', ()=> initBuyerWizard(agency, sb), { once:true });
+    return;
+  }
+  buyerForm = document.getElementById('buyerWizardForm');
+  buyDoneEl = document.getElementById('buyDone');
+  if (!buyerForm || !buyDoneEl) return;
+
   document.getElementById('buyerLead').textContent =
     `ספרו לנו מה אתם מחפשים — ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.`;
   // ההסכמה נוקבת בשם המשרד ולא ב"מתווך/ת מהאזור": הפרטים מגיעים לכאן,
