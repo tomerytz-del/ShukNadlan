@@ -452,29 +452,35 @@ select * from property_publications_unconfirmed;
 
 ### הסתירה שאין לה שורה בטבלה: הרצה שנפלה לפני התור
 
-הפונקציה יוצאת ב-500 בכמה מקרים **לפני** שהיא נוגעת בתור —
-`publish_not_configured`, ‏`queue_failed`, ‏`queue_read_failed`. במקרים האלה
-היא מחזירה JSON עם הסיבה, **אבל לא כותבת `console.error`**, ולכן ב-
-`function_logs` אין זכר לשגיאה: רק `booted` ו-`shutdown`.
+הפונקציה יוצאת ב-500 בשלושה מקרים **לפני** שהיא נוגעת בתור —
+`publish_not_configured`, ‏`queue_failed`, ‏`queue_read_failed`. זה נכון
+כשלעצמו: התור נשאר כמו שהוא, לא נשרף ניסיון ולא נרשמת שגיאה שקרית על אף
+שורה.
 
-התסמין הוא שורה שנשארת `pending` עם `attempts = 0` אחרי שכבר עבר מועד
-הפרסום שלה. זה קרה ב-11.9.2026 בשעה 20:15 — ההרצה הבאה, חמש דקות אחר כך,
-אספה את השורה כרגיל. **המנגנון התנהג נכון** (לא נשרף ניסיון ולא נרשמה
-שגיאה שקרית), אבל הסיבה לא ניתנת לשחזור בדיעבד.
+מה שלא היה נכון הוא שזה קרה **בשקט**. עד 11.9.2026 שלוש היציאות החזירו JSON
+בלי לכתוב `console.error`, ולכן ב-`function_logs` לא היה זכר לשגיאה — רק
+`booted` ו-`shutdown`. התסמין היחיד היה שורה שנשארת `pending` עם
+`attempts = 0` אחרי שכבר עבר מועד הפרסום שלה. זה קרה באותו יום ב-20:15;
+ההרצה הבאה אספה את השורה כרגיל, אבל הסיבה כבר לא ניתנת הייתה לשחזור.
 
-הראיה היחידה היא קוד הסטטוס:
+**מאז שלוש היציאות כותבות `console.error` עם הסיבה.** כך מאתרים:
 
 ```sql
--- ב-Supabase → Logs, או דרך query_logs
+-- ב-Supabase → Logs, או דרך query_logs.
+-- function_edge_logs נותן את קוד הסטטוס, function_logs את הסיבה.
 select timestamp, event_message from logs
- where source = 'function_edge_logs'
-   and event_message ilike '%property-marketing-publish%'
- order by timestamp desc limit 20;
+ where source in ('function_edge_logs', 'function_logs')
+ order by timestamp desc limit 40;
 ```
 
-‏`POST | 500` שם, בלי שום `console.error` תואם ב-`function_logs`, הוא
-יציאה מוקדמת כזו. **פער מוכר שטרם נסגר:** כדאי להוסיף `console.error` לכל
-אחת משלוש היציאות, כדי שהסיבה תירשם.
+`POST | 500` ב-`function_edge_logs` אמור להופיע עכשיו לצד שורת
+`queue_read_failed` (או אחת משתי האחרות) ב-`function_logs`, באותה שנייה.
+‏**500 בלי שורה תואמת** פירושו שגיאה בנתיב שעוד לא מכוסה — שווה לבדוק אותה
+ולהוסיף שם לוג גם כן.
+
+> שתי יציאות נוספות עדיין שקטות, ובכוונה: `unauthorized` (401), שקורא
+> חיצוני יכול לייצר בכמות ולהרעיש את היומן, ו-`cron_secret_not_configured`
+> (503). השנייה היא תקלת הגדרה אמיתית ושווה לשקול לתעד גם אותה.
 
 `message` על השורה הוא הטקסט שיצא בפועל — שם בודקים מה באמת פורסם, ולא
 משחזרים אותו מהנכס (המודעה יכולה להשתנות מחר, הפוסט לא).

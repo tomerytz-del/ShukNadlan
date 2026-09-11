@@ -370,6 +370,13 @@ Deno.serve(async (req: Request) => {
   if (!dryRun && !MAKE_WEBHOOK_URL && !(FB_PAGE_ID && FB_PAGE_TOKEN)) {
     // אף ערוץ לא מחובר. לא נוגעים בתור: השורות ימתינו לחיבור ולא יישרפו
     // על חמישה ניסיונות כושלים.
+    //
+    // שלוש היציאות המוקדמות כאן ולמטה מחזירות 500 ומשאירות את התור כמו
+    // שהוא — וזה נכון. מה שלא היה נכון הוא שהן עשו זאת **בשקט**: ‏POST | 500
+    // ביומן ה-Edge Functions בלי שום שורה שמסבירה למה, והתסמין היחיד הוא
+    // שורה שנשארת pending עם attempts=0 אחרי מועד הפרסום שלה. כך נעלמה
+    // הרצה ב-11.9.2026 בלי שאפשר היה לשחזר את הסיבה בדיעבד.
+    console.error("publish_not_configured: אין MAKE_FACEBOOK_WEBHOOK_URL ואין FACEBOOK_PAGE_ID+TOKEN");
     return json({ error: "publish_not_configured" }, 500);
   }
 
@@ -386,14 +393,20 @@ Deno.serve(async (req: Request) => {
       p_force: !dryRun,
       p_delay_minutes: 0,
     });
-    if (error) return json({ error: "queue_failed", detail: error.message }, 500);
+    if (error) {
+      console.error("queue_failed", propertyId, error.message);
+      return json({ error: "queue_failed", detail: error.message }, 500);
+    }
   }
 
   const { data: rows, error } = await sb.rpc("pending_property_publications", {
     p_limit: propertyId ? 1 : BATCH,
     p_property_id: propertyId,
   });
-  if (error) return json({ error: "queue_read_failed", detail: error.message }, 500);
+  if (error) {
+    console.error("queue_read_failed", error.message);
+    return json({ error: "queue_read_failed", detail: error.message }, 500);
+  }
   if (!rows?.length) {
     return json({
       ok: true,
