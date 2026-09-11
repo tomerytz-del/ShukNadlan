@@ -82,7 +82,12 @@ async function writeCopy(row: Record<string, unknown>) {
 // ---------------------------------------------------------------------------
 async function drainQueue(sb: Sb, limit: number) {
   const { data: jobs, error } = await sb.rpc("pending_property_descriptions", { p_limit: limit });
-  if (error) return json({ error: "queue_read_failed", detail: error.message }, 500);
+  if (error) {
+    // אותה משפחה כמו יציאות ה-503 למטה: הסבב מסתיים בלי לגעת בתור, ובלי
+    // השורה הזו אין שום עקבה מלבד POST | 500 ביומן ה-Edge Functions.
+    console.error("queue_read_failed", error.message);
+    return json({ error: "queue_read_failed", detail: error.message }, 500);
+  }
   if (!jobs?.length) return json({ ok: true, processed: 0 });
 
   const results: unknown[] = [];
@@ -156,12 +161,23 @@ Deno.serve(async (req: Request) => {
   // ---------------------------------------------------------------------
   if (!propertyId) {
     if (!internal.ok) {
-      if (internal.status === 503) return json({ error: internal.error, detail: internal.detail }, 503);
+      if (internal.status === 503) {
+        // שתי יציאות ה-503 כאן עוצרות את **כל** התור, ושתיהן תקלת הגדרה
+        // שמקורה אצלנו — ולכן הן נרשמות. בלי השורה הזו הסימן היחיד לסוד
+        // cron שנמחק מ-Vault הוא שהתיאורים פשוט מפסיקים להיכתב.
+        //
+        // ‏unauthorized (401) שמתחת נשארת שקטה בכוונה: זו היציאה היחידה
+        // שקורא חיצוני יכול לייצר בכמות, ולוג עליה היה הופך את היומן
+        // עצמו לווקטור רעש. אותו כלל כמו ב-property-marketing-publish.
+        console.error("cron auth לא מוגדר", internal.error, internal.detail ?? "");
+        return json({ error: internal.error, detail: internal.detail }, 503);
+      }
       return json({ error: "unauthorized" }, 401);
     }
     if (!ANTHROPIC_KEY) {
       // לא נוגעים בתור: השורות ימתינו להגדרת המפתח ולא יישרפו על ניסיונות
       // כושלים במצב שבו אף אחת מהן לא הייתה יכולה להצליח.
+      console.error("copy_not_configured: ANTHROPIC_API_KEY אינו מוגדר");
       return json({ error: "copy_not_configured", detail: "ANTHROPIC_API_KEY אינו מוגדר" }, 503);
     }
     return await drainQueue(sb, BATCH);
