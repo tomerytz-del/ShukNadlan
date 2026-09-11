@@ -112,6 +112,21 @@ function buildMessage(row: any, marketing: { description: string; post: string }
 }
 
 // ---------------------------------------------------------------------------
+// הכתובת הציבורית של פוסט, משני המסלולים
+//
+// מזהה פוסט של פייסבוק הוא `<page_id>_<post_id>`, וכתובת שמדביקה אותו כמו
+// שהוא אחרי הדומיין לא תמיד נפתחת. החלק הראשון של המזהה הוא ממילא מזהה הדף,
+// ולכן אפשר לבנות את הצורה שעובדת בלי להכיר את הדף מראש — מה שמאפשר לגזור
+// אותה גם במסלול Make, שבו אין לנו FACEBOOK_PAGE_ID.
+// ---------------------------------------------------------------------------
+function facebookPostUrl(id: string | null): string | null {
+  if (!id) return null;
+  const [page, post] = id.split("_");
+  return post ? `https://www.facebook.com/${page}/posts/${post}`
+              : `https://www.facebook.com/${id}`;
+}
+
+// ---------------------------------------------------------------------------
 // פרסום — מסלול Make
 // ---------------------------------------------------------------------------
 async function publishViaMake(row: any, message: string, images: string[]) {
@@ -149,9 +164,16 @@ async function publishViaMake(row: any, message: string, images: string[]) {
 
   // ‏Make מחזיר כברירת מחדל "Accepted". תרחיש שמוגדר עם Webhook response
   // יכול להחזיר את מזהה הפוסט, ואז הוא נשמר ביומן.
+  //
+  // ‏`post_url` נגזר מהמזהה ולא נלקח מהתשובה, גם כשהיא מכילה אותו: המזהה
+  // שפייסבוק מחזיר הוא מורכב (`<page>_<post>`), וכתובת בצורה
+  // ‏facebook.com/<page>_<post> לא תמיד נפתחת. הצורה שעובדת היא
+  // ‏facebook.com/<page>/posts/<post> — אותה נוסחה שהמסלול הישיר בונה.
+  // כך ה-Body ב-Make צריך להחזיר רק `post_id`, ויש שדה אחד פחות להתבלבל בו.
   try {
     const j = JSON.parse(body);
-    return { post_id: j?.post_id ?? null, post_url: j?.post_url ?? null };
+    const postId = j?.post_id ? String(j.post_id) : null;
+    return { post_id: postId, post_url: facebookPostUrl(postId) ?? j?.post_url ?? null };
   } catch {
     return { post_id: null, post_url: null };
   }
@@ -200,10 +222,7 @@ async function publishViaGraph(row: any, message: string, images: string[]) {
   }
 
   const id = String(data.id);
-  const postUrl = id.includes("_")
-    ? `https://www.facebook.com/${FB_PAGE_ID}/posts/${id.split("_")[1]}`
-    : `https://www.facebook.com/${id}`;
-  return { post_id: id, post_url: postUrl };
+  return { post_id: id, post_url: facebookPostUrl(id) };
 }
 
 // ---------------------------------------------------------------------------
