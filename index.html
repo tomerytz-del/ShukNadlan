@@ -2137,9 +2137,33 @@
   .prop-card .body{padding:12px}
   .prop-card .pc-badges{max-width:calc(100% - 90px)}
 
-  /* במובייל המסלול פורץ את ריפוד ה-.wrap, בדיוק כמו .coverflow */
+  /* ====== מובייל: כתבה מובילה, ומתחתיה כתבה דחוסה ======
+     ברוחב טלפון הרצועה הנגללת ביקשה מהאצבע לעבוד כדי לגלות מה יש בה, ומי
+     שלא החליק ראה כתבה אחת וחצי חתוכה. במקום זה: הכתבה הראשונה בגדול
+     ברוחב המסך, מתחתיה השנייה בשורה דחוסה עם תמונונת — רמז שיש המשך — וכל
+     השאר מאחורי "כל הכתבות ←" שבראש הסקציה. */
   @media(max-width:759px){
-    .article-scroll{margin-inline:-18px}
+    .article-scroll{
+      display:grid;grid-template-columns:1fr;gap:10px;
+      overflow:visible;scroll-snap-type:none;padding:0;margin-inline:0;
+    }
+    /* השלישית והלאה נמצאות בארכיון, לא כאן */
+    .article-scroll > .article-card:nth-child(n+3){display:none}
+    /* התמונונת בקצה השמאלי והכותרת לצידה, בלי תקציר ובלי תאריך: זו שורה
+       שאומרת "יש עוד", ולא כרטיס שני מלא שמתחרה במובילה. */
+    .article-scroll > .article-card:nth-child(2){
+      display:grid;grid-template-columns:minmax(0,1fr) 96px;align-items:stretch;
+    }
+    /* שניהם באותה שורה במפורש: בלי ‎grid-row‎ המיקום האוטומטי היה מוצא את
+       העמודה הראשונה תפוסה ומוריד את הטקסט לשורה שנייה מתחת לתמונונת. */
+    .article-scroll > .article-card:nth-child(2) .cover{
+      grid-area:1 / 2;height:auto;min-height:92px;
+    }
+    .article-scroll > .article-card:nth-child(2) .body{
+      grid-area:1 / 1;padding:10px;gap:5px;justify-content:center;
+    }
+    .article-scroll > .article-card:nth-child(2) p,
+    .article-scroll > .article-card:nth-child(2) .stamp{display:none}
   }
   @media(min-width:480px){
     .article-scroll{--row-gap:12px;--row-peek:18px}
