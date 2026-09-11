@@ -146,10 +146,12 @@
   .price-pill{display:inline-flex;align-items:center;gap:6px;background:var(--gold-tint);color:#8a6d10;font-weight:800;font-size:.76rem;padding:4px 10px;margin-inline-start:8px}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
+<link rel="stylesheet" href="assets/buyer-banner.css">
 <link rel="stylesheet" href="assets/design-system.css">
 <script src="assets/page-bg.js" data-auto></script>
 <script src="assets/project-card.js"></script>
 <script src="assets/site-footer.js" defer></script>
+<script src="assets/buyer-banner.js" defer></script>
 </head>
 <body>
 
@@ -389,31 +391,207 @@
 </main>
 <footer class="site">
 
-  <!-- רצועת הניוזלטר: ההרשמה נשלחת ל-Edge Function ולא ישירות לטבלה, מאותה
-       סיבה כמו שאר הטפסים הציבוריים באתר — הכתיבה נעשית ב-service_role
-       והטבלה סגורה ל-anon לגמרי (אימייל של אדם פרטי). -->
-  <div class="footer-news">
-    <div class="footer-wrap footer-news-inner">
-      <div class="footer-news-text">
-        <h4>הנכסים החדשים בעפולה — ראשונים אצלכם</h4>
-        <p>עדכון אחד בשבוע למייל. בלי ספאם, אפשר להסיר בכל רגע.</p>
+  <!-- ====== באנר מחפשי הנכס — רצועת הפתיחה של הפוטר ======
+       כאן ישבה עד היום רצועת ההרשמה לרשימת התפוצה. שתיהן ביקשו מאותו אדם
+       את אותו דבר במילים אחרות — "נעדכן אתכם כשיעלה נכס" — וזו שומרת את
+       **החיפוש** ולא רק את האימייל: קריטריונים, ערוץ התראה והסכמה ליצירת
+       קשר, כלומר התראה על נכס שמתאים במקום סיכום שבועי.
+
+       הסימון והשליחה יושבים ב-assets/buyer-banner.css ו-buyer-banner.js,
+       קובץ אחד לכל העמודים — ראו docs/site-footer.md. היעד הוא
+       ‎saved-search-intake‎ של הסוכן החכם (‏docs/smart-search-agent.md) ולא
+       endpoint משלו: כפילות של אותה טבלה הייתה מפצלת גם את ההתראות וגם את
+       מדף הלידים. -->
+  <div class="footer-wrap footer-lead">
+
+    <div class="lead-banner buyer-banner" id="buyerBanner" data-source="footer_buyer_wizard">
+      <button type="button" class="lead-teaser" id="buyerStartBtn"
+              aria-expanded="false" aria-controls="buyerPanel">
+        <span class="lead-teaser-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10.5" cy="10.5" r="6.5"></circle>
+            <path d="M15.5 15.5 21 21"></path>
+            <path d="M7.6 11.4 10.5 8.8l2.9 2.6"></path>
+            <path d="M8.5 10.9v3h4v-3"></path>
+          </svg>
+        </span>
+        <span class="lead-teaser-copy">
+          <span class="lead-teaser-title">מחפשים נכס? תנו לו למצוא אתכם</span>
+          <span class="lead-teaser-sub">לקנייה או להשכרה — נעדכן אתכם ראשונים כשעולה נכס שמתאים</span>
+        </span>
+        <span class="lead-teaser-go" aria-hidden="true">
+          <span class="lead-teaser-go-open">התאמת נכס ←</span>
+          <span class="lead-teaser-go-close">סגירה ✕</span>
+        </span>
+      </button>
+
+      <div class="lead-panel" id="buyerPanel" hidden>
+        <!-- בלי כותרת נוספת: שורת ההזמנה שמעל היא הכותרת של הבאנר, ו-h2
+             שחוזר עליה במילים אחרות רק דוחף את השלב הראשון מטה. -->
+        <div class="owner-intro">
+          <p>ספרו לנו מה אתם מחפשים — ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.</p>
+        </div>
+
+        <div class="owner-wizard" id="buyerWizard">
+          <ol class="wiz-steps" id="buySteps" aria-label="שלבי ההתאמה">
+            <li class="active" data-step="1"><span class="dot">1</span>מה מחפשים</li>
+            <li data-step="2"><span class="dot">2</span>פרטי הנכס</li>
+            <li data-step="3"><span class="dot">3</span>פרטי קשר</li>
+          </ol>
+
+          <form id="buyerWizardForm" novalidate>
+            <!-- שלב 1: סוג העסקה + שכונות -->
+            <section class="wiz-panel active" data-panel="1">
+              <p class="wiz-q">מה אתם מחפשים?</p>
+              <!-- ‎.lead-toggle‎ ולא ‎.owner-toggle‎ בכוונה: המאזין של באנר
+                   בעלי הנכסים תופס את כל ‎.owner-toggle button‎ במסמך, ושימוש
+                   חוזר במחלקה היה משנה כאן את הכותרת של הבאנר השני. -->
+              <div class="lead-toggle" id="buyDealToggle" role="group" aria-label="סוג החיפוש">
+                <button type="button" class="active" data-buy-deal="sale">לקנייה</button>
+                <button type="button" data-buy-deal="rent">להשכרה</button>
+                <button type="button" data-buy-deal="commercial">מסחרי</button>
+              </div>
+
+              <!-- ‏saved_searches.deal_type מוגבל ל-sale/rent, ו"מסחרי" הוא
+                   קטגוריה ולא סוג עסקה — ולכן הבחירה בו פותחת את השאלה
+                   המשלימה במקום לנחש עבור המחפש/ת. -->
+              <div id="buyCommercialDeal" hidden>
+                <span class="wiz-label" id="buyCommercialLabel">נכס מסחרי — לקנייה או להשכרה?</span>
+                <div class="lead-toggle" id="buyCommercialToggle" role="group" aria-labelledby="buyCommercialLabel">
+                  <button type="button" class="active" data-buy-cdeal="sale">לקנייה</button>
+                  <button type="button" data-buy-cdeal="rent">להשכרה</button>
+                </div>
+              </div>
+
+              <span class="wiz-label" id="buyHoodLabel">באילו שכונות? <span class="wiz-hint">אפשר לבחור כמה</span></span>
+              <div class="chip-row" id="buyHoodChips" role="group" aria-labelledby="buyHoodLabel"></div>
+              <!-- נפתח רק כשרשימת השכונות לא נטענה (מסד לא זמין): בלעדיו
+                   שלב 1 היה נשאר בלי שום דרך לציין אזור. -->
+              <div id="buyAreaFallback" hidden>
+                <label class="wiz-label" for="buyArea">עיר או אזור</label>
+                <input type="text" id="buyArea" class="wiz-input" placeholder="לדוגמה: עפולה">
+              </div>
+
+              <p class="wiz-err" id="buyErr1"></p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-gold" data-buy-next="2">להמשך ←</button>
+              </div>
+            </section>
+
+            <!-- שלב 2: מאפייני הנכס -->
+            <section class="wiz-panel" data-panel="2">
+              <p class="wiz-q">מה הנכס שאתם מחפשים?</p>
+
+              <div id="buyRoomsBlock">
+                <span class="wiz-label" id="buyRoomsLabel">מספר חדרים <span class="wiz-hint">אפשר לבחור כמה</span></span>
+                <div class="chip-row" id="buyRoomsChips" role="group" aria-labelledby="buyRoomsLabel">
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="2">2</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="2.5">2.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="3">3</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="3.5">3.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="4">4</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="4.5">4.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="5">5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="+6">6+</button>
+                </div>
+              </div>
+
+              <span class="wiz-label" id="buyPtypeLabel">סוג הנכס <span class="wiz-hint">אפשר לבחור כמה</span></span>
+              <div class="chip-row" id="buyPtypeChips" role="group" aria-labelledby="buyPtypeLabel"></div>
+
+              <span class="wiz-label" id="buyBudgetLabel">תקציב <span class="wiz-hint" id="buyBudgetHint">(₪)</span></span>
+              <div class="buy-range">
+                <label class="buy-range-field">
+                  <span>מ־</span>
+                  <input type="number" id="buyPriceMin" class="wiz-input" inputmode="numeric" min="0" placeholder="ללא מינימום">
+                </label>
+                <label class="buy-range-field">
+                  <span>עד</span>
+                  <input type="number" id="buyPriceMax" class="wiz-input" inputmode="numeric" min="0" placeholder="ללא מקסימום">
+                </label>
+              </div>
+
+              <!-- במסחרי הגודל הוא מה שקובע, ומספר החדרים כמעט חסר משמעות —
+                   ולכן שני הבלוקים מתחלפים ואינם מוצגים יחד. -->
+              <div id="buySizeBlock" hidden>
+                <span class="wiz-label" id="buySizeLabel">גודל (מ״ר)</span>
+                <div class="buy-range">
+                  <label class="buy-range-field">
+                    <span>מ־</span>
+                    <input type="number" id="buySizeMin" class="wiz-input" inputmode="numeric" min="0" placeholder="הכול">
+                  </label>
+                  <label class="buy-range-field">
+                    <span>עד</span>
+                    <input type="number" id="buySizeMax" class="wiz-input" inputmode="numeric" min="0" placeholder="הכול">
+                  </label>
+                </div>
+              </div>
+
+              <p class="wiz-err" id="buyErr2"></p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-ghost-light" data-buy-back="1">→ חזרה</button>
+                <button type="button" class="btn btn-gold" data-buy-next="3">להמשך ←</button>
+              </div>
+            </section>
+
+            <!-- שלב 3: פרטי קשר -->
+            <section class="wiz-panel" data-panel="3">
+              <p class="wiz-q">לאן לשלוח את הנכסים המתאימים?</p>
+              <div class="buy-recap" id="buyRecap"></div>
+
+              <label class="wiz-label" for="buyName">שם מלא</label>
+              <input type="text" id="buyName" class="wiz-input" autocomplete="name">
+
+              <span class="wiz-label" id="buyChannelLabel">איך לעדכן אתכם?</span>
+              <div class="lead-toggle" id="buyChannels" role="group" aria-labelledby="buyChannelLabel">
+                <button type="button" class="active" data-buy-channel="whatsapp">וואטסאפ</button>
+                <button type="button" data-buy-channel="email">מייל</button>
+                <button type="button" data-buy-channel="both">שניהם</button>
+              </div>
+
+              <div id="buyPhoneField">
+                <label class="wiz-label" for="buyPhone">טלפון</label>
+                <input type="tel" id="buyPhone" class="wiz-input" placeholder="050-0000000" autocomplete="tel" inputmode="tel">
+              </div>
+              <div id="buyEmailField" hidden>
+                <label class="wiz-label" for="buyEmail">אימייל</label>
+                <input type="email" id="buyEmail" class="wiz-input" autocomplete="email" inputmode="email" dir="ltr" style="text-align:left">
+              </div>
+
+              <!-- ההסכמה נפרדת מההרשמה במכוון: אפשר לקבל התראות בלי שהפרטים
+                   יעברו לאף אחד. רק מי שמסמן/ת כאן הופך/ת לליד. -->
+              <label class="buy-check" for="buyConsent">
+                <input type="checkbox" id="buyConsent">
+                <span>אשמח שמתווך/ת מהאזור ייצור איתי קשר עם נכסים מתאימים</span>
+              </label>
+
+              <p class="wiz-err" id="buyErr3"></p>
+              <p class="buy-privacy">אפשר להפסיק את העדכונים בכל רגע, מקישור שבכל הודעה.</p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-ghost-light" data-buy-back="2">→ חזרה</button>
+                <button type="submit" class="btn btn-gold" id="buySubmitBtn">קבלת עדכונים</button>
+              </div>
+            </section>
+          </form>
+
+          <!-- מסך סיום -->
+          <div class="wiz-done" id="buyDone" hidden>
+            <div class="wiz-done-mark" aria-hidden="true">🔔</div>
+            <h3>החיפוש שלכם פעיל</h3>
+            <p id="buyDoneText">נעדכן אתכם ברגע שיעלה נכס שמתאים למה שביקשתם.</p>
+            <button type="button" class="btn btn-ghost-light" id="buyRestart">חיפוש נוסף</button>
+          </div>
+        </div>
       </div>
-      <form class="footer-news-form" id="newsletterForm" data-source="articles_page" novalidate>
-        <label class="footer-sr-only" for="newsletterEmail">כתובת אימייל להרשמה לעדכונים</label>
-        <input type="email" id="newsletterEmail" name="email" autocomplete="email" inputmode="email"
-               placeholder="האימייל שלך" required>
-        <button type="submit" id="newsletterBtn">הרשמה</button>
-      </form>
-      <p class="footer-news-msg" id="newsletterMsg" role="status" aria-live="polite"></p>
     </div>
   </div>
 
   <div class="footer-wrap footer-top">
 
     <div class="footer-brand">
-      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק — לדף הבית">
         <img src="assets/logo-shuknadlan-dark.svg" alt="" width="52" height="62" loading="lazy">
-        <span>שוק הנדל״ן<br>של עפולה והסביבה</span>
+        <span class="footer-logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
       </a>
       <p class="footer-tagline">
         <span>כל הנכסים, כל המתווכים ובעלי המקצוע בעפולה והעמק בכתובת אחת</span>
@@ -459,38 +637,46 @@
     </div>
 
     <nav class="footer-grid" aria-label="ניווט בתחתית העמוד">
-      <div class="footer-col">
-        <h4>נכסים</h4>
-        <a href="index.html#privateProps-sale">למכירה בעפולה</a>
-        <a href="index.html#privateProps-rent">להשכרה בעפולה</a>
-        <a href="index.html#commercialProps">נכסים מסחריים</a>
-        <a href="index.html#privateProps">כל הנכסים</a>
-        <a href="projects.html">פרויקטים חדשים</a>
-      </div>
-      <div class="footer-col">
-        <h4>כלים</h4>
-        <a href="index.html#calc">מחשבון משכנתא</a>
-        <a href="index.html#yield">מחשבון תשואה</a>
-        <a href="index.html#heroSection">חיפוש על המפה</a>
-        <a href="articles.html">כתבות ובלוגים</a>
-      </div>
-      <div class="footer-col">
-        <h4>בעלי מקצוע</h4>
-        <a href="agencies.html">כל משרדי התיווך</a>
-        <a href="agents.html">כל המתווכים</a>
-        <a href="professionals.html">כל בעלי המקצוע</a>
-        <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
-        <a href="developer-signup.html">הצטרפות כיזם/קבלן</a>
-      </div>
-      <div class="footer-col">
-        <h4>שוק נדל״ן</h4>
-        <a href="about.html">אודות</a>
-        <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
-        <a href="faq.html">שאלות נפוצות</a>
-        <a href="pricing.html">מסלולים ומחירים</a>
-        <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
-        <a href="crm.html">כניסת מתווכים</a>
-      </div>
+      <details class="footer-col" open>
+        <summary><h4>נכסים</h4></summary>
+        <div class="footer-col-links">
+          <a href="index.html#privateProps-sale">למכירה בעפולה</a>
+          <a href="index.html#privateProps-rent">להשכרה בעפולה</a>
+          <a href="index.html#commercialProps">נכסים מסחריים</a>
+          <a href="index.html#privateProps">כל הנכסים</a>
+          <a href="projects.html">פרויקטים חדשים</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>כלים</h4></summary>
+        <div class="footer-col-links">
+          <a href="index.html#calc">מחשבון משכנתא</a>
+          <a href="index.html#yield">מחשבון תשואה</a>
+          <a href="index.html#heroSection">חיפוש על המפה</a>
+          <a href="articles.html">כתבות ובלוגים</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>בעלי מקצוע</h4></summary>
+        <div class="footer-col-links">
+          <a href="agencies.html">כל משרדי התיווך</a>
+          <a href="agents.html">כל המתווכים</a>
+          <a href="professionals.html">כל בעלי המקצוע</a>
+          <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
+          <a href="developer-signup.html">הצטרפות כיזם/קבלן</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>שוק נדל״ן</h4></summary>
+        <div class="footer-col-links">
+          <a href="about.html">אודות</a>
+          <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
+          <a href="faq.html">שאלות נפוצות</a>
+          <a href="pricing.html">מסלולים ומחירים</a>
+          <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
+          <a href="crm.html">כניסת מתווכים</a>
+        </div>
+      </details>
     </nav>
 
   </div>
