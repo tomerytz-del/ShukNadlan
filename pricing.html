@@ -53,6 +53,10 @@
   .hero{padding:46px 0 26px;text-align:center}
   .hero h1{font-size:clamp(1.7rem,4.4vw,2.6rem);line-height:1.25;margin-bottom:12px}
   .hero p.lead{font-size:1.02rem;color:var(--ink-soft);max-width:640px;margin:0 auto}
+  @media(max-width:700px){
+    .hero{padding:30px 0 14px}
+    .hero p.lead{font-size:.94rem}
+  }
 
   /* באנר ההטבה. זהב ולא ספיר — הוא לא עוד הודעה בדף, הוא הסיבה להישאר בו. */
   .promo{
@@ -65,9 +69,38 @@
   .promo .promo-ends{display:inline-block;margin-top:8px;font-size:.82rem;font-weight:700;color:var(--brass-ink);
     background:#fff;border:1px solid var(--brass);border-radius:99px;padding:4px 12px}
 
+  /* ==========================================================================
+     מתג המסלולים — במובייל בלבד
+     --------------------------------------------------------------------------
+     שלוש עמודות ברוחב 360px הן שלוש עמודות של מילה וחצי בשורה: "סוכן עוזר
+     אישי בוואטסאפ" נשבר לחמש שורות, והמחיר יורד מתחת לקיפול. במקום לכווץ,
+     מציגים כרטיס אחד בכל רגע ומחליפים ביניהם במתג.
+
+     ‏**המתג מונע ב-JS, ולכן הוא מתחיל מוסתר.** בלי JS אין מי שיחליף בין
+     הכרטיסים, ומתג שלא עושה דבר גרוע מהיעדרו — ‎.plans.tabbed‎ (שמסתיר את
+     שני הכרטיסים האחרים) מתווסף באותה נשימה שבה המתג נחשף, וכך דף בלי JS
+     נשאר בדיוק מה שהיה: שלושה כרטיסים בטור.
+     ========================================================================== */
+  .plan-tabs{display:none;grid-template-columns:repeat(3,1fr);gap:5px;max-width:460px;
+    margin:26px auto 0;padding:5px;background:var(--field,#eef2fb);border:1px solid var(--line)}
+  @media(max-width:900px){.plan-tabs:not([hidden]){display:grid}}
+  .plan-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+    padding:10px 4px;background:transparent;border:1px solid transparent;color:var(--ink-soft);
+    font-weight:700;font-size:.85rem;line-height:1.2;transition:background .15s ease,color .15s ease}
+  .plan-tab .tab-name{font-size:clamp(.72rem,3.1vw,.85rem)}
+  .plan-tab .tab-note{font-size:.66rem;font-weight:800;letter-spacing:.01em}
+  .plan-tab[aria-selected="true"]{background:var(--surface);border-color:var(--line);
+    color:var(--sapphire-deep);box-shadow:0 6px 16px -12px rgba(13,27,61,.8)}
+  .plan-tab.is-elite[aria-selected="true"]{background:linear-gradient(160deg,#fffdf6,#fbf2de);
+    border-color:var(--brass);color:var(--brass-ink)}
+
   /* ---------- שלושת הכרטיסים ---------- */
-  .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:start;padding:34px 0 10px}
-  @media(max-width:900px){.plans{grid-template-columns:1fr;max-width:460px;margin:0 auto}}
+  .plans{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:stretch;padding:34px 0 10px}
+  @media(max-width:900px){
+    .plans{grid-template-columns:1fr;max-width:460px;margin:0 auto;padding-top:26px}
+    .plans.tabbed .plan{display:none}
+    .plans.tabbed .plan.is-shown{display:flex}
+  }
 
   /* ‏overflow גלוי ולא hidden: תגית "הבחירה של המובילים" יושבת חצי מחוץ
      לכרטיס, ו-hidden היה חותך אותה בדיוק באמצע. הפינות של רצועת הכותרת
@@ -76,23 +109,65 @@
     display:flex;flex-direction:column;position:relative;transition:transform .18s ease,box-shadow .18s ease}
   .plan:hover{transform:translateY(-3px);box-shadow:0 18px 40px -26px rgba(13,27,61,.55)}
 
-  .plan-head{padding:22px 20px 18px;border-bottom:1px solid var(--line);
+  .plan-head{padding:22px 20px 20px;border-bottom:1px solid var(--line);
     border-radius:calc(var(--radius) - 2px) calc(var(--radius) - 2px) 0 0}
-  .plan-name{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.42rem;letter-spacing:.01em}
-  .plan-tagline{font-size:.84rem;opacity:.85;margin-top:2px}
-  .plan-price{display:flex;align-items:baseline;gap:6px;margin-top:14px;flex-wrap:wrap}
-  .plan-price .num{font-family:'Frank Ruhl Libre',serif;font-size:2.5rem;font-weight:700;line-height:1}
-  .plan-price .per{font-size:.9rem;opacity:.8}
-  .plan-price .vat{font-size:.74rem;opacity:.7;width:100%}
-  .plan-note{font-size:.76rem;opacity:.75;margin-top:8px}
+  .plan-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+  /* ‏color:inherit ולא ברירת המחדל: מאז ששם המסלול הוא ‎<h3>‎ (ולא ‎<div>‎),
+     כלל הכותרות של שכבת העיצוב צובע אותו בדיו כהה — וברצועה הכהה של
+     PROFESSIONAL זה ספיר על ספיר, כלומר שם שנעלם. */
+  .plan-name{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.42rem;
+    letter-spacing:.01em;margin:0;line-height:1.2;color:inherit}
+  /* תגית הסטטוס. ‏‎-tag‎ אינו ‎.tag‎ של שכבת העיצוב, ולכן הריבוע כאן נכתב
+     במפורש — כמו כל שאר התגיות הקטנות באתר. */
+  .plan-tag{font-size:.68rem;font-weight:800;padding:3px 9px;border-radius:0;white-space:nowrap;
+    background:rgba(14,42,107,.08);color:var(--sapphire)}
+  .plan-tagline{font-size:.84rem;opacity:.85;margin:3px 0 0}
 
-  .plan-body{padding:18px 20px 22px;display:flex;flex-direction:column;gap:11px;flex:1}
-  .feat{display:flex;align-items:flex-start;gap:9px;font-size:.87rem;line-height:1.45}
-  .feat svg{width:17px;height:17px;flex:none;margin-top:2px}
+  /* היררכיית המחיר: ספרות גדולות, שקל קטן לצידן, ושורת הסבר **אחת** מתחת.
+     ‏nowrap כי "לחודש + מע״מ · ללא התחייבות" שנשבר באמצע ה-·  נראה כמו
+     תקלה; הוא נמדד ונכנס גם בכרטיס של 320px. */
+  .plan-price{display:flex;align-items:baseline;gap:4px;margin-top:16px;line-height:1}
+  .plan-price .cur{font-size:1.3rem;font-weight:700;opacity:.72}
+  .plan-price .num{font-size:2.45rem;font-weight:800;letter-spacing:-.02em;
+    font-variant-numeric:tabular-nums;font-feature-settings:'tnum'}
+  .plan-price-sub{margin:8px 0 0;font-size:.75rem;line-height:1.35;color:#64748b;white-space:nowrap}
+
+  /* ---------- רשימת היתרונות ---------- */
+  /* ‏grid ולא flex: שתי עמודות קבועות — אייקון ואז טקסט — מיישרות את כל
+     ה-✓ לאותו קו בצד ימין, וטקסט שנשבר לשתי שורות נשאר בתוך העמודה שלו
+     במקום לזלוג מתחת לאייקון. */
+  .plan-body{padding:20px 20px 6px;display:flex;flex-direction:column;gap:12px;flex:1;text-align:right}
+  .feat{display:grid;grid-template-columns:20px 1fr;gap:10px;align-items:start;text-align:right}
+  .feat-ico{width:20px;height:20px;display:grid;place-items:center;margin-top:1px}
+  .feat-ico svg{width:17px;height:17px;display:block}
+  .feat-txt{font-size:.88rem;line-height:1.5;font-weight:500}
+  .feat-sub{display:block;margin-top:2px;font-size:.75rem;line-height:1.45;color:#64748b;font-weight:400}
   .feat.off{opacity:.5}
-  .plan-cta{margin:18px 20px 20px;display:block;text-align:center;text-decoration:none;
-    padding:13px 18px;border-radius:9px;font-weight:700;font-size:.95rem;width:calc(100% - 40px)}
-  .plan-foot{font-size:.74rem;text-align:center;margin:-8px 20px 16px;opacity:.75;min-height:1.1em}
+  .feat.off .feat-txt{font-weight:400}
+
+  /* סוכן הוואטסאפ מקבל את האייקון של וואטסאפ ולא ✓ ירוק גנרי: זו היכולת
+     שנמכרת בשם המוצר שכולם מכירים, ודיסקה ירוקה אחת ברשימה עושה את זה. */
+  .feat-ico.wa{background:var(--wa,#25a55a);border-radius:50%;
+    box-shadow:0 4px 10px -5px rgba(37,165,90,.9)}
+  .feat-ico.wa svg{width:13px;height:13px;fill:#fff}
+  .feat.wa .feat-txt{font-weight:700}
+
+  /* ---------- היתרון שמוכר את המסלול ---------- */
+  .feat.hero{display:block;background:linear-gradient(160deg,#fffdf6,#fbf2de);
+    border:1px solid #ecdcae;border-radius:10px;padding:11px 12px}
+  /* התגית בשורה משלה ולא לצד הכותרת: שתי הכותרות באורך שונה, ותגית שנכנסת
+     לשורה אחת בכרטיס הראשון ונדחקת לשורה נפרדת בשני נראית כמו תקלה. */
+  .feat-badge{display:inline-block;margin-bottom:5px;font-size:.65rem;font-weight:800;
+    padding:2px 8px;white-space:nowrap;background:var(--sapphire-deep);color:#f6e0a3}
+  .feat.hero .feat-txt{display:block;font-weight:800;font-size:.92rem;
+    line-height:1.4;color:var(--sapphire-deep)}
+  .feat.hero .feat-sub{color:#6b6142;margin-top:4px}
+
+  /* ---------- ה-CTA ---------- */
+  .plan-cta{margin:16px 20px 0;display:block;text-align:center;text-decoration:none;
+    padding:14px 18px;border-radius:9px;font-weight:800;font-size:.97rem;width:calc(100% - 40px);
+    transition:background .15s ease,filter .15s ease,color .15s ease}
+  .plan-foot{font-size:.75rem;text-align:center;margin:9px 20px 18px;color:#64748b;min-height:1.1em}
 
   /* --- Pay&GO: בהיר --- */
   .plan.paygo .plan-head{background:#f7f9fe}
@@ -103,6 +178,12 @@
   /* --- PROFESSIONAL: ספיר כהה --- */
   .plan.pro{border-color:var(--sapphire-deep)}
   .plan.pro .plan-head{background:linear-gradient(160deg,#12306f,var(--sapphire-deep));color:#fff;border-bottom-color:rgba(255,255,255,.16)}
+  /* הכותרת כהה, ולכן slate-500 של שאר הכרטיסים אינו קריא כאן. */
+  .plan.pro .plan-tag{background:rgba(255,255,255,.14);color:#e7eeff}
+  .plan.pro .plan-tagline{opacity:1;color:#bfcdec}
+  .plan.pro .plan-price-sub{color:rgba(255,255,255,.76)}
+  /* ספיר על ספיר — התגית "המסלול שלך" הייתה נבלעת ברצועה הכהה. */
+  .plan.pro.is-current .plan-tag{background:#fff;color:var(--sapphire-deep)}
   .plan.pro .plan-cta{background:var(--sapphire);color:#fff}
   .plan.pro .plan-cta:hover{background:#08194a}
 
@@ -110,19 +191,28 @@
   .plan.elite{border-color:var(--brass);box-shadow:0 20px 50px -28px rgba(201,162,39,.9)}
   .plan.elite .plan-head{background:linear-gradient(160deg,#fffdf6,#f6e9c8);border-bottom-color:#e8d9a8}
   .plan.elite .plan-name{color:var(--sapphire-deep)}
+  .plan.elite .plan-tag{background:rgba(201,162,39,.2);color:var(--brass-ink)}
+  .plan.elite .plan-price-sub{color:#6b6142}
   .plan.elite .plan-cta{background:linear-gradient(135deg,#d9b53c,#a8841a);color:#fff;
     box-shadow:0 8px 18px -10px rgba(168,132,26,.9)}
   .plan.elite .plan-cta:hover{filter:brightness(1.06)}
   .plan-badge{position:absolute;top:0;inset-inline-start:50%;transform:translate(50%,-50%);
     background:var(--sapphire-deep);color:#f6e0a3;font-size:.72rem;font-weight:800;
-    padding:5px 14px;border-radius:99px;white-space:nowrap;box-shadow:0 6px 14px -8px rgba(13,27,61,.9)}
+    padding:5px 14px;white-space:nowrap;box-shadow:0 6px 14px -8px rgba(13,27,61,.9)}
   .plan.elite{margin-top:14px}
-  @media(max-width:900px){.plan.elite{margin-top:20px}}
+  @media(max-width:900px){
+    .plan.elite{margin-top:20px}
+    /* במתג יש כרטיס אחד בכל רגע, והמרווח שפינה מקום לתגית של Elite עובר
+       למכל: בלעדיו הכרטיס קופץ 20px כלפי מעלה בכל מעבר ל-Pay&GO. */
+    .plans.tabbed{padding-top:40px}
+    .plans.tabbed .plan.elite{margin-top:0}
+  }
 
-  /* מצבים: המסלול הנוכחי, ומסלול שנעול בתקופת ההטבה */
+  /* מצבים: המסלול הנוכחי, ומסלול שנעול בתקופת ההטבה.
+     "המסלול שלך" נכנס לתגית הסטטוס עצמה ולא לרצועה מרחפת: רצועה בפינה
+     העליונה נחתה בדיוק על תגית הסטטוס, ושתי תגיות זו על זו הן באג. */
   .plan.is-current{outline:2.5px solid var(--sapphire);outline-offset:2px}
-  .ribbon{position:absolute;top:12px;inset-inline-end:12px;font-size:.68rem;font-weight:800;
-    background:var(--sapphire);color:#fff;border-radius:6px;padding:3px 9px}
+  .plan.is-current .plan-tag{background:var(--sapphire);color:#fff}
   /* ‏.plan .plan-cta.is-disabled ולא רק ‎.plan-cta.is-disabled‎: הצבע של כל
      מסלול נכתב כ-‎.plan.pro .plan-cta‎ — שלוש מחלקות — וכלל של שתיים אינו גובר
      עליו. בלי התוספת הזו כפתור נעול נשאר ספיר כהה ומלא, ונראה לחיץ יותר
@@ -285,8 +375,10 @@
 
 <main>
   <div class="wrap">
+    <!-- המתג נבנה ונחשף ב-JS, ורק במובייל. ראו ההערה שליד ‎.plan-tabs‎. -->
+    <div class="plan-tabs" id="planTabs" role="tablist" aria-label="בחירת מסלול" hidden></div>
     <div class="plans" id="plans"></div>
-    <p class="fineprint" id="finePrint">המחירים לחודש ואינם כוללים מע״מ · ללא התחייבות · המעבר בין מסלולים נכנס לתוקף בחודש העוקב</p>
+    <p class="fineprint" id="finePrint">המעבר בין מסלולים נכנס לתוקף בחודש העוקב · חשבונית מס נשלחת אוטומטית אחרי כל חיוב</p>
 
     <section class="compare">
       <h2>מה כלול בכל מסלול</h2>
@@ -387,6 +479,8 @@ const promoOpen = promoState.active || (Tiers.PROMO.active && !current);
 
 const ICON_YES = '<svg viewBox="0 0 24 24" fill="none" stroke="#1c8546" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
 const ICON_NO  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
+/* אותו גליף בדיוק כמו בועת הוואטסאפ בדף הנכס. */
+const ICON_WA  = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"/></svg>';
 
 const esc = (s) => String(s == null ? '' : s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
@@ -472,49 +566,161 @@ function ctaFor(tier){
     };
   }
 
-  // הדף הציבורי: הצטרפות למערכת היא פתיחת משרד.
+  // הדף הציבורי: הצטרפות למערכת היא פתיחת משרד. שורת הרגל אינה קישוט —
+  // ההתנגדות האחרונה לפני הלחיצה היא "ומה אם זה לא מתאים לי", והיא נענית
+  // כאן ולא בשאלות הנפוצות שמאתיים פיקסלים למטה.
   return {
     label: promoOpen ? 'מתחילים — ' + Tiers.PROMO.months + ' חודשים במתנה' : tier.cta,
     href: 'agency-signup.html?tier=' + encodeURIComponent(tier.id),
-    foot: promoOpen ? 'בלי כרטיס אשראי' : '',
+    foot: promoOpen ? 'בלי כרטיס אשראי'
+      : tier.priceMonthly ? 'ללא התחייבות · אפשר לבטל בכל רגע'
+      : 'בלי דמי מנוי · בלי כרטיס אשראי',
   };
 }
 
+/* ---------- המחיר ----------
+   ספרות גדולות, ₪ קטן לצידן, ושורת הסבר אחת מתחת — ולא ארבעה חלקים
+   שמסתדרים בשורה ("₪950 / חודש + מע״מ · חיוב חודשי") ונשברים בכרטיס צר
+   בדיוק במקום הלא נכון. ‏₪0 נשאר מספר ולא "ללא דמי מנוי": כאן שלושת
+   המחירים עומדים זה לצד זה, ועמודה שבה אין ספרה שוברת את ההשוואה. */
 function priceBlock(tier){
-  if (!tier.priceMonthly){
-    return '<div class="plan-price"><span class="num">₪0</span><span class="per">/ חודש</span>' +
-           '<span class="vat">משלמים רק על פניות שנפתחו</span></div>';
-  }
-  return '<div class="plan-price"><span class="num">₪' + tier.priceMonthly.toLocaleString('he-IL') + '</span>' +
-         '<span class="per">/ חודש</span><span class="vat">+ מע״מ · חיוב חודשי</span></div>';
+  const num = (tier.priceMonthly || 0).toLocaleString('he-IL');
+  return '<div class="plan-price"><span class="cur">₪</span><span class="num">' + num + '</span></div>' +
+         '<p class="plan-price-sub">' + esc(tier.priceNote) + '</p>';
 }
 
-document.getElementById('plans').innerHTML = Tiers.list().map(function(tier){
+/* ---------- שורת יתרון ----------
+   שלוש צורות, לפי מה שהשדה מבקש:
+     hero    — בלוק מודגש עם תגית. היתרון שמוכר את המסלול.
+     icon    — אייקון וואטסאפ במקום ה-✓.
+     ברירת מחדל — ✓ ירוק או ✕, ומתחתיו שורת הערך העסקי אם יש. */
+function featHtml(f){
+  const sub = f.sub ? '<span class="feat-sub">' + esc(f.sub) + '</span>' : '';
+
+  if (f.hero){
+    return '<div class="feat hero">' +
+      (f.flag ? '<span class="feat-badge">' + esc(f.flag) + '</span>' : '') +
+      '<span class="feat-txt">' + esc(f.text) + '</span>' + sub +
+    '</div>';
+  }
+
+  const wa = f.icon === 'whatsapp';
+  const ico = wa
+    ? '<span class="feat-ico wa" role="img" aria-label="בוואטסאפ">' + ICON_WA + '</span>'
+    : '<span class="feat-ico" role="img" aria-label="' + (f.on ? 'כלול' : 'לא כלול') + '">' +
+      (f.on ? ICON_YES : ICON_NO) + '</span>';
+
+  return '<div class="feat' + (f.on ? '' : ' off') + (wa ? ' wa' : '') + '">' + ico +
+    '<span class="feat-txt">' + esc(f.text) + sub + '</span></div>';
+}
+
+const plansBox = document.getElementById('plans');
+plansBox.innerHTML = Tiers.list().map(function(tier){
   const cta = ctaFor(tier);
   const isCurrent = tier.id === current;
-  const feats = tier.features.map(function(f){
-    return '<div class="feat' + (f.on ? '' : ' off') + '">' + (f.on ? ICON_YES : ICON_NO) +
-           '<span>' + esc(f.text) + '</span></div>';
-  }).join('');
+  const feats = tier.features.map(featHtml).join('');
+  const tag = isCurrent ? 'המסלול שלך' : (tier.status || '');
 
   const ctaHtml = cta.disabled
     ? '<span class="plan-cta is-disabled">' + esc(cta.label) + '</span>'
     : '<a class="plan-cta" href="' + esc(cta.href) + '">' + esc(cta.label) + '</a>';
 
-  return '<article class="plan ' + tier.color + (isCurrent ? ' is-current' : '') + '">' +
+  return '<article class="plan ' + tier.color + (isCurrent ? ' is-current' : '') +
+    '" id="plan-' + esc(tier.id) + '" data-tier="' + esc(tier.id) + '">' +
     (tier.badge && !isCurrent ? '<span class="plan-badge">★ ' + esc(tier.badge) + '</span>' : '') +
-    (isCurrent ? '<span class="ribbon">המסלול שלך</span>' : '') +
     '<div class="plan-head">' +
-      '<div class="plan-name">' + esc(tier.name) + '</div>' +
-      '<div class="plan-tagline">' + esc(tier.tagline) + '</div>' +
+      '<div class="plan-top">' +
+        '<h3 class="plan-name">' + esc(tier.name) + '</h3>' +
+        (tag ? '<span class="plan-tag">' + esc(tag) + '</span>' : '') +
+      '</div>' +
+      '<p class="plan-tagline">' + esc(tier.tagline) + '</p>' +
       priceBlock(tier) +
-      '<div class="plan-note">' + esc(tier.priceNote) + '</div>' +
     '</div>' +
     '<div class="plan-body">' + feats + '</div>' +
     ctaHtml +
     '<div class="plan-foot">' + esc(cta.foot || '') + '</div>' +
   '</article>';
 }).join('');
+
+/* ---------- מתג המסלולים במובייל ----------
+   הכרטיסים כבר בנויים; כאן רק מחליטים מי מהם נראה. המתג נחשף רק כשמדיה
+   קווארי אומר שיש מקום לכרטיס אחד בלבד, ונסגר בחזרה בסיבוב המסך — ולכן
+   הוא מאזין ל-matchMedia ולא נקבע פעם אחת בטעינה. */
+(function tabs(){
+  const box = document.getElementById('planTabs');
+  const mq  = window.matchMedia('(max-width:900px)');
+  const ids = Tiers.ORDER;
+
+  box.innerHTML = Tiers.list().map(function(tier){
+    return '<button type="button" class="plan-tab' + (tier.color === 'elite' ? ' is-elite' : '') +
+      '" role="tab" id="tab-' + esc(tier.id) + '" aria-controls="plan-' + esc(tier.id) + '"' +
+      ' aria-selected="false" tabindex="-1" data-tier="' + esc(tier.id) + '">' +
+      '<span class="tab-name">' + esc(tier.name) + '</span>' +
+      (tier.tabNote ? '<span class="tab-note">' + esc(tier.tabNote) + '</span>' : '') +
+    '</button>';
+  }).join('');
+
+  /* ברירת המחדל היא המסלול של מי שמולנו אם יש כזה, ואחרת המסלול המסומן
+     — במובייל רואים כרטיס אחד, ואם הוא הזול שבהם אף אחד לא יגלול הצידה. */
+  const marked = Tiers.list().filter(function(t){ return t.badge; })[0];
+  let active = (current && Tiers.byId(current)) ? current : (marked || Tiers.list()[0]).id;
+
+  function select(id, moveFocus){
+    active = id;
+    Array.prototype.forEach.call(box.children, function(btn){
+      const on = btn.dataset.tier === id;
+      btn.setAttribute('aria-selected', on ? 'true' : 'false');
+      btn.tabIndex = on ? 0 : -1;
+      if (on && moveFocus) btn.focus();
+    });
+    Array.prototype.forEach.call(plansBox.children, function(card){
+      card.classList.toggle('is-shown', card.dataset.tier === id);
+    });
+  }
+
+  box.addEventListener('click', function(e){
+    const btn = e.target.closest('.plan-tab');
+    if (btn) select(btn.dataset.tier);
+  });
+
+  /* ‏RTL: חץ שמאלה ממשיך ברשימה וחץ ימינה חוזר בה, כי המתג עצמו מסודר
+     מימין לשמאל. ‏Home/End קופצים לקצוות. */
+  box.addEventListener('keydown', function(e){
+    const i = ids.indexOf(active);
+    if (i < 0) return;
+    let next = null;
+    if (e.key === 'ArrowLeft')       next = ids[(i + 1) % ids.length];
+    else if (e.key === 'ArrowRight') next = ids[(i - 1 + ids.length) % ids.length];
+    else if (e.key === 'Home')       next = ids[0];
+    else if (e.key === 'End')        next = ids[ids.length - 1];
+    if (!next) return;
+    e.preventDefault();
+    select(next, true);
+  });
+
+  function sync(){
+    const on = mq.matches;
+    box.hidden = !on;
+    plansBox.classList.toggle('tabbed', on);
+    Array.prototype.forEach.call(plansBox.children, function(card){
+      // ‏role="tabpanel" רק כשיש tablist שמפעיל אותו. בדסקטופ שלושת
+      // הכרטיסים גלויים יחד, ושלושה tabpanel בלי מתג הם שקר לקורא מסך.
+      if (on){
+        card.setAttribute('role', 'tabpanel');
+        card.setAttribute('aria-labelledby', 'tab-' + card.dataset.tier);
+      } else {
+        card.removeAttribute('role');
+        card.removeAttribute('aria-labelledby');
+        card.classList.remove('is-shown');
+      }
+    });
+    if (on) select(active);
+  }
+
+  sync();
+  if (mq.addEventListener) mq.addEventListener('change', sync);
+  else if (mq.addListener) mq.addListener(sync);
+})();
 
 /* ---------- טבלת ההשוואה ----------
    כל היכולות של המערכת, שורה לכל אחת, מקובצות לפי מה שהסוכן/ת בא/ה לעשות
