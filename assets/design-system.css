@@ -320,13 +320,21 @@ header.site .primary a[aria-current],header.site .primary a.is-active{
 
 /* ====== 9. סרט "מקודם" ======
    מסומן זהב עם יהלום, בגודל אחד ובפינה אחת בכל האתר — כך הקידום נקרא
-   כשפה משלו ולא מתחרה בתגיות העסקה. */
-.prop-card .ribbon,.promoted-flag{
+   כשפה משלו ולא מתחרה בתגיות העסקה.
+
+   **הצבע נקבע כאן ורק כאן, לכל צורות התצוגה של הנכס.** אריח הכיסוי
+   (‏.prop-card .ribbon), השורה הדחוסה של מדפי דף הבית (‏.prop-row .pr-promo)
+   ושורת תוצאת החיפוש (‏.sr-thumb .ribbon) הן אותו נכס באותו קידום, ולכן
+   סרט זהב באחת וסרט ספיר בשנייה נקרא כשני דברים שונים — בדיוק בעמוד שבו
+   שתיהן מוצגות זו מתחת לזו. המידות נשארות מקומיות: ‎.pr-promo‎ יושב על
+   תמונונת של 96px ולא על אריח. */
+.prop-card .ribbon,.prop-row .pr-promo,.sr-thumb .ribbon,.promoted-flag{
   background:var(--brass);color:var(--sapphire-deep);
-  font-size:11px;font-weight:800;letter-spacing:.04em;
-  padding:4px 9px;border:none;box-shadow:none;
+  font-weight:800;letter-spacing:.04em;border:none;box-shadow:none;
 }
-.prop-card .ribbon::before,.promoted-flag::before{content:"◆ ";font-size:.85em}
+.prop-card .ribbon,.sr-thumb .ribbon,.promoted-flag{font-size:11px;padding:4px 9px}
+.prop-card .ribbon::before,.prop-row .pr-promo::before,
+.sr-thumb .ribbon::before,.promoted-flag::before{content:"◆ ";font-size:.85em}
 
 /* ====== 10. תו האמון ======
    התו עצמו הוא הקישור להסבר הדירוג — אין לצדו קישור טקסט. הטבעת הזהובה
