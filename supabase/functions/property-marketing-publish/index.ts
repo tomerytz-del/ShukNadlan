@@ -221,6 +221,21 @@ async function handle(sb: any, row: any, opts: { force: boolean; dryRun: boolean
   // לקפל, ולכן זו אותה תקרה בשני המקומות.
   const images = gallery.slice(0, MAX_PHOTOS);
 
+  // נכס בלי תמונה אינו מפורסם. ‏pending_property_publications כבר מסננת אותו
+  // (מיגרציה 20261020090000), ולכן אין דרך מוכרת להגיע לכאן — אבל אם שתי
+  // ההגדרות ייפרדו אי פעם, עדיף דילוג מתועד על פני באנדל שנופל ב-Make עם
+  // ‏Missing value of required parameter 'url', מכבה את התרחיש ועוצר את התור.
+  // הבדיקה מקדימה את הקריאה ל-Claude: אין טעם לכתוב תיאור לפוסט שלא ייצא.
+  if (!images.length) {
+    if (!opts.dryRun) {
+      await sb.from("property_publications").update({
+        status: "skipped",
+        last_error: "נכס בלי תמונה — לא מפרסמים פוסט בלי תמונות",
+      }).eq("id", row.publication_id);
+    }
+    return { property_id: row.property_id, skipped: "no_image" };
+  }
+
   // 1. תיאור שיווקי — רק אם אין, אלא אם ביקשו במפורש לכתוב מחדש
   let generated = false;
   let marketing = {
