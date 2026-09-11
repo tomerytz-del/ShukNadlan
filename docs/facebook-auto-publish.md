@@ -371,6 +371,11 @@ curl -X POST "$SUPABASE_URL/functions/v1/property-marketing-publish" \
 select queue_property_publication('<property-id>', 'facebook_page', true);
 ```
 
+הפרמטר השלישי הוא `force`, והוא מנקה גם את `post_id`, ‏`post_url`
+ו-`posted_at` של הפרסום הקודם (מיגרציה `20261023090000`). בלי הניקוי הזה
+פרסום חוזר שלא יחזיר מזהה היה משאיר על השורה את המזהה של פוסט אחר — לרוב
+כזה שכבר נמחק מהדף — ו-`post_id` היה מפסיק להיות ראיה למשהו.
+
 ## מעקב
 
 ```sql
