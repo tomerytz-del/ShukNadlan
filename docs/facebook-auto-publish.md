@@ -28,6 +28,7 @@
 | --- | --- |
 | `supabase/migrations/20260906090000_property_marketing_publish.sql` | התור, הטריגר, פונקציות המשיכה/התפיסה/הסימון, ותזמון ה-cron |
 | `supabase/migrations/20261020090000_publish_requires_image.sql` | תנאי התמונה, חידוש חלון ההשהיה, וירי ה-cron המותנה |
+| `supabase/migrations/20261022090000_publication_require_post_id.sql` | דרישת `post_id` לאישור פרסום, ו-view הפרסומים הלא מאומתים |
 | `supabase/functions/property-marketing-publish/index.ts` | השרת: מרכיב את הפוסט ומפרסם |
 | `supabase/functions/_shared/marketing-copy.ts` | הפרומפט ועובדות הנכס — משותף עם `property-description` |
 | `docs/facebook-auto-publish.md` | הקובץ הזה |
@@ -124,6 +125,7 @@ mark_property_publication → posted + post_id + הטקסט שיצא
 | `facebook_autopost_delay_minutes` | 20 | כמה ממתינים אחרי שמירת הנכס |
 | `facebook_autopost_daily_cap` | 12 | תקרת פוסטים ליממה. עודף נשאר בתור ויוצא למחרת |
 | `facebook_autopost_max_attempts` | 5 | ניסיונות לפני `failed` (‏30 דקות בין ניסיונות) |
+| `facebook_autopost_require_post_id` | 0 | פרסום ייחשב מוצלח רק אם הערוץ החזיר `post_id`. **להדליק רק אחרי** שמודול Webhook response מוגדר ומחזיר מזהה — ראו שלבים 7–8 במסלול Make |
 
 ```sql
 -- לעצור הכול עכשיו
@@ -255,17 +257,44 @@ select vault.create_secret('<סוד אקראי>', 'alert_cron_secret',
    > פריט אחד בשדה `Photos` עם `URL` = `{{1.images[1]}}`. זה מאמת חיבור,
    > דף והרשאות בפוסט אחד עם תמונה אחת, ורק אז מרחיבים.
 
-5. **Webhook response (מומלץ)** — מודול `Webhooks → Webhook response` בסוף
-   המסלול, עם
-   `{"post_id": "{{4.id}}", "post_url": "https://www.facebook.com/{{4.id}}"}`.
+5. **Webhook response (חובה בפועל)** — מודול `Webhooks → Webhook response`
+   בסוף המסלול. שני שדות:
+
+   - **Status** = `200`
+   - **Body** =
+     `{"post_id": "{{4.id}}", "post_url": "https://www.facebook.com/{{4.id}}"}`
+
+   (‏`4` הוא מספר מודול הפרסום אצלכם. בשדה **Body** צריך לבחור
+   `Content type: JSON`, אחרת Make שולח את זה כטקסט ואנחנו לא נצליח לפרסר.)
 
    בלי המודול הזה **אין לנו דרך לדעת אם הפוסט באמת עלה**: ‏Make מחזיר 200
    כבר על קבלת ה-webhook — גם כשהתרחיש כבוי והנתונים רק נכנסו לתור שלו —
    ואנחנו מסמנים `posted` על סמך התשובה הזו. כך קרה ב-9.9.2026 ש-14 נכסים
-   רשומים אצלנו כמפורסמים בלי שאף פוסט עלה. עם המודול, `post_id` נשמר ביומן
-   והשורות בלעדיו מזוהות מיד.
+   רשומים אצלנו כמפורסמים בלי שאף פוסט עלה, והתגלה רק יומיים אחר כך.
 
 6. מפעילים את התרחיש (**Scheduling: Immediately**).
+
+7. **מפרסמים נכס אחד ובודקים שחזר `post_id`:**
+
+   ```sql
+   select post_id, post_url, posted_at from property_publications
+    where post_id is not null order by posted_at desc limit 1;
+   ```
+
+8. **רק אחרי ששלב 7 החזיר מזהה** — מדליקים את דרישת האישור:
+
+   ```sql
+   update pricing_config set value = 1
+    where key = 'facebook_autopost_require_post_id';
+   ```
+
+   מכאן פרסום שחוזר בלי `post_id` נספר ככישלון: ניסיון חוזר בעוד חצי שעה,
+   ואחרי `facebook_autopost_max_attempts` השורה מסומנת `failed` עם הסבר —
+   במקום `posted` שקרי.
+
+   > **אל תדליקו את זה לפני שלב 7.** בתרחיש שאין בו Webhook response, כל
+   > פרסום מוצלח ייספר ככישלון ויחזור לתור — כלומר חמישה פוסטים זהים על
+   > אותו נכס. פוסט כפול הוא בדיוק הנזק שכל המנגנון הזה בנוי למנוע.
 
 > **מספרי המודולים** הם אלה של Make ומשתנים לפי סדר הבנייה. הכלל: `1` הוא
 > תמיד ה-Webhook, ומה שמפנים אליו הוא המודול שמייצר את השדה — לא מספר קבוע.
@@ -345,7 +374,16 @@ select p.title, pub.status, pub.attempts, pub.posted_at, pub.post_url,
 -- מה תקוע
 select * from property_publications
  where status = 'failed' or (status = 'pending' and attempts > 0);
+
+-- מה סומן כמפורסם בלי שהערוץ אישר
+select * from property_publications_unconfirmed;
 ```
+
+**`property_publications_unconfirmed` היא הבדיקה שהייתה חסרה ב-9.9.2026.**
+היא מחזירה שורות `posted` שאין להן `post_id` — כלומר פרסומים שאיש לא אישר.
+כשהמתג `facebook_autopost_require_post_id` כבוי, שורה שם אומרת "לא נדע בלי
+להסתכל בדף"; כשהוא דלוק, שורה שם היא כבר ממצא. אחרי הפעלה מלאה של המסלול
+ה-view אמור להישאר ריק.
 
 `message` על השורה הוא הטקסט שיצא בפועל — שם בודקים מה באמת פורסם, ולא
 משחזרים אותו מהנכס (המודעה יכולה להשתנות מחר, הפוסט לא).
