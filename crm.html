@@ -4511,6 +4511,27 @@
         </div>
       </details>
 
+      <!-- ---------- כרטיסיות בעלי מקצוע ----------
+           מוצר פרסום צד-שלישי (₪350 לחודש): כרטיסייה ברצועה שבדף
+           הבית ועמוד פרופיל מלא. את התוכן עורך/ת בעל/ת המקצוע דרך
+           קישור הניהול שלו/ה — אבל את *הכרטיסייה* עצמה אף אחד לא יכול היה
+           להסיר, ורישום בדיקה או מי שביקש/ה לרדת מהאתר נשארו באוויר.
+           הרשימה מגיעה מ-RPC ולא מהטבלה: על ad_placements יש קריאה ציבורית
+           של שורות active בלבד, ודווקא מה שצריך לראות כאן — כרטיסייה
+           מושהית, שפג תוקפה, או שדה החיוב שלה — מוסתר שם. -->
+      <details class="acc" id="accProfessionals">
+        <summary>
+          <span class="acc-title">בעלי מקצוע<span class="acc-sum" id="accProfessionalsSum"></span></span>
+          <span class="acc-count" id="accProfessionalsCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <p class="acc-sub">כל מי שנרשם/ה כבעל/ת מקצוע, כולל כרטיסיות שאינן מוצגות באתר. המחיקה מסירה את הכרטיסייה, את עמוד הפרופיל, את קישור הניהול שנשלח למפרסם ואת התמונות מהאחסון — והיא אינה הפיכה.</p>
+          <div id="professionalsAdminList"></div>
+          <a href="professionals.html" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:.8rem;color:var(--teal);margin-top:10px">צפייה בעמוד בעלי המקצוע באתר ←</a>
+        </div>
+      </details>
+
       <!-- לידים שנקלטו ואין להם קהל. הפעמון מתריע על כל אחד בנפרד; כאן
            רואים את כולם יחד, ובעיקר *למה* — קהל ריק (אין יועצי משכנתאות
            רשומים) הוא בעיה אחרת לגמרי מליד בודד שלא עבר סף. -->
@@ -6230,6 +6251,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
     await loadNeighborhoodsAdmin();
     await loadRssSourcesAdmin();
     await loadArticlesAdmin();
+    await loadProfessionalCardsAdmin();
     await loadUnroutedLeads();
   }
 
@@ -7364,6 +7386,182 @@ async function loadArticlesAdmin(){
       if (articleState.editingId === article.id) resetArticleForm();
       showToast('הכתבה נמחקה');
       await loadArticlesAdmin();
+    });
+    actions.appendChild(delBtn);
+
+    row.appendChild(actions);
+    listEl.appendChild(row);
+  });
+}
+
+/* ---------- כרטיסיות בעלי מקצוע (platform admin only) ----------
+   מוצר פרסום צד-שלישי: מי שקונה אותו אינו סוכן, אין לו חשבון באתר ואין לו
+   שורה ב-agency_members (ראו docs/professional-cards.md). עד עכשיו הצד
+   היחיד שיכול היה לגעת בכרטיסייה היה בעל/ת המקצוע עצמו/ה, דרך קישור
+   הניהול — ולכן רישום בדיקה, כפילות או מי שביקש/ה לרדת מהאתר נשארו שם.
+
+   הקריאה והמחיקה עוברות בשתי פונקציות מסד (admin_list_professional_cards,
+   admin_delete_professional_card) שבודקות current_is_platform_admin()
+   בעצמן, כמו admin_apply_tier_change. הן לא רק שער: על ad_placements יש
+   קריאה ציבורית של שורות active בלבד, ובלעדיהן כרטיסייה מושהית או שפג
+   תוקפה — בדיוק זו שצריך לטפל בה — לא הייתה נראית כאן בכלל.
+   המיגרציה: 20261019090000_professional_card_admin.sql. */
+const PRO_MEDIA_BUCKET = 'property-images';
+
+/* אותן תוויות של דף הבית, professionals.html ו-professional.html — התחום
+   נשמר כמפתח באנגלית ומתורגם רק בתצוגה. */
+const PRO_TYPE_LABELS = {
+  mortgage_advisor:'יועץ/ת משכנתאות', appraiser:'שמאי/ת מקרקעין', architect:'אדריכל/ית',
+  interior_designer:'מעצב/ת פנים', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל/ת מקצוע',
+};
+
+/* "מוצגת באתר" אינו status='active' בלבד: כרטיסייה שתקופת הפרסום שלה
+   נגמרה נשארת active בטבלה, ו-professional_cards_public מסננת אותה לפי
+   התאריכים. אותו תנאי בדיוק חוזר כאן, אחרת המסך היה אומר "פעילה" על
+   כרטיסייה שאף אחד כבר לא רואה. התאריך ב-UTC כמו current_date במסד. */
+function proCardIsLive(card){
+  if (card.status !== 'active') return false;
+  const today = new Date().toISOString().slice(0, 10);
+  if (card.starts_at && card.starts_at > today) return false;
+  if (card.ends_at   && card.ends_at   < today) return false;
+  return true;
+}
+
+function proPill(text, css){
+  const el = document.createElement('span');
+  el.style.cssText = 'font-size:.66rem;font-weight:800;padding:2px 7px;border-radius:5px;' + css;
+  el.textContent = text;
+  return el;
+}
+
+async function loadProfessionalCardsAdmin(){
+  const listEl = document.getElementById('professionalsAdminList');
+  if (!listEl) return;
+  listEl.innerHTML = '<div class="empty-state">טוען…</div>';
+
+  const { data, error } = await sb.rpc('admin_list_professional_cards');
+  if (error){
+    // ‏PGRST202/42883 = הפונקציה לא קיימת, כלומר המיגרציה טרם רצה על המסד
+    listEl.innerHTML = '<div class="empty-state">' + (
+      (error.code === '42883' || error.code === 'PGRST202')
+        ? 'הרשימה לא קיימת עדיין במסד — הריצו את המיגרציה 20261019090000_professional_card_admin.sql.'
+        : (error.code === '42501' || /not_platform_admin/.test(error.message || ''))
+          ? 'הרשימה פתוחה למנהל/ת פלטפורמה בלבד.'
+          : 'שגיאה: ' + error.message
+    ) + '</div>';
+    return;
+  }
+
+  const cards = Array.isArray(data) ? data : [];
+  const live = cards.filter(proCardIsLive).length;
+  accSetCount('accProfessionals', cards.length);
+  accSetSummary('accProfessionals', cards.length
+    ? live + ' מתוך ' + cards.length + ' מוצגות באתר'
+    : '');
+
+  if (!cards.length){
+    listEl.innerHTML = '<div class="empty-state">אין עדיין בעלי מקצוע רשומים.</div>';
+    return;
+  }
+
+  listEl.innerHTML = '';
+  cards.forEach(card => {
+    const row = document.createElement('div');
+    row.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--line)';
+
+    const head = document.createElement('div');
+    head.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+
+    const name = document.createElement('span');
+    name.style.cssText = 'font-size:.88rem;font-weight:700';
+    name.textContent = card.advertiser_name || 'ללא שם';
+    head.appendChild(name);
+
+    head.appendChild(proPill(
+      PRO_TYPE_LABELS[card.advertiser_type] || card.advertiser_type || 'בעל/ת מקצוע',
+      'background:var(--teal-tint);color:var(--ink-soft)'));
+
+    if (!proCardIsLive(card)){
+      head.appendChild(proPill(
+        card.status !== 'active' ? 'לא פעילה' : 'מחוץ לתקופת הפרסום',
+        'background:var(--gold-tint);color:var(--gold-dark)'));
+    }
+    // רישום בדיקה נראה על המסך בדיוק כמו מפרסם משלם. הדגל הזה הוא ההבדל,
+    // והוא השיקול הראשון בהחלטה אם למחוק.
+    if (card.test_mode){
+      head.appendChild(proPill('בדיקה', 'background:var(--gold-tint);color:var(--gold-dark)'));
+    }
+    if (!card.profile_filled){
+      head.appendChild(proPill('פרופיל לא מולא', 'background:var(--paper);color:var(--ink-soft)'));
+    }
+    row.appendChild(head);
+
+    if (card.business_name){
+      const biz = document.createElement('div');
+      biz.style.cssText = 'font-size:.78rem;color:var(--ink-soft);margin-top:2px';
+      biz.textContent = card.business_name;
+      row.appendChild(biz);
+    }
+
+    const meta = document.createElement('div');
+    meta.style.cssText = 'font-size:.72rem;color:var(--ink-soft);margin-top:2px';
+    meta.textContent = [
+      card.target_region,
+      'נרשם/ה ' + new Date(card.created_at).toLocaleDateString('he-IL'),
+      card.ends_at ? 'פרסום עד ' + new Date(card.ends_at).toLocaleDateString('he-IL') : null,
+      card.gallery_count ? card.gallery_count + ' תמונות בגלריה' : null,
+    ].filter(Boolean).join(' · ');
+    row.appendChild(meta);
+
+    // כתובת החיוב — לא ציבורית בשום מסך אחר, וכאן היא הדרך היחידה ליצור
+    // קשר עם מי שמאחורי הכרטיסייה לפני שמסירים אותה.
+    if (card.contact_email){
+      const mail = document.createElement('div');
+      mail.dir = 'ltr';
+      mail.style.cssText = 'font-size:.72rem;color:var(--ink-soft);text-align:left;word-break:break-all;margin-top:2px';
+      mail.textContent = card.contact_email;
+      row.appendChild(mail);
+    }
+
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;gap:8px;margin-top:8px';
+
+    const viewLink = document.createElement('a');
+    viewLink.className = 'btn btn-ghost';
+    viewLink.style.padding = '5px 12px';
+    viewLink.target = '_blank';
+    viewLink.rel = 'noopener';
+    viewLink.href = 'professional.html?slug=' + encodeURIComponent(card.slug || card.id);
+    viewLink.textContent = 'צפייה';
+    actions.appendChild(viewLink);
+
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'btn btn-ghost';
+    delBtn.style.padding = '5px 12px';
+    delBtn.textContent = 'מחיקה';
+    delBtn.addEventListener('click', async ()=>{
+      const label = card.business_name || card.advertiser_name || 'הכרטיסייה';
+      if (!confirm(`למחוק את "${label}"? הכרטיסייה, עמוד הפרופיל, קישור הניהול שנשלח למפרסם והתמונות באחסון יימחקו. הפעולה אינה הפיכה.`)) return;
+      delBtn.disabled = true;
+
+      const { data: res, error: delErr } = await sb.rpc('admin_delete_professional_card', { p_id: card.id });
+      if (delErr){ showToast('שגיאה במחיקה: ' + delErr.message); delBtn.disabled = false; return; }
+      if (res && res.error){
+        showToast(res.error === 'not_found' ? 'הכרטיסייה כבר לא קיימת' : 'שגיאה במחיקה: ' + res.error);
+        delBtn.disabled = false;
+        await loadProfessionalCardsAdmin();
+        return;
+      }
+
+      // התמונות כבר לא מוצגות בשום מקום — best-effort, כמו במחיקת כתבה.
+      // הנתיבים מגיעים מהמסד ולא מהמסך, כי אחרי המחיקה הכתובות כבר לא
+      // קיימות בשום שורה.
+      const media = Array.isArray(res && res.media) ? res.media : [];
+      if (media.length) sb.storage.from(PRO_MEDIA_BUCKET).remove(media).catch(()=>{});
+
+      showToast('הכרטיסייה נמחקה');
+      await loadProfessionalCardsAdmin();
     });
     actions.appendChild(delBtn);
 
@@ -17898,6 +18096,7 @@ const NAV_GROUPS = [
     { acc:'accNeighborhoods', label:'ניהול שכונות',   icon:'map',     tab:'admin' },
     { acc:'accRssSources',    label:'מקורות RSS',     icon:'rss',     tab:'admin' },
     { acc:'accArticles',      label:'כתבות ובלוגים',  icon:'article', tab:'admin' },
+    { acc:'accProfessionals', label:'בעלי מקצוע',     icon:'user',    tab:'admin' },
     { acc:'accUnroutedLeads', label:'לידים ללא יעד',  icon:'alert',   tab:'admin' },
   ]},
 ];

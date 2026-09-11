@@ -291,8 +291,16 @@
   }
 
   /* ---------- הסרטון כתמונת האריח ----------
-     אריח עם סרטון מנגן אותו מושתק בלולאה במקום להציג פריים קפוא. זה
-     הנתון שמבדיל את המודעה ברצועה, והתגית "סרטון" לבדה לא מכרה אותו.
+     אריח עם סרטון מנגן אותו מושתק בלולאה במקום להציג פריים קפוא — אבל רק
+     כשמצביעים עליו: ריחוף עכבר במחשב, נגיעה בכרטיס במסך מגע, או פוקוס
+     מהמקלדת. עד אז זו תמונת האריח הרגילה, והתגית "סרטון" שבתחתיתה היא
+     שאומרת שיש מה לנגן.
+
+     קודם הוא ניגן מעצמו ברגע שהאריח נכנס למסך. בדף הבית, שבו יושבות כמה
+     תצוגות של אריחים זו מתחת לזו, זה נראה כשלושה סרטונים שרצים בבת אחת
+     ומושכים את העין לשלושה כיוונים בזמן שמנסים לקרוא מחיר — כלומר בדיוק
+     ההפך ממה שהסרטון אמור לעשות למודעה. עכשיו רץ סרטון אחד לכל היותר,
+     והוא זה שהגולש/ת בחר/ה להסתכל עליו.
 
      שני תנאים ותו לא:
        • קובץ מדיה שלנו. ‏iframe של יוטיוב בתוך אריח ברוחב 250px הוא נגן
@@ -301,13 +309,14 @@
        • הדפדפן לא ביקש אחרת: ‏reduced-motion, ‏Save-Data או חיבור 2G.
 
      ומעל הכל — עצלנות. רצועה מחזיקה עשרים אריחים, וסרטון נכס שוקל עד
-     50MB: ‏src נכתב רק כשהאריח באמת נכנס למסך, ונמחק כשהוא יוצא. בלי זה
+     50MB: ‏src נכתב רק כשמצביעים על האריח, ונמחק כשעוזבים אותו. בלי זה
      גלילה אחת בדף הבית הייתה מושכת מאות מגהבייטים לכיס של הגולש/ת.
-     ‏preload="none" הוא רשת הביטחון לדפדפן שלא מריץ את ה-observer. */
+     ‏preload="none" הוא רשת הביטחון לדפדפן שמתעלם מזה. */
   var MEDIA_FILE = /\.(mp4|webm|ogg|ogv|mov|m4v)$/i;
-  // כמה סרטונים מנגנים יחד לכל היותר. שלושה הם מה שנראה ברצועה בבת אחת,
-  // ומעבר לזה זו רק סוללה שנשרפת על אריחים שממילא מחוץ למסך.
-  var MAX_PLAYING = 3;
+  /* כמה סרטונים מנגנים יחד לכל היותר. אחד: מצביעים על אריח אחד בכל פעם,
+     והתקרה היא שמכבה את הקודם כשהעכבר עובר לשכן לפני שה-leave של הישן
+     הספיק לרוץ. */
+  var MAX_PLAYING = 1;
 
   function playableVideo(p) {
     var raw = p && p.video_url;
@@ -327,17 +336,17 @@
     return true;
   }
 
-  /* ‏src ריק בכוונה: ‎hydrateVideos‎ ממלא אותו כשהאריח נראה. עד אז זהו
-     אלמנט שקוף שדרכו נראית תמונת הרקע של ‎.thumb‎ — כלומר האריח נראה
-     בדיוק כמו קודם עד שיש מה לנגן, ואין צורך ב-poster שיוריד את התמונה
-     בשנייה. */
+  /* ‏src ריק בכוונה: ‎hydrateVideos‎ מחבר את המאזינים, וה-src נכתב רק
+     כשמצביעים על האריח. עד אז זהו אלמנט שקוף שדרכו נראית תמונת הרקע של
+     ‎.thumb‎ — כלומר האריח נראה בדיוק כמו קודם עד שיש מה לנגן, ואין צורך
+     ב-poster שיוריד את התמונה בשנייה. */
   function coverVideoHtml(p) {
     ensureStyles();
     var src = playableVideo(p);
     if (!src || !motionAllowed()) return '';
-    // הצופה נרשם מכאן ולא מכל דף בנפרד: הפונקציה הזו נקראת בזמן בניית
-    // ה-markup, והאריח נכנס ל-DOM לפני ה-rAF שאחריה. כך אף דף לא צריך
-    // לזכור לקרוא ל-hydrateVideos אחרי כל רינדור — וזה בדיוק הסוג של
+    // המאזינים נרשמים מכאן ולא מכל דף בנפרד: הפונקציה הזו נקראת בזמן
+    // בניית ה-markup, והאריח נכנס ל-DOM לפני ה-rAF שאחריה. כך אף דף לא
+    // צריך לזכור לקרוא ל-hydrateVideos אחרי כל רינדור — וזה בדיוק הסוג של
     // "לזכור" ששוכחים בו את הרצועה הרביעית.
     scheduleHydrate();
     return '<video class="pc-cover-video" muted loop playsinline preload="none" ' +
@@ -357,13 +366,18 @@
   var playing = [];
 
   function startVideo(v) {
+    /* אריח שנמחק מה-DOM באמצע ניגון (סינון או מיון שמצייר את הרשימה
+       מחדש) היה נשאר כאן כהפניה חיה — כלומר גם כאלמנט שממשיך למשוך את
+       הקובץ. הצופה שהיה כאן קודם עצר אותו כשיצא מהמסך; עכשיו הניקוי הוא
+       הבדיקה הזו. */
+    playing = playing.filter(function (o) { return o.isConnected !== false; });
     if (!v.src) v.src = v.getAttribute('data-pc-video') || '';
     if (!v.src) return;
     v.muted = true;   // גם אחרי הצבת src — דפדפן חוסם ניגון אוטומטי עם קול
     var res = v.play();
     if (res && res.catch) res.catch(function () {});
     if (playing.indexOf(v) === -1) playing.push(v);
-    // מעל התקרה — עוצרים את הוותיק ביותר, זה שהגלילה כבר הרחיקה ממנו
+    // מעל התקרה — עוצרים את הוותיק ביותר, זה שכבר לא מצביעים עליו
     while (playing.length > MAX_PLAYING) stopVideo(playing[0], false);
   }
 
@@ -375,24 +389,46 @@
     if (release) { v.removeAttribute('src'); v.load(); }
   }
 
-  /* נקראת אחרי שהאריחים נכנסו ל-DOM. אידמפוטנטית: אלמנט שכבר מנוטר
-     מסומן, ולכן קריאה חוזרת אחרי הוספת אריחים לא כופלת צופים. */
+  /* הסרטון הוא בן של ‎.thumb‎, וההורה שלה הוא הכרטיס — בכל שלושת הדפים
+     שמציירים אריחי נכס. המאזינים יושבים על הכרטיס ולא על הסרטון עצמו:
+     ‎.pc-cover-video‎ נושא ‎pointer-events:none‎ (כדי שלחיצה תפתח את הנכס),
+     ובאריח מסוג ‎pc-cover‎ הטקסט ממילא יושב מעליו — ריחוף מעל המחיר הוא
+     ריחוף מעל האריח. */
+  function watchCard(v) {
+    var thumb = v.parentElement;
+    var card = (thumb && thumb.parentElement) || thumb;
+    if (!card || card.hasAttribute('data-pc-video-host')) return;
+    card.setAttribute('data-pc-video-host', '');
+
+    var play = function () { startVideo(v); };
+    var stop = function () { stopVideo(v, true); };
+
+    /* ‏pointerenter של מגע נורה יחד עם הנגיעה ו-pointerleave מיד כשהאצבע
+       מורמת, כלומר הסרטון היה מהבהב לרגע ונעצר. המגע מטופל ב-touchstart,
+       והעצירה שלו מגיעה מהתקרה: נגיעה באריח אחר מכבה את הקודם. */
+    card.addEventListener('pointerenter', function (e) {
+      if (e.pointerType === 'touch') return;
+      play();
+    });
+    card.addEventListener('pointerleave', function (e) {
+      if (e.pointerType === 'touch') return;
+      stop();
+    });
+    card.addEventListener('touchstart', play, { passive: true });
+    // מקלדת: הכרטיס (או כפתור שבתוכו) שמקבל פוקוס מנגן, בדיוק כמו ריחוף
+    card.addEventListener('focusin', play);
+    card.addEventListener('focusout', stop);
+  }
+
+  /* נקראת אחרי שהאריחים נכנסו ל-DOM. אידמפוטנטית: אלמנט שכבר מחובר
+     מסומן, ולכן קריאה חוזרת אחרי הוספת אריחים לא כופלת מאזינים. */
   function hydrateVideos(root) {
-    if (typeof IntersectionObserver === 'undefined') return;
     var scope = root || document;
     var list = scope.querySelectorAll('video.pc-cover-video:not([data-pc-watched])');
     if (!list.length) return;
-    if (!hydrateVideos._io) {
-      hydrateVideos._io = new IntersectionObserver(function (entries) {
-        entries.forEach(function (entry) {
-          if (entry.isIntersecting) startVideo(entry.target);
-          else stopVideo(entry.target, true);
-        });
-      }, { threshold: 0.6 });
-    }
     Array.prototype.forEach.call(list, function (v) {
       v.setAttribute('data-pc-watched', '');
-      hydrateVideos._io.observe(v);
+      watchCard(v);
     });
   }
 

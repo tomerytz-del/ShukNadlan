@@ -81,12 +81,20 @@
       </div>
     </div>
 
+    <!-- חמשת השדות הראשונים הם בדיוק מה שחברת הסליקה דורשת מעמוד צ'קאאוט:
+         שם פרטי, שם משפחה, טלפון **ללא קידומת מדינה**, מדינה ואימייל. הם
+         מופרדים ולא מאוחדים ל"שם מלא"/"טלפון" אחד בכוונה — כך זה נבדק. -->
     <h2>הפרטים שלכם</h2>
     <form id="checkoutForm" novalidate>
       <div style="display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
         <div>
-          <label for="fullName">שם מלא <span aria-hidden="true">*</span></label>
-          <input type="text" id="fullName" name="fullName" autocomplete="name" required
+          <label for="firstName">שם פרטי <span aria-hidden="true">*</span></label>
+          <input type="text" id="firstName" name="firstName" autocomplete="given-name" required
+                 style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:11px 12px">
+        </div>
+        <div>
+          <label for="lastName">שם משפחה <span aria-hidden="true">*</span></label>
+          <input type="text" id="lastName" name="lastName" autocomplete="family-name" required
                  style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:11px 12px">
         </div>
         <div>
@@ -95,9 +103,40 @@
                  style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:11px 12px">
         </div>
         <div>
-          <label for="phone">טלפון <span aria-hidden="true">*</span></label>
-          <input type="tel" id="phone" name="phone" autocomplete="tel" inputmode="tel" required
-                 style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:11px 12px">
+          <label for="country">מדינה <span aria-hidden="true">*</span></label>
+          <select id="country" name="country" autocomplete="country" required
+                  style="width:100%;border:1.5px solid var(--line);border-radius:8px;padding:11px 12px;background:#fff">
+            <option value="IL" data-dial="972" selected>ישראל</option>
+            <option value="US" data-dial="1">ארצות הברית</option>
+            <option value="CA" data-dial="1">קנדה</option>
+            <option value="GB" data-dial="44">בריטניה</option>
+            <option value="FR" data-dial="33">צרפת</option>
+            <option value="DE" data-dial="49">גרמניה</option>
+            <option value="BE" data-dial="32">בלגיה</option>
+            <option value="NL" data-dial="31">הולנד</option>
+            <option value="CH" data-dial="41">שווייץ</option>
+            <option value="IT" data-dial="39">איטליה</option>
+            <option value="ES" data-dial="34">ספרד</option>
+            <option value="GR" data-dial="30">יוון</option>
+            <option value="CY" data-dial="357">קפריסין</option>
+            <option value="RU" data-dial="7">רוסיה</option>
+            <option value="UA" data-dial="380">אוקראינה</option>
+            <option value="AU" data-dial="61">אוסטרליה</option>
+            <option value="ZA" data-dial="27">דרום אפריקה</option>
+            <option value="AR" data-dial="54">ארגנטינה</option>
+            <option value="BR" data-dial="55">ברזיל</option>
+            <option value="OTHER" data-dial="">מדינה אחרת</option>
+          </select>
+        </div>
+        <div>
+          <label for="phone">טלפון, ללא קידומת מדינה <span aria-hidden="true">*</span></label>
+          <div style="display:flex;gap:8px;align-items:stretch">
+            <span id="dialCode"
+                  style="flex:none;display:flex;align-items:center;padding:0 12px;border:1.5px solid var(--line);border-radius:8px;background:#f6f6f6;font-weight:600;direction:ltr">+972</span>
+            <input type="tel" id="phone" name="phone" autocomplete="tel-national" inputmode="tel" required
+                   placeholder="0501234567" aria-describedby="dialCode"
+                   style="flex:1;min-width:0;border:1.5px solid var(--line);border-radius:8px;padding:11px 12px">
+          </div>
         </div>
         <div>
           <label for="business">שם העסק / המשרד</label>
@@ -116,9 +155,11 @@
       <div style="margin:22px 0;display:flex;gap:10px;align-items:flex-start">
         <input type="checkbox" id="acceptTerms" required style="margin-top:4px;width:18px;height:18px;flex:none">
         <label for="acceptTerms" style="font-size:.9rem">
-          קראתי ואני מאשר/ת את <a href="terms.html" target="_blank" rel="noopener">תנאי השימוש והתקנון</a>
-          ואת <a href="privacy.html" target="_blank" rel="noopener">מדיניות הפרטיות</a>,
-          לרבות מדיניות ההחזרים. <span aria-hidden="true">*</span>
+          קראתי ואני מאשר/ת את <a href="terms.html" target="_blank" rel="noopener">תנאי השימוש והתקנון</a>,
+          לרבות <a href="terms.html#t9" target="_blank" rel="noopener">מדיניות האספקה</a>
+          ו<a href="terms.html#t10" target="_blank" rel="noopener">מדיניות ביטול עסקה והחזר כספי</a>,
+          ואת <a href="privacy.html" target="_blank" rel="noopener">מדיניות הפרטיות</a>.
+          <span aria-hidden="true">*</span>
         </label>
       </div>
 
@@ -155,13 +196,50 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
 const ALLOWED = [100, 200, 300, 400, 500];
 const TIER_LABELS = { mid: 'PROFESSIONAL', premium: 'Elite' };
-const amountEl = document.getElementById('amount');
-const monthsEl = document.getElementById('months');
-const totalEl  = document.getElementById('total');
-const ackEl    = document.getElementById('acceptTerms');
-const payBtn   = document.getElementById('payBtn');
-const msgEl    = document.getElementById('checkoutMsg');
+const amountEl   = document.getElementById('amount');
+const monthsEl   = document.getElementById('months');
+const totalEl    = document.getElementById('total');
+const ackEl      = document.getElementById('acceptTerms');
+const payBtn     = document.getElementById('payBtn');
+const msgEl      = document.getElementById('checkoutMsg');
+const firstEl    = document.getElementById('firstName');
+const lastEl     = document.getElementById('lastName');
+const emailEl    = document.getElementById('email');
+const countryEl  = document.getElementById('country');
+const phoneEl    = document.getElementById('phone');
+const dialEl     = document.getElementById('dialCode');
+const businessEl = document.getElementById('business');
+const taxIdEl    = document.getElementById('taxId');
+
 let signedIn = false;
+
+/* הקידומת אינה שדה קלט אלא תצוגה שנגזרת מהמדינה. שדה הטלפון מבקש מספר
+   מקומי בלבד — זו דרישת חברת הסליקה, וזה גם מה שאנשים מקלידים ממילא —
+   והמספר הבינלאומי המלא נבנה כאן, כך שהוא לא תלוי בכתיב שנבחר. במדינה
+   שאינה ברשימה אין קידומת ידועה, ולכן שם מבקשים את המספר המלא. */
+function dialCode(){ const o = countryEl.selectedOptions[0]; return (o && o.dataset.dial) || ''; }
+function syncDial(){
+  const d = dialCode();
+  dialEl.textContent = d ? '+' + d : '+';
+  phoneEl.placeholder = d === '972' ? '0501234567'
+                      : d ? 'מספר מקומי' : 'קידומת מדינה ומספר';
+}
+countryEl.addEventListener('change', syncDial);
+syncDial();
+
+/* מספר מקומי → E.164. האפס המוביל הוא כתיב מקומי ואינו חלק מהמספר הבינלאומי. */
+function fullPhone(){
+  const digits = phoneEl.value.replace(/\D/g, '');
+  const d = dialCode();
+  return d ? '+' + d + digits.replace(/^0+/, '') : '+' + digits;
+}
+/* ובכיוון ההפוך, למילוי אוטומטי: מה ששמור בפרופיל עשוי להיות בכל כתיב. */
+function toLocalPhone(raw){
+  let digits = String(raw || '').replace(/\D/g, '');
+  if (digits.startsWith('972')) digits = '0' + digits.slice(3);
+  return digits;
+}
+function setIfEmpty(el, value){ if (el && !el.value && value) el.value = value; }
 
 /* שני מוצרים על אותו עמוד: טעינת ארנק ומנוי. הסוג מגיע מהכתובת, וכל מה
    שמגיע משם נבדק — ‏?amount=1 לא אמור לייצר טעינה של שקל, ו-?tier=admin לא
@@ -212,6 +290,27 @@ function syncBtn(){ payBtn.disabled = !ackEl.checked; }
 ackEl.addEventListener('change', syncBtn);
 syncBtn();
 
+/* חזרה לעמוד אחרי ההתחברות: מה שהוקלד נשמר ב-sessionStorage לפני הניתוב,
+   וכאן הוא חוזר. בלי זה ההבטחה "הפרטים יישמרו" לא הייתה נכונה — מי שנשלח/ה
+   להתחברות היה/הייתה ממלא/ת את הטופס פעמיים. רץ לפני המילוי מהפרופיל, ושניהם
+   כותבים רק לשדות ריקים, כך שמה שהוקלד ידנית תמיד גובר. */
+(function restore(){
+  try{
+    const saved = JSON.parse(sessionStorage.getItem('shuknadlan.checkout') || 'null');
+    if (!saved) return;
+    setIfEmpty(firstEl, saved.first_name);
+    setIfEmpty(lastEl,  saved.last_name);
+    setIfEmpty(emailEl, saved.email);
+    setIfEmpty(phoneEl, saved.phone_local);
+    setIfEmpty(businessEl, saved.business);
+    setIfEmpty(taxIdEl, saved.tax_id);
+    if (saved.country && countryEl.querySelector('option[value="' + saved.country + '"]')){
+      countryEl.value = saved.country;
+      syncDial();
+    }
+  } catch(_){ /* גלישה פרטית או ערך פגום — הטופס פשוט נפתח ריק */ }
+})();
+
 /* מילוי אוטומטי למי שכבר מחובר/ת. אין כאן בדיקת הרשאה — היא נעשית בשרת,
    ב-wallet-topup, שדורש חשבון סוכן/ת פעיל/ה. */
 (async function prefill(){
@@ -219,12 +318,17 @@ syncBtn();
     const { data: { session } } = await sb.auth.getSession();
     if (!session){ document.getElementById('guestNotice').style.display = ''; return; }
     signedIn = true;
-    document.getElementById('email').value = session.user.email || '';
+    setIfEmpty(emailEl, session.user.email || '');
     const { data: agent } = await sb.from('agency_members')
       .select('display_name, phone').eq('user_id', session.user.id).maybeSingle();
     if (agent){
-      document.getElementById('fullName').value = agent.display_name || '';
-      document.getElementById('phone').value = agent.phone || '';
+      /* השם בפרופיל הוא שדה אחד, וכאן צריך שניים. המילה הראשונה היא השם
+         הפרטי והשאר שם המשפחה — ומי שיש לו/ה שם בן מילה אחת פשוט ישלים/תשלים
+         את השדה השני, שהוא חובה. */
+      const parts = String(agent.display_name || '').trim().split(/\s+/).filter(Boolean);
+      setIfEmpty(firstEl, parts.shift() || '');
+      setIfEmpty(lastEl,  parts.join(' '));
+      setIfEmpty(phoneEl, toLocalPhone(agent.phone));
     }
   } catch(err){
     console.error('prefill', err);
@@ -235,13 +339,38 @@ syncBtn();
 document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const amount = isSub ? null : Number(amountEl.value);
-  const name  = document.getElementById('fullName').value.trim();
-  const email = document.getElementById('email').value.trim();
-  const phone = document.getElementById('phone').value.trim();
+  const first = firstEl.value.trim();
+  const last  = lastEl.value.trim();
+  const email = emailEl.value.trim();
+  const name  = (first + ' ' + last).trim();
+  const phone = fullPhone();
 
-  if (!name || !email || !phone){
-    msgEl.style.color = 'var(--red)';
-    msgEl.textContent = 'נא למלא שם מלא, אימייל וטלפון.';
+  const fail = (text)=>{ msgEl.style.color = 'var(--red)'; msgEl.textContent = text; };
+  if (!first || !last || !email || !phoneEl.value.trim()){
+    fail('נא למלא שם פרטי, שם משפחה, אימייל וטלפון.');
+    return;
+  }
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]{2,}$/.test(email)){
+    fail('כתובת האימייל אינה תקינה. החשבונית נשלחת אליה.');
+    return;
+  }
+  /* נבדק המספר **המקומי** ולא המלא: קידומת בת שלוש ספרות הייתה מכשירה
+     חמש ספרות שהוקלדו בטעות. הטווח עצמו רחב בכוונה — מספרים לאומיים נעים
+     בין 6 ל-14 ספרות, וחסימה צרה מדי פוסלת לקוח/ה אמיתי/ת מחו"ל. במדינה
+     שאינה ברשימה המספר המלא הוא מה שהוקלד, ולכן שם נדרשת ספרה אחת נוספת. */
+  const phoneDigits = dialCode()
+    ? phoneEl.value.replace(/\D/g, '').replace(/^0+/, '')
+    : phone.replace(/\D/g, '');
+  const minDigits = dialCode() ? 6 : 8;
+  if (phoneDigits.length < minDigits || phoneDigits.length > 15){
+    fail('מספר הטלפון אינו תקין. יש להזין מספר ללא קידומת מדינה — הקידומת נקבעת לפי המדינה שנבחרה.');
+    return;
+  }
+  /* ה-ח.פ אינו חובה, אבל אם הוקלד הוא מודפס על החשבונית — ומספר שגוי שם
+     הוא חשבונית שצריך לבטל ולהפיק מחדש. */
+  const taxDigits = taxIdEl.value.replace(/\D/g, '');
+  if (taxIdEl.value.trim() && (taxDigits.length < 8 || taxDigits.length > 9)){
+    fail('מספר ח.פ / ע.מ אינו תקין — 9 ספרות. אפשר גם להשאיר את השדה ריק.');
     return;
   }
   if (!signedIn){
@@ -250,7 +379,9 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
     try{
       sessionStorage.setItem('shuknadlan.checkout', JSON.stringify(
         { product: isSub ? 'subscription' : 'wallet', tier: subTier,
-          months: Number(monthsEl.value), amount, name, email, phone }));
+          months: Number(monthsEl.value), amount, first_name: first, last_name: last,
+          email, country: countryEl.value, phone_local: phoneEl.value.trim(), phone,
+          business: businessEl.value.trim(), tax_id: taxIdEl.value.trim() }));
     } catch(_){ /* גלישה פרטית — ההתחברות עדיין תעבוד, רק בלי מילוי אוטומטי */ }
     setTimeout(()=>{ location.href = 'crm.html'; }, 900);
     return;
@@ -264,9 +395,19 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
     /* שתי נקודות קצה, אותה תבנית. שתיהן מחזירות redirect_url ולא מאשרות
        כלום בעצמן — הזיכוי או פתיחת המסלול קורים רק אחרי אימות מול מורנינג. */
     const endpoint = isSub ? 'subscription-purchase' : 'wallet-topup';
+    /* מה שהוקלד כאן הוא מה שיופיע על החשבונית — כולל ה-ח.פ, שבלעדיו המסמך
+       אינו חשבונית לעסק. הסכום, המסלול והזכאות נקבעים בשרת בלבד; מהטופס
+       עוברים אך ורק פרטי הזיהוי של הלקוח/ה. */
+    const client = {
+      client_name: name,
+      client_phone: phone,
+      client_country: countryEl.value,
+      client_business: businessEl.value.trim(),
+      client_tax_id: taxIdEl.value.trim(),
+    };
     const payload  = isSub
-      ? { tier: subTier, months: Number(monthsEl.value), client_phone: phone }
-      : { amount, client_phone: phone };
+      ? { tier: subTier, months: Number(monthsEl.value), ...client }
+      : { amount, ...client };
     const res = await fetch(SUPABASE_URL + '/functions/v1/' + endpoint, {
       method: 'POST',
       headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY,
@@ -374,17 +515,17 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
     <nav class="footer-grid" aria-label="ניווט בתחתית העמוד">
       <div class="footer-col">
         <h4>נכסים</h4>
-        <a href="index.html#saleProps">למכירה בעפולה</a>
-        <a href="index.html#rentProps">להשכרה בעפולה</a>
+        <a href="index.html#privateProps-sale">למכירה בעפולה</a>
+        <a href="index.html#privateProps-rent">להשכרה בעפולה</a>
         <a href="index.html#commercialProps">נכסים מסחריים</a>
-        <a href="index.html#listings">כל הנכסים</a>
+        <a href="index.html#privateProps">כל הנכסים</a>
         <a href="projects.html">פרויקטים חדשים</a>
       </div>
       <div class="footer-col">
         <h4>כלים</h4>
         <a href="index.html#calc">מחשבון משכנתא</a>
+        <a href="index.html#yield">מחשבון תשואה</a>
         <a href="index.html#heroSection">חיפוש על המפה</a>
-        <a href="index.html#featured">נכסים מובחרים</a>
         <a href="articles.html">כתבות ובלוגים</a>
       </div>
       <div class="footer-col">
@@ -441,10 +582,6 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
     </div>
   </div>
 </footer>
-
-
-</body>
-
 
 </body>
 </html>
