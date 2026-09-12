@@ -169,7 +169,7 @@ async function loadConversation(
 ): Promise<ConversationState> {
   const { data } = await supabase
     .from("whatsapp_conversations")
-    .select("history, pending_images, last_property_id")
+    .select("history, pending_images, last_property_id, last_client_id")
     .eq("agent_id", agentId)
     .maybeSingle();
 
@@ -177,6 +177,7 @@ async function loadConversation(
     history: (data?.history as Anthropic.MessageParam[]) || [],
     pending_images: data?.pending_images || [],
     last_property_id: data?.last_property_id || null,
+    last_client_id: data?.last_client_id || null,
   };
 }
 
@@ -191,6 +192,7 @@ async function saveConversation(
     history: conv.history,
     pending_images: conv.pending_images,
     last_property_id: conv.last_property_id,
+    last_client_id: conv.last_client_id,
     last_message_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }, { onConflict: "agent_id" });
