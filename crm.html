@@ -1085,6 +1085,27 @@
   /* סוג שכובה בפעמון אינו נוצר במסד מלכתחילה, ולכן אין מה לשלוח עליו */
   .notif-prefs .np-row.is-off label.np-wa{opacity:.45;cursor:not-allowed}
 
+  /* ---------- הכרטיס שפותח את הצ'אט עם העוזר ----------
+     המספר של העוזר לא הופיע בשום מקום במוצר: הקטגוריה אמרה "שולחים הודעה
+     למספר של שוק נדל״ן" ולא אמרה מהו. סוכן/ת חדש/ה שמר/ה את המספר שלו/ה
+     ונשאר/ה בלי לאן לשלוח — והמספר היחיד שהיה כתוב ישב בתיעוד למפתחים.
+
+     ‏wa.me ולא "העתיקו את המספר": בטלפון זה פותח את הצ'אט הנכון בלחיצה,
+     ומונע את שתי הטעויות שאי אפשר לאתר אחר כך — ספרה שהוקלדה לא נכון,
+     ושליחה ממכשיר אחר מזה שרשום במערכת. */
+  .wa-start{background:linear-gradient(135deg,#F0FAF3,#E6F6EC);border:1.5px solid #BFE3CB;
+    border-radius:12px;padding:14px;margin-bottom:14px}
+  .wa-start-num{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;margin:0 0 4px}
+  .wa-start-num b{font-size:1.05rem;letter-spacing:.02em;direction:ltr;color:#14532D}
+  .wa-start-sub{font-size:.74rem;color:var(--ink-soft);margin:0 0 11px;line-height:1.55}
+  .wa-start-btn{display:flex;align-items:center;justify-content:center;gap:8px;
+    background:#25D366;color:#fff;font-weight:700;font-size:.9rem;text-decoration:none;
+    padding:11px 16px;border-radius:9px}
+  .wa-start-btn:hover{filter:brightness(.95)}
+  /* בלי מספר שמור הבוט לא יזהה את הפונה, ולכן הכפתור מושבת ולא "מנסה" */
+  .wa-start.is-locked .wa-start-btn{background:#9CC7AA;pointer-events:none}
+  .wa-start-hint{font-size:.72rem;color:#8A6D10;margin:9px 0 0;line-height:1.5}
+
   /* ---------- תזכורות וטיפים ----------
      שורה לכל ממצא, ובכל שורה כפתור שמוביל לקטגוריה שבה אפשר לטפל בו. הכפתור
      אינו קישוט: תזכורת שאין ממנה דרך לפעולה היא נזיפה, וזה הדבר שהופך אותה
@@ -4686,11 +4707,24 @@
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-    <p class="acc-sub">שולחים הודעה, תמונות או הקלטה קולית למספר של שוק נדל"ן — והעוזר מטפל בנכסים, בקובץ הלקוחות, בהתאמות ביניהם, ובקריאה של ההסכמים, הלידים וההתראות. הוא מזהה אתכם לפי מספר הטלפון, אז הוא חייב להיות מעודכן כאן ולהיות המספר שממנו אתם שולחים.</p>
+    <p class="acc-sub">שולחים הודעה, תמונות או הקלטה קולית לעוזר — והוא מטפל בנכסים, בקובץ הלקוחות, בהתאמות ביניהם, ובקריאה של ההסכמים, הלידים וההתראות. הוא מזהה אתכם לפי מספר הטלפון, אז הוא חייב להיות מעודכן כאן ולהיות המספר שממנו אתם שולחים.</p>
     <!-- נאמר כאן ולא רק בתשובה של הבוט: סוכן/ת ב-Pay&GO ששומר/ת מספר ומחכה
          לתשובה גילה/תה את הגידור אחרי ששלח/ה הודעה, וזה המקום שבו הוא
          אמור להיות כתוב. -->
     <p class="acc-sub" id="waTierNote"></p>
+
+    <!-- הכרטיס הזה קודם לטופס, ובכוונה: הוא עונה על "מול איזה מספר אני
+         עובד/ת", וזו השאלה הראשונה — לא האחרונה. הוא נבנה ב-
+         ‏loadWhatsappSettings, כדי שהמצב (יש מספר שמור / אין) ישתקף בכפתור. -->
+    <div class="wa-start" id="waStartCard" hidden>
+      <p class="wa-start-num">המספר של העוזר: <b id="waStartNum" dir="ltr"></b></p>
+      <p class="wa-start-sub">כדאי לשמור אותו באנשי הקשר — כך הוא יופיע בשם גם בפעם הבאה, וההודעות שלו לא ייראו כמו מספר זר.</p>
+      <a class="wa-start-btn" id="waStartBtn" href="#" target="_blank" rel="noopener">
+        💬 <span id="waStartBtnLabel">פתיחת צ'אט עם העוזר</span>
+      </a>
+      <p class="wa-start-hint" id="waStartHint"></p>
+    </div>
+
     <form id="whatsappForm" style="margin-bottom:0">
       <div class="field">
         <label for="waPhone">מספר הוואטסאפ שלי</label>
@@ -7957,9 +7991,47 @@ document.getElementById('prefsForm').addEventListener('submit', async (e)=>{
    מספר הטלפון כאן הוא מפתח הזיהוי של הבוט: ה-Edge Function ‏whatsapp-webhook
    מחפש את הסוכן/ת לפי agency_members.phone_e164, שנגזרת אוטומטית מ-phone.
    בלי מספר מעודכן — הבוט יענה "איני מזהה את מספר הטלפון שלך". */
+/* המספר העסקי של העוזר (Meta WhatsApp Cloud API). מזהה ציבורי ולא סוד —
+   הוא מודפס על כל הודעה שהעוזר שולח — ולכן הוא יושב כאן ולא ב-Secrets.
+   אם המספר מוחלף ב-Meta, זו השורה שמתעדכנת, ולצדה docs/whatsapp-setup.md. */
+const ASSISTANT_WA_NUMBER = '972532494740';
+const ASSISTANT_WA_DISPLAY = '053-249-4740';
+
+/* הודעת הפתיחה אינה קישוט. שתי סיבות:
+   ‏1. היא חוסכת לסוכן/ת את "מה כותבים לבוט" ברגע הראשון, שהוא הרגע שבו
+      רוב האנשים סוגרים את החלון.
+   ‏2. היא פותחת את חלון 24 השעות של Meta, וזה מה שמאפשר להתראות לצאת
+      כטקסט חופשי מלא (עם קישורים, ובחינם) במקום כתבנית. */
+const ASSISTANT_WA_HELLO = 'שלום, מה אפשר לעשות כאן?';
+
+/* ---------- הכרטיס שפותח את הצ'אט ----------
+   ‏disabled ולא מוסתר כשאין מספר שמור: כפתור שנעלם נראה כמו באג, וכפתור
+   שאומר "קודם שמרו את המספר" הוא הוראה. והסדר הזה חשוב — בוט שמקבל הודעה
+   ממספר שאינו רשום עונה "איני מזהה את מספר הטלפון שלך", וזו חוויה ראשונה
+   גרועה שאפשר פשוט למנוע. */
+function renderWaStartCard(phone){
+  const card = document.getElementById('waStartCard');
+  if (!card) return;
+  card.hidden = false;
+  document.getElementById('waStartNum').textContent = ASSISTANT_WA_DISPLAY;
+
+  const saved = !!String(phone || '').trim();
+  card.classList.toggle('is-locked', !saved);
+  document.getElementById('waStartBtn').href = saved
+    ? `https://wa.me/${ASSISTANT_WA_NUMBER}?text=${encodeURIComponent(ASSISTANT_WA_HELLO)}`
+    : '#';
+  document.getElementById('waStartBtnLabel').textContent = saved
+    ? "פתיחת צ'אט עם העוזר"
+    : 'קודם שמרו את המספר שלכם למטה';
+  document.getElementById('waStartHint').textContent = saved
+    ? 'חשוב: יש לשלוח מהמכשיר שבו מותקן המספר שרשום למטה — לפי המספר הזה העוזר מזהה אתכם.'
+    : '';
+}
+
 function loadWhatsappSettings(agent){
   document.getElementById('waPhone').value = agent.phone || '';
   accSetCount('accWhatsapp', agent.phone ? 'מחובר' : 'לא מוגדר');
+  renderWaStartCard(agent.phone);
 
   /* המסלול נאמר לשני הכיוונים, כי שניהם נכונים: מי שבמסלול צריך לדעת
      שהמספר הוא מה שמחבר אותו/ה, ומי שלא — למה ההודעה לא תיענה. שמירת
@@ -8009,8 +8081,12 @@ document.getElementById('whatsappForm').addEventListener('submit', async (e)=>{
 
   currentAgent.phone = phone || null;
   accSetCount('accWhatsapp', phone ? 'מחובר' : 'לא מוגדר');
+  // הכפתור נפתח באותה לחיצה שבה נשמר המספר — בלי רענון ובלי לחפש אותו שוב
+  renderWaStartCard(phone);
+  // וההערה ב"ניהול התראות" תלויה גם היא במספר שמור
+  syncNotifWaNote();
   feedback.style.color = 'var(--blue)';
-  feedback.textContent = phone ? 'המספר נשמר — אפשר להתחיל לשלוח הודעות.' : 'הגישה מוואטסאפ כובתה.';
+  feedback.textContent = phone ? 'המספר נשמר — אפשר לפתוח את הצ׳אט למעלה.' : 'הגישה מוואטסאפ כובתה.';
   setTimeout(()=>{ feedback.textContent=''; }, 3000);
 });
 
