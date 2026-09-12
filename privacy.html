@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>מדיניות פרטיות | שוק נדל״ן</title>
+<meta name="description" content="איזה מידע שוק הנדל״ן של עפולה והעמק אוסף, למה, עם מי הוא משותף, כמה זמן הוא נשמר ואיך מבקשים למחוק אותו.">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800;900&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
+    --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
+    --gold:#8B2332; --gold-dark:#6B1A26;
+    --brass:#C9A227; --brass-tint:#FAF3DF;
+    --surface:#FFFFFF; --hair:#E6E3DD;
+    --radius-xl:24px;
+    --shadow-xs:0 1px 2px rgba(18,40,64,.05);
+    --maxw:860px;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark);margin:0}
+  a{color:inherit;text-decoration:none}
+  svg{display:block}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
+
+  header.site{background:var(--paper-raised);border-bottom:1px solid var(--line);padding:14px 0}
+  .header-inner{display:flex;align-items:center;justify-content:space-between}
+  .logo{display:flex;align-items:center;gap:10px;min-width:0}
+  .logo-img{height:46px;width:auto;display:block;flex:0 0 auto}
+  .logo-word{font-family:'Rubik','Heebo',sans-serif;font-weight:500;color:var(--teal-dark);
+    font-size:.82rem;line-height:1.3;letter-spacing:-.012em;min-width:0;text-align:center}
+  .logo-word span{color:var(--gold-dark);font-weight:700}
+  @media(min-width:900px){.logo-img{height:54px;width:auto}.logo-word{font-size:.95rem;white-space:nowrap}}
+  .back-link{font-size:.85rem;font-weight:700;color:var(--teal)}
+
+  .hero{background:linear-gradient(150deg,#0E2340,#1C3A5E 60%,#2A4E77);color:#fff;padding:34px 0 38px}
+  .hero .kicker{font-size:.76rem;font-weight:800;letter-spacing:.08em;color:var(--brass);margin-bottom:6px}
+  .hero h1{color:#fff;font-size:1.65rem;line-height:1.25}
+  @media(min-width:720px){.hero h1{font-size:2rem}}
+  .hero p{margin:10px 0 0;font-size:.95rem;color:#D6DFE9;max-width:62ch}
+  .hero .updated{margin-top:14px;font-size:.78rem;color:#A9BACD}
+
+  main{padding:26px 0 50px}
+  .lead{background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-xl);
+    box-shadow:var(--shadow-xs);padding:20px 22px;margin-bottom:26px}
+  .lead p{margin:0;font-size:.95rem;color:var(--ink-soft)}
+  .lead p+p{margin-top:10px}
+
+  /* ‏כל סעיף הוא כרטיס — אותה שפה של הקוד האתי, בלי המספור האוטומטי
+     שמתאים שם לרשימת סעיפים מחייבים ולא לפרקי מדיניות. */
+  section.block{background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-xl);
+    box-shadow:var(--shadow-xs);padding:18px 22px;margin-bottom:14px}
+  section.block h2{font-size:1.2rem;margin-bottom:8px}
+  section.block h3{font-size:.98rem;margin:16px 0 4px;color:var(--teal)}
+  section.block p{margin:0 0 8px;font-size:.9rem;color:var(--ink-soft)}
+  section.block p:last-child{margin-bottom:0}
+  section.block ul{margin:0 0 8px;padding-inline-start:20px;font-size:.9rem;color:var(--ink-soft)}
+  section.block li{margin-bottom:5px}
+  section.block li:last-child{margin-bottom:0}
+  section.block strong{color:var(--ink);font-weight:700}
+
+  .table-wrap{overflow-x:auto;margin:10px 0 4px}
+  table{border-collapse:collapse;width:100%;min-width:420px;font-size:.85rem}
+  th,td{text-align:right;padding:9px 10px;border-bottom:1px solid var(--hair);vertical-align:top}
+  th{color:var(--teal-dark);font-weight:700;background:var(--teal-tint);white-space:nowrap}
+  td{color:var(--ink-soft)}
+
+  .callout{background:var(--brass-tint);border:1px solid #EAD9A8;border-radius:var(--radius-xl);
+    padding:18px 22px;margin-bottom:14px}
+  .callout h2{font-size:1.12rem;margin-bottom:6px}
+  .callout p{font-size:.9rem;color:#5B4A1E;margin:0 0 8px}
+  .callout p:last-child{margin-bottom:0}
+
+  .contact{margin-top:26px;background:linear-gradient(150deg,#0E2340,#1C3A5E);color:#fff;
+    border-radius:var(--radius-xl);padding:22px}
+  .contact h2{color:#fff;font-size:1.15rem;margin-bottom:6px}
+  .contact p{margin:0 0 6px;font-size:.9rem;color:#D6DFE9}
+  .contact a{color:var(--brass);font-weight:700}
+
+  footer.page{border-top:1px solid var(--line);margin-top:34px;padding-top:16px;
+    font-size:.75rem;color:var(--ink-soft);text-align:center}
+</style>
+<link rel="stylesheet" href="assets/site-footer.css">
+<script src="assets/site-footer.js" defer></script>
+</head>
+<body>
+
+<header class="site">
+  <div class="wrap header-inner">
+    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+      <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="512" height="436">
+      <span class="logo-word">שוק הנדל״ן של <span>עפולה והסביבה</span></span>
+    </a>
+    <a href="index.html" class="back-link">← דף הבית</a>
+  </div>
+</header>
+
+<section class="hero">
+  <div class="wrap">
+    <div class="kicker">שקיפות</div>
+    <h1>מדיניות פרטיות</h1>
+    <p>מה אנחנו אוספים, למה זה נחוץ, עם מי זה משותף וכמה זמן זה נשמר — בשפה שאפשר לקרוא, בלי ניסוחים שנועדו להיקרא על ידי עורכי דין בלבד.</p>
+    <div class="updated">עודכן לאחרונה: 12 בספטמבר 2026</div>
+  </div>
+</section>
+
+<main class="wrap">
+
+  <div class="lead">
+    <p>שוק הנדל״ן של עפולה והעמק הוא פלטפורמה שמחברת בין מחפשי נכסים לבין סוכני ומשרדי תיווך בעפולה ובעמק יזרעאל. כדי לעשות את זה אנחנו אוספים מידע — חלקו מכם, חלקו מהסוכנים.</p>
+    <p>המסמך הזה מתאר את מה שהמערכת עושה בפועל. הוא לא נוסח כדי לכסות על שום דבר: כל שירות חיצוני שנוגע בנתונים שלכם מופיע כאן בשמו.</p>
+  </div>
+
+  <section class="block">
+    <h2>מי אחראי על המידע</h2>
+    <p><strong>שוק הנדל״ן של עפולה והעמק</strong>, רחוב חטיבה תשע 18, עפולה.</p>
+    <p>לכל פנייה בנושא פרטיות — מחיקת מידע, תיקון, או שאלה על מה שמור עליכם:
+       <a href="mailto:shuknadlan@gmail.com" style="color:var(--teal);font-weight:700">shuknadlan@gmail.com</a></p>
+  </section>
+
+  <section class="block">
+    <h2>איזה מידע נאסף</h2>
+
+    <h3>מבקרים שמשאירים פרטים</h3>
+    <p>כשאתם פונים לגבי נכס, נרשמים לחיפוש שמור, מבקשים הערכת שווי או משאירים פרטים לייעוץ משכנתא — אנחנו אוספים את מה שמילאתם בטופס:</p>
+    <ul>
+      <li>שם, טלפון וכתובת אימייל</li>
+      <li>תוכן הפנייה והנכס או האזור שעניין אתכם</li>
+      <li>העדפות החיפוש ששמרתם: תקציב, מספר חדרים, שכונות, סוג נכס</li>
+    </ul>
+    <p><strong>הפרטים האלה מועברים לסוכן או למשרד התיווך הרלוונטי</strong> — זו כל מטרת הפנייה. מרגע ההעברה הסוכן הוא שאחראי על מה שהוא עושה עם הפרטים, בכפוף לקוד האתי של הפלטפורמה.</p>
+
+    <h3>סוכנים ומשרדי תיווך</h3>
+    <ul>
+      <li>פרטי פרופיל: שם, תמונה, טלפון, אימייל, מספר רישיון תיווך, תחומי התמחות</li>
+      <li>הנכסים שהעליתם, התמונות והסרטונים שלהם</li>
+      <li>פעילות במערכת: לידים שנרכשו, עסקאות שנסגרו, חוות דעת מלקוחות</li>
+    </ul>
+
+    <h3>נרשמים לניוזלטר</h3>
+    <p>כתובת אימייל בלבד. אפשר להסיר בכל רגע דרך הקישור שבתחתית כל דיוור.</p>
+
+    <h3>שימוש טכני</h3>
+    <p>האתר שומר בדפדפן שלכם העדפות תצוגה וסינון (<span dir="ltr">localStorage</span>) כדי שלא תצטרכו להגדיר אותן מחדש בכל ביקור. המידע הזה נשאר במכשיר שלכם ולא נשלח אלינו. איננו מפעילים קוקיז של פרסום או מעקב בין אתרים.</p>
+  </section>
+
+  <div class="callout">
+    <h2>ניהול נכסים בוואטסאפ — למה זה נוגע לסוכנים בלבד</h2>
+    <p>סוכנים יכולים לנהל את הנכסים שלהם דרך הוואטסאפ העסקי שלנו: לשלוח הודעה, תמונה או הקלטה קולית, והנכס נכנס למערכת. הנה מה שקורה עם המידע הזה:</p>
+    <p><strong>הזיהוי הוא לפי מספר הטלפון.</strong> הבוט משווה את מספר השולח למספרים הרשומים בפלטפורמה. <strong>מספר שאינו מזוהה מקבל הודעת דחייה ותוכן ההודעה שלו אינו מעובד.</strong></p>
+    <p>מה שנשמר: מספר הטלפון של הסוכן, תוכן ההודעות ששלח, תמונות שהעלה, ותמלול של הקלטות קוליות. ההיסטוריה נשמרת כדי שהבוט יבין הקשר — למשל ״תעדכן את המחיר של הנכס האחרון״.</p>
+    <p><strong>ההודעות של מחפשי נכסים אינן עוברות בערוץ הזה.</strong> הוא סגור לסוכנים רשומים בלבד.</p>
+  </div>
+
+  <section class="block">
+    <h2>למה אנחנו משתמשים במידע</h2>
+    <ul>
+      <li><strong>להעביר פניות לסוכן הרלוונטי</strong> — העיקר. בלי זה אין פלטפורמה</li>
+      <li>לשלוח התראות על נכסים חדשים שתואמים לחיפוש ששמרתם</li>
+      <li>להציג נכסים, פרופילי סוכנים וחוות דעת באתר</li>
+      <li>לנהל את חשבונות הסוכנים: יתרות, רכישת לידים, חיובים</li>
+      <li>לשפר את השירות ולמנוע שימוש לרעה</li>
+    </ul>
+    <p><strong>איננו מוכרים מידע אישי לצדדים שלישיים ואיננו מעבירים אותו למפרסמים.</strong> העברת פרטי ליד לסוכן היא חלק מהשירות שביקשתם, לא מכירה של מידע.</p>
+  </section>
+
+  <section class="block">
+    <h2>שירותים חיצוניים שנוגעים במידע</h2>
+    <p>הפלטפורמה בנויה על ספקים חיצוניים. אלה הם, ומה בדיוק עובר אליהם:</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th>ספק</th><th>מה עובר אליו</th><th>לשם מה</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Supabase</td><td>כל הנתונים והתמונות</td><td>מסד הנתונים והאחסון. שרתים באיחוד האירופי</td></tr>
+          <tr><td>Netlify</td><td>בקשות לדפי האתר</td><td>אירוח האתר</td></tr>
+          <tr><td>Anthropic</td><td>טקסט של תיאורי נכסים והודעות סוכנים</td><td>ניסוח תיאורים שיווקיים והפעלת הבוט</td></tr>
+          <tr><td>OpenAI</td><td>הקלטות קוליות של סוכנים</td><td>תמלול לטקסט</td></tr>
+          <tr><td>Meta ‏(WhatsApp)</td><td>הודעות בערוץ הוואטסאפ העסקי</td><td>העברת ההודעות בין הסוכן למערכת</td></tr>
+          <tr><td>Meta ‏(Facebook)</td><td>פרטי נכסים שפורסמו</td><td>פרסום אוטומטי של נכסים חדשים בדף העסקי</td></tr>
+          <tr><td>Resend</td><td>כתובות אימייל ותוכן ההודעה</td><td>שליחת מיילים והתראות</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>לכל ספק כזה יש מדיניות פרטיות משלו, והשימוש בשירות שלנו כפוף גם לה.</p>
+  </section>
+
+  <section class="block">
+    <h2>כמה זמן המידע נשמר</h2>
+    <ul>
+      <li><strong>פניות ולידים</strong> — נשמרים כל עוד הם רלוונטיים לסוכן שקיבל אותם, ולצורך תיעוד ההתקשרות</li>
+      <li><strong>חיפושים שמורים והתראות</strong> — עד שתבטלו אותם</li>
+      <li><strong>נכסים</strong> — נכס שיורד מהאתר עובר לארכיון ולא נמחק, כדי לשמור על היסטוריית העסקאות של הסוכן</li>
+      <li><strong>שיחות וואטסאפ</strong> — נשמרות כתיעוד של הפעולות שבוצעו בחשבון הסוכן</li>
+      <li><strong>ניוזלטר</strong> — עד להסרה</li>
+    </ul>
+  </section>
+
+  <section class="block">
+    <h2>הזכויות שלכם</h2>
+    <p>לפי חוק הגנת הפרטיות, התשמ״א־1981, אתם רשאים:</p>
+    <ul>
+      <li>לעיין במידע שאנחנו מחזיקים עליכם</li>
+      <li>לבקש לתקן מידע שגוי או לא מעודכן</li>
+      <li>לבקש למחוק את המידע</li>
+      <li>לבטל הסכמה לדיוור בכל רגע</li>
+    </ul>
+    <p>פנייה למייל שלמטה תטופל תוך זמן סביר. כדי למנוע מסירת מידע לגורם לא מורשה, ייתכן שנבקש לאמת את זהותכם.</p>
+    <p><strong>שימו לב:</strong> אם השארתם פרטים לסוכן והם כבר הועברו אליו, מחיקה אצלנו אינה מוחקת את מה ששמור אצלו. לשם כך צריך לפנות ישירות לסוכן או למשרד.</p>
+  </section>
+
+  <section class="block">
+    <h2>אבטחת מידע</h2>
+    <p>הגישה לנתונים מוגבלת ברמת מסד הנתונים: סוכן רואה את הנכסים והלידים שלו בלבד, וכתיבה לטבלאות רגישות נעשית רק דרך שרת מאובטח ולא מהדפדפן. התעבורה לאתר מוצפנת.</p>
+    <p>עם זאת, שום מערכת אינה חסינה לחלוטין. איננו יכולים להתחייב לאבטחה מוחלטת, ואנחנו ממליצים לא לשלוח דרך הטפסים מידע רגיש שאינו נחוץ לפנייה.</p>
+  </section>
+
+  <section class="block">
+    <h2>קטינים</h2>
+    <p>השירות מיועד לבגירים. איננו אוספים ביודעין מידע על מי שטרם מלאו לו 18. אם התברר שנאסף מידע כזה — נמחק אותו בפנייה.</p>
+  </section>
+
+  <section class="block">
+    <h2>שינויים במדיניות</h2>
+    <p>המדיניות עשויה להתעדכן. תאריך העדכון האחרון מופיע בראש העמוד, ושינוי מהותי יפורסם באתר.</p>
+  </section>
+
+  <div class="contact">
+    <h2>יצירת קשר בנושא פרטיות</h2>
+    <p>שוק הנדל״ן של עפולה והעמק · רחוב חטיבה תשע 18, עפולה</p>
+    <p><a href="mailto:shuknadlan@gmail.com">shuknadlan@gmail.com</a></p>
+  </div>
+
+  <footer class="page">
+    מסמך זה מתאר את התנהלות הפלטפורמה בפועל ואינו מהווה ייעוץ משפטי.
+  </footer>
+
+</main>
+
+<footer class="site">
+
+  <!-- רצועת הניוזלטר: ההרשמה נשלחת ל-Edge Function ולא ישירות לטבלה, מאותה
+       סיבה כמו שאר הטפסים הציבוריים באתר — הכתיבה נעשית ב-service_role
+       והטבלה סגורה ל-anon לגמרי (אימייל של אדם פרטי). -->
+  <div class="footer-news">
+    <div class="footer-wrap footer-news-inner">
+      <div class="footer-news-text">
+        <h4>הנכסים החדשים בעפולה — ראשונים אצלכם</h4>
+        <p>עדכון אחד בשבוע למייל. בלי ספאם, אפשר להסיר בכל רגע.</p>
+      </div>
+      <form class="footer-news-form" id="newsletterForm" data-source="privacy_page" novalidate>
+        <label class="footer-sr-only" for="newsletterEmail">כתובת אימייל להרשמה לעדכונים</label>
+        <input type="email" id="newsletterEmail" name="email" autocomplete="email" inputmode="email"
+               placeholder="האימייל שלך" required>
+        <button type="submit" id="newsletterBtn">הרשמה</button>
+      </form>
+      <p class="footer-news-msg" id="newsletterMsg" role="status" aria-live="polite"></p>
+    </div>
+  </div>
+
+  <div class="footer-wrap footer-top">
+
+    <div class="footer-brand">
+      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+        <img src="assets/logo-shuknadlan.png" alt="" width="512" height="436" loading="lazy">
+        <span>שוק הנדל״ן<br>של עפולה והסביבה</span>
+      </a>
+      <p class="footer-tagline">
+        <span>כל הנכסים, כל המתווכים ובעלי המקצוע בעפולה והעמק בכתובת אחת</span>
+        <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
+      </p>
+      <div class="footer-cta">
+        <a href="agency-signup.html" class="footer-btn-primary">הצטרפות כמשרד תיווך</a>
+        <a href="professional-signup.html" class="footer-btn-ghost">הצטרפות כבעל מקצוע</a>
+      </div>
+
+      <div class="footer-meta">
+        <div class="footer-contact">
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 10c0 5.2-8 12-8 12s-8-6.8-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.8"/>
+            </svg>
+            <span>רחוב חטיבה תשע 18, עפולה</span>
+          </p>
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3.5 6.5h17v11h-17z"/><path d="m3.5 7 8.5 6 8.5-6"/>
+            </svg>
+            <a href="mailto:shuknadlan@gmail.com">shuknadlan@gmail.com</a>
+          </p>
+        </div>
+
+        <div class="footer-social">
+          <a href="https://www.facebook.com/share/19LytY6L6b/" target="_blank" rel="noopener noreferrer"
+             aria-label="שוק הנדל״ן בפייסבוק — נפתח בחלון חדש" title="פייסבוק">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06C2 17.08 5.66 21.24 10.44 22v-7.03H7.9v-2.91h2.54V9.85c0-2.52 1.49-3.91 3.77-3.91 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.78-1.63 1.57v1.89h2.78l-.44 2.91h-2.34V22C18.34 21.24 22 17.08 22 12.06Z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <nav class="footer-grid" aria-label="ניווט בתחתית העמוד">
+      <div class="footer-col">
+        <h4>נכסים</h4>
+        <a href="index.html#saleProps">למכירה בעפולה</a>
+        <a href="index.html#rentProps">להשכרה בעפולה</a>
+        <a href="index.html#commercialProps">נכסים מסחריים</a>
+        <a href="index.html#listings">כל הנכסים</a>
+      </div>
+      <div class="footer-col">
+        <h4>כלים</h4>
+        <a href="index.html#calc">מחשבון משכנתא</a>
+        <a href="index.html#heroSection">חיפוש על המפה</a>
+        <a href="index.html#featured">נכסים מובחרים</a>
+        <a href="articles.html">כתבות ובלוגים</a>
+      </div>
+      <div class="footer-col">
+        <h4>בעלי מקצוע</h4>
+        <a href="agencies.html">כל משרדי התיווך</a>
+        <a href="agents.html">כל המתווכים</a>
+        <a href="index.html#pros">בעלי מקצוע</a>
+        <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
+      </div>
+      <div class="footer-col">
+        <h4>שוק נדל״ן</h4>
+        <!-- "אודות" הוא הקישור היחיד בפוטר שעדיין אין לו דף; כל השאר
+             מצביעים על דפים, על סקציות אמיתיות או על תיבת המייל. -->
+        <a href="#">אודות</a>
+        <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
+        <a href="faq.html">שאלות נפוצות</a>
+        <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
+        <a href="crm.html">כניסת מתווכים</a>
+      </div>
+    </nav>
+
+  </div>
+
+  <!-- חיפושים פופולריים: קישורים פנימיים שמגיעים לתוצאות מסוננות דרך
+       פרמטרים ב-URL (ראו applyDeepLinkFilters ב-index.html). זה הבלוק
+       שמאפשר למנוע החיפוש להגיע לעמודי תוצאות ולא רק לדף הבית הכללי. -->
+  <details class="footer-wrap footer-seo" id="footerSeo" open>
+    <summary><h4>חיפושים פופולריים בעפולה והעמק</h4></summary>
+    <div class="footer-seo-links">
+      <a href="index.html?deal=sale&amp;rooms=3">דירות 3 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;rooms=4">דירות 4 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;rooms=5">דירות 5 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;maxPrice=1500000">נכסים בעפולה עד 1.5 מיליון ₪</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%93%D7%99%D7%A8%D7%AA%20%D7%92%D7%9F">דירות גן בעפולה</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%92%D7%92%2F%D7%A4%D7%A0%D7%98%D7%94%D7%90%D7%95%D7%96">פנטהאוזים בעפולה</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%91%D7%99%D7%AA%20%D7%A4%D7%A8%D7%98%D7%99%2F%D7%A7%D7%95%D7%98%D7%92'">בתים פרטיים בעפולה והעמק</a>
+      <a href="index.html?deal=sale&amp;q=%D7%92%D7%91%D7%A2%D7%AA%20%D7%94%D7%9E%D7%95%D7%A8%D7%94">נכסים בגבעת המורה</a>
+      <a href="index.html?deal=sale&amp;q=%D7%A2%D7%A4%D7%95%D7%9C%D7%94%20%D7%A2%D7%99%D7%9C%D7%99%D7%AA">נכסים בעפולה עילית</a>
+      <a href="index.html?deal=rent&amp;rooms=3">דירות 3 חדרים להשכרה בעפולה</a>
+      <a href="index.html?deal=rent&amp;rooms=4">דירות 4 חדרים להשכרה בעפולה</a>
+      <a href="index.html?deal=rent&amp;maxPrice=4000">דירות להשכרה בעפולה עד 4,000 ₪</a>
+      <a href="index.html?deal=commercial&amp;ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D">משרדים להשכרה בעפולה</a>
+      <a href="index.html?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
+      <a href="agencies.html">משרדי תיווך בעפולה</a>
+      <a href="agents.html">מתווכי נדל״ן בעפולה</a>
+    </div>
+  </details>
+
+  <div class="footer-wrap footer-bottom">
+    <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
+    <div class="footer-legal">
+      <a href="#">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
+      <a href="privacy.html">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
+      <a href="#">הצהרת נגישות</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>
