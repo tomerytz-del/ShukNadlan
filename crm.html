@@ -12926,7 +12926,7 @@ function buildPropertyCard(p, agentId){
     if (currentAgent && (currentAgent.tier === 'mid' || currentAgent.tier === 'premium')){
       const hasVideo = !!p.video_url;
       const isMid = currentAgent.tier === 'mid';
-      const vidPrice = priceOf('property_video_price_mid', 20);
+      const vidPrice = priceOf('property_video_price_mid', 25);
       addCardAction(actions, {
         label: (hasVideo ? '🎬 סרטון חדש' : '🎬 הפקת סרטון') + (isMid ? ` · ${shekel(vidPrice)}` : ''),
         title: hasVideo
@@ -12936,17 +12936,24 @@ function buildPropertyCard(p, agentId){
       });
     }
 
-    /* סיור 360° בנגן שלנו, מתמונות פנורמה שהסוכן/ת מעלה. אין כאן tier ואין
-       מחיר: בניגוד להפקת הסרטון אין ספק חיצוני שמחייב לכל הפעלה, והעלות
-       היחידה היא אחסון התמונות. הכפתור אומר "בנייה" או "עריכה" לפי מה
-       שכבר קיים — ‎has_virtual_tour‎ נכתב בטריגר ולכן אפשר לסמוך עליו. */
-    addCardAction(actions, {
-      label: p.has_virtual_tour ? '🌐 עריכת סיור 360°' : '🌐 בניית סיור 360°',
-      title: p.has_virtual_tour
-        ? 'הוספת חללים ונקודות מעבר לסיור הקיים'
-        : 'בניית סיור וירטואלי מתמונות 360° — מוצג בתוך דף הנכס',
-      onClick: btn => openTourEditor(p, btn),
-    });
+    /* סיור 360° בנגן שלנו, מתמונות פנורמה שהסוכן/ת מעלה — יכולת של Elite
+       בלבד, כמו ההדמיות. אין כאן מחיר לכל הפקה (אין ספק חיצוני שמחייב),
+       ולכן זה מסלול ולא ארנק.
+
+       ההסתרה כאן היא תצוגה בלבד: הגבול האמיתי הוא ב-policies של
+       ‎property_virtual_tours‎ ושל דלי ‎property-tours‎, כי העורך כותב ישירות
+       למסד ולא דרך Edge Function (‏20261028090000_virtual_tour_elite_only).
+       הכפתור אומר "בנייה" או "עריכה" לפי ‎has_virtual_tour‎, שנכתב בטריגר
+       ולכן אפשר לסמוך עליו. */
+    if (currentAgent && currentAgent.tier === 'premium'){
+      addCardAction(actions, {
+        label: p.has_virtual_tour ? '🌐 עריכת סיור 360°' : '🌐 בניית סיור 360°',
+        title: p.has_virtual_tour
+          ? 'הוספת חללים ונקודות מעבר לסיור הקיים'
+          : 'בניית סיור וירטואלי מתמונות 360° — מוצג בתוך דף הנכס',
+        onClick: btn => openTourEditor(p, btn),
+      });
+    }
 
     if (p.shared_with_partners){
       addCardAction(actions, { label:'✖ ביטול שת״פ', onClick:btn => unshareProperty(p, btn, agentId) });
@@ -13248,7 +13255,7 @@ const VIDEO_POLL_TIMEOUT_MS = 12 * 60 * 1000;
 
 async function produceMarketingVideo(property, btn, agentId){
   const isMid = currentAgent?.tier === 'mid';
-  const price = isMid ? priceOf('property_video_price_mid', 20) : 0;
+  const price = isMid ? priceOf('property_video_price_mid', 25) : 0;
   const maxClips = priceOf('property_video_clip_count', 5);
   const secs  = priceOf('property_video_clip_seconds', 5);
   const hasVideo = !!property.video_url;
@@ -13557,6 +13564,12 @@ function preparePanorama(file){
 
 /* ---------- פתיחת החלון ---------- */
 async function openTourEditor(property, btn){
+  // הכפתור ממילא מוצג ל-Elite בלבד, וזו השכבה שמונעת מסך שנפתח ומת בשמירה:
+  // ‏policy תדחה את הכתיבה, וכבר השקענו בהעלאת פנורמות. האכיפה עצמה במסד.
+  if (!currentAgent || currentAgent.tier !== 'premium'){
+    showToast('סיור 360° הוא יכולת של מסלול Elite — אפשר לשדרג במסך המסלול');
+    return;
+  }
   const original = btn ? btn.textContent : '';
   if (btn){ btn.disabled = true; btn.textContent = 'פותח עורך…'; }
   try{
