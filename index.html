@@ -1850,9 +1850,20 @@
   .dm-field input{flex:1;min-width:0;border:none;background:none;font-family:inherit;
     font-size:.84rem;color:var(--ink);appearance:none}
   .dm-field input:focus{outline:none}
-  .dm-search-all{min-height:44px;display:flex;align-items:flex-end;padding-bottom:2px}
-  .dm-search-all a{font-size:.82rem;font-weight:700;color:#fff;
-    border-bottom:1.5px solid #C9A227;padding-bottom:2px}
+  /* הבורר המהיר יושב מתחת לתיבת החיפוש, בלבן שלה: שני פקדים באותה מערכת
+     ולא פקד ועוד קישור. בלשונית שאין לה בורר (בעלי מקצוע) הוא מוסתר
+     ב-‎visibility‎ ולא ב-‎display‎, כדי שגובה התיבה — ואיתו מקומה של שורת
+     החיפוש — לא יזוז במעבר בין הלשוניות. */
+  .dm-quick{margin-top:10px}
+  .dm-quick.is-empty > *{visibility:hidden}
+  .dm-quick-label{display:block;font-size:.68rem;font-weight:800;
+    letter-spacing:.06em;color:#F0D089;margin-bottom:5px}
+  .dm-quick-select{
+    width:100%;height:40px;padding:0 10px;border:none;border-radius:0;
+    background:#fff;font-family:inherit;font-size:.82rem;font-weight:600;
+    color:var(--ink);cursor:pointer;
+  }
+  .dm-quick-select:focus{outline:2px solid #C9A227;outline-offset:1px}
 
   /* ====== אריח אדם/משרד ======
      התמונה *היא* האריח: היא ממלאת אותו לגובה ולרוחב, והשם והנתונים יושבים
@@ -1910,7 +1921,9 @@
   .dm-empty{flex:1;min-width:min(280px,100%);min-height:var(--card-h);
     display:grid;place-items:center;text-align:center;border:1px dashed #cfd8ec;
     padding:20px;margin:0;font-size:.82rem;color:var(--ink-soft);line-height:1.6}
-  .dm-all{display:flex;justify-content:center;align-items:center;min-height:44px;margin:0}
+  /* הקישור נצמד לקצה השמאלי — בדיוק מתחת לתיבת החיפוש, שיושבת שם
+     (‏order:1 במסמך RTL) מ-760px ומעלה. */
+  .dm-all{display:flex;justify-content:flex-end;align-items:center;min-height:44px;margin:0;padding:0 16px}
 
   @media(min-width:480px){
     .dm-initial{font-size:2.6rem}
@@ -1975,6 +1988,12 @@
     box-shadow:var(--shadow-sm);
   }
   .article-card .cover{height:var(--card-h);background-size:cover;background-position:center}
+  /* הכתבה הראשונה היא הכתבה המובילה של הרצועה: כרטיס רחב מעט יותר ותמונה
+     גבוהה יותר, כדי שהעין תיפול עליה לפני שהיא ממשיכה הלאה ברצועה. שאר
+     הכרטיסים נמתחים לגובהה (‎align-items:stretch‎ של ה-flex), ולכן הרצועה
+     נשארת שורה אחת ישרה גם כשהמובילה גבוהה יותר. */
+  .article-card:first-child{flex-basis:calc(var(--article-card-w) * 1.25)}
+  .article-card:first-child .cover{height:calc(var(--card-h) * 1.2)}
   .article-card .body{padding:11px;display:flex;flex-direction:column;gap:6px;flex:1}
   .article-card .kicker{
     align-self:flex-start;background:var(--gold-tint);color:var(--gold-dark);
@@ -1991,6 +2010,14 @@
     display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
   }
   .article-card .stamp{font-size:.66rem;color:var(--ink-soft);margin-top:auto}
+
+  /* שורת הכותרת של רצועת הכתבות נצמדת לקצוות, כמו ‎.pp-head‎ של רצועות
+     הנכסים: הכותרת פותחת את השורה בימין והקישור לארכיון חותם אותה בשמאל,
+     במקום כותרת ממורכזת שהקישור יורד לשורה מתחתיה. */
+  .articles-head{
+    flex-direction:row;align-items:baseline;justify-content:space-between;
+    text-align:start;gap:10px 14px;flex-wrap:wrap;
+  }
 
 
   /* ====== גלריית הפרויקטים החדשים ======
@@ -2110,9 +2137,33 @@
   .prop-card .body{padding:12px}
   .prop-card .pc-badges{max-width:calc(100% - 90px)}
 
-  /* במובייל המסלול פורץ את ריפוד ה-.wrap, בדיוק כמו .coverflow */
+  /* ====== מובייל: כתבה מובילה, ומתחתיה כתבה דחוסה ======
+     ברוחב טלפון הרצועה הנגללת ביקשה מהאצבע לעבוד כדי לגלות מה יש בה, ומי
+     שלא החליק ראה כתבה אחת וחצי חתוכה. במקום זה: הכתבה הראשונה בגדול
+     ברוחב המסך, מתחתיה השנייה בשורה דחוסה עם תמונונת — רמז שיש המשך — וכל
+     השאר מאחורי "כל הכתבות ←" שבראש הסקציה. */
   @media(max-width:759px){
-    .article-scroll{margin-inline:-18px}
+    .article-scroll{
+      display:grid;grid-template-columns:1fr;gap:10px;
+      overflow:visible;scroll-snap-type:none;padding:0;margin-inline:0;
+    }
+    /* השלישית והלאה נמצאות בארכיון, לא כאן */
+    .article-scroll > .article-card:nth-child(n+3){display:none}
+    /* התמונונת בקצה השמאלי והכותרת לצידה, בלי תקציר ובלי תאריך: זו שורה
+       שאומרת "יש עוד", ולא כרטיס שני מלא שמתחרה במובילה. */
+    .article-scroll > .article-card:nth-child(2){
+      display:grid;grid-template-columns:minmax(0,1fr) 96px;align-items:stretch;
+    }
+    /* שניהם באותה שורה במפורש: בלי ‎grid-row‎ המיקום האוטומטי היה מוצא את
+       העמודה הראשונה תפוסה ומוריד את הטקסט לשורה שנייה מתחת לתמונונת. */
+    .article-scroll > .article-card:nth-child(2) .cover{
+      grid-area:1 / 2;height:auto;min-height:92px;
+    }
+    .article-scroll > .article-card:nth-child(2) .body{
+      grid-area:1 / 1;padding:10px;gap:5px;justify-content:center;
+    }
+    .article-scroll > .article-card:nth-child(2) p,
+    .article-scroll > .article-card:nth-child(2) .stamp{display:none}
   }
   @media(min-width:480px){
     .article-scroll{--row-gap:12px;--row-peek:18px}
@@ -3698,7 +3749,14 @@
             <input type="search" id="dmSearch" placeholder="שם משרד או שכונה…"
                    autocomplete="off" aria-label="חיפוש בתוך הלשונית הפעילה">
           </label>
-          <span class="dm-search-all"><a href="agencies.html" id="dmSearchAll">לרשימה המלאה ←</a></span>
+          <!-- בורר מהיר לפי התמחות. הוא יושב במקום שבו ישב קישור "לרשימה
+               המלאה" — קישור שני לאותו דף בדיוק שאליו מוביל "לכל משרדי
+               התיווך ←" שמתחת לשורה. האפשרויות נבנות ב-JS מהמלאי של
+               הלשונית הפעילה, ובלשונית בעלי המקצוע המקום נשאר ריק. -->
+          <div class="dm-quick" id="dmQuick">
+            <label class="dm-quick-label" for="dmSpec">התמחות</label>
+            <select class="dm-quick-select" id="dmSpec"></select>
+          </div>
         </div>
 
         <!-- האריחים מוזרקים ב-JS (initDealmakers) -->
@@ -3835,7 +3893,7 @@
        הרצועה מציגה את שמונה האחרונות; הארכיון המלא (articles.html) הוא
        היעד של "כל הכתבות", כאן ובסוף כל כתבה. -->
   <section class="section wrap" id="articles">
-    <div class="section-head">
+    <div class="section-head articles-head">
       <div>
         <h2>כתבות ובלוגים</h2>
       </div>
@@ -5713,7 +5771,11 @@ async function loadLeadingAgents(){
       sb.from('agency_members_public').select('id, display_name, slug, photo_url, photo_position, agency_id, has_ethics_badge').limit(200),
       sb.from('agent_rankings').select('agent_id, composite_score, active_properties_count').limit(200),
       sb.from('reviews').select('agent_id, rating').eq('status', 'published').limit(2000),
-      sb.from('properties').select('agent_id').eq('status', 'active').limit(2000),
+      // שדות ההתמחות (‏category / property_type / project_status) נשלפים כאן
+      // ולא בשאילתה נוספת: אלה בדיוק אותן שורות שכבר נספרות למונה הנכסים,
+      // והבורר המהיר שבתיבת החיפוש גוזר מהן במה המתווך/ת מתמחה — באותה
+      // הגדרה שבה נגזרת ההתמחות של המשרד (‎agencySpecsOf‎).
+      sb.from('properties').select('agent_id, category, property_type, project_status').eq('status', 'active').limit(2000),
     ]);
     const members = membersRes.data;
     if (membersRes.error || !members) throw membersRes.error || new Error('empty');
@@ -5746,8 +5808,11 @@ async function loadLeadingAgents(){
     // אותו נימוק כמו במשרדים: מספר הנכסים הפעילים נספר מהנכסים עצמם ולא
     // מ-active_properties_count, כדי שהכרטיס לא יציג מספר ישן.
     const liveCount = {};
+    const propsByAgent = {};
     (activeRes.data || []).forEach(p => {
-      if (p.agent_id) liveCount[p.agent_id] = (liveCount[p.agent_id] || 0) + 1;
+      if (!p.agent_id) return;
+      liveCount[p.agent_id] = (liveCount[p.agent_id] || 0) + 1;
+      (propsByAgent[p.agent_id] || (propsByAgent[p.agent_id] = [])).push(p);
     });
 
     return members
@@ -5760,6 +5825,7 @@ async function loadLeadingAgents(){
           rating: agg && agg.count ? agg.sum / agg.count : null,
           reviews_count: agg?.count || 0,
           active_properties_count: liveCount[m.id] ?? (ranking?.active_properties_count ?? 0),
+          specs: agencySpecsOf(propsByAgent[m.id] || []),
         };
       })
       .sort((x, y)=>{
@@ -6450,6 +6516,8 @@ const DM_TABS = {
     href:'agencies.html',
     seeAll:'לכל משרדי התיווך ←',
     empty:'לא נמצא משרד שמתאים לחיפוש. נסו שם אחר או נקו את התיבה.',
+    quick:{ label:'התמחות', all:'כל ההתמחויות',
+            empty:'אין משרד עם נכסים פעילים בהתמחות הזו. בחרו התמחות אחרת.' },
   },
   agents: {
     title:'מחפשים מתווך/ת?',
@@ -6458,6 +6526,8 @@ const DM_TABS = {
     href:'agents.html',
     seeAll:'לכל המתווכים ←',
     empty:'לא נמצא מתווך/ת שמתאים לחיפוש. נסו שם אחר או נקו את התיבה.',
+    quick:{ label:'התמחות', all:'כל ההתמחויות',
+            empty:'אין מתווך/ת עם נכסים פעילים בהתמחות הזו. בחרו התמחות אחרת.' },
   },
   pros: {
     title:'צריכים בעל מקצוע?',
@@ -6466,6 +6536,9 @@ const DM_TABS = {
     href:'professionals.html',
     seeAll:'לכל בעלי המקצוע ←',
     empty:'לא נמצא בעל/ת מקצוע שמתאים לחיפוש. נסו מילה אחרת.',
+    // בעלי המקצוע אינם מתומחרים בהתמחויות של מלאי נכסים, ולכן המקום שמתחת
+    // לתיבת החיפוש נשאר אצלם ריק עד שתהיה להם חלוקה משלהם.
+    quick:null,
   },
 };
 
@@ -6488,6 +6561,7 @@ function dmFromAgency(a, i){
     // הראשונים בלבד; לשאר האריחים אין תג
     rank: (i < 3 && a.score !== null) ? i + 1 : 0,
     verified: !!(a.ethics_code_accepted_at && !a.ethics_badge_revoked_at),
+    specs: a.specs || [],
     search: [name, ...areas, ...specs].join(' '),
   };
 }
@@ -6504,6 +6578,7 @@ function dmFromAgent(m, i){
     rating: m.rating, reviews: m.reviews_count,
     rank: (i < 3 && m.rating !== null) ? i + 1 : 0,
     verified: !!m.has_ethics_badge,
+    specs: m.specs || [],
     search: [name, m.agency_name].join(' '),
   };
 }
@@ -6526,6 +6601,7 @@ function dmFromPro(p){
     rating: undefined, reviews: 0,
     rank: 0,
     verified: false,
+    specs: [],
     search: [name, p.business_name, field, p.target_region].join(' '),
   };
 }
@@ -6555,7 +6631,9 @@ function dmFromPro(p){
 
   const tabs = [...section.querySelectorAll('.dm-tabs button')];
   const searchEl = document.getElementById('dmSearch');
-  const state = { tab:'agencies', query:'' };
+  const quickEl = document.getElementById('dmQuick');
+  const specEl = document.getElementById('dmSpec');
+  const state = { tab:'agencies', query:'', spec:'all' };
 
   // המונה שעל כל לשונית נספר מול כל הרשימה ולא מול החיפוש הפעיל: הוא
   // אומר כמה יש בפלטפורמה, וזה לא משתנה תוך כדי הקלדה
@@ -6662,16 +6740,44 @@ function dmFromPro(p){
     return el;
   }
 
+  /* הבורר המהיר נבנה מהמלאי של הלשונית עצמה: התמחות שאין בה אף אחד לא
+     מוצעת מלכתחילה, כדי שבחירה מתוך הרשימה תמיד תחזיר תוצאות. */
+  function fillQuick(){
+    const conf = DM_TABS[state.tab];
+    quickEl.classList.toggle('is-empty', !conf.quick);
+    specEl.disabled = !conf.quick;
+    specEl.innerHTML = '';
+    if (!conf.quick) return;
+
+    document.querySelector('.dm-quick-label').textContent = conf.quick.label;
+    specEl.setAttribute('aria-label', 'סינון מהיר לפי ' + conf.quick.label);
+    const opts = [{ key:'all', label:conf.quick.all }].concat(
+      AGENCY_SPECS
+        .filter(sp => sp.key !== 'all' && data[state.tab].some(it => it.specs.includes(sp.key)))
+        .map(sp => ({ key:sp.key, label:sp.label })));
+    opts.forEach(o=>{
+      const opt = document.createElement('option');
+      opt.value = o.key;
+      opt.textContent = o.label;
+      specEl.appendChild(opt);
+    });
+    specEl.value = state.spec;
+  }
+
   function render(){
     const conf = DM_TABS[state.tab];
     const q = state.query.trim().toLowerCase();
-    const list = data[state.tab].filter(it => !q || it.search.toLowerCase().includes(q));
+    const list = data[state.tab].filter(it =>
+      (!q || it.search.toLowerCase().includes(q)) &&
+      (state.spec === 'all' || it.specs.includes(state.spec)));
 
     row.innerHTML = '';
     if (!list.length){
       const empty = document.createElement('p');
       empty.className = 'dm-empty';
-      empty.textContent = conf.empty;
+      // כשמסננים לפי התמחות והחיפוש ריק, ההסבר "נסו שם אחר" מפספס את
+      // הסיבה האמיתית שהשורה ריקה
+      empty.textContent = (!q && state.spec !== 'all' && conf.quick) ? conf.quick.empty : conf.empty;
       row.appendChild(empty);
     } else {
       list.forEach(it => row.appendChild(card(it)));
@@ -6680,8 +6786,6 @@ function dmFromPro(p){
     document.getElementById('dmSearchTitle').textContent = conf.title;
     document.getElementById('dmSearchSub').textContent = conf.sub;
     searchEl.placeholder = conf.placeholder;
-    const all = document.getElementById('dmSearchAll');
-    all.href = conf.href;
     const seeAll = document.getElementById('dmSeeAll');
     seeAll.href = conf.href;
     seeAll.textContent = conf.seeAll;
@@ -6710,7 +6814,11 @@ function dmFromPro(p){
       // אפס מתווכים, והלשונית החדשה הייתה נפתחת ריקה בלי סיבה גלויה
       state.query = '';
       searchEl.value = '';
+      // אותו נימוק חל על הבורר: התמחות שנבחרה בלשונית אחת אינה בהכרח
+      // קיימת באחרת, והלשונית החדשה הייתה נפתחת מסוננת בלי שנראה במה
+      state.spec = 'all';
       tabs.forEach(b => b.setAttribute('aria-selected', String(b === btn)));
+      fillQuick();
       render();
     });
   });
@@ -6720,12 +6828,18 @@ function dmFromPro(p){
     render();
   });
 
+  specEl.addEventListener('change', (e)=>{
+    state.spec = e.target.value;
+    render();
+  });
+
   // אם אין משרדים בכלל, הלשונית הראשונה שנפתחת היא הראשונה שיש בה תוכן
   const firstFull = tabs.find(b => !b.disabled);
   if (firstFull && firstFull.dataset.tab !== state.tab){
     state.tab = firstFull.dataset.tab;
     tabs.forEach(b => b.setAttribute('aria-selected', String(b === firstFull)));
   }
+  fillQuick();
   render();
 })();
 
