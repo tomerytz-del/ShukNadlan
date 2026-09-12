@@ -56,6 +56,11 @@ const KNOWN_SOURCES = new Set([
   "homepage_search_agent",
   "homepage_mortgage_calc",
   "property_page_mortgage_calc",
+  // תיבת ההדמיות בדף הנכס: "חושבים למכור/להשכיר?". הליד נושא agent_slug
+  // ולכן היה נרשם ביומן כ-agent_page_owner_wizard — נכון לגבי היעד, מטעה
+  // לגבי המקור. שני הכלים מייצרים לידים באותה כמות ובאותו מסלול, וההבדל
+  // ביניהם הוא בדיוק מה שהיומן קיים כדי לענות עליו.
+  "property_page_owner_wizard",
   "homepage_yield_calc",
   "agency_page_owner_wizard",
   "agency_page_yield_calc",
@@ -63,6 +68,11 @@ const KNOWN_SOURCES = new Set([
   "agent_page_owner_wizard",
   "agent_page_yield_calc",
   "agent_page_buyer_wizard",
+  // באנר מחפשי הנכס שבראש הפוטר, בכל עמוד ציבורי שאין לו אשף משלו
+  // (‏assets/buyer-banner.js). ערך אחד ולא ערך לעמוד: העמוד עצמו אינו
+  // משנה כאן דבר — הפוטר זהה בכולם — ומה שהיומן שואל הוא מאיזה *כלי* הגיע
+  // הליד. ‏docs/site-footer.md.
+  "footer_buyer_wizard",
 ]);
 
 /* ---------------------------------------------------------------------------

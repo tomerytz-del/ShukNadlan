@@ -6,11 +6,12 @@ import {
   corsHeaders,
   DEFAULT_STYLE,
   ensureTagged,
-  hasOwnExterior,
   isLandType,
   isStyleKey,
   json,
   pickPrivateSources,
+  privateTargetsFor,
+  renderModeFor,
   runVisualizationJob,
   type CommercialTarget,
   type PrivateTarget,
@@ -21,15 +22,19 @@ import {
 // ============================================================================
 // הדמיית נכס לפי דרישת הגולש/ת — הצד ה"חי" של המנגנון ההיברידי.
 //
-// ‏POST { property_id, style?, business_type?, business_description?, name, phone }
+// ‏POST { property_id, style?, business_type?, business_description?, name?, phone? }
+// ‏name/phone נדרשים בנכס מסחרי בלבד — ראו נקודה 1 למטה.
 // מחזיר מיד { ok, job_id, ready } והעיבוד ממשיך ברקע; הפרונט עושה polling דרך
 // ‏rpc('visualization_job_status', { p_job_id }).
 //
 // שלוש נקודות שכדאי להכיר לפני שנוגעים כאן:
 //
-//   1. הפרטים אינם "אימות" — הם המוצר. גולש/ת שמבקש/ת לראות איך המטבח נראה
-//      בסגנון אחר הוא/היא ליד חם, ולכן הליד נוצר לפני ההדמיה ולא אחריה, ונכנס
-//      לאותו מסלול tier של property-inquiry-intake.
+//   1. הפרטים נדרשים בנכס מסחרי בלבד. מי שמדמה עסק מתאר מה הוא מתכוון לעשות
+//      בנכס — פנייה בפועל — והליד נוצר לפני ההדמיה ולא אחריה, ונכנס לאותו
+//      מסלול tier של property-inquiry-intake. בנכס פרטי אין דרישה כזאת:
+//      ארבעת הסגנונות זהים לכל הנכס ומשרתים כל מבקר/ת אחריו, ומסך שדורש שם
+//      וטלפון לפני שרואים אותם הוא מחסום לפני הערך ולא אחריו. בקשה בלי
+//      פרטים פשוט לא מייצרת ליד.
 //   2. הדמיה פרטית שכבר קיימת לא נוצרת מחדש. שני גולשים שביקשו "סלון בסגנון
 //      ים-תיכוני" מקבלים את אותה תמונה — הליד נרשם פעמיים, ה-API נקרא פעם אחת.
 //      זה מה שהופך את המודל ההיברידי לזול יותר מ-batch מראש.
@@ -56,7 +61,6 @@ Deno.serve(async (req: Request) => {
 
   const { property_id, style, business_type, business_description, name, phone } = body ?? {};
   if (!property_id) return json({ error: "missing_property_id" }, 400);
-  if (!name || !phone) return json({ error: "missing_contact", message: "יש למלא שם וטלפון" }, 400);
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
@@ -109,6 +113,28 @@ Deno.serve(async (req: Request) => {
   const isPrivate = property.category === "residential";
   const kind = isPrivate ? "private_room" : "commercial_business";
 
+  // נכס להשכרה מקבל הלבשת בית ולא שיפוץ — ראו RenderMode ב-_shared. המצב
+  // נשמר על כל שורה: הוא חלק ממפתח הייחודיות, ומה שמחליט אילו הדמיות
+  // קיימות הוא (מטרה, סגנון, **מצב**) ולא רק השניים הראשונים. בלעדיו נכס
+  // שהוחלף בו deal_type היה מקבל "כבר קיים" על הדמיות של המצב הישן.
+  // בהדמיה מסחרית אין מצב — הוא נגזר מסוג העסק ולא מסוג העסקה — והעמודה
+  // נשארת בברירת המחדל שלה.
+  const mode = renderModeFor(property.deal_type);
+
+  // ---- מי נדרש/ת לפרטים -------------------------------------------------
+  // נכס פרטי: אף אחד. ההדמיה היא המוצר, ומסך שדורש שם וטלפון לפני שרואים
+  // אותה הוא מחסום לפני הערך ולא אחריו — ובמסלול הפרטי גם מיותר, כי ארבעת
+  // הסגנונות זהים לכל הנכס ומשמשים כל מבקר/ת אחריו. הבלם היחיד שם הוא
+  // המכסה היומית פר נכס שלמעלה.
+  //
+  // נכס מסחרי: כן. מי שמדמה עסק בנכס מסחרי מתאר מה הוא מתכוון לעשות בו,
+  // וזו פנייה בפועל ולא סקרנות עיצובית. גם ההדמיה עצמה ייחודית לו ועולה
+  // קריאת API לכל בקשה.
+  if (!isPrivate && (!name || !phone)) {
+    return json({ error: "missing_contact", message: "יש למלא שם וטלפון" }, 400);
+  }
+  const hasContact = Boolean(name && phone);
+
   let styleKey: StyleKey | null = null;
   if (isPrivate) {
     styleKey = isStyleKey(style) ? style : DEFAULT_STYLE;
@@ -126,12 +152,9 @@ Deno.serve(async (req: Request) => {
   const sources: Array<{ target: PrivateTarget | CommercialTarget; url: string; prompt: string }> = [];
 
   if (isPrivate) {
-    // חוץ רק לבית פרטי — בדירה בבניין החזית היא רכוש משותף
-    const targets: PrivateTarget[] = hasOwnExterior(property.property_type)
-      ? ["exterior", "living_room", "kitchen"]
-      : ["living_room", "kitchen"];
+    const targets: PrivateTarget[] = privateTargetsFor(property.property_type, mode);
 
-    const picked = pickPrivateSources(tags, targets);
+    const picked = pickPrivateSources(tags, targets, mode);
     for (const target of targets) {
       const url = picked[target];
       if (!url) continue;
@@ -142,6 +165,7 @@ Deno.serve(async (req: Request) => {
           propertyType: property.property_type,
           sizeSqm: sizeSqm ? Number(sizeSqm) : null,
           rooms: property.rooms ? Number(property.rooms) : null,
+          mode,
         }),
       });
     }
@@ -177,57 +201,80 @@ Deno.serve(async (req: Request) => {
   // ---- מה כבר קיים ------------------------------------------------------
   // רק status='done' נחשב שימוש חוזר. שורה שנכשלה או שתקועה ב-processing
   // נוצרת מחדש — עדיף לשלם עוד קריאה מאשר להשאיר גולש/ת מול תמונה חסרה.
-  let ready: Array<{ target: string; style_key: string | null; result_url: string }> = [];
+  //
+  // ‏source_image_url נשלף יחד עם התוצאה: הווילון בדף הנכס משווה כל הדמיה
+  // לצילום שהיא נוצרה ממנו, ותשובה בלעדיו הייתה מחזירה את הדף לניחוש.
+  let ready: Array<{
+    target: string;
+    style_key: string | null;
+    source_image_url: string;
+    result_url: string;
+  }> = [];
   if (isPrivate) {
     const { data: existing } = await supabase
       .from("property_visualizations")
-      .select("target, style_key, result_url, status")
+      .select("target, style_key, source_image_url, result_url, status")
       .eq("property_id", property_id)
       .eq("kind", "private_room")
       .eq("style_key", styleKey)
+      .eq("mode", mode)
       .eq("status", "done");
     ready = (existing ?? [])
       .filter((r: any) => r.result_url)
-      .map((r: any) => ({ target: r.target, style_key: r.style_key, result_url: r.result_url }));
+      .map((r: any) => ({
+        target: r.target,
+        style_key: r.style_key,
+        source_image_url: r.source_image_url,
+        result_url: r.result_url,
+      }));
   }
 
   const readyTargets = new Set(ready.map((r) => r.target));
   const todo = sources.filter((s) => !readyTargets.has(s.target));
 
   // ---- הליד -------------------------------------------------------------
-  // נוצר תמיד, גם כשאין מה לייצר: מה שמעניין את הסוכן/ת הוא הפנייה, לא
-  // האם התמונה במקרה כבר הייתה בקאש.
-  const tier = (property as any).agency_members?.tier ?? "free";
-  const autoUnlock = tier === "mid" || tier === "premium";
-  const details = isPrivate
-    ? `הדמיית נכס פרטי · סגנון: ${styleKey}`
-    : `הדמיית עסק · סוג: ${business_type}${business_description ? ` · ${business_description}` : ""}`;
+  // נוצר בכל בקשה שיש בה פרטים, גם כשאין מה לייצר: מה שמעניין את הסוכן/ת
+  // הוא הפנייה, לא האם התמונה במקרה כבר הייתה בקאש.
+  //
+  // בקשה פרטית בלי פרטים לא מייצרת ליד — אין ליד בלי אדם. ההדמיה כן נוצרת:
+  // היא נשמרת על הנכס ומשרתת גם את המבקר/ת הבא/ה.
+  let leadId: string | null = null;
+  if (hasContact) {
+    const tier = (property as any).agency_members?.tier ?? "free";
+    const autoUnlock = tier === "mid" || tier === "premium";
+    // בנכס להשכרה ההדמיה היא הלבשת בית ולא שיפוץ, והשורה שהסוכן/ת רואה
+    // ב-CRM אומרת את זה: היא מה שקובע איזו שיחה מתקיימת אחר כך.
+    const details = isPrivate
+      ? `${mode === "staging" ? "הדמיית הלבשת בית" : "הדמיית נכס פרטי"} · סגנון: ${styleKey}`
+      : `הדמיית עסק · סוג: ${business_type}${business_description ? ` · ${business_description}` : ""}`;
 
-  const leadPayload: Record<string, unknown> = {
-    lead_type: "visualization",
-    deal_type: property.deal_type,
-    property_id: property.id,
-    agency_id: property.agency_id,
-    agent_id: property.agent_id,
-    raw_name: name,
-    raw_phone: phone,
-    raw_message: details,
-    property_details: details,
-    city: property.city,
-    property_type: property.property_type,
-    status: autoUnlock ? "unlocked" : "masked",
-  };
-  if (autoUnlock) {
-    leadPayload.quota_source = "subscription_unlimited";
-    leadPayload.unlocked_at = new Date().toISOString();
-    leadPayload.unlocked_by = property.agent_id;
+    const leadPayload: Record<string, unknown> = {
+      lead_type: "visualization",
+      deal_type: property.deal_type,
+      property_id: property.id,
+      agency_id: property.agency_id,
+      agent_id: property.agent_id,
+      raw_name: name,
+      raw_phone: phone,
+      raw_message: details,
+      property_details: details,
+      city: property.city,
+      property_type: property.property_type,
+      status: autoUnlock ? "unlocked" : "masked",
+    };
+    if (autoUnlock) {
+      leadPayload.quota_source = "subscription_unlimited";
+      leadPayload.unlocked_at = new Date().toISOString();
+      leadPayload.unlocked_by = property.agent_id;
+    }
+
+    const { data: lead, error: leadErr } = await supabase.from("leads").insert(leadPayload).select("id").single();
+    if (leadErr) return json({ error: "db_error", detail: leadErr.message }, 500);
+    leadId = lead.id;
   }
 
-  const { data: lead, error: leadErr } = await supabase.from("leads").insert(leadPayload).select("id").single();
-  if (leadErr) return json({ error: "db_error", detail: leadErr.message }, 500);
-
   if (todo.length === 0) {
-    return json({ ok: true, job_id: null, lead_id: lead.id, ready, note: "כל ההדמיות בסגנון הזה כבר קיימות" });
+    return json({ ok: true, job_id: null, lead_id: leadId, ready, note: "כל ההדמיות בסגנון הזה כבר קיימות" });
   }
 
   // ---- הבקשה ------------------------------------------------------------
@@ -240,7 +287,7 @@ Deno.serve(async (req: Request) => {
       style_key: styleKey,
       business_type: business_type ?? null,
       business_description: business_description ?? null,
-      lead_id: lead.id,
+      lead_id: leadId,
       status: "processing",
     })
     .select("id")
@@ -260,6 +307,7 @@ Deno.serve(async (req: Request) => {
         .eq("kind", "private_room")
         .eq("target", s.target)
         .eq("style_key", styleKey)
+        .eq("mode", mode)
         .maybeSingle();
       if (prior) {
         await supabase
@@ -279,6 +327,8 @@ Deno.serve(async (req: Request) => {
           kind,
           target: s.target,
           style_key: styleKey,
+          // המצב נשמר בהדמיה פרטית בלבד; במסחרית העמודה נשארת בברירת המחדל
+          ...(isPrivate ? { mode } : {}),
           source_image_url: s.url,
           status: "pending",
         })
@@ -305,7 +355,7 @@ Deno.serve(async (req: Request) => {
   return json({
     ok: true,
     job_id: job.id,
-    lead_id: lead.id,
+    lead_id: leadId,
     ready,
     pending_targets: items.map((i) => i.target),
   });

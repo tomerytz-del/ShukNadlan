@@ -1,0 +1,1129 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>כל בעלי המקצוע בשוק הנדל״ן</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta name="description" content="כל בעלי המקצוע של עולם הנדל״ן בעפולה והעמק בעמוד אחד — יועצי משכנתאות, שמאים, עורכי דין, אדריכלים ומעצבי פנים. חיפוש לפי שם, תחום ואזור פעילות, עם מעבר ישיר לפרופיל ולוואטסאפ.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="כל בעלי המקצוע בשוק הנדל״ן">
+<meta property="og:description" content="יועצי משכנתאות, שמאים, עורכי דין, אדריכלים ומעצבי פנים בעפולה והעמק — חיפוש לפי תחום ואזור פעילות.">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<!-- הרקע הזורם של האתר, מאותו קובץ משותף של שאר הדפים -->
+<script src="assets/page-bg.js" data-auto></script>
+<style>
+  /* אותה פלטה ואותם רכיבים כמו agencies.html: זה אותו סוג עמוד בדיוק —
+     רשימה מלאה של שחקנים בפלטפורמה עם סרגל חיפוש וסינון מעליה — ורק
+     הכרטיס עצמו שונה, כי מתווך/ת מזוהה בתמונה ולא בלוגו. */
+  :root{
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
+    --line:#e3e8f4; --teal:#0e2a6b; --teal-dark:#0d1b3d; --teal-tint:#eaf0fb;
+    --gold:#0e2a6b; --gold-dark:#08194a; --gold-tint:#f7f1e2;
+    --star:#c9a227; --star-off:#d3daea;
+    --verified:#21a565; --verified-tint:#e5f5ed;
+    --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --radius-2xl:24px;
+    --shadow:0 4px 20px rgba(14,42,107,.10); --shadow-sm:0 2px 8px rgba(14,42,107,.08);
+    --shadow-lift:0 18px 40px -18px rgba(6,20,34,.42);
+    --maxw:1180px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  [hidden]{display:none !important}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:'Heebo',sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased;
+  }
+  h1,h2,h3,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;line-height:1.15;color:var(--teal-dark);margin:0}
+  a{color:inherit;text-decoration:none}
+  img{max-width:100%;display:block}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  input{font-family:inherit;font-size:1rem;min-width:0}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
+  .eyebrow{
+    font-size:.72rem;letter-spacing:.08em;font-weight:700;color:var(--gold-dark);
+    text-transform:uppercase;display:flex;align-items:center;gap:8px;justify-content:center;
+  }
+  .eyebrow::before{content:"";width:18px;height:2px;background:var(--gold-dark);display:inline-block}
+  .btn{
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    padding:12px 22px;border-radius:0;font-weight:700;font-size:.9rem;
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .btn-teal{background:var(--teal);color:#fff}
+  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}
+  .btn-ghost{background:#fff;color:var(--teal-dark);border:1.5px solid var(--line)}
+  .btn-ghost:hover{border-color:var(--teal)}
+  :focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+  .skip-link{position:absolute;right:-999px;top:0;background:var(--teal);color:#fff;padding:10px 16px;z-index:200;border-radius:0 0 0 8px}
+  .skip-link:focus{right:0}
+  .sr-only{
+    position:absolute;width:1px;height:1px;padding:0;margin:-1px;
+    overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0;
+  }
+
+  /* ====== Header ====== */
+  header.site{
+    position:sticky;top:0;z-index:100;background:var(--paper-raised);
+    border-bottom:1px solid var(--line);padding:12px 0;
+  }
+  .header-inner{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .logo{display:flex;align-items:center;gap:10px;min-width:0}
+  .logo-img{height:44px;width:auto;flex:0 0 auto}
+  .logo-word{
+    font-family:'Rubik','Heebo',sans-serif;font-weight:500;color:var(--teal-dark);
+    font-size:.8rem;line-height:1.3;letter-spacing:-.012em;min-width:0;text-align:center;
+  }
+  .logo-word span{color:var(--gold-dark);font-weight:700}
+  @media(min-width:900px){
+    .logo-img{height:52px;width:auto}
+    .logo-word{font-size:.95rem;white-space:nowrap}
+  }
+  .back-link{font-size:.85rem;font-weight:700;color:var(--teal);white-space:nowrap;border-bottom:1.5px solid var(--gold);padding-bottom:2px}
+
+  /* ====== Hero ====== */
+  .hero{text-align:center;padding:40px 0 22px}
+  .hero h1{font-size:1.75rem;margin-top:10px;text-wrap:balance}
+  @media(min-width:760px){.hero h1{font-size:2.5rem}}
+  .hero .lede{
+    font-size:.95rem;color:var(--ink-soft);margin:12px auto 0;max-width:56ch;text-wrap:balance;
+  }
+  @media(min-width:760px){.hero .lede{font-size:1.05rem}}
+
+  /* ====== סרגל הכלים: חיפוש, סינון ומיון ======
+     כרטיס אחד ולא חמש שורות נפרדות, בדיוק כמו בעמוד משרדי התיווך: כל מה
+     שמצמצם את הרשימה (חיפוש, משרד, התמחות, דירוג) יושב יחד, ומה שמשנה רק
+     את הסידור בשורה נפרדת מתחת לקו. */
+  .toolbar{
+    background:rgba(255,255,255,.9);border:1px solid var(--line);border-radius:var(--radius-2xl);
+    box-shadow:var(--shadow-sm);padding:16px;display:flex;flex-direction:column;gap:14px;
+  }
+  @media(min-width:760px){.toolbar{padding:20px 22px}}
+
+  .search-box{position:relative;width:100%}
+  .search-box input{
+    width:100%;border:1.5px solid var(--line);border-radius:0;
+    background:#fff;padding:13px 46px 13px 16px;font-size:.95rem;color:var(--ink);
+  }
+  .search-box input:focus{border-color:var(--teal)}
+  .search-box svg{
+    position:absolute;inset-inline-start:17px;top:50%;transform:translateY(-50%);
+    width:19px;height:19px;color:var(--ink-soft);pointer-events:none;
+  }
+
+  /* שורת פקדים: תווית קצרה ואחריה קבוצת גלולות שנגללת אופקית במסך צר
+     במקום להישבר לארבע שורות */
+  .tool-row{display:flex;align-items:center;gap:10px;min-width:0}
+  .tool-label{
+    font-size:.74rem;font-weight:800;color:var(--ink-soft);white-space:nowrap;flex:0 0 auto;
+    letter-spacing:.02em;
+  }
+  .pill-group{
+    display:flex;gap:8px;flex:1 1 auto;min-width:0;overflow-x:auto;padding-bottom:2px;
+    scrollbar-width:none;-ms-overflow-style:none;
+  }
+  .pill-group::-webkit-scrollbar{display:none}
+  @media(min-width:900px){.pill-group{flex-wrap:wrap;overflow:visible}}
+  .pill{
+    flex:0 0 auto;background:#fff;border:1.5px solid var(--line);color:var(--ink-soft);
+    border-radius:0;padding:8px 15px;font-size:.82rem;font-weight:700;white-space:nowrap;
+    display:inline-flex;align-items:center;gap:4px;
+    transition:border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  .pill:hover{border-color:var(--teal);color:var(--teal-dark)}
+  .pill[aria-pressed="true"]{background:var(--teal);border-color:var(--teal);color:#fff}
+  /* המונה שעל הגלולה אומר כמה מתווכים יישארו אחרי הלחיצה — סינון שמחזיר
+     אפס נראה כמו תקלה, ולכן עדיף לדעת לפני */
+  .pill .n{opacity:.62;font-weight:600;margin-inline-start:5px;font-size:.76em}
+  .pill[aria-pressed="true"] .n{opacity:.8}
+  .pill:disabled{opacity:.42;cursor:default}
+  .pill:disabled:hover{border-color:var(--line);color:var(--ink-soft)}
+  /* הכוכב שעל גלולות הדירוג צהוב גם כשהגלולה לא נבחרה — הוא מה שמסמן
+     שהשורה הזו מדברת על דירוג ולא על עוד קטגוריה */
+  .pill .pill-star{color:var(--star);font-size:.9em}
+  .pill[aria-pressed="true"] .pill-star{color:#FFD98A}
+
+  .tool-divider{height:1px;background:var(--line);opacity:.7;margin:0}
+  .result-count{font-size:.82rem;color:var(--ink-soft);font-weight:600;min-height:1.2em}
+  .reset-btn{
+    font-size:.78rem;font-weight:700;color:var(--teal);border-bottom:1.5px solid var(--gold);
+    padding:0 0 1px;margin-inline-start:10px;
+  }
+
+  /* ====== הגריד ====== */
+  .grid{display:grid;grid-template-columns:1fr;gap:18px;padding:22px 0 10px}
+  @media(min-width:620px){.grid{grid-template-columns:repeat(2,1fr)}}
+  @media(min-width:980px){.grid{grid-template-columns:repeat(3,1fr)}}
+
+  /* ====== כרטיס מתווך/ת ======
+     שלושה חלקים: תמונה עם התגים שיושבים עליה, גוף עם הזהות והדירוג, ורגל
+     עם הפעולות. הכרטיס כולו הוא grid בשלוש שורות כדי שהרגל תיצמד לתחתית
+     גם כשהגוף קצר יותר משכניו. */
+  .ag-card{
+    display:grid;grid-template-rows:auto 1fr auto;
+    background:#fff;border:1px solid var(--line);border-radius:var(--radius-2xl);
+    overflow:hidden;box-shadow:var(--shadow-sm);
+    transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+  }
+  .ag-card:hover{transform:translateY(-4px);box-shadow:var(--shadow-lift);border-color:#B9C6D4}
+  .ag-card:focus-within{border-color:var(--teal)}
+
+  /* ---- ראש הכרטיס: התמונה ---- */
+  .ag-media{
+    position:relative;height:230px;overflow:hidden;
+    background:linear-gradient(155deg,var(--gold),var(--teal) 68%);
+  }
+  /* אות ההתחלה נשארת מתחת לתמונה תמיד: אם קובץ התמונה נשבר ה-img מסיר את
+     עצמו והאריח חוזר לאות על הגרדיאנט במקום לאייקון תמונה שבורה */
+  .ag-initial{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:3.4rem;color:rgba(255,255,255,.92);
+  }
+  .ag-photo{
+    position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
+    object-position:var(--photo-pos,50% 28%);
+  }
+  /* צעיף כהה בתחתית: התגים והמונה יושבים על התמונה, ובלעדיו הם נבלעים
+     בתמונה בהירה */
+  .ag-media::after{
+    content:"";position:absolute;inset:auto 0 0 0;height:56%;pointer-events:none;
+    background:linear-gradient(180deg,rgba(6,20,34,0) 0%,rgba(6,20,34,.55) 100%);
+  }
+  .ag-media > .ag-overlay{position:absolute;z-index:2}
+  .ag-rank{
+    inset-block-start:12px;inset-inline-end:12px;
+    background:rgba(255,255,255,.94);color:var(--gold-dark);
+    font-size:.7rem;font-weight:800;padding:3px 10px;border-radius:0;
+    box-shadow:0 2px 6px rgba(6,20,34,.22);
+  }
+  .ag-badge{inset-block-start:10px;inset-inline-start:10px;width:38px;height:38px}
+  .ag-badge img{width:100%;height:100%;border-radius:50%;filter:drop-shadow(0 2px 6px rgba(6,20,34,.4))}
+  .ag-count{
+    inset-block-end:12px;inset-inline-end:14px;
+    display:inline-flex;align-items:baseline;gap:4px;
+    background:rgba(18,40,64,.92);color:#fff;
+    font-weight:700;font-size:.74rem;padding:5px 11px;border-radius:0;
+    box-shadow:0 2px 10px rgba(6,20,34,.3);
+  }
+  .ag-count b{font-family:'Frank Ruhl Libre',serif;font-size:1.02rem;font-weight:700}
+
+  /* ---- גוף הכרטיס ---- */
+  .ag-body{padding:14px 16px;display:flex;flex-direction:column;gap:7px}
+  /* לשם ולשורת המשרד יש גובה קבוע: בלעדיו מתווך/ת עם שם ארוך מגביה/ה את
+     הכרטיס מעל שכניו ברשת, והדירוגים מפסיקים להיות באותו קו */
+  .ag-name{
+    font-family:'Heebo',sans-serif;font-size:1.08rem;font-weight:800;color:var(--ink);line-height:1.3;
+    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden;
+    overflow-wrap:anywhere;
+  }
+  .ag-agency{
+    display:flex;align-items:center;gap:6px;font-size:.82rem;font-weight:700;color:var(--teal);
+    min-height:1.3em;
+  }
+  .ag-agency svg{width:14px;height:14px;flex:0 0 auto;color:var(--gold-dark)}
+  .ag-agency .txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  a.ag-agency:hover .txt{text-decoration:underline}
+
+  /* שורת הדירוג: חמישה כוכבים מלאים־חלקית ולא רק מספר, כי זה מה שהעמוד
+     הזה מבטיח לסנן לפיו */
+  .ag-rating{display:flex;align-items:center;gap:7px;font-size:.82rem;color:var(--ink-soft);min-height:1.5em}
+  .stars{
+    position:relative;display:inline-block;flex:0 0 auto;line-height:1;
+    font-size:.95rem;letter-spacing:1px;color:var(--star-off);
+  }
+  .stars::before{content:"★★★★★"}
+  .stars i{
+    position:absolute;inset-block:0;inset-inline-start:0;overflow:hidden;
+    white-space:nowrap;color:var(--star);font-style:normal;
+  }
+  .stars i::before{content:"★★★★★"}
+  .ag-rating .score{font-weight:800;color:var(--ink)}
+  .ag-rating .txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  .ag-meta{display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--ink-soft)}
+  .ag-meta svg{width:14px;height:14px;flex:0 0 auto;color:var(--gold-dark)}
+  .ag-meta .txt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+  /* צ'יפים של תחומי התמחות: אפור־כחלחל שקט, כדי שלא יתחרו בשם ובדירוג */
+  .ag-chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+  .ag-chip{
+    background:#EEF3F8;border:1px solid #DCE6EF;color:#3D5773;
+    font-size:.7rem;font-weight:700;padding:3px 9px;border-radius:0;
+  }
+  .ag-chip.exp{background:#F5F4F1;border-color:#E4E2DC;color:#5B5F63}
+
+  /* ---- רגל הכרטיס ---- */
+  .ag-actions{display:flex;gap:8px;padding:12px 16px 16px;border-top:1px solid #EEF1F4;margin-top:4px}
+  .ag-cta{
+    flex:1 1 auto;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    background:var(--teal);color:#fff;border-radius:0;padding:11px 12px;
+    font-size:.85rem;font-weight:700;transition:background .15s ease;
+  }
+  .ag-cta:hover{background:var(--teal-dark)}
+  .ag-cta.is-static{background:#EDF0F3;color:var(--ink-soft);cursor:default}
+  /* כפתורי הקשר הם אייקון בלבד: הם משניים לכניסה לעמוד האישי, ושורה של
+     שלושה כפתורי טקסט ברוחב כרטיס אחד לא נושמת */
+  .ag-icon-btn{
+    flex:0 0 auto;width:44px;height:44px;border-radius:0;
+    display:inline-flex;align-items:center;justify-content:center;
+    border:1.5px solid var(--line);background:#fff;color:var(--ink-soft);
+    transition:border-color .15s ease, color .15s ease, background .15s ease;
+  }
+  .ag-icon-btn svg{width:20px;height:20px;fill:currentColor}
+  .ag-icon-btn.wa:hover{border-color:#25D366;color:#128C4A;background:#EAFBF1}
+  .ag-icon-btn.tel:hover{border-color:var(--teal);color:var(--teal);background:var(--teal-tint)}
+
+  .state{padding:56px 18px;text-align:center;color:var(--ink-soft);font-size:.92rem}
+  .state h2{font-size:1.2rem;margin-bottom:8px}
+
+  /* ====== הזמנה להצטרפות, בתחתית הרשימה ====== */
+  .join-band{
+    background:rgba(255,255,255,.88);border:1px solid var(--line);border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-sm);text-align:center;padding:30px 20px;margin-top:26px;
+  }
+  .join-band h2{font-size:1.3rem}
+  .join-band p{font-size:.9rem;color:var(--ink-soft);margin:10px auto 18px;max-width:52ch}
+  .join-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+
+  /* ====== Footer (זהה לשאר הדפים) ====== */
+</style>
+<link rel="stylesheet" href="assets/site-footer.css">
+<link rel="stylesheet" href="assets/buyer-banner.css">
+<link rel="stylesheet" href="assets/design-system.css">
+<script src="assets/site-footer.js" defer></script>
+<script src="assets/buyer-banner.js" defer></script>
+<style>
+  /* ====== מה שנוסף מעל הגיליון המשותף עם agents.html ======
+     העמוד הזה הוא אותו סוג עמוד בדיוק — רשימה מלאה עם סרגל חיפוש מעליה —
+     ולכן הוא נשען על אותם ‎.toolbar‎, ‎.pill‎, ‎.grid‎ ו-‎.ag-card‎. כאן יושבים
+     רק ההבדלים: תג התחום שעל התמונה (במקום מונה הנכסים), משפט הפתיחה
+     שבגוף הכרטיס, והבאנר הכהה שקורא להצטרף. */
+
+  /* תג התחום יושב במקום ‎.ag-count‎ ובאותה פינה: זו הזהות המקצועית, וזה מה
+     שהעין מחפשת כשעוברים על רשת של כרטיסים. */
+  .pro-role{
+    inset-block-end:12px;inset-inline-end:14px;
+    background:rgba(18,40,64,.92);color:#fff;
+    font-weight:700;font-size:.78rem;padding:5px 12px;border-radius:0;
+    box-shadow:0 2px 10px rgba(6,20,34,.3);
+  }
+  /* משפט הפתיחה מוגבל לשתי שורות: הוא טקסט חופשי, וכרטיס אחד ארוך היה
+     מותח את כל השורה ברשת. */
+  .pro-headline{
+    font-size:.85rem;color:var(--ink-soft);line-height:1.45;
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+
+  /* ====== הבאנר הכהה: הצטרפות לפרסום באתר ======
+     אותו באנר של "איזה משרד תיווך מתאים לכם?" בדף הבית — רקע כהה, כפתור
+     זהב — כי זו אותה קריאה לפעולה ובאותה עוצמה. הוא יושב מתחת לרשימה:
+     קודם רואים מי כבר שם, ואז מוזמנים להצטרף. */
+  .cta-band{
+    background:var(--teal-dark);color:#fff;border-radius:var(--radius-lg);
+    padding:28px 22px;margin:30px 0 10px;text-align:center;
+    box-shadow:0 18px 40px -22px rgba(6,20,34,.6);
+  }
+  .cta-band h2{color:#fff;font-size:1.35rem;text-wrap:balance}
+  .cta-band p{font-size:.92rem;color:rgba(255,255,255,.84);margin:12px auto 20px;max-width:54ch;text-wrap:balance}
+  .cta-actions{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+  .cta-band .btn-gold{background:var(--star);color:#0d1b3d;font-size:.95rem;padding:14px 30px}
+  .cta-band .btn-gold:hover{transform:translateY(-1px);box-shadow:0 8px 20px rgba(201,162,39,.35)}
+  .cta-band .btn-outline{
+    background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.5);padding:14px 26px;font-size:.95rem;
+  }
+  .cta-band .btn-outline:hover{border-color:#fff}
+  @media(min-width:760px){
+    .cta-band{padding:38px 30px}
+    .cta-band h2{font-size:1.7rem}
+  }
+</style>
+</head>
+<body>
+
+<a href="#main" class="skip-link">דילוג לתוכן</a>
+
+<header class="site">
+  <div class="wrap header-inner">
+    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+      <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
+      <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
+    </a>
+    <a href="index.html" class="back-link">← לדף הבית</a>
+  </div>
+</header>
+
+<main id="main">
+  <div class="wrap">
+
+    <div class="hero">
+      <p class="eyebrow">בעלי מקצוע</p>
+      <h1>כל בעלי המקצוע בעפולה והעמק</h1>
+      <p class="lede">
+        יועצי משכנתאות, שמאי מקרקעין, עורכי דין, אדריכלים ומעצבי פנים —
+        חפשו לפי שם, לפי תחום או לפי אזור הפעילות
+      </p>
+    </div>
+
+    <!-- ====== סרגל חיפוש, סינון ומיון ======
+         אותו סרגל של עמוד המתווכים ועמוד משרדי התיווך: תיבת חיפוש חופשי
+         ואחריה שורות גלולות שמצמצמות את הרשימה, ומתחת לקו — המיון. -->
+    <div class="toolbar" id="toolbar" hidden>
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>
+        </svg>
+        <input type="search" id="proSearch" placeholder="חיפוש לפי שם, עסק, תחום או שירות…"
+               aria-label="חיפוש לפי שם בעל/ת מקצוע, שם עסק, תחום או שירות" autocomplete="off">
+      </div>
+
+      <div class="tool-row">
+        <span class="tool-label" id="typeLabel">תחום</span>
+        <div class="pill-group" id="typePills" role="group" aria-labelledby="typeLabel"></div>
+      </div>
+
+      <div class="tool-row" id="areaRow">
+        <span class="tool-label" id="areaLabel">אזור</span>
+        <div class="pill-group" id="areaPills" role="group" aria-labelledby="areaLabel"></div>
+      </div>
+
+      <hr class="tool-divider">
+
+      <div class="tool-row">
+        <span class="tool-label" id="sortLabel">מיון</span>
+        <div class="pill-group" id="sortPills" role="group" aria-labelledby="sortLabel"></div>
+      </div>
+
+      <p class="result-count" id="resultCount" aria-live="polite"></p>
+    </div>
+
+    <div class="state" id="loadingState">טוען את רשימת בעלי המקצוע…</div>
+
+    <div class="state" id="emptyState" hidden>
+      <h2>אין כאן בעלי מקצוע עדיין</h2>
+      <p>הרשימה בהרצה. אם אתם מלווים עסקאות נדל״ן באזור — זה בדיוק הרגע להיות הראשונים כאן.</p>
+      <a href="professional-signup.html" class="btn btn-teal" style="margin-top:16px">הצטרפות כבעל/ת מקצוע</a>
+    </div>
+
+    <div class="state" id="noResultsState" hidden>
+      <h2>לא נמצא בעל/ת מקצוע מתאים/ה</h2>
+      <p>נסו מילה אחרת, תחום אחר, או אפסו את הסינון וחזרו לרשימה המלאה.</p>
+      <button type="button" class="btn btn-ghost" id="noResultsReset" style="margin-top:16px">איפוס הסינון</button>
+    </div>
+
+    <div class="grid" id="prosGrid"></div>
+
+    <!-- ====== ההזמנה להצטרף ======
+         מוצג תמיד, גם כשהרשימה ריקה וגם כשהיא מלאה: זו הדרך של בעל/ת מקצוע
+         להגיע לעמוד הזה, והמקום הטבעי לשאול היא אחרי שרואים מי כבר בפנים. -->
+    <section class="cta-band" id="ctaBand">
+      <h2>גם אתם מלווים עסקאות נדל״ן בעפולה והעמק?</h2>
+      <p>
+        פרופיל מלא באתר — תמונות, שירותים, גלריה, וידאו וכפתור וואטסאפ ישיר —
+        מול מי שכבר מחפש דירה, בודק משכנתא או שוקל השקעה באזור. בלי עמלות, בלי לידים שנמכרים פעמיים.
+      </p>
+      <div class="cta-actions">
+        <a href="professional-signup.html" class="btn btn-gold">לפרסום באתר ←</a>
+        <a href="mailto:shuknadlan@gmail.com?subject=%D7%A4%D7%A8%D7%A1%D7%95%D7%9D%20%D7%9B%D7%91%D7%A2%D7%9C%20%D7%9E%D7%A7%D7%A6%D7%95%D7%A2" class="btn btn-outline">יש לי שאלה לפני</a>
+      </div>
+    </section>
+  </div>
+</main>
+
+<footer class="site">
+
+  <!-- ====== באנר מחפשי הנכס — רצועת הפתיחה של הפוטר ======
+       כאן ישבה עד היום רצועת ההרשמה לרשימת התפוצה. שתיהן ביקשו מאותו אדם
+       את אותו דבר במילים אחרות — "נעדכן אתכם כשיעלה נכס" — וזו שומרת את
+       **החיפוש** ולא רק את האימייל: קריטריונים, ערוץ התראה והסכמה ליצירת
+       קשר, כלומר התראה על נכס שמתאים במקום סיכום שבועי.
+
+       הסימון והשליחה יושבים ב-assets/buyer-banner.css ו-buyer-banner.js,
+       קובץ אחד לכל העמודים — ראו docs/site-footer.md. היעד הוא
+       ‎saved-search-intake‎ של הסוכן החכם (‏docs/smart-search-agent.md) ולא
+       endpoint משלו: כפילות של אותה טבלה הייתה מפצלת גם את ההתראות וגם את
+       מדף הלידים. -->
+  <div class="footer-wrap footer-lead">
+
+    <div class="lead-banner buyer-banner" id="buyerBanner" data-source="footer_buyer_wizard">
+      <button type="button" class="lead-teaser" id="buyerStartBtn"
+              aria-expanded="false" aria-controls="buyerPanel">
+        <span class="lead-teaser-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10.5" cy="10.5" r="6.5"></circle>
+            <path d="M15.5 15.5 21 21"></path>
+            <path d="M7.6 11.4 10.5 8.8l2.9 2.6"></path>
+            <path d="M8.5 10.9v3h4v-3"></path>
+          </svg>
+        </span>
+        <span class="lead-teaser-copy">
+          <span class="lead-teaser-title">מחפשים נכס? תנו לו למצוא אתכם</span>
+          <span class="lead-teaser-sub">לקנייה או להשכרה — נעדכן אתכם ראשונים כשעולה נכס שמתאים</span>
+        </span>
+        <span class="lead-teaser-go" aria-hidden="true">
+          <span class="lead-teaser-go-open">התאמת נכס ←</span>
+          <span class="lead-teaser-go-close">סגירה ✕</span>
+        </span>
+      </button>
+
+      <div class="lead-panel" id="buyerPanel" hidden>
+        <!-- בלי כותרת נוספת: שורת ההזמנה שמעל היא הכותרת של הבאנר, ו-h2
+             שחוזר עליה במילים אחרות רק דוחף את השלב הראשון מטה. -->
+        <div class="owner-intro">
+          <p>ספרו לנו מה אתם מחפשים — ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.</p>
+        </div>
+
+        <div class="owner-wizard" id="buyerWizard">
+          <ol class="wiz-steps" id="buySteps" aria-label="שלבי ההתאמה">
+            <li class="active" data-step="1"><span class="dot">1</span>מה מחפשים</li>
+            <li data-step="2"><span class="dot">2</span>פרטי הנכס</li>
+            <li data-step="3"><span class="dot">3</span>פרטי קשר</li>
+          </ol>
+
+          <form id="buyerWizardForm" novalidate>
+            <!-- שלב 1: סוג העסקה + שכונות -->
+            <section class="wiz-panel active" data-panel="1">
+              <p class="wiz-q">מה אתם מחפשים?</p>
+              <!-- ‎.lead-toggle‎ ולא ‎.owner-toggle‎ בכוונה: המאזין של באנר
+                   בעלי הנכסים תופס את כל ‎.owner-toggle button‎ במסמך, ושימוש
+                   חוזר במחלקה היה משנה כאן את הכותרת של הבאנר השני. -->
+              <div class="lead-toggle" id="buyDealToggle" role="group" aria-label="סוג החיפוש">
+                <button type="button" class="active" data-buy-deal="sale">לקנייה</button>
+                <button type="button" data-buy-deal="rent">להשכרה</button>
+                <button type="button" data-buy-deal="commercial">מסחרי</button>
+              </div>
+
+              <!-- ‏saved_searches.deal_type מוגבל ל-sale/rent, ו"מסחרי" הוא
+                   קטגוריה ולא סוג עסקה — ולכן הבחירה בו פותחת את השאלה
+                   המשלימה במקום לנחש עבור המחפש/ת. -->
+              <div id="buyCommercialDeal" hidden>
+                <span class="wiz-label" id="buyCommercialLabel">נכס מסחרי — לקנייה או להשכרה?</span>
+                <div class="lead-toggle" id="buyCommercialToggle" role="group" aria-labelledby="buyCommercialLabel">
+                  <button type="button" class="active" data-buy-cdeal="sale">לקנייה</button>
+                  <button type="button" data-buy-cdeal="rent">להשכרה</button>
+                </div>
+              </div>
+
+              <span class="wiz-label" id="buyHoodLabel">באילו שכונות? <span class="wiz-hint">אפשר לבחור כמה</span></span>
+              <div class="chip-row" id="buyHoodChips" role="group" aria-labelledby="buyHoodLabel"></div>
+              <!-- נפתח רק כשרשימת השכונות לא נטענה (מסד לא זמין): בלעדיו
+                   שלב 1 היה נשאר בלי שום דרך לציין אזור. -->
+              <div id="buyAreaFallback" hidden>
+                <label class="wiz-label" for="buyArea">עיר או אזור</label>
+                <input type="text" id="buyArea" class="wiz-input" placeholder="לדוגמה: עפולה">
+              </div>
+
+              <p class="wiz-err" id="buyErr1"></p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-gold" data-buy-next="2">להמשך ←</button>
+              </div>
+            </section>
+
+            <!-- שלב 2: מאפייני הנכס -->
+            <section class="wiz-panel" data-panel="2">
+              <p class="wiz-q">מה הנכס שאתם מחפשים?</p>
+
+              <div id="buyRoomsBlock">
+                <span class="wiz-label" id="buyRoomsLabel">מספר חדרים <span class="wiz-hint">אפשר לבחור כמה</span></span>
+                <div class="chip-row" id="buyRoomsChips" role="group" aria-labelledby="buyRoomsLabel">
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="2">2</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="2.5">2.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="3">3</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="3.5">3.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="4">4</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="4.5">4.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="5">5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="+6">6+</button>
+                </div>
+              </div>
+
+              <span class="wiz-label" id="buyPtypeLabel">סוג הנכס <span class="wiz-hint">אפשר לבחור כמה</span></span>
+              <div class="chip-row" id="buyPtypeChips" role="group" aria-labelledby="buyPtypeLabel"></div>
+
+              <span class="wiz-label" id="buyBudgetLabel">תקציב <span class="wiz-hint" id="buyBudgetHint">(₪)</span></span>
+              <div class="buy-range">
+                <label class="buy-range-field">
+                  <span>מ־</span>
+                  <input type="number" id="buyPriceMin" class="wiz-input" inputmode="numeric" min="0" placeholder="ללא מינימום">
+                </label>
+                <label class="buy-range-field">
+                  <span>עד</span>
+                  <input type="number" id="buyPriceMax" class="wiz-input" inputmode="numeric" min="0" placeholder="ללא מקסימום">
+                </label>
+              </div>
+
+              <!-- במסחרי הגודל הוא מה שקובע, ומספר החדרים כמעט חסר משמעות —
+                   ולכן שני הבלוקים מתחלפים ואינם מוצגים יחד. -->
+              <div id="buySizeBlock" hidden>
+                <span class="wiz-label" id="buySizeLabel">גודל (מ״ר)</span>
+                <div class="buy-range">
+                  <label class="buy-range-field">
+                    <span>מ־</span>
+                    <input type="number" id="buySizeMin" class="wiz-input" inputmode="numeric" min="0" placeholder="הכול">
+                  </label>
+                  <label class="buy-range-field">
+                    <span>עד</span>
+                    <input type="number" id="buySizeMax" class="wiz-input" inputmode="numeric" min="0" placeholder="הכול">
+                  </label>
+                </div>
+              </div>
+
+              <p class="wiz-err" id="buyErr2"></p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-ghost-light" data-buy-back="1">→ חזרה</button>
+                <button type="button" class="btn btn-gold" data-buy-next="3">להמשך ←</button>
+              </div>
+            </section>
+
+            <!-- שלב 3: פרטי קשר -->
+            <section class="wiz-panel" data-panel="3">
+              <p class="wiz-q">לאן לשלוח את הנכסים המתאימים?</p>
+              <div class="buy-recap" id="buyRecap"></div>
+
+              <label class="wiz-label" for="buyName">שם מלא</label>
+              <input type="text" id="buyName" class="wiz-input" autocomplete="name">
+
+              <span class="wiz-label" id="buyChannelLabel">איך לעדכן אתכם?</span>
+              <div class="lead-toggle" id="buyChannels" role="group" aria-labelledby="buyChannelLabel">
+                <button type="button" class="active" data-buy-channel="whatsapp">וואטסאפ</button>
+                <button type="button" data-buy-channel="email">מייל</button>
+                <button type="button" data-buy-channel="both">שניהם</button>
+              </div>
+
+              <div id="buyPhoneField">
+                <label class="wiz-label" for="buyPhone">טלפון</label>
+                <input type="tel" id="buyPhone" class="wiz-input" placeholder="050-0000000" autocomplete="tel" inputmode="tel">
+              </div>
+              <div id="buyEmailField" hidden>
+                <label class="wiz-label" for="buyEmail">אימייל</label>
+                <input type="email" id="buyEmail" class="wiz-input" autocomplete="email" inputmode="email" dir="ltr" style="text-align:left">
+              </div>
+
+              <!-- ההסכמה נפרדת מההרשמה במכוון: אפשר לקבל התראות בלי שהפרטים
+                   יעברו לאף אחד. רק מי שמסמן/ת כאן הופך/ת לליד. -->
+              <label class="buy-check" for="buyConsent">
+                <input type="checkbox" id="buyConsent">
+                <span>אשמח שמתווך/ת מהאזור ייצור איתי קשר עם נכסים מתאימים</span>
+              </label>
+
+              <p class="wiz-err" id="buyErr3"></p>
+              <p class="buy-privacy">אפשר להפסיק את העדכונים בכל רגע, מקישור שבכל הודעה.</p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-ghost-light" data-buy-back="2">→ חזרה</button>
+                <button type="submit" class="btn btn-gold" id="buySubmitBtn">קבלת עדכונים</button>
+              </div>
+            </section>
+          </form>
+
+          <!-- מסך סיום -->
+          <div class="wiz-done" id="buyDone" hidden>
+            <div class="wiz-done-mark" aria-hidden="true">🔔</div>
+            <h3>החיפוש שלכם פעיל</h3>
+            <p id="buyDoneText">נעדכן אתכם ברגע שיעלה נכס שמתאים למה שביקשתם.</p>
+            <button type="button" class="btn btn-ghost-light" id="buyRestart">חיפוש נוסף</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-wrap footer-top">
+
+    <div class="footer-brand">
+      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק — לדף הבית">
+        <img src="assets/logo-shuknadlan-dark.svg" alt="" width="52" height="62" loading="lazy">
+        <span class="footer-logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
+      </a>
+      <p class="footer-tagline">
+        <span>כל הנכסים, כל המתווכים ובעלי המקצוע בעפולה והעמק בכתובת אחת</span>
+        <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
+      </p>
+      <div class="footer-cta">
+        <a href="agency-signup.html" class="footer-btn-primary">הצטרפות כמשרד תיווך</a>
+        <a href="developer-signup.html" class="footer-btn-ghost">הצטרפות כיזם/קבלן</a>
+        <a href="professional-signup.html" class="footer-btn-ghost">הצטרפות כבעל מקצוע</a>
+      </div>
+
+      <div class="footer-meta">
+        <div class="footer-contact">
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 10c0 5.2-8 12-8 12s-8-6.8-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.8"/>
+            </svg>
+            <span>רחוב חטיבה תשע 18, עפולה</span>
+          </p>
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a1.5 1.5 0 0 1-1.6 1.5C10.8 19.4 4.6 13.2 4 5.1A1.5 1.5 0 0 1 5.5 3.5Z"/>
+            </svg>
+            <a href="tel:+972546929991">054-6929991</a>
+          </p>
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3.5 6.5h17v11h-17z"/><path d="m3.5 7 8.5 6 8.5-6"/>
+            </svg>
+            <a href="mailto:shuknadlan@gmail.com">shuknadlan@gmail.com</a>
+          </p>
+        </div>
+
+        <div class="footer-social">
+          <a href="https://www.facebook.com/share/19LytY6L6b/" target="_blank" rel="noopener noreferrer"
+             aria-label="שוק הנדל״ן בפייסבוק — נפתח בחלון חדש" title="פייסבוק">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06C2 17.08 5.66 21.24 10.44 22v-7.03H7.9v-2.91h2.54V9.85c0-2.52 1.49-3.91 3.77-3.91 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.78-1.63 1.57v1.89h2.78l-.44 2.91h-2.34V22C18.34 21.24 22 17.08 22 12.06Z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <nav class="footer-grid" aria-label="ניווט בתחתית העמוד">
+      <details class="footer-col" open>
+        <summary><h4>נכסים</h4></summary>
+        <div class="footer-col-links">
+          <a href="index.html#privateProps-sale">למכירה בעפולה</a>
+          <a href="index.html#privateProps-rent">להשכרה בעפולה</a>
+          <a href="index.html#commercialProps">נכסים מסחריים</a>
+          <a href="index.html#privateProps">כל הנכסים</a>
+          <a href="projects.html">פרויקטים חדשים</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>כלים</h4></summary>
+        <div class="footer-col-links">
+          <a href="index.html#calc">מחשבון משכנתא</a>
+          <a href="index.html#yield">מחשבון תשואה</a>
+          <a href="index.html#heroSection">חיפוש על המפה</a>
+          <a href="articles.html">כתבות ובלוגים</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>בעלי מקצוע</h4></summary>
+        <div class="footer-col-links">
+          <a href="agencies.html">כל משרדי התיווך</a>
+          <a href="agents.html">כל המתווכים</a>
+          <a href="professionals.html">כל בעלי המקצוע</a>
+          <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
+          <a href="developer-signup.html">הצטרפות כיזם/קבלן</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>שוק נדל״ן</h4></summary>
+        <div class="footer-col-links">
+          <a href="about.html">אודות</a>
+          <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
+          <a href="faq.html">שאלות נפוצות</a>
+          <a href="pricing.html">מסלולים ומחירים</a>
+          <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
+          <a href="crm.html">כניסת מתווכים</a>
+        </div>
+      </details>
+    </nav>
+
+  </div>
+
+  <!-- חיפושים פופולריים: קישורים פנימיים שמגיעים לתוצאות מסוננות דרך
+       פרמטרים ב-URL (ראו applyDeepLinkFilters ב-index.html). זה הבלוק
+       שמאפשר למנוע החיפוש להגיע לעמודי תוצאות ולא רק לדף הבית הכללי. -->
+  <details class="footer-wrap footer-seo" id="footerSeo" open>
+    <summary><h4>חיפושים פופולריים בעפולה והעמק</h4></summary>
+    <div class="footer-seo-links">
+      <a href="index.html?deal=sale&amp;rooms=3">דירות 3 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;rooms=4">דירות 4 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;rooms=5">דירות 5 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;maxPrice=1500000">נכסים בעפולה עד 1.5 מיליון ₪</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%93%D7%99%D7%A8%D7%AA%20%D7%92%D7%9F">דירות גן בעפולה</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%92%D7%92%2F%D7%A4%D7%A0%D7%98%D7%94%D7%90%D7%95%D7%96">פנטהאוזים בעפולה</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%91%D7%99%D7%AA%20%D7%A4%D7%A8%D7%98%D7%99%2F%D7%A7%D7%95%D7%98%D7%92'">בתים פרטיים בעפולה והעמק</a>
+      <a href="index.html?deal=sale&amp;q=%D7%92%D7%91%D7%A2%D7%AA%20%D7%94%D7%9E%D7%95%D7%A8%D7%94">נכסים בגבעת המורה</a>
+      <a href="index.html?deal=sale&amp;q=%D7%A2%D7%A4%D7%95%D7%9C%D7%94%20%D7%A2%D7%99%D7%9C%D7%99%D7%AA">נכסים בעפולה עילית</a>
+      <a href="index.html?deal=rent&amp;rooms=3">דירות 3 חדרים להשכרה בעפולה</a>
+      <a href="index.html?deal=rent&amp;rooms=4">דירות 4 חדרים להשכרה בעפולה</a>
+      <a href="index.html?deal=rent&amp;maxPrice=4000">דירות להשכרה בעפולה עד 4,000 ₪</a>
+      <a href="index.html?deal=commercial&amp;ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D">משרדים להשכרה בעפולה</a>
+      <a href="index.html?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
+      <a href="agencies.html">משרדי תיווך בעפולה</a>
+      <a href="agents.html">מתווכי נדל״ן בעפולה</a>
+    </div>
+  </details>
+
+  <div class="footer-wrap footer-bottom">
+    <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
+    <div class="footer-legal">
+      <a href="terms.html">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
+      <a href="privacy.html">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
+      <a href="accessibility.html">הצהרת נגישות</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+
+/* ============================================================================
+   עזרי בטיחות ותצוגה
+   ----------------------------------------------------------------------------
+   שמות, שמות עסק, שירותים וכתובות תמונה מגיעים מטופס הרשמה פתוח ונכנסים
+   כאן ל-innerHTML (וגם למאפיינים כמו src ו-href), ולכן כל ערך כזה עובר
+   escapeHtml/safeUrl לפני ההזרקה — בדיוק כמו בעמוד המתווכים.
+   ============================================================================ */
+const el = id => document.getElementById(id);
+function escapeHtml(s){
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
+}
+function safeUrl(u){
+  if (!u) return '';
+  try{
+    const url = new URL(String(u), location.href);
+    return /^https?:$/.test(url.protocol) ? url.href : '';
+  } catch(e){ return ''; }
+}
+/* ‏phone_e164 שמור כספרות בלבד (972521112222) — בדיוק מה ש-wa.me ו-tel:
+   מצפים לו. הבדיקה היא גם שער אבטחה: המספר נכנס ל-href. */
+const PHONE_RE = /^\d{9,15}$/;
+const hasPhone = v => PHONE_RE.test(String(v || ''));
+
+const ICON = {
+  wa: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2Zm5.6 14.2c-.2.7-1.2 1.3-1.9 1.4-.5.1-1.2.1-1.9-.1a13 13 0 0 1-5.6-4.6c-.6-.9-1-1.9-1-2.8 0-1 .5-1.7 1-2 .2-.2.4-.3.6-.3h.5c.2 0 .4 0 .6.5l.8 1.9c.1.2 0 .4-.1.5l-.4.5c-.1.2-.3.3-.1.6.5.9 1.1 1.6 2 2.2.3.2.5.2.7 0l.7-.8c.2-.2.3-.2.6-.1l1.8.9c.3.1.4.2.4.4.1.2.1.7-.1 1.4Z"></path></svg>',
+  tel: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15.1 15.1 0 0 0 6.6 6.6l2.2-2.2c.3-.3.7-.4 1-.2 1.2.4 2.4.6 3.6.6.6 0 1 .4 1 1V20c0 .6-.4 1-1 1A17 17 0 0 1 3 4c0-.6.4-1 1-1h3.5c.6 0 1 .4 1 1 0 1.3.2 2.5.6 3.6.1.4 0 .8-.2 1l-2.3 2.2Z"></path></svg>',
+  office: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21V6.5L12 3l8 3.5V21"/><path d="M2 21h20"/><path d="M9.5 21v-5h5v5"/><path d="M8 9h2M14 9h2M8 12.5h2M14 12.5h2"/></svg>',
+  pin: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s7-6.3 7-11a7 7 0 1 0-14 0c0 4.7 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/></svg>',
+};
+
+/* אותן תוויות של דף הבית ושל עמוד הפרופיל — התחום נשמר כמפתח באנגלית
+   ומתורגם רק בתצוגה, ושלוש הנקודות שבהן הוא מוצג חייבות לומר את אותו דבר. */
+const TYPE_LABELS = {
+  mortgage_advisor:'יועץ/ת משכנתאות', appraiser:'שמאי/ת מקרקעין', architect:'אדריכל/ית',
+  interior_designer:'מעצב/ת פנים', real_estate_lawyer:'עו״ד מקרקעין', general:'בעל/ת מקצוע',
+};
+/* סדר קבוע לגלולות התחום, כדי שהשורה לא תתחלף בין טעינות. תחום שלא ברשימה
+   (‏advertiser_type שנוסף בעתיד) נופל לסוף לפי א׳–ב׳. */
+const TYPE_ORDER = ['mortgage_advisor','appraiser','real_estate_lawyer','architect','interior_designer','general'];
+
+/* קישור וואטסאפ עם פתיח שכבר מספר מאיפה הפנייה הגיעה — אותו נוסח שבעמוד
+   הפרופיל, כדי שהפנייה תיראה זהה משני המסלולים. */
+function waLink(phone, name){
+  const text = [
+    'היי' + (name ? ' ' + name : '') + ',',
+    'הגעתי דרך רשימת בעלי המקצוע בשוק הנדל״ן של עפולה והסביבה ואשמח לפרטים.',
+    window.location.href,
+  ].join('\n');
+  return 'https://wa.me/' + phone + '?text=' + encodeURIComponent(text);
+}
+
+/* ============================================================================
+   מצב התצוגה
+   ============================================================================ */
+let pros = [];
+let typeOptions = [];   // [{key, label}] — נבנה מהתחומים שנטענו בפועל
+let areaOptions = [];   // [{key, label}] — אזורי הפעילות שהוקלדו בפרופיל
+let filters = { query:'', type:'all', area:'all' };
+let sortMode = 'type';
+
+const SORTS = [
+  { key:'type',       label:'לפי תחום' },
+  { key:'experience', label:'ותק' },
+  { key:'name',       label:'א׳–ב׳' },
+];
+
+const byName = (x, y) => String(x.name || '').localeCompare(String(y.name || ''), 'he');
+/* מיון "לפי תחום" שוזר לפי הסדר הקבוע של TYPE_ORDER ולא לפי א׳–ב׳ של
+   המפתח באנגלית — הרשימה נקראת אז כמו תוכן עניינים ולא כמו ערבוב. */
+const typeRank = p => {
+  const i = TYPE_ORDER.indexOf(p.type);
+  return i === -1 ? TYPE_ORDER.length : i;
+};
+const COMPARE = {
+  type: (x, y) => typeRank(x) - typeRank(y) || byName(x, y),
+  experience: (x, y) => (y.years || 0) - (x.years || 0) || byName(x, y),
+  name: byName,
+};
+
+/* ============================================================================
+   סינון
+   ----------------------------------------------------------------------------
+   הכל מקומי: הרשימה נטענת במלואה בטעינה אחת. החיפוש החופשי נוגע בדיוק במה
+   שהתיבה מבטיחה — שם, שם עסק, תחום ושירותים — ובנוסף באזורי הפעילות
+   ובמשפט הפתיחה, שהם ניסוח נפוץ של אותה שאלה ("מי עושה הום סטיילינג").
+   ============================================================================ */
+function matchesQuery(p, q){
+  if (!q) return true;
+  return [p.name, p.business, p.typeLabel, p.headline, ...p.services, ...p.areas]
+    .some(v => String(v || '').toLowerCase().includes(q));
+}
+const matchesType = (p, key) => key === 'all' || p.type === key;
+const matchesArea = (p, key) => key === 'all' || p.areas.includes(key);
+
+const TESTS = {
+  query: (p, f) => matchesQuery(p, f.query.trim().toLowerCase()),
+  type:  (p, f) => matchesType(p, f.type),
+  area:  (p, f) => matchesArea(p, f.area),
+};
+function passes(p, f, except){
+  return Object.keys(TESTS).every(k => k === except || TESTS[k](p, f));
+}
+function visiblePros(){
+  return pros.filter(p => passes(p, filters)).sort(COMPARE[sortMode]);
+}
+const isFiltered = ()=> !!filters.query.trim() || filters.type !== 'all' || filters.area !== 'all';
+
+/* ============================================================================
+   רכיב הכרטיס
+   ============================================================================ */
+function proCardHtml(p){
+  // professional.html מאתר לפי slug או לפי id גולמי; בלי שניהם אין לאן
+  // לקשר, ולכן הכפתור נשאר טקסט ולא הופך לקישור שמוביל לעמוד ריק.
+  const key = p.slug || p.id;
+  const href = key ? 'professional.html?slug=' + encodeURIComponent(key) : null;
+
+  const photo = safeUrl(p.photo);
+  const media = photo
+    ? `<img class="ag-photo" src="${escapeHtml(photo)}" alt="${escapeHtml(p.name)}" loading="lazy" onerror="this.remove()">`
+    : '';
+
+  // ראשי תיבות ולא אות אחת: לבעל/ת מקצוע בלי תמונה זה כל מה שיש על
+  // האריח, ושתי אותיות מזהות טוב יותר מאחת — בדיוק כמו ברצועה בדף הבית.
+  const initials = String(p.name).trim().split(/\s+/).map(w => w[0]).slice(0, 2).join('') || 'ב';
+
+  const businessRow = p.business
+    ? `<span class="ag-agency">${ICON.office}<span class="txt">${escapeHtml(p.business)}</span></span>`
+    : '<span class="ag-agency"></span>';
+
+  const areaText = p.areas.join(' · ') || p.region;
+
+  // השירותים קודם ואחריהם הוותק: השירות עונה על "מה הוא עושה" והוותק על
+  // "כמה זמן". שלושה שירותים הם התקרה שכרטיס בעמודה של שליש מסך מחזיק
+  // בשתי שורות — מעבר לזה הם מתחילים לדחוק את הפעולות.
+  const chips = [
+    ...p.services.slice(0, 3).map(s => `<span class="ag-chip">${escapeHtml(s)}</span>`),
+    ...(p.years > 0 ? [`<span class="ag-chip exp">${p.years}+ שנות ניסיון</span>`] : []),
+  ].join('');
+
+  const contact = hasPhone(p.phone)
+    ? `<a class="ag-icon-btn wa" href="${escapeHtml(waLink(p.phone, p.name))}"
+          target="_blank" rel="noopener noreferrer"
+          aria-label="${escapeHtml('שליחת הודעת וואטסאפ ל' + p.name)}" title="וואטסאפ">${ICON.wa}</a>
+       <a class="ag-icon-btn tel" href="tel:+${escapeHtml(p.phone)}"
+          aria-label="${escapeHtml('חיוג ל' + p.name)}" title="חיוג">${ICON.tel}</a>`
+    : '';
+
+  return `
+    <article class="ag-card">
+      <div class="ag-media">
+        <span class="ag-initial" aria-hidden="true">${escapeHtml(initials)}</span>
+        ${media}
+        <span class="ag-overlay pro-role">${escapeHtml(p.typeLabel)}</span>
+      </div>
+      <div class="ag-body">
+        <h2 class="ag-name">${escapeHtml(p.name)}</h2>
+        ${businessRow}
+        ${p.headline ? `<p class="pro-headline">${escapeHtml(p.headline)}</p>` : ''}
+        ${areaText ? `<div class="ag-meta">${ICON.pin}<span class="txt">${escapeHtml(areaText)}</span></div>` : ''}
+        ${chips ? `<div class="ag-chips">${chips}</div>` : ''}
+      </div>
+      <div class="ag-actions">
+        ${href
+          ? `<a class="ag-cta" href="${escapeHtml(href)}">לעמוד בעל/ת המקצוע</a>`
+          : '<span class="ag-cta is-static">העמוד האישי בהכנה</span>'}
+        ${contact}
+      </div>
+    </article>`;
+}
+
+/* ============================================================================
+   רינדור
+   ============================================================================ */
+function renderCounts(list){
+  const many = n => n === 1 ? 'בעל/ת מקצוע אחד/ת' : n + ' בעלי מקצוע';
+  el('resultCount').innerHTML = list.length
+    ? (isFiltered()
+        ? `${escapeHtml(many(list.length))} מתוך ${pros.length} <button type="button" class="reset-btn" id="resetBtn">איפוס הסינון</button>`
+        : `${escapeHtml(many(pros.length))} בפלטפורמה`)
+    : '';
+  const reset = el('resetBtn');
+  if (reset) reset.addEventListener('click', resetFilters);
+
+  // המונה שעל כל גלולה נספר מול שאר הסינונים הפעילים ולא מול הסינון שהיא
+  // עצמה שייכת לו — אחרת כל גלולה שאינה הנבחרת הייתה מציגה 0
+  countPills('typePills', 'type', matchesType);
+  countPills('areaPills', 'area', matchesArea);
+}
+
+function countPills(containerId, group, test){
+  const container = el(containerId);
+  if (!container) return;
+  const pool = pros.filter(p => passes(p, filters, group));
+  container.querySelectorAll('.pill').forEach(btn=>{
+    const key = btn.dataset.key;
+    const n = pool.filter(p => test(p, key)).length;
+    const slot = btn.querySelector('.n');
+    if (slot) slot.textContent = n;
+    // גלולה שתחזיר רשימה ריקה מעומעמת ומנוטרלת, כדי שלא תוביל למסך ריק
+    btn.disabled = n === 0 && key !== filters[group];
+  });
+}
+
+function render(){
+  const list = visiblePros();
+  renderCounts(list);
+  el('noResultsState').hidden = list.length > 0;
+  el('prosGrid').hidden = !list.length;
+  el('prosGrid').innerHTML = list.map(proCardHtml).join('');
+}
+
+/* ============================================================================
+   פקדי סרגל הכלים — זהים לאלה של עמוד המתווכים
+   ============================================================================ */
+function buildPills(container, items, group, withCount){
+  container.innerHTML = '';
+  items.forEach(item=>{
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pill';
+    btn.dataset.key = item.key;
+    btn.innerHTML = escapeHtml(item.label) + (withCount ? ' <span class="n"></span>' : '');
+    btn.setAttribute('aria-pressed', String(filters[group] === item.key));
+    btn.addEventListener('click', ()=>{
+      filters[group] = item.key;
+      syncPills(container, item.key);
+      render();
+    });
+    container.appendChild(btn);
+  });
+}
+
+function buildSortPills(container){
+  container.innerHTML = '';
+  SORTS.forEach(item=>{
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'pill';
+    btn.dataset.key = item.key;
+    btn.textContent = item.label;
+    btn.setAttribute('aria-pressed', String(sortMode === item.key));
+    btn.addEventListener('click', ()=>{
+      sortMode = item.key;
+      syncPills(container, item.key);
+      render();
+    });
+    container.appendChild(btn);
+  });
+}
+
+function syncPills(container, key){
+  [...container.children].forEach(c => c.setAttribute('aria-pressed', String(c.dataset.key === key)));
+}
+
+function resetFilters(){
+  filters = { query:'', type:'all', area:'all' };
+  el('proSearch').value = '';
+  syncPills(el('typePills'), 'all');
+  syncPills(el('areaPills'), 'all');
+  render();
+  el('toolbar').scrollIntoView({ block:'start', behavior:'smooth' });
+}
+
+el('proSearch').addEventListener('input', (e)=>{ filters.query = e.target.value; render(); });
+el('noResultsReset').addEventListener('click', resetFilters);
+
+/* ‏?type=appraiser בכתובת פותח את העמוד כשהסינון כבר מוחל — זה מה שמאפשר
+   לקשר מבחוץ (ומהפוטר) ישירות ל"שמאים בעפולה" ולא רק לרשימה הכללית. */
+function applyDeepLink(){
+  const type = new URLSearchParams(location.search).get('type');
+  if (type && typeOptions.some(o => o.key === type)) filters.type = type;
+}
+
+/* ============================================================================
+   טעינת הנתונים
+   ----------------------------------------------------------------------------
+   ‏professional_cards_public הוא ה-view הציבורי, אותו מקור שמזין את הרצועה
+   בדף הבית ואת עמוד הפרופיל: הוא כבר מסנן לכרטיסיות פעילות שבתוך חלון
+   הפרסום (status לבדו לא מספיק — כרטיסייה שתקופתה הסתיימה נשארת active
+   בטבלה), והוא לא כולל את כתובת החיוב של המפרסם.
+
+   אין כאן נתוני דמה: עמוד ייעודי שמציג בעלי מקצוע מומצאים הוא הבטחה שאי
+   אפשר לעמוד בה. רשימה ריקה מציגה את מצב ה"אין עדיין" יחד עם ההזמנה
+   להצטרף — וזה בדיוק מה שהיא.
+   ============================================================================ */
+const dedupe = arr => [...new Set(arr.map(v => String(v || '').trim()).filter(Boolean))];
+
+function shapePro(row){
+  const type = row.advertiser_type || 'general';
+  return {
+    id: row.id,
+    slug: row.slug,
+    name: row.advertiser_name || 'בעל/ת מקצוע',
+    business: row.business_name || '',
+    type,
+    typeLabel: TYPE_LABELS[type] || TYPE_LABELS.general,
+    headline: row.headline || row.description || '',
+    services: dedupe(Array.isArray(row.services) ? row.services : []),
+    areas: dedupe(Array.isArray(row.service_areas) ? row.service_areas : []),
+    region: String(row.target_region || '').trim(),
+    photo: row.creative_url || '',
+    phone: row.phone_e164 || '',
+    years: Number(row.years_experience) || 0,
+  };
+}
+
+/* גלולה נבנית רק מערכים שקיימים בפועל ברשימה שנטענה: שורת סינון שמציעה
+   תחום שאין בו אף אחד היא מבוי סתום. */
+function buildTypeOptions(list){
+  const keys = dedupe(list.map(p => p.type));
+  keys.sort((a, b)=>{
+    const ia = TYPE_ORDER.indexOf(a), ib = TYPE_ORDER.indexOf(b);
+    return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib) || a.localeCompare(b, 'he');
+  });
+  return keys.map(k => ({ key:k, label: TYPE_LABELS[k] || TYPE_LABELS.general }));
+}
+function buildAreaOptions(list){
+  const areas = dedupe(list.flatMap(p => p.areas));
+  areas.sort((a, b)=> a.localeCompare(b, 'he'));
+  return areas.map(a => ({ key:a, label:a }));
+}
+
+(async function init(){
+  const finish = (list)=>{
+    pros = list;
+    el('loadingState').hidden = true;
+    el('loadingState').style.display = 'none';
+
+    if (!pros.length){
+      el('emptyState').hidden = false;
+      return;
+    }
+
+    typeOptions = buildTypeOptions(pros);
+    areaOptions = buildAreaOptions(pros);
+    applyDeepLink();
+
+    buildPills(el('typePills'), [{ key:'all', label:'כל התחומים' }, ...typeOptions], 'type', true);
+    buildPills(el('areaPills'), [{ key:'all', label:'הכל' }, ...areaOptions], 'area', true);
+    buildSortPills(el('sortPills'));
+    // אף אחד לא מילא אזורי פעילות — שורה עם גלולה אחת ("הכל") היא רעש,
+    // ולכן היא פשוט לא מוצגת עד שיהיה בה מה לסנן
+    el('areaRow').hidden = areaOptions.length === 0;
+
+    el('toolbar').hidden = false;
+    render();
+  };
+
+  if (!window.supabase) return finish([]);
+
+  try{
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data, error } = await sb
+      .from('professional_cards_public')
+      .select('id, slug, advertiser_name, business_name, advertiser_type, target_region, headline, description, services, service_areas, creative_url, phone_e164, years_experience')
+      .limit(200);
+    if (error) throw error;
+    finish((data || []).map(shapePro));
+  } catch(e){
+    console.warn('טעינת רשימת בעלי המקצוע נכשלה:', e);
+    finish([]);
+  }
+})();
+</script>
+</body>
+</html>

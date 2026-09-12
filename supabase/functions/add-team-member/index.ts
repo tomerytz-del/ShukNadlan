@@ -1,5 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { sendPlatformEmail } from "../_shared/platform-mail-client.ts";
 
 // ============================================================================
 // הוספת סוכן/ת לצוות המשרד — בהזמנה, לא בסיסמה שממציאים עבורו/ה
@@ -28,8 +29,6 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const RESEND_KEY = Deno.env.get("RESEND_API_KEY") || "";
-const ALERTS_FROM_EMAIL = Deno.env.get("ALERTS_FROM_EMAIL") || "";
 const SITE_BASE_URL = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/+$/, "");
 
 function corsHeaders() {
@@ -58,8 +57,16 @@ function normalizeEmail(raw: unknown): string {
 }
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
 
+/**
+ * הקישור מוביל לדף המסלולים ולא ישר ל-CRM, וזה שינוי מכוון: הצטרפות מתחילה
+ * בבחירת מסלול. ‏pricing.html קורא/ת את האסימון, מציג/ה את המסלולים, וכל CTA
+ * שם מחזיר/ה ל-‎crm.html?invite=<token>&tier=<id>‎ — כלומר האסימון ממשיך הלאה
+ * בדיוק כמו קודם, והתנהגות ה-CRM לא השתנתה. מי שיגיע/ה עם קישור ישן
+ * ל-‎crm.html?invite=…‎ עדיין ייקלט/תיקלט: הבחירה פשוט תוצג לו/ה בשער המסלול
+ * שאחרי ההתחברות.
+ */
 const inviteUrl = (token: string) =>
-  `${SITE_BASE_URL}/crm.html?invite=${encodeURIComponent(token)}`;
+  `${SITE_BASE_URL}/pricing.html?invite=${encodeURIComponent(token)}`;
 
 // ---------------------------------------------------------------------------
 // מכתב ההזמנה
@@ -71,6 +78,11 @@ const inviteUrl = (token: string) =>
  */
 const PITCH = "כל הנכסים, הלידים והלקוחות שלך במקום אחד — ודף סוכן/ת אישי שמופיע מול כל מי שמחפש דירה בעפולה והעמק.";
 
+/* הטבת ההשקה נאמרת כבר במכתב ההזמנה, ולא רק במסך שאחרי ההתחברות: היא הסיבה
+   הטובה ביותר ללחוץ על הקישור היום ולא "מתישהו". הענקתה עצמה נעשית בשרת
+   (‏grant_launch_promo) ברגע השיוך. */
+const PROMO_LINE = "ההצטרפות עכשיו כוללת 6 חודשים במסלול Elite — המסלול המלא, ללא תשלום וללא כרטיס אשראי.";
+
 function inviteHtml(a: { name: string; agency: string; inviter: string; url: string }) {
   return `<!doctype html>
 <html lang="he" dir="rtl"><body style="margin:0;background:#F5F2ED;font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;color:#1B2A41">
@@ -80,10 +92,13 @@ function inviteHtml(a: { name: string; agency: string; inviter: string; url: str
       <h1 style="margin:0 0 12px;font-size:21px;line-height:1.35">
         ${esc(a.name)}, ${esc(a.inviter)} מזמין/ה אותך למשרד ${esc(a.agency)}
       </h1>
-      <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:#3D4A5C">${esc(PITCH)}</p>
+      <p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#3D4A5C">${esc(PITCH)}</p>
+      <p style="margin:0 0 20px;padding:11px 13px;background:#F7F1E2;border:1px solid #E5C76A;border-radius:9px;font-size:14px;line-height:1.55;color:#3D4A5C">
+        🎁 ${esc(PROMO_LINE)}
+      </p>
       <a href="${esc(a.url)}"
          style="display:inline-block;background:#1B2A41;color:#fff;text-decoration:none;padding:13px 26px;border-radius:9px;font-size:15px;font-weight:bold">
-        הצטרפות למשרד
+        בחירת מסלול והצטרפות
       </a>
       <p style="margin:20px 0 0;font-size:13px;color:#7A8899;line-height:1.6">
         הכניסה היא עם חשבון Google שלך או עם סיסמה שתגדיר/י בעצמך — אף אחד
@@ -108,7 +123,9 @@ function inviteText(a: { name: string; agency: string; inviter: string; url: str
     "",
     PITCH,
     "",
-    `להצטרפות: ${a.url}`,
+    PROMO_LINE,
+    "",
+    `לבחירת מסלול והצטרפות: ${a.url}`,
     "",
     "הכניסה היא עם חשבון Google שלך או עם סיסמה שתגדיר/י בעצמך. הקישור אישי ותקף 30 יום.",
   ].join("\n");
@@ -120,24 +137,16 @@ function inviteText(a: { name: string; agency: string; inviter: string; url: str
  * ויכול/ה לשלוח את הקישור בעצמו/ה. זה בדיוק מה שהיה חסר קודם.
  */
 async function sendInviteEmail(to: string, a: { name: string; agency: string; inviter: string; url: string }) {
-  if (!RESEND_KEY || !ALERTS_FROM_EMAIL) return { sent: false, error: "email_not_configured" };
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${RESEND_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        from: ALERTS_FROM_EMAIL,
-        to: [to],
-        subject: `${a.inviter} מזמין/ה אותך להצטרף למשרד ${a.agency}`,
-        html: inviteHtml(a),
-        text: inviteText(a),
-      }),
-    });
-    if (!res.ok) return { sent: false, error: `resend ${res.status}: ${(await res.text()).slice(0, 200)}` };
-    return { sent: true, error: null as string | null };
-  } catch (err) {
-    return { sent: false, error: String((err as Error)?.message ?? err).slice(0, 200) };
-  }
+  // המשלוח דרך platform-mail, ולא ישירות: ההזמנה מגיעה מאותה כתובת שממנה
+  // מגיע כל מייל אחר של הפלטפורמה — וזה חשוב דווקא כאן, כי סוכן/ת שמקבל/ת
+  // הזמנה מכתובת לא מוכרת מסמן/ת אותה כספאם.
+  const result = await sendPlatformEmail({
+    to: [to],
+    subject: `${a.inviter} מזמין/ה אותך להצטרף למשרד ${a.agency}`,
+    html: inviteHtml(a),
+    text: inviteText(a),
+  });
+  return { sent: result.sent, error: result.error };
 }
 
 // ---------------------------------------------------------------------------
@@ -261,8 +270,11 @@ Deno.serve(async (req: Request) => {
       }, 409);
     }
 
-    const tier = ["free", "mid", "premium"].includes(body?.initial_tier) ? body.initial_tier : "free";
-
+    // ‏אין כאן יותר initial_tier. המסלול הוא החלטה של מי שמשלם עליו, והוא
+    // נקבע אצל הסוכן/ת בכניסה הראשונה (מסך בחירת המסלול ב-CRM →
+    // ‎join-agency/set_tier‎). השורה נוצרת על ברירת המחדל של העמודה, ‎free‎,
+    // ומיד עם השיוך היא מקבלת את הטבת ההשקה. גוף בקשה ישן ששולח
+    // ‎initial_tier‎ פשוט מתעלמים ממנו — לא נכשלים בגללו.
     let baseSlug = slugify(member_name) || "agent";
     let finalSlug = baseSlug;
     let attempt = 1;
@@ -287,7 +299,6 @@ Deno.serve(async (req: Request) => {
         display_name: member_name,
         email: member_email,
         license_number,
-        tier,
       })
       .select("id")
       .single();

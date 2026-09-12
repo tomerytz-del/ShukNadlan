@@ -4,12 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>הרשמת בעל מקצוע | שוק נדל״ן</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
-    --line:#C5C3BC; --blue:#1C3A5E; --blue-dark:#122840; --blue-tint:#E0E7ED;
-    --red:#8B2332; --red-dark:#6B1A26; --gold-tint:#F1DFE1;
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
+    --line:#e3e8f4; --blue:#0e2a6b; --blue-dark:#0d1b3d; --blue-tint:#eaf0fb;
+    --red:#0e2a6b; --red-dark:#08194a; --gold-tint:#f7f1e2;
     --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(18,40,64,.1);
   }
   *{box-sizing:border-box}
@@ -29,7 +30,7 @@
   .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
   .field input,.field select{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
   .field input:focus,.field select:focus{border-color:var(--blue);outline:none}
-  .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:999px;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff;margin-top:8px}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:0;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff;margin-top:8px}
   .btn:disabled{opacity:.5;cursor:not-allowed}
   #feedback{font-size:.82rem;text-align:center;margin-top:12px;min-height:1.2em}
   .note{font-size:.72rem;color:var(--ink-soft);background:var(--gold-tint);border-radius:var(--radius-sm);padding:10px 12px;margin-top:16px;text-align:center}
@@ -41,12 +42,14 @@
   .manage-box input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:9px 10px;font-size:.76rem;background:#fff;text-align:left;direction:ltr}
   .back-link{display:block;text-align:center;font-size:.8rem;color:var(--blue);margin-top:16px;text-decoration:none}
 </style>
+<link rel="stylesheet" href="assets/design-system.css">
+<script src="assets/page-bg.js" data-auto></script>
 </head>
 <body>
 
 <div class="card">
   <div id="stateForm">
-    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="512" height="436"></a>
+    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
     <h1>כרטיסיית בעל מקצוע</h1>
     <p class="sub">חשיפה לקהל רחב באזור עפולה והעמק</p>
     <span class="price-badge">₪350 לחודש · ביטול בכל עת</span>
@@ -80,10 +83,23 @@
     <a href="index.html" class="back-link">חזרה לדף הבית</a>
   </div>
 
+  <!-- ---------- חזרה מעמוד התשלום ----------
+       הדפדפן חוזר לכאן עם order_id. **הוא אינו מחליט שהתשלום עבר** — המצב
+       נשאל מהשרת, שבודק את שורת ההזמנה; ‏?payment=success בכתובת הוא רמז
+       שאפשר לזייף, ולא אישור. עד שה-webhook מסתיים ההזמנה עדיין pending,
+       ולכן יש כאן גם סבב בדיקות קצר. -->
+  <div id="stateReturn" style="display:none">
+    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
+    <h1 id="returnTitle">בודקים את התשלום…</h1>
+    <p class="sub" id="returnSub">רגע אחד — מאמתים את התשלום מול חברת הסליקה.</p>
+    <button type="button" class="btn btn-ghost" id="returnRetry" style="display:none">בדיקה שוב</button>
+    <a href="index.html" class="back-link">חזרה לדף הבית</a>
+  </div>
+
   <div id="stateDone">
-    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="512" height="436"></a>
-    <h1>נרשמת בהצלחה!</h1>
-    <p class="sub">הכרטיסייה שלך כבר בדף הבית. נשאר להשלים את העמוד שלך — תמונות, תיאור וטלפון לוואטסאפ.</p>
+    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
+    <h1>הכרטיסייה עלתה לאוויר!</h1>
+    <p class="sub">התשלום התקבל והכרטיסייה שלך עלתה לדף הבית. נשאר להשלים את העמוד שלך — תמונות, תיאור וטלפון לוואטסאפ.</p>
 
     <!-- קישור העריכה מוחזר פעם אחת בלבד, בתשובה להרשמה. אין לבעלי מקצוע
          חשבון באתר, ולכן הקישור הזה *הוא* הדרך לחזור ולערוך — ומכאן
@@ -135,25 +151,26 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
       }),
     });
     const data = await res.json();
-    if (!res.ok || data.error){
+
+    // הסליקה אינה מוגדרת. ההרשמה נשמרה, אבל הכרטיסייה **לא** עלתה — וזה
+    // מה שנאמר, במקום "נרשמת בהצלחה" על פרסום שלא קיים.
+    if (data.error === 'payment_unavailable'){
+      feedback.style.color = 'var(--ink-soft)';
+      feedback.textContent = data.detail || 'ההרשמה נקלטה. ניצור קשר להשלמת התשלום.';
+      btn.disabled = true; btn.textContent = 'ההרשמה נקלטה';
+      return;
+    }
+    if (!res.ok || data.error || !data.redirect_url){
       feedback.style.color = 'var(--red)';
       feedback.textContent = 'שגיאה בהרשמה — נסו שוב';
       btn.disabled = false; btn.textContent = 'הרשמה — ₪350/חודש';
       return;
     }
-    // בלי אסימון אין מסך עריכה להוביל אליו, ולכן הכפתור והתיבה יורדים
-    // במקום להצביע על "#" — ההרשמה עצמה הצליחה בכל מקרה.
-    if (data.manage_token){
-      const manageUrl = new URL('professional-manage.html', location.href);
-      manageUrl.searchParams.set('token', data.manage_token);
-      document.getElementById('manageLink').value = manageUrl.href;
-      document.getElementById('manageOpen').href = manageUrl.href;
-      document.getElementById('manageBox').hidden = false;
-    } else {
-      document.getElementById('manageOpen').hidden = true;
-    }
-    document.getElementById('stateForm').style.display = 'none';
-    document.getElementById('stateDone').style.display = 'block';
+
+    // מכאן ממשיכים לעמוד התשלום של חברת הסליקה. הכרטיסייה תעלה רק אחרי
+    // שהתשלום יאומת בשרת.
+    btn.textContent = 'מעבר לתשלום…';
+    location.href = data.redirect_url;
   } catch(err){
     console.error(err);
     feedback.style.color = 'var(--red)';
@@ -161,6 +178,72 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     btn.disabled = false; btn.textContent = 'הרשמה — ₪350/חודש';
   }
 });
+
+/* ---------- החזרה מעמוד התשלום ----------
+   ה-webhook של חברת הסליקה ושובו של הדפדפן הם שני מרוצים נפרדים, והדפדפן
+   בדרך כלל מנצח. לכן זו בדיקה חוזרת קצרה ולא שאלה אחת: שש בדיקות בהפרש
+   שתי שניות מכסות את הפער הרגיל, ואחריהן מוצג כפתור לבדיקה ידנית. */
+function showManage(token){
+  if (token){
+    const manageUrl = new URL('professional-manage.html', location.href);
+    manageUrl.searchParams.set('token', token);
+    document.getElementById('manageLink').value = manageUrl.href;
+    document.getElementById('manageOpen').href = manageUrl.href;
+    document.getElementById('manageBox').hidden = false;
+  } else {
+    document.getElementById('manageOpen').hidden = true;
+  }
+  document.getElementById('stateReturn').style.display = 'none';
+  document.getElementById('stateDone').style.display = 'block';
+}
+
+async function pollOrder(orderId, attempt){
+  const title = document.getElementById('returnTitle');
+  const sub   = document.getElementById('returnSub');
+  const retry = document.getElementById('returnRetry');
+  try{
+    const res = await fetch(SIGNUP_FUNCTION_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({ action:'status', order_id: orderId }),
+    });
+    const data = await res.json();
+    if (data.paid){ showManage(data.manage_token); return; }
+    if (data.status === 'failed'){
+      title.textContent = 'התשלום לא הושלם';
+      sub.textContent = 'לא בוצע חיוב. אפשר לנסות להירשם שוב, או לפנות אלינו בטלפון 054-6929991.';
+      retry.style.display = 'none';
+      return;
+    }
+  } catch(err){ console.warn('בדיקת מצב התשלום נכשלה:', err); }
+
+  if (attempt < 6){
+    setTimeout(()=> pollOrder(orderId, attempt + 1), 2000);
+  } else {
+    title.textContent = 'התשלום עדיין מתאמת';
+    sub.textContent = 'זה קורה לפעמים כשהאישור מחברת הסליקה מתעכב. הכרטיסייה תעלה מעצמה ברגע שהאישור יגיע.';
+    retry.style.display = 'flex';
+  }
+}
+
+(function handlePaymentReturn(){
+  const params = new URLSearchParams(location.search);
+  const orderId = params.get('order_id');
+  if (!orderId) return;
+  document.getElementById('stateForm').style.display = 'none';
+  document.getElementById('stateReturn').style.display = 'block';
+  if (params.get('payment') === 'failure'){
+    document.getElementById('returnTitle').textContent = 'התשלום בוטל';
+    document.getElementById('returnSub').textContent = 'לא בוצע חיוב, והכרטיסייה לא עלתה. אפשר לנסות שוב.';
+    return;
+  }
+  document.getElementById('returnRetry').addEventListener('click', ()=>{
+    document.getElementById('returnRetry').style.display = 'none';
+    document.getElementById('returnTitle').textContent = 'בודקים את התשלום…';
+    pollOrder(orderId, 0);
+  });
+  pollOrder(orderId, 0);
+})();
 
 // ‎navigator.clipboard‎ לא קיים בהקשר לא-מאובטח (למשל בדיקה מקומית על
 // http), ולכן יש נפילה ל-select() — במקרה הגרוע המשתמש מעתיק בעצמו.

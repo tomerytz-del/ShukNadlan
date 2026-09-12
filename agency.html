@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>משרד תיווך | שוק נדל״ן</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800;900&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="assets/quality-badge.js"></script>
@@ -18,14 +19,25 @@
      לפי הצבעים שמנהל המשרד בחר. כל שאר המשתנים נגזרים מהם, כך שהחלפת ערכה
      צובעת את הדף כולו — לא רק את הכותרת. */
   :root{
-    --brand:#1C3A5E; --brand-dark:#122840; --accent:#8B2332; --accent-dark:#6B1A26;
-    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0; --line:#C5C3BC;
+    --brand:#0e2a6b; --brand-dark:#0d1b3d; --accent:#0e2a6b; --accent-dark:#08194a;
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff; --line:#e3e8f4;
     /* נפילה־לאחור לדפדפנים בלי color-mix: גוונים ניטרליים במקום גוון המותג */
-    --teal-tint:#E0E7ED; --gold-tint:#F1DFE1;
+    --teal-tint:#eaf0fb; --gold-tint:#f7f1e2;
     /* צבע הטקסט שיושב על גבי --brand; נדרס ל-כהה אם המשרד בחר גוון בהיר */
     --on-brand:#fff;
     /* אותו עיקרון לצבע המשני: טקסט שיושב על גבי --accent */
     --on-accent:#fff;
+    /* ‏--on-brand-fill ו---on-accent-fill: טקסט על משטח שצבוע בגוון המשרד
+       *בתוך* רצועה כהה — השבב הנבחר, הנקודה בשלב הפעיל, כפתור הזהב ועיגול
+       הסיום. עד כה הם קראו ‎--on-brand‎/‎--on-accent‎, ושני תפקידים שונים
+       חיו באותו משתנה: "טקסט על גוון המשרד" ו"טקסט על הרצועה". זה עבד כל
+       עוד הרצועה *הייתה* גוון המשרד. היא כבר לא — ‏design-system.css צובע
+       את כל הרצועות בספיר קבוע — והפיצול כאן הוא מה שמאפשר לרצועה לקבל
+       טקסט לבן בלי לצבוע בלבן גם את השבבים שבתוכה.
+       ‏(מוגדרים גם ב-design-system.css, כדי שדפים שאינם דף המשרד — שבהם
+       אין JS שמחשב אותם — יקבלו ערך תקף.) */
+    --on-brand-fill:#fff;
+    --on-accent-fill:#fff;
     /* ‏--accent-ink הוא הצבע המשני כטקסט על משטח בהיר. הוא נגזר ב-JS ונסוג
        ל-‎--brand-dark‎ כשהמשרד בחר אקסנט בהיר מדי — מחיר בכרטיס נכס חייב
        להיקרא, גם במחיר של ויתור על הגוון שנבחר. */
@@ -33,7 +45,7 @@
     /* האקסנט כתגית שמונחת על תמונה: חצי־שקוף איפה שיש color-mix, אטום אחרת */
     --accent-veil:var(--accent);
     --teal:var(--brand); --teal-dark:var(--brand-dark); --gold:var(--accent); --gold-dark:var(--accent-dark);
-    --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(15,52,53,.08); --maxw:1000px;
+    --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(14,42,107,.08); --maxw:1000px;
 
     /* ====== שכבת העיצוב 2026 ======
        אותה שכבה שדף הנכס מקבל: משטחים בהירים, קווי הפרדה דקיקים וצללים רכים.
@@ -42,8 +54,8 @@
        והצללים מקבלים את גוון המותג, כך שערכה חמה לא נשארת עם צללים כחלחלים.
        ‏--surface נדרס אם המשרד הגדיר paper_raised משלו, כדי לא לשבור ערכה
        כהה שנבחרה בכוונה. */
-    --surface:#FFFFFF; --surface-soft:#FBFAF9;
-    --hair:#E6E3DD; --hair-strong:#D8D4CC;
+    --surface:#FFFFFF; --surface-soft:#f8faff;
+    --hair:#eef1f8; --hair-strong:#dde3f2;
     --radius-xl:24px;
     /* ‏--veil-ink הוא ה"שחור" של הדף: הבסיס לצללים, לשכבת הכהות מעל תמונת
        הנושא ולתגיות שיושבות על תמונות. בלי color-mix הוא נשאר שחור נקי. */
@@ -88,20 +100,20 @@
   .panel{background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-xl);box-shadow:var(--shadow-xs)}
   /* הכותרת היא של הפלטפורמה, לא של המשרד — לכן צבעיה קבועים ולא נגזרים
      מ-var(--brand), אחרת המיתוג של "שוק נדל״ן" היה מתחלף בין משרד למשרד. */
-  header.site{background:#F4F3F0;border-bottom:1px solid #C5C3BC;padding:14px 0}
+  header.site{background:#ffffff;border-bottom:1px solid #e3e8f4;padding:14px 0}
   .header-inner{display:flex;align-items:center;justify-content:space-between}
   .logo{display:flex;align-items:center;gap:10px;min-width:0}
   .logo-img{height:46px;width:auto;display:block;flex:0 0 auto}
   .logo-word{
-    font-family:'Rubik','Heebo',sans-serif;font-weight:500;color:#122840;
+    font-family:'Rubik','Heebo',sans-serif;font-weight:500;color:#0d1b3d;
     font-size:.82rem;line-height:1.3;letter-spacing:-.012em;min-width:0;text-align:center;
   }
-  .logo-word span{color:#6B1A26;font-weight:700}
+  .logo-word span{color:#08194a;font-weight:700}
   @media(min-width:900px){
     .logo-img{height:54px;width:auto}
     .logo-word{font-size:.95rem;white-space:nowrap}
   }
-  .back-link{font-size:.85rem;font-weight:700;color:#1C3A5E}
+  .back-link{font-size:.85rem;font-weight:700;color:#0e2a6b}
 
   #loadingState,#notFoundState{padding:60px 18px;text-align:center;color:var(--ink-soft)}
   #notFoundState{display:none}
@@ -163,13 +175,13 @@
      מקבל שורה ריקה שתופסת גובה */
   .banner-eyebrow[hidden]{display:none}
   .brand-logo{
-    width:96px;height:96px;border-radius:22px;flex-shrink:0;overflow:hidden;
+    width:96px;height:96px;border-radius:0;flex-shrink:0;overflow:hidden;
     background:linear-gradient(155deg,var(--accent),var(--brand) 65%);
     border:3px solid rgba(255,255,255,.85);box-shadow:var(--shadow-md);
     display:flex;align-items:center;justify-content:center;
     color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:2.2rem;
   }
-  @media(max-width:560px){.brand-logo{width:74px;height:74px;border-radius:18px;font-size:1.7rem}}
+  @media(max-width:560px){.brand-logo{width:74px;height:74px;border-radius:0;font-size:1.7rem}}
   .brand-logo img{width:100%;height:100%;object-fit:cover;display:block}
   /* שם המשרד הוא הכותרת הראשית של הדף — והפעם היחידה שהוא מופיע בראשו */
   .brand-name{font-size:2rem;line-height:1.15;letter-spacing:-.015em;color:var(--banner-ink)}
@@ -222,7 +234,7 @@
   @media(min-width:900px){.brand-cta{grid-template-columns:1fr;width:100%;max-width:none}}
   .brand-cta a{
     display:inline-flex;align-items:center;justify-content:center;gap:8px;
-    padding:14px 24px;border-radius:999px;font-weight:800;font-size:1rem;line-height:1;
+    padding:14px 24px;border-radius:0;font-weight:800;font-size:1rem;line-height:1;
     transition:transform .15s ease,box-shadow .15s ease,background .15s ease,color .15s ease;
   }
   .brand-cta svg{width:19px;height:19px;flex:none}
@@ -316,7 +328,7 @@
   .sec-head h2{font-size:1.05rem;position:relative;padding-inline-start:12px}
   .sec-head h2::before{
     content:'';position:absolute;inset-block:3px;inset-inline-start:0;
-    width:4px;border-radius:2px;background:var(--accent);
+    width:4px;border-radius:0;background:var(--accent);
   }
   /* רק שורת המידע שלצד הכותרת מוקטנת — ‏span ישיר של ‎.sec-head‎. בורר רחב
      (‏.sec-head span‎) היה תופס גם span שבתוך ה-h2 עצמו ומקטין חלק מהכותרת. */
@@ -345,7 +357,7 @@
   .team-rail{padding-top:18px}
   .team-card{
     flex:0 0 196px;scroll-snap-align:center;position:relative;text-align:center;cursor:pointer;
-    background:var(--surface);border:1px solid var(--hair);border-radius:20px;
+    background:var(--surface);border:1px solid var(--hair);border-radius:0;
     padding:18px 14px 14px;box-shadow:var(--shadow-xs);
     display:flex;flex-direction:column;align-items:center;
     transition:transform .18s ease,box-shadow .18s ease;
@@ -364,7 +376,7 @@
   .team-flag{
     position:absolute;top:-11px;left:50%;transform:translateX(-50%);
     background:var(--accent);color:var(--on-accent);font-size:.66rem;font-weight:800;
-    padding:3px 11px;border-radius:999px;white-space:nowrap;box-shadow:var(--shadow-sm);
+    padding:3px 11px;border-radius:0;white-space:nowrap;box-shadow:var(--shadow-sm);
     display:inline-flex;align-items:center;gap:4px;
   }
   .team-flag svg{width:11px;height:11px}
@@ -381,7 +393,7 @@
   .team-role{font-size:.76rem;color:var(--ink-soft);margin-top:1px}
   .team-lic{
     display:inline-flex;align-items:center;gap:4px;margin-top:7px;font-size:.68rem;font-weight:700;
-    background:var(--teal-tint);color:var(--brand-dark);padding:2px 8px;border-radius:999px;
+    background:var(--teal-tint);color:var(--brand-dark);padding:2px 8px;border-radius:0;
   }
   .team-lic svg{width:11px;height:11px}
   .team-badge{margin-top:8px;display:flex;justify-content:center}
@@ -393,7 +405,7 @@
   .team-actions{display:flex;gap:6px;width:100%}
   .team-actions a{
     flex:1;display:inline-flex;align-items:center;justify-content:center;gap:5px;
-    padding:8px 6px;border-radius:999px;font-size:.78rem;font-weight:800;line-height:1;
+    padding:8px 6px;border-radius:0;font-size:.78rem;font-weight:800;line-height:1;
     transition:background .15s ease,color .15s ease;
   }
   .team-actions svg{width:15px;height:15px;flex:none}
@@ -420,7 +432,7 @@
   .rail-nav.next{inset-inline-end:-6px}
   .rail-dots{display:flex;justify-content:center;gap:6px;margin-top:2px}
   .rail-dots button{
-    width:7px;height:7px;padding:0;border-radius:999px;background:var(--hair-strong);
+    width:7px;height:7px;padding:0;border-radius:0;background:var(--hair-strong);
     transition:width .2s ease,background .2s ease;
   }
   .rail-dots button.on{width:20px;background:var(--accent)}
@@ -437,7 +449,7 @@
   .stories-sec{margin-top:30px;display:none}
   .story-card{
     flex:0 0 80%;scroll-snap-align:start;display:flex;flex-direction:column;
-    background:var(--surface);border:1px solid var(--hair);border-radius:18px;overflow:hidden;
+    background:var(--surface);border:1px solid var(--hair);border-radius:0;overflow:hidden;
     box-shadow:var(--shadow-xs);transition:box-shadow .15s ease,transform .15s ease;
     text-align:start;padding:0;color:inherit;font:inherit;
   }
@@ -460,7 +472,7 @@
     position:absolute;top:14px;inset-inline-start:12px;transform:rotate(-7deg);
     background:var(--accent);color:var(--on-accent);
     font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.05rem;letter-spacing:.02em;
-    padding:5px 15px;border-radius:6px;border:2px solid rgba(255,255,255,.8);
+    padding:5px 15px;border-radius:0;border:2px solid rgba(255,255,255,.8);
     box-shadow:var(--shadow-md);
   }
   /* השלט המצויר — לעסקה בלי תמונת נכס. אותו רעיון של ממלא־המקום באריח נכס:
@@ -471,12 +483,12 @@
   }
   .story-sign .sign-board{
     display:flex;flex-direction:column;align-items:center;gap:6px;
-    background:rgba(255,255,255,.94);border-radius:12px;padding:12px 18px;
+    background:rgba(255,255,255,.94);border-radius:0;padding:12px 18px;
     box-shadow:var(--shadow-md);max-width:88%;
   }
-  .story-sign .sign-board img{width:42px;height:42px;object-fit:contain;border-radius:9px}
+  .story-sign .sign-board img{width:42px;height:42px;object-fit:contain;border-radius:0}
   .story-sign .sign-board .sign-initial{
-    width:42px;height:42px;border-radius:9px;display:flex;align-items:center;justify-content:center;
+    width:42px;height:42px;border-radius:0;display:flex;align-items:center;justify-content:center;
     background:linear-gradient(155deg,var(--accent),var(--brand) 65%);color:#fff;
     font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.2rem;
   }
@@ -505,7 +517,7 @@
 
   .prop-search{
     display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--hair);
-    border-radius:999px;padding:4px 6px 4px 14px;box-shadow:var(--shadow-xs);margin-bottom:14px;
+    border-radius:0;padding:4px 6px 4px 14px;box-shadow:var(--shadow-xs);margin-bottom:14px;
     transition:border-color .15s ease,box-shadow .15s ease;
   }
   .prop-search:focus-within{border-color:var(--brand);box-shadow:var(--shadow-md)}
@@ -538,7 +550,7 @@
   }
   .group-all:hover{text-decoration:underline}
   .group-head .ic{
-    width:30px;height:30px;border-radius:10px;flex:none;display:grid;place-items:center;
+    width:30px;height:30px;border-radius:0;flex:none;display:grid;place-items:center;
     background:var(--teal-tint);color:var(--brand);
   }
   .group-head .ic svg{width:17px;height:17px}
@@ -574,9 +586,12 @@
   .prop-group.expanded .rail-nav,
   .prop-group.expanded .rail-dots{display:none}
   .prop-card{
-    background:var(--surface);border:1px solid var(--hair);border-radius:18px;overflow:hidden;cursor:pointer;
+    background:var(--surface);border:1px solid var(--hair);border-radius:0;overflow:hidden;cursor:pointer;
     box-shadow:var(--shadow-xs);transition:box-shadow .15s ease,transform .15s ease;
   }
+  /* אריח הכיסוי כאן רחב — ‏82% מהמסך ברצועה, עמודה שלמה ברשת — ולכן
+     הגובה נגזר מיחס ולא ממידה קבועה, בדיוק כמו שהתמונונת עשתה קודם. */
+  .prop-card.pc-cover{--pc-cover-h:auto;aspect-ratio:16/11}
   .prop-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
   /* יחס גובה־רוחב קבוע במקום גובה קבוע, כדי שהתמונה תשמור על הפרופורציה
      שלה בכל רוחב כרטיס. ‏background-size:cover הוא המקבילה של
@@ -604,7 +619,7 @@
       linear-gradient(160deg,var(--surface-soft) 0%,var(--teal-tint) 100%);
   }
   .thumb-fallback .tf-logo{
-    width:54px;height:54px;flex:0 0 auto;border-radius:14px;background:#fff;
+    width:54px;height:54px;flex:0 0 auto;border-radius:0;background:#fff;
     border:1px solid var(--hair);object-fit:contain;padding:5px;
     box-shadow:0 4px 14px rgba(18,40,64,.18);
   }
@@ -640,7 +655,6 @@
      הצדדים, כמו לבאנרים של דף הבית. */
   #activeProps > .lead-banner{margin:24px 0 16px}
 
-
   /* ---------- באנרי הלידים ----------
      שני באנרים על אותו שלד — שורת הזמנה שכולה כפתור, ומתחתיה אשף בן שלושה
      שלבים שנפתח רק בלחיצה. זה בדיוק הרכיב של דף הבית, כולל המצב הסגור:
@@ -656,6 +670,21 @@
     background:linear-gradient(160deg,var(--accent-dark),var(--accent));
     color:var(--on-accent);
   }
+
+  /* ---- הבאנר כשהוא הרצועה הראשונה בפוטר ----
+     בתוך הפוטר אין מה להראות מבעד לבאנר — מתחתיו ספיר אטום — ולכן הצל
+     נבלע בכהה שמסביבו, וה-‎margin‎ שנועד להפריד אותו מרצועת הנכסים הפך
+     לפס ריק בין הפוטר לתוכן שלו עצמו. המרווח שמתחתיו הוא ‎--fs-gap‎ של
+     הפוטר (‏.footer-lead ב-assets/site-footer.css), כמו בין כל שני חלקים בו. */
+  .footer-lead .lead-banner{margin:0;box-shadow:none;border:1px solid rgba(255,255,255,.12)}
+  /* אותו מדרג של שאר העמודים (‏assets/buyer-banner.css): ספיר לבורדו.
+     בלעדיו הבאנר כאן היה נשאר בספיר של design-system.css, ואותה רצועה
+     הייתה נראית אחרת בדף המשרד מאשר בכל דף אחר. */
+  .footer-lead .buyer-banner{background:linear-gradient(160deg,#08194a,#3d1119);color:#fff}
+  /* גם ה-CTA: בדף המשרד הוא נצבע ב-‎--gold-tint‎ של המשרד, שהוא בהיר
+     כמעט לבן אצל חלק מהם — על הבאנר הכהה שבפוטר הוא נראה כפתור כבוי. */
+  .footer-lead .buyer-banner .lead-teaser-go{background:#c9a227;color:#0d1b3d}
+  .footer-lead .buyer-banner.is-open .lead-teaser-go{background:transparent;color:#fff;border:1.5px solid rgba(255,255,255,.55)}
   /* מחשבון התשואה הוא אותו באנר בדיוק, במדרג הפוך — כמו בדף הבית, שבו
      באנר מחפשי הנכס ובאנר המחשבון חולקים שני גוונים באותו סדר הפוך.
      שניהם פונים לאותו צד של העסקה: מי שקונה. */
@@ -671,7 +700,7 @@
     width:100%;padding:15px 16px;text-align:start;color:inherit;background:transparent;
   }
   .lead-teaser-icon{
-    width:42px;height:42px;flex:none;border-radius:14px;
+    width:42px;height:42px;flex:none;border-radius:0;
     display:flex;align-items:center;justify-content:center;
     background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.22);
   }
@@ -681,7 +710,7 @@
   .lead-teaser-sub{font-size:.76rem;line-height:1.45;opacity:.82}
   /* אותה שפה של ה-CTA במחשבון: מדרג חם וצל, ולא גלולה שטוחה */
   .lead-teaser-go{
-    flex:none;padding:10px 15px;border-radius:999px;
+    flex:none;padding:10px 15px;border-radius:0;
     font-size:.82rem;font-weight:800;white-space:nowrap;
     background:linear-gradient(to right,var(--accent-dark),var(--accent));color:var(--on-accent);
     box-shadow:0 10px 20px rgba(0,0,0,.28);
@@ -712,10 +741,10 @@
   .lead-banner .owner-intro p{color:inherit;opacity:.84;font-size:.9rem;max-width:42ch;margin:8px auto 0}
   .owner-toggle{display:flex;gap:8px}
   .owner-toggle button{
-    flex:1;padding:9px;border-radius:999px;font-weight:700;font-size:.82rem;
+    flex:1;padding:9px;border-radius:0;font-weight:700;font-size:.82rem;
     background:transparent;border:1.5px solid rgba(255,255,255,.35);color:var(--on-brand);
   }
-  .owner-toggle button.active{background:var(--gold);border-color:var(--gold);color:var(--on-accent)}
+  .owner-toggle button.active{background:var(--gold);border-color:var(--gold);color:var(--on-accent-fill)}
 
   /* ---- אשף הערכת נכס (3 שלבים) ----
      ‏text-align:right מחזיר את תוכן האשף ליישור RTL רגיל — רק ההודעה
@@ -736,7 +765,7 @@
     width:19px;height:19px;border-radius:50%;background:rgba(255,255,255,.18);
     display:flex;align-items:center;justify-content:center;font-size:.68rem;flex:0 0 auto;
   }
-  .wiz-steps li.active .dot,.wiz-steps li.done .dot{background:var(--gold);color:var(--on-accent)}
+  .wiz-steps li.active .dot,.wiz-steps li.done .dot{background:var(--gold);color:var(--on-accent-fill)}
   .wiz-panel{display:none}
   .wiz-panel.active{display:block;animation:wizIn .22s ease}
   @keyframes wizIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
@@ -752,30 +781,30 @@
   .wiz-nav .btn{flex:1}
   .btn{
     display:inline-flex;align-items:center;justify-content:center;gap:8px;
-    padding:13px 22px;border-radius:999px;font-weight:700;font-size:.95rem;
+    padding:13px 22px;border-radius:0;font-weight:700;font-size:.95rem;
     transition:transform .15s ease, box-shadow .15s ease;
   }
-  .btn-gold{background:var(--gold);color:var(--on-accent)}
+  .btn-gold{background:var(--gold);color:var(--on-accent-fill)}
   .btn-gold:hover{transform:translateY(-1px);box-shadow:var(--shadow-md)}
   .btn-gold[disabled]{opacity:.65;cursor:default;transform:none}
   .btn-ghost-light{background:transparent;border:1.5px solid rgba(255,255,255,.35);color:var(--on-brand)}
   .chip-row{display:flex;flex-wrap:wrap;gap:7px}
   .owner-banner .chip{
-    padding:8px 14px;border-radius:999px;font-size:.82rem;font-weight:600;
+    padding:8px 14px;border-radius:0;font-size:.82rem;font-weight:600;
     background:transparent;border:1.5px solid rgba(255,255,255,.3);color:var(--on-brand);
   }
-  .owner-banner .chip[aria-checked="true"]{background:var(--gold);border-color:var(--gold);color:var(--on-accent)}
+  .owner-banner .chip[aria-checked="true"]{background:var(--gold);border-color:var(--gold);color:var(--on-accent-fill)}
   .wiz-checks{display:flex;flex-wrap:wrap;gap:10px}
   .wiz-checks label{
     display:flex;align-items:center;gap:7px;font-size:.85rem;color:var(--on-brand);
     background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.22);
-    border-radius:999px;padding:8px 14px;cursor:pointer;
+    border-radius:0;padding:8px 14px;cursor:pointer;
   }
   .wiz-checks input{margin:0;accent-color:var(--accent)}
   .wiz-checks label:has(input:checked){background:var(--accent-veil);border-color:var(--gold)}
   .wiz-done{text-align:center;padding:10px 0}
   .wiz-done-mark{
-    width:52px;height:52px;border-radius:50%;background:var(--gold);color:var(--on-accent);
+    width:52px;height:52px;border-radius:50%;background:var(--gold);color:var(--on-accent-fill);
     font-size:1.6rem;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;
   }
   .wiz-done h3{color:var(--on-brand);font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;margin:0 0 6px}
@@ -801,7 +830,7 @@
   .buyer-banner .wiz-steps li.done .dot{background:var(--gold-tint);color:var(--accent-ink)}
   .buyer-banner .wiz-err{color:#FFE3E3}
   .buyer-banner .chip{
-    padding:8px 14px;border-radius:999px;font-size:.82rem;font-weight:600;
+    padding:8px 14px;border-radius:0;font-size:.82rem;font-weight:600;
     background:transparent;border:1.5px solid rgba(255,255,255,.3);color:var(--on-accent);
   }
   /* ‎.lead-toggle‎ ולא ‎.owner-toggle‎: המאזין של אשף בעלי הנכסים תופס כל
@@ -809,7 +838,7 @@
      הכותרת של הבאנר השני. */
   .lead-toggle{display:flex;flex-wrap:wrap;gap:8px}
   .lead-toggle button{
-    flex:1 1 0;min-width:84px;padding:9px;border-radius:999px;
+    flex:1 1 0;min-width:84px;padding:9px;border-radius:0;
     font-weight:700;font-size:.82rem;background:transparent;
     border:1.5px solid rgba(255,255,255,.35);color:inherit;
   }
@@ -822,7 +851,7 @@
     display:flex;align-items:flex-start;gap:9px;margin-top:14px;cursor:pointer;
     font-size:.82rem;line-height:1.45;color:var(--on-accent);
     background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.22);
-    border-radius:14px;padding:11px 13px;
+    border-radius:0;padding:11px 13px;
   }
   .buy-check input{margin:2px 0 0;flex:none;accent-color:var(--accent-dark)}
   .buy-check:has(input:checked){background:rgba(255,255,255,.18);border-color:var(--gold-tint)}
@@ -831,7 +860,7 @@
      חותמים בדיוק ברגע שמוסרים טלפון. */
   .buy-recap{
     font-size:.78rem;line-height:1.5;color:var(--on-accent);
-    background:rgba(0,0,0,.18);border-radius:12px;padding:10px 12px;margin-bottom:4px;
+    background:rgba(0,0,0,.18);border-radius:0;padding:10px 12px;margin-bottom:4px;
   }
   .buy-recap:empty{display:none}
 
@@ -858,14 +887,17 @@
   .calc-controls{display:flex;flex-direction:column;gap:13px}
   .calc-slider-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:6px}
   .calc-slider-head .lbl{font-size:.82rem;font-weight:700;color:var(--ink-soft)}
+  /* ‏--accent-ink ולא ‎--teal-dark‎: הערך יושב על לוח בהיר, ו---teal-dark הוא
+     גוון המשרד בלי שום בדיקת ניגודיות מולו — משרד עם ראשי בהיר קיבל 2.6:1.
+     ‏--accent-ink הוא בדיוק הטוקן שנבחר בקוד לפי 4.5:1 מול המשטח. */
   .calc-slider-head .val{
     font-family:'Frank Ruhl Libre',serif;font-size:1.28rem;font-weight:700;
-    color:var(--teal-dark);white-space:nowrap;
+    color:var(--accent-ink);white-space:nowrap;
   }
   /* הרקע נצבע על ה-input עצמו (ולא רק על ::-webkit-slider-runnable-track)
      כדי שמילוי המסלול יעבוד גם בפיירפוקס, שם ::-moz-range-track שקוף. */
   .calc-range{
-    -webkit-appearance:none;appearance:none;width:100%;height:14px;border-radius:999px;margin:0;
+    -webkit-appearance:none;appearance:none;width:100%;height:14px;border-radius:0;margin:0;
     background:linear-gradient(to left,var(--brand-dark) 0%,var(--calc-accent) var(--p,50%),var(--hair-strong) var(--p,50%),var(--hair-strong) 100%);
     cursor:pointer;
   }
@@ -883,7 +915,7 @@
      המימון במחשבון המשכנתא: המספר המשני שמסביר את הסליידר שמעליו. */
   .calc-ltv{display:flex;align-items:center;gap:7px;margin-top:7px;font-size:.76rem;font-weight:700;color:var(--accent-ink)}
   .calc-ltv .arrow{color:var(--calc-accent);font-size:.9rem;line-height:1}
-  .calc-ltv-track{flex:0 0 58px;height:4px;border-radius:999px;background:var(--hair-strong);overflow:hidden}
+  .calc-ltv-track{flex:0 0 58px;height:4px;border-radius:0;background:var(--hair-strong);overflow:hidden}
   .calc-ltv-fill{
     display:block;height:100%;width:0;transition:width .18s ease;
     background:linear-gradient(to left,var(--accent-dark),var(--accent));
@@ -892,15 +924,15 @@
   .calc-step .lbl{display:block;font-size:.82rem;font-weight:700;color:var(--ink-soft);text-align:center;margin-bottom:5px}
   .calc-step-ctl{
     display:flex;align-items:center;background:var(--surface-soft);border:1.5px solid var(--hair-strong);
-    border-radius:14px;padding:3px;gap:4px;
+    border-radius:0;padding:3px;gap:4px;
   }
   .calc-step-ctl button{
-    width:36px;height:36px;flex:none;border-radius:10px;font-size:1.3rem;font-weight:700;line-height:1;
+    width:36px;height:36px;flex:none;border-radius:0;font-size:1.3rem;font-weight:700;line-height:1;
     background:none;color:var(--brand-dark);display:grid;place-items:center;transition:background .15s ease;
   }
   .calc-step-ctl button:hover{background:var(--teal-tint)}
   .calc-step-ctl input{
-    flex:1;min-width:0;width:100%;text-align:center;border:none;background:#fff;border-radius:10px;
+    flex:1;min-width:0;width:100%;text-align:center;border:none;background:#fff;border-radius:0;
     padding:6px 2px;font-size:1.22rem;font-weight:800;color:var(--brand-dark);
     font-family:'Frank Ruhl Libre',serif;
   }
@@ -908,9 +940,14 @@
   .calc-step-ctl input::-webkit-outer-spin-button,
   .calc-step-ctl input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
   .calc-step-ctl input[type=number]{-moz-appearance:textfield;appearance:textfield}
+  /* ספיר קבוע ולא גוון המשרד — אותו כלל של הרצועות הכהות ב-design-system.css.
+     כאן הרקע היה ‎--brand-dark → --brand‎ בזמן שהטקסט שעליו קבוע ‎#fff‎, ולכן
+     משרד עם גוון ראשי בהיר קיבל לבן על זהב (2.9:1). לוח שנושא טקסט לבן קבוע
+     חייב רקע קבוע — או שהטקסט יהפוך למחושב, ולוח שהוא מדרג בין שני גוונים
+     בהירים אין לו צבע טקסט קריא בשני קצותיו. */
   .calc-result{
     display:flex;align-items:center;justify-content:space-between;gap:14px;
-    background:linear-gradient(120deg,var(--brand-dark) 0%,var(--brand) 100%);
+    background:linear-gradient(120deg,var(--sapphire-deep) 0%,var(--sapphire) 100%);
     border-radius:var(--radius-md);padding:13px 18px;box-shadow:var(--shadow-md);
   }
   .calc-result .side{text-align:start}
@@ -922,15 +959,19 @@
   }
   /* שלוש התוצאות המשניות: הברוטו שכולם מצטטים, ההכנסה בשקלים, והשנים
      להחזר. הן מתרגמות את האחוז הגדול למשהו שאפשר להחליט לפיו. */
-  .calc-more{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--hair);border:1px solid var(--hair);border-radius:14px;overflow:hidden}
+  .calc-more{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--hair);border:1px solid var(--hair);border-radius:0;overflow:hidden}
   .calc-more div{background:var(--surface);padding:11px 6px;text-align:center;min-width:0}
   .calc-more .v{font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:1.2rem;color:var(--brand-dark);line-height:1.15}
   .calc-more .k{font-size:.68rem;color:var(--ink-soft);margin-top:3px;font-weight:600}
   .calc-warn{font-size:.78rem;color:var(--accent-ink);font-weight:700;margin:0;text-align:center}
   .calc-warn:empty{display:none}
+  /* גם כאן ספיר קבוע. המדרג הקודם חצה שתי משפחות גוון (‏--brand-dark ואז
+     --accent-dark → --accent‎) עם ‎#fff‎ קבוע מעליו, ובאקסנט זהוב הוא ירד
+     ל-2.9:1. מדרג כזה אינו ניתן לתיקון בבחירת צבע טקסט: אין צבע אחד שקריא
+     גם על ספיר כהה וגם על זהב בהיר. */
   .calc-cta{
-    display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 18px;border-radius:14px;
-    background:linear-gradient(to right,var(--brand-dark),var(--accent-dark) 55%,var(--accent));
+    display:flex;align-items:center;justify-content:center;gap:10px;padding:13px 18px;border-radius:0;
+    background:linear-gradient(to right,var(--sapphire-deep),var(--sapphire));
     color:#fff;font-weight:800;font-size:1rem;box-shadow:var(--shadow-md);
     transition:transform .15s ease, box-shadow .15s ease;
   }
@@ -948,7 +989,7 @@
   .yl-overlay.open{display:flex}
   .yl-modal{
     background:var(--surface);width:100%;max-width:560px;max-height:88vh;
-    border-radius:20px 20px 0 0;display:flex;flex-direction:column;overflow:hidden;
+    border-radius:0 20px 0 0;display:flex;flex-direction:column;overflow:hidden;
   }
   @media(min-width:640px){
     .yl-overlay{align-items:center}
@@ -1009,7 +1050,7 @@
   .contact-address{
     display:inline-flex;align-items:center;gap:6px;margin-top:8px;
     font-size:.83rem;font-weight:700;color:var(--brand-dark);
-    background:var(--surface);border:1px solid var(--hair);border-radius:999px;padding:5px 12px;
+    background:var(--surface);border:1px solid var(--hair);border-radius:0;padding:5px 12px;
     transition:background .15s ease,border-color .15s ease;
   }
   .contact-address:hover{background:var(--teal-tint);border-color:transparent}
@@ -1019,7 +1060,7 @@
   @media(min-width:640px){.contact-actions{width:auto;margin-inline-start:auto}}
   .contact-actions a{
     flex:1 1 150px;display:inline-flex;align-items:center;justify-content:center;gap:8px;
-    padding:12px 20px;border-radius:999px;font-weight:800;font-size:.92rem;line-height:1;
+    padding:12px 20px;border-radius:0;font-weight:800;font-size:.92rem;line-height:1;
     transition:transform .15s ease,background .15s ease,color .15s ease;
   }
   .contact-actions svg{width:18px;height:18px;flex:none}
@@ -1069,7 +1110,7 @@
   .sb-actions{display:flex;gap:7px;flex:none}
   .sb-actions a{
     display:inline-flex;align-items:center;justify-content:center;gap:7px;
-    padding:11px 15px;border-radius:12px;font-weight:800;font-size:.86rem;line-height:1;white-space:nowrap;
+    padding:11px 15px;border-radius:0;font-weight:800;font-size:.86rem;line-height:1;white-space:nowrap;
   }
   .sb-actions svg{width:17px;height:17px;flex:none}
   .sb-wa{background:linear-gradient(120deg,var(--brand-dark),var(--brand));color:var(--on-brand)}
@@ -1093,6 +1134,7 @@
   }
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
+<link rel="stylesheet" href="assets/design-system.css">
 <script src="assets/site-footer.js" defer></script>
 </head>
 <body>
@@ -1100,8 +1142,8 @@
 <header class="site">
   <div class="wrap header-inner">
     <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
-      <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="512" height="436">
-      <span class="logo-word">שוק הנדל״ן של <span>עפולה והסביבה</span></span>
+      <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
+      <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
     </a>
     <a href="index.html" class="back-link">← דף הבית</a>
   </div>
@@ -1325,193 +1367,6 @@
         </div><!-- /lead-panel -->
       </div><!-- /ownerBanner -->
 
-      <!-- ---------- באנר מחפשי הנכס ----------
-           התאום של באנר בעלי הנכסים, בצד השני של העסקה: זה שואל "כמה שווה
-           הנכס שלי", וזה שואל "איפה הנכס שלי". מי שגלל/ה את הנכסים למכירה
-           של המשרד בלי למצוא — זו ההצעה שהנכס הבא יגיע אליו/ה.
-
-           היעד הוא ‎saved-search-intake‎ של הסוכן החכם, אותו endpoint בדיוק
-           של דף הבית (ראו docs/smart-search-agent.md): מה שנשמר כאן הוא
-           חיפוש שמור, וכפילות של אותה טבלה הייתה מפצלת את ההתראות. -->
-      <div class="lead-banner buyer-banner" id="buyerBanner" data-slot="sale">
-        <button type="button" class="lead-teaser" id="buyerStartBtn"
-                aria-expanded="false" aria-controls="buyerPanel">
-          <span class="lead-teaser-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="10.5" cy="10.5" r="6.5"></circle>
-              <path d="M15.5 15.5 21 21"></path>
-              <path d="M7.6 11.4 10.5 8.8l2.9 2.6"></path>
-              <path d="M8.5 10.9v3h4v-3"></path>
-            </svg>
-          </span>
-          <span class="lead-teaser-copy">
-            <span class="lead-teaser-title">מחפשים נכס? תנו לו למצוא אתכם</span>
-            <span class="lead-teaser-sub">לקנייה או להשכרה — נעדכן אתכם ראשונים כשעולה נכס שמתאים</span>
-          </span>
-          <span class="lead-teaser-go" aria-hidden="true">
-            <span class="lead-teaser-go-open">התאמת נכס ←</span>
-            <span class="lead-teaser-go-close">סגירה ✕</span>
-          </span>
-        </button>
-
-        <div class="lead-panel" id="buyerPanel" hidden>
-          <div class="owner-intro">
-            <p id="buyerLead">ספרו לנו מה אתם מחפשים — ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.</p>
-          </div>
-
-          <div class="owner-wizard" id="buyerWizard">
-            <ol class="wiz-steps" id="buySteps" aria-label="שלבי ההתאמה">
-              <li class="active" data-step="1"><span class="dot">1</span>מה מחפשים</li>
-              <li data-step="2"><span class="dot">2</span>פרטי הנכס</li>
-              <li data-step="3"><span class="dot">3</span>פרטי קשר</li>
-            </ol>
-
-            <form id="buyerWizardForm" novalidate>
-              <!-- שלב 1: סוג העסקה + שכונות -->
-              <section class="wiz-panel active" data-panel="1">
-                <p class="wiz-q">מה אתם מחפשים?</p>
-                <!-- ‎.lead-toggle‎ ולא ‎.owner-toggle‎ בכוונה: המאזין של באנר
-                     בעלי הנכסים תופס את כל ‎.owner-toggle button‎ במסמך, ושימוש
-                     חוזר במחלקה היה משנה כאן את הכותרת של הבאנר השני. -->
-                <div class="lead-toggle" id="buyDealToggle" role="group" aria-label="סוג החיפוש">
-                  <button type="button" class="active" data-buy-deal="sale">לקנייה</button>
-                  <button type="button" data-buy-deal="rent">להשכרה</button>
-                  <button type="button" data-buy-deal="commercial">מסחרי</button>
-                </div>
-
-                <!-- ‏saved_searches.deal_type מוגבל ל-sale/rent, ו"מסחרי" הוא
-                     קטגוריה ולא סוג עסקה — ולכן הבחירה בו פותחת את השאלה
-                     המשלימה במקום לנחש עבור המחפש/ת. -->
-                <div id="buyCommercialDeal" hidden>
-                  <span class="wiz-label" id="buyCommercialLabel">נכס מסחרי — לקנייה או להשכרה?</span>
-                  <div class="lead-toggle" id="buyCommercialToggle" role="group" aria-labelledby="buyCommercialLabel">
-                    <button type="button" class="active" data-buy-cdeal="sale">לקנייה</button>
-                    <button type="button" data-buy-cdeal="rent">להשכרה</button>
-                  </div>
-                </div>
-
-                <span class="wiz-label" id="buyHoodLabel">באילו שכונות? <span class="wiz-hint">אפשר לבחור כמה</span></span>
-                <div class="chip-row" id="buyHoodChips" role="group" aria-labelledby="buyHoodLabel"></div>
-                <!-- נפתח רק כשרשימת השכונות לא נטענה (מסד לא זמין): בלעדיו
-                     שלב 1 היה נשאר בלי שום דרך לציין אזור. -->
-                <div id="buyAreaFallback" hidden>
-                  <label class="wiz-label" for="buyArea">עיר או אזור</label>
-                  <input type="text" id="buyArea" class="wiz-input" placeholder="לדוגמה: עפולה">
-                </div>
-
-                <p class="wiz-err" id="buyErr1"></p>
-                <div class="wiz-nav">
-                  <button type="button" class="btn btn-gold" data-buy-next="2">להמשך ←</button>
-                </div>
-              </section>
-
-              <!-- שלב 2: מאפייני הנכס -->
-              <section class="wiz-panel" data-panel="2">
-                <p class="wiz-q">מה הנכס שאתם מחפשים?</p>
-
-                <div id="buyRoomsBlock">
-                  <span class="wiz-label" id="buyRoomsLabel">מספר חדרים <span class="wiz-hint">אפשר לבחור כמה</span></span>
-                  <div class="chip-row" id="buyRoomsChips" role="group" aria-labelledby="buyRoomsLabel">
-                    <button type="button" class="chip" aria-pressed="false" data-buy-rooms="2">2</button>
-                    <button type="button" class="chip" aria-pressed="false" data-buy-rooms="2.5">2.5</button>
-                    <button type="button" class="chip" aria-pressed="false" data-buy-rooms="3">3</button>
-                    <button type="button" class="chip" aria-pressed="false" data-buy-rooms="3.5">3.5</button>
-                    <button type="button" class="chip" aria-pressed="false" data-buy-rooms="4">4</button>
-                    <button type="button" class="chip" aria-pressed="false" data-buy-rooms="4.5">4.5</button>
-                    <button type="button" class="chip" aria-pressed="false" data-buy-rooms="5">5</button>
-                    <button type="button" class="chip" aria-pressed="false" data-buy-rooms="+6">6+</button>
-                  </div>
-                </div>
-
-                <span class="wiz-label" id="buyPtypeLabel">סוג הנכס <span class="wiz-hint">אפשר לבחור כמה</span></span>
-                <div class="chip-row" id="buyPtypeChips" role="group" aria-labelledby="buyPtypeLabel"></div>
-
-                <span class="wiz-label" id="buyBudgetLabel">תקציב <span class="wiz-hint" id="buyBudgetHint">(₪)</span></span>
-                <div class="buy-range">
-                  <label class="buy-range-field">
-                    <span>מ־</span>
-                    <input type="number" id="buyPriceMin" class="wiz-input" inputmode="numeric" min="0" placeholder="ללא מינימום">
-                  </label>
-                  <label class="buy-range-field">
-                    <span>עד</span>
-                    <input type="number" id="buyPriceMax" class="wiz-input" inputmode="numeric" min="0" placeholder="ללא מקסימום">
-                  </label>
-                </div>
-
-                <!-- במסחרי הגודל הוא מה שקובע, ומספר החדרים כמעט חסר משמעות —
-                     ולכן שני הבלוקים מתחלפים ואינם מוצגים יחד. -->
-                <div id="buySizeBlock" hidden>
-                  <span class="wiz-label" id="buySizeLabel">גודל (מ״ר)</span>
-                  <div class="buy-range">
-                    <label class="buy-range-field">
-                      <span>מ־</span>
-                      <input type="number" id="buySizeMin" class="wiz-input" inputmode="numeric" min="0" placeholder="הכול">
-                    </label>
-                    <label class="buy-range-field">
-                      <span>עד</span>
-                      <input type="number" id="buySizeMax" class="wiz-input" inputmode="numeric" min="0" placeholder="הכול">
-                    </label>
-                  </div>
-                </div>
-
-                <p class="wiz-err" id="buyErr2"></p>
-                <div class="wiz-nav">
-                  <button type="button" class="btn btn-ghost-light" data-buy-back="1">→ חזרה</button>
-                  <button type="button" class="btn btn-gold" data-buy-next="3">להמשך ←</button>
-                </div>
-              </section>
-
-              <!-- שלב 3: פרטי קשר -->
-              <section class="wiz-panel" data-panel="3">
-                <p class="wiz-q">לאן לשלוח את הנכסים המתאימים?</p>
-                <div class="buy-recap" id="buyRecap"></div>
-
-                <label class="wiz-label" for="buyName">שם מלא</label>
-                <input type="text" id="buyName" class="wiz-input" autocomplete="name">
-
-                <span class="wiz-label" id="buyChannelLabel">איך לעדכן אתכם?</span>
-                <div class="lead-toggle" id="buyChannels" role="group" aria-labelledby="buyChannelLabel">
-                  <button type="button" class="active" data-buy-channel="whatsapp">וואטסאפ</button>
-                  <button type="button" data-buy-channel="email">מייל</button>
-                  <button type="button" data-buy-channel="both">שניהם</button>
-                </div>
-
-                <div id="buyPhoneField">
-                  <label class="wiz-label" for="buyPhone">טלפון</label>
-                  <input type="tel" id="buyPhone" class="wiz-input" placeholder="050-0000000" autocomplete="tel" inputmode="tel">
-                </div>
-                <div id="buyEmailField" hidden>
-                  <label class="wiz-label" for="buyEmail">אימייל</label>
-                  <input type="email" id="buyEmail" class="wiz-input" autocomplete="email" inputmode="email" dir="ltr" style="text-align:left">
-                </div>
-
-                <!-- ההסכמה נפרדת מההרשמה במכוון: אפשר לקבל התראות בלי שהפרטים
-                     יעברו לאף אחד. רק מי שמסמן/ת כאן הופך/ת לליד. -->
-                <label class="buy-check" for="buyConsent">
-                  <input type="checkbox" id="buyConsent">
-                  <span id="buyConsentText">אשמח שמתווך/ת מהמשרד ייצור איתי קשר עם נכסים מתאימים</span>
-                </label>
-
-                <p class="wiz-err" id="buyErr3"></p>
-                <p class="buy-privacy">אפשר להפסיק את העדכונים בכל רגע, מקישור שבכל הודעה.</p>
-                <div class="wiz-nav">
-                  <button type="button" class="btn btn-ghost-light" data-buy-back="2">→ חזרה</button>
-                  <button type="submit" class="btn btn-gold" id="buySubmitBtn">קבלת עדכונים</button>
-                </div>
-              </section>
-            </form>
-
-            <!-- מסך סיום -->
-            <div class="wiz-done" id="buyDone" hidden>
-              <div class="wiz-done-mark" aria-hidden="true">✓</div>
-              <h3>החיפוש נשמר</h3>
-              <p id="buyDoneText">נעדכן אתכם ברגע שיעלה נכס שמתאים למה שביקשתם.</p>
-              <button type="button" class="btn btn-ghost-light" id="buyRestart">שמירת חיפוש נוסף</button>
-            </div>
-          </div>
-        </div>
-      </div><!-- /buyerBanner -->
-
       <!-- ---------- מחשבון התשואה ----------
            יושב מתחת לנכסים המסחריים: מי שגלל/ה חנויות ומשרדים הוא/היא מי
            ששואל/ת כמה הנכס מחזיר. מתחיל כשורה אחת ונפתח בלחיצה. -->
@@ -1727,7 +1582,7 @@ function thumbStyle(p){
 }
 
 const NO_PHOTOS_NOTE = 'תמונות של הנכס יעלו בקרוב';
-const SITE_LOGO = 'assets/logo-shuknadlan.png';
+const SITE_LOGO = 'assets/logo-shuknadlan.svg';
 
 /* המשרד שהעמוד מוקדש לו — נשמר כדי שאריח נכס בלי תמונות יוכל להציג את
    הלוגו והשם שלו. */
@@ -1948,10 +1803,16 @@ function contrastWithWhite(hex){
    שעובר 4.5:1. כשגם וגם, הלבן מנצח (זו שפת האתר); כשאף אחד לא עובר —
    גוון בינוני שאין עליו טקסט קריא באמת — נבחר הגבוה מבין השניים, שהוא
    הטוב ביותר שאפשר בלי לשנות את הגוון שהמשרד בחר. */
-const ON_COLOR_INK = '#1B1F26';
-function readableOn(hex){
-  const onWhite = contrastWithWhite(hex);
-  const onInk = contrastBetween(hex, ON_COLOR_INK);
+const ON_COLOR_INK = '#0d1b3d';
+
+/* הבחירה נמדדת מול *שני* הגוונים שהמשטח באמת צבוע בהם, ולא מול אחד מהם.
+   כמעט כל משטח מלא באתר הוא מדרג — ‎linear-gradient(--brand-dark → --brand)‎
+   בלוח התוצאה, ‎--accent-dark → --accent‎ ב-CTA — ומדידה מול הקצה הבהיר
+   בלבד החזירה דיו כהה שנעלם בקצה הכהה של אותו מדרג בדיוק. הגרוע מבין
+   השניים הוא מה שקובע. */
+function readableOnPair(a, b){
+  const onWhite = Math.min(contrastWithWhite(a), contrastWithWhite(b));
+  const onInk   = Math.min(contrastBetween(a, ON_COLOR_INK), contrastBetween(b, ON_COLOR_INK));
   if (onWhite >= 4.5) return '#fff';
   if (onInk >= 4.5) return ON_COLOR_INK;
   return onWhite >= onInk ? '#fff' : ON_COLOR_INK;
@@ -1978,22 +1839,29 @@ function applyBranding(agency){
   const brand = safeHex(c.primary, null);
   const accent = safeHex(c.accent, null);
   if (brand){
+    const brandDark = safeHex(c.primary_dark, brand);
     root.setProperty('--brand', brand);
-    root.setProperty('--brand-dark', safeHex(c.primary_dark, brand));
-    root.setProperty('--on-brand', readableOn(brand));
+    root.setProperty('--brand-dark', brandDark);
+    root.setProperty('--on-brand', readableOnPair(brand, brandDark));
+    /* ‏--on-brand-fill הוא אותו חישוב בדיוק, בשם שנשאר תקף גם בתוך רצועה
+       כהה: שם ‎--on-brand‎ נדרס ללבן (הרצועה כבר אינה בגוון המשרד), ואילו
+       כפתור מלא שבתוכה — ‎.btn-gold‎, שרקעו ‎--teal‎ — עדיין כן. */
+    root.setProperty('--on-brand-fill', readableOnPair(brand, brandDark));
   }
   if (accent){
     const accentDark = safeHex(c.accent_dark, accent);
     root.setProperty('--accent', accent);
     root.setProperty('--accent-dark', accentDark);
-    root.setProperty('--on-accent', readableOn(accent));
+    root.setProperty('--on-accent', readableOnPair(accent, accentDark));
+    /* המקבילה לצבע המשני: טקסט על שבב ‎--gold‎ (שהוא ‎--accent‎) בתוך רצועה. */
+    root.setProperty('--on-accent-fill', readableOnPair(accent, accentDark));
     /* ‏--accent-ink נושא טקסט ואייקונים קטנים (מחיר, כוכבים, אייקוני הקפסולות) על רקע
        הכרטיסים. אקסנט בהיר — צהוב, חול, ובוודאי לבן — נכשל שם בניגודיות,
        ולכן נבחר כאן הגוון הראשון שעובר 4.5:1: קודם המשני הכהה, אחריו המשני
        עצמו, ורק אם שניהם בהירים מדי נסוגים לצבע הראשי. */
     const surface = safeHex(c.paper_raised, '#FFFFFF');
-    const brandDark = safeHex(c.primary_dark, safeHex(c.primary, '#122840'));
-    const ink = [accentDark, accent, brandDark].find(hex => contrastBetween(hex, surface) >= 4.5) || '#1B1F26';
+    const brandDark = safeHex(c.primary_dark, safeHex(c.primary, '#0d1b3d'));
+    const ink = [accentDark, accent, brandDark].find(hex => contrastBetween(hex, surface) >= 4.5) || '#0d1b3d';
     root.setProperty('--accent-ink', ink);
   }
   if (safeHex(c.paper, null)) root.setProperty('--paper', c.paper.trim());
@@ -2439,6 +2307,9 @@ function applyPageBackground(colors){
 
 if (window.PageBg) PageBg.mount();
 
+// האם הדף כבר הוצג בפועל — ראו ה-catch של loadAgency
+let agencyShown = false;
+
 async function loadAgency(){
   const slug = new URLSearchParams(window.location.search).get('slug');
   if (!slug || !window.supabase){
@@ -2474,6 +2345,7 @@ async function loadAgency(){
 
     document.getElementById('loadingState').style.display = 'none';
     document.getElementById('agencyContent').style.display = 'block';
+    agencyShown = true;
 
     // ההקשר שכל ליד מהדף הזה נושא: המשרד עצמו, והעיר שבה הוא פועל
     leadContext.slug = agency.slug || null;
@@ -2493,7 +2365,10 @@ async function loadAgency(){
   } catch(e){
     console.warn('טעינת משרד נכשלה:', e);
     document.getElementById('loadingState').style.display = 'none';
-    document.getElementById('notFoundState').style.display = 'block';
+    // ‏"המשרד לא נמצא" נאמר רק כשבאמת אין מה להציג. שגיאה שנזרקת אחרי
+    // שהדף כבר עומד — באתחול אחד הווידג'טים, למשל — לא מוחקת משרד קיים
+    // מהמסך: היא נרשמת ב-console, והדף נשאר על מכונו.
+    if (!agencyShown) document.getElementById('notFoundState').style.display = 'block';
   }
 }
 
@@ -2543,6 +2418,7 @@ function propertyCardHtml(p){
   return `
     <div class="thumb${hasPhoto ? '' : ' no-photo'}"${thumbStyle(p)}>
       ${thumbFallback(p)}
+      ${PropertyCard.coverVideoHtml(p)}
       ${PropertyCard.badgesHtml(p, { aiViz: visualizedProps.has(p.id), photo: hasPhoto })}
       ${PropertyCard.mediaHtml(p)}
     </div>
@@ -2663,7 +2539,7 @@ function renderPropertyCards(list){
     const rail = section.querySelector('.rail');
     items.forEach(p=>{
       const card = document.createElement('div');
-      card.className = 'prop-card';
+      card.className = 'prop-card pc-cover';
       card.innerHTML = propertyCardHtml(p);
       card.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
       rail.appendChild(card);
@@ -2756,15 +2632,29 @@ function teamContactHtml(member, officeContact){
    רחב יותר, טבעת בצבע המשני ותגית תפקיד מעליו. */
 async function loadTeam(sb, agencyId){
   const rail = document.getElementById('teamRail');
-  const { data: agents } = await sb.from('agency_members_public')
+  const { data: agents, error: teamErr } = await sb.from('agency_members_public')
     .select('id, slug, display_name, role, photo_url, photo_position, license_number, has_ethics_badge, phone_e164')
     .eq('agency_id', agencyId);
 
   // כפתורי יצירת הקשר — בראש הדף ובחותם שלו — ניזונים מאותה שליפה
   renderAgencyContact(agents);
   renderManagerContact(agents);
-  // בלי צוות אין מה להציג: מקטע "נבחרת" ריק פוגע יותר משהוא מוסיף
-  if (!agents || agents.length === 0) return;
+  // ---------- משרד בלי אף סוכן/ת פעיל/ה ----------
+  // ‏agency_members_public מציג/ה רק שורות active, ולכן רשימה ריקה כאן
+  // פירושה שאין במשרד אף אחד — כולם סגרו חשבון, הושעו או לא חיברו כרטיס.
+  // דף כזה הוא שלט של משרד שאין מאחוריו איש: אין למי להתקשר, ומודעות אין
+  // (מודעותיו של מי שסגר/ה חשבון אורכבו). הוא יורד לגמרי ולא מוצג ריק —
+  // זו המשמעות של "למחוק את הדף" עבור מי שהיה/הייתה לבד במשרד שלו/ה.
+  //
+  // ‏teamErr נבדק בנפרד ובכוונה: שאילתה שנכשלה מחזירה data ריק בדיוק כמו
+  // משרד ריק, והורדת דף חי בגלל תקלת רשת חמורה בהרבה ממקטע "נבחרת" חסר.
+  if (teamErr){ if (rail) rail.textContent = ''; return; }
+  if (!agents || agents.length === 0){
+    document.getElementById('agencyContent').style.display = 'none';
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('notFoundState').style.display = 'block';
+    return;
+  }
 
   // sort יציב ב-JS מודרני, ולכן שאר הצוות שומר על סדר ההגעה מהמסד
   const team = agents.slice().sort((a, b) => (b.role === 'manager') - (a.role === 'manager'));
@@ -3436,7 +3326,6 @@ function initYieldLeadModal(){
   });
 }
 
-
 /* ============================================================================
    באנר מחפשי הנכס — האשף של דף הבית, בדף המשרד
    ----------------------------------------------------------------------------
@@ -3475,8 +3364,13 @@ const buyState = {
   source:'agency_page_buyer_wizard',
 };
 
-const buyerForm = document.getElementById('buyerWizardForm');
-const buyDoneEl = document.getElementById('buyDone');
+/* אשף המחפשים ירד לפוטר, כלומר למקום שבקובץ נמצא *אחרי* הסקריפט הזה.
+   שתי ההפניות נלקחו כאן, בזמן ריצת הסקריפט, ולכן חזרו null — והקריאה
+   הראשונה אליהן ב-initBuyerWizard זרקה שגיאה שנפלה ל-catch של loadAgency
+   והדליקה את "המשרד לא נמצא" מעל דף שכבר היה טעון ומוצג. ההפניות נלקחות
+   עכשיו ב-initBuyerWizard, שרץ ממילא רק אחרי שהדף כולו נבנה. */
+let buyerForm = null;
+let buyDoneEl = null;
 
 function buyGoToStep(n){
   buyerForm.querySelectorAll('.wiz-panel').forEach(p=>{
@@ -3747,6 +3641,17 @@ async function submitBuyerWizard(e){
 }
 
 function initBuyerWizard(agency, sb){
+  // כל ה-DOM של האשף יושב בפוטר, שבקובץ נמצא אחרי הסקריפט הזה. כשהתשובה
+  // מהמסד חוזרת מהר, לפני שהדפדפן סיים לנתח את סוף הדף, האלמנטים עדיין
+  // אינם שם — ואז מאתחלים כשהם כן.
+  if (document.readyState === 'loading'){
+    document.addEventListener('DOMContentLoaded', ()=> initBuyerWizard(agency, sb), { once:true });
+    return;
+  }
+  buyerForm = document.getElementById('buyerWizardForm');
+  buyDoneEl = document.getElementById('buyDone');
+  if (!buyerForm || !buyDoneEl) return;
+
   document.getElementById('buyerLead').textContent =
     `ספרו לנו מה אתם מחפשים — ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.`;
   // ההסכמה נוקבת בשם המשרד ולא ב"מתווך/ת מהאזור": הפרטים מגיעים לכאן,
@@ -3868,37 +3773,209 @@ function initBuyerWizard(agency, sb){
   }, (err)=> console.warn('טעינת השכונות נכשלה, נשארת תיבת האזור החופשי:', err));
 }
 
-
 loadAgency();
 </script>
 
 <footer class="site">
 
-  <!-- רצועת הניוזלטר: ההרשמה נשלחת ל-Edge Function ולא ישירות לטבלה, מאותה
-       סיבה כמו שאר הטפסים הציבוריים באתר — הכתיבה נעשית ב-service_role
-       והטבלה סגורה ל-anon לגמרי (אימייל של אדם פרטי). -->
-  <div class="footer-news">
-    <div class="footer-wrap footer-news-inner">
-      <div class="footer-news-text">
-        <h4>הנכסים החדשים בעפולה — ראשונים אצלכם</h4>
-        <p>עדכון אחד בשבוע למייל. בלי ספאם, אפשר להסיר בכל רגע.</p>
+  <!-- ====== באנר מחפשי הנכס — רצועת הפתיחה של הפוטר ======
+       הבאנר ישב עד היום באמצע העמוד, צמוד לתאום שלו בצד השני של העסקה
+       (‏"כמה שווה הנכס שלי" מול "איפה הנכס שלי"). הוא עלה לפוטר כדי שהפוטר
+       ייראה זהה בכל עמודי האתר: בכולם זו הרצועה הראשונה בו, ובמקום שבו
+       ישבה עד היום ההרשמה לרשימת התפוצה. באנר בעלי הנכסים נשאר במקומו —
+       הוא מדבר אל מי שקורא/ת את הנכסים של המשרד, ולכן שייך לצידם.
+
+       ה-JS והעיצוב נשארו של הדף (הם נושאים את שם המשרד ואת עיר הפעילות
+       שלו), ולא של assets/buyer-banner.js — הקובץ המשותף משרת את העמודים
+       שאין להם אשף משלהם. ראו docs/site-footer.md. -->
+  <div class="footer-wrap footer-lead">
+
+    <div class="lead-banner buyer-banner" id="buyerBanner" data-slot="sale">
+      <button type="button" class="lead-teaser" id="buyerStartBtn"
+              aria-expanded="false" aria-controls="buyerPanel">
+        <span class="lead-teaser-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10.5" cy="10.5" r="6.5"></circle>
+            <path d="M15.5 15.5 21 21"></path>
+            <path d="M7.6 11.4 10.5 8.8l2.9 2.6"></path>
+            <path d="M8.5 10.9v3h4v-3"></path>
+          </svg>
+        </span>
+        <span class="lead-teaser-copy">
+          <span class="lead-teaser-title">מחפשים נכס? תנו לו למצוא אתכם</span>
+          <span class="lead-teaser-sub">לקנייה או להשכרה — נעדכן אתכם ראשונים כשעולה נכס שמתאים</span>
+        </span>
+        <span class="lead-teaser-go" aria-hidden="true">
+          <span class="lead-teaser-go-open">התאמת נכס ←</span>
+          <span class="lead-teaser-go-close">סגירה ✕</span>
+        </span>
+      </button>
+
+      <div class="lead-panel" id="buyerPanel" hidden>
+        <div class="owner-intro">
+          <p id="buyerLead">ספרו לנו מה אתם מחפשים — ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.</p>
+        </div>
+
+        <div class="owner-wizard" id="buyerWizard">
+          <ol class="wiz-steps" id="buySteps" aria-label="שלבי ההתאמה">
+            <li class="active" data-step="1"><span class="dot">1</span>מה מחפשים</li>
+            <li data-step="2"><span class="dot">2</span>פרטי הנכס</li>
+            <li data-step="3"><span class="dot">3</span>פרטי קשר</li>
+          </ol>
+
+          <form id="buyerWizardForm" novalidate>
+            <!-- שלב 1: סוג העסקה + שכונות -->
+            <section class="wiz-panel active" data-panel="1">
+              <p class="wiz-q">מה אתם מחפשים?</p>
+              <!-- ‎.lead-toggle‎ ולא ‎.owner-toggle‎ בכוונה: המאזין של באנר
+                   בעלי הנכסים תופס את כל ‎.owner-toggle button‎ במסמך, ושימוש
+                   חוזר במחלקה היה משנה כאן את הכותרת של הבאנר השני. -->
+              <div class="lead-toggle" id="buyDealToggle" role="group" aria-label="סוג החיפוש">
+                <button type="button" class="active" data-buy-deal="sale">לקנייה</button>
+                <button type="button" data-buy-deal="rent">להשכרה</button>
+                <button type="button" data-buy-deal="commercial">מסחרי</button>
+              </div>
+
+              <!-- ‏saved_searches.deal_type מוגבל ל-sale/rent, ו"מסחרי" הוא
+                   קטגוריה ולא סוג עסקה — ולכן הבחירה בו פותחת את השאלה
+                   המשלימה במקום לנחש עבור המחפש/ת. -->
+              <div id="buyCommercialDeal" hidden>
+                <span class="wiz-label" id="buyCommercialLabel">נכס מסחרי — לקנייה או להשכרה?</span>
+                <div class="lead-toggle" id="buyCommercialToggle" role="group" aria-labelledby="buyCommercialLabel">
+                  <button type="button" class="active" data-buy-cdeal="sale">לקנייה</button>
+                  <button type="button" data-buy-cdeal="rent">להשכרה</button>
+                </div>
+              </div>
+
+              <span class="wiz-label" id="buyHoodLabel">באילו שכונות? <span class="wiz-hint">אפשר לבחור כמה</span></span>
+              <div class="chip-row" id="buyHoodChips" role="group" aria-labelledby="buyHoodLabel"></div>
+              <!-- נפתח רק כשרשימת השכונות לא נטענה (מסד לא זמין): בלעדיו
+                   שלב 1 היה נשאר בלי שום דרך לציין אזור. -->
+              <div id="buyAreaFallback" hidden>
+                <label class="wiz-label" for="buyArea">עיר או אזור</label>
+                <input type="text" id="buyArea" class="wiz-input" placeholder="לדוגמה: עפולה">
+              </div>
+
+              <p class="wiz-err" id="buyErr1"></p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-gold" data-buy-next="2">להמשך ←</button>
+              </div>
+            </section>
+
+            <!-- שלב 2: מאפייני הנכס -->
+            <section class="wiz-panel" data-panel="2">
+              <p class="wiz-q">מה הנכס שאתם מחפשים?</p>
+
+              <div id="buyRoomsBlock">
+                <span class="wiz-label" id="buyRoomsLabel">מספר חדרים <span class="wiz-hint">אפשר לבחור כמה</span></span>
+                <div class="chip-row" id="buyRoomsChips" role="group" aria-labelledby="buyRoomsLabel">
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="2">2</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="2.5">2.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="3">3</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="3.5">3.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="4">4</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="4.5">4.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="5">5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="+6">6+</button>
+                </div>
+              </div>
+
+              <span class="wiz-label" id="buyPtypeLabel">סוג הנכס <span class="wiz-hint">אפשר לבחור כמה</span></span>
+              <div class="chip-row" id="buyPtypeChips" role="group" aria-labelledby="buyPtypeLabel"></div>
+
+              <span class="wiz-label" id="buyBudgetLabel">תקציב <span class="wiz-hint" id="buyBudgetHint">(₪)</span></span>
+              <div class="buy-range">
+                <label class="buy-range-field">
+                  <span>מ־</span>
+                  <input type="number" id="buyPriceMin" class="wiz-input" inputmode="numeric" min="0" placeholder="ללא מינימום">
+                </label>
+                <label class="buy-range-field">
+                  <span>עד</span>
+                  <input type="number" id="buyPriceMax" class="wiz-input" inputmode="numeric" min="0" placeholder="ללא מקסימום">
+                </label>
+              </div>
+
+              <!-- במסחרי הגודל הוא מה שקובע, ומספר החדרים כמעט חסר משמעות —
+                   ולכן שני הבלוקים מתחלפים ואינם מוצגים יחד. -->
+              <div id="buySizeBlock" hidden>
+                <span class="wiz-label" id="buySizeLabel">גודל (מ״ר)</span>
+                <div class="buy-range">
+                  <label class="buy-range-field">
+                    <span>מ־</span>
+                    <input type="number" id="buySizeMin" class="wiz-input" inputmode="numeric" min="0" placeholder="הכול">
+                  </label>
+                  <label class="buy-range-field">
+                    <span>עד</span>
+                    <input type="number" id="buySizeMax" class="wiz-input" inputmode="numeric" min="0" placeholder="הכול">
+                  </label>
+                </div>
+              </div>
+
+              <p class="wiz-err" id="buyErr2"></p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-ghost-light" data-buy-back="1">→ חזרה</button>
+                <button type="button" class="btn btn-gold" data-buy-next="3">להמשך ←</button>
+              </div>
+            </section>
+
+            <!-- שלב 3: פרטי קשר -->
+            <section class="wiz-panel" data-panel="3">
+              <p class="wiz-q">לאן לשלוח את הנכסים המתאימים?</p>
+              <div class="buy-recap" id="buyRecap"></div>
+
+              <label class="wiz-label" for="buyName">שם מלא</label>
+              <input type="text" id="buyName" class="wiz-input" autocomplete="name">
+
+              <span class="wiz-label" id="buyChannelLabel">איך לעדכן אתכם?</span>
+              <div class="lead-toggle" id="buyChannels" role="group" aria-labelledby="buyChannelLabel">
+                <button type="button" class="active" data-buy-channel="whatsapp">וואטסאפ</button>
+                <button type="button" data-buy-channel="email">מייל</button>
+                <button type="button" data-buy-channel="both">שניהם</button>
+              </div>
+
+              <div id="buyPhoneField">
+                <label class="wiz-label" for="buyPhone">טלפון</label>
+                <input type="tel" id="buyPhone" class="wiz-input" placeholder="050-0000000" autocomplete="tel" inputmode="tel">
+              </div>
+              <div id="buyEmailField" hidden>
+                <label class="wiz-label" for="buyEmail">אימייל</label>
+                <input type="email" id="buyEmail" class="wiz-input" autocomplete="email" inputmode="email" dir="ltr" style="text-align:left">
+              </div>
+
+              <!-- ההסכמה נפרדת מההרשמה במכוון: אפשר לקבל התראות בלי שהפרטים
+                   יעברו לאף אחד. רק מי שמסמן/ת כאן הופך/ת לליד. -->
+              <label class="buy-check" for="buyConsent">
+                <input type="checkbox" id="buyConsent">
+                <span id="buyConsentText">אשמח שמתווך/ת מהמשרד ייצור איתי קשר עם נכסים מתאימים</span>
+              </label>
+
+              <p class="wiz-err" id="buyErr3"></p>
+              <p class="buy-privacy">אפשר להפסיק את העדכונים בכל רגע, מקישור שבכל הודעה.</p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-ghost-light" data-buy-back="2">→ חזרה</button>
+                <button type="submit" class="btn btn-gold" id="buySubmitBtn">קבלת עדכונים</button>
+              </div>
+            </section>
+          </form>
+
+          <!-- מסך סיום -->
+          <div class="wiz-done" id="buyDone" hidden>
+            <div class="wiz-done-mark" aria-hidden="true">✓</div>
+            <h3>החיפוש נשמר</h3>
+            <p id="buyDoneText">נעדכן אתכם ברגע שיעלה נכס שמתאים למה שביקשתם.</p>
+            <button type="button" class="btn btn-ghost-light" id="buyRestart">שמירת חיפוש נוסף</button>
+          </div>
+        </div>
       </div>
-      <form class="footer-news-form" id="newsletterForm" data-source="agency_page" novalidate>
-        <label class="footer-sr-only" for="newsletterEmail">כתובת אימייל להרשמה לעדכונים</label>
-        <input type="email" id="newsletterEmail" name="email" autocomplete="email" inputmode="email"
-               placeholder="האימייל שלך" required>
-        <button type="submit" id="newsletterBtn">הרשמה</button>
-      </form>
-      <p class="footer-news-msg" id="newsletterMsg" role="status" aria-live="polite"></p>
-    </div>
+    </div><!-- /buyerBanner -->
   </div>
 
   <div class="footer-wrap footer-top">
 
     <div class="footer-brand">
-      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
-        <img src="assets/logo-shuknadlan.png" alt="" width="512" height="436" loading="lazy">
-        <span>שוק הנדל״ן<br>של עפולה והסביבה</span>
+      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק — לדף הבית">
+        <img src="assets/logo-shuknadlan-dark.svg" alt="" width="52" height="62" loading="lazy">
+        <span class="footer-logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
       </a>
       <p class="footer-tagline">
         <span>כל הנכסים, כל המתווכים ובעלי המקצוע בעפולה והעמק בכתובת אחת</span>
@@ -3906,6 +3983,7 @@ loadAgency();
       </p>
       <div class="footer-cta">
         <a href="agency-signup.html" class="footer-btn-primary">הצטרפות כמשרד תיווך</a>
+        <a href="developer-signup.html" class="footer-btn-ghost">הצטרפות כיזם/קבלן</a>
         <a href="professional-signup.html" class="footer-btn-ghost">הצטרפות כבעל מקצוע</a>
       </div>
 
@@ -3916,6 +3994,12 @@ loadAgency();
               <path d="M20 10c0 5.2-8 12-8 12s-8-6.8-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.8"/>
             </svg>
             <span>רחוב חטיבה תשע 18, עפולה</span>
+          </p>
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a1.5 1.5 0 0 1-1.6 1.5C10.8 19.4 4.6 13.2 4 5.1A1.5 1.5 0 0 1 5.5 3.5Z"/>
+            </svg>
+            <a href="tel:+972546929991">054-6929991</a>
           </p>
           <p class="footer-contact-row">
             <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
@@ -3937,37 +4021,46 @@ loadAgency();
     </div>
 
     <nav class="footer-grid" aria-label="ניווט בתחתית העמוד">
-      <div class="footer-col">
-        <h4>נכסים</h4>
-        <a href="index.html#saleProps">למכירה בעפולה</a>
-        <a href="index.html#rentProps">להשכרה בעפולה</a>
-        <a href="index.html#commercialProps">נכסים מסחריים</a>
-        <a href="index.html#listings">כל הנכסים</a>
-      </div>
-      <div class="footer-col">
-        <h4>כלים</h4>
-        <a href="index.html#calc">מחשבון משכנתא</a>
-        <a href="index.html#heroSection">חיפוש על המפה</a>
-        <a href="index.html#featured">נכסים מובחרים</a>
-        <a href="articles.html">כתבות ובלוגים</a>
-      </div>
-      <div class="footer-col">
-        <h4>בעלי מקצוע</h4>
-        <a href="agencies.html">כל משרדי התיווך</a>
-        <a href="agents.html">כל המתווכים</a>
-        <a href="index.html#pros">בעלי מקצוע</a>
-        <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
-      </div>
-      <div class="footer-col">
-        <h4>שוק נדל״ן</h4>
-        <!-- "אודות" הוא הקישור היחיד בפוטר שעדיין אין לו דף; כל השאר
-             מצביעים על דפים, על סקציות אמיתיות או על תיבת המייל. -->
-        <a href="#">אודות</a>
-        <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
-        <a href="faq.html">שאלות נפוצות</a>
-        <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
-        <a href="crm.html">כניסת מתווכים</a>
-      </div>
+      <details class="footer-col" open>
+        <summary><h4>נכסים</h4></summary>
+        <div class="footer-col-links">
+          <a href="index.html#privateProps-sale">למכירה בעפולה</a>
+          <a href="index.html#privateProps-rent">להשכרה בעפולה</a>
+          <a href="index.html#commercialProps">נכסים מסחריים</a>
+          <a href="index.html#privateProps">כל הנכסים</a>
+          <a href="projects.html">פרויקטים חדשים</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>כלים</h4></summary>
+        <div class="footer-col-links">
+          <a href="index.html#calc">מחשבון משכנתא</a>
+          <a href="index.html#yield">מחשבון תשואה</a>
+          <a href="index.html#heroSection">חיפוש על המפה</a>
+          <a href="articles.html">כתבות ובלוגים</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>בעלי מקצוע</h4></summary>
+        <div class="footer-col-links">
+          <a href="agencies.html">כל משרדי התיווך</a>
+          <a href="agents.html">כל המתווכים</a>
+          <a href="professionals.html">כל בעלי המקצוע</a>
+          <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
+          <a href="developer-signup.html">הצטרפות כיזם/קבלן</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>שוק נדל״ן</h4></summary>
+        <div class="footer-col-links">
+          <a href="about.html">אודות</a>
+          <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
+          <a href="faq.html">שאלות נפוצות</a>
+          <a href="pricing.html">מסלולים ומחירים</a>
+          <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
+          <a href="crm.html">כניסת מתווכים</a>
+        </div>
+      </details>
     </nav>
 
   </div>
@@ -4000,9 +4093,9 @@ loadAgency();
   <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
     <div class="footer-legal">
-      <a href="#">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
+      <a href="terms.html">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
       <a href="privacy.html">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
-      <a href="#">הצהרת נגישות</a>
+      <a href="accessibility.html">הצהרת נגישות</a>
     </div>
   </div>
 </footer>

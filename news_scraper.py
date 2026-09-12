@@ -40,7 +40,7 @@ from lead_engine.models import FeedEntry
 from news_engine.analyzer import NewsAnalyzer
 from news_engine.config import ConfigError, Settings, load_settings
 from news_engine.models import RunStats
-from news_engine.relevance import classify, heuristic_analysis
+from news_engine.relevance import classify, heuristic_analysis, same_story
 from news_engine.store import NewsStore, build_news_row
 
 log = logging.getLogger("news_scraper")
@@ -196,6 +196,9 @@ def run(args: argparse.Namespace, settings: Settings) -> RunStats:
     stats.duplicates = len(candidates) - len(new_items)
     log.info("‏%d ידיעות חדשות · %d כפילויות דולגו", len(new_items), stats.duplicates)
 
+    # --- שלב 4: עדיפות למקומי, ותקרה לארצי. רץ לפני הניתוח ולכן גם חוסך כסף ---
+    new_items = _prioritise_local(new_items, settings, stats)
+
     cap = args.limit if args.limit is not None else settings.max_new_items_per_run
     if cap and len(new_items) > cap:
         log.info("מגבלת ההרצה: מנתחים %d מתוך %d", cap, len(new_items))
@@ -203,6 +206,10 @@ def run(args: argparse.Namespace, settings: Settings) -> RunStats:
 
     seen_per_source: dict[str | None, int] = {}
     saved_per_source: dict[str | None, int] = {}
+
+    # מפתחות האירועים שכבר ברצועה. נטען גם ב-dry-run כדי שההרצה היבשה תשקף
+    # את ההתנהגות האמיתית ולא תראה כפילויות שבפועל היו נחסמות.
+    published_stories = store.recent_story_keys(settings.story_dedupe_days)
 
     for entry, verdict, source in new_items:
         seen_per_source[entry.source_id] = seen_per_source.get(entry.source_id, 0) + 1
@@ -228,14 +235,32 @@ def run(args: argparse.Namespace, settings: Settings) -> RunStats:
             stats.analyzed += 1
             model = None
 
-        publish = analysis.is_relevant and analysis.relevance_score >= settings.min_score_to_publish
-        if not publish:
+        # אותו אירוע מאתר אחר. נשמר כ-rejected ולא מדולג: הטבלה היא גם
+        # הזיכרון של "מה כבר ראינו", ופריט שלא נשמר היה נאסף ומנותח שוב.
+        duplicate_story = any(
+            same_story(analysis.story_key, seen) for seen in published_stories
+        )
+        worth_publishing = (
+            analysis.is_relevant
+            and analysis.relevance_score >= settings.min_score_to_publish
+        )
+        publish = worth_publishing and not duplicate_story
+
+        # שלוש תוצאות נפרדות, וכל פריט נספר בדיוק באחת מהן: כפילות אירוע
+        # אינה "נדחה" — היא ידיעה טובה שפשוט כבר מיוצגת ברצועה.
+        if duplicate_story:
+            stats.duplicate_stories += 1
+            log.info(
+                "אותו סיפור [%s] %s", analysis.story_key, analysis.headline,
+            )
+        elif not publish:
             stats.rejected += 1
             log.info(
                 "נדחה [%s · ציון %d] %s",
                 analysis.scope, analysis.relevance_score, entry.source_url,
             )
         else:
+            published_stories.append(analysis.story_key)
             log.info(
                 "מבזק [%s · ציון %d] %s",
                 analysis.scope, analysis.relevance_score, analysis.headline,
@@ -265,6 +290,53 @@ def run(args: argparse.Namespace, settings: Settings) -> RunStats:
     if not args.dry_run:
         _flush_source_statuses(store, source_statuses, seen_per_source, saved_per_source)
     return stats
+
+
+def _prioritise_local(
+    items: list[tuple[FeedEntry, dict, dict]],
+    settings: Settings,
+    stats: RunStats,
+) -> list[tuple[FeedEntry, dict, dict]]:
+    """
+    מקומי לפני ארצי, ותקרה על כמות הארציים בהרצה.
+
+    הרצועה היא של אתר נדל"ן בעפולה, אבל הפידים הארציים מייצרים הרבה יותר
+    תוכן מהמקומיים — בהרצה הראשונה 10 מתוך 11 המבזקים היו ארציים, רובם על
+    אותה החלטת ריבית. הדדופליקציה לבדה לא פותרת את זה: גם ארבע ידיעות
+    ארציות *שונות* דוחקות מבזק מקומי אחד מהרצועה.
+
+    שתי פעולות, ושתיהן לפני הניתוח ולכן גם חוסכות קריאות ל-Claude:
+
+    1. **סדר** — afula, אחר כך region, אחר כך national. כשמגבלת ההרצה
+       (‎--limit‎ / ‎MAX_NEW_NEWS_PER_RUN‎) חותכת את הרשימה, היא חותכת את
+       הארציים ולא את המקומיים.
+    2. **תקרה** — לכל היותר ‎max_national_per_run‎ ידיעות ארציות.
+
+    ידיעה ארצית שנחסמה בתקרה אינה נשמרת כלל, ולכן ההרצה הבאה תשקול אותה
+    מחדש — להבדיל מפריט שנדחה, שנשמר כדי שלא ינותח שוב. ההיקף כאן הוא זה
+    שקבע סינון מילות המפתח; ‏Claude עשוי לדייק אותו אחר כך, אבל להחלטה
+    שחוסכת כסף צריך תשובה *לפני* הקריאה.
+    """
+    order = {"afula": 0, "region": 1, "national": 2}
+    # ‏sorted יציב, ולכן בתוך כל היקף נשמר הסדר שבו המקורות הוגדרו.
+    ranked = sorted(items, key=lambda item: order.get(item[1]["scope"], 2))
+
+    kept: list[tuple[FeedEntry, dict, dict]] = []
+    national = 0
+    for entry, verdict, source in ranked:
+        if verdict["scope"] == "national":
+            if national >= settings.max_national_per_run:
+                stats.national_capped += 1
+                continue
+            national += 1
+        kept.append((entry, verdict, source))
+
+    if stats.national_capped:
+        log.info(
+            "תקרת הארציים: %d נשלחים לניתוח, %d נדחים להרצה הבאה",
+            national, stats.national_capped,
+        )
+    return kept
 
 
 def _flush_source_statuses(

@@ -1,0 +1,177 @@
+/* ============================================================================
+   באנר מחפשי הנכס שבראש הפוטר
+   ----------------------------------------------------------------------------
+   הרצועה הראשונה בפוטר של כל עמוד ציבורי: שורת הזמנה אחת, ומתחתיה — רק למי
+   שלוחץ/ת — אשף בן שלושה שלבים ששומר חיפוש (‏saved-search-intake, ראו
+   docs/smart-search-agent.md). עד היום ישבה שם רצועת ההרשמה לרשימת התפוצה,
+   ושתיהן ביקשו מאותו אדם את אותו דבר במילים אחרות; זו שומרת את **החיפוש**
+   ולא רק את האימייל.
+
+   שלושה כללים שמחזיקים את הקובץ עצמאי, ולכן ניתן להכללה בכל דף:
+
+     1. **צבעים מפורשים ולא משתני CSS.** ‏var(--gold) קיים ב-design-system
+        אבל לא בכל דף, וצ׳יפ נבחר שאין לו צבע אינו סימון.
+     2. **הכול תחת ‎.footer-lead‎.** ‏‎.chip‎, ‎.btn‎ ו-‎.wiz-*‎ הם שמות נפוצים
+        שקיימים בחלק מהדפים בצבעים של רקע בהיר; הבאנר יושב על ספיר כהה,
+        ובלי התיחום הזה טקסט לבן היה נופל על רקע לבן.
+     3. **שום דבר לא נשען על ‎.wrap‎ של הדף המארח** — הבאנר הוא כרטיס בתוך
+        ‎.footer-wrap‎, ורוחבו נקבע שם.
+
+   ההתנהגות (האשף, טעינת השכונות, השליחה) יושבת ב-assets/buyer-banner.js.
+   העמודים שכבר נושאים אשף משלהם — index, agency, agent — אינם טוענים את
+   שני הקבצים האלה; ראו docs/site-footer.md.
+   ============================================================================ */
+
+.footer-lead{position:relative}
+
+.footer-lead .lead-banner{
+  color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:0;overflow:hidden;
+  background:linear-gradient(160deg,#08194a,#3d1119);
+  font-family:'Heebo',sans-serif;line-height:1.6;
+}
+.footer-lead .lead-banner *{box-sizing:border-box}
+
+/* ====== שורת ההזמנה ======
+   כפתור אחד ולא כותרת עם כפתור קטן בתוכה: כל השורה היא שטח לחיצה, וזה
+   ההבדל בין שני מבקרים שפותחים את האשף לבין אחד. */
+.footer-lead .lead-teaser{
+  display:flex;flex-wrap:wrap;align-items:center;gap:12px;
+  width:100%;padding:15px 16px;text-align:right;color:#fff;
+  background:transparent;border:0;font:inherit;cursor:pointer;
+}
+.footer-lead .lead-teaser-icon{
+  width:42px;height:42px;flex:none;
+  display:flex;align-items:center;justify-content:center;
+  background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.2);
+}
+.footer-lead .lead-teaser-icon svg{width:23px;height:23px}
+.footer-lead .lead-teaser-copy{flex:1 1 55%;min-width:0;display:flex;flex-direction:column;gap:2px}
+.footer-lead .lead-teaser-title{font-size:1.02rem;font-weight:800;line-height:1.28}
+.footer-lead .lead-teaser-sub{font-size:.76rem;line-height:1.45;color:rgba(255,255,255,.8)}
+/* זהב מלא עם טקסט כהה. זהב לעולם לא נושא טקסט לבן — יחס הניגודיות שם 2.4:1 */
+.footer-lead .lead-teaser-go{
+  flex:none;padding:10px 15px;font-size:.82rem;font-weight:800;white-space:nowrap;
+  background:#c9a227;color:#0d1b3d;border:0;
+  transition:transform .15s ease, box-shadow .15s ease;
+}
+.footer-lead .lead-teaser:hover .lead-teaser-go{transform:translateY(-2px);box-shadow:0 10px 20px rgba(0,0,0,.3)}
+.footer-lead .lead-teaser-go-close{display:none}
+.footer-lead .lead-banner.is-open .lead-teaser-go-open{display:none}
+.footer-lead .lead-banner.is-open .lead-teaser-go-close{display:inline}
+/* פתוח: אותה שורה הופכת לכותרת שאפשר לסגור בה, ולכן ה-CTA מתעמעם למסגרת —
+   כפתור מלא מעל אשף פתוח הוא הבטחה כפולה. ‏.55 ולא ‎.35‎: זו המסגרת היחידה
+   שמסמנת את גבול הכפתור, ו-WCAG 1.4.11 דורש 3:1 לגבול של פקד פעיל. */
+.footer-lead .lead-banner.is-open .lead-teaser-go{
+  background:transparent;color:#fff;box-shadow:none;
+  border:1.5px solid rgba(255,255,255,.55);
+}
+@media(max-width:400px){
+  .footer-lead .lead-teaser-go{flex:1 0 100%;text-align:center}
+}
+
+/* ====== האשף ====== */
+.footer-lead .lead-panel{padding:2px 16px 20px;text-align:center;animation:buyWizIn .24s ease}
+.footer-lead .owner-intro p{
+  color:#EFD9DC;font-size:.9rem;line-height:1.5;max-width:42ch;margin:8px auto 0;
+}
+/* ‏text-align:right מחזיר את תוכן האשף ליישור RTL רגיל — רק ההודעה הסגורה
+   ממורכזת; תוויות ושדות טופס ממורכזים היו נקראים גרוע. */
+.footer-lead .owner-wizard{
+  background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.16);
+  padding:16px;text-align:right;max-width:520px;margin:16px auto 0;
+}
+.footer-lead .wiz-steps{display:flex;gap:6px;list-style:none;margin:0 0 16px;padding:0}
+.footer-lead .wiz-steps li{
+  flex:1;display:flex;align-items:center;gap:6px;font-size:.7rem;font-weight:700;
+  color:rgba(255,255,255,.62);padding-bottom:8px;border-bottom:2px solid rgba(255,255,255,.22);
+}
+.footer-lead .wiz-steps li.active{color:#fff;border-bottom-color:#c9a227}
+.footer-lead .wiz-steps li.done{color:#F0D6AA;border-bottom-color:#c9a227}
+.footer-lead .wiz-steps .dot{
+  width:19px;height:19px;border-radius:50%;background:rgba(255,255,255,.18);
+  display:flex;align-items:center;justify-content:center;font-size:.68rem;flex:0 0 auto;
+}
+.footer-lead .wiz-steps li.active .dot,
+.footer-lead .wiz-steps li.done .dot{background:#c9a227;color:#0d1b3d}
+
+.footer-lead .wiz-panel{display:none}
+.footer-lead .wiz-panel.active{display:block;animation:buyWizIn .22s ease}
+@keyframes buyWizIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.footer-lead .wiz-q{color:#fff;font-weight:700;font-size:1rem;margin:0 0 12px}
+.footer-lead .wiz-label{display:block;font-size:.74rem;font-weight:700;color:#F0DADD;margin:14px 0 6px}
+/* ‎.wiz-label‎ הוא display:block, וכלל מחלקה גובר על ‎[hidden]‎ של הדפדפן */
+.footer-lead .wiz-label[hidden]{display:none}
+.footer-lead .wiz-hint{font-weight:600;font-size:.7rem;color:rgba(255,255,255,.72)}
+.footer-lead .wiz-input{
+  width:100%;min-width:0;border:none;padding:12px;font-size:.9rem;
+  font-family:inherit;color:#0d1b3d;background:#fff;
+}
+.footer-lead .wiz-input.invalid{box-shadow:0 0 0 2px #c9a227}
+.footer-lead .wiz-err{color:#FFE3E3;font-size:.78rem;font-weight:700;margin:8px 0 0;min-height:1.1em}
+.footer-lead .wiz-nav{display:flex;gap:8px;margin-top:14px}
+
+/* הכפתורים מוגדרים כאן במלואם ולא נשענים על ‎.btn‎ של הדף המארח — ‎.btn‎
+   בדף בהיר הוא ספיר על לבן, וכאן הוא יושב על ספיר */
+.footer-lead .btn{
+  flex:1;display:inline-flex;align-items:center;justify-content:center;
+  padding:11px 16px;font-size:.85rem;font-weight:700;font-family:inherit;
+  border:1.5px solid transparent;cursor:pointer;text-decoration:none;
+  transition:background .15s ease,color .15s ease,border-color .15s ease;
+}
+.footer-lead .btn-gold{background:#c9a227;border-color:#c9a227;color:#0d1b3d}
+.footer-lead .btn-gold:hover:not(:disabled){background:#dcb63c;border-color:#dcb63c}
+.footer-lead .btn-ghost-light{background:transparent;border-color:rgba(255,255,255,.35);color:#fff}
+.footer-lead .btn-ghost-light:hover{background:rgba(255,255,255,.1)}
+.footer-lead .btn:disabled{opacity:.6;cursor:not-allowed}
+
+/* ‎.lead-toggle‎ ולא ‎.deal-toggle‎: השם השני תפוס במודאל הסינון, שיושב על
+   רקע בהיר — אותן מחלקות היו הופכות שם את הטקסט ללבן על לבן. */
+.footer-lead .lead-toggle{display:flex;flex-wrap:wrap;gap:8px}
+.footer-lead .lead-toggle button{
+  flex:1 1 0;min-width:84px;padding:9px;font-size:.82rem;font-weight:700;
+  background:transparent;border:1.5px solid rgba(255,255,255,.35);color:#fff;
+  font-family:inherit;cursor:pointer;
+}
+.footer-lead .lead-toggle button.active{background:#c9a227;border-color:#c9a227;color:#0d1b3d}
+
+.footer-lead .chip-row{display:flex;flex-wrap:wrap;gap:7px}
+.footer-lead .chip{
+  padding:8px 14px;font-size:.82rem;font-weight:600;font-family:inherit;cursor:pointer;
+  background:transparent;border:1.5px solid rgba(255,255,255,.3);color:#fff;
+}
+.footer-lead .chip[aria-pressed="true"]{background:#c9a227;border-color:#c9a227;color:#0d1b3d}
+
+.footer-lead .buy-range{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.footer-lead .buy-range-field{display:flex;flex-direction:column;gap:5px;font-size:.72rem;font-weight:700;color:#F0DADD}
+.footer-lead .buy-check{
+  display:flex;align-items:flex-start;gap:9px;margin-top:14px;cursor:pointer;
+  font-size:.82rem;line-height:1.45;color:#fff;
+  background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.22);padding:11px 13px;
+}
+.footer-lead .buy-check input{margin:2px 0 0;flex:none;accent-color:#c9a227}
+.footer-lead .buy-check:has(input:checked){background:rgba(232,200,138,.22);border-color:#c9a227}
+.footer-lead .buy-privacy{font-size:.72rem;color:rgba(255,255,255,.72);margin:10px 0 0}
+/* סיכום מה שנבחר בשני השלבים הקודמים, מעל שדות הקשר: הוא מזכיר על מה
+   חותמים בדיוק ברגע שמוסרים טלפון. */
+.footer-lead .buy-recap{
+  font-size:.78rem;line-height:1.5;color:#F0DADD;
+  background:rgba(0,0,0,.18);padding:10px 12px;margin-bottom:4px;
+}
+
+.footer-lead .wiz-done{text-align:center;padding:10px 0}
+.footer-lead .wiz-done-mark{
+  width:52px;height:52px;border-radius:50%;background:#c9a227;color:#0d1b3d;
+  font-size:1.6rem;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;
+}
+.footer-lead .wiz-done h3{color:#fff;font-size:1.15rem;margin:0 0 6px;font-family:inherit}
+.footer-lead .wiz-done p{color:#F0DADD;font-size:.88rem;margin:0 auto 14px;max-width:34ch}
+.footer-lead .wiz-done .btn{flex:0 1 auto;min-width:160px}
+
+.footer-lead :focus-visible{outline:2px solid #c9a227;outline-offset:2px}
+
+@media(min-width:640px){
+  .footer-lead .lead-teaser{padding:20px 24px;gap:16px}
+  .footer-lead .lead-teaser-title{font-size:1.2rem}
+  .footer-lead .lead-teaser-sub{font-size:.83rem}
+  .footer-lead .lead-panel{padding:6px 32px 32px}
+}

@@ -4,268 +4,396 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>מדיניות פרטיות | שוק נדל״ן</title>
-<meta name="description" content="איזה מידע שוק הנדל״ן של עפולה והעמק אוסף, למה, עם מי הוא משותף, כמה זמן הוא נשמר ואיך מבקשים למחוק אותו.">
-<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800;900&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
-<style>
-  :root{
-    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
-    --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
-    --gold:#8B2332; --gold-dark:#6B1A26;
-    --brass:#C9A227; --brass-tint:#FAF3DF;
-    --surface:#FFFFFF; --hair:#E6E3DD;
-    --radius-xl:24px;
-    --shadow-xs:0 1px 2px rgba(18,40,64,.05);
-    --maxw:860px;
-  }
-  *{box-sizing:border-box}
-  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased}
-  h1,h2,h3{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark);margin:0}
-  a{color:inherit;text-decoration:none}
-  svg{display:block}
-  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
-
-  header.site{background:var(--paper-raised);border-bottom:1px solid var(--line);padding:14px 0}
-  .header-inner{display:flex;align-items:center;justify-content:space-between}
-  .logo{display:flex;align-items:center;gap:10px;min-width:0}
-  .logo-img{height:46px;width:auto;display:block;flex:0 0 auto}
-  .logo-word{font-family:'Rubik','Heebo',sans-serif;font-weight:500;color:var(--teal-dark);
-    font-size:.82rem;line-height:1.3;letter-spacing:-.012em;min-width:0;text-align:center}
-  .logo-word span{color:var(--gold-dark);font-weight:700}
-  @media(min-width:900px){.logo-img{height:54px;width:auto}.logo-word{font-size:.95rem;white-space:nowrap}}
-  .back-link{font-size:.85rem;font-weight:700;color:var(--teal)}
-
-  .hero{background:linear-gradient(150deg,#0E2340,#1C3A5E 60%,#2A4E77);color:#fff;padding:34px 0 38px}
-  .hero .kicker{font-size:.76rem;font-weight:800;letter-spacing:.08em;color:var(--brass);margin-bottom:6px}
-  .hero h1{color:#fff;font-size:1.65rem;line-height:1.25}
-  @media(min-width:720px){.hero h1{font-size:2rem}}
-  .hero p{margin:10px 0 0;font-size:.95rem;color:#D6DFE9;max-width:62ch}
-  .hero .updated{margin-top:14px;font-size:.78rem;color:#A9BACD}
-
-  main{padding:26px 0 50px}
-  .lead{background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-xl);
-    box-shadow:var(--shadow-xs);padding:20px 22px;margin-bottom:26px}
-  .lead p{margin:0;font-size:.95rem;color:var(--ink-soft)}
-  .lead p+p{margin-top:10px}
-
-  /* ‏כל סעיף הוא כרטיס — אותה שפה של הקוד האתי, בלי המספור האוטומטי
-     שמתאים שם לרשימת סעיפים מחייבים ולא לפרקי מדיניות. */
-  section.block{background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-xl);
-    box-shadow:var(--shadow-xs);padding:18px 22px;margin-bottom:14px}
-  section.block h2{font-size:1.2rem;margin-bottom:8px}
-  section.block h3{font-size:.98rem;margin:16px 0 4px;color:var(--teal)}
-  section.block p{margin:0 0 8px;font-size:.9rem;color:var(--ink-soft)}
-  section.block p:last-child{margin-bottom:0}
-  section.block ul{margin:0 0 8px;padding-inline-start:20px;font-size:.9rem;color:var(--ink-soft)}
-  section.block li{margin-bottom:5px}
-  section.block li:last-child{margin-bottom:0}
-  section.block strong{color:var(--ink);font-weight:700}
-
-  .table-wrap{overflow-x:auto;margin:10px 0 4px}
-  table{border-collapse:collapse;width:100%;min-width:420px;font-size:.85rem}
-  th,td{text-align:right;padding:9px 10px;border-bottom:1px solid var(--hair);vertical-align:top}
-  th{color:var(--teal-dark);font-weight:700;background:var(--teal-tint);white-space:nowrap}
-  td{color:var(--ink-soft)}
-
-  .callout{background:var(--brass-tint);border:1px solid #EAD9A8;border-radius:var(--radius-xl);
-    padding:18px 22px;margin-bottom:14px}
-  .callout h2{font-size:1.12rem;margin-bottom:6px}
-  .callout p{font-size:.9rem;color:#5B4A1E;margin:0 0 8px}
-  .callout p:last-child{margin-bottom:0}
-
-  .contact{margin-top:26px;background:linear-gradient(150deg,#0E2340,#1C3A5E);color:#fff;
-    border-radius:var(--radius-xl);padding:22px}
-  .contact h2{color:#fff;font-size:1.15rem;margin-bottom:6px}
-  .contact p{margin:0 0 6px;font-size:.9rem;color:#D6DFE9}
-  .contact a{color:var(--brass);font-weight:700}
-
-  footer.page{border-top:1px solid var(--line);margin-top:34px;padding-top:16px;
-    font-size:.75rem;color:var(--ink-soft);text-align:center}
-</style>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta name="description" content="איזה מידע שוק הנדל״ן אוסף, למה, עם מי הוא משותף, כמה זמן הוא נשמר ואיך מוחקים אותו.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="assets/site-footer.css">
-<script src="assets/site-footer.js" defer></script>
+<link rel="stylesheet" href="assets/buyer-banner.css">
+<link rel="stylesheet" href="assets/design-system.css">
+<link rel="stylesheet" href="assets/content-page.css">
+<script src="assets/page-bg.js" data-auto></script>
+<script defer src="assets/site-footer.js"></script>
+<script defer src="assets/buyer-banner.js"></script>
 </head>
 <body>
 
 <header class="site">
-  <div class="wrap header-inner">
+  <div class="header-inner">
     <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
-      <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="512" height="436">
-      <span class="logo-word">שוק הנדל״ן של <span>עפולה והסביבה</span></span>
+      <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
+      <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
     </a>
     <a href="index.html" class="back-link">← דף הבית</a>
   </div>
 </header>
 
-<section class="hero">
+<section class="page-head">
   <div class="wrap">
-    <div class="kicker">שקיפות</div>
-    <h1>מדיניות פרטיות</h1>
-    <p>מה אנחנו אוספים, למה זה נחוץ, עם מי זה משותף וכמה זמן זה נשמר — בשפה שאפשר לקרוא, בלי ניסוחים שנועדו להיקרא על ידי עורכי דין בלבד.</p>
-    <div class="updated">עודכן לאחרונה: 12 בספטמבר 2026</div>
+    <span class="kicker">פרטיות</span>
+    <h1>מדיניות הפרטיות</h1>
+    <p>העמוד הזה מתאר בדיוק איזה מידע האתר אוסף, למה הוא נחוץ, עם מי הוא משותף וכיצד אפשר לעיין בו או למחוק אותו.</p>
+    <p class="updated">עודכן לאחרונה: ספטמבר 2026</p>
   </div>
 </section>
 
-<main class="wrap">
+<main class="doc">
+  <div class="wrap">
 
-  <div class="lead">
-    <p>שוק הנדל״ן של עפולה והעמק הוא פלטפורמה שמחברת בין מחפשי נכסים לבין סוכני ומשרדי תיווך בעפולה ובעמק יזרעאל. כדי לעשות את זה אנחנו אוספים מידע — חלקו מכם, חלקו מהסוכנים.</p>
-    <p>המסמך הזה מתאר את מה שהמערכת עושה בפועל. הוא לא נוסח כדי לכסות על שום דבר: כל שירות חיצוני שנוגע בנתונים שלכם מופיע כאן בשמו.</p>
-  </div>
-
-  <section class="block">
-    <h2>מי אחראי על המידע</h2>
-    <p><strong>שוק הנדל״ן של עפולה והעמק</strong>, רחוב חטיבה תשע 18, עפולה.</p>
-    <p>לכל פנייה בנושא פרטיות — מחיקת מידע, תיקון, או שאלה על מה שמור עליכם:
-       <a href="mailto:shuknadlan@gmail.com" style="color:var(--teal);font-weight:700">shuknadlan@gmail.com</a></p>
-  </section>
-
-  <section class="block">
-    <h2>איזה מידע נאסף</h2>
-
-    <h3>מבקרים שמשאירים פרטים</h3>
-    <p>כשאתם פונים לגבי נכס, נרשמים לחיפוש שמור, מבקשים הערכת שווי או משאירים פרטים לייעוץ משכנתא — אנחנו אוספים את מה שמילאתם בטופס:</p>
+    <h2>מה אנחנו אוספים</h2>
+    <h3>מידע שאתם מוסרים ביוזמתכם</h3>
     <ul>
-      <li>שם, טלפון וכתובת אימייל</li>
-      <li>תוכן הפנייה והנכס או האזור שעניין אתכם</li>
-      <li>העדפות החיפוש ששמרתם: תקציב, מספר חדרים, שכונות, סוג נכס</li>
-    </ul>
-    <p><strong>הפרטים האלה מועברים לסוכן או למשרד התיווך הרלוונטי</strong> — זו כל מטרת הפנייה. מרגע ההעברה הסוכן הוא שאחראי על מה שהוא עושה עם הפרטים, בכפוף לקוד האתי של הפלטפורמה.</p>
-
-    <h3>סוכנים ומשרדי תיווך</h3>
-    <ul>
-      <li>פרטי פרופיל: שם, תמונה, טלפון, אימייל, מספר רישיון תיווך, תחומי התמחות</li>
-      <li>הנכסים שהעליתם, התמונות והסרטונים שלהם</li>
-      <li>פעילות במערכת: לידים שנרכשו, עסקאות שנסגרו, חוות דעת מלקוחות</li>
+      <li><strong>פנייה למתווך/ת</strong> — שם, טלפון, ולעיתים אימייל והודעה חופשית.
+      נמסר כשאתם משאירים פרטים על נכס או מבקשים הערכת שווי.</li>
+      <li><strong>רשימת תפוצה</strong> — כתובת אימייל בלבד.</li>
+      <li><strong>חיפוש שמור (״הסוכן החכם״)</strong> — שם, טלפון או אימייל
+      לקבלת ההתראות, קריטריוני החיפוש שהגדרתם, וסימון נפרד אם אישרתם שמתווך/ת
+      ייצור/תיצור קשר.</li>
+      <li><strong>ביקורת על מתווך/ת</strong> — שם, דירוג, טקסט הביקורת וסוג העסקה.</li>
+      <li><strong>חשבון משרד או מתווך/ת</strong> — פרטי הזיהוי והרישוי שנמסרו בהרשמה.</li>
+      <li><strong>חשבון יזם או בעל/ת מקצוע</strong> — פרטי החברה או העסק, הרישוי
+      והתוכן שהועלה לעמוד.</li>
+      <li><strong>חתימה על הסכם תיווך</strong> — הפרטים שבטופס ההסכם, ולצדם תיעוד
+      החתימה: מועדה ואמצעי הזיהוי שבו נעשתה.</li>
     </ul>
 
-    <h3>נרשמים לניוזלטר</h3>
-    <p>כתובת אימייל בלבד. אפשר להסיר בכל רגע דרך הקישור שבתחתית כל דיוור.</p>
+    <h3>מידע שנאסף אוטומטית</h3>
+    <ul>
+      <li>נתוני שימוש בסיסיים: אילו עמודים נצפו, מאיזה סוג מכשיר, ומאיזה מקור
+      הגעתם לאתר.</li>
+      <li>העדפות תצוגה שנשמרות בדפדפן שלכם בלבד (למשל הגדרות תפריט הנגישות)
+      ולא נשלחות אלינו.</li>
+    </ul>
+    <h3>תשלומים</h3>
+    <p>אנשי מקצוע שרוכשים שירותים בתשלום מוסרים בעמוד התשלום שם, אימייל, טלפון,
+    ולצורך החשבונית גם שם עסק ומספר ח.פ/ע.מ.</p>
+    <div class="note">
+      <p><strong>פרטי כרטיס האשראי אינם עוברים דרך האתר ואינם נשמרים אצלנו.</strong>
+      הם נמסרים ישירות בעמוד המאובטח של חברת הסליקה, ואין לנו גישה אליהם בשום
+      שלב — לא בזמן התשלום ולא אחריו. אנחנו מקבלים מחברת הסליקה רק אישור שהתשלום
+      בוצע ואת מספר האסמכתא.</p>
+    </div>
+    <p>אנחנו <strong>לא</strong> אוספים מספר תעודת זהות של גולשים או פרטי חשבון
+    בנק דרך האתר.</p>
 
-    <h3>שימוש טכני</h3>
-    <p>האתר שומר בדפדפן שלכם העדפות תצוגה וסינון (<span dir="ltr">localStorage</span>) כדי שלא תצטרכו להגדיר אותן מחדש בכל ביקור. המידע הזה נשאר במכשיר שלכם ולא נשלח אלינו. איננו מפעילים קוקיז של פרסום או מעקב בין אתרים.</p>
-  </section>
-
-  <div class="callout">
-    <h2>ניהול נכסים בוואטסאפ — למה זה נוגע לסוכנים בלבד</h2>
-    <p>סוכנים יכולים לנהל את הנכסים שלהם דרך הוואטסאפ העסקי שלנו: לשלוח הודעה, תמונה או הקלטה קולית, והנכס נכנס למערכת. הנה מה שקורה עם המידע הזה:</p>
-    <p><strong>הזיהוי הוא לפי מספר הטלפון.</strong> הבוט משווה את מספר השולח למספרים הרשומים בפלטפורמה. <strong>מספר שאינו מזוהה מקבל הודעת דחייה ותוכן ההודעה שלו אינו מעובד.</strong></p>
-    <p>מה שנשמר: מספר הטלפון של הסוכן, תוכן ההודעות ששלח, תמונות שהעלה, ותמלול של הקלטות קוליות. ההיסטוריה נשמרת כדי שהבוט יבין הקשר — למשל ״תעדכן את המחיר של הנכס האחרון״.</p>
-    <p><strong>ההודעות של מחפשי נכסים אינן עוברות בערוץ הזה.</strong> הוא סגור לסוכנים רשומים בלבד.</p>
-  </div>
-
-  <section class="block">
     <h2>למה אנחנו משתמשים במידע</h2>
     <ul>
-      <li><strong>להעביר פניות לסוכן הרלוונטי</strong> — העיקר. בלי זה אין פלטפורמה</li>
-      <li>לשלוח התראות על נכסים חדשים שתואמים לחיפוש ששמרתם</li>
-      <li>להציג נכסים, פרופילי סוכנים וחוות דעת באתר</li>
-      <li>לנהל את חשבונות הסוכנים: יתרות, רכישת לידים, חיובים</li>
-      <li>לשפר את השירות ולמנוע שימוש לרעה</li>
+      <li>להעביר את פנייתכם למשרד התיווך או למתווך/ת הרלוונטיים — זו כל מטרתו של
+      טופס יצירת הקשר.</li>
+      <li>לשלוח את עדכון הנכסים למי שנרשם לרשימת התפוצה.</li>
+      <li>לשלוח התראות על נכסים חדשים למי שהגדיר/ה חיפוש שמור, לפי הקריטריונים
+      שהוגדרו בו.</li>
+      <li>להציג ביקורות בדף המתווך/ת ובדף המשרד.</li>
+      <li>להפיק ולתעד הסכמי תיווך שנחתמים במערכת.</li>
+      <li>להבין איך משתמשים באתר ולשפר אותו.</li>
     </ul>
-    <p><strong>איננו מוכרים מידע אישי לצדדים שלישיים ואיננו מעבירים אותו למפרסמים.</strong> העברת פרטי ליד לסוכן היא חלק מהשירות שביקשתם, לא מכירה של מידע.</p>
-  </section>
 
-  <section class="block">
-    <h2>שירותים חיצוניים שנוגעים במידע</h2>
-    <p>הפלטפורמה בנויה על ספקים חיצוניים. אלה הם, ומה בדיוק עובר אליהם:</p>
-    <div class="table-wrap">
-      <table>
-        <thead>
-          <tr><th>ספק</th><th>מה עובר אליו</th><th>לשם מה</th></tr>
-        </thead>
-        <tbody>
-          <tr><td>Supabase</td><td>כל הנתונים והתמונות</td><td>מסד הנתונים והאחסון. שרתים באיחוד האירופי</td></tr>
-          <tr><td>Netlify</td><td>בקשות לדפי האתר</td><td>אירוח האתר</td></tr>
-          <tr><td>Anthropic</td><td>טקסט של תיאורי נכסים והודעות סוכנים</td><td>ניסוח תיאורים שיווקיים והפעלת הבוט</td></tr>
-          <tr><td>OpenAI</td><td>הקלטות קוליות של סוכנים</td><td>תמלול לטקסט</td></tr>
-          <tr><td>Meta ‏(WhatsApp)</td><td>הודעות בערוץ הוואטסאפ העסקי</td><td>העברת ההודעות בין הסוכן למערכת</td></tr>
-          <tr><td>Meta ‏(Facebook)</td><td>פרטי נכסים שפורסמו</td><td>פרסום אוטומטי של נכסים חדשים בדף העסקי</td></tr>
-          <tr><td>Resend</td><td>כתובות אימייל ותוכן ההודעה</td><td>שליחת מיילים והתראות</td></tr>
-        </tbody>
-      </table>
+    <h2>עם מי המידע משותף</h2>
+    <div class="note">
+      <p>כשאתם משאירים פרטים על נכס, הפרטים שמסרתם מועברים למשרד התיווך
+      ולמתווך/ת שמטפלים בו — כדי שיוכלו לחזור אליכם. זו מטרת הפנייה, וזו ההעברה
+      המשמעותית היחידה של מידע אישי שהאתר מבצע.</p>
     </div>
-    <p>לכל ספק כזה יש מדיניות פרטיות משלו, והשימוש בשירות שלנו כפוף גם לה.</p>
-  </section>
+    <p><strong>חיפוש שמור — רק בהסכמה מפורשת.</strong> מי שהגדיר/ה חיפוש שמור
+    מקבל/ת התראות מאיתנו, והפרטים אינם נמסרים לאיש — <strong>אלא אם</strong>
+    סומן בטופס האישור הנפרד לפנייה ממתווך/ת. במקרה כזה החיפוש עשוי להימסר
+    למתווך/ת <strong>אחד/ת בלבד</strong>, לצורך יצירת קשר בעניינו. בכל התראה יש
+    קישור הפסקה שפועל מיידית.</p>
+    <p>מתווך/ת שמקבל/ת פנייה כזו מחויב/ת להשתמש בפרטים לצורך שלשמו נמסרו בלבד,
+    לא להעבירם הלאה ולכבד כל בקשת הסרה, כמפורט
+    <a href="terms.html#t18">בתנאי השימוש</a>.</p>
+    <p>מעבר לכך, המידע מאוחסן אצל ספקי תשתית שאנחנו נעזרים בהם:</p>
+    <ul>
+      <li><strong>Supabase</strong> — בסיס הנתונים ואחסון התמונות של האתר.</li>
+      <li><strong>ספק שליחת המיילים</strong> — לצורך משלוח עדכוני רשימת התפוצה
+      והתראות למשרדים.</li>
+      <li><strong>WhatsApp / Meta</strong> — כאשר אתם בוחרים לפנות דרך כפתור
+      ווטסאפ, השיחה מתנהלת בשירות שלהם ולפי תנאיו.</li>
+      <li><strong>חברת הסליקה והחשבוניות</strong> — מקבלת את פרטי הלקוח/ה
+      הדרושים לביצוע החיוב ולהנפקת החשבונית. פרטי הכרטיס נמסרים לה ישירות ואינם
+      עוברים דרכנו.</li>
+      <li><strong>ספקי מודלים (בינה מלאכותית)</strong> — ראו להלן.</li>
+    </ul>
+    <p>איננו מוכרים מידע אישי ואיננו מעבירים אותו למפרסמים.</p>
 
-  <section class="block">
+    <h2>עיבוד בבינה מלאכותית</h2>
+    <p>חלק מהכלים במערכת נשענים על מודלים של ספקים חיצוניים: כתיבת תיאור שיווקי,
+    הפקת סרטון מתמונות הנכס, יצירת הדמיות, סיווג תמונות ותמלול הודעות קוליות
+    שמתווכים שולחים לסוכן הוואטסאפ.</p>
+    <div class="note">
+      <p>מה שנשלח לספקים אלה הוא <strong>תוכן הנכס</strong> — נתוניו, תמונותיו
+      והטקסט שנכתב עליו — או ההודעה שהמתווך/ת שלח/ה בעצמו/ה. <strong>איננו
+      שולחים לספקי המודלים פרטי מתעניינים, פניות או לידים</strong>, והשימוש
+      בכלים אינו חלק מטיפול בפנייה שלכם.</p>
+    </div>
+    <p>אנחנו רשאים להחליף ספק מודל. פירוט הכלים עצמם והמגבלות עליהם מופיע
+    <a href="terms.html#t8">בתנאי השימוש</a>.</p>
+
+    <h2>איך המידע נשמר</h2>
+    <p>אנחנו נוקטים באמצעי אבטחה מקובלים כדי להגן על המידע מפני גישה, שינוי או
+    חשיפה שאינם מורשים:</p>
+    <ul>
+      <li>כל התעבורה באתר מוצפנת ב-HTTPS, לרבות כל טופס וכל פנייה.</li>
+      <li>המידע מאוחסן בשרתי ספק תשתית מוכר, עם גיבויים והצפנה באחסון.</li>
+      <li>הגישה למידע מוגבלת בהרשאות ברמת השורה: משרד או מתווך/ת רואים אך ורק
+      את הפניות והנתונים שלהם, ולא של אחרים.</li>
+      <li>הגישה הניהולית מוגבלת למי שנדרש לה לצורך תפעול המערכת, ומחייבת
+      הזדהות.</li>
+      <li>פרטי אמצעי תשלום אינם נשמרים אצלנו כלל.</li>
+    </ul>
+    <p>אף מערכת אינה חסינה לחלוטין, ולכן איננו יכולים להתחייב לאבטחה מוחלטת. אם
+    ייוודע לנו על אירוע אבטחה שנוגע למידע אישי, נפעל לטפל בו ולעדכן את מי
+    שהמידע שלו נוגע לעניין.</p>
+
     <h2>כמה זמן המידע נשמר</h2>
     <ul>
-      <li><strong>פניות ולידים</strong> — נשמרים כל עוד הם רלוונטיים לסוכן שקיבל אותם, ולצורך תיעוד ההתקשרות</li>
-      <li><strong>חיפושים שמורים והתראות</strong> — עד שתבטלו אותם</li>
-      <li><strong>נכסים</strong> — נכס שיורד מהאתר עובר לארכיון ולא נמחק, כדי לשמור על היסטוריית העסקאות של הסוכן</li>
-      <li><strong>שיחות וואטסאפ</strong> — נשמרות כתיעוד של הפעולות שבוצעו בחשבון הסוכן</li>
-      <li><strong>ניוזלטר</strong> — עד להסרה</li>
+      <li>פניות ולידים — עד שלוש שנים, לצורך תיעוד העסקה ומענה לבירורים.</li>
+      <li>רשימת תפוצה — עד להסרה. בכל מייל יש קישור הסרה שפועל מיידית.</li>
+      <li>ביקורות — כל עוד דף המתווך/ת פעיל.</li>
+      <li>חיפוש שמור — עד להפסקתו בקישור שבהתראה, או עד לבקשתכם.</li>
+      <li>הסכמי תיווך חתומים ותיעוד החתימה — שבע שנים, כמסמך שמשמש ראיה
+      להתקשרות ולזכאות לדמי תיווך.</li>
+      <li>חשבוניות ורישומי חיוב — כנדרש בדיני המס, גם לאחר סגירת החשבון.</li>
     </ul>
-  </section>
+    <p><strong>סגירת חשבון של מתווך/ת.</strong> מתווך/ת יכול/ה לסגור את החשבון
+    בעצמו/ה ממערכת הניהול (הגדרות חשבון ← סגירת החשבון). עם הסגירה יורדים מהאתר
+    דף המתווך/ת והמודעות, האימייל מוסר מרשימת התפוצה, והמערכת מפסיקה לשלוח פניות
+    והתראות. רשומות שיש חובה לשמור — חשבוניות, רישומי חיוב והסכמים — נשמרות
+    כאמור לעיל. בקשה למחיקת מידע שאין חובה לשמור נשלחת במייל, כמפורט למטה.
+    התנאים המלאים של הסגירה מופיעים
+    <a href="terms.html#t19">בתנאי השימוש</a>.</p>
 
-  <section class="block">
     <h2>הזכויות שלכם</h2>
-    <p>לפי חוק הגנת הפרטיות, התשמ״א־1981, אתם רשאים:</p>
-    <ul>
-      <li>לעיין במידע שאנחנו מחזיקים עליכם</li>
-      <li>לבקש לתקן מידע שגוי או לא מעודכן</li>
-      <li>לבקש למחוק את המידע</li>
-      <li>לבטל הסכמה לדיוור בכל רגע</li>
-    </ul>
-    <p>פנייה למייל שלמטה תטופל תוך זמן סביר. כדי למנוע מסירת מידע לגורם לא מורשה, ייתכן שנבקש לאמת את זהותכם.</p>
-    <p><strong>שימו לב:</strong> אם השארתם פרטים לסוכן והם כבר הועברו אליו, מחיקה אצלנו אינה מוחקת את מה ששמור אצלו. לשם כך צריך לפנות ישירות לסוכן או למשרד.</p>
-  </section>
+    <p>לפי חוק הגנת הפרטיות, התשמ״א-1981, אתם רשאים לעיין במידע שנשמר עליכם,
+    לבקש את תיקונו ולבקש את מחיקתו. פנייה אחת במייל אל
+    <a href="mailto:shuknadlan@gmail.com">shuknadlan@gmail.com</a> מספיקה, ואנחנו
+    נטפל בה תוך 30 יום.</p>
 
-  <section class="block">
-    <h2>אבטחת מידע</h2>
-    <p>הגישה לנתונים מוגבלת ברמת מסד הנתונים: סוכן רואה את הנכסים והלידים שלו בלבד, וכתיבה לטבלאות רגישות נעשית רק דרך שרת מאובטח ולא מהדפדפן. התעבורה לאתר מוצפנת.</p>
-    <p>עם זאת, שום מערכת אינה חסינה לחלוטין. איננו יכולים להתחייב לאבטחה מוחלטת, ואנחנו ממליצים לא לשלוח דרך הטפסים מידע רגיש שאינו נחוץ לפנייה.</p>
-  </section>
+    <h2>עוגיות</h2>
+    <p>האתר משתמש בעוגיות ובאחסון מקומי לצרכים תפעוליים: שמירת העדפות תצוגה,
+    שמירת מצב התחברות של משרדים ומתווכים, ומדידת שימוש בסיסית. אפשר לחסום
+    עוגיות בהגדרות הדפדפן; חלק מהאתר — בעיקר אזור המשרדים — לא יעבוד בלעדיהן.</p>
 
-  <section class="block">
+    <h2>אבטחה</h2>
+    <p>הגישה לנתונים מוגבלת ברמת בסיס הנתונים עצמו: כל טבלה מוגנת בכללי הרשאה
+    (Row Level Security) שמאפשרים לכל משרד לראות את הנתונים שלו בלבד, והתעבורה
+    לאתר מוצפנת ב-HTTPS. אף מערכת אינה חסינה לחלוטין, ואיננו יכולים להתחייב
+    לאבטחה מוחלטת.</p>
+
     <h2>קטינים</h2>
-    <p>השירות מיועד לבגירים. איננו אוספים ביודעין מידע על מי שטרם מלאו לו 18. אם התברר שנאסף מידע כזה — נמחק אותו בפנייה.</p>
-  </section>
+    <p>האתר אינו מיועד לשימוש של קטינים מתחת לגיל 18, ואיננו אוספים ביודעין מידע
+    על קטינים.</p>
 
-  <section class="block">
     <h2>שינויים במדיניות</h2>
-    <p>המדיניות עשויה להתעדכן. תאריך העדכון האחרון מופיע בראש העמוד, ושינוי מהותי יפורסם באתר.</p>
-  </section>
-
-  <div class="contact">
-    <h2>יצירת קשר בנושא פרטיות</h2>
-    <p>שוק הנדל״ן של עפולה והעמק · רחוב חטיבה תשע 18, עפולה</p>
-    <p><a href="mailto:shuknadlan@gmail.com">shuknadlan@gmail.com</a></p>
+    <p>עדכון של המדיניות יסומן בשינוי התאריך בראש העמוד. שינוי מהותי יפורסם גם
+    בהודעה באתר.</p>
   </div>
-
-  <footer class="page">
-    מסמך זה מתאר את התנהלות הפלטפורמה בפועל ואינו מהווה ייעוץ משפטי.
-  </footer>
-
 </main>
 
 <footer class="site">
 
-  <!-- רצועת הניוזלטר: ההרשמה נשלחת ל-Edge Function ולא ישירות לטבלה, מאותה
-       סיבה כמו שאר הטפסים הציבוריים באתר — הכתיבה נעשית ב-service_role
-       והטבלה סגורה ל-anon לגמרי (אימייל של אדם פרטי). -->
-  <div class="footer-news">
-    <div class="footer-wrap footer-news-inner">
-      <div class="footer-news-text">
-        <h4>הנכסים החדשים בעפולה — ראשונים אצלכם</h4>
-        <p>עדכון אחד בשבוע למייל. בלי ספאם, אפשר להסיר בכל רגע.</p>
+  <!-- ====== באנר מחפשי הנכס — רצועת הפתיחה של הפוטר ======
+       כאן ישבה עד היום רצועת ההרשמה לרשימת התפוצה. שתיהן ביקשו מאותו אדם
+       את אותו דבר במילים אחרות — "נעדכן אתכם כשיעלה נכס" — וזו שומרת את
+       **החיפוש** ולא רק את האימייל: קריטריונים, ערוץ התראה והסכמה ליצירת
+       קשר, כלומר התראה על נכס שמתאים במקום סיכום שבועי.
+
+       הסימון והשליחה יושבים ב-assets/buyer-banner.css ו-buyer-banner.js,
+       קובץ אחד לכל העמודים — ראו docs/site-footer.md. היעד הוא
+       ‎saved-search-intake‎ של הסוכן החכם (‏docs/smart-search-agent.md) ולא
+       endpoint משלו: כפילות של אותה טבלה הייתה מפצלת גם את ההתראות וגם את
+       מדף הלידים. -->
+  <div class="footer-wrap footer-lead">
+
+    <div class="lead-banner buyer-banner" id="buyerBanner" data-source="footer_buyer_wizard">
+      <button type="button" class="lead-teaser" id="buyerStartBtn"
+              aria-expanded="false" aria-controls="buyerPanel">
+        <span class="lead-teaser-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10.5" cy="10.5" r="6.5"></circle>
+            <path d="M15.5 15.5 21 21"></path>
+            <path d="M7.6 11.4 10.5 8.8l2.9 2.6"></path>
+            <path d="M8.5 10.9v3h4v-3"></path>
+          </svg>
+        </span>
+        <span class="lead-teaser-copy">
+          <span class="lead-teaser-title">מחפשים נכס? תנו לו למצוא אתכם</span>
+          <span class="lead-teaser-sub">לקנייה או להשכרה — נעדכן אתכם ראשונים כשעולה נכס שמתאים</span>
+        </span>
+        <span class="lead-teaser-go" aria-hidden="true">
+          <span class="lead-teaser-go-open">התאמת נכס ←</span>
+          <span class="lead-teaser-go-close">סגירה ✕</span>
+        </span>
+      </button>
+
+      <div class="lead-panel" id="buyerPanel" hidden>
+        <!-- בלי כותרת נוספת: שורת ההזמנה שמעל היא הכותרת של הבאנר, ו-h2
+             שחוזר עליה במילים אחרות רק דוחף את השלב הראשון מטה. -->
+        <div class="owner-intro">
+          <p>ספרו לנו מה אתם מחפשים — ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.</p>
+        </div>
+
+        <div class="owner-wizard" id="buyerWizard">
+          <ol class="wiz-steps" id="buySteps" aria-label="שלבי ההתאמה">
+            <li class="active" data-step="1"><span class="dot">1</span>מה מחפשים</li>
+            <li data-step="2"><span class="dot">2</span>פרטי הנכס</li>
+            <li data-step="3"><span class="dot">3</span>פרטי קשר</li>
+          </ol>
+
+          <form id="buyerWizardForm" novalidate>
+            <!-- שלב 1: סוג העסקה + שכונות -->
+            <section class="wiz-panel active" data-panel="1">
+              <p class="wiz-q">מה אתם מחפשים?</p>
+              <!-- ‎.lead-toggle‎ ולא ‎.owner-toggle‎ בכוונה: המאזין של באנר
+                   בעלי הנכסים תופס את כל ‎.owner-toggle button‎ במסמך, ושימוש
+                   חוזר במחלקה היה משנה כאן את הכותרת של הבאנר השני. -->
+              <div class="lead-toggle" id="buyDealToggle" role="group" aria-label="סוג החיפוש">
+                <button type="button" class="active" data-buy-deal="sale">לקנייה</button>
+                <button type="button" data-buy-deal="rent">להשכרה</button>
+                <button type="button" data-buy-deal="commercial">מסחרי</button>
+              </div>
+
+              <!-- ‏saved_searches.deal_type מוגבל ל-sale/rent, ו"מסחרי" הוא
+                   קטגוריה ולא סוג עסקה — ולכן הבחירה בו פותחת את השאלה
+                   המשלימה במקום לנחש עבור המחפש/ת. -->
+              <div id="buyCommercialDeal" hidden>
+                <span class="wiz-label" id="buyCommercialLabel">נכס מסחרי — לקנייה או להשכרה?</span>
+                <div class="lead-toggle" id="buyCommercialToggle" role="group" aria-labelledby="buyCommercialLabel">
+                  <button type="button" class="active" data-buy-cdeal="sale">לקנייה</button>
+                  <button type="button" data-buy-cdeal="rent">להשכרה</button>
+                </div>
+              </div>
+
+              <span class="wiz-label" id="buyHoodLabel">באילו שכונות? <span class="wiz-hint">אפשר לבחור כמה</span></span>
+              <div class="chip-row" id="buyHoodChips" role="group" aria-labelledby="buyHoodLabel"></div>
+              <!-- נפתח רק כשרשימת השכונות לא נטענה (מסד לא זמין): בלעדיו
+                   שלב 1 היה נשאר בלי שום דרך לציין אזור. -->
+              <div id="buyAreaFallback" hidden>
+                <label class="wiz-label" for="buyArea">עיר או אזור</label>
+                <input type="text" id="buyArea" class="wiz-input" placeholder="לדוגמה: עפולה">
+              </div>
+
+              <p class="wiz-err" id="buyErr1"></p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-gold" data-buy-next="2">להמשך ←</button>
+              </div>
+            </section>
+
+            <!-- שלב 2: מאפייני הנכס -->
+            <section class="wiz-panel" data-panel="2">
+              <p class="wiz-q">מה הנכס שאתם מחפשים?</p>
+
+              <div id="buyRoomsBlock">
+                <span class="wiz-label" id="buyRoomsLabel">מספר חדרים <span class="wiz-hint">אפשר לבחור כמה</span></span>
+                <div class="chip-row" id="buyRoomsChips" role="group" aria-labelledby="buyRoomsLabel">
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="2">2</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="2.5">2.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="3">3</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="3.5">3.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="4">4</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="4.5">4.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="5">5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="+6">6+</button>
+                </div>
+              </div>
+
+              <span class="wiz-label" id="buyPtypeLabel">סוג הנכס <span class="wiz-hint">אפשר לבחור כמה</span></span>
+              <div class="chip-row" id="buyPtypeChips" role="group" aria-labelledby="buyPtypeLabel"></div>
+
+              <span class="wiz-label" id="buyBudgetLabel">תקציב <span class="wiz-hint" id="buyBudgetHint">(₪)</span></span>
+              <div class="buy-range">
+                <label class="buy-range-field">
+                  <span>מ־</span>
+                  <input type="number" id="buyPriceMin" class="wiz-input" inputmode="numeric" min="0" placeholder="ללא מינימום">
+                </label>
+                <label class="buy-range-field">
+                  <span>עד</span>
+                  <input type="number" id="buyPriceMax" class="wiz-input" inputmode="numeric" min="0" placeholder="ללא מקסימום">
+                </label>
+              </div>
+
+              <!-- במסחרי הגודל הוא מה שקובע, ומספר החדרים כמעט חסר משמעות —
+                   ולכן שני הבלוקים מתחלפים ואינם מוצגים יחד. -->
+              <div id="buySizeBlock" hidden>
+                <span class="wiz-label" id="buySizeLabel">גודל (מ״ר)</span>
+                <div class="buy-range">
+                  <label class="buy-range-field">
+                    <span>מ־</span>
+                    <input type="number" id="buySizeMin" class="wiz-input" inputmode="numeric" min="0" placeholder="הכול">
+                  </label>
+                  <label class="buy-range-field">
+                    <span>עד</span>
+                    <input type="number" id="buySizeMax" class="wiz-input" inputmode="numeric" min="0" placeholder="הכול">
+                  </label>
+                </div>
+              </div>
+
+              <p class="wiz-err" id="buyErr2"></p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-ghost-light" data-buy-back="1">→ חזרה</button>
+                <button type="button" class="btn btn-gold" data-buy-next="3">להמשך ←</button>
+              </div>
+            </section>
+
+            <!-- שלב 3: פרטי קשר -->
+            <section class="wiz-panel" data-panel="3">
+              <p class="wiz-q">לאן לשלוח את הנכסים המתאימים?</p>
+              <div class="buy-recap" id="buyRecap"></div>
+
+              <label class="wiz-label" for="buyName">שם מלא</label>
+              <input type="text" id="buyName" class="wiz-input" autocomplete="name">
+
+              <span class="wiz-label" id="buyChannelLabel">איך לעדכן אתכם?</span>
+              <div class="lead-toggle" id="buyChannels" role="group" aria-labelledby="buyChannelLabel">
+                <button type="button" class="active" data-buy-channel="whatsapp">וואטסאפ</button>
+                <button type="button" data-buy-channel="email">מייל</button>
+                <button type="button" data-buy-channel="both">שניהם</button>
+              </div>
+
+              <div id="buyPhoneField">
+                <label class="wiz-label" for="buyPhone">טלפון</label>
+                <input type="tel" id="buyPhone" class="wiz-input" placeholder="050-0000000" autocomplete="tel" inputmode="tel">
+              </div>
+              <div id="buyEmailField" hidden>
+                <label class="wiz-label" for="buyEmail">אימייל</label>
+                <input type="email" id="buyEmail" class="wiz-input" autocomplete="email" inputmode="email" dir="ltr" style="text-align:left">
+              </div>
+
+              <!-- ההסכמה נפרדת מההרשמה במכוון: אפשר לקבל התראות בלי שהפרטים
+                   יעברו לאף אחד. רק מי שמסמן/ת כאן הופך/ת לליד. -->
+              <label class="buy-check" for="buyConsent">
+                <input type="checkbox" id="buyConsent">
+                <span>אשמח שמתווך/ת מהאזור ייצור איתי קשר עם נכסים מתאימים</span>
+              </label>
+
+              <p class="wiz-err" id="buyErr3"></p>
+              <p class="buy-privacy">אפשר להפסיק את העדכונים בכל רגע, מקישור שבכל הודעה.</p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-ghost-light" data-buy-back="2">→ חזרה</button>
+                <button type="submit" class="btn btn-gold" id="buySubmitBtn">קבלת עדכונים</button>
+              </div>
+            </section>
+          </form>
+
+          <!-- מסך סיום -->
+          <div class="wiz-done" id="buyDone" hidden>
+            <div class="wiz-done-mark" aria-hidden="true">🔔</div>
+            <h3>החיפוש שלכם פעיל</h3>
+            <p id="buyDoneText">נעדכן אתכם ברגע שיעלה נכס שמתאים למה שביקשתם.</p>
+            <button type="button" class="btn btn-ghost-light" id="buyRestart">חיפוש נוסף</button>
+          </div>
+        </div>
       </div>
-      <form class="footer-news-form" id="newsletterForm" data-source="privacy_page" novalidate>
-        <label class="footer-sr-only" for="newsletterEmail">כתובת אימייל להרשמה לעדכונים</label>
-        <input type="email" id="newsletterEmail" name="email" autocomplete="email" inputmode="email"
-               placeholder="האימייל שלך" required>
-        <button type="submit" id="newsletterBtn">הרשמה</button>
-      </form>
-      <p class="footer-news-msg" id="newsletterMsg" role="status" aria-live="polite"></p>
     </div>
   </div>
 
   <div class="footer-wrap footer-top">
 
     <div class="footer-brand">
-      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
-        <img src="assets/logo-shuknadlan.png" alt="" width="512" height="436" loading="lazy">
-        <span>שוק הנדל״ן<br>של עפולה והסביבה</span>
+      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק — לדף הבית">
+        <img src="assets/logo-shuknadlan-dark.svg" alt="" width="52" height="62" loading="lazy">
+        <span class="footer-logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
       </a>
       <p class="footer-tagline">
         <span>כל הנכסים, כל המתווכים ובעלי המקצוע בעפולה והעמק בכתובת אחת</span>
@@ -273,6 +401,7 @@
       </p>
       <div class="footer-cta">
         <a href="agency-signup.html" class="footer-btn-primary">הצטרפות כמשרד תיווך</a>
+        <a href="developer-signup.html" class="footer-btn-ghost">הצטרפות כיזם/קבלן</a>
         <a href="professional-signup.html" class="footer-btn-ghost">הצטרפות כבעל מקצוע</a>
       </div>
 
@@ -283,6 +412,12 @@
               <path d="M20 10c0 5.2-8 12-8 12s-8-6.8-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.8"/>
             </svg>
             <span>רחוב חטיבה תשע 18, עפולה</span>
+          </p>
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a1.5 1.5 0 0 1-1.6 1.5C10.8 19.4 4.6 13.2 4 5.1A1.5 1.5 0 0 1 5.5 3.5Z"/>
+            </svg>
+            <a href="tel:+972546929991">054-6929991</a>
           </p>
           <p class="footer-contact-row">
             <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
@@ -304,37 +439,46 @@
     </div>
 
     <nav class="footer-grid" aria-label="ניווט בתחתית העמוד">
-      <div class="footer-col">
-        <h4>נכסים</h4>
-        <a href="index.html#saleProps">למכירה בעפולה</a>
-        <a href="index.html#rentProps">להשכרה בעפולה</a>
-        <a href="index.html#commercialProps">נכסים מסחריים</a>
-        <a href="index.html#listings">כל הנכסים</a>
-      </div>
-      <div class="footer-col">
-        <h4>כלים</h4>
-        <a href="index.html#calc">מחשבון משכנתא</a>
-        <a href="index.html#heroSection">חיפוש על המפה</a>
-        <a href="index.html#featured">נכסים מובחרים</a>
-        <a href="articles.html">כתבות ובלוגים</a>
-      </div>
-      <div class="footer-col">
-        <h4>בעלי מקצוע</h4>
-        <a href="agencies.html">כל משרדי התיווך</a>
-        <a href="agents.html">כל המתווכים</a>
-        <a href="index.html#pros">בעלי מקצוע</a>
-        <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
-      </div>
-      <div class="footer-col">
-        <h4>שוק נדל״ן</h4>
-        <!-- "אודות" הוא הקישור היחיד בפוטר שעדיין אין לו דף; כל השאר
-             מצביעים על דפים, על סקציות אמיתיות או על תיבת המייל. -->
-        <a href="#">אודות</a>
-        <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
-        <a href="faq.html">שאלות נפוצות</a>
-        <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
-        <a href="crm.html">כניסת מתווכים</a>
-      </div>
+      <details class="footer-col" open>
+        <summary><h4>נכסים</h4></summary>
+        <div class="footer-col-links">
+          <a href="index.html#privateProps-sale">למכירה בעפולה</a>
+          <a href="index.html#privateProps-rent">להשכרה בעפולה</a>
+          <a href="index.html#commercialProps">נכסים מסחריים</a>
+          <a href="index.html#privateProps">כל הנכסים</a>
+          <a href="projects.html">פרויקטים חדשים</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>כלים</h4></summary>
+        <div class="footer-col-links">
+          <a href="index.html#calc">מחשבון משכנתא</a>
+          <a href="index.html#yield">מחשבון תשואה</a>
+          <a href="index.html#heroSection">חיפוש על המפה</a>
+          <a href="articles.html">כתבות ובלוגים</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>בעלי מקצוע</h4></summary>
+        <div class="footer-col-links">
+          <a href="agencies.html">כל משרדי התיווך</a>
+          <a href="agents.html">כל המתווכים</a>
+          <a href="professionals.html">כל בעלי המקצוע</a>
+          <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
+          <a href="developer-signup.html">הצטרפות כיזם/קבלן</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>שוק נדל״ן</h4></summary>
+        <div class="footer-col-links">
+          <a href="about.html">אודות</a>
+          <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
+          <a href="faq.html">שאלות נפוצות</a>
+          <a href="pricing.html">מסלולים ומחירים</a>
+          <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
+          <a href="crm.html">כניסת מתווכים</a>
+        </div>
+      </details>
     </nav>
 
   </div>
@@ -367,12 +511,13 @@
   <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
     <div class="footer-legal">
-      <a href="#">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
+      <a href="terms.html">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
       <a href="privacy.html">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
-      <a href="#">הצהרת נגישות</a>
+      <a href="accessibility.html">הצהרת נגישות</a>
     </div>
   </div>
 </footer>
+
 
 </body>
 </html>

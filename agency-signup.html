@@ -4,12 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>פתיחת משרד תיווך | שוק נדל״ן</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <style>
   :root{
-    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
-    --line:#C5C3BC; --blue:#1C3A5E; --blue-dark:#122840; --blue-tint:#E0E7ED;
-    --red:#8B2332; --red-dark:#6B1A26;
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
+    --line:#e3e8f4; --blue:#0e2a6b; --blue-dark:#0d1b3d; --blue-tint:#eaf0fb;
+    --red:#0e2a6b; --red-dark:#08194a;
     --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(18,40,64,.1);
   }
   *{box-sizing:border-box}
@@ -41,29 +42,43 @@
   .spec-chips{display:flex;flex-wrap:wrap;gap:7px}
   .spec-chip{
     display:inline-flex;align-items:center;gap:5px;font-size:.76rem;font-weight:700;line-height:1.2;
-    border:1.5px solid var(--line);background:#fff;color:var(--ink);border-radius:999px;padding:7px 12px;
+    border:1.5px solid var(--line);background:#fff;color:var(--ink);border-radius:0;padding:7px 12px;
     transition:border-color .15s ease,background .15s ease,color .15s ease;
   }
   .spec-chip svg{width:13px;height:13px;flex:none}
   .spec-chip.on{border-color:var(--blue);background:var(--blue);color:#fff}
   .spec-chip[disabled]{opacity:.45;cursor:not-allowed}
-  .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:999px;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff;margin-top:6px}
+  .btn{display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:0;font-weight:700;font-size:.95rem;width:100%;background:var(--red);color:#fff;margin-top:6px}
   .btn:disabled{opacity:.5;cursor:not-allowed}
   #feedback{font-size:.82rem;text-align:center;margin-top:12px;min-height:1.2em}
   .back-link{display:block;text-align:center;font-size:.8rem;color:var(--blue);margin-top:16px;text-decoration:none}
   .note{font-size:.72rem;color:var(--ink-soft);background:var(--blue-tint);border-radius:var(--radius-sm);padding:10px 12px;margin-top:16px}
+  .promo-note{font-size:.78rem;line-height:1.6;background:linear-gradient(135deg,#fffdf6,#f7f1e2);
+    border:1.5px solid #e5c76a;border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:4px}
+  .promo-note a{color:var(--blue);font-weight:700;text-decoration:none}
   #stateDone{display:none;text-align:center}
 </style>
+<link rel="stylesheet" href="assets/design-system.css">
+<script src="assets/page-bg.js" data-auto></script>
 </head>
 <body>
 
 <div class="card">
   <div id="stateForm">
-    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="512" height="436"></a>
+    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
     <h1>פתיחת משרד תיווך</h1>
     <p class="sub">הצטרפות למרכזי — כמנהל/ת המשרד</p>
 
-    <div class="note">הצטרפות למערכת אפשרית רק דרך פתיחת משרד. סוכנים בודדים אינם יכולים להירשם עצמאית — לאחר פתיחת המשרד תוכל/י להוסיף סוכנים מתוך איזור הניהול.</div>
+    <!-- ההטבה ראשונה, לפני ההסבר על מבנה ההרשמה: מי שהגיע/ה מדף המסלולים
+         כבר בחר/ה, וצריך/ה לראות שמה שנבחר עדיין תקף. ‏?tier= מגיע משם
+         ומשמש לתצוגה בלבד — המסלול נקבע בשרת בכל מקרה. -->
+    <div class="promo-note" id="promoNote">
+      🎁 <b>6 חודשים במסלול Elite במתנה</b> — המסלול המלא, בלי תשלום ובלי כרטיס אשראי.
+      בתום התקופה בוחרים מסלול, ומי שלא בוחר/ת ממשיך/ה ב-Pay&amp;GO בלי דמי מנוי.
+      <a href="pricing.html">פירוט המסלולים ←</a>
+    </div>
+
+    <div class="note">הצטרפות למערכת אפשרית רק דרך פתיחת משרד. סוכנים בודדים אינם יכולים להירשם עצמאית — לאחר פתיחת המשרד תוכל/י להוסיף סוכנים מתוך איזור הניהול, והם בוחרים את המסלול שלהם בעצמם.</div>
 
     <div class="section-divider">פרטי המשרד</div>
     <div class="field"><label>שם המשרד</label><input type="text" id="agencyName" required></div>
@@ -107,7 +122,23 @@
 </div>
 
 <script src="assets/specialties.js"></script>
+<script src="assets/tiers.js"></script>
 <script>
+/* ---------- המסלול שנבחר בדף המסלולים ----------
+   ‏?tier= הוא אישור ולא הגדרה: הוא מאשר למי שהגיע/ה מדף המסלולים שהבחירה
+   שלו/ה לא נעלמה בדרך. המסלול עצמו נקבע בשרת — ‏agency-signup מעניק/ה את
+   הטבת ההשקה לכל משרד חדש (‏grant_launch_promo), ולכן ערך שנערך בכתובת אינו
+   משנה דבר מלבד השורה הזו. */
+(function showChosenTier(){
+  const raw = new URLSearchParams(location.search).get('tier');
+  const tier = (raw && window.Tiers) ? Tiers.byId(raw) : null;
+  if (!tier) return;
+  const line = document.createElement('div');
+  line.style.cssText = 'margin-top:8px;font-weight:700;color:var(--blue)';
+  line.textContent = 'המסלול שבחרת: ' + tier.name;
+  document.getElementById('promoNote').appendChild(line);
+})();
+
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const SIGNUP_FUNCTION_URL = SUPABASE_URL + '/functions/v1/agency-signup';

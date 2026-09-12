@@ -4,34 +4,46 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>נכס | שוק נדל״ן</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800;900&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <!-- ‏Leaflet עצמו, ולא רק ה-CSS שלו: בלעדיו סקציית "מיקום וסביבה" נשארת
      מוסתרת, כי אין מפה להציג. -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="assets/map-tiles.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="assets/quality-badge.js"></script>
 <script src="assets/map-gestures.js"></script>
 <script src="assets/property-card.js"></script>
+<!-- רצועת ההדמיות של הנכס. נטענת כאן אבל **לא** מורכבת מעצמה: היא מופיעה
+     רק בנכס שכבר יש לו לפחות הדמיה אחת, ולכן loadVisualizations() הוא
+     שקורא ל-AiShowcase.mountProperty() עם ההדמיות שכבר נשלפו. -->
+<script defer src="assets/ai-showcase.js"></script>
 <!-- הרקע הזורם של האתר — אותו רקע של דף הבית ושל ה-CRM. דף הנכס אינו
      נצבע בערכת המשרד, ולכן הוא מקבל את הרקע מיד עם הטעינה. -->
 <script src="assets/page-bg.js" data-auto></script>
 <style>
   :root{
-    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
-    --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
-    --gold:#8B2332; --gold-dark:#6B1A26; --gold-tint:#F1DFE1; --brick:#6B1A26;
-    --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(15,52,53,.08); --maxw:900px;
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
+    --line:#e3e8f4; --teal:#0e2a6b; --teal-dark:#0d1b3d; --teal-tint:#eaf0fb;
+    --gold:#0e2a6b; --gold-dark:#08194a; --gold-tint:#f7f1e2; --brick:#08194a;
+    /* ‏1120px כמו בדף הפרויקט, ולא 900 כפי שהיה. ב-900 קיבלה עמודת
+       התוכן 517px — רוחב שבו תיבת ההדמיות נאלצת לרדת לעמודה אחת ולהתארך
+       על פני מסך שלם, בזמן שעמודת הצד נשארת צרה. ברשת של 1120 יש
+       לתוכן ~700px ולעמודת הצד 340, כלומר שתי עמודות שנקראות כשתי
+       עמודות. הרוחב חל על כל ‎.wrap‎ בדף — הכותרת, הגלריה והקרוסלה
+       שבתחתית — ומיישר אותו עם שאר הדפים באתר (1120–1180). */
+    --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(14,42,107,.08); --maxw:1120px;
 
     /* ====== שכבת עיצוב 2026 (דף הנכס) ======
        הפלטה של המותג נשארת כמו שהיא — כחול-דיו, יין ונייר — אבל המשטחים
        מתבהרים: כרטיסים לבנים, קווי הפרדה דקיקים במקום ה-‎--line‎ הכהה, וצללים
        רכים בשלוש דרגות. שני צבעים חדשים בלבד: ברונזה לתגיות פרימיום וירוק
        וואטסאפ — שניהם צבעים שאין להם תחליף בפלטה הקיימת. */
-    --surface:#FFFFFF; --surface-soft:#FBFAF9;
-    --hair:#E6E3DD; --hair-strong:#D8D4CC;
-    --bronze:#B45309; --bronze-soft:#D97706; --bronze-tint:#FBF1E2;
-    --wa:#22C55E; --wa-dark:#16A34A;
+    --surface:#FFFFFF; --surface-soft:#f8faff;
+    --hair:#eef1f8; --hair-strong:#dde3f2;
+    --bronze:#8a6d10; --bronze-soft:#c9a227; --bronze-tint:#f7f1e2;
+    --wa:#25a55a; --wa-dark:#1c8546;
     --radius-xl:24px;
     --shadow-xs:0 1px 2px rgba(18,40,64,.05);
     --shadow-md:0 8px 24px rgba(18,40,64,.10);
@@ -50,7 +62,7 @@
   svg{display:block}
   .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
   .card{background:var(--paper-raised);border-radius:var(--radius-lg);box-shadow:var(--shadow-sm);border:1px solid var(--line)}
-  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:999px;font-weight:700;font-size:.95rem}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 22px;border-radius:0;font-weight:700;font-size:.95rem}
   .btn-gold{background:var(--gold);color:#fff}
   .btn-gold:disabled{opacity:.5;cursor:not-allowed}
   .btn-block{width:100%}
@@ -81,7 +93,7 @@
   .hero{margin-top:16px}
   .bento{display:grid;gap:8px;grid-template-columns:repeat(2,1fr)}
   .bento-cell{
-    position:relative;overflow:hidden;border-radius:16px;border:1px solid var(--hair);
+    position:relative;overflow:hidden;border-radius:0;border:1px solid var(--hair);
     background:var(--teal-tint);padding:0;line-height:0;
   }
   /* התמונה הראשית היא ‎div‎ ולא ‎button‎ כדי שהתגיות המרחפות (מחיר, סטטוס,
@@ -96,6 +108,12 @@
   .bento-thumb{aspect-ratio:4/3}
   .bento[data-count="1"] .bento-main{aspect-ratio:16/10}
   .bento[data-count="2"] .bento-thumb{grid-column:1/-1;aspect-ratio:16/7}
+  /* סרטון בתא הראשי: תמונת שער שזזה. בלי פקדים — הוא ממלא כאן את מקומה של
+     התמונה ולא את מקומו של הנגן שבהמשך העמוד, ופס פקדים היה מתנגש ממילא
+     בתגית המחיר ובכפתורי המדיה שיושבים על אותה פינה. הקול נדלק מהכפתור
+     שב-hero-tools. ‏object-fit:cover כמו בתמונה, כדי שסרטון אנכי מהטלפון
+     ימלא את התא במקום להשאיר שתי רצועות שחורות. */
+  .bento-video video{width:100%;height:100%;object-fit:cover;display:block}
   /* שכבת הצללה בתחתית התמונה הראשית — בלעדיה תגית המחיר השקופה נבלעת
      בתמונות בהירות (קירות לבנים, שמיים) */
   .bento-main::after{
@@ -106,13 +124,13 @@
   /* מודעה שהתמונות שלה עוד לא הועלו: לוגו המשרד שהנכס שייך אליו והודעה
      שהתמונות בדרך, במקום מלבן צבעוני שנקרא כמו תמונה שבורה */
   .bento-empty{
-    grid-column:1/-1;grid-row:1/-1;aspect-ratio:16/9;border-radius:16px;display:grid;place-items:center;
+    grid-column:1/-1;grid-row:1/-1;aspect-ratio:16/9;border-radius:0;display:grid;place-items:center;
     /* איור הרקע של הפלטפורמה (16:9, בדיוק כמו התא), ומעליו צעיף לבן
        שמאפשר ללוגו ולטקסט להיקרא */
     background:
       linear-gradient(180deg,rgba(255,255,255,.64),rgba(255,255,255,.34) 55%,rgba(255,255,255,.56)),
       url('assets/property-placeholder.jpg') center/cover no-repeat,
-      linear-gradient(160deg,#F4F3F0 0%,#E0E7ED 100%);
+      linear-gradient(160deg,#ffffff 0%,#eaf0fb 100%);
   }
   .bento-empty .empty-inner{
     display:flex;flex-direction:column;align-items:center;gap:10px;
@@ -120,11 +138,11 @@
   }
   .bento-empty .empty-logo{
     width:88px;height:88px;object-fit:contain;background:#fff;border:1px solid var(--hair);
-    border-radius:18px;padding:8px;box-shadow:0 8px 24px rgba(18,40,64,.18);
+    border-radius:0;padding:8px;box-shadow:0 8px 24px rgba(18,40,64,.18);
   }
   .bento-empty .empty-initial{
     display:flex;align-items:center;justify-content:center;padding:0;border-color:transparent;
-    background:linear-gradient(155deg,#8B2332,#1C3A5E 65%);color:#fff;
+    background:linear-gradient(155deg,#0e2a6b,#0e2a6b 65%);color:#fff;
     font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:2.2rem;
   }
   .bento-empty .empty-agency{font-size:1rem;font-weight:800;color:var(--teal-dark)}
@@ -142,7 +160,7 @@
   .hero-badges:empty{display:none}
   .badge{
     display:inline-flex;align-items:center;gap:5px;font-size:.72rem;font-weight:800;
-    padding:5px 11px;border-radius:999px;backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.28);
+    padding:5px 11px;border-radius:0;backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.28);
     background:rgba(18,40,64,.55);color:#fff;line-height:1.3;
   }
   .badge svg{width:13px;height:13px}
@@ -150,7 +168,7 @@
      הרצועה, באותה שפה כמו שלט ההדמיה שבתחתית התמונה. */
   .badge-deal{background:rgba(255,255,255,.9);color:var(--teal-dark);border-color:rgba(255,255,255,.95)}
   .badge-promo{background:rgba(180,83,9,.82);border-color:rgba(255,255,255,.4)}
-  .badge-exclusive{background:rgba(139,35,50,.82);border-color:rgba(255,255,255,.4)}
+  .badge-exclusive{background:rgba(14,42,107,.82);border-color:rgba(255,255,255,.4)}
   .hero-tools{position:absolute;top:12px;inset-inline-end:12px;display:flex;gap:6px;z-index:3}
   .hero-tool{
     width:36px;height:36px;border-radius:50%;display:grid;place-items:center;
@@ -163,7 +181,7 @@
   .hero-price{
     position:absolute;bottom:12px;inset-inline-start:12px;z-index:3;
     background:rgba(15,23,42,.52);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,.22);
-    border-radius:16px;padding:9px 15px;color:#fff;box-shadow:0 8px 24px rgba(10,18,30,.28);
+    border-radius:0;padding:9px 15px;color:#fff;box-shadow:0 8px 24px rgba(10,18,30,.28);
   }
   .hero-price .num{font-size:1.5rem;font-weight:900;line-height:1.1;letter-spacing:-.5px;white-space:nowrap}
   .hero-price .num .suffix{font-size:.82rem;font-weight:600;opacity:.85;letter-spacing:0}
@@ -179,7 +197,7 @@
   .media-btn{
     display:inline-flex;align-items:center;gap:6px;
     background:rgba(15,23,42,.52);backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.22);
-    color:#fff;font-size:.75rem;font-weight:700;padding:7px 12px;border-radius:999px;
+    color:#fff;font-size:.75rem;font-weight:700;padding:7px 12px;border-radius:0;
     transition:background .15s ease;
   }
   .media-btn:hover{background:rgba(15,23,42,.74)}
@@ -208,8 +226,47 @@
   }
 
   /* ====== היררכיית התוכן ====== */
+  /* ‏**שתי עמודות, ובעמודת התוכן הכול בזה אחר זה.**
+
+       עמודת התוכן   פרטי הנכס ← ההדמיות ← מיקום וסביבה
+       עמודת הצד     רצועת המשרד ← כרטיס הפנייה ← מחשבון המשכנתא
+
+     קודם ישבה תיבת ההדמיות בתחתית הדף, אחרי המפה ואחרי פרטי המשרד:
+     הרכיב הכי ויזואלי בעמוד היה הדבר האחרון שמגיעים אליו. עכשיו היא
+     ממשיכה ישירות את פרטי הנכס — קראת מה יש בנכס, ומיד רואה איך הוא
+     יכול להיראות — ורק אחריה באה השאלה "איפה זה".
+
+     הרשת עצמה מחזיקה שני איברים בלבד (‎.content-col‎ ו-‎.sidebar‎) ולא
+     שורות של חצאי עמודות. הסיבה בהערה שליד ‎.content-col‎ ב-HTML: איבר
+     שנפרש על שתי שורות וגבוה מהן פותח חלל לבן בין השורות, ובדיוק שם
+     יושב הגבול בין פרטי הנכס לתיבת ההדמיות.
+
+     במובייל זו ממילא עמודה אחת בסדר ה-DOM: פרטים ← הדמיות ← מפה ←
+     משרד. */
   .content-grid{display:grid;grid-template-columns:1fr;gap:22px;padding:22px 0 40px}
-  @media(min-width:760px){.content-grid{grid-template-columns:1.6fr 1fr;align-items:start}}
+  /* ההדמיות צמודות לפרטי הנכס — הן ההמשך שלהם ולא מקטע חדש. שאר
+     הבלוקים בעמודה שומרים על מרווח מלא, כי הם כן מקטעים נפרדים. */
+  .content-col > #vizSection{margin-top:10px}
+  .content-col > #mapSection{margin-top:22px}
+  @media(min-width:760px){
+    /* ‏start ולא ‎stretch‎: שתי העמודות מתחילות באותו קו ונגמרות איפה
+       שהתוכן שלהן נגמר. עמודת התוכן ארוכה מעמודת הצד ברוב הנכסים, ומתיחה
+       של הצד לגובהה רק מפזרת את שני הכרטיסים שבה על פני מסך שלם. */
+    .content-grid{grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);align-items:start}
+    .sidebar{display:flex;flex-direction:column}
+    /* ‏24px ולא 40 מתחת לרשת: במחשב הקרוסלה נפתחת מיד אחרי העמודה
+       הקצרה מבין השתיים, ו-40px של ריפוד מתווספים שם לחלל שנוצר ממילא
+       מהפרש הגבהים. במובייל הריפוד נשאר — שם אין עמודה קצרה, ו-40px הם
+       ההפרדה בין סוף הנכס לבין הצעה לנכס אחר. */
+    .content-grid{padding-bottom:24px}
+  }
+  /* מסך רחב: עמודת צד ברוחב קבוע וכל השאר לתוכן. ‎1fr‎ מתוך רשת רחבה נתן
+     לכרטיס הפנייה 420px — טופס בן שלושה שדות לא מתרחב יפה, הוא רק
+     נמתח — בזמן שהתוכן שלצדו נשאר צר מכדי להחזיק את תיבת ההדמיות
+     בשתי עמודות (‏560px היא הנקודה שבה היא חוזרת אליהן). */
+  @media(min-width:980px){
+    .content-grid{grid-template-columns:minmax(0,1fr) 340px}
+  }
 
   h1.prop-title{font-size:1.4rem;line-height:1.3}
   @media(min-width:640px){h1.prop-title{font-size:1.72rem}}
@@ -222,9 +279,9 @@
   .spec-pills{display:grid;grid-template-columns:repeat(2,1fr);gap:9px;margin-top:16px}
   .spec-pill{
     display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--hair);
-    border-radius:16px;padding:10px 12px;box-shadow:var(--shadow-xs);min-width:0;
+    border-radius:0;padding:10px 12px;box-shadow:var(--shadow-xs);min-width:0;
   }
-  .spec-pill .ic{width:36px;height:36px;border-radius:11px;display:grid;place-items:center;flex:none;background:var(--teal-tint);color:var(--teal)}
+  .spec-pill .ic{width:36px;height:36px;border-radius:0;display:grid;place-items:center;flex:none;background:var(--teal-tint);color:var(--teal)}
   .spec-pill .ic svg{width:19px;height:19px}
   .spec-pill.accent .ic{background:var(--bronze-tint);color:var(--bronze)}
   .spec-pill .txt{min-width:0;display:flex;flex-direction:column}
@@ -251,7 +308,7 @@
   .highlight{font-size:.84rem}
   @media(min-width:520px){.highlights{gap:11px}.highlight{font-size:.9rem}}
   .highlight{display:flex;align-items:center;gap:10px;font-size:.9rem;font-weight:600;color:var(--ink);min-width:0}
-  .highlight .ic{width:32px;height:32px;border-radius:10px;flex:none;display:grid;place-items:center;background:var(--bronze-tint);color:var(--bronze)}
+  .highlight .ic{width:32px;height:32px;border-radius:0;flex:none;display:grid;place-items:center;background:var(--bronze-tint);color:var(--bronze)}
   .highlight .ic svg{width:17px;height:17px}
 
   /* טבלת פרטים */
@@ -273,14 +330,14 @@
   /* ‏z-index:0 יוצר הקשר ערימה משלו למסגרת. בלעדיו פקדי Leaflet של המפה
      המוטמעת (‎z-index:800‎ אצל Leaflet) מטפסים מעל שכבת המסך המלא (400)
      ושורת הקרדיטים שלה נדבקת מעל כפתורי הניווט */
-  .map-frame{position:relative;z-index:0;border-radius:16px;overflow:hidden;border:1px solid var(--hair)}
+  .map-frame{position:relative;z-index:0;border-radius:0;overflow:hidden;border:1px solid var(--hair)}
   #propMap{height:230px}
   @media(min-width:760px){#propMap{height:290px}}
   /* פינת ההגדלה יושבת בקצה העליון־חיצוני, כי התחתית שמורה לקרדיטים של
      Leaflet ופקדי הזום כבויים במפה הקטנה */
   .map-expand{
     position:absolute;z-index:3;top:10px;inset-inline-end:10px;
-    display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;
+    display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:0;
     background:rgba(255,255,255,.94);backdrop-filter:blur(8px);box-shadow:var(--shadow-sm);
     font-size:.75rem;font-weight:700;color:var(--teal-dark);
   }
@@ -307,14 +364,14 @@
   .map-full-title{min-width:0;font-size:.9rem;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .map-full-close{width:38px;height:38px;border-radius:50%;background:rgba(255,255,255,.12);color:#fff;display:grid;place-items:center;flex:none}
   .map-full-close svg{width:19px;height:19px}
-  #propMapFull{flex:1 1 auto;min-height:0;margin:0 12px;border-radius:16px;overflow:hidden}
+  #propMapFull{flex:1 1 auto;min-height:0;margin:0 12px;border-radius:0;overflow:hidden}
   .map-full-actions{
     display:flex;gap:8px;flex:0 0 auto;
     padding:14px 12px calc(14px + env(safe-area-inset-bottom));
   }
   .map-full-actions a{
     flex:1 1 0;display:inline-flex;align-items:center;justify-content:center;gap:7px;
-    padding:12px;border-radius:14px;font-size:.85rem;font-weight:800;
+    padding:12px;border-radius:0;font-size:.85rem;font-weight:800;
     background:rgba(255,255,255,.12);color:#fff;
   }
   .map-full-actions a:hover{background:rgba(255,255,255,.22)}
@@ -331,7 +388,7 @@
   }
   .agency-strip:hover{box-shadow:var(--shadow-md);transform:translateY(-1px)}
   .agency-avatar{
-    width:62px;height:62px;border-radius:15px;
+    width:62px;height:62px;border-radius:0;
     background:var(--ag-brand,var(--teal));color:var(--ag-on-brand,#fff);
     display:flex;align-items:center;justify-content:center;font-size:1.35rem;font-weight:700;
     font-family:'Frank Ruhl Libre',serif;flex-shrink:0;overflow:hidden;
@@ -352,6 +409,11 @@
   /* ====== כרטיס ההמרה של הסוכן/ת ====== */
   .sidebar > *{margin-bottom:16px}
   .sidebar > *:last-child{margin-bottom:0}
+  /* רצועת המשרד היא ‎.panel‎, ו-‎.panel‎ מביא איתו ‎margin-top:18px‎ שנועד
+     לרצף פאנלים בעמודת התוכן. בעמודת הצד הקצב הוא ‎margin-bottom‎ של
+     16px בין הכרטיסים, ו-18 נוספים מעל הראשון היו מזיזים את כל העמודה
+     כלפי מטה ביחס לעמודת התוכן שלצדה. */
+  .sidebar > .panel{margin-top:0}
   .agent-card{
     background:var(--surface);border:1px solid var(--hair);border-radius:var(--radius-xl);
     box-shadow:var(--shadow-md);overflow:hidden;
@@ -360,6 +422,18 @@
     display:flex;align-items:center;gap:12px;padding:16px;
     background:linear-gradient(140deg,var(--teal-dark),var(--teal) 78%);color:#fff;
   }
+  /* ראש הכרטיס — הפנים, השם והרישיון — הוא הזהות של הסוכן/ת, ולכן הוא גם
+     הדלת לעמוד שלו/ה, בדיוק כמו שרצועת המשרד שמעליו היא הדלת למשרד.
+     ‏is-link נדלק רק כשיש לאן לקשר, כדי שלא ייווצר סמן יד על אזור מת. */
+  .agent-top.is-link{cursor:pointer;transition:filter .15s ease}
+  .agent-top.is-link:hover{filter:brightness(1.09)}
+  .agent-top.is-link:focus-visible{outline:2px solid #fff;outline-offset:-3px}
+  /* תו האיכות והחץ יושבים יחד בקצה השני של הראש. ה-‎auto‎ עבר לעטיפה כדי
+     ששניהם יידחפו יחד לקצה ולא יתחלקו בחלל הפנוי בין שתי מסגרות. */
+  .agent-top-end{margin-inline-start:auto;flex:none;display:flex;align-items:center;gap:10px}
+  .agent-chev{display:none;color:rgba(255,255,255,.75);flex:none}
+  .agent-top.is-link .agent-chev{display:flex}
+  .agent-chev svg{width:18px;height:18px}
   .agent-photo{
     width:56px;height:56px;border-radius:50%;flex:none;overflow:hidden;background:rgba(255,255,255,.18);
     display:grid;place-items:center;font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.35rem;
@@ -369,50 +443,57 @@
      ייחתך סביב הפנים ולא סביב מרכז הקובץ */
   .agent-photo img{width:100%;height:100%;object-fit:cover;object-position:var(--photo-pos,50% 25%)}
   .agent-name{font-weight:800;font-size:1.02rem;line-height:1.25}
+  /* התג נושא שני נתונים — ההסמכה ומספר הרישיון — ולכן שתי שורות ולא אחת:
+     בעמודת צד ברוחב כרטיס, "מתווך/ת מורשה/ית · רישיון 3134355" בשורה אחת
+     נשבר באמצע הצירוף ומשאיר את "ית" או את הספרות תלויות לבד בשורה
+     הבאה. ‏nowrap על כל שורה מבטיח שהשבירה תקרה רק במקום שנבחר לה. */
   .agent-cred{
-    display:inline-flex;align-items:center;gap:5px;margin-top:4px;font-size:.72rem;font-weight:700;
-    background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);padding:3px 9px;border-radius:999px;
+    display:inline-flex;align-items:center;gap:6px;margin-top:4px;font-size:.72rem;font-weight:700;
+    background:rgba(255,255,255,.16);border:1px solid rgba(255,255,255,.28);padding:4px 9px;border-radius:0;
   }
   .agent-cred svg{width:13px;height:13px;flex:none;color:#9BD5A3}
+  .agent-cred .cred-lines{display:flex;flex-direction:column;align-items:flex-start;line-height:1.28;min-width:0}
+  .agent-cred .cred-title,.agent-cred .cred-license{white-space:nowrap}
+  .agent-cred .cred-license{font-weight:600;opacity:.9}
   .agent-agency{font-size:.75rem;opacity:.8;margin-top:4px}
   /* תו האיכות בקצה השני של ראש הכרטיס. ‎:empty‎ — כשלסוכן/ת אין תו הרכיב לא
      מוזרק בכלל, והמשבצת לא צריכה לתפוס מקום או להיקרא במקלט מסך. */
-  .agent-badge-slot{margin-inline-start:auto;flex:none;display:flex;align-items:center}
+  .agent-badge-slot{flex:none;display:flex;align-items:center}
   .agent-badge-slot:empty{display:none}
   .agent-body{padding:16px}
   .agent-price{
     display:flex;align-items:baseline;justify-content:space-between;gap:8px;
-    border:1px dashed var(--hair-strong);border-radius:14px;padding:10px 13px;margin-bottom:14px;
+    border:1px dashed var(--hair-strong);border-radius:0;padding:10px 13px;margin-bottom:14px;
   }
   .agent-price .k{font-size:.74rem;font-weight:700;color:var(--ink-soft)}
   .agent-price .v{font-size:1.2rem;font-weight:900;color:var(--teal-dark);letter-spacing:-.4px;white-space:nowrap}
   .agent-body h2{font-size:1.02rem;margin-bottom:3px}
   .agent-body p.sub{font-size:.79rem;color:var(--ink-soft);margin:0 0 13px}
   .field{margin-bottom:9px}
-  .field input,.field textarea{width:100%;border:1.5px solid var(--hair-strong);border-radius:12px;padding:11px 13px;background:var(--surface-soft);transition:border-color .15s ease,background .15s ease}
+  .field input,.field textarea{width:100%;border:1.5px solid var(--hair-strong);border-radius:0;padding:11px 13px;background:var(--surface-soft);transition:border-color .15s ease,background .15s ease}
   .field input:focus,.field textarea:focus{border-color:var(--teal);background:#fff;outline:none}
   /* גובה שמכיל את ההודעה המוכנה עם מספר המודעה בלי גלילה בתוך התיבה */
   .field textarea{resize:vertical;min-height:84px}
   #inquiryFeedback{font-size:.8rem;margin-top:8px;text-align:center;min-height:1.2em}
   .btn-submit{
     width:100%;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:13px 18px;
-    border-radius:14px;font-weight:800;font-size:.95rem;color:#fff;
-    background:linear-gradient(120deg,var(--gold-dark),var(--gold) 60%,#A32B3C);
-    box-shadow:0 6px 16px rgba(139,35,50,.24);transition:transform .15s ease,box-shadow .15s ease;
+    border-radius:0;font-weight:800;font-size:.95rem;color:#fff;
+    background:linear-gradient(120deg,var(--gold-dark),var(--gold) 60%,#08194a);
+    box-shadow:0 6px 16px rgba(14,42,107,.24);transition:transform .15s ease,box-shadow .15s ease;
   }
-  .btn-submit:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 10px 22px rgba(139,35,50,.3)}
+  .btn-submit:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 10px 22px rgba(14,42,107,.3)}
   .btn-submit:disabled{opacity:.55;cursor:not-allowed}
   .agent-actions{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:12px}
   .agent-actions:empty{display:none}
   .btn-wa{
-    display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;border-radius:14px;
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;border-radius:0;
     background:linear-gradient(120deg,var(--wa-dark),var(--wa));color:#fff;font-weight:800;font-size:.9rem;
     box-shadow:0 6px 16px rgba(34,197,94,.28);transition:transform .15s ease,box-shadow .15s ease;
   }
   .btn-wa:hover{transform:translateY(-1px);box-shadow:0 10px 22px rgba(34,197,94,.34)}
   .btn-wa svg{width:19px;height:19px;fill:#fff;flex:none}
   .btn-call{
-    display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px 15px;border-radius:14px;
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:12px 15px;border-radius:0;
     background:var(--teal-tint);color:var(--teal-dark);font-weight:800;font-size:.9rem;border:1px solid var(--hair);
   }
   .btn-call:hover{background:#D3DEE8}
@@ -428,7 +509,7 @@
     padding:0 var(--row-peek) 6px;
   }
   .prop-card{
-    background:var(--surface);border:1px solid var(--hair);border-radius:16px;overflow:hidden;
+    background:var(--surface);border:1px solid var(--hair);border-radius:0;overflow:hidden;
     flex:0 0 min(250px, calc((100% - var(--row-gap) * 2) / 3));scroll-snap-align:start;cursor:pointer;
     box-shadow:var(--shadow-xs);transition:box-shadow .15s ease,transform .15s ease;
   }
@@ -442,16 +523,16 @@
     background:
       linear-gradient(180deg,rgba(255,255,255,.66),rgba(255,255,255,.36) 55%,rgba(255,255,255,.56)),
       url('assets/property-placeholder.jpg') center/cover no-repeat,
-      linear-gradient(160deg,#F4F3F0 0%,#E0E7ED 100%);
+      linear-gradient(160deg,#ffffff 0%,#eaf0fb 100%);
   }
   .thumb-fallback .tf-logo{
-    width:32px;height:32px;flex:0 0 auto;border-radius:9px;background:#fff;
+    width:32px;height:32px;flex:0 0 auto;border-radius:0;background:#fff;
     border:1px solid var(--hair);object-fit:contain;padding:3px;
     box-shadow:0 4px 14px rgba(18,40,64,.18);
   }
   .thumb-fallback .tf-initial{
     display:flex;align-items:center;justify-content:center;padding:0;border-color:transparent;
-    background:linear-gradient(155deg,#8B2332,#1C3A5E 65%);color:#fff;
+    background:linear-gradient(155deg,#0e2a6b,#0e2a6b 65%);color:#fff;
     font-family:'Frank Ruhl Libre',serif;font-weight:900;font-size:.9rem;line-height:1;
   }
   .thumb-fallback .tf-agency{
@@ -461,7 +542,7 @@
   .thumb-fallback .tf-note{font-size:.6rem;color:var(--ink-soft);line-height:1.25}
   .prop-card .ribbon{
     position:absolute;top:6px;inset-inline-end:6px;background:var(--bronze);color:#fff;font-size:.6rem;
-    font-weight:800;padding:2px 7px;border-radius:5px;
+    font-weight:800;padding:2px 7px;border-radius:0;
   }
   /* המחיר, שורת המאפיינים והתגיות שעל התמונה מגיעים
      מ-assets/property-card.js, כדי שאריח הנכס ייראה כאן בדיוק כמו בדף
@@ -491,7 +572,7 @@
     .featured-scroll{--row-gap:16px;--row-peek:24px}
     .prop-card .thumb{height:150px}
     .prop-card .thumb .thumb-fallback{gap:6px;padding:10px}
-    .prop-card .thumb .tf-logo{width:48px;height:48px;border-radius:12px;font-size:1.15rem}
+    .prop-card .thumb .tf-logo{width:48px;height:48px;border-radius:0;font-size:1.15rem}
     .prop-card .thumb .tf-agency{font-size:.74rem}
     .prop-card .thumb .tf-note{font-size:.68rem}
     .prop-card .body{padding:12px}
@@ -524,7 +605,7 @@
   .lb-prev{inset-inline-end:14px}
   .lb-next{inset-inline-start:14px}
   .lb-strip{display:flex;gap:7px;overflow-x:auto;padding:0 16px 16px;flex:0 0 auto}
-  .lb-strip button{padding:0;border:2px solid transparent;border-radius:9px;overflow:hidden;flex:none;background:none;line-height:0;opacity:.55}
+  .lb-strip button{padding:0;border:2px solid transparent;border-radius:0;overflow:hidden;flex:none;background:none;line-height:0;opacity:.55}
   .lb-strip button.active{border-color:var(--bronze-soft);opacity:1}
   .lb-strip img{width:76px;height:56px;object-fit:cover}
 
@@ -568,7 +649,7 @@
      אותה שפה כמו המחשבון בדף הבית, מותאמת לעמודת צד צרה: מחיר הנכס אינו
      סליידר אלא נתון — זה המחיר של הנכס הזה — וההון העצמי הוא מה שמשחקים בו. */
   .calc-card{
-    --calc-accent:#8B2332; --calc-accent-warm:#C25B34;
+    --calc-accent:#0e2a6b; --calc-accent-warm:#C25B34;
     padding:20px;display:flex;flex-direction:column;gap:16px;border-radius:var(--radius-xl);
     border:1px solid var(--hair);box-shadow:var(--shadow-xs);
     background:linear-gradient(165deg,#FFFFFF 0%,var(--surface-soft) 55%,var(--teal-tint) 100%);
@@ -577,7 +658,7 @@
   .calc-card .calc-sub{font-size:.76rem;color:var(--ink-soft);margin:4px 0 0}
   .calc-price{
     display:flex;align-items:baseline;justify-content:space-between;gap:8px;
-    background:var(--teal-tint);border-radius:12px;padding:10px 12px;
+    background:var(--teal-tint);border-radius:0;padding:10px 12px;
   }
   .calc-price .lbl{font-size:.76rem;font-weight:700;color:var(--ink-soft)}
   .calc-price .val{font-size:1.15rem;font-weight:900;color:var(--teal-dark)}
@@ -588,7 +669,7 @@
   /* הרקע על ה-input עצמו (ולא רק על ::-webkit-slider-runnable-track) כדי
      שמילוי המסלול יעבוד גם בפיירפוקס, שם ::-moz-range-track שקוף. */
   .calc-range{
-    -webkit-appearance:none;appearance:none;width:100%;height:12px;border-radius:999px;margin:0;
+    -webkit-appearance:none;appearance:none;width:100%;height:12px;border-radius:0;margin:0;
     background:linear-gradient(to left,var(--teal-dark) 0%,var(--calc-accent-warm) var(--p,50%),#CFCDC7 var(--p,50%),#CFCDC7 100%);
     cursor:pointer;
   }
@@ -596,30 +677,30 @@
   .calc-range::-moz-range-track{background:transparent;height:12px}
   .calc-range::-webkit-slider-thumb{
     -webkit-appearance:none;appearance:none;width:24px;height:24px;border-radius:50%;
-    background:var(--teal-dark);border:3px solid #fff;box-shadow:0 3px 10px rgba(15,52,53,.35);
+    background:var(--teal-dark);border:3px solid #fff;box-shadow:0 3px 10px rgba(14,42,107,.35);
   }
   .calc-range::-moz-range-thumb{
     width:24px;height:24px;border-radius:50%;box-sizing:border-box;
-    background:var(--teal-dark);border:3px solid #fff;box-shadow:0 3px 10px rgba(15,52,53,.35);
+    background:var(--teal-dark);border:3px solid #fff;box-shadow:0 3px 10px rgba(14,42,107,.35);
   }
   .calc-ltv{display:flex;align-items:center;gap:7px;margin-top:9px;font-size:.74rem;font-weight:700;color:var(--gold-dark)}
   .calc-ltv .arrow{color:var(--calc-accent);font-size:.86rem;line-height:1}
-  .calc-ltv-track{flex:0 0 52px;height:4px;border-radius:999px;background:#CFCDC7;overflow:hidden}
+  .calc-ltv-track{flex:0 0 52px;height:4px;border-radius:0;background:#CFCDC7;overflow:hidden}
   .calc-ltv-fill{display:block;height:100%;width:0;background:linear-gradient(to left,var(--calc-accent),var(--calc-accent-warm));transition:width .18s ease}
 
   .calc-steppers{display:grid;grid-template-columns:1fr 1fr;gap:10px}
   .calc-step .lbl{display:block;font-size:.74rem;font-weight:700;color:var(--ink-soft);text-align:center;margin-bottom:6px}
   .calc-step-ctl{
     display:flex;align-items:center;background:var(--surface);border:1.5px solid var(--hair-strong);
-    border-radius:12px;padding:3px;gap:3px;
+    border-radius:0;padding:3px;gap:3px;
   }
   .calc-step-ctl button{
-    width:32px;height:32px;flex:none;border-radius:9px;font-size:1.2rem;font-weight:700;line-height:1;
+    width:32px;height:32px;flex:none;border-radius:0;font-size:1.2rem;font-weight:700;line-height:1;
     color:var(--teal-dark);display:grid;place-items:center;background:none;transition:background .15s ease;
   }
   .calc-step-ctl button:hover{background:var(--teal-tint)}
   .calc-step-ctl input{
-    flex:1;min-width:0;width:100%;text-align:center;border:none;background:#fff;border-radius:9px;
+    flex:1;min-width:0;width:100%;text-align:center;border:none;background:#fff;border-radius:0;
     padding:7px 2px;font-size:1.1rem;font-weight:900;color:var(--teal-dark);
   }
   .calc-step-ctl input::-webkit-outer-spin-button,
@@ -629,7 +710,7 @@
   .calc-result{
     display:flex;align-items:center;justify-content:space-between;gap:10px;
     background:linear-gradient(120deg,var(--teal-dark) 0%,var(--teal) 100%);
-    border-radius:16px;padding:14px 16px;box-shadow:0 8px 20px rgba(18,40,64,.22);
+    border-radius:0;padding:14px 16px;box-shadow:0 8px 20px rgba(18,40,64,.22);
   }
   .calc-result .ttl{font-size:.88rem;font-weight:800;color:#fff}
   .calc-result .lbl{font-size:.7rem;color:rgba(255,255,255,.72);margin-top:2px}
@@ -640,19 +721,19 @@
   .ltv-warn{color:var(--brick);font-size:.72rem;font-weight:700;text-align:center;margin:0}
   .ltv-warn:empty{display:none}
   .calc-cta{
-    display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 16px;border-radius:14px;
+    display:flex;align-items:center;justify-content:center;gap:8px;padding:13px 16px;border-radius:0;
     background:linear-gradient(to right,var(--teal-dark),var(--calc-accent) 55%,var(--calc-accent-warm));
-    color:#fff;font-weight:800;font-size:.9rem;box-shadow:0 6px 16px rgba(139,35,50,.26);
+    color:#fff;font-weight:800;font-size:.9rem;box-shadow:0 6px 16px rgba(14,42,107,.26);
     transition:transform .15s ease, box-shadow .15s ease;width:100%;
   }
-  .calc-cta:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(139,35,50,.32)}
+  .calc-cta:hover{transform:translateY(-2px);box-shadow:0 10px 22px rgba(14,42,107,.32)}
   .calc-cta svg{width:20px;height:20px;flex:none}
   .calc-fine{font-size:.68rem;color:var(--ink-soft);margin:0;text-align:center}
 
   /* ====== בלון ליד ייעוץ משכנתאות ====== */
-  .mlead-overlay{display:none;position:fixed;inset:0;background:rgba(15,52,53,.55);z-index:300;align-items:flex-end;justify-content:center}
+  .mlead-overlay{display:none;position:fixed;inset:0;background:rgba(14,42,107,.55);z-index:300;align-items:flex-end;justify-content:center}
   .mlead-overlay.open{display:flex}
-  .mlead-panel{background:var(--surface);width:100%;max-width:520px;max-height:88vh;border-radius:20px 20px 0 0;display:flex;flex-direction:column;overflow:hidden}
+  .mlead-panel{background:var(--surface);width:100%;max-width:520px;max-height:88vh;border-radius:0 20px 0 0;display:flex;flex-direction:column;overflow:hidden}
   @media(min-width:520px){
     .mlead-overlay{align-items:center}
     .mlead-panel{border-radius:var(--radius-xl);max-height:84vh}
@@ -663,13 +744,13 @@
   .mlead-body{padding:16px 18px;overflow-y:auto;flex:1 1 auto}
   .mlead-foot{padding:14px 18px;border-top:1px solid var(--hair);flex:0 0 auto}
   .mlead-intro{font-size:.84rem;color:var(--ink-soft);margin:0 0 14px}
-  .mlead-recap{background:var(--teal-tint);border-radius:12px;padding:10px 12px;margin-bottom:14px;font-size:.78rem;color:var(--teal-dark);font-weight:600}
+  .mlead-recap{background:var(--teal-tint);border-radius:0;padding:10px 12px;margin-bottom:14px;font-size:.78rem;color:var(--teal-dark);font-weight:600}
   .mlead-field{margin-bottom:12px}
   .mlead-field label{font-size:.76rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
-  .mlead-field input{width:100%;border:1.5px solid var(--hair-strong);border-radius:12px;padding:11px 12px;background:var(--surface-soft)}
+  .mlead-field input{width:100%;border:1.5px solid var(--hair-strong);border-radius:0;padding:11px 12px;background:var(--surface-soft)}
   .mlead-field input:focus{border-color:var(--teal);background:#fff;outline:none}
   .mlead-field input.invalid{border-color:var(--brick);background:var(--gold-tint)}
-  .mlead-check{display:flex;align-items:center;gap:10px;background:var(--surface-soft);border:1.5px solid var(--hair-strong);border-radius:12px;padding:12px;cursor:pointer;font-size:.86rem;font-weight:600}
+  .mlead-check{display:flex;align-items:center;gap:10px;background:var(--surface-soft);border:1.5px solid var(--hair-strong);border-radius:0;padding:12px;cursor:pointer;font-size:.86rem;font-weight:600}
   .mlead-check input{width:20px;height:20px;flex:none;accent-color:var(--teal);cursor:pointer}
   .mlead-error{font-size:.78rem;color:var(--brick);font-weight:700;margin:8px 0 0;min-height:1.2em}
   .mlead-privacy{font-size:.7rem;color:var(--ink-soft);margin:12px 0 0;text-align:center}
@@ -678,7 +759,7 @@
   .mlead-done h4{font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;color:var(--teal-dark);margin:0 0 6px}
   .mlead-done p{font-size:.85rem;color:var(--ink-soft);margin:0}
 
-  .toast{position:fixed;bottom:20px;right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:12px;font-size:.85rem;box-shadow:var(--shadow-lg);display:none;z-index:430}
+  .toast{position:fixed;bottom:20px;right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:0;font-size:.85rem;box-shadow:var(--shadow-lg);display:none;z-index:430}
 
   /* ====== בועת וואטסאפ צפה לסוכן/ת המטפל/ת ======
      בדסקטופ בלבד, וגם שם רק כל עוד הסרגל התחתון סגור: שתי דרכים ירוקות
@@ -686,7 +767,7 @@
   .wa-bubble{
     position:fixed;bottom:18px;inset-inline-end:18px;z-index:210;
     display:none;align-items:center;padding:9px;padding-inline-end:16px;
-    background:var(--wa);color:#fff;border-radius:999px;font-weight:700;font-size:.88rem;
+    background:var(--wa);color:#fff;border-radius:0;font-weight:700;font-size:.88rem;
     box-shadow:0 8px 22px rgba(34,197,94,.42);
     transition:transform .15s ease, box-shadow .15s ease;
   }
@@ -717,42 +798,158 @@
   body.sticky-on .toast{bottom:88px}
 
   /* ====== הדמיות AI ======
-     כל תמונה כאן היא הדמיה ולא צילום, ולכן תגית ה-"הדמיה" יושבת *על* התמונה
-     ולא לידה: מי שישמור או ישתף את התמונה ייקח את התווית איתו. זו לא קישוטיות
-     אלא הדרישה שמפרידה בין המחשה שיווקית לבין הצגה מטעה של נכס. */
-  /* הריווח והכותרת עברו ל-#vizSection: מחלקת ‎.section‎ שהבלוק הזה נשען
-     עליה הוחלפה ב-.panel, ובלעדיהן הסקציה נצמדת לרצועת המשרד וכותרתה
-     נשארת בגודל ברירת המחדל של הדפדפן — גדולה מכל כותרת אחרת בדף. */
-  #vizSection h2{font-size:1.05rem}
+     הרצועה מגיעה מקובץ משותף (assets/ai-showcase.js) שנבנה לרוחב מלא של
+     ‏1180px. כאן היא יושבת בתוך עמודת התוכן — ‎~700px‎ במסך רחב — ולכן
+     שתי התאמות:
+
+       * מספר העמודות נקבע לפי רוחב *התיבה* ולא לפי רוחב המסך. שאילתת
+         המדיה שבקובץ מודדת את המסך, ובמסך רחב היא הייתה דוחסת שתי
+         עמודות לתוך עמודה אחת של הרשת. לכן ‎#vizSection‎ מוכרז כמכולה
+         והשאילתה כאן היא ‎@container‎: מתחת ל-560px התיבה נשארת בעמודה
+         אחת (מסך צר, או עמודת תוכן צרה בלפטופ), ומעליהם היא חוזרת
+         לשתי העמודות שהרכיב תוכנן להן.
+       * הריפוד מתקצר. ‏44px בצד היו אוכלים שישית מהעמודה.
+
+     כל תמונה שם היא הדמיה ולא צילום, ולכן תגית ה-"הדמיה" יושבת *על*
+     התמונה ולא לידה: מי שישמור או ישתף את התמונה ייקח את התווית איתו. זו
+     לא קישוטיות אלא הדרישה שמפרידה בין המחשה שיווקית לבין הצגה מטעה. */
+  /* המרווח מעל התיבה נקבע ב-‎.content-col > #vizSection‎ ולא כאן: הוא
+     המרווח בין *הבלוקים* בעמודה, ושתי הצהרות שמצטברות זו על זו הן בדיוק
+     איך נפתח חלל שאיש לא התכוון אליו. */
+  #aiShowcase .ai-band{margin-block:0}
+  /* ‏gap ו-padding מהודקים: ‎22px‎ בין שורות הגריד ו-‎26px‎ מתחת להצהרה יצרו
+     שני חללים ריקים בתחתית התיבה — אחד בין האריחים להצהרה ואחד מתחתיה —
+     שנקראו כסוף התוכן הרבה לפני שהוא באמת נגמר. */
+  #aiShowcase .ai-band-inner{max-width:none;grid-template-columns:1fr;
+    gap:16px;padding:24px 16px 14px}
+  /* ביטול מיקום שתי העמודות של הרכיב. שאילתת המדיה שלו מודדת את *המסך*,
+     ובלפטופ עם עמודת תוכן צרה היא נדלקת בזמן שהתיבה כאן היא עמודה אחת —
+     ‏grid-column:2 היה יוצר עמודה מרומזת שנייה שאין לה מקום. השאילתה
+     שמתחת, שמודדת את התיבה עצמה, מחזירה את המיקום כשהוא באמת נכון. */
+  #aiShowcase .ai-band-inner > .ai-show{grid-column:auto;grid-row:auto}
+  /* התיבה כמכולה: הכלל שמתחת שואל את רוחבה שלה, כי היא יושבת בעמודת
+     גריד שרוחבה אינו רוחב המסך. */
+  #vizSection{container-type:inline-size}
+  /* מ-560px ומעלה הרצועה חוזרת לפריסת שתי העמודות שהרכיב תוכנן לה:
+     ההבטחה מימין, הווילון משמאל. עמודה אחת ברוחב כזה הייתה מותחת את
+     הווילון לגובה של יותר מ-500px ואת הפסקה לשורה דקה וארוכה — כלומר
+     מכפילה את גובה התיבה בלי להוסיף לה תוכן, ומשאירה את עמודת הצד
+     שלצדה נגמרת הרבה לפניה. */
+  @container (min-width:560px){
+    /* ‏align-items:start ולא ‎center‎ שהרכיב מגיע איתו: בשתי עמודות הווילון
+       גבוה בהרבה מהטור שלצדו, ומירכוז אנכי הפיל את הכותרת אל אמצע הגובה
+       שלו — כלומר התחיל את ההבטחה שליש מתחת לראש התיבה, מול תמונה
+       שמתחילה בקצה העליון. שתי העמודות מתחילות עכשיו באותו קו.
+       ‏16px מתחת להצהרה, ולא 26 של ה-gap: מתחת לשורה האחרונה אין עוד
+       שורה שצריך להפריד ממנה — יש רק את קצה התיבה.
+
+       ‏24px של ריפוד צדדי ו-26 בין העמודות, במקום 26/30 שהיו כאן: מה
+       שיורד מהשוליים נכנס לתמונות. אותו רוחב תיבה בדיוק, ולוח הסגנונות
+       והווילון גדלים בכמה נקודות אחוז כל אחד. */
+    #aiShowcase .ai-band-inner{grid-template-columns:1.15fr 1fr;
+      align-items:stretch;column-gap:26px;row-gap:14px;padding:28px 24px 12px}
+    /* טור ההבטחה נמתח לגובה הווילון שלצדו, והפקדים נדחפים לתחתיתו.
+       בלי זה הטור מסתיים 170px מעל שכנו ונשאר חור כהה בפינה — והדרך
+       השנייה לסגור אותו, לצמצם את עמודת התמונה, מקטינה בדיוק את הדבר
+       שבגללו נכנסו לתיבה. כך במקום חלל ריק יש הפרדה בין ההבטחה למעלה
+       לבין הפעולה למטה, ושתי העמודות נגמרות באותו קו. */
+    #aiShowcase .ai-copy{display:flex;flex-direction:column}
+    /* לוח הסגנונות (נכס פרטי) או שדות הבקשה (מסחרי) — מה שקיים הוא
+       שנדחף למטה. הם לעולם לא מופיעים יחד. */
+    #aiShowcase .ai-copy .ai-styles-card,
+    #aiShowcase .ai-copy .ai-ask:not(:empty){margin-top:auto}
+    /* ההזמנה לפגישה יורדת לשורה השנייה של העמודה הראשונה — מתחת להבטחה —
+       וטור התמונות נפרש על שתי השורות. בלי הפרישה הזאת התמונונות היו
+       נגמרות בגובה ההבטחה, ולצד ההזמנה היה נפתח מלבן כהה ריק. */
+    #aiShowcase .ai-band-inner > .ai-show{grid-column:2;grid-row:1/span 2}
+    /* הכפתור נגמר על **הקו התחתון של התמונות** ולא על תחתית הטור.
+       ‏align-self ברירת המחדל (‏stretch) מתח אותו עד סוף השורה — כלומר עד
+       מתחת לשורת התוויות של התמונונות — וקצהו ירד מתחת לקו שהעין מודדת
+       לפיו. ‏end מצמיד אותו לתחתית, וה-margin מרים אותו בדיוק בגובה שורת
+       התווית (‏--ai-thumb-label, מוגדר על הרצועה). */
+    #aiShowcase .ai-band-inner > .ai-lead{align-self:end;
+      margin-bottom:var(--ai-thumb-label,0px)}
+  }
+  #aiShowcase .ai-band h3{font-size:clamp(20px,3.4vw,25px)}
+  /* ‏.ai-copy > p‎ ולא ‎.ai-band p‎: בתיבה יש עכשיו שלוש פסקאות נוספות
+     (כותרת לוח הסגנונות, הכיתוב שבתוך הלוח הלבן וההצהרה שבתחתית), ובורר
+     עם מזהה היה גובר על הכללים הייעודיים של כל אחת מהן. */
+  #aiShowcase .ai-copy > p{font-size:15px}
+  #aiShowcase .ai-points li{font-size:14px}
+
   /* ‏16:9 קבוע לנגן: גובה שנקבע מהמדיה עצמה גורם לקפיצת פריסה כשה-metadata
      נטענת, וסרטוני נכסים מגיעים גם לאורך וגם לרוחב. */
   .video-frame{position:relative;aspect-ratio:16/9;border-radius:var(--radius-lg);overflow:hidden;background:#000}
   .video-frame video,.video-frame iframe{width:100%;height:100%;display:block;border:0}
   .video-frame video{object-fit:contain}
 
-  .viz-head{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
-  .viz-head .viz-sub{font-size:.82rem;color:var(--ink-soft)}
-  .viz-styles{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0 4px}
-  .viz-style{border:1.5px solid var(--hair-strong);background:var(--surface);border-radius:999px;
-    padding:8px 16px;font-size:.84rem;font-weight:700;color:var(--ink);cursor:pointer}
-  .viz-style.active{border-color:var(--gold);background:var(--gold-tint);color:var(--gold-dark)}
-  .viz-style-tag{display:block;font-size:.68rem;font-weight:400;color:var(--ink-soft);margin-top:2px}
-  .viz-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:14px}
-  .viz-item{position:relative;border:1px solid var(--hair);border-radius:16px;
-    overflow:hidden;background:var(--surface);box-shadow:var(--shadow-xs)}
-  .viz-item img{width:100%;aspect-ratio:4/3;object-fit:cover;display:block}
-  .viz-item .viz-room{padding:9px 12px;font-size:.82rem;font-weight:700}
-  .viz-badge{position:absolute;top:8px;inset-inline-start:8px;background:rgba(27,31,38,.86);
-    color:#fff;font-size:.66rem;font-weight:700;padding:4px 9px;border-radius:6px;letter-spacing:.02em}
-  .viz-item.pending{display:flex;align-items:center;justify-content:center;
-    aspect-ratio:4/3;color:var(--ink-soft);font-size:.84rem;background:var(--surface-soft)}
-  .viz-fallback{margin:12px 0 0;font-size:.78rem;font-weight:600;color:var(--ink-soft)}
-  .viz-note{margin-top:14px;font-size:.75rem;color:var(--ink-soft);line-height:1.5}
-  .viz-cta{margin-top:14px}
-  .viz-form{margin-top:14px;display:none;gap:10px;flex-wrap:wrap;align-items:flex-start}
-  .viz-form.open{display:flex}
-  .viz-form .field{flex:1 1 160px;margin:0}
-  .viz-error{color:var(--gold-dark);font-size:.8rem;margin-top:8px;min-height:1em}
+  /* הבקשה בנכס מסחרי: הטופס נודד לתוך הרצועה הכהה, מעל הכפתור שמפעיל
+     אותו. קודם הוא ישב מתחתיה בשפת הטפסים של הדף — ואז היה לו כפתור
+     "יצירת ההדמיה" משלו, כפול לכפתור שברצועה. עכשיו יש כפתור אחד,
+     והשדות שמעליו לובשים את שפת הרצועה. */
+  .viz-ask{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-start}
+  .viz-ask > .field{flex:1 1 260px;margin:0}
+  /* שני שדות הקשר כיחידה אחת: הם נדרשים יחד או לא נדרשים בכלל, ומי
+     שכבר מסר/ה אותם לנכס הזה לא רואה אף אחד מהם. */
+  .viz-contact{display:flex;gap:10px;flex-wrap:wrap;flex:1 1 340px}
+  .viz-contact[hidden]{display:none}
+  .viz-contact .field{flex:1 1 160px;margin:0}
+  /* שדה לבן על ספיר. הגבול האפור של שפת הטפסים נעלם על רקע כהה ומשאיר
+     קופסה מרחפת, ולכן כאן הגבול הוא המיקוד עצמו — זהב, אותו זהב של
+     הכפתור שמתחת. */
+  #aiPropAsk .field input{border-color:transparent;background:#fff;color:#0f172a}
+  #aiPropAsk .field input::placeholder{color:#5b678a}
+  #aiPropAsk .field input:focus{border-color:#c9a227;background:#fff}
+  .viz-error{color:var(--gold-dark);font-size:.8rem;margin:8px 0 0;min-height:1em}
+  /* ‏min-height שמור מקום לשורת שגיאה כדי שהופעתה לא תזיז את מה שמתחתיה —
+     אבל השורה ריקה כמעט תמיד, וברוב המכריע של הביקורים הוא היה 21px של
+     כלום מתחת לתיבת ההדמיות — בדיוק במקום שבו היא נגמרת ומתחיל המקטע
+     הבא. שורה ריקה מתכווצת לאפס; ‏min-height חוזר ברגע שנכנס לתוכה טקסט,
+     ואיתו הגובה האחיד לשורת שגיאה שכן הופיעה.
+     ‏min-height:0 ולא ‎display:none‎: על הפסקה יושב ‎role="alert"‎, ואזור
+     חי שהוסר מעץ הנגישות אינו מובטח להכריז על עצמו כשהוא חוזר אליו. כאן
+     הוא נשאר בעץ לאורך כל הדרך ורק מאבד את הגובה שלו. */
+  .viz-error:empty{min-height:0;margin:0}
+  /* מה עובד עכשיו. בלי זה לחיצה על "יצירת הדמיה" נראית כאילו לא קרה כלום
+     עד שהתמונה מופיעה — וזה יכול לקחת דקה. */
+  .viz-pending{margin:6px 0 0;font-size:.82rem;font-weight:600;color:var(--ink-soft)}
+
+  /* ====== "חושבים למכור/להשכיר?" ======
+     הטופס נפתח מתחת לתיבת ההדמיות ולובש את שפת הפאנלים של הדף ולא את
+     שפת הרצועה הכהה: הוא כבר לא חלק מהכלי — הוא מה שבא אחריו. */
+  #ownerLeadPanel{margin-top:14px}
+  .owner-lead-sub{font-size:.86rem;line-height:1.55;color:var(--ink-soft);margin:0 0 14px;max-width:56ch}
+  /* כפתור הסגירה. ‏36px ולא בגודל התו: יעד מגע קטן מזה מפספסים בטלפון,
+     והתו עצמו נשאר קטן — מה שגדל הוא השטח סביבו. */
+  .ol-close{
+    flex:none;width:36px;height:36px;display:grid;place-items:center;
+    font-size:1rem;line-height:1;color:var(--ink-soft);background:transparent;
+    border:1.5px solid transparent;transition:color .15s ease,border-color .15s ease,background .15s ease;
+  }
+  .ol-close:hover{color:var(--ink);border-color:var(--hair-strong);background:var(--surface-soft)}
+  .ol-close:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+  /* שתי אפשרויות שקולות, ולכן שתי עמודות שוות ולא שורה עוטפת: "רוצה
+     למכור" ו"רוצה להשכיר" ברוחב המילים שבהן היו נקראות כשני כפתורים
+     בגדלים שונים, כלומר כאילו אחת מהן ראשית. */
+  .owner-lead-toggle{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px}
+  .owner-lead-toggle button{
+    padding:11px 12px;font-weight:700;font-size:.9rem;
+    border:1.5px solid var(--hair-strong);background:var(--surface-soft);color:var(--ink);
+    transition:border-color .15s ease,background .15s ease,color .15s ease;
+  }
+  .owner-lead-toggle button:hover{border-color:var(--teal)}
+  .owner-lead-toggle button[aria-pressed="true"]{background:var(--teal);border-color:var(--teal);color:#fff}
+  /* שם וטלפון הם יחידה אחת — שניהם נדרשים יחד — ולכן שורה אחת כשיש מקום. */
+  .owner-lead-row{display:flex;gap:9px;flex-wrap:wrap}
+  .owner-lead-row .field{flex:1 1 150px;margin-bottom:9px}
+  .owner-lead-done{text-align:center;padding:8px 0 2px}
+  .owner-lead-done h3{font-size:1.05rem;margin:10px 0 6px}
+  .owner-lead-done p{font-size:.86rem;color:var(--ink-soft);margin:0}
+  .owner-lead-mark{
+    width:44px;height:44px;margin:0 auto;border-radius:50%;
+    display:grid;place-items:center;font-size:1.3rem;font-weight:900;
+    background:var(--teal-tint);color:var(--teal);
+  }
 
   /* ====== מידע תכנוני (נכסי קרקע) ======
      הנתונים חוזרים על שפת הקפסולות של סרגל הנתונים (.spec-pill) ולא מקבלים
@@ -769,15 +966,18 @@
   .plan-note{margin-top:14px;font-size:.75rem;color:var(--ink-soft);line-height:1.5}
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
+<link rel="stylesheet" href="assets/buyer-banner.css">
+<link rel="stylesheet" href="assets/design-system.css">
 <script src="assets/site-footer.js" defer></script>
+<script src="assets/buyer-banner.js" defer></script>
 </head>
 <body>
 
 <header class="site">
   <div class="wrap header-inner">
     <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
-      <img class="logo-img" src="assets/logo-shuknadlan.png" alt="שוק הנדל״ן של עפולה והסביבה" width="512" height="436">
-      <span class="logo-word">שוק הנדל״ן של <span>עפולה והסביבה</span></span>
+      <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
+      <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
     </a>
     <a href="index.html" class="back-link">← כל הנכסים</a>
   </div>
@@ -803,6 +1003,10 @@
         <button type="button" class="hero-tool" id="shareBtn" aria-label="שיתוף הנכס" title="שיתוף">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="m8.6 13.5 6.8 4M15.4 6.5l-6.8 4"/></svg>
         </button>
+        <!-- נדלק רק כשהסרטון תפס את תמונת השער, ולכן הוא שני: כפתור השיתוף
+             קיים בכל נכס ונשאר מעוגן בפינה. זה לא פקד ניגון אלא מתג קול —
+             הסרטון רץ בלולאה ממילא, והשאלה היחידה היא אם שומעים אותו. -->
+        <button type="button" class="hero-tool" id="heroSoundBtn" hidden></button>
       </div>
       <div class="hero-price" id="heroPrice" hidden>
         <div class="num" id="heroPriceNum"></div>
@@ -817,6 +1021,16 @@
     </section>
 
     <div class="content-grid">
+      <!-- ====== עמודת התוכן ======
+           פרטי הנכס, ההדמיות והמפה הם שלושה בלוקים בעמודה *אחת*, ולא
+           שלושה איברים ברשת. הם היו איברים נפרדים, ועמודת הצד
+           (כרטיס פנייה + מחשבון) נפרשה על שתי שורות מהן. כשהיא גבוהה
+           מסכום השורות שהיא פרושה עליהן — וזה המצב ברוב הנכסים — הרשת
+           מחלקת את ההפרש *בין* השורות, ואז נפער חלל לבן בין פרטי הנכס
+           לתיבת ההדמיות שאינו שייך לאף אחד מהם ואי אפשר לכוונן אותו.
+           כמכולה אחת המרווחים כאן הם margin רגיל, וכל בלוק צמוד לקודמו
+           בדיוק כמה שנקבע לו. -->
+      <div class="content-col">
       <div class="main-col">
         <h1 class="prop-title" id="propTitle">—</h1>
         <div class="prop-address" id="propAddress"></div>
@@ -866,42 +1080,116 @@
           </p>
         </section>
 
-        <!-- ====== הדמיות AI ======
-             מוצגת רק בנכסי Premium שיש להם הדמיות בסיס, ולכן היא hidden
-             כברירת מחדל ונפתחת רק אחרי ש-loadVisualizations מצא משהו להראות.
-             מקומה כאן ולא בסוף העמוד: אחרי רשת התוכן היא נחתה מתחת לכל
-             עמודת הצד, ובמובייל זה עומק שגולש/ת כמעט לא מגיע/ה אליו. -->
-        <section class="panel" id="vizSection" hidden>
-          <div class="viz-head">
-            <h2>איך זה יכול להיראות</h2>
-            <span class="viz-sub">הדמיות AI על בסיס התמונות האמיתיות של הנכס</span>
-          </div>
+      </div><!-- /main-col -->
 
-          <div class="viz-styles" id="vizStyles"></div>
-          <div class="viz-grid" id="vizGrid"></div>
-          <p class="viz-fallback" id="vizFallbackNote" hidden></p>
+      <!-- ====== הדמיות AI ======
+             התיבה הזאת *היא* כלי ההדמיה של הנכס — לא נספח לו. היא מחליפה
+             את הסקציה "איך זה יכול להיראות" שהייתה כאן: אותם ארבעה
+             סגנונות, אותה יצירה לפי דרישה, אבל הצגה שמתחילה מהשוואה
+             במקום מרשת. הכותרת, השבבים, הכפתור, הווילון והתמונונות
+             מגיעים כולם מ-assets/ai-showcase.js.
 
-          <div class="viz-cta" id="vizCta" hidden>
-            <button type="button" class="btn btn-gold" id="vizOpenBtn">לראות את הנכס בסגנון הזה</button>
-            <form class="viz-form" id="vizForm" novalidate>
+             מקומה כאן, מיד אחרי פרטי הנכס ולפני המפה — בכל רוחב. במובייל
+             זה סדר ה-DOM עצמו, ובמחשב זו השורה השנייה ברשת התוכן (ראו
+             ‎.content-grid‎ ב-CSS). בסוף העמוד היא הייתה עומק שגולש/ת
+             כמעט לא מגיע/ה אליו, וזה בדיוק הרכיב שבאו לראות.
+
+             ‏hidden כברירת מחדל ונפתחת רק אחרי ש-loadVisualizations אישרה
+             שהנכס זכאי. -->
+      <section id="vizSection" hidden>
+          <div id="aiShowcase"></div>
+
+          <!-- ====== הבקשה ======
+               בנכס פרטי אין כאן כלום: הכפתור שברצועה מייצר את ההדמיה,
+               נקודה. ארבעת הסגנונות הם המוצר, ומסך שדורש שם וטלפון לפני
+               שרואים אותם הוא מחסום לפני הערך ולא אחריו.
+
+               בנכס מסחרי נדרשים סוג העסק — בלעדיו אין מה לדמות — ושם וטלפון
+               רק ממי שעדיין לא מסר/ה אותם לנכס הזה. ‏#vizContact יורד ברגע
+               שכבר נמסרו.
+
+               הטופס יושב כאן ב-HTML אבל לא כאן על המסך: אחרי כל רינדור של
+               הרצועה ‏renderPropertyShowcase() מזיז את הצומת הזה אל ‎#aiPropAsk‎
+               שבתוכה, מעל הכפתור. שתי סיבות למקום הזה בקוד:
+
+                 * **כפתור אחד ולא שניים.** קודם היה כאן "יצירת ההדמיה" משלו,
+                   מתחת לרצועה, בזמן ש"יצירת הדמיה לעסק שלכם" שבתוכה עשה
+                   בדיוק אותו דבר. שני כפתורים לאותה פעולה הם שאלה מיותרת
+                   ("מה ההבדל?") לפני פעולה שאין בה בחירה. מה שנשאר הוא
+                   הכפתור שברצועה, ומעליו השדות שהוא זקוק להם.
+                 * **הצומת נודד, לא נבנה מחדש.** הרצועה מורכבת מ-innerHTML
+                   בכל שינוי; שדה שהיה חלק מה-HTML שלה היה מתאפס כשתוצאה
+                   נכנסת באמצע ההקלדה. ‏appendChild מזיז את הצומת עצמו, עם
+                   הערכים והמאזינים שבו. -->
+          <form class="viz-ask" id="vizCta" novalidate hidden>
+            <div class="field">
+              <input type="text" id="vizBusiness" placeholder="איזה עסק תפתחו כאן? (למשל: בית קפה)">
+            </div>
+            <div class="viz-contact" id="vizContact">
               <div class="field"><input type="text" id="vizName" placeholder="שם מלא" autocomplete="name"></div>
               <div class="field"><input type="tel" id="vizPhone" placeholder="טלפון" autocomplete="tel" inputmode="tel"></div>
-              <button type="submit" class="btn btn-gold" id="vizSubmit">יצירת ההדמיה</button>
+            </div>
+          </form>
+
+          <!-- מחוץ ל-#vizCta בכוונה: במסלול הפרטי אין טופס, ושגיאה עדיין
+               צריכה מקום להופיע בו. -->
+          <p class="viz-error" id="vizError" role="alert"></p>
+          <p class="viz-pending" id="vizPending" hidden></p>
+
+          <!-- ====== "חושבים למכור/להשכיר?" ======
+                 הטופס שכפתור ההזמנה שבתיבה פותח. הוא **אינו** טופס
+                 "תיאום ביקור בנכס" שבעמודת הצד: זה שואל על *הנכס שבעמוד*
+                 בשם מי שרוצה לקנות אותו, וזה שואל על *נכס אחר* בשם מי
+                 שרוצה למכור או להשכיר אותו. שתי פניות הפוכות בכיוונן,
+                 ושתי תיבות שונות ב-CRM.
+
+                 הליד נשלח ל-‎owner-lead-intake‎ — אותה Edge Function שקולטת
+                 את אשף בעלי הנכסים בדף הסוכן/ת ובדף המשרד — עם ה-slug של
+                 הסוכן/ת שהנכס שלו/ה. ראו ‎submitOwnerLead()‎ למטה.
+
+                 ‏hidden עד הלחיצה: הוא תשובה לשאלה שנשאלה, ולא טופס שלישי
+                 שיושב בעמוד ומחכה. -->
+          <section class="panel owner-lead" id="ownerLeadPanel" hidden>
+            <div class="panel-head">
+              <h2 id="olTitle">חושבים למכור או להשכיר?</h2>
+              <!-- ‏aria-label ולא כיתוב: הסמל לבדו אינו שם נגיש, ו-✕ עצמו
+                   מוסתר מקורא מסך כדי שלא יוקרא כתו. -->
+              <button type="button" class="ol-close" id="olClose" aria-label="סגירת הטופס">
+                <span aria-hidden="true">✕</span>
+              </button>
+            </div>
+            <p class="owner-lead-sub" id="olSub">
+              השאירו פרטים ונחזור אליכם לתיאום פגישה — כולל הדמיות AI לנכס שלכם.
+            </p>
+            <form id="ownerLeadForm" novalidate>
+              <div class="owner-lead-toggle" role="group" aria-label="מה תרצו לעשות עם הנכס">
+                <button type="button" data-deal="sale" aria-pressed="true">רוצה למכור</button>
+                <button type="button" data-deal="rent" aria-pressed="false">רוצה להשכיר</button>
+              </div>
+              <div class="field">
+                <input type="text" id="olAddress" placeholder="כתובת הנכס שלכם (לדוגמה: הרצל 24, עפולה)"
+                       autocomplete="street-address">
+              </div>
+              <div class="owner-lead-row">
+                <div class="field"><input type="text" id="olName" placeholder="שם מלא" autocomplete="name"></div>
+                <div class="field"><input type="tel" id="olPhone" placeholder="טלפון" autocomplete="tel" inputmode="tel"></div>
+              </div>
+              <button type="submit" class="btn-submit" id="olSubmit">שליחת הפרטים</button>
             </form>
-            <p class="viz-error" id="vizError" role="alert"></p>
-          </div>
+            <p class="viz-error" id="olError" role="alert"></p>
+            <div class="owner-lead-done" id="olDone" hidden>
+              <div class="owner-lead-mark" aria-hidden="true">✓</div>
+              <h3>הפרטים נשלחו</h3>
+              <p id="olDoneNote">נחזור אליכם בזמן קצר לתיאום פגישה.</p>
+            </div>
+          </section>
+      </section>
 
-          <p class="viz-note">
-            התמונות בסקציה זו הן הדמיות ממוחשבות שנוצרו מהתמונות האמיתיות של הנכס, ונועדו להמחשת פוטנציאל עיצובי בלבד.
-            אין בהן התחייבות לביצוע עבודות, לחומרים או לתוצאה בפועל, והן אינן מתעדות את מצב הנכס כיום.
-          </p>
-        </section>
-
-        <!-- ====== מיקום וסביבה ======
-             מוצגת רק לנכס זכאי (מסלול Mid ומעלה + כתובת מדויקת), ולכן hidden
-             כברירת מחדל ונפתחת רק אחרי ש-initPropertyMap אישר את הזכאות
-             והמפה עלתה בפועל. -->
-        <section class="panel" id="mapSection" hidden>
+      <!-- ====== מיקום וסביבה ======
+           מוצגת רק לנכס זכאי (מסלול Mid ומעלה + כתובת מדויקת), ולכן hidden
+           כברירת מחדל ונפתחת רק אחרי ש-initPropertyMap אישר את הזכאות
+           והמפה עלתה בפועל. -->
+      <section class="panel" id="mapSection" hidden>
           <div class="panel-head">
             <h2>מיקום וסביבה</h2>
             <a class="panel-link" id="mapDirections" href="#" target="_blank" rel="noopener noreferrer" hidden>
@@ -916,23 +1204,31 @@
               הגדלת המפה
             </button>
           </div>
-          <p class="map-note" id="mapNote"></p>
-        </section>
+        <p class="map-note" id="mapNote"></p>
+      </section>
+      </div><!-- /content-col -->
 
+      <div class="sidebar">
+        <!-- ====== רצועת המשרד ======
+             ראשונה בעמודת הצד, מעל כרטיס הסוכן/ת: שתיהן עונות על אותה
+             שאלה — מי עומד מאחורי המודעה — והמשרד הוא הכותרת של התשובה
+             הזאת, לא הערת שוליים בסוף עמודת התוכן.
+
+             מקומה כאן ב-DOM גם מייצר את הסדר של המובייל בלי מדיה קווירי:
+             היא הייתה האיבר האחרון בעמודת התוכן, ועמודת הצד באה מיד
+             אחריה — ולכן בעמודה אחת הרצף (מפה ← משרד ← כרטיס הסוכן/ת)
+             נשאר בדיוק כפי שהיה. -->
         <div class="panel agency-strip" id="agencyStrip">
           <div class="agency-avatar" id="agencyAvatar">·</div>
           <div>
             <div class="agency-name" id="agencyName">—</div>
-            <div class="agency-sub" id="agentName">—</div>
+            <div class="agency-sub" id="agentName" hidden></div>
           </div>
           <span class="chev" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
           </span>
         </div>
 
-      </div>
-
-      <div class="sidebar">
         <!-- ====== כרטיס ההמרה ====== -->
         <div class="agent-card">
           <div class="agent-top">
@@ -941,11 +1237,19 @@
               <div class="agent-name" id="agentCardName">צוות שוק נדל״ן</div>
               <div class="agent-cred" id="agentCred" hidden>
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                <span id="agentCredText">מתווך/ת מורשה/ית</span>
+                <span class="cred-lines">
+                  <span class="cred-title" id="agentCredText">מתווך/ת מורשה/ית</span>
+                  <span class="cred-license" id="agentCredLicense" hidden></span>
+                </span>
               </div>
               <div class="agent-agency" id="agentCardAgency"></div>
             </div>
-            <div class="agent-badge-slot" id="agentBadge"></div>
+            <div class="agent-top-end">
+              <div class="agent-badge-slot" id="agentBadge"></div>
+              <span class="agent-chev" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
+              </span>
+            </div>
           </div>
           <div class="agent-body">
             <div class="agent-price">
@@ -1163,7 +1467,7 @@
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const INQUIRY_FUNCTION_URL = SUPABASE_URL + '/functions/v1/property-inquiry-intake';
-const SITE_LOGO = 'assets/logo-shuknadlan.png';
+const SITE_LOGO = 'assets/logo-shuknadlan.svg';
 const NO_PHOTOS_NOTE = 'תמונות של הנכס יעלו בקרוב';
 const LTV_THRESHOLDS = { single:0.75 }; // מודול 2 §5.5
 
@@ -1181,7 +1485,7 @@ const ICON = {
   area:    S('<path d="M3 3h18v18H3z"/><path d="M9 3v18M3 9h18"/>'),
   check:   S('<path d="M20 6 9 17l-5-5"/>'),
   car:     S('<path d="M5 17h14M6.5 17v2M17.5 17v2"/><path d="M4 17v-4l2-5a2 2 0 0 1 1.9-1.4h8.2A2 2 0 0 1 18 8l2 5v4"/><path d="M6.5 13.5h.01M17.5 13.5h.01"/>'),
-  elevator:S('<rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 3v18M8 9l1.5-2L11 9M13 15l1.5 2 1.5-2"/>'),
+  elevator:S('<rect x="4" y="3" width="16" height="18" rx="0"/><path d="M12 3v18M8 9l1.5-2L11 9M13 15l1.5 2 1.5-2"/>'),
   sun:     S('<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>'),
   balcony: S('<path d="M4 21V10h16v11M2 21h20M8 10v11M12 10v11M16 10v11"/><path d="M12 3v4M8 6l4-3 4 3"/>'),
   snow:    S('<path d="M12 2v20M4.2 7l15.6 10M19.8 7 4.2 17"/><path d="m9 4 3 2 3-2M9 20l3-2 3 2"/>'),
@@ -1201,9 +1505,11 @@ const ICON = {
   star:    S('<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9Z"/>'),
   cube:    S('<path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="M3 8l9 5 9-5M12 13v8"/><path d="M7.5 5.5 16.5 10.7"/>'),
   play:    S('<circle cx="12" cy="12" r="9.5"/><path d="M10 8.5v7l6-3.5Z"/>'),
+  soundOff:S('<path d="M11 5 6 9H2v6h4l5 4Z"/><path d="m16.5 9.5 5 5M21.5 9.5l-5 5"/>'),
+  soundOn: S('<path d="M11 5 6 9H2v6h4l5 4Z"/><path d="M15.5 8.8a4.5 4.5 0 0 1 0 6.4M18.6 5.7a9 9 0 0 1 0 12.6"/>'),
   key:     S('<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.8 12.2 8-8M17 6l2 2M14.5 8.5l2 2"/>'),
-  window:  S('<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M12 3v18M3 12h18"/>'),
-  image:   S('<rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="9" r="1.8"/><path d="m21 15-5-5L5 21"/>'),
+  window:  S('<rect x="3" y="3" width="18" height="18" rx="0"/><path d="M12 3v18M3 12h18"/>'),
+  image:   S('<rect x="3" y="3" width="18" height="18" rx="0"/><circle cx="8.5" cy="9" r="1.8"/><path d="m21 15-5-5L5 21"/>'),
   trend:   S('<path d="M22 7 13.5 15.5l-4-4L2 19"/><path d="M16 7h6v6"/>'),
   call:    S('<path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1.9.4 1.8.7 2.6a2 2 0 0 1-.5 2.1L8.1 9.6a16 16 0 0 0 6 6l1.2-1.2a2 2 0 0 1 2.1-.5c.8.3 1.7.6 2.6.7a2 2 0 0 1 1.7 2Z"/>'),
 };
@@ -1328,7 +1634,7 @@ async function loadProperty(){
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const { data, error } = await sb
       .from('properties')
-      .select('*, agencies(name, slug, logo_url, colors)')
+      .select('*, agencies(name, slug, logo_url, colors), neighborhoods(name)')
       .eq('id', id)
       .eq('status', 'active')
       .single();
@@ -1370,16 +1676,48 @@ async function loadProperty(){
    תמונה אחת או שתיים, ולכן ה-data-count קובע את פריסת הרשת: תמונה בודדת
    פורשת לרוחב מלא במקום להשאיר עמודה ריקה.                                 */
 let galleryImages = [];
+// הווידאו שתפס את תמונת השער, כשיש כזה. גם ‎renderVideoPanel‎ מסתכל עליו,
+// כדי ששני הנגנים של אותו סרטון לא ישמיעו קול בו-זמנית.
+let heroVideoEl = null;
+
+/* ---------- מתי הסרטון תופס את תמונת השער ----------
+   רק קובץ מדיה שלנו. ‏iframe של יוטיוב בתא הראשי היה גורר לשם נגן של צד
+   שלישי — עם הפקדים, הלוגו והמלצות ההמשך שלו — בדיוק למקום שבו יושבים
+   המחיר והתגיות, ובלי דרך להשתיק או לעצור אותו משם.
+
+   ושלושה מצבים שבהם הוא מוותר על המקום וחוזר להיות תמונה. סרטון הנכס שוקל
+   עד 50MB, ואת החשבון על ההורדה הזו משלם מי שגולל לעמוד ולא מי שבנה אותו:
+
+     • ‏prefers-reduced-motion — בקשה מפורשת של המשתמש/ת לוותר על תנועה.
+     • ‏Save-Data — הצהרה מפורשת "אני על חבילה מדודה".
+     • חיבור 2G — שם הסרטון לא באמת יתחיל לנגן, הוא רק יחנוק את שאר העמוד.
+
+   בכל שלושת המקרים לא נעלם כלום: התמונה הראשית חוזרת למקומה, והסרטון
+   נשאר בנגן המלא שבהמשך העמוד עם הכפתור שמוביל אליו.                       */
+function heroVideoSource(p){
+  const embed = videoEmbed(p.video_url);
+  if (!embed || embed.type !== 'video') return null;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return null;
+  const conn = navigator.connection;
+  if (conn && conn.saveData) return null;
+  if (conn && /^(slow-)?2g$/.test(conn.effectiveType || '')) return null;
+  return embed.src;
+}
 
 function renderGallery(p){
   const grid = document.getElementById('bentoGrid');
   grid.innerHTML = '';
+  heroVideoEl = null;
   galleryImages = Array.isArray(p.images) ? p.images.filter(Boolean) : [];
 
-  const shown = Math.min(galleryImages.length, 3);
+  // כשהסרטון תופס את התא הראשי, התמונות המשניות מתחילות לרוץ מהראשונה ולא
+  // מהשנייה — אחרת תמונת השער הייתה נעלמת מהרשת בלי סיבה.
+  const videoSrc = heroVideoSource(p);
+  const thumbStart = videoSrc ? 0 : 1;
+  const thumbEnd = Math.max(thumbStart, Math.min(galleryImages.length, thumbStart + 2));
   // נכס בלי תמונות מקבל תא ראשי ברוחב מלא (data-count=1) עם גרדיאנט המותג,
   // כדי שהתגיות המרחפות יישארו במקומן ולא ייפלו על רשת ריקה
-  grid.setAttribute('data-count', String(Math.max(shown, 1)));
+  grid.setAttribute('data-count', String(1 + thumbEnd - thumbStart));
 
   // כל תא הוא ‎div‎ עם כפתור פרוש בתוכו ולא ‎button‎ בעצמו, כדי שיוכל לשאת
   // תגיות מרחפות — כפתור בתוך כפתור אינו HTML חוקי.
@@ -1398,7 +1736,28 @@ function renderGallery(p){
 
   const main = document.createElement('div');
   main.className = 'bento-cell bento-main';
-  if (!galleryImages.length){
+  if (videoSrc){
+    main.classList.add('bento-video');
+    const v = document.createElement('video');
+    v.src = videoSrc;
+    // ‏muted חייב להיות מוגדר לפני ‎play()‎ — ניגון אוטומטי עם קול חסום בכל
+    // דפדפן, וסרטון שמתחיל להשמיע קול מעצמו הוא ממילא לא מה שביקשו כאן.
+    v.muted = true;
+    v.loop = true;
+    v.playsInline = true;   // בלעדיו אייפון פותח את הסרטון במסך מלא
+    v.autoplay = true;
+    v.setAttribute('aria-label', 'סרטון הנכס — מנגן מושתק');
+    // התמונה הראשית היא ה-poster: כך התא נראה כמו קודם עד שהפריים הראשון
+    // מגיע, ובמקום שבו הניגון ייחסם נשארת התמונה במקום מלבן שחור.
+    if (galleryImages[0]) v.poster = galleryImages[0];
+    main.appendChild(v);
+    heroVideoEl = v;
+    grid.appendChild(main);
+    // ‏play() נדחית בשקט כשהדפדפן מסרב — מצב חיסכון בסוללה באייפון הוא
+    // המקרה הנפוץ. אז הפוסטר נשאר, ופס הפקדים נדלק כדי שיהיה אפשר לנגן ביד.
+    const played = v.play();
+    if (played && played.catch) played.catch(()=>{ v.controls = true; });
+  } else if (!galleryImages.length){
     main.classList.add('bento-empty');
     // לוגו המשרד שהנכס שייך אליו + הודעה שהתמונות בדרך, במקום מלבן צבעוני
     // ריק שנקרא כמו תמונה שבורה
@@ -1423,12 +1782,12 @@ function renderGallery(p){
     if (el) mainCell.appendChild(el);
   });
 
-  const rest = galleryImages.length - shown;
-  for (let i = 1; i < shown; i++){
+  const rest = galleryImages.length - thumbEnd;
+  for (let i = thumbStart; i < thumbEnd; i++){
     // התמונה האחרונה שמוצגת נושאת את שאר התמונות: לחיצה עליה פותחת את
     // הלייטבוקס בתמונה הראשונה שלא נראית ברשת.
-    const isLast = i === shown - 1;
-    const cell = makeCell('bento-thumb', i, (isLast && rest > 0) ? shown : i);
+    const isLast = i === thumbEnd - 1;
+    const cell = makeCell('bento-thumb', i, (isLast && rest > 0) ? thumbEnd : i);
     if (isLast) cell.classList.add('carries-count');
     grid.appendChild(cell);
   }
@@ -1439,12 +1798,60 @@ function renderGallery(p){
   const btn = document.getElementById('photoCountBtn');
   if (galleryImages.length > 1 && countHost){
     btn.innerHTML = `${ICON.image}<span>כל התמונות (${galleryImages.length})</span>`;
-    btn.addEventListener('click', ()=> lbOpen(rest > 0 ? shown : 0));
+    btn.addEventListener('click', ()=> lbOpen(rest > 0 ? thumbEnd : 0));
     btn.hidden = false;
     countHost.appendChild(btn);
   } else {
     btn.hidden = true;
   }
+
+  setupHeroSound();
+}
+
+/* ---------- מתג הקול של תמונת השער ----------
+   הסרטון רץ בלולאה ממילא, ולכן אין כאן כפתור ניגון אלא שאלה אחת: שומעים
+   אותו או לא. הכפתור מצייר את עצמו מ-‎volumechange‎ ולא מהלחיצה, כדי שגם
+   השתקה שנעשתה במקום אחר (התחלת הנגן שבהמשך העמוד) תשתקף בו.               */
+function setupHeroSound(){
+  const btn = document.getElementById('heroSoundBtn');
+  if (!btn) return;
+  if (!heroVideoEl){ btn.hidden = true; return; }
+  const video = heroVideoEl;
+
+  const paint = ()=>{
+    btn.innerHTML = video.muted ? ICON.soundOff : ICON.soundOn;
+    btn.setAttribute('aria-label', video.muted ? 'השמעת הקול של הסרטון' : 'השתקת הסרטון');
+    btn.setAttribute('aria-pressed', String(!video.muted));
+    btn.title = video.muted ? 'השמעת הקול' : 'השתקה';
+  };
+
+  const toggle = ()=>{
+    video.muted = !video.muted;
+    // ביטול השתקה על סרטון שנעצר הוא בקשה לנגן אותו, לא רק להוסיף לו קול
+    if (!video.muted){
+      if (panelVideoEl) panelVideoEl.pause();
+      video.play().catch(()=>{});
+    }
+  };
+  btn.addEventListener('click', toggle);
+  // גם הסרטון עצמו — מי שרואה וידאו מנגן מושתק מקיש עליו, לא מחפש כפתור.
+  // הכפתור נשאר בכל זאת: הקשה על ‎<video>‎ אינה נגישה למקלדת ולקורא מסך.
+  video.addEventListener('click', toggle);
+  video.addEventListener('volumechange', paint);
+  paint();
+  btn.hidden = false;
+
+  /* סרטון שממשיך לרוץ אחרי שגללו ממנו הוא סוללה וגלישה שנשרפות על משהו
+     שאיש לא רואה. מושתק = תמונת שער שזזה, ואפשר לעצור אותה בשקט; אחרי
+     שביקשו קול זו כבר האזנה מכוונת, ועצירה כאן הייתה קוטעת אותה. */
+  if (!('IntersectionObserver' in window)) return;
+  new IntersectionObserver((entries)=>{
+    for (const entry of entries){
+      if (!video.muted) continue;
+      if (entry.isIntersecting) video.play().catch(()=>{});
+      else video.pause();
+    }
+  }, { threshold: 0.15 }).observe(video);
 }
 
 /* ---------- סיור וירטואלי וסרטון ----------
@@ -1480,12 +1887,23 @@ function videoEmbed(raw){
   return null;
 }
 
+// הנגן המלא שבהמשך העמוד, כשהוא קובץ מדיה. נשמר כדי לתאם בינו לבין תמונת
+// השער: אותו סרטון בשני מקומות בעמוד אחד, ואם שניהם משמיעים קול הצופה שומע
+// את אותו סיור פעמיים בהפרש של כמה שניות.
+let panelVideoEl = null;
+
 function renderVideoPanel(embed){
   const frame = document.getElementById('videoFrame');
   frame.innerHTML = embed.type === 'iframe'
     ? `<iframe src="${escapeAttr(embed.src)}" title="סרטון הנכס" loading="lazy" ` +
       `allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture" allowfullscreen></iframe>`
     : `<video src="${escapeAttr(embed.src)}" controls preload="metadata" playsinline></video>`;
+  panelVideoEl = frame.querySelector('video');
+  // מי שלחץ/ה נגן כאן ביקש/ה לצפות כאן. תמונת השער חוזרת להיות מושתקת,
+  // וה-‏IntersectionObserver שלה ממילא יעצור אותה ברגע שיגללו לכאן.
+  if (panelVideoEl) panelVideoEl.addEventListener('play', ()=>{
+    if (heroVideoEl) heroVideoEl.muted = true;
+  });
   document.getElementById('videoSection').hidden = false;
 }
 
@@ -1502,6 +1920,15 @@ function renderMediaButtons(p){
   const embed = videoEmbed(p.video_url);
   if (!embed){ link('videoBtn', p.video_url, ICON.play, 'סרטון הנכס'); return; }
 
+  /* הסרטון כבר מנגן בתמונה הראשית — נגן שני של אותו קובץ בהמשך העמוד הוא
+     רק אותו סיור פעם שנייה, וכפתור שמוביל אליו הוא קיצור דרך למקום שהצופה
+     כבר נמצא בו. שניהם יורדים.
+
+     הסקציה נשארת בקוד ולא נמחקה, כי היא עדיין המסלול היחיד בכל מקרה
+     שבו השער ויתר על הסרטון: יוטיוב ווימאו (שלא נכנסים לשער כ-iframe),
+     ‏reduced-motion, ‏Save-Data וחיבור 2G. */
+  if (heroVideoEl) return;
+
   // כשהסרטון מנוגן בעמוד, הכפתור בהירו הוא קיצור דרך אליו ולא יציאה מהעמוד
   renderVideoPanel(embed);
   const btn = document.getElementById('videoBtn');
@@ -1517,9 +1944,8 @@ function renderMediaButtons(p){
 }
 
 /* ---------- קיצור הדרך להדמיות ----------
-   שלט על התמונה הראשית ולא הטופס עצמו: הטופס דורש שם וטלפון, וטופס שצף על
-   תמונת הנכס גם מכסה את מה שבאו לראות וגם מבטיח תוצאה מיידית שלא תגיע בלי
-   מסירת פרטים. הכפתור רק מוביל לסקציה — שנמצאת ממילא גבוה בעמוד.
+   שלט על התמונה הראשית ולא הכלי עצמו: כלי שצף על תמונת הנכס מכסה את מה
+   שבאו לראות. הכפתור רק מוביל לסקציה — שנמצאת ממילא גבוה בעמוד.
    נדלק רק אחרי ש-loadVisualizations אישרה שיש מה להראות. */
 function revealVizJumpButton(){
   const btn = document.getElementById('vizJumpBtn');
@@ -1603,8 +2029,7 @@ document.addEventListener('keydown', (e)=>{
    בפתיחה הראשונה בלבד. אי אפשר להזיז קונטיינר של מפה בין שני מקומות ב-DOM
    בלי לאתחל אותה מחדש, ושכפול פשוט יותר מלנהל העברה.                     */
 
-const PROP_MAP_TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-const PROP_MAP_TILE_ATTRIBUTION = '&copy; OpenStreetMap &copy; CARTO';
+/* ספק האריחים יושב ב-assets/map-tiles.js, משותף לכל המפות באתר. */
 const PROP_MAP_ZOOM = 16;
 const PROP_MAP_FULL_ZOOM = 17;
 
@@ -1618,7 +2043,7 @@ function propMapMarker(p){
   });
 }
 function propMapTiles(map){
-  L.tileLayer(PROP_MAP_TILE_URL, { attribution:PROP_MAP_TILE_ATTRIBUTION, maxZoom:19 }).addTo(map);
+  MapTiles.addTo(map);
 }
 
 async function propertyMapEnabled(id){
@@ -1648,10 +2073,11 @@ async function initPropertyMap(p, addressText){
       .setView([p.lat, p.lng], PROP_MAP_ZOOM);
     propMapTiles(map);
     propMapMarker(p).addTo(map);
-    /* ‏scrollWheelZoom:false מטפל בגלגלת; זו המקבילה שלו במגע. המפה יושבת
-       באמצע דף ארוך, ובלעדיה אצבע שנחתה עליה בדרך לפרטי הנכס הזיזה את המפה
-       במקום להמשיך לגלול. במסך המלא (propMapFull) לא קוראים לזה בכוונה: שם
-       אין דף מתחת לגלול, והמפה היא כל המסך. */
+    /* מחוות משתפות פעולה בשתי דרכי הקלט. המפה יושבת באמצע דף ארוך, ובלעדיהן
+       אצבע שנחתה עליה בדרך לפרטי הנכס הזיזה את המפה במקום להמשיך לגלול.
+       ‏MapGestures משאיר את הגלילה לדף — אצבע אחת וגלגלת לבדה — ומחזיר את
+       המפה בשתי אצבעות או ב-Ctrl/⌘ + גלגלת. במסך המלא (propMapFull) לא
+       קוראים לזה בכוונה: שם אין דף מתחת לגלול, והמפה היא כל המסך. */
     if (window.MapGestures) MapGestures.apply(map);
 
     const google = `https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`;
@@ -1792,10 +2218,43 @@ const VIZ_STYLES = [
 ];
 
 const VIZ_TARGET_LABELS = {
-  exterior:'חזית הבית והחצר', living_room:'הסלון', kitchen:'המטבח', interior_main:'חלל העסק',
+  exterior:'חזית הבית והחצר', living_room:'הסלון', kitchen:'המטבח',
+  bedroom:'חדר השינה', interior_main:'חלל העסק',
 };
 
-const vizState = { propertyId:null, isPrivate:true, byStyle:new Map(), current:null, busy:false };
+/* בנכס להשכרה ההדמיה של החוץ נגזרת מתמונת החצר ולא מהחזית (החזית אינה
+   משתנה שם בכלל), ולכן היא נקראת בשמה. ‏חדר השינה הוא יחידת ההורים כשיש
+   תמונה שלה, ולכן התווית נשארת "חדר השינה" ולא מבטיחה איזה חדר בדיוק. */
+const VIZ_TARGET_LABELS_STAGING = { exterior:'החצר והגינה' };
+
+/* בנכס מסחרי אין בית ואין חצר — יש עסק. שורת ההמתנה ("יוצרים את…") ורצועת
+   ההדמיות חייבות להגיד את אותו שם על אותה תמונה, ולכן שתיהן נגזרות
+   מקטגוריית הנכס ולא ממפה קבועה אחת. */
+const VIZ_TARGET_LABELS_COMMERCIAL = { exterior:'חזית העסק' };
+
+function vizTargetLabel(target){
+  if (!vizState.isPrivate && VIZ_TARGET_LABELS_COMMERCIAL[target]){
+    return VIZ_TARGET_LABELS_COMMERCIAL[target];
+  }
+  if (vizState.staging && VIZ_TARGET_LABELS_STAGING[target]){
+    return VIZ_TARGET_LABELS_STAGING[target];
+  }
+  return VIZ_TARGET_LABELS[target] || target;
+}
+
+const vizState = {
+  propertyId:null, isPrivate:true, byStyle:new Map(), current:null, busy:false,
+  /* נכס פרטי להשכרה מקבל הלבשת בית ולא הדמיית שיפוץ — הפרומפט נקבע בצד
+     השרת לפי ‎deal_type‎ (ראו RenderMode ב-_shared/visualization.ts), והדגל
+     הזה רק דואג שהטקסט על המסך יגיד את אותו דבר. שוכר/ת לא קונה ולא
+     משפץ/ת, ו"הנכס המשופץ / לפני שאתם קונים" הוא בדיוק ההבטחה שאסור לתת
+     לו/ה. */
+  staging:false,
+  /* ‏result_url של ההדמיה שנבחרה ידנית ברצועה. בלעדיו לחיצה על תמונון של
+     סגנון אחר הייתה מחליפה סגנון ואז פותחת את הסלון שלו — כלומר מראה
+     תמונה אחרת מזו שנלחצה. */
+  leadPick:null,
+};
 
 async function loadVisualizations(p){
   if (!window.supabase) return;
@@ -1810,201 +2269,558 @@ async function loadVisualizations(p){
 
     vizState.propertyId = p.id;
     vizState.isPrivate = p.category === 'residential';
+    vizState.staging = vizState.isPrivate && p.deal_type === 'rent';
 
+    /* ‏property_visualizations_recent ולא ‎_public‎: השני מסנן ‎is_base = true‎,
+       כלומר רק סט הבסיס שנוצר אוטומטית עם פרסום הנכס. כל הדמיה שהופקה לפי
+       דרישה נעלמה ממנו — ולכן הרשת כאן הייתה ריקה בנכסים שכבר היו להם
+       הדמיות מוכנות, והגולש/ת ראה/תה טופס בלי שום ראיה שהכלי עובד.
+       ‏recent מחזיר את שתיהן, מסונן לנכס הזה בלבד. */
     const { data: base } = await sb
-      .from('property_visualizations_public')
-      .select('target, style_key, result_url')
-      .eq('property_id', p.id);
+      .from('property_visualizations_recent')
+      .select('target, style_key, source_image_url, result_url, created_at')
+      .eq('property_id', p.id)
+      .order('created_at', { ascending:false });
 
+    /* דילול לפי סגנון+מטרה, החדש ביותר מנצח. אותו נכס יכול לצבור כמה
+       הדמיות של אותו מטבח באותו סגנון — כל גולש/ת שביקש/ה מוסיף/ה אחת —
+       והרשת שמעל אמורה להראות "המטבח בסגנון הזה", לא ארבע גרסאות שלו.
+       השאילתה ממוינת מהחדש לישן, ולכן הראשון שנתקלים בו הוא הנכון.
+       זהו גם הכלל של mergeVizRows() כשמגיעה תוצאה חדשה בזמן אמת. */
+    const seenViz = new Set();
     (base || []).forEach(r=>{
       const key = r.style_key || '_';
+      const dedupeKey = key + '|' + r.target;
+      if (seenViz.has(dedupeKey)) return;
+      seenViz.add(dedupeKey);
       if (!vizState.byStyle.has(key)) vizState.byStyle.set(key, []);
-      vizState.byStyle.get(key).push({ target:r.target, result_url:r.result_url });
+      vizState.byStyle.get(key).push({
+        target:r.target, result_url:r.result_url, source_image_url:r.source_image_url || null,
+      });
     });
 
-    // נכס מסחרי בלי הדמיה קיימת עדיין שווה הצגה — שם ההצעה עצמה ("איך
-    // ייראה כאן העסק שלך") היא המוצר. נכס פרטי בלי סט בסיס כן מוצג, כי
-    // ארבעת הסגנונות זמינים לפי דרישה.
+    // נכס בלי הדמיה קיימת עדיין שווה הצגה: התיבה היא הכלי שמייצר אותה,
+    // ובנכס מסחרי שם ההצעה עצמה ("איך ייראה כאן העסק שלך") היא המוצר.
     section.hidden = false;
     revealVizJumpButton();
-    if (vizState.isPrivate) renderVizStyles();
-    else renderVizCommercial();
 
     if (vizState.isPrivate){
       // פותחים על הסגנון שכבר קיים כדי שהמבקר/ת יראה תמונה מיד; אם אין סט
       // בסיס בכלל, נופלים לסגנון הראשון וכל הארבעה זמינים לפי דרישה.
       const first = vizState.byStyle.keys().next();
-      selectVizStyle(first.done ? VIZ_STYLES[0].key : first.value);
+      vizState.current = first.done ? VIZ_STYLES[0].key : first.value;
     } else {
-      // במסחרי אין סגנונות — כל התוצאות יושבות תחת מפתח יחיד
+      // במסחרי אין סגנונות — כל התוצאות יושבות תחת מפתח יחיד, והשאלה
+      // היחידה היא איזה עסק מדמים. הבלוק נפתח מיד ולא אחרי לחיצה: בלעדיו
+      // הכפתור שברצועה לא יודע מה ליצור.
       vizState.current = '_';
-      renderVizGrid();
+      document.getElementById('vizCta').hidden = false;
+      applyVizContactFields();
     }
+
+    renderPropertyShowcase();
   } catch(e){
     console.warn('טעינת הדמיות נכשלה:', e);
   }
 }
 
-function renderVizStyles(){
-  const wrap = document.getElementById('vizStyles');
-  wrap.innerHTML = '';
-  VIZ_STYLES.forEach(s=>{
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'viz-style';
-    btn.dataset.style = s.key;
-    btn.innerHTML = `${s.label}<span class="viz-style-tag">${s.tag}</span>`;
-    btn.addEventListener('click', ()=>selectVizStyle(s.key));
-    wrap.appendChild(btn);
+/* ---------- רצועת ההדמיות של הנכס ----------
+   הרצועה שבתחתית העמוד הציגה עד היום נכס *אחר* שיש לו הדמיה — כלומר
+   ענתה על שאלה שאיש לא שאל בדף של נכס מסוים. עכשיו היא מציגה את הנכס
+   שבעמוד: וילון שמשווה את הצילום האמיתי שלו להדמיה שלו, ומתחתיו כל שאר
+   הכיוונים העיצוביים שכבר הופקו לו.
+
+   הנתונים לא נשלפים שוב — הם כבר יושבים ב-vizState, וזו הסיבה שהרצועה
+   מתעדכנת מיד אחרי כל הדמיה חדשה בלי לרענן את הדף.
+
+   מה שלא מוצג כאן חשוב כמו מה שכן: אין מונה, אין תאריכים ואין סימון של
+   "מי ביקש". זו היסטוריה תפעולית שלנו, לא מידע על הנכס. */
+function vizItemsFlat(){
+  const out = [];
+  vizState.byStyle.forEach((list, key)=>{
+    (list || []).forEach(it=>{
+      if (it && it.result_url) out.push({ ...it, style_key: key === '_' ? null : key });
+    });
+  });
+  return out;
+}
+
+/* הכפתור משנה משמעות לפי מה שכבר קיים לסגנון הנבחר:
+
+     סגנון שטרם נוצר — הזמנה ליצור אותו, וזו הלחיצה שמפעילה את ה-API.
+     סגנון שכבר קיים — אין כפתור בכלל. כל החדרים שלו כבר על המסך, ולחיצה
+       שהייתה מייצרת אותם מחדש היא הבטחה ריקה. השבבים הם הדרך לייצר עוד,
+       והם כבר שם.
+
+   בנכס מסחרי אין סגנונות והשאלה היא איזה עסק — הכפתור שם תמיד פעיל. */
+function vizBandCta(){
+  const has = (vizState.byStyle.get(vizState.current) || []).length;
+  if (!vizState.isPrivate){
+    return { label:'יצירת הדמיה לעסק שלכם', busy:vizState.busy };
+  }
+  if (has && !vizState.busy) return { label:null };
+  const styleLabel = (VIZ_STYLES.find(x => x.key === vizState.current) || {}).label || '';
+  return {
+    label: styleLabel ? `יצירת הדמיה בסגנון ${styleLabel}` : 'יצירת הדמיה לנכס',
+    busy: vizState.busy,
+  };
+}
+
+function onVizBandCta(){
+  /* נכס פרטי: לחיצה אחת מייצרת. סגנון שכבר קיים לא נוצר מחדש — הצד השרת
+     מחזיר אותו מיד — ולכן אין כאן שני מסלולים.
+
+     נכס מסחרי: הבקשה זקוקה לסוג העסק. השדה יושב עכשיו ישירות מעל הכפתור,
+     ולכן לחיצה על כפתור ריק רק מחזירה אליו את המיקוד — ‏scrollIntoView
+     שהיה כאן גלל את העמוד למקום שכבר על המסך. */
+  if (vizState.isPrivate){ requestVisualization(); return; }
+  const business = document.getElementById('vizBusiness');
+  if (business && !business.value.trim()){
+    business.focus();
+    return;
+  }
+  requestVisualization();
+}
+
+/* ‏ai-showcase.js נטען עם defer, ו-loadVisualizations יכול לסיים לפניו
+   כשהתשובות מגיעות מהקאש. אז ‎window.AiShowcase‎ עדיין לא קיים, והרצועה
+   הייתה נשארת ריקה בלי שום סימן לתקלה. סקריפט defer רץ *לפני*
+   ‏DOMContentLoaded, ולכן ההמתנה לאירוע הזה היא ההמתנה הנכונה. */
+let showcasePending = false;
+function renderPropertyShowcase(){
+  const el = document.getElementById('aiShowcase');
+  if (!el || !vizState.propertyId) return;
+  if (!window.AiShowcase){
+    if (!showcasePending && document.readyState === 'loading'){
+      showcasePending = true;
+      document.addEventListener('DOMContentLoaded', ()=>{
+        showcasePending = false;
+        renderPropertyShowcase();
+      }, { once:true });
+    }
+    return;
+  }
+
+  /* גם רשימה ריקה נכנסת: התיבה היא כלי ההדמיה של הנכס, ובנכס זכאי שטרם
+     הופקה לו הדמיה היא מציגה כותרת, שבבים וכפתור בלי וילון. */
+  withAskPreserved(el, ()=>{
+    window.AiShowcase.mountProperty(el, {
+      items: vizItemsFlat(),
+      /* ארבעת הסגנונות. בנכס מסחרי אין סגנונות — מדמים עסק, לא עיצוב. */
+      styles: vizState.isPrivate ? VIZ_STYLES.map(x=>({ key:x.key, label:x.label })) : [],
+      activeStyle: vizState.isPrivate ? vizState.current : null,
+      /* הרצועה מכנה את החזית "חזית הבית" בנכס פרטי ו"חזית העסק" במסחרי.
+         הדגל נשלח מכאן ולא נגזר שם מ-‎styles.length‎: היעדר סגנונות הוא
+         *תוצאה* של היות הנכס מסחרי, לא ההגדרה שלו. */
+      commercial: !vizState.isPrivate,
+      /* נכס להשכרה: הרצועה מדברת על ריהוט ועיצוב ולא על שיפוץ, בדיוק כמו
+         הפרומפט שבצד השרת. שני הצדדים נגזרים מ-‎deal_type‎ ולא זה מזה, כי
+         הרכיב מציג ואינו יודע מה נשלח ל-Gemini. */
+      staging: vizState.staging,
+      leadPick: vizState.leadPick,
+      cta: vizBandCta(),
+      onCta: onVizBandCta,
+      /* ההזמנה לפגישה. הטקסט יושב כאן ולא ברכיב כי הרכיב לא יודע למי
+         הליד הולך — הדף כן. */
+      lead: {
+        lines: ['חושבים למכור/להשכיר', 'ורוצים לראות את הנכס שלכם גם בהדמיות?'],
+        label: 'השאירו פרטים לתאום פגישה',
+      },
+      onLead: onVizLeadCta,
+      onSelectStyle: (key, resultUrl)=>{ vizState.leadPick = resultUrl || null; selectVizStyle(key); },
+    });
   });
 }
 
-function renderVizCommercial(){
-  const wrap = document.getElementById('vizStyles');
-  wrap.innerHTML =
-    '<div class="field" style="flex:1 1 260px;margin:0">' +
-    '<input type="text" id="vizBusiness" placeholder="איזה עסק תפתחו כאן? (למשל: בית קפה)">' +
-    '</div>';
-  document.getElementById('vizCta').hidden = false;
-  document.getElementById('vizOpenBtn').textContent = 'לראות את העסק שלכם בנכס';
+const INQUIRY_AUTO_PREFIX = 'שלום, ראיתי בשוק הנדל״ן את מודעה מספר ';
+
+/* ============================================================================
+   "חושבים למכור/להשכיר?" — הפנייה של בעל/ת נכס
+   ----------------------------------------------------------------------------
+   מי שראה/תה מה AI עושה לנכס של מישהו אחר שואל/ת מיד מה זה היה עושה לשלו/ה,
+   וזו הפנייה שהכפתור שבתיבה קולט.
+
+   **זו לא פניית "תיאום ביקור".** הטופס שבעמודת הצד שואל על *הנכס שבעמוד*
+   בשם מי שרוצה לקנות אותו (‏lead_type='property_inquiry'); כאן מדובר על
+   *נכס אחר לגמרי* בשם מי שרוצה למכור או להשכיר אותו (‏'owner_inbound').
+   שתי פניות הפוכות בכיוונן, ושתי תיבות שונות ב-CRM — ולכן שני מסלולים.
+
+   המסלול הזה אינו חדש: זו בדיוק ‎owner-lead-intake‎, אותה Edge Function
+   שקולטת את אשף בעלי הנכסים בדף הסוכן/ת ובדף המשרד. מה שהיא עושה עם
+   ‎agent_slug‎ הוא כל העניין — הליד **עוקף את הרוטציה של הפלטפורמה** ומשויך
+   ישירות לסוכן/ת שהנכס שלו/ה, בלי תור ובלי מכסה. ‏agency_slug נשלח לצדו
+   כרשת ביטחון: סוכן/ת בלי slug עדיין שייך/ת למשרד, ועדיף שהפנייה תגיע
+   למנהל/ת המשרד מאשר שתיפול לרוטציה.
+
+   ‏fetch טהור ולא דרך ה-SDK, כמו בשאר הכלים באתר: הקליטה חייבת לעבוד גם
+   כשה-CDN של supabase-js נכשל בטעינה.
+   ========================================================================== */
+const OWNER_LEAD_FUNCTION_URL = SUPABASE_URL + '/functions/v1/owner-lead-intake';
+let ownerLeadDeal = 'sale';
+
+function onVizLeadCta(){
+  const panel = document.getElementById('ownerLeadPanel');
+  if (!panel) return;
+  panel.hidden = false;
+
+  // מי שכבר מסר/ה שם וטלפון באתר לא מקליד/ה אותם שוב
+  const saved = savedContact();
+  if (saved){
+    const nameEl = document.getElementById('olName');
+    const phoneEl = document.getElementById('olPhone');
+    if (nameEl && !nameEl.value.trim()) nameEl.value = saved.name;
+    if (phoneEl && !phoneEl.value.trim()) phoneEl.value = saved.phone;
+  }
+
+  panel.scrollIntoView({ behavior:'smooth', block:'center' });
+  // אחרי הגלילה ולא לפניה: מיקוד קופץ לשדה בעצמו, ושתי קפיצות באותו רגע
+  // נראות כמו תקלה. ‏preventScroll כדי שהמיקוד לא יבטל את הגלילה החלקה.
+  setTimeout(()=>{
+    const el = document.getElementById('olAddress');
+    if (el) el.focus({ preventScroll:true });
+  }, 420);
+}
+
+/* שם הסוכן/ת נכנס לכותרות הטופס ברגע שהנכס נטען. הפנייה הזאת הולכת
+   לאדם ספציפי, ו"נחזור אליכם" בגוף רבים סתמי מסתיר בדיוק את מי שעומד
+   מאחוריה. */
+function applyOwnerLeadAgent(p){
+  const who = p?.agency_members?.display_name;
+  if (!who) return;
+  const sub = document.getElementById('olSub');
+  const done = document.getElementById('olDoneNote');
+  if (sub) sub.textContent =
+    `השאירו פרטים ו${who} יחזור/תחזור אליכם לתיאום פגישה — כולל הדמיות AI לנכס שלכם.`;
+  if (done) done.textContent = `${who} יחזור/תחזור אליכם בזמן קצר לתיאום פגישה.`;
+}
+
+/* הסגירה מחזירה את המיקוד לכפתור שפתח את הפאנל, ולא משאירה אותו על צומת
+   שנעלם — מי שניווט/ה במקלדת היה נופל/ת לתחילת העמוד. הכפתור נשלף מחדש
+   בכל פעם ולא נשמר: הרצועה מורכבת מ-innerHTML בכל רינדור, והצומת שהיה
+   כאן קודם כבר לא בעץ.
+
+   ‏Escape סוגר גם הוא: הפאנל נפתח מעל תוכן שהגולש/ת קרא/ה, וכל דבר
+   שנפתח כך צריך דרך יציאה שאינה דורשת לחפש כפתור. */
+function closeOwnerLead(){
+  const panel = document.getElementById('ownerLeadPanel');
+  if (!panel || panel.hidden) return;
+  panel.hidden = true;
+  const opener = document.getElementById('aiPropLead');
+  if (opener) opener.focus({ preventScroll:true });
+}
+
+function initOwnerLeadForm(){
+  const form = document.getElementById('ownerLeadForm');
+  if (!form) return;
+
+  const closeBtn = document.getElementById('olClose');
+  if (closeBtn) closeBtn.addEventListener('click', closeOwnerLead);
+  document.addEventListener('keydown', (ev)=>{
+    if (ev.key !== 'Escape') return;
+    const panel = document.getElementById('ownerLeadPanel');
+    if (panel && !panel.hidden) closeOwnerLead();
+  });
+
+  form.querySelectorAll('.owner-lead-toggle button').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      ownerLeadDeal = btn.dataset.deal;
+      form.querySelectorAll('.owner-lead-toggle button').forEach(b=>{
+        b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+      });
+      const title = document.getElementById('olTitle');
+      if (title) title.textContent = ownerLeadDeal === 'rent' ? 'חושבים להשכיר?' : 'חושבים למכור?';
+    });
+  });
+
+  form.addEventListener('submit', submitOwnerLead);
+}
+
+async function submitOwnerLead(ev){
+  ev.preventDefault();
+  const err  = document.getElementById('olError');
+  const btn  = document.getElementById('olSubmit');
+  const name  = document.getElementById('olName').value.trim();
+  const phone = document.getElementById('olPhone').value.trim();
+  const address = document.getElementById('olAddress').value.trim();
+  err.textContent = '';
+  if (!name || !phone){ err.textContent = 'יש למלא שם וטלפון'; return; }
+
+  const original = btn.textContent;
+  btn.disabled = true; btn.textContent = 'שולח…';
+  try{
+    const p = currentProperty || {};
+    const res = await fetch(OWNER_LEAD_FUNCTION_URL, {
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization':'Bearer ' + SUPABASE_ANON_KEY,
+      },
+      body: JSON.stringify({
+        agent_slug:  p.agency_members?.slug || null,
+        agency_slug: p.agencies?.slug || null,
+        // עירו של הנכס שבעמוד היא ההערכה הטובה ביותר שיש כאן לעיר של
+        // הפונה: מי שמתעניין/ת בנכס בעפולה מוכר/ת בעפולה. השדה חובה
+        // בפונקציה, והכתובת המדויקת ממילא נשלחת לצדו.
+        city: p.city || 'עפולה',
+        // ‏'דירה' כברירת מחדל, בדיוק כמו באשף שבדף הסוכן/ת: הטופס הזה
+        // מבקש שלושה שדות ולא סוג נכס, והסוכן/ת מברר/ת בשיחה.
+        property_type: 'דירה',
+        deal_type: ownerLeadDeal,
+        address: address || null,
+        name, phone,
+        // נכנס ל-property_details, כלומר נראה לסוכן/ת כבר בליד המוסתר —
+        // וזה כל הערך שלו: בלי ההקשר אי אפשר לדעת על מה לחזור.
+        note: 'פנייה מתיבת ההדמיות בדף הנכס',
+        source: 'property_page_owner_wizard',
+      }),
+    });
+    const data = await res.json().catch(()=>({}));
+    if (!res.ok || data.error) throw new Error(data.error || 'שגיאה');
+
+    rememberContact(name, phone, p.id || vizState.propertyId);
+    document.getElementById('ownerLeadForm').hidden = true;
+    document.getElementById('olDone').hidden = false;
+  } catch(e){
+    console.error('owner-lead-intake נכשל:', e);
+    err.textContent = 'השליחה נכשלה — בדקו חיבור לאינטרנט ונסו שוב';
+    btn.textContent = original;
+    btn.disabled = false;
+  }
+}
+
+/* טופס הבקשה מוצג *בתוך* הרצועה, מעל הכפתור — אבל הרצועה מוחקת ובונה את
+   עצמה מחדש מ-innerHTML בכל רינדור, וכל מה שבתוכה נהרס איתה. לכן הטופס
+   נשלף החוצה לפני הבנייה וחוזר לחריץ ‎#aiPropAsk‎ אחריה.
+
+   ‏appendChild *מזיז* צומת קיים ולא משכפל אותו, ולכן מה שהוקלד בשדות
+   והמאזינים שעליהם שורדים את המסע. שתי ההזזות והבנייה שביניהן סינכרוניות
+   ברצף אחד — הדפדפן לא מצייר באמצע — ולכן אין הבהוב.
+
+   מה שההזזה כן שוברת הוא המיקוד: דפדפן מוציא מיקוד מצומת שנעקר מהעץ.
+   רינדור בזמן שהמיקוד בשדה הוא נדיר (תוצאה שנכנסת באמצע הקלדה), אבל
+   כשהוא קורה הוא מפיל את הסמן באמצע מילה — ולכן הוא נלכד ומוחזר. */
+function withAskPreserved(bandEl, render){
+  const ask  = document.getElementById('vizCta');
+  const home = document.getElementById('vizSection');
+
+  const focused = ask && ask.contains(document.activeElement) ? document.activeElement : null;
+  const start = focused ? focused.selectionStart : null;
+  const end   = focused ? focused.selectionEnd   : null;
+
+  // חילוץ לפני המחיקה. ‎#vizSection‎ הוא הבית שממנו הטופס יצא, והוא שורד
+  // את הרינדור — הרצועה היא רק ילד שלו.
+  if (ask && home && bandEl.contains(ask)) home.appendChild(ask);
+
+  render();
+
+  const slot = bandEl.querySelector('#aiPropAsk');
+  if (ask && slot && !ask.hidden) slot.appendChild(ask);
+
+  if (focused && focused.isConnected){
+    focused.focus();
+    try{ if (start !== null) focused.setSelectionRange(start, end); }catch(_){}
+  }
 }
 
 function selectVizStyle(styleKey){
   vizState.current = styleKey;
-  document.querySelectorAll('.viz-style').forEach(b=>{
-    b.classList.toggle('active', b.dataset.style === styleKey);
-  });
-  renderVizGrid();
+  document.getElementById('vizError').textContent = '';
+  renderPropertyShowcase();
 }
 
-function renderVizGrid(pendingTargets){
-  const grid = document.getElementById('vizGrid');
-  const cta = document.getElementById('vizCta');
-  const note = document.getElementById('vizFallbackNote');
-  const items = vizState.byStyle.get(vizState.current) || [];
+/* ---------- מה עובד ברקע ----------
+   הרשת של "יוצרים את המטבח…" ירדה יחד עם הרשת עצמה; מה שנשאר הוא שורת
+   מצב אחת מתחת לתיבה. שני החדרים של אותה בקשה מסתיימים בפער של שניות,
+   ורשת שמראה אריח ממתין לכל אחד מהם הייתה רעש ולא מידע. */
+function renderVizPending(targets){
+  const el = document.getElementById('vizPending');
+  if (!el) return;
+  const list = targets || [];
+  if (!list.length){ el.hidden = true; el.textContent = ''; return; }
+  /* כשהתיבה עצמה מציגה את מסך "יוצרים לך את ההדמיה" — כלומר בסגנון שאין
+     לו עדיין אף הדמיה — השורה הזאת היא הודעה שנייה על אותו דבר, בשני
+     ניסוחים ובשני אומדני זמן. במצב הזה היא יורדת, והמסגרת עצמה מדברת.
+     כשכבר יש הדמיה בסגנון הנבחר הווילון תופס את המסגרת, אין שם מסך
+     המתנה, והשורה היא הסימן היחיד שמשהו רץ ברקע. */
+  if (!(vizState.byStyle.get(vizState.current) || []).length){
+    el.hidden = true; el.textContent = ''; return;
+  }
+  const names = list.map(vizTargetLabel).join(', ');
+  el.textContent = `יוצרים את ${names}… זה יכול לקחת עד דקה.`;
+  el.hidden = false;
+}
 
-  /* הרשת לעולם לא מתרוקנת: כשהסגנון הנבחר טרם נוצר לנכס, נשארות על המסך
-     ההדמיות שכבר קיימות. גולש/ת שרואה תוצאה אמיתית לפני שנדרש/ת למסור פרטים
-     יודע/ת שהדבר הזה עובד — רשת ריקה עם טופס נראית כמו הבטחה על תנאי. */
-  const readyKey = [...vizState.byStyle.keys()].find(k => (vizState.byStyle.get(k) || []).length);
-  const readyItems = readyKey ? vizState.byStyle.get(readyKey) : [];
-  const isFallback = !items.length && readyItems.length > 0;
-  const shown = items.length ? items : readyItems;
+/* ---------- זיכרון הפרטים של המבקר/ת ----------
+   שתי בקשות מאותו אדם על אותו נכס הן אותה פנייה, וטופס שנשאל פעמיים
+   מרגיש כמו מחסום ולא כמו שירות. מה שנשמר הוא המינימום: שם, טלפון, ורשימת
+   הנכסים שכבר נמסרו להם פרטים.
 
-  grid.innerHTML = '';
-  shown.forEach(it=>{
-    const card = document.createElement('div');
-    card.className = 'viz-item';
-    card.innerHTML =
-      `<img src="${it.result_url}" alt="הדמיה של ${VIZ_TARGET_LABELS[it.target] || it.target}" loading="lazy">` +
-      `<span class="viz-badge">הדמיה</span>` +
-      `<div class="viz-room">${VIZ_TARGET_LABELS[it.target] || it.target}</div>`;
-    grid.appendChild(card);
-  });
+   הכול ב-localStorage של הדפדפן ולא בשרת: זו נוחות של המבקר/ת, לא זהות.
+   מי שמנקה את הדפדפן פשוט יישאל שוב, וזו התנהגות נכונה — אין לנו דרך
+   לדעת שזה אותו אדם, ואין סיבה שתהיה. */
+const VIZ_CONTACT_KEY   = 'shuknadlan_visitor_contact';
+const VIZ_CONTACTED_KEY = 'shuknadlan_contacted_properties';
 
-  (pendingTargets || []).forEach(t=>{
-    const card = document.createElement('div');
-    card.className = 'viz-item pending';
-    card.textContent = `יוצרים את ${VIZ_TARGET_LABELS[t] || t}…`;
-    grid.appendChild(card);
-  });
+function readStored(key, fallback){
+  try{
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
+  } catch(e){ return fallback; }
+}
+function writeStored(key, value){
+  try{ localStorage.setItem(key, JSON.stringify(value)); } catch(e){ /* מצב פרטי */ }
+}
 
-  // הכפתור מוצג רק כשהסגנון הנבחר עצמו טרם נוצר — אין טעם לבקש פרטים בשביל
-  // תמונה שכבר על המסך. מעבר בין סגנונות חייב להחזיר את הטופס למצב הסגור,
-  // אחרת מי שכבר פתח אותו פעם רואה שדות ריקים בלי כפתור.
-  if (vizState.isPrivate){
-    const stillWorking = !!(pendingTargets && pendingTargets.length);
-    cta.hidden = items.length > 0 || stillWorking;
-    const styleLabel = (VIZ_STYLES.find(x => x.key === vizState.current) || {}).label || '';
-    if (note){
-      note.hidden = !(isFallback && !stillWorking);
-      note.textContent = isFallback && styleLabel
-        ? `למעלה סט ההדמיות שכבר קיים לנכס. סגנון ${styleLabel} נוצר לפי בקשה.`
-        : '';
-    }
-    if (!cta.hidden && !vizState.busy){
-      document.getElementById('vizForm').classList.remove('open');
-      const openBtn = document.getElementById('vizOpenBtn');
-      openBtn.hidden = false;
-      openBtn.textContent = styleLabel ? `ליצירת הנכס בסגנון ${styleLabel}` : 'לראות את הנכס בסגנון הזה';
-      document.getElementById('vizError').textContent = '';
-    }
+function savedContact(){
+  const c = readStored(VIZ_CONTACT_KEY, null);
+  return c && c.name && c.phone ? c : null;
+}
+function contactedProperty(id){
+  return !!id && (readStored(VIZ_CONTACTED_KEY, []) || []).indexOf(id) !== -1;
+}
+/* נקרא גם מטופס "תיאום ביקור": מי שכבר השאיר/ה פרטים לנכס הזה בטופס אחד
+   לא יידרש/תידרש להם שוב בטופס השני. */
+function rememberContact(name, phone, propertyId){
+  if (name && phone) writeStored(VIZ_CONTACT_KEY, { name, phone });
+  const list = readStored(VIZ_CONTACTED_KEY, []) || [];
+  if (propertyId && list.indexOf(propertyId) === -1){
+    list.push(propertyId);
+    // ‏50 הנכסים האחרונים: הרשימה היא נוחות, לא ארכיון
+    writeStored(VIZ_CONTACTED_KEY, list.slice(-50));
   }
 }
 
-function initVisualizationForm(){
-  const openBtn = document.getElementById('vizOpenBtn');
-  const form = document.getElementById('vizForm');
+/* מי בכלל נדרש/ת לפרטים:
+     נכס פרטי  — אף אחד. ההדמיה היא המוצר, ומסך שדורש שם וטלפון לפני
+                 שרואים אותה הוא מחסום לפני הערך ולא אחריו.
+     נכס מסחרי — כן, פעם אחת. מי שמדמה עסק בנכס מסחרי הוא לקוח בפועל,
+                 וזו הפנייה שהסוכן/ת מקבל/ת. */
+function vizNeedsContact(){
+  if (vizState.isPrivate) return false;
+  return !(savedContact() && contactedProperty(vizState.propertyId));
+}
+
+function applyVizContactFields(){
+  const box = document.getElementById('vizContact');
+  if (box) box.hidden = !vizNeedsContact();
+}
+
+/* ---------- הבקשה עצמה ----------
+   נקודת כניסה אחת לשני המסלולים: הכפתור בסקציה, הכפתור ברצועה, ושליחת
+   הטופס — כולם מגיעים לכאן, ולכן הכללים (מה נדרש, מה נשמר, מה קורה
+   בזמן העבודה) נכתבים פעם אחת. */
+async function requestVisualization(){
+  if (vizState.busy) return;
+
   const errEl = document.getElementById('vizError');
-  if (!openBtn || !form) return;
+  const business = document.getElementById('vizBusiness');
+  errEl.textContent = '';
 
-  openBtn.addEventListener('click', ()=>{
-    form.classList.add('open');
-    openBtn.hidden = true;
-    document.getElementById('vizName').focus();
-  });
-
-  form.addEventListener('submit', async (ev)=>{
-    ev.preventDefault();
-    if (vizState.busy) return;
-
-    const name = document.getElementById('vizName').value.trim();
-    const phone = document.getElementById('vizPhone').value.trim();
-    const business = document.getElementById('vizBusiness');
-    errEl.textContent = '';
-
-    if (!name || !phone){ errEl.textContent = 'יש למלא שם וטלפון'; return; }
-    if (!vizState.isPrivate && !(business && business.value.trim())){
+  let name = '', phone = '';
+  if (!vizState.isPrivate){
+    if (!(business && business.value.trim())){
       errEl.textContent = 'יש לציין איזה עסק תפתחו בנכס'; return;
     }
-
-    const submitBtn = document.getElementById('vizSubmit');
-    vizState.busy = true;
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'יוצרים…';
-
-    try{
-      const payload = { property_id: vizState.propertyId, name, phone };
-      if (vizState.isPrivate) payload.style = vizState.current;
-      else payload.business_type = business.value.trim();
-
-      const res = await fetch(VIZ_FUNCTION_URL, {
-        method:'POST',
-        headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
-        body: JSON.stringify(payload),
-      });
-      const out = await res.json().catch(()=>({}));
-      if (!res.ok || out.error) throw new Error(out.message || out.error || 'שגיאה ביצירת ההדמיה');
-
-      form.classList.remove('open');
-      document.getElementById('vizCta').hidden = true;
-      mergeVizResults(out.ready || []);
-
-      if (out.job_id) await pollVisualizationJob(out.job_id, out.pending_targets || []);
-      else renderVizGrid();
-
-      showToast('ההדמיה מוכנה. הסוכן/ת יחזור/תחזור אליכם בקרוב');
-    } catch(e){
-      errEl.textContent = e.message || 'שגיאה ביצירת ההדמיה';
-      document.getElementById('vizOpenBtn').hidden = false;
-    } finally{
-      vizState.busy = false;
-      submitBtn.disabled = false;
-      submitBtn.textContent = 'יצירת ההדמיה';
+    if (vizNeedsContact()){
+      name  = document.getElementById('vizName').value.trim();
+      phone = document.getElementById('vizPhone').value.trim();
+      if (!name || !phone){ errEl.textContent = 'יש למלא שם וטלפון'; return; }
+    } else {
+      const saved = savedContact();
+      name = saved.name; phone = saved.phone;
     }
+  }
+
+  vizState.busy = true;
+  // הכפתור היחיד נמצא ברצועה, בתוך innerHTML שמורכב מחדש, ולכן מצב
+  // ה"יוצרים…" שלו עובר דרך vizState.busy ולא דרך נגיעה ישירה באלמנט.
+  renderPropertyShowcase();
+
+  try{
+    const payload = { property_id: vizState.propertyId };
+    if (name && phone){ payload.name = name; payload.phone = phone; }
+    if (vizState.isPrivate) payload.style = vizState.current;
+    else payload.business_type = business.value.trim();
+
+    const res = await fetch(VIZ_FUNCTION_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify(payload),
+    });
+    const out = await res.json().catch(()=>({}));
+    /* ‏out.error הוא קוד מכונה (gemini_not_configured, db_error) ולא טקסט
+       לגולש/ת. הפונקציה מצרפת message בעברית בכל מקרה שהגולש/ת יכול/ה
+       לעשות איתו משהו — "יש למלא שם וטלפון", "הגעתם למכסה היומית" — וכל
+       מה שאין לו message הוא תקלה שלנו, שאין לה שום ניסוח מועיל בצד הזה.
+       הקוד עצמו נשמר ל-console כדי שלא ילך לאיבוד באבחון. */
+    if (!res.ok || out.error){
+      if (out.error) console.error('property-visualize נכשל:', out.error, out.detail || '');
+      throw new Error(out.message || 'לא הצלחנו ליצור את ההדמיה כרגע. נסו שוב מאוחר יותר.');
+    }
+
+    if (name && phone) rememberContact(name, phone, vizState.propertyId);
+    // הפרטים כבר נמסרו — הבלוק סוגר את עצמו, וההדמיה הבאה לאותו נכס
+    // תיווצר בלחיצה אחת.
+    if (!vizState.isPrivate) applyVizContactFields();
+
+    mergeVizResults(out.ready || []);
+
+    if (out.job_id) await pollVisualizationJob(out.job_id, out.pending_targets || []);
+
+    showToast(vizState.isPrivate
+      ? 'ההדמיה מוכנה'
+      : 'ההדמיה מוכנה. הסוכן/ת יחזור/תחזור אליכם בקרוב');
+  } catch(e){
+    errEl.textContent = e.message || 'שגיאה ביצירת ההדמיה';
+  } finally{
+    vizState.busy = false;
+    renderVizPending([]);
+    renderPropertyShowcase();
+  }
+}
+
+/* ‏Enter בתוך הטופס שולח אותו. עם שדה טקסט אחד גלוי (מבקר/ת חוזר/ת שכבר
+   מסר/ה פרטים) זו שליחה משתמעת של הדפדפן; עם שלושה שדות הדפדפן מוותר עליה,
+   ולכן היא נכתבת כאן במפורש. שני המסלולים מגיעים ל-requestVisualization,
+   ושמירת ה-busy שבראשה מונעת בקשה כפולה אם שניהם ייורו יחד. */
+function initVisualizationForm(){
+  const form = document.getElementById('vizCta');
+  if (!form) return;
+  form.addEventListener('submit', (ev)=>{
+    ev.preventDefault();
+    requestVisualization();
+  });
+  form.addEventListener('keydown', (ev)=>{
+    if (ev.key !== 'Enter') return;
+    ev.preventDefault();
+    requestVisualization();
   });
 }
 
+/* ‏source_image_url נכנס כאן בדיוק כמו ב-loadVisualizations. הוא נשמט מהמסלול
+   הזה, ולכן כל הדמיה שנוצרה *בזמן הצפייה* הגיעה לרצועה בלי תמונת המקור שלה:
+   הווילון נפל ל-fallback, וב"חלל העסק" של נכס מסחרי הצד ה"לפני" הראה את
+   חזית הבניין מול פנים העסק בצד ה"אחרי" — שני מקומות שונים שמוצגים כאותו
+   מקום לפני ואחרי. הדמיה שנטענה מהשרת לא סבלה מזה, וזו הסיבה שהתקלה נראתה
+   רק אחרי לחיצה על הכפתור. */
 function mergeVizResults(rows){
   const key = vizState.current || '_';
   const list = vizState.byStyle.get(key) || [];
   rows.forEach(r=>{
     if (!r.result_url) return;
+    const source = r.source_image_url || null;
     const existing = list.find(x=>x.target === r.target);
-    if (existing) existing.result_url = r.result_url;
-    else list.push({ target:r.target, result_url:r.result_url });
+    if (existing){
+      existing.result_url = r.result_url;
+      if (source) existing.source_image_url = source;
+    } else {
+      list.push({ target:r.target, result_url:r.result_url, source_image_url:source });
+    }
   });
   vizState.byStyle.set(key, list);
+  // הדמיה שהרגע נוצרה נכנסת לרצועה בלי לרענן את הדף
+  renderPropertyShowcase();
 }
 
 /* ההדמיה רצה ברקע ב-Edge Function ולכן המעקב הוא polling על ה-RPC.
@@ -2014,7 +2830,7 @@ async function pollVisualizationJob(jobId, pendingTargets){
   const DEADLINE = Date.now() + 180000;
   let remaining = pendingTargets.slice();
 
-  renderVizGrid(remaining);
+  renderVizPending(remaining);
 
   while (Date.now() < DEADLINE){
     await new Promise(r=>setTimeout(r, 4000));
@@ -2023,13 +2839,13 @@ async function pollVisualizationJob(jobId, pendingTargets){
 
     mergeVizResults(rows.filter(r=>r.item_status === 'done'));
     remaining = remaining.filter(t=>!rows.some(r=>r.target === t && r.item_status !== 'pending' && r.item_status !== 'processing'));
-    renderVizGrid(remaining);
+    renderVizPending(remaining);
 
     const jobStatus = rows[0] && rows[0].job_status;
     if (jobStatus === 'done' || jobStatus === 'failed') break;
   }
 
-  renderVizGrid();
+  renderVizPending([]);
 }
 
 /* ---------- נכסים דומים ----------
@@ -2214,7 +3030,18 @@ function prefillInquiryMessage(p){
   if (!p.listing_number) return;
   const box = document.getElementById('inqMessage');
   if (box.value.trim()) return;
-  box.value = 'שלום, ראיתי בשוק הנדל״ן את מודעה מספר ' + p.listing_number + ' ורציתי לקבל עוד פרטים';
+  box.value = INQUIRY_AUTO_PREFIX + p.listing_number + ' ורציתי לקבל עוד פרטים';
+}
+
+/* מי שכבר מסר/ה שם וטלפון באתר לא מקליד/ה אותם שוב. השדות מלאים מראש
+   ולא נעולים: זו נוחות, ומי שרוצה לשלוח בשם מישהו אחר פשוט מוחק/ת. */
+function prefillInquiryContact(){
+  const saved = savedContact();
+  if (!saved) return;
+  const nameEl = document.getElementById('inqName');
+  const phoneEl = document.getElementById('inqPhone');
+  if (nameEl && !nameEl.value.trim()) nameEl.value = saved.name;
+  if (phoneEl && !phoneEl.value.trim()) phoneEl.value = saved.phone;
 }
 
 function escapeHtml(s){
@@ -2239,7 +3066,7 @@ function agencyReadableOn(hex){
     const ch = parseInt(full.slice(i, i+2), 16) / 255;
     return ch <= 0.03928 ? ch/12.92 : Math.pow((ch+0.055)/1.055, 2.4);
   }).reduce((acc, ch, i)=> acc + [0.2126,0.7152,0.0722][i] * ch, 0);
-  return (1.05 / (lum + 0.05)) >= 3.2 ? '#fff' : '#1B1F26';
+  return (1.05 / (lum + 0.05)) >= 3.2 ? '#fff' : '#0d1b3d';
 }
 function applyAgencyAccent(agency){
   const brand = agencyHex(agency && agency.colors && agency.colors.primary);
@@ -2276,8 +3103,47 @@ function renderTags(p){
     `<span class="badge ${b.cls}">${b.icon}${escapeHtml(b.text)}</span>`).join('');
 }
 
+/* ---------- כתובת ציבורית: רחוב ושכונה, בלי מספר בית ----------
+   דף הנכס הוא הדף הפומבי היחיד שהציג כתובת מלאה. מספר בית הופך מודעה
+   לכתובת של דירה מסוימת — מי שרואה אותה יודע בדיוק על איזו דלת מדובר,
+   וזה מידע ששייך לסוכן/ת ולא לרחוב. אריחי הנכסים כבר מציגים רחוב ושכונה
+   בלבד (‏assets/property-card.js), והשורה כאן פשוט מיישרת אליהם.
+
+   מספר הבית עצמו נשאר במסד ובטופס הנכס ב-CRM: הוא נחוץ לניווט, להסכמים
+   ולזיהוי כפילויות. הוא פשוט לא נכתב בעמוד הציבורי — לא בשורת הכתובת,
+   לא בכותרת H1 ולא בכותרת המפה. גוש וחלקה ממילא אינם מגיעים לצד הזה:
+   ‏property_planning_public מסנן אותם עוד ב-RPC.
+
+   ‏maskHouseNumber עובד על טקסט חופשי (כותרת שנשמרה במסד) ולכן הוא מוחק
+   *מספר* ולא מילה: גבולות ספרה משני הצדדים, כדי ש-"52" לא ייחתך מתוך
+   "152" ולא מתוך "128 מ״ר".                                              */
+function maskHouseNumber(text, houseNumber){
+  const t = String(text || '');
+  const hn = String(houseNumber ?? '').trim();
+  if (!t || !hn) return t;
+  const re = new RegExp('(^|[^\\d])' + hn.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?!\\d)', 'g');
+  return t.replace(re, '$1')
+          .replace(/\s+/g, ' ')
+          .replace(/\s+([,\u00B7])/g, '$1')
+          .replace(/^[\s,\u00B7\u2014\u2013-]+|[\s,\u00B7\u2014\u2013-]+$/g, '')
+          .trim();
+}
+
+/* השכונה מגיעה מטבלת ה-neighborhoods; ‏sales_area הוא הגיבוי כשלנכס לא
+   שויכה שכונה. שכונה ששמה כשם העיר לא נכתבת פעמיים. */
+function publicAddressText(p){
+  const hood = p.neighborhoods?.name || p.sales_area || '';
+  const street = maskHouseNumber(p.address || p.street || '', p.house_number);
+  return [street, hood && hood !== p.city ? hood : '', p.city]
+    .filter(Boolean).join(', ');
+}
+
+function publicTitle(p){
+  return maskHouseNumber(p.title || '', p.house_number) || (p.title || '');
+}
+
 function renderProperty(p){
-  document.title = p.title + ' | שוק נדל״ן';
+  document.title = publicTitle(p) + ' | שוק נדל״ן';
   renderGallery(p);
   renderMediaButtons(p);
   // הקידום נמכר לחלון של 72 שעות. ‏expire_promotions ב-DB מכבה את is_promoted
@@ -2292,8 +3158,8 @@ function renderProperty(p){
     p.price_per_sqm ? Number(p.price_per_sqm).toLocaleString('he-IL') + ' ₪ למ״ר' : (p.deal_type === 'rent' ? 'להשכרה' : 'למכירה');
   document.getElementById('heroPrice').hidden = false;
 
-  document.getElementById('propTitle').textContent = p.title;
-  const addressText = [p.address || [p.street, p.house_number].filter(Boolean).join(' '), p.city].filter(Boolean).join(', ');
+  document.getElementById('propTitle').textContent = publicTitle(p);
+  const addressText = publicAddressText(p);
   const addressEl = document.getElementById('propAddress');
   addressEl.innerHTML = addressText ? ICON.pin + `<span>${escapeHtml(addressText)}</span>` : '';
 
@@ -2311,16 +3177,20 @@ function renderProperty(p){
   document.getElementById('agencyName').textContent = p.agencies?.name || 'משרד תיווך';
   renderAgencyAvatar(p.agencies);
   applyAgencyAccent(p.agencies);
+  // שם הסוכן/ת המטפל/ת לא חוזר כאן: הרצועה היא הקישור למשרד, והכרטיס שמתחתיה
+  // כבר נושא את השם, התמונה, הרישיון וכפתורי הפנייה. שתי הופעות של אותו שם
+  // בשתי שורות סמוכות רק גזלו מקום מהזהות של המשרד.
   // הטלפון של סוכן/ת 2 לא מוצג באתר, בדיוק כמו של סוכן/ת 1 — הפנייה עוברת
   // בטופס או בכפתורי הוואטסאפ של הסוכן/ת הראשי/ת
-  const agentLine = [
-    p.agency_members?.display_name ? 'סוכן: ' + p.agency_members.display_name : '',
-    p.agent2_name ? 'בשיתוף: ' + p.agent2_name : '',
-  ].filter(Boolean).join(' · ');
-  document.getElementById('agentName').textContent = agentLine;
+  const agentLine = p.agent2_name ? 'בשיתוף: ' + p.agent2_name : '';
+  const agentLineEl = document.getElementById('agentName');
+  agentLineEl.textContent = agentLine;
+  agentLineEl.hidden = !agentLine;
   renderAgentCard(p);
   renderContactButtons(p);
   prefillInquiryMessage(p);
+  applyOwnerLeadAgent(p);
+  prefillInquiryContact();
   document.getElementById('agencyStrip').addEventListener('click', ()=>{
     if (p.agencies?.slug) window.location.href = 'agency.html?slug=' + p.agencies.slug;
   });
@@ -2366,8 +3236,30 @@ function renderAgentCard(p){
   }
 
   if (agent?.license_number){
-    document.getElementById('agentCredText').textContent = 'מתווך/ת מורשה/ית · רישיון ' + agent.license_number;
+    const licenseEl = document.getElementById('agentCredLicense');
+    licenseEl.textContent = 'רישיון: ' + agent.license_number;
+    licenseEl.hidden = false;
     document.getElementById('agentCred').hidden = false;
+  }
+
+  // ראש הכרטיס מוביל לעמוד הסוכן/ת. ‏slug ובהיעדרו ה-id הגולמי — בדיוק
+  // המפתח ש-agent.html יודע לקבל, ואותו קישור שכבר קיים ב-agents.html
+  // וב-agency.html. אין שורת סוכן/ת במסד = אין קישור: ראש הכרטיס נושא אז
+  // את שם המשרד בלבד, ואין עמוד להוביל אליו.
+  const agentKey = agent && (agent.slug || p.agent_id);
+  if (agentKey){
+    const topEl = document.querySelector('.agent-top');
+    topEl.classList.add('is-link');
+    topEl.setAttribute('role', 'link');
+    topEl.tabIndex = 0;
+    topEl.setAttribute('aria-label', 'לעמוד של ' + name);
+    const openAgent = ()=>{ window.location.href = 'agent.html?slug=' + encodeURIComponent(agentKey); };
+    topEl.addEventListener('click', openAgent);
+    // ‏role=link בלי מקלדת הוא תג ריק: אנטר ורווח חייבים לעשות את מה
+    // שהעכבר עושה, כי הראש הוא ‎div‎ ולא ‎a‎.
+    topEl.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); openAgent(); }
+    });
   }
 
   // תו האיכות של הסוכן/ת המטפל/ת, לצד התמונה שלו/ה בראש כרטיס ההמרה: זה
@@ -2666,9 +3558,17 @@ document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
     if (!res.ok || data.error) throw new Error(data.error || 'שגיאה');
     feedback.style.color = 'var(--teal)';
     feedback.textContent = 'הפנייה נשלחה! המתווך יחזור אליכם בקרוב';
+    /* אותם פרטים לא נשאלים שוב באותו נכס — גם לא בטופס ההדמיה */
+    rememberContact(
+      document.getElementById('inqName').value.trim(),
+      document.getElementById('inqPhone').value.trim(),
+      currentProperty.id
+    );
     document.getElementById('inquiryForm').reset();
-    // reset מחזיר את התיבה לערך שב-HTML (ריק) — ההודעה המוכנה נכתבת שוב
+    // reset מחזיר את השדות לערך שב-HTML (ריק) — ההודעה המוכנה והפרטים
+    // השמורים נכתבים שוב
     prefillInquiryMessage(currentProperty);
+    prefillInquiryContact();
   } catch(err){
     console.error(err);
     feedback.style.color = 'var(--brick)';
@@ -2679,36 +3579,213 @@ document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
 });
 
 initVisualizationForm();
+initOwnerLeadForm();
 loadProperty();
 </script>
 
 <footer class="site">
 
-  <!-- רצועת הניוזלטר: ההרשמה נשלחת ל-Edge Function ולא ישירות לטבלה, מאותה
-       סיבה כמו שאר הטפסים הציבוריים באתר — הכתיבה נעשית ב-service_role
-       והטבלה סגורה ל-anon לגמרי (אימייל של אדם פרטי). -->
-  <div class="footer-news">
-    <div class="footer-wrap footer-news-inner">
-      <div class="footer-news-text">
-        <h4>הנכסים החדשים בעפולה — ראשונים אצלכם</h4>
-        <p>עדכון אחד בשבוע למייל. בלי ספאם, אפשר להסיר בכל רגע.</p>
+  <!-- ====== באנר מחפשי הנכס — רצועת הפתיחה של הפוטר ======
+       כאן ישבה עד היום רצועת ההרשמה לרשימת התפוצה. שתיהן ביקשו מאותו אדם
+       את אותו דבר במילים אחרות — "נעדכן אתכם כשיעלה נכס" — וזו שומרת את
+       **החיפוש** ולא רק את האימייל: קריטריונים, ערוץ התראה והסכמה ליצירת
+       קשר, כלומר התראה על נכס שמתאים במקום סיכום שבועי.
+
+       הסימון והשליחה יושבים ב-assets/buyer-banner.css ו-buyer-banner.js,
+       קובץ אחד לכל העמודים — ראו docs/site-footer.md. היעד הוא
+       ‎saved-search-intake‎ של הסוכן החכם (‏docs/smart-search-agent.md) ולא
+       endpoint משלו: כפילות של אותה טבלה הייתה מפצלת גם את ההתראות וגם את
+       מדף הלידים. -->
+  <div class="footer-wrap footer-lead">
+
+    <div class="lead-banner buyer-banner" id="buyerBanner" data-source="footer_buyer_wizard">
+      <button type="button" class="lead-teaser" id="buyerStartBtn"
+              aria-expanded="false" aria-controls="buyerPanel">
+        <span class="lead-teaser-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10.5" cy="10.5" r="6.5"></circle>
+            <path d="M15.5 15.5 21 21"></path>
+            <path d="M7.6 11.4 10.5 8.8l2.9 2.6"></path>
+            <path d="M8.5 10.9v3h4v-3"></path>
+          </svg>
+        </span>
+        <span class="lead-teaser-copy">
+          <span class="lead-teaser-title">מחפשים נכס? תנו לו למצוא אתכם</span>
+          <span class="lead-teaser-sub">לקנייה או להשכרה — נעדכן אתכם ראשונים כשעולה נכס שמתאים</span>
+        </span>
+        <span class="lead-teaser-go" aria-hidden="true">
+          <span class="lead-teaser-go-open">התאמת נכס ←</span>
+          <span class="lead-teaser-go-close">סגירה ✕</span>
+        </span>
+      </button>
+
+      <div class="lead-panel" id="buyerPanel" hidden>
+        <!-- בלי כותרת נוספת: שורת ההזמנה שמעל היא הכותרת של הבאנר, ו-h2
+             שחוזר עליה במילים אחרות רק דוחף את השלב הראשון מטה. -->
+        <div class="owner-intro">
+          <p>ספרו לנו מה אתם מחפשים — ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.</p>
+        </div>
+
+        <div class="owner-wizard" id="buyerWizard">
+          <ol class="wiz-steps" id="buySteps" aria-label="שלבי ההתאמה">
+            <li class="active" data-step="1"><span class="dot">1</span>מה מחפשים</li>
+            <li data-step="2"><span class="dot">2</span>פרטי הנכס</li>
+            <li data-step="3"><span class="dot">3</span>פרטי קשר</li>
+          </ol>
+
+          <form id="buyerWizardForm" novalidate>
+            <!-- שלב 1: סוג העסקה + שכונות -->
+            <section class="wiz-panel active" data-panel="1">
+              <p class="wiz-q">מה אתם מחפשים?</p>
+              <!-- ‎.lead-toggle‎ ולא ‎.owner-toggle‎ בכוונה: המאזין של באנר
+                   בעלי הנכסים תופס את כל ‎.owner-toggle button‎ במסמך, ושימוש
+                   חוזר במחלקה היה משנה כאן את הכותרת של הבאנר השני. -->
+              <div class="lead-toggle" id="buyDealToggle" role="group" aria-label="סוג החיפוש">
+                <button type="button" class="active" data-buy-deal="sale">לקנייה</button>
+                <button type="button" data-buy-deal="rent">להשכרה</button>
+                <button type="button" data-buy-deal="commercial">מסחרי</button>
+              </div>
+
+              <!-- ‏saved_searches.deal_type מוגבל ל-sale/rent, ו"מסחרי" הוא
+                   קטגוריה ולא סוג עסקה — ולכן הבחירה בו פותחת את השאלה
+                   המשלימה במקום לנחש עבור המחפש/ת. -->
+              <div id="buyCommercialDeal" hidden>
+                <span class="wiz-label" id="buyCommercialLabel">נכס מסחרי — לקנייה או להשכרה?</span>
+                <div class="lead-toggle" id="buyCommercialToggle" role="group" aria-labelledby="buyCommercialLabel">
+                  <button type="button" class="active" data-buy-cdeal="sale">לקנייה</button>
+                  <button type="button" data-buy-cdeal="rent">להשכרה</button>
+                </div>
+              </div>
+
+              <span class="wiz-label" id="buyHoodLabel">באילו שכונות? <span class="wiz-hint">אפשר לבחור כמה</span></span>
+              <div class="chip-row" id="buyHoodChips" role="group" aria-labelledby="buyHoodLabel"></div>
+              <!-- נפתח רק כשרשימת השכונות לא נטענה (מסד לא זמין): בלעדיו
+                   שלב 1 היה נשאר בלי שום דרך לציין אזור. -->
+              <div id="buyAreaFallback" hidden>
+                <label class="wiz-label" for="buyArea">עיר או אזור</label>
+                <input type="text" id="buyArea" class="wiz-input" placeholder="לדוגמה: עפולה">
+              </div>
+
+              <p class="wiz-err" id="buyErr1"></p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-gold" data-buy-next="2">להמשך ←</button>
+              </div>
+            </section>
+
+            <!-- שלב 2: מאפייני הנכס -->
+            <section class="wiz-panel" data-panel="2">
+              <p class="wiz-q">מה הנכס שאתם מחפשים?</p>
+
+              <div id="buyRoomsBlock">
+                <span class="wiz-label" id="buyRoomsLabel">מספר חדרים <span class="wiz-hint">אפשר לבחור כמה</span></span>
+                <div class="chip-row" id="buyRoomsChips" role="group" aria-labelledby="buyRoomsLabel">
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="2">2</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="2.5">2.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="3">3</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="3.5">3.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="4">4</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="4.5">4.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="5">5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="+6">6+</button>
+                </div>
+              </div>
+
+              <span class="wiz-label" id="buyPtypeLabel">סוג הנכס <span class="wiz-hint">אפשר לבחור כמה</span></span>
+              <div class="chip-row" id="buyPtypeChips" role="group" aria-labelledby="buyPtypeLabel"></div>
+
+              <span class="wiz-label" id="buyBudgetLabel">תקציב <span class="wiz-hint" id="buyBudgetHint">(₪)</span></span>
+              <div class="buy-range">
+                <label class="buy-range-field">
+                  <span>מ־</span>
+                  <input type="number" id="buyPriceMin" class="wiz-input" inputmode="numeric" min="0" placeholder="ללא מינימום">
+                </label>
+                <label class="buy-range-field">
+                  <span>עד</span>
+                  <input type="number" id="buyPriceMax" class="wiz-input" inputmode="numeric" min="0" placeholder="ללא מקסימום">
+                </label>
+              </div>
+
+              <!-- במסחרי הגודל הוא מה שקובע, ומספר החדרים כמעט חסר משמעות —
+                   ולכן שני הבלוקים מתחלפים ואינם מוצגים יחד. -->
+              <div id="buySizeBlock" hidden>
+                <span class="wiz-label" id="buySizeLabel">גודל (מ״ר)</span>
+                <div class="buy-range">
+                  <label class="buy-range-field">
+                    <span>מ־</span>
+                    <input type="number" id="buySizeMin" class="wiz-input" inputmode="numeric" min="0" placeholder="הכול">
+                  </label>
+                  <label class="buy-range-field">
+                    <span>עד</span>
+                    <input type="number" id="buySizeMax" class="wiz-input" inputmode="numeric" min="0" placeholder="הכול">
+                  </label>
+                </div>
+              </div>
+
+              <p class="wiz-err" id="buyErr2"></p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-ghost-light" data-buy-back="1">→ חזרה</button>
+                <button type="button" class="btn btn-gold" data-buy-next="3">להמשך ←</button>
+              </div>
+            </section>
+
+            <!-- שלב 3: פרטי קשר -->
+            <section class="wiz-panel" data-panel="3">
+              <p class="wiz-q">לאן לשלוח את הנכסים המתאימים?</p>
+              <div class="buy-recap" id="buyRecap"></div>
+
+              <label class="wiz-label" for="buyName">שם מלא</label>
+              <input type="text" id="buyName" class="wiz-input" autocomplete="name">
+
+              <span class="wiz-label" id="buyChannelLabel">איך לעדכן אתכם?</span>
+              <div class="lead-toggle" id="buyChannels" role="group" aria-labelledby="buyChannelLabel">
+                <button type="button" class="active" data-buy-channel="whatsapp">וואטסאפ</button>
+                <button type="button" data-buy-channel="email">מייל</button>
+                <button type="button" data-buy-channel="both">שניהם</button>
+              </div>
+
+              <div id="buyPhoneField">
+                <label class="wiz-label" for="buyPhone">טלפון</label>
+                <input type="tel" id="buyPhone" class="wiz-input" placeholder="050-0000000" autocomplete="tel" inputmode="tel">
+              </div>
+              <div id="buyEmailField" hidden>
+                <label class="wiz-label" for="buyEmail">אימייל</label>
+                <input type="email" id="buyEmail" class="wiz-input" autocomplete="email" inputmode="email" dir="ltr" style="text-align:left">
+              </div>
+
+              <!-- ההסכמה נפרדת מההרשמה במכוון: אפשר לקבל התראות בלי שהפרטים
+                   יעברו לאף אחד. רק מי שמסמן/ת כאן הופך/ת לליד. -->
+              <label class="buy-check" for="buyConsent">
+                <input type="checkbox" id="buyConsent">
+                <span>אשמח שמתווך/ת מהאזור ייצור איתי קשר עם נכסים מתאימים</span>
+              </label>
+
+              <p class="wiz-err" id="buyErr3"></p>
+              <p class="buy-privacy">אפשר להפסיק את העדכונים בכל רגע, מקישור שבכל הודעה.</p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-ghost-light" data-buy-back="2">→ חזרה</button>
+                <button type="submit" class="btn btn-gold" id="buySubmitBtn">קבלת עדכונים</button>
+              </div>
+            </section>
+          </form>
+
+          <!-- מסך סיום -->
+          <div class="wiz-done" id="buyDone" hidden>
+            <div class="wiz-done-mark" aria-hidden="true">🔔</div>
+            <h3>החיפוש שלכם פעיל</h3>
+            <p id="buyDoneText">נעדכן אתכם ברגע שיעלה נכס שמתאים למה שביקשתם.</p>
+            <button type="button" class="btn btn-ghost-light" id="buyRestart">חיפוש נוסף</button>
+          </div>
+        </div>
       </div>
-      <form class="footer-news-form" id="newsletterForm" data-source="property_page" novalidate>
-        <label class="footer-sr-only" for="newsletterEmail">כתובת אימייל להרשמה לעדכונים</label>
-        <input type="email" id="newsletterEmail" name="email" autocomplete="email" inputmode="email"
-               placeholder="האימייל שלך" required>
-        <button type="submit" id="newsletterBtn">הרשמה</button>
-      </form>
-      <p class="footer-news-msg" id="newsletterMsg" role="status" aria-live="polite"></p>
     </div>
   </div>
 
   <div class="footer-wrap footer-top">
 
     <div class="footer-brand">
-      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
-        <img src="assets/logo-shuknadlan.png" alt="" width="512" height="436" loading="lazy">
-        <span>שוק הנדל״ן<br>של עפולה והסביבה</span>
+      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק — לדף הבית">
+        <img src="assets/logo-shuknadlan-dark.svg" alt="" width="52" height="62" loading="lazy">
+        <span class="footer-logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
       </a>
       <p class="footer-tagline">
         <span>כל הנכסים, כל המתווכים ובעלי המקצוע בעפולה והעמק בכתובת אחת</span>
@@ -2716,6 +3793,7 @@ loadProperty();
       </p>
       <div class="footer-cta">
         <a href="agency-signup.html" class="footer-btn-primary">הצטרפות כמשרד תיווך</a>
+        <a href="developer-signup.html" class="footer-btn-ghost">הצטרפות כיזם/קבלן</a>
         <a href="professional-signup.html" class="footer-btn-ghost">הצטרפות כבעל מקצוע</a>
       </div>
 
@@ -2726,6 +3804,12 @@ loadProperty();
               <path d="M20 10c0 5.2-8 12-8 12s-8-6.8-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.8"/>
             </svg>
             <span>רחוב חטיבה תשע 18, עפולה</span>
+          </p>
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a1.5 1.5 0 0 1-1.6 1.5C10.8 19.4 4.6 13.2 4 5.1A1.5 1.5 0 0 1 5.5 3.5Z"/>
+            </svg>
+            <a href="tel:+972546929991">054-6929991</a>
           </p>
           <p class="footer-contact-row">
             <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
@@ -2747,37 +3831,46 @@ loadProperty();
     </div>
 
     <nav class="footer-grid" aria-label="ניווט בתחתית העמוד">
-      <div class="footer-col">
-        <h4>נכסים</h4>
-        <a href="index.html#saleProps">למכירה בעפולה</a>
-        <a href="index.html#rentProps">להשכרה בעפולה</a>
-        <a href="index.html#commercialProps">נכסים מסחריים</a>
-        <a href="index.html#listings">כל הנכסים</a>
-      </div>
-      <div class="footer-col">
-        <h4>כלים</h4>
-        <a href="index.html#calc">מחשבון משכנתא</a>
-        <a href="index.html#heroSection">חיפוש על המפה</a>
-        <a href="index.html#featured">נכסים מובחרים</a>
-        <a href="articles.html">כתבות ובלוגים</a>
-      </div>
-      <div class="footer-col">
-        <h4>בעלי מקצוע</h4>
-        <a href="agencies.html">כל משרדי התיווך</a>
-        <a href="agents.html">כל המתווכים</a>
-        <a href="index.html#pros">בעלי מקצוע</a>
-        <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
-      </div>
-      <div class="footer-col">
-        <h4>שוק נדל״ן</h4>
-        <!-- "אודות" הוא הקישור היחיד בפוטר שעדיין אין לו דף; כל השאר
-             מצביעים על דפים, על סקציות אמיתיות או על תיבת המייל. -->
-        <a href="#">אודות</a>
-        <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
-        <a href="faq.html">שאלות נפוצות</a>
-        <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
-        <a href="crm.html">כניסת מתווכים</a>
-      </div>
+      <details class="footer-col" open>
+        <summary><h4>נכסים</h4></summary>
+        <div class="footer-col-links">
+          <a href="index.html#privateProps-sale">למכירה בעפולה</a>
+          <a href="index.html#privateProps-rent">להשכרה בעפולה</a>
+          <a href="index.html#commercialProps">נכסים מסחריים</a>
+          <a href="index.html#privateProps">כל הנכסים</a>
+          <a href="projects.html">פרויקטים חדשים</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>כלים</h4></summary>
+        <div class="footer-col-links">
+          <a href="index.html#calc">מחשבון משכנתא</a>
+          <a href="index.html#yield">מחשבון תשואה</a>
+          <a href="index.html#heroSection">חיפוש על המפה</a>
+          <a href="articles.html">כתבות ובלוגים</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>בעלי מקצוע</h4></summary>
+        <div class="footer-col-links">
+          <a href="agencies.html">כל משרדי התיווך</a>
+          <a href="agents.html">כל המתווכים</a>
+          <a href="professionals.html">כל בעלי המקצוע</a>
+          <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
+          <a href="developer-signup.html">הצטרפות כיזם/קבלן</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>שוק נדל״ן</h4></summary>
+        <div class="footer-col-links">
+          <a href="about.html">אודות</a>
+          <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
+          <a href="faq.html">שאלות נפוצות</a>
+          <a href="pricing.html">מסלולים ומחירים</a>
+          <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
+          <a href="crm.html">כניסת מתווכים</a>
+        </div>
+      </details>
     </nav>
 
   </div>
@@ -2810,9 +3903,9 @@ loadProperty();
   <div class="footer-wrap footer-bottom">
     <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
     <div class="footer-legal">
-      <a href="#">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
+      <a href="terms.html">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
       <a href="privacy.html">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
-      <a href="#">הצהרת נגישות</a>
+      <a href="accessibility.html">הצהרת נגישות</a>
     </div>
   </div>
 </footer>

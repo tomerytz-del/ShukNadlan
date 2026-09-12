@@ -55,8 +55,26 @@ verify_jwt = false          # פנייה ישירה מדף הסוכן/ת
 [functions.newsletter-subscribe]
 verify_jwt = false          # טופס רשימת התפוצה בפוטר, בכל עמוד ציבורי
 
+[functions.developer-signup]
+verify_jwt = false          # פתיחת חברה יזמית/קבלנית — אין עדיין חשבון
+
+[functions.project-lead-intake]
+verify_jwt = false          # "מחפשים פרויקט חדש?" בדף הפרויקטים ובדף הפרויקט
+
+# מחזירה מידע שממילא פומבי (שם התאגיד וסטטוסו ב-data.gov.il), נקראת מטופס
+# ההרשמה שבו עדיין אין חשבון, ומוגבלת לתשע ספרות ולמטמון של 30 יום.
+[functions.company-registry-lookup]
+verify_jwt = false          # בדיקת ח״פ מטופס ההרשמה — אין עדיין חשבון
+
 # ---------------------------------------------------------------------------
 # מערכתי — אימות עצמי בתוך הפונקציה (סוד cron, service role, או webhook)
+#
+# שלוש מהן (‏saved-search-notify, ‏property-marketing-publish,
+# ‏classify-property-images) חולקות את supabase/functions/_shared/cron-auth.ts.
+# הבדיקה שם היא fail-closed: אם ALERT_CRON_SECRET אינו מוגדר בסביבה,
+# הפונקציה מחזירה 503 ולא רצה. הנוסח הקודם, `if (CRON_SECRET && ...)`,
+# דילג על הבדיקה בדיוק במקרה הזה — והסוד לא היה מוגדר בפרודקשן, כך ששתי
+# הפונקציות ה"מוגנות" ענו 200 לכל קורא.
 # ---------------------------------------------------------------------------
 [functions.whatsapp-webhook]
 verify_jwt = false          # Meta שולחת בלי JWT; האימות הוא בטוקן של הוובהוק
@@ -64,11 +82,40 @@ verify_jwt = false          # Meta שולחת בלי JWT; האימות הוא ב
 [functions.saved-search-notify]
 verify_jwt = false          # ‏pg_cron + x-alert-cron-secret
 
+# תזכורות לסוכנים (תמונות חסרות, שתיקה, תוקף מודעה). רצה פעם בשעה מ-pg_cron
+# בלבד ואינה מקבלת שום קלט — מי מקבל/ת, מה נשלח וכמה נקבעים במסד.
+[functions.agent-reminders]
+verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
+
+# מחזור החיים של הטבת ההשקה — שתי התראות לפני הסיום, והורדה ל-Pay&GO אחריו.
+# רצה פעם ביום מ-pg_cron בלבד ואינה מקבלת קלט שמשפיע על מי מטופל/ת.
+[functions.promo-lifecycle]
+verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
+
 [functions.property-marketing-publish]
 verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role / מנהל פלטפורמה
 
+# שני קהלים לאותה נקודת קצה: ‏pg_cron מרוקן את התור בלי JWT, וסוכן/ת מחובר/ת
+# מבקש/ת רענון תיאור עם JWT. ‏verify_jwt=true היה חוסם את הראשון, ולכן האימות
+# עצמי: cron-auth לקורא הפנימי, ובמסלול הידני ההרשאה על הנכס וה-cooldown
+# נבדקים במסד (‏request_property_description) בהקשר ה-JWT עצמו.
+[functions.property-description]
+verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role / JWT של סוכן/ת
+
 [functions.classify-property-images]
 verify_jwt = false          # קריאת cron/backfill; לא מקבלת קלט שמשפיע על מה שנכתב
+
+# העברה חד-פעמית של שישה סרטונים מהפרויקט הישן. רשימת הנכסים והקבצים קבועה
+# בקוד, ולכן הקלט לא יכול להפנות אותה לנכס אחר; ה-handler דורש service_role
+# או x-alert-cron-secret. ‏verify_jwt=false כדי שקריאה פנימית מ-pg_net תגיע.
+[functions.migrate-legacy-videos]
+verify_jwt = false          # אימות עצמי: service_role / x-alert-cron-secret
+
+# העברה חד-פעמית של תמונות הנכסים מהפרויקט הישן. התור מגיע מ-legacy_photo_queue
+# ולא מהקלט, ולכן קריאה לא יכולה להפנות אותה לקובץ אחר; ה-handler דורש
+# service_role או x-alert-cron-secret.
+[functions.migrate-legacy-photos]
+verify_jwt = false          # אימות עצמי: service_role / x-alert-cron-secret
 
 # ‏verify_jwt=false כאן אינו "פתוח": ה-handler דורש את מפתח ה-service_role
 # או את PLATFORM_MAIL_SECRET, כי שליחת מייל בשם הפלטפורמה למי שמבקש היא
@@ -80,13 +127,12 @@ verify_jwt = false          # אימות עצמי: service_role או x-platform-
 [functions.property-visualize]
 verify_jwt = false          # הדמיה לפי דרישת גולש/ת — הזכאות נבדקת ב-DB
 
-# ⚠️ ‏news-ticker-crawler היא היחידה בקבוצה הזו שאין לה אימות עצמי בגוף
-# הפונקציה — לא סוד cron ולא בדיקת service role. כלומר כל אחד שיודע את
-# הכתובת יכול להפעיל אותה ולגרור קריאות בתשלום ל-Anthropic. הערך נשמר כפי
-# שהוא כדי לא לשנות התנהגות בפריסה הראשונה, אבל זו נקודה שכדאי לסגור:
-# להוסיף בדיקת x-alert-cron-secret כמו ב-saved-search-notify.
-[functions.news-ticker-crawler]
-verify_jwt = false          # ‏pg_cron שבועי (weekly-news-ticker-crawler)
+# שני קהלים, ולכן אין ל-Gateway מה לאכוף כאן: החותם/ת פותח/ת קישור בלי חשבון
+# ובלי JWT, והסוכן/ת שולח/ת קישורי חתימה עם JWT. האימות עצמי בפונקציה —
+# אסימון של 48 תווים אקראיים למסלול הציבורי, ובדיקת בעלות על ההסכם למסלול
+# של הסוכן/ת. ‏verify_jwt=true היה חוסם כל חתימה של לקוח/ה.
+[functions.agreement-sign]
+verify_jwt = false          # אסימון חתימה אישי / JWT של הסוכן/ת הבעלים
 
 # ---------------------------------------------------------------------------
 # מאומת — פעולות של סוכן/ת מחובר/ת, הזהות נגזרת מה-JWT בלבד
@@ -101,6 +147,12 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.release-team-member]
+verify_jwt = true
+
+# סגירת חשבון ביוזמת הסוכן/ת. ‏verify_jwt=true כי הפעולה היא תמיד על
+# החשבון של בעל/ת ה-JWT ועל אף אחד אחר — אין כאן פרמטר "מי", ולכן אין דרך
+# להפנות אותה למישהו אחר.
+[functions.close-account]
 verify_jwt = true
 
 [functions.rss-lead-purchase]
@@ -124,6 +176,16 @@ verify_jwt = true           # קידום נכס — נוגע ב-credit_balance
 [functions.wallet-topup]
 verify_jwt = true           # טעינת ארנק
 
+# בקשת החזר יתרה. ‏verify_jwt=true כי כל חמש הפעולות מזוהות: שתיים על
+# הסוכן/ת עצמו/ה, ושלוש מוגבלות ל-is_platform_admin שנבדק בתוך הפונקציה.
+[functions.wallet-refund]
+verify_jwt = true           # החזר יתרה — נוגע ב-credit_balance
+
+# רכישת מנוי לתקופה מראש. הסכום מחושב במסד ולא מגיע מהדפדפן, והמסלול נפתח
+# רק ב-wallet-topup-callback אחרי אימות מול מורנינג.
+[functions.subscription-purchase]
+verify_jwt = true           # רכישת מנוי — פותחת מסלול בתשלום
+
 [functions.afula-planning-lookup]
 verify_jwt = true           # מידע תכנוני מלא — מוגבל למסלול Mid/Premium
 
@@ -132,3 +194,29 @@ verify_jwt = true           # גיאוקוד לכתובת — לכל סוכן/ת
 
 [functions.dev-switch-mode]
 verify_jwt = true           # כלי בדיקה — מוגבל ל-is_platform_admin בלבד
+
+[functions.project-manage]
+verify_jwt = true           # ניהול פרויקטים של יזם — שלוש מהפעולות נוגעות בארנק
+
+[functions.project-lead-purchase]
+verify_jwt = true           # רכישת ליד ממדף היזמים — פעולה שמעבירה כסף
+
+[functions.property-video-create]
+verify_jwt = true           # הפקת סרטון שיווקי — נוגע ב-credit_balance של סוכן/ת mid
+
+# ‏fal.ai קורא/ת לכאן מבחוץ ואין לו/ה JWT שלנו, ולכן זו נקודת קצה פתוחה.
+# האימות הוא webhook_token ייחודי לכל בקשה, שנשלח בכתובת ומושווה מול השורה
+# ב-property_video_jobs; מסלול ה-reconcile מאומת דרך _shared/cron-auth.ts.
+[functions.property-video-callback]
+verify_jwt = false
+
+# מורנינג קורא/ת לכאן מבחוץ בסיום תשלום, ואין לו/ה JWT שלנו.
+#
+# זו נקודת הקצה היחידה שמזכה ארנק, ולכן שווה לומר במפורש מה מגן עליה: סוד
+# בכתובת (‏MORNING_WEBHOOK_SECRET, בהשוואת זמן קבוע) הוא רק השכבה הראשונה.
+# השכבה שבאמת סופרת היא שגוף ה-webhook **אינו נאמן** — ממנו נלקח מזהה בלבד,
+# והמצב האמיתי נשלף בקריאה חוזרת ל-API של מורנינג מול המפתח הפרטי שלנו.
+# גם מי שיודע/ת את הסוד לא יכול/ה לזכות ארנק בתשלום שלא קרה.
+# מסלול ה-reconcile מאומת בנפרד דרך _shared/cron-auth.ts.
+[functions.wallet-topup-callback]
+verify_jwt = false

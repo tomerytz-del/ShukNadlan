@@ -1,0 +1,1789 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>אזור הניהול ליזמים וקבלנים | שוק נדל״ן</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta name="robots" content="noindex">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+  :root{
+    --ink:#0d1b3d; --ink-soft:#4a5578; --ink-muted:#6b7796;
+    --paper:#f4f7fe; --surface:#ffffff; --line:#e3e8f4; --hair:#eef1f8; --field:#eef2fb;
+    --teal:#0e2a6b; --teal-dark:#0d1b3d; --teal-tint:#eaf0fb;
+    --brass:#c9a227; --brass-tint:#f7f1e2; --brass-ink:#8a6d10;
+    --positive:#21a565; --positive-tint:#e5f5ed;
+    --danger:#6e1022; --danger-tint:#f3e6e9;
+    --maxw:1180px;
+  }
+  *{box-sizing:border-box}
+  [hidden]{display:none !important}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+  h1,h2,h3{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--teal-dark);margin:0;line-height:1.2}
+  a{color:inherit;text-decoration:none}
+  img{max-width:100%;display:block}
+  button{font-family:inherit;cursor:pointer;border:none;background:none;color:inherit}
+  input,select,textarea{font-family:inherit;font-size:.92rem;color:var(--ink);min-width:0}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 16px}
+  :focus-visible{outline:3px solid var(--brass);outline-offset:2px}
+
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:10px 18px;font-weight:700;font-size:.86rem;border-radius:0;transition:transform .12s ease,box-shadow .12s ease}
+  .btn:disabled{opacity:.5;cursor:not-allowed}
+  .btn-teal{background:var(--teal);color:#fff}
+  .btn-teal:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.28)}
+  .btn-ghost{border:1.5px solid var(--line);background:#fff;color:var(--teal-dark)}
+  .btn-ghost:hover:not(:disabled){border-color:var(--teal)}
+  /* כפתור הקידום. לא btn-gold: ‏design-system.css מגדיר את --gold כתפקיד
+     ("משטח מלא שנושא טקסט לבן") והוא ספיר, ולכן הכפתור היה יוצא זהה
+     לכפתור הפעלת הדף שלידו. הזהב האמיתי (--brass) אינו נושא טקסט לבן
+     ואינו משמש כמשטח על רקע בהיר, ולכן הוא מופיע כאן כמסגרת וכטקסט
+     ב---brass-ink — הגוון שהוגדר בדיוק לשימוש הזה. */
+  .btn-promote{border:1.5px solid var(--brass);background:#fff;color:var(--brass-ink);font-weight:800}
+  .btn-promote:hover{background:var(--brass-tint)}
+  .btn-danger{border:1.5px solid var(--danger);color:var(--danger);background:#fff}
+  .btn-sm{padding:7px 13px;font-size:.78rem}
+
+  /* ====== התחברות ====== */
+  #loginScreen,#bootScreen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+  .login-card{background:#fff;border:1px solid var(--line);max-width:400px;width:100%;padding:30px 26px}
+  .login-card .logo-link{display:block;width:60px;margin:0 auto 14px;line-height:0}
+  .login-card h1{font-size:1.2rem;text-align:center}
+  .login-card p.sub{text-align:center;color:var(--ink-soft);font-size:.84rem;margin:6px 0 20px}
+  .field{margin-bottom:11px}
+  .field label{font-size:.72rem;font-weight:800;color:var(--ink-soft);display:block;margin-bottom:4px}
+  .field input,.field select,.field textarea{width:100%;border:1.5px solid var(--line);padding:10px 11px;background:#fff}
+  .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--teal);outline:none}
+  .field textarea{resize:vertical;min-height:70px}
+  .field .hint{font-size:.7rem;color:var(--ink-muted);margin-top:4px;line-height:1.45}
+  /* גובה שמור לרמז הח״פ.
+     הטקסט כאן מתחלף בזמן ההקלדה — "תשע ספרות" → "בודק…" → שם החברה או
+     הודעת שגיאה בת שתי שורות — וכל החלפה כזו הזיזה את כל הטופס שמתחתיה,
+     כולל תיבת אישור התנאים. מי שהושיט/ה יד לתיבה בדיוק כשהתשובה חזרה
+     החטיא/ה אותה. נתפס בבדיקת דפדפן: הלחיצה נחתה על ה-div העוטף. */
+  #crNumberHint,#coNumberHint{min-height:2.6em}
+  .hint.ok{color:#12704a;font-weight:700}
+  .hint.warn{color:var(--danger);font-weight:700}
+  .hint.busy{font-style:italic}
+  .msg{font-size:.82rem;min-height:1.2em;font-weight:700;margin-top:10px}
+  .btn-google{background:#fff;color:var(--ink);border:1.5px solid var(--line);gap:10px;width:100%}
+  .btn-google:hover:not(:disabled){border-color:var(--teal)}
+  .or-divider{text-align:center;font-size:.75rem;color:var(--ink-muted);margin:14px 0}
+  .req::after{content:" *";color:var(--danger);font-weight:800}
+  /* ‏:user-invalid ולא :invalid: שדה חובה ריק הוא invalid כבר בטעינה,
+     וטופס שנצבע אדום לפני שנגעו בו נראה כמו רשימת שגיאות. */
+  .field input:user-invalid{border-color:var(--danger)}
+  /* כרטיס ההמתנה. הוא המסך הראשון ולא טופס הכניסה, מאותה סיבה שתועדה
+     ב-docs/google-login.md: בדיקת ה-session אסינכרונית, וטופס שנצבע לפניה
+     מהבהב לכל מי שכבר מחובר/ת וגם למי שחוזר/ת מ-Google. */
+  .boot-spinner{width:30px;height:30px;margin:14px auto;border:3px solid var(--field);border-top-color:var(--teal);border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion: reduce){.boot-spinner{animation-duration:2.4s}}
+
+  /* ====== שלד הדשבורד ====== */
+  header.app{position:sticky;top:0;z-index:60;background:#fff;border-bottom:1px solid var(--line);padding:10px 0}
+  .app-bar{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  .app-brand{display:flex;align-items:center;gap:9px;min-width:0}
+  .app-brand .mark{width:38px;height:38px;flex:none;background:var(--teal-tint) center/contain no-repeat;display:flex;align-items:center;justify-content:center;font-weight:800;color:var(--teal)}
+  .app-brand b{font-size:.95rem;display:block;line-height:1.2}
+  .app-brand span{font-size:.72rem;color:var(--ink-muted)}
+  .app-actions{margin-inline-start:auto;display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+  .wallet{display:flex;align-items:center;gap:8px;background:var(--brass-tint);padding:7px 12px;font-size:.82rem;font-weight:800;color:var(--brass-ink)}
+
+  .tabs{display:flex;gap:2px;overflow-x:auto;background:#fff;border-bottom:1px solid var(--line);position:sticky;top:59px;z-index:55}
+  .tabs button{padding:12px 16px;font-size:.85rem;font-weight:700;color:var(--ink-soft);white-space:nowrap;border-bottom:3px solid transparent}
+  .tabs button[aria-selected="true"]{color:var(--teal);border-bottom-color:var(--teal)}
+  .tabs .count{background:var(--field);font-size:.7rem;font-weight:800;padding:1px 7px;margin-inline-start:5px}
+
+  .panel{padding:22px 0 60px}
+  .panel-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+  .panel-head h2{font-size:1.3rem}
+  .panel-head p{margin:5px 0 0;font-size:.83rem;color:var(--ink-soft);max-width:70ch}
+
+  .card{background:#fff;border:1px solid var(--line);padding:16px;margin-bottom:14px}
+  .card > h3{font-size:1.02rem;margin-bottom:4px}
+  .card > .sub{font-size:.8rem;color:var(--ink-soft);margin:0 0 13px}
+  .grid2{display:grid;gap:11px}
+  @media(min-width:620px){.grid2{grid-template-columns:1fr 1fr}}
+  .grid3{display:grid;gap:11px}
+  @media(min-width:620px){.grid3{grid-template-columns:repeat(3,1fr)}}
+  .span2{grid-column:1/-1}
+
+  /* ====== שורת פרויקט ====== */
+  .proj{background:#fff;border:1px solid var(--line);margin-bottom:12px;display:grid;gap:12px;padding:13px}
+  @media(min-width:760px){.proj{grid-template-columns:132px minmax(0,1fr) auto;align-items:center}}
+  .proj .thumb{aspect-ratio:4/3;background:var(--teal-tint) center/cover no-repeat}
+  @media(max-width:759px){.proj .thumb{aspect-ratio:16/9}}
+  .proj .info b{font-size:1rem;display:block}
+  .proj .info .where{font-size:.79rem;color:var(--ink-muted);margin-top:2px}
+  .proj .info .pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+  .proj .actions{display:flex;flex-wrap:wrap;gap:6px}
+  @media(min-width:760px){.proj .actions{flex-direction:column;align-items:stretch;min-width:160px}}
+  .pill{font-size:.68rem;font-weight:800;padding:3px 9px;background:var(--field);color:var(--ink-soft)}
+  .pill.live{background:var(--positive-tint);color:#12704a}
+  .pill.draft{background:var(--field);color:var(--ink-soft)}
+  .pill.paused{background:var(--brass-tint);color:var(--brass-ink)}
+  .pill.expired{background:var(--danger-tint);color:var(--danger)}
+  .pill.promoted{background:var(--brass);color:#3b2f05}
+  .pill.promoted::before{content:"◆ ";font-size:.85em}
+  .pill.pending-delete{background:var(--danger-tint);color:var(--danger)}
+
+  /* ====== העלאות ====== */
+  .drop{border:1.5px dashed var(--line);background:var(--field);padding:16px;text-align:center;font-size:.82rem;color:var(--ink-soft)}
+  .drop b{color:var(--teal);font-weight:800}
+  .thumbs{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-top:10px}
+  .thumb-item{position:relative;aspect-ratio:4/3;background:var(--teal-tint) center/cover no-repeat;border:1px solid var(--line)}
+  .thumb-item .rm{position:absolute;inset-inline-end:4px;top:4px;background:rgba(13,27,61,.8);color:#fff;width:22px;height:22px;font-size:.8rem;font-weight:800;line-height:1}
+  .thumb-item .mv{position:absolute;inset-inline-start:4px;top:4px;display:flex;gap:3px}
+  .thumb-item .mv button{background:rgba(13,27,61,.8);color:#fff;width:22px;height:22px;font-size:.8rem;font-weight:800;line-height:1}
+  .thumb-item .badge{position:absolute;inset-inline:0;bottom:0;background:rgba(13,27,61,.78);color:#fff;font-size:.65rem;font-weight:800;padding:2px 5px;text-align:center}
+  .brand-preview{width:78px;height:78px;border:1px solid var(--line);background:var(--field) center/contain no-repeat;flex:none}
+  .cover-preview{height:120px;border:1px solid var(--line);background:var(--field) center/cover no-repeat}
+
+  /* ====== טבלאות ====== */
+  .tbl-wrap{overflow-x:auto}
+  table.tbl{width:100%;border-collapse:collapse;font-size:.84rem;min-width:560px}
+  table.tbl th{text-align:start;font-size:.7rem;font-weight:800;color:var(--ink-muted);padding:8px 9px;border-bottom:1.5px solid var(--line);white-space:nowrap}
+  table.tbl td{padding:9px;border-bottom:1px solid var(--hair);vertical-align:middle}
+  table.tbl input,table.tbl select{width:100%;border:1.5px solid var(--line);padding:7px 8px;font-size:.82rem}
+  table.tbl td.narrow{width:96px}
+
+  .chips{display:flex;flex-wrap:wrap;gap:7px}
+  .chip-btn{border:1.5px solid var(--line);background:#fff;color:var(--ink-soft);font-size:.77rem;font-weight:700;padding:6px 12px}
+  .chip-btn[aria-pressed="true"]{background:var(--teal);border-color:var(--teal);color:#fff}
+
+  .empty{padding:40px 16px;text-align:center;color:var(--ink-soft);font-size:.88rem;background:#fff;border:1px dashed var(--line)}
+  .empty h3{font-size:1.05rem;margin-bottom:6px}
+  .notice{background:var(--brass-tint);border-inline-start:3px solid var(--brass);padding:11px 13px;font-size:.8rem;color:#5c4a08;line-height:1.55;margin-bottom:13px}
+  .notice.danger{background:var(--danger-tint);border-inline-start-color:var(--danger);color:var(--danger)}
+  .notice.ok{background:var(--positive-tint);border-inline-start-color:var(--positive);color:#12704a}
+
+  /* ====== חלונית ====== */
+  dialog.sheet{border:none;padding:0;background:transparent;max-width:min(760px,96vw);width:100%}
+  dialog.sheet::backdrop{background:rgba(13,27,61,.6)}
+  .sheet-inner{background:#fff;border:1px solid var(--line);max-height:92vh;overflow-y:auto}
+  .sheet-head{position:sticky;top:0;background:#fff;border-bottom:1px solid var(--line);padding:14px 16px;display:flex;align-items:center;gap:10px;z-index:2}
+  .sheet-head h3{font-size:1.05rem;flex:1}
+  .sheet-body{padding:16px}
+  .sheet-foot{position:sticky;bottom:0;background:#fff;border-top:1px solid var(--line);padding:12px 16px;display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap}
+
+  .lead-row{background:#fff;border:1px solid var(--line);padding:12px 13px;margin-bottom:9px;display:grid;gap:9px}
+  @media(min-width:700px){.lead-row{grid-template-columns:minmax(0,1fr) auto;align-items:center}}
+  .lead-row b{font-size:.92rem}
+  .lead-row .meta{font-size:.78rem;color:var(--ink-muted);display:flex;flex-wrap:wrap;gap:4px 12px;margin-top:3px}
+  .lead-row a{color:var(--teal);font-weight:700}
+  .score{display:inline-flex;align-items:center;font-size:.68rem;font-weight:800;padding:2px 8px;background:var(--positive-tint);color:#12704a}
+</style>
+<link rel="stylesheet" href="assets/design-system.css">
+<script src="assets/project-card.js"></script>
+</head>
+<body>
+
+<!-- ====== מסך ההתחברות ====== -->
+<!-- ====== מסך ההמתנה ======
+     המסך הראשון בכל טעינה. טופס הכניסה מוצג רק כשידוע שאין חיבור פעיל. -->
+<div id="bootScreen">
+  <div class="login-card" style="text-align:center">
+    <a href="index.html" class="logo-link" aria-label="לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן" width="52" height="62"></a>
+    <div class="boot-spinner" role="status" aria-live="polite"></div>
+    <p class="sub" id="bootMessage">בודקים אם כבר יש חיבור פעיל…</p>
+  </div>
+</div>
+
+<div id="loginScreen" hidden>
+  <div class="login-card">
+    <a href="index.html" class="logo-link" aria-label="לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן" width="52" height="62"></a>
+    <h1>אזור הניהול ליזמים</h1>
+    <p class="sub">כניסה עם החשבון של החברה היזמית או הקבלנית</p>
+
+    <button type="button" class="btn btn-google" id="googleBtn">
+      <svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path fill="#4285F4" d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.9c1.7-1.57 2.7-3.88 2.7-6.62z"/><path fill="#34A853" d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.9-2.26c-.8.54-1.84.86-3.06.86-2.35 0-4.34-1.59-5.05-3.72H.94v2.33A9 9 0 0 0 9 18z"/><path fill="#FBBC05" d="M3.95 10.7A5.4 5.4 0 0 1 3.67 9c0-.59.1-1.17.28-1.7V4.97H.94A9 9 0 0 0 0 9c0 1.45.35 2.83.94 4.03l3.01-2.33z"/><path fill="#EA4335" d="M9 3.58c1.32 0 2.51.45 3.44 1.35l2.58-2.58C13.46.89 11.43 0 9 0A9 9 0 0 0 .94 4.97l3.01 2.33C4.66 5.17 6.65 3.58 9 3.58z"/></svg>
+      <span class="gl-label">התחברות עם Google</span>
+    </button>
+    <p class="or-divider">— או —</p>
+
+    <form id="loginForm" novalidate>
+      <div class="field"><label for="lgEmail">אימייל</label><input type="email" id="lgEmail" autocomplete="username" required></div>
+      <div class="field"><label for="lgPassword">סיסמה</label><input type="password" id="lgPassword" autocomplete="current-password" required></div>
+      <button type="submit" class="btn btn-teal" style="width:100%" id="lgBtn">כניסה</button>
+      <p class="msg" id="lgMsg" role="status" aria-live="polite"></p>
+    </form>
+    <p style="text-align:center;font-size:.8rem;margin:14px 0 0">
+      עוד אין חשבון? <a href="developer-signup.html" style="color:var(--teal);font-weight:700">פתיחת חשבון יזם</a>
+    </p>
+    <p style="text-align:center;font-size:.78rem;margin:8px 0 0;color:var(--ink-muted)">
+      מתווכים וסוכנים — <a href="crm.html" style="color:var(--teal);font-weight:700">הכניסה שלכם כאן</a>
+    </p>
+  </div>
+</div>
+
+<!-- ====== פתיחת חברה ======
+     המסך שמי שנכנס/ת עם Google בפעם הראשונה נוחת/ת עליו: יש חשבון Auth,
+     אין עדיין שורת developers. אלה בדיוק שדות החובה של טופס ההרשמה, פחות
+     האימייל והסיסמה — הם כבר הגיעו מ-Google. -->
+<div id="createScreen" hidden style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">
+  <div class="login-card" style="max-width:520px">
+    <a href="index.html" class="logo-link" aria-label="לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן" width="52" height="62"></a>
+    <h1>פתיחת חברה יזמית</h1>
+    <p class="sub">החשבון <b id="crEmail"></b> עדיין לא מקושר לחברה. נשלים את הפרטים ונפתח אותה.</p>
+
+    <div class="notice" id="crAgentNote" hidden>
+      החשבון הזה משמש גם כסוכן/ת תיווך. פתיחת חברה יזמית כאן אינה משנה דבר
+      בכרטיס הסוכן/ת שלכם — הוא נשאר בדיוק כפי שהוא, וניהולו ממשיך ב-crm.html.
+    </div>
+
+    <div class="notice">
+      פתיחת החברה ודף החברה — ללא עלות. התשלום מתחיל רק כשדף נחיתה של פרויקט
+      עולה לאוויר (<b id="crPricePage">350 ₪ לחודש</b>).
+    </div>
+
+    <form id="createForm" novalidate>
+      <div class="field"><label class="req" for="crName">שם החברה</label><input type="text" id="crName" required></div>
+      <div class="grid2">
+        <div class="field"><label class="req" for="crNumber">ח״פ (מספר תאגיד)</label><input type="text" id="crNumber" inputmode="numeric" placeholder="512345678" required><div class="hint" id="crNumberHint">תשע ספרות. נבדק מול רשם החברות.</div></div>
+        <div class="field"><label for="crLegal">שם רשמי</label><input type="text" id="crLegal" placeholder="בע״מ"></div>
+      </div>
+      <div class="field"><label class="req" for="crContact">שם איש/אשת הקשר</label><input type="text" id="crContact" required></div>
+      <div class="grid2">
+        <div class="field"><label class="req" for="crPhone">טלפון</label><input type="tel" id="crPhone" inputmode="tel" placeholder="04-6000000" required></div>
+        <div class="field"><label class="req" for="crCity">עיר</label><input type="text" id="crCity" placeholder="עפולה" required></div>
+      </div>
+      <div class="field"><label class="req" for="crAddress">כתובת המשרד</label><input type="text" id="crAddress" placeholder="שדרות ירושלים 40" required></div>
+      <div class="field"><label for="crWebsite">אתר החברה</label><input type="url" id="crWebsite" placeholder="https://"></div>
+
+      <div style="display:flex;align-items:flex-start;gap:9px;background:var(--paper);border:1px solid var(--line);padding:11px 12px;margin:6px 0">
+        <input type="checkbox" id="crTerms" style="margin:2px 0 0;width:17px;height:17px;flex:none;accent-color:var(--teal)">
+        <label for="crTerms" style="font-size:.78rem;line-height:1.45;cursor:pointer">
+          קראתי ואני מסכים/ה ל<a href="terms.html" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">תנאי השימוש</a>
+          ול<a href="privacy.html" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">מדיניות הפרטיות</a>.
+          ידוע לי שהמידע, המחירים והתמונות בדפי הפרויקטים הם באחריות החברה.
+        </label>
+      </div>
+
+      <button type="submit" class="btn btn-teal" style="width:100%" id="crBtn">פתיחת החברה</button>
+      <p class="msg" id="crMsg" role="status" aria-live="polite"></p>
+    </form>
+    <button type="button" class="btn btn-ghost btn-sm" id="crLogout" style="width:100%;margin-top:10px">יציאה</button>
+  </div>
+</div>
+
+<!-- ====== הדשבורד ====== -->
+<div id="appScreen" hidden>
+  <header class="app">
+    <div class="wrap app-bar">
+      <div class="app-brand">
+        <div class="mark" id="devMark">·</div>
+        <div>
+          <b id="devNameLabel">—</b>
+          <span><a id="devPublicLink" href="#" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">לדף החברה ←</a></span>
+        </div>
+      </div>
+      <div class="app-actions">
+        <div class="wallet"><span>ארנק</span><span id="walletBalance">—</span></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="topupBtn">טעינת ארנק</button>
+        <button type="button" class="btn btn-ghost btn-sm" id="logoutBtn">יציאה</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="tabs" role="tablist" aria-label="אזורי הניהול">
+    <button type="button" role="tab" aria-selected="true" data-tab="projects">הפרויקטים שלי <span class="count" id="cntProjects">0</span></button>
+    <button type="button" role="tab" aria-selected="false" data-tab="company">דף החברה</button>
+    <button type="button" role="tab" aria-selected="false" data-tab="leads">פניות <span class="count" id="cntLeads">0</span></button>
+    <button type="button" role="tab" aria-selected="false" data-tab="shelf">מדף מחפשים <span class="count" id="cntShelf">0</span></button>
+    <button type="button" role="tab" aria-selected="false" data-tab="billing">חיובים</button>
+  </div>
+
+  <main class="wrap">
+    <!-- ---------- פרויקטים ---------- -->
+    <section class="panel" id="tabProjects">
+      <div class="panel-head">
+        <div>
+          <h2>הפרויקטים שלי</h2>
+          <p>כל פרויקט הוא דף נחיתה נפרד — פרויקט אחד לכל דף. פרויקט חדש נשמר כטיוטה, ועולה לאוויר רק אחרי הפעלת דף הנחיתה.</p>
+        </div>
+        <button type="button" class="btn btn-teal" id="newProjectBtn">+ פרויקט חדש</button>
+      </div>
+      <div id="projectsList"></div>
+      <div class="empty" id="projectsEmpty" hidden>
+        <h3>עוד אין פרויקטים</h3>
+        <p>הפרויקט הראשון מתחיל בשם ובעיר. אפשר להשלים גלריה, תמהיל דירות וסיור 3D אחר כך.</p>
+        <button type="button" class="btn btn-teal" id="newProjectBtn2" style="margin-top:12px">יצירת הפרויקט הראשון</button>
+      </div>
+    </section>
+
+    <!-- ---------- דף החברה ---------- -->
+    <section class="panel" id="tabCompany" hidden>
+      <div class="panel-head">
+        <div>
+          <h2>דף החברה</h2>
+          <p>הפרטים והמיתוג שמופיעים בדף החברה שלכם, ומלווים כל פרויקט שתעלו — בדף הבית, בדף הפרויקטים ובדף הפרויקט עצמו.</p>
+        </div>
+      </div>
+      <!-- ‏novalidate בכוונה: השדות נשארים required לצורך נגישות ולסימון
+           ‏:invalid, אבל האימות שמדבר הוא שלנו. אימות הדפדפן עוצר את
+           השליחה ומצביע על שדה **אחד**, וכך ההודעה שמונה את כל מה שחסר
+           לא הייתה מגיעה למסך אף פעם. -->
+      <form id="companyForm" novalidate>
+        <!-- מצב האימות מוצג ליזם, ולא רק נשמר במסד: מי שרשום כ-unverified
+             צריך לדעת שהאימות עוד לא הושלם, ולא לגלות את זה כשמישהו ישאל. -->
+        <div class="notice" id="regNotice" hidden></div>
+        <div class="card">
+          <h3>זהות</h3>
+          <p class="sub">מה שרואים בראש דף החברה ובכרטיס היזם שבכל פרויקט.</p>
+          <div class="grid2">
+            <div class="field"><label class="req" for="coName">שם החברה</label><input type="text" id="coName" required></div>
+            <div class="field"><label for="coLegal">שם רשמי</label><input type="text" id="coLegal"></div>
+            <div class="field"><label class="req" for="coNumber">ח״פ (מספר תאגיד)</label><input type="text" id="coNumber" inputmode="numeric" required><div class="hint" id="coNumberHint">תשע ספרות. נבדק מול רשם החברות.</div></div>
+            <div class="field"><label class="req" for="coContact">שם איש/אשת הקשר</label><input type="text" id="coContact" required></div>
+            <div class="field"><label for="coFounded">שנת הקמה</label><input type="number" id="coFounded" min="1900" max="2100"></div>
+            <div class="field span2"><label for="coTagline">משפט תדמית</label><input type="text" id="coTagline" placeholder="בונים בעמק מאז 1998"></div>
+            <div class="field span2"><label for="coDescription">על החברה</label><textarea id="coDescription" rows="5"></textarea></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>מיתוג</h3>
+          <p class="sub">הלוגו ותמונת הנושא של דף החברה. הצבעים נכנסים לכותרות ולכפתורים בדף החברה ובדפי הפרויקטים שלא בחרו צבעים משלהם.</p>
+          <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+            <div>
+              <label style="font-size:.72rem;font-weight:800;color:var(--ink-soft);display:block;margin-bottom:5px">לוגו</label>
+              <div class="brand-preview" id="coLogoPreview"></div>
+              <input type="file" id="coLogoFile" accept="image/*" hidden>
+              <button type="button" class="btn btn-ghost btn-sm" style="margin-top:6px" id="coLogoBtn">העלאה</button>
+            </div>
+            <div style="flex:1;min-width:220px">
+              <label style="font-size:.72rem;font-weight:800;color:var(--ink-soft);display:block;margin-bottom:5px">תמונת נושא</label>
+              <div class="cover-preview" id="coCoverPreview"></div>
+              <input type="file" id="coCoverFile" accept="image/*" hidden>
+              <button type="button" class="btn btn-ghost btn-sm" style="margin-top:6px" id="coCoverBtn">העלאה</button>
+            </div>
+          </div>
+          <div class="grid2" style="margin-top:14px">
+            <div class="field"><label for="coBrand">צבע ראשי</label><input type="color" id="coBrand" value="#0e2a6b" style="height:42px;padding:4px"></div>
+            <div class="field"><label for="coAccent">צבע משני</label><input type="color" id="coAccent" value="#c9a227" style="height:42px;padding:4px"></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3>יצירת קשר</h3>
+          <p class="sub">מוצג בתחתית דף החברה. מספר הטלפון הופך לכפתור חיוג. שדות המסומנים ב-<span style="color:var(--danger);font-weight:800">*</span> הם חובה ואי אפשר לרוקן אותם.</p>
+          <div class="grid2">
+            <div class="field"><label class="req" for="coPhone">טלפון</label><input type="tel" id="coPhone" inputmode="tel" required></div>
+            <div class="field"><label for="coEmail">אימייל</label><input type="email" id="coEmail"></div>
+            <div class="field"><label for="coWebsite">אתר</label><input type="url" id="coWebsite" placeholder="https://"></div>
+            <div class="field"><label class="req" for="coCity">עיר</label><input type="text" id="coCity" required></div>
+            <div class="field span2"><label class="req" for="coAddress">כתובת המשרד</label><input type="text" id="coAddress" required></div>
+            <div class="field"><label for="coDelivered">פרויקטים שנמסרו</label><input type="number" id="coDelivered" min="0"></div>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:9px;align-items:center;flex-wrap:wrap">
+          <button type="submit" class="btn btn-teal" id="coSaveBtn">שמירת דף החברה</button>
+          <p class="msg" id="coMsg" role="status" aria-live="polite" style="margin:0"></p>
+        </div>
+      </form>
+    </section>
+
+    <!-- ---------- פניות ---------- -->
+    <section class="panel" id="tabLeads" hidden>
+      <div class="panel-head">
+        <div>
+          <h2>פניות מדפי הפרויקטים</h2>
+          <p>מי שהשאיר/ה פרטים בדף אחד הפרויקטים שלכם. הפניות האלה שלכם, מגיעות מיד וללא עלות — הן לא נמכרות לאיש.</p>
+        </div>
+      </div>
+      <div id="leadsList"></div>
+      <div class="empty" id="leadsEmpty" hidden>
+        <h3>עוד אין פניות</h3>
+        <p>ברגע שמישהו/י ישאיר/תשאיר פרטים באחד מדפי הפרויקטים שלכם, הם יופיעו כאן.</p>
+      </div>
+    </section>
+
+    <!-- ---------- מדף מחפשים ---------- -->
+    <section class="panel" id="tabShelf" hidden>
+      <div class="panel-head">
+        <div>
+          <h2>מדף מחפשי פרויקטים חדשים</h2>
+          <p>מי שהשאיר/ה פרטים בדף הפרויקטים בלי לבחור פרויקט מסוים. הפרטים המזהים נחשפים אחרי הרכישה, ולליד אחד יש קונה אחד בלבד.</p>
+        </div>
+      </div>
+      <div id="shelfList"></div>
+      <div class="empty" id="shelfEmpty" hidden>
+        <h3>המדף ריק כרגע</h3>
+        <p>כשמחפשי דירה משאירים פרטים בדף הפרויקטים, הם מופיעים כאן.</p>
+      </div>
+    </section>
+
+    <!-- ---------- חיובים ---------- -->
+    <section class="panel" id="tabBilling" hidden>
+      <div class="panel-head">
+        <div>
+          <h2>חיובים וטעינות</h2>
+          <p>כל חיוב שירד מהארנק וכל טעינה שבוצעה.</p>
+        </div>
+      </div>
+      <div class="card" id="pricingCard">
+        <h3>המחירון</h3>
+        <p class="sub">המחירים נשלפים מהמערכת ומשתקפים כאן מיד עם כל עדכון.</p>
+        <div class="grid3" id="pricingGrid"></div>
+      </div>
+      <div class="card">
+        <h3>היסטוריית חיובים</h3>
+        <div class="tbl-wrap"><table class="tbl" id="chargesTable"></table></div>
+        <p class="sub" id="chargesEmpty" hidden style="margin:10px 0 0">עוד לא בוצע חיוב.</p>
+      </div>
+    </section>
+  </main>
+</div>
+
+<!-- ====== עורך הפרויקט ======
+     ‏<dialog> מקורי: מלכודת פוקוס, סגירה ב-Esc ושכבת רקע בלי שורת JS.
+     כל השדות שדף הפרויקט מציג יושבים כאן, בסדר שבו הם מופיעים שם. -->
+<dialog class="sheet" id="projectSheet" aria-label="עריכת פרויקט">
+  <form class="sheet-inner" id="projectForm" method="dialog">
+    <div class="sheet-head">
+      <h3 id="sheetTitle">פרויקט חדש</h3>
+      <button type="button" class="btn btn-ghost btn-sm" id="sheetClose">סגירה</button>
+    </div>
+
+    <div class="sheet-body">
+      <div class="notice" id="sheetDraftNote">
+        פרויקט חדש נשמר כטיוטה ואינו מוצג באתר. הוא עולה לאוויר בלחיצה על "הפעלת דף הנחיתה" ברשימת הפרויקטים.
+      </div>
+
+      <div class="card">
+        <h3>הפרויקט</h3>
+        <div class="grid2">
+          <div class="field span2"><label for="pjName">שם הפרויקט</label><input type="text" id="pjName" required></div>
+          <div class="field span2"><label for="pjTagline">משפט פתיחה</label><input type="text" id="pjTagline" placeholder="ארבעה מגדלים מול הגלבוע"><div class="hint">מופיע מתחת לשם בראש הדף, ומשמש גם כתיאור בשיתוף ברשתות.</div></div>
+          <div class="field span2"><label for="pjDescription">תיאור הפרויקט</label><textarea id="pjDescription" rows="6"></textarea><div class="hint">שורה ריקה מפרידה בין פסקאות.</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>מיקום</h3>
+        <div class="grid2">
+          <div class="field"><label for="pjCity">עיר</label><input type="text" id="pjCity" placeholder="עפולה"></div>
+          <div class="field"><label for="pjStreet">רחוב</label><input type="text" id="pjStreet"></div>
+          <div class="field span2"><label for="pjAddress">כתובת מלאה</label><input type="text" id="pjAddress" placeholder="שדרות ירושלים 40, עפולה"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>שלב והיקף</h3>
+        <div class="grid3">
+          <div class="field"><label for="pjStage">שלב הפרויקט</label><select id="pjStage"></select></div>
+          <div class="field"><label for="pjOccDate">תאריך אכלוס</label><input type="date" id="pjOccDate"></div>
+          <div class="field"><label for="pjOccText">או במילים</label><input type="text" id="pjOccText" placeholder="סוף 2029"><div class="hint">כשאין תאריך מדויק.</div></div>
+          <div class="field"><label for="pjBuildings">בניינים</label><input type="number" id="pjBuildings" min="0"></div>
+          <div class="field"><label for="pjFloors">קומות</label><input type="number" id="pjFloors" min="0"></div>
+          <div class="field"><label for="pjTotalUnits">יחידות דיור</label><input type="number" id="pjTotalUnits" min="0"></div>
+          <div class="field"><label for="pjAvailUnits">דירות פנויות</label><input type="number" id="pjAvailUnits" min="0"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>תמהיל הדירות</h3>
+        <p class="sub">הדגמים שמוצעים בפרויקט. הטווחים של מחיר, חדרים ושטח שמופיעים בכרטיס הפרויקט ובסינון מחושבים מכאן אוטומטית.</p>
+        <div class="tbl-wrap"><table class="tbl" id="unitsTable"></table></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="addUnitBtn" style="margin-top:10px">+ הוספת דגם</button>
+      </div>
+
+      <div class="card" id="rangesCard">
+        <h3>טווחים</h3>
+        <p class="sub" id="rangesSub">אלה הטווחים שמופיעים בכרטיס הפרויקט ובסינון. כשיש דגמי דירות הם מחושבים מהם ואין צורך למלא כאן.</p>
+        <div class="grid3">
+          <div class="field"><label for="pjMinPrice">מחיר מ־</label><input type="number" id="pjMinPrice" min="0"></div>
+          <div class="field"><label for="pjMaxPrice">מחיר עד</label><input type="number" id="pjMaxPrice" min="0"></div>
+          <div class="field"><label for="pjMinRooms">חדרים מ־</label><input type="number" id="pjMinRooms" min="0" step="0.5"></div>
+          <div class="field"><label for="pjMaxRooms">חדרים עד</label><input type="number" id="pjMaxRooms" min="0" step="0.5"></div>
+          <div class="field"><label for="pjMinSize">שטח מ־ (מ״ר)</label><input type="number" id="pjMinSize" min="0"></div>
+          <div class="field"><label for="pjMaxSize">שטח עד (מ״ר)</label><input type="number" id="pjMaxSize" min="0"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>סוגי הנכס בפרויקט</h3>
+        <div class="chips" id="ptypeChips"></div>
+      </div>
+
+      <div class="card">
+        <h3>מה יש בפרויקט</h3>
+        <p class="sub">מופיע כצ׳יפים בדף הפרויקט ובכרטיס שלו בגלריות.</p>
+        <div class="chips" id="featureChips"></div>
+      </div>
+
+      <div class="card">
+        <h3>מיתוג דף הנחיתה</h3>
+        <p class="sub">לוגו הפרויקט ותמונת הנושא שלו. בלי לוגו נופלים ללוגו החברה, ובלי צבעים — לצבעי החברה.</p>
+        <div style="display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap">
+          <div>
+            <label style="font-size:.72rem;font-weight:800;color:var(--ink-soft);display:block;margin-bottom:5px">לוגו הפרויקט</label>
+            <div class="brand-preview" id="pjLogoPreview"></div>
+            <input type="file" id="pjLogoFile" accept="image/*" hidden>
+            <button type="button" class="btn btn-ghost btn-sm" style="margin-top:6px" id="pjLogoBtn">העלאה</button>
+          </div>
+          <div style="flex:1;min-width:220px">
+            <label style="font-size:.72rem;font-weight:800;color:var(--ink-soft);display:block;margin-bottom:5px">תמונת נושא</label>
+            <div class="cover-preview" id="pjCoverPreview"></div>
+            <input type="file" id="pjCoverFile" accept="image/*" hidden>
+            <button type="button" class="btn btn-ghost btn-sm" style="margin-top:6px" id="pjCoverBtn">העלאה</button>
+          </div>
+        </div>
+        <div class="grid2" style="margin-top:14px">
+          <div class="field"><label for="pjBrand">צבע ראשי</label><input type="color" id="pjBrand" style="height:42px;padding:4px"></div>
+          <div class="field"><label for="pjAccent">צבע משני</label><input type="color" id="pjAccent" style="height:42px;padding:4px"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>גלריית תמונות</h3>
+        <p class="sub">התמונה הראשונה היא הגדולה בגלריה. גרירה אינה נדרשת — החצים משנים סדר.</p>
+        <div class="drop" id="galleryDrop">
+          <b>בחירת תמונות</b> — או גרירה לכאן. עד 40 תמונות, כל אחת עד 8MB.
+        </div>
+        <input type="file" id="galleryFiles" accept="image/*" multiple hidden>
+        <div class="thumbs" id="galleryThumbs"></div>
+      </div>
+
+      <div class="card">
+        <h3>סרטונים וסיור 3D</h3>
+        <div class="grid2">
+          <div class="field span2"><label for="pjVideo">קישור לסרטון הפרויקט</label><input type="url" id="pjVideo" placeholder="https://youtube.com/watch?v=…"><div class="hint">‏YouTube ו-Vimeo מוטמעים בדף עצמו. כל מקור אחר מוצג ככפתור שנפתח בלשונית חדשה.</div></div>
+          <div class="field span2"><label for="pjTour">קישור לסיור 3D</label><input type="url" id="pjTour" placeholder="https://my.matterport.com/show/?m=…"><div class="hint">‏Matterport ו-Kuula מוטמעים בדף. מקור אחר — כפתור.</div></div>
+        </div>
+        <div id="extraMediaList" style="margin-top:6px"></div>
+        <button type="button" class="btn btn-ghost btn-sm" id="addMediaBtn">+ סרטון או סיור נוסף</button>
+      </div>
+
+      <div class="card">
+        <h3>חומר שיווקי להורדה</h3>
+        <p class="sub">חוברת מכר, מפרט טכני ותוכניות. מוצגים בדף כרשימת קבצים לפתיחה ולשמירה.</p>
+        <div class="field"><label for="pjBrochure">קישור לחוברת המכר</label><input type="url" id="pjBrochure" placeholder="https://"></div>
+        <div class="drop" id="docsDrop"><b>העלאת קבצים</b> — PDF או תמונה, עד 20MB לקובץ.</div>
+        <input type="file" id="docsFiles" accept="application/pdf,image/*" multiple hidden>
+        <div id="docsList" style="margin-top:10px"></div>
+        <div class="field" style="margin-top:12px"><label for="pjMarketing">הערת שוליים בדף</label><textarea id="pjMarketing" rows="2" placeholder="דף הפרויקט נבנה ומתוחזק על ידי היזם…"></textarea><div class="hint">מחליפה את הנוסח שמופיע בברירת מחדל בתחתית העמודה הצדית.</div></div>
+      </div>
+
+      <div class="card">
+        <h3>משרד המכירות</h3>
+        <p class="sub">כפתורי החיוג והוואטסאפ בראש הדף, והיעד של כל פנייה מהטופס.</p>
+        <div class="grid2">
+          <div class="field"><label for="pjContactName">שם איש/אשת הקשר</label><input type="text" id="pjContactName"></div>
+          <div class="field"><label for="pjContactPhone">טלפון</label><input type="tel" id="pjContactPhone" inputmode="tel"></div>
+          <div class="field"><label for="pjContactEmail">אימייל</label><input type="email" id="pjContactEmail"></div>
+          <div class="field"><label for="pjWhatsapp">וואטסאפ</label><input type="tel" id="pjWhatsapp" inputmode="tel"><div class="hint">ריק = משתמש במספר הטלפון שלמעלה.</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="sheet-foot">
+      <p class="msg" id="sheetMsg" role="status" aria-live="polite" style="margin:0;margin-inline-end:auto"></p>
+      <button type="button" class="btn btn-ghost" id="sheetCancel">ביטול</button>
+      <button type="submit" class="btn btn-teal" id="sheetSave">שמירה</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- ====== אישור מחיקה ======
+     שני צעדים, ולא "בטוח?" אחד: הצעד הראשון מוריד את הדף מהאוויר ומחזיר
+     טוקן, והצעד השני מוחק בפועל — ורק אחרי הקלדת שם הפרויקט. מחיקת
+     פרויקט מוחקת איתה את הגלריה, את התמהיל ואת היסטוריית הפניות. -->
+<dialog class="sheet" id="deleteSheet" aria-label="מחיקת פרויקט" style="max-width:min(520px,96vw)">
+  <div class="sheet-inner">
+    <div class="sheet-head"><h3>מחיקת פרויקט</h3></div>
+    <div class="sheet-body">
+      <div class="notice danger" id="delStep1">
+        <b>הצעד הראשון:</b> דף הנחיתה יורד מהאוויר מיד ומפסיק להופיע באתר. הפרויקט והנתונים שלו נשמרים, ואפשר לבטל בכל רגע.
+      </div>
+      <div class="notice danger" id="delStep2" hidden>
+        <b>הצעד השני, ואין ממנו חזרה:</b> מחיקה מוחקת את הפרויקט, את כל הגלריה, את תמהיל הדירות ואת היסטוריית הפניות אליו.
+      </div>
+      <p style="font-size:.88rem" id="delProjectName"></p>
+      <div class="field" id="delConfirmField" hidden>
+        <label for="delConfirmInput">להשלמת המחיקה — הקלידו את שם הפרויקט</label>
+        <input type="text" id="delConfirmInput" autocomplete="off">
+      </div>
+      <p class="msg" id="delMsg" role="status" aria-live="polite"></p>
+    </div>
+    <div class="sheet-foot">
+      <button type="button" class="btn btn-ghost" id="delClose">סגירה</button>
+      <button type="button" class="btn btn-ghost" id="delCancelRequest" hidden>ביטול בקשת המחיקה</button>
+      <button type="button" class="btn btn-danger" id="delAction">הורדת הדף מהאוויר</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- ====== טעינת ארנק ====== -->
+<dialog class="sheet" id="topupSheet" aria-label="טעינת ארנק" style="max-width:min(460px,96vw)">
+  <div class="sheet-inner">
+    <div class="sheet-head"><h3>טעינת ארנק</h3></div>
+    <div class="sheet-body">
+      <p style="font-size:.86rem;color:var(--ink-soft);margin:0 0 12px">
+        מהארנק יורדים דמי דף הנחיתה החודשיים, הקידומים ורכישות הלידים.
+      </p>
+      <div class="chips" id="topupChips"></div>
+      <div class="notice" style="margin-top:14px">
+        אין עדיין ספק סליקה מחובר, ולכן הטעינה נרשמת במצב בדיקה ואינה מחייבת כרטיס אשראי.
+      </div>
+      <p class="msg" id="topupMsg" role="status" aria-live="polite"></p>
+    </div>
+    <div class="sheet-foot">
+      <button type="button" class="btn btn-ghost" id="topupClose">סגירה</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+/* ============================================================================
+   אזור הניהול של היזם/הקבלן
+   ----------------------------------------------------------------------------
+   כל הכתיבה עוברת ב-project-manage (Edge Function) ולא ישירות בטבלה, אפילו
+   כשה-RLS הייתה מרשה זאת. שלוש מהפעולות — הפעלת דף נחיתה, קידום ומחיקה —
+   נוגעות בארנק או מוחקות נתונים, ולכן הן חייבות לרוץ ב-service_role; ברגע
+   שהן שם, גם השמירה הרגילה עוברת שם, כדי שהתשובה לשאלה "איפה נבדק הקלט"
+   תהיה מקום אחד ולא שניים.
+
+   הקריאה, לעומת זאת, נעשית ישירות מול הטבלאות דרך RLS — היא לא צריכה
+   הרשאות מיוחדות, וסיבוב דרך פונקציה היה רק מוסיף השהיה.
+   ============================================================================ */
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+const MANAGE_URL = SUPABASE_URL + '/functions/v1/project-manage';
+const LEAD_PURCHASE_URL = SUPABASE_URL + '/functions/v1/project-lead-purchase';
+const REGISTRY_URL = SUPABASE_URL + '/functions/v1/company-registry-lookup';
+const IMAGE_BUCKET = 'property-images';
+
+const el = id => document.getElementById(id);
+const esc = ProjectCard.escapeHtml;
+const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+let developer = null;
+let projects = [];
+let pricing = {};
+let editing = null;          // הפרויקט שנערך כרגע, או null לפרויקט חדש
+let editUnits = [];
+let editMedia = [];          // {kind,url,title,file_size,downloadable}
+let deleteTarget = null;
+
+const money = n => Number(n || 0).toLocaleString('he-IL', { maximumFractionDigits: 0 }) + ' ₪';
+const dateLabel = iso => iso ? new Date(iso).toLocaleDateString('he-IL', { day:'numeric', month:'short', year:'numeric' }) : '';
+
+/* ---------- קריאה לפונקציית הניהול ----------
+   הטוקן נשלף בכל קריאה ולא נשמר במשתנה: ‏supabase-js מרענן אותו ברקע,
+   וטוקן שנתפס פעם אחת בטעינת הדף פג אחרי שעה ומחזיר 401 באמצע עבודה. */
+async function api(action, payload){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) { showLogin(); throw new Error('no_session'); }
+  const res = await fetch(MANAGE_URL, {
+    method:'POST',
+    headers:{
+      'Content-Type':'application/json',
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': 'Bearer ' + session.access_token,
+    },
+    body: JSON.stringify(Object.assign({ action }, payload || {})),
+  });
+  const data = await res.json().catch(()=> ({}));
+  return { ok: res.ok && !data.error, status: res.status, data };
+}
+
+const ERRORS = {
+  insufficient_balance: 'אין מספיק יתרה בארנק. אפשר לטעון אותו מהכפתור בראש העמוד.',
+  already_promoted: 'הפרויקט כבר מקודם — אפשר לחדש כשהחלון הנוכחי ייגמר.',
+  page_not_live: 'קידום אפשרי רק לפרויקט שדף הנחיתה שלו פעיל.',
+  subscription_required: 'דף הנחיתה אינו בתוקף. יש להפעיל אותו כדי לחזור לאוויר.',
+  not_your_project: 'הפרויקט אינו שייך לחברה שלכם.',
+  project_limit_reached: 'הגעתם למספר הפרויקטים המרבי לחשבון.',
+  missing_name: 'לפרויקט חייב להיות שם.',
+  bad_confirm_token: 'אישור המחיקה אינו תקף. נסו שוב מההתחלה.',
+  delete_not_requested: 'לא נפתחה בקשת מחיקה לפרויקט הזה.',
+  already_sold: 'הליד כבר נרכש על ידי חברה אחרת.',
+  developer_suspended: 'החשבון מושהה. פנו אלינו כדי לחדש אותו.',
+  developer_exists: 'כבר יש חברה מקושרת לחשבון הזה.',
+  company_number_taken: 'מספר הח״פ הזה כבר רשום במערכת. אם זו החברה שלכם — היכנסו לחשבון הקיים.',
+};
+
+/* שמות השדות בעברית, כדי ש-missing_fields מהשרת יהפוך להודעה שאפשר
+   לפעול לפיה ולא לרשימת מפתחות באנגלית. */
+const FIELD_LABELS = {
+  company_name:'שם החברה', company_number:'ח״פ', contact_name:'שם איש/אשת הקשר',
+  phone:'טלפון', address:'כתובת המשרד', city:'עיר',
+};
+function errText(d){
+  // הודעת רשם החברות מגיעה מוכנה מהשרת ומסבירה בדיוק מה נדחה ולמה
+  if (d && d.error === 'company_registry_rejected') return d.detail || 'מספר הח״פ נדחה על ידי רשם החברות.';
+  if (d && d.error === 'missing_fields'){
+    const named = list => (list || []).map(k => FIELD_LABELS[k] || k).join(', ');
+    return (d.invalid && d.invalid.length)
+      ? 'שדות שאינם תקינים: ' + named(d.invalid)
+      : 'חסרים שדות חובה: ' + named(d.missing);
+  }
+  return ERRORS[d && d.error] || (d && d.detail) || 'משהו השתבש — נסו שוב';
+}
+
+function setMsg(id, text, kind){
+  const node = el(id);
+  if (!node) return;
+  node.textContent = text || '';
+  node.style.color = kind === 'ok' ? 'var(--positive)' : kind === 'err' ? 'var(--danger)' : 'var(--ink-soft)';
+}
+
+/* ---------- מעבר בין המסכים ----------
+   ארבעה מסכים בלעדיים זה לזה, והחלפה עוברת תמיד דרך הפונקציה הזו: מסך
+   שנשאר פתוח מאחורי מסך אחר הוא בדיוק הבאג של "המסכים קופצים". */
+const SCREENS = ['bootScreen', 'loginScreen', 'createScreen', 'appScreen'];
+function show(which){
+  SCREENS.forEach(id => { el(id).hidden = id !== which; });
+}
+const showLogin = (msg)=>{
+  show('loginScreen');
+  if (msg) setMsg('lgMsg', msg, 'err');
+};
+const showApp = ()=> show('appScreen');
+
+/* ---------- ניקוי תשובת OAuth מהכתובת ----------
+   ‏supabase-js קורא את ה-#access_token בזמן האתחול; מרגע שה-session בידינו
+   אין סיבה שהוא יישאר בשורת הכתובת ובהיסטוריה, שם רענון או "חזור" מנסים
+   לעבד שוב תשובה שכבר נוצלה. */
+const AUTH_HASH_KEYS = ['access_token','refresh_token','expires_in','expires_at','token_type','provider_token','type'];
+const AUTH_QUERY_KEYS = ['code','error','error_code','error_description','state'];
+
+function cleanAuthParamsFromUrl(){
+  if (!window.history || !window.history.replaceState) return;
+  const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const query = new URLSearchParams(location.search);
+  const dropHash = AUTH_HASH_KEYS.some(k => hashParams.has(k));
+  let dropped = false;
+  for (const key of AUTH_QUERY_KEYS){
+    if (query.has(key)){ query.delete(key); dropped = true; }
+  }
+  if (!dropHash && !dropped) return;
+  const search = query.toString();
+  history.replaceState(null, '', location.pathname + (search ? '?' + search : '') + (dropHash ? '' : location.hash));
+}
+
+/* שגיאת OAuth נקראת בטעינה, לפני שהכתובת מנוקה. בלי זה מי שחזר/ה מ-Google
+   עם שגיאה פשוט מוצא/ת את עצמו/ה מול טופס הסיסמה בלי הסבר. */
+const oauthError = (()=>{
+  const hashParams = new URLSearchParams(location.hash.replace(/^#/, ''));
+  const query = new URLSearchParams(location.search);
+  const pick = k => hashParams.get(k) || query.get(k) || '';
+  return { code: pick('error') || pick('error_code'), description: pick('error_description') };
+})();
+const oauthMessage = (oauthError.code || oauthError.description)
+  ? (/access_denied|cancel/i.test(oauthError.code)
+      ? 'ההתחברות עם Google בוטלה. אפשר לנסות שוב, או להיכנס עם אימייל וסיסמה.'
+      : 'ההתחברות עם Google נכשלה: ' + (oauthError.description || oauthError.code))
+  : '';
+
+/* רשת ביטחון: בדיקת התחברות שנתקעת (רשת איטית, שרת שלא עונה) לא תשאיר
+   ספינר אינסופי. */
+const bootWatchdog = setTimeout(()=>{
+  if (!el('bootScreen').hidden) showLogin('בדיקת ההתחברות מתעכבת. אפשר להתחבר כאן, או לרענן את הדף.');
+}, 15000);
+
+/* ‏ח״פ ישראלי הוא תשע ספרות; שמונה מושלם באפס מוביל, כפי שנכתב לא פעם
+   מספר עוסק מורשה. אותה נורמליזציה בדיוק רצה בשרת — שתי הכתיבות של אותו
+   עסק חייבות להגיע לאותו מספר, אחרת ה-unique לא יתפוס אותן. */
+function normalizeCompanyNumber(raw){
+  const digits = String(raw || '').replace(/\D/g, '');
+  if (digits.length === 8) return '0' + digits;
+  return digits.length === 9 ? digits : null;
+}
+
+/* ---------- בדיקת ח״פ מול רשם החברות ----------
+   אותו בודק משרת את שני הטפסים — מסך פתיחת החברה ומסך דף החברה — ולכן
+   הוא מקבל את מזהי השדה והרמז כפרמטרים. שני עותקים של אותה לוגיקה היו
+   נפרדים ברגע שאחד מהם מקבל תיקון.
+
+   התוצאה היא חיווי בלבד; השרת מריץ את אותה בדיקה בעצמו. */
+const registrySeq = {};
+
+function wireRegistryCheck(inputId, hintId, idleText){
+  const input = el(inputId), hint = el(hintId);
+  let timer = null;
+
+  async function run(){
+    const raw = input.value.trim();
+    const normalized = normalizeCompanyNumber(raw);
+    if (!raw || !normalized){
+      hint.className = 'hint';
+      hint.textContent = idleText;
+      return;
+    }
+    const seq = (registrySeq[inputId] = (registrySeq[inputId] || 0) + 1);
+    hint.className = 'hint busy';
+    hint.textContent = 'בודק מול רשם החברות…';
+    try{
+      const res = await fetch(REGISTRY_URL, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+        body: JSON.stringify({ company_number: normalized }),
+      });
+      if (seq !== registrySeq[inputId]) return;
+      const data = await res.json();
+      if (!res.ok || data.error) throw new Error(data.error || 'lookup_failed');
+      hint.className = 'hint ' + (data.status === 'verified' ? 'ok'
+        : (data.status === 'inactive' || data.status === 'not_found') ? 'warn' : '');
+      hint.textContent = data.message;
+    } catch(e){
+      if (seq !== registrySeq[inputId]) return;
+      hint.className = 'hint';
+      hint.textContent = 'לא הצלחנו לבדוק מול רשם החברות כרגע. אפשר להמשיך.';
+    }
+  }
+
+  input.addEventListener('input', ()=>{ clearTimeout(timer); timer = setTimeout(run, 450); });
+  input.addEventListener('blur', ()=>{ clearTimeout(timer); run(); });
+}
+
+wireRegistryCheck('crNumber', 'crNumberHint', 'תשע ספרות. נבדק מול רשם החברות.');
+wireRegistryCheck('coNumber', 'coNumberHint', 'תשע ספרות. נבדק מול רשם החברות.');
+
+/* ---------- התחברות עם Google ---------- */
+el('googleBtn').addEventListener('click', async ()=>{
+  const btn = el('googleBtn');
+  setMsg('lgMsg', '');
+  btn.disabled = true;
+  btn.querySelector('.gl-label').textContent = 'מעבירים ל-Google…';
+  // ‏origin + pathname בלי query: הכתובת חייבת להיות זהה בדיוק לזו
+  // שברשימת ה-Redirect URLs של Supabase, אחרת החזרה נוחתת ב-Site URL.
+  const { error } = await sb.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: location.origin + location.pathname },
+  });
+  if (error){
+    btn.disabled = false;
+    btn.querySelector('.gl-label').textContent = 'התחברות עם Google';
+    setMsg('lgMsg', 'לא הצלחנו לפתוח את החיבור ל-Google: ' + error.message, 'err');
+  }
+});
+
+/* ---------- פתיחת חברה ----------
+   מי שנכנס/ת עם Google בפעם הראשונה מגיע/ה לכאן: יש חשבון Auth, אין
+   שורת developers. הבקשה יוצאת ל-create_developer — הפעולה היחידה
+   ב-project-manage שמותרת לפני שיש חברה. */
+const CREATE_REQUIRED = [
+  ['crName',    'שם החברה'],
+  ['crNumber',  'ח״פ'],
+  ['crContact', 'שם איש/אשת הקשר'],
+  ['crPhone',   'טלפון'],
+  ['crCity',    'עיר'],
+  ['crAddress', 'כתובת המשרד'],
+];
+
+el('createForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const btn = el('crBtn');
+  const val = id => el(id).value.trim();
+
+  const missing = CREATE_REQUIRED.filter(([id]) => !val(id)).map(([, label]) => label);
+  if (missing.length){
+    setMsg('crMsg', (missing.length === 1 ? 'חסר שדה חובה: ' : 'חסרים שדות חובה: ') + missing.join(', '), 'err');
+    return;
+  }
+  const companyNumber = normalizeCompanyNumber(val('crNumber'));
+  if (!companyNumber){ setMsg('crMsg', 'מספר ח״פ / עוסק מורשה צריך להיות בן תשע ספרות', 'err'); return; }
+  if (!el('crTerms').checked){ setMsg('crMsg', 'פתיחת החברה מותנית באישור תנאי השימוש', 'err'); return; }
+
+  btn.disabled = true; btn.textContent = 'פותח חברה…'; setMsg('crMsg', '');
+  const res = await api('create_developer', {
+    company_name: val('crName'),
+    company_number: companyNumber,
+    contact_name: val('crContact'),
+    phone: val('crPhone'),
+    city: val('crCity'),
+    address: val('crAddress'),
+    legal_name: val('crLegal') || null,
+    website: val('crWebsite') || null,
+  });
+  btn.disabled = false; btn.textContent = 'פתיחת החברה';
+  if (!res.ok){ setMsg('crMsg', errText(res.data), 'err'); return; }
+  await boot();
+});
+
+el('crLogout').addEventListener('click', async ()=>{
+  await sb.auth.signOut();
+  location.reload();
+});
+
+/* ---------- התחברות עם אימייל וסיסמה ---------- */
+el('loginForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const btn = el('lgBtn');
+  btn.disabled = true; btn.textContent = 'מתחבר…'; setMsg('lgMsg','');
+  try{
+    const { error } = await sb.auth.signInWithPassword({
+      email: el('lgEmail').value.trim(),
+      password: el('lgPassword').value,
+    });
+    if (error){
+      setMsg('lgMsg','אימייל או סיסמה שגויים','err');
+      btn.disabled = false; btn.textContent = 'כניסה';
+      return;
+    }
+    await boot();
+  } catch(err){
+    setMsg('lgMsg','שגיאת רשת — נסו שוב','err');
+    btn.disabled = false; btn.textContent = 'כניסה';
+  }
+});
+
+el('logoutBtn').addEventListener('click', async ()=>{
+  await sb.auth.signOut();
+  location.reload();
+});
+
+/* ---------- לשוניות ---------- */
+const TABS = ['projects','company','leads','shelf','billing'];
+document.querySelectorAll('.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    const tab = btn.dataset.tab;
+    document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', String(b === btn)));
+    TABS.forEach(t => { el('tab' + t[0].toUpperCase() + t.slice(1)).hidden = t !== tab; });
+    if (tab === 'leads') loadLeads();
+    if (tab === 'shelf') loadShelf();
+    if (tab === 'billing') loadBilling();
+  });
+});
+
+/* ---------- העלאת קבצים ----------
+   הנתיב מתחיל במזהה החברה, וזה בדיוק מה שמדיניות האחסון בודקת: תיקייה
+   ראשונה בנתיב = בעלים. העלאה לתיקייה של חברה אחרת נדחית בשרת, לא כאן. */
+async function uploadFile(file, folder){
+  const ext = (file.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const name = developer.id + '/' + folder + '/' + crypto.randomUUID() + '.' + (ext || 'bin');
+  const { error } = await sb.storage.from(IMAGE_BUCKET).upload(name, file, {
+    contentType: file.type || 'application/octet-stream',
+    cacheControl: '31536000', upsert: false,
+  });
+  if (error) throw error;
+  return sb.storage.from(IMAGE_BUCKET).getPublicUrl(name).data.publicUrl;
+}
+
+function wireUpload(btnId, inputId, onFile, opts){
+  const input = el(inputId);
+  el(btnId).addEventListener('click', ()=> input.click());
+  input.addEventListener('change', async ()=>{
+    const files = [...input.files];
+    input.value = '';
+    for (const f of files){
+      const maxMb = (opts && opts.maxMb) || 8;
+      if (f.size > maxMb * 1024 * 1024){
+        alert('הקובץ "' + f.name + '" גדול מ-' + maxMb + 'MB');
+        continue;
+      }
+      try{ await onFile(f); }
+      catch(e){ console.warn(e); alert('העלאת "' + f.name + '" נכשלה'); }
+    }
+  });
+}
+
+/* ---------- רשימת הפרויקטים ---------- */
+function projectState(p){
+  const now = new Date();
+  const subOk = p.subscription_expires_at && new Date(p.subscription_expires_at) > now;
+  if (p.delete_requested_at) return { key:'pending-delete', label:'ממתין לאישור מחיקה' };
+  if (p.status === 'draft') return { key:'draft', label:'טיוטה — לא באוויר' };
+  if (!subOk) return { key:'expired', label:'דף הנחיתה אינו בתוקף' };
+  if (p.status === 'paused') return { key:'paused', label:'מושהה' };
+  if (p.status === 'active') return { key:'live', label:'באוויר' };
+  return { key:'draft', label:p.status };
+}
+
+function renderProjects(){
+  const list = el('projectsList');
+  list.textContent = '';
+  el('projectsEmpty').hidden = projects.length > 0;
+  el('cntProjects').textContent = String(projects.length);
+
+  projects.forEach(p=>{
+    const st = projectState(p);
+    const promoted = p.is_promoted && p.promoted_until && new Date(p.promoted_until) > new Date();
+    const row = document.createElement('div');
+    row.className = 'proj';
+
+    const pills = ['<span class="pill ' + st.key + '">' + esc(st.label) + '</span>'];
+    if (promoted) pills.push('<span class="pill promoted">מקודם עד ' + esc(dateLabel(p.promoted_until)) + '</span>');
+    if (p.subscription_expires_at && st.key === 'live'){
+      pills.push('<span class="pill">דף נחיתה בתוקף עד ' + esc(dateLabel(p.subscription_expires_at)) + '</span>');
+    }
+    if (p.views_count) pills.push('<span class="pill">' + Number(p.views_count).toLocaleString('he-IL') + ' צפיות</span>');
+
+    const actions = [];
+    actions.push('<button type="button" class="btn btn-ghost btn-sm" data-act="edit">עריכה</button>');
+    if (st.key === 'draft' || st.key === 'expired'){
+      actions.push('<button type="button" class="btn btn-teal btn-sm" data-act="activate">הפעלת דף הנחיתה · ' +
+        esc(money(pricing.project_page_monthly_price || 350)) + '</button>');
+    } else if (st.key === 'live'){
+      if (!promoted){
+        actions.push('<button type="button" class="btn btn-promote btn-sm" data-act="promote">קידום לשבוע · ' +
+          esc(money(pricing.project_promote_weekly_price || 50)) + '</button>');
+      }
+      actions.push('<a class="btn btn-ghost btn-sm" href="project.html?slug=' + esc(p.slug || '') +
+        '" target="_blank" rel="noopener">צפייה בדף</a>');
+      actions.push('<button type="button" class="btn btn-ghost btn-sm" data-act="pause">השהיה</button>');
+      actions.push('<button type="button" class="btn btn-ghost btn-sm" data-act="renew">חידוש חודש · ' +
+        esc(money(pricing.project_page_monthly_price || 350)) + '</button>');
+    } else if (st.key === 'paused'){
+      actions.push('<button type="button" class="btn btn-teal btn-sm" data-act="resume">החזרה לאוויר</button>');
+    }
+    actions.push('<button type="button" class="btn btn-danger btn-sm" data-act="delete">' +
+      (p.delete_requested_at ? 'השלמת המחיקה' : 'מחיקה') + '</button>');
+
+    const cover = ProjectCard.safeUrl(p.cover_url);
+    const where = [p.city, p.address || p.street].filter(Boolean).join(' · ');
+    row.innerHTML =
+      '<div class="thumb"' + (cover ? ' style="background-image:url(\'' + esc(cover) + '\')"' : '') + '></div>' +
+      '<div class="info"><b>' + esc(p.name || '') + '</b>' +
+        (where ? '<div class="where">' + esc(where) + '</div>' : '') +
+        '<div class="pills">' + pills.join('') + '</div></div>' +
+      '<div class="actions">' + actions.join('') + '</div>';
+
+    row.querySelectorAll('[data-act]').forEach(btn=>{
+      btn.addEventListener('click', ()=> projectAction(btn.dataset.act, p, btn));
+    });
+    list.appendChild(row);
+  });
+}
+
+async function projectAction(act, p, btn){
+  if (act === 'edit') return openSheet(p);
+  if (act === 'delete') return openDeleteSheet(p);
+
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = 'רגע…';
+
+  let res;
+  if (act === 'activate' || act === 'renew') res = await api('activate_page', { project_id: p.id });
+  else if (act === 'promote') res = await api('promote', { project_id: p.id });
+  else if (act === 'pause')   res = await api('set_status', { project_id: p.id, status: 'paused' });
+  else if (act === 'resume')  res = await api('set_status', { project_id: p.id, status: 'active' });
+
+  btn.disabled = false; btn.textContent = label;
+  if (!res.ok){ alert(errText(res.data)); return; }
+  await refresh();
+}
+
+/* ---------- עורך הפרויקט ---------- */
+const PTYPES = ['דירה','דירת גן','פנטהאוז','דופלקס','מיני פנטהאוז','בית פרטי/קוטג\'','דו משפחתי','מסחרי','משרדים'];
+
+function renderChipGroup(boxId, options, selected){
+  const box = el(boxId);
+  box.textContent = '';
+  options.forEach(([value, label])=>{
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'chip-btn';
+    btn.textContent = label;
+    btn.dataset.value = value;
+    btn.setAttribute('aria-pressed', String(selected.includes(value)));
+    btn.addEventListener('click', ()=>{
+      const on = btn.getAttribute('aria-pressed') === 'true';
+      btn.setAttribute('aria-pressed', String(!on));
+    });
+    box.appendChild(btn);
+  });
+}
+const chipValues = boxId => [...el(boxId).querySelectorAll('[aria-pressed="true"]')].map(b => b.dataset.value);
+
+function renderUnitsEditor(){
+  const rows = editUnits.map((u, i)=>
+    '<tr data-i="' + i + '">' +
+      '<td><input data-f="name" value="' + esc(u.name || '') + '" placeholder="דגם A"></td>' +
+      '<td class="narrow"><input data-f="rooms" type="number" step="0.5" min="0" value="' + esc(u.rooms ?? '') + '"></td>' +
+      '<td class="narrow"><input data-f="size_sqm" type="number" min="0" value="' + esc(u.size_sqm ?? '') + '"></td>' +
+      '<td class="narrow"><input data-f="balcony_sqm" type="number" min="0" value="' + esc(u.balcony_sqm ?? '') + '"></td>' +
+      '<td><input data-f="price" type="number" min="0" value="' + esc(u.price ?? '') + '"></td>' +
+      '<td class="narrow"><select data-f="availability">' +
+        ['available','few_left','sold_out'].map(v =>
+          '<option value="' + v + '"' + (u.availability === v ? ' selected' : '') + '>' +
+          ({available:'פנוי',few_left:'אחרונות',sold_out:'אזל'})[v] + '</option>').join('') +
+      '</select></td>' +
+      '<td><input data-f="floor_plan_url" value="' + esc(u.floor_plan_url || '') + '" placeholder="קישור לתוכנית"></td>' +
+      '<td class="narrow"><button type="button" class="btn btn-ghost btn-sm" data-rm="' + i + '">הסרה</button></td>' +
+    '</tr>');
+
+  el('unitsTable').innerHTML = editUnits.length
+    ? '<thead><tr><th>דגם</th><th>חדרים</th><th>מ״ר</th><th>מרפסת</th><th>מחיר</th><th>זמינות</th><th>תוכנית</th><th></th></tr></thead>' +
+      '<tbody>' + rows.join('') + '</tbody>'
+    : '<tbody><tr><td style="color:var(--ink-muted);font-size:.82rem;padding:12px 0">אין עדיין דגמים. אפשר להוסיף עכשיו או להשלים אחר כך.</td></tr></tbody>';
+
+  el('unitsTable').querySelectorAll('input,select').forEach(input=>{
+    input.addEventListener('input', (e)=>{
+      const i = Number(e.target.closest('tr').dataset.i);
+      const f = e.target.dataset.f;
+      editUnits[i][f] = e.target.value === '' ? null : e.target.value;
+    });
+  });
+  el('unitsTable').querySelectorAll('[data-rm]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{ editUnits.splice(Number(btn.dataset.rm), 1); renderUnitsEditor(); });
+  });
+  el('rangesSub').textContent = editUnits.length
+    ? 'יש דגמי דירות, ולכן הטווחים מחושבים מהם אוטומטית בשמירה — מה שתקלידו כאן ידרס.'
+    : 'אלה הטווחים שמופיעים בכרטיס הפרויקט ובסינון. כשיש דגמי דירות הם מחושבים מהם ואין צורך למלא כאן.';
+}
+el('addUnitBtn').addEventListener('click', ()=>{
+  editUnits.push({ name:'', availability:'available' });
+  renderUnitsEditor();
+});
+
+function renderGalleryThumbs(){
+  const images = editMedia.filter(m => m.kind === 'image');
+  el('galleryThumbs').innerHTML = images.map((m, i)=>
+    '<div class="thumb-item" style="background-image:url(\'' + esc(ProjectCard.safeUrl(m.url)) + '\')">' +
+      '<div class="mv">' +
+        (i > 0 ? '<button type="button" data-mv="' + i + '" data-dir="-1" aria-label="הזזה קדימה">›</button>' : '') +
+        (i < images.length - 1 ? '<button type="button" data-mv="' + i + '" data-dir="1" aria-label="הזזה אחורה">‹</button>' : '') +
+      '</div>' +
+      '<button type="button" class="rm" data-rm="' + i + '" aria-label="הסרת התמונה">✕</button>' +
+      (i === 0 ? '<span class="badge">ראשית</span>' : '') +
+    '</div>').join('');
+
+  el('galleryThumbs').querySelectorAll('[data-rm]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const target = images[Number(btn.dataset.rm)];
+      editMedia.splice(editMedia.indexOf(target), 1);
+      renderGalleryThumbs();
+    });
+  });
+  el('galleryThumbs').querySelectorAll('[data-mv]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const i = Number(btn.dataset.mv), dir = Number(btn.dataset.dir);
+      const a = editMedia.indexOf(images[i]), b = editMedia.indexOf(images[i + dir]);
+      if (a < 0 || b < 0) return;
+      const tmp = editMedia[a]; editMedia[a] = editMedia[b]; editMedia[b] = tmp;
+      renderGalleryThumbs();
+    });
+  });
+}
+
+function renderDocsList(){
+  const docs = editMedia.filter(m => m.kind === 'document' || m.kind === 'floor_plan');
+  el('docsList').innerHTML = docs.length ? docs.map((d, i)=>
+    '<div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--hair)">' +
+      '<input data-doc-title="' + i + '" value="' + esc(d.title || '') + '" placeholder="שם הקובץ בדף" ' +
+        'style="flex:1;border:1.5px solid var(--line);padding:7px 8px;font-size:.82rem">' +
+      '<select data-doc-kind="' + i + '" style="border:1.5px solid var(--line);padding:7px 8px;font-size:.82rem">' +
+        '<option value="document"' + (d.kind === 'document' ? ' selected' : '') + '>מסמך</option>' +
+        '<option value="floor_plan"' + (d.kind === 'floor_plan' ? ' selected' : '') + '>תוכנית</option>' +
+      '</select>' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-doc-rm="' + i + '">הסרה</button>' +
+    '</div>').join('') : '<p style="font-size:.8rem;color:var(--ink-muted);margin:0">עוד לא הועלו קבצים.</p>';
+
+  el('docsList').querySelectorAll('[data-doc-title]').forEach(inp=>{
+    inp.addEventListener('input', ()=>{ docs[Number(inp.dataset.docTitle)].title = inp.value; });
+  });
+  el('docsList').querySelectorAll('[data-doc-kind]').forEach(sel=>{
+    sel.addEventListener('change', ()=>{ docs[Number(sel.dataset.docKind)].kind = sel.value; });
+  });
+  el('docsList').querySelectorAll('[data-doc-rm]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      editMedia.splice(editMedia.indexOf(docs[Number(btn.dataset.docRm)]), 1);
+      renderDocsList();
+    });
+  });
+}
+
+function renderExtraMedia(){
+  const extra = editMedia.filter(m => m.kind === 'video' || m.kind === 'tour_3d');
+  el('extraMediaList').innerHTML = extra.map((m, i)=>
+    '<div style="display:flex;gap:8px;align-items:center;padding:8px 0;border-bottom:1px solid var(--hair)">' +
+      '<select data-em-kind="' + i + '" style="border:1.5px solid var(--line);padding:7px 8px;font-size:.82rem">' +
+        '<option value="video"' + (m.kind === 'video' ? ' selected' : '') + '>סרטון</option>' +
+        '<option value="tour_3d"' + (m.kind === 'tour_3d' ? ' selected' : '') + '>סיור 3D</option>' +
+      '</select>' +
+      '<input data-em-url="' + i + '" value="' + esc(m.url || '') + '" placeholder="https://" ' +
+        'style="flex:1;border:1.5px solid var(--line);padding:7px 8px;font-size:.82rem">' +
+      '<input data-em-title="' + i + '" value="' + esc(m.title || '') + '" placeholder="כותרת" ' +
+        'style="width:130px;border:1.5px solid var(--line);padding:7px 8px;font-size:.82rem">' +
+      '<button type="button" class="btn btn-ghost btn-sm" data-em-rm="' + i + '">הסרה</button>' +
+    '</div>').join('');
+
+  const bind = (attr, key)=> el('extraMediaList').querySelectorAll('[data-em-' + attr + ']').forEach(node=>{
+    node.addEventListener('input', ()=>{ extra[Number(node.dataset['em' + key[0].toUpperCase() + key.slice(1)])][key] = node.value; });
+    node.addEventListener('change', ()=>{ extra[Number(node.dataset['em' + key[0].toUpperCase() + key.slice(1)])][key] = node.value; });
+  });
+  bind('kind','kind'); bind('url','url'); bind('title','title');
+  el('extraMediaList').querySelectorAll('[data-em-rm]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      editMedia.splice(editMedia.indexOf(extra[Number(btn.dataset.emRm)]), 1);
+      renderExtraMedia();
+    });
+  });
+}
+el('addMediaBtn').addEventListener('click', ()=>{
+  editMedia.push({ kind:'video', url:'', title:'' });
+  renderExtraMedia();
+});
+
+const setPreview = (id, url)=>{
+  el(id).style.backgroundImage = url ? "url('" + ProjectCard.safeUrl(url) + "')" : '';
+  el(id).dataset.url = url || '';
+};
+
+async function openSheet(p){
+  editing = p || null;
+  el('sheetTitle').textContent = p ? 'עריכת ' + (p.name || 'פרויקט') : 'פרויקט חדש';
+  el('sheetDraftNote').hidden = !!p;
+  setMsg('sheetMsg','');
+
+  const v = (id, val)=> { el(id).value = val ?? ''; };
+  v('pjName', p && p.name); v('pjTagline', p && p.tagline); v('pjDescription', p && p.description);
+  v('pjCity', p && p.city); v('pjStreet', p && p.street); v('pjAddress', p && p.address);
+  v('pjOccDate', p && p.occupancy_date); v('pjOccText', p && p.occupancy_text);
+  v('pjBuildings', p && p.buildings_count); v('pjFloors', p && p.floors_count);
+  v('pjTotalUnits', p && p.total_units); v('pjAvailUnits', p && p.available_units);
+  v('pjMinPrice', p && p.min_price); v('pjMaxPrice', p && p.max_price);
+  v('pjMinRooms', p && p.min_rooms); v('pjMaxRooms', p && p.max_rooms);
+  v('pjMinSize', p && p.min_size_sqm); v('pjMaxSize', p && p.max_size_sqm);
+  v('pjVideo', p && p.video_url); v('pjTour', p && p.tour_3d_url); v('pjBrochure', p && p.brochure_url);
+  v('pjMarketing', p && p.marketing_summary);
+  v('pjContactName', p && p.contact_name); v('pjContactPhone', p && p.contact_phone);
+  v('pjContactEmail', p && p.contact_email); v('pjWhatsapp', p && p.whatsapp_e164);
+
+  el('pjStage').innerHTML = Object.entries(ProjectCard.STAGES).map(([k, label])=>
+    '<option value="' + k + '"' + (p && p.project_stage === k ? ' selected' : '') + '>' + label + '</option>').join('');
+
+  const colors = (p && p.colors) || {};
+  el('pjBrand').value = colors.brand || (developer.colors && developer.colors.brand) || '#0e2a6b';
+  el('pjAccent').value = colors.accent || (developer.colors && developer.colors.accent) || '#c9a227';
+
+  setPreview('pjLogoPreview', p && p.logo_url);
+  setPreview('pjCoverPreview', p && p.cover_url);
+
+  renderChipGroup('ptypeChips', PTYPES.map(t => [t, t]), (p && p.property_types) || []);
+  renderChipGroup('featureChips', Object.entries(ProjectCard.FEATURES), (p && p.features) || []);
+
+  editUnits = []; editMedia = [];
+  if (p){
+    const [{ data: u }, { data: m }] = await Promise.all([
+      sb.from('project_unit_types').select('*').eq('project_id', p.id).order('sort_order'),
+      sb.from('project_media').select('*').eq('project_id', p.id).order('sort_order'),
+    ]);
+    editUnits = (u || []).map(x => Object.assign({}, x));
+    editMedia = (m || []).map(x => Object.assign({}, x));
+  }
+  renderUnitsEditor(); renderGalleryThumbs(); renderDocsList(); renderExtraMedia();
+  el('projectSheet').showModal();
+}
+
+const closeSheet = ()=> el('projectSheet').close();
+el('sheetClose').addEventListener('click', closeSheet);
+el('sheetCancel').addEventListener('click', closeSheet);
+el('newProjectBtn').addEventListener('click', ()=> openSheet(null));
+el('newProjectBtn2').addEventListener('click', ()=> openSheet(null));
+
+el('projectForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const btn = el('sheetSave');
+  const name = el('pjName').value.trim();
+  if (!name){ setMsg('sheetMsg','לפרויקט חייב להיות שם','err'); return; }
+
+  btn.disabled = true; btn.textContent = 'שומר…'; setMsg('sheetMsg','');
+  const numOrNull = id => el(id).value === '' ? null : Number(el(id).value);
+
+  const payload = {
+    project_id: editing ? editing.id : null,
+    name,
+    tagline: el('pjTagline').value.trim() || null,
+    description: el('pjDescription').value.trim() || null,
+    marketing_summary: el('pjMarketing').value.trim() || null,
+    city: el('pjCity').value.trim() || null,
+    street: el('pjStreet').value.trim() || null,
+    address: el('pjAddress').value.trim() || null,
+    project_stage: el('pjStage').value,
+    occupancy_date: el('pjOccDate').value || null,
+    occupancy_text: el('pjOccText').value.trim() || null,
+    buildings_count: numOrNull('pjBuildings'),
+    floors_count: numOrNull('pjFloors'),
+    total_units: numOrNull('pjTotalUnits'),
+    available_units: numOrNull('pjAvailUnits'),
+    min_price: numOrNull('pjMinPrice'), max_price: numOrNull('pjMaxPrice'),
+    min_rooms: numOrNull('pjMinRooms'), max_rooms: numOrNull('pjMaxRooms'),
+    min_size_sqm: numOrNull('pjMinSize'), max_size_sqm: numOrNull('pjMaxSize'),
+    property_types: chipValues('ptypeChips'),
+    features: chipValues('featureChips'),
+    logo_url: el('pjLogoPreview').dataset.url || null,
+    cover_url: el('pjCoverPreview').dataset.url || null,
+    colors: { brand: el('pjBrand').value, accent: el('pjAccent').value },
+    video_url: el('pjVideo').value.trim() || null,
+    tour_3d_url: el('pjTour').value.trim() || null,
+    brochure_url: el('pjBrochure').value.trim() || null,
+    contact_name: el('pjContactName').value.trim() || null,
+    contact_phone: el('pjContactPhone').value.trim() || null,
+    contact_email: el('pjContactEmail').value.trim() || null,
+    whatsapp: el('pjWhatsapp').value.trim() || null,
+  };
+
+  const saved = await api('save', payload);
+  if (!saved.ok){
+    setMsg('sheetMsg', errText(saved.data), 'err');
+    btn.disabled = false; btn.textContent = 'שמירה';
+    return;
+  }
+  const projectId = saved.data.project.id;
+
+  /* המדיה והתמהיל נשמרים כרשימה שלמה ולא כפריטים בודדים: הסדר הוא נתון,
+     והחלפה מלאה היא מה שמונע שני פריטים באותו מקום. */
+  const media = editMedia
+    .filter(m => (m.url || '').trim())
+    .map(m => ({ kind:m.kind, url:m.url, title:m.title || null, caption:m.caption || null,
+                 file_size:m.file_size || null, downloadable:!!m.downloadable }));
+  const units = editUnits.filter(u => (u.name || '').trim());
+
+  const [mediaRes, unitsRes] = await Promise.all([
+    api('save_media', { project_id: projectId, media }),
+    api('save_unit_types', { project_id: projectId, unit_types: units }),
+  ]);
+
+  btn.disabled = false; btn.textContent = 'שמירה';
+  if (!mediaRes.ok || !unitsRes.ok){
+    setMsg('sheetMsg', 'הפרויקט נשמר, אבל ' + (!mediaRes.ok ? 'הגלריה' : 'תמהיל הדירות') + ' לא — נסו שוב', 'err');
+    await refresh();
+    return;
+  }
+  closeSheet();
+  await refresh();
+});
+
+/* העלאות בתוך העורך */
+wireUpload('pjLogoBtn','pjLogoFile', async (f)=> setPreview('pjLogoPreview', await uploadFile(f, 'projects/logo')), { maxMb:4 });
+wireUpload('pjCoverBtn','pjCoverFile', async (f)=> setPreview('pjCoverPreview', await uploadFile(f, 'projects/cover')), { maxMb:8 });
+
+el('galleryDrop').addEventListener('click', ()=> el('galleryFiles').click());
+el('galleryFiles').addEventListener('change', async ()=>{
+  const files = [...el('galleryFiles').files];
+  el('galleryFiles').value = '';
+  const drop = el('galleryDrop');
+  const before = drop.innerHTML;
+  for (let i = 0; i < files.length; i++){
+    if (editMedia.filter(m => m.kind === 'image').length >= 40){ alert('הגלריה מלאה (40 תמונות)'); break; }
+    if (files[i].size > 8 * 1024 * 1024){ alert('התמונה "' + files[i].name + '" גדולה מ-8MB'); continue; }
+    drop.textContent = 'מעלה ' + (i + 1) + ' מתוך ' + files.length + '…';
+    try{
+      const url = await uploadFile(files[i], 'projects/gallery');
+      editMedia.push({ kind:'image', url, title:null, file_size:files[i].size });
+      renderGalleryThumbs();
+    } catch(e){ console.warn(e); alert('העלאת "' + files[i].name + '" נכשלה'); }
+  }
+  drop.innerHTML = before;
+});
+
+el('docsDrop').addEventListener('click', ()=> el('docsFiles').click());
+el('docsFiles').addEventListener('change', async ()=>{
+  const files = [...el('docsFiles').files];
+  el('docsFiles').value = '';
+  for (const f of files){
+    if (f.size > 20 * 1024 * 1024){ alert('הקובץ "' + f.name + '" גדול מ-20MB'); continue; }
+    try{
+      const url = await uploadFile(f, 'projects/docs');
+      editMedia.push({ kind:'document', url, title:f.name, file_size:f.size, downloadable:true });
+      renderDocsList();
+    } catch(e){ console.warn(e); alert('העלאת "' + f.name + '" נכשלה'); }
+  }
+});
+
+/* ---------- מחיקה בשני צעדים ---------- */
+function openDeleteSheet(p){
+  deleteTarget = p;
+  const requested = !!p.delete_requested_at;
+  el('delProjectName').textContent = 'הפרויקט: ' + (p.name || '');
+  el('delStep1').hidden = requested;
+  el('delStep2').hidden = !requested;
+  el('delConfirmField').hidden = !requested;
+  el('delCancelRequest').hidden = !requested;
+  el('delAction').textContent = requested ? 'מחיקה סופית' : 'הורדת הדף מהאוויר';
+  el('delConfirmInput').value = '';
+  setMsg('delMsg','');
+  el('deleteSheet').showModal();
+}
+el('delClose').addEventListener('click', ()=> el('deleteSheet').close());
+
+el('delCancelRequest').addEventListener('click', async ()=>{
+  const res = await api('cancel_delete', { project_id: deleteTarget.id });
+  if (!res.ok){ setMsg('delMsg', errText(res.data), 'err'); return; }
+  el('deleteSheet').close();
+  await refresh();
+});
+
+el('delAction').addEventListener('click', async ()=>{
+  const btn = el('delAction');
+  const requested = !!deleteTarget.delete_requested_at;
+
+  if (!requested){
+    btn.disabled = true;
+    const res = await api('request_delete', { project_id: deleteTarget.id });
+    btn.disabled = false;
+    if (!res.ok){ setMsg('delMsg', errText(res.data), 'err'); return; }
+    // הטוקן נשמר בזיכרון בלבד ולא בשורת ה-DOM: הוא ההוכחה שהמסך שמאשר
+    // הוא המסך שביקש, ואין סיבה שהוא ישרוד רענון.
+    deleteTarget.delete_confirm_token = res.data.confirm_token;
+    deleteTarget.delete_requested_at = new Date().toISOString();
+    await refresh();
+    openDeleteSheet(deleteTarget);
+    setMsg('delMsg','הדף ירד מהאוויר. המחיקה עצמה עדיין לא בוצעה.','ok');
+    return;
+  }
+
+  if (el('delConfirmInput').value.trim() !== (deleteTarget.name || '').trim()){
+    setMsg('delMsg','שם הפרויקט אינו תואם','err');
+    return;
+  }
+  btn.disabled = true;
+  const res = await api('confirm_delete', {
+    project_id: deleteTarget.id, confirm_token: deleteTarget.delete_confirm_token,
+  });
+  btn.disabled = false;
+  if (!res.ok){ setMsg('delMsg', errText(res.data), 'err'); return; }
+  el('deleteSheet').close();
+  await refresh();
+});
+
+/* ---------- דף החברה ---------- */
+function fillCompanyForm(){
+  const d = developer;
+  const v = (id, val)=> { el(id).value = val ?? ''; };
+  v('coName', d.name); v('coLegal', d.legal_name); v('coNumber', d.company_number);
+  v('coContact', d.contact_name);
+  v('coFounded', d.founded_year); v('coTagline', d.tagline); v('coDescription', d.description);
+  v('coPhone', d.phone); v('coEmail', d.email); v('coWebsite', d.website);
+  v('coCity', d.city); v('coAddress', d.address); v('coDelivered', d.projects_delivered);
+  const REG_NOTICE = {
+    verified: ['ok', d => 'הח״פ אומת מול ' + (d.registry_source || 'רשם החברות') +
+      (d.registry_name ? ': ' + d.registry_name : '') + '.'],
+    inactive: ['danger', d => 'סטטוס התאגיד במרשם הוא "' + (d.registry_entity_status || 'לא פעיל') +
+      '". פנו אלינו כדי להסדיר.'],
+    not_found: ['danger', () => 'הח״פ לא נמצא ברשם החברות. בדקו שהמספר נכון — פרויקטים של חברה שאינה מאומתת עלולים לא להתפרסם.'],
+    unverified: ['', () => 'האימות מול רשם החברות טרם הושלם. זה קורה כשהמרשם אינו זמין, והוא נבדק שוב מעת לעת.'],
+  };
+  const reg = REG_NOTICE[d.registry_status] || REG_NOTICE.unverified;
+  const notice = el('regNotice');
+  notice.className = 'notice' + (reg[0] ? ' ' + reg[0] : '');
+  notice.textContent = reg[1](d);
+  notice.hidden = false;
+
+  el('coBrand').value = (d.colors && d.colors.brand) || '#0e2a6b';
+  el('coAccent').value = (d.colors && d.colors.accent) || '#c9a227';
+  setPreview('coLogoPreview', d.logo_url);
+  setPreview('coCoverPreview', d.cover_url);
+}
+wireUpload('coLogoBtn','coLogoFile', async (f)=> setPreview('coLogoPreview', await uploadFile(f, 'company/logo')), { maxMb:4 });
+wireUpload('coCoverBtn','coCoverFile', async (f)=> setPreview('coCoverPreview', await uploadFile(f, 'company/cover')), { maxMb:8 });
+
+const COMPANY_REQUIRED = [
+  ['coName',    'שם החברה'],
+  ['coNumber',  'ח״פ'],
+  ['coContact', 'שם איש/אשת הקשר'],
+  ['coPhone',   'טלפון'],
+  ['coCity',    'עיר'],
+  ['coAddress', 'כתובת המשרד'],
+];
+
+el('companyForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const btn = el('coSaveBtn');
+  const val = id => el(id).value.trim();
+
+  // אותם שדות חובה של ההרשמה. ה-CHECK במסד היה תופס את זה בכל מקרה —
+  // הבדיקה כאן היא מה שהופך את זה מ"שגיאת מסד" להודעה שאפשר לפעול לפיה.
+  const missing = COMPANY_REQUIRED.filter(([id]) => !val(id)).map(([, label]) => label);
+  if (missing.length){
+    setMsg('coMsg', (missing.length === 1 ? 'חסר שדה חובה: ' : 'חסרים שדות חובה: ') + missing.join(', '), 'err');
+    return;
+  }
+  const companyNumber = normalizeCompanyNumber(val('coNumber'));
+  if (!companyNumber){ setMsg('coMsg', 'מספר ח״פ / עוסק מורשה צריך להיות בן תשע ספרות', 'err'); return; }
+
+  btn.disabled = true; btn.textContent = 'שומר…'; setMsg('coMsg','');
+  const res = await api('save_developer', {
+    name: val('coName'),
+    company_number: companyNumber,
+    contact_name: val('coContact'),
+    legal_name: val('coLegal') || null,
+    founded_year: el('coFounded').value || null,
+    tagline: el('coTagline').value.trim() || null,
+    description: el('coDescription').value.trim() || null,
+    phone: el('coPhone').value.trim() || null,
+    email: el('coEmail').value.trim() || null,
+    website: el('coWebsite').value.trim() || null,
+    city: el('coCity').value.trim() || null,
+    address: el('coAddress').value.trim() || null,
+    projects_delivered: el('coDelivered').value || null,
+    logo_url: el('coLogoPreview').dataset.url || null,
+    cover_url: el('coCoverPreview').dataset.url || null,
+    colors: { brand: el('coBrand').value, accent: el('coAccent').value },
+  });
+  btn.disabled = false; btn.textContent = 'שמירת דף החברה';
+  if (!res.ok){ setMsg('coMsg', errText(res.data), 'err'); return; }
+  setMsg('coMsg', res.data.registry_message
+    ? 'נשמר. ' + res.data.registry_message
+    : 'נשמר. דף החברה מעודכן.', 'ok');
+  await refresh();
+  fillCompanyForm();
+});
+
+/* ---------- פניות ---------- */
+const TIMELINES = { now:'מיד', '3_months':'בשלושה חודשים', '6_months':'בחצי שנה', '12_months':'בשנה', exploring:'רק בודק/ת' };
+
+async function loadLeads(){
+  const { data } = await sb.from('project_leads').select('*').order('created_at', { ascending:false }).limit(200);
+  const leads = data || [];
+  el('cntLeads').textContent = String(leads.length);
+  el('leadsEmpty').hidden = leads.length > 0;
+
+  const byId = {};
+  projects.forEach(p => { byId[p.id] = p.name; });
+
+  el('leadsList').innerHTML = leads.map(l => {
+    const meta = [
+      byId[l.project_id] || (l.project_id ? 'פרויקט' : 'ליד שנרכש מהמדף'),
+      dateLabel(l.created_at),
+      l.rooms && l.rooms.length ? l.rooms.join(', ') + ' חד׳' : '',
+      l.max_price ? 'עד ' + money(l.max_price) : '',
+      TIMELINES[l.timeline] || '',
+    ].filter(Boolean);
+    return '<div class="lead-row"><div>' +
+      '<b>' + esc(l.full_name || '') + '</b>' +
+      '<div class="meta">' + meta.map(m => '<span>' + esc(m) + '</span>').join('') + '</div>' +
+      (l.message ? '<p style="font-size:.82rem;color:var(--ink-soft);margin:7px 0 0">' + esc(l.message) + '</p>' : '') +
+      '</div><div style="display:flex;gap:7px;flex-wrap:wrap">' +
+        '<a class="btn btn-teal btn-sm" href="tel:' + esc(l.phone || '') + '">' + esc(l.phone || '') + '</a>' +
+        (l.email ? '<a class="btn btn-ghost btn-sm" href="mailto:' + esc(l.email) + '">מייל</a>' : '') +
+      '</div></div>';
+  }).join('');
+}
+
+/* ---------- מדף מחפשים ---------- */
+async function loadShelf(){
+  const { data } = await sb.from('project_leads_shelf').select('*')
+    .order('intent_score', { ascending:false }).limit(60);
+  const rows = data || [];
+  el('cntShelf').textContent = String(rows.length);
+  el('shelfEmpty').hidden = rows.length > 0;
+  const price = pricing.project_lead_price || 50;
+
+  el('shelfList').innerHTML = rows.map(l => {
+    const meta = [
+      l.cities && l.cities.length ? l.cities.join(', ') : 'כל האזור',
+      l.rooms && l.rooms.length ? l.rooms.join(', ') + ' חד׳' : '',
+      l.max_price ? 'עד ' + money(l.max_price) : '',
+      TIMELINES[l.timeline] || '',
+      dateLabel(l.created_at),
+    ].filter(Boolean);
+    return '<div class="lead-row" data-lead="' + esc(l.id) + '"><div>' +
+      '<b>' + esc(l.name_hint || '') + ' · ' + esc(l.phone_hint || '') + '</b> ' +
+      '<span class="score">התעניינות ' + Number(l.intent_score || 0) + '</span>' +
+      '<div class="meta">' + meta.map(m => '<span>' + esc(m) + '</span>').join('') + '</div>' +
+      (l.has_message ? '<p style="font-size:.78rem;color:var(--ink-muted);margin:6px 0 0">יש הודעה מפורטת מהמחפש/ת</p>' : '') +
+      '</div><div>' +
+        '<button type="button" class="btn btn-teal btn-sm" data-buy="' + esc(l.id) + '">רכישה · ' + esc(money(price)) + '</button>' +
+      '</div></div>';
+  }).join('');
+
+  el('shelfList').querySelectorAll('[data-buy]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      if (!confirm('לרכוש את הליד תמורת ' + money(price) + '? הסכום יירד מהארנק.')) return;
+      btn.disabled = true; btn.textContent = 'רוכש…';
+      const { data: { session } } = await sb.auth.getSession();
+      const res = await fetch(LEAD_PURCHASE_URL, {
+        method:'POST',
+        headers:{ 'Content-Type':'application/json', 'apikey':SUPABASE_ANON_KEY,
+                  'Authorization':'Bearer ' + session.access_token },
+        body: JSON.stringify({ lead_id: btn.dataset.buy }),
+      });
+      const data = await res.json().catch(()=> ({}));
+      if (!res.ok || data.error){
+        alert(errText(data));
+        btn.disabled = false; btn.textContent = 'רכישה · ' + money(price);
+        return;
+      }
+      const lead = data.lead || {};
+      alert('הליד נרכש:\n' + (lead.full_name || '') + '\n' + (lead.phone || '') +
+        (lead.email ? '\n' + lead.email : '') + '\n\nהוא מופיע עכשיו גם בלשונית "פניות".');
+      await refresh();
+      loadShelf();
+    });
+  });
+}
+
+/* ---------- חיובים ---------- */
+async function loadBilling(){
+  const [{ data: charges }, { data: topups }] = await Promise.all([
+    sb.from('project_charges').select('*').order('created_at', { ascending:false }).limit(100),
+    sb.from('developer_topups').select('*').order('created_at', { ascending:false }).limit(50),
+  ]);
+
+  const TYPES = {
+    landing_page_monthly:'דף נחיתה — חודש',
+    promotion_weekly:'קידום — שבוע',
+    lead_purchase:'רכישת ליד',
+  };
+  const byId = {};
+  projects.forEach(p => { byId[p.id] = p.name; });
+
+  const rows = []
+    .concat((charges || []).map(c => ({
+      when: c.created_at, what: TYPES[c.charge_type] || c.charge_type,
+      who: byId[c.project_id] || '—', amount: -Number(c.amount),
+      until: c.period_end ? dateLabel(c.period_end) : '',
+    })))
+    .concat((topups || []).map(t => ({
+      when: t.created_at, what: 'טעינת ארנק' + (t.test_mode ? ' (מצב בדיקה)' : ''),
+      who: '—', amount: Number(t.amount), until: '',
+    })))
+    .sort((a, b)=> new Date(b.when) - new Date(a.when));
+
+  el('chargesEmpty').hidden = rows.length > 0;
+  el('chargesTable').innerHTML = rows.length
+    ? '<thead><tr><th>תאריך</th><th>פעולה</th><th>פרויקט</th><th>סכום</th><th>בתוקף עד</th></tr></thead><tbody>' +
+      rows.map(r => '<tr>' +
+        '<td>' + esc(dateLabel(r.when)) + '</td>' +
+        '<td>' + esc(r.what) + '</td>' +
+        '<td>' + esc(r.who) + '</td>' +
+        '<td style="font-weight:800;color:' + (r.amount < 0 ? 'var(--danger)' : 'var(--positive)') + '">' +
+          (r.amount < 0 ? '−' : '+') + esc(money(Math.abs(r.amount))) + '</td>' +
+        '<td>' + esc(r.until) + '</td></tr>').join('') + '</tbody>'
+    : '';
+
+  el('pricingGrid').innerHTML = [
+    ['דף נחיתה לפרויקט', money(pricing.project_page_monthly_price || 350) + ' לחודש'],
+    ['קידום פרויקט', money(pricing.project_promote_weekly_price || 50) + ' לשבוע'],
+    ['ליד ממדף המחפשים', money(pricing.project_lead_price || 50)],
+  ].map(([label, value]) =>
+    '<div><div style="font-size:.72rem;font-weight:800;color:var(--ink-muted)">' + esc(label) + '</div>' +
+    '<div style="font-size:1.05rem;font-weight:800">' + esc(value) + '</div></div>').join('');
+}
+
+/* ---------- טעינת ארנק ---------- */
+el('topupBtn').addEventListener('click', ()=>{
+  el('topupChips').innerHTML = [100, 350, 500, 1000, 2000].map(a =>
+    '<button type="button" class="chip-btn" data-amount="' + a + '">' + money(a) + '</button>').join('');
+  el('topupChips').querySelectorAll('[data-amount]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      btn.disabled = true;
+      const res = await api('topup', { amount: Number(btn.dataset.amount) });
+      btn.disabled = false;
+      if (!res.ok){ setMsg('topupMsg', errText(res.data), 'err'); return; }
+      setMsg('topupMsg','הארנק נטען. היתרה: ' + money(res.data.credit_balance),'ok');
+      await refresh();
+    });
+  });
+  setMsg('topupMsg','');
+  el('topupSheet').showModal();
+});
+el('topupClose').addEventListener('click', ()=> el('topupSheet').close());
+
+/* ---------- טעינה ורענון ---------- */
+function renderHeader(){
+  el('devNameLabel').textContent = developer.name || '';
+  el('walletBalance').textContent = money(developer.credit_balance);
+  el('devPublicLink').href = 'developer.html?slug=' + encodeURIComponent(developer.slug || '');
+  const logo = ProjectCard.safeUrl(developer.logo_url);
+  const mark = el('devMark');
+  if (logo){ mark.style.backgroundImage = "url('" + logo + "')"; mark.textContent = ''; }
+  else mark.textContent = (developer.name || '?')[0];
+}
+
+/* רענון = שליפה מחדש של תמונת המצב המלאה. ‏bootstrap מחזיר את החברה,
+   הפרויקטים והמחירון בקריאה אחת, ולכן אין טעם ברענון "חלקי" — היתרה
+   בארנק והמצב של הפרויקטים משתנים יחד בכל פעולה שעולה כסף. */
+async function refresh(){
+  const res = await api('bootstrap', {});
+  if (!res.ok) return;
+  developer = res.data.developer;
+  projects = res.data.projects || [];
+  pricing = res.data.pricing || {};
+  renderHeader();
+  renderProjects();
+}
+
+/* ---------- מסך פתיחת החברה ---------- */
+async function showCreateScreen(user){
+  el('crEmail').textContent = user.email || '';
+  if (!el('crContact').value){
+    // ‏Google מחזיר את השם המלא ב-user_metadata. מילוי מראש חוסך הקלדה,
+    // ונשאר ניתן לעריכה — איש/אשת הקשר בחברה אינו/ה בהכרח בעל/ת החשבון.
+    const meta = user.user_metadata || {};
+    el('crContact').value = meta.full_name || meta.name || '';
+  }
+
+  // חשבון שהוא גם סוכן/ת תיווך אינו שגיאה — משרד תיווך יכול להיות גם יזם.
+  // ההערה קיימת כדי שלא ייראה כאילו פתיחת החברה נוגעת בכרטיס הסוכן/ת.
+  try{
+    const { data: agent } = await sb.from('agency_members')
+      .select('id').eq('user_id', user.id).maybeSingle();
+    el('crAgentNote').hidden = !agent;
+  } catch(e){ el('crAgentNote').hidden = true; }
+
+  try{
+    const { data } = await sb.from('pricing_config').select('key, value')
+      .eq('key', 'project_page_monthly_price').maybeSingle();
+    if (data) el('crPricePage').textContent = money(data.value);
+  } catch(e){ /* המחיר שב-HTML נשאר */ }
+
+  show('createScreen');
+}
+
+/* ---------- הניתוב אחרי אימות ----------
+   שלוש תוצאות אפשריות, ולכל אחת מסך משלה: יש חברה → הדשבורד; אין חברה →
+   מסך פתיחת החברה; אין session → מסך הכניסה. חשבון בלי חברה **אינו**
+   מנותק יותר — זה בדיוק המסלול של כניסת Google ראשונה. */
+async function boot(){
+  clearTimeout(bootWatchdog);
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session){ showLogin(oauthMessage); return; }
+
+  const res = await api('bootstrap', {});
+  if (!res.ok){
+    if (res.data && res.data.error === 'no_developer_account'){
+      await showCreateScreen(session.user);
+      return;
+    }
+    if (res.data && res.data.error === 'developer_suspended'){
+      showLogin(ERRORS.developer_suspended);
+      await sb.auth.signOut();
+      return;
+    }
+    showLogin('לא הצלחנו לטעון את החשבון. נסו לרענן את הדף.');
+    return;
+  }
+  developer = res.data.developer;
+  projects = res.data.projects || [];
+  pricing = res.data.pricing || {};
+
+  renderHeader();
+  fillCompanyForm();
+  renderProjects();
+  showApp();
+}
+
+/* ‏supabase-js משדר SIGNED_IN גם בחזרה ללשונית ובחידוש אסימון, ולכן
+   ‏bootedUserId שומר מי כבר מוצג/ת ואירוע חוזר על אותו משתמש נבלע. בלי זה
+   כל חזרה ללשונית הייתה טוענת מחדש את כל הדשבורד באמצע עבודה.
+
+   העבודה נדחית ב-setTimeout(0) כי ה-callback רץ בתוך הנעילה הפנימית של
+   הלקוח, וקריאה ל-supabase מתוכו עלולה לתקוע את הדף. */
+let bootedUserId = null;
+sb.auth.onAuthStateChange((event, session)=>{
+  if (event === 'SIGNED_OUT'){ bootedUserId = null; return; }
+  if (!session) return;
+  if (bootedUserId === session.user.id) return;
+  bootedUserId = session.user.id;
+  setTimeout(()=>{ cleanAuthParamsFromUrl(); boot(); }, 0);
+});
+
+(async function init(){
+  if (!sb){ showLogin('החיבור לשרת אינו זמין כרגע. נסו לרענן את הדף.'); return; }
+  cleanAuthParamsFromUrl();
+  const { data: { session } } = await sb.auth.getSession();
+  if (session) bootedUserId = session.user.id;
+  await boot();
+})();
+</script>
+</body>
+</html>

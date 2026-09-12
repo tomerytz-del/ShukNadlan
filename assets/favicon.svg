@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 62" role="img"
+     aria-label="שוק הנדל״ן של עפולה והסביבה">
+  <!-- ‏אייקון הלשונית. הוא היחיד מבין שלושת קובצי הסמל שמתחלף לפי ערכת
+       הצבעים, כי הוא היחיד שיושב על משטח שאיננו שולטים בצבעו: שורת
+       הלשוניות של הדפדפן. הפין הספירי כמעט נעלם בלשונית כהה, ולכן שם הוא
+       מתהפך ללבן. הגאומטריה זהה ל-logo-shuknadlan.svg — שינוי בה צריך
+       להיעשות בשלושת הקבצים. -->
+  <style>
+    .pin  { fill: #0e2a6b }
+    .roof { stroke: #ffffff }
+    @media (prefers-color-scheme: dark) {
+      .pin  { fill: #ffffff }
+      .roof { stroke: #0e2a6b }
+    }
+  </style>
+  <path class="pin" d="M26 60 C26 60 48 38 48 24 C48 11.8 38.2 2 26 2 C13.8 2 4 11.8 4 24 C4 38 26 60 26 60 Z"/>
+  <path class="roof" d="M13 26 L26 14 L39 26" fill="none" stroke-width="5"
+        stroke-linejoin="miter" stroke-linecap="butt"/>
+  <text x="26" y="41" text-anchor="middle" fill="#c9a227"
+        font-family="Heebo, system-ui, sans-serif" font-weight="800" font-size="18">ש</text>
+</svg>

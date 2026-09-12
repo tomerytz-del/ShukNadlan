@@ -5,16 +5,18 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="robots" content="noindex, nofollow">
 <title>סימון גבולות שכונה | שוק נדל״ן</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="assets/map-tiles.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
   :root{
-    --ink:#1B1F26; --ink-soft:#565C63; --paper:#DEDCD6; --paper-raised:#F4F3F0;
-    --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --gold:#8B2332; --gold-dark:#6B1A26;
+    --ink:#0d1b3d; --ink-soft:#4a5578; --paper:#f4f7fe; --paper-raised:#ffffff;
+    --line:#e3e8f4; --teal:#0e2a6b; --teal-dark:#0d1b3d; --gold:#0e2a6b; --gold-dark:#08194a;
   }
   *{box-sizing:border-box}
   body{
@@ -28,12 +30,15 @@
     padding:10px 16px;background:var(--paper-raised);border-bottom:1px solid var(--line);
   }
   header .sub{font-size:.76rem;color:var(--ink-soft);flex:1 1 240px;min-width:0}
+  /* ‏הלוגו כמו בשאר הדפים: גובה בלבד, והרוחב נגזר מיחס הסמל */
+  .logo-link{display:block;line-height:0;flex:0 0 auto}
+  .logo-img{height:34px;width:auto;display:block}
   select,button{font-family:inherit;font-size:.82rem;font-weight:700}
   select{
-    border:1.5px solid var(--line);border-radius:999px;padding:8px 14px;background:#fff;color:var(--ink);
+    border:1.5px solid var(--line);border-radius:0;padding:8px 14px;background:#fff;color:var(--ink);
   }
   button{
-    border:none;border-radius:999px;padding:8px 15px;cursor:pointer;
+    border:none;border-radius:0;padding:8px 15px;cursor:pointer;
     background:var(--teal);color:#fff;
   }
   button.ghost{background:#fff;color:var(--teal);border:1.5px solid var(--line)}
@@ -74,6 +79,9 @@
 <body>
 
 <header>
+  <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית" title="לדף הבית">
+    <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="" width="52" height="62">
+  </a>
   <h1>סימון גבולות שכונה</h1>
   <select id="hoodSelect" aria-label="בחירת שכונה"><option>טוען…</option></select>
   <span class="sub" id="status">בוחרים שכונה, ואז לוחצים על המפה כדי להניח את נקודות הגבול.</span>
@@ -119,8 +127,6 @@
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 
-const MAP_TILE_URL = 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
-const MAP_TILE_ATTRIBUTION = '&copy; OpenStreetMap, &copy; CARTO';
 const AFULA_CENTER = [32.6078, 35.2897];
 const AFULA_ZOOM = 13;
 
@@ -132,7 +138,7 @@ const statusEl = document.getElementById('status');
 const setStatus = (text)=> { statusEl.textContent = text; };
 
 const map = L.map('map').setView(AFULA_CENTER, AFULA_ZOOM);
-L.tileLayer(MAP_TILE_URL, { attribution:MAP_TILE_ATTRIBUTION, maxZoom:19 }).addTo(map);
+MapTiles.addTo(map);
 
 /* מצב העריכה: טבעת הנקודות של השכונה הנבחרת, והסמנים שמייצגים אותן.
    ‏ring הוא מקור האמת; הסמנים והמצולע נגזרים ממנו בכל ציור מחדש. */
@@ -174,8 +180,8 @@ function drawOthers(){
     const other = parseBoundary(h.boundary);
     if (other.length < 3) return;
     L.polygon(other, {
-      interactive:false, color:'#1C3A5E', weight:1.5, opacity:.55,
-      dashArray:'4 4', fillColor:'#1C3A5E', fillOpacity:.04,
+      interactive:false, color:'#0e2a6b', weight:1.5, opacity:.55,
+      dashArray:'4 4', fillColor:'#0e2a6b', fillOpacity:.04,
     }).addTo(othersLayer);
   });
 }
@@ -192,8 +198,8 @@ function redraw(){
 
   if (ring.length >= 2){
     poly = L.polygon(ring, {
-      interactive:false, color:'#8B2332', weight:2.5, opacity:.9,
-      fillColor:'#8B2332', fillOpacity:.10,
+      interactive:false, color:'#0e2a6b', weight:2.5, opacity:.9,
+      fillColor:'#0e2a6b', fillOpacity:.10,
     }).addTo(map);
   }
 

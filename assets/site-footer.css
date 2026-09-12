@@ -12,57 +12,109 @@
         (‏860px בדף הקוד האתי, ‏1180px בדף הבית), והפוטר צריך להיראות זהה
         בכולם.
 
-   ההתנהגות (הרשמה לניוזלטר, קיפול ענן החיפושים) יושבת ב-assets/site-footer.js.
+   ההתנהגות (הרשמה לניוזלטר, קיפול קבוצות הניווט וענן החיפושים) יושבת ב-
+   ‏assets/site-footer.js. התיעוד המלא — המבנה, המרווח האחיד והקיפול —
+   ב-docs/site-footer.md.
    ============================================================================ */
 
+/* ‏--fs-gap הוא **המרווח היחיד** בין חלקי הפוטר: בין הרצועה שבראשו לגוש
+   המותג, בין גוש המותג לענן החיפושים, ובין ענן החיפושים לשורת הזכויות.
+   עד עכשיו כל מעבר כזה נשא מספר משלו (‏26px, ‏24px, ‏34px), ולכן הפוטר
+   נקרא כערימת בלוקים ולא כיחידה אחת — ובטלפון גם היה ארוך ממסך שלם.
+   מי שמשנה מרווח בפוטר משנה אותו כאן, פעם אחת, ולא בשבעה מקומות. */
 footer.site{
-  background:#122840;color:#CFE1DF;padding:34px 0 20px;margin-top:30px;
+  --fs-gap:20px;
+  background:#0d1b3d;color:#c3cde6;padding:var(--fs-gap) 0 14px;margin-top:var(--fs-gap);
   font-family:'Heebo',sans-serif;line-height:1.6;
 }
 footer.site *{box-sizing:border-box}
 .footer-wrap{max-width:1180px;margin:0 auto;padding:0 18px}
-.footer-top{display:grid;grid-template-columns:1fr;gap:26px}
+.footer-top{display:grid;grid-template-columns:1fr;gap:var(--fs-gap)}
 
 .footer-brand{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
 .footer-brand .footer-logo{display:flex;align-items:center;gap:10px;text-decoration:none}
-.footer-brand .footer-logo img{width:44px;height:auto;flex:0 0 auto;display:block}
-.footer-brand .footer-logo span{
-  font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1rem;color:#fff;line-height:1.3;
+.footer-brand .footer-logo img{width:40px;height:auto;flex:0 0 auto;display:block}
+/* ---- נעילת הלוגו, זהה לזו שבכותרת ----
+   הפוטר נשא עד היום ניסוח משלו ("שוק הנדל״ן / של עפולה והסביבה") בשתי
+   שורות שבורות ב-‎<br>‎, בזמן שהכותרת נושאת את הנעילה האמיתית: השם, קו זהב
+   דק ברוחבו, ומתחתיו האזור במרווח אותיות פתוח. שני ניסוחים לאותו מותג
+   באותו עמוד נקראים כשני אתרים. המבנה כאן זהה ל-‎.logo-word‎ ב-
+   ‏design-system.css, ורק הצבעים הפוכים — לבן ואפור־כחלחל על ספיר כהה
+   במקום דיו כהה על נייר — כי אותם ‎--ink‎ ו-‎--ink-muted‎ של הכותרת פשוט
+   נעלמים כאן. הזהב של הקו הוא אותו ‎#c9a227‎ של כפתורי הפוטר.
+
+   הגופן מפורש: ‏design-system.css נותן ל-‎.footer-brand .footer-logo span‎
+   את גופן הכותרות, והכלל הזה ספציפי ממנו ולכן גובר — אבל ה-‎span‎ הפנימי
+   עדיין נתפס בכלל ההוא, ולכן גם הוא מצהיר על הגופן שלו. */
+.footer-brand .footer-logo .footer-logo-word{
+  display:flex;flex-direction:column;align-items:stretch;
+  font-family:'Heebo',sans-serif;font-weight:800;letter-spacing:-.035em;
+  font-size:20px;line-height:1.05;color:#fff;white-space:nowrap;
+}
+.footer-brand .footer-logo .footer-logo-word>span{
+  font-family:'Heebo',sans-serif;
+  font-size:9px;font-weight:600;letter-spacing:.18em;color:#94a3c6;
+  margin-top:3px;padding-top:3px;border-top:1px solid #c9a227;
 }
 /* שתי שורות נפרדות: המשפט המתאר ומתחתיו משפט המפתח. הגופן מתכווץ מעט
    במסכים צרים כדי שהמשפט הראשון יישאר בשורה אחת ולא יישבר לשתיים. */
-.footer-tagline{font-size:clamp(.68rem,3.1vw,.8rem);line-height:1.6;color:#AFC7C4;margin:0}
+.footer-tagline{font-size:clamp(.68rem,3.1vw,.8rem);line-height:1.5;color:#94a3c6;margin:0}
 .footer-tagline span{display:block}
-.footer-tagline-strong{color:#E4EEEC;font-weight:600;margin-top:2px}
+.footer-tagline-strong{color:#e6ecf9;font-weight:600;margin-top:2px}
 
 /* הכפתורים מוגדרים כאן במלואם ולא נשענים על ‎.btn‎ של הדף המארח — ‎.btn‎ לא
    קיים בכל דף, ובחלק מהדפים הוא בצבע אחר לגמרי */
-.footer-cta{display:flex;flex-wrap:wrap;gap:8px}
+.footer-cta{display:flex;flex-wrap:wrap;gap:7px}
 .footer-cta a{
   display:inline-flex;align-items:center;justify-content:center;
-  font-size:.78rem;font-weight:700;padding:9px 16px;border-radius:999px;text-decoration:none;
+  font-size:.76rem;font-weight:700;padding:8px 14px;border-radius:0;text-decoration:none;
   transition:background .15s ease,color .15s ease,border-color .15s ease;
 }
-.footer-cta .footer-btn-primary{background:#8B2332;color:#fff;border:1px solid #8B2332}
-.footer-cta .footer-btn-primary:hover{background:#A32B3C;border-color:#A32B3C}
-.footer-cta .footer-btn-ghost{background:transparent;color:#DCE9E7;border:1px solid rgba(255,255,255,.35)}
+.footer-cta .footer-btn-primary{background:#c9a227;color:#0d1b3d;border:1px solid #c9a227}
+.footer-cta .footer-btn-primary:hover{background:#dcb63c;border-color:#dcb63c}
+.footer-cta .footer-btn-ghost{background:transparent;color:#dbe3f5;border:1px solid rgba(255,255,255,.35)}
 .footer-cta .footer-btn-ghost:hover{background:rgba(255,255,255,.1);color:#fff}
 
-.footer-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:22px 18px}
-.footer-col h4{color:#fff;font-size:.82rem;margin:0 0 8px;letter-spacing:.02em;font-weight:700}
+/* ====== ארבע קבוצות הניווט ======
+   במסך רחב אלו ארבע עמודות פרושות, כפי שהיו תמיד. בטלפון עשרים הקישורים
+   האלה היו **שני שלישים מגובה הפוטר**: שתי עמודות על פני שתי שורות של
+   קבוצות, כ-640px שהמבקר גולל דרכם כדי להגיע לשורת הזכויות. כאן הם
+   מקופלים לארבע כותרות, בדיוק באותה שיטה שבה מקופל ענן החיפושים מתחת:
+   ‎<details open>‎ ב-HTML, ו-‎site-footer.js‎ סוגר אותם במסך צר בלבד.
+
+   למה ‎open‎ ב-HTML ולא ‎closed‎: בלי JS (וגם לסורקים) הכול פרוש, והקישורים
+   נשארים ב-DOM בכל מצב — גם כשהקיפול פעיל — ולכן מנוע החיפוש והחיפוש
+   בדפדפן מוצאים אותם תמיד. ‏3px ולא 5px בין הקישורים: שטח הנגיעה נשמר
+   (‏13px בגובה שורה 1.6 הם 21px, ועם הריפוד 27px מלאי רוחב העמודה). */
+.footer-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:14px 16px;align-content:start}
+.footer-col > summary{
+  list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;
+  padding:4px 0;margin-bottom:2px;
+}
+.footer-col > summary::-webkit-details-marker{display:none}
+/* גבולות פיזיים ולא לוגיים, מאותה סיבה שמתועדת אצל ‎.footer-seo‎ מתחת:
+   החץ הוא צורה גיאומטרית, ו-‎border-inline-end‎ היה מסובב אותו ב-RTL */
+.footer-col > summary::after{
+  content:"";width:7px;height:7px;flex:0 0 auto;
+  border-right:2px solid #aab6d6;border-bottom:2px solid #aab6d6;
+  transform:rotate(45deg);margin-bottom:4px;transition:transform .18s ease;
+}
+.footer-col[open] > summary::after{transform:rotate(-135deg);margin-bottom:-2px}
+.footer-col > summary:focus-visible{outline:2px solid #c9a227;outline-offset:3px}
+.footer-col h4{color:#fff;font-size:.82rem;margin:0;letter-spacing:.02em;font-weight:700}
 .footer-col a{
-  display:block;font-size:.82rem;color:#AFC7C4;padding:5px 0;text-decoration:none;
+  display:block;font-size:.8rem;color:#94a3c6;padding:3px 0;text-decoration:none;
   transition:color .15s ease;
 }
 .footer-col a:hover,.footer-col a:focus-visible{color:#fff}
 
 .footer-bottom{
-  border-top:1px solid rgba(255,255,255,.12);margin-top:24px;padding-top:14px;
-  font-size:.72rem;color:#8FADA9;display:flex;flex-wrap:wrap;gap:6px 14px;
+  border-top:1px solid rgba(255,255,255,.12);margin-top:var(--fs-gap);padding-top:12px;
+  font-size:.72rem;color:#aab6d6;display:flex;flex-wrap:wrap;gap:6px 14px;
   align-items:center;justify-content:space-between;
 }
 .footer-legal{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center}
-.footer-legal a{color:#8FADA9;text-decoration:none;padding:2px 0}
+.footer-legal a{color:#aab6d6;text-decoration:none;padding:2px 0}
 .footer-legal a:hover,.footer-legal a:focus-visible{color:#fff;text-decoration:underline}
 .footer-legal .sep{opacity:.45}
 
@@ -71,44 +123,68 @@ footer.site *{box-sizing:border-box}
    הכתובת, האימייל והרשתות באותה רצועה — בלוקים נפרדים היו מוסיפים שורות
    שלמות לגובה הפוטר במובייל. */
 .footer-meta{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;width:100%}
-.footer-contact{display:grid;gap:6px;font-size:.8rem;color:#AFC7C4}
-.footer-contact-row{display:grid;grid-template-columns:16px 1fr;gap:8px;align-items:start;margin:0}
-.footer-contact-row svg{width:16px;height:16px;margin-top:2px;fill:none;stroke:#8FADA9;stroke-width:1.8;display:block}
-.footer-contact-row a{color:#AFC7C4;text-decoration:none}
+/* ‏display:contents ולא בלוק משלו: שלוש שורות קשר זו מתחת לזו הן שלוש
+   שורות מלאות בטלפון, גם כשכל אחת תופסת חצי רוחב — והאייקון החברתי, שהוא
+   אח שלהן ב-‎.footer-meta‎, נדחק אז לשורה רביעית משלו. בלי הקופסה הזו שלוש
+   השורות והאייקון הם ארבעה פריטים באותו ‎flex‎ עוטף, ומתמלאים לפי הרוחב
+   הקיים: בטלפון שתי שורות במקום ארבע, במסך רחב אחת. הצבע והגודל עדיין
+   יורדים מכאן בירושה — ‎display:contents‎ מסיר את הקופסה, לא את הסגנון —
+   וכל שורה עדיין נשברת בתוך עצמה מתחת לטקסט ולא מתחת לאייקון, כי
+   ‎.footer-contact-row‎ עצמה נשארה grid. */
+.footer-contact{display:contents;font-size:.8rem;color:#94a3c6}
+/* ‏color מפורש: השורה היא ‎<p>‎, ו-design-system.css נותן לכל ‎p‎ את
+   ‎--ink-soft‎ — דיו כהה, שנועד למשטח בהיר. בפוטר הכהה הכתובת יצאה
+   ‎#4a5578‎ על ספיר (‏2.3:1) ונבלעה בו; רק המייל נראה, כי ‎a‎ שמתחתיו כן
+   קיבל צבע משלו. הצבע כאן זהה לזה של הקישור, ולכן שתי השורות נקראות
+   כזוג. */
+.footer-contact-row{display:grid;grid-template-columns:16px 1fr;gap:8px;align-items:start;margin:0;color:#94a3c6}
+.footer-contact-row svg{width:16px;height:16px;margin-top:2px;fill:none;stroke:#aab6d6;stroke-width:1.8;display:block}
+.footer-contact-row a{color:#94a3c6;text-decoration:none}
 .footer-contact-row a:hover,.footer-contact-row a:focus-visible{color:#fff;text-decoration:underline}
 .footer-social{display:flex;gap:8px}
 .footer-social a{
-  width:36px;height:36px;border-radius:50%;display:grid;place-items:center;
+  width:34px;height:34px;border-radius:50%;display:grid;place-items:center;
   border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.05);
   transition:background .15s ease,border-color .15s ease;
 }
 .footer-social a:hover,.footer-social a:focus-visible{background:rgba(255,255,255,.14);border-color:rgba(255,255,255,.5)}
-.footer-social svg{width:17px;height:17px;fill:#DCE9E7;display:block}
+.footer-social svg{width:17px;height:17px;fill:#dbe3f5;display:block}
 
-/* ====== רצועת הניוזלטר ======
+/* ====== רצועת הניוזלטר — אינה באוויר כרגע ======
+   ‏11.9.2026: הרצועה ירדה מה-HTML של כל העמודים, ובמשבצת שלה יושב היום
+   באנר מחפשי הנכס (‎.footer-lead‎ מתחת). שניהם ביקשו מאותו אדם את אותו
+   דבר במילים אחרות, והבאנר שומר את החיפוש ולא רק את האימייל.
+
+   הסימון נשאר כאן במכוון, ואינו "קוד מת": הטבלה, ה-Edge Function והטופס
+   ב-site-footer.js נשארו כפי שהם, והחזרת הרצועה לעמוד היא הדבקת הבלוק
+   ב-HTML שלו ותו לא. ראו docs/newsletter.md.
+
    שורה רוחבית בראש הפוטר: כותרת בצד אחד וטופס בצד השני, כדי שההרשמה
    תעלה מקום של שורה אחת ולא של בלוק שלם. */
-.footer-news{border-bottom:1px solid rgba(255,255,255,.12);padding-bottom:22px;margin-bottom:24px}
-.footer-news-inner{display:grid;gap:12px;align-items:center}
+/* רצועת ההרשמה היא לוח ספיר בתוך הפוטר הכהה ולא עוד שורה בתוכו: היא
+   מבקשת פעולה, וכל השאר בפוטר הוא ניווט. */
+.footer-news{background:#0e2a6b;padding:16px 18px;margin-bottom:var(--fs-gap)}
+.footer-news-inner{display:grid;gap:10px;align-items:center}
 .footer-news-text h4{color:#fff;font-size:.95rem;margin:0 0 3px;font-weight:700}
-.footer-news-text p{margin:0;font-size:.76rem;color:#8FADA9}
+.footer-news-text p{margin:0;font-size:.76rem;color:#aab6d6}
 .footer-news-form{display:flex;gap:8px;flex-wrap:wrap}
 .footer-news-form input{
-  flex:1 1 190px;min-width:0;padding:11px 14px;border-radius:999px;font-size:.85rem;
-  border:1px solid rgba(255,255,255,.28);background:rgba(255,255,255,.07);color:#fff;
+  flex:1 1 190px;min-width:0;padding:11px 14px;font-size:.85rem;
+  border:1px solid rgba(255,255,255,.34);background:rgba(255,255,255,.08);color:#fff;
   font-family:inherit;
 }
-.footer-news-form input::placeholder{color:#7F9C99}
-.footer-news-form input:focus{outline:2px solid #E8C88A;outline-offset:1px;border-color:transparent}
+.footer-news-form input::placeholder{color:#9aa8cc}
+.footer-news-form input:focus{outline:2px solid #c9a227;outline-offset:1px;border-color:transparent}
 .footer-news-form button{
-  flex:0 0 auto;font-size:.82rem;font-weight:700;padding:11px 20px;border-radius:999px;
-  border:1px solid #8B2332;background:#8B2332;color:#fff;cursor:pointer;font-family:inherit;
+  /* זהב עם טקסט כהה: הרצועה עצמה ספיר, וכפתור ספיר עליה לא נראה בכלל. */
+  flex:0 0 auto;font-size:.82rem;font-weight:800;padding:11px 20px;
+  border:1px solid #c9a227;background:#c9a227;color:#0d1b3d;cursor:pointer;font-family:inherit;
 }
-.footer-news-form button:hover:not(:disabled){background:#A32B3C;border-color:#A32B3C}
+.footer-news-form button:hover:not(:disabled){background:#dcb63c;border-color:#dcb63c}
 .footer-news-form button:disabled{opacity:.6;cursor:not-allowed}
-.footer-news-msg{margin:0;font-size:.76rem;min-height:1.1em;color:#AFC7C4}
-.footer-news-msg[data-state="ok"]{color:#8FD3B0}
-.footer-news-msg[data-state="error"]{color:#F0A9B2}
+.footer-news-msg{margin:0;font-size:.76rem;min-height:1.1em;color:#94a3c6}
+.footer-news-msg[data-state="ok"]{color:#7fd8a8}
+.footer-news-msg[data-state="error"]{color:#f2b0bb}
 @media(min-width:760px){
   .footer-news-inner{grid-template-columns:1fr minmax(320px,420px);gap:12px 26px}
   .footer-news-msg{grid-column:2}
@@ -119,7 +195,7 @@ footer.site *{box-sizing:border-box}
    התוצאות. במובייל הוא מקופל (‏details‎): חמישה־עשר צ׳יפים פרושים תופסים שם
    שמונה שורות. הקישורים נשארים ב-DOM גם כשהוא סגור, ולכן מנועי החיפוש
    והחיפוש בדפדפן מוצאים אותם בכל מצב. */
-.footer-seo{border-top:1px solid rgba(255,255,255,.12);margin-top:24px;padding-top:14px}
+.footer-seo{border-top:1px solid rgba(255,255,255,.12);margin-top:var(--fs-gap);padding-top:12px}
 .footer-seo > summary{
   list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;padding:4px 0;
 }
@@ -128,15 +204,15 @@ footer.site *{box-sizing:border-box}
    היה הופך אותו ב-RTL לחץ שמצביע הצידה במקום למטה */
 .footer-seo > summary::after{
   content:"";width:8px;height:8px;flex:0 0 auto;
-  border-right:2px solid #8FADA9;border-bottom:2px solid #8FADA9;
+  border-right:2px solid #aab6d6;border-bottom:2px solid #aab6d6;
   transform:rotate(45deg);margin-bottom:4px;transition:transform .18s ease;
 }
 .footer-seo[open] > summary::after{transform:rotate(-135deg);margin-bottom:-2px}
-.footer-seo > summary:focus-visible{outline:2px solid #E8C88A;outline-offset:3px;border-radius:6px}
+.footer-seo > summary:focus-visible{outline:2px solid #c9a227;outline-offset:3px;border-radius:0}
 .footer-seo h4{color:#fff;font-size:.82rem;margin:0;font-weight:700}
-.footer-seo-links{display:flex;flex-wrap:wrap;gap:7px;padding-top:10px}
+.footer-seo-links{display:flex;flex-wrap:wrap;gap:6px;padding-top:9px}
 .footer-seo-links a{
-  font-size:.75rem;color:#AFC7C4;text-decoration:none;padding:5px 11px;border-radius:999px;
+  font-size:.75rem;color:#94a3c6;text-decoration:none;padding:5px 11px;border-radius:0;
   border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.04);
   transition:background .15s ease,color .15s ease,border-color .15s ease;
 }
@@ -146,8 +222,20 @@ footer.site *{box-sizing:border-box}
 
 .footer-sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
 
+/* ====== רצועת הפתיחה של הפוטר ======
+   ‏.footer-lead‎ היא המקבילה של ‎.footer-news‎ בעמודים שבהם באנר מתקפל יושב
+   בראש הפוטר במקום רצועת ההרשמה (היום: דף הבית, ראו את ההערה ב-index.html).
+   הכלל היחיד כאן הוא המרווח שמתחתיה — אותו ‎--fs-gap‎ של כל שאר הפוטר;
+   העיצוב הפנימי של הבאנר נשאר של הדף המארח, ואיפוס ה-margin שלו יושב שם
+   גם הוא, כי ‎.lead-banner‎ אינה מחלקה של הפוטר. */
+.footer-lead{margin-bottom:var(--fs-gap)}
+
 @media(min-width:560px){
   .footer-grid{grid-template-columns:repeat(4,1fr)}
+  /* מ-560px ארבע הקבוצות פרושות תמיד (‏JS מסמן ‎open‎), ולכן הכותרת חוזרת
+     להיות כותרת ולא כפתור — בדיוק כמו ענן החיפושים מ-760px */
+  .footer-col > summary{cursor:default;padding:0;margin-bottom:6px}
+  .footer-col > summary::after{display:none}
 }
 /* מ-760px ענן החיפושים פתוח תמיד (‏JS מסמן ‎open‎), ולכן החץ מיותר והכותרת
    חוזרת להיות כותרת ולא כפתור */
@@ -155,8 +243,10 @@ footer.site *{box-sizing:border-box}
   .footer-seo > summary{cursor:default}
   .footer-seo > summary::after{display:none}
 }
-/* גוש המותג עולה לצד הקישורים רק כשיש לו מספיק רוחב למשפט בשורה אחת */
-@media(min-width:1024px){
-  .footer-top{grid-template-columns:minmax(370px,1fr) 2fr;gap:34px}
-  .footer-grid{gap:24px}
+/* גוש המותג עולה לצד הקישורים כשיש לו מספיק רוחב למשפט בשורה אחת.
+   הסף ירד מ-1024px ל-900px: נעילת הלוגו החדשה צרה מהשם השבור לשתי שורות
+   שהיה כאן, ולכן ‎340px‎ מספיקים לגוש — וכל מסך בין שני הסְפים מקבל פוטר
+   בחצי הגובה (שתי עמודות זו לצד זו במקום זו מתחת לזו). */
+@media(min-width:900px){
+  .footer-top{grid-template-columns:minmax(340px,1fr) 2fr;gap:28px}
 }

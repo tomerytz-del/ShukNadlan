@@ -1,5 +1,12 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
+import {
+  generateMarketingCopy,
+  placeLine,
+  priceLine,
+  specLine,
+} from "../_shared/marketing-copy.ts";
 
 // ============================================================================
 // תיאור שיווקי ופרסום לדף הפייסבוק — השרת שמרוקן את property_publications.
@@ -12,6 +19,11 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 //      ל-CRM, לדף הנכס ולכל ערוץ שיתווסף אחר כך. מה שהסוכן/ת כתב/ה לא
 //      נדרס לעולם — בלי `force` הקוד לא נוגע בשדה מלא.
 //   2. הפוסט יוצא לדף הפייסבוק של האתר.
+//
+// שלב 1 כאן הוא היום **רשת ביטחון בלבד**: מאז מיגרציה 20260925090000 יש
+// לתיאור השיווקי מסלול משלו (‏property-description), שרץ על כל נכס בלי קשר
+// לפרסום ברשתות ומקדים את הפוסט בעשר דקות. הנוסח, הפרומפט ועובדות הנכס
+// חיים ב-_shared/marketing-copy.ts, כך ששני המסלולים כותבים אותו דבר בדיוק.
 //
 // שני מסלולי פרסום, לפי מה שמוגדר בסודות:
 //
@@ -34,7 +46,6 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const CRON_SECRET = Deno.env.get("ALERT_CRON_SECRET") || "";
 const SITE_BASE_URL = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/+$/, "");
 
 const ANTHROPIC_KEY = Deno.env.get("ANTHROPIC_API_KEY") || "";
@@ -61,139 +72,15 @@ function json(obj: unknown, status = 200) {
 }
 
 // ---------------------------------------------------------------------------
-// עובדות הנכס — אותה שפה שהאתר מדבר בה
+// עובדות הנכס והנוסח עצמו יושבים ב-_shared/marketing-copy.ts. כאן נשאר רק מה
+// ששייך לפוסט: הקישור לעמוד הנכס והרכבת ההודעה.
 // ---------------------------------------------------------------------------
-
-const nis = (n: number | null | undefined) =>
-  n === null || n === undefined ? "" : "₪" + Math.round(Number(n)).toLocaleString("he-IL");
-
-/** "₪1,850,000" למכירה · "₪4,800 לחודש" להשכרה. */
-function priceLine(row: any): string {
-  if (row.price === null || row.price === undefined) return "";
-  return row.deal_type === "rent" ? `${nis(row.price)} לחודש` : nis(row.price);
-}
-
-/** "4 חדרים · 98 מ״ר · קומה 3 מתוך 8" — רק מה שקיים במודעה. */
-function specLine(row: any): string {
-  const floor = row.floor === null || row.floor === undefined
-    ? null
-    : row.total_floors ? `קומה ${row.floor} מתוך ${row.total_floors}` : `קומה ${row.floor}`;
-  return [
-    row.rooms ? `${row.rooms} חדרים` : null,
-    row.size_sqm ? `${Math.round(row.size_sqm)} מ״ר` : null,
-    row.garden_sqm ? `גינה ${Math.round(row.garden_sqm)} מ״ר` : null,
-    floor,
-  ].filter(Boolean).join(" · ");
-}
-
-/** "רובע יזרעאל, עפולה" — השכונה קודמת, היא מה שמזהה את המיקום בעין. */
-function placeLine(row: any): string {
-  return [row.neighborhood, row.street, row.city].filter(Boolean).join(", ");
-}
 
 const propertyUrl = (id: string) =>
   `${SITE_BASE_URL}/property.html?id=${encodeURIComponent(id)}`;
 
-/** כל מה שידוע על הנכס, בטקסט אחד — הקלט של Claude ושל בונה הפוסט. */
-function facts(row: any): string {
-  const dealType = row.deal_type === "rent" ? "להשכרה" : "למכירה";
-  return [
-    row.title ? `כותרת המודעה: ${row.title}` : null,
-    `סוג עסקה: ${dealType}`,
-    row.property_type ? `סוג נכס: ${row.property_type}` : null,
-    placeLine(row) ? `מיקום: ${placeLine(row)}` : null,
-    specLine(row) ? `נתונים: ${specLine(row)}` : null,
-    priceLine(row) ? `מחיר: ${priceLine(row)}` : null,
-    row.condition ? `מצב הנכס: ${row.condition}` : null,
-    row.features?.length ? `מאפיינים: ${row.features.join(", ")}` : null,
-    row.furniture_details ? `ריהוט: ${row.furniture_details}` : null,
-    row.move_in_date ? `כניסה: ${row.move_in_date}` : null,
-    row.description ? `תיאור המודעה כפי שנכתב על ידי הסוכן/ת: ${row.description}` : null,
-    row.agent_name ? `סוכן/ת: ${row.agent_name}` : null,
-    row.agency_name ? `משרד: ${row.agency_name}` : null,
-  ].filter(Boolean).join("\n");
-}
-
-// ---------------------------------------------------------------------------
-// יצירת התיאור השיווקי
-//
-// ‏שתי תוצרות בקריאה אחת: תיאור ארוך (marketing_description, נשאר במערכת
-// ומשמש בכל ערוץ) ופוסט קצר (post_text). הפרדה לשתי קריאות הייתה מכפילה
-// עלות ומזמינה שני נוסחים שלא מדברים זה עם זה.
-//
-// המגבלה החשובה בפרומפט היא "רק מה שכתוב": מודל שממציא "קרוב לפארק" על נכס
-// שלא נאמר עליו דבר יוצר מודעה שקרית, וזו חשיפה משפטית של הפלטפורמה — לא
-// רק טקסט פחות טוב.
-// ---------------------------------------------------------------------------
-
-const SYSTEM_PROMPT = `את/ה קופירייטר/ית נדל"ן ישראלי/ת שכותב/ת עבור לוח הנכסים שוק נדל"ן.
-
-חוקים מוחלטים:
-1. מותר להשתמש אך ורק בעובדות שמופיעות בנתוני הנכס. אסור להמציא מרחק ממוסדות,
-   נוף, שכנים, פוטנציאל השבחה, תשואה, או כל פרט שלא נמסר.
-2. אין הבטחות תשואה, אין "השקעה בטוחה", אין הצהרות על מגמות מחירים.
-3. אין אזכור של מוצא, דת, לאום או הרכב משפחתי — לא ישיר ולא ברמז.
-4. לא לכתוב טלפונים, אימיילים או קישורים. המערכת מוסיפה אותם בעצמה.
-5. עברית תקנית, גוף שלישי, ללא סימני קריאה כפולים וללא מילים כמו "מדהים",
-   "חלומי", "הזדמנות שלא תחזור".
-6. כשהנתונים דלים — לכתוב קצר. טקסט קצר ומדויק עדיף על טקסט ארוך ומנופח.
-
-פלט: JSON תקין בלבד, בלי טקסט לפניו או אחריו, במבנה:
-{"marketing_description": "...", "post_text": "..."}
-
-marketing_description — 50 עד 90 מילים, פסקה אחת רציפה, מתארת את הנכס
-ומסתיימת בהזמנה לצפייה.
-
-post_text — פוסט לפייסבוק, עד 45 מילים, משפט פותח שמושך את העין, שתיים עד
-שלוש אימוג'י לכל היותר, ובסוף שורה אחת עם 3 עד 5 האשטגים בעברית
-(לדוגמה: #נדלן #עפולה #דירהלמכירה). בלי קישור ובלי טלפון.`;
-
-async function generateMarketing(row: any): Promise<{ description: string; post: string } | null> {
-  if (!ANTHROPIC_KEY) return null;
-
-  const res = await fetch("https://api.anthropic.com/v1/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "x-api-key": ANTHROPIC_KEY,
-      "anthropic-version": "2023-06-01",
-    },
-    body: JSON.stringify({
-      model: CLAUDE_MODEL,
-      max_tokens: 1000,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: "user", content: `נתוני הנכס:\n${facts(row)}` }],
-    }),
-  });
-
-  if (!res.ok) {
-    throw new Error(`anthropic ${res.status}: ${(await res.text()).slice(0, 300)}`);
-  }
-
-  const data = await res.json();
-  const text = (data?.content ?? [])
-    .filter((b: any) => b?.type === "text")
-    .map((b: any) => b.text)
-    .join("")
-    .trim();
-
-  // המודל התבקש ל-JSON נקי, אבל גדר ```json היא הסטייה הנפוצה ולא שווה
-  // להיכשל עליה.
-  const raw = text.replace(/^```(?:json)?\s*/i, "").replace(/```\s*$/, "").trim();
-  let parsed: any;
-  try {
-    parsed = JSON.parse(raw);
-  } catch {
-    const m = raw.match(/\{[\s\S]*\}/);
-    if (!m) throw new Error(`תשובת Claude אינה JSON: ${raw.slice(0, 200)}`);
-    parsed = JSON.parse(m[0]);
-  }
-
-  const description = String(parsed?.marketing_description ?? "").trim();
-  const post = String(parsed?.post_text ?? "").trim();
-  if (!description) throw new Error("Claude החזיר תיאור ריק");
-  return { description, post: post || description };
-}
+const generateMarketing = (row: any) =>
+  generateMarketingCopy(row, { apiKey: ANTHROPIC_KEY, model: CLAUDE_MODEL });
 
 // ---------------------------------------------------------------------------
 // הרכבת הפוסט
@@ -222,6 +109,21 @@ function buildMessage(row: any, marketing: { description: string; post: string }
   if (!lead.includes(link)) lines.push(`🔗 ${link}`);
 
   return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+}
+
+// ---------------------------------------------------------------------------
+// הכתובת הציבורית של פוסט, משני המסלולים
+//
+// מזהה פוסט של פייסבוק הוא `<page_id>_<post_id>`, וכתובת שמדביקה אותו כמו
+// שהוא אחרי הדומיין לא תמיד נפתחת. החלק הראשון של המזהה הוא ממילא מזהה הדף,
+// ולכן אפשר לבנות את הצורה שעובדת בלי להכיר את הדף מראש — מה שמאפשר לגזור
+// אותה גם במסלול Make, שבו אין לנו FACEBOOK_PAGE_ID.
+// ---------------------------------------------------------------------------
+function facebookPostUrl(id: string | null): string | null {
+  if (!id) return null;
+  const [page, post] = id.split("_");
+  return post ? `https://www.facebook.com/${page}/posts/${post}`
+              : `https://www.facebook.com/${id}`;
 }
 
 // ---------------------------------------------------------------------------
@@ -262,9 +164,16 @@ async function publishViaMake(row: any, message: string, images: string[]) {
 
   // ‏Make מחזיר כברירת מחדל "Accepted". תרחיש שמוגדר עם Webhook response
   // יכול להחזיר את מזהה הפוסט, ואז הוא נשמר ביומן.
+  //
+  // ‏`post_url` נגזר מהמזהה ולא נלקח מהתשובה, גם כשהיא מכילה אותו: המזהה
+  // שפייסבוק מחזיר הוא מורכב (`<page>_<post>`), וכתובת בצורה
+  // ‏facebook.com/<page>_<post> לא תמיד נפתחת. הצורה שעובדת היא
+  // ‏facebook.com/<page>/posts/<post> — אותה נוסחה שהמסלול הישיר בונה.
+  // כך ה-Body ב-Make צריך להחזיר רק `post_id`, ויש שדה אחד פחות להתבלבל בו.
   try {
     const j = JSON.parse(body);
-    return { post_id: j?.post_id ?? null, post_url: j?.post_url ?? null };
+    const postId = j?.post_id ? String(j.post_id) : null;
+    return { post_id: postId, post_url: facebookPostUrl(postId) ?? j?.post_url ?? null };
   } catch {
     return { post_id: null, post_url: null };
   }
@@ -285,7 +194,7 @@ async function publishViaGraph(row: any, message: string, images: string[]) {
   const link = propertyUrl(row.property_id);
   const mediaIds: string[] = [];
 
-  for (const url of images.slice(0, MAX_PHOTOS)) {
+  for (const url of images) {
     const photoForm = new URLSearchParams({
       url,
       published: "false",
@@ -313,20 +222,37 @@ async function publishViaGraph(row: any, message: string, images: string[]) {
   }
 
   const id = String(data.id);
-  const postUrl = id.includes("_")
-    ? `https://www.facebook.com/${FB_PAGE_ID}/posts/${id.split("_")[1]}`
-    : `https://www.facebook.com/${id}`;
-  return { post_id: id, post_url: postUrl };
+  return { post_id: id, post_url: facebookPostUrl(id) };
 }
 
 // ---------------------------------------------------------------------------
 // טיפול בנכס אחד
 // ---------------------------------------------------------------------------
 async function handle(sb: any, row: any, opts: { force: boolean; dryRun: boolean }) {
-  const images: string[] = (row.images ?? []).filter((u: any) => typeof u === "string" && /^https?:\/\//.test(u));
+  const gallery: string[] = (row.images ?? []).filter((u: any) => typeof u === "string" && /^https?:\/\//.test(u));
   if (row.marketing_image && /^https?:\/\//.test(row.marketing_image)) {
     // התמונה השיווקית המעוצבת קודמת לגלריה — היא נבנתה בדיוק בשביל פוסט כזה.
-    images.unshift(row.marketing_image);
+    gallery.unshift(row.marketing_image);
+  }
+  // התקרה חלה על שני המסלולים, לא רק על Graph. לנכס יכולות להיות תשע תמונות,
+  // ובמסלול Make כל תמונה היא איטרציה ומודול העלאה — כלומר פי שלושה פעולות
+  // בחבילה על נכס אחד, ופוסט שגולל. חמש הן גם מה שפייסבוק מציג בגריד בלי
+  // לקפל, ולכן זו אותה תקרה בשני המקומות.
+  const images = gallery.slice(0, MAX_PHOTOS);
+
+  // נכס בלי תמונה אינו מפורסם. ‏pending_property_publications כבר מסננת אותו
+  // (מיגרציה 20261020090000), ולכן אין דרך מוכרת להגיע לכאן — אבל אם שתי
+  // ההגדרות ייפרדו אי פעם, עדיף דילוג מתועד על פני באנדל שנופל ב-Make עם
+  // ‏Missing value of required parameter 'url', מכבה את התרחיש ועוצר את התור.
+  // הבדיקה מקדימה את הקריאה ל-Claude: אין טעם לכתוב תיאור לפוסט שלא ייצא.
+  if (!images.length) {
+    if (!opts.dryRun) {
+      await sb.from("property_publications").update({
+        status: "skipped",
+        last_error: "נכס בלי תמונה — לא מפרסמים פוסט בלי תמונות",
+      }).eq("id", row.publication_id);
+    }
+    return { property_id: row.property_id, skipped: "no_image" };
   }
 
   // 1. תיאור שיווקי — רק אם אין, אלא אם ביקשו במפורש לכתוב מחדש
@@ -342,11 +268,14 @@ async function handle(sb: any, row: any, opts: { force: boolean; dryRun: boolean
       marketing = fresh;
       generated = true;
       if (!opts.dryRun) {
-        const patch: Record<string, string> = { marketing_description: fresh.description };
-        // ‏post_text של הסוכן/ת נשאר שלו/ה גם בכתיבה מחדש: המערכת משלימה
-        // מה שחסר, לא מחליפה מה שנכתב ביד.
-        if (!row.post_text?.trim()) patch.post_text = fresh.post;
-        const { error } = await sb.from("properties").update(patch).eq("id", row.property_id);
+        // דרך ה-RPC ולא בעדכון ישיר: היא מה שמסמן את הטקסט כ"נכתב אוטומטית"
+        // ומעדכן את טביעת האצבע שלפיה נמדדת ההתיישנות. ‏post_text של
+        // הסוכן/ת נשמר בתוכה — המערכת משלימה מה שחסר, לא מחליפה מה שנכתב ביד.
+        const { error } = await sb.rpc("apply_property_marketing_description", {
+          p_property_id: row.property_id,
+          p_description: fresh.description,
+          p_post_text: fresh.post,
+        });
         if (error) throw new Error(`שמירת התיאור נכשלה: ${error.message}`);
       }
     } else if (!marketing.description) {
@@ -393,12 +322,14 @@ async function handle(sb: any, row: any, opts: { force: boolean; dryRun: boolean
 
 // ---------------------------------------------------------------------------
 Deno.serve(async (req: Request) => {
-  // אותה בחירה כמו ב-saved-search-notify: הסוד אופציונלי, כי הפונקציה לא
-  // מקבלת תוכן מהקורא אלא מרוקנת תור קיים. ‏JWT של מנהל/ת פלטפורמה נבדק
-  // בנפרד ומאפשר את המסלול הידני.
+  // האימות של ה-cron ושל ה-service_role עבר ל-cron-auth המשותף. השינוי
+  // המהותי: קודם `!CRON_SECRET` פתח את הפונקציה לגמרי כשהסוד לא הוגדר —
+  // וזה היה המצב בפרודקשן. ‏JWT של מנהל/ת פלטפורמה נבדק בנפרד ומאפשר את
+  // המסלול הידני מהדשבורד.
   const authHeader = req.headers.get("Authorization") || "";
-  const cronOk = !CRON_SECRET || req.headers.get("x-alert-cron-secret") === CRON_SECRET;
-  const serviceOk = authHeader === `Bearer ${serviceRoleKey}`;
+  const internal = authorizeInternalCaller(req);
+  const cronOk = internal.ok;
+  const serviceOk = internal.ok && internal.via === "service_role";
 
   const sb = createClient(supabaseUrl, serviceRoleKey);
 
@@ -416,7 +347,18 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  if (!cronOk && !serviceOk && !adminOk) return json({ error: "unauthorized" }, 401);
+  if (!cronOk && !serviceOk && !adminOk) {
+    // חוסר הגדרה (503) לא מתחפש ל-401: מנהל/ת שנכנס/ת ידנית עדיין מקבל/ת
+    // מעבר, אבל קורא שנדחה מקבל את הסיבה האמיתית.
+    if (!internal.ok && internal.status === 503) {
+      // תקלת הגדרה שלנו, ולכן היא נרשמת — בניגוד ל-401 שמתחתיה, שקורא
+      // חיצוני יכול לייצר בכמות ולהציף את היומן. בלי השורה הזו סוד cron
+      // שנמחק מ-Vault היה עוצר את כל התור בשקט מוחלט.
+      console.error("cron auth לא מוגדר", internal.error, internal.detail ?? "");
+      return json({ error: internal.error, detail: internal.detail }, 503);
+    }
+    return json({ error: "unauthorized" }, 401);
+  }
 
   let body: any = {};
   try {
@@ -432,6 +374,13 @@ Deno.serve(async (req: Request) => {
   if (!dryRun && !MAKE_WEBHOOK_URL && !(FB_PAGE_ID && FB_PAGE_TOKEN)) {
     // אף ערוץ לא מחובר. לא נוגעים בתור: השורות ימתינו לחיבור ולא יישרפו
     // על חמישה ניסיונות כושלים.
+    //
+    // שלוש היציאות המוקדמות כאן ולמטה מחזירות 500 ומשאירות את התור כמו
+    // שהוא — וזה נכון. מה שלא היה נכון הוא שהן עשו זאת **בשקט**: ‏POST | 500
+    // ביומן ה-Edge Functions בלי שום שורה שמסבירה למה, והתסמין היחיד הוא
+    // שורה שנשארת pending עם attempts=0 אחרי מועד הפרסום שלה. כך נעלמה
+    // הרצה ב-11.9.2026 בלי שאפשר היה לשחזר את הסיבה בדיעבד.
+    console.error("publish_not_configured: אין MAKE_FACEBOOK_WEBHOOK_URL ואין FACEBOOK_PAGE_ID+TOKEN");
     return json({ error: "publish_not_configured" }, 500);
   }
 
@@ -448,14 +397,20 @@ Deno.serve(async (req: Request) => {
       p_force: !dryRun,
       p_delay_minutes: 0,
     });
-    if (error) return json({ error: "queue_failed", detail: error.message }, 500);
+    if (error) {
+      console.error("queue_failed", propertyId, error.message);
+      return json({ error: "queue_failed", detail: error.message }, 500);
+    }
   }
 
   const { data: rows, error } = await sb.rpc("pending_property_publications", {
     p_limit: propertyId ? 1 : BATCH,
     p_property_id: propertyId,
   });
-  if (error) return json({ error: "queue_read_failed", detail: error.message }, 500);
+  if (error) {
+    console.error("queue_read_failed", error.message);
+    return json({ error: "queue_read_failed", detail: error.message }, 500);
+  }
   if (!rows?.length) {
     return json({
       ok: true,

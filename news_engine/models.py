@@ -53,6 +53,15 @@ class NewsAnalysis(BaseModel):
     relevance_score: int = Field(
         ge=1, le=10, description="עד כמה הידיעה מעניינת את קהל האתר, 1 עד 10."
     )
+    story_key: str = Field(
+        description="מזהה האירוע בפורמט קבוע: נושא|אירוע|תקופה. שלושה חלקים "
+        "מופרדים בקו אנכי, למשל \"ריבית בנק ישראל|הורדה|2026-09\" או "
+        "\"התחדשות עירונית עפולה|אישור תבע|2026-09\". שני אתרים שסיקרו את "
+        "אותו אירוע חייבים לקבל בדיוק אותו מפתח, ולכן: שמות עצם בלבד ולא "
+        "פעלים מוטים (\"הורדה\" ולא \"הוריד\"/\"ירדה\"/\"הפחית\"), בלי שם "
+        "האתר, בלי מספרים מדויקים ובלי מילות קישור. התקופה היא חודש הידיעה "
+        "בפורמט YYYY-MM."
+    )
     reasoning: Optional[str] = Field(
         default=None, description="משפט קצר שמסביר את הסיווג ואת הציון (לתחקור פנימי)."
     )
@@ -70,6 +79,8 @@ class RunStats:
     analyzed: int = 0
     inserted: int = 0
     rejected: int = 0
+    duplicate_stories: int = 0
+    national_capped: int = 0
     errors: int = 0
 
     def as_lines(self) -> list[str]:
@@ -82,5 +93,7 @@ class RunStats:
             f"נשלחו לניתוח: {self.analyzed}",
             f"מבזקים שפורסמו: {self.inserted}",
             f"נדחו (לא רלוונטי/ציון נמוך): {self.rejected}",
+            f"אותו סיפור ממקור אחר: {self.duplicate_stories}",
+            f"ארציים שנחסמו בתקרה: {self.national_capped}",
             f"שגיאות: {self.errors}",
         ]
