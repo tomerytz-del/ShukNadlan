@@ -169,9 +169,23 @@ class WhatsappError extends Error {
 // בלעדיו היינו ממשיכים לשלוח לאותו מספר בכל סבב ולצבור דחיות מול Meta.
 const WA_OPTED_OUT = 131050;
 
-/** שורה אחת לכל ממצא, קצרה — התבנית מוגבלת באורך פרמטר. */
+/**
+ * רשימת הממצאים כפרמטר לתבנית — **שורה אחת, בלי תווי שורה חדשה.**
+ *
+ * ‏Meta דוחה פרמטר של תבנית שמכיל `\n`, טאב או יותר מארבעה רווחים רצופים,
+ * ולכן החיבור ב-`\n` שהיה כאן היה נדחה בשליחה הראשונה מחוץ לחלון 24 השעות.
+ * אותו תיקון בדיוק ב-`notification-push`, שם יש גם ההסבר המלא.
+ *
+ * גופי הממצאים נבנים במסד ועשויים להכיל רווחים כפולים, ולכן הניקוי הוא על
+ * המחרוזת כולה ולא רק על המפריד.
+ */
 function waSummary(items: Item[]): string {
-  return items.map((it) => `• ${it.title}: ${it.body}`).join("\n").slice(0, 900);
+  return items
+    .map((it) => `• ${it.title}: ${it.body}`)
+    .join(" ")
+    .replace(/\s*[\r\n\t]+\s*/g, " ")
+    .replace(/ {4,}/g, "   ")
+    .slice(0, 900);
 }
 
 async function sendWhatsapp(to: string, name: string | null, items: Item[]): Promise<void> {
