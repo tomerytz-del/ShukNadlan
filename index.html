@@ -250,7 +250,10 @@
      עצמם נושמים, ומה שמפריד ביניהם הוא רווח. */
   .mobile-menu{
     display:none;flex-direction:column;gap:0;
-    padding:4px 18px 18px;border-bottom:1px solid var(--line);background:var(--paper-raised);
+    /* אין ריפוד תחתון: הריווח שמתחת לכפתור הכניסה מגיע מ-‎.menu-cta‎ עצמו,
+       שנצמד לתחתית וחייב לכסות את כל השטח שמתחתיו כדי שהיעדים לא יבצבצו
+       מתחתיו בזמן הגלילה. */
+    padding:4px 18px 0;border-bottom:1px solid var(--line);background:var(--paper-raised);
     /* תפריט ארוך במסך נמוך (טלפון בשכיבה) חייב לגלול בעצמו, אחרת כפתור
        הכניסה שבתחתיתו פשוט לא נמצא במסך. */
     max-height:calc(100dvh - var(--header-h));overflow-y:auto;overscroll-behavior:contain;
@@ -264,7 +267,16 @@
   }
   .mobile-menu a{padding:9px 6px;font-weight:600;border-radius:var(--radius-sm)}
   .mobile-menu a:hover,.mobile-menu a:focus-visible{background:var(--teal-tint);color:var(--teal-dark)}
-  .mobile-menu .btn-block{margin-top:12px}
+  /* כניסת המתווכים היא הפריט האחרון ברשימה של עשרה יעדים, ובטלפון היא
+     נפלה מתחת לקיפול של התפריט עצמו: מי שפתח/ה את התפריט כדי להיכנס
+     ל-CRM נאלץ/ה לגלול בתוכו כדי למצוא אותה. ‏sticky מצמיד אותה לתחתית
+     התפריט — היא נראית ברגע שהתפריט נפתח, בכל גובה מסך, ונשארת שם בזמן
+     שהיעדים נגללים מתחתיה. */
+  .menu-cta{
+    position:sticky;bottom:0;z-index:1;margin-top:12px;
+    padding:10px 0 18px;background:var(--paper-raised);
+  }
+  .mobile-menu .btn-block{margin-top:0}
 
   @media(min-width:900px){
     nav.primary{display:flex}
@@ -2930,7 +2942,12 @@
       <a href="developer-signup.html">הצטרפות כיזם/קבלן</a>
     </div>
 
-    <a href="crm.html" class="btn btn-teal btn-block">כניסת מתווכים</a>
+    <!-- הכפתור עטוף כדי שיוכל להיצמד לתחתית התפריט הנגלל (‏sticky): העטיפה
+         היא זו שנושאת את רקע התפריט, כך שהפריטים שנגללים מתחתיו לא
+         מבצבצים מבעדו. -->
+    <div class="menu-cta">
+      <a href="crm.html" class="btn btn-teal btn-block">כניסת מתווכים</a>
+    </div>
   </nav>
 </header>
 
