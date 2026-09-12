@@ -14771,7 +14771,13 @@ async function impRenderStep4(){
   const queue = importState.parsed.filter(r => !r.errors.length);
   importState.busy = true;
   importState.failed = [];
-  let done = 0, ok = 0;
+  // ‏noImage נספר כאן ולא נשלף אחר כך מהמסד: נכס בלי תמונה לא יפורסם בדף
+  // הפייסבוק (ראו docs/facebook-auto-publish.md), וזו העובדה היחידה בסיכום
+  // שהמייבא/ת לא יכול/ה להסיק ממנה בעצמו/ה. בייבוא של 9.9.2026 נקלטו כך
+  // ‏11 נכסים, ואיש לא ידע עד שנבדק המסד.
+  let done = 0, ok = 0, noImage = 0;
+  const rowHasImage = row =>
+    Boolean(row.payload?.images?.length) || Boolean(row.payload?.marketing_image);
 
   impBodyEl.innerHTML = `
     <div style="font-weight:700">מייבא ${queue.length} נכסים…</div>
@@ -14816,11 +14822,12 @@ async function impRenderStep4(){
         const { data: insertedRow, error: rowError } = await sb.from('properties')
           .insert(row.payload).select('id').single();
         if (rowError) importState.failed.push({ raw: row.raw, message: rowError.message });
-        else { ok++; await saveOwners([row], [insertedRow?.id]); }
+        else { ok++; if (!rowHasImage(row)) noImage++; await saveOwners([row], [insertedRow?.id]); }
         done++; tick();
       }
     } else {
       await saveOwners(chunk, (insertedRows || []).map(r => r.id));
+      noImage += chunk.filter(r => !rowHasImage(r)).length;
       ok += chunk.length; done += chunk.length; tick();
     }
   }
@@ -14832,12 +14839,14 @@ async function impRenderStep4(){
   impBodyEl.innerHTML = `
     <div class="imp-sum">
       <span class="imp-chip ok">${ok} נכסים נקלטו</span>
+      ${noImage ? `<span class="imp-chip guess">${noImage} בלי תמונות</span>` : ''}
       ${failedTotal ? `<span class="imp-chip bad">${failedTotal} לא נקלטו</span>` : ''}
     </div>
     <p>${ok ? 'הנכסים מפורסמים באתר ומופיעים ברשימת "הנכסים שלי".' : 'לא נקלט אף נכס.'}</p>
     ${importState.failed.length ? `<p class="imp-note">${importState.failed.length} שורות נדחו על ידי המערכת בעת השמירה. הורידו את קובץ השגיאות כדי לראות את הסיבה לכל שורה.</p>` : ''}
+    ${noImage ? `<p class="imp-note"><b>${noImage} נכסים נוצרו בלי תמונות, ולכן לא יפורסמו בדף הפייסבוק של האתר.</b> הפוסט ייצא מעצמו כ-20 דקות אחרי שתעלו את התמונה הראשונה לכל נכס — אין צורך לבקש שוב.</p>` : ''}
     <p class="imp-note">נכסים ללא קו רוחב/אורך לא יופיעו כסימון על מפת עמוד הבית. אפשר להשלים מיקום וכתובת דרך "עריכה" בכל נכס, ואז גם ייקלט המידע התכנוני.</p>
-    ${ok ? '<p class="imp-note">מומלץ לעבור על הנכסים החדשים ולהוסיף תמונות — מודעה עם תמונות מקבלת פניות רבות יותר.</p>' : ''}`;
+    ${ok && !noImage ? '<p class="imp-note">מומלץ לעבור על הנכסים החדשים ולהוסיף תמונות — מודעה עם תמונות מקבלת פניות רבות יותר.</p>' : ''}`;
   impFootEl.innerHTML = `
     ${failedTotal ? '<button type="button" class="btn btn-ghost" id="impErrors">הורדת קובץ השגיאות</button>' : ''}
     <button type="button" class="btn btn-gold" id="impDone">סיום</button>`;
