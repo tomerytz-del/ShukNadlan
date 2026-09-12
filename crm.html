@@ -1039,6 +1039,10 @@
   .rm-quiet span{font-size:.78rem;color:var(--ink-soft);flex:none}
   .rm-note{font-size:.72rem;color:var(--ink-soft);margin:5px 0 0;line-height:1.55}
   .rm-last{font-size:.72rem;color:var(--ink-soft);margin:10px 0 0;text-align:center}
+  /* ערוץ שטרם נפתח. ‏.is-off על ה-label ולא רק disabled על ה-input, כי
+     ‏:disabled מאפיר את התיבה לבדה ומשאיר את המילה "וואטסאפ" נראית לחיצה. */
+  .checkbox-item.is-off{opacity:.55;cursor:not-allowed}
+  .checkbox-item.is-off input{cursor:not-allowed}
   @media(max-width:480px){ .rm-grid{grid-template-columns:1fr} }
 
   /* ---------- CMA report (2.3) ---------- */
@@ -4707,11 +4711,14 @@
             <label>לאן לשלוח</label>
             <div class="checkbox-grid">
               <label class="checkbox-item"><input type="checkbox" id="rmChEmail"> מייל</label>
-              <label class="checkbox-item"><input type="checkbox" id="rmChWhatsapp"> וואטסאפ</label>
+              <!-- ‏disabled גם ב-HTML ולא רק ב-JS: כך התיבה אינה לחיצה גם
+                   בשבריר השנייה שבין ציור הדשבורד לחזרת pricing_config מהשרת.
+                   ‏renderReminderPrefs מדליק/ה אותה אם המתג במסד דלוק. -->
+              <label class="checkbox-item is-off"><input type="checkbox" id="rmChWhatsapp" disabled> וואטסאפ</label>
             </div>
-            <!-- שני המשפטים כאן הם המצב האמיתי ולא אזהרה כללית: וואטסאפ דורש
-                 מספר מאומת בקטגוריית "נכסים בוואטסאפ", ובלי אף ערוץ מסומן
-                 התזכורות ממשיכות להופיע כאן ופשוט לא נשלחות. -->
+            <!-- ההערה כאן היא המצב האמיתי ולא אזהרה כללית: למה הוואטסאפ סגור,
+                 מה חסר לערוץ שסומן (מספר בקטגוריית "נכסים בוואטסאפ"), ומה קורה
+                 בלי אף ערוץ — התזכורות ממשיכות להופיע כאן ופשוט לא נשלחות. -->
             <p class="rm-note" id="rmChannelsNote"></p>
           </div>
 
@@ -18217,12 +18224,36 @@ function renderReminders(){
   accSetCount('accReminders', reminderFindings.length);
 }
 
+/* ---------- ערוץ הוואטסאפ: מתג ראשי במסד ----------
+   ‏Meta מרשה טקסט חופשי רק בתוך 24 שעות מההודעה האחרונה שהסוכן/ת שלח/ה, ולכן
+   תזכורת — שיוצאת בהגדרה מחוץ לחלון הזה — דורשת תבנית מאושרת מראש. התבנית
+   טרם אושרה, והערוץ כבוי עד אז.
+
+   המתג יושב ב-pricing_config ולא בקוד, כי ההדלקה ביום שהתבנית תאושר צריכה
+   להיות `update` יחיד בלי פריסה של האתר ובלי פריסה של הפונקציה.
+
+   ‏0 היא ברירת המחדל גם כאן, בדיוק כמו במסד: מסד שהמפתח חסר בו מתנהג כמו
+   "כבוי". ערוץ שנדלק בגלל הגדרה חסרה הוא בדיוק התקלה שהמתג בא למנוע. */
+function reminderWhatsappEnabled(){
+  return Number(priceOf('agent_reminder_whatsapp_enabled', 0)) > 0;
+}
+
 function renderReminderPrefs(){
   const cadence = document.getElementById('rmCadence');
   if (!cadence) return;
 
-  document.getElementById('rmChEmail').checked    = reminderPrefs.channels.includes('email');
-  document.getElementById('rmChWhatsapp').checked = reminderPrefs.channels.includes('whatsapp');
+  const waBox = document.getElementById('rmChWhatsapp');
+  const waOn = reminderWhatsappEnabled();
+
+  document.getElementById('rmChEmail').checked = reminderPrefs.channels.includes('email');
+  /* כשהערוץ כבוי התיבה מושבתת **ומוצגת לא-מסומנת**, גם אם במסד שמורה בחירה
+     בוואטסאפ: תיבה מסומנת שלא שולחת כלום היא באג מדווח. הבחירה עצמה לא
+     נמחקת — ה-handler של השמירה משמר אותה (ראו שם), ולכן ביום שהמתג יידלק
+     היא תתחיל לפעול בלי שאיש יצטרך להיכנס ולסמן מחדש. */
+  waBox.checked  = waOn && reminderPrefs.channels.includes('whatsapp');
+  waBox.disabled = !waOn;
+  waBox.closest('label')?.classList.toggle('is-off', !waOn);
+
   cadence.value = ['daily','weekly','off'].includes(reminderPrefs.cadence) ? reminderPrefs.cadence : 'weekly';
   document.getElementById('rmCap').value = reminderPrefs.max_per_30_days;
 
@@ -18260,17 +18291,24 @@ function renderReminderKinds(){
   });
 }
 
-/* ההערה מתחת לערוצים אומרת את המצב בפועל ולא אזהרה כללית: מה קורה כשאין אף
-   ערוץ, ומה חסר כדי שהוואטסאפ יעבוד. סוכן/ת שסימן/ה וואטסאפ בלי מספר מאומת
-   היה/הייתה מחכה להודעה שלא תגיע לעולם. */
+/* ההערה מתחת לערוצים אומרת את המצב בפועל ולא אזהרה כללית: למה הוואטסאפ כבוי,
+   מה קורה כשאין אף ערוץ, ומה חסר כדי שערוץ שסומן יעבוד. סוכן/ת שסימן/ה ערוץ
+   בלי כתובת היה/הייתה מחכה להודעה שלא תגיע לעולם. */
 function syncReminderChannelsNote(){
   const note = document.getElementById('rmChannelsNote');
   if (!note) return;
   const email = document.getElementById('rmChEmail').checked;
   const wa = document.getElementById('rmChWhatsapp').checked;
+  const waOn = reminderWhatsappEnabled();
   const parts = [];
-  if (!email && !wa) parts.push('בלי ערוץ מסומן לא תישלח שום הודעה — הרשימה למעלה ממשיכה להתעדכן כרגיל.');
-  if (wa && !(currentAgent && currentAgent.phone))
+
+  // ראשון ברשימה כי זו השאלה שתישאל: למה התיבה אפורה. והנוסח אומר גם למה
+  // וגם מה יקרה — לא "לא זמין" סתום.
+  if (!waOn){
+    parts.push('ערוץ הוואטסאפ עדיין סגור: הודעת תזכורת יוצאת מחוץ לחלון 24 השעות של Meta, ולכן היא דורשת תבנית מאושרת — וזו בהגשה. עד אז התזכורות נשלחות במייל בלבד, והערוץ ייפתח כאן מעצמו כשהתבנית תאושר.');
+  }
+  if (!email && !(waOn && wa)) parts.push('בלי ערוץ מסומן לא תישלח שום הודעה — הרשימה למעלה ממשיכה להתעדכן כרגיל.');
+  if (waOn && wa && !(currentAgent && currentAgent.phone))
     parts.push('לוואטסאפ צריך מספר שמור בקטגוריית "נכסים בוואטסאפ".');
   if (email && !(currentAgent && currentAgent.email))
     parts.push('לא נמצאה כתובת מייל בפרטי הסוכן/ת.');
@@ -18315,7 +18353,14 @@ document.getElementById('reminderPrefsForm').addEventListener('submit', async (e
 
   const channels = [];
   if (document.getElementById('rmChEmail').checked) channels.push('email');
-  if (document.getElementById('rmChWhatsapp').checked) channels.push('whatsapp');
+  /* אותו כלל כמו בסוגי התזכורת למטה: **פקד שלא הוצג שומר על מצבו השמור.**
+     כשערוץ הוואטסאפ כבוי התיבה מושבתת ולא-מסומנת, ולכן קריאה נאיבית של
+     ‏.checked הייתה מוחקת בשקט בחירה קיימת בכל שמירה של שדה אחר לגמרי —
+     והסוכן/ת היה/הייתה מגלה את זה רק ביום שהערוץ נפתח. */
+  const waKept = reminderWhatsappEnabled()
+    ? document.getElementById('rmChWhatsapp').checked
+    : reminderPrefs.channels.includes('whatsapp');
+  if (waKept) channels.push('whatsapp');
 
   const checked = new Set(Array.from(document.querySelectorAll('.rmKind:checked')).map(cb => cb.value));
   /* אותו היגיון כמו ב"ניהול התראות": נשמרת רשימת ה**מושתקים**, וסוג שלא הוצג
@@ -18362,11 +18407,16 @@ document.getElementById('reminderPrefsForm').addEventListener('submit', async (e
   // תוכנן
   renderReminders();
 
+  /* האישור מדבר על מה שבאמת יקרה, ולא על מה שנשמר. ‏channels עשויה להכיל
+     'whatsapp' משומר בזמן שהערוץ כבוי (ראו waKept למעלה), ואישור שאומר
+     "עד הודעה בשבוע" למי שסימן/ה וואטסאפ בלבד היה הבטחה שלא תתקיים. */
+  const effective = channels.filter(c => c !== 'whatsapp' || reminderWhatsappEnabled());
+  const where = effective.map(c => c === 'email' ? 'מייל' : 'וואטסאפ').join(' ו');
   feedback.style.color = 'var(--blue)';
-  feedback.textContent = payload.cadence === 'off' || !channels.length || cap === 0
-    ? 'נשמר — לא יישלחו הודעות תזכורת.'
+  feedback.textContent = payload.cadence === 'off' || !effective.length || cap === 0
+    ? 'נשמר — לא יישלחו הודעות תזכורת. הרשימה למעלה ממשיכה להתעדכן.'
     : 'נשמר — ' + (payload.cadence === 'daily' ? 'עד הודעה ביום' : 'עד הודעה בשבוע')
-      + ', לכל היותר ' + cap + ' ב-30 יום.';
+      + ', לכל היותר ' + cap + ' ב-30 יום, ב' + where + '.';
   setTimeout(()=>{ feedback.textContent=''; }, 3000);
 });
 

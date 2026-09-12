@@ -27,13 +27,27 @@ import { sendPlatformEmail } from "../_shared/platform-mail-client.ts";
 // צריך/ה שהניסיון החוזר יהיה על הוואטסאפ בלבד — ולא שהמייל יישלח פעמיים
 // ולא שההודעה כולה תיחשב "נשלחה".
 //
-// ## על תבנית הוואטסאפ
+// ## הוואטסאפ כבוי, ואין נפילה לטקסט חופשי
 //
-// ‏Meta מרשה לעסק לפתוח שיחה מחוץ לחלון 24 השעות **רק** דרך תבנית מאושרת
-// מראש. סוכן/ת שלא כתב/ה לבוט היום הוא/היא בדיוק המצב הזה, ולכן
-// ‏`WHATSAPP_REMINDER_TEMPLATE` הוא הדרך הנכונה בפרודקשן. בלעדיו נשלח טקסט
-// חופשי — מצב שמתאים לבדיקה מול מספר ששלח לנו הודעה בשעות האחרונות, ולא
-// לפרודקשן. אותו שיקול בדיוק כמו ב-saved-search-notify.
+// ‏Meta מרשה לעסק לשלוח טקסט חופשי אך ורק בתוך חלון של 24 שעות מההודעה
+// האחרונה שהנמען/ת שלח/ה. **תזכורת שבועית היא בהגדרה הודעה מחוץ לחלון הזה:**
+// אם הסוכן/ת כתב/ה לבוט לפני שעה, ממילא אין מה להזכיר לו/ה. ולכן נפילה לטקסט
+// חופשי אינה "איכות ירודה" אלא דחייה מ-Meta בכל פעם, שנספרת לחובת המספר
+// העסקי בדירוג האיכות.
+//
+// הגרסה הראשונה כן נפלה לטקסט חופשי (כמו saved-search-notify, שם זה נכון —
+// שם התבנית **קיימת** והנפילה היא מסלול בדיקה). כאן התבנית טרם הוגשה לאישור,
+// ולכן הנפילה הוסרה: **בלי `WHATSAPP_REMINDER_TEMPLATE` לא נשלחת שום הודעת
+// וואטסאפ**, אלא נרשמת שגיאה מנוסחת ב-`agent_reminder_log.last_error`.
+//
+// זו השכבה השנייה מתוך שלוש. הראשונה במסד — ‏`agent_reminder_due_agents`
+// אינה מחשיבה את הוואטסאפ כערוץ בכלל כל עוד
+// ‏`pricing_config.agent_reminder_whatsapp_enabled = 0` — ולכן בפועל הפונקציה
+// הזו לא אמורה לראות בקשת וואטסאפ כלל. השכבה כאן היא מה שמבטיח שגם אם המתג
+// יידלק לפני שהתבנית תאושר, לא תצא הודעה שתידחה. השלישית היא תיבת הסימון
+// המושבתת ב-crm.html.
+//
+// ההדלקה, ביום שהתבנית תאושר: הסוד, ואחריו המתג. ראו docs/agent-reminders.md.
 // ============================================================================
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -175,6 +189,21 @@ function waSummary(items: Item[]): string {
 }
 
 async function sendWhatsapp(to: string, name: string | null, items: Item[]): Promise<void> {
+  // **אין נפילה לטקסט חופשי.** תזכורת יוצאת בהגדרה מחוץ לחלון 24 השעות של
+  // Meta, ולכן טקסט חופשי כאן אינו "פחות טוב" אלא נדחה — ונספר לחובת המספר
+  // העסקי. בלי תבנית מאושרת נכשלים בהודעה מנוסחת, שנשמרת ב-last_error, ולא
+  // שולחים דבר.
+  //
+  // בפועל אין למצב הזה דרך להתרחש: ‏agent_reminder_due_agents אינה מחשיבה
+  // את הוואטסאפ כערוץ כל עוד המתג במסד כבוי. הבדיקה כאן היא מה שמחזיק את
+  // ההבטחה גם ביום שהמתג יידלק לפני שהתבנית תאושר.
+  if (!WA_TEMPLATE) {
+    throw new WhatsappError(
+      "whatsapp_template_not_configured: ‏WHATSAPP_REMINDER_TEMPLATE אינו מוגדר. " +
+      "תזכורת יוצאת מחוץ לחלון 24 השעות ולכן דורשת תבנית מאושרת; לא נשלחה הודעה.",
+      null,
+    );
+  }
   if (!WA_TOKEN || !WA_PHONE_ID) throw new WhatsappError("whatsapp not configured", null);
 
   const url = `https://graph.facebook.com/${GRAPH_VERSION}/${WA_PHONE_ID}/messages`;
@@ -183,52 +212,40 @@ async function sendWhatsapp(to: string, name: string | null, items: Item[]): Pro
     "Content-Type": "application/json",
   };
 
-  let payload: Record<string, unknown>;
-
-  if (WA_TEMPLATE) {
-    // שני פרמטרים בגוף התבנית, בסדר הזה:
-    //   {{1}} השם הפרטי  ·  {{2}} רשימת הממצאים
-    //
-    // וכפתור URL דינמי אחד שמוביל לניהול התזכורות. הפרמטר הוא **סיומת
-    // הכתובת בלבד** — כך Meta מגדירה כפתור דינמי — ולכן הקידומת
-    // (‏https://shuknadlan.co.il/) נקבעת בתבנית עצמה ולא כאן.
-    //
-    // הכפתור הזה אינו נימוס אלא תנאי: תבנית שאין ממנה דרך להנמיך את הקצב
-    // נפסלת באישור, וסוכן/ת שמוצף/ת ולא מוצא/ת איך לעצור חוסם/ת את המספר —
-    // וזה עולה לנו בכל הנמענים.
-    payload = {
-      messaging_product: "whatsapp",
-      to,
-      type: "template",
-      template: {
-        name: WA_TEMPLATE,
-        language: { code: WA_TEMPLATE_LANG },
-        components: [
-          {
-            type: "body",
-            parameters: [
-              { type: "text", text: (String(name || "").trim().split(/\s+/)[0] || "שלום").slice(0, 60) },
-              { type: "text", text: waSummary(items) },
-            ],
-          },
-          {
-            type: "button",
-            sub_type: "url",
-            index: "0",
-            parameters: [{ type: "text", text: `crm.html?goto=${MANAGE_ACC}` }],
-          },
-        ],
-      },
-    };
-  } else {
-    payload = {
-      messaging_product: "whatsapp",
-      recipient_type: "individual",
-      to,
-      type: "text",
-      text: { preview_url: false, body: textBody(name, items) },
-    };
-  }
+  // שני פרמטרים בגוף התבנית, בסדר הזה:
+  //   {{1}} השם הפרטי  ·  {{2}} רשימת הממצאים
+  //
+  // וכפתור URL דינמי אחד שמוביל לניהול התזכורות. הפרמטר הוא **סיומת הכתובת
+  // בלבד** — כך Meta מגדירה כפתור דינמי — ולכן הקידומת
+  // (‏https://shuknadlan.co.il/) נקבעת בתבנית עצמה ולא כאן.
+  //
+  // הכפתור הזה אינו נימוס אלא תנאי: תבנית שאין ממנה דרך להנמיך את הקצב
+  // נפסלת באישור, וסוכן/ת שמוצף/ת ולא מוצא/ת איך לעצור חוסם/ת את המספר —
+  // וזה עולה לנו בכל הנמענים.
+  const payload: Record<string, unknown> = {
+    messaging_product: "whatsapp",
+    to,
+    type: "template",
+    template: {
+      name: WA_TEMPLATE,
+      language: { code: WA_TEMPLATE_LANG },
+      components: [
+        {
+          type: "body",
+          parameters: [
+            { type: "text", text: (String(name || "").trim().split(/\s+/)[0] || "שלום").slice(0, 60) },
+            { type: "text", text: waSummary(items) },
+          ],
+        },
+        {
+          type: "button",
+          sub_type: "url",
+          index: "0",
+          parameters: [{ type: "text", text: `crm.html?goto=${MANAGE_ACC}` }],
+        },
+      ],
+    },
+  };
 
   const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(payload) });
   if (!res.ok) {
