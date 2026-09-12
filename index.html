@@ -1247,8 +1247,8 @@
      הצגה של יכולת, והניגוד הוא מה שאומר את זה בלי כותרת שמסבירה. הזהב כאן
      הוא הדגש ולא המשטח (ראו assets/design-system.css) — חוץ מקופסת ה-CTA,
      שנושאת טקסט כהה ולכן מותר לה להיות זהב מלא. */
-  .ai-band{background:var(--teal-dark);padding:22px 0;overflow:hidden}
-  .ai-band-inner{position:relative;display:grid;gap:16px}
+  .ai-band{background:var(--teal-dark);padding:18px 0;overflow:hidden}
+  .ai-band-inner{position:relative;display:grid;gap:13px}
   /* שתי הילות שנעות לאט מתחת לתוכן — אותה שפה של הרקע הנע שבשאר הדף
      (assets/page-bg.js), בגרסה מקומית לרצועה אחת. */
   .ai-band-glow{
@@ -1373,11 +1373,11 @@
      הגודל נדרס בחזרה ל-.9rem בשאילתת המדיה. */
   .ai-band-lede{
     position:relative;margin:0;max-width:52ch;text-align:center;
-    font-size:.82rem;line-height:1.55;color:#c3cfeb;
+    font-size:.82rem;line-height:1.5;color:#c3cfeb;
   }
   .ai-band-title span{color:#fff}
   .ai-band-star{font-size:1.1rem;margin-inline-start:5px}
-  .ai-band-copy{position:relative;display:flex;flex-direction:column;gap:13px}
+  .ai-band-copy{position:relative;display:flex;flex-direction:column;gap:10px}
   .ai-band-styles{border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:11px 12px;
     display:flex;flex-direction:column;gap:9px}
   .ai-band-styles-title{font-size:.85rem;font-weight:700;color:#fff;text-align:center}
@@ -1399,14 +1399,14 @@
   .ai-band-styles li.is-on{border-color:var(--brass,#c9a227);background:rgba(201,162,39,.1);color:#fff;font-weight:700}
   .ai-band-styles li.is-on span{color:var(--brass-light,#e5c76a)}
   .ai-band-cta{
-    display:flex;flex-direction:column;gap:4px;align-items:center;text-align:center;
-    padding:14px 16px;border:0;border-radius:14px;cursor:pointer;font-family:inherit;
+    display:flex;flex-direction:column;gap:3px;align-items:center;text-align:center;
+    padding:11px 16px;border:0;border-radius:14px;cursor:pointer;font-family:inherit;
     background:linear-gradient(135deg,#e0bf4f,var(--brass,#c9a227));
     transition:transform .15s ease,box-shadow .15s ease;
   }
   .ai-band-cta:hover{transform:translateY(-2px);box-shadow:0 14px 30px -18px rgba(0,0,0,.8)}
   .ai-band-cta b{font-size:1.05rem;font-weight:800;color:var(--ink)}
-  .ai-band-cta span{font-size:.8rem;color:#40350f;line-height:1.5;max-width:44ch}
+  .ai-band-cta span{font-size:.8rem;color:#40350f;line-height:1.45;max-width:44ch}
   .ai-band-note{display:flex;align-items:flex-start;gap:7px;font-size:.7rem;color:#8fa3d4;line-height:1.5}
   .ai-band-note>span{color:var(--brass,#c9a227)}
 
@@ -1421,20 +1421,22 @@
      רצה, וסרט שממשיך לרוץ מתחת לקיפול הוא עבודה של הדפדפן בלי צופה. */
   .ai-band-toggle{display:none}
   @media(max-width:759px){
-    .ai-band.is-compact .ai-band-inner{gap:12px}
+    .ai-band.is-compact .ai-band-inner{gap:10px}
     .ai-band.is-compact .ai-shot + .ai-shot{display:none}
     .ai-band.is-compact .ai-band-styles{display:none}
+    /* הכפתור הוא פריט של גריד הרצועה ולא של עמודת הטקסט, ולכן המרכוז שלו
+       הוא ‎justify-self‎ (הציר האופקי) ולא ‎align-self‎. */
     .ai-band-toggle{
-      display:inline-flex;align-self:center;align-items:center;gap:6px;cursor:pointer;
-      padding:9px 16px;border:1px solid rgba(255,255,255,.28);border-radius:999px;
+      display:inline-flex;justify-self:center;align-items:center;gap:6px;cursor:pointer;
+      padding:8px 16px;border:1px solid rgba(255,255,255,.28);border-radius:999px;
       background:transparent;color:#dce5fb;font-family:inherit;font-size:.76rem;font-weight:700;
     }
     .ai-band-toggle:hover{background:rgba(255,255,255,.08);color:#fff}
   }
 
   @media(min-width:760px){
-    .ai-band{padding:24px 0}
-    .ai-band-inner{grid-template-columns:1.02fr 1fr;row-gap:12px;column-gap:24px;align-items:stretch}
+    .ai-band{padding:20px 0}
+    .ai-band-inner{grid-template-columns:1.02fr 1fr;row-gap:10px;column-gap:24px;align-items:stretch}
     /* ‏.ai-band-head מפסיק להיות קופסה (‏display:contents) ושני ילדיו הופכים
        לפריטי גריד בזכות עצמם: הכותרת נשארת בראש הרצועה על שתי העמודות,
        ומשפט הפתיחה יורד לראש עמודת הטקסט — מעל לוח הסגנונות, כלומר צמוד
@@ -1456,11 +1458,14 @@
        הטור — כלומר הכפתור נתלה באמצע ומתחתיו חור. ‏space-between מחלק
        אותה: הלוח נשאר בראש, ההצהרה יורדת לקו התחתון של התמונות, והכפתור
        יושב ביניהם במרווח שווה. */
-    .ai-band-copy{grid-column:2;grid-row:3;justify-content:space-between;gap:11px}
-    .ai-band-styles{padding:9px 12px}
-    .ai-band-cta{padding:12px 16px}
+    .ai-band-copy{grid-column:2;grid-row:3;justify-content:space-between;gap:9px}
+    .ai-band-styles{padding:8px 12px;gap:7px}
+    .ai-band-cta{padding:10px 16px}
     .ai-band-styles ul{grid-template-columns:repeat(4,1fr)}
-    .ai-shot{height:100%;min-height:170px}
+    /* שתי ההדמיות זו מעל זו הן שקובעות את גובה הרצועה בדסקטופ (‏2×
+       min-height ועוד המרווח ביניהן), ולכן הקיצוץ בגובה הרצועה מתחיל
+       כאן. ‏158px הוא עדיין גובה שבו ההשוואה לפני/אחרי נקראת. */
+    .ai-shot{height:100%;min-height:158px}
     .ai-band-shots{height:100%}
   }
 
@@ -2018,6 +2023,9 @@
     flex-direction:row;align-items:baseline;justify-content:space-between;
     text-align:start;gap:10px 14px;flex-wrap:wrap;
   }
+  /* בטלפון הקישור חותם את הסקציה בפינה השמאלית התחתונה — אחרי הכתבות
+     ולא לפניהן, כי זה המקום שבו "ראיתי את אלה, מה עוד יש" באמת נשאל. */
+  .articles-all{display:flex;justify-content:flex-end;margin:12px 0 0}
 
 
   /* ====== גלריית הפרויקטים החדשים ======
@@ -2147,29 +2155,36 @@
       display:grid;grid-template-columns:1fr;gap:10px;
       overflow:visible;scroll-snap-type:none;padding:0;margin-inline:0;
     }
-    /* השלישית והלאה נמצאות בארכיון, לא כאן */
-    .article-scroll > .article-card:nth-child(n+3){display:none}
-    /* התמונונת בקצה השמאלי והכותרת לצידה, בלי תקציר ובלי תאריך: זו שורה
-       שאומרת "יש עוד", ולא כרטיס שני מלא שמתחרה במובילה. */
-    .article-scroll > .article-card:nth-child(2){
+    /* שתי השורות שמתחת למובילה: תמונונת בקצה השמאלי וכותרת לצידה, בלי
+       תקציר ובלי תאריך. הן אומרות "יש עוד", ואינן כרטיסים שמתחרים בה. */
+    .article-scroll > .article-card:nth-child(n+2){
       display:grid;grid-template-columns:minmax(0,1fr) 96px;align-items:stretch;
     }
     /* שניהם באותה שורה במפורש: בלי ‎grid-row‎ המיקום האוטומטי היה מוצא את
        העמודה הראשונה תפוסה ומוריד את הטקסט לשורה שנייה מתחת לתמונונת. */
-    .article-scroll > .article-card:nth-child(2) .cover{
+    .article-scroll > .article-card:nth-child(n+2) .cover{
       grid-area:1 / 2;height:auto;min-height:92px;
     }
-    .article-scroll > .article-card:nth-child(2) .body{
+    .article-scroll > .article-card:nth-child(n+2) .body{
       grid-area:1 / 1;padding:10px;gap:5px;justify-content:center;
     }
-    .article-scroll > .article-card:nth-child(2) p,
-    .article-scroll > .article-card:nth-child(2) .stamp{display:none}
+    .article-scroll > .article-card:nth-child(n+2) p,
+    .article-scroll > .article-card:nth-child(n+2) .stamp{display:none}
+    /* הרביעית והלאה נמצאות בארכיון, לא כאן. הכלל אחרון מבין השלושה כי הוא
+       חולק ספציפיות עם כלל השורה הדחוסה שמעליו. */
+    .article-scroll > .article-card:nth-child(n+4){display:none}
   }
   @media(min-width:480px){
     .article-scroll{--row-gap:12px;--row-peek:18px}
     .article-card h3{font-size:.9rem}
   }
   @media(min-width:760px){
+    /* הקישור חוזר לשורת הכותרת: הכותרת בימין, הקישור בשמאל, והרצועה
+       מתחתיהם על כל הרוחב. הוא נשאר אותו אלמנט אחד ב-DOM. */
+    #articles{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline}
+    #articles .articles-head{grid-area:1 / 1}
+    #articles .articles-all{grid-area:1 / 2;margin:0}
+    #articles .article-scroll{grid-column:1 / -1}
     .article-scroll{--row-gap:16px;--row-peek:24px}
     /* בדסקטופ הכרטיס לא צריך שני שליש מסך, אבל הרוחב נשאר כזה שהכרטיס
        הבא תמיד נחתך בקצה המסלול — כך הרצועה נקראת כקרוסלה ולא כגריד. */
@@ -2667,9 +2682,12 @@
     background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;
     box-shadow:var(--shadow);font-size:1.1rem;
   }
-  /* הריפוד התחתון של התוכן: גובה הכפתור, שני המרווחים סביבו ושולי הבטיחות
-     של המכשיר. בלעדיו השורה האחרונה בעמוד נשארה חבויה מתחת לכפתור. */
-  #main{padding-bottom:calc(var(--a11y-fab-size) + var(--a11y-fab-gap) * 2 + env(safe-area-inset-bottom, 0px))}
+  /* הריפוד התחתון של התוכן. הוא נועד לשורה האחרונה של העמוד, שאחרת נשארת
+     חבויה מתחת לכפתור — אבל אחרי ה-main בא כאן הפוטר, והוא ארוך מספיק כדי
+     שהשורה האחרונה של התוכן תמיד תוכל להיגלל מעל הכפתור. גובה כפתור מלא
+     כאן היה רק פס לבן של כמעט 90px בין הסקציה האחרונה לפוטר, ולכן נשאר
+     מרווח נשימה בלבד. */
+  #main{padding-bottom:10px}
   @media(max-width:600px){
     :root{--a11y-fab-size:44px; --a11y-fab-gap:12px}
   }
@@ -3477,6 +3495,14 @@
         </p>
       </div>
 
+      <!-- הפותח/סוגר של הרצועה בטלפון (‏.ai-band.is-compact ב-CSS). הוא יושב
+           בין משפט הפתיחה להדמיה ולא בתחתית הרצועה: שם הוא נקרא כהמשך של
+           ההבטחה ("יש עוד") לפני שהעין יורדת לתמונה, ולא ככפתור יתום אחרי
+           האזהרה. בדסקטופ הוא לא מוצג כלל — שם שתי העמודות זו לצד זו ואין
+           מה לצמצם. -->
+      <button type="button" class="ai-band-toggle" id="aiBandToggle"
+              aria-expanded="false" aria-controls="aiBand">עוד הדמיות וארבעה סגנונות ←</button>
+
       <div class="ai-band-shots" id="aiBandShots"><!-- populated by JS --></div>
 
       <div class="ai-band-copy">
@@ -3500,13 +3526,8 @@
 
         <p class="ai-band-note">
           <span aria-hidden="true">✦</span>
-          ההדמיה היא המחשה עיצובית ואינה מתחייבת לביצוע עבודות או לתוצאה בפועל.
+          ההדמיה היא המחשה עיצובית, לא התחייבות לביצוע או לתוצאה.
         </p>
-
-        <!-- הפותח/סוגר של הרצועה בטלפון (‏.ai-band.is-compact ב-CSS). בדסקטופ
-             הוא לא מוצג כלל: שם שתי העמודות יושבות זו לצד זו ואין מה לצמצם. -->
-        <button type="button" class="ai-band-toggle" id="aiBandToggle"
-                aria-expanded="false" aria-controls="aiBand">עוד הדמיות וארבעה סגנונות ←</button>
       </div>
     </div>
   </section>
@@ -3897,9 +3918,12 @@
       <div>
         <h2>כתבות ובלוגים</h2>
       </div>
-      <a href="articles.html" class="see-all">כל הכתבות ←</a>
     </div>
     <div class="article-scroll" id="articlesScroll"><!-- populated by JS --></div>
+    <!-- הקישור הוא אח של הרצועה ולא ילד של הכותרת: בטלפון הוא חותם את
+         הסקציה בפינה השמאלית התחתונה, ומ-760px ומעלה הגריד שב ומרים אותו
+         לשורת הכותרת (ראו ‎#articles‎ ב-CSS). קישור אחד, שני מקומות. -->
+    <p class="articles-all"><a href="articles.html" class="see-all">כל הכתבות ←</a></p>
   </section>
 
   <!-- ====== שורת פרסומת ====== -->
