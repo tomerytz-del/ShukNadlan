@@ -1013,6 +1013,34 @@
   .notif-prefs .np-title{font-size:.85rem;font-weight:700;display:block}
   .notif-prefs .np-sub{font-size:.74rem;color:var(--ink-soft);display:block;margin-top:2px;line-height:1.5}
 
+  /* ---------- תזכורות וטיפים ----------
+     שורה לכל ממצא, ובכל שורה כפתור שמוביל לקטגוריה שבה אפשר לטפל בו. הכפתור
+     אינו קישוט: תזכורת שאין ממנה דרך לפעולה היא נזיפה, וזה הדבר שהופך אותה
+     לכלי. אותו מזהה קטגוריה (‏action) מגיע מהמסד ומשמש גם את הקישור במייל,
+     ולכן אין סיכוי שההודעה והדשבורד יובילו לשני מקומות שונים.
+
+     ‏.is-muted ולא הסתרה: סוג מושתק הוא סוג שאינו **נשלח**, והממצא עצמו
+     ממשיך להיות נכון. הסתרתו הייתה הופכת את ההשתקה למחיקה של מידע. */
+  .rm-list{display:flex;flex-direction:column;gap:8px}
+  .rm-item{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 13px}
+  .rm-item.is-muted{opacity:.62}
+  .rm-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .rm-title{font-size:.87rem;font-weight:700}
+  .rm-badge{font-size:.68rem;font-weight:700;background:var(--gold-tint);color:var(--gold-dark);
+    border-radius:999px;padding:2px 8px}
+  .rm-body{font-size:.78rem;color:var(--ink-soft);margin:4px 0 0;line-height:1.6}
+  .rm-go{margin-top:9px;font-size:.76rem;font-weight:700;color:var(--teal);
+    background:none;border:0;padding:0;text-decoration:underline;cursor:pointer}
+  .rm-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .rm-sel{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);
+    padding:10px 11px;background:#fff;color:inherit;font-family:inherit;font-size:.9rem}
+  .rm-sel:focus{border-color:var(--teal);outline:none}
+  .rm-quiet{display:flex;align-items:center;gap:8px}
+  .rm-quiet span{font-size:.78rem;color:var(--ink-soft);flex:none}
+  .rm-note{font-size:.72rem;color:var(--ink-soft);margin:5px 0 0;line-height:1.55}
+  .rm-last{font-size:.72rem;color:var(--ink-soft);margin:10px 0 0;text-align:center}
+  @media(max-width:480px){ .rm-grid{grid-template-columns:1fr} }
+
   /* ---------- CMA report (2.3) ---------- */
   #cmaOverlay{position:fixed;inset:0;background:rgba(18,40,64,.55);z-index:300;display:none;overflow-y:auto;padding:20px 12px}
   .cma-sheet{max-width:760px;margin:0 auto;background:#fff;border-radius:var(--radius-md);padding:26px 24px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
@@ -2552,6 +2580,14 @@
   #dashboard .dash-side .acc>summary{font-size:.92rem;padding:13px 15px}
   #dashboard .dash-side .acc-body{padding:15px}
   #dashboard .empty-state{color:var(--txt-faint)}
+  /* התזכורות בשפת הדשבורד — אחרת שורת הממצא נראית לבן-על-לבן בתוך הכרטיס */
+  #dashboard .rm-item{background:var(--surface-2);border-color:var(--edge)}
+  #dashboard .rm-title{color:var(--txt)}
+  #dashboard .rm-body,
+  #dashboard .rm-note,
+  #dashboard .rm-last,
+  #dashboard .rm-quiet span{color:var(--txt-soft)}
+  #dashboard .rm-sel{background:var(--surface);border-color:var(--edge);color:var(--txt)}
 
   /* ---------- הסכמים והחתמות ----------
      האשף משתמש במחלקות של חלון הייבוא (‏.imp-*) — אותה מעטפת, אותם שלבים,
@@ -4639,6 +4675,85 @@
       </div>
     </details>
 
+    <!-- ---------- תזכורות וטיפים ----------
+         הפעמון מדווח על **אירועים**: ליד נכנס, ביקורת נכתבה, עסקה נסגרה. אין
+         בו שום דבר שמדווח על **היעדר** אירוע — שבעה נכסים באוויר בלי תמונה,
+         שבוע בלי מודעה חדשה, תוקף התקשרות שנגמר בעוד עשרה ימים. הקטגוריה הזו
+         היא הצד השני: מה שלא קרה, ומה שכדאי שיקרה.
+
+         שני חצאים באותו מקום, ובכוונה: הרשימה של מה שיש לטפל בו, ומיד מתחתיה
+         הפקדים שקובעים אם, לאן ובאיזה קצב תישלח על כך הודעה. הרגע שבו רוצים
+         להנמיך את הקצב הוא בדיוק הרגע שבו רואים את ההודעות.
+
+         הרשימה **מחושבת** ואינה תור: `agent_reminder_findings` במסד מריצה
+         אותה מול מצב הנכסים בכל פתיחה, ולכן ממצא שטופל נעלם מעצמו — גם אם
+         הטיפול הגיע מייבוא קובץ או מהבוט בוואטסאפ ולא מכאן. אותה פונקציה
+         בדיוק מזינה את ההודעה שיוצאת במייל, ולכן אין מצב שהמייל אומר שבעה
+         והרשימה מראה חמישה. -->
+    <details class="acc" id="accReminders">
+      <summary>
+        <span class="acc-title">תזכורות וטיפים</span>
+        <span class="acc-count" id="accRemindersCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">מה שכדאי לטפל בו במודעות שלך, ומתחת — לאן ובאיזה קצב תישלח על כך תזכורת. הרשימה מחושבת מהמצב העדכני בכל פתיחה: ממצא שטופל נעלם ממנה מעצמו, ואין מה לסמן כ"בוצע".</p>
+
+        <div id="remindersList" class="rm-list"></div>
+
+        <p class="form-subheading">איך ומתי לקבל תזכורות</p>
+        <form id="reminderPrefsForm" style="margin-bottom:0">
+          <div class="field">
+            <label>לאן לשלוח</label>
+            <div class="checkbox-grid">
+              <label class="checkbox-item"><input type="checkbox" id="rmChEmail"> מייל</label>
+              <label class="checkbox-item"><input type="checkbox" id="rmChWhatsapp"> וואטסאפ</label>
+            </div>
+            <!-- שני המשפטים כאן הם המצב האמיתי ולא אזהרה כללית: וואטסאפ דורש
+                 מספר מאומת בקטגוריית "נכסים בוואטסאפ", ובלי אף ערוץ מסומן
+                 התזכורות ממשיכות להופיע כאן ופשוט לא נשלחות. -->
+            <p class="rm-note" id="rmChannelsNote"></p>
+          </div>
+
+          <div class="rm-grid">
+            <div class="field">
+              <label for="rmCadence">תדירות</label>
+              <select class="rm-sel" id="rmCadence">
+                <option value="weekly">פעם בשבוע</option>
+                <option value="daily">עד פעם ביום</option>
+                <option value="off">כבוי — בלי הודעות</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="rmCap">מקסימום הודעות ב-30 יום</label>
+              <input type="number" id="rmCap" min="0" max="60" step="1" inputmode="numeric">
+            </div>
+          </div>
+
+          <div class="field">
+            <label>שעות שקט</label>
+            <div class="rm-quiet">
+              <span>מ-</span>
+              <select class="rm-sel" id="rmQuietFrom" aria-label="תחילת שעות השקט"></select>
+              <span>עד</span>
+              <select class="rm-sel" id="rmQuietTo" aria-label="סוף שעות השקט"></select>
+            </div>
+            <p class="rm-note">שעון ישראל. הודעה שהגיע זמנה בתוך החלון הזה ממתינה לשעה הראשונה שאחריו. שעה זהה בשני השדות מבטלת את שעות השקט.</p>
+          </div>
+
+          <div class="field">
+            <label>אילו תזכורות יישלחו</label>
+            <div id="reminderKindsList" class="notif-prefs"></div>
+            <p class="rm-note">הסרת סימון מכבה את ה<strong>הודעה</strong> בלבד — הממצא עצמו ממשיך להופיע ברשימה למעלה, שם הוא לא מפריע לאיש.</p>
+          </div>
+
+          <button type="submit" class="btn btn-gold btn-block" id="saveReminderPrefsBtn">שמירת ההעדפות</button>
+          <div id="reminderPrefsFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+          <p class="rm-last" id="rmLastSent"></p>
+        </form>
+      </div>
+    </details>
+
     <!-- ניהול ההתראות: תיבת סימון לכל סוג, והכול מסומן כברירת מחדל. הרשימה
          נבנית ב-renderNotifPrefs() מתוך NOTIF_TYPES, כדי שסוג חדש שנוסף
          לקוד יופיע כאן אוטומטית ולא יישכח. -->
@@ -6112,7 +6227,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // שם המשרד נטען בשאילתה נפרדת ולא ב-embed‏ (agencies(name)): מאז ש-property_shares
   // מחזיקה שני מפתחות זרים ל-agencies, PostgREST לא יודע לבחור נתיב יחיד בין
   // agency_members ל-agencies ומחזיר PGRST201 (HTTP 300) על כל embed כזה.
-  const AGENT_FIELDS = 'id, agency_id, slug, display_name, bio, photo_url, photo_position, cover_url, license_number, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, is_mortgage_advisor, phone, ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at, years_experience, specialties, credentials, service_area, gallery, released_at';
+  const AGENT_FIELDS = 'id, agency_id, slug, display_name, bio, photo_url, photo_position, cover_url, license_number, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, is_mortgage_advisor, phone, email, ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at, years_experience, specialties, credentials, service_area, gallery, released_at';
   // עמודות המסלול וההטבה נוספו במיגרציה מאוחרת יותר, ולכן הן בסל אחד עם
   // page_bg: אם המיגרציה עוד לא רצה, ה-fallback למטה טוען את הפרופיל בלעדיהן
   // והדשבורד נפתח כרגיל — בלי שער בחירת מסלול ובלי באנר הטבה.
@@ -6225,6 +6340,10 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   await loadAgreements();
   await loadNotifications(agent.id);
   await loadNotifPrefs(agent.id);
+  // התזכורות ברקע: הן מחושבות במסד על כל הנכסים של הסוכן/ת, והקטגוריה שלהן
+  // יושבת בהגדרות החשבון ולא במסך הראשון. ‏catch כדי שסביבה שהמיגרציה עוד לא
+  // רצה בה תיפתח כרגיל, בלי הקטגוריה.
+  loadReminders(agent.id).catch(err => console.warn('טעינת התזכורות נכשלה:', err));
   await loadPreferences(agent.id);
   loadWhatsappSettings(agent);
   loadProfileSettings(agent);
@@ -6273,6 +6392,44 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   renderQuickActions();
   refreshNavCounts();
   dashPanelsMeasure();
+
+  // אחרון, ובכוונה: הניווט לפי ?goto= נשען על navAccVisible ועל המונים, ולכן
+  // הוא חייב לרוץ אחרי שהניווט וההרשאות כבר במקומם.
+  handleGotoParam();
+}
+
+/* ---------- ‏?goto=accXxx — נחיתה ישירה בקטגוריה ----------
+   קישור בתזכורת שנשלחה במייל או בוואטסאפ מוביל לכאן: המסד מחזיק לכל ממצא את
+   מזהה הקטגוריה שבה מטפלים בו (‏action_acc ב-agent_reminder_findings), ושרת
+   התזכורות עוטף אותו ל-‏crm.html?goto=<accId>. תזכורת שמנחיתה בראש הדשבורד
+   ומשאירה את הסוכן/ת לחפש היא חצי תזכורת.
+
+   שתי בדיקות ולא אחת, ושתיהן על הערך שהגיע מהכתובת:
+
+   • ‏תחילית `acc` וקבוצת תווים סגורה — כך שערך מהכתובת לעולם אינו מגיע
+     כברירת מחדל ל-getElementById עם משהו שאינו מזהה קטגוריה.
+   • ‏navAccVisible — קטגוריה שאינה גלויה לתפקיד הזה (קישור ישן, או קישור
+     שהועבר בין סוכנים) פשוט לא נפתחת, ולא נגללת לשום מקום.
+
+   הכתובת מנוקה מיד — רענון דף לא אמור לקפוץ שוב — ורק המפתח שלנו, בדיוק כמו
+   ב-cleanAuthParamsFromUrl ו-handleTopupReturn: מחיקת כל ה-query הייתה מוחקת
+   גם את invite, ו-replaceState עם null במקום history.state הורס את הזקיף של
+   exit-guard.js. */
+function handleGotoParam(){
+  const params = new URLSearchParams(location.search);
+  const raw = params.get('goto');
+  if (!raw) return;
+
+  if (window.history && window.history.replaceState){
+    params.delete('goto');
+    const search = params.toString();
+    history.replaceState(history.state, '',
+      location.pathname + (search ? '?' + search : '') + location.hash);
+  }
+
+  if (!/^acc[A-Za-z0-9]{1,40}$/.test(raw)) return;
+  if (!navAccVisible(raw)) return;
+  gotoSection(raw);
 }
 
 /* הברכה נושאת את השם ואת שעת היום — היא הדבר הראשון שנקרא בעמוד, ולכן היא
@@ -17932,6 +18089,288 @@ document.getElementById('notifPrefsForm').addEventListener('submit', async (e)=>
 });
 
 /* ==========================================================================
+   תזכורות וטיפים
+   --------------------------------------------------------------------------
+   הפעמון מדווח על אירועים. התזכורות מדווחות על **היעדר** אירוע — נכס בלי
+   תמונה, שבוע בלי מודעה חדשה, תוקף התקשרות שנגמר — וזה דבר שאף טריגר לא
+   יכול לגלות, כי לא קרה שום דבר שיפעיל אותו.
+
+   **אין תור.** ‏agent_reminder_findings במסד מחשבת את הרשימה מול מצב הנכסים
+   בכל קריאה, ומכאן שתי תוצאות שקשה להשיג עם תור:
+
+   • ממצא שטופל נעלם מעצמו, בלי סימון "בוצע" ובלי טריגר — גם כשהטיפול הגיע
+     מייבוא קובץ, מהבוט בוואטסאפ או מ-Edge Function ולא מהמסך הזה.
+   • אותה פונקציה בדיוק מזינה את ההודעה שיוצאת במייל ובוואטסאפ, ולכן אין מצב
+     שההודעה אומרת שבעה נכסים והרשימה כאן מראה חמישה.
+
+   ‏REMINDER_KINDS הוא מקור האמת של הצד הזה לכותרות ולהסברים בפקדי הניהול,
+   בדיוק כמו NOTIF_TYPES לפעמון. את **הנוסח שנשלח** בונה המסד, כי הוא נשלח
+   גם למי שאינו פותח/ת את הדשבורד; כאן מדובר בתיאור הסוג בלבד. סוג חדש
+   שייכנס למסד ולא יירשם כאן עדיין יופיע ברשימה ועדיין יישלח — הוא פשוט
+   לא יקבל תיבת סימון משלו, ולכן שווה לזכור את השורה. */
+const REMINDER_KINDS = [
+  { kind:'missing_images',    title:'נכסים בלי תמונה',
+    sub:'מודעה פעילה שאין בה אף תמונה. זו התזכורת שמחזירה הכי הרבה — מודעה בלי תמונה כמעט לא נפתחת.' },
+  { kind:'expiring_listings', title:'תוקף מודעה שנגמר',
+    sub:'תוקף ההתקשרות על מודעה פעילה מסתיים בימים הקרובים. מודעה שפג תוקפה יורדת מהמדפים.' },
+  { kind:'stale_listings',    title:'מודעות שלא עודכנו מזמן',
+    sub:'מודעה פעילה שלא עודכנה ולא הוקפצה חודשיים. עדכון או הקפצה מחזירים אותה לראש המדף.' },
+  { kind:'idle_listings',     title:'שבוע בלי נכס חדש',
+    sub:'לא נכנסה מודעה חדשה מזה זמן. זו התזכורת היחידה שאינה על נכס מסוים אלא על הקצב.' },
+  { kind:'video_opportunity', title:'נכסים בלי סרטון או סיור',
+    sub:'טיפ ולא משימה, ולכן הוא חוזר לכל היותר פעם בחודש גם כשהתדירות יומית.' },
+];
+
+const REMINDER_BY_KIND = new Map(REMINDER_KINDS.map(k => [k.kind, k]));
+
+/* ברירות המחדל **זהות לאלה שבמסד** (‏agent_reminder_due_agents): סוכן/ת בלי
+   שורת העדפות מקבל/ת מייל, שבועי, שש הודעות ב-30 יום ושקט 21→8. אילו הצד
+   הזה היה מציג ברירת מחדל אחרת, הטופס היה "משנה" הגדרה עוד לפני שנגעו בו. */
+const REMINDER_PREF_DEFAULTS = {
+  channels: ['email'],
+  muted_kinds: [],
+  cadence: 'weekly',
+  max_per_30_days: 6,
+  quiet_from_hour: 21,
+  quiet_to_hour: 8,
+};
+
+let reminderFindings = [];
+let reminderPrefs = { ...REMINDER_PREF_DEFAULTS };
+
+async function loadReminders(agentId){
+  /* שתי הקריאות במקביל — הן אינן תלויות זו בזו, והקטגוריה הזו יושבת בהגדרות
+     החשבון ולא במסך הראשון. שגיאה בשתיהן משמעה שהמיגרציה עוד לא רצה על המסד,
+     ואז הקטגוריה מציגה מצב ריק ולא שוברת את הדשבורד. */
+  const [findings, prefs] = await Promise.all([
+    sb.rpc('agent_reminder_findings', { p_agent_id: agentId }),
+    sb.from('agent_reminder_preferences')
+      .select('channels, muted_kinds, cadence, max_per_30_days, quiet_from_hour, quiet_to_hour')
+      .eq('agent_id', agentId).maybeSingle(),
+  ]);
+
+  if (findings.error){
+    console.warn('טעינת התזכורות נכשלה:', findings.error.message);
+    reminderFindings = [];
+  } else {
+    reminderFindings = findings.data || [];
+  }
+
+  const row = (!prefs.error && prefs.data) ? prefs.data : null;
+  reminderPrefs = {
+    channels:        Array.isArray(row?.channels)    ? row.channels    : REMINDER_PREF_DEFAULTS.channels.slice(),
+    muted_kinds:     Array.isArray(row?.muted_kinds) ? row.muted_kinds : [],
+    cadence:         row?.cadence ?? REMINDER_PREF_DEFAULTS.cadence,
+    max_per_30_days: Number.isFinite(Number(row?.max_per_30_days))
+                       ? Number(row.max_per_30_days) : REMINDER_PREF_DEFAULTS.max_per_30_days,
+    quiet_from_hour: Number.isFinite(Number(row?.quiet_from_hour))
+                       ? Number(row.quiet_from_hour) : REMINDER_PREF_DEFAULTS.quiet_from_hour,
+    quiet_to_hour:   Number.isFinite(Number(row?.quiet_to_hour))
+                       ? Number(row.quiet_to_hour) : REMINDER_PREF_DEFAULTS.quiet_to_hour,
+  };
+
+  renderReminders();
+  renderReminderPrefs();
+  loadReminderLastSent(agentId);
+}
+
+/* המונה על הקטגוריה סופר רק את מה שיש לטפל בו. ‏accSetCount הוא מקור המספרים
+   לכל הניווטים, ולכן אין מצב שהתגית אומרת 3 והרשימה מציגה 2. */
+function renderReminders(){
+  const el = document.getElementById('remindersList');
+  if (!el) return;
+
+  if (!reminderFindings.length){
+    el.innerHTML = '<div class="empty-state" style="padding:18px">הכול מסודר — אין כרגע מה להזכיר.</div>';
+    accSetCount('accReminders', '');
+    return;
+  }
+
+  el.innerHTML = '';
+  reminderFindings.forEach(f=>{
+    const muted = reminderPrefs.muted_kinds.includes(f.kind);
+    const meta = REMINDER_BY_KIND.get(f.kind);
+    const item = document.createElement('div');
+    item.className = 'rm-item' + (muted ? ' is-muted' : '');
+    /* ‏esc() על הכל: הכותרת והגוף נבנים במסד ולא כאן, והם נושאים מספרים
+       ושמות שדות — תוכן שלא נוצר במסך הזה ולכן לא נסמך. */
+    item.innerHTML =
+      '<div class="rm-head"><span class="rm-title">' + esc(meta ? meta.title : f.title) + '</span>'
+      + (f.subject_count ? '<span class="rm-badge">' + esc(String(f.subject_count)) + '</span>' : '')
+      + (muted ? '<span class="rm-badge">הודעות כבויות</span>' : '')
+      + '</div>'
+      + '<p class="rm-body">' + esc(f.body) + '</p>';
+
+    /* אותו מזהה קטגוריה שהמייל מקבל (‏action_acc במסד). קטגוריה שאינה גלויה
+       לתפקיד הזה לא מקבלת כפתור — נחיתה רכה עדיפה על קפיצה לשום מקום. */
+    if (f.action_acc && navAccVisible(f.action_acc)){
+      const go = document.createElement('button');
+      go.type = 'button';
+      go.className = 'rm-go';
+      go.textContent = 'לטיפול בזה ←';
+      go.addEventListener('click', ()=> gotoSection(f.action_acc));
+      item.appendChild(go);
+    }
+    el.appendChild(item);
+  });
+
+  accSetCount('accReminders', reminderFindings.length);
+}
+
+function renderReminderPrefs(){
+  const cadence = document.getElementById('rmCadence');
+  if (!cadence) return;
+
+  document.getElementById('rmChEmail').checked    = reminderPrefs.channels.includes('email');
+  document.getElementById('rmChWhatsapp').checked = reminderPrefs.channels.includes('whatsapp');
+  cadence.value = ['daily','weekly','off'].includes(reminderPrefs.cadence) ? reminderPrefs.cadence : 'weekly';
+  document.getElementById('rmCap').value = reminderPrefs.max_per_30_days;
+
+  // שתי רשימות של 24 שעות. נבנות בקוד ולא ב-HTML כדי שלא יהיו 48 שורות
+  // ידניות שמישהו יצטרך לתחזק.
+  [['rmQuietFrom', reminderPrefs.quiet_from_hour], ['rmQuietTo', reminderPrefs.quiet_to_hour]]
+    .forEach(([id, value])=>{
+      const sel = document.getElementById(id);
+      if (sel.options.length !== 24){
+        sel.innerHTML = '';
+        for (let h = 0; h < 24; h++){
+          const o = document.createElement('option');
+          o.value = String(h);
+          o.textContent = String(h).padStart(2,'0') + ':00';
+          sel.appendChild(o);
+        }
+      }
+      sel.value = String(value);
+    });
+
+  renderReminderKinds();
+  syncReminderChannelsNote();
+}
+
+function renderReminderKinds(){
+  const el = document.getElementById('reminderKindsList');
+  if (!el) return;
+  el.innerHTML = '';
+  REMINDER_KINDS.forEach(k=>{
+    const label = document.createElement('label');
+    label.innerHTML = `<input type="checkbox" class="rmKind" value="${esc(k.kind)}"
+        ${reminderPrefs.muted_kinds.includes(k.kind) ? '' : 'checked'}>
+      <span><span class="np-title">${esc(k.title)}</span><span class="np-sub">${esc(k.sub)}</span></span>`;
+    el.appendChild(label);
+  });
+}
+
+/* ההערה מתחת לערוצים אומרת את המצב בפועל ולא אזהרה כללית: מה קורה כשאין אף
+   ערוץ, ומה חסר כדי שהוואטסאפ יעבוד. סוכן/ת שסימן/ה וואטסאפ בלי מספר מאומת
+   היה/הייתה מחכה להודעה שלא תגיע לעולם. */
+function syncReminderChannelsNote(){
+  const note = document.getElementById('rmChannelsNote');
+  if (!note) return;
+  const email = document.getElementById('rmChEmail').checked;
+  const wa = document.getElementById('rmChWhatsapp').checked;
+  const parts = [];
+  if (!email && !wa) parts.push('בלי ערוץ מסומן לא תישלח שום הודעה — הרשימה למעלה ממשיכה להתעדכן כרגיל.');
+  if (wa && !(currentAgent && currentAgent.phone))
+    parts.push('לוואטסאפ צריך מספר שמור בקטגוריית "נכסים בוואטסאפ".');
+  if (email && !(currentAgent && currentAgent.email))
+    parts.push('לא נמצאה כתובת מייל בפרטי הסוכן/ת.');
+  note.textContent = parts.join(' ');
+}
+
+/* "ההודעה האחרונה נשלחה ב…" — הדבר היחיד שאי אפשר להסיק מהטופס עצמו, והוא
+   מה שעונה על "האם זה בכלל עובד". קריאה נפרדת וקצרה, ושגיאה בה שותקת: זו
+   שורת מידע ולא פקד. */
+async function loadReminderLastSent(agentId){
+  const el = document.getElementById('rmLastSent');
+  if (!el) return;
+  const { data, error } = await sb
+    .from('agent_reminder_log')
+    .select('created_at, sent_at, email_status, whatsapp_status')
+    .eq('agent_id', agentId)
+    .order('created_at', { ascending:false })
+    .limit(1)
+    .maybeSingle();
+
+  if (error || !data){ el.textContent = ''; return; }
+  const when = data.sent_at || data.created_at;
+  const channels = [
+    data.email_status === 'sent' ? 'מייל' : null,
+    data.whatsapp_status === 'sent' ? 'וואטסאפ' : null,
+  ].filter(Boolean);
+  el.textContent = channels.length
+    ? 'ההודעה האחרונה נשלחה ב-' + new Date(when).toLocaleString('he-IL') + ' (' + channels.join(' + ') + ').'
+    : 'ההודעה האחרונה נרשמה ב-' + new Date(when).toLocaleString('he-IL') + ' ולא יצאה באף ערוץ.';
+}
+
+['rmChEmail','rmChWhatsapp'].forEach(id=>{
+  document.getElementById(id).addEventListener('change', syncReminderChannelsNote);
+});
+
+document.getElementById('reminderPrefsForm').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  if (!currentAgent) return;
+  const btn = document.getElementById('saveReminderPrefsBtn');
+  const feedback = document.getElementById('reminderPrefsFeedback');
+  btn.disabled = true; btn.textContent = 'שומר…'; feedback.textContent = '';
+
+  const channels = [];
+  if (document.getElementById('rmChEmail').checked) channels.push('email');
+  if (document.getElementById('rmChWhatsapp').checked) channels.push('whatsapp');
+
+  const checked = new Set(Array.from(document.querySelectorAll('.rmKind:checked')).map(cb => cb.value));
+  /* אותו היגיון כמו ב"ניהול התראות": נשמרת רשימת ה**מושתקים**, וסוג שלא הוצג
+     בטופס (סוג שנוסף במסד וטרם נרשם ב-REMINDER_KINDS) שומר על מצבו הקודם
+     ולא "נדלק" בשקט בשמירה. */
+  const shown = REMINDER_KINDS.map(k => k.kind);
+  const muted = reminderPrefs.muted_kinds
+    .filter(kind => !shown.includes(kind))
+    .concat(shown.filter(kind => !checked.has(kind)));
+
+  // ‏clamp ולא הסתמכות על האילוץ במסד: 200 בשדה מספרי היה חוזר כשגיאת
+  // constraint מנוסחת באנגלית, ואין שום סיבה שהסוכן/ת יראה/תראה אותה.
+  const cap = Math.min(60, Math.max(0, Math.round(Number(document.getElementById('rmCap').value) || 0)));
+
+  const payload = {
+    agent_id: currentAgent.id,
+    channels,
+    muted_kinds: muted,
+    cadence: document.getElementById('rmCadence').value,
+    max_per_30_days: cap,
+    quiet_from_hour: Number(document.getElementById('rmQuietFrom').value),
+    quiet_to_hour: Number(document.getElementById('rmQuietTo').value),
+    updated_at: new Date().toISOString(),
+  };
+
+  const { error } = await sb.from('agent_reminder_preferences')
+    .upsert(payload, { onConflict: 'agent_id' });
+
+  btn.disabled = false; btn.textContent = 'שמירת ההעדפות';
+  if (error){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'שגיאה: ' + error.message;
+    return;
+  }
+
+  reminderPrefs = {
+    channels, muted_kinds: muted, cadence: payload.cadence,
+    max_per_30_days: cap,
+    quiet_from_hour: payload.quiet_from_hour,
+    quiet_to_hour: payload.quiet_to_hour,
+  };
+  document.getElementById('rmCap').value = cap;
+  // הרשימה נצבעת מחדש כי ההשתקה משנה את המצב של השורות (‏is-muted), לא את
+  // תוכנן
+  renderReminders();
+
+  feedback.style.color = 'var(--blue)';
+  feedback.textContent = payload.cadence === 'off' || !channels.length || cap === 0
+    ? 'נשמר — לא יישלחו הודעות תזכורת.'
+    : 'נשמר — ' + (payload.cadence === 'daily' ? 'עד הודעה ביום' : 'עד הודעה בשבוע')
+      + ', לכל היותר ' + cap + ' ב-30 יום.';
+  setTimeout(()=>{ feedback.textContent=''; }, 3000);
+});
+
+/* ==========================================================================
    דשבורד הביצועים של הסוכן/ת
    --------------------------------------------------------------------------
    כל מה שכאן מחושב מהנתונים שכבר נטענו לדשבורד (dashProperties/
@@ -17959,6 +18398,7 @@ const DASH_ICONS = {
   menu:'<line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>',
   grip:'<circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/>',
   bell:'<path d="M18 8a6 6 0 0 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/>',
+  clock:'<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/>',
   chevRight:'<polyline points="9 18 15 12 9 6"/>',
   chevLeft:'<polyline points="15 18 9 12 15 6"/>',
   home:'<path d="m3 10 9-7 9 7v9a2 2 0 0 1-2 2h-4v-6H9v6H5a2 2 0 0 1-2-2Z"/>',
@@ -18089,6 +18529,7 @@ const NAV_GROUPS = [
     { acc:'accProfile',       label:'פרטי הסוכן/ת',      icon:'user',     tab:'more' },
     { acc:'accEthics',        label:'הקוד האתי',         icon:'shield',   tab:'more' },
     { acc:'accPrefs',         label:'העדפות לידים',      icon:'sliders',  tab:'more' },
+    { acc:'accReminders',     label:'תזכורות וטיפים',    icon:'clock',    tab:'more' },
     { acc:'accNotifPrefs',    label:'ניהול התראות',      icon:'bell',     tab:'more' },
     { acc:'accSharePartners', label:'משרדי שיתוף פעולה', icon:'handshake',tab:'more' },
     { acc:'accWhatsapp',      label:'נכסים בוואטסאפ',    icon:'chat',     tab:'more' },
@@ -19345,6 +19786,7 @@ document.addEventListener('keydown', (e)=>{
 const PROFILE_MENU = [
   { acc:'accProfile',    label:'פרטי הסוכן/ת' },
   { acc:'accPrefs',      label:'העדפות לידים' },
+  { acc:'accReminders',  label:'תזכורות וטיפים' },
   { acc:'accNotifPrefs', label:'ניהול התראות' },
   { acc:'accEthics',     label:'הקוד האתי' },
 ];
