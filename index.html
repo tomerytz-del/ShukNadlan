@@ -245,26 +245,52 @@
   .hamburger span::before{position:absolute;top:-6px}
   .hamburger span::after{position:absolute;top:6px}
   /* ====== תפריט ההמבורגר ======
-     קו מפריד מתחת לכל פריט הפך רשימה של עשרה יעדים לגדר; כאן הקו מפריד
-     בין *קבוצות* בלבד, וכותרת קטנה בזהב אומרת מה יש בכל אחת. הפריטים
-     עצמם נושמים, ומה שמפריד ביניהם הוא רווח. */
+     ארבע קבוצות של יעדים היו רשימה אחת באורך עשרה פריטים, שגלשה מתחת
+     לקיפול וגררה איתה את כפתור הכניסה. כאן הקבוצות הן לשוניות: נראית
+     קבוצה אחת בכל רגע, והתפריט כולו נכנס למסך בלי גלילה. הלשוניות הן
+     אותו רכיב של ‎.dm-tabs‎ בסקציית האנשים — מגש בתכלת ולשונית פעילה
+     בנייבי מלא — כדי ששני הפקדים באתר ייקראו כאותה מערכת.
+
+     התכלת היא מה שמבדיל את המגירה מהעמוד שמתחתיה: התפריט צף מעל תוכן
+     לבן, ורקע לבן משלו היה נבלע בו. */
   .mobile-menu{
-    display:none;flex-direction:column;gap:0;
-    padding:4px 18px 18px;border-bottom:1px solid var(--line);background:var(--paper-raised);
+    display:none;flex-direction:column;gap:8px;
+    /* אין ריפוד תחתון: הריווח שמתחת לכפתור הכניסה מגיע מ-‎.menu-cta‎ עצמו,
+       שנצמד לתחתית וחייב לכסות את כל השטח שמתחתיו כדי שהיעדים לא יבצבצו
+       מתחתיו במסך נמוך שבו גם התפריט המקוצר נגלל. */
+    padding:10px 14px 0;border-bottom:1px solid var(--line);background:var(--sky-tint);
     /* תפריט ארוך במסך נמוך (טלפון בשכיבה) חייב לגלול בעצמו, אחרת כפתור
        הכניסה שבתחתיתו פשוט לא נמצא במסך. */
     max-height:calc(100dvh - var(--header-h));overflow-y:auto;overscroll-behavior:contain;
   }
   .mobile-menu.open{display:flex}
-  .menu-group{display:flex;flex-direction:column;padding-block:4px;border-top:1px solid var(--line)}
-  .menu-group:first-of-type{border-top:0}
-  .menu-title{
-    padding:8px 6px 2px;font-size:.68rem;font-weight:800;letter-spacing:.06em;
-    color:var(--gold-dark);
+  .menu-tabs{
+    display:grid;grid-template-columns:repeat(4,1fr);gap:4px;
+    background:var(--sky-soft);border:1px solid var(--sky);padding:4px;
   }
-  .mobile-menu a{padding:9px 6px;font-weight:600;border-radius:var(--radius-sm)}
-  .mobile-menu a:hover,.mobile-menu a:focus-visible{background:var(--teal-tint);color:var(--teal-dark)}
-  .mobile-menu .btn-block{margin-top:12px}
+  .menu-tabs button{
+    min-height:42px;padding:0 4px;border:0;border-radius:0;cursor:pointer;
+    background:transparent;font-family:inherit;font-size:.76rem;font-weight:700;
+    line-height:1.25;color:var(--teal);
+    transition:background .18s ease, color .18s ease;
+  }
+  .menu-tabs button[aria-selected="true"]{background:var(--teal);color:#fff;box-shadow:var(--shadow-sm)}
+  /* הפאנל לבן על התכלת: הקבוצה הפעילה היא הכרטיס שמעל המגירה, ולא עוד
+     שכבה באותו גוון. */
+  .menu-panel{
+    display:flex;flex-direction:column;gap:2px;
+    background:var(--paper-raised);border:1px solid var(--line);padding:6px;
+  }
+  .mobile-menu a{padding:11px 10px;font-weight:600;border-radius:var(--radius-sm)}
+  .mobile-menu a:hover,.mobile-menu a:focus-visible{background:var(--sky-tint);color:var(--teal-dark)}
+  /* כניסת המתווכים נצמדת לתחתית התפריט (‏sticky) ונשארת שם גם כשהתפריט
+     נגלל במסך נמוך: מי שפותח/ת את התפריט כדי להיכנס ל-CRM לא צריך/ה
+     לחפש אותה. הרקע על העטיפה הוא מה שמונע מהיעדים לבצבץ מבעדה. */
+  .menu-cta{
+    position:sticky;bottom:0;z-index:1;margin-top:2px;
+    padding:8px 0 14px;background:var(--sky-tint);
+  }
+  .mobile-menu .btn-block{margin-top:0}
 
   @media(min-width:900px){
     nav.primary{display:flex}
@@ -2731,6 +2757,9 @@
   html.a11y-contrast .a11y-panel,
   html.a11y-contrast header.site,
   html.a11y-contrast .mobile-menu,
+  html.a11y-contrast .menu-tabs,
+  html.a11y-contrast .menu-panel,
+  html.a11y-contrast .menu-cta,
   html.a11y-contrast .hero,
   html.a11y-contrast .ad-leaderboard,
   html.a11y-contrast .ad-slot .tag,
@@ -2754,6 +2783,10 @@
   html.a11y-contrast .footer-seo-links a,
   html.a11y-contrast .footer-social a{background:#000 !important;border:1.5px solid #FFD84D !important;color:#FFD84D !important}
   html.a11y-contrast .footer-social svg{fill:#FFD84D !important}
+  /* לשוניות התפריט הן ‎button‎ ולא ‎.btn‎, ולכן הן צריכות כלל משלהן — ואת
+     הבידול בין הפעילה לשאר, כמו בכל פקד בחירה במצב הזה. */
+  html.a11y-contrast .menu-tabs button{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
+  html.a11y-contrast .menu-tabs button[aria-selected="true"]{background:#FFD84D !important;color:#000 !important}
   html.a11y-contrast .hood-filter-btn[data-active="true"]{background:#FFD84D !important;color:#000 !important}
   html.a11y-contrast .hood-filter-btn .hood-filter-count{background:#000 !important;color:#FFD84D !important;border:1px solid #FFD84D}
   html.a11y-contrast .hood-filter-btn[data-active="true"] .hood-filter-count{background:#000 !important;color:#FFD84D !important}
@@ -2898,24 +2931,38 @@
        ומודאל שנפתח מ-hash (‏#calc‎, ‏#yield‎ — ראו bindCalcModal). כל לחיצה
        בתפריט סוגרת אותו (ראו המאזין ב-JS): עוגן באותו עמוד אינו טעינה
        מחדש, והתפריט היה נשאר פתוח מעל היעד שאליו בדיוק גללנו. -->
+  <!-- ====== תפריט ההמבורגר ======
+       עשרה יעדים בארבע קבוצות היו רשימה אחת שגולשת מתחת לקיפול, וכפתור
+       הכניסה בסופה. כאן הקבוצות הן לשוניות ולא כותרות: נראית קבוצה אחת
+       בכל רגע, התפריט נכנס כולו למסך בלי גלילה, וכפתור הכניסה נשאר
+       בתחתיתו תמיד. אותה שפה של הלשוניות בסקציית "האנשים מאחורי העסקאות"
+       — מגש בהיר ולשונית פעילה בנייבי מלא. -->
   <nav id="mobileMenu" class="mobile-menu" aria-label="ניווט למובייל">
-    <div class="menu-group">
-      <span class="menu-title">נכסים</span>
+    <div class="menu-tabs" role="tablist" aria-label="קבוצות בתפריט">
+      <button type="button" role="tab" id="menuTabProps" data-menu-tab="props"
+              aria-controls="menuPanelProps" aria-selected="true">נכסים</button>
+      <button type="button" role="tab" id="menuTabPeople" data-menu-tab="people"
+              aria-controls="menuPanelPeople" aria-selected="false">אנשי מקצוע</button>
+      <button type="button" role="tab" id="menuTabTools" data-menu-tab="tools"
+              aria-controls="menuPanelTools" aria-selected="false">כלים ותוכן</button>
+      <button type="button" role="tab" id="menuTabJoin" data-menu-tab="join"
+              aria-controls="menuPanelJoin" aria-selected="false">הצטרפות</button>
+    </div>
+
+    <div class="menu-panel" id="menuPanelProps" role="tabpanel" aria-labelledby="menuTabProps">
       <a href="#privateProps">נכסים פרטיים</a>
       <a href="#commercialProps">נכסים מסחריים</a>
       <a href="projects.html">פרויקטים חדשים</a>
       <a href="#heroSection">חיפוש על המפה</a>
     </div>
 
-    <div class="menu-group">
-      <span class="menu-title">אנשי המקצוע</span>
+    <div class="menu-panel" id="menuPanelPeople" role="tabpanel" aria-labelledby="menuTabPeople" hidden>
       <a href="#dealmakers" data-dm-tab="agencies">משרדי תיווך</a>
       <a href="#dealmakers" data-dm-tab="agents">מתווכים</a>
       <a href="#dealmakers" data-dm-tab="pros">בעלי מקצוע</a>
     </div>
 
-    <div class="menu-group">
-      <span class="menu-title">כלים ותוכן</span>
+    <div class="menu-panel" id="menuPanelTools" role="tabpanel" aria-labelledby="menuTabTools" hidden>
       <a href="#calc">מחשבון משכנתא</a>
       <a href="#yield">מחשבון תשואה</a>
       <a href="#articles">כתבות ובלוגים</a>
@@ -2923,14 +2970,17 @@
 
     <!-- עד עכשיו נקודת הכניסה של בעלי מקצוע ויזמים הייתה קישור בתוך רצועה
          בדף הבית — מי שלא גלל עד אליה לא ידע שאפשר להצטרף. -->
-    <div class="menu-group">
-      <span class="menu-title">הצטרפות לפלטפורמה</span>
+    <div class="menu-panel" id="menuPanelJoin" role="tabpanel" aria-labelledby="menuTabJoin" hidden>
       <a href="pricing.html">משרד תיווך — מסלולים ומחירים</a>
       <a href="professional-signup.html">הצטרפות כבעל מקצוע</a>
       <a href="developer-signup.html">הצטרפות כיזם/קבלן</a>
     </div>
 
-    <a href="crm.html" class="btn btn-teal btn-block">כניסת מתווכים</a>
+    <!-- הכפתור עטוף כדי שיוכל להיצמד לתחתית התפריט (‏sticky) גם במסך נמוך
+         (טלפון בשכיבה), שבו גם התפריט המקוצר עדיין נגלל. -->
+    <div class="menu-cta">
+      <a href="crm.html" class="btn btn-teal btn-block">כניסת מתווכים</a>
+    </div>
   </nav>
 </header>
 
@@ -4817,6 +4867,19 @@ function closeMobileMenu(){
   mobileMenu.classList.remove('open');
   menuToggle.setAttribute('aria-expanded', false);
 }
+
+/* ארבע קבוצות היעדים הן לשוניות, ולכן מה שמתחלף הוא הפאנל הגלוי בלבד.
+   הבחירה נשמרת כל עוד העמוד פתוח: מי שסגר/ה את התפריט בלשונית מסוימת
+   וחזר/ה אליו מוצא/ת אותה במקום שבו השאיר/ה. */
+document.querySelectorAll('.menu-tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.menu-tabs button').forEach(b=>{
+      const on = b === btn;
+      b.setAttribute('aria-selected', String(on));
+      document.getElementById(b.getAttribute('aria-controls')).hidden = !on;
+    });
+  });
+});
 
 /* כל לחיצה על פריט בתפריט סוגרת אותו. רוב היעדים הם עוגנים באותו עמוד,
    ועוגן אינו טעינה מחדש — התפריט היה נשאר פתוח מעל היעד שאליו בדיוק
