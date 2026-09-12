@@ -1013,6 +1013,23 @@
   .notif-prefs .np-title{font-size:.85rem;font-weight:700;display:block}
   .notif-prefs .np-sub{font-size:.74rem;color:var(--ink-soft);display:block;margin-top:2px;line-height:1.5}
 
+  /* שתי תיבות סימון בשורה אחת — בפעמון, ובוואטסאפ.
+     ‏.np-row הוא הכרטיס, ושני ה-<label> שבתוכו מאבדים את עיטוף הכרטיס:
+     ‏<label> אחד עם שתי תיבות היה מתחלף בכל לחיצה על הטקסט, בלי קשר למה
+     שנלחץ. ‏.notif-prefs label נשאר כפי שהוא בשביל רשימת התזכורות, שבה
+     השורה **היא** תיבת סימון אחת. */
+  .notif-prefs .np-row{background:var(--paper);border:1px solid var(--line);
+    border-radius:10px;padding:11px 12px}
+  .notif-prefs .np-row label{background:none;border:0;border-radius:0;padding:0}
+  .notif-prefs .np-row label.np-wa{
+    margin:9px 0 0;padding-top:9px;border-top:1px dashed var(--line);
+    align-items:center;font-size:.77rem;font-weight:700;color:var(--ink-soft);
+  }
+  /* הירוק של וואטסאפ ולא הירוק של הדף — אותה החלטה כמו בכל כפתורי השיתוף */
+  .notif-prefs .np-row label.np-wa input{accent-color:#25D366;width:16px;height:16px;margin:0}
+  /* סוג שכובה בפעמון אינו נוצר במסד מלכתחילה, ולכן אין מה לשלוח עליו */
+  .notif-prefs .np-row.is-off label.np-wa{opacity:.45;cursor:not-allowed}
+
   /* ---------- תזכורות וטיפים ----------
      שורה לכל ממצא, ובכל שורה כפתור שמוביל לקטגוריה שבה אפשר לטפל בו. הכפתור
      אינו קישוט: תזכורת שאין ממנה דרך לפעולה היא נזיפה, וזה הדבר שהופך אותה
@@ -4609,12 +4626,12 @@
 
     <details class="acc" id="accWhatsapp">
       <summary>
-        <span class="acc-title">ניהול נכסים בוואטסאפ</span>
+        <span class="acc-title">העוזר האישי בוואטסאפ</span>
         <span class="acc-count" id="accWhatsappCount"></span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-    <p class="acc-sub">שולחים הודעה, תמונות או הקלטה קולית למספר של שוק נדל"ן — והנכס נכנס למערכת. הבוט מזהה אתכם לפי מספר הטלפון, אז הוא חייב להיות מעודכן כאן ולהיות המספר שממנו אתם שולחים.</p>
+    <p class="acc-sub">שולחים הודעה, תמונות או הקלטה קולית למספר של שוק נדל"ן — והעוזר מטפל בנכסים, בקובץ הלקוחות, בהתאמות ביניהם, ובקריאה של ההסכמים, הלידים וההתראות. הוא מזהה אתכם לפי מספר הטלפון, אז הוא חייב להיות מעודכן כאן ולהיות המספר שממנו אתם שולחים.</p>
     <form id="whatsappForm" style="margin-bottom:0">
       <div class="field">
         <label for="waPhone">מספר הוואטסאפ שלי</label>
@@ -4625,13 +4642,23 @@
       <div id="whatsappFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
     </form>
     <div style="margin-top:14px;padding:12px;background:var(--paper);border:1px solid var(--line);border-radius:10px">
-      <p style="font-size:.78rem;font-weight:700;margin:0 0 6px">מה אפשר לבקש מהבוט</p>
+      <p style="font-size:.78rem;font-weight:700;margin:0 0 6px">מה אפשר לבקש מהעוזר</p>
       <ul style="font-size:.78rem;color:var(--ink-soft);margin:0;padding-inline-start:18px;line-height:1.7">
         <li>"תעלה נכס חדש באבן גבירול 10, 3 חדרים, 1.8 מליון"</li>
         <li>לצלם את הדירה ולשלוח את התמונות — הן יתחברו לנכס אוטומטית</li>
         <li>להקליט הודעה קולית עם הפרטים במקום להקליד</li>
         <li>"תוריד מהאתר את הדירה בהרצל 5" / "תעדכן את המחיר ל-1.6 מליון"</li>
+        <li>"כמה נכסים מסחריים יש לי" / "כמה לקוחות יש לי במאגר"</li>
+        <li>"תוסיף לקוחה חדשה — רונית כהן, 3 חדרים בעפולה עד 1.6 מליון"</li>
+        <li>"מה יש למשפחת כהן" / "למי מהלקוחות מתאימה הדירה בעלייה 20"</li>
+        <li>"מה ממתין לחתימה" / "תשלח לי את קישור החתימה של דני"</li>
+        <li>"מה חדש" / "תעדכן אותי כאן על לידים חדשים"</li>
       </ul>
+      <p style="font-size:.74rem;color:var(--ink-soft);margin:9px 0 0;line-height:1.6">
+        יצירת הסכם ופתיחת ליד נשארות בדשבורד: גוף ההסכם ננעל במסד ברגע
+        שהוא נוצר, ופתיחת ליד עולה מכסה או כסף. את שאר הדרך אפשר לעשות
+        מהטלפון.
+      </p>
     </div>
       </div>
     </details>
@@ -4710,7 +4737,7 @@
               <label class="checkbox-item"><input type="checkbox" id="rmChWhatsapp"> וואטסאפ</label>
             </div>
             <!-- שני המשפטים כאן הם המצב האמיתי ולא אזהרה כללית: וואטסאפ דורש
-                 מספר מאומת בקטגוריית "נכסים בוואטסאפ", ובלי אף ערוץ מסומן
+                 מספר מאומת בקטגוריית "העוזר בוואטסאפ", ובלי אף ערוץ מסומן
                  התזכורות ממשיכות להופיע כאן ופשוט לא נשלחות. -->
             <p class="rm-note" id="rmChannelsNote"></p>
           </div>
@@ -4765,8 +4792,10 @@
       </summary>
       <div class="acc-body">
     <p class="acc-sub">בחירת סוגי ההתראות שיופיעו בפעמון. ברירת המחדל היא קבלת כל ההתראות — הסרת סימון מכבה רק את ההתראה, לא את מה שמאחוריה: הליד עדיין נכנס, הביקורת עדיין ממתינה לאישור והעסקה עדיין נרשמת.</p>
+    <p class="acc-sub">ולכל סוג — <strong>"גם בוואטסאפ"</strong>: ההתראה תישלח גם כהודעה מהעוזר האישי, כדי שלא צריך שהדשבורד יהיה פתוח. אף סוג אינו נשלח בוואטסאפ עד שמסמנים אותו כאן. ההודעות מקובצות (הכול מחמש הדקות האחרונות בהודעה אחת), מכבדות את שעות השקט שהגדרת ב"תזכורות וטיפים", ומוגבלות בתקרה יומית.</p>
     <form id="notifPrefsForm" style="margin-bottom:0">
       <div id="notifPrefsList" class="notif-prefs"></div>
+      <p class="rm-note" id="notifWaNote"></p>
       <div style="display:flex;gap:8px;margin:12px 0">
         <button type="button" class="btn" id="notifPrefsAllBtn" style="flex:1">סימון הכל</button>
         <button type="button" class="btn" id="notifPrefsNoneBtn" style="flex:1">ניקוי הכל</button>
@@ -17999,6 +18028,13 @@ document.getElementById('notifSettingsBtn').addEventListener('click', ()=>{
      שהתראה שכובתה לא נוצרת מלכתחילה ולא רק מוסתרת בדפדפן. */
 let notifMutedTypes = [];
 
+/* ‏whatsapp_types הוא ההיפך מ-muted_types שלידו: רשימת **מאושרים**. זה
+   החריג המכוון לתבנית שחוזרת בכל הפרויקט, והסיבה ספציפית — ערוץ יוצא
+   שעולה כסף, ושחסימה אחת בו מייקרת אותנו אצל כל הנמענים העתידיים דרך
+   דירוג האיכות של Meta, לא נדלק לאיש בלי בקשה מפורשת. התוצאה: סוג התראה
+   חדש יגיע לפעמון של כולם אוטומטית, ולוואטסאפ — רק למי שיבקש. */
+let notifWhatsappTypes = [];
+
 function notifVisibleTypes(){
   return NOTIF_TYPES.filter(t => !t.when || t.when());
 }
@@ -18006,13 +18042,14 @@ function notifVisibleTypes(){
 async function loadNotifPrefs(agentId){
   const { data, error } = await sb
     .from('agent_notification_preferences')
-    .select('muted_types')
+    .select('muted_types, whatsapp_types')
     .eq('agent_id', agentId)
     .maybeSingle();
 
   // שגיאה כאן משמעה שהמיגרציה עוד לא רצה על המסד. במצב כזה לא חוסמים כלום:
   // הדשבורד ממשיך להציג את כל ההתראות, וזו בדיוק ברירת המחדל.
   notifMutedTypes = (!error && data && Array.isArray(data.muted_types)) ? data.muted_types : [];
+  notifWhatsappTypes = (!error && data && Array.isArray(data.whatsapp_types)) ? data.whatsapp_types : [];
   renderNotifPrefs();
 }
 
@@ -18022,13 +18059,50 @@ function renderNotifPrefs(){
   const types = notifVisibleTypes();
   el.innerHTML = '';
   types.forEach(t=>{
-    const label = document.createElement('label');
-    label.innerHTML = `<input type="checkbox" class="notifPrefType" value="${esc(t.type)}"
-        ${notifMutedTypes.includes(t.type) ? '' : 'checked'}>
-      <span><span class="np-title">${esc(t.title)}</span><span class="np-sub">${esc(t.sub)}</span></span>`;
-    el.appendChild(label);
+    const muted = notifMutedTypes.includes(t.type);
+    const row = document.createElement('div');
+    row.className = 'np-row' + (muted ? ' is-off' : '');
+    row.dataset.type = t.type;
+    row.innerHTML = `
+      <label>
+        <input type="checkbox" class="notifPrefType" value="${esc(t.type)}" ${muted ? '' : 'checked'}>
+        <span><span class="np-title">${esc(t.title)}</span><span class="np-sub">${esc(t.sub)}</span></span>
+      </label>
+      <label class="np-wa">
+        <input type="checkbox" class="notifPrefWa" value="${esc(t.type)}"
+          ${notifWhatsappTypes.includes(t.type) ? 'checked' : ''} ${muted ? 'disabled' : ''}>
+        <span>💬 גם בוואטסאפ</span>
+      </label>`;
+    el.appendChild(row);
   });
   syncNotifPrefsCount();
+  syncNotifWaNote();
+}
+
+/* סוג שכובה בפעמון אינו נוצר במסד מלכתחילה (הטריגר
+   ‏notifications_apply_preferences מחזיר null), ולכן אין ממה לשלוח הודעה.
+   במקום להשאיר תיבה שלא עושה כלום — היא מכובה ומנוקה יחד עם הפעמון. */
+function syncNotifWaRow(type){
+  const row = document.querySelector(`.np-row[data-type="${type}"]`);
+  if (!row) return;
+  const bell = row.querySelector('.notifPrefType');
+  const wa = row.querySelector('.notifPrefWa');
+  row.classList.toggle('is-off', !bell.checked);
+  wa.disabled = !bell.checked;
+  if (!bell.checked) wa.checked = false;
+}
+
+/* ההערה אומרת את המצב בפועל ולא אזהרה כללית. סוכן/ת שסימן/ה "גם בוואטסאפ"
+   בלי מספר שמור היה/הייתה מחכה להודעה שלא תגיע לעולם — וזה בדיוק סוג
+   הכשל ששותק. */
+function syncNotifWaNote(){
+  const note = document.getElementById('notifWaNote');
+  if (!note) return;
+  const on = document.querySelectorAll('.notifPrefWa:checked').length;
+  if (!on){ note.textContent = ''; return; }
+  note.textContent = (currentAgent && currentAgent.phone)
+    ? `${on} סוגי התראה יישלחו גם לוואטסאפ שלך (${currentAgent.phone}).`
+    : 'כדי שההתראות יגיעו בוואטסאפ צריך מספר שמור בקטגוריית "העוזר בוואטסאפ" — בלעדיו הסימון כאן לא יעשה דבר.';
 }
 
 /* המונה על הקטגוריה: "הכול" כשאין מושתקים, ואחרת כמה מתוך כמה פעילים —
@@ -18040,16 +18114,33 @@ function syncNotifPrefsCount(){
   accSetCount('accNotifPrefs', on === boxes.length ? 'הכול' : on + '/' + boxes.length);
 }
 
-document.getElementById('notifPrefsList').addEventListener('change', syncNotifPrefsCount);
-
-document.getElementById('notifPrefsAllBtn').addEventListener('click', ()=>{
-  document.querySelectorAll('.notifPrefType').forEach(cb => { cb.checked = true; });
+/* האזנה אחת על המכיל, ולא מאזין לכל תיבה: הרשימה נבנית מחדש בכל טעינה. */
+document.getElementById('notifPrefsList').addEventListener('change', (e)=>{
+  if (e.target.classList.contains('notifPrefType')) syncNotifWaRow(e.target.value);
   syncNotifPrefsCount();
+  syncNotifWaNote();
+});
+
+/* "סימון הכל" / "ניקוי הכל" נוגעים בפעמון בלבד, ובכוונה: הם היו כאן לפני
+   ערוץ הוואטסאפ, והרחבתם אליו הייתה הופכת לחיצה אחת ל-שמונה הודעות יוצאות
+   שאיש לא ביקש. ניקוי כן מוריד גם את הוואטסאפ — דרך syncNotifWaRow — כי
+   סוג שכובה בפעמון לא נוצר במסד ואין ממה לשלוח. */
+document.getElementById('notifPrefsAllBtn').addEventListener('click', ()=>{
+  document.querySelectorAll('.notifPrefType').forEach(cb => {
+    cb.checked = true;
+    syncNotifWaRow(cb.value);
+  });
+  syncNotifPrefsCount();
+  syncNotifWaNote();
 });
 
 document.getElementById('notifPrefsNoneBtn').addEventListener('click', ()=>{
-  document.querySelectorAll('.notifPrefType').forEach(cb => { cb.checked = false; });
+  document.querySelectorAll('.notifPrefType').forEach(cb => {
+    cb.checked = false;
+    syncNotifWaRow(cb.value);
+  });
   syncNotifPrefsCount();
+  syncNotifWaNote();
 });
 
 document.getElementById('notifPrefsForm').addEventListener('submit', async (e)=>{
@@ -18067,9 +18158,19 @@ document.getElementById('notifPrefsForm').addEventListener('submit', async (e)=>
     .filter(type => !shown.includes(type))
     .concat(shown.filter(type => !checked.has(type)));
 
+  /* אותו היגיון בדיוק על ערוץ הוואטסאפ, ובכיוון ההפוך (רשימת מאושרים):
+     סוג שאינו גלוי לתפקיד הזה נשאר כפי שהוא, ומה שהוצג נקבע לפי הסימון.
+     וסוג שכובה בפעמון יוצא מהרשימה בכל מקרה — הוא לא ייווצר במסד, ושורה
+     שמבטיחה הודעה שלא תישלח היא שקר שקשה לאתר. */
+  const waChecked = new Set(Array.from(document.querySelectorAll('.notifPrefWa:checked')).map(cb => cb.value));
+  const whatsapp = notifWhatsappTypes
+    .filter(type => !shown.includes(type))
+    .concat(shown.filter(type => waChecked.has(type) && checked.has(type)));
+
   const { error } = await sb.from('agent_notification_preferences').upsert({
     agent_id: currentAgent.id,
     muted_types: muted,
+    whatsapp_types: whatsapp,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'agent_id' });
 
@@ -18080,11 +18181,14 @@ document.getElementById('notifPrefsForm').addEventListener('submit', async (e)=>
     return;
   }
   notifMutedTypes = muted;
+  notifWhatsappTypes = whatsapp;
   syncNotifPrefsCount();
+  syncNotifWaNote();
   feedback.style.color = 'var(--blue)';
-  feedback.textContent = muted.length
-    ? 'נשמר — ' + muted.length + ' סוגי התראה כבויים.'
-    : 'נשמר — מקבלים את כל ההתראות.';
+  const bits = [];
+  bits.push(muted.length ? muted.length + ' סוגי התראה כבויים' : 'מקבלים את כל ההתראות');
+  if (whatsapp.length) bits.push(whatsapp.length + ' מהם יישלחו גם בוואטסאפ');
+  feedback.textContent = 'נשמר — ' + bits.join(', ') + '.';
   setTimeout(()=>{ feedback.textContent=''; }, 2500);
 });
 
@@ -18271,7 +18375,7 @@ function syncReminderChannelsNote(){
   const parts = [];
   if (!email && !wa) parts.push('בלי ערוץ מסומן לא תישלח שום הודעה — הרשימה למעלה ממשיכה להתעדכן כרגיל.');
   if (wa && !(currentAgent && currentAgent.phone))
-    parts.push('לוואטסאפ צריך מספר שמור בקטגוריית "נכסים בוואטסאפ".');
+    parts.push('לוואטסאפ צריך מספר שמור בקטגוריית "העוזר בוואטסאפ".');
   if (email && !(currentAgent && currentAgent.email))
     parts.push('לא נמצאה כתובת מייל בפרטי הסוכן/ת.');
   note.textContent = parts.join(' ');
@@ -18532,7 +18636,7 @@ const NAV_GROUPS = [
     { acc:'accReminders',     label:'תזכורות וטיפים',    icon:'clock',    tab:'more' },
     { acc:'accNotifPrefs',    label:'ניהול התראות',      icon:'bell',     tab:'more' },
     { acc:'accSharePartners', label:'משרדי שיתוף פעולה', icon:'handshake',tab:'more' },
-    { acc:'accWhatsapp',      label:'נכסים בוואטסאפ',    icon:'chat',     tab:'more' },
+    { acc:'accWhatsapp',      label:'העוזר בוואטסאפ',    icon:'chat',     tab:'more' },
     /* אחרון בקבוצה, ובכוונה: הדרך החוצה קיימת ואינה מוסתרת, אבל היא גם לא
        שכנה של פעולה שעושים כל יום. */
     { acc:'accCloseAccount',  label:'סגירת החשבון',      icon:'alert',    tab:'more' },
