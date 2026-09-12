@@ -398,6 +398,9 @@ PropertyCard.visualizedIds(sb, ids) // למי יש הדמיית AI
 
 ‏`PROPERTY_SELECT` ב-`index.html` הורחב ב-`floor`, `features`, `video_url`
 ו-`tour_3d_url` — כולן עמודות ותיקות שדף הסוכן/ת ודף המשרד כבר שולפים.
+מאוחר יותר נוספה לשלושתם גם `has_virtual_tour`, כדי ש-`mediaHtml`
+ו-`sortByMedia` יזהו גם סיור 360° משלנו ולא רק קישור לספק חיצוני
+([`docs/virtual-tour-360.md`](virtual-tour-360.md)).
 
 ---
 

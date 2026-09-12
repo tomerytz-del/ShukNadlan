@@ -877,6 +877,14 @@
   #aiShowcase .ai-copy > p{font-size:15px}
   #aiShowcase .ai-points li{font-size:14px}
 
+  /* ---------- הסיור 360° ----------
+     גבוה יחסית בכוונה: פנורמה היא חלל שמסתכלים בתוכו, ובחלון נמוך רואים
+     ממנו רצועה. במובייל היחס מתקרב לריבוע מאותה סיבה — 16:9 ברוחב טלפון
+     הוא סרט צר שאי אפשר להתמצא בו. */
+  .pano-frame{position:relative;aspect-ratio:16/9;min-height:280px;border-radius:var(--radius-lg);overflow:hidden;background:#0d1117}
+  @media (max-width:640px){ .pano-frame{aspect-ratio:4/3} }
+  .pano-note{margin:9px 0 0;font-size:.75rem;color:var(--ink-soft);line-height:1.6}
+
   /* ‏16:9 קבוע לנגן: גובה שנקבע מהמדיה עצמה גורם לקפיצת פריסה כשה-metadata
      נטענת, וסרטוני נכסים מגיעים גם לאורך וגם לרוחב. */
   .video-frame{position:relative;aspect-ratio:16/9;border-radius:var(--radius-lg);overflow:hidden;background:#000}
@@ -1014,6 +1022,9 @@
       </div>
       <div class="hero-actions" id="heroActions">
         <button type="button" class="media-btn magic" id="vizJumpBtn" hidden></button>
+        <!-- הסיור שמתנגן בעמוד עצמו. כפתור ולא קישור, כי הוא לא יוצא לשום
+             מקום — הוא מגלגל לסקציה שכבר נמצאת בעמוד. -->
+        <button type="button" class="media-btn accent" id="tour360Btn" hidden></button>
         <a class="media-btn accent" id="tourBtn" href="#" target="_blank" rel="noopener noreferrer" hidden></a>
         <a class="media-btn accent" id="videoBtn" href="#" target="_blank" rel="noopener noreferrer" hidden></a>
         <button type="button" class="media-btn" id="photoCountBtn" hidden></button>
@@ -1048,6 +1059,16 @@
         <section class="panel" id="highlightsSection" hidden>
           <h2>מה יש בנכס</h2>
           <div class="highlights" id="highlightsList"></div>
+        </section>
+
+        <!-- ====== סיור 360° ======
+             הסיור העצמאי: פנורמות שהסוכן/ת העלה/תה ב-CRM, מתנגנות כאן
+             ב-Pannellum בלי לצאת מהעמוד. נפתחת רק אחרי ש-loadVirtualTour
+             אישרה שיש סיור תקין — ולכן היא ‎hidden‎ כברירת מחדל. -->
+        <section class="panel" id="tourSection" hidden>
+          <h2>סיור וירטואלי 360°</h2>
+          <div class="pano-frame" id="tourViewer"></div>
+          <p class="pano-note" id="tourNote"></p>
         </section>
 
         <!-- ====== סרטון הנכס ======
@@ -1505,6 +1526,8 @@ const ICON = {
   star:    S('<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9Z"/>'),
   cube:    S('<path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="M3 8l9 5 9-5M12 13v8"/><path d="M7.5 5.5 16.5 10.7"/>'),
   play:    S('<circle cx="12" cy="12" r="9.5"/><path d="M10 8.5v7l6-3.5Z"/>'),
+  // כדור ולא קובייה: ‎cube‎ שייך לסיור החיצוני, וזה סיור שמסתובבים בתוכו
+  pano:    S('<circle cx="12" cy="12" r="9.5"/><ellipse cx="12" cy="12" rx="4.2" ry="9.5"/><path d="M2.5 12h19"/>'),
   soundOff:S('<path d="M11 5 6 9H2v6h4l5 4Z"/><path d="m16.5 9.5 5 5M21.5 9.5l-5 5"/>'),
   soundOn: S('<path d="M11 5 6 9H2v6h4l5 4Z"/><path d="M15.5 8.8a4.5 4.5 0 0 1 0 6.4M18.6 5.7a9 9 0 0 1 0 12.6"/>'),
   key:     S('<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.8 12.2 8-8M17 6l2 2M14.5 8.5l2 2"/>'),
@@ -1663,6 +1686,9 @@ async function loadProperty(){
     // יחד, ולכן ההחלטה נופלת כאן פעם אחת ולא בתוך כל אחת מהן.
     if (isLandProperty(data)) loadPlanningInfo(data);
     else loadVisualizations(data);
+    // הסיור 360° נטען ברקע גם הוא, ורק לנכס שהדגל שלו דולק — כך שרוב
+    // הנכסים אינם משלמים אפילו על השאילתה
+    if (data.has_virtual_tour) loadVirtualTour(data);
   } catch(e){
     console.warn('טעינת נכס נכשלה:', e);
     document.getElementById('loadingState').style.display = 'none';
@@ -1941,6 +1967,200 @@ function renderMediaButtons(p){
     e.preventDefault();
     document.getElementById('videoSection').scrollIntoView({ behavior:'smooth', block:'start' });
   });
+}
+
+/* ---------- הסיור 360° של הנכס ----------
+   הסיור העצמאי (‏property_virtual_tours): פנורמות שהסוכן/ת העלה/תה ב-CRM,
+   ונקודות מעבר שמחברות ביניהן. הוא מתנגן כאן בעמוד, בניגוד ל-‎tour_3d_url‎
+   שנשאר כפתור אל אתר הספק.
+
+   שלוש החלטות:
+
+   **טעינה בלחיצה ולא אוטומטית** (‏autoLoad:false). פנורמה אחת שוקלת 1-3MB,
+   ורוב הגולשים לא יגיעו לסקציה הזו בכלל. ‏Pannellum מציגה במקומה תמונת
+   רקע (‏preview — התמונה הראשית של הנכס) וכפתור הפעלה, והבייטים יורדים רק
+   ממי שביקש/ה. זה גם מה שמונע מהנגן לחטוף את מחוות הגלילה בטלפון לפני
+   שהחליטו להיכנס אליו.
+
+   **מה שמגיע מהמסד עובר סינון לפני שהוא מגיע לנגן.** ‏scenes הוא JSON
+   שנכתב מהדפדפן של הסוכן/ת, ולכן הוא נתון ולא קוד: כל כתובת פנורמה חייבת
+   להיות קובץ בדלי ‎property-tours‎ שלנו (כתובת שרירותית כאן הייתה מטעינה
+   תמונה מאתר זר לתוך העמוד), כל מספר חייב להיות בטווח, וכל ‎sceneId‎ של
+   נקודת מעבר חייב להצביע על חלל שקיים — אחרת הנגן זורק שגיאה והסיור כולו
+   נעצר על מעבר אחד שבור.
+
+   **‏Pannellum נטענת רק כשיש סיור.** הבדיקה הזולה היא ‎has_virtual_tour‎
+   שכבר הגיעה עם הנכס; רק אם היא דולקת נשלחת השאילתה, ורק אם חזר ממנה
+   חלל תקין אחד נטענת הספרייה מה-CDN.                                      */
+const TOUR_PUBLIC_PREFIX = SUPABASE_URL + '/storage/v1/object/public/property-tours/';
+const PANNELLUM_CSS_URLS = [
+  'https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css',
+  'https://cdnjs.cloudflare.com/ajax/libs/pannellum/2.5.6/pannellum.min.css',
+];
+const PANNELLUM_JS_URLS = [
+  'https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/pannellum/2.5.6/pannellum.min.js',
+];
+
+let pannellumPromise = null;
+function loadPannellum(){
+  if (window.pannellum) return Promise.resolve(window.pannellum);
+  if (pannellumPromise) return pannellumPromise;
+  pannellumPromise = new Promise((resolve, reject)=>{
+    // ה-CSS אינו חוסם: בלעדיו הנגן עדיין מנגן, רק הפקדים שלו עירומים
+    (function cssNext(i){
+      if (i >= PANNELLUM_CSS_URLS.length) return;
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = PANNELLUM_CSS_URLS[i];
+      link.onerror = ()=>{ link.remove(); cssNext(i + 1); };
+      document.head.appendChild(link);
+    })(0);
+
+    (function jsNext(i){
+      if (i >= PANNELLUM_JS_URLS.length){
+        pannellumPromise = null;
+        reject(new Error('pannellum load failed'));
+        return;
+      }
+      const s = document.createElement('script');
+      s.src = PANNELLUM_JS_URLS[i];
+      s.onload = ()=> window.pannellum ? resolve(window.pannellum) : jsNext(i + 1);
+      s.onerror = ()=>{ s.remove(); jsNext(i + 1); };
+      document.head.appendChild(s);
+    })(0);
+  });
+  return pannellumPromise;
+}
+
+function tourSafeText(raw, max){
+  return String(raw == null ? '' : raw).replace(/[<>]/g, '').trim().slice(0, max);
+}
+function tourSafeNum(value, min, max, fallback){
+  const n = Number(value);
+  return (Number.isFinite(n) && n >= min && n <= max) ? n : fallback;
+}
+
+/* מחזירה מערך חללים מסודר ונקי, או מערך ריק כשאין מה להציג. ‎order‎ הוא
+   שומר הסדר — ‏jsonb ממיין מפתחות מחדש, ולכן סדר החדרים אינו סדר המפתחות. */
+function sanitizeTourScenes(raw){
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return [];
+  const scenes = Object.keys(raw)
+    .filter(id => /^[\w-]{1,64}$/.test(id))
+    .map((id, i)=>{
+      const s = raw[id] || {};
+      return {
+        id,
+        order: Number.isFinite(s.order) ? s.order : i,
+        title: tourSafeText(s.title, 60) || 'חלל',
+        panorama: String(s.panorama || ''),
+        pitch: tourSafeNum(s.pitch, -90, 90, 0),
+        yaw:   tourSafeNum(s.yaw, -360, 360, 0),
+        hfov:  tourSafeNum(s.hfov, 50, 120, 110),
+        hotSpots: Array.isArray(s.hotSpots) ? s.hotSpots.slice(0, 20) : [],
+      };
+    })
+    // הגבול היחיד שאינו טכני: פנורמה היא קובץ שהועלה אלינו, ולא כתובת כלשהי
+    .filter(s => s.panorama.startsWith(TOUR_PUBLIC_PREFIX))
+    .sort((a, b) => a.order - b.order)
+    .slice(0, 20);
+
+  const known = new Set(scenes.map(s => s.id));
+  scenes.forEach(s=>{
+    s.hotSpots = s.hotSpots.map(h => ({
+      pitch: tourSafeNum(h && h.pitch, -90, 90, null),
+      yaw:   tourSafeNum(h && h.yaw, -360, 360, null),
+      targetYaw: tourSafeNum(h && h.targetYaw, -360, 360, null),
+      text:  tourSafeText(h && h.text, 60) || 'מעבר',
+      sceneId: String((h && h.sceneId) || ''),
+    })).filter(h => h.pitch !== null && h.yaw !== null && h.sceneId !== s.id && known.has(h.sceneId));
+  });
+  return scenes;
+}
+
+async function loadVirtualTour(p){
+  if (!window.supabase) return;
+  try{
+    const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    const { data, error } = await sb
+      .from('property_virtual_tours')
+      .select('initial_scene, scenes')
+      .eq('property_id', p.id)
+      .maybeSingle();
+    if (error || !data) return;
+
+    const scenes = sanitizeTourScenes(data.scenes);
+    if (!scenes.length) return;
+
+    await loadPannellum();
+
+    const firstScene = scenes.some(s => s.id === data.initial_scene) ? data.initial_scene : scenes[0].id;
+    const preview = (Array.isArray(p.images) ? p.images.filter(Boolean)[0] : null) || null;
+
+    const cfg = {
+      default: {
+        firstScene,
+        autoLoad: false,
+        showControls: true,
+        sceneFadeDuration: 400,
+        // ברירת המחדל של הספרייה אנגלית, והעמוד הזה עברי
+        strings: {
+          loadButtonLabel: 'לחצו להתחלת הסיור',
+          loadingLabel: 'טוען…',
+          bylineLabel: '',
+          noPanoramaError: 'לא נמצאה תמונת פנורמה',
+          fileAccessError: 'לא ניתן לטעון את התמונה',
+          malformedURLError: 'כתובת התמונה שגויה',
+          genericWebGLError: 'הדפדפן הזה לא תומך בהצגת סיור 360°',
+          textureSizeError: 'התמונה גדולה מדי למכשיר הזה',
+          unknownError: 'שגיאה בטעינת הסיור',
+        },
+      },
+      scenes: {},
+    };
+
+    scenes.forEach(s=>{
+      cfg.scenes[s.id] = {
+        title: s.title,
+        type: 'equirectangular',
+        panorama: s.panorama,
+        pitch: s.pitch, yaw: s.yaw, hfov: s.hfov,
+        hotSpots: s.hotSpots.map(h=>{
+          const hs = { pitch:h.pitch, yaw:h.yaw, type:'scene', text:h.text, sceneId:h.sceneId };
+          if (h.targetYaw !== null) hs.targetYaw = h.targetYaw;
+          return hs;
+        }),
+      };
+      // תמונת הרקע שמאחורי כפתור ההפעלה. רק בחלל הפתיחה: זה החלל היחיד
+      // שנראה לפני שהסיור התחיל, ובשאר החללים היא הייתה תמונה של חדר אחר.
+      if (s.id === firstScene && preview) cfg.scenes[s.id].preview = preview;
+    });
+
+    document.getElementById('tourNote').textContent = scenes.length > 1
+      ? `${scenes.length} חללים · גוררים כדי להסתכל מסביב, ולוחצים על החצים כדי לעבור ביניהם`
+      : 'גוררים כדי להסתכל מסביב · אפשר להגדיל למסך מלא';
+    // הסקציה נפתחת **לפני** יצירת הנגן: ‏Pannellum מודדת את המיכל שלה
+    // ברגע האתחול, ומיכל שיושב בתוך ‎display:none‎ נמדד 0×0 ולא מתאושש
+    // מזה כשהוא נחשף אחר כך.
+    document.getElementById('tourSection').hidden = false;
+    pannellum.viewer('tourViewer', cfg);
+    revealTourJumpButton();
+  } catch(e){
+    console.warn('טעינת הסיור נכשלה:', e);
+  }
+}
+
+// אותו דפוס של כפתור ההדמיות: הוא רק מוביל לסקציה שכבר קיימת בעמוד
+function revealTourJumpButton(){
+  const btn = document.getElementById('tour360Btn');
+  if (!btn || !btn.hidden) return;
+  btn.innerHTML = `${ICON.pano}<span>סיור 360°</span>`;
+  btn.addEventListener('click', ()=>{
+    const section = document.getElementById('tourSection');
+    if (!section || section.hidden) return;
+    section.scrollIntoView({ behavior:'smooth', block:'start' });
+  });
+  btn.hidden = false;
 }
 
 /* ---------- קיצור הדרך להדמיות ----------

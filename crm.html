@@ -464,6 +464,61 @@
     background:none;border:none;padding:0;text-decoration:underline;flex:0 0 auto}
   .prop-thumb-mini{width:52px;height:52px;border-radius:var(--radius-sm);object-fit:cover;flex-shrink:0;border:1px solid var(--line)}
 
+  /* ---------- עורך הסיור 360° ----------
+     החלון הזה רחב מכל שאר החלונות ב-CRM (‏.pm-card עוצר ב-420px) כי הוא
+     כלי עבודה ולא הודעה: מצד אחד פנורמה שצריך לסובב בה ולכוון בתוכה נקודה
+     על משקוף דלת, ומצד שני רשימת החללים. במחשב הם זה לצד זה, ובטלפון
+     הפנורמה עולה למעלה והרשימה נגללת מתחתיה. */
+  .tour-card{max-width:1100px;padding:18px;display:flex;flex-direction:column;max-height:92vh}
+  .tour-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:10px}
+  .tour-close{width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:var(--paper);
+    font-size:.9rem;line-height:1;flex:0 0 auto}
+  .tour-grid{display:grid;grid-template-columns:1fr 300px;gap:14px;overflow:auto;padding-left:2px}
+  @media (max-width:860px){ .tour-grid{grid-template-columns:1fr} }
+  .tour-stage{min-width:0}
+  /* הקנבס של Pannellum יורש את גובה המיכל, ולכן הוא נקבע כאן ולא בקונפיגורציה */
+  #tourPano{width:100%;aspect-ratio:16/10;min-height:280px;max-height:56vh;border-radius:var(--radius-sm);
+    overflow:hidden;background:#0d1117;border:1px solid var(--line)}
+  #tourPano.is-empty{display:flex;align-items:center;justify-content:center;text-align:center;
+    color:#cbd5e1;font-size:.8rem;line-height:1.7;padding:20px}
+  .tour-stage-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}
+  .tour-hint{font-size:.74rem;color:var(--ink-soft);line-height:1.6;margin:0;flex:1 1 200px}
+  .tour-mini{font-size:.72rem;font-weight:700;padding:5px 10px;border-radius:999px;border:1px solid var(--line);
+    background:var(--paper);color:var(--ink)}
+  .tour-mini[disabled]{opacity:.5}
+  .tour-side{min-width:0;display:flex;flex-direction:column;gap:12px}
+  .tour-side h3{font-size:.82rem;font-weight:800;margin:0 0 6px}
+  .tour-rooms{display:flex;flex-direction:column;gap:6px}
+  .tour-room{display:flex;align-items:center;gap:8px;padding:7px 9px;border-radius:var(--radius-sm);
+    border:1.5px solid var(--line);background:var(--paper);font-size:.78rem}
+  .tour-room.active{border-color:var(--teal);background:var(--teal-tint)}
+  .tour-room .name{flex:1;min-width:0;text-align:right;font-weight:700;background:none;border:none;padding:0;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+  .tour-room .tag{font-size:.62rem;font-weight:800;color:var(--teal);flex:0 0 auto}
+  .tour-room .icon{width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:#fff;
+    font-size:.7rem;line-height:1;padding:0;flex:0 0 auto;color:var(--ink-soft)}
+  .tour-room .icon.danger{color:var(--brick)}
+  .tour-empty{font-size:.75rem;color:var(--ink-soft);line-height:1.6;margin:0}
+  .tour-spots{display:flex;flex-direction:column;gap:5px}
+  .tour-spot{display:flex;align-items:center;gap:8px;font-size:.74rem;background:var(--paper-raised);
+    border-radius:var(--radius-sm);padding:6px 9px}
+  .tour-spot .txt{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .tour-spot .icon{width:20px;height:20px;border-radius:50%;border:1px solid var(--line);background:#fff;
+    font-size:.65rem;line-height:1;padding:0;color:var(--brick);flex:0 0 auto}
+  /* טופס נקודת המעבר נפתח רק אחרי לחיצה על הפנורמה, ובתוכו כבר ידועות
+     הקואורדינטות — נשאר לבחור לאן. */
+  .tour-spot-form{border:1.5px solid var(--teal);border-radius:var(--radius-sm);padding:10px;background:var(--teal-tint)}
+  .tour-spot-form label{display:block;font-size:.72rem;font-weight:700;margin-bottom:3px}
+  .tour-spot-form select,.tour-spot-form input[type=text]{width:100%;font-size:.78rem;padding:6px 8px;
+    border-radius:var(--radius-sm);border:1px solid var(--line);margin-bottom:8px;background:#fff}
+  .tour-spot-form .back-row{display:flex;align-items:center;gap:6px;font-size:.72rem;margin-bottom:9px;font-weight:600}
+  .tour-spot-form .btns{display:flex;gap:6px}
+  .tour-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:12px;padding-top:12px;
+    border-top:1px solid var(--line)}
+  .tour-status{font-size:.74rem;color:var(--ink-soft);flex:1 1 140px;line-height:1.5}
+  .tour-status.err{color:var(--brick);font-weight:700}
+  .tour-status.ok{color:var(--teal);font-weight:700}
+
   /* ---------- שפת הכרטיסים: תגיות ורשת פעולות ----------
      בכל רשימות הדשבורד (נכסים, לידים, מדף הלידים, צוות, לקוחות, התאמות)
      הנתונים היו שורות טקסט ארוכות מופרדות בנקודות, והפעולות היו רצף
@@ -5132,6 +5187,76 @@
       <button type="button" class="btn btn-ghost" id="qrShareBtn" style="display:none">שיתוף</button>
       <button type="button" class="btn btn-ghost" id="qrPngBtn">הורדה כתמונה</button>
       <button type="button" class="btn btn-ghost" id="qrCloseBtn">סגירה</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== עורך הסיור 360° ======
+     הסוכן/ת מעלה תמונת פנורמה לכל חלל, ומסמן/ת בעכבר איפה עוברים מחלל
+     לחלל. הנגן כאן והנגן בדף הנכס הם אותה ספרייה (‏Pannellum) ואותו מבנה
+     נתונים, ולכן מה שנראה כאן הוא מה שהגולש/ת תראה — אין "תצוגה מקדימה"
+     נפרדת שאפשר שתשקר.
+
+     החלון נבנה ריק ומתמלא ב-tourRenderSide. ‏Pannellum עצמה נטענת
+     מה-CDN רק בפתיחה הראשונה של החלון — ‏CRM שטוען אותה תמיד היה משלם
+     עליה בכל כניסה לדשבורד, ורוב הכניסות אינן נוגעות בסיור. -->
+<div class="pm-overlay" id="tourModal" role="dialog" aria-modal="true" aria-labelledby="tourTitle" style="display:none">
+  <div class="pm-card tour-card">
+    <div class="tour-head">
+      <div>
+        <div class="pm-title" id="tourTitle" style="margin-bottom:2px">סיור 360° לנכס</div>
+        <p class="tour-hint" id="tourSub" style="margin:0"></p>
+      </div>
+      <button type="button" class="tour-close" id="tourCloseX" aria-label="סגירת החלון">✕</button>
+    </div>
+
+    <div class="tour-grid">
+      <div class="tour-stage">
+        <div id="tourPano" class="is-empty">כאן תוצג הפנורמה של החלל הנבחר</div>
+        <div class="tour-stage-bar">
+          <p class="tour-hint" id="tourStageHint">יש להוסיף חלל ראשון כדי להתחיל</p>
+          <button type="button" class="tour-mini" id="tourSetViewBtn" disabled>📐 קביעת זווית הפתיחה</button>
+        </div>
+      </div>
+
+      <div class="tour-side">
+        <div>
+          <h3>החללים בסיור</h3>
+          <div class="tour-rooms" id="tourRooms"></div>
+          <p class="tour-empty" id="tourRoomsEmpty">אין עדיין חללים. מוסיפים תמונת פנורמה 360° לכל חדר — סלון, מטבח, מרפסת.</p>
+          <div style="margin-top:8px">
+            <label class="tour-mini" for="tourAddFile" style="display:inline-block;cursor:pointer">+ הוספת חלל מתמונת 360°</label>
+            <input type="file" id="tourAddFile" accept="image/jpeg,image/png,image/webp" hidden>
+          </div>
+        </div>
+
+        <div id="tourSpotsWrap" hidden>
+          <h3>נקודות מעבר בחלל הזה</h3>
+          <div class="tour-spots" id="tourSpots"></div>
+          <p class="tour-empty" id="tourSpotsEmpty">אין נקודות מעבר. לוחצים על דלת או מעבר בתמונה כדי להוסיף.</p>
+        </div>
+
+        <!-- נפתח עם הקואורדינטות שכבר נקראו מהלחיצה, ולכן אין בו pitch/yaw
+             לעריכה: מה שנלחץ הוא המקום. -->
+        <div class="tour-spot-form" id="tourSpotForm" hidden>
+          <label for="tourSpotTarget">לאיזה חלל המעבר הזה מוביל?</label>
+          <select id="tourSpotTarget"></select>
+          <label for="tourSpotText">הכיתוב שיוצג על החץ</label>
+          <input type="text" id="tourSpotText" maxlength="60">
+          <label class="back-row"><input type="checkbox" id="tourSpotBack" checked> להוסיף גם מעבר חזרה מהחלל היעד</label>
+          <div class="btns">
+            <button type="button" class="btn btn-gold" id="tourSpotAdd" style="flex:1">הוספה</button>
+            <button type="button" class="btn btn-ghost" id="tourSpotCancel">ביטול</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="tour-actions">
+      <button type="button" class="btn btn-gold" id="tourSaveBtn">שמירת הסיור</button>
+      <button type="button" class="btn btn-ghost" id="tourDeleteBtn">מחיקת הסיור</button>
+      <button type="button" class="btn btn-ghost" id="tourCloseBtn">סגירה</button>
+      <span class="tour-status" id="tourStatus"></span>
     </div>
   </div>
 </div>
@@ -12511,7 +12636,7 @@ document.getElementById('propClearFilters').addEventListener('click', clearPrope
 /* רשימת העמודות של "הנכסים שלי". קבוע ולא מחרוזת אינליין, כי גם ייצוא
    הנכסים לאקסל שולף את אותן עמודות — עמודה שנוספת כאן חייבת להגיע גם לקובץ
    שיורד, ושתי רשימות היו נפרדות תוך שבוע. */
-const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, video_url, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, shared_with_partners, shared_at, property_owners(owner_name, owner_phone)';
+const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, shared_with_partners, shared_at, property_owners(owner_name, owner_phone)';
 
 async function loadProperties(agentId){
   const listEl = document.getElementById('propertiesList');
@@ -12848,13 +12973,33 @@ function buildPropertyCard(p, agentId){
     if (currentAgent && (currentAgent.tier === 'mid' || currentAgent.tier === 'premium')){
       const hasVideo = !!p.video_url;
       const isMid = currentAgent.tier === 'mid';
-      const vidPrice = priceOf('property_video_price_mid', 20);
+      const vidPrice = priceOf('property_video_price_mid', 25);
       addCardAction(actions, {
         label: (hasVideo ? '🎬 סרטון חדש' : '🎬 הפקת סרטון') + (isMid ? ` · ${shekel(vidPrice)}` : ''),
         title: hasVideo
           ? 'הפקת סרטון שיווקי חדש מהתמונות — יחליף את הסרטון הקיים'
           : 'הפקת סרטון שיווקי קצר מהתמונות של הנכס',
         onClick: btn => produceMarketingVideo(p, btn, agentId),
+      });
+    }
+
+    /* סיור 360° בנגן שלנו, מתמונות פנורמה שהסוכן/ת מעלה. **ההפקה** היא
+       יכולת של Elite בלבד; סיור שהופק נשאר בדף הנכס גם אם המסלול ירד אחר
+       כך. אין כאן מחיר לכל הפקה (אין ספק חיצוני שמחייב), ולכן זה מסלול
+       ולא ארנק.
+
+       ההסתרה כאן היא תצוגה בלבד: הגבול האמיתי הוא ב-policies של
+       ‎property_virtual_tours‎ ושל דלי ‎property-tours‎, כי העורך כותב ישירות
+       למסד ולא דרך Edge Function (‏20261028090000_virtual_tour_elite_only).
+       הכפתור אומר "בנייה" או "עריכה" לפי ‎has_virtual_tour‎, שנכתב בטריגר
+       ולכן אפשר לסמוך עליו. */
+    if (currentAgent && currentAgent.tier === 'premium'){
+      addCardAction(actions, {
+        label: p.has_virtual_tour ? '🌐 עריכת סיור 360°' : '🌐 בניית סיור 360°',
+        title: p.has_virtual_tour
+          ? 'הוספת חללים ונקודות מעבר לסיור הקיים'
+          : 'בניית סיור וירטואלי מתמונות 360° — מוצג בתוך דף הנכס',
+        onClick: btn => openTourEditor(p, btn),
       });
     }
 
@@ -13158,7 +13303,7 @@ const VIDEO_POLL_TIMEOUT_MS = 12 * 60 * 1000;
 
 async function produceMarketingVideo(property, btn, agentId){
   const isMid = currentAgent?.tier === 'mid';
-  const price = isMid ? priceOf('property_video_price_mid', 20) : 0;
+  const price = isMid ? priceOf('property_video_price_mid', 25) : 0;
   const maxClips = priceOf('property_video_clip_count', 5);
   const secs  = priceOf('property_video_clip_seconds', 5);
   const hasVideo = !!property.video_url;
@@ -13300,6 +13445,803 @@ async function republishProperty(property, btn, agentId){
     : 'הנכס חזר לפרסום ומופיע שוב באתר');
   await loadProperties(agentId);
 }
+
+/* ==========================================================================
+   סיור 360° — העורך
+   --------------------------------------------------------------------------
+   הסיור הוא רצף של תמונות פנורמה (‏equirectangular 360°) שהסוכן/ת מעלה —
+   אחת לכל חלל — ונקודות מעבר שמחברות ביניהן. הכול נשמר ב-
+   ‏property_virtual_tours.scenes במבנה ש-Pannellum מקבלת כמו שהוא, ומתנגן
+   בדף הנכס בלי ספק חיצוני ובלי מנוי חודשי.
+
+   ## שלוש החלטות שמסבירות את הקוד
+
+   **1. הפנורמה מועלית ברגע הבחירה, לא בשמירה.** בטופס הנכס המדיה מחכה
+   לשמירה כי בנכס חדש עוד אין ‎property_id‎ לנתיב ב-Storage. כאן הנכס כבר
+   קיים — ולכן אפשר להעלות מיד, ואז הנגן מציג את הקובץ האמיתי מהכתובת
+   האמיתית. מה שנראה בחלון הזה הוא בדיוק מה שהגולש/ת תראה.
+
+   המחיר הוא קבצים יתומים כשיוצאים בלי לשמור, ולכן כל פנורמה שהועלתה בחלון
+   הזה מסומנת ‎isNew‎ ונמחקת ביציאה בלי שמירה; ופנורמה של חלל שנמחק נכנסת
+   ל-‎trash‎ ונמחקת רק **אחרי** שמירה מוצלחת — מחיקה מיידית שלה הייתה משאירה
+   את הסיור השמור מצביע על קובץ שכבר לא קיים, אם העריכה בוטלה באמצע.
+
+   **2. המעבר חזרה נלחץ ולא מנוחש.** אחרי שמסמנים "מעבר למטבח", העורך עובר
+   למטבח ומבקש ללחוץ על הדלת חזרה. אפשר היה לייצר את החץ ההפוך לבד ב-
+   ‎yaw+180‎, אבל שתי פנורמות אינן מצולמות באותו כיוון — החץ היה נוחת על
+   קיר. שתי לחיצות הן גם מה שנותן את ‎targetYaw‎ המדויק לשני הכיוונים: מי
+   שנכנס למטבח מסתובב אוטומטית *מהדלת* אל תוך החדר, כמו בכניסה אמיתית.
+
+   **3. סדר החללים נשמר בשדה ‎order‎ ולא בסדר המפתחות.** ‏jsonb בפוסטגרס
+   ממיין מפתחות מחדש (לפי אורך ואז בייטים) — הסדר שנכתב מכאן אינו הסדר
+   שיחזור. ‏Pannellum מתעלמת ממפתחות שאינה מכירה, ולכן ‎order‎ נוסע יחד עם
+   הסצנה בלי לשבור דבר.
+   ========================================================================== */
+
+const TOURS_BUCKET = 'property-tours';
+/* 4096×2048 ולא יותר: קנבס גדול מ-16.7 מגה-פיקסל נחתך בשקט ב-Safari של
+   אייפון (הפלט יוצא ריק), ו-4096 רוחב הם 8.4 — מרווח בטוח. זו גם הרזולוציה
+   שמצלמות 360 ביתיות מוסרות ממילא, ואחריה הקובץ שוקל 1-3MB במקום 15. */
+const PANO_MAX_WIDTH = 4096;
+const PANO_MAX_SCENES = 12;
+const PANO_MAX_HOTSPOTS = 12;
+/* פנורמה שאינה 2:1 אינה equirectangular מלאה, ו-Pannellum תמתח אותה על כדור
+   שלם — תקרה ורצפה יתעוותו והחדר ייראה שבור. עדיף לומר את זה בהעלאה. */
+const PANO_RATIO_MIN = 1.85, PANO_RATIO_MAX = 2.15;
+
+/* ‏Pannellum מה-CDN, עם גיבוי — בדיוק כמו SheetJS בייבוא הקבצים. היא נטענת
+   רק בפתיחת החלון: ‏CRM שטוען אותה תמיד היה משלם עליה בכל כניסה.
+
+   ‏jsdelivr ראשון ולא cdnjs (שממנו נטענת Leaflet בעמוד הזה) מסיבה אחת: זו
+   הכתובת הרשמית שבתיעוד של Pannellum, ו-‎build/pannellum.js‎ בחבילת ה-npm
+   הוא הבנייה המוקטנת. ‏script שמקבל 404 מפעיל onerror, ולכן כתובת שנחסמה
+   או השתנתה נופלת לשנייה בלי שהמשתמש/ת רואה דבר.                          */
+const PANNELLUM_CSS_URLS = [
+  'https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.css',
+  'https://cdnjs.cloudflare.com/ajax/libs/pannellum/2.5.6/pannellum.min.css',
+];
+const PANNELLUM_JS_URLS = [
+  'https://cdn.jsdelivr.net/npm/pannellum@2.5.6/build/pannellum.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/pannellum/2.5.6/pannellum.min.js',
+];
+
+let pannellumPromise = null;
+function loadPannellum(){
+  if (window.pannellum) return Promise.resolve(window.pannellum);
+  if (pannellumPromise) return pannellumPromise;
+  pannellumPromise = new Promise((resolve, reject)=>{
+    // ה-CSS נטען במקביל ואינו חוסם: בלעדיו הנגן עדיין מנגן, רק הפקדים
+    // שלו נראים עירומים — ואין סיבה להפיל בגללו את כל החלון.
+    (function cssNext(i){
+      if (i >= PANNELLUM_CSS_URLS.length) return;
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = PANNELLUM_CSS_URLS[i];
+      link.onerror = ()=>{ link.remove(); cssNext(i + 1); };
+      document.head.appendChild(link);
+    })(0);
+
+    (function jsNext(i){
+      if (i >= PANNELLUM_JS_URLS.length){
+        pannellumPromise = null;
+        reject(new Error('טעינת נגן הסיור נכשלה — בדקו את חיבור האינטרנט ונסו שוב'));
+        return;
+      }
+      const s = document.createElement('script');
+      s.src = PANNELLUM_JS_URLS[i];
+      s.onload = ()=> window.pannellum ? resolve(window.pannellum) : jsNext(i + 1);
+      s.onerror = ()=>{ s.remove(); jsNext(i + 1); };
+      document.head.appendChild(s);
+    })(0);
+  });
+  return pannellumPromise;
+}
+
+/* ‎scenes‎ הוא מערך מסודר ולא אובייקט: הסדר הוא נתון (מי ראשון ברשימה),
+   וההמרה לאובייקט של Pannellum נעשית בנקודה אחת — ‎tourScenesObject‎.       */
+const tourState = {
+  property: null,
+  agentId: null,
+  scenes: [],          // [{ id, title, panorama, path, isNew, pitch, yaw, hfov, hotSpots:[] }]
+  currentId: null,
+  initialId: null,
+  trash: [],           // נתיבי Storage למחיקה אחרי שמירה מוצלחת
+  viewer: null,
+  pending: null,       // { pitch, yaw } של לחיצה שממתינה לבחירת יעד
+  awaitingBack: null,  // { fromSceneId, hotSpotId } — ממתינים ללחיצה על המעבר חזרה
+  dirty: false,
+  busy: false,
+  open: false,
+};
+
+function tourShortId(){
+  return (crypto.randomUUID ? crypto.randomUUID().slice(0, 8) : Math.random().toString(36).slice(2, 10));
+}
+function tourRound(n){ return Math.round(n * 100) / 100; }
+function tourNormYaw(y){ return tourRound(((y + 180) % 360 + 360) % 360 - 180); }
+function tourCurrentScene(){ return tourState.scenes.find(s => s.id === tourState.currentId) || null; }
+function tourSceneById(id){ return tourState.scenes.find(s => s.id === id) || null; }
+
+function tourSetStatus(text, cls){
+  const el = document.getElementById('tourStatus');
+  el.textContent = text || '';
+  el.className = 'tour-status' + (cls ? ' ' + cls : '');
+}
+
+function tourSetBusy(busy, text){
+  tourState.busy = !!busy;
+  ['tourSaveBtn','tourDeleteBtn','tourSetViewBtn','tourSpotAdd'].forEach(id=>{
+    document.getElementById(id).disabled = !!busy;
+  });
+  document.getElementById('tourAddFile').disabled = !!busy;
+  if (text) tourSetStatus(text);
+}
+
+/* ---------- הכנת הפנורמה ----------
+   פענוח אחד: ממנו נגזרות גם בדיקת היחס וגם ההקטנה. ‏WebP כשהדפדפן יודע
+   לקודד (הצרכן היחיד של הקובץ הוא הנגן שלנו באותו דפדפן), ‏JPEG כשלא —
+   שני הסוגים פתוחים ב-allowed_mime_types של הדלי.                          */
+function preparePanorama(file){
+  return new Promise((resolve, reject)=>{
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = ()=>{
+      URL.revokeObjectURL(url);
+      const ratio = img.width / img.height;
+      if (!img.width || !img.height) return reject(new Error('לא ניתן לקרוא את מידות התמונה'));
+      if (ratio < PANO_RATIO_MIN || ratio > PANO_RATIO_MAX){
+        return reject(new Error(
+          `התמונה אינה פנורמה 360° מלאה (יחס ${ratio.toFixed(2)}:1 במקום 2:1). ` +
+          'יש להעלות קובץ equirectangular מהמצלמה או ממצב הפנורמה של הטלפון'));
+      }
+      const scale = Math.min(1, PANO_MAX_WIDTH / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width  = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d', { alpha:false }).drawImage(img, 0, 0, canvas.width, canvas.height);
+      const encode = (type)=> new Promise(res => canvas.toBlob(res, type, 0.82));
+      encode(IMAGE_TYPE_BROWSER)
+        .then(first => (first && first.type === IMAGE_TYPE_BROWSER) ? first : encode(IMAGE_TYPE_EXTERNAL))
+        .then(blob => blob ? resolve(blob) : reject(new Error('קידוד התמונה נכשל')))
+        .catch(reject);
+    };
+    img.onerror = ()=>{ URL.revokeObjectURL(url); reject(new Error('לא ניתן לפתוח את התמונה')); };
+    img.src = url;
+  });
+}
+
+/* ---------- פתיחת החלון ---------- */
+async function openTourEditor(property, btn){
+  // הכפתור ממילא מוצג ל-Elite בלבד, וזו השכבה שמונעת מסך שנפתח ומת בשמירה:
+  // ‏policy תדחה את הכתיבה, וכבר השקענו בהעלאת פנורמות. האכיפה עצמה במסד.
+  if (!currentAgent || currentAgent.tier !== 'premium'){
+    showToast('הפקת סיור 360° היא יכולת של מסלול Elite — אפשר לשדרג במסך המסלול');
+    return;
+  }
+  const original = btn ? btn.textContent : '';
+  if (btn){ btn.disabled = true; btn.textContent = 'פותח עורך…'; }
+  try{
+    await loadPannellum();
+    const { data, error } = await sb.from('property_virtual_tours')
+      .select('initial_scene, scenes')
+      .eq('property_id', property.id)
+      .maybeSingle();
+    if (error) throw error;
+
+    tourState.property = property;
+    tourState.agentId  = currentAgent.id;
+    tourState.scenes   = tourScenesFromRow(data);
+    tourState.initialId = (data && data.initial_scene) || (tourState.scenes[0]?.id ?? null);
+    if (!tourSceneById(tourState.initialId)) tourState.initialId = tourState.scenes[0]?.id ?? null;
+    tourState.currentId = tourState.initialId;
+    tourState.trash = [];
+    tourState.pending = null;
+    tourState.awaitingBack = null;
+    tourState.dirty = false;
+
+    document.getElementById('tourSub').textContent =
+      (property.title ? property.title + ' · ' : '') +
+      'מעלים תמונת 360° לכל חלל, ולוחצים על דלת או מעבר כדי לקשר בין החללים. הסיור מוצג בדף הנכס.';
+    // חלון שנסגר באמצע העלאה השאיר את הכפתורים מנוטרלים; פתיחה חדשה היא
+    // תמיד התחלה נקייה
+    tourSetBusy(false);
+    tourSetStatus(tourState.scenes.length ? '' : 'הסיור ריק — מתחילים מהחלל הראשון');
+    openTourModal();
+    tourRenderSide();
+    tourRebuildViewer();
+  } catch(err){
+    console.error(err);
+    showToast(err.message || 'לא ניתן לפתוח את עורך הסיור');
+  } finally {
+    if (btn){ btn.disabled = false; btn.textContent = original; }
+  }
+}
+
+// המרה מהשורה במסד למערך המסודר של העורך. ‎order‎ הוא מה ששומר על הסדר
+// (‏jsonb ממיין מפתחות מחדש), ושורה ישנה בלעדיו נופלת לסדר המפתחות כפי שהוא.
+function tourScenesFromRow(row){
+  const raw = (row && row.scenes && typeof row.scenes === 'object') ? row.scenes : {};
+  return Object.keys(raw)
+    .map((id, i)=>{
+      const s = raw[id] || {};
+      return {
+        id,
+        title: String(s.title || 'חלל'),
+        panorama: String(s.panorama || ''),
+        path: tourStoragePath(s.panorama),
+        isNew: false,
+        order: Number.isFinite(s.order) ? s.order : i,
+        pitch: Number.isFinite(s.pitch) ? s.pitch : 0,
+        yaw:   Number.isFinite(s.yaw)   ? s.yaw   : 0,
+        hfov:  Number.isFinite(s.hfov)  ? s.hfov  : 110,
+        hotSpots: Array.isArray(s.hotSpots) ? s.hotSpots.map(h => ({
+          id: h.id || ('hs-' + tourShortId()),
+          pitch: Number(h.pitch) || 0,
+          yaw: Number(h.yaw) || 0,
+          type: 'scene',
+          text: String(h.text || 'מעבר'),
+          sceneId: String(h.sceneId || ''),
+          targetYaw: Number.isFinite(h.targetYaw) ? h.targetYaw : null,
+        })) : [],
+      };
+    })
+    .filter(s => s.panorama)
+    .sort((a, b) => a.order - b.order);
+}
+
+function tourStoragePath(url){
+  const marker = '/storage/v1/object/public/' + TOURS_BUCKET + '/';
+  const i = String(url || '').indexOf(marker);
+  return i === -1 ? null : decodeURIComponent(String(url).slice(i + marker.length));
+}
+
+/* ---------- הנגן ----------
+   נבנה מחדש בכל שינוי מבני (חלל נוסף/נמחק, נקודה נוספה/הוסרה) ולא מתוקן
+   בהדרגה: יש בדיוק מסלול אחד שממיר מצב לקונפיגורציה, ולכן אין מצב שהמסך
+   מראה משהו אחר ממה שיישמר. בנייה מחדש היא מיידית — התמונה כבר במטמון.  */
+function tourRebuildViewer(keepView){
+  const host = document.getElementById('tourPano');
+  const view = keepView && tourState.viewer ? tourViewerAngles() : null;
+
+  if (tourState.viewer){
+    try{ tourState.viewer.destroy(); } catch(e){ /* נגן שכבר מת */ }
+    tourState.viewer = null;
+  }
+  host.innerHTML = '';
+
+  if (!tourState.scenes.length){
+    host.classList.add('is-empty');
+    host.textContent = 'כאן תוצג הפנורמה של החלל הנבחר';
+    tourRenderStageBar();
+    return;
+  }
+  host.classList.remove('is-empty');
+
+  const first = tourSceneById(tourState.currentId) ? tourState.currentId : tourState.scenes[0].id;
+  tourState.currentId = first;
+
+  /* שמירת הזווית נעשית בקונפיגורציה ולא ב-‎setPitch‎ אחרי הבנייה: הסצנה
+     נטענת אסינכרונית, וקריאה לפקדים לפני שהיא עלתה נבלעת. האובייקט הזה
+     נוצר מחדש בכל קריאה, ולכן הדריסה כאן אינה נוגעת במצב שיישמר. */
+  const scenes = tourScenesObject();
+  if (view && scenes[first]){
+    scenes[first].pitch = view.pitch;
+    scenes[first].yaw   = view.yaw;
+    scenes[first].hfov  = view.hfov;
+  }
+
+  tourState.viewer = pannellum.viewer(host, {
+    default: {
+      firstScene: first,
+      autoLoad: true,
+      showControls: true,
+      sceneFadeDuration: 400,
+      // הכיתוב על החץ מופיע כטולטיפ של Pannellum; ‏hotSpotDebug כבוי כדי
+      // שהעורך יראה בדיוק את מה שהגולש/ת יראה
+      hotSpotDebug: false,
+    },
+    scenes,
+  });
+  // מעבר בין חללים דרך החצים הוא גם ניווט של העורך: הרשימה מימין חייבת
+  // לעקוב, אחרת הנקודות שמוצגות בה שייכות לחלל אחר מזה שעל המסך.
+  try{
+    tourState.viewer.on('scenechange', (id)=>{
+      tourState.currentId = id;
+      tourState.pending = null;
+      // מי שניווט בעצמו/ה לחלל אחר כבר לא נמצא/ת בחדר שבו ביקשנו לסמן את
+      // המעבר חזרה, ולחיצה שם הייתה שותלת את החץ בחדר הלא נכון
+      if (tourState.awaitingBack){
+        tourState.awaitingBack = null;
+        tourSetStatus('המעבר חזרה לא סומן — אפשר להוסיף אותו בכל רגע בלחיצה מהחלל השני');
+      }
+      document.getElementById('tourSpotForm').hidden = true;
+      tourRenderSide();
+    });
+  } catch(e){ /* בלי האירוע, הרשימה מתעדכנת בלחיצה על שם החלל */ }
+
+  tourRenderStageBar();
+}
+
+function tourViewerAngles(){
+  try{
+    return { pitch: tourState.viewer.getPitch(), yaw: tourState.viewer.getYaw(), hfov: tourState.viewer.getHfov() };
+  } catch(e){ return null; }
+}
+
+/* אובייקט הסצנות של Pannellum — אותו אחד בדיוק שנשמר במסד ושמוזן לנגן.
+   נקודה שהיעד שלה כבר לא קיים מושמטת: הנגן זורק שגיאה על סצנה חסרה, ושורה
+   כזו במסד הייתה שוברת את הסיור גם אצל הגולשים.                           */
+function tourScenesObject(){
+  const known = new Set(tourState.scenes.map(s => s.id));
+  const out = {};
+  tourState.scenes.forEach((s, i)=>{
+    out[s.id] = {
+      title: s.title,
+      type: 'equirectangular',
+      panorama: s.panorama,
+      order: i,
+      pitch: s.pitch, yaw: s.yaw, hfov: s.hfov,
+      hotSpots: (s.hotSpots || []).filter(h => known.has(h.sceneId)).map(h=>{
+        const hs = { id: h.id, pitch: h.pitch, yaw: h.yaw, type: 'scene', text: h.text, sceneId: h.sceneId };
+        if (Number.isFinite(h.targetYaw)) hs.targetYaw = h.targetYaw;
+        return hs;
+      }),
+    };
+  });
+  return out;
+}
+
+/* ---------- הרשימה שמימין ---------- */
+function tourRenderSide(){
+  const wrap = document.getElementById('tourRooms');
+  wrap.innerHTML = '';
+  document.getElementById('tourRoomsEmpty').hidden = tourState.scenes.length > 0;
+
+  tourState.scenes.forEach(s=>{
+    const row = document.createElement('div');
+    row.className = 'tour-room' + (s.id === tourState.currentId ? ' active' : '');
+    row.innerHTML =
+      `<button type="button" class="name" title="פתיחת החלל בנגן"></button>` +
+      (s.id === tourState.initialId ? '<span class="tag">פתיחה</span>' : '') +
+      `<button type="button" class="icon" data-act="start" title="שהסיור ייפתח מכאן">★</button>` +
+      `<button type="button" class="icon" data-act="rename" title="שינוי שם החלל">✎</button>` +
+      `<button type="button" class="icon danger" data-act="remove" title="הסרת החלל">✕</button>`;
+    row.querySelector('.name').textContent = s.title;
+    row.querySelector('.name').addEventListener('click', ()=> tourSelectScene(s.id));
+    row.querySelector('[data-act=start]').addEventListener('click', ()=> tourSetOpeningScene(s.id));
+    row.querySelector('[data-act=rename]').addEventListener('click', ()=> tourRenameScene(s.id));
+    row.querySelector('[data-act=remove]').addEventListener('click', ()=> tourRemoveScene(s.id));
+    wrap.appendChild(row);
+  });
+
+  const scene = tourCurrentScene();
+  const spotsWrap = document.getElementById('tourSpotsWrap');
+  spotsWrap.hidden = !scene;
+  if (scene){
+    const list = document.getElementById('tourSpots');
+    list.innerHTML = '';
+    const spots = (scene.hotSpots || []).filter(h => tourSceneById(h.sceneId));
+    document.getElementById('tourSpotsEmpty').hidden = spots.length > 0;
+    spots.forEach(h=>{
+      const el = document.createElement('div');
+      el.className = 'tour-spot';
+      el.innerHTML = '<span class="txt"></span><button type="button" class="icon" title="הסרת הנקודה">✕</button>';
+      el.querySelector('.txt').textContent = h.text + ' → ' + (tourSceneById(h.sceneId)?.title || '');
+      el.querySelector('.icon').addEventListener('click', ()=> tourRemoveHotspot(scene.id, h.id));
+      list.appendChild(el);
+    });
+  }
+  tourRenderStageBar();
+}
+
+function tourRenderStageBar(){
+  const hint = document.getElementById('tourStageHint');
+  const setView = document.getElementById('tourSetViewBtn');
+  const scene = tourCurrentScene();
+  setView.disabled = !scene || tourState.busy;
+
+  if (!scene){
+    hint.textContent = 'יש להוסיף חלל ראשון כדי להתחיל';
+  } else if (tourState.awaitingBack){
+    const from = tourSceneById(tourState.awaitingBack.fromSceneId);
+    hint.textContent = `לחצו עכשיו על הדלת או המעבר שחוזרים ל"${from ? from.title : 'החלל הקודם'}"`;
+  } else if (tourState.scenes.length < 2){
+    hint.textContent = 'החלל מוצג כמו שיוצג בדף הנכס. אחרי שיהיו שני חללים אפשר לקשר ביניהם בלחיצה.';
+  } else {
+    hint.textContent = 'סובבו את התמונה ולחצו על דלת או מעבר כדי להוסיף שם נקודת מעבר.';
+  }
+}
+
+function tourSelectScene(id){
+  if (tourState.currentId === id) return;
+  tourState.currentId = id;
+  tourState.pending = null;
+  tourState.awaitingBack = null;
+  document.getElementById('tourSpotForm').hidden = true;
+  if (tourState.viewer){
+    try{ tourState.viewer.loadScene(id); tourRenderSide(); return; }
+    catch(e){ /* נופלים לבנייה מחדש */ }
+  }
+  tourRenderSide();
+  tourRebuildViewer();
+}
+
+/* ---------- הוספת חלל ---------- */
+document.getElementById('tourAddFile').addEventListener('change', async (e)=>{
+  const file = (e.target.files || [])[0];
+  e.target.value = '';
+  if (!file || tourState.busy) return;
+  if (tourState.scenes.length >= PANO_MAX_SCENES){
+    showToast(`אפשר עד ${PANO_MAX_SCENES} חללים בסיור אחד`);
+    return;
+  }
+
+  const name = (prompt('שם החלל (סלון, מטבח, חדר שינה…):') || '').trim();
+  if (!name) return;
+
+  tourSetBusy(true, 'מכין את הפנורמה…');
+  try{
+    const blob = await preparePanorama(file);
+    tourSetStatus('מעלה את הפנורמה…');
+    const id = 'sc-' + tourShortId();
+    const path = `${tourState.agentId}/${tourState.property.id}/${id}.${imageBlobExt(blob)}`;
+    const { error } = await sb.storage.from(TOURS_BUCKET).upload(path, blob, {
+      contentType: imageBlobType(blob), cacheControl:'31536000', upsert:false,
+    });
+    if (error) throw error;
+    const panorama = sb.storage.from(TOURS_BUCKET).getPublicUrl(path).data.publicUrl;
+
+    tourState.scenes.push({
+      id, title:name.slice(0, 40), panorama, path, isNew:true,
+      order: tourState.scenes.length, pitch:0, yaw:0, hfov:110, hotSpots:[],
+    });
+    if (!tourState.initialId) tourState.initialId = id;
+    tourState.currentId = id;
+    tourState.dirty = true;
+    tourSetBusy(false);
+    tourSetStatus('החלל נוסף — לא לשכוח לשמור בסוף');
+    tourRenderSide();
+    tourRebuildViewer();
+  } catch(err){
+    console.error(err);
+    tourSetBusy(false);
+    tourSetStatus(err.message || 'העלאת הפנורמה נכשלה', 'err');
+  }
+});
+
+function tourRenameScene(id){
+  const scene = tourSceneById(id);
+  if (!scene) return;
+  const name = (prompt('שם החלל:', scene.title) || '').trim();
+  if (!name || name === scene.title) return;
+  scene.title = name.slice(0, 40);
+  // הכיתוב על החצים שמובילים לחלל הזה נכתב מהשם הישן; מי שלא שינה אותו
+  // ידנית מקבל את החדש, ומי שכן — נשאר עם הנוסח שלו/ה.
+  tourState.scenes.forEach(s => (s.hotSpots || []).forEach(h=>{
+    if (h.sceneId === id && /^מעבר ל/.test(h.text)) h.text = 'מעבר ל' + name;
+  }));
+  tourState.dirty = true;
+  tourRenderSide();
+  tourRebuildViewer(true);
+}
+
+function tourRemoveScene(id){
+  const scene = tourSceneById(id);
+  if (!scene) return;
+  const incoming = tourState.scenes.reduce((n, s)=>
+    n + (s.id === id ? 0 : (s.hotSpots || []).filter(h => h.sceneId === id).length), 0);
+  const warn = incoming ? `\n\n${incoming} נקודות מעבר שמובילות אליו יוסרו גם הן.` : '';
+  if (!confirm(`להסיר את "${scene.title}" מהסיור?${warn}`)) return;
+
+  // הקובץ נמחק רק אחרי שמירה מוצלחת: יציאה בלי לשמור משאירה את הסיור
+  // השמור שלם, והוא עדיין מצביע על הפנורמה הזו.
+  if (scene.path) tourState.trash.push(scene.path);
+  tourState.scenes = tourState.scenes.filter(s => s.id !== id);
+  tourState.scenes.forEach(s => { s.hotSpots = (s.hotSpots || []).filter(h => h.sceneId !== id); });
+  if (tourState.initialId === id) tourState.initialId = tourState.scenes[0]?.id ?? null;
+  if (tourState.currentId === id) tourState.currentId = tourState.initialId;
+  tourState.pending = null;
+  tourState.awaitingBack = null;
+  document.getElementById('tourSpotForm').hidden = true;
+  tourState.dirty = true;
+  tourRenderSide();
+  tourRebuildViewer();
+}
+
+function tourSetOpeningScene(id){
+  if (tourState.initialId === id) return;
+  tourState.initialId = id;
+  tourState.dirty = true;
+  tourSetStatus('החלל הזה יהיה הפתיחה של הסיור');
+  tourRenderSide();
+}
+
+document.getElementById('tourSetViewBtn').addEventListener('click', ()=>{
+  const scene = tourCurrentScene();
+  const angles = tourViewerAngles();
+  if (!scene || !angles) return;
+  scene.pitch = tourRound(angles.pitch);
+  scene.yaw   = tourRound(angles.yaw);
+  scene.hfov  = tourRound(angles.hfov);
+  tourState.dirty = true;
+  tourSetStatus(`זווית הפתיחה של "${scene.title}" נקבעה למה שרואים עכשיו`);
+});
+
+/* ---------- נקודות המעבר ----------
+   הלחיצה מזוהה כאן ולא דרך אירועי Pannellum: גרירה לסיבוב הפנורמה מסתיימת
+   גם היא ב-mouseup, ובלי סף התזוזה כל סיבוב היה מוסיף נקודה.               */
+let tourPointerStart = null;
+const tourPanoEl = document.getElementById('tourPano');
+
+tourPanoEl.addEventListener('pointerdown', (e)=>{
+  tourPointerStart = { x:e.clientX, y:e.clientY, t:Date.now() };
+});
+
+tourPanoEl.addEventListener('pointerup', (e)=>{
+  const start = tourPointerStart;
+  tourPointerStart = null;
+  if (!start || !tourState.viewer || tourState.busy) return;
+  if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > 6) return;  // גרירה, לא לחיצה
+  if (Date.now() - start.t > 700) return;                                // לחיצה ארוכה
+  // לחיצה על חץ קיים או על פקדי הנגן אינה בקשה להוסיף נקודה חדשה
+  if (e.target.closest && e.target.closest('.pnlm-hotspot-base, .pnlm-hotspot, .pnlm-controls-container, .pnlm-control, .pnlm-load-box, .pnlm-error-msg')) return;
+
+  let coords = null;
+  try{ coords = tourState.viewer.mouseEventToCoords(e); } catch(err){ coords = null; }
+  if (!coords || !Number.isFinite(coords[0]) || !Number.isFinite(coords[1])){
+    showToast('לא ניתן לקרוא את המיקום בתמונה — נסו שוב');
+    return;
+  }
+  const pitch = tourRound(coords[0]);
+  const yaw   = tourNormYaw(coords[1]);
+
+  if (tourState.awaitingBack){ tourCompleteBackHotspot(pitch, yaw); return; }
+  tourOpenSpotForm(pitch, yaw);
+});
+
+function tourOpenSpotForm(pitch, yaw){
+  const scene = tourCurrentScene();
+  if (!scene) return;
+  if (tourState.scenes.length < 2){
+    showToast('צריך שני חללים לפחות כדי לקשר ביניהם — הוסיפו עוד חלל');
+    return;
+  }
+  if ((scene.hotSpots || []).length >= PANO_MAX_HOTSPOTS){
+    showToast(`אפשר עד ${PANO_MAX_HOTSPOTS} נקודות מעבר בחלל אחד`);
+    return;
+  }
+
+  tourState.pending = { pitch, yaw };
+  const select = document.getElementById('tourSpotTarget');
+  select.innerHTML = '';
+  tourState.scenes.filter(s => s.id !== scene.id).forEach(s=>{
+    const opt = document.createElement('option');
+    opt.value = s.id;
+    opt.textContent = s.title;
+    select.appendChild(opt);
+  });
+  document.getElementById('tourSpotText').value = 'מעבר ל' + (tourSceneById(select.value)?.title || '');
+  document.getElementById('tourSpotForm').hidden = false;
+  select.focus();
+}
+
+// שינוי היעד מעדכן גם את הכיתוב: הוא נגזר מהשם ממילא, ומי שרוצה נוסח אחר
+// כותב אותו אחרי הבחירה.
+document.getElementById('tourSpotTarget').addEventListener('change', (e)=>{
+  document.getElementById('tourSpotText').value = 'מעבר ל' + (tourSceneById(e.target.value)?.title || '');
+});
+
+document.getElementById('tourSpotCancel').addEventListener('click', ()=>{
+  tourState.pending = null;
+  document.getElementById('tourSpotForm').hidden = true;
+});
+
+document.getElementById('tourSpotAdd').addEventListener('click', ()=>{
+  const scene = tourCurrentScene();
+  const pending = tourState.pending;
+  if (!scene || !pending) return;
+  const targetId = document.getElementById('tourSpotTarget').value;
+  const target = tourSceneById(targetId);
+  if (!target) return;
+
+  const hotSpot = {
+    id: 'hs-' + tourShortId(),
+    pitch: pending.pitch,
+    yaw: pending.yaw,
+    type: 'scene',
+    text: (document.getElementById('tourSpotText').value.trim() || ('מעבר ל' + target.title)).slice(0, 60),
+    sceneId: targetId,
+    targetYaw: null,
+  };
+  scene.hotSpots = scene.hotSpots || [];
+  scene.hotSpots.push(hotSpot);
+  tourState.pending = null;
+  tourState.dirty = true;
+  document.getElementById('tourSpotForm').hidden = true;
+
+  const wantBack = document.getElementById('tourSpotBack').checked
+    && (target.hotSpots || []).length < PANO_MAX_HOTSPOTS;
+  if (wantBack){
+    // עוברים לחלל היעד ומחכים ללחיצה על הדלת חזרה. זו לחיצה ולא ניחוש:
+    // שתי פנורמות אינן מצולמות באותו כיוון, ו-yaw+180 היה נוחת על קיר.
+    tourState.awaitingBack = { fromSceneId: scene.id, hotSpotId: hotSpot.id };
+    tourState.currentId = targetId;
+    tourSetStatus(`נוספה נקודה. עכשיו לחצו ב"${target.title}" על הדלת שחוזרת ל"${scene.title}"`);
+    tourRenderSide();
+    tourRebuildViewer();
+    return;
+  }
+  tourSetStatus('נקודת המעבר נוספה');
+  tourRenderSide();
+  tourRebuildViewer(true);
+});
+
+// הלחיצה השנייה: מייצרת את החץ ההפוך, ומכאן ידועות שתי הזוויות — ולכן
+// אפשר לקבוע targetYaw לשני הכיוונים. מי שנכנס לחדר מסתובב אוטומטית
+// *מהדלת* אל תוך החדר, כמו בכניסה אמיתית.
+function tourCompleteBackHotspot(pitch, yaw){
+  const pendingBack = tourState.awaitingBack;
+  tourState.awaitingBack = null;
+  const target = tourCurrentScene();
+  const from = tourSceneById(pendingBack.fromSceneId);
+  if (!target || !from || target.id === from.id){ tourRenderSide(); return; }
+  const forward = (from.hotSpots || []).find(h => h.id === pendingBack.hotSpotId);
+  if (!forward){ tourRenderSide(); return; }
+
+  const backSpot = {
+    id: 'hs-' + tourShortId(),
+    pitch, yaw, type:'scene',
+    text: 'חזרה ל' + from.title,
+    sceneId: from.id,
+    targetYaw: tourNormYaw(forward.yaw + 180),
+  };
+  target.hotSpots = target.hotSpots || [];
+  target.hotSpots.push(backSpot);
+  forward.targetYaw = tourNormYaw(yaw + 180);
+  tourState.dirty = true;
+  tourSetStatus(`המעבר בין "${from.title}" ל"${target.title}" מוגדר בשני הכיוונים`);
+  tourRenderSide();
+  tourRebuildViewer(true);
+}
+
+function tourRemoveHotspot(sceneId, hotSpotId){
+  const scene = tourSceneById(sceneId);
+  if (!scene) return;
+  scene.hotSpots = (scene.hotSpots || []).filter(h => h.id !== hotSpotId);
+  tourState.dirty = true;
+  tourRenderSide();
+  tourRebuildViewer(true);
+}
+
+/* ---------- שמירה ומחיקה ---------- */
+document.getElementById('tourSaveBtn').addEventListener('click', async ()=>{
+  if (tourState.busy || !tourState.property) return;
+  /* חלל שאינו הפתיחה ואף נקודת מעבר אינה מובילה אליו הוא חלל שהגולש/ת
+     פשוט לא תראה — הפנורמה הועלתה ונשמרה, והיא מחוץ לסיור. זו טעות נפוצה
+     מספיק (מוסיפים ארבעה חדרים ומקשרים שניים) כדי לשאול לפני השמירה, אבל
+     לא שגיאה: אפשר לשמור באמצע העבודה ולהמשיך מחר. */
+  const unreachable = tourState.scenes.filter(s =>
+    s.id !== tourState.initialId &&
+    !tourState.scenes.some(o => o.id !== s.id && (o.hotSpots || []).some(h => h.sceneId === s.id)));
+  if (unreachable.length && !confirm(
+      `אף נקודת מעבר לא מובילה אל: ${unreachable.map(s => s.title).join(', ')}.\n` +
+      'הגולש/ת לא תגיע אליהם מתוך הסיור. לשמור בכל זאת?')) return;
+
+  tourSetBusy(true, 'שומר את הסיור…');
+  try{
+    const { error } = await sb.from('property_virtual_tours').upsert({
+      property_id: tourState.property.id,
+      initial_scene: tourState.initialId,
+      scenes: tourScenesObject(),
+    }, { onConflict: 'property_id' });
+    if (error) throw error;
+
+    // עכשיו — ורק עכשיו — הפנורמות של חללים שנמחקו כבר אינן מוזכרות בשום
+    // סיור שמור, ואפשר למחוק אותן. ‏best-effort: כישלון משאיר קובץ יתום.
+    if (tourState.trash.length){
+      sb.storage.from(TOURS_BUCKET).remove(tourState.trash.slice()).catch(()=>{});
+      tourState.trash = [];
+    }
+    tourState.scenes.forEach(s => { s.isNew = false; });
+    tourState.dirty = false;
+    tourSetBusy(false);
+    tourSetStatus('הסיור נשמר ומוצג בדף הנכס', 'ok');
+    showToast('הסיור נשמר 🌐');
+    // ‏has_virtual_tour מתעדכן בטריגר; הרשימה בדשבורד צריכה לדעת עליו
+    if (tourState.agentId) loadProperties(tourState.agentId);
+  } catch(err){
+    console.error(err);
+    tourSetBusy(false);
+    tourSetStatus('השמירה נכשלה: ' + (err.message || 'שגיאה'), 'err');
+  }
+});
+
+document.getElementById('tourDeleteBtn').addEventListener('click', async ()=>{
+  if (tourState.busy || !tourState.property) return;
+  if (!confirm('למחוק את הסיור כולו? כל הפנורמות ונקודות המעבר יימחקו, והכפתור ירד מדף הנכס.')) return;
+
+  tourSetBusy(true, 'מוחק…');
+  try{
+    const { error } = await sb.from('property_virtual_tours').delete().eq('property_id', tourState.property.id);
+    if (error) throw error;
+    const paths = tourState.scenes.map(s => s.path).filter(Boolean).concat(tourState.trash);
+    if (paths.length) sb.storage.from(TOURS_BUCKET).remove(paths).catch(()=>{});
+    tourState.scenes = [];
+    tourState.trash = [];
+    tourState.initialId = null;
+    tourState.currentId = null;
+    tourState.dirty = false;
+    tourSetBusy(false);
+    tourRenderSide();
+    tourRebuildViewer();
+    showToast('הסיור נמחק');
+    if (tourState.agentId) loadProperties(tourState.agentId);
+    closeTourModal();
+  } catch(err){
+    console.error(err);
+    tourSetBusy(false);
+    tourSetStatus('המחיקה נכשלה: ' + (err.message || 'שגיאה'), 'err');
+  }
+});
+
+/* ---------- פתיחה, סגירה ויציאה בלי לשמור ---------- */
+let tourHistoryEntry = false;
+
+function openTourModal(){
+  document.getElementById('tourModal').style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  tourState.open = true;
+  try{ history.pushState({ tourEditor:true }, ''); tourHistoryEntry = true; }
+  catch(e){ tourHistoryEntry = false; }
+}
+
+function closeTourModal(fromHistory){
+  const modal = document.getElementById('tourModal');
+  if (modal.style.display === 'none') return;
+
+  // שינויים שלא נשמרו: הפנורמות שהועלו בחלון הזה עדיין אינן מוזכרות בשום
+  // סיור שמור, ולכן היציאה מוחקת אותן. בלי זה כל עריכה מבוטלת הייתה
+  // משאירה קבצים בדלי לנצח.
+  if (tourState.dirty && !fromHistory){
+    if (!confirm('יש שינויים שלא נשמרו. לצאת ולבטל אותם?')) return;
+  }
+  if (tourState.dirty){
+    const fresh = tourState.scenes.filter(s => s.isNew).map(s => s.path).filter(Boolean);
+    if (fresh.length) sb.storage.from(TOURS_BUCKET).remove(fresh).catch(()=>{});
+  }
+
+  if (tourState.viewer){
+    try{ tourState.viewer.destroy(); } catch(e){}
+    tourState.viewer = null;
+  }
+  document.getElementById('tourPano').innerHTML = '';
+  document.getElementById('tourSpotForm').hidden = true;
+  modal.style.display = 'none';
+  document.body.style.overflow = '';
+  tourState.open = false;
+  tourState.scenes = [];
+  tourState.trash = [];
+  tourState.pending = null;
+  tourState.awaitingBack = null;
+  tourState.dirty = false;
+  tourState.property = null;
+
+  const hadEntry = tourHistoryEntry;
+  tourHistoryEntry = false;
+  if (!fromHistory && hadEntry){ try{ history.back(); }catch(e){} }
+}
+
+document.getElementById('tourCloseBtn').addEventListener('click', ()=> closeTourModal());
+document.getElementById('tourCloseX').addEventListener('click', ()=> closeTourModal());
+document.getElementById('tourModal').addEventListener('click', (e)=>{
+  if (e.target.id === 'tourModal') closeTourModal();
+});
+document.addEventListener('keydown', (e)=>{
+  if (e.key === 'Escape' && tourState.open) closeTourModal();
+});
+window.addEventListener('popstate', ()=>{
+  if (tourHistoryEntry) closeTourModal(true);
+});
 
 /* ==========================================================================
    מדבקת QR לשלט

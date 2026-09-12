@@ -286,7 +286,9 @@
     var prop = p || {};
     var items = [];
     if (prop.video_url) items.push('<span>' + ICONS.video + 'סרטון</span>');
-    if (prop.tour_3d_url) items.push('<span>' + ICONS.cube + 'סיור וירטואלי</span>');
+    // שני מסלולי הסיור — הקישור לספק החיצוני והסיור 360° שמתנגן אצלנו —
+    // הם אותה הבטחה לגולש/ת ("יש מה לסייר בו"), ולכן תגית אחת לשניהם.
+    if (prop.tour_3d_url || prop.has_virtual_tour) items.push('<span>' + ICONS.cube + 'סיור וירטואלי</span>');
     return items.length ? '<div class="pc-media">' + items.join('') + '</div>' : '';
   }
 
@@ -444,7 +446,7 @@
     var images = Array.isArray(prop.images) ? prop.images.filter(Boolean) : [];
     var rank = 0;
     if (prop.video_url) rank += 8;
-    if (prop.tour_3d_url) rank += 4;
+    if (prop.tour_3d_url || prop.has_virtual_tour) rank += 4;
     if (images.length >= 3) rank += 2;
     else if (images.length >= 1) rank += 1;
     return rank;

@@ -5612,7 +5612,7 @@ const isPromoted = p => !!p.is_promoted && (!p.promoted_until || new Date(p.prom
    ותיקות שדף הסוכן/ת ודף המשרד כבר שולפים. */
 const PROPERTY_SELECT =
   'id, price, title, rooms, size_sqm, floor, city, street, address, property_type, deal_type, category, ' +
-  'created_at, lat, lng, is_promoted, promoted_until, images, features, video_url, tour_3d_url, neighborhood_id, ' +
+  'created_at, lat, lng, is_promoted, promoted_until, images, features, video_url, tour_3d_url, has_virtual_tour, neighborhood_id, ' +
   'agencies(name, logo_url), neighborhoods(name)';
 
 const shapeProperty = p => ({
@@ -5955,7 +5955,7 @@ async function loadCommercialProperties(){
   try{
     const { data, error } = await sb
       .from('properties')
-      .select('id, price, title, rooms, size_sqm, floor, city, property_type, deal_type, category, images, features, video_url, tour_3d_url, is_promoted, promoted_until, created_at, agencies(name, logo_url)')
+      .select('id, price, title, rooms, size_sqm, floor, city, property_type, deal_type, category, images, features, video_url, tour_3d_url, has_virtual_tour, is_promoted, promoted_until, created_at, agencies(name, logo_url)')
       .eq('status', 'active')
       .eq('category', 'commercial')
       // בלי סדר מפורש ה-DB מחזיר שורות בסדר לא מוגדר, ואז גם הבריכה שממנה
@@ -8342,7 +8342,12 @@ const LISTING_FEATURES = [
 const DERIVED_LISTING_FILTERS = {
   has_photo: q => q.neq('images', '{}').not('images', 'is', null),
   has_price: q => q.not('price', 'is', null),
-  tour_3d:   q => q.not('tour_3d_url', 'is', null).neq('tour_3d_url', ''),
+  /* שני מסלולים לאותה שאלה: קישור לספק חיצוני, או סיור 360° שמתנגן אצלנו
+     (‏has_virtual_tour, שנכתב בטריגר על property_virtual_tours). ‏or אחד
+     במקום שני מסננים, כי מבחינת מי שמסמן/ת את התיבה זו יכולת אחת.
+     ‎ilike.http*‎ ולא ‎not.is.null‎: הוא שולל בבת אחת גם null וגם מחרוזת
+     ריקה (שקיימת בנכסים שיובאו), וה-check במסד מחייב ממילא כתובת http. */
+  tour_3d:   q => q.or('tour_3d_url.ilike.http*,has_virtual_tour.is.true'),
 };
 const RESIDENTIAL_PROPERTY_FEATURES = [
   ['parking','חניה'],['elevator','מעלית'],['balcony','מרפסת'],['sun_balcony','מרפסת שמש'],['ac','מיזוג'],['bars','סורגים'],

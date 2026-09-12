@@ -1823,7 +1823,7 @@ let agentProperties = [];
 async function loadAgentProperties(sb, agent){
   const el = document.getElementById('activeProps');
   const { data: props } = await sb.from('properties')
-    .select('id, title, price, deal_type, category, rooms, property_type, size_sqm, floor, city, street, features, images, tour_3d_url, video_url')
+    .select('id, title, price, deal_type, category, rooms, property_type, size_sqm, floor, city, street, features, images, tour_3d_url, has_virtual_tour, video_url')
     .eq('agent_id', agent.id).eq('status', 'active').order('created_at', { ascending:false });
 
   if (!props || props.length === 0){

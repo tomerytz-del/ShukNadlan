@@ -2376,7 +2376,7 @@ let agencyProperties = [];
 
 async function loadActiveProperties(sb, agencyId){
   const { data: props } = await sb.from('properties')
-    .select('id, title, price, deal_type, category, rooms, property_type, size_sqm, city, street, images, tour_3d_url, video_url')
+    .select('id, title, price, deal_type, category, rooms, property_type, size_sqm, city, street, images, tour_3d_url, has_virtual_tour, video_url')
     .eq('agency_id', agencyId).eq('status', 'active').order('created_at', { ascending:false });
   // משרד בלי נכסים פעילים לא מקבל מקטע עם הכיתוב "אין כרגע נכסים" — מקטע
   // כזה אומר לגולש/ת רק שאין כאן מה לחפש. המקטע פשוט לא נפתח. הווידג'טים
