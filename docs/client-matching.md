@@ -12,7 +12,7 @@
 | --- | --- |
 | `supabase/migrations/20260825140000_agent_clients_matching.sql` | הטבלה, מנוע ההתאמות וספירת ההתאמות |
 | `supabase/migrations/20260829200000_client_match_alerts.sql` | הניקוד המשותף והתראות על נכסים חדשים |
-| `supabase/migrations/20261027090000_assistant_scope_and_notification_push.sql` | אותו מנוע עם מזהה סוכן/ת מפורש, לעוזר בוואטסאפ |
+| `supabase/migrations/20261029090000_assistant_scope_and_notification_push.sql` | אותו מנוע עם מזהה סוכן/ת מפורש, לעוזר בוואטסאפ |
 | `crm.html` → "קובץ הלקוחות שלי" | טופס הלקוח/ה, רשימת הלקוחות ופאנל ההתאמות |
 | `supabase/functions/whatsapp-webhook/agent.ts` | אותן פעולות מהצ'אט: הוספת לקוח/ה, עדכון דרישות, והצלבה בשני הכיוונים |
 

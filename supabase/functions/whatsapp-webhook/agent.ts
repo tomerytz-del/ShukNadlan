@@ -40,7 +40,7 @@ import { geocodeAfula } from "./geocode.ts";
 // יושב במסד. שכפול הנוסחה כאן היה מתפצל ממנה תוך חודש, והסוכן/ת היה מקבל/ת
 // בוואטסאפ ציון אחר מזה שבמסך. שלוש הפונקציות ‏`agent_client_matches`,
 // ‏`agent_client_match_counts` ו-`agent_property_client_matches`
-// (‏מיגרציה 20261027090000) הן אותו מנוע עם מזהה סוכן/ת מפורש, כי כאן אין JWT.
+// (‏מיגרציה 20261029090000) הן אותו מנוע עם מזהה סוכן/ת מפורש, כי כאן אין JWT.
 
 const anthropic = new Anthropic({
   apiKey: Deno.env.get("ANTHROPIC_API_KEY") || "",

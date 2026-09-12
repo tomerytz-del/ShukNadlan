@@ -6,7 +6,7 @@ import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 // דחיפת התראות הפעמון לוואטסאפ.
 //
 // ‏נקראת מ-pg_cron כל חמש דקות, ורק כשיש מה לשלוח
-// (‏`notification_push_ready()` במיגרציה 20261027090000).
+// (‏`notification_push_ready()` במיגרציה 20261029090000).
 //
 // ## מה זה לא
 //

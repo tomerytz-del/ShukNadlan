@@ -43,7 +43,7 @@ notifications (טריגר במסד)  ──►  pg_cron כל 5 דק׳  ──►
 | `supabase/functions/whatsapp-webhook/geocode.ts` | גיאוקוד כתובות בעפולה (העתק של `geocode-address`, בלי דרישת JWT) |
 | `supabase/functions/notification-push/index.ts` | הכיוון ההפוך: התראות הפעמון יוצאות בוואטסאפ |
 | `supabase/migrations/20260824090000_whatsapp_integration.sql` | טבלאות + זיהוי לפי טלפון |
-| `supabase/migrations/20261027090000_assistant_scope_and_notification_push.sql` | פונקציות הלקוחות וההתאמות לשרת, ומנגנון דחיפת ההתראות |
+| `supabase/migrations/20261029090000_assistant_scope_and_notification_push.sql` | פונקציות הלקוחות וההתאמות לשרת, ומנגנון דחיפת ההתראות |
 
 ---
 
@@ -447,7 +447,7 @@ python scripts/whatsapp_webhook_test.py text "תעלה נכס באבן גביר�
 | ההודעה נקראת אבל אין תשובה | `ANTHROPIC_API_KEY` חסר/לא תקין — לבדוק בלוגים |
 | הקלטות לא עובדות | `OPENAI_API_KEY` לא מוגדר |
 | תמונות לא נשמרות | הקובץ מעל 3MB או פורמט שאינו JPEG/PNG/WebP (מגבלות ה-bucket) |
-| "אין לי גישה ל…" על יכולת שקיימת | הפונקציה נפרסה אבל המיגרציה `20261027090000` לא רצה — הכלי קיים וה-RPC מחזיר שגיאה. לבדוק ב-Actions |
+| "אין לי גישה ל…" על יכולת שקיימת | הפונקציה נפרסה אבל המיגרציה `20261029090000` לא רצה — הכלי קיים וה-RPC מחזיר שגיאה. לבדוק ב-Actions |
 | ההתראות לא יוצאות בוואטסאפ | אף סוג לא סומן ב"ניהול התראות" (ברירת המחדל היא כיבוי), או שאין מספר שמור |
 | `notification-push` מחזירה 503 | `ALERT_CRON_SECRET` אינו מוגדר ב-Edge Functions → Secrets |
 | `notification_push_log.last_error` עם שגיאת 24-hour window | `WHATSAPP_NOTIFY_TEMPLATE` לא מוגדר, והסוכן/ת לא כתב/ה לעוזר ביממה האחרונה |
