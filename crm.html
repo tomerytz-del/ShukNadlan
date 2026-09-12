@@ -4632,6 +4632,10 @@
       </summary>
       <div class="acc-body">
     <p class="acc-sub">שולחים הודעה, תמונות או הקלטה קולית למספר של שוק נדל"ן — והעוזר מטפל בנכסים, בקובץ הלקוחות, בהתאמות ביניהם, ובקריאה של ההסכמים, הלידים וההתראות. הוא מזהה אתכם לפי מספר הטלפון, אז הוא חייב להיות מעודכן כאן ולהיות המספר שממנו אתם שולחים.</p>
+    <!-- נאמר כאן ולא רק בתשובה של הבוט: סוכן/ת ב-Pay&GO ששומר/ת מספר ומחכה
+         לתשובה גילה/תה את הגידור אחרי ששלח/ה הודעה, וזה המקום שבו הוא
+         אמור להיות כתוב. -->
+    <p class="acc-sub" id="waTierNote"></p>
     <form id="whatsappForm" style="margin-bottom:0">
       <div class="field">
         <label for="waPhone">מספר הוואטסאפ שלי</label>
@@ -7831,6 +7835,20 @@ document.getElementById('prefsForm').addEventListener('submit', async (e)=>{
 function loadWhatsappSettings(agent){
   document.getElementById('waPhone').value = agent.phone || '';
   accSetCount('accWhatsapp', agent.phone ? 'מחובר' : 'לא מוגדר');
+
+  /* המסלול נאמר לשני הכיוונים, כי שניהם נכונים: מי שבמסלול צריך לדעת
+     שהמספר הוא מה שמחבר אותו/ה, ומי שלא — למה ההודעה לא תיענה. שמירת
+     המספר עצמה נשארת פתוחה לכולם: היא משרתת גם את תזכורות הוואטסאפ
+     (ראו "תזכורות וטיפים"), שאינן חלק מהעוזר. */
+  const note = document.getElementById('waTierNote');
+  if (note){
+    note.innerHTML = assistantTierOk()
+      ? 'העוזר זמין במסלול שלך. אם ההודעה לא נענתה — בדקו שהמספר כאן הוא ' +
+        'המספר שממנו שלחתם.'
+      : 'העוזר האישי זמין במסלולים <strong>PROFESSIONAL</strong> ו-<strong>Elite</strong>. ' +
+        'במסלול Pay&amp;GO אפשר להוסיף ולעדכן נכסים מהדשבורד, והודעה לעוזר תיענה ' +
+        'בהסבר ובקישור. <a href="pricing.html" target="_blank" rel="noopener">לפרטים ולשדרוג</a>';
+  }
 }
 
 document.getElementById('whatsappForm').addEventListener('submit', async (e)=>{
@@ -18035,6 +18053,14 @@ let notifMutedTypes = [];
    חדש יגיע לפעמון של כולם אוטומטית, ולוואטסאפ — רק למי שיבקש. */
 let notifWhatsappTypes = [];
 
+/* העוזר האישי בוואטסאפ הוא יכולת של PROFESSIONAL ו-Elite, ולכן גם ערוץ
+   ההתראות היוצא — אותו מספר, אותה זהות. הבדיקה כאן היא לתצוגה בלבד;
+   האכיפה עצמה ב-notification_push_due_agents במסד, שם נבדק גם מצב החיוב
+   (‏billing_status אינו נטען לדפדפן). אותה תבנית כמו כפתור דוח ה-CMA. */
+function assistantTierOk(){
+  return !!currentAgent && (currentAgent.tier === 'mid' || currentAgent.tier === 'premium');
+}
+
 function notifVisibleTypes(){
   return NOTIF_TYPES.filter(t => !t.when || t.when());
 }
@@ -18058,10 +18084,11 @@ function renderNotifPrefs(){
   if (!el) return;
   const types = notifVisibleTypes();
   el.innerHTML = '';
+  const tierOk = assistantTierOk();
   types.forEach(t=>{
     const muted = notifMutedTypes.includes(t.type);
     const row = document.createElement('div');
-    row.className = 'np-row' + (muted ? ' is-off' : '');
+    row.className = 'np-row' + (muted || !tierOk ? ' is-off' : '');
     row.dataset.type = t.type;
     row.innerHTML = `
       <label>
@@ -18070,7 +18097,8 @@ function renderNotifPrefs(){
       </label>
       <label class="np-wa">
         <input type="checkbox" class="notifPrefWa" value="${esc(t.type)}"
-          ${notifWhatsappTypes.includes(t.type) ? 'checked' : ''} ${muted ? 'disabled' : ''}>
+          ${notifWhatsappTypes.includes(t.type) ? 'checked' : ''}
+          ${muted || !tierOk ? 'disabled' : ''}>
         <span>💬 גם בוואטסאפ</span>
       </label>`;
     el.appendChild(row);
@@ -18087,8 +18115,9 @@ function syncNotifWaRow(type){
   if (!row) return;
   const bell = row.querySelector('.notifPrefType');
   const wa = row.querySelector('.notifPrefWa');
-  row.classList.toggle('is-off', !bell.checked);
-  wa.disabled = !bell.checked;
+  const allowed = bell.checked && assistantTierOk();
+  row.classList.toggle('is-off', !allowed);
+  wa.disabled = !allowed;
   if (!bell.checked) wa.checked = false;
 }
 
@@ -18098,6 +18127,17 @@ function syncNotifWaRow(type){
 function syncNotifWaNote(){
   const note = document.getElementById('notifWaNote');
   if (!note) return;
+
+  /* המסלול קודם לכל השאר: אין טעם לומר "צריך מספר" למי שממילא אינו/ה
+     במסלול שבו הערוץ פועל. וזה נאמר גם כשאין אף סימון — אחרת תיבות
+     מכובות בלי הסבר נראות כמו תקלה. */
+  if (!assistantTierOk()){
+    note.innerHTML = 'שליחת ההתראות בוואטסאפ היא חלק מהעוזר האישי, שזמין במסלולים ' +
+      'PROFESSIONAL ו-Elite. ההתראות בפעמון עובדות בכל מסלול. ' +
+      '<a href="pricing.html" target="_blank" rel="noopener">לפרטים ולשדרוג</a>';
+    return;
+  }
+
   const on = document.querySelectorAll('.notifPrefWa:checked').length;
   if (!on){ note.textContent = ''; return; }
   note.textContent = (currentAgent && currentAgent.phone)
