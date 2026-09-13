@@ -670,19 +670,8 @@
   /* ‏.9 במקום ‎opacity:.82‎ של שורת המשנה: על התכלת היא ירדה מתחת ל-4.5:1 */
   .buyer-banner .lead-teaser-sub{color:rgba(255,255,255,.9);opacity:1}
 
-  /* ---- הבאנר כשהוא הרצועה הראשונה בפוטר ----
-     בתוך הפוטר אין מה להראות מבעד לבאנר — מתחתיו ספיר אטום — ולכן הצל
-     נבלע בכהה שמסביבו, וה-‎margin‎ שנועד להפריד אותו מרצועת הנכסים הפך
-     לפס ריק בין הפוטר לתוכן שלו עצמו. המרווח שמתחתיו הוא ‎--fs-gap‎ של
-     הפוטר (‏.footer-lead ב-assets/site-footer.css), כמו בין כל שני חלקים בו. */
-  .footer-lead .lead-banner{margin:0;box-shadow:none;border:1px solid rgba(255,255,255,.12)}
-  /* הגוון עצמו כבר קבוע בכלל שמעל, ולכן הרצועה נראית בפוטר בדיוק כמו
-     באמצע הדף. מה שנשאר כאן הוא הצל: ‎.footer-lead .lead-banner‎ מכבה
-     אותו, ובלי החזרה הזו היה נמחק איתו גם פס הזהב העליון. */
-  .footer-lead .buyer-banner{
-    border-color:rgba(201,162,39,.5);
-    box-shadow:inset 0 3px 0 #c9a227, 0 14px 32px rgba(6,32,62,.45);
-  }
+  /* כאן ישבו הכללים של הבאנר בתוך הפוטר — ריפוד אפס, בלי צל ובלי פינות.
+     הוא כבר לא יושב שם: בדף הזה שני הבאנרים יושבים מתחת לנכסים. */
   /* שורת ההזמנה היא כפתור אחד ולא כותרת עם כפתור קטן בתוכה: כל השורה היא
      שטח לחיצה, וזה ההבדל בין שני מבקרים שפותחים את האשף לבין אחד. */
   .lead-teaser{
@@ -1312,6 +1301,191 @@
           </div><!-- /owner-wizard -->
         </div><!-- /lead-panel -->
       </div><!-- /ownerBanner -->
+
+      <!-- ---------- באנר מחפשי הנכס ----------
+           שני הבאנרים יושבים כאן, זה מתחת לזה, ו-‎mountWidgets‎ מפזרת אותם בין
+           המדפים לפי ה-‎data-slot‎ שלהם. עד היום הוא ישב בפוטר, ובמשרד בלי
+           נכסים פעילים — שם אין מדפים ואין לאן לשתול — הוא נשאר שם, מתחת
+           לכל העמוד. כאן הוא תמיד מתחת לנכסים: או אחרי המדפים, או במכל הבית
+           הזה כשאין מדפים כלל. -->
+      <div class="lead-banner buyer-banner" id="buyerBanner" data-slot="end">
+        <button type="button" class="lead-teaser" id="buyerStartBtn"
+                aria-expanded="false" aria-controls="buyerPanel">
+          <span class="lead-teaser-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="10.5" cy="10.5" r="6.5"></circle>
+              <path d="M15.5 15.5 21 21"></path>
+              <path d="M7.6 11.4 10.5 8.8l2.9 2.6"></path>
+              <path d="M8.5 10.9v3h4v-3"></path>
+            </svg>
+          </span>
+          <span class="lead-teaser-copy">
+            <span class="lead-teaser-title">מחפשים נכס? תנו לו למצוא אתכם</span>
+            <span class="lead-teaser-sub">לקנייה או להשכרה — נעדכן אתכם ראשונים כשעולה נכס שמתאים</span>
+          </span>
+          <span class="lead-teaser-go" aria-hidden="true">
+            <span class="lead-teaser-go-open">התאמת נכס ←</span>
+            <span class="lead-teaser-go-close">סגירה ✕</span>
+          </span>
+        </button>
+
+        <div class="lead-panel" id="buyerPanel" hidden>
+          <div class="owner-intro">
+            <p id="buyerLead">ספרו לנו מה אתם מחפשים — ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.</p>
+          </div>
+
+          <div class="owner-wizard" id="buyerWizard">
+            <ol class="wiz-steps" id="buySteps" aria-label="שלבי ההתאמה">
+              <li class="active" data-step="1"><span class="dot">1</span>מה מחפשים</li>
+              <li data-step="2"><span class="dot">2</span>פרטי הנכס</li>
+              <li data-step="3"><span class="dot">3</span>פרטי קשר</li>
+            </ol>
+
+            <form id="buyerWizardForm" novalidate>
+              <!-- שלב 1: סוג העסקה + שכונות -->
+              <section class="wiz-panel active" data-panel="1">
+                <p class="wiz-q">מה אתם מחפשים?</p>
+                <!-- ‎.lead-toggle‎ ולא ‎.owner-toggle‎ בכוונה: המאזין של באנר
+                     בעלי הנכסים תופס את כל ‎.owner-toggle button‎ במסמך, ושימוש
+                     חוזר במחלקה היה משנה כאן את הכותרת של הבאנר השני. -->
+                <div class="lead-toggle" id="buyDealToggle" role="group" aria-label="סוג החיפוש">
+                  <button type="button" class="active" data-buy-deal="sale">לקנייה</button>
+                  <button type="button" data-buy-deal="rent">להשכרה</button>
+                  <button type="button" data-buy-deal="commercial">מסחרי</button>
+                </div>
+
+                <!-- ‏saved_searches.deal_type מוגבל ל-sale/rent, ו"מסחרי" הוא
+                     קטגוריה ולא סוג עסקה — ולכן הבחירה בו פותחת את השאלה
+                     המשלימה במקום לנחש עבור המחפש/ת. -->
+                <div id="buyCommercialDeal" hidden>
+                  <span class="wiz-label" id="buyCommercialLabel">נכס מסחרי — לקנייה או להשכרה?</span>
+                  <div class="lead-toggle" id="buyCommercialToggle" role="group" aria-labelledby="buyCommercialLabel">
+                    <button type="button" class="active" data-buy-cdeal="sale">לקנייה</button>
+                    <button type="button" data-buy-cdeal="rent">להשכרה</button>
+                  </div>
+                </div>
+
+                <span class="wiz-label" id="buyHoodLabel">באילו שכונות? <span class="wiz-hint">אפשר לבחור כמה</span></span>
+                <div class="chip-row" id="buyHoodChips" role="group" aria-labelledby="buyHoodLabel"></div>
+                <!-- נפתח רק כשרשימת השכונות לא נטענה (מסד לא זמין): בלעדיו
+                     שלב 1 היה נשאר בלי שום דרך לציין אזור. -->
+                <div id="buyAreaFallback" hidden>
+                  <label class="wiz-label" for="buyArea">עיר או אזור</label>
+                  <input type="text" id="buyArea" class="wiz-input" placeholder="לדוגמה: עפולה">
+                </div>
+
+                <p class="wiz-err" id="buyErr1"></p>
+                <div class="wiz-nav">
+                  <button type="button" class="btn btn-gold" data-buy-next="2">להמשך ←</button>
+                </div>
+              </section>
+
+              <!-- שלב 2: מאפייני הנכס -->
+              <section class="wiz-panel" data-panel="2">
+                <p class="wiz-q">מה הנכס שאתם מחפשים?</p>
+
+                <div id="buyRoomsBlock">
+                  <span class="wiz-label" id="buyRoomsLabel">מספר חדרים <span class="wiz-hint">אפשר לבחור כמה</span></span>
+                  <div class="chip-row" id="buyRoomsChips" role="group" aria-labelledby="buyRoomsLabel">
+                    <button type="button" class="chip" aria-pressed="false" data-buy-rooms="2">2</button>
+                    <button type="button" class="chip" aria-pressed="false" data-buy-rooms="2.5">2.5</button>
+                    <button type="button" class="chip" aria-pressed="false" data-buy-rooms="3">3</button>
+                    <button type="button" class="chip" aria-pressed="false" data-buy-rooms="3.5">3.5</button>
+                    <button type="button" class="chip" aria-pressed="false" data-buy-rooms="4">4</button>
+                    <button type="button" class="chip" aria-pressed="false" data-buy-rooms="4.5">4.5</button>
+                    <button type="button" class="chip" aria-pressed="false" data-buy-rooms="5">5</button>
+                    <button type="button" class="chip" aria-pressed="false" data-buy-rooms="+6">6+</button>
+                  </div>
+                </div>
+
+                <span class="wiz-label" id="buyPtypeLabel">סוג הנכס <span class="wiz-hint">אפשר לבחור כמה</span></span>
+                <div class="chip-row" id="buyPtypeChips" role="group" aria-labelledby="buyPtypeLabel"></div>
+
+                <span class="wiz-label" id="buyBudgetLabel">תקציב <span class="wiz-hint" id="buyBudgetHint">(₪)</span></span>
+                <div class="buy-range">
+                  <label class="buy-range-field">
+                    <span>מ־</span>
+                    <input type="number" id="buyPriceMin" class="wiz-input" inputmode="numeric" min="0" placeholder="ללא מינימום">
+                  </label>
+                  <label class="buy-range-field">
+                    <span>עד</span>
+                    <input type="number" id="buyPriceMax" class="wiz-input" inputmode="numeric" min="0" placeholder="ללא מקסימום">
+                  </label>
+                </div>
+
+                <!-- במסחרי הגודל הוא מה שקובע, ומספר החדרים כמעט חסר משמעות —
+                     ולכן שני הבלוקים מתחלפים ואינם מוצגים יחד. -->
+                <div id="buySizeBlock" hidden>
+                  <span class="wiz-label" id="buySizeLabel">גודל (מ״ר)</span>
+                  <div class="buy-range">
+                    <label class="buy-range-field">
+                      <span>מ־</span>
+                      <input type="number" id="buySizeMin" class="wiz-input" inputmode="numeric" min="0" placeholder="הכול">
+                    </label>
+                    <label class="buy-range-field">
+                      <span>עד</span>
+                      <input type="number" id="buySizeMax" class="wiz-input" inputmode="numeric" min="0" placeholder="הכול">
+                    </label>
+                  </div>
+                </div>
+
+                <p class="wiz-err" id="buyErr2"></p>
+                <div class="wiz-nav">
+                  <button type="button" class="btn btn-ghost-light" data-buy-back="1">→ חזרה</button>
+                  <button type="button" class="btn btn-gold" data-buy-next="3">להמשך ←</button>
+                </div>
+              </section>
+
+              <!-- שלב 3: פרטי קשר -->
+              <section class="wiz-panel" data-panel="3">
+                <p class="wiz-q">לאן לשלוח את הנכסים המתאימים?</p>
+                <div class="buy-recap" id="buyRecap"></div>
+
+                <label class="wiz-label" for="buyName">שם מלא</label>
+                <input type="text" id="buyName" class="wiz-input" autocomplete="name">
+
+                <span class="wiz-label" id="buyChannelLabel">איך לעדכן אתכם?</span>
+                <div class="lead-toggle" id="buyChannels" role="group" aria-labelledby="buyChannelLabel">
+                  <button type="button" class="active" data-buy-channel="whatsapp">וואטסאפ</button>
+                  <button type="button" data-buy-channel="email">מייל</button>
+                  <button type="button" data-buy-channel="both">שניהם</button>
+                </div>
+
+                <div id="buyPhoneField">
+                  <label class="wiz-label" for="buyPhone">טלפון</label>
+                  <input type="tel" id="buyPhone" class="wiz-input" placeholder="050-0000000" autocomplete="tel" inputmode="tel">
+                </div>
+                <div id="buyEmailField" hidden>
+                  <label class="wiz-label" for="buyEmail">אימייל</label>
+                  <input type="email" id="buyEmail" class="wiz-input" autocomplete="email" inputmode="email" dir="ltr" style="text-align:left">
+                </div>
+
+                <!-- ההסכמה נפרדת מההרשמה במכוון: אפשר לקבל התראות בלי שהפרטים
+                     יעברו לאף אחד. רק מי שמסמן/ת כאן הופך/ת לליד. -->
+                <label class="buy-check" for="buyConsent">
+                  <input type="checkbox" id="buyConsent">
+                  <span id="buyConsentText">אשמח שמתווך/ת מהמשרד ייצור איתי קשר עם נכסים מתאימים</span>
+                </label>
+
+                <p class="wiz-err" id="buyErr3"></p>
+                <p class="buy-privacy">אפשר להפסיק את העדכונים בכל רגע, מקישור שבכל הודעה.</p>
+                <div class="wiz-nav">
+                  <button type="button" class="btn btn-ghost-light" data-buy-back="2">→ חזרה</button>
+                  <button type="submit" class="btn btn-gold" id="buySubmitBtn">קבלת עדכונים</button>
+                </div>
+              </section>
+            </form>
+
+            <!-- מסך סיום -->
+            <div class="wiz-done" id="buyDone" hidden>
+              <div class="wiz-done-mark" aria-hidden="true">✓</div>
+              <h3>החיפוש נשמר</h3>
+              <p id="buyDoneText">נעדכן אתכם ברגע שיעלה נכס שמתאים למה שביקשתם.</p>
+              <button type="button" class="btn btn-ghost-light" id="buyRestart">שמירת חיפוש נוסף</button>
+            </div>
+          </div>
+        </div>
+      </div><!-- /buyerBanner -->
     </div><!-- /widgetHome -->
 
     <!-- ---------- המלצות וביקורות ----------
@@ -2296,8 +2470,8 @@ function mountWidgets(priv, comm){
   let cursor = priv;
   const place = (slot, anchor)=>{
     if (anchor) cursor = anchor;
-    // חיפוש בכל הדף ולא רק ב-‎#widgetHome‎: באנר מחפשי הנכס יושב ב-HTML
-    // למטה, בתוך הפוטר, והשתילה היא מה שמביאה אותו לכאן.
+    // חיפוש בכל הדף ולא רק ב-‎#widgetHome‎: אחרי השתילה הראשונה הווידג'טים
+    // כבר אינם שם אלא בתוך ‎#activeProps‎.
     document.querySelectorAll(`.lead-banner[data-slot="${slot}"]`)
       .forEach(w=>{ cursor.after(w); cursor = w; });
   };
@@ -3200,9 +3374,9 @@ async function submitBuyerWizard(e){
 }
 
 function initBuyerWizard(agency, sb){
-  // כל ה-DOM של האשף יושב בפוטר, שבקובץ נמצא אחרי הסקריפט הזה. כשהתשובה
-  // מהמסד חוזרת מהר, לפני שהדפדפן סיים לנתח את סוף הדף, האלמנטים עדיין
-  // אינם שם — ואז מאתחלים כשהם כן.
+  // ה-DOM של האשף יושב היום מעל הסקריפט הזה (מתחת לנכסים, ולא בפוטר),
+  // ולכן הוא כבר מנותח כשמגיעים לכאן. הבדיקה נשארת כרשת ביטחון: כשהאשף
+  // עוד לא שם — כי מישהו הזיז אותו — מאתחלים כשהוא כן.
   if (document.readyState === 'loading'){
     document.addEventListener('DOMContentLoaded', ()=> initBuyerWizard(agency, sb), { once:true });
     return;
@@ -3337,197 +3511,8 @@ loadAgency();
 
 <footer class="site">
 
-  <!-- ====== באנר מחפשי הנכס — רצועת הפתיחה של הפוטר ======
-       הבאנר ישב עד היום באמצע העמוד, צמוד לתאום שלו בצד השני של העסקה
-       (‏"כמה שווה הנכס שלי" מול "איפה הנכס שלי"). הוא עלה לפוטר כדי שהפוטר
-       ייראה זהה בכל עמודי האתר: בכולם זו הרצועה הראשונה בו, ובמקום שבו
-       ישבה עד היום ההרשמה לרשימת התפוצה. באנר בעלי הנכסים נשאר במקומו —
-       הוא מדבר אל מי שקורא/ת את הנכסים של המשרד, ולכן שייך לצידם.
-
-       ה-JS והעיצוב נשארו של הדף (הם נושאים את שם המשרד ואת עיר הפעילות
-       שלו), ולא של assets/buyer-banner.js — הקובץ המשותף משרת את העמודים
-       שאין להם אשף משלהם. ראו docs/site-footer.md. -->
-  <div class="footer-wrap footer-lead">
-
-    <div class="lead-banner buyer-banner" id="buyerBanner" data-slot="end">
-      <button type="button" class="lead-teaser" id="buyerStartBtn"
-              aria-expanded="false" aria-controls="buyerPanel">
-        <span class="lead-teaser-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-            <circle cx="10.5" cy="10.5" r="6.5"></circle>
-            <path d="M15.5 15.5 21 21"></path>
-            <path d="M7.6 11.4 10.5 8.8l2.9 2.6"></path>
-            <path d="M8.5 10.9v3h4v-3"></path>
-          </svg>
-        </span>
-        <span class="lead-teaser-copy">
-          <span class="lead-teaser-title">מחפשים נכס? תנו לו למצוא אתכם</span>
-          <span class="lead-teaser-sub">לקנייה או להשכרה — נעדכן אתכם ראשונים כשעולה נכס שמתאים</span>
-        </span>
-        <span class="lead-teaser-go" aria-hidden="true">
-          <span class="lead-teaser-go-open">התאמת נכס ←</span>
-          <span class="lead-teaser-go-close">סגירה ✕</span>
-        </span>
-      </button>
-
-      <div class="lead-panel" id="buyerPanel" hidden>
-        <div class="owner-intro">
-          <p id="buyerLead">ספרו לנו מה אתם מחפשים — ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.</p>
-        </div>
-
-        <div class="owner-wizard" id="buyerWizard">
-          <ol class="wiz-steps" id="buySteps" aria-label="שלבי ההתאמה">
-            <li class="active" data-step="1"><span class="dot">1</span>מה מחפשים</li>
-            <li data-step="2"><span class="dot">2</span>פרטי הנכס</li>
-            <li data-step="3"><span class="dot">3</span>פרטי קשר</li>
-          </ol>
-
-          <form id="buyerWizardForm" novalidate>
-            <!-- שלב 1: סוג העסקה + שכונות -->
-            <section class="wiz-panel active" data-panel="1">
-              <p class="wiz-q">מה אתם מחפשים?</p>
-              <!-- ‎.lead-toggle‎ ולא ‎.owner-toggle‎ בכוונה: המאזין של באנר
-                   בעלי הנכסים תופס את כל ‎.owner-toggle button‎ במסמך, ושימוש
-                   חוזר במחלקה היה משנה כאן את הכותרת של הבאנר השני. -->
-              <div class="lead-toggle" id="buyDealToggle" role="group" aria-label="סוג החיפוש">
-                <button type="button" class="active" data-buy-deal="sale">לקנייה</button>
-                <button type="button" data-buy-deal="rent">להשכרה</button>
-                <button type="button" data-buy-deal="commercial">מסחרי</button>
-              </div>
-
-              <!-- ‏saved_searches.deal_type מוגבל ל-sale/rent, ו"מסחרי" הוא
-                   קטגוריה ולא סוג עסקה — ולכן הבחירה בו פותחת את השאלה
-                   המשלימה במקום לנחש עבור המחפש/ת. -->
-              <div id="buyCommercialDeal" hidden>
-                <span class="wiz-label" id="buyCommercialLabel">נכס מסחרי — לקנייה או להשכרה?</span>
-                <div class="lead-toggle" id="buyCommercialToggle" role="group" aria-labelledby="buyCommercialLabel">
-                  <button type="button" class="active" data-buy-cdeal="sale">לקנייה</button>
-                  <button type="button" data-buy-cdeal="rent">להשכרה</button>
-                </div>
-              </div>
-
-              <span class="wiz-label" id="buyHoodLabel">באילו שכונות? <span class="wiz-hint">אפשר לבחור כמה</span></span>
-              <div class="chip-row" id="buyHoodChips" role="group" aria-labelledby="buyHoodLabel"></div>
-              <!-- נפתח רק כשרשימת השכונות לא נטענה (מסד לא זמין): בלעדיו
-                   שלב 1 היה נשאר בלי שום דרך לציין אזור. -->
-              <div id="buyAreaFallback" hidden>
-                <label class="wiz-label" for="buyArea">עיר או אזור</label>
-                <input type="text" id="buyArea" class="wiz-input" placeholder="לדוגמה: עפולה">
-              </div>
-
-              <p class="wiz-err" id="buyErr1"></p>
-              <div class="wiz-nav">
-                <button type="button" class="btn btn-gold" data-buy-next="2">להמשך ←</button>
-              </div>
-            </section>
-
-            <!-- שלב 2: מאפייני הנכס -->
-            <section class="wiz-panel" data-panel="2">
-              <p class="wiz-q">מה הנכס שאתם מחפשים?</p>
-
-              <div id="buyRoomsBlock">
-                <span class="wiz-label" id="buyRoomsLabel">מספר חדרים <span class="wiz-hint">אפשר לבחור כמה</span></span>
-                <div class="chip-row" id="buyRoomsChips" role="group" aria-labelledby="buyRoomsLabel">
-                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="2">2</button>
-                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="2.5">2.5</button>
-                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="3">3</button>
-                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="3.5">3.5</button>
-                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="4">4</button>
-                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="4.5">4.5</button>
-                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="5">5</button>
-                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="+6">6+</button>
-                </div>
-              </div>
-
-              <span class="wiz-label" id="buyPtypeLabel">סוג הנכס <span class="wiz-hint">אפשר לבחור כמה</span></span>
-              <div class="chip-row" id="buyPtypeChips" role="group" aria-labelledby="buyPtypeLabel"></div>
-
-              <span class="wiz-label" id="buyBudgetLabel">תקציב <span class="wiz-hint" id="buyBudgetHint">(₪)</span></span>
-              <div class="buy-range">
-                <label class="buy-range-field">
-                  <span>מ־</span>
-                  <input type="number" id="buyPriceMin" class="wiz-input" inputmode="numeric" min="0" placeholder="ללא מינימום">
-                </label>
-                <label class="buy-range-field">
-                  <span>עד</span>
-                  <input type="number" id="buyPriceMax" class="wiz-input" inputmode="numeric" min="0" placeholder="ללא מקסימום">
-                </label>
-              </div>
-
-              <!-- במסחרי הגודל הוא מה שקובע, ומספר החדרים כמעט חסר משמעות —
-                   ולכן שני הבלוקים מתחלפים ואינם מוצגים יחד. -->
-              <div id="buySizeBlock" hidden>
-                <span class="wiz-label" id="buySizeLabel">גודל (מ״ר)</span>
-                <div class="buy-range">
-                  <label class="buy-range-field">
-                    <span>מ־</span>
-                    <input type="number" id="buySizeMin" class="wiz-input" inputmode="numeric" min="0" placeholder="הכול">
-                  </label>
-                  <label class="buy-range-field">
-                    <span>עד</span>
-                    <input type="number" id="buySizeMax" class="wiz-input" inputmode="numeric" min="0" placeholder="הכול">
-                  </label>
-                </div>
-              </div>
-
-              <p class="wiz-err" id="buyErr2"></p>
-              <div class="wiz-nav">
-                <button type="button" class="btn btn-ghost-light" data-buy-back="1">→ חזרה</button>
-                <button type="button" class="btn btn-gold" data-buy-next="3">להמשך ←</button>
-              </div>
-            </section>
-
-            <!-- שלב 3: פרטי קשר -->
-            <section class="wiz-panel" data-panel="3">
-              <p class="wiz-q">לאן לשלוח את הנכסים המתאימים?</p>
-              <div class="buy-recap" id="buyRecap"></div>
-
-              <label class="wiz-label" for="buyName">שם מלא</label>
-              <input type="text" id="buyName" class="wiz-input" autocomplete="name">
-
-              <span class="wiz-label" id="buyChannelLabel">איך לעדכן אתכם?</span>
-              <div class="lead-toggle" id="buyChannels" role="group" aria-labelledby="buyChannelLabel">
-                <button type="button" class="active" data-buy-channel="whatsapp">וואטסאפ</button>
-                <button type="button" data-buy-channel="email">מייל</button>
-                <button type="button" data-buy-channel="both">שניהם</button>
-              </div>
-
-              <div id="buyPhoneField">
-                <label class="wiz-label" for="buyPhone">טלפון</label>
-                <input type="tel" id="buyPhone" class="wiz-input" placeholder="050-0000000" autocomplete="tel" inputmode="tel">
-              </div>
-              <div id="buyEmailField" hidden>
-                <label class="wiz-label" for="buyEmail">אימייל</label>
-                <input type="email" id="buyEmail" class="wiz-input" autocomplete="email" inputmode="email" dir="ltr" style="text-align:left">
-              </div>
-
-              <!-- ההסכמה נפרדת מההרשמה במכוון: אפשר לקבל התראות בלי שהפרטים
-                   יעברו לאף אחד. רק מי שמסמן/ת כאן הופך/ת לליד. -->
-              <label class="buy-check" for="buyConsent">
-                <input type="checkbox" id="buyConsent">
-                <span id="buyConsentText">אשמח שמתווך/ת מהמשרד ייצור איתי קשר עם נכסים מתאימים</span>
-              </label>
-
-              <p class="wiz-err" id="buyErr3"></p>
-              <p class="buy-privacy">אפשר להפסיק את העדכונים בכל רגע, מקישור שבכל הודעה.</p>
-              <div class="wiz-nav">
-                <button type="button" class="btn btn-ghost-light" data-buy-back="2">→ חזרה</button>
-                <button type="submit" class="btn btn-gold" id="buySubmitBtn">קבלת עדכונים</button>
-              </div>
-            </section>
-          </form>
-
-          <!-- מסך סיום -->
-          <div class="wiz-done" id="buyDone" hidden>
-            <div class="wiz-done-mark" aria-hidden="true">✓</div>
-            <h3>החיפוש נשמר</h3>
-            <p id="buyDoneText">נעדכן אתכם ברגע שיעלה נכס שמתאים למה שביקשתם.</p>
-            <button type="button" class="btn btn-ghost-light" id="buyRestart">שמירת חיפוש נוסף</button>
-          </div>
-        </div>
-      </div>
-    </div><!-- /buyerBanner -->
-  </div>
+  <!-- באנר מחפשי הנכס אינו כאן: בדף הזה הוא יושב עם באנר הערכת השווי
+       מתחת לנכסים, ומשם ‎mountWidgets‎ שותל אותו אחרי המדפים. -->
 
   <div class="footer-wrap footer-top">
 
