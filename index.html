@@ -1565,22 +1565,9 @@
   /* ‏.9 ולא ‎.8‎: על התכלת הבהירה יותר, ‎.8‎ הוריד את שורת המשנה ל-4.4:1 */
   .footer-lead .buyer-banner .lead-teaser-sub{color:rgba(255,255,255,.9)}
 
-  /* ---- מקצה לקצה, וצמוד לראש הפוטר ----
-     שאר חלקי הפוטר הם עמודות טקסט, ולכן הם יושבים בתוך ‎.footer-wrap‎
-     ‏(1180px ממורכזים, 18px משני הצדדים). הרצועה הזאת אינה עמודת טקסט אלא
-     משטח: כשהיא נעצרת באותם 1180px נשארות שתי רצועות ספיר לצדה ומעליה,
-     והיא נראית ככרטיס שהונח על הפוטר במקום כפתיחה שלו.
-
-     שתי החרגות, ורק לה: הרוחב המלא (‏.footer-wrap.footer-lead — שתי מחלקות,
-     כי ‎assets/site-footer.css‎ נטען אחרי הבלוק הזה), והריפוד העליון של
-     הפוטר שיורד לאפס. מה שמתחתיה נשאר ‎--fs-gap‎ כמו בין כל שני חלקים בו.
-
-     ‏#activeProps וכל שאר הדף ממשיכים לעצור ב-‎.wrap‎ שלהם; זה לא מקצה לקצה
-     בדף, זה מקצה לקצה *בפוטר*. */
-  .footer-wrap.footer-lead{max-width:none;padding-inline:0}
-  /* ‏body לפניו רק כדי לגבור: ‎assets/site-footer.css‎ אומר ‎footer.site‎
-     באותה סלקטיביות ונטען אחרי הבלוק הזה. */
-  body footer.site{padding-top:0}
+  /* הרצועה נפרשת מקצה לקצה בראש הפוטר, והריפוד העליון שלו יורד לאפס —
+     שני הכללים יושבים ב-assets/site-footer.css, כי הם נכונים בכל עמוד
+     שבו הרצועה היא הדבר הראשון בפוטר ולא רק כאן. */
 
   /* שורת ההזמנה היא כפתור אחד ולא כותרת עם כפתור קטן בתוכה: כל השורה היא
      שטח לחיצה, וזה ההבדל בין שני מבקרים שפותחים את האשף לבין אחד. */
@@ -1991,6 +1978,50 @@
   }
   .dm-row::-webkit-scrollbar{display:none}
 
+  /* ====== גלילת המסלול ======
+     ‏data-can-start/‎data-can-end על המעטפת הם המקור היחיד לאמת: הם
+     מדליקים גם את הדהייה וגם את החצים, ו-‎refresh()‎ קובע אותם לפי מצב
+     הגלילה בפועל — כך אין חץ מזויף כשכל האריחים נכנסים במסך, והם
+     מתעדכנים גם כשהתוכן מתחלף (לשונית, חיפוש, בורר התמחות).
+
+     הדהייה היא ‎mask-image‎ על השורה ולא גרדיאנט בצבע הרקע: הבמה כאן
+     חצי-שקופה מעל הרקע הזורם של הדף, וכתם אטום מעליה נראה כמו טלאי.
+     הכיוון פיזי במכוון — הדף ‎dir="rtl"‎, כלומר תחילת השורה בימין. */
+  .dm-row-wrap{position:relative;min-width:0}
+  .dm-row-wrap[data-can-end] .dm-row{
+    -webkit-mask-image:linear-gradient(to right,transparent 0,#000 42px);
+    mask-image:linear-gradient(to right,transparent 0,#000 42px);
+  }
+  .dm-row-wrap[data-can-start] .dm-row{
+    -webkit-mask-image:linear-gradient(to left,transparent 0,#000 42px);
+    mask-image:linear-gradient(to left,transparent 0,#000 42px);
+  }
+  .dm-row-wrap[data-can-start][data-can-end] .dm-row{
+    -webkit-mask-image:linear-gradient(to right,transparent 0,#000 42px,#000 calc(100% - 42px),transparent 100%);
+    mask-image:linear-gradient(to right,transparent 0,#000 42px,#000 calc(100% - 42px),transparent 100%);
+  }
+  .dm-nav{
+    position:absolute;top:50%;transform:translateY(-50%);z-index:2;
+    width:36px;height:36px;display:none;place-items:center;
+    border:1.5px solid var(--line);background:var(--paper-raised);color:var(--ink);
+    border-radius:0;padding:0;cursor:pointer;
+    box-shadow:var(--shadow-sm);transition:border-color .15s ease,color .15s ease;
+  }
+  .dm-nav svg{width:18px;height:18px;display:block}
+  .dm-nav:hover{border-color:var(--teal);color:var(--teal)}
+  .dm-prev{inset-inline-start:0}
+  .dm-next{inset-inline-end:0}
+  /* הנתיב מצייר ‎‹‎ (שמאלה) — הכיוון שאליו השורה ממשיכה ב-RTL. חץ ההתחלה,
+     שיושב בימין ומחזיר אחורה, הוא אותו נתיב מסובב. */
+  .dm-prev svg{transform:rotate(180deg)}
+  /* רק במכשיר עם עכבר: באצבע ההחלקה עצמה היא הפעולה, וכפתור שיושב מעל
+     האריח שבקצה רק גונב ממנו לחיצות. */
+  @media(hover:hover) and (pointer:fine){
+    .dm-row-wrap[data-can-start] .dm-prev,
+    .dm-row-wrap[data-can-end] .dm-next{display:grid}
+  }
+  .dm-nav[hidden]{display:none}
+
   /* תיבת החיפוש — קובייה קבועה, בגודל אריח מלא ובצבע הפוך לאריחים שלצידה,
      כדי שתיקרא כפעולה ולא כאריח נוסף ברצועה. */
   .dm-search{
@@ -2106,7 +2137,8 @@
        הקצה השמאלי במסמך RTL) והמסלול לוקח את כל השאר ונגלל בעצמו */
     .dm-body{flex-direction:row;align-items:stretch;gap:16px;padding:4px 16px 16px}
     .dm-search{order:1;flex:0 0 248px;padding:16px 16px 14px}
-    .dm-row{order:0;flex:1;min-width:0;gap:16px;margin-inline:0;padding-inline:0}
+    .dm-row-wrap{order:0;flex:1;min-width:0}
+    .dm-row{gap:16px;margin-inline:0;padding-inline:0}
     .dm-initial{font-size:3.2rem}
     .dm-rank{top:9px;right:9px;font-size:.7rem;padding:3px 10px}
     .dm-badge{width:30px;height:30px;top:8px;left:8px}
@@ -3622,8 +3654,23 @@
           </div>
         </div>
 
-        <!-- האריחים מוזרקים ב-JS (initDealmakers) -->
-        <div class="dm-row" id="dmRow" role="tabpanel" aria-labelledby="dmTabAgencies"></div>
+        <!-- ====== מסלול האריחים ======
+             האריחים מוזרקים ב-JS (initDealmakers). המעטפת קיימת בשביל
+             הגלילה: השורה גוללת אופקית מאז שנבנתה, אבל שום דבר לא אמר
+             זאת — הגלגלת מוסתרת (‎scrollbar-width:none‎), ובדסקטופ אין
+             גלגלת אופקית ממילא, ולכן האריח שנחתך בקצה היה בלתי-נגיש.
+             אותה מעטפת בדיוק של שורת התגיות במדף הנכסים
+             (‏.pp-tags-wrap ב-assets/prop-shelf.css): דהייה בקצה שאומרת
+             שיש עוד, ומעליה חץ לחיץ. -->
+        <div class="dm-row-wrap" id="dmRowWrap">
+          <div class="dm-row" id="dmRow" role="tabpanel" aria-labelledby="dmTabAgencies"></div>
+          <button type="button" class="dm-nav dm-prev" data-dm-dir="start" tabindex="-1" aria-hidden="true" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
+          </button>
+          <button type="button" class="dm-nav dm-next" data-dm-dir="end" tabindex="-1" aria-hidden="true" hidden>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
+          </button>
+        </div>
       </div>
 
       <p class="dm-all"><a href="agencies.html" class="see-all" id="dmSeeAll">לכל משרדי התיווך ←</a></p>
@@ -6096,6 +6143,54 @@ function dmFromPro(p){
   };
 }
 
+/* ---------- גלילת מסלול האנשים ----------
+   אותו מנגנון של שורת התגיות במדף הנכסים (‏bindTagsScroller ב-
+   assets/prop-shelf.js), על אותם ‎data-can-start/‎data-can-end: החצים
+   והדהייה נדלקים רק כשיש באמת לאן לגלול.
+
+   ‏refresh מוחזר לקורא כי התוכן כאן מתחלף — לשונית, חיפוש, בורר התמחות —
+   ומצב הגלילה אחרי החלפה אינו מה שהיה לפניה: שלוש לשוניות עם שלושה
+   מספרי אריחים שונים, ובלי הקריאה הזאת החץ של הלשונית הקודמת היה נשאר
+   על המסך בלשונית שכולה נכנסת בו. */
+function bindDmScroller(row){
+  const wrap = row.closest('.dm-row-wrap');
+  if (!wrap) return ()=>{};
+
+  // ב-RTL הדפדפנים מודדים ‎scrollLeft‎ כשלילי ככל שגוללים אל הקצה.
+  // ‏sign הופך את שני המקרים למרחק *מההתחלה*, שהוא מה שנמדד כאן.
+  const sign = getComputedStyle(row).direction === 'rtl' ? -1 : 1;
+  const pos = ()=> row.scrollLeft * sign;
+  const max = ()=> row.scrollWidth - row.clientWidth;
+
+  function refresh(){
+    const overflow = max() > 1;
+    wrap.toggleAttribute('data-can-start', overflow && pos() > 1);
+    wrap.toggleAttribute('data-can-end', overflow && pos() < max() - 1);
+    // ‏hidden ולא רק CSS: כפתור שאין לאן לגלול איתו לא צריך להיות ב-DOM
+    // הנגיש. הוא ממילא ‎tabindex="-1"‎ — הגלילה אינה תחנת מקלדת, והאריחים
+    // עצמם (קישורים) כן.
+    wrap.querySelector('.dm-prev').hidden = !wrap.hasAttribute('data-can-start');
+    wrap.querySelector('.dm-next').hidden = !wrap.hasAttribute('data-can-end');
+  }
+
+  wrap.querySelectorAll('.dm-nav').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      // כ-‎80%‎ מהרוחב הנראה: מספיק כדי להתקדם, ומעט מכדי לדלג על אריח
+      const step = Math.max(row.clientWidth * 0.8, 200);
+      row.scrollBy({ left: sign * step * (btn.dataset.dmDir === 'end' ? 1 : -1), behavior:'smooth' });
+    });
+  });
+
+  row.addEventListener('scroll', refresh, { passive:true });
+  window.addEventListener('resize', refresh);
+  // רוחב המסלול משתנה גם בלי ‎resize‎ של החלון — גופן שנטען ומזיז את
+  // הלשוניות, גלגלת אנכית שמופיעה, מעבר בין שתי העמודות ל-760px
+  if ('ResizeObserver' in window) new ResizeObserver(refresh).observe(row);
+
+  refresh();
+  return refresh;
+}
+
 (async function initDealmakers(){
   const section = document.getElementById('dealmakers');
   const row = document.getElementById('dmRow');
@@ -6119,6 +6214,7 @@ function dmFromPro(p){
     return;
   }
 
+  const refreshScroll = bindDmScroller(row);
   const tabs = [...section.querySelectorAll('.dm-tabs button')];
   const searchEl = document.getElementById('dmSearch');
   const quickEl = document.getElementById('dmQuick');
@@ -6283,6 +6379,9 @@ function dmFromPro(p){
     // מעבר לשונית מחזיר את השורה לתחילתה, אחרת הלשונית החדשה נפתחת
     // באמצע הגלילה של הקודמת
     row.scrollLeft = 0;
+    // ...ומיד אחריו מצב החצים נמדד מחדש: מספר האריחים השתנה, ולפעמים גם
+    // התשובה לשאלה אם יש בכלל לאן לגלול
+    refreshScroll();
   }
 
   /* פריטי הניווט "משרדי תיווך" / "מתווכים" / "בעלי מקצוע" הובילו קודם
