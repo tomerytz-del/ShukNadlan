@@ -31,9 +31,9 @@
 
 <section class="page-head">
   <div class="wrap">
-    <span class="kicker">עמוד תשלום</span>
-    <h1>פרטי הלקוח</h1>
-    <p>שלב אחרון לפני המעבר לתשלום. בדקו את הפרטים, אשרו את התקנון, והמשיכו לעמוד הסליקה המאובטח.</p>
+    <span class="kicker" id="headKicker">עמוד תשלום</span>
+    <h1 id="headTitle">פרטי הלקוח</h1>
+    <p id="headLead">שלב אחרון לפני המעבר לתשלום. בדקו את הפרטים, אשרו את התקנון, והמשיכו לעמוד הסליקה המאובטח.</p>
   </div>
 </section>
 
@@ -51,24 +51,24 @@
       <a href="developer-signup.html">כיזם/קבלן</a>.</p>
     </div>
 
-    <h2>מה רוכשים</h2>
-    <div style="border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:22px">
+    <!-- ‏?product=wallet היה כאן עד היום, והוסר. הארנק שייך לסוכן/ת מזוהה,
+         ולכן טעינה נעשית רק מתוך החשבון ב-CRM. כתובת ישנה או מוקלדת ידנית
+         נוחתת כאן, ובמקום טופס תשלום היא מקבלת את הדרך הנכונה. -->
+    <div class="note" id="removedNotice" style="display:none">
+      <p><strong>טעינת ארנק אינה מתבצעת בעמוד הזה.</strong>
+      הארנק נטען מתוך החשבון שלכם, בקטגוריית <b>טעינת ארנק</b> —
+      <a href="crm.html">כניסה לאיזור הסוכנים</a>.
+      לרכישת מנוי: <a href="pricing.html">דף המסלולים</a>.</p>
+    </div>
+
+    <h2 id="buyHead">מה רוכשים</h2>
+    <div id="buyBox" style="border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:22px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
         <div>
-          <strong id="productName">טעינת ארנק</strong>
-          <div style="font-size:.85rem;color:var(--muted)" id="productDesc">הסכום נטען לארנק ומשמש לרכישת לידים, קידום נכסים וכלים שיווקיים.</div>
+          <strong id="productName">מנוי</strong>
+          <div style="font-size:.85rem;color:var(--muted)" id="productDesc">המסלול נפתח לתקופה ששולמה.</div>
         </div>
-        <div id="amountWrap">
-          <label for="amount" style="font-size:.85rem;display:block;margin-bottom:4px">סכום</label>
-          <select id="amount" style="border:1.5px solid var(--line);border-radius:8px;padding:10px 12px;min-width:120px">
-            <option value="100">₪100</option>
-            <option value="200">₪200</option>
-            <option value="300">₪300</option>
-            <option value="400">₪400</option>
-            <option value="500">₪500</option>
-          </select>
-        </div>
-        <div id="monthsWrap" style="display:none">
+        <div id="monthsWrap">
           <label for="months" style="font-size:.85rem;display:block;margin-bottom:4px">תקופה</label>
           <select id="months" style="border:1.5px solid var(--line);border-radius:8px;padding:10px 12px;min-width:120px">
             <option value="1">חודש</option>
@@ -79,14 +79,14 @@
         </div>
       </div>
       <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px;display:flex;justify-content:space-between;font-weight:700">
-        <span>סה״כ לתשלום (כולל מע״מ)</span><span id="total">₪100</span>
+        <span>סה״כ לתשלום (כולל מע״מ)</span><span id="total">—</span>
       </div>
     </div>
 
     <!-- חמשת השדות הראשונים הם בדיוק מה שחברת הסליקה דורשת מעמוד צ'קאאוט:
          שם פרטי, שם משפחה, טלפון **ללא קידומת מדינה**, מדינה ואימייל. הם
          מופרדים ולא מאוחדים ל"שם מלא"/"טלפון" אחד בכוונה — כך זה נבדק. -->
-    <h2>הפרטים שלכם</h2>
+    <h2 id="detailsHead">הפרטים שלכם</h2>
     <form id="checkoutForm" novalidate>
       <div style="display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
         <div>
@@ -192,13 +192,46 @@
    פרטי הכרטיס נמסרים אך ורק בעמוד של חברת הסליקה, ולכן אין כאן ולו שדה אחד
    שנוגע בהם. מה שנאסף כאן משמש לזיהוי, ליצירת קשר ולהנפקת החשבונית.
    ============================================================================ */
+const TIER_LABELS = { mid: 'PROFESSIONAL', premium: 'Elite' };
+
+/* **העמוד משרת מוצר אחד: מנוי.** ‏?product=wallet היה כאן, והוסר — הארנק
+   הוא של סוכן/ת מסוים/ת, והטעינה נעשית רק מתוך החשבון ב-CRM מול JWT מזוהה.
+   החסימה אינה רק ויזואלית: אין יותר בעמוד הזה שום קוד שקורא ל-wallet-topup,
+   ולכן כתובת מוקלדת ידנית לא יכולה לפתוח ממנו סליקת ארנק. כתובת בלי
+   ‏?product הייתה בעבר טעינת ארנק, ולכן היא **אינה** מקבלת ברירת מחדל שקטה
+   של מנוי — היא נחסמת כמו ?product=wallet, ומופנית למקום הנכון.
+   מה שכן מגיע מהכתובת נבדק: ?tier=admin לא מייצר כלום.
+
+   **השער יושב לפני יצירת לקוח ה-Supabase בכוונה.** ה-SDK נטען מ-CDN, ואם
+   הטעינה נכשלת כל מה שאחריה לא רץ — ואז דווקא כתובת הארנק החסומה הייתה
+   מציגה טופס תשלום מלא. כאן זו מניפולציית DOM בלבד, שרצה בכל מקרה. */
+const params  = new URLSearchParams(location.search);
+const isSub   = params.get('product') === 'subscription';
+const subTier = ['mid','premium'].includes(params.get('tier')) ? params.get('tier') : 'mid';
+
+if (isSub){
+  document.getElementById('productName').textContent = 'מנוי ' + TIER_LABELS[subTier];
+  document.getElementById('productDesc').textContent =
+    'המסלול נפתח לתקופה ששולמה. אין כרטיס שמור ואין חיוב אוטומטי — לפני שהתקופה נגמרת תישלח תזכורת לחידוש.';
+  document.title = 'תשלום מנוי ' + TIER_LABELS[subTier] + ' | שוק נדל״ן';
+} else {
+  /* כל מה שאינו מנוי — ובכלל זה טעינת הארנק שהוסרה — לא מקבל כאן טופס. */
+  ['buyHead','buyBox','detailsHead','checkoutForm'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.display = 'none';
+  });
+  document.getElementById('removedNotice').style.display = '';
+  document.getElementById('headKicker').textContent = 'טעינת ארנק';
+  document.getElementById('headTitle').textContent = 'הטעינה נעשית מתוך החשבון';
+  document.getElementById('headLead').textContent =
+    'כדי שהסכום ייזקף לארנק הנכון צריך להיות מחוברים — ולכן הטעינה יושבת באיזור הסוכנים ולא בעמוד פתוח.';
+  document.title = 'טעינת ארנק — מתוך החשבון | שוק נדל״ן';
+}
+
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-const ALLOWED = [100, 200, 300, 400, 500];
-const TIER_LABELS = { mid: 'PROFESSIONAL', premium: 'Elite' };
-const amountEl   = document.getElementById('amount');
 const monthsEl   = document.getElementById('months');
 const totalEl    = document.getElementById('total');
 const ackEl      = document.getElementById('acceptTerms');
@@ -243,15 +276,6 @@ function toLocalPhone(raw){
 }
 function setIfEmpty(el, value){ if (el && !el.value && value) el.value = value; }
 
-/* שני מוצרים על אותו עמוד: טעינת ארנק ומנוי. הסוג מגיע מהכתובת, וכל מה
-   שמגיע משם נבדק — ‏?amount=1 לא אמור לייצר טעינה של שקל, ו-?tier=admin לא
-   אמור לייצר כלום. */
-const params  = new URLSearchParams(location.search);
-const isSub   = params.get('product') === 'subscription';
-const subTier = ['mid','premium'].includes(params.get('tier')) ? params.get('tier') : 'mid';
-
-const urlAmount = Number(params.get('amount'));
-if (ALLOWED.includes(urlAmount)) amountEl.value = String(urlAmount);
 const urlMonths = Number(params.get('months'));
 if ([1,3,6,12].includes(urlMonths)) monthsEl.value = String(urlMonths);
 
@@ -259,10 +283,6 @@ if ([1,3,6,12].includes(urlMonths)) monthsEl.value = String(urlMonths);
    הוא חישוב שקל לכתוב בדפדפן ונכון להיום — ואז שיעור המע״מ משתנה, או המחיר,
    והעמוד מציג סכום אחד בעוד שנגבה אחר. מקור האמת הוא subscription_price. */
 async function paintTotal(){
-  if (!isSub){
-    totalEl.textContent = '₪' + Number(amountEl.value).toLocaleString('he-IL');
-    return;
-  }
   totalEl.textContent = 'מחשבים…';
   try{
     const { data, error } = await sb.rpc('subscription_price',
@@ -273,18 +293,8 @@ async function paintTotal(){
   } catch(err){ console.error(err); totalEl.textContent = '—'; }
 }
 
-if (isSub){
-  document.getElementById('amountWrap').style.display = 'none';
-  document.getElementById('monthsWrap').style.display = '';
-  document.getElementById('productName').textContent = 'מנוי ' + TIER_LABELS[subTier];
-  document.getElementById('productDesc').textContent =
-    'המסלול נפתח לתקופה ששולמה. אין כרטיס שמור ואין חיוב אוטומטי — לפני שהתקופה נגמרת תישלח תזכורת לחידוש.';
-  document.title = 'תשלום מנוי ' + TIER_LABELS[subTier] + ' | שוק נדל״ן';
-}
-
-amountEl.addEventListener('change', paintTotal);
 monthsEl.addEventListener('change', paintTotal);
-paintTotal();
+if (isSub) paintTotal();
 
 /* הכפתור נעול עד סימון התקנון. זו דרישת הסליקה, והיא גם פשוט נכונה: אישור
    שנלחץ בטעות אינו אישור. */
@@ -314,8 +324,9 @@ syncBtn();
 })();
 
 /* מילוי אוטומטי למי שכבר מחובר/ת. אין כאן בדיקת הרשאה — היא נעשית בשרת,
-   ב-wallet-topup, שדורש חשבון סוכן/ת פעיל/ה. */
+   ב-subscription-purchase, שדורש חשבון סוכן/ת פעיל/ה. */
 (async function prefill(){
+  if (!isSub) return;
   try{
     const { data: { session } } = await sb.auth.getSession();
     if (!session){ document.getElementById('guestNotice').style.display = ''; return; }
@@ -340,7 +351,7 @@ syncBtn();
 
 document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
-  const amount = isSub ? null : Number(amountEl.value);
+  if (!isSub) return;          /* הטופס מוסתר בלאו הכי; זו הרצועה השנייה */
   const first = firstEl.value.trim();
   const last  = lastEl.value.trim();
   const email = emailEl.value.trim();
@@ -380,8 +391,8 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
     msgEl.textContent = 'מעבירים להתחברות — הפרטים יישמרו וניתן יהיה להשלים את התשלום מיד אחריה.';
     try{
       sessionStorage.setItem('shuknadlan.checkout', JSON.stringify(
-        { product: isSub ? 'subscription' : 'wallet', tier: subTier,
-          months: Number(monthsEl.value), amount, first_name: first, last_name: last,
+        { product: 'subscription', tier: subTier,
+          months: Number(monthsEl.value), first_name: first, last_name: last,
           email, country: countryEl.value, phone_local: phoneEl.value.trim(), phone,
           business: businessEl.value.trim(), tax_id: taxIdEl.value.trim() }));
     } catch(_){ /* גלישה פרטית — ההתחברות עדיין תעבוד, רק בלי מילוי אוטומטי */ }
@@ -394,9 +405,8 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
   msgEl.textContent = 'פותחים את עמוד התשלום…';
   try{
     const { data: { session } } = await sb.auth.getSession();
-    /* שתי נקודות קצה, אותה תבנית. שתיהן מחזירות redirect_url ולא מאשרות
-       כלום בעצמן — הזיכוי או פתיחת המסלול קורים רק אחרי אימות מול מורנינג. */
-    const endpoint = isSub ? 'subscription-purchase' : 'wallet-topup';
+    /* נקודת קצה אחת. היא מחזירה redirect_url ואינה מאשרת כלום בעצמה —
+       פתיחת המסלול קורית רק אחרי אימות מול מורנינג. */
     /* מה שהוקלד כאן הוא מה שיופיע על החשבונית — כולל ה-ח.פ, שבלעדיו המסמך
        אינו חשבונית לעסק. הסכום, המסלול והזכאות נקבעים בשרת בלבד; מהטופס
        עוברים אך ורק פרטי הזיהוי של הלקוח/ה. */
@@ -407,10 +417,8 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
       client_business: businessEl.value.trim(),
       client_tax_id: taxIdEl.value.trim(),
     };
-    const payload  = isSub
-      ? { tier: subTier, months: Number(monthsEl.value), ...client }
-      : { amount, ...client };
-    const res = await fetch(SUPABASE_URL + '/functions/v1/' + endpoint, {
+    const payload = { tier: subTier, months: Number(monthsEl.value), ...client };
+    const res = await fetch(SUPABASE_URL + '/functions/v1/subscription-purchase', {
       method: 'POST',
       headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY,
                  'Authorization': 'Bearer ' + session.access_token },
@@ -433,7 +441,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
     /* אין redirect_url — כלומר הסליקה עדיין לא מחוברת והשרת פעל במצב בדיקה.
        אומרים את זה במפורש ולא מציגים "שולם". */
     msgEl.style.color = 'var(--blue)';
-    msgEl.textContent = 'הארנק נטען במצב בדיקה, ללא חיוב אמיתי.';
+    msgEl.textContent = 'המסלול נפתח במצב בדיקה, ללא חיוב אמיתי.';
     payBtn.disabled = false;
   } catch(err){
     console.error(err);
