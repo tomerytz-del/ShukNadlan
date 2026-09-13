@@ -75,71 +75,191 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media(min-width:760px){.head-cta{display:inline-flex}}
 
   /* ====== ראש העמוד ======
-     הראש כאן אדום ולא ספיר, וזו ההחלטה היחידה בעמוד הזה שסוטה מהמותג:
-     היריד הוא אירוע עם תאריך סיום, והוא צריך להיקרא כך בשנייה הראשונה.
-     שאר העמוד — האריחים, הכותרות, הפוטר — נשאר בדיוק כמו כל האתר. */
-  .oh-head{
-    background:linear-gradient(160deg,#7d0a1e 0%,var(--open-house,#c8102e) 58%,#e0273f 100%);
-    color:#fff;padding:32px 0 28px;position:relative;overflow:hidden;
-  }
-  .oh-head::after{
-    content:"";position:absolute;inset-inline-start:-90px;bottom:-140px;
-    width:360px;height:360px;border:1px solid rgba(255,255,255,.12);border-radius:50%;
-  }
-  .oh-head-inner{display:flex;align-items:center;gap:20px;flex-wrap:wrap;position:relative;z-index:2}
-  /* ‏flex:none על המעטפת ולא רק על ה-SVG: ‏#fairMark הוא פריט ה-flex,
-     ובלי זה הוא נדחס ע"י הטקסט שלצדו והתווית של הסימן נחתכת בקצה. */
-  .oh-head-mark{flex:none;display:block}
-  .oh-head-mark{box-shadow:0 14px 34px -18px rgba(0,0,0,.7);padding:12px}
-  .oh-head-text{flex:1 1 320px;min-width:0}
-  .oh-head h1{color:#fff;font-size:1.72rem;margin-top:8px}
-  @media(min-width:760px){.oh-head h1{font-size:2.4rem}}
-  .oh-head .eyebrow{color:#ffd9de}
-  .oh-head .eyebrow::before{background:#ffd9de}
-  .oh-head .lede{color:rgba(255,255,255,.9);font-size:.95rem;margin:10px 0 0;max-width:64ch}
-  .oh-head-stats{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
-  .oh-stat{background:rgba(255,255,255,.13);border:1px solid rgba(255,255,255,.3);padding:7px 14px;font-size:.8rem;font-weight:700}
-  .oh-stat b{font-size:1rem}
+     תמונה של נכס אמיתי מהיריד (נבחרת ב-JS מתוך המשתתפים), ומעליה מדרג
+     ספיר כהה שנפתח לשקיפות בצד שמאל — כך הטקסט יושב על כהה מלא ומה
+     שנראה מבעד הוא דירה שבאמת אפשר לקנות כאן היום. בלי תמונה נשאר המדרג
+     לבדו, וזה נראה כמו החלטה ולא כמו תקלה.
 
-  /* ====== איך זה עובד ====== */
-  .section{padding:30px 0}
-  .section-head{margin-bottom:14px}
-  .section-head h2{font-size:1.35rem}
-  .section-head p{margin:5px 0 0;font-size:.84rem;color:var(--ink-soft);max-width:70ch}
-  .oh-steps{display:grid;gap:12px;grid-template-columns:1fr;list-style:none;padding:0;margin:0}
-  @media(min-width:760px){.oh-steps{grid-template-columns:repeat(3,1fr)}}
-  .oh-steps li{background:#fff;border:1px solid var(--line);border-top:3px solid var(--open-house,#c8102e);padding:16px}
-  .oh-steps b{display:block;font-size:.95rem;margin-bottom:5px}
-  .oh-steps span{font-size:.84rem;color:var(--ink-soft);line-height:1.55}
-  .oh-steps .num{
-    display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;
-    background:var(--open-house-tint,#fdecee);color:var(--open-house-deep,#9c0c24);
-    font-weight:800;font-size:.8rem;margin-bottom:8px;
+     הסימן נשאר **הסימן שלנו** — הפין האדום עם הבית והתווית — ומה שנוסף לו
+     כאן הוא רק הילה לבנה רכה מתחתיו: אדום על תצלום כהה מאבד את הקצה, ואת
+     זה ההילה מחזירה בלי לגעת בסימן עצמו. */
+  .oh-head{position:relative;overflow:hidden;background:var(--teal-dark);color:#fff;isolation:isolate}
+  .oh-head-photo{
+    position:absolute;inset:0;z-index:-2;
+    background-size:cover;background-position:center;
+    opacity:0;transition:opacity .8s ease;transform:scale(1.05);
   }
+  .oh-head-photo.is-on{opacity:1}
+  /* ‏to left הוא כיוון פיזי ולא לוגי, ובכוונה: הטקסט יושב מימין (RTL) וצריך
+     שקיפות דווקא בקצה השמאלי. מתחת ל-760px המדרג אטום כמעט לכל הרוחב —
+     שם הטקסט פרוש על כל המסך. */
+  .oh-head::before{
+    content:"";position:absolute;inset:0;z-index:-1;
+    background:linear-gradient(to left,
+      var(--teal-dark) 0%, rgba(13,27,61,.97) 38%, rgba(13,27,61,.86) 62%, rgba(14,42,107,.62) 100%);
+  }
+  @media(min-width:760px){
+    .oh-head::before{
+      background:linear-gradient(to left,
+        var(--teal-dark) 0%, rgba(13,27,61,.95) 34%, rgba(13,27,61,.72) 58%, rgba(14,42,107,.28) 100%);
+    }
+  }
+  /* ‏padding-block ולא ‎padding:34px 0‎ — וזה לא קוסמטיקה: האלמנט נושא גם
+     ‎.wrap‎, שנותן את 18px הריפוד בצדדים, ו-shorthand של padding מאפס אותו.
+     התוצאה בטלפון היא טקסט שנצמד לקצה המסך ונראה חתוך. אותו כלל חל על
+     ‎.section‎ שלמטה — בדף הבית הוא נכתב מלכתחילה כ-padding-block מהסיבה
+     הזו בדיוק. */
+  .oh-head-inner{position:relative;display:flex;align-items:center;gap:22px;flex-wrap:wrap;padding-block:34px 32px}
+  @media(min-width:760px){.oh-head-inner{padding-block:48px 44px;gap:28px}}
+
+  /* ההילה: עיגול רך מתחת לסימן, ולא אריח לבן. הסימן עצמו לא משתנה. */
+  .oh-mark-glow{position:relative;flex:none;display:grid;place-items:center;padding:14px}
+  /* הילה ולא דיסקה: הלובן המלא יושב *מתחת* לסימן בלבד ודועך מהר, אחרת
+     נוצר עיגול אפור שנקרא ככתם על התצלום ולא כאור. ‏inset שלילי מוציא
+     אותה מעבר לקופסה של הסימן, כדי שהקצה שלה יהיה רך ולא חתוך. */
+  .oh-mark-glow::before{
+    content:"";position:absolute;inset:-16%;border-radius:50%;
+    background:radial-gradient(circle at 50% 50%,
+      rgba(255,255,255,.60) 0%, rgba(255,255,255,.34) 34%, rgba(255,255,255,.10) 56%, transparent 72%);
+  }
+  .oh-mark-glow .oh-mark{position:relative;color:var(--open-house,#c8102e)}
+
+  .oh-head-text{flex:1 1 340px;min-width:0}
+  .oh-head .eyebrow{color:#ffd9de;letter-spacing:.1em}
+  .oh-head .eyebrow::before{background:#ffd9de}
+  /* ‏balance מחלק את השורות שווה במקום להשאיר מילה בודדת בשורה שנייה,
+     ו-clamp מוריד את הגודל לפני שהכותרת נשברת באמצע ביטוי. */
+  .oh-head h1{
+    color:#fff;margin-top:10px;line-height:1.16;text-wrap:balance;
+    font-size:clamp(1.55rem, 4.6vw, 2.55rem);
+  }
+  .oh-head .lede{
+    color:rgba(255,255,255,.88);font-size:.95rem;line-height:1.6;
+    margin:12px 0 0;max-width:56ch;text-wrap:pretty;
+  }
+  .oh-head .lede b{color:#fff}
+
+  /* שורת הנתונים: צ׳יפים שלעולם אינם נשברים באמצע (‏nowrap), ושיורדים
+     לשורה הבאה בשלמותם כשאין מקום. הראשון מלא באדום היריד — הוא המספר
+     שבגללו נכנסים לעמוד. */
+  .oh-head-stats{display:flex;flex-wrap:wrap;gap:9px;margin-top:20px}
+  .oh-stat{
+    display:inline-flex;align-items:center;gap:7px;white-space:nowrap;
+    background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.32);
+    padding:9px 16px;font-size:.82rem;font-weight:700;
+  }
+  .oh-stat b{font-size:1.02rem}
+  .oh-stat.is-primary{background:var(--open-house,#c8102e);border-color:var(--open-house,#c8102e)}
+  a.oh-stat.is-primary:hover{background:var(--open-house-deep,#9c0c24)}
+  .oh-stat.is-primary::before{content:"";width:7px;height:7px;border-radius:50%;background:#fff;flex:none}
+  .oh-head-cta{
+    display:inline-flex;align-items:center;gap:8px;white-space:nowrap;margin-top:18px;
+    background:#fff;color:var(--teal-dark);font-weight:800;font-size:.88rem;padding:12px 22px;
+  }
+  .oh-head-cta:hover{background:rgba(255,255,255,.88)}
+
+  /* ====== מקטעים ======
+     ‏padding-block בלבד: המקטעים כאן נושאים ‎class="section wrap"‎ יחד,
+     ו-‎padding:34px 0‎ היה דורס את ריפוד הצדדים של ‎.wrap‎ (ראו למעלה). */
+  .section{padding-block:34px}
+  .section-head{margin-bottom:18px}
+  .section-head h2{font-size:clamp(1.2rem,3vw,1.5rem);text-wrap:balance}
+  .section-head p{margin:7px 0 0;font-size:.86rem;color:var(--ink-soft);max-width:74ch;text-wrap:pretty}
+
+  /* ====== איך היריד עובד ======
+     שלושה כרטיסים, ובכל אחד: אייקון מצויר, מספר שלב כסימן מים, כותרת בשורה
+     אחת וגוף קצר. המספר הוא ‎aria-hidden‎ — הסדר כבר נאמר ב-‎<ol>‎ עצמו,
+     ומקריא מסך ששומע "3" לפני הכותרת שומע רעש. */
+  .oh-steps{display:grid;gap:14px;grid-template-columns:1fr;list-style:none;padding:0;margin:0}
+  @media(min-width:820px){.oh-steps{grid-template-columns:repeat(3,1fr)}}
+  .oh-steps li{
+    position:relative;overflow:hidden;padding:20px 18px 18px;
+    background:linear-gradient(180deg,#fff 0%,#f7f9ff 100%);
+    border:1px solid var(--line);border-top:3px solid var(--open-house,#c8102e);
+  }
+  .oh-step-num{
+    position:absolute;inset-inline-start:10px;top:2px;
+    font-size:3.6rem;font-weight:800;line-height:1;color:rgba(200,16,46,.09);
+    pointer-events:none;
+  }
+  .oh-step-ico{
+    width:44px;height:44px;display:grid;place-items:center;margin-bottom:12px;
+    background:var(--open-house-tint,#fdecee);color:var(--open-house-deep,#9c0c24);
+  }
+  .oh-step-ico svg{width:24px;height:24px}
+  .oh-steps b{display:block;font-size:1rem;line-height:1.35;margin-bottom:6px;text-wrap:balance}
+  .oh-steps span{display:block;font-size:.855rem;color:var(--ink-soft);line-height:1.6;text-wrap:pretty}
 
   /* ====== המפה ======
      אותם אריחים ואותן מחוות של מפת דף הבית, על המשתתפים ביריד בלבד.
      היא יורדת כולה כשלאף משתתף אין קואורדינטות — מפה ריקה של עפולה אינה
      מידע. */
-  .oh-map-wrap{position:relative;border:1px solid var(--line);background:#fff}
+  .oh-map-wrap{position:relative;border:1px solid var(--line);background:#fff;box-shadow:var(--shadow)}
   #fairMap{height:320px;width:100%}
-  @media(min-width:760px){#fairMap{height:420px}}
-  .oh-map-note{font-size:.74rem;color:var(--ink-soft);padding:9px 14px;border-top:1px solid var(--line);display:flex;align-items:center;gap:8px}
+  @media(min-width:760px){#fairMap{height:430px}}
+  .oh-map-note{
+    font-size:.76rem;color:var(--ink-soft);padding:10px 14px;border-top:1px solid var(--line);
+    display:flex;align-items:center;gap:9px;text-wrap:pretty;
+  }
   .oh-map-note .oh-mark{color:var(--open-house,#c8102e)}
 
+  /* ====== ההרשמה לעדכונים ======
+     שתי עמודות במסך רחב: מה מקבלים מימין, והטופס משמאל. הכפתור לעולם אינו
+     נשבר (‏nowrap), והשדה הוא זה שמתכווץ. */
+  .oh-signup{
+    position:relative;overflow:hidden;
+    background:linear-gradient(135deg,var(--teal-dark) 0%,var(--teal) 62%,#123a8f 100%);
+    color:#fff;padding:24px 20px;
+  }
+  @media(min-width:900px){
+    .oh-signup{padding:30px 32px;display:grid;grid-template-columns:1.05fr .95fr;gap:30px;align-items:center}
+  }
+  .oh-signup h2{color:#fff;font-size:clamp(1.15rem,2.6vw,1.4rem);text-wrap:balance}
+  .oh-signup p{margin:9px 0 0;font-size:.87rem;line-height:1.6;color:rgba(255,255,255,.86);max-width:54ch;text-wrap:pretty}
+  .oh-signup-head{display:flex;align-items:center;gap:12px}
+  .oh-signup-head .oh-mark{color:#fff}
+  .oh-signup-form{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}
+  @media(min-width:900px){.oh-signup-form{margin-top:0}}
+  .oh-signup-form input{
+    flex:1 1 240px;min-width:0;border:1.5px solid rgba(255,255,255,.4);background:rgba(255,255,255,.1);
+    color:#fff;padding:13px 14px;font-size:.92rem;
+  }
+  .oh-signup-form input::placeholder{color:rgba(255,255,255,.66)}
+  .oh-signup-form input:focus{outline:none;border-color:#fff;background:rgba(255,255,255,.16)}
+  .oh-signup-form button{
+    flex:0 0 auto;white-space:nowrap;background:var(--open-house,#c8102e);color:#fff;
+    font-weight:800;font-size:.9rem;padding:13px 24px;
+  }
+  .oh-signup-form button:hover{background:var(--open-house-deep,#9c0c24)}
+  .oh-signup-form button[disabled]{opacity:.6;cursor:default}
+  .oh-signup-note{font-size:.74rem;color:rgba(255,255,255,.68);margin:10px 0 0;text-wrap:pretty}
+  .oh-signup-msg{font-size:.84rem;font-weight:700;margin:10px 0 0;min-height:1.2em}
+  .oh-signup-msg[data-state="error"]{color:#ffc9d1}
+  .oh-signup-msg[data-state="ok"]{color:#c9f2dd}
+  /* מצב ההצלחה מחליף את הטופס ולא נוסף מתחתיו: טופס שנשאר על המסך אחרי
+     שנרשמת מזמין הרשמה שנייה של אותו אדם. */
+  .oh-signup-done{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.3);padding:16px 18px;font-size:.9rem;line-height:1.55}
+  .oh-signup-done b{display:block;font-size:1rem;margin-bottom:3px}
+
   /* ====== מצבים ====== */
-  .state{padding:44px 18px;text-align:center;color:var(--ink-soft);font-size:.92rem;background:#fff;border:1px solid var(--line)}
-  .state h2{font-size:1.18rem;margin-bottom:8px}
-  .state .btn{margin-top:14px}
+  .state{padding:44px 20px;text-align:center;color:var(--ink-soft);font-size:.92rem;background:#fff;border:1px solid var(--line)}
+  .state h2{font-size:1.2rem;margin-bottom:8px;text-wrap:balance}
+  .state p{max-width:56ch;margin:0 auto;text-wrap:pretty}
+  .state .btn{margin-top:16px;white-space:nowrap}
 
   /* ====== הזמנה למתווכים ====== */
-  .oh-join{background:var(--teal-dark);color:#fff;padding:22px 18px;display:flex;gap:16px;align-items:center;flex-wrap:wrap}
-  @media(min-width:900px){.oh-join{padding:26px 30px}}
-  .oh-join h2{color:#fff;font-size:1.25rem}
-  .oh-join p{color:rgba(255,255,255,.84);font-size:.86rem;margin:8px 0 0;max-width:64ch}
-  .oh-join-body{flex:1 1 300px;min-width:0}
-  .oh-join .btn{background:#fff;color:var(--teal-dark)}
+  .oh-join{background:var(--teal-dark);color:#fff;padding:24px 20px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  @media(min-width:900px){.oh-join{padding:28px 32px}}
+  .oh-join h2{color:#fff;font-size:clamp(1.1rem,2.4vw,1.3rem);text-wrap:balance}
+  .oh-join p{color:rgba(255,255,255,.84);font-size:.86rem;margin:9px 0 0;max-width:66ch;line-height:1.6;text-wrap:pretty}
+  .oh-join-body{flex:1 1 320px;min-width:0}
+  .oh-join .btn{background:#fff;color:var(--teal-dark);white-space:nowrap}
   .oh-join .btn:hover{background:rgba(255,255,255,.88)}
+
+  /* תווית שנשמעת ואינה נראית — לשדה האימייל, שה-placeholder שלו הוא לא
+     תווית (הוא נעלם ברגע שמקלידים). */
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
 
   /* המדף נבנה ב-assets/prop-shelf.js, בדיוק כמו בדף הבית ובדף המשרד */
   .pp-grid{margin-top:4px}
@@ -176,25 +296,37 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <main id="main">
 
-  <!-- ====== ראש העמוד ====== -->
+  <!-- ====== ראש העמוד ======
+       התמונה שברקע היא נכס אמיתי מהיריד, ונבחרת ב-JS מתוך המשתתפים
+       (‏pickHeroPhoto). לא צילום מלאי: מה שנראה מבעד למדרג הוא דירה שאפשר
+       לקנות היום בלי עמלת תיווך, וזו בדיוק ההבטחה של העמוד.
+       הסימן הוא הסימן שלנו — הפין האדום — ומעליו רק הילה רכה שמחזירה לו
+       את הקצה על רקע כהה. -->
   <section class="oh-head">
+    <div class="oh-head-photo" id="fairHeroPhoto" aria-hidden="true"></div>
     <div class="wrap oh-head-inner">
-      <span class="oh-head-mark oh-tile" id="fairMark" aria-hidden="true"></span>
+      <span class="oh-mark-glow" id="fairMark" aria-hidden="true"></span>
       <div class="oh-head-text">
         <p class="eyebrow">יריד הבתים הפתוחים</p>
         <h1>דירות שמוצעות עכשיו ללא עמלת תיווך</h1>
-        <p class="lede">מתווכים בעפולה והעמק מכניסים נכסים ליריד לתקופה קצובה, ובתקופה הזו הנכס מוצע <b>ללא עמלת תיווך לקונה</b>. כל נכס והחלון שלו — מה שרואים כאן הוא מה שפתוח היום.</p>
+        <p class="lede">מתווכים בעפולה והעמק מכניסים נכסים ליריד לתקופה קצובה, ובתקופה הזו הנכס מוצע <b>ללא עמלת תיווך לקונה</b>. לכל נכס החלון שלו — ומה שמוצג כאן הוא מה שפתוח היום.</p>
+        <!-- הצ׳יפ הראשון הוא עצמו הקישור לנכסים: כפתור נפרד שאומר את אותו
+             דבר מיד מתחת למספר הוא שורה שנייה שלא מוסיפה כלום. הפעולה
+             השנייה — ההרשמה — היא זו שמגיעה לה שורה משלה, כי היא מדברת אל
+             מי שדווקא *לא* מצא/ה כאן נכס היום. -->
         <div class="oh-head-stats" id="fairStats" hidden>
-          <span class="oh-stat" id="fairStatCount"></span>
+          <a class="oh-stat is-primary" id="fairStatCount" href="#fairProps"></a>
           <span class="oh-stat" id="fairStatSoon" hidden></span>
         </div>
+        <a class="oh-head-cta" href="#fairSignup">עדכנו אותי כשנכנס נכס חדש ←</a>
       </div>
     </div>
   </section>
 
-  <!-- ====== איך זה עובד ======
+  <!-- ====== איך היריד עובד ======
        שלוש שורות, כי זו ההבטחה שהכי קל לא להאמין לה: מה מקבלים, ממי,
-       ועד מתי. ה"עד מתי" הוא לא אותיות קטנות — הוא חצי מהמוצר. -->
+       ועד מתי. ה"עד מתי" הוא לא אותיות קטנות — הוא חצי מהמוצר.
+       המספרים הם סימן מים ‎aria-hidden‎: הסדר כבר נאמר ב-<ol>. -->
   <section class="section wrap" aria-labelledby="fairHowTitle">
     <div class="section-head">
       <h2 id="fairHowTitle">איך היריד עובד</h2>
@@ -202,17 +334,36 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
     <ol class="oh-steps">
       <li>
-        <span class="num">1</span>
+        <span class="oh-step-num" aria-hidden="true">1</span>
+        <span class="oh-step-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3.5 11 12 4l8.5 7"></path><path d="M5.6 12.4V20h12.8v-7.6"></path>
+            <path d="M10 20v-5.2h4V20"></path>
+          </svg>
+        </span>
         <b>המתווך/ת מכניס/ה נכס ליריד</b>
-        <span>בתוך המערכת, על נכס קיים, עם תאריך התחלה ותאריך סיום. אותו נכס ממשיך להיות מפורסם כרגיל — היריד מוסיף עליו, לא מחליף אותו.</span>
+        <span>בתוך המערכת, על נכס קיים, עם תאריך התחלה ותאריך סיום. הנכס ממשיך להיות מפורסם כרגיל — היריד מוסיף עליו ולא מחליף אותו.</span>
       </li>
       <li>
-        <span class="num">2</span>
+        <span class="oh-step-num" aria-hidden="true">2</span>
+        <span class="oh-step-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2.6" y="6.2" width="18.8" height="11.6" rx="1.6"></rect>
+            <circle cx="12" cy="12" r="2.6"></circle><path d="M4.3 20.6 19.7 3.4"></path>
+          </svg>
+        </span>
         <b>הקונה לא משלם עמלת תיווך</b>
         <span>בתוך התקופה שהוגדרה, הנכס מוצע לקונים ללא עמלת תיווך. המוכר/ת ממשיך/ה בהתקשרות שלו/ה עם המשרד כרגיל.</span>
       </li>
       <li>
-        <span class="num">3</span>
+        <span class="oh-step-num" aria-hidden="true">3</span>
+        <span class="oh-step-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3.2" y="4.8" width="17.6" height="15.4" rx="1.6"></rect>
+            <path d="M3.2 9.4h17.6"></path><path d="M8 3.2v3.2M16 3.2v3.2"></path>
+            <path d="M10.2 13.6 14 17.4M14 13.6l-3.8 3.8"></path>
+          </svg>
+        </span>
         <b>בתום התקופה הנכס יוצא מהיריד</b>
         <span>אוטומטית, בלי שאיש צריך לזכור. מהרגע הזה הנכס חוזר לתנאים הרגילים של המשרד, ואינו מוצג עוד בעמוד הזה.</span>
       </li>
@@ -240,8 +391,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <section class="section wrap" id="fairEmptyWrap" hidden>
     <div class="state" id="fairEmpty">
       <h2>היריד סגור כרגע</h2>
-      <p>אין כרגע נכסים שמוצעים ללא עמלת תיווך. היריד נפתח מחדש בכל פעם שמתווך/ת מכניס/ה אליו נכס — וזה קורה לעתים קרובות.</p>
-      <a class="btn btn-teal" href="index.html#privateProps">לכל הנכסים באתר ←</a>
+      <p>אין כרגע נכסים שמוצעים ללא עמלת תיווך. היריד נפתח מחדש בכל פעם שמתווך/ת מכניס/ה אליו נכס — השאירו אימייל ותהיו הראשונים לדעת.</p>
+      <a class="btn btn-teal" href="#fairSignup">להרשמה לעדכונים ←</a>
     </div>
   </section>
 
@@ -250,6 +401,42 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <h2>לא הצלחנו לטעון את היריד</h2>
       <p>נסו לרענן את העמוד. אם זה חוזר, כל הנכסים באתר ממשיכים להיות זמינים כרגיל.</p>
       <a class="btn btn-teal" href="index.html#privateProps">לכל הנכסים באתר ←</a>
+    </div>
+  </section>
+
+  <!-- ====== להיות הראשונים לדעת ======
+       היריד הוא אירוע: יש ימים עם שבעה נכסים ויש ימים בלי אף אחד, ומי
+       שנכנס ביום שקט אין לו מה לעשות כאן. ההרשמה היא מה שהופכת את היום
+       השקט לנקודת פתיחה.
+
+       השליחה היא אל open-house-subscribe — רשימה נפרדת מרשימת התפוצה
+       הכללית, כי היא מבטיחה דבר אחר לגמרי: התראה על אירוע מסוים ולא
+       סיכום תקופתי. ראו docs/open-house-fair.md. -->
+  <section class="section wrap" id="fairSignup" aria-labelledby="fairSignupTitle">
+    <div class="oh-signup">
+      <div>
+        <div class="oh-signup-head">
+          <span id="fairSignupMark" aria-hidden="true"></span>
+          <h2 id="fairSignupTitle">ראשונים לדעת על דירה בלי עמלת תיווך</h2>
+        </div>
+        <p>נכס נכנס ליריד לתקופה קצובה, ולפעמים קצרה. השאירו אימייל, ונעדכן אתכם ברגע שנכס חדש מצטרף — בלי עלות ובלי התחייבות.</p>
+      </div>
+      <div>
+        <form class="oh-signup-form" id="fairSignupForm" novalidate>
+          <label class="sr-only" for="fairSignupEmail">אימייל</label>
+          <input type="email" id="fairSignupEmail" name="email" inputmode="email" autocomplete="email"
+                 dir="ltr" placeholder="you@example.com" required>
+          <button type="submit" id="fairSignupBtn">עדכנו אותי</button>
+        </form>
+        <p class="oh-signup-msg" id="fairSignupMsg" role="status" aria-live="polite"></p>
+        <!-- מחליף את הטופס במקומו, מעל ההערה ולא מתחתיה: אישור שמופיע אחרי
+             האותיות הקטנות נראה כמו עוד שורה של אותיות קטנות. -->
+        <div class="oh-signup-done" id="fairSignupDone" hidden>
+          <span id="fairSignupDoneMark" aria-hidden="true"></span>
+          <span><b>נרשמתם</b>שלחנו לכם מייל אישור. העדכון הבא יגיע ברגע שנכס נכנס ליריד.</span>
+        </div>
+        <p class="oh-signup-note">רק עדכוני יריד — לא ניוזלטר, לא פרסומות. אפשר להסיר את עצמכם מקישור שבכל הודעה.</p>
+      </div>
     </div>
   </section>
 
@@ -615,9 +802,11 @@ const el = id => document.getElementById(id);
 const escAttr = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
   .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-/* הסימן בראש העמוד ובהערת המפה — אותו SVG, שני גדלים */
-el('fairMark').innerHTML    = OpenHouse.icon({ size:96 });
-el('fairMapMark').innerHTML = OpenHouse.icon({ size:22 });
+/* אותו סימן בארבעה מקומות בעמוד, בארבעה גדלים — ולא ארבעה קבצים */
+el('fairMark').innerHTML          = OpenHouse.icon({ size:104 });
+el('fairMapMark').innerHTML       = OpenHouse.icon({ size:22 });
+el('fairSignupMark').innerHTML    = OpenHouse.icon({ size:34 });
+el('fairSignupDoneMark').innerHTML= OpenHouse.icon({ size:30 });
 
 /* ---------- הנכסים ----------
    אותן עמודות שדף הבית שולף לאריח: בלעדיהן האריח מציג נכס בלי שורת
@@ -673,15 +862,15 @@ function renderFairStats(list){
   const stats = el('fairStats');
   if (!list.length){ stats.hidden = true; return; }
   el('fairStatCount').innerHTML = list.length > 1
-    ? `<b>${list.length.toLocaleString('he-IL')}</b> נכסים ללא עמלת תיווך`
-    : '<b>נכס אחד</b> ללא עמלת תיווך';
+    ? `<b>${list.length.toLocaleString('he-IL')}</b> נכסים ביריד עכשיו`
+    : '<b>נכס אחד</b> ביריד עכשיו';
 
   // "הראשון יוצא…" הוא הדחיפות האמיתית של היריד, והוא נלקח מהנכס שהחלון
   // שלו נגמר ראשון — לא מתאריך כללי, שאין כזה: לכל נכס חלון משלו.
   const soonest = list.reduce((a, b) =>
     OpenHouse.endsAt(a) <= OpenHouse.endsAt(b) ? a : b);
   const soon = el('fairStatSoon');
-  soon.textContent = 'הנכס הראשון יוצא מהיריד ' + OpenHouse.endLabel(soonest);
+  soon.textContent = 'הראשון יוצא ' + OpenHouse.endLabel(soonest);
   soon.hidden = false;
   stats.hidden = false;
 }
@@ -741,6 +930,89 @@ function renderFairMap(list){
   else map.fitBounds(bounds, { padding:[34, 34] });
 }
 
+/* ---------- תמונת הראש ----------
+   נבחרת מתוך המשתתפים עצמם ולא מקובץ מלאי: מה שנראה מבעד למדרג הוא דירה
+   שאפשר לקנות היום בלי עמלת תיווך. הנכס המקודם קודם (הוא כבר שילם על
+   הבלטה), ואחריו הראשון עם תמונה.
+
+   הציור נעשה רק אחרי שהתמונה נטענה בפועל (‏Image() מקדים): ‏background-image
+   שנכשל משאיר מדרג כהה ותו לא — וזה בדיוק מה שקורה גם כשאין תמונה כלל,
+   כלומר אין מצב שבו הראש נראה שבור. */
+function pickHeroPhoto(list){
+  const withPhoto = list.filter(p => Array.isArray(p.images)
+    && typeof p.images[0] === 'string' && /^https?:\/\//i.test(p.images[0].trim()));
+  if (!withPhoto.length) return;
+  const chosen = withPhoto.find(p => p.is_promoted) || withPhoto[0];
+  const url = chosen.images[0].trim();
+  const host = el('fairHeroPhoto');
+  const img = new Image();
+  img.onload = () => {
+    host.style.backgroundImage = `url("${url.replace(/"/g, '%22')}")`;
+    host.classList.add('is-on');
+  };
+  img.src = url;
+}
+
+/* ---------- ההרשמה לעדכונים ----------
+   רשימה נפרדת מרשימת התפוצה הכללית (‏docs/newsletter.md), כי היא מבטיחה
+   דבר אחר: התראה על אירוע — נכס שנכנס ליריד — ולא סיכום תקופתי.
+
+   ‏duplicate=true הוא הצלחה ולא שגיאה: מבחינת מי שהקליד/ה, הוא/היא רשום/ה.
+   הטופס מוחלף במצב "נרשמתם" ולא נשאר על המסך — טופס שנשאר מזמין הרשמה
+   שנייה של אותו אדם. */
+const SUBSCRIBE_URL = SUPABASE_URL + '/functions/v1/open-house-subscribe';
+
+const signupForm = el('fairSignupForm');
+signupForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = el('fairSignupEmail');
+  const btn = el('fairSignupBtn');
+  const msg = el('fairSignupMsg');
+  const email = input.value.trim();
+
+  // אותה בדיקה שבשרת, כדי שכתובת פסולה תיעצר לפני הקריאה ולא אחריה
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    msg.dataset.state = 'error';
+    msg.textContent = 'כתובת האימייל לא נראית תקינה';
+    input.focus();
+    return;
+  }
+
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = 'רגע…';
+  msg.textContent = '';
+  msg.removeAttribute('data-state');
+
+  try{
+    const res = await fetch(SUBSCRIBE_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({ email, source:'open_house_page' }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.error){
+      throw new Error(data.error === 'invalid_email'
+        ? 'כתובת האימייל לא נראית תקינה'
+        : 'ההרשמה נכשלה — נסו שוב בעוד רגע');
+    }
+    signupForm.hidden = true;
+    msg.textContent = '';
+    const done = el('fairSignupDone');
+    done.querySelector('b').textContent = data.duplicate ? 'אתם כבר ברשימה' : 'נרשמתם';
+    done.lastElementChild.lastChild.textContent = data.duplicate
+      ? 'הכתובת הזו כבר רשומה אצלנו — נעדכן אתכם ברגע שנכס נכנס ליריד.'
+      : 'שלחנו לכם מייל אישור. העדכון הבא יגיע ברגע שנכס נכנס ליריד.';
+    done.hidden = false;
+  } catch(err){
+    msg.dataset.state = 'error';
+    msg.textContent = err.message || 'ההרשמה נכשלה — נסו שוב בעוד רגע';
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+});
+
 /* ---------- הרכבה ---------- */
 (async function initFair(){
   try{
@@ -750,6 +1022,7 @@ function renderFairMap(list){
       return;
     }
     renderFairStats(list);
+    pickHeroPhoto(list);
     fairShelf.set(list);
     renderFairMap(list);
   } catch(e){
