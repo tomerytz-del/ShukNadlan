@@ -1978,49 +1978,54 @@
   }
   .dm-row::-webkit-scrollbar{display:none}
 
-  /* ====== גלילת המסלול ======
+  /* ====== גלילת שורה אופקית — מעטפת אחת לשתי הרצועות ======
+     גם מסלול האנשים וגם קרוסלת הכתבות גוללים אופקית, ובשתיהן בדסקטופ
+     אין דרך לגלול בעכבר: הגלגלת האופקית לא קיימת שם, ומה שנחתך בקצה
+     היה בלתי-נגיש. ‏‎.row-scroller‎ היא אותה מעטפת לשתיהן — מי שמוסיף
+     רצועה שלישית עוטף אותה בה וקורא ל-‎bindRowScroller‎, ולא מעתיק.
+
      ‏data-can-start/‎data-can-end על המעטפת הם המקור היחיד לאמת: הם
      מדליקים גם את הדהייה וגם את החצים, ו-‎refresh()‎ קובע אותם לפי מצב
-     הגלילה בפועל — כך אין חץ מזויף כשכל האריחים נכנסים במסך, והם
-     מתעדכנים גם כשהתוכן מתחלף (לשונית, חיפוש, בורר התמחות).
+     הגלילה בפועל — כך אין חץ מזויף כשכל התוכן נכנס במסך, והם מתעדכנים
+     גם כשהתוכן מתחלף (לשונית, חיפוש, בורר התמחות).
 
-     הדהייה היא ‎mask-image‎ על השורה ולא גרדיאנט בצבע הרקע: הבמה כאן
-     חצי-שקופה מעל הרקע הזורם של הדף, וכתם אטום מעליה נראה כמו טלאי.
-     הכיוון פיזי במכוון — הדף ‎dir="rtl"‎, כלומר תחילת השורה בימין. */
-  .dm-row-wrap{position:relative;min-width:0}
-  .dm-row-wrap[data-can-end] .dm-row{
+     הדהייה היא ‎mask-image‎ על השורה ולא גרדיאנט בצבע הרקע: הרקע של הדף
+     זורם (‏page-bg.js), וכתם אטום מעליו נראה כמו טלאי. הכיוון פיזי
+     במכוון — הדף ‎dir="rtl"‎, כלומר תחילת השורה בימין. */
+  .row-scroller{position:relative;min-width:0}
+  .row-scroller[data-can-end] > .row-track{
     -webkit-mask-image:linear-gradient(to right,transparent 0,#000 42px);
     mask-image:linear-gradient(to right,transparent 0,#000 42px);
   }
-  .dm-row-wrap[data-can-start] .dm-row{
+  .row-scroller[data-can-start] > .row-track{
     -webkit-mask-image:linear-gradient(to left,transparent 0,#000 42px);
     mask-image:linear-gradient(to left,transparent 0,#000 42px);
   }
-  .dm-row-wrap[data-can-start][data-can-end] .dm-row{
+  .row-scroller[data-can-start][data-can-end] > .row-track{
     -webkit-mask-image:linear-gradient(to right,transparent 0,#000 42px,#000 calc(100% - 42px),transparent 100%);
     mask-image:linear-gradient(to right,transparent 0,#000 42px,#000 calc(100% - 42px),transparent 100%);
   }
-  .dm-nav{
+  .row-nav{
     position:absolute;top:50%;transform:translateY(-50%);z-index:2;
     width:36px;height:36px;display:none;place-items:center;
     border:1.5px solid var(--line);background:var(--paper-raised);color:var(--ink);
     border-radius:0;padding:0;cursor:pointer;
     box-shadow:var(--shadow-sm);transition:border-color .15s ease,color .15s ease;
   }
-  .dm-nav svg{width:18px;height:18px;display:block}
-  .dm-nav:hover{border-color:var(--teal);color:var(--teal)}
-  .dm-prev{inset-inline-start:0}
-  .dm-next{inset-inline-end:0}
+  .row-nav svg{width:18px;height:18px;display:block}
+  .row-nav:hover{border-color:var(--teal);color:var(--teal)}
+  .row-prev{inset-inline-start:0}
+  .row-next{inset-inline-end:0}
   /* הנתיב מצייר ‎‹‎ (שמאלה) — הכיוון שאליו השורה ממשיכה ב-RTL. חץ ההתחלה,
      שיושב בימין ומחזיר אחורה, הוא אותו נתיב מסובב. */
-  .dm-prev svg{transform:rotate(180deg)}
+  .row-prev svg{transform:rotate(180deg)}
   /* רק במכשיר עם עכבר: באצבע ההחלקה עצמה היא הפעולה, וכפתור שיושב מעל
-     האריח שבקצה רק גונב ממנו לחיצות. */
+     הכרטיס שבקצה רק גונב ממנו לחיצות. */
   @media(hover:hover) and (pointer:fine){
-    .dm-row-wrap[data-can-start] .dm-prev,
-    .dm-row-wrap[data-can-end] .dm-next{display:grid}
+    .row-scroller[data-can-start] .row-prev,
+    .row-scroller[data-can-end] .row-next{display:grid}
   }
-  .dm-nav[hidden]{display:none}
+  .row-nav[hidden]{display:none}
 
   /* תיבת החיפוש — קובייה קבועה, בגודל אריח מלא ובצבע הפוך לאריחים שלצידה,
      כדי שתיקרא כפעולה ולא כאריח נוסף ברצועה. */
@@ -2361,7 +2366,7 @@
     #articles{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:baseline}
     #articles .articles-head{grid-area:1 / 1}
     #articles .articles-all{grid-area:1 / 2;margin:0}
-    #articles .article-scroll{grid-column:1 / -1}
+    #articles .article-scroll-wrap{grid-column:1 / -1}
     .article-scroll{--row-gap:16px;--row-peek:24px}
     /* בדסקטופ הכרטיס לא צריך שני שליש מסך, אבל הרוחב נשאר כזה שהכרטיס
        הבא תמיד נחתך בקצה המסלול — כך הרצועה נקראת כקרוסלה ולא כגריד. */
@@ -3662,12 +3667,12 @@
              אותה מעטפת בדיוק של שורת התגיות במדף הנכסים
              (‏.pp-tags-wrap ב-assets/prop-shelf.css): דהייה בקצה שאומרת
              שיש עוד, ומעליה חץ לחיץ. -->
-        <div class="dm-row-wrap" id="dmRowWrap">
-          <div class="dm-row" id="dmRow" role="tabpanel" aria-labelledby="dmTabAgencies"></div>
-          <button type="button" class="dm-nav dm-prev" data-dm-dir="start" tabindex="-1" aria-hidden="true" hidden>
+        <div class="dm-row-wrap row-scroller" id="dmRowWrap">
+          <div class="dm-row row-track" id="dmRow" role="tabpanel" aria-labelledby="dmTabAgencies"></div>
+          <button type="button" class="row-nav row-prev" data-row-dir="start" tabindex="-1" aria-hidden="true" hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
           </button>
-          <button type="button" class="dm-nav dm-next" data-dm-dir="end" tabindex="-1" aria-hidden="true" hidden>
+          <button type="button" class="row-nav row-next" data-row-dir="end" tabindex="-1" aria-hidden="true" hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
           </button>
         </div>
@@ -3808,7 +3813,17 @@
         <h2>כתבות ובלוגים</h2>
       </div>
     </div>
-    <div class="article-scroll" id="articlesScroll"><!-- populated by JS --></div>
+    <!-- אותה מעטפת של מסלול האנשים (‏.row-scroller): דהייה בקצה ושני
+         חצים, כי גם כאן בדסקטופ אין דרך לגלול בעכבר. -->
+    <div class="article-scroll-wrap row-scroller" id="articlesScrollWrap">
+      <div class="article-scroll row-track" id="articlesScroll"><!-- populated by JS --></div>
+      <button type="button" class="row-nav row-prev" data-row-dir="start" tabindex="-1" aria-hidden="true" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
+      </button>
+      <button type="button" class="row-nav row-next" data-row-dir="end" tabindex="-1" aria-hidden="true" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
+      </button>
+    </div>
     <!-- הקישור הוא אח של הרצועה ולא ילד של הכותרת: בטלפון הוא חותם את
          הסקציה בפינה השמאלית התחתונה, ומ-760px ומעלה הגריד שב ומרים אותו
          לשורת הכותרת (ראו ‎#articles‎ ב-CSS). קישור אחד, שני מקומות. -->
@@ -5967,6 +5982,9 @@ async function loadArticles(){
 (async function initArticles(){
   const el = document.getElementById('articlesScroll');
   if (!el) return;
+  // המעטפת נקשרת לפני הטעינה, והמדידה נעשית אחריה: הכרטיסים מגיעים
+  // מהמסד, וברגע הקשירה השורה עדיין ריקה — כלומר "אין לאן לגלול".
+  const refreshScroll = bindRowScroller(el);
   const articles = await loadArticles();
   articles.forEach((a, i)=>{
     const card = document.createElement(a.url ? 'a' : 'article');
@@ -5993,6 +6011,7 @@ async function loadArticles(){
       </div>`;
     el.appendChild(card);
   });
+  refreshScroll();
 })();
 
 
@@ -6143,17 +6162,18 @@ function dmFromPro(p){
   };
 }
 
-/* ---------- גלילת מסלול האנשים ----------
-   אותו מנגנון של שורת התגיות במדף הנכסים (‏bindTagsScroller ב-
-   assets/prop-shelf.js), על אותם ‎data-can-start/‎data-can-end: החצים
-   והדהייה נדלקים רק כשיש באמת לאן לגלול.
+/* ---------- גלילת שורה אופקית ----------
+   אחד לשתי הרצועות של הדף — מסלול האנשים וקרוסלת הכתבות. אותו מנגנון של
+   שורת התגיות במדף הנכסים (‏bindTagsScroller ב-assets/prop-shelf.js), על
+   אותם ‎data-can-start/‎data-can-end: החצים והדהייה נדלקים רק כשיש באמת
+   לאן לגלול.
 
-   ‏refresh מוחזר לקורא כי התוכן כאן מתחלף — לשונית, חיפוש, בורר התמחות —
-   ומצב הגלילה אחרי החלפה אינו מה שהיה לפניה: שלוש לשוניות עם שלושה
-   מספרי אריחים שונים, ובלי הקריאה הזאת החץ של הלשונית הקודמת היה נשאר
-   על המסך בלשונית שכולה נכנסת בו. */
-function bindDmScroller(row){
-  const wrap = row.closest('.dm-row-wrap');
+   ‏refresh מוחזר לקורא כי התוכן מתחלף אחרי האתחול — לשונית, חיפוש ובורר
+   בסקציית האנשים, וטעינת הכתבות מהמסד בקרוסלה. מצב הגלילה אחרי החלפה
+   אינו מה שהיה לפניה, ובלי הקריאה הזאת החץ של המצב הקודם היה נשאר על
+   המסך בתוכן שכולו נכנס בו. */
+function bindRowScroller(row){
+  const wrap = row.closest('.row-scroller');
   if (!wrap) return ()=>{};
 
   // ב-RTL הדפדפנים מודדים ‎scrollLeft‎ כשלילי ככל שגוללים אל הקצה.
@@ -6169,15 +6189,15 @@ function bindDmScroller(row){
     // ‏hidden ולא רק CSS: כפתור שאין לאן לגלול איתו לא צריך להיות ב-DOM
     // הנגיש. הוא ממילא ‎tabindex="-1"‎ — הגלילה אינה תחנת מקלדת, והאריחים
     // עצמם (קישורים) כן.
-    wrap.querySelector('.dm-prev').hidden = !wrap.hasAttribute('data-can-start');
-    wrap.querySelector('.dm-next').hidden = !wrap.hasAttribute('data-can-end');
+    wrap.querySelector('.row-prev').hidden = !wrap.hasAttribute('data-can-start');
+    wrap.querySelector('.row-next').hidden = !wrap.hasAttribute('data-can-end');
   }
 
-  wrap.querySelectorAll('.dm-nav').forEach(btn=>{
+  wrap.querySelectorAll('.row-nav').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      // כ-‎80%‎ מהרוחב הנראה: מספיק כדי להתקדם, ומעט מכדי לדלג על אריח
+      // כ-‎80%‎ מהרוחב הנראה: מספיק כדי להתקדם, ומעט מכדי לדלג על כרטיס
       const step = Math.max(row.clientWidth * 0.8, 200);
-      row.scrollBy({ left: sign * step * (btn.dataset.dmDir === 'end' ? 1 : -1), behavior:'smooth' });
+      row.scrollBy({ left: sign * step * (btn.dataset.rowDir === 'end' ? 1 : -1), behavior:'smooth' });
     });
   });
 
@@ -6214,7 +6234,7 @@ function bindDmScroller(row){
     return;
   }
 
-  const refreshScroll = bindDmScroller(row);
+  const refreshScroll = bindRowScroller(row);
   const tabs = [...section.querySelectorAll('.dm-tabs button')];
   const searchEl = document.getElementById('dmSearch');
   const quickEl = document.getElementById('dmQuick');
