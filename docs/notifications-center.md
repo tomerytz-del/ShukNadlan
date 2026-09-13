@@ -19,6 +19,7 @@
 | --- | --- |
 | `supabase/migrations/20260906090000_notification_center.sql` | הסוגים החדשים, טבלת ההעדפות, טריגר הסינון ושני טריגרי ההתראה |
 | `supabase/migrations/20261029090000_assistant_scope_and_notification_push.sql` | `whatsapp_types`, יומן המשלוח ומנגנון הדחיפה לוואטסאפ |
+| `supabase/migrations/20261101090000_reminder_log_holds.sql` | ‏`notification_push_log_holds`: שורת יומן שלא יצאה אינה מבליעה את ההתראות שבתוכה |
 | `supabase/functions/notification-push/index.ts` | ההודעה המקובצת שיוצאת בוואטסאפ |
 | `crm.html` → הפעמון | פס צדדי לפי סוג, ניווט לפי סוג, קיצור "⚙ ניהול" |
 | `crm.html` → "ניהול התראות" | שתי תיבות סימון לכל סוג — בפעמון, וגם בוואטסאפ |

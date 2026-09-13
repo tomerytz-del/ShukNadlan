@@ -44,6 +44,7 @@ notifications (טריגר במסד)  ──►  pg_cron כל 5 דק׳  ──►
 | `supabase/functions/notification-push/index.ts` | הכיוון ההפוך: התראות הפעמון יוצאות בוואטסאפ |
 | `supabase/migrations/20260824090000_whatsapp_integration.sql` | טבלאות + זיהוי לפי טלפון |
 | `supabase/migrations/20261029090000_assistant_scope_and_notification_push.sql` | פונקציות הלקוחות וההתאמות לשרת, ומנגנון דחיפת ההתראות |
+| `supabase/migrations/20261101090000_reminder_log_holds.sql` | ‏`notification_push_log_holds` ו-`notification_push_reconcile`: שורה שלא יצאה אינה חוסמת |
 
 ---
 
@@ -339,6 +340,33 @@ update public.agency_members set phone = '050-1234567' where id = '<agent-uuid>'
 מכבה ומנקה את תיבת הוואטסאפ יחד עם הפעמון, והכלי בצ'אט מחזיר
 `muted_conflict` ואומר את זה במשפט.
 
+### שורת יומן שלא יצאה אינה מבליעה את ההתראות שבתוכה
+
+‏`notification_push_claim` רושמת את שורת היומן **לפני** השליחה, וזה נכון —
+זה מה שמונע הודעה כפולה. אבל הקריאה אליה נכשלת מדי פעם ב-504 מה-gateway,
+ו-504 אומר שה-gateway ויתר, לא שה-`INSERT` לא נסגר. השורה שנשארת מכילה
+`notification_ids`, וה-`not exists` שמונע כפילות היה מסתכל על *קיום* השורה
+בלבד — כלומר ההתראות שבתוכה לא היו נכללות בשום הודעה עתידית. **לנצח.**
+
+מאז `20261101090000` הפרדיקט הוא `notification_push_log_holds`: שורה חוסמת
+רק אם היא `sent`, או `pending` בתוך חסד של 30 דקות
+(`notif_push_pending_grace_minutes`). שורה שנכשלה, או שנתקעה מעבר לחסד,
+משחררת את ההתראות שבתוכה לסבב הבא.
+
+שלוש נקודות שקל לפספס:
+
+- **אותו פרדיקט בדיוק ב-`notification_push_ready`.** אילו התנאי של ה-cron
+  היה רחב מזה של ה-claim היינו מעירים Edge Function לשווא; אילו היה צר
+  ממנו, ה-cron היה שותק כשיש עבודה.
+- **החסד הוא זמן ולא סטטוס.** אחרת: שורה תקועה חוסמת → `ready()` מחזירה
+  false → ה-cron לא מעיר → ה-`reconcile` שאמור לשחרר לא רץ לעולם.
+  ‏`notification_push_reconcile()` רצה בפתיחת כל claim, אבל לרישום בלבד.
+- **‏`max(created_at)` ב-`notification_push_due_agents` נשאר על כל השורות**,
+  בשונה מהתזכורות. המרווח כאן הוא עשר דקות, ושורה תקועה שמעכבת עשר דקות
+  היא בדיוק ההפוגה שרצינו בין שני ניסיונות. רק התקרה היומית מסוננת, כדי
+  שכשלים לא יאכלו את שתים-עשרה ההודעות המותרות — ו-`notif_push_max_failures_24h`
+  (3) עוצר ערוץ ששבור באמת.
+
 ### טקסט חופשי או תבנית
 
 | מתי | מה נשלח | עלות |
@@ -545,6 +573,9 @@ python scripts/whatsapp_webhook_test.py text "תעלה נכס באבן גביר�
 | `notification-push` מחזירה 503 | `ALERT_CRON_SECRET` אינו מוגדר ב-Edge Functions → Secrets |
 | `notification_push_log.last_error` עם שגיאת 24-hour window | `WHATSAPP_NOTIFY_TEMPLATE` לא מוגדר, והסוכן/ת לא כתב/ה לעוזר ביממה האחרונה |
 | התראה מסוימת לא יוצאת אף פעם | הסוג מושתק בפעמון, ולכן לא נוצר במסד מלכתחילה |
+| הפונקציה מחזירה `500` עם `{"error":"db_error","detail":"Gateway Timeout"}` | ‏504 על `/rest/v1/rpc/notification_push_claim`. הסבב אבד ואין נזק — ההתראות ייצאו בסבב הבא (ראו "שורת יומן שלא יצאה") |
+| שורה ב-`pending` עם `last_error` על סבב שנחתך | ‏`notification_push_reconcile()` סימנה אותה. רישום בלבד |
+| הערוץ שותק אחרי כמה כשלים רצופים | גג `notif_push_max_failures_24h` (3). מתאפס כשהיממה מתגלגלת; `last_error` אומר מה נשבר |
 
 לוגים: Supabase Dashboard → Edge Functions → `whatsapp-webhook` → Logs.
 בנוסף, `whatsapp_messages.error` שומר כשל בתמלול, בשליחה או בהרצת ה-LLM.
