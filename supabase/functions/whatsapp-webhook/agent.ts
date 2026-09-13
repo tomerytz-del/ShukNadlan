@@ -1,6 +1,17 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula } from "./geocode.ts";
+import {
+  addMonthsIso,
+  documentHtml,
+  insertPayload,
+  missingForAgreement,
+  propertyLabel,
+  signerRows,
+  templateFor,
+  type AgreementProperty,
+  type AgreementSigner,
+} from "../_shared/agreement-build.ts";
 
 // ה"מוח" של בוט הוואטסאפ: מקבל את מה שהסוכן/ת כתב/ה (או הכתיב/ה בהקלטה),
 // מריץ לולאת tool-use מול Claude, ומחזיר את הטקסט לשליחה חזרה בוואטסאפ.
@@ -106,6 +117,10 @@ const CLIENT_WRITABLE_FIELDS = [
   "property_types", "cities", "min_price", "max_price", "min_rooms",
   "max_rooms", "min_size_sqm", "max_floor", "required_features",
 ] as const;
+
+const AGREEMENT_KIND_KEYS = [
+  "sell", "buy", "tenant", "landlord", "exclusive_sell", "exclusive_landlord",
+];
 
 export interface AgentRow {
   id: string;
@@ -322,6 +337,80 @@ const TOOLS: Anthropic.Tool[] = [
       "מתוכו היא ניחוש.",
     input_schema: { type: "object", properties: {}, required: [] },
   },
+  {
+    name: "property_link",
+    description:
+      "מחזיר את הקישור לדף הנכס באתר ולצדו הודעת וואטסאפ מוכנה להעברה — " +
+      "כותרת, כתובת, חדרים, שטח, מחיר וקישור. זה הכלי ל\"תשלח לי את הקישור " +
+      "לדירה בעלייה 20\" ול\"תכין לי הודעה על הנכס\". עם client_id מקובץ " +
+      "הלקוחות ההודעה נפתחת בפנייה בשם, וחוזר גם קישור ישיר לצ'אט של אותו/ה " +
+      "לקוח/ה — **הסוכן/ת לוחץ/ת ושולח/ת מהמספר שלו/ה**, הבוט אינו שולח " +
+      "ללקוח/ה.",
+    input_schema: {
+      type: "object",
+      properties: {
+        property_id: { type: "string" },
+        client_id: {
+          type: "string",
+          description:
+            "אופציונלי. מזהה לקוח/ה מהקובץ שההודעה מיועדת לו/ה.",
+        },
+        note: {
+          type: "string",
+          description:
+            "אופציונלי. משפט אישי שהסוכן/ת ביקש/ה שייכנס להודעה.",
+        },
+      },
+      required: ["property_id"],
+    },
+  },
+  {
+    name: "property_performance",
+    description:
+      "איך הנכס מתפקד באתר: צפיות בדף (סך הכול, 7 ימים, 30 יום), כמה פניות " +
+      "הגיעו עליו, ומצב הקידום, ההקפצה, השת\"פ והתמונות. זה הכלי ל\"כמה " +
+      "צפיות יש לדירה בהרצל\" ול\"למה אין פניות על הנכס הזה\". נתוני " +
+      "הצפיות קיימים על הנכסים של הסוכן/ת בלבד.",
+    input_schema: {
+      type: "object",
+      properties: { property_id: { type: "string" } },
+      required: ["property_id"],
+    },
+  },
+  {
+    name: "cma_report",
+    description:
+      "דוח השוואת שוק (CMA) לנכס: עסקאות שנסגרו בסביבה, ממוצע, חציון, טווח, " +
+      "מחיר למ\"ר, והפער בין המחיר המבוקש לממוצע השוק. זה הכלי ל\"כמה שווה " +
+      "הנכס\", \"מה נמכר באזור\" ו\"האם המחיר ריאלי\". מחזיר תקציר ואת " +
+      "העסקאות הקרובות ביותר; הדוח המלא להדפסה או לשליחה ללקוח/ה נמצא " +
+      "בדשבורד.",
+    input_schema: {
+      type: "object",
+      properties: {
+        property_id: { type: "string" },
+        limit: {
+          type: "integer",
+          description: "כמה עסקאות השוואה לפרט. ברירת מחדל 5, מקסימום 10.",
+        },
+      },
+      required: ["property_id"],
+    },
+  },
+  {
+    name: "planning_info",
+    description:
+      "מידע תכנוני ובנייה על הנכס: ייעוד קרקע, אחוזי בנייה, יחידות דיור " +
+      "וקומות מותרות, הערה תכנונית, סטטוס רישום החלקה והתוכניות החלות. " +
+      "מחבר את מה שהסוכן/ת הצהיר/ה בטופס הנכס עם מה שנקלט מה-GIS של עיריית " +
+      "עפולה. זה הכלי ל\"מה מותר לבנות שם\" ו\"מה הייעוד של המגרש\". על " +
+      "נכס של סוכן/ת אחר/ת חוזר רק מה שמוצג בדף הנכס הפומבי, בלי גוש וחלקה.",
+    input_schema: {
+      type: "object",
+      properties: { property_id: { type: "string" } },
+      required: ["property_id"],
+    },
+  },
 
   // -------------------------------------------------------------------------
   // קובץ הלקוחות
@@ -471,6 +560,12 @@ const TOOLS: Anthropic.Tool[] = [
           type: "boolean",
           description: "true מחזיר רק הסכמים שטרם נחתמו במלואם.",
         },
+        expiring_soon: {
+          type: "boolean",
+          description:
+            "true מחזיר רק הסכמי בלעדיות שתקופתם נגמרת בחודש וחצי הקרוב או " +
+            "שכבר נגמרה. זה הכלי ל\"איזו בלעדיות נגמרת לי\".",
+        },
         limit: { type: "integer", description: "ברירת מחדל 10." },
       },
       required: [],
@@ -482,6 +577,94 @@ const TOOLS: Anthropic.Tool[] = [
       "מחזיר את קישור החתימה האישי של כל חותם/ת שטרם חתם/ה בהסכם. הקישור " +
       "אישי לכל חותם/ת ואין להעביר אותו הלאה — יש להעתיק אותו לצ'אט של " +
       "החותם/ת עצמו/ה. הסוכן/ת הוא/היא שמעביר/ה, הבוט אינו שולח ללקוח/ה.",
+    input_schema: {
+      type: "object",
+      properties: { agreement_id: { type: "string" } },
+      required: ["agreement_id"],
+    },
+  },
+  {
+    name: "prepare_agreement",
+    description:
+      "מכין הזמנת שירותי תיווך ללקוח/ה מקובץ הלקוחות, מצרף אליה את הנכסים " +
+      "שהסוכן/ת ביקש/ה, ומחזיר את קישור החתימה האישי. **אותו קישור משמש " +
+      "לשתי הדרכים**: העברה ללקוח/ה לחתימה מרחוק, או פתיחה במכשיר של " +
+      "הסוכן/ת לחתימה פנים מול פנים. " +
+      "‏kind: ‏sell = בעל/ת נכס שמוכר/ת · landlord = בעל/ת נכס שמשכיר/ה · " +
+      "buy = קונה · tenant = שוכר/ת · exclusive_sell / exclusive_landlord = " +
+      "בלעדיות. " +
+      "אם חסר משהו שנדרש כדי שההזמנה תהיה בכתב כדין — הכלי **אינו יוצר** " +
+      "אלא מחזיר missing עם רשימת החסרים, ואז יש לבקש אותם מהסוכן/ת ולקרוא " +
+      "שוב. גוף המסמך ננעל ברגע היצירה ואי אפשר לתקן אותו — לתיקון מבטלים " +
+      "בדשבורד ומוציאים חדש.",
+    input_schema: {
+      type: "object",
+      properties: {
+        kind: {
+          type: "string",
+          enum: AGREEMENT_KIND_KEYS,
+          description: "סוג הטופס.",
+        },
+        client_id: {
+          type: "string",
+          description: "מזהה הלקוח/ה מקובץ הלקוחות — זה/זו החותם/ת הראשי/ת.",
+        },
+        client_id_number: {
+          type: "string",
+          description:
+            "ת.ז. או ח״פ של הלקוח/ה. חובה להזמנה בכתב. אם חסר בכרטיס — " +
+            "מבקשים מהסוכן/ת, והערך נשמר גם בכרטיס הלקוח/ה.",
+        },
+        property_ids: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            "הנכסים שההסכם חל עליהם. בטופסי בעל/ת נכס ובלעדיות — נכס אחד.",
+        },
+        commission_pct: { type: "number", description: "עמלה באחוזים." },
+        commission_amount: { type: "number", description: "או סכום עמלה בשקלים." },
+        commission_basis: {
+          type: "string",
+          enum: ["price", "monthly", "yearly", "flat"],
+          description:
+            "בסיס חישוב העמלה. במכירה price; בשכירות monthly (דמי שכירות " +
+            "חודשיים), yearly או flat.",
+        },
+        exclusive_from: { type: "string", description: "תחילת הבלעדיות, YYYY-MM-DD." },
+        exclusive_until: { type: "string", description: "סוף הבלעדיות, YYYY-MM-DD." },
+        exclusive_months: {
+          type: "integer",
+          description: "במקום תאריך סיום: משך בחודשים מתאריך ההתחלה.",
+        },
+        extra_signers: {
+          type: "array",
+          description:
+            "חותמים נוספים — בן/בת זוג או בעלים שותף/ה. כל אחד/ת מקבל/ת " +
+            "קישור חתימה נפרד משלו/ה.",
+          items: {
+            type: "object",
+            properties: {
+              full_name: { type: "string" },
+              id_number: { type: "string" },
+              phone: { type: "string" },
+              email: { type: "string" },
+            },
+            required: ["full_name", "id_number"],
+          },
+        },
+        notes: { type: "string", description: "הערות שייכנסו למסמך." },
+      },
+      required: ["kind", "client_id", "property_ids"],
+    },
+  },
+  {
+    name: "agreement_details",
+    description:
+      "כל הפרטים של הסכם אחד: סוג, סטטוס, שיעור וסכום העמלה, תקופת הבלעדיות " +
+      "וכמה ימים נשארו בה, פעולות השיווק שהתחייבנו להן, הנכסים והלקוחות " +
+      "שההסכם חל עליהם, וכל חותם/ת עם מועד הצפייה והחתימה. בהסכם חתום חוזר " +
+      "גם קישור לעותק החתום. זה הכלי ל\"כמה עמלה סיכמנו עם דני\", \"מתי " +
+      "נגמרת הבלעדיות\" ו\"תשלח לי את ההסכם החתום\".",
     input_schema: {
       type: "object",
       properties: { agreement_id: { type: "string" } },
@@ -570,6 +753,60 @@ const SITE_BASE_URL = (Deno.env.get("SITE_BASE_URL") || "").replace(/\/$/, "");
 
 function propertyLink(id: string): string | undefined {
   return SITE_BASE_URL ? `${SITE_BASE_URL}/property.html?id=${id}` : undefined;
+}
+
+/** הקישור הקבוע לעותק החתום — אותו אחד שנשלח לכל הצדדים במייל אחרי החתימה. */
+function agreementLink(viewToken: string): string | undefined {
+  return SITE_BASE_URL ? `${SITE_BASE_URL}/agreement.html?t=${viewToken}` : undefined;
+}
+
+/** מחיר כפי שהוא נקרא בהודעה: שכירות היא תמיד לחודש. */
+function priceText(price: unknown, dealType: unknown): string {
+  const n = Number(price);
+  if (!Number.isFinite(n) || n <= 0) return "";
+  const formatted = n.toLocaleString("he-IL");
+  return dealType === "rent" ? `${formatted} ₪ לחודש` : `${formatted} ₪`;
+}
+
+/**
+ * ‏wa.me דורש מספר בינלאומי בלי + ובלי האפס המוביל — אותו נרמול שיושב
+ * ב-`waLink` ב-`crm.html`. מספר שאינו נראה כמו מספר ישראלי תקין מחזיר
+ * ‏undefined, ואז הודעת ההעברה נשלחת דרך בורר הצ'אטים של וואטסאפ במקום
+ * לצ'אט שגוי.
+ */
+function waNumber(phone: unknown): string | undefined {
+  const digits = String(phone ?? "").replace(/\D/g, "");
+  if (digits.length < 9) return undefined;
+  if (digits.startsWith("972")) return digits;
+  return "972" + digits.replace(/^0+/, "");
+}
+
+/** מספר מה-LLM, או null. ‏NaN שנכנס לעמודה numeric מפיל את כל ה-insert. */
+function finiteOrNull(value: unknown): number | null {
+  if (value === undefined || value === null || value === "") return null;
+  const n = Number(value);
+  return Number.isFinite(n) ? n : null;
+}
+
+/** ‏YYYY-MM-DD אמיתי, או null. תאריך שבור מפיל insert במקום לחזור כשאלה. */
+function isoDateOrNull(value: unknown): string | null {
+  const raw = String(value ?? "").trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) return null;
+  const d = new Date(raw + "T00:00:00Z");
+  return Number.isNaN(d.getTime()) ? null : raw;
+}
+
+/** נכס שהסוכן/ת רשאי/ת לראות: שלו/ה, או כל נכס פעיל — כמו ה-RLS. */
+async function visibleProperty(ctx: ToolContext, propertyId: string, columns: string) {
+  const { data } = await ctx.supabase
+    .from("properties")
+    .select(columns)
+    .eq("id", propertyId)
+    .maybeSingle();
+  if (!data) return null;
+  const row = data as unknown as Record<string, unknown>;
+  if (row.agent_id !== ctx.agent.id && row.status !== "active") return null;
+  return row;
 }
 
 /** בונה כותרת סבירה כשהסוכן/ת לא נתן/נה אחת — עדיף מלשאול שאלה מיותרת. */
@@ -867,6 +1104,280 @@ async function toolPropertyStats(ctx: ToolContext) {
     .rpc("agent_property_stats", { p_agent_id: ctx.agent.id });
   if (error) return { ok: false, error: error.message };
   return { ok: true, ...(data as Record<string, unknown>) };
+}
+
+// ---------------------------------------------------------------------------
+// קישור לנכס והודעה מוכנה
+//
+// ‏`wa.me` ולא שליחה מהשרת, ומאותה סיבה שקישור החתימה אינו נשלח ללקוח/ה
+// (`agreement_sign_links`): ההודעה יוצאת מהמספר של הסוכן/ת, נקראת אישית, ומי
+// שמחליט/ה למי היא נשלחת הוא/היא מי שמכיר/ה את הצדדים. הבוט מכין, הסוכן/ת
+// לוחץ/ת. זו גם הסיבה שאין כאן שום כתיבה למסד — הכלי הזה בונה טקסט.
+// ---------------------------------------------------------------------------
+async function toolPropertyLink(ctx: ToolContext, input: Record<string, unknown>) {
+  const propertyId = String(input.property_id || "");
+  const p = await visibleProperty(
+    ctx,
+    propertyId,
+    "id, agent_id, title, address, city, street, house_number, price, rooms, " +
+      "size_sqm, built_size_sqm, deal_type, property_type, status, listing_number",
+  );
+  if (!p) return { ok: false, error: "לא נמצא נכס כזה." };
+
+  const link = propertyLink(String(p.id));
+  if (!link) {
+    return { ok: false, error: "כתובת האתר אינה מוגדרת בשרת — אין דרך לבנות קישור." };
+  }
+
+  let client: Record<string, unknown> | null = null;
+  if (input.client_id) {
+    const found = await ownedClient(ctx, String(input.client_id));
+    if (!found) return { ok: false, error: "לא נמצא/ה לקוח/ה כזה/כזו בקובץ של הסוכן/ת." };
+    client = found as unknown as Record<string, unknown>;
+  }
+
+  const address = [p.street, p.house_number].filter(Boolean).join(" ") ||
+    String(p.address || "");
+  const facts = [
+    p.rooms ? `${p.rooms} חדרים` : "",
+    (p.built_size_sqm || p.size_sqm) ? `${p.built_size_sqm || p.size_sqm} מ"ר` : "",
+    priceText(p.price, p.deal_type),
+  ].filter(Boolean).join(" · ");
+
+  const greeting = client
+    ? `היי ${String(client.full_name || "").trim()},`
+    : "";
+  const message = [
+    greeting,
+    String(p.title || autoTitle(p)),
+    [address, p.city].filter(Boolean).join(", "),
+    facts,
+    String(input.note || "").trim(),
+    link,
+  ].filter(Boolean).join("\n");
+
+  const encoded = encodeURIComponent(message);
+  const clientWa = client ? waNumber(client.phone) : undefined;
+
+  ctx.conv.last_property_id = String(p.id);
+  if (client) ctx.conv.last_client_id = String(client.id);
+
+  return {
+    ok: true,
+    property_id: p.id,
+    listing_number: p.listing_number,
+    title: p.title,
+    status: p.status,
+    link,
+    message,
+    // בורר הצ'אטים של וואטסאפ — לכל נמען/ת שהסוכן/ת יבחר/תבחר
+    wa_share_url: `https://wa.me/?text=${encoded}`,
+    // וכשיש לקוח/ה עם טלפון: ישר לצ'אט שלו/ה, מהמספר של הסוכן/ת
+    wa_client_url: clientWa ? `https://wa.me/${clientWa}?text=${encoded}` : undefined,
+    client_name: client ? client.full_name : undefined,
+    client_phone_missing: !!client && !clientWa,
+    // קישור לנכס שאינו active נפתח רק אצל הסוכן/ת שלו — ה-policy על
+    // ‏`properties` מחזירה לאנונימי/ת נכסים פעילים בלבד. עדיף לומר את זה כאן
+    // מאשר שהלקוח/ה יקבל/תקבל דף ריק.
+    warning: p.status !== "active"
+      ? `הנכס במצב ${p.status} — הקישור לא ייפתח אצל מי שאינו הסוכן/ת שלו. להחזרה לאוויר: set_property_status עם active.`
+      : undefined,
+  };
+}
+
+/**
+ * איך הנכס מתפקד.
+ *
+ * ‏`property_views` נקרא כאן על הנכסים של הסוכן/ת בלבד, בדיוק כמו ה-policy
+ * שלו בדשבורד (ולכן גם עמודת הצפיות קיימת רק בייצוא העצמי — ראו
+ * ‏`docs/property-export.md`). ‏`service_role` עוקף RLS, ולכן הגבול הזה נשמר
+ * כאן בקוד.
+ */
+async function toolPropertyPerformance(ctx: ToolContext, input: Record<string, unknown>) {
+  const propertyId = String(input.property_id || "");
+  const { data: p } = await ctx.supabase
+    .from("properties")
+    .select("id, title, address, city, status, price, deal_type, images, " +
+            "is_promoted, promoted_until, bumped_at, shared_with_partners, " +
+            "created_at, listing_number")
+    .eq("id", propertyId)
+    .eq("agent_id", ctx.agent.id)
+    .maybeSingle();
+  if (!p) {
+    return {
+      ok: false,
+      error: "לא נמצא נכס כזה אצל הסוכן/ת. נתוני הצפיות קיימים על הנכסים שלך בלבד.",
+    };
+  }
+
+  const since = (days: number) =>
+    new Date(Date.now() - days * 86_400_000).toISOString();
+
+  const countViews = async (from?: string) => {
+    let q = ctx.supabase
+      .from("property_views")
+      .select("id", { count: "exact", head: true })
+      .eq("property_id", propertyId);
+    if (from) q = q.gte("viewed_at", from);
+    const { count } = await q;
+    return count ?? 0;
+  };
+
+  const [viewsTotal, views30, views7] = await Promise.all([
+    countViews(),
+    countViews(since(30)),
+    countViews(since(7)),
+  ]);
+
+  const { count: leadsTotal } = await ctx.supabase
+    .from("leads")
+    .select("id", { count: "exact", head: true })
+    .eq("property_id", propertyId)
+    .eq("agent_id", ctx.agent.id);
+
+  const daysOnline = Math.max(
+    1,
+    Math.round((Date.now() - new Date(String(p.created_at)).getTime()) / 86_400_000),
+  );
+  const images = (p.images as unknown as string[] | null) || [];
+
+  ctx.conv.last_property_id = String(p.id);
+
+  return {
+    ok: true,
+    property_id: p.id,
+    listing_number: p.listing_number,
+    title: p.title,
+    address: [p.address, p.city].filter(Boolean).join(", "),
+    status: p.status,
+    price: p.price,
+    days_online: daysOnline,
+    views_total: viewsTotal,
+    views_30d: views30,
+    views_7d: views7,
+    views_per_day: Math.round((viewsTotal / daysOnline) * 10) / 10,
+    leads_total: leadsTotal ?? 0,
+    images_count: images.length,
+    is_promoted: !!p.is_promoted,
+    promoted_until: p.promoted_until,
+    last_bumped_at: p.bumped_at,
+    shared_with_partners: !!p.shared_with_partners,
+    link: propertyLink(String(p.id)),
+  };
+}
+
+/**
+ * דוח CMA.
+ *
+ * ‏`agent_cma_report` ולא `cma_report`: זו אותה פונקציה בדיוק, רק עם מזהה
+ * סוכן/ת מפורש במקום `current_agent_id()` — ל-Edge Function אין JWT. מקור
+ * האמת אחד, כדי שהמספר בוואטסאפ יהיה המספר שבמסך.
+ *
+ * החזרת הדוח **המלא** לצ'אט הייתה מציפה: הוא כולל את כל העסקאות ברדיוס ואת
+ * עסקאות העיר שאי אפשר למקם. לכן חוזרות רק ההשוואות הקרובות ביותר, והדוח
+ * להדפסה נשאר בדשבורד.
+ */
+async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
+  const propertyId = String(input.property_id || "");
+  const limit = Math.min(Math.max(Number(input.limit) || 5, 1), 10);
+
+  const { data, error } = await ctx.supabase.rpc("agent_cma_report", {
+    p_agent_id: ctx.agent.id,
+    p_property_id: propertyId,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  const report = (data || {}) as Record<string, unknown>;
+  if (report.error === "property_not_found") {
+    return { ok: false, error: "לא נמצא נכס כזה." };
+  }
+  if (report.error) {
+    return { ok: false, error: String(report.detail || report.error) };
+  }
+
+  const subject = (report.subject || {}) as Record<string, unknown>;
+  const stats = (report.stats || {}) as Record<string, unknown>;
+  const comparables = (report.comparables || []) as Record<string, unknown>[];
+  const cityComparables = (report.city_comparables || []) as Record<string, unknown>[];
+
+  const asking = Number(subject.price);
+  const avg = Number(stats.avg_price);
+  const gapPct = Number.isFinite(asking) && Number.isFinite(avg) && avg > 0
+    ? Math.round(((asking - avg) / avg) * 100)
+    : undefined;
+
+  ctx.conv.last_property_id = propertyId;
+
+  return {
+    ok: true,
+    property_id: propertyId,
+    subject: {
+      title: subject.title,
+      address: [subject.address, subject.city].filter(Boolean).join(", "),
+      property_type: subject.property_type,
+      rooms: subject.rooms,
+      size_sqm: subject.size_sqm,
+      asking_price: subject.price,
+      asking_price_per_sqm: subject.price_per_sqm,
+    },
+    // הפער הוא השורה שהסוכן/ת מחפש/ת: המחיר המבוקש מול ממוצע העסקאות בסביבה
+    gap_vs_market_pct: gapPct,
+    stats,
+    radius_meters_used: report.radius_meters_used,
+    // ‏true = הרדיוס נפתח עד הסוף ועדיין אין מספיק השוואות. התשובה עדיין
+    // תקפה, אבל היא נשענת על מדגם קטן וצריך לומר את זה.
+    radius_exhausted: report.radius_exhausted,
+    comparables: comparables.slice(0, limit),
+    comparables_returned: Math.min(comparables.length, limit),
+    // עסקאות באותה עיר שאין להן מיקום — לא מעורבבות בממוצע, ולכן רק נספרות
+    city_comparables_count: cityComparables.length,
+    no_location: !subject.lat && !report.radius_meters_used
+      ? "לנכס אין קואורדינטות, ולכן אין השוואות לפי רדיוס. גיאוקוד נעשה על כתובת בעפולה עם רחוב ומספר בית."
+      : undefined,
+    full_report_where: "הדוח המלא להדפסה או לשליחה ללקוח/ה: כפתור \"דוח CMA\" בכרטיס הנכס בדשבורד.",
+  };
+}
+
+/**
+ * מידע תכנוני ובנייה.
+ *
+ * הצנזור (גוש, חלקה, שטח חלקה) יושב ב-`agent_property_planning` ולא כאן,
+ * מאותה סיבה שהוא יושב ב-SQL ולא בדפדפן: רשימת שדות אסורים שמתוחזקת בשני
+ * מקומות מתפצלת בסוף מעצמה. ‏`docs/land-planning.md`.
+ */
+async function toolPlanningInfo(ctx: ToolContext, input: Record<string, unknown>) {
+  const propertyId = String(input.property_id || "");
+
+  const { data, error } = await ctx.supabase.rpc("agent_property_planning", {
+    p_agent_id: ctx.agent.id,
+    p_property_id: propertyId,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  const info = (data || {}) as Record<string, unknown>;
+  if (info.error === "property_not_found") {
+    return { ok: false, error: "לא נמצא נכס כזה." };
+  }
+  if (info.error) {
+    return { ok: false, error: String(info.detail || info.error) };
+  }
+
+  ctx.conv.last_property_id = propertyId;
+
+  if (!info.has_data) {
+    return {
+      ok: true,
+      has_data: false,
+      property_id: propertyId,
+      title: info.title,
+      is_land: info.is_land,
+      // המידע התכנוני נקלט אוטומטית בשמירת נכס עם רחוב ומספר בית בעפולה.
+      // נכס בעיר אחרת, או כזה שנשמר בלי כתובת מלאה, פשוט אין לו מה להציג.
+      note: "אין מידע תכנוני שמור על הנכס הזה. הקליטה האוטומטית עובדת על כתובת בעפולה עם רחוב ומספר בית; בדיקה נקודתית לפי גוש/חלקה אפשרית בקטגוריית \"מידע תכנוני\" בדשבורד.",
+    };
+  }
+
+  return { ok: true, ...info };
 }
 
 // ---------------------------------------------------------------------------
@@ -1234,19 +1745,50 @@ const AGREEMENT_KINDS: Record<string, string> = {
   exclusive_landlord: "בלעדיות — משכיר",
 };
 
+const EXCLUSIVE_KINDS = ["exclusive_sell", "exclusive_landlord"];
+
+/** כמה ימים קדימה נחשבת בלעדיות "נגמרת". חודש וחצי — מספיק כדי לחדש בנחת. */
+const EXPIRING_HORIZON_DAYS = 45;
+
+function daysUntil(date: unknown): number | undefined {
+  if (!date) return undefined;
+  const then = new Date(String(date)).getTime();
+  if (!Number.isFinite(then)) return undefined;
+  // חצות של היום מול חצות של התאריך: "נגמרת מחר" לא צריכה להיות תלויה בשעה
+  // שבה נשאלה השאלה.
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return Math.round((then - today.getTime()) / 86_400_000);
+}
+
 async function toolListAgreements(ctx: ToolContext, input: Record<string, unknown>) {
   const limit = Math.min(Number(input.limit) || 10, 25);
+  const expiringSoon = !!input.expiring_soon;
 
   let query = ctx.supabase
     .from("agreements")
-    .select("id, kind, status, title, created_at, sent_at, signed_at")
+    .select("id, kind, status, title, created_at, sent_at, signed_at, exclusive_from, exclusive_until")
     .eq("agent_id", ctx.agent.id)
-    .order("created_at", { ascending: false })
     .limit(limit);
+
+  if (expiringSoon) {
+    // בלעדיות בלבד: להזמנת תיווך רגילה אין תקופה שנגמרת. מיון עולה — מה
+    // שנגמר קודם הוא מה שדחוף, וזה ההפך מסדר ברירת המחדל.
+    const horizon = new Date(Date.now() + EXPIRING_HORIZON_DAYS * 86_400_000)
+      .toISOString().slice(0, 10);
+    query = query
+      .in("kind", EXCLUSIVE_KINDS)
+      .neq("status", "cancelled")
+      .not("exclusive_until", "is", null)
+      .lte("exclusive_until", horizon)
+      .order("exclusive_until", { ascending: true });
+  } else {
+    query = query.order("created_at", { ascending: false });
+  }
 
   if (input.status) query = query.eq("status", String(input.status));
   else if (input.pending_only) query = query.in("status", ["draft", "sent", "viewed"]);
-  else query = query.neq("status", "cancelled");
+  else if (!expiringSoon) query = query.neq("status", "cancelled");
 
   const { data: rows, error } = await query;
   if (error) return { ok: false, error: error.message };
@@ -1281,10 +1823,389 @@ async function toolListAgreements(ctx: ToolContext, input: Record<string, unknow
           full_name: s.full_name,
           signed: !!s.signed_at,
         })),
+        exclusive_from: a.exclusive_from,
+        exclusive_until: a.exclusive_until,
+        exclusive_days_left: daysUntil(a.exclusive_until),
         created_at: a.created_at,
         signed_at: a.signed_at,
       };
     }),
+  };
+}
+
+/**
+ * הסכם אחד, במלואו.
+ *
+ * ‏`list_agreements` היא רשימה — סוג, סטטוס ומי חתם/ה. השאלות שנשאלות
+ * בוואטסאפ הן דווקא על התוכן: "כמה עמלה סיכמנו", "עד מתי הבלעדיות", "על
+ * איזה נכס זה". כל אלה שדות על השורה, ובלי הכלי הזה הסוכן/ת היה/הייתה
+ * צריך/ה לפתוח את הדשבורד כדי לקרוא מספר אחד.
+ *
+ * ‏`document_html` **אינו** חוזר: הוא המסמך המשפטי המלא, הוא נעול במסד
+ * בטריגר, והוא לא נקרא בהודעת וואטסאפ. מה שמחליף אותו בהסכם חתום הוא
+ * ‏`view_token` — אותו קישור קבוע שנשלח לכל הצדדים במייל העותק החתום.
+ */
+// ---------------------------------------------------------------------------
+// הכנת הסכם להחתמה
+//
+// עד כאן העוזר קרא הסכמים ולא כתב אותם, ובצדק: גוף המסמך נבנה בדפדפן
+// ונחסם במסד (`agreements_freeze_body`), וכל ערכה הראייתי של החתימה תלוי
+// בזה. מה שנפתח כאן אינו עוקף את הגבול הזה אלא עומד בו — **אותו קוד ואותו
+// נוסח** בונים את המסמך (`_shared/agreement-build.ts`, עותק מוגן ב-CI של
+// מודולי `assets/`), ההסכם נוצר פעם אחת עם גוף קפוא, ותיקון עדיין נעשה רק
+// בדרך שהנייר מכיר: ביטול והוצאת הסכם חדש.
+//
+// שלוש החלטות:
+//
+// **1. חסר נתון = לא נוצר הסכם.** `missingForAgreement` היא בדיוק הרשימה
+// ש-`agrValidate` מחשבת באשף — ת.ז. לכל חותם/ת, עמלה, ותקופת בלעדיות בטופסי
+// בלעדיות. הזמנה בלי אלה אינה "הזמנה בכתב כדין", וטופס חסר שנחתם גרוע
+// מטופס שלא נוצר: הוא נראה תקין עד הרגע שבו צריך אותו.
+//
+// **2. הבוט אינו שולח ללקוח/ה.** הוא מחזיר את הקישור האישי לצ'אט של
+// הסוכן/ת — בדיוק כמו `agreement_sign_links`, ומאותה סיבה. הסטטוס נשאר
+// `draft` עד שליחה דרך `agreement-sign` בדשבורד, כי זו השליחה שמסמנת
+// `sent` ושולחת את המייל.
+//
+// **3. אותו קישור לשתי הדרכים.** "מרחוק" זה להעביר אותו ללקוח/ה; "פנים מול
+// פנים" זה לפתוח אותו על המכשיר של הסוכן/ת ולהושיט. אין כאן שני מנגנונים,
+// ולכן אין מה לבחור מראש.
+// ---------------------------------------------------------------------------
+async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unknown>) {
+  const kind = String(input.kind || "");
+  const tpl = templateFor(kind);
+  if (!tpl) return { ok: false, error: "סוג הסכם לא מוכר." };
+
+  if (!ctx.agent.agency_id) {
+    return { ok: false, error: "לסוכן/ת אין משרד משויך — צריך להשלים הרשמה בדשבורד." };
+  }
+  if (!SITE_BASE_URL) {
+    return { ok: false, error: "כתובת האתר אינה מוגדרת בשרת — אין דרך לבנות קישור חתימה." };
+  }
+
+  // ---- הלקוח/ה
+  const { data: client } = await ctx.supabase
+    .from("agent_clients")
+    .select("id, full_name, phone, email, address, id_number")
+    .eq("id", String(input.client_id || ""))
+    .eq("agent_id", ctx.agent.id)
+    .maybeSingle();
+  if (!client) return { ok: false, error: "לא נמצא/ה לקוח/ה כזה/כזו בקובץ של הסוכן/ת." };
+
+  // ת.ז. שהסוכן/ת מסר/ה בצ'אט נשמרת גם בכרטיס — כדי שההסכם הבא לא ייעצר
+  // כאן שוב. ‏best-effort, כמו באשף: כשל בשמירה אינו עוצר את ההסכם.
+  const clientIdNumber = String(input.client_id_number || client.id_number || "").trim();
+  if (clientIdNumber && clientIdNumber !== client.id_number) {
+    const { error } = await ctx.supabase
+      .from("agent_clients")
+      .update({ id_number: clientIdNumber })
+      .eq("id", client.id)
+      .eq("agent_id", ctx.agent.id);
+    if (error) console.warn("client id_number save failed", error.message);
+  }
+
+  // ---- כרטיס הסוכן/ת והמשרד — מה שמודפס בראש המסמך
+  const { data: member } = await ctx.supabase
+    .from("agency_members")
+    .select("id, display_name, id_number, license_number, phone, agency_id, agencies(name, address)")
+    .eq("id", ctx.agent.id)
+    .maybeSingle();
+  if (!member) return { ok: false, error: "לא נמצאו פרטי הסוכן/ת." };
+  // ‏supabase-js מחזיר יחס many-to-one כאובייקט, אבל ה-typing שלו מרשה גם
+  // מערך. שתי הצורות מטופלות כאן כדי שההסכם לא ייצא בלי שם המשרד.
+  const agencyRaw = member.agencies as unknown;
+  const agency = (Array.isArray(agencyRaw) ? agencyRaw[0] : agencyRaw) as
+    Record<string, unknown> | null;
+
+  // ---- הנכסים
+  const requested = (input.property_ids as string[] | undefined) || [];
+  if (!requested.length) return { ok: false, error: "לא נבחרו נכסים להסכם." };
+
+  const { data: rows } = await ctx.supabase
+    .from("properties")
+    // כל ה-src שמופיעים ב-PROPERTY_FIELDS_* — שדה שלא נשלף פשוט יוצא במסמך
+    // כקו למילוי ידני, וזה לא מה שרוצים כשהערך קיים במודעה.
+    .select("id, agent_id, status, title, property_type, street, house_number, city, " +
+            "sales_area, rooms, floor, total_floors, price, built_size_sqm, " +
+            "garden_sqm, move_in_date, condition, features, deal_type")
+    .in("id", requested);
+
+  const visible = ((rows || []) as unknown as Record<string, unknown>[])
+    .filter((r) => r.agent_id === ctx.agent.id || r.status === "active");
+  if (!visible.length) return { ok: false, error: "לא נמצא אף אחד מהנכסים שביקשת." };
+
+  // גוש וחלקה נכנסים למסמך, והם קיימים רק על נכס של הסוכן/ת עצמו/ה.
+  const ownIds = visible.filter((r) => r.agent_id === ctx.agent.id).map((r) => String(r.id));
+  const planningByProperty = new Map<string, Record<string, unknown>>();
+  if (ownIds.length) {
+    const { data: planning } = await ctx.supabase
+      .from("property_planning_info")
+      .select("property_id, gush, helka")
+      .in("property_id", ownIds);
+    for (const row of (planning || []) as unknown as Record<string, unknown>[]) {
+      planningByProperty.set(String(row.property_id), row);
+    }
+  }
+
+  // סדר הבקשה נשמר: "קודם זה ואז זה" הוא סדר ההצעות במסמך של קונה/שוכר.
+  let chosen: AgreementProperty[] = requested
+    .map((id) => visible.find((r) => String(r.id) === id))
+    .filter(Boolean)
+    .map((r) => {
+      const row = r as Record<string, unknown>;
+      return {
+        property_id: String(row.id),
+        label: propertyLabel(row),
+        row,
+        planning: planningByProperty.get(String(row.id)) || null,
+      };
+    });
+
+  let dropped: string[] = [];
+  if (tpl.propertyMode === "single" && chosen.length > 1) {
+    dropped = chosen.slice(1).map((p) => p.label);
+    chosen = chosen.slice(0, 1);
+  }
+
+  // ---- החותמים: הלקוח/ה, ואחריו/ה כל מי שהסוכן/ת הוסיף/ה
+  const signers: AgreementSigner[] = [{
+    party: "client",
+    full_name: String(client.full_name || "").trim(),
+    id_number: clientIdNumber,
+    phone: client.phone,
+    email: client.email,
+    address: client.address,
+    client_id: String(client.id),
+  }];
+  for (const extra of (input.extra_signers as Record<string, unknown>[] | undefined) || []) {
+    signers.push({
+      party: "partner",
+      full_name: String(extra.full_name || "").trim(),
+      id_number: String(extra.id_number || "").trim(),
+      phone: String(extra.phone || "").trim() || null,
+      email: String(extra.email || "").trim() || null,
+      address: null,
+      client_id: null,
+    });
+  }
+
+  // ---- תקופת הבלעדיות
+  const exclusiveFrom = isoDateOrNull(input.exclusive_from);
+  let exclusiveUntil = isoDateOrNull(input.exclusive_until);
+  const months = Number(input.exclusive_months) || 0;
+  if (!exclusiveUntil && months > 0 && exclusiveFrom) {
+    exclusiveUntil = addMonthsIso(exclusiveFrom, months);
+  }
+  if (tpl.exclusive && exclusiveFrom && exclusiveUntil && exclusiveUntil <= exclusiveFrom) {
+    return { ok: false, error: "תאריך סיום הבלעדיות אינו אחרי תאריך ההתחלה." };
+  }
+
+  const build = {
+    kind,
+    agentId: ctx.agent.id,
+    agencyId: ctx.agent.agency_id,
+    agent: {
+      name: member.display_name,
+      id_number: member.id_number,
+      license_number: member.license_number,
+      phone: member.phone,
+      agency_name: (agency?.name as string) || null,
+      agency_address: (agency?.address as string) || null,
+    },
+    signers,
+    properties: chosen,
+    commission: {
+      pct: finiteOrNull(input.commission_pct),
+      amount: finiteOrNull(input.commission_amount),
+      basis: (input.commission_basis as string) || (tpl.dealType === "rent" ? null : "price"),
+    },
+    exclusive: { from: exclusiveFrom, until: exclusiveUntil },
+    notes: (input.notes as string) || null,
+  };
+
+  const missing = missingForAgreement(build);
+  if (missing.length) {
+    return {
+      ok: false,
+      missing,
+      // ההסכם לא נוצר בכוונה. טופס חסר שנחתם נראה תקין עד הרגע שבו צריך
+      // אותו, ואז כבר אי אפשר לתקן אותו למפרע.
+      note: "ההסכם לא נוצר. בקש/י מהסוכן/ת את מה שחסר וקרא/י שוב ל-prepare_agreement.",
+    };
+  }
+
+  // ---- יצירה. ‏verify_code נוצר במסד ומודפס בתחתית המסמך, ולכן ה-HTML
+  // נבנה אחרי ה-insert ורק אז נשמר — בדיוק כמו באשף.
+  const { data: created, error: insertError } = await ctx.supabase
+    .from("agreements")
+    .insert(insertPayload(build))
+    .select("id, verify_code, created_at, title, require_otp")
+    .single();
+  if (insertError) return { ok: false, error: insertError.message };
+
+  const html = documentHtml(build, String(created.verify_code || ""), String(created.created_at));
+  const { error: htmlError } = await ctx.supabase
+    .from("agreements")
+    .update({ document_html: html })
+    .eq("id", created.id)
+    .eq("agent_id", ctx.agent.id);
+  if (htmlError) return { ok: false, error: htmlError.message };
+
+  const { error: signersError } = await ctx.supabase
+    .from("agreement_signers")
+    .insert(signerRows(String(created.id), signers));
+  if (signersError) return { ok: false, error: signersError.message };
+
+  const { data: saved } = await ctx.supabase
+    .from("agreement_signers")
+    .select("full_name, phone, sign_token, token_expires_at, ord")
+    .eq("agreement_id", created.id)
+    .order("ord");
+
+  const links = ((saved || []) as unknown as Record<string, unknown>[]).map((sg) => {
+    const url = `${SITE_BASE_URL}/sign.html?t=${sg.sign_token}`;
+    const wa = waNumber(sg.phone);
+    return {
+      full_name: sg.full_name,
+      phone: sg.phone,
+      sign_url: url,
+      expires_at: sg.token_expires_at,
+      wa_send_url: wa
+        ? `https://wa.me/${wa}?text=${encodeURIComponent(
+          `היי ${String(sg.full_name || "").trim()},\n${created.title}\nלחתימה מקוונת:\n${url}`,
+        )}`
+        : undefined,
+    };
+  });
+
+  return {
+    ok: true,
+    agreement_id: created.id,
+    kind: AGREEMENT_KINDS[kind] || kind,
+    title: created.title,
+    status: "draft",
+    verify_code: created.verify_code,
+    client_name: client.full_name,
+    properties: chosen.map((p) => p.label),
+    // נכס שנשר כי הטופס הזה הוא חד-נכסי. עדיף לומר את זה מאשר שיתגלה
+    // אחרי שהלקוח/ה חתם/ה.
+    dropped_properties: dropped.length ? dropped : undefined,
+    signers: links,
+    // אותו קישור לשתי הדרכים — אין כאן שני מנגנונים.
+    how_to_sign: "אותו קישור משמש לשתי הדרכים: מרחוק — להעביר אותו לחותם/ת; פנים מול פנים — לפתוח אותו על המכשיר שלך ולהושיט לחתימה.",
+    requires_otp: !!created.require_otp,
+    otp_note: created.require_otp
+      ? "בטופס הזה החתימה מרחוק דורשת קוד אימות שנשלח למייל של החותם/ת. בחתימה פנים מול פנים זה לא רלוונטי."
+      : undefined,
+    // ‏OTP בלי מייל = קישור שנפתח ונתקע. עדיף לומר את זה עכשיו.
+    otp_missing_email: created.require_otp
+      ? signers.filter((sg) => !(sg.email || "").trim()).map((sg) => sg.full_name)
+      : undefined,
+    frozen_note: "גוף המסמך ננעל ואי אפשר לערוך אותו. לתיקון — ביטול ההסכם והוצאת חדש, באשף שבדשבורד.",
+    manage_where: `${SITE_BASE_URL}/crm.html`,
+  };
+}
+
+async function toolAgreementDetails(ctx: ToolContext, input: Record<string, unknown>) {
+  const agreementId = String(input.agreement_id || "");
+
+  const { data: a, error } = await ctx.supabase
+    .from("agreements")
+    .select("id, kind, status, title, commission_pct, commission_amount, " +
+            "commission_note, exclusive_from, exclusive_until, marketing_actions, " +
+            "notes, property_ids, client_ids, view_token, verify_code, " +
+            "require_otp, created_at, sent_at, viewed_at, signed_at, cancelled_at")
+    .eq("id", agreementId)
+    .eq("agent_id", ctx.agent.id)
+    .maybeSingle();
+  if (error) return { ok: false, error: error.message };
+  if (!a) return { ok: false, error: "לא נמצא הסכם כזה אצל הסוכן/ת." };
+
+  const { data: signers } = await ctx.supabase
+    .from("agreement_signers")
+    .select("full_name, party, phone, email, signed_at, viewed_at, ord")
+    .eq("agreement_id", agreementId)
+    .order("ord");
+
+  const propertyIds = (a.property_ids as unknown as string[] | null) || [];
+  const clientIds = (a.client_ids as unknown as string[] | null) || [];
+
+  // הנכסים והלקוחות מסוננים גם ב-agent_id ולא רק ב-id: `service_role` עוקף
+  // ‏RLS, ורשימת מזהים על שורת ההסכם אינה אישור גישה בפני עצמה.
+  let properties: Record<string, unknown>[] = [];
+  if (propertyIds.length) {
+    const { data } = await ctx.supabase
+      .from("properties")
+      .select("id, title, address, city, price, listing_number, status")
+      .in("id", propertyIds)
+      .eq("agent_id", ctx.agent.id);
+    properties = (data || []) as unknown as Record<string, unknown>[];
+  }
+
+  let clients: Record<string, unknown>[] = [];
+  if (clientIds.length) {
+    const { data } = await ctx.supabase
+      .from("agent_clients")
+      .select("id, full_name, phone")
+      .in("id", clientIds)
+      .eq("agent_id", ctx.agent.id);
+    clients = (data || []) as unknown as Record<string, unknown>[];
+  }
+
+  const daysLeft = daysUntil(a.exclusive_until);
+  const isExclusive = EXCLUSIVE_KINDS.includes(String(a.kind));
+  const list = signers || [];
+
+  return {
+    ok: true,
+    agreement_id: a.id,
+    kind: AGREEMENT_KINDS[a.kind] || a.kind,
+    status: a.status,
+    title: a.title,
+    commission: {
+      pct: a.commission_pct,
+      amount: a.commission_amount,
+      note: a.commission_note,
+    },
+    exclusivity: isExclusive
+      ? {
+        from: a.exclusive_from,
+        until: a.exclusive_until,
+        days_left: daysLeft,
+        expired: daysLeft !== undefined && daysLeft < 0,
+        marketing_actions: a.marketing_actions,
+      }
+      : undefined,
+    properties: properties.map((p) => ({
+      title: p.title,
+      address: [p.address, p.city].filter(Boolean).join(", "),
+      listing_number: p.listing_number,
+      status: p.status,
+      price: p.price,
+      link: propertyLink(String(p.id)),
+    })),
+    clients: clients.map((c) => ({ full_name: c.full_name, phone: c.phone })),
+    signers: list.map((sg) => ({
+      full_name: sg.full_name,
+      party: sg.party,
+      phone: sg.phone,
+      viewed_at: sg.viewed_at,
+      signed_at: sg.signed_at,
+      signed: !!sg.signed_at,
+    })),
+    signed_count: list.filter((sg) => sg.signed_at).length,
+    signer_count: list.length,
+    notes: a.notes,
+    created_at: a.created_at,
+    sent_at: a.sent_at,
+    signed_at: a.signed_at,
+    cancelled_at: a.cancelled_at,
+    // רק אחרי חתימה מלאה. לפני כן אין "עותק חתום" להראות, והקישור מציג
+    // מסמך שאיש עוד לא חתם עליו.
+    signed_copy_url: a.status === "signed" && a.view_token
+      ? agreementLink(String(a.view_token))
+      : undefined,
+    verify_code: a.status === "signed" ? a.verify_code : undefined,
   };
 }
 
@@ -1492,6 +2413,10 @@ async function runTool(
       case "list_properties": return await toolListProperties(ctx, input);
       case "attach_images": return await toolAttachImages(ctx, input);
       case "property_stats": return await toolPropertyStats(ctx);
+      case "property_link": return await toolPropertyLink(ctx, input);
+      case "property_performance": return await toolPropertyPerformance(ctx, input);
+      case "cma_report": return await toolCmaReport(ctx, input);
+      case "planning_info": return await toolPlanningInfo(ctx, input);
       // לקוחות
       case "list_clients": return await toolListClients(ctx, input);
       case "create_client": return await toolCreateClient(ctx, input);
@@ -1504,6 +2429,8 @@ async function runTool(
       // הסכמים
       case "list_agreements": return await toolListAgreements(ctx, input);
       case "agreement_sign_links": return await toolAgreementSignLinks(ctx, input);
+      case "agreement_details": return await toolAgreementDetails(ctx, input);
+      case "prepare_agreement": return await toolPrepareAgreement(ctx, input);
       // לידים והתראות
       case "list_leads": return await toolListLeads(ctx, input);
       case "list_notifications": return await toolListNotifications(ctx, input);
@@ -1528,7 +2455,8 @@ function systemPrompt(agent: AgentRow, conv: ConversationState): string {
     `הסוכן/ת: ${agent.display_name || "ללא שם"}${agent.agencies?.name ? ` · משרד ${agent.agencies.name}` : ""}.`,
     `תאריך היום: ${today}.`,
     "",
-    "מה יש לך: נכסים, קובץ הלקוחות, ההתאמות בין השניים, ההסכמים, הלידים וההתראות.",
+    "מה יש לך: נכסים, קובץ הלקוחות, ההתאמות בין השניים, ניתוח שוק ומידע תכנוני, " +
+      "ההסכמים, הלידים וההתראות.",
     "",
     "כללים כלליים:",
     "- ענה/י בעברית, קצר, בסגנון וואטסאפ. אימוג'י אחד לכל היותר.",
@@ -1551,6 +2479,27 @@ function systemPrompt(agent: AgentRow, conv: ConversationState): string {
     "- אחרי שנוצר נכס חדש — קרא/י ל-property_matches עליו. אם יש לקוח/ה מתאים/ה בקובץ, " +
       "זו השורה החשובה בתשובה: \"מתאים ל<שם> (92%), 052-…\".",
     "",
+    "קישור לנכס ושליחה:",
+    "- \"תשלח לי את הקישור לנכס\" / \"תכין הודעה על הדירה\" = property_link. הצג/י את " +
+      "ה-message כמו שהוא (זה הטקסט שיועבר), ומתחתיו את wa_share_url — לחיצה אחת פותחת " +
+      "וואטסאפ עם ההודעה מוכנה.",
+    "- כשהסוכן/ת אומר/ת למי ההודעה (\"תשלח את זה לרונית\") — מצא/י את הלקוח/ה עם " +
+      "list_clients, והעבר/י client_id ל-property_link. אז חוזר wa_client_url ישר לצ'אט " +
+      "שלו/ה. אם חזר client_phone_missing — אמור/אמרי שאין טלפון בקובץ והצג/י את " +
+      "wa_share_url במקום.",
+    "- **הבוט אינו שולח ללקוח/ה.** ההודעה יוצאת מהמספר של הסוכן/ת בלחיצה שלו/ה, " +
+      "בדיוק כמו קישור החתימה. אל תבטיח/י ששלחת.",
+    "- אם חזר warning — אמור/אמרי אותו. קישור לנכס שאינו active לא נפתח אצל הלקוח/ה.",
+    "",
+    "ניתוח נכס:",
+    "- \"כמה שווה\" / \"מה נמכר באזור\" / \"המחיר ריאלי?\" = cma_report. השורה החשובה " +
+      "היא gap_vs_market_pct — הפער בין המחיר המבוקש לממוצע. אם radius_exhausted הוא " +
+      "true, אמור/אמרי שהמדגם קטן לפני שאת/ה מסיק/ה ממנו.",
+    "- \"מה מותר לבנות\" / \"מה הייעוד\" / \"יש תוכנית על המגרש\" = planning_info. " +
+      "סיים/י תמיד במשפט ה-disclaimer שחוזר מהכלי — זה מידע כללי ולא בדיקה מול הוועדה.",
+    "- \"כמה צפיות\" / \"למה אין פניות\" = property_performance. אם יש מעט צפיות והנכס " +
+      "בלי תמונות או בלי קידום — זו התשובה, ואמור/אמרי אותה.",
+    "",
     "לקוחות והתאמות:",
     "- למצוא לקוח/ה לפי שם: list_clients עם query. הדרישות והתקציב חוזרים בשדה needs.",
     "- ליצירת לקוח/ה די בשם. שדה ריק פירושו \"לא משנה\" ולא \"חסר\" — אל תבקש/י תקציב או ערים שלא נאמרו.",
@@ -1561,11 +2510,35 @@ function systemPrompt(agent: AgentRow, conv: ConversationState): string {
     "- בהתאמה שאינה שלך (source agency או shared) הוסף/י את שם הסוכן/ת המפרסם/ת והטלפון — בלעדיהם אין מה לעשות עם ההתאמה.",
     "",
     "הסכמים:",
-    "- אין דרך ליצור, לתקן או לבטל הסכם מכאן — גוף המסמך ננעל במסד אחרי היצירה. " +
-      "הפניה לאשף: \"החתם לקוח\" בדשבורד.",
+    "- אפשר **ליצור** הסכם מכאן (prepare_agreement, למטה), אבל **אי אפשר לתקן או " +
+      "לבטל** — גוף המסמך ננעל במסד ברגע היצירה. תיקון = ביטול והוצאת הסכם חדש, " +
+      "באשף \"החתם לקוח\" בדשבורד.",
     "- agreement_sign_links מחזיר קישור אישי לכל חותם/ת שטרם חתם/ה. הצג/י אותו עם השם " +
       "שלידו, ואמור/אמרי במשפט אחד שהקישור אישי ואין להעביר אותו הלאה — הסוכן/ת הוא/היא " +
       "שמעביר/ה אותו לחותם/ת עצמו/ה.",
+    "- \"כמה עמלה סיכמנו\" / \"מתי נגמרת הבלעדיות\" / \"על איזה נכס ההסכם\" = " +
+      "agreement_details. למצוא את המזהה: list_agreements, ומשם ההסכם שהכותרת שלו " +
+      "מתאימה.",
+    "- \"איזו בלעדיות נגמרת לי\" = list_agreements עם expiring_soon. " +
+      "‏exclusive_days_left שלילי = כבר נגמרה.",
+    "- \"תשלח לי את ההסכם החתום\" = agreement_details → signed_copy_url. הוא קיים רק " +
+      "אחרי שכל הצדדים חתמו, וזה אותו קישור שנשלח לכולם במייל.",
+    "",
+    "הכנת הסכם להחתמה (prepare_agreement):",
+    "- \"תכין הזמנת תיווך לרונית על הדירה בעלייה 20\" = list_clients למצוא אותה, " +
+      "list_properties למצוא את הנכס, ואז prepare_agreement.",
+    "- בחירת הטופס לפי מי חותם/ת: בעל/ת נכס שמוכר/ת = sell · בעל/ת נכס שמשכיר/ה = " +
+      "landlord · קונה = buy · שוכר/ת = tenant · בלעדיות = exclusive_sell או " +
+      "exclusive_landlord. אם לא ברור מי הצד — שאל/י בשאלה אחת.",
+    "- **אם חזר missing — ההסכם לא נוצר.** בקש/י בהודעה אחת את כל מה שברשימה " +
+      "(בדרך כלל ת.ז. של הלקוח/ה ואחוז העמלה), ואז קרא/י שוב. אל תמציא/י ת.ז. " +
+      "ואל תנחש/י עמלה.",
+    "- אחרי היצירה: הצג/י את sign_url של כל חותם/ת עם השם שלידו, ואמור/אמרי את " +
+      "how_to_sign — אותו קישור משמש גם לחתימה מרחוק וגם לפגישה פנים מול פנים. " +
+      "אם יש wa_send_url, זו הדרך המהירה להעביר.",
+    "- אמור/אמרי גם את frozen_note: גוף המסמך ננעל, ותיקון נעשה בביטול והוצאת " +
+      "הסכם חדש בדשבורד. אם requires_otp — אמור/אמרי את otp_note.",
+    "- **הבוט אינו שולח ללקוח/ה**, כאן כמו בכל קישור אחר. הסוכן/ת מעביר/ה.",
     "",
     "לידים והתראות:",
     "- שם וטלפון של ליד שטרם נפתח מגיעים מוסתרים. זה מכוון — אל תתנצל/י ואל תנסה/י " +

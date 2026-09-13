@@ -1,0 +1,42 @@
+name: סנכרון מודולי ההסכם
+
+# ‏הנוסח המשפטי של הזמנת שירותי התיווך יושב ב-assets/agreement-templates.js,
+# והמסמך מורכב ממנו ב-assets/agreement-doc.js. שלושה דפים באתר טוענים אותם,
+# ומאז שהעוזר בוואטסאפ יודע להכין הסכם — גם Edge Function.
+#
+# ‏Edge Function אינה יכולה לייבא מחוץ ל-supabase/functions (ה-CLI בונה את
+# הבאנדל מהתיקייה הזו בלבד), ולכן יש שם עותק. פער בין שני העותקים אינו
+# נראה בשום מקום: הדף ייראה תקין, המסמך ייבנה, הלקוח/ה יחתום/תחתום — ורק
+# כשתוגש תביעת דמי תיווך יתגלה שהסעיף שנחתם אינו הסעיף שבתיק.
+#
+# לכן הבדיקה רצה על ה-PR ולא אחרי המיזוג, והיא קוראת קבצים בלבד — בלי רשת
+# ובלי סודות.
+
+on:
+  pull_request:
+    paths:
+      - "assets/agreement-*.js"
+      - "supabase/functions/_shared/agreement-*.js"
+      - "scripts/check_agreement_assets.py"
+      - ".github/workflows/agreement_assets.yml"
+  push:
+    branches: [main]
+    paths:
+      - "assets/agreement-*.js"
+      - "supabase/functions/_shared/agreement-*.js"
+      - "scripts/check_agreement_assets.py"
+      - ".github/workflows/agreement_assets.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # הפלט של הבדיקה הוא גם הוראת התיקון — פקודת cp אחת.
+      - name: בדיקת זהות בין המקור לעותק
+        run: python3 scripts/check_agreement_assets.py

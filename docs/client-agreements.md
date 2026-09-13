@@ -249,20 +249,49 @@
 לחיצה על ההתראה פותחת את קטגוריית ההסכמים **וטוענת אותה מחדש** — בלי זה
 ההסכם היה ממשיך להופיע כ"ממתין לחתימה" בדיוק במסך שאליו ההתראה הובילה.
 
-## מהוואטסאפ: קריאה וקישור, בלי כתיבה
+## מהוואטסאפ: קריאה, הכנה וקישור — בלי תיקון
 
-העוזר בוואטסאפ (‏[`whatsapp-setup.md`](whatsapp-setup.md)) יודע שני דברים
+העוזר בוואטסאפ (‏[`whatsapp-setup.md`](whatsapp-setup.md)) יודע ארבעה דברים
 כאן:
 
 - **`list_agreements`** — סוג, סטטוס, ומי מהחותמים כבר חתם/ה. זו התשובה
-  ל"מה ממתין לחתימה" ול"האם דני חתם" בלי לפתוח את הדשבורד.
+  ל"מה ממתין לחתימה" ול"האם דני חתם" בלי לפתוח את הדשבורד. עם
+  ‏`expiring_soon` — הבלעדיות שנגמרות בחודש וחצי הקרוב, לפי `exclusive_until`.
+- **`agreement_details`** — הסכם אחד במלואו: עמלה, תקופת בלעדיות וכמה ימים
+  נשארו בה, הנכסים והלקוחות שההסכם חל עליהם, כל חותם/ת עם מועד הצפייה
+  והחתימה, ובהסכם חתום גם `agreement.html?t=<view_token>`. ‏`document_html`
+  **אינו** חוזר: הוא המסמך המלא, והוא לא נקרא בהודעת וואטסאפ.
 - **`agreement_sign_links`** — קישור החתימה האישי של כל חותם/ת שטרם חתם/ה.
   ‏`SITE_BASE_URL` חייב להיות מוגדר, אחרת הכלי מסרב במקום לבנות קישור שבור.
+- **`prepare_agreement`** — מכין הזמנת תיווך ללקוח/ה מקובץ הלקוחות, מצרף את
+  הנכסים שהסוכן/ת ביקש/ה, ומחזיר את קישור החתימה.
 
-**יצירה, תיקון וביטול אינם שם, ולא במקרה.** גוף המסמך נחסם במסד בטריגר
-`agreements_freeze_body` ברגע שההסכם נוצר, וכל ערכה הראייתי של החתימה תלוי
-בזה. אשף שמייצר מסמך משפטי מתוך שיחה חופשית הוא בדיוק המקום שבו שדה אחד
-שנקלט לא נכון מפיל תביעת דמי תיווך, ולכן ההחתמה נשארת באשף בדשבורד.
+### מה מאפשר ליצור הסכם מחוץ לדפדפן
+
+המסמך נבנה עם **אותו קוד ואותו נוסח**. ‏`assets/agreement-templates.js`
+ו-`assets/agreement-doc.js` נכתבו מלכתחילה בלי שום תלות ב-DOM ועם נפילה
+ל-`globalThis` כשאין `window` — ולכן הם נטענים ב-Deno כמו שהם.
+‏`supabase functions deploy` בונה את הבאנדל מתוך `supabase/functions` בלבד
+ואינו פותר ייבוא מ-`assets/`, ולכן יושב שם עותק **זהה בייט-בייט**
+ש-`scripts/check_agreement_assets.py` מוודא ב-CI בכל PR שנוגע באחד מהם.
+
+‏`supabase/functions/_shared/agreement-build.ts` הוא מה שמחליף את האשף:
+מיפוי שדות הנכס למסמך (מקביל ל-`agrFieldFromProperty`), רשימת מה שחסר
+(מקביל ל-`agrValidate`), ה-payload (מקביל ל-`agrSaveAndGoSign`) ובניית
+ה-HTML אחרי ה-`insert` — כי `verify_code` נוצר במסד ומודפס בתחתית המסמך.
+
+### מה עדיין לא שם, ולא במקרה
+
+**תיקון וביטול.** גוף המסמך נחסם במסד בטריגר `agreements_freeze_body` ברגע
+שההסכם יוצא מ-`draft`, וכל ערכה הראייתי של החתימה תלוי בזה. הדרך לתקן היא
+הדרך שהנייר מכיר — ביטול והוצאת הסכם חדש — והיא נעשית באשף, שבו יש תצוגה
+מקדימה מלאה של מה שהלקוח/ה יראה/תראה. זה בדיוק מה שאי אפשר להראות בהודעת
+וואטסאפ.
+
+**הסכם חסר.** שדה אחד שנקלט לא נכון מפיל תביעת דמי תיווך, ולכן
+‏`prepare_agreement` אינו יוצר כלום כשחסר משהו: הוא מחזיר `missing` — ת.ז.
+של חותם/ת, עמלה, תקופת בלעדיות — והבוט מבקש אותו. הרשימה מחושבת
+ב-`missingForAgreement`, שהיא התאום של `agrValidate` באשף.
 
 ו**הבוט אינו שולח ללקוח/ה.** הוא מחזיר את הקישור לצ'אט של הסוכן/ת, שמעביר/ה
 אותו — בדיוק מה שכפתור "💬 וואטסאפ" שליד כל חותם/ת בדשבורד עושה, ומאותה
@@ -292,7 +321,10 @@
 | `sign.html` | חתימה מרחוק לפי אסימון אישי. |
 | `agreement.html` | העותק החתום, לפי אסימון הצפייה שבמייל. |
 | `supabase/functions/agreement-sign/index.ts` | שבע הפעולות: `open`, `otp_send`, `otp_verify`, `sign`, `view` (ציבוריות, לפי אסימון) · `send`, `finalize` (‏JWT של הסוכן/ת). |
-| `supabase/functions/whatsapp-webhook/agent.ts` | ‏`list_agreements` ו-`agreement_sign_links` — קריאה וקישור בלבד, בלי כתיבה. |
+| `supabase/functions/whatsapp-webhook/agent.ts` | ‏`list_agreements`, ‏`agreement_details`, ‏`agreement_sign_links` ו-`prepare_agreement`. |
+| `supabase/functions/_shared/agreement-build.ts` | הרכבת ההסכם בשרת — מה שמחליף את האשף בערוץ הוואטסאפ. |
+| `supabase/functions/_shared/agreement-templates.js` · `agreement-doc.js` | עותק זהה בייט-בייט של מודולי `assets/`, כי ה-CLI אינו מייבא מחוץ ל-`supabase/functions`. |
+| `scripts/check_agreement_assets.py` | חוסם ב-CI פער בין המקור לעותק. נוסח שונה בין השניים אינו נראה בשום מקום. |
 | `supabase/migrations/20260926090000_client_agreements.sql` | `agreements`, `agreement_signers`, הטריגרים וה-RLS. |
 | `supabase/migrations/20260927090000_agreement_signing_verification.sql` | `require_otp`, `allow_passport`, ושדות הקוד החד-פעמי. |
 | `supabase/migrations/20260928090000_agreement_manager_notice.sql` | `manager_notified_at` — ההודעה למנהל/ת על בלעדיות היא חד-פעמית. |
