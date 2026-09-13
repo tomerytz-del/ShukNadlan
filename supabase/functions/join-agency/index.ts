@@ -5,6 +5,7 @@ import {
   grantLaunchPromo, PROMO_TIER, TIERS, TIER_NAMES, TIER_PRICES, type Tier,
 } from "../_shared/launch-promo.ts";
 import { blockedResponse, checkBrokerLicense } from "../_shared/broker-license-gate.ts";
+import { announcePlatformSignup } from "../_shared/platform-signup-alert.ts";
 
 // ============================================================================
 // חיבור חשבון לכרטיס סוכן/ת קיים — "המערכת מזהה אותי"
@@ -87,6 +88,20 @@ Deno.serve(async (req: Request) => {
 
   /** הענקת הטבת ההשקה. כישלון כאן לא מפיל את השיוך — המשרד חשוב מהמתנה. */
   const grantPromo = (memberId: string) => grantLaunchPromo(supabase, memberId);
+
+  /**
+   * סוף מסלול ההצטרפות, לשלושת המסלולים כאחד: ההטבה, ואז ההתראה למנהל/ת
+   * הפלטפורמה על מתווך/ת שהצטרף/ה.
+   *
+   * שתי הפעולות יחד ובסדר הזה, ולא כל אחת אצל הקורא: ההתראה נושאת את המסלול,
+   * והמסלול נקבע בשורה שמעליה. קורא ששכח אחת מהן היה מדווח "Pay&GO" על
+   * מצטרף/ת שקיבל/ה Elite — או לא מדווח כלל.
+   */
+  async function joined(memberId: string) {
+    const promo = await grantPromo(memberId);
+    await announcePlatformSignup(supabase, memberId, "agent");
+    return promo;
+  }
 
   /**
    * שער הרישיון על כרטיס קיים.
@@ -192,7 +207,7 @@ Deno.serve(async (req: Request) => {
         const res = await bind(invite.member_id, { inviteToken: token });
         if ("blocked" in res) return json(res.blocked, 403);
         if ("error" in res) return json({ status: "error", error: res.error, detail: (res as any).detail }, 409);
-        const promo = await grantPromo(invite.member_id);
+        const promo = await joined(invite.member_id);
         return json({ status: "joined", via: "invite", member_slug: res.member!.slug, promo });
       }
 
@@ -211,7 +226,7 @@ Deno.serve(async (req: Request) => {
           // למה.
           if ("blocked" in res) return json(res.blocked, 403);
           if (!("error" in res)) {
-            const promo = await grantPromo(matches[0].id);
+            const promo = await joined(matches[0].id);
             return json({ status: "joined", via: "email", member_slug: res.member!.slug, promo });
           }
         }
@@ -330,8 +345,9 @@ Deno.serve(async (req: Request) => {
         await supabase.from("agency_invitations")
           .update({ status: "accepted", accepted_at: new Date().toISOString(), accepted_by: claim.user_id })
           .eq("member_id", claim.member_id).eq("status", "pending");
-        // אישור בקשת שיוך הוא הצטרפות לכל דבר, ולכן גם כאן ההטבה מוענקת.
-        await grantPromo(claim.member_id);
+        // אישור בקשת שיוך הוא הצטרפות לכל דבר, ולכן גם כאן ההטבה מוענקת
+        // וההתראה יוצאת.
+        await joined(claim.member_id);
       }
 
       const { error: decErr } = await supabase

@@ -19589,7 +19589,9 @@ document.getElementById('cmaPrintBtn').addEventListener('click', ()=> window.pri
    צבע וניווט ייעודיים.
 
    ‏when() מסתיר סוג שאינו רלוונטי לתפקיד: אין טעם להציע למנהל/ת פלטפורמה
-   לכבות התראה שסוכן/ת רגיל/ה לעולם לא מקבל/ת, ולהפך. */
+   לכבות התראה שסוכן/ת רגיל/ה לעולם לא מקבל/ת, ולהפך. ‏view:'admin' מוסיף
+   לזה את הצד השני — הקטגוריה שאליה ההתראה מובילה יושבת בתצוגת המנהל/ת,
+   ולכן הלחיצה מעבירה לשם קודם. */
 const NOTIF_TYPES = [
   { type:'new_lead',       tone:'',       goto:'accLeads',    focus:'#leadsList',
     title:'ליד חדש',
@@ -19625,9 +19627,18 @@ const NOTIF_TYPES = [
     sub:'ביקורת 1★ שנכנסה לפלטפורמה ומגיעה לבדיקת ההנהלה.',
     when: ()=> currentAgent && currentAgent.is_platform_admin },
   { type:'lead_unrouted',  tone:'alert',  goto:'accUnroutedLeads', focus:'#unroutedLeadsList',
+    view:'admin',
     title:'ליד שאין למי להפנות',
     sub:'פנייה שנקלטה מהאתר ואין קהל שיקבל אותה — למשל ליד משכנתא בלי יועצ/ת רשומ/ה.',
     when: ()=> currentAgent && currentAgent.is_platform_admin },
+  /* ‏goto ל"מנויים ובקשות שדרוג" ולא ללוח הבקרה: ההתראה אומרת מי הצטרף/ה
+     ולאיזה מסלול, ושם — ב"יומן שינויי מסלול" — רואים את השורה עצמה. */
+  { type:'platform_signup', tone:'deal', goto:'accSubscriptions', focus:'#subsLog',
+    view:'admin',
+    title:'משרד או מתווך/ת שהצטרפו',
+    sub:'כל משרד תיווך שנפתח וכל מתווך/ת שנכנס/ת לראשונה, עם השם והמסלול שאיתו הצטרפו.',
+    when: ()=> currentAgent && currentAgent.is_platform_admin,
+    refresh: ()=> loadSubscriptionsAdmin() },
 ];
 
 const NOTIF_BY_TYPE = new Map(NOTIF_TYPES.map(t => [t.type, t]));
@@ -19676,6 +19687,14 @@ async function loadNotifications(agentId){
       // מוכר, או קטגוריה שאינה גלויה לתפקיד הזה, פשוט סוגרים את הפאנל —
       // נחיתה רכה עדיפה על קפיצה למקום שגוי.
       const target = meta || NOTIF_BY_TYPE.get('new_lead');
+      // ‏view: קטגוריות הפלטפורמה יושבות ב-#platformAdminSection, שתצוגת
+      // הסוכן/ת מכבה ב-display:none — כלומר navAccVisible שמתחת היה מחזיר
+      // false והלחיצה לא הייתה עושה דבר. המעבר לתצוגה קודם לבדיקה, ורק למי
+      // שהתצוגה פתוחה בפניו/ה.
+      if (target.view === 'admin' && dashView !== 'admin'
+          && currentAgent && currentAgent.is_platform_admin) {
+        setDashView('admin');
+      }
       // ‏navAccVisible ולא offsetParent: קטגוריה שאינה גלויה לתפקיד הזה
       // (managerSection לסוכן/ת רגיל/ה) באמת אינה יעד — אבל קטגוריה שיושבת
       // בלשונית אחרת של הסרגל התחתון היא display:none ברגע הזה, ו-offsetParent

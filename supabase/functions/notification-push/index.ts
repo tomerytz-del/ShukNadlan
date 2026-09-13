@@ -82,6 +82,7 @@ const ACC_BY_TYPE: Record<string, string> = {
   deal_closed: "accTeam",
   marketing_copy: "accProperties",
   system: "accSharedWithMe",
+  platform_signup: "accSubscriptions",
 };
 
 function json(obj: unknown, status = 200) {

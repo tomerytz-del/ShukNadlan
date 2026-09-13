@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { grantLaunchPromo } from "../_shared/launch-promo.ts";
+import { announcePlatformSignup } from "../_shared/platform-signup-alert.ts";
 import { blockedResponse, checkBrokerLicense } from "../_shared/broker-license-gate.ts";
 
 // פתיחת משרד חדש ("פתיחת משרד"). זו הדרך היחידה שמישהו נכנסת
@@ -190,6 +191,10 @@ Deno.serve(async (req: Request) => {
     // שמצטרף/ת לצוות קיים. כישלון כאן אינו מפיל את ההרשמה — ‎grant_launch_promo‎
     // אידמפוטנטית, ו-join-agency/resolve יעניק/תעניק אותה בכניסה הראשונה.
     const promo = await grantLaunchPromo(supabase, member.id);
+
+    // ההתראה למנהל/ת הפלטפורמה — **אחרי** ההטבה ולא לפניה, כדי שהמסלול
+    // שבהודעה יהיה המסלול שבאמת יושב על השורה. ראו _shared/platform-signup-alert.ts.
+    await announcePlatformSignup(supabase, member.id, "agency");
 
     return json({
       success: true,
