@@ -9,6 +9,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
+<script src="assets/events.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>שוק נדל״ן | עפולה והעמק</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
@@ -5232,6 +5233,7 @@ mleadForm.addEventListener('submit', async (e)=>{
     if (!res.ok || data.error) throw new Error(data.error || 'שגיאה');
     mleadForm.hidden = true;
     mleadDone.hidden = false;
+    if (window.shukTrack) shukTrack('generate_lead', { form_id:'mortgage' });
   } catch(err){
     console.error('mortgage-lead-intake failed:', err);
     mleadErrorEl.textContent = 'השליחה נכשלה — בדקו חיבור לאינטרנט ונסו שוב';
@@ -5421,6 +5423,7 @@ wizForm.addEventListener('submit', async (e)=>{
     wizForm.hidden = true;
     document.getElementById('wizSteps').hidden = true;
     wizDone.hidden = false;
+    if (window.shukTrack) shukTrack('generate_lead', { form_id:'owner_wizard' });
   } catch(err){
     console.error('owner-lead-intake failed:', err);
     setError(3, 'השליחה נכשלה — בדקו חיבור לאינטרנט ונסו שוב');
@@ -8235,6 +8238,15 @@ async function runSearch(){
     if (error) throw error;
     const results = (data || []).map(shapeProperty);
     renderPropertyGrid(results, true);
+    /* אחרי שהתוצאות חזרו ולא ברגע הלחיצה: חיפוש שהחזיר אפס הוא הממצא
+       המעניין כאן — הוא מראה מה מחפשים אצלנו ולא מוצאים. */
+    if (window.shukTrack) shukTrack('search', {
+      search_term: freeTextMain,
+      deal_type: dealType || 'all',
+      category: isCommercial ? 'commercial' : 'residential',
+      filter_count: count,
+      result_count: results.length,
+    });
     // רגע הכניסה הטבעי לתצוגה המפוצלת: מהחיפוש הראשון ואילך יש תוצאות
     // להשוות מול המפה. נפתחת פעם אחת בלבד ורק למי שעוד לא בחר/ה בעצמו/ה —
     // מי שסגר/ה את הפאנל לא ימצא אותו פתוח שוב.
@@ -8595,6 +8607,10 @@ ssaForm.addEventListener('submit', async (e)=>{
       : 'נעדכן אתכם ברגע שיעלה נכס שמתאים לחיפוש.';
     ssaForm.hidden = true;
     ssaDone.hidden = false;
+    if (window.shukTrack) shukTrack('generate_lead', {
+      form_id: 'search_agent',
+      is_duplicate: !!data.duplicate,
+    });
   } catch(err){
     console.warn('saved-search-intake failed:', err);
     ssaErrorEl.textContent = err.message && err.message !== 'Failed to fetch'
@@ -8973,6 +8989,10 @@ buyerForm.addEventListener('submit', async (e)=>{
     buyerForm.hidden = true;
     document.getElementById('buySteps').hidden = true;
     buyDoneEl.hidden = false;
+    if (window.shukTrack) shukTrack('generate_lead', {
+      form_id: 'buyer_banner',
+      is_duplicate: !!data.duplicate,
+    });
   } catch(err){
     console.warn('saved-search-intake (buyer banner) failed:', err);
     buySetError(3, err.message && err.message !== 'Failed to fetch'
