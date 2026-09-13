@@ -1720,6 +1720,110 @@
   .buy-recap{font-size:.78rem;line-height:1.5;color:#F0DADD;
     background:rgba(0,0,0,.18);border-radius:0;padding:10px 12px;margin-bottom:4px}
 
+  /* ---------- ‏--gold בתוך הבאנרים הוא פליז, לא ספיר ----------
+     ‏--gold בדף הזה הוא ‎#0e2a6b‎ — בדיוק הספיר שממנו עשוי הבאנר עצמו —
+     ולכן בבאנר בעלי הנכסים כל סימון "נבחר" נצבע בצבע הרקע שמתחתיו: השבב
+     הנבחר, הנקודה של השלב הפעיל, הטוגל, עיגול הסיום, ו-‎.btn-gold‎ שמקבל
+     ‎--teal‎ מ-design-system. באנר מחפשי הנכס כבר עקף את זה עם ‎#c9a227‎
+     מפורש; כאן זה נקבע פעם אחת לשני הבאנרים, דרך המשתנה עצמו. הטקסט על
+     הפליז כהה ולא לבן — לבן על פליז הוא 2.4:1. */
+  .lead-banner{--gold:#c9a227}
+  .lead-banner .owner-toggle button.active,
+  .lead-banner .lead-toggle button.active,
+  .lead-banner .chip[aria-checked="true"],
+  .lead-banner .chip[aria-pressed="true"],
+  .lead-banner .wiz-steps li.active .dot,
+  .lead-banner .wiz-steps li.done .dot,
+  .lead-banner .wiz-done-mark,
+  .lead-banner .btn-gold{background:#c9a227;border-color:#c9a227;color:#0d1b3d}
+  .lead-banner .wiz-steps li.done{color:#F0D6AA}
+
+  /* ---------- שכבת העומק של באנרי הלידים ----------
+     עד כאן כל מה שבתוך הבאנר ישב על אותו משטח שטוח: שורת ההזמנה, כרטיס
+     האשף, השבבים וה-CTA — כולם על אותו כהה, ונבדלים זה מזה רק בקו מסגרת
+     של 30% לבן. אצל משרד שבחר ראשי ומשני קרובים בגוון — וזה הרוב, ספיר
+     על ספיר — כל הרצועה נקראת כקיר אחד: שבב שלא נבחר כמעט אינו נראה,
+     כרטיס האשף אינו נקרא ככרטיס, והכותרת נמשכת אל תוך הטופס.
+
+     ארבע שכבות מפרידות ביניהם *בלי* לגעת בגוונים שהמשרד בחר — כולן לבן
+     או שחור שקופים שמונחים מעל הגוון עצמו, ולכן הן עובדות בכל ערכה:
+       1. **הפרדה בין הכותרת לאשף** — שורת ההזמנה הפתוחה עולה (לבן 6%),
+          הפאנל שמתחתיה שוקע (שחור 14%), וקו דק מפריד ביניהם.
+       2. **לכרטיס האשף יש גוף** — מדרג לבן קל, מסגרת חזקה יותר וצל.
+       3. **לשבב שלא נבחר יש מילוי** — 9% לבן ומסגרת 42%, במקום שקוף לגמרי
+          עם מסגרת 30% שנבלעת ברקע.
+       4. **לשבב שנבחר יש ✓** — סימון שנקרא גם כשהמילוי הנבחר קרוב בגוון
+          לרקע, ובמקביל ה-CTA מקבל צל שמרים אותו מעל השבבים: שניהם נצבעים
+          ב---gold-tint אצל חלק מהמשרדים, ובלי המדרג הזה "נבחר" ו"להמשך"
+          נראים אותו כפתור בדיוק. */
+  .lead-banner{position:relative;isolation:isolate}
+  /* ברק רך בפינה: הרצועה מפסיקה להיות מלבן צבע אחיד. ‏z-index:-1 בתוך
+     ה-‎isolation‎ של הבאנר — מעל הרקע שלו עצמו, מתחת לכל תוכן שבו. */
+  .lead-banner::before{
+    content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;
+    background:radial-gradient(120% 125% at 85% -25%,rgba(255,255,255,.14),rgba(255,255,255,0) 55%);
+  }
+  .lead-banner.is-open .lead-teaser{
+    background:rgba(255,255,255,.06);
+    border-bottom:1px solid rgba(255,255,255,.14);
+  }
+  .lead-banner .lead-teaser-icon{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.32)}
+  .lead-banner .lead-panel{
+    background:rgba(0,0,0,.14);
+    box-shadow:inset 0 12px 22px -16px rgba(0,0,0,.6);
+  }
+  .lead-banner .owner-wizard{
+    background:linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.06));
+    border-color:rgba(255,255,255,.24);
+    box-shadow:0 18px 38px rgba(0,0,0,.26),inset 0 1px 0 rgba(255,255,255,.14);
+  }
+  .lead-banner .wiz-steps li{border-bottom-color:rgba(255,255,255,.2)}
+  .lead-banner .wiz-steps li:not(.active):not(.done){color:rgba(255,255,255,.62)}
+  /* הילה לנקודת השלב הפעיל, כדי שתיקרא גם כשהגוון שבו היא צבועה קרוב
+     לגוון הרצועה שמאחוריה */
+  .lead-banner .wiz-steps li.active .dot{box-shadow:0 0 0 3px rgba(255,255,255,.16)}
+  /* ‏:not(...) ולא כלל שטוח: כלל על ‎.lead-banner .chip‎ לבדו גובר
+     בסלקטיביות על ‎.owner-toggle button.active‎ — ומכבה את הסימון עצמו. */
+  .lead-banner .chip:not([aria-checked="true"]):not([aria-pressed="true"]),
+  .lead-banner .lead-toggle button:not(.active),
+  .lead-banner .owner-toggle button:not(.active){
+    background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.42);
+    transition:background .15s ease,border-color .15s ease;
+  }
+  .lead-banner .chip:not([aria-checked="true"]):not([aria-pressed="true"]):hover,
+  .lead-banner .lead-toggle button:not(.active):hover,
+  .lead-banner .owner-toggle button:not(.active):hover{
+    background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.6);
+  }
+  .lead-banner .chip[aria-checked="true"]::before,
+  .lead-banner .chip[aria-pressed="true"]::before{content:"✓";font-weight:800;margin-inline-end:6px}
+  /* טבעת בהירה סביב כל מה שנבחר, ולא רק מילוי בגוון: ברירת המחדל של
+     ‎:root‎ היא ‎--brand‎ ו---accent זהים, ואצל משרד שלא בחר גוון משני
+     המילוי הנבחר הוא בדיוק צבע הרצועה שמתחתיו. הטבעת (וה-✓ שמעליה)
+     מחזיקים את הסימון גם שם, בלי לוותר על הגוון אצל מי שכן בחר. */
+  .lead-banner .chip[aria-checked="true"],
+  .lead-banner .chip[aria-pressed="true"],
+  .lead-banner .lead-toggle button.active,
+  .lead-banner .owner-toggle button.active{box-shadow:0 0 0 1.5px rgba(255,255,255,.5)}
+  .lead-banner .btn-gold{font-weight:800;box-shadow:0 0 0 1.5px rgba(255,255,255,.35),0 10px 22px rgba(0,0,0,.28)}
+  .lead-banner .btn-gold:hover{transform:translateY(-1px);box-shadow:0 0 0 1.5px rgba(255,255,255,.45),0 14px 26px rgba(0,0,0,.34)}
+  .lead-banner .btn-gold[disabled],
+  .lead-banner .btn-gold:disabled{box-shadow:none;transform:none}
+  /* שדה לבן על רצועה כהה הוא הדבר הבוהק ביותר במסך; שקע פנימי קל מרכך
+     אותו. טבעת המיקוד לבנה ולא בגוון המשרד — טבעת ‎--gold‎ סביב שדה
+     שיושב בתוך אשף שכולו באותו גוון נבלעת בדיוק כמו כל השאר. */
+  .lead-banner .wiz-input{box-shadow:inset 0 1px 3px rgba(13,27,61,.16)}
+  .lead-banner .wiz-input::placeholder{color:#8792a8}
+  /* הטבעת הכפולה (הגוון + הילה לבנה) היא מה שמבטיח שסימון השגיאה ייראה
+     גם כשגוון המשרד עצמו הוא צבע הרצועה */
+  .lead-banner .wiz-input.invalid{
+    box-shadow:0 0 0 2px var(--gold),0 0 0 4px rgba(255,255,255,.45),inset 0 1px 3px rgba(13,27,61,.16);
+  }
+  .lead-banner .wiz-input:focus-visible{
+    outline:none;
+    box-shadow:0 0 0 3px rgba(255,255,255,.55),inset 0 1px 3px rgba(13,27,61,.16);
+  }
+
   @media(min-width:640px){
     .lead-teaser{padding:20px 24px;gap:16px}
     .lead-teaser-title{font-size:1.2rem}

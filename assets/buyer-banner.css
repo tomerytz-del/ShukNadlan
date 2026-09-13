@@ -175,3 +175,74 @@
   .footer-lead .lead-teaser-sub{font-size:.83rem}
   .footer-lead .lead-panel{padding:6px 32px 32px}
 }
+
+/* ============================================================================
+   שכבת העומק
+   ----------------------------------------------------------------------------
+   עד כאן כל מה שבתוך הבאנר ישב על אותו משטח שטוח: שורת ההזמנה, כרטיס האשף,
+   השבבים וה-CTA — כולם על אותו כהה, ונבדלים זה מזה רק בקו מסגרת של 30% לבן.
+   התוצאה היא קיר אחד: שבב שלא נבחר כמעט אינו נראה, כרטיס האשף אינו נקרא
+   ככרטיס, והכותרת נמשכת אל תוך הטופס.
+
+   ארבע שכבות מפרידות ביניהם — כולן לבן או שחור שקופים מעל הגוונים הקיימים,
+   ולכן שום צבע כאן לא משתנה:
+     1. שורת ההזמנה הפתוחה עולה (לבן 6%), הפאנל שמתחתיה שוקע (שחור 14%),
+        וקו דק מפריד ביניהם.
+     2. לכרטיס האשף יש גוף: מדרג לבן קל, מסגרת חזקה יותר וצל.
+     3. לשבב שלא נבחר יש מילוי — 9% לבן ומסגרת 42% במקום שקוף עם 30%.
+     4. לשבב שנבחר יש ✓ וטבעת בהירה, ול-CTA יש צל שמרים אותו מעליו: שניהם
+        פליז מלא, ובלי המדרג הזה "נבחר" ו"להמשך" נראים אותו כפתור.
+
+   אותה שכבה בדיוק יושבת ב-index/agency/agent, שנושאים אשף משלהם.
+   ============================================================================ */
+
+.footer-lead .lead-banner{position:relative;isolation:isolate}
+/* ברק רך בפינה: הרצועה מפסיקה להיות מלבן צבע אחיד. ‏z-index:-1 בתוך
+   ה-‎isolation‎ של הבאנר — מעל הרקע שלו עצמו, מתחת לכל תוכן שבו. */
+.footer-lead .lead-banner::before{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;
+  background:radial-gradient(120% 125% at 85% -25%,rgba(255,255,255,.14),rgba(255,255,255,0) 55%);
+}
+.footer-lead .lead-banner.is-open .lead-teaser{
+  background:rgba(255,255,255,.06);
+  border-bottom:1px solid rgba(255,255,255,.14);
+}
+.footer-lead .lead-banner .lead-teaser-icon{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.32)}
+.footer-lead .lead-banner .lead-panel{
+  background:rgba(0,0,0,.14);
+  box-shadow:inset 0 12px 22px -16px rgba(0,0,0,.6);
+}
+.footer-lead .lead-banner .owner-wizard{
+  background:linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.06));
+  border-color:rgba(255,255,255,.24);
+  box-shadow:0 18px 38px rgba(0,0,0,.26),inset 0 1px 0 rgba(255,255,255,.14);
+}
+.footer-lead .lead-banner .wiz-steps li{border-bottom-color:rgba(255,255,255,.2)}
+.footer-lead .lead-banner .wiz-steps li.active .dot{box-shadow:0 0 0 3px rgba(255,255,255,.16)}
+.footer-lead .lead-banner .chip:not([aria-pressed="true"]),
+.footer-lead .lead-banner .lead-toggle button:not(.active){
+  background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.42);
+  transition:background .15s ease,border-color .15s ease;
+}
+.footer-lead .lead-banner .chip:not([aria-pressed="true"]):hover,
+.footer-lead .lead-banner .lead-toggle button:not(.active):hover{
+  background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.6);
+}
+.footer-lead .lead-banner .chip[aria-pressed="true"]::before{content:"✓";font-weight:800;margin-inline-end:6px}
+.footer-lead .lead-banner .chip[aria-pressed="true"],
+.footer-lead .lead-banner .lead-toggle button.active{box-shadow:0 0 0 1.5px rgba(255,255,255,.5)}
+.footer-lead .lead-banner .btn-gold{font-weight:800;box-shadow:0 0 0 1.5px rgba(255,255,255,.35),0 10px 22px rgba(0,0,0,.28)}
+.footer-lead .lead-banner .btn-gold:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 0 0 1.5px rgba(255,255,255,.45),0 14px 26px rgba(0,0,0,.34)}
+.footer-lead .lead-banner .btn-gold:disabled{box-shadow:none;transform:none}
+/* שדה לבן על רצועה כהה הוא הדבר הבוהק ביותר במסך; שקע פנימי קל מרכך אותו.
+   טבעת המיקוד לבנה — טבעת פליז סביב שדה שיושב בתוך אשף שהסימונים בו פליז
+   נבלעת בדיוק כמו כל השאר. */
+.footer-lead .lead-banner .wiz-input{box-shadow:inset 0 1px 3px rgba(13,27,61,.16)}
+.footer-lead .lead-banner .wiz-input::placeholder{color:#8792a8}
+.footer-lead .lead-banner .wiz-input.invalid{
+  box-shadow:0 0 0 2px #c9a227,0 0 0 4px rgba(255,255,255,.45),inset 0 1px 3px rgba(13,27,61,.16);
+}
+.footer-lead .lead-banner .wiz-input:focus-visible{
+  outline:none;
+  box-shadow:0 0 0 3px rgba(255,255,255,.55),inset 0 1px 3px rgba(13,27,61,.16);
+}
