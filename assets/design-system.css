@@ -292,8 +292,13 @@ header.site .primary a[aria-current],header.site .primary a.is-active{
    במפורש ולכן אינם יורשים.
 
    ‏--on-gold נשאר כפי שהוא: הוא הטקסט על שבבי הזהב *בתוך* הרצועה, והם
-   עדיין בגוון המשרד. */
-.owner-banner,.buyer-banner,.calc-banner,.yield-banner,.agency-banner{
+   עדיין בגוון המשרד.
+
+   באנר מחפשי הנכס יצא מכאן בפועל: בדפי המשרד והסוכן/ת הוא נצבע בתכלת
+   קבועה דרך ‎.lead-banner.buyer-banner‎ — שתי מחלקות, כדי לגבור על הכלל
+   הזה — ובכל שאר העמודים דרך ‎.footer-lead‎. הוא נשאר ברשימה כרשת ביטחון
+   למקרה שרצועה כזו תופיע בעמוד שאין בו אף אחד מהשניים. */
+.owner-banner,.buyer-banner{
   background:linear-gradient(160deg,var(--sapphire) 0%,var(--sapphire-deep) 100%);
   border:1px solid rgba(255,255,255,.1);
   color:#fff;
