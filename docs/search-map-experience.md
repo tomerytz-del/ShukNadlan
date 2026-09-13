@@ -221,6 +221,11 @@ section,.lead-banner{scroll-margin-top:var(--header-h)}
 | הווילון של רצועת ההדמיות | `.ai-shot-after` | ראו [property-visualizations.md](property-visualizations.md) |
 | ההילות הנעות של הרקע | `assets/page-bg.js` | ההעדפה או תפריט הנגישות |
 
+**נכס ביריד הבתים הפתוחים** מקבל סימן משלו *מעל* תווית המחיר, ומסגרת אדומה
+סביב התווית עצמה. הצבע של התווית נשאר צבע סוג העסקה, כי זה מה שהמקרא אומר
+שהוא — היריד מוסיף עליו ולא מחליף אותו. הסימן אינו נע: הפעימה שמורה לקידום,
+וזו בדיוק הסיבה שלמטה.
+
 הפעימה על פינים מקודמים בלבד היא כלל ולא טעם: פעימה על כל פין הופכת מפה עם
 ארבעים נכסים לשדה מהבהב שאי אפשר לקרוא בו כלום. תנועה מסמנת משהו רק כשהיא
 נדירה.
@@ -531,6 +536,7 @@ section,.lead-banner{scroll-margin-top:var(--header-h)}
 | הדגשה דו-כיוונית | `hotSplitRow()`, `revealSplitRow()` |
 | שורת נכס משותפת | `buildSearchRow()` — משמשת גם את התוצאות שמתחת למפה |
 | מחוות מגע במפה | `assets/map-gestures.js` |
+| הסימן של יריד הבתים הפתוחים | `assets/open-house.js` — ראו [open-house-fair.md](open-house-fair.md) |
 | סימון אזור ורדיוס | `assets/map-draw.js` — `MapDraw.attach(map, …)` |
 | חיבור הסימון לחיפוש | `initMapDraw()`, `inDrawnArea()`, `onDrawnAreaChange()`, `propertiesInDrawnArea()` |
 | עמודות ה-DB | מיגרציות `20260830120000_neighborhood_geo.sql`, `20260831120000_neighborhood_boundary.sql` |

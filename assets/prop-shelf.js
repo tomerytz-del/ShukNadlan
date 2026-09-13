@@ -258,7 +258,8 @@
        המחיר, הכותרת, שתי שורות המיקום, שורת המאפיינים והתגיות שעל התמונה
        מגיעים כולם מ-assets/property-card.js, ולכן האריח כאן זהה בשלושת
        הדפים. מה שנשאר לעמוד הוא ממלא־המקום (‏cfg.fallback) ומה שהוא רוצה
-       להוסיף על התמונה (‏cfg.overlay — כפתור המועדפים בדף הסוכן/ת). */
+       להוסיף על התמונה (‏cfg.overlay — כפתור המועדפים בדף הסוכן/ת, סרט
+       הספירה לאחור בדף היריד; ‏cfg.rowExtra הוא אותו הדבר לשורה הדחוסה). */
     function propCard(p) {
       var el = document.createElement('div');
       el.className = 'prop-card pc-cover';
@@ -334,8 +335,13 @@
       var deal = p.deal_type === 'rent' ? 'להשכרה' : 'למכירה';
 
       el.innerHTML =
+        /* ‏cfg.rowExtra הוא המקבילה של cfg.overlay לשורה הדחוסה: מה שהעמוד
+           רוצה להוסיף על התמונונת (ספירת היריד בדף הבתים הפתוחים). בלעדיו
+           הטלפון היה מציג את אותם נכסים בלי מה שמבדיל אותם, כי מ-520px
+           ומטה כל האריחים מלבד הראשון הם שורות. */
         '<span class="pr-thumb" style="' + thumbStyle(p) + '">' + fallback(p) +
-          (isPromoted(p) ? '<span class="pr-promo">מקודם</span>' : '') + '</span>' +
+          (isPromoted(p) ? '<span class="pr-promo">מקודם</span>' : '') +
+          (cfg.rowExtra ? cfg.rowExtra(p) : '') + '</span>' +
         '<span class="pr-main">' +
           '<span class="pr-line pr-what">' + escAttr(what) + '</span>' +
           '<span class="pr-line pr-facts">' + escAttr(facts.join(' · ')) + '</span>' +

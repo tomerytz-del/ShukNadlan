@@ -34,6 +34,12 @@ verify_jwt = false          # "עדכנו אותי על נכסים כאלה" ב�
 [functions.saved-search-manage]
 verify_jwt = false          # ניהול/ביטול חיפוש שמור לפי טוקן שבמייל
 
+[functions.open-house-subscribe]
+verify_jwt = false          # "עדכנו אותי כשנכנס נכס ליריד" בדף יריד הבתים הפתוחים
+
+[functions.open-house-manage]
+verify_jwt = false          # הסרה/חזרה לרשימת היריד לפי טוקן שבמייל
+
 [functions.professional-manage]
 verify_jwt = false          # עריכת כרטיס בעל מקצוע לפי טוקן שנשלח אליו
 
@@ -95,6 +101,11 @@ verify_jwt = false          # Meta שולחת בלי JWT; האימות הוא ב
 
 [functions.saved-search-notify]
 verify_jwt = false          # ‏pg_cron + x-alert-cron-secret
+
+# "נכס חדש ביריד" לרשימת ההמתנה. רצה כל רבע שעה מ-pg_cron, ורק כשיש למי
+# לשלוח (‏open_house_digest_pending בתנאי ה-cron). ראו docs/open-house-fair.md
+[functions.open-house-notify]
+verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
 
 # תזכורות לסוכנים (תמונות חסרות, שתיקה, תוקף מודעה). רצה פעם בשעה מ-pg_cron
 # בלבד ואינה מקבלת שום קלט — מי מקבל/ת, מה נשלח וכמה נקבעים במסד.

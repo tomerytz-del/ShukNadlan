@@ -1,0 +1,1126 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
+<!-- End Google Tag Manager -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>יריד הבתים הפתוחים — דירות ללא עמלת תיווך בעפולה והעמק | שוק נדל״ן</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta name="description" content="יריד הבתים הפתוחים של שוק הנדל״ן: נכסים בעפולה והעמק שמוצעים לקונים ללא עמלת תיווך, לתקופה מוגבלת שהמתווך/ת הגדיר/ה לכל נכס. כל המשתתפים, על המפה ובמדף אחד.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="יריד הבתים הפתוחים — דירות ללא עמלת תיווך | שוק נדל״ן">
+<meta property="og:description" content="נכסים בעפולה והעמק שמוצעים לקונים ללא עמלת תיווך, לתקופה מוגבלת. כל המשתתפים ביריד במקום אחד.">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="assets/map-tiles.js"></script>
+<script src="assets/map-gestures.js"></script>
+<!-- הסימן, החלון והמילים של היריד — אותם שלושה בדיוק שדף הבית, דף הנכס
+     וה-CRM משתמשים בהם. ראו docs/open-house-fair.md -->
+<script src="assets/open-house.js"></script>
+<script src="assets/property-card.js"></script>
+<script src="assets/prop-shelf.js"></script>
+<style>
+  /* אותה פלטה ואותם רכיבים כמו שאר עמודי האתר —
+     ‏assets/design-system.css נטען אחרי הבלוק הזה והוא זה שמכריע. */
+  :root{
+    --ink:#0d1b3d; --ink-soft:#4a5578; --ink-muted:#6b7796;
+    --paper:#f4f7fe; --paper-raised:#ffffff; --surface:#ffffff;
+    --line:#e3e8f4; --hair:#eef1f8; --field:#eef2fb;
+    --teal:#0e2a6b; --teal-dark:#0d1b3d; --teal-tint:#eaf0fb;
+    --gold:#0e2a6b; --gold-dark:#08194a; --gold-tint:#f7f1e2; --brass:#c9a227;
+    --radius-sm:0; --radius-md:0; --radius-lg:0;
+    --shadow:0 10px 30px -24px rgba(14,42,107,.5); --shadow-sm:0 2px 8px rgba(14,42,107,.08);
+    --maxw:1180px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  [hidden]{display:none !important}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.55;-webkit-font-smoothing:antialiased}
+  h1,h2,h3,.display{font-family:'Frank Ruhl Libre',serif;font-weight:700;line-height:1.15;color:var(--teal-dark);margin:0}
+  a{color:inherit;text-decoration:none}
+  img{max-width:100%;display:block}
+  button{font-family:inherit;cursor:pointer;border:none;background:none}
+  input,select,textarea{font-family:inherit;font-size:1rem;min-width:0}
+  .wrap{max-width:var(--maxw);margin:0 auto;padding:0 18px}
+  .eyebrow{font-size:.72rem;letter-spacing:.08em;font-weight:700;color:var(--gold-dark);display:flex;align-items:center;gap:8px}
+  .eyebrow::before{content:"";width:18px;height:2px;background:var(--gold-dark);display:inline-block}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 22px;border-radius:0;font-weight:700;font-size:.9rem;transition:transform .15s ease,box-shadow .15s ease}
+  .btn-teal{background:var(--teal);color:#fff}
+  .btn-teal:hover{transform:translateY(-1px);box-shadow:0 6px 18px rgba(14,42,107,.3)}
+  .btn-ghost{border:1.5px solid var(--line);background:#fff;color:var(--teal-dark)}
+  .btn-ghost:hover{border-color:var(--teal)}
+  :focus-visible{outline:3px solid var(--brass);outline-offset:2px}
+  .skip-link{position:absolute;right:-999px;top:0;background:var(--teal);color:#fff;padding:10px 16px;z-index:200}
+  .skip-link:focus{right:0}
+
+  /* ====== Header ====== */
+  header.site{position:sticky;top:0;z-index:100;background:var(--paper-raised);border-bottom:1px solid var(--line);padding:12px 0}
+  .header-inner{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .logo{display:flex;align-items:center;gap:10px;min-width:0}
+  .logo-img{height:44px;width:auto;flex:0 0 auto}
+  .logo-word{font-family:'Rubik','Heebo',sans-serif;font-weight:500;color:var(--teal-dark);font-size:.8rem;line-height:1.3;letter-spacing:-.012em;min-width:0;text-align:center}
+  .logo-word span{color:var(--gold-dark);font-weight:700}
+  @media(min-width:900px){.logo-img{height:52px}.logo-word{font-size:.95rem;white-space:nowrap}}
+  .head-links{display:flex;align-items:center;gap:14px}
+  .back-link{font-size:.85rem;font-weight:700;color:var(--teal);white-space:nowrap;border-bottom:1.5px solid var(--brass);padding-bottom:2px}
+  .head-cta{display:none}
+  @media(min-width:760px){.head-cta{display:inline-flex}}
+
+  /* ====== ראש העמוד ======
+     תמונה של נכס אמיתי מהיריד (נבחרת ב-JS מתוך המשתתפים), ומעליה מדרג
+     ספיר כהה שנפתח לשקיפות בצד שמאל — כך הטקסט יושב על כהה מלא ומה
+     שנראה מבעד הוא דירה שבאמת אפשר לקנות כאן היום. בלי תמונה נשאר המדרג
+     לבדו, וזה נראה כמו החלטה ולא כמו תקלה.
+
+     הסימן נשאר **הסימן שלנו** — הפין האדום עם הבית והתווית — ומה שנוסף לו
+     כאן הוא רק הילה לבנה רכה מתחתיו: אדום על תצלום כהה מאבד את הקצה, ואת
+     זה ההילה מחזירה בלי לגעת בסימן עצמו. */
+  .oh-head{position:relative;overflow:hidden;background:var(--teal-dark);color:#fff;isolation:isolate}
+  .oh-head-photo{
+    position:absolute;inset:0;z-index:-2;
+    background-size:cover;background-position:center;
+    opacity:0;transition:opacity .8s ease;transform:scale(1.05);
+  }
+  .oh-head-photo.is-on{opacity:1}
+  /* ‏to left הוא כיוון פיזי ולא לוגי, ובכוונה: הטקסט יושב מימין (RTL) וצריך
+     שקיפות דווקא בקצה השמאלי. מתחת ל-760px המדרג אטום כמעט לכל הרוחב —
+     שם הטקסט פרוש על כל המסך. */
+  .oh-head::before{
+    content:"";position:absolute;inset:0;z-index:-1;
+    background:linear-gradient(to left,
+      var(--teal-dark) 0%, rgba(13,27,61,.97) 38%, rgba(13,27,61,.86) 62%, rgba(14,42,107,.62) 100%);
+  }
+  @media(min-width:760px){
+    .oh-head::before{
+      background:linear-gradient(to left,
+        var(--teal-dark) 0%, rgba(13,27,61,.95) 34%, rgba(13,27,61,.72) 58%, rgba(14,42,107,.28) 100%);
+    }
+  }
+  /* ‏padding-block ולא ‎padding:34px 0‎ — וזה לא קוסמטיקה: האלמנט נושא גם
+     ‎.wrap‎, שנותן את 18px הריפוד בצדדים, ו-shorthand של padding מאפס אותו.
+     התוצאה בטלפון היא טקסט שנצמד לקצה המסך ונראה חתוך. אותו כלל חל על
+     ‎.section‎ שלמטה — בדף הבית הוא נכתב מלכתחילה כ-padding-block מהסיבה
+     הזו בדיוק. */
+  .oh-head-inner{position:relative;display:flex;align-items:center;gap:22px;flex-wrap:wrap;padding-block:34px 32px}
+  @media(min-width:760px){.oh-head-inner{padding-block:48px 44px;gap:28px}}
+
+  /* ההילה: עיגול רך מתחת לסימן, ולא אריח לבן. הסימן עצמו לא משתנה. */
+  .oh-mark-glow{position:relative;flex:none;display:grid;place-items:center;padding:14px}
+  /* הילה ולא דיסקה: הלובן המלא יושב *מתחת* לסימן בלבד ודועך מהר, אחרת
+     נוצר עיגול אפור שנקרא ככתם על התצלום ולא כאור. ‏inset שלילי מוציא
+     אותה מעבר לקופסה של הסימן, כדי שהקצה שלה יהיה רך ולא חתוך. */
+  .oh-mark-glow::before{
+    content:"";position:absolute;inset:-16%;border-radius:50%;
+    background:radial-gradient(circle at 50% 50%,
+      rgba(255,255,255,.60) 0%, rgba(255,255,255,.34) 34%, rgba(255,255,255,.10) 56%, transparent 72%);
+  }
+  .oh-mark-glow .oh-mark{position:relative;color:var(--open-house,#c8102e)}
+
+  .oh-head-text{flex:1 1 340px;min-width:0}
+  .oh-head .eyebrow{color:#ffd9de;letter-spacing:.1em}
+  .oh-head .eyebrow::before{background:#ffd9de}
+  /* ‏balance מחלק את השורות שווה במקום להשאיר מילה בודדת בשורה שנייה,
+     ו-clamp מוריד את הגודל לפני שהכותרת נשברת באמצע ביטוי. */
+  .oh-head h1{
+    color:#fff;margin-top:10px;line-height:1.16;text-wrap:balance;
+    font-size:clamp(1.55rem, 4.6vw, 2.55rem);
+  }
+  .oh-head .lede{
+    color:rgba(255,255,255,.88);font-size:.95rem;line-height:1.6;
+    margin:12px 0 0;max-width:56ch;text-wrap:pretty;
+  }
+  .oh-head .lede b{color:#fff}
+
+  /* שורת הנתונים: צ׳יפים שלעולם אינם נשברים באמצע (‏nowrap), ושיורדים
+     לשורה הבאה בשלמותם כשאין מקום. הראשון מלא באדום היריד — הוא המספר
+     שבגללו נכנסים לעמוד. */
+  .oh-head-stats{display:flex;flex-wrap:wrap;gap:9px;margin-top:20px}
+  .oh-stat{
+    display:inline-flex;align-items:center;gap:7px;white-space:nowrap;
+    background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.32);
+    padding:9px 16px;font-size:.82rem;font-weight:700;
+  }
+  .oh-stat b{font-size:1.02rem}
+  .oh-stat.is-primary{background:var(--open-house,#c8102e);border-color:var(--open-house,#c8102e)}
+  a.oh-stat.is-primary:hover{background:var(--open-house-deep,#9c0c24)}
+  .oh-stat.is-primary::before{content:"";width:7px;height:7px;border-radius:50%;background:#fff;flex:none}
+  .oh-head-cta{
+    display:inline-flex;align-items:center;gap:8px;white-space:nowrap;margin-top:18px;
+    background:#fff;color:var(--teal-dark);font-weight:800;font-size:.88rem;padding:12px 22px;
+  }
+  .oh-head-cta:hover{background:rgba(255,255,255,.88)}
+
+  /* ====== מקטעים ======
+     ‏padding-block בלבד: המקטעים כאן נושאים ‎class="section wrap"‎ יחד,
+     ו-‎padding:34px 0‎ היה דורס את ריפוד הצדדים של ‎.wrap‎ (ראו למעלה). */
+  .section{padding-block:34px}
+  .section-head{margin-bottom:18px}
+  .section-head h2{font-size:clamp(1.2rem,3vw,1.5rem);text-wrap:balance}
+  .section-head p{margin:7px 0 0;font-size:.86rem;color:var(--ink-soft);max-width:74ch;text-wrap:pretty}
+
+  /* ====== איך היריד עובד ======
+     שלושה כרטיסים, ובכל אחד: אייקון מצויר, מספר שלב כסימן מים, כותרת בשורה
+     אחת וגוף קצר. המספר הוא ‎aria-hidden‎ — הסדר כבר נאמר ב-‎<ol>‎ עצמו,
+     ומקריא מסך ששומע "3" לפני הכותרת שומע רעש. */
+  .oh-steps{display:grid;gap:14px;grid-template-columns:1fr;list-style:none;padding:0;margin:0}
+  @media(min-width:820px){.oh-steps{grid-template-columns:repeat(3,1fr)}}
+  .oh-steps li{
+    position:relative;overflow:hidden;padding:20px 18px 18px;
+    background:linear-gradient(180deg,#fff 0%,#f7f9ff 100%);
+    border:1px solid var(--line);border-top:3px solid var(--open-house,#c8102e);
+  }
+  .oh-step-num{
+    position:absolute;inset-inline-start:10px;top:2px;
+    font-size:3.6rem;font-weight:800;line-height:1;color:rgba(200,16,46,.09);
+    pointer-events:none;
+  }
+  .oh-step-ico{
+    width:44px;height:44px;display:grid;place-items:center;margin-bottom:12px;
+    background:var(--open-house-tint,#fdecee);color:var(--open-house-deep,#9c0c24);
+  }
+  .oh-step-ico svg{width:24px;height:24px}
+  .oh-steps b{display:block;font-size:1rem;line-height:1.35;margin-bottom:6px;text-wrap:balance}
+  .oh-steps span{display:block;font-size:.855rem;color:var(--ink-soft);line-height:1.6;text-wrap:pretty}
+
+  /* ====== המפה ======
+     אותם אריחים ואותן מחוות של מפת דף הבית, על המשתתפים ביריד בלבד.
+     היא יורדת כולה כשלאף משתתף אין קואורדינטות — מפה ריקה של עפולה אינה
+     מידע. */
+  .oh-map-wrap{position:relative;border:1px solid var(--line);background:#fff;box-shadow:var(--shadow)}
+  #fairMap{height:320px;width:100%}
+  @media(min-width:760px){#fairMap{height:430px}}
+  .oh-map-note{
+    font-size:.76rem;color:var(--ink-soft);padding:10px 14px;border-top:1px solid var(--line);
+    display:flex;align-items:center;gap:9px;text-wrap:pretty;
+  }
+  .oh-map-note .oh-mark{color:var(--open-house,#c8102e)}
+
+  /* ====== ההרשמה לעדכונים ======
+     שתי עמודות במסך רחב: מה מקבלים מימין, והטופס משמאל. הכפתור לעולם אינו
+     נשבר (‏nowrap), והשדה הוא זה שמתכווץ. */
+  .oh-signup{
+    position:relative;overflow:hidden;
+    background:linear-gradient(135deg,var(--teal-dark) 0%,var(--teal) 62%,#123a8f 100%);
+    color:#fff;padding:24px 20px;
+  }
+  @media(min-width:900px){
+    .oh-signup{padding:30px 32px;display:grid;grid-template-columns:1.05fr .95fr;gap:30px;align-items:center}
+  }
+  .oh-signup h2{color:#fff;font-size:clamp(1.15rem,2.6vw,1.4rem);text-wrap:balance}
+  .oh-signup p{margin:9px 0 0;font-size:.87rem;line-height:1.6;color:rgba(255,255,255,.86);max-width:54ch;text-wrap:pretty}
+  .oh-signup-head{display:flex;align-items:center;gap:12px}
+  .oh-signup-head .oh-mark{color:#fff}
+  .oh-signup-form{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}
+  @media(min-width:900px){.oh-signup-form{margin-top:0}}
+  .oh-signup-form input{
+    flex:1 1 240px;min-width:0;border:1.5px solid rgba(255,255,255,.4);background:rgba(255,255,255,.1);
+    color:#fff;padding:13px 14px;font-size:.92rem;
+  }
+  .oh-signup-form input::placeholder{color:rgba(255,255,255,.66)}
+  .oh-signup-form input:focus{outline:none;border-color:#fff;background:rgba(255,255,255,.16)}
+  .oh-signup-form button{
+    flex:0 0 auto;white-space:nowrap;background:var(--open-house,#c8102e);color:#fff;
+    font-weight:800;font-size:.9rem;padding:13px 24px;
+  }
+  .oh-signup-form button:hover{background:var(--open-house-deep,#9c0c24)}
+  .oh-signup-form button[disabled]{opacity:.6;cursor:default}
+  .oh-signup-note{font-size:.74rem;color:rgba(255,255,255,.68);margin:10px 0 0;text-wrap:pretty}
+  .oh-signup-msg{font-size:.84rem;font-weight:700;margin:10px 0 0;min-height:1.2em}
+  .oh-signup-msg[data-state="error"]{color:#ffc9d1}
+  .oh-signup-msg[data-state="ok"]{color:#c9f2dd}
+  /* מצב ההצלחה מחליף את הטופס ולא נוסף מתחתיו: טופס שנשאר על המסך אחרי
+     שנרשמת מזמין הרשמה שנייה של אותו אדם. */
+  .oh-signup-done{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.3);padding:16px 18px;font-size:.9rem;line-height:1.55}
+  .oh-signup-done b{display:block;font-size:1rem;margin-bottom:3px}
+
+  /* ====== מצבים ====== */
+  .state{padding:44px 20px;text-align:center;color:var(--ink-soft);font-size:.92rem;background:#fff;border:1px solid var(--line)}
+  .state h2{font-size:1.2rem;margin-bottom:8px;text-wrap:balance}
+  .state p{max-width:56ch;margin:0 auto;text-wrap:pretty}
+  .state .btn{margin-top:16px;white-space:nowrap}
+
+  /* ====== הזמנה למתווכים ====== */
+  .oh-join{background:var(--teal-dark);color:#fff;padding:24px 20px;display:flex;gap:18px;align-items:center;flex-wrap:wrap}
+  @media(min-width:900px){.oh-join{padding:28px 32px}}
+  .oh-join h2{color:#fff;font-size:clamp(1.1rem,2.4vw,1.3rem);text-wrap:balance}
+  .oh-join p{color:rgba(255,255,255,.84);font-size:.86rem;margin:9px 0 0;max-width:66ch;line-height:1.6;text-wrap:pretty}
+  .oh-join-body{flex:1 1 320px;min-width:0}
+  .oh-join .btn{background:#fff;color:var(--teal-dark);white-space:nowrap}
+  .oh-join .btn:hover{background:rgba(255,255,255,.88)}
+
+  /* תווית שנשמעת ואינה נראית — לשדה האימייל, שה-placeholder שלו הוא לא
+     תווית (הוא נעלם ברגע שמקלידים). */
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}
+
+  /* המדף נבנה ב-assets/prop-shelf.js, בדיוק כמו בדף הבית ובדף המשרד */
+  .pp-grid{margin-top:4px}
+</style>
+<link rel="stylesheet" href="assets/site-footer.css">
+<link rel="stylesheet" href="assets/buyer-banner.css">
+<link rel="stylesheet" href="assets/design-system.css">
+<link rel="stylesheet" href="assets/prop-shelf.css">
+<link rel="stylesheet" href="assets/open-house.css">
+<script src="assets/page-bg.js" data-auto></script>
+<script src="assets/site-footer.js" defer></script>
+<script src="assets/buyer-banner.js" defer></script>
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-NZHD7ZHT"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+
+<a href="#main" class="skip-link">דילוג לתוכן</a>
+
+<header class="site">
+  <div class="wrap header-inner">
+    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+      <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
+      <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
+    </a>
+    <div class="head-links">
+      <a href="crm.html" class="btn btn-ghost head-cta" style="padding:9px 16px;font-size:.82rem">כניסת מתווכים</a>
+      <a href="index.html" class="back-link">← לדף הבית</a>
+    </div>
+  </div>
+</header>
+
+<main id="main">
+
+  <!-- ====== ראש העמוד ======
+       התמונה שברקע היא נכס אמיתי מהיריד, ונבחרת ב-JS מתוך המשתתפים
+       (‏pickHeroPhoto). לא צילום מלאי: מה שנראה מבעד למדרג הוא דירה שאפשר
+       לקנות היום בלי עמלת תיווך, וזו בדיוק ההבטחה של העמוד.
+       הסימן הוא הסימן שלנו — הפין האדום — ומעליו רק הילה רכה שמחזירה לו
+       את הקצה על רקע כהה. -->
+  <section class="oh-head">
+    <div class="oh-head-photo" id="fairHeroPhoto" aria-hidden="true"></div>
+    <div class="wrap oh-head-inner">
+      <span class="oh-mark-glow" id="fairMark" aria-hidden="true"></span>
+      <div class="oh-head-text">
+        <p class="eyebrow">יריד הבתים הפתוחים</p>
+        <h1>דירות שמוצעות עכשיו ללא עמלת תיווך</h1>
+        <p class="lede">מתווכים בעפולה והעמק מכניסים נכסים ליריד לתקופה קצובה, ובתקופה הזו הנכס מוצע <b>ללא עמלת תיווך לקונה</b>. לכל נכס החלון שלו — ומה שמוצג כאן הוא מה שפתוח היום.</p>
+        <!-- הצ׳יפ הראשון הוא עצמו הקישור לנכסים: כפתור נפרד שאומר את אותו
+             דבר מיד מתחת למספר הוא שורה שנייה שלא מוסיפה כלום. הפעולה
+             השנייה — ההרשמה — היא זו שמגיעה לה שורה משלה, כי היא מדברת אל
+             מי שדווקא *לא* מצא/ה כאן נכס היום. -->
+        <div class="oh-head-stats" id="fairStats" hidden>
+          <a class="oh-stat is-primary" id="fairStatCount" href="#fairProps"></a>
+          <span class="oh-stat" id="fairStatSoon" hidden></span>
+        </div>
+        <a class="oh-head-cta" href="#fairSignup">עדכנו אותי כשנכנס נכס חדש ←</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== איך היריד עובד ======
+       שלוש שורות, כי זו ההבטחה שהכי קל לא להאמין לה: מה מקבלים, ממי,
+       ועד מתי. ה"עד מתי" הוא לא אותיות קטנות — הוא חצי מהמוצר.
+       המספרים הם סימן מים ‎aria-hidden‎: הסדר כבר נאמר ב-<ol>. -->
+  <section class="section wrap" aria-labelledby="fairHowTitle">
+    <div class="section-head">
+      <h2 id="fairHowTitle">איך היריד עובד</h2>
+      <p>יריד הבתים הפתוחים הוא מבצע של הפלטפורמה, פתוח לכל משרדי התיווך שבה. ההשתתפות היא החלטה של המתווך/ת על נכס מסוים ולתקופה מסוימת.</p>
+    </div>
+    <ol class="oh-steps">
+      <li>
+        <span class="oh-step-num" aria-hidden="true">1</span>
+        <span class="oh-step-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3.5 11 12 4l8.5 7"></path><path d="M5.6 12.4V20h12.8v-7.6"></path>
+            <path d="M10 20v-5.2h4V20"></path>
+          </svg>
+        </span>
+        <b>המתווך/ת מכניס/ה נכס ליריד</b>
+        <span>בתוך המערכת, על נכס קיים, עם תאריך התחלה ותאריך סיום. הנכס ממשיך להיות מפורסם כרגיל — היריד מוסיף עליו ולא מחליף אותו.</span>
+      </li>
+      <li>
+        <span class="oh-step-num" aria-hidden="true">2</span>
+        <span class="oh-step-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="2.6" y="6.2" width="18.8" height="11.6" rx="1.6"></rect>
+            <circle cx="12" cy="12" r="2.6"></circle><path d="M4.3 20.6 19.7 3.4"></path>
+          </svg>
+        </span>
+        <b>הקונה לא משלם עמלת תיווך</b>
+        <span>בתוך התקופה שהוגדרה, הנכס מוצע לקונים ללא עמלת תיווך. המוכר/ת ממשיך/ה בהתקשרות שלו/ה עם המשרד כרגיל.</span>
+      </li>
+      <li>
+        <span class="oh-step-num" aria-hidden="true">3</span>
+        <span class="oh-step-ico" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3.2" y="4.8" width="17.6" height="15.4" rx="1.6"></rect>
+            <path d="M3.2 9.4h17.6"></path><path d="M8 3.2v3.2M16 3.2v3.2"></path>
+            <path d="M10.2 13.6 14 17.4M14 13.6l-3.8 3.8"></path>
+          </svg>
+        </span>
+        <b>בתום התקופה הנכס יוצא מהיריד</b>
+        <span>אוטומטית, בלי שאיש צריך לזכור. מהרגע הזה הנכס חוזר לתנאים הרגילים של המשרד, ואינו מוצג עוד בעמוד הזה.</span>
+      </li>
+    </ol>
+  </section>
+
+  <!-- ====== המפה ====== -->
+  <section class="section wrap" id="fairMapSection" aria-labelledby="fairMapTitle" hidden>
+    <div class="section-head">
+      <h2 id="fairMapTitle">איפה הם נמצאים</h2>
+      <p>הרשימה מסודרת לפי מה שנגמר קרוב, והמפה מראה איפה. ריחוף על שורה מדליק את הנכס שלה במפה, ולחיצה פותחת אותו.</p>
+    </div>
+    <!-- שתי תצוגות של אותו מלאי: הרשימה מימין אומרת *מה* נגמר קרוב, המפה
+         משמאל אומרת *איפה*. ריחוף על שורה מדליק את הסימן שלה במפה — אותו
+         קישור דו-כיווני של התצוגה המפוצלת בדף הבית. סדר ה-DOM הוא
+         רשימה→מפה, ובעמוד RTL זה בדיוק ימין→שמאל. -->
+    <div class="oh-split">
+      <div class="oh-split-list">
+        <div class="oh-split-head">
+          <b>נגמרים בקרוב</b>
+          <span id="fairSplitCount"></span>
+        </div>
+        <div class="oh-split-rows" id="fairSplitRows"></div>
+      </div>
+      <div class="oh-map-wrap">
+        <div id="fairMap"></div>
+        <p class="oh-map-note"><span id="fairMapMark" aria-hidden="true"></span> הסימן הזה מסמן נכס שביריד — אותו סימן בדיוק שמופיע על מפת החיפוש בדף הבית.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== הנכסים ======
+       אותו מדף בדיוק של דף הבית (‏assets/prop-shelf.js): סדר ההעלאה,
+       תגיות שנבנות מהמלאי, מיון ועימוד. הוא נשאר מוסתר כשאין משתתפים,
+       ובמקומו נדלק #fairEmpty. -->
+  <section class="section wrap" id="fairProps" hidden></section>
+
+  <section class="section wrap" id="fairEmptyWrap" hidden>
+    <div class="state" id="fairEmpty">
+      <h2>היריד סגור כרגע</h2>
+      <p>אין כרגע נכסים שמוצעים ללא עמלת תיווך. היריד נפתח מחדש בכל פעם שמתווך/ת מכניס/ה אליו נכס — השאירו אימייל ותהיו הראשונים לדעת.</p>
+      <a class="btn btn-teal" href="#fairSignup">להרשמה לעדכונים ←</a>
+    </div>
+  </section>
+
+  <section class="section wrap" id="fairErrorWrap" hidden>
+    <div class="state">
+      <h2>לא הצלחנו לטעון את היריד</h2>
+      <p>נסו לרענן את העמוד. אם זה חוזר, כל הנכסים באתר ממשיכים להיות זמינים כרגיל.</p>
+      <a class="btn btn-teal" href="index.html#privateProps">לכל הנכסים באתר ←</a>
+    </div>
+  </section>
+
+  <!-- ====== להיות הראשונים לדעת ======
+       היריד הוא אירוע: יש ימים עם שבעה נכסים ויש ימים בלי אף אחד, ומי
+       שנכנס ביום שקט אין לו מה לעשות כאן. ההרשמה היא מה שהופכת את היום
+       השקט לנקודת פתיחה.
+
+       השליחה היא אל open-house-subscribe — רשימה נפרדת מרשימת התפוצה
+       הכללית, כי היא מבטיחה דבר אחר לגמרי: התראה על אירוע מסוים ולא
+       סיכום תקופתי. ראו docs/open-house-fair.md. -->
+  <section class="section wrap" id="fairSignup" aria-labelledby="fairSignupTitle">
+    <div class="oh-signup">
+      <div>
+        <div class="oh-signup-head">
+          <span id="fairSignupMark" aria-hidden="true"></span>
+          <h2 id="fairSignupTitle">ראשונים לדעת על דירה בלי עמלת תיווך</h2>
+        </div>
+        <p>נכס נכנס ליריד לתקופה קצובה, ולפעמים קצרה. השאירו אימייל, ונעדכן אתכם ברגע שנכס חדש מצטרף — בלי עלות ובלי התחייבות.</p>
+      </div>
+      <div>
+        <form class="oh-signup-form" id="fairSignupForm" novalidate>
+          <label class="sr-only" for="fairSignupEmail">אימייל</label>
+          <input type="email" id="fairSignupEmail" name="email" inputmode="email" autocomplete="email"
+                 dir="ltr" placeholder="you@example.com" required>
+          <button type="submit" id="fairSignupBtn">עדכנו אותי</button>
+        </form>
+        <p class="oh-signup-msg" id="fairSignupMsg" role="status" aria-live="polite"></p>
+        <!-- מחליף את הטופס במקומו, מעל ההערה ולא מתחתיה: אישור שמופיע אחרי
+             האותיות הקטנות נראה כמו עוד שורה של אותיות קטנות. -->
+        <div class="oh-signup-done" id="fairSignupDone" hidden>
+          <span id="fairSignupDoneMark" aria-hidden="true"></span>
+          <span><b>נרשמתם</b>שלחנו לכם מייל אישור. העדכון הבא יגיע ברגע שנכס נכנס ליריד.</span>
+        </div>
+        <p class="oh-signup-note">רק עדכוני יריד — לא ניוזלטר, לא פרסומות. אפשר להסיר את עצמכם מקישור שבכל הודעה.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ====== הזמנה למתווכים ====== -->
+  <section class="section wrap" aria-labelledby="fairJoinTitle">
+    <div class="oh-join">
+      <div class="oh-join-body">
+        <h2 id="fairJoinTitle">יש לכם נכס שמתאים ליריד?</h2>
+        <p>כל מתווך/ת בפלטפורמה יכול/ה לצרף נכס ליריד, בלי תוספת תשלום ובלי תלות במסלול: בטופס הנכס במערכת, סימון אחד ושני תאריכים. הנכס מקבל סימן משלו על המפה, תגית על האריח, ומקום בעמוד הזה.</p>
+      </div>
+      <a class="btn" href="crm.html">לכניסת מתווכים ←</a>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site">
+
+  <!-- ====== באנר מחפשי הנכס — רצועת הפתיחה של הפוטר ======
+       כאן ישבה עד היום רצועת ההרשמה לרשימת התפוצה. שתיהן ביקשו מאותו אדם
+       את אותו דבר במילים אחרות — "נעדכן אתכם כשיעלה נכס" — וזו שומרת את
+       **החיפוש** ולא רק את האימייל: קריטריונים, ערוץ התראה והסכמה ליצירת
+       קשר, כלומר התראה על נכס שמתאים במקום סיכום שבועי.
+
+       הסימון והשליחה יושבים ב-assets/buyer-banner.css ו-buyer-banner.js,
+       קובץ אחד לכל העמודים — ראו docs/site-footer.md. היעד הוא
+       ‎saved-search-intake‎ של הסוכן החכם (‏docs/smart-search-agent.md) ולא
+       endpoint משלו: כפילות של אותה טבלה הייתה מפצלת גם את ההתראות וגם את
+       מדף הלידים. -->
+  <div class="footer-wrap footer-lead buyer-lead">
+
+    <div class="lead-banner buyer-banner" id="buyerBanner" data-source="footer_buyer_wizard">
+      <button type="button" class="lead-teaser" id="buyerStartBtn"
+              aria-expanded="false" aria-controls="buyerPanel">
+        <span class="lead-teaser-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="10.5" cy="10.5" r="6.5"></circle>
+            <path d="M15.5 15.5 21 21"></path>
+            <path d="M7.6 11.4 10.5 8.8l2.9 2.6"></path>
+            <path d="M8.5 10.9v3h4v-3"></path>
+          </svg>
+        </span>
+        <span class="lead-teaser-copy">
+          <span class="lead-teaser-title">מחפשים נכס? תנו לו למצוא אתכם</span>
+          <span class="lead-teaser-sub">לקנייה או להשכרה — נעדכן אתכם ראשונים כשעולה נכס שמתאים</span>
+        </span>
+        <span class="lead-teaser-go" aria-hidden="true">
+          <span class="lead-teaser-go-open">התאמת נכס ←</span>
+          <span class="lead-teaser-go-close">סגירה ✕</span>
+        </span>
+      </button>
+
+      <div class="lead-panel" id="buyerPanel" hidden>
+        <!-- בלי כותרת נוספת: שורת ההזמנה שמעל היא הכותרת של הבאנר, ו-h2
+             שחוזר עליה במילים אחרות רק דוחף את השלב הראשון מטה. -->
+        <div class="owner-intro">
+          <p>ספרו לנו מה אתם מחפשים — ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.</p>
+        </div>
+
+        <div class="owner-wizard" id="buyerWizard">
+          <ol class="wiz-steps" id="buySteps" aria-label="שלבי ההתאמה">
+            <li class="active" data-step="1"><span class="dot">1</span>מה מחפשים</li>
+            <li data-step="2"><span class="dot">2</span>פרטי הנכס</li>
+            <li data-step="3"><span class="dot">3</span>פרטי קשר</li>
+          </ol>
+
+          <form id="buyerWizardForm" novalidate>
+            <!-- שלב 1: סוג העסקה + שכונות -->
+            <section class="wiz-panel active" data-panel="1">
+              <p class="wiz-q">מה אתם מחפשים?</p>
+              <!-- ‎.lead-toggle‎ ולא ‎.owner-toggle‎ בכוונה: המאזין של באנר
+                   בעלי הנכסים תופס את כל ‎.owner-toggle button‎ במסמך, ושימוש
+                   חוזר במחלקה היה משנה כאן את הכותרת של הבאנר השני. -->
+              <div class="lead-toggle" id="buyDealToggle" role="group" aria-label="סוג החיפוש">
+                <button type="button" class="active" data-buy-deal="sale">לקנייה</button>
+                <button type="button" data-buy-deal="rent">להשכרה</button>
+                <button type="button" data-buy-deal="commercial">מסחרי</button>
+              </div>
+
+              <!-- ‏saved_searches.deal_type מוגבל ל-sale/rent, ו"מסחרי" הוא
+                   קטגוריה ולא סוג עסקה — ולכן הבחירה בו פותחת את השאלה
+                   המשלימה במקום לנחש עבור המחפש/ת. -->
+              <div id="buyCommercialDeal" hidden>
+                <span class="wiz-label" id="buyCommercialLabel">נכס מסחרי — לקנייה או להשכרה?</span>
+                <div class="lead-toggle" id="buyCommercialToggle" role="group" aria-labelledby="buyCommercialLabel">
+                  <button type="button" class="active" data-buy-cdeal="sale">לקנייה</button>
+                  <button type="button" data-buy-cdeal="rent">להשכרה</button>
+                </div>
+              </div>
+
+              <span class="wiz-label" id="buyHoodLabel">באילו שכונות? <span class="wiz-hint">אפשר לבחור כמה</span></span>
+              <div class="chip-row" id="buyHoodChips" role="group" aria-labelledby="buyHoodLabel"></div>
+              <!-- נפתח רק כשרשימת השכונות לא נטענה (מסד לא זמין): בלעדיו
+                   שלב 1 היה נשאר בלי שום דרך לציין אזור. -->
+              <div id="buyAreaFallback" hidden>
+                <label class="wiz-label" for="buyArea">עיר או אזור</label>
+                <input type="text" id="buyArea" class="wiz-input" placeholder="לדוגמה: עפולה">
+              </div>
+
+              <p class="wiz-err" id="buyErr1"></p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-gold" data-buy-next="2">להמשך ←</button>
+              </div>
+            </section>
+
+            <!-- שלב 2: מאפייני הנכס -->
+            <section class="wiz-panel" data-panel="2">
+              <p class="wiz-q">מה הנכס שאתם מחפשים?</p>
+
+              <div id="buyRoomsBlock">
+                <span class="wiz-label" id="buyRoomsLabel">מספר חדרים <span class="wiz-hint">אפשר לבחור כמה</span></span>
+                <div class="chip-row" id="buyRoomsChips" role="group" aria-labelledby="buyRoomsLabel">
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="2">2</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="2.5">2.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="3">3</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="3.5">3.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="4">4</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="4.5">4.5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="5">5</button>
+                  <button type="button" class="chip" aria-pressed="false" data-buy-rooms="+6">6+</button>
+                </div>
+              </div>
+
+              <span class="wiz-label" id="buyPtypeLabel">סוג הנכס <span class="wiz-hint">אפשר לבחור כמה</span></span>
+              <div class="chip-row" id="buyPtypeChips" role="group" aria-labelledby="buyPtypeLabel"></div>
+
+              <span class="wiz-label" id="buyBudgetLabel">תקציב <span class="wiz-hint" id="buyBudgetHint">(₪)</span></span>
+              <div class="buy-range">
+                <label class="buy-range-field">
+                  <span>מ־</span>
+                  <input type="number" id="buyPriceMin" class="wiz-input" inputmode="numeric" min="0" placeholder="ללא מינימום">
+                </label>
+                <label class="buy-range-field">
+                  <span>עד</span>
+                  <input type="number" id="buyPriceMax" class="wiz-input" inputmode="numeric" min="0" placeholder="ללא מקסימום">
+                </label>
+              </div>
+
+              <!-- במסחרי הגודל הוא מה שקובע, ומספר החדרים כמעט חסר משמעות —
+                   ולכן שני הבלוקים מתחלפים ואינם מוצגים יחד. -->
+              <div id="buySizeBlock" hidden>
+                <span class="wiz-label" id="buySizeLabel">גודל (מ״ר)</span>
+                <div class="buy-range">
+                  <label class="buy-range-field">
+                    <span>מ־</span>
+                    <input type="number" id="buySizeMin" class="wiz-input" inputmode="numeric" min="0" placeholder="הכול">
+                  </label>
+                  <label class="buy-range-field">
+                    <span>עד</span>
+                    <input type="number" id="buySizeMax" class="wiz-input" inputmode="numeric" min="0" placeholder="הכול">
+                  </label>
+                </div>
+              </div>
+
+              <p class="wiz-err" id="buyErr2"></p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-ghost-light" data-buy-back="1">→ חזרה</button>
+                <button type="button" class="btn btn-gold" data-buy-next="3">להמשך ←</button>
+              </div>
+            </section>
+
+            <!-- שלב 3: פרטי קשר -->
+            <section class="wiz-panel" data-panel="3">
+              <p class="wiz-q">לאן לשלוח את הנכסים המתאימים?</p>
+              <div class="buy-recap" id="buyRecap"></div>
+
+              <label class="wiz-label" for="buyName">שם מלא</label>
+              <input type="text" id="buyName" class="wiz-input" autocomplete="name">
+
+              <span class="wiz-label" id="buyChannelLabel">איך לעדכן אתכם?</span>
+              <div class="lead-toggle" id="buyChannels" role="group" aria-labelledby="buyChannelLabel">
+                <button type="button" class="active" data-buy-channel="whatsapp">וואטסאפ</button>
+                <button type="button" data-buy-channel="email">מייל</button>
+                <button type="button" data-buy-channel="both">שניהם</button>
+              </div>
+
+              <div id="buyPhoneField">
+                <label class="wiz-label" for="buyPhone">טלפון</label>
+                <input type="tel" id="buyPhone" class="wiz-input" placeholder="050-0000000" autocomplete="tel" inputmode="tel">
+              </div>
+              <div id="buyEmailField" hidden>
+                <label class="wiz-label" for="buyEmail">אימייל</label>
+                <input type="email" id="buyEmail" class="wiz-input" autocomplete="email" inputmode="email" dir="ltr" style="text-align:left">
+              </div>
+
+              <!-- ההסכמה נפרדת מההרשמה במכוון: אפשר לקבל התראות בלי שהפרטים
+                   יעברו לאף אחד. רק מי שמסמן/ת כאן הופך/ת לליד. -->
+              <label class="buy-check" for="buyConsent">
+                <input type="checkbox" id="buyConsent">
+                <span>אשמח שמתווך/ת מהאזור ייצור איתי קשר עם נכסים מתאימים</span>
+              </label>
+
+              <p class="wiz-err" id="buyErr3"></p>
+              <p class="buy-privacy">אפשר להפסיק את העדכונים בכל רגע, מקישור שבכל הודעה.</p>
+              <div class="wiz-nav">
+                <button type="button" class="btn btn-ghost-light" data-buy-back="2">→ חזרה</button>
+                <button type="submit" class="btn btn-gold" id="buySubmitBtn">קבלת עדכונים</button>
+              </div>
+            </section>
+          </form>
+
+          <!-- מסך סיום -->
+          <div class="wiz-done" id="buyDone" hidden>
+            <div class="wiz-done-mark" aria-hidden="true">🔔</div>
+            <h3>החיפוש שלכם פעיל</h3>
+            <p id="buyDoneText">נעדכן אתכם ברגע שיעלה נכס שמתאים למה שביקשתם.</p>
+            <button type="button" class="btn btn-ghost-light" id="buyRestart">חיפוש נוסף</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="footer-wrap footer-top">
+
+    <div class="footer-brand">
+      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק — לדף הבית">
+        <img src="assets/logo-shuknadlan-dark.svg" alt="" width="52" height="62" loading="lazy">
+        <span class="footer-logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
+      </a>
+      <p class="footer-tagline">
+        <span>כל הנכסים, כל המתווכים ובעלי המקצוע בעפולה והעמק בכתובת אחת</span>
+        <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
+      </p>
+      <div class="footer-cta">
+        <a href="agency-signup.html" class="footer-btn-primary">הצטרפות כמשרד תיווך</a>
+        <a href="developer-signup.html" class="footer-btn-ghost">הצטרפות כיזם/קבלן</a>
+        <a href="professional-signup.html" class="footer-btn-ghost">הצטרפות כבעל מקצוע</a>
+      </div>
+
+      <div class="footer-meta">
+        <div class="footer-contact">
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M20 10c0 5.2-8 12-8 12s-8-6.8-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.8"/>
+            </svg>
+            <span>רחוב חטיבה תשע 18, עפולה</span>
+          </p>
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M6.5 3.5h3l1.5 4-2 1.5a12 12 0 0 0 6 6l1.5-2 4 1.5v3a1.5 1.5 0 0 1-1.6 1.5C10.8 19.4 4.6 13.2 4 5.1A1.5 1.5 0 0 1 5.5 3.5Z"/>
+            </svg>
+            <a href="tel:+972546929991">054-6929991</a>
+          </p>
+          <p class="footer-contact-row">
+            <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M3.5 6.5h17v11h-17z"/><path d="m3.5 7 8.5 6 8.5-6"/>
+            </svg>
+            <a href="mailto:shuknadlan@gmail.com">shuknadlan@gmail.com</a>
+          </p>
+        </div>
+
+        <div class="footer-social">
+          <a href="https://www.facebook.com/share/19LytY6L6b/" target="_blank" rel="noopener noreferrer"
+             aria-label="שוק הנדל״ן בפייסבוק — נפתח בחלון חדש" title="פייסבוק">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06C2 17.08 5.66 21.24 10.44 22v-7.03H7.9v-2.91h2.54V9.85c0-2.52 1.49-3.91 3.77-3.91 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.78-1.63 1.57v1.89h2.78l-.44 2.91h-2.34V22C18.34 21.24 22 17.08 22 12.06Z"/>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <nav class="footer-grid" aria-label="ניווט בתחתית העמוד">
+      <details class="footer-col" open>
+        <summary><h4>נכסים</h4></summary>
+        <div class="footer-col-links">
+          <a href="index.html#privateProps-sale">למכירה בעפולה</a>
+          <a href="index.html#privateProps-rent">להשכרה בעפולה</a>
+          <a href="index.html#commercialProps">נכסים מסחריים</a>
+          <a href="index.html#privateProps">כל הנכסים</a>
+          <a href="open-house.html">יריד הבתים הפתוחים</a>
+          <a href="projects.html">פרויקטים חדשים</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>כלים</h4></summary>
+        <div class="footer-col-links">
+          <a href="index.html#calc">מחשבון משכנתא</a>
+          <a href="index.html#yield">מחשבון תשואה</a>
+          <a href="index.html#heroSection">חיפוש על המפה</a>
+          <a href="articles.html">כתבות ובלוגים</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>בעלי מקצוע</h4></summary>
+        <div class="footer-col-links">
+          <a href="agencies.html">כל משרדי התיווך</a>
+          <a href="agents.html">כל המתווכים</a>
+          <a href="professionals.html">כל בעלי המקצוע</a>
+          <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>
+          <a href="developer-signup.html">הצטרפות כיזם/קבלן</a>
+        </div>
+      </details>
+      <details class="footer-col" open>
+        <summary><h4>שוק נדל״ן</h4></summary>
+        <div class="footer-col-links">
+          <a href="about.html">אודות</a>
+          <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
+          <a href="faq.html">שאלות נפוצות</a>
+          <a href="pricing.html">מסלולים ומחירים</a>
+          <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
+          <a href="crm.html">כניסת מתווכים</a>
+        </div>
+      </details>
+    </nav>
+
+  </div>
+
+  <!-- חיפושים פופולריים: קישורים פנימיים שמגיעים לתוצאות מסוננות דרך
+       פרמטרים ב-URL (ראו applyDeepLinkFilters ב-index.html). זה הבלוק
+       שמאפשר למנוע החיפוש להגיע לעמודי תוצאות ולא רק לדף הבית הכללי. -->
+  <details class="footer-wrap footer-seo" id="footerSeo" open>
+    <summary><h4>חיפושים פופולריים בעפולה והעמק</h4></summary>
+    <div class="footer-seo-links">
+      <a href="index.html?deal=sale&amp;rooms=3">דירות 3 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;rooms=4">דירות 4 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;rooms=5">דירות 5 חדרים למכירה בעפולה</a>
+      <a href="index.html?deal=sale&amp;maxPrice=1500000">נכסים בעפולה עד 1.5 מיליון ₪</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%93%D7%99%D7%A8%D7%AA%20%D7%92%D7%9F">דירות גן בעפולה</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%92%D7%92%2F%D7%A4%D7%A0%D7%98%D7%94%D7%90%D7%95%D7%96">פנטהאוזים בעפולה</a>
+      <a href="index.html?deal=sale&amp;ptype=%D7%91%D7%99%D7%AA%20%D7%A4%D7%A8%D7%98%D7%99%2F%D7%A7%D7%95%D7%98%D7%92'">בתים פרטיים בעפולה והעמק</a>
+      <a href="index.html?deal=sale&amp;q=%D7%92%D7%91%D7%A2%D7%AA%20%D7%94%D7%9E%D7%95%D7%A8%D7%94">נכסים בגבעת המורה</a>
+      <a href="index.html?deal=sale&amp;q=%D7%A2%D7%A4%D7%95%D7%9C%D7%94%20%D7%A2%D7%99%D7%9C%D7%99%D7%AA">נכסים בעפולה עילית</a>
+      <a href="index.html?deal=rent&amp;rooms=3">דירות 3 חדרים להשכרה בעפולה</a>
+      <a href="index.html?deal=rent&amp;rooms=4">דירות 4 חדרים להשכרה בעפולה</a>
+      <a href="index.html?deal=rent&amp;maxPrice=4000">דירות להשכרה בעפולה עד 4,000 ₪</a>
+      <a href="index.html?deal=commercial&amp;ptype=%D7%9E%D7%A9%D7%A8%D7%93%D7%99%D7%9D">משרדים להשכרה בעפולה</a>
+      <a href="index.html?deal=commercial&amp;ptype=%D7%97%D7%A0%D7%95%D7%99%D7%95%D7%AA%2F%D7%A9%D7%98%D7%97%20%D7%9E%D7%A1%D7%97%D7%A8%D7%99">חנויות ושטחי מסחר בעפולה</a>
+      <a href="agencies.html">משרדי תיווך בעפולה</a>
+      <a href="agents.html">מתווכי נדל״ן בעפולה</a>
+    </div>
+  </details>
+
+  <div class="footer-wrap footer-bottom">
+    <span>© 2026 שוק נדל״ן. כל הזכויות שמורות.</span>
+    <div class="footer-legal">
+      <a href="terms.html">תנאי שימוש</a><span class="sep" aria-hidden="true">·</span>
+      <a href="privacy.html">מדיניות פרטיות</a><span class="sep" aria-hidden="true">·</span>
+      <a href="accessibility.html">הצהרת נגישות</a>
+    </div>
+  </div>
+</footer>
+
+<script>
+/* ============================================================================
+   דף יריד הבתים הפתוחים
+   ----------------------------------------------------------------------------
+   שאילתה אחת, שלושה צרכנים: המונה בראש העמוד, המפה והמדף. כולם מקבלים את
+   *אותה* רשימה — מפה שמראה נכס שאינו במדף (או להפך) היא שני מקורות אמת
+   לאותה שאלה.
+
+   הסינון נעשה גם ב-DB וגם בדפדפן, ובכוונה: השאילתה מצמצמת לנכסים שהחלון
+   שלהם מכיל את ‎now()‎ ברגע הטעינה, ו-‏OpenHouse.live() מוודא את זה שוב על
+   כל שורה — עמוד שנשאר פתוח שעתיים אינו עמוד שנטען לפני שעתיים.
+   ראו docs/open-house-fair.md.
+   ============================================================================ */
+const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+const el = id => document.getElementById(id);
+const escAttr = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+/* אותו סימן בארבעה מקומות בעמוד, בארבעה גדלים — ולא ארבעה קבצים */
+el('fairMark').innerHTML          = OpenHouse.icon({ size:104 });
+el('fairMapMark').innerHTML       = OpenHouse.icon({ size:22 });
+el('fairSignupMark').innerHTML    = OpenHouse.icon({ size:34 });
+el('fairSignupDoneMark').innerHTML= OpenHouse.icon({ size:30 });
+
+/* ---------- הנכסים ----------
+   אותן עמודות שדף הבית שולף לאריח: בלעדיהן האריח מציג נכס בלי שורת
+   מאפיינים, בלי תגיות מדיה ובלי לוגו המשרד שמחליף תמונה חסרה. */
+const FAIR_SELECT =
+  'id, price, title, rooms, size_sqm, floor, city, street, address, property_type, deal_type, category, ' +
+  'created_at, lat, lng, is_promoted, promoted_until, images, features, video_url, tour_3d_url, has_virtual_tour, ' +
+  'open_house, open_house_start, open_house_end, ' +
+  'agencies(name, logo_url), neighborhoods(name)';
+
+const FAIR_LIMIT = 200;
+
+async function loadFairProperties(){
+  if (!sb) throw new Error('Supabase לא נטען');
+  const nowIso = new Date().toISOString();
+  const { data, error } = await sb
+    .from('properties')
+    .select(FAIR_SELECT)
+    .eq('status', 'active')
+    .eq('open_house', true)
+    .lte('open_house_start', nowIso)
+    .gt('open_house_end', nowIso)
+    // הקרוב לסיום ראשון: זה הסדר שבו השאילתה נחתכת אם אי פעם יהיו יותר
+    // מ-FAIR_LIMIT משתתפים, ונכס שנשארו לו יומיים הוא זה שחייב להיכנס
+    .order('open_house_end', { ascending:true })
+    .limit(FAIR_LIMIT);
+  if (error) throw error;
+  return (data || [])
+    .filter(p => OpenHouse.live(p))
+    .map(p => ({
+      ...p,
+      agency_name: p.agencies?.name || '',
+      agency_logo: p.agencies?.logo_url || '',
+      neighborhood_name: p.neighborhoods?.name || '',
+    }));
+}
+
+/* ---------- המדף ----------
+   ‏PropShelf.create() בדיוק כמו בדף הבית: אותו אריח, אותן תגיות שנבנות
+   מהמלאי, אותו עימוד. מה שמשתנה הוא רק הכותרת והמונה. */
+const fairShelf = PropShelf.create({
+  mount:'fairProps', titleId:'fairPropsTitle', title:'הנכסים שביריד',
+  info:'כל הנכסים שמוצעים כרגע ללא עמלת תיווך לקונה — מכירה, השכרה ומסחרי יחד, לפי סדר ההעלאה',
+  roomsType:'דירה', roomsLabel:'דירות',
+  sortId:'fairSort',
+  /* הספירה לאחור על כל אריח: התגית "ללא עמלת תיווך" אומרת מה מקבלים,
+     והמונה אומר עד מתי. ‏overlay יושב על התמונה ו-rowExtra על התמונונת
+     של השורה הדחוסה (מתחת ל-520px כל האריחים מלבד הראשון הם שורות),
+     כדי שהטלפון לא יציג את אותם נכסים בלי מה שמבדיל ביניהם. */
+  overlay: p => OpenHouse.countdownHtml(p, { className:'oh-card-countdown', label:false }),
+  rowExtra: p => OpenHouse.countdownHtml(p, { className:'oh-row-countdown', label:false }),
+  countText: (shown, total) => (shown === total)
+    ? `${total.toLocaleString('he-IL')} נכסים ביריד`
+    : `${shown.toLocaleString('he-IL')} מתוך ${total.toLocaleString('he-IL')} נכסים ביריד`,
+});
+
+/* ---------- המונה שבראש ---------- */
+function renderFairStats(list){
+  const stats = el('fairStats');
+  if (!list.length){ stats.hidden = true; return; }
+  el('fairStatCount').innerHTML = list.length > 1
+    ? `<b>${list.length.toLocaleString('he-IL')}</b> נכסים ביריד עכשיו`
+    : '<b>נכס אחד</b> ביריד עכשיו';
+
+  // "הראשון יוצא…" הוא הדחיפות האמיתית של היריד, והוא נלקח מהנכס שהחלון
+  // שלו נגמר ראשון — לא מתאריך כללי, שאין כזה: לכל נכס חלון משלו.
+  const soonest = list.reduce((a, b) =>
+    OpenHouse.endsAt(a) <= OpenHouse.endsAt(b) ? a : b);
+  const soon = el('fairStatSoon');
+  soon.textContent = 'הראשון יוצא ' + OpenHouse.endLabel(soonest);
+  soon.hidden = false;
+  stats.hidden = false;
+}
+
+/* ---------- המפה ----------
+   אותם אריחים ואותן מחוות של מפת דף הבית. היא נבנית רק כשיש למי שיצייר:
+   נכס בלי קואורדינטות (מודעה שנרשמה עם עיר בלבד) פשוט לא מקבל סימן, כמו
+   בכל מפה אחרת באתר, והוא ממשיך להופיע במדף שמתחת. */
+function priceLabel(p){
+  const n = Number(p.price);
+  if (!n) return 'לפי בקשה';
+  return n.toLocaleString('he-IL') + ' ₪' + (p.deal_type === 'rent' ? ' לחודש' : '');
+}
+
+function fairPopupHtml(p){
+  const img = p.images && p.images[0];
+  const where = p.address || p.street || p.neighborhood_name || p.city || '';
+  return `<a href="property.html?id=${encodeURIComponent(p.id)}" ` +
+      `style="display:flex;gap:9px;width:232px;color:inherit;padding-inline-start:14px">` +
+    (img ? `<img src="${escAttr(img)}" alt="" loading="lazy" ` +
+      `style="width:66px;height:62px;object-fit:cover;flex:none" onerror="this.remove()">` : '') +
+    `<span style="display:flex;flex-direction:column;gap:3px;min-width:0">` +
+      `<b style="font-size:.8rem;line-height:1.3">${escAttr(p.title || 'נכס')}</b>` +
+      `<span style="font-size:.78rem;font-weight:700">${escAttr(priceLabel(p))}</span>` +
+      `<span style="font-size:.7rem;color:var(--ink-soft)">${escAttr([where, p.agency_name].filter(Boolean).join(' · '))}</span>` +
+      `<span class="oh-chip" style="align-self:flex-start">${OpenHouse.NO_FEE} · ${OpenHouse.endLabel(p)}</span>` +
+      `<span style="font-size:.7rem;font-weight:700;color:var(--open-house-deep,#9c0c24)">לצפייה בנכס ←</span>` +
+    `</span></a>`;
+}
+
+/* ---------- הרשימה שליד המפה ----------
+   ממוינת לפי מה שנגמר קרוב — זה מה שהופך אותה לתצוגה בפני עצמה ולא לעותק
+   של המדף שמתחת, שממוין לפי סדר ההעלאה. כאן השאלה היא "על מה כדאי להרים
+   טלפון היום".
+
+   ‏fairMarkers מחזיק את הסימנים לפי מזהה נכס, וזה כל מה שדרוש לקישור
+   הדו-כיווני: ריחוף על שורה מדליק את הסימן, ופתיחת בלון מדליקה את השורה. */
+const fairMarkers = {};
+
+function hotFairRow(id, on){
+  const row = document.querySelector(`.oh-split-row[data-id="${CSS.escape(String(id))}"]`);
+  if (row) row.classList.toggle('is-hot', on);
+  const marker = fairMarkers[id];
+  const node = marker && marker.getElement && marker.getElement();
+  const pin = node && node.querySelector('.oh-pin');
+  if (pin) pin.classList.toggle('is-hot', on);
+  // ‏setZIndexOffset על ה-marker ולא z-index על ה-div: רק כך הסימן עולה
+  // מעל *שאר הסימנים* ולא רק מעל האחים שלו בתוך האייקון
+  if (marker && marker.setZIndexOffset) marker.setZIndexOffset(on ? 1000 : 0);
+}
+
+function fairRowHtml(p){
+  const img = Array.isArray(p.images) && typeof p.images[0] === 'string' ? p.images[0].trim() : '';
+  const where = [p.neighborhood_name, p.street || p.city].filter(Boolean).join(' · ');
+  const thumb = img
+    ? `style="background-image:url('${escAttr(img)}')"`
+    : '';
+  return `<a class="oh-split-row" data-id="${escAttr(p.id)}" href="property.html?id=${encodeURIComponent(p.id)}">` +
+      `<span class="oh-split-thumb" ${thumb}>${img ? '' : OpenHouse.icon({ size:30 })}</span>` +
+      `<span class="oh-split-main">` +
+        `<span class="oh-split-title">${escAttr(p.title || 'נכס')}</span>` +
+        `<span class="oh-split-meta">${escAttr(where || 'עפולה והעמק')}</span>` +
+        `<span class="oh-split-foot">` +
+          `<span class="oh-split-price">${escAttr(priceLabel(p))}</span>` +
+          OpenHouse.countdownHtml(p, { className:'is-plain', label:false }) +
+        `</span>` +
+      `</span>` +
+    `</a>`;
+}
+
+function renderFairSplit(list){
+  const rows = el('fairSplitRows');
+  if (!rows) return;
+  /* המקטע נפתח כאן ולא ב-renderFairMap: הרשימה קיימת גם כשלאף נכס אין
+     קואורדינטות (מודעה שנרשמה עם עיר בלבד), ואז מוצגת רשימה בלי מפה —
+     ולא מקטע מוסתר עם כל המלאי בתוכו. */
+  el('fairMapSection').hidden = false;
+  // הקרוב לסיום ראשון — זו הסיבה שהרשימה הזו קיימת
+  const ordered = list.slice().sort((a, b) => OpenHouse.endsAt(a) - OpenHouse.endsAt(b));
+  rows.innerHTML = ordered.map(fairRowHtml).join('');
+  el('fairSplitCount').textContent = ordered.length > 1
+    ? `${ordered.length.toLocaleString('he-IL')} נכסים`
+    : 'נכס אחד';
+
+  // ריחוף/פוקוס על שורה → הסימן שלה במפה. ‏mouseenter/leave ולא hover ב-CSS:
+  // הצד השני של הקישור חי במפה, ו-CSS אינו יכול להגיע לשם.
+  rows.querySelectorAll('.oh-split-row').forEach(row => {
+    const id = row.dataset.id;
+    ['mouseenter','focus'].forEach(ev => row.addEventListener(ev, () => hotFairRow(id, true)));
+    ['mouseleave','blur'].forEach(ev => row.addEventListener(ev, () => hotFairRow(id, false)));
+  });
+}
+
+function renderFairMap(list){
+  const withGeo = list.filter(p => p.lat && p.lng);
+  // בלי קואורדינטות (או בלי Leaflet) נשארת הרשימה לבדה, והמסגרת הריקה של
+  // המפה יורדת: קופסה אפורה בחצי רוחב המקטע נראית כמו מפה שנשברה
+  if (!withGeo.length || !window.L){
+    document.querySelector('.oh-map-wrap').hidden = true;
+    return;
+  }
+
+  const map = L.map('fairMap', { scrollWheelZoom:false });
+  MapTiles.addTo(map);
+  // אצבע אחת גוללת את הדף, שתיים מזיזות את המפה — כמו בכל מפה מוטמעת
+  // באתר (‏assets/map-gestures.js)
+  if (window.MapGestures) MapGestures.apply(map);
+
+  const bounds = [];
+  withGeo.forEach(p => {
+    const marker = L.marker([p.lat, p.lng], {
+      icon: L.divIcon({
+        className:'',
+        html:`<span class="oh-pin is-solo">${OpenHouse.icon({ size:42 })}</span>`,
+        iconSize:[0,0],
+      }),
+      title: p.title || 'נכס ביריד',
+    }).addTo(map).bindPopup(fairPopupHtml(p));
+    // הכיוון השני של הקישור: בלון שנפתח מדליק את השורה שלו ברשימה
+    marker.on('popupopen', () => hotFairRow(p.id, true));
+    marker.on('popupclose', () => hotFairRow(p.id, false));
+    fairMarkers[p.id] = marker;
+    bounds.push([p.lat, p.lng]);
+  });
+
+  // נכס בודד: ‏fitBounds על נקודה אחת מקרב עד הקצה ומראה גג אחד
+  if (bounds.length === 1) map.setView(bounds[0], 15);
+  else map.fitBounds(bounds, { padding:[34, 34] });
+}
+
+/* ---------- תמונת הראש ----------
+   נבחרת מתוך המשתתפים עצמם ולא מקובץ מלאי: מה שנראה מבעד למדרג הוא דירה
+   שאפשר לקנות היום בלי עמלת תיווך. הנכס המקודם קודם (הוא כבר שילם על
+   הבלטה), ואחריו הראשון עם תמונה.
+
+   הציור נעשה רק אחרי שהתמונה נטענה בפועל (‏Image() מקדים): ‏background-image
+   שנכשל משאיר מדרג כהה ותו לא — וזה בדיוק מה שקורה גם כשאין תמונה כלל,
+   כלומר אין מצב שבו הראש נראה שבור. */
+function pickHeroPhoto(list){
+  const withPhoto = list.filter(p => Array.isArray(p.images)
+    && typeof p.images[0] === 'string' && /^https?:\/\//i.test(p.images[0].trim()));
+  if (!withPhoto.length) return;
+  const chosen = withPhoto.find(p => p.is_promoted) || withPhoto[0];
+  const url = chosen.images[0].trim();
+  const host = el('fairHeroPhoto');
+  const img = new Image();
+  img.onload = () => {
+    host.style.backgroundImage = `url("${url.replace(/"/g, '%22')}")`;
+    host.classList.add('is-on');
+  };
+  img.src = url;
+}
+
+/* ---------- ההרשמה לעדכונים ----------
+   רשימה נפרדת מרשימת התפוצה הכללית (‏docs/newsletter.md), כי היא מבטיחה
+   דבר אחר: התראה על אירוע — נכס שנכנס ליריד — ולא סיכום תקופתי.
+
+   ‏duplicate=true הוא הצלחה ולא שגיאה: מבחינת מי שהקליד/ה, הוא/היא רשום/ה.
+   הטופס מוחלף במצב "נרשמתם" ולא נשאר על המסך — טופס שנשאר מזמין הרשמה
+   שנייה של אותו אדם. */
+const SUBSCRIBE_URL = SUPABASE_URL + '/functions/v1/open-house-subscribe';
+
+const signupForm = el('fairSignupForm');
+signupForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = el('fairSignupEmail');
+  const btn = el('fairSignupBtn');
+  const msg = el('fairSignupMsg');
+  const email = input.value.trim();
+
+  // אותה בדיקה שבשרת, כדי שכתובת פסולה תיעצר לפני הקריאה ולא אחריה
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){
+    msg.dataset.state = 'error';
+    msg.textContent = 'כתובת האימייל לא נראית תקינה';
+    input.focus();
+    return;
+  }
+
+  btn.disabled = true;
+  const label = btn.textContent;
+  btn.textContent = 'רגע…';
+  msg.textContent = '';
+  msg.removeAttribute('data-state');
+
+  try{
+    const res = await fetch(SUBSCRIBE_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY,
+                'Authorization': 'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({ email, source:'open_house_page' }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || data.error){
+      throw new Error(data.error === 'invalid_email'
+        ? 'כתובת האימייל לא נראית תקינה'
+        : 'ההרשמה נכשלה — נסו שוב בעוד רגע');
+    }
+    signupForm.hidden = true;
+    msg.textContent = '';
+    const done = el('fairSignupDone');
+    done.querySelector('b').textContent = data.duplicate ? 'אתם כבר ברשימה' : 'נרשמתם';
+    done.lastElementChild.lastChild.textContent = data.duplicate
+      ? 'הכתובת הזו כבר רשומה אצלנו — נעדכן אתכם ברגע שנכס נכנס ליריד.'
+      : 'שלחנו לכם מייל אישור. העדכון הבא יגיע ברגע שנכס נכנס ליריד.';
+    done.hidden = false;
+  } catch(err){
+    msg.dataset.state = 'error';
+    msg.textContent = err.message || 'ההרשמה נכשלה — נסו שוב בעוד רגע';
+    btn.disabled = false;
+    btn.textContent = label;
+  }
+});
+
+/* ---------- הרכבה ---------- */
+(async function initFair(){
+  try{
+    const list = await loadFairProperties();
+    if (!list.length){
+      el('fairEmptyWrap').hidden = false;
+      return;
+    }
+    renderFairStats(list);
+    pickHeroPhoto(list);
+    fairShelf.set(list);
+    renderFairSplit(list);
+    renderFairMap(list);
+  } catch(e){
+    console.warn('טעינת יריד הבתים הפתוחים נכשלה:', e);
+    el('fairErrorWrap').hidden = false;
+  }
+})();
+</script>
+</body>
+</html>
