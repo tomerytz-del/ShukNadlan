@@ -45,8 +45,12 @@ alter table public.notifications add constraint notifications_type_check
 -- שתי הפעולות מכסות את שני המצבים (יש שורת העדפות, אין שורת העדפות), ושתיהן
 -- אינן עושות דבר בהרצה חוזרת.
 -- ---------------------------------------------------------------------------
+-- ‏array_append ולא ‎|| 'platform_signup'‎: מול ליטרל לא־מוטפס Postgres בוחר
+-- את ‎anyarray || anyarray‎ ומנסה לפרש את המחרוזת כמערך —
+-- ‏`malformed array literal` (‏22P02), שמפיל את הקובץ כולו. זה בדיוק מה שקרה
+-- בהרצה הראשונה של המיגרציה הזו.
 update public.agent_notification_preferences p
-   set whatsapp_types = p.whatsapp_types || 'platform_signup',
+   set whatsapp_types = array_append(p.whatsapp_types, 'platform_signup'::text),
        updated_at     = now()
   from public.agency_members m
  where m.id = p.agent_id
