@@ -1,10 +1,18 @@
 // ============================================================================
 // התראת הצטרפות למנהל/ת הפלטפורמה
 //
-// כל משרד תיווך שנפתח וכל מתווך/ת שנכנס/ת למערכת בפעם הראשונה מצלצל/ת אצל
-// מנהל/ת הפלטפורמה — בפעמון, ומשם גם בוואטסאפ דרך `notification-push`.
-// ההודעה נושאת את שני הדברים שנשאלים עליהם בפועל: **מי הצטרף/ה** ו**לאיזה
-// מסלול**.
+// כל מי שנכנס/ת לפלטפורמה מצלצל/ת אצל מנהל/ת הפלטפורמה — בפעמון, ומשם גם
+// בוואטסאפ דרך `notification-push`. ההודעה נושאת את שני הדברים שנשאלים
+// עליהם בפועל: **מי הצטרף/ה** ו**לאיזה מסלול**.
+//
+// ארבעה קהלים, וכל אחד "מסלול" משלו — כי אצל כל אחד מהם הכסף עובד אחרת:
+//
+// | קהל | הרגע שנספר כהצטרפות | מה נכתב כ"מסלול" |
+// |---|---|---|
+// | משרד תיווך | פתיחת המשרד | ‏tier של המנהל/ת (בד"כ הטבת ההשקה) |
+// | מתווך/ת | הכניסה הראשונה לכרטיס | ‏tier שלו/ה |
+// | בעל/ת מקצוע | שליחת טופס ההרשמה | מצב התשלום של הכרטיסייה |
+// | חברה יזמית | פתיחת החברה | "ללא תשלום" — החיוב הוא לפי פרויקט |
 //
 // ## למה כאן ולא בטריגר במסד
 //
@@ -15,9 +23,25 @@
 // שקר עקבי.
 //
 // לכן ההתראה נשלחת מהקצה של מסלול ההצטרפות, אחרי שההטבה כבר הוענקה. שלוש
-// נקודות הכניסה הן **בדיוק אותן שלוש** של ‎_shared/launch-promo.ts‎ —
-// ‏`agency-signup`, ‏`create-own-agency` ו-`join-agency` — ולכן הכלל פשוט:
-// **איפה שקוראים ל-‎grantLaunchPromo‎, קוראים גם לכאן, בשורה שאחריה.**
+// נקודות הכניסה לעולם התיווך הן **בדיוק אותן שלוש** של
+// ‎_shared/launch-promo.ts‎ — ‏`agency-signup`, ‏`create-own-agency` ו-
+// ‏`join-agency` — ולכן הכלל פשוט: **איפה שקוראים ל-‎grantLaunchPromo‎,
+// קוראים גם לכאן, בשורה שאחריה.**
+//
+// ‏בעלי מקצוע ויזמים אינם נוגעים ב-tier בכלל, ולכן הם נקראים פשוט בסוף
+// ההרשמה שלהם.
+//
+// ## למה בעל/ת מקצוע מדווח/ת בהרשמה ולא בתשלום
+//
+// כרטיסיית בעל/ת מקצוע נולדת `pending_payment` ועולה לאוויר רק אחרי אימות
+// תשלום, ולכן "ההצטרפות" שלה נראית כמו רגע התשלום. היא לא — **וכשאין
+// סליקה היא בכלל לא מגיעה**: ‏`professional-signup` מחזירה
+// ‏`payment_unavailable`, הכרטיסייה ממתינה, והטקסט שחוזר לגולש/ת מבטיח
+// "ניצור קשר להשלמת התשלום". מי שאמור/ה ליצור את הקשר הזה הוא/היא בדיוק
+// הנמען/ת של ההתראה — והתראה שתלויה בתשלום שלא קורה הייתה שותקת דווקא
+// במקרה שדורש אדם.
+//
+// לכן הדיווח הוא ברגע ההרשמה, ומצב התשלום נכתב **בתוך** ההודעה.
 //
 // ## מה ההודעה לא נושאת
 //
@@ -155,31 +179,160 @@ export async function announcePlatformSignup(
         member.slug ? `${SITE_BASE}/agent.html?slug=${encodeURIComponent(member.slug)}` : null,
       ]);
 
-    // ‏active=true בלבד: מנהל/ת פלטפורמה שכרטיסו/ה כובה אינו/ה מקבל/ת התראות,
-    // בדיוק כמו ב-alert_platform_admin_on_low_review.
-    const { data: admins, error: adminErr } = await (supabase
-      .from("agency_members")
-      .select("id")
-      .eq("is_platform_admin", true)
-      .eq("active", true) as QueryResult<{ id: string }[] | null>);
+    await notifyPlatformAdmins(supabase, title, body);
+  } catch (err) {
+    console.error("platform signup alert failed", err);
+  }
+}
 
-    if (adminErr || !admins?.length) {
-      if (adminErr) console.error("platform signup alert: admin lookup failed", adminErr.message);
+/**
+ * הכתיבה עצמה: שורת התראה לכל מנהל/ת פלטפורמה פעיל/ה.
+ *
+ * נקודה אחת לכל ארבעת הקהלים, כדי ששינוי בכללי הנמענים לא יצטרך להיזכר
+ * בארבעה מקומות. **לעולם לא זורקת** — ראו ההסבר בראש הקובץ.
+ */
+async function notifyPlatformAdmins(
+  supabase: Client,
+  title: string,
+  body: string,
+): Promise<void> {
+  // ‏active=true בלבד: מנהל/ת פלטפורמה שכרטיסו/ה כובה אינו/ה מקבל/ת התראות,
+  // בדיוק כמו ב-alert_platform_admin_on_low_review.
+  const { data: admins, error: adminErr } = await (supabase
+    .from("agency_members")
+    .select("id")
+    .eq("is_platform_admin", true)
+    .eq("active", true) as QueryResult<{ id: string }[] | null>);
+
+  if (adminErr || !admins?.length) {
+    if (adminErr) console.error("platform signup alert: admin lookup failed", adminErr.message);
+    return;
+  }
+
+  // ‏INSERT אחד לכל המנהלים. הטריגר notifications_apply_preferences מסנן
+  // בשקט שורה של מי שכיבה/תה את הסוג — ולכן אין כאן בדיקת העדפות.
+  const { error: insErr } = await (supabase.from("notifications").insert(
+    admins.map((a) => ({
+      agent_id: a.id,
+      type: PLATFORM_SIGNUP_TYPE,
+      title,
+      body,
+    })),
+  ) as QueryResult<unknown>);
+
+  if (insErr) console.error("platform signup alert: insert failed", insErr.message);
+}
+
+/* תוויות תחומי העיסוק. עותק מכוון של TYPE_LABELS ב-professional-signup:
+   ‏_shared אינו מייבא מפונקציה, וייבוא הפוך (פונקציה מייבאת מ-_shared) היה
+   מחייב להוציא לכאן גם את VALID_TYPES שחי בשתי פונקציות נוספות. שש שורות
+   תצוגה, שנקראות במקום אחד. */
+const PROFESSIONAL_TYPE_LABELS: Record<string, string> = {
+  mortgage_advisor: "יועץ/ת משכנתאות",
+  appraiser: "שמאי/ת מקרקעין",
+  architect: "אדריכל/ית",
+  interior_designer: "מעצב/ת פנים",
+  real_estate_lawyer: "עו״ד מקרקעין",
+  general: "בעל/ת מקצוע",
+};
+
+interface PlacementRow {
+  advertiser_name: string | null;
+  business_name: string | null;
+  advertiser_type: string | null;
+  target_region: string | null;
+  slug: string | null;
+  status: string | null;
+}
+
+/**
+ * בעל/ת מקצוע שנרשם/ה לכרטיסייה.
+ *
+ * ‏`payment` הוא מה שקרה מיד אחרי ההרשמה, ולא מצב סופי:
+ *   ‏· `{ months, amount }` — נפתחה הזמנה והגולש/ת הופנה/תה לתשלום.
+ *   ‏· `null`               — אין סליקה. הכרטיסייה ממתינה **ליצירת קשר**,
+ *                             וזו בדיוק השורה שהופכת את ההתראה למשימה.
+ */
+export async function announceProfessionalSignup(
+  supabase: Client,
+  placementId: string,
+  payment: { months: number; amount: number } | null,
+): Promise<void> {
+  try {
+    const { data: p, error } = await (supabase
+      .from("ad_placements")
+      .select("advertiser_name, business_name, advertiser_type, target_region, slug, status")
+      .eq("id", placementId)
+      .maybeSingle() as QueryResult<PlacementRow | null>);
+
+    if (error || !p) {
+      console.error("platform signup alert: placement lookup failed", error?.message);
       return;
     }
 
-    // ‏INSERT אחד לכל המנהלים. הטריגר notifications_apply_preferences מסנן
-    // בשקט שורה של מי שכיבה/תה את הסוג — ולכן אין כאן בדיקת העדפות.
-    const { error: insErr } = await (supabase.from("notifications").insert(
-      admins.map((a) => ({
-        agent_id: a.id,
-        type: PLATFORM_SIGNUP_TYPE,
-        title,
-        body,
-      })),
-    ) as QueryResult<unknown>);
+    const who = p.advertiser_name || p.business_name || "ללא שם";
+    const field = PROFESSIONAL_TYPE_LABELS[p.advertiser_type || ""] || "בעל/ת מקצוע";
 
-    if (insErr) console.error("platform signup alert: insert failed", insErr.message);
+    const payLine = payment
+      ? `הופנה/תה לתשלום · ${payment.months} חודשים · ₪${Math.round(payment.amount)}`
+      // הניסוח כאן הוא הפעולה הנדרשת ולא מצב השורה במסד: "pending_payment"
+      // נכון ולא אומר למי שקורא/ת את ההודעה מה לעשות עכשיו.
+      : "אין סליקה — ממתין/ה ליצירת קשר להשלמת התשלום";
+
+    const title = `בעל/ת מקצוע חדש/ה: ${who}`;
+    const body = joinParts([
+      field,
+      p.business_name && p.business_name !== who ? p.business_name : null,
+      p.target_region,
+      payLine,
+      p.slug ? `${SITE_BASE}/professional.html?slug=${encodeURIComponent(p.slug)}` : null,
+    ]);
+
+    await notifyPlatformAdmins(supabase, title, body);
+  } catch (err) {
+    console.error("platform signup alert failed", err);
+  }
+}
+
+interface DeveloperRow {
+  name: string | null;
+  contact_name: string | null;
+  city: string | null;
+  slug: string | null;
+}
+
+/**
+ * חברה יזמית שנפתחה.
+ *
+ * "המסלול" כאן הוא שאין מסלול: פתיחת החברה חינם, והחיוב הוא לפי פרויקט
+ * (‏`project-manage`). ההודעה אומרת את זה במפורש — אחרת "חברה יזמית חדשה"
+ * נקראת כמו הכנסה, ואין כאן עדיין שקל.
+ */
+export async function announceDeveloperSignup(
+  supabase: Client,
+  developerId: string,
+): Promise<void> {
+  try {
+    const { data: d, error } = await (supabase
+      .from("developers")
+      .select("name, contact_name, city, slug")
+      .eq("id", developerId)
+      .maybeSingle() as QueryResult<DeveloperRow | null>);
+
+    if (error || !d) {
+      console.error("platform signup alert: developer lookup failed", error?.message);
+      return;
+    }
+
+    const title = `חברה יזמית חדשה: ${d.name || "ללא שם"}`;
+    const body = joinParts([
+      d.contact_name ? `איש/אשת קשר: ${d.contact_name}` : null,
+      d.city,
+      "פתיחת החברה ללא תשלום · החיוב הוא לפי פרויקט",
+      d.slug ? `${SITE_BASE}/developer.html?slug=${encodeURIComponent(d.slug)}` : null,
+    ]);
+
+    await notifyPlatformAdmins(supabase, title, body);
   } catch (err) {
     console.error("platform signup alert failed", err);
   }

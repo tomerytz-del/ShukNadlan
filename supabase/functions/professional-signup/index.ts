@@ -7,6 +7,7 @@ import {
   json,
   morningConfigured,
 } from "../_shared/morning.ts";
+import { announceProfessionalSignup } from "../_shared/platform-signup-alert.ts";
 
 // ============================================================================
 // הרשמת בעל/ת מקצוע לכרטיסיית "בעלי מקצוע נבחרים"
@@ -161,6 +162,10 @@ Deno.serve(async (req: Request) => {
 
     // ---- בלי ספק סליקה אין פרסום --------------------------------------
     if (!morningConfigured() || !webhookSecret) {
+      // ההתראה למנהל/ת הפלטפורמה יוצאת **דווקא כאן**, ולא רק במסלול שמצליח:
+      // זה המצב שבו הכרטיסייה ממתינה ומישהו צריך ליצור קשר, וההבטחה
+      // שמוחזרת לגולש/ת שורה אחת מתחת ("ניצור קשר") היא הבטחה של אדם.
+      await announceProfessionalSignup(supabase, placement.id, null);
       return json({
         success: true,
         paid: false,
@@ -203,6 +208,9 @@ Deno.serve(async (req: Request) => {
     if (!form.ok) {
       await supabase.rpc("fail_ad_order", { p_order_id: orderId, p_reason: form.error });
       console.error("professional-signup: form creation failed", form.error);
+      // אותו מצב כמו "אין סליקה", רק מסיבה אחרת: ההרשמה נשמרה, הכרטיסייה
+      // ממתינה, ואיש לא יגיע לעמוד תשלום. גם כאן צריך אדם.
+      await announceProfessionalSignup(supabase, placement.id, null);
       return json({ error: "payment_provider_error" }, 502);
     }
 
@@ -210,6 +218,10 @@ Deno.serve(async (req: Request) => {
       .from("ad_orders")
       .update({ provider_form_id: form.formId, provider_payment_url: form.url })
       .eq("id", orderId);
+
+    // ההרשמה היא האירוע, לא התשלום — ראו ההסבר ב-_shared/platform-signup-alert.ts.
+    // מצב התשלום נכתב בתוך ההודעה.
+    await announceProfessionalSignup(supabase, placement.id, { months, amount });
 
     return json({
       success: true,

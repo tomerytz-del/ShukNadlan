@@ -5,6 +5,7 @@ import {
 } from "../_shared/projects.ts";
 import { registryMessage, verifyCompanyNumber } from "../_shared/company-registry.ts";
 import { blockUnknown, cachedLookup, registryColumns, registryEnabled } from "../_shared/registry-cache.ts";
+import { announceDeveloperSignup } from "../_shared/platform-signup-alert.ts";
 
 // ============================================================================
 // פתיחת חברה יזמית/קבלנית
@@ -142,6 +143,9 @@ Deno.serve(async (req: Request) => {
       await supabase.auth.admin.deleteUser(authUser.user.id);
       return json({ error: "db_error", detail: devErr.message }, 500);
     }
+
+    // אחרי ה-rollback ולא לפניו: חברה שלא נוצרה אינה הצטרפות.
+    await announceDeveloperSignup(supabase, developer.id);
 
     return json({
       success: true,

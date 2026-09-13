@@ -19669,8 +19669,16 @@ const NOTIF_TYPES = [
      ולאיזה מסלול, ושם — ב"יומן שינויי מסלול" — רואים את השורה עצמה. */
   { type:'platform_signup', tone:'deal', goto:'accSubscriptions', focus:'#subsLog',
     view:'admin',
-    title:'משרד או מתווך/ת שהצטרפו',
-    sub:'כל משרד תיווך שנפתח וכל מתווך/ת שנכנס/ת לראשונה, עם השם והמסלול שאיתו הצטרפו.',
+    title:'הצטרפות חדשה לפלטפורמה',
+    sub:'משרד תיווך שנפתח, מתווך/ת שנכנס/ת לראשונה, בעל/ת מקצוע שנרשם/ה או חברה יזמית — עם השם והמסלול.',
+    when: ()=> currentAgent && currentAgent.is_platform_admin,
+    refresh: ()=> loadSubscriptionsAdmin() },
+  /* ‏tone:'alert' ולא 'deal' כמו ההצטרפות: בקשת שדרוג ממתינה לאישור, וכל עוד
+     אין סליקה באתר היא גם דורשת שמישהו יסדיר תשלום מחוץ למערכת. */
+  { type:'platform_upgrade', tone:'alert', goto:'accSubscriptions', focus:'#subsRequests',
+    view:'admin',
+    title:'שדרוג מסלול ובקשות שדרוג',
+    sub:'סוכן/ת שעבר/ה למסלול בתשלום, או שביקש/ה לעבור וממתין/ה לאישור. הטבת ההשקה אינה נספרת.',
     when: ()=> currentAgent && currentAgent.is_platform_admin,
     refresh: ()=> loadSubscriptionsAdmin() },
 ];
