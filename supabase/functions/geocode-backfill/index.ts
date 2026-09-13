@@ -7,7 +7,7 @@ import { afulaAddressToCoords } from "../_shared/afula-geocode.ts";
 // השלמת קואורדינטות לנכסים שיש להם כתובת מדויקת ואין להם פין
 //
 // נקראת מ-pg_cron פעם בשעה, ורק כשיש מה להשלים (‏geocode_backfill_pending()
-// בתנאי ה-cron; ראו המיגרציה 20261104090000_geocode_backfill.sql).
+// בתנאי ה-cron; ראו המיגרציה 20261105090000_geocode_backfill.sql).
 //
 // ## למה זה קיים
 //

@@ -158,7 +158,7 @@ curl -X POST "$SUPABASE_URL/functions/v1/geocode-backfill" \
 | מסלול סינכרוני | `supabase/functions/geocode-address/index.ts` |
 | הקריאה מה-CRM | `crm.html`, אירוע ה-submit של `addPropertyForm` |
 | סורק | `supabase/functions/geocode-backfill/index.ts` |
-| תור, מונה, cron | `supabase/migrations/20261104090000_geocode_backfill.sql` |
+| תור, מונה, cron | `supabase/migrations/20261105090000_geocode_backfill.sql` |
 | אימות הקורא הפנימי | `supabase/functions/_shared/cron-auth.ts` |
 
 קשור: [property-map.md](property-map.md) ·
