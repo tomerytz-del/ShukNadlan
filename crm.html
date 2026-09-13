@@ -26,6 +26,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      בחירת המסלול והתגית בכותרת קוראים מכאן, כדי שמחיר לא יתעדכן בדף אחד. -->
 <script src="assets/tiers.js"></script>
 <script src="assets/map-gestures.js"></script>
+<!-- יריד הבתים הפתוחים: אותו חישוב "האם החלון פתוח עכשיו" שהאתר הציבורי
+     משתמש בו, כדי שהתגית ב-CRM והתגית באתר לא יוכלו לומר דברים שונים על
+     אותו נכס. ראו docs/open-house-fair.md -->
+<script src="assets/open-house.js"></script>
 <script src="assets/agreement-templates.js"></script>
 <script src="assets/agreement-doc.js"></script>
 <!-- מורכב בסוף הסקריפט הראשי, עם בדיקת הטפסים שלא נשמרו. ראו crmUnsavedInput -->
@@ -3470,6 +3474,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="field"><label>תוקף המודעה (לא חובה)</label><input type="date" id="npExpiresAt"></div>
       </div>
       <div class="field"><label class="checkbox-item"><input type="checkbox" id="npMoveInSoon"> כניסה קרובה (מיידית עד שנה)</label></div>
+
+      <!-- ====== יריד הבתים הפתוחים ======
+           סימון + חלון תאריכים, ושניהם חובה יחד: ההשתתפות ביריד היא הבטחה
+           שהנכס מוצע ללא עמלת תיווך לקונה, והבטחה כזו בלי תאריך סיום היא
+           הבטחה לנצח. ה-check במסד אוכף את אותו כלל (ראו המיגרציה
+           20261102090000_open_house_fair.sql), והטופס מוסיף עליו את מה שהוא
+           כלל מוצר ולא כלל נתונים: אורך מרבי (open_house_max_days) ותאריך
+           סיום שלא עבר. ראו docs/open-house-fair.md. -->
+      <div class="form-subheading">יריד הבתים הפתוחים</div>
+      <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">נכס ביריד מוצג בדף ייעודי באתר, מסומן בסימן משלו על המפה, ומוצע <b>ללא עמלת תיווך לקונה</b> — בתקופה שתגדירו כאן ורק בה. בתום התקופה הנכס יוצא מהיריד לבד, והמודעה נשארת כרגיל.</p>
+      <div class="field"><label class="checkbox-item"><input type="checkbox" id="npOpenHouse"> הנכס משתתף ביריד הבתים הפתוחים</label></div>
+      <!-- ‏style.display ולא ‎hidden‎: אין בדף כלל ‎[hidden]{display:none !important}‎,
+           ו-‎display:grid‎ בסגנון מוטבע גובר על ברירת המחדל של הדפדפן ל-hidden —
+           השדות היו נשארים גלויים תמיד. אותה שיטה של npLandPlanningFields. -->
+      <div class="field-row" id="npOpenHouseDates" style="display:none;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field"><label>תחילת התקופה</label><input type="date" id="npOpenHouseStart"></div>
+        <div class="field"><label>סוף התקופה (כולל)</label><input type="date" id="npOpenHouseEnd"></div>
+      </div>
+      <p id="npOpenHouseNote" style="font-size:.72rem;margin:-4px 0 10px;min-height:1.1em" role="status"></p>
 
       <div class="field" id="npCommercialLocFields" style="display:none">
         <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
@@ -11648,6 +11671,94 @@ function updateFormForCategory(category, preselectedFeatures){
 
 document.getElementById('npType').addEventListener('change', updateLandPlanningFields);
 
+/* ---------- יריד הבתים הפתוחים ----------
+   שני שדות תאריך שנפתחים רק כשהסימון דלוק, ושלוש בדיקות שעוברות עליהם לפני
+   השמירה. הן כאן ולא ב-DB כי הן כללי מוצר: ה-check במסד אוכף "חלון תקין"
+   (סוף אחרי התחלה), והשאר — אורך מרבי, סיום שלא עבר — הוא מה שמגדיר את
+   היריד עצמו ומשתנה איתו. ראו docs/open-house-fair.md.
+
+   התאריכים נשמרים כ-timestamptz: תחילת היום המקומי ליום הפתיחה, וסופו
+   (23:59:59) ליום הסגירה — כי "עד 14.10" בטופס פירושו כולל ה-14.10. אילו
+   נשמר חצות של אותו יום, נכס היה נופל מהיריד בבוקר היום שהסוכן/ת הבטיח/ה
+   שהוא עוד בו.                                                             */
+const OPEN_HOUSE_DEFAULT_DAYS = 14;
+
+function openHouseStamp(value, endOfDay){
+  if (!value) return null;
+  const [y, m, d] = value.split('-').map(Number);
+  if (!y || !m || !d) return null;
+  return endOfDay
+    ? new Date(y, m - 1, d, 23, 59, 59).toISOString()
+    : new Date(y, m - 1, d, 0, 0, 0).toISOString();
+}
+
+// הכיוון ההפוך, לטופס: תאריך מקומי ולא ‎toISOString().slice(0,10)‎ — 23:59:59
+// בישראל הוא כבר למחרת ב-UTC, והשדה היה מציג יום אחד יותר מכפי שנשמר.
+function openHouseDateInput(value){
+  if (!value) return '';
+  const d = new Date(value);
+  if (isNaN(d.getTime())) return '';
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+function openHouseToday(){
+  const now = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+}
+
+/* מחזירה הודעת שגיאה, או '' כשהחלון תקין. הסימון כבוי = אין מה לבדוק. */
+function openHouseError(){
+  if (!document.getElementById('npOpenHouse').checked) return '';
+  const start = document.getElementById('npOpenHouseStart').value;
+  const end   = document.getElementById('npOpenHouseEnd').value;
+  if (!start || !end) return 'כדי לצרף את הנכס ליריד צריך למלא תאריך תחילה ותאריך סיום.';
+  if (end < start) return 'תאריך הסיום מוקדם מתאריך התחילה.';
+  if (end < openHouseToday()) return 'תאריך הסיום כבר עבר — היריד הוא תקופה שעוד לפניכם.';
+  const maxDays = priceOf('open_house_max_days', 30);
+  const days = Math.round((new Date(end) - new Date(start)) / 864e5) + 1;
+  if (days > maxDays) return `תקופת היריד מוגבלת ל-${maxDays} ימים, וזו ${days} ימים.`;
+  return '';
+}
+
+/* ההודעה שמתחת לשדות עונה על השאלה "מה בעצם הבטחתי": כמה ימים, ועד מתי.
+   היא נכתבת בכל שינוי ולא רק בשמירה — שגיאה שמתגלה אחרי לחיצה על "פרסום"
+   היא שגיאה שהתגלתה מאוחר מדי. */
+function syncOpenHouseFields(){
+  const on = document.getElementById('npOpenHouse').checked;
+  const dates = document.getElementById('npOpenHouseDates');
+  const note = document.getElementById('npOpenHouseNote');
+  dates.style.display = on ? 'grid' : 'none';
+  if (!on){ note.textContent = ''; return; }
+
+  const startEl = document.getElementById('npOpenHouseStart');
+  const endEl   = document.getElementById('npOpenHouseEnd');
+  // ברירת מחדל שמחזיקה את רוב המקרים: מהיום, לשבועיים. סוכן/ת שרוצה אחרת
+  // משנה תאריך; סוכן/ת שרק רוצה להצטרף לא צריך/ה למלא כלום.
+  if (!startEl.value) startEl.value = openHouseToday();
+  if (!endEl.value){
+    const end = new Date();
+    end.setDate(end.getDate() + OPEN_HOUSE_DEFAULT_DAYS - 1);
+    endEl.value = openHouseDateInput(end);
+  }
+  startEl.min = openHouseToday();
+  endEl.min = startEl.value || openHouseToday();
+
+  const err = openHouseError();
+  note.style.color = err ? 'var(--brick)' : 'var(--ink-soft)';
+  if (err){ note.textContent = err; return; }
+  const days = Math.round((new Date(endEl.value) - new Date(startEl.value)) / 864e5) + 1;
+  // אותו פורמט תאריך שהאתר הציבורי מציג ("13.9" ולא "13.09.2026"), מאותה
+  // פונקציה — ההודעה כאן היא מה שהסוכן/ת מבטיח/ה, והיא צריכה להיקרא כמו
+  // מה שיופיע בדף הנכס
+  const fmt = v => OpenHouse.hebDay(new Date(v + 'T00:00:00'));
+  note.textContent = `${days} ימים ביריד — ללא עמלת תיווך לקונה מ-${fmt(startEl.value)} ועד ${fmt(endEl.value)} (כולל).`;
+}
+
+['npOpenHouse','npOpenHouseStart','npOpenHouseEnd'].forEach(id =>
+  document.getElementById(id).addEventListener('change', syncOpenHouseFields));
+
 let currentCategory = 'residential';
 document.querySelectorAll('[data-category]').forEach(btn=>{
   btn.addEventListener('click', ()=>{
@@ -12604,6 +12715,21 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     return;
   }
 
+  /* חלון היריד נבדק לפני שנוגעים במסד: ‏check שנכשל חוזר כטקסט פוסטגרס
+     ("violates check constraint properties_open_house_window_chk"), והסוכן/ת
+     שסימן/ה השתתפות בלי למלא תאריכים צריך/ה לדעת בעברית מה חסר. */
+  const openHouseProblem = openHouseError();
+  if (openHouseProblem){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = openHouseProblem;
+    syncOpenHouseFields();
+    document.getElementById('npOpenHouseStart').focus();
+    btn.disabled = false;
+    btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
+    return;
+  }
+  const openHouseOn = document.getElementById('npOpenHouse').checked;
+
   const payload = {
     title: document.getElementById('npTitle').value,
     category: currentCategory,
@@ -12635,6 +12761,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     project_status: document.getElementById('npProjectStatus').value || null,
     move_in_date: document.getElementById('npMoveInDate').value || null,
     move_in_soon: document.getElementById('npMoveInSoon').checked,
+    open_house: openHouseOn,
     restrooms_location: currentCategory === 'commercial' ? (document.getElementById('npRestrooms').value || null) : null,
     storage_location: currentCategory === 'commercial' ? (document.getElementById('npStorageLoc').value || null) : null,
     mamad_location: currentCategory === 'commercial' ? (document.getElementById('npMamadLoc').value || null) : null,
@@ -12648,6 +12775,14 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     const raw = document.getElementById(id).value.trim();
     return raw ? (parse ? parse(raw) : raw) : null;
   };
+  /* התאריכים נכתבים רק כשהנכס נכנס ליריד. יציאה ממנו מכבה את הדגל ומשאירה
+     אותם: הם ההיסטוריה של הנכס ("היה ביריד עד 14.10"), ואף תצוגה באתר לא
+     נשענת עליהם בלי הדגל. */
+  if (openHouseOn){
+    payload.open_house_start = openHouseStamp(document.getElementById('npOpenHouseStart').value, false);
+    payload.open_house_end   = openHouseStamp(document.getElementById('npOpenHouseEnd').value, true);
+  }
+
   payload.land_zoning              = landValue('npLandZoning');
   payload.land_building_rights_pct = landValue('npLandBuildingPct', parseFloat);
   payload.land_max_units           = landValue('npLandMaxUnits', v => parseInt(v, 10));
@@ -12819,6 +12954,8 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   populateAgent2Select('', '');
   resetImageState();
   syncMarketingCopyField(null);
+  // ‏reset() מכבה את תיבת הסימון אך לא מקפל את שדות התאריך שנפתחו בגללה
+  syncOpenHouseFields();
   editingPropertyId = null;
   editingPropertyOriginalAddress = null;
   currentCategory = 'residential';
@@ -13027,7 +13164,7 @@ document.getElementById('propClearFilters').addEventListener('click', clearPrope
 /* רשימת העמודות של "הנכסים שלי". קבוע ולא מחרוזת אינליין, כי גם ייצוא
    הנכסים לאקסל שולף את אותן עמודות — עמודה שנוספת כאן חייבת להגיע גם לקובץ
    שיורד, ושתי רשימות היו נפרדות תוך שבוע. */
-const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, shared_with_partners, shared_at, property_owners(owner_name, owner_phone)';
+const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, shared_with_partners, shared_at, property_owners(owner_name, owner_phone)';
 
 async function loadProperties(agentId){
   const listEl = document.getElementById('propertiesList');
@@ -13182,6 +13319,7 @@ function buildPropertyTab(p, agentId){
     `מודעה #${esc(String(p.listing_number ?? '—'))}`,
     esc(PROPERTY_STATUS_LABELS[p.status] || p.status || ''),
     propertyIsPromoted(p) ? '🌟 מקודם' : '',
+    OpenHouse.live(p) ? '🏷 ביריד' : '',
   ].filter(Boolean).join(' · ');
 
   el.innerHTML = `
@@ -13257,6 +13395,11 @@ function buildPropertyCard(p, agentId){
     expired ? { text:`⏳ פג תוקף ${hebDate(p.listing_expires_at)}`, cls:'tag-warn' }
             : p.listing_expires_at && { text:`⏳ בתוקף עד ${hebDate(p.listing_expires_at)}` },
     (!p.images || !p.images.length) && { text:'📷 ללא תמונות', cls:'tag-warn' },
+    // היריד נמדד בתאריכים ולא בדגל (ראו assets/open-house.js): חלון שטרם
+    // נפתח נאמר במפורש, כדי שלא ייראה כאילו הסימון לא נקלט.
+    OpenHouse.live(p)
+      ? { text:`🏷 ביריד הבתים הפתוחים · ${OpenHouse.endLabel(p)}`, cls:'tag-info' }
+      : (OpenHouse.upcoming(p) && { text:`🏷 נכנס ליריד ב-${OpenHouse.hebDay(OpenHouse.startsAt(p))}`, cls:'tag-info' }),
     // התיאור השיווקי הוא מה שמופיע בדף הנכס כשאין תיאור מודעה, ולכן
     // היעדרו הוא חוסר במודעה עצמה — באותו גוון אזהרה של "ללא תמונות".
     p.status === 'active' && mktState.tag && { text: mktState.tag, cls:'tag-warn' },
@@ -15212,6 +15355,12 @@ function openEditProperty(p){
   document.getElementById('npProjectStatus').value = p.project_status || '';
   document.getElementById('npMoveInDate').value = p.move_in_date || '';
   document.getElementById('npMoveInSoon').checked = !!p.move_in_soon;
+  // חלון היריד מוצג כפי שנשמר, גם כשהנכס כבר יצא ממנו: התאריכים נשארים על
+  // הנכס, וסוכן/ת שמסמן/ת השתתפות מחדש רואה קודם את מה שהבטיח/ה בפעם הקודמת.
+  document.getElementById('npOpenHouse').checked = !!p.open_house;
+  document.getElementById('npOpenHouseStart').value = openHouseDateInput(p.open_house_start);
+  document.getElementById('npOpenHouseEnd').value = openHouseDateInput(p.open_house_end);
+  syncOpenHouseFields();
   document.getElementById('npRestrooms').value = p.restrooms_location || '';
   document.getElementById('npStorageLoc').value = p.storage_location || '';
   document.getElementById('npMamadLoc').value = p.mamad_location || '';

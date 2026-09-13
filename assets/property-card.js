@@ -269,6 +269,15 @@
       cls: prop.deal_type === 'rent' ? 'is-rent' : 'is-sale',
       text: prop.deal_type === 'rent' ? 'להשכרה' : 'למכירה',
     });
+    /* יריד הבתים הפתוחים בא מיד אחרי סוג העסקה ולפני כל השאר: מתוך שלוש
+       התגיות שהאריח מרשה לעצמו, "ללא עמלת תיווך" היא זו שמשנה למי שמסתכל
+       על המחיר. התלות ב-OpenHouse רכה — רוב הדפים שמציירים אריחים לא
+       טוענים את הקובץ, ואצלם התגית פשוט לא קיימת.
+       ‏live() ולא ‎open_house‎ לבדו: הדגל נכבה ב-cron כל רבע שעה, והתגית
+       הזו היא הבטחה מסחרית שאסור לה לשרוד את החלון שלה. */
+    if (typeof OpenHouse !== 'undefined' && OpenHouse.live(prop)) {
+      badges.push({ cls:'is-openhouse', text:OpenHouse.NO_FEE });
+    }
     if (hasFeature(prop, 'exclusive')) badges.push({ cls:'is-excl', text:'בלעדיות' });
     if (o.aiViz) badges.push({ cls:'is-ai', text:'הדמיית AI' });
     if (prop.category === 'commercial') badges.push({ cls:'is-commercial', text:'מסחרי' });
@@ -588,6 +597,9 @@
     '.pc-badge.is-excl{background:var(--pc-excl-bg,rgba(201,162,39,.86))}',
     '.pc-badge.is-ai{background:var(--pc-ai-bg,rgba(13,27,61,.82))}',
     '.pc-badge.is-commercial{background:var(--pc-commercial-bg,rgba(14,42,107,.8))}',
+    /* היריד — אדום מלא ולא חצי־שקוף כמו שאר התגיות: היא ההבטחה היחידה כאן
+       שמשנה את המחיר שהקונה ישלם בפועל, והיא נקראת גם על תמונה בהירה. */
+    '.pc-badge.is-openhouse{background:var(--open-house,#c8102e);border-color:rgba(255,255,255,.5)}',
 
     '.pc-media{position:absolute;bottom:9px;inset-inline-start:9px;z-index:2;display:flex;gap:5px;flex-wrap:wrap}',
     '.pc-media span{display:inline-flex;align-items:center;gap:4px;font-size:.66rem;font-weight:700;',

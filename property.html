@@ -21,6 +21,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="assets/quality-badge.js"></script>
 <script src="assets/map-gestures.js"></script>
+<!-- יריד הבתים הפתוחים: הרצועה שמעל פרטי הנכס והתגית שעל התמונה.
+     נטען לפני property-card.js — הוא זה שמוסיף את התגית לאריחי
+     "נכסים דומים" שבתחתית העמוד. ראו docs/open-house-fair.md -->
+<script src="assets/open-house.js"></script>
 <script src="assets/property-card.js"></script>
 <!-- רצועת ההדמיות של הנכס. נטענת כאן אבל **לא** מורכבת מעצמה: היא מופיעה
      רק בנכס שכבר יש לו לפחות הדמיה אחת, ולכן loadVisualizations() הוא
@@ -176,6 +180,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .badge-deal{background:rgba(255,255,255,.9);color:var(--teal-dark);border-color:rgba(255,255,255,.95)}
   .badge-promo{background:rgba(180,83,9,.82);border-color:rgba(255,255,255,.4)}
   .badge-exclusive{background:rgba(14,42,107,.82);border-color:rgba(255,255,255,.4)}
+  /* תגית היריד מלאה ולא חצי־שקופה כמו שכנותיה: היא ההבטחה היחידה כאן
+     שנוגעת לכסף שהקונה ישלם, והיא צריכה להיקרא גם על תמונה בהירה. */
+  .badge-openhouse{background:var(--open-house,#c8102e);border-color:rgba(255,255,255,.55)}
   .hero-tools{position:absolute;top:12px;inset-inline-end:12px;display:flex;gap:6px;z-index:3}
   .hero-tool{
     width:36px;height:36px;border-radius:50%;display:grid;place-items:center;
@@ -994,6 +1001,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/buyer-banner.css">
 <link rel="stylesheet" href="assets/design-system.css">
+<link rel="stylesheet" href="assets/open-house.css">
 <script src="assets/site-footer.js" defer></script>
 <script src="assets/buyer-banner.js" defer></script>
 </head>
@@ -1067,6 +1075,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="main-col">
         <h1 class="prop-title" id="propTitle">—</h1>
         <div class="prop-address" id="propAddress"></div>
+
+        <!-- ====== יריד הבתים הפתוחים ======
+             הרצועה יושבת מעל התיאור ולא בתחתית העמוד: "בלי עמלת תיווך"
+             הוא שיקול שמשנה אם בכלל ממשיכים לקרוא, והוא שייך לשורה
+             שאחרי הכתובת והמחיר. נבנית ב-renderOpenHouseBand(). -->
+        <div id="openHouseBand" hidden></div>
 
         <!-- התיאור צמוד לכתובת ולא בתחתית העמוד, אבל מקוצר לארבע שורות עם
              כפתור הרחבה: תיאור ארוך שיושב כאן במלואו היה דוחף את נתוני הנכס
@@ -3529,6 +3543,9 @@ function renderTags(p){
     { cls:'badge-deal', icon:'', text: p.deal_type === 'rent' ? 'להשכרה' : 'למכירה' },
   ];
   if (promotionActive) badges.push({ cls:'badge-promo', icon:ICON.sparkle, text:'מקודם' });
+  // היריד בא לפני הבלעדיות ואחרי הקידום: מתוך כל התגיות כאן זו היחידה
+  // שמשנה את הסכום שהקונה ישלם בפועל.
+  if (OpenHouse.live(p)) badges.push({ cls:'badge-openhouse', icon:'', text:OpenHouse.NO_FEE });
   if (features.includes('exclusive')) badges.push({ cls:'badge-exclusive', icon:ICON.star, text:'בבלעדיות' });
   if (p.property_type) badges.push({ cls:'', icon:'', text:p.property_type });
   if (p.sales_area) badges.push({ cls:'', icon:ICON.pin, text:p.sales_area });
@@ -3580,6 +3597,30 @@ function publicTitle(p){
   return maskHouseNumber(p.title || '', p.house_number) || (p.title || '');
 }
 
+/* ---------- יריד הבתים הפתוחים ----------
+   הרצועה נבנית רק כשהחלון פתוח *עכשיו*: ‏open_house לבדו נכבה ב-cron כל
+   רבע שעה, והבטחה של "ללא עמלת תיווך" שממשיכה להופיע רבע שעה אחרי שהחלון
+   נסגר היא בדיוק סוג הטעות שיריד לא יכול להרשות לעצמו. אותה בדיקה בדיוק
+   מפעילה את התגית שעל התמונה, את הסימן על המפה בדף הבית ואת האריח במדף —
+   כולן דרך ‎OpenHouse.live()‎ ב-assets/open-house.js. */
+function renderOpenHouseBand(p){
+  const host = document.getElementById('openHouseBand');
+  if (!host) return;
+  if (!OpenHouse.live(p)){ host.hidden = true; host.innerHTML = ''; return; }
+
+  host.innerHTML =
+    '<div class="oh-band">' +
+      '<span class="oh-tile">' + OpenHouse.icon({ size:42 }) + '</span>' +
+      '<div class="oh-band-body">' +
+        '<b>' + OpenHouse.NO_FEE + ' — הנכס ביריד הבתים הפתוחים</b>' +
+        '<span>הנכס מוצע לקונים ללא עמלת תיווך בתקופה ' +
+          escapeHtml(OpenHouse.rangeLabel(p)) + ' · ' + escapeHtml(OpenHouse.endLabel(p)) + '</span>' +
+      '</div>' +
+      '<a href="open-house.html">לכל נכסי היריד ←</a>' +
+    '</div>';
+  host.hidden = false;
+}
+
 function renderProperty(p){
   document.title = publicTitle(p) + ' | שוק נדל״ן';
   renderGallery(p);
@@ -3600,6 +3641,7 @@ function renderProperty(p){
   const addressText = publicAddressText(p);
   const addressEl = document.getElementById('propAddress');
   addressEl.innerHTML = addressText ? ICON.pin + `<span>${escapeHtml(addressText)}</span>` : '';
+  renderOpenHouseBand(p);
 
   renderSpecPills(p);
   renderHighlights(p);
@@ -4083,6 +4125,7 @@ loadProperty();
           <a href="index.html#privateProps-rent">להשכרה בעפולה</a>
           <a href="index.html#commercialProps">נכסים מסחריים</a>
           <a href="index.html#privateProps">כל הנכסים</a>
+          <a href="open-house.html">יריד הבתים הפתוחים</a>
           <a href="projects.html">פרויקטים חדשים</a>
         </div>
       </details>

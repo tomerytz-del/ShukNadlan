@@ -27,6 +27,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="assets/map-gestures.js"></script>
 <script src="assets/map-draw.js"></script>
+<!-- נטען לפני property-card.js: האריח מוסיף את תגית "ללא עמלת תיווך"
+     רק כש-OpenHouse קיים, ובודק זאת בזמן ציור ולא בזמן טעינה -->
+<script src="assets/open-house.js"></script>
 <script src="assets/property-card.js"></script>
 <script src="assets/prop-shelf.js"></script>
 <script src="assets/project-card.js"></script>
@@ -2786,6 +2789,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/design-system.css">
 <link rel="stylesheet" href="assets/prop-shelf.css">
+<!-- יריד הבתים הפתוחים: הסימן על המפה, התגית על האריח והבאנר שמוביל
+     לדף היריד. ראו docs/open-house-fair.md -->
+<link rel="stylesheet" href="assets/open-house.css">
 <script src="assets/page-bg.js" data-auto></script>
 <script src="assets/site-footer.js" defer></script>
 </head>
@@ -2857,6 +2863,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="menu-panel" id="menuPanelProps" role="tabpanel" aria-labelledby="menuTabProps">
       <a href="#privateProps">נכסים פרטיים</a>
       <a href="#commercialProps">נכסים מסחריים</a>
+      <a href="open-house.html">יריד הבתים הפתוחים</a>
       <a href="projects.html">פרויקטים חדשים</a>
       <a href="#heroSection">חיפוש על המפה</a>
     </div>
@@ -3486,6 +3493,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
   </section>
+
+  <!-- ====== יריד הבתים הפתוחים: הרצועה שמובילה אליו ======
+       יושבת מיד מעל מדף הנכסים הפרטיים, כלומר בדיוק לפני המלאי ואחרי
+       המפה: מי שהגיע עד לכאן כבר מחפש דירה, וזו הנקודה שבה "אפשר לקנות
+       כאן בלי עמלת תיווך" משנה את מה שהוא/היא עומד/ת לעשות בדקה הבאה.
+
+       הרצועה נבנית ב-renderOpenHouseBanner() ונשארת מוסתרת כשאין ולו נכס
+       אחד ביריד — באנר שמוביל לעמוד ריק גרוע מהיעדר באנר. הספירה מגיעה
+       משאילתת count נפרדת ולא מהרשימה שעל המפה, שמוגבלת ל-300 נכסים
+       פעילים. ראו docs/open-house-fair.md. -->
+  <section class="section wrap" id="openHouseBanner" hidden></section>
 
   <!-- ====== נכסים פרטיים: מכירה והשכרה בתצוגה אחת ======
        יושבת מיד מתחת לרצועת ההדמיות, ובמקומן של שתי הרצועות הנגללות
@@ -4421,6 +4439,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <a href="#privateProps-rent">להשכרה בעפולה</a>
           <a href="#commercialProps">נכסים מסחריים</a>
           <a href="#privateProps">כל הנכסים</a>
+          <a href="open-house.html">יריד הבתים הפתוחים</a>
           <a href="projects.html">פרויקטים חדשים</a>
         </div>
       </details>
@@ -5478,6 +5497,10 @@ const isPromoted = p => !!p.is_promoted && (!p.promoted_until || new Date(p.prom
 const PROPERTY_SELECT =
   'id, price, title, rooms, size_sqm, floor, city, street, address, property_type, deal_type, category, ' +
   'created_at, lat, lng, is_promoted, promoted_until, images, features, video_url, tour_3d_url, has_virtual_tour, neighborhood_id, ' +
+  /* יריד הבתים הפתוחים: שלוש העמודות נשלפות יחד כי התצוגה בודקת את החלון
+     ולא את הדגל לבדו (ראו assets/open-house.js). בלעדיהן הפין על המפה,
+     התגית על האריח והבאנר שמעל המדפים לא היו יודעים על היריד דבר. */
+  'open_house, open_house_start, open_house_end, ' +
   'agencies(name, logo_url), neighborhoods(name)';
 
 const shapeProperty = p => ({
@@ -5853,6 +5876,63 @@ async function loadCommercialProperties(){
      והוא מוגדר מאות שורות מתחת. שם זה נפל ב-TDZ, והמדף המסחרי נשאר ריק. */
   const items = await loadCommercialProperties();
   commercialShelf.set(items);
+})();
+
+/* ---------- יריד הבתים הפתוחים: הרצועה שמעל המדפים ----------
+   הספירה היא שאילתת ‎count‎ בלבד (‏head:true — אפס שורות על החוט), ולא
+   סינון של הרשימה הראשית: זו מוגבלת ל-300 נכסים פעילים וממוינת
+   מקודמים-קודם, כך שנכס ותיק שנכנס ליריד היה נופל ממנה בדיוק ביום שבו יש
+   הרבה מלאי — והבאנר היה נעלם בזמן שהיריד פעיל.
+
+   החלון נבדק בשאילתה עצמה ולא רק בדגל, מאותה סיבה שהוא נבדק ב-JS בכל שאר
+   המקומות: ‏expire_open_house() רצה כל רבע שעה, ורבע שעה של פיגור היא רבע
+   שעה שבה הבאנר מבטיח ללא עמלה על נכס שכבר יצא מהיריד.
+
+   כישלון שאילתה (‏DB לא זמין) משאיר את הרצועה מוסתרת, כמו שהיא נולדה. */
+async function loadOpenHouseCount(){
+  if (!sb) return 0;
+  try{
+    const nowIso = new Date().toISOString();
+    const { count, error } = await sb
+      .from('properties')
+      .select('id', { count:'exact', head:true })
+      .eq('status', 'active')
+      .eq('open_house', true)
+      .lte('open_house_start', nowIso)
+      .gt('open_house_end', nowIso);
+    if (error) throw error;
+    return count || 0;
+  } catch(e){
+    console.warn('ספירת נכסי יריד הבתים הפתוחים נכשלה:', e);
+    return 0;
+  }
+}
+
+function renderOpenHouseBanner(count){
+  const host = document.getElementById('openHouseBanner');
+  if (!host) return;
+  if (!count){ host.hidden = true; host.innerHTML = ''; return; }
+
+  // "נכס אחד" ולא "1 נכסים": יריד עם משתתף אחד הוא עדיין יריד, ומספר
+  // שנכתב בלשון רבים על פריט בודד הוא הדבר הראשון שנקרא כתקלה.
+  const many = count > 1;
+  host.innerHTML =
+    `<a class="oh-banner" href="open-house.html">` +
+      OpenHouse.icon({ size:72 }) +
+      `<span class="oh-banner-body">` +
+        `<span class="oh-banner-eyebrow">${OpenHouse.FAIR_NAME}</span>` +
+        `<h2>לקנות דירה בעפולה — בלי עמלת תיווך</h2>` +
+        `<p><span class="oh-count">${many ? `${count.toLocaleString('he-IL')} נכסים` : 'נכס אחד'}</span> ` +
+          `${many ? 'מוצעים' : 'מוצע'} עכשיו ללא עמלת תיווך לקונה, לתקופה מוגבלת שהמתווך/ת הגדיר/ה לכל נכס.</p>` +
+      `</span>` +
+      `<span class="oh-banner-cta">לנכסים שביריד ←</span>` +
+    `</a>`;
+  host.hidden = false;
+}
+
+(async function initOpenHouseBanner(){
+  if (!document.getElementById('openHouseBanner')) return;
+  renderOpenHouseBanner(await loadOpenHouseCount());
 })();
 
 /* ---------- מדפי הנכסים ----------
@@ -6829,6 +6909,13 @@ function mapPopupHtml(p, kind){
       `<span class="map-pop-price"><i class="map-pop-dot" style="background:${DEAL_COLORS[kind]}"></i>` +
         `${DEAL_LABELS[kind]} · ${priceLabel(p)}</span>` +
       `<span class="map-pop-meta">${meta}</span>` +
+      // הסימן על המפה אומר "יש כאן משהו"; הבלון הוא המקום שבו נאמר מה —
+      // ההבטחה עצמה ומתי היא נגמרת
+      (OpenHouse.live(p)
+        // ‏align-self: ‎.map-pop-body‎ הוא עמודת flex, ותגית שנמתחת לכל
+        // רוחב הבלון נראית כרצועה ולא כתגית
+        ? `<span class="oh-chip" style="margin-top:5px;align-self:flex-start">${OpenHouse.NO_FEE} · ${OpenHouse.endLabel(p)}</span>`
+        : '') +
       `<span class="map-pop-cta">לצפייה בנכס ←</span>` +
     `</span></a>`;
 }
@@ -6856,18 +6943,27 @@ function renderMap(properties){
          הופכת מפה עם ארבעים נכסים לשדה מהבהב שאי אפשר לקרוא בו כלום —
          תנועה מסמנת משהו רק כשהיא נדירה. */
       const promoted = isPromoted(p);
+      /* נכס ביריד הבתים הפתוחים מקבל את הסימן שלו *מעל* תווית המחיר, ולא
+         במקומה: המחיר הוא עדיין מה שסורקים על המפה, והסימן הוא מה שאומר
+         שאין עליו עמלת תיווך. המסגרת האדומה סביב התווית היא מה שמחזיק את
+         הקשר בין השניים כשהן נחתכות (‏relayoutMapPins מקטין תוויות
+         שמתנגשות לנקודה, והסימן נשאר). */
+      const openHouse = OpenHouse.live(p);
       const icon = L.divIcon({
         className:'',
         html:(promoted ? '<span class="map-pin-halo" aria-hidden="true"></span>' : '') +
-             `<div class="map-pin" style="background:${DEAL_COLORS[kind]}">${priceLabel(p)}</div>`,
+             (openHouse ? OpenHouse.mapPinHtml(p) : '') +
+             `<div class="map-pin${openHouse ? ' is-openhouse' : ''}" style="background:${DEAL_COLORS[kind]}">${priceLabel(p)}</div>`,
         iconSize:[0,0]
       });
       // pinRank מכריע מי שומר על תווית מלאה כשפינים נחתכים (relayoutMapPins):
-      // נכס מקודם תמיד גובר, ובין השאר מנצח המחיר הגבוה
+      // נכס מקודם תמיד גובר, אחריו נכס ביריד (הסימן שלו כבר תופס את המקום
+      // שמעל התווית, ותווית שנחתכת לנקודה מתחתיו נראית כתקלה), ובין השאר
+      // מנצח המחיר הגבוה
       const m = L.marker([p.lat, p.lng], {
         icon,
         dealKind: kind,
-        pinRank: (isPromoted(p) ? 1e12 : 0) + (Number(p.price) || 0),
+        pinRank: (isPromoted(p) ? 1e12 : 0) + (openHouse ? 5e11 : 0) + (Number(p.price) || 0),
       });
       m.bindPopup(mapPopupHtml(p, kind));
       // לחיצה על פין מדגישה וגוללת אל השורה שלו בפאנל המפוצל — הכיוון השני

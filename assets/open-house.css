@@ -1,0 +1,141 @@
+/* ============================================================================
+   יריד הבתים הפתוחים — העיצוב המשותף
+   ----------------------------------------------------------------------------
+   ארבעה מקומות מציגים את אותו דבר: הפין במפת דף הבית, הבאנר בדף הבית,
+   הרצועה בדף הנכס ודף היריד עצמו. כולם כאן, בקובץ אחד, כי הם הבטחה אחת —
+   "ללא עמלת תיווך" — ואדום שנצבע קצת אחרת בכל עמוד נקרא כארבעה מבצעים.
+
+   הצבעים מגיעים מ-assets/design-system.css (‏--open-house ומשפחתו). הקובץ
+   הזה נטען אחריו בכל דף שמשתמש בו.
+   ============================================================================ */
+
+/* ====== הסימן ======
+   ה-SVG עצמו נבנה ב-assets/open-house.js. כאן רק המיקום שלו, ובעיקר
+   ‏currentColor: כל אלמנט שמחזיק את הסימן קובע את צבעו בעצמו (אדום על רקע
+   בהיר, לבן על רקע אדום), ולכן אין כאן ‎fill‎ קשיח. */
+.oh-mark{display:block;flex:none;color:inherit}
+
+/* ====== הסימן על רקע אדום ======
+   צביעת הסימן בלבן על רצועה אדומה נראית נקייה — ומוחקת את התווית: היא
+   לבנה עם קו לבן סביבה, ועל טיפה לבנה היא פשוט נעלמת, כלומר הסימן מאבד
+   בדיוק את החלק שאומר "פתוח". במקום זה הוא נשאר בצבעיו ויושב על אריח לבן,
+   וכך הוא זהה לעצמו בכל מקום באתר. */
+.oh-tile{
+  display:inline-flex;align-items:center;justify-content:center;
+  background:#fff;padding:8px;flex:none;
+}
+.oh-tile .oh-mark{color:var(--open-house,#c8102e)}
+
+/* ====== הפין על המפה ======
+   ל-divIcon של Leaflet יש iconSize 0×0, ולכן כל מה שבתוכו ממוקם אבסולוטית
+   מנקודת הנכס עצמה — בדיוק כמו ‎.map-pin‎ ו-‎.map-pin-halo‎ ב-index.html.
+   הסימן יושב *מעל* תווית המחיר ולא במקומה: המחיר הוא עדיין מה שמחפשים על
+   המפה, והסימן הוא מה שאומר מה מיוחד בו. */
+.oh-pin{
+  position:absolute;top:0;left:0;
+  transform:translate(-50%,calc(-100% - 12px));
+  pointer-events:none;                 /* הלחיצה שייכת לתווית המחיר שמתחתיו */
+  color:var(--open-house,#c8102e);
+  filter:drop-shadow(0 2px 3px rgba(0,0,0,.35));
+}
+/* במפת דף היריד אין תוויות מחיר לצד הסימן — כל הנכסים שם הם נכסי יריד,
+   ותווית לכל אחד מהם הייתה שדה מלבנים. שם הסימן *הוא* הפין: החוד שלו יושב
+   על הנקודה, והוא זה שנלחץ. */
+.oh-pin.is-solo{
+  transform:translate(-50%,-100%);
+  pointer-events:auto;cursor:pointer;
+}
+.oh-pin.is-solo:hover{filter:drop-shadow(0 3px 5px rgba(0,0,0,.45))}
+
+/* תווית המחיר של נכס ביריד: מסגרת אדומה סביב אותה תווית בצבע סוג העסקה.
+   החלפת צבע הרקע הייתה שוברת את המקרא — "מכירה/השכרה/מסחרי" הוא מה שהצבע
+   אומר שם — ולכן היריד מוסיף מסגרת ולא מחליף גוון. */
+.map-pin.is-openhouse{
+  box-shadow:0 0 0 2px var(--open-house,#c8102e), 0 2px 6px rgba(0,0,0,.3);
+}
+/* כשהתווית מתכווצת לנקודה (אשכול נכסים באותו רחוב) הסימן שמעליה נשאר —
+   הוא מה שממשיך לספר שיש כאן בית פתוח, גם כשהמחיר ירד לנקודה. */
+.map-pin.is-openhouse.is-dot{
+  box-shadow:0 0 0 2px var(--open-house,#c8102e), 0 0 0 4px rgba(255,255,255,.85);
+}
+
+/* ====== התגית הקטנה ======
+   "ללא עמלת תיווך · עד 14.10" — בשורת תוצאה, בכרטיס, בכל מקום שבו יש
+   שורת טקסט אחת ולא יותר. */
+.oh-chip{
+  display:inline-flex;align-items:center;gap:5px;
+  background:var(--open-house,#c8102e);color:#fff;
+  font-size:.7rem;font-weight:800;line-height:1.35;padding:3px 9px;
+  white-space:nowrap;
+}
+.oh-chip .oh-mark{color:#fff}
+.oh-chip.is-soft{
+  background:var(--open-house-tint,#fdecee);
+  color:var(--open-house-deep,#9c0c24);
+}
+
+/* ====== הבאנר בדף הבית ======
+   הוא לא כרטיס ולא סקציה: רצועה אחת ברוחב טור התוכן, עם הסימן בגודל
+   שרואים ממרחק גלילה, ההבטחה בגדול, ומונה שאומר שיש מה לראות שם עכשיו.
+   הוא מוסתר לגמרי כשאין ולו נכס אחד ביריד (‏hidden ב-JS) — באנר שמוביל
+   לעמוד ריק גרוע מהיעדר באנר. */
+.oh-banner{
+  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
+  background:var(--open-house-tint,#fdecee);
+  border:1px solid rgba(200,16,46,.28);
+  border-inline-start:5px solid var(--open-house,#c8102e);
+  padding:18px 20px;
+  color:var(--ink,#0d1b3d);
+  text-decoration:none;
+}
+.oh-banner:hover{border-color:rgba(200,16,46,.5)}
+.oh-banner:focus-visible{outline:2px solid var(--open-house,#c8102e);outline-offset:2px}
+.oh-banner .oh-mark{color:var(--open-house,#c8102e)}
+.oh-banner-body{flex:1 1 260px;min-width:0}
+.oh-banner-eyebrow{
+  display:block;font-size:.72rem;font-weight:800;letter-spacing:.02em;
+  color:var(--open-house-deep,#9c0c24);margin-bottom:3px;
+}
+.oh-banner h2,.oh-banner h3{
+  font-size:1.18rem;line-height:1.3;margin:0 0 4px;color:var(--ink,#0d1b3d);
+}
+.oh-banner p{margin:0;font-size:.84rem;line-height:1.5;color:var(--ink-soft,#4a5578)}
+.oh-banner-cta{
+  flex:none;background:var(--open-house,#c8102e);color:#fff;
+  font-weight:800;font-size:.86rem;padding:11px 20px;white-space:nowrap;
+}
+.oh-banner:hover .oh-banner-cta{background:var(--open-house-deep,#9c0c24)}
+/* בטלפון הכפתור יורד לשורה משלו ונמתח: כפתור צר בקצה רצועה שנשברה לשלוש
+   שורות נראה כמו הערת שוליים, וזו הפעולה של הרצועה כולה. */
+@media(max-width:559px){
+  .oh-banner{gap:12px;padding:16px}
+  .oh-banner-cta{flex:1 0 100%;text-align:center}
+  .oh-banner h2,.oh-banner h3{font-size:1.05rem}
+}
+
+/* ====== הרצועה בדף הנכס ======
+   כאן ההבטחה היא כבר על נכס מסוים, ולכן היא נאמרת מלאה: מה מקבלים, עד
+   מתי, ובאיזו שפה — "בלי עמלת תיווך" ולא "0%". */
+.oh-band{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  background:var(--open-house,#c8102e);color:#fff;padding:14px 18px;
+}
+.oh-band .oh-tile{padding:6px}
+.oh-band-body{flex:1 1 240px;min-width:0}
+/* ‏.oh-band-body ולא ‎.oh-band‎: האריח הלבן שמחזיק את הסימן הוא גם הוא
+   ‎span‎ שיושב ישירות ברצועה, וכלל רחב היה הופך אותו לבלוק בגודל טקסט. */
+.oh-band-body b{display:block;font-size:1rem;line-height:1.35}
+.oh-band-body span{display:block;font-size:.8rem;line-height:1.5;opacity:.92}
+.oh-band a{
+  flex:none;background:#fff;color:var(--open-house-deep,#9c0c24);
+  font-weight:800;font-size:.82rem;padding:9px 16px;text-decoration:none;white-space:nowrap;
+}
+.oh-band a:hover{background:rgba(255,255,255,.88)}
+@media(max-width:559px){
+  .oh-band{padding:13px 15px;gap:11px}
+  .oh-band a{flex:1 0 100%;text-align:center}
+}
+
+/* ====== המונה ======
+   "‏7 נכסים ביריד עכשיו" — אותו טקסט בבאנר, בראש דף היריד ובכותרת המדף. */
+.oh-count{font-weight:800;color:var(--open-house-deep,#9c0c24)}
