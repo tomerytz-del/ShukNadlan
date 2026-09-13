@@ -242,6 +242,31 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     border:1px solid rgba(255,255,255,.3);padding:16px 18px;font-size:.9rem;line-height:1.55}
   .oh-signup-done b{display:block;font-size:1rem;margin-bottom:3px}
 
+  /* הטופס בתוך ההודעה של "היריד סגור": אותו רכיב, על רקע בהיר במקום על
+     הרצועה הכחולה — ולכן השדה מקבל כאן את גבול העמודים הרגיל ואת צבע
+     הטקסט של הדף. הכפתור נשאר אדום: הוא אותה פעולה בדיוק. */
+  .oh-empty-signup{max-width:34rem;margin:18px auto 0;text-align:start}
+  .oh-empty-signup .oh-signup-form{justify-content:center}
+  .oh-empty-signup .oh-signup-form input{
+    border-color:var(--line);background:#fff;color:var(--ink);
+  }
+  .oh-empty-signup .oh-signup-form input::placeholder{color:var(--ink-muted)}
+  .oh-empty-signup .oh-signup-form input:focus{
+    border-color:var(--open-house,#c8102e);background:#fff;
+  }
+  /* רוחב ב-ch ולא ברוחב הקופסה: האותיות הקטנות נשברו כאן ל"…מקישור /
+     שבכל הודעה", כלומר שתי מילים תלויות בשורה שנייה. */
+  .oh-empty-signup .oh-signup-note{
+    color:var(--ink-muted);text-align:center;max-width:46ch;margin-inline:auto;
+  }
+  .oh-empty-signup .oh-signup-msg[data-state="error"]{color:var(--open-house-deep,#9c0c24)}
+  .oh-empty-signup .oh-signup-msg[data-state="ok"]{color:var(--verified,#14713f)}
+  .oh-empty-signup .oh-signup-done{
+    background:var(--open-house-tint,#fdecee);border-color:rgba(200,16,46,.3);
+    color:var(--open-house-deep,#9c0c24);text-align:start;
+  }
+  .oh-empty-signup .oh-signup-done .oh-mark{color:var(--open-house,#c8102e)}
+
   /* ====== מצבים ====== */
   .state{padding:44px 20px;text-align:center;color:var(--ink-soft);font-size:.92rem;background:#fff;border:1px solid var(--line)}
   .state h2{font-size:1.2rem;margin-bottom:8px;text-wrap:balance}
@@ -392,11 +417,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        ובמקומו נדלק #fairEmpty. -->
   <section class="section wrap" id="fairProps" hidden></section>
 
+  <!-- ====== היריד סגור ======
+       ההודעה **מחזיקה את הטופס** ולא מקשרת אליו: כשאין נכסים, ההרשמה היא
+       כל מה שיש לעשות בעמוד, וקישור אל תיבה שיושבת ממילא שורה מתחת הוא
+       צעד מיותר בדרך לפעולה היחידה. ‏#fairSignupBox מועבר לכאן ב-initFair,
+       והרצועה הכחולה שממנה הוא הגיע מוסתרת — כדי שלא יהיו שני טפסים
+       באותו עמוד. -->
   <section class="section wrap" id="fairEmptyWrap" hidden>
     <div class="state" id="fairEmpty">
       <h2>היריד סגור כרגע</h2>
-      <p>אין כרגע נכסים שמוצעים ללא עמלת תיווך. היריד נפתח מחדש בכל פעם שמתווך/ת מכניס/ה אליו נכס — השאירו אימייל ותהיו הראשונים לדעת.</p>
-      <a class="btn btn-teal" href="#fairSignup">להרשמה לעדכונים ←</a>
+      <p>אין כרגע נכסים שמוצעים ללא עמלת תיווך. היריד נפתח מחדש ברגע שמתווך/ת מכניס/ה אליו נכס — השאירו אימייל ותהיו הראשונים לדעת.</p>
+      <div class="oh-empty-signup" id="fairEmptySignup"></div>
     </div>
   </section>
 
@@ -425,7 +456,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
         <p>נכס נכנס ליריד לתקופה קצובה, ולפעמים קצרה. השאירו אימייל, ונעדכן אתכם ברגע שנכס חדש מצטרף — בלי עלות ובלי התחייבות.</p>
       </div>
-      <div>
+      <!-- ‏#fairSignupBox היא יחידה אחת — טופס, הודעה, מצב "נרשמתם" והערה —
+           כדי שאפשר יהיה להזיז את כולה בבת אחת אל תוך ההודעה של "היריד סגור
+           כרגע" (ראו initFair). שם היא כל מה שיש בעמוד, וכאן היא חצי מהרצועה. -->
+      <div id="fairSignupBox">
         <form class="oh-signup-form" id="fairSignupForm" novalidate>
           <label class="sr-only" for="fairSignupEmail">אימייל</label>
           <input type="email" id="fairSignupEmail" name="email" inputmode="email" autocomplete="email"
@@ -1088,6 +1122,11 @@ signupForm.addEventListener('submit', async (e) => {
   try{
     const list = await loadFairProperties();
     if (!list.length){
+      /* יחידה אחת במקום שתיים: הטופס עובר אל תוך ההודעה, והרצועה שממנה
+         הגיע יורדת. ‏appendChild מזיז את האלמנט עם המאזינים שכבר עליו —
+         אין כאן שכפול של markup ואין טופס שני שצריך לחווט. */
+      el('fairEmptySignup').appendChild(el('fairSignupBox'));
+      el('fairSignup').hidden = true;
       el('fairEmptyWrap').hidden = false;
       return;
     }
