@@ -667,6 +667,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .lead-actions .btn-share{background:#2A5B36;color:#EAF4EC}
   .lead-actions .btn-share:disabled{opacity:.5;cursor:not-allowed}
   .lead-actions .act-wide{grid-column:1/-1}
+  /* יריד הבתים הפתוחים: אדום מלא ברוחב מלא, ראשון בשורת הפעולות. זו
+     הפעולה היחידה כאן שמשנה את מה שהקונה ישלם, והיא גם היחידה שהסוכן/ת
+     חוזר/ת אליה מדי כמה שבועות — ולכן היא לא יכולה להיות כפתור שמיני
+     ברשת. כשהנכס כבר ביריד הכפתור מתהפך למתאר מצב (מסגרת אדומה על רקע
+     בהיר): אז הוא כבר לא קריאה לפעולה אלא הדרך לשנות או לצאת. */
+  .lead-actions .btn-openhouse{background:#C8102E;color:#fff}
+  .lead-actions .btn-openhouse:hover{background:#9C0C24}
+  .lead-actions .btn-openhouse-on{
+    background:#FDECEE;color:#9C0C24;border:1.5px solid rgba(200,16,46,.45);font-weight:800;
+  }
+  .lead-actions .btn-openhouse:disabled,.lead-actions .btn-openhouse-on:disabled{opacity:.5;cursor:not-allowed}
   .is-promoted .lead-actions .btn-ghost{background:rgba(255,255,255,.75)}
   /* כרטיס ההתאמה יושב בתוך כרטיס הלקוח/ה — שם קו מפריד נוסף הוא רעש,
      והעמודות צרות יותר כדי שגם ברוחב המקונן ייכנסו שתיים בשורה */
@@ -1050,7 +1061,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .bell-wrap{position:relative}
   .bell-btn{background:transparent;border:1.5px solid var(--line);border-radius:999px;width:40px;height:40px;font-size:1.1rem;line-height:1;display:flex;align-items:center;justify-content:center;position:relative}
   .bell-badge{position:absolute;top:-4px;left:-4px;min-width:19px;height:19px;border-radius:999px;background:var(--gold);color:#fff;font-size:.66rem;font-weight:800;display:none;align-items:center;justify-content:center;padding:0 5px}
-  .bell-panel{position:absolute;top:48px;left:0;width:290px;max-height:340px;overflow-y:auto;background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:0 10px 30px rgba(0,0,0,.18);display:none;z-index:150}
+  /* ‏inset-inline-start ולא ‎left:0‎ — וזו לא החלפה קוסמטית: ‏left הוא מאפיין
+     **פיזי**, ובעמוד RTL הוא נועל את הקצה השמאלי של הפאנל לקצה השמאלי של
+     הפעמון, כלומר פותח אותו **ימינה** — אל מחוץ למסך. הפעמון יושב בקצה
+     הימני של הכותרת, ולכן פאנל ברוחב 320px גלש 114px מחוץ לחלון של 1440px
+     ונחתך.
+
+     ‏**ב-RTL הקצה ה-inline-start הוא הימני**: ‎inset-inline-start:0‎ מיישר
+     את הקצה הימני של הפאנל לקצה הימני של הפעמון, והפאנל נפתח שמאלה אל תוך
+     העמוד. בטלפון יש ממילא כלל משלו (‏≤720px, למטה) שפורש אותו מקצה לקצה. */
+  .bell-panel{position:absolute;top:48px;inset-inline-start:0;width:290px;max-height:340px;overflow-y:auto;background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:0 10px 30px rgba(0,0,0,.18);display:none;z-index:150}
   .bell-panel header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line);font-size:.8rem;font-weight:700}
   .bell-panel .mark-all{background:transparent;color:var(--teal);font-size:.72rem;font-weight:700;padding:0}
   /* שתי הפעולות שבכותרת הפאנל — סימון הכל כנקרא וקיצור לניהול ההתראות */
@@ -1432,7 +1452,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      נכנסים ויוצאים ממנה לבד בלי רשימה כפולה שצריך לתחזק. */
   .menu-wrap{position:relative}
   .menu-panel{
-    position:absolute;top:52px;left:0;width:302px;max-width:calc(100vw - 36px);
+    /* אותו תיקון של ‎.bell-panel‎: ‏left פיזי פתח את התפריט אל מחוץ למסך
+       (‏144px בחלון של 1440px). ב-RTL הקצה ה-inline-start הוא הימני. */
+    position:absolute;top:52px;inset-inline-start:0;width:302px;max-width:calc(100vw - 36px);
     max-height:min(74vh,560px);overflow-y:auto;background:var(--surface);
     border:1px solid var(--edge);border-radius:var(--r-md);box-shadow:var(--sh-2);
     display:none;z-index:160;padding:6px;
@@ -5295,6 +5317,30 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <button type="button" class="btn btn-gold" id="dupRestore">↩ החזרה לפרסום ועדכון</button>
       <button type="button" class="btn btn-ghost" id="dupNew">פרסום כנכס חדש</button>
       <button type="button" class="btn btn-ghost dup-cancel" id="dupCancel">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== הכנסת נכס ליריד הבתים הפתוחים ======
+     אותם שני תאריכים שבטופס הנכס, אבל מכרטיס הנכס עצמו: ההשתתפות ביריד
+     היא החלטה שבועית ("הנכס הזה, לשבועיים הקרובים") ולא פרט במודעה, ומי
+     שצריך לפתוח את טופס העריכה המלא ולגלול אליה — לא ימצא אותה.
+     הוולידציה היא אותה פונקציה בדיוק (‏openHouseWindowError), כדי שלא
+     יהיו שני כללים לאותו חלון. ראו docs/open-house-fair.md -->
+<div class="pm-overlay" id="ohModal" role="dialog" aria-modal="true" aria-labelledby="ohModalTitle" style="display:none">
+  <div class="pm-card">
+    <div class="pm-title" id="ohModalTitle">🏷 הכנסת הנכס ליריד הבתים הפתוחים</div>
+    <p class="dup-note" id="ohModalName"></p>
+    <p class="dup-note">בתקופה שתגדירו הנכס יוצג בדף היריד, יסומן בסימן משלו על המפה, ויוצע לקונים <b>ללא עמלת תיווך</b>. בתום התקופה הוא יוצא מהיריד לבד והמודעה נשארת כרגיל.</p>
+    <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div class="field"><label for="ohModalStart">תחילת התקופה</label><input type="date" id="ohModalStart"></div>
+      <div class="field"><label for="ohModalEnd">סוף התקופה (כולל)</label><input type="date" id="ohModalEnd"></div>
+    </div>
+    <p id="ohModalNote" style="font-size:.76rem;margin:2px 0 10px;min-height:1.1em" role="status"></p>
+    <div class="pm-actions dup-actions">
+      <button type="button" class="btn btn-gold" id="ohModalSave">שמירה</button>
+      <button type="button" class="btn btn-ghost" id="ohModalRemove" hidden>הוצאה מהיריד</button>
+      <button type="button" class="btn btn-ghost dup-cancel" id="ohModalCancel">ביטול</button>
     </div>
   </div>
 </div>
@@ -11708,18 +11754,29 @@ function openHouseToday(){
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
 }
 
-/* מחזירה הודעת שגיאה, או '' כשהחלון תקין. הסימון כבוי = אין מה לבדוק. */
-function openHouseError(){
-  if (!document.getElementById('npOpenHouse').checked) return '';
-  const start = document.getElementById('npOpenHouseStart').value;
-  const end   = document.getElementById('npOpenHouseEnd').value;
+/* הכלל עצמו, על שני ערכים — הטופס והמודאל שבכרטיס הנכס קוראים לו שניהם.
+   שתי בדיקות נפרדות לאותו חלון הן שני כללים שיתפצלו. */
+function openHouseWindowError(start, end){
   if (!start || !end) return 'כדי לצרף את הנכס ליריד צריך למלא תאריך תחילה ותאריך סיום.';
   if (end < start) return 'תאריך הסיום מוקדם מתאריך התחילה.';
   if (end < openHouseToday()) return 'תאריך הסיום כבר עבר — היריד הוא תקופה שעוד לפניכם.';
   const maxDays = priceOf('open_house_max_days', 30);
-  const days = Math.round((new Date(end) - new Date(start)) / 864e5) + 1;
+  const days = openHouseDays(start, end);
   if (days > maxDays) return `תקופת היריד מוגבלת ל-${maxDays} ימים, וזו ${days} ימים.`;
   return '';
+}
+
+function openHouseDays(start, end){
+  return Math.round((new Date(end) - new Date(start)) / 864e5) + 1;
+}
+
+/* מחזירה הודעת שגיאה, או '' כשהחלון תקין. הסימון כבוי = אין מה לבדוק. */
+function openHouseError(){
+  if (!document.getElementById('npOpenHouse').checked) return '';
+  return openHouseWindowError(
+    document.getElementById('npOpenHouseStart').value,
+    document.getElementById('npOpenHouseEnd').value,
+  );
 }
 
 /* ההודעה שמתחת לשדות עונה על השאלה "מה בעצם הבטחתי": כמה ימים, ועד מתי.
@@ -11748,7 +11805,7 @@ function syncOpenHouseFields(){
   const err = openHouseError();
   note.style.color = err ? 'var(--brick)' : 'var(--ink-soft)';
   if (err){ note.textContent = err; return; }
-  const days = Math.round((new Date(endEl.value) - new Date(startEl.value)) / 864e5) + 1;
+  const days = openHouseDays(startEl.value, endEl.value);
   // אותו פורמט תאריך שהאתר הציבורי מציג ("13.9" ולא "13.09.2026"), מאותה
   // פונקציה — ההודעה כאן היא מה שהסוכן/ת מבטיח/ה, והיא צריכה להיקרא כמו
   // מה שיופיע בדף הנכס
@@ -11758,6 +11815,123 @@ function syncOpenHouseFields(){
 
 ['npOpenHouse','npOpenHouseStart','npOpenHouseEnd'].forEach(id =>
   document.getElementById(id).addEventListener('change', syncOpenHouseFields));
+
+/* ---------- היריד מכרטיס הנכס ----------
+   אותם שני תאריכים של הטופס, אבל בהישג יד: ההשתתפות ביריד היא החלטה
+   שחוזרת ("הנכס הזה, לשבועיים הקרובים") ולא פרט שממלאים פעם אחת כשמפרסמים
+   מודעה. סוכן/ת שצריך/ה לפתוח טופס עריכה מלא ולגלול עד הסוף כדי לסמן —
+   לא יעשה/תעשה את זה.
+
+   הכתיבה כאן היא ‎update‎ ישיר על שלוש העמודות בלבד, ולא שמירה של הטופס:
+   כך שום שדה אחר בנכס לא נוגע, וסוכן/ת שפתח/ה את הכרטיס באמצע עריכה לא
+   מאבד/ת אותה.                                                            */
+function openHouseModalSync(){
+  const start = document.getElementById('ohModalStart').value;
+  const end   = document.getElementById('ohModalEnd').value;
+  const note  = document.getElementById('ohModalNote');
+  const err   = openHouseWindowError(start, end);
+  note.style.color = err ? 'var(--brick)' : 'var(--ink-soft)';
+  document.getElementById('ohModalEnd').min = start || openHouseToday();
+  if (err){ note.textContent = err; return false; }
+  const fmt = v => OpenHouse.hebDay(new Date(v + 'T00:00:00'));
+  note.textContent = `${openHouseDays(start, end)} ימים ביריד — ללא עמלת תיווך לקונה מ-${fmt(start)} ועד ${fmt(end)} (כולל).`;
+  return true;
+}
+
+function openOpenHouseModal(p, agentId){
+  const overlay  = document.getElementById('ohModal');
+  const startEl  = document.getElementById('ohModalStart');
+  const endEl    = document.getElementById('ohModalEnd');
+  const saveBtn  = document.getElementById('ohModalSave');
+  const removeBtn= document.getElementById('ohModalRemove');
+  const cancelBtn= document.getElementById('ohModalCancel');
+  const inFair   = OpenHouse.live(p) || OpenHouse.upcoming(p);
+
+  document.getElementById('ohModalTitle').textContent = inFair
+    ? '🏷 תקופת ההשתתפות ביריד' : '🏷 הכנסת הנכס ליריד הבתים הפתוחים';
+  document.getElementById('ohModalName').textContent =
+    `${p.property_type || 'נכס'} · ${propertyTabAddress(p)} · מודעה #${p.listing_number ?? '—'}`;
+
+  // נכס שכבר ביריד נפתח על החלון שלו; נכס חדש — מהיום, לשבועיים
+  startEl.value = inFair ? openHouseDateInput(p.open_house_start) : openHouseToday();
+  if (inFair){
+    endEl.value = openHouseDateInput(p.open_house_end);
+  } else {
+    const end = new Date();
+    end.setDate(end.getDate() + OPEN_HOUSE_DEFAULT_DAYS - 1);
+    endEl.value = openHouseDateInput(end);
+  }
+  startEl.min = openHouseToday();
+  saveBtn.textContent = inFair ? 'עדכון התקופה' : 'הכנסה ליריד';
+  // ‏style.display ולא ‎hidden‎: אין בדף כלל ‎[hidden]{display:none !important}‎,
+  // ול-‎.btn‎ יש display משלו שגובר על ברירת המחדל של הדפדפן — הכפתור היה
+  // מוצג גם לנכס שאינו ביריד. אותה מלכודת של שדות התאריך בטופס.
+  removeBtn.style.display = inFair ? '' : 'none';
+  openHouseModalSync();
+  overlay.style.display = 'flex';
+
+  // הטקסט המקורי נשמר כדי שסגירה באמצע שמירה לא תשאיר "שומר…" על הכפתור
+  const saveLabel = saveBtn.textContent;
+  const removeLabel = removeBtn.textContent;
+
+  const onChange = () => openHouseModalSync();
+  startEl.addEventListener('change', onChange);
+  endEl.addEventListener('change', onChange);
+
+  const close = () => {
+    overlay.style.display = 'none';
+    startEl.removeEventListener('change', onChange);
+    endEl.removeEventListener('change', onChange);
+    saveBtn.removeEventListener('click', onSave);
+    removeBtn.removeEventListener('click', onRemove);
+    cancelBtn.removeEventListener('click', close);
+    overlay.removeEventListener('click', onBackdrop);
+    document.removeEventListener('keydown', onKey);
+    saveBtn.disabled = removeBtn.disabled = false;
+    saveBtn.textContent = saveLabel;
+    removeBtn.textContent = removeLabel;
+  };
+  const onBackdrop = e => { if (e.target === overlay) close(); };
+  const onKey = e => { if (e.key === 'Escape') close(); };
+
+  async function write(patch, busyLabel, doneLabel, btn){
+    const original = btn.textContent;
+    saveBtn.disabled = removeBtn.disabled = true;
+    btn.textContent = busyLabel;
+    const { error } = await sb.from('properties').update(patch).eq('id', p.id);
+    if (error){
+      document.getElementById('ohModalNote').style.color = 'var(--brick)';
+      document.getElementById('ohModalNote').textContent = 'השמירה נכשלה: ' + error.message;
+      saveBtn.disabled = removeBtn.disabled = false;
+      btn.textContent = original;
+      return;
+    }
+    close();
+    showToast(doneLabel);
+    await loadProperties(agentId);
+  }
+
+  async function onSave(){
+    if (!openHouseModalSync()) return;
+    await write({
+      open_house: true,
+      open_house_start: openHouseStamp(startEl.value, false),
+      open_house_end:   openHouseStamp(endEl.value, true),
+    }, 'שומר…', inFair ? 'תקופת היריד עודכנה' : 'הנכס נכנס ליריד הבתים הפתוחים', saveBtn);
+  }
+
+  /* יציאה מהיריד מכבה את הדגל ומשאירה את התאריכים: הם ההיסטוריה של הנכס,
+     ואף תצוגה באתר לא נשענת עליהם בלי הדגל. */
+  async function onRemove(){
+    await write({ open_house: false }, 'מוציא…', 'הנכס הוצא מהיריד', removeBtn);
+  }
+
+  saveBtn.addEventListener('click', onSave);
+  removeBtn.addEventListener('click', onRemove);
+  cancelBtn.addEventListener('click', close);
+  overlay.addEventListener('click', onBackdrop);
+  document.addEventListener('keydown', onKey);
+}
 
 let currentCategory = 'residential';
 document.querySelectorAll('[data-category]').forEach(btn=>{
@@ -13469,6 +13643,28 @@ function buildPropertyCard(p, agentId){
   }
 
   if (p.status === 'active'){
+    /* ====== יריד הבתים הפתוחים — ראשון, וברוחב מלא ======
+       מתוך כל הפעולות בכרטיס זו היחידה שמשנה את מה שהקונה ישלם בפועל, והיא
+       גם היחידה שחוזרים אליה מדי כמה שבועות ("הנכס הזה, לשבועיים הקרובים").
+       כפתור שמיני ברשת של שתים־עשרה פעולות הוא כפתור שאיש לא מצא — וזה
+       בדיוק מה שקרה כשהשדות ישבו רק בתוך טופס העריכה.
+
+       הכותרת אומרת שלושה דברים שונים לפי מצב הנכס — מחוץ ליריד, בתוכו, או
+       מחכה לתאריך — כי זו השאלה הראשונה שנשאלת במבט על הכרטיס. אין כאן
+       מחיר: ההשתתפות חינם ובלי תלות במסלול. ראו docs/open-house-fair.md */
+    const ohLive = OpenHouse.live(p);
+    const ohSoon = OpenHouse.upcoming(p);
+    addCardAction(actions, {
+      label: ohLive ? `🏷 ביריד הבתים הפתוחים · ${OpenHouse.endLabel(p)}`
+           : ohSoon ? `🏷 נכנס ליריד ב-${OpenHouse.hebDay(OpenHouse.startsAt(p))}`
+           : '🏷 הכנסה ליריד הבתים הפתוחים · ללא עמלת תיווך',
+      cls: (ohLive || ohSoon ? 'btn-openhouse-on' : 'btn-openhouse') + ' act-wide',
+      title: ohLive || ohSoon
+        ? 'שינוי תקופת ההשתתפות ביריד, או הוצאה ממנו'
+        : 'הצעת הנכס ללא עמלת תיווך לקונה, לתקופה קצובה — בדף היריד ובסימן משלו על המפה',
+      onClick: () => openOpenHouseModal(p, agentId),
+    });
+
     // הדרך לראות את המודעה כמו שהיא נראית ללקוח/ה — אותו עמוד שה-QR מוביל
     // אליו. בלשונית חדשה כדי שה-CRM יישאר פתוח מאחור, ורק לנכס פעיל: דף
     // הנכס טוען ‎status=active‎ בלבד ולכל השאר יציג "לא נמצא".
