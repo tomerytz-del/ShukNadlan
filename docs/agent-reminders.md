@@ -21,6 +21,7 @@
 | קובץ | תפקיד |
 | --- | --- |
 | `supabase/migrations/20261026090000_agent_reminders.sql` | הממצאים, ההעדפות, יומן המשלוח, תנאי הקצב ותזמון ה-cron |
+| `supabase/migrations/20261101090000_reminder_log_holds.sql` | ‏`agent_reminder_log_holds` ו-`agent_reminders_reconcile`: שורה שלא יצאה אינה חוסמת |
 | `supabase/functions/agent-reminders/index.ts` | מרכיב את ההודעה ושולח בשני הערוצים |
 | `crm.html` → "תזכורות וטיפים" | הרשימה החיה + כל פקדי השליטה |
 | `crm.html` → `handleGotoParam()` | נחיתה ישירה בקטגוריה מקישור שבהודעה |
@@ -59,6 +60,33 @@
 
 והקצב נמדד לפי `created_at` ולא לפי `sent_at`, בכוונה: ערוץ שנכשל שוב ושוב
 לא אמור לייצר סבב חדש בכל שעה.
+
+#### מה נחשב שורה שחוסמת
+
+**רק שורה שיצאה, או שיוצאת ברגע זה.** ‏`agent_reminder_log_holds` היא
+הפרדיקט היחיד שקובע זאת, והיא נקראת בשני המקומות שסופרים: ב-
+`agent_reminder_due_agents` (הקצב והתקרה) וב-`agent_reminders_claim`
+(המרווח פר סוג). ‏`sent` בערוץ אחד לפחות חוסם; ‏`pending` חוסם רק בתוך חסד
+של 30 דקות; ‏`failed`, ו-`pending` שעבר את החסד, אינם חוסמים כלל.
+
+**למה זה נחוץ.** הקריאה ל-`/rest/v1/rpc/agent_reminders_claim` נכשלת מדי
+פעם ב-504 מה-gateway — ‏4 מתוך 13 סבבים ב-24 שעות, כולם בטווח
+‏5026–5455ms, בעוד שהמשפט עצמו רץ ב-131ms בממוצע. ‏504 אומר שה-gateway
+ויתר; הוא **אינו** אומר שה-`INSERT` לא נסגר. בלי הפרדיקט, שורה יתומה אחת
+כזו הייתה משתיקה את הסוכן/ת לשישה ימים (`max(created_at)` בקצב), תופסת
+מקום בתקרת 30 הימים, וחוסמת את הסוג שלה לשבוע — בשקט, בלי שדבר נראה אדום.
+
+**החסד הוא זמן ולא סטטוס, ובכוונה.** אילו השחרור היה תלוי ב-`reconcile`
+שכותב `failed`, היה נוצר קיפאון: השורה התקועה חוסמת את `due_agents`,
+‏`agent_reminders_ready()` מחזירה false, ה-cron לא מעיר את הפונקציה, ולכן
+ה-reconcile לא רץ לעולם. ‏`agent_reminders_reconcile()` אכן קיימת ונקראת
+בפתיחת כל `claim`, אבל תפקידה הוא הרישום בלבד: שורה תקועה תיראה `failed`
+עם סיבה ב-`last_error`, ולא `pending` שנראית כמו משלוח חי מלפני שבוע.
+
+**וגג מהצד השני.** שחרור החסימה לבדו היה מייצר ניסיון בכל סבב כשערוץ שבור
+באמת. לכן שלושה כשלים ב-24 שעות (`reminder_max_failures_24h`) מוציאים את
+הסוכן/ת מ-`due_agents` עד שהיממה מתגלגלת. הדשבורד ממשיך לעבוד כרגיל — מה
+שנעצר הוא הערוץ היוצא בלבד.
 
 ### 3. הודעה אחת מקבצת את כל התזכורות
 
@@ -254,6 +282,28 @@ claim ב-06:15:04.998 → מייל 1 ב-+2.1s · מייל 2 ב-+3.9s · מייל
 - ‏`timeout_milliseconds := 30000` ב-cron (מיגרציה `20261030090000`). בלי
   זה, המשימה הבאה שתתארך תיחתך שוב.
 
+#### ולא כל `500` הוא הניתוק הזה
+
+התיקון עבד — ניתוקי ה-5000ms של `pg_net` נעלמו לגמרי. ומתחתיהם נחשף כשל
+שני, נפרד, שהיה שם כל הזמן: ‏504 מה-gateway על הקריאה ל-
+`/rest/v1/rpc/agent_reminders_claim`, שמגיעה ל-Edge Function כ-
+`{"error":"db_error","detail":"Gateway Timeout"}`.
+
+‏13 סבבים ב-24 שעות, 4 מהם 504. ‏`response.origin_time` של הכשלים: 5026,
+‏5032, 5319, 5455 — ושל ההצלחות: 492 עד 7780. אין סף חד (סבב של 7780ms
+הצליח), אבל כל הכשלים מרוכזים סביב חמש שניות. **וזו אינה השאילתה:**
+`pg_stat_statements` מראה את המשפט של ה-claim על ממוצע 131ms ומקסימום
+823ms, ו-`postgres_logs` ריקים מכל שגיאה בזמנים האלה. התקורה היא בשכבת
+ה-API, לא במסד.
+
+איך מבדילים בין השניים: ניתוק של `pg_net` נראה כ-`timed_out = true` ב-
+`net._http_response` ואין לו `status_code`; ‏504 של ה-gateway נראה כ-
+`status_code = 500` עם הגוף שלמעלה, ויש לו שורה ב-`edge_logs` עם
+`response.status_code = 504`.
+
+מה שנעשה עם זה: המיגרציה `20261101090000` דואגת שסבב שנחתך לא ישאיר
+מאחוריו שורה שחוסמת — ראו "מה נחשב שורה שחוסמת" למעלה.
+
 **המסד לא היה הצוואר** — `agent_reminder_findings` נמדדה ב-27ms ו-
 `video_uplift_ratio` ב-23ms. מי שמחפש/ת האטה בעתיד: להסתכל על השליחה, לא
 על השאילתות.
@@ -289,7 +339,7 @@ claim ב-06:15:04.998 → מייל 1 ב-+2.1s · מייל 2 ב-+3.9s · מייל
 | מי | מה |
 | --- | --- |
 | סוכן/ת (`authenticated`) | קורא/ת וכותב/ת את שורת ההעדפות של עצמו/ה בלבד (‏RLS על `agent_reminder_preferences`), קורא/ת את יומן המשלוח של עצמו/ה, ומריצ/ה `agent_reminder_findings` על המזהה של עצמו/ה |
-| `service_role` | `agent_reminder_due_agents`, `agent_reminders_ready`, `agent_reminders_claim`, `agent_reminders_mark` — כולן `revoke` מ-`anon`/`authenticated` |
+| `service_role` | `agent_reminder_due_agents`, `agent_reminders_ready`, `agent_reminders_claim`, `agent_reminders_mark`, `agent_reminders_reconcile`, `agent_reminder_log_holds` — כולן `revoke` מ-`anon`/`authenticated` |
 
 **`agent_reminder_findings` היא `security invoker` ולא `definer`**, וזו שכבת
 הגנה ולא קפריזה: כשסוכן/ת קורא/ת לה, ה-RLS של `properties` חל עליו/ה. בנוסף
@@ -312,6 +362,8 @@ claim ב-06:15:04.998 → מייל 1 ב-+2.1s · מייל 2 ב-+3.9s · מייל
 | `agent_reminder_default_cap` | 6 | התקרה של מי שלא שינה/תה |
 | `agent_reminder_video_min_props` | 15 | מינימום נכסים בכל קבוצה ליחס הצפיות |
 | `agent_reminder_video_min_views` | 100 | מינימום צפיות בכל קבוצה ליחס הצפיות |
+| `reminder_pending_grace_minutes` | 30 | כמה זמן שורת `pending` נחשבת "בדרך" ולכן חוסמת |
+| `reminder_max_failures_24h` | 3 | כמה כשלים ביממה מוציאים סוכן/ת מ-`due_agents` |
 
 ---
 
@@ -386,7 +438,9 @@ select agent_id, kinds, email_status, whatsapp_status, last_error, created_at, s
 | ערוץ הוואטסאפ נכבה לבדו | Meta החזירה 131050 — הנמען/ת ביטל/ה מול Meta (ראו למעלה) |
 | `email_status='failed'` | תקלה ב-platform-mail; `last_error` נושא את הנוסח |
 | תזכורת חוזרת בכל סבב | הסוג חסר ב-`agent_reminder_kind_interval` (מקבל 14 יום) או שהיומן אינו נכתב — בדקו הרשאות `service_role` |
-| הפונקציה מחזירה `500` בלי שורת שגיאה בלוגים | **לא כשל שלה.** `pg_net` ניתק אחרי 5 שניות — ראו "הסבב רץ במקביל" למעלה |
+| הפונקציה מחזירה `500` עם `{"error":"db_error","detail":"Gateway Timeout"}` | ‏504 על `/rest/v1/rpc/agent_reminders_claim`. **לא השאילתה** — היא רצה ב-131ms; הזמן הוא תקורה בשכבת ה-API. הסבב אבד, ואין נזק: הפרדיקט משחרר את השורה היתומה (ראו "מה נחשב שורה שחוסמת") |
+| שורה ב-`pending` עם `last_error` על סבב שנחתך | ‏`agent_reminders_reconcile()` סימנה אותה. רישום בלבד — הסוכן/ת כבר נאסף/ה בסבב שאחרי |
+| סוכן/ת מפסיק/ה לקבל אחרי כמה כשלים | גג `reminder_max_failures_24h` (3). מתאפס כשהיממה מתגלגלת; `last_error` בשורות אומר מה נשבר |
 
 לוגים: Supabase Dashboard → Edge Functions → `agent-reminders` → Logs.
 בנוסף, `agent_reminder_log.last_error` שומר את נוסח הכישלון של כל ערוץ.
