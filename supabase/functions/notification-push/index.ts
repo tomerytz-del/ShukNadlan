@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
+import { mapPool } from "../_shared/pool.ts";
 
 // ============================================================================
 // דחיפת התראות הפעמון לוואטסאפ.
@@ -60,6 +61,12 @@ const SITE_BASE = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il")
 const MANAGE_ACC = "accNotifPrefs";
 
 const BATCH = 40;
+
+// כמה נמענים במקביל. לולאה בטור על ארבעים הודעות הייתה מגיעה לעשרות שניות,
+// ו-pg_net מנתק — זה בדיוק מה שקרה ב-agent-reminders (ראו
+// ‏20261030090000_cron_http_timeout.sql). מצד שני ארבעים קריאות בבת אחת
+// ל-Graph API הן הדרך לקבל הגבלת קצב מ-Meta. ראו `_shared/pool.ts`.
+const SEND_CONCURRENCY = 4;
 
 // ‏131050 — הנמען/ת ביקש/ה מ-Meta להפסיק לקבל הודעות מהעסק.
 const WA_OPTED_OUT = 131050;
@@ -229,7 +236,7 @@ Deno.serve(async (req: Request) => {
 
   let sent = 0, failed = 0;
 
-  for (const row of batch as Record<string, any>[]) {
+  await mapPool(batch as Record<string, any>[], SEND_CONCURRENCY, async (row) => {
     const items = (row.items || []) as Item[];
     let status = "failed";
     let lastError: string | null = null;
@@ -262,7 +269,7 @@ Deno.serve(async (req: Request) => {
 
     if (status === "sent") sent++;
     else failed++;
-  }
+  });
 
   return json({ sent, failed, processed: batch.length });
 });

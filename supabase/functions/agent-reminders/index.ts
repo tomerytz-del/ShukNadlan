@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import { sendPlatformEmail } from "../_shared/platform-mail-client.ts";
+import { mapPool } from "../_shared/pool.ts";
 
 // ============================================================================
 // שרת התזכורות לסוכנים — מוציא את הודעת התזכורת המקובצת במייל ובוואטסאפ.
@@ -53,6 +54,11 @@ const SITE_BASE = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il")
 const MANAGE_ACC = "accReminders";
 
 const BATCH = 40;
+
+// כמה נמענים במקביל. ‏SMTP של Gmail הוא הצוואר כאן (~1.5 שניות למייל), אבל
+// ארבעים חיבורים בבת אחת הם הדרך לקבל חסימה זמנית מהספק במקום סבב מהיר —
+// וחסימה פוגעת בכל הנמענים הבאים. ראו `_shared/pool.ts`.
+const SEND_CONCURRENCY = 4;
 
 function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), {
@@ -273,7 +279,15 @@ Deno.serve(async (req: Request) => {
 
   let sent = 0, failed = 0;
 
-  for (const row of batch as any[]) {
+  // ‏mapPool ולא לולאה: עד התיקון הסבב עבר על הנמענים בטור, ומשכו גדל
+  // ליניארית עם מספר הסוכנים (~1.5 שניות למייל). שלושה סוכנים הגיעו לכמעט
+  // חמש שניות — בדיוק ברירת המחדל של pg_net, שניתקה את החיבור וייצרה 500
+  // בלוג בלי ששום דבר נכשל באמת. ראו 20261030090000_cron_http_timeout.sql.
+  //
+  // ‏`sent`/`failed` נצברים כאן ולא מוחזרים מהפונקציה, כי ההרצות חופפות;
+  // ‏++ על מספר ב-JS הוא אטומי מספיק — אין כאן threads, רק תורות באותו
+  // event loop.
+  await mapPool(batch as any[], SEND_CONCURRENCY, async (row) => {
     const items = (row.items || []) as Item[];
     const channels: string[] = row.channels || [];
 
@@ -334,7 +348,7 @@ Deno.serve(async (req: Request) => {
 
     if (emStatus === "sent" || waStatus === "sent") sent++;
     else failed++;
-  }
+  });
 
   return json({ sent, failed, processed: batch.length });
 });
