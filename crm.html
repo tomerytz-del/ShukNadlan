@@ -6769,6 +6769,13 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   showScreen('dashboard');
   // הגריד נבנה לפני הטעינות, כדי שהמונים שמגיעים מהן ימצאו תגית לכתוב אליה
   renderQuickActions();
+  // והניווט נכנס לתוקף כבר כאן ולא רק בסוף הטעינה: המסך עומד מול הסוכן/ת
+  // בזמן שהקטגוריות נטענות, וסינון שנכנס באיחור מקפל מתחת לאצבע מסך שכבר
+  // קוראים בו. המונים עוד אינם בידינו, ולכן הסרגלים נבנים שוב בכל
+  // ‏accSetCount (ראו refreshNavCounts) — כאן נקבע רק מה מוצג.
+  applyNavFilter();
+  renderSideNav();
+  renderBottomNav();
 
   renderHeaderAvatar(agent);
   document.getElementById('agentName').textContent = agent.display_name;
@@ -6855,7 +6862,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // (navAccVisible), ובנייה מוקדמת מדי הייתה מייצרת מפה של דשבורד חצי-טעון
   renderGreeting(agent);
   renderViewSwitch();
-  setDashView('agent');
+  setDashView('agent', { initial:true });
   renderQuickActions();
   refreshNavCounts();
   dashPanelsMeasure();
@@ -13631,8 +13638,11 @@ function buildPropertyCard(p, agentId){
     addCardAction(actions, {
       label:'🗺️ מידע תכנוני', title:'המידע התכנוני השמור של הנכס',
       onClick:()=>{
-        document.getElementById('planResultPanel').scrollIntoView({ behavior:'smooth', block:'start' });
         renderPlanningResult(planning);
+        // הכפתור יושב בכרטיס נכס, והמידע התכנוני יושב בלשונית אחרת של
+        // הסרגל התחתון: בלי המעבר ללשונית הגלילה הגיעה לאלמנט שנמצא
+        // ב-display:none, כלומר לשום מקום
+        gotoSection('accPlanning', null, { scrollTo:'#planResultPanel' });
       },
     });
   }
@@ -18504,8 +18514,8 @@ async function shareProperty(p, btn, agentId){
   const targets = sharePartnerCount();
   if (targets === 0){
     showToast('לא נבחרו משרדי שת״פ — בחרו משרדים בקטגוריית "משרדי שיתוף פעולה"');
-    const acc = openAcc('accSharePartners');
-    if (acc) acc.scrollIntoView({ behavior:'smooth', block:'start' });
+    // אותה סיבה: הקטגוריה יושבת בלשונית "עוד" והכפתור בכרטיס נכס
+    gotoSection('accSharePartners');
     return;
   }
 
@@ -19666,13 +19676,14 @@ async function loadNotifications(agentId){
       // מוכר, או קטגוריה שאינה גלויה לתפקיד הזה, פשוט סוגרים את הפאנל —
       // נחיתה רכה עדיפה על קפיצה למקום שגוי.
       const target = meta || NOTIF_BY_TYPE.get('new_lead');
-      const accEl = document.getElementById(target.goto);
-      // ‏offsetParent === null מזהה קטגוריה שההורה שלה מוסתר (managerSection
-      // לסוכן/ת רגיל/ה): פתיחת details מוסתר הייתה גוללת לשום מקום
-      if (accEl && accEl.offsetParent !== null){
-        openAcc(target.goto);
+      // ‏navAccVisible ולא offsetParent: קטגוריה שאינה גלויה לתפקיד הזה
+      // (managerSection לסוכן/ת רגיל/ה) באמת אינה יעד — אבל קטגוריה שיושבת
+      // בלשונית אחרת של הסרגל התחתון היא display:none ברגע הזה, ו-offsetParent
+      // ביטל בגללה את ההתראה לגמרי במקום להעביר ללשונית שלה. ‏gotoSection הוא
+      // שעושה את המעבר, ואחריו הגלילה מגיעה למקום קיים.
+      if (navAccVisible(target.goto)){
         if (target.refresh) target.refresh();
-        if (target.focus) document.querySelector(target.focus)?.scrollIntoView({ behavior:'smooth' });
+        gotoSection(target.goto, null, { scrollTo: target.focus });
       }
     });
     listEl.appendChild(el);
@@ -20265,8 +20276,10 @@ function scrollToTopOf(el){
   window.scrollTo({ top: Math.max(0, top), behavior: navReduceMotion() ? 'auto' : 'smooth' });
 }
 
-/* ---------- ניווט מהדשבורד אל הקטגוריה המלאה ---------- */
-function gotoSection(accId, focusId){
+/* ---------- ניווט מהדשבורד אל הקטגוריה המלאה ----------
+   ‏opts.scrollTo הוא בורר לאלמנט בתוך הקטגוריה שאליו גוללים במקום לראש
+   הקטגוריה — למי שהיעד שלו הוא פאנל מסוים בתוכה ולא הכותרת. */
+function gotoSection(accId, focusId, opts){
   // במובייל הקטגוריה עשויה לשבת בלשונית אחרת של הסרגל התחתון. גלילה
   // לאלמנט מוסתר מגיעה לשום מקום, ולכן המעבר ללשונית קודם לכל השאר —
   // כאן ולא אצל הקוראים, כי הקוראים הם גם התראות הפעמון, גם data-goto
@@ -20278,7 +20291,11 @@ function gotoSection(accId, focusId){
   const el = openAcc(accId);
   if (!el) return;
   const reduce = navReduceMotion();
-  scrollToTopOf(el);
+  // ‏getClientRects: פאנל שעוד לא הוצג (‏display:none) מחזיר קופסה ריקה,
+  // וגלילה אליו הייתה נוחתת על ערך השגוי של pageYOffset. במקרה כזה ראש
+  // הקטגוריה הוא היעד — הוא תמיד על המסך ברגע הזה.
+  const inner = opts && opts.scrollTo ? document.querySelector(opts.scrollTo) : null;
+  scrollToTopOf(inner && inner.getClientRects().length ? inner : el);
   if (focusId){
     setTimeout(()=>{
       const target = document.getElementById(focusId);
@@ -20565,7 +20582,14 @@ function renderViewSwitch(){
     b.setAttribute('aria-pressed', String(b.dataset.view === dashView)));
 }
 
-function setDashView(view){
+/* ‏opts.initial מסמן את הקריאה האחת שאינה לחיצה על מתג התצוגה אלא סוף
+   הטעינה של הדשבורד. היא אינה מאפסת את הלשונית ואינה גוללת לראש הדף:
+   ‏showScreen('dashboard') מעלה את המסך שניות לפני שהטעינות מסתיימות, ומי
+   שבינתיים בחר/ה לשונית או גלל/ה נזרק/ה בחזרה לראש הדשבורד באמצע הפעולה.
+   זו הייתה "הלחיצה הראשונה שלא נתפסת" — והלחיצה השנייה עבדה רק מפני
+   שהטעינה כבר הסתיימה. */
+function setDashView(view, opts){
+  const initial = !!(opts && opts.initial);
   const isAdmin = !!(currentAgent && currentAgent.is_platform_admin);
   dashView = (view === 'admin' && isAdmin) ? 'admin' : 'agent';
   // אזור כלי הפלטפורמה קיים ב-DOM תמיד; מה שקובע אם הוא בעולם הוא כאן בלבד
@@ -20573,7 +20597,7 @@ function setDashView(view){
   if (adminSection) adminSection.style.display = (dashView === 'admin') ? 'block' : 'none';
   const adminPanel = document.getElementById('dashPanelAdmin');
   if (adminPanel) adminPanel.hidden = (dashView !== 'admin');
-  navTab = 'home';
+  if (!initial) navTab = 'home';
   renderViewSwitch();
   applyNavFilter();
   renderSideNav();
@@ -20581,7 +20605,7 @@ function setDashView(view){
   const bnav = document.getElementById('bottomNav');
   if (bnav) bnav.hidden = (dashView === 'admin');
   if (dashView === 'admin') loadAdminReport();
-  window.scrollTo({ top:0, behavior:'auto' });
+  if (!initial) window.scrollTo({ top:0, behavior:'auto' });
 }
 
 document.getElementById('viewSwitch').addEventListener('click', (e)=>{
