@@ -9,6 +9,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
+<script src="assets/events.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>נכס | שוק נדל״ן</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
@@ -1894,6 +1895,16 @@ async function loadProperty(){
     currentProperty = data;
     renderProperty(data);
     logPropertyView(id);
+    /* ‏property_views במסד סופר צפיות לצורך הדוחות של המשרד; זה אותו רגע,
+       ל-GA4, עם הפילוח שהמסד לא נותן — מאיזה קמפיין או חיפוש הגיעה הצפייה. */
+    if (window.shukTrack) shukTrack('view_item', {
+      item_name: data.title || '',
+      item_category: data.property_type || '',
+      deal_type: data.deal_type || '',
+      city: data.city || '',
+      value: Number(data.price) || 0,
+      currency: 'ILS',
+    });
     // לא חוסם את רינדור הנכס: הקרוסלה נטענת ומתמלאת ברקע, ותופיע ברגע
     // שהיא מוכנה.
     loadSimilarProperties(data).then(renderSimilarProperties);
@@ -3790,8 +3801,15 @@ document.getElementById('shareBtn').addEventListener('click', async ()=>{
   const url = window.location.href;
   const title = currentProperty?.title || 'נכס בשוק נדל״ן';
   try{
-    if (navigator.share){ await navigator.share({ title, url }); return; }
+    if (navigator.share){
+      await navigator.share({ title, url });
+      /* אחרי ה-await ולא לפניו: תפריט שיתוף שנסגר בלי לשתף זורק AbortError
+         ומטופל למטה, ולכן ביטול לא נספר כשיתוף. */
+      if (window.shukTrack) shukTrack('share', { method:'web_share', item_name: title });
+      return;
+    }
     await navigator.clipboard.writeText(url);
+    if (window.shukTrack) shukTrack('share', { method:'copy_link', item_name: title });
     showToast('הקישור לנכס הועתק');
   } catch(e){
     if (e && e.name === 'AbortError') return; // הגולש/ת ביטל/ה את תפריט השיתוף
@@ -3996,6 +4014,13 @@ document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
     if (!res.ok || data.error) throw new Error(data.error || 'שגיאה');
     feedback.style.color = 'var(--teal)';
     feedback.textContent = 'הפנייה נשלחה! המתווך יחזור אליכם בקרוב';
+    /* רק אחרי שהשרת אישר. ליד שנכשל בשליחה אינו ליד. */
+    if (window.shukTrack) shukTrack('generate_lead', {
+      form_id: 'property_inquiry',
+      item_name: currentProperty.title || '',
+      value: Number(currentProperty.price) || 0,
+      currency: 'ILS',
+    });
     /* אותם פרטים לא נשאלים שוב באותו נכס — גם לא בטופס ההדמיה */
     rememberContact(
       document.getElementById('inqName').value.trim(),
