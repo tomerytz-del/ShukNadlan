@@ -120,12 +120,31 @@ begin
                          nullif(btrim(coalesce(new.note, '')), ''));
   end if;
 
-  for v_admin_id in
-    select id from agency_members where is_platform_admin = true and active = true
-  loop
-    insert into notifications (agent_id, type, title, body)
-    values (v_admin_id, 'platform_upgrade', v_title, v_body);
-  end loop;
+  -- ------------------------------------------------------------------
+  -- הכתיבה עטופה, וזו לא זהירות סתם
+  --
+  -- הטריגר רץ **בתוך הטרנזקציה של שינוי המסלול**, ושינוי מסלול הוא פעולה
+  -- כספית: ההפרש בין Pay&GO ל-Elite הוא ₪950 בחודש. שגיאה כאן — אילוץ
+  -- שלא הוחל עדיין, טבלה שננעלה, כל דבר — הייתה מגלגלת אחורה את השדרוג
+  -- עצמו, כלומר התראה שמפילה את האירוע שעליו היא מדווחת.
+  --
+  -- זו אותה דוקטרינה שכתובה ב-_shared/platform-signup-alert.ts ("כישלון
+  -- כאן לא מפיל הצטרפות"), והיא נכונה כאן אפילו יותר. חמשת הטריגרים
+  -- האחרים שכותבים ל-notifications אינם עטופים — והם גם לא יושבים על
+  -- שורה שמישהו משלם עליה.
+  --
+  -- ‏raise warning ולא notice: זה נכנס ללוג של Supabase ואפשר לחפש אותו.
+  -- ------------------------------------------------------------------
+  begin
+    for v_admin_id in
+      select id from agency_members where is_platform_admin = true and active = true
+    loop
+      insert into notifications (agent_id, type, title, body)
+      values (v_admin_id, 'platform_upgrade', v_title, v_body);
+    end loop;
+  exception when others then
+    raise warning 'platform upgrade alert failed for member %: %', new.member_id, sqlerrm;
+  end;
 
   return new;
 end;
