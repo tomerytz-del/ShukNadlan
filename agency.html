@@ -10,6 +10,7 @@
 <script src="assets/quality-badge.js"></script>
 <script src="assets/specialties.js"></script>
 <script src="assets/property-card.js"></script>
+<script src="assets/prop-shelf.js"></script>
 <!-- הרקע הזורם של האתר. נטען בלי data-auto: דף המשרד מרכיב אותו בעצמו
      אחרי טעינת המיתוג, כי משרד יכול לבחור ב-CRM רקע חלק במקומו. -->
 <script src="assets/page-bg.js"></script>
@@ -535,63 +536,33 @@
   .prop-search .clear:hover{background:var(--teal-tint);color:var(--brand-dark)}
   .search-count{font-size:.8rem;color:var(--ink-soft);margin:0 0 12px;font-weight:600}
 
-  /* ---------- שלוש רצועות הנכסים ----------
-     במקום רשימה אחת ארוכה שמערבבת דירה להשכרה עם חנות למכירה, הנכסים
-     מחולקים לשלוש רצועות לפי מה שהגולש/ת באמת מחפש/ת: פרטי להשכרה, פרטי
-     למכירה, ומסחרי (מכירה והשכרה יחד — שוק אחד). רצועה שאין לה נכסים
-     פשוט לא נוצרת. */
-  .prop-group{margin-top:18px}
-  .prop-group:first-child{margin-top:6px}
-  .group-head{display:flex;align-items:center;gap:9px}
-  /* הקישור נדחף לקצה השני של שורת הכותרת ומופיע רק כשיש מה לפתוח */
-  .group-all{
-    margin-inline-start:auto;font-size:.78rem;font-weight:800;color:var(--accent-ink);
-    background:none;padding:4px 2px;white-space:nowrap;
-  }
-  .group-all:hover{text-decoration:underline}
-  .group-head .ic{
-    width:30px;height:30px;border-radius:0;flex:none;display:grid;place-items:center;
-    background:var(--teal-tint);color:var(--brand);
-  }
-  .group-head .ic svg{width:17px;height:17px}
-  .group-head h3{
-    font-family:'Frank Ruhl Libre',serif;font-size:1rem;font-weight:700;
-    color:var(--teal-dark);margin:0;
-  }
-  .group-head .n{font-size:.75rem;font-weight:600;color:var(--ink-soft)}
-  /* להשכרה ומסחרי נושאים את הצבע המשני — אותה הבחנה בדיוק שהתגית על אריח
-     הנכס עושה, כך שהצבע אומר את אותו הדבר בכל מקום בדף */
-  .prop-group[data-kind="rent"] .group-head .ic,
-  .prop-group[data-kind="commercial"] .group-head .ic{background:var(--gold-tint);color:var(--accent-ink)}
-  /* ---------- רוחב הכרטיס ברצועה ----------
-     לכל היותר שלושה כרטיסים במסך אחד, והם ממלאים את רוחב המכל בדיוק:
-     ‏3 כרטיסים + 2 רווחים = 100%. במסך צר שלושה כרטיסים היו יוצאים צרים
-     מכדי לקרוא, ולכן שם הרצועה מציגה אחד ומציצה אל הבא — אותה משמעות,
-     בקנה מידה של מובייל. ‏scroll-snap-align:start מצמיד את הכרטיס לשפת
-     המכל, כך שכל "עמוד" של הרצועה יושב בתוך הגבולות ולא חוצה אותם. */
-  .rail .prop-card{flex:0 0 82%;scroll-snap-align:start}
-  @media(min-width:600px){.rail .prop-card{flex-basis:calc((100% - var(--rail-gap)) / 2)}}
-  @media(min-width:900px){.rail .prop-card{flex-basis:calc((100% - 2 * var(--rail-gap)) / 3)}}
+  /* ---------- שני מדפי הנכסים ----------
+     כאן ישבו שלוש רצועות נגללות — "פרטי להשכרה", "פרטי למכירה" ו"מסחרי" —
+     ובהן סוג העסקה היה מבנה של הדף ולא מאפיין של הנכס: מי שרצה לראות מה
+     יש למשרד גלל שלושה מסלולים אופקיים, כל אחד עם קצה חתוך, ו"לכל הנכסים"
+     היה כפתור שפותח רצועה אחת בלבד לרשת.
 
-  /* ---------- "לכל הנכסים" ----------
-     אין דף רשימה נפרד לנכסי משרד לפי קטגוריה, ולכן הקישור פותח את הרצועה
-     במקום — הופך אותה לרשת שמציגה את כל הנכסים של אותה קטגוריה בבת אחת.
-     במצב פתוח אין מה לגלול, ולכן החיצים והנקודות יורדים. */
-  .prop-group.expanded .rail{
-    display:grid;grid-template-columns:1fr;overflow:visible;scroll-snap-type:none;
+     היום זו אותה תצוגה של דף הבית, על אותו מנוע: מדף "נכסים פרטיים"
+     (מכירה והשכרה יחד) ומדף "נכסים מסחריים", כל אחד עם שורת התגיות
+     שנבנית מהמלאי, בורר מיון וכפתור "עוד נכסים". כל ה-CSS שלהם מגיע
+     מ-assets/prop-shelf.css, ומה שנשאר כאן הוא האריח עצמו והמרווח בין
+     שני המדפים. ראו docs/home-property-shelves.md. */
+  .prop-shelf + .prop-shelf,
+  .lead-banner + .prop-shelf{margin-top:26px}
+  /* הכותרת כאן היא ‎h3‎ ולא ‎h2‎ — המקטע כולו כבר נושא כותרת אחת — ולכן
+     היא גם קטנה יותר מזו של דף הבית, בקנה המידה של כותרות המשנה בדף. */
+  .prop-shelf .pp-head h3{
+    font-family:'Frank Ruhl Libre',serif;font-size:1.05rem;font-weight:700;
+    color:var(--teal-dark);
   }
-  @media(min-width:600px){.prop-group.expanded .rail{grid-template-columns:1fr 1fr}}
-  @media(min-width:900px){.prop-group.expanded .rail{grid-template-columns:1fr 1fr 1fr}}
-  .prop-group.expanded .rail .prop-card{flex:none}
-  .prop-group.expanded .rail-nav,
-  .prop-group.expanded .rail-dots{display:none}
   .prop-card{
     background:var(--surface);border:1px solid var(--hair);border-radius:0;overflow:hidden;cursor:pointer;
     box-shadow:var(--shadow-xs);transition:box-shadow .15s ease,transform .15s ease;
   }
-  /* אריח הכיסוי כאן רחב — ‏82% מהמסך ברצועה, עמודה שלמה ברשת — ולכן
-     הגובה נגזר מיחס ולא ממידה קבועה, בדיוק כמו שהתמונונת עשתה קודם. */
-  .prop-card.pc-cover{--pc-cover-h:auto;aspect-ratio:16/11}
+  /* הגובה מגיע מ-assets/property-card.js (‏--pc-cover-h, ובלעדיו 215px),
+     ומתחת ל-520px מ-assets/prop-shelf.css — בדיוק כמו במדפים של דף הבית.
+     קודם ישב כאן יחס 16/11, כי האריח היה רחב 82% ממסך טלפון בתוך רצועה
+     נגללת; בגריד הוא כבר לא. */
   .prop-card:hover{box-shadow:var(--shadow-md);transform:translateY(-2px)}
   /* יחס גובה־רוחב קבוע במקום גובה קבוע, כדי שהתמונה תשמור על הפרופורציה
      שלה בכל רוחב כרטיס. ‏background-size:cover הוא המקבילה של
@@ -645,14 +616,15 @@
 
   /* ---------- הווידג'טים של דף המשרד ----------
      שלושה כלים אינטראקטיביים שהופכים את הדף ממדף לתחנת פנייה, וכל אחד
-     מהם שתול מתחת לרצועת הנכסים שהוא מדבר אליה (ראו mountWidgets ב-JS):
-     הערכת שווי מתחת להשכרה, התאמת נכס מתחת למכירה, ומחשבון תשואה מתחת
-     למסחרי. במקטע "כלים מהירים" נפרד הם היו נקראים כנספח בתחתית הדף. */
+     מהם שתול מתחת למדף הנכסים שהוא מדבר אליו (ראו mountWidgets ב-JS):
+     הערכת שווי מתחת לנכסים הפרטיים, מחשבון תשואה מתחת למסחריים, ובאנר
+     מחפשי הנכס אחרי שניהם. במקטע "כלים מהירים" נפרד הם היו נקראים כנספח
+     בתחתית הדף. */
   .lead-widgets{margin-top:30px;display:flex;flex-direction:column;gap:14px}
-  /* המרווח שמפריד ווידג'ט מהרצועה שמעליו ומהכותרת שמתחתיו, כשהוא כבר
+  /* המרווח שמפריד ווידג'ט מהמדף שמעליו ומהכותרת שמתחתיו, כשהוא כבר
      יושב בתוך ‎#activeProps‎. הצד התחתון היה 4px — הבאנר, שהוא הכבד
-     במקטע, נראה נדבק לכותרת הרצועה שאחריו — ועכשיו יש לו אוויר משני
-     הצדדים, כמו לבאנרים של דף הבית. */
+     במקטע, נראה נדבק לכותרת שאחריו — ועכשיו יש לו אוויר משני הצדדים,
+     כמו לבאנרים של דף הבית. */
   #activeProps > .lead-banner{margin:24px 0 16px}
 
   /* ---------- באנרי הלידים ----------
@@ -1135,6 +1107,7 @@
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/design-system.css">
+<link rel="stylesheet" href="assets/prop-shelf.css">
 <script src="assets/site-footer.js" defer></script>
 </head>
 <body>
@@ -1224,7 +1197,12 @@
         <button type="button" class="clear" id="propSearchClear" aria-label="ניקוי החיפוש" hidden>✕</button>
       </div>
       <p class="search-count" id="propSearchCount" hidden></p>
-      <!-- שלוש רצועות הנכסים נבנות לכאן ב-JS: פרטי להשכרה, פרטי למכירה, מסחרי -->
+      <!-- מצב האפס היחיד שנשאר בדף: תשובה לחיפוש שהגולש/ת הקליד/ה, ולא
+           הצהרה על המשרד. משרד בלי נכסים כלל אינו פותח את המקטע. -->
+      <div class="empty-state" id="propsEmpty" hidden>לא נמצאו נכסים שתואמים לחיפוש.</div>
+      <!-- שני מדפי הנכסים נבנים לכאן ב-JS (‏buildShelves): נכסים פרטיים —
+           מכירה והשכרה יחד — ואחריהם נכסים מסחריים. אותו מנוע של דף הבית,
+           ראו assets/prop-shelf.js. -->
       <div id="activeProps"></div>
     </section>
 
@@ -1243,18 +1221,18 @@
     </section>
 
     <!-- ---------- הווידג'טים של המשרד ----------
-         שלושה כלים, וכל אחד מהם יושב מתחת לרצועת הנכסים שהוא שייך לה:
-         הערכת השווי מתחת לנכסים להשכרה, התאמת הנכס מתחת לנכסים למכירה,
-         ומחשבון התשואה מתחת לנכסים המסחריים. ‏mountWidgets מזיז אותם מכאן
-         אל תוך ‎#activeProps‎ אחרי שהרצועות נבנות; מה שנשאר בלי רצועה
-         מתאימה נשאר כאן, ואז המכל הזה נדלק. -->
+         שלושה כלים, וכל אחד מהם יושב במקום שבו הוא מדבר אל מי שקורא/ת:
+         הערכת השווי אחרי הנכסים הפרטיים, מחשבון התשואה אחרי המסחריים,
+         ובאנר מחפשי הנכס אחרי שניהם. ‏mountWidgets מזיז אותם מכאן אל תוך
+         ‎#activeProps‎ פעם אחת, מיד אחרי שהמדפים נבנים; מה שנשאר בלי מדף
+         מתאים נשאר כאן, ואז המכל הזה נדלק. -->
     <div class="lead-widgets" id="widgetHome" hidden>
 
       <!-- ---------- באנר הערכת השווי ----------
            אותה שורת הזמנה שיושבת בדף הבית, ומאחוריה אותו אשף בן שלושה
            שלבים. ההבדל הוא לאן הליד הולך: כאן הוא נושא את ה-slug של המשרד
            ומגיע ישירות למנהל/ת שלו. -->
-      <div class="lead-banner owner-banner" id="ownerBanner" data-slot="rent">
+      <div class="lead-banner owner-banner" id="ownerBanner" data-slot="private">
         <button type="button" class="lead-teaser" id="ownerStartBtn"
                 aria-expanded="false" aria-controls="ownerPanel">
           <span class="lead-teaser-icon" aria-hidden="true">
@@ -1550,9 +1528,6 @@ const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
    אותם אייקוני קו במשקל אחיד כמו בדף הנכס, מוטמעים כדי לא להוסיף בקשת רשת. */
 const S = p => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">${p}</svg>`;
 const ICON = {
-  building:S('<path d="M4 21V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v16M16 9h2a2 2 0 0 1 2 2v10M2 21h20"/><path d="M8 7h2M8 11h2M8 15h2"/>'),
-  key:     S('<circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.8 12.2 8-8M17 6l2 2M14.5 8.5l2 2"/>'),
-  store:   S('<path d="M4 9h16v11a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1Z"/><path d="M3 9l1.6-5.2A1 1 0 0 1 5.6 3h12.8a1 1 0 0 1 1 .8L21 9"/><path d="M9 21v-6h6v6"/>'),
   star:    S('<path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9Z"/>'),
   pin:     S('<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>'),
   check:   S('<path d="M20 6 9 17l-5-5"/>'),
@@ -2376,7 +2351,10 @@ let agencyProperties = [];
 
 async function loadActiveProperties(sb, agencyId){
   const { data: props } = await sb.from('properties')
-    .select('id, title, price, deal_type, category, rooms, property_type, size_sqm, city, street, images, tour_3d_url, has_virtual_tour, video_url')
+    // ‏created_at, floor, features, is_promoted ו-promoted_until נוספו בשביל
+    // המדף: הוא ממיין לפי סדר ההעלאה, מציג קומה וחניה בשורת המאפיינים,
+    // ומצמיד עד שני נכסים מקודמים לראש — בדיוק כמו בדף הבית.
+    .select('id, title, price, deal_type, category, rooms, property_type, size_sqm, floor, features, city, street, images, tour_3d_url, has_virtual_tour, video_url, created_at, is_promoted, promoted_until')
     .eq('agency_id', agencyId).eq('status', 'active').order('created_at', { ascending:false });
   // משרד בלי נכסים פעילים לא מקבל מקטע עם הכיתוב "אין כרגע נכסים" — מקטע
   // כזה אומר לגולש/ת רק שאין כאן מה לחפש. המקטע פשוט לא נפתח. הווידג'טים
@@ -2393,11 +2371,11 @@ async function loadActiveProperties(sb, agencyId){
   // מעכבת את ההצגה הראשונה: אריח בלי התגית עדיין אריח שלם.
   PropertyCard.visualizedIds(sb, props.map(p => p.id)).then(ids=>{
     if (!ids.size) return;
-    visualizedProps = ids;
-    // ציור מחדש רק כשהחיפוש ריק — אחרת הוא היה מוחק תוצאות סינון שהגולש/ת
-    // כבר הקליד/ה בזמן שהשאילתה רצה
-    const search = document.getElementById('propSearch');
-    if (!search || !search.value.trim()) renderPropertyCards(agencyProperties);
+    // המדפים מחזיקים עותק משלהם של הקבוצה (הם מציירים את האריח), והם
+    // מציירים מחדש רק את מה שכבר על המסך — כלומר סינון שהגולש/ת הקליד/ה
+    // בזמן שהשאילתה רצה נשאר על מכונו.
+    privateShelf?.setVisualized(ids);
+    commercialShelf?.setVisualized(ids);
   });
   prefillYieldFromProperties(props);
   document.getElementById('propsSec').style.display = 'block';
@@ -2405,156 +2383,105 @@ async function loadActiveProperties(sb, agencyId){
   if (props.length >= 5) initPropertySearch();
 }
 
-/* הנכסים שיש להם הדמיית AI מפורסמת. נטען פעם אחת לכל הנכסים של המשרד
-   (‏PropertyCard.visualizedIds), ולא נבדק פר-אריח. */
-let visualizedProps = new Set();
+/* ---------- שני מדפי הנכסים ----------
+   כאן ישבו שלוש רצועות נגללות — "נכסים פרטיים להשכרה", "נכסים פרטיים
+   למכירה" ו"נכסים מסחריים". סוג העסקה היה בהן מבנה של הדף ולא מאפיין של
+   הנכס: מי שבא לראות מה יש למשרד גלל שלושה מסלולים אופקיים, כל אחד עם
+   קצה חתוך ועם "לכל הנכסים" שפותח רצועה אחת בלבד לרשת.
 
-/* המחיר, שורת המאפיינים והתגיות מגיעים מ-assets/property-card.js — אותה
-   שפה בדיוק שבה הם מופיעים בדף הבית ובדף הסוכן/ת. מה שנשאר כאן ייחודי
-   לדף המשרד הוא ממלא־המקום לנכס בלי תמונות, שנושא את לוגו המשרד. */
-function propertyCardHtml(p){
-  const hasPhoto = !!safeImageUrl(p.images && p.images[0]);
+   היום זו התצוגה של דף הבית, על אותו מנוע בדיוק (‏assets/prop-shelf.js):
+   מדף "נכסים פרטיים" שמחזיק מכירה והשכרה יחד ומדף "נכסים מסחריים", כל
+   אחד עם שורת התגיות שנבנית מהמלאי של המשרד עצמו (מכירה · השכרה · דירות
+   לפי מספר חדרים · שאר סוגי הנכס), בורר מיון וכפתור "עוד נכסים". מדף
+   בלי נכסים מסתיר את עצמו. ראו docs/home-property-shelves.md.
 
-  return `
-    <div class="thumb${hasPhoto ? '' : ' no-photo'}"${thumbStyle(p)}>
-      ${thumbFallback(p)}
-      ${PropertyCard.coverVideoHtml(p)}
-      ${PropertyCard.badgesHtml(p, { aiViz: visualizedProps.has(p.id), photo: hasPhoto })}
-      ${PropertyCard.mediaHtml(p)}
-    </div>
-    <div class="body">
-      ${PropertyCard.priceHtml(p)}
-      ${PropertyCard.titleHtml(p)}
-      ${PropertyCard.whereHtml(p, { agency:false })}
-      ${PropertyCard.factsHtml(p)}
-    </div>`;
-}
+   המדפים נבנים **פעם אחת**, והחיפוש המקומי רק מזין אותם מחדש
+   (‏shelf.set). קודם ה-‎innerHTML=''‎ של הרצועות הרס בכל הקלדה את
+   הווידג'טים שישבו ביניהן, ולכן היה צריך להחזיר אותם קודם ל"בית" שלהם;
+   עכשיו הם נשתלים פעם אחת ואף אחד לא נוגע בהם. */
+let privateShelf = null, commercialShelf = null;
 
-/* ---------- שלוש רצועות הנכסים ----------
-   ‏category הוא מה שמפריד בין נדל״ן פרטי למסחרי בכל המרקטפלייס — עמודה
-   ‏NOT NULL עם ברירת מחדל 'residential' וערכים 'residential'/'commercial'
-   בלבד (index.html שולף לפיה את הרצועה המסחרית). גם ‎deal_type‎ מוגבל
-   ל-'sale'/'rent', ולכן שלוש הרצועות מכסות את כל הנכסים בלי שאף אחד ייפול
-   בין הכיסאות. */
-const isCommercial = p => p.category === 'commercial';
+const SHELF_COUNT = (shown, total) => (shown === total)
+  ? (total === 1 ? 'נכס אחד' : `${total.toLocaleString('he-IL')} נכסים`)
+  : `${shown.toLocaleString('he-IL')} מתוך ${total.toLocaleString('he-IL')} נכסים`;
 
-const PROP_GROUPS = [
-  { key:'rent',  title:'נכסים פרטיים להשכרה', icon:'key',
-    match: p => !isCommercial(p) && p.deal_type === 'rent' },
-  { key:'sale',  title:'נכסים פרטיים למכירה', icon:'building',
-    match: p => !isCommercial(p) && p.deal_type === 'sale' },
-  // במסחרי מכירה והשכרה יושבים יחד: מי שמחפש חנות בודק ממילא את שתי האפשרויות
-  { key:'commercial', title:'נכסים מסחריים', icon:'store', match: isCommercial },
-];
+function buildShelves(){
+  const el = document.getElementById('activeProps');
+  const priv = document.createElement('section');
+  priv.className = 'prop-shelf';
+  const comm = document.createElement('section');
+  comm.className = 'prop-shelf';
+  el.append(priv, comm);
 
-/* הרצועה מציגה עד שלושה כרטיסים במסך אחד; כשיש יותר, "לכל הנכסים" פותח את
-   כולם ברשת. עד שלושה — אין מה לפתוח, ולכן אין קישור. */
-const RAIL_VISIBLE = 3;
-const allLabel = items => `כל ${items.length} הנכסים`;
+  const common = {
+    // ממלא־המקום נושא את לוגו המשרד שבכותרת הדף ולא את זה של הנכס: בדף
+    // הזה כל הנכסים שייכים לאותו משרד ממילא.
+    fallback: thumbFallback,
+    whereOpts: { agency:false },
+    countText: SHELF_COUNT,
+    headingTag: 'h3',
+  };
 
-function propertyRailHtml(group, items){
-  const count = items.length === 1 ? 'נכס אחד' : items.length + ' נכסים';
-  const showAll = items.length > RAIL_VISIBLE
-    ? `<button type="button" class="group-all" aria-expanded="false">${allLabel(items)} ←</button>`
-    : '';
-  return `
-    <div class="group-head">
-      <span class="ic" aria-hidden="true">${ICON[group.icon]}</span>
-      <h3 id="group-${group.key}">${escapeHtml(group.title)}</h3>
-      <span class="n">${count}</span>
-      ${showAll}
-    </div>
-    <div class="rail-wrap">
-      <button type="button" class="rail-nav prev" aria-label="הנכסים הקודמים" hidden></button>
-      <div class="rail" tabindex="0" role="group" aria-labelledby="group-${group.key}"></div>
-      <button type="button" class="rail-nav next" aria-label="הנכסים הבאים" hidden></button>
-    </div>
-    <div class="rail-dots"></div>`;
-}
-
-function initShowAll(section, items){
-  const btn = section.querySelector('.group-all');
-  if (!btn) return;
-  const rail = section.querySelector('.rail');
-  btn.addEventListener('click', ()=>{
-    const open = !section.classList.contains('expanded');
-    section.classList.toggle('expanded', open);
-    btn.setAttribute('aria-expanded', String(open));
-    btn.textContent = open ? 'תצוגה מצומצמת ←' : `${allLabel(items)} ←`;
-    // במצב פתוח אין גלילה למדוד, וה-sync רק היה מחזיר את החיצים
-    rail.dataset.expanded = open ? '1' : '';
-    if (!open){ rail.scrollTo({ left:0 }); rail._railSync(); }
+  privateShelf = PropShelf.create({
+    ...common, mount: priv, titleId:'shelfPrivateTitle', title:'נכסים פרטיים', sortId:'shelfPrivateSort',
+    // רק במדף הפרטי: "דירה" מתפצלת לתגיות לפי מספר חדרים. ‏roomsLabel
+    // נכתב במפורש ולא נגזר מ-roomsType — "דירה" + "ות" הוא "דירהות".
+    roomsType:'דירה', roomsLabel:'דירות',
   });
+  commercialShelf = PropShelf.create({
+    ...common, mount: comm, titleId:'shelfCommercialTitle', title:'נכסים מסחריים', sortId:'shelfCommercialSort',
+    // אין כאן פיצול לפי חדרים: "משרד 3 חדרים" הוא לא הנתון שמחפשים בו נכס
+    // מסחרי — שם השאלה היא מ״ר וסוג הנכס.
+    roomsType:'', roomsLabel:'',
+  });
+
+  mountWidgets(priv, comm);
 }
 
-/* ---------- שתילת הווידג'טים בין הרצועות ----------
-   כל ווידג'ט נושא ‎data-slot‎ עם מפתח הרצועה שאחריה הוא יושב: הערכת השווי
-   אחרי ההשכרה, התאמת הנכס אחרי המכירה, ומחשבון התשואה אחרי המסחרי.
+/* ---------- שתילת הווידג'טים בין המדפים ----------
+   כל ווידג'ט נושא ‎data-slot‎ עם המקום שבו הוא יושב: הערכת השווי אחרי
+   הנכסים הפרטיים (היא מדברת אל מי שמחזיק/ה דירה), מחשבון התשואה אחרי
+   המסחריים (הוא מדבר אל משקיעים), ובאנר מחפשי הנכס — ‏end — אחרי שניהם:
+   מקומו אחרי כל המלאי, כשמי שגלל/ה עד הסוף לא מצא/ה את מה שחיפש/ה.
 
-   הרצועות נבנות מחדש בכל הקלדה בחיפוש, ו-‎innerHTML=''‎ היה מוחק יחד איתן
-   את הווידג'טים על כל המאזינים והמצב שבתוכם. לכן הם מוחזרים קודם למכל
-   הבית שלהם (‏#widgetHome) ורק אז נשתלים שוב — הזזת צומת שומרת מאזינים.
-   ווידג'ט שאין לו רצועה מתאימה נשאר בבית, וה-fallback מדליק אותו שם. */
-function parkWidgets(){
-  const home = document.getElementById('widgetHome');
-  if (!home) return;
-  document.querySelectorAll('.lead-banner[data-slot]').forEach(w => home.appendChild(w));
+   הקורסור נע קדימה עם כל שתילה, כי ‎after()‎ על אותו עוגן פעמיים היה מציב
+   את השני *לפני* הראשון והופך את הסדר.
+
+   השתילה נעשית פעם אחת, מיד אחרי בניית המדפים, ולא בכל ציור מחדש: הזזת
+   צומת שומרת מאזינים, אבל ציור מחדש שמוחק את ההורה לא. */
+function mountWidgets(priv, comm){
+  let cursor = priv;
+  const place = (slot, anchor)=>{
+    if (anchor) cursor = anchor;
+    // חיפוש בכל הדף ולא רק ב-‎#widgetHome‎: באנר מחפשי הנכס יושב ב-HTML
+    // למטה, בתוך הפוטר, והשתילה היא מה שמביאה אותו לכאן.
+    document.querySelectorAll(`.lead-banner[data-slot="${slot}"]`)
+      .forEach(w=>{ cursor.after(w); cursor = w; });
+  };
+  place('private', priv);
+  place('commercial', comm);
+  place('end');
+  showLeftoverWidgets();
 }
 
-function widgetFor(key){
-  return document.querySelector(`#widgetHome > [data-slot="${key}"]`);
-}
-
-/* מה שנשאר בבית אחרי השתילה מוצג שם — משרד בלי נכסים מסחריים עדיין ראוי
-   למחשבון תשואה, ומשרד בלי נכסים כלל מקבל את שלושת הווידג'טים ברצף. */
+/* מה שנשאר בבית מוצג שם — באנר מחפשי הנכס תמיד, ובמשרד בלי נכסים כלל גם
+   שני האחרים, ברצף. */
 function showLeftoverWidgets(){
   const home = document.getElementById('widgetHome');
-  if (home) home.hidden = !home.querySelector('[data-slot]');
+  if (home) home.hidden = !home.querySelector('.lead-banner');
 }
 
+/* מזין את שני המדפים מאותה רשימה. ‏category הוא מה שמפריד בין נדל״ן פרטי
+   למסחרי בכל המרקטפלייס — עמודה ‎NOT NULL‎ עם ברירת מחדל 'residential' —
+   ולכן ההפרדה יושבת ב-PropShelf וכל הדפים קוראים לה. */
 function renderPropertyCards(list){
-  const el = document.getElementById('activeProps');
-  parkWidgets();
-  el.textContent = '';
-  if (!list.length){
-    el.innerHTML = '<div class="empty-state">לא נמצאו נכסים שתואמים לחיפוש.</div>';
-    showLeftoverWidgets();
-    return;
-  }
-
-  PROP_GROUPS.forEach(group=>{
-    // נכסים עם סרטון, סיור וירטואלי או תמונות פותחים את הרצועה: תמונה
-    // רחבה ומוארת מקפיצה את האטרקטיביות של האריח מיד, ואת האריח הראשון
-    // ברצועה רואים גם מי שלא גולל/ה אותה. המיון יציב, ולכן בתוך אותה
-    // דרגת מדיה נשמר סדר ההגעה מהמסד (החדשים קודם).
-    const items = PropertyCard.sortByMedia(list.filter(group.match));
-    if (!items.length) return;                 // רצועה בלי נכסים לא נוצרת
-    const widget = widgetFor(group.key);
-
-    const section = document.createElement('section');
-    section.className = 'prop-group';
-    section.dataset.kind = group.key;
-    section.innerHTML = propertyRailHtml(group, items);
-
-    const rail = section.querySelector('.rail');
-    items.forEach(p=>{
-      const card = document.createElement('div');
-      card.className = 'prop-card pc-cover';
-      card.innerHTML = propertyCardHtml(p);
-      card.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
-      rail.appendChild(card);
-    });
-
-    el.appendChild(section);
-    // הווידג'ט של הרצועה נשתל מיד אחריה
-    if (widget) el.appendChild(widget);
-    // אחרי ההוספה ל-DOM, אחרת המדידות של הרצועה מחזירות אפס
-    initCarousel(rail, section.querySelector('.rail-nav.prev'),
-                 section.querySelector('.rail-nav.next'), section.querySelector('.rail-dots'));
-    initShowAll(section, items);
-  });
-
-  showLeftoverWidgets();
+  if (!privateShelf) buildShelves();
+  privateShelf.set(PropShelf.private(list));
+  commercialShelf.set(PropShelf.commercial(list));
+  // מצב האפס היחיד שנשאר בדף: תשובה לחיפוש שהגולש/ת הקליד/ה, ולא הצהרה
+  // על המשרד. שני המדפים מסתירים את עצמם ממילא כשהם ריקים.
+  const empty = document.getElementById('propsEmpty');
+  if (empty) empty.hidden = list.length > 0;
 }
 
 /* ---------- חיפוש בנכסי המשרד ----------
@@ -3790,7 +3717,7 @@ loadAgency();
        שאין להם אשף משלהם. ראו docs/site-footer.md. -->
   <div class="footer-wrap footer-lead">
 
-    <div class="lead-banner buyer-banner" id="buyerBanner" data-slot="sale">
+    <div class="lead-banner buyer-banner" id="buyerBanner" data-slot="end">
       <button type="button" class="lead-teaser" id="buyerStartBtn"
               aria-expanded="false" aria-controls="buyerPanel">
         <span class="lead-teaser-icon" aria-hidden="true">

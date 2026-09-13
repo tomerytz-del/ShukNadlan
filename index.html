@@ -21,6 +21,7 @@
 <script src="assets/map-gestures.js"></script>
 <script src="assets/map-draw.js"></script>
 <script src="assets/property-card.js"></script>
+<script src="assets/prop-shelf.js"></script>
 <script src="assets/project-card.js"></script>
 <!-- "אחורה" מדף הבית הוא לרוב יציאה מהאתר: שואלים לפניה. ראו assets/exit-guard.js -->
 <script src="assets/exit-guard.js" data-auto></script>
@@ -2144,11 +2145,6 @@
      בשורת המטא של אותה שורה, ובלעדיו נשאר מקום להודעה עצמה. הצעיף הלבן
      חזק יותר כאן: הטקסט קטן, והאיור מתחתיו היה בולע אותו. */
   .sr-thumb .tf-agency{display:none}
-  /* בתמונונת של שורת הרשימה (74px) נכנס רק הלוגו: שם המשרד וההודעה היו
-     שני קווי טקסט בגובה 6px שאיש לא קורא, והם ממילא מופיעים בדף הנכס. */
-  .pr-thumb .thumb-fallback{gap:0;padding:4px}
-  .pr-thumb .tf-logo{width:30px;height:30px;padding:2px;box-shadow:none}
-  .pr-thumb .tf-agency,.pr-thumb .tf-note{display:none}
   .sr-thumb .thumb-fallback{
     background:
       linear-gradient(180deg,rgba(255,255,255,.84),rgba(255,255,255,.7)),
@@ -2156,20 +2152,12 @@
       linear-gradient(160deg,#ffffff 0%,#eaf0fb 100%);
   }
 
-  /* ‏inset-inline-end ולא ‎right‎: העמוד הוא RTL, ולכן ‎right‎ הוא בדיוק
-     הפינה שבה יושבות תגיות ‎.pc-badges‎ (‏inset-inline-start) — הסרט
-     "מקודם" נחת עליהן. עכשיו כל אחד בפינה שלו. */
-  .prop-card .ribbon{
-    position:absolute;top:10px;inset-inline-end:10px;background:var(--gold);color:#fff;font-size:.68rem;
-    font-weight:800;padding:3px 9px;border-radius:0;z-index:2;
-  }
   /* המחיר, הכותרת, שתי שורות המיקום, שורת המאפיינים והתגיות שעל התמונה
      מגיעים כולם מ-assets/property-card.js — ‏.pc-price, .pc-title, .pc-where,
      .pc-facts, .pc-badges, .pc-media, .pc-scrim — ולכן הם זהים כאן, בדף
-     המשרד, בדף הסוכן/ת ובדף הנכס. מה שנשאר כאן הוא רק גודל הגופן בכל
-     נקודת שבירה. התגיות מפנות מקום לסרט "מקודם" שבפינה הנגדית. */
+     המשרד, בדף הסוכן/ת ובדף הנכס. סרט "מקודם" והמקום שהתגיות מפנות לו
+     עברו ל-assets/prop-shelf.css, יחד עם שאר מה ששייך למדף. */
   .prop-card .body{padding:12px}
-  .prop-card .pc-badges{max-width:calc(100% - 90px)}
 
   /* ====== מובייל: כתבה מובילה, ומתחתיה כתבה דחוסה ======
      ברוחב טלפון הרצועה הנגללת ביקשה מהאצבע לעבוד כדי לגלות מה יש בה, ומי
@@ -2222,272 +2210,9 @@
     .article-card .stamp{font-size:.7rem}
   }
 
-  /* ====== נכסים פרטיים: מכירה והשכרה בגריד אחד ======
-     שתי הרצועות הנגללות שישבו כאן קודם הציגו שנים־עשר נכסים כל אחת
-     במסלול אופקי, וכל השאר נשאר מחוץ לתמונה. הגריד מציג את אותו מלאי
-     בעמודות: ארבע בדסקטופ, שתיים בטאבלט ואחת בטלפון — כלומר שמונה נכסים
-     נראים במסך אחד במקום שלושה־וחצי כרטיסים שנחתכים בקצה המסלול.
-
-     ‏.prop-card עצמו לא משתנה כאן: הוא נבנה ב-propCard() כמו בכל תצוגה
-     אחרת בעמוד, ורק ה-flex-basis הקבוע שלו (250px, מידה של מסלול גלילה)
-     לא רלוונטי לפריט בגריד. */
-  .pp-head{
-    display:flex;align-items:baseline;justify-content:space-between;
-    gap:6px 14px;flex-wrap:wrap;margin-bottom:12px;
-  }
-  /* ‏.head-line ממורכז בכל הסקציות שיש להן ‎.section-head‎; כאן הכותרת פותחת
-     שורה שבסופה יושב המונה, ולכן היא נצמדת לתחילת השורה. */
-  .pp-head .head-line{justify-content:flex-start}
-  .pp-head h2{font-size:var(--h2)}
-  .pp-count{margin:0;font-size:.8rem;font-weight:700;color:var(--ink-soft)}
-
-  /* התגיות ממלאות את הרוחב והמיון נשאר מעוגן בקצה השני — גם כשהתגיות
-     נשברות לשתי שורות. ב-flex-wrap הבורר היה יורד לשורה האחרונה איתן. */
-  .pp-controls{
-    display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;
-    gap:10px;margin-bottom:16px;
-  }
-  /* שורה אחת בלבד, בכל רוחב מסך. שורת תגיות שנשברת לשתיים ושלוש דוחפת את
-     הנכס הראשון מתחת לקו הקיפול, וזו תצוגת נכסים ולא תצוגת סינון: מה שלא
-     נכנס לשורה נגלל אופקית, ובורר המיון נשאר מעוגן בקצה השני. */
-  .pp-tags{
-    display:flex;flex-wrap:nowrap;gap:7px;align-items:center;
-    overflow-x:auto;padding-bottom:3px;
-    scroll-behavior:smooth;scroll-padding-inline:34px;
-    scrollbar-width:none;-ms-overflow-style:none;
-  }
-  .pp-tags::-webkit-scrollbar{display:none}
-
-  /* ====== גלילת שורת התגיות ======
-     השורה גוללת אופקית מאז שהיא הפכה לשורה אחת, אבל שום דבר לא אמר זאת:
-     בדסקטופ נשארה תגית חתוכה בקצה בלי שום דרך להגיע אליה (אין שם גלגלת
-     אופקית), ובטלפון אפשר היה להחליק — אבל לא היה סימן שכדאי.
-
-     המעטפת פותרת את שניהם באותו קצה: דהייה שמראה שיש עוד, ומעליה חץ לחיץ
-     בדסקטופ. ‏data-can-start/‎data-can-end נקבעים ב-JS לפי מצב הגלילה
-     בפועל (ראו bindTagsScroller), ולכן אין דהייה מזויפת כשכל התגיות
-     נכנסות במסך.
-
-     הדהייה היא ‎mask-image‎ על השורה עצמה ולא גרדיאנט בצבע הרקע: הרקע של
-     העמוד זורם (page-bg.js), וכתם בצבע ‎--paper‎ מעליו נראה כמו טלאי. */
-  .pp-tags-wrap{position:relative;min-width:0}
-  /* הכיוון פיזי במכוון — העמוד כולו ‎dir="rtl"‎, כלומר תחילת השורה בימין
-     וסופה בשמאל, ו-‎mask-image‎ אינו מקבל ערכים לוגיים. */
-  .pp-tags-wrap[data-can-end] .pp-tags{
-    -webkit-mask-image:linear-gradient(to right,transparent 0,#000 38px);
-    mask-image:linear-gradient(to right,transparent 0,#000 38px);
-  }
-  .pp-tags-wrap[data-can-start] .pp-tags{
-    -webkit-mask-image:linear-gradient(to left,transparent 0,#000 38px);
-    mask-image:linear-gradient(to left,transparent 0,#000 38px);
-  }
-  .pp-tags-wrap[data-can-start][data-can-end] .pp-tags{
-    -webkit-mask-image:linear-gradient(to right,transparent 0,#000 38px,#000 calc(100% - 38px),transparent 100%);
-    mask-image:linear-gradient(to right,transparent 0,#000 38px,#000 calc(100% - 38px),transparent 100%);
-  }
-
-  .pp-tags-nav{
-    position:absolute;top:50%;transform:translateY(-50%);z-index:2;
-    width:28px;height:28px;display:none;place-items:center;
-    border:1.5px solid var(--line);background:var(--paper-raised);color:var(--ink);
-    box-shadow:var(--shadow-sm);transition:border-color .15s ease,color .15s ease;
-  }
-  .pp-tags-nav svg{width:15px;height:15px;display:block}
-  .pp-tags-nav:hover{border-color:var(--teal);color:var(--teal)}
-  .pp-tags-prev{inset-inline-start:0}
-  .pp-tags-next{inset-inline-end:0}
-  /* הנתיב מצייר ‎‹‎ (שמאלה) — הכיוון שאליו השורה ממשיכה ב-RTL. חץ ההתחלה,
-     שיושב בימין ומחזיר אחורה, הוא אותו נתיב מסובב. */
-  .pp-tags-prev svg{transform:rotate(180deg)}
-  /* רק במכשיר עם עכבר: באצבע ההחלקה עצמה היא הפעולה, וכפתור שיושב מעל
-     התגית שבקצה רק גונב ממנה לחיצות. */
-  @media(hover:hover) and (pointer:fine){
-    .pp-tags-wrap[data-can-start] .pp-tags-prev,
-    .pp-tags-wrap[data-can-end] .pp-tags-next{display:grid}
-  }
-  .pp-tags-nav[hidden]{display:none}
-
-  /* ====== רמז הגלילה בטלפון ======
-     במסך מגע אין חצים, ולכן הרמז הוא תנועה: חץ קטן בקצה שמנופף פעמיים
-     כשהשורה נכנסת לתצוגה, ולצידו ה-JS מזיז את השורה בכמה פיקסלים ומחזיר
-     אותה (ראו nudgeTags). שניהם אומרים אותו דבר — יש כאן עוד, וזה זז. */
-  .pp-tags-hint{
-    position:absolute;inset-inline-end:2px;top:50%;z-index:2;
-    display:none;place-items:center;width:22px;height:22px;
-    color:var(--teal);opacity:0;pointer-events:none;
-    transform:translateY(-50%);
-  }
-  .pp-tags-hint svg{width:16px;height:16px;display:block}
-  @keyframes ppTagsHint{
-    0%,100%{opacity:0;transform:translate(0,-50%)}
-    35%    {opacity:1;transform:translate(-7px,-50%)}
-    70%    {opacity:.9;transform:translate(0,-50%)}
-  }
-  @media(hover:none),(pointer:coarse){
-    .pp-tags-wrap[data-can-end] .pp-tags-hint{display:grid}
-    .pp-tags-wrap[data-can-end].is-hinting .pp-tags-hint{animation:ppTagsHint 1.15s ease-in-out 2}
-  }
-  @media(prefers-reduced-motion:reduce){
-    .pp-tags{scroll-behavior:auto}
-    .pp-tags-hint{animation:none !important;opacity:.85}
-  }
-  .pp-tag{
-    display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:0;flex:none;
-    border:1.5px solid var(--line);background:var(--paper-raised);color:var(--ink);
-    font-family:inherit;font-size:.8rem;font-weight:700;white-space:nowrap;
-    transition:background .15s ease,border-color .15s ease,color .15s ease;
-  }
-  .pp-tag:hover{border-color:var(--teal)}
-  .pp-tag .pp-tag-n{font-size:.72rem;font-weight:600;color:var(--ink-soft)}
-  .pp-tag[aria-pressed="true"]{background:var(--teal);border-color:var(--teal);color:#fff}
-  .pp-tag[aria-pressed="true"] .pp-tag-n{color:rgba(255,255,255,.72)}
-  /* ה-✕ הוא מה שאומר "אפשר לסגור אותי". הוא מופיע רק על תגית דלוקה — ✕
-     על תגית שאינה מסננת דבר אינו מבטיח כלום — ומקבל עיגול משלו כדי
-     שייקרא כפעולה ולא כקישוט. */
-  .pp-tag .pp-tag-x{
-    display:inline-grid;place-items:center;width:16px;height:16px;
-    margin-inline-start:-1px;border-radius:50%;
-    background:rgba(255,255,255,.22);color:#fff;
-    font-size:.62rem;font-weight:800;line-height:1;
-  }
-  .pp-tag[aria-pressed="true"]:hover .pp-tag-x{background:rgba(255,255,255,.36)}
-  /* "ניקוי הכל" הוא פעולה ולא תגית, ולכן הוא לא לובש את המסגרת שלהן */
-  .pp-clear{
-    font-family:inherit;font-size:.8rem;font-weight:700;color:var(--teal);
-    background:none;padding:2px 4px;border-bottom:1.5px solid var(--gold);
-    flex:none;white-space:nowrap;
-  }
-  .pp-sort{display:inline-flex;align-items:center;gap:7px;font-size:.78rem;font-weight:700;color:var(--ink-soft)}
-  .pp-sort select{
-    padding:7px 10px;border:1.5px solid var(--line);border-radius:0;
-    background:var(--paper-raised);color:var(--ink);
-    font-family:inherit;font-size:.8rem;font-weight:700;
-  }
-
-  /* מספר העמודות מפורש ולא ‎auto-fill‎: המדף מציג **שורה אחת** של נכסים,
-     ולכן ה-JS צריך לדעת כמה אריחים נכנסים בשורה כדי לחתוך בדיוק שם.
-     ‏--pp-cols הוא המקום היחיד שבו המספר הזה נכתב — הוא יושב על אותו כלל
-     שקובע את ‎grid-template-columns‎, ו-ppCols() קורא אותו מהאלמנט עצמו
-     במקום להחזיק עותק שני של נקודות השבירה ב-JS.
-     ‏minmax(0,1fr) ולא ‎1fr‎: ‎auto‎ כרוחב מינימלי היה מרחיב עמודה לפי תוכן
-     ארוך (כותרת בלי רווחים) והגריד היה גולש מהמסך. */
-  .pp-grid{
-    --pp-cols:4;
-    display:grid;gap:12px;
-    grid-template-columns:repeat(var(--pp-cols),minmax(0,1fr));
-  }
-  @media(max-width:1100px){.pp-grid{--pp-cols:3}}
-  @media(max-width:820px){.pp-grid{--pp-cols:2}}
-  /* ‏.prop-card נושא ‎flex:0 0 250px‎ בשביל מסלולי הגלילה. ‏flex לא חל על
-     פריט בגריד, אבל ‎flex-basis‎ שנשאר 250px כן היה מונע ממנו למלא עמודה
-     צרה יותר — ולכן הרוחב נכתב כאן במפורש. */
-  .pp-grid .prop-card{
-    flex:1 1 auto;width:100%;cursor:pointer;
-    transition:border-color .15s ease,box-shadow .15s ease;
-  }
-  .pp-grid .prop-card:hover{border-color:var(--teal);box-shadow:var(--shadow-sm)}
-  .pp-empty{
-    grid-column:1/-1;margin:0;text-align:center;padding:26px 16px;
-    font-size:.9rem;font-weight:600;color:var(--ink-soft);
-    background:var(--paper-raised);border:1px dashed var(--line);border-radius:var(--radius-md);
-  }
-  .pp-more-wrap{display:flex;justify-content:center;margin-top:16px}
-  .pp-more{
-    font-family:inherit;font-size:.88rem;font-weight:700;color:var(--ink);
-    background:var(--paper-raised);border:1.5px solid var(--line);
-    padding:12px 26px;border-radius:0;
-    transition:border-color .15s ease,color .15s ease;
-  }
-  .pp-more:hover{border-color:var(--teal);color:var(--teal)}
-  .pp-more[hidden]{display:none}
-  @media(max-width:520px){
-    /* בטלפון בורר המיון יורד לשורה משלו: לצד התגיות הוא לקח כ-40% מהרוחב,
-       והשאיר להן חלון של כמאה וחמישים פיקסלים — שתי תגיות וחצי. שורת
-       התגיות היא הסינון עצמו, והמיון הוא מה שבא אחריו. */
-    .pp-controls{grid-template-columns:minmax(0,1fr);gap:8px}
-    .pp-sort{justify-self:start}
-    .pp-tag{padding:7px 11px;font-size:.78rem}
-    .pp-sort span{font-size:.74rem}
-    .pp-sort select{padding:7px 8px;font-size:.78rem}
-
-    /* עמודה אחת: ויטרינה אחת בראש ואחריה שלוש שורות דחוסות. הראשון גבוה
-       מגובה הקרוסלות (--card-h) — הוא לא עומד לצד אף אריח אחר, ומסך טלפון
-       נותן לו את הרוחב המלא. */
-    .pp-grid{--pp-cols:1;gap:8px}
-    .pp-grid > .prop-card{--pc-cover-h:264px}
-
-    /* השורות הדחוסות: אותו ‎.prop-row‎ של רשימת הנכסים בתחתית העמוד, ולכן
-       כל מה שמוגדר כאן הוא ההפרשים בלבד.
-       ‏row-reverse מציב את התמונונת בשמאל השורה ואת הטקסט בימין, כמו
-       במוקאפ — ובלעדיו התמונונת נופלת ל-inline-start, כלומר לימין, בדיוק
-       שם שהמחיר אמור לפתוח את השורה. */
-    .pp-grid > .prop-row{flex-direction:row-reverse;gap:10px;padding:8px}
-    .pp-grid > .prop-row .pr-thumb{width:96px;height:76px}
-    /* החץ הוא הסימן שהשורה היא קישור, וברשימה שכולה שורות הוא עובד. כאן
-       הוא היה הפריט השמאלי ביותר בשורה שהתמונונת כבר תופסת את שמאלה. */
-    .pp-grid > .prop-row .pr-chev{display:none}
-    /* הסרט עולה לראש התמונונת ומתיישר עם זה של הכרטיס הגדול שמעליו: זה
-       אותו מסר, והוא לא יכול להיראות כמו הערת שוליים בשורה השנייה. */
-    .pp-grid > .prop-row .pr-promo{
-      top:0;bottom:auto;inset-inline-start:auto;inset-inline-end:0;
-      font-size:.6rem;padding:2px 7px;
-    }
-    .pp-grid > .prop-row .pr-what{font-size:.88rem}
-    .pp-grid > .prop-row .pr-price{font-size:.98rem}
-  }
-
-  /* ====== שורת הנכס: שורה, לא כרטיס ======
-     אריח כיסוי הוא כשליש ממסך טלפון — שלושה נכסים למסך. הוויטרינה
-     שבראש כל מדף עובדת בדיוק ככה, אבל מתחתיה צריך כלי סריקה, ולכן שם
-     הנכסים יורדים לשפה של "הנכסים שלי" ב-CRM: שורה לנכס, שלוש שורות
-     טקסט ותמונונת. שמונה שורות נכנסות למסך אחד במקום שלושה כרטיסים.
-
-     ‏.prop-row מצויר היום בתצוגה הדחוסה של שני המדפים בטלפון (‎.pp-grid‎
-     מתחת ל-520px). */
-  .prop-row{
-    display:flex;align-items:center;gap:11px;padding:8px 10px;
-    background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-md);
-    color:inherit;text-align:start;cursor:pointer;
-    transition:border-color .15s ease, box-shadow .15s ease;
-  }
-  .prop-row:hover{border-color:var(--teal);box-shadow:var(--shadow-sm)}
-  .prop-row:focus-visible{outline:3px solid var(--teal);outline-offset:2px}
-  /* התמונונת היא זיהוי ולא ראיה — היא אומרת "זה הנכס שראיתי" ולא מוכרת
-     אותו, ולכן היא קטנה וקבועה. ‏flex:none כדי שלא תתכווץ מול טקסט ארוך. */
-  .prop-row .pr-thumb{
-    flex:none;width:74px;height:60px;border-radius:var(--radius-sm);overflow:hidden;position:relative;
-    background:var(--teal-tint);background-size:cover;background-position:center;
-  }
-  .prop-row .pr-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
-  /* ‏nowrap+ellipsis בכל שלוש השורות: שורה שנשברת לשתיים מבטלת בדיוק את
-     הרווח שהרשימה הזו באה לחסוך. */
-  .prop-row .pr-line{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .prop-row .pr-what{font-weight:700;font-size:.86rem;color:var(--ink)}
-  .prop-row .pr-facts{font-size:.74rem;color:var(--ink-soft)}
-  .prop-row .pr-price{font-weight:800;font-size:.92rem;color:var(--teal-dark);margin-top:1px}
-  .prop-row .pr-price .per{font-weight:600;font-size:.76rem;color:var(--ink-soft)}
-  /* תגית העסקה יושבת בשורת המחיר ולא על התמונונת: על 74px היא הייתה מכסה
-     את מה שהיא יושבת עליו. */
-  .prop-row .pr-deal{
-    font-size:.64rem;font-weight:800;padding:2px 7px;border-radius:0;color:#fff;
-    background:var(--teal);margin-inline-start:6px;vertical-align:1px;
-  }
-  .prop-row[data-deal="rent"] .pr-deal{background:var(--deal-rent)}
-  /* הצבע (זהב עם יהלום) מגיע מ-assets/design-system.css, יחד עם סרט
-     "מקודם" של האריח ושל שורת התוצאה — קידום נקרא באתר כשפה אחת. כאן
-     נשארות רק המידות: הסרט הזה יושב על תמונונת ולא על אריח. */
-  .prop-row .pr-promo{
-    position:absolute;inset-inline-start:0;bottom:0;
-    font-size:.56rem;padding:1px 5px;
-  }
-  .prop-row .pr-chev{width:17px;height:17px;flex:none;color:var(--ink-soft)}
   .infeed-ad{
     background:var(--gold-tint);border:1px dashed var(--gold-dark);border-radius:var(--radius-md);
     padding:12px;display:flex;align-items:center;justify-content:center;font-size:.8rem;color:var(--gold-dark);font-weight:700;
-  }
-  @media(max-width:400px){
-    .prop-row{gap:9px;padding:7px 8px}
-    .prop-row .pr-thumb{width:64px;height:54px}
   }
 
   /* ====== Mortgage calculator teaser ======
@@ -2885,6 +2610,7 @@
 </script>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/design-system.css">
+<link rel="stylesheet" href="assets/prop-shelf.css">
 <script src="assets/page-bg.js" data-auto></script>
 <script src="assets/site-footer.js" defer></script>
 </head>
@@ -3593,46 +3319,13 @@
        התגיות המובנות שמעל הגריד נבנות מהמלאי עצמו — מכירה, השכרה, דירות
        לפי מספר חדרים, ושאר סוגי הנכס שיש בפלטפורמה (יחידת דיור, בית
        פרטי, מגרש…) — ולכן אף תגית לא מחזירה תוצאה ריקה.
+
+       המדף עצמו — הכותרת, שורת התגיות, בורר המיון, הגריד וכפתור "עוד
+       נכסים" — נבנה ב-assets/prop-shelf.js לתוך המעטפת הריקה הזו, ואותו
+       מנוע מצייר גם את המדף המסחרי שמתחת, את הנכסים בדף המשרד ואת
+       הנכסים בדף הסוכן/ת. ‏hidden יורד ברגע שיש מלאי.
        ראו renderPrivateProps() ו-docs/home-property-shelves.md. -->
-  <section class="section wrap" id="privateProps" aria-labelledby="privatePropsTitle" hidden>
-    <div class="pp-head">
-      <div class="head-line">
-        <h2 id="privatePropsTitle">נכסים פרטיים<button
-                type="button" class="info-dot" aria-label="מידע על התצוגה"
-                data-info="מכירה והשכרה יחד, מכל משרדי התיווך בעפולה והסביבה — לפי סדר ההעלאה, ובראש שני נכסים מקודמים">i</button></h2>
-      </div>
-      <p class="pp-count" id="ppCount" aria-live="polite"></p>
-    </div>
-
-    <div class="pp-controls">
-      <!-- התגיות נבנות ב-JS מתוך המלאי (renderTags). המעטפת מחזיקה את שני
-           חצי הגלילה ואת מסכות הדהייה בקצוות: השורה גוללת אופקית, ובלי
-           סימן שהיא גוללת נשארה בדסקטופ חצי תגית חתוכה שאי אפשר להגיע
-           אליה — אין שם גלגלת אופקית ואין החלקת אצבע. ראו bindTagsScroller. -->
-      <div class="pp-tags-wrap" data-tags-wrap>
-        <button type="button" class="pp-tags-nav pp-tags-prev" data-tags-dir="start"
-                aria-label="גלילת התגיות אחורה" tabindex="-1" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button>
-        <div class="pp-tags" id="ppTags" role="group" aria-label="תגיות סינון מהירות"></div>
-        <button type="button" class="pp-tags-nav pp-tags-next" data-tags-dir="end"
-                aria-label="גלילת התגיות קדימה" tabindex="-1" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button>
-        <span class="pp-tags-hint" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></span>
-      </div>
-      <label class="pp-sort" for="ppSort">
-        <span>מיון</span>
-        <select id="ppSort">
-          <option value="new">חדשים ראשונים</option>
-          <option value="price-asc">מחיר: מהנמוך לגבוה</option>
-          <option value="price-desc">מחיר: מהגבוה לנמוך</option>
-        </select>
-      </label>
-    </div>
-
-    <div class="pp-grid" id="ppGrid"><!-- populated by JS --></div>
-
-    <div class="pp-more-wrap">
-      <button type="button" class="pp-more" id="ppMore" hidden></button>
-    </div>
-  </section>
+  <section class="section wrap" id="privateProps" hidden></section>
 
   <!-- ====== הסוכן החכם: שמירת חיפוש וקבלת התראות ======
        נפתח מ-#ssaOpenBtn שבכותרת התוצאות ומ-#ssaEmptyBtn שנבנה בקוד כשאין
@@ -3727,43 +3420,11 @@
        אותה תצוגה בדיוק של הנכסים הפרטיים שמעליה, על המלאי המסחרי: גריד
        לפי סדר ההעלאה, שני מקודמים בראש, תגיות מובנות (מכירה/השכרה, וסוגי
        הנכס שיש בפלטפורמה — משרדים, חנויות, מבני תעשייה…), בורר מיון
-       וכפתור "עוד נכסים". שתיהן רצות על createPropShelf(), ולכן שיפור
-       באחת נוחת גם בשנייה. ראו docs/home-property-shelves.md. -->
-  <section class="section wrap" id="commercialProps" aria-labelledby="commercialPropsTitle" hidden>
-    <div class="pp-head">
-      <div class="head-line">
-        <h2 id="commercialPropsTitle">נכסים מסחריים<button
-                type="button" class="info-dot" aria-label="מידע על התצוגה"
-                data-info="משרדים, חנויות, מבני תעשייה ועוד — בעפולה והסביבה, לפי סדר ההעלאה">i</button></h2>
-      </div>
-      <p class="pp-count" id="cpCount" aria-live="polite"></p>
-    </div>
-
-    <div class="pp-controls">
-      <div class="pp-tags-wrap" data-tags-wrap>
-        <button type="button" class="pp-tags-nav pp-tags-prev" data-tags-dir="start"
-                aria-label="גלילת התגיות אחורה" tabindex="-1" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button>
-        <div class="pp-tags" id="cpTags" role="group" aria-label="תגיות סינון מהירות"></div>
-        <button type="button" class="pp-tags-nav pp-tags-next" data-tags-dir="end"
-                aria-label="גלילת התגיות קדימה" tabindex="-1" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></button>
-        <span class="pp-tags-hint" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></span>
-      </div>
-      <label class="pp-sort" for="cpSort">
-        <span>מיון</span>
-        <select id="cpSort">
-          <option value="new">חדשים ראשונים</option>
-          <option value="price-asc">מחיר: מהנמוך לגבוה</option>
-          <option value="price-desc">מחיר: מהגבוה לנמוך</option>
-        </select>
-      </label>
-    </div>
-
-    <div class="pp-grid" id="cpGrid"><!-- populated by JS --></div>
-
-    <div class="pp-more-wrap">
-      <button type="button" class="pp-more" id="cpMore" hidden></button>
-    </div>
-  </section>
+       וכפתור "עוד נכסים". שניהם רצים על PropShelf.create(), ולכן שיפור
+       באחד נוחת גם בשני — וגם בדף המשרד ובדף הסוכן/ת, שמצוירים מאותו
+       מנוע. המדף עצמו נבנה ב-assets/prop-shelf.js לתוך המעטפת הריקה הזו,
+       ו-‎hidden‎ יורד ברגע שיש מלאי. ראו docs/home-property-shelves.md. -->
+  <section class="section wrap" id="commercialProps" hidden></section>
 
   <!-- ====== האנשים מאחורי העסקאות ======
        סקציה אחת במקום שתיים: כאן ישבו קרוסלת משרדי התיווך והבאנר המתקפל
@@ -5604,7 +5265,7 @@ const isPromoted = p => !!p.is_promoted && (!p.promoted_until || new Date(p.prom
    אותה רשימה, אחרת תוצאות חיפוש יורדות לברירות מחדל (גרדיאנט במקום תמונה,
    "עפולה והעמק" במקום הכתובת) ברגע שהמשתמש חיפש. */
 /* created_at נטען אף שהמיון מה-DB כבר עושה בו שימוש: הרשימה חוזרת
-   ממוינת מקודמים-קודם, ומדפי הנכסים (‏newestFirst בתוך createPropShelf)
+   ממוינת מקודמים-קודם, ומדפי הנכסים (‏newestFirst ב-assets/prop-shelf.js)
    צריכים את התאריך עצמו כדי למיין מחדש לפי סדר ההעלאה, בלי הקידום. */
 /* ‏floor, features, video_url ו-tour_3d_url נוספו כדי שאריח הנכס יוכל
    להציג את שורת המאפיינים (חדרים · מ״ר · קומה · חניה), את תגיות הבלעדיות
@@ -5963,7 +5624,7 @@ async function loadCommercialProperties(){
       .order('created_at', { ascending: false })
       .limit(COMMERCIAL_POOL);
     if (error || !data || data.length === 0) throw error || new Error('empty');
-    // הסידור נעשה במדף עצמו (createPropShelf → ordered), כמו בתצוגה
+    // הסידור נעשה במדף עצמו (assets/prop-shelf.js → ordered), כמו בתצוגה
     // הפרטית: מקודמים, עדיפות למדיה וסדר ההעלאה במקום אחד.
     return data.map(p => ({...p, agency_name: p.agencies?.name || '', agency_logo: p.agencies?.logo_url || ''}));
   } catch(e){
@@ -5990,431 +5651,42 @@ async function loadCommercialProperties(){
   commercialShelf.set(items);
 })();
 
-/* ---------- מדף הנכסים: מנוע אחד לשתי התצוגות ----------
+/* ---------- מדפי הנכסים ----------
    "נכסים פרטיים" (מכירה והשכרה יחד, מיד מתחת לרצועת ההדמיות) ו"נכסים
    מסחריים" (מתחת לסקציית משרדי התיווך) הן אותה תצוגה בדיוק על שני מלאים:
    גריד לפי סדר ההעלאה, עד שני נכסים מקודמים בראש, שורת תגיות מובנות
    שנבנית מהמלאי עצמו, בורר מיון וכפתור "עוד נכסים".
 
-   שלושתן החליפו מסלולי גלילה אופקיים (‎.featured-scroll‎) שהציגו
+   שתיהן החליפו מסלולי גלילה אופקיים (‎.featured-scroll‎) שהציגו
    עשרה־שנים־עשר נכסים וקצה חתוך: שתי רצועות למגורים שרק ‎deal_type‎ הבדיל
    ביניהן ועוד אחת מסחרית. סוג העסקה חזר להיות תגית על הנכס במקום מבנה של
    העמוד, ומי שרוצה את כולם כבר לא צריך לגלול הצידה עד הסוף ואז לגלות
    שהמאגר ממשיך.
 
-   ‏createPropShelf() היא כל ההיגיון, והיא מחזירה ‎set(list)‎ ותו לא: מי
-   שקורא לה מביא את הנכסים. שני עותקים של אותן מאתיים שורות היו שני
-   מקומות שבהם צריך לתקן כל באג. */
-
-/* המדף נפתח על **שורה אחת** של נכסים ותו לא: הוא ויטרינה בדף הבית ולא
-   הקטלוג, וכל המאגר יושב ממילא ברשימה שבתחתית העמוד. כמה אריחים יש בשורה
-   נגזר מ-‎--pp-cols‎ של הגריד עצמו (ppCols), ובטלפון "שורה אחת" היא הכרטיס
-   המקודם ואחריו PP_MOBILE_ROWS שורות דחוסות.
-
-   ‏PP_PAGE הוא רק מה ש"עוד נכסים" מוסיף בכל לחיצה — לא מה שנפתח בהתחלה —
-   כדי שלחיצה אחת תיתן נתח אמיתי ולא עוד ארבעה אריחים. */
-const PP_PAGE = 12;
-const PP_MOBILE_ROWS = 2;
-/* שני המקומות הראשונים שמורים לנכסים מקודמים. */
-const PP_PROMOTED = 2;
-/* כמה תגיות "סוג נכס" מוצגות לכל היותר. מעבר לזה שורת התגיות מתחילה
-   להתחרות בנכסים עצמם על גובה המסך. */
-const PP_KIND_TAGS_MAX = 8;
-
-/* ---------- טלפון: ויטרינה אחת ואחריה שתי שורות ----------
-   אריח כיסוי ברוחב מסך מלא הוא כשליש ממסך טלפון, וגריד של עשרה כאלה הוא
-   עשר גלילות. אבל אריח אחד כזה בראש הוא בדיוק מה שמושך את העין לתצוגה —
-   ולכן הראשון נשאר כרטיס מלא, ואחריו PP_MOBILE_ROWS שורות של propRow():
-   אותה שורה דחוסה של רשימת הנכסים שבתחתית העמוד (תמונונת, שלוש שורות,
-   סרט "מקודם" ותגית העסקה). הכרטיס ושתי השורות נכנסים יחד למסך טלפון
-   אחד, והנכס המקודם השני — שנופל בדיוק לשורה הראשונה שאחרי הכרטיס — מקבל
-   את הסרט שלו גם בצורה הדחוסה.
-
-   שתיים ולא שלוש: בעמוד יש שני מדפים כאלה (פרטיים ומסחריים), וכל שורה
-   נוספת בכל אחד מהם היא עוד חצי מסך גלילה לפני משרדי התיווך והכתבות. מי
-   שרוצה עוד — "עוד נכסים" מוסיף PP_PAGE בלחיצה, והמאגר כולו במרחק תגית.
-
-   ‏matchMedia ולא נקודת שבירה ב-CSS: אלה שני markup-ים שונים ולא אותו
-   markup בשני גדלים, ולכן הבחירה נעשית בזמן הציור.
-
-   ‏PP_MQ מחזיקה את אותן נקודות שבירה של ‎--pp-cols‎ ב-CSS, והמדף מצויר מחדש
-   בחצייה של כל אחת מהן — כדי ששורה אחת תישאר שורה אחת גם אחרי סיבוב מכשיר
-   או שינוי גודל חלון, ולא שורה וחצי. */
-const PP_MQ = [
-  window.matchMedia('(max-width:520px)'),
-  window.matchMedia('(max-width:820px)'),
-  window.matchMedia('(max-width:1100px)'),
-];
-const ppNarrow = PP_MQ[0];
-
-/* כמה אריחים נכנסים לשורה אחת. הערך נקרא מהגריד עצמו ולא מרשימת נקודות
-   שבירה מקבילה ב-JS: עותק שני נפרד מה-CSS בפעם הראשונה שמישהו משנה שם
-   מספר, והתוצאה היא שורה וחצי. */
-function ppCols(grid){
-  const n = grid ? parseInt(getComputedStyle(grid).getPropertyValue('--pp-cols'), 10) : NaN;
-  return (isFinite(n) && n > 0) ? n : 4;
-}
-
-function ppTypeOf(p){ return String((p && p.property_type) || '').trim(); }
-
-/* 4.0 → "4", 3.5 נשאר 3.5 — אותה נורמליזציה של שורת המאפיינים באריח */
-function ppRoomsKey(p){
-  const n = Number(p && p.rooms);
-  if (!isFinite(n) || n <= 0) return '';
-  return String(Math.round(n * 10) / 10);
-}
-
-/* ---------- גלילת שורת התגיות ----------
-   שורת התגיות היא שורה אחת שגוללת אופקית (ראו ‎.pp-tags‎ ב-CSS). מה שחסר
-   היה לא הגלילה אלא הסימן שהיא קיימת: בדסקטופ אין גלגלת אופקית, ולכן
-   התגית שנחתכה בקצה הייתה בלתי-נגישה; בטלפון ההחלקה עובדת, אבל אף אחד לא
-   ניחש שיש לאן.
-
-   ‏data-can-start/‎data-can-end על המעטפת הם המקור היחיד לאמת: הם מדליקים
-   את הדהייה, את החצים ואת הרמז, וכולם כבים כשכל התגיות נכנסות במסך.      */
-function bindTagsScroller(box){
-  const wrap = box && box.closest('.pp-tags-wrap');
-  if (!wrap) return { refresh(){} };
-
-  // ב-RTL הדפדפנים המודרניים מודדים ‎scrollLeft‎ כשלילי ככל שגוללים אל
-  // הקצה. ‏sign הופך את שני המקרים למרחק *מההתחלה*, שהוא מה שנמדד כאן.
-  const sign = getComputedStyle(box).direction === 'rtl' ? -1 : 1;
-  const pos = () => box.scrollLeft * sign;
-  const max = () => box.scrollWidth - box.clientWidth;
-
-  function refresh(){
-    const overflow = max() > 1;
-    wrap.toggleAttribute('data-can-start', overflow && pos() > 1);
-    wrap.toggleAttribute('data-can-end',   overflow && pos() < max() - 1);
-    // ‏hidden ולא רק CSS: כפתור שאין לאן לגלול איתו לא צריך להיות ב-DOM
-    // הנגיש. הוא ממילא ‎tabindex="-1"‎ — הגלילה עצמה אינה תחנת מקלדת,
-    // והתגיות שאחריה כן.
-    wrap.querySelector('.pp-tags-prev').hidden = !wrap.hasAttribute('data-can-start');
-    wrap.querySelector('.pp-tags-next').hidden = !wrap.hasAttribute('data-can-end');
-  }
-
-  wrap.querySelectorAll('.pp-tags-nav').forEach(btn=>{
-    btn.addEventListener('click', ()=>{
-      // כ-‎70%‎ מהרוחב הנראה: מספיק כדי להתקדם, ומעט מכדי לדלג על תגית
-      const step = Math.max(box.clientWidth * 0.7, 120);
-      box.scrollBy({ left: sign * step * (btn.dataset.tagsDir === 'end' ? 1 : -1), behavior:'smooth' });
-    });
-  });
-
-  box.addEventListener('scroll', refresh, { passive:true });
-  window.addEventListener('resize', refresh);
-
-  /* הרמז בטלפון: דחיפה קטנה של השורה וחזרה, פעם אחת, ברגע שהיא נכנסת
-     לתצוגה. זה מה שהופך "יש כאן עוד תגיות" ממשהו שצריך לנחש למשהו שרואים.
-     רק במסך מגע (בדסקטופ יש חצים), רק כשיש באמת לאן לגלול, ורק פעם אחת —
-     תזוזה שחוזרת בכל גלילה היא רעש. */
-  const coarse = window.matchMedia('(hover:none),(pointer:coarse)');
-  const calm   = window.matchMedia('(prefers-reduced-motion:reduce)');
-  let hinted = false;
-  function nudgeTags(){
-    if (hinted || !coarse.matches || !wrap.hasAttribute('data-can-end')) return;
-    hinted = true;
-    wrap.classList.add('is-hinting');
-    if (calm.matches) return;             // החץ מוצג, בלי תנועה
-    box.scrollBy({ left: sign * 34, behavior:'smooth' });
-    setTimeout(()=> box.scrollTo({ left:0, behavior:'smooth' }), 460);
-  }
-
-  if ('IntersectionObserver' in window){
-    const io = new IntersectionObserver((entries)=>{
-      entries.forEach(entry=>{
-        if (!entry.isIntersecting) return;
-        refresh();
-        nudgeTags();
-        if (hinted) io.disconnect();
-      });
-    }, { threshold:0.6 });
-    io.observe(wrap);
-  }
-
-  return { refresh };
-}
-
-/* ‏cfg: מזהי ה-DOM של המדף, סוג הנכס שמתפצל לפי חדרים (‏roomsType), ושתי
-   פונקציות טקסט — כותרת המונה והודעת "אין תוצאות". */
-function createPropShelf(cfg){
-  // shown:0 = "מה שנפתח בהתחלה" — שורה אחת, שמחושבת בזמן הציור לפי הרוחב
-  // הנוכחי. לחיצה על "עוד נכסים" קובעת מספר מפורש שגדול ממנה.
-  const state = { all: [], tags: new Set(), sort: 'new', shown: 0 };
-  let tags = [], byKey = new Map();
-  const $ = id => document.getElementById(id);
-  const tagsScroller = bindTagsScroller($(cfg.tags));
-
-  /* ---------- התגיות המובנות ----------
-     שתי קבוצות. **עסקה** — מכירה/השכרה, מה שהפרדת הרצועות אמרה קודם בלי
-     שאפשר היה לבטל אותה. **סוג נכס** — נבנית מהמלאי עצמו ולא מרשימה
-     קשיחה: בתצוגה הפרטית "דירה" מתפצלת לפי מספר חדרים ("דירות 4 חד׳"),
-     וכל סוג אחר נכנס בשמו ("יחידת דיור", "בית פרטי/קוטג׳", "מגרש",
-     "משרדים", "חנויות/שטח מסחרי"…). תגית שאין מאחוריה ולו נכס אחד פשוט
-     לא נבנית, ולכן אין כאן לחיצה שמחזירה רשימה ריקה.
-
-     קבוצה שנשארה עם תגית אחת יורדת כולה: תגית שמסמנת את *כל* המלאי לא
-     מסננת כלום, והיא רק תופסת שורה ומזמינה לחיצה שלא משנה דבר.
-
-     בתוך קבוצה התגיות מצטברות (מכירה *או* השכרה), ובין הקבוצות הן
-     מצטלבות (השכרה *וגם* 3 חדרים) — ההתנהגות שכל שורת סינון מתנהגת בה.
-
-     ‏הספירה שעל התגית היא מתוך כל מלאי המדף ולא מתוך התוצאה הנוכחית:
-     מספר שמשתנה בכל לחיצה מפסיק לענות על השאלה שבגללה מסתכלים עליו. */
-  function buildTags(){
-    const list = state.all;
-
-    const deals = [
-      { key:'sale', group:'deal', label:'מכירה', test: p => p.deal_type !== 'rent' },
-      { key:'rent', group:'deal', label:'השכרה', test: p => p.deal_type === 'rent' },
-    ].map(t => ({ ...t, count: list.filter(t.test).length })).filter(t => t.count > 0);
-
-    const rooms = new Map();   // '4' → כמה דירות 4 חדרים
-    const types = new Map();   // 'יחידת דיור' → כמה
-    list.forEach(p => {
-      const type = ppTypeOf(p);
-      const key = ppRoomsKey(p);
-      if (cfg.roomsType && type === cfg.roomsType && key){
-        rooms.set(key, (rooms.get(key) || 0) + 1);
-      } else if (type){
-        types.set(type, (types.get(type) || 0) + 1);
-      }
-    });
-
-    const roomTags = [...rooms.entries()]
-      .sort((a, b) => Number(a[0]) - Number(b[0]))
-      .map(([key, count]) => ({
-        key: 'rooms:' + key, group:'kind', label: `${cfg.roomsLabel} ${key} חד׳`, count,
-        test: p => ppTypeOf(p) === cfg.roomsType && ppRoomsKey(p) === key,
-      }));
-
-    const typeTags = [...types.entries()]
-      .sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0]), 'he'))
-      .map(([type, count]) => ({
-        key: 'type:' + type, group:'kind', label: type, count,
-        test: p => ppTypeOf(p) === type,
-      }));
-
-    /* החדרים קודם — הם השאלה הראשונה של מי שמחפש דירה — ושאר הסוגים
-       ממלאים את מה שנשאר עד התקרה, לפי כמה מהם יש. */
-    const kinds = roomTags.concat(typeTags).slice(0, PP_KIND_TAGS_MAX);
-
-    tags = [].concat(deals.length > 1 ? deals : [], kinds.length > 1 ? kinds : []);
-    byKey = new Map(tags.map(t => [t.key, t]));
-    // תגית שנעלמה מהמלאי (הנכס האחרון שלה ירד) לא נשארת דלוקה בשקט
-    state.tags = new Set([...state.tags].filter(k => byKey.has(k)));
-  }
-
-  function matches(p){
-    const byGroup = new Map();
-    state.tags.forEach(key => {
-      const tag = byKey.get(key);
-      if (!tag) return;
-      if (!byGroup.has(tag.group)) byGroup.set(tag.group, []);
-      byGroup.get(tag.group).push(tag);
-    });
-    for (const group of byGroup.values()){
-      if (!group.some(t => t.test(p))) return false;
-    }
-    return true;
-  }
-
-  /* הסדר: סדר ההעלאה (החדשים ראשונים), עדיפות למי שיש לו מה להראות,
-     ובראש הכול עד שני נכסים מקודמים.
-
-     ‏sortByMedia הוא מה שמפריד בין "לפי סדר ההעלאה" לבין דף בית שמתחיל
-     בשלושה ממלאי־מקום: סרטון קודם לתמונות, תמונות קודמות לאין־תמונה. הוא
-     מיון *יציב*, ולכן בתוך כל דרגת מדיה סדר ההעלאה נשמר במלואו — כלומר זו
-     העדפה בתצוגה ולא דירוג מחדש של המלאי. נכס בלי תמונה עדיין מוצג, בסוף.
-
-     הקידום מוצמד לראש אחרי כן, ולכן הוא גובר גם על תמונה — זה מה שנקנה.
-
-     במיון לפי מחיר אין אף אחת משתי השכבות האחרונות: רשימה שמתחילה במחיר
-     הגבוה ביותר כשביקשו "מהנמוך לגבוה" היא רשימה שבורה, וגם נכס בתשלום
-     לא שווה את זה. שתיהן חוזרות במיון ברירת המחדל. */
-  function ordered(){
-    const list = state.all.filter(matches);
-
-    if (state.sort === 'price-asc' || state.sort === 'price-desc'){
-      const dir = state.sort === 'price-asc' ? 1 : -1;
-      const value = p => { const n = Number(p.price); return (isFinite(n) && n > 0) ? n : null; };
-      // "לפי בקשה" יורד לסוף בשני הכיוונים: הוא לא המחיר הנמוך ביותר, הוא
-      // היעדר מחיר.
-      return [...list].sort((a, b)=>{
-        const x = value(a), y = value(b);
-        if (x === null || y === null) return (x === null) - (y === null);
-        return (x - y) * dir;
-      });
-    }
-
-    const pool = PropertyCard.sortByMedia(newestFirst(list));
-    const promoted = pool.filter(isPromoted).slice(0, PP_PROMOTED);
-    const promotedIds = new Set(promoted.map(p => p.id));
-    return [...promoted, ...pool.filter(p => !promotedIds.has(p.id))];
-  }
-
-  function renderTags(){
-    const box = $(cfg.tags);
-    if (!box) return;
-    box.innerHTML = '';
-
-    /* "ניקוי הכל" בתחילת השורה ולא בסופה: השורה גוללת, וכפתור שמבטל את
-       הסינון שיושב אחרי שתים-עשרה תגיות הוא כפתור שצריך לחפש. */
-    if (state.tags.size){
-      const clear = document.createElement('button');
-      clear.type = 'button';
-      clear.className = 'pp-clear';
-      clear.textContent = '✕ ניקוי הכל';
-      box.appendChild(clear);
-    }
-
-    tags.forEach(tag=>{
-      const on = state.tags.has(tag.key);
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'pp-tag';
-      btn.dataset.ppTag = tag.key;
-      btn.setAttribute('aria-pressed', String(on));
-      // ה-✕ על תגית דלוקה הוא מה שאומר שאפשר לכבות אותה. הוא אינו כפתור
-      // נפרד — כל התגית היא שטח הלחיצה שמסיר את הסינון — ולכן
-      // ‎aria-hidden‎: מקריא מסך כבר שומע "לחוץ" מ-‎aria-pressed‎.
-      btn.innerHTML = `${escAttr(tag.label)}` +
-        `<span class="pp-tag-n">${tag.count.toLocaleString('he-IL')}</span>` +
-        (on ? '<span class="pp-tag-x" aria-hidden="true">✕</span>' : '');
-      btn.title = on ? `הסרת הסינון "${tag.label}"` : `סינון לפי "${tag.label}"`;
-      box.appendChild(btn);
-    });
-
-    // אחרי כל ציור: מספר התגיות והרוחב שלהן השתנו, ואיתם מה שיש לאן לגלול
-    tagsScroller.refresh();
-  }
-
-  /* מדף בלי נכסים יורד לגמרי, כמו שהרצועות ירדו לפניו: כותרת מעל גריד
-     ריק נראית כמו תקלה, ובעפולה יש ימים שאין בהם ולו נכס מסחרי אחד. */
-  function renderGrid(){
-    const section = $(cfg.section), grid = $(cfg.grid);
-    const countEl = $(cfg.count), more = $(cfg.more);
-    if (!section || !grid) return;
-
-    section.hidden = !state.all.length;
-    if (!state.all.length) return;
-
-    const items = ordered();
-    const shown = items.slice(0, limit());
-
-    grid.innerHTML = '';
-    if (!items.length){
-      const empty = document.createElement('p');
-      empty.className = 'pp-empty';
-      empty.textContent = 'אין נכסים שמתאימים לתגיות שנבחרו.';
-      grid.appendChild(empty);
-    } else {
-      const compact = ppNarrow.matches;
-      shown.forEach((p, i)=> grid.appendChild(
-        (compact && i > 0) ? propRow(p) : propCard(p, i)));
-    }
-
-    if (countEl){
-      countEl.textContent = cfg.countText(items.length, state.all.length);
-    }
-
-    if (more){
-      const rest = items.length - shown.length;
-      more.hidden = rest <= 0;
-      // המספר על הכפתור הוא מה שהלחיצה תוסיף, ולא הזנב כולו: כפתור
-      // שמבטיח "עוד 62 נכסים" ומוסיף שנים־עשר משקר פעם אחת לכל לחיצה.
-      more.textContent = `עוד ${Math.min(rest, PP_PAGE).toLocaleString('he-IL')} נכסים`;
-    }
-  }
-
-  /* כמה אריחים לצייר עכשיו. הרצפה היא תמיד שורה אחת מלאה ברוחב הנוכחי,
-     ומעליה יושב מה שלחיצות "עוד נכסים" הוסיפו. */
-  function firstPage(){
-    return ppNarrow.matches ? (1 + PP_MOBILE_ROWS) : ppCols($(cfg.grid));
-  }
-  function limit(){
-    const first = firstPage();
-    return state.shown > first ? state.shown : first;
-  }
-
-  /* כל שינוי בסינון או במיון מחזיר לעמוד הראשון: "עוד נכסים" שנלחץ לפני
-     הסינון היה משאיר גריד ארוך של תוצאות אחרות. */
-  function reset(){ state.shown = 0; }
-
-  // המאזינים נקשרים פעם אחת לקונטיינרים שקיימים ב-HTML, ולא לכפתורים
-  // שנבנים מחדש בכל ציור.
-  $(cfg.tags)?.addEventListener('click', (e)=>{
-    if (e.target.closest('.pp-clear')){
-      state.tags.clear();
-    } else {
-      const btn = e.target.closest('.pp-tag');
-      if (!btn) return;
-      const key = btn.dataset.ppTag;
-      if (state.tags.has(key)) state.tags.delete(key);
-      else state.tags.add(key);
-    }
-    reset();
-    renderTags();
-    renderGrid();
-  });
-
-  $(cfg.sort)?.addEventListener('change', (e)=>{
-    state.sort = e.target.value;
-    reset();
-    renderGrid();
-  });
-
-  $(cfg.more)?.addEventListener('click', ()=>{
-    state.shown = limit() + PP_PAGE;
-    renderGrid();
-  });
-
-  /* חצייה של נקודת שבירה (סיבוב מכשיר, שינוי גודל חלון) מציירת מחדש: גם
-     כדי שלא יישאר גריד של שורות דחוסות ברוחב דסקטופ, וגם כדי שהשורה
-     הראשונה תמשיך למלא בדיוק עמודה־עמודה. ‏addListener הוא הנפילה־לאחור
-     ל-Safari שלפני 14, שבו ל-MediaQueryList אין addEventListener. */
-  PP_MQ.forEach(mq=>{
-    if (mq.addEventListener) mq.addEventListener('change', ()=> renderGrid());
-    else if (mq.addListener) mq.addListener(()=> renderGrid());
-  });
-
-  return {
-    set(list){
-      state.all = Array.isArray(list) ? list : [];
-      buildTags();
-      renderTags();
-      renderGrid();
-    },
-    /* הדלקת תגית מבחוץ (עוגן הפוטר). מחזירה false כשאין תגית כזו במלאי,
-       כדי שהעוגן לא יגלול לתצוגה שלא השתנתה. */
-    selectTag(key){
-      if (!byKey.has(key)) return false;
-      state.tags = new Set([key]);
-      reset();
-      renderTags();
-      renderGrid();
-      return true;
-    },
-  };
-}
-
-const privateShelf = createPropShelf({
-  section:'privateProps', count:'ppCount', tags:'ppTags', sort:'ppSort',
-  grid:'ppGrid', more:'ppMore',
+   כל ההיגיון יושב ב-assets/prop-shelf.js — ‏PropShelf.create() בונה את
+   המדף לתוך המעטפת שנמסרת לו ומחזיר ‎set(list)‎: מי שקורא לה מביא את
+   הנכסים. אותו קובץ מצייר גם את הנכסים בדף המשרד ובדף הסוכן/ת, שם ישבו
+   עד כה שלוש רצועות נגללות משלהם — שלושה עותקים של אותן מאתיים שורות היו
+   שלושה מקומות שבהם צריך לתקן כל באג. */
+const privateShelf = PropShelf.create({
+  mount:'privateProps', titleId:'privatePropsTitle', title:'נכסים פרטיים',
+  info:'מכירה והשכרה יחד, מכל משרדי התיווך בעפולה והסביבה — לפי סדר ההעלאה, ובראש שני נכסים מקודמים',
   // רק בתצוגה הפרטית: "דירה" מתפצלת לתגיות לפי מספר חדרים. ‏roomsLabel
   // נכתב במפורש ולא נגזר מ-roomsType — "דירה" + "ות" הוא "דירהות".
   roomsType:'דירה', roomsLabel:'דירות',
+  sortId:'ppSort',
   countText: (shown, total) => (shown === total)
     ? `${total.toLocaleString('he-IL')} נכסים למכירה ולהשכרה בעפולה והעמק`
     : `${shown.toLocaleString('he-IL')} מתוך ${total.toLocaleString('he-IL')} נכסים`,
 });
 
-const commercialShelf = createPropShelf({
-  section:'commercialProps', count:'cpCount', tags:'cpTags', sort:'cpSort',
-  grid:'cpGrid', more:'cpMore',
+const commercialShelf = PropShelf.create({
+  mount:'commercialProps', titleId:'commercialPropsTitle', title:'נכסים מסחריים',
+  info:'משרדים, חנויות, מבני תעשייה ועוד — בעפולה והסביבה, לפי סדר ההעלאה',
   // אין כאן פיצול לפי חדרים: "משרד 3 חדרים" הוא לא הנתון שמחפשים בו נכס
   // מסחרי — שם השאלה היא מ״ר וסוג הנכס.
   roomsType:'', roomsLabel:'',
+  sortId:'cpSort',
   countText: (shown, total) => (shown === total)
     ? `${total.toLocaleString('he-IL')} נכסים מסחריים בעפולה והסביבה`
     : `${shown.toLocaleString('he-IL')} מתוך ${total.toLocaleString('he-IL')} נכסים`,
@@ -8313,7 +7585,10 @@ try {
       // מפורסמת — ולא את כל ההדמיות שבמסד, שרובן שייכות למודעות שכבר ירדו
       heroStatsState.ai = ids.size;
       renderHeroStats();
-      renderPrivateProps(properties);
+      // המדפים מחזיקים עותק משלהם של הקבוצה (הם מציירים את האריח), ולכן
+      // הם מקבלים אותה במפורש במקום לקרוא את המשתנה של העמוד
+      privateShelf.setVisualized(ids);
+      commercialShelf.setVisualized(ids);
       if (!searchHasRun) renderPropertyGrid(properties);
     });
   })();
@@ -9481,97 +8756,11 @@ function renderPropertyGrid(properties, isSearchResult){
   renderSearchRows(properties, isSearchResult);
 }
 
-/* הרשימה חוזרת מה-DB ממוינת מקודמים-קודם, ולכן נכס מקודם ישן היה נכנס
-   ל"החדשים ביותר" לפני נכס חדש שלא שולם עליו. כאן היא ממוינת לפי
-   created_at בלבד; ‏Array.sort יציב ב-JS מודרני, כך שרשומות בלי תאריך
-   (נתוני ה-fallback) שומרות על סדר המקור. */
-const newestFirst = list => [...list].sort((a,b)=>
-  (Date.parse(b.created_at || '') || 0) - (Date.parse(a.created_at || '') || 0));
-
-/* ---------- אריח הנכס ----------
-   עד כה כל תצוגה בעמוד ציירה אריח משלה: הרצועות, הגריד, המסחרי והמקודמים
-   — ארבע פונקציות כמעט זהות שנבדלו בעיקר בשורת המטא. הן אוחדו לכאן, כי
-   ארבע גרסאות של אותו אריח פירושן ששיפור אחד נוחת רק באחת מהן.
-
-   המחיר, שורת המאפיינים והתגיות שעל התמונה מגיעים מ-assets/property-card.js,
-   ולכן הם זהים גם לדף המשרד ולדף הסוכן/ת. */
-function propCard(p, i){
-  const el = document.createElement('div');
-  el.className = 'prop-card pc-cover';
-  el.style.cursor = 'pointer';
-  el.innerHTML = `
-    <div class="thumb" style="${thumbStyle(p, i)}">
-      ${thumbFallback(p)}
-      ${PropertyCard.coverVideoHtml(p)}
-      ${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}
-      ${PropertyCard.badgesHtml(p, { aiViz: visualizedProps.has(p.id), photo: hasPhoto(p) })}
-      ${PropertyCard.mediaHtml(p)}
-    </div>
-    <div class="body">
-      ${PropertyCard.priceHtml(p)}
-      ${PropertyCard.titleHtml(p)}
-      ${PropertyCard.whereHtml(p)}
-      ${PropertyCard.factsHtml(p)}
-    </div>`;
-  el.addEventListener('click', ()=> window.location.href = 'property.html?id=' + p.id);
-  return el;
-}
-
-/* ---------- שורת הנכס ברשימה שבתחתית העמוד ----------
-   האריח שלמעלה הוא ויטרינה: הוא מוכר נכס אחד בכל פעם, ולכן התמונה בו
-   היא הכרטיס. הרשימה כאן היא ההפך — כל המאגר, וכלי לסרוק אותו — ואריח
-   כיסוי בגובה שליש מסך פירושו שלושה נכסים למסך ועשרים מסכים על שישים
-   מודעות.
-
-   שלוש שורות ותמונונת, בדיוק כמו "הנכסים שלי" ב-CRM:
-     ‏1. סוג הנכס והשכונה — מה זה ואיפה
-     ‏2. חדרים, שטח וקומה — המספרים שמסננים
-     ‏3. המחיר, ולצידו תגית העסקה
-
-   השורה כולה היא הקישור ולא כפתור בקצה: שטח נגיעה של 74px על 400px גדול
-   פי כמה מכפתור, וה-‎<a>‎ נותן גם פתיחה בלשונית חדשה ותפריט הקשר, שני
-   דברים שכרטיס עם מאזין click לא נתן מעולם. החץ הוא הסימן שזה קישור. */
-function propRow(p){
-  const el = document.createElement('a');
-  el.className = 'prop-row';
-  el.href = 'property.html?id=' + encodeURIComponent(p.id);
-  // התגית אומרת מכירה או השכרה, ולכן גם הגוון שלה נגזר מזה בלבד. גוון
-  // "מסחרי" על תגית שכתוב בה "למכירה" הוא שני מסרים באותו מקום, ומסחריות
-  // ממילא כתובה בשורה הראשונה ("חנויות/שטח מסחרי", "משרדים").
-  el.setAttribute('data-deal', p.deal_type === 'rent' ? 'rent' : 'sale');
-
-  const hood = p.neighborhood_name || p.city || '';
-  const what = [p.property_type, hood].filter(Boolean).join(' · ');
-
-  // אותם מאפיינים ובאותו סדר של האריח, כדי ששתי התצוגות לא יספרו סיפור שונה
-  const facts = [];
-  if (p.rooms) facts.push(`${Math.round(Number(p.rooms) * 10) / 10} חד׳`);
-  if (p.size_sqm) facts.push(`${Number(p.size_sqm).toLocaleString('he-IL')} מ״ר`);
-  if (p.floor !== null && p.floor !== undefined && p.floor !== ''){
-    facts.push(Number(p.floor) === 0 ? 'קומת קרקע' : `קומה ${p.floor}`);
-  }
-  if (PropertyCard.hasFeature(p, 'parking')) facts.push('חניה');
-
-  const price = Number(p.price);
-  const priceText = (isFinite(price) && price > 0)
-    ? `₪${price.toLocaleString('he-IL')}${p.deal_type === 'rent' ? '<span class="per"> לחודש</span>' : ''}`
-    : 'לפי בקשה';
-  const deal = p.deal_type === 'rent' ? 'להשכרה' : 'למכירה';
-
-  el.innerHTML = `
-    <span class="pr-thumb" style="${thumbStyle(p)}">
-      ${thumbFallback(p)}
-      ${isPromoted(p) ? '<span class="pr-promo">מקודם</span>' : ''}
-    </span>
-    <span class="pr-main">
-      <span class="pr-line pr-what">${escAttr(what)}</span>
-      <span class="pr-line pr-facts">${escAttr(facts.join(' · '))}</span>
-      <span class="pr-line pr-price">${priceText}<span class="pr-deal">${deal}</span></span>
-    </span>
-    <svg class="pr-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-         stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>`;
-  return el;
-}
+/* ‏newestFirst, אריח הנכס (‏propCard) והשורה הדחוסה (‏propRow) עברו
+   ל-assets/prop-shelf.js: שלוש התצוגות שהשתמשו בהם — שני המדפים כאן,
+   הנכסים בדף המשרד והנכסים בדף הסוכן/ת — מצוירות היום מאותו מנוע.
+   ‏thumbStyle/thumbFallback נשארו כאן, כי שורות התוצאות ובלוני המפה
+   עדיין משתמשים בהם. */
 
 /* חזרה מתוצאות החיפוש אל כל הנכסים שבמאגר. בלי כפתור כזה אין דרך לבטל
    חיפוש חוץ מרענון העמוד: חיפוש ריק הוא עדיין חיפוש (הוא מסונן לפי סוג
