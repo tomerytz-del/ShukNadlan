@@ -45,6 +45,14 @@
     /* האקסנט כתגית שמונחת על תמונה: חצי־שקוף איפה שיש color-mix, אטום אחרת */
     --accent-veil:var(--accent);
     --teal:var(--brand); --teal-dark:var(--brand-dark); --gold:var(--accent); --gold-dark:var(--accent-dark);
+    /* ‏--lead-mark: הגוון שנושא "נבחר" בתוך באנרי הלידים — השבב הנבחר,
+       הנקודה של השלב הפעיל, עיגול הסיום והכפתור הראשי. הוא *לא* פשוט
+       ‎--accent‎, כי הרצועה עצמה צבועה ב---brand: אצל משרד ששני הגוונים
+       שלו קרובים — וברירת המחדל כאן היא ששניהם זהים — הסימון היה נצבע
+       בדיוק בצבע הרקע שמאחוריו, ו"נבחר" נראה כמו "לא נבחר". ברירת המחדל
+       היא לכן הגוון המשני המבהיר, שנקרא על כל רצועה כהה; ‏applyBranding
+       מעלה אותו לאקסנט עצמו כשהוא באמת נבדל מהראשי (2:1 ומעלה). */
+    --lead-mark:var(--gold-tint); --lead-mark-ink:var(--accent-ink);
     --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(14,42,107,.08); --maxw:1000px;
 
     /* ====== שכבת העיצוב 2026 ======
@@ -863,6 +871,114 @@
     background:rgba(0,0,0,.18);border-radius:0;padding:10px 12px;margin-bottom:4px;
   }
   .buy-recap:empty{display:none}
+
+  /* ---------- שכבת העומק של באנרי הלידים ----------
+     עד כאן כל מה שבתוך הבאנר ישב על אותו משטח שטוח: שורת ההזמנה, כרטיס
+     האשף, השבבים וה-CTA — כולם על אותו כהה, ונבדלים זה מזה רק בקו מסגרת
+     של 30% לבן. אצל משרד שבחר ראשי ומשני קרובים בגוון — וזה הרוב, ספיר
+     על ספיר — כל הרצועה נקראת כקיר אחד: שבב שלא נבחר כמעט אינו נראה,
+     כרטיס האשף אינו נקרא ככרטיס, והכותרת נמשכת אל תוך הטופס.
+
+     ארבע שכבות מפרידות ביניהם *בלי* לגעת בגוונים שהמשרד בחר — כולן לבן
+     או שחור שקופים שמונחים מעל הגוון עצמו, ולכן הן עובדות בכל ערכה:
+       1. **הפרדה בין הכותרת לאשף** — שורת ההזמנה הפתוחה עולה (לבן 6%),
+          הפאנל שמתחתיה שוקע (שחור 14%), וקו דק מפריד ביניהם.
+       2. **לכרטיס האשף יש גוף** — מדרג לבן קל, מסגרת חזקה יותר וצל.
+       3. **לשבב שלא נבחר יש מילוי** — 9% לבן ומסגרת 42%, במקום שקוף לגמרי
+          עם מסגרת 30% שנבלעת ברקע.
+       4. **לשבב שנבחר יש ✓** — סימון שנקרא גם כשהמילוי הנבחר קרוב בגוון
+          לרקע, ובמקביל ה-CTA מקבל צל שמרים אותו מעל השבבים: שניהם נצבעים
+          ב---gold-tint אצל חלק מהמשרדים, ובלי המדרג הזה "נבחר" ו"להמשך"
+          נראים אותו כפתור בדיוק. */
+  /* כל מה שמסומן בתוך הבאנר עובר דרך ‎--lead-mark‎ ולא דרך ‎--gold‎ ישירות:
+     שתי השורות האלה מחליפות את הגוון פעם אחת עבור כל הכללים שכבר כתובים
+     מעליהן — הטוגל הפעיל, השבב הנבחר, הנקודה, עיגול הסיום וטבעת השגיאה. */
+  .lead-banner{
+    --gold:var(--lead-mark); --on-accent-fill:var(--lead-mark-ink);
+    position:relative;isolation:isolate;
+  }
+  /* ברק רך בפינה: הרצועה מפסיקה להיות מלבן צבע אחיד. ‏z-index:-1 בתוך
+     ה-‎isolation‎ של הבאנר — מעל הרקע שלו עצמו, מתחת לכל תוכן שבו. */
+  .lead-banner::before{
+    content:"";position:absolute;inset:0;pointer-events:none;z-index:-1;
+    background:radial-gradient(120% 125% at 85% -25%,rgba(255,255,255,.14),rgba(255,255,255,0) 55%);
+  }
+  .lead-banner.is-open .lead-teaser{
+    background:rgba(255,255,255,.06);
+    border-bottom:1px solid rgba(255,255,255,.14);
+  }
+  .lead-banner .lead-teaser-icon{background:rgba(255,255,255,.16);border-color:rgba(255,255,255,.32)}
+  .lead-banner .lead-panel{
+    background:rgba(0,0,0,.14);
+    box-shadow:inset 0 12px 22px -16px rgba(0,0,0,.6);
+  }
+  .lead-banner .owner-wizard{
+    background:linear-gradient(180deg,rgba(255,255,255,.13),rgba(255,255,255,.06));
+    border-color:rgba(255,255,255,.24);
+    box-shadow:0 18px 38px rgba(0,0,0,.26),inset 0 1px 0 rgba(255,255,255,.14);
+  }
+  .lead-banner .wiz-steps li{border-bottom-color:rgba(255,255,255,.2)}
+  .lead-banner .wiz-steps li:not(.active):not(.done){color:rgba(255,255,255,.62)}
+  /* הילה לנקודת השלב הפעיל, כדי שתיקרא גם כשהגוון שבו היא צבועה קרוב
+     לגוון הרצועה שמאחוריה */
+  .lead-banner .wiz-steps li.active .dot{box-shadow:0 0 0 3px rgba(255,255,255,.16)}
+  /* ‏:not(...) ולא כלל שטוח: כלל על ‎.lead-banner .chip‎ לבדו גובר
+     בסלקטיביות על ‎.owner-toggle button.active‎ — ומכבה את הסימון עצמו. */
+  .lead-banner .chip:not([aria-checked="true"]):not([aria-pressed="true"]),
+  .lead-banner .lead-toggle button:not(.active),
+  .lead-banner .owner-toggle button:not(.active){
+    background:rgba(255,255,255,.09);border-color:rgba(255,255,255,.42);
+    transition:background .15s ease,border-color .15s ease;
+  }
+  .lead-banner .chip:not([aria-checked="true"]):not([aria-pressed="true"]):hover,
+  .lead-banner .lead-toggle button:not(.active):hover,
+  .lead-banner .owner-toggle button:not(.active):hover{
+    background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.6);
+  }
+  .lead-banner .chip[aria-checked="true"]::before,
+  .lead-banner .chip[aria-pressed="true"]::before{content:"✓";font-weight:800;margin-inline-end:6px}
+  /* טבעת בהירה סביב כל מה שנבחר, ולא רק מילוי בגוון: ברירת המחדל של
+     ‎:root‎ היא ‎--brand‎ ו---accent זהים, ואצל משרד שלא בחר גוון משני
+     המילוי הנבחר הוא בדיוק צבע הרצועה שמתחתיו. הטבעת (וה-✓ שמעליה)
+     מחזיקים את הסימון גם שם, בלי לוותר על הגוון אצל מי שכן בחר. */
+  .lead-banner .chip[aria-checked="true"],
+  .lead-banner .chip[aria-pressed="true"],
+  .lead-banner .lead-toggle button.active,
+  .lead-banner .owner-toggle button.active{box-shadow:0 0 0 1.5px rgba(255,255,255,.5)}
+  /* הטקסט שיושב *על* הסימון נקבע מול הסימון עצמו ולא מול הרצועה: הכללים
+     שמעל קוראים לו ‎--on-accent‎/‎--on-brand‎ (טקסט על הרצועה, כלומר לבן),
+     ו-‎--lead-mark‎ עשוי להיות דווקא הגוון המבהיר — לבן עליו אינו נקרא. */
+  .owner-banner .owner-toggle button.active,
+  .owner-banner .chip[aria-checked="true"],
+  .owner-banner .wiz-steps li.active .dot,
+  .owner-banner .wiz-steps li.done .dot,
+  .owner-banner .wiz-done-mark{color:var(--lead-mark-ink)}
+  /* ‏.btn-gold של הדף אומר ‎--gold‎, אבל design-system.css נטען *אחרי*
+     הבלוק הזה ואומר ‎--teal‎ — ובאותה סלקטיביות הוא מנצח. כך הכפתור הראשי
+     של אשף הערכת השווי קיבל בדיוק את הגוון שהרצועה כולה צבועה בו. שתי
+     החרגות: באנר מחפשי הנכס כבר דורס את הכפתור בעצמו, ובבאנר התשואה
+     הכפתור יושב על כרטיס בהיר ולא על הרצועה, ושם ‎--teal‎ הוא הנכון. */
+  .lead-banner:not(.buyer-banner):not(.yield-banner) .btn-gold{
+    background:var(--gold);color:var(--on-accent-fill);
+  }
+  .lead-banner:not(.yield-banner) .btn-gold{font-weight:800;box-shadow:0 0 0 1.5px rgba(255,255,255,.35),0 10px 22px rgba(0,0,0,.28)}
+  .lead-banner:not(.yield-banner) .btn-gold:hover{transform:translateY(-1px);box-shadow:0 0 0 1.5px rgba(255,255,255,.45),0 14px 26px rgba(0,0,0,.34)}
+  .lead-banner:not(.yield-banner) .btn-gold[disabled],
+  .lead-banner:not(.yield-banner) .btn-gold:disabled{box-shadow:none;transform:none}
+  /* שדה לבן על רצועה כהה הוא הדבר הבוהק ביותר במסך; שקע פנימי קל מרכך
+     אותו. טבעת המיקוד לבנה ולא בגוון המשרד — טבעת ‎--gold‎ סביב שדה
+     שיושב בתוך אשף שכולו באותו גוון נבלעת בדיוק כמו כל השאר. */
+  .lead-banner .wiz-input{box-shadow:inset 0 1px 3px rgba(13,27,61,.16)}
+  .lead-banner .wiz-input::placeholder{color:#8792a8}
+  /* הטבעת הכפולה (הגוון + הילה לבנה) היא מה שמבטיח שסימון השגיאה ייראה
+     גם כשגוון המשרד עצמו הוא צבע הרצועה */
+  .lead-banner .wiz-input.invalid{
+    box-shadow:0 0 0 2px var(--gold),0 0 0 4px rgba(255,255,255,.45),inset 0 1px 3px rgba(13,27,61,.16);
+  }
+  .lead-banner .wiz-input:focus-visible{
+    outline:none;
+    box-shadow:0 0 0 3px rgba(255,255,255,.55),inset 0 1px 3px rgba(13,27,61,.16);
+  }
 
   /* ---------- מחשבון התשואה הפתוח ----------
      אותה שפה בדיוק של מחשבון המשכנתא בדף הבית: סליידרים עם ערך גדול מעל,
@@ -1855,6 +1971,16 @@ function applyBranding(agency){
     root.setProperty('--on-accent', readableOnPair(accent, accentDark));
     /* המקבילה לצבע המשני: טקסט על שבב ‎--gold‎ (שהוא ‎--accent‎) בתוך רצועה. */
     root.setProperty('--on-accent-fill', readableOnPair(accent, accentDark));
+    /* ‏--lead-mark: הגוון שנושא "נבחר" בתוך באנרי הלידים. הרצועה עצמה
+       צבועה ב---brand, והסימון שבתוכה ב---accent — ואצל משרד ששני הגוונים
+       שלו קרובים (ברירת המחדל היא ששניהם זהים) השבב הנבחר נצבע בדיוק
+       בצבע הרקע שמאחוריו. מ-2:1 ומעלה האקסנט נבדל מספיק כדי לשאת את
+       הסימון בעצמו; מתחת לזה נשאר ערך ברירת המחדל שב-CSS — הגוון המשני
+       המבהיר, שנקרא על כל רצועה כהה. */
+    if (!brand || contrastBetween(accent, brand) >= 2){
+      root.setProperty('--lead-mark', accent);
+      root.setProperty('--lead-mark-ink', readableOnPair(accent, accentDark));
+    }
     /* ‏--accent-ink נושא טקסט ואייקונים קטנים (מחיר, כוכבים, אייקוני הקפסולות) על רקע
        הכרטיסים. אקסנט בהיר — צהוב, חול, ובוודאי לבן — נכשל שם בניגודיות,
        ולכן נבחר כאן הגוון הראשון שעובר 4.5:1: קודם המשני הכהה, אחריו המשני
