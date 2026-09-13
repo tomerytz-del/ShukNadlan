@@ -63,10 +63,11 @@
   שכבת אבטחה, והפונקציה מחזירה boolean בלבד ולא את ה-tier של הסוכן/ת.
 * **‏Leaflet חסום/נכשל** (CDN) — הסקציה נשארת מוסתרת, בלי שגיאה לגולש/ת.
 * **נכס עם כתובת מדויקת ובלי קואורדינטות** לא יקבל מפה עד שהגאוקודינג ירוץ
-  עליו. שווה לעקוב:
+  עליו. זה קורה מעצמו תוך שעה (`geocode-backfill`), ומה לעשות כשלא — ראו
+  [geocoding.md](geocoding.md). הבדיקה המהירה:
 
   ```sql
-  select id, city, street, house_number
+  select id, city, street, house_number, geocode_attempts, geocode_error
   from public.properties
   where status = 'active' and house_number is not null and lat is null;
   ```
