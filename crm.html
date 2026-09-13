@@ -4481,6 +4481,29 @@
         </div>
       </details>
 
+      <!-- ערעורי רישיון תיווך. שני אחרי תור ההחזרים ומאותו נימוק, ואף חזק
+           ממנו: מי שממתין/ה כאן **חסום/ה לגמרי** — המשרד לא נפתח, הכרטיס לא
+           חובר, ואין שום דבר שהוא/היא יכול/ה לעשות עד שתתקבל החלטה כאן.
+
+           אישור כאן הוא גם ההיתר עצמו: השער בודק את broker_license_appeals
+           לפני שהוא פונה ל-data.gov.il, ולכן "אישרתי" ו"פתחתי את המשרד" הם
+           אותה פעולה. ראו docs/broker-registry.md. -->
+      <details class="acc" id="accLicenseAppeals">
+        <summary>
+          <span class="acc-title">ערעורי רישיון תיווך</span>
+          <span class="acc-count hot" id="accLicenseAppealsCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <p class="acc-sub">
+            מספר הרישיון לא נמצא במאגר של רשם המתווכים, והפונה שלח/ה צילום.
+            המאגר מתעדכן אחת לשלושה חודשים — רישיון חדש פשוט לא נמצא בו עדיין.
+            אישור פותח את פתיחת המשרד מיד, ושולח הודעה במייל.
+          </p>
+          <div id="licenseAppealsList"><div class="empty-state">טוען…</div></div>
+        </div>
+      </details>
+
       <!-- ניהול המנויים. יושב מיד אחרי תור ההחזרים ומאותה סיבה: גם כאן יש
            אדם שממתין, ובקשת שדרוג שלא נענתה היא הכנסה שלא נכנסה. -->
       <details class="acc" id="accSubscriptions">
@@ -5181,6 +5204,43 @@
   </div>
 </div>
 
+<!-- ---------- ערעור על חסימת רישיון תיווך ----------
+     נפתח בכל מקום שבו השרת החזיר license_not_verified: פתיחת משרד, הוספת
+     סוכן/ת לצוות, ובקשת שיוך לפי מספר רישיון. מודאל אחד לשלושתם, כי ההודעה
+     והפעולה זהות — מה שמשתנה הוא רק מי מוזכר/ת בטקסט.
+
+     זה **לא** מסך שגיאה. מאגר רשם המתווכים מתעדכן אחת לשלושה חודשים, ולכן
+     הסיבה השכיחה להגיע לכאן היא רישיון חדש שעדיין לא נכנס למאגר. -->
+<div class="pm-overlay" id="licenseAppealModal" role="dialog" aria-modal="true" aria-labelledby="laTitle" style="display:none">
+  <div class="pm-card">
+    <div class="pm-title" id="laTitle">לא מצאנו את מספר הרישיון</div>
+    <p class="pm-body" id="laReason" style="margin-bottom:12px"></p>
+    <p class="pm-body" style="margin-bottom:14px;background:#f6f7fb;border-radius:10px;padding:10px;font-size:.82rem">
+      מאגר רשם המתווכים מתעדכן אחת לשלושה חודשים, ולכן רישיון שהונפק לאחרונה
+      עדיין לא מופיע בו. אפשר לצרף כאן צילום של הרישיון — הנהלת הפלטפורמה
+      תבדוק ותאשר ידנית, בדרך כלל תוך יום עסקים.
+    </p>
+
+    <div class="field"><label>שם מלא</label><input type="text" id="laName"></div>
+    <div class="field"><label>אימייל לעדכון</label><input type="email" id="laEmail"></div>
+    <div class="field"><label>טלפון (אופציונלי)</label><input type="tel" id="laPhone"></div>
+    <div class="field">
+      <label>צילום רישיון התיווך</label>
+      <input type="file" id="laFile" accept="image/jpeg,image/png,image/webp,image/heic,application/pdf">
+      <div style="font-size:.72rem;color:var(--ink-soft);margin-top:6px">
+        תמונה או PDF, עד 5MB. נשמר באחסון פרטי ונגיש להנהלת הפלטפורמה בלבד.
+      </div>
+    </div>
+    <div class="field"><label>הערה (אופציונלי)</label><input type="text" id="laNote" placeholder="למשל: הרישיון הונפק החודש"></div>
+
+    <div id="laFeedback" style="font-size:.82rem;text-align:center;margin-top:10px;min-height:1.2em"></div>
+    <div class="pm-actions">
+      <button type="button" class="btn btn-ghost" id="laCancel">סגירה</button>
+      <button type="button" class="btn" id="laSubmit">שליחת הצילום לבדיקה</button>
+    </div>
+  </div>
+</div>
+
 <!-- ---------- נכס כפול ----------
      נפתח בדרך אל ה-insert, כשהכתובת שהוקלדה כבר קיימת אצל הסוכן/ת. הפעולה
      הראשית היא להחזיר את המודעה הקיימת ולעדכן אותה, ולא לפתוח שנייה: מספר
@@ -5412,6 +5472,96 @@ function showToast(msg, ms=3200){
   clearTimeout(showToast._t);
   showToast._t = setTimeout(()=> toastEl.style.display='none', ms);
 }
+
+/* ================= ערעור על חסימת רישיון תיווך =================
+   ‏openLicenseAppeal נקראת מכל מקום שקיבל license_not_verified. שלושת
+   המסלולים ב-CRM (פתיחת משרד, הוספה לצוות, בקשת שיוך) חולקים אותה, כי
+   ההודעה והפעולה זהות.
+
+   הקובץ נשלח כ-data URL בגוף ה-JSON ולא כהעלאה ישירה: הדלי broker-licenses
+   פרטי ואין לדפדפן גישה אליו בכלל. ההעלאה נעשית בשרת, ב-service_role, אחרי
+   בדיקת גודל וסוג. */
+const LICENSE_APPEAL_URL = SUPABASE_URL + '/functions/v1/broker-license-appeal';
+const MAX_APPEAL_BYTES = 5 * 1024 * 1024;
+
+const readAsDataUrl = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload  = () => resolve(reader.result);
+  reader.onerror = () => reject(reader.error);
+  reader.readAsDataURL(file);
+});
+
+let licenseAppealCtx = null;
+
+/**
+ * @param {{license:string, detail?:string, name?:string, email?:string, source:string}} ctx
+ */
+function openLicenseAppeal(ctx){
+  licenseAppealCtx = ctx;
+  document.getElementById('laReason').textContent = ctx.detail || '';
+  document.getElementById('laName').value  = ctx.name  || '';
+  document.getElementById('laEmail').value = ctx.email || '';
+  document.getElementById('laPhone').value = '';
+  document.getElementById('laNote').value  = '';
+  document.getElementById('laFile').value  = '';
+  document.getElementById('laFeedback').textContent = '';
+  const btn = document.getElementById('laSubmit');
+  btn.disabled = false; btn.textContent = 'שליחת הצילום לבדיקה';
+  document.getElementById('licenseAppealModal').style.display = 'flex';
+}
+
+document.getElementById('laCancel').addEventListener('click', ()=>{
+  document.getElementById('licenseAppealModal').style.display = 'none';
+});
+
+document.getElementById('laSubmit').addEventListener('click', async ()=>{
+  if (!licenseAppealCtx) return;
+  const name  = document.getElementById('laName').value.trim();
+  const email = document.getElementById('laEmail').value.trim();
+  const phone = document.getElementById('laPhone').value.trim();
+  const note  = document.getElementById('laNote').value.trim();
+  const file  = document.getElementById('laFile').files[0];
+  const fb    = document.getElementById('laFeedback');
+  const btn   = document.getElementById('laSubmit');
+
+  const fail = (msg) => { fb.style.color = 'var(--brick)'; fb.textContent = msg; };
+
+  if (!name || !email) return fail('נא למלא שם מלא ואימייל');
+  if (!file)           return fail('נא לצרף צילום של הרישיון');
+  if (file.size > MAX_APPEAL_BYTES) return fail('הקובץ גדול מ-5MB. אפשר לצלם מחדש או לדחוס.');
+
+  btn.disabled = true; btn.textContent = 'שולח…'; fb.textContent = '';
+  try{
+    const res = await fetch(LICENSE_APPEAL_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({
+        action: 'submit',
+        license_number: licenseAppealCtx.license,
+        applicant_name: name,
+        applicant_email: email,
+        applicant_phone: phone || null,
+        note: note || null,
+        source: licenseAppealCtx.source,
+        document: await readAsDataUrl(file),
+      }),
+    });
+    const data = await res.json();
+
+    // ‏already_pending ו-already_approved אינם כישלון אלא התשובה עצמה.
+    if (data.status === 'received' || data.status === 'already_pending' || data.status === 'already_approved'){
+      document.getElementById('licenseAppealModal').style.display = 'none';
+      showToast(data.detail || 'הצילום התקבל', 6000);
+      return;
+    }
+    fail(data.detail || ('שגיאה: ' + (data.error || 'לא ידועה')));
+    btn.disabled = false; btn.textContent = 'שליחת הצילום לבדיקה';
+  } catch(err){
+    console.error(err);
+    fail('שגיאת רשת — נסו שוב');
+    btn.disabled = false; btn.textContent = 'שליחת הצילום לבדיקה';
+  }
+});
 
 /* ---------- Accordion sections ----------
    כל נושא בדשבורד הוא <details class="acc"> מקופל. מצב הפתיחה נשמר ב-localStorage
@@ -6101,6 +6251,22 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
       body: JSON.stringify({ agency_name: agencyName, manager_name: managerName, license_number: license, ethics_code_accepted: true }),
     });
     const data = await res.json();
+
+    // רישיון שלא אומת — מודאל הערעור במקום שורת שגיאה. הטופס נשאר פתוח
+    // מאחוריו, כך שאפשר גם פשוט לתקן ספרה שהוקלדה שגוי ולנסות שוב.
+    if (res.status === 403 && data.error === 'license_not_verified'){
+      const { data: { user } } = await sb.auth.getUser();
+      openLicenseAppeal({
+        license: data.license_number || license,
+        detail:  data.detail,
+        name:    managerName,
+        email:   user?.email || '',
+        source:  'create-own-agency',
+      });
+      btn.disabled = false; btn.textContent = 'פתיחת המשרד שלי';
+      return;
+    }
+
     if (!res.ok || data.error){
       if (data.error === 'already_has_agency'){
         feedback.style.color = 'var(--red)';
@@ -6250,6 +6416,19 @@ async function resolveMembership(user, { alreadyResolved = false } = {}){
 
   if (data.status === 'claim_pending'){ showClaimPendingScreen(user, data.agency_name); return; }
 
+  // הכרטיס נמצא — ומה שעוצר הוא הרישיון, לא הזיהוי. בלי הענף הזה המסך הבא
+  // היה "לא מצאנו כרטיס", והסיבה האמיתית לא הייתה מגיעה לאף אחד.
+  if (data.error === 'license_not_verified'){
+    showIdentifyScreen(user, data.detail || 'רישיון התיווך לא אומת מול רשם המתווכים.');
+    openLicenseAppeal({
+      license: data.license_number || '',
+      detail:  data.detail,
+      email:   user?.email || '',
+      source:  'join-agency',
+    });
+    return;
+  }
+
   // אסימון שנכשל: מציגים למה, ומשאירים את מסלול מספר הרישיון פתוח — הוא
   // עובד גם כשהקישור פג או כבר נוצל.
   let notice = '';
@@ -6289,6 +6468,21 @@ document.getElementById('idClaimBtn').addEventListener('click', async ()=>{
   btn.disabled = true; btn.textContent = 'בודקים…'; feedback.textContent = '';
   const { ok, data } = await callJoinAgency({ action:'claim', license_number:license });
   btn.disabled = false; btn.textContent = 'חיבור לכרטיס הקיים שלי';
+
+  // הכרטיס נמצא — הרישיון שעליו הוא מה שלא אומת. זו הודעה אחרת לגמרי
+  // מ-license_not_found ("אין כרטיס כזה"), ולכן היא לא נכנסת למפה שלמטה.
+  if (data.error === 'license_not_verified'){
+    const { data: { user } } = await sb.auth.getUser();
+    openLicenseAppeal({
+      license: data.license_number || license,
+      detail:  data.detail,
+      email:   user?.email || '',
+      source:  'join-agency-claim',
+    });
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = data.detail || 'רישיון התיווך לא אומת מול רשם המתווכים.';
+    return;
+  }
 
   if (!ok){
     const messages = {
@@ -6557,6 +6751,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // ‏setDashView בסוף הפונקציה הוא מי שקובע. הטעינה כאן ולא שם, כדי שהמעבר
   // בין התצוגות יהיה מיידי ולא ימתין לרשת.
   if (agent.is_platform_admin){
+    await loadLicenseAppeals();
     await loadRefundQueue();
     await loadSubscriptionsAdmin();
     await loadNeighborhoodsAdmin();
@@ -9821,6 +10016,94 @@ async function callRefundApi(payload){
   return { ok: res.ok, data: await res.json() };
 }
 
+/* ================= ערעורי רישיון תיווך — הצד של ההנהלה =================
+   ‏broker_license_appeals קריאה למנהל/ת פלטפורמה דרך RLS, אבל הטעינה כאן
+   עוברת דרך הפונקציה ולא דרך select ישיר, מסיבה אחת: ‏document_path לבדו
+   חסר ערך — הדלי פרטי. הפונקציה מחזירה במקומו **קישור חתום** של עשר דקות,
+   וזו הדרך היחידה לראות את הצילום. */
+async function callLicenseAppealApi(payload){
+  const { data: { session } } = await sb.auth.getSession();
+  if (!session) return { ok:false, data:{ error:'no_session' } };
+  const res = await fetch(LICENSE_APPEAL_URL, {
+    method:'POST',
+    headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+    body: JSON.stringify(payload),
+  });
+  let data = {};
+  try { data = await res.json(); } catch(_){ /* ראו callTeamInvite */ }
+  return { ok: res.ok && !data.error, data };
+}
+
+async function loadLicenseAppeals(){
+  const host = document.getElementById('licenseAppealsList');
+  if (!host) return;
+  const { ok, data } = await callLicenseAppealApi({ action:'list', status:'pending' });
+  if (!ok){
+    host.innerHTML = '<div class="empty-state">שגיאה בטעינת הערעורים.</div>';
+    return;
+  }
+  const rows = data.appeals || [];
+  accSetCount('accLicenseAppeals', rows.length || '');
+  if (!rows.length){ host.innerHTML = '<div class="empty-state">אין ערעורי רישיון ממתינים.</div>'; return; }
+
+  host.innerHTML = rows.map(r => `
+    <div style="border:1px solid var(--line);border-radius:var(--radius-sm);padding:10px;margin-bottom:8px" data-appeal="${esc(r.id)}">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <strong style="font-size:.85rem">${esc(r.applicant_name)}</strong>
+        <strong style="font-size:.85rem;direction:ltr">רישיון ${esc(r.license_number)}</strong>
+      </div>
+      <div style="font-size:.74rem;color:var(--muted);margin:2px 0 6px">
+        <span style="direction:ltr;display:inline-block">${esc(r.applicant_email)}</span>
+        ${r.applicant_phone ? ' · <span style="direction:ltr;display:inline-block">' + esc(r.applicant_phone) + '</span>' : ''}
+        · ${new Date(r.created_at).toLocaleDateString('he-IL')}
+        ${r.source ? ' · ' + esc(r.source) : ''}
+      </div>
+      ${r.note ? `<div style="font-size:.76rem;background:var(--paper-raised);border-radius:8px;padding:7px 9px;margin-bottom:8px">${esc(r.note)}</div>` : ''}
+      ${r.document_url
+        ? `<a href="${esc(r.document_url)}" target="_blank" rel="noopener"
+              style="display:inline-block;font-size:.78rem;color:var(--teal);font-weight:600">📄 פתיחת צילום הרישיון</a>
+           <div style="font-size:.68rem;color:var(--muted);margin-top:3px">הקישור תקף לעשר דקות. רענון הרשימה מייצר חדש.</div>`
+        : '<div style="font-size:.74rem;color:var(--brick)">הצילום לא נטען — נסו לרענן.</div>'}
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button type="button" class="btn btn-gold apApproveBtn" style="white-space:nowrap;font-size:.78rem">✅ אישור ופתיחת המשרד</button>
+        <button type="button" class="btn btn-ghost apRejectBtn" style="white-space:nowrap;font-size:.78rem">✕ דחייה</button>
+      </div>
+    </div>`).join('');
+
+  const decide = async (btn, decision, note) => {
+    const card = btn.closest('[data-appeal]');
+    btn.disabled = true;
+    const { data } = await callLicenseAppealApi({
+      action: 'decide', appeal_id: card.dataset.appeal, decision, decision_note: note || null,
+    });
+    if (data.error){ showToast('שגיאה: ' + (data.detail || data.error)); btn.disabled = false; return; }
+    showToast(decision === 'approve'
+      ? 'הרישיון אושר — הכניסה נפתחה והודעה נשלחה במייל'
+      : 'הערעור נדחה וההודעה נשלחה');
+    await loadLicenseAppeals();
+  };
+
+  host.querySelectorAll('.apApproveBtn').forEach(btn => btn.addEventListener('click', async ()=>{
+    const ok2 = await confirmPurchase({
+      title: 'אישור רישיון התיווך',
+      lines: ['אשרו רק אחרי שראיתם את הצילום ושהפרטים בו תואמים.',
+              'האישור פותח את הכניסה למערכת מיד, ומשחרר גם כרטיס קיים שנחסם.'],
+      price: 0, hidePrice: true, requireAck: true,
+      ackText: 'ראיתי את הצילום והוא רישיון תיווך בתוקף.', confirmLabel: 'אישור',
+    });
+    if (!ok2) return;
+    await decide(btn, 'approve', null);
+  }));
+
+  host.querySelectorAll('.apRejectBtn').forEach(btn => btn.addEventListener('click', async ()=>{
+    // הנימוק חובה — הוא נשלח לפונה, ודחייה בלי נימוק היא מבוי סתום.
+    const reason = prompt('סיבת הדחייה (תישלח לפונה במייל):');
+    if (reason === null) return;
+    if (!reason.trim()){ showToast('נדרש נימוק לדחייה'); return; }
+    await decide(btn, 'reject', reason.trim());
+  }));
+}
+
 async function loadRefundQueue(){
   const host = document.getElementById('refundQueueList');
   if (!host) return;
@@ -10917,6 +11200,21 @@ document.getElementById('addMemberForm').addEventListener('submit', async (e)=>{
       license_number: document.getElementById('nmLicense').value,
       member_email: email,
     });
+    // הרישיון של הסוכן/ת המוזמן/ת לא אומת. הערעור נפתח עם **פרטיו/ה**
+    // ולא של המנהל/ת שממלא/ת: הרישיון שלו/ה, המייל שיעודכן שלו/ה, והצילום
+    // הוא שלו/ה. המנהל/ת יכול/ה למלא בשמו/ה אם התעודה בידיו/ה.
+    if (data.error === 'license_not_verified'){
+      openLicenseAppeal({
+        license: data.license_number || document.getElementById('nmLicense').value,
+        detail:  data.detail,
+        name:    document.getElementById('nmName').value.trim(),
+        email:   email,
+        source:  'add-team-member',
+      });
+      btn.disabled = false; btn.textContent = 'שליחת הזמנה';
+      return;
+    }
+
     if (!ok){
       feedback.style.color = 'var(--red)';
       feedback.innerHTML = TEAM_INVITE_ERRORS[data.error]
@@ -11181,6 +11479,12 @@ async function loadClaimRequests(agencyId, callerId){
         body: JSON.stringify({ action:'decide', claim_id:c.id, decision }),
       });
       const data = await res.json().catch(()=>({}));
+      // הרישיון על הכרטיס לא אומת. מנהל/ת המשרד אינו/ה מי שמערער/ת — הצילום
+      // הוא של הסוכן/ת — ולכן כאן רק מוסבר מה חוסם, בלי לפתוח טופס.
+      if (data.error === 'license_not_verified'){
+        showToast('החיבור נחסם: ' + (data.detail || 'רישיון התיווך על הכרטיס לא אומת מול רשם המתווכים.'), 8000);
+        return;
+      }
       if (!res.ok || data.error){ showToast('הפעולה נכשלה: ' + (data.error || res.status)); return; }
       showToast(decision === 'approve' ? 'החשבון חובר לכרטיס' : 'הבקשה נדחתה');
       await loadTeam(agencyId, callerId);
@@ -19704,6 +20008,7 @@ const NAV_GROUPS = [
      "ניהול מקורות RSS" בין "הנכסים שלי" ל"הלידים שלי". */
   { key:'admin', label:'ניהול מערכת', icon:'shield', adminOnly:true, items:[
     { acc:NAV_ADMIN_HOME,     label:'לוח בקרה חודשי', icon:'gauge',   tab:'admin' },
+    { acc:'accLicenseAppeals', label:'ערעורי רישיון', icon:'shield',  tab:'admin' },
     { acc:'accSubscriptions', label:'מנויים ומסלולים', icon:'shield',  tab:'admin' },
     { acc:'accNeighborhoods', label:'ניהול שכונות',   icon:'map',     tab:'admin' },
     { acc:'accRssSources',    label:'מקורות RSS',     icon:'rss',     tab:'admin' },
@@ -19724,7 +20029,7 @@ const NAV_TABS = [
 
 /* אילו קטגוריות מצדיקות תגית אדומה. "אדום = דורש ממך פעולה עכשיו", ולכן מדף
    הלידים (הזדמנות, לא חוב) ויתרת הארנק אינם כאן. */
-const NAV_HOT_ACCS = new Set(['accLeads','accAlerts','accReviews','accUnroutedLeads']);
+const NAV_HOT_ACCS = new Set(['accLeads','accAlerts','accReviews','accUnroutedLeads','accLicenseAppeals']);
 const NAV_TAB_BADGE = {
   props:   [],
   leads:   ['accLeads'],

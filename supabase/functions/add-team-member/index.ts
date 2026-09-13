@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendPlatformEmail } from "../_shared/platform-mail-client.ts";
+import { blockedResponse, checkBrokerLicense } from "../_shared/broker-license-gate.ts";
 
 // ============================================================================
 // הוספת סוכן/ת לצוות המשרד — בהזמנה, לא בסיסמה שממציאים עבורו/ה
@@ -270,6 +271,26 @@ Deno.serve(async (req: Request) => {
       }, 409);
     }
 
+    // -----------------------------------------------------------------------
+    // אימות רישיון התיווך של הסוכן/ת המוזמן/ת
+    //
+    // כאן מי שמקליד/ה אינו/ה מי שנבדק/ת: מנהל/ת המשרד מזין/ה את פרטי
+    // הסוכן/ת. זה לא משנה את הבדיקה — הרישיון הוא של הסוכן/ת — אבל כן משנה
+    // את ההודעה, ולכן היא נוסחה כך שתיקרא נכון גם למנהל/ת שרואה אותה על
+    // מישהו אחר.
+    //
+    // החסימה כאן חוסכת את המקרה הגרוע: הזמנה שנשלחת, סוכן/ת שנכנס/ת, ורק
+    // אז מתגלה שאין רישיון.
+    // -----------------------------------------------------------------------
+    const licenseCheck = await checkBrokerLicense(supabase, license_number, {
+      who: member_name,
+      email: member_email,
+      source: "add-team-member",
+    });
+    if (!licenseCheck.allowed) {
+      return json(blockedResponse(licenseCheck, license_number), 403);
+    }
+
     // ‏אין כאן יותר initial_tier. המסלול הוא החלטה של מי שמשלם עליו, והוא
     // נקבע אצל הסוכן/ת בכניסה הראשונה (מסך בחירת המסלול ב-CRM →
     // ‎join-agency/set_tier‎). השורה נוצרת על ברירת המחדל של העמודה, ‎free‎,
@@ -299,6 +320,7 @@ Deno.serve(async (req: Request) => {
         display_name: member_name,
         email: member_email,
         license_number,
+        ...licenseCheck.columns,
       })
       .select("id")
       .single();
