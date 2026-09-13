@@ -1,0 +1,38 @@
+name: תגיות GTM בכל דף
+
+# ‏לאתר אין תבנית משותפת: כל דף הוא קובץ HTML עצמאי ש-Netlify מפרסם כמו
+# שהוא, ולכן שני קטעי ה-GTM משוכפלים ב-31 הדפים. דף חדש שנוצר בלי הקטעים
+# האלה לא נמדד — ואין שום סימן לכך. הדף נטען, נראה תקין, ומתנהג כרגיל;
+# הפער מתגלה חודש אחרי, כשמחפשים אותו בדוחות ולא מוצאים, ואז הנתונים של
+# החודש הזה כבר אבודים ואי אפשר לשחזר אותם למפרע.
+#
+# לכן הבדיקה רצה על ה-PR ולא אחרי המיזוג: דף חסר תגית נעצר לפני שהוא
+# באוויר, ולא מדווח כתקלה אחרי. היא קוראת קבצים בלבד — בלי רשת ובלי
+# סודות — ולכן מהירה ובטוחה להריץ גם על PR מ-fork.
+
+on:
+  pull_request:
+    paths:
+      - "*.html"
+      - "scripts/check_gtm.py"
+      - ".github/workflows/gtm_tags.yml"
+  push:
+    branches: [main]
+    paths:
+      - "*.html"
+      - "scripts/check_gtm.py"
+      - ".github/workflows/gtm_tags.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ‏הבדיקה עצמה, והפלט שלה, הם המקום שבו כתוב מה להדביק ואיפה.
+      - name: בדיקת כיסוי
+        run: python3 scripts/check_gtm.py
