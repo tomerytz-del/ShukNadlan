@@ -3614,8 +3614,11 @@ function renderOpenHouseBand(p){
       '<div class="oh-band-body">' +
         '<b>' + OpenHouse.NO_FEE + ' — הנכס ביריד הבתים הפתוחים</b>' +
         '<span>הנכס מוצע לקונים ללא עמלת תיווך בתקופה ' +
-          escapeHtml(OpenHouse.rangeLabel(p)) + ' · ' + escapeHtml(OpenHouse.endLabel(p)) + '</span>' +
+          escapeHtml(OpenHouse.rangeLabel(p)) + '</span>' +
       '</div>' +
+      // הספירה לאחור ולא רק התאריך: "נותרו 2 ימים 04:11" הוא אותו מידע
+      // בדיוק, אבל הוא זה שגורם להרים טלפון היום ולא בשבוע הבא
+      OpenHouse.countdownHtml(p) +
       '<a href="open-house.html">לכל נכסי היריד ←</a>' +
     '</div>';
   host.hidden = false;

@@ -374,11 +374,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <section class="section wrap" id="fairMapSection" aria-labelledby="fairMapTitle" hidden>
     <div class="section-head">
       <h2 id="fairMapTitle">איפה הם נמצאים</h2>
-      <p>כל נכס שביריד ושיש לו מיקום מדויק, על המפה. לחיצה על סימן פותחת את הנכס.</p>
+      <p>הרשימה מסודרת לפי מה שנגמר קרוב, והמפה מראה איפה. ריחוף על שורה מדליק את הנכס שלה במפה, ולחיצה פותחת אותו.</p>
     </div>
-    <div class="oh-map-wrap">
-      <div id="fairMap"></div>
-      <p class="oh-map-note"><span id="fairMapMark" aria-hidden="true"></span> הסימן הזה מסמן נכס שביריד — אותו סימן בדיוק שמופיע על מפת החיפוש בדף הבית.</p>
+    <!-- שתי תצוגות של אותו מלאי: הרשימה מימין אומרת *מה* נגמר קרוב, המפה
+         משמאל אומרת *איפה*. ריחוף על שורה מדליק את הסימן שלה במפה — אותו
+         קישור דו-כיווני של התצוגה המפוצלת בדף הבית. סדר ה-DOM הוא
+         רשימה→מפה, ובעמוד RTL זה בדיוק ימין→שמאל. -->
+    <div class="oh-split">
+      <div class="oh-split-list">
+        <div class="oh-split-head">
+          <b>נגמרים בקרוב</b>
+          <span id="fairSplitCount"></span>
+        </div>
+        <div class="oh-split-rows" id="fairSplitRows"></div>
+      </div>
+      <div class="oh-map-wrap">
+        <div id="fairMap"></div>
+        <p class="oh-map-note"><span id="fairMapMark" aria-hidden="true"></span> הסימן הזה מסמן נכס שביריד — אותו סימן בדיוק שמופיע על מפת החיפוש בדף הבית.</p>
+      </div>
     </div>
   </section>
 
@@ -852,6 +865,12 @@ const fairShelf = PropShelf.create({
   info:'כל הנכסים שמוצעים כרגע ללא עמלת תיווך לקונה — מכירה, השכרה ומסחרי יחד, לפי סדר ההעלאה',
   roomsType:'דירה', roomsLabel:'דירות',
   sortId:'fairSort',
+  /* הספירה לאחור על כל אריח: התגית "ללא עמלת תיווך" אומרת מה מקבלים,
+     והמונה אומר עד מתי. ‏overlay יושב על התמונה ו-rowExtra על התמונונת
+     של השורה הדחוסה (מתחת ל-520px כל האריחים מלבד הראשון הם שורות),
+     כדי שהטלפון לא יציג את אותם נכסים בלי מה שמבדיל ביניהם. */
+  overlay: p => OpenHouse.countdownHtml(p, { className:'oh-card-countdown', label:false }),
+  rowExtra: p => OpenHouse.countdownHtml(p, { className:'oh-row-countdown', label:false }),
   countText: (shown, total) => (shown === total)
     ? `${total.toLocaleString('he-IL')} נכסים ביריד`
     : `${shown.toLocaleString('he-IL')} מתוך ${total.toLocaleString('he-IL')} נכסים ביריד`,
@@ -901,10 +920,77 @@ function fairPopupHtml(p){
     `</span></a>`;
 }
 
+/* ---------- הרשימה שליד המפה ----------
+   ממוינת לפי מה שנגמר קרוב — זה מה שהופך אותה לתצוגה בפני עצמה ולא לעותק
+   של המדף שמתחת, שממוין לפי סדר ההעלאה. כאן השאלה היא "על מה כדאי להרים
+   טלפון היום".
+
+   ‏fairMarkers מחזיק את הסימנים לפי מזהה נכס, וזה כל מה שדרוש לקישור
+   הדו-כיווני: ריחוף על שורה מדליק את הסימן, ופתיחת בלון מדליקה את השורה. */
+const fairMarkers = {};
+
+function hotFairRow(id, on){
+  const row = document.querySelector(`.oh-split-row[data-id="${CSS.escape(String(id))}"]`);
+  if (row) row.classList.toggle('is-hot', on);
+  const marker = fairMarkers[id];
+  const node = marker && marker.getElement && marker.getElement();
+  const pin = node && node.querySelector('.oh-pin');
+  if (pin) pin.classList.toggle('is-hot', on);
+  // ‏setZIndexOffset על ה-marker ולא z-index על ה-div: רק כך הסימן עולה
+  // מעל *שאר הסימנים* ולא רק מעל האחים שלו בתוך האייקון
+  if (marker && marker.setZIndexOffset) marker.setZIndexOffset(on ? 1000 : 0);
+}
+
+function fairRowHtml(p){
+  const img = Array.isArray(p.images) && typeof p.images[0] === 'string' ? p.images[0].trim() : '';
+  const where = [p.neighborhood_name, p.street || p.city].filter(Boolean).join(' · ');
+  const thumb = img
+    ? `style="background-image:url('${escAttr(img)}')"`
+    : '';
+  return `<a class="oh-split-row" data-id="${escAttr(p.id)}" href="property.html?id=${encodeURIComponent(p.id)}">` +
+      `<span class="oh-split-thumb" ${thumb}>${img ? '' : OpenHouse.icon({ size:30 })}</span>` +
+      `<span class="oh-split-main">` +
+        `<span class="oh-split-title">${escAttr(p.title || 'נכס')}</span>` +
+        `<span class="oh-split-meta">${escAttr(where || 'עפולה והעמק')}</span>` +
+        `<span class="oh-split-foot">` +
+          `<span class="oh-split-price">${escAttr(priceLabel(p))}</span>` +
+          OpenHouse.countdownHtml(p, { className:'is-plain', label:false }) +
+        `</span>` +
+      `</span>` +
+    `</a>`;
+}
+
+function renderFairSplit(list){
+  const rows = el('fairSplitRows');
+  if (!rows) return;
+  /* המקטע נפתח כאן ולא ב-renderFairMap: הרשימה קיימת גם כשלאף נכס אין
+     קואורדינטות (מודעה שנרשמה עם עיר בלבד), ואז מוצגת רשימה בלי מפה —
+     ולא מקטע מוסתר עם כל המלאי בתוכו. */
+  el('fairMapSection').hidden = false;
+  // הקרוב לסיום ראשון — זו הסיבה שהרשימה הזו קיימת
+  const ordered = list.slice().sort((a, b) => OpenHouse.endsAt(a) - OpenHouse.endsAt(b));
+  rows.innerHTML = ordered.map(fairRowHtml).join('');
+  el('fairSplitCount').textContent = ordered.length > 1
+    ? `${ordered.length.toLocaleString('he-IL')} נכסים`
+    : 'נכס אחד';
+
+  // ריחוף/פוקוס על שורה → הסימן שלה במפה. ‏mouseenter/leave ולא hover ב-CSS:
+  // הצד השני של הקישור חי במפה, ו-CSS אינו יכול להגיע לשם.
+  rows.querySelectorAll('.oh-split-row').forEach(row => {
+    const id = row.dataset.id;
+    ['mouseenter','focus'].forEach(ev => row.addEventListener(ev, () => hotFairRow(id, true)));
+    ['mouseleave','blur'].forEach(ev => row.addEventListener(ev, () => hotFairRow(id, false)));
+  });
+}
+
 function renderFairMap(list){
   const withGeo = list.filter(p => p.lat && p.lng);
-  if (!withGeo.length || !window.L) return;
-  el('fairMapSection').hidden = false;
+  // בלי קואורדינטות (או בלי Leaflet) נשארת הרשימה לבדה, והמסגרת הריקה של
+  // המפה יורדת: קופסה אפורה בחצי רוחב המקטע נראית כמו מפה שנשברה
+  if (!withGeo.length || !window.L){
+    document.querySelector('.oh-map-wrap').hidden = true;
+    return;
+  }
 
   const map = L.map('fairMap', { scrollWheelZoom:false });
   MapTiles.addTo(map);
@@ -914,7 +1000,7 @@ function renderFairMap(list){
 
   const bounds = [];
   withGeo.forEach(p => {
-    L.marker([p.lat, p.lng], {
+    const marker = L.marker([p.lat, p.lng], {
       icon: L.divIcon({
         className:'',
         html:`<span class="oh-pin is-solo">${OpenHouse.icon({ size:42 })}</span>`,
@@ -922,6 +1008,10 @@ function renderFairMap(list){
       }),
       title: p.title || 'נכס ביריד',
     }).addTo(map).bindPopup(fairPopupHtml(p));
+    // הכיוון השני של הקישור: בלון שנפתח מדליק את השורה שלו ברשימה
+    marker.on('popupopen', () => hotFairRow(p.id, true));
+    marker.on('popupclose', () => hotFairRow(p.id, false));
+    fairMarkers[p.id] = marker;
     bounds.push([p.lat, p.lng]);
   });
 
@@ -1024,6 +1114,7 @@ signupForm.addEventListener('submit', async (e) => {
     renderFairStats(list);
     pickHeroPhoto(list);
     fairShelf.set(list);
+    renderFairSplit(list);
     renderFairMap(list);
   } catch(e){
     console.warn('טעינת יריד הבתים הפתוחים נכשלה:', e);

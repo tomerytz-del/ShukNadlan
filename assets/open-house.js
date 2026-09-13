@@ -84,6 +84,122 @@
     return hebDay(from) + ' – ' + hebDay(to);
   }
 
+  /* ---------- הספירה לאחור ----------
+     החלון הוא המוצר, ותאריך סיום הוא הדרך השקטה לומר אותו. ספירה שרצה
+     אומרת את אותו דבר בקול: "עוד יומיים ושלוש שעות" הוא מידע שאי אפשר
+     לדחות למחר בלי לשים לב.
+
+     ‏remaining מחזירה null כשהחלון נגמר ולא מספרים שליליים: מונה שסופר
+     אחורה אל מתחת לאפס הוא בדיוק סוג הבאג שנשאר על המסך שבוע.
+
+     **טיקר אחד לכל העמוד.** כל אלמנט שרוצה ספירה נושא ‎data-oh-end‎ עם
+     מועד הסיום, והטיקר מעדכן את כולם יחד — ולא ‎setInterval‎ לכל אריח.
+     בעמוד עם עשרים נכסים זה ההבדל בין טיימר אחד לעשרים, ובין דף שנרדם
+     ברקע לדף שממשיך לעבוד בכל לשונית פתוחה (‏visibilitychange). */
+  function remaining(p, now) {
+    var to = endsAt(p);
+    if (!to) return null;
+    var ms = to.getTime() - (now ? new Date(now).getTime() : Date.now());
+    if (ms <= 0) return null;
+    var sec = Math.floor(ms / 1000);
+    return {
+      total: ms,
+      days: Math.floor(sec / 86400),
+      hours: Math.floor((sec % 86400) / 3600),
+      minutes: Math.floor((sec % 3600) / 60),
+      seconds: sec % 60,
+    };
+  }
+
+  function pad2(n) { return (n < 10 ? '0' : '') + n; }
+
+  /* מיום ומעלה: "3 ימים" + "04:12" — השעות והדקות מספיקות, והשניות רק
+     מרצדות. מתחת ליום: "04:12:33" — שם השנייה היא כל העניין.
+
+     **שני חלקים ולא מחרוזת אחת**, וזה לא סגנון: "3 ימים 04:12" הוא טקסט
+     דו-כיווני (מספר, מילה עברית, שעון), ואלגוריתם ה-bidi מסדר אותו מחדש
+     על המסך — המונה הופיע כ-"ימים 3 04:12". החלק העברי נשאר RTL כמו כל
+     הדף, והשעון יושב ב-‎<bdi>‎ משלו שמבודד אותו. */
+  function countdownParts(p, now) {
+    var r = remaining(p, now);
+    if (!r) return { done: true, days: '', clock: '' };
+    return {
+      done: false,
+      days: r.days >= 1 ? r.days + (r.days === 1 ? ' יום' : ' ימים') : '',
+      clock: r.days >= 1
+        ? pad2(r.hours) + ':' + pad2(r.minutes)
+        : pad2(r.hours) + ':' + pad2(r.minutes) + ':' + pad2(r.seconds),
+    };
+  }
+
+  /* מחרוזת אחת, לשימושים שאינם HTML (‏title, מייל, בדיקות) */
+  function countdownText(p, now) {
+    var c = countdownParts(p, now);
+    if (c.done) return 'הסתיים';
+    return (c.days ? c.days + ' ' : '') + c.clock;
+  }
+
+  var URGENT_MS = 24 * 3600 * 1000;
+
+  /* ‏opts: { label, className }
+     ‏label=false מוריד את המילה "נותרו" — במקומות צרים (סרט על אריח)
+     המספר לבדו ברור, ושתי מילים לפניו דוחפות אותו לשורה שנייה.
+     ‏dir="ltr" על המספר: "3 ימים 04:12" הוא טקסט מעורב, ובלי כיוון מפורש
+     הדפדפן מעביר את הנקודתיים לצד הלא נכון. */
+  function countdownHtml(p, opts) {
+    ensureCountdownTicker();
+    var o = opts || {};
+    var to = endsAt(p);
+    if (!to) return '';
+    var r = remaining(p);
+    return '<span class="oh-countdown' + (o.className ? ' ' + o.className : '') +
+        (r && r.total <= URGENT_MS ? ' is-urgent' : '') + (r ? '' : ' is-done') + '" ' +
+        'data-oh-end="' + esc(to.toISOString()) + '" ' +
+        'title="' + esc('הנכס ביריד עד ' + hebDay(to)) + '">' +
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" ' +
+        'stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12.6" r="8.2"/>' +
+        '<path d="M12 8.4v4.4l2.8 1.7"/><path d="M9.2 2.6h5.6"/></svg>' +
+      (o.label === false ? '' : '<span class="oh-cd-label">נותרו</span>') +
+      '<span class="oh-cd-days">' + esc(countdownParts(p).days) + '</span>' +
+      '<bdi class="oh-cd-value">' + esc(countdownParts(p).clock) + '</bdi>' +
+      '</span>';
+  }
+
+  /* מעדכן כל אלמנט עם ‎data-oh-end‎ שנמצא כרגע ב-DOM. אלמנט שהוסר (מדף
+     שצויר מחדש) פשוט לא נמצא בסריקה הבאה — אין כאן רישום שצריך לנקות. */
+  function tickCountdowns() {
+    var nodes = global.document.querySelectorAll('[data-oh-end]');
+    for (var i = 0; i < nodes.length; i++) {
+      var el = nodes[i];
+      var fake = { open_house: true, open_house_start: 0, open_house_end: el.getAttribute('data-oh-end') };
+      var r = remaining(fake);
+      var c = countdownParts(fake);
+      var days = el.querySelector('.oh-cd-days');
+      var value = el.querySelector('.oh-cd-value');
+      if (days) days.textContent = c.days;
+      if (value) value.textContent = c.done ? 'הסתיים' : c.clock;
+      el.classList.toggle('is-urgent', !!r && r.total <= URGENT_MS);
+      el.classList.toggle('is-done', !r);
+    }
+  }
+
+  var ticker = null;
+  var tickerReady = false;
+  function ensureCountdownTicker() {
+    // ‏tickerReady ולא ‎ticker‎: בלשונית מוסתרת הטיימר כבוי (‏ticker=null),
+    // וקריאה נוספת ל-countdownHtml הייתה רושמת מאזין visibilitychange שני
+    if (tickerReady || !global.document) return;
+    tickerReady = true;
+    var start = function () { if (!ticker) ticker = global.setInterval(tickCountdowns, 1000); };
+    var stop = function () { if (ticker) { global.clearInterval(ticker); ticker = null; } };
+    start();
+    // לשונית ברקע לא צריכה לספור; בחזרה אליה הערך מתעדכן מיד ולא בעוד שנייה
+    global.document.addEventListener('visibilitychange', function () {
+      if (global.document.hidden) stop();
+      else { tickCountdowns(); start(); }
+    });
+  }
+
   /* ---------- הסימן ----------
      פין־טיפה אדום, בתוכו בית עם דלת פתוחה ותווית "פתוח" נשענת על הגג.
      אותו סימן משמש גם כפין על המפה (34px), גם כאייקון של הסקציה (28px)
@@ -185,6 +301,11 @@
 
   global.OpenHouse = {
     live: live,
+    remaining: remaining,
+    countdownText: countdownText,
+    countdownParts: countdownParts,
+    countdownHtml: countdownHtml,
+    tickCountdowns: tickCountdowns,
     upcoming: upcoming,
     startsAt: startsAt,
     endsAt: endsAt,

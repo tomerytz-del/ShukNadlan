@@ -126,6 +126,9 @@
    ‎span‎ שיושב ישירות ברצועה, וכלל רחב היה הופך אותו לבלוק בגודל טקסט. */
 .oh-band-body b{display:block;font-size:1rem;line-height:1.35}
 .oh-band-body span{display:block;font-size:.8rem;line-height:1.5;opacity:.92}
+/* ברצועה האדומה של דף הנכס המונה הוא לבן־שקוף על אדום, ולא אדום על אדום */
+.oh-band .oh-countdown{flex:none;background:rgba(255,255,255,.18);border:1px solid rgba(255,255,255,.34)}
+.oh-band .oh-countdown.is-urgent{background:rgba(255,255,255,.3)}
 .oh-band a{
   flex:none;background:#fff;color:var(--open-house-deep,#9c0c24);
   font-weight:800;font-size:.82rem;padding:9px 16px;text-decoration:none;white-space:nowrap;
@@ -135,6 +138,102 @@
   .oh-band{padding:13px 15px;gap:11px}
   .oh-band a{flex:1 0 100%;text-align:center}
 }
+
+/* ====== הספירה לאחור ======
+   ‏"נותרו 3 ימים 04:12" — אותו רכיב על האריח, בשורת הרשימה שליד המפה
+   וברצועה שבדף הנכס. ה-HTML נבנה ב-‎OpenHouse.countdownHtml()‎ וטיקר אחד
+   מעדכן את כולם (‏data-oh-end).
+
+   ‏tabular-nums הוא לא קישוט: בלעדיו הספרות ברוחב שונה זו מזו, והמונה
+   "קופץ" הצידה בכל שנייה שמתחלפת. */
+.oh-countdown{
+  display:inline-flex;align-items:center;gap:6px;white-space:nowrap;
+  background:rgba(13,27,61,.72);color:#fff;
+  font-size:.72rem;font-weight:700;line-height:1.3;padding:4px 9px;
+  -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+}
+.oh-countdown svg{width:13px;height:13px;flex:none;opacity:.9}
+.oh-cd-label{opacity:.82;font-weight:600}
+/* חלק הימים ריק ברוב הזמן (מתחת ליממה), ואז הוא לא צריך לתפוס רווח */
+.oh-cd-days:empty{display:none}
+.oh-cd-value{font-variant-numeric:tabular-nums;letter-spacing:.01em}
+/* פחות מיממה: אדום היריד. זו לא אזהרה אלא מידע — וזה הרגע שבו הוא משנה
+   התנהגות. */
+.oh-countdown.is-urgent{background:var(--open-house,#c8102e)}
+.oh-countdown.is-done{background:rgba(74,85,120,.8)}
+.oh-countdown.is-plain{
+  background:var(--open-house-tint,#fdecee);color:var(--open-house-deep,#9c0c24);
+  -webkit-backdrop-filter:none;backdrop-filter:none;
+}
+
+/* על אריח הנכס במדף: בראש התמונה, בקצה הנגדי לתגיות ("למכירה", "ללא
+   עמלת תיווך") שיושבות בראש מצדו השני.
+
+   **לא בתחתית**: באריח הכיסוי (‏.prop-card.pc-cover) הטקסט — מחיר, כותרת,
+   מיקום ומאפיינים — יושב על התמונה מלמטה, ומונה שהוצב שם נקרא מאחורי
+   שורת המאפיינים. */
+.oh-card-countdown{
+  position:absolute;top:38px;inset-inline-end:9px;z-index:3;
+  font-size:.68rem;padding:3px 8px;
+}
+/* 38px = ‏9px הריפוד של שורת התגיות + גובהה. שתי השורות זו מתחת לזו
+   באותו קצה, ולא זו לצד זו: באריח ברוחב 250px "למכירה · ללא עמלת תיווך"
+   כבר ממלא את השורה, והמונה היה נוחת עליהן. */
+/* בשורה הדחוסה (טלפון) הוא יושב על התמונונת, בפינה התחתונה */
+.oh-row-countdown{position:absolute;bottom:4px;inset-inline-start:4px;z-index:2;font-size:.66rem;padding:2px 6px}
+.oh-row-countdown .oh-cd-label{display:none}
+
+/* ====== מפה לצד רשימה ======
+   שתי תצוגות של אותו מלאי, זו לצד זו: הרשימה מימין אומרת *מה* נגמר קרוב,
+   והמפה משמאל אומרת *איפה*. ריחוף על שורה מדליק את הסימן שלה במפה — אותו
+   קישור דו-כיווני של התצוגה המפוצלת בדף הבית.
+
+   מתחת ל-1000px הן נערמות: מפה ברוחב חצי מסך טלפון אינה מפה. */
+.oh-split{display:grid;grid-template-columns:1fr;gap:14px}
+@media(min-width:1000px){
+  .oh-split{grid-template-columns:minmax(280px,.78fr) minmax(0,1.22fr);align-items:stretch}
+}
+.oh-split-list{
+  display:flex;flex-direction:column;min-width:0;
+  background:#fff;border:1px solid var(--line,#e3e8f4);
+}
+.oh-split-head{
+  display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  padding:12px 14px;border-bottom:1px solid var(--line,#e3e8f4);
+}
+.oh-split-head b{font-size:.92rem}
+.oh-split-head span{font-size:.72rem;color:var(--ink-soft,#4a5578);white-space:nowrap}
+/* הגלילה היא בתוך הרשימה ולא בדף: כך המפה שלצדה נשארת במקומה בזמן
+   שעוברים על הנכסים. הגובה נגזר מגובה המפה כדי ששתי העמודות יסתיימו יחד. */
+.oh-split-rows{overflow-y:auto;max-height:360px;-webkit-overflow-scrolling:touch}
+@media(min-width:1000px){.oh-split-rows{max-height:430px}}
+.oh-split-row{
+  display:flex;gap:10px;align-items:stretch;padding:10px 12px;
+  border-bottom:1px solid var(--hair,#eef1f8);color:inherit;text-decoration:none;
+  transition:background .14s ease;
+}
+.oh-split-row:last-child{border-bottom:0}
+.oh-split-row:hover,.oh-split-row:focus-visible{background:var(--open-house-tint,#fdecee);outline:none}
+.oh-split-row.is-hot{background:var(--open-house-tint,#fdecee)}
+.oh-split-thumb{
+  flex:0 0 74px;height:66px;background:var(--field,#eef2fb) center/cover no-repeat;
+  position:relative;overflow:hidden;
+}
+.oh-split-thumb .oh-mark{position:absolute;inset:0;margin:auto;color:var(--open-house,#c8102e);opacity:.35}
+.oh-split-main{min-width:0;flex:1 1 auto;display:flex;flex-direction:column;gap:3px;justify-content:center}
+.oh-split-title{
+  font-size:.82rem;font-weight:700;line-height:1.3;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+.oh-split-meta{font-size:.7rem;color:var(--ink-soft,#4a5578);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* מחיר ומונה באותה שורה כשהם נכנסים, ובשתי שורות כשלא (‏"₪1,500,000
+   לחודש" + מונה של שלושה ימים לא נכנסים יחד בעמודה צרה). המונה כאן קטן
+   במעט מזה שעל האריח, כדי שהמקרה הראשון יקרה לרוב. */
+.oh-split-foot{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.oh-split-foot .oh-countdown{font-size:.66rem;padding:2px 7px;gap:4px}
+.oh-split-foot .oh-countdown svg{width:11px;height:11px}
+.oh-split-price{font-size:.84rem;font-weight:800;white-space:nowrap}
+.oh-split-empty{padding:22px 14px;font-size:.82rem;color:var(--ink-soft,#4a5578);text-align:center}
 
 /* ====== המונה ======
    "‏7 נכסים ביריד עכשיו" — אותו טקסט בבאנר, בראש דף היריד ובכותרת המדף. */
