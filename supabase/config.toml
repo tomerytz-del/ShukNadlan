@@ -107,6 +107,12 @@ verify_jwt = false          # ‏pg_cron + x-alert-cron-secret
 [functions.open-house-notify]
 verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
 
+# השלמת קואורדינטות לנכסים שיש להם כתובת מדויקת ואין להם פין. רצה פעם בשעה
+# מ-pg_cron, ורק כשיש מה להשלים (‏geocode_backfill_pending בתנאי ה-cron).
+# אינה מקבלת שום קלט — התור מוגדר במסד. ראו docs/geocoding.md
+[functions.geocode-backfill]
+verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
+
 # תזכורות לסוכנים (תמונות חסרות, שתיקה, תוקף מודעה). רצה פעם בשעה מ-pg_cron
 # בלבד ואינה מקבלת שום קלט — מי מקבל/ת, מה נשלח וכמה נקבעים במסד.
 [functions.agent-reminders]

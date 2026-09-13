@@ -390,7 +390,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <section class="section wrap" id="fairMapSection" aria-labelledby="fairMapTitle" hidden>
     <div class="section-head">
       <h2 id="fairMapTitle">איפה הם נמצאים</h2>
-      <p>הרשימה מסודרת לפי מה שנגמר קרוב, והמפה מראה איפה. ריחוף על שורה מדליק את הנכס שלה במפה, ולחיצה פותחת אותו.</p>
+      <p id="fairMapNote">הרשימה מסודרת לפי מה שנגמר קרוב, והמפה מראה איפה. ריחוף על שורה מדליק את הנכס שלה במפה, ולחיצה פותחת אותו.</p>
     </div>
     <!-- שתי תצוגות של אותו מלאי: הרשימה מימין אומרת *מה* נגמר קרוב, המפה
          משמאל אומרת *איפה*. ריחוף על שורה מדליק את הסימן שלה במפה — אותו
@@ -999,10 +999,27 @@ function renderFairSplit(list){
 
 function renderFairMap(list){
   const withGeo = list.filter(p => p.lat && p.lng);
-  // בלי קואורדינטות (או בלי Leaflet) נשארת הרשימה לבדה, והמסגרת הריקה של
-  // המפה יורדת: קופסה אפורה בחצי רוחב המקטע נראית כמו מפה שנשברה
-  if (!withGeo.length || !window.L){
+
+  /* שני מצבים שונים, ושתי תשובות שונות:
+
+     **לאף נכס אין קואורדינטות** — למקטע ששמו "איפה הם נמצאים" אין מה
+     להראות, ולכן הוא יורד כולו. הרשימה שבתוכו אינה אובדן: המדף שמתחת
+     מציג את אותם נכסים, עם אותה ספירה לאחור. חצי מקטע ריק לצד רשימה
+     שחוזרת על עצמה גרוע משני המצבים.
+
+     **יש קואורדינטות אבל Leaflet לא נטען** (‏CDN חסום) — הרשימה נשארת
+     ונפרשת לכל הרוחב. המידע קיים, רק הציור נכשל.
+
+     נכס בלי קואורדינטות בין נכסים שיש להם פשוט לא מקבל סימן, כמו בכל מפה
+     אחרת באתר; הוא ממשיך להופיע ברשימה ובמדף. */
+  if (!withGeo.length){
+    el('fairMapSection').hidden = true;
+    return;
+  }
+  if (!window.L){
     document.querySelector('.oh-map-wrap').hidden = true;
+    document.querySelector('.oh-split').classList.add('is-list-only');
+    el('fairMapNote').textContent = 'הנכסים שביריד, לפי מה שנגמר קרוב.';
     return;
   }
 

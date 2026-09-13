@@ -667,11 +667,30 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .lead-actions .btn-share{background:#2A5B36;color:#EAF4EC}
   .lead-actions .btn-share:disabled{opacity:.5;cursor:not-allowed}
   .lead-actions .act-wide{grid-column:1/-1}
-  /* יריד הבתים הפתוחים: אדום מלא ברוחב מלא, ראשון בשורת הפעולות. זו
-     הפעולה היחידה כאן שמשנה את מה שהקונה ישלם, והיא גם היחידה שהסוכן/ת
-     חוזר/ת אליה מדי כמה שבועות — ולכן היא לא יכולה להיות כפתור שמיני
-     ברשת. כשהנכס כבר ביריד הכפתור מתהפך למתאר מצב (מסגרת אדומה על רקע
-     בהיר): אז הוא כבר לא קריאה לפעולה אלא הדרך לשנות או לצאת. */
+
+  /* ---------- שורת שלוש הפעולות הראשיות של כרטיס נכס ----------
+     שלוש הפעולות שמשנות את **מצב** הנכס — פתיחה לשת"פ, הכנסה ליריד,
+     וסימון כנמכר/הושכר — יושבות בשורה אחת משלהן מתחת לכלי העבודה.
+
+     קודם כל אחת מהן נמתחה לרוחב מלא (`act-wide`), ושלוש שורות שלמות של
+     כפתור-ענק דחפו את הכרטיס הבא אל מחוץ למסך: ברשימה של חמישים נכסים
+     זה אומר שכל נכס דורש גלילה. ומעבר לגובה, `act-wide` באמצע הרשת גם
+     שבר את שורת הכפתורים הקטנים לשתיים — ‏`grid-column:1/-1` מכריח שורה
+     חדשה ומשאיר את שארית הקודמת ריקה.
+
+     ברוחב טלפון הן נערמות: שלוש עמודות של 95 פיקסלים היו שוברות כל
+     תווית לשלוש שורות, וגובה זה בדיוק מה שבאנו לחסוך. */
+  .lead-actions.act-primary{
+    grid-template-columns:1fr;margin-top:8px;padding-top:0;border-top:none;
+  }
+  @media(min-width:560px){
+    .lead-actions.act-primary{grid-template-columns:repeat(3,minmax(0,1fr))}
+  }
+  /* יריד הבתים הפתוחים: אדום מלא, אחת משלוש הפעולות הראשיות. זו הפעולה
+     היחידה כאן שמשנה את מה שהקונה ישלם, והיא גם היחידה שהסוכן/ת חוזר/ת
+     אליה מדי כמה שבועות — ולכן היא לא יכולה להיות כפתור שמיני ברשת
+     הכפתורים הקטנים. כשהנכס כבר ביריד הכפתור מתהפך למתאר מצב (מסגרת
+     אדומה על רקע בהיר): אז הוא כבר לא קריאה לפעולה אלא הדרך לשנות או לצאת. */
   .lead-actions .btn-openhouse{background:#C8102E;color:#fff}
   .lead-actions .btn-openhouse:hover{background:#9C0C24}
   .lead-actions .btn-openhouse-on{
@@ -13607,11 +13626,15 @@ function buildPropertyCard(p, agentId){
     ${ownerLine ? `<div class="lead-meta">בעלים: ${esc(ownerLine)}</div>` : ''}
     ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
     <div class="lead-actions"></div>
+    <div class="lead-actions act-primary"></div>
   `;
   const actions = el.querySelector('.lead-actions');
+  const mainActions = el.querySelector('.lead-actions.act-primary');
 
-  // סדר הפעולות: קודם כלי העבודה היומיומיים ברשת עמודות שוות, ורק בסוף
-  // הפעולות שמשנות את מצב הנכס (שת"פ / סגירת עסקה) ברוחב מלא.
+  // סדר הפעולות: קודם כלי העבודה היומיומיים ברשת עמודות שוות, ואחריהם
+  // שלוש הפעולות שמשנות את מצב הנכס (שת"פ / יריד / סגירת עסקה) בשורה
+  // אחת משלהן. שתי רשתות נפרדות ולא אחת: ‏act-wide בתוך רשת אחת מכריח
+  // שורה חדשה גם באמצע, ושובר את הכפתורים הקטנים לשורות מיותרות.
   addCardAction(actions, { label:'✏️ עריכה', onClick:()=> openEditProperty(p) });
 
   // החתמת בעל/ת הנכס — הטופס נפתח כשפרטי הנכס והבעלים כבר בתוכו
@@ -13653,28 +13676,6 @@ function buildPropertyCard(p, agentId){
   }
 
   if (p.status === 'active'){
-    /* ====== יריד הבתים הפתוחים — ראשון, וברוחב מלא ======
-       מתוך כל הפעולות בכרטיס זו היחידה שמשנה את מה שהקונה ישלם בפועל, והיא
-       גם היחידה שחוזרים אליה מדי כמה שבועות ("הנכס הזה, לשבועיים הקרובים").
-       כפתור שמיני ברשת של שתים־עשרה פעולות הוא כפתור שאיש לא מצא — וזה
-       בדיוק מה שקרה כשהשדות ישבו רק בתוך טופס העריכה.
-
-       הכותרת אומרת שלושה דברים שונים לפי מצב הנכס — מחוץ ליריד, בתוכו, או
-       מחכה לתאריך — כי זו השאלה הראשונה שנשאלת במבט על הכרטיס. אין כאן
-       מחיר: ההשתתפות חינם ובלי תלות במסלול. ראו docs/open-house-fair.md */
-    const ohLive = OpenHouse.live(p);
-    const ohSoon = OpenHouse.upcoming(p);
-    addCardAction(actions, {
-      label: ohLive ? `🏷 ביריד הבתים הפתוחים · ${OpenHouse.endLabel(p)}`
-           : ohSoon ? `🏷 נכנס ליריד ב-${OpenHouse.hebDay(OpenHouse.startsAt(p))}`
-           : '🏷 הכנסה ליריד הבתים הפתוחים · ללא עמלת תיווך',
-      cls: (ohLive || ohSoon ? 'btn-openhouse-on' : 'btn-openhouse') + ' act-wide',
-      title: ohLive || ohSoon
-        ? 'שינוי תקופת ההשתתפות ביריד, או הוצאה ממנו'
-        : 'הצעת הנכס ללא עמלת תיווך לקונה, לתקופה קצובה — בדף היריד ובסימן משלו על המפה',
-      onClick: () => openOpenHouseModal(p, agentId),
-    });
-
     // הדרך לראות את המודעה כמו שהיא נראית ללקוח/ה — אותו עמוד שה-QR מוביל
     // אליו. בלשונית חדשה כדי שה-CRM יישאר פתוח מאחור, ורק לנכס פעיל: דף
     // הנכס טוען ‎status=active‎ בלבד ולכל השאר יציג "לא נמצא".
@@ -13747,25 +13748,58 @@ function buildPropertyCard(p, agentId){
       addCardAction(actions, { label:'✖ ביטול שת״פ', onClick:btn => unshareProperty(p, btn, agentId) });
     }
 
+    /* ====== שלוש הפעולות הראשיות, בשורה אחת ======
+       שת"פ, יריד וסגירת עסקה — שלוש הפעולות שמשנות את מצב הנכס עצמו, ולא
+       כלים שעושים בו משהו. הן יושבות בשורה נפרדת משלהן (`.act-primary`)
+       ולא ברשת הכפתורים הקטנים, ולכן גם התוויות כאן קצרות: מה שהן לא
+       אומרות נמצא ב-title. */
+
     // סימון הנכס כפתוח לשת"פ — ההפצה יוצאת מיד למשרדים שברשימת השת"פ.
     // ירוק ולא זהוב: זו שפת הצבע של השת"פ בכל הכרטיס, והיא משאירה את
     // הזהב לפעולה היחידה שסוגרת את המודעה.
-    addCardAction(actions, {
+    addCardAction(mainActions, {
       label: p.shared_with_partners ? '🤝 עדכון הפצה' : '🤝 פתיחה לשת״פ',
-      cls: (p.shared_with_partners ? 'btn-ghost' : 'btn-share') + ' act-wide',
+      cls: p.shared_with_partners ? 'btn-ghost' : 'btn-share',
+      title: p.shared_with_partners
+        ? 'הפצה מחודשת של הנכס למשרדים שברשימת השת״פ'
+        : 'פתיחת הנכס לשיתוף פעולה — ההפצה יוצאת מיד למשרדים שברשימה',
       onClick: btn => shareProperty(p, btn, agentId),
     });
 
+    /* יריד הבתים הפתוחים. מתוך כל הפעולות בכרטיס זו היחידה שמשנה את מה
+       שהקונה ישלם בפועל, והיא גם היחידה שחוזרים אליה מדי כמה שבועות
+       ("הנכס הזה, לשבועיים הקרובים"). כפתור שמיני ברשת של שתים־עשרה
+       פעולות הוא כפתור שאיש לא מצא — וזה בדיוק מה שקרה כשהשדות ישבו רק
+       בתוך טופס העריכה.
+
+       התווית אומרת שלושה דברים שונים לפי מצב הנכס — מחוץ ליריד, בתוכו, או
+       מחכה לתאריך — כי זו השאלה הראשונה שנשאלת במבט על הכרטיס. אין כאן
+       מחיר: ההשתתפות חינם ובלי תלות במסלול. ראו docs/open-house-fair.md */
+    const ohLive = OpenHouse.live(p);
+    const ohSoon = OpenHouse.upcoming(p);
+    addCardAction(mainActions, {
+      label: ohLive ? `🏷 ביריד · ${OpenHouse.endLabel(p)}`
+           : ohSoon ? `🏷 ביריד מ-${OpenHouse.hebDay(OpenHouse.startsAt(p))}`
+           : '🏷 הכנסה ליריד',
+      cls: ohLive || ohSoon ? 'btn-openhouse-on' : 'btn-openhouse',
+      title: ohLive || ohSoon
+        ? 'שינוי תקופת ההשתתפות ביריד הבתים הפתוחים, או הוצאה ממנו'
+        : 'הצעת הנכס ללא עמלת תיווך לקונה, לתקופה קצובה — בדף היריד ובסימן משלו על המפה',
+      onClick: () => openOpenHouseModal(p, agentId),
+    });
+
     const isRent = p.deal_type === 'rent';
-    addCardAction(actions, {
-      label: isRent ? '✅ סמן כהושכר' : '✅ סמן כנמכר', cls:'btn-gold act-wide',
+    addCardAction(mainActions, {
+      label: isRent ? '✅ סמן כהושכר' : '✅ סמן כנמכר', cls:'btn-gold',
+      title:'סגירת העסקה — המודעה יורדת מהאתר ונשארת בכרטיס',
       onClick:()=> markPropertyStatus(p.id, isRent ? 'rented' : 'sold', agentId),
     });
   } else {
     // נכס שסומן כהושכר/נמכר/הוסר לא נעלם — עסקה שהתבטלה או שוכר שעזב מחזירים
     // אותו לפרסום מאותו כרטיס, בלי לפתוח מודעה חדשה ולאבד את מספר המודעה,
     // הצפיות והמידע התכנוני שכבר נצברו עליו.
-    addCardAction(actions, {
+    // ‏act-wide ולא שליש: כאן זו הפעולה הראשית היחידה.
+    addCardAction(mainActions, {
       label:'↩ החזרה לפרסום', cls:'btn-gold act-wide',
       onClick:btn => republishProperty(p, btn, agentId),
     });

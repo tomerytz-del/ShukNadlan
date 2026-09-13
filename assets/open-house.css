@@ -192,7 +192,11 @@
 .oh-split{display:grid;grid-template-columns:1fr;gap:14px}
 @media(min-width:1000px){
   .oh-split{grid-template-columns:minmax(280px,.78fr) minmax(0,1.22fr);align-items:stretch}
+  /* בלי מפה (‏Leaflet שלא נטען) הרשימה לוקחת את כל הרוחב: עמודה ריקה
+     בחצי המקטע נראית כמו מפה שנשברה, ולא כמו החלטה. */
+  .oh-split.is-list-only{grid-template-columns:1fr}
 }
+.oh-split.is-list-only .oh-split-rows{max-height:none}
 .oh-split-list{
   display:flex;flex-direction:column;min-width:0;
   background:#fff;border:1px solid var(--line,#e3e8f4);
