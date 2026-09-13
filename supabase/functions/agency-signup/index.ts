@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { grantLaunchPromo } from "../_shared/launch-promo.ts";
+import { blockedResponse, checkBrokerLicense } from "../_shared/broker-license-gate.ts";
 
 // פתיחת משרד חדש ("פתיחת משרד"). זו הדרך היחידה שמישהו נכנסת
 // למערכת לראשונה (רובמנו) — אין הרשמה עצמאית לסוכן, רק למשרד.
@@ -75,6 +76,26 @@ Deno.serve(async (req: Request) => {
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+  // ---------------------------------------------------------------------
+  // אימות רישיון התיווך מול רשם המתווכים
+  //
+  // **לפני שנוצר משהו.** המשרד, משתמש ה-auth וכרטיס הסוכן/ת נוצרים בשלוש
+  // פעולות נפרדות שכבר היום דורשות rollback ידני כשאחת נכשלת; בדיקה
+  // שהייתה רצה באמצע הייתה מוסיפה מצב רביעי לנקות. כאן היא עולה קריאת
+  // רשת אחת ומחזירה 403 לפני שנגענו במסד.
+  //
+  // ‏not_found ו-inactive חוסמים; ‏unverified לעולם לא. ראו
+  // ‏_shared/broker-license-gate.ts.
+  // ---------------------------------------------------------------------
+  const licenseCheck = await checkBrokerLicense(supabase, license_number, {
+    who: manager_name,
+    email: manager_email,
+    source: "agency-signup",
+  });
+  if (!licenseCheck.allowed) {
+    return json(blockedResponse(licenseCheck, license_number), 403);
+  }
+
   try {
     // slug יינו למשרד — בדיקת ייחוד עם fallback מספרי (מודול 3 §2.2)
     let baseSlug = slugify(agency_name) || "agency";
@@ -129,6 +150,9 @@ Deno.serve(async (req: Request) => {
         display_name: manager_name,
         email: manager_email,
         license_number: license_number,
+        // תוצאת הבדיקה שרצה למעלה, על השורה. זו הבדיקה היחידה — היא אינה
+        // חוזרת, ולכן מה שנכתב כאן הוא התיעוד הקבוע שלה.
+        ...licenseCheck.columns,
       })
       .select()
       .single();

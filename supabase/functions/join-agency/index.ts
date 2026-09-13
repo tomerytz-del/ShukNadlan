@@ -4,6 +4,7 @@ import { sendPlatformEmail, PLATFORM_CONTACT_EMAIL } from "../_shared/platform-m
 import {
   grantLaunchPromo, PROMO_TIER, TIERS, TIER_NAMES, TIER_PRICES, type Tier,
 } from "../_shared/launch-promo.ts";
+import { blockedResponse, checkBrokerLicense } from "../_shared/broker-license-gate.ts";
 
 // ============================================================================
 // חיבור חשבון לכרטיס סוכן/ת קיים — "המערכת מזהה אותי"
@@ -87,8 +88,50 @@ Deno.serve(async (req: Request) => {
   /** הענקת הטבת ההשקה. כישלון כאן לא מפיל את השיוך — המשרד חשוב מהמתנה. */
   const grantPromo = (memberId: string) => grantLaunchPromo(supabase, memberId);
 
+  /**
+   * שער הרישיון על כרטיס קיים.
+   *
+   * ‏bind הוא הרגע שבו חשבון נקשר לכרטיס — כלומר **הכניסה הראשונה** של
+   * הסוכן/ת למערכת — ולכן הוא המקום הנכון לשער, ולא שלושת המסלולים בנפרד.
+   *
+   * הבדיקה חד-פעמית ולא חוזרת, ולכן:
+   *   • כרטיס שכבר אומת (‏verified/manual) עובר **בלי קריאת רשת בכלל**.
+   *     זה הרוב: ‏add-team-member כבר בדק אותו ביצירה.
+   *   • כרטיס שמעולם לא נבדק (‏license_checked_at ריק — כלומר נוצר לפני
+   *     המיגרציה) נבדק עכשיו, בכניסה הראשונה שלו. זו בדיוק ההגדרה.
+   *   • כרטיס שנבדק ונחסם נבדק שוב, כי ‎checkBrokerLicense‎ שואל קודם כול
+   *     אם בינתיים אושר ערעור — וזה המסלול שדרכו מי שנחסם/ה נכנס/ת.
+   */
+  async function licenseGate(memberId: string) {
+    const { data: card } = await supabase
+      .from("agency_members")
+      .select("license_number, license_status, license_checked_at, display_name, email")
+      .eq("id", memberId).maybeSingle();
+    if (!card) return null;
+
+    if (card.license_checked_at && ["verified", "manual"].includes(card.license_status)) return null;
+    if (!card.license_number) return null; // כרטיס בלי מספר כלל — אין מה לשאול
+
+    const decision = await checkBrokerLicense(supabase, card.license_number, {
+      who: card.display_name || undefined,
+      email: card.email || userEmail || undefined,
+      source: "join-agency",
+    });
+
+    // התוצאה נרשמת בכל מקרה — גם כשהיא מתירה. זה התיעוד החד-פעמי של
+    // הבדיקה, ובלעדיו היא הייתה רצה שוב בכל כניסה.
+    await supabase.from("agency_members").update(decision.columns).eq("id", memberId);
+
+    return decision.allowed ? null : blockedResponse(decision, card.license_number);
+  }
+
   /** השיוך עצמו. נקודה אחת, כדי ששלושת המסלולים לא יתפצלו בהתנהגות. */
   async function bind(memberId: string, opts: { inviteToken?: string } = {}) {
+    // השער קודם לכתיבה: כרטיס חסום לא מקבל user_id, ולכן הכניסה הבאה תראה
+    // בדיוק את אותו מסך ולא "כבר משויך/ת".
+    const blocked = await licenseGate(memberId);
+    if (blocked) return { blocked };
+
     const patch: Record<string, unknown> = { user_id: user.id };
     // יישור האימייל לכתובת הכניסה — אחרת הכרטיס נשאר עם הכתובת השגויה
     // וההתאמה האוטומטית לא תעבוד גם בפעם הבאה.
@@ -147,6 +190,7 @@ Deno.serve(async (req: Request) => {
         if (member.user_id) return json({ status: "invite_invalid", reason: "used" });
 
         const res = await bind(invite.member_id, { inviteToken: token });
+        if ("blocked" in res) return json(res.blocked, 403);
         if ("error" in res) return json({ status: "error", error: res.error, detail: (res as any).detail }, 409);
         const promo = await grantPromo(invite.member_id);
         return json({ status: "joined", via: "invite", member_slug: res.member!.slug, promo });
@@ -161,6 +205,11 @@ Deno.serve(async (req: Request) => {
         // יותר מהתאמה אחת = לא ברור לאיזה כרטיס, ולכן לא משייכים בשקט.
         if (matches && matches.length === 1) {
           const res = await bind(matches[0].id);
+          // חסימת רישיון אינה "לא הצלחנו לשייך" ואסור לה ליפול בשקט למסך
+          // הבא: הכרטיס נמצא, הכתובת תואמת, ומה שעוצר הוא הרישיון. בלי
+          // ההחזרה הזו הסוכן/ת היה/תה מקבל/ת "עדיין לא פתחת משרד" ולא מבין/ה
+          // למה.
+          if ("blocked" in res) return json(res.blocked, 403);
           if (!("error" in res)) {
             const promo = await grantPromo(matches[0].id);
             return json({ status: "joined", via: "email", member_slug: res.member!.slug, promo });
@@ -201,6 +250,12 @@ Deno.serve(async (req: Request) => {
       if (found.length !== 1) return json({ error: "license_not_found" }, 404);
       const target = found[0] as any;
       if (target.user_id === user.id) return json({ error: "already_member" }, 409);
+
+      // השער כאן הוא **מוקדם**, לא נוסף: ‏decide יבדוק שוב לפני השיוך עצמו.
+      // הנקודה היא לא להשאיר אדם ממתין לאישור מנהל/ת שממילא ייחסם אחריו —
+      // ולתת לו/ה את מסלול הערעור עכשיו, כשהוא/היא מול המסך.
+      const blocked = await licenseGate(target.id);
+      if (blocked) return json(blocked, 403);
 
       const { error: insErr } = await supabase.from("agency_member_claims").insert({
         member_id: target.id,
@@ -256,6 +311,12 @@ Deno.serve(async (req: Request) => {
       if (claim.status !== "pending") return json({ error: "claim_already_decided" }, 409);
 
       if (decision === "approved") {
+        // המסלול הזה משייך בעצמו ואינו עובר דרך bind, ולכן הוא צריך את השער
+        // במפורש. בלעדיו אישור של מנהל/ת משרד היה הדלת האחורית שעוקפת את
+        // בדיקת הרישיון — והיא הדלת שהכי קל להגיע אליה.
+        const blocked = await licenseGate(claim.member_id);
+        if (blocked) return json(blocked, 403);
+
         // ניתוק החשבון הישן ושיוך החדש. זה בדיוק התיקון של "הכרטיס קשור
         // לחשבון שאיש לא ייכנס אליו" — ובלעדיו התיקון היחיד הוא ידני, במסד.
         const { error: updErr } = await supabase

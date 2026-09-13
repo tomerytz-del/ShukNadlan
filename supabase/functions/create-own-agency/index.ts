@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { grantLaunchPromo } from "../_shared/launch-promo.ts";
+import { blockedResponse, checkBrokerLicense } from "../_shared/broker-license-gate.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -72,6 +73,22 @@ Deno.serve(async (req: Request) => {
     return json({ error: "already_has_agency", agency_name: (existing as any).agencies?.name ?? null }, 409);
   }
 
+  // ---------------------------------------------------------------------
+  // אימות רישיון התיווך, לפני שנוצר המשרד
+  //
+  // גם כאן, כמו ב-agency-signup, הבדיקה קודמת לכל כתיבה: שני המסלולים
+  // שלמטה (יצירת כרטיס חדש, ואימוץ כרטיס מנותק) כבר מוחקים את המשרד ידנית
+  // כשהם נכשלים, ואין סיבה להוסיף להם מצב שלישי לנקות.
+  // ---------------------------------------------------------------------
+  const licenseCheck = await checkBrokerLicense(supabase, license_number, {
+    who: manager_name,
+    email: userData.user.email ?? undefined,
+    source: "create-own-agency",
+  });
+  if (!licenseCheck.allowed) {
+    return json(blockedResponse(licenseCheck, license_number), 403);
+  }
+
   try {
     let baseSlug = slugify(agency_name) || "agency";
     let finalSlug = baseSlug;
@@ -104,6 +121,14 @@ Deno.serve(async (req: Request) => {
         await supabase.from("agencies").delete().eq("id", agency.id);
         return json({ error: "db_error", detail: moveErr.message }, 500);
       }
+
+      // תוצאת בדיקת הרישיון על הכרטיס שאומץ. ‏adopt_released_member_into_agency
+      // כותבת את license_number בעצמה ואינה מכירה את שדות הבדיקה, ולכן הם
+      // נכתבים כאן בעדכון נפרד. כשל כאן אינו מפיל את המעבר — המשרד כבר עבר,
+      // והשורה נשארת unverified, שאינו חוסם.
+      const { error: licErr } = await supabase
+        .from("agency_members").update(licenseCheck.columns).eq("id", releasedMember.id);
+      if (licErr) console.error("license stamp failed", licErr);
 
       // חתימת הקוד האתי על המשרד החדש. שורת הסוכן/ת כבר חתומה מהמשרד הקודם,
       // והחתימה אישית ולא נמחקת במעבר.
@@ -146,6 +171,7 @@ Deno.serve(async (req: Request) => {
       display_name: manager_name,
       email: userData.user.email,
       license_number: license_number,
+      ...licenseCheck.columns,
     }).select().single();
 
     if (memberErr) {

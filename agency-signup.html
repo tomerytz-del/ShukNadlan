@@ -96,7 +96,14 @@
 
     <div class="section-divider">הפרטים שלך (כמנהל/ת)</div>
     <div class="field"><label>שם מלא</label><input type="text" id="managerName" required></div>
-    <div class="field"><label>מספר רישיון תיווך</label><input type="text" id="licenseNumber" required placeholder="לדוגמה: 123456"></div>
+    <!-- ‏מספר הרישיון נבדק מול רשם המתווכים. החיווי כאן הוא נוחות בלבד —
+         הבדיקה הקובעת רצה בשרת ב-agency-signup — אבל בלעדיו החסימה הייתה
+         מגיעה רק אחרי מילוי כל הטופס והסיסמה. -->
+    <div class="field">
+      <label>מספר רישיון תיווך</label>
+      <input type="text" id="licenseNumber" required placeholder="לדוגמה: 123456" inputmode="numeric">
+      <div id="licenseHint" class="hint" style="font-size:.74rem;margin-top:6px;display:none"></div>
+    </div>
     <div class="field"><label>אימייל</label><input type="email" id="managerEmail" required autocomplete="username"></div>
     <div class="field"><label>סיסמה (8 תווים לפחות)</label><input type="password" id="managerPassword" required minlength="8" autocomplete="new-password"></div>
 
@@ -112,6 +119,47 @@
     <button class="btn" id="submitBtn">פתיחת המשרד</button>
     <div id="feedback"></div>
     <a href="crm.html" class="back-link">כבר יש לך חשבון? כניסה</a>
+  </div>
+
+  <!-- ============================================================
+       מסך החסימה — "הרישיון לא נמצא"
+       ============================================================
+       מוצג במקום הטופס כשהשרת חסם. הוא **אינו** מסך שגיאה: מאגר רשם
+       המתווכים מתעדכן אחת לשלושה חודשים, ולכן הסיבה השכיחה ביותר להגיע
+       לכאן היא רישיון חדש לגמרי. לכן הטקסט מסביר את זה לפני שהוא מבקש
+       משהו, והפעולה המוצעת היא לשלוח צילום — לא "פנו לתמיכה".
+  -->
+  <div id="stateBlocked" style="display:none">
+    <h1>לא מצאנו את מספר הרישיון</h1>
+    <p class="sub" id="blockedReason"></p>
+
+    <div style="background:#f6f7fb;border-radius:12px;padding:14px;margin:16px 0;font-size:.85rem;line-height:1.65">
+      מאגר רשם המתווכים מתעדכן אחת לשלושה חודשים, ולכן רישיון שהונפק לאחרונה
+      עדיין לא מופיע בו. אפשר לצרף כאן צילום של הרישיון — הנהלת הפלטפורמה
+      תבדוק ותפתח את המשרד ידנית, בדרך כלל תוך יום עסקים.
+    </div>
+
+    <div class="field"><label>שם מלא</label><input type="text" id="apName"></div>
+    <div class="field"><label>אימייל לעדכון</label><input type="email" id="apEmail"></div>
+    <div class="field"><label>טלפון <span style="font-weight:400">(אופציונלי)</span></label><input type="tel" id="apPhone"></div>
+    <div class="field">
+      <label>צילום רישיון התיווך</label>
+      <input type="file" id="apFile" accept="image/jpeg,image/png,image/webp,image/heic,application/pdf">
+      <div class="hint" style="font-size:.72rem;color:var(--ink-soft);margin-top:6px">
+        תמונה או PDF, עד 5MB. הקובץ נשמר באחסון פרטי ונגיש להנהלת הפלטפורמה בלבד.
+      </div>
+    </div>
+    <div class="field"><label>הערה <span style="font-weight:400">(אופציונלי)</span></label><input type="text" id="apNote" placeholder="למשל: הרישיון הונפק החודש"></div>
+
+    <button class="btn" id="apSubmit">שליחת הצילום לבדיקה</button>
+    <div id="apFeedback"></div>
+    <a href="#" class="back-link" id="apBack">חזרה לתיקון מספר הרישיון</a>
+  </div>
+
+  <div id="stateAppealSent" style="display:none">
+    <h1>הצילום התקבל</h1>
+    <p class="sub" id="appealSentMsg"></p>
+    <a href="index.html" class="btn" style="display:flex;text-decoration:none;margin-top:16px">חזרה לדף הבית</a>
   </div>
 
   <div id="stateDone">
@@ -142,6 +190,9 @@
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const SIGNUP_FUNCTION_URL = SUPABASE_URL + '/functions/v1/agency-signup';
+const LICENSE_LOOKUP_URL  = SUPABASE_URL + '/functions/v1/broker-license-lookup';
+const LICENSE_APPEAL_URL  = SUPABASE_URL + '/functions/v1/broker-license-appeal';
+const FN_HEADERS = { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY };
 
 /* ---------- בחירת תחומי ההתמחות ----------
    הרשימה מגיעה מ-assets/specialties.js — אותו קטלוג בדיוק שה-CRM ודף
@@ -174,6 +225,44 @@ function renderSpecChips(){
   });
 }
 renderSpecChips();
+
+/* ---------- חיווי חי על מספר הרישיון ----------
+   נקרא ב-blur ולא בכל הקלדה: כל קריאה היא יציאה ל-data.gov.il (בפעם
+   הראשונה — אחר כך מטמון), ואין טעם לשאול על מספר חלקי. ‏unverified אינו
+   מוצג כלל: "לא הצלחנו לשאול" אינו מידע שמעניין את מי שממלא/ת טופס, והוא
+   ממילא אינו חוסם. */
+const licenseInput = document.getElementById('licenseNumber');
+const licenseHint  = document.getElementById('licenseHint');
+let lastLicenseAsked = '';
+
+licenseInput.addEventListener('blur', async ()=>{
+  const digits = licenseInput.value.replace(/\D/g,'').replace(/^0+/,'');
+  if (digits.length < 3 || digits === lastLicenseAsked) return;
+  lastLicenseAsked = digits;
+
+  licenseHint.style.display = 'block';
+  licenseHint.style.color = 'var(--ink-soft)';
+  licenseHint.textContent = 'בודק מול רשם המתווכים…';
+
+  try{
+    const res = await fetch(LICENSE_LOOKUP_URL, {
+      method:'POST', headers: FN_HEADERS,
+      body: JSON.stringify({ license_number: digits }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success){ licenseHint.style.display = 'none'; return; }
+
+    if (data.status === 'verified' || data.status === 'manual'){
+      licenseHint.style.color = 'var(--green, #1a7f4b)';
+      licenseHint.textContent = '✓ ' + (data.message || 'הרישיון אומת');
+    } else if (data.status === 'not_found' || data.status === 'inactive'){
+      licenseHint.style.color = 'var(--red)';
+      licenseHint.textContent = data.message || 'מספר הרישיון לא נמצא ברשם המתווכים';
+    } else {
+      licenseHint.style.display = 'none';   // unverified — אין מה לומר
+    }
+  } catch(err){ licenseHint.style.display = 'none'; }
+});
 
 document.getElementById('submitBtn').addEventListener('click', async ()=>{
   const agencyName = document.getElementById('agencyName').value.trim();
@@ -216,6 +305,22 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
       }),
     });
     const data = await res.json();
+
+    // חסימת רישיון אינה שגיאת טופס אלא מצב בפני עצמו, ולכן היא מחליפה מסך
+    // ולא מדפיסה שורה אדומה מתחת לכפתור. הפרטים שכבר הוקלדו עוברים לטופס
+    // הערעור — אין סיבה לבקש אותם פעמיים.
+    if (res.status === 403 && data.error === 'license_not_verified'){
+      document.getElementById('blockedReason').textContent = data.detail || '';
+      document.getElementById('apName').value  = managerName;
+      document.getElementById('apEmail').value = managerEmail;
+      blockedLicense = data.license_number || licenseNumber;
+      document.getElementById('stateForm').style.display = 'none';
+      document.getElementById('stateBlocked').style.display = 'block';
+      window.scrollTo(0,0);
+      btn.disabled = false; btn.textContent = 'פתיחת המשרד';
+      return;
+    }
+
     if (!res.ok || data.error){
       const messages = {
         weak_password: 'הסיסמה קצרה מדי',
@@ -234,6 +339,81 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     feedback.style.color = 'var(--red)';
     feedback.textContent = 'שגיאת רשת — נסו שוב';
     btn.disabled = false; btn.textContent = 'פתיחת המשרד';
+  }
+});
+
+/* ================= ערעור: שליחת צילום הרישיון =================
+   הקובץ נשלח כ-data URL בגוף ה-JSON ולא כהעלאה ישירה לאחסון, מסיבה אחת:
+   ‏broker-licenses הוא דלי **פרטי** שלדפדפן אין אליו גישה בכלל. ההעלאה
+   נעשית בשרת, ב-service_role, אחרי שהוא בדק גודל, סוג ומספר רישיון.
+   ‏5MB ב-base64 הם ~6.7MB בגוף הבקשה, ולכן התקרה כאן היא 5MB על הקובץ
+   עצמו — בדיוק כמו במסד ובפונקציה. */
+let blockedLicense = '';
+const MAX_APPEAL_BYTES = 5 * 1024 * 1024;
+
+const readAsDataUrl = (file) => new Promise((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload  = () => resolve(reader.result);
+  reader.onerror = () => reject(reader.error);
+  reader.readAsDataURL(file);
+});
+
+document.getElementById('apBack').addEventListener('click', (e)=>{
+  e.preventDefault();
+  document.getElementById('stateBlocked').style.display = 'none';
+  document.getElementById('stateForm').style.display = 'block';
+  lastLicenseAsked = '';           // כדי שתיקון המספר ייבדק מחדש ב-blur
+  licenseInput.focus();
+});
+
+document.getElementById('apSubmit').addEventListener('click', async ()=>{
+  const name  = document.getElementById('apName').value.trim();
+  const email = document.getElementById('apEmail').value.trim();
+  const phone = document.getElementById('apPhone').value.trim();
+  const note  = document.getElementById('apNote').value.trim();
+  const file  = document.getElementById('apFile').files[0];
+  const fb    = document.getElementById('apFeedback');
+  const btn   = document.getElementById('apSubmit');
+
+  const fail = (msg) => { fb.style.color = 'var(--red)'; fb.textContent = msg; };
+
+  if (!name || !email) return fail('נא למלא שם מלא ואימייל');
+  if (!file)           return fail('נא לצרף צילום של הרישיון');
+  if (file.size > MAX_APPEAL_BYTES) return fail('הקובץ גדול מ-5MB. אפשר לצלם מחדש או לדחוס.');
+
+  btn.disabled = true; btn.textContent = 'שולח…'; fb.textContent = '';
+  try{
+    const res = await fetch(LICENSE_APPEAL_URL, {
+      method:'POST', headers: FN_HEADERS,
+      body: JSON.stringify({
+        action: 'submit',
+        license_number: blockedLicense,
+        applicant_name: name,
+        applicant_email: email,
+        applicant_phone: phone || null,
+        note: note || null,
+        source: 'agency-signup',
+        document: await readAsDataUrl(file),
+      }),
+    });
+    const data = await res.json();
+
+    // ‏already_pending ו-already_approved אינם כישלון — הם התשובה, ולכן הם
+    // מגיעים לאותו מסך סיום עם הטקסט שהשרת החזיר.
+    if (data.status === 'received' || data.status === 'already_pending' || data.status === 'already_approved'){
+      document.getElementById('appealSentMsg').textContent = data.detail || '';
+      document.getElementById('stateBlocked').style.display = 'none';
+      document.getElementById('stateAppealSent').style.display = 'block';
+      window.scrollTo(0,0);
+      return;
+    }
+
+    fail(data.detail || ('שגיאה: ' + (data.error || 'לא ידועה')));
+    btn.disabled = false; btn.textContent = 'שליחת הצילום לבדיקה';
+  } catch(err){
+    console.error(err);
+    fail('שגיאת רשת — נסו שוב');
+    btn.disabled = false; btn.textContent = 'שליחת הצילום לבדיקה';
   }
 });
 </script>
