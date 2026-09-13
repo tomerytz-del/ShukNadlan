@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { grantLaunchPromo } from "../_shared/launch-promo.ts";
+import { announcePlatformSignup } from "../_shared/platform-signup-alert.ts";
 import { blockedResponse, checkBrokerLicense } from "../_shared/broker-license-gate.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -137,6 +138,10 @@ Deno.serve(async (req: Request) => {
         .update({ ethics_code_accepted_at: new Date().toISOString(), ethics_code_version: ETHICS_CODE_VERSION })
         .eq("id", agency.id);
 
+      // גם כאן ההצטרפות מדווחת כ"משרד חדש": מה שנפתח הוא משרד, גם כשהסוכן/ת
+      // שמאחוריו כבר הייתה במערכת. המסלול בהודעה הוא זה שעבר איתו/ה.
+      await announcePlatformSignup(supabase, releasedMember.id, "agency");
+
       return json({
         success: true,
         adopted: true,
@@ -203,6 +208,10 @@ Deno.serve(async (req: Request) => {
     // כאן אינו מפיל את פתיחת המשרד: המשרד קיים, וההטבה תוענק בכניסה הבאה
     // (‏grant_launch_promo אידמפוטנטית ורצה גם מ-join-agency/resolve).
     const promo = await grantLaunchPromo(supabase, member.id);
+
+    // אחרי ההטבה, כדי שהמסלול בהודעה יהיה הנכון. ראו
+    // ‏_shared/platform-signup-alert.ts.
+    await announcePlatformSignup(supabase, member.id, "agency");
 
     return json({
       success: true,
