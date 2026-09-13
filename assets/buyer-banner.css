@@ -24,9 +24,20 @@
 
 .footer-lead{position:relative}
 
+/* ====== הגוון של הבאנר ======
+   הרצועה הייתה עד היום ספיר-לבורדו — אותה משפחת גוון של הפוטר שמתחתיה
+   ושל כל שאר הדף — ולכן היא נבלעה בו: מי שגלל/ה עד הסוף ראה/תה עוד
+   מלבן כהה ולא הזמנה. כאן היא תכלת עמוק, הגוון היחיד באתר שאינו של אף
+   דף — כולל דפי המשרד והסוכן/ת, שבהם היא אינה נצבעת בצבעי המשרד: מה
+   שנשמר דרכה הוא חיפוש שמור של הפלטפורמה, ולא ליד של המשרד.
+
+   ‏#1668a6 הוא הקצה הבהיר של המדרג, וטקסט לבן עליו הוא 5.9:1 — מעל
+   4.5:1 גם בקצה הזה. פס הזהב העליון ‏(inset) והזוהר התכול שמתחת הם מה
+   שמרים אותה מהפוטר: בלעדיהם אפילו התכלת נראית כמו עוד שכבה בו. */
 .footer-lead .lead-banner{
-  color:#fff;border:1px solid rgba(255,255,255,.12);border-radius:0;overflow:hidden;
-  background:linear-gradient(160deg,#08194a,#3d1119);
+  color:#fff;border:1px solid rgba(201,162,39,.5);border-radius:0;overflow:hidden;
+  background:linear-gradient(160deg,#093a6d,#1668a6);
+  box-shadow:inset 0 3px 0 #c9a227, 0 14px 32px rgba(6,32,62,.45);
   font-family:'Heebo',sans-serif;line-height:1.6;
 }
 .footer-lead .lead-banner *{box-sizing:border-box}
@@ -47,7 +58,9 @@
 .footer-lead .lead-teaser-icon svg{width:23px;height:23px}
 .footer-lead .lead-teaser-copy{flex:1 1 55%;min-width:0;display:flex;flex-direction:column;gap:2px}
 .footer-lead .lead-teaser-title{font-size:1.02rem;font-weight:800;line-height:1.28}
-.footer-lead .lead-teaser-sub{font-size:.76rem;line-height:1.45;color:rgba(255,255,255,.8)}
+/* ‏.9 ולא ‎.8‎: על התכלת הבהירה יותר, ‎.8‎ הוריד את שורת המשנה (‏12px)
+   ל-4.4:1 — מתחת ל-4.5:1 שהתקן דורש לטקסט רגיל. */
+.footer-lead .lead-teaser-sub{font-size:.76rem;line-height:1.45;color:rgba(255,255,255,.9)}
 /* זהב מלא עם טקסט כהה. זהב לעולם לא נושא טקסט לבן — יחס הניגודיות שם 2.4:1 */
 .footer-lead .lead-teaser-go{
   flex:none;padding:10px 15px;font-size:.82rem;font-weight:800;white-space:nowrap;
@@ -72,7 +85,7 @@
 /* ====== האשף ====== */
 .footer-lead .lead-panel{padding:2px 16px 20px;text-align:center;animation:buyWizIn .24s ease}
 .footer-lead .owner-intro p{
-  color:#EFD9DC;font-size:.9rem;line-height:1.5;max-width:42ch;margin:8px auto 0;
+  color:#D7E6F5;font-size:.9rem;line-height:1.5;max-width:42ch;margin:8px auto 0;
 }
 /* ‏text-align:right מחזיר את תוכן האשף ליישור RTL רגיל — רק ההודעה הסגורה
    ממורכזת; תוויות ושדות טופס ממורכזים היו נקראים גרוע. */
@@ -98,7 +111,7 @@
 .footer-lead .wiz-panel.active{display:block;animation:buyWizIn .22s ease}
 @keyframes buyWizIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
 .footer-lead .wiz-q{color:#fff;font-weight:700;font-size:1rem;margin:0 0 12px}
-.footer-lead .wiz-label{display:block;font-size:.74rem;font-weight:700;color:#F0DADD;margin:14px 0 6px}
+.footer-lead .wiz-label{display:block;font-size:.74rem;font-weight:700;color:#D7E6F5;margin:14px 0 6px}
 /* ‎.wiz-label‎ הוא display:block, וכלל מחלקה גובר על ‎[hidden]‎ של הדפדפן */
 .footer-lead .wiz-label[hidden]{display:none}
 .footer-lead .wiz-hint{font-weight:600;font-size:.7rem;color:rgba(255,255,255,.72)}
@@ -142,7 +155,7 @@
 .footer-lead .chip[aria-pressed="true"]{background:#c9a227;border-color:#c9a227;color:#0d1b3d}
 
 .footer-lead .buy-range{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-.footer-lead .buy-range-field{display:flex;flex-direction:column;gap:5px;font-size:.72rem;font-weight:700;color:#F0DADD}
+.footer-lead .buy-range-field{display:flex;flex-direction:column;gap:5px;font-size:.72rem;font-weight:700;color:#D7E6F5}
 .footer-lead .buy-check{
   display:flex;align-items:flex-start;gap:9px;margin-top:14px;cursor:pointer;
   font-size:.82rem;line-height:1.45;color:#fff;
@@ -154,7 +167,7 @@
 /* סיכום מה שנבחר בשני השלבים הקודמים, מעל שדות הקשר: הוא מזכיר על מה
    חותמים בדיוק ברגע שמוסרים טלפון. */
 .footer-lead .buy-recap{
-  font-size:.78rem;line-height:1.5;color:#F0DADD;
+  font-size:.78rem;line-height:1.5;color:#D7E6F5;
   background:rgba(0,0,0,.18);padding:10px 12px;margin-bottom:4px;
 }
 
@@ -164,7 +177,7 @@
   font-size:1.6rem;font-weight:800;display:flex;align-items:center;justify-content:center;margin:0 auto 12px;
 }
 .footer-lead .wiz-done h3{color:#fff;font-size:1.15rem;margin:0 0 6px;font-family:inherit}
-.footer-lead .wiz-done p{color:#F0DADD;font-size:.88rem;margin:0 auto 14px;max-width:34ch}
+.footer-lead .wiz-done p{color:#D7E6F5;font-size:.88rem;margin:0 auto 14px;max-width:34ch}
 .footer-lead .wiz-done .btn{flex:0 1 auto;min-width:160px}
 
 .footer-lead :focus-visible{outline:2px solid #c9a227;outline-offset:2px}

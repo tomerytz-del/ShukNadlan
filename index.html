@@ -1517,7 +1517,7 @@
      שלושה שלבים שנפתח רק בלחיצה. האשף הפרוס תפס בעמוד הבית גובה מסך שלם
      משני מבקרים שבאו לראות נכסים, ולכן המצב הסגור הוא ברירת המחדל והוא
      כחצי מגובה הבאנר הפתוח. שניהם משתמשים באותן מחלקות ‎.wiz-*‎ ונבדלים
-     בצבע בלבד: בעלי נכסים בכחול הבית, מחפשי נכס בבורדו. */
+     בצבע בלבד: בעלי נכסים בכחול הבית, מחפשי נכס בתכלת עמוק. */
   /* הרקע חצי-שקוף ולא אטום: הרקע הזורם של הדף (‏.page-bg) נע עם הגלילה,
      וכשהוא מבצבץ מבעד לבאנר נוצרת תחושת עומק — הבאנר צף מעל הגלים במקום
      לחסום אותם. ה-blur קל בכוונה (3px): טשטוש חזק היה מוחק את התנועה שהיא
@@ -1536,24 +1536,34 @@
     margin-block:10px;
   }
   .owner-banner{background:linear-gradient(160deg,rgba(28,58,94,.84),rgba(18,40,64,.72))}
-  .buyer-banner{background:linear-gradient(160deg,rgba(8,25,74,.85),rgba(61,17,25,.74))}
+  .buyer-banner{background:linear-gradient(160deg,rgba(9,58,109,.9),rgba(22,104,166,.84))}
 
   /* ---- הבאנר כשהוא הרצועה הראשונה בפוטר ----
      שלושת הכללים שמעל מניחים שמתחת לבאנר עובר הרקע הזורם של הדף: שקיפות
      שמראה אותו, טשטוש שמרכך אותו, וצל שמרים את הבאנר מעליו. בתוך הפוטר
      אין מה להראות מבעד — מתחתיו ספיר אטום — ולכן השקיפות רק בוצעה את
-     הבורדו לחום אפרפר, הצל נבלע בכהה שמסביבו, וה-‎margin-block‎ שנועד
+     הגוון לאפרפר, הצל נבלע בכהה שמסביבו, וה-‎margin-block‎ שנועד
      להפריד אותו מרצועת הנכסים הפך לפס ריק בין הפוטר לתוכן שלו עצמו.
 
-     כאן הוא אותו באנר בדיוק, באותם שני צבעים — רק אטומים: ספיר לבורדו,
-     בלי צל ובלי מרווח חיצוני. המרווח שמתחתיו הוא ‎--fs-gap‎ של הפוטר
+     כאן הוא אותו באנר בדיוק, רק אטום ובלי מרווח חיצוני — ובגוון משלו,
+     ראו הכלל שאחרי זה. המרווח שמתחתיו הוא ‎--fs-gap‎ של הפוטר
      (‏.footer-lead ב-assets/site-footer.css), כמו בין כל שני חלקים בו. */
   .footer-lead .lead-banner{
     margin-block:0;box-shadow:none;
     backdrop-filter:none;-webkit-backdrop-filter:none;
     border-color:rgba(255,255,255,.12);
   }
-  .footer-lead .buyer-banner{background:linear-gradient(160deg,#08194a,#3d1119)}
+  /* הרצועה הייתה ספיר-לבורדו — אותה משפחת גוון של הפוטר שמתחתיה — ולכן
+     נבלעה בו. תכלת עמוק, פס זהב עליון וזוהר תכול מתחת הם מה שמרים אותה
+     ממנו; ‏#1668a6, הקצה הבהיר של המדרג, נושא טקסט לבן ב-5.9:1. אותו
+     גוון בדיוק ב-assets/buyer-banner.css ובדפי המשרד והסוכן/ת. */
+  .footer-lead .buyer-banner{
+    background:linear-gradient(160deg,#093a6d,#1668a6);
+    border-color:rgba(201,162,39,.5);
+    box-shadow:inset 0 3px 0 #c9a227, 0 14px 32px rgba(6,32,62,.45);
+  }
+  /* ‏.9 ולא ‎.8‎: על התכלת הבהירה יותר, ‎.8‎ הוריד את שורת המשנה ל-4.4:1 */
+  .footer-lead .buyer-banner .lead-teaser-sub{color:rgba(255,255,255,.9)}
 
   /* שורת ההזמנה היא כפתור אחד ולא כותרת עם כפתור קטן בתוכה: כל השורה היא
      שטח לחיצה, וזה ההבדל בין שני מבקרים שפותחים את האשף לבין אחד. */
@@ -1582,7 +1592,7 @@
      בלבד — מתחת ל-4.5:1 ש-WCAG AA דורש לטקסט רגיל (‏13px מודגש עדיין אינו
      "טקסט גדול", שמתחיל ב-18.66px מודגש). ‏#c9a227 הוא אותו גוון חם בדיוק,
      כהה בשתי דרגות, ומגיע ל-4.8:1 — כלומר גם הצד הבהיר ביותר של הכפתור
-     עובר את התקן, ולא רק הצד הבורדו. */
+     עובר את התקן. */
   .lead-teaser-go{
     flex:none;padding:10px 15px;border-radius:0;
     font-size:.82rem;font-weight:800;white-space:nowrap;
@@ -1617,7 +1627,7 @@
      האחרות ולא גודל משלה (‏1.35rem/1.75rem קודם) */
   .lead-banner .owner-intro h2{color:#fff;font-size:var(--h2);max-width:22ch;margin:0 auto}
   .lead-banner .owner-intro p{color:#c3cde6;font-size:var(--h2-sub);line-height:1.5;max-width:42ch;margin:8px auto 0}
-  .buyer-banner .owner-intro p{color:#EFD9DC}
+  .buyer-banner .owner-intro p{color:#D7E6F5}
 
   .owner-toggle{display:flex;gap:8px}
   .owner-toggle button{
@@ -1678,9 +1688,9 @@
   .wiz-done h3{color:#fff;font-size:1.15rem;margin:0 0 6px}
   .wiz-done p{color:#c3cde6;font-size:.88rem;margin:0 auto 14px;max-width:34ch}
 
-  /* ---- אשף מחפשי הנכס (הבאנר הבורדו) ----
+  /* ---- אשף מחפשי הנכס (באנר התכלת) ----
      כל מה שנשען כאן על ‎var(--gold)‎ מוחלף בזהב של הכותרות: ‎--gold‎ הוא
-     בורדו (#0e2a6b) ועל רקע בורדו הוא נעלם — סימון נבחר שאי אפשר לראות
+     כחול (#0e2a6b), ועל רקע כחול הוא נעלם — סימון נבחר שאי אפשר לראות
      אינו סימון. */
   /* ‎.lead-toggle‎ ולא ‎.deal-toggle‎: השם השני כבר תפוס על ידי בורר סוג
      העסקה שבמודאל הסינון, שיושב על רקע בהיר — אותן מחלקות היו הופכות שם
@@ -1701,14 +1711,14 @@
   .buyer-banner .wiz-steps li.done .dot,
   .buyer-banner .wiz-done-mark{background:#c9a227;color:#0d1b3d}
   .buyer-banner .wiz-label,
-  .buyer-banner .wiz-done p{color:#F0DADD}
+  .buyer-banner .wiz-done p{color:#D7E6F5}
   .buyer-banner :focus-visible{outline-color:#c9a227}
 
   .wiz-hint{font-weight:600;font-size:.7rem;color:rgba(255,255,255,.72)}
   /* ‎.wiz-label‎ הוא display:block, וכלל מחלקה גובר על ‎[hidden]‎ של הדפדפן */
   .wiz-label[hidden]{display:none}
   .buy-range{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
-  .buy-range-field{display:flex;flex-direction:column;gap:5px;font-size:.72rem;font-weight:700;color:#F0DADD}
+  .buy-range-field{display:flex;flex-direction:column;gap:5px;font-size:.72rem;font-weight:700;color:#D7E6F5}
   .buy-check{display:flex;align-items:flex-start;gap:9px;margin-top:14px;cursor:pointer;
     font-size:.82rem;line-height:1.45;color:#fff;
     background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.22);
@@ -1718,7 +1728,7 @@
   .buy-privacy{font-size:.72rem;color:rgba(255,255,255,.72);margin:10px 0 0}
   /* סיכום מה שנבחר בשני השלבים הקודמים, מעל שדות הקשר: הוא מזכיר על מה
      חותמים בדיוק ברגע שמוסרים טלפון. */
-  .buy-recap{font-size:.78rem;line-height:1.5;color:#F0DADD;
+  .buy-recap{font-size:.78rem;line-height:1.5;color:#D7E6F5;
     background:rgba(0,0,0,.18);border-radius:0;padding:10px 12px;margin-bottom:4px}
 
   /* ---------- ‏--gold בתוך הבאנרים הוא פליז, לא ספיר ----------
