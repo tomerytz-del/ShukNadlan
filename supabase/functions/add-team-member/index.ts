@@ -59,6 +59,34 @@ function normalizeEmail(raw: unknown): string {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
 
 /**
+ * הטלפון הנייד של הסוכן/ת המוזמן/ת — אופציונלי, ובכל זאת שווה לבקש אותו כאן:
+ * זה המספר שדף הסוכן/ת מחייג אליו, וזה גם המספר שהעוזר בוואטסאפ מזהה לפיו
+ * (‏whatsapp-webhook מחפש את הכרטיס לפי phone_e164). בלעדיו הסוכן/ת נוחת/ת
+ * במערכת עם דף בלי כפתור חיוג ועם בוט שעונה "איני מזהה את מספר הטלפון שלך".
+ *
+ * המספר מוחזר כספרות בלבד בצורה המקומית (‏0521112222) — אותה צורה בדיוק
+ * ש-‏localPhone ב-CRM מייצרת, כך שכל הצרכנים קוראים אותו הדבר. ‏phone_e164
+ * נגזרת ממנו במסד (עמודה מחושבת) ואין צורך לכתוב אותה.
+ *
+ * נייד בלבד, ולא מתוך קפדנות: שלושת השימושים — קישור ההזמנה בוואטסאפ, כפתור
+ * הוואטסאפ בדף הסוכן/ת, והעוזר — כולם לא עובדים על קו נייח, ומספר נייח שהיה
+ * נכנס כאן היה נראה שמור ולא עובד באף אחד מהם.
+ *
+ * ‏null = לא הוזן (חוקי). ‏false = הוזן משהו שאינו נייד ישראלי.
+ */
+function normalizeMobile(raw: unknown): string | null | false {
+  const typed = String(raw ?? "").trim();
+  if (!typed) return null;
+
+  let d = typed.replace(/\D/g, "");
+  if (d.startsWith("00")) d = d.slice(2);
+  if (d.startsWith("972")) d = "0" + d.slice(3).replace(/^0+/, "");
+  else if (d.length === 9 && d.startsWith("5")) d = "0" + d;
+
+  return /^05\d{8}$/.test(d) ? d : false;
+}
+
+/**
  * הקישור מוביל לדף המסלולים ולא ישר ל-CRM, וזה שינוי מכוון: הצטרפות מתחילה
  * בבחירת מסלול. ‏pricing.html קורא/ת את האסימון, מציג/ה את המסלולים, וכל CTA
  * שם מחזיר/ה ל-‎crm.html?invite=<token>&tier=<id>‎ — כלומר האסימון ממשיך הלאה
@@ -218,7 +246,7 @@ Deno.serve(async (req: Request) => {
       if (!memberId) return json({ error: "missing_fields", required: ["member_id"] }, 400);
 
       const { data: member } = await supabase
-        .from("agency_members").select("id, agency_id, user_id, display_name, email")
+        .from("agency_members").select("id, agency_id, user_id, display_name, email, phone")
         .eq("id", memberId).maybeSingle();
       if (!member || member.agency_id !== caller.agency_id) return json({ error: "member_not_found" }, 404);
       if (member.user_id) return json({ error: "already_joined" }, 409);
@@ -246,7 +274,13 @@ Deno.serve(async (req: Request) => {
         .update({ sent_at: mail.sent ? new Date().toISOString() : null, send_error: mail.error })
         .eq("token", invite.token);
 
-      return json({ success: true, invite_url: url, email, email_sent: mail.sent, email_error: mail.error });
+      return json({
+        success: true, invite_url: url, email,
+        email_sent: mail.sent, email_error: mail.error,
+        // אותו טלפון ששמור על הכרטיס — כדי ששליחה חוזרת תוכל לצאת בוואטסאפ
+        // ישירות אליו, בדיוק כמו ההזמנה הראשונה.
+        phone: member.phone || null,
+      });
     }
 
     // -----------------------------------------------------------------------
@@ -259,6 +293,9 @@ Deno.serve(async (req: Request) => {
       return json({ error: "missing_fields", required: ["member_name", "member_email", "license_number"] }, 400);
     }
     if (!EMAIL_RE.test(member_email)) return json({ error: "invalid_email" }, 400);
+
+    const member_phone = normalizeMobile(body?.member_phone);
+    if (member_phone === false) return json({ error: "invalid_phone" }, 400);
 
     // כתובת שכבר משויכת לכרטיס אחר היא כמעט תמיד הזמנה כפולה, לא סוכן/ת שני/ה.
     const { data: emailTaken } = await supabase
@@ -319,13 +356,25 @@ Deno.serve(async (req: Request) => {
         active: true,
         display_name: member_name,
         email: member_email,
+        phone: member_phone,
         license_number,
         ...licenseCheck.columns,
       })
       .select("id")
       .single();
 
-    if (memberErr) return json({ error: "db_error", detail: memberErr.message }, 500);
+    // מספר שכבר רשום אצל סוכן/ת אחר/ת נעצר על האינדקס הייחודי
+    // ‏(agency_members_phone_e164_key) ולא בבדיקה מקדימה — כך יש כלל אחד
+    // ולא שניים שעלולים להיפרד. השורה לא נוצרה, ולכן אין מה לנקות.
+    if (memberErr) {
+      // ‏PostgREST מפזר את שם האינדקס בין message ל-details לפי המקרה, ולכן
+      // הבדיקה על שניהם — אחרת ההודעה הייתה מתחלפת ב-"db_error" הגנרי.
+      const errText = `${memberErr.message || ""} ${memberErr.details || ""}`;
+      if (memberErr.code === "23505" && /phone_e164/.test(errText)) {
+        return json({ error: "phone_in_use" }, 409);
+      }
+      return json({ error: "db_error", detail: memberErr.message }, 500);
+    }
 
     const { data: invite, error: invErr } = await supabase
       .from("agency_invitations")
@@ -350,6 +399,9 @@ Deno.serve(async (req: Request) => {
       invite_url: url,
       email_sent: mail.sent,
       email_error: mail.error,
+      // ‏הטלפון חוזר כדי שהממשק יוכל לפתוח את ההזמנה בוואטסאפ **אל הסוכן/ת**
+      // ולא אל בורר אנשי הקשר. חוזר מנורמל, שלא יישלח מה שהוקלד.
+      phone: member_phone,
     });
   } catch (err: any) {
     return json({ error: "unhandled", detail: String(err?.message ?? err) }, 500);
