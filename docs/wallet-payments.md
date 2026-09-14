@@ -114,31 +114,42 @@ crm.html                → חוזר עם ?topup=success, בודק את השור
 ### 2. ב-Supabase → Edge Functions → Secrets
 
 ```
-MORNING_API_KEY_ID=
-MORNING_API_KEY_SECRET=
+MORNING_API_KEY_ID=           # client_id של מפתח ה-OAuth
+MORNING_API_KEY_SECRET=       # client_secret
 MORNING_API_BASE=https://sandbox.d.greeninvoice.co.il/api/v1
+MORNING_AUTH_BASE=            # שרת האימות. ברירת המחדל: https://api.morning.co
 MORNING_PLUGIN_ID=            # רק אם יש יותר מתוסף סליקה אחד
 MORNING_WEBHOOK_SECRET=       # openssl rand -hex 32
 ```
+
+לכל סביבה יש מפתחות משלה — מפתח סנדבוקס לא יעבוד מול פרודקשן ולהפך.
 
 `MORNING_API_BASE` ברירת המחדל היא סנדבוקס בכוונה: סביבה שלא הוגדרה במפורש
 לא אמורה להתחיל לגבות כסף אמיתי. פרודקשן הוא
 `https://api.greeninvoice.co.il/api/v1`.
 
-**עדכון התשתית של יוני 2026.** מורנינג שינו את מבנה קבלת האסימון ואת כתובת
-הבסיס, והנתיבים הישנים נחסמו מאז. שתי ההשלכות:
+### האימות — OAuth 2.0, ובשני דומיינים
 
-- הכתובת `www.greeninvoice.co.il/api` **הוסרה**. `api.greeninvoice.co.il/api/v1`
-  היא הנכונה — וזו כבר הכתובת שבקוד, אז כאן לא נדרש שינוי.
-- קריאת האסימון חייבת לשאת `grant_type: "client_credentials"` לצד ה-`id`
-  וה-`secret`. **בלעדיו האימות נדחה**, וזה כשל שקורה בקריאה הראשונה — לפני
-  שנפתח טופס תשלום אחד, ולכן הוא נראה כמו "המפתחות שגויים" ולא כמו שינוי
-  בפרוטוקול. השדה נוסף ל-`morningToken()`.
+בעדכון התשתית של יוני 2026 מורנינג עברו ל-OAuth 2.0 והנתיבים הישנים נחסמו.
+זה אומת מול התיעוד הרשמי (‏morning API Documentation 2.0.0), ולא מול מקור
+משני. ארבעה דברים השתנו ביחס למבנה הישן, וכל אחד מהם לבדו מפיל את האימות:
 
-המבנה החדש עשוי להחזיר גם `access_token` ו-`expires_in` במקום `token`
-ו-`expires`. `morningToken()` קוראת את שתי הצורות, ומבחינה ביניהן: `expires`
-הוא epoch בשניות ו-`expires_in` הוא משך מעכשיו. זה לא פינוק — בלבול בין
-השניים גורר חידוש אסימון בכל קריאה, או אסימון שפג ולא מתחדש.
+| | ישן | חדש |
+|---|---|---|
+| נתיב | `{API_BASE}/account/token` | `{AUTH_BASE}/idp/v1/oauth/token` |
+| שדות הבקשה | `id`, `secret` | `grant_type`, `client_id`, `client_secret` |
+| שדה האסימון | `token` | `accessToken` |
+| שדה התפוגה | `expires` | `expiresAt` |
+
+**הדבר היחיד שחייבים לזכור כאן: האסימון מונפק מדומיין אחר מזה שמשרת את
+ה-API.** ‏`https://api.morning.co` מנפיק, ו-`https://api.greeninvoice.co.il/api/v1`
+מקבל. שני שמות מותג לאותה חברה, ולכן ההנחה הטבעית — "יש כאן דומיין אחד" —
+מייצרת 401 שנראה בדיוק כמו מפתחות שגויים, ושולחת אותך לייצר מפתח חדש במקום
+לתקן כתובת. משם `MORNING_AUTH_BASE` כמשתנה נפרד.
+
+הבקשה ב-snake_case של התקן, התשובה ב-camelCase של מורנינג
+(`accessToken`, `tokenType`, `expiresAt`). האסימון תקף **שעה**, ו-`expiresAt`
+הוא Unix timestamp — נקודת זמן, לא משך.
 
 ### 3. Webhook בממשק מורנינג
 
@@ -221,9 +232,8 @@ curl -X POST "https://obookujgolazrwycsiyn.supabase.co/functions/v1/wallet-topup
 
 מה שדורש אימות מול התיעוד או מול תשובה אמיתית ראשונה מהסנדבוקס:
 
-- שם שדה האסימון והתפוגה בתשובת `/account/token` — נקראים שלושה שמות
-  אפשריים לאסימון (`access_token`, `token`, `jwt`) ושתי צורות תפוגה, כך
-  שהקריאה עומדת בשני המבנים. עדיין כדאי לאמת מול התיעוד מה מוחזר בפועל
+- ~~שם שדה האסימון והתפוגה~~ — **אומת** מול התיעוד הרשמי. ראו "האימות"
+  למעלה; אין בקוד סימוני `‼` בסעיף הזה
 - גוף הבקשה ל-`/payments/form` — בעיקר `group`, `maxPayments`, `pluginId`,
   והשדה שבו מועברת האסמכתא שלנו (כרגע `remarks`)
 - שמות שדות התשובה: `url`, `id`

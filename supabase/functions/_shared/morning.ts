@@ -7,6 +7,10 @@
 // ב-API הזה. הם מסומנים ב-‏`// ‼ לאימות` ומרוכזים כאן כדי שהתיקון, כשמפתחות
 // ה-API יגיעו, יהיה בקובץ אחד ובלי לגעת בלוגיקה של הכסף.
 //
+// **סעיף האימות כבר אומת** מול התיעוד הרשמי (morning API Documentation
+// 2.0.0) ואינו נושא עוד סימון. מה שנותר לאימות הוא גוף `/payments/form`
+// ושליפת מצב התשלום.
+//
 // ‏wallet-topup ו-wallet-topup-callback לא יודעות שום דבר על מורנינג מלבד מה
 // שהקובץ הזה חושף. אם מחר יחליפו ספק סליקה — זה הקובץ שנכתב מחדש.
 //
@@ -24,6 +28,14 @@ const KEY_SECRET = Deno.env.get("MORNING_API_KEY_SECRET") || "";
 // שמגדיר/ה את הסוד, לא תוצאה של שכחה.
 const API_BASE = (Deno.env.get("MORNING_API_BASE") ||
   "https://sandbox.d.greeninvoice.co.il/api/v1").replace(/\/+$/, "");
+
+// כתובת שרת האימות. **היא אינה `API_BASE`, וזו לא פליטת קולמוס:** האסימון
+// מונפק מדומיין נפרד (`api.morning.co`) בעוד שקריאות ה-API עצמן הולכות
+// ל-`api.greeninvoice.co.il`. שני שמות מותג לאותה חברה, ושתי כתובות שונות
+// באותו מסלול. מי שמניח/ה שיש כאן דומיין אחד מקבל/ת 401 שנראה בדיוק כמו
+// "המפתחות שגויים".
+const AUTH_BASE = (Deno.env.get("MORNING_AUTH_BASE") ||
+  "https://api.morning.co").replace(/\/+$/, "");
 
 // מזהה תוסף הסליקה בחשבון. חובה לחשבונות עם יותר מתוסף אחד; אופציונלי
 // כשיש רק אחד, ואז מורנינג בוחר/ת בו לבד.
@@ -56,15 +68,16 @@ export async function morningToken(): Promise<{ token?: string; error?: string }
 
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}/account/token`, {
+    res = await fetch(`${AUTH_BASE}/idp/v1/oauth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      // ‏grant_type נוסף בעדכון התשתית של יוני 2026. בלעדיו הקריאה נדחית
-      // ב-API החדש, וכל המסלול מת בשלב הראשון — לפני שנפתח טופס תשלום אחד.
+      // ‏OAuth 2.0 client credentials, לפי עדכון התשתית של יוני 2026. שמות
+      // השדות הם של התקן (`client_id`/`client_secret`) ולא `id`/`secret`
+      // שהיו במבנה הישן.
       body: JSON.stringify({
-        id: KEY_ID,
-        secret: KEY_SECRET,
         grant_type: "client_credentials",
+        client_id: KEY_ID,
+        client_secret: KEY_SECRET,
       }),
     });
   } catch (err) {
@@ -81,24 +94,18 @@ export async function morningToken(): Promise<{ token?: string; error?: string }
     return { error: "morning_auth_bad_json" };
   }
 
-  // ‏access_token הוא השם המקובל בתשובה מסוג client_credentials, ו-token/jwt
-  // הם מה שהוחזר במבנה הישן. קוראים את שלושתם: עדיף לקרוא אסימון שהתיעוד
-  // קורא לו אחרת, מאשר להיכשל באימות מול שם שדה יחיד.
-  const token = body?.access_token ?? body?.token ?? body?.jwt;   // ‼ לאימות
+  // הבקשה ב-snake_case של תקן OAuth, **והתשובה ב-camelCase של מורנינג**.
+  // זה לא עקבי וזה בתיעוד: ‏`accessToken`, ‏`tokenType`, ‏`expiresAt`.
+  const token = body?.accessToken;
   if (!token) return { error: "morning_auth_no_token" };
 
-  // שתי צורות תפוגה, ולא אותה משמעות: ‏`expires` הוא epoch בשניות (המבנה
-  // הישן), ואילו `expires_in` הוא **משך** בשניות מעכשיו. לבלבל ביניהם זה
-  // לקבל תפוגה ב-1970 ולחדש אסימון בכל קריאה, או להפך. אם אין אף אחד מהם —
-  // 55 דקות, שמרני מול חצי שעה שהיא התפוגה המקובלת שם.
-  const expiresAtSec = Number(body?.expires);        // ‼ לאימות: שם שדה התפוגה
-  const expiresInSec = Number(body?.expires_in);
+  // ‏`expiresAt` הוא Unix timestamp בשניות — נקודת זמן, לא משך. האסימון תקף
+  // שעה. אם השדה לא הגיע נופלים ל-55 דקות, שמרני מול השעה המתועדת.
+  const expiresAtSec = Number(body?.expiresAt);
   cachedToken = {
     token,
     expiresAt: Number.isFinite(expiresAtSec) && expiresAtSec > 0
       ? expiresAtSec * 1000
-      : Number.isFinite(expiresInSec) && expiresInSec > 0
-      ? Date.now() + expiresInSec * 1000
       : Date.now() + 55 * 60_000,
   };
   return { token };
