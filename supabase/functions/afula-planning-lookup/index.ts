@@ -49,17 +49,25 @@ function json(obj, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: corsHeaders() });
 }
 
-async function wfsQuery(xmlBody) {
+// ‏label הוא מה שמופיע בלוג כשהשכבה מסרבת. בלי זה חזר לסוכן/ת
+// "WFS request failed: 400" ותו לא — בלי איזו שאילתה, בלי איזו צורת כתיב,
+// ובלי ההסבר של השרת עצמו, שיושב בגוף התשובה ולכן נרשם כאן.
+async function wfsQuery(xmlBody, label) {
   const res = await fetch(WFS_URL, {
     method: "POST",
     headers: { "Content-Type": "application/xml", "Referer": WFS_REFERER },
     body: xmlBody,
   });
-  if (!res.ok) throw new Error("WFS request failed: " + res.status);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`WFS ${res.status} [${label}]: ${body.slice(0, 500)}`);
+    throw new Error("WFS request failed: " + res.status + " [" + label + "]");
+  }
   return await res.json();
 }
 
 async function addressToCoords(street, houseNumber) {
+  let lastError = null;
   for (const variant of streetVariants(street)) {
     const xml = '<wfs:GetFeature service="WFS" version="2.0.0" xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:fes="http://www.opengis.net/fes/2.0" outputFormat="application/json" count="5">' +
       '<wfs:Query typeNames="afl_bld:afl_bld-Address_Points_1">' +
@@ -67,12 +75,26 @@ async function addressToCoords(street, houseNumber) {
       '<fes:PropertyIsEqualTo><fes:ValueReference>שם_רחוב</fes:ValueReference><fes:Literal>' + variant + '</fes:Literal></fes:PropertyIsEqualTo>' +
       '<fes:PropertyIsEqualTo><fes:ValueReference>מספר_בית</fes:ValueReference><fes:Literal>' + houseNumber + '</fes:Literal></fes:PropertyIsEqualTo>' +
       '</fes:And></fes:Filter></wfs:Query></wfs:GetFeature>';
-    const data = await wfsQuery(xml);
+    let data;
+    try {
+      data = await wfsQuery(xml, "address:" + variant);
+    } catch (err) {
+      // צורה שנכשלה אינה מפילה את החיפוש: 400 על הצורה החמישית לא ימחק
+      // התאמה שמחכה בשישית. הכשל נשמר ומוכרע רק בסוף.
+      lastError = err;
+      continue;
+    }
     const feature = data && data.features && data.features[0];
     if (feature && feature.properties && feature.properties.X && feature.properties.Y) {
       return { x: feature.properties.X, y: feature.properties.Y };
     }
   }
+
+  // אף התאמה. אם כל הקריאות הצליחו — אין בשכבה בית כזה, וזו תשובה סופית
+  // שתחזור כ-404 מנומק. אם קריאה כלשהי נכשלה — ייתכן שדווקא היא הייתה
+  // מוצאת, ולכן זורקים: "לא נמצא" ו-"לא הצלחנו לבדוק" אינם אותה תשובה,
+  // ואסור להציג לסוכן/ת "הכתובת לא קיימת" כשהשכבה פשוט סירבה לענות.
+  if (lastError) throw lastError;
   return null;
 }
 
@@ -86,7 +108,7 @@ function pointFilter(typeName, spatialOp, x, y, propRef) {
 }
 
 async function coordsToParcel(x, y) {
-  const data = await wfsQuery(pointFilter("afl_cadaster:afl_cadaster-parcel", "Contains", x, y, "Shape"));
+  const data = await wfsQuery(pointFilter("afl_cadaster:afl_cadaster-parcel", "Contains", x, y, "Shape"), "parcel");
   const f = data && data.features && data.features[0];
   return f ? { properties: f.properties, geometry: f.geometry } : null;
 }
@@ -97,7 +119,7 @@ async function gushHelkaToParcel(gush, helka) {
     '<fes:PropertyIsEqualTo><fes:ValueReference>גוש</fes:ValueReference><fes:Literal>' + gush + '</fes:Literal></fes:PropertyIsEqualTo>' +
     '<fes:PropertyIsEqualTo><fes:ValueReference>חלקה</fes:ValueReference><fes:Literal>' + helka + '</fes:Literal></fes:PropertyIsEqualTo>' +
     '</fes:And></fes:Filter></wfs:Query></wfs:GetFeature>';
-  const data = await wfsQuery(xml);
+  const data = await wfsQuery(xml, "gush-helka:" + gush + "/" + helka);
   return (data && data.features && data.features[0]) || null;
 }
 function polygonCentroid(geometry) {
@@ -109,11 +131,11 @@ function polygonCentroid(geometry) {
   } catch (e) { return null; }
 }
 async function coordsToPlans(x, y) {
-  const data = await wfsQuery(pointFilter("afl_yk:afl_yk_plans", "Intersects", x, y, "shape"));
+  const data = await wfsQuery(pointFilter("afl_yk:afl_yk_plans", "Intersects", x, y, "shape"), "plans");
   return (data && data.features ? data.features : []).map((f) => f.properties);
 }
 async function coordsToLandUse(x, y) {
-  const data = await wfsQuery(pointFilter("afl_yk:afl_yk-ITown_yk_Lots_Compilation", "Intersects", x, y, "shape"));
+  const data = await wfsQuery(pointFilter("afl_yk:afl_yk-ITown_yk_Lots_Compilation", "Intersects", x, y, "shape"), "landuse");
   const f = data && data.features && data.features[0];
   return f ? f.properties : null;
 }
