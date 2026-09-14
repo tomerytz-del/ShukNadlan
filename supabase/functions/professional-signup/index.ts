@@ -6,6 +6,7 @@ import {
   createPaymentForm,
   json,
   morningConfigured,
+  isTerminalMissing,
 } from "../_shared/morning.ts";
 import { announceProfessionalSignup } from "../_shared/platform-signup-alert.ts";
 
@@ -211,7 +212,9 @@ Deno.serve(async (req: Request) => {
       // אותו מצב כמו "אין סליקה", רק מסיבה אחרת: ההרשמה נשמרה, הכרטיסייה
       // ממתינה, ואיש לא יגיע לעמוד תשלום. גם כאן צריך אדם.
       await announceProfessionalSignup(supabase, placement.id, null);
-      return json({ error: "payment_provider_error" }, 502);
+      return json({
+        error: isTerminalMissing(form.error) ? "payment_terminal_missing" : "payment_provider_error",
+      }, 502);
     }
 
     await supabase

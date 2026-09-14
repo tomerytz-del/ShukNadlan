@@ -9691,8 +9691,13 @@ document.getElementById('topupBtn').addEventListener('click', async ()=>{
     const data = await res.json();
     if (!res.ok || data.error){
       feedback.style.color = 'var(--red)';
+      /* ‏payment_terminal_missing אינו כשל רגעי אלא הגדרה חסרה אצל ספק
+         הסליקה, ולכן הוא מובחן: "נסו שוב" היה שולח לנסות שוב ושוב משהו
+         שייכשל זהה בכל פעם. */
       feedback.textContent = data.error === 'too_many_open_topups'
         ? 'יש כמה טעינות שטרם הושלמו. השלימו או המתינו מעט ונסו שוב.'
+        : data.error === 'payment_terminal_missing'
+        ? 'הסליקה אינה פעילה כרגע — טרם הוגדר מסוף סליקה. ניסיון חוזר לא יעזור; פנו אלינו.'
         : 'שגיאה בפתיחת התשלום — נסו שוב';
       btn.disabled = false; btn.textContent = label;
       return;
