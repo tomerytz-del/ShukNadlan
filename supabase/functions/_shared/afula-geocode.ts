@@ -16,10 +16,24 @@
 // ## וריאציות הכתיב
 //
 // שכבת העירייה כותבת שמות רחובות בכתיב משלה, והסוכן/ת מקליד/ה את מה
-// שמוכר לו/ה. שתי ההיסטות השכיחות הן ה"א סופית ("הגלבוע"/"הגלבועה") ויו"ד
-// כפולה ("הרצליה"/"הרצלייה"), ולכן נבדקות עד ארבע צורות לפני ויתור. השוואה
-// מדויקת (‏PropertyIsEqualTo) ולא like: "הרצל 5" חייבת להחזיר את הרצל 5
-// ולא את הרצל 51.
+// שמוכר לו/ה. שלוש ההיסטות שנצפו בפועל, וכל אחת היא ציר בפני עצמו:
+//
+//   1. **ה"א פותחת** — "העליה" מול "עלייה". זו ההיסטה שהתגלתה בסבב הראשון
+//      של ‏geocode-backfill: מודעה 1090 נרשמה "עלייה 20" ונפתרה, ומודעה
+//      1106 נרשמה "העליה 5" ולא נפתרה. אותו רחוב, ה"א אחת הפרידה.
+//   2. **ה"א סופית** — "הגלבוע" מול "הגלבועה".
+//   3. **יו"ד כפולה** — "הרצליה" מול "הרצלייה".
+//
+// שלושת הצירים בלתי תלויים, ולכן הם **מצטרפים**: "העליה" -> "עלייה" דורש
+// גם הורדת ה"א פותחת וגם הכפלת יו"ד. גרסה שבודקת כל ציר בנפרד הייתה
+// מפספסת בדיוק את המקרה שבגללו זה נכתב.
+//
+// הצירוף מסודר לפי **מספר השינויים**: הצורה כפי שנכתבה ראשונה, אחריה כל
+// מה ששונה בשינוי אחד, ורק בסוף צירופים. ‏MAX_VARIANTS חוסם את הזנב — כל
+// וריאציה היא קריאת רשת, ווריאציה שלישית-רביעית-חמישית היא כבר ניחוש.
+//
+// השוואה מדויקת (‏PropertyIsEqualTo) ולא like: "הרצל 5" חייבת להחזיר את
+// הרצל 5 ולא את הרצל 51.
 // ============================================================================
 
 import proj4 from "npm:proj4@2.9.0";
@@ -57,13 +71,63 @@ async function wfsQuery(xmlBody: string) {
   return await res.json();
 }
 
+// כמה צורות כתיב נבדקות לכל היותר לפני ויתור. כל אחת היא קריאת WFS, ולכן
+// זה גם תקציב הזמן של נכס בודד בסבב של הסורק.
+export const MAX_VARIANTS = 8;
+
+// הורדת ה"א פותחת תמיד מותרת; **הוספה** רק לשם של מילה אחת. "משה שרת"
+// לעולם לא נכתב "המשה שרת", ווריאציה כזו היא קריאת רשת שבוודאות תחטיא.
+const flipLeadingHe = (s: string) =>
+  s.startsWith("ה") ? s.slice(1) : (s.includes(" ") ? null : "ה" + s);
+
+// ואסור להוסיף ה"א אחרי אות סופית: "הגן" -> "הגןה" אינה מילה בעברית, והיא
+// קריאת רשת שנדע מראש שתחטיא.
+const FINAL_LETTERS = /[םןץףך]$/;
+const flipTrailingHe = (s: string) =>
+  s.endsWith("ה") ? s.slice(0, -1) : (FINAL_LETTERS.test(s) ? null : s + "ה");
+
+// הצורה ה"כפולה" נבנית מהצורה המנורמלת ולא מהמקור: ‏replace(/י/g,"יי") על
+// מחרוזת שכבר כתובה בכפול מייצר "יייי", כלומר וריאציה שאיננה מילה.
+//
+// ויו"ד בראש מילה אינה נכפלת לעולם — "יצירה" ולא "ייצירה". הכפלה היא
+// תופעה של יו"ד עיצורית באמצע מילה ("הרצליה"/"הרצלייה"), ובלי הסייג הזה
+// כל רחוב שמתחיל ביו"ד היה מבזבז שתי קריאות על צורה שלא קיימת.
+const yodForms = (s: string) => {
+  const single = s.replace(/יי/g, "י");
+  return [s, single.replace(/(?<=[^\s])י/g, "יי"), single];
+};
+
 export function streetVariants(street: string): string[] {
-  const variants = new Set([street]);
-  if (street.endsWith("ה")) variants.add(street.slice(0, -1));
-  else variants.add(street + "ה");
-  variants.add(street.replace(/י/g, "יי"));
-  variants.add(street.replace(/יי/g, "י"));
-  return Array.from(variants);
+  const base = String(street || "").trim();
+  if (!base) return [];
+
+  // לכל צורה נשמר המחיר הנמוך ביותר שבו הגענו אליה (כמה צירים שונו), וזה
+  // גם סדר הבדיקה. אותה צורה יכולה להיווצר בשני מסלולים — למשל כשאין בשם
+  // אף יו"ד — ואז המסלול הזול קובע.
+  const cost = new Map<string, number>();
+  const leads: [string, number][] = [[base, 0]];
+  const flipped = flipLeadingHe(base);
+  if (flipped) leads.push([flipped, 1]);
+
+  for (const [lead, cLead] of leads) {
+    const tails: [string, number][] = [[lead, 0]];
+    const flippedTail = flipTrailingHe(lead);
+    if (flippedTail) tails.push([flippedTail, 1]);
+
+    for (const [tail, cTail] of tails) {
+      yodForms(tail).forEach((form, i) => {
+        const c = cLead + cTail + (i === 0 ? 0 : 1);
+        if (!cost.has(form) || (cost.get(form) as number) > c) cost.set(form, c);
+      });
+    }
+  }
+
+  // ‏sort יציב ב-JS, ולכן צורות באותו מחיר נשארות בסדר שבו נוצרו — מה
+  // שמעדיף הורדת ה"א פותחת (ההיסטה השכיחה) על פני הוספת ה"א סופית.
+  return Array.from(cost.entries())
+    .sort((a, b) => a[1] - b[1])
+    .slice(0, MAX_VARIANTS)
+    .map(([form]) => form);
 }
 
 /**
