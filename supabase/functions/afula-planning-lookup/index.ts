@@ -1,6 +1,13 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import proj4 from "npm:proj4@2.9.0";
+import { streetVariants } from "../_shared/afula-geocode.ts";
+
+// ניתוח שם הרחוב מגיע מ-_shared/afula-geocode.ts ולא מהעתק מקומי. כאן היה
+// העתק, והוא נשאר מאחור כשהצירים של הכתיב שופרו: "העלייה 20" נכשלה כאן
+// בזמן ש-geocode-address פתרה בדיוק את אותו רחוב. הפונקציה הזו עדיין
+// שומרת addressToCoords משלה, כי היא צריכה את ה-X/Y ב-ITM להמשך השאילתות
+// המרחביות ולא את ה-lat/lng ש-afulaAddressToCoords מחזירה.
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -50,15 +57,6 @@ async function wfsQuery(xmlBody) {
   });
   if (!res.ok) throw new Error("WFS request failed: " + res.status);
   return await res.json();
-}
-
-function streetVariants(street) {
-  const variants = new Set([street]);
-  if (street.endsWith("ה")) variants.add(street.slice(0, -1));
-  else variants.add(street + "ה");
-  variants.add(street.replace(/י/g, "יי"));
-  variants.add(street.replace(/יי/g, "י"));
-  return Array.from(variants);
 }
 
 async function addressToCoords(street, houseNumber) {
