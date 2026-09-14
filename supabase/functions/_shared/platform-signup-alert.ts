@@ -59,8 +59,14 @@ import { PROMO_TIER, TIER_NAMES, type Tier } from "./launch-promo.ts";
 const SITE_BASE = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il")
   .replace(/\/+$/, "");
 
-/** סוג ההתראה. חייב להישאר זהה ל-`notifications_type_check` ול-NOTIF_TYPES ב-crm.html. */
+/* שני סוגי ההתראה של מנהל/ת הפלטפורמה. חייבים להישאר זהים ל-
+   ‏`notifications_type_check` ול-NOTIF_TYPES ב-crm.html.
+
+   החלוקה היא לפי השאלה שההודעה עונה עליה, ולא לפי הקהל: מי **הגיע**
+   (‏signup) מול **כסף** — שדרוג מסלול, בקשת שדרוג, ותשלום של בעל/ת מקצוע
+   (‏upgrade). לכן תשלום שהתקבל אינו signup שני על אותו אדם. */
 export const PLATFORM_SIGNUP_TYPE = "platform_signup";
+export const PLATFORM_UPGRADE_TYPE = "platform_upgrade";
 
 /* ‏rpc אינו בשימוש כאן — הכתיבה היא INSERT רגיל עם service_role, שעוקף RLS
    בדיוק כמו בכל שאר יצרני ההתראות. הטיפוס מצומצם למתודה היחידה שנדרשת, כדי
@@ -195,6 +201,7 @@ async function notifyPlatformAdmins(
   supabase: Client,
   title: string,
   body: string,
+  type: string = PLATFORM_SIGNUP_TYPE,
 ): Promise<void> {
   // ‏active=true בלבד: מנהל/ת פלטפורמה שכרטיסו/ה כובה אינו/ה מקבל/ת התראות,
   // בדיוק כמו ב-alert_platform_admin_on_low_review.
@@ -214,7 +221,7 @@ async function notifyPlatformAdmins(
   const { error: insErr } = await (supabase.from("notifications").insert(
     admins.map((a) => ({
       agent_id: a.id,
-      type: PLATFORM_SIGNUP_TYPE,
+      type,
       title,
       body,
     })),
@@ -335,5 +342,61 @@ export async function announceDeveloperSignup(
     await notifyPlatformAdmins(supabase, title, body);
   } catch (err) {
     console.error("platform signup alert failed", err);
+  }
+}
+
+interface PaidOrderRow {
+  months: number | null;
+  amount: number | null;
+  period_end: string | null;
+  ad_placements: PlacementRow | PlacementRow[] | null;
+}
+
+/**
+ * בעל/ת מקצוע ששילם/ה — הכרטיסייה עלתה לאוויר.
+ *
+ * האירוע השני והאחרון במסלול שלו/ה, ושונה מההרשמה: שם נרשם מי רוצה, כאן
+ * נכנס כסף. לכן הסוג הוא `platform_upgrade` ולא `platform_signup` — החלוקה
+ * בין שני הסוגים היא "מי הגיע" מול "כסף", ולא לפי קהל.
+ *
+ * נקראת מ-`wallet-topup-callback` בנקודת ההצלחה היחידה של `settleOrder`,
+ * שמשרתת גם את ה-webhook וגם את סבב ה-reconcile. כפילות אינה אפשרית:
+ * ‏`settleOrder` יוצאת מוקדם על הזמנה שאינה `pending`.
+ */
+export async function announceProfessionalPaid(
+  supabase: Client,
+  orderId: string,
+): Promise<void> {
+  try {
+    const { data: o, error } = await (supabase
+      .from("ad_orders")
+      .select("months, amount, period_end, ad_placements(advertiser_name, business_name, advertiser_type, target_region, slug, status)")
+      .eq("id", orderId)
+      .maybeSingle() as QueryResult<PaidOrderRow | null>);
+
+    if (error || !o) {
+      console.error("platform paid alert: order lookup failed", error?.message);
+      return;
+    }
+
+    const pl = Array.isArray(o.ad_placements) ? (o.ad_placements[0] ?? null) : o.ad_placements;
+    const who = pl?.advertiser_name || pl?.business_name || "בעל/ת מקצוע";
+    const field = PROFESSIONAL_TYPE_LABELS[pl?.advertiser_type || ""] || "בעל/ת מקצוע";
+    const until = o.period_end
+      ? new Date(o.period_end).toLocaleDateString("he-IL", { day: "numeric", month: "numeric", year: "numeric" })
+      : null;
+
+    const title = `תשלום התקבל: ${who}`;
+    const body = joinParts([
+      `כרטיסיית ${field} עלתה לאוויר`,
+      o.months ? `${o.months} חודשים` : null,
+      o.amount ? `₪${Math.round(Number(o.amount))}` : null,
+      until ? `עד ${until}` : null,
+      pl?.slug ? `${SITE_BASE}/professional.html?slug=${encodeURIComponent(pl.slug)}` : null,
+    ]);
+
+    await notifyPlatformAdmins(supabase, title, body, PLATFORM_UPGRADE_TYPE);
+  } catch (err) {
+    console.error("platform paid alert failed", err);
   }
 }
