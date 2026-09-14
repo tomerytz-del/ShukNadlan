@@ -238,7 +238,9 @@ curl -X POST "https://obookujgolazrwycsiyn.supabase.co/functions/v1/wallet-topup
 | `income[0].amountTotal` | **354** |
 | `vatRate` | 0.18 |
 
-ה-`price` שנשלח בשורת income הוא **לפני מע״מ**, ומורנינג מוסיפה 18% מעליו.
+אותו יחס חוזר בשתי דוגמאות נפרדות בתיעוד (‏Add Document ו-Search), ובשתיהן
+גם ברמת המסמך: ‏`amountDueVat: 300`, ‏`vat: 54`, ‏`amount: 354`. ה-`price`
+שנשלח בשורת income הוא **לפני מע״מ**, ומורנינג מוסיפה 18% מעליו.
 המחירים שלנו ב-`pricing_config` כוללים מע״מ, ולכן:
 
 | מה שהתכוונו לגבות | מה שייגבה בפועל |
@@ -304,6 +306,19 @@ curl -X POST "https://obookujgolazrwycsiyn.supabase.co/functions/v1/wallet-topup
 ‏`type` ו-`status`, ומחזיר דפדוף. אם `/payments/form` נעלם, זו הדרך למצוא
 מסמך לפי האסמכתא שלנו. ‏**`status`** שם הוא גם התשובה ל"האם שולם":
 ‏0 = פתוח, ‏1 = סגור, ‏2 = סומן ידנית כסגור, ‏3 = מבטל, ‏4 = שבוטל.
+
+יש גם `POST /documents/payments/search`, שמסנן לפי `paymentId`, ‏`fromDate`,
+`type` ו-`paymentTypes` (‏3 = כרטיס אשראי), ומחזיר את המסמכים עם מערך
+ה-`payment` שלהם. בשורת תשלום שם יש **`paymentStatus`** — מועמד טבעי
+ל"האם נגבה", אבל ה-enum שלו טרם נראה, ולכן **אסור להסיק ממנו כלום עדיין**.
+‏`readPaymentShape()` מחמירה בכוונה: רק סימן חיובי מפורש נחשב תשלום.
+
+### אין סקציית Payments עצמאית
+
+נקודות הקצה שנראו עד כה: `POST /documents`, ‏`/documents/search`,
+‏`/documents/payments/search`, ‏`/documents/preview`. כל מה שקשור לתשלום יושב
+**תחת** `/documents/`, וזו ראיה נוספת לכך ש-`/payments/form` אינו קיים
+במבנה החדש.
 
 ## שמות שדות שטרם אומתו
 
