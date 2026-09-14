@@ -4508,6 +4508,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             לכתובת הזו נשלח קישור הזמנה אישי. שווה לוודא אותה — סוכן/ת שלא קיבל/ה מייל תופיע ברשימה כ"ממתין/ה", ואפשר לתקן ולשלוח שוב.
           </p>
         </div>
+        <!-- הנייד אופציונלי, אבל הוא הופך את ההזמנה למשהו שאפשר להשלים במקום:
+             עם מספר, כפתור הוואטסאפ שאחרי השליחה נפתח אל הסוכן/ת עצמו/ה ולא
+             אל בורר אנשי הקשר — וזה כל ההבדל כשמוסיפים סוכן/ת מהנייד, בדיוק
+             מול מי שנרשם/ת. הוא גם מה שדף הסוכן/ת מחייג אליו ומה שהעוזר
+             בוואטסאפ מזהה לפיו, ובלעדיו שניהם מחכים לכניסה הראשונה. -->
+        <div class="field">
+          <label>טלפון נייד <span style="font-weight:400">(אופציונלי)</span></label>
+          <input type="tel" id="nmPhone" dir="ltr" style="text-align:right" placeholder="050-1234567"
+                 inputmode="tel" autocomplete="tel">
+          <p style="font-size:.74rem;color:var(--ink-soft);margin:6px 2px 0;line-height:1.5">
+            יופיע ככפתור חיוג וככפתור וואטסאפ בדף הסוכן/ת, ומשמש גם לזיהוי בעוזר בוואטסאפ. הסוכן/ת יוכל/תוכל לשנות אותו בעצמו/ה.
+          </p>
+        </div>
         <!-- אין כאן בחירת מסלול. המסלול הוא הוצאה חודשית של הסוכן/ת, והוא
              נבחר על ידו/ה בכניסה הראשונה — לא נקבע מראש בטופס של מישהו אחר.
              מה שכן מוצג כאן הוא מה שההזמנה שווה: חצי שנה במסלול המלא. -->
@@ -11258,6 +11271,8 @@ const TEAM_INVITE_ERRORS = {
   managers_only:  'רק מנהל/ת משרד יכול/ה להוסיף סוכנים.',
   invalid_email:  'כתובת האימייל אינה תקינה.',
   email_in_use:   'הכתובת הזו כבר משויכת לסוכן/ת במערכת.',
+  invalid_phone:  'מספר הנייד אינו תקין — נדרש נייד ישראלי, למשל 050-1234567. אפשר גם להשאיר את השדה ריק.',
+  phone_in_use:   'מספר הנייד הזה כבר רשום אצל סוכן/ת אחר/ת במערכת.',
   already_joined: 'הסוכן/ת כבר חיבר/ה את החשבון — אין צורך בהזמנה נוספת.',
   member_not_found: 'הכרטיס לא נמצא. נסו לרענן את הדף.',
 };
@@ -11288,11 +11303,16 @@ function showInviteResult(data, email){
       catch(_){ url.select(); showToast('יש להעתיק ידנית'); }
     },
   });
+  /* ‏wa.me בלי מספר פותח את בורר אנשי הקשר, וזה היה המסלול היחיד כאן. כשיש
+     נייד על הכרטיס הוא נכנס לכתובת עצמה, וההודעה יוצאת לסוכן/ת בלחיצה אחת —
+     בלי לחפש בשם שאולי עוד לא שמור בטלפון. ‏wa.me מבקש ספרות עם קידומת מדינה
+     ובלי +, כלומר בדיוק הצורה של ‎phone_e164‎ — ולשם ממיר localPhone. */
+  const waDigits = data.phone ? localPhone(data.phone).replace(/^0/, '972') : '';
   addCardAction(acts, {
-    label: '💬 שליחה בוואטסאפ',
+    label: waDigits ? '💬 שליחה בוואטסאפ לסוכן/ת' : '💬 שליחה בוואטסאפ',
     onClick: ()=>{
       const text = 'הוזמנת להצטרף לצוות המשרד בשוק נדל״ן — כל הנכסים, הלידים והלקוחות שלך במקום אחד: ' + data.invite_url;
-      window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank', 'noopener');
+      window.open('https://wa.me/' + waDigits + '?text=' + encodeURIComponent(text), '_blank', 'noopener');
     },
   });
 }
@@ -11314,6 +11334,7 @@ document.getElementById('addMemberForm').addEventListener('submit', async (e)=>{
       member_name: document.getElementById('nmName').value,
       license_number: document.getElementById('nmLicense').value,
       member_email: email,
+      member_phone: document.getElementById('nmPhone').value,
     });
     // הרישיון של הסוכן/ת המוזמן/ת לא אומת. הערעור נפתח עם **פרטיו/ה**
     // ולא של המנהל/ת שממלא/ת: הרישיון שלו/ה, המייל שיעודכן שלו/ה, והצילום
