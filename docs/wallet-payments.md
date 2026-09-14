@@ -313,6 +313,14 @@ curl -X POST "https://obookujgolazrwycsiyn.supabase.co/functions/v1/wallet-topup
 ל"האם נגבה", אבל ה-enum שלו טרם נראה, ולכן **אסור להסיק ממנו כלום עדיין**.
 ‏`readPaymentShape()` מחמירה בכוונה: רק סימן חיובי מפורש נחשב תשלום.
 
+### ‏`/documents/preview` — הדרך לבדוק בלי להנפיק
+
+`POST /documents/preview` מקבל **בדיוק את אותו גוף** כמו `POST /documents`
+ומחזיר `{ file }` — ‏PDF ב-Base64 — בלי ליצור מסמך אמיתי ובלי לשרוף מספר
+מסמך. זה כלי הבדיקה הנכון לאימות מבנה הבקשה: אפשר לשלוח את ה-payload
+המלא שלנו, לראות שהוא מתקבל, ולקרוא בעיניים את הסכומים שמודפסים על
+המסמך — הכול לפני שנוצר מסמך ראשון.
+
 ### אין סקציית Payments עצמאית
 
 נקודות הקצה שנראו עד כה: `POST /documents`, ‏`/documents/search`,
