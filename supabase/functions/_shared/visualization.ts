@@ -857,6 +857,49 @@ export function pickPrivateSources(
   return out;
 }
 
+/**
+ * בוחר את תמונות המקור להדמיה מסחרית.
+ *
+ * ‏**exterior — תמונת חוץ בלבד.** שילוט, ויטרינה ומרקיזה מעל פתח קיים אין
+ * מה לחפש בתמונה של חדר, ואין להם שום נפילה סבירה.
+ *
+ * ‏**interior_main — חלל מרכזי הוא העדפה, לא תנאי.** ‏space_role נגזר
+ * מפרומפט סיווג שנכתב לדירות: "מטבחון", "מסדרון" ו"מחסן" הם שם auxiliary,
+ * ובנכס מסחרי ההבחנה הזאת נכשלת בדיוק במקום היקר ביותר. משרד של שני עורכי
+ * דין עם מטבחון בפינה מסווג ‎interior/auxiliary/kitchen‎ — וכשזו התמונה
+ * היחידה של הנכס, וזה המצב הרגיל במשרד קטן, הבקשה נפלה על
+ * ‏no_suitable_images למרות שהתמונה שבה רואים את העסק הייתה מונחת שם.
+ * ‏(אירע בפועל ב-14.9.2026 ב"משרדים בעפולה": תמונה אחת, שלוש בקשות, שלוש
+ * תשובות 400.) לכן: חלל מרכזי אם יש, ואם אין — כל תמונת פנים.
+ *
+ * ‏**ונפילה אחרונה לתמונה הראשונה.** נכס שיש לו תמונות אבל אף אחת מהן לא
+ * סווגה — סיווג שנכשל מחזיר unknown ואינו נשמר, וינוסה שוב רק בבקשה הבאה —
+ * מקבל את התמונה הראשונה כחלל העסק. הפרומפט הפנימי נוגע בריהוט, בציוד
+ * ובגימור בלבד, כך שתמונה שאינה מה שחשבנו מחזירה הדמיה פחות מוצלחת; החלופה
+ * היא 400 שאין לגולש/ת שום דרך לפעול לפיו. ‏unknown נשאר מחוץ לשתי הבחירות
+ * שמעליו בכוונה: הוא ניחוש אחרון ולא מועמד שווה.
+ */
+export function pickCommercialSources(
+  tags: Array<{ image_url: string } & PhotoTags>,
+  images: string[] = []
+): Partial<Record<CommercialTarget, string>> {
+  const out: Partial<Record<CommercialTarget, string>> = {};
+
+  const exterior = tags.find((t) => t.photo_type === "exterior");
+  if (exterior) out.exterior = exterior.image_url;
+
+  const interior =
+    tags.find((t) => t.photo_type === "interior" && t.space_role === "main") ??
+    tags.find((t) => t.photo_type === "interior");
+  if (interior) out.interior_main = interior.image_url;
+
+  if (!out.exterior && !out.interior_main && images.length > 0) {
+    out.interior_main = images[0];
+  }
+
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // שמירת התוצאה
 // ---------------------------------------------------------------------------
