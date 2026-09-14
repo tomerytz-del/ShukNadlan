@@ -246,6 +246,21 @@ curl -i -X POST \
   -H "Content-Type: application/json" -d '{}'
 ```
 
+**ב-Windows זה לא עובד כלשונו, ומסיבה שקשה לנחש.** ‏`curl` ב-PowerShell הוא
+**כינוי ל-`Invoke-WebRequest`** — פקודה אחרת לגמרי, שאינה מכירה את `-i`,
+`-X` או `-d`. מה שחוזר הוא שגיאה על פרמטר לא מוכר, שנראית כאילו הפקודה
+עצמה שגויה. בנוסף, ה-`\` בסוף שורה הוא המשך-שורה של bash ואין לו משמעות
+שם.
+
+לכן ב-PowerShell: ‏**`curl.exe`** עם הסיומת (מדלג על הכינוי ומגיע ל-curl
+המובנה של Windows), והכול **בשורה אחת**:
+
+```powershell
+curl.exe -i -X POST "https://obookujgolazrwycsiyn.supabase.co/functions/v1/wallet-topup-callback?token=<MORNING_WEBHOOK_SECRET>" -H "Content-Type: application/json" -d "{}"
+```
+
+ב-Git Bash, ב-WSL ובכל מכונת Linux/macOS — הגרסה הראשונה עובדת כמו שהיא.
+
 | תשובה | מה היא אומרת |
 |---|---|
 | `503 webhook_secret_not_configured` | הסוד לא מוגדר ב-Edge Functions → Secrets |
