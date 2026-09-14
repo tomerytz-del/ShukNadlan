@@ -443,6 +443,8 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
           ? 'החשבון אינו משויך למשרד או לבעל/ת מקצוע. פנו אלינו ונסדר.'
         : data.error === 'morning_not_configured' || data.error === 'morning_misconfigured'
           ? 'הסליקה עדיין לא פעילה. פנו אלינו ונפתח את המסלול ידנית.'
+        : data.error === 'payment_terminal_missing'
+          ? 'הסליקה אינה פעילה כרגע — טרם הוגדר מסוף סליקה. ניסיון חוזר לא יעזור; פנו אלינו.'
         : 'שגיאה בפתיחת התשלום — נסו שוב.';
       payBtn.disabled = false;
       return;

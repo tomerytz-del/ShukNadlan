@@ -33,6 +33,19 @@ export function morningConfigured(): boolean {
   return Boolean(KEY_ID && KEY_SECRET);
 }
 
+// ‏2600 של מורנינג אינו כשל רגעי אלא **הגדרה חסרה**: לחשבון אין מסוף סליקה
+// פעיל, ונקודת הקצה של טופס התשלום סגורה בפניו. ההבדל חשוב למי שרואה את
+// ההודעה — "נסו שוב" הוא עצה שלא יכולה לעבוד, והכישלון יחזור זהה בכל ניסיון
+// עד שיופעל מסוף. זה קרה בהקמת הסנדבוקס, וזה יקרה שוב בהקמת הפרודקשן.
+//
+// הזיהוי יושב כאן ולא בקוראות, כי מספר השגיאה הוא פרט של מורנינג — ובקובץ
+// הזה, לפי ההערה בראשו, מרוכז כל מה שתלוי בה.
+export function isTerminalMissing(err: unknown): boolean {
+  // ‏regex ולא includes: רווח אחרי הנקודתיים הוא הבדל עיצוב ב-JSON של הצד
+  // השני, ולא סיבה להחמיץ את הקוד. ‏\b מונע התאמה ל-26001.
+  return /"errorCode"\s*:\s*2600\b/.test(String(err ?? ""));
+}
+
 export function morningEnvLabel(): string {
   return API_BASE.includes("sandbox") ? "sandbox" : "production";
 }
