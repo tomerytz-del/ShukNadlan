@@ -9,6 +9,7 @@ import {
   secretsMatch,
   verifyPayment,
 } from "../_shared/morning.ts";
+import { announceProfessionalPaid } from "../_shared/platform-signup-alert.ts";
 
 // ============================================================================
 // טעינת ארנק — סגירת התשלום
@@ -140,6 +141,11 @@ async function settleOrder(
     console.error(`wallet-topup-callback: complete rejected (${kind})`, order.id, JSON.stringify(result));
     return result.error === "amount_mismatch" ? "failed" : "pending";
   }
+  // כרטיסיית בעל/ת מקצוע שהופעלה היא כסף שנכנס, וזו הנקודה היחידה שבה זה
+  // קורה — היא משרתת גם את ה-webhook וגם את סבב ה-reconcile. כפילות אינה
+  // אפשרית: הפונקציה יוצאת למעלה על הזמנה שאינה pending.
+  if (kind === "ad") await announceProfessionalPaid(supabase, order.id);
+
   return "success";
 }
 
