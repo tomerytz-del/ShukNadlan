@@ -49,7 +49,7 @@ notifications (טריגר במסד)  ──►  pg_cron כל 5 דק׳  ──►
 | `supabase/migrations/20260824090000_whatsapp_integration.sql` | טבלאות + זיהוי לפי טלפון |
 | `supabase/migrations/20261029090000_assistant_scope_and_notification_push.sql` | פונקציות הלקוחות וההתאמות לשרת, ומנגנון דחיפת ההתראות |
 | `supabase/migrations/20261101090000_reminder_log_holds.sql` | ‏`notification_push_log_holds` ו-`notification_push_reconcile`: שורה שלא יצאה אינה חוסמת |
-| `supabase/migrations/20261106090000_assistant_property_intel.sql` | ‏`agent_cma_report` ו-`agent_property_planning` — דוח השוק והמידע התכנוני עם מזהה סוכן/ת מפורש |
+| `supabase/migrations/20261108090000_assistant_property_intel.sql` | ‏`agent_cma_report` ו-`agent_property_planning` — דוח השוק והמידע התכנוני עם מזהה סוכן/ת מפורש |
 
 ---
 

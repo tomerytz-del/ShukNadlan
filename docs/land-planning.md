@@ -80,7 +80,7 @@ definer` שמצנזר במקור. ‏`anon` אינו קורא/ת את `property_
 | `is_land_property_type(text)` | "האם זו קרקע" בצד ה-DB, לשימוש הטריגר של ההדמיות |
 
 מיגרציות: `20260910090000_land_planning_public.sql`, ו-
-`20261106090000_assistant_property_intel.sql` שמוסיפה את
+`20261108090000_assistant_property_intel.sql` שמוסיפה את
 `agent_property_planning` — ‏`cma_report` ו-`property_planning_public` גוזרות
 את זהות הסוכן/ת מ-`auth.uid()`, וה-Edge Function של הוואטסאפ מזהה לפי מספר
 טלפון ורצה עם `service_role`, כלומר `auth.uid()` שלה הוא `null`.
