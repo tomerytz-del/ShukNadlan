@@ -118,6 +118,23 @@ export async function morningToken(): Promise<{ token?: string; error?: string }
 // עוברים דרכנו בשום שלב — זו הסיבה המרכזית לבחור בטופס מתארח ולא בשדות
 // אשראי משלנו: מה שלא עובר אצלנו, גם לא יכול לדלוף מאיתנו.
 // ---------------------------------------------------------------------------
+
+// ‏`url` בתשובה הוא **אובייקט** `{origin, he, en}` ולא מחרוזת — כך בתיעוד
+// הרשמי. ‏`String()` על אובייקט מחזיר "[object Object]", כלומר הסוכן/ת
+// הייתה מגיעה לכתובת שבורה אחרי שהשורה כבר נפתחה כ-pending. עברית ראשונה
+// כי האתר עברי; ‏origin ואנגלית כנפילה חזרה. מחרוזת מטופלת גם היא, למקרה
+// שנקודת קצה אחרת מחזירה את הצורה הישנה.
+function pickUrl(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    const shape = value as Record<string, unknown>;
+    for (const key of ["he", "origin", "en"]) {
+      const candidate = shape[key];
+      if (typeof candidate === "string" && candidate) return candidate;
+    }
+  }
+  return "";
+}
 export type PaymentFormRequest = {
   amount: number;
   description: string;
@@ -196,15 +213,24 @@ export async function createPaymentForm(req: PaymentFormRequest): Promise<Paymen
   // ‼ לאימות: מבנה הבקשה ל-`/payments/form` עצמו — `group`, `maxPayments`,
   //   `pluginId`, והשדה שנושא את האסמכתא שלנו.
   //
-  // ‼ לאימות, ונוגע לכסף: האם ה-`price` בשורות ה-income כולל מע״מ או שהוא
-  //   לפניו. ‏₪100 שמתפרש כ-"₪100 ועוד מע״מ" הוא חיוב של ₪118 — פער שאינו
-  //   נראה בשום בדיקה שאינה סופרת אגורות.
+  // ‼‼ **הסכום כאן שגוי, והתיעוד מוכיח את זה.** דוגמת התשובה הרשמית:
+  //        price 300  →  vat 54  →  amountTotal 354
+  //    כלומר ה-`price` בשורת income הוא **לפני מע״מ**, ומורנינג מוסיפה 18%
+  //    מעליו. המחירים שלנו (`pricing_config`) כוללים מע״מ, ולכן טעינה של
+  //    ‎₪100 תיגבה ‎₪118 ומנוי של ‎₪750 ייגבה ‎₪885.
   //
-  // ‼ לאימות במיוחד: ‏taxId/phone/country ב-client. הם נשלחים כי בלעדיהם
-  //   ה-ח.פ שהוקלד בעמוד התשלום לא מגיע לחשבונית — אבל שם שדה שגוי כאן
-  //   מפיל את **פתיחת התשלום כולה**, ולא רק את השדה. לכן buildPayload
-  //   מקבל דגל, וניסיון שנדחה חוזר מיד בלי השדות האלה (ראו למטה). זה מה
-  //   שמאפשר לשלוח אותם לפני שהתיעוד אומת, בלי להמר על נתיב הכסף.
+  //    זה **לא תוקן כאן בכוונה**: התיקון אינו חלוקה ב-1.18 אלא החלטה בין
+  //    שלוש דרכים (ערך `vatType` בשורה שמסמן "כולל מע״מ", שליחת סכום נטו
+  //    עם עיגול לאגורה, או הגדרת המחירים כלפני מע״מ), ולשתיים מהן יש
+  //    השלכה על השוואת הסכום ב-`complete_wallet_topup` — כלומר על נתיב
+  //    הכסף. ההכרעה ממתינה ל-enum של `vatType` בשורת income.
+  //    הפרטים: `docs/wallet-payments.md`, סעיף "המע״מ".
+  //
+  // ‏taxId/phone/country ב-client **אומתו** מול התיעוד: כולם שדות חוקיים
+  //   ב-`client`, לצד name, emails, address, city, zip, mobile ועוד.
+  //   הנפילה-חזרה של `withClientExtras` נשארת בכל זאת, כי היא נבדקת מול
+  //   `/payments/form` ואילו הסכמה שאומתה היא של `/documents`. היא עולה
+  //   ניסיון אחד במקרה נדיר, ומונעת תשלום שלא נפתח בכלל.
   const buildPayload = (withClientExtras: boolean): Record<string, unknown> => ({
     description: req.description,
     type: 320,
@@ -281,11 +307,11 @@ export async function createPaymentForm(req: PaymentFormRequest): Promise<Paymen
     return { ok: false, error: `morning_error ${body.errorCode}: ${String(body.errorMessage ?? "").slice(0, 200)}` };
   }
 
-  const url = body?.url ?? body?.paymentUrl;         // ‼ לאימות: שם שדה הכתובת
+  const url = pickUrl(body?.url ?? body?.paymentUrl);
   const formId = body?.id ?? body?.formId ?? "";     // ‼ לאימות: שם שדה המזהה
   if (!url) return { ok: false, error: "morning_form_no_url" };
 
-  return { ok: true, formId: String(formId), url: String(url) };
+  return { ok: true, formId: String(formId), url };
 }
 
 // ---------------------------------------------------------------------------
