@@ -83,6 +83,19 @@
 
 בזכותם `משה שרת` ו-`יוקה פארק` עולים שתי קריאות במקום שמונה.
 
+### ומה שהצירים לא יכולים לכסות
+
+`יהושוע חנקין` במקום `יהושע חנקין` הוא ציר רביעי (וי"ו של אם קריאה),
+ו-`אושיסקין` במקום `אוסישקין` הוא פשוט שגיאת הקלדה. שניהם היו במסד, על
+נכסים פעילים, ושניהם חוזרים מהשכבה כ-`address_not_found` — כלומר נכס בלי
+פין, בלי שאף אחד ידע.
+
+אפשר להוסיף עוד ועוד צירים, וכל אחד הוא עוד קריאת רשת לכל נכס; שגיאת
+הקלדה לא תיפתר כך לעולם. לכן שדה הרחוב בטופס הנכס אינו טקסט חופשי אלא
+**בחירה מרשימה סגורה** שמוזנת מאותה שכבה — ראו
+[street-registry.md](street-registry.md). ‏`streetVariants` נשאר מה שהוא:
+רשת הביטחון לנכסים שנשמרו לפני כן, ולכתיב שהשכבה עצמה אינה עקבית בו.
+
 ## שני מסלולים
 
 ### 1. בזמן שמירה — `geocode-address`
@@ -223,4 +236,5 @@ curl -X POST "$SUPABASE_URL/functions/v1/geocode-backfill" \
 
 קשור: [property-map.md](property-map.md) ·
 [search-map-experience.md](search-map-experience.md) ·
-[open-house-fair.md](open-house-fair.md) · [land-planning.md](land-planning.md)
+[open-house-fair.md](open-house-fair.md) · [land-planning.md](land-planning.md) ·
+[street-registry.md](street-registry.md)

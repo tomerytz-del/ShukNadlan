@@ -3474,7 +3474,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="field"><label>איזור מכירה (לא חובה)</label><input type="text" id="npSalesArea" placeholder="לדוגמה: צפון העיר"></div>
       </div>
       <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field"><label>רחוב (לא חובה)</label><input type="text" id="npStreet" placeholder="לדוגמה: דפנה"></div>
+        <div class="field"><label>רחוב (לא חובה)</label>
+          <!-- ‏datalist ולא select: לעפולה מאות רחובות, ובורר נפתח הוא גלילה
+               ארוכה. כאן מקלידים שתי אותיות ורואים את מה שמתאים, וגם המקלדת
+               בנייד נשארת הדרך הטבעית. הרשימה הסגורה נאכפת בשמירה (‏canonicalStreet)
+               ולא ברכיב — ‏datalist לבדו אינו חוסם הקלדה חופשית. -->
+          <input type="text" id="npStreet" list="streetOptions" autocomplete="off" placeholder="הקלידו ובחרו מהרשימה">
+          <datalist id="streetOptions"></datalist>
+          <p id="npStreetHint" style="font-size:.72rem;margin:5px 0 0;line-height:1.5"></p>
+        </div>
         <div class="field"><label>מספר בית (לא חובה)</label><input type="text" id="npHouseNumber"></div>
       </div>
       <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">אם מולאו רחוב+מספר, מידע תכנוני (גוש/חלקה/ייעוד) ייקלט אוטומטית ברקע, ובדף הנכס תוצג מפת מיקום עם הפין המדויק (מסלולי PROFESSIONAL ו-Elite בלבד). בלי מספר בית אין מפה: הגאוקודינג נופל למרכז העיר, ופין כזה נראה מדויק ואינו כזה.</p>
@@ -5122,7 +5130,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="acc-body">
       <p class="acc-sub">גוש/חלקה, ייעוד קרקע, תוכניות תכנון ומפת חלקה — הזינו כתובת או גוש/חלקה</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <input type="text" id="planStreet" placeholder="רחוב (למשל: דפנה)">
+        <input type="text" id="planStreet" list="planStreetOptions" autocomplete="off" placeholder="רחוב (למשל: דפנה)">
+        <!-- ‏datalist נפרד מזה של טופס הנכס, ולא משותף: הכלי הזה הוא עפולה
+             בלבד (כך גם כותרת האקורדיון), בעוד שהרשימה בטופס עוקבת אחרי
+             שדה העיר. ‏datalist משותף היה מציג כאן את רחובות העיר שהוקלדה
+             בטופס — רשימה שגויה, בלי שום סימן לכך. -->
+        <datalist id="planStreetOptions"></datalist>
         <input type="text" id="planHouseNum" placeholder="מספר בית">
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
@@ -10518,7 +10531,12 @@ async function loadBillingHistory(){
 /* ---------- Planning lookup tool: clean fields + parcel map (not raw JSON) ---------- */
 let planningMap = null;
 document.getElementById('planLookupBtn').addEventListener('click', async ()=>{
-  const street = document.getElementById('planStreet').value.trim();
+  /* אותו תיקון כתיב כמו בטופס הנכס, ובלי חסימה: הכלי הזה הוא בדיקה ולא
+     שמירה, ולמי שהכתיב שלו עקשן יש ממילא את מסלול גוש+חלקה שאינו עובר דרך
+     שכבת הכתובות. מה שכן — "העליה" שברשימה כתובה "עלייה" יישלח כ-"עלייה",
+     במקום לחזור עם 404 שנראה כמו כתובת שאינה קיימת. */
+  const street = canonicalStreet(document.getElementById('planStreet').value, STREET_PLANNING_CITY).name;
+  document.getElementById('planStreet').value = street;
   const houseNum = document.getElementById('planHouseNum').value.trim();
   const gush = document.getElementById('planGush').value.trim();
   const helka = document.getElementById('planHelka').value.trim();
@@ -12604,6 +12622,196 @@ function cleanupReplacedVideo(finalUrl){
   videoOriginalUrl = finalUrl || null;
 }
 
+/* ==========================================================================
+   רשימת הרחובות
+   --------------------------------------------------------------------------
+   שם רחוב אינו טקסט חופשי אלא **מפתח חיפוש**: ממנו נגזרים ה-lat/lng שבלעדיהם
+   הנכס נעלם מכל מפה, וממנו נגזר המידע התכנוני. "יהושוע חנקין" במקום "יהושע
+   חנקין" מחזיר 404 מנומק שנראה בדיוק כמו כתובת שאינה קיימת, ואף אחד לא מקבל
+   הודעה. לכן בוחרים מרשימה, ולא מקלידים.
+
+   שלושה כללים שמסבירים כמעט כל שורה כאן:
+
+   1. **אכיפה רק כשיש על מה להישען.** עיר נאכפת רק אם יש לה ברשימה רחוב אחד
+      לפחות שמקורו בשכבת העירייה (‏source='gis'). כך עיר שאין לה שכבה חוזרת
+      להקלדה חופשית במקום לחסום שמירה, וגם החלון שבין המיזוג לסנכרון הראשון
+      (הרשימה כולה 'legacy') עובר בלי שאף אחד ייתקע.
+
+   2. **שליפה שנכשלה אינה רשימה ריקה.** ‏streetRegistryReady נשאר שקרי, ואז
+      אין אכיפה בכלל. תקלת רשת רגעית לא תמנע מסוכן/ת לפרסם נכס.
+
+   3. **מפתח, לא השוואת מחרוזות.** ‏streetNameKey כאן הוא העתק של
+      ‏public.street_name_key שבמסד. ההעתקה מודעת — לפרויקט הזה אין מודול
+      משותף בין ה-HTML הסטטי ל-SQL, כמו ביטוי הקרקע ששוכפל בחמישה קבצים
+      (ראו docs/land-planning.md). מי שמוסיף/ה ציר כתיב מעדכן/ת את שניהם,
+      והמסד הוא הקובע: הוא זה שמחזיק את האינדקס הייחודי.
+
+   הפרטים: docs/street-registry.md
+   ========================================================================== */
+/* העיר של כלי המידע התכנוני. ‏afula-planning-lookup עובדת מול שכבת עפולה
+   בלבד, וכך גם כותרת האקורדיון. */
+const STREET_PLANNING_CITY = 'עפולה';
+
+let streetRegistry = null;            // null = טרם נטענה
+let streetRegistryReady = false;      // האם מותר לאכוף רשימה סגורה
+let streetsByCity = new Map();        // city -> [שמות, ממוינים]
+let streetKeyIndex = new Map();       // city -> Map(key -> השם הקנוני)
+let streetEnforcedCities = new Set(); // ערים שיש להן רחוב אחד לפחות מה-GIS
+
+/* העתק של public.street_name_key. הסדר אינו שרירותי: ה"א פותחת יורדת לפני
+   כיווץ היו"ד ולפני ה"א סופית, אחרת "העליה" ו-"עלייה" אינם מתכנסים. */
+function streetNameKey(name){
+  const base = String(name ?? '')
+    .replace(/['"`׳״‘’“”]/g, '')
+    .replace(/[־-]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  const key = base
+    .replace(/^(רחוב|רח|שדרות|שדרת|שד)\s+/, '')
+    .replace(/^ה/, '')
+    .replace(/י{2,}/g, 'י')
+    .replace(/ה$/, '');
+  return key || base;
+}
+
+async function ensureStreetsLoaded(){
+  if (streetRegistry) return streetRegistry;
+  const { data, error } = await sb.from('street_registry')
+    .select('city, name, source')
+    .eq('active', true)
+    .order('name');
+  if (error){
+    // ‏streetRegistry נשאר null כדי שהניסיון הבא ישלוף מחדש, ו-ready שקרי
+    // כדי שבינתיים השדה יתנהג כמו טקסט חופשי — כמו שהתנהג עד היום.
+    console.warn('רשימת הרחובות לא נטענה — שדה הרחוב נשאר חופשי:', error.message);
+    streetRegistryReady = false;
+    return [];
+  }
+  streetRegistry = data || [];
+  streetsByCity = new Map();
+  streetKeyIndex = new Map();
+  streetEnforcedCities = new Set();
+  streetRegistry.forEach(row => {
+    if (!streetsByCity.has(row.city)){
+      streetsByCity.set(row.city, []);
+      streetKeyIndex.set(row.city, new Map());
+    }
+    streetsByCity.get(row.city).push(row.name);
+    const keys = streetKeyIndex.get(row.city);
+    const k = streetNameKey(row.name);
+    // הראשון מנצח — הרשימה ממוינת, וממילא האינדקס הייחודי במסד מבטיח
+    // שלא יהיו שתי שורות עם אותו מפתח באותה עיר.
+    if (!keys.has(k)) keys.set(k, row.name);
+    if (row.source === 'gis') streetEnforcedCities.add(row.city);
+  });
+  streetRegistryReady = streetRegistry.length > 0;
+  refreshStreetOptions();
+  return streetRegistry;
+}
+
+/* כל datalist מוגבל לעיר אחת: רשימה שמערבבת ערים היא רשימה שבה בוחרים רחוב
+   של עיר אחרת בלי לשים לב. עיר שאין לה רחובות מקבלת רשימה ריקה, כלומר שדה
+   טקסט רגיל. */
+function populateStreetOptions(listId, city){
+  const list = document.getElementById(listId);
+  if (!list) return;
+  const names = streetsByCity.get(String(city || '').trim()) || [];
+  list.innerHTML = names.map(n => `<option value="${esc(n)}"></option>`).join('');
+}
+
+/* שתי הרשימות יחד: זו של הטופס לפי שדה העיר, וזו של המידע התכנוני על עפולה */
+function refreshStreetOptions(){
+  populateStreetOptions('streetOptions', document.getElementById('npCity')?.value || '');
+  populateStreetOptions('planStreetOptions', STREET_PLANNING_CITY);
+}
+
+function streetEnforced(city){
+  return streetRegistryReady && streetEnforcedCities.has(String(city || '').trim());
+}
+
+/* מתרגמת מה שהוקלד לשם הקנוני שברשימה.
+   ‏{ ok:false } פירושו "לא ברשימה, והעיר הזו נאכפת" — הקורא מחליט אם לחסום
+   (טופס הנכס) או רק להתריע (ייבוא מקובץ, כלי המידע התכנוני). */
+function canonicalStreet(value, city){
+  const raw = String(value ?? '').replace(/\s+/g, ' ').trim();
+  if (!raw) return { ok:true, name:'' };
+  const keys = streetKeyIndex.get(String(city || '').trim());
+  const hit = keys ? keys.get(streetNameKey(raw)) : null;
+  if (hit) return { ok:true, name:hit };
+  return { ok: !streetEnforced(city), name: raw };
+}
+
+/* השורה מתחת לשדה. שלושה מצבים, וכל אחד אומר מה לעשות עכשיו:
+   ריק           — מה שהוקלד הוא בדיוק מה שברשימה
+   הערה אפורה    — הכתיב יתוקן לכתיב הרשמי בשמירה
+   הערה אדומה    — לא ברשימה, ולידה הכפתור שמוסיף אותו */
+function refreshStreetHint(){
+  const input = document.getElementById('npStreet');
+  const hint  = document.getElementById('npStreetHint');
+  if (!input || !hint) return;
+  const city = document.getElementById('npCity').value.trim();
+  const raw  = input.value.replace(/\s+/g, ' ').trim();
+  if (!raw || !streetEnforced(city)){ hint.innerHTML = ''; return; }
+  const hit = (streetKeyIndex.get(city) || new Map()).get(streetNameKey(raw));
+  if (hit){
+    hint.style.color = 'var(--ink-soft)';
+    hint.textContent = hit === raw ? '' : `ייכתב «${hit}» — הכתיב שבשכבת הכתובות של העירייה`;
+    return;
+  }
+  hint.style.color = 'var(--brick)';
+  hint.innerHTML = `«${esc(raw)}» אינו ברשימת הרחובות של ${esc(city)}. בדקו את הכתיב, `
+    + `או <button type="button" id="npStreetAddBtn" class="btn btn-ghost" `
+    + `style="padding:4px 12px;font-size:.72rem;margin-inline-start:4px">הוסיפו אותו לרשימה</button>`;
+}
+
+/* הוספה ידנית — דלת היציאה. רחוב חדש נולד לפני שהוא מגיע למאגר של העירייה,
+   ומתווך/ת שנחסם/ת עד שהעירייה תתעדכן ימציא/תמציא עוקף. ה-RPC מחזיר תמיד את
+   השם הקנוני, ולכן הכפתור הזה הוא גם "תקנו לי את הכתיב" כשהרחוב כבר קיים
+   בכתיב אחר. */
+async function addStreetToRegistry(){
+  const input = document.getElementById('npStreet');
+  const hint  = document.getElementById('npStreetHint');
+  const city  = document.getElementById('npCity').value.trim();
+  const raw   = input.value.replace(/\s+/g, ' ').trim();
+  if (!raw || !city) return;
+  hint.style.color = 'var(--ink-soft)';
+  hint.textContent = 'מוסיף לרשימה…';
+  const { data, error } = await sb.rpc('street_registry_add', { p_city: city, p_name: raw });
+  if (error){
+    hint.style.color = 'var(--brick)';
+    hint.textContent = 'הוספת הרחוב נכשלה: ' + error.message;
+    return;
+  }
+  streetRegistry = null;               // טעינה מחדש, כדי שהרשימה תכיל אותו
+  await ensureStreetsLoaded();
+  input.value = data || raw;
+  refreshStreetOptions();
+  refreshStreetHint();
+
+  /* מקרה אחד שבו ההוספה "הצליחה" והשדה עדיין חסום: הרחוב כבר קיים ברשימה
+     אבל **מכובה** — למשל כתיב ישן שהסנכרון הראשון לא אישר. ה-RPC מחזיר אותו
+     ובכוונה אינו מדליק אותו מחדש (כיבוי הוא החלטה של מנהל/ת הפלטפורמה).
+     בלי ההודעה הזו, הלחיצה על הכפתור הייתה נראית כאילו לא עשתה כלום. */
+  if (!canonicalStreet(input.value, city).ok){
+    hint.style.color = 'var(--brick)';
+    hint.textContent = `«${input.value}» כבר קיים ברשימה אך אינו פעיל — קרוב לוודאי כתיב `
+      + 'שהשכבה של העירייה לא אישרה. בחרו את הרחוב מתוך הרשימה הנפתחת.';
+  }
+}
+
+document.getElementById('npStreetHint').addEventListener('click', (e)=>{
+  if (e.target.id === 'npStreetAddBtn') addStreetToRegistry();
+});
+document.getElementById('npStreet').addEventListener('input', refreshStreetHint);
+document.getElementById('npStreet').addEventListener('change', refreshStreetHint);
+/* העיר קובעת גם את הרשימה וגם אם יש אכיפה בכלל, ולכן שינוי שלה מרענן את שתיהן */
+document.getElementById('npCity').addEventListener('input', ()=>{
+  populateStreetOptions('streetOptions', document.getElementById('npCity').value);
+  refreshStreetHint();
+});
+/* כלי המידע התכנוני יושב באקורדיון נפרד ועשוי להיפתח לפני טופס הנכס */
+document.getElementById('planStreet').addEventListener('focus', ensureStreetsLoaded, { once:true });
+
 /* ‏allNeighborhoods נטענת ב-loadPreferences, שרצה אחרי loadProperties. הטופס
    נפתח רק בלחיצה, ולכן מספיק לוודא כאן שהרשימה קיימת לפני שמאכלסים את הבורר. */
 async function ensureNeighborhoodsLoaded(){
@@ -12760,6 +12968,8 @@ toggleBtn.addEventListener('click', ()=>{
     document.getElementById('addPropertyForm').reset();
     document.getElementById('npCity').value = 'עפולה';
     populateNeighborhoodSelect('');
+    document.getElementById('npStreetHint').innerHTML = '';
+    ensureStreetsLoaded();
     populateAgent2Select('', '');
     resetImageState();
     syncMarketingCopyField(null);
@@ -12924,9 +13134,33 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
 
   const lat = document.getElementById('npLat').value;
   const lng = document.getElementById('npLng').value;
-  const street = document.getElementById('npStreet').value.trim();
+  let   street = document.getElementById('npStreet').value.trim();
   const houseNumber = document.getElementById('npHouseNumber').value.trim();
   const city = document.getElementById('npCity').value.trim();
+
+  /* הרשימה הסגורה נאכפת כאן ולא ברכיב: ‏datalist מציע ואינו חוסם, וכל
+     הטעם בשדה הזה הוא שהשם שנשמר יהיה השם שהשכבה של העירייה מכירה —
+     ממנו נגזרים גם הפין על המפה וגם המידע התכנוני.
+
+     שתי תוצאות אפשריות:
+       נמצא ברשימה  -> ‏street מוחלף בכתיב הקנוני, גם אם הוקלד אחרת
+       לא נמצא      -> עצירה, עם הפנייה לכפתור "הוסיפו אותו לרשימה"
+
+     ‏canonicalStreet מחזירה ok גם כשלא נמצא, בעיר שאין לה רשימה מאושרת —
+     ואז השדה מתנהג כמו טקסט חופשי, כמו שהתנהג עד היום. */
+  const streetMatch = canonicalStreet(street, city);
+  if (!streetMatch.ok){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = `הרחוב «${street}» אינו ברשימת הרחובות של ${city}. `
+      + 'בחרו רחוב מהרשימה, או הוסיפו אותו בכפתור שמתחת לשדה.';
+    refreshStreetHint();
+    document.getElementById('npStreet').focus();
+    btn.disabled = false;
+    btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
+    return;
+  }
+  street = streetMatch.name;
+  document.getElementById('npStreet').value = street;
 
   // lat/lng לא חובה בטופס, אבל בלעדיהם הנכס לא מקבל פין במפת עמוד הבית
   // (renderMap שם מדלגת על נכסים בלי lat/lng) — אז כשיש כתובת בעפולה
@@ -13209,6 +13443,8 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
 
   document.getElementById('addPropertyForm').reset();
   document.getElementById('npCity').value = 'עפולה';
+  // ‏reset() מרוקן את שדה הרחוב אך לא את ההערה שמתחתיו
+  document.getElementById('npStreetHint').innerHTML = '';
   // ‏form.reset() לא מחזיר את בורר סוכן 2 למצב "ללא": האפשרויות שלו נבנות
   // בקוד, ושדות השם והטלפון עשויים להישאר לקריאה בלבד מהבחירה הקודמת.
   populateAgent2Select('', '');
@@ -15625,6 +15861,9 @@ function openEditProperty(p){
   document.getElementById('npRooms').value = p.rooms || '';
   document.getElementById('npCity').value = p.city || 'עפולה';
   document.getElementById('npStreet').value = p.street || '';
+  // אסינכרונית: הנכס נשמר בזמנו בטקסט חופשי, וההערה מתחת לשדה תגיד אם
+  // הכתיב שלו עדיין עומד ברשימה — בלי לגעת בנכס עד שנשמר מחדש.
+  ensureStreetsLoaded().then(refreshStreetHint);
   document.getElementById('npHouseNumber').value = p.house_number || '';
   document.getElementById('npLat').value = p.lat || '';
   document.getElementById('npLng').value = p.lng || '';
@@ -16326,7 +16565,19 @@ function impBuildRow(rawRow, rowNumber){
   const salesArea = impText(cell('sales_area'));
   if (salesArea) payload.sales_area = salesArea.slice(0, 100);
 
-  const street = impText(cell('street'));
+  /* ייבוא מקובץ אינו חוסם על רחוב שאינו ברשימה, בשונה מהטופס: קובץ של 200
+     שורות שנתקע על שורה אחת הוא קובץ שלא נקלט, וכתובת שתרד לגמרי היא נכס
+     בלי פין במפה. לכן — תיקון כתיב בשקט כשיש התאמה, ואזהרה על השורה כשאין.
+     האזהרה מגיעה למסך התיקון הידני, שם אפשר לתקן לפני הקליטה. */
+  let street = impText(cell('street'));
+  if (street){
+    const match = canonicalStreet(street, city);
+    street = match.name;
+    if (!match.ok){
+      warnings.push(`הרחוב "${street}" אינו ברשימת הרחובות של ${city} — נשמר כפי שהוקלד, `
+        + 'וייתכן שהנכס לא יקבל מיקום על המפה');
+    }
+  }
   const houseNumber = impText(cell('house_number'));
   payload.street = street || null;
   payload.house_number = houseNumber || null;
@@ -16690,6 +16941,8 @@ async function impRenderStep3(){
   // ‏impBuildRow ממפה שם שכונה מהקובץ ל-neighborhood_id מול הרשימה הזו,
   // ומאותה רשימה נבנית גם השלמת הערים בתיקון הידני.
   await ensureNeighborhoodsLoaded();
+  // ‏impBuildRow מיישר שם רחוב מול הרשימה הזו, ומתריע כשאין התאמה
+  await ensureStreetsLoaded();
   importState.featureColumns = impDetectFeatureColumns(importState.headers, importState.mapping);
   importState.previewFields = IMPORT_FIELDS.filter(f => (importState.mapping[f.key] ?? -1) > -1).slice(0, 7);
 
@@ -22890,7 +23143,11 @@ async function agrAddPropertyToCatalog(uid, btn){
   const txt = k => (f[k] || '').trim();
   const propertyType = txt('property_type');
   const city   = txt('city');
-  const street = txt('street') || txt('address');
+  /* המסמך החתום נכתב בטקסט חופשי, ולכן שם הרחוב שבו עובר את אותו יישור כמו
+     בטופס — בלי חסימה: אין כאן טופס לחזור אליו, וכתובת שתרד היא נכס בלי פין.
+     הרשימה נטענת כאן ולא בפתיחת האשף, כי זה המקום היחיד בו היא נחוצה. */
+  await ensureStreetsLoaded();
+  const street = canonicalStreet(txt('street') || txt('address'), city).name;
   const price  = agrNumField(txt('price'), { min:0 });
 
   /* ‏properties דורשת את השלושה האלה ב-NOT NULL. עדיף להגיד מה חסר

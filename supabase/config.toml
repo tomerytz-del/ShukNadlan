@@ -113,6 +113,13 @@ verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
 [functions.geocode-backfill]
 verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
 
+# סנכרון רשימת הרחובות של עפולה משכבת הכתובות של העירייה. רצה פעם ביום
+# מ-pg_cron, ויורה רק כשעברו ארבעה חודשים מהסנכרון המוצלח האחרון
+# (‏street_registry_sync_due בתנאי ה-cron). אינה מקבלת שום קלט — העיר
+# והשכבה קבועות בקוד. ראו docs/street-registry.md
+[functions.street-registry-sync]
+verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
+
 # תזכורות לסוכנים (תמונות חסרות, שתיקה, תוקף מודעה). רצה פעם בשעה מ-pg_cron
 # בלבד ואינה מקבלת שום קלט — מי מקבל/ת, מה נשלח וכמה נקבעים במסד.
 [functions.agent-reminders]
