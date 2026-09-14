@@ -107,8 +107,24 @@ function pointFilter(typeName, spatialOp, x, y, propRef) {
     '</fes:' + spatialOp + '></fes:Filter></wfs:Query></wfs:GetFeature>';
 }
 
+// שם עמודת הגאומטריה אינו עקבי בין שכבות העירייה, ואין דרך לדעת אותו מראש:
+// ‏afl_cadaster-parcel עונה ל-"Shape", ‏afl_yk_plans ל-"shape", ושכבת הייעוד
+// דחתה את "shape" ב-‏400 "Illegal property name". לכן מנסים את שתי הצורות
+// שנצפו, המוכרת לשכבה תחילה, והראשונה שעונה היא הנכונה.
+async function spatialQuery(typeName, spatialOp, x, y, props, label) {
+  let lastError = null;
+  for (const prop of props) {
+    try {
+      return await wfsQuery(pointFilter(typeName, spatialOp, x, y, prop), label + ":" + prop);
+    } catch (err) {
+      lastError = err;
+    }
+  }
+  throw lastError;
+}
+
 async function coordsToParcel(x, y) {
-  const data = await wfsQuery(pointFilter("afl_cadaster:afl_cadaster-parcel", "Contains", x, y, "Shape"), "parcel");
+  const data = await spatialQuery("afl_cadaster:afl_cadaster-parcel", "Contains", x, y, ["Shape", "shape"], "parcel");
   const f = data && data.features && data.features[0];
   return f ? { properties: f.properties, geometry: f.geometry } : null;
 }
@@ -131,11 +147,11 @@ function polygonCentroid(geometry) {
   } catch (e) { return null; }
 }
 async function coordsToPlans(x, y) {
-  const data = await wfsQuery(pointFilter("afl_yk:afl_yk_plans", "Intersects", x, y, "shape"), "plans");
+  const data = await spatialQuery("afl_yk:afl_yk_plans", "Intersects", x, y, ["shape", "Shape"], "plans");
   return (data && data.features ? data.features : []).map((f) => f.properties);
 }
 async function coordsToLandUse(x, y) {
-  const data = await wfsQuery(pointFilter("afl_yk:afl_yk-ITown_yk_Lots_Compilation", "Intersects", x, y, "shape"), "landuse");
+  const data = await spatialQuery("afl_yk:afl_yk-ITown_yk_Lots_Compilation", "Intersects", x, y, ["shape", "Shape"], "landuse");
   const f = data && data.features && data.features[0];
   return f ? f.properties : null;
 }
@@ -215,8 +231,23 @@ Deno.serve(async (req) => {
       parcelGeometry = (parcel && parcel.geometry) || null;
     }
 
-    const rawPlans = await coordsToPlans(x, y);
-    const landUse = await coordsToLandUse(x, y);
+    // תוכניות וייעוד הם **העשרה**: הגוש, החלקה, הסטטוס והגאומטריה כבר
+    // בידינו, ושכבה אחת שנופלת לא אמורה למחוק את כולם. כך זה נראה כשזה
+    // קורה — 400 על שכבת הייעוד החזיר "שגיאה" לסוכן/ת על נכס שכל שאר
+    // המידע עליו נשלף בהצלחה, כולל הכתובת שנמצאה.
+    let rawPlans = [];
+    try {
+      rawPlans = await coordsToPlans(x, y);
+    } catch (err) {
+      console.error("planning: plans layer failed", String((err && err.message) || err));
+    }
+
+    let landUse = null;
+    try {
+      landUse = await coordsToLandUse(x, y);
+    } catch (err) {
+      console.error("planning: landuse layer failed", String((err && err.message) || err));
+    }
     const landUseDesignation = (landUse && (landUse["יעוד_קרקע_בתכנית"] || landUse["יעוד_קרקע_מבאת"])) || null;
     const centerCoords = itmToWgs84(x, y);
     const geometryWgs84 = convertGeometryToWgs84(parcelGeometry);
