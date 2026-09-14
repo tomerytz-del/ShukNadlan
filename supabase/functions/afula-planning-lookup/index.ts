@@ -111,6 +111,38 @@ function pointFilter(typeName, spatialOp, x, y, propRef) {
 // ‏afl_cadaster-parcel עונה ל-"Shape", ‏afl_yk_plans ל-"shape", ושכבת הייעוד
 // דחתה את "shape" ב-‏400 "Illegal property name". לכן מנסים את שתי הצורות
 // שנצפו, המוכרת לשכבה תחילה, והראשונה שעונה היא הנכונה.
+// כששתי הצורות המוכרות נדחות, שואלים את השכבה עצמה. ‏DescribeFeatureType
+// מחזירה את הסכימה שלה, ובה עמודת הגאומטריה מזוהה בכך שהטיפוס שלה הוא
+// ‏gml:*PropertyType. זו קריאה אחת נוספת ורק במסלול הכישלון, והתשובה נשמרת
+// ל-isolate — כך שגם אם נצטרך אותה, נשלם עליה פעם אחת.
+//
+// זה עדיף על עוד ועוד ניחושים: שלוש השכבות כאן כבר מדגימות שלוש מוסכמות
+// שונות, ורשימת ניחושים ארוכה היא רק דרך איטית יותר להחטיא.
+const geomPropCache = new Map();
+
+async function describeGeometryProp(typeName) {
+  if (geomPropCache.has(typeName)) return geomPropCache.get(typeName);
+  try {
+    const url = WFS_URL + "?service=WFS&version=2.0.0&request=DescribeFeatureType&typeNames=" +
+      encodeURIComponent(typeName);
+    const res = await fetch(url, { headers: { "Referer": WFS_REFERER } });
+    if (!res.ok) return null;
+    const xml = await res.text();
+    for (const tag of xml.match(/<[^>]*\belement\b[^>]*>/g) || []) {
+      if (!/type="[^"]*\bgml:/.test(tag)) continue;
+      const m = tag.match(/name="([^"]+)"/);
+      if (m) {
+        geomPropCache.set(typeName, m[1]);
+        console.error("WFS geometry property discovered: " + typeName + " -> " + m[1]);
+        return m[1];
+      }
+    }
+  } catch (err) {
+    console.error("WFS DescribeFeatureType failed for " + typeName + ": " + String(err));
+  }
+  return null;
+}
+
 async function spatialQuery(typeName, spatialOp, x, y, props, label) {
   let lastError = null;
   for (const prop of props) {
@@ -119,6 +151,12 @@ async function spatialQuery(typeName, spatialOp, x, y, props, label) {
     } catch (err) {
       lastError = err;
     }
+  }
+
+  // כל הניחושים נדחו — שואלים את השכבה ומנסים שוב עם השם האמיתי.
+  const discovered = await describeGeometryProp(typeName);
+  if (discovered && !props.includes(discovered)) {
+    return await wfsQuery(pointFilter(typeName, spatialOp, x, y, discovered), label + ":" + discovered);
   }
   throw lastError;
 }
