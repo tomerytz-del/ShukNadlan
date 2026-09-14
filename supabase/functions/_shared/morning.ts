@@ -59,7 +59,13 @@ export async function morningToken(): Promise<{ token?: string; error?: string }
     res = await fetch(`${API_BASE}/account/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: KEY_ID, secret: KEY_SECRET }),
+      // ‏grant_type נוסף בעדכון התשתית של יוני 2026. בלעדיו הקריאה נדחית
+      // ב-API החדש, וכל המסלול מת בשלב הראשון — לפני שנפתח טופס תשלום אחד.
+      body: JSON.stringify({
+        id: KEY_ID,
+        secret: KEY_SECRET,
+        grant_type: "client_credentials",
+      }),
     });
   } catch (err) {
     return { error: `morning_network: ${(err as Error).message}` };
@@ -75,16 +81,24 @@ export async function morningToken(): Promise<{ token?: string; error?: string }
     return { error: "morning_auth_bad_json" };
   }
 
-  const token = body?.token ?? body?.jwt;            // ‼ לאימות: שם שדה האסימון
+  // ‏access_token הוא השם המקובל בתשובה מסוג client_credentials, ו-token/jwt
+  // הם מה שהוחזר במבנה הישן. קוראים את שלושתם: עדיף לקרוא אסימון שהתיעוד
+  // קורא לו אחרת, מאשר להיכשל באימות מול שם שדה יחיד.
+  const token = body?.access_token ?? body?.token ?? body?.jwt;   // ‼ לאימות
   if (!token) return { error: "morning_auth_no_token" };
 
-  // ‏expires מגיע כ-epoch בשניות. אם לא הגיע — 55 דקות, שמרני מול חצי שעה
-  // שהיא התפוגה המקובלת שם.
-  const expiresSec = Number(body?.expires);          // ‼ לאימות: שם שדה התפוגה
+  // שתי צורות תפוגה, ולא אותה משמעות: ‏`expires` הוא epoch בשניות (המבנה
+  // הישן), ואילו `expires_in` הוא **משך** בשניות מעכשיו. לבלבל ביניהם זה
+  // לקבל תפוגה ב-1970 ולחדש אסימון בכל קריאה, או להפך. אם אין אף אחד מהם —
+  // 55 דקות, שמרני מול חצי שעה שהיא התפוגה המקובלת שם.
+  const expiresAtSec = Number(body?.expires);        // ‼ לאימות: שם שדה התפוגה
+  const expiresInSec = Number(body?.expires_in);
   cachedToken = {
     token,
-    expiresAt: Number.isFinite(expiresSec) && expiresSec > 0
-      ? expiresSec * 1000
+    expiresAt: Number.isFinite(expiresAtSec) && expiresAtSec > 0
+      ? expiresAtSec * 1000
+      : Number.isFinite(expiresInSec) && expiresInSec > 0
+      ? Date.now() + expiresInSec * 1000
       : Date.now() + 55 * 60_000,
   };
   return { token };
