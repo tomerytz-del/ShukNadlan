@@ -117,7 +117,7 @@ crm.html                → חוזר עם ?topup=success, בודק את השור
 MORNING_API_KEY_ID=           # client_id של מפתח ה-OAuth
 MORNING_API_KEY_SECRET=       # client_secret
 MORNING_API_BASE=https://sandbox.d.greeninvoice.co.il/api/v1
-MORNING_AUTH_BASE=            # שרת האימות. ברירת המחדל: https://api.morning.co
+MORNING_AUTH_BASE=            # לא להגדיר. נגזר מ-MORNING_API_BASE
 MORNING_PLUGIN_ID=            # רק אם יש יותר מתוסף סליקה אחד
 MORNING_WEBHOOK_SECRET=       # openssl rand -hex 32
 ```
@@ -142,10 +142,24 @@ MORNING_WEBHOOK_SECRET=       # openssl rand -hex 32
 | שדה התפוגה | `expires` | `expiresAt` |
 
 **הדבר היחיד שחייבים לזכור כאן: האסימון מונפק מדומיין אחר מזה שמשרת את
-ה-API.** ‏`https://api.morning.co` מנפיק, ו-`https://api.greeninvoice.co.il/api/v1`
-מקבל. שני שמות מותג לאותה חברה, ולכן ההנחה הטבעית — "יש כאן דומיין אחד" —
-מייצרת 401 שנראה בדיוק כמו מפתחות שגויים, ושולחת אותך לייצר מפתח חדש במקום
-לתקן כתובת. משם `MORNING_AUTH_BASE` כמשתנה נפרד.
+ה-API.** שני שמות מותג לאותה חברה, ולכן ההנחה הטבעית — "יש כאן דומיין
+אחד" — מייצרת 401 שנראה בדיוק כמו מפתחות שגויים, ושולחת אותך לייצר מפתח
+חדש במקום לתקן כתובת.
+
+ארבע כתובות, ואף אחת אינה נגזרת מהאחרת:
+
+| | פרודקשן | סנדבוקס |
+|---|---|---|
+| ‏API | `api.greeninvoice.co.il/api/v1` | `sandbox.d.greeninvoice.co.il/api/v1` |
+| אימות | `api.morning.co` | `api.sandbox.morning.dev` |
+
+שימו לב ל-**`.dev`** בסנדבוקס של האימות. זה לא `.co` ולא `greeninvoice`, ואין
+שום דרך לנחש אותו — הוא מופיע רק בתפריט הנפתח בתיעוד.
+
+לכן `AUTH_BASE` **נגזר מ-`MORNING_API_BASE`** ואינו מוגדר בנפרד: אסימון
+סנדבוקס מול API של פרודקשן (או ההפך) נכשל ב-401 סתום, וזו הטעות הקלה ביותר
+לעשות במעבר סביבה — משנים סוד אחד ושוכחים את השני. ‏`MORNING_AUTH_BASE`
+נשאר כעקיפה ידנית בלבד, למקרה שמורנינג ישנו כתובת.
 
 הבקשה ב-snake_case של התקן, התשובה ב-camelCase של מורנינג
 (`accessToken`, `tokenType`, `expiresAt`). האסימון תקף **שעה**, ו-`expiresAt`
@@ -265,7 +279,21 @@ curl -X POST "https://obookujgolazrwycsiyn.supabase.co/functions/v1/wallet-topup
 3. **הגדרת המחירים המפורסמים כלפני מע״מ.** החלטה מוצרית ולא טכנית: היא
    משנה את מה שהלקוח/ה משלם/ת, ואת מה שכתוב ב-`pricing.html`.
 
-ההכרעה ממתינה ל-enum של `vatType` בשורת income.
+### איך מכריעים
+
+`scripts/morning_vat_probe.py` שולח ‎₪100 בכל ערך `vatType` אפשרי בשורת
+ההכנסה וקורא מה חזר. השורה שבה `amount == 100` היא התשובה; אם אין כזו,
+הדרך הראשונה נפסלת ונשארות השתיים האחרות.
+
+```sh
+export MORNING_API_KEY_ID=...
+export MORNING_API_KEY_SECRET=...
+python scripts/morning_vat_probe.py
+```
+
+הסקריפט **מפיק מסמכים**, ולכן הוא חוסם את עצמו כשה-`MORNING_API_BASE` אינו
+סנדבוקס — לא באזהרה אלא ביציאה. חשבונית ממוספרת בפרודקשן היא מסמך שמדווח,
+ולא משהו שמייצרים בטעות בזמן בדיקה.
 
 ## ‏`paymentRequestData` — התגלית שעשויה לשנות את המסלול
 
