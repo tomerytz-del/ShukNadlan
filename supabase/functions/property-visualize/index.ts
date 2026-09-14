@@ -9,6 +9,7 @@ import {
   isLandType,
   isStyleKey,
   json,
+  pickCommercialSources,
   pickPrivateSources,
   privateTargetsFor,
   renderModeFor,
@@ -170,13 +171,12 @@ Deno.serve(async (req: Request) => {
       });
     }
   } else {
-    const exterior = tags.find((t) => t.photo_type === "exterior");
-    const interior = tags.find((t) => t.photo_type === "interior" && t.space_role === "main");
-    const pairs: Array<[CommercialTarget, string | undefined]> = [
-      ["exterior", exterior?.image_url],
-      ["interior_main", interior?.image_url],
-    ];
-    for (const [target, url] of pairs) {
+    // הבחירה יושבת ב-_shared ליד pickPrivateSources: שתיהן ההגדרה של "איזו
+    // תמונה מדמים", וההעדפות והנפילות שבה הן החלטה מתועדת ולא שתי שורות find.
+    const picked = pickCommercialSources(tags, images);
+    const targets: CommercialTarget[] = ["exterior", "interior_main"];
+    for (const target of targets) {
+      const url = picked[target];
       if (!url) continue;
       sources.push({
         target,

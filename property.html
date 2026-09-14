@@ -935,6 +935,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   #aiPropAsk .field input::placeholder{color:#5b678a}
   #aiPropAsk .field input:focus{border-color:#c9a227;background:#fff}
   .viz-error{color:var(--gold-dark);font-size:.8rem;margin:8px 0 0;min-height:1em}
+  /* שורת השגיאה נודדת אל תוך הרצועה כשיש בה טקסט (ראו withAskPreserved),
+     ושם הרקע ספיר כהה — ‎--gold-dark‎ הוא ‎#08194a‎, כלומר כחול על כחול.
+     הזהב הבהיר כאן הוא אותו זהב של שבב הסגנון הנבחר ברצועה. */
+  #aiPropAsk .viz-error{color:#e5c76a;margin:10px 0 0}
   /* ‏min-height שמור מקום לשורת שגיאה כדי שהופעתה לא תזיז את מה שמתחתיה —
      אבל השורה ריקה כמעט תמיד, וברוב המכריע של הביקורים הוא היה 21px של
      כלום מתחת לתיבת ההדמיות — בדיוק במקום שבו היא נגמרת ומתחיל המקטע
@@ -2717,6 +2721,12 @@ const vizState = {
      סגנון אחר הייתה מחליפה סגנון ואז פותחת את הסלון שלו — כלומר מראה
      תמונה אחרת מזו שנלחצה. */
   leadPick:null,
+  /* הודעת השגיאה האחרונה. היא יושבת כאן ולא בטקסט של ‎#vizError‎ מפני
+     שהפסקה עצמה נודדת אל תוך הרצועה, ו-‎role="alert"‎ מכריז על *שינוי
+     טקסט* באזור חי: טקסט שנכתב ומיד אחריו הצומת שלו נעקר ונשתל מחדש עלול
+     לא להישמע כלל. הסדר כאן הפוך — קודם הצומת מגיע למקומו, ורק אז נכתב
+     לתוכו. */
+  error:'',
 };
 
 async function loadVisualizations(p){
@@ -3062,9 +3072,19 @@ async function submitOwnerLead(ev){
 
    מה שההזזה כן שוברת הוא המיקוד: דפדפן מוציא מיקוד מצומת שנעקר מהעץ.
    רינדור בזמן שהמיקוד בשדה הוא נדיר (תוצאה שנכנסת באמצע הקלדה), אבל
-   כשהוא קורה הוא מפיל את הסמן באמצע מילה — ולכן הוא נלכד ומוחזר. */
+   כשהוא קורה הוא מפיל את הסמן באמצע מילה — ולכן הוא נלכד ומוחזר.
+
+   ‏**שורת השגיאה נוסעת יחד עם הטופס.** היא ישבה ב-‎#vizSection‎ מתחת
+   לרצועה — כלומר מתחת לרשת ההדמיות *ומתחת* להזמנה לפגישה שאחריה. הכפתור
+   היחיד שמייצר הדמיה יושב בתוך הרצועה, ולכן במובייל התשובה על הלחיצה
+   נחתה בערך מסך שלם מתחת למקום שבו לחצו: מי שלחץ/ה "יצירת הדמיה לעסק
+   שלכם" וקיבל/ה 400 ראה/תה בדיוק שום דבר קורה, ודיווח/ה שההדמיה "לא
+   עובדת" — כשהסיבה הייתה כתובה למטה. עכשיו היא נכנסת ל-‎#aiPropAsk‎ ממש
+   מעל הכפתור, ורק כשיש בה מה להגיד: פסקה ריקה בחריץ הייתה מוסיפה לו
+   שוליים בכל ביקור רגיל. */
 function withAskPreserved(bandEl, render){
   const ask  = document.getElementById('vizCta');
+  const err  = document.getElementById('vizError');
   const home = document.getElementById('vizSection');
 
   const focused = ask && ask.contains(document.activeElement) ? document.activeElement : null;
@@ -3073,12 +3093,20 @@ function withAskPreserved(bandEl, render){
 
   // חילוץ לפני המחיקה. ‎#vizSection‎ הוא הבית שממנו הטופס יצא, והוא שורד
   // את הרינדור — הרצועה היא רק ילד שלו.
-  if (ask && home && bandEl.contains(ask)) home.appendChild(ask);
+  [ask, err].forEach(node=>{
+    if (node && home && bandEl.contains(node)) home.appendChild(node);
+  });
 
   render();
 
   const slot = bandEl.querySelector('#aiPropAsk');
-  if (ask && slot && !ask.hidden) slot.appendChild(ask);
+  if (slot){
+    if (ask && !ask.hidden) slot.appendChild(ask);
+    if (err && vizState.error) slot.appendChild(err);
+  }
+
+  // הכתיבה אחרי ההשתלה — ראו vizState.error.
+  applyVizError();
 
   if (focused && focused.isConnected){
     focused.focus();
@@ -3086,10 +3114,24 @@ function withAskPreserved(bandEl, render){
   }
 }
 
+/* כותב את ההודעה לפסקה, ורק אם היא באמת השתנתה: כתיבה חוזרת של אותו טקסט
+   ל-‎role="alert"‎ מכריזה אותו שוב באוזני מי שמקשיב/ה. */
+function applyVizError(){
+  const el = document.getElementById('vizError');
+  if (el && el.textContent !== vizState.error) el.textContent = vizState.error;
+}
+
+/* נקודת הכניסה היחידה לשגיאה: מעדכנת את המצב, מרנדרת (ושם הפסקה מוצאת את
+   מקומה מעל הכפתור), ומוודאת שהטקסט נכתב גם כשהרצועה עצמה לא נבנתה. */
+function setVizError(msg){
+  vizState.error = msg || '';
+  renderPropertyShowcase();
+  applyVizError();
+}
+
 function selectVizStyle(styleKey){
   vizState.current = styleKey;
-  document.getElementById('vizError').textContent = '';
-  renderPropertyShowcase();
+  setVizError('');
 }
 
 /* ---------- מה עובד ברקע ----------
@@ -3176,19 +3218,20 @@ function applyVizContactFields(){
 async function requestVisualization(){
   if (vizState.busy) return;
 
-  const errEl = document.getElementById('vizError');
   const business = document.getElementById('vizBusiness');
-  errEl.textContent = '';
+  // ניקוי בלי רינדור: כל מסלול מכאן והלאה מרנדר בעצמו — הכישלונות דרך
+  // setVizError, וההצלחה דרך הרינדור של vizState.busy שמתחתיהם.
+  vizState.error = '';
 
   let name = '', phone = '';
   if (!vizState.isPrivate){
     if (!(business && business.value.trim())){
-      errEl.textContent = 'יש לציין איזה עסק תפתחו בנכס'; return;
+      setVizError('יש לציין איזה עסק תפתחו בנכס'); return;
     }
     if (vizNeedsContact()){
       name  = document.getElementById('vizName').value.trim();
       phone = document.getElementById('vizPhone').value.trim();
-      if (!name || !phone){ errEl.textContent = 'יש למלא שם וטלפון'; return; }
+      if (!name || !phone){ setVizError('יש למלא שם וטלפון'); return; }
     } else {
       const saved = savedContact();
       name = saved.name; phone = saved.phone;
@@ -3235,11 +3278,13 @@ async function requestVisualization(){
       ? 'ההדמיה מוכנה'
       : 'ההדמיה מוכנה. הסוכן/ת יחזור/תחזור אליכם בקרוב');
   } catch(e){
-    errEl.textContent = e.message || 'שגיאה ביצירת ההדמיה';
+    // המצב בלבד — ‎finally‎ שמתחת מרנדר, ושם הפסקה נשתלת מעל הכפתור ונכתבת.
+    vizState.error = e.message || 'שגיאה ביצירת ההדמיה';
   } finally{
     vizState.busy = false;
     renderVizPending([]);
     renderPropertyShowcase();
+    applyVizError();
   }
 }
 
