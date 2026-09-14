@@ -189,7 +189,11 @@ async function coordsToPlans(x, y) {
   return (data && data.features ? data.features : []).map((f) => f.properties);
 }
 async function coordsToLandUse(x, y) {
-  const data = await spatialQuery("afl_yk:afl_yk-ITown_yk_Lots_Compilation", "Intersects", x, y, ["shape", "Shape"], "landuse");
+  // ‏SHAPE באותיות גדולות — זה מה ש-DescribeFeatureType החזירה על השכבה הזו,
+  // אחרי ש-"shape" ו-"Shape" נדחו שתיהן. מקובע כאן כדי לחסוך שתי קריאות
+  // כושלות ועוד אחת של DescribeFeatureType בכל שליפה; אם השכבה תשנה שוב את
+  // הסכימה, הגילוי עדיין שם ויתפוס.
+  const data = await spatialQuery("afl_yk:afl_yk-ITown_yk_Lots_Compilation", "Intersects", x, y, ["SHAPE", "shape", "Shape"], "landuse");
   const f = data && data.features && data.features[0];
   return f ? f.properties : null;
 }
