@@ -36,8 +36,16 @@ import { afulaAddressToCoords } from "../_shared/afula-geocode.ts";
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const BATCH = 25;          // נכסים לסבב — כל אחד הוא עד 4 קריאות WFS סדרתיות
+const BATCH = 25;          // נכסים לסבב
 const MAX_FAILURES = 8;    // תקלות תקשורת רצופות שאחריהן מפסיקים את הסבב
+
+// תקציב זמן לסבב, מתחת ל-timeout_milliseconds של ה-cron (30 שניות).
+//
+// נכס שלא נמצא עולה MAX_VARIANTS קריאות WFS סדרתיות, ואצווה שכולה החטאות
+// יכולה לחרוג. חריגה אינה מאבדת עבודה — כל נכס נרשם מיד כשהסתיים — אבל
+// ‏pg_net מדווח עליה כ-"500" שאינו מספר מה קרה. עדיף לעצור מסודר: מי
+// שנשאר בתור יוצא ראשון בסבב הבא, כי המיון הוא לפי מי שממתין הכי הרבה.
+const DEADLINE_MS = 20_000;
 
 function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), {
@@ -63,8 +71,11 @@ Deno.serve(async (req: Request) => {
   // אותן לכל הנכסים היה מאריך את הסבב עד ל-timeout של pg_net ומסתיים
   // ב-"500" שאינו מספר מה קרה. עדיף לעצור מוקדם ולחזור בשעה הבאה.
   let streak = 0;
+  let ranOut = false;
+  const startedAt = Date.now();
 
   for (const row of queue) {
+    if (Date.now() - startedAt > DEADLINE_MS) { ranOut = true; break; }
     const street = String(row.street || "").trim();
     const house = String(row.house_number || "").trim();
     if (!street || !house) continue;
@@ -94,5 +105,13 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  return json({ ok: true, checked: queue.length, resolved, not_found: notFound, failed });
+  return json({
+    ok: true,
+    checked: resolved + notFound + failed,
+    queued: queue.length,
+    resolved,
+    not_found: notFound,
+    failed,
+    ran_out_of_time: ranOut,
+  });
 });
