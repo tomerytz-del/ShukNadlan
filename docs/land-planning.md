@@ -76,9 +76,15 @@ definer` שמצנזר במקור. ‏`anon` אינו קורא/ת את `property_
 | `properties.land_zoning`, `land_building_rights_pct`, `land_max_units`, `land_max_floors`, `land_planning_notes` | הצהרת הסוכן/ת. אחוזי בנייה עד 1000 — 400% באזור עירוני הוא שגרה |
 | `property_planning_info` | הפלט הגולמי של `afula-planning-lookup`. פנימי, ‏`anon` מנוע/ה |
 | `property_planning_public(uuid)` | ה-RPC המצונזר — מקור יחיד למה שהאתר הפומבי רואה |
+| `agent_property_planning(uuid, uuid)` | אותו מידע לעוזר בוואטסאפ, לפי מזהה סוכן/ת מפורש. נכס שלו/ה — מלא, כולל גוש וחלקה; כל נכס אחר — בדיוק מה שהפומבי רואה. ‏`service_role` בלבד |
 | `is_land_property_type(text)` | "האם זו קרקע" בצד ה-DB, לשימוש הטריגר של ההדמיות |
 
-מיגרציה: `20260910090000_land_planning_public.sql`. היא גם מוסיפה לטריגר
+מיגרציות: `20260910090000_land_planning_public.sql`, ו-
+`20261108090000_assistant_property_intel.sql` שמוסיפה את
+`agent_property_planning` — ‏`cma_report` ו-`property_planning_public` גוזרות
+את זהות הסוכן/ת מ-`auth.uid()`, וה-Edge Function של הוואטסאפ מזהה לפי מספר
+טלפון ורצה עם `service_role`, כלומר `auth.uid()` שלה הוא `null`.
+‏20260910090000 מוסיפה גם לטריגר
 `enqueue_base_visualization` תנאי קרקע, כדי שנכס קרקע לא ישלח בכלל בקשת הדמיה
 שממילא תידחה.
 
