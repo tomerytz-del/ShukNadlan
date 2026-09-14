@@ -280,8 +280,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ---------- אישור רכישה ----------
      ‏confirm() של הדפדפן לא הבהיר שמדובר בחיוב אמיתי. כאן הסכום מוצג בגדול,
      ונדרש סימון מפורש של "אני מבין/ה" לפני שכפתור החיוב בכלל נדלק. */
-  .pm-overlay{position:fixed;inset:0;background:rgba(27,31,38,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:400}
-  .pm-card{background:#fff;border-radius:var(--radius-md);max-width:420px;width:100%;padding:22px;box-shadow:0 18px 48px rgba(0,0,0,.28)}
+  /* ‏השכבה קבועה (‏fixed) ולכן היא לא גדלה עם התוכן: כרטיס גבוה מהחלון נחתך
+     בשני קצותיו — הכותרת למעלה וכפתורי הפעולה למטה — ואין לאן לגלול. זה מה
+     שקרה במודאל ערעור הרישיון (‏#licenseAppealModal), שנפתח בהצטרפות למשרד
+     עם חמישה שדות: בחלון נמוך נראה ממנו רק האמצע, בלי הכותרת ובלי כפתור
+     השליחה. לכן השכבה גוללת, ו-‏margin:auto על הכרטיס — ולא רק
+     ‏align-items:center — כי מרכוז בלבד חותך את הקצה העליון גם כשיש גלילה.
+     הכרטיסים שמנהלים גובה בעצמם (‏.mkt-card‏, .wa-card‏, .tour-card) לא
+     מושפעים: הם לעולם לא גבוהים מהשכבה. */
+  .pm-overlay{position:fixed;inset:0;background:rgba(27,31,38,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:400;
+    overflow-y:auto;-webkit-overflow-scrolling:touch}
+  .pm-card{background:#fff;border-radius:var(--radius-md);max-width:420px;width:100%;padding:22px;box-shadow:0 18px 48px rgba(0,0,0,.28);margin:auto}
   .pm-title{font-weight:800;font-size:1.05rem;margin-bottom:10px}
   .pm-body{font-size:.86rem;color:var(--ink-soft);line-height:1.6}
   .pm-body div{margin-bottom:4px}
