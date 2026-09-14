@@ -213,7 +213,7 @@ Deno.serve(async (req: Request) => {
   const agencyName = agency?.name || "המשרד";
   const inviterName = caller.display_name || "מנהל/ת המשרד";
 
-  const action = ["invite", "resend", "revoke"].includes(body?.action) ? body.action : "invite";
+  const action = ["invite", "resend", "revoke", "set_phone"].includes(body?.action) ? body.action : "invite";
 
   try {
     // -----------------------------------------------------------------------
@@ -235,6 +235,45 @@ Deno.serve(async (req: Request) => {
       const { error: delErr } = await supabase.from("agency_members").delete().eq("id", memberId);
       if (delErr) return json({ error: "db_error", detail: delErr.message }, 500);
       return json({ success: true, revoked: true });
+    }
+
+    // -----------------------------------------------------------------------
+    // תיקון הנייד בידי המנהל/ת
+    //
+    // המקבילה של תיקון הכתובת ב-resend, ומאותה סיבה: את המספר מקליד/ה מי
+    // שאינו/ה בעליו, וספרה שגויה לא מתגלה עד שמישהו מנסה לחייג. כל עוד
+    // הכרטיס ממתין להזמנה אין אף אחד אחר שיכול לתקן — לסוכן/ת עדיין אין
+    // חשבון. אחרי ההצטרפות שתי הדרכים פתוחות: המנהל/ת כאן, והסוכן/ת
+    // מהאזור האישי.
+    //
+    // ‏member_phone ריק מסיר את המספר (null) — זו הדרך לחזור בה, ולא ערך
+    // דמה. הנרמול והבדיקה הם אותם אלה של ההזמנה עצמה, כדי שלא ייווצר הבדל
+    // בין מספר שנכנס בהוספה למספר שנכנס בתיקון.
+    // -----------------------------------------------------------------------
+    if (action === "set_phone") {
+      const memberId = String(body?.member_id || "");
+      if (!memberId) return json({ error: "missing_fields", required: ["member_id"] }, 400);
+
+      const phone = normalizeMobile(body?.member_phone);
+      if (phone === false) return json({ error: "invalid_phone" }, 400);
+
+      const { data: member } = await supabase
+        .from("agency_members").select("id, agency_id").eq("id", memberId).maybeSingle();
+      if (!member || member.agency_id !== caller.agency_id) return json({ error: "member_not_found" }, 404);
+
+      const { error: updErr } = await supabase
+        .from("agency_members")
+        .update({ phone, updated_at: new Date().toISOString() })
+        .eq("id", memberId);
+
+      if (updErr) {
+        const errText = `${updErr.message || ""} ${updErr.details || ""}`;
+        if (updErr.code === "23505" && /phone_e164/.test(errText)) {
+          return json({ error: "phone_in_use" }, 409);
+        }
+        return json({ error: "db_error", detail: updErr.message }, 500);
+      }
+      return json({ success: true, phone });
     }
 
     // -----------------------------------------------------------------------
