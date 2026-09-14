@@ -61,13 +61,20 @@ export function insideAfula(lat: number, lng: number): boolean {
     && lng >= AFULA_BOX.lngMin && lng <= AFULA_BOX.lngMax;
 }
 
-async function wfsQuery(xmlBody: string) {
+// ‏label הוא מה שמופיע בלוג כשהשכבה מסרבת: בלעדיו נשאר "400" בלי לדעת על
+// איזו צורת כתיב, ובדיוק זה קרה — 500 שחזר לסוכן/ת בלי דרך לשחזר אותו.
+// גוף התשובה הוא ההסבר של שרת ה-WFS לסירוב, ולכן הוא נרשם ולא נזרק.
+async function wfsQuery(xmlBody: string, label: string) {
   const res = await fetch(WFS_URL, {
     method: "POST",
     headers: { "Content-Type": "application/xml", "Referer": WFS_REFERER },
     body: xmlBody,
   });
-  if (!res.ok) throw new Error("WFS request failed: " + res.status);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`WFS ${res.status} [${label}]: ${body.slice(0, 500)}`);
+    throw new Error("WFS request failed: " + res.status + " [" + label + "]");
+  }
   return await res.json();
 }
 
@@ -139,6 +146,11 @@ export async function afulaAddressToCoords(
   street: string,
   houseNumber: string,
 ): Promise<{ lat: number; lng: number } | null> {
+  // צורה שנכשלה אינה מפילה את החיפוש. קודם כל כשל בקריאה אחת הפיל את כל
+  // הלולאה, כלומר 400 על הצורה החמישית מחק גם התאמה שהייתה מחכה בשישית —
+  // וככל שיש יותר צורות, כך גדל הסיכוי שאחת מהן תקלקל את כולן.
+  let lastError: unknown = null;
+
   for (const variant of streetVariants(street)) {
     const xml = '<wfs:GetFeature service="WFS" version="2.0.0" xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:fes="http://www.opengis.net/fes/2.0" outputFormat="application/json" count="5">' +
       '<wfs:Query typeNames="afl_bld:afl_bld-Address_Points_1">' +
@@ -146,7 +158,13 @@ export async function afulaAddressToCoords(
       '<fes:PropertyIsEqualTo><fes:ValueReference>שם_רחוב</fes:ValueReference><fes:Literal>' + variant + '</fes:Literal></fes:PropertyIsEqualTo>' +
       '<fes:PropertyIsEqualTo><fes:ValueReference>מספר_בית</fes:ValueReference><fes:Literal>' + houseNumber + '</fes:Literal></fes:PropertyIsEqualTo>' +
       '</fes:And></fes:Filter></wfs:Query></wfs:GetFeature>';
-    const data = await wfsQuery(xml);
+    let data;
+    try {
+      data = await wfsQuery(xml, variant);
+    } catch (err) {
+      lastError = err;
+      continue;
+    }
     const feature = data && data.features && data.features[0];
     if (feature && feature.properties && feature.properties.X && feature.properties.Y) {
       const [lng, lat] = itmToWgs84(Number(feature.properties.X), Number(feature.properties.Y));
@@ -154,5 +172,12 @@ export async function afulaAddressToCoords(
       return null;
     }
   }
+
+  // כאן נגמרו הצורות בלי התאמה, ויש שתי משמעויות שונות לגמרי. אם אף קריאה
+  // לא נכשלה — השכבה ענתה על כולן ואין בה בית כזה, וזו תשובה סופית (null).
+  // אם קריאה כלשהי נכשלה — ייתכן שדווקא היא הייתה מוצאת, ולכן זורקים:
+  // ‏geocode-backfill מחזיר לתור את מי שנפל, ומסמן סופית רק את מי שלא נמצא.
+  // בליעת הכשל כאן הייתה מסמנת "אין כתובת כזו" על תקלה רגעית בשרת העירייה.
+  if (lastError) throw lastError;
   return null;
 }
