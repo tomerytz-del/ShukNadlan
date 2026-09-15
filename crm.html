@@ -3600,6 +3600,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="form-subheading">תיאור ושיווק</div>
       <div class="field"><label>תיאור המודעה (לא חובה — מוצג בדף הנכס)</label>
         <textarea id="npDescription" rows="4" placeholder="מה חשוב שיידעו על הנכס: מצב, נוף, שכנים, קרבה לשירותים…"></textarea>
+        <div class="hint">הטקסט הזה גלוי לכל גולש/ת ונכנס גם לפוסט ולתצוגה בגוגל. שם או טלפון של בעל/ת הנכס לא נכתבים כאן — יש להם שדות פנימיים בהמשך הטופס, ומה שנכתב כאן נמחק אוטומטית.</div>
       </div>
       <!-- התיאור השיווקי הוא השדה היחיד בטופס שהמערכת יודעת למלא לבד: הוא
            נגזר כולו מהנתונים שמעליו. השדה נשאר פתוח לעריכה — הכפתור מציע
@@ -13136,6 +13137,34 @@ function propNonEmptyPatch(payload){
   return patch;
 }
 
+/* פרטי בעל/ת נכס שנכתבו לתוך טקסט ציבורי נמחקים במסד — טריגר
+   ‏properties_redact_owner_details, ולא בדיקה כאן. הסיבה: לטבלה כותבים גם
+   אשף הייבוא, ‏property-description ו-property-marketing-publish, ובדיקה
+   בטופס הייתה מכסה מסלול אחד מארבעה.
+
+   מה שכן שייך לכאן הוא הדיווח. שמירה שקטה שמשנה את הטקסט משאירה את הסוכן/ת
+   עם נוסח אחד בטופס ונוסח אחר בדף הנכס, בלי לדעת למה — ולכן קוראים את מה
+   שנשמר בפועל (אחרי הטריגר, ואחרי שמירת שם הבעלים שרצה מיד לפניו) ואומרים
+   מה הוסר. ‏docs/owner-privacy.md                                          */
+const OWNER_REDACT_FIELDS = {
+  description: 'תיאור המודעה',
+  marketing_description: 'התיאור השיווקי',
+  post_text: 'טקסט הפוסט',
+};
+
+async function reportOwnerRedaction(propertyId, sent){
+  const fields = Object.keys(OWNER_REDACT_FIELDS)
+    .filter(key => String(sent?.[key] ?? '').trim());
+  if (!propertyId || !fields.length) return;
+  const { data, error } = await sb.from('properties')
+    .select(fields.join(',')).eq('id', propertyId).maybeSingle();
+  if (error || !data) return;
+  const changed = fields.filter(key => (data[key] ?? '') !== (sent[key] ?? ''));
+  if (!changed.length) return;
+  showToast('פרטי בעל/ת הנכס הוסרו מ' + changed.map(k=> OWNER_REDACT_FIELDS[k]).join(' ומ') +
+            ' — טקסט שגלוי לכל גולש/ת. השם והטלפון שמורים בשדות הפנימיים של הנכס.', 6000);
+}
+
 document.getElementById('addPropertyForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   if (!currentAgent) return;
@@ -13307,6 +13336,8 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   // property_id, שקיים רק אחרי ה-insert. אם ההעלאה תיכשל, הנכס עצמו כבר
   // שמור והסוכן יכול לנסות שוב דרך "עריכה" במקום לאבד את כל הטופס.
   let error, newPropertyId = editingPropertyId;
+  // מה שנשלח בפועל לשדות הטקסט הציבוריים — מול זה נבדק מה שחזר מהמסד
+  let sentText = payload;
   // הנכס שהוחזר מהארכיון (או עודכן במקום פרסום כפול) — נשמר כדי שהמדיה
   // הקיימת לא תימחק בהמשך ושההודעה בסוף תגיד מה באמת קרה
   let restoredProperty = null;
@@ -13325,6 +13356,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     if (choice === 'restore'){
       restoredProperty = duplicate.match;
       const patch = propNonEmptyPatch(payload);
+      sentText = patch;
       patch.status = 'active';
       // תוקף שכבר עבר היה מחזיר את המודעה למצב "פג תוקף" באותו רגע — כמו
       // ב-republishProperty, הוא מתאפס והסוכן/ת יכול/ה להגדיר חדש בעריכה
@@ -13412,6 +13444,8 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
         ? `המודעה הקיימת (#${restoredProperty.listing_number ?? '—'}) עודכנה — לא נוצרה מודעה כפולה`
         : `המודעה הוחזרה מהארכיון ועודכנה (#${restoredProperty.listing_number ?? '—'})`)
     : (editingPropertyId ? 'הנכס עודכן בהצלחה!' : 'הנכס פורסם בהצלחה!');
+
+  await reportOwnerRedaction(newPropertyId, sentText);
 
   // קליטת/עדכון מידע תכנוני: (א) פעם ראשונה בקליטת נכס חדש, או (ב) כשהכתובת השתנתה
   // בעריכה — כדי לשמור על דיוק המידע. לא נשלף מחדש בשמירות שלא נוגעות לכתובת.
