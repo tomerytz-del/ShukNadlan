@@ -9,13 +9,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
+<script src="assets/esc.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>איזור סוכנים | שוק נדל״ן</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
+      crossorigin="anonymous" referrerpolicy="no-referrer">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
+        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <!-- הרקע הזורם, אותו אחד של דף הבית ושל שאר דפי האתר. בלי data-auto:
      הוא מורכב רק כשהדשבורד עולה (ראו showScreen), כי מסכי הכניסה נשארים
      על פלטת הנייר שלהם. -->
@@ -16279,10 +16286,9 @@ function impSetStep(step){
   impBodyEl.scrollTop = 0;
 }
 
-function impEscape(s){
-  return String(s == null ? '' : s)
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-}
+/* שם מקומי היסטורי (‏imp = ייבוא) ל-escapeHtml שב-assets/esc.js.
+   ההגדרה הקודמת לא ברחה מגרש בודד. */
+function impEscape(s){ return escapeHtml(s); }
 
 /* ---------- שלב 1: בחירת קובץ ---------- */
 function impRenderStep1(){
@@ -17856,11 +17862,9 @@ async function claimLead(lead, btn, agentId){
    כל החישוב (רדיוס מתרחב, מחיר למ"ר, השוואות) נעשה בפונקציית cma_report
    ב-DB, שם גם ה-gating ל-mid/premium — כדי שלא יהיה מסלול לעקוף אותו מהלקוח.
    כאן רק התצוגה: עמוד ממותג שהסוכן מדפיס/שומר כ-PDF מהדפדפן.            */
-function esc(s){
-  return String(s ?? '').replace(/[&<>"']/g, c => (
-    { '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]
-  ));
-}
+/* ‏esc הוא שם מקומי היסטורי ל-escapeHtml שב-assets/esc.js. יש לו כאן
+   מאות אתרי קריאה, ולכן נשאר כינוי ולא שונה שם. */
+function esc(s){ return escapeHtml(s); }
 /* שורת התגיות של כל כרטיס בדשבורד. פריט הוא מחרוזת (תוברח כאן), או
    ‏{text, cls} כשצריך גוון — tag-key למזהה, tag-info להדגשה, tag-warn למה
    שדורש טיפול, tag-good לחיובי — או {html} כשהתגית כבר בנויה כ-HTML.

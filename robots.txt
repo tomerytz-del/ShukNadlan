@@ -1,0 +1,37 @@
+# כללי סריקה. הקובץ מפורסם משורש הריפו יחד עם ה-HTML, כמו _redirects ו-_headers.
+
+User-agent: *
+
+# האזור האישי — אין בו דבר שאמור להופיע בחיפוש, והוא גם לא ייסרק בפועל
+# (התוכן נטען רק אחרי התחברות). החסימה כאן היא כדי שהכתובות עצמן לא
+# יופיעו בתוצאות כקישורים מתים.
+Disallow: /crm
+Disallow: /crm.html
+Disallow: /developer-crm
+Disallow: /developer-crm.html
+Disallow: /professional-manage
+Disallow: /professional-manage.html
+
+# תהליכי תשלום וחתימה — כתובות חד-פעמיות של משתמש/ת מסוים/ת.
+Disallow: /checkout
+Disallow: /checkout.html
+Disallow: /sign
+Disallow: /sign.html
+
+# ‏בקשת חוות דעת נשלחת בוואטסאפ עם טוקן בכתובת (‎?lead=…‎). דף שנסרק עם
+# הטוקן שלו נכנס לאינדקס יחד איתו — ולכן הוא חסום, על כל הווריאציות.
+Disallow: /review-request
+Disallow: /review-request.html
+
+# כלי פנימי לשרטוט גבולות שכונה, לא עמוד תוכן.
+Disallow: /neighborhood-boundary
+Disallow: /neighborhood-boundary.html
+
+# ‏פרמטרי סינון של דף הבית ושל דפי הרשימות מייצרים אינספור צירופים של
+# אותו תוכן. עד שיהיו תגיות canonical בדפים האלה, עדיף לא לתת לסורק
+# לבזבז עליהם את תקציב הסריקה.
+Disallow: /*?*filter=
+Disallow: /*?*sort=
+Disallow: /*?*page=
+
+Sitemap: https://shuknadlan.co.il/sitemap.xml
