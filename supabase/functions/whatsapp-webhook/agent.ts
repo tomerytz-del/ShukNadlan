@@ -2578,8 +2578,11 @@ function systemPrompt(agent: AgentRow, conv: ConversationState): string {
  * קריאה ל-Claude. ‏fallbacks מפעיל ניתוב אוטומטי למודל חלופי אם בקשה נדחית
  * על ידי מסנני הבטיחות, כדי שסוכן/ת לא תיתקע בלי תשובה. אם ה-beta לא זמין
  * לחשבון — נופלים לקריאה רגילה במקום להפיל את כל הזרימה.
+ *
+ * מיוצאת כי `public-agent.ts` צריכה בדיוק את אותה התנהגות. זה הדבר היחיד
+ * שהבוט הציבורי לוקח מכאן — הכלים, ההוראות ורשימת ההרשאות שלו נפרדים לגמרי.
  */
-async function callClaude(
+export async function callClaude(
   params: Anthropic.MessageCreateParamsNonStreaming,
 ): Promise<Anthropic.Message> {
   try {
