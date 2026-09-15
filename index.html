@@ -4621,12 +4621,20 @@ function hasPhoto(p){
 const SITE_LOGO = 'assets/logo-shuknadlan.svg';
 const NO_PHOTOS_NOTE = 'תמונות של הנכס יעלו בקרוב';
 
+/* ‏כתובת תמונה בתוך url('…') שבתוך מאפיין ‏style="…" — שתי שכבות ציטוט,
+   ולכן encodeURI + ‎%27‎ ולא הדבקה ישירה: גרש בודד בשם הקובץ סוגר את ה-url
+   ומריץ CSS זר, וגרש כפול בורח מהמאפיין עצמו אל תוך ה-HTML. אותו טיפול
+   בדיוק כמו בתמונת הכתבה (ראו renderArticles). */
+function cssUrl(u){
+  return encodeURI(String(u == null ? '' : u)).replace(/'/g, '%27');
+}
+
 /* התמונה הראשית של נכס היא images[0]. נכס בלי תמונות מקבל את
    thumbFallback: לוגו המשרד שהנכס שייך אליו + "תמונות של הנכס יעלו בקרוב",
    במקום הגרדיאנט האדום שנראה כמו תמונה שבורה. */
 function thumbStyle(p, i){
   return hasPhoto(p)
-    ? `background-image:url('${p.images[0]}');background-size:cover;background-position:center`
+    ? `background-image:url('${cssUrl(p.images[0])}');background-size:cover;background-position:center`
     : '';
 }
 
@@ -6908,10 +6916,10 @@ function mapPopupHtml(p, kind){
     (img ? `<img class="map-pop-thumb" src="${escAttr(img)}" alt="" loading="lazy" onerror="this.remove()">` : '') +
     (logo ? `<img class="map-pop-thumb is-logo" src="${escAttr(logo)}" alt="" loading="lazy" onerror="this.remove()">` : '') +
     `<span class="map-pop-body">` +
-      `<span class="map-pop-title">${p.title}</span>` +
+      `<span class="map-pop-title">${escAttr(p.title)}</span>` +
       `<span class="map-pop-price"><i class="map-pop-dot" style="background:${DEAL_COLORS[kind]}"></i>` +
         `${DEAL_LABELS[kind]} · ${priceLabel(p)}</span>` +
-      `<span class="map-pop-meta">${meta}</span>` +
+      `<span class="map-pop-meta">${escAttr(meta)}</span>` +
       // הסימן על המפה אומר "יש כאן משהו"; הבלון הוא המקום שבו נאמר מה —
       // ההבטחה עצמה ומתי היא נגמרת
       (OpenHouse.live(p)
@@ -8395,8 +8403,8 @@ function buildSearchRow(p, i){
   row.innerHTML = `
     <div class="sr-thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
     <div class="sr-body">
-      <div class="sr-title">${p.title}</div>
-      <div class="sr-meta"><span>${locationLabel(p)}</span>${p.property_type ? `<span>${p.property_type}</span>` : ''}${p.agency_name ? `<span>${p.agency_name}</span>` : ''}</div>
+      <div class="sr-title">${escAttr(p.title)}</div>
+      <div class="sr-meta"><span>${escAttr(locationLabel(p))}</span>${p.property_type ? `<span>${escAttr(p.property_type)}</span>` : ''}${p.agency_name ? `<span>${escAttr(p.agency_name)}</span>` : ''}</div>
       ${PropertyCard.factsHtml(p)}
     </div>
     <div class="sr-side">
