@@ -9,6 +9,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
+<script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>שוק נדל״ן | עפולה והעמק</title>
@@ -4614,7 +4615,10 @@ const CARD_GRADIENTS = ['linear-gradient(155deg,#0e2a6b,#0d1b3d)','linear-gradie
 /* ניקוי ערך שמגיע מה-DB לפני הזרקה ל-innerHTML (גם בתוך מאפיין src/alt).
    מוגדר כאן, למעלה, כי הוא משמש גם את קרוסלת המשרדים, גם את בלון המפה
    וגם את ממלא המקום של נכס בלי תמונות. */
-const escAttr = s => String(s ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+/* ‏escAttr הוא שם מקומי היסטורי ל-escapeHtml שב-assets/esc.js. ההגדרה
+   הקודמת כאן טיפלה ב-‎& " <‎ בלבד — בלי גרש בודד ובלי ‎>‎ — ולכן ערך
+   בתוך מאפיין בגרש בודד היה יוצא ממנו החוצה. */
+function escAttr(s){ return escapeHtml(s); }
 
 /* יש לנכס תמונה ראשית אמיתית? (מערך ריק, null או מחרוזת ריקה — אין) */
 function hasPhoto(p){
@@ -6019,10 +6023,8 @@ const FALLBACK_ARTICLES = [
 
 /* כותרות ותקצירים נכתבים בעורך של ה-CRM ונכנסים כאן ל-innerHTML —
    גרשיים בכותרת ("דירת 4 חד׳") הם המקרה השכיח, הזרקה היא המקרה שאסור. */
-function escapeArticleText(s){
-  return String(s == null ? '' : s)
-    .replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
-}
+/* שם מקומי היסטורי ל-escapeHtml שב-assets/esc.js. */
+function escapeArticleText(s){ return escapeHtml(s); }
 
 async function loadArticles(){
   if (!sb) return FALLBACK_ARTICLES;

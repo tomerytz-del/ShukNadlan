@@ -9,6 +9,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
+<script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>נכס | שוק נדל״ן</title>
@@ -3565,9 +3566,7 @@ function prefillInquiryContact(){
   if (phoneEl && !phoneEl.value.trim()) phoneEl.value = saved.phone;
 }
 
-function escapeHtml(s){
-  return String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
-}
+// ‏escapeHtml עצמה מגיעה מ-assets/esc.js — הגדרה אחת לכל האתר.
 // כתובות תמונה נכנסות לתוך src="…" — גרשיים בכתובת היו שוברות את התגית
 function escapeAttr(s){ return escapeHtml(s); }
 

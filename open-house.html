@@ -9,6 +9,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
+<script src="assets/esc.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>יריד הבתים הפתוחים — דירות ללא עמלת תיווך בעפולה והעמק | שוק נדל״ן</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
@@ -832,8 +833,8 @@ const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const sb = window.supabase ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 const el = id => document.getElementById(id);
-const escAttr = s => String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
-  .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+/* שם מקומי היסטורי ל-escapeHtml שב-assets/esc.js. */
+function escAttr(s){ return escapeHtml(s); }
 
 /* אותו סימן בארבעה מקומות בעמוד, בארבעה גדלים — ולא ארבעה קבצים */
 el('fairMark').innerHTML          = OpenHouse.icon({ size:104 });

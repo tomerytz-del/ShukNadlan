@@ -9,6 +9,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
+<script src="assets/esc.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>מסלולים ומחירים | שוק נדל״ן</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
@@ -396,8 +397,8 @@ const promoOpen = promoState.active || (Tiers.PROMO.active && !current);
 const ICON_YES = '<svg viewBox="0 0 24 24" fill="none" stroke="#1c8546" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>';
 const ICON_NO  = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="6" y1="6" x2="18" y2="18"/><line x1="18" y1="6" x2="6" y2="18"/></svg>';
 
-const esc = (s) => String(s == null ? '' : s)
-  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+/* שם מקומי היסטורי ל-escapeHtml שב-assets/esc.js. */
+function esc(s){ return escapeHtml(s); }
 
 /* ---------- באנר ההטבה ---------- */
 (function renderPromo(){

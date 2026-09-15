@@ -248,10 +248,13 @@ function writeSql(){
     return;
   }
   const rows = ring.map(([lat, lng]) => `    [${lat.toFixed(6)}, ${lng.toFixed(6)}]`).join(',\n');
-  const esc = s => String(s).replace(/'/g, "''");
+  /* ‏ציטוט ל-SQL ולא בריחת HTML: גרש בודד מוכפל, כי הערך נכנס למחרוזת
+     ‏SQL שמודבקת לתיבה. השם היה קודם ‎esc‎ — אותו שם שמשמש בכל שאר האתר
+     לבריחת HTML — וזה בדיוק סוג הבלבול שמוביל לקרוא לפונקציה הלא נכונה. */
+  const sqlQuote = s => String(s).replace(/'/g, "''");
   box.value =
     `update public.neighborhoods set boundary = '[\n${rows}\n  ]'::jsonb\n` +
-    ` where city = '${esc(hood.city)}' and name = '${esc(hood.name)}';\n`;
+    ` where city = '${sqlQuote(hood.city)}' and name = '${sqlQuote(hood.name)}';\n`;
 }
 
 map.on('click', (e)=>{

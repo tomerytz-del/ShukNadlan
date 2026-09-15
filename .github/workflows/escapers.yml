@@ -1,0 +1,41 @@
+name: בריחת HTML — הגדרה אחת
+
+# ‏לפונקציית בריחת ה-HTML היו 22 הגדרות באתר תחת שמונה שמות שונים, וחלקן
+# לא ברחו מגרש בודד. זו לא הייתה בעיית סדר אלא תקלת אבטחה:
+#
+#   • הגדרה שמטפלת ב-‎& " <‎ בלבד אינה מגינה על ערך בתוך ‎attr='…'‎.
+#   • ובעיקר: כשיש שמונה שמות, אין "השם הנכון" — ולפעמים לא נקרא אף אחד.
+#     כך נוצרה ההזרקה ב-‎buildSearchRow‎ בדף הבית: ‎escAttr‎ היה באותו
+#     קובץ ושימש שתי שורות מעל לכתובות התמונה, ובשדות הטקסט לא נשלף.
+#
+# הבדיקה רצה על ה-PR: הגדרה חדשה בדף, או עותק ב-assets שאיבד תו, נעצרים
+# לפני שהם באוויר. היא קוראת קבצים בלבד — בלי רשת ובלי סודות.
+
+on:
+  pull_request:
+    paths:
+      - "*.html"
+      - "assets/*.js"
+      - "scripts/check_escapers.py"
+      - ".github/workflows/escapers.yml"
+  push:
+    branches: [main]
+    paths:
+      - "*.html"
+      - "assets/*.js"
+      - "scripts/check_escapers.py"
+      - ".github/workflows/escapers.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ‏הפלט של הבדיקה הוא המקום שבו כתוב מה לתקן ואיפה.
+      - name: בדיקת בריחה
+        run: python3 scripts/check_escapers.py

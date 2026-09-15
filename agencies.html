@@ -9,6 +9,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
+<script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>כל משרדי התיווך בשוק הנדל״ן</title>
@@ -810,9 +811,6 @@ function requestPageBgFlow(){
    עזרי בטיחות ותצוגה
    ============================================================================ */
 const el = id => document.getElementById(id);
-function escapeHtml(s){
-  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
-}
 /* כתובת תמונה שמגיעה מקלט של משרדים ונכנסת ל-src/‏background-image:
    רק http(s), אחרת מוותרים על התמונה. */
 function safeUrl(u){
