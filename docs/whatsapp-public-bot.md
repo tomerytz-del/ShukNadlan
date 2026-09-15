@@ -47,6 +47,7 @@ Meta WhatsApp Cloud API ──Webhook──► whatsapp-webhook/index.ts
 | `supabase/functions/whatsapp-webhook/public-agent.ts` | הכלים, ההוראות ולולאת השיחה של הבוט הציבורי |
 | `supabase/functions/whatsapp-webhook/index.ts` | הניתוב בין שני הענפים, בלם הקצב ומצב השיחה |
 | `supabase/migrations/20261111090000_whatsapp_public_bot.sql` | `whatsapp_public_conversations`, האינדקס לבלם והניקוי היומי |
+| `.github/workflows/whatsapp_public_bot_check.yml` | הבדיקה החודשית: האם הגיע הזמן למספר שני |
 
 ## ארבעת הכלים
 
@@ -182,7 +183,20 @@ select count(*) filter (where created_at > now() - interval '7 days')  as week,
 `agent_id is null` בהודעה נכנסת = הודעה שהגיעה ממי שאינו סוכן/ת. בענף של
 הסוכנים העמודה מתמלאת מיד אחרי הזיהוי, ולכן ההפרדה נקייה.
 
-**בדיקה חודשית רצה אוטומטית** ומתריעה כשהסף נחצה — ראו `Routines` בחשבון.
+### מי בודק את זה
+
+`.github/workflows/whatsapp_public_bot_check.yml` רץ **ב-1 בכל חודש**,
+מריץ את שתי השאילתות (הספירה, ותקלות חוצות-ענפים), ו**פותח Issue רק כשסף
+נחצה**. חודש שקט מסתיים בשורה בסיכום ההרצה ותו לא.
+
+קריטריון שכתוב במסמך ואיש לא בודק אותו הוא קריטריון שלא קיים — הנפח גדל
+בהדרגה, אף יום אינו היום שבו "פתאום יש הרבה", וההחלטה נדחית עד שתקלה
+מכריחה אותה. מייל חודשי ש"הכול בסדר" מפסיקים לקרוא אחרי הפעם השלישית,
+ולכן ה-workflow שותק כשאין מה לומר.
+
+אפשר להריץ אותו ידנית בכל רגע מלשונית **Actions** (‏`workflow_dispatch`).
+הוא משתמש ב-`SUPABASE_DB_URL` — אותו סוד שמשמש את פריסת המיגרציות — ורק
+לקריאה.
 
 ## בדיקה
 
