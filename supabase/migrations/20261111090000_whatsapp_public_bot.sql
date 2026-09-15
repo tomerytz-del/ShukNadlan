@@ -31,11 +31,25 @@ create table if not exists public.whatsapp_public_conversations (
   wa_phone text not null unique,
   history jsonb not null default '[]'::jsonb,
   last_property_id uuid references public.properties(id) on delete set null,
+  -- מונה הלידים והחלון שלו. הבוט יכול לפתוח ליד (חיפוש שמור או פניית בעל/ת
+  -- נכס), וזו הפעולה היחידה שלו שמייצרת שורה שסוכן/ת משלם/ת עליה. בלי תקרה,
+  -- מי שמשעמם לו יכול להזרים לידים מזויפים למדף. התקרה חיה כאן ולא בספירה
+  -- מטבלת הלידים כי שם הטלפון שמור בפורמט חופשי, והשוואה אליו הייתה מחייבת
+  -- לשכפל את normalize_msisdn בכל שאילתה.
+  leads_created integer not null default 0,
+  leads_window_start timestamptz,
   first_message_at timestamptz not null default now(),
   last_message_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- העמודות נוספות גם לטבלה שכבר קיימת: המיגרציה הזו עלולה לרוץ שוב, והטבלה
+-- נוצרה בגרסה מוקדמת שלה בלי מונה הלידים.
+alter table public.whatsapp_public_conversations
+  add column if not exists leads_created integer not null default 0;
+alter table public.whatsapp_public_conversations
+  add column if not exists leads_window_start timestamptz;
 
 comment on table public.whatsapp_public_conversations is
   'מצב שיחת וואטסאפ של פונה שאינו סוכן/ת, ממופתח לפי מספר הטלפון. נכתב אך ורק על ידי ה-Edge Function (service_role), ונמחק אחרי 30 יום של שקט.';

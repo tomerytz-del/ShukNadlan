@@ -284,7 +284,7 @@ async function loadPublicConversation(
 ): Promise<PublicConversationState> {
   const { data } = await supabase
     .from("whatsapp_public_conversations")
-    .select("history, last_property_id, last_message_at")
+    .select("history, last_property_id, last_message_at, leads_created, leads_window_start")
     .eq("wa_phone", phone)
     .maybeSingle();
 
@@ -293,11 +293,14 @@ async function loadPublicConversation(
     ? Date.now() - Date.parse(data.last_message_at) > idleMs
     : false;
 
-  if (!data || stale) return { history: [], last_property_id: null };
-
+  // מונה הלידים **אינו** מתאפס עם השיחה. שיחה שנשכחה מתחילה נקייה כדי שהבוט
+  // לא יגרור הקשר של אתמול; התקרה קיימת כדי למנוע הצפה, ושתיקה של 12 שעות
+  // היא בדיוק מה שמי שרוצה לעקוף אותה היה עושה.
   return {
-    history: (data.history as Anthropic.MessageParam[]) || [],
-    last_property_id: data.last_property_id || null,
+    history: (!data || stale ? [] : (data.history as Anthropic.MessageParam[]) || []),
+    last_property_id: (!data || stale ? null : data.last_property_id) || null,
+    leads_created: data?.leads_created || 0,
+    leads_window_start: data?.leads_window_start || null,
   };
 }
 
@@ -309,6 +312,8 @@ async function savePublicConversation(
     wa_phone: phone,
     history: conv.history,
     last_property_id: conv.last_property_id,
+    leads_created: conv.leads_created,
+    leads_window_start: conv.leads_window_start,
     last_message_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   }, { onConflict: "wa_phone" });
@@ -381,12 +386,15 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
 
   let answer: string;
   try {
-    answer = await runPublicTurn({ supabase, conv, userText });
+    answer = await runPublicTurn({ supabase, conv, userText, waPhone: from });
   } catch (err) {
     console.error("public turn failed", err);
     await supabase.from("whatsapp_messages")
       .update({ error: String((err as Error)?.message || err) })
       .eq("wa_message_id", msg.id);
+    // נשמר גם בכשל: אם הכלי הספיק לפתוח ליד לפני שהתור נפל, המונה שלו כבר
+    // עלה — ותקרה שנשכחת בכל שגיאה אינה תקרה.
+    await savePublicConversation(from, conv);
     await reply(from, "משהו השתבש אצלי כרגע. אפשר לנסות שוב בעוד רגע.", null);
     return;
   }

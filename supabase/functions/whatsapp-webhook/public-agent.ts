@@ -1,6 +1,6 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
-import { callClaude } from "./agent.ts";
+import { callClaude, COMMERCIAL_PTYPES, RESIDENTIAL_PTYPES } from "./agent.ts";
 
 // ============================================================================
 // הבוט הציבורי: מי שכתב למספר ואינו סוכן/ת רשום/ה.
@@ -11,8 +11,25 @@ import { callClaude } from "./agent.ts";
 //
 // הסיבה פשוטה: מספר טלפון אינו אימות. כל אדם בעולם יכול לכתוב למספר העסקי
 // ולטעון שהוא מי שירצה. לסוכן/ת יש שורה ב-agency_members שמישהו יצר בכוונה,
-// ולכן מותר לפעול בשמו/ה; לאלמוני אין דבר — ולכן כאן **אין אף כלי שכותב**.
-// ארבעת הכלים קוראים בלבד, ומה שהם קוראים הוא מה שממילא פתוח באתר.
+// ולכן מותר לפעול בשמו/ה; לאלמוני אין דבר.
+//
+// ---------------------------------------------------------------------------
+// ארבעה כלים שקוראים, ושניים שפותחים ליד
+// ---------------------------------------------------------------------------
+//
+// ארבעת כלי החיפוש קוראים בלבד, ומה שהם קוראים פתוח ממילא באתר.
+//
+// שני כלי הלידים כותבים — אבל **לא למסד**: הם קוראים ל-`saved-search-intake`
+// ול-`owner-lead-intake`, אותן שתי נקודות קליטה שהטפסים באתר קוראים להן
+// מהדפדפן של גולש/ת אנונימי/ת (‏`verify_jwt = false` ב-`config.toml`). כלומר
+// הבוט יכול בדיוק מה שדפדפן פתוח באתר יכול, לא יותר — וכל הוולידציה,
+// ההתאמה, הרוטציה, התקרות, רישום הניתוב וההתראה למנהל/ת הפלטפורמה נשארים
+// במקום אחד. שכפול שלהם כאן היה מתפצל מהם תוך חודש, והליד מוואטסאפ היה
+// מתנהג אחרת מהליד מהאתר בלי שאיש ישים לב.
+//
+// **ההסכמה אינה נגזרת מהשיחה.** ‏`consent_agent_contact` הוא ההבדל בין ליד
+// שמותר למכור לבין ליד שאסור, ולכן הוא פרמטר מפורש בכלי — לא ברירת מחדל,
+// ולא מסקנה מכך שמישהו טרח לכתוב. מי שרוצה התראות בלבד מקבל התראות בלבד.
 //
 // ---------------------------------------------------------------------------
 // שני גבולות שנשמרים בכוונה
@@ -44,8 +61,21 @@ const MAX_RESULTS = 8;
 const SITE_BASE = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il")
   .replace(/\/+$/, "");
 
+// נקודות הקליטה נקראות דרך הכתובת הפנימית של הפרויקט — אותה כתובת שהדפדפן
+// קורא לה, רק בלי לצאת החוצה.
+const FUNCTIONS_BASE = `${(Deno.env.get("SUPABASE_URL") || "").replace(/\/+$/, "")}/functions/v1`;
+const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
+
+// תקרת הלידים לפונה. שלושה ביממה זה יותר ממה שאדם אמיתי צריך (חיפוש אחד,
+// אולי שניים, ואולי נכס למכירה), ומעט מספיק כדי שמי שמשעמם לו לא יזרים
+// לידים מזויפים למדף שסוכנים משלמים עליו.
+const LEAD_DAILY_CAP = 3;
+const LEAD_WINDOW_HOURS = 24;
+
 const DEAL_TYPES = ["sale", "rent"];
 const CATEGORIES = ["residential", "commercial"];
+const CONTACT_CHANNELS = ["whatsapp", "email", "both"];
+const PROPERTY_TYPES = [...new Set([...RESIDENTIAL_PTYPES, ...COMMERCIAL_PTYPES])];
 
 // ---------------------------------------------------------------------------
 // קטלוג ההתמחויות — פורט מ-assets/specialties.js
@@ -271,6 +301,93 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "save_search_alert",
+    description:
+      "שומר חיפוש למי שמחפש/ת נכס, כדי שיקבל/תקבל עדכון כשיעלה נכס מתאים. " +
+      "**להשתמש רק אחרי ש-search_properties החזיר מעט מדי או כלום, אחרי " +
+      "ששאלת אם רוצים שנעדכן, ואחרי תשובה חיובית מפורשת.** לא ליזום את זה " +
+      "בשיחה שהתשובה בה כבר נמצאה.\n" +
+      "‏consent_agent_contact הוא שאלה **נפרדת** — האם מסכימים שסוכן/ת ייצור " +
+      "קשר. תשובה חיובית רק על העדכונים = false, והחיפוש עדיין נשמר.",
+    input_schema: {
+      type: "object",
+      properties: {
+        full_name: { type: "string", description: "השם כפי שנמסר. חובה." },
+        email: { type: "string", description: "רק אם נמסר בשיחה." },
+        phone: {
+          type: "string",
+          description:
+            "רק אם נמסר מספר **אחר** מזה שממנו כותבים. אם לא נמסר — המערכת " +
+            "משתמשת במספר הוואטסאפ של השיחה, וצריך לומר את זה בשיחה.",
+        },
+        contact_channel: {
+          type: "string",
+          enum: CONTACT_CHANNELS,
+          description: "איך רוצים לקבל את העדכונים. ברירת מחדל whatsapp.",
+        },
+        consent_agent_contact: {
+          type: "boolean",
+          description:
+            "האם ניתן אישור מפורש שסוכן/ת ייצור קשר. ברירת המחדל false, " +
+            "ואין להסיק אותו מנימוס או משתיקה.",
+        },
+        deal_type: { type: "string", enum: DEAL_TYPES },
+        category: { type: "string", enum: CATEGORIES },
+        cities: { type: "array", items: { type: "string" } },
+        area: { type: "string", description: "שכונה, אם נאמרה." },
+        property_types: { type: "array", items: { type: "string", enum: PROPERTY_TYPES } },
+        min_price: { type: "number" },
+        max_price: { type: "number" },
+        min_rooms: { type: "number" },
+        max_rooms: { type: "number" },
+        min_size_sqm: { type: "number" },
+        required_features: { type: "array", items: { type: "string" } },
+        free_text: {
+          type: "string",
+          description: "מה שלא נכנס לשדות — במילים של הפונה, לא בפרשנות שלך.",
+        },
+      },
+      required: ["full_name", "consent_agent_contact"],
+    },
+  },
+  {
+    name: "owner_lead",
+    description:
+      "פותח פנייה של בעל/ת נכס שרוצה למכור או להשכיר ומבקש/ת שסוכן/ת ייצור " +
+      "קשר. המערכת משייכת את הפנייה לסוכן/ת מתאים/ה לפי אזור וסוג נכס. " +
+      "**להשתמש רק אחרי אישור מפורש שסוכן/ת ייצור קשר.** בלי אישור — לא " +
+      "לקרוא לכלי, גם אם כל הפרטים כבר נאמרו.",
+    input_schema: {
+      type: "object",
+      properties: {
+        name: { type: "string", description: "השם כפי שנמסר. חובה." },
+        phone: {
+          type: "string",
+          description:
+            "רק אם נמסר מספר אחר מזה שממנו כותבים. אחרת המערכת משתמשת במספר " +
+            "הוואטסאפ של השיחה, וצריך לומר את זה בשיחה.",
+        },
+        city: { type: "string", description: "עיר הנכס. חובה." },
+        area: { type: "string", description: "שכונה — משפרת את ההתאמה לסוכן/ת." },
+        property_type: { type: "string", enum: PROPERTY_TYPES },
+        deal_type: {
+          type: "string",
+          enum: DEAL_TYPES,
+          description: "sale = רוצה למכור, rent = רוצה להשכיר.",
+        },
+        rooms: { type: "number" },
+        condition: { type: "string", description: "מצב הנכס במילים." },
+        features: { type: "array", items: { type: "string" } },
+        note: { type: "string", description: "מה שנאמר ולא נכנס לשדות." },
+        consent: {
+          type: "boolean",
+          description: "אישור מפורש שסוכן/ת ייצור קשר. בלי true הכלי מסרב.",
+        },
+      },
+      required: ["name", "city", "property_type", "deal_type", "consent"],
+    },
+  },
+  {
     name: "find_professionals",
     description:
       "מחזיר בעלי מקצוע שמפרסמים באתר — שמאים, עורכי דין, יועצי משכנתאות, " +
@@ -298,11 +415,16 @@ const TOOLS: Anthropic.Tool[] = [
 export interface PublicConversationState {
   history: Anthropic.MessageParam[];
   last_property_id: string | null;
+  /** כמה לידים נפתחו מהמספר הזה בחלון הנוכחי, ומתי החלון התחיל */
+  leads_created: number;
+  leads_window_start: string | null;
 }
 
 interface PublicContext {
   supabase: SupabaseClient;
   conv: PublicConversationState;
+  /** המספר שממנו נכתבה ההודעה — ברירת המחדל לטלפון בליד */
+  waPhone: string;
 }
 
 function clampLimit(value: unknown, fallback: number, max: number): number {
@@ -606,6 +728,213 @@ async function findProfessionals(
   };
 }
 
+// ---------------------------------------------------------------------------
+// קליטת לידים
+// ---------------------------------------------------------------------------
+
+/**
+ * קריאה לנקודת קליטה ציבורית של האתר. אותה כתובת ואותו גוף שהדפדפן שולח —
+ * ולכן אותה ולידציה, אותה התאמה ואותן תקרות.
+ */
+async function callIntake(
+  fn: string,
+  payload: Record<string, unknown>,
+): Promise<{ ok: boolean; status: number; body: Record<string, unknown> }> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  // ‏verify_jwt=false לשתי הפונקציות, אבל ה-Gateway עדיין מצפה ל-apikey
+  // בבקשות מבחוץ. שליחתו עולה כלום ומונעת 401 מפתיע.
+  if (ANON_KEY) {
+    headers["apikey"] = ANON_KEY;
+    headers["Authorization"] = `Bearer ${ANON_KEY}`;
+  }
+
+  const res = await fetch(`${FUNCTIONS_BASE}/${fn}`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  let body: Record<string, unknown> = {};
+  try {
+    body = await res.json();
+  } catch {
+    body = {};
+  }
+  return { ok: res.ok, status: res.status, body };
+}
+
+/**
+ * התקרה לפונה. מחזירה true כשמותר, ומקדמת את המונה — כלומר היא נקראת פעם
+ * אחת לפני הכתיבה ולא נספרת פעמיים.
+ */
+function takeLeadSlot(conv: PublicConversationState): boolean {
+  const windowMs = LEAD_WINDOW_HOURS * 60 * 60 * 1000;
+  const started = conv.leads_window_start ? Date.parse(conv.leads_window_start) : 0;
+
+  if (!started || Date.now() - started > windowMs) {
+    conv.leads_window_start = new Date().toISOString();
+    conv.leads_created = 0;
+  }
+  if (conv.leads_created >= LEAD_DAILY_CAP) return false;
+
+  conv.leads_created += 1;
+  return true;
+}
+
+/** מזהה שכונה לפי שם ועיר. משפר את ההתאמה לסוכן/ת; null אינו שגיאה. */
+async function lookupNeighborhoodId(
+  ctx: PublicContext,
+  city: string | null,
+  area: string | null,
+): Promise<string | null> {
+  if (!area) return null;
+  let query = ctx.supabase.from("neighborhoods").select("id").ilike("name", likeSafe(area));
+  if (city) query = query.ilike("city", likeSafe(city));
+  const { data } = await query.limit(1).maybeSingle();
+  return data?.id ?? null;
+}
+
+function strListArg(value: unknown, max: number): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((v) => text(v)).filter((v): v is string => !!v).slice(0, max);
+}
+
+async function saveSearchAlert(
+  ctx: PublicContext,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const fullName = text(args.full_name);
+  if (!fullName || fullName.length < 2) {
+    return { error: "missing_name", note: "צריך לשאול לשם לפני השמירה." };
+  }
+  if (!takeLeadSlot(ctx.conv)) {
+    return {
+      error: "lead_cap_reached",
+      note: "נפתחו כבר מספיק פניות מהמספר הזה היום. להפנות לאתר ולא לנסות שוב.",
+    };
+  }
+
+  const consent = args.consent_agent_contact === true;
+  const email = text(args.email);
+  // ברירת המחדל היא המספר שממנו כותבים. זה לא "איסוף" — זה המספר שהפונה
+  // בחר/ה לכתוב ממנו, וההוראות מחייבות לומר בשיחה שבו נשתמש.
+  const phone = text(args.phone) || ctx.waPhone;
+
+  const cities = strListArg(args.cities, 5);
+  const neighborhoodId = await lookupNeighborhoodId(
+    ctx,
+    cities[0] ?? null,
+    text(args.area),
+  );
+
+  const { ok, status, body } = await callIntake("saved-search-intake", {
+    full_name: fullName,
+    phone,
+    email,
+    contact_channel: CONTACT_CHANNELS.includes(String(args.contact_channel))
+      ? args.contact_channel
+      : (email && !args.phone ? "both" : "whatsapp"),
+    consent_agent_contact: consent,
+    deal_type: DEAL_TYPES.includes(String(args.deal_type)) ? args.deal_type : "sale",
+    category: CATEGORIES.includes(String(args.category)) ? args.category : "residential",
+    cities,
+    neighborhood_ids: neighborhoodId ? [neighborhoodId] : [],
+    property_types: strListArg(args.property_types, 6),
+    min_price: args.min_price,
+    max_price: args.max_price,
+    min_rooms: args.min_rooms,
+    max_rooms: args.max_rooms,
+    min_size_sqm: args.min_size_sqm,
+    required_features: strListArg(args.required_features, 8),
+    free_text: text(args.free_text),
+    source: "whatsapp_bot_search_agent",
+  });
+
+  if (!ok) {
+    // התקרה חזרה לפונה: הוא לא עשה דבר רע, ואין טעם לנסות שוב
+    if (body.error === "too_many_searches") {
+      return {
+        saved: false,
+        error: "too_many_searches",
+        note: "כבר שמורים מספיק חיפושים למספר הזה. אפשר לנהל אותם דרך הקישור שבהתראות.",
+      };
+    }
+    return { saved: false, error: body.error || `http_${status}`, detail: body.detail };
+  }
+
+  return {
+    saved: true,
+    duplicate: body.duplicate === true,
+    consent_given: consent,
+    manage_note: "אפשר לבטל את העדכונים בכל רגע דרך הקישור שמופיע בכל התראה.",
+    // מה באמת קרה, כדי שהתשובה לא תבטיח יותר: בלי הסכמה אין סוכן/ת בתמונה
+    what_happens: consent
+      ? "החיפוש נשמר, ועדכונים יישלחו כשיעלה נכס מתאים. הפרטים זמינים גם לסוכן/ת שירצה/תרצה לעזור בחיפוש."
+      : "החיפוש נשמר ועדכונים יישלחו כשיעלה נכס מתאים. אף סוכן/ת לא יקבל את הפרטים.",
+  };
+}
+
+async function ownerLead(
+  ctx: PublicContext,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  if (args.consent !== true) {
+    return {
+      error: "consent_required",
+      note: "בלי אישור מפורש אין פנייה. לשאול, ולא להניח.",
+    };
+  }
+  const name = text(args.name);
+  const city = text(args.city);
+  const propertyType = text(args.property_type);
+  const dealType = String(args.deal_type);
+  if (!name || !city || !propertyType || !DEAL_TYPES.includes(dealType)) {
+    return {
+      error: "missing_fields",
+      note: "חסר שם, עיר, סוג נכס או האם למכירה/להשכרה. לשאול רק על מה שחסר.",
+    };
+  }
+  if (!takeLeadSlot(ctx.conv)) {
+    return {
+      error: "lead_cap_reached",
+      note: "נפתחו כבר מספיק פניות מהמספר הזה היום. להפנות לאתר ולא לנסות שוב.",
+    };
+  }
+
+  const neighborhoodId = await lookupNeighborhoodId(ctx, city, text(args.area));
+
+  const { ok, status, body } = await callIntake("owner-lead-intake", {
+    name,
+    phone: text(args.phone) || ctx.waPhone,
+    city,
+    neighborhood_id: neighborhoodId,
+    property_type: propertyType,
+    deal_type: dealType,
+    rooms: args.rooms,
+    condition: text(args.condition),
+    features: strListArg(args.features, 8),
+    note: text(args.note),
+    source: "whatsapp_bot_owner_wizard",
+  });
+
+  if (!ok) {
+    return { created: false, error: body.error || `http_${status}`, detail: body.detail };
+  }
+
+  // ‏matched_agent_id ריק = לא נמצא/ה סוכן/ת מתאים/ה כרגע. זה קורה, וההוראות
+  // מחייבות לומר את זה בלי להבטיח שמישהו יתקשר מחר.
+  const matched = !!body.matched_agent_id;
+  return {
+    created: true,
+    matched,
+    what_happens: matched
+      ? "הפנייה הועברה לסוכן/ת תיווך מהאזור, שייצור/תיצור קשר."
+      : "הפנייה נשמרה. כרגע לא נמצא/ה סוכן/ת פנוי/ה לאזור ולסוג הנכס, ולכן אי אפשר להבטיח מתי יחזרו.",
+    privacy_note:
+      "יש לומר שהשם והטלפון נמסרים לסוכן/ת תיווך לצורך יצירת הקשר הזה.",
+  };
+}
+
 async function runTool(
   ctx: PublicContext,
   name: string,
@@ -621,6 +950,10 @@ async function runTool(
         return await findAgencies(ctx, args);
       case "find_professionals":
         return await findProfessionals(ctx, args);
+      case "save_search_alert":
+        return await saveSearchAlert(ctx, args);
+      case "owner_lead":
+        return await ownerLead(ctx, args);
       default:
         return { error: "unknown_tool", name };
     }
@@ -663,8 +996,8 @@ function systemPrompt(conv: PublicConversationState): string {
       "אפשר לומר מה טווח המחירים של נכסים דומים שנמצאו במאגר, וזה הכול.",
     "- **אין התחייבות בשם אף משרד או סוכן/ת** — לא על זמינות, לא על עמלה ולא " +
       "על מחיר. את/ה מפנה, הם מסכמים.",
-    "- אין לבקש תעודת זהות, פרטי תשלום או מסמכים. גם לא שם וטלפון: מי שכותב/ת " +
-      "כבר נמצא/ת בקשר, והפרטים נמסרים לסוכן/ת ישירות.",
+    "- אין לבקש תעודת זהות, פרטי תשלום או מסמכים. שם ופרטי קשר נאספים רק " +
+      "בתרחיש אחד — ראו \"השארת פרטים\" למטה — ורק אחרי אישור מפורש.",
     "",
     "המלצה על משרדים:",
     "- ההמלצה היא **לפי התאמה לתחום ולאזור**, לא לפי העדפה. אין \"המשרד הכי " +
@@ -673,13 +1006,42 @@ function systemPrompt(conv: PublicConversationState): string {
       "המשרד בפועל ולא מהצהרה שלו. לנסח בהתאם (\"לפי הנכסים שהוא מפרסם\").",
     "- להציע עד שלושה משרדים, עם מה שמייחד כל אחד ועם הקישור לדף שלו.",
     "",
+    "השארת פרטים — שני תרחישים, ורק הם:",
+    "",
+    "**א. מחפש/ת שלא מצאנו לו/ה כלום.** אחרי חיפוש שחזר ריק או דל, ואחרי " +
+      "שהצעת להרחיב טווח — שאלה אחת קצרה: לעדכן כשיעלה נכס כזה? אם כן — " +
+      "לשאול לשם, ולקרוא ל-save_search_alert עם הקריטריונים מהשיחה.",
+    "- **שאלת ההסכמה נפרדת מהשאלה הזו.** \"שסוכן/ת גם ייצור קשר ויעזור " +
+      "בחיפוש?\" — כן מפורש = consent_agent_contact true; לא, שתיקה, \"נראה\" " +
+      "או שינוי נושא = false. חיפוש נשמר בשני המקרים, וזו לא פשרה: העדכונים " +
+      "הם ההבטחה, והסוכן/ת הוא תוספת שמבקשים.",
+    "- אין לשאול שוב מי שסירב/ה. בשיחה אחת שואלים פעם אחת.",
+    "",
+    "**ב. בעל/ת נכס שרוצה למכור או להשכיר.** מי שאומר/ת \"יש לי דירה למכירה\" " +
+      "או \"אני רוצה להשכיר\" — להסביר שאפשר להעביר את הפרטים לסוכן/ת תיווך " +
+      "מהאזור שייצור קשר, ולשאול אם רוצים. אחרי כן: שם, עיר, שכונה, סוג הנכס, " +
+      "ואם למכירה או להשכרה — ואז owner_lead.",
+    "- זו פנייה לתיווך, ויש לומר זאת במילים האלה. מי שרצה/תה רק הערכת מחיר " +
+      "יקבל/תקבל הסבר, לא ליד.",
+    "",
+    "מה שנכון לשניהם:",
+    "- **המספר שממנו כותבים הוא ברירת המחדל לטלפון, ויש לומר את זה**: " +
+      "\"אשתמש במספר שממנו את/ה כותב/ת\". מי שמעדיף/ה מספר או מייל אחר — " +
+      "לשאול ולהעביר בפרמטר.",
+    "- לומר בפשטות מה קורה עם הפרטים לפני שקוראים לכלי: למי הם מגיעים ולשם מה.",
+    "- אחרי הכלי — לומר את what_happens שחזר, כלשונו ובלי לייפות. אם חזר " +
+      "‏matched=false, אין להבטיח שמישהו יחזור.",
+    "- **אין לקרוא לאף אחד משני הכלים בלי שנאמר \"כן\" ברור.** נימוס אינו " +
+      "הסכמה, שתיקה אינה הסכמה, ו\"תשלח לי מה שיש\" אינו אישור ליצירת קשר.",
+    "- אם חזר lead_cap_reached — לומר שאפשר להמשיך באתר, ולא לנסות שוב.",
+    "",
     "גבולות התפקיד:",
     "- מי שרוצה לפרסם נכס, לפתוח משרד או להצטרף כסוכן/ת — להפנות ל-" +
       `${SITE_BASE}/pricing.html . אין לך דרך לרשום אותו/ה.`,
     "- מי שמבקש/ת לדבר עם אדם — להפנות לדף הנכס או המשרד הרלוונטי, ולומר " +
       "בפשטות שאת/ה עוזר/ת אוטומטי/ת ולא הסוכן/ת עצמו/ה.",
-    "- מי שרוצה לקבל עדכון על נכסים חדשים שמתאימים לו/ה — להפנות ל\"הסוכן " +
-      `החכם\" באתר: ${SITE_BASE}/index.html . אין לך דרך לרשום חיפוש מכאן.`,
+    "- מי שמעדיף/ה להירשם לעדכונים בעצמו/ה — \"הסוכן החכם\" באתר: " +
+      `${SITE_BASE}/index.html . אותו מנגנון בדיוק.`,
   ];
 
   if (!conv.history.length) {
@@ -709,9 +1071,11 @@ export async function runPublicTurn(opts: {
   supabase: SupabaseClient;
   conv: PublicConversationState;
   userText: string;
+  /** המספר שממנו הגיעה ההודעה, כברירת מחדל לטלפון בליד */
+  waPhone: string;
 }): Promise<string> {
-  const { supabase, conv, userText } = opts;
-  const ctx: PublicContext = { supabase, conv };
+  const { supabase, conv, userText, waPhone } = opts;
+  const ctx: PublicContext = { supabase, conv, waPhone };
 
   const messages: Anthropic.MessageParam[] = [
     ...conv.history,
