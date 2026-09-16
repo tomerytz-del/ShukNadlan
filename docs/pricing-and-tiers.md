@@ -205,7 +205,7 @@ CMA), ובטופס העריכה הוא נשאר מושבת עם ההסבר — �
 | `admin_apply_tier_change()` | מסלול + `tier_source='platform_admin'` + ניקוי הבקשה + שורת יומן, **יחד** |
 | `admin_reject_tier_change()` | מנקה את הבקשה ורושמת את הדחייה ביומן |
 | `recent_tier_changes()`, `subscription_overview()` | קריאה בלבד, לתצוגה |
-| `subscription_members(p_bucket)` | השמות שמאחורי מספר אחד בתמונת המצב. קריאה בלבד, ובאותם תנאי סינון של `subscription_overview()` (מיגרציה `20261119090000`) |
+| `subscription_members(p_bucket)` | השמות שמאחורי מספר אחד בתמונת המצב. קריאה בלבד, ובאותם תנאי סינון של `subscription_overview()` (מיגרציה `20261121090000`) |
 
 `tier_source='platform_admin'` אינו קישוט: `expire_launch_promos` מורידה
 ל-Pay&GO רק מקורות של הטבה, ולכן מסלול שאושר ידנית שורד את תום התקופה.
