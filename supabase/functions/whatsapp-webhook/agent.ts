@@ -556,9 +556,12 @@ const TOOLS: Anthropic.Tool[] = [
         },
         query: {
           type: "string",
-          description: "חיפוש חופשי בשם או בטלפון.",
+          description:
+            "חיפוש חופשי בשם או בטלפון. **כשיודעים את מי מחפשים — להעביר " +
+            "query במקום למשוך את כל הקובץ**: החיפוש רץ על כל הלקוחות ולא " +
+            "רק על מה שנכנס לחלון, וההערות חוזרות מלאות ברשימה קצרה.",
         },
-        limit: { type: "integer", description: "כמה להחזיר. ברירת מחדל 20." },
+        limit: { type: "integer", description: "כמה להחזיר. ברירת מחדל 20, מקסימום 200." },
       },
       required: [],
     },
@@ -1882,8 +1885,31 @@ function clientNeeds(c: Record<string, unknown>): string {
   return parts.join(" · ");
 }
 
+/**
+ * קובץ הלקוחות — אותה תקרה ואותו היגיון של `list_properties`, עם הבדל אחד
+ * שמשנה את המספרים.
+ *
+ * **שורת לקוח/ה כבדה כמעט פי שניים משורת נכס**: ~460 תווים מול ~260, כי
+ * ‏`needs` מורכב משמונה־עשר שדות ו-`notes` הוא טקסט חופשי בלי גבול. ‏200
+ * שורות כאן הן ~92KB — ובאותה לולאת כלים שנשלחת מחדש בכל סבב, זה הרבה יותר
+ * מ-200 נכסים.
+ *
+ * לכן התקרה עלתה ל-200 כמו שם, אבל **`notes` נגזם בחלון גדול**: מעל
+ * ‏`NOTES_FULL_WINDOW` שורות מדובר בעיון ברשימה ולא בשליפה של לקוח/ה מסוים/ת,
+ * ואיש אינו קורא שישים הערות מלאות בוואטסאפ. חיפוש לפי שם מחזיר שורות
+ * בודדות — ושם ההערה חוזרת שלמה, כי זו בדיוק השאלה שנשאלה.
+ *
+ * ‏`total_active` ו-`total_all` עונים על "כמה לקוחות יש לי" ואינם מושפעים
+ * מהסינון. ‏`total_matching` הוא הספירה על **אותם תנאים** שהוחזרו, והוא זה
+ * שקובע את `truncated` — בלעדיו רשימה שסוננה ב-query הייתה נראית חתוכה רק
+ * משום שיש לסוכן/ת עוד לקוחות אחרים.
+ */
+const LIST_CLIENTS_MAX = 200;
+const NOTES_FULL_WINDOW = 20;
+const NOTES_BROWSE_CHARS = 240;
+
 async function toolListClients(ctx: ToolContext, input: Record<string, unknown>) {
-  const limit = Math.min(Number(input.limit) || 20, 50);
+  const limit = Math.min(Math.max(Number(input.limit) || 20, 1), LIST_CLIENTS_MAX);
 
   let query = ctx.supabase
     .from("agent_clients")
@@ -1895,19 +1921,38 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
     .eq("agent_id", ctx.agent.id)
     .order("created_at", { ascending: false });
 
-  if (input.status) query = query.eq("status", String(input.status));
-  else if (!input.all_statuses) query = query.eq("status", "active");
+  // ספירה על אותם תנאים בדיוק פרט ל-limit. ‏head: true מחזיר מספר בלי שורות.
+  let counter = ctx.supabase
+    .from("agent_clients")
+    .select("id", { count: "exact", head: true })
+    .eq("agent_id", ctx.agent.id);
+
+  if (input.status) {
+    query = query.eq("status", String(input.status));
+    counter = counter.eq("status", String(input.status));
+  } else if (!input.all_statuses) {
+    query = query.eq("status", "active");
+    counter = counter.eq("status", "active");
+  }
 
   const q = String(input.query || "").trim();
   if (q) {
     // ‏escape על הפסיק והסוגריים: מחרוזת חיפוש עם פסיק הייתה נקראת כשני
     // תנאים ב-`or` ומחזירה שגיאת פרסור מ-PostgREST.
     const safe = q.replace(/[,()*]/g, " ").trim();
-    if (safe) query = query.or(`full_name.ilike.%${safe}%,phone.ilike.%${safe}%`);
+    if (safe) {
+      const or = `full_name.ilike.%${safe}%,phone.ilike.%${safe}%`;
+      query = query.or(or);
+      counter = counter.or(or);
+    }
   }
 
-  const { data, error } = await query.limit(limit);
+  const [{ data, error }, { count: totalMatching, error: matchCountErr }] = await Promise.all([
+    query.limit(limit),
+    counter,
+  ]);
   if (error) return { ok: false, error: error.message };
+  if (matchCountErr) console.warn("client match count failed", matchCountErr.message);
 
   // ספירת ההתאמות לכל לקוח/ה בקריאה אחת (ולא שאילתה לכל שורה). כשל כאן אינו
   // מפיל את הרשימה — הדרישות והטלפון הם עיקר התשובה, וההתאמות תוספת.
@@ -1934,22 +1979,46 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
     .select("id", { count: "exact", head: true })
     .eq("agent_id", ctx.agent.id);
 
+  // עיון ברשימה מול שליפה של לקוח/ה. ראו ההסבר מעל הפונקציה.
+  const browsing = data.length > NOTES_FULL_WINDOW;
+  const matching = typeof totalMatching === "number" ? totalMatching : data.length;
+  let notesTrimmed = 0;
+
   return {
     ok: true,
     total_active: totalActive ?? 0,
     total_all: totalAll ?? 0,
+    // כמה תואמים את הסינון שהוחזר — זה מה שמגדיר אם הרשימה חתוכה, ולא
+    // ‏total_all: חיפוש שמצא שלושה מתוך מאה אינו רשימה חתוכה.
+    total_matching: matching,
+    truncated: matching > data.length,
     returned: data.length,
-    clients: data.map((c) => ({
-      client_id: c.id,
-      full_name: c.full_name,
-      phone: c.phone,
-      email: c.email,
-      status: c.status,
-      needs: clientNeeds(c),
-      notes: c.notes,
-      match_count: counts.get(c.id)?.n ?? null,
-      top_match: counts.get(c.id)?.top ?? null,
-    })),
+    query: q || undefined,
+    clients: data.map((c) => {
+      const full = String(c.notes ?? "");
+      const trim = browsing && full.length > NOTES_BROWSE_CHARS;
+      if (trim) notesTrimmed++;
+      return {
+        client_id: c.id,
+        full_name: c.full_name,
+        phone: c.phone,
+        email: c.email,
+        status: c.status,
+        needs: clientNeeds(c),
+        notes: trim ? `${full.slice(0, NOTES_BROWSE_CHARS)}…` : (c.notes ?? null),
+        notes_truncated: trim || undefined,
+        match_count: counts.get(c.id)?.n ?? null,
+        top_match: counts.get(c.id)?.top ?? null,
+      };
+    }),
+    note: [
+      matching > data.length
+        ? `מוצגים ${data.length} מתוך ${matching}. לצמצום — query.`
+        : null,
+      notesTrimmed
+        ? `ההערות של ${notesTrimmed} לקוחות נגזמו כי הרשימה ארוכה — לקריאה מלאה, query על השם.`
+        : null,
+    ].filter(Boolean).join(" ") || undefined,
   };
 }
 
@@ -2996,6 +3065,9 @@ function systemPrompt(agent: AgentRow, conv: ConversationState): string {
     "",
     "לקוחות והתאמות:",
     "- למצוא לקוח/ה לפי שם: list_clients עם query. הדרישות והתקציב חוזרים בשדה needs.",
+    "- **גם כאן: total_matching הוא כמה יש, returned הוא כמה הוחזרו.** אם חזר " +
+      "notes_truncated על לקוח/ה שנשאלת עליו/ה — קרא/י שוב עם query על השם, " +
+      "ואל תצטט/י הערה חתוכה כאילו היא מלאה.",
     "- ליצירת לקוח/ה די בשם. שדה ריק פירושו \"לא משנה\" ולא \"חסר\" — אל תבקש/י תקציב או ערים שלא נאמרו.",
     "- \"תמחק את הלקוח/ה\" = set_client_status עם closed. הרשומה נשארת בקובץ.",
     "- אם create_client החזיר duplicate — אל תיצור/י רשומה שנייה. אמור/אמרי מה קיים ושאל/י אם לעדכן.",
