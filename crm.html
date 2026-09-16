@@ -1106,10 +1106,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      את הקצה הימני של הפאנל לקצה הימני של הפעמון, והפאנל נפתח שמאלה אל תוך
      העמוד. בטלפון יש ממילא כלל משלו (‏≤720px, למטה) שפורש אותו מקצה לקצה. */
   .bell-panel{position:absolute;top:48px;inset-inline-start:0;width:290px;max-height:340px;overflow-y:auto;background:var(--paper-raised);border:1px solid var(--line);border-radius:var(--radius-md);box-shadow:0 10px 30px rgba(0,0,0,.18);display:none;z-index:150}
-  .bell-panel header{display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-bottom:1px solid var(--line);font-size:.8rem;font-weight:700}
+  /* ‏flex-wrap: שלוש פעולות ב-290px לא תמיד נכנסות לשורה אחת עם הכותרת.
+     בלי זה הכפתור השלישי היה נדחס ונחתך; איתו הוא יורד לשורה משלו. */
+  .bell-panel header{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;row-gap:6px;padding:10px 12px;border-bottom:1px solid var(--line);font-size:.8rem;font-weight:700}
   .bell-panel .mark-all{background:transparent;color:var(--teal);font-size:.72rem;font-weight:700;padding:0}
-  /* שתי הפעולות שבכותרת הפאנל — סימון הכל כנקרא וקיצור לניהול ההתראות */
-  .bell-panel .bell-tools{display:flex;align-items:center;gap:10px}
+  /* ‏"נקה נקראו" מוחק שורות ולא מסמן אותן, ולכן הוא לא נראה כמו שכניו */
+  .bell-panel .mark-all.danger{color:var(--wine, #8B2332)}
+  /* שלוש הפעולות שבכותרת הפאנל — סימון הכל כנקרא, ניקוי הנקראות, וקיצור לניהול */
+  .bell-panel .bell-tools{display:flex;align-items:center;gap:9px}
   .notif-item{padding:10px 12px;border-bottom:1px solid var(--line);cursor:pointer}
   .notif-item:last-child{border-bottom:none}
   .notif-item.unread{background:var(--gold-tint)}
@@ -3105,6 +3109,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                    אותה בפאנל. -->
               <span class="bell-tools">
                 <button type="button" class="mark-all" id="markAllRead">סימון הכל כנקרא</button>
+                <button type="button" class="mark-all danger" id="clearRead" title="מחיקת ההתראות שכבר נקראו. הפעולה אינה הפיכה.">נקה נקראו</button>
                 <button type="button" class="mark-all" id="notifSettingsBtn" title="בחירת סוגי ההתראות">⚙ ניהול</button>
               </span>
             </header>
@@ -20135,6 +20140,40 @@ document.getElementById('markAllRead').addEventListener('click', async ()=>{
   const { error } = await sb.from('notifications').update({ read:true })
     .eq('agent_id', currentAgent.id).eq('read', false);
   if (error){ showToast('שגיאה בסימון ההתראות'); return; }
+  await loadNotifications(currentAgent.id);
+});
+
+/* ---------- "נקה נקראו" ----------
+   עד עכשיו לא הייתה לפעמון שום דרך להיפטר משורה: קריאה הפכה את read
+   ל-true, הרקע הוורוד ירד, והשורה נשארה עד שעשרים חדשות דחפו אותה מעבר
+   ל-limit. הכפתור הזה מוחק באמת — delete במסד ולא הסתרה בדפדפן.
+
+   **המחיקה נוגעת בכל ההתראות שנקראו ולא רק בעשרים שמוצגות.** זו הנקודה
+   שדורשת את הספירה באישור: מי שרואה ארבע שורות בנות יומן לא אמור/ה לגלות
+   בדיעבד שמחק/ה שבעים ושבע. הלא-נקראות אינן נוגעות בכלל. */
+document.getElementById('clearRead').addEventListener('click', async ()=>{
+  if (!currentAgent) return;
+  const { count, error: countErr } = await sb.from('notifications')
+    .select('id', { count:'exact', head:true })
+    .eq('agent_id', currentAgent.id).eq('read', true);
+  if (countErr){ showToast('שגיאה בטעינת ההתראות'); return; }
+  if (!count){ showToast('אין התראות שנקראו למחוק'); return; }
+
+  const what = count === 1 ? 'התראה אחת שכבר נקראה' : `${count} התראות שכבר נקראו`;
+  if (!confirm(`למחוק ${what}? הפעולה אינה הפיכה. התראות שעדיין לא נקראו יישארו.`)) return;
+
+  // ‏select() אחרי delete מחזיר את השורות שנמחקו בפועל, וזה לא קישוט:
+  // ‏DELETE שאין לו policy תואם ב-RLS **אינו מחזיר שגיאה** — הוא מוחק אפס
+  // שורות ומדווח הצלחה. בלי ההשוואה הזו כפתור מנוטרל היה נראה בדיוק כמו
+  // כפתור עובד, והרשימה שלא התקצרה הייתה הרמז היחיד.
+  const { data, error } = await sb.from('notifications').delete()
+    .eq('agent_id', currentAgent.id).eq('read', true).select('id');
+  if (error){ showToast('שגיאה במחיקת ההתראות'); return; }
+
+  const removed = (data || []).length;
+  showToast(removed === 0 ? 'לא נמחקה אף התראה — נסו לרענן את הדף'
+          : removed === 1 ? 'התראה אחת נמחקה'
+          : `${removed} התראות נמחקו`);
   await loadNotifications(currentAgent.id);
 });
 
