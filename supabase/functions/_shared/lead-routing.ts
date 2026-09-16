@@ -82,6 +82,7 @@ const KNOWN_SOURCES = new Set([
   // מסלולים, והשאלה שהיומן קיים בשבילה היא איזה מהם הבוט באמת מייצר.
   "whatsapp_bot_owner_wizard",
   "whatsapp_bot_search_agent",
+  "whatsapp_bot_mortgage_calc",
 ]);
 
 /* ---------------------------------------------------------------------------

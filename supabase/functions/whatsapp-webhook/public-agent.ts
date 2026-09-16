@@ -1,6 +1,13 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { callClaude, COMMERCIAL_PTYPES, RESIDENTIAL_PTYPES } from "./agent.ts";
+import { sendImage } from "./whatsapp.ts";
+import {
+  LEAD_PURPOSES,
+  LEAD_TIMELINES,
+  PROJECT_PROPERTY_TYPES,
+  PROJECT_STAGES,
+} from "../_shared/projects.ts";
 
 // ============================================================================
 // הבוט הציבורי: מי שכתב למספר ואינו סוכן/ת רשום/ה.
@@ -49,9 +56,9 @@ import { callClaude, COMMERCIAL_PTYPES, RESIDENTIAL_PTYPES } from "./agent.ts";
 // ============================================================================
 
 const MODEL = "claude-opus-5";
-// ארבעה ולא שמונה: הזרימה כאן היא "להבין מה מחפשים → כלי אחד → לנסח".
-// אין כאן שרשרת של מצא-הצלב-עדכן כמו אצל הסוכנים.
-const MAX_TOOL_ITERATIONS = 4;
+// שישה: הזרימות כאן קצרות, אבל כבר לא תמיד כלי אחד — "חפש → שלח כרטיסים →
+// סכם" ו"חשב משכנתא → פתח ליד" הן שתיים ושלוש קריאות באותו תור.
+const MAX_TOOL_ITERATIONS = 6;
 // קצר מהחלון של הסוכנים. שיחה ציבורית היא בדרך כלל כמה שאלות על אותו חיפוש,
 // והיסטוריה ארוכה כאן היא בעיקר עלות.
 const HISTORY_LIMIT = 10;
@@ -72,10 +79,36 @@ const ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") || "";
 const LEAD_DAILY_CAP = 3;
 const LEAD_WINDOW_HOURS = 24;
 
+// כמה כרטיסי תמונה מותר לשלוח בתור אחד. וואטסאפ הוא ערוץ אישי, וארבע
+// תמונות ברצף הן הצפה ולא שירות.
+const MAX_CARDS_PER_TURN = 3;
+
 const DEAL_TYPES = ["sale", "rent"];
 const CATEGORIES = ["residential", "commercial"];
 const CONTACT_CHANNELS = ["whatsapp", "email", "both"];
 const PROPERTY_TYPES = [...new Set([...RESIDENTIAL_PTYPES, ...COMMERCIAL_PTYPES])];
+
+// ---------------------------------------------------------------------------
+// מחשבון המשכנתא — פורט מ-index.html ‏(updateCalculator)
+//
+// **אותה נוסחה ואותם ברירות מחדל, ובכוונה.** מחשבון שמחזיר בצ'אט מספר אחר
+// מזה שבאתר על אותם נתונים הוא לא "הבדל בעיגול" — הוא סיבה לא להאמין לאף
+// אחד משניהם. שינוי כאן מחייב שינוי שם, ולהפך.
+// ---------------------------------------------------------------------------
+const DEFAULT_RATE_PCT = 4.8;
+const DEFAULT_YEARS = 25;
+/** תקרות המימון המקובלות, כמו ב-index.html. מודול 2 §5.5. */
+const LTV_THRESHOLDS: Record<string, number> = {
+  single: 0.75,
+  replacement: 0.70,
+  investment: 0.50,
+};
+const BUYER_KINDS = Object.keys(LTV_THRESHOLDS);
+
+const DISCLAIMER =
+  "החישוב הוא הערכה כללית בלבד, לפי ריבית קבועה ומסלול אחד. התנאים בפועל " +
+  "נקבעים מול הבנק ותלויים בהכנסה, בהיסטוריית האשראי ובתמהיל המסלולים — " +
+  "ולכן מומלץ להיוועץ באופן פרטני עם יועץ/ת משכנתאות מוסמך/ת.";
 
 // ---------------------------------------------------------------------------
 // קטלוג ההתמחויות — פורט מ-assets/specialties.js
@@ -301,6 +334,147 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "search_projects",
+    description:
+      "מחפש פרויקטים חדשים מקבלן — דירות על הנייר ובבנייה. **זה מאגר נפרד " +
+      "מ-search_properties**, ושאלה על 'משהו חדש מקבלן', 'על הנייר' או " +
+      "'פרויקט' מגיעה לכאן. מחזיר טווחי מחיר וחדרים, שלב הבנייה, מועד אכלוס " +
+      "ושם היזם, עם קישור לדף הפרויקט.",
+    input_schema: {
+      type: "object",
+      properties: {
+        city: { type: "string" },
+        max_price: { type: "number", description: "תקציב — מסנן לפי מחיר הפתיחה." },
+        min_rooms: { type: "number" },
+        max_rooms: { type: "number" },
+        stage: {
+          type: "string",
+          enum: [...PROJECT_STAGES],
+          description:
+            "planning = בתכנון · pre_sale = טרום מכירה · under_construction = " +
+            "בבנייה · ready = מוכן לאכלוס · completed = הושלם.",
+        },
+        limit: { type: "integer", description: "ברירת מחדל 5." },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "project_lead",
+    description:
+      "מעביר פנייה ליזם של פרויקט חדש. **רק אחרי אישור מפורש.** אם נאמר על " +
+      "איזה פרויקט מדובר — להעביר project_slug, וזה מגיע ישירות ליזם שלו; " +
+      "בלעדיו זו פנייה כללית של מי שמחפש/ת פרויקט.",
+    input_schema: {
+      type: "object",
+      properties: {
+        full_name: { type: "string" },
+        phone: { type: "string", description: "רק אם נמסר מספר אחר מזה שכותבים ממנו." },
+        email: { type: "string" },
+        project_slug: {
+          type: "string",
+          description: "ה-slug שחזר מ-search_projects, כשהפנייה על פרויקט מסוים.",
+        },
+        cities: { type: "array", items: { type: "string" } },
+        rooms: { type: "array", items: { type: "number" }, description: "כמה חדרים מחפשים." },
+        max_price: { type: "number" },
+        timeline: {
+          type: "string",
+          enum: [...LEAD_TIMELINES],
+          description: "now · 3_months · 6_months · 12_months · exploring",
+        },
+        purpose: {
+          type: "string",
+          enum: [...LEAD_PURPOSES],
+          description: "residence · investment · upgrade · first_home",
+        },
+        message: { type: "string", description: "מה שנאמר, במילים של הפונה." },
+        consent: { type: "boolean", description: "אישור מפורש ליצירת קשר. בלי true הכלי מסרב." },
+      },
+      required: ["full_name", "consent"],
+    },
+  },
+  {
+    name: "mortgage_estimate",
+    description:
+      "מחשב החזר חודשי משוער ואחוז מימון — אותה נוסחה ואותן ברירות מחדל של " +
+      "המחשבון באתר. להשתמש בשאלות כמו 'כמה אוכל לקנות עם 500 אלף הון עצמי' " +
+      "או 'מה ההחזר על דירה ב-1.4 מיליון'. **חובה למסור בתשובה את " +
+      "ה-disclaimer שחוזר מהכלי** — ההערכה אינה ייעוץ.",
+    input_schema: {
+      type: "object",
+      properties: {
+        property_price: { type: "number", description: "מחיר הנכס בשקלים. חובה." },
+        equity: { type: "number", description: "ההון העצמי בשקלים. חובה." },
+        years: { type: "integer", description: `תקופה בשנים. ברירת מחדל ${DEFAULT_YEARS}.` },
+        interest_rate: {
+          type: "number",
+          description: `ריבית שנתית באחוזים. ברירת מחדל ${DEFAULT_RATE_PCT}.`,
+        },
+        buyer_kind: {
+          type: "string",
+          enum: BUYER_KINDS,
+          description:
+            "single = דירה יחידה (תקרה 75%) · replacement = דירה חלופית (70%) · " +
+            "investment = להשקעה (50%). ברירת מחדל single.",
+        },
+      },
+      required: ["property_price", "equity"],
+    },
+  },
+  {
+    name: "mortgage_lead",
+    description:
+      "מעביר פנייה ליועץ/ת משכנתאות. **רק אחרי שהוצגה ההערכה, נאמר שהיא " +
+      "הערכה בלבד, נשאל אם רוצים שיועץ/ת ייצור קשר — והתשובה הייתה כן מפורש.**",
+    input_schema: {
+      type: "object",
+      properties: {
+        full_name: { type: "string" },
+        phone: { type: "string", description: "רק אם נמסר מספר אחר מזה שכותבים ממנו." },
+        email: { type: "string" },
+        property_price: { type: "number" },
+        equity: { type: "number" },
+        years: { type: "integer" },
+        interest_rate: { type: "number" },
+        monthly_payment: { type: "number", description: "ההחזר שחזר מ-mortgage_estimate." },
+        owns_property: { type: "boolean", description: "האם יש כבר נכס בבעלות." },
+        consent: { type: "boolean", description: "אישור מפורש ליצירת קשר. בלי true הכלי מסרב." },
+      },
+      required: ["full_name", "consent"],
+    },
+  },
+  {
+    name: "send_property_card",
+    description:
+      "שולח תמונה של נכס עם שורה קצרה והקישור — כרטיס אחד לכל נכס, עד " +
+      MAX_CARDS_PER_TURN + " בתור. **זו הדרך להציג נכסים**: וואטסאפ הוא ערוץ " +
+      "ויזואלי, וקישור בלי תמונה כמעט לא נפתח. לשלוח את הכרטיסים ואז לכתוב " +
+      "משפט סיכום קצר — בלי לחזור על הפרטים שכבר בכיתוב. נכס בלי תמונות " +
+      "חוזר עם sent=false, ואז מזכירים אותו בטקסט עם הקישור.",
+    input_schema: {
+      type: "object",
+      properties: {
+        items: {
+          type: "array",
+          maxItems: MAX_CARDS_PER_TURN,
+          items: {
+            type: "object",
+            properties: {
+              property_id: { type: "string" },
+              note: {
+                type: "string",
+                description: "חצי שורה למה דווקא הוא ('הכי קרוב לתקציב'). אופציונלי.",
+              },
+            },
+            required: ["property_id"],
+          },
+        },
+      },
+      required: ["items"],
+    },
+  },
+  {
     name: "save_search_alert",
     description:
       "שומר חיפוש למי שמחפש/ת נכס, כדי שיקבל/תקבל עדכון כשיעלה נכס מתאים. " +
@@ -425,6 +599,8 @@ interface PublicContext {
   conv: PublicConversationState;
   /** המספר שממנו נכתבה ההודעה — ברירת המחדל לטלפון בליד */
   waPhone: string;
+  /** כרטיסי תמונה שכבר נשלחו בתור הזה. מאופס בכל תור, ואינו נשמר. */
+  cardsSent: number;
 }
 
 function clampLimit(value: unknown, fallback: number, max: number): number {
@@ -729,6 +905,261 @@ async function findProfessionals(
 }
 
 // ---------------------------------------------------------------------------
+// פרויקטים חדשים מקבלן
+// ---------------------------------------------------------------------------
+
+const PROJECT_FIELDS = [
+  "id", "slug", "name", "tagline", "marketing_summary", "city", "street",
+  "project_stage", "occupancy_date", "occupancy_text", "total_units",
+  "available_units", "min_price", "max_price", "min_rooms", "max_rooms",
+  "min_size_sqm", "max_size_sqm", "property_types", "features", "cover_url",
+  "developer_name", "developer_slug", "is_promoted", "published_at",
+].join(", ");
+
+const STAGE_LABELS: Record<string, string> = {
+  planning: "בתכנון",
+  pre_sale: "טרום מכירה",
+  under_construction: "בבנייה",
+  ready: "מוכן לאכלוס",
+  completed: "הושלם",
+};
+
+async function searchProjects(
+  ctx: PublicContext,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const limit = clampLimit(args.limit, 5, MAX_RESULTS);
+
+  // ‏projects_public כבר מסננת לפרויקטים חיים: סטטוס פעיל, יזם פעיל, מנוי
+  // בתוקף ותאריך פרסום שעבר. אין כאן מה להוסיף עליה.
+  let query = ctx.supabase.from("projects_public").select(PROJECT_FIELDS);
+
+  const city = text(args.city);
+  if (city) query = query.ilike("city", likeSafe(city));
+
+  const stage = text(args.stage);
+  if (stage && (PROJECT_STAGES as readonly string[]).includes(stage)) {
+    query = query.eq("project_stage", stage);
+  }
+
+  const num = (v: unknown): number | null => {
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? n : null;
+  };
+  // התקציב מושווה למחיר **הפתיחה**: פרויקט שמתחיל מתחת לתקציב רלוונטי גם
+  // אם יש בו דירות יקרות יותר. השוואה ל-max_price הייתה מסתירה אותו.
+  const maxPrice = num(args.max_price);
+  if (maxPrice !== null) query = query.lte("min_price", maxPrice);
+  // ואותו היגיון הפוך בחדרים: פרויקט נכנס אם הטווח שלו נוגע במבוקש.
+  const minRooms = num(args.min_rooms);
+  const maxRooms = num(args.max_rooms);
+  if (minRooms !== null) query = query.gte("max_rooms", minRooms);
+  if (maxRooms !== null) query = query.lte("min_rooms", maxRooms);
+
+  const { data, error } = await query
+    .order("is_promoted", { ascending: false })
+    .order("published_at", { ascending: false, nullsFirst: false })
+    .limit(limit);
+
+  if (error) return { error: "search_failed", detail: error.message };
+
+  return {
+    count: (data || []).length,
+    projects: (data || []).map((p) => {
+      // deno-lint-ignore no-explicit-any
+      const r = p as any;
+      return {
+        slug: r.slug,
+        name: r.name,
+        tagline: r.tagline || r.marketing_summary || null,
+        developer: r.developer_name,
+        where: [r.street, r.city].filter(Boolean).join(", "),
+        stage: STAGE_LABELS[r.project_stage] || r.project_stage,
+        occupancy: r.occupancy_text || r.occupancy_date || null,
+        price_from: r.min_price === null ? null : Number(r.min_price),
+        price_to: r.max_price === null ? null : Number(r.max_price),
+        rooms_from: r.min_rooms === null ? null : Number(r.min_rooms),
+        rooms_to: r.max_rooms === null ? null : Number(r.max_rooms),
+        property_types: r.property_types || [],
+        available_units: r.available_units,
+        has_cover: !!r.cover_url,
+        url: `${SITE_BASE}/project.html?slug=${r.slug}`,
+      };
+    }),
+    all_projects_url: `${SITE_BASE}/projects.html`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// מחשבון המשכנתא
+// ---------------------------------------------------------------------------
+
+/** לוח שפיצר — אותה נוסחה שב-index.html. */
+function monthlyPayment(loan: number, annualRatePct: number, years: number): number {
+  const monthlyRate = (annualRatePct / 100) / 12;
+  const n = years * 12;
+  if (loan <= 0 || monthlyRate <= 0) return 0;
+  return loan * (monthlyRate * Math.pow(1 + monthlyRate, n)) /
+    (Math.pow(1 + monthlyRate, n) - 1);
+}
+
+function mortgageEstimate(args: Record<string, unknown>): unknown {
+  const price = Number(args.property_price);
+  const equity = Number(args.equity);
+  if (!Number.isFinite(price) || price <= 0) {
+    return { error: "missing_price", note: "צריך לשאול מה מחיר הנכס." };
+  }
+  if (!Number.isFinite(equity) || equity < 0) {
+    return { error: "missing_equity", note: "צריך לשאול כמה הון עצמי יש." };
+  }
+
+  const years = Number.isFinite(Number(args.years))
+    ? Math.min(Math.max(Math.round(Number(args.years)), 1), 40)
+    : DEFAULT_YEARS;
+  const rate = Number.isFinite(Number(args.interest_rate)) && Number(args.interest_rate) > 0
+    ? Number(args.interest_rate)
+    : DEFAULT_RATE_PCT;
+
+  const loan = Math.max(price - equity, 0);
+  const monthly = Math.round(monthlyPayment(loan, rate, years));
+  // העיגול קודם להשוואה, כמו באתר: בלעדיו מימון של 75.1% היה מודיע
+  // ש-75% חורג מ-75%.
+  const ltvPct = price > 0 ? Math.round((loan / price) * 100) : 0;
+
+  const kind = BUYER_KINDS.includes(String(args.buyer_kind))
+    ? String(args.buyer_kind)
+    : "single";
+  const capPct = Math.round(LTV_THRESHOLDS[kind] * 100);
+
+  return {
+    property_price: price,
+    equity,
+    loan_amount: loan,
+    years,
+    interest_rate: rate,
+    monthly_payment: monthly,
+    ltv_pct: ltvPct,
+    ltv_cap_pct: capPct,
+    over_cap: ltvPct > capPct,
+    over_cap_note: ltvPct > capPct
+      ? `אחוז המימון הנדרש (${ltvPct}%) חורג מהתקרה המקובלת (${capPct}%). ` +
+        "צריך הון עצמי גבוה יותר, או נכס זול יותר."
+      : null,
+    assumptions: `${years} שנים בריבית ${rate}%` +
+      (args.years === undefined && args.interest_rate === undefined
+        ? " (ברירות המחדל של המחשבון באתר — אפשר לשנות)"
+        : ""),
+    // ההוראות מחייבות למסור את זה, ולכן הוא חוזר בכל תשובה ולא רק כשחורגים
+    disclaimer: DISCLAIMER,
+    calculator_url: `${SITE_BASE}/index.html#calc`,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// כרטיס נכס עם תמונה
+// ---------------------------------------------------------------------------
+
+function nis(n: number): string {
+  return Math.round(n).toLocaleString("he-IL");
+}
+
+/** הכיתוב של הכרטיס: שורה על הנכס, שורת פרטים, וקישור. */
+// deno-lint-ignore no-explicit-any
+function cardCaption(p: any, note: string | null): string {
+  const facts = [
+    p.rooms ? `${Number(p.rooms)} חד'` : null,
+    p.size_sqm ? `${Number(p.size_sqm)} מ"ר` : null,
+    p.floor !== null && p.floor !== undefined ? `קומה ${p.floor}` : null,
+  ].filter(Boolean).join(" · ");
+
+  return [
+    maskHouseNumber(p.title, p.house_number),
+    publicWhere(p),
+    [p.price ? `${nis(Number(p.price))} ₪` : null, facts].filter(Boolean).join(" · "),
+    note ? `\n${note}` : null,
+    `\n${propertyUrl(p.id)}`,
+  ].filter(Boolean).join("\n");
+}
+
+async function sendPropertyCards(
+  ctx: PublicContext,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const items = Array.isArray(args.items) ? args.items : [];
+  if (!items.length) return { error: "no_items" };
+
+  const remaining = MAX_CARDS_PER_TURN - ctx.cardsSent;
+  if (remaining <= 0) {
+    return {
+      sent: 0,
+      error: "card_limit_reached",
+      note: "נשלחו כבר מספיק תמונות בתור הזה. את השאר להזכיר בטקסט עם הקישור.",
+    };
+  }
+
+  const results: Record<string, unknown>[] = [];
+
+  for (const raw of items.slice(0, remaining)) {
+    const item = (raw || {}) as Record<string, unknown>;
+    const id = text(item.property_id);
+    if (!id) continue;
+
+    const { data } = await ctx.supabase
+      .from("properties")
+      .select(PROPERTY_FIELDS)
+      .eq("id", id)
+      .eq("status", "active")
+      .maybeSingle();
+
+    if (!data) {
+      results.push({ property_id: id, sent: false, reason: "not_active" });
+      continue;
+    }
+    // deno-lint-ignore no-explicit-any
+    const p = data as any;
+    const image = (p.images || [])[0];
+    if (!image) {
+      results.push({ property_id: id, sent: false, reason: "no_photo", url: propertyUrl(p.id) });
+      continue;
+    }
+
+    const caption = cardCaption(p, text(item.note));
+    try {
+      await sendImage(ctx.waPhone, image, caption);
+      ctx.cardsSent += 1;
+      ctx.conv.last_property_id = p.id;
+      await ctx.supabase.from("whatsapp_messages").insert({
+        direction: "out",
+        wa_phone: ctx.waPhone,
+        msg_type: "image",
+        body: caption,
+        media_url: image,
+      });
+      results.push({ property_id: id, sent: true });
+    } catch (err) {
+      // תמונה שלא נשלחה אינה סוף העולם — הקישור עדיין עובד, והמודל יידע
+      // להזכיר את הנכס בטקסט
+      console.error("card send failed", err);
+      results.push({
+        property_id: id,
+        sent: false,
+        reason: "send_failed",
+        url: propertyUrl(p.id),
+      });
+    }
+  }
+
+  const sent = results.filter((r) => r.sent).length;
+  return {
+    sent,
+    results,
+    note: sent
+      ? "הכרטיסים נשלחו. עכשיו משפט סיכום קצר בלבד — בלי לחזור על הפרטים שבכיתוב."
+      : "לא נשלחה אף תמונה. להזכיר את הנכסים בטקסט, כל אחד עם הקישור שלו.",
+  };
+}
+
+// ---------------------------------------------------------------------------
 // קליטת לידים
 // ---------------------------------------------------------------------------
 
@@ -935,6 +1366,106 @@ async function ownerLead(
   };
 }
 
+async function projectLead(
+  ctx: PublicContext,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  if (args.consent !== true) {
+    return { error: "consent_required", note: "בלי אישור מפורש אין פנייה. לשאול, ולא להניח." };
+  }
+  const fullName = text(args.full_name);
+  if (!fullName || fullName.length < 2) {
+    return { error: "missing_name", note: "צריך לשאול לשם." };
+  }
+  if (!takeLeadSlot(ctx.conv)) {
+    return { error: "lead_cap_reached", note: "נפתחו כבר מספיק פניות מהמספר הזה היום." };
+  }
+
+  const rooms = Array.isArray(args.rooms)
+    ? args.rooms.map((r) => Number(r)).filter((r) => Number.isFinite(r) && r > 0).slice(0, 8)
+    : [];
+
+  const { ok, status, body } = await callIntake("project-lead-intake", {
+    full_name: fullName,
+    phone: text(args.phone) || ctx.waPhone,
+    email: text(args.email),
+    project_slug: text(args.project_slug),
+    cities: strListArg(args.cities, 8),
+    rooms,
+    max_price: args.max_price,
+    timeline: text(args.timeline),
+    purpose: text(args.purpose),
+    message: typeof args.message === "string" ? args.message.slice(0, 2000) : null,
+    source: "whatsapp_bot",
+  });
+
+  if (!ok) {
+    if (body.error === "rate_limited") {
+      return { created: false, error: "rate_limited", note: "נפתחו כבר מספיק פניות היום." };
+    }
+    if (body.error === "project_not_found") {
+      return {
+        created: false,
+        error: "project_not_found",
+        note: "הפרויקט אינו פעיל. לחפש שוב עם search_projects ולא לנחש slug.",
+      };
+    }
+    return { created: false, error: body.error || `http_${status}`, detail: body.detail };
+  }
+
+  return {
+    created: true,
+    // ‏direct=true פירושו שהפנייה נחתה אצל היזם של הפרויקט עצמו
+    what_happens: body.direct
+      ? "הפנייה הועברה ליזם של הפרויקט, שייצור קשר."
+      : "הפנייה נשמרה ותועבר ליזמים שמשווקים פרויקטים מתאימים.",
+    privacy_note: "יש לומר שהשם והטלפון נמסרים ליזם לצורך יצירת הקשר הזה.",
+  };
+}
+
+async function mortgageLead(
+  ctx: PublicContext,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  if (args.consent !== true) {
+    return { error: "consent_required", note: "בלי אישור מפורש אין פנייה. לשאול, ולא להניח." };
+  }
+  const fullName = text(args.full_name);
+  if (!fullName || fullName.length < 2) {
+    return { error: "missing_name", note: "צריך לשאול לשם." };
+  }
+  if (!takeLeadSlot(ctx.conv)) {
+    return { error: "lead_cap_reached", note: "נפתחו כבר מספיק פניות מהמספר הזה היום." };
+  }
+
+  const { ok, status, body } = await callIntake("mortgage-lead-intake", {
+    full_name: fullName,
+    phone: text(args.phone) || ctx.waPhone,
+    email: text(args.email),
+    owns_property: args.owns_property === true,
+    property_price: args.property_price,
+    equity: args.equity,
+    interest_rate: args.interest_rate,
+    years: args.years,
+    monthly_payment: args.monthly_payment,
+    source: "whatsapp_bot",
+  });
+
+  if (!ok) {
+    return { created: false, error: body.error || `http_${status}`, detail: body.detail };
+  }
+
+  return {
+    created: true,
+    // ‏duplicate = כבר יש פנייה פתוחה מאותו מספר. מבחינת הפונה זו הצלחה.
+    duplicate: body.duplicate === true,
+    what_happens:
+      "הפרטים הועברו, ויועץ/ת משכנתאות ייצור קשר. אין התחייבות לזמן תגובה.",
+    privacy_note:
+      "יש לומר שהשם, הטלפון ונתוני החישוב נמסרים ליועץ/ת משכנתאות לצורך יצירת הקשר.",
+  };
+}
+
 async function runTool(
   ctx: PublicContext,
   name: string,
@@ -954,6 +1485,16 @@ async function runTool(
         return await saveSearchAlert(ctx, args);
       case "owner_lead":
         return await ownerLead(ctx, args);
+      case "search_projects":
+        return await searchProjects(ctx, args);
+      case "project_lead":
+        return await projectLead(ctx, args);
+      case "mortgage_estimate":
+        return mortgageEstimate(args);
+      case "mortgage_lead":
+        return await mortgageLead(ctx, args);
+      case "send_property_card":
+        return await sendPropertyCards(ctx, args);
       default:
         return { error: "unknown_tool", name };
     }
@@ -983,6 +1524,35 @@ function systemPrompt(conv: PublicConversationState): string {
     "- בלי טבלאות ובלי כותרות מעוצבות. רשימה קצרה עם מקף היא הפורמט.",
     "- כל נכס שמוזכר מגיע עם הקישור שלו מהכלי, כלשונו. בלי קישור אין טעם.",
     "",
+    "הצגת נכסים — בתמונה:",
+    "- מצאת נכסים מתאימים? **send_property_card**, עד שלושה, ואז משפט סיכום " +
+      "קצר. וואטסאפ הוא ערוץ ויזואלי, וקישור בלי תמונה כמעט לא נפתח.",
+    "- הכיתוב כבר מכיל שם, מיקום, מחיר, חדרים וקישור. **אין לחזור עליהם " +
+      "בטקסט** — משפט אחד שמחבר (\"שלושה שמתאימים לתקציב, השני הכי קרוב " +
+      "למרכז\") ושאלה אחת קדימה.",
+    "- נכס שחזר sent=false — להזכיר אותו בטקסט עם הקישור שחזר, בלי להתנצל.",
+    "",
+    "פרויקטים חדשים מקבלן:",
+    "- **שני מאגרים נפרדים.** ‏search_properties הוא נכסים יד שנייה מהמשרדים; " +
+      "‏search_projects הוא פרויקטים מקבלן. \"משהו חדש\", \"על הנייר\", " +
+      "\"מקבלן\" או \"פרויקט\" = search_projects. מי שלא אמר/ה — ואפשר " +
+      "ששניהם מתאימים — מקבל/ת את שניהם, קודם הנכסים.",
+    "- פרויקט הוא טווח ולא נכס: מחיר מ-, חדרים מ-עד, שלב בנייה ומועד אכלוס. " +
+      "לנסח ככה, ולא כאילו מדובר בדירה אחת.",
+    "",
+    "משכנתא:",
+    "- שאלה על החזר חודשי, כמה אפשר לקנות או אחוז מימון = **mortgage_estimate**. " +
+      "חסר מחיר או הון עצמי — לשאול, לא להניח.",
+    "- **חובה למסור את ה-disclaimer שחוזר מהכלי**, ולא לנסח אותו מחדש. זו " +
+      "הערכה כללית, לא ייעוץ, והתנאים בפועל נקבעים מול הבנק.",
+    "- לומר גם את assumptions (כמה שנים ובאיזו ריבית) — מספר בלי ההנחות שמאחוריו " +
+      "נשמע כמו הצעה.",
+    "- אם over_cap — למסור את over_cap_note. זו המסקנה החשובה בתשובה.",
+    "- **ואז שאלה אחת**: שיועץ/ת משכנתאות ייצור קשר ויבדוק את התמונה המלאה? " +
+      "כן מפורש = mortgage_lead עם הנתונים מהחישוב. לא = לסיים יפה, בלי לשאול שוב.",
+    "- אין לומר אם ריבית היא טובה, אם כדאי לקחת מסלול כזה או אחר, ואין להמליץ " +
+      "על בנק.",
+    "",
     "כללים שאין לחרוג מהם:",
     "- **רק מה שחזר מהכלים.** אין להמציא נכס, מחיר, משרד או נתון. אם הכלי " +
       "החזיר ריק — לומר שלא נמצא, ולהציע להרחיב טווח או אזור.",
@@ -1006,7 +1576,7 @@ function systemPrompt(conv: PublicConversationState): string {
       "המשרד בפועל ולא מהצהרה שלו. לנסח בהתאם (\"לפי הנכסים שהוא מפרסם\").",
     "- להציע עד שלושה משרדים, עם מה שמייחד כל אחד ועם הקישור לדף שלו.",
     "",
-    "השארת פרטים — שני תרחישים, ורק הם:",
+    "השארת פרטים — ארבעה מסלולים, ורק הם:",
     "",
     "**א. מחפש/ת שלא מצאנו לו/ה כלום.** אחרי חיפוש שחזר ריק או דל, ואחרי " +
       "שהצעת להרחיב טווח — שאלה אחת קצרה: לעדכן כשיעלה נכס כזה? אם כן — " +
@@ -1024,15 +1594,25 @@ function systemPrompt(conv: PublicConversationState): string {
     "- זו פנייה לתיווך, ויש לומר זאת במילים האלה. מי שרצה/תה רק הערכת מחיר " +
       "יקבל/תקבל הסבר, לא ליד.",
     "",
-    "מה שנכון לשניהם:",
+    "**ג. מתעניין/ת בפרויקט מקבלן.** אחרי search_projects, למי שרוצה פרטים, " +
+      "מחירון או לתאם — להציע שהיזם ייצור קשר. אחרי אישור: project_lead, עם " +
+      "ה-slug של הפרויקט אם מדובר באחד מסוים.",
+    "",
+    "**ד. מי שצריך/ה משכנתא.** אחרי mortgage_estimate ואחרי ה-disclaimer — " +
+      "לשאול אם רוצים שיועץ/ת ייצור קשר. אחרי אישור: mortgage_lead.",
+    "",
+    "מה שנכון לארבעתם:",
     "- **המספר שממנו כותבים הוא ברירת המחדל לטלפון, ויש לומר את זה**: " +
       "\"אשתמש במספר שממנו את/ה כותב/ת\". מי שמעדיף/ה מספר או מייל אחר — " +
       "לשאול ולהעביר בפרמטר.",
     "- לומר בפשטות מה קורה עם הפרטים לפני שקוראים לכלי: למי הם מגיעים ולשם מה.",
     "- אחרי הכלי — לומר את what_happens שחזר, כלשונו ובלי לייפות. אם חזר " +
       "‏matched=false, אין להבטיח שמישהו יחזור.",
-    "- **אין לקרוא לאף אחד משני הכלים בלי שנאמר \"כן\" ברור.** נימוס אינו " +
+    "- **אין לקרוא לאף אחד מארבעת הכלים בלי שנאמר \"כן\" ברור.** נימוס אינו " +
       "הסכמה, שתיקה אינה הסכמה, ו\"תשלח לי מה שיש\" אינו אישור ליצירת קשר.",
+    "- **שאלה אחת בכל שיחה, לא ארבע.** מי שסירב/ה למסלול אחד לא נשאל/ת על " +
+      "האחרים, ומי שכבר השאיר/ה פרטים לא נשאל/ת שוב. בוט שמנסה למכור בכל " +
+      "הזדמנות הוא בוט שסוגרים.",
     "- אם חזר lead_cap_reached — לומר שאפשר להמשיך באתר, ולא לנסות שוב.",
     "",
     "גבולות התפקיד:",
@@ -1075,7 +1655,7 @@ export async function runPublicTurn(opts: {
   waPhone: string;
 }): Promise<string> {
   const { supabase, conv, userText, waPhone } = opts;
-  const ctx: PublicContext = { supabase, conv, waPhone };
+  const ctx: PublicContext = { supabase, conv, waPhone, cardsSent: 0 };
 
   const messages: Anthropic.MessageParam[] = [
     ...conv.history,
@@ -1088,11 +1668,12 @@ export async function runPublicTurn(opts: {
     const response = await callClaude({
       model: MODEL,
       max_tokens: 2048,
-      // ‏low ולא medium: ארבעה כלים, וההחלטה ביניהם כמעט תמיד חד-משמעית
-      // ("דירה בעפולה" → search, "מי מתמחה ב…" → agencies). זה גם הבלם
-      // הראשון על עלות בערוץ שפתוח לכל העולם. אם יתברר שהבוט מפספס סינון
-      // או בוחר כלי לא נכון — להעלות ל-medium, זו הידית הראשונה.
-      output_config: { effort: "low" },
+      // ‏low הספיק כשהיו כאן ארבעה כלי חיפוש וההחלטה ביניהם הייתה חד-משמעית.
+      // עם אחד-עשר כלים, שני מאגרים נפרדים (נכסים מול פרויקטים) וארבעה
+      // מסלולי ליד שכל אחד מהם נעול מאחורי אישור מפורש — ההחלטות הן בדיוק
+      // אלה ש-low טועה בהן, וטעות כאן היא ליד שנפתח בלי שביקשו. אם הלטנטיות
+      // בצ'אט תיעשה מורגשת, הידית היא לצמצם כלים ולא לרדת בחזרה.
+      output_config: { effort: "medium" },
       system: systemPrompt(conv),
       tools: TOOLS,
       messages,

@@ -36,6 +36,40 @@ export async function sendText(to: string, body: string): Promise<void> {
   }
 }
 
+// כיתוב של הודעת תמונה מוגבל ל-1024 תווים, ולא ל-4096 כמו טקסט. הודעה
+// שחורגת נדחית כולה, כלומר גם התמונה אינה נשלחת.
+const MAX_CAPTION_LEN = 1024;
+
+/**
+ * שולחת תמונה עם כיתוב. ‏WhatsApp מושכת את הקובץ מהכתובת בעצמה, ולכן היא
+ * חייבת להיות ציבורית — תמונות הנכסים ב-Storage הן.
+ */
+export async function sendImage(
+  to: string,
+  imageUrl: string,
+  caption: string,
+): Promise<void> {
+  const text = caption.length > MAX_CAPTION_LEN
+    ? caption.slice(0, MAX_CAPTION_LEN - 1) + "…"
+    : caption;
+
+  const res = await fetch(`${GRAPH_BASE}/${PHONE_NUMBER_ID}/messages`, {
+    method: "POST",
+    headers: authHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to,
+      type: "image",
+      image: { link: imageUrl, caption: text },
+    }),
+  });
+
+  if (!res.ok) {
+    throw new Error(`whatsapp image send failed ${res.status}: ${await res.text()}`);
+  }
+}
+
 /**
  * מסמנת את ההודעה כנקראה (הסימון הכחול) ומדליקה חיווי "מקליד…".
  * נכשלת בשקט: זה קישוט UX, לא חלק מהזרימה.

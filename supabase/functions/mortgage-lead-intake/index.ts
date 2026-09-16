@@ -72,7 +72,10 @@ Deno.serve(async (req: Request) => {
 
   // ‏source הוא תווית סגורה ולא טקסט חופשי מהדפדפן — היא מוצגת ליועצ/ת במדף
   // ומשמשת לפילוח, ואין סיבה לתת ללקוח לכתוב לתוכה מה שירצה.
-  const SOURCES = ["homepage_calculator", "property_page"];
+  // ‏whatsapp_bot: אותו מחשבון בדיוק, רק שהחישוב נעשה בצ'אט ולא בסליידרים.
+  // תווית נפרדת כי ליד שהגיע משיחה אינו אותו ליד שהגיע ממי שגרר סליידר —
+  // וזו בדיוק ההבחנה שהמדף קיים כדי להציג ליועצ/ת.
+  const SOURCES = ["homepage_calculator", "property_page", "whatsapp_bot"];
   const source = SOURCES.includes(body.source) ? body.source : "homepage_calculator";
 
   // ‏property_id נכתב רק אם הוא UUID תקין. ערך שגוי היה מפיל את ה-insert על
@@ -123,7 +126,11 @@ Deno.serve(async (req: Request) => {
      להתראה אצל מנהל/ת הפלטפורמה. */
   const advisors = await audienceSize(serviceClient, "mortgage_advisor");
   await logLeadRouting(serviceClient, {
-    source: source === "property_page" ? "property_page_mortgage_calc" : "homepage_mortgage_calc",
+    source: source === "property_page"
+      ? "property_page_mortgage_calc"
+      : source === "whatsapp_bot"
+      ? "whatsapp_bot_mortgage_calc"
+      : "homepage_mortgage_calc",
     lead_kind: "mortgage_advisor",
     lead_table: "mortgage_leads",
     lead_id: data.id,
