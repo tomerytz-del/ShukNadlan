@@ -117,9 +117,7 @@
    הגובה נקבע ורוחב auto נגזר מה-viewBox, כדי שהיחס יישמר בלי לקודד אותו
    כאן פעם שנייה (הוא כבר מחושב ב-OpenHouse.icon). */
 @media(max-width:559px){
-  /* ‏flex-start ולא center: כשהסימן עובר לצד הטקסט, מירכוז אנכי מציב אותו
-     מול אמצע הפסקה — נראה כמו שריד. לצד הכותרת הוא נקרא כחלק ממנה. */
-  .oh-banner{gap:12px;padding:16px;align-items:flex-start}
+  .oh-banner{gap:12px;padding:16px}
   .oh-banner-body{flex:1 1 0}
   .oh-banner .oh-mark{flex:none;height:56px;width:auto}
   .oh-banner-cta{flex:1 0 100%;text-align:center}

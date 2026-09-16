@@ -1981,24 +1981,49 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      פשוט לא ידעו שיש שם עוד שתי לשוניות — ורוב מי שנכנס לא ראה את המתווכים
      ואת בעלי המקצוע מעולם.
 
-     שלושה שינויים, כל אחד מהם מוסיף סימן ש"זה נלחץ": משטח לבן משלו לכל
-     לשונית, מסגרת שנראית על המגש, ומצב ‎hover‎ שלא היה קיים כאן כלל. */
+     **ההדגשה היא על הלשוניות הכבויות, לא על הפעילה.** הפעילה ממילא הבולטת
+     ביותר — מלבן נייבי מלא — ומי שמפספס אותה לא קיים. מה שפוספס הוא שתי
+     האחרות, ולכן הן אלה שמקבלות את הטיפול.
+
+     והשפה היא מצב הכפתור עצמו: **הכבויות מורמות והפעילה שקועה.** כפתור
+     שלא נלחץ בולט החוצה, וכפתור לחוץ נכנס פנימה — כך ההבלטה אינה קישוט
+     שהודבק מלמעלה אלא אמירה נכונה על מה שאפשר לעשות כאן. */
   .dm-tabs{
     display:flex;gap:5px;background:var(--teal-tint);
     border:1px solid rgba(14,42,107,.18);padding:5px;
   }
   .dm-tabs button{
-    flex:1;min-height:44px;padding:0 10px;border:1px solid var(--line);border-radius:0;cursor:pointer;
-    font-family:inherit;font-size:.8rem;font-weight:700;color:var(--teal);background:var(--paper-raised);
-    white-space:nowrap;
-    transition:background .18s ease, color .18s ease, border-color .18s ease;
+    flex:1;min-height:44px;padding:0 10px;border-radius:0;cursor:pointer;
+    font-family:inherit;font-size:.8rem;font-weight:700;white-space:nowrap;
+    /* המסגרת קודם הייתה ‎--line‎ (‏#e3e8f4) — כמעט בצבע המגש, ולכן היא לא
+       תחמה דבר. נייבי מלא הוא מה שהופך את הכבויות לכפתורים במבט אחד. */
+    border:1.5px solid var(--teal);color:var(--teal);
+    background:linear-gradient(180deg,#fff,var(--teal-tint));
+    box-shadow:0 2px 0 var(--teal), 0 4px 9px rgba(13,27,61,.18);
+    transform:translateY(-1px);
+    transition:background .18s ease, color .18s ease, border-color .18s ease,
+               transform .15s ease, box-shadow .15s ease;
   }
-  .dm-tabs button:not([aria-selected="true"]):hover{border-color:var(--teal);color:var(--teal-dark)}
+  .dm-tabs button:not([aria-selected="true"]):hover{
+    background:#fff;box-shadow:0 2px 0 var(--teal), 0 6px 14px rgba(13,27,61,.22);
+    transform:translateY(-2px);
+  }
+  /* הפעילה יורדת למקומה ומאבדת את קו ההרמה: זה מה שקורה לכפתור שנלחץ. */
   .dm-tabs button[aria-selected="true"]{
-    background:var(--teal);color:#fff;border-color:var(--teal);box-shadow:var(--shadow-sm);
+    background:var(--teal);color:#fff;border-color:var(--teal);
+    box-shadow:inset 0 2px 5px rgba(0,0,0,.4);
+    transform:none;
   }
   .dm-tabs button:disabled{opacity:.45;cursor:default}
-  .dm-tabs button:disabled:hover{border-color:var(--line);color:var(--teal)}
+  .dm-tabs button:disabled,
+  .dm-tabs button:disabled:hover{
+    box-shadow:none;transform:none;background:var(--paper-raised);
+  }
+  /* מי שביקש/ה פחות תנועה מקבל/ת את אותו עיצוב בלי ההרמה המונפשת */
+  @media(prefers-reduced-motion:reduce){
+    .dm-tabs button{transition:none}
+    .dm-tabs button:not([aria-selected="true"]):hover{transform:translateY(-1px)}
+  }
   .dm-tabs .n{font-weight:800;font-size:.72rem;opacity:.72;margin-inline-start:4px}
 
   /* גוף הסקציה: תיבת החיפוש היא עמודה קבועה בקצה השמאלי, ושורת הכרטיסים
