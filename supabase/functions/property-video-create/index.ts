@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { ensureTagged } from "../_shared/visualization.ts";
+import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import {
   buildClipInput,
   buildScenePrompt,
@@ -13,7 +14,7 @@ import {
 } from "../_shared/property-video.ts";
 
 // ============================================================================
-// הפקת סרטון שיווקי לנכס — הכניסה מה-CRM.
+// הפקת סרטון שיווקי לנכס — הכניסה מה-CRM ומהעוזר בוואטסאפ.
 //
 // ‏POST { property_id, replace_existing?, aspect_ratio? }
 // מחזיר מיד ‎{ ok, job_id, clips }‎; הקליפים נוצרים אצל fal והתשובות חוזרות
@@ -34,6 +35,24 @@ import {
 //      משאירה את הסוכן/ת עם הסרטון שהיה לו/ה.
 //   3. **כישלון בשליחה מחזיר את הכסף מיד.** אם אף קליף לא נשלח ל-fal, אין
 //      מה לחכות לו — הבקשה נסגרת ככושלת וה-RPC מזכה את הארנק.
+//
+// ## שני קוראים, נקודת כניסה אחת
+//
+// ‏**הדפדפן** שולח את ה-JWT של הסוכן/ת, ומכאן נגזרת הזהות.
+//
+// ‏**העוזר בוואטסאפ** מזהה לפי מספר טלפון ורץ עם `service_role` — אין לו JWT
+// של משתמש/ת ולכן `auth.getUser()` שם מחזיר null. במקום זה הוא שולח
+// ‏`Authorization: Bearer <service_role>` ו-`agent_id` מפורש בגוף, ו-
+// ‏`authorizeInternalCaller` מאשר את הקורא.
+//
+// **שכפול הפונקציה לבוט לא בא בחשבון**, וזו אותה סיבה שבגללה ארבעת כלי
+// הלידים של הבוט הציבורי קוראים לנקודות הקליטה של האתר: הזכאות, התקרה
+// החודשית, החיוב, בחירת הסצנות, ההגנה על סרטון קיים וההחזר בכישלון —
+// כולם חיים כאן. עותק שני היה מתפצל מהם, והסרטון מוואטסאפ היה מתומחר אחרת
+// מזה שמהדשבורד בלי שאיש ישים לב.
+//
+// ‏`agent_id` מתקבל **רק** במסלול הפנימי. בבקשה עם JWT הוא נבלע — אחרת כל
+// סוכן/ת מחובר/ת היה/הייתה יכול/ה להפיק סרטון על חשבון ארנק של אחר/ת.
 // ============================================================================
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -77,19 +96,38 @@ Deno.serve(async (req: Request) => {
   const aspectRatio = body?.aspect_ratio === "9:16" ? "9:16" : "16:9";
 
   // ---- מי הסוכן/ת --------------------------------------------------------
-  const authedClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: authHeader } },
-  });
-  const { data: userData, error: userErr } = await authedClient.auth.getUser();
-  if (userErr || !userData?.user) return json({ error: "unauthorized" }, 401);
-
   const supabase = createClient(supabaseUrl, serviceRoleKey);
+  const internal = authorizeInternalCaller(req);
 
-  const { data: agentRow } = await supabase
-    .from("agency_members")
-    .select("id, active")
-    .eq("user_id", userData.user.id)
-    .maybeSingle();
+  let agentRow: { id: string; active: boolean } | null = null;
+
+  if (internal.ok) {
+    // המסלול הפנימי: העוזר בוואטסאפ. ‏`agent_id` הוא הזהות, והוא נאמן רק
+    // משום ש-`authorizeInternalCaller` כבר אישר שהקורא מחזיק ב-service_role.
+    const agentId = String(body?.agent_id || "");
+    if (!agentId) return json({ error: "missing_agent_id" }, 400);
+
+    const { data } = await supabase
+      .from("agency_members")
+      .select("id, active")
+      .eq("id", agentId)
+      .maybeSingle();
+    agentRow = data;
+  } else {
+    const authedClient = createClient(supabaseUrl, anonKey, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: userData, error: userErr } = await authedClient.auth.getUser();
+    if (userErr || !userData?.user) return json({ error: "unauthorized" }, 401);
+
+    const { data } = await supabase
+      .from("agency_members")
+      .select("id, active")
+      .eq("user_id", userData.user.id)
+      .maybeSingle();
+    agentRow = data;
+  }
+
   if (!agentRow) return json({ error: "no_matching_agent_profile" }, 403);
   if (!agentRow.active) return json({ error: "agent_inactive" }, 403);
 

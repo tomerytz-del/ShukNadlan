@@ -52,9 +52,30 @@
 //
 // **כישלון כאן לא מפיל הצטרפות.** משרד שנפתח והתראה שלא יצאה הם באג;
 // התראה שמפילה פתיחת משרד היא נזק. הפונקציה בולעת כל שגיאה ומדווחת ללוג.
+//
+// ## אבל שקט מוחלט הוא כשל בפני עצמו — וכך זה קרה
+//
+// שאילתת ה-member נכתבה עם ‎agencies(name, slug)‎ כ-embed, ו-PostgREST מחזיר
+// עליו ‎PGRST201 (HTTP 300)‎ — יש שני נתיבים בין `agency_members` ל-`agencies`
+// והוא מסרב לבחור (ההסבר המלא ב-`agency-lookup.ts`). **השאילתה כולה נכשלה**,
+// הפונקציה עשתה בדיוק מה שנכתב כאן — בלעה, רשמה ללוג, והמשיכה — ומנהל/ת
+// הפלטפורמה לא קיבל/ה ולו התראה אחת על אף הצטרפות. ב-16.9.2026 היו בלוג שתי
+// שורות ‎`member lookup failed`‎, ובטבלת `notifications` אפס שורות מסוג
+// ‏`platform_signup`. שום דבר אחר לא נראה שבור.
+//
+// שני תיקונים, ושניהם נדרשים:
+//
+//   1. **אין embed.** שם המשרד נטען בשאילתה שנייה לפי `agency_id`, בדיוק
+//      כמו ב-`crm.html` וב-`whatsapp-webhook/index.ts` שכבר נתקלו בזה.
+//      ‏`scripts/check_agency_embed.py` חוסם ב-CI embed חדש כזה.
+//   2. **כשל בשליפה מוריד פרטים, לא משתיק התראה.** התראה בלי שם משרד עדיין
+//      אומרת "מישהו הצטרף עכשיו, לך/י לדשבורד"; היעדר התראה אומר שלא קרה
+//      כלום. השקט הוא הכשל היקר מבין השניים, ולכן ‎announcePlatformSignup‎
+//      שולחת התראה מצומצמת גם כשהשליפה נכשלה.
 // ============================================================================
 
 import { PROMO_TIER, TIER_NAMES, type Tier } from "./launch-promo.ts";
+import { loadAgency } from "./agency-lookup.ts";
 
 const SITE_BASE = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il")
   .replace(/\/+$/, "");
@@ -84,6 +105,7 @@ interface AgencyRef {
 }
 
 interface MemberRow {
+  agency_id: string | null;
   display_name: string | null;
   slug: string | null;
   role: string | null;
@@ -91,15 +113,14 @@ interface MemberRow {
   promo_tier: string | null;
   promo_ends_at: string | null;
   promo_ended_at: string | null;
-  // ‏supabase-js מחזיר קשר to-one כאובייקט, אבל מערך של אחד הוא צורה חוקית
-  // באותה ספרייה בדיוק (ראו השימושים ב-‎(x as any).agencies?.name‎ בפונקציות
-  // האחרות). התראה בלי שם משרד אינה שווה כלום, ולכן שתי הצורות נתמכות.
-  agencies: AgencyRef | AgencyRef[] | null;
 }
 
-function agencyOf(row: MemberRow): AgencyRef | null {
-  const a = row.agencies;
-  return Array.isArray(a) ? (a[0] ?? null) : a;
+/** שם המשרד והכתובת שלו — בשאילתה נפרדת ולא ב-embed. ראו `_shared/agency-lookup.ts`. */
+async function agencyOf(
+  supabase: Client,
+  agencyId: string | null,
+): Promise<AgencyRef | null> {
+  return (await loadAgency(supabase, agencyId)) as AgencyRef | null;
 }
 
 /**
@@ -152,17 +173,27 @@ export async function announcePlatformSignup(
     const { data: member, error: memberErr } = await (supabase
       .from("agency_members")
       .select(
-        "display_name, slug, role, tier, promo_tier, promo_ends_at, promo_ended_at, agencies(name, slug)",
+        "agency_id, display_name, slug, role, tier, promo_tier, promo_ends_at, promo_ended_at",
       )
       .eq("id", memberId)
       .maybeSingle() as QueryResult<MemberRow | null>);
 
     if (memberErr || !member) {
+      // התראה מצומצמת ולא שתיקה. ראו ההסבר בראש הקובץ: זו בדיוק הנקודה שבה
+      // הבאג הקודם נעלם — כשל בשליפה הפך לאפס התראות במשך שבועות.
       console.error("platform signup alert: member lookup failed", memberErr?.message);
+      await notifyPlatformAdmins(
+        supabase,
+        kind === "agency" ? "משרד תיווך חדש הצטרף" : "מתווך/ת חדש/ה הצטרף/ה",
+        joinParts([
+          "לא הצלחנו לשלוף את הפרטים — הם בדשבורד",
+          `${SITE_BASE}/crm.html?goto=accSubscriptions`,
+        ]),
+      );
       return;
     }
 
-    const agency = agencyOf(member);
+    const agency = await agencyOf(supabase, member.agency_id);
     const agencyName = agency?.name || "";
     const agencySlug = agency?.slug || "";
     const who = member.display_name || "ללא שם";

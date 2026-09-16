@@ -55,7 +55,12 @@ import {
 // פחות. לכן כל תשובה כאן נגמרת בקישור. הפרטים: `docs/analytics-events.md`.
 // ============================================================================
 
-const MODEL = "claude-opus-5";
+// המודל כסוד, כמו בבוט של הסוכנים. **הבוט הציבורי הוא המועמד החזק יותר
+// למודל זול**: הוא נפח גבוה, חשוף לכל מי שראה את המספר, והמשימה שלו
+// (חיפוש והפניה) צרה מזו של העוזר. ברירת המחדל נשארת Opus עד שתימדד
+// איכות, והמתג נפרד כדי שאפשר יהיה להחליף כאן בלי לגעת בערוץ העבודה
+// של הסוכנים.
+const MODEL = Deno.env.get("WHATSAPP_PUBLIC_BOT_MODEL") || "claude-opus-5";
 // שישה: הזרימות כאן קצרות, אבל כבר לא תמיד כלי אחד — "חפש → שלח כרטיסים →
 // סכם" ו"חשב משכנתא → פתח ליד" הן שתיים ושלוש קריאות באותו תור.
 const MAX_TOOL_ITERATIONS = 6;
@@ -198,10 +203,82 @@ function maskHouseNumber(text: string | null, houseNumber: string | null): strin
     .trim();
 }
 
+/**
+ * מספר בית כשהעמודה `house_number` ריקה.
+ *
+ * ‏`maskHouseNumber` דורשת את הערך המדויק מהעמודה, ולכן כשהיא ריקה היא
+ * **לא עושה כלום** — וסוכן/ת שהקליד/ה "הרצל 25" לתוך `street` בלי למלא את
+ * השדה הנפרד מדליף/ה את מספר הבית למרות כל המיסוך. שתי מודעות פעילות הן
+ * כרגע במצב הזה.
+ *
+ * הגיזום מעוגן לסוף המחרוזת או לפסיק, כי שם יושב מספר בית — וכך "רחוב 60"
+ * הוא המחיר היחיד ששולמים, במקום לחתוך "3 חדרים" או "120 מ״ר" מכל טקסט.
+ */
+function stripTrailingStreetNumber(text: string): string {
+  return String(text || "")
+    .replace(/\s+\d{1,4}\s*(?=,|$)/g, "")
+    .trim();
+}
+
+/**
+ * ניקוי טקסט חופשי שיוצא לאדם זר.
+ *
+ * ‏**הכללים האלה היו עד עכשיו הוראות בפרומפט בלבד** — "כתובת מדויקת לא
+ * נמסרת", "מספרי טלפון לא נמסרים בצ'אט" — והטקסט החופשי של המודעה עבר
+ * מתחתיהן בלי בדיקה. הוראה היא בקשה מהמודל; זו הגנת פרטיות, ומקומה בקוד.
+ *
+ * ‏**וזו לא הייתה תיאוריה:** מודעה 1142 מסתיימת ב-"052-8616550 ציון חנו"
+ * בתוך `marketing_description`, והבוט היה מדקלם את המספר הזה לכל שואל.
+ *
+ * מה נמחק וממה:
+ *
+ *   ‏· **גוש וחלקה** — ראו למטה.
+ *
+ * ‏**טלפונים של סוכנים ומשרדים אינם נמחקים.** זו הייתה החלטה קודמת והיא
+ * התהפכה במפורש: הבוט **אמור** לחבר בין מתעניין/ת לסוכן/ת, וזו כל תכליתו.
+ * מה שנשמר הוא ההפרדה בין *מי מפרסם* לבין *מה מפרסמים עליו*: הטלפון של
+ * הסוכן/ת הוא ערוץ שהוא/היא בחר/ה לפרסם, והכתובת המדויקת של הנכס היא מידע
+ * פנימי של הנכס. ‏`contact_agent` הוא הכלי שנותן את הראשון.
+ *
+ * ‏(מה שכן נמחק לפי מסלול הוא טלפון **בתוך התיאור** במסלול Pay&GO, וזה קורה
+ * בטריגר במסד — ‏`docs/public-text-policy.md` — ולא כאן.)
+ *   ‏· **גוש וחלקה** — `PROPERTY_FIELDS` כבר מוציא את העמודות עצמן, אבל
+ *     אין מה שימנע מסוכן/ת להקליד "גוש 17700 חלקה 45" לתוך התיאור. זה מידע
+ *     מזהה על הנכס ועל בעליו: עם גוש וחלקה אפשר להוציא נסח טאבו ולקבל את
+ *     שם הבעלים — כלומר בדיוק מה ש-`redact_owner_details` טורחת להסיר.
+ *
+ * **מה *לא* כאן, ובכוונה:** שם בעל/ת הנכס. ההסרה שלו היא טריגר במסד
+ * (‏`redact_owner_details`, מיגרציה 20261114090000) שרץ על כל כתיבה, ולכן
+ * כל קורא — הבוט בכללם — מקבל טקסט נקי בלי לדעת על כך. שכפול שלו כאן היה
+ * יוצר עותק שני שיתפצל. ‏[`owner-privacy.md`](../../../docs/owner-privacy.md)
+ */
+const GUSH_HELKA_RE =
+  /\b(?:גוש|חלקה|חלקות|תת[-\s]?חלקה|מגרש)\s*[:.\-–]?\s*\d+(?:\s*[\/,]\s*\d+)*/g;
+
+function scrubPublicText(text: string | null): string {
+  return String(text || "")
+    .replace(GUSH_HELKA_RE, "")
+    // ניקוי הסימנים שנשארו יתומים אחרי המחיקה, כדי שלא ייצא "דברו איתנו. ."
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/([,.;:!?·|–—-])\s*(?=[,.;:!?·|])/g, "")
+    .replace(/^[\s,.;:!?·|–—-]+|[\s,.;:!?·|–—-]+$/g, "")
+    .trim();
+}
+
+/** מיסוך מלא של טקסט מודעה: מספר בית, ואז טלפונים וגוש/חלקה. */
+function maskPublicText(text: string | null, houseNumber: string | null): string {
+  const hn = String(houseNumber ?? "").trim();
+  const masked = hn
+    ? maskHouseNumber(text, hn)
+    : stripTrailingStreetNumber(String(text || ""));
+  return scrubPublicText(masked);
+}
+
 // deno-lint-ignore no-explicit-any
 function publicWhere(p: any): string {
   const hood = p.neighborhoods?.name || p.sales_area || "";
-  const street = maskHouseNumber(p.address || p.street || "", p.house_number);
+  const street = maskPublicText(p.address || p.street || "", p.house_number);
   return [street, hood && hood !== p.city ? hood : "", p.city]
     .filter(Boolean).join(", ");
 }
@@ -226,13 +303,14 @@ function propertyUrl(id: string): string {
   return `${SITE_BASE}/property.html?id=${id}`;
 }
 
+
 /** הצורה שה-LLM רואה. כל מה שלא כאן — לא קיים מבחינתו. */
 // deno-lint-ignore no-explicit-any
 function publicProperty(p: any): Record<string, unknown> {
   return {
     id: p.id,
     listing_number: p.listing_number,
-    title: maskHouseNumber(p.title, p.house_number),
+    title: maskPublicText(p.title, p.house_number),
     where: publicWhere(p),
     deal: p.deal_type === "rent" ? "השכרה" : "מכירה",
     property_type: p.property_type,
@@ -263,7 +341,10 @@ const TOOLS: Anthropic.Tool[] = [
       "מחפש נכסים פעילים במאגר הציבורי של האתר. זה הכלי לכל שאלה בסגנון " +
       "'יש דירת 4 חדרים בעפולה עד מיליון ושש?'. מחזיר עד " + MAX_RESULTS +
       " נכסים, המקודמים והמעודכנים קודם, כל אחד עם קישור לדף שלו. " +
-      "אם לא נמצא דבר — להרחיב טווח ולנסות שוב, לא להמציא.",
+      "**כשנמצא מעט או כלום, הכלי מרחיב בעצמו** ומחזיר `close_matches` — " +
+      "נכסים פוטנציאליים במחיר או בחדרים קרובים, או בשכונה אחרת באותה עיר, " +
+      "כל אחד עם הקישור שלו. ‏`relaxed_on` אומר על מה ויתרנו. אין צורך לקרוא " +
+      "שוב עם טווח רחב יותר, ובשום מקרה אין להמציא נכס.",
     input_schema: {
       type: "object",
       properties: {
@@ -313,6 +394,23 @@ const TOOLS: Anthropic.Tool[] = [
       properties: {
         property_id: { type: "string", description: "מזהה הנכס (UUID)." },
         listing_number: { type: "integer", description: "מספר המודעה כפי שמוצג באתר." },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "contact_agent",
+    description:
+      "מחזיר את הסוכן/ת שמפרסם/ת נכס מסוים, עם הטלפון ועם **קישור שפותח " +
+      "שיחת וואטסאפ ישירה איתו/ה** — הודעת הפתיחה כבר מזכירה את מספר המודעה. " +
+      "**זה הכלי לכל שאלה שאין עליה תשובה במאגר**: כתובת מדויקת, מי הבעלים, " +
+      "מתי אפשר לראות, מה מצב המשא ומתן, האם המחיר גמיש. אין לנחש תשובות " +
+      "כאלה ואין להתנצל עליהן — מפנים לסוכן/ת שמכיר/ה את הנכס.",
+    input_schema: {
+      type: "object",
+      properties: {
+        property_id: { type: "string", description: "מזהה הנכס." },
+        listing_number: { type: "integer", description: "לחלופין, מספר המודעה." },
       },
       required: [],
     },
@@ -714,9 +812,61 @@ async function searchProperties(
     }).slice(0, limit);
   }
 
+  // -------------------------------------------------------------------------
+  // נכסים פוטנציאליים — קישורים במקום מבוי סתום
+  //
+  // חיפוש שחזר ריק או דל נגמר עד עכשיו ב"לא נמצא, אפשר להרחיב טווח או אזור":
+  // הבוט **סיפר** לפונה להרחיב במקום להרחיב בעצמו. זה הרגע שבו אדם סוגר את
+  // הצ'אט — ובדיוק הרגע שבו יש במלאי שלוש דירות במחיר קרוב, או באותה עיר
+  // בשכונה אחרת.
+  //
+  // הסבב השני מרחיב **רק את מה שאפשר להתפשר עליו**: מחיר ±15%, חדרים ±1,
+  // והאזור בתוך העיר. ‏deal_type, ‏category, ‏city וסוג הנכס נשארים נעולים —
+  // מי שמחפש/ת דירה להשכרה בעפולה לא רוצה קרקע למכירה בחיפה, וזו אינה
+  // "התאמה קרובה" אלא רעש.
+  //
+  // הן חוזרות **בשדה נפרד** ולא מעורבבות בתוצאות: הכלל "רק מה שחזר מהכלים"
+  // שומר על הבוט מלהמציא, והצגת התפשרות כהתאמה היא בדיוק אותה הטעיה בדלת
+  // האחורית. הפרומפט מחייב לומר במה הן שונות.
+  // -------------------------------------------------------------------------
+  const CLOSE_ENOUGH = 3;
+  let close: Record<string, unknown>[] = [];
+  const relaxed: string[] = [];
+
+  if (rows.length < CLOSE_ENOUGH && !args._relaxed) {
+    const widened: Record<string, unknown> = { ...args, _relaxed: true, limit: MAX_RESULTS };
+
+    if (maxPrice !== null) { widened.max_price = Math.round(maxPrice * 1.15); relaxed.push("מחיר עד +15%"); }
+    if (minPrice !== null) { widened.min_price = Math.round(minPrice * 0.85); }
+    if (minRooms !== null && minRooms > 1) { widened.min_rooms = minRooms - 1; relaxed.push("חדר פחות"); }
+    if (maxRooms !== null) { widened.max_rooms = maxRooms + 1; relaxed.push("חדר יותר"); }
+    // ‏"באותה עיר" רק כשבאמת ננעלה עיר — הפרומפט מדקלם את relaxed_on כלשונו,
+    // ומשפט שאינו מדויק כאן הופך להבטחה לא מדויקת בצ'אט.
+    if (area) {
+      delete widened.area;
+      relaxed.push(city ? `מחוץ ל${area}, ב${city}` : `מחוץ ל${area}`);
+    }
+    if (minSize !== null) { widened.min_size_sqm = Math.round(minSize * 0.85); }
+
+    // בלי הרחבה אמיתית אין סבב שני: חיפוש בלי אף מגבלה מספרית שחזר ריק
+    // פשוט אין לו מה להציע, ושאילתה זהה נוספת היא רק עוד קריאה למסד.
+    if (relaxed.length) {
+      const more = await searchProperties(ctx, widened) as Record<string, unknown>;
+      const found = (more?.properties as Record<string, unknown>[] | undefined) || [];
+      const seen = new Set(rows.map((r) => String((r as { id: string }).id)));
+      close = found.filter((c) => !seen.has(String(c.id))).slice(0, MAX_RESULTS - rows.length);
+    }
+  }
+
   return {
     count: rows.length,
     properties: rows.map(publicProperty),
+    // ריק כשהחיפוש הצליח — ואז אין על מה לדבר.
+    close_matches: close.length ? close : undefined,
+    relaxed_on: close.length ? relaxed : undefined,
+    close_note: close.length
+      ? "אלה **אינם** מה שהתבקש אלא הקרובים לו במלאי. חובה לומר במה הם שונים לפני שמציגים אותם."
+      : undefined,
     all_listings_url: `${SITE_BASE}/index.html`,
   };
 }
@@ -771,7 +921,8 @@ async function getProperty(
     found: true,
     ...publicProperty(p),
     // התיאור השיווקי הוא הניסוח שהמשרד בחר לפרסם; התיאור הגולמי הוא הגיבוי.
-    description: maskHouseNumber(
+    // טלפונים וגוש/חלקה נמחקים כאן, לא בפרומפט. ראו scrubPublicText.
+    description: maskPublicText(
       p.marketing_description || p.description || "",
       p.house_number,
     ),
@@ -787,9 +938,120 @@ async function getProperty(
         url: agent.slug ? `${SITE_BASE}/agent.html?slug=${agent.slug}` : null,
       }
       : null,
+    // ‏**הערה אחת, לא שתי אמיתות.** כאן חוזרים שם המשרד והסוכן/ת בלבד;
+    // הטלפון והקישור לשיחה נבנים ב-`contact_agent`, כדי שהניסוח של הודעת
+    // הפתיחה ושל הנרמול ל-wa.me יישבו במקום אחד.
     contact_note:
-      "יצירת הקשר נעשית בדף הנכס — שם יש כפתורי וואטסאפ וחיוג לסוכן/ת. " +
-      "אין למסור מספרי טלפון בצ'אט.",
+      "לכל שאלה שאין עליה תשובה כאן — כתובת מדויקת, מי הבעלים, מתי אפשר " +
+      "לראות, גמישות במחיר — לקרוא ל-contact_agent ולהציג את הקישור לשיחה " +
+      "ישירה עם הסוכן/ת. אלה שאלות אליו/ה, לא חוסר במאגר.",
+  };
+}
+
+/**
+ * חיבור ישיר לסוכן/ת שמפרסם/ת את הנכס.
+ *
+ * ## למה זה קיים, ולמה הוא התשובה ל"איפה בדיוק?"
+ *
+ * הבוט אינו מוסר כתובת מדויקת, שם בעלים או כל מידע פנימי אחר על הנכס — לא
+ * מפני שהוא מתחמק, אלא מפני ש**לא הוא הכתובת לשאלות האלה**. הכתובת היא
+ * הסוכן/ת שמכיר/ה את הנכס. עד עכשיו הבוט ענה "הפרטים אצל הסוכן/ת" והפנה
+ * לדף — צעד נוסף שרוב האנשים לא עושים בוואטסאפ.
+ *
+ * ‏`contact_url` הוא הקישור שסוגר את הפער — **דף הנכס, ולא `wa.me` ישיר.**
+ *
+ * ## למה דרך הדף ולא ישר לשיחה
+ *
+ * קישור `wa.me` מהצ'אט הוא טאפ אחד, וזו הייתה הגרסה הראשונה כאן. הבעיה
+ * שהוא **בלתי נראה לחלוטין**: ‏`assets/events.js` סופר קליקים בדף, לא
+ * בוואטסאפ, ולכן כל פנייה שנוצרה כך לא הופיעה בשום דוח.
+ *
+ * וקיצור דרך לא היה עוזר: ריידיירקט שקוף היה מתעד את הקליק בשרת אבל **לא
+ * היה צובע פיקסל**, כי הפניית שרת עוזבת את האתר לפני ש-GTM נטען. זה כתוב
+ * כבר על `/bot` ב-`_redirects`. צביעה דורשת טעינת דף אמיתית, בלי קיצורים.
+ *
+ * בדף הנכס כבר יושבים **שני המסלולים**: כפתור וואטסאפ לשיחה מיידית
+ * (שנספר כ-`contact_agent`) וטופס להשארת פרטים שיוצר ליד אמיתי דרך
+ * ‏`property-inquiry-intake`. מי שרוצה לדבר עכשיו מדבר, מי שמעדיף שיחזרו
+ * אליו משאיר פרטים — ושניהם נמדדים.
+ *
+ * ‏`src=wa_bot` הוא מה שהופך את זה לשימושי: בלעדיו הקליק נספר כמו כל קליק
+ * אחר, ואי אפשר לענות על השאלה היחידה שבגללה ההפניה נעשתה — האם המעבר דרך
+ * האתר משתלם, או שעדיף היה לחבר ישירות.
+ *
+ * ⚠️ **מה שנשאר פתוח, ובמודע:** המספר עצמו נשאר זמין, וההוראות מוסרות אותו
+ * כשנשאלים עליו ישירות. וואטסאפ הופך מספר בטקסט לכפתור חיוג, והטאפ הזה
+ * אינו נמדד ולא ניתן למדידה. מה שנשלט הוא הסדר שבו מציעים, לא קיומו של
+ * המספר.
+ */
+async function contactAgent(
+  ctx: PublicContext,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const id = text(args.property_id);
+  const listingRaw = args.listing_number;
+  const listing = (listingRaw === null || listingRaw === undefined || listingRaw === "")
+    ? NaN
+    : Number(listingRaw);
+
+  let q = ctx.supabase
+    .from("properties")
+    .select("id, title, listing_number, house_number, agent_id, agency_id")
+    .eq("status", "active");
+
+  if (id) q = q.eq("id", id);
+  else if (Number.isFinite(listing)) q = q.eq("listing_number", Math.round(listing));
+  else return { error: "missing_identifier", note: "צריך property_id או listing_number." };
+
+  const { data: p, error } = await q.maybeSingle();
+  if (error) return { error: "lookup_failed", detail: error.message };
+  if (!p) return { found: false, note: "הנכס אינו פעיל באתר כרגע." };
+
+  ctx.conv.last_property_id = p.id;
+
+  const { data: member } = await ctx.supabase
+    .from("agency_members")
+    .select("display_name, slug, phone, phone_e164")
+    .eq("id", p.agent_id)
+    .maybeSingle();
+
+  let agencyName: string | null = null;
+  if (p.agency_id) {
+    const { data: a } = await ctx.supabase
+      .from("agencies").select("name").eq("id", p.agency_id).maybeSingle();
+    agencyName = a?.name ?? null;
+  }
+
+  if (!member?.display_name) {
+    return {
+      found: true,
+      agent: null,
+      contact_url: `${propertyUrl(p.id)}&src=wa_bot`,
+      note: "אין סוכן/ת משויך/ת למודעה. בדף הנכס יש את פרטי המשרד.",
+    };
+  }
+
+  return {
+    found: true,
+    agent: {
+      name: member.display_name,
+      agency: agencyName,
+      // המספר נשאר זמין, אבל **אינו** ה-CTA. ההוראות מוסרות אותו רק כשנשאלים
+      // עליו ישירות: וואטסאפ הופך מספר בטקסט לכפתור חיוג, והטאפ הזה בלתי
+      // נראה לחלוטין. זה לא ניתן להנדסה — זה מה שמספר טלפון הוא — ולכן מה
+      // שנשלט הוא הסדר שבו מציעים.
+      phone: member.phone || null,
+      phone_note: "למסור רק אם נשאלים עליו ישירות. הקישור הוא הדרך המוצעת.",
+      profile_url: member.slug ? `${SITE_BASE}/agent.html?slug=${member.slug}` : null,
+    },
+    // ה-CTA. ‏`src=wa_bot` הוא מה שהופך את זה למדיד: בלעדיו הקליק על
+    // "וואטסאפ לסוכן" בדף נספר כמו כל קליק אחר, ואי אפשר לדעת שהוא הגיע
+    // מהבוט. ‏`assets/events.js` קורא אותו ומצרף אותו לכל אירוע.
+    contact_url: `${propertyUrl(p.id)}&src=wa_bot`,
+    how_to_use:
+      "להציג את contact_url כדרך ליצור קשר עם הסוכן/ת. בדף הנכס יש כפתור " +
+      "וואטסאפ לשיחה מיידית **וגם** טופס להשארת פרטים — הבחירה של " +
+      "המתעניין/ת. אין להבטיח שהעברנו הודעה.",
   };
 }
 
@@ -832,7 +1094,7 @@ async function findAgencies(
     const ids = declared.length ? declared : deriveSpecialties(owned);
     return {
       name: a.name,
-      tagline: a.tagline || null,
+      tagline: scrubPublicText(a.tagline) || null,
       specialties: ids.map((id) => SPECIALTY_LABELS[id]),
       specialty_ids: ids,
       // "לפי הנכסים שבמשרד" מול הצהרה של המשרד — הבדל שהתשובה צריכה לכבד
@@ -915,7 +1177,7 @@ async function findProfessionals(
       return {
         name: p.business_name || p.advertiser_name,
         field: p.advertiser_type,
-        headline: p.headline,
+        headline: scrubPublicText(p.headline) || null,
         services: p.services || [],
         areas: p.service_areas || [],
         years_experience: p.years_experience,
@@ -1095,7 +1357,7 @@ function cardCaption(p: any, note: string | null): string {
   ].filter(Boolean).join(" · ");
 
   return [
-    maskHouseNumber(p.title, p.house_number),
+    maskPublicText(p.title, p.house_number),
     publicWhere(p),
     [p.price ? `${nis(Number(p.price))} ₪` : null, facts].filter(Boolean).join(" · "),
     note ? `\n${note}` : null,
@@ -1514,6 +1776,8 @@ async function runTool(
         return await searchProperties(ctx, args);
       case "get_property":
         return await getProperty(ctx, args);
+      case "contact_agent":
+        return await contactAgent(ctx, args);
       case "find_agencies":
         return await findAgencies(ctx, args);
       case "find_professionals":
@@ -1544,7 +1808,16 @@ async function runTool(
 // ---------------------------------------------------------------------------
 // ההוראות
 // ---------------------------------------------------------------------------
-function systemPrompt(conv: PublicConversationState): string {
+/**
+ * ההוראות הקבועות — זהות בכל שיחה ובכל פנייה, ולכן ניתנות למטמון.
+ *
+ * ‏⚠️ אסור להכניס לכאן דבר שמשתנה בין קריאות. ההסבר המלא (ולמה כשל כזה שקט)
+ * יושב מעל `SYSTEM_STATIC` ב-`agent.ts`.
+ *
+ * ‏`SITE_BASE` מגיע ממשתנה סביבה ולכן הוא קבוע לאורך חיי הפונקציה — הוא
+ * בסדר כאן.
+ */
+const SYSTEM_STATIC: string = (() => {
   const lines = [
     "את/ה העוזר האוטומטי של שוק הנדל\"ן של עפולה והסביבה — אתר נדל\"ן מקומי " +
     "שבו משרדי תיווך מפרסמים נכסים. את/ה משוחח/ת בוואטסאפ עם גולש/ת שאינו/ה " +
@@ -1592,11 +1865,25 @@ function systemPrompt(conv: PublicConversationState): string {
     "",
     "כללים שאין לחרוג מהם:",
     "- **רק מה שחזר מהכלים.** אין להמציא נכס, מחיר, משרד או נתון. אם הכלי " +
-      "החזיר ריק — לומר שלא נמצא, ולהציע להרחיב טווח או אזור.",
-    "- **כתובת מדויקת לא נמסרת.** הנכסים מוצגים ברחוב ובשכונה, בלי מספר בית. " +
-      "מי ששואל \"איפה בדיוק?\" מקבל: הפרטים המלאים אצל הסוכן/ת, דרך דף הנכס.",
-    "- **מספרי טלפון לא נמסרים בצ'אט**, גם לא של סוכן/ת או משרד. בדף הנכס " +
-      "ובדף המשרד יש כפתורי וואטסאפ וחיוג — לשם מפנים.",
+      "החזיר ריק גם ב-close_matches — לומר שלא נמצא, ולהציע לשמור התראה.",
+    "- **‏close_matches אינם תשובה לשאלה — הם הקרוב לה.** להציג אותם רק אחרי " +
+      "שנאמר שלא נמצא בדיוק מה שהתבקש, ולומר במה הם שונים לפי relaxed_on " +
+      "(\"קצת מעל התקציב\", \"3 חדרים ולא 4\", \"שכונה אחרת בעפולה\"). " +
+      "להציג אותם כהתאמה היא הטעיה. עם הקישור של כל אחד, כרגיל.",
+    "- **מידע פנימי על הנכס אינו נמסר**: כתובת מדויקת ומספר בית, גוש וחלקה, " +
+      "שם בעל/ת הנכס או כל פרט מזהה אחר עליו/ה. הנכסים מוצגים ברחוב ובשכונה. " +
+      "אין לנחש, אין לשחזר מהתיאור, ואין להתנצל על כך.",
+    "- **וכל שאלה כזו נגמרת ב-contact_agent, לא ב'אין לי'.** 'איפה בדיוק?', " +
+      "'מי הבעלים?', 'מתי אפשר לראות?', 'המחיר גמיש?' — אלה שאלות לסוכן/ת " +
+      "שמכיר/ה את הנכס. להציג את השם ואת **contact_url** — בדף הנכס יש כפתור " +
+      "וואטסאפ לשיחה מיידית וגם טופס להשארת פרטים, והבחירה היא של המתעניין/ת. " +
+      "**זו התשובה, לא פרס ניחומים.**",
+    "- **הקישור קודם, המספר רק כשנשאלים.** ‏contact_url הוא מה שמציעים; את " +
+      "הטלפון מוסרים כשנשאלים עליו ישירות ('מה המספר שלו?'), ואז בלי היסוס. " +
+      "לא כי המספר סודי — אלא כי הדף נותן למתעניין/ת גם שיחה וגם טופס, " +
+      "ומאפשר לנו לדעת שהפנייה הגיעה מכאן.",
+    "- **אין להבטיח שהעברנו הודעה.** המתעניין/ת פונה בעצמו/ה מהדף. " +
+      "הבוט מכין, האדם שולח.",
     "- **אין ייעוץ משפטי, מיסויי, שמאי או פיננסי.** אפשר להסביר מושג באופן " +
       "כללי, ואז להפנות לבעל/ת המקצוע המתאים/ה דרך find_professionals.",
     "- **אין הערכת שווי לנכס** ואין אמירה אם מחיר הוא הזדמנות או יקר מדי. " +
@@ -1660,6 +1947,28 @@ function systemPrompt(conv: PublicConversationState): string {
     "- מי שמעדיף/ה להירשם לעדכונים בעצמו/ה — \"הסוכן החכם\" באתר: " +
       `${SITE_BASE}/index.html . אותו מנגנון בדיוק.`,
   ];
+  return lines.join("\n");
+})();
+
+/**
+ * ‏`system` כשני בלוקים: הקבוע (במטמון) ואחריו המשתנה.
+ *
+ * הבלוק השני מושמט כשאין בו תוכן — שיחה ותיקה בלי נכס אחרון מחזירה מחרוזת
+ * ריקה, ובלוק טקסט ריק נדחה ב-400. נקודת השבירה נשארת על הראשון בכל מקרה.
+ */
+function buildSystem(conv: PublicConversationState): Anthropic.TextBlockParam[] {
+  const head: Anthropic.TextBlockParam = {
+    type: "text",
+    text: SYSTEM_STATIC,
+    cache_control: { type: "ephemeral" },
+  };
+  const tail = sessionContext(conv).trim();
+  return tail ? [head, { type: "text", text: tail }] : [head];
+}
+
+/** החלק המשתנה — יושב אחרי נקודת השבירה ולכן אינו מבטל את המטמון. */
+function sessionContext(conv: PublicConversationState): string {
+  const lines: string[] = [];
 
   if (!conv.history.length) {
     lines.push(
@@ -1700,6 +2009,8 @@ export async function runPublicTurn(opts: {
   ];
 
   let finalText = "";
+  // הבלוק שנושא כרגע את נקודת השבירה המתגלגלת בהודעות.
+  let rollingMark: { cache_control?: { type: "ephemeral" } } | null = null;
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     const response = await callClaude({
@@ -1711,10 +2022,22 @@ export async function runPublicTurn(opts: {
       // אלה ש-low טועה בהן, וטעות כאן היא ליד שנפתח בלי שביקשו. אם הלטנטיות
       // בצ'אט תיעשה מורגשת, הידית היא לצמצם כלים ולא לרדת בחזרה.
       output_config: { effort: "medium" },
-      system: systemPrompt(conv),
+      // ההוראות הקבועות במטמון, והחלק המשתנה אחריהן. סדר הרינדור הוא
+      // ‏tools → system → messages, ולכן נקודת השבירה תופסת גם את אחד-עשר
+      // הכלים. ראו SYSTEM_STATIC ב-agent.ts להסבר המלא.
+      // הבלוק השני נוסף רק כשיש בו משהו: בשיחה ותיקה בלי נכס אחרון
+      // ‏`sessionContext` מחזירה מחרוזת ריקה, ובלוק טקסט ריק נדחה ב-400.
+      system: buildSystem(conv),
       tools: TOOLS,
       messages,
     } as Anthropic.MessageCreateParamsNonStreaming);
+
+    const u = response.usage as unknown as Record<string, number | undefined>;
+    console.log(
+      `public-llm ${MODEL} iter=${i} in=${u.input_tokens ?? 0} ` +
+        `cache_read=${u.cache_read_input_tokens ?? 0} ` +
+        `cache_write=${u.cache_creation_input_tokens ?? 0} out=${u.output_tokens ?? 0}`,
+    );
 
     const responseText = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
@@ -1748,6 +2071,21 @@ export async function runPublicTurn(opts: {
         content: JSON.stringify(result),
       });
     }
+
+    // נקודת שבירה מתגלגלת על תוצאות הכלים, כמו ב-agent.ts. **חובה לנקות את
+    // הקודמת** — תקרת ה-API היא ארבע נקודות שבירה לבקשה, וסימון מצטבר היה
+    // מפיל תור ארוך בשגיאה.
+    if (rollingMark) delete rollingMark.cache_control;
+    rollingMark = null;
+
+    const last = results[results.length - 1] as
+      | (Anthropic.ToolResultBlockParam & { cache_control?: { type: "ephemeral" } })
+      | undefined;
+    if (last && i < MAX_TOOL_ITERATIONS - 1) {
+      last.cache_control = { type: "ephemeral" };
+      rollingMark = last;
+    }
+
     messages.push({ role: "user", content: results });
   }
 
