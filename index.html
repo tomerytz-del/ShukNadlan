@@ -1971,15 +1971,34 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* הלשוניות הן פקד ניווט ולא קישוט, ולכן הן נצבעות ולא רק מסומנות: המגש
      בגוון ‎--teal-tint‎ מחזיק את השלוש כקבוצה אחת, והפעילה מקבלת נייבי מלא
      עם טקסט לבן — אותו צבע בדיוק של תיבת החיפוש שבראש השורה, כך שהשתיים
-     נקראות כמערכת אחת ולא כשני פקדים שבמקרה שכנים. */
-  .dm-tabs{display:flex;gap:4px;background:var(--teal-tint);border:1px solid var(--line);padding:4px}
-  .dm-tabs button{
-    flex:1;min-height:44px;padding:0 10px;border:0;border-radius:0;cursor:pointer;
-    font-family:inherit;font-size:.8rem;font-weight:700;color:var(--ink-soft);background:transparent;
-    white-space:nowrap;transition:background .18s ease, color .18s ease;
+     נקראות כמערכת אחת ולא כשני פקדים שבמקרה שכנים.
+
+     **הלשוניות הכבויות הן כפתורים לבנים ולא טקסט על המגש.** בגרסה הקודמת הן
+     היו ‎background:transparent‎ על מגש בהיר, עם מסגרת ‎--line‎ שכמעט אינה
+     נראית — ולכן הן נקראו כשורת כותרת שבמקרה יש בה מלבן כהה אחד, ולא כפקד
+     שאפשר להחליף בו. הבעיה לא הייתה ניגודיות הטקסט (‏--ink-soft על
+     ‎--teal-tint‎ הוא 6.4:1, תקין) אלא **היעדר גבול**: בלי שפת כפתור, גולשים
+     פשוט לא ידעו שיש שם עוד שתי לשוניות — ורוב מי שנכנס לא ראה את המתווכים
+     ואת בעלי המקצוע מעולם.
+
+     שלושה שינויים, כל אחד מהם מוסיף סימן ש"זה נלחץ": משטח לבן משלו לכל
+     לשונית, מסגרת שנראית על המגש, ומצב ‎hover‎ שלא היה קיים כאן כלל. */
+  .dm-tabs{
+    display:flex;gap:5px;background:var(--teal-tint);
+    border:1px solid rgba(14,42,107,.18);padding:5px;
   }
-  .dm-tabs button[aria-selected="true"]{background:var(--teal);color:#fff;box-shadow:var(--shadow-sm)}
+  .dm-tabs button{
+    flex:1;min-height:44px;padding:0 10px;border:1px solid var(--line);border-radius:0;cursor:pointer;
+    font-family:inherit;font-size:.8rem;font-weight:700;color:var(--teal);background:var(--paper-raised);
+    white-space:nowrap;
+    transition:background .18s ease, color .18s ease, border-color .18s ease;
+  }
+  .dm-tabs button:not([aria-selected="true"]):hover{border-color:var(--teal);color:var(--teal-dark)}
+  .dm-tabs button[aria-selected="true"]{
+    background:var(--teal);color:#fff;border-color:var(--teal);box-shadow:var(--shadow-sm);
+  }
   .dm-tabs button:disabled{opacity:.45;cursor:default}
+  .dm-tabs button:disabled:hover{border-color:var(--line);color:var(--teal)}
   .dm-tabs .n{font-weight:800;font-size:.72rem;opacity:.72;margin-inline-start:4px}
 
   /* גוף הסקציה: תיבת החיפוש היא עמודה קבועה בקצה השמאלי, ושורת הכרטיסים
@@ -2708,6 +2727,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      הבידול בין הפעילה לשאר, כמו בכל פקד בחירה במצב הזה. */
   html.a11y-contrast .menu-tabs button{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
   html.a11y-contrast .menu-tabs button[aria-selected="true"]{background:#FFD84D !important;color:#000 !important}
+  /* ‏.dm-tabs היא אותו סוג פקד ולכן אותו כלל. היא נעדרה מכאן מאז שנוצרה:
+     הלשוניות היו שקופות, כך שבמצב ניגודיות גבוהה הן נשארו כהות-על-בהיר
+     בתוך עמוד שחור-צהוב. מאז שיש להן משטח לבן משלהן זה היה נעשה בולט —
+     אבל הכלל היה חסר גם קודם. */
+  html.a11y-contrast .dm-tabs{background:#000 !important;border-color:#FFD84D !important}
+  html.a11y-contrast .dm-tabs button{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
+  html.a11y-contrast .dm-tabs button[aria-selected="true"]{background:#FFD84D !important;color:#000 !important}
   html.a11y-contrast .hood-filter-btn[data-active="true"]{background:#FFD84D !important;color:#000 !important}
   html.a11y-contrast .hood-filter-btn .hood-filter-count{background:#000 !important;color:#FFD84D !important;border:1px solid #FFD84D}
   html.a11y-contrast .hood-filter-btn[data-active="true"] .hood-filter-count{background:#000 !important;color:#FFD84D !important}
