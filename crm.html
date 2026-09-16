@@ -221,13 +221,59 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ---------- ניהול מנויים (מנהל/ת פלטפורמה) ----------
      תמונת המצב היא שש מספרים ולא גרף: השאלה כאן היא "כמה, ומה דחוף",
      ושישה מספרים בשורה עונים עליה מהר יותר מכל ויזואליזציה. */
-  .subs-overview{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px;margin-bottom:16px}
-  .subs-stat{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-sm);padding:9px 10px;text-align:center}
+  .subs-overview{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:8px;margin-bottom:12px}
+  /* כל מספר הוא כפתור: מאחוריו יש רשימה שמית, והלחיצה היא הדרך היחידה
+     להגיע אליה בלי לפתוח SQL Editor. מספר אפס אינו לחיץ — אין מה לפתוח. */
+  .subs-stat{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius-sm);
+    padding:9px 10px;text-align:center;display:block;width:100%;font:inherit;color:inherit;
+    cursor:pointer;transition:border-color .12s,box-shadow .12s,transform .12s}
   .subs-stat b{display:block;font-size:1.25rem;line-height:1.2}
-  .subs-stat span{font-size:.7rem;color:var(--ink-soft)}
+  .subs-stat span{display:block;font-size:.7rem;color:var(--ink-soft)}
+  .subs-stat:hover:not(:disabled){border-color:var(--gold);transform:translateY(-1px)}
+  .subs-stat:focus-visible{outline:2px solid var(--gold-dark);outline-offset:2px}
+  /* אפור עדין ולא חצי-שקוף: "0" צריך להישאר קריא, רק לא להזמין לחיצה */
+  .subs-stat:disabled{cursor:default;color:var(--ink-soft)}
+  .subs-stat.is-open{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold);background:#fffdf7}
   /* "נגמרות החודש" צבוע רק כשהמספר אינו אפס — צבע קבוע מפסיק להיקרא */
   .subs-stat.is-hot{border-color:#c0873a;background:#fff8ee}
   .subs-stat.is-hot b{color:#8a6d10}
+  /* בקשה פתוחה היא גם הכנסה שלא נכנסה וגם אדם שממתין לתשובה, ולכן כשיש
+     אפילו אחת הכפתור מפסיק להיות עוד משבצת בשורה: שורה שלמה משלו מעל
+     כל השאר, צבע מלא ותווית "דורש טיפול". באפס הוא חוזר להיות משבצת
+     רגילה ושקטה — שורה בורדו קבועה שאומרת "0" מפסיקה להיקרא.
+
+     ‏grid-column:1/-1 ולא span 2: עם שש משבצות, כפתור ברוחב שתיים דוחף
+     את האחרונה לשורה שנייה ומשאיר שורה קטועה. */
+  .subs-stat.is-urgent{grid-column:1 / -1;display:flex;align-items:center;justify-content:center;
+    gap:10px;padding:11px 14px;border:0;color:#fff;
+    background:linear-gradient(135deg,var(--gold-dark),var(--gold));
+    box-shadow:0 2px 10px rgba(139,35,50,.32)}
+  .subs-stat.is-urgent b{display:inline;color:#fff;font-size:1.45rem}
+  .subs-stat.is-urgent span{display:inline;color:#fff;font-size:.86rem;font-weight:700}
+  .subs-stat.is-urgent:hover:not(:disabled){box-shadow:0 5px 16px rgba(139,35,50,.4)}
+  .subs-stat .ss-flag{display:inline-block;padding:2px 10px;border-radius:999px;
+    background:rgba(255,255,255,.22);font-size:.66rem;font-weight:800;font-style:normal}
+
+  .subs-hint{margin:-4px 0 12px;font-size:.72rem;color:var(--ink-soft);text-align:center}
+
+  /* הרשימה שנפתחת מתחת למספר שנלחץ */
+  .subs-drill{border:1.5px solid var(--gold);border-radius:var(--radius-sm);background:#fffdf7;
+    padding:8px 12px 4px;margin-bottom:16px}
+  .subs-drill .sd-head{display:flex;justify-content:space-between;align-items:center;gap:10px;
+    padding-bottom:6px;border-bottom:1px solid var(--line)}
+  .subs-drill .sd-head b{font-size:.84rem}
+  .subs-drill .sd-close{background:none;border:0;font:inherit;font-size:.74rem;font-weight:700;
+    color:var(--ink-soft);cursor:pointer;padding:2px 4px}
+  .subs-drill .sd-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;
+    padding:8px 0;border-bottom:1px solid var(--line)}
+  .subs-drill .sd-row:last-child{border-bottom:0}
+  .subs-drill .sd-name{font-weight:700;font-size:.82rem;color:inherit;text-decoration:none}
+  .subs-drill .sd-name:hover{text-decoration:underline}
+  .subs-drill .sd-meta{font-size:.72rem;color:var(--ink-soft);margin-top:2px;line-height:1.55}
+  .subs-drill .sd-tier{font-size:.7rem;font-weight:800;color:var(--gold-dark);white-space:nowrap}
+  /* הדגשה רגעית אחרי קפיצה לתור הבקשות — בלעדיה הלחיצה נראית כאילו לא קרה כלום */
+  .subs-flash{animation:subsFlash 1.5s ease-out}
+  @keyframes subsFlash{0%,35%{background:#fff3d2}100%{background:transparent}}
 
   .subs-req{border:1.5px solid var(--gold);border-radius:var(--radius-sm);padding:12px 13px;margin-bottom:10px;background:#fff}
   .subs-req .sr-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;flex-wrap:wrap}
@@ -4706,6 +4752,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </summary>
         <div class="acc-body">
           <div id="subsOverview" class="subs-overview"></div>
+          <!-- בלי השורה הזו אין שום דבר במסך שמספר שהמספרים לחיצים: הם
+               נראו כמספרים במשך חודשים, והריחוף לבדו אינו קיים בטלפון. -->
+          <p class="subs-hint">לחיצה על מספר פותחת את רשימת השמות שמאחוריו.</p>
+          <!-- הרשימה שמאחורי המספר שנלחץ. ריקה וסמויה עד ללחיצה — תמונת
+               המצב היא עדיין השורה הראשונה שרואים כשפותחים את הקטגוריה. -->
+          <div id="subsDrill" class="subs-drill" hidden></div>
 
           <p class="acc-sub">
             סוכן/ת שבוחר/ת מסלול בתשלום מדף המסלולים אינו/ה מקבל/ת אותו בלחיצה —
@@ -10455,6 +10507,10 @@ async function loadRefundQueue(){
    הכפתורים כאן מוסתרים ממי שאינו/ה מנהל/ת פלטפורמה, אבל זו נוחות ולא
    הגנה — ההגנה היא שם.                                                      */
 
+/* איזו קטגוריה בתמונת המצב פתוחה כרגע (null = אף אחת). מוצהר כאן ולא ליד
+   הפונקציות שמשתמשות בו: ‏let אינו מורם, ו-loadSubscriptionsAdmin קוראת בו. */
+let subsDrillBucket = null;
+
 async function loadSubscriptionsAdmin(){
   const reqHost = document.getElementById('subsRequests');
   const logHost = document.getElementById('subsLog');
@@ -10473,17 +10529,53 @@ async function loadSubscriptionsAdmin(){
   // ושתי השאלות שדורשות פעולה — כמה בקשות פתוחות וכמה הטבות נגמרות — הן
   // הראשונות שהעין פוגשת.
   const stats = [
-    { n: ov.pending,         label: 'בקשות פתוחות', hot: true },
-    { n: ov.promo_ending_30, label: 'הטבות שנגמרות החודש', hot: true },
-    { n: ov.promo_active,    label: 'בתוך ההטבה' },
-    { n: ov.premium,         label: Tiers.label('premium') },
-    { n: ov.mid,             label: Tiers.label('mid') },
-    { n: ov.free,            label: Tiers.label('free') },
+    { key: 'pending',         n: ov.pending,         label: 'בקשות פתוחות', urgent: true },
+    { key: 'promo_ending_30', n: ov.promo_ending_30, label: 'הטבות שנגמרות החודש', hot: true },
+    { key: 'promo_active',    n: ov.promo_active,    label: 'בתוך ההטבה' },
+    { key: 'premium',         n: ov.premium,         label: Tiers.label('premium') },
+    { key: 'mid',             n: ov.mid,             label: Tiers.label('mid') },
+    { key: 'free',            n: ov.free,            label: Tiers.label('free') },
   ];
-  ovHost.innerHTML = stats.map(s =>
-    `<div class="subs-stat${s.hot && s.n > 0 ? ' is-hot' : ''}">
-       <b>${Number(s.n || 0).toLocaleString('he-IL')}</b><span>${esc(s.label)}</span>
-     </div>`).join('');
+  // כל מספר פותח את הרשימה השמית שמאחוריו — "11 Elite" בלי "מי" הוא מספר
+  // שאי אפשר לעשות איתו כלום, ועד היום התשובה הזו הצריכה SQL Editor.
+  // ‏"בקשות פתוחות" הוא היוצא מן הכלל: הרשימה שלו כבר למטה, עם כפתורי
+  // האישור, ולכן הוא קופץ אליה במקום לצייר אותה פעם שנייה.
+  ovHost.innerHTML = stats.map(s => {
+    const n = Number(s.n || 0);
+    const isPending = s.key === 'pending';
+    const open = !isPending && s.key === subsDrillBucket && n > 0;
+    const cls = 'subs-stat'
+      + (n > 0 && s.urgent ? ' is-urgent' : (n > 0 && s.hot ? ' is-hot' : ''))
+      + (open ? ' is-open' : '');
+    return `<button type="button" class="${cls}" data-bucket="${esc(s.key)}"${n ? '' : ' disabled'}
+              aria-controls="${isPending ? 'subsRequests' : 'subsDrill'}"${
+              isPending ? '' : ` aria-expanded="${open ? 'true' : 'false'}"`}>
+        <b>${n.toLocaleString('he-IL')}</b><span>${esc(s.label)}</span>${
+        n > 0 && s.urgent ? '<em class="ss-flag">דורש טיפול</em>' : ''}
+      </button>`;
+  }).join('');
+
+  // מאזין אחד על המכולה ולא על הכפתורים: ‏ovHost שורד את הרינדור מחדש,
+  // והכפתורים לא — מאזין לכל כפתור היה מצטבר בכל רענון של הקטגוריה.
+  if (!ovHost.dataset.wired){
+    ovHost.dataset.wired = '1';
+    ovHost.addEventListener('click', ev => {
+      const btn = ev.target.closest('.subs-stat');
+      if (!btn || btn.disabled) return;
+      if (btn.dataset.bucket === 'pending'){ flashPendingRequests(); return; }
+      toggleSubsDrill(btn.dataset.bucket);
+    });
+  }
+
+  // רשימה שהייתה פתוחה לפני הרענון נפתחת מחדש: אחרי אישור בקשה המספרים
+  // משתנים, והרשימה שממנה יצאנו היא בדיוק זו שרוצים לראות מעודכנת. אם
+  // הקטגוריה התרוקנה בינתיים היא נסגרת — מספר אפס אינו לחיץ, ורשימה ריקה
+  // שנשארת פתוחה מתחת לכפתור שכבר אינו מסומן היא בדיוק סוג הדבר שמבלבל.
+  if (subsDrillBucket){
+    const still = stats.find(x => x.key === subsDrillBucket);
+    if (still && Number(still.n || 0) > 0) renderSubsDrill(subsDrillBucket);
+    else closeSubsDrill();
+  }
 
   // ---- תור הבקשות ----
   if (reqErr){
@@ -10599,6 +10691,110 @@ async function loadSubscriptionsAdmin(){
         <span class="sl-when">${esc(hebDate(e.changed_on))}</span>
       </div>`).join('')
     : '<div class="empty-state">אין עדיין שינויי מסלול.</div>';
+}
+
+/* ----------------------------------------------------------------------------
+   הרשימה שמאחורי המספר
+   ----------------------------------------------------------------------------
+   לחיצה שנייה על אותו מספר סוגרת. מסך הניהול ארוך, ורשימה של אחד־עשר שמות
+   שנשארת פתוחה דוחפת את תור הבקשות אל מחוץ למסך.
+
+   ‏subscription_members מסננת בדיוק באותם תנאים של subscription_overview —
+   אחרת מספר שנלחץ ורשימה שנפתחת היו סותרים זה את זה.                        */
+
+const SUBS_BUCKET_WHAT = {
+  free:            () => 'במסלול ' + Tiers.label('free'),
+  mid:             () => 'במסלול ' + Tiers.label('mid'),
+  premium:         () => 'במסלול ' + Tiers.label('premium'),
+  promo_active:    () => 'בתוך תקופת ההטבה',
+  promo_ending_30: () => 'שההטבה שלהם נגמרת החודש',
+};
+
+function subsStatButtons(){
+  return document.querySelectorAll('#subsOverview .subs-stat');
+}
+
+function toggleSubsDrill(bucket){
+  if (subsDrillBucket === bucket){ closeSubsDrill(); return; }
+  subsDrillBucket = bucket;
+  subsStatButtons().forEach(b => {
+    const on = b.dataset.bucket === bucket;
+    b.classList.toggle('is-open', on);
+    if (b.dataset.bucket !== 'pending') b.setAttribute('aria-expanded', on ? 'true' : 'false');
+  });
+  renderSubsDrill(bucket);
+}
+
+function closeSubsDrill(){
+  subsDrillBucket = null;
+  const host = document.getElementById('subsDrill');
+  if (host){ host.hidden = true; host.innerHTML = ''; }
+  subsStatButtons().forEach(b => {
+    b.classList.remove('is-open');
+    if (b.dataset.bucket !== 'pending') b.setAttribute('aria-expanded', 'false');
+  });
+}
+
+async function renderSubsDrill(bucket){
+  const host = document.getElementById('subsDrill');
+  if (!host) return;
+  host.hidden = false;
+  host.innerHTML = '<div class="empty-state">טוען…</div>';
+
+  const { data, error } = await sb.rpc('subscription_members', { p_bucket: bucket });
+  // תשובה שחזרה אחרי שנלחץ מספר אחר לא תדרוס את הרשימה שמוצגת עכשיו.
+  if (subsDrillBucket !== bucket) return;
+  if (error){
+    host.innerHTML = '<div class="empty-state">שגיאה בטעינת הרשימה: ' + esc(error.message) + '</div>';
+    return;
+  }
+
+  const rows = data || [];
+  const what = (SUBS_BUCKET_WHAT[bucket] || (() => ''))();
+  const count = rows.length === 1 ? 'סוכן/ת אחד/ת' : rows.length.toLocaleString('he-IL') + ' סוכנים/ות';
+  const head = `
+    <div class="sd-head">
+      <b>${esc(count)} ${esc(what)}</b>
+      <button type="button" class="sd-close" id="subsDrillClose">סגירה ✕</button>
+    </div>`;
+
+  host.innerHTML = head + (rows.length ? rows.map(r => {
+    // השורה עונה על שלוש השאלות שנשאלות מיד אחרי "מי": באיזה משרד, איך
+    // יוצרים קשר, ומתי זה נגמר. בלעדיהן צריך לחזור למסד בשביל כל שם.
+    const meta = [
+      esc(r.agency_name || 'ללא משרד'),
+      r.member_email ? '<span style="direction:ltr;display:inline-block">' + esc(r.member_email) + '</span>' : '',
+      r.promo_ends ? 'ההטבה נגמרת ב-' + esc(hebDate(r.promo_ends)) : '',
+      r.wanted_tier ? 'ביקש/ה ' + esc(Tiers.label(r.wanted_tier)) : '',
+      'יתרת ארנק ' + esc(shekel(r.wallet_balance || 0)),
+    ].filter(Boolean).join(' · ');
+    return `
+      <div class="sd-row">
+        <div>
+          <a class="sd-name" href="agent.html?slug=${esc(encodeURIComponent(r.member_slug || ''))}"
+             target="_blank" rel="noopener">${esc(r.member_name || 'סוכן/ת')}</a>
+          <div class="sd-meta">${meta}</div>
+        </div>
+        <span class="sd-tier">${esc(Tiers.label(r.now_tier))}</span>
+      </div>`;
+  }).join('') : '<div class="empty-state">אין כרגע אף אחד/ת בקטגוריה הזו.</div>');
+
+  const closeBtn = document.getElementById('subsDrillClose');
+  if (closeBtn) closeBtn.addEventListener('click', closeSubsDrill);
+}
+
+/* ‏"בקשות פתוחות" הוא קיצור דרך ולא רשימה נוספת: תור הבקשות, עם כפתורי
+   האישור והדחייה, כבר יושב מתחת לתמונת המצב. ההדגשה הרגעית היא מה שמונע
+   את ההרגשה שהלחיצה לא עשתה כלום כשהתור כבר נראה על המסך. */
+function flashPendingRequests(){
+  const host = document.getElementById('subsRequests');
+  if (!host) return;
+  closeSubsDrill();
+  host.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  host.classList.remove('subs-flash');
+  void host.offsetWidth;          // הפעלת האנימציה מחדש גם בלחיצה רצופה
+  host.classList.add('subs-flash');
+  setTimeout(() => host.classList.remove('subs-flash'), 1600);
 }
 
 const toggleBillingBtn = document.getElementById('toggleBillingHistory');
