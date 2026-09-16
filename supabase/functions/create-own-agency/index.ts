@@ -3,6 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { grantLaunchPromo } from "../_shared/launch-promo.ts";
 import { announcePlatformSignup } from "../_shared/platform-signup-alert.ts";
 import { blockedResponse, checkBrokerLicense } from "../_shared/broker-license-gate.ts";
+import { agencyName } from "../_shared/agency-lookup.ts";
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
@@ -60,9 +61,13 @@ Deno.serve(async (req: Request) => {
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+  // שם המשרד נטען בשאילתה נפרדת ולא ב-embed‏ (agencies(name)): ‏PostgREST מחזיר
+  // ‏PGRST201 (HTTP 300) על embed מ-agency_members ל-agencies ומפיל את **כל**
+  // השאילתה (ההסבר ב-`_shared/agency-lookup.ts`). כאן זה הפך את השורה הזו ל-null,
+  // כלומר "אין לך כרטיס" — ואימוץ כרטיס מנותק נפל ב-23505 במקום לעבוד.
   const { data: existing } = await supabase
     .from("agency_members")
-    .select("id, released_at, agencies(name)")
+    .select("id, released_at, agency_id")
     .eq("user_id", userData.user.id)
     .maybeSingle();
 
@@ -71,7 +76,10 @@ Deno.serve(async (req: Request) => {
   // שנפתח כאן, עם אותו id, ואיתה הנכסים. ראו adopt_released_member_into_agency.
   const releasedMember = existing?.released_at ? existing : null;
   if (existing && !releasedMember) {
-    return json({ error: "already_has_agency", agency_name: (existing as any).agencies?.name ?? null }, 409);
+    return json({
+      error: "already_has_agency",
+      agency_name: await agencyName(supabase, existing.agency_id),
+    }, 409);
   }
 
   // ---------------------------------------------------------------------
@@ -183,8 +191,11 @@ Deno.serve(async (req: Request) => {
       await supabase.from("agencies").delete().eq("id", agency.id);
       if (memberErr.code === "23505") {
         const { data: nowExisting } = await supabase
-          .from("agency_members").select("agencies(name)").eq("user_id", userData.user.id).maybeSingle();
-        return json({ error: "already_has_agency", agency_name: (nowExisting as any)?.agencies?.name ?? null }, 409);
+          .from("agency_members").select("agency_id").eq("user_id", userData.user.id).maybeSingle();
+        return json({
+          error: "already_has_agency",
+          agency_name: await agencyName(supabase, nowExisting?.agency_id ?? null),
+        }, 409);
       }
       return json({ error: "db_error", detail: memberErr.message }, 500);
     }

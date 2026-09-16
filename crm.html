@@ -6752,9 +6752,11 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   }
   if (!user){ showLoginCard('פג תוקף החיבור — יש להתחבר מחדש.'); return; }
 
-  // שם המשרד נטען בשאילתה נפרדת ולא ב-embed‏ (agencies(name)): מאז ש-property_shares
-  // מחזיקה שני מפתחות זרים ל-agencies, PostgREST לא יודע לבחור נתיב יחיד בין
-  // agency_members ל-agencies ומחזיר PGRST201 (HTTP 300) על כל embed כזה.
+  // שם המשרד נטען בשאילתה נפרדת ולא ב-embed‏ (agencies(name)): ל-agent_share_exclusions
+  // יש מפתח ראשי מורכב (agent_id, agency_id), ולכן PostgREST רואה גם קשר רבים-לרבים
+  // בין agency_members ל-agencies, לא יודע לבחור נתיב יחיד, ומחזיר PGRST201 (HTTP 300)
+  // על כל embed כזה — כלומר **כל השאילתה** נכשלת ולא רק ה-embed. ההסבר המלא ורשימת
+  // הקוראים: supabase/functions/_shared/agency-lookup.ts.
   const AGENT_FIELDS = 'id, agency_id, slug, display_name, bio, photo_url, photo_position, cover_url, license_number, role, tier, credit_balance, free_quota_used, free_quota_cycle_start, is_platform_admin, is_mortgage_advisor, phone, email, ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at, years_experience, specialties, credentials, service_area, gallery, released_at';
   // עמודות המסלול וההטבה נוספו במיגרציה מאוחרת יותר, ולכן הן בסל אחד עם
   // page_bg: אם המיגרציה עוד לא רצה, ה-fallback למטה טוען את הפרופיל בלעדיהן

@@ -251,7 +251,12 @@ verify_jwt = true           # ניהול פרויקטים של יזם — שלו
 verify_jwt = true           # רכישת ליד ממדף היזמים — פעולה שמעבירה כסף
 
 [functions.property-video-create]
-verify_jwt = true           # הפקת סרטון שיווקי — נוגע ב-credit_balance של סוכן/ת mid
+# הפקת סרטון שיווקי — נוגע ב-credit_balance של סוכן/ת mid.
+# ‏verify_jwt נשאר true גם אחרי שהעוזר בוואטסאפ התחיל לקרוא לכאן: מפתח
+# ה-service_role הוא JWT חוקי ולכן עובר את ה-Gateway, ו-`authorizeInternalCaller`
+# בתוך הפונקציה הוא זה שמבדיל בין קריאת דפדפן (זהות מה-JWT) לקריאה פנימית
+# (זהות מ-agent_id בגוף). הורדה ל-false הייתה פותחת את החיוב לכל העולם.
+verify_jwt = true
 
 # ‏fal.ai קורא/ת לכאן מבחוץ ואין לו/ה JWT שלנו, ולכן זו נקודת קצה פתוחה.
 # האימות הוא webhook_token ייחודי לכל בקשה, שנשלח בכתובת ומושווה מול השורה
