@@ -113,6 +113,12 @@ verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
 [functions.geocode-backfill]
 verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
 
+# השלמת מידע תכנוני (גוש, חלקה, ייעוד, תוכניות) לנכסים שכבר במסד. רצה פעם
+# בשעה מ-pg_cron, ורק כשיש מה להשלים (‏planning_backfill_pending בתנאי
+# ה-cron). אינה מקבלת שום קלט — התור מוגדר במסד. ראו docs/land-planning.md
+[functions.planning-backfill]
+verify_jwt = false          # ‏pg_cron + x-alert-cron-secret / service role
+
 # סנכרון רשימת הרחובות של עפולה משכבת הכתובות של העירייה. רצה פעם ביום
 # מ-pg_cron, ויורה רק כשעברו ארבעה חודשים מהסנכרון המוצלח האחרון
 # (‏street_registry_sync_due בתנאי ה-cron). אינה מקבלת שום קלט — העיר

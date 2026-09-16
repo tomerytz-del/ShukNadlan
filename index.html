@@ -9,6 +9,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
+<script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>שוק נדל״ן | עפולה והעמק</title>
@@ -22,10 +23,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      לא נשאר להם שימוש אחד שמגיע למסך (‏.logo-word‎ נדרס ל-Heebo באותו קובץ),
      והם עדיין נטענו: שישה משקלים של שני גופנים בכל כניסה לעמוד. -->
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
+      crossorigin="anonymous" referrerpolicy="no-referrer">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="assets/map-tiles.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
+        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="assets/map-gestures.js"></script>
 <script src="assets/map-draw.js"></script>
 <!-- נטען לפני property-card.js: האריח מוסיף את תגית "ללא עמלת תיווך"
@@ -4608,7 +4615,10 @@ const CARD_GRADIENTS = ['linear-gradient(155deg,#0e2a6b,#0d1b3d)','linear-gradie
 /* ניקוי ערך שמגיע מה-DB לפני הזרקה ל-innerHTML (גם בתוך מאפיין src/alt).
    מוגדר כאן, למעלה, כי הוא משמש גם את קרוסלת המשרדים, גם את בלון המפה
    וגם את ממלא המקום של נכס בלי תמונות. */
-const escAttr = s => String(s ?? '').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+/* ‏escAttr הוא שם מקומי היסטורי ל-escapeHtml שב-assets/esc.js. ההגדרה
+   הקודמת כאן טיפלה ב-‎& " <‎ בלבד — בלי גרש בודד ובלי ‎>‎ — ולכן ערך
+   בתוך מאפיין בגרש בודד היה יוצא ממנו החוצה. */
+function escAttr(s){ return escapeHtml(s); }
 
 /* יש לנכס תמונה ראשית אמיתית? (מערך ריק, null או מחרוזת ריקה — אין) */
 function hasPhoto(p){
@@ -4621,12 +4631,20 @@ function hasPhoto(p){
 const SITE_LOGO = 'assets/logo-shuknadlan.svg';
 const NO_PHOTOS_NOTE = 'תמונות של הנכס יעלו בקרוב';
 
+/* ‏כתובת תמונה בתוך url('…') שבתוך מאפיין ‏style="…" — שתי שכבות ציטוט,
+   ולכן encodeURI + ‎%27‎ ולא הדבקה ישירה: גרש בודד בשם הקובץ סוגר את ה-url
+   ומריץ CSS זר, וגרש כפול בורח מהמאפיין עצמו אל תוך ה-HTML. אותו טיפול
+   בדיוק כמו בתמונת הכתבה (ראו renderArticles). */
+function cssUrl(u){
+  return encodeURI(String(u == null ? '' : u)).replace(/'/g, '%27');
+}
+
 /* התמונה הראשית של נכס היא images[0]. נכס בלי תמונות מקבל את
    thumbFallback: לוגו המשרד שהנכס שייך אליו + "תמונות של הנכס יעלו בקרוב",
    במקום הגרדיאנט האדום שנראה כמו תמונה שבורה. */
 function thumbStyle(p, i){
   return hasPhoto(p)
-    ? `background-image:url('${p.images[0]}');background-size:cover;background-position:center`
+    ? `background-image:url('${cssUrl(p.images[0])}');background-size:cover;background-position:center`
     : '';
 }
 
@@ -5613,30 +5631,21 @@ async function loadTicker(){
    שב-agencies.html במכוון: אותה גלולה חייבת להחזיר את אותם משרדים בשני
    המסכים.
    ============================================================ */
-const AGENCY_LAND_TYPES = new Set(['מגרש','מגרשים','משק חקלאי/נחלה','משק עזר','קרקע חקלאית']);
-const AGENCY_SPECS = [
-  { key:'all',         label:'הכל',            match:()=> true },
-  { key:'residential', label:'דירות מגורים',    match:p => p.category !== 'commercial' && !AGENCY_LAND_TYPES.has(p.property_type) },
-  { key:'commercial',  label:'נדל״ן מסחרי',     match:p => p.category === 'commercial' && !AGENCY_LAND_TYPES.has(p.property_type) },
-  { key:'land',        label:'קרקעות ומשקים',   match:p => AGENCY_LAND_TYPES.has(p.property_type) },
-  // פרויקט חדש = נכס שנושא סטטוס פרויקט כלשהו (בתכנון/בבנייה/אכלוס)
-  { key:'projects',    label:'פרויקטים חדשים',  match:p => !!p.project_status },
-];
-function agencySpecsOf(props){
-  return AGENCY_SPECS.filter(s => s.key !== 'all' && props.some(s.match)).map(s => s.key);
-}
+/* תווית לכל מפתח התמחות, לשורת התגיות בכרטיס ולבורר המהיר.
 
-/* האזורים שהמשרד פעיל בהם, לפי תדירות: שם השכונה כשיש, ואחרת שם העיר.
-   ‏specialty_areas שהוקלד ב-CRM משמש כגיבוי למשרד בלי נכסים ממופים. */
-function agencyAreasOf(props, fallback){
-  const counts = new Map();
-  props.forEach(p=>{
-    const area = p.neighborhoods?.name || p.city;
-    if (area) counts.set(area, (counts.get(area) || 0) + 1);
-  });
-  const ranked = [...counts.entries()].sort((a, b)=> b[1] - a[1]).map(([area])=> area);
-  return ranked.length ? ranked.slice(0, 3) : (Array.isArray(fallback) ? fallback.slice(0, 3) : []);
-}
+   ‏**ההגדרה מה נכנס לכל מפתח אינה כאן** — היא ב-‎homepage_agent_cards‎
+   ו-‎homepage_agency_cards‎ במסד, שמחזירות את המפתחות מוכנים (ראו
+   ‏supabase/migrations/…_homepage_cards_aggregate.sql). קודם היא הייתה
+   בשני המקומות: פרדיקט ב-JS שרץ על כל הנכסים, ואותו כלל ב-SQL — ושתי
+   הגדרות של אותו דבר נפרדות זו מזו בשקט ברגע שאחת מהן משתנה. */
+const AGENCY_SPECS = [
+  { key:'all',         label:'הכל' },
+  { key:'residential', label:'דירות מגורים' },
+  { key:'commercial',  label:'נדל״ן מסחרי' },
+  { key:'land',        label:'קרקעות ומשקים' },
+  // פרויקט חדש = נכס שנושא סטטוס פרויקט כלשהו (בתכנון/בבנייה/אכלוס)
+  { key:'projects',    label:'פרויקטים חדשים' },
+];
 
 /* הקרוסלה מציגה את *כל* משרדי התיווך שבפלטפורמה, ולא רק את אלה שכבר יש
    להם שורה ב-agency_rankings. קודם נטענו הדירוגים בלבד, ומכיוון שיש בהם
@@ -5656,13 +5665,11 @@ async function loadLeadingAgencies(){
       // כך שביקורת שאושרה הבוקר משפיעה על הכרטיס היום. אותו נימוק בדיוק
       // שבגללו כרטיסי המתווכים סופרים את הביקורות עצמם.
       sb.from('agency_ratings_public').select('agency_id, score, review_count').limit(200),
-      // מעבר לספירה, אותה שאילתה מזינה את מאתר המשרדים שמתחת לקרוסלה:
-      // ‏category/property_type/project_status גוזרים את ההתמחות, והשכונה
-      // (או העיר) את אזורי הפעילות. שאילתה שנייה לאותם נכסים הייתה כפל
-      // תעבורה בשביל אותם שדות בדיוק.
-      sb.from('properties')
-        .select('agency_id, category, property_type, project_status, city, neighborhoods(name)')
-        .eq('status', 'active').limit(2000),
+      // שורה אחת לכל משרד — מספר הנכסים, ההתמחות ואזורי הפעילות — במקום
+      // כל הנכסים הפעילים לדפדפן. קודם נשלפה כאן טבלת הנכסים כולה רק כדי
+      // שהדפדפן יספור אותה, ו-‎limit(2000)‎ היה הופך בשקט ממגן לחיתוך
+      // ברגע שיש יותר נכסים מזה — ואז הספירה בכרטיס פשוט שגויה.
+      sb.rpc('homepage_agency_cards'),
       // מי מאויש. ‏agency_members_public מחזיר/ה שורות active בלבד, ולכן
       // משרד שאינו כאן הוא משרד שכל חבריו סגרו חשבון או הושעו — שלט בלי
       // איש מאחוריו, שאין למי לפנות בו.
@@ -5685,21 +5692,19 @@ async function loadLeadingAgencies(){
     const ratingByAgency = {};
     (ratingsRes.data || []).forEach(r => { ratingByAgency[r.agency_id] = r; });
 
-    // מספר הנכסים הפעילים נספר כאן מהנכסים עצמם ולא נלקח מ-
-    // active_properties_count שבטבלת הדירוגים: זה שדה מחושב שמתעדכן
-    // מדי פעם, ומספיק שמשרד יעלה נכס אחד כדי שהכרטיס יציג מספר ישן.
-    const propsByAgency = new Map();
-    (activeRes.data || []).forEach(p => {
-      if (!p.agency_id) return;
-      if (!propsByAgency.has(p.agency_id)) propsByAgency.set(p.agency_id, []);
-      propsByAgency.get(p.agency_id).push(p);
+    // מספר הנכסים הפעילים מגיע מהספירה במסד ולא מ-active_properties_count
+    // שבטבלת הדירוגים: זה שדה מחושב שמתעדכן מדי פעם, ומספיק שמשרד יעלה
+    // נכס אחד כדי שהכרטיס יציג מספר ישן. הדירוגים נשארים נפילה־לאחור.
+    const cardByAgency = new Map();
+    (activeRes.data || []).forEach(c => {
+      if (c && c.agency_id) cardByAgency.set(c.agency_id, c);
     });
 
     return agencies
       .map(a => {
         const ranking = rankByAgency[a.id];
         const rated = ratingByAgency[a.id];
-        const props = propsByAgency.get(a.id) || [];
+        const card = cardByAgency.get(a.id);
         return {
           ...a,
           score: ranking ? Number(ranking.composite_score) : null,
@@ -5707,10 +5712,13 @@ async function loadLeadingAgencies(){
           // "0 כוכבים" אלא פשוט לא מוצג עם דירוג, כמו בכרטיסי המתווכים.
           rating: rated?.score != null ? Number(rated.score) : null,
           reviews_count: Number(rated?.review_count) || 0,
-          active_properties_count: props.length || (ranking?.active_properties_count ?? 0),
+          active_properties_count: card?.active_count ?? (ranking?.active_properties_count ?? 0),
           // שני השדות האלה משרתים רק את מאתר המשרדים שמתחת לקרוסלה
-          specs: agencySpecsOf(props),
-          areas: agencyAreasOf(props, a.specialty_areas),
+          specs: card?.specs || [],
+          // ‏specialty_areas שהוקלד ב-CRM נשאר הגיבוי למשרד בלי נכסים ממופים
+          areas: (card?.areas && card.areas.length)
+            ? card.areas
+            : (Array.isArray(a.specialty_areas) ? a.specialty_areas.slice(0, 3) : []),
         };
       })
       .sort((x, y)=>{
@@ -5748,12 +5756,17 @@ async function loadLeadingAgents(){
       // התקרות כאן הן רק גבול בטיחות לגודל התשובה, לא מכסת תצוגה.
       sb.from('agency_members_public').select('id, display_name, slug, photo_url, photo_position, agency_id, has_ethics_badge').limit(200),
       sb.from('agent_rankings').select('agent_id, composite_score, active_properties_count').limit(200),
-      sb.from('reviews').select('agent_id, rating').eq('status', 'published').limit(2000),
-      // שדות ההתמחות (‏category / property_type / project_status) נשלפים כאן
-      // ולא בשאילתה נוספת: אלה בדיוק אותן שורות שכבר נספרות למונה הנכסים,
-      // והבורר המהיר שבתיבת החיפוש גוזר מהן במה המתווך/ת מתמחה — באותה
-      // הגדרה שבה נגזרת ההתמחות של המשרד (‎agencySpecsOf‎).
-      sb.from('properties').select('agent_id, category, property_type, project_status').eq('status', 'active').limit(2000),
+      // הממוצע ומספר הביקורות מחושבים ב-view ולא בדפדפן. קודם נשלפו כאן
+      // כל הביקורות המפורסמות באתר (‏limit(2000)) רק כדי לחלק סכום במספר —
+      // אותו דפוס בדיוק שהיה בספירת הנכסים. זהו גם המקור שכרטיסי המשרדים
+      // כבר משתמשים בו (‎agency_ratings_public‎), כך ששני סוגי הכרטיסים
+      // נשענים עכשיו על אותה שכבה.
+      sb.from('agent_ratings_public').select('agent_id, avg_rating, review_count').limit(200),
+      // שורה אחת לכל סוכן/ת — מספר הנכסים והתחומים שהבורר המהיר שבתיבת
+      // החיפוש גוזר מהם — במקום כל הנכסים הפעילים לדפדפן. ההגדרה של
+      // התחומים יושבת ב-‎homepage_agent_cards‎ ומעתיקה את AGENCY_SPECS
+      // אחד לאחד, כך ששני המקומות ממשיכים להסכים.
+      sb.rpc('homepage_agent_cards'),
     ]);
     const members = membersRes.data;
     if (membersRes.error || !members) throw membersRes.error || new Error('empty');
@@ -5771,26 +5784,20 @@ async function loadLeadingAgents(){
     const rankByAgent = {};
     (rankingsRes.data || []).forEach(r => { rankByAgent[r.agent_id] = r; });
 
-    // ממוצע הביקורות מחושב מהביקורות המפורסמות עצמן ולא נלקח מ-
+    // ‏avg_rating ב-view מחושב מהביקורות המפורסמות עצמן ולא מ-
     // bayesian_rating שבטבלת הדירוגים: זה שדה מחושב שמתעדכן מדי פעם, ובלי
     // הביקורות שמאחוריו הכרטיס היה מציג כוכבים בלי אף ביקורת שתגבה אותם.
     // כך גם הסדר וגם התצוגה נשענים על אותו מקור אחד.
     const reviewAgg = {};
     (reviewsRes.data || []).forEach(r => {
-      if (!r.agent_id) return;
-      const agg = reviewAgg[r.agent_id] || (reviewAgg[r.agent_id] = { sum:0, count:0 });
-      agg.sum += Number(r.rating) || 0;
-      agg.count += 1;
+      if (r && r.agent_id) reviewAgg[r.agent_id] = r;
     });
 
-    // אותו נימוק כמו במשרדים: מספר הנכסים הפעילים נספר מהנכסים עצמם ולא
+    // אותו נימוק כמו במשרדים: מספר הנכסים הפעילים נספר במסד ולא נלקח
     // מ-active_properties_count, כדי שהכרטיס לא יציג מספר ישן.
-    const liveCount = {};
-    const propsByAgent = {};
-    (activeRes.data || []).forEach(p => {
-      if (!p.agent_id) return;
-      liveCount[p.agent_id] = (liveCount[p.agent_id] || 0) + 1;
-      (propsByAgent[p.agent_id] || (propsByAgent[p.agent_id] = [])).push(p);
+    const cardByAgent = {};
+    (activeRes.data || []).forEach(c => {
+      if (c && c.agent_id) cardByAgent[c.agent_id] = c;
     });
 
     return members
@@ -5800,10 +5807,12 @@ async function loadLeadingAgents(){
         return {
           ...m,
           agency_name: agencyById[m.agency_id]?.name || '',
-          rating: agg && agg.count ? agg.sum / agg.count : null,
-          reviews_count: agg?.count || 0,
-          active_properties_count: liveCount[m.id] ?? (ranking?.active_properties_count ?? 0),
-          specs: agencySpecsOf(propsByAgent[m.id] || []),
+          // ‏avg_rating הוא null למי שאין לו/ה ביקורות — סוכן/ת חדש/ה לא
+          // מקבל/ת "0 כוכבים" אלא פשוט לא מוצג/ת עם דירוג, כמו במשרדים.
+          rating: agg?.avg_rating != null ? Number(agg.avg_rating) : null,
+          reviews_count: Number(agg?.review_count) || 0,
+          active_properties_count: cardByAgent[m.id]?.active_count ?? (ranking?.active_properties_count ?? 0),
+          specs: cardByAgent[m.id]?.specs || [],
         };
       })
       .sort((x, y)=>{
@@ -6014,10 +6023,8 @@ const FALLBACK_ARTICLES = [
 
 /* כותרות ותקצירים נכתבים בעורך של ה-CRM ונכנסים כאן ל-innerHTML —
    גרשיים בכותרת ("דירת 4 חד׳") הם המקרה השכיח, הזרקה היא המקרה שאסור. */
-function escapeArticleText(s){
-  return String(s == null ? '' : s)
-    .replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' })[c]);
-}
+/* שם מקומי היסטורי ל-escapeHtml שב-assets/esc.js. */
+function escapeArticleText(s){ return escapeHtml(s); }
 
 async function loadArticles(){
   if (!sb) return FALLBACK_ARTICLES;
@@ -6908,10 +6915,10 @@ function mapPopupHtml(p, kind){
     (img ? `<img class="map-pop-thumb" src="${escAttr(img)}" alt="" loading="lazy" onerror="this.remove()">` : '') +
     (logo ? `<img class="map-pop-thumb is-logo" src="${escAttr(logo)}" alt="" loading="lazy" onerror="this.remove()">` : '') +
     `<span class="map-pop-body">` +
-      `<span class="map-pop-title">${p.title}</span>` +
+      `<span class="map-pop-title">${escAttr(p.title)}</span>` +
       `<span class="map-pop-price"><i class="map-pop-dot" style="background:${DEAL_COLORS[kind]}"></i>` +
         `${DEAL_LABELS[kind]} · ${priceLabel(p)}</span>` +
-      `<span class="map-pop-meta">${meta}</span>` +
+      `<span class="map-pop-meta">${escAttr(meta)}</span>` +
       // הסימן על המפה אומר "יש כאן משהו"; הבלון הוא המקום שבו נאמר מה —
       // ההבטחה עצמה ומתי היא נגמרת
       (OpenHouse.live(p)
@@ -8395,8 +8402,8 @@ function buildSearchRow(p, i){
   row.innerHTML = `
     <div class="sr-thumb" style="${thumbStyle(p, i)}">${thumbFallback(p)}${isPromoted(p) ? '<span class="ribbon">מקודם</span>' : ''}</div>
     <div class="sr-body">
-      <div class="sr-title">${p.title}</div>
-      <div class="sr-meta"><span>${locationLabel(p)}</span>${p.property_type ? `<span>${p.property_type}</span>` : ''}${p.agency_name ? `<span>${p.agency_name}</span>` : ''}</div>
+      <div class="sr-title">${escAttr(p.title)}</div>
+      <div class="sr-meta"><span>${escAttr(locationLabel(p))}</span>${p.property_type ? `<span>${escAttr(p.property_type)}</span>` : ''}${p.agency_name ? `<span>${escAttr(p.agency_name)}</span>` : ''}</div>
       ${PropertyCard.factsHtml(p)}
     </div>
     <div class="sr-side">

@@ -196,7 +196,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </main>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
+        integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
+        crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script>
 /* ============================================================================
    עמוד התשלום — טופס פרטי לקוח, לא טופס אשראי.
@@ -443,6 +445,8 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
           ? 'החשבון אינו משויך למשרד או לבעל/ת מקצוע. פנו אלינו ונסדר.'
         : data.error === 'morning_not_configured' || data.error === 'morning_misconfigured'
           ? 'הסליקה עדיין לא פעילה. פנו אלינו ונפתח את המסלול ידנית.'
+        : data.error === 'payment_terminal_missing'
+          ? 'הסליקה אינה פעילה כרגע — טרם הוגדר מסוף סליקה. ניסיון חוזר לא יעזור; פנו אלינו.'
         : 'שגיאה בפתיחת התשלום — נסו שוב.';
       payBtn.disabled = false;
       return;

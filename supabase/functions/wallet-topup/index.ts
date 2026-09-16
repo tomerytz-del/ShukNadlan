@@ -7,6 +7,7 @@ import {
   json,
   morningConfigured,
   morningEnvLabel,
+  isTerminalMissing,
 } from "../_shared/morning.ts";
 
 // ============================================================================
@@ -159,7 +160,9 @@ Deno.serve(async (req: Request) => {
   if (!form.ok) {
     await supabase.rpc("fail_wallet_topup", { p_topup_id: topupId, p_reason: form.error });
     console.error("wallet-topup: form creation failed", form.error);
-    return json({ error: "payment_provider_error" }, 502);
+    return json({
+      error: isTerminalMissing(form.error) ? "payment_terminal_missing" : "payment_provider_error",
+    }, 502);
   }
 
   // 4. שמירת המזהים. ‏provider_form_id הוא מה שמאפשר ל-reconcile לשאול את

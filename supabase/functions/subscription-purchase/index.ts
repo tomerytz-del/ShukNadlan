@@ -6,6 +6,7 @@ import {
   createPaymentForm,
   json,
   morningConfigured,
+  isTerminalMissing,
 } from "../_shared/morning.ts";
 
 // ============================================================================
@@ -117,7 +118,9 @@ Deno.serve(async (req: Request) => {
   if (!form.ok) {
     await supabase.rpc("fail_subscription_order", { p_order_id: orderId, p_reason: form.error });
     console.error("subscription-purchase: form creation failed", form.error);
-    return json({ error: "payment_provider_error" }, 502);
+    return json({
+      error: isTerminalMissing(form.error) ? "payment_terminal_missing" : "payment_provider_error",
+    }, 502);
   }
 
   await supabase
