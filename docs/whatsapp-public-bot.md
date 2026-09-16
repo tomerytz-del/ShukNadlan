@@ -52,7 +52,7 @@ Meta WhatsApp Cloud API ──Webhook──► whatsapp-webhook/index.ts
 |---|---|
 | `supabase/functions/whatsapp-webhook/public-agent.ts` | הכלים, ההוראות ולולאת השיחה של הבוט הציבורי |
 | `supabase/functions/whatsapp-webhook/index.ts` | הניתוב בין שני הענפים, בלם הקצב ומצב השיחה |
-| `supabase/migrations/20261111090000_whatsapp_public_bot.sql` | `whatsapp_public_conversations`, האינדקס לבלם והניקוי היומי |
+| `supabase/migrations/20261115090000_whatsapp_public_bot.sql` | `whatsapp_public_conversations`, האינדקס לבלם והניקוי היומי |
 | `.github/workflows/whatsapp_public_bot_check.yml` | הבדיקה החודשית: האם הגיע הזמן למספר שני |
 
 ## אחד-עשר הכלים
@@ -188,6 +188,19 @@ Meta WhatsApp Cloud API ──Webhook──► whatsapp-webhook/index.ts
 למסך כרגיל, ורק בוואטסאפ של אנשים זרים מופיע מספר הבית שהאתר טרח להסתיר.
 לכן `maskHouseNumber` פורטה ל-`public-agent.ts`, ו-`house_number` נשלף
 שם **רק כדי להימחק** מהכותרת, מהרחוב ומהתיאור.
+
+### שם בעל/ת הנכס — כאן דווקא אין מה לעשות
+
+`description`, `marketing_description` ו-`post_text` עלולים להכיל שם של
+בעל/ת נכס שהוקלד בשדה הלא נכון, והבוט שולח את הטקסט הזה לזרים. ההסרה
+קיימת — אבל היא **טריגר במסד** שרץ על כל כתיבה, ולא בדיקה בצד הקורא
+(‏[`owner-privacy.md`](owner-privacy.md)).
+
+זו בדיוק ההשוואה שמסבירה למה מספר הבית כן דרש עבודה כאן: המיסוך שלו חי
+ב-JavaScript של `property.html`, כלומר כל קורא אחר עוקף אותו וצריך לפורט
+אותו בעצמו. הסרת פרטי הבעלים חיה במסד, ולכן כל קורא — הבוט בכללם — מקבל
+טקסט נקי בלי לדעת על כך. **מי שמזיז את ההסרה הזו לצד הלקוח מכניס את הבוט
+לרשימת מי שצריך לתקן.**
 
 ### טלפונים לא נמסרים, קישורים כן
 
