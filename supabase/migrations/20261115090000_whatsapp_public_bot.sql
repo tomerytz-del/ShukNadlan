@@ -80,20 +80,6 @@ create index if not exists whatsapp_messages_phone_created_idx
 -- ---------------------------------------------------------------------------
 -- 3. ניקוי
 -- ---------------------------------------------------------------------------
--- הניקוי נוגע ב**שני** מקומות, ולא רק בטבלת השיחות.
---
--- ‏`privacy.html` מבטיח לגולש/ת שתוכן השיחה נמחק אחרי 30 יום. מחיקת
--- ‏`whatsapp_public_conversations` לבדה אינה מקיימת את ההבטחה: גוף כל הודעה
--- נכנסת נשמר גם ב-`whatsapp_messages.body` — כולל תמלול של הקלטות קוליות —
--- והוא היה נשאר שם לנצח. הבטחת פרטיות שאינה מדויקת גרועה מהיעדר הבטחה.
---
--- **השורה נשארת, התוכן יורד.** ‏`whatsapp_messages` היא גם מנגנון ה-de-dup
--- מול משלוחים חוזרים של Meta (‏`wa_message_id`), גם הבסיס לבלם הקצב וגם מה
--- שהבדיקה החודשית סופרת. מחיקת השורות הייתה שוברת את שלושתם; איפוס
--- ‏`body` ו-`media_url` משאיר את כולם שלמים ומשאיר מאחור רק את המטא-דאטה.
---
--- רק שורות של פונים ציבוריים (‏`agent_id is null`). שיחות של סוכנים הן
--- נתוני עבודה של המשרד ואינן בהבטחה הזו.
 create or replace function public.purge_whatsapp_public_conversations()
 returns integer
 language plpgsql
@@ -106,30 +92,12 @@ begin
   delete from public.whatsapp_public_conversations
    where last_message_at < now() - interval '30 days';
   get diagnostics v_deleted = row_count;
-
-  update public.whatsapp_messages
-     set body = null,
-         media_url = null
-   where agent_id is null
-     and created_at < now() - interval '30 days'
-     and (body is not null or media_url is not null);
-
   return v_deleted;
 end;
 $$;
 
 comment on function public.purge_whatsapp_public_conversations() is
-  'מוחקת שיחות ציבוריות ששקטו 30 יום, ומאפסת את גוף ההודעות הציבוריות הישנות ב-whatsapp_messages (השורה נשארת — היא ה-de-dup ובסיס הספירה). רצה ב-pg_cron פעם ביום.';
-
--- ההרשאות, במפורש. ‏ברירת המחדל של Postgres היא EXECUTE ל-PUBLIC,
--- ו-PostgREST חושף כל פונקציה ב-/rest/v1/rpc/<שם> — כלומר בלי השורות האלה
--- זוהי נקודת קצה **פתוחה לכל אנונימי/ת** שמוחקת שורות. הפונקציה נקראת רק
--- ממשימת pg_cron, ולכן אין לאיש צורך בהרשאה עליה.
--- התקדים טרי: 20261112090000_revoke_anon_tier_rpc.sql סגרה חמש כאלה.
-revoke all on function public.purge_whatsapp_public_conversations()
-  from public, anon, authenticated;
-grant execute on function public.purge_whatsapp_public_conversations()
-  to service_role;
+  'מוחקת שיחות ציבוריות שלא היה בהן דבר 30 יום. רצה ב-pg_cron פעם ביום.';
 
 do $$
 begin

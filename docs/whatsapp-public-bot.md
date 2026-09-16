@@ -53,6 +53,7 @@ Meta WhatsApp Cloud API ──Webhook──► whatsapp-webhook/index.ts
 | `supabase/functions/whatsapp-webhook/public-agent.ts` | הכלים, ההוראות ולולאת השיחה של הבוט הציבורי |
 | `supabase/functions/whatsapp-webhook/index.ts` | הניתוב בין שני הענפים, בלם הקצב ומצב השיחה |
 | `supabase/migrations/20261115090000_whatsapp_public_bot.sql` | `whatsapp_public_conversations`, האינדקס לבלם והניקוי היומי |
+| `supabase/migrations/20261116090000_whatsapp_public_purge_hardening.sql` | סגירת ההרשאה על פונקציית הניקוי, והשלמת המחיקה ל-`whatsapp_messages` |
 | `.github/workflows/whatsapp_public_bot_check.yml` | הבדיקה החודשית: האם הגיע הזמן למספר שני |
 | `assets/bot-link.js` | מקור האמת למספר, לקישור ולמתג הכניסה מהאתר |
 | `index.html` | הכפתור המשני במסך אפס התוצאות (`renderEmptyBotLink`) |
@@ -350,9 +351,16 @@ WHATSAPP_PUBLIC_BOT = on
 נשאר תיעוד טכני בלי תוכן.
 
 הפונקציה מיוצאת רק ל-`service_role` (`revoke … from public, anon, authenticated`).
-בלי זה היא הייתה נקודת קצה ב-`/rest/v1/rpc/` שמוחקת שורות לכל מי שיודע את
-שמה — בדיוק מה ש-`20261112090000_revoke_anon_tier_rpc.sql` סגרה בחמש פונקציות
-אחרות.
+בלי זה היא נקודת קצה ב-`/rest/v1/rpc/` שקריאה לכל מי שמחזיק את המפתח הציבורי —
+בדיוק מה ש-`20261112090000_revoke_anon_tier_rpc.sql` סגרה בחמש פונקציות אחרות.
+
+> **וכך זה קרה גם כאן.** המיגרציה הראשונה (`20261115090000`) נוצרה בלי
+> ה-`revoke` ומוזגה, ומכיוון שהיא כבר נרשמה ב-`schema_migrations`, עריכה שלה
+> לא הייתה רצה לעולם — התיקון חייב היה להיות **מיגרציה חדשה**
+> (`20261116090000`). זה הלקח המעשי: קובץ מיגרציה שכבר הוחל הוא תיעוד של מה
+> שרץ, לא מקום לתקן בו. הרדיוס היה קטן (לפונקציה אין פרמטרים, ותנאי ה-WHERE
+> קבועים — לכל היותר מישהו מריץ את ניקוי ה-30 יום מוקדם), אבל הכלל אינו
+> "לסגור מה שמסוכן" אלא "להחליט על ההרשאות במפורש".
 
 הלידים עצמם אינם כאן — הם ב-`saved_searches` וב-`leads`, עם אותה מדיניות
 שחלה על לידים מהאתר. מה שנמחק אחרי 30 יום הוא השיחה, לא הפנייה.
