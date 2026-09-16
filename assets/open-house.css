@@ -106,9 +106,20 @@
 }
 .oh-banner:hover .oh-banner-cta{background:var(--open-house-deep,#9c0c24)}
 /* בטלפון הכפתור יורד לשורה משלו ונמתח: כפתור צר בקצה רצועה שנשברה לשלוש
-   שורות נראה כמו הערת שוליים, וזו הפעולה של הרצועה כולה. */
+   שורות נראה כמו הערת שוליים, וזו הפעולה של הרצועה כולה.
+
+   הסימן, לעומתו, נשאר **לצד** הטקסט ולא מעליו. ‏flex-basis של 260px על
+   ‏.oh-banner-body דחף אותו לשורה משלו במסך צר, והסימן נשאר לבדו בשורה
+   שמעליו — שורה שלמה בגובה 72px שכל תפקידה להיות אייקון, בדיוק ברצועה
+   שיושבת באמצע הגלילה של דף הבית. ‏`flex:1 1 0` מרשה לטקסט להצטמצם מתחת
+   לרוחב הבסיס, וכך השניים נכנסים לשורה אחת.
+
+   הגובה נקבע ורוחב auto נגזר מה-viewBox, כדי שהיחס יישמר בלי לקודד אותו
+   כאן פעם שנייה (הוא כבר מחושב ב-OpenHouse.icon). */
 @media(max-width:559px){
   .oh-banner{gap:12px;padding:16px}
+  .oh-banner-body{flex:1 1 0}
+  .oh-banner .oh-mark{flex:none;height:56px;width:auto}
   .oh-banner-cta{flex:1 0 100%;text-align:center}
   .oh-banner h2,.oh-banner h3{font-size:1.05rem}
 }
