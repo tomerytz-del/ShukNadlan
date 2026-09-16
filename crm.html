@@ -714,6 +714,76 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   .lead-actions .btn-openhouse:disabled,.lead-actions .btn-openhouse-on:disabled{opacity:.5;cursor:not-allowed}
   .is-promoted .lead-actions .btn-ghost{background:rgba(255,255,255,.75)}
+
+  /* ---------- כרטיס נכס: שלושה מקטעי פעולות ----------
+     שתים־עשרה גלולות זהות ברוחב ובעובי, בטור אחד, הן רשימה שאי אפשר
+     לסרוק: העין לא מבדילה בין "עריכה" ל"בניית סיור 360°", וכל נכס דרש
+     שתי גלילות מלאות רק כדי להגיע לכפתור השלישי. החלוקה כאן היא לפי
+     **תפקיד** הפעולה, וכל מקטע נראה אחרת כדי שהעין תמצא אותו בלי לקרוא:
+
+       1. `.pc-grid`  — פעולות יומיומיות. רשת אייקון-מעל-תווית, שלוש
+          בשורה. אייקון וטקסט קצר בריבוע מעוגל תופסים פחות משליש
+          מהגובה של אותן פעולות כגלולות בטור.
+       2. `.pc-hub`   — כלי ה-AI והדאטה, בבלוק מובחן משלהם. הם נדירים
+          יותר ואינם תחזוקה, ולכן הם לא צריכים להתחרות על אותה רשת.
+       3. `.act-primary` — שלוש הפעולות שמשנות את מצב הנכס, כפי שהיו.
+
+     האייקונים הם SVG ולא אימוג'י: אימוג'י מצויר בכל מערכת הפעלה אחרת,
+     גדלו אינו נשלט, וצבעו אינו מגיב למצב הכפתור. */
+  .pc-sec-head{font-size:.68rem;font-weight:800;letter-spacing:.04em;color:var(--ink-soft);
+    margin:0 0 7px}
+  .pc-quick-head{margin-top:12px;padding-top:11px;border-top:1px dashed var(--line)}
+  .pc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  @media(min-width:560px){.pc-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  .pc-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;
+    padding:11px 6px 10px;min-height:76px;border:1.5px solid var(--line);border-radius:14px;
+    background:#fff;color:var(--ink);font-family:inherit;font-size:.72rem;font-weight:700;
+    line-height:1.25;text-align:center;text-decoration:none;cursor:pointer;
+    transition:transform .12s ease,box-shadow .12s ease}
+  .pc-tile:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(15,52,53,.12)}
+  .pc-tile:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
+  .pc-ico{width:22px;height:22px;flex:none}
+  /* ‏overflow-wrap:anywhere — "מידע תכנוני" ברוחב עמודה של 100px חייב
+     להישבר, ובלי זה הוא גולש מהאריח במקום לרדת שורה */
+  .pc-label{display:block;min-width:0;overflow-wrap:anywhere}
+  /* הבאדג' אומר את מה שהתווית לא מספיקה: מה זה עולה, או שזה חינם. הוא
+     יושב על הפינה ולא בתוך התווית, כי ‎btn.textContent‎ של פעולה בעבודה
+     ("מקפיץ…") דורס את התווית בלבד. */
+  .pc-badge{position:absolute;inset-block-start:5px;inset-inline-start:5px;
+    font-size:.58rem;font-weight:800;line-height:1.6;padding:0 6px;border-radius:999px;
+    background:var(--teal);color:#EDF2F8;letter-spacing:.02em}
+  .pc-badge.pc-badge-free{background:#2A5B36;color:#EAF4EC}
+  /* גוון רך לכל אריח לפי מה שהפעולה עושה: כחול = עבודה על המודעה,
+     ירוק = חשיפה בחינם, בורדו = פעולה בתשלום, חול = חומר לשטח. */
+  .pc-tile.pc-teal{background:#E7EDF3;border-color:#D3DDE7}
+  .pc-tile.pc-teal .pc-ico{color:var(--teal)}
+  .pc-tile.pc-green{background:#E4F0E7;border-color:#CFE3D5}
+  .pc-tile.pc-green .pc-ico{color:#2A5B36}
+  .pc-tile.pc-gold{background:#F6E6E8;border-color:#E9D2D6}
+  .pc-tile.pc-gold .pc-ico{color:var(--gold)}
+  .pc-tile.pc-sand{background:#F2EEE4;border-color:#E2DBCA}
+  .pc-tile.pc-sand .pc-ico{color:#7A6742}
+  .pc-tile.pc-red{background:#FDECEE;border-color:#EFD4D8}
+  .pc-tile.pc-red .pc-ico{color:#9C0C24}
+
+  /* בלוק כלי ה-AI והדאטה. רקע ומסגרת משלו — זה מה שאומר "אלה כלים
+     מקצועיים" בלי להוסיף עוד מילה של הסבר. הצ'יפים רחבים ולא מרובעים,
+     כדי שלא ייראו כשורה רביעית של הרשת שמעליהם. */
+  .pc-hub{margin-top:10px;padding:10px 11px 11px;border:1px solid #DCD8CC;
+    border-radius:14px;background:linear-gradient(180deg,#FBFAF7,#EFEDE6)}
+  .is-promoted .pc-hub{background:linear-gradient(180deg,rgba(255,255,255,.7),rgba(255,255,255,.4))}
+  /* שתיים בשורה ולא אחת: צ'יפ ברוחב מלא הוא בדיוק הגלולה שממנה ברחנו,
+     וחמש מהן זו שוב רשימה שדורשת גלילה. */
+  .pc-hub-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
+  @media(min-width:560px){.pc-hub-row{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}}
+  .pc-chip{display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    padding:8px 10px;border:1.5px solid var(--line);border-radius:999px;background:#fff;
+    color:var(--ink);font-family:inherit;font-size:.73rem;font-weight:700;line-height:1.25;
+    text-align:center;text-decoration:none;cursor:pointer;min-width:0;
+    transition:border-color .12s ease,box-shadow .12s ease}
+  .pc-chip:hover{border-color:var(--teal);box-shadow:0 2px 8px rgba(15,52,53,.1)}
+  .pc-chip:disabled{opacity:.55;cursor:not-allowed;box-shadow:none}
+  .pc-chip .pc-ico{width:16px;height:16px;color:var(--teal)}
   /* כרטיס ההתאמה יושב בתוך כרטיס הלקוח/ה — שם קו מפריד נוסף הוא רעש,
      והעמודות צרות יותר כדי שגם ברוחב המקונן ייכנסו שתיים בשורה */
   .match-card .lead-actions{margin-top:9px;padding-top:0;border-top:none;
@@ -13972,41 +14042,96 @@ function buildPropertyCard(p, agentId){
     ${tags}
     ${ownerLine ? `<div class="lead-meta">בעלים: ${esc(ownerLine)}</div>` : ''}
     ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
-    <div class="lead-actions"></div>
+    <div class="pc-sec-head pc-quick-head">פעולות מהירות</div>
+    <div class="pc-grid"></div>
+    <div class="pc-hub" hidden>
+      <div class="pc-sec-head">כלי AI ודאטה</div>
+      <div class="pc-hub-row"></div>
+    </div>
     <div class="lead-actions act-primary"></div>
   `;
-  const actions = el.querySelector('.lead-actions');
+  const actions = el.querySelector('.pc-grid');
+  const hub = el.querySelector('.pc-hub');
+  const hubRow = hub.querySelector('.pc-hub-row');
   const mainActions = el.querySelector('.lead-actions.act-primary');
 
-  // סדר הפעולות: קודם כלי העבודה היומיומיים ברשת עמודות שוות, ואחריהם
-  // שלוש הפעולות שמשנות את מצב הנכס (שת"פ / יריד / סגירת עסקה) בשורה
-  // אחת משלהן. שתי רשתות נפרדות ולא אחת: ‏act-wide בתוך רשת אחת מכריח
-  // שורה חדשה גם באמצע, ושובר את הכפתורים הקטנים לשורות מיותרות.
-  addCardAction(actions, { label:'✏️ עריכה', onClick:()=> openEditProperty(p) });
+  /* סדר הפעולות, ולמה שלושה מקטעים ולא רשימה אחת: ראו את ההערה שמעל
+     ‎.pc-grid‎ ב-CSS. כאן רק החלוקה עצמה —
+       ‎actions‎ = מה שעושים לנכס ביום־יום (עריכה, חשיפה, חומר לשטח),
+       ‎hubRow‎  = כלי ה-AI והדאטה, שנדרשים פעם בכמה נכסים,
+       ‎mainActions‎ = שלוש הפעולות שמשנות את מצב הנכס עצמו.
+     התוויות ברשת קצרות במכוון: ברוחב עמודה של שליש מסך, כל מילה שנייה
+     יורדת שורה ומגביהה את כל השורה. ההסבר המלא נשאר ב-title. */
+  addQuickAction(actions, {
+    label:'עריכה', icon:'pencil', tone:'teal',
+    title:'עריכת פרטי המודעה', onClick:()=> openEditProperty(p),
+  });
+
+  if (p.status === 'active'){
+    // הדרך לראות את המודעה כמו שהיא נראית ללקוח/ה — אותו עמוד שה-QR מוביל
+    // אליו. בלשונית חדשה כדי שה-CRM יישאר פתוח מאחור, ורק לנכס פעיל: דף
+    // הנכס טוען ‎status=active‎ בלבד ולכל השאר יציג "לא נמצא".
+    // ראשון בשורה יחד עם "עריכה": זו הבדיקה שעושים מיד אחרי כל שינוי.
+    addQuickAction(actions, {
+      label:'דף נכס', icon:'link', tone:'teal',
+      title:'פתיחת עמוד הנכס באתר בלשונית חדשה',
+      href:'property.html?id=' + encodeURIComponent(p.id), blank:true,
+    });
+  }
 
   // החתמת בעל/ת הנכס — הטופס נפתח כשפרטי הנכס והבעלים כבר בתוכו
-  addCardAction(actions, {
-    label:'✍️ החתמת בעלים',
+  addQuickAction(actions, {
+    label:'החתמה', icon:'signature', tone:'green',
     title:'הזמנת שירותי תיווך מבעל/ת הנכס, עם פרטי הנכס שכבר במערכת',
     onClick:()=> openAgreementWizard({ kind: p.deal_type === 'rent' ? 'landlord' : 'sell', propertyId: p.id }),
   });
 
-  // כתיבת נוסח מהנתונים — הצעה בלבד, נשמרת רק באישור בתוך החלון.
-  // "רענון" ולא "יצירה" כשכבר יש תיאור: זו אותה פעולה, אבל המילה אומרת
-  // לסוכן/ת מה עומד להשתנות.
-  // הכפתור מוצג ל-mid/premium בלבד, בדיוק כמו דוח CMA; ה-gating עצמו נאכף
-  // ב-request_property_description ובתור עצמו, ולא כאן.
-  if (p.status === 'active' && descriptionTierOk()){
-    addCardAction(actions, {
-      label: mktState.level === 'missing' ? '✨ תיאור שיווקי' : '♻️ רענון תיאור',
-      title: mktState.note,
-      onClick: btn => openMarketingCopy(p, btn, agentId),
+  if (p.status === 'active'){
+    addQuickAction(actions, {
+      label:'הקפצה', icon:'arrowUp', tone:'green', badge:'חינם', badgeFree:true,
+      title:'העלאת הנכס לראש התוצאות · פעם ב-24 שעות',
+      onClick:btn => bumpProperty(p.id, btn, agentId),
+    });
+
+    if (!isCurrentlyPromoted){
+      const price = shekel(priceOf('promote_price', 20));
+      const hours = priceOf('promote_duration_hours', 72);
+      addQuickAction(actions, {
+        label:'קידום', icon:'megaphone', tone:'gold', badge:price,
+        title:`קידום בתשלום — ${price} ל-${hours} שעות בסלוטים המקודמים`,
+        onClick:btn => promoteProperty(p, btn, agentId),
+      });
+    }
+
+    // מדבקה להדבקה על השלט בשטח — עמוד הנכס באתר מוצג רק לנכס פעיל,
+    // ולכן גם הכפתור נמצא כאן ולא לצד "עריכה"
+    addQuickAction(actions, {
+      label:'מדבקת QR', icon:'qr', tone:'sand',
+      title:'הפקת מדבקת QR להדבקה על השלט',
+      onClick:btn => openQrSticker(p, btn),
+    });
+
+    if (p.shared_with_partners){
+      addQuickAction(actions, {
+        label:'ביטול שת״פ', icon:'close', tone:'red',
+        title:'הפסקת השיתוף — הנכס יורד מרשימת השת״פ של המשרדים',
+        onClick:btn => unshareProperty(p, btn, agentId),
+      });
+    }
+  }
+
+  // הכפתור מוצג רק ל-mid/premium; ה-gating עצמו נאכף ב-cma_report ב-DB
+  if (currentAgent && (currentAgent.tier === 'mid' || currentAgent.tier === 'premium')){
+    addHubAction(hubRow, {
+      label:'דוח CMA', icon:'chart',
+      title:'דוח השוואת מחירים לנכס, מהעסקאות באזור',
+      onClick:btn => openCmaReport(p.id, btn),
     });
   }
 
   if (planning){
-    addCardAction(actions, {
-      label:'🗺️ מידע תכנוני', title:'המידע התכנוני השמור של הנכס',
+    addHubAction(hubRow, {
+      label:'מידע תכנוני', icon:'map', title:'המידע התכנוני השמור של הנכס',
       onClick:()=>{
         renderPlanningResult(planning);
         // הכפתור יושב בכרטיס נכס, והמידע התכנוני יושב בלשונית אחרת של
@@ -14017,42 +14142,20 @@ function buildPropertyCard(p, agentId){
     });
   }
 
-  // הכפתור מוצג רק ל-mid/premium; ה-gating עצמו נאכף ב-cma_report ב-DB
-  if (currentAgent && (currentAgent.tier === 'mid' || currentAgent.tier === 'premium')){
-    addCardAction(actions, { label:'📊 דוח CMA', onClick:btn => openCmaReport(p.id, btn) });
+  // כתיבת נוסח מהנתונים — הצעה בלבד, נשמרת רק באישור בתוך החלון.
+  // "רענון" ולא "יצירה" כשכבר יש תיאור: זו אותה פעולה, אבל המילה אומרת
+  // לסוכן/ת מה עומד להשתנות.
+  // הכפתור מוצג ל-mid/premium בלבד, בדיוק כמו דוח CMA; ה-gating עצמו נאכף
+  // ב-request_property_description ובתור עצמו, ולא כאן.
+  if (p.status === 'active' && descriptionTierOk()){
+    addHubAction(hubRow, {
+      label: mktState.level === 'missing' ? 'תיאור שיווקי' : 'רענון תיאור',
+      icon:'sparkles', title: mktState.note,
+      onClick: btn => openMarketingCopy(p, btn, agentId),
+    });
   }
 
   if (p.status === 'active'){
-    // הדרך לראות את המודעה כמו שהיא נראית ללקוח/ה — אותו עמוד שה-QR מוביל
-    // אליו. בלשונית חדשה כדי שה-CRM יישאר פתוח מאחור, ורק לנכס פעיל: דף
-    // הנכס טוען ‎status=active‎ בלבד ולכל השאר יציג "לא נמצא".
-    addCardAction(actions, {
-      label:'🏠 צפייה בדף הנכס', title:'פתיחת עמוד הנכס באתר בלשונית חדשה',
-      href:'property.html?id=' + encodeURIComponent(p.id), blank:true,
-    });
-
-    // מדבקה להדבקה על השלט בשטח — עמוד הנכס באתר מוצג רק לנכס פעיל,
-    // ולכן גם הכפתור נמצא כאן ולא לצד "עריכה"
-    addCardAction(actions, {
-      label:'🏷️ מדבקת QR', title:'הפקת מדבקת QR להדבקה על השלט',
-      onClick:btn => openQrSticker(p, btn),
-    });
-
-    addCardAction(actions, {
-      label:'⬆️ הקפצה חינם', title:'העלאת הנכס לראש התוצאות · פעם ב-24 שעות',
-      onClick:btn => bumpProperty(p.id, btn, agentId),
-    });
-
-    if (!isCurrentlyPromoted){
-      const price = shekel(priceOf('promote_price', 20));
-      const hours = priceOf('promote_duration_hours', 72);
-      addCardAction(actions, {
-        label:`📣 קידום · ${price}`,
-        title:`קידום בתשלום — ${price} ל-${hours} שעות בסלוטים המקודמים`,
-        onClick:btn => promoteProperty(p, btn, agentId),
-      });
-    }
-
     /* הפקת סרטון שיווקי מהתמונות של הנכס.
        הכפתור מוצג ל-mid ול-premium בלבד — ‎free‎ אינו רואה אותו, וה-gating
        האמיתי נאכף ב-‎property_video_tier‎ ב-DB ולא כאן. שתי מילים שונות לאותה
@@ -14062,8 +14165,11 @@ function buildPropertyCard(p, agentId){
       const hasVideo = !!p.video_url;
       const isMid = currentAgent.tier === 'mid';
       const vidPrice = priceOf('property_video_price_mid', 25);
-      addCardAction(actions, {
-        label: (hasVideo ? '🎬 סרטון חדש' : '🎬 הפקת סרטון') + (isMid ? ` · ${shekel(vidPrice)}` : ''),
+      addHubAction(hubRow, {
+        label: hasVideo ? 'סרטון חדש'
+             : isMid ? `סרטון · ${shekel(vidPrice)}`
+             : 'הפקת סרטון',
+        icon:'film',
         title: hasVideo
           ? 'הפקת סרטון שיווקי חדש מהתמונות — יחליף את הסרטון הקיים'
           : 'הפקת סרטון שיווקי קצר מהתמונות של הנכס',
@@ -14082,17 +14188,14 @@ function buildPropertyCard(p, agentId){
        הכפתור אומר "בנייה" או "עריכה" לפי ‎has_virtual_tour‎, שנכתב בטריגר
        ולכן אפשר לסמוך עליו. */
     if (currentAgent && currentAgent.tier === 'premium'){
-      addCardAction(actions, {
-        label: p.has_virtual_tour ? '🌐 עריכת סיור 360°' : '🌐 בניית סיור 360°',
+      addHubAction(hubRow, {
+        label: p.has_virtual_tour ? 'עריכת סיור 360°' : 'סיור 360°',
+        icon:'globe',
         title: p.has_virtual_tour
           ? 'הוספת חללים ונקודות מעבר לסיור הקיים'
           : 'בניית סיור וירטואלי מתמונות 360° — מוצג בתוך דף הנכס',
         onClick: btn => openTourEditor(p, btn),
       });
-    }
-
-    if (p.shared_with_partners){
-      addCardAction(actions, { label:'✖ ביטול שת״פ', onClick:btn => unshareProperty(p, btn, agentId) });
     }
 
     /* ====== שלוש הפעולות הראשיות, בשורה אחת ======
@@ -14151,6 +14254,11 @@ function buildPropertyCard(p, agentId){
       onClick:btn => republishProperty(p, btn, agentId),
     });
   }
+
+  // בלוק כלי ה-AI מוצג רק אם נכנס אליו משהו: במסלול החינמי, ועל נכס
+  // שאינו פעיל, כל הכלים שלו מסוננים — וכותרת מעל שורה ריקה היא הבטחה
+  // שלא נשמרת. ‏:empty ב-CSS לא היה עוזר כאן, כי הכותרת עצמה בפנים.
+  hub.hidden = !hubRow.childElementCount;
   return el;
 }
 
@@ -14281,8 +14389,8 @@ let mktProperty = null;
 let mktAgentId = null;
 
 async function openMarketingCopy(property, btn, agentId){
-  const original = btn ? btn.textContent : '';
-  if (btn){ btn.disabled = true; btn.textContent = 'כותב…'; }
+  const original = actionLabel(btn);
+  if (btn){ btn.disabled = true; setActionLabel(btn, 'כותב…'); }
   try{
     const data = await fetchMarketingCopy(property.id);
     mktProperty = property;
@@ -14300,7 +14408,7 @@ async function openMarketingCopy(property, btn, agentId){
   } catch(err){
     showToast(err.message);
   } finally {
-    if (btn){ btn.disabled = false; btn.textContent = original; }
+    if (btn){ btn.disabled = false; setActionLabel(btn, original); }
   }
 }
 
@@ -14351,17 +14459,17 @@ document.getElementById('mktSave').addEventListener('click', async (e)=>{
 });
 
 async function bumpProperty(propertyId, btn, agentId){
-  const original = btn.textContent;
-  btn.disabled = true; btn.textContent = 'מקפיץ…';
+  const original = actionLabel(btn);
+  btn.disabled = true; setActionLabel(btn, 'מקפיץ…');
   const { data, error } = await sb.rpc('bump_property', { p_property_id: propertyId });
   if (error || data?.error){
     const messages = { cooldown_active: 'כבר הקפצת את הנכס הזה ב-24 השעות האחרונות', not_your_property: 'שגיאת הרשאה' };
     showToast(messages[data?.error] || 'שגיאה בהקפצה');
-    btn.disabled = false; btn.textContent = original;
+    btn.disabled = false; setActionLabel(btn, original);
     return;
   }
   showToast('הנכס הוקפץ בהצלחה!');
-  btn.disabled = false; btn.textContent = original;
+  btn.disabled = false; setActionLabel(btn, original);
   await loadProperties(agentId);
 }
 
@@ -14382,8 +14490,8 @@ async function promoteProperty(property, btn, agentId){
   if (!approved) return;
 
   const propertyId = property.id;
-  const original = btn.textContent;
-  btn.disabled = true; btn.textContent = 'מקדם…';
+  const original = actionLabel(btn);
+  btn.disabled = true; setActionLabel(btn, 'מקדם…');
   try{
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(SUPABASE_URL + '/functions/v1/promote-property', {
@@ -14398,7 +14506,7 @@ async function promoteProperty(property, btn, agentId){
         already_promoted: 'הנכס כבר מקודם',
       };
       showToast(messages[data.error] || 'שגיאה בקידום');
-      btn.disabled = false; btn.textContent = original;
+      btn.disabled = false; setActionLabel(btn, original);
       return;
     }
     showToast(`הנכס מקודם ל-${data.duration_hours || hours} השעות הקרובות! חויבת ${shekel(data.price_charged)} · עד ${hebDateTime(data.promoted_until)}`);
@@ -14408,7 +14516,7 @@ async function promoteProperty(property, btn, agentId){
   } catch(err){
     console.error(err);
     showToast('שגיאת רשת — נסו שוב');
-    btn.disabled = false; btn.textContent = original;
+    btn.disabled = false; setActionLabel(btn, original);
   }
 }
 
@@ -14457,9 +14565,9 @@ async function produceMarketingVideo(property, btn, agentId){
   });
   if (!approved) return;
 
-  const original = btn.textContent;
+  const original = actionLabel(btn);
   btn.disabled = true;
-  btn.textContent = 'שולח…';
+  setActionLabel(btn, 'שולח…');
 
   let jobId = null;
   try{
@@ -14483,7 +14591,7 @@ async function produceMarketingVideo(property, btn, agentId){
         fal_submit_failed:    'שירות הווידאו לא זמין כרגע — לא בוצע חיוב, נסו שוב בהמשך',
       };
       showToast(messages[data.error] || 'שגיאה בהפקת הסרטון');
-      btn.disabled = false; btn.textContent = original;
+      btn.disabled = false; setActionLabel(btn, original);
       return;
     }
     jobId = data.job_id;
@@ -14493,7 +14601,7 @@ async function produceMarketingVideo(property, btn, agentId){
   } catch(err){
     console.error(err);
     showToast('שגיאת רשת — נסו שוב');
-    btn.disabled = false; btn.textContent = original;
+    btn.disabled = false; setActionLabel(btn, original);
     return;
   }
 
@@ -14502,7 +14610,7 @@ async function produceMarketingVideo(property, btn, agentId){
   const started = Date.now();
   const poll = async ()=>{
     if (Date.now() - started > VIDEO_POLL_TIMEOUT_MS){
-      btn.disabled = false; btn.textContent = original;
+      btn.disabled = false; setActionLabel(btn, original);
       showToast('ההפקה נמשכת יותר מהצפוי — היא ממשיכה ברקע. רעננו את הדף בעוד כמה דקות');
       return;
     }
@@ -14516,7 +14624,7 @@ async function produceMarketingVideo(property, btn, agentId){
       return;
     }
     if (row.status === 'failed'){
-      btn.disabled = false; btn.textContent = original;
+      btn.disabled = false; setActionLabel(btn, original);
       showToast(price > 0
         ? 'ההפקה נכשלה — החיוב הוחזר לארנק. אפשר לנסות שוב'
         : 'ההפקה נכשלה — לא נוצלה מכסה. אפשר לנסות שוב');
@@ -14527,7 +14635,7 @@ async function produceMarketingVideo(property, btn, agentId){
     const label = row.status === 'merging' ? 'מחבר…'
       : row.status === 'uploading' ? 'שומר…'
       : `מפיק… ${row.clips_done}/${row.clips_total}`;
-    btn.textContent = label;
+    setActionLabel(btn, label);
     setTimeout(poll, VIDEO_POLL_MS);
   };
   setTimeout(poll, VIDEO_POLL_MS);
@@ -14739,8 +14847,8 @@ async function openTourEditor(property, btn){
     showToast('הפקת סיור 360° היא יכולת של מסלול Elite — אפשר לשדרג במסך המסלול');
     return;
   }
-  const original = btn ? btn.textContent : '';
-  if (btn){ btn.disabled = true; btn.textContent = 'פותח עורך…'; }
+  const original = actionLabel(btn);
+  if (btn){ btn.disabled = true; setActionLabel(btn, 'פותח עורך…'); }
   try{
     await loadPannellum();
     const { data, error } = await sb.from('property_virtual_tours')
@@ -14774,7 +14882,7 @@ async function openTourEditor(property, btn){
     console.error(err);
     showToast(err.message || 'לא ניתן לפתוח את עורך הסיור');
   } finally {
-    if (btn){ btn.disabled = false; btn.textContent = original; }
+    if (btn){ btn.disabled = false; setActionLabel(btn, original); }
   }
 }
 
@@ -15747,8 +15855,8 @@ function canvasBlob(canvas, type, quality){
 let qrStickerProperty = null, qrStickerLink = '';
 
 async function openQrSticker(property, btn){
-  const original = btn ? btn.textContent : '';
-  if (btn){ btn.disabled = true; btn.textContent = 'מכין מדבקה…'; }
+  const original = actionLabel(btn);
+  if (btn){ btn.disabled = true; setActionLabel(btn, 'מכין מדבקה…'); }
   try{
     const link = propertyPublicLink(property.id);
     const canvas = document.getElementById('qrCanvas');
@@ -15785,7 +15893,7 @@ async function openQrSticker(property, btn){
     console.error(err);
     showToast('שגיאה בהפקת המדבקה — נסו שוב');
   } finally {
-    if (btn){ btn.disabled = false; btn.textContent = original; }
+    if (btn){ btn.disabled = false; setActionLabel(btn, original); }
   }
 }
 
@@ -17935,6 +18043,84 @@ function addCardAction(actions, opts){
   return el;
 }
 
+/* ---------- אייקוני הפעולות בכרטיס הנכס ----------
+   קו־מתאר בלבד, על רשת 24×24, ו-‎stroke="currentColor"‎ — כך צבע האייקון
+   הוא צבע האריח שהוא יושב בו, והוא דוהה יחד איתו כשהפעולה בעבודה.
+   אימוג'י לא עושה אף אחד מהשלושה: הוא נראה אחרת בכל מערכת הפעלה, גודלו
+   תלוי בגופן, וצבעו קבוע. */
+const CARD_ICONS = {
+  pencil:   '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/>',
+  link:     '<path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5"/>',
+  signature:'<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h6"/><path d="M14 3v5h5"/><path d="M19.4 12.6a1.9 1.9 0 0 1 2.7 2.7L17 20.4l-3.4.6.6-3.4Z"/>',
+  arrowUp:  '<path d="M12 19V5"/><path d="m5 12 7-7 7 7"/>',
+  megaphone:'<path d="m3 11 18-5v12L3 14v-3Z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/>',
+  qr:       '<rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3h-3Z"/><path d="M18 18h3v3h-3Z"/>',
+  chart:    '<path d="M3 3v18h18"/><path d="M7.5 16v-5"/><path d="M12 16V8"/><path d="M16.5 16v-3"/>',
+  map:      '<path d="m3 6 6-3 6 3 6-3v15l-6 3-6-3-6 3Z"/><path d="M9 3v15"/><path d="M15 6v15"/>',
+  sparkles: '<path d="m12 3 1.9 4.6L18.5 9.5l-4.6 1.9L12 16l-1.9-4.6L5.5 9.5l4.6-1.9Z"/><path d="m18.5 15 .8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8Z"/>',
+  film:     '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7.5 3v18"/><path d="M16.5 3v18"/><path d="M3 9h4.5"/><path d="M16.5 9H21"/><path d="M3 15h4.5"/><path d="M16.5 15H21"/>',
+  globe:    '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/>',
+  close:    '<path d="m18 6-12 12"/><path d="m6 6 12 12"/>',
+};
+
+function cardIconSvg(name){
+  return `<svg class="pc-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"
+    stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${CARD_ICONS[name] || ''}</svg>`;
+}
+
+/* אריח ברשת "פעולות מהירות" (אייקון מעל תווית) או צ'יפ בבלוק כלי ה-AI —
+   אותו בונה, שתי צורות. ‏tone בוחר את הגוון הרך של האריח, ‏badge מוסיף
+   תגית פינה ("חינם" / מחיר).
+
+   התווית יושבת ב-<span class="pc-label"> ולא ישירות באלמנט, כי לצידה יש
+   אייקון. מי שמחליף תווית לזמן פעולה חייב ללכת דרך setActionLabel — ראו
+   שם את ההסבר. */
+function buildCardTile(opts, kind){
+  const el = document.createElement(opts.href ? 'a' : 'button');
+  if (!opts.href) el.type = 'button';
+  el.className = kind + (opts.tone ? ' pc-' + opts.tone : '');
+  el.innerHTML = cardIconSvg(opts.icon)
+    + `<span class="pc-label">${escapeHtml(opts.label)}</span>`
+    + (opts.badge ? `<span class="pc-badge${opts.badgeFree ? ' pc-badge-free' : ''}">${escapeHtml(opts.badge)}</span>` : '');
+  if (opts.title) el.title = opts.title;
+  if (opts.href){
+    el.href = opts.href;
+    if (opts.blank){ el.target = '_blank'; el.rel = 'noopener noreferrer'; }
+  }
+  if (opts.onClick) el.addEventListener('click', ()=> opts.onClick(el));
+  return el;
+}
+
+function addQuickAction(grid, opts){
+  const el = buildCardTile(opts, 'pc-tile');
+  grid.appendChild(el);
+  return el;
+}
+
+function addHubAction(row, opts){
+  const el = buildCardTile(opts, 'pc-chip');
+  row.appendChild(el);
+  return el;
+}
+
+/* ---------- תווית של כפתור פעולה שנמצא בעבודה ----------
+   כל פעולה ארוכה בכרטיס מחליפה את התווית ל"מקפיץ…" ומחזירה אותה בסוף.
+   באריח או בצ'יפ התווית היא <span> שיושב לצד אייקון SVG, ולכן
+   ‎btn.textContent = '…'‎ היה מוחק את האייקון — ולא מחזיר אותו, כי מה
+   שנשמר כ-original הוא הטקסט בלבד. שתי הפונקציות האלה נוגעות בתווית
+   ולא באלמנט, ועובדות גם על כפתור טקסט רגיל שאין בו pc-label. */
+function actionLabel(btn){
+  if (!btn) return '';
+  const slot = btn.querySelector('.pc-label');
+  return slot ? slot.textContent : btn.textContent;
+}
+
+function setActionLabel(btn, text){
+  if (!btn) return;
+  const slot = btn.querySelector('.pc-label');
+  if (slot) slot.textContent = text; else btn.textContent = text;
+}
+
 const shekel = n => (n === null || n === undefined) ? '—' : '₪' + Number(n).toLocaleString('he-IL');
 const hebDate = d => d ? new Date(d).toLocaleDateString('he-IL') : '—';
 
@@ -18935,12 +19121,12 @@ async function shareProperty(p, btn, agentId){
 
 async function unshareProperty(p, btn, agentId){
   if (!confirm(`להסיר את "${p.title}" מכל משרדי השת״פ? הנכס ייעלם מהרשימה "נכסים ששותפו איתי" אצלם.`)) return;
-  const original = btn.textContent;
-  btn.disabled = true; btn.textContent = 'מסיר…';
+  const original = actionLabel(btn);
+  btn.disabled = true; setActionLabel(btn, 'מסיר…');
   const { data, error } = await sb.rpc('unshare_property', { p_property_id: p.id });
   if (error || data?.error){
     showToast(shareErrorMessages[data?.error] || ('שגיאה בביטול השיתוף' + (error ? ': ' + error.message : '')));
-    btn.disabled = false; btn.textContent = original;
+    btn.disabled = false; setActionLabel(btn, original);
     return;
   }
   showToast('השיתוף בוטל — הנכס הוסר מ-' + (data.removed || 0) + ' משרדים');
@@ -19855,10 +20041,10 @@ document.getElementById('alertsRefreshBtn').addEventListener('click', ()=> loadC
 document.getElementById('alertsMarkAll').addEventListener('click', e => markAllAlertsSeen(e.currentTarget));
 
 async function openCmaReport(propertyId, btn){
-  const original = btn.textContent;
-  btn.disabled = true; btn.textContent = 'מפיק…';
+  const original = actionLabel(btn);
+  btn.disabled = true; setActionLabel(btn, 'מפיק…');
   const { data, error } = await sb.rpc('cma_report', { p_property_id: propertyId });
-  btn.disabled = false; btn.textContent = original;
+  btn.disabled = false; setActionLabel(btn, original);
 
   if (error){ showToast('שגיאה בהפקת הדוח: ' + error.message); return; }
   if (data?.error){
