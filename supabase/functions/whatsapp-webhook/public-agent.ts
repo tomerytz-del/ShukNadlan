@@ -55,7 +55,12 @@ import {
 // פחות. לכן כל תשובה כאן נגמרת בקישור. הפרטים: `docs/analytics-events.md`.
 // ============================================================================
 
-const MODEL = "claude-opus-5";
+// המודל כסוד, כמו בבוט של הסוכנים. **הבוט הציבורי הוא המועמד החזק יותר
+// למודל זול**: הוא נפח גבוה, חשוף לכל מי שראה את המספר, והמשימה שלו
+// (חיפוש והפניה) צרה מזו של העוזר. ברירת המחדל נשארת Opus עד שתימדד
+// איכות, והמתג נפרד כדי שאפשר יהיה להחליף כאן בלי לגעת בערוץ העבודה
+// של הסוכנים.
+const MODEL = Deno.env.get("WHATSAPP_PUBLIC_BOT_MODEL") || "claude-opus-5";
 // שישה: הזרימות כאן קצרות, אבל כבר לא תמיד כלי אחד — "חפש → שלח כרטיסים →
 // סכם" ו"חשב משכנתא → פתח ליד" הן שתיים ושלוש קריאות באותו תור.
 const MAX_TOOL_ITERATIONS = 6;
@@ -1544,7 +1549,16 @@ async function runTool(
 // ---------------------------------------------------------------------------
 // ההוראות
 // ---------------------------------------------------------------------------
-function systemPrompt(conv: PublicConversationState): string {
+/**
+ * ההוראות הקבועות — זהות בכל שיחה ובכל פנייה, ולכן ניתנות למטמון.
+ *
+ * ‏⚠️ אסור להכניס לכאן דבר שמשתנה בין קריאות. ההסבר המלא (ולמה כשל כזה שקט)
+ * יושב מעל `SYSTEM_STATIC` ב-`agent.ts`.
+ *
+ * ‏`SITE_BASE` מגיע ממשתנה סביבה ולכן הוא קבוע לאורך חיי הפונקציה — הוא
+ * בסדר כאן.
+ */
+const SYSTEM_STATIC: string = (() => {
   const lines = [
     "את/ה העוזר האוטומטי של שוק הנדל\"ן של עפולה והסביבה — אתר נדל\"ן מקומי " +
     "שבו משרדי תיווך מפרסמים נכסים. את/ה משוחח/ת בוואטסאפ עם גולש/ת שאינו/ה " +
@@ -1660,6 +1674,28 @@ function systemPrompt(conv: PublicConversationState): string {
     "- מי שמעדיף/ה להירשם לעדכונים בעצמו/ה — \"הסוכן החכם\" באתר: " +
       `${SITE_BASE}/index.html . אותו מנגנון בדיוק.`,
   ];
+  return lines.join("\n");
+})();
+
+/**
+ * ‏`system` כשני בלוקים: הקבוע (במטמון) ואחריו המשתנה.
+ *
+ * הבלוק השני מושמט כשאין בו תוכן — שיחה ותיקה בלי נכס אחרון מחזירה מחרוזת
+ * ריקה, ובלוק טקסט ריק נדחה ב-400. נקודת השבירה נשארת על הראשון בכל מקרה.
+ */
+function buildSystem(conv: PublicConversationState): Anthropic.TextBlockParam[] {
+  const head: Anthropic.TextBlockParam = {
+    type: "text",
+    text: SYSTEM_STATIC,
+    cache_control: { type: "ephemeral" },
+  };
+  const tail = sessionContext(conv).trim();
+  return tail ? [head, { type: "text", text: tail }] : [head];
+}
+
+/** החלק המשתנה — יושב אחרי נקודת השבירה ולכן אינו מבטל את המטמון. */
+function sessionContext(conv: PublicConversationState): string {
+  const lines: string[] = [];
 
   if (!conv.history.length) {
     lines.push(
@@ -1700,6 +1736,8 @@ export async function runPublicTurn(opts: {
   ];
 
   let finalText = "";
+  // הבלוק שנושא כרגע את נקודת השבירה המתגלגלת בהודעות.
+  let rollingMark: { cache_control?: { type: "ephemeral" } } | null = null;
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     const response = await callClaude({
@@ -1711,10 +1749,22 @@ export async function runPublicTurn(opts: {
       // אלה ש-low טועה בהן, וטעות כאן היא ליד שנפתח בלי שביקשו. אם הלטנטיות
       // בצ'אט תיעשה מורגשת, הידית היא לצמצם כלים ולא לרדת בחזרה.
       output_config: { effort: "medium" },
-      system: systemPrompt(conv),
+      // ההוראות הקבועות במטמון, והחלק המשתנה אחריהן. סדר הרינדור הוא
+      // ‏tools → system → messages, ולכן נקודת השבירה תופסת גם את אחד-עשר
+      // הכלים. ראו SYSTEM_STATIC ב-agent.ts להסבר המלא.
+      // הבלוק השני נוסף רק כשיש בו משהו: בשיחה ותיקה בלי נכס אחרון
+      // ‏`sessionContext` מחזירה מחרוזת ריקה, ובלוק טקסט ריק נדחה ב-400.
+      system: buildSystem(conv),
       tools: TOOLS,
       messages,
     } as Anthropic.MessageCreateParamsNonStreaming);
+
+    const u = response.usage as unknown as Record<string, number | undefined>;
+    console.log(
+      `public-llm ${MODEL} iter=${i} in=${u.input_tokens ?? 0} ` +
+        `cache_read=${u.cache_read_input_tokens ?? 0} ` +
+        `cache_write=${u.cache_creation_input_tokens ?? 0} out=${u.output_tokens ?? 0}`,
+    );
 
     const responseText = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
@@ -1748,6 +1798,21 @@ export async function runPublicTurn(opts: {
         content: JSON.stringify(result),
       });
     }
+
+    // נקודת שבירה מתגלגלת על תוצאות הכלים, כמו ב-agent.ts. **חובה לנקות את
+    // הקודמת** — תקרת ה-API היא ארבע נקודות שבירה לבקשה, וסימון מצטבר היה
+    // מפיל תור ארוך בשגיאה.
+    if (rollingMark) delete rollingMark.cache_control;
+    rollingMark = null;
+
+    const last = results[results.length - 1] as
+      | (Anthropic.ToolResultBlockParam & { cache_control?: { type: "ephemeral" } })
+      | undefined;
+    if (last && i < MAX_TOOL_ITERATIONS - 1) {
+      last.cache_control = { type: "ephemeral" };
+      rollingMark = last;
+    }
+
     messages.push({ role: "user", content: results });
   }
 

@@ -69,7 +69,13 @@ const anthropic = new Anthropic({
   apiKey: Deno.env.get("ANTHROPIC_API_KEY") || "",
 });
 
-const MODEL = "claude-opus-5";
+// המודל כסוד ולא כקבוע בקוד, כמו ב-`property-description` וב-
+// ‏`property-marketing-publish` (שתיהן על Sonnet). ברירת המחדל נשארת Opus:
+// שינוי מודל הוא החלטת איכות, והיא לא אמורה לקרות בשקט בפריסה.
+//
+// **מטמון הוא לפי מודל.** החלפה מאפסת אותו, והקריאות הראשונות אחריה ישלמו
+// מחיר מלא עד שיתחמם מחדש — זה נראה כמו רגרסיה בעלות ואינו כזה.
+const MODEL = Deno.env.get("WHATSAPP_BOT_MODEL") || "claude-opus-5";
 // שמונה ולא שש: זרימות הלקוחות דורשות שני כלים לפני הפעולה עצמה ("מצא את
 // הלקוח/ה" → "הצלב" → "עדכן"), ושש סבבים היו נגמרים באמצע.
 const MAX_TOOL_ITERATIONS = 8;
@@ -2980,14 +2986,35 @@ async function runTool(
 // ---------------------------------------------------------------------------
 // לולאת השיחה
 // ---------------------------------------------------------------------------
-function systemPrompt(agent: AgentRow, conv: ConversationState): string {
-  const today = new Date().toISOString().slice(0, 10);
+/**
+ * ההוראות הקבועות — **זהות בייט־בבייט לכל סוכן/ת ולכל הודעה**, וזה מה שהופך
+ * אותן לניתנות למטמון.
+ *
+ * ## למה זה מפוצל לשניים
+ *
+ * ‏Prompt caching הוא **התאמת תחילית**: כל בית שמשתנה מבטל את כל מה שאחריו.
+ * קודם הפרומפט נבנה כמחרוזת אחת שכללה את שם הסוכן/ת, את שם המשרד, את תאריך
+ * היום ואת מצב השיחה — כלומר הוא היה שונה אצל כל אחד/ת ובכל שיחה, ולכן
+ * **לא היה ניתן למטמון כלל**. עשרים ותשעה הגדרות כלים ותשעה קילו-בייט של
+ * הוראות נשלחו מחדש בכל קריאה, ועד שמונה פעמים בתוך תור אחד.
+ *
+ * הפיצול הוא לפי מי שהתוכן משתנה איתו:
+ *
+ *   ‏· כאן — ההוראות. זהות לכולם, ולכן המטמון משותף **בין כל הסוכנים**.
+ *   ‏· `sessionContext()` — השם, המשרד, התאריך ומצב השיחה. קטן, ויושב אחרי
+ *     נקודת השבירה כדי שלא יבטל את מה שלפניו.
+ *
+ * סדר הרינדור של ה-API הוא `tools` → `system` → `messages`, ולכן נקודת
+ * שבירה אחת בסוף הבלוק הזה תופסת גם את הגדרות הכלים שלפניו.
+ *
+ * ⚠️ **אסור להכניס לכאן דבר שמשתנה בין קריאות** — לא תאריך, לא שם, לא מזהה
+ * ולא ספירה. שורה כזו לא תישבר ולא תיראה שבורה; היא פשוט תאפס את המטמון
+ * בשקט, ו-`cache_read_input_tokens` בלוג יחזור אפס.
+ */
+const SYSTEM_STATIC: string = (() => {
   const lines = [
     "את/ה העוזר/ת של שוק נדל\"ן — מערכת ניהול נכסים לסוכני נדל\"ן בעפולה.",
     "את/ה מדבר/ת עם הסוכן/ת בוואטסאפ ומבצע/ת עבורו/ה פעולות במערכת דרך הכלים.",
-    "",
-    `הסוכן/ת: ${agent.display_name || "ללא שם"}${agent.agencies?.name ? ` · משרד ${agent.agencies.name}` : ""}.`,
-    `תאריך היום: ${today}.`,
     "",
     "מה יש לך: נכסים, שת\"פ בין משרדים, הפקת סרטון שיווקי, קובץ הלקוחות, ההתאמות " +
       "בין השניים, ניתוח שוק ומידע תכנוני, ההסכמים, הלידים וההתראות.",
@@ -3114,6 +3141,22 @@ function systemPrompt(agent: AgentRow, conv: ConversationState): string {
       "עם enable והסוגים המתאימים. \"תפסיק\" = disable בלי types. אם חזר muted_conflict — " +
       "אמור/אמרי את ה-note כמו שהוא.",
   ];
+  return lines.join("\n");
+})();
+
+/**
+ * החלק המשתנה — מי מדבר, מתי, ואיפה השיחה עומדת.
+ *
+ * יושב **אחרי** נקודת השבירה של המטמון, ולכן הוא זול לשנות בכל קריאה. הוא גם
+ * הסיבה שהחלוקה עובדת: ההוראות (‏~29KB) נקראות מהמטמון, ורק מאות התווים
+ * האלה נשלחים במלואם.
+ */
+function sessionContext(agent: AgentRow, conv: ConversationState): string {
+  const today = new Date().toISOString().slice(0, 10);
+  const lines = [
+    `הסוכן/ת: ${agent.display_name || "ללא שם"}${agent.agencies?.name ? ` · משרד ${agent.agencies.name}` : ""}.`,
+    `תאריך היום: ${today}.`,
+  ];
 
   if (conv.pending_images.length) {
     lines.push(
@@ -3185,6 +3228,9 @@ export async function runAgentTurn(opts: {
   ];
 
   let finalText = "";
+  // הבלוק שנושא כרגע את נקודת השבירה המתגלגלת בהודעות. נשמר כדי שאפשר יהיה
+  // להסיר ממנו את הסימון לפני שמסמנים את הבא — ראו ההסבר בלולאה.
+  let rollingMark: { cache_control?: { type: "ephemeral" } } | null = null;
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     const response = await callClaude({
@@ -3198,10 +3244,27 @@ export async function runAgentTurn(opts: {
       // בצ'אט נעשית מורגשת — לחזור ל-low ולהצר את רשימת הכלים, לא לוותר על
       // הדיוק.
       output_config: { effort: "medium" },
-      system: systemPrompt(agent, conv),
+      // שני בלוקים, ונקודת שבירה אחת ביניהם. סדר הרינדור הוא
+      // ‏tools → system → messages, ולכן ה-`cache_control` כאן תופס **גם את
+      // עשרים ותשעה הגדרות הכלים שלפניו** — יחד זה הרוב המוחלט של הקלט.
+      // החלק המשתנה יושב אחריו ולכן אינו מבטל אותו. ראו SYSTEM_STATIC.
+      system: [
+        { type: "text", text: SYSTEM_STATIC, cache_control: { type: "ephemeral" } },
+        { type: "text", text: sessionContext(agent, conv) },
+      ],
       tools: TOOLS,
       messages,
     } as Anthropic.MessageCreateParamsNonStreaming);
+
+    // מה באמת נחסך. בלי השורה הזו אין דרך לדעת שהמטמון הפסיק לתפוס: הכול
+    // ממשיך לעבוד, רק החשבון גדל. ‏cache_read אפס לאורך זמן = משהו משתנה
+    // נכנס ל-SYSTEM_STATIC או ל-TOOLS.
+    const u = response.usage as unknown as Record<string, number | undefined>;
+    console.log(
+      `llm ${MODEL} iter=${i} in=${u.input_tokens ?? 0} ` +
+        `cache_read=${u.cache_read_input_tokens ?? 0} ` +
+        `cache_write=${u.cache_creation_input_tokens ?? 0} out=${u.output_tokens ?? 0}`,
+    );
 
     const text = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
@@ -3235,6 +3298,32 @@ export async function runAgentTurn(opts: {
         content: JSON.stringify(result),
       });
     }
+
+    // נקודת שבירה שנייה, **מתגלגלת**: היא מסמנת את סוף מה שכבר נשלח, כך
+    // שהסבב הבא יקרא אותו מהמטמון במקום לשלם עליו מחדש.
+    //
+    // **זה המקום שבו זה באמת נצבר.** תוצאת כלי אינה קטנה — `list_properties`
+    // יכול להחזיר מאתיים שורות — והיא נשלחת שוב בכל סבב שאחריה. בתור עם
+    // ארבעה סבבים, התוצאה של הסבב הראשון משולמת ארבע פעמים.
+    //
+    // **חייבים לנקות את הקודמת.** ל-API יש תקרה של ארבע נקודות שבירה
+    // לבקשה; סימון מצטבר היה עובר אותה בסבב הרביעי ומפיל את הבקשה כולה
+    // בשגיאה — כלומר תור ארוך היה נשבר דווקא אחרי שכבר נעשתה עבודה.
+    // הסרת הסימון הקודם אינה מאבדת את המטמון: התחילית הקצרה יותר עדיין
+    // תקפה, והסימון החדש רק מרחיב אותה.
+    //
+    // הסימון נעשה **רק כשעומדים לקרוא שוב**, ולכן תור חד-סבבי אינו משלם על
+    // כתיבה למטמון שאיש לא יקרא.
+    type Marked = { cache_control?: { type: "ephemeral" } };
+    if (rollingMark) delete rollingMark.cache_control;
+    rollingMark = null;
+
+    const last = results[results.length - 1] as (Anthropic.ToolResultBlockParam & Marked) | undefined;
+    if (last && i < MAX_TOOL_ITERATIONS - 1) {
+      last.cache_control = { type: "ephemeral" };
+      rollingMark = last;
+    }
+
     messages.push({ role: "user", content: results });
   }
 
