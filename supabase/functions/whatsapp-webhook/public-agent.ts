@@ -136,7 +136,11 @@ const SPECIALTY_LABELS: Record<string, string> = {
 const SPECIALTY_IDS = Object.keys(SPECIALTY_LABELS);
 
 const LAND_RE = /מגרש|קרקע|נחל|משק|חקלא/;
-const INDUSTRIAL_RE = /תעשי|מחסן|לוגיסט|אחסנ/;
+// ‏`מחסנים` אינו מיותר לצד `מחסן`: הנו"ן הסופית אינה אותו תו, ולכן "מחסן"
+// אינו תת-מחרוזת של "מחסנים". בלעדיו משרד שמפרסם מחסנים היה נגזר כאן
+// כ-commercial וב-assets/specialties.js כ-industrial — אותו משרד, שתי
+// תשובות. הרשימה זהה לזו שבקטלוג, תו בתו.
+const INDUSTRIAL_RE = /תעשי|מחסן|מחסנים|לוגיסט|אחסנ/;
 const DERIVE_LIMIT = 4;
 
 interface DerivableProperty {
@@ -609,10 +613,16 @@ function clampLimit(value: unknown, fallback: number, max: number): number {
   return Math.min(Math.round(n), max);
 }
 
-function text(value: unknown): string | null {
+/**
+ * מחרוזת נקייה בתקרת אורך. ברירת המחדל 80 מתאימה לשמות, ערים ומזהים —
+ * **לא** לשדות חופשיים. ‏`free_text` ו-`note` מתקבלים ב-intake ב-500 וב-180
+ * תווים בהתאמה, וגזירה ל-80 כאן הייתה קוטעת באמצע משפט את הדבר היחיד
+ * שהפונה ניסח/ה במילים שלו/ה — ובלי שאיש ידע שזה קרה.
+ */
+function text(value: unknown, maxLen = 80): string | null {
   if (typeof value !== "string") return null;
   const s = value.trim();
-  return s ? s.slice(0, 80) : null;
+  return s ? s.slice(0, maxLen) : null;
 }
 
 /** התאמה חלקית ב-PostgREST. ‏% ו-_ בקלט של משתמש חייבים בריחה. */
@@ -675,12 +685,18 @@ async function searchProperties(
   }
 
   // אותו סדר כמו באתר: מקודמים קודם, ואז מי שנדחף/עודכן לאחרונה.
-  // כששוננים לפי אזור שולפים רחב יותר, כי הסינון עצמו נעשה אחרי השליפה.
+  //
+  // סינון האזור נעשה **אחרי** השליפה (ראו למטה), ולכן שליפה לפי אזור חייבת
+  // להיות רחבה. התקרה היא פשרה מדודה ולא שרירותית: חיפוש אזור שמחזיר 0
+  // בזמן שהנכס חי באתר הוא כשל שקט — הבוט אומר "לא נמצא" והפונה מאמין.
+  // ‏400 מכסה בנוחות את כל הלוח בהיקף הנוכחי; אם הוא יגדל בסדר גודל, זו
+  // הנקודה שבה הסינון צריך לרדת ל-SQL (RPC עם join לשכונות).
+  const AREA_SCAN_LIMIT = 400;
   const { data, error } = await query
     .order("is_promoted", { ascending: false })
     .order("bumped_at", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false })
-    .limit(area ? 60 : limit);
+    .limit(area ? AREA_SCAN_LIMIT : limit);
 
   if (error) return { error: "search_failed", detail: error.message };
 
@@ -710,7 +726,13 @@ async function getProperty(
   args: Record<string, unknown>,
 ): Promise<unknown> {
   const id = text(args.property_id);
-  const listing = Number(args.listing_number);
+  // ‏Number(null) הוא 0, ו-0 עובר את Number.isFinite. בלי הסינון המפורש
+  // קריאה בלי מזהה כלל הייתה מחפשת מודעה מספר 0 ועונה "הנכס אינו פעיל
+  // באתר" — תשובה שנשמעת סמכותית ואומרת דבר שלא נבדק.
+  const listingRaw = args.listing_number;
+  const listing = (listingRaw === null || listingRaw === undefined || listingRaw === "")
+    ? NaN
+    : Number(listingRaw);
 
   let query = ctx.supabase
     .from("properties")
@@ -1195,10 +1217,18 @@ async function callIntake(
 }
 
 /**
- * התקרה לפונה. מחזירה true כשמותר, ומקדמת את המונה — כלומר היא נקראת פעם
- * אחת לפני הכתיבה ולא נספרת פעמיים.
+ * התקרה לפונה, בשני חלקים.
+ *
+ * ‏**הבדיקה והחיוב נפרדים בכוונה.** בגרסה הראשונה המונה עלה לפני הקריאה
+ * ל-intake, וכל דחייה משם — קריטריונים חסרים, תקרת חיפושים של המסד, שגיאת
+ * כתיבה — הייתה צורכת מכסה. שלוש פניות שנדחו היו נועלות את הפונה ל-24 שעות
+ * בלי שנוצר ולו ליד אחד. התקרה קיימת כדי לבלום הצפה, לא כדי להעניש מי
+ * ששכח/ה לומר באיזו עיר.
+ *
+ * ‏`hasLeadSlot` גם מגלגלת את החלון כשעברו 24 שעות, ולכן היא זו שנקראת
+ * ראשונה; `consumeLeadSlot` נקראת רק אחרי שה-intake אישר.
  */
-function takeLeadSlot(conv: PublicConversationState): boolean {
+function hasLeadSlot(conv: PublicConversationState): boolean {
   const windowMs = LEAD_WINDOW_HOURS * 60 * 60 * 1000;
   const started = conv.leads_window_start ? Date.parse(conv.leads_window_start) : 0;
 
@@ -1206,10 +1236,11 @@ function takeLeadSlot(conv: PublicConversationState): boolean {
     conv.leads_window_start = new Date().toISOString();
     conv.leads_created = 0;
   }
-  if (conv.leads_created >= LEAD_DAILY_CAP) return false;
+  return conv.leads_created < LEAD_DAILY_CAP;
+}
 
+function consumeLeadSlot(conv: PublicConversationState): void {
   conv.leads_created += 1;
-  return true;
 }
 
 /** מזהה שכונה לפי שם ועיר. משפר את ההתאמה לסוכן/ת; null אינו שגיאה. */
@@ -1238,7 +1269,7 @@ async function saveSearchAlert(
   if (!fullName || fullName.length < 2) {
     return { error: "missing_name", note: "צריך לשאול לשם לפני השמירה." };
   }
-  if (!takeLeadSlot(ctx.conv)) {
+  if (!hasLeadSlot(ctx.conv)) {
     return {
       error: "lead_cap_reached",
       note: "נפתחו כבר מספיק פניות מהמספר הזה היום. להפנות לאתר ולא לנסות שוב.",
@@ -1277,7 +1308,7 @@ async function saveSearchAlert(
     max_rooms: args.max_rooms,
     min_size_sqm: args.min_size_sqm,
     required_features: strListArg(args.required_features, 8),
-    free_text: text(args.free_text),
+    free_text: text(args.free_text, 500),
     source: "whatsapp_bot_search_agent",
   });
 
@@ -1293,6 +1324,7 @@ async function saveSearchAlert(
     return { saved: false, error: body.error || `http_${status}`, detail: body.detail };
   }
 
+  consumeLeadSlot(ctx.conv);
   return {
     saved: true,
     duplicate: body.duplicate === true,
@@ -1325,7 +1357,7 @@ async function ownerLead(
       note: "חסר שם, עיר, סוג נכס או האם למכירה/להשכרה. לשאול רק על מה שחסר.",
     };
   }
-  if (!takeLeadSlot(ctx.conv)) {
+  if (!hasLeadSlot(ctx.conv)) {
     return {
       error: "lead_cap_reached",
       note: "נפתחו כבר מספיק פניות מהמספר הזה היום. להפנות לאתר ולא לנסות שוב.",
@@ -1344,7 +1376,7 @@ async function ownerLead(
     rooms: args.rooms,
     condition: text(args.condition),
     features: strListArg(args.features, 8),
-    note: text(args.note),
+    note: text(args.note, 180),
     source: "whatsapp_bot_owner_wizard",
   });
 
@@ -1355,6 +1387,7 @@ async function ownerLead(
   // ‏matched_agent_id ריק = לא נמצא/ה סוכן/ת מתאים/ה כרגע. זה קורה, וההוראות
   // מחייבות לומר את זה בלי להבטיח שמישהו יתקשר מחר.
   const matched = !!body.matched_agent_id;
+  consumeLeadSlot(ctx.conv);
   return {
     created: true,
     matched,
@@ -1377,7 +1410,7 @@ async function projectLead(
   if (!fullName || fullName.length < 2) {
     return { error: "missing_name", note: "צריך לשאול לשם." };
   }
-  if (!takeLeadSlot(ctx.conv)) {
+  if (!hasLeadSlot(ctx.conv)) {
     return { error: "lead_cap_reached", note: "נפתחו כבר מספיק פניות מהמספר הזה היום." };
   }
 
@@ -1413,6 +1446,7 @@ async function projectLead(
     return { created: false, error: body.error || `http_${status}`, detail: body.detail };
   }
 
+  consumeLeadSlot(ctx.conv);
   return {
     created: true,
     // ‏direct=true פירושו שהפנייה נחתה אצל היזם של הפרויקט עצמו
@@ -1434,7 +1468,7 @@ async function mortgageLead(
   if (!fullName || fullName.length < 2) {
     return { error: "missing_name", note: "צריך לשאול לשם." };
   }
-  if (!takeLeadSlot(ctx.conv)) {
+  if (!hasLeadSlot(ctx.conv)) {
     return { error: "lead_cap_reached", note: "נפתחו כבר מספיק פניות מהמספר הזה היום." };
   }
 
@@ -1455,6 +1489,7 @@ async function mortgageLead(
     return { created: false, error: body.error || `http_${status}`, detail: body.detail };
   }
 
+  consumeLeadSlot(ctx.conv);
   return {
     created: true,
     // ‏duplicate = כבר יש פנייה פתוחה מאותו מספר. מבחינת הפונה זו הצלחה.
