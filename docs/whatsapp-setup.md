@@ -50,7 +50,7 @@ notifications (טריגר במסד)  ──►  pg_cron כל 5 דק׳  ──►
 | `supabase/migrations/20261029090000_assistant_scope_and_notification_push.sql` | פונקציות הלקוחות וההתאמות לשרת, ומנגנון דחיפת ההתראות |
 | `supabase/migrations/20261101090000_reminder_log_holds.sql` | ‏`notification_push_log_holds` ו-`notification_push_reconcile`: שורה שלא יצאה אינה חוסמת |
 | `supabase/migrations/20261108090000_assistant_property_intel.sql` | ‏`agent_cma_report` ו-`agent_property_planning` — דוח השוק והמידע התכנוני עם מזהה סוכן/ת מפורש |
-| `supabase/migrations/20261118090000_assistant_sharing_and_video.sql` | השת״פ וההצעה לסרטון עם מזהה סוכן/ת מפורש, והתראת סיום ההפקה |
+| `supabase/migrations/20261119090000_assistant_sharing_and_video.sql` | השת״פ וההצעה לסרטון עם מזהה סוכן/ת מפורש, והתראת סיום ההפקה |
 | `supabase/functions/property-video-create/index.ts` | ההפקה עצמה — נקודת קצה אחת לדשבורד ולבוט |
 | `supabase/functions/_shared/agency-lookup.ts` | שם המשרד בשאילתה נפרדת. ‏embed מ-`agency_members` ל-`agencies` מפיל את כל השאילתה |
 
@@ -219,7 +219,7 @@ update public.agency_members set phone = '050-1234567' where id = '<agent-uuid>'
 | `property_share_status` | מופץ או לא, לכמה משרדים ולאילו, וכמה היו מקבלים אילו היה מסונכרן עכשיו |
 
 שלושתם קוראים ל-`share_property_for_agent` / `unshare_property_for_agent`
-(‏מיגרציה `20261118090000`) — **אותו מנוע** שהכפתורים בדשבורד מפעילים, עם
+(‏מיגרציה `20261119090000`) — **אותו מנוע** שהכפתורים בדשבורד מפעילים, עם
 מזהה סוכן/ת מפורש במקום `auth.uid()`. ראו
 [`property-sharing.md`](property-sharing.md).
 
