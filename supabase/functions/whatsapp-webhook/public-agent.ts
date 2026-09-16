@@ -203,10 +203,78 @@ function maskHouseNumber(text: string | null, houseNumber: string | null): strin
     .trim();
 }
 
+/**
+ * מספר בית כשהעמודה `house_number` ריקה.
+ *
+ * ‏`maskHouseNumber` דורשת את הערך המדויק מהעמודה, ולכן כשהיא ריקה היא
+ * **לא עושה כלום** — וסוכן/ת שהקליד/ה "הרצל 25" לתוך `street` בלי למלא את
+ * השדה הנפרד מדליף/ה את מספר הבית למרות כל המיסוך. שתי מודעות פעילות הן
+ * כרגע במצב הזה.
+ *
+ * הגיזום מעוגן לסוף המחרוזת או לפסיק, כי שם יושב מספר בית — וכך "רחוב 60"
+ * הוא המחיר היחיד ששולמים, במקום לחתוך "3 חדרים" או "120 מ״ר" מכל טקסט.
+ */
+function stripTrailingStreetNumber(text: string): string {
+  return String(text || "")
+    .replace(/\s+\d{1,4}\s*(?=,|$)/g, "")
+    .trim();
+}
+
+/**
+ * ניקוי טקסט חופשי שיוצא לאדם זר.
+ *
+ * ‏**הכללים האלה היו עד עכשיו הוראות בפרומפט בלבד** — "כתובת מדויקת לא
+ * נמסרת", "מספרי טלפון לא נמסרים בצ'אט" — והטקסט החופשי של המודעה עבר
+ * מתחתיהן בלי בדיקה. הוראה היא בקשה מהמודל; זו הגנת פרטיות, ומקומה בקוד.
+ *
+ * ‏**וזו לא הייתה תיאוריה:** מודעה 1142 מסתיימת ב-"052-8616550 ציון חנו"
+ * בתוך `marketing_description`, והבוט היה מדקלם את המספר הזה לכל שואל.
+ *
+ * מה נמחק וממה:
+ *
+ *   ‏· **טלפונים** — גם של הסוכן/ת. הכלל אינו "אל תדליף פרטי אדם פרטי" אלא
+ *     "ההפניה היא לדף הנכס": שם יושבים כפתורי הוואטסאפ והחיוג שנמדדים
+ *     ב-GTM, ומספר שמוכתב בצ'אט גוזל מהסוכן/ת את הקליק ומהדוחות את הפנייה.
+ *   ‏· **גוש וחלקה** — `PROPERTY_FIELDS` כבר מוציא את העמודות עצמן, אבל
+ *     אין מה שימנע מסוכן/ת להקליד "גוש 17700 חלקה 45" לתוך התיאור. זה מידע
+ *     מזהה על הנכס ועל בעליו: עם גוש וחלקה אפשר להוציא נסח טאבו ולקבל את
+ *     שם הבעלים — כלומר בדיוק מה ש-`redact_owner_details` טורחת להסיר.
+ *
+ * **מה *לא* כאן, ובכוונה:** שם בעל/ת הנכס. ההסרה שלו היא טריגר במסד
+ * (‏`redact_owner_details`, מיגרציה 20261114090000) שרץ על כל כתיבה, ולכן
+ * כל קורא — הבוט בכללם — מקבל טקסט נקי בלי לדעת על כך. שכפול שלו כאן היה
+ * יוצר עותק שני שיתפצל. ‏[`owner-privacy.md`](../../../docs/owner-privacy.md)
+ */
+const PHONE_RE =
+  /(?:\+?972[-.\s]?|0)(?:[23489]|5[0-9]|7[2-9])[-.\s]?\d{3}[-.\s]?\d{4}/g;
+const GUSH_HELKA_RE =
+  /\b(?:גוש|חלקה|חלקות|תת[-\s]?חלקה|מגרש)\s*[:.\-–]?\s*\d+(?:\s*[\/,]\s*\d+)*/g;
+
+function scrubPublicText(text: string | null): string {
+  return String(text || "")
+    .replace(PHONE_RE, "")
+    .replace(GUSH_HELKA_RE, "")
+    // ניקוי הסימנים שנשארו יתומים אחרי המחיקה, כדי שלא ייצא "דברו איתנו. ."
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/\s+([,.;:!?])/g, "$1")
+    .replace(/([,.;:!?·|–—-])\s*(?=[,.;:!?·|])/g, "")
+    .replace(/^[\s,.;:!?·|–—-]+|[\s,.;:!?·|–—-]+$/g, "")
+    .trim();
+}
+
+/** מיסוך מלא של טקסט מודעה: מספר בית, ואז טלפונים וגוש/חלקה. */
+function maskPublicText(text: string | null, houseNumber: string | null): string {
+  const hn = String(houseNumber ?? "").trim();
+  const masked = hn
+    ? maskHouseNumber(text, hn)
+    : stripTrailingStreetNumber(String(text || ""));
+  return scrubPublicText(masked);
+}
+
 // deno-lint-ignore no-explicit-any
 function publicWhere(p: any): string {
   const hood = p.neighborhoods?.name || p.sales_area || "";
-  const street = maskHouseNumber(p.address || p.street || "", p.house_number);
+  const street = maskPublicText(p.address || p.street || "", p.house_number);
   return [street, hood && hood !== p.city ? hood : "", p.city]
     .filter(Boolean).join(", ");
 }
@@ -237,7 +305,7 @@ function publicProperty(p: any): Record<string, unknown> {
   return {
     id: p.id,
     listing_number: p.listing_number,
-    title: maskHouseNumber(p.title, p.house_number),
+    title: maskPublicText(p.title, p.house_number),
     where: publicWhere(p),
     deal: p.deal_type === "rent" ? "השכרה" : "מכירה",
     property_type: p.property_type,
@@ -268,7 +336,10 @@ const TOOLS: Anthropic.Tool[] = [
       "מחפש נכסים פעילים במאגר הציבורי של האתר. זה הכלי לכל שאלה בסגנון " +
       "'יש דירת 4 חדרים בעפולה עד מיליון ושש?'. מחזיר עד " + MAX_RESULTS +
       " נכסים, המקודמים והמעודכנים קודם, כל אחד עם קישור לדף שלו. " +
-      "אם לא נמצא דבר — להרחיב טווח ולנסות שוב, לא להמציא.",
+      "**כשנמצא מעט או כלום, הכלי מרחיב בעצמו** ומחזיר `close_matches` — " +
+      "נכסים פוטנציאליים במחיר או בחדרים קרובים, או בשכונה אחרת באותה עיר, " +
+      "כל אחד עם הקישור שלו. ‏`relaxed_on` אומר על מה ויתרנו. אין צורך לקרוא " +
+      "שוב עם טווח רחב יותר, ובשום מקרה אין להמציא נכס.",
     input_schema: {
       type: "object",
       properties: {
@@ -719,9 +790,61 @@ async function searchProperties(
     }).slice(0, limit);
   }
 
+  // -------------------------------------------------------------------------
+  // נכסים פוטנציאליים — קישורים במקום מבוי סתום
+  //
+  // חיפוש שחזר ריק או דל נגמר עד עכשיו ב"לא נמצא, אפשר להרחיב טווח או אזור":
+  // הבוט **סיפר** לפונה להרחיב במקום להרחיב בעצמו. זה הרגע שבו אדם סוגר את
+  // הצ'אט — ובדיוק הרגע שבו יש במלאי שלוש דירות במחיר קרוב, או באותה עיר
+  // בשכונה אחרת.
+  //
+  // הסבב השני מרחיב **רק את מה שאפשר להתפשר עליו**: מחיר ±15%, חדרים ±1,
+  // והאזור בתוך העיר. ‏deal_type, ‏category, ‏city וסוג הנכס נשארים נעולים —
+  // מי שמחפש/ת דירה להשכרה בעפולה לא רוצה קרקע למכירה בחיפה, וזו אינה
+  // "התאמה קרובה" אלא רעש.
+  //
+  // הן חוזרות **בשדה נפרד** ולא מעורבבות בתוצאות: הכלל "רק מה שחזר מהכלים"
+  // שומר על הבוט מלהמציא, והצגת התפשרות כהתאמה היא בדיוק אותה הטעיה בדלת
+  // האחורית. הפרומפט מחייב לומר במה הן שונות.
+  // -------------------------------------------------------------------------
+  const CLOSE_ENOUGH = 3;
+  let close: Record<string, unknown>[] = [];
+  const relaxed: string[] = [];
+
+  if (rows.length < CLOSE_ENOUGH && !args._relaxed) {
+    const widened: Record<string, unknown> = { ...args, _relaxed: true, limit: MAX_RESULTS };
+
+    if (maxPrice !== null) { widened.max_price = Math.round(maxPrice * 1.15); relaxed.push("מחיר עד +15%"); }
+    if (minPrice !== null) { widened.min_price = Math.round(minPrice * 0.85); }
+    if (minRooms !== null && minRooms > 1) { widened.min_rooms = minRooms - 1; relaxed.push("חדר פחות"); }
+    if (maxRooms !== null) { widened.max_rooms = maxRooms + 1; relaxed.push("חדר יותר"); }
+    // ‏"באותה עיר" רק כשבאמת ננעלה עיר — הפרומפט מדקלם את relaxed_on כלשונו,
+    // ומשפט שאינו מדויק כאן הופך להבטחה לא מדויקת בצ'אט.
+    if (area) {
+      delete widened.area;
+      relaxed.push(city ? `מחוץ ל${area}, ב${city}` : `מחוץ ל${area}`);
+    }
+    if (minSize !== null) { widened.min_size_sqm = Math.round(minSize * 0.85); }
+
+    // בלי הרחבה אמיתית אין סבב שני: חיפוש בלי אף מגבלה מספרית שחזר ריק
+    // פשוט אין לו מה להציע, ושאילתה זהה נוספת היא רק עוד קריאה למסד.
+    if (relaxed.length) {
+      const more = await searchProperties(ctx, widened) as Record<string, unknown>;
+      const found = (more?.properties as Record<string, unknown>[] | undefined) || [];
+      const seen = new Set(rows.map((r) => String((r as { id: string }).id)));
+      close = found.filter((c) => !seen.has(String(c.id))).slice(0, MAX_RESULTS - rows.length);
+    }
+  }
+
   return {
     count: rows.length,
     properties: rows.map(publicProperty),
+    // ריק כשהחיפוש הצליח — ואז אין על מה לדבר.
+    close_matches: close.length ? close : undefined,
+    relaxed_on: close.length ? relaxed : undefined,
+    close_note: close.length
+      ? "אלה **אינם** מה שהתבקש אלא הקרובים לו במלאי. חובה לומר במה הם שונים לפני שמציגים אותם."
+      : undefined,
     all_listings_url: `${SITE_BASE}/index.html`,
   };
 }
@@ -776,7 +899,8 @@ async function getProperty(
     found: true,
     ...publicProperty(p),
     // התיאור השיווקי הוא הניסוח שהמשרד בחר לפרסם; התיאור הגולמי הוא הגיבוי.
-    description: maskHouseNumber(
+    // טלפונים וגוש/חלקה נמחקים כאן, לא בפרומפט. ראו scrubPublicText.
+    description: maskPublicText(
       p.marketing_description || p.description || "",
       p.house_number,
     ),
@@ -837,7 +961,7 @@ async function findAgencies(
     const ids = declared.length ? declared : deriveSpecialties(owned);
     return {
       name: a.name,
-      tagline: a.tagline || null,
+      tagline: scrubPublicText(a.tagline) || null,
       specialties: ids.map((id) => SPECIALTY_LABELS[id]),
       specialty_ids: ids,
       // "לפי הנכסים שבמשרד" מול הצהרה של המשרד — הבדל שהתשובה צריכה לכבד
@@ -920,7 +1044,7 @@ async function findProfessionals(
       return {
         name: p.business_name || p.advertiser_name,
         field: p.advertiser_type,
-        headline: p.headline,
+        headline: scrubPublicText(p.headline) || null,
         services: p.services || [],
         areas: p.service_areas || [],
         years_experience: p.years_experience,
@@ -1100,7 +1224,7 @@ function cardCaption(p: any, note: string | null): string {
   ].filter(Boolean).join(" · ");
 
   return [
-    maskHouseNumber(p.title, p.house_number),
+    maskPublicText(p.title, p.house_number),
     publicWhere(p),
     [p.price ? `${nis(Number(p.price))} ₪` : null, facts].filter(Boolean).join(" · "),
     note ? `\n${note}` : null,
@@ -1606,9 +1730,15 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "כללים שאין לחרוג מהם:",
     "- **רק מה שחזר מהכלים.** אין להמציא נכס, מחיר, משרד או נתון. אם הכלי " +
-      "החזיר ריק — לומר שלא נמצא, ולהציע להרחיב טווח או אזור.",
+      "החזיר ריק גם ב-close_matches — לומר שלא נמצא, ולהציע לשמור התראה.",
+    "- **‏close_matches אינם תשובה לשאלה — הם הקרוב לה.** להציג אותם רק אחרי " +
+      "שנאמר שלא נמצא בדיוק מה שהתבקש, ולומר במה הם שונים לפי relaxed_on " +
+      "(\"קצת מעל התקציב\", \"3 חדרים ולא 4\", \"שכונה אחרת בעפולה\"). " +
+      "להציג אותם כהתאמה היא הטעיה. עם הקישור של כל אחד, כרגיל.",
     "- **כתובת מדויקת לא נמסרת.** הנכסים מוצגים ברחוב ובשכונה, בלי מספר בית. " +
       "מי ששואל \"איפה בדיוק?\" מקבל: הפרטים המלאים אצל הסוכן/ת, דרך דף הנכס.",
+    "- **אין למסור גוש, חלקה או כל פרט מזהה על בעל/ת הנכס.** מי ששואל — " +
+      "זה מידע שנמסר מול הסוכן/ת, דרך דף הנכס. אין לנחש ואין לשחזר מהתיאור.",
     "- **מספרי טלפון לא נמסרים בצ'אט**, גם לא של סוכן/ת או משרד. בדף הנכס " +
       "ובדף המשרד יש כפתורי וואטסאפ וחיוג — לשם מפנים.",
     "- **אין ייעוץ משפטי, מיסויי, שמאי או פיננסי.** אפשר להסביר מושג באופן " +
