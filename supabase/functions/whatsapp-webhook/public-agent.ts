@@ -232,16 +232,16 @@ function stripTrailingStreetNumber(text: string): string {
  *
  * מה נמחק וממה:
  *
- *   ‏· **טלפונים — בכל המסלולים, וזה מכוון.** הכלל כאן אינו "אל תדליף פרטי
- *     אדם פרטי" אלא "ההפניה היא לדף הנכס": שם יושבים כפתורי הוואטסאפ והחיוג
- *     שנמדדים ב-GTM, ומספר שמוכתב בצ'אט גוזל מהסוכן/ת את הקליק ומהדוחות את
- *     הפנייה.
+ *   ‏· **גוש וחלקה** — ראו למטה.
  *
- *     ‏⚠️ **אל תבלבל עם מדיניות התוכן שבמסד** (‏`20261120090000`), שמוחקת
- *     טלפון מהתיאור **רק ב-Pay&GO**. שתי מדיניות שונות לשתי שאלות שונות:
- *     שם — *למי מותר לפרסם טלפון*, והתשובה תלויה במסלול; כאן — *האם הבוט
- *     מדקלם מספר בצ'אט*, והתשובה לא. סוכן/ת ב-Elite רשאי/ת שהטלפון יופיע
- *     בדף הנכס, ועדיין הבוט מפנה לדף ולא מקריא אותו.
+ * ‏**טלפונים של סוכנים ומשרדים אינם נמחקים.** זו הייתה החלטה קודמת והיא
+ * התהפכה במפורש: הבוט **אמור** לחבר בין מתעניין/ת לסוכן/ת, וזו כל תכליתו.
+ * מה שנשמר הוא ההפרדה בין *מי מפרסם* לבין *מה מפרסמים עליו*: הטלפון של
+ * הסוכן/ת הוא ערוץ שהוא/היא בחר/ה לפרסם, והכתובת המדויקת של הנכס היא מידע
+ * פנימי של הנכס. ‏`contact_agent` הוא הכלי שנותן את הראשון.
+ *
+ * ‏(מה שכן נמחק לפי מסלול הוא טלפון **בתוך התיאור** במסלול Pay&GO, וזה קורה
+ * בטריגר במסד — ‏`docs/public-text-policy.md` — ולא כאן.)
  *   ‏· **גוש וחלקה** — `PROPERTY_FIELDS` כבר מוציא את העמודות עצמן, אבל
  *     אין מה שימנע מסוכן/ת להקליד "גוש 17700 חלקה 45" לתוך התיאור. זה מידע
  *     מזהה על הנכס ועל בעליו: עם גוש וחלקה אפשר להוציא נסח טאבו ולקבל את
@@ -252,14 +252,11 @@ function stripTrailingStreetNumber(text: string): string {
  * כל קורא — הבוט בכללם — מקבל טקסט נקי בלי לדעת על כך. שכפול שלו כאן היה
  * יוצר עותק שני שיתפצל. ‏[`owner-privacy.md`](../../../docs/owner-privacy.md)
  */
-const PHONE_RE =
-  /(?:\+?972[-.\s]?|0)(?:[23489]|5[0-9]|7[2-9])[-.\s]?\d{3}[-.\s]?\d{4}/g;
 const GUSH_HELKA_RE =
   /\b(?:גוש|חלקה|חלקות|תת[-\s]?חלקה|מגרש)\s*[:.\-–]?\s*\d+(?:\s*[\/,]\s*\d+)*/g;
 
 function scrubPublicText(text: string | null): string {
   return String(text || "")
-    .replace(PHONE_RE, "")
     .replace(GUSH_HELKA_RE, "")
     // ניקוי הסימנים שנשארו יתומים אחרי המחיקה, כדי שלא ייצא "דברו איתנו. ."
     .replace(/[ \t]{2,}/g, " ")
@@ -304,6 +301,18 @@ const PROPERTY_FIELDS = [
 
 function propertyUrl(id: string): string {
   return `${SITE_BASE}/property.html?id=${id}`;
+}
+
+/**
+ * ‏wa.me דורש מספר בינלאומי בלי + ובלי האפס המוביל — אותו נרמול שב-`waLink`
+ * ב-`crm.html` וב-`agent.ts`. מספר שאינו נראה תקין מחזיר undefined, ואז
+ * מוצג הטלפון בלבד בלי קישור שבור.
+ */
+function waNumber(phone: unknown): string | undefined {
+  const digits = String(phone ?? "").replace(/\D/g, "");
+  if (digits.length < 9) return undefined;
+  if (digits.startsWith("972")) return digits;
+  return "972" + digits.replace(/^0+/, "");
 }
 
 /** הצורה שה-LLM רואה. כל מה שלא כאן — לא קיים מבחינתו. */
@@ -396,6 +405,23 @@ const TOOLS: Anthropic.Tool[] = [
       properties: {
         property_id: { type: "string", description: "מזהה הנכס (UUID)." },
         listing_number: { type: "integer", description: "מספר המודעה כפי שמוצג באתר." },
+      },
+      required: [],
+    },
+  },
+  {
+    name: "contact_agent",
+    description:
+      "מחזיר את הסוכן/ת שמפרסם/ת נכס מסוים, עם הטלפון ועם **קישור שפותח " +
+      "שיחת וואטסאפ ישירה איתו/ה** — הודעת הפתיחה כבר מזכירה את מספר המודעה. " +
+      "**זה הכלי לכל שאלה שאין עליה תשובה במאגר**: כתובת מדויקת, מי הבעלים, " +
+      "מתי אפשר לראות, מה מצב המשא ומתן, האם המחיר גמיש. אין לנחש תשובות " +
+      "כאלה ואין להתנצל עליהן — מפנים לסוכן/ת שמכיר/ה את הנכס.",
+    input_schema: {
+      type: "object",
+      properties: {
+        property_id: { type: "string", description: "מזהה הנכס." },
+        listing_number: { type: "integer", description: "לחלופין, מספר המודעה." },
       },
       required: [],
     },
@@ -923,9 +949,111 @@ async function getProperty(
         url: agent.slug ? `${SITE_BASE}/agent.html?slug=${agent.slug}` : null,
       }
       : null,
+    // ‏**הערה אחת, לא שתי אמיתות.** כאן חוזרים שם המשרד והסוכן/ת בלבד;
+    // הטלפון והקישור לשיחה נבנים ב-`contact_agent`, כדי שהניסוח של הודעת
+    // הפתיחה ושל הנרמול ל-wa.me יישבו במקום אחד.
     contact_note:
-      "יצירת הקשר נעשית בדף הנכס — שם יש כפתורי וואטסאפ וחיוג לסוכן/ת. " +
-      "אין למסור מספרי טלפון בצ'אט.",
+      "לכל שאלה שאין עליה תשובה כאן — כתובת מדויקת, מי הבעלים, מתי אפשר " +
+      "לראות, גמישות במחיר — לקרוא ל-contact_agent ולהציג את הקישור לשיחה " +
+      "ישירה עם הסוכן/ת. אלה שאלות אליו/ה, לא חוסר במאגר.",
+  };
+}
+
+/**
+ * חיבור ישיר לסוכן/ת שמפרסם/ת את הנכס.
+ *
+ * ## למה זה קיים, ולמה הוא התשובה ל"איפה בדיוק?"
+ *
+ * הבוט אינו מוסר כתובת מדויקת, שם בעלים או כל מידע פנימי אחר על הנכס — לא
+ * מפני שהוא מתחמק, אלא מפני ש**לא הוא הכתובת לשאלות האלה**. הכתובת היא
+ * הסוכן/ת שמכיר/ה את הנכס. עד עכשיו הבוט ענה "הפרטים אצל הסוכן/ת" והפנה
+ * לדף — צעד נוסף שרוב האנשים לא עושים בוואטסאפ.
+ *
+ * ‏`wa_url` הוא הקישור שסוגר את הפער: לחיצה אחת פותחת שיחה עם הסוכן/ת
+ * הספציפי/ת, עם הודעת פתיחה שכבר מזכירה את מספר המודעה. המתעניין/ת אינו
+ * צריך/ה להסביר על איזה נכס מדובר, והסוכן/ת מקבל/ת פנייה שאפשר לענות עליה
+ * מיד.
+ *
+ * **ההודעה נשלחת מהמכשיר של המתעניין/ת ולא מהשרת** — אותו כלל בדיוק
+ * שנשמר ב-`property_link` אצל הסוכנים: הבוט מכין, האדם שולח. פנייה שנשלחת
+ * בשמו של מישהו בלי שלחץ היא ספאם, וגם לא הייתה חלה עליה הסכמה.
+ *
+ * ⚠️ **מה שמאבדים כאן, ובמודע:** קליק על `wa.me` מהצ'אט אינו נמדד ב-GTM —
+ * ‏`assets/events.js` סופר קליקים בדף, לא בוואטסאפ. לכן חוזר גם
+ * ‏`property_url`, וההוראות מבקשות לצרף אותו: מי שנכנס/ת לדף ולוחץ/ת שם
+ * נספר/ת כרגיל (‏`docs/analytics-events.md`).
+ */
+async function contactAgent(
+  ctx: PublicContext,
+  args: Record<string, unknown>,
+): Promise<unknown> {
+  const id = text(args.property_id);
+  const listingRaw = args.listing_number;
+  const listing = (listingRaw === null || listingRaw === undefined || listingRaw === "")
+    ? NaN
+    : Number(listingRaw);
+
+  let q = ctx.supabase
+    .from("properties")
+    .select("id, title, listing_number, house_number, agent_id, agency_id")
+    .eq("status", "active");
+
+  if (id) q = q.eq("id", id);
+  else if (Number.isFinite(listing)) q = q.eq("listing_number", Math.round(listing));
+  else return { error: "missing_identifier", note: "צריך property_id או listing_number." };
+
+  const { data: p, error } = await q.maybeSingle();
+  if (error) return { error: "lookup_failed", detail: error.message };
+  if (!p) return { found: false, note: "הנכס אינו פעיל באתר כרגע." };
+
+  ctx.conv.last_property_id = p.id;
+
+  const { data: member } = await ctx.supabase
+    .from("agency_members")
+    .select("display_name, slug, phone, phone_e164")
+    .eq("id", p.agent_id)
+    .maybeSingle();
+
+  let agencyName: string | null = null;
+  if (p.agency_id) {
+    const { data: a } = await ctx.supabase
+      .from("agencies").select("name").eq("id", p.agency_id).maybeSingle();
+    agencyName = a?.name ?? null;
+  }
+
+  if (!member?.display_name) {
+    return {
+      found: true,
+      agent: null,
+      property_url: propertyUrl(p.id),
+      note: "אין סוכן/ת משויך/ת למודעה. בדף הנכס יש את פרטי המשרד.",
+    };
+  }
+
+  // מספר המודעה בהודעת הפתיחה הוא מה שהופך את הקישור לשימושי: הסוכן/ת
+  // מקבל/ת פנייה שאפשר לענות עליה בלי לשאול "על איזה נכס?".
+  const label = maskPublicText(p.title, p.house_number) ||
+    (p.listing_number ? `מודעה ${p.listing_number}` : "הנכס");
+  const opener =
+    `שלום, הגעתי דרך שוק נדל״ן. מתעניין/ת ב${label}` +
+    (p.listing_number ? ` (מודעה ${p.listing_number})` : "") +
+    `: ${propertyUrl(p.id)}`;
+
+  const wa = waNumber(member.phone_e164 || member.phone);
+
+  return {
+    found: true,
+    agent: {
+      name: member.display_name,
+      agency: agencyName,
+      phone: member.phone || null,
+      wa_url: wa ? `https://wa.me/${wa}?text=${encodeURIComponent(opener)}` : null,
+      profile_url: member.slug ? `${SITE_BASE}/agent.html?slug=${member.slug}` : null,
+    },
+    property_url: propertyUrl(p.id),
+    how_to_use:
+      "להציג את הקישור כדרך לפתוח שיחה ישירה עם הסוכן/ת. ההודעה נשלחת " +
+      "מהמכשיר של המתעניין/ת בלחיצה שלו/ה — אין להבטיח ששלחנו.",
   };
 }
 
@@ -1650,6 +1778,8 @@ async function runTool(
         return await searchProperties(ctx, args);
       case "get_property":
         return await getProperty(ctx, args);
+      case "contact_agent":
+        return await contactAgent(ctx, args);
       case "find_agencies":
         return await findAgencies(ctx, args);
       case "find_professionals":
@@ -1742,12 +1872,17 @@ const SYSTEM_STATIC: string = (() => {
       "שנאמר שלא נמצא בדיוק מה שהתבקש, ולומר במה הם שונים לפי relaxed_on " +
       "(\"קצת מעל התקציב\", \"3 חדרים ולא 4\", \"שכונה אחרת בעפולה\"). " +
       "להציג אותם כהתאמה היא הטעיה. עם הקישור של כל אחד, כרגיל.",
-    "- **כתובת מדויקת לא נמסרת.** הנכסים מוצגים ברחוב ובשכונה, בלי מספר בית. " +
-      "מי ששואל \"איפה בדיוק?\" מקבל: הפרטים המלאים אצל הסוכן/ת, דרך דף הנכס.",
-    "- **אין למסור גוש, חלקה או כל פרט מזהה על בעל/ת הנכס.** מי ששואל — " +
-      "זה מידע שנמסר מול הסוכן/ת, דרך דף הנכס. אין לנחש ואין לשחזר מהתיאור.",
-    "- **מספרי טלפון לא נמסרים בצ'אט**, גם לא של סוכן/ת או משרד. בדף הנכס " +
-      "ובדף המשרד יש כפתורי וואטסאפ וחיוג — לשם מפנים.",
+    "- **מידע פנימי על הנכס אינו נמסר**: כתובת מדויקת ומספר בית, גוש וחלקה, " +
+      "שם בעל/ת הנכס או כל פרט מזהה אחר עליו/ה. הנכסים מוצגים ברחוב ובשכונה. " +
+      "אין לנחש, אין לשחזר מהתיאור, ואין להתנצל על כך.",
+    "- **וכל שאלה כזו נגמרת ב-contact_agent, לא ב'אין לי'.** 'איפה בדיוק?', " +
+      "'מי הבעלים?', 'מתי אפשר לראות?', 'המחיר גמיש?' — אלה שאלות לסוכן/ת " +
+      "שמכיר/ה את הנכס. להציג את השם ואת wa_url כקישור שפותח שיחה ישירה " +
+      "איתו/ה בלחיצה אחת. **זו התשובה, לא פרס ניחומים.**",
+    "- **מותר ורצוי למסור טלפון של סוכן/ת או משרד** כשהוא חוזר מהכלי. " +
+      "לצרף גם את property_url, למי שמעדיף/ה לראות קודם את הדף.",
+    "- **אין להבטיח שהעברנו הודעה.** ההודעה נשלחת מהמכשיר של המתעניין/ת " +
+      "בלחיצה שלו/ה על הקישור. הבוט מכין, האדם שולח.",
     "- **אין ייעוץ משפטי, מיסויי, שמאי או פיננסי.** אפשר להסביר מושג באופן " +
       "כללי, ואז להפנות לבעל/ת המקצוע המתאים/ה דרך find_professionals.",
     "- **אין הערכת שווי לנכס** ואין אמירה אם מחיר הוא הזדמנות או יקר מדי. " +
