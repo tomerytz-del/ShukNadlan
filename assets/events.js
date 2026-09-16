@@ -53,7 +53,14 @@
      כך האירוע נרשם גם אם מאזין אחר על הכפתור עוצר את ההתפשטות.
 
      ‏closest() ולא e.target: הלחיצה נוחתת כמעט תמיד על ה-SVG או על הטקסט
-     שבתוך הקישור, ולא על ה-<a> עצמו.                                     */
+     שבתוך הקישור, ולא על ה-<a> עצמו.
+
+     ‏**‏data-bot מפצל את האירוע לשניים.** מאז שיש עוזר ציבורי בוואטסאפ
+     ‏(docs/whatsapp-public-bot.md), חלק מקישורי ה-wa.me בדף מובילים אליו
+     ולא לסוכן/ת. בלי ההבחנה הזו הם היו נספרים כ-contact_agent — כלומר
+     תנועה לעוזר הייתה מנפחת בשקט את המדד העסקי המרכזי, ואי אפשר היה לדעת
+     אם מספר הפניות למתווכים עלה או שרק הבוט עובד. שני אירועים נפרדים,
+     שני דוחות.                                                          */
   document.addEventListener('click', function(e){
     try{
       const link = e.target && e.target.closest && e.target.closest('a[href]');
@@ -64,6 +71,13 @@
       if (href.indexOf('https://wa.me/') === 0 || href.indexOf('https://api.whatsapp.com/') === 0) method = 'whatsapp';
       else if (href.indexOf('tel:') === 0) method = 'phone';
       if (!method) return;
+
+      if (link.hasAttribute('data-bot')){
+        // ‏entry הוא נקודת הכניסה שממנה נלחץ הכפתור ("search_empty"), ולא
+        // הדף — page_type כבר מגיע מ-pageContext ואין טעם לשכפל אותו.
+        shukTrack('contact_bot', { entry: link.getAttribute('data-bot-entry') || 'unknown' });
+        return;
+      }
 
       shukTrack('contact_agent', { method: method });
     } catch(err){ /* מדידה לא שוברת אתר */ }

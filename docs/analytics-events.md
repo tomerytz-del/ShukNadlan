@@ -24,7 +24,8 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 
 | אירוע | מתי | פרמטרים ייחודיים |
 | --- | --- | --- |
-| `contact_agent` | לחיצה על כל קישור `wa.me` או `tel:` בדף | `method`: ‏`whatsapp` \| `phone` |
+| `contact_agent` | לחיצה על קישור `wa.me` או `tel:` בדף שמוביל ל**סוכן/ת** | `method`: ‏`whatsapp` \| `phone` |
+| `contact_bot` | לחיצה על קישור שמוביל ל**עוזר הציבורי בוואטסאפ** | `entry`: נקודת הכניסה (`search_empty`) |
 | `view_item` | נכס נטען בהצלחה בדף הנכס | `item_name`, `item_category`, `deal_type`, `city`, `value`, `currency` |
 | `share` | שיתוף נכס שהושלם | `method`: ‏`web_share` \| `copy_link` |
 | `generate_lead` | טופס שהשרת אישר | `form_id`, ולפעמים `is_duplicate` |
@@ -37,6 +38,13 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 `search_agent`, `buyer_banner`.
 
 ### למה דווקא ברגעים האלה
+
+**‏`contact_bot` הוא אירוע נפרד ולא `method` נוסף ב-`contact_agent`.**
+המאזין המואצל סופר כל קישור `wa.me` בדף, ומאז שיש עוזר ציבורי
+(‏[`whatsapp-public-bot.md`](whatsapp-public-bot.md)) חלק מהקישורים מובילים
+אליו ולא לסוכן/ת. אלמלא ההפרדה, תנועה לעוזר הייתה מנפחת בשקט את המדד העסקי
+המרכזי — ולא היה אפשר לדעת אם מספר הפניות למתווכים עלה, או שרק הבוט עובד.
+ההבחנה נעשית לפי `data-bot` על הקישור, ש-`assets/bot-link.js` מוסיף.
 
 **‏`generate_lead` נדחף רק אחרי שהשרת אישר**, ולא בלחיצה על "שלח". ליד
 שנכשל בשליחה אינו ליד, ואם נספור את שניהם לא נדע לעולם שהטופס שבור.

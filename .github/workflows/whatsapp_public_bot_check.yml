@@ -1,0 +1,155 @@
+name: וואטסאפ — האם הגיע הזמן למספר שני
+
+# שני הבוטים בוואטסאפ חולקים מספר אחד, והפיצול ביניהם נשען על היעדר שורה
+# ב-agency_members. זו התחלה מכוונת, לא מצב קבע — ו-docs/whatsapp-public-bot.md
+# מגדיר מתי עוברים למספר שני.
+#
+# **הבעיה שה-workflow הזה פותר:** קריטריון שכתוב במסמך ואיש לא בודק אותו הוא
+# קריטריון שלא קיים. הנפח יגדל בהדרגה, אף יום לא יהיה היום שבו "פתאום יש
+# הרבה", וההחלטה תידחה עד שתקלה תכריח אותה.
+#
+# לכן הבדיקה רצה פעם בחודש ומדברת רק כשיש מה לומר: חצה סף — נפתח Issue;
+# לא חצה — שורה בסיכום ההרצה וזהו. מייל חודשי ש"הכול בסדר" מפסיקים לקרוא
+# אחרי הפעם השלישית.
+#
+# קריאה בלבד. שני selects, אפס כתיבה — גם לא DDL (זה כלל ב-CLAUDE.md).
+
+on:
+  schedule:
+    # ה-1 בכל חודש ב-06:00 UTC ‏(09:00 בקיץ, 08:00 בחורף)
+    - cron: "0 6 1 * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: משיכת הקוד
+        uses: actions/checkout@v4
+
+      - name: ספירת התנועה הציבורית
+        id: counts
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SUPABASE_DB_URL}" ]; then
+            echo "::error::הסוד SUPABASE_DB_URL ריק או לא מוגדר. זהו אותו סוד שמשמש את supabase_migrations.yml. פירוט: docs/supabase-migrations.md"
+            exit 1
+          fi
+
+          # ‏agent_id is null בהודעה נכנסת = הודעה ממי שאינו סוכן/ת. בענף של
+          # הסוכנים העמודה מתמלאת מיד אחרי הזיהוי, ולכן ההפרדה נקייה.
+          # הספירה תקפה גם כשהבוט כבוי: אז היא מודדת ביקוש ולא עומס.
+          ROW=$(psql "$SUPABASE_DB_URL" -X -t -A -F '|' -v ON_ERROR_STOP=1 -c "
+            select count(*) filter (where created_at > now() - interval '7 days'),
+                   count(*) filter (where created_at > now() - interval '30 days'),
+                   count(distinct wa_phone)
+                     filter (where created_at > now() - interval '30 days')
+              from public.whatsapp_messages
+             where direction = 'in'
+               and agent_id is null;")
+
+          WEEK=$(echo "$ROW" | cut -d'|' -f1)
+          MONTH=$(echo "$ROW" | cut -d'|' -f2)
+          PEOPLE=$(echo "$ROW" | cut -d'|' -f3)
+
+          # תקלה חוצת-ענפים: ענינו בלי agent_id למספר שרשום כסוכן/ת — כלומר
+          # סוכן/ת נפל/ה לענף הציבורי. בדיוק הדבר שההפרדה למספר שני מונעת.
+          CROSS=$(psql "$SUPABASE_DB_URL" -X -t -A -v ON_ERROR_STOP=1 -c "
+            select count(*)
+              from public.whatsapp_messages m
+             where m.direction = 'out'
+               and m.agent_id is null
+               and m.created_at > now() - interval '30 days'
+               and exists (select 1 from public.agency_members a
+                            where a.phone_e164 = m.wa_phone);")
+
+          echo "week=$WEEK"     >> "$GITHUB_OUTPUT"
+          echo "month=$MONTH"   >> "$GITHUB_OUTPUT"
+          echo "people=$PEOPLE" >> "$GITHUB_OUTPUT"
+          echo "cross=$CROSS"   >> "$GITHUB_OUTPUT"
+
+          if [ "$WEEK" -ge 300 ] || [ "$CROSS" -gt 0 ]; then
+            echo "alert=yes" >> "$GITHUB_OUTPUT"
+          else
+            echo "alert=no"  >> "$GITHUB_OUTPUT"
+          fi
+
+          {
+            echo "### תנועה ציבורית בוואטסאפ"
+            echo ""
+            echo "| מדד | ערך |"
+            echo "|---|---|"
+            echo "| הודעות נכנסות בשבוע | $WEEK |"
+            echo "| הודעות נכנסות בחודש | $MONTH |"
+            echo "| אנשים שונים בחודש | $PEOPLE |"
+            echo "| תקלות חוצות-ענפים | $CROSS |"
+            echo ""
+            echo "הסף למספר שני: 300 בשבוע, או תקלה אחת חוצת-ענפים."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: פתיחת Issue כשהסף נחצה
+        if: steps.counts.outputs.alert == 'yes'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          WEEK: ${{ steps.counts.outputs.week }}
+          MONTH: ${{ steps.counts.outputs.month }}
+          PEOPLE: ${{ steps.counts.outputs.people }}
+          CROSS: ${{ steps.counts.outputs.cross }}
+        run: |
+          set -euo pipefail
+          TITLE="וואטסאפ: הגיע הזמן למספר שני"
+
+          BODY=$(cat <<EOF
+          הבדיקה החודשית מצאה שהתנועה הציבורית בוואטסאפ חצתה את הסף שמוגדר
+          ב-\`docs/whatsapp-public-bot.md\` בפרק "מתי לעבור למספר שני".
+
+          | מדד | ערך |
+          |---|---|
+          | הודעות נכנסות בשבוע | $WEEK |
+          | הודעות נכנסות בחודש | $MONTH |
+          | אנשים שונים בחודש | $PEOPLE |
+          | תקלות חוצות-ענפים | $CROSS |
+
+          הסף: **300 הודעות בשבוע**, או **תקלה אחת** שבה סוכן/ת קיבל/ה תשובה
+          של הבוט הציבורי. \`תקלות חוצות-ענפים > 0\` פירושו שזה כבר קרה.
+
+          **מה צריך לעשות**
+
+          1. להוסיף מספר טלפון לWABA הקיים דרך WhatsApp Manager — לא WABA חדש,
+             לא אפליקציה ולא סים נוסף. המספר צריך לקבל קוד אימות פעם אחת
+             ברישום, ואחרי זה הוא חי רק מול ה-API.
+          2. לנתב לפי \`value.metadata.phone_number_id\` שמטא שולחת בכל הודעה,
+             במקום לפי היעדר שורה ב-\`agency_members\`.
+          3. להעביר \`phone_number_id\` כפרמטר ל-\`sendText\` ול-\`markReadAndTyping\`
+             ב-\`whatsapp.ts\`, שכרגע שולחות תמיד מ-\`WHATSAPP_PHONE_NUMBER_ID\`.
+             בלי זה הבוט הציבורי יענה לפונים מהמספר של הסוכנים.
+
+          ⚠️ מספר שנרשם ב-Cloud API אינו יכול לשמש במקביל באפליקציית וואטסאפ.
+          אין להשתמש במספר שמישהו עובד איתו היום.
+
+          ---
+          נפתח אוטומטית על ידי \`.github/workflows/whatsapp_public_bot_check.yml\`.
+          EOF
+          )
+
+          EXISTING=$(gh issue list --state open --limit 100 --json number,title \
+                       | jq -r --arg t "$TITLE" \
+                           '[.[] | select(.title == $t)] | .[0].number // empty')
+
+          # ‏Issue פתוח מחודש שעבר עדיין מתאר את אותה החלטה — תגובה עליו שומרת
+          # את הדיון במקום אחד, במקום ערימת Issues זהים.
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+            echo "עודכן Issue #$EXISTING"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

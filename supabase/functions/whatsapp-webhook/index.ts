@@ -3,6 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import type Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import { downloadMedia, markReadAndTyping, sendText, verifySignature } from "./whatsapp.ts";
 import { type AgentRow, type ConversationState, runAgentTurn } from "./agent.ts";
+import { type PublicConversationState, runPublicTurn } from "./public-agent.ts";
 
 // ============================================================================
 // ‏Webhook של Meta WhatsApp Cloud API.
@@ -13,6 +14,18 @@ import { type AgentRow, type ConversationState, runAgentTurn } from "./agent.ts"
 //
 // זרימה: אימות חתימה -> 200 מיידי ל-Meta -> עיבוד ברקע (זיהוי סוכן/ת,
 // תמלול/תמונות, LLM עם כלים, תשובה חזרה בוואטסאפ).
+//
+// ---------------------------------------------------------------------------
+// שני ענפים על אותו מספר
+// ---------------------------------------------------------------------------
+// מספר שנמצא ב-agency_members מגיע ל-`agent.ts` — העוזר שכותב למסד בשמו/ה.
+// מספר שאינו שם מגיע ל-`public-agent.ts` — בוט קריאה-בלבד שמחפש נכסים
+// במאגר הציבורי (‏docs/whatsapp-public-bot.md).
+//
+// הפיצול נשען כרגע על **היעדר התאמה בטבלה**, כי שני הענפים חולקים מספר אחד.
+// ברגע שיהיה מספר שני ל-WABA, הניתוב צריך לעבור להישען על
+// ‏`value.metadata.phone_number_id` שמטא שולחת בכל הודעה — שדה מפורש עדיף על
+// היעדר שורה, כי טעות בנתוני סוכן/ת לא אמורה להפיל אותו/ה לענף הציבורי.
 // ============================================================================
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -31,6 +44,24 @@ const UNKNOWN_SENDER_MSG =
   "סליחה, איני מזהה את מספר הטלפון שלך כמורשה במערכת.";
 const INACTIVE_AGENT_MSG =
   "החשבון שלך במערכת אינו פעיל כרגע. אפשר לפנות למנהל/ת המשרד.";
+
+/* הבוט הציבורי כבוי כברירת מחדל, וזו הכוונה: פריסה של הפונקציה לא אמורה
+   לפתוח את המספר לכל העולם באותו רגע. ‏WHATSAPP_PUBLIC_BOT=on ב-Secrets הוא
+   המתג, וכיבויו מחזיר את המספר להתנהגות הקודמת בדיוק. */
+const publicBotEnabled =
+  (Deno.env.get("WHATSAPP_PUBLIC_BOT") || "").trim().toLowerCase() === "on";
+
+/* בלם הקצב של הענף הציבורי. כל הודעה נכנסת עולה כסף (קריאת LLM, ולפעמים
+   תמלול), והמספר חשוף לכל מי שראה אותו בדף הפייסבוק. התקרות נדיבות לאדם
+   שמחפש דירה ברצינות, וצרות למי ששולח בלולאה. */
+const PUBLIC_HOURLY_LIMIT = 30;
+const PUBLIC_DAILY_LIMIT = 120;
+const PUBLIC_LIMIT_MSG =
+  "הגעת למכסת ההודעות לעכשיו. אפשר להמשיך לחפש באתר — https://shuknadlan.co.il — " +
+  "ולחזור אליי מאוחר יותר.";
+/* שיחה שנשכחה אינה ממשיכה מעצמה: מי שכותב שוב אחרי חצי יום מתחיל נקי, כדי
+   שהבוט לא יענה על שאלה של אתמול ולא יגרור הקשר שכבר אינו רלוונטי. */
+const PUBLIC_IDLE_RESET_HOURS = 12;
 
 /* הסוכן העוזר בוואטסאפ זמין ב-PROFESSIONAL וב-Elite. ‏Pay&GO מקבל/ת תשובה
    שמסבירה מה זה ולאן ללכת, ולא שתיקה: הודעה שלא נענית נראית כמו תקלה, וזה
@@ -200,6 +231,179 @@ async function saveConversation(
 }
 
 // ---------------------------------------------------------------------------
+// הענף הציבורי
+// ---------------------------------------------------------------------------
+
+/**
+ * האם המספר חרג מהמכסה. שאילתה אחת ליממה האחרונה, והספירה לשעה נגזרת ממנה
+ * בזיכרון — הרצה פעמיים למסד על כל הודעה נכנסת היא מחיר מיותר.
+ */
+async function publicRateExceeded(phone: string): Promise<boolean> {
+  const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+  const { data, error } = await supabase
+    .from("whatsapp_messages")
+    .select("created_at")
+    .eq("wa_phone", phone)
+    .eq("direction", "in")
+    .gte("created_at", new Date(dayAgo).toISOString())
+    .limit(PUBLIC_DAILY_LIMIT + 1);
+
+  // כשל בספירה לא אמור להשתיק אדם שמחפש דירה. פותחים, ומתעדים.
+  if (error) {
+    console.error("public rate count failed", error);
+    return false;
+  }
+
+  const rows = data || [];
+  if (rows.length > PUBLIC_DAILY_LIMIT) return true;
+
+  const hourAgo = Date.now() - 60 * 60 * 1000;
+  const lastHour = rows.filter((r) => Date.parse(r.created_at) >= hourAgo).length;
+  return lastHour > PUBLIC_HOURLY_LIMIT;
+}
+
+/**
+ * הודעת המכסה נשלחת פעם אחת לשעה ולא על כל הודעה: מי שחרג ממשיך לרוב לשלוח,
+ * ובלי הבלם הזה הבלם עצמו היה הופך למנוע ההוצאה.
+ */
+async function limitNoticeAlreadySent(phone: string): Promise<boolean> {
+  const hourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const { data } = await supabase
+    .from("whatsapp_messages")
+    .select("id")
+    .eq("wa_phone", phone)
+    .eq("direction", "out")
+    .eq("body", PUBLIC_LIMIT_MSG)
+    .gte("created_at", hourAgo)
+    .limit(1);
+  return !!(data && data.length);
+}
+
+async function loadPublicConversation(
+  phone: string,
+): Promise<PublicConversationState> {
+  const { data } = await supabase
+    .from("whatsapp_public_conversations")
+    .select("history, last_property_id, last_message_at, leads_created, leads_window_start")
+    .eq("wa_phone", phone)
+    .maybeSingle();
+
+  const idleMs = PUBLIC_IDLE_RESET_HOURS * 60 * 60 * 1000;
+  const stale = data?.last_message_at
+    ? Date.now() - Date.parse(data.last_message_at) > idleMs
+    : false;
+
+  // מונה הלידים **אינו** מתאפס עם השיחה. שיחה שנשכחה מתחילה נקייה כדי שהבוט
+  // לא יגרור הקשר של אתמול; התקרה קיימת כדי למנוע הצפה, ושתיקה של 12 שעות
+  // היא בדיוק מה שמי שרוצה לעקוף אותה היה עושה.
+  return {
+    history: (!data || stale ? [] : (data.history as Anthropic.MessageParam[]) || []),
+    last_property_id: (!data || stale ? null : data.last_property_id) || null,
+    leads_created: data?.leads_created || 0,
+    leads_window_start: data?.leads_window_start || null,
+  };
+}
+
+async function savePublicConversation(
+  phone: string,
+  conv: PublicConversationState,
+): Promise<void> {
+  const { error } = await supabase.from("whatsapp_public_conversations").upsert({
+    wa_phone: phone,
+    history: conv.history,
+    last_property_id: conv.last_property_id,
+    leads_created: conv.leads_created,
+    leads_window_start: conv.leads_window_start,
+    last_message_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  }, { onConflict: "wa_phone" });
+  if (error) console.error("public conversation save failed", error);
+}
+
+/**
+ * פונה שאינו סוכן/ת. הכול כאן קריאה בלבד: אין שמירת מדיה, אין כתיבה לנכסים,
+ * ואין נגיעה בנתוני סוכנים — למעט מה שממילא פתוח באתר.
+ */
+async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
+  const from: string = msg.from;
+
+  // הבדיקה קודמת לכל דבר שעולה כסף — תמלול, LLM — בדיוק כמו שגייטינג
+  // המסלולים קודם לו בענף של הסוכנים.
+  if (await publicRateExceeded(from)) {
+    if (!(await limitNoticeAlreadySent(from))) {
+      await reply(from, PUBLIC_LIMIT_MSG, null);
+    }
+    return;
+  }
+
+  let userText = "";
+
+  switch (msg.type) {
+    case "text":
+      userText = msg.text?.body || "";
+      break;
+
+    case "audio":
+    case "voice": {
+      const media = msg.audio || msg.voice;
+      const transcript = await transcribeAudio(media.id);
+      if (!transcript) {
+        await reply(from, "לא הצלחתי לשמוע את ההקלטה. אפשר לכתוב לי מה מחפשים?", null);
+        return;
+      }
+      userText = transcript;
+      await supabase.from("whatsapp_messages")
+        .update({ body: transcript })
+        .eq("wa_message_id", msg.id);
+      break;
+    }
+
+    case "interactive":
+      userText = msg.interactive?.button_reply?.title ||
+        msg.interactive?.list_reply?.title || "";
+      break;
+
+    case "button":
+      userText = msg.button?.text || "";
+      break;
+
+    // תמונות מפונה ציבורי אינן נשמרות. ‏storeImage כותבת ל-bucket של הנכסים
+    // תחת תיקייה של סוכן/ת — לאלמוני אין כזו, ופתיחת אחסון לכל מי שיודע את
+    // המספר היא בדיוק סוג הדלת שלא צריך לפתוח בשביל נוחות.
+    default:
+      await reply(
+        from,
+        "אני יודע לקרוא הודעות טקסט והקלטות קוליות. מה מחפשים? (למשל: " +
+          "\"3 חדרים בעפולה עד מיליון ושלוש\")",
+        null,
+      );
+      return;
+  }
+
+  if (!userText.trim()) return;
+
+  const conv = await loadPublicConversation(from);
+
+  let answer: string;
+  try {
+    answer = await runPublicTurn({ supabase, conv, userText, waPhone: from });
+  } catch (err) {
+    console.error("public turn failed", err);
+    await supabase.from("whatsapp_messages")
+      .update({ error: String((err as Error)?.message || err) })
+      .eq("wa_message_id", msg.id);
+    // נשמר גם בכשל: אם הכלי הספיק לפתוח ליד לפני שהתור נפל, המונה שלו כבר
+    // עלה — ותקרה שנשכחת בכל שגיאה אינה תקרה.
+    await savePublicConversation(from, conv);
+    await reply(from, "משהו השתבש אצלי כרגע. אפשר לנסות שוב בעוד רגע.", null);
+    return;
+  }
+
+  await savePublicConversation(from, conv);
+  await reply(from, answer, null);
+}
+
+// ---------------------------------------------------------------------------
 // טיפול בהודעה בודדת
 // ---------------------------------------------------------------------------
 async function handleMessage(msg: Record<string, any>): Promise<void> {
@@ -219,7 +423,11 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     .maybeSingle();
 
   if (!agent) {
-    await reply(from, UNKNOWN_SENDER_MSG, null);
+    if (!publicBotEnabled) {
+      await reply(from, UNKNOWN_SENDER_MSG, null);
+      return;
+    }
+    await handlePublicMessage(msg);
     return;
   }
   if (!agent.active) {

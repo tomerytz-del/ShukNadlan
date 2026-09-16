@@ -11,6 +11,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
 <script src="assets/events.js"></script>
+<script src="assets/bot-link.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>שוק נדל״ן | עפולה והעמק</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
@@ -2549,6 +2550,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ssa-empty{margin-top:14px}
   .ssa-empty .ssa-cta{font-size:.86rem;padding:11px 22px;background:var(--teal);color:#fff}
   .ssa-empty .ssa-cta:hover{background:var(--teal-dark)}
+  /* הכפתור לעוזר בוואטסאפ הוא **משני** לטופס, ולא מתחרה בו: הטופס הוא מסלול
+     מדוד שעובד, והעוזר הוא הצעה למי שמעדיף/ה לשאול במילים. לכן שורה נפרדת
+     מתחת, ומשקל חזותי נמוך יותר — outline ולא מילוי. */
+  .bot-alt{margin-top:9px}
+  .bot-alt .bot-cta{
+    background:transparent;color:var(--teal-dark);border-color:var(--teal);
+    font-size:.78rem;padding:8px 18px;text-decoration:none;
+  }
+  .bot-alt .bot-cta:hover{background:var(--teal-tint)}
 
   .ssa-recap{
     background:var(--teal-tint);border-radius:var(--radius-sm);padding:11px 13px;margin-bottom:14px;
@@ -8449,8 +8459,10 @@ function renderSearchRows(properties, isSearchResult){
     rows.innerHTML =
       '<div class="sr-empty">לא נמצאו נכסים התואמים את החיפוש. נסו להרחיב את הסינון או לחפש שכונה אחרת.' +
       '<div class="ssa-empty"><button type="button" class="ssa-cta" id="ssaEmptyBtn">' +
-      '🔔 עדכנו אותי כשיעלה נכס כזה</button></div></div>';
+      '🔔 עדכנו אותי כשיעלה נכס כזה</button>' +
+      '<div class="bot-alt" id="botEmptyWrap"></div></div></div>';
     document.getElementById('ssaEmptyBtn').addEventListener('click', ssaOpen);
+    renderEmptyBotLink();
     return;
   }
 
@@ -8589,6 +8601,55 @@ function ssaBuildLabel(roomsMin, roomsMax, priceMax){
     SSA_DEAL_LABELS[s.deal_type],
     priceMax ? 'עד ' + nis(priceMax) + ' ₪' : null,
   ].filter(Boolean).join(' ').slice(0, 200);
+}
+
+/* ---------- הכפתור המשני לעוזר בוואטסאפ, במסך אפס התוצאות ----------
+   הטופס נשאר הראשי. זה כאן בשביל מי שמעדיף/ה לשאול במילים במקום למלא —
+   ולמי שהחיפוש שלו/ה דורש ניואנס שהסינון לא יודע לבטא.
+
+   **מה שהופך את זה לשונה מקישור רגיל:** הודעת הפתיחה נושאת את החיפוש
+   שהרגע נכשל. הפונה נוחת/ת בצ'אט כשכתוב שם כבר "חיפשתי 4 חדרים בעפולה עד
+   1.4 מיליון ולא מצאתי", והעוזר עונה על זה מיד במקום לשאול מה מחפשים.
+   זה גם מה שהופך את whatsapp_messages למקור ייחוס: גוף ההודעה מספר מאיזו
+   נקודה באתר הגיע הפונה, בלי תלות ב-GA4.
+
+   הקישור נבנה **בשני שלבים** בכוונה: קודם גרסה גנרית שעובדת מיד, ואז —
+   כש-ssaCapture מסיימת (היא מריצה שאילתת התאמת שכונות למסד) — גרסה שנושאת
+   את החיפוש עצמו. מי שילחץ בשנייה הראשונה מקבל קישור עובד ולא כפתור מת.
+
+   ‏ssaBuildLabel ולא ניסוח משלנו: הוא כבר מנסח את החיפוש כמשפט עברי עבור
+   כותרת ההתראה. שני מנסחים היו נפרדים זה מזה ברגע שאחד מהם ישתנה.        */
+async function renderEmptyBotLink(){
+  const wrap = document.getElementById('botEmptyWrap');
+  // ‏ShukBot נטען מ-assets ולכן עלול להיחסם; העוזר עצמו כבוי עד שהסוד
+  // בשרת נדלק. בשני המקרים פשוט אין כפתור, והטופס ממשיך לעבוד.
+  if (!wrap || !window.ShukBot || !ShukBot.enabled()) return;
+
+  const LABEL = '💬 או דברו איתי בוואטסאפ';
+  const draw = (hello) => {
+    wrap.innerHTML = ShukBot.anchorHtml(hello, LABEL, 'ssa-cta bot-cta');
+    const a = wrap.querySelector('a');
+    if (a) a.setAttribute('data-bot-entry', 'search_empty');
+  };
+
+  draw('שלום, חיפשתי באתר ולא מצאתי נכס שמתאים. אפשר עזרה?');
+
+  try{
+    await ssaCapture();
+    const what = ssaBuildLabel(
+      ssaSnapshot._roomsMin,
+      ssaSnapshot._roomsMax,
+      Number(document.getElementById('ssaPriceMax').value) || null,
+    );
+    // ‏wrap עדיין בדף? חיפוש חדש שרץ בינתיים החליף את ה-DOM, ואז אין למי
+    // לכתוב — ומה שהיה נכתב היה מתאר את החיפוש הקודם.
+    if (what && document.getElementById('botEmptyWrap') === wrap){
+      draw('שלום, חיפשתי באתר ' + what + ' ולא מצאתי. אפשר עזרה?');
+    }
+  } catch(e){
+    // הגרסה הגנרית כבר מצוירת — אין מה לתקן, ואין מה להפיל
+    console.warn('bot link enrich failed:', e);
+  }
 }
 
 async function ssaOpen(){
