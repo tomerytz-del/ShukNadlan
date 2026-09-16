@@ -178,16 +178,17 @@ export async function createPaymentForm(req: PaymentFormRequest): Promise<Paymen
   const auth = await morningToken();
   if (!auth.token) return { ok: false, error: auth.error ?? "morning_not_configured" };
 
-  // ‼ לאימות: כל גוף הבקשה. הערכים המספריים הם קודים של מורנינג —
-  //   type 320  = חשבונית מס/קבלה (הפקה אוטומטית עם סיום התשלום)
-  //   vatType 0 = כולל מע"מ
-  //   lang/currency לפי התיעוד
+  // **מאומת מול התיעוד הרשמי** (developers.morning.co/api, Get Payment Form):
+  //   type 320   = חשבונית מס/קבלה (הפקה אוטומטית עם סיום התשלום)
+  //   vatType 0  = ברירת מחדל **לפי סוג העסק** — ולא "כולל מע"מ", כפי
+  //                שנכתב כאן בטעות כשהתיעוד לא היה נגיש
+  //   group 100  = כרטיס אשראי (110=PayPal, 120=Bit, 150/160=Google/Apple Pay)
+  //   income     = אופציונלי; בלעדיו נוצרת שורה אחת מ-description ו-amount
+  //   client     = ‏taxId/phone/country הם שמות השדות המתועדים
   //
-  // ‼ לאימות במיוחד: ‏taxId/phone/country ב-client. הם נשלחים כי בלעדיהם
-  //   ה-ח.פ שהוקלד בעמוד התשלום לא מגיע לחשבונית — אבל שם שדה שגוי כאן
-  //   מפיל את **פתיחת התשלום כולה**, ולא רק את השדה. לכן buildPayload
-  //   מקבל דגל, וניסיון שנדחה חוזר מיד בלי השדות האלה (ראו למטה). זה מה
-  //   שמאפשר לשלוח אותם לפני שהתיעוד אומת, בלי להמר על נתיב הכסף.
+  // הגידור ב-buildPayload נשאר בכל זאת: שם שדה שגוי ב-client מפיל את
+  // **פתיחת התשלום כולה** ולא רק את השדה, וניסיון שנדחה חוזר מיד בלעדיהם.
+  // תיעוד מאומת מקטין את הסיכון, לא מבטל אותו.
   const buildPayload = (withClientExtras: boolean): Record<string, unknown> => ({
     description: req.description,
     type: 320,
@@ -218,8 +219,16 @@ export async function createPaymentForm(req: PaymentFormRequest): Promise<Paymen
     successUrl: req.successUrl,
     failureUrl: req.failureUrl,
     notifyUrl: req.notifyUrl,
-    // מזהה חופשי שחוזר אלינו כמו שהוא. זה מה שמחבר תשלום לשורה שלנו —
-    // בלעדיו היינו צריכים לנחש לפי סכום וזמן, וזה לא ניחוש שעושים על כסף.
+    // ‏`custom` הוא השדה **המתועד** לכך: "Custom data echoed back to your
+    // success / failure / notify URLs, such as an internal order ID". זה מה
+    // שמחבר תשלום לשורה שלנו — בלעדיו היינו מנחשים לפי סכום וזמן, וזה לא
+    // ניחוש שעושים על כסף.
+    //
+    // ‏`remarks` נשאר **בנוסף** ולא במקום: הוא מה שעבד עד היום, ו-webhook
+    // אמיתי אחד עוד לא נצפה. להחליף שדה בנתיב הכסף על סמך תיעוד בלבד, בלי
+    // לראות תשובה אחת, זה בדיוק סוג ההימור שאסור כאן. כששניהם נשלחים,
+    // ‏extractReference תמצא את המזהה בכל מקרה.
+    custom: req.reference,
     remarks: req.reference,
     ...(PLUGIN_ID ? { pluginId: PLUGIN_ID } : {}),
   });
@@ -373,9 +382,11 @@ export function readPaymentShape(body: any): Omit<PaymentStatus, "ok" | "error" 
 export function extractReference(body: any): { topupId: string | null; formId: string | null } {
   const uuidRe = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
-  // ‼ לאימות: השדה שבו מורנינג מחזיר/ה את ה-remarks שלנו
+  // ‏`custom` הוא השדה המתועד שחוזר ל-notifyUrl, והוא ראשון ברשימה. השאר
+  // נשארים כרשת ביטחון: הם עלו מניחוש מגודר לפני שהתיעוד היה נגיש, והם
+  // עולים כלום. ‏webhook אמיתי אחד יאפשר לקצר את הרשימה לשדה אחד.
   const candidates = [
-    body?.remarks, body?.reference, body?.custom, body?.custom?.topupId,
+    body?.custom, body?.custom?.topupId, body?.remarks, body?.reference,
     body?.data?.remarks, body?.payment?.remarks,
   ];
   let topupId: string | null = null;
