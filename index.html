@@ -2008,10 +2008,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background:#fff;box-shadow:0 2px 0 var(--teal), 0 6px 14px rgba(13,27,61,.22);
     transform:translateY(-2px);
   }
-  /* הפעילה יורדת למקומה ומאבדת את קו ההרמה: זה מה שקורה לכפתור שנלחץ. */
+  /* הפעילה יורדת למקומה ומאבדת את קו ההרמה: זה מה שקורה לכפתור שנלחץ.
+     במקומו היא מקבלת פס זהב תחתון — אותו ‎--brass‎ של הקו מתחת ללוגו ושל תג
+     הקוד האתי. הזהב **רק כאן ולא בשלושתן**: ברגע שהוא מופיע גם בכבויות הוא
+     מפסיק לסמן את הבחירה ונעשה קישוט. */
   .dm-tabs button[aria-selected="true"]{
     background:var(--teal);color:#fff;border-color:var(--teal);
-    box-shadow:inset 0 2px 5px rgba(0,0,0,.4);
+    box-shadow:inset 0 -3px 0 var(--brass,#c9a227), inset 0 2px 5px rgba(0,0,0,.4);
     transform:none;
   }
   .dm-tabs button:disabled{opacity:.45;cursor:default}
