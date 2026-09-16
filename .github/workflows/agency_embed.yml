@@ -1,0 +1,43 @@
+name: אין embed של agencies על agency_members
+
+# ‏ל-agent_share_exclusions מפתח ראשי מורכב (agent_id, agency_id), ולכן
+# ‏PostgREST רואה שני נתיבים בין agency_members ל-agencies — המפתח הזר הישיר
+# וקשר רבים-לרבים דרכה — ומחזיר PGRST201 (HTTP 300) על כל embed כזה.
+#
+# מה שהופך את זה למסוכן הוא לא השגיאה אלא הצורה שלה: **השאילתה כולה נכשלת**,
+# ‏supabase-js מחזיר data: null, וקוד שלא בודק error ממשיך כאילו אין שורה.
+# כך מנהל/ת הפלטפורמה לא קיבל/ה ולו התראת הצטרפות אחת, והכנת הסכם מהבוט
+# החזירה "לא נמצאו פרטי הסוכן/ת" — בלי שום דבר שנראה שבור.
+#
+# הבדיקה קוראת קבצים בלבד — בלי רשת ובלי סודות.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/**/*.ts"
+      - "*.html"
+      - "assets/*.js"
+      - "scripts/check_agency_embed.py"
+      - ".github/workflows/agency_embed.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/**/*.ts"
+      - "*.html"
+      - "assets/*.js"
+      - "scripts/check_agency_embed.py"
+      - ".github/workflows/agency_embed.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ‏הפלט של הבדיקה הוא המקום שבו כתוב מה לתקן ואיפה.
+      - name: בדיקת embed
+        run: python3 scripts/check_agency_embed.py

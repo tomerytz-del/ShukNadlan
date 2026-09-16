@@ -23,6 +23,37 @@
 
   window.dataLayer = window.dataLayer || [];
 
+  /* ‏`?src=` — מאיפה הגיע המבקר/ת, כשמי ששלח אותו/ה טרח לומר.
+     --------------------------------------------------------------------
+     נולד עם העוזר הציבורי בוואטסאפ: הבוט מפנה לדף הנכס במקום לתת קישור
+     ‏wa.me ישיר, בדיוק כדי שהקליק ייספר וש-GTM יספיק להיטען (הפניית שרת
+     עוזבת את האתר לפני כן — ראו ההערה על `/bot` ב-`_redirects`).
+
+     **בלי הפרמטר הזה המהלך חצי עובד:** הקליק על "וואטסאפ לסוכן" בדף נספר
+     כמו כל קליק אחר, ואי אפשר לדעת שהוא הגיע מהבוט — כלומר אי אפשר לענות
+     על השאלה היחידה שבגללה ההפניה נעשתה, האם המעבר דרך האתר משתלם.
+
+     **נשמר ל-sessionStorage** כי הוא חי רק בכתובת הנחיתה: מי שינווט מדף
+     הנכס לדף המשרד ויפנה משם היה מאבד את הייחוס באמצע הדרך.
+
+     **מסונן לתבנית קצרה** ולא מועבר כלשונו — זהו ערך מכתובת, כלומר קלט
+     מבחוץ, והוא נוחת כמימד מותאם ב-GA4. */
+  var SRC_RE = /^[a-z0-9_]{1,24}$/i;
+
+  function entrySource(){
+    try{
+      const fromUrl = new URLSearchParams(location.search).get('src');
+      if (fromUrl && SRC_RE.test(fromUrl)){
+        try{ sessionStorage.setItem('shukSrc', fromUrl); } catch(e){ /* מצב פרטי */ }
+        return fromUrl;
+      }
+      const remembered = sessionStorage.getItem('shukSrc');
+      return remembered && SRC_RE.test(remembered) ? remembered : null;
+    } catch(e){
+      return null;   /* אחסון חסום — הייחוס יורד, המדידה ממשיכה */
+    }
+  }
+
   /* הפרמטרים שמצורפים לכל אירוע, כדי שבדוחות יהיה אפשר לפלח לפי סוג הדף
      ולפי הנכס מבלי להעביר אותם ידנית בכל קריאה. */
   function pageContext(){
@@ -30,6 +61,8 @@
     const ctx = { page_type: path.replace(/\.html$/, '') || 'index' };
     const id = new URLSearchParams(location.search).get('id');
     if (id) ctx.item_id = id;
+    const src = entrySource();
+    if (src) ctx.src = src;
     return ctx;
   }
 
