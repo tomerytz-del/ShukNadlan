@@ -13,8 +13,31 @@ function authHeaders(extra: Record<string, string> = {}) {
   return { Authorization: `Bearer ${TOKEN}`, ...extra };
 }
 
-/** שולחת הודעת טקסט לסוכן/ת. זורקת אם Meta החזירה שגיאה. */
-export async function sendText(to: string, body: string): Promise<void> {
+/**
+ * מחלצת את מזהה ההודעה שמטא מחזירה (`messages[0].id`, בפורמט `wamid.…`).
+ *
+ * **זה המפתח היחיד שמחבר בין מה ששלחנו לבין אירועי המסירה שיחזרו.** בלעדיו
+ * ‏`status` של ההודעה נשאר לנצח "לא ידוע", ואי אפשר להבדיל בין הודעה שלא
+ * הגיעה לבין הודעה שהגיעה ומישהו פספס אותה.
+ *
+ * ‏null אינו כישלון שליחה: מטא כבר החזירה 200, ורק הגוף לא נפרס כצפוי.
+ * ההודעה תישלח, פשוט בלי מעקב — ולכן היא לא זורקת.
+ */
+async function messageIdFrom(res: Response): Promise<string | null> {
+  try {
+    const data = await res.json();
+    const id = data?.messages?.[0]?.id;
+    return typeof id === "string" && id ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * שולחת הודעת טקסט. זורקת אם Meta החזירה שגיאה, ומחזירה את מזהה ההודעה
+ * שלה למעקב מסירה.
+ */
+export async function sendText(to: string, body: string): Promise<string | null> {
   const text = body.length > MAX_TEXT_LEN
     ? body.slice(0, MAX_TEXT_LEN - 1) + "…"
     : body;
@@ -34,6 +57,7 @@ export async function sendText(to: string, body: string): Promise<void> {
   if (!res.ok) {
     throw new Error(`whatsapp send failed ${res.status}: ${await res.text()}`);
   }
+  return await messageIdFrom(res);
 }
 
 // כיתוב של הודעת תמונה מוגבל ל-1024 תווים, ולא ל-4096 כמו טקסט. הודעה
@@ -48,7 +72,7 @@ export async function sendImage(
   to: string,
   imageUrl: string,
   caption: string,
-): Promise<void> {
+): Promise<string | null> {
   const text = caption.length > MAX_CAPTION_LEN
     ? caption.slice(0, MAX_CAPTION_LEN - 1) + "…"
     : caption;
@@ -68,6 +92,7 @@ export async function sendImage(
   if (!res.ok) {
     throw new Error(`whatsapp image send failed ${res.status}: ${await res.text()}`);
   }
+  return await messageIdFrom(res);
 }
 
 /**

@@ -620,7 +620,7 @@ select agent_id, types, channel_mode, whatsapp_status, last_error, created_at
 | טבלה | תפקיד |
 |---|---|
 | `whatsapp_conversations` | מצב שיחה פר סוכן/ת: היסטוריה, תמונות ממתינות, הנכס והלקוח/ה האחרונים, ו-`last_message_at` שממנו נגזר חלון 24 השעות |
-| `whatsapp_messages` | יומן נכנס/יוצא. `wa_message_id` הייחודי מונע עיבוד כפול של משלוחים חוזרים מ-Meta |
+| `whatsapp_messages` | יומן נכנס/יוצא. `wa_message_id` הייחודי מונע עיבוד כפול של משלוחים חוזרים מ-Meta, ובהודעה יוצאת הוא גם המפתח למעקב המסירה (`status`) |
 | `notification_push_log` | יומן הודעות ההתראה היוצאות: אילו התראות, באיזה מצב (טקסט/תבנית), ומה קרה |
 
 שלושתן ב-RLS עם קריאה בלבד לסוכן/ת עצמו/ה; הכתיבה היא רק דרך `service_role` בתוך
@@ -704,6 +704,38 @@ python scripts/whatsapp_webhook_test.py text "תעלה נכס באבן גביר�
 
 לוגים: Supabase Dashboard → Edge Functions → `whatsapp-webhook` → Logs.
 בנוסף, `whatsapp_messages.error` שומר כשל בתמלול, בשליחה או בהרצת ה-LLM.
+
+### "נשלח" אינו "הגיע" — עמודת `status`
+
+‏`error` ריק פירושו ש-Meta קיבלה את ההודעה, **לא** שהיא נמסרה. ההבחנה הזו
+עלתה ב-16.9.2026 בבדיקת העוזר הציבורי: הבוט ענה נכון, היומן הראה שש שורות
+יוצאות נקיות, והמכשיר שבדק לא קיבל דבר. לא הייתה שום דרך להבדיל בין "נשלח
+ולא נמסר" לבין "נמסר והמשתמש פספס".
+
+לכן הודעה יוצאת שומרת עכשיו את `wa_message_id` שמטא מחזירה, ואירועי
+ה-`statuses` שהוובהוק כבר קיבל — ועד אז זרק — נרשמים עליה:
+
+| `status` | מה זה אומר |
+|---|---|
+| `sent` | מטא קיבלה. זה כל מה שהיה לנו קודם |
+| `delivered` | הגיעה למכשיר |
+| `read` | נפתחה |
+| `failed` | **לא הגיעה.** ‏`status_detail` נושא את הקוד והכותרת מ-Meta |
+
+השאילתה שעונה על "למה הוא לא קיבל":
+
+```sql
+select created_at, wa_phone, status, status_detail, left(body, 60)
+  from public.whatsapp_messages
+ where direction = 'out'
+   and created_at > now() - interval '1 hour'
+ order by created_at desc;
+```
+
+‏`status` ריק בהודעה יוצאת = נשלחה לפני שהמעקב נוסף, או שמטא לא החזירה
+מזהה. הדירוג מתקדם רק קדימה (`sent < delivered < read < failed`), כי
+האירועים מגיעים בסדר לא מובטח — הפרטים במיגרציה
+`20261117090000_whatsapp_delivery_status.sql`.
 
 ---
 
