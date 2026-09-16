@@ -1147,15 +1147,17 @@ async function sendPropertyCards(
 
     const caption = cardCaption(p, text(item.note));
     try {
-      await sendImage(ctx.waPhone, image, caption);
+      const waMessageId = await sendImage(ctx.waPhone, image, caption);
       ctx.cardsSent += 1;
       ctx.conv.last_property_id = p.id;
       await ctx.supabase.from("whatsapp_messages").insert({
+        wa_message_id: waMessageId,
         direction: "out",
         wa_phone: ctx.waPhone,
         msg_type: "image",
         body: caption,
         media_url: image,
+        status: waMessageId ? "sent" : null,
       });
       results.push({ property_id: id, sent: true });
     } catch (err) {

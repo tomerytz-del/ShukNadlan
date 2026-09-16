@@ -104,13 +104,18 @@ async function reply(
   agentId: string | null,
 ): Promise<void> {
   try {
-    await sendText(to, body);
+    // מזהה ההודעה של מטא נשמר כדי שאירועי המסירה שיחזרו יידעו על איזו שורה
+    // לשבת. בלעדיו "נשלח" הוא כל מה שנדע לעולם — וזה בדיוק ההבדל בין הודעה
+    // שלא הגיעה לבין הודעה שהגיעה ומישהו פספס.
+    const waMessageId = await sendText(to, body);
     await supabase.from("whatsapp_messages").insert({
+      wa_message_id: waMessageId,
       direction: "out",
       wa_phone: to,
       agent_id: agentId,
       msg_type: "text",
       body,
+      status: waMessageId ? "sent" : null,
     });
   } catch (err) {
     console.error("reply failed", err);
@@ -591,15 +596,58 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   await reply(from, answer, agent.id);
 }
 
+/**
+ * אירוע מסירה על הודעה **יוצאת** שלנו: sent → delivered → read, או failed.
+ *
+ * הדירוג והכתיבה נעשים ב-`record_whatsapp_status` במסד ולא כאן, כי האירועים
+ * מגיעים בסדר לא מובטח — `delivered` אחרי `read` הוא מצב תקין ברשת איטית,
+ * ובדיקה-ואז-עדכון משני שלבים בקוד הייתה מורידה הודעה שנקראה בחזרה
+ * ל"נמסרה". שם זו שאילתה אחת אטומית.
+ */
+async function handleStatus(st: Record<string, any>): Promise<void> {
+  const id: string | undefined = st?.id;
+  const status: string | undefined = st?.status;
+  if (!id || !status) return;
+
+  // ‏timestamp מגיע כשניות (מחרוזת), לא כמילישניות
+  const seconds = Number(st.timestamp);
+  const at = Number.isFinite(seconds) && seconds > 0
+    ? new Date(seconds * 1000).toISOString()
+    : null;
+
+  // הקוד והכותרת הם כל מה שמסביר למה הודעה לא הגיעה — בלעדיהם failed הוא
+  // "נכשל" בלי סיבה, וזה לא שווה הרבה יותר משתיקה
+  const err = Array.isArray(st.errors) ? st.errors[0] : null;
+  const detail = err
+    ? [err.code, err.title, err.message].filter(Boolean).join(" · ").slice(0, 300)
+    : null;
+
+  const { error } = await supabase.rpc("record_whatsapp_status", {
+    p_wa_message_id: id,
+    p_status: status,
+    p_at: at,
+    p_detail: detail,
+  });
+  if (error) console.error("status update failed", error);
+}
+
 async function handlePayload(payload: Record<string, any>): Promise<void> {
   for (const entry of payload.entry || []) {
     for (const change of entry.changes || []) {
-      // ‏statuses (נמסר/נקרא) מגיעים לאותו וובהוק ואין מה לעשות איתם
       for (const msg of change.value?.messages || []) {
         try {
           await handleMessage(msg);
         } catch (err) {
           console.error("message handling failed", err);
+        }
+      }
+      // ‏statuses מגיעים לאותו וובהוק. עד היום הם נזרקו, ולכן "נשלח" היה כל
+      // מה שהיומן ידע לומר על הודעה יוצאת.
+      for (const st of change.value?.statuses || []) {
+        try {
+          await handleStatus(st);
+        } catch (err) {
+          console.error("status handling failed", err);
         }
       }
     }
