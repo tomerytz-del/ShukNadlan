@@ -1909,6 +1909,85 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .adm-fact-val{font-size:.84rem;font-weight:800;color:var(--txt);white-space:nowrap;font-variant-numeric:tabular-nums}
 
   /* ==========================================================================
+     בקרת מנוע הלידים (הפאנל השלישי)
+     --------------------------------------------------------------------------
+     פלטה כחולה-פלדה, נבדלת מהבורדו של דוח הפלטפורמה ומהכחול של הדשבורד
+     האישי: שלושה פאנלים על אותו מסך, ובמבט אחד צריך לדעת באיזה מהם מסתכלים.
+
+     רוב הרכיבים הפנימיים הם ‏.adm-* המשותפים (כרטיסים, שורות עם פס יחס,
+     טבלאות) — מה שנוסף כאן הוא רק מה שאין לו מקבילה: רצועת הטמפרטורה,
+     הגרף המוערם, ושורת המקור עם תגית הערוץ.
+     ========================================================================== */
+  .dp-leads{--dp-a:#1f5f6b; --dp-b:#0e3740}
+  .lx-block .adm-h::before{background:#1f5f6b}
+  .lx-block .adm-bar span{background:linear-gradient(90deg,#2b7c8b,#1f5f6b)}
+  .lx-block .adm-row-total{background:#eaf5f7!important;border-color:#c9e3e8}
+  .lx-block .adm-row-total .adm-row-name,
+  .lx-block .adm-row-total .adm-row-val{color:#0e3740}
+  .lx-tile-teal{background:linear-gradient(150deg,#1f5f6b,#0e3740);border-color:transparent;color:#fff}
+  .lx-tile-teal .adm-tile-lbl{color:rgba(255,255,255,.72)}
+  .lx-tile-teal .adm-tile-val{color:#fff}
+  .lx-tile-teal .adm-tile-foot{color:rgba(255,255,255,.68)}
+
+  /* ---- רצועת הטמפרטורה ----
+     ארבעה מצבים על ציר אחד, מחם לקר, והרוחב של כל מקטע הוא חלקו מהתור.
+     הצבע הוא המסר: אדום-כתום-כחול-אפור אינם קישוט אלא הסקאלה עצמה. */
+  .lx-temp{display:flex;border-radius:999px;overflow:hidden;height:13px;background:var(--surface-2)}
+  .lx-temp span{display:block;min-width:0;transition:width .3s ease}
+  .lx-temp .t-hot{background:linear-gradient(90deg,#f0603c,#dc2626)}
+  .lx-temp .t-warm{background:linear-gradient(90deg,#f5b344,#e8912a)}
+  .lx-temp .t-cooling{background:linear-gradient(90deg,#6ea8d8,#4680b5)}
+  .lx-temp .t-cold{background:linear-gradient(90deg,#b9c3cc,#94a2ae)}
+
+  .lx-temps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+  @media(min-width:700px){.lx-temps{grid-template-columns:repeat(4,minmax(0,1fr))}}
+  .lx-t{
+    background:var(--surface);border:1px solid var(--edge);border-top:4px solid var(--edge);
+    border-radius:var(--r-xs);padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0;
+  }
+  .lx-t-hot{border-top-color:#dc2626}
+  .lx-t-warm{border-top-color:#e8912a}
+  .lx-t-cooling{border-top-color:#4680b5}
+  .lx-t-cold{border-top-color:#94a2ae}
+  .lx-t-val{font-family:'Frank Ruhl Libre',serif;font-size:1.35rem;font-weight:700;line-height:1.1;color:var(--txt)}
+  .lx-t-hot .lx-t-val{color:#b91c1c}
+  .lx-t-lbl{font-size:.74rem;font-weight:800;color:var(--txt-soft)}
+  .lx-t-sub{font-size:.66rem;color:var(--txt-faint);line-height:1.45}
+
+  /* תגית הערוץ שלצד שם המקור */
+  .lx-chan{
+    display:inline-block;border-radius:999px;padding:1px 7px;margin-inline-start:6px;
+    font-size:.62rem;font-weight:800;background:#e6f1f3;color:#1f5f6b;white-space:nowrap;
+  }
+
+  /* ---- הגרף המוערם ----
+     עמודה לכל דלי זמן, ובתוכה מקטע לכל ערוץ. עמודה מוערמת ולא ארבעה גרפים
+     נפרדים: השאלה היא מה *הרכב* הלידים בכל יום, ולא כמה היו בכל ערוץ בנפרד. */
+  .lx-chart{display:flex;align-items:flex-end;gap:3px;height:120px}
+  .lx-col{flex:1;min-width:0;height:100%;display:flex;flex-direction:column;justify-content:flex-end;gap:2px}
+  .lx-col i{display:block;min-height:2px;border-radius:2px}
+  .lx-col i:first-child{border-radius:4px 4px 2px 2px}
+  .lx-col-empty{height:2px;border-radius:2px;background:var(--edge)}
+  .lx-keys{display:flex;flex-wrap:wrap;gap:10px;font-size:.67rem;color:var(--txt-soft)}
+  .lx-key{display:inline-flex;align-items:center;gap:5px}
+  .lx-key b{width:9px;height:9px;border-radius:3px;display:inline-block}
+  .lx-dot{width:9px;height:9px;border-radius:3px;display:inline-block;margin-inline-end:6px;vertical-align:middle}
+
+  /* פסקת ההגדרה — המדיניות עצמה, לא מספר שנגזר ממנה */
+  .lx-policy{
+    background:#eaf5f7;border:1px solid #c9e3e8;border-radius:var(--r-xs);
+    padding:10px 12px;font-size:.72rem;color:#0e3740;line-height:1.7;margin:0;
+  }
+  .lx-policy b{font-weight:800}
+  /* שמות מפתחות באנגלית בתוך משפט בעברית. ‏isolate ולא embed: בלעדיו
+     הסוגריים והנקודה שאחרי שם המפתח נודדים לצידו השני של הביטוי, והמשפט
+     נקרא כמו שגיאת הקלדה. */
+  .lx-policy code{
+    unicode-bidi:isolate;direction:ltr;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
+    font-size:.92em;background:rgba(15,55,64,.08);border-radius:4px;padding:0 4px;
+  }
+
+  /* ==========================================================================
      שורת המדדים
      --------------------------------------------------------------------------
      קודם זו הייתה רכבת אופקית: ארבעה כרטיסים ברוחב 79% כל אחד, שמהם נראה אחד
@@ -3502,6 +3581,57 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </section>
       <!-- סוף דשבורד 2 -->
+
+      <!-- ==========================================================
+           דשבורד 3 מתוך 3 — בקרת מנוע הלידים
+           ----------------------------------------------------------
+           מוצג רק ל-is_platform_admin, לצד דשבורד הפלטפורמה, ונטען
+           בקריאה אחת ל-RPC ‏platform_lead_report.
+
+           למה פאנל נפרד ולא בלוק נוסף בדשבורד הפלטפורמה: הדוח החודשי
+           עונה על "מה קרה בעסק החודש" וסופר לידים לפי *סוג* (הקהל שהם
+           מיועדים לו). כאן השאלה אחרת — מאיפה הם *הגיעו*, מה עשה כל
+           ערוץ, ומה גיל מה שתקוע. זו גם יחידת זמן אחרת: ימים ולא
+           חודשים. דחיסת השתיים לפאנל אחד הייתה מחייבת בורר טווח אחד
+           שמשרת רע את שתיהן.
+
+           כל הגופים נבנים ב-JS (renderLeadReport) — הם תלויים בנתונים,
+           וסקלטון ריק ב-HTML היה כפילות שצריך לתחזק פעמיים. -->
+      <section class="dash-panel dp-leads" id="dashPanelLeads" aria-label="בקרת מנוע הלידים — מנהל/ת הפלטפורמה" hidden>
+        <button type="button" class="dp-head" id="dashPanelLeadsHead"
+                aria-expanded="false" aria-controls="dashPanelLeadsBody">
+          <span class="dp-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m7 15 3.5-4 3 2.5L20 7"/><circle cx="20" cy="7" r="1.6"/></svg>
+          </span>
+          <span class="dp-titles">
+            <span class="dp-title">מנוע הלידים · מקורות, ערוצים וטריות</span>
+            <span class="dp-sub" id="leadPanelSub">מאיפה נכנסים הלידים, מי קיבל אותם, ומה מתקרר</span>
+          </span>
+          <span class="dp-toggle">
+            <span class="dp-toggle-label">הרחבה</span>
+            <svg class="dp-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </button>
+        <div class="dp-body" id="dashPanelLeadsBody">
+          <div class="dp-inner">
+            <div class="adm-toolbar">
+              <div class="adm-range" id="leadRange" role="group" aria-label="טווח הימים בדוח הלידים">
+                <button type="button" data-days="7">7 ימים</button>
+                <button type="button" data-days="30" class="is-on">30 יום</button>
+                <button type="button" data-days="90">90 יום</button>
+                <button type="button" data-days="365">שנה</button>
+              </div>
+              <button type="button" class="adm-refresh" id="leadRefreshBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><polyline points="21 3 21 9 15 9"/></svg>
+                רענון
+              </button>
+              <span class="adm-stamp" id="leadStamp"></span>
+            </div>
+            <div id="leadReport"><div class="empty-state">טוען את נתוני הלידים…</div></div>
+          </div>
+        </div>
+      </section>
+      <!-- סוף דשבורד 3 -->
 
       <h2 class="section-h stack-h" id="sectionsHead" hidden>הפעילות שלי</h2>
 
@@ -8022,14 +8152,539 @@ function admQueueTotal(queue){
   return ADM_QUEUE.reduce((sum, item) => sum + (Number(queue[item.key]) || 0), 0);
 }
 
-document.querySelectorAll('.adm-range button').forEach(btn=>{
+/* ‏#dashPanelAdmin ולא ‏.adm-range לבדו: פאנל הלידים משתמש באותו רכיב בורר
+   בדיוק, ובורר לא מתוחם היה מסמן את הכפתור הנכון בשני הפאנלים וטוען את
+   הדוח הלא נכון. */
+document.querySelectorAll('#dashPanelAdmin .adm-range button').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     adminReportMonths = Number(btn.dataset.months) || 6;
-    document.querySelectorAll('.adm-range button').forEach(b => b.classList.toggle('is-on', b === btn));
+    document.querySelectorAll('#dashPanelAdmin .adm-range button')
+      .forEach(b => b.classList.toggle('is-on', b === btn));
     loadAdminReport();
   });
 });
 document.getElementById('adminRefreshBtn').addEventListener('click', loadAdminReport);
+
+/* ==========================================================================
+   בקרת מנוע הלידים — הפאנל השלישי
+   --------------------------------------------------------------------------
+   הדוח החודשי (‏renderAdminReport למעלה) סופר לידים לפי *סוג*, כלומר לפי
+   הקהל שהם מיועדים לו. כאן השאלה הפוכה: מאיפה הם *הגיעו*. שתי השאלות
+   נראות דומות ואינן — באנר אחד בדף הבית מזין שלושה סוגי לידים, ואותו סוג
+   ליד נכנס משבעה מקומות שונים.
+
+   הכל מגיע מקריאה אחת ל-platform_lead_report; ראו את המיגרציה
+   ‏20261119090000_lead_analytics.sql להסבר על שרשרת שיוך המקור ועל
+   הגדרת הטריות.                                                          */
+
+/* התוויות בעברית יושבות כאן ולא במסד, כמו ב-ADM_LEAD_TYPES: המסד מחזיר
+   מפתחות, והדפדפן מתרגם. ‏lxLabel נופל למפתח הגולמי ולא ל"אחר" — מקור חדש
+   שנולד בקוד של הווידג'טים ואין לו עדיין שורה כאן חייב להופיע בדוח בשמו
+   ולא להיעלם לתוך דלי אנונימי. */
+const LX_CHANNELS = {
+  homepage:      'הבאנרים בדף הבית',
+  property_page: 'דף הנכס',
+  agency_page:   'דף המשרד',
+  agent_page:    'דף הסוכן/ת',
+  whatsapp_bot:  'הבוט בוואטסאפ',
+  footer:        'באנר הפוטר',
+  project_page:  'דפי הפרויקטים',
+  open_house:    'יריד הבתים הפתוחים',
+  rss_engine:    'מנוע ה-RSS',
+  unattributed:  'ללא שיוך מקור',
+  other:         'אחר',
+};
+
+/* צבע לכל ערוץ — בסדר קבוע, ולעולם לא לפי דירוג.
+   ערוץ שנעלם מהחלון לא צובע מחדש את מי שנשאר, ולכן אפשר להשוות שני טווחים
+   זה לזה. ששת הצבעים עברו אימות מול עיוורון צבעים (deutan/tritan) ומול
+   ניגודיות הרקע; מי שמעבר להם מקבל אפור ומקובץ ל"אחר" בגרף בלבד — הטבלה
+   למטה מפרטת כל ערוץ בשמו ובמספרו. */
+const LX_CHAN_COLOR = {
+  homepage:      '#c73b30',
+  property_page: '#0a8ba3',
+  agency_page:   '#a8730c',
+  agent_page:    '#9457d6',
+  whatsapp_bot:  '#2f9b52',
+  footer:        '#2f6fd0',
+};
+const LX_CHAN_ORDER = ['homepage','property_page','agency_page','agent_page','whatsapp_bot','footer'];
+const LX_REST = '#8c99a6';
+
+const LX_SOURCES = {
+  homepage_owner_wizard:       'אשף הערכת השווי · דף הבית',
+  homepage_buyer_wizard:       'באנר מחפשי נכס · דף הבית',
+  homepage_search_agent:       'הסוכן החכם · מעל תוצאות החיפוש',
+  homepage_mortgage_calc:      'מחשבון משכנתא · דף הבית',
+  homepage_yield_calc:         'מחשבון תשואה · דף הבית',
+  footer_buyer_wizard:         'באנר מחפשי נכס · הפוטר',
+  property_page_owner_wizard:  '"חושבים למכור?" · תיבת ההדמיות',
+  property_page_buyer_wizard:  'באנר מחפשי נכס · דף הנכס',
+  property_page_mortgage_calc: 'מחשבון משכנתא · דף הנכס',
+  property_page_inquiry:       'טופס פנייה על נכס',
+  property_page_visualization: 'בקשת הדמיה בדף הנכס',
+  agency_page_owner_wizard:    'אשף הערכת שווי · דף המשרד',
+  agency_page_yield_calc:      'מחשבון תשואה · דף המשרד',
+  agency_page_buyer_wizard:    'באנר מחפשי נכס · דף המשרד',
+  agency_page:                 'אחד מכלי דף המשרד',
+  agent_page_owner_wizard:     'אשף הערכת שווי · דף הסוכן/ת',
+  agent_page_yield_calc:       'מחשבון תשואה · דף הסוכן/ת',
+  agent_page_buyer_wizard:     'באנר מחפשי נכס · דף הסוכן/ת',
+  agent_page_direct:           'פנייה ישירה לסוכן/ת',
+  whatsapp_bot:                'הבוט בוואטסאפ',
+  whatsapp_bot_owner_wizard:   'הבוט בוואטסאפ · מסלול מוכר/ת',
+  whatsapp_bot_search_agent:   'הבוט בוואטסאפ · מסלול מחפש/ת',
+  whatsapp_bot_mortgage_calc:  'הבוט בוואטסאפ · מסלול משכנתא',
+  projects_page:               'מדף הפרויקטים החדשים',
+  project_page:                'דף נחיתה של פרויקט',
+  open_house_page:             'יריד הבתים הפתוחים',
+  rss_engine:                  'מנוע ה-RSS (סריקת פידים)',
+  unattributed:                'ללא שיוך מקור',
+};
+
+const LX_KINDS = {
+  agent_owner:      'בעל/ת נכס',
+  agent_buyer:      'מחפש/ת דירה',
+  mortgage_advisor: 'ייעוץ משכנתאות',
+  developer:        'מחפש/ת פרויקט חדש',
+};
+
+/* סוגי הלידים כפי שהם מופיעים בטבלת המשרדים */
+const LX_TYPES = {
+  owner_inbound:        'בעלי נכס',
+  property_inquiry:     'פניות על נכס',
+  agent_direct_inquiry: 'פניות ישירות',
+  visualization:        'הדמיות',
+  saved_search:         'מחפשי דירה',
+  mortgage:             'משכנתאות',
+  rss:                  'מדף RSS',
+  project:              'פרויקטים',
+};
+
+/* ארבעת מצבי הטריות. הסקאלה היא המסר, ולכן הצבעים אינם קטגוריים אלא
+   רציפים — מחם לקר — ולכל אחד יש גם תווית, לא רק גוון. */
+const LX_TEMPS = [
+  { key:'hot',     label:'חם',     sub:'בתוך חלון המענה' },
+  { key:'warm',    label:'פושר',   sub:'עדיין רלוונטי' },
+  { key:'cooling', label:'מתקרר',  sub:'כנראה כבר דיבר/ה עם מישהו' },
+  { key:'cold',    label:'קר',     sub:'מלאי, לא ליד' },
+];
+
+const lxLabel = (map, key) => map[key] || key || '—';
+
+/* שעות לניסוח קריא. 24 → "יממה", 72 → "3 ימים": הסף נשמר במסד בשעות כי
+   זו היחידה שבה הוא נמדד, אבל אף אחד לא חושב ב-168 שעות. */
+function lxDur(hours){
+  const h = Number(hours) || 0;
+  if (h < 24) return admInt(h) + ' שעות';
+  if (h === 24) return 'יממה';
+  const days = h / 24;
+  return (Number.isInteger(days) ? admInt(days) : days.toFixed(1)) + ' ימים';
+}
+
+/* אחוז שמותר להציג. מכנה אפס אינו "אפס אחוז" אלא "אין מה לחשב". */
+function lxPct(part, whole){
+  const w = Number(whole) || 0;
+  if (!w) return null;
+  return Math.round((Number(part) || 0) / w * 100);
+}
+
+const lxColor = ch => LX_CHAN_COLOR[ch] || LX_REST;
+
+/* הגרף המוערם: עמודה לכל דלי זמן, מקטע לכל ערוץ.
+   ששת הערוצים בעלי הצבע הקבוע מוצגים בנפרד; כל השאר מתקבצים ל"אחר" —
+   סדרה שביעית באפור ולא גוון חדש שנוצר בזמן ריצה. */
+function lxStackChart(trend){
+  const present = new Set();
+  trend.forEach(t => Object.keys(t.channels || {}).forEach(c => present.add(c)));
+  const series = LX_CHAN_ORDER.filter(c => present.has(c));
+  const hasRest = [...present].some(c => !LX_CHAN_COLOR[c]);
+
+  const max = Math.max(1, ...trend.map(t => Number(t.leads) || 0));
+  const wrap = admEl('div');
+  const chart = admEl('div', 'lx-chart');
+
+  trend.forEach(t=>{
+    const col = admEl('div', 'lx-col');
+    const chans = t.channels || {};
+    const total = Number(t.leads) || 0;
+    if (!total){
+      col.appendChild(admEl('div', 'lx-col-empty'));
+    } else {
+      const rest = Object.keys(chans).filter(c => !LX_CHAN_COLOR[c])
+        .reduce((sum, c) => sum + (Number(chans[c]) || 0), 0);
+      const parts = series
+        .filter(c => chans[c])
+        .map(c => [c, Number(chans[c]) || 0]);
+      if (rest) parts.push(['__rest', rest]);
+      parts.forEach(([c, n])=>{
+        const seg = admEl('i');
+        seg.style.height = Math.max(2, Math.round((n / max) * 100)) + '%';
+        seg.style.background = c === '__rest' ? LX_REST : lxColor(c);
+        seg.title = (c === '__rest' ? 'ערוצים נוספים' : lxLabel(LX_CHANNELS, c))
+          + ': ' + admInt(n) + ' מתוך ' + admInt(total) + ' · ' + t.bucket;
+        col.appendChild(seg);
+      });
+    }
+    col.title = t.bucket + ' · ' + admInt(total) + ' לידים';
+    chart.appendChild(col);
+  });
+  wrap.appendChild(chart);
+
+  /* ציר: רק קצוות ואמצע. תווית לכל דלי אינה ציר אלא קיר טקסט, ובטלפון
+     היא גולשת מהמסך. */
+  if (trend.length){
+    const axis = admEl('div', 'adm-axis');
+    const marks = [0, Math.floor((trend.length - 1) / 2), trend.length - 1];
+    trend.forEach((t, i)=> axis.appendChild(
+      admEl('span', null, marks.includes(i) ? t.bucket.slice(5) : '')));
+    wrap.appendChild(axis);
+  }
+
+  const keys = admEl('div', 'lx-keys');
+  series.forEach(c=>{
+    const k = admEl('span', 'lx-key');
+    const dot = admEl('b'); dot.style.background = lxColor(c);
+    k.appendChild(dot);
+    k.appendChild(admEl('span', null, lxLabel(LX_CHANNELS, c)));
+    keys.appendChild(k);
+  });
+  if (hasRest){
+    const k = admEl('span', 'lx-key');
+    const dot = admEl('b'); dot.style.background = LX_REST;
+    k.appendChild(dot);
+    k.appendChild(admEl('span', null, 'ערוצים נוספים'));
+    keys.appendChild(k);
+  }
+  wrap.appendChild(keys);
+  return wrap;
+}
+
+let leadReportDays = 30;
+let leadReportBusy = false;
+
+async function loadLeadReport(){
+  const host = document.getElementById('leadReport');
+  if (!host || leadReportBusy) return;
+  leadReportBusy = true;
+  const refreshBtn = document.getElementById('leadRefreshBtn');
+  if (refreshBtn) refreshBtn.disabled = true;
+  host.innerHTML = '<div class="empty-state">טוען את נתוני הלידים…</div>';
+
+  const { data, error } = await sb.rpc('platform_lead_report', { p_days: leadReportDays });
+
+  leadReportBusy = false;
+  if (refreshBtn) refreshBtn.disabled = false;
+
+  if (error){
+    // ‏PGRST202/42883 = הפונקציה חסרה מ-schema cache, כלומר המיגרציה טרם רצה.
+    // ‏42501 = הפונקציה קיימת וסירבה: החשבון אינו מנהל/ת פלטפורמה.
+    host.innerHTML = '';
+    const msg = (error.code === '42883' || error.code === 'PGRST202')
+      ? 'דוח הלידים לא קיים עדיין במסד — הריצו את המיגרציה 20261119090000_lead_analytics.sql.'
+      : (error.code === '42501' || /not_platform_admin/.test(error.message || ''))
+        ? 'הדוח פתוח למנהל/ת פלטפורמה בלבד.'
+        : 'שגיאה בטעינת דוח הלידים: ' + error.message;
+    host.appendChild(admEl('div', 'empty-state', msg));
+    dashPanelsMeasure();
+    return;
+  }
+
+  renderLeadReport(data || {});
+}
+
+function renderLeadReport(report){
+  const host = document.getElementById('leadReport');
+  if (!host) return;
+  host.innerHTML = '';
+
+  const totals   = report.totals     || {};
+  const policy   = report.policy     || {};
+  const queue    = report.open_queue || {};
+  const response = report.response   || {};
+  const range    = report.range      || {};
+  const channels = Array.isArray(report.by_channel) ? report.by_channel : [];
+  const sources  = Array.isArray(report.by_source)  ? report.by_source  : [];
+  const kinds    = Array.isArray(report.by_kind)    ? report.by_kind    : [];
+  const trend    = Array.isArray(report.trend)      ? report.trend      : [];
+  const agencies = Array.isArray(report.agencies)   ? report.agencies   : [];
+
+  const stamp = document.getElementById('leadStamp');
+  if (stamp && report.generated_at){
+    stamp.textContent = 'עודכן ' + new Date(report.generated_at)
+      .toLocaleString('he-IL', { dateStyle:'short', timeStyle:'short' });
+  }
+
+  const leads   = Number(totals.leads) || 0;
+  const routed  = (Number(totals.assigned) || 0) + (Number(totals.shelf) || 0);
+  const rangeTxt = 'ב-' + admInt(range.days) + ' הימים האחרונים';
+
+  /* ---- 1. ארבעת המספרים של החלון ---- */
+  const tiles = admEl('div', 'adm-tiles');
+  tiles.appendChild(admTile('לידים שנקלטו', admInt(leads), {
+    note: admInt(totals.sources) + ' מקורות · ' + admInt(totals.channels) + ' ערוצים',
+  }));
+  tiles.appendChild(admTile('הגיעו ליעד', admInt(routed), {
+    note: leads
+      ? (lxPct(routed, leads) + '% מהלידים · ' + admInt(totals.unrouted) + ' ללא יעד')
+      : 'אין לידים בחלון',
+  }));
+  tiles.appendChild(admTile('נמכרו או נפתחו', admInt(totals.sold), {
+    note: leads ? (lxPct(totals.sold, leads) + '% מהלידים') : '—',
+  }));
+  // ‏admTile יודע לצבוע כרטיס בורדו (הפלטה של דוח הפלטפורמה); כאן מחליפים
+  // אותה בטורקיז של הפאנל הזה, כדי ששני הפאנלים לא ייראו כמו אותו דוח.
+  const revTile = admTile('הכנסה מהלידים', admMoney(totals.revenue), {
+    wine: true,
+    note: 'מיוחסת לליד ולא למועד הרכישה',
+  });
+  revTile.classList.replace('adm-tile-wine', 'lx-tile-teal');
+  tiles.appendChild(revTile);
+  host.appendChild(tiles);
+
+  /* ---- 2. טריות: המדיניות, הרצועה, וארבעת הדליים ---- */
+  const tempBlock = admBlock('טריות הלידים · מה ממתין עכשיו',
+    'זהו תור פתוח ולא נתון חלון: כל ליד שנקלט ואיש עדיין לא נגע בו, בלי קשר למועד. '
+    + 'ליד שנפתח או נמכר יצא מהתור ואינו מזדקן עוד.');
+  tempBlock.className += ' lx-block';
+
+  const pol = admEl('p', 'lx-policy');
+  pol.innerHTML =
+    'המדיניות: ליד <b>חם</b> עד ' + esc(lxDur(policy.hot_hours)) + ' מהקליטה, '
+    + '<b>פושר</b> עד ' + esc(lxDur(policy.warm_hours)) + ', '
+    + '<b>מתקרר</b> עד ' + esc(lxDur(policy.cooling_hours)) + ', '
+    + 'ומעבר לכך <b>קר</b>. הספים יושבים ב-<code>pricing_config</code> '
+    + '(<code>lead_hot_hours</code> ואחיו) וניתנים לכיול בלי שינוי קוד.';
+  tempBlock.appendChild(pol);
+
+  const qTotal = Number(queue.total) || 0;
+  if (qTotal){
+    const strip = admEl('div', 'lx-temp');
+    strip.setAttribute('role', 'img');
+    strip.setAttribute('aria-label', LX_TEMPS
+      .map(t => t.label + ' ' + admInt(queue[t.key])).join(', '));
+    LX_TEMPS.forEach(t=>{
+      const n = Number(queue[t.key]) || 0;
+      if (!n) return;
+      const seg = admEl('span', 't-' + t.key);
+      seg.style.width = (n / qTotal * 100) + '%';
+      seg.title = t.label + ': ' + admInt(n);
+      strip.appendChild(seg);
+    });
+    tempBlock.appendChild(strip);
+  }
+
+  const temps = admEl('div', 'lx-temps');
+  LX_TEMPS.forEach(t=>{
+    const n = Number(queue[t.key]) || 0;
+    const card = admEl('div', 'lx-t lx-t-' + t.key);
+    card.appendChild(admEl('span', 'lx-t-val', admInt(n)));
+    card.appendChild(admEl('span', 'lx-t-lbl', t.label));
+    card.appendChild(admEl('span', 'lx-t-sub',
+      qTotal ? (lxPct(n, qTotal) + '% מהתור · ' + t.sub) : t.sub));
+    temps.appendChild(card);
+  });
+  tempBlock.appendChild(temps);
+
+  tempBlock.appendChild(admEl('p', 'adm-note', qTotal
+    ? (admInt(qTotal) + ' לידים ממתינים, והוותיק שבהם כבר ' + lxDur(queue.oldest_hours) + '.'
+       + ((Number(queue.cooling) || 0) + (Number(queue.cold) || 0)
+          ? ' ' + admInt((Number(queue.cooling) || 0) + (Number(queue.cold) || 0))
+            + ' מהם כבר מעבר לסף החם — אלה שדורשים החלטה.'
+          : ''))
+    : 'אין כרגע ליד שממתין לטיפול.'));
+  host.appendChild(tempBlock);
+
+  /* ---- 3. זמן התגובה ---- */
+  const waited = Number(totals.waited) || 0;
+  const respBlock = admBlock('זמן התגובה · ' + rangeTxt,
+    'נמדד רק על לידים שבאמת המתינו. ליד שהגיע פתוח מהרגע הראשון — מדף המשרד, '
+    + 'מדף הסוכן/ת או מתיבת ההדמיות — מוחרג: הוא לא חיכה לאיש, וספירתו כ"תגובה '
+    + 'תוך אפס שעות" הייתה מכריזה על הישג במדד שלא נמדד בו כלל.');
+  respBlock.className += ' lx-block';
+  const facts = admEl('div', 'adm-facts');
+  [
+    ['לידים שהמתינו לפתיחה', admInt(waited) + ' מתוך ' + admInt(leads)],
+    ['הגיעו פתוחים מלכתחילה', admInt(totals.born_open)],
+    ['חציון זמן התגובה',      waited ? lxDur(response.median_hours) : '—'],
+    ['ממוצע זמן התגובה',      waited ? lxDur(response.avg_hours) : '—'],
+    ['נענו בתוך החלון החם',   waited ? (admInt(response.within_hot) + ' · ' + lxPct(response.within_hot, waited) + '%') : '—'],
+    ['נענו לפני שהתקררו',     waited ? (admInt(response.within_warm) + ' · ' + lxPct(response.within_warm, waited) + '%') : '—'],
+  ].forEach(([label, value])=>{
+    const fact = admEl('div', 'adm-fact');
+    fact.appendChild(admEl('span', 'adm-fact-lbl', label));
+    fact.appendChild(admEl('span', 'adm-fact-val', value));
+    facts.appendChild(fact);
+  });
+  respBlock.appendChild(facts);
+  host.appendChild(respBlock);
+
+  /* ---- 4. לפי ערוץ ---- */
+  const chanBlock = admBlock('מאיפה נכנסו הלידים · ' + rangeTxt,
+    'ערוץ הוא הקיבוץ של המקורות: "דף הבית" מאגד את אשף הערכת השווי, באנר מחפשי '
+    + 'הנכס, הסוכן החכם ושני המחשבונים. הפירוט המלא בטבלה שמתחת.');
+  chanBlock.className += ' lx-block';
+  const chanRows = admEl('div', 'adm-rows');
+  channels.forEach(c=>{
+    const n = Number(c.leads) || 0;
+    const row = admRow(
+      lxLabel(LX_CHANNELS, c.channel),
+      admInt(c.sources) + ' מקורות · ' + admInt(c.sold) + ' נמכרו · ' + admMoney(c.revenue)
+        + (Number(c.unrouted) ? ' · ' + admInt(c.unrouted) + ' ללא יעד' : ''),
+      admInt(n), leads ? (n / leads) * 100 : 0);
+    // הנקודה קושרת את השורה לצבע שלה בגרף המוערם — בלעדיה שתי התצוגות הן
+    // שני דוחות שאין ביניהם קשר ויזואלי
+    const nameCell = row.querySelector('.adm-row-name');
+    if (nameCell){
+      const dot = admEl('b', 'lx-dot');
+      dot.style.background = lxColor(c.channel);
+      nameCell.insertBefore(dot, nameCell.firstChild);
+    }
+    chanRows.appendChild(row);
+  });
+  if (!channels.length) chanRows.appendChild(admEl('div', 'empty-state', 'לא נקלטו לידים בחלון הזה.'));
+  chanBlock.appendChild(chanRows);
+  host.appendChild(chanBlock);
+
+  /* ---- 5. לפי מקור — הפירוט המלא ---- */
+  const srcBlock = admBlock('הפירוט לפי מקור · ' + rangeTxt,
+    'כל שורה היא וידג״ט אחד. "ללא יעד" = הליד נקלט ולא היה מי שיקבל אותו — '
+    + 'זה הכשל היחיד כאן; "ללא אישור" = הפונה ביקש/ה התראות בלבד, וזו בחירה שלו/ה ולא תקלה.');
+  srcBlock.className += ' lx-block';
+  if (!sources.length){
+    srcBlock.appendChild(admEl('div', 'empty-state', 'לא נקלטו לידים בחלון הזה.'));
+    host.appendChild(srcBlock);
+  } else {
+  const srcWrap = admEl('div', 'adm-table-wrap');
+  const srcTable = admEl('table', 'adm-table');
+  const srcHead = admEl('thead');
+  const srcHrow = admEl('tr');
+  ['מקור','ערוץ','קהל','לידים','שויכו','למדף','ללא יעד','ללא אישור','נמכרו','הכנסה']
+    .forEach(h => srcHrow.appendChild(admEl('th', null, h)));
+  srcHead.appendChild(srcHrow);
+  srcTable.appendChild(srcHead);
+  const srcBody = admEl('tbody');
+  sources.forEach(r=>{
+    const tr = admEl('tr');
+    tr.appendChild(admEl('td', null, lxLabel(LX_SOURCES, r.source)));
+    tr.appendChild(admEl('td', null, lxLabel(LX_CHANNELS, r.channel)));
+    tr.appendChild(admEl('td', null, lxLabel(LX_KINDS, r.lead_kind)));
+    tr.appendChild(admEl('td', 'num', admInt(r.leads)));
+    tr.appendChild(admEl('td', 'num', admInt(r.assigned)));
+    tr.appendChild(admEl('td', 'num', admInt(r.shelf)));
+    tr.appendChild(admEl('td', 'num', admInt(r.unrouted)));
+    tr.appendChild(admEl('td', 'num', admInt(r.no_consent)));
+    tr.appendChild(admEl('td', 'num', admInt(r.sold)));
+    tr.appendChild(admEl('td', 'num', admMoney(r.revenue)));
+    srcBody.appendChild(tr);
+  });
+  srcTable.appendChild(srcBody);
+  srcWrap.appendChild(srcTable);
+  srcBlock.appendChild(srcWrap);
+  if (Number(totals.unattributed)){
+    srcBlock.appendChild(admEl('p', 'adm-note',
+      admInt(totals.unattributed) + ' לידים בחלון הזה נכנסו בלי שיוך מקור. אלה לידים '
+      + 'שנקלטו לפני שיומן הניתוב נכנס לאוויר, או דרך מסלול שאינו רושם מקור. '
+      + 'הם נספרים ככל ליד אחר — ומוצגים ככאלה ולא מנוחשים.'));
+  }
+  host.appendChild(srcBlock);
+  }
+
+  /* ---- 6. לפי קהל היעד ---- */
+  const kindBlock = admBlock('לפי קהל היעד · ' + rangeTxt,
+    'אותם לידים בדיוק, חתוכים לפי מי אמור לקבל אותם ולא לפי מאיפה הגיעו.');
+  kindBlock.className += ' lx-block';
+  const kindRows = admEl('div', 'adm-rows');
+  kinds.forEach(k=>{
+    const n = Number(k.leads) || 0;
+    kindRows.appendChild(admRow(
+      lxLabel(LX_KINDS, k.lead_kind),
+      admInt(k.sold) + ' נמכרו · ' + admMoney(k.revenue)
+        + (Number(k.unrouted) ? ' · ' + admInt(k.unrouted) + ' ללא יעד' : ''),
+      admInt(n), leads ? (n / leads) * 100 : 0));
+  });
+  if (!kinds.length) kindRows.appendChild(admEl('div', 'empty-state', 'אין נתונים בחלון הזה.'));
+  kindBlock.appendChild(kindRows);
+  host.appendChild(kindBlock);
+
+  /* ---- 7. המגמה, מוערמת לפי ערוץ ---- */
+  if (trend.length && leads){
+    const bucketName = range.bucket === 'month' ? 'חודש' : (range.bucket === 'week' ? 'שבוע' : 'יום');
+    const trendBlock = admBlock('מגמה — עמודה לכל ' + bucketName,
+      'גובה העמודה הוא סך הלידים, והמקטעים בתוכה הם ההרכב לפי ערוץ. '
+      + 'ששת הערוצים המרכזיים מוצגים בצבעם הקבוע; השאר מקובצים ל"ערוצים נוספים" — '
+      + 'ומפורטים בשמם בטבלאות שלמעלה.');
+    trendBlock.className += ' lx-block';
+    trendBlock.appendChild(lxStackChart(trend));
+    host.appendChild(trendBlock);
+  }
+
+  /* ---- 8. מה כל משרד קיבל ---- */
+  const agBlock = admBlock('מה כל משרד קיבל · ' + rangeTxt,
+    '"קיבל" = לידים ששויכו למשרד ישירות, ועוד לידים שרכש מהמדפים. פתיחת ליד ששויך '
+    + 'ממילא אינה קבלה שנייה של אותו ליד, ולכן היא נספרת בטור "נפתחו" בלבד.');
+  agBlock.className += ' lx-block';
+
+  // הטורים נגזרים מהנתונים: סוג שאף משרד לא קיבל בחלון הזה לא מקבל טור ריק
+  if (!agencies.length){
+    agBlock.appendChild(admEl('div', 'empty-state', 'אף משרד לא קיבל ליד בחלון הזה.'));
+    host.appendChild(agBlock);
+  } else {
+  const typeKeys = Object.keys(LX_TYPES).filter(t =>
+    agencies.some(a => Number((a.by_type || {})[t])));
+  const agWrap = admEl('div', 'adm-table-wrap');
+  const agTable = admEl('table', 'adm-table');
+  const agHead = admEl('thead');
+  const agHrow = admEl('tr');
+  ['משרד','סה״כ קיבל','שויכו','נרכשו','נפתחו']
+    .concat(typeKeys.map(t => LX_TYPES[t]))
+    .concat(['הוצאה'])
+    .forEach(h => agHrow.appendChild(admEl('th', null, h)));
+  agHead.appendChild(agHrow);
+  agTable.appendChild(agHead);
+  const agBody = admEl('tbody');
+  agencies.forEach(a=>{
+    const tr = admEl('tr');
+    tr.appendChild(admEl('td', null, a.name || '—'));
+    tr.appendChild(admEl('td', 'num', admInt(a.received)));
+    tr.appendChild(admEl('td', 'num', admInt(a.assigned)));
+    tr.appendChild(admEl('td', 'num', admInt(a.bought)));
+    tr.appendChild(admEl('td', 'num', admInt(a.opened)));
+    typeKeys.forEach(t => tr.appendChild(
+      admEl('td', 'num', admInt((a.by_type || {})[t]))));
+    tr.appendChild(admEl('td', 'num', admMoney(a.spend)));
+    agBody.appendChild(tr);
+  });
+  agTable.appendChild(agBody);
+  agWrap.appendChild(agTable);
+  agBlock.appendChild(agWrap);
+  host.appendChild(agBlock);
+  }
+
+  /* הכותרת היא מה שרואים כשהפאנל מכווץ, ולכן היא נושאת את שלוש השורות
+     התחתונות: כמה נכנסו, מי הוביל, ומה מתקרר. */
+  const top = channels[0];
+  const sub = document.getElementById('leadPanelSub');
+  if (sub){
+    const coldish = (Number(queue.cooling) || 0) + (Number(queue.cold) || 0);
+    sub.textContent = admInt(leads) + ' לידים ' + rangeTxt
+      + (top ? ' · מוביל: ' + lxLabel(LX_CHANNELS, top.channel) : '')
+      + ' · ' + admInt(queue.hot) + ' חמים'
+      + (coldish ? ' · ' + admInt(coldish) + ' התקררו' : '');
+  }
+
+  dashPanelsMeasure();
+}
+
+document.querySelectorAll('#leadRange button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    leadReportDays = Number(btn.dataset.days) || 30;
+    document.querySelectorAll('#leadRange button')
+      .forEach(b => b.classList.toggle('is-on', b === btn));
+    loadLeadReport();
+  });
+});
+document.getElementById('leadRefreshBtn').addEventListener('click', loadLeadReport);
 
 async function loadArticlesAdmin(){
   const listEl = document.getElementById('articlesAdminList');
@@ -21178,6 +21833,8 @@ function applyNavFilter(){
   if (overview) overview.classList.toggle('nav-off', isAdminView || !showHome);
   const adminPanel = document.getElementById('dashPanelAdmin');
   if (adminPanel) adminPanel.classList.toggle('nav-off', !isAdminView);
+  const leadPanel = document.getElementById('dashPanelLeads');
+  if (leadPanel) leadPanel.classList.toggle('nav-off', !isAdminView);
 
   document.querySelectorAll('#dashboard details.acc').forEach(acc=>{
     const tab = NAV_TAB_OF.get(acc.id) || 'more';
@@ -21241,6 +21898,8 @@ function setDashView(view, opts){
   if (adminSection) adminSection.style.display = (dashView === 'admin') ? 'block' : 'none';
   const adminPanel = document.getElementById('dashPanelAdmin');
   if (adminPanel) adminPanel.hidden = (dashView !== 'admin');
+  const leadPanel = document.getElementById('dashPanelLeads');
+  if (leadPanel) leadPanel.hidden = (dashView !== 'admin');
   if (!initial) navTab = 'home';
   renderViewSwitch();
   applyNavFilter();
@@ -21248,7 +21907,9 @@ function setDashView(view, opts){
   renderBottomNav();
   const bnav = document.getElementById('bottomNav');
   if (bnav) bnav.hidden = (dashView === 'admin');
-  if (dashView === 'admin') loadAdminReport();
+  // שני הדוחות נטענים יחד. הם עונים על שתי שאלות שונות (מה קרה בעסק החודש,
+  // ומאיפה נכנסים הלידים), ומי שנכנס/ת לתצוגת מנהל/ת שואל/ת את שתיהן.
+  if (dashView === 'admin'){ loadAdminReport(); loadLeadReport(); }
   if (!initial) window.scrollTo({ top:0, behavior:'auto' });
 }
 
