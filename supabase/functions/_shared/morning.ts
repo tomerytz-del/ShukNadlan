@@ -20,14 +20,24 @@
 // ההפרש בין "מישהו טוען שהתשלום עבר" לבין "התשלום עבר".
 // ============================================================================
 
-const KEY_ID = Deno.env.get("MORNING_API_KEY_ID") || "";
-const KEY_SECRET = Deno.env.get("MORNING_API_KEY_SECRET") || "";
+// ‏**`.trim()` אינו קישוט, והוא נכתב כאן אחרי שהפיל את הפרודקשן.**
+//
+// סוד שמודבק לדשבורד גורר איתו רווח או ירידת שורה בלי שרואים. הנתיב הישן
+// (`/account/token`) סלח על זה; שרת ה-OAuth **לא** — הוא מחזיר
+// ‏`401 invalid_client`, שנראה בדיוק כמו "המפתחות שגויים" ושולח את מי
+// שמדבג/ת לייצר מפתח חדש במקום לנקות רווח.
+//
+// ‏16.9.2026: אותם מפתחות בדיוק נכשלו מה-Edge Function והצליחו מהמחשב —
+// ההבדל היחיד היה ‏`.Trim()`. אורך ה-`client_id` הוא 36 (‏UUID); הערך
+// שנשמר היה 37.
+const KEY_ID = (Deno.env.get("MORNING_API_KEY_ID") || "").trim();
+const KEY_SECRET = (Deno.env.get("MORNING_API_KEY_SECRET") || "").trim();
 
 // ברירת המחדל היא **סנדבוקס** בכוונה. סביבה שלא הוגדרה במפורש לא אמורה
 // להתחיל לגבות כסף אמיתי מאף אחד; מעבר לפרודקשן הוא פעולה מודעת של מי
 // שמגדיר/ה את הסוד, לא תוצאה של שכחה.
 const API_BASE = (Deno.env.get("MORNING_API_BASE") ||
-  "https://sandbox.d.greeninvoice.co.il/api/v1").replace(/\/+$/, "");
+  "https://sandbox.d.greeninvoice.co.il/api/v1").trim().replace(/\/+$/, "");
 
 // כתובת שרת האימות. **היא אינה `API_BASE`, וזו לא פליטת קולמוס:** האסימון
 // מונפק מדומיין נפרד בעוד שקריאות ה-API עצמן הולכות ל-greeninvoice. שני
@@ -48,11 +58,11 @@ const API_BASE = (Deno.env.get("MORNING_API_BASE") ||
 const AUTH_BASE = (Deno.env.get("MORNING_AUTH_BASE") ||
   (API_BASE.includes("sandbox")
     ? "https://api.sandbox.morning.dev"
-    : "https://api.morning.co")).replace(/\/+$/, "");
+    : "https://api.morning.co")).trim().replace(/\/+$/, "");
 
 // מזהה תוסף הסליקה בחשבון. חובה לחשבונות עם יותר מתוסף אחד; אופציונלי
 // כשיש רק אחד, ואז מורנינג בוחר/ת בו לבד.
-const PLUGIN_ID = Deno.env.get("MORNING_PLUGIN_ID") || "";
+const PLUGIN_ID = (Deno.env.get("MORNING_PLUGIN_ID") || "").trim();
 
 export function morningConfigured(): boolean {
   return Boolean(KEY_ID && KEY_SECRET);
