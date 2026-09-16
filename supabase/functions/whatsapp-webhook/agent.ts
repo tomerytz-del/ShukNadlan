@@ -314,17 +314,26 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "list_properties",
     description:
-      "מחזיר את הנכסים של הסוכן/ת, החדשים קודם. להשתמש כשצריך למצוא את מזהה " +
-      "הנכס שהסוכן/ת מתאר/ת במילים ('הדירה באבן גבירול').",
+      "מחזיר את הנכסים של הסוכן/ת, החדשים קודם. זה הכלי למצוא את מזהה הנכס " +
+      "שהסוכן/ת מתאר/ת במילים ('הדירה באבן גבירול'). **כשיודעים מה מחפשים — " +
+      "להעביר query במקום למשוך את כל הרשימה**: החיפוש רץ על כל הנכסים של " +
+      "הסוכן/ת ולא רק על מה שנכנס לחלון. מחזיר תמיד גם `total` (כמה יש " +
+      "באמת) ו-`truncated`.",
     input_schema: {
       type: "object",
       properties: {
+        query: {
+          type: "string",
+          description:
+            "חיפוש חופשי בכותרת, ברחוב, בכתובת ובעיר — או מספר מודעה. " +
+            "'אבן גבירול', 'פנטהאוז', 'עפולה', '10423'.",
+        },
         status: {
           type: "string",
           enum: STATUSES,
           description: "סינון לפי סטטוס. ברירת מחדל: כל הסטטוסים.",
         },
-        limit: { type: "integer", description: "כמה להחזיר. ברירת מחדל 20." },
+        limit: { type: "integer", description: "כמה להחזיר. ברירת מחדל 20, מקסימום 200." },
       },
       required: [],
     },
@@ -345,8 +354,8 @@ const TOOLS: Anthropic.Tool[] = [
     description:
       "מחזיר ספירות מדויקות של הנכסים של הסוכן/ת: סך הכול, לפי סטטוס, לפי " +
       "קטגוריה (מגורים/מסחרי), לפי סוג עסקה, וכמה מהפעילים בלי תמונות. " +
-      "**זה הכלי לכל שאלת 'כמה'** — list_properties מוגבל ב-50 שורות, וספירה " +
-      "מתוכו היא ניחוש.",
+      "**זה הכלי לכל שאלת 'כמה'** — ‏list_properties מחזיר חלון, וספירת שורות " +
+      "מתוכו היא ניחוש. הפילוחים כאן קיימים רק כאן.",
     input_schema: { type: "object", properties: {}, required: [] },
   },
   {
@@ -1171,20 +1180,99 @@ async function toolSetStatus(ctx: ToolContext, input: Record<string, unknown>) {
   return { ok: true, property_id: propertyId, title: existing.title, status };
 }
 
+/**
+ * הנכסים של הסוכן/ת — חיפוש, ולא רק חלון.
+ *
+ * ## למה הייתה כאן תקרה של 50, ולמה היא לא הייתה הבעיה האמיתית
+ *
+ * הכלי נועד למצוא מזהה נכס מתוך תיאור במילים ("הדירה באבן גבירול"), אבל
+ * **לא היה לו שדה חיפוש** — הוא החזיר את ה-N החדשים ביותר, והמודל היה
+ * אמור לסרוק אותם בעצמו. עם תקרה של 50 זה נשבר בדיוק במקום הכי גרוע:
+ * לסוכן/ת עם 57 נכסים, הנכס שלא נכנס לחלון פשוט "לא קיים" מבחינת הבוט,
+ * והוא היה מודיע שהוא רואה עד 50.
+ *
+ * `query` הוא התיקון האמיתי, כי הוא רץ **במסד על כל הנכסים** ולא על החלון:
+ * עם חיפוש, 20 שורות מספיקות למצוא כל נכס בקובץ של 500. התקרה עלתה
+ * ל-200 בשביל המקרה השני — "תראה לי את כל הנכסים שלי" — ולא בשביל החיפוש.
+ *
+ * ## ולמה לא להסיר את התקרה לגמרי
+ *
+ * לא בגלל המסד. **תוצאת הכלי נכנסת ל-`messages` ונשלחת מחדש בכל סבב של
+ * לולאת הכלים** (עד 8), ואין כאן prompt caching. שורה שוקלת ~260 תווים,
+ * כלומר 200 שורות הן ~26K טוקנים שעלולים להישלח שוב ושוב באותו תור.
+ * וזה עוד לפני העניין המעניין יותר: רשימה ארוכה של שורות כמעט זהות
+ * **מורידה** את הדיוק של בחירת הנכס הנכון, לא מעלה אותו.
+ *
+ * ## `total` הוא מה שמונע את הניחוש
+ *
+ * קודם הוחזר `count: data.length` בלבד — כלומר גודל החלון, בלי שום דרך
+ * לדעת שזה חלון. מכאן חוזרת גם ספירה אמיתית (`head: true`, בלי להעביר
+ * שורות) ו-`truncated`, בדיוק כמו ב-`list_clients`.
+ */
+const LIST_PROPERTIES_MAX = 200;
+
 async function toolListProperties(ctx: ToolContext, input: Record<string, unknown>) {
-  const limit = Math.min(Number(input.limit) || 20, 50);
+  const limit = Math.min(Math.max(Number(input.limit) || 20, 1), LIST_PROPERTIES_MAX);
+  const status = input.status ? String(input.status) : null;
+
   let query = ctx.supabase
     .from("properties")
-    .select("id, title, address, city, price, rooms, deal_type, status, created_at")
+    .select("id, listing_number, title, address, city, price, rooms, deal_type, status, created_at")
     .eq("agent_id", ctx.agent.id)
     .order("created_at", { ascending: false })
     .limit(limit);
 
-  if (input.status) query = query.eq("status", String(input.status));
+  // ספירה על אותם תנאים בדיוק פרט ל-limit. ‏head: true מחזיר מספר בלי שורות.
+  let counter = ctx.supabase
+    .from("properties")
+    .select("id", { count: "exact", head: true })
+    .eq("agent_id", ctx.agent.id);
 
-  const { data, error } = await query;
+  if (status) {
+    query = query.eq("status", status);
+    counter = counter.eq("status", status);
+  }
+
+  const q = String(input.query || "").trim();
+  if (q) {
+    // ‏escape על הפסיק והסוגריים, כמו ב-list_clients: מחרוזת חיפוש עם פסיק
+    // הייתה נקראת כשני תנאים ב-`or` ומחזירה שגיאת פרסור מ-PostgREST.
+    const safe = q.replace(/[,()*]/g, " ").trim();
+    if (safe) {
+      const terms = [
+        `title.ilike.%${safe}%`,
+        `street.ilike.%${safe}%`,
+        `address.ilike.%${safe}%`,
+        `city.ilike.%${safe}%`,
+      ];
+      // ‏listing_number הוא bigint, ולכן ilike עליו הוא שגיאת טיפוס ולא
+      // "אפס תוצאות". הוא נכנס לתנאי רק כשהחיפוש הוא מספר שלם — וזה גם
+      // המקרה היחיד שבו הוא מעניין ("תמצא לי את 10423").
+      if (/^\d+$/.test(safe)) terms.push(`listing_number.eq.${safe}`);
+      const or = terms.join(",");
+      query = query.or(or);
+      counter = counter.or(or);
+    }
+  }
+
+  const [{ data, error }, { count, error: countErr }] = await Promise.all([query, counter]);
   if (error) return { ok: false, error: error.message };
-  return { ok: true, count: data.length, properties: data };
+  if (countErr) console.warn("property count failed", countErr.message);
+
+  const total = typeof count === "number" ? count : data.length;
+  return {
+    ok: true,
+    returned: data.length,
+    // כמה **באמת** יש בתנאים האלה, ולא כמה הוחזרו. בלי זה המודל מדווח את
+    // גודל החלון כאילו הוא הקובץ.
+    total,
+    truncated: total > data.length,
+    query: q || undefined,
+    properties: data,
+    note: total > data.length
+      ? `מוצגים ${data.length} מתוך ${total}. לצמצום — query, ולספירות — property_stats.`
+      : undefined,
+  };
 }
 
 async function toolAttachImages(ctx: ToolContext, input: Record<string, unknown>) {
@@ -2848,6 +2936,11 @@ function systemPrompt(agent: AgentRow, conv: ConversationState): string {
     "- השדות ההכרחיים ליצירת נכס הם סוג נכס, סוג עסקה ומחיר בלבד — אם יש אותם, צור/צרי את הנכס והשלם/י את השאר ממה שנאמר.",
     "- אם חסר אחד מהשלושה, בקש/י בשאלה אחת קצרה רק את מה שחסר.",
     "- לפני שינוי או ארכוב של נכס קיים — ודא/י שאת/ה יודע/ת על איזה נכס מדובר. אם לא, קרא/י ל-list_properties.",
+    "- **למצוא נכס = list_properties עם query**, ולא משיכת כל הרשימה וסריקה שלה. " +
+      "החיפוש רץ על כל הנכסים של הסוכן/ת; הרשימה בלי query היא רק החדשים. " +
+      "\"הדירה באבן גבירול\" → query: \"אבן גבירול\". מספר מודעה → query עם המספר.",
+    "- ‏**אל תדווח/י על גודל הרשימה שהוחזרה כאילו הוא מספר הנכסים.** ‏total הוא " +
+      "כמה יש באמת, ו-truncated אומר שהוחזר חלק. אם הוחזר note — אמור/אמרי אותו.",
     "- \"תמחק את הנכס\" = set_property_status עם archived. אין מחיקה אמיתית.",
     "- אם create_property החזיר duplicate: אל תיצור/י מודעה נוספת. אמור/אמרי לסוכן/ת " +
       "מה קיים (כתובת, מספר מודעה וסטטוס) ושאל/י בשאלה אחת: להחזיר ולעדכן את הקיימת, " +
