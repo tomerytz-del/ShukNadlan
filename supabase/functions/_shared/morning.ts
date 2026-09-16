@@ -7,6 +7,10 @@
 // ב-API הזה. הם מסומנים ב-‏`// ‼ לאימות` ומרוכזים כאן כדי שהתיקון, כשמפתחות
 // ה-API יגיעו, יהיה בקובץ אחד ובלי לגעת בלוגיקה של הכסף.
 //
+// **סעיף האימות כבר אומת** מול התיעוד הרשמי (morning API Documentation
+// 2.0.0) ואינו נושא עוד סימון. מה שנותר לאימות הוא גוף `/payments/form`
+// ושליפת מצב התשלום.
+//
 // ‏wallet-topup ו-wallet-topup-callback לא יודעות שום דבר על מורנינג מלבד מה
 // שהקובץ הזה חושף. אם מחר יחליפו ספק סליקה — זה הקובץ שנכתב מחדש.
 //
@@ -24,6 +28,27 @@ const KEY_SECRET = Deno.env.get("MORNING_API_KEY_SECRET") || "";
 // שמגדיר/ה את הסוד, לא תוצאה של שכחה.
 const API_BASE = (Deno.env.get("MORNING_API_BASE") ||
   "https://sandbox.d.greeninvoice.co.il/api/v1").replace(/\/+$/, "");
+
+// כתובת שרת האימות. **היא אינה `API_BASE`, וזו לא פליטת קולמוס:** האסימון
+// מונפק מדומיין נפרד בעוד שקריאות ה-API עצמן הולכות ל-greeninvoice. שני
+// שמות מותג לאותה חברה, ושתי כתובות שונות באותו מסלול. מי שמניח/ה שיש כאן
+// דומיין אחד מקבל/ת 401 שנראה בדיוק כמו "המפתחות שגויים".
+//
+// ארבעה דומיינים, ואף אחד מהם אינו נגזר מהאחר:
+//
+//   API  פרודקשן   api.greeninvoice.co.il/api/v1
+//   API  סנדבוקס   sandbox.d.greeninvoice.co.il/api/v1
+//   אימות פרודקשן  api.morning.co
+//   אימות סנדבוקס  api.sandbox.morning.dev      ← שימו לב: ‎.dev, לא ‎.co
+//
+// **ברירת המחדל נגזרת מ-`API_BASE` ולא נקבעת בנפרד.** אסימון סנדבוקס מול
+// API של פרודקשן (או ההפך) נכשל ב-401 סתום, וזו טעות שקל מאוד לעשות
+// כשמעבירים סביבה — משנים סוד אחד ושוכחים את השני. כאן יש סוד אחד שקובע,
+// ו-`MORNING_AUTH_BASE` נשאר כמוצא אחרון אם מורנינג ישנו כתובת.
+const AUTH_BASE = (Deno.env.get("MORNING_AUTH_BASE") ||
+  (API_BASE.includes("sandbox")
+    ? "https://api.sandbox.morning.dev"
+    : "https://api.morning.co")).replace(/\/+$/, "");
 
 // מזהה תוסף הסליקה בחשבון. חובה לחשבונות עם יותר מתוסף אחד; אופציונלי
 // כשיש רק אחד, ואז מורנינג בוחר/ת בו לבד.
@@ -69,10 +94,17 @@ export async function morningToken(): Promise<{ token?: string; error?: string }
 
   let res: Response;
   try {
-    res = await fetch(`${API_BASE}/account/token`, {
+    res = await fetch(`${AUTH_BASE}/idp/v1/oauth/token`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: KEY_ID, secret: KEY_SECRET }),
+      // ‏OAuth 2.0 client credentials, לפי עדכון התשתית של יוני 2026. שמות
+      // השדות הם של התקן (`client_id`/`client_secret`) ולא `id`/`secret`
+      // שהיו במבנה הישן.
+      body: JSON.stringify({
+        grant_type: "client_credentials",
+        client_id: KEY_ID,
+        client_secret: KEY_SECRET,
+      }),
     });
   } catch (err) {
     return { error: `morning_network: ${(err as Error).message}` };
@@ -88,16 +120,18 @@ export async function morningToken(): Promise<{ token?: string; error?: string }
     return { error: "morning_auth_bad_json" };
   }
 
-  const token = body?.token ?? body?.jwt;            // ‼ לאימות: שם שדה האסימון
+  // הבקשה ב-snake_case של תקן OAuth, **והתשובה ב-camelCase של מורנינג**.
+  // זה לא עקבי וזה בתיעוד: ‏`accessToken`, ‏`tokenType`, ‏`expiresAt`.
+  const token = body?.accessToken;
   if (!token) return { error: "morning_auth_no_token" };
 
-  // ‏expires מגיע כ-epoch בשניות. אם לא הגיע — 55 דקות, שמרני מול חצי שעה
-  // שהיא התפוגה המקובלת שם.
-  const expiresSec = Number(body?.expires);          // ‼ לאימות: שם שדה התפוגה
+  // ‏`expiresAt` הוא Unix timestamp בשניות — נקודת זמן, לא משך. האסימון תקף
+  // שעה. אם השדה לא הגיע נופלים ל-55 דקות, שמרני מול השעה המתועדת.
+  const expiresAtSec = Number(body?.expiresAt);
   cachedToken = {
     token,
-    expiresAt: Number.isFinite(expiresSec) && expiresSec > 0
-      ? expiresSec * 1000
+    expiresAt: Number.isFinite(expiresAtSec) && expiresAtSec > 0
+      ? expiresAtSec * 1000
       : Date.now() + 55 * 60_000,
   };
   return { token };
@@ -110,6 +144,23 @@ export async function morningToken(): Promise<{ token?: string; error?: string }
 // עוברים דרכנו בשום שלב — זו הסיבה המרכזית לבחור בטופס מתארח ולא בשדות
 // אשראי משלנו: מה שלא עובר אצלנו, גם לא יכול לדלוף מאיתנו.
 // ---------------------------------------------------------------------------
+
+// ‏`url` בתשובה הוא **אובייקט** `{origin, he, en}` ולא מחרוזת — כך בתיעוד
+// הרשמי. ‏`String()` על אובייקט מחזיר "[object Object]", כלומר הסוכן/ת
+// הייתה מגיעה לכתובת שבורה אחרי שהשורה כבר נפתחה כ-pending. עברית ראשונה
+// כי האתר עברי; ‏origin ואנגלית כנפילה חזרה. מחרוזת מטופלת גם היא, למקרה
+// שנקודת קצה אחרת מחזירה את הצורה הישנה.
+function pickUrl(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    const shape = value as Record<string, unknown>;
+    for (const key of ["he", "origin", "en"]) {
+      const candidate = shape[key];
+      if (typeof candidate === "string" && candidate) return candidate;
+    }
+  }
+  return "";
+}
 export type PaymentFormRequest = {
   amount: number;
   description: string;
@@ -178,16 +229,40 @@ export async function createPaymentForm(req: PaymentFormRequest): Promise<Paymen
   const auth = await morningToken();
   if (!auth.token) return { ok: false, error: auth.error ?? "morning_not_configured" };
 
-  // ‼ לאימות: כל גוף הבקשה. הערכים המספריים הם קודים של מורנינג —
-  //   type 320  = חשבונית מס/קבלה (הפקה אוטומטית עם סיום התשלום)
-  //   vatType 0 = כולל מע"מ
-  //   lang/currency לפי התיעוד
+  // **מאומת מול התיעוד הרשמי** (developers.morning.co/api, Get Payment Form):
+  //   type 320   = חשבונית מס/קבלה (הפקה אוטומטית עם סיום התשלום)
+  //   vatType 0  = ברירת מחדל **לפי סוג העסק** — ולא "כולל מע"מ", כפי
+  //                שנכתב כאן בטעות כשהתיעוד לא היה נגיש
+  //   group 100  = כרטיס אשראי (110=PayPal, 120=Bit, 150/160=Google/Apple Pay)
+  //   income     = אופציונלי; בלעדיו נוצרת שורה אחת מ-description ו-amount
+  //   client     = ‏taxId/phone/country הם שמות השדות המתועדים
   //
-  // ‼ לאימות במיוחד: ‏taxId/phone/country ב-client. הם נשלחים כי בלעדיהם
-  //   ה-ח.פ שהוקלד בעמוד התשלום לא מגיע לחשבונית — אבל שם שדה שגוי כאן
-  //   מפיל את **פתיחת התשלום כולה**, ולא רק את השדה. לכן buildPayload
-  //   מקבל דגל, וניסיון שנדחה חוזר מיד בלי השדות האלה (ראו למטה). זה מה
-  //   שמאפשר לשלוח אותם לפני שהתיעוד אומת, בלי להמר על נתיב הכסף.
+  // הגידור ב-buildPayload נשאר בכל זאת: שם שדה שגוי ב-client מפיל את
+  // **פתיחת התשלום כולה** ולא רק את השדה, וניסיון שנדחה חוזר מיד בלעדיהם.
+  // תיעוד מאומת מקטין את הסיכון, לא מבטל אותו.
+  //
+  // ---------------------------------------------------------------------
+  // **‏`income` לא נשלח, וזו החלטה על נתיב הכסף.**
+  //
+  // עד כה נשלחה שורת income אחת עם `price: req.amount`. שתי דוגמאות
+  // נפרדות בתיעוד מראות ש-`price` בשורת income הוא **לפני מע״מ**:
+  //
+  //     price 300  →  vat 54  →  amountTotal 354
+  //
+  // המחירים שלנו ב-`pricing_config` כוללים מע״מ, ולכן טעינה של ‎₪100
+  // הייתה נגבית ‎₪118 ומנוי שנתי של Elite ‎₪11,400 היה נגבה ‎₪13,452.
+  //
+  // התיעוד פותר את זה בלי חישוב: ‏`amount` מוגדר כ"הסכום שהלקוח/ה צריך/ה
+  // לשלם", ו-income אופציונלי — בלעדיו מורנינג בונה את השורה בעצמה מה-
+  // ‏`description` ומה-`amount`, ופירוק המע״מ נעשה אצלה ונכון.
+  //
+  // חלוקה ב-1.18 מצידנו הייתה גרועה יותר: ‎₪100 נטו הם 84.7458, העיגול
+  // נעשה אצל מורנינג, והתוצאה עלולה לחזור ‎₪100.01 — ואז השוואת הסכום
+  // ב-`complete_wallet_topup` מפילה **טעינה תקינה**.
+  //
+  // בונוס: שליחת `amount` ו-`income[].price` יחד היא בדיוק המצב שטבלת
+  // השגיאות מכנה `2422 — חוסר התאמה בין סכום התקבולים לסכום התשלומים`.
+  // ---------------------------------------------------------------------
   const buildPayload = (withClientExtras: boolean): Record<string, unknown> => ({
     description: req.description,
     type: 320,
@@ -208,18 +283,19 @@ export async function createPaymentForm(req: PaymentFormRequest): Promise<Paymen
         }
         : {}),
     },
-    income: [{
-      description: req.description,
-      quantity: 1,
-      price: req.amount,
-      currency: "ILS",
-      vatType: 0,
-    }],
     successUrl: req.successUrl,
     failureUrl: req.failureUrl,
     notifyUrl: req.notifyUrl,
-    // מזהה חופשי שחוזר אלינו כמו שהוא. זה מה שמחבר תשלום לשורה שלנו —
-    // בלעדיו היינו צריכים לנחש לפי סכום וזמן, וזה לא ניחוש שעושים על כסף.
+    // ‏`custom` הוא השדה **המתועד** לכך: "Custom data echoed back to your
+    // success / failure / notify URLs, such as an internal order ID". זה מה
+    // שמחבר תשלום לשורה שלנו — בלעדיו היינו מנחשים לפי סכום וזמן, וזה לא
+    // ניחוש שעושים על כסף.
+    //
+    // ‏`remarks` נשאר **בנוסף** ולא במקום: הוא מה שעבד עד היום, ו-webhook
+    // אמיתי אחד עוד לא נצפה. להחליף שדה בנתיב הכסף על סמך תיעוד בלבד, בלי
+    // לראות תשובה אחת, זה בדיוק סוג ההימור שאסור כאן. כששניהם נשלחים,
+    // ‏extractReference תמצא את המזהה בכל מקרה.
+    custom: req.reference,
     remarks: req.reference,
     ...(PLUGIN_ID ? { pluginId: PLUGIN_ID } : {}),
   });
@@ -264,11 +340,11 @@ export async function createPaymentForm(req: PaymentFormRequest): Promise<Paymen
     return { ok: false, error: `morning_error ${body.errorCode}: ${String(body.errorMessage ?? "").slice(0, 200)}` };
   }
 
-  const url = body?.url ?? body?.paymentUrl;         // ‼ לאימות: שם שדה הכתובת
+  const url = pickUrl(body?.url ?? body?.paymentUrl);
   const formId = body?.id ?? body?.formId ?? "";     // ‼ לאימות: שם שדה המזהה
   if (!url) return { ok: false, error: "morning_form_no_url" };
 
-  return { ok: true, formId: String(formId), url: String(url) };
+  return { ok: true, formId: String(formId), url };
 }
 
 // ---------------------------------------------------------------------------
@@ -373,9 +449,11 @@ export function readPaymentShape(body: any): Omit<PaymentStatus, "ok" | "error" 
 export function extractReference(body: any): { topupId: string | null; formId: string | null } {
   const uuidRe = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
 
-  // ‼ לאימות: השדה שבו מורנינג מחזיר/ה את ה-remarks שלנו
+  // ‏`custom` הוא השדה המתועד שחוזר ל-notifyUrl, והוא ראשון ברשימה. השאר
+  // נשארים כרשת ביטחון: הם עלו מניחוש מגודר לפני שהתיעוד היה נגיש, והם
+  // עולים כלום. ‏webhook אמיתי אחד יאפשר לקצר את הרשימה לשדה אחד.
   const candidates = [
-    body?.remarks, body?.reference, body?.custom, body?.custom?.topupId,
+    body?.custom, body?.custom?.topupId, body?.remarks, body?.reference,
     body?.data?.remarks, body?.payment?.remarks,
   ];
   let topupId: string | null = null;

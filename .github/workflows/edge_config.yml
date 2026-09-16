@@ -1,0 +1,51 @@
+name: verify_jwt לכל Edge Function
+
+# ‏`supabase functions deploy` קורא את verify_jwt של כל פונקציה מ-
+# ‏supabase/config.toml, וברירת המחדל שלו כשאין ערך היא **true**. פונקציה
+# חדשה שנוספה בלי שורה מקבילה בקובץ נפרסת עם אימות JWT דלוק, וכל קריאה
+# אליה מגולש/ת אנונימי/ת מתחילה להחזיר 401 — טופס יצירת קשר בדף נכס,
+# הרשמת משרד, הוובהוק של וואטסאפ.
+#
+# ‏**מה זה מוסיף על מה שכבר קיים.** ל-supabase_functions.yml יש כבר שלב
+# שבודק שלכל תיקייה יש ‎[functions.<שם>]‎ ב-config.toml. השלב ההוא רץ
+# ב-push ל-main, כלומר **אחרי** המיזוג: הוא עוצר את הפריסה, אבל בתור
+# workflow אדום על main — מה ש-CLAUDE.md מגדיר כתקלת פרודקשן ולא כרעש CI.
+#
+# הבדיקה כאן רצה על ה-PR, לפני המיזוג, ומרחיבה אותה בשלושה דברים:
+#
+#   • ‏גוש קיים אבל **בלי שורת verify_jwt** — ה-CLI חוזר לברירת המחדל
+#     ‏true, והבדיקה הקיימת (שמחפשת רק את שורת הכותרת) מפספסת את זה.
+#   • רשומות ב-config.toml שאין להן תיקייה — שאריות משינוי שם או ממחיקה.
+#   • תיקייה בלי index.ts אינה נספרת, כדי שטיוטה לא תפיל את הבדיקה.
+#
+# היא קוראת קבצים בלבד — בלי רשת ובלי סודות — ולכן מהירה ובטוחה להריץ גם
+# על PR מ-fork.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/**"
+      - "supabase/config.toml"
+      - "scripts/check_edge_config.py"
+      - ".github/workflows/edge_config.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/**"
+      - "supabase/config.toml"
+      - "scripts/check_edge_config.py"
+      - ".github/workflows/edge_config.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ‏הבדיקה עצמה, והפלט שלה, הם המקום שבו כתוב מה להוסיף ואיפה.
+      - name: בדיקת כיסוי
+        run: python3 scripts/check_edge_config.py
