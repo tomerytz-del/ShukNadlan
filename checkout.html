@@ -72,6 +72,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       לרכישת מנוי: <a href="pricing.html">דף המסלולים</a>.</p>
     </div>
 
+    <!-- מוצג רק בכתובת חשופה, בלי ‎?product‎ — הכתובת שהייתה עד היום טעינת
+         ארנק. הטופס שמתחת הוא טופס מנוי, ולכן מי שהגיע/ה לטעון ארנק צריך/ה
+         לדעת את זה כאן ולא אחרי שמילא/ה אותו. -->
+    <div class="note" id="walletHint" style="display:none">
+      <p><strong>הגעתם לטעון ארנק?</strong> הטעינה נעשית מתוך החשבון שלכם,
+      בקטגוריית <b>טעינת ארנק</b> — <a href="crm.html">כניסה לאיזור הסוכנים</a>.
+      העמוד הזה משמש לתשלום על מנוי.</p>
+    </div>
+
     <h2 id="buyHead">מה רוכשים</h2>
     <div id="buyBox" style="border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:22px">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap">
@@ -210,19 +219,31 @@ const TIER_LABELS = { mid: 'PROFESSIONAL', premium: 'Elite' };
 /* **העמוד משרת מוצר אחד: מנוי.** ‏?product=wallet היה כאן, והוסר — הארנק
    הוא של סוכן/ת מסוים/ת, והטעינה נעשית רק מתוך החשבון ב-CRM מול JWT מזוהה.
    החסימה אינה רק ויזואלית: אין יותר בעמוד הזה שום קוד שקורא ל-wallet-topup,
-   ולכן כתובת מוקלדת ידנית לא יכולה לפתוח ממנו סליקת ארנק. כתובת בלי
-   ‏?product הייתה בעבר טעינת ארנק, ולכן היא **אינה** מקבלת ברירת מחדל שקטה
-   של מנוי — היא נחסמת כמו ?product=wallet, ומופנית למקום הנכון.
+   ולכן כתובת מוקלדת ידנית לא יכולה לפתוח ממנו סליקת ארנק.
    מה שכן מגיע מהכתובת נבדק: ?tier=admin לא מייצר כלום.
 
    **השער יושב לפני יצירת לקוח ה-Supabase בכוונה.** ה-SDK נטען מ-CDN, ואם
    הטעינה נכשלת כל מה שאחריה לא רץ — ואז דווקא כתובת הארנק החסומה הייתה
-   מציגה טופס תשלום מלא. כאן זו מניפולציית DOM בלבד, שרצה בכל מקרה. */
-const params  = new URLSearchParams(location.search);
-const isSub   = params.get('product') === 'subscription';
+   מציגה טופס תשלום מלא. כאן זו מניפולציית DOM בלבד, שרצה בכל מקרה.
+
+   **כתובת בלי ‎?product‎ מציגה את טופס המנוי, ולא את הודעת החסימה.** עד היום
+   היא נחסמה כמו ‎?product=wallet‎, כי זו הייתה בעבר כתובת טעינת הארנק. זה
+   נכשל בבדיקה של חברת הסליקה: הסורק שלה מגיע ל-‎/checkout‎ החשוף, בלי
+   ‏query, ורואה הודעת הפניה — בלי טופס, בלי צ'קבוקס ובלי לינק לתקנון.
+   מכאן שלושת ה-❌ בדוח. ‎/checkout‎ הוא הכתובת היציבה של עמוד התשלום והוא
+   צריך להחזיק עמוד תשלום אמיתי כשנכנסים אליו ישירות.
+
+   מי שהגיע/ה לטעון ארנק לא נשכח/ת: בכתובת החשופה מוצגת מעל הטופס הודעה
+   שמפנה ל-CRM. ‎?product=wallet‎ עצמו נשאר חסום לגמרי כפי שהיה, וכך גם כל
+   ערך אחר — ולכן אין כאן החלשה של החסימה, רק ברירת מחדל לכתובת ריקה. */
+const params     = new URLSearchParams(location.search);
+const rawProduct = params.get('product');
+const bareUrl    = rawProduct === null;
+const isSub      = bareUrl || rawProduct === 'subscription';
 const subTier = ['mid','premium'].includes(params.get('tier')) ? params.get('tier') : 'mid';
 
 if (isSub){
+  if (bareUrl) document.getElementById('walletHint').style.display = '';
   document.getElementById('productName').textContent = 'מנוי ' + TIER_LABELS[subTier];
   document.getElementById('productDesc').textContent =
     'המסלול נפתח לתקופה ששולמה. אין כרטיס שמור ואין חיוב אוטומטי — לפני שהתקופה נגמרת תישלח תזכורת לחידוש.';
