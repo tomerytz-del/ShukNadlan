@@ -64,6 +64,7 @@
 | תיאור שיווקי אוטומטי ב-AI | `property_description_tier_ok` — שלוש נקודות, ראו למטה |
 | העוזר בוואטסאפ | `whatsapp-webhook` — בדיקת `tier` לפני כל עיבוד |
 | התראות בוואטסאפ | `notification_push_due_agents` — `mid`/`premium` + `billing_status` |
+| מדריך ההתחלה | `agent_onboarding_state` — `mid`/`premium`. הצעד הראשון בו הוא העוזר בוואטסאפ, ומדריך שפותח בהוראה שהמסלול אינו כולל הוא פרסומת (ראו `docs/agent-onboarding.md`) |
 | פרסום אוטומטי ברשתות | **פתוח לכל המסלולים בכוונה** — ראו למטה |
 
 ### התיאור השיווקי — שלוש נקודות אכיפה
