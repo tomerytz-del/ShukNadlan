@@ -539,6 +539,22 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .search-card .icon-btn:hover{background:var(--paper)}
   .search-card .search-go{background:var(--gold);color:#fff}
   .search-card .icon-btn svg,.search-card .search-go svg{width:21px;height:21px;display:block}
+  /* חיפוש בדרך. הסימון יושב על שלושת הכפתורים שמריצים חיפוש (זכוכית המגדלת
+     ו"הצגת תוצאות" בשני המודאלים), כי כולם עונים על אותה שאלה: האם הלחיצה
+     שלי נקלטה. ‏.is-busy מסתובב, ולא מחליף את תוכן הכפתור — כפתור שמתרוקן
+     לרגע קופץ ומזיז את שכניו. */
+  .is-busy{opacity:.75;cursor:progress}
+  .search-card .search-go.is-busy svg{animation:shukSpin .7s linear infinite}
+  .filter-modal-footer .btn.is-busy::after{
+    content:"";width:14px;height:14px;margin-inline-start:8px;border-radius:50%;
+    border:2px solid currentColor;border-top-color:transparent;
+    animation:shukSpin .7s linear infinite;
+  }
+  @keyframes shukSpin{to{transform:rotate(360deg)}}
+  @media(prefers-reduced-motion:reduce){
+    .search-card .search-go.is-busy svg,
+    .filter-modal-footer .btn.is-busy::after{animation:none}
+  }
   /* מונה הסינונים הפעילים ישב קודם בתוך הכפתור לצד התווית; בכפתור עגול
      בגודל אייקון אין לו מקום פנימי, ולכן הוא נתלה על הפינה שלו. */
   .search-card .filter-count-badge{position:absolute;top:-1px;inset-inline-start:-1px}
@@ -3301,7 +3317,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
         <div class="filter-modal-footer">
           <button type="button" class="btn btn-ghost" id="rClearFilters">איפוס</button>
-          <button type="button" class="btn btn-gold" data-close-modal="residentialFilterModal" style="flex:1">הצגת תוצאות</button>
+          <!-- מריץ חיפוש ולא רק סוגר את המודאל: ‏runSearch() סוגרת בעצמה כל
+               ‎.filter-modal-overlay‎ פתוח, ולכן הלחיצה הזו היא גם הסגירה. -->
+          <button type="button" class="btn btn-gold" id="rApplyFilters" style="flex:1">הצגת תוצאות</button>
         </div>
       </div>
     </div>
@@ -3397,7 +3415,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
         <div class="filter-modal-footer">
           <button type="button" class="btn btn-ghost" id="cClearFilters">איפוס</button>
-          <button type="button" class="btn btn-gold" data-close-modal="commercialFilterModal" style="flex:1">הצגת תוצאות</button>
+          <!-- כמו במודאל המגורים: הכפתור מריץ את החיפוש, והסגירה נגזרת ממנו -->
+          <button type="button" class="btn btn-gold" id="cApplyFilters" style="flex:1">הצגת תוצאות</button>
         </div>
       </div>
     </div>
@@ -5926,9 +5945,13 @@ const COMMERCIAL_POOL = 120;
 async function loadCommercialProperties(){
   if (!sb) return FALLBACK_COMMERCIAL;
   try{
+    /* ‏PROPERTY_SELECT ולא רשימת עמודות משלו: מאז שסינון התגיות שבמדף מגיע
+       גם למפה (‏ppShelfToMap), נכס מכאן חייב להיות זהה בצורתו לנכס
+       מהרשימה הראשית — אחרת הוא מגיע בלי lat/lng ובלי שם שכונה, כלומר
+       נספר בתוצאות ולא מקבל פין. */
     const { data, error } = await sb
       .from('properties')
-      .select('id, price, title, rooms, size_sqm, floor, city, property_type, deal_type, category, images, features, video_url, tour_3d_url, has_virtual_tour, is_promoted, promoted_until, created_at, agencies(name, logo_url)')
+      .select(PROPERTY_SELECT)
       .eq('status', 'active')
       .eq('category', 'commercial')
       // בלי סדר מפורש ה-DB מחזיר שורות בסדר לא מוגדר, ואז גם הבריכה שממנה
@@ -5938,7 +5961,7 @@ async function loadCommercialProperties(){
     if (error || !data || data.length === 0) throw error || new Error('empty');
     // הסידור נעשה במדף עצמו (assets/prop-shelf.js → ordered), כמו בתצוגה
     // הפרטית: מקודמים, עדיפות למדיה וסדר ההעלאה במקום אחד.
-    return data.map(p => ({...p, agency_name: p.agencies?.name || '', agency_logo: p.agencies?.logo_url || ''}));
+    return data.map(shapeProperty);
   } catch(e){
     console.warn('טעינת נכסים מסחריים נכשלה, משתמש בנתוני fallback:', e);
     return FALLBACK_COMMERCIAL;
@@ -6056,8 +6079,38 @@ const propsShelf = PropShelf.create({
   sortId:'ppSort',
   countText: (shown, total) => (shown === total)
     ? `${total.toLocaleString('he-IL')} נכסים בעפולה והעמק — פרטיים ומסחריים`
-    : `${shown.toLocaleString('he-IL')} מתוך ${total.toLocaleString('he-IL')} נכסים`,
+    : `${shown.toLocaleString('he-IL')} מתוך ${total.toLocaleString('he-IL')} נכסים · מסומנים על המפה שלמעלה`,
+  /* תגית שנבחרת כאן היא חיפוש לכל דבר, ולכן היא מגיעה גם למפה ולשורות
+     התוצאות שמתחתיה. עד כה היא סיננה את הגריד הזה בלבד: מי שסינן/ה
+     ל"דירות 3 חדרים" ראה/תה מעל זה מפה שעדיין מלאה בכל המלאי, ולא היה
+     שום מקום שבו הסינון והמפה הסכימו ביניהם. ‏ppShelfToMap עושה את החיבור
+     — ראו שם למה שחרור התגיות לא סתם מצייר את הכול מחדש. */
+  onFilter: (items, filtered) => ppShelfToMap(items, filtered),
 });
+
+/* הסינון שבמדף → המפה ושורות התוצאות שמעליו.
+
+   שחרור התגיות (‏filtered=false) לא מצייר את הרשימה המלאה כ"תוצאות חיפוש":
+   הוא מחזיר את המפה למה שהיה לפניה. אם רץ חיפוש אמיתי (סרגל החיפוש או
+   המסננים) — הוא מורץ שוב, כי הוא ולא המדף הוא מה שהמפה אמורה להראות.
+   אחרת חוזרים לכל המלאי הפעיל, כלומר בדיוק מצב הטעינה של הדף.
+
+   בכוונה בלי גלילה אל המפה: התגיות יושבות בתחתית העמוד, ולחיצה שמושכת את
+   המסך למעלה הייתה מרחיקה את שורת התגיות עצמה — כלומר מענישה בדיוק את מי
+   שרוצה לסמן תגית שנייה. מה שאומר שהמפה התעדכנה הוא שורת המונה שמעל
+   הגריד ("מסומנים על המפה שלמעלה"), והיא כאן ממילא. */
+let ppShelfFiltered = false;
+async function ppShelfToMap(items, filtered){
+  if (filtered){
+    ppShelfFiltered = true;
+    renderPropertyGrid(items, true);
+    return;
+  }
+  if (!ppShelfFiltered) return;
+  ppShelfFiltered = false;
+  if (searchHasRun) await runSearch();
+  else renderPropertyGrid(allActiveProperties);
+}
 
 /* ---------- שני מקורות, תיבה אחת ----------
    הנכסים הפרטיים מגיעים מהרשימה הראשית (אותה רשימה שמזינה את המפה ואת
@@ -7173,18 +7226,44 @@ const mapRecenterBtn = document.getElementById('mapRecenterBtn');
 if (mapRecenterBtn) mapRecenterBtn.addEventListener('click', recenterHeroMap);
 
 const mapExpandBtn = document.getElementById('mapExpandBtn');
-if (mapExpandBtn){
-  mapExpandBtn.addEventListener('click', ()=>{
-    const expanded = document.getElementById('heroSection').classList.toggle('map-expanded');
+
+/* הגדלה/הקטנה של המפה במקום אחד. היא נקראת משלושה מקומות — הכפתור עצמו,
+   פתיחת המפה מהמצב המצומצם ("חיפוש במפה"), וכפתור הסגירה — ולכן התווית,
+   ה-aria וה-invalidateSize אינם יכולים לשבת בתוך מאזין הכפתור. */
+function setMapExpanded(on){
+  const hero = document.getElementById('heroSection');
+  if (!hero) return;
+  const expanded = !!on;
+  if (hero.classList.contains('map-expanded') === expanded) return;
+  hero.classList.toggle('map-expanded', expanded);
+  if (mapExpandBtn){
     // רק התווית מתחלפת — האייקון (חיצי הפינות) נשאר, ולכן אסור להחליף כאן
     // את כל תוכן הכפתור כמו קודם
-    mapExpandBtn.querySelector('.map-expand-label').textContent = expanded ? 'הקטן' : 'הגדל';
+    const label = mapExpandBtn.querySelector('.map-expand-label');
+    if (label) label.textContent = expanded ? 'הקטן' : 'הגדל';
     mapExpandBtn.setAttribute('aria-label', expanded ? 'הקטנת המפה' : 'הגדלת המפה');
     mapExpandBtn.setAttribute('aria-expanded', String(expanded));
-    // גובה ה-hero (ואיתו המפה שממלאת אותו) משתנה ע"י מעבר קלאס עם transition;
-    // Leaflet לא מזהה שינוי גודל של ה-container לבד, ובלי invalidateSize()
-    // האריחים נשארים חתוכים בגודל הישן עד לפעולת משתמש נוספת (כמו גרירה)
-    if (heroMap) setTimeout(()=>{ heroMap.invalidateSize({ pan:false }); fitMapToMarkers(); }, 320);
+  }
+  // גובה ה-hero (ואיתו המפה שממלאת אותו) משתנה ע"י מעבר קלאס עם transition;
+  // Leaflet לא מזהה שינוי גודל של ה-container לבד, ובלי invalidateSize()
+  // האריחים נשארים חתוכים בגודל הישן עד לפעולת משתמש נוספת (כמו גרירה)
+  if (heroMap) setTimeout(()=>{ heroMap.invalidateSize({ pan:false }); fitMapToMarkers(); }, 320);
+}
+
+if (mapExpandBtn){
+  mapExpandBtn.addEventListener('click', ()=>{
+    const hero = document.getElementById('heroSection');
+    if (hero.classList.contains('map-expanded')){
+      /* "הקטן" מחזיר למצב שאיתו הדף נטען, ולא לגובה ביניים. בדסקטופ אלה
+         אותם שני דברים — שם מצב הטעינה הוא ה-hero הרגיל. בטלפון מצב
+         הטעינה הוא הפס המצומצם (‏.map-peek), ובלי התנאי הזה "הקטן" היה
+         עוצר בגובה מסך מלא שאיש לא ביקש, ודורש לחיצה שנייה על "סגירת
+         המפה" כדי לחזור למקום שממנו יצאנו. */
+      if (hero.classList.contains('can-peek')) setMapPeek(true);
+      else setMapExpanded(false);
+      return;
+    }
+    setMapExpanded(true);
   });
 }
 
@@ -7544,6 +7623,10 @@ function setMapPeek(on){
   if (hero.classList.contains('map-peek') === !!on) return;
 
   hero.classList.toggle('map-peek', !!on);
+  // הצמצום מבטל גם את ההגדלה: ‎.map-peek‎ גובר ממילא על ‎.map-expanded‎
+  // בגיליון הסגנונות, אבל קלאס שנשאר תלוי על ה-hero היה חוזר לחיים בפתיחה
+  // הבאה — ומחזיר גובה שכבר בוטל. גם מעבר רוחב (סיבוב מכשיר) עובר כאן.
+  if (on) setMapExpanded(false);
   document.getElementById('mapPeekOpen')?.setAttribute('aria-expanded', String(!on));
   if (on) syncMapPeekCta();
   else {
@@ -7564,6 +7647,12 @@ function setMapPeek(on){
 function openMapFromPeek(){
   if (!mapPeekOn()) return false;
   setMapPeek(false);
+  /* המפה נפתחת *מוגדלת*, ולא בגובה ה-hero הרגיל. מי שלוחץ/ת "חיפוש במפה"
+     ביקש/ה בדיוק דבר אחד — לראות את המפה — ובגובה הרגיל היא נפתחת עם
+     סרגל החיפוש, הכותרת והשבבים צפים עליה, כלומר שוב פס מפה עם תוכן מעליו.
+     "הקטן" בסרגל שעל המפה מחזיר לגובה הרגיל, ו"סגירת המפה" חוזר בבת אחת
+     למצב שאיתו דף הבית נטען. */
+  setMapExpanded(true);
   // בלי הגלילה הזו המפה נפתחת מחוץ למסך: הפס שנלחץ יושב בתחתית התצוגה,
   // והגובה החדש נפרס כולו *מעליו*.
   heroEl()?.scrollIntoView({ behavior:'smooth', block:'start' });
@@ -7572,6 +7661,8 @@ function openMapFromPeek(){
 
 document.getElementById('mapPeekOpen')?.addEventListener('click', openMapFromPeek);
 document.getElementById('mapCollapseBtn')?.addEventListener('click', ()=>{
+  // ‏setMapPeek(true) מורידה איתה גם את ההגדלה, ולכן "סגירת המפה" מחזירה
+  // בלחיצה אחת בדיוק את מצב הטעינה של דף הבית.
   setMapPeek(true);
   heroEl()?.scrollIntoView({ behavior:'smooth', block:'start' });
 });
@@ -8240,10 +8331,29 @@ document.querySelectorAll('[data-close-modal]').forEach(el=>{
 document.querySelectorAll('.filter-modal-overlay').forEach(overlay=>{
   overlay.addEventListener('click', (e)=>{ if (e.target === overlay) overlay.classList.remove('open'); });
 });
+/* ‏Escape סוגר את מודאל הסינון הפתוח, כמו בכל שאר המודאלים בעמוד (תפריט
+   הנגישות, המבזקים, הסוכן החכם). שלושת מודאלי החיפוש היו היחידים שלא
+   נסגרו כך — ובמקלדת זו הדרך שמנסים ראשונה. הסגירה בלבד ובלי חיפוש:
+   ‏Escape הוא "התחרטתי", וזה בדיוק ההבדל בינו לבין "הצגת תוצאות". */
+document.addEventListener('keydown', (e)=>{
+  if (e.key !== 'Escape') return;
+  const open = document.querySelector('.filter-modal-overlay.open');
+  if (open) open.classList.remove('open');
+});
 
 document.getElementById('openFiltersBtn').addEventListener('click', ()=>{
   openModal(searchState.activeTab === 'commercial' ? 'commercialFilterModal' : 'residentialFilterModal');
 });
+
+/* "הצגת תוצאות" בשני מודאלי הסינון = הרצת חיפוש.
+   עד כאן הכפתור היה ‎data-close-modal‎ בלבד: הוא סגר את המודאל ותו לא, והמצב
+   שנבחר בו (חדרים, סוג נכס, מחיר) נכנס לתוקף רק בלחיצה *נוספת* על כפתור
+   החיפוש שבסרגל. מי שסימן/ה "3 חדרים · גג/פנטהאוז" ולחץ/ה "הצגת תוצאות"
+   ראה/תה את המודאל נסגר ואת אותה תצוגה בדיוק — כלומר "כלום לא קרה" —
+   ולמד/ה לחפש פעמיים. ‏runSearch() סוגרת בעצמה כל מודאל סינון פתוח, ולכן
+   הלחיצה הזו עושה את שתי הפעולות. */
+document.getElementById('rApplyFilters')?.addEventListener('click', runSearch);
+document.getElementById('cApplyFilters')?.addEventListener('click', runSearch);
 
 // המודאל נפתח תמיד מהבחירה שכבר פעילה: מי שסגר/ה בטעות וחזר/ה מוצא/ת את
 // הסימון כפי שהיה, ולא דף ריק.
@@ -8364,7 +8474,31 @@ async function locationOrFilter(rawText){
   return ors.join(',');
 }
 
+/* חיפוש שכבר רץ. שתי לחיצות רצופות (או "הצגת תוצאות" ומיד אנטר בשדה) שלחו
+   שתי שאילתות במקביל, ומי שחזרה שנייה — לא בהכרח האחרונה שנשלחה — היא זו
+   שציירה את המפה. הדגל חוסם את השנייה במקום לנצח בה. */
+let searchRunning = false;
+
+/* סימון חזותי לכך שהחיפוש בדרך. בלעדיו הלחיצה על כפתור החיפוש (או על
+   "הצגת תוצאות") היא פעולה בלי שום משוב עד שהתוצאות חוזרות — וברשת איטית
+   זה נקרא "כלום לא קרה". */
+function setSearchBusy(on){
+  document.querySelectorAll('#searchSubmitBtn, #rApplyFilters, #cApplyFilters').forEach(btn=>{
+    btn.classList.toggle('is-busy', !!on);
+    btn.setAttribute('aria-busy', String(!!on));
+    btn.disabled = !!on;
+  });
+}
+
 async function runSearch(){
+  if (searchRunning) return;
+  searchRunning = true;
+  setSearchBusy(true);
+  try { await runSearchInner(); }
+  finally { searchRunning = false; setSearchBusy(false); }
+}
+
+async function runSearchInner(){
   searchHasRun = true;
   collectFormValues();
   const badge = document.getElementById('filterCountBadge');
@@ -8449,6 +8583,13 @@ async function runSearch(){
     if (error) throw error;
     const results = (data || []).map(shapeProperty);
     renderPropertyGrid(results, true);
+    /* חיפוש מהסרגל גובר על תגיות המדף ומכבה אותן. מאז שגם הן מסננות את
+       המפה יש שני מסננים שמתחרים על אותם פינים, ותגית שנשארה דלוקה הייתה
+       אומרת "מסומנים על המפה שלמעלה" מעל מפה שמציגה משהו אחר לגמרי.
+       הכיבוי מגיע בחזרה לכאן דרך ppShelfToMap, ושם הוא נעצר ב-searchRunning
+       — החיפוש הזה עדיין רץ, ואין מה להריץ שוב. */
+    ppShelfFiltered = false;
+    propsShelf.selectTag('');
     /* אחרי שהתוצאות חזרו ולא ברגע הלחיצה: חיפוש שהחזיר אפס הוא הממצא
        המעניין כאן — הוא מראה מה מחפשים אצלנו ולא מוצאים. */
     if (window.shukTrack) shukTrack('search', {
@@ -9375,6 +9516,13 @@ async function clearSearch(){
     url.searchParams.delete('ai');
     history.replaceState(history.state, '', url);
   } catch(e){ /* דפדפן שחוסם היסטוריה */ }
+
+  /* גם התגיות שבמדף יורדות: מאז שהן מסננות את המפה, "ניקוי החיפוש" שמשאיר
+     אותן דלוקות מחזיר מפה מלאה מעל מדף שעדיין מסונן — שני מספרים סותרים
+     באותו מסך. ‏ppShelfFiltered מתאפס *לפני* selectTag כדי ש-ppShelfToMap
+     לא תצייר את המפה מחדש בדרך: השורה שאחריה עושה זאת ממילא. */
+  ppShelfFiltered = false;
+  propsShelf.selectTag('');
 
   searchHasRun = false;
   renderPropertyGrid(await loadProperties());
