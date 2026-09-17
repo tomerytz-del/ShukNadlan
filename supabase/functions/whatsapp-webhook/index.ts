@@ -4,6 +4,7 @@ import type Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import { downloadMedia, markReadAndTyping, sendText, verifySignature } from "./whatsapp.ts";
 import { type AgentRow, type ConversationState, runAgentTurn } from "./agent.ts";
 import { type PublicConversationState, runPublicTurn } from "./public-agent.ts";
+import { loadAgency } from "../_shared/agency-lookup.ts";
 
 // ============================================================================
 // ‏Webhook של Meta WhatsApp Cloud API.
@@ -446,18 +447,16 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     return;
   }
 
-  // שם המשרד נטען בשאילתה נפרדת ולא ב-embed‏ (agencies(name)): מאז ש-property_shares
-  // מחזיקה שני מפתחות זרים ל-agencies, PostgREST מחזיר PGRST201 (HTTP 300) על embed
-  // מ-agency_members ל-agencies — מה שהיה מפיל כאן את זיהוי הסוכן/ת לגמרי.
-  const agentRow = { ...agent, agencies: null as { name?: string } | null };
-  if (agent.agency_id) {
-    const { data: agency } = await supabase
-      .from("agencies")
-      .select("name")
-      .eq("id", agent.agency_id)
-      .maybeSingle();
-    agentRow.agencies = agency ?? null;
-  }
+  // שם המשרד נטען בשאילתה נפרדת ולא ב-embed‏ (agencies(name)): PostgREST מחזיר
+  // ‏PGRST201 (HTTP 300) על embed מ-agency_members ל-agencies, ומפיל את **כל**
+  // השאילתה — מה שהיה מפיל כאן את זיהוי הסוכן/ת לגמרי. ההסבר המלא (ומי הטבלה
+  // שיוצרת את הדו-משמעות) ב-`_shared/agency-lookup.ts`.
+  const agentRow = {
+    ...agent,
+    agencies: (await loadAgency(supabase, agent.agency_id, "name")) as
+      | { name?: string }
+      | null,
+  };
 
   await supabase.from("whatsapp_messages")
     .update({ agent_id: agent.id })

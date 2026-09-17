@@ -12,6 +12,7 @@ import {
   type AgreementProperty,
   type AgreementSigner,
 } from "../_shared/agreement-build.ts";
+import { loadAgency } from "../_shared/agency-lookup.ts";
 
 // ה"מוח" של בוט הוואטסאפ: מקבל את מה שהסוכן/ת כתב/ה (או הכתיב/ה בהקלטה),
 // מריץ לולאת tool-use מול Claude, ומחזיר את הטקסט לשליחה חזרה בוואטסאפ.
@@ -33,6 +34,11 @@ import {
 //   ‏4. **הסכמים** — קריאה בלבד + קישורי חתימה אישיים להעברה ללקוח/ה.
 //   ‏5. **לידים והתראות** — קריאה, ושליטה על אילו התראות יוצאות בוואטסאפ.
 //
+// ומאז נוספו שתי יכולות שהיו קיימות בדשבורד בלבד, ושתיהן **מפעילות את אותו
+// מנוע** ולא עותק שלו: **שת"פ** (הפצת נכס למשרדים וביטולה, דרך
+// ‏`share_property_for_agent`) ו**הפקת סרטון שיווקי** מהתמונות של הנכס (דרך
+// ‏`property-video-create`, אותה נקודת קצה שהדשבורד קורא לה).
+//
 // ## שני גבולות שנשמרים בכוונה
 //
 // **כתיבה בהסכמים אינה כאן.** גוף המסמך נבנה בדפדפן ונחסם במסד בטריגר
@@ -44,6 +50,12 @@ import {
 // נעולה מאחורי `lead-claim` שגוזרת את הזהות מ-JWT מאומת. הבוט מזהה לפי
 // מספר טלפון — ראיה חלשה יותר — ולכן הוא מציג לידים במצב מוסתר (‏`leads_masked`)
 // ומפנה לדשבורד לפתיחה. הודעה שמוצאת את הליד שווה כמעט כמו פתיחתו.
+//
+// **והפקת סרטון היא הגבול הזה בגרסה שלישית — היא כן כאן, עם בלם.** היא
+// הפעולה היחידה מכאן שמורידה כסף מהארנק, ולכן היא נשברה לשני כלים: אחד
+// שמחזיר מחיר ויתרה בלי לגעת בכלום, ואחד שמפיק ודורש `confirm` מפורש. מה
+// שמבדיל אותה מ-`claim_lead` הוא מי הנשוא: שם אלה פרטיו של אדם שלישי
+// שנקנים בכסף, וכאן זה שירות שהסוכן/ת מזמין/ה לעצמו/ה על נכס שלו/ה.
 //
 // ## למה הצלבות עוברות דרך פונקציות במסד
 //
@@ -57,7 +69,13 @@ const anthropic = new Anthropic({
   apiKey: Deno.env.get("ANTHROPIC_API_KEY") || "",
 });
 
-const MODEL = "claude-opus-5";
+// המודל כסוד ולא כקבוע בקוד, כמו ב-`property-description` וב-
+// ‏`property-marketing-publish` (שתיהן על Sonnet). ברירת המחדל נשארת Opus:
+// שינוי מודל הוא החלטת איכות, והיא לא אמורה לקרות בשקט בפריסה.
+//
+// **מטמון הוא לפי מודל.** החלפה מאפסת אותו, והקריאות הראשונות אחריה ישלמו
+// מחיר מלא עד שיתחמם מחדש — זה נראה כמו רגרסיה בעלות ואינו כזה.
+const MODEL = Deno.env.get("WHATSAPP_BOT_MODEL") || "claude-opus-5";
 // שמונה ולא שש: זרימות הלקוחות דורשות שני כלים לפני הפעולה עצמה ("מצא את
 // הלקוח/ה" → "הצלב" → "עדכן"), ושש סבבים היו נגמרים באמצע.
 const MAX_TOOL_ITERATIONS = 8;
@@ -302,17 +320,26 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "list_properties",
     description:
-      "מחזיר את הנכסים של הסוכן/ת, החדשים קודם. להשתמש כשצריך למצוא את מזהה " +
-      "הנכס שהסוכן/ת מתאר/ת במילים ('הדירה באבן גבירול').",
+      "מחזיר את הנכסים של הסוכן/ת, החדשים קודם. זה הכלי למצוא את מזהה הנכס " +
+      "שהסוכן/ת מתאר/ת במילים ('הדירה באבן גבירול'). **כשיודעים מה מחפשים — " +
+      "להעביר query במקום למשוך את כל הרשימה**: החיפוש רץ על כל הנכסים של " +
+      "הסוכן/ת ולא רק על מה שנכנס לחלון. מחזיר תמיד גם `total` (כמה יש " +
+      "באמת) ו-`truncated`.",
     input_schema: {
       type: "object",
       properties: {
+        query: {
+          type: "string",
+          description:
+            "חיפוש חופשי בכותרת, ברחוב, בכתובת ובעיר — או מספר מודעה. " +
+            "'אבן גבירול', 'פנטהאוז', 'עפולה', '10423'.",
+        },
         status: {
           type: "string",
           enum: STATUSES,
           description: "סינון לפי סטטוס. ברירת מחדל: כל הסטטוסים.",
         },
-        limit: { type: "integer", description: "כמה להחזיר. ברירת מחדל 20." },
+        limit: { type: "integer", description: "כמה להחזיר. ברירת מחדל 20, מקסימום 200." },
       },
       required: [],
     },
@@ -333,8 +360,8 @@ const TOOLS: Anthropic.Tool[] = [
     description:
       "מחזיר ספירות מדויקות של הנכסים של הסוכן/ת: סך הכול, לפי סטטוס, לפי " +
       "קטגוריה (מגורים/מסחרי), לפי סוג עסקה, וכמה מהפעילים בלי תמונות. " +
-      "**זה הכלי לכל שאלת 'כמה'** — list_properties מוגבל ב-50 שורות, וספירה " +
-      "מתוכו היא ניחוש.",
+      "**זה הכלי לכל שאלת 'כמה'** — ‏list_properties מחזיר חלון, וספירת שורות " +
+      "מתוכו היא ניחוש. הפילוחים כאן קיימים רק כאן.",
     input_schema: { type: "object", properties: {}, required: [] },
   },
   {
@@ -413,6 +440,106 @@ const TOOLS: Anthropic.Tool[] = [
   },
 
   // -------------------------------------------------------------------------
+  // שיתוף פעולה בין משרדים (שת"פ)
+  //
+  // אותן שתי פעולות שבשורת הנכס בדשבורד, ואותו מנוע במסד — ראו
+  // ‏`share_property_for_agent` במיגרציה 20261119090000.
+  // -------------------------------------------------------------------------
+  {
+    name: "share_property",
+    description:
+      "פותח נכס לשת\"פ: מפיץ אותו לכל משרדי התיווך שברשימת השת\"פ של הסוכן/ת, " +
+      "ושולח לחברי המשרדים שקיבלו אותו עכשיו התראה. **הכלי מסנכרן ולא רק מוסיף** " +
+      "— משרד שהוסר מהרשימה מאז ההפצה הקודמת מאבד את הגישה — ולכן זה גם הכלי " +
+      "ל\"תעדכן את ההפצה\". הפעלה חוזרת אינה יוצרת כפילות ואינה מתריעה שוב למי " +
+      "שכבר קיבל. עובד על נכס פעיל בלבד.",
+    input_schema: {
+      type: "object",
+      properties: { property_id: { type: "string" } },
+      required: ["property_id"],
+    },
+  },
+  {
+    name: "unshare_property",
+    description:
+      "מוריד נכס משת\"פ: מסיר אותו מכל המשרדים שקיבלו אותו ומכבה את סימון " +
+      "השיתוף. הנכס עצמו נשאר פעיל באתר — זו הסרה מהשת\"פ ולא הסרה מהמכירה.",
+    input_schema: {
+      type: "object",
+      properties: { property_id: { type: "string" } },
+      required: ["property_id"],
+    },
+  },
+  {
+    name: "property_share_status",
+    description:
+      "מצב השת\"פ של נכס: האם הוא מופץ, לכמה משרדים ולאילו, וכמה משרדים היו " +
+      "מקבלים אותו אילו היה מסונכרן עכשיו (targets_now). זה הכלי ל\"עם מי " +
+      "שיתפתי את הדירה הזו\" ולבדיקה אחרי הפצה.",
+    input_schema: {
+      type: "object",
+      properties: { property_id: { type: "string" } },
+      required: ["property_id"],
+    },
+  },
+
+  // -------------------------------------------------------------------------
+  // סרטון שיווקי מהתמונות של הנכס
+  //
+  // שני כלים ולא אחד, והחלוקה היא בדיוק בין מה שעולה כסף למה שלא:
+  // ‏`property_video_info` קורא, ‏`create_property_video` מחייב.
+  // -------------------------------------------------------------------------
+  {
+    name: "property_video_info",
+    description:
+      "כמה תעלה הפקת סרטון שיווקי לנכס ומה מצב ההפקה האחרונה שלו — **בלי " +
+      "לפתוח בקשה ובלי לחייב**. מחזיר את המסלול, המחיר (0 כשההפקה כלולה " +
+      "במסלול), כמה נשאר במכסה החודשית, יתרת הארנק, כמה תמונות יש לנכס, האם " +
+      "כבר יש סרטון, ואם יש בקשה פתוחה — ההתקדמות שלה. **זה הכלי הראשון בכל " +
+      "שיחה על סרטון**, גם ל\"מה קורה עם הסרטון\".",
+    input_schema: {
+      type: "object",
+      properties: { property_id: { type: "string" } },
+      required: ["property_id"],
+    },
+  },
+  {
+    name: "create_property_video",
+    description:
+      "מפיק סרטון שיווקי מהתמונות של הנכס: כל תמונה הופכת לקליפ קצר בתנועת " +
+      "מצלמה, הקליפים מחוברים לרצף של עד 20 שניות, והסרטון מוצמד לנכס. " +
+      "ההפקה לוקחת כמה דקות ורצה ברקע — הסוכן/ת מקבל/ת התראה כשהיא נגמרת. " +
+      "**במסלול PROFESSIONAL הכסף יורד מהארנק ברגע שהבקשה נפתחת**, ולכן " +
+      "‏confirm הוא חובה ומותר להעביר אותו רק אחרי שהמחיר נאמר לסוכן/ת " +
+      "והוא/היא אישר/ה במפורש. במסלול Elite ההפקה כלולה אבל צורכת מהמכסה " +
+      "החודשית, ולכן גם שם מאשרים לפני.",
+    input_schema: {
+      type: "object",
+      properties: {
+        property_id: { type: "string" },
+        confirm: {
+          type: "boolean",
+          description:
+            "חובה true. אישור מפורש של הסוכן/ת אחרי שנאמר לו/ה המחיר או שההפקה " +
+            "כלולה במסלול. אין להסיק אישור מ\"תעשה לי סרטון\" — זו הבקשה, לא האישור.",
+        },
+        replace_existing: {
+          type: "boolean",
+          description:
+            "אישור נפרד להחליף סרטון שכבר קיים על הנכס. הסרטון הקיים עלול להיות " +
+            "סיור שהסוכן/ת צילם/ה בעצמו/ה, ולכן הוא אינו נדרס בלי שנשאל/ה.",
+        },
+        aspect_ratio: {
+          type: "string",
+          enum: ["16:9", "9:16"],
+          description: "יחס התמונה. ברירת מחדל 16:9. ‏9:16 = אנכי לסטורי/רילס.",
+        },
+      },
+      required: ["property_id", "confirm"],
+    },
+  },
+
+  // -------------------------------------------------------------------------
   // קובץ הלקוחות
   // -------------------------------------------------------------------------
   {
@@ -435,9 +562,12 @@ const TOOLS: Anthropic.Tool[] = [
         },
         query: {
           type: "string",
-          description: "חיפוש חופשי בשם או בטלפון.",
+          description:
+            "חיפוש חופשי בשם או בטלפון. **כשיודעים את מי מחפשים — להעביר " +
+            "query במקום למשוך את כל הקובץ**: החיפוש רץ על כל הלקוחות ולא " +
+            "רק על מה שנכנס לחלון, וההערות חוזרות מלאות ברשימה קצרה.",
         },
-        limit: { type: "integer", description: "כמה להחזיר. ברירת מחדל 20." },
+        limit: { type: "integer", description: "כמה להחזיר. ברירת מחדל 20, מקסימום 200." },
       },
       required: [],
     },
@@ -751,6 +881,14 @@ interface ToolContext {
 
 const SITE_BASE_URL = (Deno.env.get("SITE_BASE_URL") || "").replace(/\/$/, "");
 
+// קריאה לנקודת קצה אחרת של הפרויקט. ‏`create_property_video` הוא הכלי היחיד
+// שעושה את זה — ההפקה חיה ב-`property-video-create` ולא כאן, כדי שהחיוב
+// והזכאות יישארו בעותק אחד. ‏service_role הוא גם מה שמעביר את ה-Gateway
+// (‏verify_jwt = true שם) וגם מה ש-`authorizeInternalCaller` מזהה.
+const FUNCTIONS_BASE =
+  `${(Deno.env.get("SUPABASE_URL") || "").replace(/\/+$/, "")}/functions/v1`;
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+
 function propertyLink(id: string): string | undefined {
   return SITE_BASE_URL ? `${SITE_BASE_URL}/property.html?id=${id}` : undefined;
 }
@@ -1051,20 +1189,99 @@ async function toolSetStatus(ctx: ToolContext, input: Record<string, unknown>) {
   return { ok: true, property_id: propertyId, title: existing.title, status };
 }
 
+/**
+ * הנכסים של הסוכן/ת — חיפוש, ולא רק חלון.
+ *
+ * ## למה הייתה כאן תקרה של 50, ולמה היא לא הייתה הבעיה האמיתית
+ *
+ * הכלי נועד למצוא מזהה נכס מתוך תיאור במילים ("הדירה באבן גבירול"), אבל
+ * **לא היה לו שדה חיפוש** — הוא החזיר את ה-N החדשים ביותר, והמודל היה
+ * אמור לסרוק אותם בעצמו. עם תקרה של 50 זה נשבר בדיוק במקום הכי גרוע:
+ * לסוכן/ת עם 57 נכסים, הנכס שלא נכנס לחלון פשוט "לא קיים" מבחינת הבוט,
+ * והוא היה מודיע שהוא רואה עד 50.
+ *
+ * `query` הוא התיקון האמיתי, כי הוא רץ **במסד על כל הנכסים** ולא על החלון:
+ * עם חיפוש, 20 שורות מספיקות למצוא כל נכס בקובץ של 500. התקרה עלתה
+ * ל-200 בשביל המקרה השני — "תראה לי את כל הנכסים שלי" — ולא בשביל החיפוש.
+ *
+ * ## ולמה לא להסיר את התקרה לגמרי
+ *
+ * לא בגלל המסד. **תוצאת הכלי נכנסת ל-`messages` ונשלחת מחדש בכל סבב של
+ * לולאת הכלים** (עד 8), ואין כאן prompt caching. שורה שוקלת ~260 תווים,
+ * כלומר 200 שורות הן ~26K טוקנים שעלולים להישלח שוב ושוב באותו תור.
+ * וזה עוד לפני העניין המעניין יותר: רשימה ארוכה של שורות כמעט זהות
+ * **מורידה** את הדיוק של בחירת הנכס הנכון, לא מעלה אותו.
+ *
+ * ## `total` הוא מה שמונע את הניחוש
+ *
+ * קודם הוחזר `count: data.length` בלבד — כלומר גודל החלון, בלי שום דרך
+ * לדעת שזה חלון. מכאן חוזרת גם ספירה אמיתית (`head: true`, בלי להעביר
+ * שורות) ו-`truncated`, בדיוק כמו ב-`list_clients`.
+ */
+const LIST_PROPERTIES_MAX = 200;
+
 async function toolListProperties(ctx: ToolContext, input: Record<string, unknown>) {
-  const limit = Math.min(Number(input.limit) || 20, 50);
+  const limit = Math.min(Math.max(Number(input.limit) || 20, 1), LIST_PROPERTIES_MAX);
+  const status = input.status ? String(input.status) : null;
+
   let query = ctx.supabase
     .from("properties")
-    .select("id, title, address, city, price, rooms, deal_type, status, created_at")
+    .select("id, listing_number, title, address, city, price, rooms, deal_type, status, created_at")
     .eq("agent_id", ctx.agent.id)
     .order("created_at", { ascending: false })
     .limit(limit);
 
-  if (input.status) query = query.eq("status", String(input.status));
+  // ספירה על אותם תנאים בדיוק פרט ל-limit. ‏head: true מחזיר מספר בלי שורות.
+  let counter = ctx.supabase
+    .from("properties")
+    .select("id", { count: "exact", head: true })
+    .eq("agent_id", ctx.agent.id);
 
-  const { data, error } = await query;
+  if (status) {
+    query = query.eq("status", status);
+    counter = counter.eq("status", status);
+  }
+
+  const q = String(input.query || "").trim();
+  if (q) {
+    // ‏escape על הפסיק והסוגריים, כמו ב-list_clients: מחרוזת חיפוש עם פסיק
+    // הייתה נקראת כשני תנאים ב-`or` ומחזירה שגיאת פרסור מ-PostgREST.
+    const safe = q.replace(/[,()*]/g, " ").trim();
+    if (safe) {
+      const terms = [
+        `title.ilike.%${safe}%`,
+        `street.ilike.%${safe}%`,
+        `address.ilike.%${safe}%`,
+        `city.ilike.%${safe}%`,
+      ];
+      // ‏listing_number הוא bigint, ולכן ilike עליו הוא שגיאת טיפוס ולא
+      // "אפס תוצאות". הוא נכנס לתנאי רק כשהחיפוש הוא מספר שלם — וזה גם
+      // המקרה היחיד שבו הוא מעניין ("תמצא לי את 10423").
+      if (/^\d+$/.test(safe)) terms.push(`listing_number.eq.${safe}`);
+      const or = terms.join(",");
+      query = query.or(or);
+      counter = counter.or(or);
+    }
+  }
+
+  const [{ data, error }, { count, error: countErr }] = await Promise.all([query, counter]);
   if (error) return { ok: false, error: error.message };
-  return { ok: true, count: data.length, properties: data };
+  if (countErr) console.warn("property count failed", countErr.message);
+
+  const total = typeof count === "number" ? count : data.length;
+  return {
+    ok: true,
+    returned: data.length,
+    // כמה **באמת** יש בתנאים האלה, ולא כמה הוחזרו. בלי זה המודל מדווח את
+    // גודל החלון כאילו הוא הקובץ.
+    total,
+    truncated: total > data.length,
+    query: q || undefined,
+    properties: data,
+    note: total > data.length
+      ? `מוצגים ${data.length} מתוך ${total}. לצמצום — query, ולספירות — property_stats.`
+      : undefined,
+  };
 }
 
 async function toolAttachImages(ctx: ToolContext, input: Record<string, unknown>) {
@@ -1104,6 +1321,256 @@ async function toolPropertyStats(ctx: ToolContext) {
     .rpc("agent_property_stats", { p_agent_id: ctx.agent.id });
   if (error) return { ok: false, error: error.message };
   return { ok: true, ...(data as Record<string, unknown>) };
+}
+
+// ---------------------------------------------------------------------------
+// שת"פ
+//
+// שלושת הכלים האלה אינם מחזיקים שום לוגיקה: הם מעבירים ל-RPC ומתרגמים קוד
+// שגיאה לעברית. זה מכוון — הסנכרון מול רשימת ההסרות, ההתראות למשרדים
+// שקיבלו את הנכס עכשיו, והדגל על שורת הנכס יושבים כולם ב-
+// ‏`share_property_for_agent`, שהוא בדיוק המנוע שהדשבורד מפעיל. שכפול של
+// חלק כלשהו מזה כאן היה מייצר שת"פ שמתנהג אחרת מוואטסאפ מאשר מהדשבורד.
+// ---------------------------------------------------------------------------
+
+/**
+ * קודי הסירוב שחוזרים מפונקציות המסד של הנכס, בעברית.
+ *
+ * הקודים עצמם הם אלה שה-RPC מחזירה — לא תרגום שלהם — כדי ששינוי בצד המסד
+ * ייראה כאן כקוד לא מוכר ולא כהודעה שקטה ושגויה.
+ */
+const PROPERTY_RPC_ERRORS: Record<string, string> = {
+  agent_not_found: "לא נמצא כרטיס סוכן/ת פעיל.",
+  agent_without_agency: "אין שיוך למשרד, ולכן אין למי להפיץ. השיוך נעשה בדשבורד.",
+  property_not_found: "לא נמצא נכס כזה.",
+  not_your_property: "הנכס הזה אינו של הסוכן/ת.",
+  property_not_active: "אפשר להפיץ לשת\"פ רק נכס פעיל. נכס שנמכר, הושכר או בארכיון אינו מופץ.",
+};
+
+function rpcError(code: unknown) {
+  const key = String(code || "");
+  return { ok: false, error: PROPERTY_RPC_ERRORS[key] || `הפעולה נדחתה (${key}).`, code: key };
+}
+
+async function toolShareProperty(ctx: ToolContext, input: Record<string, unknown>) {
+  const propertyId = String(input.property_id || "");
+  const { data, error } = await ctx.supabase.rpc("share_property_for_agent", {
+    p_agent_id: ctx.agent.id,
+    p_property_id: propertyId,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  // deno-lint-ignore no-explicit-any
+  const res = (data || {}) as Record<string, any>;
+  if (res.error) return rpcError(res.error);
+
+  ctx.conv.last_property_id = propertyId;
+
+  // ‏shared_count = 0 אחרי הפצה מוצלחת אינו כישלון אלא הגדרה: הסוכן/ת הסיר/ה
+  // את כל המשרדים מרשימת השת"פ (או שאין עדיין משרד נוסף בפלטפורמה). בלי
+  // המשפט הזה הבוט היה מודיע "שותף!" על נכס שאיש לא קיבל.
+  const count = Number(res.shared_count || 0);
+  return {
+    ok: true,
+    property_id: propertyId,
+    title: res.title,
+    shared_count: count,
+    newly_shared: res.newly_shared,
+    revoked: res.revoked,
+    note: count === 0
+      ? "אף משרד לא קיבל את הנכס — רשימת השת\"פ ריקה. הרשימה נערכת בדשבורד תחת \"משרדי שיתוף פעולה\"."
+      : undefined,
+  };
+}
+
+async function toolUnshareProperty(ctx: ToolContext, input: Record<string, unknown>) {
+  const propertyId = String(input.property_id || "");
+  const { data, error } = await ctx.supabase.rpc("unshare_property_for_agent", {
+    p_agent_id: ctx.agent.id,
+    p_property_id: propertyId,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  // deno-lint-ignore no-explicit-any
+  const res = (data || {}) as Record<string, any>;
+  if (res.error) return rpcError(res.error);
+
+  ctx.conv.last_property_id = propertyId;
+  return {
+    ok: true,
+    property_id: propertyId,
+    title: res.title,
+    removed: res.removed,
+    note: "הנכס עצמו נשאר פעיל באתר.",
+  };
+}
+
+async function toolPropertyShareStatus(ctx: ToolContext, input: Record<string, unknown>) {
+  const propertyId = String(input.property_id || "");
+  const { data, error } = await ctx.supabase.rpc("agent_property_share_status", {
+    p_agent_id: ctx.agent.id,
+    p_property_id: propertyId,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  // deno-lint-ignore no-explicit-any
+  const res = (data || {}) as Record<string, any>;
+  if (res.error) return rpcError(res.error);
+
+  ctx.conv.last_property_id = propertyId;
+  return { ok: true, ...res };
+}
+
+// ---------------------------------------------------------------------------
+// סרטון שיווקי
+//
+// ההפקה עצמה נשארת ב-`property-video-create` — אותה נקודת קצה שהדשבורד קורא
+// לה — והבוט קורא לה עם `service_role` ו-agent_id מפורש. ראו ההסבר בראש
+// אותה פונקציה: הזכאות, התקרה החודשית, החיוב, בחירת הסצנות וההחזר בכישלון
+// חיים שם, ועותק שני שלהם כאן היה מתפצל.
+//
+// **הכלי שקורא והכלי שמחייב הם שני כלים.** בדשבורד הכפתור פשוט לא מוצג למי
+// שאינו זכאי/ת, והמחיר כתוב בעמוד המחירים; בצ'אט אין כפתור להסתיר ואין מסך
+// אישור, ו-₪25 יורדים מהארנק ברגע שהבקשה נפתחת. לכן `confirm` הוא פרמטר
+// מפורש ולא ברירת מחדל — אותו כלל בדיוק שנשמר ב-`consent_agent_contact`
+// בבוט הציבורי.
+// ---------------------------------------------------------------------------
+
+/**
+ * קודי החסימה של הסרטון, בעברית.
+ *
+ * אותה מפה משרתת את שני הכלים בכוונה: הקודים ש-`agent_property_video_quote`
+ * מחזירה ב-`blocker` הם **אותם קודים** ש-`property-video-create` מחזירה
+ * בסירוב. אם הם היו מתוארים בשתי מפות, אותו מצב היה נשמע אחרת לפני ההפקה
+ * ואחריה — וזה בדיוק המקרה שבו סוכן/ת חושב/ת שמשהו השתנה.
+ */
+const VIDEO_BLOCKERS: Record<string, string> = {
+  not_eligible:
+    "הפקת סרטון זמינה במסלולים PROFESSIONAL ו-Elite, על נכס פעיל של הסוכן/ת. " +
+    "לפרטים ולשדרוג: " + (SITE_BASE_URL ? `${SITE_BASE_URL}/pricing.html` : "עמוד המחירים"),
+  job_in_progress: "כבר רצה הפקה על הנכס הזה. אפשר לשאול מה מצבה.",
+  no_images: "אין תמונות לנכס הזה — אי אפשר להפיק ממנו סרטון.",
+  not_enough_images: "אין מספיק תמונות לנכס להפקת סרטון.",
+  monthly_cap_reached: "המכסה החודשית של הפקות הסרטון נוצלה.",
+  insufficient_balance: "אין מספיק יתרה בארנק. טעינה נעשית בדשבורד.",
+  video_exists: "כבר יש סרטון על הנכס. החלפה דורשת אישור מפורש (replace_existing).",
+  // שלושת אלה אינם באשמת הסוכן/ת ואין מה לעשות איתם בשיחה — אבל "הפעולה
+  // נדחתה (fal_submit_failed)" הוא בדיוק סוג ההודעה שגורמת לאנשים לנסות שוב
+  // חמש פעמים.
+  fal_not_configured: "שירות הווידאו אינו זמין כרגע. לא נגבה תשלום.",
+  fal_submit_failed: "שירות הווידאו לא קיבל את הבקשה. לא נגבה תשלום — אפשר לנסות שוב בהמשך.",
+  no_matching_agent_profile: "לא נמצא כרטיס סוכן/ת פעיל.",
+};
+
+async function toolPropertyVideoInfo(ctx: ToolContext, input: Record<string, unknown>) {
+  const propertyId = String(input.property_id || "");
+
+  // שתי קריאות ולא אחת: ההצעה ומצב ההפקה עונות על שתי שאלות שונות במסד,
+  // והבוט שואל אותן יחד כי בצ'אט זו שאלה אחת ("מה עם סרטון לנכס הזה").
+  const [quoteRes, statusRes] = await Promise.all([
+    ctx.supabase.rpc("agent_property_video_quote", {
+      p_agent_id: ctx.agent.id,
+      p_property_id: propertyId,
+    }),
+    ctx.supabase.rpc("agent_property_video_status", {
+      p_agent_id: ctx.agent.id,
+      p_property_id: propertyId,
+    }),
+  ]);
+
+  if (quoteRes.error) return { ok: false, error: quoteRes.error.message };
+  // deno-lint-ignore no-explicit-any
+  const quote = (quoteRes.data || {}) as Record<string, any>;
+  if (quote.error) return rpcError(quote.error);
+
+  // כשל בשליפת המצב אינו מפיל את ההצעה: המחיר והזכאות הם מה שנשאל, ומצב
+  // הפקה שאולי אינה קיימת הוא תוספת.
+  if (statusRes.error) console.warn("video status lookup failed", statusRes.error.message);
+  // deno-lint-ignore no-explicit-any
+  const status = (statusRes.data || {}) as Record<string, any>;
+
+  ctx.conv.last_property_id = propertyId;
+
+  const blocker = String(quote.blocker || "");
+  return {
+    ok: true,
+    ...quote,
+    blocker_text: blocker ? VIDEO_BLOCKERS[blocker] ?? blocker : undefined,
+    // ‏price_text מנוסח כאן ולא במודל: "כלול במסלול" מול "₪25 מהארנק" הוא
+    // בדיוק המשפט שצריך להיאמר לפני החיוב, ואין טעם להשאיר אותו לניסוח חופשי.
+    price_text: quote.eligible
+      ? (quote.included
+        ? `כלול במסלול Elite (נשארו ${quote.monthly_left} הפקות החודש)`
+        : `₪${Number(quote.price || 0)} מיתרת הארנק (יתרה: ₪${Number(quote.credit_balance || 0)})`)
+      : undefined,
+    last_job: status.has_job ? status : undefined,
+  };
+}
+
+async function toolCreatePropertyVideo(ctx: ToolContext, input: Record<string, unknown>) {
+  const propertyId = String(input.property_id || "");
+
+  // האישור נבדק כאן ולא רק בהוראות: הוראה היא בקשה מהמודל, וזו פעולה
+  // שמורידה כסף. מודל שיחליט לדלג עליה ייעצר בשרת.
+  if (input.confirm !== true) {
+    return {
+      ok: false,
+      error: "חסר אישור מפורש של הסוכן/ת. יש לומר את המחיר, לקבל \"כן\", ורק אז לקרוא שוב עם confirm.",
+      code: "confirm_required",
+    };
+  }
+
+  // בלי המפתח אין מסלול פנימי, והקריאה הייתה חוזרת 401 — הודעה שאין לסוכן/ת
+  // מה לעשות איתה. עדיף לומר את זה כאן.
+  if (!SERVICE_ROLE_KEY) {
+    return { ok: false, code: "not_configured", error: "הפקת סרטון אינה זמינה כרגע מהצ'אט." };
+  }
+
+  const res = await fetch(`${FUNCTIONS_BASE}/property-video-create`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      // המסלול הפנימי של `authorizeInternalCaller`. ‏agent_id נאמן רק בזכותו.
+      Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+      apikey: SERVICE_ROLE_KEY,
+    },
+    body: JSON.stringify({
+      agent_id: ctx.agent.id,
+      property_id: propertyId,
+      replace_existing: input.replace_existing === true,
+      aspect_ratio: input.aspect_ratio === "9:16" ? "9:16" : "16:9",
+    }),
+  });
+
+  // deno-lint-ignore no-explicit-any
+  let body: Record<string, any> = {};
+  try {
+    body = await res.json();
+  } catch { /* גוף שאינו JSON — הסטטוס הוא כל מה שיש */ }
+
+  if (!res.ok) {
+    const code = String(body.error || `http_${res.status}`);
+    return {
+      ok: false,
+      code,
+      error: VIDEO_BLOCKERS[code] ?? String(body.message || body.detail || "הפקת הסרטון לא נפתחה."),
+      // ‏video_exists הוא היחיד שיש עליו מה לעשות בשיחה עצמה.
+      retry_with: code === "video_exists" ? "replace_existing" : undefined,
+    };
+  }
+
+  ctx.conv.last_property_id = propertyId;
+  return {
+    ok: true,
+    property_id: propertyId,
+    clips: body.clips,
+    estimated_seconds: body.estimated_seconds,
+    amount_charged: body.amount_charged,
+    // ‏**הבוט אינו יוזם הודעה** (חלון 24 השעות של Meta), ולכן ההודעה על סיום
+    // מגיעה בערוץ ההתראות ולא כהמשך של השיחה הזו.
+    note: "ההפקה רצה ברקע ולוקחת כמה דקות. תישלח התראה כשהסרטון יהיה מוכן, " +
+      "ואפשר גם לשאול בכל רגע מה מצבה.",
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1424,8 +1891,31 @@ function clientNeeds(c: Record<string, unknown>): string {
   return parts.join(" · ");
 }
 
+/**
+ * קובץ הלקוחות — אותה תקרה ואותו היגיון של `list_properties`, עם הבדל אחד
+ * שמשנה את המספרים.
+ *
+ * **שורת לקוח/ה כבדה כמעט פי שניים משורת נכס**: ~460 תווים מול ~260, כי
+ * ‏`needs` מורכב משמונה־עשר שדות ו-`notes` הוא טקסט חופשי בלי גבול. ‏200
+ * שורות כאן הן ~92KB — ובאותה לולאת כלים שנשלחת מחדש בכל סבב, זה הרבה יותר
+ * מ-200 נכסים.
+ *
+ * לכן התקרה עלתה ל-200 כמו שם, אבל **`notes` נגזם בחלון גדול**: מעל
+ * ‏`NOTES_FULL_WINDOW` שורות מדובר בעיון ברשימה ולא בשליפה של לקוח/ה מסוים/ת,
+ * ואיש אינו קורא שישים הערות מלאות בוואטסאפ. חיפוש לפי שם מחזיר שורות
+ * בודדות — ושם ההערה חוזרת שלמה, כי זו בדיוק השאלה שנשאלה.
+ *
+ * ‏`total_active` ו-`total_all` עונים על "כמה לקוחות יש לי" ואינם מושפעים
+ * מהסינון. ‏`total_matching` הוא הספירה על **אותם תנאים** שהוחזרו, והוא זה
+ * שקובע את `truncated` — בלעדיו רשימה שסוננה ב-query הייתה נראית חתוכה רק
+ * משום שיש לסוכן/ת עוד לקוחות אחרים.
+ */
+const LIST_CLIENTS_MAX = 200;
+const NOTES_FULL_WINDOW = 20;
+const NOTES_BROWSE_CHARS = 240;
+
 async function toolListClients(ctx: ToolContext, input: Record<string, unknown>) {
-  const limit = Math.min(Number(input.limit) || 20, 50);
+  const limit = Math.min(Math.max(Number(input.limit) || 20, 1), LIST_CLIENTS_MAX);
 
   let query = ctx.supabase
     .from("agent_clients")
@@ -1437,19 +1927,38 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
     .eq("agent_id", ctx.agent.id)
     .order("created_at", { ascending: false });
 
-  if (input.status) query = query.eq("status", String(input.status));
-  else if (!input.all_statuses) query = query.eq("status", "active");
+  // ספירה על אותם תנאים בדיוק פרט ל-limit. ‏head: true מחזיר מספר בלי שורות.
+  let counter = ctx.supabase
+    .from("agent_clients")
+    .select("id", { count: "exact", head: true })
+    .eq("agent_id", ctx.agent.id);
+
+  if (input.status) {
+    query = query.eq("status", String(input.status));
+    counter = counter.eq("status", String(input.status));
+  } else if (!input.all_statuses) {
+    query = query.eq("status", "active");
+    counter = counter.eq("status", "active");
+  }
 
   const q = String(input.query || "").trim();
   if (q) {
     // ‏escape על הפסיק והסוגריים: מחרוזת חיפוש עם פסיק הייתה נקראת כשני
     // תנאים ב-`or` ומחזירה שגיאת פרסור מ-PostgREST.
     const safe = q.replace(/[,()*]/g, " ").trim();
-    if (safe) query = query.or(`full_name.ilike.%${safe}%,phone.ilike.%${safe}%`);
+    if (safe) {
+      const or = `full_name.ilike.%${safe}%,phone.ilike.%${safe}%`;
+      query = query.or(or);
+      counter = counter.or(or);
+    }
   }
 
-  const { data, error } = await query.limit(limit);
+  const [{ data, error }, { count: totalMatching, error: matchCountErr }] = await Promise.all([
+    query.limit(limit),
+    counter,
+  ]);
   if (error) return { ok: false, error: error.message };
+  if (matchCountErr) console.warn("client match count failed", matchCountErr.message);
 
   // ספירת ההתאמות לכל לקוח/ה בקריאה אחת (ולא שאילתה לכל שורה). כשל כאן אינו
   // מפיל את הרשימה — הדרישות והטלפון הם עיקר התשובה, וההתאמות תוספת.
@@ -1476,22 +1985,46 @@ async function toolListClients(ctx: ToolContext, input: Record<string, unknown>)
     .select("id", { count: "exact", head: true })
     .eq("agent_id", ctx.agent.id);
 
+  // עיון ברשימה מול שליפה של לקוח/ה. ראו ההסבר מעל הפונקציה.
+  const browsing = data.length > NOTES_FULL_WINDOW;
+  const matching = typeof totalMatching === "number" ? totalMatching : data.length;
+  let notesTrimmed = 0;
+
   return {
     ok: true,
     total_active: totalActive ?? 0,
     total_all: totalAll ?? 0,
+    // כמה תואמים את הסינון שהוחזר — זה מה שמגדיר אם הרשימה חתוכה, ולא
+    // ‏total_all: חיפוש שמצא שלושה מתוך מאה אינו רשימה חתוכה.
+    total_matching: matching,
+    truncated: matching > data.length,
     returned: data.length,
-    clients: data.map((c) => ({
-      client_id: c.id,
-      full_name: c.full_name,
-      phone: c.phone,
-      email: c.email,
-      status: c.status,
-      needs: clientNeeds(c),
-      notes: c.notes,
-      match_count: counts.get(c.id)?.n ?? null,
-      top_match: counts.get(c.id)?.top ?? null,
-    })),
+    query: q || undefined,
+    clients: data.map((c) => {
+      const full = String(c.notes ?? "");
+      const trim = browsing && full.length > NOTES_BROWSE_CHARS;
+      if (trim) notesTrimmed++;
+      return {
+        client_id: c.id,
+        full_name: c.full_name,
+        phone: c.phone,
+        email: c.email,
+        status: c.status,
+        needs: clientNeeds(c),
+        notes: trim ? `${full.slice(0, NOTES_BROWSE_CHARS)}…` : (c.notes ?? null),
+        notes_truncated: trim || undefined,
+        match_count: counts.get(c.id)?.n ?? null,
+        top_match: counts.get(c.id)?.top ?? null,
+      };
+    }),
+    note: [
+      matching > data.length
+        ? `מוצגים ${data.length} מתוך ${matching}. לצמצום — query.`
+        : null,
+      notesTrimmed
+        ? `ההערות של ${notesTrimmed} לקוחות נגזמו כי הרשימה ארוכה — לקריאה מלאה, query על השם.`
+        : null,
+    ].filter(Boolean).join(" ") || undefined,
   };
 }
 
@@ -1905,17 +2438,17 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
   }
 
   // ---- כרטיס הסוכן/ת והמשרד — מה שמודפס בראש המסמך
+  // המשרד בשאילתה נפרדת ולא ב-embed‏ (agencies(name, address)). ראו
+  // ‏`_shared/agency-lookup.ts`: ה-embed הזה מחזיר PGRST201 ומפיל את **כל**
+  // השאילתה, ולכן `member` היה חוזר null — כלומר כל ניסיון להכין הסכם מכאן
+  // נענה ב"לא נמצאו פרטי הסוכן/ת", בלי שדבר אחר ייראה שבור.
   const { data: member } = await ctx.supabase
     .from("agency_members")
-    .select("id, display_name, id_number, license_number, phone, agency_id, agencies(name, address)")
+    .select("id, display_name, id_number, license_number, phone, agency_id")
     .eq("id", ctx.agent.id)
     .maybeSingle();
   if (!member) return { ok: false, error: "לא נמצאו פרטי הסוכן/ת." };
-  // ‏supabase-js מחזיר יחס many-to-one כאובייקט, אבל ה-typing שלו מרשה גם
-  // מערך. שתי הצורות מטופלות כאן כדי שההסכם לא ייצא בלי שם המשרד.
-  const agencyRaw = member.agencies as unknown;
-  const agency = (Array.isArray(agencyRaw) ? agencyRaw[0] : agencyRaw) as
-    Record<string, unknown> | null;
+  const agency = await loadAgency(ctx.supabase, member.agency_id, "name, address");
 
   // ---- הנכסים
   const requested = (input.property_ids as string[] | undefined) || [];
@@ -2417,6 +2950,13 @@ async function runTool(
       case "property_performance": return await toolPropertyPerformance(ctx, input);
       case "cma_report": return await toolCmaReport(ctx, input);
       case "planning_info": return await toolPlanningInfo(ctx, input);
+      // שת"פ
+      case "share_property": return await toolShareProperty(ctx, input);
+      case "unshare_property": return await toolUnshareProperty(ctx, input);
+      case "property_share_status": return await toolPropertyShareStatus(ctx, input);
+      // סרטון שיווקי
+      case "property_video_info": return await toolPropertyVideoInfo(ctx, input);
+      case "create_property_video": return await toolCreatePropertyVideo(ctx, input);
       // לקוחות
       case "list_clients": return await toolListClients(ctx, input);
       case "create_client": return await toolCreateClient(ctx, input);
@@ -2446,17 +2986,38 @@ async function runTool(
 // ---------------------------------------------------------------------------
 // לולאת השיחה
 // ---------------------------------------------------------------------------
-function systemPrompt(agent: AgentRow, conv: ConversationState): string {
-  const today = new Date().toISOString().slice(0, 10);
+/**
+ * ההוראות הקבועות — **זהות בייט־בבייט לכל סוכן/ת ולכל הודעה**, וזה מה שהופך
+ * אותן לניתנות למטמון.
+ *
+ * ## למה זה מפוצל לשניים
+ *
+ * ‏Prompt caching הוא **התאמת תחילית**: כל בית שמשתנה מבטל את כל מה שאחריו.
+ * קודם הפרומפט נבנה כמחרוזת אחת שכללה את שם הסוכן/ת, את שם המשרד, את תאריך
+ * היום ואת מצב השיחה — כלומר הוא היה שונה אצל כל אחד/ת ובכל שיחה, ולכן
+ * **לא היה ניתן למטמון כלל**. עשרים ותשעה הגדרות כלים ותשעה קילו-בייט של
+ * הוראות נשלחו מחדש בכל קריאה, ועד שמונה פעמים בתוך תור אחד.
+ *
+ * הפיצול הוא לפי מי שהתוכן משתנה איתו:
+ *
+ *   ‏· כאן — ההוראות. זהות לכולם, ולכן המטמון משותף **בין כל הסוכנים**.
+ *   ‏· `sessionContext()` — השם, המשרד, התאריך ומצב השיחה. קטן, ויושב אחרי
+ *     נקודת השבירה כדי שלא יבטל את מה שלפניו.
+ *
+ * סדר הרינדור של ה-API הוא `tools` → `system` → `messages`, ולכן נקודת
+ * שבירה אחת בסוף הבלוק הזה תופסת גם את הגדרות הכלים שלפניו.
+ *
+ * ⚠️ **אסור להכניס לכאן דבר שמשתנה בין קריאות** — לא תאריך, לא שם, לא מזהה
+ * ולא ספירה. שורה כזו לא תישבר ולא תיראה שבורה; היא פשוט תאפס את המטמון
+ * בשקט, ו-`cache_read_input_tokens` בלוג יחזור אפס.
+ */
+const SYSTEM_STATIC: string = (() => {
   const lines = [
     "את/ה העוזר/ת של שוק נדל\"ן — מערכת ניהול נכסים לסוכני נדל\"ן בעפולה.",
     "את/ה מדבר/ת עם הסוכן/ת בוואטסאפ ומבצע/ת עבורו/ה פעולות במערכת דרך הכלים.",
     "",
-    `הסוכן/ת: ${agent.display_name || "ללא שם"}${agent.agencies?.name ? ` · משרד ${agent.agencies.name}` : ""}.`,
-    `תאריך היום: ${today}.`,
-    "",
-    "מה יש לך: נכסים, קובץ הלקוחות, ההתאמות בין השניים, ניתוח שוק ומידע תכנוני, " +
-      "ההסכמים, הלידים וההתראות.",
+    "מה יש לך: נכסים, שת\"פ בין משרדים, הפקת סרטון שיווקי, קובץ הלקוחות, ההתאמות " +
+      "בין השניים, ניתוח שוק ומידע תכנוני, ההסכמים, הלידים וההתראות.",
     "",
     "כללים כלליים:",
     "- ענה/י בעברית, קצר, בסגנון וואטסאפ. אימוג'י אחד לכל היותר.",
@@ -2471,6 +3032,11 @@ function systemPrompt(agent: AgentRow, conv: ConversationState): string {
     "- השדות ההכרחיים ליצירת נכס הם סוג נכס, סוג עסקה ומחיר בלבד — אם יש אותם, צור/צרי את הנכס והשלם/י את השאר ממה שנאמר.",
     "- אם חסר אחד מהשלושה, בקש/י בשאלה אחת קצרה רק את מה שחסר.",
     "- לפני שינוי או ארכוב של נכס קיים — ודא/י שאת/ה יודע/ת על איזה נכס מדובר. אם לא, קרא/י ל-list_properties.",
+    "- **למצוא נכס = list_properties עם query**, ולא משיכת כל הרשימה וסריקה שלה. " +
+      "החיפוש רץ על כל הנכסים של הסוכן/ת; הרשימה בלי query היא רק החדשים. " +
+      "\"הדירה באבן גבירול\" → query: \"אבן גבירול\". מספר מודעה → query עם המספר.",
+    "- ‏**אל תדווח/י על גודל הרשימה שהוחזרה כאילו הוא מספר הנכסים.** ‏total הוא " +
+      "כמה יש באמת, ו-truncated אומר שהוחזר חלק. אם הוחזר note — אמור/אמרי אותו.",
     "- \"תמחק את הנכס\" = set_property_status עם archived. אין מחיקה אמיתית.",
     "- אם create_property החזיר duplicate: אל תיצור/י מודעה נוספת. אמור/אמרי לסוכן/ת " +
       "מה קיים (כתובת, מספר מודעה וסטטוס) ושאל/י בשאלה אחת: להחזיר ולעדכן את הקיימת, " +
@@ -2500,8 +3066,35 @@ function systemPrompt(agent: AgentRow, conv: ConversationState): string {
     "- \"כמה צפיות\" / \"למה אין פניות\" = property_performance. אם יש מעט צפיות והנכס " +
       "בלי תמונות או בלי קידום — זו התשובה, ואמור/אמרי אותה.",
     "",
+    "שת\"פ בין משרדים:",
+    "- \"תפתח את הנכס לשת\"פ\" / \"תפיץ אותו למשרדים\" / \"תעדכן את ההפצה\" = share_property. " +
+      "אותה פעולה בשלושת המקרים — היא מסנכרנת מול רשימת השת\"פ ולא רק מוסיפה.",
+    "- \"תוריד את הנכס מהשת\"פ\" = unshare_property. אמור/אמרי שהנכס עצמו נשאר פעיל באתר, " +
+      "אחרת זה נשמע כמו הסרה מהמכירה.",
+    "- \"עם מי שיתפתי\" / \"לכמה משרדים זה הלך\" = property_share_status.",
+    "- אם חזר note — אמור/אמרי אותו. במיוחד את זה של shared_count אפס: \"הפצתי\" על נכס " +
+      "שאיש לא קיבל הוא בדיוק סוג האישור שאסור לתת.",
+    "",
+    "סרטון שיווקי מהתמונות:",
+    "- **תמיד property_video_info קודם, גם כשהבקשה נשמעת ברורה.** הוא אינו מחייב ואינו " +
+      "פותח בקשה, והוא היחיד שיודע את המחיר, את המכסה ואת היתרה.",
+    "- **אין לקרוא ל-create_property_video באותו תור שבו התבקש הסרטון.** הסדר הוא: " +
+      "‏property_video_info → אמירת price_text לסוכן/ת ושאלה אחת (\"להפיק?\") → " +
+      "המתנה לתשובה → create_property_video עם confirm. \"תעשה לי סרטון\" היא הבקשה, " +
+      "לא האישור — ובמסלול PROFESSIONAL זה כסף שיורד מהארנק.",
+    "- אם חזר blocker_text — אמור/אמרי אותו ואל תנסה/י להפיק בכל זאת.",
+    "- ‏video_exists אינו חסימה אלא שאלה: יש כבר סרטון על הנכס, והוא עלול להיות סיור " +
+      "שהסוכן/ת צילם/ה בעצמו/ה. שאל/י אם להחליף, ורק אחרי \"כן\" קרא/י שוב עם " +
+      "replace_existing.",
+    "- אחרי הפתיחה אמור/אמרי את note: ההפקה רצה ברקע, תישלח התראה כשתיגמר, ואפשר " +
+      "לשאול בינתיים. **אל תבטיח/י שתכתוב/י בעצמך כשיהיה מוכן** — אין לבוט דרך ליזום הודעה.",
+    "- \"מה קורה עם הסרטון\" = property_video_info. ‏last_job נושא את ההתקדמות.",
+    "",
     "לקוחות והתאמות:",
     "- למצוא לקוח/ה לפי שם: list_clients עם query. הדרישות והתקציב חוזרים בשדה needs.",
+    "- **גם כאן: total_matching הוא כמה יש, returned הוא כמה הוחזרו.** אם חזר " +
+      "notes_truncated על לקוח/ה שנשאלת עליו/ה — קרא/י שוב עם query על השם, " +
+      "ואל תצטט/י הערה חתוכה כאילו היא מלאה.",
     "- ליצירת לקוח/ה די בשם. שדה ריק פירושו \"לא משנה\" ולא \"חסר\" — אל תבקש/י תקציב או ערים שלא נאמרו.",
     "- \"תמחק את הלקוח/ה\" = set_client_status עם closed. הרשומה נשארת בקובץ.",
     "- אם create_client החזיר duplicate — אל תיצור/י רשומה שנייה. אמור/אמרי מה קיים ושאל/י אם לעדכן.",
@@ -2547,6 +3140,22 @@ function systemPrompt(agent: AgentRow, conv: ConversationState): string {
     "- בקשה לקבל התראות בוואטסאפ (\"תעדכן אותי על לידים חדשים כאן\") = whatsapp_alerts " +
       "עם enable והסוגים המתאימים. \"תפסיק\" = disable בלי types. אם חזר muted_conflict — " +
       "אמור/אמרי את ה-note כמו שהוא.",
+  ];
+  return lines.join("\n");
+})();
+
+/**
+ * החלק המשתנה — מי מדבר, מתי, ואיפה השיחה עומדת.
+ *
+ * יושב **אחרי** נקודת השבירה של המטמון, ולכן הוא זול לשנות בכל קריאה. הוא גם
+ * הסיבה שהחלוקה עובדת: ההוראות (‏~29KB) נקראות מהמטמון, ורק מאות התווים
+ * האלה נשלחים במלואם.
+ */
+function sessionContext(agent: AgentRow, conv: ConversationState): string {
+  const today = new Date().toISOString().slice(0, 10);
+  const lines = [
+    `הסוכן/ת: ${agent.display_name || "ללא שם"}${agent.agencies?.name ? ` · משרד ${agent.agencies.name}` : ""}.`,
+    `תאריך היום: ${today}.`,
   ];
 
   if (conv.pending_images.length) {
@@ -2619,21 +3228,43 @@ export async function runAgentTurn(opts: {
   ];
 
   let finalText = "";
+  // הבלוק שנושא כרגע את נקודת השבירה המתגלגלת בהודעות. נשמר כדי שאפשר יהיה
+  // להסיר ממנו את הסימון לפני שמסמנים את הבא — ראו ההסבר בלולאה.
+  let rollingMark: { cache_control?: { type: "ephemeral" } } | null = null;
 
   for (let i = 0; i < MAX_TOOL_ITERATIONS; i++) {
     const response = await callClaude({
       model: MODEL,
       max_tokens: 4096,
       // ‏medium ולא low. ‏low הספיק כשהמשימה הייתה חילוץ פרטי נכס מול חמישה
-      // כלים; עם שמונה-עשר כלים ושני מאגרים שצריך להצליב ביניהם, הבחירה בין
+      // כלים; עם עשרים ותשעה כלים ושני מאגרים שצריך להצליב ביניהם, הבחירה בין
       // ‏client_matches ל-property_matches ו"קודם למצוא את המזהה" הן החלטות
-      // שבהן low טועה. אם הלטנטיות בצ'אט נעשית מורגשת — לחזור ל-low ולהצר
-      // את רשימת הכלים, לא לוותר על הדיוק.
+      // שבהן low טועה. **ומאז הסרטון יש כאן גם החלטה שעולה כסף** — הסדר
+      // ‏info → אישור → הפקה הוא בדיוק הסוג של הוראה ש-low מקצר. אם הלטנטיות
+      // בצ'אט נעשית מורגשת — לחזור ל-low ולהצר את רשימת הכלים, לא לוותר על
+      // הדיוק.
       output_config: { effort: "medium" },
-      system: systemPrompt(agent, conv),
+      // שני בלוקים, ונקודת שבירה אחת ביניהם. סדר הרינדור הוא
+      // ‏tools → system → messages, ולכן ה-`cache_control` כאן תופס **גם את
+      // עשרים ותשעה הגדרות הכלים שלפניו** — יחד זה הרוב המוחלט של הקלט.
+      // החלק המשתנה יושב אחריו ולכן אינו מבטל אותו. ראו SYSTEM_STATIC.
+      system: [
+        { type: "text", text: SYSTEM_STATIC, cache_control: { type: "ephemeral" } },
+        { type: "text", text: sessionContext(agent, conv) },
+      ],
       tools: TOOLS,
       messages,
     } as Anthropic.MessageCreateParamsNonStreaming);
+
+    // מה באמת נחסך. בלי השורה הזו אין דרך לדעת שהמטמון הפסיק לתפוס: הכול
+    // ממשיך לעבוד, רק החשבון גדל. ‏cache_read אפס לאורך זמן = משהו משתנה
+    // נכנס ל-SYSTEM_STATIC או ל-TOOLS.
+    const u = response.usage as unknown as Record<string, number | undefined>;
+    console.log(
+      `llm ${MODEL} iter=${i} in=${u.input_tokens ?? 0} ` +
+        `cache_read=${u.cache_read_input_tokens ?? 0} ` +
+        `cache_write=${u.cache_creation_input_tokens ?? 0} out=${u.output_tokens ?? 0}`,
+    );
 
     const text = response.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
@@ -2667,6 +3298,32 @@ export async function runAgentTurn(opts: {
         content: JSON.stringify(result),
       });
     }
+
+    // נקודת שבירה שנייה, **מתגלגלת**: היא מסמנת את סוף מה שכבר נשלח, כך
+    // שהסבב הבא יקרא אותו מהמטמון במקום לשלם עליו מחדש.
+    //
+    // **זה המקום שבו זה באמת נצבר.** תוצאת כלי אינה קטנה — `list_properties`
+    // יכול להחזיר מאתיים שורות — והיא נשלחת שוב בכל סבב שאחריה. בתור עם
+    // ארבעה סבבים, התוצאה של הסבב הראשון משולמת ארבע פעמים.
+    //
+    // **חייבים לנקות את הקודמת.** ל-API יש תקרה של ארבע נקודות שבירה
+    // לבקשה; סימון מצטבר היה עובר אותה בסבב הרביעי ומפיל את הבקשה כולה
+    // בשגיאה — כלומר תור ארוך היה נשבר דווקא אחרי שכבר נעשתה עבודה.
+    // הסרת הסימון הקודם אינה מאבדת את המטמון: התחילית הקצרה יותר עדיין
+    // תקפה, והסימון החדש רק מרחיב אותה.
+    //
+    // הסימון נעשה **רק כשעומדים לקרוא שוב**, ולכן תור חד-סבבי אינו משלם על
+    // כתיבה למטמון שאיש לא יקרא.
+    type Marked = { cache_control?: { type: "ephemeral" } };
+    if (rollingMark) delete rollingMark.cache_control;
+    rollingMark = null;
+
+    const last = results[results.length - 1] as (Anthropic.ToolResultBlockParam & Marked) | undefined;
+    if (last && i < MAX_TOOL_ITERATIONS - 1) {
+      last.cache_control = { type: "ephemeral" };
+      rollingMark = last;
+    }
+
     messages.push({ role: "user", content: results });
   }
 

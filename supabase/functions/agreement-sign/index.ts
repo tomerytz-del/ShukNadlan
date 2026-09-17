@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendPlatformEmail, PLATFORM_CONTACT_EMAIL } from "../_shared/platform-mail-client.ts";
+import { agencyName } from "../_shared/agency-lookup.ts";
 
 // ============================================================================
 // חתימת הסכמי תיווך — ידנית ומרחוק
@@ -236,15 +237,15 @@ async function signersOf(agreementId: string): Promise<SignerRow[]> {
 async function agentCard(agentId: string) {
   const { data } = await db
     .from("agency_members")
-    .select("display_name, email, phone, agency_id, agencies(name)")
+    .select("display_name, email, phone, agency_id")
     .eq("id", agentId)
     .maybeSingle();
-  const agency = (data as any)?.agencies;
+  // שם המשרד בשאילתה נפרדת ולא ב-embed — ראו `_shared/agency-lookup.ts`.
   return {
     name: data?.display_name || "הסוכן/ת",
     email: data?.email || null,
     phone: data?.phone || null,
-    agency: Array.isArray(agency) ? agency[0]?.name : agency?.name,
+    agency: await agencyName(db, data?.agency_id),
   };
 }
 
