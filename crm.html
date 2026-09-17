@@ -8174,7 +8174,7 @@ document.getElementById('adminRefreshBtn').addEventListener('click', loadAdminRe
    ליד נכנס משבעה מקומות שונים.
 
    הכל מגיע מקריאה אחת ל-platform_lead_report; ראו את המיגרציה
-   ‏20261119090000_lead_analytics.sql להסבר על שרשרת שיוך המקור ועל
+   ‏20261122090000_lead_analytics.sql להסבר על שרשרת שיוך המקור ועל
    הגדרת הטריות.                                                          */
 
 /* התוויות בעברית יושבות כאן ולא במסד, כמו ב-ADM_LEAD_TYPES: המסד מחזיר
@@ -8381,7 +8381,7 @@ async function loadLeadReport(){
     // ‏42501 = הפונקציה קיימת וסירבה: החשבון אינו מנהל/ת פלטפורמה.
     host.innerHTML = '';
     const msg = (error.code === '42883' || error.code === 'PGRST202')
-      ? 'דוח הלידים לא קיים עדיין במסד — הריצו את המיגרציה 20261119090000_lead_analytics.sql.'
+      ? 'דוח הלידים לא קיים עדיין במסד — הריצו את המיגרציה 20261122090000_lead_analytics.sql.'
       : (error.code === '42501' || /not_platform_admin/.test(error.message || ''))
         ? 'הדוח פתוח למנהל/ת פלטפורמה בלבד.'
         : 'שגיאה בטעינת דוח הלידים: ' + error.message;

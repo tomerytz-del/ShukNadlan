@@ -194,7 +194,7 @@ lead_routing_log.source    ← המדויק ביותר: מזהה הווידג'ט
 
 | קובץ | תפקיד |
 | --- | --- |
-| `supabase/migrations/20261119090000_lead_analytics.sql` | שלוש הפונקציות, שלושת ספי הטריות והאינדקסים |
+| `supabase/migrations/20261122090000_lead_analytics.sql` | שלוש הפונקציות, שלושת ספי הטריות והאינדקסים |
 | `crm.html` | הפאנל `#dashPanelLeads`, התוויות, הפלטה ו-`renderLeadReport` |
 | `supabase/functions/_shared/lead-routing.ts` | אוצר המילים של מזהי המקור — המקור לאמת |
 
