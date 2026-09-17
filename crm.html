@@ -6287,42 +6287,16 @@ function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel, 
 
        נפילה חזרה לקטגוריית הארנק נשמרת לשגיאות: עדיף מסלול ארוך שעובד על
        פני הודעת שגיאה שמשאירה את הסוכן/ת בלי מוצא. */
-    const onTopup = async ()=>{
+    /* גם הטעינה המהירה עוברת ב-checkout.html, מאותה סיבה שהכפתור בקטגוריית
+       הארנק עובר בו: אין חיוב באתר בלי פרטי חשבונית ובלי אישור תקנון. מה
+       שהיה כאן "לחיצה אחת עד מורנינג" הוא עכשיו לחיצה אחת עד עמוד התשלום,
+       עם הסכום שחסר כבר בחירה מראש. */
+    const onTopup = ()=>{
       const balance = Number(currentAgent && currentAgent.credit_balance) || 0;
       const need = topupNeeded(balance, price);
       if (!need){ done(false); gotoSection('accWallet', 'topupAmount'); return; }
-
-      const prevLabel = topupBtn.textContent;
-      topupBtn.disabled = true;
-      topupBtn.textContent = 'רגע…';
-      try{
-        const { data: { session } } = await sb.auth.getSession();
-        const res = await fetch(SUPABASE_URL + '/functions/v1/wallet-topup', {
-          method:'POST',
-          headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY,
-                    'Authorization':'Bearer ' + session.access_token },
-          body: JSON.stringify({ amount: need }),
-        });
-        const data = await res.json();
-
-        if (!res.ok || data.error){
-          // לא מסתירים את הכישלון ולא משאירים תקועים — הדרך הארוכה עדיין פתוחה
-          done(false); gotoSection('accWallet', 'topupAmount'); return;
-        }
-        if (data.redirect_url){
-          done(false);
-          location.href = data.redirect_url;
-          return;
-        }
-
-        const bal = await refreshAgentBalance();
-        if (overlay.style.display !== 'none') paintWallet(bal);
-        topupBtn.disabled = false;
-        topupBtn.textContent = prevLabel;
-      } catch(err){
-        console.error('quick topup', err);
-        done(false); gotoSection('accWallet', 'topupAmount');
-      }
+      done(false);
+      location.href = 'checkout.html?product=wallet&amount=' + encodeURIComponent(need);
     };
 
     function done(value){
@@ -10499,9 +10473,11 @@ async function probeTopupMode(){
 
     badge.style.display = live ? 'none' : '';
     note.textContent = live
-      ? 'התשלום מתבצע בעמוד מאובטח של מורנינג. פרטי הכרטיס אינם עוברים דרך האתר, וחשבונית תונפק אוטומטית.'
+      ? 'ממשיכים לעמוד התשלום — שם ממלאים את פרטי החשבונית ומאשרים את התקנון. פרטי הכרטיס נמסרים בעמוד של מורנינג בלבד, ואינם עוברים דרך האתר.'
       : 'טרם חובר ספק סליקה — הטעינה כאן להדגמה/בדיקה בלבד, לא כרטיס אשראי אמיתי.';
-    btn.textContent = live ? 'מעבר לתשלום' : 'טעינת הארנק';
+    /* הכפתור מוביל לעמוד התשלום בשני המצבים, ולכן הוא לא מבטיח "טעינה" —
+       גם במצב בדיקה הטעינה קורית שם, אחרי אישור התקנון, ולא בלחיצה כאן. */
+    btn.textContent = 'המשך לתשלום';
   } catch(err){
     // הבדיקה נכשלה. משאירים את הממשק כמו שהוא — עדיף בלי הצהרה על מצב
     // מאשר הצהרה שאולי שגויה. הכפתור עדיין עובד, והשרת יחליט.
@@ -10509,54 +10485,19 @@ async function probeTopupMode(){
   }
 }
 
-document.getElementById('topupBtn').addEventListener('click', async ()=>{
-  const amount = document.getElementById('topupAmount').value;
-  const btn = document.getElementById('topupBtn');
-  const feedback = document.getElementById('topupFeedback');
-  const label = btn.textContent;
-  btn.disabled = true; btn.textContent = 'רגע…'; feedback.textContent = '';
-  try{
-    const { data: { session } } = await sb.auth.getSession();
-    const res = await fetch(SUPABASE_URL + '/functions/v1/wallet-topup', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
-      body: JSON.stringify({ amount: Number(amount) }),
-    });
-    const data = await res.json();
-    if (!res.ok || data.error){
-      feedback.style.color = 'var(--red)';
-      /* ‏payment_terminal_missing אינו כשל רגעי אלא הגדרה חסרה אצל ספק
-         הסליקה, ולכן הוא מובחן: "נסו שוב" היה שולח לנסות שוב ושוב משהו
-         שייכשל זהה בכל פעם. */
-      feedback.textContent = data.error === 'too_many_open_topups'
-        ? 'יש כמה טעינות שטרם הושלמו. השלימו או המתינו מעט ונסו שוב.'
-        : data.error === 'payment_terminal_missing'
-        ? 'הסליקה אינה פעילה כרגע — טרם הוגדר מסוף סליקה. ניסיון חוזר לא יעזור; פנו אלינו.'
-        : 'שגיאה בפתיחת התשלום — נסו שוב';
-      btn.disabled = false; btn.textContent = label;
-      return;
-    }
+/* **הטעינה עוברת דרך checkout.html ולא פונה ל-wallet-topup מכאן.**
 
-    // סליקה אמיתית: יוצאים מהדף אל מורנינג. אין כאן הודעת הצלחה — עוד לא
-    // קרה כלום חוץ מפתיחת ניסיון תשלום.
-    if (data.redirect_url){
-      feedback.style.color = 'var(--muted)';
-      feedback.textContent = 'מעבירים לעמוד התשלום…';
-      window.location.href = data.redirect_url;
-      return;
-    }
+   עד היום הכפתור הזה פתח תשלום ישירות, ובדרך דילג על שני דברים שחייבים
+   לקרות לפני חיוב: איסוף פרטי הלקוח/ה לחשבונית (שם, טלפון, מדינה, אימייל)
+   ואישור מפורש של התקנון. ‏checkout.html עושה את שניהם, ומשם ממשיכים לאותה
+   נקודת קצה בדיוק — ולכן זו הפניה ולא מסלול חדש.
 
-    // מצב בדיקה: הזיכוי כבר קרה בשרת, ולכן מותר להצהיר עליו.
-    feedback.style.color = 'var(--blue)';
-    feedback.textContent = `נטענו ₪${data.amount} בהצלחה (מצב בדיקה)`;
-    await refreshAgentBalance();
-  } catch(err){
-    console.error(err);
-    feedback.style.color = 'var(--red)';
-    feedback.textContent = 'שגיאת רשת — נסו שוב';
-  } finally {
-    btn.disabled = false; btn.textContent = label;
-  }
+   עמוד תשלום אחד לכל חיוב באתר הוא גם מה שחברת הסליקה דורשת: צ'קבוקס תקנון
+   בעמוד שבו משלמים. שני מסלולים במקביל היו אומרים שהדרישה מתקיימת באחד
+   ונעקפת בשני. ראו docs/wallet-payments.md. */
+document.getElementById('topupBtn').addEventListener('click', ()=>{
+  const amount = Number(document.getElementById('topupAmount').value);
+  location.href = 'checkout.html?product=wallet&amount=' + encodeURIComponent(amount);
 });
 
 /* ---------- החזרה מעמוד התשלום ----------
