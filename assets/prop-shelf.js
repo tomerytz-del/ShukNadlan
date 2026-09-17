@@ -35,8 +35,11 @@
      "שורה אחת" היא הכרטיס המקודם ואחריו PP_MOBILE_ROWS שורות דחוסות.
 
      ‏PP_PAGE הוא רק מה ש"עוד נכסים" מוסיף בכל לחיצה — לא מה שנפתח בהתחלה
-     — כדי שלחיצה אחת תיתן נתח אמיתי ולא עוד ארבעה אריחים. */
-  var PP_PAGE = 12;
+     — כדי שלחיצה אחת תיתן נתח אמיתי ולא עוד ארבעה אריחים.
+
+     עשר ולא שתים־עשרה: המספר שעל הכפתור נקרא כהבטחה ("להצגת 10 תוצאות
+     נוספות"), ומי שסופר/ת כמה הוסיף/ה סופר/ת בעשרות. */
+  var PP_PAGE = 10;
   var PP_MOBILE_ROWS = 2;
   /* שני המקומות הראשונים שמורים לנכסים מקודמים. */
   var PP_PROMOTED = 2;
@@ -243,7 +246,14 @@
           '</select></label>' +
       '</div>' +
       '<div class="pp-grid" data-pp="grid"></div>' +
-      '<div class="pp-more-wrap"><button type="button" class="pp-more" data-pp="more" hidden></button></div>';
+      /* שני כפתורים ולא אחד. "להצגת 10 תוצאות נוספות" מאריך את הרשימה, וכל
+         לחיצה מאריכה אותה עוד — ואחרי שלוש לחיצות המדף הוא מסך וחצי של
+         גלילה בלי שום דרך חזרה חוץ מגלילה ידנית עד לראשו. ‏.pp-less הוא
+         הדרך חזרה, והוא מופיע רק כשיש מה לקפל. */
+      '<div class="pp-more-wrap">' +
+        '<button type="button" class="pp-more" data-pp="more" hidden></button>' +
+        '<button type="button" class="pp-less" data-pp="less" hidden>הצגה מצומצמת</button>' +
+      '</div>';
 
     /* ‏cfg.box — מסגרת אחת סביב הכול (כותרת, תגיות, מיון, גריד וכפתור
        "עוד"). היא נולדה בדף הבית, כשהמדף הפרטי והמדף המסחרי התמזגו למדף
@@ -266,7 +276,8 @@
 
     buildSkeleton(root, cfg);
     var $ = function (name) { return root.querySelector('[data-pp="' + name + '"]'); };
-    var tagsBox = $('tags'), grid = $('grid'), countEl = $('count'), moreBtn = $('more');
+    var tagsBox = $('tags'), grid = $('grid'), countEl = $('count'),
+        moreBtn = $('more'), lessBtn = $('less');
 
     // shown:0 = "מה שנפתח בהתחלה" — שורה אחת, שמחושבת בזמן הציור לפי הרוחב
     // הנוכחי. לחיצה על "עוד נכסים" קובעת מספר מפורש שגדול ממנה.
@@ -573,10 +584,17 @@
         var rest = items.length - shown.length;
         moreBtn.hidden = rest <= 0;
         // המספר על הכפתור הוא מה שהלחיצה תוסיף, ולא הזנב כולו: כפתור
-        // שמבטיח "עוד 62 נכסים" ומוסיף שנים־עשר משקר פעם אחת לכל לחיצה.
+        // שמבטיח "עוד 62 נכסים" ומוסיף עשרה משקר פעם אחת לכל לחיצה.
         var add = Math.min(rest, PP_PAGE);
-        moreBtn.textContent = add === 1 ? 'עוד נכס אחד' : 'עוד ' + add.toLocaleString('he-IL') + ' נכסים';
+        moreBtn.textContent = add === 1
+          ? 'להצגת תוצאה אחת נוספת'
+          : 'להצגת ' + add.toLocaleString('he-IL') + ' תוצאות נוספות';
       }
+
+      /* "הצגה מצומצמת" מופיע רק כשהרשימה באמת התארכה מעבר למה שנפתח
+         מעצמו — כלומר רק אחרי לחיצה על "עוד". כפתור קיפול מתחת למדף שלא
+         נפתח הוא כפתור שלא עושה כלום. */
+      if (lessBtn) lessBtn.hidden = shown.length <= firstPage();
     }
 
     /* כמה אריחים לצייר עכשיו. הרצפה היא ‎cfg.rows‎ שורות מלאות ברוחב
@@ -600,6 +618,21 @@
        הסינון היה משאיר גריד ארוך של תוצאות אחרות. */
     function reset() { state.shown = 0; }
 
+    /* ---------- התגיות הן חיפוש, ולכן מישהו מעליהן צריך לדעת ----------
+       תגיות המדף סיננו עד כה את הגריד בלבד. בדף הבית יש מעליו מפה שמציגה
+       את אותו מלאי בדיוק, והיא נשארה מלאה בפינים של נכסים שהסינון כבר
+       הוריד — כלומר המשתמש/ת סיננ/ה ל"דירות 3 חדרים" וראה/תה מעל זה את כל
+       המלאי. ‏cfg.onFilter מוסר את הרשימה המסוננת למי שהרכיב את המדף, והוא
+       מחליט מה לעשות איתה; מדף שלא מסר onFilter (דף המשרד, דף הסוכן/ת)
+       מתנהג בדיוק כמו קודם.
+
+       ‏filtered=false אינו "רשימה ריקה" אלא "אין סינון" — זה מה שמחזיר את
+       המפה למה שהיה לפני התגיות במקום לצייר עליה את כל המלאי כתוצאת חיפוש. */
+    function notifyFilter() {
+      if (typeof cfg.onFilter !== 'function') return;
+      cfg.onFilter(ordered(), state.tags.size > 0);
+    }
+
     // המאזינים נקשרים פעם אחת לקונטיינרים שנבנו כאן, ולא לכפתורים שנבנים
     // מחדש בכל ציור.
     if (tagsBox) tagsBox.addEventListener('click', function (e) {
@@ -615,6 +648,7 @@
       reset();
       renderTags();
       renderGrid();
+      notifyFilter();
     });
 
     var sortEl = $('sort');
@@ -627,6 +661,16 @@
     if (moreBtn) moreBtn.addEventListener('click', function () {
       state.shown = limit() + PP_PAGE;
       renderGrid();
+    });
+
+    /* קיפול חזרה למה שנפתח מעצמו. הגלילה אל ראש המדף היא חלק מהפעולה ולא
+       תוספת: אחרי שלוש לחיצות על "עוד" הכפתור נמצא מסך וחצי מתחת לכותרת,
+       והקיפול לבדו היה משאיר את העין בתוך פוטר העמוד בלי שום הקשר.
+       ‏block:'start' ולא scrollTop — המדף יושב בתוך הזרימה הרגילה של העמוד. */
+    if (lessBtn) lessBtn.addEventListener('click', function () {
+      reset();
+      renderGrid();
+      root.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 
     /* חצייה של נקודת שבירה (סיבוב מכשיר, שינוי גודל חלון) מציירת מחדש: גם
@@ -644,6 +688,11 @@
         buildTags();
         renderTags();
         renderGrid();
+        /* מלאי שנחת אחרי שכבר נבחרה תגית (המסחריים מגיעים משאילתה שנייה
+           ולא מסונכרנת) משנה את הרשימה המסוננת, ולכן מי שמאזין לה חייב
+           לקבל אותה מחדש. בלי סינון פעיל אין מה לעדכן — המפה מציגה ממילא
+           את מה שהחיפוש החזיר לה. */
+        if (state.tags.size) notifyFilter();
       },
       /* תגית "הדמיית AI" מגיעה בשאילתה שנייה שלא מעכבת את ההצגה הראשונה,
          ולכן היא נמסרת בנפרד ומציירת מחדש רק את מה שכבר על המסך. */
@@ -662,6 +711,7 @@
           reset();
           renderTags();
           renderGrid();
+          notifyFilter();
           return true;
         }
         if (!byKey.has(key)) return false;
@@ -669,6 +719,7 @@
         reset();
         renderTags();
         renderGrid();
+        notifyFilter();
         return true;
       },
       /* המדף הפרטי והמסחרי חולקים את כפתורי "עוד" והתגיות, אבל העמוד
