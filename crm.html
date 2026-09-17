@@ -1599,6 +1599,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       top:calc(100% + 12px);inset-inline:12px;width:auto;max-width:none;
     }
     #dashboard .bell-panel{max-height:min(70vh,420px)}
+    /* תפריט הבורגר הוא היוצא מן הכלל מבין השלושה: פאנל ההתראות והפרופיל
+       מחזיקים טקסט שצריך רוחב, והבורגר מחזיק רשימת יעדים קצרים. ברוחב מלא
+       כל שורה בו הפכה לפס נייבי מקצה לקצה של המסך, וארבעה פסים כאלה נקראו
+       כמו מסך נוסף ולא כמו תפריט שנפתח. חצי רוחב, נעוץ מתחת לכפתור עצמו,
+       מחזיר אותו להיות תפריט נפתח. ‏18px הם ה-padding של ‎.dash-wrap‎, ולכן
+       הקצה ה-inline-start של הפאנל (הימני ב-RTL) יוצא בדיוק על קצה הבורגר.
+       הפריטים מתהדקים בהתאם כדי שתווית ארוכה לא תיחתך. */
+    #dashboard #menuPanel{
+      inset-inline:auto;inset-inline-start:18px;
+      width:min(50vw,240px);max-width:calc(100vw - 36px);
+    }
+    #dashboard #menuPanel .menu-item{padding:10px 8px;gap:8px}
+    #dashboard #menuPanel .menu-gtoggle{padding:11px 8px;gap:8px}
   }
 
   /* ---------- תפריט הבורגר ----------
