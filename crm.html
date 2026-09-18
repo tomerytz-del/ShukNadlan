@@ -1599,6 +1599,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       top:calc(100% + 12px);inset-inline:12px;width:auto;max-width:none;
     }
     #dashboard .bell-panel{max-height:min(70vh,420px)}
+    /* תפריט הבורגר הוא היוצא מן הכלל מבין השלושה: פאנל ההתראות והפרופיל
+       מחזיקים טקסט שצריך רוחב, והבורגר מחזיק רשימת יעדים קצרים. ברוחב מלא
+       כל שורה בו הפכה לפס נייבי מקצה לקצה של המסך, וארבעה פסים כאלה נקראו
+       כמו מסך נוסף ולא כמו תפריט שנפתח. חצי רוחב, נעוץ מתחת לכפתור עצמו,
+       מחזיר אותו להיות תפריט נפתח. ‏18px הם ה-padding של ‎.dash-wrap‎, ולכן
+       הקצה ה-inline-start של הפאנל (הימני ב-RTL) יוצא בדיוק על קצה הבורגר.
+       הפריטים מתהדקים בהתאם כדי שתווית ארוכה לא תיחתך. */
+    #dashboard #menuPanel{
+      inset-inline:auto;inset-inline-start:18px;
+      width:min(50vw,240px);max-width:calc(100vw - 36px);
+    }
+    #dashboard #menuPanel .menu-item{padding:10px 8px;gap:8px}
+    #dashboard #menuPanel .menu-gtoggle{padding:11px 8px;gap:8px}
   }
 
   /* ---------- תפריט הבורגר ----------
@@ -1751,6 +1764,67 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background:var(--surface-2);border-radius:999px;padding:2px 8px;
   }
   .sn-count.is-hot{background:#dc2626;color:#fff}
+
+  /* ==========================================================================
+     מדריך ההתחלה
+     --------------------------------------------------------------------------
+     הכרטיס היחיד בדשבורד שמטרתו להיעלם. הוא יושב מעל הכול כי הוא מוצג רק
+     למי שאין לו/ה עדיין כלום למטה — לא נכסים, לא לקוחות, לא מספרים — ומרגע
+     שכל הצעדים נסגרו הוא לא חוזר.
+
+     הצעד הפתוח הבא הוא היחיד שנראה כמו משימה: רקע נייבי בהיר, כותרת מודגשת
+     וכפתור פעולה. הצעדים שאחריו קיימים אבל שקטים, וזה בכוונה — רשימה שכל
+     שורה בה צועקת היא רשימה שאי אפשר לדעת איפה מתחילים בה.
+     ========================================================================== */
+  .onb{
+    border:1px solid var(--edge);border-radius:var(--r-lg);background:var(--surface);
+    box-shadow:var(--sh-1);overflow:hidden;margin-bottom:14px;
+  }
+  .onb[hidden]{display:none}
+  .onb-head{
+    display:flex;align-items:center;gap:10px;padding:11px 14px;
+    background:linear-gradient(135deg,var(--navy-2),var(--navy));color:#fff;
+  }
+  .onb-head h2{
+    font-family:'Frank Ruhl Libre',serif;font-size:1rem;font-weight:700;color:#fff;
+    margin:0;flex:1;min-width:0;
+  }
+  .onb-prog{
+    flex:none;font-size:.7rem;font-weight:800;color:#fff;
+    background:rgba(255,255,255,.2);border-radius:999px;padding:3px 10px;
+  }
+  .onb-x{
+    flex:none;background:transparent;color:rgba(255,255,255,.82);
+    font-size:.95rem;line-height:1;padding:5px 7px;border-radius:8px;
+  }
+  .onb-x:hover{background:rgba(255,255,255,.16);color:#fff}
+  .onb-x:focus-visible{outline:2px solid #fff;outline-offset:-2px}
+  .onb-sub{font-size:.78rem;color:var(--txt-soft);line-height:1.5;margin:0;padding:11px 14px 0}
+  .onb-list{list-style:none;margin:0;padding:11px 14px 14px;display:flex;flex-direction:column;gap:8px}
+  .onb-step{
+    display:flex;align-items:flex-start;gap:10px;padding:10px 11px;
+    border:1px solid var(--edge);border-radius:var(--r-xs);background:var(--surface-2);
+  }
+  /* הצעד הפתוח הבא — היחיד עם כפתור, ולכן היחיד עם צבע */
+  .onb-step.is-now{background:var(--navy-tint);border-color:#cadcee}
+  .onb-step.is-done{background:var(--surface);border-style:dashed}
+  .onb-mark{
+    flex:none;width:22px;height:22px;border-radius:50%;display:flex;
+    align-items:center;justify-content:center;font-size:.72rem;font-weight:800;
+    background:var(--surface);border:1.5px solid var(--edge);color:var(--txt-faint);
+  }
+  .onb-step.is-now .onb-mark{background:var(--navy);border-color:var(--navy);color:#fff}
+  .onb-step.is-done .onb-mark{background:var(--mint);border-color:var(--mint);color:#fff}
+  .onb-body{min-width:0;flex:1}
+  .onb-name{font-size:.85rem;font-weight:700;color:var(--txt)}
+  .onb-step.is-done .onb-name{color:var(--txt-soft);text-decoration:line-through}
+  .onb-text{font-size:.75rem;color:var(--txt-soft);line-height:1.5;margin:3px 0 0}
+  .onb-go{
+    margin-top:9px;background:var(--navy);color:#fff;border-radius:var(--r-xs);
+    padding:8px 14px;font-size:.8rem;font-weight:700;
+  }
+  .onb-go:hover{background:var(--navy-2)}
+  .onb-go:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
 
   /* ---------- ברכה ---------- */
   .dash-greet{
@@ -3416,6 +3490,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <span class="ps-text"><b id="promoStripTitle"></b><span id="promoStripSub"></span></span>
         <span class="ps-cta" aria-hidden="true">←</span>
       </a>
+
+      <!-- ---------- מדריך ההתחלה ----------
+           ששת הצעדים הראשונים של סוכן/ת חדש/ה במסלול PROFESSIONAL ומעלה,
+           ורק שלהם: המצב מגיע מ-agent_onboarding_state() במסד, שמחזירה אפס
+           שורות לכל מי שאינו/ה בתוך המדריך — ותיק/ה, מסלול Pay&GO, או מי
+           שסגר/ה אותו. ראו docs/agent-onboarding.md.
+
+           מחוץ ל-#overviewBlock, כמו רצועת ההטבה: המדריך אינו חלק מתמונת
+           המצב אלא מה שמוביל אליה, ולכן הוא עומד גם בלשוניות האחרות של
+           הסרגל התחתון — שאצל מי שרואה אותו ריקות ממילא. -->
+      <section class="onb" id="onbGuide" hidden aria-labelledby="onbTitle">
+        <div class="onb-head">
+          <h2 id="onbTitle">מדריך ההתחלה</h2>
+          <span class="onb-prog" id="onbProgress"></span>
+          <button type="button" class="onb-x" id="onbDismiss" aria-label="הסתרת מדריך ההתחלה" title="הסתרת המדריך">✕</button>
+        </div>
+        <p class="onb-sub" id="onbSub"></p>
+        <ol class="onb-list" id="onbList"></ol>
+      </section>
 
       <!-- ==========================================================
            "ראשי" — תמונת המצב
@@ -7081,6 +7174,9 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   document.getElementById('agentAgency').textContent = agencyName;
   renderTierBadge(agent);
   renderPromoStrip(agent);
+  // מדריך ההתחלה ברקע: הוא מוצג רק למיעוט (סוכן/ת חדש/ה במסלול mid ומעלה),
+  // ואין סיבה שכל השאר יחכו לקריאה שתחזיר להם אפס שורות.
+  loadOnboarding().catch(err => console.warn('טעינת מדריך ההתחלה נכשלה:', err));
   setAgentBalance(agent.credit_balance);
 
   // מצב הסליקה והחזרה מעמוד התשלום — שניהם ברקע. הראשון רק צובע טקסט,
@@ -9769,6 +9865,8 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
       ? 'הפרטים נשמרו — דף הסוכן/ת שלך מעודכן.'
       : 'הפרטים נשמרו, אך מספר הרישיון לא עודכן — פנו להנהלת הפלטפורמה.';
     showToast('פרטי הסוכן/ת עודכנו');
+    // צעד התמונות במדריך ההתחלה עשוי להיסגר בשמירה הזו
+    refreshOnboarding();
   } catch(err){
     console.error('profile save failed', err);
     feedback.style.color = 'var(--wine)';
@@ -9915,6 +10013,200 @@ function renderPromoStrip(agent){
     : 'כל היכולות פתוחות, בלי תשלום. לפירוט המסלולים ←';
   strip.hidden = false;
 }
+
+/* ==========================================================================
+   מדריך ההתחלה
+   --------------------------------------------------------------------------
+   סוכן/ת חדש/ה במסלול PROFESSIONAL ומעלה נוחת/ת על דשבורד מלא ביכולות שכולן
+   מחכות שיחפשו אותן. ששת הצעדים כאן הם הסדר שבו הן מתחילות לעבוד, והוא
+   השרשרת העסקית עצמה — מלאי, התחייבות, ומאיפה מגיע הלקוח/ה הבא/ה:
+
+     1. העוזר בוואטסאפ — משם נפתחים נכסים ולקוחות מהטלפון
+     2. תמונת פרופיל ותמונת נושא (ולמנהל/ת משרד — גם לוגו ותמונת נושא למשרד)
+     3. הנכס הראשון
+     4. הלקוח/ה הראשון/ה
+     5. ההסכם הראשון
+     6. הליד הראשון מחנות הלידים
+
+   **המצב אינו נשמר כאן ואינו נשמר כצ׳קליסט.** ‏agent_onboarding_state()
+   מחשבת אותו במסד מהמציאות בכל קריאה — יש שיחה בוואטסאפ? יש photo_url? יש
+   נכס? — ולכן צעד שנסגר מחוץ לדשבורד נסגר גם בכרטיס. זה לא ניואנס: הצעד
+   הראשון הוא בדיוק הכלי שבו נפתח לא פעם הנכס הראשון, וכרטיס שמסמן "בוצע"
+   רק על מה שנעשה בטופס היה מדווח שקר לכל מי שעשה/תה בדיוק מה שביקשנו.
+
+   ארבעת הצעדים האחרונים מקבלים גם דרבון בפעמון (‏onboarding_property,
+   ‏onboarding_client, ‏onboarding_agreement, ‏onboarding_lead) — טריגרים
+   במסד, שכל אחד מהם נולד ברגע שהצעד שלפניו נסגר. הכרטיס הוא ההכוונה;
+   ההתראה היא מה שמגיע גם למי שסגר/ה את הדשבורד.
+
+   ראו docs/agent-onboarding.md.
+   ========================================================================== */
+
+/* ‏done נקרא מהשורה שהמסד החזיר, ולא מחושב כאן שוב: תנאי משוכפל בין שרת
+   לדפדפן מתפצל, ואז ההתראה יוצאת בזמן שהכרטיס עוד מציג את הצעד כפתוח. */
+const ONBOARD_STEPS = [
+  { key:'whatsapp', name:'חיבור העוזר האישי בוואטסאפ',
+    text:'שומרים את מספר הוואטסאפ שלכם ושולחים לעוזר הודעה ראשונה. משם אפשר להעלות נכס, לשלוח תמונות של דירה או להקליט הודעה — בלי לפתוח את המחשב.',
+    cta:'לחיבור העוזר',
+    done: s => s.whatsapp_done,
+    run:  ()=> gotoSection('accWhatsapp', 'waPhone') },
+  { key:'profile', name:'תמונת פרופיל ותמונת נושא',
+    text:'זה מה שלקוח/ה רואה בדף הסוכן/ת שלכם ובכל נכס שתפרסמו. דף בלי תמונות נראה כמו כרטיס שלא הושלם.',
+    cta:'לעדכון הפרופיל',
+    done: s => s.profile_done,
+    run:  ()=> gotoSection('accProfile') },
+  /* צעד של מנהל/ת משרד בלבד — לסוכן/ת בצוות אין דף משרד לערוך, ושורה
+     שאי אפשר לסגור אותה היא מדריך שלא נגמר לעולם. */
+  { key:'agency', name:'לוגו ותמונת נושא לדף המשרד',
+    text:'דף המשרד הוא הכותרת שמעל כל הצוות שלכם. הלוגו ותמונת הנושא נכנסים אליו ולכל דפי הסוכנים שתחתיו.',
+    cta:'לעיצוב דף המשרד',
+    when: s => s.is_manager,
+    done: s => s.agency_done,
+    run:  ()=> gotoSection('accBranding') },
+  { key:'property', name:'הנכס הראשון',
+    text:'מודעה אחת פותחת את כל השאר: היא נכנסת למדפים באתר, מוצלבת מול קובץ הלקוחות, ומזינה את המדדים במסך הזה.',
+    cta:'הוספת נכס',
+    done: s => s.property_done,
+    run:  ()=> openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty') },
+  { key:'client', name:'הלקוח/ה הראשון/ה בקובץ',
+    text:'קובץ הלקוחות הוא מה שמפעיל את ההתאמות: כל נכס חדש שנכנס — שלכם או של משרד שותף — נבדק מולו אוטומטית.',
+    cta:'הוספת לקוח/ה',
+    done: s => s.client_done,
+    run:  ()=> openInlineForm('accClients', 'addClientForm', 'toggleAddClient') },
+  /* אשף ההחתמה ולא ניווט לקטגוריה: הסכם נוצר בתוכו, והוא ממלא את עצמו
+     מהנכס ומהלקוח/ה שכבר במערכת — כלומר משני הצעדים שמעליו. */
+  { key:'agreement', name:'ההסכם הראשון',
+    text:'הזמנת שירותי תיווך היא מה שהופך נכס ולקוח/ה לעמלה. האשף ממלא את המסמך מהפרטים שכבר במערכת, ושולח לחתימה בקישור.',
+    cta:'יצירת הסכם',
+    done: s => s.agreement_done,
+    run:  ()=> openAgreementWizard() },
+  { key:'lead', name:'הליד הראשון מחנות הלידים',
+    text:'מאיפה מגיע הלקוח/ה הבא/ה: לידי בעל-נכס, מחפשי דירה ולידי משכנתא לפי אזורי הפעילות שלך. במסלול שלך רובם כלולים במנוי.',
+    cta:'לחנות הלידים',
+    done: s => s.lead_done,
+    run:  ()=> gotoSection('accLeadShelf') },
+];
+
+/* השורה שהמסד החזיר, או null כשאין מדריך. משמש גם את NOTIF_TYPES: תיבות
+   הסימון של ארבע התראות הדרבון מוצגות ב"ניהול התראות" רק כל עוד המדריך חי. */
+let onboardState = null;
+let onboardLastLoad = 0;
+
+function onboardingLive(){ return !!onboardState; }
+
+async function loadOnboarding(){
+  const box = document.getElementById('onbGuide');
+  if (!box) return;
+  onboardLastLoad = Date.now();
+  try{
+    const { data, error } = await sb.rpc('agent_onboarding_state');
+    if (error) throw error;
+    onboardState = (Array.isArray(data) ? data[0] : data) || null;
+    renderOnboarding();
+  } catch(err){
+    // ‏Netlify מפרסם את ה-HTML תוך שניות, והמיגרציה רצה ב-Actions — יש חלון
+    // של דקות שבו הפונקציה עוד לא קיימת. הכרטיס פשוט לא מוצג, כמו שאר
+    // היכולות שנשענות על מיגרציה טרייה (ראו loadDashboard).
+    console.warn('מדריך ההתחלה אינו זמין:', err);
+    onboardState = null;
+    box.hidden = true;
+  }
+}
+
+/* מה שנקרא אחרי שמירה שעשויה לסגור צעד. שתי קריאות ולא אחת: הדרבון על הצעד
+   הבא נולד בטריגר במסד **באותה שמירה**, והפעמון נטען בכניסה לדשבורד בלבד —
+   בלי הרענון כאן ההתראה שמעודדת את הצעד הבא הייתה מופיעה רק בטעינה הבאה,
+   כלומר בדיוק לא ברגע שבו היא רלוונטית. שתיהן קורות רק בזמן המדריך. */
+function refreshOnboarding(){
+  if (!onboardingLive()) return;
+  loadOnboarding();
+  if (currentAgent) loadNotifications(currentAgent.id);
+}
+
+function renderOnboarding(){
+  const box = document.getElementById('onbGuide');
+  if (!box) return;
+  const state = onboardState;
+  if (!state){ box.hidden = true; return; }
+
+  const steps = ONBOARD_STEPS.filter(s => !s.when || s.when(state));
+  const doneCount = steps.filter(s => s.done(state)).length;
+  const list = document.getElementById('onbList');
+  const sub  = document.getElementById('onbSub');
+  const prog = document.getElementById('onbProgress');
+
+  // ‏just_finished מגיע מהקריאה שסגרה את המדריך, והיא היחידה — בקריאה הבאה
+  // הפונקציה כבר מחזירה אפס שורות. זה בדיוק אורך החיים הנכון של "סיימת".
+  if (state.just_finished){
+    document.getElementById('onbTitle').textContent = 'סיימת את מדריך ההתחלה';
+    prog.textContent = '✓';
+    sub.textContent = 'העוזר מחובר, הפרופיל מוצג, יש נכס, יש לקוח/ה, נוצר הסכם ונרכש ליד. מכאן זה המסך הרגיל שלך — והמדריך לא יחזור.';
+    list.innerHTML = '';
+    box.hidden = false;
+    return;
+  }
+
+  document.getElementById('onbTitle').textContent = 'מדריך ההתחלה';
+  prog.textContent = doneCount + ' מתוך ' + steps.length;
+  // מספר הצעדים נגזר מהרשימה ולא נכתב במילים: למנהל/ת משרד יש צעד נוסף
+  // (דף המשרד), וטקסט שאומר "ארבעה" מול חמש שורות הוא טקסט שלא נקרא שוב
+  // אחרי שנכתב.
+  sub.textContent = doneCount
+    ? 'נשאר לסגור את מה שמסומן למטה. אפשר בכל סדר.'
+    : steps.length + ' צעדים קצרים שהופכים את החשבון החדש למשרד עובד.';
+
+  // הצעד הפתוח הראשון הוא היחיד שמקבל כפתור: מדריך שכל שורה בו מציעה פעולה
+  // הוא רשימה, ורשימה לא אומרת במה מתחילים.
+  const nextKey = (steps.find(s => !s.done(state)) || {}).key;
+
+  list.innerHTML = '';
+  steps.forEach((step, i)=>{
+    const isDone = step.done(state);
+    const isNow  = step.key === nextKey;
+    const li = document.createElement('li');
+    li.className = 'onb-step' + (isDone ? ' is-done' : isNow ? ' is-now' : '');
+    li.innerHTML =
+      '<span class="onb-mark" aria-hidden="true">' + (isDone ? '✓' : String(i + 1)) + '</span>'
+      + '<div class="onb-body">'
+      +   '<div class="onb-name">' + esc(step.name) + '</div>'
+      +   (isDone ? '' : '<p class="onb-text">' + esc(step.text) + '</p>')
+      + '</div>';
+    if (isNow){
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'onb-go';
+      btn.textContent = step.cta;
+      btn.addEventListener('click', ()=> step.run());
+      li.querySelector('.onb-body').appendChild(btn);
+    }
+    list.appendChild(li);
+  });
+  box.hidden = false;
+}
+
+/* הסתרה היא בקשה להפסיק, ולא רק להעלים כרטיס: אותה חותמת במסד סוגרת גם את
+   ארבע התראות הדרבון. לכן היא נאמרת במפורש בשאלה. */
+document.getElementById('onbDismiss').addEventListener('click', async ()=>{
+  if (!confirm('להסתיר את מדריך ההתחלה? גם ההתראות שמזכירות את הצעדים הבאים ייפסקו.')) return;
+  try{
+    const { error } = await sb.rpc('agent_onboarding_dismiss');
+    if (error) throw error;
+  } catch(err){
+    console.warn('הסתרת מדריך ההתחלה נכשלה:', err);
+  }
+  onboardState = null;
+  document.getElementById('onbGuide').hidden = true;
+});
+
+/* הצעד הראשון נסגר **מחוץ לדף הזה** — בשיחה בוואטסאפ — ולכן החזרה ללשונית
+   היא הרגע שבו כדאי לשאול שוב. החניקה ל-15 שניות היא כדי שמעבר בין
+   לשוניות לא יהפוך לקריאה בכל החלפה. */
+document.addEventListener('visibilitychange', ()=>{
+  if (document.visibilityState !== 'visible') return;
+  if (!onboardingLive() || !currentAgent) return;
+  if (Date.now() - onboardLastLoad < 15000) return;
+  loadOnboarding();
+});
 
 /* ---------- שער הבחירה ----------
    מוצג בשני רגעים, ורק בהם: בכניסה הראשונה (המסלול הגיע מההטבה ואיש לא
@@ -12174,6 +12466,7 @@ document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
     feedback.style.color = 'var(--teal)';
     feedback.textContent = 'המיתוג נשמר — דף המשרד מעודכן.';
     showToast('המיתוג של המשרד עודכן');
+    refreshOnboarding();
   } catch(err){
     console.error('branding save failed', err);
     feedback.style.color = 'var(--brick)';
@@ -14418,6 +14711,8 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   // הנכס שזה עתה פורסם עשוי להתאים ללקוח/ה בקובץ שלך — הטריגר כבר פתח את
   // ההתראה, וכאן היא נשלפת בלי שיהיה צורך לרענן את העמוד
   await loadClientAlerts();
+  // ואותו נכס עשוי להיות הראשון, ולסגור צעד במדריך ההתחלה
+  refreshOnboarding();
   setTimeout(()=>{
     addForm.style.display='none';
     toggleBtn.textContent='+ הוספת נכס חדש';
@@ -20675,6 +20970,8 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     return;
   }
   showToast(editingClientId ? 'הלקוח/ה עודכן/ה' : 'הלקוח/ה נוסף/ה — מחפשים התאמות');
+  // הצעד האחרון במדריך ההתחלה, וזה גם הרגע שבו המדריך כולו נסגר
+  if (!editingClientId) refreshOnboarding();
   resetClientForm();
   document.getElementById('addClientForm').style.display = 'none';
   await loadClients();
@@ -21036,6 +21333,27 @@ const NOTIF_TYPES = [
     title:'הסכם שנחתם מרחוק',
     sub:'לקוח/ה חתם/ה בקישור שנשלח אליו/ה. חתימה במעמדך אינה מצלצלת — ראית אותה קורית.',
     refresh: ()=> loadAgreements() },
+  /* ארבעת הדרבונים של מדריך ההתחלה. סוג לכל צעד ולא אחד, כי הניתוב בלחיצה נגזר
+     מהסוג, וכל אחד מוביל למקום אחר. ‏when() מוריד אותם מ"ניהול התראות" ברגע
+     שהמדריך נסגר: ארבע תיבות סימון לצמיתות, עבור ארבע הודעות שיוצאות פעם
+     אחת בחיים, הן רעש. הניתוב עצמו לא תלוי ב-when ולכן ממשיך לעבוד גם
+     אחר כך, על התראה שעדיין יושבת בפעמון. */
+  { type:'onboarding_property', tone:'', goto:'accProperties', focus:'#propertiesList',
+    title:'מדריך ההתחלה — הנכס הראשון',
+    sub:'דרבון חד-פעמי אחרי שהפרופיל הושלם, כל עוד אין עדיין נכס.',
+    when: ()=> onboardingLive() },
+  { type:'onboarding_client', tone:'', goto:'accClients', focus:'#clientsList',
+    title:'מדריך ההתחלה — הלקוח/ה הראשון/ה',
+    sub:'דרבון חד-פעמי אחרי הנכס הראשון, כל עוד קובץ הלקוחות ריק.',
+    when: ()=> onboardingLive() },
+  { type:'onboarding_agreement', tone:'', goto:'accAgreements', focus:'#agreementsList',
+    title:'מדריך ההתחלה — ההסכם הראשון',
+    sub:'דרבון חד-פעמי כשיש כבר נכס ולקוח/ה, וטרם נוצרה הזמנת שירותי תיווך.',
+    when: ()=> onboardingLive() },
+  { type:'onboarding_lead', tone:'', goto:'accLeadShelf', focus:'#shelfTabs',
+    title:'מדריך ההתחלה — הליד הראשון',
+    sub:'דרבון חד-פעמי אחרי ההסכם הראשון, כל עוד לא נרכש ליד מחנות הלידים.',
+    when: ()=> onboardingLive() },
   { type:'system',         tone:'',       goto:'accSharedWithMe', focus:'#sharedWithMeList',
     title:'שיתופי נכסים ועדכוני מערכת',
     sub:'נכס שמשרד שותף פתח לשיתוף פעולה, והודעות מערכת כלליות.' },
@@ -24884,6 +25202,9 @@ async function agrSaveAndGoSign(btn){
     w.agreementId = agreementId;
     await loadAgreements();
     await agrRefreshWizardRecord();
+    // ההסכם הראשון סוגר צעד במדריך ההתחלה, והטריגר במסד פתח באותו רגע את
+    // הדרבון על חנות הלידים
+    refreshOnboarding();
     w.step = 4;
     agrRender();
   } catch(err){
