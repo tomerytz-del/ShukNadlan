@@ -101,6 +101,12 @@ python scripts/check_gtm.py
 הרשימה המלאה, הפרמטרים של כל אירוע, ומה צריך להגדיר ב-GTM כדי שהם יגיעו
 בכלל: **`docs/analytics-events.md`**.
 
+לאירועי ההתקנה של האפליקציה (‏PWA) יש קובץ ייבוא מוכן —
+**`docs/gtm-pwa-import.json`** — שמוסיף את ששת הטריגרים, שש תגיות ה-GA4
+ושלושת משתני ה-Data Layer בבת אחת: ‏**Admin ← Import Container ← Merge ←
+Rename conflicting tags** (‏*לא* Overwrite). ההוראות המלאות, והנוסח
+להגדרה ידנית אם הייבוא נדחה: **`docs/pwa-install.md`**.
+
 ## הפיקסל של Meta
 
 באותה מכולה, כתגית נפרדת: **‏Meta Pixel `1844258613237835`**, מתבנית
