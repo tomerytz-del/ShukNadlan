@@ -146,6 +146,11 @@
           'apikey': SUPABASE_ANON_KEY,
           'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
           'Content-Type': 'application/json',
+          /* ‏**return=minimal אינו אופטימיזציה — הכתיבה תלויה בו.** לתפקיד
+             ‏anon יש הרשאת insert על הטבלה ותו לא (ראו המיגרציה
+             ‏20261125090000). ‏return=representation היה גורם ל-PostgREST
+             להוסיף ‎returning‎, שדורש הרשאת select — וכל הכתיבה הייתה
+             נכשלת ב-401. */
           'Prefer': 'return=minimal'
         },
         body: JSON.stringify({
