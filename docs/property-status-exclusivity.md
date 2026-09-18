@@ -203,6 +203,6 @@ insert properties (status='unpublished')
 
 ## קבצים
 
-- `supabase/migrations/20261124090000_property_status_dedupe_exclusivity.sql`
+- `supabase/migrations/20261126090000_property_status_dedupe_exclusivity.sql`
 - `crm.html` — בלוק הסטטוס, `#blockModal`, זרימת היצירה הדו-שלבית
 - `docs/client-agreements.md` — אשף ההסכמים שממנו מגיעה הבלעדיות
