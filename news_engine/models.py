@@ -63,7 +63,10 @@ class NewsAnalysis(BaseModel):
         "בפורמט YYYY-MM."
     )
     reasoning: Optional[str] = Field(
-        default=None, description="משפט קצר שמסביר את הסיווג ואת הציון (לתחקור פנימי)."
+        default=None,
+        description="משפט אחד קצר, עד 20 מילים, שמסביר את הסיווג ואת הציון "
+        "(לתחקור פנימי). זה השדה האחרון, ולכן הוא זה שנחתך כשהתשובה "
+        "מגיעה לתקרת הטוקנים — אל תרחיב בו.",
     )
 
 
