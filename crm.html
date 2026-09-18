@@ -727,6 +727,46 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* נכס שאינו פעיל מקבל תגית אפורה — צבע שמור למה שחי באתר עכשיו */
   .status-pill.status-off{background:#E4E1D2;color:#6B6450}
 
+  /* ---------- בלוק הסטטוס של הנכס ----------
+     "האם המודעה באוויר" היא השאלה הראשונה שנשאלת על כל נכס, והתשובה לה
+     הייתה עד כה גלולה קטנה בפינה — בזמן שהפעולה שמשנה אותה ישבה בתחתית
+     הכרטיס ("סמן כנמכר") או לא הייתה קיימת בכלל ("ירד מפרסום").
+
+     לכן הבלוק הזה יושב **ראשון** בכרטיס וגם בראש טופס העריכה: מסגרת
+     משלו, מצב נוכחי באותיות גדולות, ושורת המצבים שאפשר לעבור אליהם.
+     המצב הנוכחי מסומן ואינו לחיץ — כפתור שלוחצים עליו ולא קורה כלום הוא
+     כפתור שבור.
+
+     המחיקה יושבת באותה שורה ומסומנת באדום, כי היא באמת אחת מהאפשרויות —
+     אבל היא הפעולה היחידה כאן שאין ממנה דרך חזרה, ולכן היא גם היחידה
+     שעוברת שני אישורים. */
+  .prop-status-panel{
+    border:1.5px solid var(--line);border-radius:14px;background:#FBFAF5;
+    padding:12px 13px;margin-bottom:12px;
+  }
+  .prop-status-panel.psp-live{border-color:rgba(13,122,104,.45);background:var(--teal-tint)}
+  .prop-status-panel.psp-blocked{border-color:rgba(200,16,46,.4);background:#FDF3F4}
+  .psp-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .psp-label{font-size:.68rem;font-weight:800;letter-spacing:.04em;color:var(--ink-soft)}
+  .psp-now{font-size:.95rem;font-weight:800;color:var(--ink)}
+  .prop-status-panel.psp-live .psp-now{color:var(--teal)}
+  .psp-note{font-size:.74rem;line-height:1.5;color:var(--ink-soft);margin-top:6px}
+  .psp-note.psp-warn{color:#9C0C24;font-weight:700}
+  .psp-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+  .psp-btn{
+    flex:1 1 auto;min-width:104px;padding:9px 10px;border-radius:10px;cursor:pointer;
+    border:1.5px solid var(--line);background:#fff;color:var(--ink);
+    font-family:inherit;font-size:.78rem;font-weight:700;line-height:1.2;text-align:center;
+    transition:transform .12s ease,box-shadow .12s ease;
+  }
+  .psp-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 3px 10px rgba(15,52,53,.12)}
+  .psp-btn:disabled{opacity:.55;cursor:not-allowed}
+  .psp-btn.is-current{background:var(--teal);border-color:var(--teal);color:#fff;cursor:default}
+  .psp-btn.is-current:hover{transform:none;box-shadow:none}
+  .psp-btn.psp-danger{border-color:rgba(200,16,46,.45);color:#9C0C24}
+  .psp-btn.psp-danger:hover:not(:disabled){background:#FDECEE}
+  .psp-btn.psp-claim{background:#2A5B36;border-color:#2A5B36;color:#EAF4EC}
+
   /* רשת פעולות: auto-fit נותן שתי עמודות בטלפון וארבע בדסקטופ, בלי media
      query — הכפתורים תמיד מתיישרים לרשת במקום להיערם בקצוות שונים.
      ‏act-wide שמור לפעולה הראשית (סימון עסקה / שת"פ / רכישה), ברוחב מלא. */
@@ -3804,6 +3844,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
     <form id="addPropertyForm" class="card" style="display:none;padding:18px;margin-bottom:18px">
+      <!-- בלוק הסטטוס — ראשון בטופס, ורק בעריכת נכס קיים. נכס חדש עדיין
+           אין לו סטטוס לשנות, וכפתור "ירד מפרסום" לפני שהמודעה נוצרה הוא
+           שאלה בלי משמעות. נבנה ב-renderPropertyStatusPanel(). -->
+      <div id="npStatusPanel" hidden></div>
+
       <div class="field"><label>כותרת</label><input type="text" id="npTitle" required placeholder="לדוגמה: דירת 3 חדרים, שכונת רמת דוד"></div>
 
       <div class="field"><label>קטגוריה</label>
@@ -4059,10 +4104,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="toolbar-row">
         <select id="propStatusFilter" class="filter-input" aria-label="סינון לפי סטטוס">
           <option value="">כל הסטטוסים</option>
-          <option value="active">פעיל</option>
+          <option value="active">מפורסם</option>
+          <option value="unpublished">ירד מפרסום</option>
           <option value="sold">נמכר</option>
           <option value="rented">הושכר</option>
-          <option value="archived">הוסר</option>
+          <option value="archived">בארכיון</option>
         </select>
         <select id="propDealFilter" class="filter-input" aria-label="סינון לפי סוג עסקה">
           <option value="">מכירה והשכרה</option>
@@ -5744,6 +5790,33 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <button type="button" class="btn btn-gold" id="dupRestore">↩ החזרה לפרסום ועדכון</button>
       <button type="button" class="btn btn-ghost" id="dupNew">פרסום כנכס חדש</button>
       <button type="button" class="btn btn-ghost dup-cancel" id="dupCancel">ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- ====== הנכס כבר קיים במערכת אצל מישהו אחר ======
+     ‏dupModal מעל מדבר על כפילות אצל הסוכן/ת עצמו/ה, ואפשר לפתור אותה
+     בעדכון המודעה הקיימת. כאן המודעה הקיימת שייכת למישהו אחר — אין לסוכן/ת
+     גישה אליה, ואי אפשר "לעדכן" אותה.
+
+     שתי האפשרויות היחידות הן לוותר, או לשמור את הנכס אצלנו **בלי לפרסם**
+     ולהחתים בלעדיות. הנכס חייב להיות קיים במערכת כדי שאפשר יהיה להחתים
+     עליו בלעדיות (אשף ההסכמים דורש property_id), ולכן "שמירה בלי פרסום"
+     היא לא פשרה אלא הצעד הראשון בדרך הנכונה.
+
+     מה שלא מוצג כאן: מתי הבלעדיות של האחר/ת נגמרת. מי שיודע/ת מתי היא
+     נגמרת יודע/ת מתי לחזור לבעלים. ראו docs/property-status-exclusivity.md -->
+<div class="pm-overlay" id="blockModal" role="dialog" aria-modal="true" aria-labelledby="blockTitle" style="display:none">
+  <div class="pm-card">
+    <div class="pm-title" id="blockTitle">הנכס כבר קיים במערכת</div>
+    <div class="dup-card">
+      <div class="dup-name" id="blockHolder"></div>
+      <div class="dup-meta" id="blockMeta"></div>
+    </div>
+    <p class="dup-note" id="blockNote"></p>
+    <div class="pm-actions dup-actions">
+      <button type="button" class="btn btn-gold" id="blockDraft">שמירה בלי פרסום + החתמת בלעדיות</button>
+      <button type="button" class="btn btn-ghost dup-cancel" id="blockCancel">ביטול</button>
     </div>
   </div>
 </div>
@@ -14320,6 +14393,7 @@ toggleBtn.addEventListener('click', ()=>{
     populateAgent2Select('', '');
     resetImageState();
     syncMarketingCopyField(null);
+    renderPropertyStatusPanel(null);
     document.getElementById('addPropertyBtn').textContent = 'פרסום הנכס';
     currentCategory = 'residential';
     document.querySelectorAll('[data-category]').forEach(b=> b.classList.toggle('active', b.dataset.category === 'residential'));
@@ -14454,6 +14528,94 @@ function confirmDuplicateProperty({ match, total }){
     overlay.addEventListener('click', onBackdrop);
     document.addEventListener('keydown', onKey);
     restoreBtn.focus();
+  });
+}
+
+/* ==========================================================================
+   אותו נכס אצל שני משרדים
+   --------------------------------------------------------------------------
+   ‏findPropertyDuplicate מעל רואה רק את הנכסים של הסוכן/ת עצמו/ה — ‏RLS לא
+   תיתן לה יותר מזה, ולכן היא לעולם לא תראה את הכפילות שבאמת מזיקה: אותה
+   דירה שבעליה מסרו לחמישה משרדים, מתפרסמת חמש פעמים.
+
+   הבדיקה החוצה־משרדים היא ‎check_property_availability‎ במסד — פונקציית
+   ‏SECURITY DEFINER שרואה מעבר ל-RLS ומחזירה **שמות בלבד**: מי מפרסם/ת את
+   הנכס ומאיזה משרד. לא מזהה, לא טלפון, ולא מועד סיום של בלעדיות.
+
+   היא נוחות, לא גבול: האכיפה עצמה היא בטריגר ‎properties_guard_duplicate‎,
+   ולכן גם מי שיקרא ל-API ישירות ייחסם.
+   ========================================================================== */
+async function checkPropertyAvailability(payload, ownerPhone){
+  const { data, error } = await sb.rpc('check_property_availability', {
+    p_city: payload.city,
+    p_street: payload.street,
+    p_house_number: payload.house_number,
+    p_rooms: payload.rooms,
+    p_floor: payload.floor,
+    p_deal_type: payload.deal_type,
+    p_owner_phone: ownerPhone || null,
+  });
+  // כישלון בבדיקה אינו עוצר פרסום — הטריגר במסד ייחסם בכל מקרה, והודעת
+  // שגיאה על שירות שלא ענה היא לא מה שצריך לעצור סוכן/ת באמצע טופס
+  if (error){ console.warn('availability check failed', error.message); return null; }
+  return data;
+}
+
+const PROPERTY_BLOCK_STATES = ['exclusive_elsewhere', 'duplicate_elsewhere', 'duplicate_same_agency'];
+
+/* ‏'draft' = לשמור את הנכס בלי לפרסם ולפתוח אשף בלעדיות, ‏'cancel' = חזרה
+   לטופס. אין כאן אפשרות "לפרסם בכל זאת": המסד יחסום אותה ממילא.           */
+function confirmBlockedProperty(verdict){
+  const overlay   = document.getElementById('blockModal');
+  const draftBtn  = document.getElementById('blockDraft');
+  const cancelBtn = document.getElementById('blockCancel');
+  const exclusive = verdict.state === 'exclusive_elsewhere';
+  const sameAgency = verdict.state === 'duplicate_same_agency';
+
+  document.getElementById('blockTitle').textContent = exclusive
+    ? 'הנכס נמצא בבלעדיות של מתווך/ת אחר/ת'
+    : sameAgency ? 'הנכס כבר מפורסם במשרד שלכם' : 'הנכס כבר מפורסם במערכת';
+  document.getElementById('blockHolder').textContent =
+    `${verdict.agent_name} · ${verdict.agency_name}`;
+  document.getElementById('blockMeta').textContent = sameAgency
+    ? (verdict.listing_number ? 'מודעה #' + verdict.listing_number : '')
+    : 'אותה כתובת, אותה דירה ואותם בעלים';
+  document.getElementById('blockNote').textContent = sameAgency
+    ? 'הנכס כבר באוויר מטעם המשרד. מודעה שנייה לאותו נכס מפצלת את הלידים ואת הצפיות בין שתי מודעות. '
+      + 'אפשר לשמור את הנכס אצלכם בלי לפרסם, ולתאם עם הסוכן/ת שמחזיק/ה בו.'
+    : exclusive
+      ? 'כל עוד הבלעדיות בתוקף אי אפשר לפרסם את הנכס. אם החתמתם בלעדיות חדשה מול בעל/ת הנכס — '
+        + 'שמרו אותו כאן בלי לפרסם, החתימו את ההסכם במערכת, ואז אפשר יהיה לפרסם על פיו. '
+        + 'המתווך/ת הקודם/ת יקבל/תקבל התראה והמודעה שלו/ה תרד מפרסום.'
+      : 'הדרך היחידה לפרסם נכס שכבר קיים במערכת היא הסכם בלעדיות חתום מול בעל/ת הנכס. '
+        + 'שמרו את הנכס כאן בלי לפרסם, החתימו בלעדיות במערכת, ואז אפשר יהיה לפרסם על פיה — '
+        + 'המודעה הקיימת תרד מפרסום והסוכן/ת שלה יקבל/תקבל התראה.';
+  draftBtn.textContent = sameAgency
+    ? 'שמירה בלי פרסום'
+    : 'שמירה בלי פרסום + החתמת בלעדיות';
+
+  overlay.style.display = 'flex';
+
+  return new Promise(resolve => {
+    const onDraft   = ()=> done('draft');
+    const onCancel  = ()=> done('cancel');
+    const onKey     = (e)=> { if (e.key === 'Escape') done('cancel'); };
+    const onBackdrop= (e)=> { if (e.target === overlay) done('cancel'); };
+
+    function done(value){
+      draftBtn.removeEventListener('click', onDraft);
+      cancelBtn.removeEventListener('click', onCancel);
+      overlay.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKey);
+      overlay.style.display = 'none';
+      resolve(value);
+    }
+
+    draftBtn.addEventListener('click', onDraft);
+    cancelBtn.addEventListener('click', onCancel);
+    overlay.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKey);
+    draftBtn.focus();
   });
 }
 
@@ -14675,6 +14837,14 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   // הנכס שהוחזר מהארכיון (או עודכן במקום פרסום כפול) — נשמר כדי שהמדיה
   // הקיימת לא תימחק בהמשך ושההודעה בסוף תגיד מה באמת קרה
   let restoredProperty = null;
+  // נכס חדש נוצר תמיד כ-‎unpublished‎ ומתפרסם בצעד נפרד (ראו ההערה למטה).
+  // ‏publishAfterInsert מכבה את הצעד הזה כשהסוכן/ת בחר/ה לשמור בלי לפרסם,
+  // ו-publishError נושא את סיבת הסירוב אל הודעת הסיום.
+  let publishAfterInsert = false;
+  let publishError = null;
+  let signExclusivityAfterSave = false;
+  const ownerName = document.getElementById('npOwnerName').value.trim();
+  const ownerPhone = document.getElementById('npOwnerPhone').value.trim();
   if (editingPropertyId){
     ({ error } = await sb.from('properties').update(payload).eq('id', editingPropertyId));
   } else {
@@ -14693,16 +14863,40 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
       sentText = patch;
       patch.status = 'active';
       // תוקף שכבר עבר היה מחזיר את המודעה למצב "פג תוקף" באותו רגע — כמו
-      // ב-republishProperty, הוא מתאפס והסוכן/ת יכול/ה להגדיר חדש בעריכה
+      // ב-setPropertyStatus, הוא מתאפס והסוכן/ת יכול/ה להגדיר חדש בעריכה
       if (propertyIsExpired(restoredProperty) && !payload.listing_expires_at){
         patch.listing_expires_at = null;
       }
       ({ error } = await sb.from('properties').update(patch).eq('id', restoredProperty.id));
       newPropertyId = restoredProperty.id;
     } else {
+      /* אימות חוצה־משרדים לפני היצירה: ‏findPropertyDuplicate מעל רואה רק
+         את הנכסים של הסוכן/ת עצמו/ה, והכפילות שבאמת מזיקה היא זו שבין
+         משרדים — אותה דירה שבעליה מסרו לחמישה משרדים. */
+      btn.textContent = 'מאמת מול המערכת…';
+      const verdict = await checkPropertyAvailability(payload, ownerPhone);
+      publishAfterInsert = true;
+      if (verdict && PROPERTY_BLOCK_STATES.includes(verdict.state)){
+        if (await confirmBlockedProperty(verdict) === 'cancel'){
+          btn.disabled = false; btn.textContent = 'פרסום הנכס';
+          return;
+        }
+        publishAfterInsert = false;   // נשמר אצל הסוכן/ת, לא עולה לאתר
+        // הכפתור בחלון הבטיח גם החתמת בלעדיות — האשף נפתח על הנכס שנשמר,
+        // בסוף השמירה. כפילות בתוך אותו משרד אינה עניין של בלעדיות אלא של
+        // תיאום בין שני סוכנים, ולכן שם האשף לא נפתח.
+        signExclusivityAfterSave = verdict.state !== 'duplicate_same_agency';
+      }
+      btn.textContent = publishAfterInsert ? 'מפרסם…' : 'שומר…';
+
       payload.agency_id = currentAgent.agency_id;
       payload.agent_id = currentAgent.id;
-      payload.status = 'active';
+      /* הנכס נוצר כ-‎unpublished‎ ומתפרסם רק אחרי שפרטי הבעלים נשמרו.
+         זה לא זהירות יתר: זהות הבעלים יושבת ב-‎property_owners‎, שנכתבת רק
+         אחרי שיש ‎property_id‎ — ובלעדיה החסימה במסד אינה יכולה להבדיל בין
+         "אותה דירה" לבין "הדירה השכנה, אותה קומה ואותו מספר חדרים", והייתה
+         חוסמת מודעה תקינה. */
+      payload.status = 'unpublished';
       const { data: inserted, error: insertErr } = await sb.from('properties').insert(payload).select('id').single();
       error = insertErr;
       newPropertyId = inserted?.id;
@@ -14712,8 +14906,6 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   // פרטי הבעלים יושבים בטבלה נפרדת (property_owners) כי properties נקראת
   // על ידי כל גולש/ת. השמירה נפרדת, ולכן כישלון כאן לא מפיל את שמירת הנכס.
   if (!error && newPropertyId){
-    const ownerName = document.getElementById('npOwnerName').value.trim();
-    const ownerPhone = document.getElementById('npOwnerPhone').value.trim();
     const { error: ownerErr } = (ownerName || ownerPhone)
       ? await sb.from('property_owners').upsert({
           property_id: newPropertyId,
@@ -14725,6 +14917,15 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
       console.error(ownerErr);
       showToast('הנכס נשמר, אך פרטי הבעלים לא נשמרו: ' + ownerErr.message);
     }
+  }
+
+  /* הפרסום עצמו — אחרי שהבעלים נשמרו, כי הם חלק מזהות הנכס שהמסד בודק.
+     סירוב כאן אינו מאבד את הטופס: הנכס כבר קיים כ"ירד מפרסום", והסיבה
+     נאמרת בעברית בהודעת הסיום יחד עם הדרך להמשיך (בלוק הסטטוס בכרטיס). */
+  if (!error && newPropertyId && publishAfterInsert){
+    btn.textContent = 'מפרסם…';
+    const { error: pubErr } = await sb.from('properties').update({ status: 'active' }).eq('id', newPropertyId);
+    if (pubErr) publishError = pubErr;
   }
 
   if (!error && newPropertyId){
@@ -14769,15 +14970,27 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   if (error){
     console.error(error);
     feedback.style.color = 'var(--brick)';
-    feedback.textContent = 'שגיאה: ' + error.message;
+    // שגיאת חסימה מגיעה מהטריגר במסד ומנוסחת בעברית — מציגים אותה כמו שהיא
+    feedback.textContent = 'שגיאה: ' + propertyStatusErrorText(error);
     return;
   }
-  feedback.style.color = 'var(--teal)';
-  feedback.textContent = restoredProperty
-    ? (restoredProperty.status === 'active'
-        ? `המודעה הקיימת (#${restoredProperty.listing_number ?? '—'}) עודכנה — לא נוצרה מודעה כפולה`
-        : `המודעה הוחזרה מהארכיון ועודכנה (#${restoredProperty.listing_number ?? '—'})`)
-    : (editingPropertyId ? 'הנכס עודכן בהצלחה!' : 'הנכס פורסם בהצלחה!');
+  // הנכס נשמר אך לא עלה לאתר — או כי הסוכן/ת בחר/ה בכך, או כי המסד סירב
+  let savedWithoutPublishing = false;
+  if (publishError || (!editingPropertyId && !restoredProperty && !publishAfterInsert)){
+    savedWithoutPublishing = true;
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = (publishError
+      ? 'הנכס נשמר אך לא פורסם — ' + propertyStatusErrorText(publishError)
+      : 'הנכס נשמר במצב "ירד מפרסום" ולא עלה לאתר.')
+      + ' אפשר להחתים בלעדיות ולפרסם אותו מבלוק הסטטוס שבכרטיס הנכס.';
+  } else {
+    feedback.style.color = 'var(--teal)';
+    feedback.textContent = restoredProperty
+      ? (restoredProperty.status === 'active'
+          ? `המודעה הקיימת (#${restoredProperty.listing_number ?? '—'}) עודכנה — לא נוצרה מודעה כפולה`
+          : `המודעה הוחזרה מהארכיון ועודכנה (#${restoredProperty.listing_number ?? '—'})`)
+      : (editingPropertyId ? 'הנכס עודכן בהצלחה!' : 'הנכס פורסם בהצלחה!');
+  }
 
   await reportOwnerRedaction(newPropertyId, sentText);
 
@@ -14832,6 +15045,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   syncMarketingCopyField(null);
   // ‏reset() מכבה את תיבת הסימון אך לא מקפל את שדות התאריך שנפתחו בגללה
   syncOpenHouseFields();
+  renderPropertyStatusPanel(null);
   editingPropertyId = null;
   editingPropertyOriginalAddress = null;
   currentCategory = 'residential';
@@ -14843,12 +15057,25 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   await loadClientAlerts();
   // ואותו נכס עשוי להיות הראשון, ולסגור צעד במדריך ההתחלה
   refreshOnboarding();
-  setTimeout(()=>{
-    addForm.style.display='none';
-    toggleBtn.textContent='+ הוספת נכס חדש';
-    document.getElementById('addPropertyBtn').textContent = 'פרסום הנכס';
-    feedback.textContent='';
-  }, 1500);
+  /* נכס שנשמר ולא פורסם: ההודעה מסבירה למה ומה עושים הלאה, ו-1.5 שניות
+     אינן מספיקות כדי לקרוא אותה. הטופס נשאר פתוח עד שסוגרים אותו. */
+  if (!savedWithoutPublishing){
+    setTimeout(()=>{
+      addForm.style.display='none';
+      toggleBtn.textContent='+ הוספת נכס חדש';
+      document.getElementById('addPropertyBtn').textContent = 'פרסום הנכס';
+      feedback.textContent='';
+    }, 1500);
+  }
+
+  // "שמירה בלי פרסום + החתמת בלעדיות" — החלק השני של ההבטחה. האשף נפתח
+  // כאן ולא לפני השמירה, כי הוא דורש property_id.
+  if (signExclusivityAfterSave && newPropertyId){
+    await openAgreementWizard({
+      kind: payload.deal_type === 'rent' ? 'exclusive_landlord' : 'exclusive_sell',
+      propertyId: newPropertyId,
+    });
+  }
 });
 
 /* ---------- חיפוש, סינון ומיון ברשימת "הנכסים שלי" ----------
@@ -14856,7 +15083,26 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
    מקליד/ה בשדה החיפוש תוך כדי גלילה, ואין סיבה להחזיר את המסך למצב "טוען…"
    על כל תו. לכן loadProperties() אחראית רק על הבאת הנתונים ועל המידע הנלווה
    (צפיות, מידע תכנוני, ספירת שת״פ), ו-renderProperties() על התצוגה.       */
-const PROPERTY_STATUS_LABELS = { active:'פעיל', sold:'נמכר', rented:'הושכר', archived:'הוסר' };
+/* חמישה מצבים, ושלושה מהם אינם "לא פעיל" סתם:
+     active       — באוויר, נקרא על ידי כל גולש/ת
+     unpublished  — ירד מפרסום זמנית. המודעה חיה, היא פשוט לא באתר עכשיו
+     sold/rented  — העסקה נסגרה, והנכס נכנס ל"עסקאות אחרונות"
+     archived     — ארכיון: לא עובדים עליו, ולא רוצים לראות אותו ברשימה
+   ההפרדה בין ‎unpublished‎ ל-‎archived‎ היא כל הטעם: עד שהיא נוספה, סוכן/ת
+   שרצה/תה להוריד מודעה לשבועיים בחר/ה בין "נמכר" שהוא שקר שנכנס לאתר לבין
+   "הוסר" שנראה כמו סוף הדרך — ובפועל השאיר/ה את המודעה באוויר. */
+const PROPERTY_STATUS_LABELS = {
+  active:'מפורסם', unpublished:'ירד מפרסום', sold:'נמכר', rented:'הושכר', archived:'בארכיון',
+};
+
+/* שלושה גוונים ולא שניים: ירוק למה שחי באתר עכשיו, זהב למה שיורד ממנו
+   זמנית ואמור לחזור, ואפור למה שנסגר. "ירד מפרסום" באפור היה נראה כמו
+   ארכיון — וזו בדיוק ההבחנה שהוספנו. */
+function propertyStatusPillClass(status){
+  if (status === 'active') return 'status-unlocked';
+  if (status === 'unpublished') return 'status-masked';
+  return 'status-off';
+}
 
 /* ---------- הרשימה כטאבים ----------
    כרטיס נכס מלא הוא חצי מסך טלפון, וסוכן/ת עם חמישים נכסים גלל/ה עשרים
@@ -15294,7 +15540,7 @@ function buildPropertyCard(p, agentId){
         </div>
       </div>
       <div class="pill-row">
-        <span class="status-pill ${p.status === 'active' ? 'status-unlocked' : 'status-off'}">${statusLabels[p.status] || p.status}</span>
+        <span class="status-pill ${propertyStatusPillClass(p.status)}">${statusLabels[p.status] || p.status}</span>
         ${p.shared_with_partners
           ? `<span class="status-pill status-shared" title="בשת״פ · הופץ ${hebDate(p.shared_at)}">🤝 ${propertyShareCounts[p.id] || 0} משרדים</span>`
           : ''}
@@ -15303,6 +15549,7 @@ function buildPropertyCard(p, agentId){
     ${tags}
     ${ownerLine ? `<div class="lead-meta">בעלים: ${esc(ownerLine)}</div>` : ''}
     ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
+    <div class="pc-status-slot"></div>
     <div class="pc-sec-head pc-quick-head">פעולות מהירות</div>
     <div class="pc-grid"></div>
     <div class="pc-hub" hidden>
@@ -15315,6 +15562,11 @@ function buildPropertyCard(p, agentId){
   const hub = el.querySelector('.pc-hub');
   const hubRow = hub.querySelector('.pc-hub-row');
   const mainActions = el.querySelector('.lead-actions.act-primary');
+
+  /* בלוק הסטטוס ראשון, לפני כל פעולה אחרת: "האם המודעה באוויר" היא השאלה
+     הראשונה שנשאלת על כל נכס, וממנה נגזר מה בכלל רלוונטי לעשות איתו.
+     ראו buildPropertyStatusPanel. */
+  el.querySelector('.pc-status-slot').replaceWith(buildPropertyStatusPanel(p, agentId));
 
   /* סדר הפעולות, ולמה שלושה מקטעים ולא רשימה אחת: ראו את ההערה שמעל
      ‎.pc-grid‎ ב-CSS. כאן רק החלוקה עצמה —
@@ -15499,21 +15751,10 @@ function buildPropertyCard(p, agentId){
       onClick: () => openOpenHouseModal(p, agentId),
     });
 
-    const isRent = p.deal_type === 'rent';
-    addCardAction(mainActions, {
-      label: isRent ? '✅ סמן כהושכר' : '✅ סמן כנמכר', cls:'btn-gold',
-      title:'סגירת העסקה — המודעה יורדת מהאתר ונשארת בכרטיס',
-      onClick:()=> markPropertyStatus(p.id, isRent ? 'rented' : 'sold', agentId),
-    });
-  } else {
-    // נכס שסומן כהושכר/נמכר/הוסר לא נעלם — עסקה שהתבטלה או שוכר שעזב מחזירים
-    // אותו לפרסום מאותו כרטיס, בלי לפתוח מודעה חדשה ולאבד את מספר המודעה,
-    // הצפיות והמידע התכנוני שכבר נצברו עליו.
-    // ‏act-wide ולא שליש: כאן זו הפעולה הראשית היחידה.
-    addCardAction(mainActions, {
-      label:'↩ החזרה לפרסום', cls:'btn-gold act-wide',
-      onClick:btn => republishProperty(p, btn, agentId),
-    });
+    /* "סמן כנמכר" ו"החזרה לפרסום" ישבו כאן עד שנוסף בלוק הסטטוס. הן לא
+       נעלמו — הן עברו אליו, יחד עם "ירד מפרסום", "ארכיון" ו"מחיקה"
+       שלא היו קיימות. פעולה שמשנה את מצב הנכס נמצאת עכשיו במקום אחד,
+       בראש הכרטיס, ולא בשני כפתורים שמחליפים זה את זה לפי המצב. */
   }
 
   // בלוק כלי ה-AI מוצג רק אם נכנס אליו משהו: במסלול החינמי, ועל נכס
@@ -15902,38 +16143,285 @@ async function produceMarketingVideo(property, btn, agentId){
   setTimeout(poll, VIDEO_POLL_MS);
 }
 
-async function markPropertyStatus(propertyId, newStatus, agentId){
-  const confirmLabel = newStatus === 'sold' ? 'לסמן את הנכס כנמכר? הוא יוסר מרשימת הנכסים הפעילים.' : 'לסמן את הנכס כהושכר?';
-  if (!confirm(confirmLabel)) return;
-  const { error } = await sb.from('properties').update({ status: newStatus }).eq('id', propertyId);
-  if (error){ showToast('שגיאה בעדכון: ' + error.message); return; }
-  showToast(newStatus === 'sold' ? 'הנכס סומן כנמכר — נוסף אוטומטית ל"עסקאות אחרונות" באתר' : 'הנכס סומן כהושכר');
+/* ==========================================================================
+   סטטוס הנכס — בלוק אחד, שני מקומות
+   --------------------------------------------------------------------------
+   עד כאן המצב של נכס נקבע בשלושה מקומות שונים: "סמן כנמכר" בתחתית הכרטיס,
+   "החזרה לפרסום" שהחליף אותו כשהנכס לא היה פעיל, ו"ארכיון" שלא היה קיים
+   בכלל. הורדה זמנית מהאתר — הדבר שסוכנים באמת צריכים — לא הייתה אפשרית,
+   ולכן מודעות של דירות שכבר לא בשוק נשארו באוויר.
+
+   ‏buildPropertyStatusPanel בונה בלוק אחד שמוצג גם בראש כרטיס הנכס וגם
+   בראש טופס העריכה. הוא מציג את המצב הנוכחי, את המצבים שאפשר לעבור
+   אליהם, ואת מה שחוסם מעבר — והוא הדרך היחידה בקוד לשנות סטטוס.
+
+   ## הבלעדיות
+
+   האכיפה כולה במסד (‏properties_guard_duplicate). כאן רק התצוגה:
+   ‏property_listing_context מחזירה מי מחזיק/ה בבלעדיות על הנכס, והכפתור
+   "מפורסם" מנוטרל כשהמחזיק/ה אינו/ה אנחנו. אם המסד יחסום בכל זאת (מירוץ
+   בין שני סוכנים), ההודעה שלו היא זו שתוצג — ‏hint מזהה את הסוג.
+   ========================================================================== */
+
+/* התרגום היחיד של שגיאת מסד לעברית. ה-hint נקבע ב-raise ... using hint,
+   וה-message כבר כתוב בעברית מלאה — ולכן הוא מוצג כמו שהוא. */
+function propertyStatusErrorText(error){
+  if (!error) return '';
+  if (error.hint === 'exclusive_elsewhere' || error.hint === 'duplicate_elsewhere'
+      || error.hint === 'duplicate_same_agency' || error.hint === 'exclusivity_agreement_required'
+      || error.hint === 'address_incomplete'){
+    return error.message;
+  }
+  if (error.code === '23503') return 'אי אפשר למחוק את הנכס — מקושרים אליו חוזה או עסקה שמורים.';
+  return error.message || 'שגיאה לא ידועה';
+}
+
+const PROPERTY_STATUS_CONFIRM = {
+  active:      'להחזיר את הנכס לפרסום? המודעה תופיע שוב באתר.',
+  unpublished: 'להוריד את הנכס מפרסום? המודעה תיעלם מהאתר ותישאר אצלך במערכת — אפשר להחזיר אותה בכל רגע.',
+  sold:        'לסמן את הנכס כנמכר? המודעה תרד מהאתר והנכס ייכנס ל"עסקאות אחרונות".',
+  rented:      'לסמן את הנכס כהושכר? המודעה תרד מהאתר.',
+  archived:    'להעביר את הנכס לארכיון? המודעה תרד מהאתר והנכס יצא מרשימת העבודה היומית.',
+};
+
+/* שינוי סטטוס. ‏listing_expires_at שכבר עבר מתאפס בחזרה לפרסום — אחרת
+   הנכס חוזר לאוויר וברגע הבא כבר מסומן "פג תוקף". */
+async function setPropertyStatus(property, nextStatus, btn, agentId){
+  if (property.status === nextStatus) return;
+  if (!confirm(PROPERTY_STATUS_CONFIRM[nextStatus] || 'לשנות את סטטוס הנכס?')) return;
+
+  const patch = { status: nextStatus };
+  if (nextStatus === 'active' && propertyIsExpired(property)) patch.listing_expires_at = null;
+
+  const original = actionLabel(btn);
+  if (btn){ btn.disabled = true; setActionLabel(btn, 'מעדכן…'); }
+  const { error } = await sb.from('properties').update(patch).eq('id', property.id);
+  if (error){
+    if (btn){ btn.disabled = false; setActionLabel(btn, original); }
+    showToast(propertyStatusErrorText(error), 6000);
+    return;
+  }
+  showToast(
+    nextStatus === 'active'      ? 'הנכס חזר לפרסום ומופיע שוב באתר'
+    : nextStatus === 'unpublished' ? 'הנכס ירד מפרסום — הוא נשאר אצלך במערכת'
+    : nextStatus === 'sold'        ? 'הנכס סומן כנמכר — נוסף אוטומטית ל"עסקאות אחרונות" באתר'
+    : nextStatus === 'rented'      ? 'הנכס סומן כהושכר'
+    : 'הנכס הועבר לארכיון');
+  await loadProperties(agentId);
+  refreshOpenPropertyStatusPanel(property.id);
+}
+
+/* הכרטיס נבנה מחדש ב-loadProperties, אבל הטופס לא — ובלוק הסטטוס שבתוכו
+   היה ממשיך להציג את המצב הקודם אחרי שינוי שנעשה ממנו עצמו. */
+function refreshOpenPropertyStatusPanel(propertyId){
+  if (editingPropertyId !== propertyId) return;
+  const fresh = myPropertyRows.find(row => row.id === propertyId);
+  if (fresh) renderPropertyStatusPanel(fresh, myPropertyAgentId);
+}
+
+/* מחיקה סופית. שני אישורים ולא אחד: זו הפעולה היחידה בכרטיס שאין ממנה דרך
+   חזרה, והיא מוחקת יחד עם הנכס גם את הצפיות, המידע התכנוני והמדיה שלו.
+   קבצי ה-Storage נמחקים **לפני** השורה: אחריה כבר אין דרך לדעת אילו קבצים
+   היו שייכים לה, והם היו נשארים בדלי לנצח. */
+async function deletePropertyForever(property, btn, agentId){
+  const name = property.title || 'הנכס';
+  if (!confirm(`למחוק לצמיתות את "${name}" (מודעה #${property.listing_number ?? '—'})?\n\n`
+    + 'יימחקו גם התמונות, הסרטון, הצפיות והמידע התכנוני שנצברו עליו. '
+    + 'אם רק רוצים להוריד את המודעה מהאתר — בחרו "ירד מפרסום" או "ארכיון".')) return;
+  if (!confirm('אין דרך לשחזר נכס שנמחק. למחוק?')) return;
+
+  const original = actionLabel(btn);
+  if (btn){ btn.disabled = true; setActionLabel(btn, 'מוחק…'); }
+
+  const paths = (property.images || []).map(storagePathFromPublicUrl).filter(Boolean);
+  const marketingPath = property.marketing_image ? storagePathFromPublicUrl(property.marketing_image) : null;
+  if (marketingPath) paths.push(marketingPath);
+  if (paths.length) await sb.storage.from(IMAGES_BUCKET).remove(paths).catch(()=>{});
+  const videoPath = videoStoragePath(property.video_url);
+  if (videoPath) await sb.storage.from(VIDEOS_BUCKET).remove([videoPath]).catch(()=>{});
+
+  const { error } = await sb.from('properties').delete().eq('id', property.id);
+  if (error){
+    if (btn){ btn.disabled = false; setActionLabel(btn, original); }
+    showToast(propertyStatusErrorText(error), 6000);
+    return;
+  }
+  expandedPropertyIds.delete(property.id);
+  // הטופס פתוח על הנכס שנמחק — הוא נסגר, אחרת "שמירת שינויים" תכתוב לשורה
+  // שכבר לא קיימת ותחזור עם שגיאה שאי אפשר להבין
+  if (editingPropertyId === property.id){
+    editingPropertyId = null;
+    editingPropertyOriginalAddress = null;
+    renderPropertyStatusPanel(null);
+    addForm.style.display = 'none';
+    toggleBtn.textContent = '+ הוספת נכס חדש';
+    document.getElementById('addPropertyBtn').textContent = 'פרסום הנכס';
+  }
+  showToast('הנכס נמחק');
   await loadProperties(agentId);
 }
 
-/* החזרת נכס לפרסום אחרי שסומן כהושכר/נמכר/הוסר.
-   תוקף מודעה שכבר עבר היה מחזיר את הנכס למצב "פג תוקף" באותו רגע, ולכן הוא
-   מתאפס כאן — הסוכן/ת יכולים להגדיר תוקף חדש בעריכה. */
-async function republishProperty(property, btn, agentId){
-  const wasLabel = PROPERTY_STATUS_LABELS[property.status] || 'לא פעיל';
-  if (!confirm(`להחזיר את הנכס לפרסום? הסטטוס ישתנה מ"${wasLabel}" ל"פעיל" והמודעה תחזור להופיע באתר.`)) return;
+/* תביעת בלעדיות: מפרסמת את הנכס על סמך הסכם בלעדיות חתום, מורידה את
+   המודעות המתחרות ומתריעה לסוכנים שלהן. כל זה קורה ב-RPC אחד במסד — כאן
+   רק האישור וההודעה. */
+async function claimPropertyExclusivity(property, btn, agentId){
+  if (!confirm('לפרסם את הנכס על סמך הסכם הבלעדיות החתום?\n\n'
+    + 'מודעות קיימות לאותו נכס אצל מתווכים אחרים ירדו מפרסום, והם יקבלו התראה '
+    + 'עם שמך, שם המשרד ומועד סיום הבלעדיות.')) return;
 
-  const expired = propertyIsExpired(property);
-  const patch = { status: 'active' };
-  if (expired) patch.listing_expires_at = null;
-
-  const original = btn.textContent;
-  btn.disabled = true; btn.textContent = 'מחזיר לפרסום…';
-  const { error } = await sb.from('properties').update(patch).eq('id', property.id);
+  const original = actionLabel(btn);
+  if (btn){ btn.disabled = true; setActionLabel(btn, 'רושם בלעדיות…'); }
+  const { data, error } = await sb.rpc('claim_property_exclusivity', { p_property_id: property.id });
   if (error){
-    showToast('שגיאה בהחזרה לפרסום: ' + error.message);
-    btn.disabled = false; btn.textContent = original;
+    if (btn){ btn.disabled = false; setActionLabel(btn, original); }
+    showToast(propertyStatusErrorText(error), 7000);
     return;
   }
-  showToast(expired
-    ? 'הנכס חזר לפרסום — תוקף המודעה אופס, אפשר להגדיר תאריך חדש בעריכה'
-    : 'הנכס חזר לפרסום ומופיע שוב באתר');
+  const superseded = data?.superseded || 0;
+  showToast(superseded
+    ? `הנכס פורסם בבלעדיות עד ${hebDate(data.ends_on)} · ${superseded} מודעות מתחרות ירדו מפרסום`
+    : `הנכס פורסם בבלעדיות עד ${hebDate(data.ends_on)}`, 6000);
   await loadProperties(agentId);
+  refreshOpenPropertyStatusPanel(property.id);
+}
+
+/* הערת ההקשר: מה המסד יודע על הנכס שהסוכן/ת אינו/ה יכול/ה לראות בעצמו/ה —
+   בלעדיות של משרד אחר, או מודעה מתחרה באוויר. שם המתווך/ת ושם המשרד בלבד:
+   מועד סיום הבלעדיות אינו נאמר למי שאינו/ה מחזיק/ה בה. */
+function propertyContextNote(ctx){
+  if (!ctx) return null;
+  const until = ctx.signed_until ? ` (עד ${hebDate(ctx.signed_until)})` : '';
+  switch (ctx.state){
+    case 'exclusive_mine':
+      return { text: `🔒 הנכס בבלעדיותכם עד ${hebDate(ctx.ends_on)}.`, warn:false };
+    case 'exclusive_elsewhere':
+      return { text: `הנכס נמצא בבלעדיות של ${ctx.agent_name} ממשרד ${ctx.agency_name}, ולכן אי אפשר לפרסם אותו.`
+        + (ctx.signed_agreement_id ? ` יש לכם הסכם בלעדיות חתום על הנכס${until} — אפשר לפרסם על פיו.` : ''), warn:true };
+    case 'duplicate_elsewhere':
+      return { text: `הנכס כבר מפורסם במערכת על ידי ${ctx.agent_name} ממשרד ${ctx.agency_name}. `
+        + (ctx.signed_agreement_id
+            ? `יש לכם הסכם בלעדיות חתום על הנכס${until} — אפשר לפרסם על פיו.`
+            : `כדי לפרסם אותו צריך הסכם בלעדיות חתום מול בעל/ת הנכס.`), warn:true };
+    case 'duplicate_same_agency':
+      return { text: `הנכס כבר מפורסם במשרד שלכם על ידי ${ctx.agent_name}`
+        + (ctx.listing_number ? ` (מודעה #${ctx.listing_number})` : '') + '.', warn:true };
+    case 'unknown':
+      return { text: 'לנכס אין עיר, רחוב ומספר בית מלאים, ולכן המערכת אינה יכולה לוודא שהוא אינו כפול.', warn:false };
+    default:
+      return ctx.signed_agreement_id
+        ? { text: `יש לכם הסכם בלעדיות חתום על הנכס${until}.`, warn:false }
+        : null;
+  }
+}
+
+/* המצבים שמוצגים ככפתורים, לפי סדר הדחיפות. ‏sold/rented הם אותו מקום
+   בשורה — נכס להשכרה לא "נמכר". */
+function propertyStatusChoices(p){
+  const deal = p.deal_type === 'rent' ? 'rented' : 'sold';
+  return [
+    { status:'active',      label:'מפורסם',     title:'המודעה מופיעה באתר' },
+    { status:'unpublished', label:'ירד מפרסום', title:'המודעה יורדת מהאתר ונשארת אצלך במערכת' },
+    { status:deal,          label: deal === 'rented' ? 'הושכר' : 'נמכר',
+      title:'העסקה נסגרה — המודעה יורדת מהאתר והנכס נכנס ל״עסקאות אחרונות״' },
+    { status:'archived',    label:'ארכיון',     title:'הנכס יוצא מרשימת העבודה היומית' },
+  ];
+}
+
+/* בונה את הבלוק ומחזיר אותו מיד; הקשר הבלעדיות נטען אחריו ומעדכן את
+   ההערה ואת הכפתורים. בלי זה כל פתיחת כרטיס הייתה ממתינה לקריאת רשת. */
+function buildPropertyStatusPanel(p, agentId){
+  const el = document.createElement('div');
+  el.className = 'prop-status-panel' + (p.status === 'active' ? ' psp-live' : '');
+  el.innerHTML = `
+    <div class="psp-head">
+      <span class="psp-label">סטטוס הנכס</span>
+      <span class="psp-now">${escapeHtml(PROPERTY_STATUS_LABELS[p.status] || p.status || '')}</span>
+    </div>
+    <div class="psp-note" hidden></div>
+    <div class="psp-actions"></div>`;
+
+  const note = el.querySelector('.psp-note');
+  const actions = el.querySelector('.psp-actions');
+  const buttons = {};
+
+  propertyStatusChoices(p).forEach(choice=>{
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'psp-btn' + (choice.status === p.status ? ' is-current' : '');
+    btn.textContent = choice.label;
+    btn.title = choice.title;
+    if (choice.status === p.status){
+      btn.disabled = true;
+    } else {
+      btn.addEventListener('click', ()=> setPropertyStatus(p, choice.status, btn, agentId));
+    }
+    buttons[choice.status] = btn;
+    actions.appendChild(btn);
+  });
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'psp-btn psp-danger';
+  del.textContent = 'מחיקה';
+  del.title = 'מחיקה סופית של הנכס וכל מה שנצבר עליו';
+  del.addEventListener('click', ()=> deletePropertyForever(p, del, agentId));
+  actions.appendChild(del);
+
+  // ההקשר מהמסד — בלעדיות ומודעות מתחרות. כישלון כאן אינו שובר את הבלוק:
+  // הכפתורים ממשיכים לעבוד, והמסד ממילא הוא שחוסם.
+  sb.rpc('property_listing_context', { p_property_id: p.id }).then(({ data: ctx, error })=>{
+    if (error || !ctx || !el.isConnected) return;
+    const info = propertyContextNote(ctx);
+    if (info){
+      note.hidden = false;
+      note.className = 'psp-note' + (info.warn ? ' psp-warn' : '');
+      note.textContent = info.text;
+    }
+    const blocked = ctx.state === 'exclusive_elsewhere' || ctx.state === 'duplicate_elsewhere'
+                 || ctx.state === 'duplicate_same_agency';
+    if (blocked){
+      el.classList.add('psp-blocked');
+      if (buttons.active && !buttons.active.classList.contains('is-current')){
+        buttons.active.disabled = true;
+        buttons.active.title = info ? info.text : 'הנכס חסום לפרסום';
+      }
+    }
+    // הסכם בלעדיות חתום ובתוקף — הדרך לפרסם נכס שחסום, ולהצהיר על בלעדיות
+    // שכבר קיימת גם כשהוא אינו חסום.
+    if (ctx.signed_agreement_id && ctx.state !== 'exclusive_mine'){
+      const claim = document.createElement('button');
+      claim.type = 'button';
+      claim.className = 'psp-btn psp-claim';
+      claim.textContent = '🔒 פרסום בבלעדיות';
+      claim.title = 'פרסום הנכס על סמך הסכם הבלעדיות החתום — מודעות מתחרות ירדו מפרסום';
+      claim.addEventListener('click', ()=> claimPropertyExclusivity(p, claim, agentId));
+      actions.appendChild(claim);
+    } else if (blocked && !ctx.signed_agreement_id){
+      const sign = document.createElement('button');
+      sign.type = 'button';
+      sign.className = 'psp-btn';
+      sign.textContent = '✍️ החתמת בלעדיות';
+      sign.title = 'פתיחת הסכם בלעדיות על הנכס — אחרי החתימה אפשר לפרסם אותו';
+      sign.addEventListener('click', ()=> openAgreementWizard({
+        kind: p.deal_type === 'rent' ? 'exclusive_landlord' : 'exclusive_sell',
+        propertyId: p.id,
+      }));
+      actions.appendChild(sign);
+    }
+  }).catch(()=>{});
+
+  return el;
+}
+
+/* הבלוק בראש טופס העריכה. נקרא מ-openEditProperty, ומתרוקן כשהטופס חוזר
+   למצב "נכס חדש". */
+function renderPropertyStatusPanel(p, agentId){
+  const slot = document.getElementById('npStatusPanel');
+  if (!slot) return;
+  slot.innerHTML = '';
+  if (!p){ slot.hidden = true; return; }
+  slot.hidden = false;
+  slot.appendChild(buildPropertyStatusPanel(p, agentId));
 }
 
 /* ==========================================================================
@@ -17265,6 +17753,9 @@ let editingPropertyId = null;
 let editingPropertyOriginalAddress = null; // לזיהוי "האם הכתובת השתנתה" בעריכה
 function openEditProperty(p){
   editingPropertyId = p.id;
+  // בלוק הסטטוס ראשון בטופס — זו הפעולה שמחפשים כשנכנסים ל"עריכה" בלי
+  // שיש מה לערוך ("להוריד את זה מהאתר"), והיא לא צריכה גלילה
+  renderPropertyStatusPanel(p, myPropertyAgentId);
   document.getElementById('npTitle').value = p.title;
   currentCategory = p.category || 'residential';
   document.querySelectorAll('[data-category]').forEach(b=> b.classList.toggle('active', b.dataset.category === currentCategory));
@@ -17540,7 +18031,8 @@ const IMP_PROPERTY_STATUS = {
   'פעיל':'active','פעילה':'active','active':'active','מפורסם':'active',
   'נמכר':'sold','נמכרה':'sold','sold':'sold',
   'הושכר':'rented','הושכרה':'rented','rented':'rented',
-  'לא פעיל':'archived','לא פעילה':'archived','ארכיון':'archived','הוסר':'archived','archived':'archived',
+  'ירד מפרסום':'unpublished','לא מפורסם':'unpublished','unpublished':'unpublished',
+  'לא פעיל':'archived','לא פעילה':'archived','ארכיון':'archived','בארכיון':'archived','הוסר':'archived','archived':'archived',
 };
 
 /* שמות מקובלים שאינם מופיעים מילה במילה ברשימות הסגורות של הטופס. */
@@ -18479,7 +18971,9 @@ async function impRenderStep4(){
       for (const row of chunk){
         const { data: insertedRow, error: rowError } = await sb.from('properties')
           .insert(row.payload).select('id').single();
-        if (rowError) importState.failed.push({ raw: row.raw, message: rowError.message });
+        // ‏propertyStatusErrorText ולא message גולמי: שורה שנדחתה בגלל נכס
+        // שכבר מפורסם במערכת מקבלת את ההסבר בעברית בקובץ השגיאות
+        if (rowError) importState.failed.push({ raw: row.raw, message: propertyStatusErrorText(rowError) });
         else { ok++; if (!rowHasImage(row)) noImage++; await saveOwners([row], [insertedRow?.id]); }
         done++; tick();
       }
