@@ -235,7 +235,10 @@
     '@media(min-width:560px){.shuk-pwa-help{align-items:center}',
     '  .shuk-pwa-help__box{border-radius:20px;margin:16px}}',
     '.shuk-pwa-help__head{display:flex;align-items:center;gap:12px;margin-bottom:6px}',
-    '.shuk-pwa-help__icon{width:44px;height:44px;border-radius:11px;flex:0 0 auto}',
+    /* גבול דק: האייקון בהיר (פין ספיר על נייר), וחלון ההסבר לבן — בלעדיו
+       הפינות שלו נעלמות ברקע והוא נראה כמו פין מרחף */
+    '.shuk-pwa-help__icon{width:44px;height:44px;border-radius:11px;flex:0 0 auto;',
+    '  border:1px solid rgba(13,27,61,.12)}',
     '.shuk-pwa-help__title{margin:0;font-size:1.12rem;font-weight:800;color:#0e2a6b}',
     '.shuk-pwa-help__lead{margin:0 0 14px;font-size:.88rem;color:#4a5578;line-height:1.5}',
     '.shuk-pwa-help__steps{margin:0 0 16px;padding:0;list-style:none;counter-reset:s}',

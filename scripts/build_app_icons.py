@@ -60,8 +60,8 @@ ROOT = Path(__file__).resolve().parent.parent
 ASSETS = ROOT / "assets"
 
 # ---------------------------------------------------------------------------
-# הגאומטריה — מועתקת מ-assets/logo-shuknadlan-dark.svg (פין לבן, גג ספיר,
-# ‏ש מוזהבת). זו הווריאציה לרקע כהה, כי הרקע של האייקון הוא ספיר מלא.
+# הגאומטריה — מועתקת מ-assets/logo-shuknadlan.svg (פין ספיר, גג לבן,
+# ‏ש מוזהבת). זו הווריאציה לרקע בהיר, כי הרקע של האייקון הוא נייר בהיר.
 # תיבת הציור המקורית היא 52×62.
 # ---------------------------------------------------------------------------
 LOGO_W, LOGO_H = 52.0, 62.0
@@ -69,14 +69,19 @@ PIN_PATH = "M26 60 C26 60 48 38 48 24 C48 11.8 38.2 2 26 2 C13.8 2 4 11.8 4 24 C
 ROOF_PATH = "M13 26 L26 14 L39 26"
 
 SAPPHIRE = "#0e2a6b"
-SAPPHIRE_DEEP = "#0d1b3d"
 BRASS = "#c9a227"
+
+# הרקע: לבן במרכז ונייר תכלכל בקצוות — אותה פלטה של האתר (‎--paper‎
+# ו-‎--teal-tint‎), ולא לבן שטוח. הגוון בקצוות הוא מה שמפריד את האייקון
+# מרקע לבן של מסך בית בהיר, בלי להוסיף מסגרת.
+PAPER = "#ffffff"
+PAPER_EDGE = "#e6edfa"
 
 FONT_STACK = "Heebo, sans-serif"
 
 
 def icon_svg(size: int, logo_height_ratio: float) -> str:
-    """‏SVG של אייקון ריבועי: רקע ספיר, והלוגו במרכזו.
+    """‏SVG של אייקון ריבועי: רקע נייר בהיר, והלוגו הספירי במרכזו.
 
     ‏logo_height_ratio הוא הגובה של הלוגו כשבר מצלע הריבוע. הוא הפרמטר
     היחיד שמבדיל בין `any` ל-`maskable`: ב-maskable הלוגו קטן יותר, כדי
@@ -92,19 +97,19 @@ def icon_svg(size: int, logo_height_ratio: float) -> str:
      viewBox="0 0 {size} {size}">
   <defs>
     <radialGradient id="bg" cx="50%" cy="34%" r="78%">
-      <stop offset="0%" stop-color="{SAPPHIRE}"/>
-      <stop offset="100%" stop-color="{SAPPHIRE_DEEP}"/>
+      <stop offset="0%" stop-color="{PAPER}"/>
+      <stop offset="100%" stop-color="{PAPER_EDGE}"/>
     </radialGradient>
     <radialGradient id="glow" cx="50%" cy="50%" r="50%">
-      <stop offset="0%" stop-color="{BRASS}" stop-opacity="0.20"/>
+      <stop offset="0%" stop-color="{BRASS}" stop-opacity="0.16"/>
       <stop offset="100%" stop-color="{BRASS}" stop-opacity="0"/>
     </radialGradient>
   </defs>
   <rect width="{size}" height="{size}" fill="url(#bg)"/>
   <circle cx="{size * 0.5:.2f}" cy="{size * 0.42:.2f}" r="{glow:.2f}" fill="url(#glow)"/>
   <g transform="translate({dx:.3f} {dy:.3f}) scale({scale:.5f})">
-    <path d="{PIN_PATH}" fill="#ffffff"/>
-    <path d="{ROOF_PATH}" fill="none" stroke="{SAPPHIRE}" stroke-width="5"
+    <path d="{PIN_PATH}" fill="{SAPPHIRE}"/>
+    <path d="{ROOF_PATH}" fill="none" stroke="#ffffff" stroke-width="5"
           stroke-linejoin="miter" stroke-linecap="butt"/>
     <text x="26" y="41" text-anchor="middle" fill="{BRASS}"
           font-family="{FONT_STACK}" font-weight="800" font-size="18">ש</text>
