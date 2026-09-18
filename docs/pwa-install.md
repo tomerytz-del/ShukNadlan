@@ -208,12 +208,31 @@ python3 scripts/build_app_icons.py
 
 הכתיבה פתוחה ל-`anon` — מי שגולש/ת אינו/ה מחובר/ת — בדיוק כמו
 `property_views` שכבר עובדת כך. מה שמצמצם אותה: `check constraint` על
-כל אחד משלושת השדות, ו**היעדר `policy` של `select`** — אי אפשר לקרוא
-מכאן שורה דרך ה-API, בשום תפקיד. הקריאה כולה עוברת דרך
-`platform_pwa_report()`, שהוא `security definer` עם בדיקת
+כל אחד משלושת השדות, ו**כתיבה־בלבד בשתי שכבות בלתי תלויות**:
+
+| שכבה | מה היא עושה |
+| --- | --- |
+| ‏`RLS` | policy אחת בלבד, של `insert`. קריאה מחזירה רשימה ריקה |
+| ‏`GRANT` | ל-`anon` ול-`authenticated` יש `insert` **בלבד** על הטבלה |
+
+השכבה השנייה אינה כפילות. ברירת המחדל של Supabase נותנת לכל טבלה חדשה
+`select`, `update`, `delete` ו-`truncate` לשני התפקידים האלה, וה-RLS הוא
+שמצמצם אותם — אבל **`RLS` אינו חל על `truncate` כלל**, ו-policy אחת
+שתתווסף בטעות (או `disable row level security` של מי שמנפה באגים) פותחת
+את הטבלה כולה. אחרי צמצום ההרשאות, גם אז אין קריאה.
+
+הקריאה כולה עוברת דרך `platform_pwa_report()`, שהוא `security definer`
+בבעלות `postgres` — ולכן אינו מושפע מההרשאות של `anon` — עם בדיקת
 `current_is_platform_admin()` בשורה הראשונה.
 
-המיגרציה: `supabase/migrations/20261124090000_pwa_install_events.sql`.
+⚠️ **הכתיבה תלויה ב-`Prefer: return=minimal`.** ל-`anon` אין `select`,
+ולכן `return=representation` היה גורם ל-PostgREST להוסיף `returning`
+ולהיכשל ב-401. הכותרת הזו ב-`assets/pwa-install.js` אינה אופטימיזציה.
+(‏`id` הוא `generated always as identity` ולא `serial`, ולכן אין צורך
+בהרשאה על רצף — עם `serial` הצמצום הזה היה שובר את הכתיבה בשקט.)
+
+המיגרציות: `20261124090000_pwa_install_events.sql` (הטבלה והדוח)
+ו-`20261125090000_pwa_events_grants.sql` (צמצום ההרשאות).
 
 ### בדשבורד
 
