@@ -760,18 +760,39 @@
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();                 // בלי זה כרום מציג באנר משלו
     deferredPrompt = e;
+    /* מרגע שהאירוע הגיע, ידוע שזה מסלול 'prompt' — גם אם ההתקנה עצמה
+       תיעשה בסוף מתפריט הדפדפן ולא מהכפתור שלנו. בלי השורה הזו התקנה
+       כזו נרשמה כ-'unknown', כי ‎lastMode‎ נקבע רק בלחיצה על הכפתור
+       ו-‎deferredPrompt‎ כבר אופס עד שהגיע ‎appinstalled‎. */
+    lastMode = 'prompt';
     syncTriggers();
     if (AUTO && canAutoShow('prompt')) {
       setTimeout(function () { showBar('prompt'); }, SHOW_DELAY_MS);
     }
   });
 
+  /* ‏**ההתקנה נספרת פעם אחת, לא פעם אחת לכל לשונית.**
+     ‏appinstalled אינו אירוע של הדף שבו נלחץ הכפתור אלא של ההתקנה עצמה,
+     והוא מגיע לכל דף פתוח של האתר. בהתקנה אמיתית בפרודקשן (18.9.2026)
+     זה ייצר שלוש שורות ‎installed‎ להתקנה אחת — שתיים תוך עשר שניות
+     ואחת חמש דקות אחרי, האחרונה עם ‎platform: 'unknown'‎ כי אותה לשונית
+     מעולם לא תפסה ‎beforeinstallprompt‎ ולא ידעה מאיזה מסלול מדובר.
+
+     זו טעות שמושכת תמיד כלפי מעלה — ככל שלמשתמש/ת פתוחות יותר לשוניות,
+     כך המונה מנופח יותר — וזה הסוג שקשה לתפוס אחר כך, כי מספר התקנות
+     גבוה נראה כמו הצלחה.
+
+     הדגל ב-localStorage הוא המנעול: הוא משותף לכל הלשוניות באותו דפדפן,
+     והראשונה שמגיעה סוגרת את הדלת בפני השאר. שתי לשוניות שיקבלו את
+     האירוע באותה מילישנייה בדיוק עדיין יכולות שתיהן לרשום — מרוץ שאי
+     אפשר למנוע מהדפדפן — אבל זה חלון של מילישניות במקום של דקות. */
   window.addEventListener('appinstalled', function () {
+    var alreadyCounted = readStore(K_INSTALLED) === '1';
     writeStore(K_INSTALLED, '1');
     deferredPrompt = null;
     hideBar();
     syncTriggers();
-    track('pwa_installed', {});
+    if (!alreadyCounted) track('pwa_installed', {});
   });
 
   function start() {
