@@ -1,6 +1,6 @@
 ---
 name: new-page
-description: יצירת דף HTML חדש בשורש האתר (שוק נדל״ן) — GTM, מדידת אירועים, בריחת HTML, פוטר ו-robots. Use when adding a new page to the site, creating a new .html file in the repo root, or when a page was added and something about it is not measured / not styled / not escaped.
+description: יצירת דף HTML חדש בשורש האתר (שוק נדל״ן) — GTM, בלוק PWA, מדידת אירועים, בריחת HTML, פוטר ו-robots. Use when adding a new page to the site, creating a new .html file in the repo root, or when a page was added and something about it is not measured / not styled / not escaped.
 ---
 
 # דף חדש באתר
@@ -35,6 +35,7 @@ description: יצירת דף HTML חדש בשורש האתר (שוק נדל״ן)
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>… | שוק נדל״ן</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+← כאן בלוק ה-PWA, מועתק מ-index.html כלשונו (ראו סעיף 3)
 <meta name="description" content="…">
 <link rel="stylesheet" href="assets/design-system.css">
 <link rel="stylesheet" href="assets/site-footer.css">
@@ -48,7 +49,33 @@ description: יצירת דף HTML חדש בשורש האתר (שוק נדל״ן)
 הוא חייב להיות **מיד** אחרי `<body>`: iframe שנדחק אחרי תוכן הדף נטען
 מאוחר, ובדפים ארוכים עלול לא להיטען כלל.
 
-### 3. ערכים מהמסד → תמיד דרך `escapeHtml`
+### 3. בלוק ה-PWA — האתר ניתן להתקנה, וגם הדף הזה
+
+מיד אחרי `<link rel="icon">`, מועתק מ-`index.html` כלשונו:
+
+```html
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0e2a6b">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="שוק נדל״ן">
+<script defer src="assets/pwa-install.js"></script>
+```
+
+| סוג הדף | מה משתנה |
+| --- | --- |
+| ציבורי | כלשונו |
+| אזור אישי | `href="/app-crm.webmanifest"`, והכותרת `content="אזור אישי"` |
+| תהליך (תשלום, חתימה) | `<script … data-no-auto>` — בלי רצועה אוטומטית |
+| סרגל קבוע בתחתית | `<script … data-bottom="124px">` (‏ה-CRM) |
+
+דף בלי הבלוק נטען ונראה תקין; מה שחסר הוא ההצעה להתקין, ומי שכבר התקין/ה
+עלול/ה לצאת מהאפליקציה לדפדפן כשיגיע אליו. `scripts/check_pwa.py` חוסם
+זאת ב-CI. הפרטים: `docs/pwa-install.md`.
+
+### 4. ערכים מהמסד → תמיד דרך `escapeHtml`
 
 הדף טוען `assets/esc.js` ומשתמש ב-`escapeHtml` הגלובלית. **אין להגדיר
 בריחה משלך בדף** — זה בדיוק מה שיצר את ההזרקה שתוקנה ב-`buildSearchRow`.
@@ -61,13 +88,13 @@ row.innerHTML = `<div class="t">${escapeHtml(p.title)}</div>`;
 `cssUrl` (ראו `index.html`), כי `escapeHtml` אינה מגינה על גרש בודד
 בתוך CSS.
 
-### 4. פרטיות כתובת
+### 5. פרטיות כתובת
 
 דף שמציג נכס מציג **רחוב ושכונה, לא מספר בית**. יש `maskHouseNumber`
 ו-`publicAddressText` ב-`property.html`. הכלל והנימוק:
 `docs/property-address-privacy.md`.
 
-### 5. האם הדף צריך להיסרק
+### 6. האם הדף צריך להיסרק
 
 דף פרטי (אזור אישי, תשלום, חתימה, קישור עם טוקן) נוסף ל-`robots.txt`
 **בשתי הצורות** — עם `.html` ובלעדיה, כי Netlify מגיש את שתיהן:
@@ -79,18 +106,20 @@ Disallow: /my-page.html
 
 דף ציבורי נוסף ל-`sitemap.xml`.
 
-### 6. לפני הדחיפה
+### 7. לפני הדחיפה
 
 ```sh
 python scripts/check_gtm.py        # תגיות GTM בכל דף
 python scripts/check_escapers.py   # בריחה אחת, מלאה
+python scripts/check_pwa.py        # בלוק ה-PWA בכל דף
 ```
 
-שתיהן חוסמות ב-CI. הפלט שלהן מראה בדיוק מה להדביק ואיפה.
+שלושתן חוסמות ב-CI. הפלט שלהן מראה בדיוק מה להדביק ואיפה.
 
 ## מה שנשכח הכי הרבה
 
 1. **קטע ה-`noscript`** — קל לזכור את ה-`<script>` ולשכוח אותו.
 2. **`events.js` בדף ציבורי** — הדף עובד, פשוט לא נמדד.
-3. **הדף לא נוסף ל-`sitemap.xml`/`robots.txt`.**
-4. **תיעוד** — יכולת חדשה מקבלת מסמך ב-`docs/`, באותו PR.
+3. **בלוק ה-PWA** — הדף נטען, פשוט לא ניתן להתקנה.
+4. **הדף לא נוסף ל-`sitemap.xml`/`robots.txt`.**
+5. **תיעוד** — יכולת חדשה מקבלת מסמך ב-`docs/`, באותו PR.

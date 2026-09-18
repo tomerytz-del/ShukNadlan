@@ -13,6 +13,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>איזור סוכנים | שוק נדל״ן</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<!-- התקנה כאפליקציה (PWA) — מניפסט, אייקוני מסך הבית וכפתור ההתקנה
+     שבתוך הדף. הבלוק הזה חוזר בכל דף מאותה סיבה שתגיות ה-GTM חוזרות:
+     לאתר אין תבנית משותפת. הפרטים: docs/pwa-install.md -->
+<link rel="manifest" href="/app-crm.webmanifest">
+<meta name="theme-color" content="#0e2a6b">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="אזור אישי">
+<script defer src="assets/pwa-install.js" data-bottom="124px"></script>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
@@ -22055,6 +22066,9 @@ const DASH_ICONS = {
   /* גלגל שיניים ולא שמש: הטבעת החיצונית היא ההבדל בין השניים בגודל 18px */
   cog:'<circle cx="12" cy="12" r="2.8"/><circle cx="12" cy="12" r="7.2"/><path d="M19.2 12h2.4"/><path d="M2.4 12h2.4"/><path d="M12 4.8V2.4"/><path d="M12 19.2v2.4"/><path d="m17.1 6.9 1.7-1.7"/><path d="m5.2 18.8 1.7-1.7"/><path d="m17.1 17.1 1.7 1.7"/><path d="m5.2 5.2 1.7 1.7"/>',
   sign:'<path d="M3 19c2.5 0 2.5-3 5-3s2.5 3 5 3 2.5-3 5-3 2.5 3 3 3"/><path d="M8.5 13.5 17 5a2.1 2.1 0 0 1 3 3l-8.5 8.5"/><path d="m14.5 7.5 3 3"/>',
+  /* טלפון עם חץ פנימה — "התקנת האפליקציה" בתפריט. חץ הורדה רגיל היה
+     נקרא כהורדת קובץ, וכאן לא יורד שום קובץ: האתר נוסף למסך הבית. */
+  install:'<rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M12 7v7"/><path d="m9 11 3 3 3-3"/>',
 };
 
 function dashIcon(name, cls){
@@ -23387,6 +23401,40 @@ function buildMenuPanel(){
   if (!groups.length && !homeItems.length){
     panel.innerHTML = '<div class="menu-empty">אין קטגוריות להצגה</div>';
   }
+
+  appendInstallMenuItem(panel);
+}
+
+/* ---------- "התקנת האפליקציה" בתחתית התפריט ----------
+   הרצועה הצפה של ‎assets/pwa-install.js‎ נעלמת לשבועיים בלחיצה על ✕, והתפריט
+   הוא המקום שאליו חוזרים כדי למצוא את ההתקנה שוב — בלי לחפש אותה בתפריט
+   שלוש הנקודות של הדפדפן, שזו בדיוק הבעיה שהכפתור נועד לפתור.
+
+   הפריט נולד ‎hidden‎ ונחשף רק על ידי המודול, כשיש בדפדפן הזה מה להציע
+   (‏באייפון — ההסבר, בכרום — ההתקנה עצמה). כך לא נשאר בתפריט כפתור שלא
+   עושה דבר, והוא גם לא מהבהב לרגע לפני שהוא מוסתר.
+
+   התפריט נבנה מחדש בכל פתיחה, ולכן ‎refreshTriggers‎ בכל בנייה: הכפתור
+   שהמודול חיבר אליו מאזין קודם כבר אינו ב-DOM. */
+function appendInstallMenuItem(panel){
+  // ‏canInstall בודק גם התקנה קיימת וגם דפדפן שאין לו מה להציע. בלי
+  // התנאי הזה היה נשאר בתחתית התפריט קו מפריד בלי שום פריט אחריו.
+  if (!panel || !window.ShukPWA || !window.ShukPWA.canInstall()) return;
+
+  panel.appendChild(Object.assign(document.createElement('div'), { className:'menu-sep' }));
+
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.className = 'menu-item';
+  item.hidden = true;
+  item.setAttribute('data-pwa-install', '');
+  item.innerHTML = dashIcon('install', 'mi-ico')
+    + '<span class="mi-label">התקנת האפליקציה</span>';
+  // התפריט נסגר לפני שההסבר או דיאלוג ההתקנה נפתחים מעליו
+  item.addEventListener('click', closeMenuPanel);
+  panel.appendChild(item);
+
+  window.ShukPWA.refreshTriggers();
 }
 
 function closeMenuPanel(){
