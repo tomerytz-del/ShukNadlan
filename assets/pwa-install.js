@@ -55,9 +55,11 @@
    היעדים 44px לפחות, הטקסט ב-rem (מכבד הגדלת גופן במערכת), והתנועה
    מבוטלת ב-‎prefers-reduced-motion‎.
 
-   ‏**מדידה:** דרך ‎shukTrack‎ אם הוא קיים בדף. דפי האזור האישי אינם
-   טוענים את ‎events.js‎ במכוון (ראו CLAUDE.md), ושם המדידה פשוט לא
-   קורית — הכפתור עובד בדיוק אותו דבר.
+   ‏**מדידה — שני יעדים:** ‎dataLayer‎ דרך ‎shukTrack‎ (אם הוא בדף), וגם
+   הטבלה ‎pwa_install_events‎ במסד, שמזינה את הדשבורד של מנהל/ת
+   הפלטפורמה. דפי האזור האישי אינם טוענים את ‎events.js‎ במכוון (ראו
+   CLAUDE.md), כלומר התקנה מה-CRM לא הייתה נספרת ב-GA4 כלל — וזה הקהל
+   שההתקנה נבנתה בשבילו. ההסבר המלא נמצא ליד ‎track()‎ למטה.
 
    התיעוד המלא: ‎docs/pwa-install.md‎.
    ========================================================================== */
@@ -89,10 +91,95 @@
     try { window.localStorage.setItem(key, value); } catch (e) { /* אחסון חסום */ }
   }
 
-  function track(name, params) {
+  // ------------------------------------------------------------------
+  // מדידה — שני יעדים, ובכוונה
+  //
+  //   ‏1. ‏dataLayer → GTM → GA4, דרך shukTrack (אם הוא בדף).
+  //   ‏2. ‏טבלת pwa_install_events במסד, שמזינה את הדשבורד של מנהל/ת
+  //      הפלטפורמה.
+  //
+  // ‏**למה שניים ולא אחד.** ל-GA4 יש פילוח שאין למסד (קמפיין, מקור, קהל),
+  // אבל לשאלה "כמה אנשים התקינו" הוא לא עונה כאן:
+  //
+  //   • חוסם פרסומות מפיל את GTM, ואת ההתקנות מתקינים דווקא מי שיש להם
+  //     חוסם — אותו קהל בדיוק.
+  //   • דפי האזור האישי אינם טוענים את events.js במכוון (ראו CLAUDE.md),
+  //     ולכן **התקנה של סוכן/ת מה-CRM לא הייתה נספרת ב-GA4 בכלל** — וזה
+  //     הקהל שההתקנה נבנתה בשבילו.
+  //   • הדשבורד של מנהל/ת הפלטפורמה מציג את כל שאר המספרים במקום אחד,
+  //     ויציאה לממשק אחר בשביל מספר אחד היא יציאה שלא קורית.
+  //
+  // הכתיבה למסד היא REST ישיר ולא supabase-js: רוב הדפים הציבוריים אינם
+  // טוענים את הספרייה, והמודול הזה נטען בכולם.
+  // ------------------------------------------------------------------
+  var SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
+  var SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
+  var EVENTS_URL = SUPABASE_URL + '/rest/v1/pwa_install_events';
+
+  /* שם האירוע ב-GA4 → שם האירוע בטבלה. ה-check constraint במסד מכיר
+     בדיוק את הערכים שמימין, ושם שאינו ברשימה הזו פשוט לא נכתב. */
+  var DB_EVENT = {
+    'pwa_banner_shown':   'banner_shown',
+    'pwa_banner_dismiss': 'banner_close',
+    'pwa_install_click':  'install_click',
+    'pwa_help_open':      'help_open',
+    'pwa_installed':      'installed'
+    /* ‏pwa_install_result מטופל בנפרד: הוא מתפצל ל-accepted/dismissed */
+  };
+
+  /* שם הדף בלי הסיומת. הטור במסד חסום לתבנית קצרה, ולכן כל דבר שאינו
+     תואם נשלח כ-null ולא מנסה את מזלו מול ה-constraint. */
+  function pageName() {
     try {
-      if (typeof window.shukTrack === 'function') window.shukTrack(name, params || {});
+      var last = (location.pathname.split('/').pop() || 'index').replace(/\.html$/, '');
+      if (!last) last = 'index';
+      return /^[a-z0-9_-]{1,40}$/.test(last) ? last : null;
+    } catch (e) { return null; }
+  }
+
+  function logToDb(event, platform) {
+    if (!event) return;
+    try {
+      fetch(EVENTS_URL, {
+        method: 'POST',
+        headers: {
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+          'Content-Type': 'application/json',
+          /* ‏**return=minimal אינו אופטימיזציה — הכתיבה תלויה בו.** לתפקיד
+             ‏anon יש הרשאת insert על הטבלה ותו לא (ראו המיגרציה
+             ‏20261125090000). ‏return=representation היה גורם ל-PostgREST
+             להוסיף ‎returning‎, שדורש הרשאת select — וכל הכתיבה הייתה
+             נכשלת ב-401. */
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify({
+          event: event,
+          platform: platform || 'unknown',
+          page: pageName()
+          /* ‏occurred_at נקבע בשרת. הלקוח אינו שולח זמן — כדי שאי אפשר
+             יהיה לשתול היסטוריה, וכדי ששעון מוטה במכשיר לא יזייף דוח. */
+        }),
+        /* הלחיצה על "התקנה" עלולה להיות הפעולה האחרונה בדף הזה.
+           ‏keepalive מבקש מהדפדפן לשלוח את הבקשה גם אחרי שהדף נסגר. */
+        keepalive: true
+      })['catch'](function () { /* אין רשת, או שהמיגרציה טרם רצה — מונה, לא תקלה */ });
     } catch (e) { /* מדידה לא שוברת אתר */ }
+  }
+
+  /* המסלול האחרון שהוצע. ‏pwa_install_result מגיע מתוך ה-Promise של
+     הדפדפן, אחרי ש-deferredPrompt כבר נצרך ו-mode() כבר אינו 'prompt'. */
+  var lastMode = null;
+
+  function track(name, params) {
+    var p = params || {};
+    try {
+      if (typeof window.shukTrack === 'function') window.shukTrack(name, p);
+    } catch (e) { /* מדידה לא שוברת אתר */ }
+
+    var dbEvent = DB_EVENT[name];
+    if (name === 'pwa_install_result') dbEvent = (p.outcome === 'accepted') ? 'accepted' : 'dismissed';
+    if (dbEvent) logToDb(dbEvent, p.mode || lastMode || mode() || 'unknown');
   }
 
   // ------------------------------------------------------------------
@@ -414,6 +501,7 @@
   // הפעולה עצמה
   // ------------------------------------------------------------------
   function activate(m, source) {
+    lastMode = m;                       // ‏pwa_install_result יגיע אחרי ש-mode() כבר השתנה
     track('pwa_install_click', { mode: m });
 
     if (m === 'prompt' && deferredPrompt) {
@@ -672,18 +760,39 @@
   window.addEventListener('beforeinstallprompt', function (e) {
     e.preventDefault();                 // בלי זה כרום מציג באנר משלו
     deferredPrompt = e;
+    /* מרגע שהאירוע הגיע, ידוע שזה מסלול 'prompt' — גם אם ההתקנה עצמה
+       תיעשה בסוף מתפריט הדפדפן ולא מהכפתור שלנו. בלי השורה הזו התקנה
+       כזו נרשמה כ-'unknown', כי ‎lastMode‎ נקבע רק בלחיצה על הכפתור
+       ו-‎deferredPrompt‎ כבר אופס עד שהגיע ‎appinstalled‎. */
+    lastMode = 'prompt';
     syncTriggers();
     if (AUTO && canAutoShow('prompt')) {
       setTimeout(function () { showBar('prompt'); }, SHOW_DELAY_MS);
     }
   });
 
+  /* ‏**ההתקנה נספרת פעם אחת, לא פעם אחת לכל לשונית.**
+     ‏appinstalled אינו אירוע של הדף שבו נלחץ הכפתור אלא של ההתקנה עצמה,
+     והוא מגיע לכל דף פתוח של האתר. בהתקנה אמיתית בפרודקשן (18.9.2026)
+     זה ייצר שלוש שורות ‎installed‎ להתקנה אחת — שתיים תוך עשר שניות
+     ואחת חמש דקות אחרי, האחרונה עם ‎platform: 'unknown'‎ כי אותה לשונית
+     מעולם לא תפסה ‎beforeinstallprompt‎ ולא ידעה מאיזה מסלול מדובר.
+
+     זו טעות שמושכת תמיד כלפי מעלה — ככל שלמשתמש/ת פתוחות יותר לשוניות,
+     כך המונה מנופח יותר — וזה הסוג שקשה לתפוס אחר כך, כי מספר התקנות
+     גבוה נראה כמו הצלחה.
+
+     הדגל ב-localStorage הוא המנעול: הוא משותף לכל הלשוניות באותו דפדפן,
+     והראשונה שמגיעה סוגרת את הדלת בפני השאר. שתי לשוניות שיקבלו את
+     האירוע באותה מילישנייה בדיוק עדיין יכולות שתיהן לרשום — מרוץ שאי
+     אפשר למנוע מהדפדפן — אבל זה חלון של מילישניות במקום של דקות. */
   window.addEventListener('appinstalled', function () {
+    var alreadyCounted = readStore(K_INSTALLED) === '1';
     writeStore(K_INSTALLED, '1');
     deferredPrompt = null;
     hideBar();
     syncTriggers();
-    track('pwa_installed', {});
+    if (!alreadyCounted) track('pwa_installed', {});
   });
 
   function start() {

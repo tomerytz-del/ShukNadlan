@@ -8168,6 +8168,125 @@ async function loadAdminReport(){
   }
 
   renderAdminReport(data || {});
+  loadAdminPwaReport();
+}
+
+/* ---------- התקנות האפליקציה (PWA) ----------
+   ‏RPC נפרד ולא ענף בדוח החודשי: הדוח החודשי עונה על שאלות של כסף וקהל
+   והוא כבר ארוך, ולהתקנות יש חלון זמן משלהן. הבלוק נוסף בסוף הפאנל אחרי
+   שהדוח כבר צויר, ולכן הוא מגיע רגע אחריו ולא מעכב אותו.
+
+   ‏**למה המספרים כאן אינם זהים ל-GA4, וזה לא באג:** המונה הזה במסד סופר
+   גם את מי שיש לו/ה חוסם פרסומות (שם GTM כלל לא נטען) וגם התקנות מתוך
+   ה-CRM (שאינו טוען את events.js במכוון). המספר כאן יהיה תמיד **גבוה
+   יותר**, והוא הנכון מבין השניים לשאלה "כמה התקינו".
+
+   חלון הזמן נגזר מבורר החודשים של הפאנל, כדי שלא יהיה בורר שני שאומר
+   משהו אחר על אותו מסך. הפרטים: docs/pwa-install.md */
+const PWA_MODE_LABELS = {
+  'prompt':     'אנדרואיד / כרום',
+  'ios':        'אייפון — ספארי',
+  'ios-other':  'אייפון — דפדפן אחר',
+  'in-app':     'דפדפן פנימי (פייסבוק/אינסטגרם)',
+  'mac-safari': 'מק — ספארי',
+  'unknown':    'לא ידוע',
+};
+
+async function loadAdminPwaReport(){
+  const host = document.getElementById('adminReport');
+  if (!host) return;
+
+  const { data, error } = await sb.rpc('platform_pwa_report',
+    { p_days: adminReportMonths * 30 });
+
+  const block = admBlock('האפליקציה במסך הבית (PWA)',
+    'כמה אנשים ראו את ההצעה להתקין וכמה הגיעו עד הסוף. נספר במסד שלנו ולא ב-GA4, ולכן כולל גם גולשים עם חוסם פרסומות וגם התקנות מתוך ה-CRM.');
+
+  if (error){
+    // ‏PGRST202/42883 = הפונקציה טרם קיימת במסד (המיגרציה לא רצה עדיין).
+    // זו אינה שגיאה שצריך להבהיל בגללה: הדשבורד שלם בלעדיה.
+    const msg = (error.code === '42883' || error.code === 'PGRST202')
+      ? 'מונה ההתקנות טרם קיים במסד — הריצו את המיגרציה 20261124090000_pwa_install_events.sql.'
+      : 'שגיאה בטעינת מונה ההתקנות: ' + error.message;
+    block.appendChild(admEl('div', 'empty-state', msg));
+    host.appendChild(block);
+    dashPanelsMeasure();
+    return;
+  }
+
+  const rep     = data || {};
+  const funnel  = rep.funnel || {};
+  const days    = Number(rep.window_days) || 30;
+  const shown   = Number(funnel.banner_shown)  || 0;
+  const clicked = Number(funnel.install_click) || 0;
+  const helped  = Number(funnel.help_open)     || 0;
+  const done    = Number(funnel.installed)     || 0;
+
+  block.appendChild(admEl('p', 'adm-legend',
+    'סך ההתקנות שהושלמו מאז ומתמיד: ' + admInt(rep.installed_total) +
+    ' · בחלון של ' + admInt(days) + ' ימים: ' + admInt(done)));
+
+  /* המשפך. ‏share הוא החלק מתוך "ראו את ההצעה" — בלי הפס האלה ארבעה
+     מספרים נפרדים, ואי אפשר לראות איפה אנשים נושרים. */
+  const pct = n => (shown > 0 ? (n / shown) * 100 : 0);
+  const rows = admEl('div', 'adm-rows');
+  rows.appendChild(admRow('ראו את ההצעה', 'הרצועה עלתה בתחתית הדף', admInt(shown), 100));
+  rows.appendChild(admRow('לחצו על הכפתור', null, admInt(clicked), pct(clicked)));
+  rows.appendChild(admRow('פתחו את ההסבר', 'אייפון ומק — שם אין התקנה בלחיצה', admInt(helped), pct(helped)));
+  rows.appendChild(admRow('אישרו בדיאלוג המערכת', null, admInt(funnel.accepted), pct(Number(funnel.accepted) || 0)));
+  rows.appendChild(admRow('התקנות שהושלמו', 'הדפדפן דיווח appinstalled', admInt(done), pct(done), null, true));
+  block.appendChild(rows);
+
+  /* ‏אייפון הוא הסיפור שהטבלה הזו מספרת: שם לא ייתכן "התקנות שהושלמו",
+     כי הדפדפן אינו מדווח על "הוספה למסך הבית". "פתחו הסבר" הוא הקצה של
+     המדידה שם, ולכן הוא טור נפרד ולא חלק מאותו משפך. */
+  const byPlatform = Array.isArray(rep.by_platform) ? rep.by_platform : [];
+  if (byPlatform.length){
+    const wrap = admEl('div', 'adm-table-wrap');
+    const table = admEl('table', 'adm-table');
+    const thead = admEl('thead');
+    const hrow = admEl('tr');
+    /* "הותקנו" הוא העמודה השנייה ולא האחרונה, ו"לחצו" ירד מכאן (הוא כבר
+       במשפך למעלה): בטלפון הטבלה גוללת לרוחב, וחמש עמודות דחפו דווקא את
+       המספר שבגללו פותחים את הבלוק אל מחוץ למסך. */
+    ['מסלול','הותקנו','פתחו הסבר','ראו'].forEach(h => hrow.appendChild(admEl('th', null, h)));
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+    const tbody = admEl('tbody');
+    byPlatform.forEach(row => {
+      const tr = admEl('tr');
+      tr.appendChild(admEl('td', null, PWA_MODE_LABELS[row.platform] || row.platform));
+      tr.appendChild(admEl('td', null, admInt(row.installed)));
+      tr.appendChild(admEl('td', null, admInt(row.helped)));
+      tr.appendChild(admEl('td', null, admInt(row.shown)));
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    block.appendChild(wrap);
+  }
+
+  /* מאיזה דף מתקינים בפועל — זו השאלה שקובעת לאן כדאי להחזיר את הכפתור */
+  const byPage = Array.isArray(rep.by_page) ? rep.by_page : [];
+  if (byPage.length){
+    block.appendChild(admEl('p', 'adm-legend', 'מאיזה דף לוחצים על ההתקנה'));
+    const facts = admEl('div', 'adm-facts');
+    byPage.forEach(row => {
+      const fact = admEl('div', 'adm-fact');
+      fact.appendChild(admEl('span', 'adm-fact-lbl', row.page));
+      fact.appendChild(admEl('span', 'adm-fact-val', admInt(row.clicked) + ' לחיצות'));
+      facts.appendChild(fact);
+    });
+    block.appendChild(facts);
+  }
+
+  if (!shown && !clicked && !done){
+    block.appendChild(admEl('div', 'empty-state',
+      'עדיין לא נרשמו אירועי התקנה בחלון הזה. הרצועה עולה רק בדפדפן שיודע להתקין, ורק למי שלא סגר/ה אותה בשבועיים האחרונים.'));
+  }
+
+  host.appendChild(block);
+  dashPanelsMeasure();
 }
 
 function renderAdminReport(report){
