@@ -6737,6 +6737,14 @@ let heroMap = null;
    שמסתכל עליו, והצהרה מאוחרת יותר בקובץ הייתה משאירה אותו ב-TDZ. */
 let mapDraw = null;
 
+/* "הזזת המפה היא חיפוש" — המצב עצמו. מוצהר כאן ולא לצד updateMapViewRows
+   מאותה סיבה בדיוק שבגללה mapDraw מוצהר כאן: המאזינים שקוראים אותו נקשרים
+   כבר באתחול המפה, כמה מאות שורות מעל ההגדרה, והצהרה מאוחרת הייתה משאירה
+   אותו ב-TDZ אם Leaflet יורה moveend תוך כדי האתחול. */
+let mapViewOn = false;
+let mapViewTimer = null;
+let mapNavAt = 0;
+
 /* המספרים שבראש ה-hero. שלושה טוענים שונים ממלאים אותו במועדים שונים,
    ו-renderHeroStats מצייר בכל פעם את מה שכבר יש — ראו שם.
 
@@ -6843,6 +6851,31 @@ try {
   // שלצדה מצטמצמת למה שנמצא בתחום הנראה. moveend/zoomend נורים פעם אחת בסוף
   // המחווה, ולכן אין כאן צורך ב-debounce.
   heroMap.on('moveend zoomend resize', ()=> updateSplitPanel());
+
+  /* אותו רעיון בדיוק, אבל לרשימה שמתחת למפה — וגם בטלפון, שם אין תצוגה
+     מפוצלת. ‏markMapUserNav נקשר למחוות ולא ל-moveend: רק גרירה, זום גלגלת,
+     צביטה או כפתורי הזום הם "הגולש/ת מחפש/ת על המפה"; תזוזה שהקוד יזם
+     (‏fitMapToMarkers אחרי חיפוש, מירכוז, פתיחה מוגדלת) אינה.
+     ‏dragstart/zoomstart של Leaflet מכסים גרירה וצביטה; הגלגלת ממומשת
+     ב-assets/map-gestures.js ולכן היא נתפסת מה-container, וכפתורי הזום הם
+     קישורים ב-.leaflet-control-zoom. ראו updateMapViewRows. */
+  heroMap.on('dragstart', markMapUserNav);
+  const mapContainer = heroMap.getContainer();
+  // גלגלת והקלקה כפולה — זום ביוזמת המשתמש/ת
+  mapContainer.addEventListener('wheel', markMapUserNav, { passive:true });
+  mapContainer.addEventListener('dblclick', markMapUserNav, { passive:true });
+  /* צביטה. שתי אצבעות ולא אחת, בדיוק כמו ההפרדה ב-map-gestures.js: אצבע
+     אחת גוללת את הדף ואינה נוגעת במפה, ואילו touchstart גורף היה מסמן
+     "חיפוש על המפה" בכל גלילה שעברה מעליה. */
+  mapContainer.addEventListener('touchstart', (e)=>{
+    if (e.touches && e.touches.length >= 2) markMapUserNav();
+  }, { passive:true });
+  // כפתורי ה-+/− של Leaflet. לחיצה על פין לא נכללת כאן בכוונה: הבלון שנפתח
+  // מזיז את המפה (autoPan), וזו לא מחוות חיפוש.
+  mapContainer.addEventListener('click', (e)=>{
+    if (e.target.closest && e.target.closest('.leaflet-control-zoom')) markMapUserNav();
+  }, { passive:true });
+  heroMap.on('moveend zoomend', scheduleMapViewRows);
 
   /* השטח הפנוי משתנה רק כשהפריסה משתנה — שינוי גודל חלון, פתיחת התצוגה
      המפוצלת, הגדלת המפה — וכל אלה מגיעים ל-Leaflet כאירוע resize (המצבים
@@ -7429,6 +7462,65 @@ function updateSplitPanel(){
     note.hidden = overflow <= 0;
     if (overflow > 0) note.textContent = `מוצגים ${shown.length} מתוך ${inView.length} — התקרבו במפה כדי לצמצם`;
   }
+}
+
+/* ============================================================
+   הזזת המפה היא חיפוש — והרשימה שלה יושבת מיד מתחת למפה
+   ------------------------------------------------------------
+   עד כה "תחום המפה מסנן את הרשימה" היה קיים בתצוגה המפוצלת בלבד, כלומר
+   מ-1024px ומעלה ורק למי שהדליק/ה אותה. בטלפון — ששם רוב הגולשים — גלגלת
+   או שתי אצבעות הזיזו את הפינים ולא שינו שום רשימה, והרשימה היחידה שהייתה
+   על המסך היא תיבת הנכסים שיושבת **אחרי** הבאנרים (המבזק, רצועת ההדמיות,
+   באנר היריד). כלומר מי שצמצם/ה את המפה לרחוב אחד לא ראה/תה את התוצאה
+   בלי לגלול דרך שלושה באנרים — ובפועל פשוט לא ראה/תה אותה.
+
+   ‏#searchResults היא הסקציה היחידה בדף שיושבת בין ה-hero לבאנרים, ולכן
+   זו הסקציה שמתמלאת כאן. הרשימה נגזרת מ-mapProperties — מה שהמפה מציגה
+   כרגע — ולכן גרירה *אחרי* חיפוש מצמצמת בתוך תוצאות החיפוש ולא מבטלת אותן.
+
+   הכניסה למצב הזה היא מחווה על המפה בלבד (‏mapViewOn), ולא כל moveend:
+   ‏fitMapToMarkers, מירכוז והגדלה מזיזים את המפה בעצמם, וכל אחד מהם היה
+   הופך רשימת תוצאות טרייה ל"תחום המפה" מבלי שאיש נגע בה. ‏renderPropertyGrid
+   מכבה את המצב מאותה סיבה: רשימה חדשה מתחילה מהרשימה, לא מהמסגרת.
+   ============================================================ */
+// ‏mapViewOn, mapViewTimer ו-mapNavAt מוצהרים למעלה, לצד heroMap — שם גם
+// ההסבר למה.
+
+// המחווה, ולא התזוזה: ‏Leaflet יורה moveend גם על תזוזות שהקוד יזם, ולכן
+// נקודת האמת היא האירוע שהגיע מהאצבע/העכבר על גוף המפה.
+function markMapUserNav(){ mapNavAt = Date.now(); }
+
+/* כמה זמן אחרי המחווה עוד נחשב ה-moveend שלה. גרירה וצביטה יורות אותו
+   כמעט מיד; החלון הרחב מכסה זום עם אנימציה. */
+const MAP_NAV_WINDOW = 1500;
+
+/* ‏moveend נורה פעם אחת בסוף גרירה, אבל זום גלגלת יורה סדרה שלמה — ובלי
+   ההשהיה הקצרה הזו כל נקישת גלגלת מציירת עשרות שורות מחדש.
+
+   הכניסה למצב דורשת מחווה טרייה; היציאה ממנו היא renderPropertyGrid בלבד.
+   מרגע שנכנסנו, כל תזוזה מעדכנת — גם הגדלת המפה וגם מירכוז — כי במצב הזה
+   הרשימה *אמורה* לעקוב אחרי המפה. */
+function scheduleMapViewRows(){
+  if (!mapViewOn){
+    if (Date.now() - mapNavAt > MAP_NAV_WINDOW) return;
+    mapViewOn = true;
+  }
+  clearTimeout(mapViewTimer);
+  mapViewTimer = setTimeout(updateMapViewRows, 160);
+}
+
+function updateMapViewRows(){
+  if (!mapViewOn || !heroMap) return;
+  renderSearchRows(propertiesInView(), true, { mapView:true });
+}
+
+/* יציאה מהמצב בלי לגעת ברשימה — מי שקורא לזה מצייר בעצמו מה שיבוא במקומה.
+   ‏mapNavAt מתאפס גם הוא: בלעדיו מחווה שקדמה לחיפוש בשנייה האחרונה הייתה
+   מדליקה את המצב מחדש דרך ה-moveend של fitMapToMarkers. */
+function exitMapViewRows(){
+  mapViewOn = false;
+  mapNavAt = 0;
+  clearTimeout(mapViewTimer);
 }
 
 const splitToggleBtn = document.getElementById('splitToggleBtn');
@@ -8643,8 +8735,11 @@ function showSearchError(){
   const section = document.getElementById('searchResults');
   const rows = document.getElementById('searchResultsRows');
   const countEl = document.getElementById('searchResultsCount');
+  const titleEl = document.getElementById('searchResultsTitle');
   if (section && rows){
     section.hidden = false;
+    // הכותרת חוזרת מ"הנכסים שבתחום המפה" אם החיפוש נכשל בזמן שהמצב ההוא פעיל
+    if (titleEl) titleEl.textContent = 'תוצאות החיפוש';
     if (countEl) countEl.textContent = '';
     rows.innerHTML = '<div class="sr-empty">שגיאה בחיפוש — נסו שוב</div>';
   }
@@ -8677,11 +8772,21 @@ function buildSearchRow(p, i){
 }
 
 /* שורות התוצאות שמיד מתחת למפה. אותה רשימה שמזינה את הפינים, ולכן כל שורה
-   כאן היא פין על המפה שמעליה — כולל אותה תגית צבע לסוג העסקה. */
-function renderSearchRows(properties, isSearchResult){
+   כאן היא פין על המפה שמעליה — כולל אותה תגית צבע לסוג העסקה.
+
+   שני מצבים לאותה סקציה, ובכוונה אותה סקציה: היא היחידה בדף שיושבת בין
+   ה-hero לבין הבאנרים (המבזק, רצועת ההדמיות, באנר היריד), ולכן היא המקום
+   היחיד שבו "מיד מתחת למפה" נכון.
+     ‏1. תוצאות חיפוש — מה שהשאילתה החזירה.
+     ‏2. תחום המפה (‏mapView) — מה שנמצא כרגע בתוך המסגרת הנראית, אחרי
+        שהגולש/ת הזיז/ה או הגדיל/ה את המפה. ראו updateMapViewRows. */
+const MAP_VIEW_MAX_ROWS = 60;   // מעבר לזה הגלילה ארוכה מלהיות שימושית
+
+function renderSearchRows(properties, isSearchResult, { mapView = false } = {}){
   const section = document.getElementById('searchResults');
   const rows = document.getElementById('searchResultsRows');
   const countEl = document.getElementById('searchResultsCount');
+  const titleEl = document.getElementById('searchResultsTitle');
   if (!section || !rows) return;
 
   if (!isSearchResult){
@@ -8691,21 +8796,44 @@ function renderSearchRows(properties, isSearchResult){
   }
 
   section.hidden = false;
+  // הכותרת אומרת מאיפה הרשימה הגיעה. "תוצאות החיפוש" מעל רשימה שנוצרה
+  // מגרירה של המפה — ובלי שאיש חיפש דבר — היא כותרת שמשקרת.
+  if (titleEl) titleEl.textContent = mapView ? 'הנכסים שבתחום המפה' : 'תוצאות החיפוש';
+
+  // בתחום המפה מוצג רק מה שנכנס לרשימה שימושית; השאר נשאר על המפה, וההודעה
+  // אומרת איך לצמצם אותו (להתקרב) במקום להעמיס מאות שורות על הטלפון.
+  const shown = mapView ? properties.slice(0, MAP_VIEW_MAX_ROWS) : properties;
+
   if (countEl){
-    // נכס בלי קואורדינטות לא יכול לקבל פין, ולכן ההבטחה "מסומנים על המפה"
-    // נכונה רק כשלכולם יש מיקום. אחרת נאמר במפורש כמה מהם על המפה, אחרת
-    // המספר כאן מבטיח יותר פינים ממה שבאמת מצויר.
-    const pinned = properties.filter(p => p.lat && p.lng).length;
-    countEl.textContent = !properties.length ? ''
-      : pinned === properties.length
-        ? `${properties.length} נכסים תואמים · מסומנים על המפה שמעל`
-        : `${properties.length} נכסים תואמים · ${pinned} מהם מסומנים על המפה`;
+    if (mapView){
+      const overflow = properties.length - shown.length;
+      countEl.textContent = !properties.length
+        ? ''
+        : overflow > 0
+          ? `${shown.length} מתוך ${properties.length} נכסים בתחום המפה — התקרבו כדי לצמצם`
+          : properties.length === 1
+            ? 'נכס אחד בתחום המפה'
+            : `${properties.length} נכסים בתחום המפה`;
+    } else {
+      // נכס בלי קואורדינטות לא יכול לקבל פין, ולכן ההבטחה "מסומנים על המפה"
+      // נכונה רק כשלכולם יש מיקום. אחרת נאמר במפורש כמה מהם על המפה, אחרת
+      // המספר כאן מבטיח יותר פינים ממה שבאמת מצויר.
+      const pinned = properties.filter(p => p.lat && p.lng).length;
+      countEl.textContent = !properties.length ? ''
+        : pinned === properties.length
+          ? `${properties.length} נכסים תואמים · מסומנים על המפה שמעל`
+          : `${properties.length} נכסים תואמים · ${pinned} מהם מסומנים על המפה`;
+    }
   }
   rows.innerHTML = '';
-  if (!properties.length){
-    // אפס תוצאות הוא רגע הכוונה הגבוה ביותר בכל המסך: מי שחיפש/ה בדיוק את
-    // זה ולא מצא/ה הוא/היא בדיוק מי שכדאי לעדכן כשזה יעלה. ה-CTA כאן גדול
-    // ומרכזי, ולא גלולה בכותרת.
+  if (!shown.length){
+    /* בתחום המפה "אין כאן כלום" הוא הוראה ולא מבוי סתום — מספיק להתרחק.
+       בחיפוש זה ההפך: אפס תוצאות הוא רגע הכוונה הגבוה ביותר בכל המסך, כי מי
+       שחיפש/ה בדיוק את זה ולא מצא/ה הוא/היא מי שכדאי לעדכן כשזה יעלה. */
+    if (mapView){
+      rows.innerHTML = '<div class="sr-empty">אין נכסים בתחום המפה הנוכחי. הזיזו את המפה או התרחקו כדי לראות עוד.</div>';
+      return;
+    }
     rows.innerHTML =
       '<div class="sr-empty">לא נמצאו נכסים התואמים את החיפוש. נסו להרחיב את הסינון או לחפש שכונה אחרת.' +
       '<div class="ssa-empty"><button type="button" class="ssa-cta" id="ssaEmptyBtn">' +
@@ -8716,10 +8844,10 @@ function renderSearchRows(properties, isSearchResult){
     return;
   }
 
-  properties.forEach((p, i)=>{
+  shown.forEach((p, i)=>{
     rows.appendChild(buildSearchRow(p, i));
     // אותה פרסומת in-feed שקיימת בגריד — התוצאות עברו לכאן, וגם היא איתן
-    if (i === 1 && properties.length > 2){
+    if (i === 1 && shown.length > 2){
       const ad = document.createElement('div');
       ad.className = 'infeed-ad';
       ad.textContent = 'פרסומת — באנר רוחבי בין תוצאות החיפוש';
@@ -9447,6 +9575,12 @@ renderBuyerHoods();
    הוא ממוין, מסונן בתגיות ונפתח ב"עוד נכסים" — ורשימה שלישית שגוללת
    לאורך מסכים שלמים רק דחפה את סוף העמוד רחוק יותר. */
 function renderPropertyGrid(properties, isSearchResult){
+  /* רשימה חדשה מתחילה מהרשימה ולא מהמסגרת: החיפוש (או שחרור התגיות, או
+     הטעינה הראשונית) הוא שקובע מה מוצג, ו-fitMapToMarkers שבא אחריו מזיז
+     את המפה — כלומר יורה moveend. בלי הכיבוי כאן אותו moveend היה מחליף
+     מיד את "40 נכסים תואמים" ב"40 נכסים בתחום המפה", בלי שאיש נגע במפה.
+     מחווה הבאה על המפה מדליקה את המצב מחדש. */
+  exitMapViewRows();
   renderMap(properties);
   renderSearchRows(properties, isSearchResult);
 }
@@ -9534,6 +9668,12 @@ async function clearSearch(){
      לא תצייר את המפה מחדש בדרך: השורה שאחריה עושה זאת ממילא. */
   ppShelfFiltered = false;
   propsShelf.selectTag('');
+
+  /* "ניקוי החיפוש" הוא גם היציאה ממצב "תחום המפה": הסקציה חוזרת להיות
+     מוסתרת, והדף חוזר בדיוק לסדר שאיתו נטען — מפה, מבזק, הדמיות, יריד,
+     תיבת הנכסים. ‏renderPropertyGrid בשורה שאחריה מכבה את המצב ממילא;
+     הכיבוי המפורש כאן הוא כדי ש-moveend של ה-fit לא ידליק אותו בחזרה. */
+  exitMapViewRows();
 
   searchHasRun = false;
   renderPropertyGrid(await loadProperties());
