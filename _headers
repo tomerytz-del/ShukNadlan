@@ -87,3 +87,30 @@
 
 /promoted.png
   Cache-Control: public, max-age=86400
+
+# ---------------------------------------------------------------------------
+# ‏PWA — המניפסטים וה-Service Worker
+#
+# שני דברים כאן, ושניהם שקטים כשהם שבורים:
+#
+# ‏1. **‏Content-Type.** דפדפן שמקבל את המניפסט כ-‎text/plain‎ מתעלם ממנו,
+#    והאתר פשוט מפסיק להיות ניתן להתקנה — בלי שגיאה ובלי סימן בדף. ‏Netlify
+#    מזהה ‎.webmanifest‎ נכון היום, וההצהרה כאן היא ביטוח מפני היום שבו לא.
+#
+# ‏2. **מטמון ה-Worker.** ‏‎sw.js‎ עצמו חייב להיבדק מול השרת בכל טעינה,
+#    אחרת גרסה חדשה שלו (למשל זו שמבטלת אותו, ראו ההערה בקובץ) תמתין
+#    במטמון של הדפדפן במקום להיכנס לתוקף. ‏no-cache אינו "בלי מטמון" אלא
+#    "לאמת מול השרת לפני כל שימוש" — כלומר 304 קצר כשאין שינוי.
+#
+# האייקונים עצמם הם ‎/assets/*.png‎ ונופלים תחת הכלל של יום למעלה.
+# ---------------------------------------------------------------------------
+
+/manifest.webmanifest
+  Content-Type: application/manifest+json; charset=utf-8
+
+/app-crm.webmanifest
+  Content-Type: application/manifest+json; charset=utf-8
+
+/sw.js
+  Cache-Control: no-cache
+  Content-Type: application/javascript; charset=utf-8

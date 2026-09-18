@@ -30,6 +30,12 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `share` | שיתוף נכס שהושלם | `method`: ‏`web_share` \| `copy_link` |
 | `generate_lead` | טופס שהשרת אישר | `form_id`, ולפעמים `is_duplicate` |
 | `search` | חיפוש שהתוצאות שלו חזרו | `search_term`, `deal_type`, `category`, `filter_count`, `result_count` |
+| `pwa_banner_shown` | רצועת ההתקנה עלתה | `mode`: ‏`prompt` \| `ios` \| `ios-other` \| `in-app` |
+| `pwa_banner_dismiss` | ✕ ברצועה | `mode` |
+| `pwa_install_click` | לחיצה על כפתור ההתקנה (ברצועה או בתפריט) | `mode` |
+| `pwa_install_result` | תשובת המשתמש/ת לדיאלוג ההתקנה של המערכת | `outcome`: ‏`accepted` \| `dismissed` |
+| `pwa_help_open` | נפתח הסבר ההוספה הידנית (אייפון, מק) | `mode` |
+| `pwa_installed` | הדפדפן דיווח שההתקנה הושלמה | — |
 
 לכל אירוע מצורפים אוטומטית `page_type` (שם הדף בלי הסיומת), `item_id`
 (פרמטר `id` שבכתובת, כשיש) ו-`src` — אין צורך להעביר אותם ידנית.
@@ -83,6 +89,19 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 **‏`search` נדחף אחרי שהתוצאות חזרו**, כדי ש-`result_count` יהיה אמיתי.
 חיפוש שהחזיר אפס הוא הממצא המעניין ביותר בטבלה הזאת: הוא מראה מה מחפשים
 אצלנו ולא מוצאים.
+
+**אירועי ה-PWA נדחפים מ-`assets/pwa-install.js` ולא מ-`events.js`.**
+הקובץ בודק `typeof window.shukTrack === 'function'` לפני כל דחיפה, ולכן
+בדפי האזור האישי — שאינם טוענים את `events.js` במכוון, ראו למטה — הכפתור
+עובד בדיוק אותו דבר והמדידה פשוט לא קורית. המשמעות בדוחות: **מספרי
+ההתקנה משקפים את האתר הציבורי בלבד.** זו החלטה ולא תקלה; הדבר היחיד שלא
+נרשם שם הוא ההתקנה, וזה זול ממדד פניות מזוהם.
+
+**`pwa_install_result` הוא האירוע היחיד שאומר משהו.** ‏`pwa_install_click`
+נדחף על הלחיצה בדף, אבל מה שקורה אחריו — דיאלוג המערכת — אינו שלנו. הפער
+בין השניים הוא בדיוק מה שמעניין: כמה אנשים ביקשו להתקין, ובכמה מהמקרים
+המערכת השלימה. באייפון אין `pwa_install_result` בכלל, כי אין לדפדפן שום
+דיווח על "הוספה למסך הבית" — שם `pwa_help_open` הוא הסוף של המדידה.
 
 **‏`view_item` יושב לצד `logPropertyView`** שכבר קיים. הכפילות מכוונת:
 ‏`property_views` במסד מזין את הדוחות של המשרד, ו-GA4 נותן את הפילוח שהמסד

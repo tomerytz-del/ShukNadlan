@@ -12,6 +12,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>אזור הניהול ליזמים וקבלנים | שוק נדל״ן</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<!-- התקנה כאפליקציה (PWA) — מניפסט, אייקוני מסך הבית וכפתור ההתקנה
+     שבתוך הדף. הבלוק הזה חוזר בכל דף מאותה סיבה שתגיות ה-GTM חוזרות:
+     לאתר אין תבנית משותפת. הפרטים: docs/pwa-install.md -->
+<link rel="manifest" href="/app-crm.webmanifest">
+<meta name="theme-color" content="#0e2a6b">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="אזור אישי">
+<script defer src="assets/pwa-install.js"></script>
 <meta name="robots" content="noindex">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"

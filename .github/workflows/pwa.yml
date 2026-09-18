@@ -1,0 +1,50 @@
+name: התקנה כאפליקציה בכל דף
+
+# ‏האתר ניתן להתקנה כאפליקציה (‏PWA), וכמו תגיות ה-GTM גם בלוק ה-PWA
+# משוכפל בכל דף — לאתר אין תבנית משותפת. דף שנוצר בלי הבלוק נראה תקין
+# לגמרי: הוא נטען, הוא עובד, ואין שום שגיאה. מה שחסר הוא מה שלא רואים —
+# מי שנוחת/ת עליו לא מקבל/ת את ההצעה להתקין, ומי שכבר התקין/ה עלול/ה
+# לצאת מהאפליקציה החוצה לדפדפן כשיגיע לדף הזה.
+#
+# הבדיקה גם שומרת על המניפסטים עצמם: שכל אייקון שהם מצביעים אליו קיים
+# בריפו. ‏Netlify מפרסם קבצים סטטיים בלבד, ואייקון שלא נכנס לגיט הוא
+# 404 — וכרום פוסל בגללו את ההתקנה כולה, לא רק את האייקון.
+#
+# היא קוראת קבצים בלבד — בלי רשת ובלי סודות.
+
+on:
+  pull_request:
+    paths:
+      - "*.html"
+      - "*.webmanifest"
+      - "sw.js"
+      - "assets/pwa-install.js"
+      - "assets/icon-*.png"
+      - "assets/apple-touch-icon.png"
+      - "scripts/check_pwa.py"
+      - ".github/workflows/pwa.yml"
+  push:
+    branches: [main]
+    paths:
+      - "*.html"
+      - "*.webmanifest"
+      - "sw.js"
+      - "assets/pwa-install.js"
+      - "assets/icon-*.png"
+      - "assets/apple-touch-icon.png"
+      - "scripts/check_pwa.py"
+      - ".github/workflows/pwa.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ‏הפלט של הבדיקה הוא המקום שבו כתוב מה להדביק ואיפה.
+      - name: בדיקת כיסוי PWA
+        run: python3 scripts/check_pwa.py
