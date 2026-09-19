@@ -120,6 +120,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          שם פרטי, שם משפחה, טלפון **ללא קידומת מדינה**, מדינה ואימייל. הם
          מופרדים ולא מאוחדים ל"שם מלא"/"טלפון" אחד בכוונה — כך זה נבדק. -->
     <h2 id="detailsHead">הפרטים שלכם</h2>
+    <!-- מוצג רק כשבאמת מולאו פרטים מחשבונית קודמת. הוא לא מבקש לאשר כלום —
+         הוא רק אומר מאיפה הגיע מה שכבר בשדות, כדי ששינוי ייראה אפשרי
+         ולא כמו משהו שנקבע מראש. -->
+    <div id="billingNote" style="display:none;font-size:.85rem;color:var(--muted);background:var(--blue-tint);
+                border-radius:8px;padding:10px 12px;margin-bottom:14px;line-height:1.55">
+      מילאנו את הפרטים מהחשבונית הקודמת שלכם. אפשר לשנות כל שדה — מה שיופיע כאן הוא מה שיודפס על החשבונית.
+    </div>
     <form id="checkoutForm" novalidate>
       <div style="display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
         <div>
@@ -318,6 +325,22 @@ function toLocalPhone(raw){
 }
 function setIfEmpty(el, value){ if (el && !el.value && value) el.value = value; }
 
+/* ההפך מ-fullPhone(): מספר בינלאומי שמור → המספר המקומי שהשדה מבקש.
+   הקידומת נגזרת מהמדינה שנבחרה, ולכן הפונקציה נכונה גם למספר שאינו ישראלי —
+   ‏toLocalPhone לבדה הייתה משאירה "1" בראש מספר אמריקאי, ומי שרק לוחץ/ת
+   "תשלום" היה/הייתה שולח/ת ספרה מיותרת לחשבונית. */
+function localFromFullPhone(raw){
+  const digits = String(raw || '').replace(/\D/g, '');
+  if (!digits) return '';
+  const dial = dialCode();
+  if (dial && digits.startsWith(dial)){
+    const rest = digits.slice(dial.length);
+    // ‏972 הוא המקרה שבו המספר המקומי נושא 0 מוביל שנבלע בצורה הבינלאומית
+    return dial === '972' ? '0' + rest : rest;
+  }
+  return toLocalPhone(digits);
+}
+
 /* ‏crm.html מגיע לכאן עם ?amount=… שנגזר ממה שחסר בארנק לרכישה מסוימת.
    ‏TOPUP_AMOUNTS שם, ALLOWED_AMOUNTS ב-wallet-topup והאפשרויות ב-select כאן
    הן אותה רשימה; סכום שאינו בה פשוט לא נבחר, והברירה נשארת ₪100. */
@@ -349,6 +372,11 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
    וכאן הוא חוזר. בלי זה ההבטחה "הפרטים יישמרו" לא הייתה נכונה — מי שנשלח/ה
    להתחברות היה/הייתה ממלא/ת את הטופס פעמיים. רץ לפני המילוי מהפרופיל, ושניהם
    כותבים רק לשדות ריקים, כך שמה שהוקלד ידנית תמיד גובר. */
+/* ‏"ישראל" היא הברירה ב-select, ולכן אי אפשר לשאול אם המדינה "ריקה" כמו
+   שעושים לשאר השדות. הדגל הזה הוא מה שמבדיל בין ברירת מחדל לבין בחירה
+   שחזרה מההתחברות — ובלעדיו המילוי מהחשבונית הקודמת היה דורס אותה. */
+let countryRestored = false;
+
 (function restore(){
   try{
     const saved = JSON.parse(sessionStorage.getItem('shuknadlan.checkout') || 'null');
@@ -361,6 +389,7 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     setIfEmpty(taxIdEl, saved.tax_id);
     if (saved.country && countryEl.querySelector('option[value="' + saved.country + '"]')){
       countryEl.value = saved.country;
+      countryRestored = true;
       syncDial();
     }
     /* גם הסכום חוזר, ולא רק הפרטים: מי שבחר/ה ₪300, נשלח/ה להתחברות וחזר/ה
@@ -383,16 +412,56 @@ const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     signedIn = true;
     setIfEmpty(emailEl, session.user.email || '');
     const { data: agent } = await sb.from('agency_members')
-      .select('display_name, phone').eq('user_id', session.user.id).maybeSingle();
-    if (agent){
-      /* השם בפרופיל הוא שדה אחד, וכאן צריך שניים. המילה הראשונה היא השם
-         הפרטי והשאר שם המשפחה — ומי שיש לו/ה שם בן מילה אחת פשוט ישלים/תשלים
-         את השדה השני, שהוא חובה. */
-      const parts = String(agent.display_name || '').trim().split(/\s+/).filter(Boolean);
+      .select('id, display_name, phone').eq('user_id', session.user.id).maybeSingle();
+    if (!agent) return;
+
+    /* ---------- הפרטים מהחשבונית הקודמת ----------
+       חמשת השדות האלה אינם משתנים לעולם, והם הוקלדו מחדש בכל טעינת ארנק.
+       ‏ח.פ שמוקלד שוב הוא ח.פ שאפשר להקליד שגוי, וחשבונית עם מספר שגוי צריך
+       לבטל ולהפיק מחדש.
+
+       **אין כאן שאלה "לשמור את הפרטים לחשבוניות הבאות?"** — שאלה כזו היא עוד
+       קליק בדרך לתשלום, ותשובתה הנכונה היחידה היא "כן". הפרטים נשמרים מעצמם
+       מהרכישה הקודמת (ב-`wallet-topup`, מתוך אותה בקשה בדיוק שנשלחה לספק
+       הסליקה), מוצעים כאן, **וניתנים לשינוי כמו כל שדה אחר** — כי הם פשוט
+       ממלאים את הטופס שכבר קיים. מי שפתח/ה עוסק חדש מקליד/ה מספר חדש, והוא
+       זה שיישמר בפעם הבאה. אפשרות שינוי בלי שאלה, במקום שאלה בכל פעם.
+
+       הם קודמים לפרופיל כי הם מדויקים ממנו: `display_name` הוא כינוי תצוגה
+       ועשוי להיות "משרד כהן", בעוד שמה ששמור כאן הוא מה שהודפס על מסמך. */
+    const { data: billing } = await sb.from('agent_billing_profiles')
+      .select('client_name, business, tax_id, phone, country').eq('agent_id', agent.id).maybeSingle();
+
+    /* ‏setIfEmpty בכל השדות: מי שחזר/ה מהתחברות עם מה שכבר הקליד/ה
+       (‏sessionStorage) לא אמור/ה לראות את זה נדרס. */
+    const splitName = (full)=>{
+      /* שם מלא הוא שדה אחד, וכאן צריך שניים. המילה הראשונה היא השם הפרטי
+         והשאר שם המשפחה — ומי שיש לו/ה שם בן מילה אחת פשוט ישלים/תשלים את
+         השדה השני, שהוא חובה. */
+      const parts = String(full || '').trim().split(/\s+/).filter(Boolean);
       setIfEmpty(firstEl, parts.shift() || '');
       setIfEmpty(lastEl,  parts.join(' '));
-      setIfEmpty(phoneEl, toLocalPhone(agent.phone));
+    };
+
+    if (billing){
+      splitName(billing.client_name);
+      setIfEmpty(businessEl, billing.business || '');
+      setIfEmpty(taxIdEl, billing.tax_id || '');
+      /* המדינה לפני הטלפון, ולא להפך: שדה הטלפון מבקש מספר **מקומי**, והפרדת
+         הקידומת מהמספר השמור אפשרית רק כשידוע מאיזו מדינה הוא. */
+      if (!countryRestored && billing.country &&
+          countryEl.querySelector('option[value="' + billing.country + '"]')){
+        countryEl.value = billing.country;
+        syncDial();
+      }
+      setIfEmpty(phoneEl, localFromFullPhone(billing.phone));
+      document.getElementById('billingNote').style.display = '';
     }
+
+    /* הפרופיל הוא מה שממלא את מה שנשאר ריק — בעיקר בטעינה הראשונה, שבה
+       עדיין אין חשבונית קודמת. */
+    splitName(agent.display_name);
+    setIfEmpty(phoneEl, toLocalPhone(agent.phone));
   } catch(err){
     console.error('prefill', err);
     document.getElementById('guestNotice').style.display = '';
