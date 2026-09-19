@@ -3,8 +3,9 @@
    ----------------------------------------------------------------------------
    ## הבעיה
 
-   ‏property.html, agency.html ו-agent.html הם קבצים סטטיים: הכותרת בהם היא
-   "נכס | שוק נדל״ן", והתוכן האמיתי נטען ב-JS אחרי שהדף כבר בדפדפן.
+   ששת דפי הפירוט — נכס, משרד, סוכן/ת, פרויקט, בעל/ת מקצוע וכתבה — הם
+   קבצים סטטיים: הכותרת בהם היא "נכס | שוק נדל״ן", והתוכן האמיתי נטען ב-JS
+   אחרי שהדף כבר בדפדפן.
 
    הסורק של וואטסאפ **אינו מריץ JS**. הוא מושך את ה-HTML, מחפש תגיות
    ‎og:‎ — ולא מוצא אף אחת. התוצאה היא שקישור לנכס שסוכן/ת שולח/ת ללקוח/ה
@@ -18,6 +19,23 @@
    רצה על ה-edge לפני שהתשובה יוצאת, מושכת את הנכס/המשרד/הסוכן מ-Supabase,
    ומזריקה ל-‎<head>‎ תגיות ‎og:‎, ‎twitter:‎ ו-‎canonical‎. ה-HTML עצמו לא
    משתנה בשום דרך אחרת, וה-JS שבדף ממשיך לעבוד בדיוק כמו קודם.
+
+   ## שני סוגי דפים, ולמה ההזרקה שונה בהם
+
+   נכס, משרד וסוכן/ת אינם נושאים תגיות ‎og:‎ כלל, ולכן הן נכתבות כאן מאפס.
+
+   פרויקט, בעל/ת מקצוע וכתבה **כן** נושאים אותן — עם ערכים כלליים ועם
+   ‎id‎ (‏‎ogTitle‎, ‎metaDescription‎, ‎ogDescription‎, ‎ogImage‎), כי ה-JS שלהם
+   ממלא אותן אחרי הטעינה. שם התפקיד כאן הוא **למלא את התגיות הקיימות ולא
+   להוסיף חדשות**, משתי סיבות:
+
+     • תגית ‎og:title‎ כפולה משאירה לסורק לבחור, והוא בוחר את הכללית.
+     • ה-JS בדפים האלה כותב ‎el('ogTitle').content = …‎ **בלי בדיקת null**.
+       הסרה של התגית הייתה זורקת ‎TypeError‎ באמצע ‎renderMeta‎ ושוברת את
+       כל מה שבא אחריה בדף — כלומר ההזרקה לסורק הייתה משלמת בדף של הגולש/ת.
+
+   ‏og:type נשאר כפי שהדף כתב אותו (‏article‎ לכתבה, ‎profile‎ לבעל/ת מקצוע),
+   ונכתב כ-‎website‎ רק בדפים שאין בהם אחד.
 
    ## שלוש החלטות שחשוב להבין
 
@@ -34,6 +52,16 @@
    ‏**3. כישלון אינו שובר דף.** כל קריאת רשת עטופה ב-timeout קצר וב-
    ‏try/catch, וכל מסלול כושל מחזיר את התשובה המקורית כמו שהיא. דף בלי
    תגיות שיתוף הוא מה שיש היום; דף שנתקע בגלל Supabase איטי הוא הרעה.
+
+   ## ‏canonical, וכתובת אחת לכל דף
+
+   ‏professional ו-article מקבלים גם ‎?slug=‎ וגם ‎?id=‎ (קישורים ישנים,
+   ופרופיל שעוד לא נשמר פעם אחת). שתי הכתובות מגישות את אותו תוכן, וזה
+   בדיוק המצב שגוגל קוראת לו תוכן משוכפל.
+
+   לכן ה-‎canonical‎ כאן נבנה **מה-slug שחזר מהמסד**, ולא מהפרמטר שבכתובת:
+   פנייה ב-‎?id=‎ מצהירה על ‎?slug=‎ כמקור. זו גם הכתובת היחידה שנכנסת
+   ל-sitemap (‏docs/sitemap.md), ולכן השתיים מסכימות.
 
    ## מטמון
 
@@ -118,7 +146,14 @@ async function sbFetch(path: string): Promise<Record<string, unknown> | null> {
 
 /* ---------- בניית התגיות לכל סוג דף ---------- */
 
-type Meta = { title: string; description: string; image: string; canonical: string };
+type Meta = {
+  title: string;
+  description: string;
+  image: string;
+  canonical: string;
+  /* רק לכתבה — ‎article:published_time‎ */
+  publishedAt?: string;
+};
 
 const nis = (n: unknown) => {
   const v = Number(n);
@@ -200,24 +235,150 @@ async function agentMeta(slug: string, canonical: string): Promise<Meta | null> 
   };
 }
 
+/* ‏שלושת הדפים הבאים בונים את הכותרת והתיאור **באותו כלל בדיוק** שבו
+   ה-JS שבדף בונה אותם (‏renderMeta בכל אחד מהם). שינוי בצד אחד מחייב את
+   אותו שינוי בשני, בדיוק כמו maskHouseNumber — אחרת הסורק והגולש/ת רואים
+   שני דברים שונים, וזה גם מה שגוגל קוראת לו "תוכן שונה מהמובטח". */
+
+/* ‏העתק של TYPE_LABELS ב-professional.html */
+const TYPE_LABELS: Record<string, string> = {
+  mortgage_advisor: "יועץ/ת משכנתאות",
+  appraiser: "שמאי/ת מקרקעין",
+  architect: "אדריכל/ית",
+  interior_designer: "מעצב/ת פנים",
+  real_estate_lawyer: "עו״ד מקרקעין",
+  general: "בעל/ת מקצוע",
+};
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/* ‏‎?slug=‎ היא הכתובת הקנונית גם כשנכנסו דרך ‎?id=‎. ברירת המחדל היא
+   המפתח שהגיע, כדי שרשומה בלי slug עדיין תצהיר על כתובת שקיימת. */
+function canonicalBySlug(page: string, row: Record<string, unknown>, key: string): string {
+  const slug = String(row.slug || "").trim() || key;
+  return `${SITE}/${page}?slug=${encodeURIComponent(slug)}`;
+}
+
+async function projectMeta(slug: string, canonical: string): Promise<Meta | null> {
+  const p = await sbFetch(
+    `projects_public?slug=eq.${encodeURIComponent(slug)}&select=name,city,tagline,description,cover_url,logo_url`,
+  );
+  if (!p) return null;
+
+  const title = `${p.name || "פרויקט חדש"}${p.city ? " — " + p.city : ""}`;
+  const desc =
+    clamp(String(p.tagline || p.description || ""), 200) ||
+    `פרויקט חדש מקבלן${p.city ? " ב" + p.city : ""} — תמהיל דירות, מחירים וגלריה.`;
+
+  return {
+    title: clamp(`${title} | ${SITE_NAME}`, 90),
+    description: desc,
+    image: absolute(p.cover_url || p.logo_url) || DEFAULT_IMAGE,
+    canonical,
+  };
+}
+
+async function professionalMeta(key: string): Promise<Meta | null> {
+  const cols = "slug,advertiser_name,business_name,advertiser_type,target_region,headline,description,cover_url,creative_url";
+  const p = await sbFetch(
+    `professional_cards_public?${UUID.test(key) ? "id" : "slug"}=eq.${encodeURIComponent(key)}&select=${cols}`,
+  );
+  if (!p) return null;
+
+  const name = p.advertiser_name || "בעל מקצוע";
+  const role = TYPE_LABELS[String(p.advertiser_type || "")] || "בעל/ת מקצוע";
+  const title = [name, p.business_name].filter(Boolean).join(" · ");
+
+  return {
+    title: clamp(`${title} | ${SITE_NAME}`, 90),
+    description: clamp(
+      String(p.headline || p.description || "") ||
+        `${role} באזור ${p.target_region || "עפולה והעמק"}.`,
+      155,
+    ),
+    image: absolute(p.cover_url || p.creative_url) || DEFAULT_IMAGE,
+    canonical: canonicalBySlug("professional", p, key),
+  };
+}
+
+async function articleMeta(key: string): Promise<Meta | null> {
+  const cols = "slug,title,subtitle,body,cover_url,published_at";
+  const a = await sbFetch(
+    `articles_public?${UUID.test(key) ? "id" : "slug"}=eq.${encodeURIComponent(key)}&select=${cols}`,
+  );
+  if (!a) return null;
+
+  /* ‏גוף הכתבה נכתב בעורך ועלול להכיל תגיות. הן יורדות לפני ה-clamp, אחרת
+     תגית חתוכה באמצע נכנסת ל-content="…" של ה-meta. */
+  const body = String(a.body || "").replace(/<[^>]*>/g, " ");
+
+  return {
+    title: clamp(`${a.title || "כתבה"} | ${SITE_NAME}`, 90),
+    description: clamp(String(a.subtitle || "") || body, 155),
+    image: absolute(a.cover_url) || DEFAULT_IMAGE,
+    canonical: canonicalBySlug("article", a, key),
+    publishedAt: String(a.published_at || "").trim() || undefined,
+  };
+}
+
 /* ---------- הזרקה ---------- */
 
-function tagsHtml(m: Meta): string {
-  return [
-    `<link rel="canonical" href="${esc(m.canonical)}">`,
-    `<meta name="description" content="${esc(m.description)}">`,
-    `<meta property="og:type" content="website">`,
+/* ‏מילוי תגית קיימת לפי ה-id שלה, בלי לגעת בשאר המאפיינים — ובלי להסיר
+   אותה. ‏ה-JS שבדף כותב אליה אחר כך לפי אותו id. */
+function fillById(html: string, id: string, value: string): string | null {
+  const re = new RegExp(`<meta\\b[^>]*\\bid="${id}"[^>]*>`, "i");
+  const found = html.match(re);
+  if (!found) return null;
+
+  const tag = /content="[^"]*"/i.test(found[0])
+    ? found[0].replace(/content="[^"]*"/i, `content="${esc(value)}"`)
+    : found[0].replace(/\s*\/?>$/, ` content="${esc(value)}">`);
+
+  return html.replace(re, tag);
+}
+
+/* התגיות שממולאות לפי id כשהן כבר בדף, ונכתבות מחדש כשאינן. */
+const BY_ID: [string, (m: Meta) => string, string][] = [
+  ["metaDescription", (m) => m.description, `<meta name="description" content="%s">`],
+  ["ogTitle", (m) => m.title, `<meta property="og:title" content="%s">`],
+  ["ogDescription", (m) => m.description, `<meta property="og:description" content="%s">`],
+  ["ogImage", (m) => m.image, `<meta property="og:image" content="%s">`],
+];
+
+/* ‏מחזירה את ה-HTML אחרי מילוי מה שכבר קיים, ואת התגיות שנשאר להוסיף. */
+function inject(html: string, m: Meta): string {
+  let out = html;
+  const add: string[] = [];
+
+  for (const [id, pick, template] of BY_ID) {
+    const filled = fillById(out, id, pick(m));
+    if (filled) out = filled;
+    else add.push(template.replace("%s", esc(pick(m))));
+  }
+
+  // ‏canonical ו-og:url אינם בשום דף, ו-og:type נכתב רק כשאין אחד
+  add.unshift(`<link rel="canonical" href="${esc(m.canonical)}">`);
+  if (!/<meta[^>]+property="og:type"/i.test(out)) {
+    add.push(`<meta property="og:type" content="website">`);
+  }
+  add.push(
     `<meta property="og:site_name" content="${esc(SITE_NAME)}">`,
     `<meta property="og:locale" content="he_IL">`,
     `<meta property="og:url" content="${esc(m.canonical)}">`,
-    `<meta property="og:title" content="${esc(m.title)}">`,
-    `<meta property="og:description" content="${esc(m.description)}">`,
-    `<meta property="og:image" content="${esc(m.image)}">`,
     `<meta name="twitter:card" content="summary_large_image">`,
     `<meta name="twitter:title" content="${esc(m.title)}">`,
     `<meta name="twitter:description" content="${esc(m.description)}">`,
     `<meta name="twitter:image" content="${esc(m.image)}">`,
-  ].join("\n");
+  );
+  if (m.publishedAt) {
+    add.push(`<meta property="article:published_time" content="${esc(m.publishedAt)}">`);
+  }
+
+  // ‏<title> הקיים מוחלף, וגם הוא ממוסך — הוא מה שנראה בלשונית ובשיתוף
+  out = out.replace(/<title>[\s\S]*?<\/title>/i, `<title>${esc(m.title)}</title>`);
+
+  // מה שנשאר נכנס מיד לפני </head>, אחרי ה-title ואחרי GTM
+  return out.replace(/<\/head>/i, `${add.join("\n")}\n</head>`);
 }
 
 export default async function handler(request: Request, context: Context) {
@@ -232,6 +393,8 @@ export default async function handler(request: Request, context: Context) {
     const page = url.pathname.replace(/\.html$/, "").replace(/\/+$/, "") || "/";
     const id = url.searchParams.get("id") || "";
     const slug = url.searchParams.get("slug") || "";
+    // ‏professional ו-article מקבלים גם ?id= — ראו "canonical" בראש הקובץ
+    const key = slug || id;
 
     // הכתובת הקנונית היא הצורה בלי הסיומת — זו שהאתר מוגש בה בפרודקשן
     let meta: Meta | null = null;
@@ -241,18 +404,16 @@ export default async function handler(request: Request, context: Context) {
       meta = await agencyMeta(slug, `${SITE}/agency?slug=${encodeURIComponent(slug)}`);
     } else if (page.endsWith("/agent") && slug) {
       meta = await agentMeta(slug, `${SITE}/agent?slug=${encodeURIComponent(slug)}`);
+    } else if (page.endsWith("/project") && slug) {
+      meta = await projectMeta(slug, `${SITE}/project?slug=${encodeURIComponent(slug)}`);
+    } else if (page.endsWith("/professional") && key) {
+      meta = await professionalMeta(key);
+    } else if (page.endsWith("/article") && key) {
+      meta = await articleMeta(key);
     }
     if (!meta) return res;
 
-    const html = await res.text();
-
-    // ‏<title> הקיים מוחלף, וגם הוא ממוסך — הוא מה שנראה בלשונית ובשיתוף
-    let out = html.replace(
-      /<title>[\s\S]*?<\/title>/i,
-      `<title>${esc(meta.title)}</title>`,
-    );
-    // התגיות נכנסות מיד לפני </head>, אחרי ה-title ואחרי GTM
-    out = out.replace(/<\/head>/i, `${tagsHtml(meta)}\n</head>`);
+    const out = inject(await res.text(), meta);
 
     const headers = new Headers(res.headers);
     headers.set("Netlify-CDN-Cache-Control", "public, max-age=60, stale-while-revalidate=300");
@@ -266,5 +427,12 @@ export default async function handler(request: Request, context: Context) {
 /* ‏‎excludedPath‎ אינו נחוץ: ההתאמה כאן היא לנתיבים המדויקים בלבד, בשתי
    הצורות שבהן Netlify מגיש כל דף — עם הסיומת ובלעדיה. */
 export const config: Config = {
-  path: ["/property", "/property.html", "/agency", "/agency.html", "/agent", "/agent.html"],
+  path: [
+    "/property", "/property.html",
+    "/agency", "/agency.html",
+    "/agent", "/agent.html",
+    "/project", "/project.html",
+    "/professional", "/professional.html",
+    "/article", "/article.html",
+  ],
 };
