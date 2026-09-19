@@ -118,7 +118,10 @@ Disallow: /my-page
 Disallow: /my-page.html
 ```
 
-דף ציבורי נוסף ל-`sitemap.xml`.
+דף ציבורי נוסף ל-`sitemap.xml` **ידנית** — הקובץ הוא מקור האמת לדפים
+הסטטיים. דפי פירוט שנוצרים מהמסד מתווספים לבדם ב-
+`netlify/edge-functions/sitemap.ts`, ואין מה לעשות בשבילם
+(`docs/sitemap.md`).
 
 ### 8. לפני הדחיפה
 

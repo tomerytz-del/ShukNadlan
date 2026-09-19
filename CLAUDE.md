@@ -17,6 +17,10 @@
 
 - **האתר** — קובצי HTML בשורש (`index.html`, `property.html`, `agency.html`, …)
   ועוזרים ב-`assets/`. ‏Netlify מפרסם אותם תוך שניות מהמיזוג ל-`main`.
+  שתי פונקציות ב-`netlify/edge-functions/` משלימות בשרת את מה שדף סטטי
+  אינו יכול לתת לסורק: `og-tags.ts` מזריקה תגיות שיתוף לדפי הפירוט
+  (`docs/social-preview.md`), ו-`sitemap.ts` מוסיפה ל-`sitemap.xml` את
+  הכתובות שנוצרות מהמסד (`docs/sitemap.md`).
 - **המסד** — פרויקט Supabase `obookujgolazrwycsiyn`. הסכימה ב-
   `supabase/migrations/`, ה-Edge Functions ב-`supabase/functions/`. שניהם
   נפרסים ב-GitHub Actions בכל push ל-`main` שנוגע בהם.
