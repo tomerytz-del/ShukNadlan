@@ -219,7 +219,13 @@ def _listings_without_images(ctx) -> Iterator[Finding]:
     ctx.count()
     row = ctx.db.one(
         """
-        select count(*) filter (where coalesce(array_length(images, 1), 0) < 3)
+        select count(*) filter (where coalesce(array_length(images, 1), 0) = 0
+                                  and marketing_image is null)
+                 as no_image,
+               -- ‏1..2 ולא `< 3`: מודעה בלי אף תמונה מדווחת בנפרד למעלה,
+               -- ושני ממצאים שסופרים את אותן שורות הם דוח שמכפיל את עצמו.
+               count(*) filter (where coalesce(array_length(images, 1), 0)
+                                      between 1 and 2)
                  as few_images,
                count(*) filter (where marketing_description is null
                                   and (description is null or description = ''))
@@ -235,9 +241,54 @@ def _listings_without_images(ctx) -> Iterator[Finding]:
     if not active:
         return
 
+    # ---- מודעה בלי אף תמונה: ממצא נפרד, ובדרגה גבוהה יותר ----
+    # זה לא "פחות תמונות" — זו מודעה שאינה יכולה להתפרסם בפייסבוק בכלל
+    # (‏pending_property_publications מסננת אותה), וגם באתר היא כמעט
+    # אינה נצפית. הפרדתי אותה מ-`few_images` אחרי שהתברר ששורה שהמתינה
+    # בתור הפרסום 51 שעות הייתה למעשה מודעה בלי תמונה — והממצא שהיה
+    # צריך לצעוק הוא לא השורה בתור אלא המודעות עצמן.
+    no_image = int((row or {}).get("no_image") or 0)
+    if no_image:
+        blocked = 0
+        if ctx.db.has_table("property_publications"):
+            ctx.count()
+            blocked_row = ctx.db.one(
+                """
+                select count(*) as n
+                  from public.property_publications pub
+                  join public.properties p on p.id = pub.property_id
+                 where pub.status = 'pending'
+                   and coalesce(array_length(p.images, 1), 0) = 0
+                   and p.marketing_image is null
+                """
+            )
+            blocked = int((blocked_row or {}).get("n") or 0)
+
+        share = no_image / active * 100
+        yield Finding(
+            area="behavior", code="listings_no_image",
+            severity="high" if share >= 20 else "medium",
+            subject="listings_no_image",
+            title="%d מודעות פעילות בלי אף תמונה" % no_image,
+            detail="מתוך %d מודעות פעילות (%.0f%%)%s."
+                   % (active, share,
+                      ", ו-%d מהן תקועות בתור הפרסום לפייסבוק בגלל זה" % blocked
+                      if blocked else ""),
+            suggestion="מודעה בלי תמונה אינה מתפרסמת בפייסבוק כלל — "
+                       "‏pending_property_publications מסננת אותה, והשורה שלה "
+                       "ממתינה בתור עד שתעלה תמונה. באתר עצמו היא כמעט אינה "
+                       "נצפית. זו נקודת הנשירה הזולה ביותר לתיקון בכל הפלטפורמה: "
+                       "תמונה אחת מחזירה את המודעה למשפך.",
+            metric=round(share, 1), metric_unit="%",
+            evidence={"count": no_image, "active": active,
+                      "blocked_publications": blocked},
+        )
+
     for code, label, value, why in (
-        ("listings_few_images", "פחות מ-3 תמונות", int(row["few_images"] or 0),
-         "מודעה עם פחות מ-3 תמונות נצפית פחות ומניבה פחות פניות מכל גורם אחר."),
+        ("listings_few_images", "עם תמונה אחת או שתיים",
+         int(row["few_images"] or 0),
+         "מודעה עם פחות מ-3 תמונות נצפית פחות ומניבה פחות פניות מכל גורם אחר. "
+         "(מודעה בלי אף תמונה נספרת בממצא נפרד ולא כאן.)"),
         ("listings_no_text", "בלי תיאור", int(row["no_text"] or 0),
          "מנוע התיאורים (property-description) אמור לכתוב לכל נכס. אם המספר "
          "גבוה — התור תקוע או שהמפתח אינו מוגדר."),
