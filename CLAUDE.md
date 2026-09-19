@@ -7,7 +7,7 @@
 
 | סקיל | מתי |
 | --- | --- |
-| `new-page` | דף HTML חדש בשורש — GTM, `events.js`, בריחה, `robots`/`sitemap` |
+| `new-page` | דף HTML חדש בשורש — GTM, `events.js`, אימות גוגל, בריחה, `robots`/`sitemap` |
 | `new-migration` | כל שינוי סכימה — שם קובץ, אידמפוטנטיות, הרשאות, ואיסור DDL מחוץ לצינור |
 | `new-edge-function` | פונקציה חדשה — `verify_jwt` ב-`config.toml`, CORS, סודות |
 
@@ -17,6 +17,10 @@
 
 - **האתר** — קובצי HTML בשורש (`index.html`, `property.html`, `agency.html`, …)
   ועוזרים ב-`assets/`. ‏Netlify מפרסם אותם תוך שניות מהמיזוג ל-`main`.
+  שתי פונקציות ב-`netlify/edge-functions/` משלימות בשרת את מה שדף סטטי
+  אינו יכול לתת לסורק: `og-tags.ts` מזריקה תגיות שיתוף לדפי הפירוט
+  (`docs/social-preview.md`), ו-`sitemap.ts` מוסיפה ל-`sitemap.xml` את
+  הכתובות שנוצרות מהמסד (`docs/sitemap.md`).
 - **המסד** — פרויקט Supabase `obookujgolazrwycsiyn`. הסכימה ב-
   `supabase/migrations/`, ה-Edge Functions ב-`supabase/functions/`. שניהם
   נפרסים ב-GitHub Actions בכל push ל-`main` שנוגע בהם.
@@ -76,6 +80,32 @@ python scripts/check_pwa.py
 
 הבדיקה חוסמת ב-CI דף חסר ומניפסט הפוך. הפרטים, כולל הדרך להסביר לאייפון
 ולבנות מחדש את האייקונים: `docs/pwa-install.md`.
+
+## דף HTML חדש: גם תגית האימות של גוגל
+
+ומאותה סיבה שוב — **דף חדש נושא גם את תגית האימות של Google Search
+Console**, מיד אחרי בלוק ה-PWA, זהה בכל דף:
+
+```html
+<meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
+```
+
+בלי אימות אין גישה לדוחות החיפוש, אין הגשת `sitemap` ואין בקשת אינדוקס.
+גוגל בודקת את התגית שוב גם אחרי שהאימות עבר, ולכן מחיקה שלה **מבטלת
+אימות קיים**.
+
+שלושת דפי הפירוט הם המקרה שמסביר את הכלל: `property.html`,
+`agency.html` ו-`agent.html` הם קובץ אחד שמגיש את **כל** הנכסים,
+המשרדים והמתווכים באתר, ולכן תגית אחת בכל אחד מהם מכסה גם כל נכס
+שייווצר מחר.
+
+```sh
+python scripts/check_search_console.py        # בדיקה
+python scripts/check_search_console.py --fix  # שתילה בדף שחסר
+```
+
+הבדיקה חוסמת ב-CI דף חסר וטוקן שהתפצל. הפרטים, כולל רשומת ה-TXT ב-DNS
+שאינה בריפו ואינה מכוסה בבדיקה: `docs/security-headers.md`.
 
 ## דף HTML חדש: מדידת אירועים
 

@@ -1,0 +1,39 @@
+name: תגית האימות של Search Console בכל דף
+
+# ‏תגית האימות מוכיחה לגוגל שהאתר שלנו, ובלעדיה אין גישה לדוחות, אין
+# הגשת sitemap ואין בקשת אינדוקס. גוגל בודקת אותה שוב ושוב גם אחרי
+# שהאימות עבר — כלומר היעלמות שלה מבטלת אימות קיים.
+#
+# כמו תגיות ה-GTM ובלוק ה-PWA, גם היא משוכפלת בכל דף: לאתר אין תבנית
+# משותפת. וכמוהם, דף שנוצר בלעדיה נטען, נראה תקין, ואין בקונסול שום
+# שגיאה — ולכן הבדיקה רצה על ה-PR, לפני שהדף באוויר.
+#
+# היא קוראת קבצים בלבד — בלי רשת ובלי סודות — ולכן מהירה ובטוחה להריץ
+# גם על PR מ-fork.
+
+on:
+  pull_request:
+    paths:
+      - "*.html"
+      - "scripts/check_search_console.py"
+      - ".github/workflows/search_console.yml"
+  push:
+    branches: [main]
+    paths:
+      - "*.html"
+      - "scripts/check_search_console.py"
+      - ".github/workflows/search_console.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ‏הבדיקה עצמה, והפלט שלה, הם המקום שבו כתוב מה להדביק ואיפה.
+      - name: בדיקת כיסוי
+        run: python3 scripts/check_search_console.py
