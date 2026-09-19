@@ -84,7 +84,7 @@ def main() -> int:
             return 1
 
     _write_summary(results, findings, counts, summary, failed)
-    _write_outputs(counts, findings)
+    _write_outputs(counts, findings, results)
 
     for probe in failed:
         print("::warning::‏probe %s נכשלה: %s" % (probe.name, probe.error))
@@ -95,12 +95,18 @@ def main() -> int:
     return 1 if results and len(failed) == len(results) else 0
 
 
-def _write_outputs(counts, findings) -> None:
+def _write_outputs(counts, findings, results=()) -> None:
     """פלטי ה-step, כדי שה-workflow יוכל להחליט אם להעיר מישהו.
 
     הדשבורד ב-CRM הוא הערוץ הרגיל. ‏Issue נפתח **רק** על ממצא חמור —
     כלומר אתר שלא נטען, טבלה בלי RLS או מפתח שדלף. התראה על כל ממצא
     היא התראה שמפסיקים לקרוא, וזה בדיוק המצב שבו החמור באמת נבלע.
+
+    ‏`probes_failed` הוא מה שמאפשר ל-workflow **לסגור** את ה-Issue
+    בבטחה. אפס ממצאים חמורים מ-probe שקרסה אינו "הכול תקין" — זו אותה
+    מלכודת שבגללה הסגירה האוטומטית של ממצאים מדלגת על probe שנפלה
+    (ראו `store.py`). בלי המספר הזה, בדיקת אבטחה שבורה הייתה סוגרת
+    Issue על חור אבטחה פתוח.
     """
     path = os.environ.get("GITHUB_OUTPUT")
     if not path:
@@ -110,6 +116,7 @@ def _write_outputs(counts, findings) -> None:
         "critical=%d" % counts.get("critical", 0),
         "high=%d" % counts.get("high", 0),
         "total=%d" % len(findings),
+        "probes_failed=%d" % sum(1 for r in results if not r.ok),
     ]
     # כותרות הממצאים החמורים, שורה לכל אחד, לגוף ה-Issue
     body = "\n".join("- %s" % f.title for f in critical[:20]) or "—"

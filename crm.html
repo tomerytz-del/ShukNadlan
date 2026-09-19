@@ -9495,6 +9495,28 @@ function opsAgo(minutes){
   return 'לפני ' + Math.round(m / 1440) + ' ימים';
 }
 
+/* ‏**טקסט** מהממצא הופך להדגשה אמיתית.
+   ----------------------------------------------------------------
+   הממצאים נכתבים ב-ops_agent עם הדגשות בסגנון Markdown, והן נושאות
+   משקל: "‏**לא** להוציא את קטעי ה-GTM" הוא אזהרה, לא קישוט. בלי
+   הפונקציה הזו הדשבורד הציג את הכוכביות כטקסט גולמי.
+
+   ‏**בלי innerHTML, ובכוונה.** הפיצול בונה צמתים ומכניס את הטקסט דרך
+   ‏textContent, ולכן ערך מהמסד אינו יכול להפוך ל-HTML — גם אם ממצא
+   יכיל יום אחד תו שנראה כמו תגית. זו הסיבה שאין כאן קריאה ל-escapeHtml:
+   אין מה לברוח ממנו כשלא מרכיבים מחרוזת HTML מלכתחילה (CLAUDE.md).
+
+   מספר אי-זוגי של ‎**‎ פשוט נשאר טקסט — חלוקה ל-split נותנת את החלקים
+   הזוגיים כרגיל, ואין מצב שבו חלק מהטקסט נעלם. */
+function opsRich(el, text){
+  String(text == null ? '' : text).split('**').forEach((part, i)=>{
+    if (!part) return;
+    el.appendChild(i % 2 ? admEl('strong', null, part)
+                         : document.createTextNode(part));
+  });
+  return el;
+}
+
 /* שורת ממצא אחת. ‏details ולא div פתוח: 40 ממצאים פתוחים הם קיר טקסט,
    והשורה הסגורה נושאת כבר את כל מה שצריך כדי להחליט אם לפתוח. */
 function opsItem(f){
@@ -9518,7 +9540,7 @@ function opsItem(f){
   item.appendChild(head);
 
   const body = admEl('div', 'ops-body');
-  body.appendChild(admEl('p', null, f.detail));
+  body.appendChild(opsRich(admEl('p'), f.detail));
 
   /* המספר והמגמה. ‏prev_metric הוא מה שהופך "יש בעיה" ל"היא גדלה
      מ-3 ל-11", וזה ההבדל בין דיווח לניטור. */
@@ -9535,7 +9557,7 @@ function opsItem(f){
   if (f.suggestion){
     const fix = admEl('div', 'ops-fix');
     fix.appendChild(admEl('strong', null, 'מה לעשות: '));
-    fix.appendChild(document.createTextNode(f.suggestion));
+    opsRich(fix, f.suggestion);
     body.appendChild(fix);
   }
 
