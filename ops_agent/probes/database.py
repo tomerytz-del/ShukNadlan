@@ -135,32 +135,92 @@ def _is_frequent(schedule: str) -> bool:
 # ---------------------------------------------------------------- תורים
 
 def _queues(ctx) -> Iterator[Finding]:
-    """תור עם שורה ישנה = משהו בצד השני לא רץ.
+    """תור עם שורה ישנה — אבל **לא כל המתנה היא תקלה**.
 
     כל תור כאן מתאר תכונה שהמשתמש/ת מחכה לה. לכן ההודעה נושאת גם את
     השם הטכני וגם **מה שבור מבחינתו/ה** — "ההדמיה לא נוצרת" ולא
     "‏visualization_jobs pending".
+
+    ## ‏`attempts` הוא ההבדל בין תקלה להמתנה מתוכננת
+
+    הגרסה הראשונה דיווחה על שורה בתור הפרסום לפייסבוק שהמתינה 51 שעות,
+    והיא **לא הייתה תקועה**: ‏`pending_property_publications` מסננת
+    נכס בלי תמונה, הנכס ההוא היה בלי תמונה, ולכן הפונקציה מעולם לא
+    בחרה אותו. זו המתנה מכוונת — המודעה תפורסם ברגע שתעלה תמונה
+    (`20261025090000_publish_when_image_arrives`).
+
+    ‏**`attempts = 0` ובלי `last_error` פירושו שאיש לא ניסה.** זו חסימה
+    מקדימה, והמקום לחפש בו הוא השאילתה שבוחרת שורות — לא העובד.
+    ‏`attempts > 0` עם שגיאה הוא ההפך: מישהו ניסה, וזה נכשל.
+
+    ההבחנה חשובה כי שתיהן נראות זהה בדוח, ורק אחת מהן דורשת תיקון
+    בקוד. שורה חסומה שמדווחת כ"תור תקוע" כל שש שעות היא הדרך להפוך את
+    הדוח לרעש — וזה קרה כאן בפועל.
     """
     t = ctx.settings.thresholds
     for table, status_col, pending, time_col, label, breaks in QUEUES:
         if not ctx.db.has_table(table):
             continue
         ctx.count()
+
+        # לא לכל תור יש `attempts`. בלי העמודה אין דרך להבחין, ואז
+        # ההתנהגות נשארת כשהייתה — עדיף לדווח מדי מאשר לבלוע.
+        has_attempts = ctx.db.has_column(table, "attempts")
+        attempts_cols = (
+            """,
+                   count(*) filter (where coalesce(attempts, 0) > 0) as tried,
+                   count(*) filter (where coalesce(attempts, 0) = 0) as untouched"""
+            if has_attempts else """,
+                   count(*) as tried,
+                   0        as untouched"""
+        )
+
         row = ctx.db.one(
             """
             select count(*) as stuck,
                    min({time_col}) as oldest,
                    round(extract(epoch from (now() - min({time_col}))) / 3600.0, 1)
-                     as age_hours
+                     as age_hours{attempts_cols}
               from public.{table}
              where {status_col} = any(%s)
                and {time_col} < now() - make_interval(hours => %s)
-            """.format(table=table, status_col=status_col, time_col=time_col),
+            """.format(table=table, status_col=status_col, time_col=time_col,
+                       attempts_cols=attempts_cols),
             (list(pending), t.queue_stuck_hours),
         )
         stuck = int((row or {}).get("stuck") or 0)
         if not stuck:
             continue
+
+        untouched = int((row or {}).get("untouched") or 0)
+        tried = int((row or {}).get("tried") or 0)
+
+        # שורות שאיש לא נגע בהן — חסימה מקדימה, לא תור שבור
+        if has_attempts and untouched:
+            yield Finding(
+                area="health", code="queue_blocked",
+                severity="medium" if untouched >= t.queue_stuck_critical_min_rows
+                         else "low",
+                subject=table + ":blocked",
+                title="ממתין לתנאי מקדים: %s" % label,
+                detail="%d שורות שאיש לא ניסה לעבד (attempts=0), הוותיקה כבר "
+                       "%.1f שעות." % (untouched, float(row.get("age_hours") or 0)),
+                suggestion="‏attempts=0 פירושו שהעובד **לא בחר** את השורות האלה, "
+                           "ולא שהוא נכשל עליהן. לחפש בשאילתה שבוחרת מה לעבד: "
+                           "בתור הפרסום לפייסבוק, למשל, "
+                           "‏pending_property_publications מסננת נכס בלי תמונה, "
+                           "והמודעה תצא מעצמה ברגע שתעלה אחת. זו לרוב התנהגות "
+                           "תקינה — מה שצריך בדיקה הוא התנאי שלא מתקיים.",
+                metric=float(untouched), metric_unit="שורות",
+                evidence={"oldest": (row or {}).get("oldest"),
+                          "attempts": 0, "blocked": True},
+            )
+
+        # מכאן והלאה: רק מה שבאמת נוסה ונכשל
+        if has_attempts:
+            stuck = tried
+            if not stuck:
+                continue
 
         age = float((row or {}).get("age_hours") or 0)
 

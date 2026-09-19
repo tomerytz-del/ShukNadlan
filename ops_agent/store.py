@@ -38,11 +38,13 @@ log = logging.getLogger(__name__)
 # הבטוחה מבין השתיים: ממצא ישן שנשאר פתוח הוא מטרד, ממצא שנסגר בטעות הוא
 # בעיה שנעלמה מהמסך.
 PROBE_CODES = {
+    # ‏"queue_" מכסה גם queue_stuck וגם queue_blocked
     "database": ("cron_", "queue_", "engine_", "slow_query", "heavy_query",
                  "seq_scan", "table_bloat", "cache_hit_low", "unused_index",
                  "unindexed_fk", "connections_", "idle_in_transaction",
                  "stat_statements_"),
-    "security": ("rls_", "anon_", "secdef_", "public_bucket", "key_in_",
+    # ‏"public_" מכסה גם public_bucket וגם public_edge_function
+    "security": ("rls_", "anon_", "secdef_", "public_", "key_in_",
                  "target_blank", "mixed_content", "open_edge_function",
                  "open_write_policy", "headers_missing", "csp_report_only"),
     "behavior": ("views_without_leads", "pwa_", "alerts_failing", "leads_",
