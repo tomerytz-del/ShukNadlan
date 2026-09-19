@@ -12,7 +12,7 @@
 | קובץ | תפקיד |
 | --- | --- |
 | `supabase/migrations/20261120090000_public_text_policy.sql` | שני המנקים, שלושת הטריגרים, והטריגר על שינוי מסלול |
-| `supabase/migrations/20261123090000_paygo_policy_requires_tier_decision.sql` | ‏`paygo_text_rules_apply` — מי נחשב Pay&GO בכלל |
+| `supabase/migrations/20261128090000_paygo_policy_requires_tier_decision.sql` | ‏`paygo_text_rules_apply` — מי נחשב Pay&GO בכלל |
 | `crm.html` → `renderTextPolicyHint()` | האזהרה בטופס הנכס, לפי מסלול |
 
 ## למה במסד ולא בדפדפן
