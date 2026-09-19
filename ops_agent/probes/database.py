@@ -291,35 +291,161 @@ def _engines(ctx) -> Iterator[Finding]:
 
 # ---------------------------------------------------------------- שאילתות
 
+# חלון מינימלי לחישוב קצב. שתי סריקות במרווח של דקה אינן ראיה לשום
+# "שניות ליום", ולכן חלון קצר יותר מחולק **כאילו** היה שעה. ההטיה
+# מכוונת כלפי מטה: דיווח חסר בסריקה אחת עדיף על ממצא מנופח שנעלם
+# בסריקה הבאה.
+_RATE_FLOOR_SEC = 3_600.0
+
+# כמה שאילתות נשלפות כמועמדות. המיון ב-SQL הוא לפי הזמן המצטבר — המדד
+# ה**שגוי** — ולכן הרשימה רחבה בכוונה, והדירוג האמיתי נעשה בפייתון לפי
+# הקצב. ‏200 מתוך ~5,000 רשומות מכסות כל מה שצרך יותר משבריר שנייה.
+_QUERY_CANDIDATES = 200
+
+# רצפה מכנית, לא סף כיול: שאילתה שרצה פחות מ-10 פעמים **אי פעם** אין
+# ממנה קצב להסיק. הכיול עצמו (`slow_query_min_calls_per_day`) יושב
+# ב-config.py כמו כל סף אחר.
+_MIN_LIFETIME_CALLS = 10
+
+# ‏`subject` של הממצא הוא טביעת האצבע של טקסט השאילתה, אבל
+# ‏pg_stat_statements מפצל את אותו טקסט לשורה לכל role. ‏173 טביעות
+# במסד הזה מופיעות ביותר משורה אחת — בעיקר קריאות PostgREST שמגיעות גם
+# מ-`anon` וגם מ-`authenticated`. בלי `group by md5(query)` כל שורה
+# הייתה מקבלת את אותו מפתח ודורסת את חברתה, והדלתא של הסריקה הבאה
+# הייתה מחושבת מול הבסיס של ה-role השני.
+
+
+def _previous_samples(ctx) -> dict[str, dict]:
+    """הדגימה הגולמית של הסריקה הקודמת, לפי `subject`.
+
+    ‏`pg_stat_statements` הוא מונה מצטבר, והממצאים כאן הם על **קצב**.
+    כדי לגזור קצב צריך שתי נקודות בזמן, והשנייה חייבת לשרוד בין ריצות
+    של תהליך שרץ פעם בשש שעות ומת.
+
+    המקום שבו היא שורדת הוא `ops_findings.evidence` — אותה טבלה שהממצא
+    נכתב אליה ממילא. **אין כאן טבלה חדשה וגם לא יכולה להיות:** חיבור
+    הסריקה הוא `read_only` ברמת Postgres (ראו `db.py`), ולכן probe אינה
+    יכולה לדגום ולשמור בעצמה. היא יכולה רק לקרוא את מה שה-`Writer` כתב
+    בסוף הסריקה הקודמת.
+
+    שורה שנסגרה (`resolved_at`) נקראת גם היא: הדגימה שבה עדיין תקפה
+    כנקודת בסיס, ו-`last_seen` אומר מתי בדיוק היא נלקחה.
+    """
+    if not ctx.db.has_table("ops_findings"):
+        return {}
+    try:
+        rows = ctx.db.rows(
+            """
+            select subject,
+                   (evidence->>'calls')::bigint            as calls,
+                   (evidence->>'total_ms')::float8         as total_ms,
+                   extract(epoch from (now() - last_seen)) as age_sec
+              from public.ops_findings
+             where code in ('slow_query', 'heavy_query')
+               and subject is not null
+               and evidence ? 'total_ms'
+             order by last_seen desc
+            """
+        )
+    except Exception:  # noqa: BLE001
+        # בסיס חסר אינו סיבה להפיל probe שלמה. הנפילה לאחור אינה שקטה:
+        # ‏`window_source` בממצא יגיד "lifetime" במקום "delta".
+        return {}
+
+    out: dict[str, dict] = {}
+    for row in rows:
+        # אותה שאילתה יכולה להופיע גם כ-slow_query וגם כ-heavy_query, עם
+        # אותו subject ואותה דגימה. הראשונה (החדשה ביותר) מנצחת.
+        out.setdefault(str(row["subject"]), row)
+    return out
+
+
+def _window_start(ctx) -> str:
+    """הביטוי שאומר מתי החל החלון של הרשומה — לנפילה לאחור בלבד.
+
+    ‏PG17 נותן `stats_since` **לכל רשומה**, וזה המדויק: רשומה שנוצרה
+    אתמול לא תיראה כאילו היא צוברת מאז האיפוס הגלובלי. בגרסה ישנה יותר
+    העמודה אינה קיימת, ואז אין ברירה אלא `stats_reset` הגלובלי — שמותח
+    את החלון ומקטין את הקצב, כלומר שוב שוגה לכיוון הבטוח.
+    """
+    try:
+        found = ctx.db.one(
+            """
+            select 1 as ok
+              from pg_attribute
+             where attrelid = 'extensions.pg_stat_statements'::regclass
+               and attname  = 'stats_since'
+               and attnum > 0
+            """
+        )
+    except Exception:  # noqa: BLE001
+        found = None
+    if found:
+        return "stats_since"
+    return "(select stats_reset from extensions.pg_stat_statements_info)"
+
+
 def _slow_queries(ctx) -> Iterator[Finding]:
     """‏pg_stat_statements — מי באמת אוכל את המסד.
 
     שני ממצאים שונים מאותו מקור, ובכוונה:
 
     * **איטית** — ממוצע גבוה. זה מה שהמשתמש/ת מרגיש/ה.
-    * **כבדה** — סך זמן גבוה. זו מה שמייקרת את החשבון, גם אם כל קריאה
-      בודדת נראית סבירה. שאילתה של 10ms שרצה 200 אלף פעם היא הבעיה
-      הגדולה יותר, והיא זו שלא מופיעה בשום דוח "שאילתות איטיות".
+    * **כבדה** — הרבה זמן מסד ליום. זו מה שמייקרת את החשבון, גם אם כל
+      קריאה בודדת נראית סבירה. שאילתה של 10ms שרצה 200 אלף פעם היא
+      הבעיה הגדולה יותר, והיא זו שלא מופיעה בשום דוח "שאילתות איטיות".
+
+    ## למה **ליום** ולא "מאז איפוס הסטטיסטיקה"
+
+    המונים ב-`pg_stat_statements` מצטברים ולעולם אינם יורדים. בדיקה
+    שמשווה את הסכום המצטבר לסף קבוע נשברת בשלוש דרכים בבת אחת:
+
+    * **הממצא אינו יכול להיסגר.** ברגע שעברה את הסף היא מעליו לנצח, גם
+      אחרי שהשאילתה הפסיקה לרוץ לגמרי. הסגירה האוטומטית (`store.py`) —
+      הדבר היחיד שמראה שמשהו תוקן — אינה יכולה לפעול עליה.
+    * **‏`prev_metric` חסר משמעות.** מונה שרק עולה יכול להחמיר או לעמוד
+      במקום, לעולם לא להשתפר. מנגנון המגמה מת.
+    * **הסף אומר דבר אחר בכל יום.** ‏120 שניות הן הרבה ביום שאחרי
+      איפוס, ואפס אחרי שנה.
+
+    ‏**זה לא תיאורטי — זה קרה.** ב-19.9.2026 הממצא הכבד ביותר בדשבורד
+    היה `net.http_post` של ה-cron: ‏173 שניות על פני 17,204 קריאות.
+    השאילתה הזו לא רצה אפילו פעם אחת מאז 13.9 — ארבע מיגרציות
+    (‏`20261020`, ‏`20261021`, ‏`20261029`) החליפו את פקודות ה-cron
+    בגרסה מותנית, וה-17,204 הן מאובן של 29.8–13.9. שתי סריקות רצופות
+    במרחק עשר שעות דיווחו **בדיוק** 173.2 שניות, ואיש לא יכול היה
+    לראות מהמספר שהבעיה כבר נפתרה.
+
+    ## איך נמדד החלון
+
+    קודם כול דלתא מול הדגימה של הסריקה הקודמת (`_previous_samples`) —
+    זה המדויק, ושאילתה שהפסיקה לרוץ צונחת לאפס תוך סריקה אחת. אם אין
+    בסיס (סריקה ראשונה, או שאילתה שלא דווחה מעולם) נופלים לחלון החיים
+    של הרשומה. מונה שירד — איפוס של `pg_stat_statements` — מזוהה בכך
+    שהוא נמוך מהבסיס או שהרשומה צעירה מהדגימה, ואז גם הוא נופל לחלון
+    החיים במקום לייצר דלתא שלילית.
     """
     t = ctx.settings.thresholds
     ctx.count()
+    samples = _previous_samples(ctx)
     try:
         rows = ctx.db.rows(
             """
-            select calls,
-                   round(mean_exec_time::numeric, 1)          as mean_ms,
-                   round((total_exec_time / 1000)::numeric, 1) as total_sec,
-                   round(rows::numeric / greatest(calls, 1), 1) as rows_per_call,
-                   left(regexp_replace(query, '\\s+', ' ', 'g'), 200) as sample,
+            select sum(calls)::bigint                          as calls,
+                   sum(total_exec_time)                        as total_ms,
+                   extract(epoch from (now() - min({window}))) as age_sec,
+                   min(left(regexp_replace(query, '\\s+', ' ', 'g'), 200))
+                                                               as sample,
                    md5(query)                                  as fingerprint
               from extensions.pg_stat_statements
              where query not ilike '%%pg_stat_statements%%'
                and query not ilike '%%ops_agent%%'
-               and calls >= %s
-             order by total_exec_time desc
-             limit 40
-            """,
-            (t.slow_query_min_calls,),
+             group by md5(query)
+            having sum(calls) >= %s
+             order by sum(total_exec_time) desc
+             limit {limit}
+            """.format(window=_window_start(ctx), limit=_QUERY_CANDIDATES),
+            (_MIN_LIFETIME_CALLS,),
         )
     except Exception as err:
         yield Finding(
@@ -332,41 +458,104 @@ def _slow_queries(ctx) -> Iterator[Finding]:
         )
         return
 
-    for row in rows[:10]:
-        mean_ms = float(row["mean_ms"] or 0)
-        total_sec = float(row["total_sec"] or 0)
-        calls = int(row["calls"] or 0)
-        fp = str(row["fingerprint"])[:12]
+    measured = [_measure(row, samples) for row in rows]
+    measured.sort(key=lambda m: m["sec_per_day"], reverse=True)
 
-        if mean_ms >= t.slow_query_mean_ms:
+    for m in measured[:10]:
+        evidence = {
+            "query": m["sample"],
+            "mean_ms": round(m["mean_ms"], 1),
+            "calls_per_day": round(m["calls_per_day"]),
+            "sec_per_day": round(m["sec_per_day"], 1),
+            "window_hours": round(m["window_sec"] / 3_600, 1),
+            "window_source": m["source"],
+            # הדגימה הגולמית. **זה הבסיס של הסריקה הבאה** — מפתח שיישמט
+            # כאן יחזיר את הבדיקה כולה למדידה מצטברת, בשקט.
+            "calls": m["calls"],
+            "total_ms": round(m["total_ms"], 1),
+        }
+        # ‏`calls_per_day` חוסם רק את "איטית", וזו לא קפדנות יתר: ממוצע
+        # גבוה על שאילתה שרצה פעמיים ביום אינו בעיה. ל"כבדה" אין גישה
+        # כזו — היא נמדדת בזמן המסד שהיא צורכת, וחמש קריאות ביום של
+        # שלוש שניות כל אחת הן בדיוק אותה בעיה.
+        if (m["mean_ms"] >= t.slow_query_mean_ms
+                and m["calls_per_day"] >= t.slow_query_min_calls_per_day):
             yield Finding(
                 area="performance", code="slow_query",
-                severity="high" if mean_ms >= t.slow_query_mean_ms * 5 else "medium",
-                subject="query_" + fp,
-                title="שאילתה איטית — ממוצע %.0fms" % mean_ms,
-                detail="%d קריאות, ממוצע %.1fms, סך הכל %.0f שניות."
-                       % (calls, mean_ms, total_sec),
+                severity="high" if m["mean_ms"] >= t.slow_query_mean_ms * 5
+                         else "medium",
+                subject="query_" + m["fingerprint"],
+                title="שאילתה איטית — ממוצע %.0fms" % m["mean_ms"],
+                detail="%d קריאות ביום, ממוצע %.1fms, %.0f שניות מסד ליום. %s"
+                       % (m["calls_per_day"], m["mean_ms"], m["sec_per_day"],
+                          _window_text(m)),
                 suggestion="להריץ explain analyze על השאילתה. ממוצע גבוה עם הרבה "
                            "קריאות הוא בדרך כלל אינדקס חסר או policy של RLS "
                            "שמחושב לכל שורה.",
-                metric=mean_ms, metric_unit="ms",
-                evidence={"calls": calls, "total_sec": total_sec,
-                          "rows_per_call": float(row["rows_per_call"] or 0),
-                          "query": row["sample"]},
+                metric=round(m["mean_ms"], 1), metric_unit="ms",
+                evidence=evidence,
             )
-        elif total_sec >= t.heavy_query_total_sec:
+        elif m["sec_per_day"] >= t.heavy_query_sec_per_day:
             yield Finding(
                 area="cost", code="heavy_query", severity="medium",
-                subject="query_" + fp,
+                subject="query_" + m["fingerprint"],
                 title="שאילתה שצורכת את רוב זמן המסד",
-                detail="%.0f שניות מצטברות על פני %d קריאות (ממוצע %.1fms בלבד)."
-                       % (total_sec, calls, mean_ms),
+                detail="%.0f שניות מסד ליום — %d קריאות ביום, ממוצע %.1fms "
+                       "בלבד. %s"
+                       % (m["sec_per_day"], m["calls_per_day"], m["mean_ms"],
+                          _window_text(m)),
                 suggestion="כל קריאה נראית זולה, ולכן היא לא מופיעה בשום דוח "
                            "'שאילתות איטיות'. השאלה כאן אינה כמה היא לוקחת אלא "
                            "האם צריך לקרוא לה כל כך הרבה.",
-                metric=total_sec, metric_unit="שניות",
-                evidence={"calls": calls, "mean_ms": mean_ms, "query": row["sample"]},
+                metric=round(m["sec_per_day"], 1), metric_unit="שניות/יום",
+                evidence=evidence,
             )
+
+
+def _measure(row: dict, samples: dict[str, dict]) -> dict:
+    """ממירה מונה מצטבר לקצב, מול הדגימה הקודמת אם יש כזו."""
+    calls = int(row["calls"] or 0)
+    total_ms = float(row["total_ms"] or 0.0)
+    age_sec = float(row["age_sec"] or 0.0)
+    fingerprint = str(row["fingerprint"])[:12]
+
+    d_calls, d_ms, window_sec, source = calls, total_ms, age_sec, "lifetime"
+    prev = samples.get("query_" + fingerprint)
+    if prev is not None:
+        prev_calls = prev["calls"]
+        prev_ms = prev["total_ms"]
+        prev_age = float(prev["age_sec"] or 0.0)
+        # ‏calls שירד, total שירד, או רשומה צעירה מהדגימה — כל אחד מהם
+        # פירושו איפוס של pg_stat_statements בין הסריקות, והדלתא הייתה
+        # יוצאת שלילית או מנופחת.
+        if (prev_calls is not None and prev_ms is not None and prev_age > 0
+                and calls >= int(prev_calls) and total_ms >= float(prev_ms)
+                and age_sec >= prev_age):
+            d_calls = calls - int(prev_calls)
+            d_ms = total_ms - float(prev_ms)
+            window_sec = prev_age
+            source = "delta"
+
+    days = max(window_sec, _RATE_FLOOR_SEC) / 86_400.0
+    return {
+        "calls": calls,
+        "total_ms": total_ms,
+        "fingerprint": fingerprint,
+        "sample": row["sample"],
+        "window_sec": window_sec,
+        "source": source,
+        "calls_per_day": d_calls / days,
+        "sec_per_day": (d_ms / 1_000.0) / days,
+        "mean_ms": (d_ms / d_calls) if d_calls else 0.0,
+    }
+
+
+def _window_text(m: dict) -> str:
+    hours = m["window_sec"] / 3_600.0
+    span = ("%.0f שעות" % hours) if hours < 48 else ("%.0f ימים" % (hours / 24))
+    if m["source"] == "delta":
+        return "נמדד על פני %s מאז הסריקה הקודמת." % span
+    return "נמדד על פני %s — אין עדיין דגימה קודמת להשוות אליה." % span
 
 
 def _seq_scans(ctx) -> Iterator[Finding]:
