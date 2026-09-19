@@ -1,6 +1,6 @@
 ---
 name: new-page
-description: יצירת דף HTML חדש בשורש האתר (שוק נדל״ן) — GTM, בלוק PWA, מדידת אירועים, בריחת HTML, פוטר ו-robots. Use when adding a new page to the site, creating a new .html file in the repo root, or when a page was added and something about it is not measured / not styled / not escaped.
+description: יצירת דף HTML חדש בשורש האתר (שוק נדל״ן) — GTM, בלוק PWA, אימות Search Console, מדידת אירועים, בריחת HTML, פוטר ו-robots. Use when adding a new page to the site, creating a new .html file in the repo root, or when a page was added and something about it is not measured / not indexed / not escaped.
 ---
 
 # דף חדש באתר
@@ -36,6 +36,7 @@ description: יצירת דף HTML חדש בשורש האתר (שוק נדל״ן)
 <title>… | שוק נדל״ן</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 ← כאן בלוק ה-PWA, מועתק מ-index.html כלשונו (ראו סעיף 3)
+← ומיד אחריו תגית האימות של Search Console (ראו סעיף 4)
 <meta name="description" content="…">
 <link rel="stylesheet" href="assets/design-system.css">
 <link rel="stylesheet" href="assets/site-footer.css">
@@ -75,7 +76,20 @@ description: יצירת דף HTML חדש בשורש האתר (שוק נדל״ן)
 עלול/ה לצאת מהאפליקציה לדפדפן כשיגיע אליו. `scripts/check_pwa.py` חוסם
 זאת ב-CI. הפרטים: `docs/pwa-install.md`.
 
-### 4. ערכים מהמסד → תמיד דרך `escapeHtml`
+### 4. תגית האימות של Search Console
+
+מיד אחרי בלוק ה-PWA, זהה בכל דף ובכל סוג דף:
+
+```html
+<meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
+```
+
+היא מוכיחה לגוגל שהאתר שלנו. בלי אימות אין גישה לדוחות החיפוש, אין הגשת
+`sitemap` ואין בקשת אינדוקס — וגוגל בודקת את התגית שוב גם אחרי שהאימות
+עבר. `scripts/check_search_console.py` חוסם דף חסר ב-CI, ו-`--fix` שותל
+אותה. הפרטים: `docs/security-headers.md`.
+
+### 5. ערכים מהמסד → תמיד דרך `escapeHtml`
 
 הדף טוען `assets/esc.js` ומשתמש ב-`escapeHtml` הגלובלית. **אין להגדיר
 בריחה משלך בדף** — זה בדיוק מה שיצר את ההזרקה שתוקנה ב-`buildSearchRow`.
@@ -88,13 +102,13 @@ row.innerHTML = `<div class="t">${escapeHtml(p.title)}</div>`;
 `cssUrl` (ראו `index.html`), כי `escapeHtml` אינה מגינה על גרש בודד
 בתוך CSS.
 
-### 5. פרטיות כתובת
+### 6. פרטיות כתובת
 
 דף שמציג נכס מציג **רחוב ושכונה, לא מספר בית**. יש `maskHouseNumber`
 ו-`publicAddressText` ב-`property.html`. הכלל והנימוק:
 `docs/property-address-privacy.md`.
 
-### 6. האם הדף צריך להיסרק
+### 7. האם הדף צריך להיסרק
 
 דף פרטי (אזור אישי, תשלום, חתימה, קישור עם טוקן) נוסף ל-`robots.txt`
 **בשתי הצורות** — עם `.html` ובלעדיה, כי Netlify מגיש את שתיהן:
@@ -106,20 +120,22 @@ Disallow: /my-page.html
 
 דף ציבורי נוסף ל-`sitemap.xml`.
 
-### 7. לפני הדחיפה
+### 8. לפני הדחיפה
 
 ```sh
-python scripts/check_gtm.py        # תגיות GTM בכל דף
-python scripts/check_escapers.py   # בריחה אחת, מלאה
-python scripts/check_pwa.py        # בלוק ה-PWA בכל דף
+python scripts/check_gtm.py             # תגיות GTM בכל דף
+python scripts/check_escapers.py        # בריחה אחת, מלאה
+python scripts/check_pwa.py             # בלוק ה-PWA בכל דף
+python scripts/check_search_console.py  # תגית האימות בכל דף
 ```
 
-שלושתן חוסמות ב-CI. הפלט שלהן מראה בדיוק מה להדביק ואיפה.
+ארבעתן חוסמות ב-CI. הפלט שלהן מראה בדיוק מה להדביק ואיפה.
 
 ## מה שנשכח הכי הרבה
 
 1. **קטע ה-`noscript`** — קל לזכור את ה-`<script>` ולשכוח אותו.
 2. **`events.js` בדף ציבורי** — הדף עובד, פשוט לא נמדד.
 3. **בלוק ה-PWA** — הדף נטען, פשוט לא ניתן להתקנה.
-4. **הדף לא נוסף ל-`sitemap.xml`/`robots.txt`.**
-5. **תיעוד** — יכולת חדשה מקבלת מסמך ב-`docs/`, באותו PR.
+4. **תגית האימות** — הדף נטען, פשוט לא ניתן לאמת אותו מול גוגל.
+5. **הדף לא נוסף ל-`sitemap.xml`/`robots.txt`.**
+6. **תיעוד** — יכולת חדשה מקבלת מסמך ב-`docs/`, באותו PR.
