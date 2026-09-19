@@ -26,6 +26,26 @@ const WA_TEMPLATE_LANG = Deno.env.get("WHATSAPP_INVITE_TEMPLATE_LANG") || "he";
 export type WhatsappSendResult = { sent: boolean; error: string | null };
 
 /**
+ * ניקוי ערך שנכנס כפרמטר של תבנית.
+ *
+ * **‏Meta דוחה פרמטר שמכיל שורה חדשה, טאב, או יותר מארבעה רווחים רצופים** —
+ * ההודעה כולה נדחית, לא הפרמטר. זו בדיוק התקלה שנתפסה ב-`notification-push`
+ * (ראו `templateSummary` שם), ושם היא התגלתה רק בשליחה הראשונה מחוץ לחלון
+ * 24 השעות. כאן **כל** שליחה היא מחוץ לחלון, ולכן אין רשת שתתפוס אותה
+ * מאוחר יותר.
+ *
+ * שני הערכים כאן הם שם פרטי ושם משרד — שדות טקסט חופשי שאדם הקליד. שם משרד
+ * עם שורה חדשה או עם רצף רווחים אינו תרחיש תיאורטי כשהוא מודבק מאיפשהו.
+ */
+function param(value: string): string {
+  return value
+    .replace(/\s*[\r\n\t]+\s*/g, " ")
+    .replace(/ {4,}/g, "   ")
+    .trim()
+    .slice(0, 60);
+}
+
+/**
  * מספר ישראלי מקומי (`0521112222`) → הצורה ש-Meta מצפה לה: ספרות בלבד עם
  * קידומת המדינה ובלי `+`.
  */
@@ -52,7 +72,8 @@ export async function sendWhatsappInvite(
   // לכתובת (`SITE_BASE_URL` אצל הקורא) ולא שניים שעלולים להיפרד.
   const suffix = a.url.replace(/^https?:\/\/[^/]+\/?/, "");
 
-  const greeting = (a.name || "").trim().split(/\s+/)[0] || "שלום";
+  const greeting = param((a.name || "").trim().split(/\s+/)[0] || "שלום");
+  const agency = param(a.agency || "המשרד");
 
   const payload = WA_TEMPLATE
     ? {
@@ -66,8 +87,8 @@ export async function sendWhatsappInvite(
           {
             type: "body",
             parameters: [
-              { type: "text", text: greeting.slice(0, 60) },
-              { type: "text", text: (a.agency || "המשרד").slice(0, 60) },
+              { type: "text", text: greeting },
+              { type: "text", text: agency },
             ],
           },
           { type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: suffix }] },
