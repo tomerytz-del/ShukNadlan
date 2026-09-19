@@ -18,7 +18,10 @@ import re
 from pathlib import Path
 from typing import Iterator
 
+from ..config import EDGE_AUTH_PATTERNS, PUBLIC_EDGE_FUNCTIONS
 from ..models import Finding
+
+_EDGE_AUTH_CACHE = None
 
 # ‏JWT של Supabase. שלושה חלקים base64 שמתחילים ב-eyJ — החתימה היא מה
 # שמבדיל בין מפתח אמיתי למחרוזת שנראית כמוהו.
@@ -134,18 +137,32 @@ def _anon_rpc(ctx) -> Iterator[Finding]:
             guarded_names.append(row["name"])
             continue
 
+        # פונקציה שרק **קוראת** היא סיפור אחר מפונקציה ש**כותבת**.
+        # ‏`property_map_enabled(uuid)` חושפת דגל תצוגה; פונקציה שמריצה
+        # ‏insert או update בהרשאות של בעל/ת הפונקציה היא הסלמת הרשאות.
+        # הגרסה הראשונה דיווחה על 11 כאלה ב-`high` — כולן קריאה בלבד.
+        writes = bool(re.search(
+            r"\b(insert\s+into|update\s+\w|delete\s+from|truncate|"
+            r"perform\s+set_config|grant\s|revoke\s)\b", body, re.I))
+
         yield Finding(
-            area="security", code="anon_secdef_unguarded", severity="high",
+            area="security", code="anon_secdef_unguarded",
+            severity="high" if writes else "medium",
             subject=row["name"],
-            title="פונקציה פתוחה לאנונימי/ת בלי בדיקת הרשאה: %s" % row["name"],
+            title=("פונקציה פתוחה לאנונימי/ת שכותבת למסד: %s" % row["name"])
+                  if writes else
+                  ("שליפה פתוחה לאנונימי/ת בלי בדיקת הרשאה: %s" % row["name"]),
             detail="‏SECURITY DEFINER עם הרשאת execute ל-anon, ואין בגוף שום "
                    "בדיקת זהות. ‏PostgREST חושף אותה ב-/rest/v1/rpc/%s."
                    % row["name"],
-            suggestion="מי שיודע/ת את השם יכול/ה להריץ אותה עם כל קלט, בלי "
-                       "התחברות. אם היא נועדה לדפדפן — עדיף SECURITY INVOKER, "
-                       "כדי ש-RLS ימשיך לחול. אם לא — revoke execute from anon "
-                       "במיגרציה.",
-            evidence={"args": row["args"]},
+            suggestion=("הפונקציה **כותבת** בהרשאות של בעליה, וכל אדם באינטרנט "
+                        "יכול לקרוא לה עם כל קלט. זו הסלמת הרשאות. להוסיף בדיקת "
+                        "זהות בשורה הראשונה, ו-revoke execute from anon.")
+                       if writes else
+                       ("קריאה בלבד, ולכן זו חשיפת מידע ולא הסלמה — השאלה היא "
+                        "האם הערך שהיא מחזירה אמור להיות גלוי לכל אדם. אם לא, "
+                        "‏revoke execute from anon במיגרציה."),
+            evidence={"args": row["args"], "writes": writes},
         )
 
     # המוגנות מרוכזות לשורה אחת. הן אינן חשיפה — הן רשימה לסקירה
@@ -371,10 +388,28 @@ def _html_hygiene(ctx) -> Iterator[Finding]:
 
 
 def _edge_functions(ctx) -> Iterator[Finding]:
-    """פונקציה עם verify_jwt=false שאינה בודקת שום סוד משלה.
+    """פונקציה עם verify_jwt=false שאינה מאמתת דבר.
 
-    זו נקודת קצה פתוחה לאינטרנט. חלק מהן חייבות להיות כאלה (webhook של
-    מטא, callback של ספק סליקה) — ודווקא הן חייבות לאמת חתימה או סוד.
+    ## שתי טעויות שהגרסה הראשונה עשתה, ושתיהן אותה טעות
+
+    הבדיקה הראשונה דיווחה על **31 פונקציות**. קריאה בקוד הראתה שכמעט
+    כולן מוגנות — רק לא בדרך שה-regex הכיר:
+
+    * ‏`property-description` מייבאת `authorizeInternalCaller` מ-
+      ‏`_shared/cron-auth.ts`, שמשווה `ALERT_CRON_SECRET` בזמן קבוע.
+    * ‏`professional-manage` ו-`saved-search-manage` נשענות על אסימון
+      בגוף הבקשה או בכתובת.
+    * ‏`platform-mail` מגדירה `authorized()` משלה ומחזירה 401.
+    * ‏`property-visualize` חוסמת לפי מסלול (403) ולפי מכסה (429).
+
+    והטעות השנייה, העמוקה יותר: **טופס ציבורי אינו חור.** ‏`verify_jwt`
+    כבוי ב-`newsletter-subscribe` כי מי שנרשם/ת לניוזלטר אינו/ה מחובר/ת.
+    לדווח על זה כ"גבוה" פירושו להטביע את הממצא האמיתי בתוך עשרים כאלה.
+
+    לכן: מה שמאמת — לא מדווח. מה שאינו מאמת אבל **מוצהר** כפומבי
+    (`PUBLIC_EDGE_FUNCTIONS`) — `info`, עם הערה על הגבלת קצב. כל השאר —
+    ‏`high`, כי פונקציה חדשה בלי אימות היא חשודה עד שמישהו/י מחליט/ה
+    אחרת במודע.
     """
     root: Path = ctx.root
     config = root / "supabase" / "config.toml"
@@ -393,23 +428,45 @@ def _edge_functions(ctx) -> Iterator[Finding]:
         code = _read(src)
         if code is None:
             continue
-        # מה נחשב הגנה: השוואה לסוד מהסביבה, אימות חתימה, או טוקן בנתיב.
-        guarded = re.search(
-            r"CRON_SECRET|WEBHOOK_SECRET|hmac|createHmac|x-hub-signature|"
-            r"timingSafeEqual|verify_token|webhook_token|ALERT_CRON_SECRET",
-            code, re.I)
-        if guarded:
+
+        if _edge_auth_re().search(code):
             continue
+
+        if name in PUBLIC_EDGE_FUNCTIONS:
+            yield Finding(
+                area="security", code="public_edge_function", severity="info",
+                subject=name,
+                title="נקודת קצה פומבית מוצהרת: %s" % name,
+                detail="‏verify_jwt=false ואין אימות — כמתוכנן, כי הפונה אינו/ה "
+                       "מחובר/ת בשלב הזה.",
+                suggestion="מה שכן נשאר פתוח כאן הוא **הגבלת קצב**. טופס ציבורי "
+                           "בלי rate limit הוא הזמנה להצפה — גם כשהוא אמור "
+                           "להיות פומבי. שווה לוודא שיש מגבלה לפי IP או לפי "
+                           "טלפון.",
+            )
+            continue
+
         yield Finding(
             area="security", code="open_edge_function", severity="high",
             subject=name,
             title="‏Edge Function פתוחה בלי אימות: %s" % name,
-            detail="‏verify_jwt=false ב-config.toml, ואין בקוד בדיקת סוד או חתימה.",
+            detail="‏verify_jwt=false ב-config.toml, ולא נמצאה בקוד שום בדיקה "
+                   "שדוחה בקשה — לא סוד, לא אסימון, ולא 401/403/429.",
             suggestion="הפונקציה נגישה לכל מי שיודע/ת את הכתובת, בלי התחברות. "
                        "אם היא webhook — לאמת חתימה. אם היא נקראת מ-cron — "
-                       "להשוות סוד מה-Vault. אם היא טופס ציבורי — לפחות "
-                       "הגבלת קצב.",
+                       "‏authorizeInternalCaller מ-_shared/cron-auth.ts. אם היא "
+                       "**כן** אמורה להיות פומבית — להוסיף אותה ל-"
+                       "‏PUBLIC_EDGE_FUNCTIONS ב-ops_agent/config.py, וכך "
+                       "ההחלטה נרשמת במקום להישכח.",
         )
+
+
+def _edge_auth_re():
+    """מהודר פעם אחת. הדפוסים עצמם ב-config, כי הם כיול ולא לוגיקה."""
+    global _EDGE_AUTH_CACHE
+    if _EDGE_AUTH_CACHE is None:
+        _EDGE_AUTH_CACHE = re.compile("|".join(EDGE_AUTH_PATTERNS), re.I)
+    return _EDGE_AUTH_CACHE
 
 
 def _headers_file(ctx) -> Iterator[Finding]:

@@ -163,9 +163,23 @@ def _queues(ctx) -> Iterator[Finding]:
             continue
 
         age = float((row or {}).get("age_hours") or 0)
+
+        # ‏**גיל לבדו אינו מסלים ל"חמור", וזה תוקן אחרי הסריקה הראשונה.**
+        # שם הכלל היה `גיל >= 24 או שורות >= 25`, ושורה בודדת שנתקעה
+        # יומיים פתחה Issue בדרגת "חמור" — בזמן ש"חמור" הוגדר כ"אתר
+        # נפל / נתונים חשופים / הצינור שבור". פרסום אחד שלא יצא לפייסבוק
+        # אינו זה.
+        #
+        # עכשיו נדרשים **גם** ותק וגם נפח, או נפח גדול לבדו: תור שמצטבר
+        # הוא תקלה מערכתית, שורה אחת תקועה היא כנראה שורה אחת רעה.
         severity = "high"
-        if age >= t.queue_stuck_critical_hours or stuck >= t.queue_stuck_critical_rows:
+        if stuck >= t.queue_stuck_critical_rows or (
+                age >= t.queue_stuck_critical_hours
+                and stuck >= t.queue_stuck_critical_min_rows):
             severity = "critical"
+        elif stuck < t.queue_stuck_critical_min_rows:
+            # שורה בודדת שנתקעה היא מטרד, לא תקלה
+            severity = "medium"
 
         yield Finding(
             area="health", code="queue_stuck", severity=severity,
