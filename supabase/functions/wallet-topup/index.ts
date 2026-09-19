@@ -142,10 +142,12 @@ Deno.serve(async (req: Request) => {
   const notifyUrl = `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/wallet-topup-callback` +
     `?token=${encodeURIComponent(webhookSecret)}`;
 
+  const client = clientFrom(body, agent.display_name);
+
   const form = await createPaymentForm({
     amount,
     description: `טעינת ארנק — שוק נדל"ן`,
-    ...clientFrom(body, agent.display_name),
+    ...client,
     clientEmail: email,
     // ‏topup_id ולא id: ‏crm.html מנקה מהכתובת רק את שני המפתחות האלה, ושם
     // גנרי היה מתנגש עם פרמטרים אחרים שהדף כבר קורא (‏invite, מפתחות OAuth).
@@ -171,6 +173,39 @@ Deno.serve(async (req: Request) => {
     .from("wallet_topups")
     .update({ provider_form_id: form.formId, provider_payment_url: form.url })
     .eq("id", topupId);
+
+  // 5. פרטי החשבונית, לפעם הבאה.
+  //
+  //    עד היום הם הוקלדו מחדש בכל טעינה: שם, טלפון, מדינה, שם עסק ו-ח.פ —
+  //    חמישה שדות שאינם משתנים לעולם. ‏ח.פ שמוקלד שוב הוא ח.פ שאפשר להקליד
+  //    שגוי, וחשבונית עם מספר שגוי צריך לבטל ולהפיק מחדש.
+  //
+  //    **נשמר בדיוק מה שנשלח לספק הסליקה**, ומכאן ולא מהטופס: זו הערובה
+  //    שמה שיוצע בפעם הבאה הוא מה שמודפס על החשבונית של הפעם הזו, ולא
+  //    מחרוזת שעברה מסלול אחר. ‏upsert ולא insert — זו שורה אחת לכל סוכן/ת,
+  //    והרכישה האחרונה היא מה שמעניין.
+  //
+  //    כישלון כאן אינו נוגע בתשלום: הטופס כבר נפתח, והנוחות היחידה שאובדת
+  //    היא מילוי אוטומטי בפעם הבאה. לכן אין כאן החזרת שגיאה.
+  //
+  //    שם האדם ושם העסק נשמרים **בנפרד**, בעוד שעל החשבונית מודפס רק אחד
+  //    מהם (`clientName` — שם העסק גובר כשיש ח.פ). שמירת המיזוג בלבד הייתה
+  //    מחזירה בפעם הבאה את שם העסק לשדה "שם פרטי" בטופס.
+  const text = (v: unknown, max: number) =>
+    typeof v === "string" ? v.replace(/\s+/g, " ").trim().slice(0, max) : "";
+  const business = text((body as any)?.client_business, 100);
+  const person = text((body as any)?.client_name, 100);
+
+  const { error: billingErr } = await supabase.from("agent_billing_profiles").upsert({
+    agent_id: agent.id,
+    client_name: person || client.clientName,
+    business: business || null,
+    tax_id: client.clientTaxId,
+    phone: client.clientPhone,
+    country: client.clientCountry,
+    updated_at: new Date().toISOString(),
+  });
+  if (billingErr) console.warn("wallet-topup: billing profile not saved", billingErr.message);
 
   return json({
     success: true,

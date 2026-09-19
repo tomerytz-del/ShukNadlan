@@ -1,7 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { sendPlatformEmail } from "../_shared/platform-mail-client.ts";
-import { blockedResponse, checkBrokerLicense } from "../_shared/broker-license-gate.ts";
+import { sendWhatsappInvite, toWhatsappMsisdn } from "../_shared/whatsapp-invite.ts";
+import { freeAgentSlug } from "../_shared/agent-slug.ts";
 
 // ============================================================================
 // הוספת סוכן/ת לצוות המשרד — בהזמנה, לא בסיסמה שממציאים עבורו/ה
@@ -17,13 +18,41 @@ import { blockedResponse, checkBrokerLicense } from "../_shared/broker-license-g
 // לגמרי וקיבלה את מסך "עדיין לא פתחת משרד תיווך". לא הייתה שום נקודה שבה
 // מישהו יכול היה לגלות את הטעות.
 //
-// עכשיו: השורה נוצרת עם user_id ריק, ונשלחת הזמנה במייל. החיבור בין החשבון
+// עכשיו: השורה נוצרת עם user_id ריק, ונשלחת הזמנה. החיבור בין החשבון
 // לשורה קורה בכניסה של הסוכן/ת עצמו/ה (join-agency), ולכן:
 //   • כתובת שגויה אינה קושרת כלום — היא רק לא מגיעה, וזה מצב שרואים במסך.
 //   • הקישור מוחזר גם לממשק, כדי שאפשר יהיה לשלוח אותו בוואטסאפ.
 //   • אף אחד לא ממציא סיסמה עבור אדם אחר.
 //
-// פעולות: invite (ברירת מחדל) · resend (כולל תיקון הכתובת) · revoke.
+// ---------------------------------------------------------------------------
+// מה הטופס מבקש היום, ולמה כל כך מעט
+//
+// **אימייל ונייד. זה הכול.** שני פרטי קשר, ושניהם של מי שמזמינים.
+//
+//   · **מספר רישיון התיווך ירד מהטופס.** הוא נבדק מול רשם המתווכים לפני
+//     שההזמנה בכלל יצאה — כלומר מנהל/ת המשרד הקליד/ה מספר של אדם אחר,
+//     וספרה שגויה חסמה את ההזמנה כולה. גרוע מכך היה מסלול הערעור: הוא דורש
+//     **צילום תעודת הרישיון**, שאינו בידי מי שמילא/ה את הטופס. המספר עבר
+//     למסך הפתיחה של הסוכן/ת עצמו/ה, שם גם התעודה נמצאת. השער החוקי לא זז
+//     מילימטר: ‏join-agency אינו מקשר חשבון לכרטיס עד שהמספר נמסר ונבדק.
+//   · **שם מלא נשאר, אופציונלי.** הוא רק הפתיח של ההודעה ושם השורה ברשימת
+//     הצוות; מי שמשאיר/ה אותו ריק מקבל/ת "שלום", והסוכן/ת ממלא/ת את שמו/ה
+//     בכניסה הראשונה. אין סיבה לחסום הזמנה בגללו.
+//   · **הנייד הפך לחובה**, והסיבה היא ההודעה עצמה: ההזמנה יוצאת בשני ערוצים.
+//
+// ---------------------------------------------------------------------------
+// שני ערוצים, לא אחד
+//
+// מייל שנחת בספאם נראה בדיוק כמו מייל שלא נשלח — זו הייתה ההערה כאן מהיום
+// הראשון, והמסקנה שלה הייתה כפתור וואטסאפ *ידני* למנהל/ת. עכשיו ההזמנה יוצאת
+// בוואטסאפ מעצמה, לצד המייל. הכפתור הידני נשאר: הוא הרשת האחרונה כשהשליחה
+// האוטומטית נכשלת, והיא עלולה — ראו `_shared/whatsapp-invite.ts` על תבניות
+// מאושרות ועל חלון 24 השעות.
+//
+// **אף אחד משני הערוצים אינו מפיל את ההוספה.** הכרטיס וההזמנה נוצרים, מה
+// שנכשל נרשם (`send_error` / `wa_error`), והקישור חוזר לממשק.
+//
+// פעולות: invite (ברירת מחדל) · resend (כולל תיקון הכתובת) · set_phone · revoke.
 // ============================================================================
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -43,12 +72,6 @@ function corsHeaders() {
 function json(obj: unknown, status = 200) {
   return new Response(JSON.stringify(obj), { status, headers: corsHeaders() });
 }
-function slugify(text: string) {
-  return text.trim().toLowerCase()
-    .replace(/[^\u0590-\u05FFa-z0-9\s-]/g, "")
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-");
-}
 const esc = (s: string) =>
   String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -59,20 +82,22 @@ function normalizeEmail(raw: unknown): string {
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i;
 
 /**
- * הטלפון הנייד של הסוכן/ת המוזמן/ת — אופציונלי, ובכל זאת שווה לבקש אותו כאן:
- * זה המספר שדף הסוכן/ת מחייג אליו, וזה גם המספר שהעוזר בוואטסאפ מזהה לפיו
- * (‏whatsapp-webhook מחפש את הכרטיס לפי phone_e164). בלעדיו הסוכן/ת נוחת/ת
- * במערכת עם דף בלי כפתור חיוג ועם בוט שעונה "איני מזהה את מספר הטלפון שלך".
+ * הטלפון הנייד של הסוכן/ת המוזמן/ת — **שדה חובה בהזמנה**, כי ההזמנה יוצאת
+ * אליו בוואטסאפ. שלושה דברים נוספים תלויים בו: זה המספר שדף הסוכן/ת מחייג
+ * אליו, זה מה שכפתור הוואטסאפ הידני פותח, וזה גם המספר שהעוזר בוואטסאפ מזהה
+ * לפיו (‏whatsapp-webhook מחפש את הכרטיס לפי phone_e164). בלעדיו הסוכן/ת
+ * נוחת/ת במערכת עם דף בלי כפתור חיוג ועם בוט שעונה "איני מזהה את מספר
+ * הטלפון שלך".
  *
  * המספר מוחזר כספרות בלבד בצורה המקומית (‏0521112222) — אותה צורה בדיוק
  * ש-‏localPhone ב-CRM מייצרת, כך שכל הצרכנים קוראים אותו הדבר. ‏phone_e164
  * נגזרת ממנו במסד (עמודה מחושבת) ואין צורך לכתוב אותה.
  *
- * נייד בלבד, ולא מתוך קפדנות: שלושת השימושים — קישור ההזמנה בוואטסאפ, כפתור
- * הוואטסאפ בדף הסוכן/ת, והעוזר — כולם לא עובדים על קו נייח, ומספר נייח שהיה
- * נכנס כאן היה נראה שמור ולא עובד באף אחד מהם.
+ * נייד בלבד, ולא מתוך קפדנות: ארבעת השימושים שלמעלה אינם עובדים על קו נייח,
+ * ומספר נייח שהיה נכנס כאן היה נראה שמור ולא עובד באף אחד מהם.
  *
- * ‏null = לא הוזן (חוקי). ‏false = הוזן משהו שאינו נייד ישראלי.
+ * ‏null = לא הוזן. ‏false = הוזן משהו שאינו נייד ישראלי. בהזמנה חדשה שניהם
+ * נדחים — המספר הוא ערוץ ההזמנה עצמו — וב-`set_phone` ריק עדיין מסיר מספר.
  */
 function normalizeMobile(raw: unknown): string | null | false {
   const typed = String(raw ?? "").trim();
@@ -87,15 +112,18 @@ function normalizeMobile(raw: unknown): string | null | false {
 }
 
 /**
- * הקישור מוביל לדף המסלולים ולא ישר ל-CRM, וזה שינוי מכוון: הצטרפות מתחילה
- * בבחירת מסלול. ‏pricing.html קורא/ת את האסימון, מציג/ה את המסלולים, וכל CTA
- * שם מחזיר/ה ל-‎crm.html?invite=<token>&tier=<id>‎ — כלומר האסימון ממשיך הלאה
- * בדיוק כמו קודם, והתנהגות ה-CRM לא השתנתה. מי שיגיע/ה עם קישור ישן
- * ל-‎crm.html?invite=…‎ עדיין ייקלט/תיקלט: הבחירה פשוט תוצג לו/ה בשער המסלול
- * שאחרי ההתחברות.
+ * **הקישור מוביל ישר ל-CRM.** לזמן מה הוא עבר דרך `pricing.html`, כדי
+ * שההצטרפות תתחיל בבחירת מסלול — אלא שבתקופת ההשקה אין שם מה לבחור: כל
+ * המצטרפים מקבלים Elite, ושני המסלולים האחרים מוצגים נעולים. כלומר הדף
+ * הזה היה עמוד שלם שכל תפקידו לחיצה אחת על האפשרות היחידה, לפני
+ * ההתחברות. מה שההטבה שווה נאמר במכתב ההזמנה, ושוב ברצועת ההטבה
+ * שבדשבורד.
+ *
+ * קישור ישן ל-`pricing.html?invite=…` ממשיך לעבוד כמו שעבד — הדף עדיין
+ * קורא את האסימון ומעביר אותו הלאה.
  */
 const inviteUrl = (token: string) =>
-  `${SITE_BASE_URL}/pricing.html?invite=${encodeURIComponent(token)}`;
+  `${SITE_BASE_URL}/crm.html?invite=${encodeURIComponent(token)}`;
 
 // ---------------------------------------------------------------------------
 // מכתב ההזמנה
@@ -112,6 +140,9 @@ const PITCH = "כל הנכסים, הלידים והלקוחות שלך במקו�
    (‏grant_launch_promo) ברגע השיוך. */
 const PROMO_LINE = "ההצטרפות עכשיו כוללת 6 חודשים במסלול Elite — המסלול המלא, ללא תשלום וללא כרטיס אשראי.";
 
+/** שם מלא הוא שדה אופציונלי בטופס, ולכן הפתיח חייב לעבוד גם בלעדיו. */
+const greet = (name: string) => (name || "").trim() || "שלום";
+
 function inviteHtml(a: { name: string; agency: string; inviter: string; url: string }) {
   return `<!doctype html>
 <html lang="he" dir="rtl"><body style="margin:0;background:#F5F2ED;font-family:system-ui,-apple-system,'Segoe UI',Arial,sans-serif;color:#1B2A41">
@@ -119,7 +150,7 @@ function inviteHtml(a: { name: string; agency: string; inviter: string; url: str
     <div style="background:#fff;border:1px solid #E4DFD6;border-radius:14px;padding:26px">
       <p style="font-size:13px;color:#7A8899;margin:0 0 10px">הזמנה להצטרף לצוות</p>
       <h1 style="margin:0 0 12px;font-size:21px;line-height:1.35">
-        ${esc(a.name)}, ${esc(a.inviter)} מזמין/ה אותך למשרד ${esc(a.agency)}
+        ${esc(greet(a.name))}, ${esc(a.inviter)} מזמין/ה אותך למשרד ${esc(a.agency)}
       </h1>
       <p style="margin:0 0 14px;font-size:15px;line-height:1.6;color:#3D4A5C">${esc(PITCH)}</p>
       <p style="margin:0 0 20px;padding:11px 13px;background:#F7F1E2;border:1px solid #E5C76A;border-radius:9px;font-size:14px;line-height:1.55;color:#3D4A5C">
@@ -127,7 +158,7 @@ function inviteHtml(a: { name: string; agency: string; inviter: string; url: str
       </p>
       <a href="${esc(a.url)}"
          style="display:inline-block;background:#1B2A41;color:#fff;text-decoration:none;padding:13px 26px;border-radius:9px;font-size:15px;font-weight:bold">
-        בחירת מסלול והצטרפות
+        הצטרפות למשרד
       </a>
       <p style="margin:20px 0 0;font-size:13px;color:#7A8899;line-height:1.6">
         הכניסה היא עם חשבון Google שלך או עם סיסמה שתגדיר/י בעצמך — אף אחד
@@ -148,13 +179,13 @@ function inviteHtml(a: { name: string; agency: string; inviter: string; url: str
 
 function inviteText(a: { name: string; agency: string; inviter: string; url: string }) {
   return [
-    `${a.name}, ${a.inviter} מזמין/ה אותך להצטרף למשרד ${a.agency} בשוק נדל״ן.`,
+    `${greet(a.name)}, ${a.inviter} מזמין/ה אותך להצטרף למשרד ${a.agency} בשוק נדל״ן.`,
     "",
     PITCH,
     "",
     PROMO_LINE,
     "",
-    `לבחירת מסלול והצטרפות: ${a.url}`,
+    `להצטרפות: ${a.url}`,
     "",
     "הכניסה היא עם חשבון Google שלך או עם סיסמה שתגדיר/י בעצמך. הקישור אישי ותקף 30 יום.",
   ].join("\n");
@@ -176,6 +207,48 @@ async function sendInviteEmail(to: string, a: { name: string; agency: string; in
     text: inviteText(a),
   });
   return { sent: result.sent, error: result.error };
+}
+
+type InviteDelivery = {
+  email_sent: boolean;
+  email_error: string | null;
+  wa_sent: boolean;
+  wa_error: string | null;
+};
+
+/**
+ * שני הערוצים, ושליחה אחת.
+ *
+ * **הם נשלחים במקביל ולא בטור**, וזו לא אופטימיזציה: שני ספקים חיצוניים
+ * בטור הם שני timeout אפשריים זה אחרי זה, בתוך בקשה שמנהל/ת המשרד מחכה
+ * לתשובתה מול טופס פתוח.
+ *
+ * ‏`Promise.all` ולא `allSettled` כי שתי הפונקציות **אינן זורקות** —
+ * שתיהן מחזירות סטטוס. זו כל הנקודה: כישלון ערוץ הוא נתון שנרשם, לא
+ * חריגה שמפילה את ההוספה.
+ */
+async function sendInvite(
+  a: { email: string; phone: string | null; name: string; agency: string; inviter: string; url: string },
+): Promise<InviteDelivery> {
+  const msisdn = toWhatsappMsisdn(a.phone);
+  const [mail, wa] = await Promise.all([
+    sendInviteEmail(a.email, a),
+    msisdn
+      ? sendWhatsappInvite(msisdn, { name: a.name, agency: a.agency, url: a.url })
+      : Promise.resolve({ sent: false, error: "no_mobile" as string | null }),
+  ]);
+  return { email_sent: mail.sent, email_error: mail.error, wa_sent: wa.sent, wa_error: wa.error };
+}
+
+/** אותה רשומה, אותן ארבע עמודות — כדי שהרישום לא ייפרד בין שני מסלולי השליחה. */
+function deliveryStamp(d: InviteDelivery) {
+  const now = new Date().toISOString();
+  return {
+    sent_at: d.email_sent ? now : null,
+    send_error: d.email_error,
+    wa_sent_at: d.wa_sent ? now : null,
+    wa_error: d.wa_error,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -308,14 +381,15 @@ Deno.serve(async (req: Request) => {
       if (invErr || !invite) return json({ error: "db_error", detail: invErr?.message }, 500);
 
       const url = inviteUrl(invite.token);
-      const mail = await sendInviteEmail(email, { name: member.display_name || "", agency: agencyName, inviter: inviterName, url });
+      const delivery = await sendInvite({
+        email, phone: member.phone || null,
+        name: member.display_name || "", agency: agencyName, inviter: inviterName, url,
+      });
       await supabase.from("agency_invitations")
-        .update({ sent_at: mail.sent ? new Date().toISOString() : null, send_error: mail.error })
-        .eq("token", invite.token);
+        .update(deliveryStamp(delivery)).eq("token", invite.token);
 
       return json({
-        success: true, invite_url: url, email,
-        email_sent: mail.sent, email_error: mail.error,
+        success: true, invite_url: url, email, ...delivery,
         // אותו טלפון ששמור על הכרטיס — כדי ששליחה חוזרת תוכל לצאת בוואטסאפ
         // ישירות אליו, בדיוק כמו ההזמנה הראשונה.
         phone: member.phone || null,
@@ -325,15 +399,21 @@ Deno.serve(async (req: Request) => {
     // -----------------------------------------------------------------------
     // הזמנה חדשה
     // -----------------------------------------------------------------------
+    // ‏שם מלא — אופציונלי. שני שדות החובה הם שני ערוצי ההזמנה, וזהו.
     const member_name = String(body?.member_name || "").trim();
-    const license_number = String(body?.license_number || "").trim();
     const member_email = normalizeEmail(body?.member_email);
-    if (!member_name || !member_email || !license_number) {
-      return json({ error: "missing_fields", required: ["member_name", "member_email", "license_number"] }, 400);
+    if (!member_email) {
+      return json({ error: "missing_fields", required: ["member_email", "member_phone"] }, 400);
     }
     if (!EMAIL_RE.test(member_email)) return json({ error: "invalid_email" }, 400);
 
+    // ‏הנייד חובה כאן, בניגוד ל-set_phone: ההזמנה יוצאת אליו. ‏null (לא הוזן)
+    // ו-false (הוזן משהו שאינו נייד) שניהם נדחים, ובשתי הודעות שונות —
+    // "שכחת" ו"זה לא נייד" הן שתי בעיות שונות למי שממלא/ת את הטופס.
     const member_phone = normalizeMobile(body?.member_phone);
+    if (member_phone === null) {
+      return json({ error: "missing_fields", required: ["member_email", "member_phone"] }, 400);
+    }
     if (member_phone === false) return json({ error: "invalid_phone" }, 400);
 
     // כתובת שכבר משויכת לכרטיס אחר היא כמעט תמיד הזמנה כפולה, לא סוכן/ת שני/ה.
@@ -348,40 +428,29 @@ Deno.serve(async (req: Request) => {
     }
 
     // -----------------------------------------------------------------------
-    // אימות רישיון התיווך של הסוכן/ת המוזמן/ת
+    // ‏**אין כאן יותר אימות רישיון, כי אין כאן יותר מספר רישיון.**
     //
-    // כאן מי שמקליד/ה אינו/ה מי שנבדק/ת: מנהל/ת המשרד מזין/ה את פרטי
-    // הסוכן/ת. זה לא משנה את הבדיקה — הרישיון הוא של הסוכן/ת — אבל כן משנה
-    // את ההודעה, ולכן היא נוסחה כך שתיקרא נכון גם למנהל/ת שרואה אותה על
-    // מישהו אחר.
+    // עד היום הבדיקה רצה כאן, על מספר שמנהל/ת המשרד הקליד/ה עבור אדם אחר.
+    // היא נשמעה כמו זהירות והייתה בעיקר מכשול: ספרה שגויה חסמה הזמנה תקינה,
+    // ומסלול הערעור דורש **צילום תעודת הרישיון** — מסמך שאינו בידי מי
+    // שממלא/ת את הטופס. הבדיקה עברה לרגע שבו גם המספר וגם התעודה נמצאים
+    // אצל בעליהם: מסך הפתיחה של הסוכן/ת (‏join-agency ← `bind`).
     //
-    // החסימה כאן חוסכת את המקרה הגרוע: הזמנה שנשלחת, סוכן/ת שנכנס/ת, ורק
-    // אז מתגלה שאין רישיון.
+    // מה **לא** השתנה: אי אפשר להיכנס בלי רישיון מאומת. הכרטיס נוצר כאן
+    // ריק מרישיון (`license_number` הוא NULL מאז
+    // ‎20261129090000_onboarding_simplify‎), ו-`bind` אינו מקשר אליו חשבון עד
+    // שהמספר נמסר ועבר. כלומר הכרטיס הממתין אינו חשבון — הוא מקום שמור.
     // -----------------------------------------------------------------------
-    const licenseCheck = await checkBrokerLicense(supabase, license_number, {
-      who: member_name,
-      email: member_email,
-      source: "add-team-member",
-    });
-    if (!licenseCheck.allowed) {
-      return json(blockedResponse(licenseCheck, license_number), 403);
-    }
 
     // ‏אין כאן יותר initial_tier. המסלול הוא החלטה של מי שמשלם עליו, והוא
     // נקבע אצל הסוכן/ת בכניסה הראשונה (מסך בחירת המסלול ב-CRM →
     // ‎join-agency/set_tier‎). השורה נוצרת על ברירת המחדל של העמודה, ‎free‎,
     // ומיד עם השיוך היא מקבלת את הטבת ההשקה. גוף בקשה ישן ששולח
     // ‎initial_tier‎ פשוט מתעלמים ממנו — לא נכשלים בגללו.
-    let baseSlug = slugify(member_name) || "agent";
-    let finalSlug = baseSlug;
-    let attempt = 1;
-    while (true) {
-      const { data: existing } = await supabase
-        .from("agency_members").select("id").eq("slug", finalSlug).maybeSingle();
-      if (!existing) break;
-      attempt += 1;
-      finalSlug = `${baseSlug}-${attempt}`;
-    }
+    // ‏slug זמני כשאין שם: הוא אינו מתפרסם בשום מקום לפני ההצטרפות (הכרטיס
+    // מוסתר מהדפים הציבוריים כל עוד `user_id` ריק), ו-`join-agency` נותן לו
+    // את השם האמיתי ברגע שהסוכן/ת ממלא/ת אותו במסך הפתיחה.
+    const finalSlug = await freeAgentSlug(supabase, member_name);
 
     // ‏user_id ריק בכוונה. הוא ייכתב בכניסה הראשונה של הסוכן/ת עצמו/ה
     // (join-agency), ורק אז — כי רק אז ידוע איזה חשבון באמת שייך לו/ה.
@@ -393,11 +462,10 @@ Deno.serve(async (req: Request) => {
         slug: finalSlug,
         role: "agent",
         active: true,
-        display_name: member_name,
+        display_name: member_name || null,
         email: member_email,
         phone: member_phone,
-        license_number,
-        ...licenseCheck.columns,
+        license_number: null,
       })
       .select("id")
       .single();
@@ -426,18 +494,19 @@ Deno.serve(async (req: Request) => {
     }
 
     const url = inviteUrl(invite.token);
-    const mail = await sendInviteEmail(member_email, { name: member_name, agency: agencyName, inviter: inviterName, url });
+    const delivery = await sendInvite({
+      email: member_email, phone: member_phone,
+      name: member_name, agency: agencyName, inviter: inviterName, url,
+    });
     await supabase.from("agency_invitations")
-      .update({ sent_at: mail.sent ? new Date().toISOString() : null, send_error: mail.error })
-      .eq("token", invite.token);
+      .update(deliveryStamp(delivery)).eq("token", invite.token);
 
     return json({
       success: true,
       member_slug: finalSlug,
       member_id: member.id,
       invite_url: url,
-      email_sent: mail.sent,
-      email_error: mail.error,
+      ...delivery,
       // ‏הטלפון חוזר כדי שהממשק יוכל לפתוח את ההזמנה בוואטסאפ **אל הסוכן/ת**
       // ולא אל בורר אנשי הקשר. חוזר מנורמל, שלא יישלח מה שהוקלד.
       phone: member_phone,

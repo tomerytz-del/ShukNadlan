@@ -6,6 +6,7 @@ import {
 } from "../_shared/launch-promo.ts";
 import { blockedResponse, checkBrokerLicense } from "../_shared/broker-license-gate.ts";
 import { announcePlatformSignup } from "../_shared/platform-signup-alert.ts";
+import { freeAgentSlug } from "../_shared/agent-slug.ts";
 
 // ============================================================================
 // חיבור חשבון לכרטיס סוכן/ת קיים — "המערכת מזהה אותי"
@@ -28,6 +29,13 @@ import { announcePlatformSignup } from "../_shared/platform-signup-alert.ts";
 //
 // בכל שלושת המסלולים, השיוך גם **מיישר את האימייל** על הכרטיס לכתובת שאיתה
 // נכנסים בפועל. אחרת אותה טעות תחזור בכניסה הבאה.
+//
+// **השלב שלפני השיוך: מה שרק הסוכן/ת יכול/ה למסור.** טופס ההזמנה מבקש
+// ממנהל/ת המשרד אימייל ונייד בלבד, ולכן כרטיס ממתין נולד בלי מספר רישיון
+// ולעיתים גם בלי שם. ‏resolve שמזהה כרטיס כזה מחזיר `status:"needs_license"`
+// **בלי לשייך**, והמסך שואל את הסוכן/ת. השיחה השנייה מגיעה עם המספר, הוא
+// נבדק מול רשם המתווכים, ורק אז `bind` רץ. כלומר השער החוקי לא נחלש: הוא
+// פשוט עבר למי שהתעודה בידיו/ה — וזה גם מי שיכול/ה לערער עליה.
 //
 // ‏שתי תוספות מתקופת ההשקה:
 //
@@ -125,7 +133,18 @@ Deno.serve(async (req: Request) => {
     if (!card) return null;
 
     if (card.license_checked_at && ["verified", "manual"].includes(card.license_status)) return null;
-    if (!card.license_number) return null; // כרטיס בלי מספר כלל — אין מה לשאול
+
+    // כרטיס בלי מספר רישיון **אינו** עובר. מאז שטופס ההזמנה הפסיק לבקש את
+    // המספר, זה מצבו הרגיל של כל כרטיס ממתין — ו-`fillMissingProfile` הוא
+    // שגובה אותו מהסוכן/ת לפני השיוך. אם בכל זאת הגענו לכאן בלי מספר, משהו
+    // עקף את המסלול הזה, והתשובה הנכונה היא סירוב ולא מעבר בשקט: זה ההבדל
+    // בין שער לבין קישוט.
+    if (!card.license_number) {
+      return {
+        error: "license_required",
+        detail: "כדי להיכנס למערכת צריך למסור את מספר רישיון התיווך.",
+      };
+    }
 
     const decision = await checkBrokerLicense(supabase, card.license_number, {
       who: card.display_name || undefined,
@@ -138,6 +157,102 @@ Deno.serve(async (req: Request) => {
     await supabase.from("agency_members").update(decision.columns).eq("id", memberId);
 
     return decision.allowed ? null : blockedResponse(decision, card.license_number);
+  }
+
+  /**
+   * מה שהכרטיס עוד לא יודע על בעליו — ומי שמוסר/ת אותו הוא/היא עצמו/ה.
+   *
+   * טופס ההזמנה מבקש ממנהל/ת המשרד שני פרטי קשר בלבד, ולכן כרטיס ממתין
+   * נולד **בלי מספר רישיון** ולעיתים גם בלי שם. שניהם נאספים כאן, במסך
+   * הפתיחה של הסוכן/ת, ברגע שלפני השיוך.
+   *
+   * **זה אותו שער בדיוק, רק במקום שבו הוא יכול לעבוד.** עד היום המספר
+   * נבדק בטופס של מנהל/ת המשרד: ספרה שגויה חסמה הזמנה תקינה, ומסלול
+   * הערעור — שדורש צילום תעודה — נפתח בידי מי שהתעודה אינה אצלו/ה. עכשיו
+   * הבדיקה רצה מול מי שהמספר שלו/ה, והערעור נפתח עם המסמך ביד.
+   *
+   * ארבע תשובות, וכל אחת מסך אחר אצל הקורא:
+   *   ok      — יש רישיון (כרטיס ותיק), או שנמסר עכשיו ועבר. אפשר לשייך.
+   *   needs   — עוד לא נמסר. זה **אינו** כישלון: זו הבקשה הראשונה.
+   *   blocked — נמסר ונחסם. תשובת הערעור המלאה, כמו בכל מסלול אחר.
+   *   invalid — מה שהוקלד אינו יכול להיות מספר רישיון.
+   */
+  async function fillMissingProfile(memberId: string) {
+    const { data: card } = await supabase
+      .from("agency_members")
+      .select("id, display_name, license_number, email")
+      .eq("id", memberId).maybeSingle();
+    if (!card) return { error: "member_not_found" as const };
+    if (card.license_number) return { ok: true as const };
+
+    const license = normLicense(body?.license_number);
+    const name = String(body?.display_name || "").trim().slice(0, 80);
+    if (!license) return { needs: { display_name: card.display_name || "" } };
+
+    // אותו טווח של טופס הערעור (`broker-license-appeal`), כדי ששני המקומות
+    // שמקבלים מספר רישיון מאדם לא יחלקו עליו.
+    if (!/^\d{3,8}$/.test(license)) return { invalid: "invalid_license" as const };
+
+    // **רישיון שייך לאדם אחד.** בלי הבדיקה הזו שני כרטיסים יכולים לשאת את
+    // אותו מספר — ואז `claim` מוצא שניים, מחזיר `license_not_found`, ורשת
+    // הביטחון של טעות ההקלדה נשברת לשניהם בבת אחת.
+    const { data: rows } = await supabase
+      .from("agency_members").select("id, license_number").not("license_number", "is", null);
+    if ((rows || []).some((r: any) => r.id !== memberId && normLicense(r.license_number) === license)) {
+      return { taken: true as const };
+    }
+
+    const decision = await checkBrokerLicense(supabase, license, {
+      who: name || card.display_name || undefined,
+      email: card.email || userEmail || undefined,
+      source: "join-agency",
+    });
+    if (!decision.allowed) return { blocked: blockedResponse(decision, license) };
+
+    const patch: Record<string, unknown> = { license_number: license, ...decision.columns };
+    // השם נכתב רק כשהכרטיס נוצר בלעדיו. כשמנהל/ת המשרד כבר מילא/ה אותו,
+    // הוא כבר מוצג ברשימת הצוות ו-`slug` נגזר ממנו — ושינוי שלו כאן היה
+    // מחליף כתובת של דף שכבר קיים. מי שרוצה לתקן עושה זאת מהפרופיל.
+    if (name && !card.display_name) {
+      patch.display_name = name;
+      patch.slug = await freeAgentSlug(supabase, name);
+    }
+
+    const { error } = await supabase.from("agency_members").update(patch).eq("id", memberId);
+    if (error) return { error: "db_error" as const, detail: error.message };
+    return { ok: true as const };
+  }
+
+  /** שם המשרד למסך הפתיחה — מי שנוחת/ת בו צריך/ה לדעת לאן הוזמן/ה. */
+  async function agencyNameOf(memberId: string) {
+    const { data: m } = await supabase
+      .from("agency_members").select("agency_id").eq("id", memberId).maybeSingle();
+    if (!m?.agency_id) return "";
+    const { data: a } = await supabase
+      .from("agencies").select("name").eq("id", m.agency_id).maybeSingle();
+    return a?.name || "";
+  }
+
+  /**
+   * התשובה של `fillMissingProfile` כמענה HTTP. נקודה אחת לשני מסלולי
+   * הזיהוי, כדי שלא ייווצר הבדל בין מי שהגיע/ה עם קישור למי שנקלט/ה
+   * בהתאמת אימייל.
+   */
+  async function profileGateResponse(memberId: string, via: string) {
+    const prep = await fillMissingProfile(memberId);
+    if ("ok" in prep) return null;
+    if ("needs" in prep) {
+      return json({
+        status: "needs_license",
+        via,
+        agency_name: await agencyNameOf(memberId),
+        display_name: prep.needs.display_name,
+      });
+    }
+    if ("blocked" in prep) return json(prep.blocked, 403);
+    if ("taken" in prep) return json({ error: "license_in_use" }, 409);
+    if ("invalid" in prep) return json({ error: prep.invalid }, 400);
+    return json({ error: prep.error, detail: (prep as any).detail }, 500);
   }
 
   /** השיוך עצמו. נקודה אחת, כדי ששלושת המסלולים לא יתפצלו בהתנהגות. */
@@ -204,6 +319,12 @@ Deno.serve(async (req: Request) => {
         if (!member) return json({ status: "invite_invalid", reason: "not_found" });
         if (member.user_id) return json({ status: "invite_invalid", reason: "used" });
 
+        // מספר הרישיון (ואם חסר — גם השם) לפני השיוך, ולא אחריו: כרטיס
+        // שקיבל `user_id` הוא כרטיס שנכנס/ה אליו, ואין טעם לבקש רישיון
+        // ממי שכבר בפנים.
+        const gate = await profileGateResponse(invite.member_id, "invite");
+        if (gate) return gate;
+
         const res = await bind(invite.member_id, { inviteToken: token });
         if ("blocked" in res) return json(res.blocked, 403);
         if ("error" in res) return json({ status: "error", error: res.error, detail: (res as any).detail }, 409);
@@ -219,6 +340,9 @@ Deno.serve(async (req: Request) => {
 
         // יותר מהתאמה אחת = לא ברור לאיזה כרטיס, ולכן לא משייכים בשקט.
         if (matches && matches.length === 1) {
+          const gate = await profileGateResponse(matches[0].id, "email");
+          if (gate) return gate;
+
           const res = await bind(matches[0].id);
           // חסימת רישיון אינה "לא הצלחנו לשייך" ואסור לה ליפול בשקט למסך
           // הבא: הכרטיס נמצא, הכתובת תואמת, ומה שעוצר הוא הרישיון. בלי

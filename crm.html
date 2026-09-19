@@ -3440,7 +3440,35 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <img src="assets/badge-ethics.png" alt="תו האמון והאיכות" width="384" height="384"
          style="width:88px;height:88px;display:block;margin:0 auto 14px;border-radius:50%;filter:grayscale(1);opacity:.5">
     <h1>ברוך/ה הבא/ה לנבחרת</h1>
-    <p class="sub">לפני הכניסה — אישור הקוד האתי של הפלטפורמה. זהו התנאי להצגת תו האיכות בדף שלך ובמודעות הנכסים, והוא נחתם אישית על ידך בלבד.</p>
+    <p class="sub" id="gateSub">לפני הכניסה — אישור הקוד האתי של הפלטפורמה. זהו התנאי להצגת תו האיכות בדף שלך ובמודעות הנכסים, והוא נחתם אישית על ידך בלבד.</p>
+    <!-- ---------- מה שרק הסוכן/ת יכול/ה למסור ----------
+         טופס ההזמנה מבקש ממנהל/ת המשרד אימייל ונייד בלבד, ולכן שני הפרטים
+         האלה מגיעים כאן — במסך אחד עם אישור הקוד האתי, ולא בשלב נוסף.
+
+         **מספר הרישיון נמצא כאן ולא שם** כי כאן הוא נבדק מול מי שהוא שלו/ה.
+         בטופס של המנהל/ת ספרה שגויה חסמה הזמנה תקינה, ומסלול הערעור —
+         שדורש צילום של תעודת הרישיון — נפתח בידי מי שהתעודה אינה אצלו/ה.
+         השער עצמו לא נחלש: בלי מספר שעבר את רשם המתווכים, `join-agency`
+         אינו מקשר את החשבון לכרטיס בכלל.
+
+         השדות מוסתרים למי שהכרטיס שלו/ה כבר נושא אותם — כלומר לכל מי
+         שהצטרף/ה לפני השינוי הזה, ולמי שפתח/ה משרד בעצמו/ה. -->
+    <div id="gateProfile" style="display:none;margin-bottom:14px">
+      <div class="field" id="gateNameField" style="display:none">
+        <label for="gateName">שם מלא</label>
+        <input type="text" id="gateName" autocomplete="name" placeholder="ישראל ישראלי">
+        <p style="font-size:.74rem;color:var(--ink-soft);margin:6px 2px 0;line-height:1.5">
+          זה השם שיופיע בדף הסוכן/ת שלך ועל מודעות הנכסים.
+        </p>
+      </div>
+      <div class="field">
+        <label for="gateLicense">מספר רישיון תיווך</label>
+        <input type="text" id="gateLicense" inputmode="numeric" placeholder="לדוגמה: 123456" autocomplete="off">
+        <p style="font-size:.74rem;color:var(--ink-soft);margin:6px 2px 0;line-height:1.5">
+          נבדק מול רשם המתווכים של משרד המשפטים. הרישיון מוצג בדף שלך ובמודעות שלך.
+        </p>
+      </div>
+    </div>
     <ol class="ethics-clauses" id="gateClauses" style="margin-bottom:12px"></ol>
     <a class="ethics-link" href="ethics-code.html" target="_blank" rel="noopener">קריאת נוסח הקוד המלא ←</a>
     <div class="ethics-consent" style="margin-bottom:12px">
@@ -5090,48 +5118,66 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="acc-body">
       <div id="claimRequests"></div>
       <button class="btn btn-ghost btn-block" id="toggleAddMember" style="margin-bottom:12px">+ הוספת סוכן/ת לצוות</button>
+      <!-- ---------- הזמנת סוכן/ת: שני פרטי קשר, וזהו ----------
+           הטופס הזה החזיק חמישה שדות ותיבת סימון. שלושה מהם ירדו, וכל אחד
+           מסיבה משלו:
+
+           · **מספר רישיון התיווך** — הוא נבדק מול רשם המתווכים *לפני*
+             שההזמנה יצאה, כלומר מנהל/ת המשרד הקליד/ה מספר של אדם אחר וספרה
+             שגויה חסמה הזמנה תקינה. וכשהוא נחסם, מסלול הערעור דורש **צילום
+             תעודת הרישיון** — מסמך שאינו בידי מי שממלא/ת את הטופס. המספר
+             עבר למסך הפתיחה של הסוכן/ת, שם גם התעודה נמצאת. השער עצמו לא
+             זז: בלי רישיון מאומת החשבון אינו מתחבר לכרטיס.
+           · **תיבת "הצגתי את הקוד האתי"** — הצהרה של אדם אחד על מה שאדם
+             שני יודע. היא לא חסמה כלום ולא הוכיחה כלום: החתימה האמיתית
+             נעשית ממילא בידי הסוכן/ת במסך הפתיחה, והטריגר במסד חוסם חתימה
+             בשם מישהו אחר. מה שהיה כאן הוא קליק נוסף לפני "שליחה".
+           · **בחירת מסלול** — ירדה כבר קודם, ומאותו היגיון: הוצאה חודשית
+             של הסוכן/ת אינה החלטה של מי שמזמין/ה.
+
+           מה שנשאר הם שני ערוצי ההזמנה עצמה. -->
       <form id="addMemberForm" class="card" style="display:none;padding:18px;margin-bottom:18px">
-        <div class="field"><label>שם מלא</label><input type="text" id="nmName" required></div>
-        <div class="field"><label>מספר רישיון תיווך (שדה חובה)</label><input type="text" id="nmLicense" required placeholder="לדוגמה: 123456"></div>
-        <!-- הכתובת הזו היא כל ההזמנה. אין כאן יותר "סיסמה זמנית" שהמנהל/ת
+        <!-- הכתובת הזו היא כל ההזמנה. אין כאן "סיסמה זמנית" שהמנהל/ת
              ממציא/ה: הסוכן/ת מקבל/ת קישור, נכנס/ת עם החשבון שלו/ה, והחיבור
              לכרטיס נעשה שם. כך כתובת שגויה נשארת גלויה כ"ממתין/ה" ברשימה
              במקום לקשור את הכרטיס לחשבון שאיש לא ייכנס אליו. -->
         <div class="field">
           <label>אימייל</label>
           <input type="email" id="nmEmail" required autocomplete="off" spellcheck="false">
-          <p style="font-size:.74rem;color:var(--ink-soft);margin:6px 2px 0;line-height:1.5">
-            לכתובת הזו נשלח קישור הזמנה אישי. שווה לוודא אותה — סוכן/ת שלא קיבל/ה מייל תופיע ברשימה כ"ממתין/ה", ואפשר לתקן ולשלוח שוב.
-          </p>
         </div>
-        <!-- הנייד אופציונלי, אבל הוא הופך את ההזמנה למשהו שאפשר להשלים במקום:
-             עם מספר, כפתור הוואטסאפ שאחרי השליחה נפתח אל הסוכן/ת עצמו/ה ולא
-             אל בורר אנשי הקשר — וזה כל ההבדל כשמוסיפים סוכן/ת מהנייד, בדיוק
-             מול מי שנרשם/ת. הוא גם מה שדף הסוכן/ת מחייג אליו ומה שהעוזר
-             בוואטסאפ מזהה לפיו, ובלעדיו שניהם מחכים לכניסה הראשונה. -->
+        <!-- הנייד הפך לשדה חובה, והסיבה אינה "עוד פרט שכדאי שיהיה": ההזמנה
+             יוצאת אליו. הוא גם מה שדף הסוכן/ת מחייג אליו, ומה שהעוזר
+             בוואטסאפ מזהה לפיו — שני דברים שבלעדיו מחכים לכניסה הראשונה.
+             אפשר לתקן אותו בכל עת מרשימת הצוות. -->
         <div class="field">
-          <label>טלפון נייד <span style="font-weight:400">(אופציונלי)</span></label>
-          <input type="tel" id="nmPhone" dir="ltr" style="text-align:right" placeholder="050-1234567"
+          <label>טלפון נייד</label>
+          <input type="tel" id="nmPhone" required dir="ltr" style="text-align:right" placeholder="050-1234567"
                  inputmode="tel" autocomplete="tel">
           <p style="font-size:.74rem;color:var(--ink-soft);margin:6px 2px 0;line-height:1.5">
-            יופיע ככפתור חיוג וככפתור וואטסאפ בדף הסוכן/ת, ומשמש גם לזיהוי בעוזר בוואטסאפ. אפשר לתקן אותו בכל עת מרשימת הצוות, וגם הסוכן/ת יכול/ה לשנות אותו בעצמו/ה.
+            ההזמנה נשלחת <b>גם בוואטסאפ וגם במייל</b>. אם אחד מהם לא יצא — הקישור יוצג כאן להעתקה.
           </p>
         </div>
+        <!-- שם מלא אופציונלי: הוא רק הפתיח של ההודעה ושם השורה ברשימה עד
+             להצטרפות. מי שמשאיר/ה ריק — הסוכן/ת ממלא/ת את שמו/ה בעצמו/ה
+             במסך הפתיחה, וזה ממילא הנוסח הנכון יותר של השם. -->
+        <details style="margin-bottom:14px">
+          <summary style="font-size:.8rem;color:var(--teal);cursor:pointer">הוספת שם מלא (אופציונלי)</summary>
+          <div class="field" style="margin-top:10px">
+            <input type="text" id="nmName" placeholder="ישראל ישראלי">
+            <p style="font-size:.74rem;color:var(--ink-soft);margin:6px 2px 0;line-height:1.5">
+              בלי שם ההזמנה נפתחת ב"שלום", והסוכן/ת ממלא/ת את שמו/ה בכניסה הראשונה.
+            </p>
+          </div>
+        </details>
         <!-- אין כאן בחירת מסלול. המסלול הוא הוצאה חודשית של הסוכן/ת, והוא
              נבחר על ידו/ה בכניסה הראשונה — לא נקבע מראש בטופס של מישהו אחר.
              מה שכן מוצג כאן הוא מה שההזמנה שווה: חצי שנה במסלול המלא. -->
         <div style="background:#f7f1e2;border:1.5px solid #e5c76a;border-radius:var(--radius-sm);padding:11px 13px;font-size:.78rem;line-height:1.55">
           🎁 <b>ההזמנה כוללת 6 חודשי Elite במתנה.</b>
-          הסוכן/ת נכנס/ת עם הקישור, משויך/ת אוטומטית למשרד, ובוחר/ת את המסלול שלו/ה
-          בעצמו/ה בתום התקופה. המסלול שנבחר יופיע כאן ברשימת הצוות.
+          הסוכן/ת נכנס/ת עם הקישור, מוסר/ת את מספר הרישיון ומאשר/ת את הקוד האתי במסך אחד,
+          ומשויך/ת אוטומטית למשרד. המסלול שנבחר יופיע כאן ברשימת הצוות.
         </div>
-        <!-- המנהל/ת מצהיר/ה שהציג/ה את הקוד; החתימה עצמה נעשית בידי הסוכן/ת
-             בכניסה הראשונה — הטריגר במסד חוסם חתימה בשם מישהו אחר. -->
-        <div class="ethics-consent" style="margin-top:12px">
-          <input type="checkbox" id="nmEthicsPresented">
-          <label for="nmEthicsPresented">הצגתי לסוכן/ת את <a href="ethics-code.html" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">הקוד האתי</a>. בכניסה הראשונה הוא/היא יתבקש/תתבקש לאשר אותו אישית, ורק אז יוצג תו האיכות בדף שלו/ה.</label>
-        </div>
-        <button type="submit" class="btn btn-gold btn-block" id="addMemberBtn">שליחת הזמנה</button>
+        <button type="submit" class="btn btn-gold btn-block" id="addMemberBtn" style="margin-top:14px">שליחת הזמנה</button>
         <div id="addMemberFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
       </form>
       <!-- הקישור מוצג תמיד, לא רק כשהמייל נכשל: מייל שנפל לספאם נראה בדיוק
@@ -6731,7 +6777,15 @@ function showLoginCard(message){
   // בלי הבאנר, מי שלחץ/ה על קישור ההזמנה רואה מסך כניסה סתמי ואין לו/ה שום
   // דרך לדעת שהקישור נקלט ושההצטרפות תושלם מיד אחרי ההתחברות.
   const invited = !!readInviteToken();
-  document.getElementById('inviteBanner').style.display = invited ? 'block' : 'none';
+  const banner = document.getElementById('inviteBanner');
+  const openingAgency = !invited && readNewAgencyIntent();
+  // אותו באנר, שני נוסחים. מי שבא/ה מ"פתיחת משרד עם Google" צריך/ה לדעת
+  // שהוא/היא במקום הנכון — מסך כניסה סתמי נראה כמו טעות בניווט. הנוסח נכתב
+  // בכל קריאה ולא רק בענף החדש, אחרת הראשון שנכתב נשאר לתמיד.
+  banner.textContent = openingAgency
+    ? '🏢 פתיחת משרד תיווך — מתחברים עם Google, וטופס פתיחת המשרד ייפתח מיד אחרי.'
+    : '✉️ הוזמנת להצטרף לצוות משרד. אפשר להיכנס עם Google, או ליצור כאן חשבון עם אימייל וסיסמה — והחיבור לכרטיס ייעשה אוטומטית.';
+  banner.style.display = (invited || openingAgency) ? 'block' : 'none';
   // יצירת החשבון נפתחת רק למי שבאמת הוזמן/ה. זו לא "הרשמה לאתר": חשבון בלי
   // כרטיס ממתין במשרד לא יוביל לשום מקום מלבד מסך "מי את/ה?".
   document.getElementById('inviteSignup').style.display = invited ? 'block' : 'none';
@@ -6753,7 +6807,7 @@ function showBootCard(message){
 const AUTH_HASH_KEYS  = ['access_token','refresh_token','provider_token','provider_refresh_token','expires_in','expires_at','token_type','error','error_code','error_description'];
 // ‏invite ו-tier נכללים בניקוי מאותה סיבה כמו האסימונים: שניהם נקראים פעם אחת
 // ל-sessionStorage (למטה), ומרגע שנוצלו אין סיבה שיישארו בהיסטוריה ובשיתוף.
-const AUTH_QUERY_KEYS = ['code','state','error','error_code','error_description','invite','tier'];
+const AUTH_QUERY_KEYS = ['code','state','error','error_code','error_description','invite','tier','new_agency'];
 
 /* ---------- אסימון ההזמנה ----------
    נקרא בטעינת הדף לפני כל ניקוי, ונשמר ב-sessionStorage ולא רק במשתנה: מי
@@ -6810,6 +6864,35 @@ function clearPendingTier(){
   try { sessionStorage.removeItem(TIER_STORE_KEY); } catch(_){ /* ראו למעלה */ }
 }
 readPendingTier();
+
+/* ---------- "באתי לפתוח משרד" ----------
+   ‏agency-signup.html מציע/ה שתי דרכים לפתוח משרד: הטופס שבדף (אימייל
+   וסיסמה), או כניסה עם Google — שמגיעה לכאן עם ‎?new_agency=1‎. הדגל נשמר
+   באותה דרך בדיוק כמו אסימון ההזמנה והמסלול, ומאותה סיבה: ההתחברות עם
+   Google חוזרת אל ‎origin + pathname‎ בלי ה-query.
+
+   מה שהוא עושה הוא לדלג על מסך "מי את/ה?" — שהשאלה שבו כבר נענתה בדף
+   הקודם — ולפתוח ישר את טופס פתיחת המשרד. הוא **אינו** מעניק שום דבר:
+   ‏create-own-agency בודק/ת הרשאות מול ה-JWT כרגיל, וחשבון שכבר יש לו משרד
+   יקבל `already_has_agency` בדיוק כמו קודם. */
+const NEW_AGENCY_KEY = 'shuknadlan.new_agency';
+
+function readNewAgencyIntent(){
+  try{
+    if (new URLSearchParams(window.location.search).get('new_agency') === '1'){
+      sessionStorage.setItem(NEW_AGENCY_KEY, '1');
+      return true;
+    }
+    return sessionStorage.getItem(NEW_AGENCY_KEY) === '1';
+  } catch(_){
+    try { return new URLSearchParams(window.location.search).get('new_agency') === '1'; }
+    catch(__){ return false; }
+  }
+}
+function clearNewAgencyIntent(){
+  try { sessionStorage.removeItem(NEW_AGENCY_KEY); } catch(_){ /* ראו למעלה */ }
+}
+readNewAgencyIntent();
 
 function cleanAuthParamsFromUrl(){
   // ‏history.state ולא null: הרשומה עשויה להיות הזקיף של exit-guard.js
@@ -7145,6 +7228,20 @@ async function resolveMembership(user, { alreadyResolved = false } = {}){
 
   if (data.status === 'claim_pending'){ showClaimPendingScreen(user, data.agency_name); return; }
 
+  // הכרטיס נמצא — חסרים בו הפרטים שרק הסוכן/ת יכול/ה למסור. **השיוך עוד
+  // לא נעשה**, ובכוונה: כרטיס שקיבל חשבון הוא כרטיס שנכנסו אליו, ואין טעם
+  // לבקש רישיון ממי שכבר בפנים. המסך הזה הוא גם שער הקוד האתי — אותה לחיצה
+  // מוסרת את המספר, מאשרת את הקוד ומשייכת.
+  if (data.status === 'needs_license'){
+    showEthicsGate({
+      needsLicense: true,
+      needsName: !data.display_name,
+      displayName: data.display_name || '',
+      agencyName: data.agency_name || '',
+    });
+    return;
+  }
+
   // הכרטיס נמצא — ומה שעוצר הוא הרישיון, לא הזיהוי. בלי הענף הזה המסך הבא
   // היה "לא מצאנו כרטיס", והסיבה האמיתית לא הייתה מגיעה לאף אחד.
   if (data.error === 'license_not_verified'){
@@ -7155,6 +7252,15 @@ async function resolveMembership(user, { alreadyResolved = false } = {}){
       email:   user?.email || '',
       source:  'join-agency',
     });
+    return;
+  }
+
+  // מי שהגיע/ה מ"פתיחת משרד" עם Google כבר ענה/תה על השאלה שמסך הזיהוי
+  // שואל. ‏status:'none' שם פירושו בדיוק מה שהוא ביקש: אין כרטיס, ולכן
+  // פותחים משרד — ואין סיבה להציג לו/ה קודם מסך ששואל אם אולי כן יש.
+  if (data.status === 'none' && readNewAgencyIntent()){
+    clearNewAgencyIntent();
+    showCreateAgencyScreen();
     return;
   }
 
@@ -7410,11 +7516,32 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // פעם אחת — או פעם נוספת ביום שההטבה נגמרת. ‏?tier=… הוא חזרה מדף
   // המסלולים עם בחירה, והיא נסגרת על אותו מסך כדי שהתשובה (נכנס לתוקף /
   // בקשה נקלטה / נעול בתקופת ההטבה) תוצג במקום אחד.
+  // ---------------------------------------------------------------------
+  // שער המסלול — ומתי הוא **אינו** מסך
+  //
+  // בתקופת ההשקה אין כאן בחירה: כולם מקבלים Elite, ושני המסלולים האחרים
+  // מוצגים נעולים. כלומר המסך היה עמוד שלם שכל תפקידו לחיצה אחת על
+  // האפשרות היחידה, בין ההתחברות לבין הדשבורד. מה שהוא אמר — מה קיבלת
+  // ועד מתי — נאמר ממילא ברצועת ההטבה שבראש הדשבורד, ונשאר שם.
+  //
+  // לכן ההטבה מאושרת כאן בשקט (אותה `set_tier` בדיוק, אותה רשומה
+  // ב-`tier_changes`), והמסך נשמר לרגע שבו יש בו החלטה אמיתית: תום
+  // ההטבה (`promo_expired`), או חזרה מדף המסלולים עם בחירה (`?tier=`).
+  // ---------------------------------------------------------------------
   const requestedTier = consumePendingTier();
-  if (tierNeedsGate(agent) || requestedTier){
+  const promo = promoOf(agent);
+  // בחירה שחזרה מדף המסלולים מוצגת על המסך — אבל לא בתקופת ההטבה, שבה
+  // התשובה היחידה שהשרת יכול לתת לה היא "נעול עד תום ההטבה". להציג מסך
+  // שכל תפקידו לומר לא, למי שממילא מקבל/ת את המסלול המלא, הוא בדיוק סוג
+  // המסך שהשינוי הזה בא להוריד.
+  if (requestedTier && !promo.active){
     showTierGate();
-    if (requestedTier) chooseTier(requestedTier, null);
+    chooseTier(requestedTier, null);
     return;
+  }
+  if (tierNeedsGate(agent)){
+    if (promo.active) await acceptPromoSilently(agent, promo);
+    else { showTierGate(); return; }
   }
 
   showScreen('dashboard');
@@ -11157,6 +11284,38 @@ function tierNeedsGate(agent){
   return !agent.tier_selected_at && agent.tier_source === 'launch_promo';
 }
 
+/* אישור ההטבה בלי מסך.
+
+   זו אותה קריאה בדיוק שהכפתור "מתחילים" הפעיל — `set_tier` עם מסלול
+   ההטבה — ולכן היא נרשמת זהה: ‏`tier_selected_at` נחתם, המקור נשאר
+   `launch_promo_accepted`, ובתום התקופה `expire_launch_promos` מוריד/ה
+   בדיוק את המקור הזה ל-Pay&GO. מה שהשתנה הוא רק שאיש לא נדרש ללחוץ על
+   האפשרות היחידה שהייתה על המסך.
+
+   **כישלון כאן אינו עוצר את הכניסה.** המסלול כבר premium מרגע ההענקה
+   בשרת; מה שלא נכתב הוא החותמת שאומרת "נראה ואושר", והתוצאה הגרועה
+   ביותר היא שהיא תיכתב בכניסה הבאה. לחסום דשבורד בגלל חותמת היה הופך
+   תקלת רשת רגעית למסך שגיאה בכניסה הראשונה של סוכן/ת חדש/ה. */
+async function acceptPromoSilently(agent, promo){
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) return;
+    const res = await fetch(SUPABASE_URL + '/functions/v1/join-agency', {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY,
+                 'Authorization': 'Bearer ' + session.access_token },
+      body: JSON.stringify({ action:'set_tier', tier: promo.tier || Tiers.PROMO.tier }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (data.status === 'applied'){
+      agent.tier_selected_at = new Date().toISOString();
+      agent.tier_source = 'launch_promo_accepted';
+    }
+  } catch(err){
+    console.warn('אישור ההטבה בשקט נכשל — יינתן ניסיון נוסף בכניסה הבאה:', err);
+  }
+}
+
 function showTierGate(){
   renderTierGate();
   document.getElementById('tgFeedback').textContent = '';
@@ -11316,7 +11475,20 @@ function ethicsNeedsGate(agent){
   return !!agent && !agent.ethics_code_accepted_at && !agent.ethics_badge_revoked_at;
 }
 
-function showEthicsGate(){
+/* ---------- מסך הפתיחה: מה שהסוכן/ת מוסר/ת, פעם אחת ----------
+   עד היום היו כאן שני מסכים נפרדים אחרי ההתחברות — אישור הקוד האתי, ואז
+   שער בחירת המסלול — ולפניהם, בטופס של מנהל/ת המשרד, מספר רישיון שהוקלד
+   עבור מישהו אחר. עכשיו זה מסך אחד: השם (אם חסר), מספר הרישיון, הקוד האתי,
+   ולחיצה אחת שעושה את שלושתם.
+
+   ‏gateMode מחזיק את מה שהמסך צריך לדעת כשהוא נפתח **לפני** שיש כרטיס
+   מחובר: במצב הזה `currentAgent` עדיין ריק, כי השיוך עצמו מחכה למספר
+   הרישיון. */
+let gateMode = { needsLicense:false, needsName:false, agencyName:'', displayName:'' };
+
+function showEthicsGate(mode = {}){
+  gateMode = { needsLicense:false, needsName:false, agencyName:'', displayName:'', ...mode };
+
   const list = document.getElementById('gateClauses');
   if (!list.children.length){
     ETHICS_CLAUSES.forEach(text=>{
@@ -11325,42 +11497,118 @@ function showEthicsGate(){
       list.appendChild(li);
     });
   }
+
+  document.getElementById('gateProfile').style.display = gateMode.needsLicense ? 'block' : 'none';
+  document.getElementById('gateNameField').style.display = gateMode.needsName ? 'block' : 'none';
+  document.getElementById('gateSub').textContent = gateMode.needsLicense
+    ? (gateMode.agencyName ? 'ההזמנה למשרד ' + gateMode.agencyName + ' ממתינה לך. ' : '') +
+      'נותרו מספר הרישיון ואישור הקוד האתי — וזהו, אפשר להתחיל לעבוד.'
+    : 'לפני הכניסה — אישור הקוד האתי של הפלטפורמה. זהו התנאי להצגת תו האיכות בדף שלך ובמודעות הנכסים, והוא נחתם אישית על ידך בלבד.';
+
   document.getElementById('gateConsent').checked = false;
   document.getElementById('gateFeedback').textContent = '';
   showScreen('ethicsGate');
 }
 
+/* החתימה על הקוד האתי, מול מזהה כרטיס מפורש.
+   במסלול ההזמנה הכרטיס נקשר לחשבון רק שורה אחת קודם לכן, ולכן `currentAgent`
+   עדיין אינו מלא — המזהה מגיע מבחוץ ולא ממנו. */
+async function acceptEthicsFor(memberId){
+  const { data: saved, error } = await sb.from('agency_members').update({
+    ethics_code_accepted_at: new Date().toISOString(),
+    ethics_code_version: ETHICS_CODE_VERSION,
+    updated_at: new Date().toISOString(),
+  }).eq('id', memberId)
+    .select('ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at')
+    .single();
+  if (error) throw error;
+  // בלי אימות שהחותמת באמת נכתבה, כישלון שקט של הטריגר היה מכניס למערכת
+  // סוכן/ת בלי אישור — בדיוק מה שהשער נועד למנוע
+  if (!saved?.ethics_code_accepted_at) throw new Error('האישור לא נשמר');
+  return saved;
+}
+
+const GATE_LICENSE_ERRORS = {
+  invalid_license: 'מספר הרישיון אינו תקין — ספרות בלבד, בין 3 ל-8.',
+  license_in_use:  'מספר הרישיון הזה כבר רשום אצל סוכן/ת אחר/ת במערכת. אם זה שלך — פנו אלינו.',
+};
+
 document.getElementById('gateAcceptBtn').addEventListener('click', async ()=>{
-  if (!currentAgent) return;
   const btn = document.getElementById('gateAcceptBtn');
   const feedback = document.getElementById('gateFeedback');
+  const fail = (text)=>{ feedback.style.color = 'var(--red)'; feedback.textContent = text; };
+
+  const license = document.getElementById('gateLicense').value.trim();
+  const name = document.getElementById('gateName').value.trim();
+
+  // הסדר כאן הוא סדר התיקון: קודם מה שהוקלד, ורק אחר כך תיבת האישור. מי
+  // ששכח/ה שדה לא אמור/ה לגלות זאת אחרי שסימן/ה את הקוד האתי.
+  if (gateMode.needsLicense && !license) return fail('יש להזין את מספר רישיון התיווך.');
+  if (gateMode.needsName && !name) return fail('יש להזין שם מלא.');
   if (!document.getElementById('gateConsent').checked){
-    feedback.style.color = 'var(--red)';
-    feedback.textContent = 'יש לסמן את תיבת האישור כדי להמשיך.';
-    return;
+    return fail('יש לסמן את תיבת האישור כדי להמשיך.');
   }
+
   btn.disabled = true; btn.textContent = 'שומר…';
   feedback.style.color = 'var(--ink-soft)'; feedback.textContent = '';
   try{
-    const { data: saved, error } = await sb.from('agency_members').update({
-      ethics_code_accepted_at: new Date().toISOString(),
-      ethics_code_version: ETHICS_CODE_VERSION,
-      updated_at: new Date().toISOString(),
-    }).eq('id', currentAgent.id)
-      .select('ethics_code_accepted_at, ethics_code_version, ethics_badge_revoked_at')
-      .single();
-    if (error) throw error;
-    Object.assign(currentAgent, saved);
-    // בלי אימות שהחותמת באמת נכתבה, כישלון שקט של הטריגר היה מכניס למערכת
-    // סוכן/ת בלי אישור — בדיוק מה שהשער נועד למנוע
-    if (!currentAgent.ethics_code_accepted_at) throw new Error('האישור לא נשמר');
+    let memberId = currentAgent?.id || null;
+
+    if (gateMode.needsLicense){
+      // השיחה השנייה עם join-agency: אותה פעולת `resolve`, הפעם עם המספר.
+      // היא מאמתת מול רשם המתווכים, כותבת את המספר על הכרטיס, ורק אז
+      // משייכת אותו לחשבון.
+      const { data } = await callJoinAgency({
+        action: 'resolve',
+        token: readInviteToken(),
+        license_number: license,
+        display_name: name || undefined,
+      });
+
+      // רישיון שלא אומת — אותו מודאל ערעור של כל שאר המסלולים, והפעם הוא
+      // נפתח מול מי שהתעודה בידיו/ה. זו כל הסיבה שהשדה כאן ולא בטופס של
+      // מנהל/ת המשרד.
+      if (data.error === 'license_not_verified'){
+        const { data: { user } } = await sb.auth.getUser();
+        openLicenseAppeal({
+          license: data.license_number || license,
+          detail:  data.detail,
+          // השם שעל הכרטיס כשהוא כבר קיים — טופס הערעור דורש אותו, ואין
+          // סיבה לבקש שוב ממי שמנהל/ת המשרד כבר מילא/ה עבורו/ה.
+          name:    name || gateMode.displayName || '',
+          email:   user?.email || '',
+          source:  'join-agency',
+        });
+        return;
+      }
+      if (GATE_LICENSE_ERRORS[data.error]) return fail(GATE_LICENSE_ERRORS[data.error]);
+      if (data.status === 'invite_invalid'){
+        return fail(INVITE_INVALID_TEXT[data.reason] || INVITE_INVALID_TEXT.not_found);
+      }
+      if (data.status !== 'joined' && data.status !== 'member'){
+        return fail('החיבור לכרטיס לא הצליח: ' + (data.detail || data.error || 'שגיאה לא צפויה'));
+      }
+
+      clearInviteToken();
+      // השורה קיימת עכשיו, והמזהה שלה הוא מה שחסר כדי לחתום עליה.
+      const { data: { user } } = await sb.auth.getUser();
+      const { data: row } = await sb.from('agency_members')
+        .select('id').eq('user_id', user.id).maybeSingle();
+      if (!row) throw new Error('הכרטיס חובר, אבל טעינת הפרטים נכשלה. נסו לרענן.');
+      memberId = row.id;
+    }
+
+    if (!memberId) throw new Error('שגיאה לא צפויה — נסו לרענן את הדף.');
+    const saved = await acceptEthicsFor(memberId);
+    if (currentAgent) Object.assign(currentAgent, saved);
+
     showBootCard('טוענים את איזור הסוכנים…');
     await loadDashboard();
   } catch(err){
+    // המסך נשאר כמו שהוא — עם מה שהוקלד בו. ‏showEthicsGate מחדש כאן היה
+    // מנקה את תיבת האישור ומכריח לסמן שוב אחרי תקלת רשת.
     console.error('ethics gate accept failed', err);
-    showEthicsGate();
-    feedback.style.color = 'var(--red)';
-    feedback.textContent = 'שמירה נכשלה: ' + (err.message || 'שגיאה לא צפויה');
+    fail('שמירה נכשלה: ' + (err.message || 'שגיאה לא צפויה'));
   } finally{
     btn.disabled = false; btn.textContent = 'אישור הקוד וכניסה למערכת';
   }
@@ -13438,11 +13686,23 @@ const TEAM_INVITE_ERRORS = {
   managers_only:  'רק מנהל/ת משרד יכול/ה להוסיף סוכנים.',
   invalid_email:  'כתובת האימייל אינה תקינה.',
   email_in_use:   'הכתובת הזו כבר משויכת לסוכן/ת במערכת.',
-  invalid_phone:  'מספר הנייד אינו תקין — נדרש נייד ישראלי, למשל 050-1234567. אפשר גם להשאיר את השדה ריק.',
+  invalid_phone:  'מספר הנייד אינו תקין — נדרש נייד ישראלי, למשל 050-1234567.',
   phone_in_use:   'מספר הנייד הזה כבר רשום אצל סוכן/ת אחר/ת במערכת.',
   already_joined: 'הסוכן/ת כבר חיבר/ה את החשבון — אין צורך בהזמנה נוספת.',
   member_not_found: 'הכרטיס לא נמצא. נסו לרענן את הדף.',
+  missing_fields: 'צריך אימייל וגם טלפון נייד — ההזמנה יוצאת בשני הערוצים.',
 };
+
+/* שני ערוצים, ולכן ארבעה מצבים ולא שניים. הניסוח נגזר מהם ישירות, כי
+   "ההזמנה נשלחה" על הזמנה שיצאה רק בחצי הוא בדיוק סוג המשפט שגורם לאף אחד
+   לא לבדוק. */
+function inviteDeliveryLine(data, email){
+  const to = email ? ' ל' + email : '';
+  if (data.email_sent && data.wa_sent) return { ok:true,  title:'✅ ההזמנה נשלחה בוואטסאפ ובמייל' + to };
+  if (data.wa_sent)                    return { ok:true,  title:'✅ ההזמנה נשלחה בוואטסאפ (המייל לא יצא)' };
+  if (data.email_sent)                 return { ok:true,  title:'✅ ההזמנה נשלחה במייל' + to + ' (הוואטסאפ לא יצא)' };
+  return { ok:false, title:'⚠️ ההזמנה נוצרה, אבל לא יצאה בשום ערוץ' };
+}
 
 /* הצגת הקישור אחרי הזמנה או שליחה חוזרת. הוא מוצג גם כשהמייל יצא בהצלחה:
    מייל שנחת בספאם נראה בדיוק כמו מייל שלא נשלח, ושליחה בוואטסאפ עוקפת את
@@ -13454,8 +13714,9 @@ function showInviteResult(data, email){
   const url   = document.getElementById('inviteResultUrl');
   const acts  = document.getElementById('inviteResultActions');
 
-  title.textContent = data.email_sent ? '✅ ההזמנה נשלחה ל' + (email || '') : '⚠️ ההזמנה נוצרה, אבל המייל לא נשלח';
-  note.textContent = data.email_sent
+  const delivery = inviteDeliveryLine(data, email);
+  title.textContent = delivery.title;
+  note.textContent = delivery.ok
     ? 'הסוכן/ת יופיע/תופיע ברשימה כ"ממתין/ה" עד לכניסה הראשונה. אפשר גם לשלוח את הקישור ישירות:'
     : 'אפשר לשלוח את הקישור האישי ידנית, או לתקן את הכתובת ולשלוח שוב מרשימת הצוות.';
   url.value = data.invite_url || '';
@@ -13488,35 +13749,18 @@ document.getElementById('addMemberForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const btn = document.getElementById('addMemberBtn');
   const feedback = document.getElementById('addMemberFeedback');
-  if (!document.getElementById('nmEthicsPresented').checked){
-    feedback.style.color = 'var(--brick)';
-    feedback.textContent = 'יש לאשר שהקוד האתי הוצג לסוכן/ת.';
-    return;
-  }
   const email = document.getElementById('nmEmail').value.trim().toLowerCase();
   btn.disabled = true; btn.textContent = 'שולח…'; feedback.textContent = '';
   try{
+    // ‏אין כאן יותר טיפול ב-license_not_verified: הטופס אינו שולח מספר
+    // רישיון, ולכן הבדיקה — והערעור שאחריה — קורים אצל הסוכן/ת עצמו/ה
+    // במסך הפתיחה, עם התעודה ביד.
     const { ok, data } = await callTeamInvite({
       action: 'invite',
       member_name: document.getElementById('nmName').value,
-      license_number: document.getElementById('nmLicense').value,
       member_email: email,
       member_phone: document.getElementById('nmPhone').value,
     });
-    // הרישיון של הסוכן/ת המוזמן/ת לא אומת. הערעור נפתח עם **פרטיו/ה**
-    // ולא של המנהל/ת שממלא/ת: הרישיון שלו/ה, המייל שיעודכן שלו/ה, והצילום
-    // הוא שלו/ה. המנהל/ת יכול/ה למלא בשמו/ה אם התעודה בידיו/ה.
-    if (data.error === 'license_not_verified'){
-      openLicenseAppeal({
-        license: data.license_number || document.getElementById('nmLicense').value,
-        detail:  data.detail,
-        name:    document.getElementById('nmName').value.trim(),
-        email:   email,
-        source:  'add-team-member',
-      });
-      btn.disabled = false; btn.textContent = 'שליחת הזמנה';
-      return;
-    }
 
     if (!ok){
       feedback.style.color = 'var(--red)';
@@ -13626,7 +13870,7 @@ async function loadTeam(agencyId, callerId){
     el2.innerHTML = `
       <div class="lead-top">
         <div>
-          <div class="lead-name">${esc(m.display_name)}${m.id === callerId ? ' (את/ה)' : ''}${dealsHtml}</div>
+          <div class="lead-name">${esc(m.display_name || 'סוכן/ת חדש/ה')}${m.id === callerId ? ' (את/ה)' : ''}${dealsHtml}</div>
           ${pending ? `<div style="font-size:.75rem;color:var(--ink-soft);margin-top:3px;direction:ltr;text-align:right">${esc(m.email || '')}</div>` : ''}
         </div>
         <span class="status-pill status-${(pending || released || !m.active) ? 'masked' : 'unlocked'}">${statusLabel}</span>
@@ -13640,7 +13884,12 @@ async function loadTeam(agencyId, callerId){
         pending
           ? { text:'מסלול — טרם נבחר' }
           : { text:'מסלול ' + Tiers.label(m.tier), cls: m.tier === 'free' ? '' : 'tag-info' },
-        { text:'🪪 רישיון ' + m.license_number },
+        // ‏כרטיס ממתין אינו נושא מספר רישיון: הסוכן/ת מוסר/ת אותו במסך
+        // הפתיחה של עצמו/ה, ושם הוא נבדק מול רשם המתווכים. תגית "רישיון"
+        // ריקה כאן הייתה נראית כמו כרטיס פגום.
+        m.license_number
+          ? { text:'🪪 רישיון ' + m.license_number }
+          : { text:'🪪 רישיון — בכניסה הראשונה' },
         // המספר מוצג ולא רק נערך: ספרה שגויה מתגלה כשקוראים אותה, לא
         // כשפותחים שדה עריכה. כרטיס בלי מספר אינו מציג תגית ריקה — ‏tagsHtml
         // מסנן, וכפתור הפעולה שמתחת ממילא אומר "הוספת נייד".
@@ -13667,7 +13916,9 @@ async function loadTeam(agencyId, callerId){
           const { ok, data } = await callTeamInvite({ action:'resend', member_id:m.id, member_email:next.trim() });
           if (!ok){ showToast(TEAM_INVITE_ERRORS[data.error] || 'השליחה נכשלה'); return; }
           showInviteResult(data, data.email);
-          showToast(data.email_sent ? 'ההזמנה נשלחה מחדש' : 'ההזמנה נוצרה — המייל לא נשלח, אפשר להעתיק קישור');
+          showToast(inviteDeliveryLine(data, '').ok
+            ? 'ההזמנה נשלחה מחדש'
+            : 'ההזמנה נוצרה — השליחה נכשלה, אפשר להעתיק קישור');
           await loadTeam(agencyId, callerId);
         },
       });
