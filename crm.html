@@ -4355,147 +4355,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </details>
 
-    <details class="acc" id="accLeads" open>
-      <summary>
-        <span class="acc-title">הלידים שלי<span class="acc-sum" id="accLeadsSum"></span></span>
-        <span class="acc-count hot" id="accLeadsCount"></span>
-        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-      </summary>
-      <div class="acc-body">
-        <!-- ====== פעילים / ארכיון ======
-             הקטגוריה הזו רק צוברת: כל ליד שנכנס אי פעם נשאר בה לנצח, והליד
-             שהגיע הבוקר יושב בראש רשימה של מאות כרטיסים שכבר נסגרו. המתג
-             מוריד מהמסך את מה שכבר טופל בלי למחוק אותו — הארכיון הוא לשונית
-             מלאה עם אותם כרטיסים ואותם כפתורים, והחזרה משם היא לחיצה אחת.
-
-             מוסתר כשאין ארכיון וגם אין לידים: מתג שמציע "פעילים / ארכיון (0)"
-             מעל רשימה ריקה הוא שאלה על משהו שעוד לא קרה. -->
-        <div class="view-switch lead-switch" id="leadsSwitch" role="group" aria-label="מעבר בין לידים פעילים לארכיון" hidden>
-          <button type="button" data-leads-view="active" aria-pressed="true">פעילים · <span id="leadsActiveCount">0</span></button>
-          <button type="button" data-leads-view="archived" aria-pressed="false">ארכיון · <span id="leadsArchivedCount">0</span></button>
-        </div>
-        <div id="leadsList"></div>
-      </div>
-    </details>
-
-    <details class="acc" id="accSharedWithMe" open>
-      <summary>
-        <span class="acc-title">נכסים ששותפו איתי<span class="acc-sum" id="accSharedWithMeSum"></span></span>
-        <span class="acc-count hot" id="accSharedWithMeCount"></span>
-        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-      </summary>
-      <div class="acc-body">
-        <p class="acc-sub">נכסים שמשרדי תיווך אחרים פתחו לשת״פ מולכם. ליד כל נכס מופיע המשרד המשתף ופרטי הקשר של הסוכן/ת שאחראי/ת עליו.</p>
-
-        <div class="list-toolbar">
-          <input type="search" id="sharedSearch" class="filter-input" placeholder="חיפוש חופשי — כותרת, עיר, רחוב, סוג נכס, משרד או סוכן/ת">
-          <div class="toolbar-row">
-            <select id="sharedAgencyFilter" class="filter-input" aria-label="סינון לפי משרד">
-              <option value="">כל המשרדים</option>
-            </select>
-            <select id="sharedDealFilter" class="filter-input" aria-label="סינון לפי סוג עסקה">
-              <option value="">מכירה והשכרה</option>
-              <option value="sale">מכירה</option>
-              <option value="rent">השכרה</option>
-            </select>
-            <select id="sharedCityFilter" class="filter-input" aria-label="סינון לפי עיר">
-              <option value="">כל הערים</option>
-            </select>
-            <select id="sharedTypeFilter" class="filter-input" aria-label="סינון לפי סוג נכס">
-              <option value="">כל סוגי הנכס</option>
-            </select>
-          </div>
-          <div class="toolbar-row">
-            <select id="sharedSort" class="filter-input" aria-label="מיון">
-              <option value="shared_desc">מיון: שותפו לאחרונה</option>
-              <option value="shared_asc">מיון: שותפו מזמן</option>
-              <option value="price_desc">מיון: מחיר — מהגבוה לנמוך</option>
-              <option value="price_asc">מיון: מחיר — מהנמוך לגבוה</option>
-              <option value="rooms_desc">מיון: חדרים — מהרב למעט</option>
-              <option value="rooms_asc">מיון: חדרים — מהמעט לרב</option>
-              <option value="size_desc">מיון: שטח — מהגדול לקטן</option>
-              <option value="title_asc">מיון: כותרת — א׳ עד ת׳</option>
-            </select>
-            <button type="button" class="btn btn-ghost" id="sharedRefreshBtn" style="white-space:nowrap">רענון</button>
-          </div>
-          <div class="toolbar-foot">
-            <p class="list-count" id="sharedFilterCount"></p>
-            <button type="button" class="clear-filters" id="sharedClearFilters" hidden>ניקוי הסינון</button>
-          </div>
-        </div>
-
-        <div id="sharedWithMeList"></div>
-      </div>
-    </details>
-
-    <details class="acc" id="accAlerts" open>
-      <summary>
-        <span class="acc-title">התראות התאמה</span>
-        <span class="acc-count hot" id="accAlertsCount"></span>
-        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-      </summary>
-      <div class="acc-body">
-        <p class="acc-sub">כל נכס שנכנס למערכת — שלך, של המשרד או כזה ששותף איתך — נבדק מול קובץ הלקוחות, וכל התאמה חזקה נפתחת כאן כהתראה. גם ירידת מחיר שמכניסה נכס קיים לתקציב של לקוח/ה פותחת התראה. כל צמד לקוח/ה–נכס מתריע פעם אחת בלבד.</p>
-
-        <div class="list-toolbar">
-          <div class="toolbar-row">
-            <select id="alertScopeFilter" class="filter-input" aria-label="סינון התראות">
-              <option value="new">חדשות בלבד</option>
-              <option value="all">כל ההתראות</option>
-            </select>
-            <button type="button" class="btn btn-ghost" id="alertsRefreshBtn" style="white-space:nowrap">רענון</button>
-          </div>
-          <div class="toolbar-foot">
-            <p class="list-count" id="alertsFilterCount"></p>
-            <button type="button" class="clear-filters" id="alertsMarkAll" hidden>סימון הכל כנצפה</button>
-          </div>
-        </div>
-
-        <div id="alertsList"></div>
-      </div>
-    </details>
-
-    <!-- ---------- הסכמים והחתמות ----------
-         הזמנת שירותי תיווך, מהאשף ועד העותק החתום במייל. ‏document_html של כל
-         הסכם נכתב כאן פעם אחת ונחסם לעריכה במסד — ראו
-         supabase/migrations/20260926090000_client_agreements.sql. -->
-    <details class="acc" id="accAgreements">
-      <summary>
-        <span class="acc-title">הסכמים והחתמות</span>
-        <span class="acc-count" id="accAgreementsCount"></span>
-        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-      </summary>
-      <div class="acc-body">
-        <p class="acc-sub">הזמנת שירותי תיווך בכתב — קניה, מכירה, שכירות ובלעדיות. הפרטים שכבר במערכת נכנסים למסמך לבד, והחתימה אפשרית בשתי דרכים: הלקוח/ה חותם/ת על המכשיר שלך במעמד הפגישה, או מקבל/ת קישור אישי במייל או בוואטסאפ וחותם/ת מהטלפון. כשכל הצדדים חתמו, העותק החתום נשלח לכולם במייל.</p>
-
-        <button class="btn btn-gold btn-block" id="newAgreementBtn" style="margin-bottom:12px">+ הסכם חדש</button>
-
-        <div class="list-toolbar">
-          <input type="search" id="agrSearch" class="filter-input"
-                 placeholder="חיפוש הסכם — שם החותם/ת, טלפון, כתובת הנכס או סוג ההסכם">
-          <div class="toolbar-row">
-            <select id="agrStatusFilter" class="filter-input" aria-label="סינון לפי סטטוס">
-              <option value="">כל הסטטוסים</option>
-              <option value="draft">טיוטה</option>
-              <option value="sent">נשלח לחתימה</option>
-              <option value="viewed">נצפה</option>
-              <option value="signed">נחתם</option>
-              <option value="cancelled">בוטל</option>
-            </select>
-            <select id="agrKindFilter" class="filter-input" aria-label="סינון לפי סוג ההסכם">
-              <option value="">כל סוגי ההסכם</option>
-            </select>
-          </div>
-          <div class="toolbar-foot">
-            <p class="list-count" id="agrFilterCount"></p>
-            <button type="button" class="clear-filters" id="agrClearFilters" hidden>ניקוי הסינון</button>
-          </div>
-        </div>
-
-        <div id="agreementsList"></div>
-      </div>
-    </details>
-
     <details class="acc" id="accClients" open>
       <summary>
         <span class="acc-title">קובץ הלקוחות שלי<span class="acc-sum" id="accClientsSum"></span></span>
@@ -4621,6 +4480,133 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </details>
 
+    <details class="acc" id="accLeads" open>
+      <summary>
+        <span class="acc-title">הלידים שלי<span class="acc-sum" id="accLeadsSum"></span></span>
+        <span class="acc-count hot" id="accLeadsCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <!-- ====== פעילים / ארכיון ======
+             הקטגוריה הזו רק צוברת: כל ליד שנכנס אי פעם נשאר בה לנצח, והליד
+             שהגיע הבוקר יושב בראש רשימה של מאות כרטיסים שכבר נסגרו. המתג
+             מוריד מהמסך את מה שכבר טופל בלי למחוק אותו — הארכיון הוא לשונית
+             מלאה עם אותם כרטיסים ואותם כפתורים, והחזרה משם היא לחיצה אחת.
+
+             מוסתר כשאין ארכיון וגם אין לידים: מתג שמציע "פעילים / ארכיון (0)"
+             מעל רשימה ריקה הוא שאלה על משהו שעוד לא קרה. -->
+        <div class="view-switch lead-switch" id="leadsSwitch" role="group" aria-label="מעבר בין לידים פעילים לארכיון" hidden>
+          <button type="button" data-leads-view="active" aria-pressed="true">פעילים · <span id="leadsActiveCount">0</span></button>
+          <button type="button" data-leads-view="archived" aria-pressed="false">ארכיון · <span id="leadsArchivedCount">0</span></button>
+        </div>
+        <div id="leadsList"></div>
+      </div>
+    </details>
+
+    <details class="acc" id="accAlerts" open>
+      <summary>
+        <span class="acc-title">התראות התאמה</span>
+        <span class="acc-count hot" id="accAlertsCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">כל נכס שנכנס למערכת — שלך, של המשרד או כזה ששותף איתך — נבדק מול קובץ הלקוחות, וכל התאמה חזקה נפתחת כאן כהתראה. גם ירידת מחיר שמכניסה נכס קיים לתקציב של לקוח/ה פותחת התראה. כל צמד לקוח/ה–נכס מתריע פעם אחת בלבד.</p>
+
+        <div class="list-toolbar">
+          <div class="toolbar-row">
+            <select id="alertScopeFilter" class="filter-input" aria-label="סינון התראות">
+              <option value="new">חדשות בלבד</option>
+              <option value="all">כל ההתראות</option>
+            </select>
+            <button type="button" class="btn btn-ghost" id="alertsRefreshBtn" style="white-space:nowrap">רענון</button>
+          </div>
+          <div class="toolbar-foot">
+            <p class="list-count" id="alertsFilterCount"></p>
+            <button type="button" class="clear-filters" id="alertsMarkAll" hidden>סימון הכל כנצפה</button>
+          </div>
+        </div>
+
+        <div id="alertsList"></div>
+      </div>
+    </details>
+
+    <!-- ---------- הסכמים והחתמות ----------
+         הזמנת שירותי תיווך, מהאשף ועד העותק החתום במייל. ‏document_html של כל
+         הסכם נכתב כאן פעם אחת ונחסם לעריכה במסד — ראו
+         supabase/migrations/20260926090000_client_agreements.sql. -->
+    <details class="acc" id="accAgreements">
+      <summary>
+        <span class="acc-title">הסכמים והחתמות</span>
+        <span class="acc-count" id="accAgreementsCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">הזמנת שירותי תיווך בכתב — קניה, מכירה, שכירות ובלעדיות. הפרטים שכבר במערכת נכנסים למסמך לבד, והחתימה אפשרית בשתי דרכים: הלקוח/ה חותם/ת על המכשיר שלך במעמד הפגישה, או מקבל/ת קישור אישי במייל או בוואטסאפ וחותם/ת מהטלפון. כשכל הצדדים חתמו, העותק החתום נשלח לכולם במייל.</p>
+
+        <button class="btn btn-gold btn-block" id="newAgreementBtn" style="margin-bottom:12px">+ הסכם חדש</button>
+
+        <div class="list-toolbar">
+          <input type="search" id="agrSearch" class="filter-input"
+                 placeholder="חיפוש הסכם — שם החותם/ת, טלפון, כתובת הנכס או סוג ההסכם">
+          <div class="toolbar-row">
+            <select id="agrStatusFilter" class="filter-input" aria-label="סינון לפי סטטוס">
+              <option value="">כל הסטטוסים</option>
+              <option value="draft">טיוטה</option>
+              <option value="sent">נשלח לחתימה</option>
+              <option value="viewed">נצפה</option>
+              <option value="signed">נחתם</option>
+              <option value="cancelled">בוטל</option>
+            </select>
+            <select id="agrKindFilter" class="filter-input" aria-label="סינון לפי סוג ההסכם">
+              <option value="">כל סוגי ההסכם</option>
+            </select>
+          </div>
+          <div class="toolbar-foot">
+            <p class="list-count" id="agrFilterCount"></p>
+            <button type="button" class="clear-filters" id="agrClearFilters" hidden>ניקוי הסינון</button>
+          </div>
+        </div>
+
+        <div id="agreementsList"></div>
+      </div>
+    </details>
+
+    <details class="acc" id="accPlanning">
+      <summary>
+        <span class="acc-title">מידע תכנוני על נכס (עפולה)</span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+      <p class="acc-sub">גוש/חלקה, ייעוד קרקע, תוכניות תכנון ומפת חלקה — הזינו כתובת או גוש/חלקה</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <input type="text" id="planStreet" list="planStreetOptions" autocomplete="off" placeholder="רחוב (למשל: דפנה)">
+        <!-- ‏datalist נפרד מזה של טופס הנכס, ולא משותף: הכלי הזה הוא עפולה
+             בלבד (כך גם כותרת האקורדיון), בעוד שהרשימה בטופס עוקבת אחרי
+             שדה העיר. ‏datalist משותף היה מציג כאן את רחובות העיר שהוקלדה
+             בטופס — רשימה שגויה, בלי שום סימן לכך. -->
+        <datalist id="planStreetOptions"></datalist>
+        <input type="text" id="planHouseNum" placeholder="מספר בית">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
+        <input type="text" id="planGush" placeholder="גוש (אופציונלי, במקום כתובת)">
+        <input type="text" id="planHelka" placeholder="חלקה">
+      </div>
+      <button type="button" class="btn btn-gold btn-block" id="planLookupBtn">בדיקת מידע תכנוני</button>
+      <div id="planFeedback" style="font-size:.82rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+
+      <div id="planUpgradeNotice" style="display:none;margin-top:14px;padding:16px;background:var(--gold-tint);border-radius:var(--radius-sm);text-align:center">
+        <p style="font-weight:700;color:var(--red-dark);margin:0 0 6px">מידע תכנוני זמין רק במסלולים בתשלום</p>
+        <p style="font-size:.82rem;color:var(--ink-soft);margin:0">שדרג למנוי Mid או Premium כדי לקבל מידע על נכסים ללא הגבלה</p>
+      </div>
+
+      <div id="planResultPanel" style="display:none;margin-top:16px">
+        <div id="planFields" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px"></div>
+        <div id="planPlansList" style="margin-bottom:14px"></div>
+        <div id="planMap" style="height:280px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--line)"></div>
+      </div>
+      </div>
+    </details>
+
     <!-- ---------- חנות הלידים ----------
          שלושה מדפים נפרדים היו שלוש קטגוריות שונות באותה לשונית, וסוכן/ת
          שחיפש/ה ליד לקנות היה/תה צריך/ה לפתוח שלושתן כדי לדעת מה יש היום.
@@ -4719,393 +4705,47 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          הבלוקים עצמם הם בדיוק אותם <details class="acc"> — לא שוכפל שום תוכן
          ולא נשבר שום מזהה. -->
     <section id="toolSections" aria-label="כלים ניהוליים">
+    <!-- ---------- דוחות וביצועים ----------
+         גרף מגמת העמלות ישב עד היום בדף הבית, בין הפעולות המהירות למדדי
+         המשנה. הוא נשאר אותו גרף בדיוק (renderCommissionTrend כותב לאותם
+         מזהים), רק במקום שבו מסתכלים על מגמה — קטגוריה שנכנסים אליה, ולא
+         שטח גלילה קבוע בדף שנפתח עשרים פעם ביום.
 
-    <!-- ---------- עדכון פרטי הסוכן/ת ----------
-         היעד של הלחיצה על האווטאר בכותרת. כותב ישירות ל-agency_members, ולכן
-         כל מה שנשמר כאן מופיע מיד בדף הסוכן/ת הציבורי (agent.html) ובכל מקום
-         שמציג את השם או התמונה. -->
-    <details class="acc" id="accProfile">
+         העמודות עצמן מתמלאות בגלילה: ‏--h מחזיק את הגובה הסופי והמחלקה
+         ‏.is-grown היא זו שמשחררת אותו (ראו initTrendGrowth). -->
+    <details class="acc" id="accReports">
       <summary>
-        <span class="acc-title">עדכון פרטי הסוכן/ת</span>
-        <span class="acc-count" id="accProfileCount"></span>
+        <span class="acc-title">דוחות וביצועים</span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-        <p class="acc-sub">כך אתם מוצגים ללקוחות בדף הסוכן/ת שלכם. השינוי נכנס לתוקף מיד לאחר השמירה.</p>
-
-        <div class="profile-preview" id="profilePreview">
-          <div class="pp-cover" id="ppCover"></div>
-          <div class="pp-body">
-            <div class="pp-avatar" id="ppAvatar">·</div>
-            <div class="pp-text">
-              <div class="pp-name" id="ppName">—</div>
-              <div class="pp-license" id="ppLicense"></div>
-              <img class="pp-badge" id="ppBadge" src="assets/badge-ethics.png" alt="תו האמון והאיכות" width="384" height="384" hidden>
-              <div class="pp-pills" id="ppPills"></div>
-              <p class="pp-bio" id="ppBio"></p>
-            </div>
+        <p class="acc-sub">מגמת פוטנציאל העמלות לאורך זמן — מאיפה הגיע התיק הפעיל שלך והאם הוא צומח</p>
+        <section class="kpi-trend" aria-label="מגמת פוטנציאל העמלות">
+          <div class="kpi-trend-head">
+            <span class="kpi-trend-title">מגמת פוטנציאל העמלות · 6 חודשים</span>
+            <span class="kpi-trend-now" id="kpiTrendNow">₪0</span>
           </div>
-        </div>
-
-        <form id="profileForm" style="margin-bottom:0">
-          <div class="field">
-            <label for="pfName">שם מלא</label>
-            <input type="text" id="pfName" maxlength="80" autocomplete="name" required>
-          </div>
-          <div class="field">
-            <label for="pfLicense">מספר רישיון תיווך</label>
-            <input type="text" id="pfLicense" maxlength="30" dir="ltr" style="text-align:right" required>
-            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">מספר הרישיון מוצג ללקוחות בדף הסוכן/ת. אפשר לתקן אותו כאן, אבל לא להשאיר ריק.</p>
-          </div>
-          <!-- ‏ת.ז. נדרשת בהזמנת שירותי תיווך בכתב (תקנות המתווכים במקרקעין
-               (פרטי הזמנה בכתב), התשנ״ז-1997), ולכן היא נשמרת בפרופיל פעם אחת
-               ולא מוקלדת מחדש בכל הסכם. אינה נחשפת בדף הסוכן/ת הציבורי. -->
-          <div class="field">
-            <label for="pfIdNumber">ת.ז. / ח״פ</label>
-            <input type="text" id="pfIdNumber" maxlength="20" dir="ltr" style="text-align:right" inputmode="numeric">
-            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">נדרשת להפקת הזמנת שירותי תיווך בכתב. אינה מוצגת בדף הסוכן/ת ואינה נשלחת לאיש מלבד הצדדים להסכם.</p>
-          </div>
-          <div class="field">
-            <label for="pfBio">תיאור</label>
-            <textarea id="pfBio" rows="4" maxlength="600" placeholder="כמה מילים על עצמך: ותק, אזורי פעילות, סוגי נכסים והתמחות."></textarea>
-            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0"><span id="pfBioCount">0</span>/600 תווים</p>
-          </div>
-
-          <!-- תגיות הפרופיל: מה שעד היום היה קבור בתוך פסקת התיאור (ותק,
-               התמחות, הסמכות, אזור) יושב כאן בשדות נפרדים, כדי שדף הסוכן/ת
-               יציג אותו כתגיות שנסרקות בשנייה ולא כמשפט שצריך לקרוא. -->
-          <div class="form-subheading">תגיות הפרופיל</div>
-          <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">כל השדות כאן הם רשות. מה שתמלאו יופיע כתגית בראש דף הסוכן/ת; מה שתשאירו ריק פשוט לא יוצג.</p>
-          <div class="field">
-            <label for="pfYears">שנות ותק בנדל״ן</label>
-            <input type="number" id="pfYears" min="0" max="70" step="1" inputmode="numeric" placeholder="למשל 15">
-          </div>
-          <div class="field">
-            <label for="pfArea">אזור התמחות</label>
-            <input type="text" id="pfArea" maxlength="60" placeholder="למשל עפולה והעמקים">
-          </div>
-          <div class="field">
-            <label for="pfCredentials">תארים והסמכות</label>
-            <input type="text" id="pfCredentials" maxlength="80" placeholder="למשל B.A ומגשר מוסמך">
-          </div>
-          <div class="field">
-            <label>תחומי התמחות</label>
-            <div class="checkbox-grid" id="pfSpecialties"></div>
-            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">עד 4 תחומים — התגיות הראשונות הן אלה שנראות בראש הדף.</p>
-          </div>
-
-          <!-- ---------- רקע דף הסוכן/ת ----------
-               ברירת המחדל היא מה שמנהל/ת המשרד בחר/ה במקטע המיתוג, ובהיעדר
-               בחירה — הרקע הזורם של האתר. שתי האפשרויות האחרות הן עקיפה
-               אישית של הדף הזה בלבד, וחזרה ל"כמו המשרד" מחזירה את ברירת
-               המחדל. -->
-          <div class="form-subheading">רקע הדף שלי</div>
-          <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">
-            הרקע שמאחורי תוכן דף הסוכן/ת שלך. ברירת המחדל היא מה שנבחר עבור המשרד.
+          <p class="kpi-trend-legend">
+            <span><i class="now"></i>החודש הנוכחי</span>
+            <span><i class="past"></i>חודשים קודמים</span>
           </p>
-          <div class="bg-choice" id="pfBgChoice"></div>
-
-          <div class="form-subheading">תמונת סוכן/ת ותמונת נושא</div>
-          <div class="single-img-row">
-            <div>
-              <div class="img-dropzone" style="padding:10px 14px">
-                <label class="pick" for="pfPhotoInput">+ העלאת תמונת סוכן/ת</label>
-                <input type="file" id="pfPhotoInput" accept="image/jpeg,image/png,image/webp">
-                <div class="hint">פורטרט · מוצג כמלבן ללא מסגרת</div>
-              </div>
-              <div class="img-preview" id="pfPhotoPreview"></div>
-              <!-- סימון נקודת המיקוד. מוצג רק כשיש תמונה. -->
-              <div class="photo-focus" id="pfPhotoFocus" hidden>
-                <div class="photo-focus-stage" id="pfFocusStage">
-                  <img id="pfFocusImg" alt="">
-                  <span class="photo-focus-dot" id="pfFocusDot"></span>
-                </div>
-                <div class="photo-focus-foot">
-                  <p class="hint">לחצו על הפנים שבתמונה — הנקודה הזו תישאר תמיד בתוך הפריים.</p>
-                  <button type="button" class="photo-focus-reset" id="pfFocusReset">איפוס</button>
-                </div>
-              </div>
-            </div>
-            <div>
-              <div class="img-dropzone" style="padding:10px 14px">
-                <label class="pick" for="pfCoverInput">+ העלאת תמונת נושא</label>
-                <input type="file" id="pfCoverInput" accept="image/jpeg,image/png,image/webp">
-                <div class="hint">רצועה רחבה בראש דף הסוכן/ת · מומלץ 1600×600 · בלי תמונה מוצגת תמונת הרקע של המשרד</div>
-              </div>
-              <div class="img-preview" id="pfCoverPreview"></div>
-            </div>
-          </div>
-
-          <!-- ---------- הגלריה האישית ----------
-               מקטע הגלריה בדף הסוכן/ת, והמקור היחיד שלו. בלי תמונות כאן
-               המקטע פשוט לא מופיע בדף — גלריית המשרד אינה מחליפה אותו. -->
-          <div class="form-subheading">הגלריה שלי</div>
-          <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">
-            תמונות מהעבודה שלך — מסירת מפתחות, עסקאות שנסגרו, לקוחות מרוצים ואירועים. <b>לא</b> תמונות של נכסים (אלה נוספות דרך "הנכסים שלי"). זו הגלריה שמופיעה בדף הסוכן/ת שלך; בלי תמונות כאן מקטע הגלריה לא מוצג בדף.
-          </p>
-          <div class="img-dropzone">
-            <label class="pick" for="pfGalleryInput">+ הוספת תמונות לגלריה</label>
-            <input type="file" id="pfGalleryInput" accept="image/jpeg,image/png,image/webp" multiple>
-            <div class="hint">עד 24 תמונות · אפשר להוסיף כיתוב לכל תמונה · הקבצים מוקטנים אוטומטית</div>
-          </div>
-          <div class="gallery-admin" id="pfGalleryGrid"></div>
-          <div id="pfGalleryEmpty" class="empty-state" style="padding:18px">עדיין אין תמונות בגלריה שלך.</div>
-
-          <button type="submit" class="btn btn-gold btn-block" id="pfSaveBtn" style="margin-top:16px">שמירת הפרטים</button>
-          <div id="pfFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
-          <a href="#" id="pfViewPageLink" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:.8rem;color:var(--teal);margin-top:8px">צפייה בדף הסוכן/ת שלי ←</a>
-        </form>
-      </div>
-    </details>
-
-    <!-- ---------- הקוד האתי ותו האיכות ----------
-         האישור כאן הוא מה שמדליק את התו בדף הסוכן/ת, בדף המשרד ולצד התמונה
-         בכל מודעת נכס. הוא אישי: מנהל/ת משרד לא יכול/ה לחתום במקום סוכן/ת
-         (הטריגר במסד מחזיר אישור כזה לערכו הקודם), ולכן כל סוכן/ת רואה כאן
-         את המצב של עצמו/ה בלבד. -->
-    <details class="acc" id="accEthics">
-      <summary>
-        <span class="acc-title">הקוד האתי ותו האיכות</span>
-        <span class="acc-count" id="accEthicsCount"></span>
-        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-      </summary>
-      <div class="acc-body">
-        <div class="ethics-state is-pending" id="ethicsState">
-          <img src="assets/badge-ethics.png" alt="תו האמון והאיכות" width="384" height="384">
-          <div>
-            <div class="es-title" id="ethicsStateTitle">תו האיכות טרם הופעל</div>
-            <div class="es-note" id="ethicsStateNote">אישור עשרת הסעיפים מדליק את התו בדף שלך ובכל מודעות הנכסים.</div>
-            <span class="es-pill" id="ethicsStatePill">נדרש אישור</span>
-          </div>
-        </div>
-
-        <p class="acc-sub">הקוד האתי מגדיר את סטנדרט המקצועיות, השקיפות והחדשנות הנדרש מכל יועץ וסוכן נדל״ן בפלטפורמה, ומהווה התחייבות ישירה כלפי הלקוחות והקולגות.</p>
-
-        <ol class="ethics-clauses" id="ethicsClauses"></ol>
-        <a class="ethics-link" href="ethics-code.html" target="_blank" rel="noopener">קריאת נוסח הקוד המלא ←</a>
-
-        <form id="ethicsForm" style="margin-bottom:0">
-          <div class="ethics-consent">
-            <input type="checkbox" id="ethicsConsent">
-            <label for="ethicsConsent">קראתי את עשרת סעיפי הקוד האתי ואני מסכים/ה לכולם. ידוע לי שהתו יוסר במקרה של הפרת התקנון.</label>
-          </div>
-          <button type="submit" class="btn btn-gold btn-block" id="ethicsSaveBtn">אישור הקוד והפעלת התו</button>
-          <button type="button" class="btn btn-ghost btn-block" id="ethicsWithdrawBtn" hidden style="margin-top:8px">ביטול האישור והסרת התו</button>
-          <div id="ethicsFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
-        </form>
-
-        <!-- אישור בשם המשרד — מנהל/ת המשרד בלבד. הוא מדליק את התו בראש דף
-             המשרד, בנפרד מהתו האישי של כל סוכן/ת. -->
-        <div id="ethicsAgencyBlock" hidden style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line)">
-          <div class="form-subheading">התו של המשרד</div>
-          <p class="acc-sub" id="ethicsAgencyNote">אישור בשם המשרד מדליק את התו בראש דף המשרד. הוא אינו מחליף את האישור האישי של כל סוכן/ת.</p>
-          <div class="ethics-consent">
-            <input type="checkbox" id="ethicsAgencyConsent">
-            <label for="ethicsAgencyConsent">אני מאשר/ת בשם המשרד את הקוד האתי, ומתחייב/ת שכל סוכני המשרד יפעלו לפיו.</label>
-          </div>
-          <button type="button" class="btn btn-gold btn-block" id="ethicsAgencyBtn">אישור בשם המשרד</button>
-          <div id="ethicsAgencyFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
-        </div>
-      </div>
-    </details>
-
-    <details class="acc" id="accWallet">
-      <summary>
-        <span class="acc-title">טעינת ארנק</span>
-        <span class="acc-count" id="accWalletCount"></span>
-        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-      </summary>
-      <div class="acc-body">
-      <!-- התג והמשפט מתמלאים מ-probeTopupMode(). הם מתחילים ריקים בכוונה:
-           "מצב בדיקה" שמוצג לרגע לפני שהתשובה חוזרת גרוע משום הודעה, כי מי
-           שקורא/ת אותו מסיק/ה שלא ייגבה תשלום — ואז נגבה. -->
-      <div id="topupModeBadge" style="margin-bottom:10px;display:none">
-        <span style="font-size:.68rem;font-weight:800;background:var(--gold-tint);color:var(--gold-dark);padding:3px 9px;border-radius:5px">מצב בדיקה — ללא חיוב אמיתי</span>
-      </div>
-      <p class="acc-sub" id="topupModeNote">הסכום שתטענו יעמוד לרשותכם לרכישת לידים ולהקפצת נכסים.</p>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-        <select id="topupAmount" style="flex:1;min-width:120px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px">
-          <option value="100">₪100</option>
-          <option value="200">₪200</option>
-          <option value="300">₪300</option>
-          <option value="400">₪400</option>
-          <option value="500">₪500</option>
-        </select>
-        <button class="btn btn-gold" id="topupBtn" style="white-space:nowrap">טעינת הארנק</button>
-      </div>
-      <div id="topupFeedback" style="font-size:.8rem;text-align:center;min-height:1.2em"></div>
-
-      <!-- החזר יתרה שלא מומשה. הסקציה כולה מוסתרת כשאין מה להחזיר — ובמצב
-           בדיקה זה תמיד המצב, כי כסף שלא שולם אינו בר-החזר (ראו
-           wallet_refundable_amount במיגרציה 20261008090000). -->
-      <div id="refundSection" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
-        <div style="font-size:.82rem;font-weight:700;margin-bottom:4px">החזר יתרה שלא מומשה</div>
-        <p class="acc-sub" id="refundIntro">ניתן לבקש בכל עת החזר על כסף שנטען ולא מומש.</p>
-
-        <!-- יש בקשה פתוחה: מציגים את מצבה במקום את הטופס -->
-        <div id="refundOpen" style="display:none;background:var(--gold-tint);border-radius:var(--radius-sm);padding:10px;font-size:.8rem">
-          <div id="refundOpenText"></div>
-          <button type="button" class="btn btn-ghost btn-block" id="refundCancelBtn" style="margin-top:8px">ביטול הבקשה</button>
-        </div>
-
-        <div id="refundForm" style="display:none">
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
-            <input type="number" id="refundAmount" min="1" step="1" placeholder="סכום בשקלים"
-                   style="flex:1;min-width:120px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px">
-            <button class="btn btn-ghost" id="refundBtn" style="white-space:nowrap">בקשת החזר</button>
-          </div>
-          <input type="text" id="refundNote" maxlength="300" placeholder="הערה (לא חובה)"
-                 style="width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:9px 12px;font-size:.82rem">
-        </div>
-        <div id="refundFeedback" style="font-size:.8rem;text-align:center;min-height:1.2em;margin-top:6px"></div>
-      </div>
-
-      <button type="button" class="btn btn-ghost btn-block" id="toggleBillingHistory" style="margin-top:10px">הצגת היסטוריית חיובים</button>
-      <div id="billingHistoryList" style="display:none;margin-top:10px"></div>
+          <div class="trend-chart" id="kpiCommissionSpark" role="img" aria-label="מגמת פוטנציאל העמלות בששת החודשים האחרונים"></div>
+          <div class="trend-axis" id="kpiCommissionAxis"></div>
+          <p class="kpi-trend-note" id="kpiTrendNote">סך העמלה הצפויה מהנכסים הפעילים שכבר היו מפורסמים בסוף כל חודש.</p>
+        </section>
       </div>
     </details>
 
     <div id="managerSection" style="display:none">
-      <details class="acc" id="accBranding">
+
+      <details class="acc" id="accReviews">
         <summary>
-          <span class="acc-title">מיתוג ועיצוב דף המשרד</span>
+          <span class="acc-title">ביקורות ממתינות לאישור</span>
+          <span class="acc-count hot" id="accReviewsCount"></span>
           <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
         </summary>
         <div class="acc-body">
-        <p class="acc-sub">כך ייראה דף המשרד שלכם ללקוחות. אפשר לשנות כאן בכל עת — השינוי נכנס לתוקף מיד לאחר השמירה.</p>
-
-        <div class="form-subheading" style="margin-top:0">ערכת צבעים</div>
-        <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">בחרו אחת מארבע הערכות המקובלות בענף, או התאימו ידנית לצבעי המותג שלכם.</p>
-        <div class="palette-grid" id="paletteGrid"></div>
-        <div class="color-row">
-          <div class="color-input"><label for="brColorPrimary">צבע ראשי</label><input type="color" id="brColorPrimary"></div>
-          <div class="color-input"><label for="brColorPrimaryDark">ראשי כהה</label><input type="color" id="brColorPrimaryDark"></div>
-          <div class="color-input"><label for="brColorAccent">צבע משני (הדגשות)</label><input type="color" id="brColorAccent"></div>
-          <div class="color-input"><label for="brColorAccentDark">משני כהה</label><input type="color" id="brColorAccentDark"></div>
-        </div>
-        <div class="color-row">
-          <div class="color-input"><label for="brColorPaper">רקע הדף</label><input type="color" id="brColorPaper"></div>
-          <div class="color-input"><label for="brColorPaperRaised">רקע כרטיסים</label><input type="color" id="brColorPaperRaised"></div>
-          <div class="color-input"><label for="brColorLine">קווי הפרדה</label><input type="color" id="brColorLine"></div>
-        </div>
-
-        <div id="brContrastWarn" style="display:none;font-size:.76rem;color:var(--gold-dark);background:var(--gold-tint);border-radius:var(--radius-sm);padding:8px 10px;margin-top:10px"></div>
-
-        <!-- ---------- רקע דף המשרד ----------
-             ברירת המחדל היא הרקע הזורם של האתר — אותה שמש, אותו קו רקיע
-             ואותם גלים שיש בדף הבית ובדשבורד הזה — כדי שמעבר מדף הבית לדף
-             המשרד לא ירגיש כמו מעבר לאתר אחר. משרד עם ערכה כהה, או כזה
-             שרוצה שהתמונות שלו יעמדו לבד, מכבה אותו כאן ומחזיר אותו באותו
-             מקום. הבחירה חלה גם על דפי הסוכנים של המשרד, אלא אם סוכן/ת
-             בחר/ה אחרת בפרופיל האישי. -->
-        <div class="form-subheading">רקע הדף</div>
-        <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">
-          הרקע שמאחורי תוכן דף המשרד. הבחירה חלה גם על דפי הסוכנים של המשרד, אלא אם סוכן/ת בחר/ה אחרת בפרופיל האישי.
-        </p>
-        <div class="bg-choice" id="brBgChoice"></div>
-
-        <div class="brand-preview" id="brandPreview">
-          <div class="bp-cover" id="bpCover"></div>
-          <div class="bp-body">
-            <div class="bp-head">
-              <div class="bp-logo" id="bpLogo">·</div>
-              <div style="min-width:0">
-                <div class="bp-name" id="bpName">המשרד שלי</div>
-                <div class="bp-tagline" id="bpTagline"></div>
-              </div>
-            </div>
-            <!-- תגיות ההתמחות הן הדבר היחיד בתצוגה שמשקף בחירה אמיתית ולא
-                 דוגמה — הן נבנות ממה שסומן ברשת שמעל -->
-            <div class="bp-row" id="bpSpecs"></div>
-            <!-- הנתונים כאן הם דוגמה קבועה; מה שמשתנה הוא הצבע בלבד -->
-            <div class="bp-row">
-              <span class="bp-stat"><i></i>12 נכסים פעילים</span>
-              <span class="bp-stat accent"><i></i>4.8 דירוג ממוצע</span>
-            </div>
-            <div class="bp-row">
-              <span class="bp-btn primary">וואטסאפ למשרד</span>
-              <span class="bp-btn secondary">שיחה עם המשרד</span>
-            </div>
-            <div class="bp-tabs">
-              <span class="bp-tab active">נכסים פעילים</span>
-              <span class="bp-tab">נבחרת הסוכנים</span>
-            </div>
-            <div class="bp-card">
-              <div class="bp-thumb"><span class="bp-tag">להשכרה</span></div>
-              <div style="min-width:0;padding:0 4px 0 0">
-                <div class="bp-price">₪4,200/חוד׳</div>
-                <div class="bp-title">4 חדרים · עפולה</div>
-              </div>
-            </div>
-            <div class="bp-stars">★★★★★</div>
-          </div>
-        </div>
-
-        <!-- ‏60 תווים ולא 120: המוטו מוצג בדף המשרד בשורה אחת מתחת לשם, ומוטו
-             ארוך יותר נחתך שם בשלוש נקודות. עדיף שהגבול יורגש כאן, בזמן
-             הכתיבה, מאשר בדף הציבורי. -->
-        <div class="form-subheading">משפט המוטו</div>
-        <div class="field">
-          <input type="text" id="brTagline" maxlength="60" placeholder="למשל: חיפשתם נכס, מצאתם בית">
-          <div class="hint">שורה קצרה שמוצגת מתחת לשם המשרד בדף הציבורי, בשורה אחת. עד 60 תווים <span id="brTaglineCount"></span></div>
-        </div>
-
-        <!-- ---------- כתובת המשרד ----------
-             שדה חופשי ולא רחוב/מספר/עיר נפרדים: משרדים יושבים גם בקניונים
-             ובמרכזים מסחריים, וחלוקה לשדות הייתה מכריחה אותם למלא טופס
-             שלא מתאים לכתובת שלהם. -->
-        <div class="form-subheading">כתובת המשרד</div>
-        <div class="field">
-          <input type="text" id="brAddress" maxlength="160" placeholder="למשל: הרצל 24, עפולה" autocomplete="street-address">
-          <div class="hint">מוצגת במקטע יצירת הקשר בדף המשרד, עם קישור למפה. אפשר להשאיר ריק.</div>
-        </div>
-
-        <!-- ---------- תחומי התמחות ----------
-             מוצגים כתגיות בראש דף המשרד, מעל אזורי הפעילות. משרד שלא בוחר
-             כאן דבר לא נשאר בלי תגיות — הדף גוזר אותן מהנכסים שלו — אבל
-             גזירה לא יכולה לדעת על פינוי בינוי או פרויקטים מקבלן. -->
-        <div class="form-subheading">תחומי התמחות</div>
-        <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">
-          מה שתסמנו כאן יופיע כתגיות בראש דף המשרד. עד <span id="brSpecMax">6</span> תחומים — <span id="brSpecCount">0</span> נבחרו.
-        </p>
-        <div class="spec-grid" id="brSpecGrid"></div>
-        <div class="spec-suggest" id="brSpecSuggest" style="display:none"></div>
-
-        <div class="form-subheading">לוגו ותמונת נושא</div>
-        <div class="single-img-row">
-          <div>
-            <div class="img-dropzone" style="padding:10px 14px">
-              <label class="pick" for="brLogoInput">+ העלאת לוגו</label>
-              <input type="file" id="brLogoInput" accept="image/jpeg,image/png,image/webp">
-              <div class="hint">מרובע · יוצג בראש דף המשרד</div>
-            </div>
-            <div class="img-preview" id="brLogoPreview"></div>
-          </div>
-          <div>
-            <div class="img-dropzone" style="padding:10px 14px">
-              <label class="pick" for="brCoverInput">+ העלאת תמונת נושא</label>
-              <input type="file" id="brCoverInput" accept="image/jpeg,image/png,image/webp">
-              <div class="hint">רצועה רחבה · מומלץ 1600×600</div>
-            </div>
-            <div class="img-preview" id="brCoverPreview"></div>
-          </div>
-        </div>
-
-        <div class="form-subheading">גלריית המשרד</div>
-        <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">
-          תמונות מחיי המשרד — עסקאות שנסגרו, מסירת מפתחות, צוות ואירועים. <b>לא</b> תמונות של נכסים (אלה נוספות דרך "הנכסים שלי").
-        </p>
-        <div class="img-dropzone">
-          <label class="pick" for="brGalleryInput">+ הוספת תמונות לגלריה</label>
-          <input type="file" id="brGalleryInput" accept="image/jpeg,image/png,image/webp" multiple>
-          <div class="hint">עד 24 תמונות · אפשר להוסיף כיתוב לכל תמונה · הקבצים מוקטנים אוטומטית</div>
-        </div>
-        <div class="gallery-admin" id="brGalleryGrid"></div>
-        <div id="brGalleryEmpty" class="empty-state" style="padding:18px">עדיין אין תמונות בגלריה.</div>
-
-        <button type="button" class="btn btn-gold btn-block" id="brSaveBtn" style="margin-top:16px">שמירת המיתוג</button>
-        <div id="brFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
-        <a href="#" id="brViewPageLink" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:.8rem;color:var(--teal);margin-top:8px">צפייה בדף המשרד ←</a>
+          <div id="reviewModerationList"></div>
         </div>
       </details>
 
@@ -5192,18 +4832,57 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div id="teamList"></div>
         </div>
       </details>
-
-      <details class="acc" id="accReviews">
-        <summary>
-          <span class="acc-title">ביקורות ממתינות לאישור</span>
-          <span class="acc-count hot" id="accReviewsCount"></span>
-          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-        </summary>
-        <div class="acc-body">
-          <div id="reviewModerationList"></div>
-        </div>
-      </details>
     </div>
+
+    <details class="acc" id="accSharedWithMe" open>
+      <summary>
+        <span class="acc-title">נכסים ששותפו איתי<span class="acc-sum" id="accSharedWithMeSum"></span></span>
+        <span class="acc-count hot" id="accSharedWithMeCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">נכסים שמשרדי תיווך אחרים פתחו לשת״פ מולכם. ליד כל נכס מופיע המשרד המשתף ופרטי הקשר של הסוכן/ת שאחראי/ת עליו.</p>
+
+        <div class="list-toolbar">
+          <input type="search" id="sharedSearch" class="filter-input" placeholder="חיפוש חופשי — כותרת, עיר, רחוב, סוג נכס, משרד או סוכן/ת">
+          <div class="toolbar-row">
+            <select id="sharedAgencyFilter" class="filter-input" aria-label="סינון לפי משרד">
+              <option value="">כל המשרדים</option>
+            </select>
+            <select id="sharedDealFilter" class="filter-input" aria-label="סינון לפי סוג עסקה">
+              <option value="">מכירה והשכרה</option>
+              <option value="sale">מכירה</option>
+              <option value="rent">השכרה</option>
+            </select>
+            <select id="sharedCityFilter" class="filter-input" aria-label="סינון לפי עיר">
+              <option value="">כל הערים</option>
+            </select>
+            <select id="sharedTypeFilter" class="filter-input" aria-label="סינון לפי סוג נכס">
+              <option value="">כל סוגי הנכס</option>
+            </select>
+          </div>
+          <div class="toolbar-row">
+            <select id="sharedSort" class="filter-input" aria-label="מיון">
+              <option value="shared_desc">מיון: שותפו לאחרונה</option>
+              <option value="shared_asc">מיון: שותפו מזמן</option>
+              <option value="price_desc">מיון: מחיר — מהגבוה לנמוך</option>
+              <option value="price_asc">מיון: מחיר — מהנמוך לגבוה</option>
+              <option value="rooms_desc">מיון: חדרים — מהרב למעט</option>
+              <option value="rooms_asc">מיון: חדרים — מהמעט לרב</option>
+              <option value="size_desc">מיון: שטח — מהגדול לקטן</option>
+              <option value="title_asc">מיון: כותרת — א׳ עד ת׳</option>
+            </select>
+            <button type="button" class="btn btn-ghost" id="sharedRefreshBtn" style="white-space:nowrap">רענון</button>
+          </div>
+          <div class="toolbar-foot">
+            <p class="list-count" id="sharedFilterCount"></p>
+            <button type="button" class="clear-filters" id="sharedClearFilters" hidden>ניקוי הסינון</button>
+          </div>
+        </div>
+
+        <div id="sharedWithMeList"></div>
+      </div>
+    </details>
 
     <div id="platformAdminSection" style="display:none">
       <!-- תור בקשות ההחזר. ראשון בסקציה בכוונה: זו הפעולה היחידה כאן שמישהו
@@ -5445,82 +5124,110 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </details>
     </div>
 
-    <details class="acc" id="accSharePartners">
+    <details class="acc" id="accWallet">
       <summary>
-        <span class="acc-title">משרדי שיתוף פעולה</span>
-        <span class="acc-count" id="accSharePartnersCount"></span>
+        <span class="acc-title">טעינת ארנק</span>
+        <span class="acc-count" id="accWalletCount"></span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-        <p class="acc-sub">בחירה חד-פעמית: אלה המשרדים שאליהם יופץ כל נכס שתפתחו לשת״פ מרשימת הנכסים שלכם. ברירת המחדל היא כל משרדי התיווך במערכת — כולל משרדים שיצטרפו בעתיד — והסרת סימון מוציאה משרד מהשת״פ שלכם.</p>
+      <!-- התג והמשפט מתמלאים מ-probeTopupMode(). הם מתחילים ריקים בכוונה:
+           "מצב בדיקה" שמוצג לרגע לפני שהתשובה חוזרת גרוע משום הודעה, כי מי
+           שקורא/ת אותו מסיק/ה שלא ייגבה תשלום — ואז נגבה. -->
+      <div id="topupModeBadge" style="margin-bottom:10px;display:none">
+        <span style="font-size:.68rem;font-weight:800;background:var(--gold-tint);color:var(--gold-dark);padding:3px 9px;border-radius:5px">מצב בדיקה — ללא חיוב אמיתי</span>
+      </div>
+      <p class="acc-sub" id="topupModeNote">הסכום שתטענו יעמוד לרשותכם לרכישת לידים ולהקפצת נכסים.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+        <select id="topupAmount" style="flex:1;min-width:120px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px">
+          <option value="100">₪100</option>
+          <option value="200">₪200</option>
+          <option value="300">₪300</option>
+          <option value="400">₪400</option>
+          <option value="500">₪500</option>
+        </select>
+        <button class="btn btn-gold" id="topupBtn" style="white-space:nowrap">טעינת הארנק</button>
+      </div>
+      <div id="topupFeedback" style="font-size:.8rem;text-align:center;min-height:1.2em"></div>
 
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-          <input type="search" id="partnerSearch" class="filter-input" placeholder="חיפוש משרד…" style="flex:1;min-width:150px">
-          <button type="button" class="btn btn-ghost" id="partnerSelectAll" style="white-space:nowrap">סימון הכל</button>
-          <button type="button" class="btn btn-ghost" id="partnerClearAll" style="white-space:nowrap">ניקוי הכל</button>
+      <!-- החזר יתרה שלא מומשה. הסקציה כולה מוסתרת כשאין מה להחזיר — ובמצב
+           בדיקה זה תמיד המצב, כי כסף שלא שולם אינו בר-החזר (ראו
+           wallet_refundable_amount במיגרציה 20261008090000). -->
+      <div id="refundSection" style="display:none;margin-top:14px;padding-top:12px;border-top:1px solid var(--line)">
+        <div style="font-size:.82rem;font-weight:700;margin-bottom:4px">החזר יתרה שלא מומשה</div>
+        <p class="acc-sub" id="refundIntro">ניתן לבקש בכל עת החזר על כסף שנטען ולא מומש.</p>
+
+        <!-- יש בקשה פתוחה: מציגים את מצבה במקום את הטופס -->
+        <div id="refundOpen" style="display:none;background:var(--gold-tint);border-radius:var(--radius-sm);padding:10px;font-size:.8rem">
+          <div id="refundOpenText"></div>
+          <button type="button" class="btn btn-ghost btn-block" id="refundCancelBtn" style="margin-top:8px">ביטול הבקשה</button>
         </div>
 
-        <div class="share-partner-list" id="sharePartnerList"></div>
+        <div id="refundForm" style="display:none">
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+            <input type="number" id="refundAmount" min="1" step="1" placeholder="סכום בשקלים"
+                   style="flex:1;min-width:120px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px">
+            <button class="btn btn-ghost" id="refundBtn" style="white-space:nowrap">בקשת החזר</button>
+          </div>
+          <input type="text" id="refundNote" maxlength="300" placeholder="הערה (לא חובה)"
+                 style="width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:9px 12px;font-size:.82rem">
+        </div>
+        <div id="refundFeedback" style="font-size:.8rem;text-align:center;min-height:1.2em;margin-top:6px"></div>
+      </div>
 
-        <button type="button" class="btn btn-gold btn-block" id="savePartnersBtn" style="margin-top:12px">שמירת רשימת השת״פ</button>
-        <div id="partnersFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
-        <p style="font-size:.72rem;color:var(--ink-soft);margin:8px 0 0">הרשימה חלה על ההפצה הבאה. נכס שכבר הופץ מסתנכרן מחדש בלחיצה על "עדכון הפצה" בשורת הנכס — משרד שהוסר יאבד אז את הגישה אליו.</p>
+      <button type="button" class="btn btn-ghost btn-block" id="toggleBillingHistory" style="margin-top:10px">הצגת היסטוריית חיובים</button>
+      <div id="billingHistoryList" style="display:none;margin-top:10px"></div>
       </div>
     </details>
 
-    <details class="acc" id="accWhatsapp">
+    <!-- ---------- הקוד האתי ותו האיכות ----------
+         האישור כאן הוא מה שמדליק את התו בדף הסוכן/ת, בדף המשרד ולצד התמונה
+         בכל מודעת נכס. הוא אישי: מנהל/ת משרד לא יכול/ה לחתום במקום סוכן/ת
+         (הטריגר במסד מחזיר אישור כזה לערכו הקודם), ולכן כל סוכן/ת רואה כאן
+         את המצב של עצמו/ה בלבד. -->
+    <details class="acc" id="accEthics">
       <summary>
-        <span class="acc-title">העוזר האישי בוואטסאפ</span>
-        <span class="acc-count" id="accWhatsappCount"></span>
+        <span class="acc-title">הקוד האתי ותו האיכות</span>
+        <span class="acc-count" id="accEthicsCount"></span>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-    <p class="acc-sub">שולחים הודעה, תמונות או הקלטה קולית לעוזר — והוא מטפל בנכסים, בקובץ הלקוחות, בהתאמות ביניהם, ובקריאה של ההסכמים, הלידים וההתראות. הוא מזהה אתכם לפי מספר הטלפון, אז הוא חייב להיות מעודכן כאן ולהיות המספר שממנו אתם שולחים.</p>
-    <!-- נאמר כאן ולא רק בתשובה של הבוט: סוכן/ת ב-Pay&GO ששומר/ת מספר ומחכה
-         לתשובה גילה/תה את הגידור אחרי ששלח/ה הודעה, וזה המקום שבו הוא
-         אמור להיות כתוב. -->
-    <p class="acc-sub" id="waTierNote"></p>
+        <div class="ethics-state is-pending" id="ethicsState">
+          <img src="assets/badge-ethics.png" alt="תו האמון והאיכות" width="384" height="384">
+          <div>
+            <div class="es-title" id="ethicsStateTitle">תו האיכות טרם הופעל</div>
+            <div class="es-note" id="ethicsStateNote">אישור עשרת הסעיפים מדליק את התו בדף שלך ובכל מודעות הנכסים.</div>
+            <span class="es-pill" id="ethicsStatePill">נדרש אישור</span>
+          </div>
+        </div>
 
-    <!-- הכרטיס הזה קודם לטופס, ובכוונה: הוא עונה על "מול איזה מספר אני
-         עובד/ת", וזו השאלה הראשונה — לא האחרונה. הוא נבנה ב-
-         ‏loadWhatsappSettings, כדי שהמצב (יש מספר שמור / אין) ישתקף בכפתור. -->
-    <div class="wa-start" id="waStartCard" hidden>
-      <p class="wa-start-num">המספר של העוזר: <b id="waStartNum" dir="ltr"></b></p>
-      <p class="wa-start-sub">כדאי לשמור אותו באנשי הקשר — כך הוא יופיע בשם גם בפעם הבאה, וההודעות שלו לא ייראו כמו מספר זר.</p>
-      <a class="wa-start-btn" id="waStartBtn" href="#" target="_blank" rel="noopener">
-        💬 <span id="waStartBtnLabel">פתיחת צ'אט עם העוזר</span>
-      </a>
-      <p class="wa-start-hint" id="waStartHint"></p>
-    </div>
+        <p class="acc-sub">הקוד האתי מגדיר את סטנדרט המקצועיות, השקיפות והחדשנות הנדרש מכל יועץ וסוכן נדל״ן בפלטפורמה, ומהווה התחייבות ישירה כלפי הלקוחות והקולגות.</p>
 
-    <form id="whatsappForm" style="margin-bottom:0">
-      <div class="field">
-        <label for="waPhone">מספר הוואטסאפ שלי</label>
-        <input type="tel" id="waPhone" dir="ltr" style="text-align:right" placeholder="050-1234567" autocomplete="tel">
-        <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">אפשר להזין בכל פורמט (050-1234567 או ‎+972501234567) — המערכת מנרמלת בעצמה. מספר ריק מכבה את הגישה מוואטסאפ.</p>
-      </div>
-      <button type="submit" class="btn btn-gold btn-block" id="saveWhatsappBtn">שמירת המספר</button>
-      <div id="whatsappFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
-    </form>
-    <div style="margin-top:14px;padding:12px;background:var(--paper);border:1px solid var(--line);border-radius:10px">
-      <p style="font-size:.78rem;font-weight:700;margin:0 0 6px">מה אפשר לבקש מהעוזר</p>
-      <ul style="font-size:.78rem;color:var(--ink-soft);margin:0;padding-inline-start:18px;line-height:1.7">
-        <li>"תעלה נכס חדש באבן גבירול 10, 3 חדרים, 1.8 מליון"</li>
-        <li>לצלם את הדירה ולשלוח את התמונות — הן יתחברו לנכס אוטומטית</li>
-        <li>להקליט הודעה קולית עם הפרטים במקום להקליד</li>
-        <li>"תוריד מהאתר את הדירה בהרצל 5" / "תעדכן את המחיר ל-1.6 מליון"</li>
-        <li>"כמה נכסים מסחריים יש לי" / "כמה לקוחות יש לי במאגר"</li>
-        <li>"תוסיף לקוחה חדשה — רונית כהן, 3 חדרים בעפולה עד 1.6 מליון"</li>
-        <li>"מה יש למשפחת כהן" / "למי מהלקוחות מתאימה הדירה בעלייה 20"</li>
-        <li>"מה ממתין לחתימה" / "תשלח לי את קישור החתימה של דני"</li>
-        <li>"מה חדש" / "תעדכן אותי כאן על לידים חדשים"</li>
-      </ul>
-      <p style="font-size:.74rem;color:var(--ink-soft);margin:9px 0 0;line-height:1.6">
-        יצירת הסכם ופתיחת ליד נשארות בדשבורד: גוף ההסכם ננעל במסד ברגע
-        שהוא נוצר, ופתיחת ליד עולה מכסה או כסף. את שאר הדרך אפשר לעשות
-        מהטלפון.
-      </p>
-    </div>
+        <ol class="ethics-clauses" id="ethicsClauses"></ol>
+        <a class="ethics-link" href="ethics-code.html" target="_blank" rel="noopener">קריאת נוסח הקוד המלא ←</a>
+
+        <form id="ethicsForm" style="margin-bottom:0">
+          <div class="ethics-consent">
+            <input type="checkbox" id="ethicsConsent">
+            <label for="ethicsConsent">קראתי את עשרת סעיפי הקוד האתי ואני מסכים/ה לכולם. ידוע לי שהתו יוסר במקרה של הפרת התקנון.</label>
+          </div>
+          <button type="submit" class="btn btn-gold btn-block" id="ethicsSaveBtn">אישור הקוד והפעלת התו</button>
+          <button type="button" class="btn btn-ghost btn-block" id="ethicsWithdrawBtn" hidden style="margin-top:8px">ביטול האישור והסרת התו</button>
+          <div id="ethicsFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+        </form>
+
+        <!-- אישור בשם המשרד — מנהל/ת המשרד בלבד. הוא מדליק את התו בראש דף
+             המשרד, בנפרד מהתו האישי של כל סוכן/ת. -->
+        <div id="ethicsAgencyBlock" hidden style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line)">
+          <div class="form-subheading">התו של המשרד</div>
+          <p class="acc-sub" id="ethicsAgencyNote">אישור בשם המשרד מדליק את התו בראש דף המשרד. הוא אינו מחליף את האישור האישי של כל סוכן/ת.</p>
+          <div class="ethics-consent">
+            <input type="checkbox" id="ethicsAgencyConsent">
+            <label for="ethicsAgencyConsent">אני מאשר/ת בשם המשרד את הקוד האתי, ומתחייב/ת שכל סוכני המשרד יפעלו לפיו.</label>
+          </div>
+          <button type="button" class="btn btn-gold btn-block" id="ethicsAgencyBtn">אישור בשם המשרד</button>
+          <div id="ethicsAgencyFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+        </div>
       </div>
     </details>
 
@@ -5642,6 +5349,372 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </details>
 
+    <details class="acc" id="accSharePartners">
+      <summary>
+        <span class="acc-title">משרדי שיתוף פעולה</span>
+        <span class="acc-count" id="accSharePartnersCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">בחירה חד-פעמית: אלה המשרדים שאליהם יופץ כל נכס שתפתחו לשת״פ מרשימת הנכסים שלכם. ברירת המחדל היא כל משרדי התיווך במערכת — כולל משרדים שיצטרפו בעתיד — והסרת סימון מוציאה משרד מהשת״פ שלכם.</p>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <input type="search" id="partnerSearch" class="filter-input" placeholder="חיפוש משרד…" style="flex:1;min-width:150px">
+          <button type="button" class="btn btn-ghost" id="partnerSelectAll" style="white-space:nowrap">סימון הכל</button>
+          <button type="button" class="btn btn-ghost" id="partnerClearAll" style="white-space:nowrap">ניקוי הכל</button>
+        </div>
+
+        <div class="share-partner-list" id="sharePartnerList"></div>
+
+        <button type="button" class="btn btn-gold btn-block" id="savePartnersBtn" style="margin-top:12px">שמירת רשימת השת״פ</button>
+        <div id="partnersFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+        <p style="font-size:.72rem;color:var(--ink-soft);margin:8px 0 0">הרשימה חלה על ההפצה הבאה. נכס שכבר הופץ מסתנכרן מחדש בלחיצה על "עדכון הפצה" בשורת הנכס — משרד שהוסר יאבד אז את הגישה אליו.</p>
+      </div>
+    </details>
+
+    <details class="acc" id="accWhatsapp">
+      <summary>
+        <span class="acc-title">העוזר האישי בוואטסאפ</span>
+        <span class="acc-count" id="accWhatsappCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+    <p class="acc-sub">שולחים הודעה, תמונות או הקלטה קולית לעוזר — והוא מטפל בנכסים, בקובץ הלקוחות, בהתאמות ביניהם, ובקריאה של ההסכמים, הלידים וההתראות. הוא מזהה אתכם לפי מספר הטלפון, אז הוא חייב להיות מעודכן כאן ולהיות המספר שממנו אתם שולחים.</p>
+    <!-- נאמר כאן ולא רק בתשובה של הבוט: סוכן/ת ב-Pay&GO ששומר/ת מספר ומחכה
+         לתשובה גילה/תה את הגידור אחרי ששלח/ה הודעה, וזה המקום שבו הוא
+         אמור להיות כתוב. -->
+    <p class="acc-sub" id="waTierNote"></p>
+
+    <!-- הכרטיס הזה קודם לטופס, ובכוונה: הוא עונה על "מול איזה מספר אני
+         עובד/ת", וזו השאלה הראשונה — לא האחרונה. הוא נבנה ב-
+         ‏loadWhatsappSettings, כדי שהמצב (יש מספר שמור / אין) ישתקף בכפתור. -->
+    <div class="wa-start" id="waStartCard" hidden>
+      <p class="wa-start-num">המספר של העוזר: <b id="waStartNum" dir="ltr"></b></p>
+      <p class="wa-start-sub">כדאי לשמור אותו באנשי הקשר — כך הוא יופיע בשם גם בפעם הבאה, וההודעות שלו לא ייראו כמו מספר זר.</p>
+      <a class="wa-start-btn" id="waStartBtn" href="#" target="_blank" rel="noopener">
+        💬 <span id="waStartBtnLabel">פתיחת צ'אט עם העוזר</span>
+      </a>
+      <p class="wa-start-hint" id="waStartHint"></p>
+    </div>
+
+    <form id="whatsappForm" style="margin-bottom:0">
+      <div class="field">
+        <label for="waPhone">מספר הוואטסאפ שלי</label>
+        <input type="tel" id="waPhone" dir="ltr" style="text-align:right" placeholder="050-1234567" autocomplete="tel">
+        <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">אפשר להזין בכל פורמט (050-1234567 או ‎+972501234567) — המערכת מנרמלת בעצמה. מספר ריק מכבה את הגישה מוואטסאפ.</p>
+      </div>
+      <button type="submit" class="btn btn-gold btn-block" id="saveWhatsappBtn">שמירת המספר</button>
+      <div id="whatsappFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+    </form>
+    <div style="margin-top:14px;padding:12px;background:var(--paper);border:1px solid var(--line);border-radius:10px">
+      <p style="font-size:.78rem;font-weight:700;margin:0 0 6px">מה אפשר לבקש מהעוזר</p>
+      <ul style="font-size:.78rem;color:var(--ink-soft);margin:0;padding-inline-start:18px;line-height:1.7">
+        <li>"תעלה נכס חדש באבן גבירול 10, 3 חדרים, 1.8 מליון"</li>
+        <li>לצלם את הדירה ולשלוח את התמונות — הן יתחברו לנכס אוטומטית</li>
+        <li>להקליט הודעה קולית עם הפרטים במקום להקליד</li>
+        <li>"תוריד מהאתר את הדירה בהרצל 5" / "תעדכן את המחיר ל-1.6 מליון"</li>
+        <li>"כמה נכסים מסחריים יש לי" / "כמה לקוחות יש לי במאגר"</li>
+        <li>"תוסיף לקוחה חדשה — רונית כהן, 3 חדרים בעפולה עד 1.6 מליון"</li>
+        <li>"מה יש למשפחת כהן" / "למי מהלקוחות מתאימה הדירה בעלייה 20"</li>
+        <li>"מה ממתין לחתימה" / "תשלח לי את קישור החתימה של דני"</li>
+        <li>"מה חדש" / "תעדכן אותי כאן על לידים חדשים"</li>
+      </ul>
+      <p style="font-size:.74rem;color:var(--ink-soft);margin:9px 0 0;line-height:1.6">
+        יצירת הסכם ופתיחת ליד נשארות בדשבורד: גוף ההסכם ננעל במסד ברגע
+        שהוא נוצר, ופתיחת ליד עולה מכסה או כסף. את שאר הדרך אפשר לעשות
+        מהטלפון.
+      </p>
+    </div>
+      </div>
+    </details>
+
+    <!-- ---------- עדכון פרטי הסוכן/ת ----------
+         היעד של הלחיצה על האווטאר בכותרת. כותב ישירות ל-agency_members, ולכן
+         כל מה שנשמר כאן מופיע מיד בדף הסוכן/ת הציבורי (agent.html) ובכל מקום
+         שמציג את השם או התמונה. -->
+    <details class="acc" id="accProfile">
+      <summary>
+        <span class="acc-title">עדכון פרטי הסוכן/ת</span>
+        <span class="acc-count" id="accProfileCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">כך אתם מוצגים ללקוחות בדף הסוכן/ת שלכם. השינוי נכנס לתוקף מיד לאחר השמירה.</p>
+
+        <div class="profile-preview" id="profilePreview">
+          <div class="pp-cover" id="ppCover"></div>
+          <div class="pp-body">
+            <div class="pp-avatar" id="ppAvatar">·</div>
+            <div class="pp-text">
+              <div class="pp-name" id="ppName">—</div>
+              <div class="pp-license" id="ppLicense"></div>
+              <img class="pp-badge" id="ppBadge" src="assets/badge-ethics.png" alt="תו האמון והאיכות" width="384" height="384" hidden>
+              <div class="pp-pills" id="ppPills"></div>
+              <p class="pp-bio" id="ppBio"></p>
+            </div>
+          </div>
+        </div>
+
+        <form id="profileForm" style="margin-bottom:0">
+          <div class="field">
+            <label for="pfName">שם מלא</label>
+            <input type="text" id="pfName" maxlength="80" autocomplete="name" required>
+          </div>
+          <div class="field">
+            <label for="pfLicense">מספר רישיון תיווך</label>
+            <input type="text" id="pfLicense" maxlength="30" dir="ltr" style="text-align:right" required>
+            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">מספר הרישיון מוצג ללקוחות בדף הסוכן/ת. אפשר לתקן אותו כאן, אבל לא להשאיר ריק.</p>
+          </div>
+          <!-- ‏ת.ז. נדרשת בהזמנת שירותי תיווך בכתב (תקנות המתווכים במקרקעין
+               (פרטי הזמנה בכתב), התשנ״ז-1997), ולכן היא נשמרת בפרופיל פעם אחת
+               ולא מוקלדת מחדש בכל הסכם. אינה נחשפת בדף הסוכן/ת הציבורי. -->
+          <div class="field">
+            <label for="pfIdNumber">ת.ז. / ח״פ</label>
+            <input type="text" id="pfIdNumber" maxlength="20" dir="ltr" style="text-align:right" inputmode="numeric">
+            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">נדרשת להפקת הזמנת שירותי תיווך בכתב. אינה מוצגת בדף הסוכן/ת ואינה נשלחת לאיש מלבד הצדדים להסכם.</p>
+          </div>
+          <div class="field">
+            <label for="pfBio">תיאור</label>
+            <textarea id="pfBio" rows="4" maxlength="600" placeholder="כמה מילים על עצמך: ותק, אזורי פעילות, סוגי נכסים והתמחות."></textarea>
+            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0"><span id="pfBioCount">0</span>/600 תווים</p>
+          </div>
+
+          <!-- תגיות הפרופיל: מה שעד היום היה קבור בתוך פסקת התיאור (ותק,
+               התמחות, הסמכות, אזור) יושב כאן בשדות נפרדים, כדי שדף הסוכן/ת
+               יציג אותו כתגיות שנסרקות בשנייה ולא כמשפט שצריך לקרוא. -->
+          <div class="form-subheading">תגיות הפרופיל</div>
+          <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">כל השדות כאן הם רשות. מה שתמלאו יופיע כתגית בראש דף הסוכן/ת; מה שתשאירו ריק פשוט לא יוצג.</p>
+          <div class="field">
+            <label for="pfYears">שנות ותק בנדל״ן</label>
+            <input type="number" id="pfYears" min="0" max="70" step="1" inputmode="numeric" placeholder="למשל 15">
+          </div>
+          <div class="field">
+            <label for="pfArea">אזור התמחות</label>
+            <input type="text" id="pfArea" maxlength="60" placeholder="למשל עפולה והעמקים">
+          </div>
+          <div class="field">
+            <label for="pfCredentials">תארים והסמכות</label>
+            <input type="text" id="pfCredentials" maxlength="80" placeholder="למשל B.A ומגשר מוסמך">
+          </div>
+          <div class="field">
+            <label>תחומי התמחות</label>
+            <div class="checkbox-grid" id="pfSpecialties"></div>
+            <p style="font-size:.72rem;color:var(--ink-soft);margin:6px 0 0">עד 4 תחומים — התגיות הראשונות הן אלה שנראות בראש הדף.</p>
+          </div>
+
+          <!-- ---------- רקע דף הסוכן/ת ----------
+               ברירת המחדל היא מה שמנהל/ת המשרד בחר/ה במקטע המיתוג, ובהיעדר
+               בחירה — הרקע הזורם של האתר. שתי האפשרויות האחרות הן עקיפה
+               אישית של הדף הזה בלבד, וחזרה ל"כמו המשרד" מחזירה את ברירת
+               המחדל. -->
+          <div class="form-subheading">רקע הדף שלי</div>
+          <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">
+            הרקע שמאחורי תוכן דף הסוכן/ת שלך. ברירת המחדל היא מה שנבחר עבור המשרד.
+          </p>
+          <div class="bg-choice" id="pfBgChoice"></div>
+
+          <div class="form-subheading">תמונת סוכן/ת ותמונת נושא</div>
+          <div class="single-img-row">
+            <div>
+              <div class="img-dropzone" style="padding:10px 14px">
+                <label class="pick" for="pfPhotoInput">+ העלאת תמונת סוכן/ת</label>
+                <input type="file" id="pfPhotoInput" accept="image/jpeg,image/png,image/webp">
+                <div class="hint">פורטרט · מוצג כמלבן ללא מסגרת</div>
+              </div>
+              <div class="img-preview" id="pfPhotoPreview"></div>
+              <!-- סימון נקודת המיקוד. מוצג רק כשיש תמונה. -->
+              <div class="photo-focus" id="pfPhotoFocus" hidden>
+                <div class="photo-focus-stage" id="pfFocusStage">
+                  <img id="pfFocusImg" alt="">
+                  <span class="photo-focus-dot" id="pfFocusDot"></span>
+                </div>
+                <div class="photo-focus-foot">
+                  <p class="hint">לחצו על הפנים שבתמונה — הנקודה הזו תישאר תמיד בתוך הפריים.</p>
+                  <button type="button" class="photo-focus-reset" id="pfFocusReset">איפוס</button>
+                </div>
+              </div>
+            </div>
+            <div>
+              <div class="img-dropzone" style="padding:10px 14px">
+                <label class="pick" for="pfCoverInput">+ העלאת תמונת נושא</label>
+                <input type="file" id="pfCoverInput" accept="image/jpeg,image/png,image/webp">
+                <div class="hint">רצועה רחבה בראש דף הסוכן/ת · מומלץ 1600×600 · בלי תמונה מוצגת תמונת הרקע של המשרד</div>
+              </div>
+              <div class="img-preview" id="pfCoverPreview"></div>
+            </div>
+          </div>
+
+          <!-- ---------- הגלריה האישית ----------
+               מקטע הגלריה בדף הסוכן/ת, והמקור היחיד שלו. בלי תמונות כאן
+               המקטע פשוט לא מופיע בדף — גלריית המשרד אינה מחליפה אותו. -->
+          <div class="form-subheading">הגלריה שלי</div>
+          <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">
+            תמונות מהעבודה שלך — מסירת מפתחות, עסקאות שנסגרו, לקוחות מרוצים ואירועים. <b>לא</b> תמונות של נכסים (אלה נוספות דרך "הנכסים שלי"). זו הגלריה שמופיעה בדף הסוכן/ת שלך; בלי תמונות כאן מקטע הגלריה לא מוצג בדף.
+          </p>
+          <div class="img-dropzone">
+            <label class="pick" for="pfGalleryInput">+ הוספת תמונות לגלריה</label>
+            <input type="file" id="pfGalleryInput" accept="image/jpeg,image/png,image/webp" multiple>
+            <div class="hint">עד 24 תמונות · אפשר להוסיף כיתוב לכל תמונה · הקבצים מוקטנים אוטומטית</div>
+          </div>
+          <div class="gallery-admin" id="pfGalleryGrid"></div>
+          <div id="pfGalleryEmpty" class="empty-state" style="padding:18px">עדיין אין תמונות בגלריה שלך.</div>
+
+          <button type="submit" class="btn btn-gold btn-block" id="pfSaveBtn" style="margin-top:16px">שמירת הפרטים</button>
+          <div id="pfFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+          <a href="#" id="pfViewPageLink" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:.8rem;color:var(--teal);margin-top:8px">צפייה בדף הסוכן/ת שלי ←</a>
+        </form>
+      </div>
+    </details>
+
+    <!-- ‏accBranding יושב במגירת מנהל/ת משלו ולא בתוך #managerSection,
+         כי סדר הקטגוריות בעמוד הוא סדר הניווט (NAV_GROUPS) ושם עיצוב דף
+         המשרד הוא הגדרה של פעם אחת, ליד ניהול ההתראות וסגירת החשבון —
+         ולא שכן של תור הביקורות. שתי המגירות נפתחות יחד ב-loadAgent. -->
+    <div id="managerBrandingSection" style="display:none">
+      <details class="acc" id="accBranding">
+        <summary>
+          <span class="acc-title">מיתוג ועיצוב דף המשרד</span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+        <p class="acc-sub">כך ייראה דף המשרד שלכם ללקוחות. אפשר לשנות כאן בכל עת — השינוי נכנס לתוקף מיד לאחר השמירה.</p>
+
+        <div class="form-subheading" style="margin-top:0">ערכת צבעים</div>
+        <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">בחרו אחת מארבע הערכות המקובלות בענף, או התאימו ידנית לצבעי המותג שלכם.</p>
+        <div class="palette-grid" id="paletteGrid"></div>
+        <div class="color-row">
+          <div class="color-input"><label for="brColorPrimary">צבע ראשי</label><input type="color" id="brColorPrimary"></div>
+          <div class="color-input"><label for="brColorPrimaryDark">ראשי כהה</label><input type="color" id="brColorPrimaryDark"></div>
+          <div class="color-input"><label for="brColorAccent">צבע משני (הדגשות)</label><input type="color" id="brColorAccent"></div>
+          <div class="color-input"><label for="brColorAccentDark">משני כהה</label><input type="color" id="brColorAccentDark"></div>
+        </div>
+        <div class="color-row">
+          <div class="color-input"><label for="brColorPaper">רקע הדף</label><input type="color" id="brColorPaper"></div>
+          <div class="color-input"><label for="brColorPaperRaised">רקע כרטיסים</label><input type="color" id="brColorPaperRaised"></div>
+          <div class="color-input"><label for="brColorLine">קווי הפרדה</label><input type="color" id="brColorLine"></div>
+        </div>
+
+        <div id="brContrastWarn" style="display:none;font-size:.76rem;color:var(--gold-dark);background:var(--gold-tint);border-radius:var(--radius-sm);padding:8px 10px;margin-top:10px"></div>
+
+        <!-- ---------- רקע דף המשרד ----------
+             ברירת המחדל היא הרקע הזורם של האתר — אותה שמש, אותו קו רקיע
+             ואותם גלים שיש בדף הבית ובדשבורד הזה — כדי שמעבר מדף הבית לדף
+             המשרד לא ירגיש כמו מעבר לאתר אחר. משרד עם ערכה כהה, או כזה
+             שרוצה שהתמונות שלו יעמדו לבד, מכבה אותו כאן ומחזיר אותו באותו
+             מקום. הבחירה חלה גם על דפי הסוכנים של המשרד, אלא אם סוכן/ת
+             בחר/ה אחרת בפרופיל האישי. -->
+        <div class="form-subheading">רקע הדף</div>
+        <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">
+          הרקע שמאחורי תוכן דף המשרד. הבחירה חלה גם על דפי הסוכנים של המשרד, אלא אם סוכן/ת בחר/ה אחרת בפרופיל האישי.
+        </p>
+        <div class="bg-choice" id="brBgChoice"></div>
+
+        <div class="brand-preview" id="brandPreview">
+          <div class="bp-cover" id="bpCover"></div>
+          <div class="bp-body">
+            <div class="bp-head">
+              <div class="bp-logo" id="bpLogo">·</div>
+              <div style="min-width:0">
+                <div class="bp-name" id="bpName">המשרד שלי</div>
+                <div class="bp-tagline" id="bpTagline"></div>
+              </div>
+            </div>
+            <!-- תגיות ההתמחות הן הדבר היחיד בתצוגה שמשקף בחירה אמיתית ולא
+                 דוגמה — הן נבנות ממה שסומן ברשת שמעל -->
+            <div class="bp-row" id="bpSpecs"></div>
+            <!-- הנתונים כאן הם דוגמה קבועה; מה שמשתנה הוא הצבע בלבד -->
+            <div class="bp-row">
+              <span class="bp-stat"><i></i>12 נכסים פעילים</span>
+              <span class="bp-stat accent"><i></i>4.8 דירוג ממוצע</span>
+            </div>
+            <div class="bp-row">
+              <span class="bp-btn primary">וואטסאפ למשרד</span>
+              <span class="bp-btn secondary">שיחה עם המשרד</span>
+            </div>
+            <div class="bp-tabs">
+              <span class="bp-tab active">נכסים פעילים</span>
+              <span class="bp-tab">נבחרת הסוכנים</span>
+            </div>
+            <div class="bp-card">
+              <div class="bp-thumb"><span class="bp-tag">להשכרה</span></div>
+              <div style="min-width:0;padding:0 4px 0 0">
+                <div class="bp-price">₪4,200/חוד׳</div>
+                <div class="bp-title">4 חדרים · עפולה</div>
+              </div>
+            </div>
+            <div class="bp-stars">★★★★★</div>
+          </div>
+        </div>
+
+        <!-- ‏60 תווים ולא 120: המוטו מוצג בדף המשרד בשורה אחת מתחת לשם, ומוטו
+             ארוך יותר נחתך שם בשלוש נקודות. עדיף שהגבול יורגש כאן, בזמן
+             הכתיבה, מאשר בדף הציבורי. -->
+        <div class="form-subheading">משפט המוטו</div>
+        <div class="field">
+          <input type="text" id="brTagline" maxlength="60" placeholder="למשל: חיפשתם נכס, מצאתם בית">
+          <div class="hint">שורה קצרה שמוצגת מתחת לשם המשרד בדף הציבורי, בשורה אחת. עד 60 תווים <span id="brTaglineCount"></span></div>
+        </div>
+
+        <!-- ---------- כתובת המשרד ----------
+             שדה חופשי ולא רחוב/מספר/עיר נפרדים: משרדים יושבים גם בקניונים
+             ובמרכזים מסחריים, וחלוקה לשדות הייתה מכריחה אותם למלא טופס
+             שלא מתאים לכתובת שלהם. -->
+        <div class="form-subheading">כתובת המשרד</div>
+        <div class="field">
+          <input type="text" id="brAddress" maxlength="160" placeholder="למשל: הרצל 24, עפולה" autocomplete="street-address">
+          <div class="hint">מוצגת במקטע יצירת הקשר בדף המשרד, עם קישור למפה. אפשר להשאיר ריק.</div>
+        </div>
+
+        <!-- ---------- תחומי התמחות ----------
+             מוצגים כתגיות בראש דף המשרד, מעל אזורי הפעילות. משרד שלא בוחר
+             כאן דבר לא נשאר בלי תגיות — הדף גוזר אותן מהנכסים שלו — אבל
+             גזירה לא יכולה לדעת על פינוי בינוי או פרויקטים מקבלן. -->
+        <div class="form-subheading">תחומי התמחות</div>
+        <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">
+          מה שתסמנו כאן יופיע כתגיות בראש דף המשרד. עד <span id="brSpecMax">6</span> תחומים — <span id="brSpecCount">0</span> נבחרו.
+        </p>
+        <div class="spec-grid" id="brSpecGrid"></div>
+        <div class="spec-suggest" id="brSpecSuggest" style="display:none"></div>
+
+        <div class="form-subheading">לוגו ותמונת נושא</div>
+        <div class="single-img-row">
+          <div>
+            <div class="img-dropzone" style="padding:10px 14px">
+              <label class="pick" for="brLogoInput">+ העלאת לוגו</label>
+              <input type="file" id="brLogoInput" accept="image/jpeg,image/png,image/webp">
+              <div class="hint">מרובע · יוצג בראש דף המשרד</div>
+            </div>
+            <div class="img-preview" id="brLogoPreview"></div>
+          </div>
+          <div>
+            <div class="img-dropzone" style="padding:10px 14px">
+              <label class="pick" for="brCoverInput">+ העלאת תמונת נושא</label>
+              <input type="file" id="brCoverInput" accept="image/jpeg,image/png,image/webp">
+              <div class="hint">רצועה רחבה · מומלץ 1600×600</div>
+            </div>
+            <div class="img-preview" id="brCoverPreview"></div>
+          </div>
+        </div>
+
+        <div class="form-subheading">גלריית המשרד</div>
+        <p style="font-size:.76rem;color:var(--ink-soft);margin:0 0 10px">
+          תמונות מחיי המשרד — עסקאות שנסגרו, מסירת מפתחות, צוות ואירועים. <b>לא</b> תמונות של נכסים (אלה נוספות דרך "הנכסים שלי").
+        </p>
+        <div class="img-dropzone">
+          <label class="pick" for="brGalleryInput">+ הוספת תמונות לגלריה</label>
+          <input type="file" id="brGalleryInput" accept="image/jpeg,image/png,image/webp" multiple>
+          <div class="hint">עד 24 תמונות · אפשר להוסיף כיתוב לכל תמונה · הקבצים מוקטנים אוטומטית</div>
+        </div>
+        <div class="gallery-admin" id="brGalleryGrid"></div>
+        <div id="brGalleryEmpty" class="empty-state" style="padding:18px">עדיין אין תמונות בגלריה.</div>
+
+        <button type="button" class="btn btn-gold btn-block" id="brSaveBtn" style="margin-top:16px">שמירת המיתוג</button>
+        <div id="brFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+        <a href="#" id="brViewPageLink" target="_blank" rel="noopener" style="display:block;text-align:center;font-size:.8rem;color:var(--teal);margin-top:8px">צפייה בדף המשרד ←</a>
+        </div>
+      </details>
+    </div>
+
     <!-- ניהול ההתראות: תיבת סימון לכל סוג, והכול מסומן כברירת מחדל. הרשימה
          נבנית ב-renderNotifPrefs() מתוך NOTIF_TYPES, כדי שסוג חדש שנוסף
          לקוד יופיע כאן אוטומטית ולא יישכח. -->
@@ -5728,73 +5801,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <button type="button" class="btn btn-block btn-danger" id="closeAccountBtn">סגירת החשבון והפסקת ההתקשרות</button>
         </div>
         <div id="closureFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
-      </div>
-    </details>
-
-    <!-- ---------- דוחות וביצועים ----------
-         גרף מגמת העמלות ישב עד היום בדף הבית, בין הפעולות המהירות למדדי
-         המשנה. הוא נשאר אותו גרף בדיוק (renderCommissionTrend כותב לאותם
-         מזהים), רק במקום שבו מסתכלים על מגמה — קטגוריה שנכנסים אליה, ולא
-         שטח גלילה קבוע בדף שנפתח עשרים פעם ביום.
-
-         העמודות עצמן מתמלאות בגלילה: ‏--h מחזיק את הגובה הסופי והמחלקה
-         ‏.is-grown היא זו שמשחררת אותו (ראו initTrendGrowth). -->
-    <details class="acc" id="accReports">
-      <summary>
-        <span class="acc-title">דוחות וביצועים</span>
-        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-      </summary>
-      <div class="acc-body">
-        <p class="acc-sub">מגמת פוטנציאל העמלות לאורך זמן — מאיפה הגיע התיק הפעיל שלך והאם הוא צומח</p>
-        <section class="kpi-trend" aria-label="מגמת פוטנציאל העמלות">
-          <div class="kpi-trend-head">
-            <span class="kpi-trend-title">מגמת פוטנציאל העמלות · 6 חודשים</span>
-            <span class="kpi-trend-now" id="kpiTrendNow">₪0</span>
-          </div>
-          <p class="kpi-trend-legend">
-            <span><i class="now"></i>החודש הנוכחי</span>
-            <span><i class="past"></i>חודשים קודמים</span>
-          </p>
-          <div class="trend-chart" id="kpiCommissionSpark" role="img" aria-label="מגמת פוטנציאל העמלות בששת החודשים האחרונים"></div>
-          <div class="trend-axis" id="kpiCommissionAxis"></div>
-          <p class="kpi-trend-note" id="kpiTrendNote">סך העמלה הצפויה מהנכסים הפעילים שכבר היו מפורסמים בסוף כל חודש.</p>
-        </section>
-      </div>
-    </details>
-
-    <details class="acc" id="accPlanning">
-      <summary>
-        <span class="acc-title">מידע תכנוני על נכס (עפולה)</span>
-        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-      </summary>
-      <div class="acc-body">
-      <p class="acc-sub">גוש/חלקה, ייעוד קרקע, תוכניות תכנון ומפת חלקה — הזינו כתובת או גוש/חלקה</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <input type="text" id="planStreet" list="planStreetOptions" autocomplete="off" placeholder="רחוב (למשל: דפנה)">
-        <!-- ‏datalist נפרד מזה של טופס הנכס, ולא משותף: הכלי הזה הוא עפולה
-             בלבד (כך גם כותרת האקורדיון), בעוד שהרשימה בטופס עוקבת אחרי
-             שדה העיר. ‏datalist משותף היה מציג כאן את רחובות העיר שהוקלדה
-             בטופס — רשימה שגויה, בלי שום סימן לכך. -->
-        <datalist id="planStreetOptions"></datalist>
-        <input type="text" id="planHouseNum" placeholder="מספר בית">
-      </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-        <input type="text" id="planGush" placeholder="גוש (אופציונלי, במקום כתובת)">
-        <input type="text" id="planHelka" placeholder="חלקה">
-      </div>
-      <button type="button" class="btn btn-gold btn-block" id="planLookupBtn">בדיקת מידע תכנוני</button>
-      <div id="planFeedback" style="font-size:.82rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
-
-      <div id="planUpgradeNotice" style="display:none;margin-top:14px;padding:16px;background:var(--gold-tint);border-radius:var(--radius-sm);text-align:center">
-        <p style="font-weight:700;color:var(--red-dark);margin:0 0 6px">מידע תכנוני זמין רק במסלולים בתשלום</p>
-        <p style="font-size:.82rem;color:var(--ink-soft);margin:0">שדרג למנוי Mid או Premium כדי לקבל מידע על נכסים ללא הגבלה</p>
-      </div>
-
-      <div id="planResultPanel" style="display:none;margin-top:16px">
-        <div id="planFields" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px"></div>
-        <div id="planPlansList" style="margin-bottom:14px"></div>
-        <div id="planMap" style="height:280px;border-radius:var(--radius-md);overflow:hidden;border:1px solid var(--line)"></div>
-      </div>
       </div>
     </details>
     </section>
@@ -7604,8 +7610,12 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   loadEthicsSettings(agent);
 
   // display נקבע בשני הכיוונים ולא רק ל-block, כדי שהחלפת תפקיד מתפריט הבדיקה
-  // (מנהל/ת → סוכן/ת) באמת תסתיר את אזור הניהול בלי לרענן את העמוד
-  document.getElementById('managerSection').style.display = agent.role === 'manager' ? 'block' : 'none';
+  // (מנהל/ת → סוכן/ת) באמת תסתיר את אזור הניהול בלי לרענן את העמוד.
+  // שתי מגירות ולא אחת: הן רחוקות זו מזו בעמוד כי סדר הקטגוריות הוא סדר
+  // הניווט, והן נפתחות ונסגרות יחד — ראו את ההערה מעל #managerBrandingSection.
+  const managerDisplay = agent.role === 'manager' ? 'block' : 'none';
+  document.getElementById('managerSection').style.display = managerDisplay;
+  document.getElementById('managerBrandingSection').style.display = managerDisplay;
   if (agent.role === 'manager'){
     await loadBranding(agent.agency_id);
     await loadTeam(agent.agency_id, agent.id);
