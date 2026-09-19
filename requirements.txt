@@ -6,8 +6,8 @@ requests>=2.32,<3
 pydantic>=2.9,<3
 python-dotenv>=1.0,<2
 
-# הסוכן התפעולי (ops_scan.py, docs/ops-agent.md). הוא מדבר עם המסד
-# ב-SQL ישיר ולא דרך PostgREST: השאילתות שלו נוגעות ב-pg_stat_statements,
-# ב-pg_policies וב-cron.job_run_details — קטלוגים שלקוח ה-supabase אינו
-# חושף כלל.
-psycopg2-binary>=2.9,<3
+# ⚠️ **הקובץ הזה נטען גם בבנייה של Netlify.** תמונת הבנייה שלה מריצה
+# ‏`pip install -r requirements.txt` מעצמה כשהקובץ קיים בשורש, ולכן חבילה
+# שאין לה wheel מתאים שם מפילה את **פריסת האתר** — לא רק סקריפט.
+# תלות שנחוצה רק לכלי שרץ ב-Actions הולכת לקובץ requirements משלה
+# (ראו ops_agent/requirements.txt), ולא לכאן.

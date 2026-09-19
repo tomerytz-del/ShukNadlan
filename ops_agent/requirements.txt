@@ -1,0 +1,18 @@
+# תלויות הסוכן התפעולי (ops_scan.py, docs/ops-agent.md).
+#
+# **למה קובץ נפרד ולא requirements.txt שבשורש:** תמונת הבנייה של Netlify
+# מריצה `pip install -r requirements.txt` מעצמה כשהקובץ קיים בשורש הריפו.
+# כלומר כל חבילה שנוספת שם נכנסת ל**פריסת האתר**, ואם אין לה wheel מתאים
+# בסביבה של Netlify — הפריסה נופלת. זה מה שקרה כאן: `psycopg2-binary`
+# בשורש הפיל את הדיפלוי, בעוד שהוא נחוץ אך ורק ל-workflow שרץ ב-Actions.
+#
+# האתר אינו מריץ פייתון בכלל. אין שום סיבה שדרייבר של Postgres ייכנס
+# לבנייה שלו.
+#
+# הסוכן מדבר עם המסד ב-SQL ישיר ולא דרך PostgREST: השאילתות שלו נוגעות
+# ב-pg_stat_statements, ב-pg_policies וב-cron.job_run_details — קטלוגים
+# שלקוח ה-supabase אינו חושף כלל.
+psycopg2-binary>=2.9,<3
+
+# לבדיקות הזמן החי מול האתר ולבריאות ה-workflows
+requests>=2.32,<3
