@@ -47,7 +47,18 @@ class Settings:
     # הוא תוכן ציבורי שכבר נוסח על ידי עיתונאי/ת, ולא ליד שצריך לסווג.
     anthropic_api_key: str = ""
     model: str = "claude-sonnet-5"
-    max_tokens: int = 1500
+    # התקרה הזו הייתה 1500, והיא הפילה הרצה שלמה ב-18.9.2026.
+    #
+    # ‏claude-sonnet-5 מריץ חשיבה מורחבת (adaptive) כברירת מחדל — גם בלי
+    # שנבקש — ותוכן החשיבה נספר בתוך max_tokens. ברירת המחדל של display
+    # היא "omitted", ולכן החשיבה גם אינה חוזרת בתשובה: היא פשוט אוכלת את
+    # התקציב בשקט. בידיעה ארוכה אחת היא אכלה כמעט את כולו, וה-JSON נחתך
+    # באמצע מחרוזת בתו ה-827.
+    #
+    # אובייקט התשובה עצמו הוא כ-300 תווים. התקרה כאן אינה הוצאה אלא גג:
+    # משלמים על מה שנוצר בפועל, ו-6000 נותן פי-ארבעה מרווח מעל הנקודה
+    # שבה הקטיעה קרתה, בלי להשאיר זנב פתוח למקרה שהמודל יחשוב בלי סוף.
+    max_tokens: int = 6000
 
     items_table: str = "news_items"
     sources_table: str = "news_sources"
@@ -80,7 +91,7 @@ def load_settings() -> Settings:
         supabase_service_role_key=_required("SUPABASE_SERVICE_ROLE_KEY"),
         anthropic_api_key=os.environ.get("ANTHROPIC_API_KEY", "").strip(),
         model=os.environ.get("CLAUDE_MODEL", "").strip() or "claude-sonnet-5",
-        max_tokens=_int("NEWS_MAX_TOKENS", 1500),
+        max_tokens=_int("NEWS_MAX_TOKENS", 6000),
         items_table=os.environ.get("NEWS_ITEMS_TABLE", "").strip() or "news_items",
         sources_table=os.environ.get("NEWS_SOURCES_TABLE", "").strip() or "news_sources",
         max_entries_per_feed=_int("NEWS_MAX_ENTRIES_PER_FEED", 30),

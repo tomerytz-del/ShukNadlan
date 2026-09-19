@@ -9,7 +9,15 @@
    ישבו שלוש רצועות ("פרטי להשכרה", "פרטי למכירה", "מסחרי") שסוג העסקה
    הפך בהן ממאפיין של הנכס למבנה של הדף, ומי שרצה לראות מה יש למשרד נאלץ
    לגלול שלושה מסלולים אופקיים. עכשיו שלושתם מציגים את אותו הדבר באותה
-   צורה — מדף פרטי ומדף מסחרי — וזה הקובץ שמצייר אותם.
+   צורה, וזה הקובץ שמצייר אותם.
+
+   **בדף הבית זהו היום מדף אחד ולא שניים.** אותה טענה שהורידה את הרצועות
+   הופעלה גם על הקטגוריה: "פרטי" ו"מסחרי" הם מאפיין של הנכס, ולכן הם
+   תגית בשורת התגיות (‏cfg.categoryTags) ולא שתי סקציות. מה שנשאר משתי
+   הסקציות הוא ‎cfg.box‎ — מסגרת אחת שסוגרת את התצוגה — ו-‎cfg.rows‎, שפותח
+   אותה על שתי שורות במקום על אחת. בדף המשרד ובדף הסוכן/ת עדיין יושבים
+   שני מדפים, פרטי ומסחרי, כי שם המלאי קטן ומי ששואל "מה יש למשרד"
+   מקבל את שניהם על מסך אחד ממילא.
 
      PropShelf.create(cfg)  →  { set(list), setVisualized(ids), selectTag(key) }
 
@@ -27,13 +35,18 @@
      "שורה אחת" היא הכרטיס המקודם ואחריו PP_MOBILE_ROWS שורות דחוסות.
 
      ‏PP_PAGE הוא רק מה ש"עוד נכסים" מוסיף בכל לחיצה — לא מה שנפתח בהתחלה
-     — כדי שלחיצה אחת תיתן נתח אמיתי ולא עוד ארבעה אריחים. */
-  var PP_PAGE = 12;
+     — כדי שלחיצה אחת תיתן נתח אמיתי ולא עוד ארבעה אריחים.
+
+     עשר ולא שתים־עשרה: המספר שעל הכפתור נקרא כהבטחה ("להצגת 10 תוצאות
+     נוספות"), ומי שסופר/ת כמה הוסיף/ה סופר/ת בעשרות. */
+  var PP_PAGE = 10;
   var PP_MOBILE_ROWS = 2;
   /* שני המקומות הראשונים שמורים לנכסים מקודמים. */
   var PP_PROMOTED = 2;
   /* כמה תגיות "סוג נכס" מוצגות לכל היותר. מעבר לזה שורת התגיות מתחילה
-     להתחרות בנכסים עצמם על גובה המסך. */
+     להתחרות בנכסים עצמם על גובה המסך. ‏cfg.kindTagsMax מרים את התקרה
+     במדף שמחזיק שני מלאים (דף הבית): שם הסוגים הפרטיים והמסחריים
+     מתחרים על אותם שמונה מקומות, והמסחריים — המיעוט — נחתכו כולם. */
   var PP_KIND_TAGS_MAX = 8;
 
   /* ---------- טלפון: ויטרינה אחת ואחריה שתי שורות ----------
@@ -213,7 +226,7 @@
         '<p class="pp-count" data-pp="count" aria-live="polite"></p></div>'
       : '';
 
-    root.innerHTML = head +
+    var body = head +
       '<div class="pp-controls">' +
         /* התגיות נבנות ב-JS מתוך המלאי (renderTags). המעטפת מחזיקה את שני
            חצי הגלילה ואת מסכות הדהייה בקצוות — ראו bindTagsScroller. */
@@ -233,7 +246,22 @@
           '</select></label>' +
       '</div>' +
       '<div class="pp-grid" data-pp="grid"></div>' +
-      '<div class="pp-more-wrap"><button type="button" class="pp-more" data-pp="more" hidden></button></div>';
+      /* שני כפתורים ולא אחד. "להצגת 10 תוצאות נוספות" מאריך את הרשימה, וכל
+         לחיצה מאריכה אותה עוד — ואחרי שלוש לחיצות המדף הוא מסך וחצי של
+         גלילה בלי שום דרך חזרה חוץ מגלילה ידנית עד לראשו. ‏.pp-less הוא
+         הדרך חזרה, והוא מופיע רק כשיש מה לקפל. */
+      '<div class="pp-more-wrap">' +
+        '<button type="button" class="pp-more" data-pp="more" hidden></button>' +
+        '<button type="button" class="pp-less" data-pp="less" hidden>הצגה מצומצמת</button>' +
+      '</div>';
+
+    /* ‏cfg.box — מסגרת אחת סביב הכול (כותרת, תגיות, מיון, גריד וכפתור
+       "עוד"). היא נולדה בדף הבית, כשהמדף הפרטי והמדף המסחרי התמזגו למדף
+       אחד: שתי סקציות זו אחר זו על רקע העמוד נקראו כשתי תצוגות גם אחרי
+       שהמלאי שלהן התאחד, ומה שאומר "זו תצוגה אחת" הוא הקו שסוגר אותה.
+       המסגרת היא ‎div‎ פנימי ולא הסקציה עצמה: הסקציה היא ‎.wrap‎, והגבול
+       עליה היה נצמד לשפת המסך בטלפון במקום להישמר בתוך השוליים. */
+    root.innerHTML = cfg.box ? '<div class="pp-box">' + body + '</div>' : body;
 
     if (cfg.title && cfg.titleId) root.setAttribute('aria-labelledby', cfg.titleId);
   }
@@ -248,7 +276,8 @@
 
     buildSkeleton(root, cfg);
     var $ = function (name) { return root.querySelector('[data-pp="' + name + '"]'); };
-    var tagsBox = $('tags'), grid = $('grid'), countEl = $('count'), moreBtn = $('more');
+    var tagsBox = $('tags'), grid = $('grid'), countEl = $('count'),
+        moreBtn = $('more'), lessBtn = $('less');
 
     // shown:0 = "מה שנפתח בהתחלה" — שורה אחת, שמחושבת בזמן הציור לפי הרוחב
     // הנוכחי. לחיצה על "עוד נכסים" קובעת מספר מפורש שגדול ממנה.
@@ -372,12 +401,27 @@
     function buildTags() {
       var list = state.all;
 
-      var deals = [
+      /* תגית מקבלת את הספירה שלה מתוך כל מלאי המדף, ותגית ריקה לא נבנית. */
+      function counted(defs) {
+        return defs.map(function (t) {
+          return { key: t.key, group: t.group, label: t.label, test: t.test, count: list.filter(t.test).length };
+        }).filter(function (t) { return t.count > 0; });
+      }
+
+      /* **קטגוריה** — פרטי מול מסחרי. היא נבנית רק במדף שמחזיק את שני
+         המלאים (‏cfg.categoryTags — דף הבית), ובדיוק מאותו נימוק שבגללו
+         "מכירה/השכרה" היא תגית ולא שתי רצועות: הקטגוריה היא מאפיין של
+         הנכס ולא מבנה של העמוד. בדף המשרד ובדף הסוכן/ת יש מדף לכל
+         קטגוריה, ושם התגית הייתה מסמנת את כל המלאי בלי לסנן דבר. */
+      var cats = cfg.categoryTags ? counted([
+        { key: 'cat:private', group: 'cat', label: 'פרטי', test: function (p) { return !isCommercial(p); } },
+        { key: 'cat:commercial', group: 'cat', label: 'מסחרי', test: isCommercial },
+      ]) : [];
+
+      var deals = counted([
         { key: 'sale', group: 'deal', label: 'מכירה', test: function (p) { return p.deal_type !== 'rent'; } },
         { key: 'rent', group: 'deal', label: 'השכרה', test: function (p) { return p.deal_type === 'rent'; } },
-      ].map(function (t) {
-        return { key: t.key, group: t.group, label: t.label, test: t.test, count: list.filter(t.test).length };
-      }).filter(function (t) { return t.count > 0; });
+      ]);
 
       var rooms = new Map();   // '4' → כמה דירות 4 חדרים
       var types = new Map();   // 'יחידת דיור' → כמה
@@ -413,9 +457,13 @@
 
       /* החדרים קודם — הם השאלה הראשונה של מי שמחפש דירה — ושאר הסוגים
          ממלאים את מה שנשאר עד התקרה, לפי כמה מהם יש. */
-      var kinds = roomTags.concat(typeTags).slice(0, PP_KIND_TAGS_MAX);
+      var kinds = roomTags.concat(typeTags).slice(0, cfg.kindTagsMax || PP_KIND_TAGS_MAX);
 
-      tags = [].concat(deals.length > 1 ? deals : [], kinds.length > 1 ? kinds : []);
+      tags = [].concat(
+        cats.length > 1 ? cats : [],
+        deals.length > 1 ? deals : [],
+        kinds.length > 1 ? kinds : []
+      );
       byKey = new Map(tags.map(function (t) { return [t.key, t]; }));
       // תגית שנעלמה מהמלאי (הנכס האחרון שלה ירד) לא נשארת דלוקה בשקט
       state.tags = new Set(Array.from(state.tags).filter(function (k) { return byKey.has(k); }));
@@ -536,16 +584,30 @@
         var rest = items.length - shown.length;
         moreBtn.hidden = rest <= 0;
         // המספר על הכפתור הוא מה שהלחיצה תוסיף, ולא הזנב כולו: כפתור
-        // שמבטיח "עוד 62 נכסים" ומוסיף שנים־עשר משקר פעם אחת לכל לחיצה.
+        // שמבטיח "עוד 62 נכסים" ומוסיף עשרה משקר פעם אחת לכל לחיצה.
         var add = Math.min(rest, PP_PAGE);
-        moreBtn.textContent = add === 1 ? 'עוד נכס אחד' : 'עוד ' + add.toLocaleString('he-IL') + ' נכסים';
+        moreBtn.textContent = add === 1
+          ? 'להצגת תוצאה אחת נוספת'
+          : 'להצגת ' + add.toLocaleString('he-IL') + ' תוצאות נוספות';
       }
+
+      /* "הצגה מצומצמת" מופיע רק כשהרשימה באמת התארכה מעבר למה שנפתח
+         מעצמו — כלומר רק אחרי לחיצה על "עוד". כפתור קיפול מתחת למדף שלא
+         נפתח הוא כפתור שלא עושה כלום. */
+      if (lessBtn) lessBtn.hidden = shown.length <= firstPage();
     }
 
-    /* כמה אריחים לצייר עכשיו. הרצפה היא תמיד שורה אחת מלאה ברוחב הנוכחי,
-       ומעליה יושב מה שלחיצות "עוד נכסים" הוסיפו. */
+    /* כמה אריחים לצייר עכשיו. הרצפה היא ‎cfg.rows‎ שורות מלאות ברוחב
+       הנוכחי (ברירת המחדל: אחת), ומעליה יושב מה שלחיצות "עוד נכסים"
+       הוסיפו.
+
+       ‏cfg.rows קיים בגלל דף הבית: שני מדפים בני שורה אחת התמזגו שם למדף
+       אחד, ושורה אחת במקום שתיים הייתה מורידה חצי מהמלאי שנפתח. בטלפון
+       הרצפה אינה מושפעת — שם היא הכרטיס המוגדל ואחריו ‎PP_MOBILE_ROWS‎
+       שורות דחוסות, בכל מדף. */
+    var shelfRows = Math.max(1, Number(cfg.rows) || 1);
     function firstPage() {
-      return ppNarrow.matches ? (1 + PP_MOBILE_ROWS) : ppCols(grid);
+      return ppNarrow.matches ? (1 + PP_MOBILE_ROWS) : ppCols(grid) * shelfRows;
     }
     function limit() {
       var first = firstPage();
@@ -555,6 +617,21 @@
     /* כל שינוי בסינון או במיון מחזיר לעמוד הראשון: "עוד נכסים" שנלחץ לפני
        הסינון היה משאיר גריד ארוך של תוצאות אחרות. */
     function reset() { state.shown = 0; }
+
+    /* ---------- התגיות הן חיפוש, ולכן מישהו מעליהן צריך לדעת ----------
+       תגיות המדף סיננו עד כה את הגריד בלבד. בדף הבית יש מעליו מפה שמציגה
+       את אותו מלאי בדיוק, והיא נשארה מלאה בפינים של נכסים שהסינון כבר
+       הוריד — כלומר המשתמש/ת סיננ/ה ל"דירות 3 חדרים" וראה/תה מעל זה את כל
+       המלאי. ‏cfg.onFilter מוסר את הרשימה המסוננת למי שהרכיב את המדף, והוא
+       מחליט מה לעשות איתה; מדף שלא מסר onFilter (דף המשרד, דף הסוכן/ת)
+       מתנהג בדיוק כמו קודם.
+
+       ‏filtered=false אינו "רשימה ריקה" אלא "אין סינון" — זה מה שמחזיר את
+       המפה למה שהיה לפני התגיות במקום לצייר עליה את כל המלאי כתוצאת חיפוש. */
+    function notifyFilter() {
+      if (typeof cfg.onFilter !== 'function') return;
+      cfg.onFilter(ordered(), state.tags.size > 0);
+    }
 
     // המאזינים נקשרים פעם אחת לקונטיינרים שנבנו כאן, ולא לכפתורים שנבנים
     // מחדש בכל ציור.
@@ -571,6 +648,7 @@
       reset();
       renderTags();
       renderGrid();
+      notifyFilter();
     });
 
     var sortEl = $('sort');
@@ -583,6 +661,16 @@
     if (moreBtn) moreBtn.addEventListener('click', function () {
       state.shown = limit() + PP_PAGE;
       renderGrid();
+    });
+
+    /* קיפול חזרה למה שנפתח מעצמו. הגלילה אל ראש המדף היא חלק מהפעולה ולא
+       תוספת: אחרי שלוש לחיצות על "עוד" הכפתור נמצא מסך וחצי מתחת לכותרת,
+       והקיפול לבדו היה משאיר את העין בתוך פוטר העמוד בלי שום הקשר.
+       ‏block:'start' ולא scrollTop — המדף יושב בתוך הזרימה הרגילה של העמוד. */
+    if (lessBtn) lessBtn.addEventListener('click', function () {
+      reset();
+      renderGrid();
+      root.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
 
     /* חצייה של נקודת שבירה (סיבוב מכשיר, שינוי גודל חלון) מציירת מחדש: גם
@@ -600,6 +688,11 @@
         buildTags();
         renderTags();
         renderGrid();
+        /* מלאי שנחת אחרי שכבר נבחרה תגית (המסחריים מגיעים משאילתה שנייה
+           ולא מסונכרנת) משנה את הרשימה המסוננת, ולכן מי שמאזין לה חייב
+           לקבל אותה מחדש. בלי סינון פעיל אין מה לעדכן — המפה מציגה ממילא
+           את מה שהחיפוש החזיר לה. */
+        if (state.tags.size) notifyFilter();
       },
       /* תגית "הדמיית AI" מגיעה בשאילתה שנייה שלא מעכבת את ההצגה הראשונה,
          ולכן היא נמסרת בנפרד ומציירת מחדש רק את מה שכבר על המסך. */
@@ -608,13 +701,25 @@
         if (state.all.length) renderGrid();
       },
       /* הדלקת תגית מבחוץ (עוגן הפוטר). מחזירה false כשאין תגית כזו במלאי,
-         כדי שהעוגן לא יגלול לתצוגה שלא השתנתה. */
+         כדי שהעוגן לא יגלול לתצוגה שלא השתנתה. ‏key ריק מכבה את הסינון
+         כולו — זה מה ש"כל הנכסים" בפוטר אומר, כשמגיעים אליו מתוך עוגן
+         שהדליק תגית. */
       selectTag: function (key) {
+        if (!key) {
+          if (!state.tags.size) return true;
+          state.tags.clear();
+          reset();
+          renderTags();
+          renderGrid();
+          notifyFilter();
+          return true;
+        }
         if (!byKey.has(key)) return false;
         state.tags = new Set([key]);
         reset();
         renderTags();
         renderGrid();
+        notifyFilter();
         return true;
       },
       /* המדף הפרטי והמסחרי חולקים את כפתורי "עוד" והתגיות, אבל העמוד

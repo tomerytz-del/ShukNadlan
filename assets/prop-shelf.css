@@ -11,6 +11,25 @@
    בדף המשרד ובדף הסוכן/ת הכותרת היא ‎h3‎ בתוך מקטע שכבר יש לו ‎h2‎.
    ========================================================================== */
 
+/* ====== התיבה ======
+   מסגרת אחת סביב כל המדף — כותרת, תגיות, מיון, גריד וכפתור "עוד". היא
+   נדלקת מ-‎cfg.box‎ ויושבת היום רק במדף של דף הבית, זה שאיחד את הנכסים
+   הפרטיים והמסחריים: שתי סקציות שיושבות זו אחר זו על רקע העמוד נקראות
+   כשתי תצוגות גם כשהמלאי שלהן אחד, ומה שאומר "זו תצוגה אחת" הוא הקו
+   שסוגר אותה.
+
+   הרקע ‎--surface-soft‎ ולא ‎--paper-raised‎: האריחים עצמם לבנים, ותיבה
+   לבנה מתחתיהם מוחקת את הגבול שלהם. ההפרש מהרקע הזורם של העמוד
+   (‏assets/page-bg.js) קטן במכוון — המסגרת היא שמגדירה את התיבה, לא
+   הכתם. */
+.pp-box{
+  background:var(--surface-soft);
+  border:1.5px solid var(--line);
+  box-shadow:var(--shadow-sm);
+  padding:18px 16px;
+}
+@media(max-width:520px){ .pp-box{padding:12px 10px} }
+
 .pp-head{
   display:flex;align-items:baseline;justify-content:space-between;
   gap:6px 14px;flex-wrap:wrap;margin-bottom:12px;
@@ -191,15 +210,18 @@
   font-size:.9rem;font-weight:600;color:var(--ink-soft);
   background:var(--paper-raised);border:1px dashed var(--line);border-radius:var(--radius-md);
 }
-.pp-more-wrap{display:flex;justify-content:center;margin-top:16px}
-.pp-more{
+.pp-more-wrap{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:16px}
+.pp-more,.pp-less{
   font-family:inherit;font-size:.88rem;font-weight:700;color:var(--ink);
   background:var(--paper-raised);border:1.5px solid var(--line);
   padding:12px 26px;border-radius:0;cursor:pointer;
   transition:border-color .15s ease,color .15s ease;
 }
-.pp-more:hover{border-color:var(--teal);color:var(--teal)}
-.pp-more[hidden]{display:none}
+.pp-more:hover,.pp-less:hover{border-color:var(--teal);color:var(--teal)}
+.pp-more[hidden],.pp-less[hidden]{display:none}
+/* הקיפול הוא הפעולה המשנית מבין השתיים — הוא מבטל, לא מקדם — ולכן הוא
+   שקט יותר מ"להצגת תוצאות נוספות" שלצדו. */
+.pp-less{background:transparent;color:var(--ink-soft);font-weight:600}
 @media(max-width:520px){
   /* בטלפון בורר המיון יורד לשורה משלו: לצד התגיות הוא לקח כ-40% מהרוחב,
      והשאיר להן חלון של כמאה וחמישים פיקסלים — שתי תגיות וחצי. שורת

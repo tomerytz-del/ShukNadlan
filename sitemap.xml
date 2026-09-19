@@ -50,6 +50,15 @@
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>
   </url>
+  <!-- עמוד התשלום. אינו עמוד שיווקי ואין לו ערך בחיפוש, אבל הוא מופיע כאן
+       כדי שסורק חיצוני — ובראשו זה של חברת הסליקה — ימצא אותו בלי לתלות את
+       המציאה בקישור שנבנה ב-JavaScript. ראו docs/wallet-payments.md. -->
+  <url>
+    <loc>https://shuknadlan.co.il/checkout</loc>
+    <lastmod>2026-09-17</lastmod>
+    <changefreq>yearly</changefreq>
+    <priority>0.3</priority>
+  </url>
   <url>
     <loc>https://shuknadlan.co.il/about</loc>
     <lastmod>2026-09-15</lastmod>

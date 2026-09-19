@@ -15,6 +15,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>שוק נדל״ן | עפולה והעמק</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<!-- התקנה כאפליקציה (PWA) — מניפסט, אייקוני מסך הבית וכפתור ההתקנה
+     שבתוך הדף. הבלוק הזה חוזר בכל דף מאותה סיבה שתגיות ה-GTM חוזרות:
+     לאתר אין תבנית משותפת. הפרטים: docs/pwa-install.md -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0e2a6b">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="שוק נדל״ן">
+<script defer src="assets/pwa-install.js"></script>
 <meta name="description" content="העסקה הבאה שלך בעפולה מתחילה בשוק הנדל״ן — כל הדירות, כל המתווכים, בכתובת אחת.">
 <meta property="og:description" content="העסקה הבאה שלך בעפולה מתחילה בשוק הנדל״ן.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -539,6 +550,22 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .search-card .icon-btn:hover{background:var(--paper)}
   .search-card .search-go{background:var(--gold);color:#fff}
   .search-card .icon-btn svg,.search-card .search-go svg{width:21px;height:21px;display:block}
+  /* חיפוש בדרך. הסימון יושב על שלושת הכפתורים שמריצים חיפוש (זכוכית המגדלת
+     ו"הצגת תוצאות" בשני המודאלים), כי כולם עונים על אותה שאלה: האם הלחיצה
+     שלי נקלטה. ‏.is-busy מסתובב, ולא מחליף את תוכן הכפתור — כפתור שמתרוקן
+     לרגע קופץ ומזיז את שכניו. */
+  .is-busy{opacity:.75;cursor:progress}
+  .search-card .search-go.is-busy svg{animation:shukSpin .7s linear infinite}
+  .filter-modal-footer .btn.is-busy::after{
+    content:"";width:14px;height:14px;margin-inline-start:8px;border-radius:50%;
+    border:2px solid currentColor;border-top-color:transparent;
+    animation:shukSpin .7s linear infinite;
+  }
+  @keyframes shukSpin{to{transform:rotate(360deg)}}
+  @media(prefers-reduced-motion:reduce){
+    .search-card .search-go.is-busy svg,
+    .filter-modal-footer .btn.is-busy::after{animation:none}
+  }
   /* מונה הסינונים הפעילים ישב קודם בתוך הכפתור לצד התווית; בכפתור עגול
      בגודל אייקון אין לו מקום פנימי, ולכן הוא נתלה על הפינה שלו. */
   .search-card .filter-count-badge{position:absolute;top:-1px;inset-inline-start:-1px}
@@ -1458,8 +1485,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   /* ====== טלפון: הרצועה נפתחת מצומצמת ======
      ברוחב טלפון כל מה שברצועה נערם לעמודה אחת: שתי הדמיות בנות 170px,
-     קופסת ארבעת הסגנונות, ה-CTA והאזהרה — יחד יותר ממסך שלם, וכל אחד
-     מהמדפים שמתחתיו נדחף בהתאם. במצב ‏.is-compact נשארים בדיוק שלושת
+     קופסת ארבעת הסגנונות, ה-CTA והאזהרה — יחד יותר ממסך שלם, ותיבת
+     הנכסים שמתחתיו נדחפת בהתאם. במצב ‏.is-compact נשארים בדיוק שלושת
      החלקים שעושים את העבודה: הדמיה אחת שמדגימה מה זה, ה-CTA **צמוד לה**,
      והאזהרה. השאר נפתח בלחיצה על הכפתור שבתחתית וניתן לסגירה חזרה.
 
@@ -2199,11 +2226,21 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   @media(min-width:760px){
     .hot-band{margin-top:-20px;padding:26px 0 32px}
-    .dm-head{flex-direction:row;justify-content:space-between;align-items:flex-end;
-      gap:24px;margin-bottom:14px}
+    .dm-head{flex-direction:row;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;
+      gap:12px 24px;margin-bottom:14px}
     .dm-head > div{text-align:start}
-    .dm-tabs{flex:0 0 auto}
-    .dm-tabs button{flex:0 0 auto;padding:0 18px;font-size:.84rem}
+    /* ====== הלשוניות: אותו פקד בדיוק כמו בטלפון ======
+       עד כאן הן היו ‎flex:0 0 auto‎ בקצה שורת הכותרת — שלושה כפתורים
+       ברוחב הטקסט שלהם, שכל אחד נגמר איפה שנגמרה המילה. במסך רחב זה
+       נקרא כשלושה קישורי עזר שנדחקו לפינה, ולא כמה שהם באמת: הבורר
+       שקובע מה מוצג בכל מה שמתחתיו.
+
+       בטלפון הפקד הזה עובד — מגש ברוחב מלא ושלוש לשוניות שוות שממלאות
+       אותו — ואין סיבה שהוא ייראה אחרת במחשב. ‏flex:1 0 100% מוריד את
+       המגש לשורה מלאה משלו מתחת לכותרת, ו-‎flex:1‎ על הכפתורים מחזיר את
+       שלושת החלקים השווים. */
+    .dm-tabs{flex:1 0 100%}
+    .dm-tabs button{flex:1;padding:0 18px;font-size:.84rem}
     /* מכאן ומעלה יש מקום לשתי עמודות: החיפוש קבוע בשמאל (‏order:1 הוא
        הקצה השמאלי במסמך RTL) והמסלול לוקח את כל השאר ונגלל בעצמו */
     .dm-body{flex-direction:row;align-items:stretch;gap:16px;padding:4px 16px 16px}
@@ -2883,14 +2920,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
     </a>
     <!-- שורת הניווט של הדסקטופ: שישה יעדים שכולם קיימים בעמוד או בדף
-         משלהם. "נכסים" מוביל למדף הנכסים הפרטיים — הרשימה "כל הנכסים
-         הפעילים" שישבה בתחתית העמוד ירדה, ואותו מלאי יושב במדפים —
+         משלהם. "נכסים" מוביל לתיבת הנכסים — הרשימה "כל הנכסים
+         הפעילים" שישבה בתחתית העמוד ירדה, ואותו מלאי יושב בה —
          ו"פרויקטים חדשים" מוביל ל-projects.html: הגלריה בדף הבית ירדה
          בשלב הזה, ועוגן לסקציה שאינה קיימת אינו קישור.
 
          התפריט המלא, על כל הקבוצות, יושב בהמבורגר שמתחת. -->
     <nav class="primary" aria-label="ניווט ראשי">
-      <a href="#privateProps">נכסים</a>
+      <a href="#allProps">נכסים</a>
       <a href="projects.html">פרויקטים חדשים</a>
       <a href="#dealmakers" data-dm-tab="agencies">משרדי תיווך</a>
       <a href="#dealmakers" data-dm-tab="agents">מתווכים</a>
@@ -2910,7 +2947,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        למצוא נכס, למצוא איש מקצוע, להשתמש בכלי, או להצטרף כספק — וכפתור
        הכניסה למערכת נשאר לבדו בתחתית, כי הוא הפעולה היחידה שאינה ניווט.
 
-       שני מיני יעדים בתפריט, ושניהם חייבים לעבוד: עוגן בעמוד (‏#privateProps‎),
+       שני מיני יעדים בתפריט, ושניהם חייבים לעבוד: עוגן בעמוד (‏#allProps‎),
        ומודאל שנפתח מ-hash (‏#calc‎, ‏#yield‎ — ראו bindCalcModal). כל לחיצה
        בתפריט סוגרת אותו (ראו המאזין ב-JS): עוגן באותו עמוד אינו טעינה
        מחדש, והתפריט היה נשאר פתוח מעל היעד שאליו בדיוק גללנו. -->
@@ -2933,8 +2970,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
 
     <div class="menu-panel" id="menuPanelProps" role="tabpanel" aria-labelledby="menuTabProps">
-      <a href="#privateProps">נכסים פרטיים</a>
-      <a href="#commercialProps">נכסים מסחריים</a>
+      <a href="#allProps">כל הנכסים</a>
+      <a href="#allProps-private">נכסים פרטיים</a>
+      <a href="#allProps-commercial">נכסים מסחריים</a>
       <a href="open-house.html">יריד הבתים הפתוחים</a>
       <a href="projects.html">פרויקטים חדשים</a>
       <a href="#heroSection">חיפוש על המפה</a>
@@ -3290,7 +3328,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
         <div class="filter-modal-footer">
           <button type="button" class="btn btn-ghost" id="rClearFilters">איפוס</button>
-          <button type="button" class="btn btn-gold" data-close-modal="residentialFilterModal" style="flex:1">הצגת תוצאות</button>
+          <!-- מריץ חיפוש ולא רק סוגר את המודאל: ‏runSearch() סוגרת בעצמה כל
+               ‎.filter-modal-overlay‎ פתוח, ולכן הלחיצה הזו היא גם הסגירה. -->
+          <button type="button" class="btn btn-gold" id="rApplyFilters" style="flex:1">הצגת תוצאות</button>
         </div>
       </div>
     </div>
@@ -3386,7 +3426,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
         <div class="filter-modal-footer">
           <button type="button" class="btn btn-ghost" id="cClearFilters">איפוס</button>
-          <button type="button" class="btn btn-gold" data-close-modal="commercialFilterModal" style="flex:1">הצגת תוצאות</button>
+          <!-- כמו במודאל המגורים: הכפתור מריץ את החיפוש, והסגירה נגזרת ממנו -->
+          <button type="button" class="btn btn-gold" id="cApplyFilters" style="flex:1">הצגת תוצאות</button>
         </div>
       </div>
     </div>
@@ -3577,24 +3618,32 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        פעילים. ראו docs/open-house-fair.md. -->
   <section class="section wrap" id="openHouseBanner" hidden></section>
 
-  <!-- ====== נכסים פרטיים: מכירה והשכרה בתצוגה אחת ======
-       יושבת מיד מתחת לרצועת ההדמיות, ובמקומן של שתי הרצועות הנגללות
-       ("נכסים פרטיים למכירה" ו"נכסים פרטיים להשכרה") שישבו עמוק יותר
-       בעמוד משני צידי באנר הערכת השווי. מי שמחפש דירה לא מחפש "רצועת
-       מכירה" ו"רצועת השכרה" — הוא מחפש נכס, וסוג העסקה הוא תגית עליו.
+  <!-- ====== הנכסים: פרטי ומסחרי, מכירה והשכרה, בתיבה אחת ======
+       יושבת מיד מתחת לרצועת ההדמיות, ובמקומן של **שתי** התצוגות שישבו
+       כאן קודם — "נכסים פרטיים" ו"נכסים מסחריים", שהיו זהות לחלוטין חוץ
+       מ-‎category‎ ורק באנר הערכת השווי הפריד ביניהן.
+
+       זו אותה טענה שהורידה בשעתו את רצועות המכירה וההשכרה, על הקטגוריה:
+       מי שמחפש נכס לא מחפש "תצוגת פרטי" ו"תצוגת מסחרי" — הוא מחפש נכס,
+       והקטגוריה היא תגית עליו. היא יושבת היום ראשונה בשורת התגיות
+       (פרטי · מסחרי), לצד מכירה/השכרה וסוגי הנכס.
 
        הסדר הוא סדר ההעלאה (החדשים ראשונים) עם עדיפות לנכסים שיש להם
        סרטון או תמונות, ובראשו עד שני נכסים מקודמים.
-       התגיות המובנות שמעל הגריד נבנות מהמלאי עצמו — מכירה, השכרה, דירות
-       לפי מספר חדרים, ושאר סוגי הנכס שיש בפלטפורמה (יחידת דיור, בית
-       פרטי, מגרש…) — ולכן אף תגית לא מחזירה תוצאה ריקה.
+       התגיות המובנות שמעל הגריד נבנות מהמלאי עצמו — קטגוריה, מכירה,
+       השכרה, דירות לפי מספר חדרים, ושאר סוגי הנכס שיש בפלטפורמה (יחידת
+       דיור, בית פרטי, מגרש, משרדים, חנויות…) — ולכן אף תגית לא מחזירה
+       תוצאה ריקה.
 
-       המדף עצמו — הכותרת, שורת התגיות, בורר המיון, הגריד וכפתור "עוד
-       נכסים" — נבנה ב-assets/prop-shelf.js לתוך המעטפת הריקה הזו, ואותו
-       מנוע מצייר גם את המדף המסחרי שמתחת, את הנכסים בדף המשרד ואת
-       הנכסים בדף הסוכן/ת. ‏hidden יורד ברגע שיש מלאי.
-       ראו renderPrivateProps() ו-docs/home-property-shelves.md. -->
-  <section class="section wrap" id="privateProps" hidden></section>
+       המדף עצמו — התיבה, הכותרת, שורת התגיות, בורר המיון, הגריד וכפתור
+       "עוד נכסים" — נבנה ב-assets/prop-shelf.js לתוך המעטפת הריקה הזו,
+       ואותו מנוע מצייר גם את הנכסים בדף המשרד ובדף הסוכן/ת. ‏hidden יורד
+       ברגע שיש מלאי.
+
+       ‏id="allProps" ולא ‎privateProps‎, והעוגנים הישנים ממשיכים לעבוד
+       דרך ppApplyHash(). ראו renderHomeProps() ו-
+       docs/home-property-shelves.md. -->
+  <section class="section wrap" id="allProps" hidden></section>
 
   <!-- ====== הסוכן החכם: שמירת חיפוש וקבלת התראות ======
        נפתח מ-#ssaOpenBtn שבכותרת התוצאות ומ-#ssaEmptyBtn שנבנה בקוד כשאין
@@ -3684,16 +3733,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
   </div>
-
-  <!-- ====== נכסים מסחריים ======
-       אותה תצוגה בדיוק של הנכסים הפרטיים שמעליה, על המלאי המסחרי: גריד
-       לפי סדר ההעלאה, שני מקודמים בראש, תגיות מובנות (מכירה/השכרה, וסוגי
-       הנכס שיש בפלטפורמה — משרדים, חנויות, מבני תעשייה…), בורר מיון
-       וכפתור "עוד נכסים". שניהם רצים על PropShelf.create(), ולכן שיפור
-       באחד נוחת גם בשני — וגם בדף המשרד ובדף הסוכן/ת, שמצוירים מאותו
-       מנוע. המדף עצמו נבנה ב-assets/prop-shelf.js לתוך המעטפת הריקה הזו,
-       ו-‎hidden‎ יורד ברגע שיש מלאי. ראו docs/home-property-shelves.md. -->
-  <section class="section wrap" id="commercialProps" hidden></section>
 
   <!-- ====== האנשים מאחורי העסקאות ======
        סקציה אחת במקום שתיים: כאן ישבו קרוסלת משרדי התיווך והבאנר המתקפל
@@ -4507,10 +4546,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <details class="footer-col" open>
         <summary><h4>נכסים</h4></summary>
         <div class="footer-col-links">
-          <a href="#privateProps-sale">למכירה בעפולה</a>
-          <a href="#privateProps-rent">להשכרה בעפולה</a>
-          <a href="#commercialProps">נכסים מסחריים</a>
-          <a href="#privateProps">כל הנכסים</a>
+          <a href="#allProps-sale">למכירה בעפולה</a>
+          <a href="#allProps-rent">להשכרה בעפולה</a>
+          <a href="#allProps-commercial">נכסים מסחריים</a>
+          <a href="#allProps">כל הנכסים</a>
           <a href="open-house.html">יריד הבתים הפתוחים</a>
           <a href="projects.html">פרויקטים חדשים</a>
         </div>
@@ -5584,7 +5623,7 @@ const PROPERTY_SELECT =
   'created_at, lat, lng, is_promoted, promoted_until, images, features, video_url, tour_3d_url, has_virtual_tour, neighborhood_id, ' +
   /* יריד הבתים הפתוחים: שלוש העמודות נשלפות יחד כי התצוגה בודקת את החלון
      ולא את הדגל לבדו (ראו assets/open-house.js). בלעדיהן הפין על המפה,
-     התגית על האריח והבאנר שמעל המדפים לא היו יודעים על היריד דבר. */
+     התגית על האריח והבאנר שמעל תיבת הנכסים לא היו יודעים על היריד דבר. */
   'open_house, open_house_start, open_house_end, ' +
   'agencies(name, logo_url), neighborhoods(name)';
 
@@ -5909,17 +5948,21 @@ const FALLBACK_COMMERCIAL = [
   {id:'c4', price:640000, title:'קליניקה מרווחת עם חניה צמודה', rooms:2, size_sqm:52, city:'עפולה', property_type:'קליניקות', deal_type:'sale', category:'commercial', agency_name:'נדל״ן גלבוע'},
 ];
 
-/* כמה נכסים מסחריים נשלפים למדף. הרצועה שקדמה לו הציגה עשרה מתוך שלושים,
-   והמדף מציג את כולם בעימוד — ולכן הבריכה גדלה למשהו שהוא כל המלאי
-   המסחרי בפועל ולא מדגם ממנו. */
+/* כמה נכסים מסחריים נשלפים לתיבה. הרצועה שקדמה לה הציגה עשרה מתוך
+   שלושים, והתיבה מציגה את כולם בעימוד — ולכן הבריכה גדלה למשהו שהוא כל
+   המלאי המסחרי בפועל ולא מדגם ממנו. */
 const COMMERCIAL_POOL = 120;
 
 async function loadCommercialProperties(){
   if (!sb) return FALLBACK_COMMERCIAL;
   try{
+    /* ‏PROPERTY_SELECT ולא רשימת עמודות משלו: מאז שסינון התגיות שבמדף מגיע
+       גם למפה (‏ppShelfToMap), נכס מכאן חייב להיות זהה בצורתו לנכס
+       מהרשימה הראשית — אחרת הוא מגיע בלי lat/lng ובלי שם שכונה, כלומר
+       נספר בתוצאות ולא מקבל פין. */
     const { data, error } = await sb
       .from('properties')
-      .select('id, price, title, rooms, size_sqm, floor, city, property_type, deal_type, category, images, features, video_url, tour_3d_url, has_virtual_tour, is_promoted, promoted_until, created_at, agencies(name, logo_url)')
+      .select(PROPERTY_SELECT)
       .eq('status', 'active')
       .eq('category', 'commercial')
       // בלי סדר מפורש ה-DB מחזיר שורות בסדר לא מוגדר, ואז גם הבריכה שממנה
@@ -5929,32 +5972,33 @@ async function loadCommercialProperties(){
     if (error || !data || data.length === 0) throw error || new Error('empty');
     // הסידור נעשה במדף עצמו (assets/prop-shelf.js → ordered), כמו בתצוגה
     // הפרטית: מקודמים, עדיפות למדיה וסדר ההעלאה במקום אחד.
-    return data.map(p => ({...p, agency_name: p.agencies?.name || '', agency_logo: p.agencies?.logo_url || ''}));
+    return data.map(shapeProperty);
   } catch(e){
     console.warn('טעינת נכסים מסחריים נכשלה, משתמש בנתוני fallback:', e);
     return FALLBACK_COMMERCIAL;
   }
 }
 
-/* המדף המסחרי הוא היחיד בעמוד ששולף לעצמו: הרשימה הראשית מוגבלת ל-300
-   נכסים פעילים והמסחריים הם מיעוט קטן בתוכה, כך שהם היו נחתכים ממנה
-   בדיוק כשיש הרבה מלאי למגורים. ‏FALLBACK_COMMERCIAL הוא גם הסיבה השנייה:
-   בלי DB זמין אין ולו נכס מסחרי אחד ברשימה הראשית.
+/* המלאי המסחרי הוא החלק היחיד בתיבה ששולף לעצמו: הרשימה הראשית מוגבלת
+   ל-300 נכסים פעילים והמסחריים הם מיעוט קטן בתוכה, כך שהם היו נחתכים
+   ממנה בדיוק כשיש הרבה מלאי למגורים. ‏FALLBACK_COMMERCIAL הוא גם הסיבה
+   השנייה: בלי DB זמין אין ולו נכס מסחרי אחד ברשימה הראשית.
 
    שלושת קישורי "כל הנכסים…" (‏seeAllByDeal) ירדו יחד עם שלוש הרצועות:
    הם קפצו חזרה לסרגל החיפוש שבראש העמוד והריצו חיפוש, כלומר הוציאו את
-   המשתמש מהתצוגה שבה היה. במדפים החדשים הסינון הוא התגיות שמעל הגריד,
-   והעימוד מגיע עד סוף המלאי. */
+   המשתמש מהתצוגה שבה היה. בתיבה הסינון הוא התגיות שמעל הגריד, והעימוד
+   מגיע עד סוף המלאי. */
 (async function initCommercialProperties(){
-  if (!document.getElementById('commercialProps')) return;
-  /* שתי שורות ולא ‎commercialShelf.set(await …)‎: ב-JS צד שמאל של הקריאה
-     מוערך *לפני* הארגומנט, כלומר ‎commercialShelf‎ נקרא עוד לפני ה-await —
-     והוא מוגדר מאות שורות מתחת. שם זה נפל ב-TDZ, והמדף המסחרי נשאר ריק. */
+  if (!document.getElementById('allProps')) return;
+  /* שתי שורות ולא ‎ppSync(await …)‎: ב-JS צד שמאל של הקריאה מוערך *לפני*
+     הארגומנט, כלומר השם נקרא עוד לפני ה-await — והוא מוגדר מאות שורות
+     מתחת. שם זה נפל ב-TDZ, והמלאי המסחרי נשאר בחוץ. */
   const items = await loadCommercialProperties();
-  commercialShelf.set(items);
+  ppCommercial = items;
+  ppSync();
 })();
 
-/* ---------- יריד הבתים הפתוחים: הרצועה שמעל המדפים ----------
+/* ---------- יריד הבתים הפתוחים: הרצועה שמעל תיבת הנכסים ----------
    הספירה היא שאילתת ‎count‎ בלבד (‏head:true — אפס שורות על החוט), ולא
    סינון של הרשימה הראשית: זו מוגבלת ל-300 נכסים פעילים וממוינת
    מקודמים-קודם, כך שנכס ותיק שנכנס ליריד היה נופל ממנה בדיוק ביום שבו יש
@@ -6011,69 +6055,134 @@ function renderOpenHouseBanner(count){
   renderOpenHouseBanner(await loadOpenHouseCount());
 })();
 
-/* ---------- מדפי הנכסים ----------
-   "נכסים פרטיים" (מכירה והשכרה יחד, מיד מתחת לרצועת ההדמיות) ו"נכסים
-   מסחריים" (מתחת לסקציית משרדי התיווך) הן אותה תצוגה בדיוק על שני מלאים:
-   גריד לפי סדר ההעלאה, עד שני נכסים מקודמים בראש, שורת תגיות מובנות
-   שנבנית מהמלאי עצמו, בורר מיון וכפתור "עוד נכסים".
+/* ---------- תיבת הנכסים ----------
+   **תצוגה אחת לכל המלאי** — פרטי ומסחרי, מכירה והשכרה — מיד מתחת לרצועת
+   ההדמיות: גריד לפי סדר ההעלאה, עד שני נכסים מקודמים בראש, שורת תגיות
+   מובנות שנבנית מהמלאי עצמו, בורר מיון וכפתור "עוד נכסים".
 
-   שתיהן החליפו מסלולי גלילה אופקיים (‎.featured-scroll‎) שהציגו
-   עשרה־שנים־עשר נכסים וקצה חתוך: שתי רצועות למגורים שרק ‎deal_type‎ הבדיל
-   ביניהן ועוד אחת מסחרית. סוג העסקה חזר להיות תגית על הנכס במקום מבנה של
-   העמוד, ומי שרוצה את כולם כבר לא צריך לגלול הצידה עד הסוף ואז לגלות
-   שהמאגר ממשיך.
+   כאן ישבו עד כה **שני** מדפים — "נכסים פרטיים" ומתחתיו "נכסים מסחריים"
+   — שהיו זהים בכל דבר חוץ מ-‎category‎ של המלאי שהוזן לכל אחד מהם. זו
+   בדיוק הטעות שהם עצמם באו לתקן: הם החליפו שלושה מסלולי גלילה אופקיים
+   (‎.featured-scroll‎) שרק ‎deal_type‎ הבדיל בין שניים מהם, וסוג העסקה חזר
+   להיות תגית על הנכס במקום מבנה של העמוד — ואז הקטגוריה נשארה מבנה של
+   העמוד. היום גם היא תגית (‏categoryTags: פרטי · מסחרי), והמלאי כולו
+   בתיבה אחת (‏box) שנפתחת על שתי שורות (‏rows).
 
    כל ההיגיון יושב ב-assets/prop-shelf.js — ‏PropShelf.create() בונה את
    המדף לתוך המעטפת שנמסרת לו ומחזיר ‎set(list)‎: מי שקורא לה מביא את
-   הנכסים. אותו קובץ מצייר גם את הנכסים בדף המשרד ובדף הסוכן/ת, שם ישבו
-   עד כה שלוש רצועות נגללות משלהם — שלושה עותקים של אותן מאתיים שורות היו
-   שלושה מקומות שבהם צריך לתקן כל באג. */
-const privateShelf = PropShelf.create({
-  mount:'privateProps', titleId:'privatePropsTitle', title:'נכסים פרטיים',
-  info:'מכירה והשכרה יחד, מכל משרדי התיווך בעפולה והסביבה — לפי סדר ההעלאה, ובראש שני נכסים מקודמים',
-  // רק בתצוגה הפרטית: "דירה" מתפצלת לתגיות לפי מספר חדרים. ‏roomsLabel
-  // נכתב במפורש ולא נגזר מ-roomsType — "דירה" + "ות" הוא "דירהות".
+   הנכסים. אותו קובץ מצייר גם את הנכסים בדף המשרד ובדף הסוכן/ת, ושם הם
+   עדיין שני מדפים — המלאי של משרד אחד קטן, ושניהם נכנסים למסך ממילא. */
+const propsShelf = PropShelf.create({
+  mount:'allProps', titleId:'allPropsTitle', title:'נכסים בעפולה והעמק',
+  info:'פרטי ומסחרי, מכירה והשכרה — כל המלאי מכל משרדי התיווך באזור, לפי סדר ההעלאה, ובראש שני נכסים מקודמים',
+  // מסגרת אחת סביב הכול, ושתי שורות נכסים בפתיחה: זה מה שנשאר משתי
+  // הסקציות שהתמזגו — תצוגה אחת שנקראת כתצוגה אחת, בלי לוותר על כמות
+  // הנכסים שהן הציגו יחד.
+  box:true, rows:2,
+  categoryTags:true,
+  // "דירה" מתפצלת לתגיות לפי מספר חדרים. ‏roomsLabel נכתב במפורש ולא
+  // נגזר מ-roomsType — "דירה" + "ות" הוא "דירהות". במסחרי אין פיצול כזה
+  // ממילא: "משרד 3 חדרים" הוא לא הנתון שמחפשים בו נכס מסחרי.
   roomsType:'דירה', roomsLabel:'דירות',
+  // שני המלאים חולקים היום שורת תגיות אחת, ובתקרה של שמונה סוגי הנכס
+  // המסחריים — המיעוט — נדחקו כולם אחרי תגיות החדרים ונחתכו.
+  kindTagsMax:14,
   sortId:'ppSort',
   countText: (shown, total) => (shown === total)
-    ? `${total.toLocaleString('he-IL')} נכסים למכירה ולהשכרה בעפולה והעמק`
-    : `${shown.toLocaleString('he-IL')} מתוך ${total.toLocaleString('he-IL')} נכסים`,
+    ? `${total.toLocaleString('he-IL')} נכסים בעפולה והעמק — פרטיים ומסחריים`
+    : `${shown.toLocaleString('he-IL')} מתוך ${total.toLocaleString('he-IL')} נכסים · מסומנים על המפה שלמעלה`,
+  /* תגית שנבחרת כאן היא חיפוש לכל דבר, ולכן היא מגיעה גם למפה ולשורות
+     התוצאות שמתחתיה. עד כה היא סיננה את הגריד הזה בלבד: מי שסינן/ה
+     ל"דירות 3 חדרים" ראה/תה מעל זה מפה שעדיין מלאה בכל המלאי, ולא היה
+     שום מקום שבו הסינון והמפה הסכימו ביניהם. ‏ppShelfToMap עושה את החיבור
+     — ראו שם למה שחרור התגיות לא סתם מצייר את הכול מחדש. */
+  onFilter: (items, filtered) => ppShelfToMap(items, filtered),
 });
 
-const commercialShelf = PropShelf.create({
-  mount:'commercialProps', titleId:'commercialPropsTitle', title:'נכסים מסחריים',
-  info:'משרדים, חנויות, מבני תעשייה ועוד — בעפולה והסביבה, לפי סדר ההעלאה',
-  // אין כאן פיצול לפי חדרים: "משרד 3 חדרים" הוא לא הנתון שמחפשים בו נכס
-  // מסחרי — שם השאלה היא מ״ר וסוג הנכס.
-  roomsType:'', roomsLabel:'',
-  sortId:'cpSort',
-  countText: (shown, total) => (shown === total)
-    ? `${total.toLocaleString('he-IL')} נכסים מסחריים בעפולה והסביבה`
-    : `${shown.toLocaleString('he-IL')} מתוך ${total.toLocaleString('he-IL')} נכסים`,
-});
+/* הסינון שבמדף → המפה ושורות התוצאות שמעליו.
 
-/* ---------- מסחרי לא נכנס לתצוגה הפרטית ----------
-   יש לו מדף משלו בעמוד, ו"נכסים פרטיים" הוא בדיוק מה שהוא לא. */
-function renderPrivateProps(properties){
-  privateShelf.set(properties.filter(p => dealKind(p) !== 'commercial'));
-  if (!ppHashApplied){
-    ppHashApplied = true;
-    ppApplyHash();
+   שחרור התגיות (‏filtered=false) לא מצייר את הרשימה המלאה כ"תוצאות חיפוש":
+   הוא מחזיר את המפה למה שהיה לפניה. אם רץ חיפוש אמיתי (סרגל החיפוש או
+   המסננים) — הוא מורץ שוב, כי הוא ולא המדף הוא מה שהמפה אמורה להראות.
+   אחרת חוזרים לכל המלאי הפעיל, כלומר בדיוק מצב הטעינה של הדף.
+
+   בכוונה בלי גלילה אל המפה: התגיות יושבות בתחתית העמוד, ולחיצה שמושכת את
+   המסך למעלה הייתה מרחיקה את שורת התגיות עצמה — כלומר מענישה בדיוק את מי
+   שרוצה לסמן תגית שנייה. מה שאומר שהמפה התעדכנה הוא שורת המונה שמעל
+   הגריד ("מסומנים על המפה שלמעלה"), והיא כאן ממילא. */
+let ppShelfFiltered = false;
+async function ppShelfToMap(items, filtered){
+  if (filtered){
+    ppShelfFiltered = true;
+    renderPropertyGrid(items, true);
+    return;
   }
+  if (!ppShelfFiltered) return;
+  ppShelfFiltered = false;
+  if (searchHasRun) await runSearch();
+  else renderPropertyGrid(allActiveProperties);
+}
+
+/* ---------- שני מקורות, תיבה אחת ----------
+   הנכסים הפרטיים מגיעים מהרשימה הראשית (אותה רשימה שמזינה את המפה ואת
+   שורות התוצאות), והמסחריים משאילתה משלהם — הרשימה הראשית מוגבלת ל-300
+   נכסים פעילים, והמסחריים הם מיעוט קטן בתוכה שהיה נחתך ממנה בדיוק כשיש
+   הרבה מלאי למגורים.
+
+   שתי הטעינות אינן מסונכרנות, ולכן כל אחת מהן מעדכנת את הצד שלה וקוראת
+   ל-ppSync(): מי שמגיע/ה ראשון/ה מצייר/ת את מה שיש, והשני/ה מצטרף/ת.
+   ‏null (ולא מערך ריק) הוא "עוד לא נטען" — הוא מבדיל בין מלאי שטרם הגיע
+   לבין מלאי שהגיע וריק, ומונע הסתרה של התיבה בין שתי הטעינות. */
+let ppPrivate = null, ppCommercial = null;
+function ppSync(){
+  if (ppPrivate === null && ppCommercial === null) return;
+  propsShelf.set((ppPrivate || []).concat(ppCommercial || []));
+  /* העוגן מנוסה בכל סנכרון עד שהוא תופס, ולא פעם אחת אחרי הטעינה
+     הראשונה: ‏#allProps-commercial שמגיע בזמן שרק המלאי הפרטי נטען מחפש
+     תגית שעוד לא נבנתה — ‏selectTag מחזירה אז false, וכשהמסחרי מגיע כבר
+     אין מי שינסה שוב. שתי הטעינות אינן מסונכרנות, ולכן זה נפל פעם כן
+     ופעם לא, תלוי מי הקדים. */
+  if (!ppHashApplied) ppHashApplied = ppApplyHash();
+}
+
+function renderHomeProps(properties){
+  // המסחריים מגיעים מהשאילתה הייעודית ולא מכאן: שני העותקים היו נכנסים
+  // לגריד כשני אריחים של אותו נכס.
+  ppPrivate = properties.filter(p => dealKind(p) !== 'commercial');
+  ppSync();
 }
 
 /* ---------- עוגן עם תגית ----------
-   הפוטר בכל דפי האתר מקשר ל"למכירה בעפולה" ול"להשכרה בעפולה", ושתי
-   הכתובות האלה הובילו עד כה לשתי הרצועות שהוסרו. עכשיו שתיהן מגיעות
-   לאותה תצוגה — עם התגית המתאימה כבר דלוקה — ולכן הן עדיין שני קישורים
-   שונים ולא אותו עוגן פעמיים. הגלילה נעשית כאן ולא בדפדפן: אין אלמנט
-   שה-id שלו הוא ‎privateProps-sale‎. */
+   הפוטר בכל דפי האתר מקשר ל"למכירה בעפולה", ל"להשכרה בעפולה"
+   ול"נכסים מסחריים", ושלוש הכתובות האלה הובילו לתצוגות שהתאחדו. היום
+   כולן מגיעות לאותה תיבה — עם התגית המתאימה כבר דלוקה — ולכן הן עדיין
+   קישורים שונים ולא אותו עוגן שלוש פעמים.
+
+   הגלילה נעשית כאן ולא בדפדפן: אין אלמנט שה-id שלו הוא ‎allProps-sale‎.
+   העוגנים הישנים (‏#privateProps, ‏#commercialProps ומה שאחריהם) נשארים
+   במפה כי הם מפוזרים בסימניות, בקישורים חיצוניים ובכל דף שטרם עודכן —
+   עוגן שהפסיק לעבוד אינו קישור. */
+const PP_HASH_TAGS = {
+  'allProps':              '',
+  'allProps-sale':         'sale',
+  'allProps-rent':         'rent',
+  'allProps-private':      'cat:private',
+  'allProps-commercial':   'cat:commercial',
+  // עוגנים משתי הסקציות שהתאחדו
+  'privateProps':          '',
+  'privateProps-sale':     'sale',
+  'privateProps-rent':     'rent',
+  'commercialProps':       'cat:commercial',
+};
 let ppHashApplied = false;
+/* מחזירה האם העוגן טופל — זה מה שאומר ל-ppSync() אם יש טעם לנסות שוב
+   בסנכרון הבא. */
 function ppApplyHash(){
-  const match = /^#privateProps-(sale|rent)$/.exec(window.location.hash || '');
-  if (!match) return;
-  if (!privateShelf.selectTag(match[1])) return;
-  document.getElementById('privateProps')?.scrollIntoView({ behavior:'smooth', block:'start' });
+  const key = (window.location.hash || '').replace(/^#/, '');
+  if (!Object.prototype.hasOwnProperty.call(PP_HASH_TAGS, key)) return false;
+  if (!propsShelf.selectTag(PP_HASH_TAGS[key])) return false;
+  document.getElementById('allProps')?.scrollIntoView({ behavior:'smooth', block:'start' });
+  return true;
 }
 window.addEventListener('hashchange', ppApplyHash);
 
@@ -6628,6 +6737,14 @@ let heroMap = null;
    שמסתכל עליו, והצהרה מאוחרת יותר בקובץ הייתה משאירה אותו ב-TDZ. */
 let mapDraw = null;
 
+/* "הזזת המפה היא חיפוש" — המצב עצמו. מוצהר כאן ולא לצד updateMapViewRows
+   מאותה סיבה בדיוק שבגללה mapDraw מוצהר כאן: המאזינים שקוראים אותו נקשרים
+   כבר באתחול המפה, כמה מאות שורות מעל ההגדרה, והצהרה מאוחרת הייתה משאירה
+   אותו ב-TDZ אם Leaflet יורה moveend תוך כדי האתחול. */
+let mapViewOn = false;
+let mapViewTimer = null;
+let mapNavAt = 0;
+
 /* המספרים שבראש ה-hero. שלושה טוענים שונים ממלאים אותו במועדים שונים,
    ו-renderHeroStats מצייר בכל פעם את מה שכבר יש — ראו שם.
 
@@ -6734,6 +6851,31 @@ try {
   // שלצדה מצטמצמת למה שנמצא בתחום הנראה. moveend/zoomend נורים פעם אחת בסוף
   // המחווה, ולכן אין כאן צורך ב-debounce.
   heroMap.on('moveend zoomend resize', ()=> updateSplitPanel());
+
+  /* אותו רעיון בדיוק, אבל לרשימה שמתחת למפה — וגם בטלפון, שם אין תצוגה
+     מפוצלת. ‏markMapUserNav נקשר למחוות ולא ל-moveend: רק גרירה, זום גלגלת,
+     צביטה או כפתורי הזום הם "הגולש/ת מחפש/ת על המפה"; תזוזה שהקוד יזם
+     (‏fitMapToMarkers אחרי חיפוש, מירכוז, פתיחה מוגדלת) אינה.
+     ‏dragstart/zoomstart של Leaflet מכסים גרירה וצביטה; הגלגלת ממומשת
+     ב-assets/map-gestures.js ולכן היא נתפסת מה-container, וכפתורי הזום הם
+     קישורים ב-.leaflet-control-zoom. ראו updateMapViewRows. */
+  heroMap.on('dragstart', markMapUserNav);
+  const mapContainer = heroMap.getContainer();
+  // גלגלת והקלקה כפולה — זום ביוזמת המשתמש/ת
+  mapContainer.addEventListener('wheel', markMapUserNav, { passive:true });
+  mapContainer.addEventListener('dblclick', markMapUserNav, { passive:true });
+  /* צביטה. שתי אצבעות ולא אחת, בדיוק כמו ההפרדה ב-map-gestures.js: אצבע
+     אחת גוללת את הדף ואינה נוגעת במפה, ואילו touchstart גורף היה מסמן
+     "חיפוש על המפה" בכל גלילה שעברה מעליה. */
+  mapContainer.addEventListener('touchstart', (e)=>{
+    if (e.touches && e.touches.length >= 2) markMapUserNav();
+  }, { passive:true });
+  // כפתורי ה-+/− של Leaflet. לחיצה על פין לא נכללת כאן בכוונה: הבלון שנפתח
+  // מזיז את המפה (autoPan), וזו לא מחוות חיפוש.
+  mapContainer.addEventListener('click', (e)=>{
+    if (e.target.closest && e.target.closest('.leaflet-control-zoom')) markMapUserNav();
+  }, { passive:true });
+  heroMap.on('moveend zoomend', scheduleMapViewRows);
 
   /* השטח הפנוי משתנה רק כשהפריסה משתנה — שינוי גודל חלון, פתיחת התצוגה
      המפוצלת, הגדלת המפה — וכל אלה מגיעים ל-Leaflet כאירוע resize (המצבים
@@ -7128,18 +7270,44 @@ const mapRecenterBtn = document.getElementById('mapRecenterBtn');
 if (mapRecenterBtn) mapRecenterBtn.addEventListener('click', recenterHeroMap);
 
 const mapExpandBtn = document.getElementById('mapExpandBtn');
-if (mapExpandBtn){
-  mapExpandBtn.addEventListener('click', ()=>{
-    const expanded = document.getElementById('heroSection').classList.toggle('map-expanded');
+
+/* הגדלה/הקטנה של המפה במקום אחד. היא נקראת משלושה מקומות — הכפתור עצמו,
+   פתיחת המפה מהמצב המצומצם ("חיפוש במפה"), וכפתור הסגירה — ולכן התווית,
+   ה-aria וה-invalidateSize אינם יכולים לשבת בתוך מאזין הכפתור. */
+function setMapExpanded(on){
+  const hero = document.getElementById('heroSection');
+  if (!hero) return;
+  const expanded = !!on;
+  if (hero.classList.contains('map-expanded') === expanded) return;
+  hero.classList.toggle('map-expanded', expanded);
+  if (mapExpandBtn){
     // רק התווית מתחלפת — האייקון (חיצי הפינות) נשאר, ולכן אסור להחליף כאן
     // את כל תוכן הכפתור כמו קודם
-    mapExpandBtn.querySelector('.map-expand-label').textContent = expanded ? 'הקטן' : 'הגדל';
+    const label = mapExpandBtn.querySelector('.map-expand-label');
+    if (label) label.textContent = expanded ? 'הקטן' : 'הגדל';
     mapExpandBtn.setAttribute('aria-label', expanded ? 'הקטנת המפה' : 'הגדלת המפה');
     mapExpandBtn.setAttribute('aria-expanded', String(expanded));
-    // גובה ה-hero (ואיתו המפה שממלאת אותו) משתנה ע"י מעבר קלאס עם transition;
-    // Leaflet לא מזהה שינוי גודל של ה-container לבד, ובלי invalidateSize()
-    // האריחים נשארים חתוכים בגודל הישן עד לפעולת משתמש נוספת (כמו גרירה)
-    if (heroMap) setTimeout(()=>{ heroMap.invalidateSize({ pan:false }); fitMapToMarkers(); }, 320);
+  }
+  // גובה ה-hero (ואיתו המפה שממלאת אותו) משתנה ע"י מעבר קלאס עם transition;
+  // Leaflet לא מזהה שינוי גודל של ה-container לבד, ובלי invalidateSize()
+  // האריחים נשארים חתוכים בגודל הישן עד לפעולת משתמש נוספת (כמו גרירה)
+  if (heroMap) setTimeout(()=>{ heroMap.invalidateSize({ pan:false }); fitMapToMarkers(); }, 320);
+}
+
+if (mapExpandBtn){
+  mapExpandBtn.addEventListener('click', ()=>{
+    const hero = document.getElementById('heroSection');
+    if (hero.classList.contains('map-expanded')){
+      /* "הקטן" מחזיר למצב שאיתו הדף נטען, ולא לגובה ביניים. בדסקטופ אלה
+         אותם שני דברים — שם מצב הטעינה הוא ה-hero הרגיל. בטלפון מצב
+         הטעינה הוא הפס המצומצם (‏.map-peek), ובלי התנאי הזה "הקטן" היה
+         עוצר בגובה מסך מלא שאיש לא ביקש, ודורש לחיצה שנייה על "סגירת
+         המפה" כדי לחזור למקום שממנו יצאנו. */
+      if (hero.classList.contains('can-peek')) setMapPeek(true);
+      else setMapExpanded(false);
+      return;
+    }
+    setMapExpanded(true);
   });
 }
 
@@ -7294,6 +7462,65 @@ function updateSplitPanel(){
     note.hidden = overflow <= 0;
     if (overflow > 0) note.textContent = `מוצגים ${shown.length} מתוך ${inView.length} — התקרבו במפה כדי לצמצם`;
   }
+}
+
+/* ============================================================
+   הזזת המפה היא חיפוש — והרשימה שלה יושבת מיד מתחת למפה
+   ------------------------------------------------------------
+   עד כה "תחום המפה מסנן את הרשימה" היה קיים בתצוגה המפוצלת בלבד, כלומר
+   מ-1024px ומעלה ורק למי שהדליק/ה אותה. בטלפון — ששם רוב הגולשים — גלגלת
+   או שתי אצבעות הזיזו את הפינים ולא שינו שום רשימה, והרשימה היחידה שהייתה
+   על המסך היא תיבת הנכסים שיושבת **אחרי** הבאנרים (המבזק, רצועת ההדמיות,
+   באנר היריד). כלומר מי שצמצם/ה את המפה לרחוב אחד לא ראה/תה את התוצאה
+   בלי לגלול דרך שלושה באנרים — ובפועל פשוט לא ראה/תה אותה.
+
+   ‏#searchResults היא הסקציה היחידה בדף שיושבת בין ה-hero לבאנרים, ולכן
+   זו הסקציה שמתמלאת כאן. הרשימה נגזרת מ-mapProperties — מה שהמפה מציגה
+   כרגע — ולכן גרירה *אחרי* חיפוש מצמצמת בתוך תוצאות החיפוש ולא מבטלת אותן.
+
+   הכניסה למצב הזה היא מחווה על המפה בלבד (‏mapViewOn), ולא כל moveend:
+   ‏fitMapToMarkers, מירכוז והגדלה מזיזים את המפה בעצמם, וכל אחד מהם היה
+   הופך רשימת תוצאות טרייה ל"תחום המפה" מבלי שאיש נגע בה. ‏renderPropertyGrid
+   מכבה את המצב מאותה סיבה: רשימה חדשה מתחילה מהרשימה, לא מהמסגרת.
+   ============================================================ */
+// ‏mapViewOn, mapViewTimer ו-mapNavAt מוצהרים למעלה, לצד heroMap — שם גם
+// ההסבר למה.
+
+// המחווה, ולא התזוזה: ‏Leaflet יורה moveend גם על תזוזות שהקוד יזם, ולכן
+// נקודת האמת היא האירוע שהגיע מהאצבע/העכבר על גוף המפה.
+function markMapUserNav(){ mapNavAt = Date.now(); }
+
+/* כמה זמן אחרי המחווה עוד נחשב ה-moveend שלה. גרירה וצביטה יורות אותו
+   כמעט מיד; החלון הרחב מכסה זום עם אנימציה. */
+const MAP_NAV_WINDOW = 1500;
+
+/* ‏moveend נורה פעם אחת בסוף גרירה, אבל זום גלגלת יורה סדרה שלמה — ובלי
+   ההשהיה הקצרה הזו כל נקישת גלגלת מציירת עשרות שורות מחדש.
+
+   הכניסה למצב דורשת מחווה טרייה; היציאה ממנו היא renderPropertyGrid בלבד.
+   מרגע שנכנסנו, כל תזוזה מעדכנת — גם הגדלת המפה וגם מירכוז — כי במצב הזה
+   הרשימה *אמורה* לעקוב אחרי המפה. */
+function scheduleMapViewRows(){
+  if (!mapViewOn){
+    if (Date.now() - mapNavAt > MAP_NAV_WINDOW) return;
+    mapViewOn = true;
+  }
+  clearTimeout(mapViewTimer);
+  mapViewTimer = setTimeout(updateMapViewRows, 160);
+}
+
+function updateMapViewRows(){
+  if (!mapViewOn || !heroMap) return;
+  renderSearchRows(propertiesInView(), true, { mapView:true });
+}
+
+/* יציאה מהמצב בלי לגעת ברשימה — מי שקורא לזה מצייר בעצמו מה שיבוא במקומה.
+   ‏mapNavAt מתאפס גם הוא: בלעדיו מחווה שקדמה לחיפוש בשנייה האחרונה הייתה
+   מדליקה את המצב מחדש דרך ה-moveend של fitMapToMarkers. */
+function exitMapViewRows(){
+  mapViewOn = false;
+  mapNavAt = 0;
+  clearTimeout(mapViewTimer);
 }
 
 const splitToggleBtn = document.getElementById('splitToggleBtn');
@@ -7499,6 +7726,10 @@ function setMapPeek(on){
   if (hero.classList.contains('map-peek') === !!on) return;
 
   hero.classList.toggle('map-peek', !!on);
+  // הצמצום מבטל גם את ההגדלה: ‎.map-peek‎ גובר ממילא על ‎.map-expanded‎
+  // בגיליון הסגנונות, אבל קלאס שנשאר תלוי על ה-hero היה חוזר לחיים בפתיחה
+  // הבאה — ומחזיר גובה שכבר בוטל. גם מעבר רוחב (סיבוב מכשיר) עובר כאן.
+  if (on) setMapExpanded(false);
   document.getElementById('mapPeekOpen')?.setAttribute('aria-expanded', String(!on));
   if (on) syncMapPeekCta();
   else {
@@ -7519,6 +7750,12 @@ function setMapPeek(on){
 function openMapFromPeek(){
   if (!mapPeekOn()) return false;
   setMapPeek(false);
+  /* המפה נפתחת *מוגדלת*, ולא בגובה ה-hero הרגיל. מי שלוחץ/ת "חיפוש במפה"
+     ביקש/ה בדיוק דבר אחד — לראות את המפה — ובגובה הרגיל היא נפתחת עם
+     סרגל החיפוש, הכותרת והשבבים צפים עליה, כלומר שוב פס מפה עם תוכן מעליו.
+     "הקטן" בסרגל שעל המפה מחזיר לגובה הרגיל, ו"סגירת המפה" חוזר בבת אחת
+     למצב שאיתו דף הבית נטען. */
+  setMapExpanded(true);
   // בלי הגלילה הזו המפה נפתחת מחוץ למסך: הפס שנלחץ יושב בתחתית התצוגה,
   // והגובה החדש נפרס כולו *מעליו*.
   heroEl()?.scrollIntoView({ behavior:'smooth', block:'start' });
@@ -7527,6 +7764,8 @@ function openMapFromPeek(){
 
 document.getElementById('mapPeekOpen')?.addEventListener('click', openMapFromPeek);
 document.getElementById('mapCollapseBtn')?.addEventListener('click', ()=>{
+  // ‏setMapPeek(true) מורידה איתה גם את ההגדלה, ולכן "סגירת המפה" מחזירה
+  // בלחיצה אחת בדיוק את מצב הטעינה של דף הבית.
   setMapPeek(true);
   heroEl()?.scrollIntoView({ behavior:'smooth', block:'start' });
 });
@@ -7999,10 +8238,10 @@ try {
     // אותה רשימת שכונות מזינה גם את הבחירה המרובה בבאנר מחפשי הנכס
     renderBuyerHoods();
 
-    // תצוגת הנכסים הפרטיים מוזנת מהרשימה המלאה ולא מתוצאות חיפוש: היא
-    // ויטרינה קבועה של המלאי בעמוד הבית, ותוצאות החיפוש מוצגות בשורות
-    // שמתחת למפה.
-    renderPrivateProps(properties);
+    // תיבת הנכסים מוזנת מהרשימה המלאה ולא מתוצאות חיפוש: היא ויטרינה
+    // קבועה של המלאי בעמוד הבית, ותוצאות החיפוש מוצגות בשורות שמתחת
+    // למפה.
+    renderHomeProps(properties);
 
     if (!searchHasRun) renderPropertyGrid(properties);
 
@@ -8016,10 +8255,9 @@ try {
       // מפורסמת — ולא את כל ההדמיות שבמסד, שרובן שייכות למודעות שכבר ירדו
       heroStatsState.ai = ids.size;
       renderHeroStats();
-      // המדפים מחזיקים עותק משלהם של הקבוצה (הם מציירים את האריח), ולכן
-      // הם מקבלים אותה במפורש במקום לקרוא את המשתנה של העמוד
-      privateShelf.setVisualized(ids);
-      commercialShelf.setVisualized(ids);
+      // התיבה מחזיקה עותק משלה של הקבוצה (היא מציירת את האריח), ולכן
+      // היא מקבלת אותה במפורש במקום לקרוא את המשתנה של העמוד
+      propsShelf.setVisualized(ids);
       if (!searchHasRun) renderPropertyGrid(properties);
     });
   })();
@@ -8196,10 +8434,29 @@ document.querySelectorAll('[data-close-modal]').forEach(el=>{
 document.querySelectorAll('.filter-modal-overlay').forEach(overlay=>{
   overlay.addEventListener('click', (e)=>{ if (e.target === overlay) overlay.classList.remove('open'); });
 });
+/* ‏Escape סוגר את מודאל הסינון הפתוח, כמו בכל שאר המודאלים בעמוד (תפריט
+   הנגישות, המבזקים, הסוכן החכם). שלושת מודאלי החיפוש היו היחידים שלא
+   נסגרו כך — ובמקלדת זו הדרך שמנסים ראשונה. הסגירה בלבד ובלי חיפוש:
+   ‏Escape הוא "התחרטתי", וזה בדיוק ההבדל בינו לבין "הצגת תוצאות". */
+document.addEventListener('keydown', (e)=>{
+  if (e.key !== 'Escape') return;
+  const open = document.querySelector('.filter-modal-overlay.open');
+  if (open) open.classList.remove('open');
+});
 
 document.getElementById('openFiltersBtn').addEventListener('click', ()=>{
   openModal(searchState.activeTab === 'commercial' ? 'commercialFilterModal' : 'residentialFilterModal');
 });
+
+/* "הצגת תוצאות" בשני מודאלי הסינון = הרצת חיפוש.
+   עד כאן הכפתור היה ‎data-close-modal‎ בלבד: הוא סגר את המודאל ותו לא, והמצב
+   שנבחר בו (חדרים, סוג נכס, מחיר) נכנס לתוקף רק בלחיצה *נוספת* על כפתור
+   החיפוש שבסרגל. מי שסימן/ה "3 חדרים · גג/פנטהאוז" ולחץ/ה "הצגת תוצאות"
+   ראה/תה את המודאל נסגר ואת אותה תצוגה בדיוק — כלומר "כלום לא קרה" —
+   ולמד/ה לחפש פעמיים. ‏runSearch() סוגרת בעצמה כל מודאל סינון פתוח, ולכן
+   הלחיצה הזו עושה את שתי הפעולות. */
+document.getElementById('rApplyFilters')?.addEventListener('click', runSearch);
+document.getElementById('cApplyFilters')?.addEventListener('click', runSearch);
 
 // המודאל נפתח תמיד מהבחירה שכבר פעילה: מי שסגר/ה בטעות וחזר/ה מוצא/ת את
 // הסימון כפי שהיה, ולא דף ריק.
@@ -8320,7 +8577,31 @@ async function locationOrFilter(rawText){
   return ors.join(',');
 }
 
+/* חיפוש שכבר רץ. שתי לחיצות רצופות (או "הצגת תוצאות" ומיד אנטר בשדה) שלחו
+   שתי שאילתות במקביל, ומי שחזרה שנייה — לא בהכרח האחרונה שנשלחה — היא זו
+   שציירה את המפה. הדגל חוסם את השנייה במקום לנצח בה. */
+let searchRunning = false;
+
+/* סימון חזותי לכך שהחיפוש בדרך. בלעדיו הלחיצה על כפתור החיפוש (או על
+   "הצגת תוצאות") היא פעולה בלי שום משוב עד שהתוצאות חוזרות — וברשת איטית
+   זה נקרא "כלום לא קרה". */
+function setSearchBusy(on){
+  document.querySelectorAll('#searchSubmitBtn, #rApplyFilters, #cApplyFilters').forEach(btn=>{
+    btn.classList.toggle('is-busy', !!on);
+    btn.setAttribute('aria-busy', String(!!on));
+    btn.disabled = !!on;
+  });
+}
+
 async function runSearch(){
+  if (searchRunning) return;
+  searchRunning = true;
+  setSearchBusy(true);
+  try { await runSearchInner(); }
+  finally { searchRunning = false; setSearchBusy(false); }
+}
+
+async function runSearchInner(){
   searchHasRun = true;
   collectFormValues();
   const badge = document.getElementById('filterCountBadge');
@@ -8405,6 +8686,13 @@ async function runSearch(){
     if (error) throw error;
     const results = (data || []).map(shapeProperty);
     renderPropertyGrid(results, true);
+    /* חיפוש מהסרגל גובר על תגיות המדף ומכבה אותן. מאז שגם הן מסננות את
+       המפה יש שני מסננים שמתחרים על אותם פינים, ותגית שנשארה דלוקה הייתה
+       אומרת "מסומנים על המפה שלמעלה" מעל מפה שמציגה משהו אחר לגמרי.
+       הכיבוי מגיע בחזרה לכאן דרך ppShelfToMap, ושם הוא נעצר ב-searchRunning
+       — החיפוש הזה עדיין רץ, ואין מה להריץ שוב. */
+    ppShelfFiltered = false;
+    propsShelf.selectTag('');
     /* אחרי שהתוצאות חזרו ולא ברגע הלחיצה: חיפוש שהחזיר אפס הוא הממצא
        המעניין כאן — הוא מראה מה מחפשים אצלנו ולא מוצאים. */
     if (window.shukTrack) shukTrack('search', {
@@ -8447,8 +8735,11 @@ function showSearchError(){
   const section = document.getElementById('searchResults');
   const rows = document.getElementById('searchResultsRows');
   const countEl = document.getElementById('searchResultsCount');
+  const titleEl = document.getElementById('searchResultsTitle');
   if (section && rows){
     section.hidden = false;
+    // הכותרת חוזרת מ"הנכסים שבתחום המפה" אם החיפוש נכשל בזמן שהמצב ההוא פעיל
+    if (titleEl) titleEl.textContent = 'תוצאות החיפוש';
     if (countEl) countEl.textContent = '';
     rows.innerHTML = '<div class="sr-empty">שגיאה בחיפוש — נסו שוב</div>';
   }
@@ -8481,11 +8772,21 @@ function buildSearchRow(p, i){
 }
 
 /* שורות התוצאות שמיד מתחת למפה. אותה רשימה שמזינה את הפינים, ולכן כל שורה
-   כאן היא פין על המפה שמעליה — כולל אותה תגית צבע לסוג העסקה. */
-function renderSearchRows(properties, isSearchResult){
+   כאן היא פין על המפה שמעליה — כולל אותה תגית צבע לסוג העסקה.
+
+   שני מצבים לאותה סקציה, ובכוונה אותה סקציה: היא היחידה בדף שיושבת בין
+   ה-hero לבין הבאנרים (המבזק, רצועת ההדמיות, באנר היריד), ולכן היא המקום
+   היחיד שבו "מיד מתחת למפה" נכון.
+     ‏1. תוצאות חיפוש — מה שהשאילתה החזירה.
+     ‏2. תחום המפה (‏mapView) — מה שנמצא כרגע בתוך המסגרת הנראית, אחרי
+        שהגולש/ת הזיז/ה או הגדיל/ה את המפה. ראו updateMapViewRows. */
+const MAP_VIEW_MAX_ROWS = 60;   // מעבר לזה הגלילה ארוכה מלהיות שימושית
+
+function renderSearchRows(properties, isSearchResult, { mapView = false } = {}){
   const section = document.getElementById('searchResults');
   const rows = document.getElementById('searchResultsRows');
   const countEl = document.getElementById('searchResultsCount');
+  const titleEl = document.getElementById('searchResultsTitle');
   if (!section || !rows) return;
 
   if (!isSearchResult){
@@ -8495,21 +8796,44 @@ function renderSearchRows(properties, isSearchResult){
   }
 
   section.hidden = false;
+  // הכותרת אומרת מאיפה הרשימה הגיעה. "תוצאות החיפוש" מעל רשימה שנוצרה
+  // מגרירה של המפה — ובלי שאיש חיפש דבר — היא כותרת שמשקרת.
+  if (titleEl) titleEl.textContent = mapView ? 'הנכסים שבתחום המפה' : 'תוצאות החיפוש';
+
+  // בתחום המפה מוצג רק מה שנכנס לרשימה שימושית; השאר נשאר על המפה, וההודעה
+  // אומרת איך לצמצם אותו (להתקרב) במקום להעמיס מאות שורות על הטלפון.
+  const shown = mapView ? properties.slice(0, MAP_VIEW_MAX_ROWS) : properties;
+
   if (countEl){
-    // נכס בלי קואורדינטות לא יכול לקבל פין, ולכן ההבטחה "מסומנים על המפה"
-    // נכונה רק כשלכולם יש מיקום. אחרת נאמר במפורש כמה מהם על המפה, אחרת
-    // המספר כאן מבטיח יותר פינים ממה שבאמת מצויר.
-    const pinned = properties.filter(p => p.lat && p.lng).length;
-    countEl.textContent = !properties.length ? ''
-      : pinned === properties.length
-        ? `${properties.length} נכסים תואמים · מסומנים על המפה שמעל`
-        : `${properties.length} נכסים תואמים · ${pinned} מהם מסומנים על המפה`;
+    if (mapView){
+      const overflow = properties.length - shown.length;
+      countEl.textContent = !properties.length
+        ? ''
+        : overflow > 0
+          ? `${shown.length} מתוך ${properties.length} נכסים בתחום המפה — התקרבו כדי לצמצם`
+          : properties.length === 1
+            ? 'נכס אחד בתחום המפה'
+            : `${properties.length} נכסים בתחום המפה`;
+    } else {
+      // נכס בלי קואורדינטות לא יכול לקבל פין, ולכן ההבטחה "מסומנים על המפה"
+      // נכונה רק כשלכולם יש מיקום. אחרת נאמר במפורש כמה מהם על המפה, אחרת
+      // המספר כאן מבטיח יותר פינים ממה שבאמת מצויר.
+      const pinned = properties.filter(p => p.lat && p.lng).length;
+      countEl.textContent = !properties.length ? ''
+        : pinned === properties.length
+          ? `${properties.length} נכסים תואמים · מסומנים על המפה שמעל`
+          : `${properties.length} נכסים תואמים · ${pinned} מהם מסומנים על המפה`;
+    }
   }
   rows.innerHTML = '';
-  if (!properties.length){
-    // אפס תוצאות הוא רגע הכוונה הגבוה ביותר בכל המסך: מי שחיפש/ה בדיוק את
-    // זה ולא מצא/ה הוא/היא בדיוק מי שכדאי לעדכן כשזה יעלה. ה-CTA כאן גדול
-    // ומרכזי, ולא גלולה בכותרת.
+  if (!shown.length){
+    /* בתחום המפה "אין כאן כלום" הוא הוראה ולא מבוי סתום — מספיק להתרחק.
+       בחיפוש זה ההפך: אפס תוצאות הוא רגע הכוונה הגבוה ביותר בכל המסך, כי מי
+       שחיפש/ה בדיוק את זה ולא מצא/ה הוא/היא מי שכדאי לעדכן כשזה יעלה. */
+    if (mapView){
+      rows.innerHTML = '<div class="sr-empty">אין נכסים בתחום המפה הנוכחי. הזיזו את המפה או התרחקו כדי לראות עוד.</div>';
+      return;
+    }
     rows.innerHTML =
       '<div class="sr-empty">לא נמצאו נכסים התואמים את החיפוש. נסו להרחיב את הסינון או לחפש שכונה אחרת.' +
       '<div class="ssa-empty"><button type="button" class="ssa-cta" id="ssaEmptyBtn">' +
@@ -8520,10 +8844,10 @@ function renderSearchRows(properties, isSearchResult){
     return;
   }
 
-  properties.forEach((p, i)=>{
+  shown.forEach((p, i)=>{
     rows.appendChild(buildSearchRow(p, i));
     // אותה פרסומת in-feed שקיימת בגריד — התוצאות עברו לכאן, וגם היא איתן
-    if (i === 1 && properties.length > 2){
+    if (i === 1 && shown.length > 2){
       const ad = document.createElement('div');
       ad.className = 'infeed-ad';
       ad.textContent = 'פרסומת — באנר רוחבי בין תוצאות החיפוש';
@@ -9251,12 +9575,18 @@ renderBuyerHoods();
    הוא ממוין, מסונן בתגיות ונפתח ב"עוד נכסים" — ורשימה שלישית שגוללת
    לאורך מסכים שלמים רק דחפה את סוף העמוד רחוק יותר. */
 function renderPropertyGrid(properties, isSearchResult){
+  /* רשימה חדשה מתחילה מהרשימה ולא מהמסגרת: החיפוש (או שחרור התגיות, או
+     הטעינה הראשונית) הוא שקובע מה מוצג, ו-fitMapToMarkers שבא אחריו מזיז
+     את המפה — כלומר יורה moveend. בלי הכיבוי כאן אותו moveend היה מחליף
+     מיד את "40 נכסים תואמים" ב"40 נכסים בתחום המפה", בלי שאיש נגע במפה.
+     מחווה הבאה על המפה מדליקה את המצב מחדש. */
+  exitMapViewRows();
   renderMap(properties);
   renderSearchRows(properties, isSearchResult);
 }
 
 /* ‏newestFirst, אריח הנכס (‏propCard) והשורה הדחוסה (‏propRow) עברו
-   ל-assets/prop-shelf.js: שלוש התצוגות שהשתמשו בהם — שני המדפים כאן,
+   ל-assets/prop-shelf.js: שלוש התצוגות שהשתמשו בהם — תיבת הנכסים כאן,
    הנכסים בדף המשרד והנכסים בדף הסוכן/ת — מצוירות היום מאותו מנוע.
    ‏thumbStyle/thumbFallback נשארו כאן, כי שורות התוצאות ובלוני המפה
    עדיין משתמשים בהם. */
@@ -9331,6 +9661,19 @@ async function clearSearch(){
     url.searchParams.delete('ai');
     history.replaceState(history.state, '', url);
   } catch(e){ /* דפדפן שחוסם היסטוריה */ }
+
+  /* גם התגיות שבמדף יורדות: מאז שהן מסננות את המפה, "ניקוי החיפוש" שמשאיר
+     אותן דלוקות מחזיר מפה מלאה מעל מדף שעדיין מסונן — שני מספרים סותרים
+     באותו מסך. ‏ppShelfFiltered מתאפס *לפני* selectTag כדי ש-ppShelfToMap
+     לא תצייר את המפה מחדש בדרך: השורה שאחריה עושה זאת ממילא. */
+  ppShelfFiltered = false;
+  propsShelf.selectTag('');
+
+  /* "ניקוי החיפוש" הוא גם היציאה ממצב "תחום המפה": הסקציה חוזרת להיות
+     מוסתרת, והדף חוזר בדיוק לסדר שאיתו נטען — מפה, מבזק, הדמיות, יריד,
+     תיבת הנכסים. ‏renderPropertyGrid בשורה שאחריה מכבה את המצב ממילא;
+     הכיבוי המפורש כאן הוא כדי ש-moveend של ה-fit לא ידליק אותו בחזרה. */
+  exitMapViewRows();
 
   searchHasRun = false;
   renderPropertyGrid(await loadProperties());

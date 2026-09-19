@@ -14,6 +14,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>משרד תיווך | שוק נדל״ן</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<!-- התקנה כאפליקציה (PWA) — מניפסט, אייקוני מסך הבית וכפתור ההתקנה
+     שבתוך הדף. הבלוק הזה חוזר בכל דף מאותה סיבה שתגיות ה-GTM חוזרות:
+     לאתר אין תבנית משותפת. הפרטים: docs/pwa-install.md -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0e2a6b">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="שוק נדל״ן">
+<script defer src="assets/pwa-install.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;600;700;800;900&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
         integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
@@ -3581,10 +3592,10 @@ loadAgency();
       <details class="footer-col" open>
         <summary><h4>נכסים</h4></summary>
         <div class="footer-col-links">
-          <a href="index.html#privateProps-sale">למכירה בעפולה</a>
-          <a href="index.html#privateProps-rent">להשכרה בעפולה</a>
-          <a href="index.html#commercialProps">נכסים מסחריים</a>
-          <a href="index.html#privateProps">כל הנכסים</a>
+          <a href="index.html#allProps-sale">למכירה בעפולה</a>
+          <a href="index.html#allProps-rent">להשכרה בעפולה</a>
+          <a href="index.html#allProps-commercial">נכסים מסחריים</a>
+          <a href="index.html#allProps">כל הנכסים</a>
           <a href="open-house.html">יריד הבתים הפתוחים</a>
           <a href="projects.html">פרויקטים חדשים</a>
         </div>

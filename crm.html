@@ -13,6 +13,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>איזור סוכנים | שוק נדל״ן</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<!-- התקנה כאפליקציה (PWA) — מניפסט, אייקוני מסך הבית וכפתור ההתקנה
+     שבתוך הדף. הבלוק הזה חוזר בכל דף מאותה סיבה שתגיות ה-GTM חוזרות:
+     לאתר אין תבנית משותפת. הפרטים: docs/pwa-install.md -->
+<link rel="manifest" href="/app-crm.webmanifest">
+<meta name="theme-color" content="#0e2a6b">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="אזור אישי">
+<script defer src="assets/pwa-install.js" data-bottom="124px"></script>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&family=Rubik:wght@500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css"
       integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H"
@@ -715,6 +726,46 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .card-tag.tag-good{background:#DFEDE3;border-color:#C9E0D0;color:#2A5B36;font-weight:700}
   /* נכס שאינו פעיל מקבל תגית אפורה — צבע שמור למה שחי באתר עכשיו */
   .status-pill.status-off{background:#E4E1D2;color:#6B6450}
+
+  /* ---------- בלוק הסטטוס של הנכס ----------
+     "האם המודעה באוויר" היא השאלה הראשונה שנשאלת על כל נכס, והתשובה לה
+     הייתה עד כה גלולה קטנה בפינה — בזמן שהפעולה שמשנה אותה ישבה בתחתית
+     הכרטיס ("סמן כנמכר") או לא הייתה קיימת בכלל ("ירד מפרסום").
+
+     לכן הבלוק הזה יושב **ראשון** בכרטיס וגם בראש טופס העריכה: מסגרת
+     משלו, מצב נוכחי באותיות גדולות, ושורת המצבים שאפשר לעבור אליהם.
+     המצב הנוכחי מסומן ואינו לחיץ — כפתור שלוחצים עליו ולא קורה כלום הוא
+     כפתור שבור.
+
+     המחיקה יושבת באותה שורה ומסומנת באדום, כי היא באמת אחת מהאפשרויות —
+     אבל היא הפעולה היחידה כאן שאין ממנה דרך חזרה, ולכן היא גם היחידה
+     שעוברת שני אישורים. */
+  .prop-status-panel{
+    border:1.5px solid var(--line);border-radius:14px;background:#FBFAF5;
+    padding:12px 13px;margin-bottom:12px;
+  }
+  .prop-status-panel.psp-live{border-color:rgba(13,122,104,.45);background:var(--teal-tint)}
+  .prop-status-panel.psp-blocked{border-color:rgba(200,16,46,.4);background:#FDF3F4}
+  .psp-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+  .psp-label{font-size:.68rem;font-weight:800;letter-spacing:.04em;color:var(--ink-soft)}
+  .psp-now{font-size:.95rem;font-weight:800;color:var(--ink)}
+  .prop-status-panel.psp-live .psp-now{color:var(--teal)}
+  .psp-note{font-size:.74rem;line-height:1.5;color:var(--ink-soft);margin-top:6px}
+  .psp-note.psp-warn{color:#9C0C24;font-weight:700}
+  .psp-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+  .psp-btn{
+    flex:1 1 auto;min-width:104px;padding:9px 10px;border-radius:10px;cursor:pointer;
+    border:1.5px solid var(--line);background:#fff;color:var(--ink);
+    font-family:inherit;font-size:.78rem;font-weight:700;line-height:1.2;text-align:center;
+    transition:transform .12s ease,box-shadow .12s ease;
+  }
+  .psp-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 3px 10px rgba(15,52,53,.12)}
+  .psp-btn:disabled{opacity:.55;cursor:not-allowed}
+  .psp-btn.is-current{background:var(--teal);border-color:var(--teal);color:#fff;cursor:default}
+  .psp-btn.is-current:hover{transform:none;box-shadow:none}
+  .psp-btn.psp-danger{border-color:rgba(200,16,46,.45);color:#9C0C24}
+  .psp-btn.psp-danger:hover:not(:disabled){background:#FDECEE}
+  .psp-btn.psp-claim{background:#2A5B36;border-color:#2A5B36;color:#EAF4EC}
 
   /* רשת פעולות: auto-fit נותן שתי עמודות בטלפון וארבע בדסקטופ, בלי media
      query — הכפתורים תמיד מתיישרים לרשת במקום להיערם בקצוות שונים.
@@ -1599,6 +1650,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       top:calc(100% + 12px);inset-inline:12px;width:auto;max-width:none;
     }
     #dashboard .bell-panel{max-height:min(70vh,420px)}
+    /* תפריט הבורגר הוא היוצא מן הכלל מבין השלושה: פאנל ההתראות והפרופיל
+       מחזיקים טקסט שצריך רוחב, והבורגר מחזיק רשימת יעדים קצרים. ברוחב מלא
+       כל שורה בו הפכה לפס נייבי מקצה לקצה של המסך, וארבעה פסים כאלה נקראו
+       כמו מסך נוסף ולא כמו תפריט שנפתח. חצי רוחב, נעוץ מתחת לכפתור עצמו,
+       מחזיר אותו להיות תפריט נפתח. ‏18px הם ה-padding של ‎.dash-wrap‎, ולכן
+       הקצה ה-inline-start של הפאנל (הימני ב-RTL) יוצא בדיוק על קצה הבורגר.
+       הפריטים מתהדקים בהתאם כדי שתווית ארוכה לא תיחתך. */
+    #dashboard #menuPanel{
+      inset-inline:auto;inset-inline-start:18px;
+      width:min(50vw,240px);max-width:calc(100vw - 36px);
+    }
+    #dashboard #menuPanel .menu-item{padding:10px 8px;gap:8px}
+    #dashboard #menuPanel .menu-gtoggle{padding:11px 8px;gap:8px}
   }
 
   /* ---------- תפריט הבורגר ----------
@@ -1752,6 +1816,67 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   .sn-count.is-hot{background:#dc2626;color:#fff}
 
+  /* ==========================================================================
+     מדריך ההתחלה
+     --------------------------------------------------------------------------
+     הכרטיס היחיד בדשבורד שמטרתו להיעלם. הוא יושב מעל הכול כי הוא מוצג רק
+     למי שאין לו/ה עדיין כלום למטה — לא נכסים, לא לקוחות, לא מספרים — ומרגע
+     שכל הצעדים נסגרו הוא לא חוזר.
+
+     הצעד הפתוח הבא הוא היחיד שנראה כמו משימה: רקע נייבי בהיר, כותרת מודגשת
+     וכפתור פעולה. הצעדים שאחריו קיימים אבל שקטים, וזה בכוונה — רשימה שכל
+     שורה בה צועקת היא רשימה שאי אפשר לדעת איפה מתחילים בה.
+     ========================================================================== */
+  .onb{
+    border:1px solid var(--edge);border-radius:var(--r-lg);background:var(--surface);
+    box-shadow:var(--sh-1);overflow:hidden;margin-bottom:14px;
+  }
+  .onb[hidden]{display:none}
+  .onb-head{
+    display:flex;align-items:center;gap:10px;padding:11px 14px;
+    background:linear-gradient(135deg,var(--navy-2),var(--navy));color:#fff;
+  }
+  .onb-head h2{
+    font-family:'Frank Ruhl Libre',serif;font-size:1rem;font-weight:700;color:#fff;
+    margin:0;flex:1;min-width:0;
+  }
+  .onb-prog{
+    flex:none;font-size:.7rem;font-weight:800;color:#fff;
+    background:rgba(255,255,255,.2);border-radius:999px;padding:3px 10px;
+  }
+  .onb-x{
+    flex:none;background:transparent;color:rgba(255,255,255,.82);
+    font-size:.95rem;line-height:1;padding:5px 7px;border-radius:8px;
+  }
+  .onb-x:hover{background:rgba(255,255,255,.16);color:#fff}
+  .onb-x:focus-visible{outline:2px solid #fff;outline-offset:-2px}
+  .onb-sub{font-size:.78rem;color:var(--txt-soft);line-height:1.5;margin:0;padding:11px 14px 0}
+  .onb-list{list-style:none;margin:0;padding:11px 14px 14px;display:flex;flex-direction:column;gap:8px}
+  .onb-step{
+    display:flex;align-items:flex-start;gap:10px;padding:10px 11px;
+    border:1px solid var(--edge);border-radius:var(--r-xs);background:var(--surface-2);
+  }
+  /* הצעד הפתוח הבא — היחיד עם כפתור, ולכן היחיד עם צבע */
+  .onb-step.is-now{background:var(--navy-tint);border-color:#cadcee}
+  .onb-step.is-done{background:var(--surface);border-style:dashed}
+  .onb-mark{
+    flex:none;width:22px;height:22px;border-radius:50%;display:flex;
+    align-items:center;justify-content:center;font-size:.72rem;font-weight:800;
+    background:var(--surface);border:1.5px solid var(--edge);color:var(--txt-faint);
+  }
+  .onb-step.is-now .onb-mark{background:var(--navy);border-color:var(--navy);color:#fff}
+  .onb-step.is-done .onb-mark{background:var(--mint);border-color:var(--mint);color:#fff}
+  .onb-body{min-width:0;flex:1}
+  .onb-name{font-size:.85rem;font-weight:700;color:var(--txt)}
+  .onb-step.is-done .onb-name{color:var(--txt-soft);text-decoration:line-through}
+  .onb-text{font-size:.75rem;color:var(--txt-soft);line-height:1.5;margin:3px 0 0}
+  .onb-go{
+    margin-top:9px;background:var(--navy);color:#fff;border-radius:var(--r-xs);
+    padding:8px 14px;font-size:.8rem;font-weight:700;
+  }
+  .onb-go:hover{background:var(--navy-2)}
+  .onb-go:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+
   /* ---------- ברכה ---------- */
   .dash-greet{
     font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;font-weight:700;color:var(--txt);
@@ -1782,6 +1907,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background:rgba(255,255,255,.72);box-shadow:var(--sh-1);overflow:hidden;
   }
   .dp-admin{--dp-a:#a03449; --dp-b:#6d1725}
+  /* שני הפאנלים החדשים של מנהל/ת הפלטפורמה. ירוק-טורקיז לבריאות המערכת
+     וכחול-פלדה למצבת — שניהם רחוקים מהיין של הדוח החודשי, כדי שברפרוף
+     יהיה ברור שזה מסך אחר ולא המשך של אותו דוח. */
+  .dp-ops{--dp-a:#1f6f63; --dp-b:#0e3f38}
+  .dp-inv{--dp-a:#2f4f7a; --dp-b:#1a2f4d}
   .dash-panel[hidden]{display:none}
   /* הסינון של הסרגל התחתון. ‏!important כי חלק מהקטגוריות נשלטות ב-display
      אינליין (מדף המשכנתאות, אזורי הניהול), ומחלקה רגילה לא הייתה מנצחת. */
@@ -1953,6 +2083,76 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   .adm-fact-lbl{font-size:.73rem;color:var(--txt-soft);min-width:0}
   .adm-fact-val{font-size:.84rem;font-weight:800;color:var(--txt);white-space:nowrap;font-variant-numeric:tabular-nums}
+
+  /* ==========================================================================
+     ממצאי הסוכן התפעולי (הפאנל הרביעי)
+     --------------------------------------------------------------------------
+     החומרה היא המידע העיקרי בכל שורה, ולכן היא צבע ולא טקסט קטן בצד. חמש
+     דרגות, ושתי העליונות בלבד אדומות: אם הכול צועק, שום דבר לא נקרא.
+     ========================================================================== */
+  .ops-sev{
+    display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;
+    padding:2px 8px;border-radius:999px;font-size:.66rem;font-weight:800;
+    white-space:nowrap;
+  }
+  .ops-sev.critical{background:#fde2e2;color:#991b1b}
+  .ops-sev.high    {background:#fdeccd;color:#9a3412}
+  .ops-sev.medium  {background:#fef6cf;color:#854d0e}
+  .ops-sev.low     {background:var(--surface-2);color:var(--txt-soft)}
+  .ops-sev.info    {background:var(--surface-2);color:var(--txt-faint)}
+
+  /* הממצא עצמו. ‏details/summary ולא פאנל פתוח: רשימה של 40 ממצאים
+     פתוחים היא קיר טקסט, והשורה הסגורה נושאת את כל מה שצריך להחלטה. */
+  .ops-item{
+    border:1px solid var(--edge);border-radius:var(--r-s);
+    background:var(--surface);overflow:hidden;
+  }
+  .ops-item + .ops-item{margin-top:6px}
+  .ops-item[data-sev="critical"]{border-inline-start:3px solid #dc2626}
+  .ops-item[data-sev="high"]    {border-inline-start:3px solid #ea580c}
+  .ops-item.is-muted{opacity:.55}
+  .ops-item > summary{
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    padding:9px 11px;cursor:pointer;list-style:none;
+  }
+  .ops-item > summary::-webkit-details-marker{display:none}
+  .ops-item > summary:focus-visible{outline:2px solid var(--wine);outline-offset:-2px}
+  .ops-title{font-size:.79rem;font-weight:700;color:var(--txt);flex:1 1 180px;min-width:0}
+  .ops-meta{font-size:.66rem;color:var(--txt-faint);white-space:nowrap}
+  .ops-flag{
+    font-size:.63rem;font-weight:800;padding:1px 6px;border-radius:999px;
+    background:var(--green-tint);color:var(--green);white-space:nowrap;
+  }
+  .ops-flag.worse{background:#fdeaea;color:#b91c1c}
+  .ops-flag.new{background:#e6effb;color:#1d4ed8}
+  .ops-body{padding:0 11px 11px;display:flex;flex-direction:column;gap:7px}
+  .ops-body p{margin:0;font-size:.74rem;line-height:1.6;color:var(--txt-soft)}
+  .ops-fix{
+    padding:8px 10px;border-radius:var(--r-xs);background:var(--surface-2);
+    font-size:.73rem;line-height:1.6;color:var(--txt);
+  }
+  .ops-ev{
+    margin:0;padding:8px 10px;border-radius:var(--r-xs);background:#0f172a;
+    color:#cbd5e1;font-size:.66rem;line-height:1.5;overflow-x:auto;
+    white-space:pre-wrap;word-break:break-word;direction:ltr;text-align:left;
+  }
+  .ops-actions{display:flex;gap:6px;flex-wrap:wrap}
+  .ops-actions button{
+    border:1px solid var(--edge);background:var(--surface);border-radius:999px;
+    padding:4px 11px;font-size:.68rem;font-weight:700;color:var(--txt-soft);
+    cursor:pointer;font-family:inherit;
+  }
+  .ops-actions button:hover{background:var(--surface-2)}
+  .ops-actions button:disabled{opacity:.5;cursor:default}
+
+  /* רצועת הסריקה האחרונה. אדומה כשהסוכן עצמו שתק — זו התקלה שהכי קל
+     לפספס, כי היא נראית בדיוק כמו "אין ממצאים". */
+  .ops-stamp{
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    padding:8px 11px;border-radius:var(--r-s);background:var(--surface-2);
+    font-size:.71rem;color:var(--txt-soft);
+  }
+  .ops-stamp.stale{background:#fdeaea;color:#991b1b;font-weight:700}
 
   /* ==========================================================================
      בקרת מנוע הלידים (הפאנל השלישי)
@@ -3417,6 +3617,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <span class="ps-cta" aria-hidden="true">←</span>
       </a>
 
+      <!-- ---------- מדריך ההתחלה ----------
+           ששת הצעדים הראשונים של סוכן/ת חדש/ה במסלול PROFESSIONAL ומעלה,
+           ורק שלהם: המצב מגיע מ-agent_onboarding_state() במסד, שמחזירה אפס
+           שורות לכל מי שאינו/ה בתוך המדריך — ותיק/ה, מסלול Pay&GO, או מי
+           שסגר/ה אותו. ראו docs/agent-onboarding.md.
+
+           מחוץ ל-#overviewBlock, כמו רצועת ההטבה: המדריך אינו חלק מתמונת
+           המצב אלא מה שמוביל אליה, ולכן הוא עומד גם בלשוניות האחרות של
+           הסרגל התחתון — שאצל מי שרואה אותו ריקות ממילא. -->
+      <section class="onb" id="onbGuide" hidden aria-labelledby="onbTitle">
+        <div class="onb-head">
+          <h2 id="onbTitle">מדריך ההתחלה</h2>
+          <span class="onb-prog" id="onbProgress"></span>
+          <button type="button" class="onb-x" id="onbDismiss" aria-label="הסתרת מדריך ההתחלה" title="הסתרת המדריך">✕</button>
+        </div>
+        <p class="onb-sub" id="onbSub"></p>
+        <ol class="onb-list" id="onbList"></ol>
+      </section>
+
       <!-- ==========================================================
            "ראשי" — תמונת המצב
            ----------------------------------------------------------
@@ -3679,6 +3898,102 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </section>
       <!-- סוף דשבורד 3 -->
 
+      <!-- ==========================================================
+           דשבורד 4 — בריאות, ביצועים ואבטחה
+           ----------------------------------------------------------
+           מוצג רק ל-is_platform_admin, ונטען מ-RPC ‏platform_ops_report.
+           מקור הנתונים הוא הסוכן התפעולי (‏ops_scan.py), שרץ ב-GitHub
+           Actions כל שש שעות וכותב ל-ops_findings.
+
+           **למה הכותרת מתחילה בזמן הסריקה האחרונה:** סוכן שהפסיק לרוץ
+           מציג בדיוק אותו מסך כמו מערכת בריאה — אפס ממצאים חדשים — וזו
+           הדרך הקלה ביותר לישון טוב בזמן שהכול שבור. השורה "נסרק לפני X"
+           היא מה שמבדיל ביניהם, ולכן היא ראשונה ולא בהערת שוליים.
+
+           כל הגופים נבנים ב-JS (renderOpsReport). הפרטים והספים:
+           ‏docs/ops-agent.md. -->
+      <section class="dash-panel dp-ops" id="dashPanelOps" aria-label="בריאות, ביצועים ואבטחה — מנהל/ת הפלטפורמה" hidden>
+        <button type="button" class="dp-head" id="dashPanelOpsHead"
+                aria-expanded="false" aria-controls="dashPanelOpsBody">
+          <span class="dp-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.4 3.4 8.3 8 9 4.6-.7 8-4.6 8-9V6z"/><polyline points="9 12 11 14 15 10"/></svg>
+          </span>
+          <span class="dp-titles">
+            <span class="dp-title">בריאות המערכת · ביצועים ואבטחה</span>
+            <span class="dp-sub" id="opsPanelSub">מה שבור, מה איטי, ומה אפשר לשפר</span>
+          </span>
+          <span class="dp-toggle">
+            <span class="dp-toggle-label">הרחבה</span>
+            <svg class="dp-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </button>
+        <div class="dp-body" id="dashPanelOpsBody">
+          <div class="dp-inner">
+            <div class="adm-toolbar">
+              <div class="adm-range" id="opsRange" role="group" aria-label="טווח הימים בדוח התפעולי">
+                <button type="button" data-days="7">7 ימים</button>
+                <button type="button" data-days="30" class="is-on">30 יום</button>
+                <button type="button" data-days="90">90 יום</button>
+              </div>
+              <button type="button" class="adm-refresh" id="opsRefreshBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><polyline points="21 3 21 9 15 9"/></svg>
+                רענון
+              </button>
+              <span class="adm-stamp" id="opsStamp"></span>
+            </div>
+            <div id="opsReport"><div class="empty-state">טוען את מצב המערכת…</div></div>
+          </div>
+        </div>
+      </section>
+      <!-- סוף דשבורד 4 -->
+
+      <!-- ==========================================================
+           דשבורד 5 — מצבת המערכת
+           ----------------------------------------------------------
+           מוצג רק ל-is_platform_admin, ונטען מ-RPC
+           ‏platform_inventory_report.
+
+           **למה זה פאנל נפרד מהדוח החודשי:** הדוח החודשי הוא זרימה —
+           מה נכנס החודש מול החודש שעבר. כאן זו מצבת: כמה יש עכשיו, בסך
+           הכול. "נכנסו 12 לידים החודש" אינו עונה על "כמה לקוחות יש
+           בסך הכול למתווכים שלנו", וזו השאלה שנשאלת מול משקיע/ה או מול
+           משרד ששוקל להצטרף. -->
+      <section class="dash-panel dp-inv" id="dashPanelInventory" aria-label="מצבת המערכת — מנהל/ת הפלטפורמה" hidden>
+        <button type="button" class="dp-head" id="dashPanelInventoryHead"
+                aria-expanded="false" aria-controls="dashPanelInventoryBody">
+          <span class="dp-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M3 12h18M3 17h18"/><circle cx="7" cy="7" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="17" cy="17" r="1.4"/></svg>
+          </span>
+          <span class="dp-titles">
+            <span class="dp-title">מצבת המערכת · כל המספרים</span>
+            <span class="dp-sub" id="invPanelSub">נכסים, שיתופי פעולה, לקוחות, הדמיות וכסף</span>
+          </span>
+          <span class="dp-toggle">
+            <span class="dp-toggle-label">הרחבה</span>
+            <svg class="dp-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </button>
+        <div class="dp-body" id="dashPanelInventoryBody">
+          <div class="dp-inner">
+            <div class="adm-toolbar">
+              <div class="adm-range" id="invRange" role="group" aria-label="חלון ההשוואה במצבת">
+                <button type="button" data-days="7">7 ימים</button>
+                <button type="button" data-days="30" class="is-on">30 יום</button>
+                <button type="button" data-days="90">90 יום</button>
+                <button type="button" data-days="365">שנה</button>
+              </div>
+              <button type="button" class="adm-refresh" id="invRefreshBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><polyline points="21 3 21 9 15 9"/></svg>
+                רענון
+              </button>
+              <span class="adm-stamp" id="invStamp"></span>
+            </div>
+            <div id="invReport"><div class="empty-state">טוען את מצבת המערכת…</div></div>
+          </div>
+        </div>
+      </section>
+      <!-- סוף דשבורד 5 -->
+
       <h2 class="section-h stack-h" id="sectionsHead" hidden>הפעילות שלי</h2>
 
     <details class="acc" id="accProperties" open>
@@ -3700,6 +4015,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
     <form id="addPropertyForm" class="card" style="display:none;padding:18px;margin-bottom:18px">
+      <!-- בלוק הסטטוס — ראשון בטופס, ורק בעריכת נכס קיים. נכס חדש עדיין
+           אין לו סטטוס לשנות, וכפתור "ירד מפרסום" לפני שהמודעה נוצרה הוא
+           שאלה בלי משמעות. נבנה ב-renderPropertyStatusPanel(). -->
+      <div id="npStatusPanel" hidden></div>
+
       <div class="field"><label>כותרת</label><input type="text" id="npTitle" required placeholder="לדוגמה: דירת 3 חדרים, שכונת רמת דוד"></div>
 
       <div class="field"><label>קטגוריה</label>
@@ -3955,10 +4275,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="toolbar-row">
         <select id="propStatusFilter" class="filter-input" aria-label="סינון לפי סטטוס">
           <option value="">כל הסטטוסים</option>
-          <option value="active">פעיל</option>
+          <option value="active">מפורסם</option>
+          <option value="unpublished">ירד מפרסום</option>
           <option value="sold">נמכר</option>
           <option value="rented">הושכר</option>
-          <option value="archived">הוסר</option>
+          <option value="archived">בארכיון</option>
         </select>
         <select id="propDealFilter" class="filter-input" aria-label="סינון לפי סוג עסקה">
           <option value="">מכירה והשכרה</option>
@@ -5644,6 +5965,33 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </div>
 
+<!-- ====== הנכס כבר קיים במערכת אצל מישהו אחר ======
+     ‏dupModal מעל מדבר על כפילות אצל הסוכן/ת עצמו/ה, ואפשר לפתור אותה
+     בעדכון המודעה הקיימת. כאן המודעה הקיימת שייכת למישהו אחר — אין לסוכן/ת
+     גישה אליה, ואי אפשר "לעדכן" אותה.
+
+     שתי האפשרויות היחידות הן לוותר, או לשמור את הנכס אצלנו **בלי לפרסם**
+     ולהחתים בלעדיות. הנכס חייב להיות קיים במערכת כדי שאפשר יהיה להחתים
+     עליו בלעדיות (אשף ההסכמים דורש property_id), ולכן "שמירה בלי פרסום"
+     היא לא פשרה אלא הצעד הראשון בדרך הנכונה.
+
+     מה שלא מוצג כאן: מתי הבלעדיות של האחר/ת נגמרת. מי שיודע/ת מתי היא
+     נגמרת יודע/ת מתי לחזור לבעלים. ראו docs/property-status-exclusivity.md -->
+<div class="pm-overlay" id="blockModal" role="dialog" aria-modal="true" aria-labelledby="blockTitle" style="display:none">
+  <div class="pm-card">
+    <div class="pm-title" id="blockTitle">הנכס כבר קיים במערכת</div>
+    <div class="dup-card">
+      <div class="dup-name" id="blockHolder"></div>
+      <div class="dup-meta" id="blockMeta"></div>
+    </div>
+    <p class="dup-note" id="blockNote"></p>
+    <div class="pm-actions dup-actions">
+      <button type="button" class="btn btn-gold" id="blockDraft">שמירה בלי פרסום + החתמת בלעדיות</button>
+      <button type="button" class="btn btn-ghost dup-cancel" id="blockCancel">ביטול</button>
+    </div>
+  </div>
+</div>
+
 <!-- ====== הכנסת נכס ליריד הבתים הפתוחים ======
      אותם שני תאריכים שבטופס הנכס, אבל מכרטיס הנכס עצמו: ההשתתפות ביריד
      היא החלטה שבועית ("הנכס הזה, לשבועיים הקרובים") ולא פרט במודעה, ומי
@@ -6287,42 +6635,16 @@ function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel, 
 
        נפילה חזרה לקטגוריית הארנק נשמרת לשגיאות: עדיף מסלול ארוך שעובד על
        פני הודעת שגיאה שמשאירה את הסוכן/ת בלי מוצא. */
-    const onTopup = async ()=>{
+    /* גם הטעינה המהירה עוברת ב-checkout.html, מאותה סיבה שהכפתור בקטגוריית
+       הארנק עובר בו: אין חיוב באתר בלי פרטי חשבונית ובלי אישור תקנון. מה
+       שהיה כאן "לחיצה אחת עד מורנינג" הוא עכשיו לחיצה אחת עד עמוד התשלום,
+       עם הסכום שחסר כבר בחירה מראש. */
+    const onTopup = ()=>{
       const balance = Number(currentAgent && currentAgent.credit_balance) || 0;
       const need = topupNeeded(balance, price);
       if (!need){ done(false); gotoSection('accWallet', 'topupAmount'); return; }
-
-      const prevLabel = topupBtn.textContent;
-      topupBtn.disabled = true;
-      topupBtn.textContent = 'רגע…';
-      try{
-        const { data: { session } } = await sb.auth.getSession();
-        const res = await fetch(SUPABASE_URL + '/functions/v1/wallet-topup', {
-          method:'POST',
-          headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY,
-                    'Authorization':'Bearer ' + session.access_token },
-          body: JSON.stringify({ amount: need }),
-        });
-        const data = await res.json();
-
-        if (!res.ok || data.error){
-          // לא מסתירים את הכישלון ולא משאירים תקועים — הדרך הארוכה עדיין פתוחה
-          done(false); gotoSection('accWallet', 'topupAmount'); return;
-        }
-        if (data.redirect_url){
-          done(false);
-          location.href = data.redirect_url;
-          return;
-        }
-
-        const bal = await refreshAgentBalance();
-        if (overlay.style.display !== 'none') paintWallet(bal);
-        topupBtn.disabled = false;
-        topupBtn.textContent = prevLabel;
-      } catch(err){
-        console.error('quick topup', err);
-        done(false); gotoSection('accWallet', 'topupAmount');
-      }
+      done(false);
+      location.href = 'checkout.html?product=wallet&amount=' + encodeURIComponent(need);
     };
 
     function done(value){
@@ -7107,6 +7429,9 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   document.getElementById('agentAgency').textContent = agencyName;
   renderTierBadge(agent);
   renderPromoStrip(agent);
+  // מדריך ההתחלה ברקע: הוא מוצג רק למיעוט (סוכן/ת חדש/ה במסלול mid ומעלה),
+  // ואין סיבה שכל השאר יחכו לקריאה שתחזיר להם אפס שורות.
+  loadOnboarding().catch(err => console.warn('טעינת מדריך ההתחלה נכשלה:', err));
   setAgentBalance(agent.credit_balance);
 
   // מצב הסליקה והחזרה מעמוד התשלום — שניהם ברקע. הראשון רק צובע טקסט,
@@ -8014,6 +8339,125 @@ async function loadAdminReport(){
   }
 
   renderAdminReport(data || {});
+  loadAdminPwaReport();
+}
+
+/* ---------- התקנות האפליקציה (PWA) ----------
+   ‏RPC נפרד ולא ענף בדוח החודשי: הדוח החודשי עונה על שאלות של כסף וקהל
+   והוא כבר ארוך, ולהתקנות יש חלון זמן משלהן. הבלוק נוסף בסוף הפאנל אחרי
+   שהדוח כבר צויר, ולכן הוא מגיע רגע אחריו ולא מעכב אותו.
+
+   ‏**למה המספרים כאן אינם זהים ל-GA4, וזה לא באג:** המונה הזה במסד סופר
+   גם את מי שיש לו/ה חוסם פרסומות (שם GTM כלל לא נטען) וגם התקנות מתוך
+   ה-CRM (שאינו טוען את events.js במכוון). המספר כאן יהיה תמיד **גבוה
+   יותר**, והוא הנכון מבין השניים לשאלה "כמה התקינו".
+
+   חלון הזמן נגזר מבורר החודשים של הפאנל, כדי שלא יהיה בורר שני שאומר
+   משהו אחר על אותו מסך. הפרטים: docs/pwa-install.md */
+const PWA_MODE_LABELS = {
+  'prompt':     'אנדרואיד / כרום',
+  'ios':        'אייפון — ספארי',
+  'ios-other':  'אייפון — דפדפן אחר',
+  'in-app':     'דפדפן פנימי (פייסבוק/אינסטגרם)',
+  'mac-safari': 'מק — ספארי',
+  'unknown':    'לא ידוע',
+};
+
+async function loadAdminPwaReport(){
+  const host = document.getElementById('adminReport');
+  if (!host) return;
+
+  const { data, error } = await sb.rpc('platform_pwa_report',
+    { p_days: adminReportMonths * 30 });
+
+  const block = admBlock('האפליקציה במסך הבית (PWA)',
+    'כמה אנשים ראו את ההצעה להתקין וכמה הגיעו עד הסוף. נספר במסד שלנו ולא ב-GA4, ולכן כולל גם גולשים עם חוסם פרסומות וגם התקנות מתוך ה-CRM.');
+
+  if (error){
+    // ‏PGRST202/42883 = הפונקציה טרם קיימת במסד (המיגרציה לא רצה עדיין).
+    // זו אינה שגיאה שצריך להבהיל בגללה: הדשבורד שלם בלעדיה.
+    const msg = (error.code === '42883' || error.code === 'PGRST202')
+      ? 'מונה ההתקנות טרם קיים במסד — הריצו את המיגרציה 20261124090000_pwa_install_events.sql.'
+      : 'שגיאה בטעינת מונה ההתקנות: ' + error.message;
+    block.appendChild(admEl('div', 'empty-state', msg));
+    host.appendChild(block);
+    dashPanelsMeasure();
+    return;
+  }
+
+  const rep     = data || {};
+  const funnel  = rep.funnel || {};
+  const days    = Number(rep.window_days) || 30;
+  const shown   = Number(funnel.banner_shown)  || 0;
+  const clicked = Number(funnel.install_click) || 0;
+  const helped  = Number(funnel.help_open)     || 0;
+  const done    = Number(funnel.installed)     || 0;
+
+  block.appendChild(admEl('p', 'adm-legend',
+    'סך ההתקנות שהושלמו מאז ומתמיד: ' + admInt(rep.installed_total) +
+    ' · בחלון של ' + admInt(days) + ' ימים: ' + admInt(done)));
+
+  /* המשפך. ‏share הוא החלק מתוך "ראו את ההצעה" — בלי הפס האלה ארבעה
+     מספרים נפרדים, ואי אפשר לראות איפה אנשים נושרים. */
+  const pct = n => (shown > 0 ? (n / shown) * 100 : 0);
+  const rows = admEl('div', 'adm-rows');
+  rows.appendChild(admRow('ראו את ההצעה', 'הרצועה עלתה בתחתית הדף', admInt(shown), 100));
+  rows.appendChild(admRow('לחצו על הכפתור', null, admInt(clicked), pct(clicked)));
+  rows.appendChild(admRow('פתחו את ההסבר', 'אייפון ומק — שם אין התקנה בלחיצה', admInt(helped), pct(helped)));
+  rows.appendChild(admRow('אישרו בדיאלוג המערכת', null, admInt(funnel.accepted), pct(Number(funnel.accepted) || 0)));
+  rows.appendChild(admRow('התקנות שהושלמו', 'הדפדפן דיווח appinstalled', admInt(done), pct(done), null, true));
+  block.appendChild(rows);
+
+  /* ‏אייפון הוא הסיפור שהטבלה הזו מספרת: שם לא ייתכן "התקנות שהושלמו",
+     כי הדפדפן אינו מדווח על "הוספה למסך הבית". "פתחו הסבר" הוא הקצה של
+     המדידה שם, ולכן הוא טור נפרד ולא חלק מאותו משפך. */
+  const byPlatform = Array.isArray(rep.by_platform) ? rep.by_platform : [];
+  if (byPlatform.length){
+    const wrap = admEl('div', 'adm-table-wrap');
+    const table = admEl('table', 'adm-table');
+    const thead = admEl('thead');
+    const hrow = admEl('tr');
+    /* "הותקנו" הוא העמודה השנייה ולא האחרונה, ו"לחצו" ירד מכאן (הוא כבר
+       במשפך למעלה): בטלפון הטבלה גוללת לרוחב, וחמש עמודות דחפו דווקא את
+       המספר שבגללו פותחים את הבלוק אל מחוץ למסך. */
+    ['מסלול','הותקנו','פתחו הסבר','ראו'].forEach(h => hrow.appendChild(admEl('th', null, h)));
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+    const tbody = admEl('tbody');
+    byPlatform.forEach(row => {
+      const tr = admEl('tr');
+      tr.appendChild(admEl('td', null, PWA_MODE_LABELS[row.platform] || row.platform));
+      tr.appendChild(admEl('td', null, admInt(row.installed)));
+      tr.appendChild(admEl('td', null, admInt(row.helped)));
+      tr.appendChild(admEl('td', null, admInt(row.shown)));
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    block.appendChild(wrap);
+  }
+
+  /* מאיזה דף מתקינים בפועל — זו השאלה שקובעת לאן כדאי להחזיר את הכפתור */
+  const byPage = Array.isArray(rep.by_page) ? rep.by_page : [];
+  if (byPage.length){
+    block.appendChild(admEl('p', 'adm-legend', 'מאיזה דף לוחצים על ההתקנה'));
+    const facts = admEl('div', 'adm-facts');
+    byPage.forEach(row => {
+      const fact = admEl('div', 'adm-fact');
+      fact.appendChild(admEl('span', 'adm-fact-lbl', row.page));
+      fact.appendChild(admEl('span', 'adm-fact-val', admInt(row.clicked) + ' לחיצות'));
+      facts.appendChild(fact);
+    });
+    block.appendChild(facts);
+  }
+
+  if (!shown && !clicked && !done){
+    block.appendChild(admEl('div', 'empty-state',
+      'עדיין לא נרשמו אירועי התקנה בחלון הזה. הרצועה עולה רק בדפדפן שיודע להתקין, ורק למי שלא סגר/ה אותה בשבועיים האחרונים.'));
+  }
+
+  host.appendChild(block);
+  dashPanelsMeasure();
 }
 
 function renderAdminReport(report){
@@ -8743,6 +9187,538 @@ document.querySelectorAll('#leadRange button').forEach(btn=>{
   });
 });
 document.getElementById('leadRefreshBtn').addEventListener('click', loadLeadReport);
+
+/* ==========================================================================
+   הפאנל הרביעי — בריאות, ביצועים ואבטחה
+   --------------------------------------------------------------------------
+   הנתונים מגיעים מ-platform_ops_report, שקורא את ops_findings — הטבלה
+   שהסוכן התפעולי (ops_scan.py, ב-GitHub Actions) כותב אליה כל שש שעות.
+
+   ‏**הדף לא סורק כלום בעצמו, ובכוונה.** בדיקת שאילתות איטיות, הרשאות
+   ‏RLS ומשקל דפים דורשת חיבור שעוקף RLS ודורשת זמן; בדפדפן היא הייתה גם
+   בלתי אפשרית וגם מסוכנת. הדף מציג את מה שכבר נמצא.
+
+   הפרטים והספים: docs/ops-agent.md.
+   ========================================================================== */
+const OPS_SEV_LABELS = {
+  critical: 'חמור', high: 'גבוה', medium: 'בינוני', low: 'נמוך', info: 'מידע',
+};
+const OPS_AREA_LABELS = {
+  health:      'בריאות',
+  performance: 'ביצועים',
+  frontend:    'חוויית הגולש/ת',
+  behavior:    'התנהגות',
+  security:    'אבטחה',
+  cost:        'משאבים',
+};
+
+let opsReportDays = 30;
+let opsReportBusy = false;
+
+async function loadOpsReport(){
+  const host = document.getElementById('opsReport');
+  if (!host || opsReportBusy) return;
+  opsReportBusy = true;
+  const refreshBtn = document.getElementById('opsRefreshBtn');
+  if (refreshBtn) refreshBtn.disabled = true;
+  host.innerHTML = '<div class="empty-state">טוען את מצב המערכת…</div>';
+
+  const { data, error } = await sb.rpc('platform_ops_report', { p_days: opsReportDays });
+
+  opsReportBusy = false;
+  if (refreshBtn) refreshBtn.disabled = false;
+
+  if (error){
+    // ‏PGRST202/42883 = המיגרציה טרם רצה. ‏42501 = לא מנהל/ת פלטפורמה.
+    host.innerHTML = '';
+    const msg = (error.code === '42883' || error.code === 'PGRST202')
+      ? 'הדוח התפעולי לא קיים עדיין במסד — הריצו את המיגרציה 20261127090000_ops_agent.sql.'
+      : (error.code === '42501' || /not_platform_admin/.test(error.message || ''))
+        ? 'הדוח פתוח למנהל/ת פלטפורמה בלבד.'
+        : 'שגיאה בטעינת הדוח התפעולי: ' + error.message;
+    host.appendChild(admEl('div', 'empty-state', msg));
+    dashPanelsMeasure();
+    return;
+  }
+
+  renderOpsReport(data || {});
+}
+
+function renderOpsReport(report){
+  const host = document.getElementById('opsReport');
+  if (!host) return;
+  host.innerHTML = '';
+
+  const scan     = report.scan     || null;
+  const counts   = report.counts   || {};
+  const areas    = Array.isArray(report.areas)    ? report.areas    : [];
+  const findings = Array.isArray(report.findings) ? report.findings : [];
+  const resolved = Array.isArray(report.resolved) ? report.resolved : [];
+
+  const stampEl = document.getElementById('opsStamp');
+  if (stampEl) stampEl.textContent = report.generated_at
+    ? 'עודכן ' + new Date(report.generated_at).toLocaleString('he-IL')
+    : '';
+
+  /* ---- רצועת הסריקה האחרונה ----
+     ראשונה על המסך בכוונה. סוכן שהפסיק לרוץ מציג בדיוק אותו מסך כמו
+     מערכת בריאה, וזו הטעות שהכי קל ליפול בה. */
+  const ageMin = scan ? Number(scan.age_minutes) || 0 : null;
+  const stale  = scan === null || ageMin > 60 * 24;   // יממה בלי סריקה
+  const strip  = admEl('div', 'ops-stamp' + (stale ? ' stale' : ''));
+  if (!scan){
+    strip.appendChild(admEl('span', null,
+      'הסוכן התפעולי עדיין לא רץ אף פעם. עד שירוץ, המסך הזה ריק — וזה לא אומר שהכול תקין.'));
+  } else {
+    strip.appendChild(admEl('span', null, 'נסרק ' + opsAgo(ageMin)));
+    const failed = Array.isArray(scan.failed_probes) ? scan.failed_probes : [];
+    if (failed.length){
+      // בדיקה שנפלה אינה "אין ממצאים" — והמסך חייב לומר את זה במפורש
+      strip.appendChild(admEl('span', 'ops-flag worse',
+        'בדיקות שנפלו: ' + failed.join(', ')));
+    }
+    if (stale){
+      strip.appendChild(admEl('span', null,
+        '— הסריקה אמורה לרוץ כל שש שעות. לבדוק את ops_agent.yml בלשונית Actions.'));
+    }
+  }
+  host.appendChild(strip);
+
+  /* ---- ארבעה מספרי כותרת ---- */
+  const tiles = admEl('div', 'adm-tiles');
+  const crit  = Number(counts.critical) || 0;
+  const high  = Number(counts.high) || 0;
+  tiles.appendChild(admTile('דורש טיפול מיידי', admInt(crit + high),
+    { wine: crit > 0, note: crit ? admInt(crit) + ' חמורים' : 'חמור: אין' }));
+  tiles.appendChild(admTile('ממצאים פתוחים', admInt(counts.open),
+    { note: Number(counts.muted) ? admInt(counts.muted) + ' מושתקים' : null }));
+  tiles.appendChild(admTile('חדשים ביממתיים', admInt(counts.new)));
+  tiles.appendChild(admTile('נסגרו בחלון', admInt(resolved.length),
+    { note: 'מאליהם, בלי שסומנו' }));
+  host.appendChild(tiles);
+
+  /* ---- לפי תחום ---- */
+  if (areas.length){
+    const block = admBlock('לפי תחום',
+      'כמה ממצאים פתוחים בכל תחום, וכמה מהם דחופים.');
+    const rows = admEl('div', 'adm-rows');
+    const max = Math.max(1, ...areas.map(a => Number(a.open) || 0));
+    areas.forEach(a => {
+      const open = Number(a.open) || 0;
+      const urgent = Number(a.urgent) || 0;
+      rows.appendChild(admRow(
+        OPS_AREA_LABELS[a.area] || a.area,
+        urgent ? urgent + ' דחופים' : null,
+        admInt(open), (open / max) * 100));
+    });
+    block.appendChild(rows);
+    host.appendChild(block);
+  }
+
+  /* ---- הממצאים ---- */
+  const block = admBlock('הממצאים',
+    'ממוין לפי חומרה. לחיצה על שורה פותחת את הפירוט ואת ההצעה לתיקון.');
+  if (!findings.length){
+    block.appendChild(admEl('div', 'empty-state', scan
+      ? 'אין ממצאים פתוחים. הסריקה האחרונה עברה נקייה.'
+      : 'אין נתונים עדיין.'));
+  } else {
+    findings.forEach(f => block.appendChild(opsItem(f)));
+  }
+  host.appendChild(block);
+
+  /* ---- מה נסגר ----
+     בלי הבלוק הזה הדשבורד מראה רק חובות ואף פעם לא תשלומים, ואז הוא
+     מדכא במקום להועיל. */
+  if (resolved.length){
+    const done = admBlock('נסגרו מאליהם',
+      'ממצאים שלא חזרו בסריקה האחרונה — כלומר תוקנו, בכוונה או דרך אגב.');
+    const facts = admEl('div', 'adm-facts');
+    resolved.slice(0, 12).forEach(r => {
+      const fact = admEl('div', 'adm-fact');
+      fact.appendChild(admEl('span', 'adm-fact-lbl', r.title));
+      fact.appendChild(admEl('span', 'adm-fact-val',
+        'היה פתוח ' + admInt(r.lasted_days) + ' ימים'));
+      facts.appendChild(fact);
+    });
+    done.appendChild(facts);
+    host.appendChild(done);
+  }
+
+  const sub = document.getElementById('opsPanelSub');
+  if (sub){
+    sub.textContent = (crit + high)
+      ? admInt(crit + high) + ' ממצאים דורשים טיפול · ' + admInt(counts.open) + ' פתוחים'
+      : (Number(counts.open)
+          ? admInt(counts.open) + ' ממצאים פתוחים, אף אחד דחוף'
+          : 'הכול תקין בסריקה האחרונה');
+  }
+
+  dashPanelsMeasure();
+}
+
+function opsAgo(minutes){
+  const m = Number(minutes) || 0;
+  if (m < 90)      return 'לפני ' + Math.max(1, Math.round(m)) + ' דקות';
+  if (m < 60 * 36) return 'לפני ' + Math.round(m / 60) + ' שעות';
+  return 'לפני ' + Math.round(m / 1440) + ' ימים';
+}
+
+/* שורת ממצא אחת. ‏details ולא div פתוח: 40 ממצאים פתוחים הם קיר טקסט,
+   והשורה הסגורה נושאת כבר את כל מה שצריך כדי להחליט אם לפתוח. */
+function opsItem(f){
+  const item = admEl('details', 'ops-item' + (f.muted ? ' is-muted' : ''));
+  item.setAttribute('data-sev', f.severity);
+
+  const head = admEl('summary');
+  head.appendChild(admEl('span', 'ops-sev ' + f.severity,
+    OPS_SEV_LABELS[f.severity] || f.severity));
+  head.appendChild(admEl('span', 'ops-title', f.title));
+
+  if (f.is_new) head.appendChild(admEl('span', 'ops-flag new', 'חדש'));
+  if (f.trend === 'worse') head.appendChild(admEl('span', 'ops-flag worse', '▲ מחמיר'));
+  if (f.trend === 'better') head.appendChild(admEl('span', 'ops-flag', '▼ משתפר'));
+  if (f.muted) head.appendChild(admEl('span', 'ops-flag', 'מושתק'));
+
+  const age = Number(f.age_days) || 0;
+  head.appendChild(admEl('span', 'ops-meta',
+    (OPS_AREA_LABELS[f.area] || f.area) + ' · ' +
+    (age >= 1 ? 'פתוח ' + admInt(age) + ' ימים' : 'פתוח מהיום')));
+  item.appendChild(head);
+
+  const body = admEl('div', 'ops-body');
+  body.appendChild(admEl('p', null, f.detail));
+
+  /* המספר והמגמה. ‏prev_metric הוא מה שהופך "יש בעיה" ל"היא גדלה
+     מ-3 ל-11", וזה ההבדל בין דיווח לניטור. */
+  if (f.metric !== null && f.metric !== undefined){
+    const unit = f.metric_unit ? ' ' + f.metric_unit : '';
+    let line = 'המדד: ' + admInt(f.metric) + unit;
+    if (f.prev_metric !== null && f.prev_metric !== undefined
+        && Number(f.prev_metric) !== Number(f.metric)){
+      line += ' (בסריקה הקודמת ' + admInt(f.prev_metric) + unit + ')';
+    }
+    body.appendChild(admEl('p', null, line));
+  }
+
+  if (f.suggestion){
+    const fix = admEl('div', 'ops-fix');
+    fix.appendChild(admEl('strong', null, 'מה לעשות: '));
+    fix.appendChild(document.createTextNode(f.suggestion));
+    body.appendChild(fix);
+  }
+
+  /* הראיות כ-JSON גולמי, ב-LTR. זה לא יפה ובכוונה: זו התוכן שמעתיקים
+     לשאילתה או ל-Issue, ועיצוב שלו היה רק מסתיר פרטים. */
+  const ev = f.evidence;
+  if (ev && typeof ev === 'object' && Object.keys(ev).length){
+    const pre = admEl('pre', 'ops-ev', JSON.stringify(ev, null, 2));
+    body.appendChild(pre);
+  }
+
+  const actions = admEl('div', 'ops-actions');
+  const muteBtn = admEl('button', null, f.muted ? 'ביטול ההשתקה' : 'להשתיק ל-30 יום');
+  muteBtn.type = 'button';
+  muteBtn.addEventListener('click', async ()=>{
+    muteBtn.disabled = true;
+    const { error } = await sb.rpc('platform_ops_mute',
+      { p_key: f.key, p_days: f.muted ? 0 : 30 });
+    if (error){
+      muteBtn.disabled = false;
+      alert('ההשתקה נכשלה: ' + error.message);
+      return;
+    }
+    loadOpsReport();
+  });
+  actions.appendChild(muteBtn);
+  body.appendChild(actions);
+
+  item.appendChild(body);
+  return item;
+}
+
+document.querySelectorAll('#opsRange button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    opsReportDays = Number(btn.dataset.days) || 30;
+    document.querySelectorAll('#opsRange button')
+      .forEach(b => b.classList.toggle('is-on', b === btn));
+    loadOpsReport();
+  });
+});
+document.getElementById('opsRefreshBtn').addEventListener('click', loadOpsReport);
+
+/* ==========================================================================
+   הפאנל החמישי — מצבת המערכת
+   --------------------------------------------------------------------------
+   ‏platform_inventory_report מחזיר מסמך אחד עם תשע קבוצות. הרינדור כאן
+   מונע מ**מפרט** ולא מקוד לכל שדה: כל קבוצה היא רשימת [מפתח, תווית],
+   ולכן הוספת מספר חדש לדוח היא שורה אחת כאן ושורה אחת במיגרציה.
+
+   השדות שאינם מופיעים במפרט פשוט לא מוצגים — כך RPC שהתקדם לפני הדף
+   אינו שובר אותו, והדף אינו מציג שדה שאין לו תווית בעברית.
+   ========================================================================== */
+const INV_GROUPS = [
+  { key: 'properties', title: 'נכסים',
+    note: 'המלאי עצמו: כמה יש, כמה באוויר, ומה חסר במודעות.',
+    fields: [
+      ['total', 'נכסים במערכת'], ['active', 'מפורסמים כרגע'],
+      ['new', 'נוספו בחלון'], ['promoted', 'בקידום פעיל'],
+      ['with_images', 'עם תמונות'], ['with_text', 'עם תיאור שיווקי'],
+      ['geocoded', 'ממוקמים על המפה'], ['with_video', 'עם סרטון'],
+      ['with_tour', 'עם סיור וירטואלי'], ['open_house', 'עם בית פתוח'],
+      ['avg_price', 'מחיר ממוצע'], ['median_price', 'מחיר חציוני'],
+    ] },
+  { key: 'collaboration', title: 'שיתופי פעולה',
+    note: 'השאלה שהפלטפורמה נבנתה סביבה: כמה נכסים עוברים בין משרדים, ובאיזו צורה משפטית.',
+    fields: [
+      ['shares', 'שיתופים שנעשו'], ['shares_new', 'שיתופים בחלון'],
+      ['properties_shared', 'נכסים ששותפו'], ['opted_in', 'נכסים פתוחים לשיתוף'],
+      ['agencies_sharing', 'משרדים ששיתפו'], ['agencies_receiving', 'משרדים שקיבלו'],
+      ['agreements', 'הסכמים'], ['agreements_signed', 'הסכמים חתומים'],
+      ['exclusivities_active', 'בלעדיות בתוקף'], ['contracts', 'חוזים'],
+      ['contracts_signed', 'חוזים חתומים'], ['opted_out_agents', 'סוכנים שחסמו שיתוף'],
+    ] },
+  { key: 'clients', title: 'לקוחות המתווכים',
+    note: 'הלקוחות שהמתווכים מנהלים אצלנו, וההתאמות שהמערכת מצאה להם.',
+    fields: [
+      ['total', 'לקוחות בסך הכול'], ['active', 'לקוחות פעילים'],
+      ['new', 'נוספו בחלון'], ['with_agent', 'סוכנים שמנהלים לקוחות'],
+      ['per_agent', 'ממוצע לקוחות לסוכן/ת'],
+      ['matches', 'התאמות שנמצאו'], ['matches_seen', 'התאמות שנצפו'],
+    ] },
+  { key: 'media', title: 'הדמיות, סרטונים ומדיה',
+    note: 'מה שהמערכת ייצרה בעצמה עבור המודעות.',
+    fields: [
+      ['visualizations', 'הדמיות שנוצרו'], ['visualizations_done', 'הדמיות מוכנות'],
+      ['visualizations_new', 'הדמיות בחלון'], ['videos', 'סרטונים שהופקו'],
+      ['videos_new', 'סרטונים בחלון'], ['virtual_tours', 'סיורים וירטואליים'],
+      ['image_tags', 'תמונות שסווגו'], ['project_media', 'מדיה של פרויקטים'],
+    ] },
+  { key: 'people', title: 'משרדים, סוכנים ויזמים',
+    note: 'מי נמצא בפלטפורמה, וכמה מהם משלמים.',
+    fields: [
+      ['agencies', 'משרדים'], ['agencies_new', 'משרדים שהצטרפו בחלון'],
+      ['agents', 'סוכנים פעילים'], ['agents_new', 'סוכנים שהצטרפו בחלון'],
+      ['paying', 'במסלול בתשלום'], ['license_verified', 'רישיון מאומת'],
+      ['agents_onboarded', 'השלימו הקמה'], ['agents_closed', 'חשבונות שנסגרו'],
+      ['mortgage_advisors', 'יועצי משכנתאות'], ['developers', 'יזמים'],
+      ['platform_admins', 'מנהלי פלטפורמה'],
+    ] },
+  { key: 'demand', title: 'ביקוש ולידים',
+    note: 'כל מה שמגיע מצד המחפשים — בכל הערוצים.',
+    fields: [
+      ['leads', 'לידים בסך הכול'], ['leads_new', 'לידים בחלון'],
+      ['leads_open', 'לידים שלא נפתחו'], ['mortgage_leads', 'לידי משכנתא'],
+      ['project_leads', 'לידי פרויקטים'], ['rss_leads', 'לידים ממנוע ה-RSS'],
+      ['rss_leads_sold', 'לידי RSS שנמכרו'], ['saved_searches', 'חיפושים שמורים פעילים'],
+      ['saved_alerts_sent', 'התראות שנשלחו'], ['reviews', 'ביקורות שפורסמו'],
+      ['avg_rating', 'דירוג ממוצע'],
+    ] },
+  { key: 'money', title: 'כסף',
+    note: 'סכומים של עסקאות שהצליחו בלבד. טעינות במצב בדיקה אינן נספרות.',
+    money: true,
+    fields: [
+      ['topups', 'טעינות ארנק'], ['topups_window', 'טעינות בחלון'],
+      ['subscriptions', 'מנויים'], ['lead_charges', 'חיובי לידים'],
+      ['search_purchases', 'רכישות מהסוכן החכם'], ['mortgage_purchases', 'רכישות לידי משכנתא'],
+      ['rss_purchases', 'רכישות לידי RSS'], ['promotions', 'קידומים'],
+      ['videos', 'סרטוני שיווק'], ['ads', 'פרסום באתר'],
+      ['project_charges', 'חיובי פרויקטים'], ['developer_topups', 'טעינות יזמים'],
+      ['refunds', 'החזרים'], ['wallet_balance', 'יתרה בארנקים'],
+    ] },
+  { key: 'audience', title: 'קהל ותנועה',
+    note: 'מי מגיע לאתר, ובאיזה ערוץ הוא נשאר איתנו.',
+    fields: [
+      ['property_views', 'צפיות בנכסים בחלון'], ['unique_visitors', 'מבקרים ייחודיים'],
+      ['whatsapp_in', 'הודעות נכנסות בוואטסאפ'], ['whatsapp_chats', 'שיחות עם סוכנים'],
+      ['whatsapp_public', 'שיחות עם הבוט הציבורי'], ['newsletter', 'נרשמים לניוזלטר'],
+      ['open_house_subs', 'נרשמים לבתים פתוחים'], ['pwa_installs', 'התקנות האפליקציה'],
+      ['notifications', 'התראות שנשלחו בחלון'], ['notifications_unread', 'התראות שלא נקראו'],
+    ] },
+  { key: 'projects', title: 'פרויקטים חדשים',
+    note: 'הצד היזמי של הפלטפורמה.',
+    fields: [
+      ['total', 'פרויקטים'], ['published', 'מפורסמים'], ['new', 'נוספו בחלון'],
+      ['units', 'יחידות דיור'], ['units_free', 'יחידות פנויות'],
+      ['views', 'צפיות בחלון'],
+    ] },
+  { key: 'content', title: 'תוכן ומאגרי מידע',
+    note: 'מה שממלא את האתר מעבר למודעות.',
+    fields: [
+      ['articles', 'כתבות'], ['news_items', 'מבזקים שפורסמו'],
+      ['news_new', 'מבזקים בחלון'], ['neighborhoods', 'שכונות'],
+      ['streets', 'רחובות במאגר'], ['market_deals', 'עסקאות שוק'],
+      ['planning_info', 'נכסים עם מידע תכנוני'],
+    ] },
+];
+
+let invReportDays = 30;
+let invReportBusy = false;
+
+async function loadInventoryReport(){
+  const host = document.getElementById('invReport');
+  if (!host || invReportBusy) return;
+  invReportBusy = true;
+  const refreshBtn = document.getElementById('invRefreshBtn');
+  if (refreshBtn) refreshBtn.disabled = true;
+  host.innerHTML = '<div class="empty-state">טוען את מצבת המערכת…</div>';
+
+  const { data, error } = await sb.rpc('platform_inventory_report',
+    { p_days: invReportDays });
+
+  invReportBusy = false;
+  if (refreshBtn) refreshBtn.disabled = false;
+
+  if (error){
+    host.innerHTML = '';
+    const msg = (error.code === '42883' || error.code === 'PGRST202')
+      ? 'המצבת לא קיימת עדיין במסד — הריצו את המיגרציה 20261127090000_ops_agent.sql.'
+      : (error.code === '42501' || /not_platform_admin/.test(error.message || ''))
+        ? 'הדוח פתוח למנהל/ת פלטפורמה בלבד.'
+        : 'שגיאה בטעינת המצבת: ' + error.message;
+    host.appendChild(admEl('div', 'empty-state', msg));
+    dashPanelsMeasure();
+    return;
+  }
+
+  renderInventoryReport(data || {});
+}
+
+function renderInventoryReport(report){
+  const host = document.getElementById('invReport');
+  if (!host) return;
+  host.innerHTML = '';
+
+  const days = Number(report.window_days) || 30;
+  const stampEl = document.getElementById('invStamp');
+  if (stampEl) stampEl.textContent = report.generated_at
+    ? 'נכון ל-' + new Date(report.generated_at).toLocaleString('he-IL')
+    : '';
+
+  /* ארבעה מספרי כותרת — אלה שנשאלים בפועל כשמישהו שואל "מה יש לכם" */
+  const props  = report.properties    || {};
+  const collab = report.collaboration || {};
+  const clients= report.clients       || {};
+  const media  = report.media         || {};
+  const tiles = admEl('div', 'adm-tiles');
+  tiles.appendChild(admTile('נכסים מפורסמים', admInt(props.active),
+    { note: 'מתוך ' + admInt(props.total) + ' במערכת', wine: true }));
+  tiles.appendChild(admTile('שיתופי פעולה', admInt(collab.shares),
+    { note: admInt(collab.properties_shared) + ' נכסים שותפו' }));
+  tiles.appendChild(admTile('לקוחות המתווכים', admInt(clients.total),
+    { note: admInt(clients.per_agent) + ' בממוצע לסוכן/ת' }));
+  tiles.appendChild(admTile('הדמיות שבוצעו', admInt(media.visualizations),
+    { note: admInt(media.videos) + ' סרטונים' }));
+  host.appendChild(tiles);
+
+  host.appendChild(admEl('p', 'adm-note',
+    'כל מספר הוא מצבת מלאה מאז ומתמיד, אלא אם כתוב "בחלון" — ואז הוא ' +
+    admInt(days) + ' הימים האחרונים.'));
+
+  INV_GROUPS.forEach(group => {
+    const data = report[group.key];
+    if (!data || typeof data !== 'object') return;
+
+    // שדה שאין לו ערך אינו מוצג כאפס: "0" ו"לא נמדד" הם דברים שונים
+    const pairs = group.fields.filter(([k]) =>
+      data[k] !== null && data[k] !== undefined);
+    if (!pairs.length) return;
+
+    const block = admBlock(group.title, group.note);
+    const facts = admEl('div', 'adm-facts');
+    pairs.forEach(([k, label])=>{
+      const fact = admEl('div', 'adm-fact');
+      fact.appendChild(admEl('span', 'adm-fact-lbl', label));
+      fact.appendChild(admEl('span', 'adm-fact-val',
+        group.money ? '₪' + admInt(data[k]) : admInt(data[k])));
+      facts.appendChild(fact);
+    });
+    block.appendChild(facts);
+
+    // פילוחים: מפתח→מספר. מוצגים כשורות עם פס יחס, כי החלק היחסי הוא
+    // המידע — "34 שכירות" לבד אינו אומר דבר בלי "מתוך כמה".
+    ['by_status', 'by_deal', 'by_category', 'by_tier', 'leads_by_type',
+     'leads_by_status', 'agreements_by_kind', 'agreements_by_status',
+     'visualizations_by_kind', 'visualization_jobs',
+     'video_jobs'].forEach(breakdownKey => {
+      const raw = data[breakdownKey];
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+      const entries = Object.entries(raw)
+        .map(([k, v]) => [k, Number(v) || 0])
+        .filter(([, v]) => v > 0)
+        .sort((a, b) => b[1] - a[1]);
+      if (entries.length < 2) return;
+      const total = entries.reduce((s, [, v]) => s + v, 0);
+      block.appendChild(admEl('p', 'adm-legend',
+        INV_BREAKDOWN_LABELS[breakdownKey] || breakdownKey));
+      const rows = admEl('div', 'adm-rows');
+      entries.forEach(([k, v]) => rows.appendChild(
+        admRow(INV_VALUE_LABELS[k] || k, null, admInt(v), (v / total) * 100)));
+      block.appendChild(rows);
+    });
+
+    // ערים מובילות — מערך ולא אובייקט, ולכן טיפול נפרד
+    if (Array.isArray(data.top_cities) && data.top_cities.length){
+      block.appendChild(admEl('p', 'adm-legend', 'ערים מובילות'));
+      const max = Math.max(1, ...data.top_cities.map(c => Number(c.n) || 0));
+      const rows = admEl('div', 'adm-rows');
+      data.top_cities.forEach(c => rows.appendChild(
+        admRow(c.city, null, admInt(c.n), ((Number(c.n) || 0) / max) * 100)));
+      block.appendChild(rows);
+    }
+
+    host.appendChild(block);
+  });
+
+  const sub = document.getElementById('invPanelSub');
+  if (sub){
+    sub.textContent = admInt(props.active) + ' נכסים · ' +
+      admInt(collab.shares) + ' שיתופים · ' +
+      admInt(clients.total) + ' לקוחות · ' +
+      admInt(media.visualizations) + ' הדמיות';
+  }
+
+  dashPanelsMeasure();
+}
+
+const INV_BREAKDOWN_LABELS = {
+  by_status: 'לפי סטטוס',
+  by_deal: 'לפי סוג עסקה',
+  by_category: 'לפי קטגוריה',
+  by_tier: 'לפי מסלול',
+  leads_by_type: 'לידים לפי סוג',
+  leads_by_status: 'לידים לפי סטטוס',
+  agreements_by_kind: 'הסכמים לפי סוג',
+  agreements_by_status: 'הסכמים לפי מצב',
+  visualizations_by_kind: 'הדמיות לפי סוג',
+  visualization_jobs: 'משימות הדמיה לפי מצב',
+  video_jobs: 'משימות סרטון לפי מצב',
+};
+
+/* תרגום ערכי סטטוס לעברית. ערך שאין לו תרגום מוצג כמו שהוא — עדיף
+   מפתח באנגלית מאשר שורה שנעלמת. */
+const INV_VALUE_LABELS = {
+  active: 'פעיל', unpublished: 'לא מפורסם', archived: 'בארכיון',
+  draft: 'טיוטה', paused: 'מושהה', closed: 'סגור',
+  sale: 'מכירה', rent: 'השכרה', commercial: 'מסחרי', land: 'קרקע',
+  signed: 'חתום', sent: 'נשלח', cancelled: 'בוטל',
+  pending: 'ממתין', processing: 'בעיבוד', done: 'הושלם', failed: 'נכשל',
+  unlocked: 'נפתח', locked: 'נעול', refunded: 'הוחזר', success: 'הצליח',
+  exclusive_sell: 'בלעדיות מכירה', exclusive_buy: 'בלעדיות קנייה',
+  sell: 'מכירה', buy: 'קנייה',
+  private_room: 'חדר פרטי', commercial_business: 'עסק מסחרי',
+  apartment: 'דירה', house: 'בית', penthouse: 'פנטהאוז',
+};
+
+document.querySelectorAll('#invRange button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    invReportDays = Number(btn.dataset.days) || 30;
+    document.querySelectorAll('#invRange button')
+      .forEach(b => b.classList.toggle('is-on', b === btn));
+    loadInventoryReport();
+  });
+});
+document.getElementById('invRefreshBtn').addEventListener('click', loadInventoryReport);
 
 async function loadArticlesAdmin(){
   const listEl = document.getElementById('articlesAdminList');
@@ -9795,6 +10771,8 @@ document.getElementById('profileForm').addEventListener('submit', async (e)=>{
       ? 'הפרטים נשמרו — דף הסוכן/ת שלך מעודכן.'
       : 'הפרטים נשמרו, אך מספר הרישיון לא עודכן — פנו להנהלת הפלטפורמה.';
     showToast('פרטי הסוכן/ת עודכנו');
+    // צעד התמונות במדריך ההתחלה עשוי להיסגר בשמירה הזו
+    refreshOnboarding();
   } catch(err){
     console.error('profile save failed', err);
     feedback.style.color = 'var(--wine)';
@@ -9941,6 +10919,200 @@ function renderPromoStrip(agent){
     : 'כל היכולות פתוחות, בלי תשלום. לפירוט המסלולים ←';
   strip.hidden = false;
 }
+
+/* ==========================================================================
+   מדריך ההתחלה
+   --------------------------------------------------------------------------
+   סוכן/ת חדש/ה במסלול PROFESSIONAL ומעלה נוחת/ת על דשבורד מלא ביכולות שכולן
+   מחכות שיחפשו אותן. ששת הצעדים כאן הם הסדר שבו הן מתחילות לעבוד, והוא
+   השרשרת העסקית עצמה — מלאי, התחייבות, ומאיפה מגיע הלקוח/ה הבא/ה:
+
+     1. העוזר בוואטסאפ — משם נפתחים נכסים ולקוחות מהטלפון
+     2. תמונת פרופיל ותמונת נושא (ולמנהל/ת משרד — גם לוגו ותמונת נושא למשרד)
+     3. הנכס הראשון
+     4. הלקוח/ה הראשון/ה
+     5. ההסכם הראשון
+     6. הליד הראשון מחנות הלידים
+
+   **המצב אינו נשמר כאן ואינו נשמר כצ׳קליסט.** ‏agent_onboarding_state()
+   מחשבת אותו במסד מהמציאות בכל קריאה — יש שיחה בוואטסאפ? יש photo_url? יש
+   נכס? — ולכן צעד שנסגר מחוץ לדשבורד נסגר גם בכרטיס. זה לא ניואנס: הצעד
+   הראשון הוא בדיוק הכלי שבו נפתח לא פעם הנכס הראשון, וכרטיס שמסמן "בוצע"
+   רק על מה שנעשה בטופס היה מדווח שקר לכל מי שעשה/תה בדיוק מה שביקשנו.
+
+   ארבעת הצעדים האחרונים מקבלים גם דרבון בפעמון (‏onboarding_property,
+   ‏onboarding_client, ‏onboarding_agreement, ‏onboarding_lead) — טריגרים
+   במסד, שכל אחד מהם נולד ברגע שהצעד שלפניו נסגר. הכרטיס הוא ההכוונה;
+   ההתראה היא מה שמגיע גם למי שסגר/ה את הדשבורד.
+
+   ראו docs/agent-onboarding.md.
+   ========================================================================== */
+
+/* ‏done נקרא מהשורה שהמסד החזיר, ולא מחושב כאן שוב: תנאי משוכפל בין שרת
+   לדפדפן מתפצל, ואז ההתראה יוצאת בזמן שהכרטיס עוד מציג את הצעד כפתוח. */
+const ONBOARD_STEPS = [
+  { key:'whatsapp', name:'חיבור העוזר האישי בוואטסאפ',
+    text:'שומרים את מספר הוואטסאפ שלכם ושולחים לעוזר הודעה ראשונה. משם אפשר להעלות נכס, לשלוח תמונות של דירה או להקליט הודעה — בלי לפתוח את המחשב.',
+    cta:'לחיבור העוזר',
+    done: s => s.whatsapp_done,
+    run:  ()=> gotoSection('accWhatsapp', 'waPhone') },
+  { key:'profile', name:'תמונת פרופיל ותמונת נושא',
+    text:'זה מה שלקוח/ה רואה בדף הסוכן/ת שלכם ובכל נכס שתפרסמו. דף בלי תמונות נראה כמו כרטיס שלא הושלם.',
+    cta:'לעדכון הפרופיל',
+    done: s => s.profile_done,
+    run:  ()=> gotoSection('accProfile') },
+  /* צעד של מנהל/ת משרד בלבד — לסוכן/ת בצוות אין דף משרד לערוך, ושורה
+     שאי אפשר לסגור אותה היא מדריך שלא נגמר לעולם. */
+  { key:'agency', name:'לוגו ותמונת נושא לדף המשרד',
+    text:'דף המשרד הוא הכותרת שמעל כל הצוות שלכם. הלוגו ותמונת הנושא נכנסים אליו ולכל דפי הסוכנים שתחתיו.',
+    cta:'לעיצוב דף המשרד',
+    when: s => s.is_manager,
+    done: s => s.agency_done,
+    run:  ()=> gotoSection('accBranding') },
+  { key:'property', name:'הנכס הראשון',
+    text:'מודעה אחת פותחת את כל השאר: היא נכנסת למדפים באתר, מוצלבת מול קובץ הלקוחות, ומזינה את המדדים במסך הזה.',
+    cta:'הוספת נכס',
+    done: s => s.property_done,
+    run:  ()=> openInlineForm('accProperties', 'addPropertyForm', 'toggleAddProperty') },
+  { key:'client', name:'הלקוח/ה הראשון/ה בקובץ',
+    text:'קובץ הלקוחות הוא מה שמפעיל את ההתאמות: כל נכס חדש שנכנס — שלכם או של משרד שותף — נבדק מולו אוטומטית.',
+    cta:'הוספת לקוח/ה',
+    done: s => s.client_done,
+    run:  ()=> openInlineForm('accClients', 'addClientForm', 'toggleAddClient') },
+  /* אשף ההחתמה ולא ניווט לקטגוריה: הסכם נוצר בתוכו, והוא ממלא את עצמו
+     מהנכס ומהלקוח/ה שכבר במערכת — כלומר משני הצעדים שמעליו. */
+  { key:'agreement', name:'ההסכם הראשון',
+    text:'הזמנת שירותי תיווך היא מה שהופך נכס ולקוח/ה לעמלה. האשף ממלא את המסמך מהפרטים שכבר במערכת, ושולח לחתימה בקישור.',
+    cta:'יצירת הסכם',
+    done: s => s.agreement_done,
+    run:  ()=> openAgreementWizard() },
+  { key:'lead', name:'הליד הראשון מחנות הלידים',
+    text:'מאיפה מגיע הלקוח/ה הבא/ה: לידי בעל-נכס, מחפשי דירה ולידי משכנתא לפי אזורי הפעילות שלך. במסלול שלך רובם כלולים במנוי.',
+    cta:'לחנות הלידים',
+    done: s => s.lead_done,
+    run:  ()=> gotoSection('accLeadShelf') },
+];
+
+/* השורה שהמסד החזיר, או null כשאין מדריך. משמש גם את NOTIF_TYPES: תיבות
+   הסימון של ארבע התראות הדרבון מוצגות ב"ניהול התראות" רק כל עוד המדריך חי. */
+let onboardState = null;
+let onboardLastLoad = 0;
+
+function onboardingLive(){ return !!onboardState; }
+
+async function loadOnboarding(){
+  const box = document.getElementById('onbGuide');
+  if (!box) return;
+  onboardLastLoad = Date.now();
+  try{
+    const { data, error } = await sb.rpc('agent_onboarding_state');
+    if (error) throw error;
+    onboardState = (Array.isArray(data) ? data[0] : data) || null;
+    renderOnboarding();
+  } catch(err){
+    // ‏Netlify מפרסם את ה-HTML תוך שניות, והמיגרציה רצה ב-Actions — יש חלון
+    // של דקות שבו הפונקציה עוד לא קיימת. הכרטיס פשוט לא מוצג, כמו שאר
+    // היכולות שנשענות על מיגרציה טרייה (ראו loadDashboard).
+    console.warn('מדריך ההתחלה אינו זמין:', err);
+    onboardState = null;
+    box.hidden = true;
+  }
+}
+
+/* מה שנקרא אחרי שמירה שעשויה לסגור צעד. שתי קריאות ולא אחת: הדרבון על הצעד
+   הבא נולד בטריגר במסד **באותה שמירה**, והפעמון נטען בכניסה לדשבורד בלבד —
+   בלי הרענון כאן ההתראה שמעודדת את הצעד הבא הייתה מופיעה רק בטעינה הבאה,
+   כלומר בדיוק לא ברגע שבו היא רלוונטית. שתיהן קורות רק בזמן המדריך. */
+function refreshOnboarding(){
+  if (!onboardingLive()) return;
+  loadOnboarding();
+  if (currentAgent) loadNotifications(currentAgent.id);
+}
+
+function renderOnboarding(){
+  const box = document.getElementById('onbGuide');
+  if (!box) return;
+  const state = onboardState;
+  if (!state){ box.hidden = true; return; }
+
+  const steps = ONBOARD_STEPS.filter(s => !s.when || s.when(state));
+  const doneCount = steps.filter(s => s.done(state)).length;
+  const list = document.getElementById('onbList');
+  const sub  = document.getElementById('onbSub');
+  const prog = document.getElementById('onbProgress');
+
+  // ‏just_finished מגיע מהקריאה שסגרה את המדריך, והיא היחידה — בקריאה הבאה
+  // הפונקציה כבר מחזירה אפס שורות. זה בדיוק אורך החיים הנכון של "סיימת".
+  if (state.just_finished){
+    document.getElementById('onbTitle').textContent = 'סיימת את מדריך ההתחלה';
+    prog.textContent = '✓';
+    sub.textContent = 'העוזר מחובר, הפרופיל מוצג, יש נכס, יש לקוח/ה, נוצר הסכם ונרכש ליד. מכאן זה המסך הרגיל שלך — והמדריך לא יחזור.';
+    list.innerHTML = '';
+    box.hidden = false;
+    return;
+  }
+
+  document.getElementById('onbTitle').textContent = 'מדריך ההתחלה';
+  prog.textContent = doneCount + ' מתוך ' + steps.length;
+  // מספר הצעדים נגזר מהרשימה ולא נכתב במילים: למנהל/ת משרד יש צעד נוסף
+  // (דף המשרד), וטקסט שאומר "ארבעה" מול חמש שורות הוא טקסט שלא נקרא שוב
+  // אחרי שנכתב.
+  sub.textContent = doneCount
+    ? 'נשאר לסגור את מה שמסומן למטה. אפשר בכל סדר.'
+    : steps.length + ' צעדים קצרים שהופכים את החשבון החדש למשרד עובד.';
+
+  // הצעד הפתוח הראשון הוא היחיד שמקבל כפתור: מדריך שכל שורה בו מציעה פעולה
+  // הוא רשימה, ורשימה לא אומרת במה מתחילים.
+  const nextKey = (steps.find(s => !s.done(state)) || {}).key;
+
+  list.innerHTML = '';
+  steps.forEach((step, i)=>{
+    const isDone = step.done(state);
+    const isNow  = step.key === nextKey;
+    const li = document.createElement('li');
+    li.className = 'onb-step' + (isDone ? ' is-done' : isNow ? ' is-now' : '');
+    li.innerHTML =
+      '<span class="onb-mark" aria-hidden="true">' + (isDone ? '✓' : String(i + 1)) + '</span>'
+      + '<div class="onb-body">'
+      +   '<div class="onb-name">' + esc(step.name) + '</div>'
+      +   (isDone ? '' : '<p class="onb-text">' + esc(step.text) + '</p>')
+      + '</div>';
+    if (isNow){
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'onb-go';
+      btn.textContent = step.cta;
+      btn.addEventListener('click', ()=> step.run());
+      li.querySelector('.onb-body').appendChild(btn);
+    }
+    list.appendChild(li);
+  });
+  box.hidden = false;
+}
+
+/* הסתרה היא בקשה להפסיק, ולא רק להעלים כרטיס: אותה חותמת במסד סוגרת גם את
+   ארבע התראות הדרבון. לכן היא נאמרת במפורש בשאלה. */
+document.getElementById('onbDismiss').addEventListener('click', async ()=>{
+  if (!confirm('להסתיר את מדריך ההתחלה? גם ההתראות שמזכירות את הצעדים הבאים ייפסקו.')) return;
+  try{
+    const { error } = await sb.rpc('agent_onboarding_dismiss');
+    if (error) throw error;
+  } catch(err){
+    console.warn('הסתרת מדריך ההתחלה נכשלה:', err);
+  }
+  onboardState = null;
+  document.getElementById('onbGuide').hidden = true;
+});
+
+/* הצעד הראשון נסגר **מחוץ לדף הזה** — בשיחה בוואטסאפ — ולכן החזרה ללשונית
+   היא הרגע שבו כדאי לשאול שוב. החניקה ל-15 שניות היא כדי שמעבר בין
+   לשוניות לא יהפוך לקריאה בכל החלפה. */
+document.addEventListener('visibilitychange', ()=>{
+  if (document.visibilityState !== 'visible') return;
+  if (!onboardingLive() || !currentAgent) return;
+  if (Date.now() - onboardLastLoad < 15000) return;
+  loadOnboarding();
+});
 
 /* ---------- שער הבחירה ----------
    מוצג בשני רגעים, ורק בהם: בכניסה הראשונה (המסלול הגיע מההטבה ואיש לא
@@ -10499,9 +11671,11 @@ async function probeTopupMode(){
 
     badge.style.display = live ? 'none' : '';
     note.textContent = live
-      ? 'התשלום מתבצע בעמוד מאובטח של מורנינג. פרטי הכרטיס אינם עוברים דרך האתר, וחשבונית תונפק אוטומטית.'
+      ? 'ממשיכים לעמוד התשלום — שם ממלאים את פרטי החשבונית ומאשרים את התקנון. פרטי הכרטיס נמסרים בעמוד של מורנינג בלבד, ואינם עוברים דרך האתר.'
       : 'טרם חובר ספק סליקה — הטעינה כאן להדגמה/בדיקה בלבד, לא כרטיס אשראי אמיתי.';
-    btn.textContent = live ? 'מעבר לתשלום' : 'טעינת הארנק';
+    /* הכפתור מוביל לעמוד התשלום בשני המצבים, ולכן הוא לא מבטיח "טעינה" —
+       גם במצב בדיקה הטעינה קורית שם, אחרי אישור התקנון, ולא בלחיצה כאן. */
+    btn.textContent = 'המשך לתשלום';
   } catch(err){
     // הבדיקה נכשלה. משאירים את הממשק כמו שהוא — עדיף בלי הצהרה על מצב
     // מאשר הצהרה שאולי שגויה. הכפתור עדיין עובד, והשרת יחליט.
@@ -10509,54 +11683,19 @@ async function probeTopupMode(){
   }
 }
 
-document.getElementById('topupBtn').addEventListener('click', async ()=>{
-  const amount = document.getElementById('topupAmount').value;
-  const btn = document.getElementById('topupBtn');
-  const feedback = document.getElementById('topupFeedback');
-  const label = btn.textContent;
-  btn.disabled = true; btn.textContent = 'רגע…'; feedback.textContent = '';
-  try{
-    const { data: { session } } = await sb.auth.getSession();
-    const res = await fetch(SUPABASE_URL + '/functions/v1/wallet-topup', {
-      method:'POST',
-      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
-      body: JSON.stringify({ amount: Number(amount) }),
-    });
-    const data = await res.json();
-    if (!res.ok || data.error){
-      feedback.style.color = 'var(--red)';
-      /* ‏payment_terminal_missing אינו כשל רגעי אלא הגדרה חסרה אצל ספק
-         הסליקה, ולכן הוא מובחן: "נסו שוב" היה שולח לנסות שוב ושוב משהו
-         שייכשל זהה בכל פעם. */
-      feedback.textContent = data.error === 'too_many_open_topups'
-        ? 'יש כמה טעינות שטרם הושלמו. השלימו או המתינו מעט ונסו שוב.'
-        : data.error === 'payment_terminal_missing'
-        ? 'הסליקה אינה פעילה כרגע — טרם הוגדר מסוף סליקה. ניסיון חוזר לא יעזור; פנו אלינו.'
-        : 'שגיאה בפתיחת התשלום — נסו שוב';
-      btn.disabled = false; btn.textContent = label;
-      return;
-    }
+/* **הטעינה עוברת דרך checkout.html ולא פונה ל-wallet-topup מכאן.**
 
-    // סליקה אמיתית: יוצאים מהדף אל מורנינג. אין כאן הודעת הצלחה — עוד לא
-    // קרה כלום חוץ מפתיחת ניסיון תשלום.
-    if (data.redirect_url){
-      feedback.style.color = 'var(--muted)';
-      feedback.textContent = 'מעבירים לעמוד התשלום…';
-      window.location.href = data.redirect_url;
-      return;
-    }
+   עד היום הכפתור הזה פתח תשלום ישירות, ובדרך דילג על שני דברים שחייבים
+   לקרות לפני חיוב: איסוף פרטי הלקוח/ה לחשבונית (שם, טלפון, מדינה, אימייל)
+   ואישור מפורש של התקנון. ‏checkout.html עושה את שניהם, ומשם ממשיכים לאותה
+   נקודת קצה בדיוק — ולכן זו הפניה ולא מסלול חדש.
 
-    // מצב בדיקה: הזיכוי כבר קרה בשרת, ולכן מותר להצהיר עליו.
-    feedback.style.color = 'var(--blue)';
-    feedback.textContent = `נטענו ₪${data.amount} בהצלחה (מצב בדיקה)`;
-    await refreshAgentBalance();
-  } catch(err){
-    console.error(err);
-    feedback.style.color = 'var(--red)';
-    feedback.textContent = 'שגיאת רשת — נסו שוב';
-  } finally {
-    btn.disabled = false; btn.textContent = label;
-  }
+   עמוד תשלום אחד לכל חיוב באתר הוא גם מה שחברת הסליקה דורשת: צ'קבוקס תקנון
+   בעמוד שבו משלמים. שני מסלולים במקביל היו אומרים שהדרישה מתקיימת באחד
+   ונעקפת בשני. ראו docs/wallet-payments.md. */
+document.getElementById('topupBtn').addEventListener('click', ()=>{
+  const amount = Number(document.getElementById('topupAmount').value);
+  location.href = 'checkout.html?product=wallet&amount=' + encodeURIComponent(amount);
 });
 
 /* ---------- החזרה מעמוד התשלום ----------
@@ -12233,6 +13372,7 @@ document.getElementById('brSaveBtn').addEventListener('click', async ()=>{
     feedback.style.color = 'var(--teal)';
     feedback.textContent = 'המיתוג נשמר — דף המשרד מעודכן.';
     showToast('המיתוג של המשרד עודכן');
+    refreshOnboarding();
   } catch(err){
     console.error('branding save failed', err);
     feedback.style.color = 'var(--brick)';
@@ -13956,6 +15096,7 @@ toggleBtn.addEventListener('click', ()=>{
     populateAgent2Select('', '');
     resetImageState();
     syncMarketingCopyField(null);
+    renderPropertyStatusPanel(null);
     document.getElementById('addPropertyBtn').textContent = 'פרסום הנכס';
     currentCategory = 'residential';
     document.querySelectorAll('[data-category]').forEach(b=> b.classList.toggle('active', b.dataset.category === 'residential'));
@@ -14090,6 +15231,94 @@ function confirmDuplicateProperty({ match, total }){
     overlay.addEventListener('click', onBackdrop);
     document.addEventListener('keydown', onKey);
     restoreBtn.focus();
+  });
+}
+
+/* ==========================================================================
+   אותו נכס אצל שני משרדים
+   --------------------------------------------------------------------------
+   ‏findPropertyDuplicate מעל רואה רק את הנכסים של הסוכן/ת עצמו/ה — ‏RLS לא
+   תיתן לה יותר מזה, ולכן היא לעולם לא תראה את הכפילות שבאמת מזיקה: אותה
+   דירה שבעליה מסרו לחמישה משרדים, מתפרסמת חמש פעמים.
+
+   הבדיקה החוצה־משרדים היא ‎check_property_availability‎ במסד — פונקציית
+   ‏SECURITY DEFINER שרואה מעבר ל-RLS ומחזירה **שמות בלבד**: מי מפרסם/ת את
+   הנכס ומאיזה משרד. לא מזהה, לא טלפון, ולא מועד סיום של בלעדיות.
+
+   היא נוחות, לא גבול: האכיפה עצמה היא בטריגר ‎properties_guard_duplicate‎,
+   ולכן גם מי שיקרא ל-API ישירות ייחסם.
+   ========================================================================== */
+async function checkPropertyAvailability(payload, ownerPhone){
+  const { data, error } = await sb.rpc('check_property_availability', {
+    p_city: payload.city,
+    p_street: payload.street,
+    p_house_number: payload.house_number,
+    p_rooms: payload.rooms,
+    p_floor: payload.floor,
+    p_deal_type: payload.deal_type,
+    p_owner_phone: ownerPhone || null,
+  });
+  // כישלון בבדיקה אינו עוצר פרסום — הטריגר במסד ייחסם בכל מקרה, והודעת
+  // שגיאה על שירות שלא ענה היא לא מה שצריך לעצור סוכן/ת באמצע טופס
+  if (error){ console.warn('availability check failed', error.message); return null; }
+  return data;
+}
+
+const PROPERTY_BLOCK_STATES = ['exclusive_elsewhere', 'duplicate_elsewhere', 'duplicate_same_agency'];
+
+/* ‏'draft' = לשמור את הנכס בלי לפרסם ולפתוח אשף בלעדיות, ‏'cancel' = חזרה
+   לטופס. אין כאן אפשרות "לפרסם בכל זאת": המסד יחסום אותה ממילא.           */
+function confirmBlockedProperty(verdict){
+  const overlay   = document.getElementById('blockModal');
+  const draftBtn  = document.getElementById('blockDraft');
+  const cancelBtn = document.getElementById('blockCancel');
+  const exclusive = verdict.state === 'exclusive_elsewhere';
+  const sameAgency = verdict.state === 'duplicate_same_agency';
+
+  document.getElementById('blockTitle').textContent = exclusive
+    ? 'הנכס נמצא בבלעדיות של מתווך/ת אחר/ת'
+    : sameAgency ? 'הנכס כבר מפורסם במשרד שלכם' : 'הנכס כבר מפורסם במערכת';
+  document.getElementById('blockHolder').textContent =
+    `${verdict.agent_name} · ${verdict.agency_name}`;
+  document.getElementById('blockMeta').textContent = sameAgency
+    ? (verdict.listing_number ? 'מודעה #' + verdict.listing_number : '')
+    : 'אותה כתובת, אותה דירה ואותם בעלים';
+  document.getElementById('blockNote').textContent = sameAgency
+    ? 'הנכס כבר באוויר מטעם המשרד. מודעה שנייה לאותו נכס מפצלת את הלידים ואת הצפיות בין שתי מודעות. '
+      + 'אפשר לשמור את הנכס אצלכם בלי לפרסם, ולתאם עם הסוכן/ת שמחזיק/ה בו.'
+    : exclusive
+      ? 'כל עוד הבלעדיות בתוקף אי אפשר לפרסם את הנכס. אם החתמתם בלעדיות חדשה מול בעל/ת הנכס — '
+        + 'שמרו אותו כאן בלי לפרסם, החתימו את ההסכם במערכת, ואז אפשר יהיה לפרסם על פיו. '
+        + 'המתווך/ת הקודם/ת יקבל/תקבל התראה והמודעה שלו/ה תרד מפרסום.'
+      : 'הדרך היחידה לפרסם נכס שכבר קיים במערכת היא הסכם בלעדיות חתום מול בעל/ת הנכס. '
+        + 'שמרו את הנכס כאן בלי לפרסם, החתימו בלעדיות במערכת, ואז אפשר יהיה לפרסם על פיה — '
+        + 'המודעה הקיימת תרד מפרסום והסוכן/ת שלה יקבל/תקבל התראה.';
+  draftBtn.textContent = sameAgency
+    ? 'שמירה בלי פרסום'
+    : 'שמירה בלי פרסום + החתמת בלעדיות';
+
+  overlay.style.display = 'flex';
+
+  return new Promise(resolve => {
+    const onDraft   = ()=> done('draft');
+    const onCancel  = ()=> done('cancel');
+    const onKey     = (e)=> { if (e.key === 'Escape') done('cancel'); };
+    const onBackdrop= (e)=> { if (e.target === overlay) done('cancel'); };
+
+    function done(value){
+      draftBtn.removeEventListener('click', onDraft);
+      cancelBtn.removeEventListener('click', onCancel);
+      overlay.removeEventListener('click', onBackdrop);
+      document.removeEventListener('keydown', onKey);
+      overlay.style.display = 'none';
+      resolve(value);
+    }
+
+    draftBtn.addEventListener('click', onDraft);
+    cancelBtn.addEventListener('click', onCancel);
+    overlay.addEventListener('click', onBackdrop);
+    document.addEventListener('keydown', onKey);
+    draftBtn.focus();
   });
 }
 
@@ -14311,6 +15540,14 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   // הנכס שהוחזר מהארכיון (או עודכן במקום פרסום כפול) — נשמר כדי שהמדיה
   // הקיימת לא תימחק בהמשך ושההודעה בסוף תגיד מה באמת קרה
   let restoredProperty = null;
+  // נכס חדש נוצר תמיד כ-‎unpublished‎ ומתפרסם בצעד נפרד (ראו ההערה למטה).
+  // ‏publishAfterInsert מכבה את הצעד הזה כשהסוכן/ת בחר/ה לשמור בלי לפרסם,
+  // ו-publishError נושא את סיבת הסירוב אל הודעת הסיום.
+  let publishAfterInsert = false;
+  let publishError = null;
+  let signExclusivityAfterSave = false;
+  const ownerName = document.getElementById('npOwnerName').value.trim();
+  const ownerPhone = document.getElementById('npOwnerPhone').value.trim();
   if (editingPropertyId){
     ({ error } = await sb.from('properties').update(payload).eq('id', editingPropertyId));
   } else {
@@ -14329,16 +15566,40 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
       sentText = patch;
       patch.status = 'active';
       // תוקף שכבר עבר היה מחזיר את המודעה למצב "פג תוקף" באותו רגע — כמו
-      // ב-republishProperty, הוא מתאפס והסוכן/ת יכול/ה להגדיר חדש בעריכה
+      // ב-setPropertyStatus, הוא מתאפס והסוכן/ת יכול/ה להגדיר חדש בעריכה
       if (propertyIsExpired(restoredProperty) && !payload.listing_expires_at){
         patch.listing_expires_at = null;
       }
       ({ error } = await sb.from('properties').update(patch).eq('id', restoredProperty.id));
       newPropertyId = restoredProperty.id;
     } else {
+      /* אימות חוצה־משרדים לפני היצירה: ‏findPropertyDuplicate מעל רואה רק
+         את הנכסים של הסוכן/ת עצמו/ה, והכפילות שבאמת מזיקה היא זו שבין
+         משרדים — אותה דירה שבעליה מסרו לחמישה משרדים. */
+      btn.textContent = 'מאמת מול המערכת…';
+      const verdict = await checkPropertyAvailability(payload, ownerPhone);
+      publishAfterInsert = true;
+      if (verdict && PROPERTY_BLOCK_STATES.includes(verdict.state)){
+        if (await confirmBlockedProperty(verdict) === 'cancel'){
+          btn.disabled = false; btn.textContent = 'פרסום הנכס';
+          return;
+        }
+        publishAfterInsert = false;   // נשמר אצל הסוכן/ת, לא עולה לאתר
+        // הכפתור בחלון הבטיח גם החתמת בלעדיות — האשף נפתח על הנכס שנשמר,
+        // בסוף השמירה. כפילות בתוך אותו משרד אינה עניין של בלעדיות אלא של
+        // תיאום בין שני סוכנים, ולכן שם האשף לא נפתח.
+        signExclusivityAfterSave = verdict.state !== 'duplicate_same_agency';
+      }
+      btn.textContent = publishAfterInsert ? 'מפרסם…' : 'שומר…';
+
       payload.agency_id = currentAgent.agency_id;
       payload.agent_id = currentAgent.id;
-      payload.status = 'active';
+      /* הנכס נוצר כ-‎unpublished‎ ומתפרסם רק אחרי שפרטי הבעלים נשמרו.
+         זה לא זהירות יתר: זהות הבעלים יושבת ב-‎property_owners‎, שנכתבת רק
+         אחרי שיש ‎property_id‎ — ובלעדיה החסימה במסד אינה יכולה להבדיל בין
+         "אותה דירה" לבין "הדירה השכנה, אותה קומה ואותו מספר חדרים", והייתה
+         חוסמת מודעה תקינה. */
+      payload.status = 'unpublished';
       const { data: inserted, error: insertErr } = await sb.from('properties').insert(payload).select('id').single();
       error = insertErr;
       newPropertyId = inserted?.id;
@@ -14348,8 +15609,6 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   // פרטי הבעלים יושבים בטבלה נפרדת (property_owners) כי properties נקראת
   // על ידי כל גולש/ת. השמירה נפרדת, ולכן כישלון כאן לא מפיל את שמירת הנכס.
   if (!error && newPropertyId){
-    const ownerName = document.getElementById('npOwnerName').value.trim();
-    const ownerPhone = document.getElementById('npOwnerPhone').value.trim();
     const { error: ownerErr } = (ownerName || ownerPhone)
       ? await sb.from('property_owners').upsert({
           property_id: newPropertyId,
@@ -14361,6 +15620,15 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
       console.error(ownerErr);
       showToast('הנכס נשמר, אך פרטי הבעלים לא נשמרו: ' + ownerErr.message);
     }
+  }
+
+  /* הפרסום עצמו — אחרי שהבעלים נשמרו, כי הם חלק מזהות הנכס שהמסד בודק.
+     סירוב כאן אינו מאבד את הטופס: הנכס כבר קיים כ"ירד מפרסום", והסיבה
+     נאמרת בעברית בהודעת הסיום יחד עם הדרך להמשיך (בלוק הסטטוס בכרטיס). */
+  if (!error && newPropertyId && publishAfterInsert){
+    btn.textContent = 'מפרסם…';
+    const { error: pubErr } = await sb.from('properties').update({ status: 'active' }).eq('id', newPropertyId);
+    if (pubErr) publishError = pubErr;
   }
 
   if (!error && newPropertyId){
@@ -14405,15 +15673,27 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   if (error){
     console.error(error);
     feedback.style.color = 'var(--brick)';
-    feedback.textContent = 'שגיאה: ' + error.message;
+    // שגיאת חסימה מגיעה מהטריגר במסד ומנוסחת בעברית — מציגים אותה כמו שהיא
+    feedback.textContent = 'שגיאה: ' + propertyStatusErrorText(error);
     return;
   }
-  feedback.style.color = 'var(--teal)';
-  feedback.textContent = restoredProperty
-    ? (restoredProperty.status === 'active'
-        ? `המודעה הקיימת (#${restoredProperty.listing_number ?? '—'}) עודכנה — לא נוצרה מודעה כפולה`
-        : `המודעה הוחזרה מהארכיון ועודכנה (#${restoredProperty.listing_number ?? '—'})`)
-    : (editingPropertyId ? 'הנכס עודכן בהצלחה!' : 'הנכס פורסם בהצלחה!');
+  // הנכס נשמר אך לא עלה לאתר — או כי הסוכן/ת בחר/ה בכך, או כי המסד סירב
+  let savedWithoutPublishing = false;
+  if (publishError || (!editingPropertyId && !restoredProperty && !publishAfterInsert)){
+    savedWithoutPublishing = true;
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = (publishError
+      ? 'הנכס נשמר אך לא פורסם — ' + propertyStatusErrorText(publishError)
+      : 'הנכס נשמר במצב "ירד מפרסום" ולא עלה לאתר.')
+      + ' אפשר להחתים בלעדיות ולפרסם אותו מבלוק הסטטוס שבכרטיס הנכס.';
+  } else {
+    feedback.style.color = 'var(--teal)';
+    feedback.textContent = restoredProperty
+      ? (restoredProperty.status === 'active'
+          ? `המודעה הקיימת (#${restoredProperty.listing_number ?? '—'}) עודכנה — לא נוצרה מודעה כפולה`
+          : `המודעה הוחזרה מהארכיון ועודכנה (#${restoredProperty.listing_number ?? '—'})`)
+      : (editingPropertyId ? 'הנכס עודכן בהצלחה!' : 'הנכס פורסם בהצלחה!');
+  }
 
   await reportOwnerRedaction(newPropertyId, sentText);
 
@@ -14468,6 +15748,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   syncMarketingCopyField(null);
   // ‏reset() מכבה את תיבת הסימון אך לא מקפל את שדות התאריך שנפתחו בגללה
   syncOpenHouseFields();
+  renderPropertyStatusPanel(null);
   editingPropertyId = null;
   editingPropertyOriginalAddress = null;
   currentCategory = 'residential';
@@ -14477,12 +15758,27 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   // הנכס שזה עתה פורסם עשוי להתאים ללקוח/ה בקובץ שלך — הטריגר כבר פתח את
   // ההתראה, וכאן היא נשלפת בלי שיהיה צורך לרענן את העמוד
   await loadClientAlerts();
-  setTimeout(()=>{
-    addForm.style.display='none';
-    toggleBtn.textContent='+ הוספת נכס חדש';
-    document.getElementById('addPropertyBtn').textContent = 'פרסום הנכס';
-    feedback.textContent='';
-  }, 1500);
+  // ואותו נכס עשוי להיות הראשון, ולסגור צעד במדריך ההתחלה
+  refreshOnboarding();
+  /* נכס שנשמר ולא פורסם: ההודעה מסבירה למה ומה עושים הלאה, ו-1.5 שניות
+     אינן מספיקות כדי לקרוא אותה. הטופס נשאר פתוח עד שסוגרים אותו. */
+  if (!savedWithoutPublishing){
+    setTimeout(()=>{
+      addForm.style.display='none';
+      toggleBtn.textContent='+ הוספת נכס חדש';
+      document.getElementById('addPropertyBtn').textContent = 'פרסום הנכס';
+      feedback.textContent='';
+    }, 1500);
+  }
+
+  // "שמירה בלי פרסום + החתמת בלעדיות" — החלק השני של ההבטחה. האשף נפתח
+  // כאן ולא לפני השמירה, כי הוא דורש property_id.
+  if (signExclusivityAfterSave && newPropertyId){
+    await openAgreementWizard({
+      kind: payload.deal_type === 'rent' ? 'exclusive_landlord' : 'exclusive_sell',
+      propertyId: newPropertyId,
+    });
+  }
 });
 
 /* ---------- חיפוש, סינון ומיון ברשימת "הנכסים שלי" ----------
@@ -14490,7 +15786,26 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
    מקליד/ה בשדה החיפוש תוך כדי גלילה, ואין סיבה להחזיר את המסך למצב "טוען…"
    על כל תו. לכן loadProperties() אחראית רק על הבאת הנתונים ועל המידע הנלווה
    (צפיות, מידע תכנוני, ספירת שת״פ), ו-renderProperties() על התצוגה.       */
-const PROPERTY_STATUS_LABELS = { active:'פעיל', sold:'נמכר', rented:'הושכר', archived:'הוסר' };
+/* חמישה מצבים, ושלושה מהם אינם "לא פעיל" סתם:
+     active       — באוויר, נקרא על ידי כל גולש/ת
+     unpublished  — ירד מפרסום זמנית. המודעה חיה, היא פשוט לא באתר עכשיו
+     sold/rented  — העסקה נסגרה, והנכס נכנס ל"עסקאות אחרונות"
+     archived     — ארכיון: לא עובדים עליו, ולא רוצים לראות אותו ברשימה
+   ההפרדה בין ‎unpublished‎ ל-‎archived‎ היא כל הטעם: עד שהיא נוספה, סוכן/ת
+   שרצה/תה להוריד מודעה לשבועיים בחר/ה בין "נמכר" שהוא שקר שנכנס לאתר לבין
+   "הוסר" שנראה כמו סוף הדרך — ובפועל השאיר/ה את המודעה באוויר. */
+const PROPERTY_STATUS_LABELS = {
+  active:'מפורסם', unpublished:'ירד מפרסום', sold:'נמכר', rented:'הושכר', archived:'בארכיון',
+};
+
+/* שלושה גוונים ולא שניים: ירוק למה שחי באתר עכשיו, זהב למה שיורד ממנו
+   זמנית ואמור לחזור, ואפור למה שנסגר. "ירד מפרסום" באפור היה נראה כמו
+   ארכיון — וזו בדיוק ההבחנה שהוספנו. */
+function propertyStatusPillClass(status){
+  if (status === 'active') return 'status-unlocked';
+  if (status === 'unpublished') return 'status-masked';
+  return 'status-off';
+}
 
 /* ---------- הרשימה כטאבים ----------
    כרטיס נכס מלא הוא חצי מסך טלפון, וסוכן/ת עם חמישים נכסים גלל/ה עשרים
@@ -14928,7 +16243,7 @@ function buildPropertyCard(p, agentId){
         </div>
       </div>
       <div class="pill-row">
-        <span class="status-pill ${p.status === 'active' ? 'status-unlocked' : 'status-off'}">${statusLabels[p.status] || p.status}</span>
+        <span class="status-pill ${propertyStatusPillClass(p.status)}">${statusLabels[p.status] || p.status}</span>
         ${p.shared_with_partners
           ? `<span class="status-pill status-shared" title="בשת״פ · הופץ ${hebDate(p.shared_at)}">🤝 ${propertyShareCounts[p.id] || 0} משרדים</span>`
           : ''}
@@ -14937,6 +16252,7 @@ function buildPropertyCard(p, agentId){
     ${tags}
     ${ownerLine ? `<div class="lead-meta">בעלים: ${esc(ownerLine)}</div>` : ''}
     ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
+    <div class="pc-status-slot"></div>
     <div class="pc-sec-head pc-quick-head">פעולות מהירות</div>
     <div class="pc-grid"></div>
     <div class="pc-hub" hidden>
@@ -14949,6 +16265,11 @@ function buildPropertyCard(p, agentId){
   const hub = el.querySelector('.pc-hub');
   const hubRow = hub.querySelector('.pc-hub-row');
   const mainActions = el.querySelector('.lead-actions.act-primary');
+
+  /* בלוק הסטטוס ראשון, לפני כל פעולה אחרת: "האם המודעה באוויר" היא השאלה
+     הראשונה שנשאלת על כל נכס, וממנה נגזר מה בכלל רלוונטי לעשות איתו.
+     ראו buildPropertyStatusPanel. */
+  el.querySelector('.pc-status-slot').replaceWith(buildPropertyStatusPanel(p, agentId));
 
   /* סדר הפעולות, ולמה שלושה מקטעים ולא רשימה אחת: ראו את ההערה שמעל
      ‎.pc-grid‎ ב-CSS. כאן רק החלוקה עצמה —
@@ -15133,21 +16454,10 @@ function buildPropertyCard(p, agentId){
       onClick: () => openOpenHouseModal(p, agentId),
     });
 
-    const isRent = p.deal_type === 'rent';
-    addCardAction(mainActions, {
-      label: isRent ? '✅ סמן כהושכר' : '✅ סמן כנמכר', cls:'btn-gold',
-      title:'סגירת העסקה — המודעה יורדת מהאתר ונשארת בכרטיס',
-      onClick:()=> markPropertyStatus(p.id, isRent ? 'rented' : 'sold', agentId),
-    });
-  } else {
-    // נכס שסומן כהושכר/נמכר/הוסר לא נעלם — עסקה שהתבטלה או שוכר שעזב מחזירים
-    // אותו לפרסום מאותו כרטיס, בלי לפתוח מודעה חדשה ולאבד את מספר המודעה,
-    // הצפיות והמידע התכנוני שכבר נצברו עליו.
-    // ‏act-wide ולא שליש: כאן זו הפעולה הראשית היחידה.
-    addCardAction(mainActions, {
-      label:'↩ החזרה לפרסום', cls:'btn-gold act-wide',
-      onClick:btn => republishProperty(p, btn, agentId),
-    });
+    /* "סמן כנמכר" ו"החזרה לפרסום" ישבו כאן עד שנוסף בלוק הסטטוס. הן לא
+       נעלמו — הן עברו אליו, יחד עם "ירד מפרסום", "ארכיון" ו"מחיקה"
+       שלא היו קיימות. פעולה שמשנה את מצב הנכס נמצאת עכשיו במקום אחד,
+       בראש הכרטיס, ולא בשני כפתורים שמחליפים זה את זה לפי המצב. */
   }
 
   // בלוק כלי ה-AI מוצג רק אם נכנס אליו משהו: במסלול החינמי, ועל נכס
@@ -15536,38 +16846,285 @@ async function produceMarketingVideo(property, btn, agentId){
   setTimeout(poll, VIDEO_POLL_MS);
 }
 
-async function markPropertyStatus(propertyId, newStatus, agentId){
-  const confirmLabel = newStatus === 'sold' ? 'לסמן את הנכס כנמכר? הוא יוסר מרשימת הנכסים הפעילים.' : 'לסמן את הנכס כהושכר?';
-  if (!confirm(confirmLabel)) return;
-  const { error } = await sb.from('properties').update({ status: newStatus }).eq('id', propertyId);
-  if (error){ showToast('שגיאה בעדכון: ' + error.message); return; }
-  showToast(newStatus === 'sold' ? 'הנכס סומן כנמכר — נוסף אוטומטית ל"עסקאות אחרונות" באתר' : 'הנכס סומן כהושכר');
+/* ==========================================================================
+   סטטוס הנכס — בלוק אחד, שני מקומות
+   --------------------------------------------------------------------------
+   עד כאן המצב של נכס נקבע בשלושה מקומות שונים: "סמן כנמכר" בתחתית הכרטיס,
+   "החזרה לפרסום" שהחליף אותו כשהנכס לא היה פעיל, ו"ארכיון" שלא היה קיים
+   בכלל. הורדה זמנית מהאתר — הדבר שסוכנים באמת צריכים — לא הייתה אפשרית,
+   ולכן מודעות של דירות שכבר לא בשוק נשארו באוויר.
+
+   ‏buildPropertyStatusPanel בונה בלוק אחד שמוצג גם בראש כרטיס הנכס וגם
+   בראש טופס העריכה. הוא מציג את המצב הנוכחי, את המצבים שאפשר לעבור
+   אליהם, ואת מה שחוסם מעבר — והוא הדרך היחידה בקוד לשנות סטטוס.
+
+   ## הבלעדיות
+
+   האכיפה כולה במסד (‏properties_guard_duplicate). כאן רק התצוגה:
+   ‏property_listing_context מחזירה מי מחזיק/ה בבלעדיות על הנכס, והכפתור
+   "מפורסם" מנוטרל כשהמחזיק/ה אינו/ה אנחנו. אם המסד יחסום בכל זאת (מירוץ
+   בין שני סוכנים), ההודעה שלו היא זו שתוצג — ‏hint מזהה את הסוג.
+   ========================================================================== */
+
+/* התרגום היחיד של שגיאת מסד לעברית. ה-hint נקבע ב-raise ... using hint,
+   וה-message כבר כתוב בעברית מלאה — ולכן הוא מוצג כמו שהוא. */
+function propertyStatusErrorText(error){
+  if (!error) return '';
+  if (error.hint === 'exclusive_elsewhere' || error.hint === 'duplicate_elsewhere'
+      || error.hint === 'duplicate_same_agency' || error.hint === 'exclusivity_agreement_required'
+      || error.hint === 'address_incomplete'){
+    return error.message;
+  }
+  if (error.code === '23503') return 'אי אפשר למחוק את הנכס — מקושרים אליו חוזה או עסקה שמורים.';
+  return error.message || 'שגיאה לא ידועה';
+}
+
+const PROPERTY_STATUS_CONFIRM = {
+  active:      'להחזיר את הנכס לפרסום? המודעה תופיע שוב באתר.',
+  unpublished: 'להוריד את הנכס מפרסום? המודעה תיעלם מהאתר ותישאר אצלך במערכת — אפשר להחזיר אותה בכל רגע.',
+  sold:        'לסמן את הנכס כנמכר? המודעה תרד מהאתר והנכס ייכנס ל"עסקאות אחרונות".',
+  rented:      'לסמן את הנכס כהושכר? המודעה תרד מהאתר.',
+  archived:    'להעביר את הנכס לארכיון? המודעה תרד מהאתר והנכס יצא מרשימת העבודה היומית.',
+};
+
+/* שינוי סטטוס. ‏listing_expires_at שכבר עבר מתאפס בחזרה לפרסום — אחרת
+   הנכס חוזר לאוויר וברגע הבא כבר מסומן "פג תוקף". */
+async function setPropertyStatus(property, nextStatus, btn, agentId){
+  if (property.status === nextStatus) return;
+  if (!confirm(PROPERTY_STATUS_CONFIRM[nextStatus] || 'לשנות את סטטוס הנכס?')) return;
+
+  const patch = { status: nextStatus };
+  if (nextStatus === 'active' && propertyIsExpired(property)) patch.listing_expires_at = null;
+
+  const original = actionLabel(btn);
+  if (btn){ btn.disabled = true; setActionLabel(btn, 'מעדכן…'); }
+  const { error } = await sb.from('properties').update(patch).eq('id', property.id);
+  if (error){
+    if (btn){ btn.disabled = false; setActionLabel(btn, original); }
+    showToast(propertyStatusErrorText(error), 6000);
+    return;
+  }
+  showToast(
+    nextStatus === 'active'      ? 'הנכס חזר לפרסום ומופיע שוב באתר'
+    : nextStatus === 'unpublished' ? 'הנכס ירד מפרסום — הוא נשאר אצלך במערכת'
+    : nextStatus === 'sold'        ? 'הנכס סומן כנמכר — נוסף אוטומטית ל"עסקאות אחרונות" באתר'
+    : nextStatus === 'rented'      ? 'הנכס סומן כהושכר'
+    : 'הנכס הועבר לארכיון');
+  await loadProperties(agentId);
+  refreshOpenPropertyStatusPanel(property.id);
+}
+
+/* הכרטיס נבנה מחדש ב-loadProperties, אבל הטופס לא — ובלוק הסטטוס שבתוכו
+   היה ממשיך להציג את המצב הקודם אחרי שינוי שנעשה ממנו עצמו. */
+function refreshOpenPropertyStatusPanel(propertyId){
+  if (editingPropertyId !== propertyId) return;
+  const fresh = myPropertyRows.find(row => row.id === propertyId);
+  if (fresh) renderPropertyStatusPanel(fresh, myPropertyAgentId);
+}
+
+/* מחיקה סופית. שני אישורים ולא אחד: זו הפעולה היחידה בכרטיס שאין ממנה דרך
+   חזרה, והיא מוחקת יחד עם הנכס גם את הצפיות, המידע התכנוני והמדיה שלו.
+   קבצי ה-Storage נמחקים **לפני** השורה: אחריה כבר אין דרך לדעת אילו קבצים
+   היו שייכים לה, והם היו נשארים בדלי לנצח. */
+async function deletePropertyForever(property, btn, agentId){
+  const name = property.title || 'הנכס';
+  if (!confirm(`למחוק לצמיתות את "${name}" (מודעה #${property.listing_number ?? '—'})?\n\n`
+    + 'יימחקו גם התמונות, הסרטון, הצפיות והמידע התכנוני שנצברו עליו. '
+    + 'אם רק רוצים להוריד את המודעה מהאתר — בחרו "ירד מפרסום" או "ארכיון".')) return;
+  if (!confirm('אין דרך לשחזר נכס שנמחק. למחוק?')) return;
+
+  const original = actionLabel(btn);
+  if (btn){ btn.disabled = true; setActionLabel(btn, 'מוחק…'); }
+
+  const paths = (property.images || []).map(storagePathFromPublicUrl).filter(Boolean);
+  const marketingPath = property.marketing_image ? storagePathFromPublicUrl(property.marketing_image) : null;
+  if (marketingPath) paths.push(marketingPath);
+  if (paths.length) await sb.storage.from(IMAGES_BUCKET).remove(paths).catch(()=>{});
+  const videoPath = videoStoragePath(property.video_url);
+  if (videoPath) await sb.storage.from(VIDEOS_BUCKET).remove([videoPath]).catch(()=>{});
+
+  const { error } = await sb.from('properties').delete().eq('id', property.id);
+  if (error){
+    if (btn){ btn.disabled = false; setActionLabel(btn, original); }
+    showToast(propertyStatusErrorText(error), 6000);
+    return;
+  }
+  expandedPropertyIds.delete(property.id);
+  // הטופס פתוח על הנכס שנמחק — הוא נסגר, אחרת "שמירת שינויים" תכתוב לשורה
+  // שכבר לא קיימת ותחזור עם שגיאה שאי אפשר להבין
+  if (editingPropertyId === property.id){
+    editingPropertyId = null;
+    editingPropertyOriginalAddress = null;
+    renderPropertyStatusPanel(null);
+    addForm.style.display = 'none';
+    toggleBtn.textContent = '+ הוספת נכס חדש';
+    document.getElementById('addPropertyBtn').textContent = 'פרסום הנכס';
+  }
+  showToast('הנכס נמחק');
   await loadProperties(agentId);
 }
 
-/* החזרת נכס לפרסום אחרי שסומן כהושכר/נמכר/הוסר.
-   תוקף מודעה שכבר עבר היה מחזיר את הנכס למצב "פג תוקף" באותו רגע, ולכן הוא
-   מתאפס כאן — הסוכן/ת יכולים להגדיר תוקף חדש בעריכה. */
-async function republishProperty(property, btn, agentId){
-  const wasLabel = PROPERTY_STATUS_LABELS[property.status] || 'לא פעיל';
-  if (!confirm(`להחזיר את הנכס לפרסום? הסטטוס ישתנה מ"${wasLabel}" ל"פעיל" והמודעה תחזור להופיע באתר.`)) return;
+/* תביעת בלעדיות: מפרסמת את הנכס על סמך הסכם בלעדיות חתום, מורידה את
+   המודעות המתחרות ומתריעה לסוכנים שלהן. כל זה קורה ב-RPC אחד במסד — כאן
+   רק האישור וההודעה. */
+async function claimPropertyExclusivity(property, btn, agentId){
+  if (!confirm('לפרסם את הנכס על סמך הסכם הבלעדיות החתום?\n\n'
+    + 'מודעות קיימות לאותו נכס אצל מתווכים אחרים ירדו מפרסום, והם יקבלו התראה '
+    + 'עם שמך, שם המשרד ומועד סיום הבלעדיות.')) return;
 
-  const expired = propertyIsExpired(property);
-  const patch = { status: 'active' };
-  if (expired) patch.listing_expires_at = null;
-
-  const original = btn.textContent;
-  btn.disabled = true; btn.textContent = 'מחזיר לפרסום…';
-  const { error } = await sb.from('properties').update(patch).eq('id', property.id);
+  const original = actionLabel(btn);
+  if (btn){ btn.disabled = true; setActionLabel(btn, 'רושם בלעדיות…'); }
+  const { data, error } = await sb.rpc('claim_property_exclusivity', { p_property_id: property.id });
   if (error){
-    showToast('שגיאה בהחזרה לפרסום: ' + error.message);
-    btn.disabled = false; btn.textContent = original;
+    if (btn){ btn.disabled = false; setActionLabel(btn, original); }
+    showToast(propertyStatusErrorText(error), 7000);
     return;
   }
-  showToast(expired
-    ? 'הנכס חזר לפרסום — תוקף המודעה אופס, אפשר להגדיר תאריך חדש בעריכה'
-    : 'הנכס חזר לפרסום ומופיע שוב באתר');
+  const superseded = data?.superseded || 0;
+  showToast(superseded
+    ? `הנכס פורסם בבלעדיות עד ${hebDate(data.ends_on)} · ${superseded} מודעות מתחרות ירדו מפרסום`
+    : `הנכס פורסם בבלעדיות עד ${hebDate(data.ends_on)}`, 6000);
   await loadProperties(agentId);
+  refreshOpenPropertyStatusPanel(property.id);
+}
+
+/* הערת ההקשר: מה המסד יודע על הנכס שהסוכן/ת אינו/ה יכול/ה לראות בעצמו/ה —
+   בלעדיות של משרד אחר, או מודעה מתחרה באוויר. שם המתווך/ת ושם המשרד בלבד:
+   מועד סיום הבלעדיות אינו נאמר למי שאינו/ה מחזיק/ה בה. */
+function propertyContextNote(ctx){
+  if (!ctx) return null;
+  const until = ctx.signed_until ? ` (עד ${hebDate(ctx.signed_until)})` : '';
+  switch (ctx.state){
+    case 'exclusive_mine':
+      return { text: `🔒 הנכס בבלעדיותכם עד ${hebDate(ctx.ends_on)}.`, warn:false };
+    case 'exclusive_elsewhere':
+      return { text: `הנכס נמצא בבלעדיות של ${ctx.agent_name} ממשרד ${ctx.agency_name}, ולכן אי אפשר לפרסם אותו.`
+        + (ctx.signed_agreement_id ? ` יש לכם הסכם בלעדיות חתום על הנכס${until} — אפשר לפרסם על פיו.` : ''), warn:true };
+    case 'duplicate_elsewhere':
+      return { text: `הנכס כבר מפורסם במערכת על ידי ${ctx.agent_name} ממשרד ${ctx.agency_name}. `
+        + (ctx.signed_agreement_id
+            ? `יש לכם הסכם בלעדיות חתום על הנכס${until} — אפשר לפרסם על פיו.`
+            : `כדי לפרסם אותו צריך הסכם בלעדיות חתום מול בעל/ת הנכס.`), warn:true };
+    case 'duplicate_same_agency':
+      return { text: `הנכס כבר מפורסם במשרד שלכם על ידי ${ctx.agent_name}`
+        + (ctx.listing_number ? ` (מודעה #${ctx.listing_number})` : '') + '.', warn:true };
+    case 'unknown':
+      return { text: 'לנכס אין עיר, רחוב ומספר בית מלאים, ולכן המערכת אינה יכולה לוודא שהוא אינו כפול.', warn:false };
+    default:
+      return ctx.signed_agreement_id
+        ? { text: `יש לכם הסכם בלעדיות חתום על הנכס${until}.`, warn:false }
+        : null;
+  }
+}
+
+/* המצבים שמוצגים ככפתורים, לפי סדר הדחיפות. ‏sold/rented הם אותו מקום
+   בשורה — נכס להשכרה לא "נמכר". */
+function propertyStatusChoices(p){
+  const deal = p.deal_type === 'rent' ? 'rented' : 'sold';
+  return [
+    { status:'active',      label:'מפורסם',     title:'המודעה מופיעה באתר' },
+    { status:'unpublished', label:'ירד מפרסום', title:'המודעה יורדת מהאתר ונשארת אצלך במערכת' },
+    { status:deal,          label: deal === 'rented' ? 'הושכר' : 'נמכר',
+      title:'העסקה נסגרה — המודעה יורדת מהאתר והנכס נכנס ל״עסקאות אחרונות״' },
+    { status:'archived',    label:'ארכיון',     title:'הנכס יוצא מרשימת העבודה היומית' },
+  ];
+}
+
+/* בונה את הבלוק ומחזיר אותו מיד; הקשר הבלעדיות נטען אחריו ומעדכן את
+   ההערה ואת הכפתורים. בלי זה כל פתיחת כרטיס הייתה ממתינה לקריאת רשת. */
+function buildPropertyStatusPanel(p, agentId){
+  const el = document.createElement('div');
+  el.className = 'prop-status-panel' + (p.status === 'active' ? ' psp-live' : '');
+  el.innerHTML = `
+    <div class="psp-head">
+      <span class="psp-label">סטטוס הנכס</span>
+      <span class="psp-now">${escapeHtml(PROPERTY_STATUS_LABELS[p.status] || p.status || '')}</span>
+    </div>
+    <div class="psp-note" hidden></div>
+    <div class="psp-actions"></div>`;
+
+  const note = el.querySelector('.psp-note');
+  const actions = el.querySelector('.psp-actions');
+  const buttons = {};
+
+  propertyStatusChoices(p).forEach(choice=>{
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'psp-btn' + (choice.status === p.status ? ' is-current' : '');
+    btn.textContent = choice.label;
+    btn.title = choice.title;
+    if (choice.status === p.status){
+      btn.disabled = true;
+    } else {
+      btn.addEventListener('click', ()=> setPropertyStatus(p, choice.status, btn, agentId));
+    }
+    buttons[choice.status] = btn;
+    actions.appendChild(btn);
+  });
+
+  const del = document.createElement('button');
+  del.type = 'button';
+  del.className = 'psp-btn psp-danger';
+  del.textContent = 'מחיקה';
+  del.title = 'מחיקה סופית של הנכס וכל מה שנצבר עליו';
+  del.addEventListener('click', ()=> deletePropertyForever(p, del, agentId));
+  actions.appendChild(del);
+
+  // ההקשר מהמסד — בלעדיות ומודעות מתחרות. כישלון כאן אינו שובר את הבלוק:
+  // הכפתורים ממשיכים לעבוד, והמסד ממילא הוא שחוסם.
+  sb.rpc('property_listing_context', { p_property_id: p.id }).then(({ data: ctx, error })=>{
+    if (error || !ctx || !el.isConnected) return;
+    const info = propertyContextNote(ctx);
+    if (info){
+      note.hidden = false;
+      note.className = 'psp-note' + (info.warn ? ' psp-warn' : '');
+      note.textContent = info.text;
+    }
+    const blocked = ctx.state === 'exclusive_elsewhere' || ctx.state === 'duplicate_elsewhere'
+                 || ctx.state === 'duplicate_same_agency';
+    if (blocked){
+      el.classList.add('psp-blocked');
+      if (buttons.active && !buttons.active.classList.contains('is-current')){
+        buttons.active.disabled = true;
+        buttons.active.title = info ? info.text : 'הנכס חסום לפרסום';
+      }
+    }
+    // הסכם בלעדיות חתום ובתוקף — הדרך לפרסם נכס שחסום, ולהצהיר על בלעדיות
+    // שכבר קיימת גם כשהוא אינו חסום.
+    if (ctx.signed_agreement_id && ctx.state !== 'exclusive_mine'){
+      const claim = document.createElement('button');
+      claim.type = 'button';
+      claim.className = 'psp-btn psp-claim';
+      claim.textContent = '🔒 פרסום בבלעדיות';
+      claim.title = 'פרסום הנכס על סמך הסכם הבלעדיות החתום — מודעות מתחרות ירדו מפרסום';
+      claim.addEventListener('click', ()=> claimPropertyExclusivity(p, claim, agentId));
+      actions.appendChild(claim);
+    } else if (blocked && !ctx.signed_agreement_id){
+      const sign = document.createElement('button');
+      sign.type = 'button';
+      sign.className = 'psp-btn';
+      sign.textContent = '✍️ החתמת בלעדיות';
+      sign.title = 'פתיחת הסכם בלעדיות על הנכס — אחרי החתימה אפשר לפרסם אותו';
+      sign.addEventListener('click', ()=> openAgreementWizard({
+        kind: p.deal_type === 'rent' ? 'exclusive_landlord' : 'exclusive_sell',
+        propertyId: p.id,
+      }));
+      actions.appendChild(sign);
+    }
+  }).catch(()=>{});
+
+  return el;
+}
+
+/* הבלוק בראש טופס העריכה. נקרא מ-openEditProperty, ומתרוקן כשהטופס חוזר
+   למצב "נכס חדש". */
+function renderPropertyStatusPanel(p, agentId){
+  const slot = document.getElementById('npStatusPanel');
+  if (!slot) return;
+  slot.innerHTML = '';
+  if (!p){ slot.hidden = true; return; }
+  slot.hidden = false;
+  slot.appendChild(buildPropertyStatusPanel(p, agentId));
 }
 
 /* ==========================================================================
@@ -16899,6 +18456,9 @@ let editingPropertyId = null;
 let editingPropertyOriginalAddress = null; // לזיהוי "האם הכתובת השתנתה" בעריכה
 function openEditProperty(p){
   editingPropertyId = p.id;
+  // בלוק הסטטוס ראשון בטופס — זו הפעולה שמחפשים כשנכנסים ל"עריכה" בלי
+  // שיש מה לערוך ("להוריד את זה מהאתר"), והיא לא צריכה גלילה
+  renderPropertyStatusPanel(p, myPropertyAgentId);
   document.getElementById('npTitle').value = p.title;
   currentCategory = p.category || 'residential';
   document.querySelectorAll('[data-category]').forEach(b=> b.classList.toggle('active', b.dataset.category === currentCategory));
@@ -17174,7 +18734,8 @@ const IMP_PROPERTY_STATUS = {
   'פעיל':'active','פעילה':'active','active':'active','מפורסם':'active',
   'נמכר':'sold','נמכרה':'sold','sold':'sold',
   'הושכר':'rented','הושכרה':'rented','rented':'rented',
-  'לא פעיל':'archived','לא פעילה':'archived','ארכיון':'archived','הוסר':'archived','archived':'archived',
+  'ירד מפרסום':'unpublished','לא מפורסם':'unpublished','unpublished':'unpublished',
+  'לא פעיל':'archived','לא פעילה':'archived','ארכיון':'archived','בארכיון':'archived','הוסר':'archived','archived':'archived',
 };
 
 /* שמות מקובלים שאינם מופיעים מילה במילה ברשימות הסגורות של הטופס. */
@@ -18113,7 +19674,9 @@ async function impRenderStep4(){
       for (const row of chunk){
         const { data: insertedRow, error: rowError } = await sb.from('properties')
           .insert(row.payload).select('id').single();
-        if (rowError) importState.failed.push({ raw: row.raw, message: rowError.message });
+        // ‏propertyStatusErrorText ולא message גולמי: שורה שנדחתה בגלל נכס
+        // שכבר מפורסם במערכת מקבלת את ההסבר בעברית בקובץ השגיאות
+        if (rowError) importState.failed.push({ raw: row.raw, message: propertyStatusErrorText(rowError) });
         else { ok++; if (!rowHasImage(row)) noImage++; await saveOwners([row], [insertedRow?.id]); }
         done++; tick();
       }
@@ -20734,6 +22297,8 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     return;
   }
   showToast(editingClientId ? 'הלקוח/ה עודכן/ה' : 'הלקוח/ה נוסף/ה — מחפשים התאמות');
+  // הצעד האחרון במדריך ההתחלה, וזה גם הרגע שבו המדריך כולו נסגר
+  if (!editingClientId) refreshOnboarding();
   resetClientForm();
   document.getElementById('addClientForm').style.display = 'none';
   await loadClients();
@@ -21095,6 +22660,27 @@ const NOTIF_TYPES = [
     title:'הסכם שנחתם מרחוק',
     sub:'לקוח/ה חתם/ה בקישור שנשלח אליו/ה. חתימה במעמדך אינה מצלצלת — ראית אותה קורית.',
     refresh: ()=> loadAgreements() },
+  /* ארבעת הדרבונים של מדריך ההתחלה. סוג לכל צעד ולא אחד, כי הניתוב בלחיצה נגזר
+     מהסוג, וכל אחד מוביל למקום אחר. ‏when() מוריד אותם מ"ניהול התראות" ברגע
+     שהמדריך נסגר: ארבע תיבות סימון לצמיתות, עבור ארבע הודעות שיוצאות פעם
+     אחת בחיים, הן רעש. הניתוב עצמו לא תלוי ב-when ולכן ממשיך לעבוד גם
+     אחר כך, על התראה שעדיין יושבת בפעמון. */
+  { type:'onboarding_property', tone:'', goto:'accProperties', focus:'#propertiesList',
+    title:'מדריך ההתחלה — הנכס הראשון',
+    sub:'דרבון חד-פעמי אחרי שהפרופיל הושלם, כל עוד אין עדיין נכס.',
+    when: ()=> onboardingLive() },
+  { type:'onboarding_client', tone:'', goto:'accClients', focus:'#clientsList',
+    title:'מדריך ההתחלה — הלקוח/ה הראשון/ה',
+    sub:'דרבון חד-פעמי אחרי הנכס הראשון, כל עוד קובץ הלקוחות ריק.',
+    when: ()=> onboardingLive() },
+  { type:'onboarding_agreement', tone:'', goto:'accAgreements', focus:'#agreementsList',
+    title:'מדריך ההתחלה — ההסכם הראשון',
+    sub:'דרבון חד-פעמי כשיש כבר נכס ולקוח/ה, וטרם נוצרה הזמנת שירותי תיווך.',
+    when: ()=> onboardingLive() },
+  { type:'onboarding_lead', tone:'', goto:'accLeadShelf', focus:'#shelfTabs',
+    title:'מדריך ההתחלה — הליד הראשון',
+    sub:'דרבון חד-פעמי אחרי ההסכם הראשון, כל עוד לא נרכש ליד מחנות הלידים.',
+    when: ()=> onboardingLive() },
   { type:'system',         tone:'',       goto:'accSharedWithMe', focus:'#sharedWithMeList',
     title:'שיתופי נכסים ועדכוני מערכת',
     sub:'נכס שמשרד שותף פתח לשיתוף פעולה, והודעות מערכת כלליות.' },
@@ -21796,6 +23382,9 @@ const DASH_ICONS = {
   /* גלגל שיניים ולא שמש: הטבעת החיצונית היא ההבדל בין השניים בגודל 18px */
   cog:'<circle cx="12" cy="12" r="2.8"/><circle cx="12" cy="12" r="7.2"/><path d="M19.2 12h2.4"/><path d="M2.4 12h2.4"/><path d="M12 4.8V2.4"/><path d="M12 19.2v2.4"/><path d="m17.1 6.9 1.7-1.7"/><path d="m5.2 18.8 1.7-1.7"/><path d="m17.1 17.1 1.7 1.7"/><path d="m5.2 5.2 1.7 1.7"/>',
   sign:'<path d="M3 19c2.5 0 2.5-3 5-3s2.5 3 5 3 2.5-3 5-3 2.5 3 3 3"/><path d="M8.5 13.5 17 5a2.1 2.1 0 0 1 3 3l-8.5 8.5"/><path d="m14.5 7.5 3 3"/>',
+  /* טלפון עם חץ פנימה — "התקנת האפליקציה" בתפריט. חץ הורדה רגיל היה
+     נקרא כהורדת קובץ, וכאן לא יורד שום קובץ: האתר נוסף למסך הבית. */
+  install:'<rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M12 7v7"/><path d="m9 11 3 3 3-3"/>',
 };
 
 function dashIcon(name, cls){
@@ -22075,6 +23664,10 @@ function applyNavFilter(){
   if (adminPanel) adminPanel.classList.toggle('nav-off', !isAdminView);
   const leadPanel = document.getElementById('dashPanelLeads');
   if (leadPanel) leadPanel.classList.toggle('nav-off', !isAdminView);
+  const opsPanel = document.getElementById('dashPanelOps');
+  if (opsPanel) opsPanel.classList.toggle('nav-off', !isAdminView);
+  const invPanel = document.getElementById('dashPanelInventory');
+  if (invPanel) invPanel.classList.toggle('nav-off', !isAdminView);
 
   document.querySelectorAll('#dashboard details.acc').forEach(acc=>{
     const tab = NAV_TAB_OF.get(acc.id) || 'more';
@@ -22140,6 +23733,10 @@ function setDashView(view, opts){
   if (adminPanel) adminPanel.hidden = (dashView !== 'admin');
   const leadPanel = document.getElementById('dashPanelLeads');
   if (leadPanel) leadPanel.hidden = (dashView !== 'admin');
+  const opsPanel = document.getElementById('dashPanelOps');
+  if (opsPanel) opsPanel.hidden = (dashView !== 'admin');
+  const invPanel = document.getElementById('dashPanelInventory');
+  if (invPanel) invPanel.hidden = (dashView !== 'admin');
   if (!initial) navTab = 'home';
   renderViewSwitch();
   applyNavFilter();
@@ -22147,9 +23744,19 @@ function setDashView(view, opts){
   renderBottomNav();
   const bnav = document.getElementById('bottomNav');
   if (bnav) bnav.hidden = (dashView === 'admin');
-  // שני הדוחות נטענים יחד. הם עונים על שתי שאלות שונות (מה קרה בעסק החודש,
-  // ומאיפה נכנסים הלידים), ומי שנכנס/ת לתצוגת מנהל/ת שואל/ת את שתיהן.
-  if (dashView === 'admin'){ loadAdminReport(); loadLeadReport(); }
+  // ארבעת הדוחות נטענים יחד. הם עונים על ארבע שאלות שונות — מה קרה בעסק
+  // החודש, מאיפה נכנסים הלידים, מה שבור או איטי, וכמה יש מכל דבר — ומי
+  // שנכנס/ת לתצוגת מנהל/ת שואל/ת את כולן.
+  //
+  // ארבע קריאות RPC במקביל ולא בטור: כל פאנל מתחיל מכווץ, ולכן מי שמחכה
+  // לתשובה הוא לרוב רק הכותרת שלו. טעינה בטור הייתה מעכבת את הרביעי
+  // בגלל הראשון בלי סיבה.
+  if (dashView === 'admin'){
+    loadAdminReport();
+    loadLeadReport();
+    loadOpsReport();
+    loadInventoryReport();
+  }
   if (!initial) window.scrollTo({ top:0, behavior:'auto' });
 }
 
@@ -23128,6 +24735,40 @@ function buildMenuPanel(){
   if (!groups.length && !homeItems.length){
     panel.innerHTML = '<div class="menu-empty">אין קטגוריות להצגה</div>';
   }
+
+  appendInstallMenuItem(panel);
+}
+
+/* ---------- "התקנת האפליקציה" בתחתית התפריט ----------
+   הרצועה הצפה של ‎assets/pwa-install.js‎ נעלמת לשבועיים בלחיצה על ✕, והתפריט
+   הוא המקום שאליו חוזרים כדי למצוא את ההתקנה שוב — בלי לחפש אותה בתפריט
+   שלוש הנקודות של הדפדפן, שזו בדיוק הבעיה שהכפתור נועד לפתור.
+
+   הפריט נולד ‎hidden‎ ונחשף רק על ידי המודול, כשיש בדפדפן הזה מה להציע
+   (‏באייפון — ההסבר, בכרום — ההתקנה עצמה). כך לא נשאר בתפריט כפתור שלא
+   עושה דבר, והוא גם לא מהבהב לרגע לפני שהוא מוסתר.
+
+   התפריט נבנה מחדש בכל פתיחה, ולכן ‎refreshTriggers‎ בכל בנייה: הכפתור
+   שהמודול חיבר אליו מאזין קודם כבר אינו ב-DOM. */
+function appendInstallMenuItem(panel){
+  // ‏canInstall בודק גם התקנה קיימת וגם דפדפן שאין לו מה להציע. בלי
+  // התנאי הזה היה נשאר בתחתית התפריט קו מפריד בלי שום פריט אחריו.
+  if (!panel || !window.ShukPWA || !window.ShukPWA.canInstall()) return;
+
+  panel.appendChild(Object.assign(document.createElement('div'), { className:'menu-sep' }));
+
+  const item = document.createElement('button');
+  item.type = 'button';
+  item.className = 'menu-item';
+  item.hidden = true;
+  item.setAttribute('data-pwa-install', '');
+  item.innerHTML = dashIcon('install', 'mi-ico')
+    + '<span class="mi-label">התקנת האפליקציה</span>';
+  // התפריט נסגר לפני שההסבר או דיאלוג ההתקנה נפתחים מעליו
+  item.addEventListener('click', closeMenuPanel);
+  panel.appendChild(item);
+
+  window.ShukPWA.refreshTriggers();
 }
 
 function closeMenuPanel(){
@@ -24943,6 +26584,9 @@ async function agrSaveAndGoSign(btn){
     w.agreementId = agreementId;
     await loadAgreements();
     await agrRefreshWizardRecord();
+    // ההסכם הראשון סוגר צעד במדריך ההתחלה, והטריגר במסד פתח באותו רגע את
+    // הדרבון על חנות הלידים
+    refreshOnboarding();
     w.step = 4;
     agrRender();
   } catch(err){

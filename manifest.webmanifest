@@ -1,0 +1,60 @@
+{
+  "id": "/",
+  "name": "שוק נדל״ן — עפולה והעמק",
+  "short_name": "שוק נדל״ן",
+  "description": "כל הדירות, כל המתווכים והפרויקטים החדשים בעפולה ובעמק יזרעאל — בכתובת אחת.",
+  "lang": "he",
+  "dir": "rtl",
+  "start_url": "/?src=pwa",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#f4f7fe",
+  "theme_color": "#0e2a6b",
+  "categories": ["business", "shopping", "lifestyle"],
+  "icons": [
+    {
+      "src": "/assets/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/assets/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "חיפוש נכסים",
+      "short_name": "חיפוש",
+      "url": "/?src=pwa",
+      "icons": [{ "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "מבזקי נדל״ן",
+      "short_name": "מבזקים",
+      "url": "/articles?src=pwa",
+      "icons": [{ "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    },
+    {
+      "name": "משרדי התיווך",
+      "short_name": "משרדים",
+      "url": "/agencies?src=pwa",
+      "icons": [{ "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png" }]
+    }
+  ]
+}

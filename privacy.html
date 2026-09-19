@@ -12,6 +12,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>מדיניות פרטיות | שוק נדל״ן</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<!-- התקנה כאפליקציה (PWA) — מניפסט, אייקוני מסך הבית וכפתור ההתקנה
+     שבתוך הדף. הבלוק הזה חוזר בכל דף מאותה סיבה שתגיות ה-GTM חוזרות:
+     לאתר אין תבנית משותפת. הפרטים: docs/pwa-install.md -->
+<link rel="manifest" href="/manifest.webmanifest">
+<meta name="theme-color" content="#0e2a6b">
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="שוק נדל״ן">
+<script defer src="assets/pwa-install.js"></script>
 <meta name="description" content="איזה מידע שוק הנדל״ן אוסף, למה, עם מי הוא משותף, כמה זמן הוא נשמר ואיך מוחקים אותו.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -496,10 +507,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <details class="footer-col" open>
         <summary><h4>נכסים</h4></summary>
         <div class="footer-col-links">
-          <a href="index.html#privateProps-sale">למכירה בעפולה</a>
-          <a href="index.html#privateProps-rent">להשכרה בעפולה</a>
-          <a href="index.html#commercialProps">נכסים מסחריים</a>
-          <a href="index.html#privateProps">כל הנכסים</a>
+          <a href="index.html#allProps-sale">למכירה בעפולה</a>
+          <a href="index.html#allProps-rent">להשכרה בעפולה</a>
+          <a href="index.html#allProps-commercial">נכסים מסחריים</a>
+          <a href="index.html#allProps">כל הנכסים</a>
           <a href="open-house.html">יריד הבתים הפתוחים</a>
           <a href="projects.html">פרויקטים חדשים</a>
         </div>
