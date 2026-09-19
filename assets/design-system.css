@@ -199,15 +199,39 @@ input,select,textarea,
   border-radius:0 !important;
 }
 /* חריגים: מה שהוא באמת דיסקה. הרשימה מפורשת ולא ‎[class*="dot"]‎ — התבנית
-   הרחבה תפסה גם מכולות (‏.cf-dots), כלומר משטח רחב שקיבל פינות של עיגול. */
-.qb-badge img,.avatar,.agent-avatar,.pc-avatar,
+   הרחבה תפסה גם מכולות (‏.cf-dots), כלומר משטח רחב שקיבל פינות של עיגול.
+
+   ‏**תו האמון מופיע כאן בארבע צורות ולא באחת.** ברוב הדפים הוא נבנה ע"י
+   ‎assets/quality-badge.js‎ ואז הוא ‎.qb-badge img‎ — תמונה בלי מחלקה, שכלל
+   האיפוס למעלה כלל לא נוגע בה. אבל בשלושה מקומות הוא ‎<img>‎ שנושא מחלקה
+   משלו, ומחלקה שמסתיימת ב-‎-badge‎ נופלת ישירות לתוך ‎[class*="-badge"]‎
+   למעלה — ואז ‎border-radius:50%‎ שכתוב בדף עצמו נדרס ב-‎!important‎, והחותמת
+   העגולה מוגשת כריבוע:
+
+     ‎.dm-badge‎ — קרוסלת "האנשים מאחורי העסקאות" בדף הבית
+     ‎.ag-badge‎ — אריחי רשימת המתווכים (‏agents.html)
+     ‎.pp-badge‎ — התצוגה המקדימה של הפרופיל ב-CRM
+
+   שלושתן חייבות להופיע כאן בשמן. מי שמוסיף/ה מקום רביעי שבו החותמת היא
+   ‎<img class="...-badge">‎ צריך/ה להוסיף אותו לרשימה — או, עדיף, לא לקרוא
+   למחלקה ‎-badge‎ מלכתחילה. */
+.qb-badge img,.dm-badge,.ag-badge,.pp-badge,
+.avatar,.agent-avatar,.pc-avatar,
 [class*="avatar"],[class*="medal"],
 .live-dot,.info-dot,.ai-handle,
 .cf-dots button,
-.calc-range::-webkit-slider-thumb,.calc-range::-moz-range-thumb,
 .leaflet-marker-icon,.leaflet-marker-icon *{
   border-radius:50% !important;
 }
+/* ‏**שני הסלקטורים האלה חייבים לשבת כל אחד בכלל משלו**, ולא ברשימה שלמעלה.
+   סלקטור עם קידומת של יצרן אחד אינו מוכר אצל היצרן השני, וכלל שברשימת
+   הסלקטורים שלו יש אחד שאינו מוכר — **נזרק כולו**. כך זה היה כאן: הרשימה
+   למעלה הכילה ‎::-moz-range-thumb‎, ולכן ב-Chrome כל כלל החריגים לא נטען
+   בכלל, וכל מה שברשימה — תו האמון, תמונות הפרופיל, נקודות המצב — איבד את
+   העיגול. הכשל שקט לחלוטין: אין שגיאה בקונסול, ה-CSS נראה תקין בקובץ, ורק
+   התוצאה על המסך מרובעת. */
+.calc-range::-webkit-slider-thumb{border-radius:50% !important}
+.calc-range::-moz-range-thumb{border-radius:50% !important}
 
 /* ====== 4. כפתורים ======
    על רקע בהיר יש **צבע כפתור מלא אחד** — ספיר. ‏.btn-gold ו-.btn-teal
