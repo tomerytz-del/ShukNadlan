@@ -23739,44 +23739,49 @@ const NAV_ADMIN_HOME = '__adminHome';
    נעצר בהם; שלוש קבוצות הן חלוקה שאפשר לזכור: מה שעושים, במה משתמשים,
    ומה שמגדירים פעם בחודש. */
 const NAV_GROUPS = [
-  /* סדר הפריטים כאן הוא סדר יום העבודה ולא סדר הקוד: נכסים, לקוחות והתאמות
-     קודמים ללידים, והמידע התכנוני סוגר. */
+  /* סדר הפריטים כאן הוא סדר יום העבודה ולא סדר הקוד: קודם הנכסים, אחריהם
+     הלקוחות והלידים שהם מייצרים, ואז ההתאמות, ההסכמים והמידע התכנוני. */
   { key:'work', label:'פעילות עסקית', icon:'briefcase', items:[
     /* דף הבית אינו "עוד סעיף ברשימה" אלא הדרך חזרה, ולכן הוא מצויר כפתור
        הפוך (ראו .menu-item.is-home) ונושא את שם הלשונית בסרגל התחתון. */
     { acc:NAV_HOME,              label:'ראשי',              icon:'home',     tab:'home' },
     { acc:'accProperties',       label:'הנכסים שלי',        icon:'building', tab:'props' },
     { acc:'accClients',          label:'קובץ הלקוחות',      icon:'contact',  tab:'clients' },
-    { acc:'accAlerts',           label:'התראות התאמה',      icon:'target',   tab:'clients' },
-    { acc:'accSharedWithMe',     label:'שותף איתי',         icon:'share',    tab:'props' },
     /* לשונית הלידים היא שתי קטגוריות בלבד: מה ששלי, ומה שאפשר לקנות.
        מדפי המשכנתאות ומחפשי הדירה אינם קטגוריות נפרדות עוד — הם מגירות
        בתוך חנות הלידים (ראו #shelfTabs). */
     { acc:'accLeads',            label:'הלידים שלי',        icon:'inbox',    tab:'leads' },
-    { acc:'accLeadShelf',        label:'חנות הלידים',       icon:'layers',   tab:'leads' },
+    { acc:'accAlerts',           label:'התראות התאמה',      icon:'target',   tab:'clients' },
     /* ‏focus על שדה החיפוש שם את הסמן במקום שאליו באו — לא בראש רשימה
        שצריך לגלול */
     { acc:'accAgreements',       label:'הסכמים והחתמות',    icon:'sign',     tab:'docs', focus:'agrSearch' },
     { acc:'accPlanning',         label:'מידע תכנוני',       icon:'map',      tab:'more' },
+    { acc:'accLeadShelf',        label:'חנות הלידים',       icon:'layers',   tab:'leads' },
   ]},
   { key:'tools', label:'כלים וצוות', icon:'wrench', items:[
     { acc:'accReports',  label:'דוחות וביצועים', icon:'chart', tab:'more' },
-    { acc:'accTeam',     label:'צוות המשרד',     icon:'users', tab:'more' },
     { acc:'accReviews',  label:'ביקורות לאישור', icon:'star',  tab:'more' },
-    { acc:'accBranding', label:'עיצוב דף המשרד', icon:'brush', tab:'more' },
+    { acc:'accTeam',     label:'צוות המשרד',     icon:'users', tab:'more' },
+    /* נכסים ששותפו איתי הם עבודה של שיתוף פעולה ולא רשימת הנכסים שלי,
+       ולכן הם כאן ליד צוות המשרד ולא בין תשעת הפריטים של יום העבודה. */
+    { acc:'accSharedWithMe', label:'שותף איתי',      icon:'share', tab:'props' },
   ]},
   /* משרדי שת״פ והנכסים מוואטסאפ הם הגדרה שמבצעים פעם אחת ולא עבודה יומית,
      ולכן הם יושבים כאן ולא בין הנכסים. ‏tab:'more' ולא 'props' כדי שהקטגוריה
-     בעמוד תשב באותה לשונית שבה התפריט מבטיח אותה. */
+     בעמוד תשב באותה לשונית שבה התפריט מבטיח אותה.
+
+     שלושת הפריטים שלפני סגירת החשבון הם שרשרת אחת: עיצוב דף הסוכן/ת, עיצוב
+     דף המשרד ואז ניהול ההתראות — מה שמגדירים פעם אחת ולא חוזרים אליו. */
   { key:'account', label:'הגדרות חשבון', icon:'cog', items:[
     { acc:'accWallet',        label:'יתרת ארנק',         icon:'wallet',   tab:'more' },
-    { acc:'accProfile',       label:'פרטי הסוכן/ת',      icon:'user',     tab:'more' },
     { acc:'accEthics',        label:'הקוד האתי',         icon:'shield',   tab:'more' },
     { acc:'accPrefs',         label:'העדפות לידים',      icon:'sliders',  tab:'more' },
     { acc:'accReminders',     label:'תזכורות וטיפים',    icon:'clock',    tab:'more' },
-    { acc:'accNotifPrefs',    label:'ניהול התראות',      icon:'bell',     tab:'more' },
     { acc:'accSharePartners', label:'משרדי שיתוף פעולה', icon:'handshake',tab:'more' },
     { acc:'accWhatsapp',      label:'העוזר בוואטסאפ',    icon:'chat',     tab:'more' },
+    { acc:'accProfile',       label:'פרטי הסוכן/ת',      icon:'user',     tab:'more' },
+    { acc:'accBranding',      label:'עיצוב דף המשרד',    icon:'brush',    tab:'more' },
+    { acc:'accNotifPrefs',    label:'ניהול התראות',      icon:'bell',     tab:'more' },
     /* אחרון בקבוצה, ובכוונה: הדרך החוצה קיימת ואינה מוסתרת, אבל היא גם לא
        שכנה של פעולה שעושים כל יום. */
     { acc:'accCloseAccount',  label:'סגירת החשבון',      icon:'alert',    tab:'more' },
