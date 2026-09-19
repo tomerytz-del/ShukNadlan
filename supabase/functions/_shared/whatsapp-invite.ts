@@ -34,15 +34,19 @@ export type WhatsappSendResult = { sent: boolean; error: string | null };
  * 24 השעות. כאן **כל** שליחה היא מחוץ לחלון, ולכן אין רשת שתתפוס אותה
  * מאוחר יותר.
  *
- * שני הערכים כאן הם שם פרטי ושם משרד — שדות טקסט חופשי שאדם הקליד. שם משרד
- * עם שורה חדשה או עם רצף רווחים אינו תרחיש תיאורטי כשהוא מודבק מאיפשהו.
+ * שניים מהערכים כאן הם שם פרטי ושם משרד — שדות טקסט חופשי שאדם הקליד. שם
+ * משרד עם שורה חדשה או עם רצף רווחים אינו תרחיש תיאורטי כשהוא מודבק מאיפשהו.
+ *
+ * ‏`max` הוא ארגומנט ולא קבוע, כי הפרמטר השלישי הוא **הקישור**: ‏60 תווים
+ * חותכים אותו באמצע האסימון, וקישור חתוך נראה בדיוק כמו קישור תקין עד
+ * שלוחצים עליו.
  */
-function param(value: string): string {
+function param(value: string, max = 60): string {
   return value
     .replace(/\s*[\r\n\t]+\s*/g, " ")
     .replace(/ {4,}/g, "   ")
     .trim()
-    .slice(0, 60);
+    .slice(0, max);
 }
 
 /**
@@ -57,9 +61,16 @@ export function toWhatsappMsisdn(localPhone: string | null | undefined): string 
 }
 
 /**
- * ‏`to` הוא מספר מנורמל מ-`toWhatsappMsisdn`. ‏`url` הוא קישור ההזמנה המלא —
- * ממנו נגזרת **סיומת** הכתובת לכפתור הדינמי, כי כך Meta מגדירה כפתור URL
- * דינמי בתבנית: הקידומת קבועה בתבנית עצמה, והפרמטר הוא רק מה שאחריה.
+ * ‏`to` הוא מספר מנורמל מ-`toWhatsappMsisdn`, ו-`url` קישור ההזמנה המלא.
+ *
+ * **שלושה פרמטרים בגוף, ואפס כפתורים.** הקישור יושב בגוף ההודעה כ-`{{3}}`
+ * ולא בכפתור URL דינמי, וזו החלטה של נוסח התבנית: ההודעה נגמרת בברכה
+ * ("שיהיה המון בהצלחה"), וכפתור יושב תמיד **אחרי** הטקסט כולו — כלומר היה
+ * מפריד בין הקישור לבין המשפט שמזמין ללחוץ עליו.
+ *
+ * המשמעות המעשית: **התבנית ב-Meta חייבת להיות בלי כפתורים.** רכיב `button`
+ * שנשלח לתבנית שאין בה אחד, או תבנית עם כפתור שלא מקבל פרמטר — שניהם
+ * מפילים כל הודעה, לא אחת. ראו `docs/agent-invitations.md`.
  */
 export async function sendWhatsappInvite(
   to: string,
@@ -67,13 +78,11 @@ export async function sendWhatsappInvite(
 ): Promise<WhatsappSendResult> {
   if (!WA_TOKEN || !WA_PHONE_ID) return { sent: false, error: "whatsapp_not_configured" };
 
-  // הסיומת בלבד: `https://shuknadlan.co.il/` יושב בתבנית, וכאן נשאר
-  // `crm.html?invite=…`. חיתוך של הקידומת ולא בנייה מחדש — כך יש מקור אחד
-  // לכתובת (`SITE_BASE_URL` אצל הקורא) ולא שניים שעלולים להיפרד.
-  const suffix = a.url.replace(/^https?:\/\/[^/]+\/?/, "");
-
   const greeting = param((a.name || "").trim().split(/\s+/)[0] || "שלום");
   const agency = param(a.agency || "המשרד");
+  // הקישור בלי חיתוך — ראו `param`. הוא בן כ-90 תווים, וברירת המחדל של 60
+  // הייתה חותכת אותו באמצע האסימון.
+  const url = param(a.url, 512);
 
   const payload = WA_TEMPLATE
     ? {
@@ -89,9 +98,9 @@ export async function sendWhatsappInvite(
             parameters: [
               { type: "text", text: greeting },
               { type: "text", text: agency },
+              { type: "text", text: url },
             ],
           },
-          { type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: suffix }] },
         ],
       },
     }
