@@ -50,7 +50,11 @@ PROBE_CODES = {
     "behavior": ("views_without_leads", "pwa_", "alerts_failing", "leads_",
                  "listings_", "saved_search_"),
     "pipeline": ("migration_", "workflow_", "actions_"),
-    "frontend": ("page_weight", "heavy_image", "heavy_asset", "eager_images",
+    # ‏"page_weight" נשאר ברשימה אף שהבדיקה כבר אינה מייצרת אותו: זה
+    # בדיוק מה שסוגר את הממצאים הישנים שנמדדו ביחידה הקודמת (קובץ לא
+    # דחוס) בסריקה הראשונה אחרי המעבר ל-"page_transfer".
+    "frontend": ("page_weight", "page_transfer", "heavy_image", "heavy_asset",
+                 "eager_images",
                  "assets_no_cache", "slow_ttfb", "slow_page", "no_compression",
                  "page_unreachable", "page_error"),
 }

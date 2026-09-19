@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import gzip
 import re
 import time
 from pathlib import Path
@@ -31,12 +32,32 @@ def run(ctx) -> Iterator[Finding]:
     yield from _live(ctx)
 
 
-def _page_weight(ctx) -> Iterator[Finding]:
-    """משקל ה-HTML עצמו.
+# ‏Netlify מגיש HTML דחוס — brotli למי שתומך, ‏gzip לשאר. ‏gzip הוא
+# הקירוב השמרני מבין השניים (‏brotli קטן ממנו בעוד 15–20%), ולכן
+# המדידה כאן מטה כלפי **יותר** דיווח ולא פחות. רמה 6 ולא 9: ההפרש
+# ביניהן הוא כאחוז, וזו הרמה שמגישים בפועל.
+_GZIP_LEVEL = 6
 
-    הסף אינו שרירותי: דף שלא ירד במלואו אינו מצייר כלום. ‏500KB ברשת
-    סלולרית איטית הם שניות של מסך לבן, ורוב המבקרים באתר נדל"ן מגיעים
-    מהטלפון.
+
+def _page_weight(ctx) -> Iterator[Finding]:
+    """משקל הדף — **מה שעובר ברשת**, לא מה שיושב בדיסק.
+
+    ההערה שבראש הקובץ הזה אומרת את זה בעצמה: "קובץ של 600KB שמוגש דחוס
+    הוא 90KB ברשת". הבדיקה בכל זאת מדדה שנים את `stat().st_size`, כלומר
+    את הקובץ הלא-דחוס, מול ספים שנוסחו בלשון של זמן הורדה ("שניות של
+    מסך לבן"). התוצאה הייתה שלושה ממצאים פתוחים ב-19.9.2026:
+
+    * ‏`property.html` ‏— 250.6KB מול סף של 250. על הרשת: **72KB**.
+    * ‏`index.html` ‏— 596.5KB, דרגת "גבוה". על הרשת: **160KB**.
+    * ‏`crm.html` ‏— 1,515KB. על הרשת: **401KB**.
+
+    השלישי אמיתי, השני שנוי במחלוקת, והראשון הוא רעש טהור — ממצא
+    שנפתח על 0.6KB מעל הסף, על מספר שאף גולש/ת אינו/ה פוגש/ת. ‏**דוח
+    שרובו רעש הוא דוח שמפסיקים לפתוח.**
+
+    המשקל הלא-דחוס לא נעלם מהדיווח, כי הוא כן מודד משהו אחר: את מה
+    שהדפדפן חייב **לפענח ולהריץ**, ודחיסה אינה מקצרת את זה. הוא מופיע
+    ב-`detail` וב-`evidence` לצד מספר הרשת.
 
     דף האזור האישי נמדד מול סף אחר — הוא אפליקציה שנטענת פעם אחת ביום
     עבודה, לא דף נחיתה שמגיעים אליו מגוגל.
@@ -44,24 +65,35 @@ def _page_weight(ctx) -> Iterator[Finding]:
     t = ctx.settings.thresholds
     for path in sorted(ctx.root.glob("*.html")):
         ctx.count()
-        kb = path.stat().st_size / 1024
+        try:
+            raw = path.read_bytes()
+        except OSError:
+            continue
+        raw_kb = len(raw) / 1024
+        wire_kb = len(gzip.compress(raw, _GZIP_LEVEL)) / 1024
         is_app = path.name in APP_PAGES
-        warn = t.app_page_kb_warn if is_app else t.page_kb_warn
-        high = t.app_page_kb_high if is_app else t.page_kb_high
-        if kb < warn:
+        warn = t.app_page_wire_kb_warn if is_app else t.page_wire_kb_warn
+        high = t.app_page_wire_kb_high if is_app else t.page_wire_kb_high
+        if wire_kb < warn:
             continue
         yield Finding(
-            area="frontend", code="page_weight",
-            severity="high" if kb >= high else "medium",
+            area="frontend", code="page_transfer",
+            severity="high" if wire_kb >= high else "medium",
             subject=path.name,
-            title="דף כבד: %s — %.0f KB" % (path.name, kb),
-            detail="משקל ה-HTML עצמו, לפני תמונות ולפני assets. הסף לדף %s הוא "
-                   "%d KB." % ("אפליקציה" if is_app else "ציבורי", warn),
-            suggestion="הדף אינו מצייר דבר עד שהקובץ ירד במלואו. רוב המשקל כאן "
-                       "הוא CSS ו-JS מוטבעים — הוצאה שלהם ל-assets נותנת גם "
-                       "מטמון בין דפים. ‏**לא** להוציא את קטעי ה-GTM וה-PWA: "
-                       "הם חייבים להיות בדף עצמו (CLAUDE.md).",
-            metric=round(kb, 1), metric_unit="KB",
+            title="דף כבד: %s — %.0f KB ברשת" % (path.name, wire_kb),
+            detail="‏%.0f KB דחוסים עוברים ברשת (‏%.0f KB בקובץ עצמו), לפני "
+                   "תמונות ולפני assets. הסף לדף %s הוא %d KB."
+                   % (wire_kb, raw_kb, "אפליקציה" if is_app else "ציבורי", warn),
+            suggestion="הדף אינו מצייר דבר עד שהקובץ ירד במלואו, ואת %.0f ה-KB "
+                       "הלא-דחוסים הדפדפן גם חייב לפענח — דחיסה אינה מקצרת את "
+                       "זה. רוב המשקל כאן הוא CSS ו-JS מוטבעים, והוצאה שלהם "
+                       "ל-assets נותנת גם מטמון בין דפים. ‏**לא** להוציא את "
+                       "קטעי ה-GTM וה-PWA: הם חייבים להיות בדף עצמו "
+                       "(CLAUDE.md)." % raw_kb,
+            metric=round(wire_kb, 1), metric_unit="KB ברשת",
+            evidence={"raw_kb": round(raw_kb, 1),
+                      "compression": "gzip-%d" % _GZIP_LEVEL,
+                      "ratio": round(wire_kb / raw_kb, 3) if raw_kb else None},
         )
 
 
