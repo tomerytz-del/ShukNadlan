@@ -78,6 +78,10 @@ class Thresholds:
     queue_stuck_critical_hours: int = 24
     # כמה שורות תקועות הופכות תקלה נקודתית לתקלת מערכת.
     queue_stuck_critical_rows: int = 25
+    # הרצפה שמתחתיה תור תקוע הוא מטרד ולא תקלה. שורה אחת שנתקעה היא
+    # כנראה שורה אחת רעה (נכס שירד מפרסום, קלט שגוי) — לא מנגנון שבור.
+    # בלי הרצפה הזו שורה בודדת בת יומיים פתחה Issue בדרגת "חמור".
+    queue_stuck_critical_min_rows: int = 3
 
     # ‏job של pg_cron שנכשל בחלון הזה. ‏cron הוא איך שרוב האוטומציה כאן
     # רצה — job שנופל בשקט הוא בדיוק סוג התקלה שאין לה שום סימן אחר.
@@ -205,6 +209,55 @@ QUEUES = (
      "עיבוד מדיה", "תמונות שהועלו לא נכנסות לנכס"),
     ("saved_search_alerts", "status", ("pending", "queued"), "created_at",
      "התראות הסוכן החכם", "מחפש/ת דירה לא מקבל/ת התראה"),
+)
+
+# ---------------------------------------------------------------------------
+# נקודות קצה שנועדו להיות פומביות, במוצהר
+#
+# ‏Edge Function עם `verify_jwt = false` שאינה מאמתת דבר היא **לא בהכרח
+# חור**: טופס ציבורי חייב להיות נגיש למי שאינו מחובר/ת, וזו כל מטרתו.
+# הבדיקה אינה יכולה להסיק את זה מהקוד, ולכן הרשימה מוצהרת כאן.
+#
+# **למה רשימה ולא היוריסטיקה:** ברירת המחדל היא חשד. פונקציה חדשה בלי
+# אימות תדווח כ-`high` עד שמישהו/י **יחליט/תחליט במודע** להוסיף אותה
+# לכאן. היוריסטיקה לפי שם ("כל מה שנגמר ב-intake") הייתה מכסה גם את
+# הפונקציה הבאה שתיקרא כך בטעות.
+#
+# מה שכן נשאר פתוח לגבי כולן: הגבלת קצב. טופס ציבורי בלי rate limit הוא
+# הזמנה להצפה, וזה תקף גם כשהוא "אמור" להיות פומבי.
+PUBLIC_EDGE_FUNCTIONS = frozenset({
+    # טפסי קליטה — הגולש/ת אינו/ה מחובר/ת בהגדרה
+    "owner-lead-intake",
+    "mortgage-lead-intake",
+    "property-inquiry-intake",
+    "agent-direct-inquiry-intake",
+    "saved-search-intake",
+    "project-lead-intake",
+    "newsletter-subscribe",
+    "open-house-subscribe",
+    "submit-review",
+    # הרשמות — נקודת הכניסה הראשונה, לפני שיש חשבון
+    "agency-signup",
+    "developer-signup",
+    "professional-signup",
+    # שליפות ממרשמים ציבוריים. אין בהן נתון שלנו
+    "company-registry-lookup",
+    "broker-license-lookup",
+})
+
+# דפוסים שמעידים שהפונקציה **כן** מאמתת. הרשימה נבנתה מקריאה בקוד
+# בפועל, אחרי שהגרסה הראשונה דיווחה על 31 פונקציות שרובן מוגנות:
+# ‏`authorizeInternalCaller` מ-_shared/cron-auth.ts, אסימון ניהול בגוף
+# הבקשה, ודחייה מפורשת ב-401/403/429 — כל אחת מהן הייתה "לא מאומת"
+# בבדיקה הראשונה.
+EDGE_AUTH_PATTERNS = (
+    r"authorizeInternalCaller", r"CRON_SECRET", r"WEBHOOK_SECRET",
+    r"createHmac", r"\bhmac\b", r"x-hub-signature", r"timingSafeEqual",
+    r"manage_token", r"webhook_token", r"view_token", r"verify_code",
+    r"unsubscribe_token", r"p_token", r"requirePlatformAdmin",
+    r"broker-license-gate",
+    # דחייה מפורשת: הפונקציה בודקת משהו ומסרבת
+    r"\b401\b", r"\b403\b", r"\b429\b",
 )
 
 # מנועים שצריכים להכניס שורות. ‏(טבלה, עמודת זמן, שם קריא, מי מזין).
