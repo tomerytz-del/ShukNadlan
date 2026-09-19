@@ -16,6 +16,7 @@ import logging
 from typing import Optional
 
 import anthropic
+from pydantic import ValidationError
 
 from .config import Settings
 from .models import MAX_HEADLINE_CHARS, NewsAnalysis
@@ -144,17 +145,31 @@ class NewsAnalyzer:
                 messages=[{"role": "user", "content": text}],
                 output_format=NewsAnalysis,
             )
+        except ValidationError as err:
+            # ‏parse() מאמת את ה-JSON *בתוך עצמו*, ולכן פלט חתוך מרים
+            # ‏ValidationError לפני שיש בכלל response לבדוק בו stop_reason.
+            # זה המסלול האמיתי של ניתוח שנקטע (ראו הערת max_tokens
+            # ב-config.py), והוא ידיעה אחת שנכשלה — לא הרצה שנכשלה.
+            log.warning("פלט לא תקין או חתוך בניתוח %s: %s", url, err)
+            return None
         except anthropic.APIStatusError as err:
             log.error("שגיאת API בניתוח %s: %s", url, err)
             return None
         except anthropic.APIConnectionError as err:
             log.error("שגיאת רשת בניתוח %s: %s", url, err)
             return None
+        except anthropic.APIError as err:
+            # רשת ביטחון: כל שגיאת SDK אחרת נספרת כשגיאה על הידיעה הזו,
+            # ולא מפילה את ההרצה על עשרים וארבע הידיעות שאחריה.
+            log.error("שגיאה לא צפויה מ-Claude בניתוח %s: %s", url, err)
+            return None
 
         if response.stop_reason == "refusal":
             log.warning("המודל סירב לנתח את %s", url)
             return None
         if response.stop_reason == "max_tokens":
+            # נדיר: הפלט נקטע בדיוק בגבול שבו ה-JSON עדיין תקין. הקטיעה
+            # הרגילה נתפסת ב-ValidationError שלמעלה.
             log.warning("הניתוח של %s נקטע לפני סיום", url)
             return None
 
@@ -162,6 +177,11 @@ class NewsAnalyzer:
         if analysis is None:
             log.warning("לא התקבל פלט מובנה עבור %s", url)
             return None
+
+        # ‏reasoning נשמר בסכמה כדי שיהיה מה לקרוא כשמבזק מסווג מוזר.
+        # ‏--verbose הוא המקום היחיד שבו הוא נראה; הוא אינו נכתב למסד.
+        if analysis.reasoning:
+            log.debug("נימוק הסיווג של %s: %s", url, analysis.reasoning)
 
         return _apply_editorial_rules(analysis)
 
