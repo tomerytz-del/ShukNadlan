@@ -1907,6 +1907,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background:rgba(255,255,255,.72);box-shadow:var(--sh-1);overflow:hidden;
   }
   .dp-admin{--dp-a:#a03449; --dp-b:#6d1725}
+  /* שני הפאנלים החדשים של מנהל/ת הפלטפורמה. ירוק-טורקיז לבריאות המערכת
+     וכחול-פלדה למצבת — שניהם רחוקים מהיין של הדוח החודשי, כדי שברפרוף
+     יהיה ברור שזה מסך אחר ולא המשך של אותו דוח. */
+  .dp-ops{--dp-a:#1f6f63; --dp-b:#0e3f38}
+  .dp-inv{--dp-a:#2f4f7a; --dp-b:#1a2f4d}
   .dash-panel[hidden]{display:none}
   /* הסינון של הסרגל התחתון. ‏!important כי חלק מהקטגוריות נשלטות ב-display
      אינליין (מדף המשכנתאות, אזורי הניהול), ומחלקה רגילה לא הייתה מנצחת. */
@@ -2078,6 +2083,76 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   .adm-fact-lbl{font-size:.73rem;color:var(--txt-soft);min-width:0}
   .adm-fact-val{font-size:.84rem;font-weight:800;color:var(--txt);white-space:nowrap;font-variant-numeric:tabular-nums}
+
+  /* ==========================================================================
+     ממצאי הסוכן התפעולי (הפאנל הרביעי)
+     --------------------------------------------------------------------------
+     החומרה היא המידע העיקרי בכל שורה, ולכן היא צבע ולא טקסט קטן בצד. חמש
+     דרגות, ושתי העליונות בלבד אדומות: אם הכול צועק, שום דבר לא נקרא.
+     ========================================================================== */
+  .ops-sev{
+    display:inline-flex;align-items:center;gap:4px;flex:0 0 auto;
+    padding:2px 8px;border-radius:999px;font-size:.66rem;font-weight:800;
+    white-space:nowrap;
+  }
+  .ops-sev.critical{background:#fde2e2;color:#991b1b}
+  .ops-sev.high    {background:#fdeccd;color:#9a3412}
+  .ops-sev.medium  {background:#fef6cf;color:#854d0e}
+  .ops-sev.low     {background:var(--surface-2);color:var(--txt-soft)}
+  .ops-sev.info    {background:var(--surface-2);color:var(--txt-faint)}
+
+  /* הממצא עצמו. ‏details/summary ולא פאנל פתוח: רשימה של 40 ממצאים
+     פתוחים היא קיר טקסט, והשורה הסגורה נושאת את כל מה שצריך להחלטה. */
+  .ops-item{
+    border:1px solid var(--edge);border-radius:var(--r-s);
+    background:var(--surface);overflow:hidden;
+  }
+  .ops-item + .ops-item{margin-top:6px}
+  .ops-item[data-sev="critical"]{border-inline-start:3px solid #dc2626}
+  .ops-item[data-sev="high"]    {border-inline-start:3px solid #ea580c}
+  .ops-item.is-muted{opacity:.55}
+  .ops-item > summary{
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    padding:9px 11px;cursor:pointer;list-style:none;
+  }
+  .ops-item > summary::-webkit-details-marker{display:none}
+  .ops-item > summary:focus-visible{outline:2px solid var(--wine);outline-offset:-2px}
+  .ops-title{font-size:.79rem;font-weight:700;color:var(--txt);flex:1 1 180px;min-width:0}
+  .ops-meta{font-size:.66rem;color:var(--txt-faint);white-space:nowrap}
+  .ops-flag{
+    font-size:.63rem;font-weight:800;padding:1px 6px;border-radius:999px;
+    background:var(--green-tint);color:var(--green);white-space:nowrap;
+  }
+  .ops-flag.worse{background:#fdeaea;color:#b91c1c}
+  .ops-flag.new{background:#e6effb;color:#1d4ed8}
+  .ops-body{padding:0 11px 11px;display:flex;flex-direction:column;gap:7px}
+  .ops-body p{margin:0;font-size:.74rem;line-height:1.6;color:var(--txt-soft)}
+  .ops-fix{
+    padding:8px 10px;border-radius:var(--r-xs);background:var(--surface-2);
+    font-size:.73rem;line-height:1.6;color:var(--txt);
+  }
+  .ops-ev{
+    margin:0;padding:8px 10px;border-radius:var(--r-xs);background:#0f172a;
+    color:#cbd5e1;font-size:.66rem;line-height:1.5;overflow-x:auto;
+    white-space:pre-wrap;word-break:break-word;direction:ltr;text-align:left;
+  }
+  .ops-actions{display:flex;gap:6px;flex-wrap:wrap}
+  .ops-actions button{
+    border:1px solid var(--edge);background:var(--surface);border-radius:999px;
+    padding:4px 11px;font-size:.68rem;font-weight:700;color:var(--txt-soft);
+    cursor:pointer;font-family:inherit;
+  }
+  .ops-actions button:hover{background:var(--surface-2)}
+  .ops-actions button:disabled{opacity:.5;cursor:default}
+
+  /* רצועת הסריקה האחרונה. אדומה כשהסוכן עצמו שתק — זו התקלה שהכי קל
+     לפספס, כי היא נראית בדיוק כמו "אין ממצאים". */
+  .ops-stamp{
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+    padding:8px 11px;border-radius:var(--r-s);background:var(--surface-2);
+    font-size:.71rem;color:var(--txt-soft);
+  }
+  .ops-stamp.stale{background:#fdeaea;color:#991b1b;font-weight:700}
 
   /* ==========================================================================
      בקרת מנוע הלידים (הפאנל השלישי)
@@ -3822,6 +3897,102 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </section>
       <!-- סוף דשבורד 3 -->
+
+      <!-- ==========================================================
+           דשבורד 4 — בריאות, ביצועים ואבטחה
+           ----------------------------------------------------------
+           מוצג רק ל-is_platform_admin, ונטען מ-RPC ‏platform_ops_report.
+           מקור הנתונים הוא הסוכן התפעולי (‏ops_scan.py), שרץ ב-GitHub
+           Actions כל שש שעות וכותב ל-ops_findings.
+
+           **למה הכותרת מתחילה בזמן הסריקה האחרונה:** סוכן שהפסיק לרוץ
+           מציג בדיוק אותו מסך כמו מערכת בריאה — אפס ממצאים חדשים — וזו
+           הדרך הקלה ביותר לישון טוב בזמן שהכול שבור. השורה "נסרק לפני X"
+           היא מה שמבדיל ביניהם, ולכן היא ראשונה ולא בהערת שוליים.
+
+           כל הגופים נבנים ב-JS (renderOpsReport). הפרטים והספים:
+           ‏docs/ops-agent.md. -->
+      <section class="dash-panel dp-ops" id="dashPanelOps" aria-label="בריאות, ביצועים ואבטחה — מנהל/ת הפלטפורמה" hidden>
+        <button type="button" class="dp-head" id="dashPanelOpsHead"
+                aria-expanded="false" aria-controls="dashPanelOpsBody">
+          <span class="dp-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 4 6v6c0 4.4 3.4 8.3 8 9 4.6-.7 8-4.6 8-9V6z"/><polyline points="9 12 11 14 15 10"/></svg>
+          </span>
+          <span class="dp-titles">
+            <span class="dp-title">בריאות המערכת · ביצועים ואבטחה</span>
+            <span class="dp-sub" id="opsPanelSub">מה שבור, מה איטי, ומה אפשר לשפר</span>
+          </span>
+          <span class="dp-toggle">
+            <span class="dp-toggle-label">הרחבה</span>
+            <svg class="dp-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </button>
+        <div class="dp-body" id="dashPanelOpsBody">
+          <div class="dp-inner">
+            <div class="adm-toolbar">
+              <div class="adm-range" id="opsRange" role="group" aria-label="טווח הימים בדוח התפעולי">
+                <button type="button" data-days="7">7 ימים</button>
+                <button type="button" data-days="30" class="is-on">30 יום</button>
+                <button type="button" data-days="90">90 יום</button>
+              </div>
+              <button type="button" class="adm-refresh" id="opsRefreshBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><polyline points="21 3 21 9 15 9"/></svg>
+                רענון
+              </button>
+              <span class="adm-stamp" id="opsStamp"></span>
+            </div>
+            <div id="opsReport"><div class="empty-state">טוען את מצב המערכת…</div></div>
+          </div>
+        </div>
+      </section>
+      <!-- סוף דשבורד 4 -->
+
+      <!-- ==========================================================
+           דשבורד 5 — מצבת המערכת
+           ----------------------------------------------------------
+           מוצג רק ל-is_platform_admin, ונטען מ-RPC
+           ‏platform_inventory_report.
+
+           **למה זה פאנל נפרד מהדוח החודשי:** הדוח החודשי הוא זרימה —
+           מה נכנס החודש מול החודש שעבר. כאן זו מצבת: כמה יש עכשיו, בסך
+           הכול. "נכנסו 12 לידים החודש" אינו עונה על "כמה לקוחות יש
+           בסך הכול למתווכים שלנו", וזו השאלה שנשאלת מול משקיע/ה או מול
+           משרד ששוקל להצטרף. -->
+      <section class="dash-panel dp-inv" id="dashPanelInventory" aria-label="מצבת המערכת — מנהל/ת הפלטפורמה" hidden>
+        <button type="button" class="dp-head" id="dashPanelInventoryHead"
+                aria-expanded="false" aria-controls="dashPanelInventoryBody">
+          <span class="dp-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7h18M3 12h18M3 17h18"/><circle cx="7" cy="7" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="17" cy="17" r="1.4"/></svg>
+          </span>
+          <span class="dp-titles">
+            <span class="dp-title">מצבת המערכת · כל המספרים</span>
+            <span class="dp-sub" id="invPanelSub">נכסים, שיתופי פעולה, לקוחות, הדמיות וכסף</span>
+          </span>
+          <span class="dp-toggle">
+            <span class="dp-toggle-label">הרחבה</span>
+            <svg class="dp-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </button>
+        <div class="dp-body" id="dashPanelInventoryBody">
+          <div class="dp-inner">
+            <div class="adm-toolbar">
+              <div class="adm-range" id="invRange" role="group" aria-label="חלון ההשוואה במצבת">
+                <button type="button" data-days="7">7 ימים</button>
+                <button type="button" data-days="30" class="is-on">30 יום</button>
+                <button type="button" data-days="90">90 יום</button>
+                <button type="button" data-days="365">שנה</button>
+              </div>
+              <button type="button" class="adm-refresh" id="invRefreshBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><polyline points="21 3 21 9 15 9"/></svg>
+                רענון
+              </button>
+              <span class="adm-stamp" id="invStamp"></span>
+            </div>
+            <div id="invReport"><div class="empty-state">טוען את מצבת המערכת…</div></div>
+          </div>
+        </div>
+      </section>
+      <!-- סוף דשבורד 5 -->
 
       <h2 class="section-h stack-h" id="sectionsHead" hidden>הפעילות שלי</h2>
 
@@ -9016,6 +9187,538 @@ document.querySelectorAll('#leadRange button').forEach(btn=>{
   });
 });
 document.getElementById('leadRefreshBtn').addEventListener('click', loadLeadReport);
+
+/* ==========================================================================
+   הפאנל הרביעי — בריאות, ביצועים ואבטחה
+   --------------------------------------------------------------------------
+   הנתונים מגיעים מ-platform_ops_report, שקורא את ops_findings — הטבלה
+   שהסוכן התפעולי (ops_scan.py, ב-GitHub Actions) כותב אליה כל שש שעות.
+
+   ‏**הדף לא סורק כלום בעצמו, ובכוונה.** בדיקת שאילתות איטיות, הרשאות
+   ‏RLS ומשקל דפים דורשת חיבור שעוקף RLS ודורשת זמן; בדפדפן היא הייתה גם
+   בלתי אפשרית וגם מסוכנת. הדף מציג את מה שכבר נמצא.
+
+   הפרטים והספים: docs/ops-agent.md.
+   ========================================================================== */
+const OPS_SEV_LABELS = {
+  critical: 'חמור', high: 'גבוה', medium: 'בינוני', low: 'נמוך', info: 'מידע',
+};
+const OPS_AREA_LABELS = {
+  health:      'בריאות',
+  performance: 'ביצועים',
+  frontend:    'חוויית הגולש/ת',
+  behavior:    'התנהגות',
+  security:    'אבטחה',
+  cost:        'משאבים',
+};
+
+let opsReportDays = 30;
+let opsReportBusy = false;
+
+async function loadOpsReport(){
+  const host = document.getElementById('opsReport');
+  if (!host || opsReportBusy) return;
+  opsReportBusy = true;
+  const refreshBtn = document.getElementById('opsRefreshBtn');
+  if (refreshBtn) refreshBtn.disabled = true;
+  host.innerHTML = '<div class="empty-state">טוען את מצב המערכת…</div>';
+
+  const { data, error } = await sb.rpc('platform_ops_report', { p_days: opsReportDays });
+
+  opsReportBusy = false;
+  if (refreshBtn) refreshBtn.disabled = false;
+
+  if (error){
+    // ‏PGRST202/42883 = המיגרציה טרם רצה. ‏42501 = לא מנהל/ת פלטפורמה.
+    host.innerHTML = '';
+    const msg = (error.code === '42883' || error.code === 'PGRST202')
+      ? 'הדוח התפעולי לא קיים עדיין במסד — הריצו את המיגרציה 20261127090000_ops_agent.sql.'
+      : (error.code === '42501' || /not_platform_admin/.test(error.message || ''))
+        ? 'הדוח פתוח למנהל/ת פלטפורמה בלבד.'
+        : 'שגיאה בטעינת הדוח התפעולי: ' + error.message;
+    host.appendChild(admEl('div', 'empty-state', msg));
+    dashPanelsMeasure();
+    return;
+  }
+
+  renderOpsReport(data || {});
+}
+
+function renderOpsReport(report){
+  const host = document.getElementById('opsReport');
+  if (!host) return;
+  host.innerHTML = '';
+
+  const scan     = report.scan     || null;
+  const counts   = report.counts   || {};
+  const areas    = Array.isArray(report.areas)    ? report.areas    : [];
+  const findings = Array.isArray(report.findings) ? report.findings : [];
+  const resolved = Array.isArray(report.resolved) ? report.resolved : [];
+
+  const stampEl = document.getElementById('opsStamp');
+  if (stampEl) stampEl.textContent = report.generated_at
+    ? 'עודכן ' + new Date(report.generated_at).toLocaleString('he-IL')
+    : '';
+
+  /* ---- רצועת הסריקה האחרונה ----
+     ראשונה על המסך בכוונה. סוכן שהפסיק לרוץ מציג בדיוק אותו מסך כמו
+     מערכת בריאה, וזו הטעות שהכי קל ליפול בה. */
+  const ageMin = scan ? Number(scan.age_minutes) || 0 : null;
+  const stale  = scan === null || ageMin > 60 * 24;   // יממה בלי סריקה
+  const strip  = admEl('div', 'ops-stamp' + (stale ? ' stale' : ''));
+  if (!scan){
+    strip.appendChild(admEl('span', null,
+      'הסוכן התפעולי עדיין לא רץ אף פעם. עד שירוץ, המסך הזה ריק — וזה לא אומר שהכול תקין.'));
+  } else {
+    strip.appendChild(admEl('span', null, 'נסרק ' + opsAgo(ageMin)));
+    const failed = Array.isArray(scan.failed_probes) ? scan.failed_probes : [];
+    if (failed.length){
+      // בדיקה שנפלה אינה "אין ממצאים" — והמסך חייב לומר את זה במפורש
+      strip.appendChild(admEl('span', 'ops-flag worse',
+        'בדיקות שנפלו: ' + failed.join(', ')));
+    }
+    if (stale){
+      strip.appendChild(admEl('span', null,
+        '— הסריקה אמורה לרוץ כל שש שעות. לבדוק את ops_agent.yml בלשונית Actions.'));
+    }
+  }
+  host.appendChild(strip);
+
+  /* ---- ארבעה מספרי כותרת ---- */
+  const tiles = admEl('div', 'adm-tiles');
+  const crit  = Number(counts.critical) || 0;
+  const high  = Number(counts.high) || 0;
+  tiles.appendChild(admTile('דורש טיפול מיידי', admInt(crit + high),
+    { wine: crit > 0, note: crit ? admInt(crit) + ' חמורים' : 'חמור: אין' }));
+  tiles.appendChild(admTile('ממצאים פתוחים', admInt(counts.open),
+    { note: Number(counts.muted) ? admInt(counts.muted) + ' מושתקים' : null }));
+  tiles.appendChild(admTile('חדשים ביממתיים', admInt(counts.new)));
+  tiles.appendChild(admTile('נסגרו בחלון', admInt(resolved.length),
+    { note: 'מאליהם, בלי שסומנו' }));
+  host.appendChild(tiles);
+
+  /* ---- לפי תחום ---- */
+  if (areas.length){
+    const block = admBlock('לפי תחום',
+      'כמה ממצאים פתוחים בכל תחום, וכמה מהם דחופים.');
+    const rows = admEl('div', 'adm-rows');
+    const max = Math.max(1, ...areas.map(a => Number(a.open) || 0));
+    areas.forEach(a => {
+      const open = Number(a.open) || 0;
+      const urgent = Number(a.urgent) || 0;
+      rows.appendChild(admRow(
+        OPS_AREA_LABELS[a.area] || a.area,
+        urgent ? urgent + ' דחופים' : null,
+        admInt(open), (open / max) * 100));
+    });
+    block.appendChild(rows);
+    host.appendChild(block);
+  }
+
+  /* ---- הממצאים ---- */
+  const block = admBlock('הממצאים',
+    'ממוין לפי חומרה. לחיצה על שורה פותחת את הפירוט ואת ההצעה לתיקון.');
+  if (!findings.length){
+    block.appendChild(admEl('div', 'empty-state', scan
+      ? 'אין ממצאים פתוחים. הסריקה האחרונה עברה נקייה.'
+      : 'אין נתונים עדיין.'));
+  } else {
+    findings.forEach(f => block.appendChild(opsItem(f)));
+  }
+  host.appendChild(block);
+
+  /* ---- מה נסגר ----
+     בלי הבלוק הזה הדשבורד מראה רק חובות ואף פעם לא תשלומים, ואז הוא
+     מדכא במקום להועיל. */
+  if (resolved.length){
+    const done = admBlock('נסגרו מאליהם',
+      'ממצאים שלא חזרו בסריקה האחרונה — כלומר תוקנו, בכוונה או דרך אגב.');
+    const facts = admEl('div', 'adm-facts');
+    resolved.slice(0, 12).forEach(r => {
+      const fact = admEl('div', 'adm-fact');
+      fact.appendChild(admEl('span', 'adm-fact-lbl', r.title));
+      fact.appendChild(admEl('span', 'adm-fact-val',
+        'היה פתוח ' + admInt(r.lasted_days) + ' ימים'));
+      facts.appendChild(fact);
+    });
+    done.appendChild(facts);
+    host.appendChild(done);
+  }
+
+  const sub = document.getElementById('opsPanelSub');
+  if (sub){
+    sub.textContent = (crit + high)
+      ? admInt(crit + high) + ' ממצאים דורשים טיפול · ' + admInt(counts.open) + ' פתוחים'
+      : (Number(counts.open)
+          ? admInt(counts.open) + ' ממצאים פתוחים, אף אחד דחוף'
+          : 'הכול תקין בסריקה האחרונה');
+  }
+
+  dashPanelsMeasure();
+}
+
+function opsAgo(minutes){
+  const m = Number(minutes) || 0;
+  if (m < 90)      return 'לפני ' + Math.max(1, Math.round(m)) + ' דקות';
+  if (m < 60 * 36) return 'לפני ' + Math.round(m / 60) + ' שעות';
+  return 'לפני ' + Math.round(m / 1440) + ' ימים';
+}
+
+/* שורת ממצא אחת. ‏details ולא div פתוח: 40 ממצאים פתוחים הם קיר טקסט,
+   והשורה הסגורה נושאת כבר את כל מה שצריך כדי להחליט אם לפתוח. */
+function opsItem(f){
+  const item = admEl('details', 'ops-item' + (f.muted ? ' is-muted' : ''));
+  item.setAttribute('data-sev', f.severity);
+
+  const head = admEl('summary');
+  head.appendChild(admEl('span', 'ops-sev ' + f.severity,
+    OPS_SEV_LABELS[f.severity] || f.severity));
+  head.appendChild(admEl('span', 'ops-title', f.title));
+
+  if (f.is_new) head.appendChild(admEl('span', 'ops-flag new', 'חדש'));
+  if (f.trend === 'worse') head.appendChild(admEl('span', 'ops-flag worse', '▲ מחמיר'));
+  if (f.trend === 'better') head.appendChild(admEl('span', 'ops-flag', '▼ משתפר'));
+  if (f.muted) head.appendChild(admEl('span', 'ops-flag', 'מושתק'));
+
+  const age = Number(f.age_days) || 0;
+  head.appendChild(admEl('span', 'ops-meta',
+    (OPS_AREA_LABELS[f.area] || f.area) + ' · ' +
+    (age >= 1 ? 'פתוח ' + admInt(age) + ' ימים' : 'פתוח מהיום')));
+  item.appendChild(head);
+
+  const body = admEl('div', 'ops-body');
+  body.appendChild(admEl('p', null, f.detail));
+
+  /* המספר והמגמה. ‏prev_metric הוא מה שהופך "יש בעיה" ל"היא גדלה
+     מ-3 ל-11", וזה ההבדל בין דיווח לניטור. */
+  if (f.metric !== null && f.metric !== undefined){
+    const unit = f.metric_unit ? ' ' + f.metric_unit : '';
+    let line = 'המדד: ' + admInt(f.metric) + unit;
+    if (f.prev_metric !== null && f.prev_metric !== undefined
+        && Number(f.prev_metric) !== Number(f.metric)){
+      line += ' (בסריקה הקודמת ' + admInt(f.prev_metric) + unit + ')';
+    }
+    body.appendChild(admEl('p', null, line));
+  }
+
+  if (f.suggestion){
+    const fix = admEl('div', 'ops-fix');
+    fix.appendChild(admEl('strong', null, 'מה לעשות: '));
+    fix.appendChild(document.createTextNode(f.suggestion));
+    body.appendChild(fix);
+  }
+
+  /* הראיות כ-JSON גולמי, ב-LTR. זה לא יפה ובכוונה: זו התוכן שמעתיקים
+     לשאילתה או ל-Issue, ועיצוב שלו היה רק מסתיר פרטים. */
+  const ev = f.evidence;
+  if (ev && typeof ev === 'object' && Object.keys(ev).length){
+    const pre = admEl('pre', 'ops-ev', JSON.stringify(ev, null, 2));
+    body.appendChild(pre);
+  }
+
+  const actions = admEl('div', 'ops-actions');
+  const muteBtn = admEl('button', null, f.muted ? 'ביטול ההשתקה' : 'להשתיק ל-30 יום');
+  muteBtn.type = 'button';
+  muteBtn.addEventListener('click', async ()=>{
+    muteBtn.disabled = true;
+    const { error } = await sb.rpc('platform_ops_mute',
+      { p_key: f.key, p_days: f.muted ? 0 : 30 });
+    if (error){
+      muteBtn.disabled = false;
+      alert('ההשתקה נכשלה: ' + error.message);
+      return;
+    }
+    loadOpsReport();
+  });
+  actions.appendChild(muteBtn);
+  body.appendChild(actions);
+
+  item.appendChild(body);
+  return item;
+}
+
+document.querySelectorAll('#opsRange button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    opsReportDays = Number(btn.dataset.days) || 30;
+    document.querySelectorAll('#opsRange button')
+      .forEach(b => b.classList.toggle('is-on', b === btn));
+    loadOpsReport();
+  });
+});
+document.getElementById('opsRefreshBtn').addEventListener('click', loadOpsReport);
+
+/* ==========================================================================
+   הפאנל החמישי — מצבת המערכת
+   --------------------------------------------------------------------------
+   ‏platform_inventory_report מחזיר מסמך אחד עם תשע קבוצות. הרינדור כאן
+   מונע מ**מפרט** ולא מקוד לכל שדה: כל קבוצה היא רשימת [מפתח, תווית],
+   ולכן הוספת מספר חדש לדוח היא שורה אחת כאן ושורה אחת במיגרציה.
+
+   השדות שאינם מופיעים במפרט פשוט לא מוצגים — כך RPC שהתקדם לפני הדף
+   אינו שובר אותו, והדף אינו מציג שדה שאין לו תווית בעברית.
+   ========================================================================== */
+const INV_GROUPS = [
+  { key: 'properties', title: 'נכסים',
+    note: 'המלאי עצמו: כמה יש, כמה באוויר, ומה חסר במודעות.',
+    fields: [
+      ['total', 'נכסים במערכת'], ['active', 'מפורסמים כרגע'],
+      ['new', 'נוספו בחלון'], ['promoted', 'בקידום פעיל'],
+      ['with_images', 'עם תמונות'], ['with_text', 'עם תיאור שיווקי'],
+      ['geocoded', 'ממוקמים על המפה'], ['with_video', 'עם סרטון'],
+      ['with_tour', 'עם סיור וירטואלי'], ['open_house', 'עם בית פתוח'],
+      ['avg_price', 'מחיר ממוצע'], ['median_price', 'מחיר חציוני'],
+    ] },
+  { key: 'collaboration', title: 'שיתופי פעולה',
+    note: 'השאלה שהפלטפורמה נבנתה סביבה: כמה נכסים עוברים בין משרדים, ובאיזו צורה משפטית.',
+    fields: [
+      ['shares', 'שיתופים שנעשו'], ['shares_new', 'שיתופים בחלון'],
+      ['properties_shared', 'נכסים ששותפו'], ['opted_in', 'נכסים פתוחים לשיתוף'],
+      ['agencies_sharing', 'משרדים ששיתפו'], ['agencies_receiving', 'משרדים שקיבלו'],
+      ['agreements', 'הסכמים'], ['agreements_signed', 'הסכמים חתומים'],
+      ['exclusivities_active', 'בלעדיות בתוקף'], ['contracts', 'חוזים'],
+      ['contracts_signed', 'חוזים חתומים'], ['opted_out_agents', 'סוכנים שחסמו שיתוף'],
+    ] },
+  { key: 'clients', title: 'לקוחות המתווכים',
+    note: 'הלקוחות שהמתווכים מנהלים אצלנו, וההתאמות שהמערכת מצאה להם.',
+    fields: [
+      ['total', 'לקוחות בסך הכול'], ['active', 'לקוחות פעילים'],
+      ['new', 'נוספו בחלון'], ['with_agent', 'סוכנים שמנהלים לקוחות'],
+      ['per_agent', 'ממוצע לקוחות לסוכן/ת'],
+      ['matches', 'התאמות שנמצאו'], ['matches_seen', 'התאמות שנצפו'],
+    ] },
+  { key: 'media', title: 'הדמיות, סרטונים ומדיה',
+    note: 'מה שהמערכת ייצרה בעצמה עבור המודעות.',
+    fields: [
+      ['visualizations', 'הדמיות שנוצרו'], ['visualizations_done', 'הדמיות מוכנות'],
+      ['visualizations_new', 'הדמיות בחלון'], ['videos', 'סרטונים שהופקו'],
+      ['videos_new', 'סרטונים בחלון'], ['virtual_tours', 'סיורים וירטואליים'],
+      ['image_tags', 'תמונות שסווגו'], ['project_media', 'מדיה של פרויקטים'],
+    ] },
+  { key: 'people', title: 'משרדים, סוכנים ויזמים',
+    note: 'מי נמצא בפלטפורמה, וכמה מהם משלמים.',
+    fields: [
+      ['agencies', 'משרדים'], ['agencies_new', 'משרדים שהצטרפו בחלון'],
+      ['agents', 'סוכנים פעילים'], ['agents_new', 'סוכנים שהצטרפו בחלון'],
+      ['paying', 'במסלול בתשלום'], ['license_verified', 'רישיון מאומת'],
+      ['agents_onboarded', 'השלימו הקמה'], ['agents_closed', 'חשבונות שנסגרו'],
+      ['mortgage_advisors', 'יועצי משכנתאות'], ['developers', 'יזמים'],
+      ['platform_admins', 'מנהלי פלטפורמה'],
+    ] },
+  { key: 'demand', title: 'ביקוש ולידים',
+    note: 'כל מה שמגיע מצד המחפשים — בכל הערוצים.',
+    fields: [
+      ['leads', 'לידים בסך הכול'], ['leads_new', 'לידים בחלון'],
+      ['leads_open', 'לידים שלא נפתחו'], ['mortgage_leads', 'לידי משכנתא'],
+      ['project_leads', 'לידי פרויקטים'], ['rss_leads', 'לידים ממנוע ה-RSS'],
+      ['rss_leads_sold', 'לידי RSS שנמכרו'], ['saved_searches', 'חיפושים שמורים פעילים'],
+      ['saved_alerts_sent', 'התראות שנשלחו'], ['reviews', 'ביקורות שפורסמו'],
+      ['avg_rating', 'דירוג ממוצע'],
+    ] },
+  { key: 'money', title: 'כסף',
+    note: 'סכומים של עסקאות שהצליחו בלבד. טעינות במצב בדיקה אינן נספרות.',
+    money: true,
+    fields: [
+      ['topups', 'טעינות ארנק'], ['topups_window', 'טעינות בחלון'],
+      ['subscriptions', 'מנויים'], ['lead_charges', 'חיובי לידים'],
+      ['search_purchases', 'רכישות מהסוכן החכם'], ['mortgage_purchases', 'רכישות לידי משכנתא'],
+      ['rss_purchases', 'רכישות לידי RSS'], ['promotions', 'קידומים'],
+      ['videos', 'סרטוני שיווק'], ['ads', 'פרסום באתר'],
+      ['project_charges', 'חיובי פרויקטים'], ['developer_topups', 'טעינות יזמים'],
+      ['refunds', 'החזרים'], ['wallet_balance', 'יתרה בארנקים'],
+    ] },
+  { key: 'audience', title: 'קהל ותנועה',
+    note: 'מי מגיע לאתר, ובאיזה ערוץ הוא נשאר איתנו.',
+    fields: [
+      ['property_views', 'צפיות בנכסים בחלון'], ['unique_visitors', 'מבקרים ייחודיים'],
+      ['whatsapp_in', 'הודעות נכנסות בוואטסאפ'], ['whatsapp_chats', 'שיחות עם סוכנים'],
+      ['whatsapp_public', 'שיחות עם הבוט הציבורי'], ['newsletter', 'נרשמים לניוזלטר'],
+      ['open_house_subs', 'נרשמים לבתים פתוחים'], ['pwa_installs', 'התקנות האפליקציה'],
+      ['notifications', 'התראות שנשלחו בחלון'], ['notifications_unread', 'התראות שלא נקראו'],
+    ] },
+  { key: 'projects', title: 'פרויקטים חדשים',
+    note: 'הצד היזמי של הפלטפורמה.',
+    fields: [
+      ['total', 'פרויקטים'], ['published', 'מפורסמים'], ['new', 'נוספו בחלון'],
+      ['units', 'יחידות דיור'], ['units_free', 'יחידות פנויות'],
+      ['views', 'צפיות בחלון'],
+    ] },
+  { key: 'content', title: 'תוכן ומאגרי מידע',
+    note: 'מה שממלא את האתר מעבר למודעות.',
+    fields: [
+      ['articles', 'כתבות'], ['news_items', 'מבזקים שפורסמו'],
+      ['news_new', 'מבזקים בחלון'], ['neighborhoods', 'שכונות'],
+      ['streets', 'רחובות במאגר'], ['market_deals', 'עסקאות שוק'],
+      ['planning_info', 'נכסים עם מידע תכנוני'],
+    ] },
+];
+
+let invReportDays = 30;
+let invReportBusy = false;
+
+async function loadInventoryReport(){
+  const host = document.getElementById('invReport');
+  if (!host || invReportBusy) return;
+  invReportBusy = true;
+  const refreshBtn = document.getElementById('invRefreshBtn');
+  if (refreshBtn) refreshBtn.disabled = true;
+  host.innerHTML = '<div class="empty-state">טוען את מצבת המערכת…</div>';
+
+  const { data, error } = await sb.rpc('platform_inventory_report',
+    { p_days: invReportDays });
+
+  invReportBusy = false;
+  if (refreshBtn) refreshBtn.disabled = false;
+
+  if (error){
+    host.innerHTML = '';
+    const msg = (error.code === '42883' || error.code === 'PGRST202')
+      ? 'המצבת לא קיימת עדיין במסד — הריצו את המיגרציה 20261127090000_ops_agent.sql.'
+      : (error.code === '42501' || /not_platform_admin/.test(error.message || ''))
+        ? 'הדוח פתוח למנהל/ת פלטפורמה בלבד.'
+        : 'שגיאה בטעינת המצבת: ' + error.message;
+    host.appendChild(admEl('div', 'empty-state', msg));
+    dashPanelsMeasure();
+    return;
+  }
+
+  renderInventoryReport(data || {});
+}
+
+function renderInventoryReport(report){
+  const host = document.getElementById('invReport');
+  if (!host) return;
+  host.innerHTML = '';
+
+  const days = Number(report.window_days) || 30;
+  const stampEl = document.getElementById('invStamp');
+  if (stampEl) stampEl.textContent = report.generated_at
+    ? 'נכון ל-' + new Date(report.generated_at).toLocaleString('he-IL')
+    : '';
+
+  /* ארבעה מספרי כותרת — אלה שנשאלים בפועל כשמישהו שואל "מה יש לכם" */
+  const props  = report.properties    || {};
+  const collab = report.collaboration || {};
+  const clients= report.clients       || {};
+  const media  = report.media         || {};
+  const tiles = admEl('div', 'adm-tiles');
+  tiles.appendChild(admTile('נכסים מפורסמים', admInt(props.active),
+    { note: 'מתוך ' + admInt(props.total) + ' במערכת', wine: true }));
+  tiles.appendChild(admTile('שיתופי פעולה', admInt(collab.shares),
+    { note: admInt(collab.properties_shared) + ' נכסים שותפו' }));
+  tiles.appendChild(admTile('לקוחות המתווכים', admInt(clients.total),
+    { note: admInt(clients.per_agent) + ' בממוצע לסוכן/ת' }));
+  tiles.appendChild(admTile('הדמיות שבוצעו', admInt(media.visualizations),
+    { note: admInt(media.videos) + ' סרטונים' }));
+  host.appendChild(tiles);
+
+  host.appendChild(admEl('p', 'adm-note',
+    'כל מספר הוא מצבת מלאה מאז ומתמיד, אלא אם כתוב "בחלון" — ואז הוא ' +
+    admInt(days) + ' הימים האחרונים.'));
+
+  INV_GROUPS.forEach(group => {
+    const data = report[group.key];
+    if (!data || typeof data !== 'object') return;
+
+    // שדה שאין לו ערך אינו מוצג כאפס: "0" ו"לא נמדד" הם דברים שונים
+    const pairs = group.fields.filter(([k]) =>
+      data[k] !== null && data[k] !== undefined);
+    if (!pairs.length) return;
+
+    const block = admBlock(group.title, group.note);
+    const facts = admEl('div', 'adm-facts');
+    pairs.forEach(([k, label])=>{
+      const fact = admEl('div', 'adm-fact');
+      fact.appendChild(admEl('span', 'adm-fact-lbl', label));
+      fact.appendChild(admEl('span', 'adm-fact-val',
+        group.money ? '₪' + admInt(data[k]) : admInt(data[k])));
+      facts.appendChild(fact);
+    });
+    block.appendChild(facts);
+
+    // פילוחים: מפתח→מספר. מוצגים כשורות עם פס יחס, כי החלק היחסי הוא
+    // המידע — "34 שכירות" לבד אינו אומר דבר בלי "מתוך כמה".
+    ['by_status', 'by_deal', 'by_category', 'by_tier', 'leads_by_type',
+     'leads_by_status', 'agreements_by_kind', 'agreements_by_status',
+     'visualizations_by_kind', 'visualization_jobs',
+     'video_jobs'].forEach(breakdownKey => {
+      const raw = data[breakdownKey];
+      if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return;
+      const entries = Object.entries(raw)
+        .map(([k, v]) => [k, Number(v) || 0])
+        .filter(([, v]) => v > 0)
+        .sort((a, b) => b[1] - a[1]);
+      if (entries.length < 2) return;
+      const total = entries.reduce((s, [, v]) => s + v, 0);
+      block.appendChild(admEl('p', 'adm-legend',
+        INV_BREAKDOWN_LABELS[breakdownKey] || breakdownKey));
+      const rows = admEl('div', 'adm-rows');
+      entries.forEach(([k, v]) => rows.appendChild(
+        admRow(INV_VALUE_LABELS[k] || k, null, admInt(v), (v / total) * 100)));
+      block.appendChild(rows);
+    });
+
+    // ערים מובילות — מערך ולא אובייקט, ולכן טיפול נפרד
+    if (Array.isArray(data.top_cities) && data.top_cities.length){
+      block.appendChild(admEl('p', 'adm-legend', 'ערים מובילות'));
+      const max = Math.max(1, ...data.top_cities.map(c => Number(c.n) || 0));
+      const rows = admEl('div', 'adm-rows');
+      data.top_cities.forEach(c => rows.appendChild(
+        admRow(c.city, null, admInt(c.n), ((Number(c.n) || 0) / max) * 100)));
+      block.appendChild(rows);
+    }
+
+    host.appendChild(block);
+  });
+
+  const sub = document.getElementById('invPanelSub');
+  if (sub){
+    sub.textContent = admInt(props.active) + ' נכסים · ' +
+      admInt(collab.shares) + ' שיתופים · ' +
+      admInt(clients.total) + ' לקוחות · ' +
+      admInt(media.visualizations) + ' הדמיות';
+  }
+
+  dashPanelsMeasure();
+}
+
+const INV_BREAKDOWN_LABELS = {
+  by_status: 'לפי סטטוס',
+  by_deal: 'לפי סוג עסקה',
+  by_category: 'לפי קטגוריה',
+  by_tier: 'לפי מסלול',
+  leads_by_type: 'לידים לפי סוג',
+  leads_by_status: 'לידים לפי סטטוס',
+  agreements_by_kind: 'הסכמים לפי סוג',
+  agreements_by_status: 'הסכמים לפי מצב',
+  visualizations_by_kind: 'הדמיות לפי סוג',
+  visualization_jobs: 'משימות הדמיה לפי מצב',
+  video_jobs: 'משימות סרטון לפי מצב',
+};
+
+/* תרגום ערכי סטטוס לעברית. ערך שאין לו תרגום מוצג כמו שהוא — עדיף
+   מפתח באנגלית מאשר שורה שנעלמת. */
+const INV_VALUE_LABELS = {
+  active: 'פעיל', unpublished: 'לא מפורסם', archived: 'בארכיון',
+  draft: 'טיוטה', paused: 'מושהה', closed: 'סגור',
+  sale: 'מכירה', rent: 'השכרה', commercial: 'מסחרי', land: 'קרקע',
+  signed: 'חתום', sent: 'נשלח', cancelled: 'בוטל',
+  pending: 'ממתין', processing: 'בעיבוד', done: 'הושלם', failed: 'נכשל',
+  unlocked: 'נפתח', locked: 'נעול', refunded: 'הוחזר', success: 'הצליח',
+  exclusive_sell: 'בלעדיות מכירה', exclusive_buy: 'בלעדיות קנייה',
+  sell: 'מכירה', buy: 'קנייה',
+  private_room: 'חדר פרטי', commercial_business: 'עסק מסחרי',
+  apartment: 'דירה', house: 'בית', penthouse: 'פנטהאוז',
+};
+
+document.querySelectorAll('#invRange button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    invReportDays = Number(btn.dataset.days) || 30;
+    document.querySelectorAll('#invRange button')
+      .forEach(b => b.classList.toggle('is-on', b === btn));
+    loadInventoryReport();
+  });
+});
+document.getElementById('invRefreshBtn').addEventListener('click', loadInventoryReport);
 
 async function loadArticlesAdmin(){
   const listEl = document.getElementById('articlesAdminList');
@@ -22961,6 +23664,10 @@ function applyNavFilter(){
   if (adminPanel) adminPanel.classList.toggle('nav-off', !isAdminView);
   const leadPanel = document.getElementById('dashPanelLeads');
   if (leadPanel) leadPanel.classList.toggle('nav-off', !isAdminView);
+  const opsPanel = document.getElementById('dashPanelOps');
+  if (opsPanel) opsPanel.classList.toggle('nav-off', !isAdminView);
+  const invPanel = document.getElementById('dashPanelInventory');
+  if (invPanel) invPanel.classList.toggle('nav-off', !isAdminView);
 
   document.querySelectorAll('#dashboard details.acc').forEach(acc=>{
     const tab = NAV_TAB_OF.get(acc.id) || 'more';
@@ -23026,6 +23733,10 @@ function setDashView(view, opts){
   if (adminPanel) adminPanel.hidden = (dashView !== 'admin');
   const leadPanel = document.getElementById('dashPanelLeads');
   if (leadPanel) leadPanel.hidden = (dashView !== 'admin');
+  const opsPanel = document.getElementById('dashPanelOps');
+  if (opsPanel) opsPanel.hidden = (dashView !== 'admin');
+  const invPanel = document.getElementById('dashPanelInventory');
+  if (invPanel) invPanel.hidden = (dashView !== 'admin');
   if (!initial) navTab = 'home';
   renderViewSwitch();
   applyNavFilter();
@@ -23033,9 +23744,19 @@ function setDashView(view, opts){
   renderBottomNav();
   const bnav = document.getElementById('bottomNav');
   if (bnav) bnav.hidden = (dashView === 'admin');
-  // שני הדוחות נטענים יחד. הם עונים על שתי שאלות שונות (מה קרה בעסק החודש,
-  // ומאיפה נכנסים הלידים), ומי שנכנס/ת לתצוגת מנהל/ת שואל/ת את שתיהן.
-  if (dashView === 'admin'){ loadAdminReport(); loadLeadReport(); }
+  // ארבעת הדוחות נטענים יחד. הם עונים על ארבע שאלות שונות — מה קרה בעסק
+  // החודש, מאיפה נכנסים הלידים, מה שבור או איטי, וכמה יש מכל דבר — ומי
+  // שנכנס/ת לתצוגת מנהל/ת שואל/ת את כולן.
+  //
+  // ארבע קריאות RPC במקביל ולא בטור: כל פאנל מתחיל מכווץ, ולכן מי שמחכה
+  // לתשובה הוא לרוב רק הכותרת שלו. טעינה בטור הייתה מעכבת את הרביעי
+  // בגלל הראשון בלי סיבה.
+  if (dashView === 'admin'){
+    loadAdminReport();
+    loadLeadReport();
+    loadOpsReport();
+    loadInventoryReport();
+  }
   if (!initial) window.scrollTo({ top:0, behavior:'auto' });
 }
 

@@ -1,0 +1,134 @@
+name: הסוכן התפעולי — סריקת מערכת
+
+# סורק את המערכת כל שש שעות: מסד (בריאות, ביצועים, הרשאות), האתר החי
+# (זמני תגובה, כותרות), הקוד (סודות, CSP, ‏Edge Functions פתוחות) והצינור
+# (‏Actions, מיגרציות שלא הוחלו). הממצאים נשמרים ב-ops_findings, והדשבורד
+# "בריאות המערכת" ב-CRM של מנהל/ת הפלטפורמה קורא משם.
+#
+# **למה שש שעות ולא כל חצי שעה:** רוב מה שנמדד כאן משתנה לאט — משקל דף,
+# הרשאות, אינדקסים. מה שכן משתנה מהר (תור שנתקע, job שנפל) נתפס בתוך
+# שש שעות, וזה מספיק: הדשבורד אינו מערכת כוננות, הוא כלי לראות מגמה.
+# סריקה תכופה יותר הייתה מייצרת רעש במגמה ובזבוז דקות Actions.
+#
+# **הסריקה היא לקריאה בלבד** — החיבור נפתח עם
+# ‏default_transaction_read_only=on, ולכן כל DDL ממנו נדחה על ידי Postgres
+# עצמו. זה מה שמקיים את הכלל ב-CLAUDE.md: אין להחיל DDL מחוץ לצינור.
+# הכתיבה היחידה היא ל-ops_findings ול-ops_scans, בחיבור נפרד.
+
+on:
+  schedule:
+    # ‏03:10 / 09:10 / 15:10 / 21:10 UTC. הדקה 10 ולא 0 — בשעה עגולה
+    # רצים אצל GitHub מיליוני jobs וההרצה נדחית בדקות.
+    - cron: "10 */6 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "הרצת יבש — לסרוק ולהדפיס בלי לכתוב למסד"
+        type: boolean
+        default: false
+      only:
+        description: "בדיקות בלבד (database, security, behavior, pipeline, frontend)"
+        type: string
+        default: ""
+
+# שתי סריקות חופפות היו כותבות ל-ops_findings בו-זמנית, והסגירה
+# האוטומטית של השנייה הייתה סוגרת ממצאים שהראשונה בדיוק פתחה.
+concurrency:
+  group: ops-agent
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  # קריאת מצב ה-workflows (probe pipeline) ופתיחת Issue על ממצא חמור
+  actions: read
+  issues: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: משיכת הקוד
+        uses: actions/checkout@v4
+
+      - name: התקנת Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: התקנת תלויות
+        run: pip install -r requirements.txt
+
+      - name: בדיקת הסוד
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          if [ -z "${SUPABASE_DB_URL}" ]; then
+            echo "::error::הסוד SUPABASE_DB_URL ריק או לא מוגדר. זהו אותו סוד שמשמש את supabase_migrations.yml. פירוט: docs/supabase-migrations.md"
+            exit 1
+          fi
+
+      - name: סריקה
+        id: scan
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          # ‏GITHUB_TOKEN מגיע אוטומטית ומשמש את בדיקת ה-workflows
+          GITHUB_TOKEN: ${{ github.token }}
+          SITE_BASE_URL: ${{ vars.SITE_BASE_URL }}
+          # קלטי ההרצה הידנית מועברים כמשתני סביבה ולא משורשרים לפקודה,
+          # כדי שערך זדוני בשדה הטקסט לא יורץ כשל shell
+          DRY_RUN: ${{ inputs.dry_run }}
+          ONLY: ${{ inputs.only }}
+        run: |
+          ARGS=""
+          if [ "$DRY_RUN" = "true" ]; then ARGS="--dry-run"; fi
+          if [ -n "$ONLY" ]; then ARGS="$ARGS --only $ONLY"; fi
+          python ops_scan.py $ARGS
+
+      # ‏Issue רק על ממצא חמור. הדשבורד הוא הערוץ הרגיל, והתראה על כל
+      # ממצא היא התראה שמפסיקים לקרוא — ואז החמור באמת נבלע איתה.
+      - name: פתיחת Issue על ממצא חמור
+        if: steps.scan.outputs.critical != '0' && steps.scan.outputs.critical != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CRITICAL: ${{ steps.scan.outputs.critical }}
+          HIGH: ${{ steps.scan.outputs.high }}
+          LIST: ${{ steps.scan.outputs.critical_list }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          TITLE="הסוכן התפעולי: ממצא חמור"
+
+          BODY=$(cat <<EOF
+          הסריקה התפעולית מצאה **$CRITICAL ממצאים בדרגת חמור** (ועוד $HIGH בדרגה גבוהה).
+
+          $LIST
+
+          ממצא בדרגת חמור פירושו אחד משלושה: משהו באתר לא נטען, נתונים
+          חשופים לקריאה שלא אמורה להיות אפשרית, או שהצינור שבור.
+
+          הרשימה המלאה, כולל ההצעה לתיקון לכל ממצא, יושבת בדשבורד
+          **בריאות המערכת** ב-CRM של מנהל/ת הפלטפורמה.
+
+          [ההרצה ב-Actions]($RUN_URL)
+
+          ---
+          נפתח אוטומטית על ידי \`.github/workflows/ops_agent.yml\`.
+          EOF
+          )
+
+          # ‏Issue פתוח מהסריקה הקודמת מתאר את אותה בעיה — תגובה עליו
+          # שומרת את הדיון במקום אחד במקום ערימת Issues זהים.
+          EXISTING=$(gh issue list --state open --limit 100 --json number,title \
+                       | jq -r --arg t "$TITLE" \
+                           '[.[] | select(.title == $t)] | .[0].number // empty')
+
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+            echo "עודכן Issue #$EXISTING"
+          else
+            gh issue create --title "$TITLE" --body "$BODY"
+          fi

@@ -5,3 +5,9 @@ feedparser>=6.0.11,<7
 requests>=2.32,<3
 pydantic>=2.9,<3
 python-dotenv>=1.0,<2
+
+# הסוכן התפעולי (ops_scan.py, docs/ops-agent.md). הוא מדבר עם המסד
+# ב-SQL ישיר ולא דרך PostgREST: השאילתות שלו נוגעות ב-pg_stat_statements,
+# ב-pg_policies וב-cron.job_run_details — קטלוגים שלקוח ה-supabase אינו
+# חושף כלל.
+psycopg2-binary>=2.9,<3
