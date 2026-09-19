@@ -1981,8 +1981,26 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      בדיוק בשביל החפיפה הזו. */
   .hot-band{
     position:relative;z-index:4;margin-top:-16px;
-    /* ראו ‎.search-results‎: אותה במה חלקית־שקופה מעל הרקע הזורם */
-    background:rgba(255,255,255,.86);border-radius:0 26px 0 0;
+    /* ====== הבמה הזו מגוונת, ו-‎.search-results‎ שמעליה לבנה ======
+       שתיהן היו ‎rgba(255,255,255,.86)‎ מעל הרקע הזורם — כלומר כמעט בדיוק
+       צבע הנייר של הדף. התוצאה הייתה שלסקציה לא היה שום גבול: היא
+       התחילה במקום שבו נגמרה המפה ונגמרה במקום שבו נגמר התוכן, ובין
+       לבין לא היה דבר שאומר "כאן מתחיל משהו אחר". מי שגלל/ה מהמפה
+       למטה קרא/ה רצף אחד, וסקציה שלמה — ואיתה שלוש הלשוניות שבתוכה,
+       מתווכים ובעלי מקצוע — פשוט לא נרשמה.
+
+       ‏**.search-results נשארת לבנה במכוון.** היא רצועת תוצאות זמנית
+       שנפתחת מעל הבמה הזו, והניגוד בין הלבן שלה לגוון שכאן הוא מה
+       שמפריד ביניהן כששתיהן על המסך.
+
+       השקיפות נשמרת (‏.90‎-‎.93‎ ולא צבע אטום): הרקע הזורם עדיין מבצבץ
+       מתחת, בדיוק כמו בכרטיסי הדשבורד. הגוון מוסיף ערך לבמה, הוא לא
+       סוגר עליה מכסה. */
+    background:linear-gradient(180deg,rgba(223,233,250,.93) 0%,rgba(232,240,252,.90) 100%);
+    border-radius:0 26px 0 0;
+    /* הקו התחתון הוא סוף הבמה. בלי קו, גוון שנגמר בקצה חד נקרא כתקלת
+       רינדור ולא כרצועה שנסגרה. */
+    border-bottom:1px solid rgba(14,42,107,.12);
     /* הריפוד התחתון מחזיק את המרווח שהחזיקה קודם שורת נקודות הניווט */
     padding:20px 0 30px;box-shadow:0 -12px 30px rgba(6,20,34,.20);
   }
@@ -2019,8 +2037,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      והשפה היא מצב הכפתור עצמו: **הכבויות מורמות והפעילה שקועה.** כפתור
      שלא נלחץ בולט החוצה, וכפתור לחוץ נכנס פנימה — כך ההבלטה אינה קישוט
      שהודבק מלמעלה אלא אמירה נכונה על מה שאפשר לעשות כאן. */
+  /* המגש נגזר מהבמה שמתחתיו ולא מצבע קבוע: ‏--teal-tint‎ (‏#eaf0fb) היה
+     כמעט בדיוק הגוון של ‎.hot-band‎ מאז שהיא הפסיקה להיות לבנה, והמגש
+     היה נעלם בתוכה — ואיתו מה שהוא עושה: מחזיק את השלוש כקבוצה אחת.
+     נייבי שקוף נשאר כהה מהבמה בכל גוון שהרקע הזורם מעביר תחתיה. */
   .dm-tabs{
-    display:flex;gap:5px;background:var(--teal-tint);
+    display:flex;gap:5px;background:rgba(14,42,107,.09);
     border:1px solid rgba(14,42,107,.18);padding:5px;
   }
   .dm-tabs button{
@@ -2214,8 +2236,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     font-size:.6rem;color:rgba(255,255,255,.9);margin-top:5px}
   .dm-meta .star{color:#FFD34D;margin-inline-end:2px}
 
+  /* המסגרת המקווקוות הייתה ‎#cfd8ec‎ — גוון שנבחר מול במה לבנה, וכמעט לא
+     נראה על הבמה המגוונת. נייבי שקוף נשאר גלוי בשתיהן. */
   .dm-empty{flex:1;min-width:min(280px,100%);min-height:var(--card-h);
-    display:grid;place-items:center;text-align:center;border:1px dashed #cfd8ec;
+    display:grid;place-items:center;text-align:center;border:1px dashed rgba(14,42,107,.26);
     padding:20px;margin:0;font-size:.82rem;color:var(--ink-soft);line-height:1.6}
   /* הקישור נצמד לקצה השמאלי — בדיוק מתחת לתיבת החיפוש, שיושבת שם
      (‏order:1 במסמך RTL) מ-760px ומעלה. */
