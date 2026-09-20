@@ -407,9 +407,12 @@ const TOOLS: Anthropic.Tool[] = [
   {
     name: "cma_report",
     description:
-      "דוח השוואת שוק (CMA) לנכס: עסקאות שנסגרו בסביבה, ממוצע, חציון, טווח, " +
-      "מחיר למ\"ר, והפער בין המחיר המבוקש לממוצע השוק. זה הכלי ל\"כמה שווה " +
-      "הנכס\", \"מה נמכר באזור\" ו\"האם המחיר ריאלי\". מחזיר תקציר ואת " +
+      "דוח השוואת שוק (CMA) לנכס **למכירה**: עסקאות שנסגרו בסביבה, ממוצע, " +
+      "חציון, טווח, מחיר למ\"ר, והפער בין המחיר המבוקש לממוצע השוק. זה הכלי " +
+      "ל\"כמה שווה הנכס\", \"מה נמכר באזור\" ו\"האם המחיר ריאלי\". " +
+      "המאגר הוא עסקאות מכר בלבד, ולכן הכלי מסרב על נכס להשכרה. " +
+      "**כשאין די עסקאות להשוואה הכלי אינו מחזיר ממוצע כלל** — במקרה כזה יש " +
+      "לומר לסוכן/ת שאין נתונים ולא לאמוד מספר לבד. מחזיר תקציר ואת " +
       "העסקאות הקרובות ביותר; הדוח המלא להדפסה או לשליחה ללקוח/ה נמצא " +
       "בדשבורד.",
     input_schema: {
@@ -1764,14 +1767,34 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
 
   const subject = (report.subject || {}) as Record<string, unknown>;
   const stats = (report.stats || {}) as Record<string, unknown>;
+  const coverage = (report.data_coverage || {}) as Record<string, unknown>;
   const comparables = (report.comparables || []) as Record<string, unknown>[];
   const cityComparables = (report.city_comparables || []) as Record<string, unknown>[];
 
+  // ‏agent_cma_report מחזירה `avg_price` רק כש-`has_statistics` — מדגם קטן
+  // מ-`cma_min_comparables` חוזר בלי ממוצע בכלל. הבדיקה כאן היא חגורה שנייה:
+  // בלעדיה, ממוצע שיתווסף מתישהו לענף אחר של הפונקציה היה זולג לצ'אט בלי
+  // שאיש יחליט על כך.
+  const hasStats = coverage.has_statistics === true;
   const asking = Number(subject.price);
   const avg = Number(stats.avg_price);
-  const gapPct = Number.isFinite(asking) && Number.isFinite(avg) && avg > 0
+  const gapPct = hasStats && Number.isFinite(asking) && Number.isFinite(avg) && avg > 0
     ? Math.round(((asking - avg) / avg) * 100)
     : undefined;
+
+  // הנחיה ולא נתון: מודל שמקבל "0 עסקאות" ימלא את החסר באומדן משלו אם לא
+  // ייאמר לו במפורש שאסור. זה בדיוק המקום שבו דוח כן הופך לדוח שנשמע כן.
+  const COVERAGE_GUIDANCE: Record<string, string> = {
+    ok: "",
+    insufficient:
+      `נמצאו ${String(coverage.comparables_found)} עסקאות בלבד בסביבת הנכס, והמינימום לחישוב ממוצע הוא ` +
+      `${String(coverage.min_required)}. אין ממוצע ואין הערכת שווי. אמור/י זאת במפורש, הצג/י את העסקאות ` +
+      "הבודדות כמו שהן, ואל תאמוד/תאמדי מחיר בעצמך.",
+    none:
+      "לא נמצאה אף עסקה להשוואה בסביבת הנכס. אמור/י זאת במפורש ואל תאמוד/תאמדי מחיר בעצמך.",
+    no_location:
+      "לנכס אין קואורדינטות, ולכן אין השוואות לפי רדיוס. גיאוקוד נעשה על כתובת בעפולה עם רחוב ומספר בית.",
+  };
 
   ctx.conv.last_property_id = propertyId;
 
@@ -1787,20 +1810,23 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
       asking_price: subject.price,
       asking_price_per_sqm: subject.price_per_sqm,
     },
-    // הפער הוא השורה שהסוכן/ת מחפש/ת: המחיר המבוקש מול ממוצע העסקאות בסביבה
+    // הפער הוא השורה שהסוכן/ת מחפש/ת: המחיר המבוקש מול ממוצע העסקאות
+    // בסביבה — וקיים רק כשיש ממוצע שמותר להישען עליו.
     gap_vs_market_pct: gapPct,
     stats,
+    data_coverage: coverage,
+    coverage_guidance: COVERAGE_GUIDANCE[String(coverage.status)] || undefined,
+    // מאיפה הנתונים בדוח הזה באמת הגיעו. נאמר לסוכן/ת כשהוא/היא שואל/ת.
+    sources: report.sources,
+    // עסקאות שרשומות לפי המחיר המבוקש ולא לפי מחיר הסגירה. אם יש כאלה,
+    // הן אינן "מחירי עסקה" וצריך לומר זאת כשמציגים אותן.
+    asking_basis_count: coverage.asking_basis_count,
     radius_meters_used: report.radius_meters_used,
-    // ‏true = הרדיוס נפתח עד הסוף ועדיין אין מספיק השוואות. התשובה עדיין
-    // תקפה, אבל היא נשענת על מדגם קטן וצריך לומר את זה.
     radius_exhausted: report.radius_exhausted,
     comparables: comparables.slice(0, limit),
     comparables_returned: Math.min(comparables.length, limit),
     // עסקאות באותה עיר שאין להן מיקום — לא מעורבבות בממוצע, ולכן רק נספרות
     city_comparables_count: cityComparables.length,
-    no_location: !subject.lat && !report.radius_meters_used
-      ? "לנכס אין קואורדינטות, ולכן אין השוואות לפי רדיוס. גיאוקוד נעשה על כתובת בעפולה עם רחוב ומספר בית."
-      : undefined,
     full_report_where: "הדוח המלא להדפסה או לשליחה ללקוח/ה: כפתור \"דוח CMA\" בכרטיס הנכס בדשבורד.",
   };
 }

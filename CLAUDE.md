@@ -24,8 +24,12 @@
 - **המסד** — פרויקט Supabase `obookujgolazrwycsiyn`. הסכימה ב-
   `supabase/migrations/`, ה-Edge Functions ב-`supabase/functions/`. שניהם
   נפרסים ב-GitHub Actions בכל push ל-`main` שנוגע בהם.
-- **המנועים** — `news_engine/` + `news_scraper.py` (מבזקי הנדל"ן) ו-
-  `lead_engine/` + `scraper.py` (לידים מ-RSS), רצים ב-workflows מתוזמנים.
+- **המנועים** — `news_engine/` + `news_scraper.py` (מבזקי הנדל"ן),
+  `lead_engine/` + `scraper.py` (לידים מ-RSS), ו-`deals_engine/` +
+  `deals_scraper.py` (עסקאות מרשות המיסים לדוח ה-CMA), רצים ב-workflows
+  מתוזמנים. למנוע העסקאות יש כלל משלו: **רשומה פגומה נזרקת ונספרת ולא
+  מנוחשת**, כי עסקה שנכנסת למאגר מסומנת `official` — המספר שהדוח סומך
+  עליו יותר מכל אחר. ‏`docs/market-deals-official.md`.
 - **הסוכן התפעולי** — `ops_agent/` + `ops_scan.py`. סורק כל שש שעות את
   המסד, האתר החי, הקוד והצינור, וכותב ממצאים ל-`ops_findings`. שני
   הפאנלים שמציגים אותם — בריאות ומצבת — יושבים בתצוגת מנהל/ת הפלטפורמה

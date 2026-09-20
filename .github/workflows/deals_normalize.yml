@@ -1,0 +1,38 @@
+name: נרמול עסקאות רשמיות
+
+# ‏deals_engine/normalize.py מכריע את השאלה היחידה שחשובה במנוע העסקאות
+# הרשמיות: האם רשומה פגומה נדחית או מנוחשת. עסקה שנכנסת למאגר נושאת
+# ‏price_basis='official' — היא המספר שדוח ה-CMA סומך עליו יותר מכל אחר,
+# ומספר שנוחש מזהם בדיוק אותו.
+#
+# הבדיקה קוראת קבצים ומריצה פונקציות טהורות — בלי רשת ובלי סודות.
+
+on:
+  pull_request:
+    paths:
+      - "deals_engine/**"
+      - "deals_scraper.py"
+      - "scripts/check_deals_normalize.py"
+      - ".github/workflows/deals_normalize.yml"
+  push:
+    branches: [main]
+    paths:
+      - "deals_engine/**"
+      - "deals_scraper.py"
+      - "scripts/check_deals_normalize.py"
+      - ".github/workflows/deals_normalize.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: בדיקת הנרמול
+        run: python3 scripts/check_deals_normalize.py

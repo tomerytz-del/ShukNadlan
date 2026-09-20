@@ -2103,6 +2103,13 @@ function dealCardHtml(deal){
     ? new Date(deal.sold_at).toLocaleDateString('he-IL', { year:'numeric', month:'long' })
     : '';
   const price = Number(deal.sale_price);
+  /* המחיר מוצג רק כשהוא באמת מחיר עסקה. ‏`price_basis='asking'` פירושו
+     שהמספר במאגר הוא המחיר ש**התפרסם** ולא מה שנסגר בפועל — כך נרשמו כל
+     השורות עד שהסימון "נמכר" התחיל לשאול. שלט "נמכר" הוא עובדה ונשאר;
+     המספר שמתחתיו היה הופך אותו להצהרה על מחיר עסקה, וזה לא מה שיש לנו.
+     סביבה שאין בה את העמודה (נפילה ל-DEAL_COLUMNS_MIN) מסתירה גם היא —
+     ברירת מחדל זהירה, ולא "כנראה זה בסדר". */
+  const priceIsSale = deal.price_basis === 'reported' || deal.price_basis === 'official';
   return `
     <div class="story-thumb"${photo ? ` style="background-image:url('${encodeURI(photo)}')"` : ''}>
       ${photo ? '' : storySignHtml()}
@@ -2110,7 +2117,7 @@ function dealCardHtml(deal){
     </div>
     <div class="story-body">
       <div class="story-title">${escapeHtml(line)}</div>
-      ${Number.isFinite(price) && price > 0 ? `<div class="story-price">₪${price.toLocaleString('he-IL')}</div>` : ''}
+      ${priceIsSale && Number.isFinite(price) && price > 0 ? `<div class="story-price">₪${price.toLocaleString('he-IL')}</div>` : ''}
       ${when ? `<div class="story-when">${escapeHtml(when)}</div>` : ''}
       ${deal.property_id ? '<div class="story-link">לנכס שנסגר ←</div>' : ''}
     </div>`;
@@ -2182,7 +2189,7 @@ function renderStories(){
    מפיל את השאילתה כולה על עמודה חסרה, ולכן היא נורית קודם בגרסה המלאה
    וחוזרת לגרסה המינימלית אם נכשלה — עדיף כרטיס עסקה בלי תמונה וקישור
    מאשר מקטע שלא נטען. */
-const DEAL_COLUMNS_FULL = 'sale_price, sold_at, rooms, property_type, city, deal_type, property_id';
+const DEAL_COLUMNS_FULL = 'sale_price, sold_at, rooms, property_type, city, deal_type, property_id, price_basis';
 const DEAL_COLUMNS_MIN  = 'sale_price, sold_at, rooms, property_type, city';
 const STORY_DEALS_MAX = 12;
 
