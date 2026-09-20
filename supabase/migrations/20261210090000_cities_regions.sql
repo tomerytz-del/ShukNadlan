@@ -206,6 +206,12 @@ on conflict (slug) do update
 -- מלאי אמיתי; דף עיר עם אפס נכסים מלמד את גוגל שהדף דק ואת המבקר הראשון
 -- שהאתר ריק.
 --
+-- ‏`geocode_provider` הוא **סוג** ספק ולא זהותו. לעיריית עפולה שכבת WFS
+-- משלה (‏intertown), ולעיריית כרמיאל שכבה משלה (‏GIS-Net), ובהמשך יהיו
+-- עוד. ערך אחד לכל עירייה היה נותן מאתיים ערכים באילוץ; לכן הערך הוא
+-- `municipal_wfs`, והכתובת, השכבה וה-referer יושבים בטבלת המקורות לעיר.
+-- אותה הפרדה בדיוק שבין מזהה לתצוגה במקומות האחרים כאן.
+--
 -- ‏`bbox` משמש לתפקיד אחד בלבד — לפסול קואורדינטה שהגאוקוד החזיר והיא
 -- נחתה מחוץ לעיר (פין באמצע הים גרוע מאין פין). דיוק גס מספיק לו.
 -- ---------------------------------------------------------------------------
@@ -247,7 +253,7 @@ begin
                   where conrelid = 'public.cities'::regclass
                     and conname  = 'cities_geocode_provider_chk') then
     alter table public.cities add constraint cities_geocode_provider_chk
-      check (geocode_provider in ('none','afula_wfs','govmap'));
+      check (geocode_provider in ('none','municipal_wfs','govmap'));
   end if;
 
   if not exists (select 1 from pg_constraint
@@ -321,7 +327,7 @@ comment on column public.cities.cbs_nafa is
 comment on column public.cities.is_live is
   'שער מוצר: העיר מוצגת לגולשים. נדלק רק כשיש מלאי אמיתי — דף עיר ריק גרוע מאין דף עיר.';
 comment on column public.cities.geocode_provider is
-  'none = אין גאוקוד לעיר · afula_wfs = שכבת עיריית עפולה · govmap = הספק הארצי';
+  'סוג הספק ולא זהותו: none = אין גאוקוד · municipal_wfs = שכבת GIS עירונית (הכתובת והשכבה בטבלת המקורות לעיר) · govmap = הספק הארצי.';
 comment on column public.cities.street_enforcement is
   'האם טופס הנכס חוסם רחוב שאינו ברשימה. נדלק ידנית ורק כשהרשימה שלמה — אכיפה על רשימה חלקית חוסמת פרסום נכס תקין.';
 
