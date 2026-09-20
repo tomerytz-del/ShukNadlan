@@ -54,6 +54,10 @@ create table if not exists public.city_geocode_sources (
   referer       text,
   address_layer text,
   parcel_layer  text,
+  bbox_lat_min  double precision,
+  bbox_lat_max  double precision,
+  bbox_lng_min  double precision,
+  bbox_lng_max  double precision,
   active        boolean not null default false,
   notes         text,
   created_at    timestamptz not null default now(),
@@ -78,6 +82,31 @@ begin
       add constraint city_geocode_sources_active_needs_layer_chk
       check (not active or nullif(btrim(coalesce(address_layer, '')), '') is not null);
   end if;
+
+  -- **וספק פעיל חייב תיבה.** "פין באמצע הים גרוע מאין פין" הוא כלל
+  -- שמתועד ב-docs/property-map.md, והוא היה עד כה קבוע בקוד (AFULA_BOX).
+  -- קבוע אינו יכול לשרת שתי ערים: `insideCityBox` שנופל לתיבת עפולה
+  -- כשאין תיבה היה פוסל **כל** תוצאה בכרמיאל, בשקט ובאופן מוחלט.
+  --
+  -- לכן התיבה יורדת מהקוד לשורה, והאילוץ הופך אותה לחובה במקום לזיכרון.
+  if not exists (select 1 from pg_constraint
+                  where conrelid = 'public.city_geocode_sources'::regclass
+                    and conname  = 'city_geocode_sources_active_needs_box_chk') then
+    alter table public.city_geocode_sources
+      add constraint city_geocode_sources_active_needs_box_chk
+      check (not active or (bbox_lat_min is not null and bbox_lat_max is not null
+                        and bbox_lng_min is not null and bbox_lng_max is not null));
+  end if;
+
+  -- תיבה הפוכה היא שגיאת הקלדה שפוסלת הכול בלי להתלונן
+  if not exists (select 1 from pg_constraint
+                  where conrelid = 'public.city_geocode_sources'::regclass
+                    and conname  = 'city_geocode_sources_box_order_chk') then
+    alter table public.city_geocode_sources
+      add constraint city_geocode_sources_box_order_chk
+      check ((bbox_lat_min is null or bbox_lat_max is null or bbox_lat_min < bbox_lat_max)
+         and (bbox_lng_min is null or bbox_lng_max is null or bbox_lng_min < bbox_lng_max));
+  end if;
 end $$;
 
 comment on table public.city_geocode_sources is
@@ -86,6 +115,8 @@ comment on column public.city_geocode_sources.city_key is
   'city_name_key(שם העיר). המפתח אינו cities.id בכוונה - ראו ההסבר במיגרציה 20261213090000.';
 comment on column public.city_geocode_sources.active is
   'האם העיר נכנסת לתור הגאוקוד. נדלק ידנית ורק אחרי מדידה: תור מול ספק שאינו עובד שורף שלושה ניסיונות לכל נכס ומוציא אותו מהתור לתמיד.';
+comment on column public.city_geocode_sources.bbox_lat_min is
+  'תיבת הפסילה של העיר. קואורדינטה מחוץ לה נפסלת - פין באמצע הים גרוע מאין פין. חובה לשורה פעילה, כי קבוע בקוד אינו יכול לשרת שתי ערים.';
 comment on column public.city_geocode_sources.kind is
   'municipal_wfs = שכבת GIS עירונית · govmap = הספק הארצי. תואם את cities.geocode_provider.';
 
@@ -103,13 +134,16 @@ create index if not exists city_geocode_sources_active_idx
 -- אינה רעש שהרצה חוזרת מוחקת. אותו כלל של `street_registry_absorb`.
 -- ---------------------------------------------------------------------------
 insert into public.city_geocode_sources
-  (city_key, city_name, kind, base_url, referer, address_layer, parcel_layer, active, notes)
+  (city_key, city_name, kind, base_url, referer, address_layer, parcel_layer,
+   bbox_lat_min, bbox_lat_max, bbox_lng_min, bbox_lng_max, active, notes)
 values (
   public.city_name_key('עפולה'), 'עפולה', 'municipal_wfs',
   'https://layers.intertown.co.il/opengis/wfs',
   'https://up.intertown.co.il/afl/public',
   'afl_bld:afl_bld-Address_Points_1',
   'afl_cadaster:afl_cadaster-parcel',
+  -- ערכי AFULA_BOX מ-_shared/afula-geocode.ts, מספרה במספרה
+  32.55, 32.68, 35.23, 35.36,
   true,
   'שכבת עיריית עפולה. הקבועים זהים ל-_shared/afula-geocode.ts ול-_shared/afula-planning.ts.')
 on conflict (city_key) do nothing;
@@ -117,12 +151,16 @@ on conflict (city_key) do nothing;
 -- ---------------------------------------------------------------------------
 -- מה שהצינור קורא
 --
--- מחזירה גם את תיבת העיר מהרישום, כשהיא שם. זה מה שמחליף את `AFULA_BOX`
--- הקשיח: קריאה אחת נותנת גם את נקודת הקצה וגם את הגבול לפסילת תוצאה.
+-- מחזירה גם את התיבה. זה מה שמחליף את `AFULA_BOX` הקשיח: קריאה אחת
+-- נותנת גם את נקודת הקצה וגם את הגבול לפסילת תוצאה.
 --
--- תיבה `null` אינה שגיאה — היא אומרת "הרישום עדיין לא מכיר את העיר",
--- והצד הקורא נופל לתיבת ברירת המחדל של הספק. ‏`insideCityBox` נשען על
--- ההבחנה הזו.
+-- **התיבה התפעולית גוברת על זו שברישום**, ולא להפך. התיבה ב-
+-- `city_geocode_sources` נקבעת ביד לצד השכבה, על ידי מי שאינטגרר אותה
+-- ומדד מולה; זו שב-`cities` נגזרת מכנית ממרכז ± דלתא בהזנה ההמונית.
+-- כשיש התנגשות, המדידה גוברת על הנוסחה.
+--
+-- ספק פעיל **חייב** תיבה (אילוץ למעלה), ולכן ערך `null` כאן אפשרי רק
+-- לשורה שאינה פעילה — והיא ממילא אינה מוחזרת.
 -- ---------------------------------------------------------------------------
 create or replace function public.city_geocode_source(p_city text)
 returns table (
@@ -144,7 +182,10 @@ set search_path = ''
 as $$
   select s.city_key, s.city_name, s.kind, s.base_url, s.referer,
          s.address_layer, s.parcel_layer,
-         c.bbox_lat_min, c.bbox_lat_max, c.bbox_lng_min, c.bbox_lng_max
+         coalesce(s.bbox_lat_min, c.bbox_lat_min),
+         coalesce(s.bbox_lat_max, c.bbox_lat_max),
+         coalesce(s.bbox_lng_min, c.bbox_lng_min),
+         coalesce(s.bbox_lng_max, c.bbox_lng_max)
     from public.city_geocode_sources s
     left join public.cities c on c.id = public.city_id_for_name(s.city_name)
    where s.city_key = public.city_name_key(p_city)
@@ -152,7 +193,7 @@ as $$
 $$;
 
 comment on function public.city_geocode_source(text) is
-  'נקודת הקצה והתיבה לעיר, או אפס שורות כשאין ספק פעיל. תיבה null = הרישום טרם מכיר את העיר, והקורא נופל לתיבת ברירת המחדל של הספק.';
+  'נקודת הקצה והתיבה לעיר, או אפס שורות כשאין ספק פעיל. התיבה התפעולית (city_geocode_sources) גוברת על זו שנגזרה ברישום, כי היא נמדדה ולא חושבה.';
 
 revoke all on function public.city_geocode_source(text) from public, anon, authenticated;
 grant execute on function public.city_geocode_source(text) to service_role;
