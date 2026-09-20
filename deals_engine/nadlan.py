@@ -116,8 +116,11 @@ class NadlanClient:
 
     # ------------------------------------------------------------------ רשת
 
-    def _post(self, url: str, payload: dict[str, Any]) -> Any:
+    def post(self, url: str, payload: dict[str, Any]) -> Any:
         """קריאה אחת, עם ניסיונות חוזרים ונסיגה מעריכית.
+
+        ציבורית ולא `_post`: ‏`--probe` קורא לה ישירות כדי להדפיס את הגוף
+        הגולמי לפני כל ניסיון לפרש אותו.
 
         מחזירה את גוף ה-JSON. גוף שאינו JSON הוא כשל ולא "אין תוצאות":
         עמוד שגיאה של WAF הוא HTML, ופענוח שקט שלו כרשימה ריקה היה מסיים
@@ -152,7 +155,7 @@ class NadlanClient:
 
     def resolve_city(self, city: str) -> dict[str, Any]:
         """שם יישוב -> האובייקט שהמקור מזהה לפיו את אזור החיפוש."""
-        data = self._post(ENDPOINTS["resolve"], {"query": city})
+        data = self.post(ENDPOINTS["resolve"], {"query": city})
         if not isinstance(data, dict):
             raise NadlanError(f"פתרון היישוב {city!r} החזיר {type(data).__name__} ולא אובייקט")
         return data
@@ -169,9 +172,9 @@ class NadlanClient:
         for page in range(1, self._s.max_pages_per_city + 1):
             payload = dict(scope)
             payload["PageNo"] = page
-            data = self._post(ENDPOINTS["deals"], payload)
+            data = self.post(ENDPOINTS["deals"], payload)
 
-            records = _extract_records(data)
+            records = extract_records(data)
             if not records:
                 log.info("‏%s: עמוד %d ריק — סוף", city, page)
                 return
@@ -188,7 +191,7 @@ class NadlanClient:
             time.sleep(self._s.pause_between_requests_seconds)
 
 
-def _extract_records(data: Any) -> list[dict[str, Any]]:
+def extract_records(data: Any) -> list[dict[str, Any]]:
     """הרשומות מתוך גוף התשובה, בלי להניח מפתח עוטף אחד.
 
     המקור החזיר בעבר גם רשימה ישירה וגם אובייקט עם מפתח עוטף. במקום

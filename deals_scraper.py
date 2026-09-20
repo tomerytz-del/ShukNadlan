@@ -44,8 +44,13 @@ import json
 import logging
 import sys
 
+from datetime import date
+
 from deals_engine.config import ConfigError, Settings, load_settings
-from deals_engine.nadlan import ENDPOINTS, FIELDS, NadlanClient, NadlanError, missing_fields, pick
+from deals_engine.nadlan import (
+    ENDPOINTS, FIELDS, NadlanClient, NadlanError, extract_records, missing_fields, pick,
+)
+from deals_engine.normalize import SkipRecord, normalize
 from deals_engine.run import run_city, summarize
 from deals_engine.store import DealsStore
 
@@ -64,32 +69,75 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return parser.parse_args(argv)
 
 
+def _dump(label: str, value: object, limit: int = 3000) -> None:
+    text = json.dumps(value, ensure_ascii=False, indent=2)
+    print(text[:limit])
+    if len(text) > limit:
+        print(f"... (נחתך, סה\"כ {len(text)} תווים)")
+
+
 def probe(settings: Settings, city: str) -> int:
     """מה המקור באמת מחזיר — ומה מתוך FIELDS לא נמצא בו.
 
     זו הפקודה שמאמתת את המתאם. היא אינה כותבת דבר, ואינה צריכה
     ‏SUPABASE_* — אפשר להריץ אותה מכל מכונה שיש לה גישה ל-nadlan.gov.il.
+
+    הפלט בנוי כדי שאפשר יהיה להדביק אותו כמו שהוא ולתקן ממנו את
+    ‏`FIELDS`: הוא מדפיס את **הגוף הגולמי** של שתי הקריאות לפני כל ניסיון
+    לפרש אותו, כי כשהפירוש הוא זה שנשבר, פלט מפורש אינו מראה זאת.
     """
     client = NadlanClient(settings)
 
     print("=" * 72)
     print(f"‏1. פתרון היישוב — POST {ENDPOINTS['resolve']}")
+    print(f"   גוף הבקשה: {{'query': '{city}'}}")
     print("=" * 72)
-    scope = client.resolve_city(city)
-    print(json.dumps(scope, ensure_ascii=False, indent=2)[:4000])
+    try:
+        scope = client.resolve_city(city)
+    except NadlanError as err:
+        print(f"✗ הקריאה נכשלה: {err}")
+        print()
+        print("אם זו חסימה (403/407) — זו מדיניות רשת ולא באג בקוד.")
+        print("אם זה גוף שאינו JSON — סביר ש-WAF החזיר עמוד HTML.")
+        return 1
+    _dump("scope", scope)
 
     print()
     print("=" * 72)
     print(f"‏2. עמוד עסקאות ראשון — POST {ENDPOINTS['deals']}")
     print("=" * 72)
-    records = list(client.iter_deals(city))[:3]
+    payload = dict(scope) if isinstance(scope, dict) else {}
+    payload["PageNo"] = 1
+    print(f"   גוף הבקשה: התשובה מסעיף 1 + PageNo=1")
+    try:
+        body = client.post(ENDPOINTS["deals"], payload)
+    except NadlanError as err:
+        print(f"✗ הקריאה נכשלה: {err}")
+        return 1
+
+    # הגוף הגולמי **לפני** הפירוש. זה מה שמאפשר לתקן גם את
+    # ‏`_extract_records` ולא רק את `FIELDS`.
+    print()
+    print("--- הגוף כפי שחזר ---")
+    if isinstance(body, dict):
+        print(f"מפתחות עליונים: {', '.join(sorted(body.keys()))}")
+    elif isinstance(body, list):
+        print(f"רשימה ישירה, {len(body)} איברים")
+    _dump("body", body)
+
+    records = extract_records(body)
+    print()
+    print(f"--- extract_records מצא {len(records)} רשומות ---")
     if not records:
-        print("לא חזרו רשומות. אם התשובה למעלה נראית תקינה, ‏_extract_records")
-        print("ב-deals_engine/nadlan.py אינו מזהה את המפתח העוטף.")
+        print("לא זוהו רשומות. התשובה למעלה היא מה שצריך כדי לתקן את")
+        print("‏extract_records ב-deals_engine/nadlan.py — הוא מחפש את רשימת")
+        print("המילונים הראשונה שיש בה שדה מחיר או מזהה עסקה.")
         return 1
 
     first = records[0]
-    print(json.dumps(first, ensure_ascii=False, indent=2)[:4000])
+    print()
+    print("--- הרשומה הראשונה ---")
+    _dump("first", first)
 
     print()
     print("=" * 72)
@@ -103,14 +151,33 @@ def probe(settings: Settings, city: str) -> int:
 
     print()
     print(f"מפתחות שחזרו בפועל: {', '.join(sorted(first.keys()))}")
-    if absent:
-        print()
-        print(f"⚠ לא נמצאו: {', '.join(absent)}")
+
+    # נרמול אמיתי על שלוש הרשומות הראשונות: שדה שנמצא אבל בפורמט לא צפוי
+    # (תאריך, מחיר עם תו מיוחד) מתגלה רק כאן ולא בטבלה שלמעלה.
+    print()
+    print("=" * 72)
+    print("‏4. נרמול בפועל — 3 הרשומות הראשונות")
+    print("=" * 72)
+    ok = 0
+    for i, record in enumerate(records[:3], 1):
+        try:
+            row = normalize(city, record, not_before=date(1900, 1, 1))
+            ok += 1
+            print(f"  ✓ {i}: {row['sold_at']} · {row['sale_price']:,.0f} ₪ · "
+                  f"{row['property_type']} · {row['size_sqm']} מ\"ר · "
+                  f"רחוב={row['street']!r} מס׳={row['house_number']!r}")
+        except SkipRecord as skip:
+            print(f"  ✗ {i}: נדחתה — {skip}")
+
+    print()
+    if absent or ok < len(records[:3]):
+        print("⚠ המתאם אינו תואם למקור.")
+        if absent:
+            print(f"  שדות שלא נמצאו: {', '.join(absent)}")
         print("  יש לעדכן את FIELDS ב-deals_engine/nadlan.py. שום קובץ אחר.")
         return 1
 
-    print()
-    print("✓ כל השדות נמצאו. המתאם תואם למקור.")
+    print("✓ כל השדות נמצאו והנרמול עבר. המתאם תואם למקור.")
     return 0
 
 
