@@ -16,6 +16,17 @@ import { afulaAddressToCoords } from "../_shared/afula-geocode.ts";
 // כשה-WFS של העירייה היה למטה, נשאר בלי קואורדינטות, ונכס בלי קואורדינטות
 // **נעלם מכל מפה באתר**. הוא לא שבור ולא מסומן: הוא פשוט לא שם.
 //
+// ## שני סוגים בתור אחד
+//
+// ‏geocode_backfill_queue מחזירה גם נכסים פעילים (`kind='property'`) וגם
+// עסקאות מהמאגר הרשמי של רשות המיסים (`kind='official_deal'`) — עסקה בלי
+// קואורדינטות אינה נכנסת לחישוב הרדיוס של דוח ה-CMA, כלומר היא נעדרת
+// בדיוק מהמקום שבו הדוח הכי צריך אותה. ‏kind חוזר כמו שהוא ל-
+// ‏geocode_record_result, שהוא היחיד שיודע לאיזו טבלה לכתוב.
+//
+// הלולאה כאן אינה יודעת דבר על ההבדל, וזו הכוונה: התור, סף הוויתור
+// ואי-ספירת תקלות התקשורת מוגדרים ב-DB פעם אחת לשני הסוגים.
+//
 // ## מה היא לא עושה
 //
 // **לא נוגעת בשום דבר מלבד lat/lng.** לא ממציאה מיקום לנכס שנרשם עם עיר
@@ -79,6 +90,9 @@ Deno.serve(async (req: Request) => {
     const street = String(row.street || "").trim();
     const house = String(row.house_number || "").trim();
     if (!street || !house) continue;
+    // ברירת המחדל שומרת על ההתנהגות אם התור רץ בגרסה ישנה שאינה מחזירה
+    // ‏kind — שורה בלי סוג היא נכס, כפי שהיה עד שהמאגר הרשמי נוסף.
+    const kind = String(row.kind || "property");
 
     try {
       const coords = await afulaAddressToCoords(street, house);
@@ -86,12 +100,12 @@ Deno.serve(async (req: Request) => {
       if (coords) {
         resolved++;
         await supabase.rpc("geocode_record_result", {
-          p_id: row.id, p_lat: coords.lat, p_lng: coords.lng, p_error: null,
+          p_id: row.id, p_lat: coords.lat, p_lng: coords.lng, p_error: null, p_kind: kind,
         });
       } else {
         notFound++;
         await supabase.rpc("geocode_record_result", {
-          p_id: row.id, p_lat: null, p_lng: null, p_error: "address_not_found",
+          p_id: row.id, p_lat: null, p_lng: null, p_error: "address_not_found", p_kind: kind,
         });
       }
     } catch (err) {
@@ -99,7 +113,7 @@ Deno.serve(async (req: Request) => {
       streak++;
       const detail = String((err && (err as Error).message) || err).slice(0, 300);
       await supabase.rpc("geocode_record_result", {
-        p_id: row.id, p_lat: null, p_lng: null, p_error: detail,
+        p_id: row.id, p_lat: null, p_lng: null, p_error: detail, p_kind: kind,
       });
       if (streak >= MAX_FAILURES) break;
     }

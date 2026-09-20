@@ -21,10 +21,18 @@ PROFESSIONAL ו-Elite (`pricing.html`, ‏`docs/pricing-and-tiers.md`).
 
 ## מאיפה הנתונים באים — ומאיפה לא
 
-| מקור | ‏`source` | מצב |
-| --- | --- | --- |
-| עסקאות שנסגרו דרך הפלטפורמה | `platform_derived` | פעיל |
-| רשות המיסים — מאגר עסקאות מקרקעין | `tax_authority` | טרם חובר |
+| מקור | טבלה | ‏`source` | ‏`price_basis` |
+| --- | --- | --- | --- |
+| עסקאות שנסגרו דרך הפלטפורמה | `market_deals` | `platform_derived` | `reported` / `asking` |
+| רשות המיסים — מאגר עסקאות מקרקעין | `market_deals_official` | `tax_authority` | `official` |
+
+‏`agent_cma_report` מאחדת את שתיהן ב-`deal_pool` אחד: עסקה של הפלטפורמה
+שואבת מיקום ושטח מהנכס המקושר, עסקה רשמית נושאת אותם בעצמה, וכל השאר —
+הרדיוס המתרחב, חלון הזמן, השתקת הסטטיסטיקה — אינו יודע מאיפה השורה
+הגיעה. מקור שלישי יצטרך שורה אחת ב-`deal_pool`.
+
+הפרטים על הייבוא, ועל **האימות שטרם בוצע**:
+‏`docs/market-deals-official.md`.
 
 **אין חיבור למדלן.** אין להם API ציבורי, ותנאי השימוש שלהם אוסרים איסוף
 אוטומטי. זה לא פער בתכנון אלא מקור שאינו זמין.
@@ -32,9 +40,9 @@ PROFESSIONAL ו-Elite (`pricing.html`, ‏`docs/pricing-and-tiers.md`).
 ‏`data.gov.il` כן בשימוש בריפו — לאימות רישיון תיווך ולרשם החברות
 (`docs/broker-registry.md`) — אבל **לא** לעסקאות נדל״ן.
 
-המשמעות המעשית: המאגר מכיל את מה שנסגר אצלנו בלבד, ולכן הוא אינו תמונה
-מלאה של השוק. זה כתוב בפוטר של הדוח, והפוטר נבנה מהשדה `sources` שחוזר
-מה-RPC — כלומר ממה שבאמת נכנס לדוח הזה, ולא מטקסט קבוע.
+הפוטר של הדוח נבנה מהשדה `sources` שחוזר מה-RPC — כלומר מהמקורות שבאמת
+נכנסו לדוח הזה, ולא מטקסט קבוע. דוח בלי נתונים אומר שאין בו עסקאות, ולא
+טוען שהוא נשען על מאגר.
 
 ## ‏`price_basis` — ההבדל בין "כך פורסם" ל"כך נסגר"
 
@@ -121,18 +129,26 @@ PROFESSIONAL ו-Elite (`pricing.html`, ‏`docs/pricing-and-tiers.md`).
 | מה | איפה |
 | --- | --- |
 | מקור האמת לדוח | `agent_cma_report(p_agent_id, p_property_id)` |
+| ייבוא המאגר הרשמי | `deals_scraper.py`, ‏`docs/market-deals-official.md` |
 | עטיפה לדפדפן | `cma_report(p_property_id)` — ‏`current_agent_id()` |
 | רישום עסקה | `handle_property_sold()`, ‏טריגר `trg_property_sold` |
 | תצוגה בדשבורד | `renderCmaReport` ב-`assets/crm.js` |
 | העוזר בוואטסאפ | `toolCmaReport` ב-`supabase/functions/whatsapp-webhook/agent.ts` |
-| המיגרציה | `supabase/migrations/20261130090000_cma_data_integrity.sql` |
+| מיגרציית הכנות | `supabase/migrations/20261130090000_cma_data_integrity.sql` |
+| מיגרציית המאגר הרשמי | `supabase/migrations/20261201090000_market_deals_official.sql` |
 
 שתי הפונקציות אינן משוכפלות: ‏`cma_report` קוראת ל-`agent_cma_report`,
 כדי שהמספר בוואטסאפ יהיה המספר שבמסך (`docs/whatsapp-setup.md`).
 
 ## מה עוד חסר
 
-חיבור למאגר העסקאות של **רשות המיסים** — המקור היחיד שהוא באמת מחיר
-עסקה ולא מחיר מבוקש, וזה שיהפוך את הדוח לתמונת שוק במקום לתמונה של
-הפעילות שלנו. ‏`price_basis='official'` ו-`source='tax_authority'` כבר
-קיימים בסכימה לקראת זה.
+1. **אימות המתאם ל-nadlan.gov.il.** הצינור בנוי ונבדק, אבל מיפוי השדות
+   נכתב לפי התיעוד ולא מול תשובה חיה. ‏`python deals_scraper.py --probe
+   עפולה` ממכונה עם גישה הוא כל מה שצריך —
+   ‏`docs/market-deals-official.md`.
+2. **הצמדה למדד.** עסקה מלפני שנתיים נספרת היום באותו משקל כמו עסקה
+   מהחודש שעבר. ‏`cma_max_deal_age_months` חותך את הישנות, אבל אינו
+   מצמיד את מה שנשאר.
+3. **ערים מעבר לעפולה.** שכבת נקודות הכתובות היא עפולאית בלבד
+   (`docs/geocoding.md`), ולכן עסקה בעיר אחרת תיכנס למאגר בלי
+   קואורדינטות — כלומר לרשימת העיר ולא לחישוב הרדיוס.
