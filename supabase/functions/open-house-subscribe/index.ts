@@ -62,12 +62,12 @@ function welcomeEmail(liveCount: number, token: string) {
   const link = fairUrl();
   const now = liveCount > 0
     ? `כרגע יש ביריד ${liveCount === 1 ? "נכס אחד" : `${liveCount} נכסים`}.`
-    : "כרגע היריד שקט — נעדכן אותך ברגע שייכנס אליו נכס.";
+    : "כרגע היריד שקט - נעדכן אותך ברגע שייכנס אליו נכס.";
 
   const text = [
     "נרשמת לעדכוני יריד הבתים הפתוחים",
     "",
-    "מעכשיו נעדכן אותך ברגע שמתווך/ת מכניס/ה נכס ליריד — כלומר מציע/ה אותו לקונים ללא עמלת תיווך, לתקופה קצובה.",
+    "מעכשיו נעדכן אותך ברגע שמתווך/ת מכניס/ה נכס ליריד - כלומר מציע/ה אותו לקונים ללא עמלת תיווך, לתקופה קצובה.",
     now,
     link ? `לצפייה ביריד: ${link}` : "",
     "",
@@ -79,10 +79,10 @@ function welcomeEmail(liveCount: number, token: string) {
   <div style="max-width:560px;margin:0 auto;padding:24px">
     <div style="background:#fff;border:1px solid #E4DFD6;border-radius:14px;padding:22px">
       <p style="margin:0 0 6px;font-size:13px;font-weight:bold;color:#C8102E">יריד הבתים הפתוחים</p>
-      <h1 style="margin:0 0 12px;font-size:20px;line-height:1.35">נרשמת — ותהיה/י מהראשונים לדעת</h1>
+      <h1 style="margin:0 0 12px;font-size:20px;line-height:1.35">נרשמת - ותהיה/י מהראשונים לדעת</h1>
       <p style="margin:0 0 12px;color:#5A6675;font-size:15px;line-height:1.6">
-        ברגע שמתווך/ת מכניס/ה נכס ליריד — כלומר מציע/ה אותו לקונים <b>ללא עמלת תיווך</b>
-        לתקופה קצובה — יוצא אליך מייל. ${esc(now)}
+        ברגע שמתווך/ת מכניס/ה נכס ליריד - כלומר מציע/ה אותו לקונים <b>ללא עמלת תיווך</b>
+        לתקופה קצובה - יוצא אליך מייל. ${esc(now)}
       </p>
       ${link ? `<a href="${esc(link)}" style="display:inline-block;background:#C8102E;color:#fff;text-decoration:none;padding:12px 22px;border-radius:9px;font-size:15px">לצפייה בנכסים שביריד</a>` : ""}
     </div>
@@ -138,14 +138,14 @@ Deno.serve(async (req: Request) => {
     .single();
 
   if (insertError) {
-    // מרוץ בין שתי לחיצות על אותו טופס — השנייה מגיעה לכאן אחרי שהראשונה
+    // מרוץ בין שתי לחיצות על אותו טופס - השנייה מגיעה לכאן אחרי שהראשונה
     // כבר הכניסה את השורה. מבחינת הנרשם/ת שתיהן הצליחו.
     if ((insertError as any).code === "23505") return json({ success: true, duplicate: true });
     console.error("open house subscribe failed", insertError);
     return json({ error: "server_error" }, 500);
   }
 
-  // כמה נכסים ביריד *עכשיו* — אותו תנאי שהאתר בודק: דגל דלוק וחלון שמכיל
+  // כמה נכסים ביריד *עכשיו* - אותו תנאי שהאתר בודק: דגל דלוק וחלון שמכיל
   // את הרגע הזה. ‏head:true, כלומר ספירה בלי שורות.
   const nowIso = new Date().toISOString();
   const { count } = await supabase

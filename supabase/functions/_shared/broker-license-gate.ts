@@ -232,14 +232,14 @@ async function alertPlatform(
 
   await sendPlatformEmail({
     to: [PLATFORM_CONTACT_EMAIL],
-    subject: `הרשמה נחסמה — רישיון תיווך ${license} ${result.status === "inactive" ? "אינו בתוקף" : "לא נמצא"}`,
+    subject: `הרשמה נחסמה - רישיון תיווך ${license} ${result.status === "inactive" ? "אינו בתוקף" : "לא נמצא"}`,
     html: `<div dir="rtl" style="font-family:system-ui,Arial,sans-serif;font-size:15px;line-height:1.7">
       <p><b>${esc(who)}</b> ניסה/תה להיכנס למערכת עם מספר רישיון <b>${esc(license)}</b>, וההרשמה נחסמה.</p>
       <p>הסיבה: ${esc(why)}.</p>
       <p>מסלול: <code>${esc(context.source)}</code></p>
       <p>אם יישלח צילום רישיון, הבקשה תופיע בלוח הבקרה תחת <b>ערעורי רישיון</b>,
          ואישור שלך שם יפתח את המשרד.</p>
-      <p style="color:#666;font-size:13px">המאגר הממשלתי מתעדכן אחת לשלושה חודשים —
+      <p style="color:#666;font-size:13px">המאגר הממשלתי מתעדכן אחת לשלושה חודשים -
          רישיון שהונפק לאחרונה עשוי שלא להופיע בו עדיין.</p>
     </div>`,
     text: `${who} נחסם/ה בכניסה. רישיון ${license}: ${why}. מסלול: ${context.source}.`,

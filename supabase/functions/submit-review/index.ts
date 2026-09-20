@@ -98,7 +98,7 @@ Deno.serve(async (req: Request) => {
         : await insert({ ...basePayload, agency_rating: agencyRatingNum });
 
     if (reviewErr && (reviewErr.code === "42703" || reviewErr.code === "PGRST204") && agencyRatingNum !== null) {
-      console.warn("agency_rating column missing — inserting review without it");
+      console.warn("agency_rating column missing - inserting review without it");
       ({ data: review, error: reviewErr } = await insert(basePayload));
     }
 

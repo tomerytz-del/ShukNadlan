@@ -211,7 +211,7 @@ async function agencyMeta(slug: string, canonical: string): Promise<Meta | null>
   return {
     title: clamp(`${a.name || "משרד תיווך"} | ${SITE_NAME}`, 90),
     description: clamp(
-      String(a.description || "") || `משרד התיווך ${a.name || ""} ב${SITE_NAME} — נכסים, סוכנים וחוות דעת.`,
+      String(a.description || "") || `משרד התיווך ${a.name || ""} ב${SITE_NAME} - נכסים, סוכנים וחוות דעת.`,
       200,
     ),
     image: absolute(a.cover_url || a.logo_url) || DEFAULT_IMAGE,
@@ -227,7 +227,7 @@ async function agentMeta(slug: string, canonical: string): Promise<Meta | null> 
   return {
     title: clamp(`${m.display_name || "סוכן/ת"} | ${SITE_NAME}`, 90),
     description: clamp(
-      String(m.bio || "") || `${m.display_name || ""} — נכסים, חוות דעת ודרכי יצירת קשר ב${SITE_NAME}.`,
+      String(m.bio || "") || `${m.display_name || ""} - נכסים, חוות דעת ודרכי יצירת קשר ב${SITE_NAME}.`,
       200,
     ),
     image: absolute(m.cover_url || m.photo_url) || DEFAULT_IMAGE,
@@ -265,10 +265,10 @@ async function projectMeta(slug: string, canonical: string): Promise<Meta | null
   );
   if (!p) return null;
 
-  const title = `${p.name || "פרויקט חדש"}${p.city ? " — " + p.city : ""}`;
+  const title = `${p.name || "פרויקט חדש"}${p.city ? " - " + p.city : ""}`;
   const desc =
     clamp(String(p.tagline || p.description || ""), 200) ||
-    `פרויקט חדש מקבלן${p.city ? " ב" + p.city : ""} — תמהיל דירות, מחירים וגלריה.`;
+    `פרויקט חדש מקבלן${p.city ? " ב" + p.city : ""} - תמהיל דירות, מחירים וגלריה.`;
 
   return {
     title: clamp(`${title} | ${SITE_NAME}`, 90),

@@ -98,7 +98,7 @@ Deno.serve(async (req: Request) => {
   try {
     for (let page = 0; page < MAX_PAGES; page++) {
       if (Date.now() - startedAt > DEADLINE_MS) {
-        throw new Error("deadline_exceeded after " + pages + " pages — partial scan, not absorbing");
+        throw new Error("deadline_exceeded after " + pages + " pages - partial scan, not absorbing");
       }
       const data = await wfsPage(page * PAGE);
       pages++;
@@ -120,7 +120,7 @@ Deno.serve(async (req: Request) => {
         return json({ ok: true, pages, ...(summary as Record<string, unknown>) });
       }
     }
-    throw new Error("page cap reached (" + MAX_PAGES + ") — layer larger than expected, not absorbing");
+    throw new Error("page cap reached (" + MAX_PAGES + ") - layer larger than expected, not absorbing");
   } catch (err) {
     const detail = String((err && (err as Error).message) || err);
     // הכישלון נרשם ביומן ולא רק בלוג: בלי שורה בטבלה, שכבה שלא עונה

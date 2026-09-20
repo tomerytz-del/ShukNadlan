@@ -142,7 +142,7 @@ Deno.serve(async (req: Request) => {
 
   const images: string[] = Array.isArray(property.images) ? property.images.filter(Boolean) : [];
   if (images.length === 0) {
-    return json({ error: "no_images", message: "אין תמונות לנכס הזה — אי אפשר להפיק ממנו סרטון" }, 400);
+    return json({ error: "no_images", message: "אין תמונות לנכס הזה - אי אפשר להפיק ממנו סרטון" }, 400);
   }
 
   // ---- כמה קליפים ובאיזה אורך -------------------------------------------

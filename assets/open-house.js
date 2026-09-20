@@ -81,7 +81,7 @@
   function rangeLabel(p) {
     var from = startsAt(p), to = endsAt(p);
     if (!from || !to) return '';
-    return hebDay(from) + ' – ' + hebDay(to);
+    return hebDay(from) + ' - ' + hebDay(to);
   }
 
   /* ---------- הספירה לאחור ----------

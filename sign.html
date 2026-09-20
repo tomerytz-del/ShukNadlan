@@ -148,7 +148,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->
 <div class="shell">
-  <a class="logo-link" href="index.html" aria-label="שוק הנדל״ן — לדף הבית">
+  <a class="logo-link" href="index.html" aria-label="שוק הנדל״ן - לדף הבית">
     <img src="assets/logo-shuknadlan.svg" alt="שוק נדל״ן">
   </a>
 
@@ -321,7 +321,7 @@ otpInput.addEventListener('keydown', e => {
 
 const OTP_ERRORS = {
   wrong_code:        'הקוד שגוי',
-  code_expired:      'תוקף הקוד פג — בקשו קוד חדש',
+  code_expired:      'תוקף הקוד פג - בקשו קוד חדש',
   too_many_attempts: 'יותר מדי ניסיונות. בקשו קוד חדש',
   no_code:           'לא נשלח קוד. לחצו על "שליחת קוד חדש"',
 };
@@ -355,7 +355,7 @@ document.getElementById('otpResendBtn').addEventListener('click', async (e)=>{
   btn.textContent = 'שליחת קוד חדש';
   btn.disabled = false;
   fb.style.color = ok ? 'var(--ink-soft)' : 'var(--brick)';
-  fb.textContent = !ok ? 'שליחת הקוד נכשלה — נסו שוב בעוד רגע'
+  fb.textContent = !ok ? 'שליחת הקוד נכשלה - נסו שוב בעוד רגע'
     : (data.throttled ? 'קוד כבר נשלח. בדקו את התיבה, כולל דואר זבל.' : 'קוד חדש נשלח');
 });
 
@@ -495,7 +495,7 @@ document.getElementById('donePdf').addEventListener('click', async (e)=>{
     await window.AgreementDoc.downloadPdf(document.getElementById('doneDoc'), name + '.pdf');
   } catch(err){
     console.error(err);
-    btn.textContent = 'לא הצלחנו להפיק PDF — נסו שוב';
+    btn.textContent = 'לא הצלחנו להפיק PDF - נסו שוב';
     setTimeout(()=>{ btn.textContent = original; btn.disabled = false; }, 2600);
     return;
   }

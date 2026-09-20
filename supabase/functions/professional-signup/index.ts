@@ -189,15 +189,15 @@ Deno.serve(async (req: Request) => {
 
     const label = TYPE_LABELS[advertiser_type] ?? "בעל/ת מקצוע";
     const desc = months === 1
-      ? `כרטיסיית ${label} — חודש`
-      : `כרטיסיית ${label} — ${months} חודשים`;
+      ? `כרטיסיית ${label} - חודש`
+      : `כרטיסיית ${label} - ${months} חודשים`;
 
     const notifyUrl = `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/wallet-topup-callback` +
       `?token=${encodeURIComponent(webhookSecret)}`;
 
     const form = await createPaymentForm({
       amount,
-      description: `${desc} — שוק נדל"ן`,
+      description: `${desc} - שוק נדל"ן`,
       ...clientFrom(body, advertiser_name),
       clientEmail: contact_email,
       successUrl: `${siteBaseUrl}/professional-signup.html?payment=success&order_id=${orderId}`,

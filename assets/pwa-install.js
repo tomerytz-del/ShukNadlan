@@ -457,7 +457,7 @@
        "סגירה": זו המשמעות בפועל — הרצועה תחזור בעוד שבועיים. */
     var close = el('button', 'shuk-pwa__x', '✕');
     close.type = 'button';
-    close.setAttribute('aria-label', 'לא עכשיו — הסתרת ההצעה להתקנה');
+    close.setAttribute('aria-label', 'לא עכשיו - הסתרת ההצעה להתקנה');
     close.addEventListener('click', function () {
       writeStore(K_SNOOZE, String(Date.now()));
       track('pwa_banner_dismiss', { mode: m });
@@ -569,14 +569,14 @@
         'ביותר היא דרך ספארי:';
       steps.appendChild(line([
         'לחצו על כפתור ', strong('השיתוף'), ' ', shareIcon(),
-        ' בסרגל הדפדפן (בכרום — שלוש הנקודות ואז "שיתוף").'
+        ' בסרגל הדפדפן (בכרום - שלוש הנקודות ואז "שיתוף").'
       ]));
       steps.appendChild(line([
         'גללו ובחרו ', strong('"הוספה למסך הבית"'), ' ', plusBoxIcon()
       ]));
       steps.appendChild(line([
         'לא מוצאים את האפשרות? פתחו את הכתובת ב', strong('ספארי'),
-        ' ובצעו שם את שני השלבים — שם היא תמיד קיימת.'
+        ' ובצעו שם את שני השלבים - שם היא תמיד קיימת.'
       ]));
     } else {
       /* ‏'ios' — ספארי באייפון/אייפד, המסלול המרכזי */
@@ -585,7 +585,7 @@
         'יושב במסך הבית עם אייקון משלו ונפתח במסך מלא, בלי סרגלי הדפדפן:';
       steps.appendChild(line([
         'לחצו על כפתור ', strong('השיתוף'), ' ', shareIcon(),
-        ' — באייפון הוא באמצע הסרגל התחתון, באייפד בפינה העליונה.'
+        ' - באייפון הוא באמצע הסרגל התחתון, באייפד בפינה העליונה.'
       ]));
       steps.appendChild(line([
         'גללו ברשימה ובחרו ', strong('"הוספה למסך הבית"'), ' ', plusBoxIcon()

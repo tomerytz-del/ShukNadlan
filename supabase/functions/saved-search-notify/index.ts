@@ -80,7 +80,7 @@ const unsubUrl = (token: string) =>
 function textBody(a: any): string {
   const parts = [
     "🔔 נכס חדש שמתאים לחיפוש שלך",
-    a.label ? `— ${a.label}` : "",
+    a.label ? `- ${a.label}` : "",
     "",
     a.title || "",
     placeLine(a),
@@ -134,7 +134,7 @@ async function sendWhatsapp(a: any): Promise<void> {
           {
             type: "body",
             parameters: [
-              { type: "text", text: [a.title, placeLine(a)].filter(Boolean).join(" — ").slice(0, 300) || "נכס חדש" },
+              { type: "text", text: [a.title, placeLine(a)].filter(Boolean).join(" - ").slice(0, 300) || "נכס חדש" },
               { type: "text", text: [nis(a.price), specLine(a)].filter(Boolean).join(" · ").slice(0, 300) || "פרטים באתר" },
               { type: "text", text: a.label ? String(a.label).slice(0, 300) : "החיפוש השמור שלך" },
             ],
@@ -224,7 +224,7 @@ function emailHtml(a: any): string {
 /* המשלוח עצמו יושב ב-platform-mail, ולא כאן: היא היחידה שמכירה את פרטי
    השולח, וכך ההתראה יוצאת מאותה כתובת שממנה יוצא כל מייל אחר של הפלטפורמה.
 
-   ‏sendPlatformEmail אינה זורקת — היא מחזירה ‎{sent,error}‎ — ולכן הכישלון
+   ‏sendPlatformEmail אינה זורקת - היא מחזירה ‎{sent,error}‎ - ולכן הכישלון
    מומר כאן לחריגה: הלולאה למטה נשענת על try/catch כדי לסמן את ההתראה
    כ-failed ולנסות אותה שוב במחזור הבא. */
 async function sendEmail(a: any): Promise<void> {
@@ -241,7 +241,7 @@ async function sendEmail(a: any): Promise<void> {
 // הלולאה
 // ---------------------------------------------------------------------------
 Deno.serve(async (req: Request) => {
-  // ‏ALERT_CRON_SECRET היה "אופציונלי בכוונה" — ובפועל לא הוגדר מעולם, ולכן
+  // ‏ALERT_CRON_SECRET היה "אופציונלי בכוונה" - ובפועל לא הוגדר מעולם, ולכן
   // התנאי דילג על עצמו והפונקציה ענתה 200 לכל קורא. האימות עבר ל-cron-auth
   // המשותף, שנכשל סגור כשהסוד חסר במקום לוותר על הבדיקה.
   const auth = authorizeInternalCaller(req);
@@ -274,7 +274,7 @@ Deno.serve(async (req: Request) => {
         errors.push(`whatsapp: ${err instanceof Error ? err.message : String(err)}`);
 
         // ביטול שנעשה מול Meta הוא ביטול. מכבים את החיפוש כאן, אחרת נמשיך
-        // לתייג את האדם הזה בכל נכס חדש לנצח — ולצבור דחיות מול Meta.
+        // לתייג את האדם הזה בכל נכס חדש לנצח - ולצבור דחיות מול Meta.
         if (err instanceof WhatsappError && err.code === WA_OPTED_OUT) {
           const { error: unsubErr } = await sb.rpc("manage_saved_search", {
             p_token: a.unsubscribe_token,
@@ -296,7 +296,7 @@ Deno.serve(async (req: Request) => {
       }
     }
 
-    // הסטטוס הכולל נגזר במסד מהשניים, ולא נשלח מכאן — "נשלחה" הוא החלטה
+    // הסטטוס הכולל נגזר במסד מהשניים, ולא נשלח מכאן - "נשלחה" הוא החלטה
     // של המוצר (ערוץ אחד שהצליח מספיק), לא של הקוד ששלח.
     const { error: markErr } = await sb.rpc("mark_saved_search_alert", {
       p_alert_id: a.alert_id,

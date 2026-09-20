@@ -210,14 +210,14 @@ Deno.serve(async (req: Request) => {
 
       await sendPlatformEmail({
         to: [PLATFORM_CONTACT_EMAIL],
-        subject: `ערעור רישיון תיווך ${license} — ${name.slice(0, 60)}`,
+        subject: `ערעור רישיון תיווך ${license} - ${name.slice(0, 60)}`,
         html: `<div dir="rtl" style="font-family:system-ui,Arial,sans-serif;font-size:15px;line-height:1.7">
           <p><b>${esc(name)}</b> נחסם/ה בכניסה ושלח/ה צילום רישיון תיווך לבדיקה.</p>
           <table style="border-collapse:collapse;font-size:14px">
             <tr><td style="padding:2px 10px 2px 0;color:#666">מספר רישיון</td><td><b>${esc(license)}</b></td></tr>
             <tr><td style="padding:2px 10px 2px 0;color:#666">אימייל</td><td>${esc(email)}</td></tr>
-            <tr><td style="padding:2px 10px 2px 0;color:#666">טלפון</td><td>${esc(phone || "—")}</td></tr>
-            <tr><td style="padding:2px 10px 2px 0;color:#666">מסלול</td><td><code>${esc(source || "—")}</code></td></tr>
+            <tr><td style="padding:2px 10px 2px 0;color:#666">טלפון</td><td>${esc(phone || "-")}</td></tr>
+            <tr><td style="padding:2px 10px 2px 0;color:#666">מסלול</td><td><code>${esc(source || "-")}</code></td></tr>
           </table>
           ${note ? `<p style="background:#f6f7fb;padding:10px;border-radius:8px">${esc(note)}</p>` : ""}
           <p>הצילום ממתין ב-<b>לוח הבקרה ← ערעורי רישיון</b>. אישור שם פותח את פתיחת המשרד;
@@ -324,7 +324,7 @@ Deno.serve(async (req: Request) => {
       const approved = decision === "approved";
       await sendPlatformEmail({
         to: [appeal.applicant_email],
-        subject: approved ? "רישיון התיווך אושר — אפשר להמשיך" : "בקשת אימות רישיון התיווך נדחתה",
+        subject: approved ? "רישיון התיווך אושר - אפשר להמשיך" : "בקשת אימות רישיון התיווך נדחתה",
         html: `<div dir="rtl" style="font-family:system-ui,Arial,sans-serif;font-size:15px;line-height:1.7">
           <p>שלום ${esc(appeal.applicant_name)},</p>
           ${approved

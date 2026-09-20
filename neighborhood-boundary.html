@@ -111,7 +111,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->
 
 <header>
-  <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית" title="לדף הבית">
+  <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית" title="לדף הבית">
     <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="" width="52" height="62">
   </a>
   <h1>סימון גבולות שכונה</h1>
@@ -126,7 +126,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <h2>איך מסמנים</h2>
       <p class="hint">
         לחיצה על המפה מוסיפה נקודה. אפשר <b>לגרור</b> נקודה כדי לתקן, ולחיצה
-        <b>על נקודה</b> מוחקת אותה. אין צורך לסגור את הטבעת — המפה סוגרת אותה
+        <b>על נקודה</b> מוחקת אותה. אין צורך לסגור את הטבעת - המפה סוגרת אותה
         לבד. שכונות שכבר סומנו מוצגות בקו דק, כדי שאפשר יהיה להצמיד אליהן גבול.
       </p>
       <div class="row">
@@ -184,7 +184,7 @@ const othersLayer = L.layerGroup().addTo(map);
 /* ‏select('*') כמו בדף הבית: העמודות הגאוגרפיות נוספו במיגרציות, ובחירה
    מפורשת בהן נכשלת בכל סביבה שהן עוד לא הגיעו אליה. */
 async function loadHoods(){
-  if (!sb) { setStatus('טעינת השכונות נכשלה — supabase-js חסום.'); return []; }
+  if (!sb) { setStatus('טעינת השכונות נכשלה - supabase-js חסום.'); return []; }
   const { data, error } = await sb.from('neighborhoods').select('*').order('city').order('name');
   if (error){ setStatus('טעינת השכונות נכשלה: ' + error.message); return []; }
   return data || [];
@@ -287,7 +287,7 @@ document.getElementById('loadBtn').addEventListener('click', ()=>{
   ring = parseBoundary(hood.boundary);
   redraw();
   if (ring.length) map.fitBounds(L.latLngBounds(ring).pad(0.25));
-  setStatus(ring.length ? 'נטען הסימון הקיים — אפשר לגרור נקודות כדי לתקן.'
+  setStatus(ring.length ? 'נטען הסימון הקיים - אפשר לגרור נקודות כדי לתקן.'
                         : 'לשכונה הזו עדיין אין סימון.');
 });
 
@@ -300,7 +300,7 @@ document.getElementById('copyBtn').addEventListener('click', async ()=>{
   } catch(e){
     // הרשאת clipboard נחסמת בהקשרים לא מאובטחים — בחירת הטקסט עדיין עובדת
     box.select();
-    setStatus('לא ניתן להעתיק אוטומטית — הטקסט נבחר, אפשר להעתיק ידנית.');
+    setStatus('לא ניתן להעתיק אוטומטית - הטקסט נבחר, אפשר להעתיק ידנית.');
   }
 });
 
@@ -321,7 +321,7 @@ hoodSelect.addEventListener('change', ()=>{
 
 (async function init(){
   hoods = await loadHoods();
-  hoodSelect.innerHTML = '<option value="">— בחרו שכונה —</option>';
+  hoodSelect.innerHTML = '<option value="">- בחרו שכונה -</option>';
   hoods.forEach(h=>{
     const opt = document.createElement('option');
     opt.value = h.id;

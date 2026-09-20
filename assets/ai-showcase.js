@@ -720,7 +720,7 @@
           '<span class="ai-label ai-label-before">Before</span>' +
           '<span class="ai-label ai-label-after">' + SPARKLE_SVG + 'After</span>' +
           '<input class="ai-range" type="range" min="0" max="100" value="42" step="1" ' +
-                 'aria-label="חשיפת ההדמיה — הזיזו כדי להשוות בין לפני לאחרי">' +
+                 'aria-label="חשיפת ההדמיה - הזיזו כדי להשוות בין לפני לאחרי">' +
           '<div class="ai-divider">' +
             '<span class="ai-handle" aria-hidden="true">↔</span>' +
             '<span class="ai-drag-hint" aria-hidden="true">גרו כדי לראות את ההבדל</span>' +
@@ -816,13 +816,13 @@
               (styles.length
                 ? (opts.staging
                     ? '<li>' + icon(ICON_TAP) + '<span>לחצו על כפתורי הסגנון וצפו בהדמיות מיידיות ' +
-                        'של הנכס מרוהט ומעוצב — בלי לשנות דבר בנכס עצמו.</span></li>' +
+                        'של הנכס מרוהט ומעוצב - בלי לשנות דבר בנכס עצמו.</span></li>' +
                       '<li>' + icon(ICON_SLIDERS) + '<span>אותו נכס בדיוק, רק עם ריהוט אחר.</span></li>'
                     : '<li>' + icon(ICON_TAP) + '<span>לחצו על כפתורי הסגנון וצפו בהדמיות מיידיות ' +
-                        'של הנכס המשופץ — עוד לפני שאתם קונים.</span></li>' +
+                        'של הנכס המשופץ - עוד לפני שאתם קונים.</span></li>' +
                       '<li>' + icon(ICON_SLIDERS) + '<span>שנו סגנון וראו את הפוטנציאל.</span></li>')
                 : '<li>' + icon(ICON_TAP) + '<span>ספרו איזה עסק תפתחו כאן וצפו בהדמיה מיידית ' +
-                    'של הנכס — עוד לפני שחתמתם.</span></li>' +
+                    'של הנכס - עוד לפני שחתמתם.</span></li>' +
                   '<li>' + icon(ICON_SLIDERS) + '<span>ההדמיה נוצרת מהתמונות של הנכס הזה בלבד.</span></li>') +
             '</ul>' +
             stylesHtml +

@@ -504,7 +504,7 @@ function updateCalculator(){
   if (loan > 0 && monthlyRate > 0){
     monthly = loan * (monthlyRate*Math.pow(1+monthlyRate,n)) / (Math.pow(1+monthlyRate,n)-1);
   }
-  document.getElementById('calcMonthly').textContent = monthly ? (nis(monthly) + ' ₪') : '—';
+  document.getElementById('calcMonthly').textContent = monthly ? (nis(monthly) + ' ₪') : '-';
 
   const ltv = price > 0 ? loan/price : 0;
   // ההשוואה על הערך המעוגל — אותו מספר שמוצג. עם ההשוואה על הערך הגולמי,
@@ -515,7 +515,7 @@ function updateCalculator(){
 
   const warn = document.getElementById('calcLtvWarning');
   if (ltvPct > LTV_THRESHOLDS.single*100){
-    warn.textContent = `אחוז המימון הנדרש (${ltvPct}%) חורג מהתקרה המקובלת לדירה יחידה (75%) — כדאי לבדוק מול יועץ משכנתאות`;
+    warn.textContent = `אחוז המימון הנדרש (${ltvPct}%) חורג מהתקרה המקובלת לדירה יחידה (75%) - כדאי לבדוק מול יועץ משכנתאות`;
   } else {
     warn.textContent = '';
   }
@@ -547,7 +547,7 @@ updateCalculator();
    ההבדל היחיד מגרסת דף המשרד הוא ערכי הפתיחה: שם הם נגזרים מחציון הנכסים
    של אותו משרד, וכאן אין "אותו משרד" — ולכן נשארים ערכי ברירת המחדל. */
 const yieldState = { price:1250000, rent:4200, costs:6000, vacancy:0.5 };
-const pctText = v => v == null ? '—' : v.toFixed(1).replace(/\.0$/, '') + '%';
+const pctText = v => v == null ? '-' : v.toFixed(1).replace(/\.0$/, '') + '%';
 
 function updateYield(){
   const { price, rent, costs, vacancy } = yieldState;
@@ -565,8 +565,8 @@ function updateYield(){
 
   document.getElementById('yieldNet').textContent = pctText(net);
   document.getElementById('yieldGross').textContent = pctText(gross);
-  document.getElementById('yieldAnnual').textContent = netAnnual > 0 ? '₪' + nis(netAnnual) : '—';
-  document.getElementById('yieldPayback').textContent = payback == null ? '—' : nis(payback);
+  document.getElementById('yieldAnnual').textContent = netAnnual > 0 ? '₪' + nis(netAnnual) : '-';
+  document.getElementById('yieldPayback').textContent = payback == null ? '-' : nis(payback);
 
   document.getElementById('yieldGrossPct').textContent = pctText(gross);
   // הפס נמדד מול 8% — התקרה המעשית של תשואה ברוטו בשוק המקומי, כך שהמילוי
@@ -575,7 +575,7 @@ function updateYield(){
     Math.min(Math.max((gross || 0) / 8 * 100, 0), 100).toFixed(1) + '%';
 
   document.getElementById('yieldWarn').textContent = netAnnual <= 0
-    ? 'ההוצאות והחודשים הריקים גבוהים מההכנסה משכירות — בתנאים האלה אין תשואה.'
+    ? 'ההוצאות והחודשים הריקים גבוהים מההכנסה משכירות - בתנאים האלה אין תשואה.'
     : '';
 }
 
@@ -732,7 +732,7 @@ mleadForm.addEventListener('submit', async (e)=>{
     if (window.shukTrack) shukTrack('generate_lead', { form_id:'mortgage' });
   } catch(err){
     console.error('mortgage-lead-intake failed:', err);
-    mleadErrorEl.textContent = 'השליחה נכשלה — בדקו חיבור לאינטרנט ונסו שוב';
+    mleadErrorEl.textContent = 'השליחה נכשלה - בדקו חיבור לאינטרנט ונסו שוב';
     btn.textContent = originalLabel;
     btn.disabled = false;
   }
@@ -858,7 +858,7 @@ function validateStep(step){
     const el = document.getElementById('wizAddress');
     wizState.address = el.value.trim();
     if (wizState.address.length < 3){
-      setError(1, 'נא להזין כתובת מדויקת — רחוב ומספר');
+      setError(1, 'נא להזין כתובת מדויקת - רחוב ומספר');
       el.classList.add('invalid'); el.focus();
       return false;
     }
@@ -922,7 +922,7 @@ wizForm.addEventListener('submit', async (e)=>{
     if (window.shukTrack) shukTrack('generate_lead', { form_id:'owner_wizard' });
   } catch(err){
     console.error('owner-lead-intake failed:', err);
-    setError(3, 'השליחה נכשלה — בדקו חיבור לאינטרנט ונסו שוב');
+    setError(3, 'השליחה נכשלה - בדקו חיבור לאינטרנט ונסו שוב');
     submitBtn.textContent = originalLabel;
     submitBtn.disabled = false;
   }
@@ -953,7 +953,7 @@ try {
   if (window.supabase) {
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   } else {
-    console.warn('supabase-js לא נטען (CDN חסום/נכשל) — עובד במצב fallback בלבד.');
+    console.warn('supabase-js לא נטען (CDN חסום/נכשל) - עובד במצב fallback בלבד.');
   }
 } catch(e){ console.warn('יצירת Supabase client נכשלה:', e); }
 
@@ -1401,7 +1401,7 @@ function renderOpenHouseBanner(count){
       OpenHouse.icon({ size:72 }) +
       `<span class="oh-banner-body">` +
         `<span class="oh-banner-eyebrow">${OpenHouse.FAIR_NAME}</span>` +
-        `<h2>לקנות דירה בעפולה — בלי עמלת תיווך</h2>` +
+        `<h2>לקנות דירה בעפולה - בלי עמלת תיווך</h2>` +
         `<p><span class="oh-count">${many ? `${count.toLocaleString('he-IL')} נכסים` : 'נכס אחד'}</span> ` +
           `${many ? 'מוצעים' : 'מוצע'} עכשיו ללא עמלת תיווך לקונה, לתקופה מוגבלת שהמתווך/ת הגדיר/ה לכל נכס.</p>` +
       `</span>` +
@@ -1434,7 +1434,7 @@ function renderOpenHouseBanner(count){
    עדיין שני מדפים — המלאי של משרד אחד קטן, ושניהם נכנסים למסך ממילא. */
 const propsShelf = PropShelf.create({
   mount:'allProps', titleId:'allPropsTitle', title:'נכסים בעפולה והעמק',
-  info:'פרטי ומסחרי, מכירה והשכרה — כל המלאי מכל משרדי התיווך באזור, לפי סדר ההעלאה, ובראש שני נכסים מקודמים',
+  info:'פרטי ומסחרי, מכירה והשכרה - כל המלאי מכל משרדי התיווך באזור, לפי סדר ההעלאה, ובראש שני נכסים מקודמים',
   // מסגרת אחת סביב הכול, ושתי שורות נכסים בפתיחה: זה מה שנשאר משתי
   // הסקציות שהתמזגו — תצוגה אחת שנקראת כתצוגה אחת, בלי לוותר על כמות
   // הנכסים שהן הציגו יחד.
@@ -1449,7 +1449,7 @@ const propsShelf = PropShelf.create({
   kindTagsMax:14,
   sortId:'ppSort',
   countText: (shown, total) => (shown === total)
-    ? `${total.toLocaleString('he-IL')} נכסים בעפולה והעמק — פרטיים ומסחריים`
+    ? `${total.toLocaleString('he-IL')} נכסים בעפולה והעמק - פרטיים ומסחריים`
     : `${shown.toLocaleString('he-IL')} מתוך ${total.toLocaleString('he-IL')} נכסים · מסומנים על המפה שלמעלה`,
   /* תגית שנבחרת כאן היא חיפוש לכל דבר, ולכן היא מגיעה גם למפה ולשורות
      התוצאות שמתחתיה. עד כה היא סיננה את הגריד הזה בלבד: מי שסינן/ה
@@ -1549,9 +1549,9 @@ window.addEventListener('hashchange', ppApplyHash);
 /* ---------- כתבות ובלוגים ---------- */
 const FALLBACK_ARTICLES = [
   {title:'מדריך: כמה הון עצמי באמת צריך לדירה ראשונה בעפולה', kicker:'מדריכים', excerpt:'הכללים של בנק ישראל, העלויות הנלוות שאף אחד לא מספר עליהן, ואיך מחשבים נכון.'},
-  {title:'שכונת גבעת המורה — לאן הולכים המחירים ב-2026', kicker:'ניתוח שוק', excerpt:'שלוש שנים של עסקאות, פרויקטים בבנייה והשפעת הרכבת על הביקוש.'},
+  {title:'שכונת גבעת המורה - לאן הולכים המחירים ב-2026', kicker:'ניתוח שוק', excerpt:'שלוש שנים של עסקאות, פרויקטים בבנייה והשפעת הרכבת על הביקוש.'},
   {title:'בלעדיות מול פרסום פתוח: מה באמת משתלם למוכרים', kicker:'בלוג המתווכים', excerpt:'מה אומרים הנתונים על זמן מכירה ועל הפער בין מחיר מבוקש למחיר בפועל.'},
-  {title:'חמישה דברים לבדוק לפני שחותמים על חוזה שכירות', kicker:'שוכרים', excerpt:'ערבויות, תיקונים, מדד וצמדות — הסעיפים ששווה לקרוא פעמיים.'},
+  {title:'חמישה דברים לבדוק לפני שחותמים על חוזה שכירות', kicker:'שוכרים', excerpt:'ערבויות, תיקונים, מדד וצמדות - הסעיפים ששווה לקרוא פעמיים.'},
 ];
 
 /* כותרות ותקצירים נכתבים בעורך של ה-CRM ונכנסים כאן ל-innerHTML —
@@ -1701,7 +1701,7 @@ const professionalsReady = (async function loadProfessionals(){
 const DM_TABS = {
   agencies: {
     title:'איזה משרד תיווך מתאים לכם?',
-    sub:'כל המשרדים בעפולה והסביבה — לפי התמחות, דירוג ומלאי נכסים',
+    sub:'כל המשרדים בעפולה והסביבה - לפי התמחות, דירוג ומלאי נכסים',
     placeholder:'שם משרד או שכונה…',
     href:'agencies.html',
     seeAll:'לכל משרדי התיווך ←',
@@ -1711,7 +1711,7 @@ const DM_TABS = {
   },
   agents: {
     title:'מחפשים מתווך/ת?',
-    sub:'המתווכים של המשרדים באזור — לפי משרד, מלאי נכסים ודירוג לקוחות',
+    sub:'המתווכים של המשרדים באזור - לפי משרד, מלאי נכסים ודירוג לקוחות',
     placeholder:'שם מתווך/ת או משרד…',
     href:'agents.html',
     seeAll:'לכל המתווכים ←',
@@ -1721,7 +1721,7 @@ const DM_TABS = {
   },
   pros: {
     title:'צריכים בעל מקצוע?',
-    sub:'בעלי המקצוע של עולם הנדל״ן באזור — לפי תחום ואזור פעילות',
+    sub:'בעלי המקצוע של עולם הנדל״ן באזור - לפי תחום ואזור פעילות',
     placeholder:'תחום, שם או עסק…',
     href:'professionals.html',
     seeAll:'לכל בעלי המקצוע ←',
@@ -2820,7 +2820,7 @@ function updateSplitPanel(){
   if (note){
     const overflow = inView.length - shown.length;
     note.hidden = overflow <= 0;
-    if (overflow > 0) note.textContent = `מוצגים ${shown.length} מתוך ${inView.length} — התקרבו במפה כדי לצמצם`;
+    if (overflow > 0) note.textContent = `מוצגים ${shown.length} מתוך ${inView.length} - התקרבו במפה כדי לצמצם`;
   }
 }
 
@@ -2919,7 +2919,7 @@ const MAP_DRAW_COPY = {
   live: 'פתחו את המפה עם רשימת הנכסים שלצדה',
   // בטלפון אין כלי סימון, ולכן הרצועה מתארת את מה שכן אפשר לעשות שם:
   // גרירת המפה היא עצמה חיפוש (ראו updateSplitPanel)
-  touch: 'גררו את המפה — הרשימה שמתחתיה מתעדכנת לפי מה שרואים',
+  touch: 'גררו את המפה - הרשימה שמתחתיה מתעדכנת לפי מה שרואים',
 };
 
 /* נקראת בטעינה ושוב בכל מעבר מעל/מתחת לרף הדסקטופ (סיבוב טאבלט, שינוי
@@ -4086,7 +4086,7 @@ function showSearchError(){
     // הכותרת חוזרת מ"הנכסים שבתחום המפה" אם החיפוש נכשל בזמן שהמצב ההוא פעיל
     if (titleEl) titleEl.textContent = 'תוצאות החיפוש';
     if (countEl) countEl.textContent = '';
-    rows.innerHTML = '<div class="sr-empty">שגיאה בחיפוש — נסו שוב</div>';
+    rows.innerHTML = '<div class="sr-empty">שגיאה בחיפוש - נסו שוב</div>';
   }
 }
 
@@ -4155,7 +4155,7 @@ function renderSearchRows(properties, isSearchResult, { mapView = false } = {}){
       countEl.textContent = !properties.length
         ? ''
         : overflow > 0
-          ? `${shown.length} מתוך ${properties.length} נכסים בתחום המפה — התקרבו כדי לצמצם`
+          ? `${shown.length} מתוך ${properties.length} נכסים בתחום המפה - התקרבו כדי לצמצם`
           : properties.length === 1
             ? 'נכס אחד בתחום המפה'
             : `${properties.length} נכסים בתחום המפה`;
@@ -4195,7 +4195,7 @@ function renderSearchRows(properties, isSearchResult, { mapView = false } = {}){
     if (i === 1 && shown.length > 2){
       const ad = document.createElement('div');
       ad.className = 'infeed-ad';
-      ad.textContent = 'פרסומת — באנר רוחבי בין תוצאות החיפוש';
+      ad.textContent = 'פרסומת - באנר רוחבי בין תוצאות החיפוש';
       rows.appendChild(ad);
     }
   });
@@ -4303,7 +4303,7 @@ function ssaRenderRecap(){
     s._hoodNames.length ? '📍 ' + s._hoodNames.join(', ') : (s.cities.length ? '📍 ' + s.cities.join(', ') : '📍 כל האזורים'),
     s.property_types.length ? '🏠 ' + s.property_types.join(', ') : null,
     s.min_size_sqm || s.max_size_sqm
-      ? `📐 ${s.min_size_sqm || ''}${s.min_size_sqm && s.max_size_sqm ? '–' : ''}${s.max_size_sqm || ''} מ״ר` : null,
+      ? `📐 ${s.min_size_sqm || ''}${s.min_size_sqm && s.max_size_sqm ? '-' : ''}${s.max_size_sqm || ''} מ״ר` : null,
     s.required_features.length ? '✓ ' + s.required_features.length + ' מאפיינים' : null,
   ].filter(Boolean);
   document.getElementById('ssaRecap').textContent = parts.join(' · ');
@@ -4313,7 +4313,7 @@ function ssaRenderRecap(){
    ולא מהטקסט החופשי — היא צריכה להיקרא כמשפט גם למי שהקליד/ה שלוש מילים. */
 function ssaBuildLabel(roomsMin, roomsMax, priceMax){
   const s = ssaSnapshot;
-  const rooms = roomsMin && roomsMax && roomsMin !== roomsMax ? `${roomsMin}–${roomsMax} חדרים`
+  const rooms = roomsMin && roomsMax && roomsMin !== roomsMax ? `${roomsMin}-${roomsMax} חדרים`
               : roomsMin ? `${roomsMin} חדרים${!roomsMax ? ' ומעלה' : ''}`
               : roomsMax ? `עד ${roomsMax} חדרים` : null;
   const place = s._hoodNames.length ? s._hoodNames.join(', ')
@@ -4440,7 +4440,7 @@ ssaForm.addEventListener('submit', async (e)=>{
     s.required_features.length || s.min_size_sqm !== null || s.max_size_sqm !== null ||
     s.min_floor !== null || s.max_floor !== null;
   if (!hasCriteria){
-    ssaErrorEl.textContent = 'הוסיפו לפחות תנאי אחד — אזור, תקציב או מספר חדרים';
+    ssaErrorEl.textContent = 'הוסיפו לפחות תנאי אחד - אזור, תקציב או מספר חדרים';
     return;
   }
   ssaErrorEl.textContent = '';
@@ -4480,17 +4480,17 @@ ssaForm.addEventListener('submit', async (e)=>{
     if (!res.ok || data.error){
       const messages = {
         too_many_searches: `הגעתם למקסימום החיפושים השמורים (${data.limit || 5}). אפשר להפסיק חיפוש קיים מהקישור שבהתראה.`,
-        no_criteria: 'הוסיפו לפחות תנאי אחד — אזור, תקציב או מספר חדרים',
+        no_criteria: 'הוסיפו לפחות תנאי אחד - אזור, תקציב או מספר חדרים',
         invalid_phone: 'נא להזין מספר טלפון תקין',
         invalid_email: 'נא להזין כתובת אימייל תקינה',
         invalid_name: 'נא להזין שם מלא',
       };
-      throw new Error(messages[data.error] || 'השמירה נכשלה — נסו שוב');
+      throw new Error(messages[data.error] || 'השמירה נכשלה - נסו שוב');
     }
     // ‏duplicate=true פירושו שהחיפוש הזה כבר שמור. מבחינת המחפש/ת זו הצלחה,
     // ולכן אותו מסך — רק הטקסט מדויק יותר.
     document.getElementById('ssaDoneText').textContent = data.duplicate
-      ? 'החיפוש הזה כבר שמור אצלנו — נעדכן אתכם ברגע שיעלה נכס מתאים.'
+      ? 'החיפוש הזה כבר שמור אצלנו - נעדכן אתכם ברגע שיעלה נכס מתאים.'
       : 'נעדכן אתכם ברגע שיעלה נכס שמתאים לחיפוש.';
     ssaForm.hidden = true;
     ssaDone.hidden = false;
@@ -4501,7 +4501,7 @@ ssaForm.addEventListener('submit', async (e)=>{
   } catch(err){
     console.warn('saved-search-intake failed:', err);
     ssaErrorEl.textContent = err.message && err.message !== 'Failed to fetch'
-      ? err.message : 'השמירה נכשלה — בדקו חיבור לאינטרנט ונסו שוב';
+      ? err.message : 'השמירה נכשלה - בדקו חיבור לאינטרנט ונסו שוב';
     btn.textContent = originalLabel;
     btn.disabled = false;
   }
@@ -4754,7 +4754,7 @@ function buyValidateStep(step){
   }
   if (step === 2){
     if (!buyHasCriteria(buyCriteria())){
-      buySetError(2, 'בחרו לפחות תנאי אחד — שכונה, סוג נכס, חדרים או תקציב');
+      buySetError(2, 'בחרו לפחות תנאי אחד - שכונה, סוג נכס, חדרים או תקציב');
       return false;
     }
     buySetError(2, '');
@@ -4788,10 +4788,10 @@ const BUY_DEAL_LABELS = { sale:'לקנייה', rent:'להשכרה' };
 function buyRenderRecap(){
   const c = buyCriteria();
   const hoodNames = c.neighborhood_ids.map(id => hoodState.byId.get(id)?.name).filter(Boolean);
-  const rooms = c.min_rooms && c.max_rooms && c.min_rooms !== c.max_rooms ? `${c.min_rooms}–${c.max_rooms} חדרים`
+  const rooms = c.min_rooms && c.max_rooms && c.min_rooms !== c.max_rooms ? `${c.min_rooms}-${c.max_rooms} חדרים`
               : c.min_rooms ? `${c.min_rooms} חדרים${!c.max_rooms ? ' ומעלה' : ''}`
               : c.max_rooms ? `עד ${c.max_rooms} חדרים` : null;
-  const budget = c.min_price && c.max_price ? `${nis(c.min_price)}–${nis(c.max_price)} ₪`
+  const budget = c.min_price && c.max_price ? `${nis(c.min_price)}-${nis(c.max_price)} ₪`
                : c.max_price ? `עד ${nis(c.max_price)} ₪`
                : c.min_price ? `מ-${nis(c.min_price)} ₪` : null;
   const parts = [
@@ -4802,7 +4802,7 @@ function buyRenderRecap(){
     rooms,
     budget ? '💰 ' + budget : null,
     c.min_size_sqm || c.max_size_sqm
-      ? `📐 ${c.min_size_sqm || ''}${c.min_size_sqm && c.max_size_sqm ? '–' : ''}${c.max_size_sqm || ''} מ״ר` : null,
+      ? `📐 ${c.min_size_sqm || ''}${c.min_size_sqm && c.max_size_sqm ? '-' : ''}${c.max_size_sqm || ''} מ״ר` : null,
   ].filter(Boolean);
   document.getElementById('buyRecap').textContent = parts.join(' · ');
 }
@@ -4811,7 +4811,7 @@ function buyRenderRecap(){
    בדיוק כמו ssaBuildLabel של הבלון. */
 function buyBuildLabel(c){
   const hoodNames = c.neighborhood_ids.map(id => hoodState.byId.get(id)?.name).filter(Boolean);
-  const rooms = c.min_rooms && c.max_rooms && c.min_rooms !== c.max_rooms ? `${c.min_rooms}–${c.max_rooms} חדרים`
+  const rooms = c.min_rooms && c.max_rooms && c.min_rooms !== c.max_rooms ? `${c.min_rooms}-${c.max_rooms} חדרים`
               : c.min_rooms ? `${c.min_rooms} חדרים${!c.max_rooms ? ' ומעלה' : ''}`
               : c.max_rooms ? `עד ${c.max_rooms} חדרים` : null;
   const place = hoodNames.length ? hoodNames.join(', ') : (c.cities.length ? c.cities.join(', ') : null);
@@ -4828,7 +4828,7 @@ buyerForm.addEventListener('submit', async (e)=>{
   if (!buyValidateStep(3)) return;
   const c = buyCriteria();
   if (!buyHasCriteria(c)){
-    buySetError(3, 'הוסיפו לפחות תנאי אחד — שכונה, סוג נכס, חדרים או תקציב');
+    buySetError(3, 'הוסיפו לפחות תנאי אחד - שכונה, סוג נכס, חדרים או תקציב');
     buyGoToStep(2);
     return;
   }
@@ -4862,16 +4862,16 @@ buyerForm.addEventListener('submit', async (e)=>{
     if (!res.ok || data.error){
       const messages = {
         too_many_searches: `הגעתם למקסימום החיפושים השמורים (${data.limit || 5}). אפשר להפסיק חיפוש קיים מהקישור שבהתראה.`,
-        no_criteria: 'הוסיפו לפחות תנאי אחד — שכונה, סוג נכס, חדרים או תקציב',
+        no_criteria: 'הוסיפו לפחות תנאי אחד - שכונה, סוג נכס, חדרים או תקציב',
         invalid_phone: 'נא להזין מספר טלפון תקין',
         invalid_email: 'נא להזין כתובת אימייל תקינה',
         invalid_name: 'נא להזין שם מלא',
       };
-      throw new Error(messages[data.error] || 'השמירה נכשלה — נסו שוב');
+      throw new Error(messages[data.error] || 'השמירה נכשלה - נסו שוב');
     }
     // ‏duplicate=true פירושו שהחיפוש הזה כבר שמור. מבחינת המחפש/ת זו הצלחה.
     document.getElementById('buyDoneText').textContent = data.duplicate
-      ? 'החיפוש הזה כבר שמור אצלנו — נעדכן אתכם ברגע שיעלה נכס מתאים.'
+      ? 'החיפוש הזה כבר שמור אצלנו - נעדכן אתכם ברגע שיעלה נכס מתאים.'
       : 'נעדכן אתכם ברגע שיעלה נכס שמתאים למה שביקשתם.';
     buyerForm.hidden = true;
     document.getElementById('buySteps').hidden = true;
@@ -4883,7 +4883,7 @@ buyerForm.addEventListener('submit', async (e)=>{
   } catch(err){
     console.warn('saved-search-intake (buyer banner) failed:', err);
     buySetError(3, err.message && err.message !== 'Failed to fetch'
-      ? err.message : 'השמירה נכשלה — בדקו חיבור לאינטרנט ונסו שוב');
+      ? err.message : 'השמירה נכשלה - בדקו חיבור לאינטרנט ונסו שוב');
     btn.textContent = originalLabel;
     btn.disabled = false;
   }
@@ -5070,7 +5070,7 @@ document.getElementById('clearSearchBtn').addEventListener('click', clearSearch)
       ? (promotedShown === 1
           ? 'הפרויקט הראשון בגלריה הוא תוכן שיווקי בתשלום של היזם. השאר לפי מועד פרסום.'
           : 'שני הפרויקטים הראשונים בגלריה הם תוכן שיווקי בתשלום של היזמים. השאר לפי מועד פרסום.')
-      : 'הפרויקטים מסודרים לפי מועד פרסום — החדשים ביותר בראש.';
+      : 'הפרויקטים מסודרים לפי מועד פרסום - החדשים ביותר בראש.';
 
     section.hidden = false;
   } catch(e){

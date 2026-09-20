@@ -58,7 +58,7 @@ const publicBotEnabled =
 const PUBLIC_HOURLY_LIMIT = 30;
 const PUBLIC_DAILY_LIMIT = 120;
 const PUBLIC_LIMIT_MSG =
-  "הגעת למכסת ההודעות לעכשיו. אפשר להמשיך לחפש באתר — https://shuknadlan.co.il — " +
+  "הגעת למכסת ההודעות לעכשיו. אפשר להמשיך לחפש באתר - https://shuknadlan.co.il - " +
   "ולחזור אליי מאוחר יותר.";
 /* שיחה שנשכחה אינה ממשיכה מעצמה: מי שכותב שוב אחרי חצי יום מתחיל נקי, כדי
    שהבוט לא יענה על שאלה של אתמול ולא יגרור הקשר שכבר אינו רלוונטי. */
@@ -678,7 +678,7 @@ Deno.serve(async (req: Request) => {
   const rawBody = await req.text();
 
   if (!appSecret) {
-    console.error("WHATSAPP_APP_SECRET is not configured — refusing to process");
+    console.error("WHATSAPP_APP_SECRET is not configured - refusing to process");
     return new Response("misconfigured", { status: 500 });
   }
   const signatureOk = await verifySignature(

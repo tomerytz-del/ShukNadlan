@@ -192,7 +192,7 @@ async function emailPlatformAdmins(
     `נמענים אפשריים: ${input.recipients ?? 0}`,
     input.reason ? `סיבה: ${input.reason}` : "",
     `מזהה: ${input.lead_table}/${input.lead_id}`,
-    `— שוק הנדל״ן של עפולה והסביבה · ${PLATFORM_CONTACT_EMAIL}`,
+    `- שוק הנדל״ן של עפולה והסביבה · ${PLATFORM_CONTACT_EMAIL}`,
   ].filter(Boolean);
 
   const esc = (s: string) =>
@@ -201,9 +201,9 @@ async function emailPlatformAdmins(
 
   const result = await sendPlatformEmail({
     to: emails.slice(0, 10),
-    subject: `⚠️ ${kind} ללא יעד — שוק נדל״ן`,
+    subject: `⚠️ ${kind} ללא יעד - שוק נדל״ן`,
     text: lines.join("\n"),
-    html: `<div dir="rtl" style="font-family:Arial,Helvetica,sans-serif;color:#1B1F26">\n  <h2 style="margin:0 0 10px;font-size:18px">${esc(kind)} — אין למי להפנות</h2>\n  ${lines.slice(1).map((l) => `<p style="margin:4px 0;font-size:14px">${esc(l)}</p>`).join("")}\n</div>`,
+    html: `<div dir="rtl" style="font-family:Arial,Helvetica,sans-serif;color:#1B1F26">\n  <h2 style="margin:0 0 10px;font-size:18px">${esc(kind)} - אין למי להפנות</h2>\n  ${lines.slice(1).map((l) => `<p style="margin:4px 0;font-size:14px">${esc(l)}</p>`).join("")}\n</div>`,
   });
 
   // הפעמון כבר קיבל את ההתראה מהטריגר; המייל הוא הסלמה נוספת ולא היחידה.
