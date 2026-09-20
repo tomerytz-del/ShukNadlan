@@ -118,10 +118,18 @@ def _actions(ctx) -> Iterator[Finding]:
             continue
         ctx.count()
         try:
+            # ‏**רק ענף ברירת המחדל.** בלי הסינון הזה כישלון בבדיקת CI על
+            # ענף PR נספר כ"האוטומציה שבורה" — בזמן שהוא ההפך הגמור:
+            # הבדיקה תפסה באג וחסמה אותו לפני המיזוג. כך נפתח ב-20.9.2026
+            # ממצא בדרגה גבוהה על "נרמול עסקאות רשמיות" (28.6%), כששתי
+            # ההרצות שנכשלו היו על ענף PR, תוקנו באותו PR 14 דקות אחר כך,
+            # ו-main מעולם לא היה אדום. בדיקת PR אדומה מכוסה בתהליך ה-PR
+            # עצמו — היא חוסמת מיזוג ומי שפתח/ה אותו רואה אותה.
             runs_resp = requests.get(
                 "%s/actions/workflows/%s/runs" % (api, wf["id"]),
                 headers=headers, timeout=settings.http_timeout_s,
-                params={"per_page": t.workflow_window_runs})
+                params={"per_page": t.workflow_window_runs,
+                        "branch": settings.default_branch})
             runs_resp.raise_for_status()
             runs = runs_resp.json().get("workflow_runs", [])
         except Exception:
