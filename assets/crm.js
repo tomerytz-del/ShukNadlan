@@ -10362,11 +10362,19 @@ function buildPropertyCard(p, agentId){
     }
   }
 
-  // הכפתור מוצג רק ל-mid/premium; ה-gating עצמו נאכף ב-cma_report ב-DB
+  // הכפתור מוצג רק ל-mid/premium; ה-gating עצמו נאכף ב-cma_report ב-DB.
+  //
+  // על נכס להשכרה הוא נשאר לחיץ בכוונה, ו-agent_cma_report היא שמסרבת עם
+  // ‏rent_not_supported: מאגר העסקאות הוא מאגר מכר, והשוואת שכ״ד חודשי מולו
+  // היא מספר חסר משמעות (היא הציגה "נמוך ב-99% מהשוק"). הכלל יושב במסד ולא
+  // כאן מאותה סיבה שהגידור למסלול יושב שם — כפתור שנעלם נראה כמו באג,
+  // וכלל שיושב בדפדפן בלבד אינו חל על העוזר בוואטסאפ.
   if (currentAgent && (currentAgent.tier === 'mid' || currentAgent.tier === 'premium')){
     addHubAction(hubRow, {
       label:'דוח CMA', icon:'chart',
-      title:'דוח השוואת מחירים לנכס, מהעסקאות באזור',
+      title: p.deal_type === 'rent'
+        ? 'הדוח מבוסס על עסקאות מכר בלבד, ולכן אינו זמין לנכס להשכרה'
+        : 'דוח השוואת מחירים לנכס, מהעסקאות באזור',
       onClick:btn => openCmaReport(p.id, btn),
     });
   }
@@ -10915,12 +10923,52 @@ const PROPERTY_STATUS_CONFIRM = {
 
 /* שינוי סטטוס. ‏listing_expires_at שכבר עבר מתאפס בחזרה לפרסום — אחרת
    הנכס חוזר לאוויר וברגע הבא כבר מסומן "פג תוקף". */
+/* תאריך היום לפי השעון המקומי ולא לפי UTC. ‏toISOString על שעון ישראל
+   מחזיר אחרי חצות את *אתמול*, וזה היה מתעד עסקאות ביום הלא נכון. */
+function isoToday(){
+  const d = new Date();
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+}
+
+/* ---------- מחיר הסגירה בפועל ----------
+   עד כאן `handle_property_sold` רשמה למאגר העסקאות את `price` — המחיר
+   ש**התפרסם**. פער המיקוח נכנס כך למאגר כאילו היה מחיר סגירה, ומשם הוא
+   יצא לדוחות ה-CMA של שאר הסוכנים/ות, לרצועת המבזקים בדף הבית ("נמכרה
+   ב-₪X") ולעמוד המשרד.
+
+   לכן הסימון "נמכר" שואל. מי שאינו יודע/ת או אינו רוצה למסור — מבטל/ת,
+   והעסקה נרשמת עם `price_basis='asking'` ומסומנת בדוח כ"מחיר מבוקש".
+   הוויתור על המספר בסדר; הוויתור על ההבחנה אינו. */
+function askClosingDetails(property){
+  const asking = Number(property.price) || 0;
+  const raw = prompt(
+    'מה היה מחיר הסגירה בפועל?\n\n'
+    + 'המספר נכנס למאגר העסקאות ומשמש בדוחות ה-CMA של האזור.\n'
+    + 'ביטול או שדה ריק — תירשם ההצעה שבפרסום, והיא תסומן בדוחות כ"מחיר מבוקש".',
+    asking ? String(asking) : '');
+  if (raw === null) return {};
+
+  const price = Number(String(raw).replace(/[^\d.]/g, ''));
+  if (!(price > 0)) return {};
+
+  const today = isoToday();
+  const dateRaw = String(prompt('תאריך סגירת העסקה (YYYY-MM-DD):', today) || '').trim();
+  // תאריך עתידי נחסם כאן: אין אילוץ במסד, כי CHECK אינו יכול לקרוא ל-
+  // ‏current_date (היא STABLE ולא IMMUTABLE).
+  const on = /^\d{4}-\d{2}-\d{2}$/.test(dateRaw) && dateRaw <= today ? dateRaw : today;
+
+  return { sale_closed_price: price, sale_closed_on: on };
+}
+
 async function setPropertyStatus(property, nextStatus, btn, agentId){
   if (property.status === nextStatus) return;
   if (!confirm(PROPERTY_STATUS_CONFIRM[nextStatus] || 'לשנות את סטטוס הנכס?')) return;
 
   const patch = { status: nextStatus };
   if (nextStatus === 'active' && propertyIsExpired(property)) patch.listing_expires_at = null;
+  // חייב להיות באותו update: ‏trg_property_sold רץ על השורה הזו ורואה רק
+  // את `new`. כתיבה שנייה אחרי שינוי הסטטוס הייתה מאחרת את הטריגר.
+  if (nextStatus === 'sold') Object.assign(patch, askClosingDetails(property));
 
   const original = actionLabel(btn);
   if (btn){ btn.disabled = true; setActionLabel(btn, 'מעדכן…'); }
@@ -10933,7 +10981,9 @@ async function setPropertyStatus(property, nextStatus, btn, agentId){
   showToast(
     nextStatus === 'active'      ? 'הנכס חזר לפרסום ומופיע שוב באתר'
     : nextStatus === 'unpublished' ? 'הנכס ירד מפרסום — הוא נשאר אצלך במערכת'
-    : nextStatus === 'sold'        ? 'הנכס סומן כנמכר — נוסף אוטומטית ל"עסקאות אחרונות" באתר'
+    : nextStatus === 'sold'        ? (patch.sale_closed_price
+        ? 'הנכס סומן כנמכר, ומחיר הסגירה נרשם במאגר העסקאות'
+        : 'הנכס סומן כנמכר — המחיר המבוקש נרשם במאגר ומסומן ככזה')
     : nextStatus === 'rented'      ? 'הנכס סומן כהושכר'
     : 'הנכס הועבר לארכיון');
   await loadProperties(agentId);
@@ -16539,32 +16589,98 @@ async function openCmaReport(propertyId, btn){
       property_not_found: 'הנכס לא נמצא',
       no_matching_agent_profile: 'שגיאת הרשאה',
     };
-    showToast(messages[data.error] || 'שגיאה בהפקת הדוח');
+    // ‏detail לפני ברירת המחדל: קוד שגיאה חדש שנוסף ב-agent_cma_report מגיע
+    // עם נוסח עברי משלו (כך נכנס rent_not_supported), וההודעה הכללית
+    // "שגיאה בהפקת הדוח" הייתה בולעת אותו בלי שאיש ישים לב.
+    showToast(messages[data.error] || data.detail || 'שגיאה בהפקת הדוח', 6000);
     return;
   }
   renderCmaReport(data);
 }
 
+/* ---------- תצוגת הדוח ----------
+   כלל אחד שולט כאן: **הדוח מציג רק מה שהמסד הסכים להחזיר.** ‏agent_cma_report
+   מחזירה ממוצע, חציון וממוצע למ״ר אך ורק כש-`data_coverage.status = 'ok'`,
+   כלומר כשיש לפחות `cma_min_comparables` עסקאות ברדיוס. בכל מצב אחר השדות
+   האלה פשוט אינם ב-jsonb, ולכן אי אפשר להציג אותם גם בטעות.
+
+   זה בא במקום המצב הקודם, שבו "תמונת השוק" הוצגה תמיד: עסקה אחת הופיעה
+   כ"מחיר ממוצע", ולצידה המשפט "המחיר המבוקש גבוה ב-17% מממוצע העסקאות
+   בסביבה" — שנקרא כמו ממצא ונשען על נקודה אחת.
+
+   ‏basisLabel הוא הצד השני של אותה אמירה: שורה שמקורה במחיר מבוקש מסומנת
+   ככזו בכל מקום שבו היא מופיעה, ולא נספרת כמחיר עסקה. */
+const CMA_BASIS = {
+  asking:   { label:'מחיר מבוקש', cls:'is-asking', title:'המחיר שהיה בפרסום — לא מחיר הסגירה' },
+  reported: { label:'דווח',       cls:'',          title:'מחיר הסגירה כפי שדווח על ידי הסוכן/ת' },
+  official: { label:'רשמי',       cls:'',          title:'מתוך מאגר עסקאות רשמי' },
+};
+
+function cmaBasisHtml(basis){
+  const b = CMA_BASIS[basis] || CMA_BASIS.asking;
+  return `<span class="cma-basis ${b.cls}" title="${esc(b.title)}">${esc(b.label)}</span>`;
+}
+
+/* ההסבר שמחליף את הסטטיסטיקה. הוא אומר שלושה דברים במפורש — כמה נמצא,
+   כמה צריך, ומה נבדק — כדי שסוכן/ת שמדפיס/ה את הדוח ללקוח/ה תוכל/יוכל
+   להסביר למה אין כאן מספר, במקום להתנצל על דוח ריק. */
+function cmaCoverageBlock(cov){
+  if (!cov) return '';
+  const ageLine = cov.max_deal_age_months
+    ? `נבדקו עסקאות מ-${cov.max_deal_age_months} החודשים האחרונים בלבד.` : '';
+  const texts = {
+    no_location: {
+      t: 'לא ניתן להפיק תמונת שוק לנכס הזה',
+      d: 'לנכס אין קואורדינטות במערכת, ולכן אי אפשר לאתר עסקאות בסביבתו. '
+       + 'גיאוקוד נעשה על כתובת מלאה — עיר, רחוב ומספר בית.',
+    },
+    none: {
+      t: 'אין עסקאות להשוואה בסביבת הנכס',
+      d: 'לא נמצאה אף עסקה שנסגרה ברדיוס הנבדק. ' + ageLine,
+    },
+    insufficient: {
+      t: 'אין די עסקאות כדי לחשב תמונת שוק',
+      d: `נמצאו ${cov.comparables_found} עסקאות בסביבת הנכס, והמינימום לחישוב ממוצע הוא `
+       + `${cov.min_required}. ממוצע ממדגם קטן מזה אינו אמין, ולכן הוא אינו מוצג. ` + ageLine,
+    },
+  };
+  const x = texts[cov.status];
+  if (!x) return '';
+  return `<div class="cma-gap">
+      <div class="t">${esc(x.t)}</div>
+      <div class="d">${esc(x.d)}</div>
+      <ul>
+        <li>עסקאות שנמצאו בסביבה: ${esc(cov.comparables_found ?? 0)}</li>
+        <li>נדרש לחישוב ממוצע: ${esc(cov.min_required ?? '—')}</li>
+        ${cov.oldest_considered ? `<li>העסקה הישנה ביותר שנכללה: מ-${hebDate(cov.oldest_considered)} ואילך</li>` : ''}
+      </ul>
+    </div>`;
+}
+
 function renderCmaReport(r){
-  const s = r.subject || {};
-  const st = r.stats || {};
+  const s   = r.subject || {};
+  const st  = r.stats || {};
+  const cov = r.data_coverage || {};
   const comps = r.comparables || [];
   const cityComps = r.city_comparables || [];
+  const sources = r.sources || [];
+  const hasStats = !!cov.has_statistics;
 
+  /* הפער מול השוק מוצג רק כשיש שוק להשוות אליו. זה היה המשפט המטעה
+     ביותר בדוח: הוא נוסח כממצא גם כשה"ממוצע" היה עסקה אחת. */
   let gapNote = '';
-  if (st.avg_price && s.price){
+  if (hasStats && st.avg_price && s.price){
     const pct = Math.round(((Number(s.price) - Number(st.avg_price)) / Number(st.avg_price)) * 100);
-    if (pct !== 0){
-      gapNote = `<div class="cma-note">המחיר המבוקש ${pct > 0 ? 'גבוה' : 'נמוך'} ב-${Math.abs(pct)}% מממוצע העסקאות בסביבה.</div>`;
-    } else {
-      gapNote = '<div class="cma-note">המחיר המבוקש תואם את ממוצע העסקאות בסביבה.</div>';
-    }
+    gapNote = pct === 0
+      ? '<div class="cma-note">המחיר המבוקש תואם את ממוצע העסקאות בסביבה.</div>'
+      : `<div class="cma-note">המחיר המבוקש ${pct > 0 ? 'גבוה' : 'נמוך'} ב-${Math.abs(pct)}% `
+        + `מממוצע ${esc(st.comparables_count)} העסקאות בסביבה.</div>`;
   }
 
   const compRows = comps.map(c => `<tr>
-      <td>${esc(c.property_type)}</td>
+      <td>${esc(c.property_type)}${c.same_type === false ? ' <span class="cma-basis">סוג אחר</span>' : ''}</td>
       <td>${c.rooms ?? '—'}</td>
-      <td>${shekel(c.sale_price)}</td>
+      <td>${shekel(c.sale_price)} ${cmaBasisHtml(c.price_basis)}</td>
       <td>${c.price_per_sqm ? shekel(c.price_per_sqm) : '—'}</td>
       <td>${esc(c.distance_meters)} מ׳</td>
       <td>${hebDate(c.sold_at)}</td>
@@ -16573,11 +16689,23 @@ function renderCmaReport(r){
   const cityRows = cityComps.map(c => `<tr>
       <td>${esc(c.property_type)}</td>
       <td>${c.rooms ?? '—'}</td>
-      <td>${shekel(c.sale_price)}</td>
+      <td>${shekel(c.sale_price)} ${cmaBasisHtml(c.price_basis)}</td>
       <td>${hebDate(c.sold_at)}</td>
     </tr>`).join('');
 
   const plans = (r.planning && Array.isArray(r.planning.applicable_plans)) ? r.planning.applicable_plans : [];
+
+  /* שורת המקורות נבנית ממה שבאמת נכנס לדוח (`sources` מה-RPC) ולא מטקסט
+     קבוע. כך מקור חדש שייכנס למאגר יופיע כאן מעצמו, ודוח בלי נתונים לא
+     יטען שהוא נשען על מאגר. */
+  const sourcesLine = sources.length
+    ? 'מקורות הנתונים בדוח זה: ' + sources.map(x => `${esc(x.label)} (${esc(x.deals)})`).join(' · ') + '.'
+    : 'לא נכללו בדוח זה עסקאות כלשהן.';
+
+  const askingNote = cov.asking_basis_count > 0
+    ? `<div class="cma-note">${esc(cov.asking_basis_count)} מהעסקאות בדוח רשומות לפי <strong>המחיר המבוקש</strong> `
+      + 'שהיה בפרסום ולא לפי מחיר הסגירה, ומסומנות ככאלה בטבלאות. פער המיקוח אינו משוקלל בהן.</div>'
+    : '';
 
   document.getElementById('cmaBody').innerHTML = `
     <div class="cma-head">
@@ -16593,18 +16721,21 @@ function renderCmaReport(r){
     </div>
 
     <div class="cma-section-title">תמונת השוק</div>
-    <div class="cma-stats">
-      <div class="cma-stat"><div class="n">${st.comparables_count || 0}</div><div class="l">עסקאות להשוואה</div></div>
-      <div class="cma-stat"><div class="n">${shekel(st.avg_price)}</div><div class="l">מחיר ממוצע</div></div>
-      <div class="cma-stat"><div class="n">${shekel(st.median_price)}</div><div class="l">מחיר חציוני</div></div>
-      <div class="cma-stat"><div class="n">${st.avg_price_per_sqm ? shekel(st.avg_price_per_sqm) : '—'}</div><div class="l">ממוצע למ״ר</div></div>
-    </div>
-    ${gapNote}
-    ${r.radius_meters_used
-      ? `<div class="cma-note">ההשוואה נערכה ברדיוס ${esc(r.radius_meters_used)} מ׳ מהנכס${r.radius_exhausted ? ' — גם לאחר הרחבת הרדיוס לא נמצאו די עסקאות, ויש להתייחס לנתונים בזהירות' : ''}.</div>`
-      : '<div class="cma-note">לנכס אין קואורדינטות במערכת, ולכן לא ניתן היה לחשב השוואה לפי רדיוס.</div>'}
-    ${st.comparables_count > 0 && !st.avg_price_per_sqm
-      ? '<div class="cma-note">לא נמצאו נתוני שטח לעסקאות ההשוואה, ולכן אין ממוצע מחיר למ״ר.</div>' : ''}
+    ${hasStats ? `
+      <div class="cma-stats">
+        <div class="cma-stat"><div class="n">${esc(st.comparables_count)}</div><div class="l">עסקאות להשוואה</div></div>
+        <div class="cma-stat"><div class="n">${shekel(st.avg_price)}</div><div class="l">מחיר ממוצע</div></div>
+        <div class="cma-stat"><div class="n">${shekel(st.median_price)}</div><div class="l">מחיר חציוני</div></div>
+        <div class="cma-stat"><div class="n">${st.avg_price_per_sqm ? shekel(st.avg_price_per_sqm) : '—'}</div><div class="l">ממוצע למ״ר</div></div>
+      </div>
+      ${gapNote}
+      ${r.radius_meters_used ? `<div class="cma-note">ההשוואה נערכה ברדיוס ${esc(r.radius_meters_used)} מ׳ מהנכס.</div>` : ''}
+      ${!st.avg_price_per_sqm
+        ? '<div class="cma-note">לא נמצאו נתוני שטח לעסקאות ההשוואה, ולכן אין ממוצע מחיר למ״ר.</div>' : ''}
+      ${Number(st.same_type_count) < Number(st.comparables_count)
+        ? `<div class="cma-note">${esc(st.comparables_count - st.same_type_count)} מעסקאות ההשוואה הן בסוג נכס אחר, ומסומנות בטבלה.</div>` : ''}
+    ` : cmaCoverageBlock(cov)}
+    ${askingNote}
 
     ${comps.length ? `
       <div class="cma-section-title">עסקאות בסביבת הנכס</div>
@@ -16615,6 +16746,7 @@ function renderCmaReport(r){
 
     ${cityComps.length ? `
       <div class="cma-section-title">עסקאות נוספות ב${esc(s.city)} (ללא מיקום מדויק)</div>
+      <div class="cma-note">העסקאות האלה אינן נכללות בחישוב שלמעלה, כי אי אפשר למקם אותן ביחס לנכס.</div>
       <table class="cma-table">
         <thead><tr><th>סוג</th><th>חדרים</th><th>מחיר</th><th>תאריך</th></tr></thead>
         <tbody>${cityRows}</tbody>
@@ -16632,13 +16764,16 @@ function renderCmaReport(r){
       </table>` : ''}
 
     <div class="cma-foot">
-      הדוח הופק אוטומטית ממאגר העסקאות של שוק נדל״ן ומנתוני התכנון של עיריית עפולה,
-      נכון למועד ההפקה. הנתונים מוצגים לצורך התרשמות כללית בלבד ואינם מהווים שומת
+      ${sourcesLine}
+      המאגר אינו כולל עסקאות שלא נסגרו דרך הפלטפורמה, ולכן אינו תמונה מלאה של השוק באזור.
+      ${r.planning ? 'המידע התכנוני מבוסס על שכבות ה-GIS של עיריית עפולה. ' : ''}
+      הנתונים נכונים למועד ההפקה, מוצגים לצורך התרשמות כללית בלבד, ואינם מהווים שומת
       מקרקעין, ייעוץ מקצועי או תחליף לבדיקה פרטנית.
     </div>`;
 
   document.getElementById('cmaOverlay').style.display = 'block';
 }
+
 
 document.getElementById('cmaCloseBtn').addEventListener('click', ()=>{
   document.getElementById('cmaOverlay').style.display = 'none';

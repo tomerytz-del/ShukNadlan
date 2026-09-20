@@ -1403,6 +1403,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .cma-table th,.cma-table td{border-bottom:1px solid var(--line);padding:7px 6px;text-align:right}
   .cma-table th{font-size:.72rem;color:var(--ink-soft);font-weight:700}
   .cma-note{font-size:.75rem;color:var(--ink-soft);background:var(--teal-tint);border-radius:var(--radius-sm);padding:9px 11px;margin-top:8px}
+  /* ההודעה שמחליפה את "תמונת השוק" כשאין די עסקאות. היא לא הערת שוליים
+     אלא התוכן עצמו באותו מקום, ולכן בולטת ולא רכה כמו .cma-note — סוכן/ת
+     שמדפיס/ה את הדוח ללקוח/ה צריך/ה לראות אותה לפני שהוא/היא שולח/ת. */
+  .cma-gap{border:1.5px solid var(--gold);background:var(--gold-tint);border-radius:var(--radius-sm);padding:13px 14px;line-height:1.55}
+  .cma-gap .t{font-weight:800;color:var(--brick);font-size:.86rem;margin-bottom:4px}
+  .cma-gap .d{font-size:.78rem;color:var(--ink-soft)}
+  .cma-gap ul{margin:7px 0 0;padding-inline-start:18px;font-size:.75rem;color:var(--ink-soft)}
+  /* בסיס המחיר של כל שורה בטבלה: "מחיר מבוקש" אינו מחיר עסקה, והתווית
+     הזו היא ההבדל בין דוח נכון לדוח שנראה נכון. */
+  .cma-basis{display:inline-block;font-size:.66rem;padding:1px 6px;border-radius:999px;border:1px solid var(--line);color:var(--ink-soft);white-space:nowrap}
+  .cma-basis.is-asking{border-color:var(--gold);background:var(--gold-tint);color:var(--brick)}
   .cma-foot{margin-top:22px;padding-top:12px;border-top:1px solid var(--line);font-size:.68rem;color:var(--ink-soft);line-height:1.6}
 
   /* ---------- מדבקת QR לשלט ---------- */

@@ -5945,7 +5945,7 @@ async function loadTicker(){
         .order('published_at', { ascending:false })
         .limit(TICKER_MAX),
       sb.from('market_deals')
-        .select('property_type, rooms, city, sale_price, sold_at')
+        .select('property_type, rooms, city, sale_price, sold_at, price_basis')
         .order('sold_at', { ascending:false })
         .limit(3),
     ]);
@@ -5963,7 +5963,11 @@ async function loadTicker(){
         source_name: n.source_name || '',
         published_at: n.published_at,
       })),
-      ...deals.filter(d => d.rooms && d.city && d.sale_price).map(d => ({
+      /* ‏price_basis: המבזק אומר "נמכרה ב-₪X", וזו הצהרה על מחיר עסקה.
+         שורה שנרשמה לפי המחיר המבוקש (`asking`) אינה יכולה לשאת אותה —
+         היא פשוט אינה מופיעה ברצועה. */
+      ...deals.filter(d => d.rooms && d.city && d.sale_price
+                        && (d.price_basis === 'reported' || d.price_basis === 'official')).map(d => ({
         headline: `חם מהשטח: דירת ${d.rooms} חדרים ב${d.city} נמכרה ב-${Number(d.sale_price).toLocaleString('he-IL')} ₪`,
         summary: 'עסקה שנסגרה דרך הפלטפורמה.',
         url: '',
