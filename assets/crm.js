@@ -147,8 +147,22 @@ function accSetSummary(accId, text){
 function priceRangeLabel(values){
   const nums = (values || []).map(Number).filter(n => Number.isFinite(n) && n > 0);
   if (!nums.length) return '';
-  const min = Math.min(...nums), max = Math.max(...nums);
-  return min === max ? shekelCompact(min) : shekelCompact(min) + '–' + shekelCompact(max);
+  return compactRange(Math.min(...nums), Math.max(...nums));
+}
+
+/* טווח מקוצר, עם סימן המטבע והיחידה פעם אחת: "₪1–1.2 מ׳" ולא
+   "₪1 מ׳–₪1.2 מ׳". שני מחירים מלאים בשורה קצרה נקראים כשני מחירים
+   נפרדים ולא כטווח — וברוחב טלפון הם גם מה שדוחק את שאר השורה החוצה.
+   קצוות ביחידות שונות ("₪900 א׳–₪1.2 מ׳") נשארים מלאים: שם היחידה היא
+   חלק מהמספר ולא חזרה עליו. */
+function compactRange(min, max){
+  const low = shekelCompact(min), high = shekelCompact(max);
+  if (low === high) return low;
+  const unitOf = s => (/ (?:מ׳|א׳)$/.exec(s) || [''])[0];
+  const unit = unitOf(low);
+  if (unit !== unitOf(high)) return low + '–' + high;
+  // ‏slice(1) מוריד את ה-₪ מהקצה השני; היחידה נשארת עליו, בסוף הטווח
+  return (unit ? low.slice(0, low.length - unit.length) : low) + '–' + high.slice(1);
 }
 
 /* הערך השכיח ברשימה — האזור/העיר שמייצג/ת את הרשימה בשורה אחת */
@@ -15965,71 +15979,165 @@ function renderClients(){
     return;
   }
 
-  listEl.innerHTML = '';
-  filtered.forEach(c => {
-    const matches = clientMatchCounts[c.id];
-    const wa = waLink(c.phone);
-    const el = document.createElement('div');
-    el.className = 'card client-card';
-    el.innerHTML = `
-      <div class="lead-top">
-        <div style="min-width:0">
-          <div class="lead-name">${esc(c.full_name)}</div>
-          ${c.phone ? `<div class="contact-line">
-              <span class="lead-phone">${esc(c.phone)}</span>
-              <a class="contact-quick" href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}"
-                 title="חיוג ל${esc(c.full_name)}" aria-label="חיוג ל${esc(c.full_name)}">📞</a>
-              ${wa ? `<a class="contact-quick is-wa" href="${esc(wa)}" target="_blank" rel="noopener noreferrer"
-                 title="וואטסאפ ל${esc(c.full_name)}" aria-label="וואטסאפ ל${esc(c.full_name)}">💬</a>` : ''}
-            </div>` : ''}
-          <div class="req-line">${esc(clientRequirementLine(c))}</div>
-          ${c.notes ? `<div class="lead-meta">${esc(c.notes)}</div>` : ''}
-        </div>
-        <div class="pill-row">
-          <span class="status-pill status-unlocked">${CLIENT_STATUS_LABELS[c.status] || c.status}</span>
-          ${matches ? `<span class="status-pill status-shared">${matches} התאמות</span>` : ''}
-        </div>
-        <div class="card-menu">
-          <button type="button" class="card-menu-btn" aria-haspopup="true" aria-expanded="false"
-                  title="פעולות נוספות" aria-label="פעולות נוספות על ${esc(c.full_name)}">⋯</button>
-          <div class="card-menu-pop"></div>
-        </div>
-      </div>
-      <div class="lead-actions"></div>
-      <div class="match-panel" style="display:none"></div>
-    `;
+  // הרשימה היא טאבים, באותה שפה של "הנכסים שלי": שורה אחת לכל לקוח/ה,
+  // והכרטיס המלא נפתח מתחתיה בלחיצה. ראו ההערה מעל buildClientTab().
+  listEl.innerHTML = '<div class="prop-tabs client-tabs"></div>';
+  const tabsWrap = listEl.querySelector('.prop-tabs');
+  filtered.forEach(c => tabsWrap.appendChild(buildClientTab(c)));
+}
 
-    const actions = el.querySelector('.lead-actions');
-    const panel = el.querySelector('.match-panel');
+/* ---------- קובץ הלקוחות כרשימת טאבים ----------
+   כרטיס לקוח/ה מלא הוא שם, טלפון, שורת דרישות, הערות, תצוגה מקדימה של
+   ההתאמה ושלוש פעולות — כשליש מסך טלפון. קובץ של שלושים לקוחות היה עשרה
+   מסכי גלילה כדי למצוא אחד. לכן הרשימה מציגה שורה קצרה לכל לקוח/ה — שם,
+   מה הוא/היא מחפש/ת, כמה התאמות ממתינות ובאיזה תקציב — ורק לחיצה פותחת
+   מתחתיה את הכרטיס המלא כפי שהיה, על כל מה שבו.
 
-    // תצוגה מקדימה של ההתאמה החזקה ביותר — לפני שלוחצים על שום דבר
-    const peek = clientMatchPeek(c, () => el.querySelector('.match-cta'));
-    if (peek) el.querySelector('.lead-top').insertAdjacentElement('afterend', peek);
+   אותן מחלקות `.prop-tab*` של רשימת הנכסים, ובכוונה: שתי הרשימות הן אותה
+   מחווה — שורה שנפתחת — ועותק שני של אותו CSS תחת שם אחר היה מתפצל ממנה
+   בשינוי הראשון. טאב לקוח/ה נושא בנוסף `.client-tab`, כאחיזה לכל כלל
+   שיהיה נכון שם ולא בנכסים.
 
-    addCardAction(actions, { label:'✏️ עריכה', onClick:()=> openEditClient(c) });
-    // הזמנת שירותי תיווך נחתמת מול הלקוח/ה, ולכן הכפתור יושב על הכרטיס שלו/ה
-    // ולא רק בקטגוריית ההסכמים. סוג העסקה בכרטיס הוא שקובע איזה טופס נפתח.
-    addCardAction(actions, {
-      label:'✍️ החתמה על הסכם',
-      title:'פתיחת הסכם תיווך עם הלקוח/ה, עם הפרטים שכבר בכרטיס',
-      onClick:()=> openAgreementWizard({ kind: c.deal_type === 'rent' ? 'tenant' : 'buy', clientId: c.id }),
-    });
-    const matchBtn = addCardAction(actions, {
-      label: matches ? `🔍 הצגת ${matches} התאמות` : '🔍 חיפוש התאמות',
-      cls:'btn-gold act-wide',
-      onClick: btn => toggleClientMatches(c, btn, panel),
-    });
-    matchBtn.classList.add('match-cta');
+   מצב הפתיחה נשמר לפי מזהה ולא על האלמנט, כי כל פעולה על לקוח/ה (עריכה,
+   מחיקה, שמירה) טוענת את הרשימה מחדש — ובלי זה הכרטיס שעבדו עליו היה
+   נסגר בדיוק אחרי כל פעולה בו. */
+const expandedClientIds = new Set();
 
-    // מחיקה היא הפעולה היחידה כאן שאי אפשר לבטל, ולכן היא לא יושבת ברשת
-    // הפעולות לצד "עריכה" ו"החתמה" — שלושה כפתורים באותו גודל ובאותו צבע,
-    // שאחד מהם בלתי הפיך, זו לחיצה שגויה שממתינה לקרות בשטח.
-    buildCardMenu(el.querySelector('.card-menu'), [
-      { label:'🗑 מחיקת הלקוח/ה', danger:true, onClick:()=> deleteClient(c) },
-    ]);
+/* שורת המשנה: מה שמגדיר את החיפוש. ההתאמות אינן כאן אלא בתגית נפרדת —
+   ברוחב טלפון השורה הזו נחתכת, וההתאמות הן הסיבה שהקובץ הזה קיים.
 
-    listEl.appendChild(el);
+   ‏"מחפש/ת" אינו נאמר: זו ברירת המחדל של הסינון ושל רוב הקובץ, ומילה
+   שחוזרת בכל שורה גוזלת בדיוק את המקום שבו נחתכת העיר — מה שבאמת מבדיל
+   בין השורות. סטטוס אחר (בהמתנה, סגר/ה עסקה) דווקא נאמר, כי הוא החריג. */
+function clientTabSub(c){
+  return [
+    c.status === 'active' ? null : (CLIENT_STATUS_LABELS[c.status] || c.status),
+    c.deal_type === 'rent' ? 'שכירות' : 'קנייה',
+    (c.cities || []).length ? c.cities.join(', ') : null,
+    (c.property_types || []).length ? c.property_types.join(' / ') : null,
+  ].filter(Boolean).join(' · ');
+}
+
+/* התקציב במקום שבו יושב המחיר בטאב הנכס, ומקוצר כמוהו (‏₪1.2 מ׳): טווח
+   מלא של שני צדדים ברוחב 360px דוחק את השם עצמו לשלוש אותיות ונקודות.
+   הסכומים המדויקים נשארים בשורת הדרישות שבכרטיס שנפתח. */
+function clientBudgetLabel(c){
+  const min = Number(c.min_price) || 0;
+  const max = Number(c.max_price) || 0;
+  let text = '';
+  if (min && max)    text = compactRange(min, max);
+  else if (max)      text = 'עד ' + shekelCompact(max);
+  else if (min)      text = 'מ־' + shekelCompact(min);
+  else return '';
+  return esc(text) + (c.deal_type === 'rent' ? ' <span class="per">לחודש</span>' : '');
+}
+
+function buildClientTab(c){
+  const matches = clientMatchCounts[c.id];
+  const isOpen = expandedClientIds.has(c.id);
+  const el = document.createElement('div');
+  el.className = 'prop-tab client-tab' + (isOpen ? ' is-open' : '');
+  const panelId = 'clientTabPanel-' + esc(String(c.id));
+  const budget = clientBudgetLabel(c);
+
+  el.innerHTML = `
+    <button type="button" class="prop-tab-head" aria-expanded="${isOpen}" aria-controls="${panelId}">
+      <span class="prop-tab-main">
+        <span class="prop-tab-title">${esc(c.full_name)}</span>
+        <span class="prop-tab-sub">${esc(clientTabSub(c))}</span>
+      </span>
+      ${matches ? `<span class="tab-flag">${esc(String(matches))} התאמות</span>` : ''}
+      ${budget ? `<span class="prop-tab-price">${budget}</span>` : ''}
+      <svg class="prop-tab-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </button>
+    <div class="prop-tab-panel" id="${panelId}"${isOpen ? '' : ' hidden'}></div>`;
+
+  const head = el.querySelector('.prop-tab-head');
+  const panel = el.querySelector('.prop-tab-panel');
+  // הכרטיס נבנה בפתיחה ונזרק בסגירה, כמו בטאבי הנכסים: שלושים כרטיסים
+  // מלאים בזיכרון הם בדיוק המסך שממנו ברחנו, והמאזינים שבהם נשארים תלויים
+  const fillPanel = ()=> panel.appendChild(buildClientCard(c));
+  if (isOpen) fillPanel();
+
+  head.addEventListener('click', ()=>{
+    const opening = !expandedClientIds.has(c.id);
+    panel.innerHTML = '';
+    if (opening){ expandedClientIds.add(c.id); fillPanel(); }
+    else expandedClientIds.delete(c.id);
+    panel.hidden = !opening;
+    el.classList.toggle('is-open', opening);
+    head.setAttribute('aria-expanded', String(opening));
+    // כרטיס שנפתח בתחתית המסך נפתח מחוץ לו — ‏nearest מזיז את המינימום
+    // הדרוש כדי לראות אותו, ולא מקפיץ את הדף כולו
+    if (opening) el.scrollIntoView({ behavior:'smooth', block:'nearest' });
   });
+  return el;
+}
+
+function buildClientCard(c){
+  const matches = clientMatchCounts[c.id];
+  const wa = waLink(c.phone);
+  const el = document.createElement('div');
+  el.className = 'card client-card';
+  el.innerHTML = `
+    <div class="lead-top">
+      <div style="min-width:0">
+        <div class="lead-name">${esc(c.full_name)}</div>
+        ${c.phone ? `<div class="contact-line">
+            <span class="lead-phone">${esc(c.phone)}</span>
+            <a class="contact-quick" href="tel:${esc(String(c.phone).replace(/[^\d+]/g, ''))}"
+               title="חיוג ל${esc(c.full_name)}" aria-label="חיוג ל${esc(c.full_name)}">📞</a>
+            ${wa ? `<a class="contact-quick is-wa" href="${esc(wa)}" target="_blank" rel="noopener noreferrer"
+               title="וואטסאפ ל${esc(c.full_name)}" aria-label="וואטסאפ ל${esc(c.full_name)}">💬</a>` : ''}
+          </div>` : ''}
+        <div class="req-line">${esc(clientRequirementLine(c))}</div>
+        ${c.notes ? `<div class="lead-meta">${esc(c.notes)}</div>` : ''}
+      </div>
+      <div class="pill-row">
+        <span class="status-pill status-unlocked">${CLIENT_STATUS_LABELS[c.status] || c.status}</span>
+        ${matches ? `<span class="status-pill status-shared">${matches} התאמות</span>` : ''}
+      </div>
+      <div class="card-menu">
+        <button type="button" class="card-menu-btn" aria-haspopup="true" aria-expanded="false"
+                title="פעולות נוספות" aria-label="פעולות נוספות על ${esc(c.full_name)}">⋯</button>
+        <div class="card-menu-pop"></div>
+      </div>
+    </div>
+    <div class="lead-actions"></div>
+    <div class="match-panel" style="display:none"></div>
+  `;
+
+  const actions = el.querySelector('.lead-actions');
+  const panel = el.querySelector('.match-panel');
+
+  // תצוגה מקדימה של ההתאמה החזקה ביותר — מיד עם פתיחת הכרטיס
+  const peek = clientMatchPeek(c, () => el.querySelector('.match-cta'));
+  if (peek) el.querySelector('.lead-top').insertAdjacentElement('afterend', peek);
+
+  addCardAction(actions, { label:'✏️ עריכה', onClick:()=> openEditClient(c) });
+  // הזמנת שירותי תיווך נחתמת מול הלקוח/ה, ולכן הכפתור יושב על הכרטיס שלו/ה
+  // ולא רק בקטגוריית ההסכמים. סוג העסקה בכרטיס הוא שקובע איזה טופס נפתח.
+  addCardAction(actions, {
+    label:'✍️ החתמה על הסכם',
+    title:'פתיחת הסכם תיווך עם הלקוח/ה, עם הפרטים שכבר בכרטיס',
+    onClick:()=> openAgreementWizard({ kind: c.deal_type === 'rent' ? 'tenant' : 'buy', clientId: c.id }),
+  });
+  const matchBtn = addCardAction(actions, {
+    label: matches ? `🔍 הצגת ${matches} התאמות` : '🔍 חיפוש התאמות',
+    cls:'btn-gold act-wide',
+    onClick: btn => toggleClientMatches(c, btn, panel),
+  });
+  matchBtn.classList.add('match-cta');
+
+  // מחיקה היא הפעולה היחידה כאן שאי אפשר לבטל, ולכן היא לא יושבת ברשת
+  // הפעולות לצד "עריכה" ו"החתמה" — שלושה כפתורים באותו גודל ובאותו צבע,
+  // שאחד מהם בלתי הפיך, זו לחיצה שגויה שממתינה לקרות בשטח.
+  buildCardMenu(el.querySelector('.card-menu'), [
+    { label:'🗑 מחיקת הלקוח/ה', danger:true, onClick:()=> deleteClient(c) },
+  ]);
+
+  return el;
 }
 
 /* ---------- תצוגה מקדימה של ההתאמה ----------
@@ -16241,6 +16349,7 @@ async function deleteClient(c){
   if (!confirm(`למחוק את "${c.full_name}" מקובץ הלקוחות? הפעולה בלתי הפיכה.`)) return;
   const { error } = await sb.from('agent_clients').delete().eq('id', c.id);
   if (error){ showToast('שגיאה במחיקה: ' + error.message); return; }
+  expandedClientIds.delete(c.id);
   if (editingClientId === c.id) resetClientForm();
   showToast('הלקוח/ה נמחק/ה');
   await loadClients();
