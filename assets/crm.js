@@ -16858,89 +16858,126 @@ function renderClientAlerts(){
     return;
   }
 
-  listEl.innerHTML = '';
-  alertRows.forEach(a => {
-    const address = [a.city, [a.street, a.house_number].filter(Boolean).join(' ')]
-      .filter(Boolean).join(', ');
+  // הרשימה היא טאבים, כמו שאר רשימות הדשבורד — ראו buildTabRow()
+  listEl.innerHTML = '<div class="prop-tabs alert-tabs"></div>';
+  const tabsWrap = listEl.querySelector('.prop-tabs');
+  alertRows.forEach(a => tabsWrap.appendChild(buildAlertTab(a)));
+}
 
-    const alertTags = tagsHtml([
-      { text: a.deal_type === 'rent' ? shekel(a.price) + ' לחודש' : shekel(a.price), cls:'tag-key' },
-      a.rooms && { html:`🛏 <b>${esc(a.rooms)}</b> חדרים` },
-      a.property_type && { text:'🏠 ' + a.property_type },
-      a.size_sqm && { text:`📐 ${a.size_sqm} מ״ר` },
-      a.floor != null && { text:'🏢 קומה ' + a.floor },
-      address && { text:'📍 ' + address },
-    ]);
+/* ---------- התראת התאמה כשורה ----------
+   ההתראה היא זוג: נכס שנכנס ולקוח/ה שהוא מתאים לו/ה. הכותרת היא הנכס,
+   באותה צורה שבה הוא נכתב בכל שאר הרשימות (סוג · כתובת), ושם הלקוח/ה הוא
+   הפרט הראשון בשורת המשנה — כלומר זה שלעולם אינו נחתך. שני הכיוונים
+   קורים בשטח: נכס אחד שמתאים לשלושה לקוחות, ולקוח/ה אחד/ת ששלושה נכסים
+   מתאימים לו/ה, ולכן אף אחד מהשניים אינו לבדו מפתח שמבדיל בין השורות.
 
-    const gaps = [
-      ...(a.reasons || []),
-      ...((a.missing_features || []).length
-        ? ['חסר: ' + a.missing_features.map(featureLabel).join(', ')] : []),
-    ];
+   הפס הצדדי הזהוב מסמן את מה שטרם נצפה — בלי זה רשימת ההתראות אחידה
+   לגמרי והחדש נבלע בין מה שכבר טופל. זו אותה החלטה שכבר עמדה מאחורי
+   `.alert-card.is-new`, והיא פשוט עברה לשורה. */
+const expandedAlertIds = new Set();
 
-    // המשרד שמפרסם רלוונטי רק כשהוא לא שלי — בנכס שלי זה רעש
-    const sourceLabel = a.source === 'shared'
-      ? '🤝 ' + (a.listing_agency_name || 'משרד שותף')
-      : MATCH_SOURCE_LABELS[a.source] || a.source;
+function alertAddressLine(a){
+  return [a.city, [a.street, a.house_number].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+}
 
-    const card = document.createElement('div');
-    card.className = 'match-card alert-card' + (a.status === 'new' ? ' is-new' : '');
-    card.innerHTML = `
-      <div class="match-head">
-        <div>
-          <span class="src-tag src-${esc(a.source)}">${esc(sourceLabel)}</span>
-          <div class="alert-for">מתאים ל${esc(a.client_name)}</div>
-          <div class="match-title">${esc(a.title)}</div>
-        </div>
-        <div style="text-align:left">
-          <span class="score-pill ${a.score >= 85 ? 'score-high' : 'score-mid'}">${a.score}%</span>
-          <div class="alert-when">${esc(hebDateTime(a.created_at))}</div>
-        </div>
-      </div>
-      ${alertTags}
-      ${gaps.length ? `<div class="match-gap">${gaps.map(esc).join(' · ')}</div>` : ''}
-      <div class="lead-actions"></div>
-    `;
-
-    const actions = card.querySelector('.lead-actions');
-    addCardAction(actions, {
-      label:'🏠 עמוד הנכס', blank:true,
-      href:'property.html?id=' + encodeURIComponent(a.property_id),
-    });
-
-    // ההצעה ללקוח/ה היא הפעולה שההתראה נועדה לה, ולכן הקישור נולד מוכן:
-    // שם, כותרת הנכס, מחיר וקישור ציבורי — בלי להקליד כלום
-    const clientWa = waLink(a.client_phone);
-    if (clientWa){
-      const lines = [
-        `שלום ${a.client_name},`,
-        `מצאתי נכס שיכול להתאים למה שאתם מחפשים: ${a.title}` + (address ? ` ב${address}` : '') + '.',
-        (a.deal_type === 'rent' ? shekel(a.price) + ' לחודש' : shekel(a.price)) + '.',
-        propertyPublicLink(a.property_id),
-      ];
-      addCardAction(actions, {
-        label:'💬 שליחה ללקוח/ה', cls:'btn-gold', blank:true,
-        href: clientWa + '?text=' + encodeURIComponent(lines.join('\n')),
-      });
-    }
-
-    if (a.source !== 'own' && a.listing_agent_phone){
-      addCardAction(actions, {
-        label:'📞 ' + (a.listing_agent_name || 'הסוכן/ת'),
-        href:'tel:' + String(a.listing_agent_phone).replace(/[^\d+]/g, ''),
-      });
-    }
-
-    if (a.status === 'new'){
-      addCardAction(actions, { label:'✓ נצפתה', onClick: btn => setAlertStatus(a, 'seen', btn) });
-    }
-    addCardAction(actions, {
-      label:'✕ הסרה', title:'ההתראה לא תוצג שוב. הנכס עצמו נשאר בפאנל ההתאמות של הלקוח/ה.',
-      onClick: btn => setAlertStatus(a, 'dismissed', btn),
-    });
-
-    listEl.appendChild(card);
+function buildAlertTab(a){
+  const isNew = a.status === 'new';
+  return buildTabRow({
+    key: a.id, list:'alert', expanded: expandedAlertIds,
+    cls: 'alert-tab' + (isNew ? ' is-new' : ''),
+    icon: a.source === 'shared' ? '🤝' : '🔔',
+    title: (a.property_type || 'נכס') + ' · ' + (alertAddressLine(a) || a.title || ''),
+    sub: ['ל' + (a.client_name || '—'),
+          // המשרד שמפרסם רלוונטי רק כשהוא לא שלי — בנכס שלי זה רעש
+          a.source === 'shared' ? (a.listing_agency_name || 'משרד שותף') : null,
+          tabShortDate(a.created_at)].filter(Boolean).join(' · '),
+    pill: { text: a.score + '%', cls: 'score-pill ' + (a.score >= 85 ? 'score-high' : 'score-mid') },
+    price: shekel(a.price),
+    priceNote: a.deal_type === 'rent' ? 'לחודש' : '',
+    buildCard: ()=> buildAlertCard(a),
   });
+}
+
+function buildAlertCard(a){
+  const address = alertAddressLine(a);
+
+  const alertTags = tagsHtml([
+    { text: a.deal_type === 'rent' ? shekel(a.price) + ' לחודש' : shekel(a.price), cls:'tag-key' },
+    a.rooms && { html:`🛏 <b>${esc(a.rooms)}</b> חדרים` },
+    a.property_type && { text:'🏠 ' + a.property_type },
+    a.size_sqm && { text:`📐 ${a.size_sqm} מ״ר` },
+    a.floor != null && { text:'🏢 קומה ' + a.floor },
+    address && { text:'📍 ' + address },
+  ]);
+
+  const gaps = [
+    ...(a.reasons || []),
+    ...((a.missing_features || []).length
+      ? ['חסר: ' + a.missing_features.map(featureLabel).join(', ')] : []),
+  ];
+
+  // המשרד שמפרסם רלוונטי רק כשהוא לא שלי — בנכס שלי זה רעש
+  const sourceLabel = a.source === 'shared'
+    ? '🤝 ' + (a.listing_agency_name || 'משרד שותף')
+    : MATCH_SOURCE_LABELS[a.source] || a.source;
+
+  const card = document.createElement('div');
+  card.className = 'match-card alert-card' + (a.status === 'new' ? ' is-new' : '');
+  card.innerHTML = `
+    <div class="match-head">
+      <div>
+        <span class="src-tag src-${esc(a.source)}">${esc(sourceLabel)}</span>
+        <div class="alert-for">מתאים ל${esc(a.client_name)}</div>
+        <div class="match-title">${esc(a.title)}</div>
+      </div>
+      <div style="text-align:left">
+        <span class="score-pill ${a.score >= 85 ? 'score-high' : 'score-mid'}">${a.score}%</span>
+        <div class="alert-when">${esc(hebDateTime(a.created_at))}</div>
+      </div>
+    </div>
+    ${alertTags}
+    ${gaps.length ? `<div class="match-gap">${gaps.map(esc).join(' · ')}</div>` : ''}
+    <div class="lead-actions"></div>
+  `;
+
+  const actions = card.querySelector('.lead-actions');
+  addCardAction(actions, {
+    label:'🏠 עמוד הנכס', blank:true,
+    href:'property.html?id=' + encodeURIComponent(a.property_id),
+  });
+
+  // ההצעה ללקוח/ה היא הפעולה שההתראה נועדה לה, ולכן הקישור נולד מוכן:
+  // שם, כותרת הנכס, מחיר וקישור ציבורי — בלי להקליד כלום
+  const clientWa = waLink(a.client_phone);
+  if (clientWa){
+    const lines = [
+      `שלום ${a.client_name},`,
+      `מצאתי נכס שיכול להתאים למה שאתם מחפשים: ${a.title}` + (address ? ` ב${address}` : '') + '.',
+      (a.deal_type === 'rent' ? shekel(a.price) + ' לחודש' : shekel(a.price)) + '.',
+      propertyPublicLink(a.property_id),
+    ];
+    addCardAction(actions, {
+      label:'💬 שליחה ללקוח/ה', cls:'btn-gold', blank:true,
+      href: clientWa + '?text=' + encodeURIComponent(lines.join('\n')),
+    });
+  }
+
+  if (a.source !== 'own' && a.listing_agent_phone){
+    addCardAction(actions, {
+      label:'📞 ' + (a.listing_agent_name || 'הסוכן/ת'),
+      href:'tel:' + String(a.listing_agent_phone).replace(/[^\d+]/g, ''),
+    });
+  }
+
+  if (a.status === 'new'){
+    addCardAction(actions, { label:'✓ נצפתה', onClick: btn => setAlertStatus(a, 'seen', btn) });
+  }
+  addCardAction(actions, {
+    label:'✕ הסרה', title:'ההתראה לא תוצג שוב. הנכס עצמו נשאר בפאנל ההתאמות של הלקוח/ה.',
+    onClick: btn => setAlertStatus(a, 'dismissed', btn),
+  });
+
+  return card;
 }
 
 /* ‏dismissed יורדת מהרשימה תמיד (הפיד לא מחזיר אותה), ו-seen יורדת רק
@@ -16961,6 +16998,7 @@ async function setAlertStatus(row, status, btn){
 
   if (status === 'dismissed' || alertScope() === 'new'){
     alertRows = alertRows.filter(r => r.id !== row.id);
+    expandedAlertIds.delete(row.id);   // ההתראה ירדה מהרשימה
   } else {
     row.status = status;
     row.seen_at = row.seen_at || new Date().toISOString();

@@ -675,6 +675,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .lead-tab.kind-buyer{border-inline-start-color:var(--teal)}
   .lead-tab.kind-shared{border-inline-start-color:#2A5B36}
   .lead-tab.is-archived{border-inline-start-color:#cbd5e1}
+  /* ---------- טאב התראת התאמה ----------
+     הפס מסמן את מה שטרם נצפה — אותה החלטה שכבר עמדה מאחורי
+     `.alert-card.is-new`, והיא פשוט עברה לשורה. בשורה נשאר רק הפס והרקע
+     לא נצבע, בניגוד לכרטיס: מחצית מההתראות בפרודקשן הן חדשות, וחצי רשימה
+     צבועה ורוד היא קיר אזהרה ולא סימן. הגוון המלא ממתין בכרטיס שנפתח. */
+  .alert-tab{border-inline-start:4px solid transparent}
+  .alert-tab.is-new{border-inline-start-color:var(--gold)}
+  .prop-tab-panel .alert-card{margin-top:8px}
+
   /* ---------- טאב הסכם ----------
      במשבצת המחיר יושב כאן "1/2 חתמו" ולא סכום: אותו מקום ברצועה, אותו
      משקל, אבל הוא מספר שלם קצר ולא כסף — ולכן בלי צבע הכסף של המחיר. */
@@ -741,8 +750,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media(prefers-reduced-motion: no-preference){
     @supports (animation-timeline: view()){
       /* טאב שנכנס לאזור הגלילה עולה ומתבהר — הסימן שיש עוד רשימה מתחת.
-         ‏`.prop-tab` מכסה כאן גם את טאבי הלקוחות. ואותה שפה בשאר רשימות
-         הדשבורד: לידים, הסכמים ומדדי הפתיחה. */
+         ‏`.prop-tab` מכסה את כל רשימות הטאבים בבת אחת; שתי השורות שאחריה
+         הן הכרטיסים שעדיין אינם בתוך טאב, ומדדי הפתיחה. */
       .prop-tab,
       #dashboard .acc-body .lead-card,
       #dashboard .acc-body .agr-row,
