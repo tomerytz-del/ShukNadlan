@@ -259,7 +259,7 @@ def _queues(ctx) -> Iterator[Finding]:
 def _engines(ctx) -> Iterator[Finding]:
     """מנוע ששתק. שלוש סיבות אפשריות, וכולן נראות זהה מבחוץ."""
     t = ctx.settings.thresholds
-    for table, time_col, label, workflow in ENGINES:
+    for table, time_col, label, workflow, silence_hours in ENGINES:
         if not ctx.db.has_table(table):
             continue
         ctx.count()
@@ -275,15 +275,18 @@ def _engines(ctx) -> Iterator[Finding]:
         if silent is None:
             continue
         silent = float(silent)
-        if silent < t.engine_silence_hours:
+        if silent < (silence_hours or t.engine_silence_hours):
             continue
         yield Finding(
-            area="health", code="engine_silent", severity="high",
+            area="health", code="engine_silent", severity="medium",
             subject=table,
             title="מנוע ששתק: %s" % label,
             detail="לא נכנסה שורה חדשה כבר %.0f שעות." % silent,
-            suggestion="שלוש סיבות אפשריות, וכולן נראות זהה: הפיד נשבר, הסוד פג, "
-                       "או ש-%s כבוי. להתחיל מלשונית Actions." % workflow,
+            suggestion="ארבע סיבות אפשריות, וכולן נראות זהה מכאן: הפיד נשבר, "
+                       "הסוד פג, ‏%s כבוי — **או שהוא רץ בהצלחה ופשוט לא היה "
+                       "מה לשמור.** שתי הראשונות מופיעות כ-workflow_failing "
+                       "והשלישית כ-workflow_silent; אם שתיהן שקטות, זו "
+                       "הרביעית. להתחיל מלשונית Actions." % workflow,
             metric=silent, metric_unit="שעות",
             evidence={"last_row": (row or {}).get("last_row"), "workflow": workflow},
         )
