@@ -197,7 +197,10 @@ on conflict (slug) do update
 -- מקף ארוך (ראו CLAUDE.md).
 --
 -- ‏`muni_code` (סמל יישוב) הוא המפתח היציב היחיד מול מקורות ממשלתיים:
--- שמות יישובים משתנים, סמלים לא.
+-- שמות יישובים משתנים, סמלים לא. הוא **ייחודי** ולא מפתח ראשי — `id`
+-- נשאר `uuid` כי `properties.city_id` כבר מצביע עליו, ו-`muni_code` הוא
+-- `null` לכל עיר שתיווסף ידנית ולכל פרויקט מחוץ לישראל. הייחודיות היא
+-- מה שמאפשר לרענון השנתי להיות `on conflict (muni_code) do update`.
 --
 -- ‏`is_live` הוא **שער מוצר ולא דגל תצוגה**. עיר עולה לאוויר רק כשיש בה
 -- מלאי אמיתי; דף עיר עם אפס נכסים מלמד את גוגל שהדף דק ואת המבקר הראשון
@@ -222,9 +225,12 @@ create table if not exists public.cities (
   bbox_lng_min        double precision,
   bbox_lng_max        double precision,
   muni_code           text,
+  municipal_status    text not null default 'unknown',
   cbs_district        text,
   cbs_nafa            text,
   population          integer,
+  itm_x               integer,
+  itm_y               integer,
   geocode_provider    text not null default 'none',
   street_enforcement  boolean not null default false,
   street_min_expected integer not null default 30,
@@ -265,20 +271,51 @@ begin
     alter table public.cities add constraint cities_live_needs_center_chk
       check (not is_live or (lat is not null and lng is not null));
   end if;
+
+  -- ‏ועיר חיה חייבת גם slug אנושי. ההזנה ההמונית כותבת מציין זמני
+  -- ‏`c-<סמל יישוב>` לכל 1,484 היישובים, כי `slug` הוא `not null unique`
+  -- ואי אפשר להזין בלעדיו — אבל תעתיק עברית→לטינית שאנחנו מחוללים הוא
+  -- בדיוק סוג הכשל השקט שכבר שילמנו עליו ב-`streetVariants`.
+  --
+  -- ‏slug שדלף לאוויר הוא קישור שבור לנצח, ולכן זו בדיקה ולא זיכרון:
+  -- מי שמדליק `is_live` על עיר שעדיין נושאת מציין זמני נעצר כאן.
+  if not exists (select 1 from pg_constraint
+                  where conrelid = 'public.cities'::regclass
+                    and conname  = 'cities_live_needs_real_slug_chk') then
+    alter table public.cities add constraint cities_live_needs_real_slug_chk
+      check (not is_live or slug !~ '^c-[0-9]+$');
+  end if;
+
+  -- המעמד המוניציפלי מגיע מקובץ הלמ"ס והוא מה שקובע אילו יישובים זכאים
+  -- לדף עיר משלהם: עיריות ומועצות מקומיות כן, יישובי מועצות אזוריות לא.
+  -- ‏`unknown` הוא ברירת המחדל כדי שעיר שנוספת ידנית לא תיפול על האילוץ.
+  if not exists (select 1 from pg_constraint
+                  where conrelid = 'public.cities'::regclass
+                    and conname  = 'cities_municipal_status_chk') then
+    alter table public.cities add constraint cities_municipal_status_chk
+      check (municipal_status in
+        ('municipality','local_council','regional_council_locality','none','unknown'));
+  end if;
 end $$;
 
 create unique index if not exists cities_name_key_uniq  on public.cities (name_key);
 create index if not exists cities_area_idx              on public.cities (area_id);
 create index if not exists cities_region_idx            on public.cities (region_id);
 create index if not exists cities_live_idx              on public.cities (is_live) where is_live;
-create index if not exists cities_muni_code_idx         on public.cities (muni_code) where muni_code is not null;
+create unique index if not exists cities_muni_code_uniq on public.cities (muni_code) where muni_code is not null;
 
 comment on table public.cities is
   'היישובים. ראו docs/cities-and-regions.md';
 comment on column public.cities.display_label is
   'מה שמופיע ב-H1 של דף הבית ("עפולה והעמק"), כשהוא שונה משם העיר. טקסט מוצג — בלי מקף ארוך.';
 comment on column public.cities.muni_code is
-  'סמל יישוב (למ"ס). המפתח היציב מול מקורות ממשלתיים — שמות משתנים, סמלים לא.';
+  'סמל יישוב (למ"ס). המפתח היציב מול מקורות ממשלתיים — שמות משתנים, סמלים לא. ייחודי, והוא יעד ה-on conflict של ההזנה החוזרת.';
+comment on column public.cities.municipal_status is
+  'מעמד מוניציפלי לפי הלמ"ס. הוא שער הדירוג של דפי העיר: municipality ו-local_council מקבלים דף משלהם, regional_council_locality נשמר בלי דף.';
+comment on column public.cities.itm_x is
+  'קואורדינטת מזרח ברשת ישראל החדשה (ITM/EPSG:2039), כפי שהגיעה מקובץ הלמ"ס. lat/lng נגזרים ממנה פעם אחת בהזנה ולא בכל בקשה. נשמרת כי היא מפתח שאילתה מול שכבות GovMap, שעובדות באותה רשת.';
+comment on column public.cities.itm_y is
+  'קואורדינטת צפון ברשת ישראל החדשה. ראו itm_x.';
 comment on column public.cities.cbs_nafa is
   'הנפה לפי למ"ס. עמודת ייחוס פנימית בלבד: היא מאפשרת לשאול אילו ערים הוצאו מהנפה שלהן ולמה. המילה "נפה" לעולם אינה מוצגת לגולש/ת.';
 comment on column public.cities.is_live is
