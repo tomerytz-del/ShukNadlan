@@ -405,9 +405,10 @@ function newsModalClose(){ newsModal.classList.remove('open'); }
    בפוקוס — שניהם ב-CSS; כאן רק מסך המגע, שבו אין ריחוף: לחיצה פותחת,
    לחיצה נוספת (או בכל מקום אחר בעמוד, או Escape) סוגרת.
 
-   שלוש החותמות שבשורת המספרים (‏‎.hero-mark[data-info]‎) נושאות את אותה
-   בועה ואת אותה התנהגות, ולכן הן נכנסות לאותו סלקטור ולא לזוג מאזינים שני
-   שיתפצל ממנו בעריכה הבאה. */
+   החותמות שבשורת המספרים (‏‎.hero-mark[data-info]‎) נושאות את אותה בועה
+   ואת אותה התנהגות, ולכן הן נכנסות לאותו סלקטור ולא לזוג מאזינים שני
+   שיתפצל ממנו בעריכה הבאה. זה גם מה שנתן לחותמות הרביעית והחמישית
+   (שיתופי פעולה, הדמיות) את ההתנהגות שלהן בלי שורת JS אחת. */
 const INFO_TRIGGER_SEL = '.info-dot,.hero-mark[data-info]';
 document.addEventListener('click', (e)=>{
   const dot = e.target.closest ? e.target.closest(INFO_TRIGGER_SEL) : null;
