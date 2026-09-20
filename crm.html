@@ -650,23 +650,25 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      בינו לבין הכרטיס הבא, שכבר לא קיים */
   .prop-tab-panel .lead-card,
   .prop-tab-panel .client-card{margin-bottom:0;margin-top:8px}
-  /* ‏"3 התאמות" הוא מה שגורם לפתוח את הכרטיס, ולכן הוא תגית משלו ולא עוד
-     פרט בשורת המשנה — שנחתכת ראשונה ברוחב טלפון. הירוק הוא בדיוק הירוק של
-     תגית ההתאמות שבכרטיס עצמו (`.status-shared`): אותו נתון, אותו צבע.
-     ‏`--gold-tint` הוורוד לא מתאים כאן — באתר הזה הוא אומר "דורש טיפול". */
+  /* ---------- הגלולה שבשורה ----------
+     ‏`.tab-pill` הוא רק המקום ברצועה — מי שלא מתכווץ כשהכותרת ארוכה. הצבע
+     מגיע מהגלולה שכבר קיימת בכרטיס עצמו, כדי שאותו נתון ייראה אותו דבר
+     בשורה ובכרטיס: `.status-masked` / `.status-unlocked` לסטטוס, ו-
+     `.score-pill` לציוני האיכות וההתעניינות שבחנות. */
+  .tab-pill{flex-shrink:0}
+  /* ‏"3 התאמות" הוא מה שגורם לפתוח את כרטיס הלקוח/ה, ולכן הוא תגית משלו
+     ולא עוד פרט בשורת המשנה — שנחתכת ראשונה ברוחב טלפון. הירוק הוא בדיוק
+     הירוק של תגית ההתאמות שבכרטיס (`.status-shared`): אותו נתון, אותו
+     צבע. ‏`--gold-tint` הוורוד לא מתאים כאן — הוא אומר "דורש טיפול". */
   .tab-flag{font-size:.68rem;font-weight:800;padding:2px 8px;border-radius:999px;
-    background:#DFEDE3;color:#2A5B36;white-space:nowrap;flex-shrink:0}
+    background:#DFEDE3;color:#2A5B36;white-space:nowrap}
 
   /* ---------- טאב ליד ----------
-     בשורת הליד התגית היא הסטטוס עצמו, ובאותן גלולות של הכרטיס
-     (`.status-masked` הזהובה, `.status-unlocked` הכחולה): ליד מוסתר הוא
-     מה שדורש פעולה, וזה הדבר היחיד שצריך לראות בלי לפתוח.
-
      הפס הצדדי נושא את צד הליד — זהב למוכר/משכיר (הליד היקר), נייבי
      לקונה/שוכר, אפור לארכיון. בלעדיו הרשימה הסגורה מאבדת את מה שמבדיל
      ביניהם, כי הגוון המלא של הכרטיס נשאר בכרטיס שנפתח: שתים־עשרה שורות
-     צבועות זו לא הדגשה אלא קיר. */
-  .prop-tab-head .status-pill{flex-shrink:0}
+     צבועות זו לא הדגשה אלא קיר. אותן מחלקות משרתות גם את שורות חנות
+     הלידים, שהן לידים לכל דבר. */
   .lead-tab{border-inline-start:4px solid var(--edge,var(--line))}
   .lead-tab.kind-owner{border-inline-start-color:#B08A2E}
   .lead-tab.kind-buyer{border-inline-start-color:var(--teal)}
@@ -675,7 +677,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .prop-tab-head{gap:7px;padding:9px 10px}
     .prop-tab-price{font-size:.8rem}
     .tab-flag{font-size:.64rem;padding:2px 6px}
-    .prop-tab-head .status-pill{font-size:.64rem;padding:2px 7px}
+    .tab-pill.status-pill,.tab-pill.score-pill{font-size:.64rem;padding:2px 7px}
   }
 
   /* ---------- אזור הגלילה של הרשימה ----------

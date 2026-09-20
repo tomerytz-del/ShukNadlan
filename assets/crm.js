@@ -10174,6 +10174,74 @@ function renderPropertyTabs(listEl, rows, agentId){
   syncToTop();
 }
 
+/* ---------- שורת הטאב הגנרית ----------
+   שמונה רשימות בדשבורד מדברות את המחווה הזו: קובץ הלקוחות, הלידים שלי,
+   ושש רשימות חנות הלידים — מדף ורכישות לכל אחת משלוש המגירות. ‏
+   `buildPropertyTab()` שמתחת הוא המקור שממנו היא נלקחה, והוא נשאר בנפרד:
+   יש לו אזור גלילה משלו, טעינה בקבוצות ומצב שנשמר בין רינדורים.
+
+   **הכל נכנס כטקסט, והפונקציה מבריחה** — ולא כ-HTML מוכן מכל קוראת. שמונה
+   קוראות שכל אחת מבריחה בעצמה הן בדיוק המצב שבו אחת מהן שוכחת; זה הלקח
+   של `escapeHtml` ב-CLAUDE.md, ולכן אין כאן דלת אחורית ל-HTML. האייקון
+   הוא היחיד שנכנס כמו שהוא, והוא תמיד ליטרל מהטבלאות שבקוד.
+
+   `list` הוא מרחב השם של מזהה הפאנל: אותו ליד יושב גם במדף וגם ברשימת
+   הרכישות עם אותו `id`, ובלי הקידומת היו שני אלמנטים עם אותו `id` בדף.
+
+   הכרטיס מגיע כפונקציה ולא כאלמנט בנוי: הוא נבנה בפתיחה ונזרק בסגירה,
+   וזה כל מה שחוסך את מסך הכרטיסים המלאים שממנו ברחנו. */
+function buildTabRow({ key, list = 'tab', expanded, cls = '', icon = '', title,
+                       sub = '', pill = null, price = '', priceNote = '', buildCard }){
+  const isOpen = expanded.has(key);
+  const el = document.createElement('div');
+  el.className = ('prop-tab ' + cls).trim() + (isOpen ? ' is-open' : '');
+  const panelId = 'tabPanel-' + esc(list) + '-' + esc(String(key));
+
+  el.innerHTML = `
+    <button type="button" class="prop-tab-head" aria-expanded="${isOpen}" aria-controls="${panelId}">
+      <span class="prop-tab-main">
+        <span class="prop-tab-title">${icon ? icon + ' ' : ''}${esc(title)}</span>
+        <span class="prop-tab-sub">${esc(sub)}</span>
+      </span>
+      ${pill ? `<span class="tab-pill ${esc(pill.cls || 'status-pill status-masked')}">${esc(pill.text)}</span>` : ''}
+      ${price ? `<span class="prop-tab-price">${esc(price)}${
+        priceNote ? ` <span class="per">${esc(priceNote)}</span>` : ''}</span>` : ''}
+      <svg class="prop-tab-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </button>
+    <div class="prop-tab-panel" id="${panelId}"${isOpen ? '' : ' hidden'}></div>`;
+
+  const head = el.querySelector('.prop-tab-head');
+  const panel = el.querySelector('.prop-tab-panel');
+  const fillPanel = ()=> panel.appendChild(buildCard());
+  if (isOpen) fillPanel();
+
+  head.addEventListener('click', ()=>{
+    const opening = !expanded.has(key);
+    panel.innerHTML = '';
+    if (opening){ expanded.add(key); fillPanel(); }
+    else expanded.delete(key);
+    panel.hidden = !opening;
+    el.classList.toggle('is-open', opening);
+    head.setAttribute('aria-expanded', String(opening));
+    // כרטיס שנפתח בתחתית המסך נפתח מחוצה לו — ‏nearest מזיז את המינימום
+    // הדרוש כדי לראות אותו, ולא מקפיץ את הדף כולו
+    if (opening) el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  });
+  return el;
+}
+
+/* תאריך קצר לשורת טאב: "18.9" למה שנכנס השנה, "18.9.25" לשנה אחרת.
+   התאריך הוא הפרט האחרון בשורה, כלומר הראשון שנחתך כשהשם והעיר ארוכים —
+   ותאריך מלא שנחתך באמצע ("…9.2026") נראה כמו תקלה. המלא ממתין בכרטיס. */
+function tabShortDate(ts){
+  const d = ts ? new Date(ts) : null;
+  if (!d || Number.isNaN(d.getTime())) return '';
+  const short = d.getDate() + '.' + (d.getMonth() + 1);
+  return d.getFullYear() === new Date().getFullYear()
+    ? short : short + '.' + String(d.getFullYear()).slice(-2);
+}
+
 function buildPropertyTab(p, agentId){
   const isOpen = expandedPropertyIds.has(p.id);
   const el = document.createElement('div');
@@ -14409,20 +14477,8 @@ function leadTabSub(lead){
     lead.deal_type === 'rent' ? 'השכרה' : (lead.deal_type === 'sale' ? 'מכירה' : ''),
     lead.city,
     lead.property_type,
-    leadTabDate(lead.created_at),
+    tabShortDate(lead.created_at),
   ].filter(Boolean).join(' · ');
-}
-
-/* תאריך קצר לשורה: "18.9" לליד מהשנה הנוכחית, "18.9.25" למה שנכנס בשנה
-   אחרת. התאריך הוא הפרט האחרון בשורה, כלומר הראשון שנחתך כששם הפונה והעיר
-   ארוכים — ותאריך מלא שנחתך באמצע ("…9.2026") נראה כמו תקלה. המלא ממתין
-   בתגיות שבכרטיס. */
-function leadTabDate(ts){
-  const d = ts ? new Date(ts) : null;
-  if (!d || Number.isNaN(d.getTime())) return '';
-  const short = d.getDate() + '.' + (d.getMonth() + 1);
-  return d.getFullYear() === new Date().getFullYear()
-    ? short : short + '.' + String(d.getFullYear()).slice(-2);
 }
 
 /* במשבצת שבה יושב המחיר בטאב הנכס: כמה עולה לפתוח את הליד הזה — ההחלטה
@@ -14433,49 +14489,25 @@ function leadTabPrice(lead){
   if (lead.status !== 'masked') return '';
   const cost = claimCost(lead);
   if (cost.blocked) return '';
-  return cost.price > 0 ? esc(shekel(cost.price)) : 'חינם';
+  return cost.price > 0 ? shekel(cost.price) : 'חינם';
 }
 
 function buildLeadTab(lead, agentId){
   const kind = leadKind(lead);
   const isArchived = archivedLeadIds.has(lead.id);
-  const isOpen = expandedLeadIds.has(lead.id);
-  const el = document.createElement('div');
-  el.className = 'prop-tab lead-tab ' + kind.cls
-    + (isArchived ? ' is-archived' : '') + (isOpen ? ' is-open' : '');
-  el.dataset.leadId = lead.id;
-  const panelId = 'leadTabPanel-' + esc(String(lead.id));
-  const price = leadTabPrice(lead);
-
-  el.innerHTML = `
-    <button type="button" class="prop-tab-head" aria-expanded="${isOpen}" aria-controls="${panelId}">
-      <span class="prop-tab-main">
-        <span class="prop-tab-title">${kind.icon} ${esc(lead.display_name || '—')}</span>
-        <span class="prop-tab-sub">${esc(leadTabSub(lead))}</span>
-      </span>
-      <span class="status-pill status-${lead.status === 'unlocked' ? 'unlocked' : 'masked'}">${esc(leadStatusLabel(lead))}</span>
-      ${price ? `<span class="prop-tab-price">${price}</span>` : ''}
-      <svg class="prop-tab-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-    </button>
-    <div class="prop-tab-panel" id="${panelId}"${isOpen ? '' : ' hidden'}></div>`;
-
-  const head = el.querySelector('.prop-tab-head');
-  const panel = el.querySelector('.prop-tab-panel');
-  // הכרטיס נבנה בפתיחה ונזרק בסגירה, כמו בטאבי הנכסים והלקוחות
-  const fillPanel = ()=> panel.appendChild(buildLeadCard(lead, agentId, isArchived));
-  if (isOpen) fillPanel();
-
-  head.addEventListener('click', ()=>{
-    const opening = !expandedLeadIds.has(lead.id);
-    panel.innerHTML = '';
-    if (opening){ expandedLeadIds.add(lead.id); fillPanel(); }
-    else expandedLeadIds.delete(lead.id);
-    panel.hidden = !opening;
-    el.classList.toggle('is-open', opening);
-    head.setAttribute('aria-expanded', String(opening));
-    if (opening) el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  const el = buildTabRow({
+    key: lead.id, list:'lead', expanded: expandedLeadIds,
+    cls: 'lead-tab ' + kind.cls + (isArchived ? ' is-archived' : ''),
+    icon: kind.icon,
+    title: lead.display_name || '—',
+    sub: leadTabSub(lead),
+    pill: { text: leadStatusLabel(lead),
+            cls: 'status-pill status-' + (lead.status === 'unlocked' ? 'unlocked' : 'masked') },
+    price: leadTabPrice(lead),
+    // הכרטיס נבנה בפתיחה ונזרק בסגירה — ראו buildTabRow()
+    buildCard: ()=> buildLeadCard(lead, agentId, isArchived),
   });
+  el.dataset.leadId = lead.id;
   return el;
 }
 
@@ -14815,6 +14847,15 @@ function timeLeftLabel(ts){
 let shelfTab = 'rss';
 let shelfMortgageOpen = false;
 
+/* מצב הפתיחה של שש רשימות החנות — מדף ורכישות לכל מגירה. סט נפרד לכל
+   רשימה ולא סט אחד משותף: ליד שנרכש שומר את אותו `id` גם במדף וגם ברשימת
+   הרכישות, וסט משותף היה פותח לבד את הכרטיס השני. */
+const shelfExpanded = {
+  rss: new Set(),      rssBought: new Set(),
+  saved: new Set(),    savedBought: new Set(),
+  mortgage: new Set(), mortgageBought: new Set(),
+};
+
 function renderShelfTabs(){
   document.querySelectorAll('#shelfTabs [data-shelf-tab]').forEach(b =>
     b.setAttribute('aria-pressed', String(b.dataset.shelfTab === shelfTab)));
@@ -14926,36 +14967,73 @@ function renderLeadShelf(){
     return;
   }
 
-  listEl.innerHTML = '';
+  // הרשימה היא טאבים, כמו כל רשימה אחרת בדשבורד — ראו buildTabRow()
+  listEl.innerHTML = '<div class="prop-tabs shelf-tabs"></div>';
+  const tabsWrap = listEl.querySelector('.prop-tabs');
   filtered.forEach(lead => {
     const kind = shelfKind(lead.lead_side);
-    const el = document.createElement('div');
-    el.className = 'card lead-card ' + kind.cls;
-    el.innerHTML = `
-      <div class="lead-top">
-        <div>
-          <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
-          <div class="lead-name">${esc(lead.teaser_title || lead.lead_side || 'ליד')}</div>
-        </div>
-        <span class="status-pill status-masked">${shekel(rssLeadPrice)}</span>
-      </div>
-      ${tagsHtml([
-        // ציון האיכות הוא השיקול הראשון ברכישה — ולכן הוא התגית הפותחת
-        { text:`⭐ איכות ${lead.lead_quality_score ?? '—'}/10`,
-          cls: lead.lead_quality_score >= 8 ? 'tag-good' : 'tag-key' },
-        lead.urgency_level && { text:'⚡ דחיפות ' + lead.urgency_level, cls:'tag-info' },
-        ...shelfMetaParts(lead),
-        { text:'📅 נוסף ' + hebDate(lead.created_at) },
-      ])}
-      ${lead.teaser_description ? `<div class="lead-meta">${esc(lead.teaser_description)}</div>` : ''}
-      <div class="lead-actions"></div>
-    `;
-    addCardAction(el.querySelector('.lead-actions'), {
-      label:`🛒 רכישה · ${shekel(rssLeadPrice)}`, cls:'btn-gold act-wide',
-      onClick: btn => buyRssLead(lead, btn),
-    });
-    listEl.appendChild(el);
+    tabsWrap.appendChild(buildTabRow({
+      key: lead.id, list:'shelfRss', expanded: shelfExpanded.rss,
+      cls: 'lead-tab ' + kind.cls,
+      icon: kind.icon,
+      title: lead.teaser_title || lead.lead_side || 'ליד',
+      sub: shelfTabSub(lead),
+      // ציון האיכות הוא השיקול הראשון ברכישה, ולכן הוא הגלולה שבשורה
+      pill: scorePill(lead.lead_quality_score, 10, 8),
+      price: shekel(rssLeadPrice),
+      buildCard: ()=> buildShelfLeadCard(lead),
+    }));
   });
+}
+
+/* מה שצריך כדי להחליט אם לפתוח את הכרטיס: דחיפות, איפה, איזה נכס ומתי.
+   שאר פרטי המדף (חדרים, קומה, תקציב) ממתינים בתגיות שבכרטיס. */
+function shelfTabSub(lead){
+  return [
+    lead.urgency_level ? 'דחיפות ' + lead.urgency_level : null,
+    lead.city,
+    lead.property_type,
+    tabShortDate(lead.created_at),
+  ].filter(Boolean).join(' · ');
+}
+
+/* ציון בגלולה של השורה, באותם צבעים של ציוני ההתאמה: ירוק למה שחוצה את
+   הרף, זהב לשאר. ציון חסר אינו גלולה ריקה אלא אין-גלולה — שורה שאומרת
+   "—/10" רק גוזלת מקום מהכותרת. */
+function scorePill(score, outOf, highAt){
+  if (score === null || score === undefined || score === '') return null;
+  return { text: `⭐ ${score}/${outOf}`,
+           cls: 'score-pill ' + (Number(score) >= highAt ? 'score-high' : 'score-mid') };
+}
+
+function buildShelfLeadCard(lead){
+  const kind = shelfKind(lead.lead_side);
+  const el = document.createElement('div');
+  el.className = 'card lead-card ' + kind.cls;
+  el.innerHTML = `
+    <div class="lead-top">
+      <div>
+        <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
+        <div class="lead-name">${esc(lead.teaser_title || lead.lead_side || 'ליד')}</div>
+      </div>
+      <span class="status-pill status-masked">${shekel(rssLeadPrice)}</span>
+    </div>
+    ${tagsHtml([
+      // ציון האיכות הוא השיקול הראשון ברכישה — ולכן הוא התגית הפותחת
+      { text:`⭐ איכות ${lead.lead_quality_score ?? '—'}/10`,
+        cls: lead.lead_quality_score >= 8 ? 'tag-good' : 'tag-key' },
+      lead.urgency_level && { text:'⚡ דחיפות ' + lead.urgency_level, cls:'tag-info' },
+      ...shelfMetaParts(lead),
+      { text:'📅 נוסף ' + hebDate(lead.created_at) },
+    ])}
+    ${lead.teaser_description ? `<div class="lead-meta">${esc(lead.teaser_description)}</div>` : ''}
+    <div class="lead-actions"></div>
+  `;
+  addCardAction(el.querySelector('.lead-actions'), {
+    label:`🛒 רכישה · ${shekel(rssLeadPrice)}`, cls:'btn-gold act-wide',
+    onClick: btn => buyRssLead(lead, btn),
+  });
+  return el;
 }
 
 // טקסט גולמי — הדיאלוג מבריח בעצמו, ובכרטיס tagsHtml מבריח כל תגית
@@ -14987,30 +15065,43 @@ async function loadPurchasedLeads(agentId){
     return;
   }
 
-  listEl.innerHTML = '';
+  listEl.innerHTML = '<div class="prop-tabs shelf-tabs"></div>';
+  const tabsWrap = listEl.querySelector('.prop-tabs');
   leads.forEach(lead => {
     const kind = shelfKind(lead.lead_side);
-    const el = document.createElement('div');
-    el.className = 'card lead-card ' + kind.cls;
-    el.innerHTML = `
-      <div class="lead-top">
-        <div>
-          <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
-          <div class="lead-name">${esc(lead.teaser_title || lead.raw_title || lead.lead_side || 'ליד')}</div>
-        </div>
-        <span class="status-pill status-unlocked">נרכש ${hebDate(lead.sold_at)}</span>
-      </div>
-      ${tagsHtml([
-        ...shelfMetaParts(lead),
-        lead.source_name && { text:'🔗 ' + lead.source_name, cls:'tag-info' },
-      ])}
-      ${lead.raw_content ? `<div class="lead-meta" style="white-space:pre-wrap">${esc(lead.raw_content.slice(0, 600))}${lead.raw_content.length > 600 ? '…' : ''}</div>` : ''}
-      <div class="lead-actions">
-        <a class="btn btn-gold act-wide" href="${esc(lead.source_url)}" target="_blank" rel="noopener noreferrer">🔗 פתיחת הפוסט המקורי</a>
-      </div>
-    `;
-    listEl.appendChild(el);
+    tabsWrap.appendChild(buildTabRow({
+      key: lead.id, list:'boughtRss', expanded: shelfExpanded.rssBought,
+      cls: 'lead-tab ' + kind.cls,
+      icon: kind.icon,
+      title: lead.teaser_title || lead.raw_title || lead.lead_side || 'ליד',
+      sub: [lead.city, lead.property_type, lead.source_name].filter(Boolean).join(' · '),
+      pill: { text:'נרכש ' + tabShortDate(lead.sold_at), cls:'status-pill status-unlocked' },
+      buildCard: ()=> buildPurchasedLeadCard(lead, kind),
+    }));
   });
+}
+
+function buildPurchasedLeadCard(lead, kind){
+  const el = document.createElement('div');
+  el.className = 'card lead-card ' + kind.cls;
+  el.innerHTML = `
+    <div class="lead-top">
+      <div>
+        <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
+        <div class="lead-name">${esc(lead.teaser_title || lead.raw_title || lead.lead_side || 'ליד')}</div>
+      </div>
+      <span class="status-pill status-unlocked">נרכש ${hebDate(lead.sold_at)}</span>
+    </div>
+    ${tagsHtml([
+      ...shelfMetaParts(lead),
+      lead.source_name && { text:'🔗 ' + lead.source_name, cls:'tag-info' },
+    ])}
+    ${lead.raw_content ? `<div class="lead-meta" style="white-space:pre-wrap">${esc(lead.raw_content.slice(0, 600))}${lead.raw_content.length > 600 ? '…' : ''}</div>` : ''}
+    <div class="lead-actions">
+      <a class="btn btn-gold act-wide" href="${esc(lead.source_url)}" target="_blank" rel="noopener noreferrer">🔗 פתיחת הפוסט המקורי</a>
+    </div>
+  `;
+  return el;
 }
 
 async function buyRssLead(lead, btn){
@@ -15054,6 +15145,7 @@ async function buyRssLead(lead, btn){
     showToast(data.already_purchased
       ? 'הליד כבר שלך — מופיע למטה תחת "הלידים שרכשתי"'
       : `הליד נרכש! חויבת ${shekel(data.price_charged)}. הפוסט המקורי מופיע תחת "הלידים שרכשתי"`);
+    shelfExpanded.rss.delete(leadId);   // הליד ירד מהמדף — ראו shelfExpanded
     await loadDashboard();
   } catch(err){
     console.error(err);
@@ -15172,33 +15264,63 @@ function renderMortgageShelf(){
     return;
   }
 
-  listEl.innerHTML = '';
+  listEl.innerHTML = '<div class="prop-tabs shelf-tabs"></div>';
+  const tabsWrap = listEl.querySelector('.prop-tabs');
   filtered.forEach(lead => {
     const kind = mortgageKind(lead);
-    const el = document.createElement('div');
-    el.className = 'card lead-card ' + kind.cls;
-    el.innerHTML = `
-      <div class="lead-top">
-        <div>
-          <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
-          <div class="lead-name">החזר חודשי מבוקש ${shekel(lead.monthly_payment)}</div>
-        </div>
-        <span class="status-pill status-masked">${shekel(mortgageLeadPrice)}</span>
-      </div>
-      ${tagsHtml([
-        ...mortgageMetaParts(lead),
-        { text: lead.has_email ? '📇 שם, טלפון ואימייל' : '📇 שם וטלפון', cls:'tag-info' },
-        { text:'📅 נוסף ' + hebDate(lead.created_at) },
-      ])}
-      <div class="lead-meta">${mortgageSourceLine(lead)}</div>
-      <div class="lead-actions"></div>
-    `;
-    addCardAction(el.querySelector('.lead-actions'), {
-      label:`🛒 רכישה · ${shekel(mortgageLeadPrice)}`, cls:'btn-gold act-wide',
-      onClick: btn => buyMortgageLead(lead, btn),
-    });
-    listEl.appendChild(el);
+    tabsWrap.appendChild(buildTabRow({
+      key: lead.id, list:'shelfMortgage', expanded: shelfExpanded.mortgage,
+      cls: 'lead-tab ' + kind.cls,
+      icon: kind.icon,
+      // ההחזר החודשי הוא מה שמזהה ליד משכנתא בלי לחשוף מי הפונה
+      title: 'החזר חודשי ' + shekel(lead.monthly_payment),
+      sub: mortgageTabSub(lead),
+      price: shekel(mortgageLeadPrice),
+      buildCard: ()=> buildMortgageShelfCard(lead),
+    }));
   });
+}
+
+/* שורת המשנה של ליד משכנתא: גודל העסקה, ההון העצמי ואחוז המימון — שלוש
+   השאלות שקובעות אם הליד רלוונטי ליועצ/ת. השנים והריבית הן ההנחות שהפונה
+   הזין/ה במחשבון, והן ממתינות בתגיות שבכרטיס. הסכומים מקוצרים
+   (`shekelCompact`), כי שלושה סכומים מלאים בשורה אחת אינם נכנסים לטלפון. */
+function mortgageTabSub(lead){
+  // אחוז המימון לפני ההון העצמי: הוא הקצר מבין השניים והמכריע מביניהם,
+  // ובשורה שנחתכת בקצה עדיף שמה שיישאר יהיה הוא
+  return [
+    lead.property_price ? 'נכס ' + shekelCompact(lead.property_price) : null,
+    lead.ltv_pct != null ? Math.round(lead.ltv_pct) + '% מימון' : null,
+    lead.equity != null ? 'הון עצמי ' + shekelCompact(lead.equity) : null,
+    tabShortDate(lead.created_at),
+  ].filter(Boolean).join(' · ');
+}
+
+function buildMortgageShelfCard(lead){
+  const kind = mortgageKind(lead);
+  const el = document.createElement('div');
+  el.className = 'card lead-card ' + kind.cls;
+  el.innerHTML = `
+    <div class="lead-top">
+      <div>
+        <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
+        <div class="lead-name">החזר חודשי מבוקש ${shekel(lead.monthly_payment)}</div>
+      </div>
+      <span class="status-pill status-masked">${shekel(mortgageLeadPrice)}</span>
+    </div>
+    ${tagsHtml([
+      ...mortgageMetaParts(lead),
+      { text: lead.has_email ? '📇 שם, טלפון ואימייל' : '📇 שם וטלפון', cls:'tag-info' },
+      { text:'📅 נוסף ' + hebDate(lead.created_at) },
+    ])}
+    <div class="lead-meta">${mortgageSourceLine(lead)}</div>
+    <div class="lead-actions"></div>
+  `;
+  addCardAction(el.querySelector('.lead-actions'), {
+    label:`🛒 רכישה · ${shekel(mortgageLeadPrice)}`, cls:'btn-gold act-wide',
+    onClick: btn => buyMortgageLead(lead, btn),
+  });
+  return el;
 }
 
 async function loadPurchasedMortgageLeads(agentId){
@@ -15221,14 +15343,31 @@ async function loadPurchasedMortgageLeads(agentId){
   // הכותרות של הנכסים בלידים שנרכשו לא בהכרח נטענו במדף (ליד שנמכר יורד ממנו)
   await loadMortgageLeadProperties(leads);
 
-  listEl.innerHTML = '';
+  listEl.innerHTML = '<div class="prop-tabs shelf-tabs"></div>';
+  const tabsWrap = listEl.querySelector('.prop-tabs');
   leads.forEach(lead => {
     const kind = mortgageKind(lead);
-    const el = document.createElement('div');
-    el.className = 'card lead-card ' + kind.cls;
-    // ‏wa.me דורש מספר בינלאומי בלי + ובלי האפס המוביל
-    const waDigits = String(lead.phone).replace(/\D/g, '').replace(/^0/, '972');
-    el.innerHTML = `
+    tabsWrap.appendChild(buildTabRow({
+      key: lead.id, list:'boughtMortgage', expanded: shelfExpanded.mortgageBought,
+      cls: 'lead-tab ' + kind.cls,
+      icon: kind.icon,
+      title: lead.full_name,
+      sub: ['החזר ' + shekel(lead.monthly_payment),
+            lead.loan_amount != null ? 'הלוואה ' + shekelCompact(lead.loan_amount) : null,
+            mortgageSourceText(lead)].filter(Boolean).join(' · '),
+      pill: { text:'נרכש ' + tabShortDate(lead.sold_at), cls:'status-pill status-unlocked' },
+      buildCard: ()=> buildPurchasedMortgageCard(lead),
+    }));
+  });
+}
+
+function buildPurchasedMortgageCard(lead){
+  const kind = mortgageKind(lead);
+  const el = document.createElement('div');
+  el.className = 'card lead-card ' + kind.cls;
+  // ‏wa.me דורש מספר בינלאומי בלי + ובלי האפס המוביל
+  const waDigits = String(lead.phone).replace(/\D/g, '').replace(/^0/, '972');
+  el.innerHTML = `
       <div class="lead-top">
         <div>
           <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
@@ -15250,8 +15389,7 @@ async function loadPurchasedMortgageLeads(agentId){
           ? `<a class="btn btn-ghost" href="property.html?id=${esc(lead.property_id)}" target="_blank" rel="noopener noreferrer">🏠 הנכס</a>` : ''}
       </div>
     `;
-    listEl.appendChild(el);
-  });
+  return el;
 }
 
 async function buyMortgageLead(lead, btn){
@@ -15297,6 +15435,7 @@ async function buyMortgageLead(lead, btn){
     showToast(data.already_purchased
       ? 'הליד כבר שלך — מופיע למטה תחת "הלידים שרכשתי"'
       : `הליד נרכש! חויבת ${shekel(data.price_charged)}. פרטי הקשר מופיעים תחת "הלידים שרכשתי"`);
+    shelfExpanded.mortgage.delete(leadId);
     await loadDashboard();
   } catch(err){
     console.error(err);
@@ -15437,8 +15576,28 @@ function renderSavedSearchShelf(){
     return;
   }
 
-  listEl.innerHTML = '';
+  listEl.innerHTML = '<div class="prop-tabs shelf-tabs"></div>';
+  const tabsWrap = listEl.querySelector('.prop-tabs');
   filtered.forEach(lead => {
+    tabsWrap.appendChild(buildTabRow({
+      key: lead.id, list:'shelfSaved', expanded: shelfExpanded.saved,
+      cls:'lead-tab kind-buyer', icon:'🔔',
+      title: savedSearchTitle(lead),
+      sub: [SS_DEAL_LABELS[lead.deal_type],
+            // הקליקים הם הראיה היחידה שאינה הצהרה של הפונה על עצמו/ה
+            lead.alerts_clicked > 0 ? lead.alerts_clicked + ' נכסים נפתחו'
+              : (lead.alerts_sent > 0 ? lead.alerts_sent + ' התראות נשלחו' : null),
+            lead.has_phone ? 'יש טלפון' : null,
+            tabShortDate(lead.created_at)].filter(Boolean).join(' · '),
+      // ציון ההתעניינות הוא השיקול הראשון ברכישה, ולכן הוא הגלולה שבשורה
+      pill: scorePill(lead.intent_score, 100, 75),
+      price: shekel(savedSearchPrice),
+      buildCard: ()=> buildSavedSearchShelfCard(lead),
+    }));
+  });
+}
+
+function buildSavedSearchShelfCard(lead){
     const el = document.createElement('div');
     el.className = 'card lead-card kind-buyer';
     el.innerHTML = `
@@ -15468,8 +15627,7 @@ function renderSavedSearchShelf(){
       label:`🛒 רכישה · ${shekel(savedSearchPrice)}`, cls:'btn-gold act-wide',
       onClick: btn => buySavedSearchLead(lead, btn),
     });
-    listEl.appendChild(el);
-  });
+    return el;
 }
 
 async function loadPurchasedSavedSearches(agentId){
@@ -15491,14 +15649,32 @@ async function loadPurchasedSavedSearches(agentId){
     return;
   }
 
-  listEl.innerHTML = '';
+  listEl.innerHTML = '<div class="prop-tabs shelf-tabs"></div>';
+  const tabsWrap = listEl.querySelector('.prop-tabs');
   leads.forEach(lead => {
-    const el = document.createElement('div');
-    el.className = 'card lead-card kind-buyer';
-    const waPhone = (lead.phone || '').replace(/\D/g, '').replace(/^0/, '972');
     /* ליד שהגיע מהווידג'ט בדף המשרד לא נרכש — הוא הגיע חינם, כי הדף של
        המשרד הוא שייצר אותו. הכיתוב "נרכש" עליו פשוט לא נכון. */
     const fromAgencyPage = !!lead.agency_id;
+    tabsWrap.appendChild(buildTabRow({
+      key: lead.id, list:'boughtSaved', expanded: shelfExpanded.savedBought,
+      cls:'lead-tab kind-buyer', icon:'🔔',
+      title: lead.full_name,
+      sub: [savedSearchTitle(lead),
+            // מי שביטל/ה את ההתראות עדיין ליד לגיטימי, אבל זו עובדה שכדאי
+            // לדעת לפני שמרימים טלפון — ולכן היא נאמרת כבר בשורה
+            lead.status === 'unsubscribed' ? '🔕 הפסיק/ה את ההתראות' : null,
+           ].filter(Boolean).join(' · '),
+      pill: { text: (fromAgencyPage ? 'מדף המשרד ' : 'נרכש ') + tabShortDate(lead.sold_at),
+              cls: 'status-pill status-unlocked' },
+      buildCard: ()=> buildPurchasedSavedSearchCard(lead, fromAgencyPage),
+    }));
+  });
+}
+
+function buildPurchasedSavedSearchCard(lead, fromAgencyPage){
+    const el = document.createElement('div');
+    el.className = 'card lead-card kind-buyer';
+    const waPhone = (lead.phone || '').replace(/\D/g, '').replace(/^0/, '972');
     el.innerHTML = `
       <div class="lead-top">
         <div>
@@ -15516,7 +15692,7 @@ async function loadPurchasedSavedSearches(agentId){
         lead.status === 'unsubscribed' ? { text:'🔕 הפסיק/ה את ההתראות', cls:'tag-warn' } : null,
       ])}
       ${lead.free_text ? `<div class="lead-meta">חיפש/ה: “${esc(lead.free_text)}”</div>` : ''}
-      <div class="lead-meta" id="ssAct-${esc(lead.id)}">טוען פעילות…</div>
+      <div class="lead-meta ss-activity">טוען פעילות…</div>
       <div class="lead-actions"></div>
     `;
     const actions = el.querySelector('.lead-actions');
@@ -15528,15 +15704,18 @@ async function loadPurchasedSavedSearches(agentId){
     if (lead.email){
       addCardAction(actions, { label:'✉️ מייל', href:'mailto:' + lead.email });
     }
-    listEl.appendChild(el);
-    renderSavedSearchActivity(lead.id);
-  });
+    // הכרטיס נבנה בפתיחה, ולכן גם הפעילות נטענת אז — ולא לכל הרשימה מראש
+    renderSavedSearchActivity(el.querySelector('.ss-activity'), lead.id);
+    return el;
 }
 
 /* הנכסים שכבר נשלחו למחפש/ת ומה מתוכם נלחץ. זו הסיבה שהליד הזה שווה יותר
-   מפנייה רגילה, ולכן היא נטענת לכל כרטיס ולא מאחורי לחיצה נוספת. */
-async function renderSavedSearchActivity(searchId){
-  const el = document.getElementById('ssAct-' + searchId);
+   מפנייה רגילה, ולכן היא נטענת עם הכרטיס ולא מאחורי לחיצה נוספת.
+
+   האלמנט מגיע כפרמטר ולא נשלף ב-getElementById: הכרטיס נבנה בפתיחת הטאב,
+   ובשורה שנפתחת כבר מהרינדור הוא עדיין אינו בדף בזמן הקריאה. כתיבה
+   לאלמנט מנותק עובדת — הוא נכנס לדף מיד אחרי. */
+async function renderSavedSearchActivity(el, searchId){
   if (!el) return;
   const { data, error } = await sb.rpc('saved_search_lead_activity', { p_search_id: searchId });
   if (error || !data || data.length === 0){
@@ -15592,6 +15771,7 @@ async function buySavedSearchLead(lead, btn){
     showToast(data.already_purchased
       ? 'הליד כבר שלך — מופיע למטה תחת "הלידים שרכשתי"'
       : `הליד נרכש! חויבת ${shekel(data.price_charged)}. פרטי הקשר מופיעים תחת "הלידים שרכשתי"`);
+    shelfExpanded.saved.delete(lead.id);
     await loadDashboard();
   } catch(err){
     console.error(err);
@@ -16176,55 +16356,24 @@ function clientTabSub(c){
 function clientBudgetLabel(c){
   const min = Number(c.min_price) || 0;
   const max = Number(c.max_price) || 0;
-  let text = '';
-  if (min && max)    text = compactRange(min, max);
-  else if (max)      text = 'עד ' + shekelCompact(max);
-  else if (min)      text = 'מ־' + shekelCompact(min);
-  else return '';
-  return esc(text) + (c.deal_type === 'rent' ? ' <span class="per">לחודש</span>' : '');
+  if (min && max) return compactRange(min, max);
+  if (max) return 'עד ' + shekelCompact(max);
+  if (min) return 'מ־' + shekelCompact(min);
+  return '';
 }
 
 function buildClientTab(c){
   const matches = clientMatchCounts[c.id];
-  const isOpen = expandedClientIds.has(c.id);
-  const el = document.createElement('div');
-  el.className = 'prop-tab client-tab' + (isOpen ? ' is-open' : '');
-  const panelId = 'clientTabPanel-' + esc(String(c.id));
-  const budget = clientBudgetLabel(c);
-
-  el.innerHTML = `
-    <button type="button" class="prop-tab-head" aria-expanded="${isOpen}" aria-controls="${panelId}">
-      <span class="prop-tab-main">
-        <span class="prop-tab-title">${esc(c.full_name)}</span>
-        <span class="prop-tab-sub">${esc(clientTabSub(c))}</span>
-      </span>
-      ${matches ? `<span class="tab-flag">${esc(String(matches))} התאמות</span>` : ''}
-      ${budget ? `<span class="prop-tab-price">${budget}</span>` : ''}
-      <svg class="prop-tab-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
-           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-    </button>
-    <div class="prop-tab-panel" id="${panelId}"${isOpen ? '' : ' hidden'}></div>`;
-
-  const head = el.querySelector('.prop-tab-head');
-  const panel = el.querySelector('.prop-tab-panel');
-  // הכרטיס נבנה בפתיחה ונזרק בסגירה, כמו בטאבי הנכסים: שלושים כרטיסים
-  // מלאים בזיכרון הם בדיוק המסך שממנו ברחנו, והמאזינים שבהם נשארים תלויים
-  const fillPanel = ()=> panel.appendChild(buildClientCard(c));
-  if (isOpen) fillPanel();
-
-  head.addEventListener('click', ()=>{
-    const opening = !expandedClientIds.has(c.id);
-    panel.innerHTML = '';
-    if (opening){ expandedClientIds.add(c.id); fillPanel(); }
-    else expandedClientIds.delete(c.id);
-    panel.hidden = !opening;
-    el.classList.toggle('is-open', opening);
-    head.setAttribute('aria-expanded', String(opening));
-    // כרטיס שנפתח בתחתית המסך נפתח מחוץ לו — ‏nearest מזיז את המינימום
-    // הדרוש כדי לראות אותו, ולא מקפיץ את הדף כולו
-    if (opening) el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  return buildTabRow({
+    key: c.id, list:'client', expanded: expandedClientIds, cls:'client-tab',
+    title: c.full_name,
+    sub: clientTabSub(c),
+    pill: matches ? { text: matches + ' התאמות', cls:'tab-flag' } : null,
+    price: clientBudgetLabel(c),
+    priceNote: c.deal_type === 'rent' ? 'לחודש' : '',
+    // הכרטיס נבנה בפתיחה ונזרק בסגירה — ראו buildTabRow()
+    buildCard: ()=> buildClientCard(c),
   });
-  return el;
 }
 
 function buildClientCard(c){
