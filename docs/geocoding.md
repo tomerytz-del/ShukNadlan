@@ -29,12 +29,27 @@
 ההשוואה בשכבה היא מדויקת (`PropertyIsEqualTo`) ולא `like`: "הרצל 5" חייבת
 להחזיר את הרצל 5 ולא את הרצל 51.
 
+### שני סוגים בתור אחד
+
+‏`geocode_backfill_queue` מחזירה שורות משתי טבלאות, עם `kind` שמבדיל
+ביניהן: ‏`property` (נכס פעיל בלי פין) ו-`official_deal` (עסקה מהמאגר של
+רשות המיסים, `docs/market-deals-official.md`). ‏`geocode_record_result`
+בוחר לפי `kind` לאיזו טבלה לכתוב.
+
+עסקה בלי קואורדינטות אינה נכנסת לחישוב הרדיוס של דוח ה-CMA — כלומר היא
+נעדרת בדיוק מהמקום שבו הדוח הכי צריך אותה. וחשוב מזה: עסקה ונכס חייבים
+להימדד באותה שכבה, אחרת "500 מטר מהנכס" משווה שתי שיטות מיקום שונות.
+
+סף הוויתור (שלוש תשובות "אין כזו כתובת") ואי-ספירת תקלות התקשורת
+מוגדרים ב-DB פעם אחת ומשותפים לשני הסוגים. ‏`geocode-backfill` עצמו אינו
+יודע על ההבדל מעבר להעברת `kind` הלאה.
+
 ### ארבעה צרכנים, קובץ אחד
 
 | מי | דרך |
 |---|---|
 | `geocode-address` | `afulaAddressToCoords` |
-| `geocode-backfill` | `afulaAddressToCoords` |
+| `geocode-backfill` | `afulaAddressToCoords` — **לנכסים ולעסקאות רשמיות כאחד** |
 | `whatsapp-webhook/geocode.ts` | `afulaAddressToCoords`, בעטיפה שלעולם לא זורקת |
 | `afula-planning-lookup` | `streetVariants` בלבד — היא צריכה את ה-X/Y ב-ITM להמשך השאילתות המרחביות, ולא את ה-lat/lng |
 
