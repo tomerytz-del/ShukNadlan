@@ -620,10 +620,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      שורה אחת לנכס — סוג, כתובת ומחיר — וכל השאר מאחורי לחיצה. עשרה טאבים
      נכנסים למסך טלפון אחד, וזה ההבדל בין לסרוק רשימה לבין לגלול בה.
 
-     אותן מחלקות משרתות את שלוש הרשימות, ובכוונה: כולן אותה מחווה — שורה
-     שנפתחת — ועותק שני של הכללים האלה תחת שם אחר היה מתפצל מהם בשינוי
-     הראשון. טאב לקוח/ה נושא בנוסף `.client-tab` וטאב ליד `.lead-tab`,
-     כאחיזה לכל כלל שנכון שם ולא בנכסים. */
+     אותן מחלקות משרתות את כל רשימות הדשבורד, ובכוונה: כולן אותה מחווה —
+     שורה שנפתחת — ועותק שני של הכללים האלה תחת שם אחר היה מתפצל מהם
+     בשינוי הראשון. כל משפחה נושאת בנוסף אחיזה משלה — `.client-tab`,
+     `.lead-tab`, `.agr-tab` — לכל כלל שנכון שם ולא בנכסים. */
   .prop-tabs{display:grid;gap:6px}
   .prop-tab{border:1px solid var(--edge,var(--line));border-radius:var(--r-md,var(--radius-sm));
     background:var(--surface,#fff);overflow:hidden}
@@ -649,7 +649,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* הכרטיס שנפתח הוא אותו כרטיס שהיה ברשימה — רק בלי המרווח התחתון שהפריד
      בינו לבין הכרטיס הבא, שכבר לא קיים */
   .prop-tab-panel .lead-card,
-  .prop-tab-panel .client-card{margin-bottom:0;margin-top:8px}
+  .prop-tab-panel .client-card,
+  .prop-tab-panel .agr-row{margin-bottom:0;margin-top:8px}
   /* ---------- הגלולה שבשורה ----------
      ‏`.tab-pill` הוא רק המקום ברצועה — מי שלא מתכווץ כשהכותרת ארוכה. הצבע
      מגיע מהגלולה שכבר קיימת בכרטיס עצמו, כדי שאותו נתון ייראה אותו דבר
@@ -672,7 +673,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .lead-tab{border-inline-start:4px solid var(--edge,var(--line))}
   .lead-tab.kind-owner{border-inline-start-color:#B08A2E}
   .lead-tab.kind-buyer{border-inline-start-color:var(--teal)}
+  .lead-tab.kind-shared{border-inline-start-color:#2A5B36}
   .lead-tab.is-archived{border-inline-start-color:#cbd5e1}
+  /* ---------- טאב הסכם ----------
+     במשבצת המחיר יושב כאן "1/2 חתמו" ולא סכום: אותו מקום ברצועה, אותו
+     משקל, אבל הוא מספר שלם קצר ולא כסף — ולכן בלי צבע הכסף של המחיר. */
+  .agr-tab .prop-tab-price{color:var(--txt,var(--ink));font-variant-numeric:tabular-nums}
   @media(max-width:420px){
     .prop-tab-head{gap:7px;padding:9px 10px}
     .prop-tab-price{font-size:.8rem}
@@ -746,7 +752,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         animation-timeline:view(block);animation-range:entry 0% entry 50%;
       }
       /* הכרטיס שנפתח בתוך טאב כבר קיבל את התנועה של הטאב עצמו */
-      #dashboard .prop-tab-panel .lead-card{animation-name:none}
+      #dashboard .prop-tab-panel .lead-card,
+      #dashboard .prop-tab-panel .agr-row{animation-name:none}
     }
   }
   .card-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:7px}

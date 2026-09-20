@@ -16091,8 +16091,47 @@ function renderSharedWithMe(){
     return;
   }
 
-  listEl.innerHTML = '';
-  filtered.forEach(r => {
+  // הרשימה היא טאבים, כמו שאר רשימות הדשבורד — ראו buildTabRow()
+  listEl.innerHTML = '<div class="prop-tabs shared-tabs"></div>';
+  const tabsWrap = listEl.querySelector('.prop-tabs');
+  filtered.forEach(r => tabsWrap.appendChild(buildSharedTab(r)));
+}
+
+/* ---------- נכס ששותף איתי, כשורה ----------
+   מצב הפתיחה לפי `share_id` ולא לפי `property_id`: המפתח של השורה הוא
+   השיתוף, וזה גם מה שיישאר נכון אם אותו נכס ישותף פעמיים. */
+const expandedSharedIds = new Set();
+
+/* מי שיתף, כמה חדרים ומתי — מה שלא נכנס לכותרת. שם המשרד ראשון: הוא מה
+   שקובע את השיחה שתתקיים, והוא הפרט היחיד כאן שאינו על הנכס אלא על מי
+   שמחזיק אותו. */
+function sharedTabSub(r){
+  return [
+    r.owner_agency_name,
+    r.rooms ? r.rooms + ' חדרים' : null,
+    r.size_sqm ? r.size_sqm + ' מ״ר' : null,
+    tabShortDate(r.shared_at),
+  ].filter(Boolean).join(' · ');
+}
+
+/* הכותרת בנויה כמו בטאב של "הנכסים שלי" — סוג הנכס והכתובת — ולא מכותרת
+   המודעה: זה אותו סוג אובייקט, ולכן אותה שורה. כותרת מודעה היא טקסט חופשי
+   שאורכו נע בין שלוש מילים לשורה וחצי, ובשורה שנחתכת בקצה היא דוחקת החוצה
+   דווקא את מה שמזהה — הכתובת. המקורית נשארת בכרטיס. */
+function buildSharedTab(r){
+  return buildTabRow({
+    key: r.share_id || r.property_id, list:'shared', expanded: expandedSharedIds,
+    cls:'lead-tab kind-shared', icon:'🤝',
+    title: (r.property_type || 'נכס') + ' · ' + propertyTabAddress(r),
+    sub: sharedTabSub(r),
+    pill: { text: r.deal_type === 'rent' ? 'השכרה' : 'מכירה', cls:'status-pill status-shared' },
+    price: shekel(r.price),
+    priceNote: r.deal_type === 'rent' ? 'לחודש' : '',
+    buildCard: ()=> buildSharedCard(r),
+  });
+}
+
+function buildSharedCard(r){
     const address = sharedAddressLine(r);
     const tags = tagsHtml([
       r.rooms && { html:`🛏 <b>${esc(r.rooms)}</b> חדרים` },
@@ -16140,8 +16179,7 @@ function renderSharedWithMe(){
       href:'property.html?id=' + encodeURIComponent(r.property_id),
     });
 
-    listEl.appendChild(el);
-  });
+    return el;
 }
 
 document.getElementById('partnerSearch').addEventListener('input', renderSharePartners);
@@ -19576,11 +19614,57 @@ function renderAgreements(){
     return;
   }
 
-  listEl.innerHTML = '';
-  rows.forEach(a => {
+  // הרשימה היא טאבים, כמו שאר רשימות הדשבורד — ראו buildTabRow()
+  listEl.innerHTML = '<div class="prop-tabs agr-tabs"></div>';
+  const tabsWrap = listEl.querySelector('.prop-tabs');
+  rows.forEach(a => tabsWrap.appendChild(buildAgreementTab(a)));
+}
+
+/* ---------- הסכם כשורה ----------
+   **הכותרת היא מי חותם/ת, לא שם המסמך.** ‏`a.title` הוא סוג ההסכם
+   ("הזמנת שירותי תיווך במקרקעין - קניה"), והוא חוזר מילה במילה בכל הסכם
+   מאותו סוג — רשימה של שורות כאלה אינה ניתנת לסריקה. מה שמבדיל ביניהן
+   הוא שם הצד השני, ולכן הוא הכותרת, וסוג המסמך יורד לשורת המשנה. בהסכם
+   שעדיין אין לו צד שני (טיוטה) הכותרת נופלת חזרה לשם המסמך.
+
+   **השלמת החתימות היא המספר שבצד**, במשבצת שבה יושב המחיר בשאר
+   הרשימות: "1/2 חתמו" היא השאלה שבגללה פותחים הסכם.
+
+   **כשל בשליחת העותק החתום נאמר בשורה** ולא רק בכרטיס: זו תקלה שקרתה
+   בשקט, והסתרה שלה מאחורי לחיצה פירושה שאיש לא יידע עליה. */
+const expandedAgreementIds = new Set();
+
+function agrPartyNames(a){
+  return (a.signers || []).filter(s => s.party !== 'agent').map(s => s.full_name).filter(Boolean).join(' · ');
+}
+
+function agrTabSub(a){
+  return [
+    a.signed_copy_error ? '⚠ העותק החתום לא נשלח' : null,
+    agrPartyNames(a) ? a.title : null,   // שם המסמך ירד לכאן רק אם הוא אינו הכותרת
+    (a.snapshot && a.snapshot.property_line) || null,
+    tabShortDate(a.signed_at || a.created_at),
+  ].filter(Boolean).join(' · ');
+}
+
+function buildAgreementTab(a){
+  const st = AGR_STATUS[a.status] || { label:a.status, cls:'status-off' };
+  const prog = agrSignedCount(a);
+  return buildTabRow({
+    key: a.id, list:'agreement', expanded: expandedAgreementIds, cls:'agr-tab',
+    title: agrPartyNames(a) || a.title,
+    sub: agrTabSub(a),
+    pill: { text: st.label, cls: 'status-pill ' + st.cls },
+    price: prog.total ? prog.signed + '/' + prog.total : '',
+    priceNote: prog.total ? 'חתמו' : '',
+    buildCard: ()=> buildAgreementCard(a),
+  });
+}
+
+function buildAgreementCard(a){
     const st = AGR_STATUS[a.status] || { label:a.status, cls:'status-off' };
     const prog = agrSignedCount(a);
-    const names = (a.signers || []).filter(s => s.party !== 'agent').map(s => s.full_name).join(' · ');
+    const names = agrPartyNames(a);
     const propLine = (a.snapshot && a.snapshot.property_line) || '';
 
     const el = document.createElement('div');
@@ -19634,8 +19718,7 @@ function renderAgreements(){
       addCardAction(actions, { label:'✖ ביטול ההסכם', onClick:()=> agrCancel(a) });
     }
 
-    listEl.appendChild(el);
-  });
+    return el;
 }
 
 /* ---------- פעולות על הסכם קיים ---------- */
@@ -19715,6 +19798,7 @@ async function agrDelete(a){
   if (!confirm('למחוק את הטיוטה "' + a.title + '"?')) return;
   const { error } = await sb.from('agreements').delete().eq('id', a.id);
   if (error) return showToast('המחיקה נכשלה: ' + error.message);
+  expandedAgreementIds.delete(a.id);
   showToast('הטיוטה נמחקה');
   await loadAgreements();
 }
