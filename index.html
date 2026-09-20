@@ -810,15 +810,36 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      ‏gap גדול יחסית: חותמות צמודות נקראות כאשכול אחד, ופרושות — כסימנים
      שכל אחד אומר דבר משלו.
 
-     ‏**החותמת הרביעית והחמישית הצטרפו אחרי שנמדד הרוחב.** חמש עמודות ברוחב
-     הכיתוב הארוך ("דירוג מלקוחות אמיתיים") ועוד המספרים שלצדן נכנסות בשורה
-     אחת מ-1024px ומעלה, ובין 760px ל-1024px השורה נשברת בין שתי הקבוצות —
-     כלומר בדיוק במקום שבשבילו הן קובצו. מי שמוסיף/ה חותמת שישית מודד/ת
-     שוב, וכיתוב ארוך משל הקיים מרחיב את *כל* העמודות ולא רק את שלו. */
-  .hero-marks{
-    display:grid;grid-auto-flow:column;grid-auto-columns:1fr;
-    align-items:center;justify-items:center;gap:18px;
+     ‏**שלוש למעלה ושתיים מתחתיהן, ולא חמש בשורה.** חמש חותמות ברצף אחד
+     נכנסו טכנית ברוחב אבל נקראו כשורת כפתורים דחוסה, ושתי האחרונות —
+     שהצטרפו אחרונות — נראו כתוספת שנדחפה לקצה. שתי שורות מחזירות לשורה
+     העליונה את האוויר שהיה לה כששלוש החותמות עמדו לבדן.
+
+     ‏**שתי שורות ולא גריד אחד בעל שתי שורות**, וזו לא קוסמטיקה: בועת
+     ההסבר נתלית על ה-ancestor הממוקם הקרוב ביותר (ראו הסעיף על הבועה),
+     ובגריד אחד זה היה המכל כולו — כלומר בועה של חותמת מהשורה העליונה
+     הייתה צונחת אל *מתחת לשורה התחתונה*, כ-150px מהחותמת שפתחה אותה.
+     ‏`.hero-marks-row` נושאת ‎position:relative‎ משלה, ולכן כל בועה נופלת
+     מיד מתחת לשורה שלה.
+
+     ‏**שתי השורות הן אותו גריד של שש עמודות ‎1fr‎**, וכל חותמת תופסת
+     שתיים: עליונה 1-2 / 3-4 / 5-6, תחתונה 2-3 / 4-5. מכאן שתי התוצאות —
+     שתי החותמות התחתונות ממורכזות *בין* העליונות ולא מתחת לשתיים מהן,
+     ושתי השורות חולקות את אותה רשת בדיוק, ולכן העיגולים יושבים על אותו
+     מקצב במקום ששתי עמודות יתפרסו על רוחב של שלוש.
+
+     מי שמוסיף/ה חותמת שישית מעביר/ה אותה לשורה התחתונה ומשנה שם את
+     ההנחה לשלוש עמודות; כיתוב ארוך משל הקיים ("דירוג מלקוחות אמיתיים")
+     מרחיב את *כל* העמודות ולא רק את שלו. */
+  .hero-marks{display:flex;flex-direction:column;gap:14px}
+  .hero-marks-row{
+    position:relative;
+    display:grid;grid-template-columns:repeat(6,1fr);
+    align-items:start;justify-items:center;column-gap:18px;
   }
+  .hero-marks-row > *{grid-column:span 2}
+  .hero-marks-row.is-lower > :nth-child(1){grid-column:2 / span 2}
+  .hero-marks-row.is-lower > :nth-child(2){grid-column:4 / span 2}
   .hero-mark{
     display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;
     padding:0;border:0;background:none;font-family:inherit;text-decoration:none;cursor:pointer;
@@ -875,13 +896,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      השורה, ובועה ברוחב 300px שממורכזת על עיגול של 42px הייתה חורגת מקצה
      המסך. על ‎.hero-stats‎ כולה היא גם לא יכולה להיתלות — בדסקטופ השורה
      מיושרת לתחילת עמודה רחבה (‏justify-content:flex-start), ובועה
-     שממורכזת עליה הייתה נוחתת באמצע המסך, הרחק מהחותמת שפתחה אותה. */
+     שממורכזת עליה הייתה נוחתת באמצע המסך, הרחק מהחותמת שפתחה אותה.
+
+     ‏**לבנה עם טקסט כהה ולא נייבי עם לבן.** הבועה נפתחת מעל המפה, ומלבן
+     כהה שצץ שם נקרא כחלון שנפתח על האתר; קופסה לבנה נקראת כהסבר שנצמד
+     לחותמת. מכיוון שהיא לבנה על רקע בהיר היא חייבת מסגרת — בלעדיה הצל
+     לבדו אינו מפריד אותה מהמפה. הטקסט הוא ‎--ink‎, אותו שחור־כחול שבו
+     כתוב כל הדף. */
   .hero-mark[data-info]::after{
     content:attr(data-info);display:none;
     position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%);
     width:max-content;max-width:min(300px,84vw);white-space:normal;text-align:center;
-    background:var(--teal-dark);color:#fff;font-size:.72rem;font-weight:600;line-height:1.5;
-    padding:10px 13px;border-radius:0;box-shadow:0 10px 26px rgba(6,20,34,.3);
+    background:#fff;color:var(--ink);border:1px solid var(--line);
+    font-size:.72rem;font-weight:600;line-height:1.5;
+    padding:10px 13px;border-radius:0;box-shadow:0 10px 26px rgba(6,20,34,.22);
     pointer-events:none;z-index:30;
   }
   .hero-mark[data-info]:hover::after,
@@ -1074,8 +1102,26 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      ‏align-self ולא ‎inset-inline-start‎ עם רוחב העמודה: קופסת הסרגל נשארת
      ברוחב מלא, ולכן הפאנל אינו נדחס לרוחב שמאלץ את המקרא להישבר לשתי שורות
      בחלון צר — הוא פשוט עומד בקצה בגודלו הטבעי. */
+  /* ...אבל הפינה הזו אינה פנויה: כפתור הנגישות הצף יושב בדיוק שם
+     (‏‎.a11y-fab‎ — ‎left:--a11y-fab-gap‎, ברוחב ‎--a11y-fab-size‎), ו-z-index
+     שלו גבוה יותר. בלי ההרחקה כאן הוא נוחת על **כפתור מירכוז המפה**,
+     שהוא האחרון בשורה ולכן השמאלי ביותר ב-RTL — כלומר מכל פקדי הסרגל
+     דווקא הוא זה שנעלם לגמרי מתחת לכפתור.
+
+     ‏margin על הפאנל ולא padding על ‎.map-toolbar‎, ובכוונה: לסרגל יש
+     ‎padding:0 16px‎ בשאילתת ה-760px, שיושבת **אחרי** הבלוק הזה בקובץ —
+     קיצור-דרך של ‎padding‎ היה דורס שם כל ‎padding-inline-end‎ שנכתוב פה,
+     בלי להתלונן ובלי שייראה משהו עד שמישהו יפתח את הדף ברוחב הזה.
+
+     ‏margin-inline-end ב-RTL הוא הצד השמאלי, והחישוב הוא מ*אותם משתנים*
+     שמגדירים את הכפתור ולא ממספר קבוע: ‎size + gap*2‎ מפנה את רוחב הכפתור,
+     את המרווח שלו מהקצה, ועוד מרווח זהה אחריו. מי שמשנה את גודל הכפתור
+     מקבל/ת את ההרחקה הנכונה בלי לגעת כאן. */
   @media(min-width:1024px){
-    .map-toolbar .map-panel{align-self:flex-end}
+    .map-toolbar .map-panel{
+      align-self:flex-end;
+      margin-inline-end:calc(var(--a11y-fab-size) + var(--a11y-fab-gap) * 2);
+    }
   }
   /* כשכל מה שנשאר בשורה הצדדית מוסתר (היום — רק בורר הסגנון), גם המכל עצמו
      יורד, אחרת ה-gap שלו מרחיק את הפאנל מתחתית המפה בלי סיבה */
@@ -3391,6 +3437,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                ומקבל/ת את אותה בועה בדיוק — אין כאן חמישה עיצובים שיתפצלו זה
                מזה בעריכה הבאה. -->
           <div class="hero-stats-group hero-marks">
+           <div class="hero-marks-row">
             <!-- תו האמון הוא התמונה עצמה ולא עיגול־טקסט שמחקה אותה: אותה
                  חותמת בדיוק מופיעה בדף הסוכן/ת, בדף המשרד ובמודעת הנכס,
                  וגרסה מצוירת שלה בדף הבית הייתה סימן אמון שני שאיש לא
@@ -3462,7 +3509,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               </span>
               <span class="hero-mark-cap">כל נכס מאומת</span>
             </button>
+           </div>
 
+           <!-- השורה התחתונה. ‏is-lower הוא מה שממרכז את שתי החותמות בין
+                שלוש העליונות (ראו ה-CSS), והעטיפה היא גם העוגן של הבועות
+                שלהן — בלעדיה הן היו נתלות על המכל ונוחתות מתחת לכל השורה. -->
+           <div class="hero-marks-row is-lower">
             <!-- שיתופי הפעולה הם מנגנון ולא סיסמה: סוכן/ת שמסמן/ת נכס
                  כ"פתוח לשת״פ" מפיץ/ה אותו מיד לכל משרדי התיווך שברשימה
                  האישית, והרשימה נשמרת כרשימת *הסרות* — כלומר ברירת המחדל
@@ -3477,7 +3529,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                  המתאר של שתי כפות הידיים ומשלוש האצבעות שנכרכות, ולכן זה
                  מה שצויר. ‏stroke ולא מילוי, כמו אייקון הבית שלצדו. -->
             <button type="button" class="hero-mark"
-                    data-info="נכס שנפתח לשיתוף פעולה מופץ מיד לכל משרדי התיווך שברשימה, וברירת המחדל היא כל המשרדים בפלטפורמה. כך העסקה הנכונה מגיעה אליכם גם כשהיא יושבת אצל משרד אחר.">
+                    data-info="המתווכים כאן עובדים יחד — נכס של משרד אחד מגיע גם אליכם. כך הסיכוי שתמצאו את העסקה הטובה ביותר בשוק רק גדל.">
               <span class="hero-mark-ico" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -3497,7 +3549,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                  ארבעה סגנונות עיצוב לנכס מגורים, והדמיית העסק שאפשר להקים
                  בנכס מסחרי. הנוסח בבועה נזהר לא להבטיח שלכל נכס יש הדמיה —
                  הן נוצרות לנכסים של סוכני Premium — ולכן הוא מתאר את היכולת
-                 ולא את המלאי.
+                 ("אפשר לראות") ולא את המלאי ("כל נכס מוצג").
 
                  האייקון הוא מסגרת תמונה שבתוכה בית, ולא בית שבתוכו מוח כמו
                  בסקיצה: בית שני בשורה שבה כבר יושב בית (‏"כל נכס מאומת")
@@ -3506,7 +3558,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                  בעל ארבעה קצוות ולא חמישה כדי לא להתחרות בכוכבי הדירוג
                  שלצדו. -->
             <button type="button" class="hero-mark"
-                    data-info="אפשר לראות ולא רק לדמיין: הדמיות AI בארבעה סגנונות עיצוב לנכס מגורים, והדמיה של העסק שאפשר להקים בנכס מסחרי.">
+                    data-info="מפסיקים לדמיין ורואים: הנכס בכמה סגנונות עיצוב, ובנכס מסחרי — גם העסק שאפשר להקים בו.">
               <span class="hero-mark-ico" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
@@ -3519,6 +3571,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               </span>
               <span class="hero-mark-cap">הדמיות AI לנכס</span>
             </button>
+           </div>
           </div>
         </div>
 
