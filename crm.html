@@ -616,14 +616,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .prop-price{font-weight:800;font-size:.92rem;color:var(--teal-dark);margin-top:2px}
   .prop-price .per{font-weight:600;font-size:.78rem;color:var(--ink-soft)}
 
-  /* ---------- רשימת טאבים: "הנכסים שלי" ו"קובץ הלקוחות" ----------
+  /* ---------- רשימת טאבים: הנכסים, הלקוחות והלידים ----------
      שורה אחת לנכס — סוג, כתובת ומחיר — וכל השאר מאחורי לחיצה. עשרה טאבים
      נכנסים למסך טלפון אחד, וזה ההבדל בין לסרוק רשימה לבין לגלול בה.
 
-     אותן מחלקות משרתות גם את קובץ הלקוחות, ובכוונה: שתי הרשימות הן אותה
-     מחווה — שורה שנפתחת — ועותק שני של הכללים האלה תחת שם אחר היה מתפצל
-     מהם בשינוי הראשון. טאב לקוח/ה נושא בנוסף `.client-tab`, כאחיזה לכל
-     כלל שיהיה נכון שם ולא בנכסים. */
+     אותן מחלקות משרתות את שלוש הרשימות, ובכוונה: כולן אותה מחווה — שורה
+     שנפתחת — ועותק שני של הכללים האלה תחת שם אחר היה מתפצל מהם בשינוי
+     הראשון. טאב לקוח/ה נושא בנוסף `.client-tab` וטאב ליד `.lead-tab`,
+     כאחיזה לכל כלל שנכון שם ולא בנכסים. */
   .prop-tabs{display:grid;gap:6px}
   .prop-tab{border:1px solid var(--edge,var(--line));border-radius:var(--r-md,var(--radius-sm));
     background:var(--surface,#fff);overflow:hidden}
@@ -656,10 +656,26 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      ‏`--gold-tint` הוורוד לא מתאים כאן — באתר הזה הוא אומר "דורש טיפול". */
   .tab-flag{font-size:.68rem;font-weight:800;padding:2px 8px;border-radius:999px;
     background:#DFEDE3;color:#2A5B36;white-space:nowrap;flex-shrink:0}
+
+  /* ---------- טאב ליד ----------
+     בשורת הליד התגית היא הסטטוס עצמו, ובאותן גלולות של הכרטיס
+     (`.status-masked` הזהובה, `.status-unlocked` הכחולה): ליד מוסתר הוא
+     מה שדורש פעולה, וזה הדבר היחיד שצריך לראות בלי לפתוח.
+
+     הפס הצדדי נושא את צד הליד — זהב למוכר/משכיר (הליד היקר), נייבי
+     לקונה/שוכר, אפור לארכיון. בלעדיו הרשימה הסגורה מאבדת את מה שמבדיל
+     ביניהם, כי הגוון המלא של הכרטיס נשאר בכרטיס שנפתח: שתים־עשרה שורות
+     צבועות זו לא הדגשה אלא קיר. */
+  .prop-tab-head .status-pill{flex-shrink:0}
+  .lead-tab{border-inline-start:4px solid var(--edge,var(--line))}
+  .lead-tab.kind-owner{border-inline-start-color:#B08A2E}
+  .lead-tab.kind-buyer{border-inline-start-color:var(--teal)}
+  .lead-tab.is-archived{border-inline-start-color:#cbd5e1}
   @media(max-width:420px){
     .prop-tab-head{gap:7px;padding:9px 10px}
     .prop-tab-price{font-size:.8rem}
     .tab-flag{font-size:.64rem;padding:2px 6px}
+    .prop-tab-head .status-pill{font-size:.64rem;padding:2px 7px}
   }
 
   /* ---------- אזור הגלילה של הרשימה ----------
