@@ -796,17 +796,29 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media(min-width:760px){.hero-stat-sep-wide{display:block}}
 
   /* ---------- שלוש החותמות ----------
-     תו האמון, הדירוג ומניעת הכפילויות הן אותו רכיב בדיוק: עיגול בקוטר 38,
-     בלי כיתוב, עם בועת הסבר אחת משותפת. זהות המבנה היא מה שהופך אותן לשורה
-     מסודרת ולא לשלושה קישוטים שהונחו זה לצד זה. */
-  .hero-marks{gap:10px}
+     תו האמון, הדירוג ואימות הנכסים הן אותו רכיב בדיוק: עיגול בקוטר 42 וכיתוב
+     זעיר מתחתיו. זה גם המבנה של המספרים שלצדן (‏‎<b>‎ גדול מעל ‎<i>‎ קטן), ולכן
+     כל חמשת הפריטים בשורה נקראים כרצף אחד ולא כשתי משפחות שהונחו זו לצד זו.
+
+     ‏**grid ולא flex, ובעמודות שוות.** הכיתובים באורכים שונים ("תו האמון
+     והאיכות" מול "כל נכס מאומת"), ובשורת flex עם gap אחיד זה אומר שהמרווח
+     בין הכיתובים שווה אבל המרווח בין *העיגולים* — מה שהעין באמת מודדת —
+     יוצא לא שווה. שלוש עמודות ‎1fr‎ נותנות לכל חותמת את אותו רוחב בדיוק,
+     ולכן שלושת העיגולים יושבים על מרווחים זהים תהיה אשר תהיה אורך המילים.
+
+     ‏gap גדול יחסית: שלוש חותמות צמודות נקראות כאשכול אחד, ופרושות — כשלושה
+     סימנים שכל אחד אומר דבר משלו. */
+  .hero-marks{
+    display:grid;grid-auto-flow:column;grid-auto-columns:1fr;
+    align-items:center;justify-items:center;gap:18px;
+  }
   .hero-mark{
-    display:flex;align-items:center;
+    display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;
     padding:0;border:0;background:none;font-family:inherit;text-decoration:none;cursor:pointer;
   }
-  .hero-mark:focus-visible{outline:3px solid var(--brass,#c9a227);outline-offset:3px}
+  .hero-mark:focus-visible{outline:3px solid var(--brass,#c9a227);outline-offset:4px}
   .hero-mark-seal,.hero-mark-ico{
-    flex:none;width:38px;height:38px;border-radius:50%;
+    flex:none;width:42px;height:42px;border-radius:50%;
     transition:transform .16s ease;
   }
   .hero-mark:hover .hero-mark-seal,
@@ -832,7 +844,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   .hero-mark:hover .hero-mark-ico,
   .hero-mark.is-open .hero-mark-ico{border-color:var(--brass-light,#e5c76a)}
-  .hero-mark-ico svg{width:19px;height:19px;display:block}
+  .hero-mark-ico svg{width:23px;height:23px;display:block}
+  /* הכיתוב הוא שתיים־שלוש מילים בשורה אחת. ‏nowrap ולא גלישה: שלוש חותמות
+     שאחת מהן נשברה לשתי שורות מורידה את שכנותיה מהקו ושוברת את השורה כולה. */
+  .hero-mark-cap{
+    font-size:.62rem;font-weight:600;color:var(--ink-soft);line-height:1.2;
+    white-space:nowrap;text-shadow:0 1px 4px rgba(255,255,255,.9);
+  }
+  .hero-mark:hover .hero-mark-cap{color:var(--teal)}
 
   /* ====== בועת ההסבר — כלל אחד לשלוש החותמות ======
      ‏‎[data-info]‎ ולא מחלקה לכל חותמת: גודל, רקע, ריפוד וצל שמוגדרים שלוש
@@ -844,7 +863,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      קופצות בשלושה גדלים.
 
      היא נתלית על קבוצת החותמות ולא על החותמת עצמה: החותמות יושבות בקצה
-     השורה, ובועה ברוחב 300px שממורכזת על עיגול של 38px הייתה חורגת מקצה
+     השורה, ובועה ברוחב 300px שממורכזת על עיגול של 42px הייתה חורגת מקצה
      המסך. על ‎.hero-stats‎ כולה היא גם לא יכולה להיתלות — בדסקטופ השורה
      מיושרת לתחילת עמודה רחבה (‏justify-content:flex-start), ובועה
      שממורכזת עליה הייתה נוחתת באמצע המסך, הרחק מהחותמת שפתחה אותה. */
@@ -1035,6 +1054,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      בשורה עצמה (RTL) האיבר האחרון הוא השמאלי ביותר, ולכן כפתור המירכוז
      יושב ממש בפינה. */
   .map-toolbar .map-toolbar-side{align-self:flex-end;display:flex;align-items:center;gap:6px}
+  /* ====== בדסקטופ הפאנל יורד לפינה הפנויה ======
+     מ-1024px ומעלה הכותרת וסרגל החיפוש יושבים בעמודה מעל צד אחד של המפה
+     (ימין ב-RTL), והפאנל — שממורכז על *כל* רוחב המפה — נחת בדיוק מתחתיה:
+     חציו הימני הוסתר מאחורי העמודה, ומה שנשאר גלוי היה סרגל חתוך שנראה
+     כתקלה. ‏align-self:flex-end מוריד אותו לפינה הנגדית, הפנויה (השמאלית
+     ב-RTL) — אותה פינה שבה יושבת כבר ‎.map-toolbar-side‎ מעליו, כך ששני
+     הפקדים שעל המפה מיושרים לאותו קצה במקום להתפזר.
+
+     ‏align-self ולא ‎inset-inline-start‎ עם רוחב העמודה: קופסת הסרגל נשארת
+     ברוחב מלא, ולכן הפאנל אינו נדחס לרוחב שמאלץ את המקרא להישבר לשתי שורות
+     בחלון צר — הוא פשוט עומד בקצה בגודלו הטבעי. */
+  @media(min-width:1024px){
+    .map-toolbar .map-panel{align-self:flex-end}
+  }
   /* כשכל מה שנשאר בשורה הצדדית מוסתר (היום — רק בורר הסגנון), גם המכל עצמו
      יורד, אחרת ה-gap שלו מרחיק את הפאנל מתחתית המפה בלי סיבה */
   .map-toolbar .map-toolbar-side:not(:has(> :not([hidden]))){display:none}
@@ -3316,7 +3349,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              לחותמות ולא באמצע צמד. -->
         <div class="hero-stats" id="heroStats" hidden>
           <div class="hero-stats-group">
-            <span class="hero-stat"><b id="heroStatProps">—</b><i>נכסים פעילים</i></span>
+            <!-- גם המספר הזה קישור, מאותה סיבה: מי שקורא/ת "79 נכסים
+                 פעילים" רוצה לראות אותם, והרצועה שעונה על זה כבר בעמוד. -->
+            <a class="hero-stat hero-stat-link" href="#allProps"
+               ><b id="heroStatProps">—</b><i>נכסים פעילים</i></a>
             <span class="hero-stat-sep" aria-hidden="true"></span>
             <!-- המספר הזה הוא קישור: מי שקורא/ת "10 משרדי תיווך" רוצה
                  לראות אילו, והרצועה שעונה על זה כבר קיימת בעמוד. ‏data-dm-tab
@@ -3336,15 +3372,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                מי עומד מאחורי מי שאני רואה כאן, מי נתן את הכוכבים, והאם גם כאן
                אותה דירה מופיעה חמש פעמים כמו בכל מקום אחר.
 
-               **שלושתן בלי כיתוב.** כיתוב דו־שורתי לצד כל אחת היה שלוש שורות
-               טקסט בשורה אחת, והוא גם היה חוזר על מה שכתוב בבועה. מה שנשאר
-               הוא שלושה עיגולים בגודל זהה — שורה שנקראת כסימן אחד — וההסבר
-               נפתח בריחוף, בפוקוס או בלחיצה.
+               **אותו מבנה של המספרים שלצדן:** סימן גדול למעלה וכיתוב זעיר
+               מתחתיו, בדיוק כמו ‎<b>79</b><i>נכסים פעילים</i>‎. הכיתוב הוא
+               שתיים־שלוש מילים ולא משפט — מה שאין בו נפתח בבועה.
 
-               **הבועה זהה בשלושתן**, ולא במקרה: ‏‎.hero-mark[data-info]::after‎
-               הוא כלל אחד שמגיש את כל שלוש. מי שמוסיף/ה חותמת רביעית נותן/ת
-               לה ‎data-info‎ ומקבל/ת את אותה בועה בדיוק — אין כאן שלושה
-               עיצובים שיתפצלו זה מזה בעריכה הבאה. -->
+               **הבועה זהה בשלושתן**: ‏‎.hero-mark[data-info]::after‎ הוא כלל
+               אחד שמגיש את כל שלוש. מי שמוסיף/ה חותמת רביעית נותן/ת לה
+               ‎data-info‎ ומקבל/ת את אותה בועה בדיוק — אין כאן שלושה עיצובים
+               שיתפצלו זה מזה בעריכה הבאה. -->
           <div class="hero-stats-group hero-marks">
             <!-- תו האמון הוא התמונה עצמה ולא עיגול־טקסט שמחקה אותה: אותה
                  חותמת בדיוק מופיעה בדף הסוכן/ת, בדף המשרד ובמודעת הנכס,
@@ -3355,45 +3390,67 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                  (‏ethics-code.html) ובו עשרת הסעיפים, והבועה רק מספרת
                  שהוא שם. -->
             <a class="hero-mark" href="ethics-code.html"
-               aria-label="תו האמון והאיכות — לקריאת הקוד האתי המלא"
                data-info="תו האמון והאיכות מוענק רק למשרדים ולמתווכים שאישרו את עשרת סעיפי הקוד האתי, ומוסר מיידית במקרה של הפרה. לחצו לקריאת הקוד המלא.">
               <img class="hero-mark-seal" src="assets/badge-ethics.png" width="384" height="384"
                    alt="" decoding="async">
+              <span class="hero-mark-cap">תו האמון והאיכות</span>
             </a>
 
             <!-- הכוכבים הם הדבר הראשון שנראה על כרטיס של מתווך/ת, והשאלה
                  הראשונה עליהם היא מי כתב אותם. התשובה אינה הבטחה שיווקית:
                  ‎reviews.linked_lead_id‎ הוא חובה ו-‎unique‎, כלומר כל ביקורת
                  קשורה לפנייה קונקרטית שנפתחה במערכת, אחת לכל פנייה, ואי
-                 אפשר לכתוב ביקורת מטופס פתוח (ראו docs/agent-reviews.md). -->
+                 אפשר לכתוב ביקורת מטופס פתוח (ראו docs/agent-reviews.md).
+
+                 שלושה כוכבים ולא אחד, והאמצעי גדול: זה ההרכב שקוראים אותו
+                 כ"דירוג" ברבע שנייה, בעוד שכוכב בודד נקרא כ"מועדף". הם
+                 מלאים במילוי מדורג ולא בקו, כי זהב על נייבי הוא מה שמסמן
+                 אותם כדירוג ולא כאייקון ממשק. -->
             <button type="button" class="hero-mark"
-                    aria-label="מי כותב את הדירוגים באתר"
                     data-info="הדירוג נכתב רק על ידי לקוחות שסגרו עסקה: כל ביקורת קשורה לפנייה אמיתית שנפתחה במערכת, אחת לכל פנייה. אין כאן דירוגים אנונימיים.">
               <span class="hero-mark-ico" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="currentColor">
-                  <path d="M12 3.1l2.6 5.62 6.15.76-4.54 4.2 1.2 6.08L12 16.72l-5.41 3.04 1.2-6.08-4.54-4.2 6.15-.76L12 3.1z"/>
+                <svg viewBox="0 0 24 24">
+                  <defs>
+                    <linearGradient id="markStarGold" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0" stop-color="#F6E3A1"/>
+                      <stop offset=".48" stop-color="#E5C76A"/>
+                      <stop offset="1" stop-color="#BE951F"/>
+                    </linearGradient>
+                  </defs>
+                  <g fill="url(#markStarGold)">
+                    <path d="M4.40 9.60 L5.34 12.31 L8.20 12.36 L5.92 14.09 L6.75 16.84 L4.40 15.20 L2.05 16.84 L2.88 14.09 L0.60 12.36 L3.46 12.31Z" opacity=".82"/>
+                    <path d="M19.60 9.60 L20.54 12.31 L23.40 12.36 L21.12 14.09 L21.95 16.84 L19.60 15.20 L17.25 16.84 L18.08 14.09 L15.80 12.36 L18.66 12.31Z" opacity=".82"/>
+                    <path d="M12.00 4.30 L13.62 8.97 L18.56 9.07 L14.62 12.05 L16.06 16.78 L12.00 13.96 L7.94 16.78 L9.38 12.05 L5.44 9.07 L10.38 8.97Z"/>
+                  </g>
                 </svg>
               </span>
+              <span class="hero-mark-cap">דירוג מלקוחות אמיתיים</span>
             </button>
 
-            <!-- "אפס כפילויות" נאכפת במסד — הטריגר ‎properties_guard_duplicate‎
+            <!-- אימות הנכס נאכף במסד — הטריגר ‎properties_guard_duplicate‎
                  חוסם מעבר ל-‎active‎ לנכס שכבר מפורסם לאותם בעלים (ראו
-                 docs/property-status-exclusivity.md). היא גם היכולת היחידה
+                 docs/property-status-exclusivity.md). זו גם היכולת היחידה
                  בשורה שאי אפשר לראות במבט: המספרים נספרים והכוכבים נראים,
-                 ואילו מודעה שנחסמה פשוט אינה על המסך. -->
+                 ואילו מודעה שנחסמה פשוט אינה על המסך.
+
+                 האייקון הוא בית עם תג אימות, ולא סמל מופשט: הבית הוא אותה
+                 צורה שיושבת בלוגו ובפיני המפה שברקע, והתג הוא הווי שכבר
+                 מופיע על תו האמון שלצדו — כלומר שני היסודות שהדף כבר מדבר
+                 בהם. הווי נחתך מתוך התג בצבע הרקע של העיגול, ולכן הוא נשאר
+                 חד גם ב-42px ואינו הופך לכתם. -->
             <button type="button" class="hero-mark"
-                    aria-label="למה אין באתר נכסים כפולים"
                     data-info="אותו נכס לא מתפרסם פעמיים. כל מודעה חדשה נבדקת מול כל הנכסים באתר לפי הכתובת ולפי הבעלים.">
               <span class="hero-mark-ico" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                     stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                  <!-- המודעה הכפולה, מאחור — קיימת, ולא עולה לאתר -->
-                  <path d="M8.8 3.6h10.4a.8.8 0 0 1 .8.8v10.4" opacity=".55"/>
-                  <!-- המודעה שעברה את הבדיקה -->
-                  <rect x="3" y="7.6" width="13.4" height="13.4" rx="2.4"/>
-                  <path d="m6.7 14.5 2.6 2.6 4.9-5.3"/>
+                     stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M2.9 10.4 12 3.3l9.1 7.1"/>
+                  <path d="M5.2 9.2V20.4h5.1"/>
+                  <path d="M18.8 9.2v1.7"/>
+                  <circle cx="16.9" cy="16.9" r="5.1" fill="currentColor" stroke="none"/>
+                  <path d="m14.7 16.9 1.6 1.6 3.1-3.3" stroke="var(--teal)" stroke-width="1.9"/>
                 </svg>
               </span>
+              <span class="hero-mark-cap">כל נכס מאומת</span>
             </button>
           </div>
         </div>
@@ -7763,7 +7820,7 @@ function inDrawnArea(p){
 }
 
 const MAP_DRAW_COPY = {
-  live: 'פתחו את המפה בגודל מלא וסמנו עליה את האזור שמעניין אתכם',
+  live: 'פתחו את המפה עם רשימת הנכסים שלצדה',
   // בטלפון אין כלי סימון, ולכן הרצועה מתארת את מה שכן אפשר לעשות שם:
   // גרירת המפה היא עצמה חיפוש (ראו updateSplitPanel)
   touch: 'גררו את המפה — הרשימה שמתחתיה מתעדכנת לפי מה שרואים',
@@ -7820,19 +7877,22 @@ function initMapDraw(){
   });
   clearBtn.addEventListener('click', ()=> mapDraw.clear());
 
-  /* ‏**הרצועה פותחת את המפה, ולא מתחילה לצייר עליה.**
-     קודם היא קראה ל-‎mapDraw.startArea()‎, כלומר לחיצה אחת על "חיפוש במפה"
-     הכניסה את מי שלחץ/ה ישר למצב סימון מצולע — סרגל שאומר "לחצו על המפה כדי
-     לסמן את פינות האזור, לפחות שלוש", עם "ביטול" ו"סיום". מי שביקש/ה לראות
-     את המפה קיבל/ה מטלה.
+  /* ‏**הרצועה פותחת מפה ורשימה — ולא מתחילה לצייר.**
+     קודם היא קראה גם ל-‎mapDraw.startArea()‎, כלומר לחיצה אחת על "חיפוש
+     במפה" הכניסה את מי שלחץ/ה ישר למצב סימון מצולע — סרגל שאומר "לחצו על
+     המפה כדי לסמן את פינות האזור, לפחות שלוש", עם "ביטול" ו"סיום". מי
+     שביקש/ה לראות את המפה קיבל/ה מטלה, ובלי שביקש/ה.
 
-     היום היא עושה בדיוק את מה שכתוב עליה: פותחת את המפה בגודל מלא וגוללת
-     אליה. כלי הסימון והרדיוס ממשיכים לשבת על המפה עצמה (‎.map-tools‎),
-     וכשמישהו/י באמת רוצה לסמן — הם שם, במרחק לחיצה, ביוזמתו/ה.
+     מה שנשאר הוא שתי הפעולות שהרצועה באמת מבטיחה: התצוגה המפוצלת (מפה
+     ורשימה זו לצד זו) והגדלת המפה. כלי הסימון והרדיוס ממשיכים לשבת על המפה
+     עצמה (‎.map-tools‎), וכשמישהו/י באמת רוצה לסמן — הם שם, במרחק לחיצה,
+     ביוזמתו/ה.
 
-     גם התצוגה המפוצלת כבר לא נדלקת מכאן: היא נדלקה כדי שתוצאת הסימון תופיע
-     לצד המפה, והסימון אינו קורה כאן יותר. מי שכבר פתח/ה אותה נשאר/ת איתה. */
+     הסדר אינו מקרי: ‏setSplitView משנה את רוחב הקונטיינר של המפה וקוראת
+     ל-invalidateSize, ולכן היא קודמת להגדלה. מי שכבר במצב מפוצל לא מושפע/ת
+     — הקריאה מגודרת ב-‎if (!splitOn)‎. */
   mapCta.addEventListener('click', ()=>{
+    if (!splitOn) setSplitView(true);
     setMapExpanded(true);
     document.getElementById('heroSection')?.scrollIntoView({ behavior:'smooth', block:'start' });
   });
