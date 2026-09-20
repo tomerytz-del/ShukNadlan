@@ -23,7 +23,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from deals_engine.nadlan import missing_fields                      # noqa: E402
+from deals_engine.fields import missing_fields                      # noqa: E402
 from deals_engine.normalize import (                                # noqa: E402
     SkipRecord, build_external_key, normalize, split_address,
 )
@@ -120,6 +120,14 @@ check("missing_fields מזהה חוסר",
       set(missing_fields({"PRICE": 1})) >= {"deal_id", "date", "address"},
       missing_fields({"PRICE": 1}))
 
+# ----------------------------------------------- הבדיקה עצמה נשארת טהורה
+# ה-workflow מריץ את הקובץ הזה **בלי להתקין תלויות**, כי הוא פונקציות
+# טהורות. כשאוצר המילים והתעבורה ישבו באותו מודול, ‏`import requests`
+# נגרר לכאן והפיל את ה-job ב-ModuleNotFoundError שאינו מסביר דבר.
+# השורה הזו הופכת חזרה של הצימוד הזה לכשל עם שם.
+check("הבדיקה אינה גוררת תלות ברשת", "requests" not in sys.modules,
+      "מודול בשרשרת הייבוא מושך requests — אוצר המילים שייך ל-deals_engine/fields.py")
+
 # ------------------------------------------------------------------- סיכום
 if failures:
     print(f"✗ {len(failures)} בדיקות נכשלו ב-deals_engine/normalize.py:\n")
@@ -127,7 +135,7 @@ if failures:
         print(f"   {line}")
     print("\nרשומה שנכנסת למאגר מסומנת price_basis='official' — כלומר היא")
     print("המספר שדוח ה-CMA סומך עליו יותר מכל אחר. אין לרכך את הבדיקות")
-    print("האלה; אם המקור השתנה, מתקנים את FIELDS ב-deals_engine/nadlan.py.")
+    print("האלה; אם המקור השתנה, מתקנים את FIELDS ב-deals_engine/fields.py.")
     sys.exit(1)
 
 print(f"✓ כל {passed} הבדיקות של נרמול העסקאות הרשמיות עוברות.")

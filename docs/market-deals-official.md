@@ -5,7 +5,7 @@
 כותב ל-`market_deals_official`, ו-`agent_cma_report` מאחדת אותו עם
 עסקאות הפלטפורמה.
 
-> **⚠ טרם אומת מול תשובה חיה.** מיפוי השדות ב-`deals_engine/nadlan.py`
+> **⚠ טרם אומת מול תשובה חיה.** מיפוי השדות ב-`deals_engine/fields.py`
 > נכתב לפי התיעוד של ה-API. הסביבה שבה נכתב הקוד חסומה מ-nadlan.gov.il
 > במדיניות רשת יוצאת — בדיוק כמו שקרה עם רשם התאגידים
 > (`docs/new-projects.md`). **יש להריץ `--probe` פעם אחת לפני שה-workflow
@@ -62,9 +62,9 @@ python deals_scraper.py --probe עפולה
 אפשר גם מלשונית **Actions** → "עסקאות רשמיות — רשות המיסים" → Run workflow
 עם `probe = true`.
 
-**אם שדה מסומן ✗:** מתקנים את `FIELDS` ב-`deals_engine/nadlan.py` ותו
+**אם שדה מסומן ✗:** מתקנים את `FIELDS` ב-`deals_engine/fields.py` ותו
 לא. כל שאר המנוע קורא דרך `pick()` ואינו יודע שמות שדות. אם לא חזרו
-רשומות בכלל אבל התשובה נראית תקינה — ‏`extract_records` באותו קובץ אינו
+רשומות בכלל אבל התשובה נראית תקינה — ‏`extract_records` ב-`fields.py` אינו
 מזהה את המפתח העוטף.
 
 ## למה רשומה פגומה נזרקת ולא מנוחשת
@@ -135,7 +135,8 @@ python deals_scraper.py --probe עפולה
 | מה | איפה |
 |---|---|
 | נקודת כניסה | `deals_scraper.py` |
-| **המתאם למקור — הקובץ היחיד שיודע שמות שדות** | `deals_engine/nadlan.py` |
+| **שמות השדות של המקור — הקובץ שמתקנים** | `deals_engine/fields.py` |
+| תעבורה: נקודות הקצה והלקוח | `deals_engine/nadlan.py` |
 | נרמול ודחייה | `deals_engine/normalize.py` |
 | כתיבה ויומן | `deals_engine/store.py` |
 | תזמורת וסף הפענוח | `deals_engine/run.py` |

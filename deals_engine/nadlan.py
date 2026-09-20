@@ -5,13 +5,16 @@
 בפועל** ולא מחיר פרסום. זו כל הסיבה שהמנוע הזה קיים.
 
 ‏================================================================
-‏⚠  מיפוי השדות כאן טרם אומת מול תשובה חיה.
+‏⚠  נקודות הקצה כאן טרם אומתו מול תשובה חיה.
 ‏================================================================
 
 הסביבה שבה נכתב הקוד חסומה מ-nadlan.gov.il (מדיניות רשת יוצאת), בדיוק
-כפי שקרה עם רשם התאגידים ב-`docs/new-projects.md`. המיפוי למטה הוא מה
-שמתועד על ה-API, והוא מרוכז ב-`FIELDS` וב-`ENDPOINTS` בלבד — כל השאר
-בקובץ הזה ובשאר המנוע אינו תלוי בשמות השדות.
+כפי שקרה עם רשם התאגידים ב-`docs/new-projects.md`.
+
+הקובץ הזה נושא את ה**תעבורה** בלבד — ‏`ENDPOINTS` ו-`NadlanClient`.
+אוצר המילים של המקור (שמות השדות והשליפה מהם) יושב ב-`fields.py`,
+שאינו מייבא ספריית HTTP: ‏`normalize.py` ובדיקת ה-CI נשענים עליו, והם
+פונקציות טהורות שאסור להן לגרור תלות ברשת.
 
 **האימות הוא פקודה אחת ממכונה עם גישה:**
 
@@ -38,6 +41,7 @@ from typing import Any, Iterator
 import requests
 
 from .config import Settings
+from .fields import FIELDS, REQUIRED, extract_records, missing_fields, pick
 
 log = logging.getLogger(__name__)
 
@@ -51,56 +55,12 @@ ENDPOINTS = {
     "deals":   f"{BASE}/Nadlan.REST/Main/GetAssestAndDeals",
 }
 
-# ---------------------------------------------------------------------------
-# מיפוי השדות. **זה מה שמתקנים אחרי `--probe`, ורק זה.**
-#
-# הערך הוא רשימה של שמות אפשריים לפי סדר עדיפות — המקור שינה שמות בעבר,
-# ורשימה עולה פחות מהתנגשות בין שתי גרסאות.
-# ---------------------------------------------------------------------------
-FIELDS: dict[str, tuple[str, ...]] = {
-    # זהות העסקה במקור — הבסיס ל-external_key
-    "deal_id":       ("KEYVALUE", "DEALID", "ID"),
-    # מחיר העסקה בשקלים
-    "price":         ("DEALAMOUNT", "DEALSUM", "PRICE"),
-    # תאריך העסקה
-    "date":          ("DEALDATE", "DEALDATETIME", "DEALDATESTR"),
-    # כתובת מלאה כפי שהמקור כותב אותה
-    "address":       ("FULLADRESS", "DISPLAYADRESS", "ADDRESS"),
-    # תיאור סוג הנכס ("דירה", "דירת גן", "בית פרטי"…)
-    "asset_type":    ("DEALNATUREDESCRIPTION", "ASSETTYPE", "PROPERTYTYPE"),
-    # שטח במ"ר
-    "size_sqm":      ("DEALNATURE", "ASSETAREA", "AREA"),
-    "rooms":         ("ASSETROOMNUM", "ROOMS", "ROOMNUM"),
-    "floor":         ("FLOORNO", "FLOOR"),
-    "year_built":    ("BUILDINGYEAR", "YEARBUILT"),
-    "gush":          ("GUSH", "GUSH_ID"),
-    "helka":         ("HELKA", "PARCEL"),
-    "neighborhood":  ("NEIGHBORHOODNAME", "NEIGHBORHOOD"),
-}
-
-# בלי אלה אין עסקה. ראו למה בראש הקובץ.
-REQUIRED = ("deal_id", "price", "date")
-
-
 class NadlanError(RuntimeError):
     """המקור לא ענה, או ענה במשהו שאינו JSON."""
 
 
-def pick(record: dict[str, Any], field: str) -> Any:
-    """הערך הראשון שנמצא מבין השמות האפשריים של השדה."""
-    for name in FIELDS.get(field, ()):
-        if name in record and record[name] not in (None, ""):
-            return record[name]
-        # המקור אינו עקבי ברישיות בין נקודות קצה
-        for key in record:
-            if key.upper() == name.upper() and record[key] not in (None, ""):
-                return record[key]
-    return None
 
 
-def missing_fields(record: dict[str, Any]) -> list[str]:
-    """אילו שדות מתוך FIELDS לא נמצאו ברשומה. משמש גם את --probe."""
-    return [name for name in FIELDS if pick(record, name) is None]
 
 
 class NadlanClient:
@@ -191,19 +151,10 @@ class NadlanClient:
             time.sleep(self._s.pause_between_requests_seconds)
 
 
-def extract_records(data: Any) -> list[dict[str, Any]]:
-    """הרשומות מתוך גוף התשובה, בלי להניח מפתח עוטף אחד.
-
-    המקור החזיר בעבר גם רשימה ישירה וגם אובייקט עם מפתח עוטף. במקום
-    לנחש — מחפשים את רשימת המילונים הראשונה שיש בה שדה מחיר.
-    """
-    if isinstance(data, list):
-        return [r for r in data if isinstance(r, dict)]
-    if not isinstance(data, dict):
-        return []
-
-    for value in data.values():
-        if isinstance(value, list) and value and isinstance(value[0], dict):
-            if pick(value[0], "price") is not None or pick(value[0], "deal_id") is not None:
-                return [r for r in value if isinstance(r, dict)]
-    return []
+# ‏FIELDS, REQUIRED, pick, missing_fields ו-extract_records מיוצאים מחדש
+# כאן כי הם היו בקובץ הזה, ומי שמייבא אותם ממנו אינו טועה — אוצר המילים
+# והתעבורה הם שני צדדים של אותו מתאם. ההגדרה עצמה ב-fields.py.
+__all__ = [
+    "BASE", "ENDPOINTS", "FIELDS", "REQUIRED", "NadlanClient", "NadlanError",
+    "extract_records", "missing_fields", "pick",
+]

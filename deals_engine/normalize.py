@@ -19,7 +19,7 @@ import re
 from datetime import date, datetime
 from typing import Any
 
-from .nadlan import pick
+from .fields import pick
 
 log = logging.getLogger(__name__)
 

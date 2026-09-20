@@ -130,7 +130,7 @@ def probe(settings: Settings, city: str) -> int:
     print(f"--- extract_records מצא {len(records)} רשומות ---")
     if not records:
         print("לא זוהו רשומות. התשובה למעלה היא מה שצריך כדי לתקן את")
-        print("‏extract_records ב-deals_engine/nadlan.py — הוא מחפש את רשימת")
+        print("‏extract_records ב-deals_engine/fields.py — הוא מחפש את רשימת")
         print("המילונים הראשונה שיש בה שדה מחיר או מזהה עסקה.")
         return 1
 
@@ -174,7 +174,7 @@ def probe(settings: Settings, city: str) -> int:
         print("⚠ המתאם אינו תואם למקור.")
         if absent:
             print(f"  שדות שלא נמצאו: {', '.join(absent)}")
-        print("  יש לעדכן את FIELDS ב-deals_engine/nadlan.py. שום קובץ אחר.")
+        print("  יש לעדכן את FIELDS ב-deals_engine/fields.py. שום קובץ אחר.")
         return 1
 
     print("✓ כל השדות נמצאו והנרמול עבר. המתאם תואם למקור.")
