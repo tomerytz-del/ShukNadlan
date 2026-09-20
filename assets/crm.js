@@ -297,6 +297,19 @@ function leadKind(lead){
   if (lead.lead_type === 'agent_direct_inquiry'){
     return { cls:'kind-buyer', icon:'✉️', label:'פנייה ישירה · מתעניין/ת' };
   }
+  /* בקשת הדמיה — אותו שם שבו קוראת לה תצוגת מנהל/ת הפלטפורמה
+     (`ADM_LEAD_TYPES`), ולא שם רביעי לאותו דבר.
+
+     בלי הענף הזה הליד נפל לברירת המחדל והוצג כ"ליד שוכר/קונה". הצד היה
+     נכון — הפונה הוא/היא צד הביקוש, ולכן גם כאן `kind-buyer` והתמחור
+     ב-`claimCost()` לא משתנה — אבל מה שמייחד את הליד נעלם, והוא בדיוק מה
+     שפותח את השיחה: הוא/היא כבר ראה/תה את המקום הזה כעסק או כבית.
+
+     מה בדיוק ההדמיה הראתה — עסק וסוגו, הלבשת בית או נכס פרטי — יושב ב-
+     `property_details` (נכתב ב-`property-visualize`) ומוצג בכרטיס. */
+  if (lead.lead_type === 'visualization'){
+    return { cls:'kind-buyer', icon:'🎨', label:'בקשת הדמיה · מתעניין/ת' };
+  }
   return { cls:'kind-buyer', icon:'🔎', label: rent ? 'ליד שוכר · מתעניין/ת' : 'ליד קונה · מתעניין/ת' };
 }
 
@@ -16078,8 +16091,47 @@ function renderSharedWithMe(){
     return;
   }
 
-  listEl.innerHTML = '';
-  filtered.forEach(r => {
+  // הרשימה היא טאבים, כמו שאר רשימות הדשבורד — ראו buildTabRow()
+  listEl.innerHTML = '<div class="prop-tabs shared-tabs"></div>';
+  const tabsWrap = listEl.querySelector('.prop-tabs');
+  filtered.forEach(r => tabsWrap.appendChild(buildSharedTab(r)));
+}
+
+/* ---------- נכס ששותף איתי, כשורה ----------
+   מצב הפתיחה לפי `share_id` ולא לפי `property_id`: המפתח של השורה הוא
+   השיתוף, וזה גם מה שיישאר נכון אם אותו נכס ישותף פעמיים. */
+const expandedSharedIds = new Set();
+
+/* מי שיתף, כמה חדרים ומתי — מה שלא נכנס לכותרת. שם המשרד ראשון: הוא מה
+   שקובע את השיחה שתתקיים, והוא הפרט היחיד כאן שאינו על הנכס אלא על מי
+   שמחזיק אותו. */
+function sharedTabSub(r){
+  return [
+    r.owner_agency_name,
+    r.rooms ? r.rooms + ' חדרים' : null,
+    r.size_sqm ? r.size_sqm + ' מ״ר' : null,
+    tabShortDate(r.shared_at),
+  ].filter(Boolean).join(' · ');
+}
+
+/* הכותרת בנויה כמו בטאב של "הנכסים שלי" — סוג הנכס והכתובת — ולא מכותרת
+   המודעה: זה אותו סוג אובייקט, ולכן אותה שורה. כותרת מודעה היא טקסט חופשי
+   שאורכו נע בין שלוש מילים לשורה וחצי, ובשורה שנחתכת בקצה היא דוחקת החוצה
+   דווקא את מה שמזהה — הכתובת. המקורית נשארת בכרטיס. */
+function buildSharedTab(r){
+  return buildTabRow({
+    key: r.share_id || r.property_id, list:'shared', expanded: expandedSharedIds,
+    cls:'lead-tab kind-shared', icon:'🤝',
+    title: (r.property_type || 'נכס') + ' · ' + propertyTabAddress(r),
+    sub: sharedTabSub(r),
+    pill: { text: r.deal_type === 'rent' ? 'השכרה' : 'מכירה', cls:'status-pill status-shared' },
+    price: shekel(r.price),
+    priceNote: r.deal_type === 'rent' ? 'לחודש' : '',
+    buildCard: ()=> buildSharedCard(r),
+  });
+}
+
+function buildSharedCard(r){
     const address = sharedAddressLine(r);
     const tags = tagsHtml([
       r.rooms && { html:`🛏 <b>${esc(r.rooms)}</b> חדרים` },
@@ -16127,8 +16179,7 @@ function renderSharedWithMe(){
       href:'property.html?id=' + encodeURIComponent(r.property_id),
     });
 
-    listEl.appendChild(el);
-  });
+    return el;
 }
 
 document.getElementById('partnerSearch').addEventListener('input', renderSharePartners);
@@ -16807,89 +16858,126 @@ function renderClientAlerts(){
     return;
   }
 
-  listEl.innerHTML = '';
-  alertRows.forEach(a => {
-    const address = [a.city, [a.street, a.house_number].filter(Boolean).join(' ')]
-      .filter(Boolean).join(', ');
+  // הרשימה היא טאבים, כמו שאר רשימות הדשבורד — ראו buildTabRow()
+  listEl.innerHTML = '<div class="prop-tabs alert-tabs"></div>';
+  const tabsWrap = listEl.querySelector('.prop-tabs');
+  alertRows.forEach(a => tabsWrap.appendChild(buildAlertTab(a)));
+}
 
-    const alertTags = tagsHtml([
-      { text: a.deal_type === 'rent' ? shekel(a.price) + ' לחודש' : shekel(a.price), cls:'tag-key' },
-      a.rooms && { html:`🛏 <b>${esc(a.rooms)}</b> חדרים` },
-      a.property_type && { text:'🏠 ' + a.property_type },
-      a.size_sqm && { text:`📐 ${a.size_sqm} מ״ר` },
-      a.floor != null && { text:'🏢 קומה ' + a.floor },
-      address && { text:'📍 ' + address },
-    ]);
+/* ---------- התראת התאמה כשורה ----------
+   ההתראה היא זוג: נכס שנכנס ולקוח/ה שהוא מתאים לו/ה. הכותרת היא הנכס,
+   באותה צורה שבה הוא נכתב בכל שאר הרשימות (סוג · כתובת), ושם הלקוח/ה הוא
+   הפרט הראשון בשורת המשנה — כלומר זה שלעולם אינו נחתך. שני הכיוונים
+   קורים בשטח: נכס אחד שמתאים לשלושה לקוחות, ולקוח/ה אחד/ת ששלושה נכסים
+   מתאימים לו/ה, ולכן אף אחד מהשניים אינו לבדו מפתח שמבדיל בין השורות.
 
-    const gaps = [
-      ...(a.reasons || []),
-      ...((a.missing_features || []).length
-        ? ['חסר: ' + a.missing_features.map(featureLabel).join(', ')] : []),
-    ];
+   הפס הצדדי הזהוב מסמן את מה שטרם נצפה — בלי זה רשימת ההתראות אחידה
+   לגמרי והחדש נבלע בין מה שכבר טופל. זו אותה החלטה שכבר עמדה מאחורי
+   `.alert-card.is-new`, והיא פשוט עברה לשורה. */
+const expandedAlertIds = new Set();
 
-    // המשרד שמפרסם רלוונטי רק כשהוא לא שלי — בנכס שלי זה רעש
-    const sourceLabel = a.source === 'shared'
-      ? '🤝 ' + (a.listing_agency_name || 'משרד שותף')
-      : MATCH_SOURCE_LABELS[a.source] || a.source;
+function alertAddressLine(a){
+  return [a.city, [a.street, a.house_number].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+}
 
-    const card = document.createElement('div');
-    card.className = 'match-card alert-card' + (a.status === 'new' ? ' is-new' : '');
-    card.innerHTML = `
-      <div class="match-head">
-        <div>
-          <span class="src-tag src-${esc(a.source)}">${esc(sourceLabel)}</span>
-          <div class="alert-for">מתאים ל${esc(a.client_name)}</div>
-          <div class="match-title">${esc(a.title)}</div>
-        </div>
-        <div style="text-align:left">
-          <span class="score-pill ${a.score >= 85 ? 'score-high' : 'score-mid'}">${a.score}%</span>
-          <div class="alert-when">${esc(hebDateTime(a.created_at))}</div>
-        </div>
-      </div>
-      ${alertTags}
-      ${gaps.length ? `<div class="match-gap">${gaps.map(esc).join(' · ')}</div>` : ''}
-      <div class="lead-actions"></div>
-    `;
-
-    const actions = card.querySelector('.lead-actions');
-    addCardAction(actions, {
-      label:'🏠 עמוד הנכס', blank:true,
-      href:'property.html?id=' + encodeURIComponent(a.property_id),
-    });
-
-    // ההצעה ללקוח/ה היא הפעולה שההתראה נועדה לה, ולכן הקישור נולד מוכן:
-    // שם, כותרת הנכס, מחיר וקישור ציבורי — בלי להקליד כלום
-    const clientWa = waLink(a.client_phone);
-    if (clientWa){
-      const lines = [
-        `שלום ${a.client_name},`,
-        `מצאתי נכס שיכול להתאים למה שאתם מחפשים: ${a.title}` + (address ? ` ב${address}` : '') + '.',
-        (a.deal_type === 'rent' ? shekel(a.price) + ' לחודש' : shekel(a.price)) + '.',
-        propertyPublicLink(a.property_id),
-      ];
-      addCardAction(actions, {
-        label:'💬 שליחה ללקוח/ה', cls:'btn-gold', blank:true,
-        href: clientWa + '?text=' + encodeURIComponent(lines.join('\n')),
-      });
-    }
-
-    if (a.source !== 'own' && a.listing_agent_phone){
-      addCardAction(actions, {
-        label:'📞 ' + (a.listing_agent_name || 'הסוכן/ת'),
-        href:'tel:' + String(a.listing_agent_phone).replace(/[^\d+]/g, ''),
-      });
-    }
-
-    if (a.status === 'new'){
-      addCardAction(actions, { label:'✓ נצפתה', onClick: btn => setAlertStatus(a, 'seen', btn) });
-    }
-    addCardAction(actions, {
-      label:'✕ הסרה', title:'ההתראה לא תוצג שוב. הנכס עצמו נשאר בפאנל ההתאמות של הלקוח/ה.',
-      onClick: btn => setAlertStatus(a, 'dismissed', btn),
-    });
-
-    listEl.appendChild(card);
+function buildAlertTab(a){
+  const isNew = a.status === 'new';
+  return buildTabRow({
+    key: a.id, list:'alert', expanded: expandedAlertIds,
+    cls: 'alert-tab' + (isNew ? ' is-new' : ''),
+    icon: a.source === 'shared' ? '🤝' : '🔔',
+    title: (a.property_type || 'נכס') + ' · ' + (alertAddressLine(a) || a.title || ''),
+    sub: ['ל' + (a.client_name || '—'),
+          // המשרד שמפרסם רלוונטי רק כשהוא לא שלי — בנכס שלי זה רעש
+          a.source === 'shared' ? (a.listing_agency_name || 'משרד שותף') : null,
+          tabShortDate(a.created_at)].filter(Boolean).join(' · '),
+    pill: { text: a.score + '%', cls: 'score-pill ' + (a.score >= 85 ? 'score-high' : 'score-mid') },
+    price: shekel(a.price),
+    priceNote: a.deal_type === 'rent' ? 'לחודש' : '',
+    buildCard: ()=> buildAlertCard(a),
   });
+}
+
+function buildAlertCard(a){
+  const address = alertAddressLine(a);
+
+  const alertTags = tagsHtml([
+    { text: a.deal_type === 'rent' ? shekel(a.price) + ' לחודש' : shekel(a.price), cls:'tag-key' },
+    a.rooms && { html:`🛏 <b>${esc(a.rooms)}</b> חדרים` },
+    a.property_type && { text:'🏠 ' + a.property_type },
+    a.size_sqm && { text:`📐 ${a.size_sqm} מ״ר` },
+    a.floor != null && { text:'🏢 קומה ' + a.floor },
+    address && { text:'📍 ' + address },
+  ]);
+
+  const gaps = [
+    ...(a.reasons || []),
+    ...((a.missing_features || []).length
+      ? ['חסר: ' + a.missing_features.map(featureLabel).join(', ')] : []),
+  ];
+
+  // המשרד שמפרסם רלוונטי רק כשהוא לא שלי — בנכס שלי זה רעש
+  const sourceLabel = a.source === 'shared'
+    ? '🤝 ' + (a.listing_agency_name || 'משרד שותף')
+    : MATCH_SOURCE_LABELS[a.source] || a.source;
+
+  const card = document.createElement('div');
+  card.className = 'match-card alert-card' + (a.status === 'new' ? ' is-new' : '');
+  card.innerHTML = `
+    <div class="match-head">
+      <div>
+        <span class="src-tag src-${esc(a.source)}">${esc(sourceLabel)}</span>
+        <div class="alert-for">מתאים ל${esc(a.client_name)}</div>
+        <div class="match-title">${esc(a.title)}</div>
+      </div>
+      <div style="text-align:left">
+        <span class="score-pill ${a.score >= 85 ? 'score-high' : 'score-mid'}">${a.score}%</span>
+        <div class="alert-when">${esc(hebDateTime(a.created_at))}</div>
+      </div>
+    </div>
+    ${alertTags}
+    ${gaps.length ? `<div class="match-gap">${gaps.map(esc).join(' · ')}</div>` : ''}
+    <div class="lead-actions"></div>
+  `;
+
+  const actions = card.querySelector('.lead-actions');
+  addCardAction(actions, {
+    label:'🏠 עמוד הנכס', blank:true,
+    href:'property.html?id=' + encodeURIComponent(a.property_id),
+  });
+
+  // ההצעה ללקוח/ה היא הפעולה שההתראה נועדה לה, ולכן הקישור נולד מוכן:
+  // שם, כותרת הנכס, מחיר וקישור ציבורי — בלי להקליד כלום
+  const clientWa = waLink(a.client_phone);
+  if (clientWa){
+    const lines = [
+      `שלום ${a.client_name},`,
+      `מצאתי נכס שיכול להתאים למה שאתם מחפשים: ${a.title}` + (address ? ` ב${address}` : '') + '.',
+      (a.deal_type === 'rent' ? shekel(a.price) + ' לחודש' : shekel(a.price)) + '.',
+      propertyPublicLink(a.property_id),
+    ];
+    addCardAction(actions, {
+      label:'💬 שליחה ללקוח/ה', cls:'btn-gold', blank:true,
+      href: clientWa + '?text=' + encodeURIComponent(lines.join('\n')),
+    });
+  }
+
+  if (a.source !== 'own' && a.listing_agent_phone){
+    addCardAction(actions, {
+      label:'📞 ' + (a.listing_agent_name || 'הסוכן/ת'),
+      href:'tel:' + String(a.listing_agent_phone).replace(/[^\d+]/g, ''),
+    });
+  }
+
+  if (a.status === 'new'){
+    addCardAction(actions, { label:'✓ נצפתה', onClick: btn => setAlertStatus(a, 'seen', btn) });
+  }
+  addCardAction(actions, {
+    label:'✕ הסרה', title:'ההתראה לא תוצג שוב. הנכס עצמו נשאר בפאנל ההתאמות של הלקוח/ה.',
+    onClick: btn => setAlertStatus(a, 'dismissed', btn),
+  });
+
+  return card;
 }
 
 /* ‏dismissed יורדת מהרשימה תמיד (הפיד לא מחזיר אותה), ו-seen יורדת רק
@@ -16910,6 +16998,7 @@ async function setAlertStatus(row, status, btn){
 
   if (status === 'dismissed' || alertScope() === 'new'){
     alertRows = alertRows.filter(r => r.id !== row.id);
+    expandedAlertIds.delete(row.id);   // ההתראה ירדה מהרשימה
   } else {
     row.status = status;
     row.seen_at = row.seen_at || new Date().toISOString();
@@ -19563,11 +19652,57 @@ function renderAgreements(){
     return;
   }
 
-  listEl.innerHTML = '';
-  rows.forEach(a => {
+  // הרשימה היא טאבים, כמו שאר רשימות הדשבורד — ראו buildTabRow()
+  listEl.innerHTML = '<div class="prop-tabs agr-tabs"></div>';
+  const tabsWrap = listEl.querySelector('.prop-tabs');
+  rows.forEach(a => tabsWrap.appendChild(buildAgreementTab(a)));
+}
+
+/* ---------- הסכם כשורה ----------
+   **הכותרת היא מי חותם/ת, לא שם המסמך.** ‏`a.title` הוא סוג ההסכם
+   ("הזמנת שירותי תיווך במקרקעין - קניה"), והוא חוזר מילה במילה בכל הסכם
+   מאותו סוג — רשימה של שורות כאלה אינה ניתנת לסריקה. מה שמבדיל ביניהן
+   הוא שם הצד השני, ולכן הוא הכותרת, וסוג המסמך יורד לשורת המשנה. בהסכם
+   שעדיין אין לו צד שני (טיוטה) הכותרת נופלת חזרה לשם המסמך.
+
+   **השלמת החתימות היא המספר שבצד**, במשבצת שבה יושב המחיר בשאר
+   הרשימות: "1/2 חתמו" היא השאלה שבגללה פותחים הסכם.
+
+   **כשל בשליחת העותק החתום נאמר בשורה** ולא רק בכרטיס: זו תקלה שקרתה
+   בשקט, והסתרה שלה מאחורי לחיצה פירושה שאיש לא יידע עליה. */
+const expandedAgreementIds = new Set();
+
+function agrPartyNames(a){
+  return (a.signers || []).filter(s => s.party !== 'agent').map(s => s.full_name).filter(Boolean).join(' · ');
+}
+
+function agrTabSub(a){
+  return [
+    a.signed_copy_error ? '⚠ העותק החתום לא נשלח' : null,
+    agrPartyNames(a) ? a.title : null,   // שם המסמך ירד לכאן רק אם הוא אינו הכותרת
+    (a.snapshot && a.snapshot.property_line) || null,
+    tabShortDate(a.signed_at || a.created_at),
+  ].filter(Boolean).join(' · ');
+}
+
+function buildAgreementTab(a){
+  const st = AGR_STATUS[a.status] || { label:a.status, cls:'status-off' };
+  const prog = agrSignedCount(a);
+  return buildTabRow({
+    key: a.id, list:'agreement', expanded: expandedAgreementIds, cls:'agr-tab',
+    title: agrPartyNames(a) || a.title,
+    sub: agrTabSub(a),
+    pill: { text: st.label, cls: 'status-pill ' + st.cls },
+    price: prog.total ? prog.signed + '/' + prog.total : '',
+    priceNote: prog.total ? 'חתמו' : '',
+    buildCard: ()=> buildAgreementCard(a),
+  });
+}
+
+function buildAgreementCard(a){
     const st = AGR_STATUS[a.status] || { label:a.status, cls:'status-off' };
     const prog = agrSignedCount(a);
-    const names = (a.signers || []).filter(s => s.party !== 'agent').map(s => s.full_name).join(' · ');
+    const names = agrPartyNames(a);
     const propLine = (a.snapshot && a.snapshot.property_line) || '';
 
     const el = document.createElement('div');
@@ -19621,8 +19756,7 @@ function renderAgreements(){
       addCardAction(actions, { label:'✖ ביטול ההסכם', onClick:()=> agrCancel(a) });
     }
 
-    listEl.appendChild(el);
-  });
+    return el;
 }
 
 /* ---------- פעולות על הסכם קיים ---------- */
@@ -19702,6 +19836,7 @@ async function agrDelete(a){
   if (!confirm('למחוק את הטיוטה "' + a.title + '"?')) return;
   const { error } = await sb.from('agreements').delete().eq('id', a.id);
   if (error) return showToast('המחיקה נכשלה: ' + error.message);
+  expandedAgreementIds.delete(a.id);
   showToast('הטיוטה נמחקה');
   await loadAgreements();
 }
