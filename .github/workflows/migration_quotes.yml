@@ -1,0 +1,46 @@
+name: מיתרים במיגרציות
+
+# ‏20261210090000 נפלה בפרודקשן על התו הראשון של ההערה הראשונה שלה:
+# בקסלאש לפני גרש בתוך מחרוזת. ב-PostgreSQL עם
+# ‎standard_conforming_strings = on‎ — ברירת המחדל, ונבדק בפרודקשן —
+# בקסלאש אינו תו בריחה, ולכן הגרש **סגר את המחרוזת באמצע** ומה שאחריו
+# הפך ל-SQL שבור.
+#
+# למה זה מצדיק workflow משלו:
+#
+#   • ‏`db push` מריץ לפי סדר, ולכן שגיאה בקובץ אחד **עוצרת את כל
+#     המיגרציות שאחריו באותו מיזוג**. במקרה ההוא נעצרו שבע.
+#   • ‏CLAUDE.md קורא לזה נכון: workflow אדום שם אינו רעש CI אלא תקלת
+#     פרודקשן, כי ה-HTML כבר באוויר והסכימה לא.
+#   • והטעות שקטה לחלוטין בכתיבה. הקובץ נראה תקין, שום עורך לא מתלונן,
+#     והיא מתגלה רק אחרי המיזוג — כשכבר מאוחר.
+#
+# הבדיקה קוראת קבצים בלבד: בלי רשת, בלי סודות, ובלי חיבור למסד.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/*.sql"
+      - "scripts/check_migration_quotes.py"
+      - ".github/workflows/migration_quotes.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/*.sql"
+      - "scripts/check_migration_quotes.py"
+      - ".github/workflows/migration_quotes.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # הפלט מצביע על הקובץ ועל השורה. הכתיב הנכון לגרש בתוך מחרוזת
+      # הוא הכפלה: 'ג''ת'
+      - name: בדיקת מיתרים במיגרציות
+        run: python3 scripts/check_migration_quotes.py
