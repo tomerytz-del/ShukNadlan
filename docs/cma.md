@@ -21,10 +21,10 @@ PROFESSIONAL ו-Elite (`pricing.html`, ‏`docs/pricing-and-tiers.md`).
 
 ## מאיפה הנתונים באים — ומאיפה לא
 
-| מקור | טבלה | ‏`source` | ‏`price_basis` |
-| --- | --- | --- | --- |
-| עסקאות שנסגרו דרך הפלטפורמה | `market_deals` | `platform_derived` | `reported` / `asking` |
-| רשות המיסים — מאגר עסקאות מקרקעין | `market_deals_official` | `tax_authority` | `official` |
+| מקור | טבלה | ‏`source` | ‏`price_basis` | מצב |
+| --- | --- | --- | --- | --- |
+| עסקאות שנסגרו דרך הפלטפורמה | `market_deals` | `platform_derived` | `reported` / `asking` | פעיל |
+| רשות המיסים — מאגר עסקאות מקרקעין | `market_deals_official` | `tax_authority` | `official` | ‏**ריקה** — אין עדיין מקור מורשה |
 
 ‏`agent_cma_report` מאחדת את שתיהן ב-`deal_pool` אחד: עסקה של הפלטפורמה
 שואבת מיקום ושטח מהנכס המקושר, עסקה רשמית נושאת אותם בעצמה, וכל השאר —
@@ -142,9 +142,11 @@ PROFESSIONAL ו-Elite (`pricing.html`, ‏`docs/pricing-and-tiers.md`).
 
 ## מה עוד חסר
 
-1. **אימות המתאם ל-nadlan.gov.il.** הצינור בנוי ונבדק, אבל מיפוי השדות
-   נכתב לפי התיעוד ולא מול תשובה חיה. ‏`python deals_scraper.py --probe
-   עפולה` ממכונה עם גישה הוא כל מה שצריך —
+1. **מקור שמותר לשאוב ממנו.** הצינור בנוי, נבדק ו**אינו מחובר**:
+   ‏nadlan.gov.il אוכף טכנית את סגירת הגישה התוכניתית (גוף בקשה מעורפל,
+   קשור ל-domain וחתום), וחיבור אליו היה עקיפה של בקרת גישה.
+   ‏`market_deals_official` ריקה עד שיהיה טוקן GovMap רשמי, מערך נתונים
+   ב-data.gov.il, או ספק מורשה. הפרטים והראיות:
    ‏`docs/market-deals-official.md`.
 2. **הצמדה למדד.** עסקה מלפני שנתיים נספרת היום באותו משקל כמו עסקה
    מהחודש שעבר. ‏`cma_max_deal_age_months` חותך את הישנות, אבל אינו
