@@ -3478,7 +3478,20 @@ function hoodChoices(){
   // מי שיודע שיש בעפולה ארבע-עשרה שכונות ורואה שתיים מסיק שהסינון שבור, ולא
   // שאין נכסים בשאר. שכונה ריקה מוצגת עם 0 ומעומעמת (ראו renderHoodOptions) —
   // "אין כאן כרגע" היא תשובה, ורשימה חסרה אינה.
-  return hoodState.rows.slice().sort((a, b)=>
+  //
+  // היוצא מן הכלל היחיד הוא אזור *בתכנון* (is_planned) שאין בו נכסים: שטח
+  // שטרם נבנה אינו "אין כאן כרגע" אלא מקום שאי אפשר לחפש בו דירה, והוא רק
+  // מאריך רשימה שממילא ארוכה. ברגע שייכנס בו נכס ראשון המונה יעלה והוא
+  // יופיע מעצמו, בלי שאיש יגע בהגדרה.
+  //
+  // הבדיקה מול selected ו-draft גם יחד אינה עודפת: קישור עמוק יכול לשאת
+  // מזהה של אזור כזה, והסתרתו הייתה משאירה בחירה פעילה שאי אפשר לבטל.
+  return hoodState.rows.slice().filter(h =>
+    !h.is_planned ||
+    (hoodState.counts.get(h.id) || 0) > 0 ||
+    hoodState.selected.has(h.id) ||
+    hoodState.draft.has(h.id)
+  ).sort((a, b)=>
     ((hoodState.counts.get(b.id) || 0) - (hoodState.counts.get(a.id) || 0)) ||
     String(a.name).localeCompare(String(b.name), 'he'));
 }
@@ -4588,7 +4601,13 @@ function renderBuyerHoods(){
   if (fallback) fallback.hidden = true;
   if (label) label.hidden = false;
 
+  // אותו כלל כמו ב-hoodChoices: אזור בתכנון שאין בו נכסים אינו מוצג. כאן
+  // הנימוק חזק אפילו יותר — "B1 אזור בתכנון" הוא קוד תכנוני פנימי, וגולש/ת
+  // שמסמן/ת אילו שכונות הוא/היא מחפש/ת אינו/ה יכול/ה לרצות אותו.
   hoodState.rows.slice()
+    .filter(h => !h.is_planned
+      || (hoodState.counts.get(h.id) || 0) > 0
+      || buyState.hoods.has(h.id))
     .sort((a,b)=> String(a.name).localeCompare(String(b.name), 'he'))
     .forEach(h=>{
       const chip = document.createElement('button');

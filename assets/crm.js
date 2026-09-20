@@ -21677,3 +21677,201 @@ if (window.ExitGuard){
   if (session) await routeAfterAuth(session);
   else showLoginCard();
 })();
+
+/* ============================================================================
+   ייבוא עסקאות רשמיות מ-GovMap
+
+   מאגר העסקאות הרשמי (market_deals_official) היה ריק לגמרי, כלומר דוח
+   ה-CMA - יכולת שנמכרת ב-Mid/Premium - רץ בלי נתונים בשום עיר. GovMap
+   מגיש את מאגר רשות המיסים, ו-1,500 עסקאות בעפולה לבדה: הקלדה אינה
+   ריאלית, אבל הטבלה נדבקת מהדפדפן כטקסט מופרד בטאבים.
+
+   הפרסור כאן ולא בשרת, כי התצוגה המקדימה חייבת להיות מיידית לכל שורה.
+   לשרת נשלחות שורות **מפורסרות**, והוא מאמת ערכים ולא מפרסר מחדש -
+   אימות אינו פרסור, ולכן אלה שתי שכבות ולא שני עותקים.
+   ============================================================================ */
+
+/* הדקדוק, כפי שנבדק מול הדבקה אמיתית:
+
+     [כתובת]                 <- שורה משלה
+     [שכונה]                 <- אופציונלי
+     DD.MM.YYYY \t גוש-חלקה-תת \t סוג \t חדרים \t קומה \t מ"ר \t מחיר ₪
+
+   **שבעה שדות בשורת הנתונים ולא שמונה.** הכותרת מונה שמונה עמודות, אבל
+   הכתובת יושבת בשורה נפרדת ואינה בתוכה. */
+const DEALS_DATE_ROW = /^(\d{2})\.(\d{2})\.(\d{4})\t/;
+const DEALS_GUSH     = /^(\d+)-(\d+)-(\d+)$/;
+const DEALS_HEADER   = /^כתובת\t/;
+const DEALS_FOOTER   = /^\d+[–-]\d+ of \d+$/;
+const DEALS_TABLABEL = /^עסקאות ב.*\(\d+\)$/;
+const DEALS_NO_INFO  = 'אין מידע';
+
+/* תווי כיווניות (LRM/RLM ודומיהם) מגיעים בתוך ערכים כמו "קומה ‎4‏" ושוברים
+   כל השוואה בלי שרואים למה - הערך נראה זהה על המסך ואינו זהה. */
+function dealsClean(s){
+  return String(s == null ? '' : s).replace(/[‎‏‪-‮⁦-⁩]/g, '').trim();
+}
+function dealsNum(s){
+  const v = dealsClean(s).replace(/,/g, '').replace(/₪/g, '').trim();
+  return (v === '' || v === '-') ? null : v;
+}
+function dealsSplitAddress(a){
+  const v = dealsClean(a);
+  if (!v || v === DEALS_NO_INFO) return { street: null, house: null };
+  const m = v.match(/^(.*?)\s+(\d+[א-ת]?)$/);
+  return m ? { street: m[1], house: m[2] } : { street: v, house: null };
+}
+
+/* external_key כולל מחיר ומ"ר, וזה לא עודף: בנתונים אמיתיים נמצאו שתי
+   שורות עם אותה תת-חלקה ואותו תאריך בדיוק (17014-6-52, 29.07.2026)
+   ששונות רק במ"ר ובמחיר. מפתח על גוש-חלקה+תאריך בלבד היה מוחק אחת מהן.
+
+   ומנגד, דירות זהות בפרויקט חדש נמכרות באותו מחיר ובאותו שטח יום זה מזה
+   (17014-6-51 מול 17014-6-48) - ואלה **אינן** כפילות. תת-החלקה מבדילה. */
+function dealsExternalKey(r){
+  return `govmap:${r.gush}-${r.helka}-${r.tat_helka}:${r.sold_at}:${r.sale_price}:${r.size_sqm || ''}`;
+}
+
+function parseGovmapDeals(text, city){
+  const rows = [], errors = [];
+  let buf = [];
+  for (const raw of String(text || '').split(/\r?\n/)){
+    const c = dealsClean(raw);
+    if (!c) continue;
+    /* שורת הכותרת מאפסת את החוצץ. בלי זה תוויות הסינון שמעליה ("סוג נכס",
+       "מספר חדרים") נבלעות ככתובת של העסקה הראשונה, ומתקבל נכס ברחוב
+       "סוג נכס". זה נתפס בהרצה על נתונים אמיתיים. */
+    if (DEALS_HEADER.test(c)){ buf = []; continue; }
+    if (DEALS_FOOTER.test(c) || DEALS_TABLABEL.test(c)) continue;
+
+    const m = c.match(DEALS_DATE_ROW);
+    if (!m){ buf.push(c); buf = buf.slice(-2); continue; }
+
+    const parts = c.split('\t').map(dealsClean);
+    if (parts.length < 7){ errors.push({ line: c, reason: 'שדות חסרים בשורה' }); buf = []; continue; }
+
+    const addrLine = buf.length > 1 ? buf[buf.length - 2] : (buf.length ? buf[buf.length - 1] : '');
+    const hoodLine = buf.length > 1 ? buf[buf.length - 1] : '';
+    buf = [];
+
+    const g = parts[1].match(DEALS_GUSH);
+    if (!g){ errors.push({ line: c, reason: 'גוש חלקה לא תקין: ' + parts[1] }); continue; }
+
+    const addr = dealsSplitAddress(addrLine);
+    const row = {
+      city: dealsClean(city),
+      street: addr.street, house_number: addr.house,
+      neighborhood: dealsClean(hoodLine) || null,
+      sold_at: `${m[3]}-${m[2]}-${m[1]}`,
+      gush: g[1], helka: g[2], tat_helka: g[3],
+      property_type: parts[2] === '-' ? null : parts[2],
+      rooms: dealsNum(parts[3]),
+      floor: parts[4] === '-' ? null : parts[4],
+      size_sqm: dealsNum(parts[5]),
+      sale_price: dealsNum(parts[6]),
+    };
+    if (!row.sale_price){ errors.push({ line: c, reason: 'מחיר חסר' }); continue; }
+    row.external_key = dealsExternalKey(row);
+    rows.push(row);
+  }
+  return { rows, errors };
+}
+
+let dealsImportParsed = [];
+
+function renderDealsImportPreview(rows, errors){
+  const box = document.getElementById('dealsImportPreview');
+  if (!box) return;
+  const saveBtn = document.getElementById('dealsImportSaveBtn');
+  if (!rows.length && !errors.length){
+    box.innerHTML = '<div class="empty-state">לא זוהתה אף שורה. ודאו שהעתקתם את שורות הטבלה עצמן.</div>';
+    if (saveBtn) saveBtn.disabled = true;
+    return;
+  }
+  const head = `<p class="acc-sub"><strong>${rows.length}</strong> עסקאות זוהו`
+    + (errors.length ? ` · <strong>${errors.length}</strong> שורות לא זוהו` : '')
+    + `. בדקו את הדוגמה ואז ייבאו.</p>`;
+  const sample = rows.slice(0, 8).map(r => `<tr>
+      <td>${escapeHtml(r.street || '(אין כתובת)')} ${escapeHtml(r.house_number || '')}</td>
+      <td>${escapeHtml(r.sold_at)}</td>
+      <td>${escapeHtml(r.gush)}-${escapeHtml(r.helka)}-${escapeHtml(r.tat_helka)}</td>
+      <td>${escapeHtml(r.property_type || '-')}</td>
+      <td>${escapeHtml(r.rooms || '-')}</td>
+      <td>${escapeHtml(r.size_sqm || '-')}</td>
+      <td>${Number(r.sale_price).toLocaleString('he-IL')} ₪</td>
+      <td>${escapeHtml(r.neighborhood || '')}</td>
+    </tr>`).join('');
+  /* שורה שלא זוהתה **נספרת ומוצגת ואינה מנוחשת** - אותו כלל של
+     deals_engine, והוא חל גם על הזנה ידנית. */
+  const bad = errors.length
+    ? `<details style="margin-top:12px"><summary style="cursor:pointer;font-weight:700">שורות שלא זוהו (${errors.length})</summary>`
+      + errors.slice(0, 20).map(e => `<div style="font-size:13px;color:var(--muted);margin:6px 0">${escapeHtml(e.reason)}: <code>${escapeHtml(e.line.slice(0, 120))}</code></div>`).join('')
+      + '</details>'
+    : '';
+  box.innerHTML = head
+    + '<div style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:13px">'
+    + '<thead><tr><th>כתובת</th><th>תאריך</th><th>גוש חלקה</th><th>סוג</th><th>חדרים</th><th>מ״ר</th><th>מחיר</th><th>שכונה</th></tr></thead>'
+    + `<tbody>${sample}</tbody></table></div>`
+    + (rows.length > 8 ? `<p class="acc-sub">מוצגות 8 מתוך ${rows.length}.</p>` : '')
+    + bad;
+  if (saveBtn) saveBtn.disabled = !rows.length;
+}
+
+async function loadDealsCoverage(){
+  const box = document.getElementById('dealsImportCoverage');
+  if (!box || !sb) return;
+  const { data, error } = await sb.rpc('market_deals_coverage');
+  if (error || !data || !data.length){
+    box.innerHTML = '<p class="acc-sub">אין עדיין עסקאות במאגר.</p>';
+    return;
+  }
+  /* הטריות היא מה שהתזכורת הרבעונית נשענת עליו, ולכן היא מוצגת כאן ולא
+     רק נספרת: מי שמדביק עיר רואה מיד אילו ערים כבר התיישנו. */
+  const now = Date.now();
+  box.innerHTML = '<p class="acc-sub"><strong>מה יש במאגר</strong></p>'
+    + data.map(r => {
+        const months = r.newest ? Math.floor((now - new Date(r.newest).getTime()) / 2592000000) : null;
+        const stale = months == null || months >= 3;
+        return `<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)">
+          <span>${escapeHtml(r.city || '')}</span>
+          <span style="color:${stale ? 'var(--danger,#c0392b)' : 'var(--muted)'}">
+            ${r.deals} עסקאות · עדכני ל-${escapeHtml(r.newest || 'לא ידוע')}${stale ? ' · דורש עדכון' : ''}
+          </span></div>`;
+      }).join('');
+}
+
+document.getElementById('dealsImportPreviewBtn')?.addEventListener('click', ()=>{
+  const city = document.getElementById('dealsImportCity').value.trim();
+  const text = document.getElementById('dealsImportPaste').value;
+  if (!city){ alert('צריך לציין לאיזו עיר שייכות העסקאות'); return; }
+  const { rows, errors } = parseGovmapDeals(text, city);
+  dealsImportParsed = rows;
+  renderDealsImportPreview(rows, errors);
+});
+
+document.getElementById('dealsImportSaveBtn')?.addEventListener('click', async (e)=>{
+  if (!dealsImportParsed.length) return;
+  const btn = e.currentTarget;
+  btn.disabled = true; btn.textContent = 'מייבא…';
+  try{
+    const { data, error } = await sb.rpc('market_deals_import', { p_rows: dealsImportParsed });
+    if (error) throw error;
+    if (data && data.error){ alert('הייבוא נדחה: ' + data.error); return; }
+    const parts = [`נוספו ${data.inserted} עסקאות`];
+    if (data.skipped) parts.push(`${data.skipped} כבר היו במאגר`);
+    if (data.rejected_count) parts.push(`${data.rejected_count} נדחו`);
+    alert(parts.join(' · '));
+    document.getElementById('dealsImportPaste').value = '';
+    document.getElementById('dealsImportPreview').innerHTML = '';
+    dealsImportParsed = [];
+    await loadDealsCoverage();
+  } catch(err){
+    alert('הייבוא נכשל: ' + (err.message || err));
+  } finally {
+    btn.disabled = false; btn.textContent = 'ייבוא';
+  }
+});
+
+document.getElementById('accDealsImport')?.addEventListener('toggle', function(){
+  if (this.open) loadDealsCoverage();
+});

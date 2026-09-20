@@ -5035,6 +5035,42 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </details>
 
+      <!-- ייבוא עסקאות רשמיות. יושב מיד אחרי ניהול השכונות כי שניהם הזנת
+           נתוני פלטפורמה לעיר, והם נעשים יחד בהשקת עיר חדשה.
+
+           מאגר העסקאות הרשמי הוא מה שדוח ה-CMA נשען עליו, והוא היה ריק
+           לגמרי - כלומר יכולת שנמכרת ב-Mid/Premium רצה בלי נתונים. -->
+      <details class="acc" id="accDealsImport">
+        <summary>
+          <span class="acc-title">ייבוא עסקאות רשמיות</span>
+          <span class="acc-count" id="accDealsImportCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <p class="acc-sub">
+            נתוני רשות המיסים, דרך פורטל
+            <a href="https://www.govmap.gov.il/" target="_blank" rel="noopener"
+               style="color:var(--gold-dark);font-weight:700;text-decoration:none">GovMap ←</a>
+            חפשו עיר, פתחו את לשונית "עסקאות נדל״ן", סמנו את שורות הטבלה והעתיקו.
+            אפשר להדביק עמוד אחרי עמוד - עסקה שכבר נטענה לא תיטען פעמיים.
+          </p>
+          <div class="field" style="margin-bottom:12px">
+            <label for="dealsImportCity">העיר שאליה שייכות העסקאות</label>
+            <input type="text" id="dealsImportCity" placeholder="עפולה" autocomplete="off">
+          </div>
+          <div class="field" style="margin-bottom:12px">
+            <label for="dealsImportPaste">הדבקת הטבלה</label>
+            <textarea id="dealsImportPaste" rows="8" placeholder="הדביקו כאן את השורות שהעתקתם מ-GovMap" style="width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;font-family:inherit"></textarea>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+            <button type="button" class="btn btn-ghost" id="dealsImportPreviewBtn">בדיקה ותצוגה מקדימה</button>
+            <button type="button" class="btn btn-gold" id="dealsImportSaveBtn" disabled>ייבוא</button>
+          </div>
+          <div id="dealsImportPreview"></div>
+          <div id="dealsImportCoverage" style="margin-top:18px"></div>
+        </div>
+      </details>
+
       <details class="acc" id="accRssSources">
         <summary>
           <span class="acc-title">ניהול מקורות RSS</span>

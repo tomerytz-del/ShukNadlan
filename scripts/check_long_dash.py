@@ -169,10 +169,14 @@ def files():
     # כעותק בייט-בייט של ‎assets/‎ (ראו ‎check_agreement_assets.py‎). ניקוי
     # שמטפל בצד אחד בלבד מפצל אותם — וההבדל הזה פירושו שהמסמך שנחתם אינו
     # המסמך שבתיק. זה בדיוק מה שקרה בריצה הראשונה, ובדיקת ההסכמים תפסה.
+    #
+    # ‏‎**‎ ולא ‎*‎ תחת ‎supabase/functions‎: ‎_shared/geocode/‎ הוא התיקייה
+    # המקוננת הראשונה שם, ו-‎*/*.ts‎ היה מדלג עליה ועל ‎providers/‎ שמתחתיה
+    # בשקט. בדיקה שאינה רואה קובץ אינה מתלוננת עליו.
     pats = ['*.html', 'assets/*.js', 'netlify/edge-functions/*.ts',
-            'supabase/functions/*/*.ts', 'supabase/functions/*/*.js']
+            'supabase/functions/**/*.ts', 'supabase/functions/**/*.js']
     seen = []
-    for p in pats: seen += sorted(glob.glob(p))
+    for p in pats: seen += sorted(glob.glob(p, recursive=True))
     return seen
 
 

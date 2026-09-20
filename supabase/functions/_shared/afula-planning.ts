@@ -14,18 +14,18 @@
 // והם שונים בין השניים.
 // ============================================================================
 
-import proj4 from "npm:proj4@2.9.0";
-import { streetVariants } from "./afula-geocode.ts";
+// ‏ITM_DEF ישב כאן בעותק שני, זהה לזה שב-afula-geocode.ts. שבעה פרמטרי
+// דאטום בשני מקומות פירושם שמי שיתקן אחד ולא את השני יקבל פינים שזזים
+// במטרים **רק באחד משני המסלולים** - ההבדל בין הפין שבטופס הנכס לפין
+// שבמידע התכנוני, על אותה כתובת בדיוק. עכשיו יש עותק אחד.
+//
+// ‏itmToWgs84 מחזירה [lng, lat], כפי שהעותק המקומי החזיר, ושני הקוראים
+// כאן מפרקים אותה באותו סדר.
+import { itmToWgs84 } from "./geocode/itm.ts";
+import { streetVariants } from "./geocode/street-variants.ts";
 
 const WFS_URL = "https://layers.intertown.co.il/opengis/wfs";
 const WFS_REFERER = "https://up.intertown.co.il/afl/public";
-
-const ITM_DEF = "+proj=tmerc +lat_0=31.7343936111111 +lon_0=35.2045169444444 +k=1.0000067 +x_0=219529.584 +y_0=626907.39 +ellps=GRS80 +towgs84=23.772,17.49,17.859,-0.3132,-1.85274,1.67299,-5.4262 +units=m +no_defs +type=crs";
-const WGS84_DEF = "+proj=longlat +datum=WGS84 +no_defs";
-
-function itmToWgs84(x, y) {
-  return proj4(ITM_DEF, WGS84_DEF, [x, y]);
-}
 
 function convertGeometryToWgs84(geometry) {
   if (!geometry) return null;

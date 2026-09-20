@@ -1,140 +1,58 @@
 // ============================================================================
-// כתובת בעפולה -> ‏lat/lng
+// כתובת בעפולה -> lat/lng   (עטיפה)
 //
-// מקור האמת הוא שכבת נקודות הכתובות של עיריית עפולה
-// (‏afl_bld:afl_bld-Address_Points_1 ב-WFS של intertown) — אותה שכבה
-// ש-afula-planning-lookup שואלת עליה מידע תכנוני. זו נקודת כתובת רשמית של
-// העירייה ולא ניחוש של מנוע חיפוש: או שיש שם בית עם המספר הזה, או שאין.
+// **הלוגיקה עברה ל-`_shared/geocode/`.** הקובץ הזה נשאר כעטיפה דקה, בדיוק
+// באותה תבנית שבה `share_property_with_partners` נשארה מעל
+// `share_property_for_agent`: החתימה, ההרשאה וההתנהגות של הקוראים לא
+// השתנו, והמנוע מתחת הוא עכשיו כללי.
 //
-// ## למה קובץ משותף
+// ארבעה קוראים תלויים בקובץ הזה, ואף אחד מהם לא נגע בשינוי:
+//   - geocode-address/index.ts        המסלול הסינכרוני מה-CRM
+//   - geocode-backfill/index.ts       הסורק
+//   - whatsapp-webhook/geocode.ts     עטיפה שלעולם אינה זורקת
+//   - _shared/afula-planning.ts       מייבא streetVariants
 //
-// הלוגיקה הזו נכתבה במקור בתוך geocode-address, שנקראת ממסך הנכס ב-CRM
-// בזמן שמירה. ‏geocode-backfill צריכה בדיוק אותה לוגיקה בלי בן אדם שממתין
-// לתשובה, ושתי העתקות של אותו ניתוח כתובת היו נפרדות ביום שבו אחת מהן
-// תתוקן — למשל ברשימת וריאציות הכתיב, שהיא בדיוק החלק ששובר התאמות.
+// ## למה ספק ספרותי ולא שליפה מהמסד
 //
-// ## וריאציות הכתיב
+// ‏`city_geocode_sources` כבר מחזיקה את עפולה עם בדיוק הערכים שלמטה
+// (מיגרציה 20261213090000). אבל שליפה משם דורשת לקוח `service_role`,
+// ול-`whatsapp-webhook/geocode.ts` אין כזה - הוא עטיפה טהורה.
 //
-// שכבת העירייה כותבת שמות רחובות בכתיב משלה, והסוכן/ת מקליד/ה את מה
-// שמוכר לו/ה. שלוש ההיסטות שנצפו בפועל, וכל אחת היא ציר בפני עצמו:
+// לכן העטיפה בונה את המקור מאותם קבועים **שישבו כאן קודם**, מילה במילה.
+// התוצאה: אפס שינוי התנהגות, והשוואה שורה-מול-שורה אפשרית. הקבוע הזה
+// נמחק כשהקוראים יעברו ל-`loadCitySource`, והקובץ כולו נמחק אחריהם.
 //
-//   1. **ה"א פותחת** — "העליה" מול "עלייה". זו ההיסטה שהתגלתה בסבב הראשון
-//      של ‏geocode-backfill: מודעה 1090 נרשמה "עלייה 20" ונפתרה, ומודעה
-//      1106 נרשמה "העליה 5" ולא נפתרה. אותו רחוב, ה"א אחת הפרידה.
-//   2. **ה"א סופית** — "הגלבוע" מול "הגלבועה".
-//   3. **יו"ד כפולה** — "הרצליה" מול "הרצלייה".
+// ## מה שכן השתנה, וזה תיקון
 //
-// שלושת הצירים בלתי תלויים, ולכן הם **מצטרפים**: "העליה" -> "עלייה" דורש
-// גם הורדת ה"א פותחת וגם הכפלת יו"ד. גרסה שבודקת כל ציר בנפרד הייתה
-// מפספסת בדיוק את המקרה שבגללו זה נכתב.
-//
-// הצירוף מסודר לפי **מספר השינויים**: הצורה כפי שנכתבה ראשונה, אחריה כל
-// מה ששונה בשינוי אחד, ורק בסוף צירופים. ‏MAX_VARIANTS חוסם את הזנב — כל
-// וריאציה היא קריאת רשת, ווריאציה שלישית-רביעית-חמישית היא כבר ניחוש.
-//
-// השוואה מדויקת (‏PropertyIsEqualTo) ולא like: "הרצל 5" חייבת להחזיר את
-// הרצל 5 ולא את הרצל 51.
+// ‏`ITM_DEF` ישב כאן **וגם** ב-afula-planning.ts, בשני עותקים זהים. שבעה
+// פרמטרי דאטום בשני מקומות פירושם שמי שיתקן אחד ולא את השני יקבל פינים
+// שזזים במטרים רק באחד משני המסלולים. עכשיו יש עותק אחד, ב-geocode/itm.ts.
 // ============================================================================
 
-import proj4 from "npm:proj4@2.9.0";
+import { geocodeAddress, insideCityBox } from "./geocode/index.ts";
+import type { GeoSource } from "./geocode/types.ts";
 
-const WFS_URL = "https://layers.intertown.co.il/opengis/wfs";
-const WFS_REFERER = "https://up.intertown.co.il/afl/public";
+export { itmToWgs84 } from "./geocode/itm.ts";
+export { MAX_VARIANTS, streetVariants } from "./geocode/street-variants.ts";
 
-// רשת ישראל החדשה (ITM) — מה שהשכבה מחזירה — אל WGS84 שמפות Leaflet מבינות
-const ITM_DEF = "+proj=tmerc +lat_0=31.7343936111111 +lon_0=35.2045169444444 +k=1.0000067 +x_0=219529.584 +y_0=626907.39 +ellps=GRS80 +towgs84=23.772,17.49,17.859,-0.3132,-1.85274,1.67299,-5.4262 +units=m +no_defs +type=crs";
-const WGS84_DEF = "+proj=longlat +datum=WGS84 +no_defs";
-
-export function itmToWgs84(x: number, y: number): [number, number] {
-  const [lng, lat] = proj4(ITM_DEF, WGS84_DEF, [x, y]);
-  return [lng, lat];
-}
-
-// תיבה גסה סביב עפולה. נקודה מחוץ לה פירושה שהתרגום קרס או שהשכבה החזירה
-// משהו אחר לגמרי, ופין באמצע הים גרוע מאין פין: המשתמש/ת רואה מיקום ומאמין/ה
-// לו. עדיף להחזיר null ושהנכס יישאר בלי מפה.
-const AFULA_BOX = { latMin: 32.55, latMax: 32.68, lngMin: 35.23, lngMax: 35.36 };
-
-export function insideAfula(lat: number, lng: number): boolean {
-  return Number.isFinite(lat) && Number.isFinite(lng)
-    && lat >= AFULA_BOX.latMin && lat <= AFULA_BOX.latMax
-    && lng >= AFULA_BOX.lngMin && lng <= AFULA_BOX.lngMax;
-}
-
-// ‏label הוא מה שמופיע בלוג כשהשכבה מסרבת: בלעדיו נשאר "400" בלי לדעת על
-// איזו צורת כתיב, ובדיוק זה קרה — 500 שחזר לסוכן/ת בלי דרך לשחזר אותו.
-// גוף התשובה הוא ההסבר של שרת ה-WFS לסירוב, ולכן הוא נרשם ולא נזרק.
-async function wfsQuery(xmlBody: string, label: string) {
-  const res = await fetch(WFS_URL, {
-    method: "POST",
-    headers: { "Content-Type": "application/xml", "Referer": WFS_REFERER },
-    body: xmlBody,
-  });
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    console.error(`WFS ${res.status} [${label}]: ${body.slice(0, 500)}`);
-    throw new Error("WFS request failed: " + res.status + " [" + label + "]");
-  }
-  return await res.json();
-}
-
-// כמה צורות כתיב נבדקות לכל היותר לפני ויתור. כל אחת היא קריאת WFS, ולכן
-// זה גם תקציב הזמן של נכס בודד בסבב של הסורק.
-export const MAX_VARIANTS = 8;
-
-// הורדת ה"א פותחת תמיד מותרת; **הוספה** רק לשם של מילה אחת. "משה שרת"
-// לעולם לא נכתב "המשה שרת", ווריאציה כזו היא קריאת רשת שבוודאות תחטיא.
-const flipLeadingHe = (s: string) =>
-  s.startsWith("ה") ? s.slice(1) : (s.includes(" ") ? null : "ה" + s);
-
-// ואסור להוסיף ה"א אחרי אות סופית: "הגן" -> "הגןה" אינה מילה בעברית, והיא
-// קריאת רשת שנדע מראש שתחטיא.
-const FINAL_LETTERS = /[םןץףך]$/;
-const flipTrailingHe = (s: string) =>
-  s.endsWith("ה") ? s.slice(0, -1) : (FINAL_LETTERS.test(s) ? null : s + "ה");
-
-// הצורה ה"כפולה" נבנית מהצורה המנורמלת ולא מהמקור: ‏replace(/י/g,"יי") על
-// מחרוזת שכבר כתובה בכפול מייצר "יייי", כלומר וריאציה שאיננה מילה.
-//
-// ויו"ד בראש מילה אינה נכפלת לעולם — "יצירה" ולא "ייצירה". הכפלה היא
-// תופעה של יו"ד עיצורית באמצע מילה ("הרצליה"/"הרצלייה"), ובלי הסייג הזה
-// כל רחוב שמתחיל ביו"ד היה מבזבז שתי קריאות על צורה שלא קיימת.
-const yodForms = (s: string) => {
-  const single = s.replace(/יי/g, "י");
-  return [s, single.replace(/(?<=[^\s])י/g, "יי"), single];
+// הערכים שישבו כאן כקבועים, ושיושבים היום גם בשורת עפולה ב-
+// city_geocode_sources. שני העותקים חייבים להישאר זהים עד שהעטיפה תימחק.
+const AFULA_SOURCE: GeoSource = {
+  cityKey: "עפולה",
+  cityName: "עפולה",
+  kind: "municipal_wfs",
+  baseUrl: "https://layers.intertown.co.il/opengis/wfs",
+  referer: "https://up.intertown.co.il/afl/public",
+  addressLayer: "afl_bld:afl_bld-Address_Points_1",
+  parcelLayer: "afl_cadaster:afl_cadaster-parcel",
+  // תיבה גסה סביב עפולה. נקודה מחוץ לה פירושה שהתרגום קרס או שהשכבה
+  // החזירה משהו אחר לגמרי, ופין באמצע הים גרוע מאין פין: המשתמש/ת רואה
+  // מיקום ומאמין/ה לו. עדיף להחזיר null ושהנכס יישאר בלי מפה.
+  box: { latMin: 32.55, latMax: 32.68, lngMin: 35.23, lngMax: 35.36 },
 };
 
-export function streetVariants(street: string): string[] {
-  const base = String(street || "").trim();
-  if (!base) return [];
-
-  // לכל צורה נשמר המחיר הנמוך ביותר שבו הגענו אליה (כמה צירים שונו), וזה
-  // גם סדר הבדיקה. אותה צורה יכולה להיווצר בשני מסלולים — למשל כשאין בשם
-  // אף יו"ד — ואז המסלול הזול קובע.
-  const cost = new Map<string, number>();
-  const leads: [string, number][] = [[base, 0]];
-  const flipped = flipLeadingHe(base);
-  if (flipped) leads.push([flipped, 1]);
-
-  for (const [lead, cLead] of leads) {
-    const tails: [string, number][] = [[lead, 0]];
-    const flippedTail = flipTrailingHe(lead);
-    if (flippedTail) tails.push([flippedTail, 1]);
-
-    for (const [tail, cTail] of tails) {
-      yodForms(tail).forEach((form, i) => {
-        const c = cLead + cTail + (i === 0 ? 0 : 1);
-        if (!cost.has(form) || (cost.get(form) as number) > c) cost.set(form, c);
-      });
-    }
-  }
-
-  // ‏sort יציב ב-JS, ולכן צורות באותו מחיר נשארות בסדר שבו נוצרו — מה
-  // שמעדיף הורדת ה"א פותחת (ההיסטה השכיחה) על פני הוספת ה"א סופית.
-  return Array.from(cost.entries())
-    .sort((a, b) => a[1] - b[1])
-    .slice(0, MAX_VARIANTS)
-    .map(([form]) => form);
+export function insideAfula(lat: number, lng: number): boolean {
+  return insideCityBox(AFULA_SOURCE.box, lat, lng);
 }
 
 /**
@@ -142,42 +60,9 @@ export function streetVariants(street: string): string[] {
  * זורקת רק על תקלת תקשורת/שכבה — הבדל שחשוב לקורא: "לא נמצא" הוא תשובה
  * סופית, "נפל" הוא משהו לנסות שוב.
  */
-export async function afulaAddressToCoords(
+export function afulaAddressToCoords(
   street: string,
   houseNumber: string,
 ): Promise<{ lat: number; lng: number } | null> {
-  // צורה שנכשלה אינה מפילה את החיפוש. קודם כל כשל בקריאה אחת הפיל את כל
-  // הלולאה, כלומר 400 על הצורה החמישית מחק גם התאמה שהייתה מחכה בשישית —
-  // וככל שיש יותר צורות, כך גדל הסיכוי שאחת מהן תקלקל את כולן.
-  let lastError: unknown = null;
-
-  for (const variant of streetVariants(street)) {
-    const xml = '<wfs:GetFeature service="WFS" version="2.0.0" xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:fes="http://www.opengis.net/fes/2.0" outputFormat="application/json" count="5">' +
-      '<wfs:Query typeNames="afl_bld:afl_bld-Address_Points_1">' +
-      '<fes:Filter><fes:And>' +
-      '<fes:PropertyIsEqualTo><fes:ValueReference>שם_רחוב</fes:ValueReference><fes:Literal>' + variant + '</fes:Literal></fes:PropertyIsEqualTo>' +
-      '<fes:PropertyIsEqualTo><fes:ValueReference>מספר_בית</fes:ValueReference><fes:Literal>' + houseNumber + '</fes:Literal></fes:PropertyIsEqualTo>' +
-      '</fes:And></fes:Filter></wfs:Query></wfs:GetFeature>';
-    let data;
-    try {
-      data = await wfsQuery(xml, variant);
-    } catch (err) {
-      lastError = err;
-      continue;
-    }
-    const feature = data && data.features && data.features[0];
-    if (feature && feature.properties && feature.properties.X && feature.properties.Y) {
-      const [lng, lat] = itmToWgs84(Number(feature.properties.X), Number(feature.properties.Y));
-      if (insideAfula(lat, lng)) return { lat, lng };
-      return null;
-    }
-  }
-
-  // כאן נגמרו הצורות בלי התאמה, ויש שתי משמעויות שונות לגמרי. אם אף קריאה
-  // לא נכשלה — השכבה ענתה על כולן ואין בה בית כזה, וזו תשובה סופית (null).
-  // אם קריאה כלשהי נכשלה — ייתכן שדווקא היא הייתה מוצאת, ולכן זורקים:
-  // ‏geocode-backfill מחזיר לתור את מי שנפל, ומסמן סופית רק את מי שלא נמצא.
-  // בליעת הכשל כאן הייתה מסמנת "אין כתובת כזו" על תקלה רגעית בשרת העירייה.
-  if (lastError) throw lastError;
-  return null;
+  return geocodeAddress(AFULA_SOURCE, street, houseNumber);
 }
