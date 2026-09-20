@@ -918,6 +918,39 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     font-size:.72rem;font-weight:600;line-height:1.5;
     padding:10px 13px;border-radius:0;box-shadow:0 10px 26px rgba(6,20,34,.22);
     pointer-events:none;z-index:30;
+    /* ‏balance מחלק את הטקסט לשורות שוות במקום להשאיר מילה בודדת בשורה
+       אחרונה. הוא לא מונע שבירה של משפט באמצע — CSS אינו יודע מה זה משפט —
+       אבל הוא מה שאפשר לעשות בלי לשתול רווחים קשיחים בכל נוסח.
+
+       ‏**ומה שכן שותל אותם:** בכל נוסח, **כל פסוקית קשורה כולה** ברווחים
+       קשיחים (‏U+00A0), ורווח רגיל נשאר רק *אחרי* סימן פיסוק. כלומר
+       נקודות השבירה היחידות שנותרו לדפדפן הן גבולות משפט, ו-‎balance‎
+       בוחר ביניהן.
+
+       קשירת מילה בודדת אחרי הפיסוק לא הספיקה: ‎balance‎ מאזן אורכי שורות
+       ולכן העדיף לשבור באמצע ("רק לקוחות שסגרו עסקה / מדרגים כאן."). רק
+       כשאין לו איפה לשבור מלבד הפיסוק הוא עושה את הדבר הנכון.
+
+       ‏**המחיר, ולמה הוא בטוח כאן:** פסוקית קשורה אינה יכולה להישבר, ואם
+       היא רחבה מ-300px היא תגלוש מהקופסה. הרחבה כאן נמדדה 223px ("כך העסקה
+       הטובה בשוק מגיעה גם אליכם."), כלומר 26% מרווח — מספיק גם אם הגופן
+       החי רחב מזה שנמדד. מי שמאריך/ה פסוקית מודד/ת שוב. */
+    text-wrap:balance;
+  }
+  /* ‏**השורה התחתונה נפתחת כלפי מעלה.** ‏‎.hero‎ הוא ‎overflow:hidden‎ בגובה
+     קבוע (‏clamp, רצפה של 600px בדסקטופ), והחותמות יושבות בתחתיתו — כלומר
+     בועה שנפתחת כלפי מטה נחתכת בגבול ה-hero, ומה שנראה כמו "הטקסט מתחבא
+     מתחת לטיקר" הוא בעצם חיתוך של ה-hero עצמו.
+
+     נמדד: לשורה העליונה נשארים ~100px מתחת לבועה, ולתחתונה ~25px בלבד —
+     כלומר שורת טקסט אחת נוספת מספיקה כדי לחתוך אותה. וכמה שורות ייצאו תלוי
+     בגופן שנטען בפועל, כך שקיצור הנוסח לבדו הוא הימור ולא תיקון.
+
+     ‏‎bottom‎ במקום ‎top‎ מפנה לבועה את כל פנים ה-hero שמעליה, ולכן היא אינה
+     תלויה עוד באורך הנוסח. המחיר: היא מכסה את השורה העליונה בזמן הריחוף —
+     אותו מחיר בדיוק שהבועה של השורה העליונה משלמת על התחתונה. */
+  .hero-marks-row.is-lower .hero-mark[data-info]::after{
+    top:auto;bottom:calc(100% + 10px);
   }
   .hero-mark[data-info]:hover::after,
   .hero-mark[data-info]:focus-visible::after,
@@ -3454,7 +3487,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                  (‏ethics-code.html) ובו עשרת הסעיפים, והבועה רק מספרת
                  שהוא שם. -->
             <a class="hero-mark" href="ethics-code.html"
-               data-info="תו האמון והאיכות מוענק רק למשרדים ולמתווכים שאישרו את עשרת סעיפי הקוד האתי, ומוסר מיידית במקרה של הפרה. לחצו לקריאת הקוד המלא.">
+               data-info="מוענק רק למי שאישר את הקוד האתי, ומוסר מיד עם הפרה. לחצו לקוד המלא.">
               <img class="hero-mark-seal" src="assets/badge-ethics.png" width="384" height="384"
                    alt="" decoding="async">
               <span class="hero-mark-cap">תו האמון והאיכות</span>
@@ -3471,7 +3504,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                  מלאים במילוי מדורג ולא בקו, כי זהב על נייבי הוא מה שמסמן
                  אותם כדירוג ולא כאייקון ממשק. -->
             <button type="button" class="hero-mark"
-                    data-info="הדירוג נכתב רק על ידי לקוחות שסגרו עסקה: כל ביקורת קשורה לפנייה אמיתית שנפתחה במערכת, אחת לכל פנייה. אין כאן דירוגים אנונימיים.">
+                    data-info="רק לקוחות שסגרו עסקה מדרגים כאן. אין דירוגים אנונימיים.">
               <span class="hero-mark-ico" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
                   <defs>
@@ -3503,7 +3536,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                  בהם. הווי נחתך מתוך התג בצבע הרקע של העיגול, ולכן הוא נשאר
                  חד גם ב-42px ואינו הופך לכתם. -->
             <button type="button" class="hero-mark"
-                    data-info="אותו נכס לא מתפרסם פעמיים. כל מודעה חדשה נבדקת מול כל הנכסים באתר לפי הכתובת ולפי הבעלים.">
+                    data-info="אותו נכס לא מתפרסם פעמיים — כל מודעה נבדקת מול כל הנכסים באתר.">
               <span class="hero-mark-ico" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
@@ -3536,7 +3569,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                  המתאר של שתי כפות הידיים ומשלוש האצבעות שנכרכות, ולכן זה
                  מה שצויר. ‏stroke ולא מילוי, כמו אייקון הבית שלצדו. -->
             <button type="button" class="hero-mark"
-                    data-info="המתווכים כאן עובדים יחד — נכס של משרד אחד מגיע גם אליכם. כך הסיכוי שתמצאו את העסקה הטובה ביותר בשוק רק גדל.">
+                    data-info="המתווכים כאן עובדים יחד — כך העסקה הטובה בשוק מגיעה גם אליכם.">
               <span class="hero-mark-ico" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -3565,7 +3598,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                  בעל ארבעה קצוות ולא חמישה כדי לא להתחרות בכוכבי הדירוג
                  שלצדו. -->
             <button type="button" class="hero-mark"
-                    data-info="מפסיקים לדמיין ורואים: הנכס בכמה סגנונות עיצוב, ובנכס מסחרי — גם העסק שאפשר להקים בו.">
+                    data-info="מפסיקים לדמיין ורואים: הנכס בכמה סגנונות עיצוב, ונכס מסחרי גם עם העסק שבתוכו.">
               <span class="hero-mark-ico" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
