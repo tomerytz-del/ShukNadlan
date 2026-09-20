@@ -14241,6 +14241,9 @@ async function archiveLead(lead, btn, agentId){
     return;
   }
   archivedLeadIds.add(lead.id);
+  // הליד עבר רשימה, ולכן הוא לא אמור להיפתח לבד בצד השני: מצב הפתיחה
+  // שמור לפי מזהה, ובלי השורה הזו הכרטיס היה ממתין פתוח בארכיון
+  expandedLeadIds.delete(lead.id);
   showToast('הליד הועבר לארכיון');
   renderLeads(agentId);
 }
@@ -14251,6 +14254,7 @@ async function unarchiveLead(lead, btn, agentId){
   btn.disabled = false;
   if (error){ showToast('החזרה מהארכיון נכשלה: ' + error.message); return; }
   archivedLeadIds.delete(lead.id);
+  expandedLeadIds.delete(lead.id);
   showToast('הליד חזר לרשימה הפעילה');
   renderLeads(agentId);
 }
@@ -14323,72 +14327,170 @@ function renderLeads(agentId){
     return;
   }
 
-  listEl.innerHTML = '';
-  showing.forEach(lead=>{
-    const isArchived = archivedLeadIds.has(lead.id);
-    const kind = leadKind(lead);
-    const el = document.createElement('div');
-    el.className = 'card lead-card ' + kind.cls + (isArchived ? ' is-archived' : '');
-    el.dataset.leadId = lead.id;
-    const statusLabel = lead.status === 'unlocked' ? 'פתוח' : (lead.status === 'pending_charge' ? 'בתהליך פתיחה' : 'מוסתר');
-    const dealLabel = lead.deal_type === 'rent' ? 'השכרה' : (lead.deal_type === 'sale' ? 'מכירה' : '');
-    el.innerHTML = `
-      <div class="lead-top">
-        <div>
-          <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
-          <div class="lead-name">${esc(lead.display_name || '—')}</div>
-          <div class="lead-phone">${esc(lead.display_phone || '—')}</div>
-        </div>
-        <span class="status-pill status-${lead.status === 'unlocked' ? 'unlocked' : 'masked'}">${statusLabel}</span>
+  // הרשימה היא טאבים, באותה שפה של "הנכסים שלי" ו"קובץ הלקוחות".
+  // ראו ההערה מעל buildLeadTab().
+  listEl.innerHTML = '<div class="prop-tabs lead-tabs"></div>';
+  const tabsWrap = listEl.querySelector('.prop-tabs');
+  showing.forEach(lead => tabsWrap.appendChild(buildLeadTab(lead, agentId)));
+}
+
+/* ---------- הלידים כרשימת טאבים ----------
+   אותה מחווה של רשימת הנכסים וקובץ הלקוחות: שורה קצרה לכל ליד, והכרטיס
+   המלא נפתח מתחתיה בלחיצה. כאן זה חשוב פי כמה — ליד נקרא פעם אחת ואז
+   מטופל בטלפון, אבל הוא נשאר ברשימה לנצח: ארבעים לידים שנפתחו כבר הם
+   ארבעים כרטיסים מלאים שצריך לגלול לפני הליד החדש שממתין.
+
+   ‏`LEAD_STATUS_LABELS` ולא שרשרת שלישייה בתוך הבנייה: אותן שלוש תוויות
+   נדרשות גם בשורה וגם בכרטיס, ושתי שרשראות נפרדות מתפצלות בשינוי הראשון.
+
+   מצב הפתיחה נשמר לפי מזהה (`expandedLeadIds`), וזו לא רק נוחות: פתיחת
+   ליד מרעננת את כל הדשבורד (`loadDashboard()`), ובלי הסט הזה הכרטיס היה
+   נסגר בדיוק ברגע שבו הטלפון האמיתי נחשף בו. */
+const LEAD_STATUS_LABELS = { unlocked:'פתוח', pending_charge:'בתהליך פתיחה' };
+const expandedLeadIds = new Set();
+
+function leadStatusLabel(lead){ return LEAD_STATUS_LABELS[lead.status] || 'מוסתר'; }
+
+/* מה שמזהה ליד בשורה אחת: איזו עסקה, איפה, איזה נכס ומתי. צד הליד
+   (מוכר מול קונה) אינו נאמר כאן — הוא האייקון והפס הצדדי, בדיוק כמו
+   בכרטיס, והתווית המלאה ממתינה בו. */
+function leadTabSub(lead){
+  return [
+    lead.deal_type === 'rent' ? 'השכרה' : (lead.deal_type === 'sale' ? 'מכירה' : ''),
+    lead.city,
+    lead.property_type,
+    leadTabDate(lead.created_at),
+  ].filter(Boolean).join(' · ');
+}
+
+/* תאריך קצר לשורה: "18.9" לליד מהשנה הנוכחית, "18.9.25" למה שנכנס בשנה
+   אחרת. התאריך הוא הפרט האחרון בשורה, כלומר הראשון שנחתך כששם הפונה והעיר
+   ארוכים — ותאריך מלא שנחתך באמצע ("…9.2026") נראה כמו תקלה. המלא ממתין
+   בתגיות שבכרטיס. */
+function leadTabDate(ts){
+  const d = ts ? new Date(ts) : null;
+  if (!d || Number.isNaN(d.getTime())) return '';
+  const short = d.getDate() + '.' + (d.getMonth() + 1);
+  return d.getFullYear() === new Date().getFullYear()
+    ? short : short + '.' + String(d.getFullYear()).slice(-2);
+}
+
+/* במשבצת שבה יושב המחיר בטאב הנכס: כמה עולה לפתוח את הליד הזה — ההחלטה
+   שבשבילה הרשימה הזו נסרקת, ועכשיו היא נענית בלי לפתוח כרטיס. ליד פתוח
+   כבר שילם, וליד שהמסלול חוסם אינו שאלה של מחיר; בשניהם המשבצת ריקה
+   וההסבר ממתין בכרטיס. */
+function leadTabPrice(lead){
+  if (lead.status !== 'masked') return '';
+  const cost = claimCost(lead);
+  if (cost.blocked) return '';
+  return cost.price > 0 ? esc(shekel(cost.price)) : 'חינם';
+}
+
+function buildLeadTab(lead, agentId){
+  const kind = leadKind(lead);
+  const isArchived = archivedLeadIds.has(lead.id);
+  const isOpen = expandedLeadIds.has(lead.id);
+  const el = document.createElement('div');
+  el.className = 'prop-tab lead-tab ' + kind.cls
+    + (isArchived ? ' is-archived' : '') + (isOpen ? ' is-open' : '');
+  el.dataset.leadId = lead.id;
+  const panelId = 'leadTabPanel-' + esc(String(lead.id));
+  const price = leadTabPrice(lead);
+
+  el.innerHTML = `
+    <button type="button" class="prop-tab-head" aria-expanded="${isOpen}" aria-controls="${panelId}">
+      <span class="prop-tab-main">
+        <span class="prop-tab-title">${kind.icon} ${esc(lead.display_name || '—')}</span>
+        <span class="prop-tab-sub">${esc(leadTabSub(lead))}</span>
+      </span>
+      <span class="status-pill status-${lead.status === 'unlocked' ? 'unlocked' : 'masked'}">${esc(leadStatusLabel(lead))}</span>
+      ${price ? `<span class="prop-tab-price">${price}</span>` : ''}
+      <svg class="prop-tab-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </button>
+    <div class="prop-tab-panel" id="${panelId}"${isOpen ? '' : ' hidden'}></div>`;
+
+  const head = el.querySelector('.prop-tab-head');
+  const panel = el.querySelector('.prop-tab-panel');
+  // הכרטיס נבנה בפתיחה ונזרק בסגירה, כמו בטאבי הנכסים והלקוחות
+  const fillPanel = ()=> panel.appendChild(buildLeadCard(lead, agentId, isArchived));
+  if (isOpen) fillPanel();
+
+  head.addEventListener('click', ()=>{
+    const opening = !expandedLeadIds.has(lead.id);
+    panel.innerHTML = '';
+    if (opening){ expandedLeadIds.add(lead.id); fillPanel(); }
+    else expandedLeadIds.delete(lead.id);
+    panel.hidden = !opening;
+    el.classList.toggle('is-open', opening);
+    head.setAttribute('aria-expanded', String(opening));
+    if (opening) el.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  });
+  return el;
+}
+
+function buildLeadCard(lead, agentId, isArchived){
+  const kind = leadKind(lead);
+  const el = document.createElement('div');
+  el.className = 'card lead-card ' + kind.cls + (isArchived ? ' is-archived' : '');
+  const statusLabel = leadStatusLabel(lead);
+  const dealLabel = lead.deal_type === 'rent' ? 'השכרה' : (lead.deal_type === 'sale' ? 'מכירה' : '');
+  el.innerHTML = `
+    <div class="lead-top">
+      <div>
+        <span class="lead-kind">${kind.icon} ${esc(kind.label)}</span>
+        <div class="lead-name">${esc(lead.display_name || '—')}</div>
+        <div class="lead-phone">${esc(lead.display_phone || '—')}</div>
       </div>
-      ${tagsHtml([
-        dealLabel && { text:dealLabel, cls:'tag-key' },
-        lead.city && { text:'📍 ' + lead.city },
-        lead.property_type && { text:'🏠 ' + lead.property_type },
-        { text:'📅 ' + hebDate(lead.created_at) },
-      ])}
-      ${lead.property_details ? `<div class="lead-meta">🏠 ${esc(lead.property_details)}</div>` : ''}
-      ${lead.display_message ? `<div class="lead-meta">📍 ${esc(lead.display_message)}</div>` : ''}
-      <div class="lead-actions"></div>
-    `;
-    const actions = el.querySelector('.lead-actions');
-    if (lead.status !== 'unlocked'){
-      const cost = claimCost(lead);
+      <span class="status-pill status-${lead.status === 'unlocked' ? 'unlocked' : 'masked'}">${statusLabel}</span>
+    </div>
+    ${tagsHtml([
+      dealLabel && { text:dealLabel, cls:'tag-key' },
+      lead.city && { text:'📍 ' + lead.city },
+      lead.property_type && { text:'🏠 ' + lead.property_type },
+      { text:'📅 ' + hebDate(lead.created_at) },
+    ])}
+    ${lead.property_details ? `<div class="lead-meta">🏠 ${esc(lead.property_details)}</div>` : ''}
+    ${lead.display_message ? `<div class="lead-meta">📍 ${esc(lead.display_message)}</div>` : ''}
+    <div class="lead-actions"></div>
+  `;
+  const actions = el.querySelector('.lead-actions');
+  if (lead.status !== 'unlocked'){
+    const cost = claimCost(lead);
+    addCardAction(actions, {
+      label: cost.price > 0 ? `🔓 פתיחת ליד · ${shekel(cost.price)}` : '🔓 פתיחת ליד',
+      cls:'btn-gold act-wide',
+      title: cost.note || cost.blocked || undefined,
+      onClick: btn => claimLead(lead, btn, agentId),
+    });
+  } else {
+    // הליד פתוח — כלומר הטלפון האמיתי כבר חשוף ב-display_phone, וזו הנקודה
+    // היחידה במערכת שממנה אפשר לבקש חוות דעת (הביקורת מאומתת מול הליד).
+    // וואטסאפ ראשון כי זו הדרך שבה זה באמת נשלח; העתקת קישור נשארת לגיבוי.
+    const wa = waLink(lead.display_phone);
+    if (wa){
       addCardAction(actions, {
-        label: cost.price > 0 ? `🔓 פתיחת ליד · ${shekel(cost.price)}` : '🔓 פתיחת ליד',
-        cls:'btn-gold act-wide',
-        title: cost.note || cost.blocked || undefined,
-        onClick: btn => claimLead(lead, btn, agentId),
-      });
-    } else {
-      // הליד פתוח — כלומר הטלפון האמיתי כבר חשוף ב-display_phone, וזו הנקודה
-      // היחידה במערכת שממנה אפשר לבקש חוות דעת (הביקורת מאומתת מול הליד).
-      // וואטסאפ ראשון כי זו הדרך שבה זה באמת נשלח; העתקת קישור נשארת לגיבוי.
-      const wa = waLink(lead.display_phone);
-      if (wa){
-        addCardAction(actions, {
-          label:'⭐ בקשת חוות דעת', cls:'btn-gold', title:'שליחת הקישור ללקוח/ה בוואטסאפ',
-          onClick: () => sendReviewLinkWhatsApp(lead),
-        });
-      }
-      addCardAction(actions, {
-        label:'📋 העתקת קישור', title:'העתקת קישור לבקשת חוות דעת מהלקוח/ה',
-        onClick: btn => copyReviewLink(lead.id, btn),
+        label:'⭐ בקשת חוות דעת', cls:'btn-gold', title:'שליחת הקישור ללקוח/ה בוואטסאפ',
+        onClick: () => sendReviewLinkWhatsApp(lead),
       });
     }
-    /* הארכוב אחרון בשורת הפעולות ועל רוחב מלא: הוא לא מתחרה על העין עם
-       "פתיחת ליד" או "בקשת חוות דעת" — הוא מה שעושים *אחרי* שסיימו. */
-    addCardAction(actions, isArchived ? {
-      label:'↩️ החזרה מהארכיון', cls:'btn-ghost act-wide',
-      title:'הליד יחזור לרשימת הלידים הפעילים',
-      onClick: btn => unarchiveLead(lead, btn, agentId),
-    } : {
-      label:'🗄️ העברה לארכיון', cls:'btn-ghost act-wide',
-      title:'הליד יורד מהרשימה ומהתור החם ונשמר בארכיון — אפשר להחזיר אותו בכל רגע',
-      onClick: btn => archiveLead(lead, btn, agentId),
+    addCardAction(actions, {
+      label:'📋 העתקת קישור', title:'העתקת קישור לבקשת חוות דעת מהלקוח/ה',
+      onClick: btn => copyReviewLink(lead.id, btn),
     });
-    listEl.appendChild(el);
+  }
+  /* הארכוב אחרון בשורת הפעולות ועל רוחב מלא: הוא לא מתחרה על העין עם
+     "פתיחת ליד" או "בקשת חוות דעת" — הוא מה שעושים *אחרי* שסיימו. */
+  addCardAction(actions, isArchived ? {
+    label:'↩️ החזרה מהארכיון', cls:'btn-ghost act-wide',
+    title:'הליד יחזור לרשימת הלידים הפעילים',
+    onClick: btn => unarchiveLead(lead, btn, agentId),
+  } : {
+    label:'🗄️ העברה לארכיון', cls:'btn-ghost act-wide',
+    title:'הליד יורד מהרשימה ומהתור החם ונשמר בארכיון — אפשר להחזיר אותו בכל רגע',
+    onClick: btn => archiveLead(lead, btn, agentId),
   });
+  return el;
 }
 
 /* הכתובת מורכבת מתיקיית הדף הנוכחי ולא מהחלפת 'crm.html' בנתיב: בפרודקשן
