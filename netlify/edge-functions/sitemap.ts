@@ -244,7 +244,7 @@ export default async function handler(_request: Request, context: Context) {
 
     // ‏המספרים בראש הקובץ, מיד אחרי הצהרת ה-XML: `curl … | head -3` מספיק
     // כדי לראות שסוג שלם נעלם. גוגל מתעלמת מהערות.
-    const note = `<!-- דפי פירוט מהמסד — ${counts.join(", ")} -->`;
+    const note = `<!-- דפי פירוט מהמסד - ${counts.join(", ")} -->`;
     const decl = body.indexOf("?>");
     const out =
       decl === -1 ? note + "\n" + body

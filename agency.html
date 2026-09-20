@@ -1101,7 +1101,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <header class="site">
   <div class="wrap header-inner">
-    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית">
       <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
       <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
     </a>
@@ -1129,7 +1129,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="brand-logo" id="brandLogo">·</div>
           <div class="banner-text">
             <p class="banner-eyebrow" id="brandEyebrow"></p>
-            <h1 class="brand-name" id="brandName">—</h1>
+            <h1 class="brand-name" id="brandName">-</h1>
             <p class="brand-tagline" id="brandTagline" hidden></p>
             <a class="hero-rating" id="heroRating" href="#reviewsHeading" hidden></a>
           </div>
@@ -1180,7 +1180,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            הפעילים של המשרד מגיעים ממילא בטעינת הדף, וסינון מקומי מגיב מיד. -->
       <div class="prop-search" id="propSearchBar" hidden>
         <span class="ic" aria-hidden="true"></span>
-        <input type="search" id="propSearch" placeholder="חיפוש בנכסי המשרד — רחוב, סוג נכס, עיר" aria-label="חיפוש בנכסי המשרד">
+        <input type="search" id="propSearch" placeholder="חיפוש בנכסי המשרד - רחוב, סוג נכס, עיר" aria-label="חיפוש בנכסי המשרד">
         <button type="button" class="clear" id="propSearchClear" aria-label="ניקוי החיפוש" hidden>✕</button>
       </div>
       <p class="search-count" id="propSearchCount" hidden></p>
@@ -1351,7 +1351,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </span>
           <span class="lead-teaser-copy">
             <span class="lead-teaser-title">מחפשים נכס? תנו לו למצוא אתכם</span>
-            <span class="lead-teaser-sub">לקנייה או להשכרה — נעדכן אתכם ראשונים כשעולה נכס שמתאים</span>
+            <span class="lead-teaser-sub">לקנייה או להשכרה - נעדכן אתכם ראשונים כשעולה נכס שמתאים</span>
           </span>
           <span class="lead-teaser-go" aria-hidden="true">
             <span class="lead-teaser-go-open">התאמת נכס ←</span>
@@ -1361,7 +1361,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
         <div class="lead-panel" id="buyerPanel" hidden>
           <div class="owner-intro">
-            <p id="buyerLead">ספרו לנו מה אתם מחפשים — ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.</p>
+            <p id="buyerLead">ספרו לנו מה אתם מחפשים - ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.</p>
           </div>
 
           <div class="owner-wizard" id="buyerWizard">
@@ -1388,7 +1388,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                      קטגוריה ולא סוג עסקה — ולכן הבחירה בו פותחת את השאלה
                      המשלימה במקום לנחש עבור המחפש/ת. -->
                 <div id="buyCommercialDeal" hidden>
-                  <span class="wiz-label" id="buyCommercialLabel">נכס מסחרי — לקנייה או להשכרה?</span>
+                  <span class="wiz-label" id="buyCommercialLabel">נכס מסחרי - לקנייה או להשכרה?</span>
                   <div class="lead-toggle" id="buyCommercialToggle" role="group" aria-labelledby="buyCommercialLabel">
                     <button type="button" class="active" data-buy-cdeal="sale">לקנייה</button>
                     <button type="button" data-buy-cdeal="rent">להשכרה</button>
@@ -1776,16 +1776,16 @@ function starsHtml(rating){
 
 /* ---------- מיתוג המשרד ----------
    מנהל המשרד קובע ב-CRM צבעים, לוגו ותמונת נושא; כאן רק מיישמים. כל שדה
-   אופציונלי — משרד שלא הגדיר דבר מקבל את עיצוב ברירת המחדל של הפלטפורמה. */
+   אופציונלי - משרד שלא הגדיר דבר מקבל את עיצוב ברירת המחדל של הפלטפורמה. */
 const HEX_RE = /^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
-// הצבעים מגיעים מ-DB שמנהל המשרד כותב אליו, ונכנסים ל-CSS — בלי הסינון הזה
+// הצבעים מגיעים מ-DB שמנהל המשרד כותב אליו, ונכנסים ל-CSS - בלי הסינון הזה
 // ערך כמו "red;background:url(...)" היה מוזרק כפשוטו אל תוך גיליון הסגנון.
 function safeHex(value, fallback){
   return typeof value === 'string' && HEX_RE.test(value.trim()) ? value.trim() : fallback;
 }
 
-// בהירות יחסית (WCAG) — הבסיס לכל בדיקות הניגודיות בדף
+// בהירות יחסית (WCAG) - הבסיס לכל בדיקות הניגודיות בדף
 function relLuminance(hex){
   const full = hex.length === 4 ? '#' + hex.slice(1).split('').map(c=>c+c).join('') : hex;
   return [1,3,5].map(i=>{
@@ -1797,26 +1797,26 @@ function contrastBetween(a, b){
   const la = relLuminance(a), lb = relLuminance(b);
   return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
 }
-// יחס הניגודיות בין צבע לבין לבן — קובע אם טקסט לבן עליו יהיה קריא
+// יחס הניגודיות בין צבע לבין לבן - קובע אם טקסט לבן עליו יהיה קריא
 function contrastWithWhite(hex){
   return contrastBetween(hex, '#ffffff');
 }
 
-/* ‏--on-brand ו---on-accent: צבע הטקסט שרץ *על* גוון המשרד — בכפתורי ה-CTA
+/* ‏--on-brand ו---on-accent: צבע הטקסט שרץ *על* גוון המשרד - בכפתורי ה-CTA
    של באנרי הלידים, בכותרות הבאנרים ובתגיות. עד כה נבחר לבן בכל פעם שהוא
-   עבר 3.2:1, אבל 3.2 הוא הסף של WCAG לטקסט גדול בלבד — ו-CTA ב-‎.82rem‎
+   עבר 3.2:1, אבל 3.2 הוא הסף של WCAG לטקסט גדול בלבד - ו-CTA ב-‎.82rem‎
    מודגש ("לבדיקה ←") הוא טקסט רגיל, שדורש 4.5:1. משרד עם אקסנט בינוני
    קיבל בדיוק את המצב הזה: לבן שנראה בסדר ולא עבר את התקן.
 
-   הבחירה כאן היא בין שני המועמדים היחידים — לבן ודיו כהה — ומעדיפה את זה
-   שעובר 4.5:1. כשגם וגם, הלבן מנצח (זו שפת האתר); כשאף אחד לא עובר —
-   גוון בינוני שאין עליו טקסט קריא באמת — נבחר הגבוה מבין השניים, שהוא
+   הבחירה כאן היא בין שני המועמדים היחידים - לבן ודיו כהה - ומעדיפה את זה
+   שעובר 4.5:1. כשגם וגם, הלבן מנצח (זו שפת האתר); כשאף אחד לא עובר -
+   גוון בינוני שאין עליו טקסט קריא באמת - נבחר הגבוה מבין השניים, שהוא
    הטוב ביותר שאפשר בלי לשנות את הגוון שהמשרד בחר. */
 const ON_COLOR_INK = '#0d1b3d';
 
 /* הבחירה נמדדת מול *שני* הגוונים שהמשטח באמת צבוע בהם, ולא מול אחד מהם.
-   כמעט כל משטח מלא באתר הוא מדרג — ‎linear-gradient(--brand-dark → --brand)‎
-   בלוח התוצאה, ‎--accent-dark → --accent‎ ב-CTA — ומדידה מול הקצה הבהיר
+   כמעט כל משטח מלא באתר הוא מדרג - ‎linear-gradient(--brand-dark → --brand)‎
+   בלוח התוצאה, ‎--accent-dark → --accent‎ ב-CTA - ומדידה מול הקצה הבהיר
    בלבד החזירה דיו כהה שנעלם בקצה הכהה של אותו מדרג בדיוק. הגרוע מבין
    השניים הוא מה שקובע. */
 function readableOnPair(a, b){
@@ -1829,10 +1829,10 @@ function readableOnPair(a, b){
 
 /* כתובת תמונה שמותר להכניס ל-src או ל-url() של CSS.
    מותרים שלושה סוגים: כתובת http(s) מלאה (כך נשמרות תמונות שהועלו דרך
-   ה-CRM אל ה-Storage), ונתיב יחסי לאתר עצמו — ‎/…‎ או ‎assets/…‎ — שכך
+   ה-CRM אל ה-Storage), ונתיב יחסי לאתר עצמו - ‎/…‎ או ‎assets/…‎ - שכך
    נשמרות תמונות שיושבות בריפו. עד כה התקבלו רק כתובות https, וסוכן/ת
    שהתמונה שלו/ה היא ‎assets/agents/…‎ הופיע/ה בדף שלו/ה עם תמונה ובדף
-   המשרד בלי — אותו נתון, שני כללים. הכלל כאן זהה לזה שב-agent.html, פרט
+   המשרד בלי - אותו נתון, שני כללים. הכלל כאן זהה לזה שב-agent.html, פרט
    לכך שנתיב שמתחיל ב-‎//‎ נחסם: הוא נראה יחסי אבל טוען מדומיין אחר. */
 function safeImageUrl(url){
   if (typeof url !== 'string') return null;
@@ -1854,7 +1854,7 @@ function applyBranding(agency){
     root.setProperty('--on-brand', readableOnPair(brand, brandDark));
     /* ‏--on-brand-fill הוא אותו חישוב בדיוק, בשם שנשאר תקף גם בתוך רצועה
        כהה: שם ‎--on-brand‎ נדרס ללבן (הרצועה כבר אינה בגוון המשרד), ואילו
-       כפתור מלא שבתוכה — ‎.btn-gold‎, שרקעו ‎--teal‎ — עדיין כן. */
+       כפתור מלא שבתוכה - ‎.btn-gold‎, שרקעו ‎--teal‎ - עדיין כן. */
     root.setProperty('--on-brand-fill', readableOnPair(brand, brandDark));
   }
   if (accent){
@@ -1865,17 +1865,17 @@ function applyBranding(agency){
     /* המקבילה לצבע המשני: טקסט על שבב ‎--gold‎ (שהוא ‎--accent‎) בתוך רצועה. */
     root.setProperty('--on-accent-fill', readableOnPair(accent, accentDark));
     /* ‏--lead-mark: הגוון שנושא "נבחר" בתוך באנרי הלידים. הרצועה עצמה
-       צבועה ב---brand, והסימון שבתוכה ב---accent — ואצל משרד ששני הגוונים
+       צבועה ב---brand, והסימון שבתוכה ב---accent - ואצל משרד ששני הגוונים
        שלו קרובים (ברירת המחדל היא ששניהם זהים) השבב הנבחר נצבע בדיוק
        בצבע הרקע שמאחוריו. מ-2:1 ומעלה האקסנט נבדל מספיק כדי לשאת את
-       הסימון בעצמו; מתחת לזה נשאר ערך ברירת המחדל שב-CSS — הגוון המשני
+       הסימון בעצמו; מתחת לזה נשאר ערך ברירת המחדל שב-CSS - הגוון המשני
        המבהיר, שנקרא על כל רצועה כהה. */
     if (!brand || contrastBetween(accent, brand) >= 2){
       root.setProperty('--lead-mark', accent);
       root.setProperty('--lead-mark-ink', readableOnPair(accent, accentDark));
     }
     /* ‏--accent-ink נושא טקסט ואייקונים קטנים (מחיר, כוכבים, אייקוני הקפסולות) על רקע
-       הכרטיסים. אקסנט בהיר — צהוב, חול, ובוודאי לבן — נכשל שם בניגודיות,
+       הכרטיסים. אקסנט בהיר - צהוב, חול, ובוודאי לבן - נכשל שם בניגודיות,
        ולכן נבחר כאן הגוון הראשון שעובר 4.5:1: קודם המשני הכהה, אחריו המשני
        עצמו, ורק אם שניהם בהירים מדי נסוגים לצבע הראשי. */
     const surface = safeHex(c.paper_raised, '#FFFFFF');
@@ -1884,7 +1884,7 @@ function applyBranding(agency){
     root.setProperty('--accent-ink', ink);
   }
   if (safeHex(c.paper, null)) root.setProperty('--paper', c.paper.trim());
-  // ‏paper_raised הוא צבע המשטחים שהמשרד בחר — הוא גובר גם על ‎--surface‎ של
+  // ‏paper_raised הוא צבע המשטחים שהמשרד בחר - הוא גובר גם על ‎--surface‎ של
   // השכבה החדשה, אחרת ערכה כהה שנבחרה בכוונה הייתה מקבלת כרטיסים לבנים.
   if (safeHex(c.paper_raised, null)){
     root.setProperty('--paper-raised', c.paper_raised.trim());
@@ -1917,11 +1917,11 @@ function applyBranding(agency){
 }
 
 /* ---------- יצירת קשר עם המשרד ----------
-   ל-agencies אין עמודת טלפון — המספר הפומבי היחיד שיש הוא של חברי הצוות
+   ל-agencies אין עמודת טלפון - המספר הפומבי היחיד שיש הוא של חברי הצוות
    (‏agency_members_public.phone_e164‎). לכן הפנייה מנותבת למנהל/ת המשרד, ואם
-   אין להם מספר — לסוכן/ת הראשון/ה שיש לו. בלי מספר אמיתי הבלוק לא נוצר:
+   אין להם מספר - לסוכן/ת הראשון/ה שיש לו. בלי מספר אמיתי הבלוק לא נוצר:
    כפתור שלא מוביל לאיש גרוע מהיעדר כפתור.
-   ‏phone_e164 שמור כספרות בלבד (972521112222) — בדיוק מה ש-wa.me ו-tel:
+   ‏phone_e164 שמור כספרות בלבד (972521112222) - בדיוק מה ש-wa.me ו-tel:
    מצפים לו. הבדיקה כאן היא גם שער אבטחה: המספר נכנס ל-href. */
 const PHONE_RE = /^\d{9,15}$/;
 const hasPhone = m => PHONE_RE.test(String(m && m.phone_e164 || ''));
@@ -2018,7 +2018,7 @@ function agencyAddressHtml(){
   if (!address) return '';
   const maps = 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(address);
   return `<a class="contact-address" href="${escapeHtml(maps)}" target="_blank" rel="noopener noreferrer"
-             aria-label="${escapeHtml('כתובת המשרד: ' + address + ' — פתיחה במפות')}">
+             aria-label="${escapeHtml('כתובת המשרד: ' + address + ' - פתיחה במפות')}">
       ${ICON.pin}<span>${escapeHtml(address)}</span>
     </a>`;
 }
@@ -2048,7 +2048,7 @@ function renderManagerContact(members){
       <div class="name">${escapeHtml(name)}</div>
       <div class="role">${escapeHtml(roleLabel(manager))} · ${escapeHtml(agencyName)}</div>
       ${agencyAddressHtml()}
-      <p class="note">מוזמנים לפנות בכל שאלה — על נכס מסוים, על הערכת שווי או על מכירה והשכרה בעפולה והעמק.</p>
+      <p class="note">מוזמנים לפנות בכל שאלה - על נכס מסוים, על הערכת שווי או על מכירה והשכרה בעפולה והעמק.</p>
     </div>
     <div class="contact-actions">
       <a class="cta-primary" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer"
@@ -2149,7 +2149,7 @@ function renderStories(){
     if (item.kind === 'deal'){
       card.innerHTML = dealCardHtml(item.deal);
       card.setAttribute('aria-label',
-        `${dealStamp(item.deal)} — ${[item.deal.property_type, item.deal.city].filter(Boolean).join(' ')}`);
+        `${dealStamp(item.deal)} - ${[item.deal.property_type, item.deal.city].filter(Boolean).join(' ')}`);
       if (item.deal.property_id){
         open = ()=> window.location.href = 'property.html?id=' + item.deal.property_id;
       } else {
@@ -2655,7 +2655,7 @@ async function loadTeam(sb, agencyId){
     card.className = 'team-card' + (isManager ? ' is-manager' : '');
     card.setAttribute('role', 'link');
     card.tabIndex = 0;
-    card.setAttribute('aria-label', name + ' — ' + roleLabel(a));
+    card.setAttribute('aria-label', name + ' - ' + roleLabel(a));
     card.innerHTML = `
       ${isManager ? `<span class="team-flag">${ICON.star}מנהל/ת המשרד</span>` : ''}
       ${agentAvatarHtml(a, 'team-avatar')}
@@ -2685,9 +2685,9 @@ async function loadTeam(sb, agencyId){
 }
 
 /* ---------- קרוסלה ----------
-   חיצים, נקודות וגלילה בקפיצות של כרטיס — לרצועת המתווכים ולשלוש רצועות
-   הנכסים כאחד. ב-RTL ציר הגלילה הפיזי הפוך — ‏scrollLeft יורד לשלילי ככל
-   שמתקדמים — ולכן כיוון הצעד נגזר מכיוון הכתיבה בפועל ולא מקובע. */
+   חיצים, נקודות וגלילה בקפיצות של כרטיס - לרצועת המתווכים ולשלוש רצועות
+   הנכסים כאחד. ב-RTL ציר הגלילה הפיזי הפוך - ‏scrollLeft יורד לשלילי ככל
+   שמתקדמים - ולכן כיוון הצעד נגזר מכיוון הכתיבה בפועל ולא מקובע. */
 window.addEventListener('resize', ()=>{
   document.querySelectorAll('.rail').forEach(rail => rail._railSync && rail._railSync());
 });
@@ -2722,7 +2722,7 @@ function initCarousel(rail, prev, next, dots){
       const dot = document.createElement('button');
       dot.type = 'button';
       dot.setAttribute('aria-label', `מעבר לעמוד ${i + 1} מתוך ${count}`);
-      // מיקום יחסי לאורך הגלילה כולה — כך שהנקודה האחרונה באמת מגיעה לסוף
+      // מיקום יחסי לאורך הגלילה כולה - כך שהנקודה האחרונה באמת מגיעה לסוף
       // הרצועה גם כשהעודף לגלילה קטן מרוחב עמוד שלם
       dot.addEventListener('click', ()=>{
         const scrollable = rail.scrollWidth - rail.clientWidth;
@@ -2733,7 +2733,7 @@ function initCarousel(rail, prev, next, dots){
   }
 
   function sync(){
-    if (rail.dataset.expanded === '1') return;   // רשת פתוחה — אין קרוסלה לסנכרן
+    if (rail.dataset.expanded === '1') return;   // רשת פתוחה - אין קרוסלה לסנכרן
     rail.classList.remove('no-scroll');
     const scrollable = rail.scrollWidth - rail.clientWidth;
     const overflowing = scrollable > 8;
@@ -2756,14 +2756,14 @@ function initCarousel(rail, prev, next, dots){
     rail._syncing = requestAnimationFrame(()=>{ rail._syncing = null; sync(); });
   });
   // הרצועות של הנכסים נבנות מחדש בכל הקלדה בחיפוש. מאזין resize על window לכל
-  // רצועה היה משאיר מאחוריו מאזין מת בכל בנייה — לכן ה-sync נתלה על הרצועה
+  // רצועה היה משאיר מאחוריו מאזין מת בכל בנייה - לכן ה-sync נתלה על הרצועה
   // עצמה, ומאזין יחיד וגלובלי מריץ את מה שבאמת נמצא בדף.
   rail._railSync = sync;
   sync();
 }
 
 /* מרכיבה את שורת ההסבר שמתחת לציון. הציון של המשרד אינו ממוצע הביקורות שלו,
-   ולכן חייב להיות ברור ממה הוא כן מורכב — אחרת לקוח/ה שסופר/ת את הכוכבים
+   ולכן חייב להיות ברור ממה הוא כן מורכב - אחרת לקוח/ה שסופר/ת את הכוכבים
    בביקורות שמתחת יגיע/תגיע למספר אחר ויחשוב/תחשוב שהמערכת משקרת. */
 function ratingBreakdown(stats, reviewsCount){
   const parts = [];
@@ -2786,7 +2786,7 @@ async function loadReviews(sb, agencyId){
   // הציון מגיע מ-agency_ratings_public ולא מחושב כאן: הוא מערבב דירוג צוות
   // (ממוצע של ממוצעי המתווכים, ולא ממוצע מאוחד של הביקורות) עם הדירוג הישיר
   // של המשרד, ואת הנוסחה הזו אין טעם לשכפל בדפדפן. הביקורות עצמן עדיין
-  // נטענות בנפרד — ה-view לא מחזיר טקסטים.
+  // נטענות בנפרד - ה-view לא מחזיר טקסטים.
   const [{ data: reviews }, { data: stats }] = await Promise.all([
     sb.from('reviews').select('rating, agency_rating, text, reviewer_display_name')
       .eq('agency_id', agencyId).eq('status', 'published'),
@@ -2795,7 +2795,7 @@ async function loadReviews(sb, agencyId){
   ]);
   /* ---------- הסף שמתחתיו אין מקטע בכלל ----------
      "אין עדיין ביקורות למשרד זה" הוא המשפט היקר ביותר בדף: הוא לא ניטרלי,
-     הוא נקרא כאזהרה. גם ביקורת בודדת אינה עדות — היא יכולה להיות של חבר.
+     הוא נקרא כאזהרה. גם ביקורת בודדת אינה עדות - היא יכולה להיות של חבר.
      לכן המקטע כולו (וגם הדירוג בבאנר ובסרגל) נפתח רק משתי חוות דעת ומעלה,
      ועד אז הדף פשוט לא מדבר על ביקורות. */
   if (!reviews || reviews.length < MIN_REVIEWS_SHOWN) return;
@@ -2930,7 +2930,7 @@ function validateStep(step){
     const el = document.getElementById('wizAddress');
     wizState.address = el.value.trim();
     if (wizState.address.length < 3){
-      setError(1, 'נא להזין כתובת מדויקת — רחוב ומספר');
+      setError(1, 'נא להזין כתובת מדויקת - רחוב ומספר');
       el.classList.add('invalid'); el.focus();
       return false;
     }
@@ -3084,7 +3084,7 @@ async function submitOwnerWizard(e){
     wizDone.hidden = false;
   } catch(err){
     console.error('owner-lead-intake failed:', err);
-    setError(3, 'השליחה נכשלה — בדקו חיבור לאינטרנט ונסו שוב');
+    setError(3, 'השליחה נכשלה - בדקו חיבור לאינטרנט ונסו שוב');
     submitBtn.textContent = originalLabel;
     submitBtn.disabled = false;
   }
@@ -3267,7 +3267,7 @@ function buyValidateStep(step){
   }
   if (step === 2){
     if (!buyHasCriteria(buyCriteria())){
-      buySetError(2, 'בחרו לפחות תנאי אחד — שכונה, סוג נכס, חדרים או תקציב');
+      buySetError(2, 'בחרו לפחות תנאי אחד - שכונה, סוג נכס, חדרים או תקציב');
       return false;
     }
     buySetError(2, '');
@@ -3298,7 +3298,7 @@ function buyValidateStep(step){
 const BUY_DEAL_LABELS = { sale:'לקנייה', rent:'להשכרה' };
 
 function buyRoomsText(c){
-  return c.min_rooms && c.max_rooms && c.min_rooms !== c.max_rooms ? `${c.min_rooms}–${c.max_rooms} חדרים`
+  return c.min_rooms && c.max_rooms && c.min_rooms !== c.max_rooms ? `${c.min_rooms}-${c.max_rooms} חדרים`
        : c.min_rooms ? `${c.min_rooms} חדרים${!c.max_rooms ? ' ומעלה' : ''}`
        : c.max_rooms ? `עד ${c.max_rooms} חדרים` : null;
 }
@@ -3310,7 +3310,7 @@ function buyHoodNames(c){
 function buyRenderRecap(){
   const c = buyCriteria();
   const hoodNames = buyHoodNames(c);
-  const budget = c.min_price && c.max_price ? `${nis(c.min_price)}–${nis(c.max_price)} ₪`
+  const budget = c.min_price && c.max_price ? `${nis(c.min_price)}-${nis(c.max_price)} ₪`
                : c.max_price ? `עד ${nis(c.max_price)} ₪`
                : c.min_price ? `מ-${nis(c.min_price)} ₪` : null;
   const parts = [
@@ -3321,7 +3321,7 @@ function buyRenderRecap(){
     buyRoomsText(c),
     budget ? '💰 ' + budget : null,
     c.min_size_sqm || c.max_size_sqm
-      ? `📐 ${c.min_size_sqm || ''}${c.min_size_sqm && c.max_size_sqm ? '–' : ''}${c.max_size_sqm || ''} מ״ר` : null,
+      ? `📐 ${c.min_size_sqm || ''}${c.min_size_sqm && c.max_size_sqm ? '-' : ''}${c.max_size_sqm || ''} מ״ר` : null,
   ].filter(Boolean);
   document.getElementById('buyRecap').textContent = parts.join(' · ');
 }
@@ -3343,7 +3343,7 @@ async function submitBuyerWizard(e){
   if (!buyValidateStep(3)) return;
   const c = buyCriteria();
   if (!buyHasCriteria(c)){
-    buySetError(3, 'הוסיפו לפחות תנאי אחד — שכונה, סוג נכס, חדרים או תקציב');
+    buySetError(3, 'הוסיפו לפחות תנאי אחד - שכונה, סוג נכס, חדרים או תקציב');
     buyGoToStep(2);
     return;
   }
@@ -3379,12 +3379,12 @@ async function submitBuyerWizard(e){
     if (!res.ok || data.error){
       const messages = {
         too_many_searches: `הגעתם למקסימום החיפושים השמורים (${data.limit || 5}). אפשר להפסיק חיפוש קיים מהקישור שבהתראה.`,
-        no_criteria: 'הוסיפו לפחות תנאי אחד — שכונה, סוג נכס, חדרים או תקציב',
+        no_criteria: 'הוסיפו לפחות תנאי אחד - שכונה, סוג נכס, חדרים או תקציב',
         invalid_phone: 'נא להזין מספר טלפון תקין',
         invalid_email: 'נא להזין כתובת אימייל תקינה',
         invalid_name: 'נא להזין שם מלא',
       };
-      throw new Error(messages[data.error] || 'השמירה נכשלה — נסו שוב');
+      throw new Error(messages[data.error] || 'השמירה נכשלה - נסו שוב');
     }
     /* ‏duplicate=true פירושו שהחיפוש הזה כבר שמור. מבחינת המחפש/ת זו הצלחה.
        ‏assigned_to_agency מגיע מהשרת ולא מנוחש כאן: רק הוא יודע אם הפרטים
@@ -3392,7 +3392,7 @@ async function submitBuyerWizard(e){
        שמבטיח משהו שלא קרה גרוע ממסך סיום סתמי. */
     const office = (currentAgency && currentAgency.name) || 'המשרד';
     document.getElementById('buyDoneText').textContent = data.duplicate
-      ? 'החיפוש הזה כבר שמור אצלנו — נעדכן אתכם ברגע שיעלה נכס מתאים.'
+      ? 'החיפוש הזה כבר שמור אצלנו - נעדכן אתכם ברגע שיעלה נכס מתאים.'
       : data.assigned_to_agency
         ? `נעדכן אתכם ברגע שיעלה נכס שמתאים, ומתווך/ת מ${office} יחזור/תחזור אליכם עם נכסים מתאימים.`
         : 'נעדכן אתכם ברגע שיעלה נכס שמתאים למה שביקשתם.';
@@ -3402,7 +3402,7 @@ async function submitBuyerWizard(e){
   } catch(err){
     console.warn('saved-search-intake (buyer banner) failed:', err);
     buySetError(3, err.message && err.message !== 'Failed to fetch'
-      ? err.message : 'השמירה נכשלה — בדקו חיבור לאינטרנט ונסו שוב');
+      ? err.message : 'השמירה נכשלה - בדקו חיבור לאינטרנט ונסו שוב');
     btn.textContent = originalLabel;
     btn.disabled = false;
   }
@@ -3421,7 +3421,7 @@ function initBuyerWizard(agency, sb){
   if (!buyerForm || !buyDoneEl) return;
 
   document.getElementById('buyerLead').textContent =
-    `ספרו לנו מה אתם מחפשים — ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.`;
+    `ספרו לנו מה אתם מחפשים - ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.`;
   // ההסכמה נוקבת בשם המשרד ולא ב"מתווך/ת מהאזור": הפרטים מגיעים לכאן,
   // למשרד שבדף, ולא לרוטציה של הפלטפורמה
   document.getElementById('buyConsentText').textContent =
@@ -3552,7 +3552,7 @@ loadAgency();
   <div class="footer-wrap footer-top">
 
     <div class="footer-brand">
-      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק — לדף הבית">
+      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק - לדף הבית">
         <img src="assets/logo-shuknadlan-dark.svg" alt="" width="52" height="62" loading="lazy">
         <span class="footer-logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
       </a>
@@ -3590,7 +3590,7 @@ loadAgency();
 
         <div class="footer-social">
           <a href="https://www.facebook.com/share/19LytY6L6b/" target="_blank" rel="noopener noreferrer"
-             aria-label="שוק הנדל״ן בפייסבוק — נפתח בחלון חדש" title="פייסבוק">
+             aria-label="שוק הנדל״ן בפייסבוק - נפתח בחלון חדש" title="פייסבוק">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06C2 17.08 5.66 21.24 10.44 22v-7.03H7.9v-2.91h2.54V9.85c0-2.52 1.49-3.91 3.77-3.91 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.78-1.63 1.57v1.89h2.78l-.44 2.91h-2.34V22C18.34 21.24 22 17.08 22 12.06Z"/>
             </svg>

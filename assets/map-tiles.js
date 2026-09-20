@@ -150,9 +150,9 @@
       /* ‏false ולא lazy: באתר עברי הטקסט ה-RTL הראשון מופיע בפריים הראשון,
          ולכן טעינה עצלה רק מבטיחה הבזק של שמות הפוכים לפני התיקון. */
       var p = ml.setRTLTextPlugin(RTL_PLUGIN, false);
-      if (p && p.catch) p.catch(function (e) { console.warn('MapTiles: תוסף ה-RTL לא נטען —', e && e.message); });
+      if (p && p.catch) p.catch(function (e) { console.warn('MapTiles: תוסף ה-RTL לא נטען -', e && e.message); });
     } catch (e) {
-      console.warn('MapTiles: תוסף ה-RTL לא נטען —', e && e.message);
+      console.warn('MapTiles: תוסף ה-RTL לא נטען -', e && e.message);
     }
   }
 
@@ -241,7 +241,7 @@
       layer.addTo(map);
       return layer;
     }).catch(function (err) {
-      console.warn('MapTiles: נופלים לאריחי ראסטר —', err && err.message);
+      console.warn('MapTiles: נופלים לאריחי ראסטר -', err && err.message);
       var layer = rasterLayer(o);
       layer.addTo(map);
       return layer;

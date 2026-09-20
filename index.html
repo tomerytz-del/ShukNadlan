@@ -30,7 +30,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      סיבה שתגיות ה-GTM חוזרות: לאתר אין תבנית משותפת. הפרטים:
      docs/security-headers.md -->
 <meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
-<meta name="description" content="העסקה הבאה שלך בעפולה מתחילה בשוק הנדל״ן — כל הדירות, כל המתווכים, בכתובת אחת.">
+<meta name="description" content="העסקה הבאה שלך בעפולה מתחילה בשוק הנדל״ן - כל הדירות, כל המתווכים, בכתובת אחת.">
 <meta property="og:description" content="העסקה הבאה שלך בעפולה מתחילה בשוק הנדל״ן.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -810,15 +810,43 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      ‏gap גדול יחסית: חותמות צמודות נקראות כאשכול אחד, ופרושות — כסימנים
      שכל אחד אומר דבר משלו.
 
-     ‏**החותמת הרביעית והחמישית הצטרפו אחרי שנמדד הרוחב.** חמש עמודות ברוחב
-     הכיתוב הארוך ("דירוג מלקוחות אמיתיים") ועוד המספרים שלצדן נכנסות בשורה
-     אחת מ-1024px ומעלה, ובין 760px ל-1024px השורה נשברת בין שתי הקבוצות —
-     כלומר בדיוק במקום שבשבילו הן קובצו. מי שמוסיף/ה חותמת שישית מודד/ת
-     שוב, וכיתוב ארוך משל הקיים מרחיב את *כל* העמודות ולא רק את שלו. */
-  .hero-marks{
-    display:grid;grid-auto-flow:column;grid-auto-columns:1fr;
-    align-items:center;justify-items:center;gap:18px;
+     ‏**שלוש למעלה ושתיים מתחתיהן, ולא חמש בשורה.** חמש חותמות ברצף אחד
+     נכנסו טכנית ברוחב אבל נקראו כשורת כפתורים דחוסה, ושתי האחרונות —
+     שהצטרפו אחרונות — נראו כתוספת שנדחפה לקצה. שתי שורות מחזירות לשורה
+     העליונה את האוויר שהיה לה כששלוש החותמות עמדו לבדן.
+
+     ‏**שתי שורות ולא גריד אחד בעל שתי שורות**, וזו לא קוסמטיקה: בועת
+     ההסבר נתלית על ה-ancestor הממוקם הקרוב ביותר (ראו הסעיף על הבועה),
+     ובגריד אחד זה היה המכל כולו — כלומר בועה של חותמת מהשורה העליונה
+     הייתה צונחת אל *מתחת לשורה התחתונה*, כ-150px מהחותמת שפתחה אותה.
+     ‏`.hero-marks-row` נושאת ‎position:relative‎ משלה, ולכן כל בועה נופלת
+     מיד מתחת לשורה שלה.
+
+     ‏**שתי השורות הן אותו גריד של שש עמודות ‎1fr‎**, וכל חותמת תופסת
+     שתיים: עליונה 1-2 / 3-4 / 5-6, תחתונה 2-3 / 4-5. כך שתי החותמות
+     התחתונות יוצאות ממורכזות *בין* העליונות ולא מתחת לשתיים מהן — נמדד
+     ב-1440px: אמצע הצמד התחתון על 1005, והחותמת האמצעית העליונה על 1004.
+
+     ‏**אבל המקצב אינו זהה בשתי השורות, וזה בסדר.** ‏‎1fr‎ הוא
+     ‎minmax(auto,1fr)‎, והכיתובים הם ‎nowrap‎ — ולכן עמודה נמתחת ל-
+     ‎min-content‎ של הכיתוב שמעליה. לשורה העליונה כיתובים ארוכים יותר
+     ("דירוג מלקוחות אמיתיים"), ומכיוון שכל שורה היא גריד בפני עצמו
+     המרווח בין העיגולים יוצא 125px למעלה מול 92px למטה. ‏`minmax(0,1fr)`
+     היה משווה אותם, אבל גם מסיר את הרצפה שמונעת מכיתוב ארוך לגלוש מהעמודה
+     שלו — והצמד התחתון ממורכז ממילא, כך שהמחיר גדול מהרווח.
+
+     מי שמוסיף/ה חותמת שישית מעביר/ה אותה לשורה התחתונה ומשנה שם את
+     ההנחה לשלוש עמודות; כיתוב ארוך משל הקיים ("דירוג מלקוחות אמיתיים")
+     מרחיב את *כל* העמודות ולא רק את שלו. */
+  .hero-marks{display:flex;flex-direction:column;gap:14px}
+  .hero-marks-row{
+    position:relative;
+    display:grid;grid-template-columns:repeat(6,1fr);
+    align-items:start;justify-items:center;column-gap:18px;
   }
+  .hero-marks-row > *{grid-column:span 2}
+  .hero-marks-row.is-lower > :nth-child(1){grid-column:2 / span 2}
+  .hero-marks-row.is-lower > :nth-child(2){grid-column:4 / span 2}
   .hero-mark{
     display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center;
     padding:0;border:0;background:none;font-family:inherit;text-decoration:none;cursor:pointer;
@@ -875,14 +903,54 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      השורה, ובועה ברוחב 300px שממורכזת על עיגול של 42px הייתה חורגת מקצה
      המסך. על ‎.hero-stats‎ כולה היא גם לא יכולה להיתלות — בדסקטופ השורה
      מיושרת לתחילת עמודה רחבה (‏justify-content:flex-start), ובועה
-     שממורכזת עליה הייתה נוחתת באמצע המסך, הרחק מהחותמת שפתחה אותה. */
+     שממורכזת עליה הייתה נוחתת באמצע המסך, הרחק מהחותמת שפתחה אותה.
+
+     ‏**לבנה עם טקסט כהה ולא נייבי עם לבן.** הבועה נפתחת מעל המפה, ומלבן
+     כהה שצץ שם נקרא כחלון שנפתח על האתר; קופסה לבנה נקראת כהסבר שנצמד
+     לחותמת. מכיוון שהיא לבנה על רקע בהיר היא חייבת מסגרת — בלעדיה הצל
+     לבדו אינו מפריד אותה מהמפה. הטקסט הוא ‎--ink‎, אותו שחור־כחול שבו
+     כתוב כל הדף. */
   .hero-mark[data-info]::after{
     content:attr(data-info);display:none;
     position:absolute;top:calc(100% + 10px);left:50%;transform:translateX(-50%);
     width:max-content;max-width:min(300px,84vw);white-space:normal;text-align:center;
-    background:var(--teal-dark);color:#fff;font-size:.72rem;font-weight:600;line-height:1.5;
-    padding:10px 13px;border-radius:0;box-shadow:0 10px 26px rgba(6,20,34,.3);
+    background:#fff;color:var(--ink);border:1px solid var(--line);
+    font-size:.72rem;font-weight:600;line-height:1.5;
+    padding:10px 13px;border-radius:0;box-shadow:0 10px 26px rgba(6,20,34,.22);
     pointer-events:none;z-index:30;
+    /* ‏balance מחלק את הטקסט לשורות שוות במקום להשאיר מילה בודדת בשורה
+       אחרונה. הוא לא מונע שבירה של משפט באמצע — CSS אינו יודע מה זה משפט —
+       אבל הוא מה שאפשר לעשות בלי לשתול רווחים קשיחים בכל נוסח.
+
+       ‏**ומה שכן שותל אותם:** בכל נוסח, **כל פסוקית קשורה כולה** ברווחים
+       קשיחים (‏U+00A0), ורווח רגיל נשאר רק *אחרי* סימן פיסוק. כלומר
+       נקודות השבירה היחידות שנותרו לדפדפן הן גבולות משפט, ו-‎balance‎
+       בוחר ביניהן.
+
+       קשירת מילה בודדת אחרי הפיסוק לא הספיקה: ‎balance‎ מאזן אורכי שורות
+       ולכן העדיף לשבור באמצע ("רק לקוחות שסגרו עסקה / מדרגים כאן."). רק
+       כשאין לו איפה לשבור מלבד הפיסוק הוא עושה את הדבר הנכון.
+
+       ‏**המחיר, ולמה הוא בטוח כאן:** פסוקית קשורה אינה יכולה להישבר, ואם
+       היא רחבה מ-300px היא תגלוש מהקופסה. הרחבה כאן נמדדה 223px ("כך העסקה
+       הטובה בשוק מגיעה גם אליכם."), כלומר 26% מרווח — מספיק גם אם הגופן
+       החי רחב מזה שנמדד. מי שמאריך/ה פסוקית מודד/ת שוב. */
+    text-wrap:balance;
+  }
+  /* ‏**השורה התחתונה נפתחת כלפי מעלה.** ‏‎.hero‎ הוא ‎overflow:hidden‎ בגובה
+     קבוע (‏clamp, רצפה של 600px בדסקטופ), והחותמות יושבות בתחתיתו — כלומר
+     בועה שנפתחת כלפי מטה נחתכת בגבול ה-hero, ומה שנראה כמו "הטקסט מתחבא
+     מתחת לטיקר" הוא בעצם חיתוך של ה-hero עצמו.
+
+     נמדד: לשורה העליונה נשארים ~100px מתחת לבועה, ולתחתונה ~25px בלבד —
+     כלומר שורת טקסט אחת נוספת מספיקה כדי לחתוך אותה. וכמה שורות ייצאו תלוי
+     בגופן שנטען בפועל, כך שקיצור הנוסח לבדו הוא הימור ולא תיקון.
+
+     ‏‎bottom‎ במקום ‎top‎ מפנה לבועה את כל פנים ה-hero שמעליה, ולכן היא אינה
+     תלויה עוד באורך הנוסח. המחיר: היא מכסה את השורה העליונה בזמן הריחוף —
+     אותו מחיר בדיוק שהבועה של השורה העליונה משלמת על התחתונה. */
+  .hero-marks-row.is-lower .hero-mark[data-info]::after{
+    top:auto;bottom:calc(100% + 10px);
   }
   .hero-mark[data-info]:hover::after,
   .hero-mark[data-info]:focus-visible::after,
@@ -1074,8 +1142,26 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      ‏align-self ולא ‎inset-inline-start‎ עם רוחב העמודה: קופסת הסרגל נשארת
      ברוחב מלא, ולכן הפאנל אינו נדחס לרוחב שמאלץ את המקרא להישבר לשתי שורות
      בחלון צר — הוא פשוט עומד בקצה בגודלו הטבעי. */
+  /* ...אבל הפינה הזו אינה פנויה: כפתור הנגישות הצף יושב בדיוק שם
+     (‏‎.a11y-fab‎ — ‎left:--a11y-fab-gap‎, ברוחב ‎--a11y-fab-size‎), ו-z-index
+     שלו גבוה יותר. בלי ההרחקה כאן הוא נוחת על **כפתור מירכוז המפה**,
+     שהוא האחרון בשורה ולכן השמאלי ביותר ב-RTL — כלומר מכל פקדי הסרגל
+     דווקא הוא זה שנעלם לגמרי מתחת לכפתור.
+
+     ‏margin על הפאנל ולא padding על ‎.map-toolbar‎, ובכוונה: לסרגל יש
+     ‎padding:0 16px‎ בשאילתת ה-760px, שיושבת **אחרי** הבלוק הזה בקובץ —
+     קיצור-דרך של ‎padding‎ היה דורס שם כל ‎padding-inline-end‎ שנכתוב פה,
+     בלי להתלונן ובלי שייראה משהו עד שמישהו יפתח את הדף ברוחב הזה.
+
+     ‏margin-inline-end ב-RTL הוא הצד השמאלי, והחישוב הוא מ*אותם משתנים*
+     שמגדירים את הכפתור ולא ממספר קבוע: ‎size + gap*2‎ מפנה את רוחב הכפתור,
+     את המרווח שלו מהקצה, ועוד מרווח זהה אחריו. מי שמשנה את גודל הכפתור
+     מקבל/ת את ההרחקה הנכונה בלי לגעת כאן. */
   @media(min-width:1024px){
-    .map-toolbar .map-panel{align-self:flex-end}
+    .map-toolbar .map-panel{
+      align-self:flex-end;
+      margin-inline-end:calc(var(--a11y-fab-size) + var(--a11y-fab-gap) * 2);
+    }
   }
   /* כשכל מה שנשאר בשורה הצדדית מוסתר (היום — רק בורר הסגנון), גם המכל עצמו
      יורד, אחרת ה-gap שלו מרחיק את הפאנל מתחתית המפה בלי סיבה */
@@ -3079,7 +3165,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <header class="site">
   <div class="wrap header-inner">
-    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית">
       <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
       <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
     </a>
@@ -3157,7 +3243,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <!-- עד עכשיו נקודת הכניסה של בעלי מקצוע ויזמים הייתה קישור בתוך רצועה
          בדף הבית — מי שלא גלל עד אליה לא ידע שאפשר להצטרף. -->
     <div class="menu-panel" id="menuPanelJoin" role="tabpanel" aria-labelledby="menuTabJoin" hidden>
-      <a href="pricing.html">משרד תיווך — מסלולים ומחירים</a>
+      <a href="pricing.html">משרד תיווך - מסלולים ומחירים</a>
       <a href="professional-signup.html">הצטרפות כבעל מקצוע</a>
       <a href="developer-signup.html">הצטרפות כיזם/קבלן</a>
     </div>
@@ -3173,7 +3259,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <div class="ad-leaderboard">
   <div class="wrap ad-slot">
     <span class="tag">פרסומת</span>
-    <span>מיקום פרסום — Leaderboard עליון</span>
+    <span>מיקום פרסום - Leaderboard עליון</span>
   </div>
 </div>
 
@@ -3254,7 +3340,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                היא זו שמאפשרת לגלגל לחזור לתחילת המחזור בלי לגלול אחורה דרך
                כל המילים (ראו @keyframes rollWords). מי שמוסיף/ה מילה חייב/ת
                להוסיף מדרגה ל-keyframes, ולהשאיר את העותק אחרון. -->
-          <p class="hero-roll" aria-label="מחפשים דירה למשפחה, נכס להשקעה, דירה להשכרה, חנות במרכז, בית עם גינה או מגרש לבנייה — הכול כאן">
+          <p class="hero-roll" aria-label="מחפשים דירה למשפחה, נכס להשקעה, דירה להשכרה, חנות במרכז, בית עם גינה או מגרש לבנייה - הכול כאן">
             <span>מחפשים</span>
             <span class="hero-roll-window" aria-hidden="true">
               <span class="hero-roll-track">
@@ -3361,14 +3447,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <!-- גם המספר הזה קישור, מאותה סיבה: מי שקורא/ת "79 נכסים
                  פעילים" רוצה לראות אותם, והרצועה שעונה על זה כבר בעמוד. -->
             <a class="hero-stat hero-stat-link" href="#allProps"
-               ><b id="heroStatProps">—</b><i>נכסים פעילים</i></a>
+               ><b id="heroStatProps">-</b><i>נכסים פעילים</i></a>
             <span class="hero-stat-sep" aria-hidden="true"></span>
             <!-- המספר הזה הוא קישור: מי שקורא/ת "10 משרדי תיווך" רוצה
                  לראות אילו, והרצועה שעונה על זה כבר קיימת בעמוד. ‏data-dm-tab
                  בוחר את הלשונית הנכונה בדרך לעוגן — אותו מנגנון של פריטי
                  התפריט (ראו המאזין על ‎a[href="#dealmakers"][data-dm-tab]‎). -->
             <a class="hero-stat hero-stat-link" href="#dealmakers" data-dm-tab="agencies"
-               ><b id="heroStatAgencies">—</b><i>משרדי תיווך</i></a>
+               ><b id="heroStatAgencies">-</b><i>משרדי תיווך</i></a>
           </div>
 
           <!-- מפריד בין שתי הקבוצות, שמוצג רק ברוחב שבו השורה ממילא אחת
@@ -3391,6 +3477,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                ומקבל/ת את אותה בועה בדיוק — אין כאן חמישה עיצובים שיתפצלו זה
                מזה בעריכה הבאה. -->
           <div class="hero-stats-group hero-marks">
+           <div class="hero-marks-row">
             <!-- תו האמון הוא התמונה עצמה ולא עיגול־טקסט שמחקה אותה: אותה
                  חותמת בדיוק מופיעה בדף הסוכן/ת, בדף המשרד ובמודעת הנכס,
                  וגרסה מצוירת שלה בדף הבית הייתה סימן אמון שני שאיש לא
@@ -3400,7 +3487,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                  (‏ethics-code.html) ובו עשרת הסעיפים, והבועה רק מספרת
                  שהוא שם. -->
             <a class="hero-mark" href="ethics-code.html"
-               data-info="תו האמון והאיכות מוענק רק למשרדים ולמתווכים שאישרו את עשרת סעיפי הקוד האתי, ומוסר מיידית במקרה של הפרה. לחצו לקריאת הקוד המלא.">
+               data-info="מוענק רק למי שאישר את הקוד האתי, ומוסר מיד עם הפרה. לחצו לקוד המלא.">
               <img class="hero-mark-seal" src="assets/badge-ethics.png" width="384" height="384"
                    alt="" decoding="async">
               <span class="hero-mark-cap">תו האמון והאיכות</span>
@@ -3417,7 +3504,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                  מלאים במילוי מדורג ולא בקו, כי זהב על נייבי הוא מה שמסמן
                  אותם כדירוג ולא כאייקון ממשק. -->
             <button type="button" class="hero-mark"
-                    data-info="הדירוג נכתב רק על ידי לקוחות שסגרו עסקה: כל ביקורת קשורה לפנייה אמיתית שנפתחה במערכת, אחת לכל פנייה. אין כאן דירוגים אנונימיים.">
+                    data-info="רק לקוחות שסגרו עסקה מדרגים כאן. אין דירוגים אנונימיים.">
               <span class="hero-mark-ico" aria-hidden="true">
                 <svg viewBox="0 0 24 24">
                   <defs>
@@ -3449,7 +3536,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                  בהם. הווי נחתך מתוך התג בצבע הרקע של העיגול, ולכן הוא נשאר
                  חד גם ב-42px ואינו הופך לכתם. -->
             <button type="button" class="hero-mark"
-                    data-info="אותו נכס לא מתפרסם פעמיים. כל מודעה חדשה נבדקת מול כל הנכסים באתר לפי הכתובת ולפי הבעלים.">
+                    data-info="אותו נכס לא מתפרסם פעמיים - כל מודעה נבדקת מול כל הנכסים באתר.">
               <span class="hero-mark-ico" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
@@ -3462,7 +3549,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               </span>
               <span class="hero-mark-cap">כל נכס מאומת</span>
             </button>
+           </div>
 
+           <!-- השורה התחתונה. ‏is-lower הוא מה שממרכז את שתי החותמות בין
+                שלוש העליונות (ראו ה-CSS), והעטיפה היא גם העוגן של הבועות
+                שלהן — בלעדיה הן היו נתלות על המכל ונוחתות מתחת לכל השורה. -->
+           <div class="hero-marks-row is-lower">
             <!-- שיתופי הפעולה הם מנגנון ולא סיסמה: סוכן/ת שמסמן/ת נכס
                  כ"פתוח לשת״פ" מפיץ/ה אותו מיד לכל משרדי התיווך שברשימה
                  האישית, והרשימה נשמרת כרשימת *הסרות* — כלומר ברירת המחדל
@@ -3477,7 +3569,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                  המתאר של שתי כפות הידיים ומשלוש האצבעות שנכרכות, ולכן זה
                  מה שצויר. ‏stroke ולא מילוי, כמו אייקון הבית שלצדו. -->
             <button type="button" class="hero-mark"
-                    data-info="נכס שנפתח לשיתוף פעולה מופץ מיד לכל משרדי התיווך שברשימה, וברירת המחדל היא כל המשרדים בפלטפורמה. כך העסקה הנכונה מגיעה אליכם גם כשהיא יושבת אצל משרד אחר.">
+                    data-info="המתווכים כאן עובדים יחד - כך העסקה הטובה בשוק מגיעה גם אליכם.">
               <span class="hero-mark-ico" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
@@ -3497,7 +3589,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                  ארבעה סגנונות עיצוב לנכס מגורים, והדמיית העסק שאפשר להקים
                  בנכס מסחרי. הנוסח בבועה נזהר לא להבטיח שלכל נכס יש הדמיה —
                  הן נוצרות לנכסים של סוכני Premium — ולכן הוא מתאר את היכולת
-                 ולא את המלאי.
+                 ("אפשר לראות") ולא את המלאי ("כל נכס מוצג").
 
                  האייקון הוא מסגרת תמונה שבתוכה בית, ולא בית שבתוכו מוח כמו
                  בסקיצה: בית שני בשורה שבה כבר יושב בית (‏"כל נכס מאומת")
@@ -3506,7 +3598,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                  בעל ארבעה קצוות ולא חמישה כדי לא להתחרות בכוכבי הדירוג
                  שלצדו. -->
             <button type="button" class="hero-mark"
-                    data-info="אפשר לראות ולא רק לדמיין: הדמיות AI בארבעה סגנונות עיצוב לנכס מגורים, והדמיה של העסק שאפשר להקים בנכס מסחרי.">
+                    data-info="מפסיקים לדמיין ורואים: הנכס בכמה סגנונות עיצוב, ונכס מסחרי גם עם העסק שבתוכו.">
               <span class="hero-mark-ico" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
                      stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
@@ -3519,10 +3611,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               </span>
               <span class="hero-mark-cap">הדמיות AI לנכס</span>
             </button>
+           </div>
           </div>
         </div>
 
-        <p class="map-fallback-note" id="mapFallbackNote" hidden>המפה לא נטענה (בעיית רשת) — רשימת הנכסים למטה עדיין זמינה.</p>
+        <p class="map-fallback-note" id="mapFallbackNote" hidden>המפה לא נטענה (בעיית רשת) - רשימת הנכסים למטה עדיין זמינה.</p>
       </div>
     </div>
 
@@ -3665,7 +3758,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="filter-modal-overlay" id="commercialFilterModal">
       <div class="filter-modal">
         <div class="filter-modal-header">
-          <h3>נדל"ן מסחרי — סינונים</h3>
+          <h3>נדל"ן מסחרי - סינונים</h3>
           <button type="button" class="filter-modal-close" data-close-modal="commercialFilterModal">✕</button>
         </div>
         <div class="filter-modal-body">
@@ -3830,7 +3923,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <button type="button" class="sr-ai-chip" id="aiFilterChip" hidden>
           <span aria-hidden="true">✦</span> עם הדמיית AI
           <span class="sr-ai-chip-x" aria-hidden="true">✕</span>
-          <span class="sr-only">— הסרת מסנן ההדמיות</span>
+          <span class="sr-only">- הסרת מסנן ההדמיות</span>
         </button>
         <button type="button" class="ssa-cta" id="ssaOpenBtn">🔔 עדכנו אותי על נכסים כאלה</button>
         <button type="button" class="sr-clear" id="clearSearchBtn">ניקוי החיפוש</button>
@@ -3922,7 +4015,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              מקורות אמת לאותו ליד. ראו bindLeadBanner(). -->
         <button type="button" class="ai-band-cta" id="aiBandCta">
           <b>חושבים למכור או להשכיר?</b>
-          <span>השאירו פרטים וסוכן/ת יחזרו אליכם לתיאום פגישה — כולל הדמיות AI לנכס שלכם.</span>
+          <span>השאירו פרטים וסוכן/ת יחזרו אליכם לתיאום פגישה - כולל הדמיות AI לנכס שלכם.</span>
         </button>
 
         <p class="ai-band-note">
@@ -3978,7 +4071,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div class="mlead-overlay" id="ssaModal" role="dialog" aria-modal="true" aria-labelledby="ssaTitle">
     <div class="filter-modal">
       <div class="filter-modal-header">
-        <h3 id="ssaTitle">🔔 סוכן חכם — התראה על נכס מתאים</h3>
+        <h3 id="ssaTitle">🔔 סוכן חכם - התראה על נכס מתאים</h3>
         <button type="button" class="filter-modal-close" id="ssaCloseBtn" aria-label="סגירה">✕</button>
       </div>
 
@@ -3986,7 +4079,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            (‎#ssaError), ולא בבועה של הדפדפן בשפת המערכת. -->
       <form id="ssaForm" novalidate>
         <div class="filter-modal-body">
-          <p class="mlead-intro">נשמור לכם את החיפוש. ברגע שנכס שמתאים לו עולה לאתר — תקבלו התראה, בלי לחפש שוב.</p>
+          <p class="mlead-intro">נשמור לכם את החיפוש. ברגע שנכס שמתאים לו עולה לאתר - תקבלו התראה, בלי לחפש שוב.</p>
 
           <div class="ssa-recap" id="ssaRecap"></div>
 
@@ -4082,7 +4175,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="head-line">
             <h2 id="dealmakersTitle">האנשים מאחורי העסקאות<button
                     type="button" class="info-dot" id="ratingInfoLink"
-                    aria-haspopup="dialog" data-info="לחיצה — איך נקבע הדירוג"
+                    aria-haspopup="dialog" data-info="לחיצה - איך נקבע הדירוג"
                     aria-label="איך עובד הדירוג של המשרדים והמתווכים">i</button></h2>
           </div>
           <p class="dm-sub-line">כל מי שמלווה עסקת נדל״ן בעפולה והעמק, במקום אחד</p>
@@ -4107,7 +4200,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             חיפוש
           </span>
           <h3 id="dmSearchTitle">איזה משרד תיווך מתאים לכם?</h3>
-          <p id="dmSearchSub">כל המשרדים בעפולה והסביבה — לפי התמחות, דירוג ומלאי נכסים</p>
+          <p id="dmSearchSub">כל המשרדים בעפולה והסביבה - לפי התמחות, דירוג ומלאי נכסים</p>
           <label class="dm-field" for="dmSearch">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
               <circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>
@@ -4298,7 +4391,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <!-- ====== שורת פרסומת ====== -->
   <div class="ad-row wrap">
-    <div class="ad-strip"><span class="tag">פרסומת</span> מיקום פרסום — באנר רוחבי מתחת לכתבות</div>
+    <div class="ad-strip"><span class="tag">פרסומת</span> מיקום פרסום - באנר רוחבי מתחת לכתבות</div>
   </div>
 
   <!-- ====== פרויקטים חדשים מקבלנים ויזמים ======
@@ -4322,7 +4415,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                היה יורד לשורה שלישית משלו (ראו ‎.head-line h2 > .info-dot‎) -->
           <h2>פרויקטים חדשים מקבלנים ויזמים<button
                   type="button" class="info-dot" aria-label="מידע על הרצועה"
-                  data-info="דירות מקבלן בעפולה והעמק — ישירות מהיזם, בלי מתווך">i</button></h2>
+                  data-info="דירות מקבלן בעפולה והעמק - ישירות מהיזם, בלי מתווך">i</button></h2>
         </div>
       </div>
       <a href="projects.html" class="see-all">כל הפרויקטים החדשים ←</a>
@@ -4337,7 +4430,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
   <!-- ====== שורת פרסומת ====== -->
   <div class="ad-row wrap">
-    <div class="ad-strip"><span class="tag">פרסומת</span> מיקום פרסום — באנר רוחבי בסוף העמוד</div>
+    <div class="ad-strip"><span class="tag">פרסומת</span> מיקום פרסום - באנר רוחבי בסוף העמוד</div>
   </div>
 
   <!-- ====== המודאלים של דף הבית ======
@@ -4360,23 +4453,23 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
         <div class="filter-section">
           <h4>חמישה כוכבים, ובדיקה לפני פרסום</h4>
-          <p class="filter-hint">הדירוג הוא 1–5 כוכבים. כל חוות דעת עוברת אישור של משרד התיווך לפני
+          <p class="filter-hint">הדירוג הוא 1-5 כוכבים. כל חוות דעת עוברת אישור של משרד התיווך לפני
           שהיא מתפרסמת, ודירוג של כוכב אחד נבדק במקביל גם על ידי הנהלת הפלטפורמה.</p>
         </div>
         <div class="filter-section">
           <h4>מה הדירוג משפיע</h4>
           <p class="filter-hint">הדירוג נלקח בחשבון בסדר התצוגה של המתווכים והמשרדים באתר. הוא לא חוסם
-          אף מתווך/ת ולא משנה את כמות הפניות שכל אחד/ת מקבל/ת — רק את הסדר שבו הם מוצגים.</p>
+          אף מתווך/ת ולא משנה את כמות הפניות שכל אחד/ת מקבל/ת - רק את הסדר שבו הם מוצגים.</p>
         </div>
         <div class="filter-section">
           <h4>דירוג משרד הוא לא ממוצע הביקורות שלו</h4>
           <p class="filter-hint">משרד מדורג לפי <strong>ממוצע המתווכים שבו</strong> ולא לפי ממוצע הביקורות,
           כך שמתווך/ת אחד/ת עם הרבה ביקורות לא קובע/ת לבדו/ה את ציון כל המשרד. לצד זה, בכל חוות דעת
-          אפשר לדרג גם את ההתנהלות מול המשרד עצמו — והדירוג הישיר הזה נכנס לציון בנפרד.</p>
+          אפשר לדרג גם את ההתנהלות מול המשרד עצמו - והדירוג הישיר הזה נכנס לציון בנפרד.</p>
         </div>
         <div class="filter-section">
           <h4>מתווך/ת חדש/ה לא נענש/ת</h4>
-          <p class="filter-hint">הציון משוקלל מול ממוצע הפלטפורמה, כך שביקורת בודדת — טובה או רעה —
+          <p class="filter-hint">הציון משוקלל מול ממוצע הפלטפורמה, כך שביקורת בודדת - טובה או רעה -
           לא קובעת תמונה מלאה. ככל שנצברות יותר חוות דעת, הציון מתקרב לדירוג האמיתי.</p>
         </div>
       </div>
@@ -4476,7 +4569,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               </div>
               <input type="range" class="calc-range" id="calcPrice" min="300000" max="5000000" step="10000" value="1250000" aria-label="מחיר הנכס בשקלים">
               <div class="calc-ltv">
-                <span><span id="calcLtvPct">—</span> מימון</span>
+                <span><span id="calcLtvPct">-</span> מימון</span>
                 <span class="arrow" aria-hidden="true">←</span>
                 <span class="calc-ltv-track"><span class="calc-ltv-fill" id="calcLtvFill"></span></span>
               </div>
@@ -4516,7 +4609,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <div class="ttl">החזר חודשי</div>
               <div class="lbl">זה ההחזר המשוער שלך</div>
             </div>
-            <div class="num" id="calcMonthly">—</div>
+            <div class="num" id="calcMonthly">-</div>
           </div>
           <p class="calc-warn" id="calcLtvWarning"></p>
           <button type="button" class="calc-cta" id="mleadOpenBtn">
@@ -4541,7 +4634,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <button type="button" class="filter-modal-close" id="yieldModalClose" aria-label="סגירה">✕</button>
       </div>
       <div class="filter-modal-body">
-        <p class="mlead-intro">כמה באמת מחזיר נכס להשקעה — ברוטו, נטו, וכמה שנים עד שההשקעה חוזרת.</p>
+        <p class="mlead-intro">כמה באמת מחזיר נכס להשקעה - ברוטו, נטו, וכמה שנים עד שההשקעה חוזרת.</p>
         <div class="card calc-card">
           <div class="calc-controls">
             <div class="calc-slider">
@@ -4559,7 +4652,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               </div>
               <input type="range" class="calc-range" id="yieldRent" min="500" max="25000" step="100" value="4200" aria-label="שכר דירה חודשי בשקלים">
               <div class="calc-ltv">
-                <span><span id="yieldGrossPct">—</span> תשואה ברוטו</span>
+                <span><span id="yieldGrossPct">-</span> תשואה ברוטו</span>
                 <span class="arrow" aria-hidden="true">←</span>
                 <span class="calc-ltv-track"><span class="calc-ltv-fill" id="yieldGrossFill"></span></span>
               </div>
@@ -4591,13 +4684,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <div class="ttl">תשואה נטו</div>
               <div class="lbl">אחרי הוצאות וחודשים ריקים</div>
             </div>
-            <div class="num" id="yieldNet">—</div>
+            <div class="num" id="yieldNet">-</div>
           </div>
 
           <div class="calc-more">
-            <div><div class="v" id="yieldGross">—</div><div class="k">תשואה ברוטו</div></div>
-            <div><div class="v" id="yieldAnnual">—</div><div class="k">הכנסה שנתית נטו</div></div>
-            <div><div class="v" id="yieldPayback">—</div><div class="k">שנים להחזר</div></div>
+            <div><div class="v" id="yieldGross">-</div><div class="k">תשואה ברוטו</div></div>
+            <div><div class="v" id="yieldAnnual">-</div><div class="k">הכנסה שנתית נטו</div></div>
+            <div><div class="v" id="yieldPayback">-</div><div class="k">שנים להחזר</div></div>
           </div>
 
           <p class="calc-warn" id="yieldWarn"></p>
@@ -4649,7 +4742,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </span>
         <span class="lead-teaser-copy">
           <span class="lead-teaser-title">מחפשים נכס? תנו לו למצוא אתכם</span>
-          <span class="lead-teaser-sub">לקנייה או להשכרה — נעדכן אתכם ראשונים כשעולה נכס שמתאים</span>
+          <span class="lead-teaser-sub">לקנייה או להשכרה - נעדכן אתכם ראשונים כשעולה נכס שמתאים</span>
         </span>
         <span class="lead-teaser-go" aria-hidden="true">
           <span class="lead-teaser-go-open">התאמת נכס ←</span>
@@ -4661,7 +4754,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <!-- בלי כותרת נוספת: שורת ההזמנה שמעל היא הכותרת של הבאנר, ו-h2
              שחוזר עליה במילים אחרות רק דוחף את השלב הראשון מטה. -->
         <div class="owner-intro">
-          <p>ספרו לנו מה אתם מחפשים — ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.</p>
+          <p>ספרו לנו מה אתם מחפשים - ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.</p>
         </div>
 
         <div class="owner-wizard" id="buyerWizard">
@@ -4688,7 +4781,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                    קטגוריה ולא סוג עסקה — ולכן הבחירה בו פותחת את השאלה
                    המשלימה במקום לנחש עבור המחפש/ת. -->
               <div id="buyCommercialDeal" hidden>
-                <span class="wiz-label" id="buyCommercialLabel">נכס מסחרי — לקנייה או להשכרה?</span>
+                <span class="wiz-label" id="buyCommercialLabel">נכס מסחרי - לקנייה או להשכרה?</span>
                 <div class="lead-toggle" id="buyCommercialToggle" role="group" aria-labelledby="buyCommercialLabel">
                   <button type="button" class="active" data-buy-cdeal="sale">לקנייה</button>
                   <button type="button" data-buy-cdeal="rent">להשכרה</button>
@@ -4821,7 +4914,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div class="footer-wrap footer-top">
 
     <div class="footer-brand">
-      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק — לדף הבית">
+      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק - לדף הבית">
         <img src="assets/logo-shuknadlan-dark.svg" alt="" width="52" height="62" loading="lazy">
         <span class="footer-logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
       </a>
@@ -4859,7 +4952,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
         <div class="footer-social">
           <a href="https://www.facebook.com/share/19LytY6L6b/" target="_blank" rel="noopener noreferrer"
-             aria-label="שוק הנדל״ן בפייסבוק — נפתח בחלון חדש" title="פייסבוק">
+             aria-label="שוק הנדל״ן בפייסבוק - נפתח בחלון חדש" title="פייסבוק">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06C2 17.08 5.66 21.24 10.44 22v-7.03H7.9v-2.91h2.54V9.85c0-2.52 1.49-3.91 3.77-3.91 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.78-1.63 1.57v1.89h2.78l-.44 2.91h-2.34V22C18.34 21.24 22 17.08 22 12.06Z"/>
             </svg>

@@ -284,7 +284,7 @@
     if (step === 1) { setError(1, ''); return true; }
     if (step === 2) {
       if (!hasCriteria(criteria())) {
-        setError(2, 'בחרו לפחות תנאי אחד — שכונה, סוג נכס, חדרים או תקציב');
+        setError(2, 'בחרו לפחות תנאי אחד - שכונה, סוג נכס, חדרים או תקציב');
         return false;
       }
       setError(2, '');
@@ -317,7 +317,7 @@
     }).filter(Boolean);
   }
   function roomsText(c) {
-    if (c.min_rooms && c.max_rooms && c.min_rooms !== c.max_rooms) return c.min_rooms + '–' + c.max_rooms + ' חדרים';
+    if (c.min_rooms && c.max_rooms && c.min_rooms !== c.max_rooms) return c.min_rooms + '-' + c.max_rooms + ' חדרים';
     if (c.min_rooms) return c.min_rooms + ' חדרים' + (!c.max_rooms ? ' ומעלה' : '');
     if (c.max_rooms) return 'עד ' + c.max_rooms + ' חדרים';
     return null;
@@ -327,7 +327,7 @@
   function renderRecap() {
     var c = criteria();
     var names = hoodNames(c);
-    var budget = c.min_price && c.max_price ? nis(c.min_price) + '–' + nis(c.max_price) + ' ₪'
+    var budget = c.min_price && c.max_price ? nis(c.min_price) + '-' + nis(c.max_price) + ' ₪'
                : c.max_price ? 'עד ' + nis(c.max_price) + ' ₪'
                : c.min_price ? 'מ-' + nis(c.min_price) + ' ₪' : null;
     var parts = [
@@ -338,7 +338,7 @@
       roomsText(c),
       budget ? '💰 ' + budget : null,
       (c.min_size_sqm || c.max_size_sqm)
-        ? '📐 ' + (c.min_size_sqm || '') + (c.min_size_sqm && c.max_size_sqm ? '–' : '') + (c.max_size_sqm || '') + ' מ״ר'
+        ? '📐 ' + (c.min_size_sqm || '') + (c.min_size_sqm && c.max_size_sqm ? '-' : '') + (c.max_size_sqm || '') + ' מ״ר'
         : null
     ].filter(Boolean);
     $('buyRecap').textContent = parts.join(' · ');
@@ -362,7 +362,7 @@
     if (!validateStep(3)) return;
     var c = criteria();
     if (!hasCriteria(c)) {
-      setError(3, 'הוסיפו לפחות תנאי אחד — שכונה, סוג נכס, חדרים או תקציב');
+      setError(3, 'הוסיפו לפחות תנאי אחד - שכונה, סוג נכס, חדרים או תקציב');
       goToStep(2);
       return;
     }
@@ -399,12 +399,12 @@
           if (!res.ok || data.error) {
             var messages = {
               too_many_searches: 'הגעתם למקסימום החיפושים השמורים (' + (data.limit || 5) + '). אפשר להפסיק חיפוש קיים מהקישור שבהתראה.',
-              no_criteria: 'הוסיפו לפחות תנאי אחד — שכונה, סוג נכס, חדרים או תקציב',
+              no_criteria: 'הוסיפו לפחות תנאי אחד - שכונה, סוג נכס, חדרים או תקציב',
               invalid_phone: 'נא להזין מספר טלפון תקין',
               invalid_email: 'נא להזין כתובת אימייל תקינה',
               invalid_name: 'נא להזין שם מלא'
             };
-            throw new Error(messages[data.error] || 'השמירה נכשלה — נסו שוב');
+            throw new Error(messages[data.error] || 'השמירה נכשלה - נסו שוב');
           }
           return data;
         });
@@ -412,7 +412,7 @@
       .then(function (data) {
         // ‏duplicate=true פירושו שהחיפוש הזה כבר שמור. מבחינת המחפש/ת זו הצלחה.
         $('buyDoneText').textContent = data.duplicate
-          ? 'החיפוש הזה כבר שמור אצלנו — נעדכן אתכם ברגע שיעלה נכס מתאים.'
+          ? 'החיפוש הזה כבר שמור אצלנו - נעדכן אתכם ברגע שיעלה נכס מתאים.'
           : 'נעדכן אתכם ברגע שיעלה נכס שמתאים למה שביקשתם.';
         form.hidden = true;
         $('buySteps').hidden = true;
@@ -421,7 +421,7 @@
       .catch(function (err) {
         console.warn('saved-search-intake (footer buyer banner) failed:', err);
         setError(3, err.message && err.message !== 'Failed to fetch'
-          ? err.message : 'השמירה נכשלה — בדקו חיבור לאינטרנט ונסו שוב');
+          ? err.message : 'השמירה נכשלה - בדקו חיבור לאינטרנט ונסו שוב');
         btn.textContent = originalLabel;
         btn.disabled = false;
       });

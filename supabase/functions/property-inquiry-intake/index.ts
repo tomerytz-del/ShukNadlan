@@ -91,8 +91,8 @@ Deno.serve(async (req: Request) => {
       lead_id: lead.id,
       auto_unlocked: autoUnlock,
       note: autoUnlock
-        ? "הסוכן במסלול פתוח/פרמיום — הליד נפתח מידית, ללא צורך פעולת claim"
-        : "הליד נשמר מוסתר — הסוכן יפתח אותו דרך ה-CRM (מכסה חינמית או ₪10)",
+        ? "הסוכן במסלול פתוח/פרמיום - הליד נפתח מידית, ללא צורך פעולת claim"
+        : "הליד נשמר מוסתר - הסוכן יפתח אותו דרך ה-CRM (מכסה חינמית או ₪10)",
     });
   } catch (err: any) {
     return json({ error: "unhandled", detail: String(err?.message ?? err) }, 500);

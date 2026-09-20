@@ -1,0 +1,49 @@
+name: מקף ארוך בטקסט שמוצג
+
+# ‏המקף הארוך (— ו-–) ירד מכל הטקסט שהאתר מציג, והבדיקה הזו היא מה ששומר
+# שהוא לא יחזור. היא קיימת כי זו טעות **שקטה** במיוחד:
+#
+#   • הדף נטען, נראה תקין, ואין שגיאה בשום מקום. הוא פשוט נכתב בסימן
+#     שאינו שלנו.
+#   • והוא נכנס בלי כוונה: מקף ארוך הוא מה שעורכי טקסט ומודלים מייצרים
+#     כברירת מחדל, ולכן כל נוסח חדש נולד איתו אלא אם מישהו יעצור אותו.
+#
+# מה שהבדיקה **לא** נוגעת בו: הערות קוד. שם המקף הארוך נשאר, כי ההערות
+# בריפו הזה הן תיעוד למפתחים ולא תוכן שמתפרסם. ההפרדה נעשית במכונת מצבים
+# בתוך הסקריפט — ראו את ההסבר בראשו.
+#
+# הבדיקה קוראת קבצים בלבד: בלי רשת ובלי סודות.
+
+on:
+  pull_request:
+    paths:
+      - "*.html"
+      - "assets/*.js"
+      - "netlify/edge-functions/*.ts"
+      - "supabase/functions/**/*.ts"
+      - "scripts/check_long_dash.py"
+      - ".github/workflows/long_dash.yml"
+  push:
+    branches: [main]
+    paths:
+      - "*.html"
+      - "assets/*.js"
+      - "netlify/edge-functions/*.ts"
+      - "supabase/functions/**/*.ts"
+      - "scripts/check_long_dash.py"
+      - ".github/workflows/long_dash.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ‏הפלט מראה את השורה ואת ההקשר, כלומר מה לתקן ואיפה.
+      # ‏‎--fix‎ מחליף הכול למקף רגיל, ומריצים אותו מקומית.
+      - name: בדיקת מקף ארוך
+        run: python3 scripts/check_long_dash.py

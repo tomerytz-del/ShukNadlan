@@ -75,7 +75,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <div class="card">
   <div id="stateForm">
-    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
+    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
     <h1>כרטיסיית בעל מקצוע</h1>
     <p class="sub">חשיפה לקהל רחב באזור עפולה והעמק</p>
     <span class="price-badge">₪350 לחודש · ביטול בכל עת</span>
@@ -103,9 +103,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          במקום להדביק כתובות, ולכן אין להם שדה כאן. -->
     <p class="note" style="margin-top:14px;margin-bottom:0">מיד אחרי ההרשמה ייפתח מסך שבו תעלו תמונות, תכתבו על עצמכם ותוסיפו טלפון לוואטסאפ.</p>
 
-    <button type="button" class="btn" id="submitBtn">הרשמה — ₪350/חודש</button>
+    <button type="button" class="btn" id="submitBtn">הרשמה - ₪350/חודש</button>
     <div id="feedback"></div>
-    <div class="note">מצב בדיקה — לא מתבצע חיוב אמיתי כרגע. הכרטיסייה תופיע מיד בדף הבית לאחר ההרשמה.</div>
+    <div class="note">מצב בדיקה - לא מתבצע חיוב אמיתי כרגע. הכרטיסייה תופיע מיד בדף הבית לאחר ההרשמה.</div>
     <a href="index.html" class="back-link">חזרה לדף הבית</a>
   </div>
 
@@ -115,24 +115,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        שאפשר לזייף, ולא אישור. עד שה-webhook מסתיים ההזמנה עדיין pending,
        ולכן יש כאן גם סבב בדיקות קצר. -->
   <div id="stateReturn" style="display:none">
-    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
+    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
     <h1 id="returnTitle">בודקים את התשלום…</h1>
-    <p class="sub" id="returnSub">רגע אחד — מאמתים את התשלום מול חברת הסליקה.</p>
+    <p class="sub" id="returnSub">רגע אחד - מאמתים את התשלום מול חברת הסליקה.</p>
     <button type="button" class="btn btn-ghost" id="returnRetry" style="display:none">בדיקה שוב</button>
     <a href="index.html" class="back-link">חזרה לדף הבית</a>
   </div>
 
   <div id="stateDone">
-    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
+    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
     <h1>הכרטיסייה עלתה לאוויר!</h1>
-    <p class="sub">התשלום התקבל והכרטיסייה שלך עלתה לדף הבית. נשאר להשלים את העמוד שלך — תמונות, תיאור וטלפון לוואטסאפ.</p>
+    <p class="sub">התשלום התקבל והכרטיסייה שלך עלתה לדף הבית. נשאר להשלים את העמוד שלך - תמונות, תיאור וטלפון לוואטסאפ.</p>
 
     <!-- קישור העריכה מוחזר פעם אחת בלבד, בתשובה להרשמה. אין לבעלי מקצוע
          חשבון באתר, ולכן הקישור הזה *הוא* הדרך לחזור ולערוך — ומכאן
          הבליטות של הבלוק ושל כפתור ההעתקה. -->
     <div class="manage-box" id="manageBox" hidden>
       <p class="manage-title">הקישור לעמוד העריכה שלך</p>
-      <p class="manage-note">זו הדרך היחידה לחזור ולערוך את הפרופיל — שמרו אותו במועדפים.</p>
+      <p class="manage-note">זו הדרך היחידה לחזור ולערוך את הפרופיל - שמרו אותו במועדפים.</p>
       <input type="text" id="manageLink" readonly>
       <button type="button" class="btn btn-ghost" id="copyLinkBtn">העתקת הקישור</button>
     </div>
@@ -188,8 +188,8 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     }
     if (!res.ok || data.error || !data.redirect_url){
       feedback.style.color = 'var(--red)';
-      feedback.textContent = 'שגיאה בהרשמה — נסו שוב';
-      btn.disabled = false; btn.textContent = 'הרשמה — ₪350/חודש';
+      feedback.textContent = 'שגיאה בהרשמה - נסו שוב';
+      btn.disabled = false; btn.textContent = 'הרשמה - ₪350/חודש';
       return;
     }
 
@@ -200,8 +200,8 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
   } catch(err){
     console.error(err);
     feedback.style.color = 'var(--red)';
-    feedback.textContent = 'שגיאת רשת — נסו שוב';
-    btn.disabled = false; btn.textContent = 'הרשמה — ₪350/חודש';
+    feedback.textContent = 'שגיאת רשת - נסו שוב';
+    btn.disabled = false; btn.textContent = 'הרשמה - ₪350/חודש';
   }
 });
 

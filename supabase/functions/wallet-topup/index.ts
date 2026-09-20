@@ -146,7 +146,7 @@ Deno.serve(async (req: Request) => {
 
   const form = await createPaymentForm({
     amount,
-    description: `טעינת ארנק — שוק נדל"ן`,
+    description: `טעינת ארנק - שוק נדל"ן`,
     ...client,
     clientEmail: email,
     // ‏topup_id ולא id: ‏crm.html מנקה מהכתובת רק את שני המפתחות האלה, ושם

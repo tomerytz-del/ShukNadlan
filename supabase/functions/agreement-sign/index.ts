@@ -176,12 +176,12 @@ async function issueOtp(signer: { id: string; full_name: string; email: string |
         `<span style="display:inline-block;background:#eaf0fb;color:#0e2a6b;border-radius:10px;` +
         `padding:14px 28px;font-size:30px;font-weight:800;letter-spacing:.22em">${esc(code)}</span></p>` +
       `<p style="margin:0;font-size:11.5px;color:#565c63">הקוד תקף ל-${OTP_TTL_MINUTES} דקות. ` +
-      `אם לא ביקשתם לחתום על הסכם — התעלמו מההודעה ואל תמסרו את הקוד לאיש.</p>` +
+      `אם לא ביקשתם לחתום על הסכם - התעלמו מההודעה ואל תמסרו את הקוד לאיש.</p>` +
     `</div>`;
 
   const result = await sendPlatformEmail({
     to: [signer.email],
-    subject: `קוד אימות לחתימה — ${code}`,
+    subject: `קוד אימות לחתימה - ${code}`,
     html: mailShell("קוד אימות לחתימה על הסכם", inner),
     text: `קוד האימות שלך לחתימה על "${agreementTitle}" הוא ${code}.\n` +
           `הקוד תקף ל-${OTP_TTL_MINUTES} דקות. אל תמסרו אותו לאיש.`,
@@ -268,7 +268,7 @@ function isExclusive(kind: string): boolean {
 
 /** ‏dd/mm/yyyy — אותו פורמט שבו תקופת הבלעדיות מודפסת במסמך עצמו. */
 function slashDate(d: string | null): string {
-  if (!d) return "—";
+  if (!d) return "-";
   const t = new Date(d);
   if (isNaN(t.getTime())) return String(d);
   const pad = (n: number) => String(n).padStart(2, "0");
@@ -277,7 +277,7 @@ function slashDate(d: string | null): string {
 
 function shekel(v: unknown): string {
   const n = Number(v);
-  if (v === null || v === undefined || v === "" || isNaN(n)) return "—";
+  if (v === null || v === undefined || v === "" || isNaN(n)) return "-";
   return "₪" + n.toLocaleString("he-IL");
 }
 
@@ -312,7 +312,7 @@ async function notifyManagerOfExclusive(agreementId: string) {
 
   const street = [fields.address || fields.street, fields.house_number].filter(Boolean).join(" ");
   const address = [street, fields.apartment_number ? "דירה " + fields.apartment_number : "", fields.city]
-    .filter(Boolean).join(", ") || snap.property_line || "—";
+    .filter(Boolean).join(", ") || snap.property_line || "-";
 
   const signers = await signersOf(agreement.id);
   const owners = signers.filter((x) => x.party !== "agent").map((x) => x.full_name).filter(Boolean);
@@ -329,10 +329,10 @@ async function notifyManagerOfExclusive(agreementId: string) {
         row("כתובת הנכס", address) +
         row(agreement.kind === "exclusive_landlord" ? "דמי שכירות מבוקשים" : "מחיר מבוקש",
             shekel(fields.price)) +
-        row(owners.length > 1 ? "בעלי הנכס" : "בעל/ת הנכס", owners.join(" · ") || "—") +
+        row(owners.length > 1 ? "בעלי הנכס" : "בעל/ת הנכס", owners.join(" · ") || "-") +
         row("תקופת הבלעדיות",
-            `${slashDate(agreement.exclusive_from)} — ${slashDate(agreement.exclusive_until)}`) +
-        row("נחתם ב-", agreement.signed_at ? new Date(agreement.signed_at).toLocaleString("he-IL") : "—") +
+            `${slashDate(agreement.exclusive_from)} - ${slashDate(agreement.exclusive_until)}`) +
+        row("נחתם ב-", agreement.signed_at ? new Date(agreement.signed_at).toLocaleString("he-IL") : "-") +
       `</table>` +
       `<p style="margin:14px 0 0;font-size:11.5px;color:#565c63">` +
         `ההודעה נשלחת אוטומטית על כל בלעדיות שנחתמת במשרד. ` +
@@ -341,12 +341,12 @@ async function notifyManagerOfExclusive(agreementId: string) {
 
   const result = await sendPlatformEmail({
     to,
-    subject: `בלעדיות חדשה במשרד — ${address}`,
+    subject: `בלעדיות חדשה במשרד - ${address}`,
     html: mailShell("בלעדיות חדשה במשרד", inner),
     text: `${agent.name} מהמשרד שלך החתים/ה בלעדיות חדשה.\n` +
           `סוג ההסכם: ${agreement.title}\nכתובת: ${address}\n` +
-          `מחיר מבוקש: ${shekel(fields.price)}\nבעל/ת הנכס: ${owners.join(" · ") || "—"}\n` +
-          `תקופת הבלעדיות: ${slashDate(agreement.exclusive_from)} — ${slashDate(agreement.exclusive_until)}`,
+          `מחיר מבוקש: ${shekel(fields.price)}\nבעל/ת הנכס: ${owners.join(" · ") || "-"}\n` +
+          `תקופת הבלעדיות: ${slashDate(agreement.exclusive_from)} - ${slashDate(agreement.exclusive_until)}`,
   });
 
   // גם כשהשליחה נכשלה: ניסיון חוזר יקרה רק בשליחה חוזרת יזומה של העותק
@@ -391,7 +391,7 @@ async function sendSignedCopies(agreementId: string) {
     `<div style="border-top:1px solid #e3e8f4">${agreement.document_html || ""}</div>` +
     signatureBlockHtml(signers);
 
-  const html = mailShell("העתק חתום — " + agreement.title, inner);
+  const html = mailShell("העתק חתום - " + agreement.title, inner);
   const text =
     `העותק החתום של "${agreement.title}" מצורף להודעה זו.\n` +
     `צפייה והורדה כ-PDF: ${viewUrl}\n` +
@@ -410,7 +410,7 @@ async function sendSignedCopies(agreementId: string) {
 
   const result = await sendPlatformEmail({
     to: [...recipients],
-    subject: `העתק חתום — ${agreement.title}`,
+    subject: `העתק חתום - ${agreement.title}`,
     html,
     text,
   });
@@ -467,7 +467,7 @@ async function sendSigningLinks(agreementId: string, signerIds?: string[]) {
           `padding:12px 26px;border-radius:8px;font-weight:700">קריאה וחתימה על ההסכם</a></p>` +
         `<p style="margin:0 0 10px;font-size:11.5px;color:#565c63;word-break:break-all">` +
         `אם הכפתור לא עובד, אפשר להעתיק את הכתובת: ${esc(url)}</p>` +
-        `<p style="margin:0;font-size:11.5px;color:#565c63">הקישור אישי — אין להעביר אותו הלאה. ` +
+        `<p style="margin:0;font-size:11.5px;color:#565c63">הקישור אישי - אין להעביר אותו הלאה. ` +
         `אחרי החתימה יישלח אליך העותק החתום המלא.</p>` +
       `</div>`;
 
@@ -476,7 +476,7 @@ async function sendSigningLinks(agreementId: string, signerIds?: string[]) {
       subject: `חתימה על ${agreement.title}`,
       html: mailShell("הסכם ממתין לחתימתך", inner),
       text: `${agent.name} מבקש/ת ממך לחתום על "${agreement.title}".\nקריאה וחתימה: ${url}\n` +
-            `הקישור אישי — אין להעביר אותו הלאה.`,
+            `הקישור אישי - אין להעביר אותו הלאה.`,
     });
 
     await db.from("agreement_signers").update({

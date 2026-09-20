@@ -186,7 +186,7 @@ export async function announcePlatformSignup(
         supabase,
         kind === "agency" ? "משרד תיווך חדש הצטרף" : "מתווך/ת חדש/ה הצטרף/ה",
         joinParts([
-          "לא הצלחנו לשלוף את הפרטים — הם בדשבורד",
+          "לא הצלחנו לשלוף את הפרטים - הם בדשבורד",
           `${SITE_BASE}/crm.html?goto=accSubscriptions`,
         ]),
       );
@@ -315,7 +315,7 @@ export async function announceProfessionalSignup(
       ? `הופנה/תה לתשלום · ${payment.months} חודשים · ₪${Math.round(payment.amount)}`
       // הניסוח כאן הוא הפעולה הנדרשת ולא מצב השורה במסד: "pending_payment"
       // נכון ולא אומר למי שקורא/ת את ההודעה מה לעשות עכשיו.
-      : "אין סליקה — ממתין/ה ליצירת קשר להשלמת התשלום";
+      : "אין סליקה - ממתין/ה ליצירת קשר להשלמת התשלום";
 
     const title = `בעל/ת מקצוע חדש/ה: ${who}`;
     const body = joinParts([

@@ -568,7 +568,7 @@ Deno.serve(async (req: Request) => {
       await supabase.from("tier_changes").insert({
         member_id: me.id, agency_id: me.agency_id,
         from_tier: me.tier, to_tier: tier, source: "requested",
-        note: "בקשת שדרוג מדף המסלולים — ממתינה להסדרת תשלום",
+        note: "בקשת שדרוג מדף המסלולים - ממתינה להסדרת תשלום",
       });
 
       const { data: agency } = await supabase
@@ -577,12 +577,12 @@ Deno.serve(async (req: Request) => {
       const who = `${me.display_name || "סוכן/ת"} (${me.email || userEmail}) · ${agency?.name || "ללא משרד"}`;
       await sendPlatformEmail({
         to: [PLATFORM_CONTACT_EMAIL],
-        subject: `בקשת שדרוג מסלול: ${TIER_NAMES[tier]} — ${String(me.display_name || me.email || "").slice(0, 80)}`,
+        subject: `בקשת שדרוג מסלול: ${TIER_NAMES[tier]} - ${String(me.display_name || me.email || "").slice(0, 80)}`,
         html: `<div dir="rtl" style="font-family:system-ui,Arial,sans-serif;font-size:15px;line-height:1.7">
           <p><b>${esc(who)}</b> ביקש/ה לעבור למסלול <b>${TIER_NAMES[tier]}</b> (₪${price} לחודש + מע״מ).</p>
-          <p>המסלול <b>לא</b> שונה — הבקשה רשומה ב-<code>pending_tier_change</code>, וההפעלה נעשית אחרי הסדרת התשלום.</p>
+          <p>המסלול <b>לא</b> שונה - הבקשה רשומה ב-<code>pending_tier_change</code>, וההפעלה נעשית אחרי הסדרת התשלום.</p>
         </div>`,
-        text: `${who} ביקש/ה לעבור ל-${TIER_NAMES[tier]} (₪${price} + מע"מ). המסלול לא שונה — ההפעלה אחרי הסדרת התשלום.`,
+        text: `${who} ביקש/ה לעבור ל-${TIER_NAMES[tier]} (₪${price} + מע"מ). המסלול לא שונה - ההפעלה אחרי הסדרת התשלום.`,
       });
 
       return json({

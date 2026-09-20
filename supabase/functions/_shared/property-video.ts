@@ -210,7 +210,7 @@ const FORBIDDEN = [
   "Do NOT add people, pets, text, logos, watermarks or vehicles that are not already in the photo.",
   "Do NOT change the time of day, the weather or the season.",
   "Do NOT morph, warp or melt any surface; straight lines must stay straight for the whole clip.",
-  "The scene must remain the same real property from the first frame to the last — only the camera moves.",
+  "The scene must remain the same real property from the first frame to the last - only the camera moves.",
 ].join(" ");
 
 export function buildScenePrompt(target: SceneTarget, propertyType: string | null): string {

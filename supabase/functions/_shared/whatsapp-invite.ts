@@ -117,7 +117,7 @@ export async function sendWhatsappInvite(
       type: "text",
       text: {
         preview_url: false,
-        body: `${greeting}, הוזמנת להצטרף לצוות ${a.agency || "המשרד"} בשוק נדל״ן — ` +
+        body: `${greeting}, הוזמנת להצטרף לצוות ${a.agency || "המשרד"} בשוק נדל״ן - ` +
           `כל הנכסים, הלידים והלקוחות שלך במקום אחד, ודף סוכן/ת אישי מול כל מי שמחפש דירה בעפולה והעמק.\n` +
           `ההצטרפות כאן: ${a.url}`,
       },

@@ -283,7 +283,7 @@ function renderGallery(p){
     const open = document.createElement('button');
     open.type = 'button';
     open.className = 'cell-open';
-    open.setAttribute('aria-label', `תמונה ${index+1} מתוך ${galleryImages.length} — פתיחה בגלריה`);
+    open.setAttribute('aria-label', `תמונה ${index+1} מתוך ${galleryImages.length} - פתיחה בגלריה`);
     open.innerHTML = `<img src="${escapeAttr(galleryImages[index])}" alt="" ${index ? 'loading="lazy"' : ''}>`;
     open.addEventListener('click', ()=> lbOpen(opensAt));
     cell.appendChild(open);
@@ -302,7 +302,7 @@ function renderGallery(p){
     v.loop = true;
     v.playsInline = true;   // בלעדיו אייפון פותח את הסרטון במסך מלא
     v.autoplay = true;
-    v.setAttribute('aria-label', 'סרטון הנכס — מנגן מושתק');
+    v.setAttribute('aria-label', 'סרטון הנכס - מנגן מושתק');
     // התמונה הראשית היא ה-poster: כך התא נראה כמו קודם עד שהפריים הראשון
     // מגיע, ובמקום שבו הניגון ייחסם נשארת התמונה במקום מלבן שחור.
     if (galleryImages[0]) v.poster = galleryImages[0];
@@ -1246,7 +1246,7 @@ function applyOwnerLeadAgent(p){
   const sub = document.getElementById('olSub');
   const done = document.getElementById('olDoneNote');
   if (sub) sub.textContent =
-    `השאירו פרטים ו${who} יחזור/תחזור אליכם לתיאום פגישה — כולל הדמיות AI לנכס שלכם.`;
+    `השאירו פרטים ו${who} יחזור/תחזור אליכם לתיאום פגישה - כולל הדמיות AI לנכס שלכם.`;
   if (done) done.textContent = `${who} יחזור/תחזור אליכם בזמן קצר לתיאום פגישה.`;
 }
 
@@ -1339,7 +1339,7 @@ async function submitOwnerLead(ev){
     document.getElementById('olDone').hidden = false;
   } catch(e){
     console.error('owner-lead-intake נכשל:', e);
-    err.textContent = 'השליחה נכשלה — בדקו חיבור לאינטרנט ונסו שוב';
+    err.textContent = 'השליחה נכשלה - בדקו חיבור לאינטרנט ונסו שוב';
     btn.textContent = original;
     btn.disabled = false;
   }
@@ -1949,7 +1949,7 @@ function renderOpenHouseBand(p){
     '<div class="oh-band">' +
       '<span class="oh-tile">' + OpenHouse.icon({ size:42 }) + '</span>' +
       '<div class="oh-band-body">' +
-        '<b>' + OpenHouse.NO_FEE + ' — הנכס ביריד הבתים הפתוחים</b>' +
+        '<b>' + OpenHouse.NO_FEE + ' - הנכס ביריד הבתים הפתוחים</b>' +
         '<span>הנכס מוצע לקונים ללא עמלת תיווך בתקופה ' +
           escapeHtml(OpenHouse.rangeLabel(p)) + '</span>' +
       '</div>' +
@@ -2184,7 +2184,7 @@ document.getElementById('shareBtn').addEventListener('click', async ()=>{
     showToast('הקישור לנכס הועתק');
   } catch(e){
     if (e && e.name === 'AbortError') return; // הגולש/ת ביטל/ה את תפריט השיתוף
-    showToast('לא הצלחנו לשתף — אפשר להעתיק את הכתובת מהדפדפן');
+    showToast('לא הצלחנו לשתף - אפשר להעתיק את הכתובת מהדפדפן');
   }
 });
 
@@ -2230,7 +2230,7 @@ function updateCalculator(){
   if (loan > 0 && monthlyRate > 0){
     monthly = loan * (monthlyRate*Math.pow(1+monthlyRate,n)) / (Math.pow(1+monthlyRate,n)-1);
   }
-  document.getElementById('calcMonthly').textContent = monthly ? (nis(monthly) + ' ₪') : '—';
+  document.getElementById('calcMonthly').textContent = monthly ? (nis(monthly) + ' ₪') : '-';
 
   const ltv = price > 0 ? loan/price : 0;
   // ההשוואה על הערך המעוגל — אותו מספר שמוצג. עם ההשוואה על הערך הגולמי,
@@ -2356,7 +2356,7 @@ mleadForm.addEventListener('submit', async (e)=>{
     mleadDone.hidden = false;
   } catch(err){
     console.error('mortgage-lead-intake failed:', err);
-    mleadErrorEl.textContent = 'השליחה נכשלה — בדקו חיבור לאינטרנט ונסו שוב';
+    mleadErrorEl.textContent = 'השליחה נכשלה - בדקו חיבור לאינטרנט ונסו שוב';
     btn.textContent = originalLabel;
     btn.disabled = false;
   }
@@ -2406,7 +2406,7 @@ document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
   } catch(err){
     console.error(err);
     feedback.style.color = 'var(--brick)';
-    feedback.textContent = 'שגיאה בשליחה — נסו שוב';
+    feedback.textContent = 'שגיאה בשליחה - נסו שוב';
   } finally {
     setTimeout(()=>{ btn.disabled = false; btn.textContent = original; }, 400);
   }

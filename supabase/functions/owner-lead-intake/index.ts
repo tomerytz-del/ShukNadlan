@@ -368,12 +368,12 @@ Deno.serve(async (req: Request) => {
       matched_agency_id: matchedAgencyId,
       exclusivity_hours: agencyRouting ? 0 : exclusivityHours,
       note: agentRouting
-        ? "ליד מדף הסוכן/ת — שויך לסוכן/ת ונפתח מיד, ללא עלות"
+        ? "ליד מדף הסוכן/ת - שויך לסוכן/ת ונפתח מיד, ללא עלות"
         : agencyRouting
-        ? "ליד מדף המשרד — שויך למנהל/ת המשרד ונפתח מיד, ללא עלות"
+        ? "ליד מדף המשרד - שויך למנהל/ת המשרד ונפתח מיד, ללא עלות"
         : matchedAgentId
           ? "הליד שויך ונשמר במצב מוסתר (masked). שליחת התראה בפועל עדיין לא מוטמעת בשלב זה"
-          : "לא נמצא סוכן Mid/Premium מתאים כרגע — הליד נשמר ללא שיוך",
+          : "לא נמצא סוכן Mid/Premium מתאים כרגע - הליד נשמר ללא שיוך",
     });
   } catch (err: any) {
     return json({ error: "unhandled", detail: String(err?.message ?? err) }, 500);

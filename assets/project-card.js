@@ -68,7 +68,7 @@
     if (!lo && !hi) return 'מחיר בהתאמה אישית';
     var millions = Math.max(lo, hi) >= 1000000;
     var unit = millions ? ' מ׳ ₪' : ' ₪';
-    if (lo && hi && hi > lo) return priceIn(lo, millions) + '–' + priceIn(hi, millions) + unit;
+    if (lo && hi && hi > lo) return priceIn(lo, millions) + '-' + priceIn(hi, millions) + unit;
     return 'החל מ־' + priceIn(lo || hi, millions) + unit;
   }
 
@@ -76,7 +76,7 @@
     var lo = Number(p.min_rooms) || 0, hi = Number(p.max_rooms) || 0;
     if (!lo && !hi) return '';
     var trim = function (n) { return String(Number(n)).replace(/\.0$/, ''); };
-    if (lo && hi && hi > lo) return trim(lo) + '–' + trim(hi) + ' חד׳';
+    if (lo && hi && hi > lo) return trim(lo) + '-' + trim(hi) + ' חד׳';
     return trim(lo || hi) + ' חד׳';
   }
 

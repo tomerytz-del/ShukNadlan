@@ -300,7 +300,7 @@
       setDrawingCursor(true);
       map.on('click', onAreaClick);
       map.on('mousemove', onAreaMove);
-      showHint('לחצו על המפה כדי לסמן את פינות האזור — לפחות שלוש', { done: true, doneDisabled: true });
+      showHint('לחצו על המפה כדי לסמן את פינות האזור - לפחות שלוש', { done: true, doneDisabled: true });
     }
 
     function onAreaClick(e) {
@@ -318,7 +318,7 @@
       }).addTo(map));
       if (draftPts.length >= 3) {
         hintDone.disabled = false;
-        hintText.textContent = 'עוד פינה, לחיצה על הנקודה הזהובה — או "סיום"';
+        hintText.textContent = 'עוד פינה, לחיצה על הנקודה הזהובה - או "סיום"';
       }
       // ‏null ולא pt: הנקודה כבר בתוך draftPts, וקצה "חי" שמצויר עליה היה
       // מכפיל אותה. במגע אין mousemove וזה כל מה שמצייר את הקו.

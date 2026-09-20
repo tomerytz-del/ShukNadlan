@@ -125,7 +125,7 @@ function fieldFromProperty(
 export function propertyLabel(p: Record<string, unknown>): string {
   const address = [p.street, p.house_number].filter(Boolean).join(" ");
   const place = [address, p.city].filter(Boolean).join(", ");
-  return [p.property_type, place].filter(Boolean).join(" — ") ||
+  return [p.property_type, place].filter(Boolean).join(" - ") ||
     String(p.title || "נכס");
 }
 
@@ -161,13 +161,13 @@ export function missingForAgreement(input: BuildInput): string[] {
 
   const hasPct = Number(input.commission.pct) > 0;
   const hasAmount = Number(input.commission.amount) > 0;
-  if (!hasPct && !hasAmount) missing.push("לא הוזנה עמלה — אחוזים או סכום");
+  if (!hasPct && !hasAmount) missing.push("לא הוזנה עמלה - אחוזים או סכום");
 
   if (tpl.exclusive && (!input.exclusive?.from || !input.exclusive?.until)) {
     missing.push("חסרה תקופת הבלעדיות (מתאריך ועד תאריך)");
   }
   if (!input.agent.id_number) {
-    missing.push("חסרה ת.ז. בפרטי הסוכן/ת — אפשר להשלים אותה ב\"עדכון פרטי הסוכן/ת\" בדשבורד");
+    missing.push("חסרה ת.ז. בפרטי הסוכן/ת - אפשר להשלים אותה ב\"עדכון פרטי הסוכן/ת\" בדשבורד");
   }
   return missing;
 }
@@ -229,7 +229,7 @@ function fieldsFor(tpl: any, p: AgreementProperty): Record<string, string> {
 /** ה-payload שנכנס ל-`agreements`, בלי `document_html` (הוא נכתב אחרי ה-insert). */
 export function insertPayload(input: BuildInput) {
   const tpl = templateFor(input.kind);
-  const doc = docInput(input, "—", new Date());
+  const doc = docInput(input, "-", new Date());
 
   return {
     agent_id: input.agentId,

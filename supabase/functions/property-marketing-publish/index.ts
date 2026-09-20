@@ -3,6 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 import {
   generateMarketingCopy,
+  noLongDash,
   placeLine,
   priceLine,
   specLine,
@@ -108,7 +109,12 @@ function buildMessage(row: any, marketing: { description: string; post: string }
   }
   if (!lead.includes(link)) lines.push(`🔗 ${link}`);
 
-  return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  // ‏**הניקוי כאן ולא רק במחולל, כי כאן זה גבול הפרסום.** ‏`lead` יכול
+  // להגיע משלושה מקומות: ‏post_text שהמודל כתב (שכבר נוקה), נוסח שסוכן/ת
+  // כתב/ה ביד, או שורה שנשמרה במסד לפני שהכלל הזה נולד. גם שורות המיקום,
+  // המפרט והמחיר נבנות מנתוני המסד. ניקוי אחד על הטקסט המורכב מכסה את
+  // כולם, ולא צריך לזכור אותו בכל מקור בנפרד.
+  return noLongDash(lines.join("\n").replace(/\n{3,}/g, "\n\n").trim());
 }
 
 // ---------------------------------------------------------------------------
@@ -249,7 +255,7 @@ async function handle(sb: any, row: any, opts: { force: boolean; dryRun: boolean
     if (!opts.dryRun) {
       await sb.from("property_publications").update({
         status: "skipped",
-        last_error: "נכס בלי תמונה — לא מפרסמים פוסט בלי תמונות",
+        last_error: "נכס בלי תמונה - לא מפרסמים פוסט בלי תמונות",
       }).eq("id", row.publication_id);
     }
     return { property_id: row.property_id, skipped: "no_image" };
@@ -416,7 +422,7 @@ Deno.serve(async (req: Request) => {
       ok: true,
       processed: 0,
       ...(propertyId
-        ? { note: "הנכס אינו ממתין לפרסום — לא פעיל, או שכבר פורסם ובבדיקה יבשה לא מחזירים אותו לתור" }
+        ? { note: "הנכס אינו ממתין לפרסום - לא פעיל, או שכבר פורסם ובבדיקה יבשה לא מחזירים אותו לתור" }
         : {}),
     });
   }

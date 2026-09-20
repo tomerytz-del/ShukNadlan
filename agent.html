@@ -926,7 +926,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <header class="site">
   <div class="wrap header-inner">
-    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית">
       <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
       <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
     </a>
@@ -951,7 +951,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <span class="avail-tag" id="availTag"><i aria-hidden="true"></i><span id="availText"></span></span>
       </div>
       <div class="hero-text">
-        <h1 class="profile-name" id="profileName">—</h1>
+        <h1 class="profile-name" id="profileName">-</h1>
         <div class="profile-agency" id="profileAgency"></div>
         <!-- הדירוג מגלגל אל מקטע הביקורות, בדיוק כמו בכרטיס המשרד -->
         <a class="hero-rating" id="heroRating" href="#reviewsHeading" hidden></a>
@@ -985,7 +985,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
            הסוכן/ת מגיעים ממילא בטעינת הדף, וסינון מקומי מגיב מיד. -->
       <div class="prop-search" id="propSearchBar" hidden>
         <span class="ic" aria-hidden="true"></span>
-        <input type="search" id="propSearch" placeholder="חיפוש בנכסי הסוכן/ת — רחוב, סוג נכס, עיר" aria-label="חיפוש בנכסי הסוכן/ת">
+        <input type="search" id="propSearch" placeholder="חיפוש בנכסי הסוכן/ת - רחוב, סוג נכס, עיר" aria-label="חיפוש בנכסי הסוכן/ת">
         <button type="button" class="clear" id="propSearchClear" aria-label="ניקוי החיפוש" hidden>✕</button>
       </div>
       <p class="search-count" id="propSearchCount" hidden></p>
@@ -1141,7 +1141,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             </span>
             <span class="lead-teaser-copy">
               <span class="lead-teaser-title">מחפשים נכס? תנו לו למצוא אתכם</span>
-              <span class="lead-teaser-sub">לקנייה או להשכרה — נעדכן אתכם ראשונים כשעולה נכס שמתאים</span>
+              <span class="lead-teaser-sub">לקנייה או להשכרה - נעדכן אתכם ראשונים כשעולה נכס שמתאים</span>
             </span>
             <span class="lead-teaser-go" aria-hidden="true">
               <span class="lead-teaser-go-open">התאמת נכס ←</span>
@@ -1151,7 +1151,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
           <div class="lead-panel" id="buyerPanel" hidden>
             <div class="owner-intro">
-              <p id="buyerLead">ספרו לנו מה אתם מחפשים — ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.</p>
+              <p id="buyerLead">ספרו לנו מה אתם מחפשים - ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.</p>
             </div>
 
             <div class="owner-wizard" id="buyerWizard">
@@ -1178,7 +1178,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                        קטגוריה ולא סוג עסקה — ולכן הבחירה בו פותחת את השאלה
                        המשלימה במקום לנחש עבור המחפש/ת. -->
                   <div id="buyCommercialDeal" hidden>
-                    <span class="wiz-label" id="buyCommercialLabel">נכס מסחרי — לקנייה או להשכרה?</span>
+                    <span class="wiz-label" id="buyCommercialLabel">נכס מסחרי - לקנייה או להשכרה?</span>
                     <div class="lead-toggle" id="buyCommercialToggle" role="group" aria-labelledby="buyCommercialLabel">
                       <button type="button" class="active" data-buy-cdeal="sale">לקנייה</button>
                       <button type="button" data-buy-cdeal="rent">להשכרה</button>
@@ -1650,7 +1650,7 @@ function renderAgentContactCard(agent){
     <div class="contact-who">
       <div class="name">${escapeHtml(name)}</div>
       <div class="role">${escapeHtml(roleLabel(agent))}${agencyName ? ' · ' + escapeHtml(agencyName) : ''}</div>
-      <p class="note">מוזמנים לפנות בכל שאלה — על נכס מסוים, על הערכת שווי או על מכירה והשכרה בעפולה והעמק.</p>
+      <p class="note">מוזמנים לפנות בכל שאלה - על נכס מסוים, על הערכת שווי או על מכירה והשכרה בעפולה והעמק.</p>
     </div>
     <div class="contact-actions">
       <a class="cta-primary" href="${escapeHtml(waLink(phone))}" target="_blank" rel="noopener noreferrer"
@@ -2258,9 +2258,9 @@ function starsHtml(rating){
 /* חוות הדעת והדירוג.
    ‏RLS על reviews חושף ל-anon אך ורק שורות status='published', כך שביקורת
    שממתינה לאישור המשרד או שנדחתה לא תגיע לכאן גם אם נבקש אותה.
-   הממוצע מחושב מאותן שורות עצמן ולא מ-bayesian_rating — כדי שהמספר שמוצג
+   הממוצע מחושב מאותן שורות עצמן ולא מ-bayesian_rating - כדי שהמספר שמוצג
    יהיה בדיוק מה שהביקורות שמתחתיו אומרות. */
-/* מספר חוות הדעת המינימלי שמצדיק מקטע ביקורות — ודירוג מוצג */
+/* מספר חוות הדעת המינימלי שמצדיק מקטע ביקורות - ודירוג מוצג */
 const MIN_REVIEWS_SHOWN = 2;
 
 async function loadAgentReviews(sb, agentId){
@@ -2273,7 +2273,7 @@ async function loadAgentReviews(sb, agentId){
     .order('created_at', { ascending:false });
 
   /* ---------- הסף שמתחתיו אין מקטע בכלל ----------
-     "אין עדיין חוות דעת" הוא לא משפט ניטרלי — הוא נקרא כאזהרה. גם חוות
+     "אין עדיין חוות דעת" הוא לא משפט ניטרלי - הוא נקרא כאזהרה. גם חוות
      דעת בודדת אינה עדות, ולכן המקטע (וגם הדירוג בראש הדף) נפתח רק משתיים
      ומעלה. אותו סף בדיוק חל בדף המשרד. */
   if (error || !reviews || reviews.length < MIN_REVIEWS_SHOWN) return;
@@ -2328,7 +2328,7 @@ document.getElementById('inquiryForm').addEventListener('submit', async (e)=>{
   } catch(err){
     console.error(err);
     feedback.style.color = 'var(--brick)';
-    feedback.textContent = 'שגיאה בשליחה — נסו שוב';
+    feedback.textContent = 'שגיאה בשליחה - נסו שוב';
   } finally {
     setTimeout(()=>{ btn.disabled = false; btn.textContent = original; }, 400);
   }
@@ -2430,7 +2430,7 @@ function validateStep(step){
     const el = document.getElementById('wizAddress');
     wizState.address = el.value.trim();
     if (wizState.address.length < 3){
-      setError(1, 'נא להזין כתובת מדויקת — רחוב ומספר');
+      setError(1, 'נא להזין כתובת מדויקת - רחוב ומספר');
       el.classList.add('invalid'); el.focus();
       return false;
     }
@@ -2585,7 +2585,7 @@ async function submitOwnerWizard(e){
     wizDone.hidden = false;
   } catch(err){
     console.error('owner-lead-intake failed:', err);
-    setError(3, 'השליחה נכשלה — בדקו חיבור לאינטרנט ונסו שוב');
+    setError(3, 'השליחה נכשלה - בדקו חיבור לאינטרנט ונסו שוב');
     submitBtn.textContent = originalLabel;
     submitBtn.disabled = false;
   }
@@ -2767,7 +2767,7 @@ function buyValidateStep(step){
   }
   if (step === 2){
     if (!buyHasCriteria(buyCriteria())){
-      buySetError(2, 'בחרו לפחות תנאי אחד — שכונה, סוג נכס, חדרים או תקציב');
+      buySetError(2, 'בחרו לפחות תנאי אחד - שכונה, סוג נכס, חדרים או תקציב');
       return false;
     }
     buySetError(2, '');
@@ -2798,7 +2798,7 @@ function buyValidateStep(step){
 const BUY_DEAL_LABELS = { sale:'לקנייה', rent:'להשכרה' };
 
 function buyRoomsText(c){
-  return c.min_rooms && c.max_rooms && c.min_rooms !== c.max_rooms ? `${c.min_rooms}–${c.max_rooms} חדרים`
+  return c.min_rooms && c.max_rooms && c.min_rooms !== c.max_rooms ? `${c.min_rooms}-${c.max_rooms} חדרים`
        : c.min_rooms ? `${c.min_rooms} חדרים${!c.max_rooms ? ' ומעלה' : ''}`
        : c.max_rooms ? `עד ${c.max_rooms} חדרים` : null;
 }
@@ -2810,7 +2810,7 @@ function buyHoodNames(c){
 function buyRenderRecap(){
   const c = buyCriteria();
   const hoodNames = buyHoodNames(c);
-  const budget = c.min_price && c.max_price ? `${nis(c.min_price)}–${nis(c.max_price)} ₪`
+  const budget = c.min_price && c.max_price ? `${nis(c.min_price)}-${nis(c.max_price)} ₪`
                : c.max_price ? `עד ${nis(c.max_price)} ₪`
                : c.min_price ? `מ-${nis(c.min_price)} ₪` : null;
   const parts = [
@@ -2821,7 +2821,7 @@ function buyRenderRecap(){
     buyRoomsText(c),
     budget ? '💰 ' + budget : null,
     c.min_size_sqm || c.max_size_sqm
-      ? `📐 ${c.min_size_sqm || ''}${c.min_size_sqm && c.max_size_sqm ? '–' : ''}${c.max_size_sqm || ''} מ״ר` : null,
+      ? `📐 ${c.min_size_sqm || ''}${c.min_size_sqm && c.max_size_sqm ? '-' : ''}${c.max_size_sqm || ''} מ״ר` : null,
   ].filter(Boolean);
   document.getElementById('buyRecap').textContent = parts.join(' · ');
 }
@@ -2843,7 +2843,7 @@ async function submitBuyerWizard(e){
   if (!buyValidateStep(3)) return;
   const c = buyCriteria();
   if (!buyHasCriteria(c)){
-    buySetError(3, 'הוסיפו לפחות תנאי אחד — שכונה, סוג נכס, חדרים או תקציב');
+    buySetError(3, 'הוסיפו לפחות תנאי אחד - שכונה, סוג נכס, חדרים או תקציב');
     buyGoToStep(2);
     return;
   }
@@ -2880,12 +2880,12 @@ async function submitBuyerWizard(e){
     if (!res.ok || data.error){
       const messages = {
         too_many_searches: `הגעתם למקסימום החיפושים השמורים (${data.limit || 5}). אפשר להפסיק חיפוש קיים מהקישור שבהתראה.`,
-        no_criteria: 'הוסיפו לפחות תנאי אחד — שכונה, סוג נכס, חדרים או תקציב',
+        no_criteria: 'הוסיפו לפחות תנאי אחד - שכונה, סוג נכס, חדרים או תקציב',
         invalid_phone: 'נא להזין מספר טלפון תקין',
         invalid_email: 'נא להזין כתובת אימייל תקינה',
         invalid_name: 'נא להזין שם מלא',
       };
-      throw new Error(messages[data.error] || 'השמירה נכשלה — נסו שוב');
+      throw new Error(messages[data.error] || 'השמירה נכשלה - נסו שוב');
     }
     /* ‏duplicate=true פירושו שהחיפוש הזה כבר שמור. מבחינת המחפש/ת זו הצלחה.
        ‏assigned_to_agency מגיע מהשרת ולא מנוחש כאן: רק הוא יודע אם הפרטים
@@ -2893,7 +2893,7 @@ async function submitBuyerWizard(e){
        סיום שמבטיח משהו שלא קרה גרוע ממסך סיום סתמי. */
     const who = leadContext.name;
     document.getElementById('buyDoneText').textContent = data.duplicate
-      ? 'החיפוש הזה כבר שמור אצלנו — נעדכן אתכם ברגע שיעלה נכס מתאים.'
+      ? 'החיפוש הזה כבר שמור אצלנו - נעדכן אתכם ברגע שיעלה נכס מתאים.'
       : data.assigned_to_agency
         ? `נעדכן אתכם ברגע שיעלה נכס שמתאים, ו${who} יחזור/תחזור אליכם עם נכסים מתאימים.`
         : 'נעדכן אתכם ברגע שיעלה נכס שמתאים למה שביקשתם.';
@@ -2903,7 +2903,7 @@ async function submitBuyerWizard(e){
   } catch(err){
     console.warn('saved-search-intake (buyer banner) failed:', err);
     buySetError(3, err.message && err.message !== 'Failed to fetch'
-      ? err.message : 'השמירה נכשלה — בדקו חיבור לאינטרנט ונסו שוב');
+      ? err.message : 'השמירה נכשלה - בדקו חיבור לאינטרנט ונסו שוב');
     btn.textContent = originalLabel;
     btn.disabled = false;
   }
@@ -2922,7 +2922,7 @@ function initBuyerWizard(agent, sb){
   if (!buyerForm || !buyDoneEl) return;
 
   document.getElementById('buyerLead').textContent =
-    `ספרו לנו מה אתם מחפשים — ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.`;
+    `ספרו לנו מה אתם מחפשים - ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.`;
   // ההסכמה נוקבת בשם הסוכן/ת ולא ב"מתווך/ת מהאזור": הפרטים מגיעים לכאן,
   // לסוכן/ת שבדף, ולא לרוטציה של הפלטפורמה
   document.getElementById('buyConsentText').textContent =
@@ -3053,7 +3053,7 @@ loadAgentProfile();
   <div class="footer-wrap footer-top">
 
     <div class="footer-brand">
-      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק — לדף הבית">
+      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק - לדף הבית">
         <img src="assets/logo-shuknadlan-dark.svg" alt="" width="52" height="62" loading="lazy">
         <span class="footer-logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
       </a>
@@ -3091,7 +3091,7 @@ loadAgentProfile();
 
         <div class="footer-social">
           <a href="https://www.facebook.com/share/19LytY6L6b/" target="_blank" rel="noopener noreferrer"
-             aria-label="שוק הנדל״ן בפייסבוק — נפתח בחלון חדש" title="פייסבוק">
+             aria-label="שוק הנדל״ן בפייסבוק - נפתח בחלון חדש" title="פייסבוק">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06C2 17.08 5.66 21.24 10.44 22v-7.03H7.9v-2.91h2.54V9.85c0-2.52 1.49-3.91 3.77-3.91 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.78-1.63 1.57v1.89h2.78l-.44 2.91h-2.34V22C18.34 21.24 22 17.08 22 12.06Z"/>
             </svg>

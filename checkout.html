@@ -27,7 +27,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      סיבה שתגיות ה-GTM חוזרות: לאתר אין תבנית משותפת. הפרטים:
      docs/security-headers.md -->
 <meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
-<meta name="description" content="עמוד התשלום של שוק הנדל״ן — טעינת ארנק: פרטי הלקוח ואישור התקנון לפני המעבר לסליקה מאובטחת.">
+<meta name="description" content="עמוד התשלום של שוק הנדל״ן - טעינת ארנק: פרטי הלקוח ואישור התקנון לפני המעבר לסליקה מאובטחת.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -47,7 +47,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <header class="site">
   <div class="header-inner">
-    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה — לדף הבית">
+    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית">
       <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
       <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
     </a>
@@ -84,11 +84,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          נוחתת כאן, ובמקום טופס תשלום היא מקבלת את התמונה הנכונה. -->
     <div class="note" id="removedNotice" style="display:none">
       <p><strong>אין רכישת מסלול.</strong> כל מי שמצטרף/ת למערכת נכנס/ת עם
-      ההטבה — המסלול נפתח בלי תשלום ובלי כרטיס אשראי.
+      ההטבה - המסלול נפתח בלי תשלום ובלי כרטיס אשראי.
       <a href="pricing.html">פירוט המסלולים</a> ·
       <a href="agency-signup.html">הצטרפות כמשרד תיווך</a>.</p>
       <p>מה שכן נרכש הוא <b>טעינת ארנק</b>, שממנה משלמים על לידים ועל הקפצת
-      נכסים — <a href="checkout.html">לעמוד טעינת הארנק</a>.</p>
+      נכסים - <a href="checkout.html">לעמוד טעינת הארנק</a>.</p>
     </div>
 
     <h2 id="buyHead">מה רוכשים</h2>
@@ -112,7 +112,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </div>
       <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px;display:flex;justify-content:space-between;font-weight:700">
-        <span>סה״כ לתשלום</span><span id="total">—</span>
+        <span>סה״כ לתשלום</span><span id="total">-</span>
       </div>
     </div>
 
@@ -125,7 +125,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          ולא כמו משהו שנקבע מראש. -->
     <div id="billingNote" style="display:none;font-size:.85rem;color:var(--muted);background:var(--blue-tint);
                 border-radius:8px;padding:10px 12px;margin-bottom:14px;line-height:1.55">
-      מילאנו את הפרטים מהחשבונית הקודמת שלכם. אפשר לשנות כל שדה — מה שיופיע כאן הוא מה שיודפס על החשבונית.
+      מילאנו את הפרטים מהחשבונית הקודמת שלכם. אפשר לשנות כל שדה - מה שיופיע כאן הוא מה שיודפס על החשבונית.
     </div>
     <form id="checkoutForm" novalidate>
       <div style="display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
@@ -495,19 +495,19 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
     : phone.replace(/\D/g, '');
   const minDigits = dialCode() ? 6 : 8;
   if (phoneDigits.length < minDigits || phoneDigits.length > 15){
-    fail('מספר הטלפון אינו תקין. יש להזין מספר ללא קידומת מדינה — הקידומת נקבעת לפי המדינה שנבחרה.');
+    fail('מספר הטלפון אינו תקין. יש להזין מספר ללא קידומת מדינה - הקידומת נקבעת לפי המדינה שנבחרה.');
     return;
   }
   /* ה-ח.פ אינו חובה, אבל אם הוקלד הוא מודפס על החשבונית — ומספר שגוי שם
      הוא חשבונית שצריך לבטל ולהפיק מחדש. */
   const taxDigits = taxIdEl.value.replace(/\D/g, '');
   if (taxIdEl.value.trim() && (taxDigits.length < 8 || taxDigits.length > 9)){
-    fail('מספר ח.פ / ע.מ אינו תקין — 9 ספרות. אפשר גם להשאיר את השדה ריק.');
+    fail('מספר ח.פ / ע.מ אינו תקין - 9 ספרות. אפשר גם להשאיר את השדה ריק.');
     return;
   }
   if (!signedIn){
     msgEl.style.color = 'var(--muted)';
-    msgEl.textContent = 'מעבירים להתחברות — הפרטים יישמרו וניתן יהיה להשלים את התשלום מיד אחריה.';
+    msgEl.textContent = 'מעבירים להתחברות - הפרטים יישמרו וניתן יהיה להשלים את התשלום מיד אחריה.';
     try{
       sessionStorage.setItem('shuknadlan.checkout', JSON.stringify(
         { product: 'wallet',
@@ -555,7 +555,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
         : data.error === 'morning_not_configured' || data.error === 'morning_misconfigured'
           ? 'הסליקה עדיין לא פעילה. פנו אלינו ונטען את הארנק ידנית.'
         : data.error === 'payment_terminal_missing'
-          ? 'הסליקה אינה פעילה כרגע — טרם הוגדר מסוף סליקה. ניסיון חוזר לא יעזור; פנו אלינו.'
+          ? 'הסליקה אינה פעילה כרגע - טרם הוגדר מסוף סליקה. ניסיון חוזר לא יעזור; פנו אלינו.'
         /* ‏payment_provider_error הוא כל כשל אחר בפתיחת הטופס אצל מורנינג,
            ובראשו morning_auth_failed — מפתחות API שנדחים ב-401. זה נראה
            כמו תקלה רגעית ואינו כזה: הוא יחזור זהה בכל ניסיון עד שיתוקנו
@@ -564,8 +564,8 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
            2600. הניסוח מסויג ("לרוב") כי אותו ערך מכסה גם morning_network,
            שהוא כן רגעי; מה שבטוח הוא שהתקלה אצלנו, וזה מה שנאמר. */
         : data.error === 'payment_provider_error'
-          ? 'חברת הסליקה דחתה את פתיחת התשלום. זו תקלה אצלנו ולא אצלכם, ולרוב ניסיון חוזר לא יעזור — פנו אלינו ונסדר.'
-        : 'שגיאה בפתיחת התשלום — נסו שוב.';
+          ? 'חברת הסליקה דחתה את פתיחת התשלום. זו תקלה אצלנו ולא אצלכם, ולרוב ניסיון חוזר לא יעזור - פנו אלינו ונסדר.'
+        : 'שגיאה בפתיחת התשלום - נסו שוב.';
       payBtn.disabled = false;
       return;
     }
@@ -580,7 +580,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
   } catch(err){
     console.error(err);
     msgEl.style.color = 'var(--red)';
-    msgEl.textContent = 'שגיאת רשת — נסו שוב.';
+    msgEl.textContent = 'שגיאת רשת - נסו שוב.';
     payBtn.disabled = false;
   }
 });
@@ -613,7 +613,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
         </span>
         <span class="lead-teaser-copy">
           <span class="lead-teaser-title">מחפשים נכס? תנו לו למצוא אתכם</span>
-          <span class="lead-teaser-sub">לקנייה או להשכרה — נעדכן אתכם ראשונים כשעולה נכס שמתאים</span>
+          <span class="lead-teaser-sub">לקנייה או להשכרה - נעדכן אתכם ראשונים כשעולה נכס שמתאים</span>
         </span>
         <span class="lead-teaser-go" aria-hidden="true">
           <span class="lead-teaser-go-open">התאמת נכס ←</span>
@@ -625,7 +625,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
         <!-- בלי כותרת נוספת: שורת ההזמנה שמעל היא הכותרת של הבאנר, ו-h2
              שחוזר עליה במילים אחרות רק דוחף את השלב הראשון מטה. -->
         <div class="owner-intro">
-          <p>ספרו לנו מה אתם מחפשים — ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.</p>
+          <p>ספרו לנו מה אתם מחפשים - ונעדכן אתכם בוואטסאפ או במייל ברגע שיעלה נכס שמתאים, לפני שכולם רואים אותו.</p>
         </div>
 
         <div class="owner-wizard" id="buyerWizard">
@@ -652,7 +652,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
                    קטגוריה ולא סוג עסקה — ולכן הבחירה בו פותחת את השאלה
                    המשלימה במקום לנחש עבור המחפש/ת. -->
               <div id="buyCommercialDeal" hidden>
-                <span class="wiz-label" id="buyCommercialLabel">נכס מסחרי — לקנייה או להשכרה?</span>
+                <span class="wiz-label" id="buyCommercialLabel">נכס מסחרי - לקנייה או להשכרה?</span>
                 <div class="lead-toggle" id="buyCommercialToggle" role="group" aria-labelledby="buyCommercialLabel">
                   <button type="button" class="active" data-buy-cdeal="sale">לקנייה</button>
                   <button type="button" data-buy-cdeal="rent">להשכרה</button>
@@ -785,7 +785,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
   <div class="footer-wrap footer-top">
 
     <div class="footer-brand">
-      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק — לדף הבית">
+      <a href="index.html" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק - לדף הבית">
         <img src="assets/logo-shuknadlan-dark.svg" alt="" width="52" height="62" loading="lazy">
         <span class="footer-logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
       </a>
@@ -823,7 +823,7 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
 
         <div class="footer-social">
           <a href="https://www.facebook.com/share/19LytY6L6b/" target="_blank" rel="noopener noreferrer"
-             aria-label="שוק הנדל״ן בפייסבוק — נפתח בחלון חדש" title="פייסבוק">
+             aria-label="שוק הנדל״ן בפייסבוק - נפתח בחלון חדש" title="פייסבוק">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M22 12.06C22 6.5 17.52 2 12 2S2 6.5 2 12.06C2 17.08 5.66 21.24 10.44 22v-7.03H7.9v-2.91h2.54V9.85c0-2.52 1.49-3.91 3.77-3.91 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.78-1.63 1.57v1.89h2.78l-.44 2.91h-2.34V22C18.34 21.24 22 17.08 22 12.06Z"/>
             </svg>
