@@ -616,9 +616,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .prop-price{font-weight:800;font-size:.92rem;color:var(--teal-dark);margin-top:2px}
   .prop-price .per{font-weight:600;font-size:.78rem;color:var(--ink-soft)}
 
-  /* ---------- "הנכסים שלי" כרשימת טאבים ----------
+  /* ---------- רשימת טאבים: "הנכסים שלי" ו"קובץ הלקוחות" ----------
      שורה אחת לנכס — סוג, כתובת ומחיר — וכל השאר מאחורי לחיצה. עשרה טאבים
-     נכנסים למסך טלפון אחד, וזה ההבדל בין לסרוק רשימה לבין לגלול בה. */
+     נכנסים למסך טלפון אחד, וזה ההבדל בין לסרוק רשימה לבין לגלול בה.
+
+     אותן מחלקות משרתות גם את קובץ הלקוחות, ובכוונה: שתי הרשימות הן אותה
+     מחווה — שורה שנפתחת — ועותק שני של הכללים האלה תחת שם אחר היה מתפצל
+     מהם בשינוי הראשון. טאב לקוח/ה נושא בנוסף `.client-tab`, כאחיזה לכל
+     כלל שיהיה נכון שם ולא בנכסים. */
   .prop-tabs{display:grid;gap:6px}
   .prop-tab{border:1px solid var(--edge,var(--line));border-radius:var(--r-md,var(--radius-sm));
     background:var(--surface,#fff);overflow:hidden}
@@ -643,10 +648,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .prop-tab-panel[hidden]{display:none}
   /* הכרטיס שנפתח הוא אותו כרטיס שהיה ברשימה — רק בלי המרווח התחתון שהפריד
      בינו לבין הכרטיס הבא, שכבר לא קיים */
-  .prop-tab-panel .lead-card{margin-bottom:0;margin-top:8px}
+  .prop-tab-panel .lead-card,
+  .prop-tab-panel .client-card{margin-bottom:0;margin-top:8px}
+  /* ‏"3 התאמות" הוא מה שגורם לפתוח את הכרטיס, ולכן הוא תגית משלו ולא עוד
+     פרט בשורת המשנה — שנחתכת ראשונה ברוחב טלפון. הירוק הוא בדיוק הירוק של
+     תגית ההתאמות שבכרטיס עצמו (`.status-shared`): אותו נתון, אותו צבע.
+     ‏`--gold-tint` הוורוד לא מתאים כאן — באתר הזה הוא אומר "דורש טיפול". */
+  .tab-flag{font-size:.68rem;font-weight:800;padding:2px 8px;border-radius:999px;
+    background:#DFEDE3;color:#2A5B36;white-space:nowrap;flex-shrink:0}
   @media(max-width:420px){
     .prop-tab-head{gap:7px;padding:9px 10px}
     .prop-tab-price{font-size:.8rem}
+    .tab-flag{font-size:.64rem;padding:2px 6px}
   }
 
   /* ---------- אזור הגלילה של הרשימה ----------
@@ -704,10 +717,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media(prefers-reduced-motion: no-preference){
     @supports (animation-timeline: view()){
       /* טאב שנכנס לאזור הגלילה עולה ומתבהר — הסימן שיש עוד רשימה מתחת.
-         ואותה שפה בשאר רשימות הדשבורד: לידים, לקוחות, הסכמים ומדדי הפתיחה. */
+         ‏`.prop-tab` מכסה כאן גם את טאבי הלקוחות. ואותה שפה בשאר רשימות
+         הדשבורד: לידים, הסכמים ומדדי הפתיחה. */
       .prop-tab,
       #dashboard .acc-body .lead-card,
-      #dashboard .acc-body .client-card,
       #dashboard .acc-body .agr-row,
       .kpi-strip .kpi-card{
         animation-name:cardReveal;animation-duration:auto;
