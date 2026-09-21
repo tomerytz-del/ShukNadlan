@@ -10368,26 +10368,28 @@ function buildPropertyCard(p, agentId){
     ? `<img class="pc-hero-img" src="${esc(p.images[0])}" alt="" loading="lazy">`
     : `<span class="pc-hero-img pc-hero-ph" aria-hidden="true">${cardIconSvg('home')}</span>`;
   // כל פרט הוא תגית קצרה משלו: קודם המזהה שהסוכן/ת מוסר/ת בטלפון, אחר כך
-  // מאפייני הנכס, ובסוף התגיות שדורשות פעולה (פג תוקף / ללא תמונות) בגוון
-  // אזהרה — כדי שהעין תתפוס אותן בסריקה מהירה של הרשימה.
+  // מאפייני הנכס. **הסדר התהפך:** התגיות שדורשות פעולה עלו לראש הרשימה,
+  // מיד אחרי המזהה, כי שורת התגיות מכווצת עכשיו לשתי שורות ומה שאינו נכנס
+  // בהן יורד אל מאחורי "+N" (ראו clampCardTags). קודם הן ישבו בסוף והצבע
+  // לבדו תפס את העין - אבל צבע אינו עוזר לתגית שאינה על המסך.
+  //
+  // ושלוש תגיות ירדו מכאן לגמרי, כולן כפילויות של מה שכבר מוצג:
+  //   סוג הנכס  - הפרט הראשון בשורה הסגורה שמעל ("דירה · עלייה 7, עפולה")
+  //   יריד      - אריח היריד אומר את אותם שלושה מצבים בדיוק, בצבע מלא
   const tags = tagsHtml([
     { text:`מודעה #${p.listing_number ?? '-'}`, cls:'tag-key' },
-    p.rooms && { html:`🛏 <b>${esc(p.rooms)}</b> חדרים` },
-    p.property_type && { text:'🏠 ' + p.property_type },
-    { html:`👁 <b>${viewCounts[p.id]||0}</b> צפיות` },
-    p.price_per_sqm && { text:`📐 ${shekel(p.price_per_sqm)} למ״ר` },
-    planning && { text:`📍 גוש ${planning.gush||'-'} · חלקה ${planning.helka||'-'}`, cls:'tag-info' },
-    expired ? { text:`⏳ פג תוקף ${hebDate(p.listing_expires_at)}`, cls:'tag-warn' }
-            : p.listing_expires_at && { text:`⏳ בתוקף עד ${hebDate(p.listing_expires_at)}` },
+    expired && { text:`⏳ פג תוקף ${tabShortDate(p.listing_expires_at)}`, cls:'tag-warn' },
     (!p.images || !p.images.length) && { text:'📷 ללא תמונות', cls:'tag-warn' },
-    // היריד נמדד בתאריכים ולא בדגל (ראו assets/open-house.js): חלון שטרם
-    // נפתח נאמר במפורש, כדי שלא ייראה כאילו הסימון לא נקלט.
-    OpenHouse.live(p)
-      ? { text:`🏷 ביריד הבתים הפתוחים · ${OpenHouse.endLabel(p)}`, cls:'tag-info' }
-      : (OpenHouse.upcoming(p) && { text:`🏷 נכנס ליריד ב-${OpenHouse.hebDay(OpenHouse.startsAt(p))}`, cls:'tag-info' }),
     // התיאור השיווקי הוא מה שמופיע בדף הנכס כשאין תיאור מודעה, ולכן
     // היעדרו הוא חוסר במודעה עצמה — באותו גוון אזהרה של "ללא תמונות".
     p.status === 'active' && mktState.tag && { text: mktState.tag, cls:'tag-warn' },
+    p.rooms && { html:`🛏 <b>${esc(p.rooms)}</b> חדרים` },
+    { html:`👁 <b>${viewCounts[p.id]||0}</b> צפיות` },
+    p.price_per_sqm && { text:`📐 ${shekel(p.price_per_sqm)}/מ״ר` },
+    // ‏"גו״ח" הוא הקיצור שמתווכים משתמשים בו ממילא, והוא חוסך כאן כמחצית
+    // מרוחב התגית הארוכה ביותר בשורה
+    planning && { text:`📍 גו״ח ${planning.gush||'-'}/${planning.helka||'-'}`, cls:'tag-info' },
+    !expired && p.listing_expires_at && { text:`⏳ בתוקף עד ${tabShortDate(p.listing_expires_at)}` },
   ]);
 
   /* שני בנים ישירים: המידע והפעולות. בטלפון הם נערמים בסדר הזה, וברוחב
@@ -10658,7 +10660,83 @@ function buildPropertyCard(p, agentId){
   // מספר העמודות נקבע כאן ולא ב-CSS, כי הוא תלוי בכמה פריטים נכנסו בפועל
   balanceGrid(actions);
   balanceGrid(hubRow);
+  clampCardTags(el.querySelector('.pc-col-main > .card-tags'));
   return el;
+}
+
+/* ---------- שורת התגיות: שתי שורות, והשאר מאחורי "+N" ----------
+   מספר התגיות אינו קבוע (בין שתיים לתשע), ורוחבן משתנה עם התוכן. ברוחב
+   טלפון התוצאה הייתה שלוש ואפילו ארבע שורות של גלולות אפורות - בדיוק
+   הקיר שהתגיות נועדו למנוע, כי שורה שלישית של פרטים כבר אינה נסרקת.
+
+   שתי שורות תמיד, ומה שמעבר יורד אל מאחורי כפתור "+N" שפותח אותן.
+   ‏**לכן הסדר התהפך למעלה:** מה שנשאר גלוי הן שתי השורות הראשונות, ולכן
+   התגיות שדורשות פעולה (פג תוקף, ללא תמונות, ללא תיאור) עלו לראש - הן
+   אלה שאסור שייעלמו, ותגית "בתוקף עד" יכולה לחכות ללחיצה.
+
+   ה-CSS אינו יכול לעשות את זה לבד: הוא יודע לחתוך בגובה (`max-height`),
+   אבל לא לספור כמה נחתכו ולא להשאיר מקום לכפתור. המדידה כאן היא
+   ‏`offsetTop` - כל תגית בשורה מסוימת חולקת את אותו ערך, ולכן מספר
+   הערכים השונים הוא מספר השורות. */
+function clampCardTags(wrap){
+  if (!wrap) return;
+  const more = document.createElement('button');
+  more.type = 'button';
+  more.className = 'card-tag tag-more';
+  more.hidden = true;
+  wrap.appendChild(more);
+
+  const tags = ()=> Array.from(wrap.children).filter(el => el !== more);
+  let expanded = false;
+
+  const apply = ()=>{
+    if (expanded) return;
+    const all = tags();
+    all.forEach(t => { t.hidden = false; });
+    more.hidden = true;
+    if (!all.length) return;
+
+    const rows = [...new Set(all.map(t => t.offsetTop))].sort((a, b)=> a - b);
+    if (rows.length <= 2) return;
+
+    // ראש השורה השלישית. הסתרת תגיות מהסוף אינה מזיזה את מה שלפניהן,
+    // ולכן הסף הזה נשאר תקף גם אחרי ההסתרה.
+    const cut = rows[2];
+    let hiddenCount = 0;
+    all.forEach(t => { if (t.offsetTop >= cut){ t.hidden = true; hiddenCount++; } });
+    more.hidden = false;
+    more.textContent = '+' + hiddenCount;
+    // הכפתור עצמו תופס מקום, ועלול לדחוף תגית נוספת לשורה השלישית
+    let guard = all.length;
+    while (more.offsetTop >= cut && guard-- > 0){
+      const last = all.filter(t => !t.hidden).pop();
+      if (!last) break;
+      last.hidden = true;
+      more.textContent = '+' + (++hiddenCount);
+    }
+  };
+
+  more.addEventListener('click', ()=>{
+    expanded = true;
+    tags().forEach(t => { t.hidden = false; });
+    more.hidden = true;
+  });
+
+  /* מדידה דורשת פריסה, ולכן ב-rAF: ברגע הזה הכרטיס עדיין לא חובר למסמך
+     וכל ה-offsetTop הם 0. ‏ResizeObserver מחזיק את זה גם בסיבוב מסך -
+     והוא בודק את **הרוחב** בלבד, כי ה-apply עצמו משנה את הגובה וכל
+     תגובה לגובה הייתה לולאה אינסופית. */
+  requestAnimationFrame(apply);
+  if (typeof ResizeObserver === 'undefined') return;
+  let lastWidth = -1;
+  const ro = new ResizeObserver(entries => {
+    if (!wrap.isConnected){ ro.disconnect(); return; }
+    const width = Math.round(entries[0].contentRect.width);
+    if (width === lastWidth) return;
+    lastWidth = width;
+    apply();
+  });
+  ro.observe(wrap);
 }
 
 /* ---------- שתי שורות, ולא שורה שלישית עם אריח בודד ----------

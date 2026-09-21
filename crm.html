@@ -1071,6 +1071,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .prop-card .pc-col-main{display:flex;flex-direction:column;gap:6px;min-width:0}
   .prop-card .pc-col-side{min-width:0}
   .prop-card .card-tags{margin-top:4px;gap:4px}
+  /* ‏"+N" — התגיות שלא נכנסו לשתי השורות הראשונות. ראו clampCardTags
+     ב-assets/crm.js: שם המדידה, וכאן רק המראה. ‏`<button>` ולא `<span>`
+     כמו שאר התגיות, ולכן הגופן והריפוד חוזרים במפורש. */
+  .card-tag.tag-more{font-family:inherit;font-weight:800;cursor:pointer;
+    padding:1px 9px;background:var(--surface-2,#EFEDE6);
+    border-color:var(--edge,var(--line));color:var(--txt-soft,var(--ink-soft))}
+  .card-tag.tag-more:hover{border-color:var(--navy,var(--teal));color:var(--navy,var(--teal))}
+  .card-tag.tag-more:focus-visible{outline:2px solid var(--navy,var(--teal));outline-offset:2px}
+  .card-tag[hidden]{display:none}
   .prop-card .lead-meta{font-size:.74rem}
   /* ---------- שורת הבעלים ----------
      המספר כאן הוא המספר שהסוכן/ת מחייג/ת אליו יותר מכל מספר אחר
