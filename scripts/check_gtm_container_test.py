@@ -217,12 +217,17 @@ def main() -> int:
     # ‏קובצי הייבוא שבריפו: מכולה בלי האירוע שלהם נכשלת, ואחרי מיזוג
     # שלהם היא עוברת. זה מה שמוכיח שהקובץ באמת מחבר את האירוע ולא רק
     # נראה כמו JSON של GTM.
-    for rel, event in (
+    imports = (
         ("docs/gtm-events-import.json", "contact_site"),
         ("docs/gtm-events-import.json", "view_item"),
         ("docs/gtm-events-import.json", "contact_agent"),
+        # ‏contact_developer הוא האירוע שנוסף לקוד אחרי גרסה 4 של המכולה,
+        # כלומר היחיד שהצלבה מול הייצוא האמיתי מסמנת כחסר. המקרה הזה
+        # מוכיח שקובץ הייבוא באמת מחבר אותו, לפני שמישהו מייבא אותו.
+        ("docs/gtm-events-import.json", "contact_developer"),
         ("docs/gtm-pwa-import.json", "pwa_banner_shown"),
-    ):
+    )
+    for rel, event in imports:
         imported = json.loads((ROOT / rel).read_text(encoding="utf-8"))["containerVersion"]
 
         without = drop_event(copy.deepcopy(baseline()), event, "both")
@@ -258,7 +263,7 @@ def main() -> int:
     if failures:
         print("✗ %d מקרים לא נתפסו." % failures)
         return 1
-    print("✓ כל %d המקרים התנהגו כצפוי." % (len(cases) + 5))
+    print("✓ כל %d המקרים התנהגו כצפוי." % (len(cases) + len(imports) + 1))
     return 0
 
 

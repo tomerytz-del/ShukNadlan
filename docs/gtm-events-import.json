@@ -6,8 +6,8 @@
     "accountId": "0",
     "containerId": "0",
     "containerVersionId": "0",
-    "name": "שבעת אירועי האתר — טריגרים, תגיות ומשתנים",
-    "description": "כל האירועים שאינם PWA: contact_agent, contact_bot, contact_site, view_item, share, generate_lead, search. עד הייבוא הזה אף אחד מהם לא הגיע ל-GA4 - הקוד דחף אותם ל-dataLayer ולא היה במכולה שום טריגר Custom Event. ששת אירועי ה-PWA יושבים בקובץ נפרד, docs/gtm-pwa-import.json, ואינם משוכפלים כאן. הפרטים: docs/analytics-events.md, gtm/README.md",
+    "name": "שמונת אירועי האתר — טריגרים, תגיות ומשתנים",
+    "description": "כל האירועים שאינם PWA: contact_agent, contact_bot, contact_site, contact_developer, view_item, share, generate_lead, search. עד הייבוא הראשון אף אחד מהם לא הגיע ל-GA4 - הקוד דחף אותם ל-dataLayer ולא היה במכולה שום טריגר Custom Event. contact_developer נוסף ב-21.9.2026 כדי להפריד חברה יזמית מ-contact_agent. ששת אירועי ה-PWA יושבים בקובץ נפרד, docs/gtm-pwa-import.json, ואינם משוכפלים כאן. הפרטים: docs/analytics-events.md, gtm/README.md",
     "fingerprint": "0",
     "container": {
       "path": "accounts/0/containers/0",
@@ -543,6 +543,31 @@
       {
         "accountId": "0",
         "containerId": "0",
+        "triggerId": "227",
+        "name": "CE — contact_developer",
+        "type": "CUSTOM_EVENT",
+        "fingerprint": "0",
+        "customEventFilter": [
+          {
+            "type": "EQUALS",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "contact_developer"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "accountId": "0",
+        "containerId": "0",
         "triggerId": "223",
         "name": "CE — view_item",
         "type": "CUSTOM_EVENT",
@@ -909,6 +934,93 @@
         ],
         "firingTriggerId": [
           "222"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NOT_SET"
+        }
+      },
+      {
+        "accountId": "0",
+        "containerId": "0",
+        "tagId": "327",
+        "name": "GA4 — contact_developer",
+        "type": "gaawe",
+        "fingerprint": "0",
+        "notes": "לחיצה על טלפון, מייל או וואטסאפ של חברה יזמית - בדף החברה ובמשרד המכירות של פרויקט. לא מתווך/ת: קונה מיזם ישירות, בלי עמלה ובלי בלעדיות.",
+        "parameter": [
+          {
+            "type": "BOOLEAN",
+            "key": "sendEcommerceData",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "eventName",
+            "value": "contact_developer"
+          },
+          {
+            "type": "LIST",
+            "key": "eventParameters",
+            "list": [
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "name",
+                    "value": "method"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "value",
+                    "value": "{{DLV - method}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "name",
+                    "value": "page_type"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "value",
+                    "value": "{{DLV - page_type}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "name",
+                    "value": "src"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "value",
+                    "value": "{{DLV - src}}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "measurementIdOverride",
+            "value": "G-40ZLLXSRFY"
+          }
+        ],
+        "firingTriggerId": [
+          "227"
         ],
         "tagFiringOption": "ONCE_PER_EVENT",
         "monitoringMetadata": {

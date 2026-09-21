@@ -848,14 +848,20 @@ function renderBanner(){
   if (occ) where.push(occ);
   el('projectWhere').innerHTML = where.map(w => '<span>' + esc(w) + '</span>').join('');
 
+  /* ‏data-developer על שני כפתורי הקשר כאן, ולא רק בדף החברה: משרד
+     המכירות של פרויקט **הוא** של היזם. ‏`projects.developer_id` הוא
+     ‏`not null`, ו-`projects.contact_*` מתועד במיגרציה כ"יצירת קשר של
+     הפרויקט (משרד המכירות), נפרד מפרטי החברה" — נפרד מהחברה, לא מתווך.
+     בלי הסימון הן היו contact_agent, כלומר קונים ישירות מיזם היו נספרים
+     כפניות למתווכים. */
   const cta = [];
   if (project.contact_phone_e164){
-    cta.push('<a class="btn btn-teal" href="tel:+' + esc(project.contact_phone_e164) + '">חיוג למשרד המכירות</a>');
+    cta.push('<a class="btn btn-teal" href="tel:+' + esc(project.contact_phone_e164) + '" data-developer>חיוג למשרד המכירות</a>');
   }
   if (project.whatsapp_e164){
     const text = encodeURIComponent('שלום, ראיתי את הפרויקט ' + (project.name || '') + ' בשוק הנדל״ן ואשמח לפרטים');
     cta.push('<a class="btn btn-wa" href="https://wa.me/' + esc(project.whatsapp_e164) + '?text=' + text +
-      '" target="_blank" rel="noopener noreferrer">וואטסאפ</a>');
+      '" target="_blank" rel="noopener noreferrer" data-developer>וואטסאפ</a>');
   }
   cta.push('<a class="btn btn-on-dark" href="#inquiryForm">השארת פרטים</a>');
   el('bannerCta').innerHTML = cta.join('');
