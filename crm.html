@@ -627,13 +627,23 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      שורה שנפתחת — ועותק שני של הכללים האלה תחת שם אחר היה מתפצל מהם
      בשינוי הראשון. כל משפחה נושאת בנוסף אחיזה משלה — `.client-tab`,
      `.lead-tab`, `.agr-tab` — לכל כלל שנכון שם ולא בנכסים. */
-  .prop-tabs{display:grid;gap:6px}
+  /* ‏`minmax(0,1fr)` ולא עמודה אוטומטית, ו-`min-width:0` על השורה: שתיהן
+     נחוצות, ובלעדיהן הרשימה מתרחבת לפי התוכן הארוך ביותר שבה.
+
+     עמודת grid ברוחב `auto` גדולה **לפחות** כמו ה-min-content של הפריטים
+     שבה, ופריט grid נושא `min-width:auto` שמשמעותו אותו דבר. ה-min-content
+     של שורת הטאב הוא הכותרת, שהיא ‏`white-space:nowrap` (ראו `.prop-tab-title`
+     למטה) - כלומר כתובת ארוכה קובעת את רוחב **כל** הרשימה. במדידה ברוחב
+     טלפון של 412px: הרשימה התרחבה ל-365px בתוך אזור של 346px.
+
+     ומה שהפך את זה מגלישה לתזוזה הוא `.prop-scroll` - ראו שם. */
+  .prop-tabs{display:grid;gap:6px;grid-template-columns:minmax(0,1fr)}
   /* ‏`overflow:hidden` היה כאן כדי שרקע ה-hover של הכותרת לא יגלוש
      מהפינות המעוגלות. הוא ירד כשתפריט הסטטוס שבכרטיס הפך לתפריט מרחף:
      ‏`overflow` אחר מ-`visible` קוטע כל צאצא שיוצא מהתיבה, והתפריט היה
      נחתך בדיוק בקצה השורה. במקומו הכותרת מעגלת את עצמה. */
   .prop-tab{border:1px solid var(--edge,var(--line));border-radius:var(--r-md,var(--radius-sm));
-    background:var(--surface,#fff)}
+    background:var(--surface,#fff);min-width:0}
   .prop-tab.is-open{box-shadow:var(--sh-1,var(--shadow-sm))}
   .prop-tab-head{display:flex;align-items:center;gap:10px;width:100%;padding:9px 12px;
     border-radius:inherit;
@@ -709,8 +719,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ---------- אזור הגלילה של הרשימה ----------
      גובה של כעשרה טאבים, וגלילה בתוכו במקום כפתורי דפדוף. ‏overscroll-behavior
      חוסם את המשך הגלילה לעמוד כשמגיעים לקצה הרשימה — בלעדיו כל גלילה בתוך
-     הרשימה הייתה בורחת לדשבורד ברגע שהיא נגמרת. */
-  .prop-scroll{max-height:min(70vh,600px);overflow-y:auto;overscroll-behavior:contain;
+     הרשימה הייתה בורחת לדשבורד ברגע שהיא נגמרת.
+
+     ‏**`overflow-x:hidden` מפורש, וזו לא כפילות.** ציר שאינו `visible` הופך
+     את הציר השני מ-`visible` ל-`auto` - כלומר `overflow-y:auto` לבדו עשה
+     כאן גם גלילה אופקית. היא לא נראתה עד שמשהו בפנים גלש, ואז הכרטיס
+     הפתוח **זז הצידה** מתחת לאגודל שגלל את הרשימה למטה: בדיוק המחווה
+     שנשללה כשבלוק הסטטוס היה רצועה נגללת (ראו `.prop-status-panel`),
+     רק שהפעם היא חלה על הכרטיס כולו.
+
+     ‏`hidden` ו-`auto` חותכים אותו דבר, ולכן זה אינו קוטע דבר שלא נקטע
+     ממילא - הוא רק מונע את התזוזה. הגלישה עצמה תוקנה ב-`.prop-tabs`
+     למעלה; השורה הזו היא מה שמונע מהתקלה לחזור בגלישה הבאה. */
+  .prop-scroll{max-height:min(70vh,600px);overflow-y:auto;overflow-x:hidden;
+    overscroll-behavior:contain;
     scrollbar-width:thin;scrollbar-color:var(--edge,var(--line)) transparent}
   .prop-scroll:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
   .prop-scroll::-webkit-scrollbar{width:7px}
