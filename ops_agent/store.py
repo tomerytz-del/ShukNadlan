@@ -53,8 +53,11 @@ PROBE_CODES = {
     # ‏"page_weight" נשאר ברשימה אף שהבדיקה כבר אינה מייצרת אותו: זה
     # בדיוק מה שסוגר את הממצאים הישנים שנמדדו ביחידה הקודמת (קובץ לא
     # דחוס) בסריקה הראשונה אחרי המעבר ל-"page_transfer".
+    # ‏"page_weight" ו-"heavy_asset" נשארים ברשימה אף שהבדיקות כבר אינן
+    # מייצרות אותם: זה מה שסוגר את השורות הישנות שנמדדו ביחידה הקודמת
+    # (קובץ לא דחוס) בסריקה הראשונה אחרי המעבר.
     "frontend": ("page_weight", "page_transfer", "heavy_image", "heavy_asset",
-                 "eager_images",
+                 "asset_transfer", "eager_images",
                  "assets_no_cache", "slow_ttfb", "slow_page", "no_compression",
                  "page_unreachable", "page_error"),
 }

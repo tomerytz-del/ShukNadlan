@@ -97,12 +97,31 @@ def _page_weight(ctx) -> Iterator[Finding]:
         )
 
 
+def _pages_loading(ctx) -> dict[str, int]:
+    """כמה דפים בשורש מצהירים על כל קובץ ב-`assets/`.
+
+    בלי זה הממצא על קובץ כבד מניח שהוא משותף ("נטען בכל דף שמצהיר עליו")
+    — וזה פשוט לא נכון ל-`crm.js`, ל-`home.js` ול-`property.js`, שכל אחד
+    מהם נטען בדף **אחד**. הנחה שגויה בהצעה לתיקון שולחת את מי שקורא
+    אותה לחפש דפים שאינם קיימים.
+    """
+    counts: dict[str, int] = {}
+    for page in ctx.root.glob("*.html"):
+        text = _read(page)
+        if text is None:
+            continue
+        for name in set(re.findall(r'assets/([\w.-]+\.(?:js|css))', text)):
+            counts[name] = counts.get(name, 0) + 1
+    return counts
+
+
 def _assets(ctx) -> Iterator[Finding]:
     """קבצי assets ותמונות כבדות."""
     t = ctx.settings.thresholds
     assets = ctx.root / "assets"
     if not assets.is_dir():
         return
+    loaded_by = _pages_loading(ctx)
     for path in sorted(assets.rglob("*")):
         if not path.is_file():
             continue
@@ -121,14 +140,29 @@ def _assets(ctx) -> Iterator[Finding]:
                            "נראה לעין.",
                 metric=round(kb, 1), metric_unit="KB",
             )
-        elif suffix in (".js", ".css") and kb >= t.asset_kb_warn:
+        elif suffix in (".js", ".css"):
+            wire_kb = len(gzip.compress(path.read_bytes(), _GZIP_LEVEL)) / 1024
+            if wire_kb < t.asset_wire_kb_warn:
+                continue
+            pages = loaded_by.get(path.name, 0)
             yield Finding(
-                area="frontend", code="heavy_asset", severity="low",
+                area="frontend", code="asset_transfer", severity="low",
                 subject=str(path.relative_to(ctx.root)),
-                title="קובץ assets כבד: %s — %.0f KB" % (path.name, kb),
-                detail="נטען בכל דף שמצהיר עליו.",
-                suggestion="לבדוק אם כל הדפים באמת צריכים את כולו.",
-                metric=round(kb, 1), metric_unit="KB",
+                title="קובץ assets כבד: %s — %.0f KB ברשת" % (path.name, wire_kb),
+                detail="‏%.0f KB דחוסים עוברים ברשת (‏%.0f KB בקובץ עצמו), %s."
+                       % (wire_kb, kb,
+                          "ונטען בדף אחד" if pages == 1 else
+                          "ואינו נטען באף דף" if pages == 0 else
+                          "ונטען ב-%d דפים" % pages),
+                suggestion=("באנדל של דף אחד. הוא אינו נטען לחינם בשום מקום, "
+                            "ולכן השאלה אינה 'מי צריך אותו' אלא האם אפשר לפצל "
+                            "ממנו את מה שאינו נדרש בטעינה הראשונה."
+                            if pages <= 1 else
+                            "נטען ב-%d דפים. לבדוק אם כולם באמת צריכים את "
+                            "כולו." % pages),
+                metric=round(wire_kb, 1), metric_unit="KB ברשת",
+                evidence={"raw_kb": round(kb, 1), "pages": pages,
+                          "compression": "gzip-%d" % _GZIP_LEVEL},
             )
 
 
