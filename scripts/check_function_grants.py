@@ -48,11 +48,20 @@
 
 ## מה נבדק
 
-לכל `grant execute on function <חתימה> to <תפקידים>` שבו `anon` **אינו**
-ברשימה — נדרשת ראיה שהרשאת ברירת המחדל של `anon` בוטלה: ‏`revoke` על אותה
-פונקציה שכולל `anon`, באיזו מיגרציה שהיא. הראיה נאספת מכל הקורפוס ולא
-מהקובץ הבודד, כי סגירה מאוחרת היא סגירה תקפה (וכך `20261112090000` סוגרת
-פונקציות שנוצרו בספטמבר).
+לכל `grant execute on function <חתימה> to <תפקידים>`, ולכל אחד משני
+התפקידים ש-Supabase מעניקה בברירת מחדל — `anon` ו-`authenticated` —
+שאינו ברשימת ההענקה: נדרשת ראיה שהרשאת ברירת המחדל שלו בוטלה, כלומר
+‏`revoke` על אותה פונקציה שמונה אותו בשם, באיזו מיגרציה שהיא. הראיה
+נאספת מכל הקורפוס ולא מהקובץ הבודד, כי סגירה מאוחרת היא סגירה תקפה
+(וכך `20261112090000` סוגרת פונקציות שנוצרו בספטמבר).
+
+**שני תפקידים ולא רק `anon`, וזה נלמד בדרך הקשה.** הגרסה הראשונה של
+הבדיקה כאן בדקה `anon` בלבד, ולכן היא אישרה את
+‏`order_lead_candidates(uuid[])` — שההצהרה שלה היא `service_role` בלבד,
+ושנשארה פתוחה ל-`authenticated` גם אחרי `20261226090000`, מאותו מנגנון
+בדיוק תפקיד אחד הלאה. ‏`SECURITY DEFINER` בלי בדיקת זהות שקוראת
+‏`agent_lead_preferences` חוצה-סוכנים, פתוחה לכל מי שמחובר/ת. הסגירה היא
+‏`20261227090000`, וההכללה כאן היא מה שמונע את החזרה.
 
 ‏`revoke` דינמי בתוך `do $$ ... $$` נספר גם הוא — זו הצורה שבה
 ‏`20261112090000` כתובה, ובלי זה הבדיקה הייתה מדווחת על חמש פונקציות
@@ -67,12 +76,17 @@ import glob
 import re
 import sys
 
+# שני התפקידים שמקבלים EXECUTE מברירת המחדל של Supabase על כל פונקציה
+# חדשה בסכימה public. ‏service_role אינו כאן: הוא המנוע של ה-Edge Functions,
+# וההענקה אליו היא תמיד מכוונת.
+DEFAULT_GRANTED = ('anon', 'authenticated')
+
 # ---------------------------------------------------------------------------
-# חריגים: פונקציה שהוענקה ל-authenticated בלבד, ושהרשאת ה-anon שלה נשארת
-# בכוונה. הנימוק חייב להיות כתוב כאן — חריג בלי סיבה הוא חריג שיישאר לנצח.
+# חריגים, לפי (חתימה, תפקיד): הרשאה שנשארת בכוונה. הנימוק חייב להיות כתוב
+# כאן — חריג בלי סיבה הוא חריג שיישאר לנצח.
 # ---------------------------------------------------------------------------
 ALLOW = {
-    'public.current_is_platform_admin()':
+    ('public.current_is_platform_admin()', 'anon'):
         'חמש policy-ות של RLS קוראות לה, ושלוש מהן חלות על התפקיד public — '
         'כלומר גם על anon. ביטול ה-EXECUTE היה הופך שליפה אנונימית מהטבלאות '
         'האלה משורות-אפס ל-permission denied. הפונקציה עצמה היא הגייט: '
@@ -115,55 +129,65 @@ def line_of(sql: str, pos: int) -> int:
 def main() -> int:
     files = sorted(glob.glob('supabase/migrations/*.sql'))
 
-    # ראיה שהרשאת anon בוטלה, לפי שם מלא (בלי ארגומנטים) ולפי חתימה מדויקת.
-    revoked_sig, revoked_name = set(), set()
-    # ‏grant שמדיר את anon: חתימה → (קובץ, שורה)
-    granted_without_anon = {}
+    # ראיה שההרשאה בוטלה, לכל תפקיד בנפרד: לפי חתימה מדויקת ולפי שם מלא
+    # (בלי ארגומנטים), כי revoke דינמי אינו נושא חתימה.
+    revoked_sig = {r: set() for r in DEFAULT_GRANTED}
+    revoked_name = {r: set() for r in DEFAULT_GRANTED}
+    # ‏grant שמדיר תפקיד: (חתימה, תפקיד) → (קובץ, שורה)
+    granted_without = {}
 
     for path in files:
         sql = open(path, encoding='utf-8').read()
 
         for m in REVOKE_RE.finditer(sql):
-            if 'anon' in roles_of(m.group(2)):
-                revoked_sig.add(norm(m.group(1)))
-                revoked_name.add(norm(m.group(1)).split('(')[0])
+            rs = roles_of(m.group(2))
+            for role in DEFAULT_GRANTED:
+                if role in rs:
+                    revoked_sig[role].add(norm(m.group(1)))
+                    revoked_name[role].add(norm(m.group(1)).split('(')[0])
 
-        # ‏revoke דינמי: בלוק שיש בו revoke ... from anon מזכה כל שם
-        # פונקציה שמוזכר בו. זו הצורה של 20261112090000.
+        # ‏revoke דינמי: בלוק שיש בו revoke והתפקיד מוזכר בו מזכה כל שם
+        # פונקציה שמופיע בבלוק. זו הצורה של 20261112090000 ושל 20261226090000.
         for blk in DO_BLOCK_RE.finditer(sql):
             body = blk.group(1)
-            if re.search(r'revoke', body, re.I) and 'anon' in body.lower():
-                for q in QUALIFIED_RE.finditer(body):
-                    revoked_name.add(norm(q.group(1) + '('). rstrip('('))
+            if not re.search(r'revoke', body, re.I):
+                continue
+            for role in DEFAULT_GRANTED:
+                if role in body.lower():
+                    for q in QUALIFIED_RE.finditer(body):
+                        revoked_name[role].add(norm(q.group(1)))
 
         for m in GRANT_RE.finditer(sql):
-            if 'anon' in roles_of(m.group(2)):
-                continue
+            rs = roles_of(m.group(2))
             sig = norm(m.group(1))
-            granted_without_anon.setdefault(sig, (path, line_of(sql, m.start())))
+            for role in DEFAULT_GRANTED:
+                if role not in rs:
+                    granted_without.setdefault((sig, role),
+                                               (path, line_of(sql, m.start())))
 
     bad = 0
-    for sig, (path, ln) in sorted(granted_without_anon.items()):
-        if sig in ALLOW:
+    for (sig, role), (path, ln) in sorted(granted_without.items()):
+        if (sig, role) in ALLOW:
             continue
-        if sig in revoked_sig or sig.split('(')[0] in revoked_name:
+        if sig in revoked_sig[role] or sig.split('(')[0] in revoked_name[role]:
             continue
         bad += 1
-        print(f'✗ {path}:{ln} — {sig}')
-        print(f'    ה-grant מדיר את anon, אבל אין revoke שמוציא אותו. הרשאת')
-        print(f'    ברירת המחדל של Supabase נשארת, ו-PostgREST חושף את')
-        print(f'    הפונקציה ב-/rest/v1/rpc/{sig.split("(")[0].split(".")[-1]}')
+        rpc = sig.split('(')[0].split('.')[-1]
+        print(f'✗ {path}:{ln} — {sig}  [{role}]')
+        print(f'    ה-grant מדיר את {role}, אבל אין revoke שמוציא אותו.')
+        print(f'    הרשאת ברירת המחדל של Supabase נשארת, ו-PostgREST חושף')
+        print(f'    את הפונקציה ב-/rest/v1/rpc/{rpc}')
         print(f'    התיקון — במיגרציה חדשה, או באותה שורה:')
-        print(f'        revoke all on function {sig} from public, anon;')
+        print(f'        revoke all on function {sig} from public, {role};')
 
     if bad:
-        print(f'\n{bad} פונקציות מוענקות בלי anon ונשארות פתוחות לו בפועל.')
-        print('אם החשיפה מכוונת — להעניק ל-anon במפורש, או להוסיף שורה')
+        print(f'\n{bad} הרשאות שההענקה מדירה אך נשארות פתוחות בפועל.')
+        print('אם החשיפה מכוונת — להעניק לתפקיד במפורש, או להוסיף שורה')
         print('ל-ALLOW ב-scripts/check_function_grants.py עם הנימוק.')
         return 1
 
-    print(f'✓ {len(files)} מיגרציות, {len(granted_without_anon)} פונקציות '
-          f'שהוענקו בלי anon: לכולן יש revoke בפועל '
+    print(f'✓ {len(files)} מיגרציות, {len(granted_without)} זוגות '
+          f'(פונקציה, תפקיד) שההענקה מדירה: לכולם יש revoke בפועל '
           f'({len(ALLOW)} חריגים מתועדים).')
     return 0
 
