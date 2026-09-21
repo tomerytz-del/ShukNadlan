@@ -790,29 +790,66 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
      המחיקה יושבת באותה שורה ומסומנת באדום, כי היא באמת אחת מהאפשרויות —
      אבל היא הפעולה היחידה כאן שאין ממנה דרך חזרה, ולכן היא גם היחידה
-     שעוברת שני אישורים. */
+     שעוברת שני אישורים.
+
+     ---------- ולמה כל זה נדחס לשורה אחת ----------
+     חמישה כפתורים ברוחב מינימלי של 104px נערמו ברוחב טלפון לשלוש שורות,
+     והבלוק תפס שליש מסך בראש **כל** כרטיס נכס שנפתח. מי שחיפש את
+     הפעולות היה צריך לגלול מעליו בכל פעם מחדש.
+
+     עכשיו: המצב הנוכחי בהתחלה, ולידו רצועת גלילה אופקית (`.psp-rail`) עם
+     כל המצבים. אף אפשרות לא ירדה — הן פשוט נגללות במקום להיערם. ההצללה
+     בקצה היא מה שאומר שיש עוד, והיא מופיעה רק בקצה שבאמת מסתיר משהו:
+     ראו syncRailFades ב-assets/crm.js, ושם גם המלכודות של scrollLeft
+     ב-RTL. */
   .prop-status-panel{
-    border:1.5px solid var(--line);border-radius:14px;background:#FBFAF5;
-    padding:12px 13px;margin-bottom:12px;
+    border:1px solid var(--edge,var(--line));border-radius:var(--r-md,14px);
+    background:var(--surface,#FBFAF5);padding:8px 10px;margin-bottom:10px;
   }
-  .prop-status-panel.psp-live{border-color:rgba(13,122,104,.45);background:var(--teal-tint)}
+  .prop-status-panel.psp-live{border-color:rgba(13,122,104,.5);background:var(--mint-surf-1,var(--teal-tint))}
   .prop-status-panel.psp-blocked{border-color:rgba(200,16,46,.4);background:#FDF3F4}
-  .psp-head{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
-  .psp-label{font-size:.68rem;font-weight:800;letter-spacing:.04em;color:var(--ink-soft)}
-  .psp-now{font-size:.95rem;font-weight:800;color:var(--ink)}
-  .prop-status-panel.psp-live .psp-now{color:var(--teal)}
-  .psp-note{font-size:.74rem;line-height:1.5;color:var(--ink-soft);margin-top:6px}
+  .psp-bar{display:flex;align-items:center;gap:9px;min-width:0}
+  .psp-head{display:flex;align-items:baseline;gap:5px;flex:0 0 auto}
+  .psp-label{font-size:.63rem;font-weight:800;letter-spacing:.04em;color:var(--txt-faint,var(--ink-soft))}
+  .psp-now{font-size:.85rem;font-weight:800;color:var(--txt,var(--ink));white-space:nowrap}
+  .prop-status-panel.psp-live .psp-now{color:var(--mint,var(--teal))}
+  .psp-note{font-size:.72rem;line-height:1.5;color:var(--txt-soft,var(--ink-soft));margin-top:6px}
   .psp-note.psp-warn{color:#9C0C24;font-weight:700}
-  .psp-actions{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+  /* הרצועה. ‏min-width:0 על שני המפלסים — בלעדיו פריט flex לא מתכווץ
+     מתחת לרוחב התוכן שלו, והשורה כולה הייתה נדחפת מחוץ לכרטיס במקום
+     שהרצועה תגלול בתוכו. */
+  .psp-rail{flex:1 1 auto;min-width:0}
+  .psp-actions{
+    --fade-left:0px;--fade-right:0px;
+    display:flex;flex-wrap:nowrap;gap:6px;min-width:0;
+    overflow-x:auto;overflow-y:hidden;padding-block:3px;
+    scroll-behavior:smooth;scroll-snap-type:x proximity;
+    scrollbar-width:thin;scrollbar-color:var(--edge,var(--line)) transparent;
+    -webkit-mask-image:linear-gradient(to right,transparent 0,#000 var(--fade-left),
+      #000 calc(100% - var(--fade-right)),transparent 100%);
+    mask-image:linear-gradient(to right,transparent 0,#000 var(--fade-left),
+      #000 calc(100% - var(--fade-right)),transparent 100%);
+  }
+  .psp-actions::-webkit-scrollbar{height:4px}
+  .psp-actions::-webkit-scrollbar-track{background:transparent}
+  .psp-actions::-webkit-scrollbar-thumb{background:var(--edge,var(--line));border-radius:999px}
+  @media(prefers-reduced-motion:reduce){.psp-actions{scroll-behavior:auto}}
+  /* גלולות ולא מלבנים ברוחב שווה: ברצועה אופקית רוחב אחיד הוא בזבוז —
+     "ארכיון" אינו צריך את הרוחב של "ירד מפרסום". */
   .psp-btn{
-    flex:1 1 auto;min-width:104px;padding:9px 10px;border-radius:10px;cursor:pointer;
-    border:1.5px solid var(--line);background:#fff;color:var(--ink);
-    font-family:inherit;font-size:.78rem;font-weight:700;line-height:1.2;text-align:center;
-    transition:transform .12s ease,box-shadow .12s ease;
+    flex:0 0 auto;scroll-snap-align:start;white-space:nowrap;
+    padding:6px 13px;border-radius:999px;cursor:pointer;
+    border:1.5px solid var(--edge,var(--line));background:var(--surface,#fff);color:var(--txt,var(--ink));
+    font-family:inherit;font-size:.75rem;font-weight:700;line-height:1.4;text-align:center;
+    transition:transform .12s ease,box-shadow .12s ease,background .12s ease;
   }
   .psp-btn:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 3px 10px rgba(15,52,53,.12)}
+  .psp-btn:focus-visible{outline:2px solid var(--navy,var(--teal));outline-offset:2px}
   .psp-btn:disabled{opacity:.55;cursor:not-allowed}
-  .psp-btn.is-current{background:var(--teal);border-color:var(--teal);color:#fff;cursor:default}
+  /* ‏opacity:1 במפורש: המצב הנוכחי מנוטרל (אין לאן ללחוץ), ובלי השורה
+     הזו כלל ה-‎:disabled‎ שמעליו היה מדהה דווקא את הגלולה שאומרת מה המצב. */
+  .psp-btn.is-current{background:var(--navy,var(--teal));border-color:var(--navy,var(--teal));
+    color:#fff;cursor:default;opacity:1}
   .psp-btn.is-current:hover{transform:none;box-shadow:none}
   .psp-btn.psp-danger{border-color:rgba(200,16,46,.45);color:#9C0C24}
   .psp-btn.psp-danger:hover:not(:disabled){background:#FDECEE}
@@ -843,12 +880,22 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      חדשה ומשאיר את שארית הקודמת ריקה.
 
      ברוחב טלפון הן נערמות: שלוש עמודות של 95 פיקסלים היו שוברות כל
-     תווית לשלוש שורות, וגובה זה בדיוק מה שבאנו לחסוך. */
+     תווית לשלוש שורות, וגובה זה בדיוק מה שבאנו לחסוך.
+
+     מספר העמודות נקבע לפי רוחב ה**כרטיס** ולא לפי רוחב החלון: מרגע
+     שהכרטיס מתפצל לשתי עמודות (‏640c ומעלה), השורה הזו יושבת בעמודה
+     שרוחבה כמחצית — ושלוש עמודות בתוכה הן שוב תוויות שבורות. */
   .lead-actions.act-primary{
     grid-template-columns:1fr;margin-top:8px;padding-top:0;border-top:none;
   }
-  @media(min-width:560px){
-    .lead-actions.act-primary{grid-template-columns:repeat(3,minmax(0,1fr))}
+  @container proptab (min-width:520px){
+    .prop-card .lead-actions.act-primary{grid-template-columns:repeat(3,minmax(0,1fr))}
+  }
+  /* מ-640c ואילך השורה יושבת בעמודה שרוחבה כ-‎60%‎ מהכרטיס, ולכן auto-fit
+     ולא שלוש קבועות: הוא נותן שתיים כשיש מקום לשתיים ושלוש כשיש לשלוש,
+     במקום לדחוס שלוש תוויות לרוחב של 110px. */
+  @container proptab (min-width:640px){
+    .prop-card .lead-actions.act-primary{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))}
   }
   /* יריד הבתים הפתוחים: אדום מלא, אחת משלוש הפעולות הראשיות. זו הפעולה
      היחידה כאן שמשנה את מה שהקונה ישלם, והיא גם היחידה שהסוכן/ת חוזר/ת
@@ -878,18 +925,29 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
      האייקונים הם SVG ולא אימוג'י: אימוג'י מצויר בכל מערכת הפעלה אחרת,
      גדלו אינו נשלט, וצבעו אינו מגיב למצב הכפתור. */
-  .pc-sec-head{font-size:.68rem;font-weight:800;letter-spacing:.04em;color:var(--ink-soft);
-    margin:0 0 7px}
-  .pc-quick-head{margin-top:12px;padding-top:11px;border-top:1px dashed var(--line)}
+  .pc-sec-head{font-size:.68rem;font-weight:800;letter-spacing:.04em;color:var(--txt-soft,var(--ink-soft));
+    margin:0 0 7px;display:flex;align-items:center;gap:6px}
+  /* פס קצר לפני כותרת המקטע: בכרטיס שיש בו שלושה מקטעים, זה מה שמסמן
+     "כאן מתחיל משהו חדש" בלי להוסיף עוד קו מפריד לרוחב הכרטיס. */
+  .pc-sec-head::before{content:'';flex:none;width:3px;height:11px;border-radius:2px;
+    background:var(--navy,var(--teal));opacity:.45}
+  .pc-quick-head{margin-top:12px;padding-top:11px;border-top:1px dashed var(--edge,var(--line))}
   .pc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-  @media(min-width:560px){.pc-grid{grid-template-columns:repeat(4,minmax(0,1fr))}}
   .pc-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:6px;
-    padding:11px 6px 10px;min-height:76px;border:1.5px solid var(--line);border-radius:14px;
-    background:#fff;color:var(--ink);font-family:inherit;font-size:.72rem;font-weight:700;
+    padding:11px 6px 10px;min-height:76px;border:1.5px solid var(--edge,var(--line));border-radius:14px;
+    background:var(--surface,#fff);color:var(--txt,var(--ink));font-family:inherit;font-size:.72rem;font-weight:700;
     line-height:1.25;text-align:center;text-decoration:none;cursor:pointer;
     transition:transform .12s ease,box-shadow .12s ease}
   .pc-tile:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(15,52,53,.12)}
+  /* לחיצה שמרגישה: האריח נלחץ פנימה לרגע. זה כל ההבדל בין רשת כפתורים
+     לבין משטח שמגיב, ובמסך שסוכן/ת עובד/ת עליו כל היום זה נספר. */
+  .pc-tile:active:not(:disabled){transform:translateY(0) scale(.97)}
+  .pc-tile:focus-visible,.pc-chip:focus-visible{outline:2px solid var(--navy,var(--teal));outline-offset:2px}
   .pc-tile:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
+  @media(prefers-reduced-motion:reduce){
+    .pc-tile,.pc-chip,.psp-btn{transition:none}
+    .pc-tile:hover,.pc-tile:active:not(:disabled),.psp-btn:hover:not(:disabled){transform:none}
+  }
   .pc-ico{width:22px;height:22px;flex:none}
   /* ‏overflow-wrap:anywhere — "מידע תכנוני" ברוחב עמודה של 100px חייב
      להישבר, ובלי זה הוא גולש מהאריח במקום לרדת שורה */
@@ -917,21 +975,132 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* בלוק כלי ה-AI והדאטה. רקע ומסגרת משלו — זה מה שאומר "אלה כלים
      מקצועיים" בלי להוסיף עוד מילה של הסבר. הצ'יפים רחבים ולא מרובעים,
      כדי שלא ייראו כשורה רביעית של הרשת שמעליהם. */
-  .pc-hub{margin-top:10px;padding:10px 11px 11px;border:1px solid #DCD8CC;
-    border-radius:14px;background:linear-gradient(180deg,#FBFAF7,#EFEDE6)}
+  /* גוון נייבי רך ולא לבן: על כרטיס ‎--surface-2‎ בהיר, בלוק לבן היה
+     נבלע בין האריחים הלבנים שמעליו במקום להיבדל מהם. */
+  .pc-hub{margin-top:10px;padding:10px 11px 11px;border:1px solid var(--edge,#DCD8CC);
+    border-radius:14px;background:var(--navy-tint,linear-gradient(180deg,#FBFAF7,#EFEDE6))}
   .is-promoted .pc-hub{background:linear-gradient(180deg,rgba(255,255,255,.7),rgba(255,255,255,.4))}
   /* שתיים בשורה ולא אחת: צ'יפ ברוחב מלא הוא בדיוק הגלולה שממנה ברחנו,
-     וחמש מהן זו שוב רשימה שדורשת גלילה. */
+     וחמש מהן זו שוב רשימה שדורשת גלילה. שלוש רק כשיש באמת רוחב לכך —
+     ‏@container ולא @media, כי כאן קובע רוחב הכרטיס ולא רוחב החלון. */
   .pc-hub-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}
-  @media(min-width:560px){.pc-hub-row{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}}
+  @container proptab (min-width:780px){
+    .pc-hub-row{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
+  }
   .pc-chip{display:inline-flex;align-items:center;justify-content:center;gap:6px;
-    padding:8px 10px;border:1.5px solid var(--line);border-radius:999px;background:#fff;
-    color:var(--ink);font-family:inherit;font-size:.73rem;font-weight:700;line-height:1.25;
+    padding:8px 10px;border:1.5px solid var(--edge,var(--line));border-radius:999px;background:var(--surface,#fff);
+    color:var(--txt,var(--ink));font-family:inherit;font-size:.73rem;font-weight:700;line-height:1.25;
     text-align:center;text-decoration:none;cursor:pointer;min-width:0;
     transition:border-color .12s ease,box-shadow .12s ease}
-  .pc-chip:hover{border-color:var(--teal);box-shadow:0 2px 8px rgba(15,52,53,.1)}
+  .pc-chip:hover{border-color:var(--navy,var(--teal));box-shadow:0 2px 8px rgba(15,52,53,.1)}
   .pc-chip:disabled{opacity:.55;cursor:not-allowed;box-shadow:none}
-  .pc-chip .pc-ico{width:16px;height:16px;color:var(--teal)}
+  .pc-chip .pc-ico{width:16px;height:16px;color:var(--navy,var(--teal))}
+
+  /* ==========================================================================
+     כרטיס נכס פתוח: כותרת גדולה, ושתי עמודות ברגע שיש רוחב
+     --------------------------------------------------------------------------
+     הכרטיס הפתוח היה טור אחד ארוך — כותרת, תגיות, בלוק סטטוס בן שלוש
+     שורות, שתים־עשרה פעולות, בלוק כלים ועוד שורה של שלוש. במחשב זה היה
+     חצי מסך של כרטיס אחד שרובו אוויר בצדדים, ובטלפון מסך וחצי של גלילה
+     לפני הנכס הבא ברשימה.
+
+     שתי החלטות מקצרות אותו, ושתיהן נשענות על אותו עיקרון — לנצל את
+     הרוחב שכבר יש במקום להוסיף גובה:
+
+       1. בלוק הסטטוס ירד לשורה אחת עם רצועת גלילה (ראו `.psp-rail`).
+       2. מרגע שיש רוחב, המידע (`.pc-col-main`) והפעולות (`.pc-col-side`)
+          עומדים זה לצד זה במקום זה מתחת לזה.
+
+     **למה `@container` ולא `@media`:** אותו כרטיס בדיוק מוצג גם ברוחב
+     מלא של דסקטופ וגם בתוך אקורדיון צר, ורוחב החלון אינו יודע להבחין
+     בין השניים. הכלל נקרא מ-`.prop-tab-panel`, שהוא המעטפת של כל כרטיס
+     שנפתח. דפדפן בלי `@container` פשוט נשאר בטור אחד — כלומר במצב
+     הקודם, שהוא תקין ולא שבור.
+
+     הגדלים: 520c היא נקודה שבה טלפון לרוחב וטאבלט קטן כבר מחזיקים ארבע
+     עמודות פעולות, ו-640c היא הרוחב שבו שתי עמודות של כ-310px עדיין
+     קוראות תוויות שלמות. מתחת לזה הפיצול רק היה שובר כל תווית לשתי
+     שורות, כלומר מחזיר את הגובה שחסכנו.
+     ========================================================================== */
+  .prop-tab-panel{container-type:inline-size;container-name:proptab}
+  /* הרווח בין העמודות מגיע מ-column-gap כשיש פיצול, ומקו המקטע המקווקו
+     של `.pc-quick-head` כשאין — ולכן gap אחיד של הכרטיס היה נספר פעמיים */
+  .prop-card{gap:0}
+  .prop-card .pc-col-main{display:flex;flex-direction:column;gap:7px;min-width:0}
+  .prop-card .pc-col-side{min-width:0}
+  /* ‏gap:0 על הכרטיס, ולכן הנשימה סביב בלוק הסטטוס היא שלו */
+  .prop-card .prop-status-panel{margin:9px 0 0}
+  /* סדר שלושת הכללים האלה הוא הכלל עצמו: כולם באותה סגוליות, ולכן
+     האחרון שתנאיו מתקיימים הוא שקובע. ‏520c נותן ארבע עמודות בטור אחד
+     רחב, 640c מחזיר לשלוש כי העמודה התכווצה, ו-780c נותן ארבע שוב
+     כשעמודת הפעולות כבר רחבה מספיק. */
+  @container proptab (min-width:520px){
+    .pc-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  }
+  /* היחס אינו חצי-חצי אלא כ-‎2:3‎ לטובת הפעולות, וזו מדידה ולא טעם:
+     עמודת המידע מסתיימת אחרי שורת הבעלים, בעוד עמודת הפעולות נושאת רשת,
+     בלוק כלים ושורת פעולות ראשיות. בחלוקה שווה נפער מתחת למידע חצי
+     כרטיס ריק - ועמודה צרה יותר גם דוחפת את הרשת שלצידה לארבע עמודות
+     במקום שלוש, כלומר מקצרת את הצד הארוך פעמיים.
+
+     ‏grid-row/‏grid-column מפורשים ולא מיקום אוטומטי: בן שפורש על שתי
+     העמודות (‏`1/-1`) מזיז את סמן המיקום האוטומטי לשורה הבאה, וכל מה
+     שאחריו היה נוחת מתחתיו במקום לצידו. */
+  @container proptab (min-width:640px){
+    .prop-card{display:grid;grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr);
+      column-gap:18px;align-items:start}
+    .prop-card .pc-col-main{grid-column:1;grid-row:1}
+    .prop-card .pc-col-side{grid-column:2;grid-row:1}
+    /* רצועת הסטטוס לרוחב הכרטיס כולו: בעמודה אחת נשארו בה שתי גלולות
+       גלויות, וכאן נכנסות כל חמש בלי גלילה בכלל. */
+    .prop-card .prop-status-panel{grid-column:1/-1;grid-row:2;margin:6px 0 0}
+    /* בשתי עמודות אין "מה שמעל" להיפרד ממנו: הקו המקווקו של כותרת
+       המקטע היה קו שמרחף בראש העמודה השנייה */
+    .prop-card .pc-quick-head{margin-top:0;padding-top:0;border-top:none}
+    .prop-card .pc-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+  }
+  @container proptab (min-width:780px){
+    .prop-card .pc-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+  }
+
+  /* ---------- כותרת הכרטיס ----------
+     התמונה היא מה שמאשר לסוכן/ת בשבריר שנייה שנפתח הנכס הנכון, ובול של
+     52px לא עשה את זה. לצידה יורדים בזה אחר זה שם הנכס, המחיר, והגלולות
+     שאומרות מה מצבו — סדר שנקרא בסריקה אחת מלמעלה למטה, במקום כותרת
+     בצד אחד וגלולות בצד השני שהעין צריכה לקפוץ ביניהם. */
+  .pc-hero{display:flex;gap:11px;align-items:flex-start;min-width:0}
+  .pc-hero-img{
+    width:78px;height:78px;flex:none;border-radius:var(--r-xs,12px);object-fit:cover;
+    border:1px solid var(--edge,var(--line));background:var(--surface-2,#EFEDE6);
+    box-shadow:0 2px 8px rgba(15,23,42,.07);
+  }
+  /* נכס בלי תמונות: משבצת בגודל זהה עם סמל בית, ולא חור שמזיז את כל
+     השורה. מה חסר בה נאמר ממילא בתגית "ללא תמונות" שמתחת. */
+  .pc-hero-ph{display:flex;align-items:center;justify-content:center;
+    color:var(--txt-faint,var(--ink-soft))}
+  .pc-hero-ph .pc-ico{width:28px;height:28px}
+  .pc-hero-body{min-width:0;flex:1 1 auto;display:flex;flex-direction:column;gap:3px}
+  .pc-hero .lead-name{font-size:1.02rem;font-weight:800;line-height:1.3}
+  /* ‏tabular-nums: המחיר הוא המספר שהעין קופצת אליו בכל כרטיס, וספרות
+     ברוחב אחיד הן מה שמאפשר להשוות בין נכסים בלי לקרוא ספרה-ספרה. */
+  .pc-hero .prop-price{font-size:1.14rem;margin-top:1px;font-variant-numeric:tabular-nums}
+  .pc-hero .pill-row{justify-content:flex-start;margin-top:3px}
+  .pc-hero .lead-kind{margin-bottom:1px;align-self:flex-start}
+  /* במחשב התמונה עולה מבול לצד הכותרת לתמונת נושא מעל לה, וזו לא קישוט:
+     בשתי עמודות, עמודת המידע מסתיימת הרבה לפני עמודת הפעולות, והחלל
+     שנפער מתחתיה הוא בדיוק הגובה שהתמונה צריכה. במקום רבע כרטיס ריק
+     מקבלים את הדבר שהכי עוזר לזהות נכס.
+     בטלפון היא נשארת בול לצד הכותרת - שם אין חלל למלא, ותמונה ברוחב
+     מלא הייתה דוחפת את כל השאר מתחת לקפל. */
+  @container proptab (min-width:640px){
+    .pc-hero{flex-direction:column;gap:9px}
+    .pc-hero-img{width:100%;height:auto;aspect-ratio:16/10;max-height:208px}
+    /* נכס בלי תמונות אינו מקבל משבצת ריקה בגובה תמונה: מסגרת מקווקוות
+       נמוכה אומרת "כאן אין תמונה" בלי לתפוס את המקום של אחת. */
+    .pc-hero-ph{aspect-ratio:auto;height:104px;border-style:dashed}
+    .pc-hero-ph .pc-ico{width:34px;height:34px}
+    .pc-hero .prop-price{font-size:1.22rem}
+  }
   /* כרטיס ההתאמה יושב בתוך כרטיס הלקוח/ה — שם קו מפריד נוסף הוא רעש,
      והעמודות צרות יותר כדי שגם ברוחב המקונן ייכנסו שתיים בשורה */
   .match-card .lead-actions{margin-top:9px;padding-top:0;border-top:none;

@@ -10356,10 +10356,15 @@ function buildPropertyCard(p, agentId){
   const planning = planningByProperty[p.id];
   const mktState = marketingCopyState(p);
   const el = document.createElement('div');
-  el.className = 'card lead-card' + (isCurrentlyPromoted ? ' is-promoted' : '');
-  const thumbHtml = (p.images && p.images.length)
-    ? `<img class="prop-thumb-mini" src="${p.images[0]}" alt="">`
-    : '';
+  el.className = 'card lead-card prop-card' + (isCurrentlyPromoted ? ' is-promoted' : '');
+  /* תמונת הכותרת, ולמה היא גדולה מהבול שבשורה הסגורה: הכרטיס הפתוח הוא
+     הרגע שבו הסוכן/ת מוודא/ת שנפתח הנכס הנכון, ובול של 52px אינו מאפשר
+     את זה. נכס בלי תמונות מקבל משבצת עם סמל בית ולא חור בפריסה - ולמה
+     היא ריקה כתוב בתגית "ללא תמונות" שממילא מוצגת.
+     ‏esc על ה-src: הכתובת מגיעה מהמסד, והיא נכנסת למאפיין. */
+  const heroHtml = (p.images && p.images.length)
+    ? `<img class="pc-hero-img" src="${esc(p.images[0])}" alt="" loading="lazy">`
+    : `<span class="pc-hero-img pc-hero-ph" aria-hidden="true">${cardIconSvg('home')}</span>`;
   // כל פרט הוא תגית קצרה משלו: קודם המזהה שהסוכן/ת מוסר/ת בטלפון, אחר כך
   // מאפייני הנכס, ובסוף התגיות שדורשות פעולה (פג תוקף / ללא תמונות) בגוון
   // אזהרה — כדי שהעין תתפוס אותן בסריקה מהירה של הרשימה.
@@ -10383,34 +10388,44 @@ function buildPropertyCard(p, agentId){
     p.status === 'active' && mktState.tag && { text: mktState.tag, cls:'tag-warn' },
   ]);
 
+  /* שלושה בנים ישירים, ולא טור אחד ארוך: המידע, בלוק הסטטוס, והפעולות.
+     בטלפון הם נערמים בדיוק בסדר הזה - כלומר בסדר שהיה כאן תמיד - וברוחב
+     של מחשב הם נפרסים לשתי עמודות עם רצועת הסטטוס לרוחב שתיהן. ההחלטה
+     מתי נשענת על @container ולא על רוחב החלון; ראו ‎.prop-card‎ ב-CSS.
+
+     בלוק הסטטוס הוא בן ישיר ולא חלק מעמודת המידע דווקא בגלל הרצועה:
+     בתוך עמודה ברוחב שליש כרטיס נשארו בה שתי גלולות גלויות, וברוחב מלא
+     נכנסות כל חמש בלי לגלול בכלל. */
   el.innerHTML = `
-    <div class="lead-top">
-      <div style="display:flex;gap:10px;align-items:flex-start;min-width:0">
-        ${thumbHtml}
-        <div style="min-width:0">
+    <div class="pc-col-main">
+      <div class="pc-hero">
+        ${heroHtml}
+        <div class="pc-hero-body">
           ${isCurrentlyPromoted && p.promoted_until ? `<span class="lead-kind">🌟 מקודם · ${esc(timeLeftLabel(p.promoted_until))}</span>` : (isCurrentlyPromoted ? '<span class="lead-kind">🌟 מקודם</span>' : '')}
           <div class="lead-name">${esc(p.title)}</div>
           <div class="prop-price">${priceHtml}</div>
+          <div class="pill-row">
+            <span class="status-pill ${propertyStatusPillClass(p.status)}">${esc(statusLabels[p.status] || p.status || '')}</span>
+            ${p.shared_with_partners
+              ? `<span class="status-pill status-shared" title="בשת״פ · הופץ ${hebDate(p.shared_at)}">🤝 ${plural(propertyShareCounts[p.id] || 0, 'משרד אחד', 'משרדים')}</span>`
+              : ''}
+          </div>
         </div>
       </div>
-      <div class="pill-row">
-        <span class="status-pill ${propertyStatusPillClass(p.status)}">${statusLabels[p.status] || p.status}</span>
-        ${p.shared_with_partners
-          ? `<span class="status-pill status-shared" title="בשת״פ · הופץ ${hebDate(p.shared_at)}">🤝 ${plural(propertyShareCounts[p.id] || 0, 'משרד אחד', 'משרדים')}</span>`
-          : ''}
-      </div>
+      ${tags}
+      ${ownerLine ? `<div class="lead-meta">בעלים: ${esc(ownerLine)}</div>` : ''}
+      ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
     </div>
-    ${tags}
-    ${ownerLine ? `<div class="lead-meta">בעלים: ${esc(ownerLine)}</div>` : ''}
-    ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
     <div class="pc-status-slot"></div>
-    <div class="pc-sec-head pc-quick-head">פעולות מהירות</div>
-    <div class="pc-grid"></div>
-    <div class="pc-hub" hidden>
-      <div class="pc-sec-head">כלי AI ודאטה</div>
-      <div class="pc-hub-row"></div>
+    <div class="pc-col-side">
+      <div class="pc-sec-head pc-quick-head">פעולות מהירות</div>
+      <div class="pc-grid"></div>
+      <div class="pc-hub" hidden>
+        <div class="pc-sec-head">כלי AI ודאטה</div>
+        <div class="pc-hub-row"></div>
+      </div>
+      <div class="lead-actions act-primary"></div>
     </div>
-    <div class="lead-actions act-primary"></div>
   `;
   const actions = el.querySelector('.pc-grid');
   const hub = el.querySelector('.pc-hub');
@@ -11236,13 +11251,22 @@ function propertyStatusChoices(p){
 function buildPropertyStatusPanel(p, agentId){
   const el = document.createElement('div');
   el.className = 'prop-status-panel' + (p.status === 'active' ? ' psp-live' : '');
+  /* שורה אחת ולא שלוש: המצב הנוכחי בהתחלה, ואחריו רצועת גלילה אופקית עם
+     כל מה שאפשר לעבור אליו. חמישה כפתורים ברוחב 104px נערמו בטלפון לשלוש
+     שורות, ובלוק שגובהו שליש מסך יושב בראש כל נכס ברשימה - כלומר גלילה
+     שלמה רק כדי להגיע לפעולות. הרצועה שומרת על אותן אפשרויות בדיוק
+     ומחזירה את הגובה לשורה. ראו syncRailFades להצללה שבקצוות. */
   el.innerHTML = `
-    <div class="psp-head">
-      <span class="psp-label">סטטוס הנכס</span>
-      <span class="psp-now">${escapeHtml(PROPERTY_STATUS_LABELS[p.status] || p.status || '')}</span>
+    <div class="psp-bar">
+      <span class="psp-head">
+        <span class="psp-label">סטטוס</span>
+        <span class="psp-now">${escapeHtml(PROPERTY_STATUS_LABELS[p.status] || p.status || '')}</span>
+      </span>
+      <div class="psp-rail">
+        <div class="psp-actions" role="group" aria-label="שינוי סטטוס הנכס"></div>
+      </div>
     </div>
-    <div class="psp-note" hidden></div>
-    <div class="psp-actions"></div>`;
+    <div class="psp-note" hidden></div>`;
 
   const note = el.querySelector('.psp-note');
   const actions = el.querySelector('.psp-actions');
@@ -11270,6 +11294,8 @@ function buildPropertyStatusPanel(p, agentId){
   del.title = 'מחיקה סופית של הנכס וכל מה שנצבר עליו';
   del.addEventListener('click', ()=> deletePropertyForever(p, del, agentId));
   actions.appendChild(del);
+
+  wireScrollRail(actions);
 
   // ההקשר מהמסד - בלעדיות ומודעות מתחרות. כישלון כאן אינו שובר את הבלוק:
   // הכפתורים ממשיכים לעבוד, והמסד ממילא הוא שחוסם.
@@ -11312,9 +11338,57 @@ function buildPropertyStatusPanel(p, agentId){
       }));
       actions.appendChild(sign);
     }
+    // הרצועה גדלה כאן בכפתור נוסף, ולכן ההצללה נמדדת מחדש
+    syncRailFades(actions);
   }).catch(()=>{});
 
   return el;
+}
+
+/* מחברת רצועת גלילה אופקית: ההצללה בקצוות, והגלגלת.
+
+   ההצללה נמדדת ב-rAF ולא מיד, כי ברגע הקריאה הבלוק עדיין אינו מחובר
+   למסמך ו-scrollWidth שלו שווה ל-clientWidth - כלומר "אין מה לגלול".
+
+   והגלגלת: עכבר גולל אנכית בלבד, ורצועה אופקית בלי מגע היא רצועה שאי
+   אפשר להגיע לסופה. ‏preventDefault נקרא **רק** כשהרצועה באמת זזה, כך
+   שבקצה שלה הגלילה ממשיכה לדף כרגיל ולא נתקעת על הכרטיס. */
+function wireScrollRail(rail){
+  rail.addEventListener('scroll', ()=> syncRailFades(rail), { passive:true });
+  rail.addEventListener('wheel', e=>{
+    if (Math.abs(e.deltaY) <= Math.abs(e.deltaX)) return;
+    if (rail.scrollWidth - rail.clientWidth <= 1) return;
+    const rtl = getComputedStyle(rail).direction === 'rtl';
+    const before = rail.scrollLeft;
+    // ‏behavior:'auto' במפורש - ‏scroll-behavior:smooth שב-CSS היה הופך כל
+    // נקישת גלגלת להנפשה, והרצועה הייתה נגררת אחרי היד
+    rail.scrollBy({ left: rtl ? -e.deltaY : e.deltaY, behavior:'auto' });
+    if (rail.scrollLeft !== before) e.preventDefault();
+  }, { passive:false });
+  requestAnimationFrame(()=> syncRailFades(rail));
+}
+
+/* ---------- הצללת הקצה ברצועת גלילה אופקית ----------
+   רצועה שנגמרת בדיוק בקצה הכרטיס נראית כאילו זה כל מה שיש בה, ולכן
+   "ארכיון" ו"מחיקה" פשוט לא נמצאו. ההצללה היא הסימן שיש עוד, והיא מופיעה
+   רק בקצה שבאמת מסתיר משהו - הצללה קבועה בשני הקצוות מכרסמת את הכפתור
+   הראשון והאחרון גם כשאין לאן לגלול.
+
+   שני דברים שאסור להניח כאן:
+   1. ‏`scrollLeft` ב-RTL הוא **שלילי** בדפדפנים של היום (‏0 בתחילת
+      הרצועה, שלילי ככל שגוללים) - ולכן המרחק שנגלל הוא הערך המוחלט שלו.
+   2. הצד ה**פיזי** שבו מוסתר התוכן אינו קבוע: בעברית ההתחלה מימין
+      ובאנגלית משמאל. ‏`linear-gradient` מקבל כיוון פיזי בלבד, ולכן
+      הכיוון נקרא מ-`direction` במקום להיקבע מראש. */
+function syncRailFades(rail){
+  if (!rail || !rail.isConnected) return;
+  const max = rail.scrollWidth - rail.clientWidth;
+  const fromStart = Math.abs(rail.scrollLeft);
+  const atStart = max > 1 && fromStart > 2 ? '26px' : '0px';
+  const atEnd   = max > 1 && fromStart < max - 2 ? '26px' : '0px';
+  const rtl = getComputedStyle(rail).direction === 'rtl';
+  rail.style.setProperty('--fade-right', rtl ? atStart : atEnd);
+  rail.style.setProperty('--fade-left',  rtl ? atEnd : atStart);
 }
 
 /* הבלוק בראש טופס העריכה. נקרא מ-openEditProperty, ומתרוקן כשהטופס חוזר
@@ -14786,6 +14860,8 @@ const CARD_ICONS = {
   film:     '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7.5 3v18"/><path d="M16.5 3v18"/><path d="M3 9h4.5"/><path d="M16.5 9H21"/><path d="M3 15h4.5"/><path d="M16.5 15H21"/>',
   globe:    '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/>',
   close:    '<path d="m18 6-12 12"/><path d="m6 6 12 12"/>',
+  // ממלא את משבצת התמונה בכרטיס נכס שאין לו אף תמונה
+  home:     '<path d="m3 10.5 9-7 9 7V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path d="M9.5 21v-6h5v6"/>',
 };
 
 function cardIconSvg(name){
