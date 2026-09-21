@@ -127,6 +127,61 @@
 
    לבדיקת סכימה בזמן פיתוח מותר לקרוא (`execute_sql` עם `select`); DDL —
    רק כקובץ ב-`supabase/migrations/` שהצינור מריץ.
+6. **‏`revoke ... from public` אינו מוציא את `anon`.** ‏Supabase מגדירה
+   הרשאות ברירת מחדל לסכימה `public` שמעניקות `EXECUTE` ל-`anon`,
+   ל-`authenticated` ול-`service_role` על **כל** פונקציה שנוצרת שם — כהרשאה
+   **ישירה**, לא דרך `PUBLIC`. לכן שתי השורות האלה אינן עושות את מה שהן
+   נראות:
+
+   ```sql
+   revoke all on function public.f(text) from public;
+   grant execute on function public.f(text) to authenticated, service_role;
+   ```
+
+   הראשונה מורידה את הרשאת ה-`PUBLIC` של Postgres ואינה נוגעת בהרשאה
+   הישירה של `anon`; השנייה **מוסיפה** ואינה מחליפה. הכתיב הנכון מונה את
+   התפקידים במפורש:
+
+   ```sql
+   revoke all on function public.f(text) from public, anon, authenticated;
+   grant execute on function public.f(text) to service_role;
+   ```
+
+   ב-`proacl` רואים את שתי ההרשאות בנפרד, וזו הדרך לאמת:
+
+   ```
+   postgres=X | anon=X | authenticated=X | service_role=X   ← פתוח
+   postgres=X | service_role=X                              ← סגור
+   ```
+
+   **וזה משנה, כי `PostgREST` חושף כל פונקציה ב-`/rest/v1/rpc/<שם>`**, ומפתח
+   ה-anon יושב גלוי בקוד המקור של כל דף באתר — כי זה תפקידו. פונקציה במצב
+   הראשון היא נקודת קצה פומבית, גם כשהמיגרציה שיצרה אותה הצהירה על ההיפך.
+
+   **זה קרה כאן פעמיים.** ‏`20261112090000` סגרה חמש פונקציות **כתיבה**
+   שנשארו כך; הקשה שבהן, `record_tier_selection`, אפשרה להוריד כל מנוי/ה
+   משלם/ת ל-`free` בשתי בקשות HTTP בלי התחברות. ואז `city_id_from_address`
+   נכתבה במיגרציה `20261212090000` — חודש *אחרי* אותה סגירה — עם אותה שורת
+   `revoke ... from public` בדיוק, ונשארה פתוחה. באותו קובץ עצמו
+   `agencies_backfill_city_id` כן מנתה `from public, anon, authenticated`
+   ונסגרה כראוי: שתי שורות, שני גורלות, אותו מיזוג. הסגירה של החמש
+   הנותרות היא `20261225090000`.
+
+   הלקח לא החזיק כי שום דבר לא אכף אותו, ולכן:
+
+   ```sh
+   python3 scripts/check_function_grants.py
+   ```
+
+   הבדיקה חוסמת ב-CI `grant` שמדיר את `anon` בלי `revoke` שמוציא אותו
+   בפועל. היא אוספת ראיות מכל הקורפוס ולא מהקובץ הבודד — סגירה מאוחרת היא
+   סגירה תקפה — וסופרת גם `revoke` דינמי בתוך `do $$`. פונקציה שהוענקה
+   ל-`anon` **במפורש** אינה מדווחת: זו החלטה מוצהרת (‏`city_id_for_name`,
+   ‏`property_map_enabled` וחברותיהן — דגלי תצוגה שדפי הנכס קוראים בלי
+   התחברות), והשיפוט אם ערך אמור להיות פומבי אינו של הבדיקה. חריג מתועד
+   יחיד יושב ב-`ALLOW` שבראש הסקריפט: ‏`current_is_platform_admin()`, שחמש
+   policy-ות קוראות לה ושלוש מהן חלות על התפקיד `public` — ביטול ההרשאה שם
+   היה הופך שליפה אנונימית מהטבלאות האלה מאפס שורות ל-`permission denied`.
 
 ## אם ההרצה נכשלה
 

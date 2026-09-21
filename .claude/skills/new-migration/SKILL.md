@@ -79,6 +79,21 @@ revoke all on function public.my_fn(uuid) from public, anon, authenticated;
 grant execute on function public.my_fn(uuid) to service_role;
 ```
 
+**‏`from public` לבדו אינו מספיק, וזו המלכודת.** ‏Supabase מגדירה הרשאות
+ברירת מחדל שמעניקות `EXECUTE` ל-`anon` על כל פונקציה חדשה בסכימה `public`
+— כהרשאה **ישירה**, לא דרך `PUBLIC`. לכן `revoke ... from public` מוריד את
+הרשאת ה-`PUBLIC` של Postgres ומשאיר את `anon` בדיוק כפי שהיה, וה-`grant`
+שאחריו **מוסיף** ואינו מחליף. חייבים למנות את התפקידים בשם.
+
+זה קרה פעמיים: ‏`20261112090000` סגרה חמש פונקציות כתיבה, ואז
+‏`city_id_from_address` נכתבה חודש אחרי עם אותה שורה בדיוק ונשארה פתוחה.
+
+```sh
+python3 scripts/check_function_grants.py
+```
+
+הבדיקה חוסמת ב-CI `grant` שמדיר את `anon` בלי `revoke` שמוציא אותו בפועל.
+
 ואם היא כן נועדה לדפדפן — עדיף `SECURITY INVOKER` (ברירת המחדל), כדי
 ש-RLS ימשיך לחול. `SECURITY DEFINER` רק כשצריך לעקוף אותו במכוון, ואז
 עם בדיקת קורא/ת בפנים (`current_is_platform_admin()`, `auth.uid()`).
