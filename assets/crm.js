@@ -10402,9 +10402,14 @@ function buildPropertyCard(p, agentId){
     !expired && p.listing_expires_at && { text:`⏳ בתוקף עד ${tabShortDate(p.listing_expires_at)}` },
   ]);
 
-  /* שני בנים ישירים: המידע והפעולות. בטלפון הם נערמים בסדר הזה, וברוחב
-     של מחשב הם נפרסים לשתי עמודות. ההחלטה מתי נשענת על @container ולא
-     על רוחב החלון; ראו ‎.prop-card‎ ב-CSS.
+  /* שלושה בנים ישירים: הכותרת, שורת העובדות (תגיות + בעלים), והפעולות.
+     בטלפון הם נערמים בסדר הזה, וברוחב של מחשב הכותרת והפעולות עומדות זו
+     לצד זו ושורת העובדות פורשת מתחתיהן על רוחב הכרטיס כולו. ההחלטה מתי
+     נשענת על @container ולא על רוחב החלון; ראו ‎.prop-card‎ ב-CSS.
+
+     ‏**למה שורת העובדות פורשת ולא יושבת בעמודת המידע:** שם רוחבה 330px,
+     ושורת הבעלים לבדה צריכה 290px - כלומר תגית אחת לא הייתה נכנסת לצידה.
+     ברוחב מלא שתיהן על שורה אחת, ועדיין נשאר מקום לחמש תגיות.
 
      ובלוק הסטטוס יושב **בשורת הכותרת**, בקצה שנשאר פנוי בה. קודם היה לו
      בלוק משלו ברוחב הכרטיס, ואז רצועה שנגללת לרוחב - שתיהן עלו בשורה
@@ -10445,9 +10450,11 @@ function buildPropertyCard(p, agentId){
           <div class="prop-price">${priceHtml}</div>
         </div>
       </div>
+      ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
+    </div>
+    <div class="pc-facts">
       ${tags}
       ${ownerHtml}
-      ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
     </div>
     <div class="pc-col-side">
       <div class="pc-sec-head pc-quick-head">פעולות מהירות</div>
@@ -10669,7 +10676,7 @@ function buildPropertyCard(p, agentId){
   // מספר העמודות נקבע כאן ולא ב-CSS, כי הוא תלוי בכמה פריטים נכנסו בפועל
   balanceGrid(actions);
   balanceGrid(hubRow);
-  clampCardTags(el.querySelector('.pc-col-main > .card-tags'), 1);
+  clampCardTags(el.querySelector('.pc-facts > .card-tags'), 1);
   return el;
 }
 
