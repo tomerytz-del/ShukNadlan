@@ -10391,13 +10391,14 @@ function buildPropertyCard(p, agentId){
     // היעדרו הוא חוסר במודעה עצמה — באותו גוון אזהרה של "ללא תמונות".
     p.status === 'active' && mktState.tag && { text: mktState.tag, cls:'tag-warn' },
     p.shared_with_partners && { text:`🤝 ${plural(propertyShareCounts[p.id] || 0, 'משרד אחד', 'משרדים')}`,
-      cls:'tag-good' },
-    p.rooms && { html:`🛏 <b>${esc(p.rooms)}</b> חד׳` },
+      cls:'tag-good', title:`הנכס פתוח לשת״פ · הופץ ${hebDate(p.shared_at)}` },
+    p.rooms && { html:`🛏 <b>${esc(p.rooms)}</b> חד׳`, title:`${p.rooms} חדרים` },
     { html:`👁 <b>${viewCounts[p.id]||0}</b> צפיות` },
-    p.price_per_sqm && { text:`📐 ${shekel(p.price_per_sqm)}/מ״ר` },
+    p.price_per_sqm && { text:`📐 ${shekel(p.price_per_sqm)}/מ״ר`, title:'מחיר למטר רבוע' },
     // ‏"גו״ח" הוא הקיצור שמתווכים משתמשים בו ממילא, והוא חוסך כאן כמחצית
-    // מרוחב התגית הארוכה ביותר בשורה
-    planning && { text:`📍 גו״ח ${planning.gush||'-'}/${planning.helka||'-'}`, cls:'tag-info' },
+    // מרוחב התגית הארוכה ביותר בשורה. הנוסח המלא ב-title.
+    planning && { text:`📍 גו״ח ${planning.gush||'-'}/${planning.helka||'-'}`, cls:'tag-info',
+      title:`גוש ${planning.gush||'-'} · חלקה ${planning.helka||'-'}` },
     !expired && p.listing_expires_at && { text:`⏳ בתוקף עד ${tabShortDate(p.listing_expires_at)}` },
   ]);
 
@@ -14950,12 +14951,18 @@ function esc(s){ return escapeHtml(s); }
    ‏{text, cls} כשצריך גוון - tag-key למזהה, tag-info להדגשה, tag-warn למה
    שדורש טיפול, tag-good לחיובי - או {html} כשהתגית כבר בנויה כ-HTML.
    ‏null/undefined נופלים החוצה, כדי שהקורא יוכל לכתוב תנאים בתוך המערך. */
+/* ‏`title` הוא הפרט שלא נכנס לתגית עצמה. תגית היא גלולה קצרה במכוון,
+   ולפעמים יש מאחוריה עוד משפט - "הופץ ב-14.9" מאחורי "🤝 6 משרדים",
+   או הנוסח המלא מאחורי קיצור כמו "גו״ח". הוא תוספת ולא תחליף: מה שחייבים
+   לדעת נשאר בגוף התגית, כי ‏`title` אינו קיים במגע. */
 function tagsHtml(items){
   const inner = (items || []).filter(Boolean).map(item => {
     const t = typeof item === 'string' ? { text:item } : item;
     const body = t.html ?? esc(t.text);
     // תגית ריקה (ערך חסר בשורה) היא בועה לבנה בלי תוכן - עדיף בלעדיה
-    return body ? `<span class="card-tag ${t.cls || ''}">${body}</span>` : '';
+    if (!body) return '';
+    const title = t.title ? ` title="${esc(t.title)}"` : '';
+    return `<span class="card-tag ${t.cls || ''}"${title}>${body}</span>`;
   }).join('');
   return inner ? `<div class="card-tags">${inner}</div>` : '';
 }
