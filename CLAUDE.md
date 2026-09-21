@@ -505,7 +505,8 @@ Remote migration versions not found in local migrations directory.
    ‏`from public, anon, authenticated`, ומי שמונה שניים מהשלושה משאיר את
    השלישי פתוח — כך בדיוק נשארה `order_lead_candidates` פתוחה ל-
    ‏`authenticated` אחרי שנסגרה ל-`anon`. זה כבר קרה שלוש פעמים, ו-
-   ‏`scripts/check_function_grants.py` חוסם ב-CI את שני התפקידים.
+   ‏`scripts/check_function_grants.py` חוסם ב-CI את שני התפקידים —
+   כ-job בשם **`הרשאות פונקציות`** שרץ על **כל** PR, מאותה סיבה שבכלל 1.
 
 ### אחרי מיזוג שכולל מיגרציה
 
