@@ -1,0 +1,64 @@
+name: מכולת ה-GTM מצטלבת עם הקוד ועם מדיניות הפרטיות
+
+# ‏עד היום התגיות שבתוך GTM היו הפינה היחידה בפלטפורמה שאינה עוברת ב-PR:
+# ‏GA4, הפיקסל של Meta והגדרת ה-UPD מוגדרים במסך של GTM, ואפשר להתחיל
+# לאסוף סוג נתונים חדש לגמרי בלי לגעת בקוד. שלוש תוצאות היו לזה, וכולן
+# קרו: privacy.html מצהיר על הפיקסל של Meta שאין לו שורה בריפו, איסוף
+# UPD נדלק בלי קוד והתגלה מהתראה, ואירוע חדש (contact_site) נדחף
+# ל-dataLayer בלי טריגר ב-GTM — כלומר לשום מקום.
+#
+# הבדיקה קוראת ייצוא של המכולה שמחויב לריפו ומצליבה אותו מול הקוד: לכל
+# אירוע שהאתר דוחף צריך טריגר CUSTOM_EVENT ותגית שנורית ממנו, אין UPD
+# ואין PII, ומה ש-privacy.html מבטיח נמצא — ומה שנמצא מובטח.
+#
+# **הגבול, והוא חשוב:** הבדיקה בודקת את הייצוא ולא את המכולה החיה. ייצוא
+# ישן אומר שהיא עוברת על תמונת מצב ישנה. לכן היא מדפיסה את תאריך הייצוא
+# בשורה הראשונה, והכלל הוא שפרסום ב-GTM וייצוא מחדש הם אותה פעולה.
+# הפרטים: gtm/README.md.
+#
+# היא קוראת קבצים בלבד — בלי רשת ובלי סודות — ולכן מהירה ובטוחה להריץ גם
+# על PR מ-fork. וכן: ייצוא של GTM אינו סוד, הוא רשימת מזהים שנשלחים לכל
+# דפדפן בכל טעינת דף.
+
+on:
+  pull_request:
+    paths:
+      - "gtm/**"
+      - "*.html"
+      - "assets/*.js"
+      - "docs/analytics-events.md"
+      - "privacy.html"
+      - "scripts/check_gtm_container.py"
+      - "scripts/check_events.py"
+      - ".github/workflows/gtm_container.yml"
+  push:
+    branches: [main]
+    paths:
+      - "gtm/**"
+      - "*.html"
+      - "assets/*.js"
+      - "docs/analytics-events.md"
+      - "privacy.html"
+      - "scripts/check_gtm_container.py"
+      - "scripts/check_events.py"
+      - ".github/workflows/gtm_container.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ‏הבדיקה של הבדיקה. היא רצה ראשונה בכוונה: זו הבדיקה היחידה בריפו
+      # שנכתבה בלי קלט אמיתי בהישג יד, ובדיקה שעוברת תמיד אינה בדיקה.
+      - name: הבדיקה נבדקת מול מכולות מסונתזות
+        run: python3 scripts/check_gtm_container_test.py
+
+      # ‏הפלט, כולל תאריך הייצוא בשורה הראשונה, הוא המקום שבו כתוב מה
+      # לתקן ואיפה. חוסר בייצוא עצמו הוא ממצא ולא דילוג.
+      - name: הצלבה מול הייצוא
+        run: python3 scripts/check_gtm_container.py
