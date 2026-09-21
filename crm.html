@@ -1073,7 +1073,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .prop-card{gap:0;padding:11px 12px}
   .prop-card .pc-col-main{display:flex;flex-direction:column;gap:6px;min-width:0}
   .prop-card .pc-col-side{min-width:0}
-  .prop-card .card-tags{margin-top:4px;gap:4px}
+  .prop-card .card-tags{margin-top:0;gap:4px}
+  /* ---------- שורת העובדות: תגיות ובעלים ----------
+     בטלפון הן שתי שורות, זו מתחת לזו, כפי שהיו. במחשב הן שורה אחת -
+     וזה אפשרי רק כי השורה פורשת על **רוחב הכרטיס כולו** ולא יושבת
+     בעמודת המידע: שם רוחבה 330px, ושורת הבעלים לבדה צריכה 290px, כלומר
+     אפילו תגית אחת לא הייתה נכנסת לצידה. ברוחב מלא נשאר מקום לחמש. */
+  .prop-card .pc-facts{display:flex;flex-direction:column;gap:6px;min-width:0;margin-top:6px}
   /* ‏"+N" — התגיות שלא נכנסו לשתי השורות הראשונות. ראו clampCardTags
      ב-assets/crm.js: שם המדידה, וכאן רק המראה. ‏`<button>` ולא `<span>`
      כמו שאר התגיות, ולכן הגופן והריפוד חוזרים במפורש. */
@@ -1128,6 +1134,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @container proptab (min-width:640px){
     .prop-card{display:grid;grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr);
       column-gap:18px;align-items:start}
+    /* ‏grid-row מפורש ולא מיקום אוטומטי: בן שפורש על שתי העמודות
+       (‏`1/-1`) מזיז את סמן המיקום האוטומטי לשורה הבאה, וכל מה שאחריו
+       היה נוחת מתחתיו במקום לצידו. */
+    .prop-card .pc-col-main{grid-column:1;grid-row:1}
+    .prop-card .pc-col-side{grid-column:2;grid-row:1}
+    .prop-card .pc-facts{grid-column:1/-1;grid-row:2;
+      flex-direction:row;align-items:center;gap:10px;margin-top:9px}
+    /* התגיות לוקחות את מה שנשאר, והבעלים אינם מתכווצים: הטלפון והכפתורים
+       הם היעד של השורה, ולתגיות יש כבר "+N" לרדת אליו */
+    .prop-card .pc-facts > .card-tags{flex:1 1 auto;min-width:0}
+    .prop-card .pc-facts > .pc-owner{flex:0 0 auto}
     /* בשתי עמודות אין "מה שמעל" להיפרד ממנו: הקו המקווקו של כותרת
        המקטע היה קו שמרחף בראש העמודה השנייה */
     .prop-card .pc-quick-head{margin-top:0;padding-top:0;border-top:none}
@@ -1163,6 +1180,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      המילה הארוכה שבו, והשבב היה נדחף מחוץ לכרטיס. */
   .pc-hero-head{display:flex;align-items:flex-start;gap:8px;min-width:0}
   .pc-hero-head .lead-name{flex:1 1 auto;min-width:0}
+  /* ---------- עמודת הזהות: מספר המודעה מעל שבב הסטטוס ----------
+     מספר המודעה הוא המזהה שנמסר בטלפון, והוא ישב עד כה כגלולה ראשונה
+     בשורת התגיות. מרגע שהשורה הזו מכווצת לשורה אחת הוא בדיוק מה שאסור
+     שייחתך - ומעל השבב ממילא היה חלל ריק, כי הכותרת נשברת לשתיים־שלוש
+     שורות בעוד השבב תופס אחת.
+     ‏flex-end: שניהם נצמדים לקצה החיצוני של השורה, זה מעל זה. */
+  .pc-ident{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:0 0 auto}
+  .pc-listing{font-size:.68rem;padding:1px 8px}
   .pc-hero .lead-name{font-size:.98rem;font-weight:800;line-height:1.3}
   /* ‏tabular-nums: המחיר הוא המספר שהעין קופצת אליו בכל כרטיס, וספרות
      ברוחב אחיד הן מה שמאפשר להשוות בין נכסים בלי לקרוא ספרה-ספרה. */
