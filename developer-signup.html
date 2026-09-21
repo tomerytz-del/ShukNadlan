@@ -182,6 +182,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </div>
 
+<!-- זוכר לאן ביקשנו לחזור מ-Google, כדי שתשובה שתיפול בדף הבית תמשיך
+     ל-developer-crm ולא לכניסת המתווכים. ראו assets/auth-return.js -->
+<script src="assets/auth-return.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
         integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -235,6 +238,9 @@ el('googleBtn').addEventListener('click', async ()=>{
   btn.disabled = true;
   btn.querySelector('.gl-label').textContent = 'מעבירים ל-Google…';
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  // היעד ולא הדף הנוכחי: הכניסה נגמרת ב-developer-crm, ולשם צריכה להימשך
+  // גם תשובה שנחתה בדף הבית מפני ש-redirectTo לא היה ברשימה.
+  if (window.AuthReturn) AuthReturn.remember(new URL(crmUrl()).pathname);
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: crmUrl() },

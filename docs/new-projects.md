@@ -233,15 +233,22 @@ COMPANY_REGISTRY_TIMEOUT_MS      ברירת מחדל 6000
 `docs/google-login.md`), ודורש **תוספת אחת בלבד**:
 
 > **Supabase → Authentication → URL Configuration → Redirect URLs**
-> להוסיף את `https://<הדומיין>/developer-crm.html`.
+> להוסיף את `https://<הדומיין>/developer-crm` **ואת**
+> `https://<הדומיין>/developer-crm.html`.
 
-שני הכפתורים — זה שב-`developer-signup.html` וזה שב-`developer-crm.html` —
-שולחים את אותה כתובת יעד, ולכן די בערך אחד. הכפתור בדף ההרשמה בונה אותה
-יחסית לכתובת הנוכחית (`new URL('developer-crm.html', location.href)`) ולא
-כ-`origin + '/developer-crm.html'`, כדי שהאתר יעבוד גם מתת-תיקייה.
+**שני ערכים ולא אחד, כי שני הכפתורים אינם שולחים את אותה כתובת.** הכפתור
+ב-`developer-crm.html` שולח `origin + location.pathname` - ובפרודקשן
+‏Netlify מגיש את הדף בלי הסיומת, כלומר `/developer-crm`. הכפתור בדף
+ההרשמה בונה את היעד יחסית לכתובת הנוכחית
+(`new URL('developer-crm.html', location.href)`), כדי שהאתר יעבוד גם
+מתת-תיקייה, ולכן הוא שולח `/developer-crm.html`. מי שרושם/ת רק אחד מהם
+משאיר/ה את האחר שבור.
 
 כתובת שאינה ברשימה מוחלפת ב-**Site URL**, והחזרה מ-Google נוחתת בדף הבית —
-זה ההסבר הקלאסי ל"נכנסתי עם Google ופתאום אני בדף הבית".
+זה ההסבר הקלאסי ל"נכנסתי עם Google ופתאום אני בדף הבית". מאז יש לזה רשת
+ביטחון: `assets/auth-return.js` מעביר נחיתה כזו ליעד שלה במקום לבלוע
+אותה. היא אינה מייתרת את הרישום - היא רק הופכת רישום חסר לסיבוב נוסף
+במקום למבוי סתום. הפרטים: `docs/google-login.md`.
 
 ### ארבעה מסכים, לא שניים
 
