@@ -1,0 +1,67 @@
+name: גרסאות מיגרציה
+
+# ‏version כפול מפיל את **כל** ה-job של הפריסה בצעד השלישי, לפני שהוא
+# נוגע במסד — ולכן כל המיגרציות של אותו מיזוג דולגות, וכל push עתידי
+# ל-main נכשל באותו שלב עד שהכפילות נפתרת. זה חוסם את המיגרציות של כולם.
+#
+# הבדיקה הזו קיימת כבר ב-supabase_migrations.yml, אבל שם היא רצה ב-push
+# ל-main בלבד — כלומר היא מגלה את הבעיה כשהיא **כבר תקלת פרודקשן**:
+# ה-HTML באוויר והסכימה לא. ‏workflow זה מזיז אותה שמאלה, ל-PR.
+#
+# זה קרה בריפו ארבע פעמים, והאחרונות שתיים באותה שעה (21.9.2026):
+# `new_projects` מול `visualizations_recent_gallery` עצרו עשר מיגרציות
+# והפילו מסך בפני סוכן/ת, ו-`hayetzira_stand_in_pin` מול
+# `revoke_anon_read_rpc` חסמו את main.
+#
+# ‏**מה זה לא סוגר:** ‏PR שעבר ירוק ואז PR אחר לוקח את אותו מספר. ‏GitHub
+# אינו מריץ בדיקות מחדש כשהבסיס זז, ולכן הפער נסגר בהגדרה ולא בקוד —
+# "Require branches to be up to date before merging" בהגנת הענף.
+#
+# הבדיקה קוראת קבצים ואת ה-git בלבד: בלי רשת, בלי סודות, ובלי חיבור למסד.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/check_migration_versions.py"
+      - ".github/workflows/migration_versions.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/**"
+      - "scripts/check_migration_versions.py"
+      - ".github/workflows/migration_versions.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      # ‏fetch-depth: 0 — הבדיקה משווה מול ענף הבסיס, ולכן צריכה את
+      # ההיסטוריה ולא רק את הראש.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # באירוע pull_request הבדיקה מקבלת את ענף הבסיס, ואז היא בודקת גם
+      # שה-version של כל מיגרציה חדשה **גדול** מהאחרון שבבסיס. ב-push
+      # ל-main אין בסיס להשוות אליו, ורצות שתי הבדיקות הראשונות בלבד.
+      #
+      # ‏`base_ref` עובר דרך `env` ולא בהשמה ישירה ל-`run`. השמה ישירה
+      # מדביקה את הערך **לתוך הסקריפט** לפני שהוא רץ, ולכן שם ענף שמכיל
+      # תו מיוחד הופך לקוד. זו הנחיית ההקשחה של GitHub עצמה, וכאן היא
+      # בחינם: ‏`"$BASE_REF"` במרכאות הוא נתון ולא קוד.
+      - name: בדיקת גרסאות מיגרציה
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          if [ -n "$BASE_REF" ]; then
+            git fetch --no-tags origin "$BASE_REF"
+            python3 scripts/check_migration_versions.py \
+              --base-ref "origin/$BASE_REF"
+          else
+            python3 scripts/check_migration_versions.py
+          fi

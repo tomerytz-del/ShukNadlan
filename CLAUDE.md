@@ -487,17 +487,23 @@ Remote migration versions not found in local migrations directory.
 
 ### כשכותבים מיגרציה
 
-1. שם הקובץ `YYYYMMDDHHMMSS_שם_קצר.sql`, וה-version חייב להיות ייחודי —
-   ‏version כפול (קורה בין שני PR-ים מקבילים) מפיל את כל ה-job.
+1. שם הקובץ `YYYYMMDDHHMMSS_שם_קצר.sql`, וה-version חייב להיות ייחודי
+   **וגדול מהאחרון** — ‏version כפול (קורה בין שני PR-ים מקבילים) מפיל את
+   כל ה-job, וזה כבר קרה ארבע פעמים. ‏`scripts/check_migration_versions.py`
+   חוסם ב-CI. מה שהוא **אינו** תופס הוא PR אחר שמוזג אחרי שה-PR שלכם
+   עבר ירוק — לשם כך צריך "Require branches to be up to date".
 2. **אידמפוטנטית**: `add column if not exists`, `create or replace`,
    בדיקת `pg_constraint` לפני `add constraint`. היא עלולה לרוץ שוב.
 3. ‏`create or replace view` — עמודה חדשה **בסוף** בלבד.
 4. הקוד והמיגרציה באותו PR. זו כל הנקודה.
-5. **הרשאות פונקציה — למנות את התפקידים בשם.** ‏`revoke ... from public`
-   **אינו** מוציא את `anon`: הרשאת ברירת המחדל שלו ב-Supabase היא ישירה ולא
-   דרך `PUBLIC`, וה-`grant` שאחריו מוסיף ואינו מחליף. הכתיב הנכון הוא
-   ‏`from public, anon, authenticated`. זה כבר קרה פעמיים, ו-
-   ‏`scripts/check_function_grants.py` חוסם ב-CI.
+5. **הרשאות פונקציה — למנות את התפקידים בשם, את כולם.**
+   ‏`revoke ... from public` **אינו** מוציא את `anon` ואינו מוציא את
+   ‏`authenticated`: הרשאת ברירת המחדל שלהם ב-Supabase היא ישירה ולא דרך
+   ‏`PUBLIC`, וה-`grant` שאחריו מוסיף ואינו מחליף. הכתיב הנכון הוא
+   ‏`from public, anon, authenticated`, ומי שמונה שניים מהשלושה משאיר את
+   השלישי פתוח — כך בדיוק נשארה `order_lead_candidates` פתוחה ל-
+   ‏`authenticated` אחרי שנסגרה ל-`anon`. זה כבר קרה שלוש פעמים, ו-
+   ‏`scripts/check_function_grants.py` חוסם ב-CI את שני התפקידים.
 
 ### אחרי מיזוג שכולל מיגרציה
 

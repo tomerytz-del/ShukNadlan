@@ -123,7 +123,7 @@
 | `supabase/functions/_shared/lead-routing.ts` | הרישום המשותף + הסלמת המייל |
 | `supabase/functions/_shared/platform-mail-client.ts` | הפנייה ל-`platform-mail`; שליחה שנכשלה אינה זורקת |
 | `supabase/functions/platform-mail/index.ts` | המשלוח עצמו: Gmail SMTP, ובנפילה Resend |
-| `supabase/functions/owner-lead-intake/index.ts` | רישום ליד בעל/ת נכס |
+| `supabase/functions/owner-lead-intake/index.ts` | רישום ליד בעל/ת נכס; גם הקוראת היחידה של `order_lead_candidates` |
 | `supabase/functions/mortgage-lead-intake/index.ts` | רישום ליד משכנתא |
 | `supabase/functions/saved-search-intake/index.ts` | רישום ליד מחפש/ת דירה |
 | `index.html` | שולח `source` מכל וידג'ט |
@@ -131,6 +131,24 @@
 | `docs/lead-analytics.md` | הדוח שצורך את `source` של היומן — ואת מה שאין בו |
 
 המיגרציה אידמפוטנטית.
+
+### ‏`order_lead_candidates` היא `service_role` בלבד
+
+הפונקציה (‏`20260828200000_reviews_engine`) מסדרת מזהי סוכנים לפי
+‏`agent_lead_preferences`, והיא `SECURITY DEFINER` **בכוונה**: היא צריכה
+לקרוא העדפות חוצות-סוכנים, מה ש-RLS אינו מתיר לאיש. אין בגופה בדיקת
+זהות, ולכן ההרשאה היא הגייט היחיד שלה.
+
+היא הייתה פתוחה ל-`anon` (נסגר ב-`20261226090000`) ואחר כך
+ל-`authenticated` (נסגר ב-`20261227090000`), פשוט כי הרשאות ברירת המחדל
+של Supabase מעניקות את שלושת התפקידים ו-`revoke ... from public` אינו
+מוציא אותם. בזמן שהייתה פתוחה, כל מי שמחובר/ת יכול/ה היה לשלוח מזהי
+סוכנים שרירותיים ולקבל את הסדר שלהם.
+
+**מי שמשנה אותה בעתיד שומר על השורה הזו:** ההרשאה היא `service_role`
+בלבד, והקוראת היחידה היא `owner-lead-intake` שרצה עם
+‏`SUPABASE_SERVICE_ROLE_KEY`. הכלל המלא: `docs/supabase-migrations.md`
+כלל 6.
 
 ## מצב הפריסה
 
