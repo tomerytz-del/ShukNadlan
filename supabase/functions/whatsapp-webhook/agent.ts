@@ -1,6 +1,6 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
-import { geocodeAfula } from "./geocode.ts";
+import { geocodeAfula, geocodeInCity } from "./geocode.ts";
 import {
   addMonthsIso,
   documentHtml,
@@ -425,6 +425,41 @@ const TOOLS: Anthropic.Tool[] = [
         },
       },
       required: ["property_id"],
+    },
+  },
+  {
+    name: "market_deals_lookup",
+    description:
+      "עסקאות שנסגרו בפועל בסביבת כתובת, ממאגר רשות המיסים. זה הכלי ל\"מה " +
+      "נמכר בהרצל 20 בחצי השנה האחרונה\", ל\"תן לי 5 עסקאות אחרונות ברחוב " +
+      "הזה\" ול\"כמה שילמו על דירת 4 חדרים באזור\". בניגוד ל-cma_report הוא " +
+      "**אינו** דורש שהנכס יהיה במערכת, ולכן הוא מתאים גם לפני לקיחת נכס. " +
+      "מחזיר עסקאות בודדות עם כתובת, גוש, חלקה, סוג, חדרים, קומה, מ\"ר, " +
+      "מחיר, מחיר למ\"ר, תאריך ומרחק. " +
+      "**זמין במסלול Elite בלבד**; במסלול אחר הכלי מחזיר tier_required, ואז " +
+      "יש לומר לסוכן/ת שהיכולת שייכת ל-Elite ולא להמציא נתונים. " +
+      "אלה עסקאות מכר בלבד, ולא שכירות.",
+    input_schema: {
+      type: "object",
+      properties: {
+        city: { type: "string", description: "העיר. ברירת מחדל: העיר של הסוכן/ת." },
+        street: { type: "string", description: "שם רחוב, בלי מספר בית." },
+        house_number: { type: "string", description: "מספר בית. משפר את המיקום." },
+        radius_m: {
+          type: "integer",
+          description: "רדיוס במטרים סביב הכתובת. ברירת מחדל 300, מקסימום 5000.",
+        },
+        months: {
+          type: "integer",
+          description: "כמה חודשים אחורה. ברירת מחדל 24, מקסימום 120.",
+        },
+        limit: { type: "integer", description: "כמה עסקאות להחזיר. ברירת מחדל 5, מקסימום 50." },
+        property_type: {
+          type: "string",
+          description: "סינון לסוג נכס כפי שהוא במאגר: דירה, בנין או קרקע.",
+        },
+      },
+      required: ["street"],
     },
   },
   {
@@ -1838,6 +1873,76 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
  * מאותה סיבה שהוא יושב ב-SQL ולא בדפדפן: רשימת שדות אסורים שמתוחזקת בשני
  * מקומות מתפצלת בסוף מעצמה. ‏`docs/land-planning.md`.
  */
+/**
+ * עסקאות רשות המיסים סביב כתובת.
+ *
+ * ‏**הגאוקוד כאן, לא במסד.** ‏`agent_market_deals_lookup` מקבלת `lat`/`lng`
+ * ואינה יודעת לפתור כתובת - השכבה שפותרת אותה היא WFS עירוני, כלומר רשת,
+ * כלומר לא פונקציה במסד. ‏`geocodeInCity` מחזירה `null` גם על "אין כזו
+ * כתובת" וגם על "אין ספק לעיר", ובשני המקרים נופלים למצב `street`.
+ *
+ * ‏**ולמה בכלל יש מצב נפילה.** התאמת שם רחוב היא שבירה לכתיב, וזו הסיבה
+ * שהרדיוס הוא ברירת המחדל. אבל "אין לנו שכבה בעיר הזו" אינו סיבה להחזיר
+ * כלום כשהנתונים במסד - והערך המוחזר נושא `mode`, כדי שהעוזר יוכל לומר
+ * שהחיפוש היה לפי שם רחוב ולא לפי מרחק.
+ */
+async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unknown>) {
+  const city = String(input.city || "עפולה").trim();
+  const street = String(input.street || "").trim();
+  const houseNumber = String(input.house_number || "").trim();
+  if (!street) return { ok: false, error: "צריך שם רחוב." };
+
+  const coords = houseNumber ? await geocodeInCity(ctx.supabase, city, street, houseNumber) : null;
+
+  const { data, error } = await ctx.supabase.rpc("agent_market_deals_lookup", {
+    p_agent_id:      ctx.agent.id,
+    p_city:          city,
+    p_lat:           coords?.lat ?? null,
+    p_lng:           coords?.lng ?? null,
+    p_street:        street,
+    p_house_number:  houseNumber || null,
+    p_radius_m:      Number(input.radius_m) || 300,
+    p_months:        Number(input.months) || 24,
+    p_limit:         Number(input.limit) || 5,
+    p_property_type: input.property_type ? String(input.property_type) : null,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  const res = (data || {}) as Record<string, unknown>;
+  if (res.error === "tier_required") {
+    return {
+      ok: false,
+      error: String(res.detail || "היכולת זמינה במסלול Elite."),
+      upgrade_to: "Elite",
+    };
+  }
+  if (res.error) return { ok: false, error: String(res.detail || res.error) };
+
+  const deals = (res.deals || []) as Record<string, unknown>[];
+
+  // הנחיה ולא נתון, באותו היגיון של COVERAGE_GUIDANCE ב-cma_report: מודל
+  // שמקבל רשימה ריקה ימלא את החסר באומדן משלו אם לא ייאמר לו במפורש שאסור.
+  const guidance = deals.length === 0
+    ? "לא נמצאה אף עסקה בטווח ובחלון הזמן. אמור/י זאת במפורש, הצע/י להרחיב את הרדיוס או את מספר החודשים, ואל תאמוד/תאמדי מחיר בעצמך."
+    : res.mode === "street"
+    ? "לא הצלחנו למקם את הכתובת, ולכן החיפוש נעשה לפי **שם הרחוב** ולא לפי מרחק. אמור/י זאת, ואל תציג/י מרחקים."
+    : "";
+
+  return {
+    ok: true,
+    mode: res.mode,
+    city: res.city,
+    radius_meters: res.radius_meters,
+    months: res.months,
+    oldest_considered: res.oldest_considered,
+    returned: res.returned,
+    total_found: res.total_found,
+    source: res.source,
+    deals,
+    ...(guidance ? { guidance } : {}),
+  };
+}
+
 async function toolPlanningInfo(ctx: ToolContext, input: Record<string, unknown>) {
   const propertyId = String(input.property_id || "");
 
@@ -2975,6 +3080,7 @@ async function runTool(
       case "property_link": return await toolPropertyLink(ctx, input);
       case "property_performance": return await toolPropertyPerformance(ctx, input);
       case "cma_report": return await toolCmaReport(ctx, input);
+      case "market_deals_lookup": return await toolMarketDealsLookup(ctx, input);
       case "planning_info": return await toolPlanningInfo(ctx, input);
       // שת"פ
       case "share_property": return await toolShareProperty(ctx, input);
@@ -3087,6 +3193,11 @@ const SYSTEM_STATIC: string = (() => {
     "- \"כמה שווה\" / \"מה נמכר באזור\" / \"המחיר ריאלי?\" = cma_report. השורה החשובה " +
       "היא gap_vs_market_pct - הפער בין המחיר המבוקש לממוצע. אם radius_exhausted הוא " +
       "true, אמור/אמרי שהמדגם קטן לפני שאת/ה מסיק/ה ממנו.",
+    "- \"מה נמכר ברחוב X\" / \"5 עסקאות אחרונות ב...\" / \"כמה שילמו על 4 חדרים באזור\" " +
+      "= market_deals_lookup. ההבדל מ-cma_report: הוא מקבל **כתובת** ולא נכס, ולכן הוא " +
+      "עונה גם לפני שהנכס במערכת. הוא Elite בלבד; אם חזר tier_required אמור/אמרי שזו " +
+      "יכולת של Elite ואל תמציא/י עסקאות. אם mode הוא street, ציין/י שהחיפוש היה לפי " +
+      "שם הרחוב ולא לפי מרחק, ואל תציג/י מרחקים.",
     "- \"מה מותר לבנות\" / \"מה הייעוד\" / \"יש תוכנית על המגרש\" = planning_info. " +
       "סיים/י תמיד במשפט ה-disclaimer שחוזר מהכלי - זה מידע כללי ולא בדיקה מול הוועדה.",
     "- \"כמה צפיות\" / \"למה אין פניות\" = property_performance. אם יש מעט צפיות והנכס " +
