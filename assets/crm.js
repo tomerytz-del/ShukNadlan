@@ -150,6 +150,13 @@ function priceRangeLabel(values){
   return compactRange(Math.min(...nums), Math.max(...nums));
 }
 
+/* עברית מבחינה בין יחיד לרבים, ולכן "1 התאמות" ו-"1 נכסים נפתחו" נכתבים
+   בדיוק בשורות שנועדו להיקרא במבט — ונראים שם כמו תקלה בנתון ולא כמו
+   ניסוח. ‏plural() הוא הניסוח היחיד לספירה כזו, כדי שהשורה, הגלולה
+   והכרטיס לא יתפצלו שוב: מי שמתקן במקום אחד מתקן בכולם.
+   ‏1.5 נשאר רבים ("1.5 חדרים"), כי רק 1 בדיוק הוא יחיד. */
+function plural(n, one, many){ return n === 1 ? one : n + ' ' + many; }
+
 /* טווח מקוצר, עם סימן המטבע והיחידה פעם אחת: "₪1–1.2 מ׳" ולא
    "₪1 מ׳–₪1.2 מ׳". שני מחירים מלאים בשורה קצרה נקראים כשני מחירים
    נפרדים ולא כטווח — וברוחב טלפון הם גם מה שדוחק את שאר השורה החוצה.
@@ -15601,8 +15608,8 @@ function renderSavedSearchShelf(){
       title: savedSearchTitle(lead),
       sub: [SS_DEAL_LABELS[lead.deal_type],
             // הקליקים הם הראיה היחידה שאינה הצהרה של הפונה על עצמו/ה
-            lead.alerts_clicked > 0 ? lead.alerts_clicked + ' נכסים נפתחו'
-              : (lead.alerts_sent > 0 ? lead.alerts_sent + ' התראות נשלחו' : null),
+            lead.alerts_clicked > 0 ? plural(lead.alerts_clicked, 'נכס אחד נפתח', 'נכסים נפתחו')
+              : (lead.alerts_sent > 0 ? plural(lead.alerts_sent, 'התראה אחת נשלחה', 'התראות נשלחו') : null),
             lead.has_phone ? 'יש טלפון' : null,
             tabShortDate(lead.created_at)].filter(Boolean).join(' · '),
       // ציון ההתעניינות הוא השיקול הראשון ברכישה, ולכן הוא הגלולה שבשורה
@@ -15630,8 +15637,10 @@ function buildSavedSearchShelfCard(lead){
           cls: lead.intent_score >= 75 ? 'tag-good' : 'tag-key' },
         // הקליקים הם הראיה היחידה שאינה הצהרה של הפונה על עצמו/ה
         lead.alerts_clicked > 0
-          ? { text:`👆 ${lead.alerts_clicked} נכסים נפתחו`, cls:'tag-good' }
-          : (lead.alerts_sent > 0 ? { text:`📤 ${lead.alerts_sent} התראות נשלחו`, cls:'tag-info' } : null),
+          ? { text:`👆 ${plural(lead.alerts_clicked, 'נכס אחד נפתח', 'נכסים נפתחו')}`, cls:'tag-good' }
+          : (lead.alerts_sent > 0
+              ? { text:`📤 ${plural(lead.alerts_sent, 'התראה אחת נשלחה', 'התראות נשלחו')}`, cls:'tag-info' }
+              : null),
         ...savedSearchMetaParts(lead),
         lead.has_phone ? '📞 יש טלפון' : null,
         { text:'📅 נשמר ' + hebDate(lead.created_at) },
@@ -15754,7 +15763,7 @@ async function buySavedSearchLead(lead, btn){
       SS_DEAL_LABELS[lead.deal_type] || 'מחפש/ת דירה',
       savedSearchTitle(lead),
       savedSearchMetaParts(lead).join(' · '),
-      `ציון התעניינות ${lead.intent_score}/100 · ${lead.alerts_clicked} נכסים נפתחו מתוך ${lead.alerts_sent} התראות`,
+      `ציון התעניינות ${lead.intent_score}/100 · ${plural(lead.alerts_clicked, 'נכס אחד נפתח', 'נכסים נפתחו')} מתוך ${plural(lead.alerts_sent, 'התראה אחת', 'התראות')}`,
       'הרכישה חושפת שם וטלפון, ואת הנכסים שנשלחו למחפש/ת, ומשייכת את הליד אליך בלבד.',
     ].filter(Boolean),
     price: savedSearchPrice,
@@ -16111,7 +16120,7 @@ const expandedSharedIds = new Set();
 function sharedTabSub(r){
   return [
     r.owner_agency_name,
-    r.rooms ? r.rooms + ' חדרים' : null,
+    r.rooms ? plural(r.rooms, 'חדר אחד', 'חדרים') : null,
     r.size_sqm ? r.size_sqm + ' מ״ר' : null,
     tabShortDate(r.shared_at),
   ].filter(Boolean).join(' · ');
@@ -16422,7 +16431,7 @@ function buildClientTab(c){
     key: c.id, list:'client', expanded: expandedClientIds, cls:'client-tab',
     title: c.full_name,
     sub: clientTabSub(c),
-    pill: matches ? { text: matches + ' התאמות', cls:'tab-flag' } : null,
+    pill: matches ? { text: plural(matches, 'התאמה אחת', 'התאמות'), cls:'tab-flag' } : null,
     price: clientBudgetLabel(c),
     priceNote: c.deal_type === 'rent' ? 'לחודש' : '',
     // הכרטיס נבנה בפתיחה ונזרק בסגירה — ראו buildTabRow()
