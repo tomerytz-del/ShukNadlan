@@ -1800,14 +1800,43 @@ async function boot(){
    כל חזרה ללשונית הייתה טוענת מחדש את כל הדשבורד באמצע עבודה.
 
    העבודה נדחית ב-setTimeout(0) כי ה-callback רץ בתוך הנעילה הפנימית של
-   הלקוח, וקריאה ל-supabase מתוכו עלולה לתקוע את הדף. */
+   הלקוח, וקריאה ל-supabase מתוכו עלולה לתקוע את הדף.
+
+   ‏**והאירוע מגיע גם מלשונית אחרת לגמרי.** ‏supabase-js פותח
+   ‏BroadcastChannel על מפתח האחסון שלו, והמפתח נגזר מכתובת הפרויקט - כלומר
+   הדף הזה וה-CRM של הסוכנים חולקים **אותו ערוץ בדיוק**. סוכן/ת שנכנס/ת
+   ל-`crm.html` בלשונית אחרת שידר/ה לכאן `SIGNED_IN`, והדף הזה קרא ל-
+   ‏`project-manage` עם האסימון שלו/ה, קיבל `no_developer_account`, והחליף
+   את עצמו למסך **פתיחת חברה יזמית** - בלשונית מוסתרת, בלי שאיש ביקש זאת.
+   ‏`bootedUserId` אינו יכול למנוע את זה: הוא משתנה בדף, ולכל לשונית יש
+   עותק משלה.
+
+   לכן, כמו ב-`assets/crm.js`, הבדיקה היא **מי מסתכל/ת**: לשונית שאינה
+   גלויה רושמת את הניתוב ומבצעת אותו כשחוזרים אליה. ‏`boot()` שולף את
+   ה-session בעצמו, ולכן אין כאן מה לשמור מלבד הדגל. */
 let bootedUserId = null;
+let pendingBoot = false;
+
+function bootWhenVisible(){
+  if (document.visibilityState === 'visible'){ cleanAuthParamsFromUrl(); boot(); return; }
+  pendingBoot = true;
+}
+
+document.addEventListener('visibilitychange', ()=>{
+  if (document.visibilityState !== 'visible' || !pendingBoot) return;
+  pendingBoot = false;
+  cleanAuthParamsFromUrl();
+  boot();
+});
+
 sb.auth.onAuthStateChange((event, session)=>{
-  if (event === 'SIGNED_OUT'){ bootedUserId = null; return; }
+  // יציאה מבטלת ניתוב שממתין לחזרה ללשונית, אחרת לשונית שהתנתקה במקום אחר
+  // הייתה קוראת ל-project-manage ברגע שחוזרים אליה
+  if (event === 'SIGNED_OUT'){ bootedUserId = null; pendingBoot = false; return; }
   if (!session) return;
   if (bootedUserId === session.user.id) return;
   bootedUserId = session.user.id;
-  setTimeout(()=>{ cleanAuthParamsFromUrl(); boot(); }, 0);
+  setTimeout(bootWhenVisible, 0);
 });
 
 (async function init(){
