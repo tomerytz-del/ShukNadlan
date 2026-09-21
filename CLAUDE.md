@@ -389,6 +389,11 @@ Remote migration versions not found in local migrations directory.
    בדיקת `pg_constraint` לפני `add constraint`. היא עלולה לרוץ שוב.
 3. ‏`create or replace view` — עמודה חדשה **בסוף** בלבד.
 4. הקוד והמיגרציה באותו PR. זו כל הנקודה.
+5. **הרשאות פונקציה — למנות את התפקידים בשם.** ‏`revoke ... from public`
+   **אינו** מוציא את `anon`: הרשאת ברירת המחדל שלו ב-Supabase היא ישירה ולא
+   דרך `PUBLIC`, וה-`grant` שאחריו מוסיף ואינו מחליף. הכתיב הנכון הוא
+   ‏`from public, anon, authenticated`. זה כבר קרה פעמיים, ו-
+   ‏`scripts/check_function_grants.py` חוסם ב-CI.
 
 ### אחרי מיזוג שכולל מיגרציה
 

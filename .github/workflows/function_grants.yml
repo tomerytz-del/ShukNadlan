@@ -1,0 +1,52 @@
+name: הרשאות פונקציות במיגרציות
+
+# ‏Supabase מגדירה הרשאות ברירת מחדל לסכימה public שמעניקות EXECUTE ל-anon
+# על כל פונקציה חדשה, כהרשאה **ישירה** ולא דרך PUBLIC. לכן הכתיבה
+# המתבקשת —
+#
+#     revoke all on function public.f(text) from public;
+#     grant execute on function public.f(text) to authenticated, service_role;
+#
+# נראית כמו צמצום ל-authenticated ואינה: השורה הראשונה אינה נוגעת בהרשאה
+# הישירה של anon, והשנייה מוסיפה ואינה מחליפה. ‏PostgREST חושף כל פונקציה
+# ב-/rest/v1/rpc/<שם>, ומפתח ה-anon גלוי בקוד המקור של כל דף.
+#
+# למה זה מצדיק workflow משלו:
+#
+#   • ‏זה קרה כאן פעמיים. ‏20261112090000 סגרה חמש פונקציות כתיבה, שאחת
+#     מהן אפשרה להוריד כל מנוי/ה משלם/ת ל-free בשתי בקשות HTTP בלי
+#     התחברות. ואז `city_id_from_address` נכתבה חודש אחרי — עם אותה שורת
+#     revoke בדיוק — ונשארה פתוחה.
+#   • הטעות שקטה לחלוטין: המיגרציה עוברת, הסכימה נכונה, הפונקציה עובדת.
+#     אין מה שיתלונן. הסוכן התפעולי מגלה את זה אחרי הפריסה.
+#   • ההצהרה בקוד אומרת דבר אחד וה-proacl אומר אחר, ולכן קריאת הקוד
+#     לבדה אינה מגלה את הפער.
+#
+# הבדיקה קוראת קבצים בלבד: בלי רשת, בלי סודות, ובלי חיבור למסד.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/migrations/*.sql"
+      - "scripts/check_function_grants.py"
+      - ".github/workflows/function_grants.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/migrations/*.sql"
+      - "scripts/check_function_grants.py"
+      - ".github/workflows/function_grants.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # הפלט מצביע על הקובץ, על השורה ועל שורת ה-revoke שחסרה.
+      - name: בדיקת הרשאות פונקציות
+        run: python3 scripts/check_function_grants.py
