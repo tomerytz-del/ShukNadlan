@@ -4665,6 +4665,70 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </details>
 
+    <!-- ---------- עסקאות שנסגרו באזור ----------
+         יושב מיד אחרי המידע התכנוני כי שניהם אותו סוג כלי: מזינים כתובת
+         ומקבלים תשובה על המקום, לא על נכס שלנו.
+
+         ההבדל מדוח ה-CMA הוא שהוא מקבל **כתובת** ולא מזהה נכס, ולכן הוא
+         עונה גם לפני לקיחת הנכס - בדיוק הרגע שבו מחליטים אם לקחת אותו.
+         הגייט עצמו הוא agent_market_deals_lookup במסד; ההודעה כאן היא
+         תצוגה בלבד, ומי שיקרא ל-RPC ישירות ייחסם באותה מידה. -->
+    <details class="acc" id="accDealsLookup">
+      <summary>
+        <span class="acc-title">עסקאות שנסגרו באזור</span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+      <p class="acc-sub">מה נמכר בפועל ליד כתובת, ממאגר עסקאות המקרקעין של רשות המיסים. החיפוש הוא לפי מרחק מהכתובת ולא לפי שם הרחוב.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <input type="text" id="mdStreet" list="mdStreetOptions" autocomplete="off" placeholder="רחוב (למשל: הרצל)">
+        <!-- ‏datalist נפרד, מאותה סיבה שיש אחד נפרד למידע התכנוני: הרשימה
+             של טופס הנכס עוקבת אחרי שדה העיר שבטופס, וכאן העיר היא שדה
+             אחר. רשימה משותפת הייתה מציגה רחובות של עיר אחרת בלי שום סימן. -->
+        <datalist id="mdStreetOptions"></datalist>
+        <input type="text" id="mdHouseNum" placeholder="מספר בית">
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
+        <input type="text" id="mdCity" value="עפולה" placeholder="עיר">
+        <select id="mdType">
+          <option value="">כל סוגי הנכס</option>
+          <option value="דירה">דירה</option>
+          <option value="בנין">בנין</option>
+          <option value="קרקע">קרקע</option>
+        </select>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px">
+        <select id="mdRadius">
+          <option value="150">150 מטר</option>
+          <option value="300" selected>300 מטר</option>
+          <option value="500">500 מטר</option>
+          <option value="1000">1 ק"מ</option>
+        </select>
+        <select id="mdMonths">
+          <option value="6">6 חודשים</option>
+          <option value="12">12 חודשים</option>
+          <option value="24" selected>24 חודשים</option>
+          <option value="60">5 שנים</option>
+        </select>
+        <select id="mdLimit">
+          <option value="5" selected>5 עסקאות</option>
+          <option value="10">10 עסקאות</option>
+          <option value="25">25 עסקאות</option>
+          <option value="50">50 עסקאות</option>
+        </select>
+      </div>
+      <button type="button" class="btn btn-gold btn-block" id="mdLookupBtn">חיפוש עסקאות</button>
+      <div id="mdFeedback" style="font-size:.82rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+
+      <div id="mdUpgradeNotice" style="display:none;margin-top:14px;padding:16px;background:var(--gold-tint);border-radius:var(--radius-sm);text-align:center">
+        <p style="font-weight:700;color:var(--red-dark);margin:0 0 6px">שאילתת עסקאות זמינה במסלול Elite</p>
+        <p style="font-size:.82rem;color:var(--ink-soft);margin:0">דוח ה-CMA על נכס שלך זמין גם ב-PROFESSIONAL; חיפוש חופשי של עסקאות לפי כתובת הוא יכולת של Elite.</p>
+      </div>
+
+      <div id="mdResults" style="margin-top:16px"></div>
+      </div>
+    </details>
+
     <!-- ---------- חנות הלידים ----------
          שלושה מדפים נפרדים היו שלוש קטגוריות שונות באותה לשונית, וסוכן/ת
          שחיפש/ה ליד לקנות היה/תה צריך/ה לפתוח שלושתן כדי לדעת מה יש היום.

@@ -58,12 +58,12 @@
 | ניתוב אוטומטי של לידי בעל-נכס | `lead_audience_size` / `lead_routing` — `mid`/`premium` |
 | דוח CMA | `cma_report` במסד — ולעוזר בוואטסאפ `agent_cma_report`, אותו קוד עם מזהה סוכן/ת מפורש |
 | שאילתת עסקאות היסטוריות | `agent_market_deals_lookup` — `premium` בלבד, ‏`market_deals_lookup` היא העטיפה לדפדפן |
-| מפת מיקום ומידע תכנוני | `property_map_view` — `mid`/`premium`; ‏`agent_property_planning` בודקת את אותו מסלול |
+| מפת מיקום ומידע תכנוני | `property_map_enabled` — `mid`/`premium`; ‏`agent_property_planning` בודקת את אותו מסלול |
 | סרטון שיווקי | `property_video_tier` במסד |
-| הדמיות AI | `property_visualizations` — `premium` בלבד |
+| הדמיות AI | `property_visualizations_enabled` — `premium` בלבד, ובנוסף ב-policies של טבלת `property_visualizations` |
 | הפקת סיור 360° | `property_virtual_tour_eligible` — `premium` בלבד, ב-policies של **הכתיבה** לטבלה ולדלי. התצוגה אינה תלויה במסלול: סיור שהופק נשאר בדף |
 | תיאור שיווקי אוטומטי ב-AI | `property_description_tier_ok` — שלוש נקודות, ראו למטה |
-| העוזר בוואטסאפ | `whatsapp-webhook` — בדיקת `tier` לפני כל עיבוד |
+| העוזר בוואטסאפ | `TIER_ALLOWED` ב-`whatsapp-webhook/index.ts` — בדיקת `tier` לפני כל עיבוד |
 | התראות בוואטסאפ | `notification_push_due_agents` — `mid`/`premium` + `billing_status` |
 | מדריך ההתחלה | `agent_onboarding_state` — `mid`/`premium`. הצעד הראשון בו הוא העוזר בוואטסאפ, ומדריך שפותח בהוראה שהמסלול אינו כולל הוא פרסומת (ראו `docs/agent-onboarding.md`) |
 | פרסום אוטומטי ברשתות | **פתוח לכל המסלולים בכוונה** — ראו למטה |

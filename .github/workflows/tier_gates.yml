@@ -1,0 +1,47 @@
+name: גייט מסלול לכל שורה מובחנת
+
+# ‏טבלה בדף מכירה אינה גייטינג. הבדיקה הזו קיימת מפני ששתי הטעויות
+# ההפוכות שקטות שתיהן:
+#
+#   • שורה מובחנת ב-COMPARE בלי גייט במסד = האתר מבטיח מה שאינו אוכף.
+#     מי שמשלם מקבל בדיוק את מה שמקבל מי שאינו משלם, ואיש לא יתלונן.
+#   • גייט במסד בלי שורה בטבלה = יכולת שנמכרת ואיש אינו יודע עליה.
+#
+# זה כבר קרה: "שיתוף נכסים עם כל המתווכים (Co-Broke)" הובטח ב-✓ לשלושת
+# המסלולים בזמן שהמנוע לא הבחין ביניהם כלל.
+#
+# שני הצדדים חיים בקבצים שונים ואף אחד מהם אינו שובר כשהשני משתנה, ולכן
+# אין דרך לראות את זה בקריאת קוד.
+#
+# הבדיקה קוראת קבצים בלבד: בלי רשת ובלי סודות.
+
+on:
+  pull_request:
+    paths:
+      - "pricing.html"
+      - "supabase/migrations/*.sql"
+      - "supabase/functions/**/*.ts"
+      - "docs/pricing-and-tiers.md"
+      - "scripts/check_tier_gates.py"
+      - ".github/workflows/tier_gates.yml"
+  push:
+    branches: [main]
+    paths:
+      - "pricing.html"
+      - "supabase/migrations/*.sql"
+      - "supabase/functions/**/*.ts"
+      - "docs/pricing-and-tiers.md"
+      - "scripts/check_tier_gates.py"
+      - ".github/workflows/tier_gates.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: בדיקת גייטים
+        run: python3 scripts/check_tier_gates.py
