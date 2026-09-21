@@ -17377,9 +17377,21 @@ function renderCmaReport(r){
      לכן שניהם ולא בחירה ביניהם: המחיר למ״ר הוא ההשוואה המדויקת כששטחים
      שונים, והמחיר הכולל הוא מה שהקונה באמת משלם. וכששניהם רחוקים זה
      מזה, הדוח אומר **למה** - אחרת זה נקרא כסתירה. */
+  /* ‏`ask == null` לפני `Number()`, וזו לא הגנה עודפת אלא באג שנתפס.
+     ‏**`Number(null)` הוא 0 ולא NaN**, ולכן נכס בלי שטח - `price_per_sqm`
+     חוזר `null` מ-`agent_cma_report` כש-`size_sqm` ריק - היה מקבל
+     "המחיר המבוקש למ״ר: נמוך ב-100% מהממוצע". מספר מומצא שנקרא כממצא,
+     על שתיים מ-31 המודעות הפעילות למכירה.
+
+     ‏`Number.isFinite` לבדו אינו תופס את זה כי 0 הוא סופי לגמרי, ו-
+     ‏`jsonb_build_object` מחזיר את המפתח **עם `null`** ולא משמיט אותו -
+     כלומר `undefined` (שהיה נותן NaN) אינו מגיע לכאן לעולם.
+
+     ‏`a > 0` מכסה גם מחיר 0, שאינו השוואה בעלת משמעות. */
   const cmaGapPct = (ask, avg) => {
+    if (ask == null || avg == null) return null;
     const a = Number(ask), v = Number(avg);
-    return (Number.isFinite(a) && Number.isFinite(v) && v > 0)
+    return (Number.isFinite(a) && Number.isFinite(v) && a > 0 && v > 0)
       ? Math.round(((a - v) / v) * 100) : null;
   };
   const priceGap = hasStats ? cmaGapPct(s.price, st.avg_price) : null;
