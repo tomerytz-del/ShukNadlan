@@ -49,12 +49,19 @@ jobs:
       # באירוע pull_request הבדיקה מקבלת את ענף הבסיס, ואז היא בודקת גם
       # שה-version של כל מיגרציה חדשה **גדול** מהאחרון שבבסיס. ב-push
       # ל-main אין בסיס להשוות אליו, ורצות שתי הבדיקות הראשונות בלבד.
+      #
+      # ‏`base_ref` עובר דרך `env` ולא בהשמה ישירה ל-`run`. השמה ישירה
+      # מדביקה את הערך **לתוך הסקריפט** לפני שהוא רץ, ולכן שם ענף שמכיל
+      # תו מיוחד הופך לקוד. זו הנחיית ההקשחה של GitHub עצמה, וכאן היא
+      # בחינם: ‏`"$BASE_REF"` במרכאות הוא נתון ולא קוד.
       - name: בדיקת גרסאות מיגרציה
+        env:
+          BASE_REF: ${{ github.base_ref }}
         run: |
-          if [ -n "${{ github.base_ref }}" ]; then
-            git fetch --no-tags origin "${{ github.base_ref }}"
+          if [ -n "$BASE_REF" ]; then
+            git fetch --no-tags origin "$BASE_REF"
             python3 scripts/check_migration_versions.py \
-              --base-ref "origin/${{ github.base_ref }}"
+              --base-ref "origin/$BASE_REF"
           else
             python3 scripts/check_migration_versions.py
           fi
