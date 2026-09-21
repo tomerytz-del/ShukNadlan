@@ -60,6 +60,30 @@ def ga4_tag(tag_id: str, event: str, trigger_id: str, params: list[str] | None =
     }
 
 
+def settings_table_tag(tag_id: str, event: str, trigger_id: str,
+                       params: list[str]) -> dict:
+    """‏אותה תגית, בצורה ש-GTM עצמו שומר: `eventSettingsTable` ו-`parameter`.
+
+    ‏`ga4_tag` למעלה כותבת את הצורה שקובץ הייבוא שלנו כותב. ‏GTM מנרמל
+    אותה בשמירה, ולכן בדיקה שנכתבה רק מול הצורה הראשונה מאמתת את מה
+    שכתבנו במקום את מה שבאוויר.
+    """
+    tag = ga4_tag(tag_id, event, trigger_id)
+    tag["name"] = "GA4 - %s (settings table)" % event
+    tag["parameter"].append({
+        "type": "LIST",
+        "key": "eventSettingsTable",
+        "list": [
+            {"type": "MAP", "map": [
+                {"type": "TEMPLATE", "key": "parameter", "value": name},
+                {"type": "TEMPLATE", "key": "parameterValue", "value": "{{DLV - %s}}" % name},
+            ]}
+            for name in params
+        ],
+    })
+    return tag
+
+
 def ce_trigger(trigger_id: str, event: str) -> dict:
     return {
         "triggerId": trigger_id,
@@ -180,6 +204,28 @@ def main() -> int:
     case("אימייל כפרמטר אירוע",
          lambda c: c["containerVersion"]["tag"].append(
              ga4_tag("400", "generate_lead", "200", params=["em", "form_id"])),
+         "‏GA4 אוסר פרטים")
+
+    # ‏שתי הצורות שהכלל הקודם **לא** ראה, וזו לא היפותזה: הוא קרא רק
+    # ‏`eventParameters`, ו-GTM שומר `eventSettingsTable`. כלומר על
+    # המכולה האמיתית הוא החזיר רשימה ריקה מכל 15 התגיות ועבר ירוק.
+    # שני המקרים האלה נכתבו מהצורה שבייצוא האמיתי, לא מהקובץ שלנו.
+    case("אימייל בצורה ש-GTM שומר בה (eventSettingsTable)",
+         lambda c: c["containerVersion"]["tag"].append(
+             settings_table_tag("401", "generate_lead", "200", ["ph", "form_id"])),
+         "‏GA4 אוסר פרטים")
+
+    case("אימייל במשתנה Google Tag Event Settings נפרד",
+         lambda c: c["containerVersion"].setdefault("variable", []).append(
+             {"variableId": "900", "name": "Google Tag Event Settings",
+              "type": "gtes",
+              "parameter": [{
+                  "type": "LIST", "key": "eventSettingsTable",
+                  "list": [{"type": "MAP", "map": [
+                      {"type": "TEMPLATE", "key": "parameter", "value": "user_email"},
+                      {"type": "TEMPLATE", "key": "parameterValue", "value": "{{DLV - x}}"},
+                  ]}],
+              }]}),
          "‏GA4 אוסר פרטים")
 
     case("הפיקסל נעלם מהמכולה והמדיניות מצהירה עליו",

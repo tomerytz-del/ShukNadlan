@@ -156,16 +156,41 @@ def ce_event_name(trigger: dict) -> str | None:
     return None
 
 
-def event_param_names(tag: dict) -> list[str]:
-    """‏שמות פרמטרי האירוע של תגית GA4."""
-    names = []
-    for p in tag.get("parameter") or []:
-        if p.get("key") != "eventParameters":
-            continue
-        for entry in p.get("list") or []:
-            for m in entry.get("map") or []:
-                if m.get("key") == "name":
-                    names.append(str(m.get("value") or ""))
+# ‏המפתחות שמחזיקים **שם** של פרמטר אירוע, ולא את ערכו. שלוש צורות
+# שמסבירות למה זו רשימה ולא מפתח אחד:
+#
+#   ‏`eventParameters` + `name`  — הצורה שקובץ הייבוא שלנו כותב
+#   ‏`eventSettingsTable` + `parameter` — הצורה ש-GTM **שומר** בה
+#   משתנה `Google Tag Event Settings` — אותה טבלה, באובייקט נפרד
+#
+# ‏השנייה היא הסיבה שהכלל הזה נכתב מחדש: הוא קרא רק `eventParameters`,
+# ולכן על המכולה האמיתית הוא החזיר **רשימה ריקה מכל 15 התגיות** ועבר
+# ירוק בלי לבדוק דבר. ‏GTM מנרמל את הייבוא לצורה שלו בשמירה, ולכן
+# הבדיקה הצליבה את מה שכתבנו ולא את מה שנשמר.
+PARAM_NAME_KEYS = ("name", "parameter")
+
+
+def event_param_names(item: dict) -> list[str]:
+    """‏שמות פרמטרי האירוע של תגית או משתנה, בכל שלוש הצורות.
+
+    ‏סורק רקורסיבית ולא לפי מפתח ידוע, כי הצורה הרביעית תגיע — וכשהיא
+    תגיע, כלל שנשען על שם מפתח יחזור לעבור ירוק בשקט.
+    """
+    names: list[str] = []
+
+    def walk(node) -> None:
+        if isinstance(node, dict):
+            if node.get("type") == "MAP":
+                for m in node.get("map") or []:
+                    if m.get("key") in PARAM_NAME_KEYS and m.get("type") == "TEMPLATE":
+                        names.append(str(m.get("value") or ""))
+            for value in node.values():
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(item.get("parameter") or [])
     return names
 
 
@@ -297,13 +322,16 @@ def check(path: Path) -> tuple[list[str], list[str]]:
                 "        docs/analytics-user-data.md. אם ההחלטה השתנתה,\n"
                 "        היא משתנה **שם** ולא כאן." % sig
             )
-    for tag in tags:
-        for name in event_param_names(tag):
+    # ‏תגיות **ומשתנים**: מגרסה 5 הפרמטרים יכולים לשבת במשתנה
+    # ‏`Google Tag Event Settings` נפרד, ולא בתוך התגית. סריקת תגיות
+    # לבדה הייתה מפספסת אותם, וזה בדיוק הפתח שהכלל הזה סוגר.
+    for item in list(tags) + list(version.get("variable") or []):
+        for name in event_param_names(item):
             if is_pii(name):
                 problems.append(
-                    "התגית \"%s\" שולחת פרמטר `%s` ל-GA4. ‏GA4 אוסר פרטים\n"
+                    "\"%s\" שולח פרמטר `%s` ל-GA4. ‏GA4 אוסר פרטים\n"
                     "        אישיים, והחשבון מסתכן במחיקת הנתונים."
-                    % (tag.get("name", "?"), name)
+                    % (item.get("name", "?"), name)
                 )
 
     # ‏7. מה שמוצהר מול מה שקיים
