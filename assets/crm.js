@@ -8895,10 +8895,13 @@ function populateStreetOptions(listId, city){
   list.innerHTML = names.map(n => `<option value="${esc(n)}"></option>`).join('');
 }
 
-/* שתי הרשימות יחד: זו של הטופס לפי שדה העיר, וזו של המידע התכנוני על עפולה */
+/* שלוש הרשימות יחד: זו של הטופס לפי שדה העיר, זו של המידע התכנוני על
+   עפולה, וזו של חיפוש העסקאות לפי שדה העיר שלו. כל אחת עוקבת אחרי העיר
+   **שלה** - רשימה משותפת הייתה מציגה רחובות של עיר אחרת בלי שום סימן. */
 function refreshStreetOptions(){
   populateStreetOptions('streetOptions', document.getElementById('npCity')?.value || '');
   populateStreetOptions('planStreetOptions', STREET_PLANNING_CITY);
+  populateStreetOptions('mdStreetOptions', document.getElementById('mdCity')?.value || '');
 }
 
 function streetEnforced(city){
@@ -18089,6 +18092,7 @@ const NAV_GROUPS = [
        שצריך לגלול */
     { acc:'accAgreements',       label:'הסכמים והחתמות',    icon:'sign',     tab:'docs', focus:'agrSearch' },
     { acc:'accPlanning',         label:'מידע תכנוני',       icon:'map',      tab:'more' },
+    { acc:'accDealsLookup',      label:'עסקאות באזור',      icon:'chart',    tab:'more' },
     { acc:'accLeadShelf',        label:'חנות הלידים',       icon:'layers',   tab:'leads' },
   ]},
   { key:'tools', label:'כלים וצוות', icon:'wrench', items:[
@@ -18124,9 +18128,11 @@ const NAV_GROUPS = [
      "ניהול מקורות RSS" בין "הנכסים שלי" ל"הלידים שלי". */
   { key:'admin', label:'ניהול מערכת', icon:'shield', adminOnly:true, items:[
     { acc:NAV_ADMIN_HOME,     label:'לוח בקרה חודשי', icon:'gauge',   tab:'admin' },
+    { acc:'accRefundQueue',   label:'בקשות החזר',     icon:'alert',   tab:'admin' },
     { acc:'accLicenseAppeals', label:'ערעורי רישיון', icon:'shield',  tab:'admin' },
     { acc:'accSubscriptions', label:'מנויים ומסלולים', icon:'shield',  tab:'admin' },
     { acc:'accNeighborhoods', label:'ניהול שכונות',   icon:'map',     tab:'admin' },
+    { acc:'accDealsImport',   label:'ייבוא עסקאות',   icon:'chart',   tab:'admin' },
     { acc:'accRssSources',    label:'מקורות RSS',     icon:'rss',     tab:'admin' },
     { acc:'accArticles',      label:'כתבות ובלוגים',  icon:'article', tab:'admin' },
     { acc:'accProfessionals', label:'בעלי מקצוע',     icon:'user',    tab:'admin' },
@@ -21874,4 +21880,133 @@ document.getElementById('dealsImportSaveBtn')?.addEventListener('click', async (
 
 document.getElementById('accDealsImport')?.addEventListener('toggle', function(){
   if (this.open) loadDealsCoverage();
+});
+
+/* ==========================================================================
+   עסקאות שנסגרו באזור
+   --------------------------------------------------------------------------
+   ההבדל מדוח ה-CMA הוא מה שנכנס: הדוח מקבל **מזהה נכס** ועונה "כמה שווה
+   הנכס הזה", והכלי הזה מקבל **כתובת** - ולכן הוא עונה גם לפני שהנכס
+   במערכת, בדיוק ברגע שבו מחליטים אם לקחת אותו.
+
+   ‏`market_deals_lookup` היא העטיפה שגוזרת את מזהה הסוכן/ת מה-JWT.
+   **הגייט אינו כאן.** ‏`agent_market_deals_lookup` במסד בודקת `premium`,
+   ומי שיקרא ל-RPC ישירות ייחסם באותה מידה; ההודעה למטה היא תצוגה.
+   ========================================================================== */
+
+/* הגאוקוד הוא **עפולה בלבד** כרגע, ובמכוון: `geocode-address` אינה מקבלת
+   עיר, והשכבה שמאחוריה היא של עיריית עפולה. עיר אחרת נופלת לחיפוש לפי שם
+   רחוב - נחות, ומסומן ככזה בתשובה. זה גם התנאי הקשיח היחיד שנשאר כאן,
+   והוא יורד ברגע ש-geocode-address תקבל city. */
+const DEALS_GEOCODE_CITY = 'עפולה';
+
+async function dealsLookupCoords(city, street, houseNumber){
+  if (city !== DEALS_GEOCODE_CITY || !street || !houseNumber) return null;
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(GEOCODE_FUNCTION_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY,
+                'Authorization':'Bearer ' + session.access_token },
+      body: JSON.stringify({ street, house_number: houseNumber }),
+    });
+    const data = await res.json();
+    return (res.ok && data.success) ? { lat: data.lat, lng: data.lng } : null;
+  } catch(err){
+    // כתובת שלא נמצאה ורשת שנפלה מובילות שתיהן לאותה נפילה לאחור, ולכן
+    // אין כאן צורך בהבחנה. במסלול שמזין את geocode_attempts ההבחנה קדושה.
+    console.warn('deals lookup geocode failed', err);
+    return null;
+  }
+}
+
+function renderDealsLookup(res){
+  const box = document.getElementById('mdResults');
+  if (!box) return;
+  const deals = res.deals || [];
+  if (!deals.length){
+    box.innerHTML = '<div class="empty-state">לא נמצאה אף עסקה בטווח ובחלון הזמן. נסו רדיוס גדול יותר או יותר חודשים.</div>';
+    return;
+  }
+  /* שורת ההקשר אינה קישוט: אותה רשימה בדיוק נראית אחרת לגמרי אם היא 300
+     מטר או קילומטר, ומי שלא יראה את זה ישווה בין שתי הרצות שונות. */
+  const head = res.mode === 'street'
+    ? `<p class="acc-sub">לא הצלחנו למקם את הכתובת, ולכן החיפוש נעשה <strong>לפי שם הרחוב</strong> ולא לפי מרחק. ${esc(String(res.total_found))} עסקאות נמצאו.</p>`
+    : `<p class="acc-sub"><strong>${esc(String(res.total_found))}</strong> עסקאות ברדיוס ${esc(String(res.radius_meters))} מ' ב-${esc(String(res.months))} החודשים האחרונים. מוצגות ${esc(String(res.returned))}.</p>`;
+
+  const rows = deals.map(d => {
+    const addr = d.street ? `${esc(d.street)} ${esc(d.house_number || '')}` : '<span style="color:var(--ink-soft)">ללא כתובת</span>';
+    const ppsqm = d.price_per_sqm ? Number(d.price_per_sqm).toLocaleString('he-IL') + ' ₪' : '-';
+    const dist = d.distance_meters == null ? '-' : esc(String(d.distance_meters)) + ' מ\'';
+    return `<tr>
+      <td>${addr}${d.neighborhood ? `<div style="font-size:.72rem;color:var(--ink-soft)">${esc(d.neighborhood)}</div>` : ''}</td>
+      <td>${esc(d.sold_at || '')}</td>
+      <td>${esc(d.property_type || '-')}</td>
+      <td>${esc(String(d.rooms ?? '-'))}</td>
+      <td>${esc(String(d.size_sqm ?? '-'))}</td>
+      <td><strong>${Number(d.sale_price).toLocaleString('he-IL')} ₪</strong></td>
+      <td>${ppsqm}</td>
+      <td>${dist}</td>
+      <td style="font-size:.72rem;color:var(--ink-soft)">${esc(d.gush || '')}-${esc(d.helka || '')}</td>
+    </tr>`;
+  }).join('');
+
+  box.innerHTML = head
+    + '<div style="overflow-x:auto"><table class="cma-table">'
+    + '<thead><tr><th>כתובת</th><th>תאריך</th><th>סוג</th><th>חדרים</th><th>מ״ר</th><th>מחיר</th><th>למ״ר</th><th>מרחק</th><th>גוש חלקה</th></tr></thead>'
+    + `<tbody>${rows}</tbody></table></div>`
+    + `<p class="acc-sub" style="margin-top:10px">מקור: ${esc(res.source || '')}</p>`;
+}
+
+document.getElementById('mdLookupBtn')?.addEventListener('click', async ()=>{
+  const city = document.getElementById('mdCity').value.trim();
+  /* אותו תיקון כתיב כמו במידע התכנוני, ובלי חסימה: זו בדיקה ולא שמירה. */
+  const street = canonicalStreet(document.getElementById('mdStreet').value, city).name;
+  document.getElementById('mdStreet').value = street;
+  const houseNum = document.getElementById('mdHouseNum').value.trim();
+  const feedback = document.getElementById('mdFeedback');
+  const btn = document.getElementById('mdLookupBtn');
+  const upgrade = document.getElementById('mdUpgradeNotice');
+  const box = document.getElementById('mdResults');
+
+  upgrade.style.display = 'none';
+  box.innerHTML = '';
+  feedback.textContent = '';
+
+  if (!city || !street){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'נא למלא עיר ורחוב';
+    return;
+  }
+
+  btn.disabled = true; btn.textContent = 'מחפש…';
+  try{
+    const coords = await dealsLookupCoords(city, street, houseNum);
+    const { data, error } = await sb.rpc('market_deals_lookup', {
+      p_city:          city,
+      p_lat:           coords?.lat ?? null,
+      p_lng:           coords?.lng ?? null,
+      p_street:        street,
+      p_house_number:  houseNum || null,
+      p_radius_m:      Number(document.getElementById('mdRadius').value) || 300,
+      p_months:        Number(document.getElementById('mdMonths').value) || 24,
+      p_limit:         Number(document.getElementById('mdLimit').value) || 5,
+      p_property_type: document.getElementById('mdType').value || null,
+    });
+    if (error) throw error;
+
+    if (data && data.error === 'tier_required'){ upgrade.style.display = 'block'; return; }
+    if (data && data.error){
+      feedback.style.color = 'var(--red)';
+      feedback.textContent = data.detail || data.error;
+      return;
+    }
+    renderDealsLookup(data || {});
+  } catch(err){
+    console.error(err);
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'שגיאת רשת - נסו שוב';
+  } finally {
+    btn.disabled = false; btn.textContent = 'חיפוש עסקאות';
+  }
 });
