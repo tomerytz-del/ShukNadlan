@@ -19831,24 +19831,77 @@ document.addEventListener('keydown', (e)=>{
   document.getElementById('avatarBtn').focus({ preventScroll:true });
 });
 
+/* ---------- לשונית שלא היא זו שהתחברה ----------
+   ‏supabase-js פותח BroadcastChannel על מפתח האחסון שלו, וכל לשונית פתוחה
+   של האתר מקבלת דרכו את ה-SIGNED_IN של הלשונית שבה ההתחברות באמת קרתה.
+   כלומר סוכן/ת שהשאיר/ה לשונית CRM פתוחה על מסך הכניסה, ונכנס/ת עם Google
+   בלשונית אחרת, מקבל/ת **שתי טעינות דשבורד מלאות במקביל** — כ-40 שאילתות
+   כפולות שמתחרות על אותם חיבורי רשת, והלשונית שהוא/היא באמת מסתכל/ת עליה
+   היא זו שמחכה.
+
+   ‏**שני השומרים ב-routeAfterAuth אינם יכולים לתפוס את זה, ולא בגלל באג
+   בהם:** ‏authRouting ו-routedUserId הם משתנים בדף, ולכל לשונית יש עותק
+   משלה. הם מונעים שני ניתובים באותה לשונית, וזה כל מה שהם יכולים למנוע.
+
+   ולכן הבדיקה כאן היא **מי מסתכל/ת**: לשונית שאינה גלויה אינה בונה עכשיו
+   דשבורד שאיש אינו רואה, אלא רושמת שיש לה מה לעשות ועושה אותו כשחוזרים
+   אליה. ה-session נשלף מחדש באותו רגע ולא נשמר מכאן, כי בינתיים הוא יכול
+   היה להתחדש.
+
+   ‏**מה שזה אינו מכסה:** שני חלונות שנראים בו-זמנית על המסך. שם שתיהן
+   ‏`visible`, שתיהן ייטענו — וזה גם מה שנכון, כי שתיהן מול העיניים.
+
+   ‏**איך זה נמדד** (‏21.9.2026, כניסה אמיתית מפרודקשן): כל שאילתות הדשבורד
+   יצאו פעמיים, בפער שגדל מ-122ms ל-405ms. אותו session_id, אותו JWT ואותה
+   טביעת TLS בשני העותקים — ורק **קריאה אחת** ל-`/auth/v1/callback` ואחת
+   ל-`/auth/v1/user`. זו השורה שמכריעה: הלשונית השנייה מעולם לא דיברה עם
+   שרת האימות, כי את ה-session היא קיבלה ב-BroadcastChannel. */
+let pendingAuthRoute = false;
+
+function routeAfterAuthWhenVisible(session){
+  if (document.visibilityState === 'visible'){ routeAfterAuth(session); return; }
+  pendingAuthRoute = true;
+}
+
+document.addEventListener('visibilitychange', async ()=>{
+  if (document.visibilityState !== 'visible' || !pendingAuthRoute) return;
+  pendingAuthRoute = false;
+  // ‏getSession ולא ה-session שנשמר: הוא מקומי כל עוד האסימון בתוקף, ואם לא —
+  // עדיף סיבוב רשת אחד על פני בנייה של דשבורד עם אסימון שפג
+  let session = null;
+  // ‏try כאן ולא רק מתוך הרגל: מאזין async שזורק מייצר unhandled rejection
+  // שאיש אינו תופס, והמסך היה נשאר על מה שהיה בלי שום סימן
+  try { ({ data: { session } } = await sb.auth.getSession()); }
+  catch(err){ console.error(err); return; }
+  // אין סינון מול routedUserId כאן: routeAfterAuth עושה אותו בעצמו, ולשונית
+  // שבינתיים טענה בכל זאת (‏boot) פשוט תקבל Promise ריק
+  if (session) routeAfterAuth(session);
+  else showLoginCard();
+});
+
 /* ---------- Boot: restore existing session if present (handles Google OAuth redirect too) ----------
    אחרי החזרה מ-Google ה-session מוכן רק כשה-client סיים לקרוא את התשובה
    מהכתובת, ולכן המאזין הוא הנתיב העיקרי ו-boot() הוא רשת הביטחון שלו.
-   ‏שני דגשים שבלעדיהם הכניסה מרגישה "קופצת":
+   ‏שלושה דגשים שבלעדיהם הכניסה מרגישה "קופצת":
    1. אין await של supabase בתוך ה-callback עצמו. הוא רץ בתוך הנעילה הפנימית
       של הלקוח, וקריאה כזו מתוכו עלולה לתקוע את הדף עד ל-timeout. לכן העבודה
       נדחית ב-setTimeout(0) והמאזין עצמו מסתיים מיד.
    2. ‏SIGNED_IN מגיע גם בחזרה ללשונית ובחידוש אסימון, לא רק בהתחברות. הסינון
-      בפועל נעשה ב-routeAfterAuth() מול routedUserId. */
+      בפועל נעשה ב-routeAfterAuth() מול routedUserId.
+   3. ‏SIGNED_IN מגיע גם מלשונית **אחרת**, ואת זה אף שומר בדף אינו יכול
+      לסנן — ראו הסעיף שמעל. */
 sb.auth.onAuthStateChange((event, session)=>{
   if (event === 'SIGNED_OUT'){
     routedUserId = null;
+    // יציאה מבטלת ניתוב שממתין לחזרה ללשונית: בלעדיה, לשונית שהתנתקה בלשונית
+    // אחרת הייתה מנסה לבנות דשבורד ברגע שחוזרים אליה
+    pendingAuthRoute = false;
     setTimeout(()=> showLoginCard(), 0);
     return;
   }
   if (event !== 'INITIAL_SESSION' && event !== 'SIGNED_IN') return;
   setTimeout(()=>{
-    if (session) routeAfterAuth(session);
+    if (session) routeAfterAuthWhenVisible(session);
     else if (event === 'INITIAL_SESSION') showLoginCard();
   }, 0);
 });
