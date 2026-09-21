@@ -1835,6 +1835,22 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
   const gapPct = gap(subject.price, stats.avg_price);
   const gapPerSqmPct = gap(subject.price_per_sqm, stats.avg_price_per_sqm);
 
+  // שכבת השוק: נכסים **פעילים** למכירה בסביבה, כלומר מחירים מבוקשים.
+  // היא עונה על "מול מי אני מתחרה" ולא על "במה נסגר", ולכן הפער שלה
+  // הוא מבוקש מול מבוקש - השוואה הוגנת, ובלבד שנאמר מה היא.
+  //
+  // ‏`gap` בנוי סביב `hasStats` של שכבת העסקאות, ולכן אינו מתאים כאן:
+  // לנכס יכול להיות חציון שוק בלי שיהיה לו ממוצע עסקאות, ולהפך.
+  const marketStats = (report.market_stats || {}) as Record<string, unknown>;
+  const hasMarket = coverage.has_market_statistics === true;
+  const marketGap = (ask: unknown, mid: unknown): number | undefined => {
+    if (ask === null || ask === undefined || mid === null || mid === undefined) return undefined;
+    const a = Number(ask), v = Number(mid);
+    return hasMarket && Number.isFinite(a) && Number.isFinite(v) && a > 0 && v > 0
+      ? Math.round(((a - v) / v) * 100)
+      : undefined;
+  };
+
   // הנחיה ולא נתון: מודל שמקבל "0 עסקאות" ימלא את החסר באומדן משלו אם לא
   // ייאמר לו במפורש שאסור. זה בדיוק המקום שבו דוח כן הופך לדוח שנשמע כן.
   // על מה הממוצע נשען. מאז `20261228090000` הסטטיסטיקה מחושבת על עסקאות
@@ -1856,6 +1872,24 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
       "לנכס עצמו לא רשום מספר חדרים, ולכן ההשוואה אינה מסוננת לפי חדרים והממוצע מערבב " +
       "גדלים שונים. אמור/אמרי זאת, ובקש/י להשלים את מספר החדרים בכרטיס הנכס - זה מה " +
       "שמדייק את הדוח יותר מכל דבר אחר.",
+  };
+
+  // שכבת השוק. **הסכנה כאן היא ערבוב**: מודל שמקבל "חציון" ו"ממוצע"
+  // באותו אובייקט ימסור אותם כשני אומדנים של אותו דבר, וזה בדיוק מה
+  // שהם אינם - אחד הוא מה שנסגר והשני הוא מה שמבקשים עכשיו.
+  const MARKET_GUIDANCE: Record<string, string> = {
+    features:
+      "חציון השוק נשען על נכסים שתואמים לנכס גם במאפיינים (ממ\"ד, מעלית, מרפסת, חניה). " +
+      "אלה **מחירים מבוקשים** ולא מחירי עסקה: אמור/אמרי זאת במפורש, ואל תערבב/י אותם עם ממוצע העסקאות.",
+    rooms_only:
+      "לא נמצאו די נכסים שתואמים גם במאפיינים, ולכן חציון השוק נשען על אותו מספר חדרים בלבד. " +
+      "אלה **מחירים מבוקשים** ולא מחירי עסקה, ויש לומר את שניהם.",
+    subject_features_missing:
+      "לנכס לא רשומים מאפיינים, ולכן אי אפשר לדרג את המתחרים לפיהם. אלה **מחירים מבוקשים**. " +
+      "אפשר להציע לסמן ממ\"ד, מעלית, מרפסת וחניה בכרטיס הנכס כדי לדייק את ההשוואה.",
+    too_few:
+      "יש פחות נכסים דומים בשוק מהמינימום, ולכן **אין חציון שוק**. אפשר למנות את הנכסים עצמם " +
+      "כמתחרים, ואסור לגזור מהם מחיר.",
   };
 
   const COVERAGE_GUIDANCE: Record<string, string> = {
@@ -1899,6 +1933,16 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
     // ‏0 = אותו מספר חדרים בדיוק, 0.5/1 = טווח, null = בלי סינון חדרים.
     // ‏`rooms_band_reason` אומר איזה מהשניים האחרונים זה, וזה ההבדל בין
     // "לא נמצאו עסקאות דומות" ל"לנכס חסר מספר חדרים".
+    // ---- שכבת השוק. מחירים מבוקשים, ולכן שדות נפרדים לגמרי ----
+    market_median_asking_price: hasMarket ? marketStats.median_price : undefined,
+    market_median_asking_price_per_sqm: hasMarket ? marketStats.median_price_per_sqm : undefined,
+    market_gap_vs_asking_pct: marketGap(subject.price, marketStats.median_price),
+    market_gap_vs_asking_per_sqm_pct: marketGap(subject.price_per_sqm, marketStats.median_price_per_sqm),
+    market_sample_size: hasMarket ? marketStats.count : undefined,
+    market_comparables_total: coverage.market_comparables_total,
+    market_feature_matched: coverage.market_feature_matched,
+    market_band_reason: coverage.market_band_reason,
+    market_guidance: MARKET_GUIDANCE[String(coverage.market_band_reason)] || undefined,
     rooms_band: hasStats ? coverage.rooms_band : undefined,
     rooms_band_reason: hasStats ? coverage.rooms_band_reason : undefined,
     excluded_other_rooms: hasStats ? coverage.excluded_other_rooms : undefined,
@@ -3252,7 +3296,10 @@ const SYSTEM_STATIC: string = (() => {
       "true, אמור/אמרי שהמדגם קטן לפני שאת/ה מסיק/ה ממנו. " +
       "**ואם חזר comparability_guidance - בצע/י אותו.** הוא מופיע רק כשהממוצע " +
       "אינו נשען על עסקאות באותו מספר חדרים, וזה בדיוק המצב שבו המספר מערבב " +
-      "דירות 3 חדרים עם דירות 5 ונשמע כמו ממצא.",
+      "דירות 3 חדרים עם דירות 5 ונשמע כמו ממצא. " +
+      "**ו-market_* הם שכבה אחרת לגמרי: נכסים שמוצעים בשוק עכשיו, כלומר מחירים " +
+      "מבוקשים ולא מחירי עסקה.** הם עונים על \"מול מי אנחנו מתחרים\" ולא על \"כמה שווה\", " +
+      "ואסור למסור אותם כאומדן שווי או לערבב אותם עם ממוצע העסקאות. כשיש market_guidance - בצע/י אותו.",
     "- \"מה נמכר ברחוב X\" / \"5 עסקאות אחרונות ב...\" / \"כמה שילמו על 4 חדרים באזור\" " +
       "= market_deals_lookup. ההבדל מ-cma_report: הוא מקבל **כתובת** ולא נכס, ולכן הוא " +
       "עונה גם לפני שהנכס במערכת. הוא Elite בלבד; אם חזר tier_required אמור/אמרי שזו " +

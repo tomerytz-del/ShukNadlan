@@ -17421,6 +17421,48 @@ function cmaSampleNote(cov, radiusUsed){
   return rad ? `<div class="cma-note">ההשוואה נערכה${rad}.</div>` : '';
 }
 
+/* ---------- שכבת השוק: מול מי הנכס מתחרה עכשיו ----------
+   ‏`market_comparables` הם נכסים **פעילים למכירה** בסביבה, כלומר
+   **מחירים מבוקשים ולא מחירי עסקה**. לכן הם חיים בבלוק משלהם ואינם
+   נוגעים ב-`stats`: האבחנה הזו היא מה שמיגרציה `20261130090000` נבנתה
+   כדי לשמור עליו, אחרי שפער המיקוח נכנס למאגר כאילו היה מחיר סגירה.
+
+   **וזו השכבה היחידה שיכולה לשקלל מאפיינים.** למאגר העסקאות אין ולו
+   מאפיין אחד - 1,512 העסקאות הרשמיות נושאות סוג, חדרים, קומה ומ"ר בלבד -
+   ואילו למודעות שלנו יש ממ"ד, מרפסת, מעלית וחניה. לכן דמיון המאפיינים
+   מדרג כאן, וב-`comparables` הוא לא קיים.
+
+   הסולם זהה באופיו לסולם החדרים: קודם התאמת מאפיינים, ואם אין די כאלה
+   נופלים לבנד החדרים לבדו - ואומרים את זה. */
+const CMA_FEATURE_LABELS = Object.fromEntries(
+  [...RESIDENTIAL_PROPERTY_FEATURES, ...COMMERCIAL_PROPERTY_FEATURES, ...LISTING_FEATURES]);
+
+function cmaMarketNote(cov){
+  if (!cov || !Number(cov.market_comparables_total)) return '';
+  const total = Number(cov.market_comparables_total);
+  const rad   = cov.market_radius_meters ? ` ברדיוס ${esc(cov.market_radius_meters)} מ׳` : '';
+  const head  = `<div class="cma-note">נמצאו ${esc(total)} נכסים פעילים למכירה בסביבה${rad}. `
+              + `<strong>אלה מחירים מבוקשים ולא מחירי עסקה</strong>, ולכן הם אינם נכנסים לממוצע שלמעלה.</div>`;
+
+  if (cov.market_band_reason === 'features'){
+    return head + `<div class="cma-note">החציון כאן נשען על ${esc(cov.market_feature_matched)} מהם שגם `
+      + `<strong>תואמים לנכס במאפיינים</strong> (ממ״ד, מעלית, מרפסת, חניה וכדומה).</div>`;
+  }
+  if (cov.market_band_reason === 'rooms_only'){
+    return head + '<div class="cma-note">לא נמצאו די נכסים שתואמים גם במאפיינים, ולכן החציון כאן נשען על '
+      + 'כל הנכסים באותו מספר חדרים. ההתאמה במאפיינים מוצגת בטבלה לכל שורה.</div>';
+  }
+  if (cov.market_band_reason === 'subject_features_missing'){
+    return head + '<div class="cma-note">לנכס לא רשומים מאפיינים, ולכן אי אפשר לדרג את המתחרים לפיהם. '
+      + 'סימון ממ״ד, מעלית, מרפסת וחניה בכרטיס הנכס ידייק את ההשוואה הזו.</div>';
+  }
+  if (cov.market_band_reason === 'too_few'){
+    return head + `<div class="cma-note">זה פחות מ-${esc(cov.min_market_required)} נכסים, ולכן אין כאן חציון - `
+      + 'רק הנכסים עצמם, כל אחד עם המחיר שלו.</div>';
+  }
+  return head;
+}
+
 function renderCmaReport(r){
   const s   = r.subject || {};
   const st  = r.stats || {};
@@ -17508,6 +17550,27 @@ function renderCmaReport(r){
       <td>${hebDate(c.sold_at)}</td>
     </tr>`).join('');
 
+  /* שורות שכבת השוק. ‏`feature_match` הוא `null` כשלאחד הצדדים אין
+     מאפיינים רשומים, ו-`null` אינו 0: "לא נרשם" אינו "אין ממ״ד", ולכן
+     הוא מוצג כ"לא רשום" ולא כ-0%. ‏`in_market_stats` מגיע מה-RPC. */
+  const marketComps = r.market_comparables || [];
+  const mst = r.market_stats || {};
+  const featPct = v => v == null ? '<span class="cma-basis" title="למודעה אין מאפיינים רשומים">לא רשום</span>'
+                                 : Math.round(Number(v) * 100) + '%';
+  const marketRows = marketComps.map(c => `<tr>
+      <td>${esc(c.title)}${c.is_own ? ' <span class="cma-basis" title="מודעה שלך">שלי</span>' : ''}</td>
+      <td>${c.rooms ?? '-'}</td>
+      <td>${c.size_sqm ? esc(c.size_sqm) + ' מ״ר' : '-'}</td>
+      <td>${shekel(c.price)} <span class="cma-basis is-asking" title="מחיר מבוקש - הנכס עדיין לא נמכר">מבוקש</span></td>
+      <td>${c.price_per_sqm ? shekel(c.price_per_sqm) : '-'}</td>
+      <td>${featPct(c.feature_match)}${c.in_market_stats === false && c.feature_match != null
+        ? ' <span class="cma-basis" title="לא נספר בחציון - התאמת המאפיינים נמוכה מהסף">לא נספר</span>' : ''}</td>
+      <td>${esc(c.distance_meters)} מ׳</td>
+    </tr>`).join('');
+
+  const marketGap    = cmaGapPct(s.price, mst.median_price);
+  const marketSqmGap = cmaGapPct(s.price_per_sqm, mst.median_price_per_sqm);
+
   const cityRows = cityComps.map(c => `<tr>
       <td>${esc(c.property_type)}</td>
       <td>${c.rooms ?? '-'}</td>
@@ -17570,6 +17633,30 @@ function renderCmaReport(r){
         <thead><tr><th>סוג</th><th>חדרים</th><th>מחיר</th><th>למ״ר</th><th>מרחק</th><th>תאריך</th></tr></thead>
         <tbody>${compRows}</tbody>
       </table>` : ''}
+
+    ${marketComps.length ? `
+      <div class="cma-section-title">נכסים דומים שמוצעים בשוק עכשיו</div>
+      ${Array.isArray(s.features) && s.features.length
+        ? `<div class="cma-note">המאפיינים של הנכס: ${esc(s.features.map(f => CMA_FEATURE_LABELS[f] || f).join(' · '))}</div>`
+        : ''}
+      ${cmaMarketNote(cov)}
+      ${mst.median_price ? `
+        <div class="cma-stats">
+          <div class="cma-stat"><div class="n">${esc(mst.count)}</div><div class="l">נכסים בהשוואה</div></div>
+          <div class="cma-stat"><div class="n">${shekel(mst.median_price)}</div><div class="l">מחיר מבוקש חציוני</div></div>
+          <div class="cma-stat"><div class="n">${mst.median_price_per_sqm ? shekel(mst.median_price_per_sqm) : '-'}</div><div class="l">מבוקש חציוני למ״ר</div></div>
+          <div class="cma-stat"><div class="n">${esc(cov.market_comparables_total)}</div><div class="l">סה״כ בסביבה</div></div>
+        </div>
+        ${cmaGapLine(marketGap,    'המחיר המבוקש שלנו מול המבוקש בשוק',      mst.count)}
+        ${cmaGapLine(marketSqmGap, 'המחיר המבוקש שלנו למ״ר מול המבוקש בשוק', mst.sqm_sample_size ?? mst.count)}
+        ${mst.own_count > 0
+          ? `<div class="cma-note">${esc(mst.own_count)} מהנכסים בהשוואה הם מודעות שלך.</div>` : ''}` : ''}
+      <table class="cma-table">
+        <thead><tr><th>נכס</th><th>חדרים</th><th>שטח</th><th>מחיר</th><th>למ״ר</th><th>התאמת מאפיינים</th><th>מרחק</th></tr></thead>
+        <tbody>${marketRows}</tbody>
+      </table>
+      ${Number(cov.market_comparables_total) > Number(cov.market_comparables_shown)
+        ? `<div class="cma-note">מוצגים ${esc(cov.market_comparables_shown)} מתוך ${esc(cov.market_comparables_total)}, לפי סדר ההתאמה.</div>` : ''}` : ''}
 
     ${cityComps.length ? `
       <div class="cma-section-title">עסקאות נוספות ב${esc(s.city)} (ללא מיקום מדויק)</div>
