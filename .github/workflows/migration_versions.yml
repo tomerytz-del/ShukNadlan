@@ -19,12 +19,17 @@ name: גרסאות מיגרציה
 #
 # הבדיקה קוראת קבצים ואת ה-git בלבד: בלי רשת, בלי סודות, ובלי חיבור למסד.
 
+# ‏**אין `paths` על `pull_request`, וזה בכוונה.** הבדיקה הזו נועדה להיות
+# ‏required status check, ובדיקה נדרשת שאינה **רצה** אינה עוברת: ‏GitHub
+# משאיר אותה "Expected - waiting for status" ו-ה-PR אינו ניתן למיזוג
+# לנצח. עם `paths` היא הייתה נדלגת בכל PR שאינו נוגע במיגרציות - כלומר
+# ברובם - וחוסמת אותם. המחיר של הרצה תמידית הוא כ-5 שניות: היא קוראת
+# שמות קבצים ו-git, בלי רשת ובלי מסד.
+#
+# ב-`push` ל-main הפילטר נשאר, כי שם היא אינה בדיקה נדרשת.
+
 on:
   pull_request:
-    paths:
-      - "supabase/migrations/**"
-      - "scripts/check_migration_versions.py"
-      - ".github/workflows/migration_versions.yml"
   push:
     branches: [main]
     paths:
@@ -38,6 +43,11 @@ permissions:
 
 jobs:
   check:
+    # ‏**שם ה-job הוא מה שהגנת הענף מחפשת**, ולא שם ה-workflow. בלי השורה
+    # הזו הבדיקה מופיעה כ-`check` - וכך קוראים לה 17 workflows בריפו, כי
+    # לאף אחד מהם אין `name` ברמת ה-job. אי אפשר לדרוש אחת מהן בלי לדרוש
+    # את כולן. השם המובחן הוא מה שהופך אותה לניתנת לדרישה.
+    name: גרסאות מיגרציה
     runs-on: ubuntu-latest
     steps:
       # ‏fetch-depth: 0 — הבדיקה משווה מול ענף הבסיס, ולכן צריכה את

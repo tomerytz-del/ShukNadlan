@@ -490,8 +490,10 @@ Remote migration versions not found in local migrations directory.
 1. שם הקובץ `YYYYMMDDHHMMSS_שם_קצר.sql`, וה-version חייב להיות ייחודי
    **וגדול מהאחרון** — ‏version כפול (קורה בין שני PR-ים מקבילים) מפיל את
    כל ה-job, וזה כבר קרה ארבע פעמים. ‏`scripts/check_migration_versions.py`
-   חוסם ב-CI. מה שהוא **אינו** תופס הוא PR אחר שמוזג אחרי שה-PR שלכם
-   עבר ירוק — לשם כך צריך "Require branches to be up to date".
+   חוסם ב-CI, כ-job בשם **`גרסאות מיגרציה`** שרץ על **כל** PR (בכוונה:
+   בדיקה נדרשת שמדולגת חוסמת מיזוג לנצח). מה שהוא **אינו** תופס הוא PR
+   אחר שמוזג אחרי שה-PR שלכם עבר ירוק — לשם כך צריך לדרוש את הבדיקה
+   בהגנת הענף ולסמן "Require branches to be up to date".
 2. **אידמפוטנטית**: `add column if not exists`, `create or replace`,
    בדיקת `pg_constraint` לפני `add constraint`. היא עלולה לרוץ שוב.
 3. ‏`create or replace view` — עמודה חדשה **בסוף** בלבד.
