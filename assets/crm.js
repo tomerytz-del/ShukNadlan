@@ -10343,7 +10343,6 @@ function buildPropertyTab(p, agentId){
 }
 
 function buildPropertyCard(p, agentId){
-  const statusLabels = PROPERTY_STATUS_LABELS;
   const viewCounts = propertyViewCounts;
   const planningByProperty = propertyPlanningInfo;
 
@@ -10370,28 +10369,36 @@ function buildPropertyCard(p, agentId){
   const heroHtml = (p.images && p.images.length)
     ? `<img class="pc-hero-img" src="${esc(p.images[0])}" alt="" loading="lazy">`
     : `<span class="pc-hero-img pc-hero-ph" aria-hidden="true">${cardIconSvg('home')}</span>`;
-  // כל פרט הוא תגית קצרה משלו: קודם המזהה שהסוכן/ת מוסר/ת בטלפון, אחר כך
-  // מאפייני הנכס. **הסדר התהפך:** התגיות שדורשות פעולה עלו לראש הרשימה,
-  // מיד אחרי המזהה, כי שורת התגיות מכווצת עכשיו לשתי שורות ומה שאינו נכנס
-  // בהן יורד אל מאחורי "+N" (ראו clampCardTags). קודם הן ישבו בסוף והצבע
-  // לבדו תפס את העין - אבל צבע אינו עוזר לתגית שאינה על המסך.
-  //
-  // ושלוש תגיות ירדו מכאן לגמרי, כולן כפילויות של מה שכבר מוצג:
-  //   סוג הנכס  - הפרט הראשון בשורה הסגורה שמעל ("דירה · עלייה 7, עפולה")
-  //   יריד      - אריח היריד אומר את אותם שלושה מצבים בדיוק, בצבע מלא
+  /* שורת התגיות מכווצת ל**שורה אחת**, וכל מה שמעבר לה יורד אל מאחורי
+     "+N" (ראו clampCardTags). שלוש החלטות נגזרות מזה:
+
+     1. **הסדר הפוך ממה שהיה.** התגיות שדורשות פעולה ראשונות, כי צבע אינו
+        עוזר לתגית שאינה על המסך; נתוני ההתייחסות הם מה שמחכה ללחיצה.
+     2. **מספר המודעה יצא מהשורה** ועלה אל מעל שבב הסטטוס - הוא המזהה
+        שנמסר בטלפון, ולא נכון שהוא זה שייחתך. שם ממילא היה חלל ריק מתחת
+        לשבב, ובטלפון הוא בולט הרבה יותר מאשר גלולה שנייה בשורה.
+     3. **גלולת השת"פ ירדה לכאן** מ-`.pill-row` שמעל, בגוון `tag-good`
+        שהוא בדיוק הירוק שהיה לה. שורה נפרדת לגלולה אחת היא בדיוק הגובה
+        שבאנו לחסוך, והיא תגית לכל דבר.
+
+     ושתי תגיות ירדו לגמרי, שתיהן כפילויות: סוג הנכס (הפרט הראשון בשורה
+     הסגורה שמעל), ותגיות היריד (אריח היריד אומר את אותם שלושה מצבים
+     בדיוק, בצבע מלא). */
   const tags = tagsHtml([
-    { text:`מודעה #${p.listing_number ?? '-'}`, cls:'tag-key' },
     expired && { text:`⏳ פג תוקף ${tabShortDate(p.listing_expires_at)}`, cls:'tag-warn' },
     (!p.images || !p.images.length) && { text:'📷 ללא תמונות', cls:'tag-warn' },
     // התיאור השיווקי הוא מה שמופיע בדף הנכס כשאין תיאור מודעה, ולכן
     // היעדרו הוא חוסר במודעה עצמה — באותו גוון אזהרה של "ללא תמונות".
     p.status === 'active' && mktState.tag && { text: mktState.tag, cls:'tag-warn' },
-    p.rooms && { html:`🛏 <b>${esc(p.rooms)}</b> חדרים` },
+    p.shared_with_partners && { text:`🤝 ${plural(propertyShareCounts[p.id] || 0, 'משרד אחד', 'משרדים')}`,
+      cls:'tag-good', title:`הנכס פתוח לשת״פ · הופץ ${hebDate(p.shared_at)}` },
+    p.rooms && { html:`🛏 <b>${esc(p.rooms)}</b> חד׳`, title:`${p.rooms} חדרים` },
     { html:`👁 <b>${viewCounts[p.id]||0}</b> צפיות` },
-    p.price_per_sqm && { text:`📐 ${shekel(p.price_per_sqm)}/מ״ר` },
+    p.price_per_sqm && { text:`📐 ${shekel(p.price_per_sqm)}/מ״ר`, title:'מחיר למטר רבוע' },
     // ‏"גו״ח" הוא הקיצור שמתווכים משתמשים בו ממילא, והוא חוסך כאן כמחצית
-    // מרוחב התגית הארוכה ביותר בשורה
-    planning && { text:`📍 גו״ח ${planning.gush||'-'}/${planning.helka||'-'}`, cls:'tag-info' },
+    // מרוחב התגית הארוכה ביותר בשורה. הנוסח המלא ב-title.
+    planning && { text:`📍 גו״ח ${planning.gush||'-'}/${planning.helka||'-'}`, cls:'tag-info',
+      title:`גוש ${planning.gush||'-'} · חלקה ${planning.helka||'-'}` },
     !expired && p.listing_expires_at && { text:`⏳ בתוקף עד ${tabShortDate(p.listing_expires_at)}` },
   ]);
 
@@ -10422,9 +10429,6 @@ function buildPropertyCard(p, agentId){
         >${cardIconSvg('chat')}<span>וואטסאפ</span></a>` : ''}
     </div>` : '';
 
-  const sharePill = p.shared_with_partners
-    ? `<span class="status-pill status-shared" title="בשת״פ · הופץ ${hebDate(p.shared_at)}">🤝 ${plural(propertyShareCounts[p.id] || 0, 'משרד אחד', 'משרדים')}</span>`
-    : '';
   el.innerHTML = `
     <div class="pc-col-main">
       <div class="pc-hero">
@@ -10433,10 +10437,12 @@ function buildPropertyCard(p, agentId){
           ${isCurrentlyPromoted && p.promoted_until ? `<span class="lead-kind">🌟 מקודם · ${esc(timeLeftLabel(p.promoted_until))}</span>` : (isCurrentlyPromoted ? '<span class="lead-kind">🌟 מקודם</span>' : '')}
           <div class="pc-hero-head">
             <div class="lead-name">${esc(p.title)}</div>
-            <div class="pc-status-slot"></div>
+            <div class="pc-ident">
+              <span class="card-tag tag-key pc-listing">מודעה #${esc(String(p.listing_number ?? '-'))}</span>
+              <div class="pc-status-slot"></div>
+            </div>
           </div>
           <div class="prop-price">${priceHtml}</div>
-          ${sharePill ? `<div class="pill-row">${sharePill}</div>` : ''}
         </div>
       </div>
       ${tags}
@@ -10663,25 +10669,25 @@ function buildPropertyCard(p, agentId){
   // מספר העמודות נקבע כאן ולא ב-CSS, כי הוא תלוי בכמה פריטים נכנסו בפועל
   balanceGrid(actions);
   balanceGrid(hubRow);
-  clampCardTags(el.querySelector('.pc-col-main > .card-tags'));
+  clampCardTags(el.querySelector('.pc-col-main > .card-tags'), 1);
   return el;
 }
 
-/* ---------- שורת התגיות: שתי שורות, והשאר מאחורי "+N" ----------
-   מספר התגיות אינו קבוע (בין שתיים לתשע), ורוחבן משתנה עם התוכן. ברוחב
+/* ---------- שורת התגיות: `maxRows` שורות, והשאר מאחורי "+N" ----------
+   מספר התגיות אינו קבוע (בין אחת לשמונה), ורוחבן משתנה עם התוכן. ברוחב
    טלפון התוצאה הייתה שלוש ואפילו ארבע שורות של גלולות אפורות - בדיוק
    הקיר שהתגיות נועדו למנוע, כי שורה שלישית של פרטים כבר אינה נסרקת.
 
-   שתי שורות תמיד, ומה שמעבר יורד אל מאחורי כפתור "+N" שפותח אותן.
-   ‏**לכן הסדר התהפך למעלה:** מה שנשאר גלוי הן שתי השורות הראשונות, ולכן
-   התגיות שדורשות פעולה (פג תוקף, ללא תמונות, ללא תיאור) עלו לראש - הן
-   אלה שאסור שייעלמו, ותגית "בתוקף עד" יכולה לחכות ללחיצה.
+   כרטיס הנכס מכווץ ל**שורה אחת**, ומה שמעבר יורד אל מאחורי כפתור "+N"
+   שפותח אותה. ‏**לכן הסדר התהפך למעלה:** מה שנשאר גלוי הוא ראש הרשימה,
+   ולכן התגיות שדורשות פעולה (פג תוקף, ללא תמונות, ללא תיאור) עלו לשם -
+   הן אלה שאסור שייעלמו, ותגית "בתוקף עד" יכולה לחכות ללחיצה.
 
    ה-CSS אינו יכול לעשות את זה לבד: הוא יודע לחתוך בגובה (`max-height`),
    אבל לא לספור כמה נחתכו ולא להשאיר מקום לכפתור. המדידה כאן היא
    ‏`offsetTop` - כל תגית בשורה מסוימת חולקת את אותו ערך, ולכן מספר
    הערכים השונים הוא מספר השורות. */
-function clampCardTags(wrap){
+function clampCardTags(wrap, maxRows = 2){
   if (!wrap) return;
   const more = document.createElement('button');
   more.type = 'button';
@@ -10700,16 +10706,16 @@ function clampCardTags(wrap){
     if (!all.length) return;
 
     const rows = [...new Set(all.map(t => t.offsetTop))].sort((a, b)=> a - b);
-    if (rows.length <= 2) return;
+    if (rows.length <= maxRows) return;
 
-    // ראש השורה השלישית. הסתרת תגיות מהסוף אינה מזיזה את מה שלפניהן,
-    // ולכן הסף הזה נשאר תקף גם אחרי ההסתרה.
-    const cut = rows[2];
+    // ראש השורה הראשונה שנחתכת. הסתרת תגיות מהסוף אינה מזיזה את מה
+    // שלפניהן, ולכן הסף הזה נשאר תקף גם אחרי ההסתרה.
+    const cut = rows[maxRows];
     let hiddenCount = 0;
     all.forEach(t => { if (t.offsetTop >= cut){ t.hidden = true; hiddenCount++; } });
     more.hidden = false;
     more.textContent = '+' + hiddenCount;
-    // הכפתור עצמו תופס מקום, ועלול לדחוף תגית נוספת לשורה השלישית
+    // הכפתור עצמו תופס מקום, ועלול לדחוף תגית נוספת אל מעבר לסף
     let guard = all.length;
     while (more.offsetTop >= cut && guard-- > 0){
       const last = all.filter(t => !t.hidden).pop();
@@ -14945,12 +14951,18 @@ function esc(s){ return escapeHtml(s); }
    ‏{text, cls} כשצריך גוון - tag-key למזהה, tag-info להדגשה, tag-warn למה
    שדורש טיפול, tag-good לחיובי - או {html} כשהתגית כבר בנויה כ-HTML.
    ‏null/undefined נופלים החוצה, כדי שהקורא יוכל לכתוב תנאים בתוך המערך. */
+/* ‏`title` הוא הפרט שלא נכנס לתגית עצמה. תגית היא גלולה קצרה במכוון,
+   ולפעמים יש מאחוריה עוד משפט - "הופץ ב-14.9" מאחורי "🤝 6 משרדים",
+   או הנוסח המלא מאחורי קיצור כמו "גו״ח". הוא תוספת ולא תחליף: מה שחייבים
+   לדעת נשאר בגוף התגית, כי ‏`title` אינו קיים במגע. */
 function tagsHtml(items){
   const inner = (items || []).filter(Boolean).map(item => {
     const t = typeof item === 'string' ? { text:item } : item;
     const body = t.html ?? esc(t.text);
     // תגית ריקה (ערך חסר בשורה) היא בועה לבנה בלי תוכן - עדיף בלעדיה
-    return body ? `<span class="card-tag ${t.cls || ''}">${body}</span>` : '';
+    if (!body) return '';
+    const title = t.title ? ` title="${esc(t.title)}"` : '';
+    return `<span class="card-tag ${t.cls || ''}"${title}>${body}</span>`;
   }).join('');
   return inner ? `<div class="card-tags">${inner}</div>` : '';
 }
