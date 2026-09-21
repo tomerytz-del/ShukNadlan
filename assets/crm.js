@@ -10352,81 +10352,116 @@ function buildPropertyCard(p, agentId){
   // ‏property_owners מוגן ב-RLS, ולכן השורה הזו מגיעה רק לסוכן/ת של הנכס
   // ולמנהל/ת המשרד — ולכל האחרים היא פשוט לא קיימת בתשובה.
   const ownerRow = Array.isArray(p.property_owners) ? p.property_owners[0] : p.property_owners;
-  const ownerLine = [ownerRow?.owner_name, ownerRow?.owner_phone].filter(Boolean).join(' · ');
+  const ownerName = (ownerRow?.owner_name || '').trim();
+  const ownerPhone = localPhone(ownerRow?.owner_phone);
+  const ownerWa = waLink(ownerRow?.owner_phone);
   const planning = planningByProperty[p.id];
   const mktState = marketingCopyState(p);
   const el = document.createElement('div');
-  el.className = 'card lead-card' + (isCurrentlyPromoted ? ' is-promoted' : '');
-  const thumbHtml = (p.images && p.images.length)
-    ? `<img class="prop-thumb-mini" src="${p.images[0]}" alt="">`
-    : '';
+  el.className = 'card lead-card prop-card' + (isCurrentlyPromoted ? ' is-promoted' : '');
+  /* תמונת הכותרת, ולמה היא גדולה מהבול שבשורה הסגורה: הכרטיס הפתוח הוא
+     הרגע שבו הסוכן/ת מוודא/ת שנפתח הנכס הנכון, ובול של 52px אינו מאפשר
+     את זה. נכס בלי תמונות מקבל משבצת עם סמל בית ולא חור בפריסה - ולמה
+     היא ריקה כתוב בתגית "ללא תמונות" שממילא מוצגת.
+     ‏esc על ה-src: הכתובת מגיעה מהמסד, והיא נכנסת למאפיין. */
+  const heroHtml = (p.images && p.images.length)
+    ? `<img class="pc-hero-img" src="${esc(p.images[0])}" alt="" loading="lazy">`
+    : `<span class="pc-hero-img pc-hero-ph" aria-hidden="true">${cardIconSvg('home')}</span>`;
   // כל פרט הוא תגית קצרה משלו: קודם המזהה שהסוכן/ת מוסר/ת בטלפון, אחר כך
-  // מאפייני הנכס, ובסוף התגיות שדורשות פעולה (פג תוקף / ללא תמונות) בגוון
-  // אזהרה — כדי שהעין תתפוס אותן בסריקה מהירה של הרשימה.
+  // מאפייני הנכס. **הסדר התהפך:** התגיות שדורשות פעולה עלו לראש הרשימה,
+  // מיד אחרי המזהה, כי שורת התגיות מכווצת עכשיו לשתי שורות ומה שאינו נכנס
+  // בהן יורד אל מאחורי "+N" (ראו clampCardTags). קודם הן ישבו בסוף והצבע
+  // לבדו תפס את העין - אבל צבע אינו עוזר לתגית שאינה על המסך.
+  //
+  // ושלוש תגיות ירדו מכאן לגמרי, כולן כפילויות של מה שכבר מוצג:
+  //   סוג הנכס  - הפרט הראשון בשורה הסגורה שמעל ("דירה · עלייה 7, עפולה")
+  //   יריד      - אריח היריד אומר את אותם שלושה מצבים בדיוק, בצבע מלא
   const tags = tagsHtml([
     { text:`מודעה #${p.listing_number ?? '-'}`, cls:'tag-key' },
-    p.rooms && { html:`🛏 <b>${esc(p.rooms)}</b> חדרים` },
-    p.property_type && { text:'🏠 ' + p.property_type },
-    { html:`👁 <b>${viewCounts[p.id]||0}</b> צפיות` },
-    p.price_per_sqm && { text:`📐 ${shekel(p.price_per_sqm)} למ״ר` },
-    planning && { text:`📍 גוש ${planning.gush||'-'} · חלקה ${planning.helka||'-'}`, cls:'tag-info' },
-    expired ? { text:`⏳ פג תוקף ${hebDate(p.listing_expires_at)}`, cls:'tag-warn' }
-            : p.listing_expires_at && { text:`⏳ בתוקף עד ${hebDate(p.listing_expires_at)}` },
+    expired && { text:`⏳ פג תוקף ${tabShortDate(p.listing_expires_at)}`, cls:'tag-warn' },
     (!p.images || !p.images.length) && { text:'📷 ללא תמונות', cls:'tag-warn' },
-    // היריד נמדד בתאריכים ולא בדגל (ראו assets/open-house.js): חלון שטרם
-    // נפתח נאמר במפורש, כדי שלא ייראה כאילו הסימון לא נקלט.
-    OpenHouse.live(p)
-      ? { text:`🏷 ביריד הבתים הפתוחים · ${OpenHouse.endLabel(p)}`, cls:'tag-info' }
-      : (OpenHouse.upcoming(p) && { text:`🏷 נכנס ליריד ב-${OpenHouse.hebDay(OpenHouse.startsAt(p))}`, cls:'tag-info' }),
     // התיאור השיווקי הוא מה שמופיע בדף הנכס כשאין תיאור מודעה, ולכן
     // היעדרו הוא חוסר במודעה עצמה — באותו גוון אזהרה של "ללא תמונות".
     p.status === 'active' && mktState.tag && { text: mktState.tag, cls:'tag-warn' },
+    p.rooms && { html:`🛏 <b>${esc(p.rooms)}</b> חדרים` },
+    { html:`👁 <b>${viewCounts[p.id]||0}</b> צפיות` },
+    p.price_per_sqm && { text:`📐 ${shekel(p.price_per_sqm)}/מ״ר` },
+    // ‏"גו״ח" הוא הקיצור שמתווכים משתמשים בו ממילא, והוא חוסך כאן כמחצית
+    // מרוחב התגית הארוכה ביותר בשורה
+    planning && { text:`📍 גו״ח ${planning.gush||'-'}/${planning.helka||'-'}`, cls:'tag-info' },
+    !expired && p.listing_expires_at && { text:`⏳ בתוקף עד ${tabShortDate(p.listing_expires_at)}` },
   ]);
 
+  /* שני בנים ישירים: המידע והפעולות. בטלפון הם נערמים בסדר הזה, וברוחב
+     של מחשב הם נפרסים לשתי עמודות. ההחלטה מתי נשענת על @container ולא
+     על רוחב החלון; ראו ‎.prop-card‎ ב-CSS.
+
+     ובלוק הסטטוס יושב **בשורת הכותרת**, בקצה שנשאר פנוי בה. קודם היה לו
+     בלוק משלו ברוחב הכרטיס, ואז רצועה שנגללת לרוחב - שתיהן עלו בשורה
+     שלמה על כל נכס שנפתח. השורה הזו כבר קיימת ממילא, והמקום בקצה שלה
+     היה ריק: הסטטוס עולה שם אפס גובה. */
+  /* שורת הבעלים, ולמה הטלפון בה הוא קישור ולא טקסט: זה המספר שהסוכן/ת
+     מחייג/ת אליו יותר מכל מספר אחר במערכת - "מתי אפשר להראות", "ירדנו
+     במחיר?", "יש הצעה". עד כה הוא היה טקסט אפור בתוך שורה, כלומר סימון
+     בעכבר והעתקה, או הקלדה ידנית בטלפון.
+     שתי דרכים כי שתיהן בשימוש: שיחה למי שעונה, וואטסאפ למי שלא.
+     ‏bdi על המספר - ספרות בתוך שורה עברית הן רצף LTR שאלגוריתם ה-bidi
+     מצרף אליו את מה שסביבו, ומספר שמופיע אחרי נקודה או מקף היה מוצג
+     בסדר הפוך. */
+  const ownerHtml = (ownerName || ownerPhone) ? `
+    <div class="pc-owner">
+      <span class="pc-owner-lbl">בעלים${ownerName ? ': ' + esc(ownerName) : ''}</span>
+      ${ownerPhone ? `<a class="pc-owner-act" href="tel:${esc(ownerPhone)}"
+        title="חיוג לבעל/ת הנכס">${cardIconSvg('phone')}<bdi>${esc(ownerPhone)}</bdi></a>` : ''}
+      ${ownerWa ? `<a class="pc-owner-act pc-owner-wa" href="${esc(ownerWa)}"
+        target="_blank" rel="noopener noreferrer"
+        title="וואטסאפ לבעל/ת הנכס" aria-label="וואטסאפ לבעל/ת הנכס"
+        >${cardIconSvg('chat')}<span>וואטסאפ</span></a>` : ''}
+    </div>` : '';
+
+  const sharePill = p.shared_with_partners
+    ? `<span class="status-pill status-shared" title="בשת״פ · הופץ ${hebDate(p.shared_at)}">🤝 ${plural(propertyShareCounts[p.id] || 0, 'משרד אחד', 'משרדים')}</span>`
+    : '';
   el.innerHTML = `
-    <div class="lead-top">
-      <div style="display:flex;gap:10px;align-items:flex-start;min-width:0">
-        ${thumbHtml}
-        <div style="min-width:0">
+    <div class="pc-col-main">
+      <div class="pc-hero">
+        ${heroHtml}
+        <div class="pc-hero-body">
           ${isCurrentlyPromoted && p.promoted_until ? `<span class="lead-kind">🌟 מקודם · ${esc(timeLeftLabel(p.promoted_until))}</span>` : (isCurrentlyPromoted ? '<span class="lead-kind">🌟 מקודם</span>' : '')}
-          <div class="lead-name">${esc(p.title)}</div>
+          <div class="pc-hero-head">
+            <div class="lead-name">${esc(p.title)}</div>
+            <div class="pc-status-slot"></div>
+          </div>
           <div class="prop-price">${priceHtml}</div>
+          ${sharePill ? `<div class="pill-row">${sharePill}</div>` : ''}
         </div>
       </div>
-      <div class="pill-row">
-        <span class="status-pill ${propertyStatusPillClass(p.status)}">${statusLabels[p.status] || p.status}</span>
-        ${p.shared_with_partners
-          ? `<span class="status-pill status-shared" title="בשת״פ · הופץ ${hebDate(p.shared_at)}">🤝 ${plural(propertyShareCounts[p.id] || 0, 'משרד אחד', 'משרדים')}</span>`
-          : ''}
+      ${tags}
+      ${ownerHtml}
+      ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
+    </div>
+    <div class="pc-col-side">
+      <div class="pc-sec-head pc-quick-head">פעולות מהירות</div>
+      <div class="pc-grid"></div>
+      <div class="pc-hub" hidden>
+        <div class="pc-sec-head">כלי AI ודאטה</div>
+        <div class="pc-hub-row"></div>
       </div>
     </div>
-    ${tags}
-    ${ownerLine ? `<div class="lead-meta">בעלים: ${esc(ownerLine)}</div>` : ''}
-    ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
-    <div class="pc-status-slot"></div>
-    <div class="pc-sec-head pc-quick-head">פעולות מהירות</div>
-    <div class="pc-grid"></div>
-    <div class="pc-hub" hidden>
-      <div class="pc-sec-head">כלי AI ודאטה</div>
-      <div class="pc-hub-row"></div>
-    </div>
-    <div class="lead-actions act-primary"></div>
   `;
   const actions = el.querySelector('.pc-grid');
   const hub = el.querySelector('.pc-hub');
   const hubRow = hub.querySelector('.pc-hub-row');
-  const mainActions = el.querySelector('.lead-actions.act-primary');
 
-  /* בלוק הסטטוס ראשון, לפני כל פעולה אחרת: "האם המודעה באוויר" היא השאלה
-     הראשונה שנשאלת על כל נכס, וממנה נגזר מה בכלל רלוונטי לעשות איתו.
+  /* הסטטוס בשורת הכותרת: "האם המודעה באוויר" היא השאלה הראשונה שנשאלת
+     על כל נכס, ולכן היא בשורה הראשונה - רק בלי לעלות בשורה משלה.
      ראו buildPropertyStatusPanel. */
   el.querySelector('.pc-status-slot').replaceWith(buildPropertyStatusPanel(p, agentId));
 
-  /* סדר הפעולות, ולמה שלושה מקטעים ולא רשימה אחת: ראו את ההערה שמעל
+  /* סדר הפעולות, ולמה שני מקטעים ולא רשימה אחת: ראו את ההערה שמעל
      ‎.pc-grid‎ ב-CSS. כאן רק החלוקה עצמה -
-       ‎actions‎ = מה שעושים לנכס ביום־יום (עריכה, חשיפה, חומר לשטח),
-       ‎hubRow‎  = כלי ה-AI והדאטה, שנדרשים פעם בכמה נכסים,
-       ‎mainActions‎ = שלוש הפעולות שמשנות את מצב הנכס עצמו.
+       ‎actions‎ = כל מה שעושים לנכס, מהעריכה ועד ההכנסה ליריד,
+       ‎hubRow‎  = כלי ה-AI והדאטה, שנדרשים פעם בכמה נכסים.
      התוויות ברשת קצרות במכוון: ברוחב עמודה של שליש מסך, כל מילה שנייה
      יורדת שורה ומגביהה את כל השורה. ההסבר המלא נשאר ב-title. */
   addQuickAction(actions, {
@@ -10454,6 +10489,49 @@ function buildPropertyCard(p, agentId){
   });
 
   if (p.status === 'active'){
+    /* שת"פ ויריד הבתים הפתוחים היו שני כפתורים רחבים בשורה משלהם מתחת
+       לרשת. שתי שורות שלמות לשתי פעולות, בזמן שהרשת שמעליהן נגמרה
+       באמצע שורה - כלומר גם גובה מיותר וגם שתי שפות לאותו כרטיס. הן
+       אריחים כמו כל השאר, והצבע הוא שממשיך לומר מה הן:
+
+         שת"פ  - ירוק מלא כשהנכס עדיין לא מופץ, ירוק רך כשהוא כבר בשת"פ
+                 (אז זו הפצה מחודשת, לא פתיחה).
+         יריד  - אדום מלא כשהנכס מחוץ ליריד, אדום רך כשהוא בתוכו (אז זו
+                 כבר תיאור מצב והדרך לשנות אותו, ולא קריאה לפעולה).
+
+       זו בדיוק ההבחנה שהייתה בין ‎btn-share‎ ל-‎btn-ghost‎ ובין
+       ‎btn-openhouse‎ ל-‎btn-openhouse-on‎, והיא עברה כמו שהיא לאריחים. */
+    addQuickAction(actions, {
+      label: p.shared_with_partners ? 'עדכון הפצה' : 'שת״פ',
+      icon:'partners', tone: p.shared_with_partners ? 'green' : 'share',
+      title: p.shared_with_partners
+        ? 'הפצה מחודשת של הנכס למשרדים שברשימת השת״פ'
+        : 'פתיחת הנכס לשיתוף פעולה - ההפצה יוצאת מיד למשרדים שברשימה',
+      onClick: btn => shareProperty(p, btn, agentId),
+    });
+
+    /* יריד הבתים הפתוחים. מתוך כל הפעולות בכרטיס זו היחידה שמשנה את מה
+       שהקונה ישלם בפועל, והיא גם היחידה שחוזרים אליה מדי כמה שבועות
+       ("הנכס הזה, לשבועיים הקרובים"). לכן היא אריח מלא בצבע ולא עוד
+       אריח בהיר ברשת - כפתור שמיני ברשת של שתים־עשרה פעולות הוא כפתור
+       שאיש לא מצא, וזה בדיוק מה שקרה כשהשדות ישבו רק בטופס העריכה.
+
+       התווית אומרת שלושה דברים שונים לפי מצב הנכס - מחוץ ליריד, בתוכו,
+       או מחכה לתאריך - כי זו השאלה הראשונה שנשאלת במבט על הכרטיס. אין
+       כאן מחיר: ההשתתפות חינם ובלי תלות במסלול. ראו docs/open-house-fair.md */
+    const ohLive = OpenHouse.live(p);
+    const ohSoon = OpenHouse.upcoming(p);
+    addQuickAction(actions, {
+      label: ohLive ? `ביריד · ${OpenHouse.endLabel(p)}`
+           : ohSoon ? `ביריד מ-${OpenHouse.hebDay(OpenHouse.startsAt(p))}`
+           : 'הכנסה ליריד',
+      icon:'tag', tone: ohLive || ohSoon ? 'fair-on' : 'fair',
+      title: ohLive || ohSoon
+        ? 'שינוי תקופת ההשתתפות ביריד הבתים הפתוחים, או הוצאה ממנו'
+        : 'הצעת הנכס ללא עמלת תיווך לקונה, לתקופה קצובה - בדף היריד ובסימן משלו על המפה',
+      onClick: () => openOpenHouseModal(p, agentId),
+    });
+
     addQuickAction(actions, {
       label:'הקפצה', icon:'arrowUp', tone:'green', badge:'חינם', badgeFree:true,
       title:'העלאת הנכס לראש התוצאות · פעם ב-24 שעות',
@@ -10572,58 +10650,110 @@ function buildPropertyCard(p, agentId){
         onClick: btn => openTourEditor(p, btn),
       });
     }
-
-    /* ====== שלוש הפעולות הראשיות, בשורה אחת ======
-       שת"פ, יריד וסגירת עסקה - שלוש הפעולות שמשנות את מצב הנכס עצמו, ולא
-       כלים שעושים בו משהו. הן יושבות בשורה נפרדת משלהן (`.act-primary`)
-       ולא ברשת הכפתורים הקטנים, ולכן גם התוויות כאן קצרות: מה שהן לא
-       אומרות נמצא ב-title. */
-
-    // סימון הנכס כפתוח לשת"פ - ההפצה יוצאת מיד למשרדים שברשימת השת"פ.
-    // ירוק ולא זהוב: זו שפת הצבע של השת"פ בכל הכרטיס, והיא משאירה את
-    // הזהב לפעולה היחידה שסוגרת את המודעה.
-    addCardAction(mainActions, {
-      label: p.shared_with_partners ? '🤝 עדכון הפצה' : '🤝 פתיחה לשת״פ',
-      cls: p.shared_with_partners ? 'btn-ghost' : 'btn-share',
-      title: p.shared_with_partners
-        ? 'הפצה מחודשת של הנכס למשרדים שברשימת השת״פ'
-        : 'פתיחת הנכס לשיתוף פעולה — ההפצה יוצאת מיד למשרדים שברשימה',
-      onClick: btn => shareProperty(p, btn, agentId),
-    });
-
-    /* יריד הבתים הפתוחים. מתוך כל הפעולות בכרטיס זו היחידה שמשנה את מה
-       שהקונה ישלם בפועל, והיא גם היחידה שחוזרים אליה מדי כמה שבועות
-       ("הנכס הזה, לשבועיים הקרובים"). כפתור שמיני ברשת של שתים־עשרה
-       פעולות הוא כפתור שאיש לא מצא - וזה בדיוק מה שקרה כשהשדות ישבו רק
-       בתוך טופס העריכה.
-
-       התווית אומרת שלושה דברים שונים לפי מצב הנכס - מחוץ ליריד, בתוכו, או
-       מחכה לתאריך - כי זו השאלה הראשונה שנשאלת במבט על הכרטיס. אין כאן
-       מחיר: ההשתתפות חינם ובלי תלות במסלול. ראו docs/open-house-fair.md */
-    const ohLive = OpenHouse.live(p);
-    const ohSoon = OpenHouse.upcoming(p);
-    addCardAction(mainActions, {
-      label: ohLive ? `🏷 ביריד · ${OpenHouse.endLabel(p)}`
-           : ohSoon ? `🏷 ביריד מ-${OpenHouse.hebDay(OpenHouse.startsAt(p))}`
-           : '🏷 הכנסה ליריד',
-      cls: ohLive || ohSoon ? 'btn-openhouse-on' : 'btn-openhouse',
-      title: ohLive || ohSoon
-        ? 'שינוי תקופת ההשתתפות ביריד הבתים הפתוחים, או הוצאה ממנו'
-        : 'הצעת הנכס ללא עמלת תיווך לקונה, לתקופה קצובה — בדף היריד ובסימן משלו על המפה',
-      onClick: () => openOpenHouseModal(p, agentId),
-    });
-
-    /* "סמן כנמכר" ו"החזרה לפרסום" ישבו כאן עד שנוסף בלוק הסטטוס. הן לא
-       נעלמו - הן עברו אליו, יחד עם "ירד מפרסום", "ארכיון" ו"מחיקה"
-       שלא היו קיימות. פעולה שמשנה את מצב הנכס נמצאת עכשיו במקום אחד,
-       בראש הכרטיס, ולא בשני כפתורים שמחליפים זה את זה לפי המצב. */
   }
 
   // בלוק כלי ה-AI מוצג רק אם נכנס אליו משהו: במסלול החינמי, ועל נכס
   // שאינו פעיל, כל הכלים שלו מסוננים - וכותרת מעל שורה ריקה היא הבטחה
   // שלא נשמרת. ‏:empty ב-CSS לא היה עוזר כאן, כי הכותרת עצמה בפנים.
   hub.hidden = !hubRow.childElementCount;
+
+  // מספר העמודות נקבע כאן ולא ב-CSS, כי הוא תלוי בכמה פריטים נכנסו בפועל
+  balanceGrid(actions);
+  balanceGrid(hubRow);
+  clampCardTags(el.querySelector('.pc-col-main > .card-tags'));
   return el;
+}
+
+/* ---------- שורת התגיות: שתי שורות, והשאר מאחורי "+N" ----------
+   מספר התגיות אינו קבוע (בין שתיים לתשע), ורוחבן משתנה עם התוכן. ברוחב
+   טלפון התוצאה הייתה שלוש ואפילו ארבע שורות של גלולות אפורות - בדיוק
+   הקיר שהתגיות נועדו למנוע, כי שורה שלישית של פרטים כבר אינה נסרקת.
+
+   שתי שורות תמיד, ומה שמעבר יורד אל מאחורי כפתור "+N" שפותח אותן.
+   ‏**לכן הסדר התהפך למעלה:** מה שנשאר גלוי הן שתי השורות הראשונות, ולכן
+   התגיות שדורשות פעולה (פג תוקף, ללא תמונות, ללא תיאור) עלו לראש - הן
+   אלה שאסור שייעלמו, ותגית "בתוקף עד" יכולה לחכות ללחיצה.
+
+   ה-CSS אינו יכול לעשות את זה לבד: הוא יודע לחתוך בגובה (`max-height`),
+   אבל לא לספור כמה נחתכו ולא להשאיר מקום לכפתור. המדידה כאן היא
+   ‏`offsetTop` - כל תגית בשורה מסוימת חולקת את אותו ערך, ולכן מספר
+   הערכים השונים הוא מספר השורות. */
+function clampCardTags(wrap){
+  if (!wrap) return;
+  const more = document.createElement('button');
+  more.type = 'button';
+  more.className = 'card-tag tag-more';
+  more.hidden = true;
+  wrap.appendChild(more);
+
+  const tags = ()=> Array.from(wrap.children).filter(el => el !== more);
+  let expanded = false;
+
+  const apply = ()=>{
+    if (expanded) return;
+    const all = tags();
+    all.forEach(t => { t.hidden = false; });
+    more.hidden = true;
+    if (!all.length) return;
+
+    const rows = [...new Set(all.map(t => t.offsetTop))].sort((a, b)=> a - b);
+    if (rows.length <= 2) return;
+
+    // ראש השורה השלישית. הסתרת תגיות מהסוף אינה מזיזה את מה שלפניהן,
+    // ולכן הסף הזה נשאר תקף גם אחרי ההסתרה.
+    const cut = rows[2];
+    let hiddenCount = 0;
+    all.forEach(t => { if (t.offsetTop >= cut){ t.hidden = true; hiddenCount++; } });
+    more.hidden = false;
+    more.textContent = '+' + hiddenCount;
+    // הכפתור עצמו תופס מקום, ועלול לדחוף תגית נוספת לשורה השלישית
+    let guard = all.length;
+    while (more.offsetTop >= cut && guard-- > 0){
+      const last = all.filter(t => !t.hidden).pop();
+      if (!last) break;
+      last.hidden = true;
+      more.textContent = '+' + (++hiddenCount);
+    }
+  };
+
+  more.addEventListener('click', ()=>{
+    expanded = true;
+    tags().forEach(t => { t.hidden = false; });
+    more.hidden = true;
+  });
+
+  /* מדידה דורשת פריסה, ולכן ב-rAF: ברגע הזה הכרטיס עדיין לא חובר למסמך
+     וכל ה-offsetTop הם 0. ‏ResizeObserver מחזיק את זה גם בסיבוב מסך -
+     והוא בודק את **הרוחב** בלבד, כי ה-apply עצמו משנה את הגובה וכל
+     תגובה לגובה הייתה לולאה אינסופית. */
+  requestAnimationFrame(apply);
+  if (typeof ResizeObserver === 'undefined') return;
+  let lastWidth = -1;
+  const ro = new ResizeObserver(entries => {
+    if (!wrap.isConnected){ ro.disconnect(); return; }
+    const width = Math.round(entries[0].contentRect.width);
+    if (width === lastWidth) return;
+    lastWidth = width;
+    apply();
+  });
+  ro.observe(wrap);
+}
+
+/* ---------- שתי שורות, ולא שורה שלישית עם אריח בודד ----------
+   מספר האריחים בכרטיס נכס אינו קבוע: הוא נע בין חמישה לתשעה לפי מסלול,
+   סטטוס, מצב השיתוף והאם הנכס כבר מקודם. ברשת ברוחב קבוע התוצאה הייתה
+   שורה שלישית ובה פריט אחד - "ביטול שת״פ" לבדו מתחת לשתי שורות מלאות,
+   וכך גם "עריכת סיור 360°" בבלוק הכלים.
+
+   ‏`--pc-fit` הוא מספר העמודות שבו הכול נכנס לשתי שורות. הרוחב עדיין
+   מגביל אותו: ה-CSS לוקח `min(--pc-max, --pc-fit)`, ולכן בטלפון נשארות
+   שלוש עמודות גם כשהחישוב כאן מבקש חמש - ושם מה שמונע את המראה הקרוע
+   הוא `justify-content:center`, שמרכז שורה אחרונה חלקית במקום להדביק
+   אותה לקצה. */
+function balanceGrid(grid){
+  const n = grid.childElementCount;
+  if (!n) return;
+  grid.style.setProperty('--pc-fit', String(Math.max(2, Math.ceil(n / 2))));
 }
 
 /* ---------- תיאור שיווקי מהנתונים ----------
@@ -11231,45 +11361,120 @@ function propertyStatusChoices(p){
   ];
 }
 
+/* מזהה רץ לתפריט. אותו נכס יכול להציג שני בלוקי סטטוס בו-זמנית - אחד
+   בכרטיס ואחד בטופס העריכה - ו-id שנגזר מ-property_id היה מופיע פעמיים
+   במסמך, כלומר `aria-controls` של אחד מהם היה מצביע על התפריט של השני. */
+let pspSeq = 0;
+
 /* בונה את הבלוק ומחזיר אותו מיד; הקשר הבלעדיות נטען אחריו ומעדכן את
    ההערה ואת הכפתורים. בלי זה כל פתיחת כרטיס הייתה ממתינה לקריאת רשת. */
 function buildPropertyStatusPanel(p, agentId){
   const el = document.createElement('div');
   el.className = 'prop-status-panel' + (p.status === 'active' ? ' psp-live' : '');
+  /* שורה אחת סגורה, ותפריט שנפתח מתחתיה.
+
+     קודם היו כאן חמישה כפתורים ברוחב מינימלי של 104px: בטלפון הם נערמו
+     לשלוש שורות, ובלוק שגובהו שליש מסך ישב בראש כל נכס. ניסיון הביניים
+     היה רצועה שנגללת לרוחב - היא אמנם החזירה את הגובה לשורה, אבל גלילה
+     אופקית באגודל היא מחווה שנתקלים בה במקרה: היד גוללת את הרשימה למטה,
+     והרצועה זזה הצידה. חמור מזה, מה שלא נכנס לרוחב פשוט לא היה קיים.
+
+     עכשיו סגור = שבב אחד ("סטטוס · מפורסם"), ופתוח = תפריט אנכי שנגלל
+     למטה כמו כל דבר אחר במסך. הרווח כפול: בלוק הסטטוס אינו תופס שורה
+     שלמה במצב הרגיל, וכשהוא פתוח **כל** האפשרויות שם, כל אחת עם
+     ההסבר שלה - הסבר שב-`title` בלבד לא היה מגיע לטלפון לעולם. */
+  const menuId = 'pspMenu-' + (++pspSeq);
   el.innerHTML = `
-    <div class="psp-head">
-      <span class="psp-label">סטטוס הנכס</span>
+    <button type="button" class="psp-toggle" aria-expanded="false" aria-controls="${menuId}">
+      <span class="psp-label">סטטוס</span>
       <span class="psp-now">${escapeHtml(PROPERTY_STATUS_LABELS[p.status] || p.status || '')}</span>
-    </div>
+      <svg class="psp-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+           stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+    </button>
     <div class="psp-note" hidden></div>
-    <div class="psp-actions"></div>`;
+    <div class="psp-menu" id="${menuId}" hidden>
+      <div class="psp-actions" role="group" aria-label="שינוי סטטוס הנכס"></div>
+    </div>`;
 
   const note = el.querySelector('.psp-note');
+  const toggle = el.querySelector('.psp-toggle');
+  const menu = el.querySelector('.psp-menu');
   const actions = el.querySelector('.psp-actions');
   const buttons = {};
 
-  propertyStatusChoices(p).forEach(choice=>{
-    const btn = document.createElement('button');
-    btn.type = 'button';
-    btn.className = 'psp-btn' + (choice.status === p.status ? ' is-current' : '');
-    btn.textContent = choice.label;
-    btn.title = choice.title;
-    if (choice.status === p.status){
-      btn.disabled = true;
-    } else {
-      btn.addEventListener('click', ()=> setPropertyStatus(p, choice.status, btn, agentId));
-    }
-    buttons[choice.status] = btn;
-    actions.appendChild(btn);
+  /* התפריט נפתח כלפי מטה, ומתהפך כלפי מעלה כשאין לו מקום.
+
+     **למה בכלל לבדוק:** הוא מרחף, והאקורדיון שמעליו הוא ‏`overflow:hidden`
+     (בלעדיו רקע הכותרת שלו גולש מהפינות המעוגלות). תפריט שיוצא מתחתית
+     הכרטיס האחרון ברשימה פשוט נחתך שם - וזה קורה דווקא במחשב, שבו שבב
+     הסטטוס יושב מתחת לתמונת הנושא, כלומר נמוך בכרטיס.
+
+     הגבול הוא המוקדם מבין תחתית הכרטיס לתחתית החלון, וההיפוך נעשה רק אם
+     למעלה באמת יש מקום - אחרת עדיף תפריט שגולש מעט מאשר תפריט הפוך
+     שנחתך משני הצדדים. */
+  const placeMenu = ()=>{
+    el.classList.remove('psp-up');
+    const card = el.closest('.lead-card');
+    const limit = Math.min(window.innerHeight - 8,
+      card ? card.getBoundingClientRect().bottom : Infinity);
+    const height = menu.getBoundingClientRect().height;
+    const chip = toggle.getBoundingClientRect();
+    if (chip.bottom + 6 + height > limit && chip.top - 6 - height > 8) el.classList.add('psp-up');
+  };
+
+  const setMenuOpen = open => {
+    menu.hidden = !open;
+    el.classList.toggle('psp-open', open);
+    toggle.setAttribute('aria-expanded', String(open));
+    if (open) placeMenu(); else el.classList.remove('psp-up');
+  };
+  toggle.addEventListener('click', ()=> setMenuOpen(menu.hidden));
+  /* לחיצה מחוץ לתפריט סוגרת אותו. המאזין מסיר את עצמו ברגע שהבלוק יצא
+     מהמסמך - הכרטיס נבנה מחדש בכל ‎loadProperties‎, וכל פתיחה של כרטיס
+     הייתה מותירה עוד מאזין על ‎document‎ לנצח. */
+  function closeOnOutsideClick(e){
+    if (!el.isConnected){ document.removeEventListener('click', closeOnOutsideClick); return; }
+    if (menu.hidden || el.contains(e.target)) return;
+    setMenuOpen(false);
+  }
+  document.addEventListener('click', closeOnOutsideClick);
+  // ‏Escape סוגר ומחזיר את המיקוד לשבב, ולא משאיר אותו על כפתור שנעלם
+  el.addEventListener('keydown', e=>{
+    if (e.key !== 'Escape' || menu.hidden) return;
+    setMenuOpen(false);
+    toggle.focus();
   });
 
-  const del = document.createElement('button');
-  del.type = 'button';
-  del.className = 'psp-btn psp-danger';
-  del.textContent = 'מחיקה';
-  del.title = 'מחיקה סופית של הנכס וכל מה שנצבר עליו';
-  del.addEventListener('click', ()=> deletePropertyForever(p, del, agentId));
-  actions.appendChild(del);
+  /* התווית יושבת ב-.pc-label גם כאן, ולא ישירות בכפתור: ‏setPropertyStatus
+     ו-deletePropertyForever מחליפות אותה ל"מעדכן…" דרך setActionLabel, ו-
+     ‏textContent היה מוחק איתה גם את שורת ההסבר. ראו שם. */
+  const addChoice = (opts)=>{
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'psp-btn' + (opts.cls ? ' ' + opts.cls : '');
+    btn.innerHTML = `<span class="pc-label">${escapeHtml(opts.label)}</span>`
+      + `<span class="psp-hint">${escapeHtml(opts.title)}</span>`;
+    btn.title = opts.title;
+    if (opts.onClick) btn.addEventListener('click', ()=> opts.onClick(btn));
+    actions.appendChild(btn);
+    return btn;
+  };
+
+  propertyStatusChoices(p).forEach(choice=>{
+    const current = choice.status === p.status;
+    const btn = addChoice({
+      label: choice.label, title: choice.title,
+      cls: current ? 'is-current' : '',
+      onClick: current ? null : b => setPropertyStatus(p, choice.status, b, agentId),
+    });
+    if (current) btn.disabled = true;
+    buttons[choice.status] = btn;
+  });
+
+  addChoice({
+    label:'מחיקה', title:'מחיקה סופית של הנכס וכל מה שנצבר עליו', cls:'psp-danger',
+    onClick: b => deletePropertyForever(p, b, agentId),
+  });
 
   // ההקשר מהמסד - בלעדיות ומודעות מתחרות. כישלון כאן אינו שובר את הבלוק:
   // הכפתורים ממשיכים לעבוד, והמסד ממילא הוא שחוסם.
@@ -11293,24 +11498,20 @@ function buildPropertyStatusPanel(p, agentId){
     // הסכם בלעדיות חתום ובתוקף - הדרך לפרסם נכס שחסום, ולהצהיר על בלעדיות
     // שכבר קיימת גם כשהוא אינו חסום.
     if (ctx.signed_agreement_id && ctx.state !== 'exclusive_mine'){
-      const claim = document.createElement('button');
-      claim.type = 'button';
-      claim.className = 'psp-btn psp-claim';
-      claim.textContent = '🔒 פרסום בבלעדיות';
-      claim.title = 'פרסום הנכס על סמך הסכם הבלעדיות החתום — מודעות מתחרות ירדו מפרסום';
-      claim.addEventListener('click', ()=> claimPropertyExclusivity(p, claim, agentId));
-      actions.appendChild(claim);
+      addChoice({
+        label:'🔒 פרסום בבלעדיות', cls:'psp-claim',
+        title:'פרסום הנכס על סמך הסכם הבלעדיות החתום - מודעות מתחרות ירדו מפרסום',
+        onClick: b => claimPropertyExclusivity(p, b, agentId),
+      });
     } else if (blocked && !ctx.signed_agreement_id){
-      const sign = document.createElement('button');
-      sign.type = 'button';
-      sign.className = 'psp-btn';
-      sign.textContent = '✍️ החתמת בלעדיות';
-      sign.title = 'פתיחת הסכם בלעדיות על הנכס — אחרי החתימה אפשר לפרסם אותו';
-      sign.addEventListener('click', ()=> openAgreementWizard({
-        kind: p.deal_type === 'rent' ? 'exclusive_landlord' : 'exclusive_sell',
-        propertyId: p.id,
-      }));
-      actions.appendChild(sign);
+      addChoice({
+        label:'✍️ החתמת בלעדיות',
+        title:'פתיחת הסכם בלעדיות על הנכס - אחרי החתימה אפשר לפרסם אותו',
+        onClick: ()=> openAgreementWizard({
+          kind: p.deal_type === 'rent' ? 'exclusive_landlord' : 'exclusive_sell',
+          propertyId: p.id,
+        }),
+      });
     }
   }).catch(()=>{});
 
@@ -14786,6 +14987,16 @@ const CARD_ICONS = {
   film:     '<rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7.5 3v18"/><path d="M16.5 3v18"/><path d="M3 9h4.5"/><path d="M16.5 9H21"/><path d="M3 15h4.5"/><path d="M16.5 15H21"/>',
   globe:    '<circle cx="12" cy="12" r="9"/><path d="M3 12h18"/><path d="M12 3a15 15 0 0 1 0 18a15 15 0 0 1 0-18Z"/>',
   close:    '<path d="m18 6-12 12"/><path d="m6 6 12 12"/>',
+  // ממלא את משבצת התמונה בכרטיס נכס שאין לו אף תמונה
+  home:     '<path d="m3 10.5 9-7 9 7V20a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1Z"/><path d="M9.5 21v-6h5v6"/>',
+  // שני אנשים = שת"פ בין משרדים; תווית = יריד הבתים הפתוחים
+  partners: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  tag:      '<path d="M20.6 13.4 12 22l-9-9V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.3"/>',
+  /* שתי דרכי הקשר עם בעל/ת הנכס. בועת שיחה ולא הלוגו של וואטסאפ: הלוגו
+     הוא צורה מלאה, וכל האייקונים כאן הם קו־מתאר ב-currentColor - העתק
+     שלו בקו יוצא מעוות. המילה "וואטסאפ" לצידו אומרת מה זה. */
+  phone:    '<path d="M6.6 3h3l1.5 4-2 1.4a12 12 0 0 0 6.5 6.5l1.4-2 4 1.5v3a2 2 0 0 1-2.2 2A17 17 0 0 1 4.6 5.2 2 2 0 0 1 6.6 3Z"/>',
+  chat:     '<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.4-.7L3 21l1.8-5.1A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5Z"/>',
 };
 
 function cardIconSvg(name){
