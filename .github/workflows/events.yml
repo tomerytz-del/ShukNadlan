@@ -1,0 +1,46 @@
+name: כל קישור קשר מסווג, ואין פרטים אישיים ב-GA4
+
+# ‏`assets/events.js` מאזין מואצל על ה-document וסופר **כל** קישור wa.me
+# וכל קישור tel: בדף כ-contact_agent — פנייה של גולש/ת למתווך/ת, המדד
+# העסקי המרכזי. אבל לא כל קישור כזה הוא פנייה, ושלוש פעמים עד היום
+# התברר שקישור אחר נספר כך: העוזר הציבורי (נפתר ב-data-bot), כפתור
+# "שתפו בוואטסאפ", והמספר של שוק נדל״ן עצמו שיושב בתחתית כל דף.
+#
+# לשלושתם אותה צורה: המדידה עובדת, המספר בדוח גדל, ואף אחד לא יודע שהוא
+# מנופח. אין שגיאה בקונסול, ואי אפשר לתקן נתונים למפרע.
+#
+# הבדיקה מוסיפה גם את הכיוון ההפוך — ש**לא** יישלחו פרטים אישיים ל-GA4.
+# ‏GA4 אוסר זאת, וחשבון שנתפס מסתכן במחיקת הנתונים.
+#
+# היא קוראת קבצים בלבד — בלי רשת ובלי סודות — ולכן מהירה ובטוחה להריץ גם
+# על PR מ-fork. מה שהיא **אינה** רואה הוא מה שיושב בתוך GTM עצמו:
+# ‏docs/analytics-user-data.md.
+
+on:
+  pull_request:
+    paths:
+      - "*.html"
+      - "assets/*.js"
+      - "scripts/check_events.py"
+      - ".github/workflows/events.yml"
+  push:
+    branches: [main]
+    paths:
+      - "*.html"
+      - "assets/*.js"
+      - "scripts/check_events.py"
+      - ".github/workflows/events.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ‏הבדיקה עצמה, והפלט שלה, הם המקום שבו כתוב מה להוסיף ואיפה.
+      - name: בדיקת סיווג
+        run: python3 scripts/check_events.py
