@@ -12,8 +12,11 @@
 
 from __future__ import annotations
 
+import hashlib
+
 from typing import Iterator
 
+from ..config import STAND_IN_PINS
 from ..models import Finding
 
 
@@ -24,6 +27,7 @@ def run(ctx) -> Iterator[Finding]:
     yield from _untouched_leads(ctx)
     yield from _listings_without_images(ctx)
     yield from _saved_search_silence(ctx)
+    yield from _stand_in_pins(ctx)
 
 
 def _views_without_leads(ctx) -> Iterator[Finding]:
@@ -344,3 +348,87 @@ def _saved_search_silence(ctx) -> Iterator[Finding]:
         metric=round(silent / total * 100, 1), metric_unit="%",
         evidence={"silent": silent, "total": total},
     )
+
+
+def _stand_in_pins(ctx) -> Iterator[Finding]:
+    """פין זמני שאפשר להחזיר: הרחוב נכנס לשכבת הכתובות של העירייה.
+
+    מודעה ברחוב שאינו בשכבה מוצגת על פין של כתובת צמודה — זו הדרך
+    היחידה שהיא תופיע על המפה בכלל, וההשאלה מוצהרת ב-`STAND_IN_PINS`.
+    ברגע שסנכרון ה-GIS מוצא את הרחוב, ההשאלה מיותרת: מוחקים את הפין,
+    והתור פותר מחדש מהכתובת האמיתית.
+
+    **בלי הבדיקה הזו אין שום סימן.** המודעה נראית תקינה, יש לה פין,
+    והוא פשוט 60 מטר מהמקום הנכון — לנצח, כי `geocode_backfill_queue`
+    בוחרת רק שורות עם `lat is null` ולכן לעולם אינה חוזרת אליה.
+
+    ‏`STAND_IN_PINS` מוצהר ואינו מנוחש, והנימוק המלא — כולל הגלאי
+    האוטומטי שנוסה ונפל — יושב לצד ההגדרה ב-`config.py`.
+    """
+    if not STAND_IN_PINS:
+        return
+    if not (ctx.db.has_table("properties") and ctx.db.has_table("street_registry")):
+        return
+
+    for city, street, lat, lng, borrowed_from, migration in STAND_IN_PINS:
+        ctx.count()
+        row = ctx.db.one(
+            """
+            select (select source::text from public.street_registry
+                     where city = %s and name = %s)            as src,
+                   (select active from public.street_registry
+                     where city = %s and name = %s)            as is_active,
+                   (select count(*) from public.properties
+                     where status = 'active' and city = %s and street = %s
+                       and lat = %s and lng = %s)              as still_borrowed
+            """,
+            (city, street, city, street, city, street, lat, lng),
+        )
+        if not row:
+            continue
+
+        borrowed = int(row.get("still_borrowed") or 0)
+        # אף מודעה אינה נושאת עוד את הפין המושאל — ההשאלה נגמרה מעצמה,
+        # ואין על מה לדווח. השורה ב-`STAND_IN_PINS` היא שצריכה לרדת,
+        # וזה לא משהו שהסוכן יכול לעשות.
+        if not borrowed:
+            continue
+
+        # הרחוב עדיין אינו בשכבה: זה המצב הרגיל, וההשאלה עדיין נחוצה.
+        if (row.get("src") or "") != "gis" or not row.get("is_active"):
+            continue
+
+        yield Finding(
+            area="behavior", code="listings_stand_in_pin", severity="medium",
+            subject="stand_in_pin:%s" % _slug_ascii(street),
+            title="‏%d מודעות ברחוב %s עדיין על פין זמני, והרחוב כבר במרשם"
+                  % (borrowed, street),
+            detail="הפין שלהן הושאל מ%s כי הרחוב לא היה בשכבת הכתובות של "
+                   "העירייה (%s). סנכרון ה-GIS מצא אותו מאז, כלומר אפשר "
+                   "להחזיר אותן לכתובת האמיתית שלהן."
+                   % (borrowed_from, migration),
+            suggestion="מיגרציה שמאפסת להן את הפין: "
+                       "‏update public.properties set lat = null, lng = null, "
+                       "geocode_attempts = 0, geocode_attempted_at = null, "
+                       "geocode_error = null where city = '%s' and street = '%s' "
+                       "and lat = %s and lng = %s. "
+                       "התנאי על הקואורדינטה המדויקת הוא מה ששומר על התיקון "
+                       "ממוקד: מודעה שקיבלה בינתיים פין משלה אינה נדרסת. "
+                       "אחרי המיזוג יש למחוק את השורה מ-STAND_IN_PINS."
+                       % (city, street, lat, lng),
+            metric=borrowed, metric_unit="מודעות",
+            evidence={"city": city, "street": street, "lat": lat, "lng": lng,
+                      "borrowed_from": borrowed_from, "migration": migration,
+                      "registry_source": row.get("src")},
+        )
+
+
+def _slug_ascii(value: str) -> str:
+    """מפתח יציב לשם רחוב בעברית.
+
+    ‏`Finding.key` מנקה אותיות שאינן ASCII, ולכן שני רחובות היו מתכנסים
+    לאותו מפתח ודורסים זה את הממצא של זה. ‏hash קצר של השם שומר על
+    ההפרדה **ועל היציבות בין הרצות** — `hashlib` ולא `hash()` המובנית,
+    שהיא מלוחה מחדש בכל תהליך.
+    """
+    return hashlib.sha1(value.encode("utf-8")).hexdigest()[:8]

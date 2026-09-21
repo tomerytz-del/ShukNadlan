@@ -1,0 +1,40 @@
+name: הסוכן התפעולי - הבדיקות שנבדקות בעצמן
+
+# ‏`ops_agent.yml` רץ כל שש שעות מול הפרודקשן ודורש סוד, ולכן הוא אינו
+# רץ על PR. זה משאיר פינה: שינוי ב-probe נכנס בלי שאיש הריץ אותו, ומתגלה
+# רק בסריקה הבאה - או לא מתגלה כלל, אם ה-probe אמור לשתוק ממילא.
+#
+# הבדיקה כאן היא פייתון טהור על קלט מסונתז: בלי רשת, בלי מסד ובלי סוד,
+# ולכן היא בטוחה להריץ גם על PR מ-fork.
+
+on:
+  pull_request:
+    paths:
+      - "ops_agent/**"
+      - "scripts/ops_stand_in_pin_test.py"
+      - ".github/workflows/ops_agent_test.yml"
+  push:
+    branches: [main]
+    paths:
+      - "ops_agent/**"
+      - "scripts/ops_stand_in_pin_test.py"
+      - ".github/workflows/ops_agent_test.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ‏ה-probe אינו נוגע במסד כאן - `_Db` מחזיר שורה קבועה - ולכן אין
+      # צורך ב-psycopg2 ואין התקנת תלויות.
+      - name: ‏listings_stand_in_pin מדווחת בדיוק מתי שצריך
+        run: python3 scripts/ops_stand_in_pin_test.py

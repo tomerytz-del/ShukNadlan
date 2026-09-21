@@ -78,6 +78,13 @@ jobs:
       - name: התקנת תלויות
         run: pip install -r ops_agent/requirements.txt
 
+      # ‏הבדיקה של הבדיקה, לפני הסריקה ובכוונה. ‏listings_stand_in_pin
+      # אמורה לשתוק חודשים, ולכן באג בה נראה בדיוק כמו "הכול בסדר" —
+      # אותו נימוק בדיוק של check_gtm_container_test.py. היא פייתון טהור
+      # בלי רשת ובלי סוד, ולכן היא עולה שנייה.
+      - name: הבדיקה של listings_stand_in_pin
+        run: python3 scripts/ops_stand_in_pin_test.py
+
       - name: בדיקת הסוד
         env:
           SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
