@@ -11,6 +11,7 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Iterator
 
+from ..config import PAUSED_WORKFLOWS
 from ..models import Finding
 
 
@@ -164,6 +165,14 @@ def _actions(ctx) -> Iterator[Finding]:
 
         # ‏workflow מתוזמן ששתק. ‏GitHub מכבה cron אחרי 60 יום בלי פעילות
         # בריפו — וזה קורה בשקט מוחלט.
+        #
+        # שקט שנבחר אינו שקט שנשבר: ‏workflow שהתזמון שלו נותק בכוונה יושב
+        # ב-`PAUSED_WORKFLOWS` עם הסיבה, ואינו נספר כאן. ההרצות המתוזמנות
+        # הישנות נשארות בחלון עוד שבועות אחרי הניתוק, ובלי הסינון הזה כל
+        # ניתוק מתועד היה הופך לממצא בדרגה גבוהה שלושה ימים אחריו.
+        path = (wf.get("path") or "").rsplit("/", 1)[-1]
+        if path in PAUSED_WORKFLOWS:
+            continue
         scheduled = any(r.get("event") == "schedule" for r in runs)
         if not scheduled:
             continue
