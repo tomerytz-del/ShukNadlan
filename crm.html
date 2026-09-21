@@ -934,7 +934,27 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .pc-sec-head::before{content:'';flex:none;width:3px;height:11px;border-radius:2px;
     background:var(--navy,var(--teal));opacity:.45}
   .pc-quick-head{margin-top:10px;padding-top:9px;border-top:1px dashed var(--edge,var(--line))}
-  .pc-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px}
+  /* ---------- שתי שורות, ולא שורה שלישית עם אריח בודד ----------
+     מספר האריחים אינו קבוע (חמישה עד תשעה, לפי מסלול, סטטוס ומצב
+     השיתוף), ולכן רשת ברוחב קבוע נתנה שורה שלישית ובה פריט אחד -
+     "ביטול שת״פ" לבדו מתחת לשתי שורות מלאות.
+
+       ‏`--pc-fit` — כמה עמודות צריך כדי שהכול ייכנס לשתי שורות.
+                     ‏`balanceGrid()` ב-crm.js כותב אותו לפי מספר
+                     הפריטים שנכנסו בפועל.
+       ‏`--pc-max` — כמה עמודות הרוחב באמת מרשה, לפי `@container`.
+
+     הרוחב מנצח: הביטוי הוא `min()` של השניים. בטלפון נשארות שלוש
+     עמודות גם כשהחישוב מבקש חמש, ושם `justify-content:center` הוא
+     שמונע את המראה הקרוע - שורה אחרונה חלקית מתמרכזת במקום להידבק
+     לקצה ולהשאיר חור.
+
+     ‏flex ולא grid: ‏`repeat()` מקבל מספר שלם בלבד ואינו יכול להכיל
+     `min()`, בעוד `flex-basis` הוא `calc()` רגיל שבו זה מותר. */
+  .pc-grid{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--pc-gap);
+    --pc-gap:7px;--pc-max:3;--pc-fit:3}
+  .pc-grid > *{--pc-c:min(var(--pc-max),var(--pc-fit));min-width:0;
+    flex:0 1 calc((100% - (var(--pc-c) - 1) * var(--pc-gap)) / var(--pc-c))}
   .pc-tile{position:relative;display:flex;flex-direction:column;align-items:center;gap:5px;
     padding:9px 5px 8px;min-height:64px;border:1.5px solid var(--edge,var(--line));border-radius:13px;
     background:var(--surface,#fff);color:var(--txt,var(--ink));font-family:inherit;font-size:.7rem;font-weight:700;
@@ -1003,10 +1023,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* שתיים בשורה ולא אחת: צ'יפ ברוחב מלא הוא בדיוק הגלולה שממנה ברחנו,
      וחמש מהן זו שוב רשימה שדורשת גלילה. שלוש רק כשיש באמת רוחב לכך —
      ‏@container ולא @media, כי כאן קובע רוחב הכרטיס ולא רוחב החלון. */
-  .pc-hub-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
-  @container proptab (min-width:780px){
-    .pc-hub-row{grid-template-columns:repeat(auto-fit,minmax(150px,1fr))}
-  }
+  .pc-hub-row{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--pc-gap);
+    --pc-gap:6px;--pc-max:2;--pc-fit:2}
+  .pc-hub-row > *{--pc-c:min(var(--pc-max),var(--pc-fit));min-width:0;
+    flex:0 1 calc((100% - (var(--pc-c) - 1) * var(--pc-gap)) / var(--pc-c))}
   .pc-chip{display:inline-flex;align-items:center;justify-content:center;gap:6px;
     padding:7px 9px;border:1.5px solid var(--edge,var(--line));border-radius:999px;background:var(--surface,#fff);
     color:var(--txt,var(--ink));font-family:inherit;font-size:.73rem;font-weight:700;line-height:1.25;
@@ -1052,12 +1072,41 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .prop-card .pc-col-side{min-width:0}
   .prop-card .card-tags{margin-top:4px;gap:4px}
   .prop-card .lead-meta{font-size:.74rem}
-  /* סדר שלושת הכללים האלה הוא הכלל עצמו: כולם באותה סגוליות, ולכן
-     האחרון שתנאיו מתקיימים הוא שקובע. ‏520c נותן ארבע עמודות בטור אחד
-     רחב, 640c מחזיר לשלוש כי העמודה התכווצה, ו-780c נותן ארבע שוב
-     כשעמודת הפעולות כבר רחבה מספיק. */
+  /* ---------- שורת הבעלים ----------
+     המספר כאן הוא המספר שהסוכן/ת מחייג/ת אליו יותר מכל מספר אחר
+     במערכת, והוא היה טקסט אפור בתוך שורה - כלומר סימון בעכבר והעתקה,
+     או הקלדה ידנית בטלפון. עכשיו הוא שני כפתורים: שיחה למי שעונה,
+     וואטסאפ למי שלא. */
+  .pc-owner{display:flex;flex-wrap:wrap;align-items:center;gap:6px;
+    font-size:.74rem;color:var(--txt-soft,var(--ink-soft))}
+  .pc-owner-lbl{font-weight:600}
+  .pc-owner-act{display:inline-flex;align-items:center;gap:5px;
+    padding:3px 9px;border-radius:999px;text-decoration:none;
+    border:1.5px solid var(--edge,var(--line));background:var(--surface,#fff);
+    color:var(--navy,var(--teal));font-size:.76rem;font-weight:800;line-height:1.5;
+    white-space:nowrap;transition:border-color .12s ease,box-shadow .12s ease}
+  /* ‏tabular-nums ו-ltr: מספר טלפון הוא רצף ספרות שנקרא משמאל לימין גם
+     בשורה עברית, וספרות ברוחב אחיד נקראות בקבוצות. */
+  .pc-owner-act bdi{direction:ltr;font-variant-numeric:tabular-nums;letter-spacing:.01em}
+  .pc-owner-act .pc-ico{width:14px;height:14px;color:inherit}
+  .pc-owner-act:hover{border-color:currentColor;box-shadow:0 2px 8px rgba(15,52,53,.1)}
+  .pc-owner-act:focus-visible{outline:2px solid var(--navy,var(--teal));outline-offset:2px}
+  .pc-owner-wa{color:#2A5B36;border-color:#CFE3D5;background:#E4F0E7}
+  /* ברוחב טלפון השורה היא "בעלים: <שם> · <מספר> · וואטסאפ" והיא נשברת
+     לשלוש שורות. המילה "וואטסאפ" יורדת ראשונה: הבועה הירוקה לצד מספר
+     טלפון אינה זקוקה לה, והשם הנגיש נשאר ב-aria-label. */
+  @container proptab (max-width:519px){
+    .pc-owner-wa span{display:none}
+    .pc-owner-wa{padding:4px 8px}
+  }
+  @media(prefers-reduced-motion:reduce){.pc-owner-act{transition:none}}
+  /* תקרת העמודות לפי רוחב הכרטיס. הערכים נגזרים מרוחב אריח של ~85px
+     שבו התוויות עדיין נקראות: בטור אחד צר זה שלוש, בטור אחד רחב חמש,
+     ובשתי עמודות זה תלוי בכמה נשאר לעמודת הפעולות. הבחירה בפועל היא
+     ‏`min()` של זה עם `--pc-fit` - ראו למעלה. */
   @container proptab (min-width:520px){
-    .pc-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .pc-grid{--pc-max:5}
+    .pc-hub-row{--pc-max:3}
   }
   /* היחס אינו חצי-חצי אלא כ-‎2:3‎ לטובת הפעולות, וזו מדידה ולא טעם:
      עמודת המידע מסתיימת אחרי שורת הבעלים, בעוד עמודת הפעולות נושאת רשת,
@@ -1070,10 +1119,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     /* בשתי עמודות אין "מה שמעל" להיפרד ממנו: הקו המקווקו של כותרת
        המקטע היה קו שמרחף בראש העמודה השנייה */
     .prop-card .pc-quick-head{margin-top:0;padding-top:0;border-top:none}
-    .prop-card .pc-grid{grid-template-columns:repeat(3,minmax(0,1fr))}
+    .prop-card .pc-grid{--pc-max:4}
+    .prop-card .pc-hub-row{--pc-max:2}
   }
   @container proptab (min-width:780px){
-    .prop-card .pc-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .prop-card .pc-grid{--pc-max:5}
+    .prop-card .pc-hub-row{--pc-max:3}
   }
 
   /* ---------- כותרת הכרטיס ----------

@@ -10352,7 +10352,9 @@ function buildPropertyCard(p, agentId){
   // ‏property_owners מוגן ב-RLS, ולכן השורה הזו מגיעה רק לסוכן/ת של הנכס
   // ולמנהל/ת המשרד — ולכל האחרים היא פשוט לא קיימת בתשובה.
   const ownerRow = Array.isArray(p.property_owners) ? p.property_owners[0] : p.property_owners;
-  const ownerLine = [ownerRow?.owner_name, ownerRow?.owner_phone].filter(Boolean).join(' · ');
+  const ownerName = (ownerRow?.owner_name || '').trim();
+  const ownerPhone = localPhone(ownerRow?.owner_phone);
+  const ownerWa = waLink(ownerRow?.owner_phone);
   const planning = planningByProperty[p.id];
   const mktState = marketingCopyState(p);
   const el = document.createElement('div');
@@ -10396,6 +10398,25 @@ function buildPropertyCard(p, agentId){
      בלוק משלו ברוחב הכרטיס, ואז רצועה שנגללת לרוחב - שתיהן עלו בשורה
      שלמה על כל נכס שנפתח. השורה הזו כבר קיימת ממילא, והמקום בקצה שלה
      היה ריק: הסטטוס עולה שם אפס גובה. */
+  /* שורת הבעלים, ולמה הטלפון בה הוא קישור ולא טקסט: זה המספר שהסוכן/ת
+     מחייג/ת אליו יותר מכל מספר אחר במערכת - "מתי אפשר להראות", "ירדנו
+     במחיר?", "יש הצעה". עד כה הוא היה טקסט אפור בתוך שורה, כלומר סימון
+     בעכבר והעתקה, או הקלדה ידנית בטלפון.
+     שתי דרכים כי שתיהן בשימוש: שיחה למי שעונה, וואטסאפ למי שלא.
+     ‏bdi על המספר - ספרות בתוך שורה עברית הן רצף LTR שאלגוריתם ה-bidi
+     מצרף אליו את מה שסביבו, ומספר שמופיע אחרי נקודה או מקף היה מוצג
+     בסדר הפוך. */
+  const ownerHtml = (ownerName || ownerPhone) ? `
+    <div class="pc-owner">
+      <span class="pc-owner-lbl">בעלים${ownerName ? ': ' + esc(ownerName) : ''}</span>
+      ${ownerPhone ? `<a class="pc-owner-act" href="tel:${esc(ownerPhone)}"
+        title="חיוג לבעל/ת הנכס">${cardIconSvg('phone')}<bdi>${esc(ownerPhone)}</bdi></a>` : ''}
+      ${ownerWa ? `<a class="pc-owner-act pc-owner-wa" href="${esc(ownerWa)}"
+        target="_blank" rel="noopener noreferrer"
+        title="וואטסאפ לבעל/ת הנכס" aria-label="וואטסאפ לבעל/ת הנכס"
+        >${cardIconSvg('chat')}<span>וואטסאפ</span></a>` : ''}
+    </div>` : '';
+
   const sharePill = p.shared_with_partners
     ? `<span class="status-pill status-shared" title="בשת״פ · הופץ ${hebDate(p.shared_at)}">🤝 ${plural(propertyShareCounts[p.id] || 0, 'משרד אחד', 'משרדים')}</span>`
     : '';
@@ -10414,7 +10435,7 @@ function buildPropertyCard(p, agentId){
         </div>
       </div>
       ${tags}
-      ${ownerLine ? `<div class="lead-meta">בעלים: ${esc(ownerLine)}</div>` : ''}
+      ${ownerHtml}
       ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
     </div>
     <div class="pc-col-side">
@@ -10633,7 +10654,28 @@ function buildPropertyCard(p, agentId){
   // שאינו פעיל, כל הכלים שלו מסוננים - וכותרת מעל שורה ריקה היא הבטחה
   // שלא נשמרת. ‏:empty ב-CSS לא היה עוזר כאן, כי הכותרת עצמה בפנים.
   hub.hidden = !hubRow.childElementCount;
+
+  // מספר העמודות נקבע כאן ולא ב-CSS, כי הוא תלוי בכמה פריטים נכנסו בפועל
+  balanceGrid(actions);
+  balanceGrid(hubRow);
   return el;
+}
+
+/* ---------- שתי שורות, ולא שורה שלישית עם אריח בודד ----------
+   מספר האריחים בכרטיס נכס אינו קבוע: הוא נע בין חמישה לתשעה לפי מסלול,
+   סטטוס, מצב השיתוף והאם הנכס כבר מקודם. ברשת ברוחב קבוע התוצאה הייתה
+   שורה שלישית ובה פריט אחד - "ביטול שת״פ" לבדו מתחת לשתי שורות מלאות,
+   וכך גם "עריכת סיור 360°" בבלוק הכלים.
+
+   ‏`--pc-fit` הוא מספר העמודות שבו הכול נכנס לשתי שורות. הרוחב עדיין
+   מגביל אותו: ה-CSS לוקח `min(--pc-max, --pc-fit)`, ולכן בטלפון נשארות
+   שלוש עמודות גם כשהחישוב כאן מבקש חמש - ושם מה שמונע את המראה הקרוע
+   הוא `justify-content:center`, שמרכז שורה אחרונה חלקית במקום להדביק
+   אותה לקצה. */
+function balanceGrid(grid){
+  const n = grid.childElementCount;
+  if (!n) return;
+  grid.style.setProperty('--pc-fit', String(Math.max(2, Math.ceil(n / 2))));
 }
 
 /* ---------- תיאור שיווקי מהנתונים ----------
@@ -14872,6 +14914,11 @@ const CARD_ICONS = {
   // שני אנשים = שת"פ בין משרדים; תווית = יריד הבתים הפתוחים
   partners: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
   tag:      '<path d="M20.6 13.4 12 22l-9-9V3h10l7.6 7.6a2 2 0 0 1 0 2.8Z"/><circle cx="7.5" cy="7.5" r="1.3"/>',
+  /* שתי דרכי הקשר עם בעל/ת הנכס. בועת שיחה ולא הלוגו של וואטסאפ: הלוגו
+     הוא צורה מלאה, וכל האייקונים כאן הם קו־מתאר ב-currentColor - העתק
+     שלו בקו יוצא מעוות. המילה "וואטסאפ" לצידו אומרת מה זה. */
+  phone:    '<path d="M6.6 3h3l1.5 4-2 1.4a12 12 0 0 0 6.5 6.5l1.4-2 4 1.5v3a2 2 0 0 1-2.2 2A17 17 0 0 1 4.6 5.2 2 2 0 0 1 6.6 3Z"/>',
+  chat:     '<path d="M21 11.5a8.4 8.4 0 0 1-9 8.4 9 9 0 0 1-3.4-.7L3 21l1.8-5.1A8.4 8.4 0 0 1 12 3a8.4 8.4 0 0 1 9 8.5Z"/>',
 };
 
 function cardIconSvg(name){
