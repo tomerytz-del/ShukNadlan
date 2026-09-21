@@ -728,7 +728,10 @@ googleLoginBtn.addEventListener('click', async ()=>{
   googleLoginBtn.querySelector('.gl-label').textContent = 'מעבירים ל-Google…';
   // redirectTo נשאר origin+pathname בלי query, כדי שיתאים בדיוק לכתובת שמוגדרת
   // ברשימת ה-Redirect URLs של Supabase. כתובת שלא ברשימה מוחלפת ב-Site URL,
-  // ואז החזרה מ-Google נוחתת בדף הבית במקום כאן.
+  // ואז החזרה מ-Google נוחתת בדף הבית במקום כאן — ושם היא נצרכת בשקט, בלי
+  // מסך ובלי הודעה. הרישום כאן הוא מה שמאפשר לדף הבית להחזיר אותה לכאן;
+  // התיקון עצמו הוא ברשימה, ראו docs/google-login.md ו-assets/auth-return.js
+  if (window.AuthReturn) AuthReturn.remember();
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: window.location.origin + window.location.pathname }

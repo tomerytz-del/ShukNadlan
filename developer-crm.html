@@ -29,6 +29,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <meta name="google-site-verification" content="_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA">
 <meta name="robots" content="noindex">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@600;700&family=Heebo:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<!-- זוכר מאיפה יצאנו ל-Google, כדי שתשובה שתיפול בדף הבית תדע לחזור לכאן
+     ולא ל-crm. ראו assets/auth-return.js -->
+<script src="assets/auth-return.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
         integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -880,6 +883,8 @@ el('googleBtn').addEventListener('click', async ()=>{
   btn.querySelector('.gl-label').textContent = 'מעבירים ל-Google…';
   // ‏origin + pathname בלי query: הכתובת חייבת להיות זהה בדיוק לזו
   // שברשימת ה-Redirect URLs של Supabase, אחרת החזרה נוחתת ב-Site URL.
+  // הרישום כאן הוא מה שמאפשר לדף הבית להחזיר נחיתה כזו לכאן ולא ל-crm.
+  if (window.AuthReturn) AuthReturn.remember();
   const { error } = await sb.auth.signInWithOAuth({
     provider: 'google',
     options: { redirectTo: location.origin + location.pathname },
