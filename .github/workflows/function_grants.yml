@@ -24,12 +24,18 @@ name: הרשאות פונקציות במיגרציות
 #
 # הבדיקה קוראת קבצים בלבד: בלי רשת, בלי סודות, ובלי חיבור למסד.
 
+# ‏**אין `paths` על `pull_request`, וזה בכוונה** - מאותה סיבה שב-
+# ‏`migration_versions.yml`: בדיקה שנועדה להיות required status check
+# חייבת לרוץ בכל PR. בדיקה נדרשת שמדולגת נשארת
+# ‏"Expected - waiting for status", וה-PR אינו ניתן למיזוג לנצח.
+#
+# ‏ב-`push` ל-main הפילטר נשאר, כי שם היא אינה בדיקה נדרשת.
+#
+# המחיר של הרצה תמידית הוא כ-5 שניות: הסקריפט קורא את קובצי המיגרציה
+# ומריץ regex, בלי רשת, בלי סודות ובלי חיבור למסד.
+
 on:
   pull_request:
-    paths:
-      - "supabase/migrations/*.sql"
-      - "scripts/check_function_grants.py"
-      - ".github/workflows/function_grants.yml"
   push:
     branches: [main]
     paths:
@@ -43,6 +49,10 @@ permissions:
 
 jobs:
   check:
+    # ‏**הגנת הענף מחפשת את שם ה-job ולא את שם ה-workflow.** בלי השורה
+    # הזו הבדיקה מופיעה כ-`check`, וכך קוראים לה רוב ה-workflows בריפו -
+    # כלומר אי אפשר לדרוש אותה לבדה.
+    name: הרשאות פונקציות
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
