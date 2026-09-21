@@ -38,6 +38,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH"
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
 <script src="assets/map-tiles.js"></script>
+<!-- העיר הפעילה, כדי שהכלי ייפתח על העיר שעובדים עליה ולא על קבוע -->
+<script src="assets/city-context.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.116.0/dist/umd/supabase.js"
         integrity="sha384-iLddHTLokph6Omwoyid4XKxHaWa6w41BnoEj0q5oOrzmYPpHIKt1wyjReA7s//pP"
         crossorigin="anonymous" referrerpolicy="no-referrer"></script>
@@ -159,8 +161,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 
-const AFULA_CENTER = [32.6078, 35.2897];
-const AFULA_ZOOM = 13;
+/* אחד משלושה עותקים שהיו לקואורדינטה הזו. המקור היחיד עכשיו הוא
+   assets/city-context.js, והעותק כאן הוא רשת ביטחון לקובץ שלא נטען. */
+const CITY_CENTER = (window.CityContext && window.CityContext.center())
+  || [32.6078, 35.2897];
+const CITY_ZOOM = (window.CityContext && window.CityContext.zoom()) || 13;
 
 let sb = null;
 try { sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY); }
@@ -169,7 +174,7 @@ catch(e){ console.warn('supabase-js לא נטען:', e); }
 const statusEl = document.getElementById('status');
 const setStatus = (text)=> { statusEl.textContent = text; };
 
-const map = L.map('map').setView(AFULA_CENTER, AFULA_ZOOM);
+const map = L.map('map').setView(CITY_CENTER, CITY_ZOOM);
 MapTiles.addTo(map);
 
 /* מצב העריכה: טבעת הנקודות של השכונה הנבחרת, והסמנים שמייצגים אותן.

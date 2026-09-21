@@ -2124,11 +2124,28 @@ const heroStatsState = { props:null, agencies:null, ai:null, today:null };
 const MAP_STYLES = ['nature','classic','light'];
 const DEFAULT_MAP_STYLE = 'classic';
 
-/* התצוגה ההתחלתית של המפה — מרכז עפולה. מוגדרת פעם אחת ומשמשת גם באתחול
-   המפה וגם בכפתור המירכוז שבפינה השמאלית התחתונה, כדי ששניהם לא יוכלו
-   להיפרד זה מזה. */
-const AFULA_CENTER = [32.6078, 35.2897];
-const AFULA_ZOOM = 13;
+/* התצוגה ההתחלתית של המפה — מרכז **העיר הפעילה**. מוגדרת פעם אחת ומשמשת
+   גם באתחול המפה וגם בכפתור המירכוז שבפינה השמאלית התחתונה, כדי ששניהם
+   לא יוכלו להיפרד זה מזה.
+
+   מקור האמת הוא assets/city-context.js, שהחליף שלושה עותקים של הקבוע הזה
+   (כאן, ב-agencies.html וב-neighborhood-boundary.html). ההכרעה שם
+   סינכרונית לחלוטין, ולכן המפה נפתחת על המרכז הנכון ואינה זזה אחרי הציור.
+
+   **העותק המקומי אינו כפילות אלא רשת ביטחון.** city-context.js הוא
+   ‎<script src>‎ רגיל, וקובץ שלא נטען (חוסם, רשת גרועה) היה מפיל כאן את
+   כל אתחול המפה ומשאיר את דף הבית בלי מפה בכלל. במקרה כזה נופלים לעפולה
+   — בדיוק מה שהיה כאן קודם. */
+const CityCtx = window.CityContext || {
+  center: function(){ return [32.6078, 35.2897]; },
+  zoom:   function(){ return 13; },
+  label:  function(){ return 'עפולה והעמק'; },
+  name:   function(){ return 'עפולה'; },
+  active: function(){ return { slug:'afula' }; },
+  isDefault: function(){ return true; },
+  hydrate: function(){ return Promise.resolve(false); }
+};
+const CITY_ZOOM = CityCtx.zoom();
 // הרף שממנו הכותרת והחיפוש יורדים לעמודה בצד המפה. חייב להתאים ל-@media
 // בגיליון הסגנונות, ומוצהר כאן — לפני אתחול המפה — כי horizontalMapPadding
 // נקראת כבר בתצוגה הראשונה, בזמן ריצת הסקריפט עצמו.
@@ -2146,16 +2163,17 @@ const MAP_COLUMN_MIN_WIDTH = 1024;
    ראש המפה וסרגל הפקדים את תחתיתה, והעיר צריכה לנחות במרכז מה שנשאר. זו גם
    בדיוק הנוסחה של fitMapToMarkers, כדי שהתצוגה שאיתה הדף נפתח והתצוגה שאחרי
    טעינת הנכסים לא ייפרדו זו מזו. */
-function afulaViewCenter(zoom){
-  if (!heroMap) return AFULA_CENTER;
+function cityViewCenter(zoom){
+  const center = CityCtx.center();
+  if (!heroMap) return center;
   try{
     const pad = visibleMapPadding();
     const dx = (pad.left - pad.right) / 2;
     const dy = (pad.top - pad.bottom) / 2;
-    if (!dx && !dy) return AFULA_CENTER;
-    const pt = heroMap.project(AFULA_CENTER, zoom).subtract([dx, dy]);
+    if (!dx && !dy) return center;
+    const pt = heroMap.project(center, zoom).subtract([dx, dy]);
     return heroMap.unproject(pt, zoom);
-  } catch(e){ return AFULA_CENTER; }
+  } catch(e){ return center; }
 }
 
 function applyMapStyle(style){
@@ -2173,10 +2191,10 @@ if (!MAP_STYLES.includes(savedMapStyle)) savedMapStyle = DEFAULT_MAP_STYLE;
 try {
   if (!window.L) throw new Error('Leaflet לא נטען (CDN חסום/נכשל)');
 
-  heroMap = L.map('hero-map', { scrollWheelZoom:false, zoomControl:false }).setView(AFULA_CENTER, AFULA_ZOOM);
+  heroMap = L.map('hero-map', { scrollWheelZoom:false, zoomControl:false }).setView(CityCtx.center(), CITY_ZOOM);
   // ההזזה אל השטח הפנוי נמדדת מה-DOM, ולכן היא באה אחרי שהמפה כבר קיימת
   // ויודעת את גודלה — לא כארגומנט ל-setView שלמעלה
-  heroMap.setView(afulaViewCenter(AFULA_ZOOM), AFULA_ZOOM, { animate:false });
+  heroMap.setView(cityViewCenter(CITY_ZOOM), CITY_ZOOM, { animate:false });
   MapTiles.addTo(heroMap);
   // כל החלק העליון של המפה מוסתר ע"י סרגל החיפוש הצף, ולכן פקדי הזום יורדים
   // לתחתית: הזום בצד אחד, הקרדיטים בשני, ו-.map-toolbar במרכז ביניהם
@@ -2622,9 +2640,9 @@ function recenterHeroMap(){
   heroMap.closePopup();
   // אותה תצוגה בדיוק שאיתה הדף נפתח, כולל ההזזה אל הצד הפנוי בדסקטופ:
   // כפתור שמחזיר את העיר אל מתחת לעמודת הכותרת הוא לא "מירכוז"
-  const center = afulaViewCenter(AFULA_ZOOM);
-  if (heroMap.flyTo) heroMap.flyTo(center, AFULA_ZOOM, { duration:.7 });
-  else heroMap.setView(center, AFULA_ZOOM, { animate:true });
+  const center = cityViewCenter(CITY_ZOOM);
+  if (heroMap.flyTo) heroMap.flyTo(center, CITY_ZOOM, { duration:.7 });
+  else heroMap.setView(center, CITY_ZOOM, { animate:true });
 }
 const mapRecenterBtn = document.getElementById('mapRecenterBtn');
 if (mapRecenterBtn) mapRecenterBtn.addEventListener('click', recenterHeroMap);

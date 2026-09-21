@@ -10,6 +10,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
+<!-- העיר הפעילה. לפני כל מה שמצייר, כי ה-H1 והמפה שואלים אותו. -->
+<script src="assets/city-context.js"></script>
 <script src="assets/events.js"></script>
 <script src="assets/bot-link.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -3330,7 +3332,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             </span>
           </div>
 
-          <h1>כל הנכסים בעפולה והעמק <span class="hero-h1-break">בכתובת אחת</span></h1>
+          <!-- שם העיר יושב ב-span משלו, ומיד אחרי ה-H1 יש סקריפט מוטבע
+               של שורה אחת שכותב אותו. סינכרוני ובאותו מקום במסמך, ולכן
+               הדפדפן לעולם אינו מצייר את שם העיר הקודם ואז מחליף אותו. -->
+          <h1>כל הנכסים ב<span id="heroCityName">עפולה והעמק</span> <span class="hero-h1-break">בכתובת אחת</span></h1>
+          <script>
+            /* ‏city-context.js נטען למעלה כ-‎<script src>‎ רגיל, ולכן הוא
+               כבר כאן. אם הוא לא נטען, הכיתוב שב-HTML נשאר כמו שהוא. */
+            try {
+              if (window.CityContext) {
+                var el = document.getElementById('heroCityName');
+                if (el) el.textContent = window.CityContext.label();
+              }
+            } catch (e) { /* הכיתוב שב-HTML הוא ברירת המחדל */ }
+          </script>
 
           <!-- שורת המילים המתחלפות. ‏aria-label נושא את כל האפשרויות כמשפט
                אחד, והגלגל עצמו aria-hidden: קורא מסך שמכריז "דירה למשפחה"

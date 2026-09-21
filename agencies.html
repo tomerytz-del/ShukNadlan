@@ -10,6 +10,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
+<script src="assets/city-context.js"></script>
 <script src="assets/events.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>כל משרדי התיווך בשוק הנדל״ן</title>
@@ -1092,7 +1093,12 @@ function render(){
    שעוברים אליה — Leaflet לא מודד נכון קונטיינר מוסתר, ולכן גם
    invalidateSize אחרי כל מעבר.
    ============================================================================ */
-const AFULA_CENTER = [32.6078, 35.2897];
+/* מרכז המפה הוא **העיר הפעילה**, לא קבוע. זה היה אחד משלושה עותקים של
+   הקואורדינטה הזו; המקור היחיד עכשיו הוא assets/city-context.js.
+   העותק המקומי כאן הוא רשת ביטחון לקובץ שלא נטען, ולא כפילות. */
+const CITY_CENTER = (window.CityContext && window.CityContext.center())
+  || [32.6078, 35.2897];
+const CITY_ZOOM = (window.CityContext && window.CityContext.zoom()) || 13;
 let map = null;
 let mapLayer = null;
 
@@ -1108,7 +1114,7 @@ function renderMap(list){
     return;
   }
   if (!map){
-    map = L.map('agenciesMap', { scrollWheelZoom:false }).setView(AFULA_CENTER, 13);
+    map = L.map('agenciesMap', { scrollWheelZoom:false }).setView(CITY_CENTER, CITY_ZOOM);
     MapTiles.addTo(map);
   }
   if (mapLayer) mapLayer.remove();
