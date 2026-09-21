@@ -1163,6 +1163,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      המילה הארוכה שבו, והשבב היה נדחף מחוץ לכרטיס. */
   .pc-hero-head{display:flex;align-items:flex-start;gap:8px;min-width:0}
   .pc-hero-head .lead-name{flex:1 1 auto;min-width:0}
+  /* ---------- עמודת הזהות: מספר המודעה מעל שבב הסטטוס ----------
+     מספר המודעה הוא המזהה שנמסר בטלפון, והוא ישב עד כה כגלולה ראשונה
+     בשורת התגיות. מרגע שהשורה הזו מכווצת לשורה אחת הוא בדיוק מה שאסור
+     שייחתך - ומעל השבב ממילא היה חלל ריק, כי הכותרת נשברת לשתיים־שלוש
+     שורות בעוד השבב תופס אחת.
+     ‏flex-end: שניהם נצמדים לקצה החיצוני של השורה, זה מעל זה. */
+  .pc-ident{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex:0 0 auto}
+  .pc-listing{font-size:.68rem;padding:1px 8px}
   .pc-hero .lead-name{font-size:.98rem;font-weight:800;line-height:1.3}
   /* ‏tabular-nums: המחיר הוא המספר שהעין קופצת אליו בכל כרטיס, וספרות
      ברוחב אחיד הן מה שמאפשר להשוות בין נכסים בלי לקרוא ספרה-ספרה. */
