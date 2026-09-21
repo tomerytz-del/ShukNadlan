@@ -5,7 +5,7 @@
 ## הבעיה
 
 ‏`assets/events.js` מאזין **מואצל** על ה-document: הוא סופר כל קישור
-‎wa.me‎ וכל קישור ‎tel:‎ בדף, מאיפה שלא הגיע, ומדווח ‎contact_agent‎ —
+‎wa.me‎, ‎tel:‎ ו-‎mailto:‎ בדף, מאיפה שלא הגיע, ומדווח ‎contact_agent‎ —
 פנייה של גולש/ת למתווך/ת. זה המדד העסקי המרכזי של הפלטפורמה.
 
 אבל **לא כל ‎wa.me‎ בדף הוא פנייה למתווך/ת**, ושלוש פעמים עד היום התברר
@@ -23,13 +23,16 @@
 
 ## מה נבדק
 
-  ‏1. **כל עוגן ‎wa.me‎/‎tel:‎ בדף שטוען ‎events.js‎ מסווג.** קישור למספר
-     של סוכן/ת נספר כ-‎contact_agent‎ וזה תקין; כל השאר חייב אחד משלושת
-     הסימונים — ‎data-bot‎, ‎data-share‎ או ‎data-site-contact‎.
-  ‏2. **‎wa.me/?text=‎ נושא ‎data-share‎** בכל קובץ שיש בו כזה, גם אם הדף
-     אינו נמדד היום. זה הסוג שנבנה ב-JS ולא כעוגן ב-HTML, ולכן הבדיקה
-     כאן היא על הקובץ ולא על העוגן.
-  ‏3. **המספר של הפלטפורמה נושא ‎data-site-contact‎** בכל דף שנמדד.
+  ‏1. **כל עוגן ‎wa.me‎/‎tel:‎/‎mailto:‎ בדף שטוען ‎events.js‎ מסווג.** קישור
+     למספר או למייל של סוכן/ת נספר כ-‎contact_agent‎ וזה תקין; כל השאר
+     חייב אחד משלושת הסימונים — ‎data-bot‎, ‎data-share‎ או
+     ‎data-site-contact‎.
+  ‏2. **‎wa.me/?text=‎ ו-‎mailto:?‎ נושאים ‎data-share‎** בכל קובץ שיש בו
+     כאלה, גם אם הדף אינו נמדד היום. אלה הסוגים שנבנים ב-JS ולא כעוגן
+     ב-HTML, ולכן הבדיקה כאן היא על הקובץ ולא על העוגן.
+  ‏3. **המספר והמייל של הפלטפורמה נושאים ‎data-site-contact‎** בכל דף
+     שנמדד. המייל נוסף אחרי שהתברר ב-Tag Assistant ש-‎mailto:‎ לא נמדד
+     כלל: לחיצה עליו נפלה ב-‎return‎ של המאזין ולא דחפה דבר.
   ‏4. **דף האזור האישי אינו טוען ‎events.js‎.** שם סוכנים מתקשרים ללקוחות
      של עצמם, וזה היה נספר כפניות של גולשים (‏CLAUDE.md).
   ‏5. **אין פרטים אישיים באירוע.** ‏GA4 אוסר שליחת PII, וחשבון שנתפס
@@ -67,6 +70,10 @@ ROOT = Path(__file__).resolve().parent.parent
 # ‏המספר של שוק נדל״ן עצמו, כפי שהוא מופיע בבלוק הקשר בתחתית הדפים.
 SITE_PHONE = "+972546929991"
 
+# ‏וכתובת המייל שלנו, באותו בלוק. היא נוספה אחרי שהתברר ב-Tag Assistant
+# ש-mailto: לא נמדד בכלל — ראו ההערה ב-assets/events.js.
+SITE_EMAIL = "shuknadlan@gmail.com"
+
 # ‏המספר העסקי של העוזר הציבורי (assets/bot-link.js). קישור אליו מסומן
 # ‏data-bot, ולכן הוא נבדק כאן רק כדי שלא ייחשב "מספר של סוכן/ת".
 BOT_PHONE = "972532494740"
@@ -82,8 +89,10 @@ HREF = re.compile(r'\bhref="([^"]*)"', re.IGNORECASE)
 
 MARKERS = ("data-bot", "data-share", "data-site-contact")
 
-# ‏wa.me בלי מספר — כפתור שיתוף. נבדק ברמת הקובץ, כי הוא נבנה ב-JS.
+# ‏קישורי שיתוף — wa.me או mailto: **בלי נמען**. נבדקים ברמת הקובץ, כי
+# הם נבנים ב-JS ולא כעוגן ב-HTML.
 WA_SHARE = re.compile(r"wa\.me/\?text=")
+MAIL_SHARE = re.compile(r"mailto:\?")
 
 # ---------- ‏PII ----------
 
@@ -135,14 +144,15 @@ def track_calls(text: str) -> list[str]:
 
 
 def contact_links(text: str) -> list[str]:
-    """‏עוגנים שהמאזין ב-events.js תופס: wa.me ו-tel:."""
+    """‏עוגנים שהמאזין ב-events.js תופס: wa.me, tel: ו-mailto:."""
     found = []
     for tag in ANCHOR.findall(text):
         href = HREF.search(tag)
         if not href:
             continue
         url = href.group(1)
-        if url.startswith(("https://wa.me/", "https://api.whatsapp.com/", "tel:")):
+        if url.startswith(("https://wa.me/", "https://api.whatsapp.com/",
+                           "tel:", "mailto:")):
             found.append(tag)
     return found
 
@@ -160,10 +170,17 @@ def classify(tag: str) -> str | None:
             "המספר של שוק נדל״ן עצמו, בלי data-site-contact — כל לחיצה\n"
             "            עליו נספרת כפנייה למתווך/ת"
         )
+    if SITE_EMAIL in url:
+        return (
+            "כתובת המייל של שוק נדל״ן עצמה, בלי data-site-contact — כל\n"
+            "            לחיצה עליה נספרת כפנייה למתווך/ת"
+        )
     if BOT_PHONE in url:
         return "המספר של העוזר הציבורי, בלי data-bot"
     if WA_SHARE.search(url) or url in ("https://wa.me/", "https://wa.me"):
         return "קישור שיתוף (wa.me בלי מספר), בלי data-share"
+    if MAIL_SHARE.search(url) or url == "mailto:":
+        return "קישור שיתוף (mailto: בלי נמען), בלי data-share"
     return None  # מספר של סוכן/ת — contact_agent, וזה תקין
 
 
@@ -214,11 +231,13 @@ def check_share_files() -> list[str]:
             if path.stem in PRIVATE_PAGES or path.name == "crm.js":
                 continue  # האזור האישי אינו נמדד
             code = strip_comments(path.read_text(encoding="utf-8"))
-            if WA_SHARE.search(code) and "data-share" not in code:
-                problems.append(
-                    "%s בונה wa.me/?text= ואין בו data-share — הכפתור\n"
-                    "        ייספר כפנייה למתווך/ת ברגע שהדף יימדד" % path.name
-                )
+            for pattern, what in ((WA_SHARE, "wa.me/?text="), (MAIL_SHARE, "mailto:?")):
+                if pattern.search(code) and "data-share" not in code:
+                    problems.append(
+                        "%s בונה %s ואין בו data-share — הכפתור\n"
+                        "        ייספר כפנייה למתווך/ת ברגע שהדף יימדד"
+                        % (path.name, what)
+                    )
     return problems
 
 

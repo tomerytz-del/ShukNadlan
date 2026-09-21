@@ -24,11 +24,11 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 
 | אירוע | מתי | פרמטרים ייחודיים |
 | --- | --- | --- |
-| `contact_agent` | לחיצה על קישור `wa.me` או `tel:` בדף שמוביל ל**סוכן/ת** | `method`: ‏`whatsapp` \| `phone` |
+| `contact_agent` | לחיצה על `wa.me`, `tel:` או `mailto:` בדף שמוביל ל**סוכן/ת** | `method`: ‏`whatsapp` \| `phone` \| `email` |
 | `contact_bot` | לחיצה על קישור שמוביל ל**עוזר הציבורי בוואטסאפ** | `entry`: נקודת הכניסה (`search_empty`) |
-| `contact_site` | לחיצה על המספר של **שוק נדל״ן עצמו** בבלוק הקשר | `method` |
+| `contact_site` | לחיצה על המספר או המייל של **שוק נדל״ן עצמו** בבלוק הקשר | `method`: ‏`phone` \| `email` |
 | `view_item` | נכס נטען בהצלחה בדף הנכס | `item_name`, `item_category`, `deal_type`, `city`, `value`, `currency` |
-| `share` | שיתוף שהושלם, או לחיצה על כפתור שיתוף בוואטסאפ | `method`: ‏`web_share` \| `copy_link` \| `whatsapp` |
+| `share` | שיתוף שהושלם, או לחיצה על כפתור שיתוף בוואטסאפ/מייל | `method`: ‏`web_share` \| `copy_link` \| `whatsapp` \| `email` |
 | `generate_lead` | טופס שהשרת אישר | `form_id`, ולפעמים `is_duplicate` |
 | `search` | חיפוש שהתוצאות שלו חזרו | `search_term`, `deal_type`, `category`, `filter_count`, `result_count` |
 | `pwa_banner_shown` | רצועת ההתקנה עלתה | `mode`: ‏`prompt` \| `ios` \| `ios-other` \| `in-app` |
@@ -83,14 +83,15 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 ### שלושה סימונים, ולמה בלעדיהם המדד מנופח
 
 זו הנקודה שחזרה שלוש פעמים, ולכן היא נאכפת ב-CI. **המאזין תופס כל
-`wa.me` וכל `tel:` בדף, מאיפה שלא הגיע** — ולא כל אחד מהם הוא ליד:
+`wa.me`, כל `tel:` וכל `mailto:` בדף, מאיפה שלא הגיע** — ולא כל אחד מהם
+הוא ליד:
 
 | סימון | מה הקישור | האירוע במקום |
 | --- | --- | --- |
 | `data-bot` | העוזר הציבורי בוואטסאפ | `contact_bot` |
-| `data-share` | כפתור "שתפו בוואטסאפ" — `wa.me/?text=` **בלי מספר** | `share` |
-| `data-site-contact` | המספר של שוק נדל״ן עצמו | `contact_site` |
-| (ללא) | מספר של סוכן/ת | `contact_agent` |
+| `data-share` | שיתוף — `wa.me/?text=` או `mailto:?` **בלי נמען** | `share` |
+| `data-site-contact` | המספר או המייל של שוק נדל״ן עצמו | `contact_site` |
+| (ללא) | מספר או מייל של סוכן/ת | `contact_agent` |
 
 שניים מהם נמצאו אחרי `data-bot`, ושניהם היו חיים:
 
@@ -99,6 +100,16 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
    מפיץ את המודעה החוצה — ונספר כפנייה.
 2. **המספר שלנו בבלוק הקשר שבתחתית הדף**, שיושב בכל 11 הדפים הנמדדים.
    כל מי שהתקשר **אלינו** נספר כליד למתווך/ת.
+
+**ו-`mailto:` נוסף למאזין רק ב-21.9.2026**, אחרי שנבדק ב-Tag Assistant
+ולא הפיק כלום: לחיצה על כתובת המייל בפוטר נפלה ב-`return` של המאזין,
+ולכן הערוץ הזה לא נמדד מהיום הראשון. זה ערוץ צדדי לעומת וואטסאפ וטלפון -
+אבל "צדדי" אינו "אפס", ובדוח אין הבדל בין 0 לבין "לא נמדד". ‏52 קישורי
+המייל שלנו סומנו `data-site-contact` באותו PR.
+
+> **ולא נדרש שינוי ב-GTM בשבילו.** ‏`method` כבר ממופה בתגיות
+> `GA4 — contact_site` ו-`GA4 — contact_agent`, ולכן `email` זורם דרך
+> אותו משתנה `DLV - method` כמו `phone` ו-`whatsapp`.
 
 `scripts/check_events.py` חוסם ב-CI קישור לא מסווג, וגם את הכיוון ההפוך
 — פרטים אישיים בפרמטרים של אירוע. הפרטים, כולל מה שהבדיקה **אינה** רואה

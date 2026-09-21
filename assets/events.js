@@ -103,6 +103,11 @@
       let method = null;
       if (href.indexOf('https://wa.me/') === 0 || href.indexOf('https://api.whatsapp.com/') === 0) method = 'whatsapp';
       else if (href.indexOf('tel:') === 0) method = 'phone';
+      /* ‏מייל נוסף אחרי שהתברר ב-Tag Assistant שלחיצה על כתובת המייל בפוטר
+         אינה מפיקה כלום: היא נפלה ב-return הזה, ולכן הערוץ הזה לא נמדד
+         מהיום הראשון. הוא ערוץ צדדי לעומת וואטסאפ וטלפון, אבל "צדדי" אינו
+         "אפס", ו-0 בדוח לא נבדל מ"לא נמדד". */
+      else if (href.indexOf('mailto:') === 0) method = 'email';
       if (!method) return;
 
       if (link.hasAttribute('data-bot')){
