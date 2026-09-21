@@ -57,6 +57,7 @@
 | לידי בעל-נכס, מכסת הלידים החינמית | `claim_lead` במסד |
 | ניתוב אוטומטי של לידי בעל-נכס | `lead_audience_size` / `lead_routing` — `mid`/`premium` |
 | דוח CMA | `cma_report` במסד — ולעוזר בוואטסאפ `agent_cma_report`, אותו קוד עם מזהה סוכן/ת מפורש |
+| שאילתת עסקאות היסטוריות | `agent_market_deals_lookup` — `premium` בלבד, ‏`market_deals_lookup` היא העטיפה לדפדפן |
 | מפת מיקום ומידע תכנוני | `property_map_view` — `mid`/`premium`; ‏`agent_property_planning` בודקת את אותו מסלול |
 | סרטון שיווקי | `property_video_tier` במסד |
 | הדמיות AI | `property_visualizations` — `premium` בלבד |

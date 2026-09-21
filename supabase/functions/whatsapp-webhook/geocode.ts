@@ -1,4 +1,5 @@
 import { afulaAddressToCoords } from "../_shared/afula-geocode.ts";
+import { geocodeAddress, loadCitySource } from "../_shared/geocode/index.ts";
 
 // גיאוקוד רחוב+מספר בית -> lat/lng לעפולה, מול שכבת נקודות הכתובות של העירייה.
 //
@@ -21,6 +22,36 @@ export async function geocodeAfula(
   } catch (err) {
     // פין על המפה זה נחמד-שיהיה, לא תנאי לפרסום הנכס
     console.warn("geocode failed", err);
+    return null;
+  }
+}
+
+/**
+ * הגרסה שמכירה עיר, לשימוש כלים שאינם יוצרים נכס.
+ *
+ * ‏`geocodeAfula` שמעל נשארת כפי שהיא: שני הקוראים שלה יוצרים נכס בעפולה
+ * בתוך שיחה, ושינוי שלהם הוא שינוי התנהגות שאינו שייך לכאן.
+ *
+ * ‏**אותה הבטחה בדיוק - לעולם לא זורקת.** ‏`loadCitySource` זורקת על תקלת
+ * מסד ו-`geocodeAddress` זורקת על תקלת רשת או על סוג ספק שאין לו מימוש;
+ * שתיהן נבלעות כאן ומוחזרות כ-`null`. זה מותר **רק** מפני שהקורא כאן אינו
+ * מזין את `geocode_attempts` - הוא רק מחפש נקודה כדי לשאול עליה שאילתה,
+ * ו"לא מצאנו" ו"לא הצלחנו לשאול" מובילים שניהם לאותה נפילה לאחור.
+ * במסלול שכן מזין את המונה ההבחנה הזו קדושה; ראו docs/geocoding.md.
+ */
+// deno-lint-ignore no-explicit-any
+export async function geocodeInCity(
+  supabase: any,
+  city: string,
+  street: string,
+  houseNumber: string,
+): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const source = await loadCitySource(supabase, city);
+    if (!source) return null;          // אין ספק לעיר - לא שאלה על הכתובת
+    return await geocodeAddress(source, street, houseNumber);
+  } catch (err) {
+    console.warn("geocodeInCity failed", err);
     return null;
   }
 }
