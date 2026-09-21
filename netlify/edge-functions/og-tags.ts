@@ -3,9 +3,9 @@
    ----------------------------------------------------------------------------
    ## הבעיה
 
-   ששת דפי הפירוט — נכס, משרד, סוכן/ת, פרויקט, בעל/ת מקצוע וכתבה — הם
-   קבצים סטטיים: הכותרת בהם היא "נכס | שוק נדל״ן", והתוכן האמיתי נטען ב-JS
-   אחרי שהדף כבר בדפדפן.
+   שבעת דפי הפירוט — נכס, משרד, סוכן/ת, פרויקט, חברה יזמית, בעל/ת מקצוע
+   וכתבה — הם קבצים סטטיים: הכותרת בהם היא "נכס | שוק נדל״ן", והתוכן
+   האמיתי נטען ב-JS אחרי שהדף כבר בדפדפן.
 
    הסורק של וואטסאפ **אינו מריץ JS**. הוא מושך את ה-HTML, מחפש תגיות
    ‎og:‎ — ולא מוצא אף אחת. התוצאה היא שקישור לנכס שסוכן/ת שולח/ת ללקוח/ה
@@ -24,10 +24,10 @@
 
    נכס, משרד וסוכן/ת אינם נושאים תגיות ‎og:‎ כלל, ולכן הן נכתבות כאן מאפס.
 
-   פרויקט, בעל/ת מקצוע וכתבה **כן** נושאים אותן — עם ערכים כלליים ועם
-   ‎id‎ (‏‎ogTitle‎, ‎metaDescription‎, ‎ogDescription‎, ‎ogImage‎), כי ה-JS שלהם
-   ממלא אותן אחרי הטעינה. שם התפקיד כאן הוא **למלא את התגיות הקיימות ולא
-   להוסיף חדשות**, משתי סיבות:
+   פרויקט, חברה יזמית, בעל/ת מקצוע וכתבה **כן** נושאים אותן — עם ערכים
+   כלליים ועם ‎id‎ (‏‎ogTitle‎, ‎metaDescription‎, ‎ogDescription‎, ‎ogImage‎),
+   כי ה-JS שלהם ממלא אותן אחרי הטעינה. שם התפקיד כאן הוא **למלא את
+   התגיות הקיימות ולא להוסיף חדשות**, משתי סיבות:
 
      • תגית ‎og:title‎ כפולה משאירה לסורק לבחור, והוא בוחר את הכללית.
      • ה-JS בדפים האלה כותב ‎el('ogTitle').content = …‎ **בלי בדיקת null**.
@@ -62,6 +62,14 @@
    לכן ה-‎canonical‎ כאן נבנה **מה-slug שחזר מהמסד**, ולא מהפרמטר שבכתובת:
    פנייה ב-‎?id=‎ מצהירה על ‎?slug=‎ כמקור. זו גם הכתובת היחידה שנכנסת
    ל-sitemap (‏docs/sitemap.md), ולכן השתיים מסכימות.
+
+   ‏**ולכן דף פירוט אינו נושא תגית ‎canonical‎ סטטית בקובץ ה-HTML שלו** —
+   בשונה מ-18 הדפים הסטטיים, שכן נושאים אחת (‏scripts/check_canonical.py).
+   תגית סטטית ב-‎property.html‎ הייתה מצהירה ‎/property‎ בלי ‎?id=‎, ובמסלול
+   הנפילה כאן — ‏Supabase איטי, נכס שאינו ‎active‎, כל ‎catch‎ בקובץ — היא
+   הייתה נשארת בדף ומאחדת את **כל** הנכסים לכתובת אחת. כלומר תקלה זמנית
+   בשרת הייתה מוחקת כל דפי הנכסים מהאינדקס. היום כשל כזה פשוט משאיר דף
+   בלי ‎canonical‎, וזה מה שהיה לפני הפונקציה הזו.
 
    ## מטמון
 
@@ -278,6 +286,25 @@ async function projectMeta(slug: string, canonical: string): Promise<Meta | null
   };
 }
 
+async function developerMeta(slug: string, canonical: string): Promise<Meta | null> {
+  const d = await sbFetch(
+    `developers_public?slug=eq.${encodeURIComponent(slug)}&select=name,city,tagline,description,cover_url,logo_url`,
+  );
+  if (!d) return null;
+
+  const title = `${d.name || "חברה יזמית"}${d.city ? " - " + d.city : ""}`;
+  const desc =
+    clamp(String(d.tagline || d.description || ""), 200) ||
+    `כל הפרויקטים החדשים של החברה${d.city ? " ב" + d.city : ""} במקום אחד.`;
+
+  return {
+    title: clamp(`${title} | ${SITE_NAME}`, 90),
+    description: desc,
+    image: absolute(d.cover_url || d.logo_url) || DEFAULT_IMAGE,
+    canonical,
+  };
+}
+
 async function professionalMeta(key: string): Promise<Meta | null> {
   const cols = "slug,advertiser_name,business_name,advertiser_type,target_region,headline,description,cover_url,creative_url";
   const p = await sbFetch(
@@ -356,7 +383,11 @@ function inject(html: string, m: Meta): string {
     else add.push(template.replace("%s", esc(pick(m))));
   }
 
-  // ‏canonical ו-og:url אינם בשום דף, ו-og:type נכתב רק כשאין אחד
+  /* ‏canonical: דף פירוט אינו נושא תגית סטטית — ראו "canonical" בראש הקובץ
+     ובסעיף של scripts/check_canonical.py — אבל אם אחת נשתלה שם בכל זאת,
+     היא יורדת כאן. **שתי תגיות canonical גורמות לגוגל להתעלם משתיהן**,
+     וזה כשל שקט לגמרי: הדף נטען, התגית שהזרקנו בתוכו, והאיחוד לא קורה. */
+  out = out.replace(/<link\b[^>]*\brel="canonical"[^>]*>\s*/gi, "");
   add.unshift(`<link rel="canonical" href="${esc(m.canonical)}">`);
   if (!/<meta[^>]+property="og:type"/i.test(out)) {
     add.push(`<meta property="og:type" content="website">`);
@@ -406,6 +437,8 @@ export default async function handler(request: Request, context: Context) {
       meta = await agentMeta(slug, `${SITE}/agent?slug=${encodeURIComponent(slug)}`);
     } else if (page.endsWith("/project") && slug) {
       meta = await projectMeta(slug, `${SITE}/project?slug=${encodeURIComponent(slug)}`);
+    } else if (page.endsWith("/developer") && slug) {
+      meta = await developerMeta(slug, `${SITE}/developer?slug=${encodeURIComponent(slug)}`);
     } else if (page.endsWith("/professional") && key) {
       meta = await professionalMeta(key);
     } else if (page.endsWith("/article") && key) {
@@ -432,6 +465,7 @@ export const config: Config = {
     "/agency", "/agency.html",
     "/agent", "/agent.html",
     "/project", "/project.html",
+    "/developer", "/developer.html",
     "/professional", "/professional.html",
     "/article", "/article.html",
   ],
