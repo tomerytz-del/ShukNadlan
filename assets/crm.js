@@ -17119,15 +17119,56 @@ function renderCmaReport(r){
   const hasStats = !!cov.has_statistics;
 
   /* הפער מול השוק מוצג רק כשיש שוק להשוות אליו. זה היה המשפט המטעה
-     ביותר בדוח: הוא נוסח כממצא גם כשה"ממוצע" היה עסקה אחת. */
-  let gapNote = '';
-  if (hasStats && st.avg_price && s.price){
-    const pct = Math.round(((Number(s.price) - Number(st.avg_price)) / Number(st.avg_price)) * 100);
-    gapNote = pct === 0
-      ? '<div class="cma-note">המחיר המבוקש תואם את ממוצע העסקאות בסביבה.</div>'
-      : `<div class="cma-note">המחיר המבוקש ${pct > 0 ? 'גבוה' : 'נמוך'} ב-${Math.abs(pct)}% `
-        + `מממוצע ${esc(st.comparables_count)} העסקאות בסביבה.</div>`;
+     ביותר בדוח: הוא נוסח כממצא גם כשה"ממוצע" היה עסקה אחת.
+
+     ומעכשיו הוא **שני מספרים ולא אחד**, וזו לא הרחבה קוסמטית. הפער
+     במחיר הכולל והפער למ״ר אינם אותו מספר, והם יכולים להצביע לכיוונים
+     שונים לגמרי. נכס אמיתי בעפולה: 1,320,000 ₪ על 80 מ״ר, מול ממוצע
+     של 1,282,937 ₪ על 113 מ״ר ב-222 עסקאות בסביבה.
+
+       במחיר הכולל   +3%   ← נשמע כמו "המחיר בשוק"
+       במחיר למ״ר   +43%   ← 16,500 מול 11,556
+
+     שני המספרים נכונים, והם מתארים את אותו נכס. ההבדל ביניהם הוא כולו
+     השטח: נכס קטן מהממוצע ייראה זול בהשוואה הכוללת גם כשהוא יקר מאוד
+     לכל מטר. מי שראה רק את ה-3% קרא שהמחיר סביר, והוא לא היה.
+
+     לכן שניהם ולא בחירה ביניהם: המחיר למ״ר הוא ההשוואה המדויקת כששטחים
+     שונים, והמחיר הכולל הוא מה שהקונה באמת משלם. וכששניהם רחוקים זה
+     מזה, הדוח אומר **למה** - אחרת זה נקרא כסתירה. */
+  const cmaGapPct = (ask, avg) => {
+    const a = Number(ask), v = Number(avg);
+    return (Number.isFinite(a) && Number.isFinite(v) && v > 0)
+      ? Math.round(((a - v) / v) * 100) : null;
+  };
+  const priceGap = hasStats ? cmaGapPct(s.price, st.avg_price) : null;
+  const sqmGap   = hasStats ? cmaGapPct(s.price_per_sqm, st.avg_price_per_sqm) : null;
+
+  function cmaGapLine(pct, what, n){
+    if (pct === null) return '';
+    const count = Number(n) > 0 ? ` (${esc(n)} עסקאות)` : '';
+    return pct === 0
+      ? `<div class="cma-note">${what}: <strong>תואם את הממוצע</strong>${count}.</div>`
+      : `<div class="cma-note">${what}: <strong>${pct > 0 ? 'גבוה' : 'נמוך'} ב-${Math.abs(pct)}%</strong> `
+        + `מהממוצע${count}.</div>`;
   }
+
+  /* סף ההסבר: 10 נקודות אחוז. מתחת לזה שני המספרים מספרים אותו סיפור
+     ומשפט נוסף הוא רעש; מעל לזה הם נראים כמו סתירה, ואז ההסבר הוא
+     החלק החשוב יותר של הדוח. */
+  const gapDiverges = priceGap !== null && sqmGap !== null
+                      && Math.abs(priceGap - sqmGap) >= 10;
+
+  const gapNote = (priceGap === null && sqmGap === null) ? '' :
+      cmaGapLine(priceGap, 'המחיר המבוקש הכולל', st.comparables_count)
+    + cmaGapLine(sqmGap,   'המחיר המבוקש למ״ר',  st.sqm_sample_size ?? st.comparables_count)
+    + (gapDiverges
+        ? '<div class="cma-note">שני המספרים רחוקים זה מזה מפני ששטח הנכס שונה מהשטח הממוצע '
+          + 'בעסקאות ההשוואה. המחיר למ״ר הוא ההשוואה המדויקת יותר; המחיר הכולל הוא מה שהקונה משלם בפועל.</div>'
+        : '')
+    + (sqmGap === null && st.avg_price_per_sqm && !s.price_per_sqm
+        ? '<div class="cma-note">אין שטח רשום לנכס, ולכן אי אפשר להשוות את המחיר למ״ר.</div>'
+        : '');
 
   const compRows = comps.map(c => `<tr>
       <td>${esc(c.property_type)}${c.same_type === false ? ' <span class="cma-basis">סוג אחר</span>' : ''}</td>

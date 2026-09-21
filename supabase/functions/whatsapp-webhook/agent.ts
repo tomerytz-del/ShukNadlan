@@ -1811,11 +1811,19 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
   // בלעדיה, ממוצע שיתווסף מתישהו לענף אחר של הפונקציה היה זולג לצ'אט בלי
   // שאיש יחליט על כך.
   const hasStats = coverage.has_statistics === true;
-  const asking = Number(subject.price);
-  const avg = Number(stats.avg_price);
-  const gapPct = hasStats && Number.isFinite(asking) && Number.isFinite(avg) && avg > 0
-    ? Math.round(((asking - avg) / avg) * 100)
-    : undefined;
+  // שני פערים ולא אחד. הם מתארים את אותו נכס ויכולים להצביע לכיוונים
+  // שונים לגמרי, כי ההבדל ביניהם הוא כולו השטח: נכס של 80 מ"ר
+  // ב-1,320,000 ₪ יצא +3% מול ממוצע של 1,282,937 ₪ (113 מ"ר בממוצע),
+  // ובאותה נשימה +43% למ"ר. מודל שמקבל רק את הראשון יאמר "המחיר בשוק",
+  // וזו התשובה הלא נכונה. הצד של ה-UI: `renderCmaReport` ב-assets/crm.js.
+  const gap = (ask: unknown, avgOf: unknown): number | undefined => {
+    const a = Number(ask), v = Number(avgOf);
+    return hasStats && Number.isFinite(a) && Number.isFinite(v) && v > 0
+      ? Math.round(((a - v) / v) * 100)
+      : undefined;
+  };
+  const gapPct = gap(subject.price, stats.avg_price);
+  const gapPerSqmPct = gap(subject.price_per_sqm, stats.avg_price_per_sqm);
 
   // הנחיה ולא נתון: מודל שמקבל "0 עסקאות" ימלא את החסר באומדן משלו אם לא
   // ייאמר לו במפורש שאסור. זה בדיוק המקום שבו דוח כן הופך לדוח שנשמע כן.
@@ -1846,8 +1854,14 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
       asking_price_per_sqm: subject.price_per_sqm,
     },
     // הפער הוא השורה שהסוכן/ת מחפש/ת: המחיר המבוקש מול ממוצע העסקאות
-    // בסביבה — וקיים רק כשיש ממוצע שמותר להישען עליו.
+    // בסביבה — וקיים רק כשיש ממוצע שמותר להישען עליו. שניהם חוזרים,
+    // כי אחד מהם לבדו מטעה בדיוק כשהשטחים שונים.
     gap_vs_market_pct: gapPct,
+    gap_vs_market_per_sqm_pct: gapPerSqmPct,
+    // כמה עסקאות באמת עמדו מאחורי כל אחד מהם. ממוצע המ"ר נשען רק על
+    // עסקאות שיש להן שטח, והוא לרוב מדגם קטן יותר.
+    gap_sample_size: hasStats ? stats.comparables_count : undefined,
+    gap_per_sqm_sample_size: hasStats ? stats.sqm_sample_size : undefined,
     stats,
     data_coverage: coverage,
     coverage_guidance: COVERAGE_GUIDANCE[String(coverage.status)] || undefined,
@@ -3191,7 +3205,10 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "ניתוח נכס:",
     "- \"כמה שווה\" / \"מה נמכר באזור\" / \"המחיר ריאלי?\" = cma_report. השורה החשובה " +
-      "היא gap_vs_market_pct - הפער בין המחיר המבוקש לממוצע. אם radius_exhausted הוא " +
+      "הן **שתי** שורות הפער: gap_vs_market_pct (המחיר הכולל) ו-gap_vs_market_per_sqm_pct (המחיר למ\"ר). " +
+      "אמור/אמרי את שניהם, תמיד. הם יכולים להצביע לכיוונים שונים כששטח הנכס שונה מהשטח " +
+      "הממוצע בעסקאות, ואז המ\"ר הוא ההשוואה המדויקת והמחיר הכולל הוא מה שהקונה משלם - " +
+      "הסבר/י את זה במקום לבחור אחד מהם. אם radius_exhausted הוא " +
       "true, אמור/אמרי שהמדגם קטן לפני שאת/ה מסיק/ה ממנו.",
     "- \"מה נמכר ברחוב X\" / \"5 עסקאות אחרונות ב...\" / \"כמה שילמו על 4 חדרים באזור\" " +
       "= market_deals_lookup. ההבדל מ-cma_report: הוא מקבל **כתובת** ולא נכס, ולכן הוא " +
