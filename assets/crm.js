@@ -155,7 +155,9 @@ function priceRangeLabel(values){
    ניסוח. ‏plural() הוא הניסוח היחיד לספירה כזו, כדי שהשורה, הגלולה
    והכרטיס לא יתפצלו שוב: מי שמתקן במקום אחד מתקן בכולם.
    ‏1.5 נשאר רבים ("1.5 חדרים"), כי רק 1 בדיוק הוא יחיד. */
-function plural(n, one, many){ return n === 1 ? one : n + ' ' + many; }
+function plural(n, one, many, countText){
+  return n === 1 ? one : (countText === undefined ? n : countText) + ' ' + many;
+}
 
 /* טווח מקוצר, עם סימן המטבע והיחידה פעם אחת: "₪1–1.2 מ׳" ולא
    "₪1 מ׳–₪1.2 מ׳". שני מחירים מלאים בשורה קצרה נקראים כשני מחירים
@@ -883,7 +885,7 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
     await loadDashboard(session.user);
     if (wasAdopted){
       showToast(movedProps > 0
-        ? `המשרד נפתח. ${movedProps} נכסים עברו איתך.`
+        ? `המשרד נפתח. ${plural(movedProps, 'נכס אחד עבר איתך', 'נכסים עברו איתך')}.`
         : 'המשרד נפתח, וכל מה שרשום על שמך עבר איתך.');
     }
   } catch(err){
@@ -1650,7 +1652,8 @@ async function loadRssSourcesAdmin(){
   }
 
   const sources = data || [];
-  accSetCount('accRssSources', sources.filter(s => s.active).length + ' פעילים');
+  accSetCount('accRssSources',
+    plural(sources.filter(s => s.active).length, 'מקור אחד פעיל', 'פעילים'));
 
   if (!sources.length){
     listEl.innerHTML = '<div class="empty-state">אין עדיין מקורות. הוסיפו פיד RSS ראשון למעלה.</div>';
@@ -1692,7 +1695,8 @@ async function loadRssSourcesAdmin(){
     const meta = document.createElement('div');
     meta.style.cssText = 'font-size:.72rem;color:var(--ink-soft);margin-top:2px';
     meta.textContent = rssLastRunLabel(source) +
-      ' · ' + (source.items_seen || 0) + ' פריטים · ' + (source.leads_created || 0) + ' לידים';
+      ' · ' + plural(source.items_seen || 0, 'פריט אחד', 'פריטים')
+    + ' · ' + plural(source.leads_created || 0, 'ליד אחד', 'לידים');
     row.appendChild(meta);
 
     if (source.last_status === 'error' && source.last_error){
@@ -2011,7 +2015,8 @@ async function loadUnroutedLeads(){
   }
 
   const rows = data || [];
-  accSetCount('accUnroutedLeads', rows.length ? rows.length + ' ממתינים' : '');
+  accSetCount('accUnroutedLeads',
+    rows.length ? plural(rows.length, 'ליד אחד ממתין', 'ממתינים') : '');
 
   if (!rows.length){
     listEl.innerHTML = '<div class="empty-state">כל הלידים שנקלטו מצאו יעד. 🎯</div>';
@@ -2309,7 +2314,7 @@ async function loadAdminPwaReport(){
 
   block.appendChild(admEl('p', 'adm-legend',
     'סך ההתקנות שהושלמו מאז ומתמיד: ' + admInt(rep.installed_total) +
-    ' · בחלון של ' + admInt(days) + ' ימים: ' + admInt(done)));
+    ' · בחלון של ' + plural(days, 'יום אחד', 'ימים', admInt(days)) + ': ' + admInt(done)));
 
   /* המשפך. ‏share הוא החלק מתוך "ראו את ההצעה" — בלי הפס האלה ארבעה
      מספרים נפרדים, ואי אפשר לראות איפה אנשים נושרים. */
@@ -2406,11 +2411,13 @@ function renderAdminReport(report){
   }));
   tiles.appendChild(admTile('סוכנים שהצטרפו', admInt(now.agents_new), {
     delta: admDeltaChip(now.agents_new, prevSafe.agents_new),
-    note: 'סה״כ ' + admInt(totals.agents_active) + ' פעילים',
+    note: 'סה״כ ' + plural(totals.agents_active, 'סוכן/ת אחד/ת פעיל/ה', 'פעילים',
+                          admInt(totals.agents_active)),
   }));
   tiles.appendChild(admTile('לידים שנקלטו', admInt(now.leads_total), {
     delta: admDeltaChip(now.leads_total, prevSafe.leads_total),
-    note: admInt(admQueueTotal(queue)) + ' ממתינים לטיפול',
+    note: plural(admQueueTotal(queue), 'ליד אחד ממתין לטיפול', 'ממתינים לטיפול',
+                 admInt(admQueueTotal(queue))),
   }));
   tiles.appendChild(admTile('הכנסות החודש', admMoney(now.revenue_total), {
     wine: true,
@@ -2440,7 +2447,10 @@ function renderAdminReport(report){
   /* ---- 3. התור הפתוח ---- */
   const queueBlock = admBlock('ממתין לטיפול עכשיו',
     'זהו תור פתוח ולא נתון חודשי: כל מה שנקלט ואיש עדיין לא נגע בו, בלי קשר למועד.'
-    + (queue.oldest_days ? ' הליד הוותיק ביותר שלא נפתח ממתין ' + admInt(queue.oldest_days) + ' ימים.' : ''));
+    + (queue.oldest_days
+        ? ' הליד הוותיק ביותר שלא נפתח ממתין '
+          + plural(queue.oldest_days, 'יום אחד', 'ימים', admInt(queue.oldest_days)) + '.'
+        : ''));
   const queueGrid = admEl('div', 'adm-queue');
   ADM_QUEUE.forEach(item=>{
     const count = Number(queue[item.key]) || 0;
@@ -2483,7 +2493,8 @@ function renderAdminReport(report){
   host.appendChild(revBlock);
 
   /* ---- 5. מגמה על פני החלון ---- */
-  const trendBlock = admBlock('מגמה - ' + admInt(months.length) + ' חודשים אחרונים',
+  const trendBlock = admBlock(
+    'מגמה - ' + plural(months.length, 'החודש האחרון', 'חודשים אחרונים', admInt(months.length)),
     'העמודה הזהובה היא החודש הנוכחי, שעדיין לא הסתיים - הוא תמיד ייראה נמוך מחודש מלא.');
   trendBlock.appendChild(admEl('p', 'adm-legend', 'לידים שנקלטו בכל חודש'));
   trendBlock.appendChild(admChart(months, m => Number(m.leads_total) || 0, admInt));
@@ -2555,8 +2566,11 @@ function renderAdminReport(report){
      סגור" ל"יש משהו שדורש תשומת לב". */
   const sub = document.getElementById('adminPanelSub');
   if (sub){
-    sub.textContent = admMonthLabel(now.month) + ' · ' + admInt(now.leads_total) + ' לידים · '
-      + admMoney(now.revenue_total) + ' · ' + admInt(admQueueTotal(queue)) + ' ממתינים לטיפול';
+    sub.textContent = admMonthLabel(now.month)
+      + ' · ' + plural(now.leads_total, 'ליד אחד', 'לידים', admInt(now.leads_total)) + ' · '
+      + admMoney(now.revenue_total) + ' · '
+      + plural(admQueueTotal(queue), 'ליד אחד ממתין לטיפול', 'ממתינים לטיפול',
+               admInt(admQueueTotal(queue)));
   }
 
   dashPanelsMeasure();
@@ -2692,10 +2706,10 @@ const lxLabel = (map, key) => map[key] || key || '-';
    זו היחידה שבה הוא נמדד, אבל אף אחד לא חושב ב-168 שעות. */
 function lxDur(hours){
   const h = Number(hours) || 0;
-  if (h < 24) return admInt(h) + ' שעות';
+  if (h < 24) return plural(h, 'שעה אחת', 'שעות', admInt(h));
   if (h === 24) return 'יממה';
   const days = h / 24;
-  return (Number.isInteger(days) ? admInt(days) : days.toFixed(1)) + ' ימים';
+  return plural(days, 'יום אחד', 'ימים', Number.isInteger(days) ? admInt(days) : days.toFixed(1));
 }
 
 /* אחוז שמותר להציג. מכנה אפס אינו "אפס אחוז" אלא "אין מה לחשב". */
@@ -2742,7 +2756,7 @@ function lxStackChart(trend){
         col.appendChild(seg);
       });
     }
-    col.title = t.bucket + ' · ' + admInt(total) + ' לידים';
+    col.title = t.bucket + ' · ' + plural(total, 'ליד אחד', 'לידים', admInt(total));
     chart.appendChild(col);
   });
   wrap.appendChild(chart);
@@ -2838,7 +2852,8 @@ function renderLeadReport(report){
   /* ---- 1. ארבעת המספרים של החלון ---- */
   const tiles = admEl('div', 'adm-tiles');
   tiles.appendChild(admTile('לידים שנקלטו', admInt(leads), {
-    note: admInt(totals.sources) + ' מקורות · ' + admInt(totals.channels) + ' ערוצים',
+    note: plural(totals.sources, 'מקור אחד', 'מקורות', admInt(totals.sources))
+        + ' · ' + plural(totals.channels, 'ערוץ אחד', 'ערוצים', admInt(totals.channels)),
   }));
   tiles.appendChild(admTile('הגיעו ליעד', admInt(routed), {
     note: leads
@@ -2903,7 +2918,8 @@ function renderLeadReport(report){
   tempBlock.appendChild(temps);
 
   tempBlock.appendChild(admEl('p', 'adm-note', qTotal
-    ? (admInt(qTotal) + ' לידים ממתינים, והוותיק שבהם כבר ' + lxDur(queue.oldest_hours) + '.'
+    ? (plural(qTotal, 'ליד אחד ממתין, והוא כבר', 'לידים ממתינים, והוותיק שבהם כבר',
+              admInt(qTotal)) + ' ' + lxDur(queue.oldest_hours) + '.'
        + ((Number(queue.cooling) || 0) + (Number(queue.cold) || 0)
           ? ' ' + admInt((Number(queue.cooling) || 0) + (Number(queue.cold) || 0))
             + ' מהם כבר מעבר לסף החם - אלה שדורשים החלטה.'
@@ -2945,7 +2961,8 @@ function renderLeadReport(report){
     const n = Number(c.leads) || 0;
     const row = admRow(
       lxLabel(LX_CHANNELS, c.channel),
-      admInt(c.sources) + ' מקורות · ' + admInt(c.sold) + ' נמכרו · ' + admMoney(c.revenue)
+      plural(c.sources, 'מקור אחד', 'מקורות', admInt(c.sources))
+        + ' · ' + plural(c.sold, 'ליד אחד נמכר', 'נמכרו', admInt(c.sold)) + ' · ' + admMoney(c.revenue)
         + (Number(c.unrouted) ? ' · ' + admInt(c.unrouted) + ' ללא יעד' : ''),
       admInt(n), leads ? (n / leads) * 100 : 0);
     // הנקודה קושרת את השורה לצבע שלה בגרף המוערם — בלעדיה שתי התצוגות הן
@@ -2999,8 +3016,9 @@ function renderLeadReport(report){
   srcBlock.appendChild(srcWrap);
   if (Number(totals.unattributed)){
     srcBlock.appendChild(admEl('p', 'adm-note',
-      admInt(totals.unattributed) + ' לידים בחלון הזה נכנסו בלי שיוך מקור. אלה לידים '
-      + 'שנקלטו לפני שיומן הניתוב נכנס לאוויר, או דרך מסלול שאינו רושם מקור. '
+      plural(totals.unattributed, 'ליד אחד בחלון הזה נכנס', 'לידים בחלון הזה נכנסו',
+             admInt(totals.unattributed)) + ' בלי שיוך מקור. לידים כאלה '
+      + 'נקלטו לפני שיומן הניתוב נכנס לאוויר, או דרך מסלול שאינו רושם מקור. '
       + 'הם נספרים ככל ליד אחר - ומוצגים ככאלה ולא מנוחשים.'));
   }
   host.appendChild(srcBlock);
@@ -3083,10 +3101,10 @@ function renderLeadReport(report){
   const sub = document.getElementById('leadPanelSub');
   if (sub){
     const coldish = (Number(queue.cooling) || 0) + (Number(queue.cold) || 0);
-    sub.textContent = admInt(leads) + ' לידים ' + rangeTxt
+    sub.textContent = plural(leads, 'ליד אחד', 'לידים', admInt(leads)) + ' ' + rangeTxt
       + (top ? ' · מוביל: ' + lxLabel(LX_CHANNELS, top.channel) : '')
-      + ' · ' + admInt(queue.hot) + ' חמים'
-      + (coldish ? ' · ' + admInt(coldish) + ' התקררו' : '');
+      + ' · ' + plural(queue.hot, 'ליד אחד חם', 'חמים', admInt(queue.hot))
+      + (coldish ? ' · ' + plural(coldish, 'ליד אחד התקרר', 'התקררו', admInt(coldish)) : '');
   }
 
   dashPanelsMeasure();
@@ -3252,7 +3270,7 @@ function renderOpsReport(report){
       const fact = admEl('div', 'adm-fact');
       fact.appendChild(admEl('span', 'adm-fact-lbl', r.title));
       fact.appendChild(admEl('span', 'adm-fact-val',
-        'היה פתוח ' + admInt(r.lasted_days) + ' ימים'));
+        'היה פתוח ' + plural(r.lasted_days, 'יום אחד', 'ימים', admInt(r.lasted_days))));
       facts.appendChild(fact);
     });
     done.appendChild(facts);
@@ -3262,9 +3280,11 @@ function renderOpsReport(report){
   const sub = document.getElementById('opsPanelSub');
   if (sub){
     sub.textContent = (crit + high)
-      ? admInt(crit + high) + ' ממצאים דורשים טיפול · ' + admInt(counts.open) + ' פתוחים'
+      ? plural(crit + high, 'ממצא אחד דורש טיפול', 'ממצאים דורשים טיפול', admInt(crit + high))
+        + ' · ' + plural(counts.open, 'ממצא אחד פתוח', 'פתוחים', admInt(counts.open))
       : (Number(counts.open)
-          ? admInt(counts.open) + ' ממצאים פתוחים, אף אחד דחוף'
+          ? plural(counts.open, 'ממצא אחד פתוח, ואינו דחוף',
+                   'ממצאים פתוחים, אף אחד דחוף', admInt(counts.open))
           : 'הכול תקין בסריקה האחרונה');
   }
 
@@ -3273,9 +3293,9 @@ function renderOpsReport(report){
 
 function opsAgo(minutes){
   const m = Number(minutes) || 0;
-  if (m < 90)      return 'לפני ' + Math.max(1, Math.round(m)) + ' דקות';
-  if (m < 60 * 36) return 'לפני ' + Math.round(m / 60) + ' שעות';
-  return 'לפני ' + Math.round(m / 1440) + ' ימים';
+  if (m < 90)      return 'לפני ' + plural(Math.max(1, Math.round(m)), 'דקה אחת', 'דקות');
+  if (m < 60 * 36) return 'לפני ' + plural(Math.round(m / 60), 'שעה אחת', 'שעות');
+  return 'לפני ' + plural(Math.round(m / 1440), 'יום אחד', 'ימים');
 }
 
 /* ‏**טקסט** מהממצא הופך להדגשה אמיתית.
@@ -3319,7 +3339,7 @@ function opsItem(f){
   const age = Number(f.age_days) || 0;
   head.appendChild(admEl('span', 'ops-meta',
     (OPS_AREA_LABELS[f.area] || f.area) + ' · ' +
-    (age >= 1 ? 'פתוח ' + admInt(age) + ' ימים' : 'פתוח מהיום')));
+    (age >= 1 ? 'פתוח ' + plural(age, 'יום אחד', 'ימים', admInt(age)) : 'פתוח מהיום')));
   item.appendChild(head);
 
   const body = admEl('div', 'ops-body');
@@ -3540,7 +3560,7 @@ function renderInventoryReport(report){
   tiles.appendChild(admTile('נכסים מפורסמים', admInt(props.active),
     { note: 'מתוך ' + admInt(props.total) + ' במערכת', wine: true }));
   tiles.appendChild(admTile('שיתופי פעולה', admInt(collab.shares),
-    { note: admInt(collab.properties_shared) + ' נכסים שותפו' }));
+    { note: plural(collab.properties_shared, 'נכס אחד שותף', 'נכסים שותפו', admInt(collab.properties_shared)) }));
   tiles.appendChild(admTile('לקוחות המתווכים', admInt(clients.total),
     { note: admInt(clients.per_agent) + ' בממוצע לסוכן/ת' }));
   tiles.appendChild(admTile('הדמיות שבוצעו', admInt(media.visualizations),
@@ -3608,9 +3628,9 @@ function renderInventoryReport(report){
 
   const sub = document.getElementById('invPanelSub');
   if (sub){
-    sub.textContent = admInt(props.active) + ' נכסים · ' +
-      admInt(collab.shares) + ' שיתופים · ' +
-      admInt(clients.total) + ' לקוחות · ' +
+    sub.textContent = plural(props.active, 'נכס אחד', 'נכסים', admInt(props.active)) + ' · ' +
+      plural(collab.shares, 'שיתוף אחד', 'שיתופים', admInt(collab.shares)) + ' · ' +
+      plural(clients.total, 'לקוח/ה אחד/ת', 'לקוחות', admInt(clients.total)) + ' · ' +
       admInt(media.visualizations) + ' הדמיות';
   }
 
@@ -3902,7 +3922,7 @@ async function loadProfessionalCardsAdmin(){
       card.target_region,
       'נרשם/ה ' + new Date(card.created_at).toLocaleDateString('he-IL'),
       card.ends_at ? 'פרסום עד ' + new Date(card.ends_at).toLocaleDateString('he-IL') : null,
-      card.gallery_count ? card.gallery_count + ' תמונות בגלריה' : null,
+      card.gallery_count ? plural(card.gallery_count, 'תמונה אחת בגלריה', 'תמונות בגלריה') : null,
     ].filter(Boolean).join(' · ');
     row.appendChild(meta);
 
@@ -4332,7 +4352,7 @@ document.getElementById('pfGalleryInput').addEventListener('change', async (e)=>
       showToast('קובץ אחד לא נטען: ' + file.name);
     }
   }
-  if (files.length > room) showToast(`נוספו ${room} תמונות בלבד - המקסימום הוא ${MAX_GALLERY_IMAGES}`);
+  if (files.length > room) showToast(`${plural(room, 'נוספה תמונה אחת בלבד', 'תמונות בלבד', 'נוספו ' + room)} - המקסימום הוא ${MAX_GALLERY_IMAGES}`);
   renderProfileGalleryAdmin();
 });
 
@@ -4848,7 +4868,7 @@ function renderPromoStrip(agent){
   strip.classList.toggle('is-urgent', urgent);
   strip.href = pricingUrl(agent);
   document.getElementById('promoStripTitle').textContent = urgent
-    ? `הטבת ההשקה מסתיימת בעוד ${promo.daysLeft} ימים`
+    ? `הטבת ההשקה מסתיימת בעוד ${plural(promo.daysLeft, 'יום אחד', 'ימים')}`
     : `${Tiers.label(promo.tier)} במתנה - עד ${Tiers.formatDate(promo.endsAt)}`;
   document.getElementById('promoStripSub').textContent = urgent
     ? 'אחרי התאריך הזה מי שלא בחר/ה מסלול ממשיך/ה ב-Pay&GO. לבחירת המסלול ←'
@@ -6046,7 +6066,7 @@ async function loadClosureSection(){
   document.getElementById('closureProps').textContent =
     s.active_properties === 0 ? 'אין כרגע מודעות פעילות'
     : s.active_properties === 1 ? 'מודעה פעילה אחת'
-    : s.active_properties + ' מודעות פעילות';
+    : plural(s.active_properties, 'מודעה פעילה אחת', 'מודעות פעילות');
   document.getElementById('closureMoney').textContent = closureMoneyText(s);
 }
 
@@ -6088,7 +6108,7 @@ document.getElementById('closeAccountBtn').addEventListener('click', async ()=>{
   [
     'דף הסוכן/ת שלך יורד מהאוויר, וגם הכרטיס שלך בספריית המתווכים.',
     s.active_properties > 0
-      ? String(s.active_properties) + ' מודעות פעילות יורדות מהאתר ומהחיפוש.'
+      ? plural(s.active_properties, 'מודעה פעילה אחת יורדת', 'מודעות פעילות יורדות') + ' מהאתר ומהחיפוש.'
       : 'אין כרגע מודעות פעילות שיירדו.',
     'לא נשלחות אליך יותר פניות, התראות או מיילים, והמייל שלך יוצא מרשימת התפוצה.',
     'הכניסה לאיזור הסוכנים נסגרת. אין לזה כפתור חזרה.',
@@ -6602,7 +6622,7 @@ async function renderSubsDrill(bucket){
 
   const rows = data || [];
   const what = (SUBS_BUCKET_WHAT[bucket] || (() => ''))();
-  const count = rows.length === 1 ? 'סוכן/ת אחד/ת' : rows.length.toLocaleString('he-IL') + ' סוכנים/ות';
+  const count = plural(rows.length, 'סוכן/ת אחד/ת', 'סוכנים/ות', rows.length.toLocaleString('he-IL'));
   const head = `
     <div class="sd-head">
       <b>${esc(count)} ${esc(what)}</b>
@@ -7301,7 +7321,7 @@ document.getElementById('brGalleryInput').addEventListener('change', async (e)=>
       showToast('קובץ אחד לא נטען: ' + file.name);
     }
   }
-  if (files.length > room) showToast(`נוספו ${room} תמונות בלבד - המקסימום הוא ${MAX_GALLERY_IMAGES}`);
+  if (files.length > room) showToast(`${plural(room, 'נוספה תמונה אחת בלבד', 'תמונות בלבד', 'נוספו ' + room)} - המקסימום הוא ${MAX_GALLERY_IMAGES}`);
   renderGalleryAdmin();
 });
 
@@ -8049,7 +8069,7 @@ function openHouseWindowError(start, end){
   if (end < openHouseToday()) return 'תאריך הסיום כבר עבר - היריד הוא תקופה שעוד לפניכם.';
   const maxDays = priceOf('open_house_max_days', 30);
   const days = openHouseDays(start, end);
-  if (days > maxDays) return `תקופת היריד מוגבלת ל-${maxDays} ימים, וזו ${days} ימים.`;
+  if (days > maxDays) return `תקופת היריד מוגבלת ל-${maxDays} ימים, וזו ${plural(days, 'יום אחד', 'ימים')}.`;
   return '';
 }
 
@@ -8097,7 +8117,7 @@ function syncOpenHouseFields(){
   // פונקציה — ההודעה כאן היא מה שהסוכן/ת מבטיח/ה, והיא צריכה להיקרא כמו
   // מה שיופיע בדף הנכס
   const fmt = v => OpenHouse.hebDay(new Date(v + 'T00:00:00'));
-  note.textContent = `${days} ימים ביריד - ללא עמלת תיווך לקונה מ-${fmt(startEl.value)} ועד ${fmt(endEl.value)} (כולל).`;
+  note.textContent = `${plural(days, 'יום אחד', 'ימים')} ביריד - ללא עמלת תיווך לקונה מ-${fmt(startEl.value)} ועד ${fmt(endEl.value)} (כולל).`;
 }
 
 ['npOpenHouse','npOpenHouseStart','npOpenHouseEnd'].forEach(id =>
@@ -8121,7 +8141,7 @@ function openHouseModalSync(){
   document.getElementById('ohModalEnd').min = start || openHouseToday();
   if (err){ note.textContent = err; return false; }
   const fmt = v => OpenHouse.hebDay(new Date(v + 'T00:00:00'));
-  note.textContent = `${openHouseDays(start, end)} ימים ביריד - ללא עמלת תיווך לקונה מ-${fmt(start)} ועד ${fmt(end)} (כולל).`;
+  note.textContent = `${plural(openHouseDays(start, end), 'יום אחד', 'ימים')} ביריד - ללא עמלת תיווך לקונה מ-${fmt(start)} ועד ${fmt(end)} (כולל).`;
   return true;
 }
 
@@ -8438,7 +8458,7 @@ function fmtMinutes(sec){
   const m = sec / 60;
   if (m === 1) return 'דקה אחת';
   if (m === 2) return 'שתי דקות';
-  return `${m} דקות`;
+  return plural(m, 'דקה אחת', 'דקות');
 }
 
 /* קורא אורך ומידות בלי לנגן ובלי לפענח פריימים. אותו נגן שקורא כאן הוא גם
@@ -9121,7 +9141,7 @@ document.getElementById('npImages').addEventListener('change', async (e)=>{
       showToast('קובץ אחד לא נטען: ' + file.name);
     }
   }
-  if (files.length > room) showToast(`נוספו ${room} תמונות בלבד - המקסימום הוא ${MAX_IMAGES}`);
+  if (files.length > room) showToast(`${plural(room, 'נוספה תמונה אחת בלבד', 'תמונות בלבד', 'נוספו ' + room)} - המקסימום הוא ${MAX_IMAGES}`);
   renderImagePreview();
 });
 
@@ -9259,10 +9279,10 @@ function confirmDuplicateProperty({ match, total }){
       .filter(Boolean).join(', ') || (match.title || 'נכס ללא כותרת');
   document.getElementById('dupMeta').textContent = [
     shekel(match.price),
-    match.rooms ? match.rooms + ' חדרים' : '',
+    match.rooms ? plural(match.rooms, 'חדר אחד', 'חדרים') : '',
     (match.floor || match.floor === 0) ? 'קומה ' + match.floor : '',
     'עודכן ' + hebDate(match.updated_at),
-    total > 1 ? `ועוד ${total - 1} מודעות דומות` : '',
+    total > 1 ? 'ועוד ' + plural(total - 1, 'מודעה דומה אחת', 'מודעות דומות') : '',
   ].filter(Boolean).join(' · ');
   document.getElementById('dupNote').textContent = isLive
     ? 'עדכון המודעה הקיימת ישמור על מספר המודעה, הצפיות, הלידים והמידע התכנוני שנצברו עליה. פרסום כנכס חדש ייצור מודעה שנייה לאותה כתובת.'
@@ -10073,7 +10093,7 @@ async function loadProperties(agentId){
   // סיכום ללא פתיחה: כמה מהם חיים באתר עכשיו, וכמה כסף הם מייצגים
   const activeProps = (props||[]).filter(p => p.status === 'active');
   accSetSummary('accProperties', activeProps.length
-    ? activeProps.length + ' פעילים · ' + priceRangeLabel(activeProps.map(p => p.price))
+    ? plural(activeProps.length, 'נכס אחד פעיל', 'פעילים') + ' · ' + priceRangeLabel(activeProps.map(p => p.price))
     : ((props||[]).length ? 'אין נכסים פעילים' : ''));
   dashProperties = props || [];
   myPropertyRows = props || [];
@@ -10376,7 +10396,7 @@ function buildPropertyCard(p, agentId){
       <div class="pill-row">
         <span class="status-pill ${propertyStatusPillClass(p.status)}">${statusLabels[p.status] || p.status}</span>
         ${p.shared_with_partners
-          ? `<span class="status-pill status-shared" title="בשת״פ · הופץ ${hebDate(p.shared_at)}">🤝 ${propertyShareCounts[p.id] || 0} משרדים</span>`
+          ? `<span class="status-pill status-shared" title="בשת״פ · הופץ ${hebDate(p.shared_at)}">🤝 ${plural(propertyShareCounts[p.id] || 0, 'משרד אחד', 'משרדים')}</span>`
           : ''}
       </div>
     </div>
@@ -10445,7 +10465,7 @@ function buildPropertyCard(p, agentId){
       const hours = priceOf('promote_duration_hours', 72);
       addQuickAction(actions, {
         label:'קידום', icon:'megaphone', tone:'gold', badge:price,
-        title:`קידום בתשלום - ${price} ל-${hours} שעות בסלוטים המקודמים`,
+        title:`קידום בתשלום - ${price} ל-${plural(hours, 'שעה אחת', 'שעות')} בסלוטים המקודמים`,
         onClick:btn => promoteProperty(p, btn, agentId),
       });
     }
@@ -10824,11 +10844,11 @@ async function promoteProperty(property, btn, agentId){
     title: 'אישור קידום נכס',
     lines: [
       `📣 קידום מודעה · ${property.title || 'הנכס שלך'}`,
-      `הנכס יופיע בסלוטים המקודמים בתוצאות החיפוש למשך ${hours} שעות מרגע האישור.`,
+      `הנכס יופיע בסלוטים המקודמים בתוצאות החיפוש למשך ${plural(hours, 'שעה אחת', 'שעות')} מרגע האישור.`,
       'בתום החלון הקידום נגמר מעצמו ולא מתחדש אוטומטית — מי שרוצה להמשיך מקדם שוב בתשלום נוסף.',
     ],
     price,
-    ackText: `אני מבין/ה שזו רכישה, ושאישור הפעולה יחייב את הארנק שלי ב-${shekel(price)} עבור ${hours} שעות קידום.`,
+    ackText: `אני מבין/ה שזו רכישה, ושאישור הפעולה יחייב את הארנק שלי ב-${shekel(price)} עבור ${plural(hours, 'שעה אחת', 'שעות')} קידום.`,
     confirmLabel: `אישור קידום וחיוב ${shekel(price)}`,
   });
   if (!approved) return;
@@ -11163,7 +11183,7 @@ async function claimPropertyExclusivity(property, btn, agentId){
   }
   const superseded = data?.superseded || 0;
   showToast(superseded
-    ? `הנכס פורסם בבלעדיות עד ${hebDate(data.ends_on)} · ${superseded} מודעות מתחרות ירדו מפרסום`
+    ? `הנכס פורסם בבלעדיות עד ${hebDate(data.ends_on)} · ${plural(superseded, 'מודעה מתחרה אחת ירדה', 'מודעות מתחרות ירדו')} מפרסום`
     : `הנכס פורסם בבלעדיות עד ${hebDate(data.ends_on)}`, 6000);
   await loadProperties(agentId);
   refreshOpenPropertyStatusPanel(property.id);
@@ -13138,7 +13158,7 @@ async function impReadFile(file){
     const rows = matrix.slice(1).filter(r => r.some(cell => impText(cell) !== ''));
     if (!rows.length){ fail('לא נמצאו שורות נתונים מתחת לשורת הכותרות'); return; }
     if (rows.length > IMPORT_MAX_ROWS){
-      fail(`הקובץ מכיל ${rows.length} שורות - המקסימום הוא ${IMPORT_MAX_ROWS}. פצלו אותו לכמה קבצים.`);
+      fail(`הקובץ מכיל ${plural(rows.length, 'שורה אחת', 'שורות')} - המקסימום הוא ${IMPORT_MAX_ROWS}. פצלו אותו לכמה קבצים.`);
       return;
     }
 
@@ -13494,7 +13514,7 @@ function impBuildRow(rawRow, rowNumber){
       if (/^https?:\/\/\S+$/i.test(url)) urls.push(url);
       else bad.push(url);
     });
-    if (urls.length > MAX_IMAGES) warnings.push(`נמצאו ${urls.length} תמונות - ייקלטו ${MAX_IMAGES} הראשונות`);
+    if (urls.length > MAX_IMAGES) warnings.push(`${plural(urls.length, 'נמצאה תמונה אחת', 'תמונות נמצאו')} - ייקלטו ${MAX_IMAGES} הראשונות`);
     if (bad.length) warnings.push('קישורי תמונה לא תקינים (נדרשת כתובת מלאה עם http): ' + bad.slice(0, 3).join(', '));
     if (urls.length) payload.images = urls.slice(0, MAX_IMAGES);
   }
@@ -13517,7 +13537,7 @@ function impBuildRow(rawRow, rowNumber){
   if (!payload.title){
     const parts = [
       payload.property_type || '',
-      payload.rooms ? payload.rooms + ' חדרים' : '',
+      payload.rooms ? plural(payload.rooms, 'חדר אחד', 'חדרים') : '',
       payload.address || '',
       payload.city || '',
     ].filter(Boolean);
@@ -13652,7 +13672,7 @@ function impFixRowHtml(row, colspan, pendingCount){
     // אין override, ובלבד שיש בפקד ערך כלשהו.
     const all = others > 0
       ? `<button type="button" class="imp-fixall" data-fixall-row="${row.rowNumber}" data-fixall-field="${key}"
-           ${(done || guess) ? '' : 'disabled'}>↧ גם ב-${others} שורות שנכשלו</button>`
+           ${(done || guess) ? '' : 'disabled'}>↧ גם ב-${plural(others, 'שורה אחת', 'שורות')} שנכשלו</button>`
       : '';
     const state = done ? ' done' : (guess ? ' guess' : '');
     const mark = done ? ' ✓' : (guess ? ' · הושלם מהכותרת' : '');
@@ -13716,7 +13736,7 @@ function impPaintPreview(focus){
   impFootEl.innerHTML = `
     <button type="button" class="btn btn-ghost" id="impBack">חזרה למיפוי</button>
     ${invalid.length ? '<button type="button" class="btn btn-ghost" id="impErrors">הורדת השגיאות</button>' : ''}
-    <button type="button" class="btn btn-gold" id="impRun" ${valid.length ? '' : 'disabled'}>ייבוא ${valid.length} נכסים</button>`;
+    <button type="button" class="btn btn-gold" id="impRun" ${valid.length ? '' : 'disabled'}>ייבוא ${plural(valid.length, 'נכס אחד', 'נכסים')}</button>`;
   document.getElementById('impBack').addEventListener('click', ()=> impSetStep(2));
   const errBtn = document.getElementById('impErrors');
   if (errBtn) errBtn.addEventListener('click', ()=> impDownloadErrors(invalid.map(r => ({ raw:r.raw, message:r.errors.join(' · ') }))));
@@ -13797,7 +13817,7 @@ impBodyEl.addEventListener('click', (e)=>{
   targets.forEach(r => impSetOverride(r.rowNumber, field, source));
   impRevalidate();
   impPaintPreview({ row: btn.dataset.fixallRow, field });
-  showToast(`הערך "${source}" הוחל על ${targets.length} שורות`);
+  showToast(`הערך "${source}" הוחל על ${plural(targets.length, 'שורה אחת', 'שורות')}`);
 });
 
 /* ---------- שלב 4: ההכנסה עצמה ---------- */
@@ -13814,7 +13834,7 @@ async function impRenderStep4(){
     Boolean(row.payload?.images?.length) || Boolean(row.payload?.marketing_image);
 
   impBodyEl.innerHTML = `
-    <div style="font-weight:700">מייבא ${queue.length} נכסים…</div>
+    <div style="font-weight:700">מייבא ${plural(queue.length, 'נכס אחד', 'נכסים')}…</div>
     <div class="imp-bar"><i id="impProgress"></i></div>
     <div class="imp-note" id="impProgressText">0 מתוך ${queue.length}</div>
     <p class="imp-note">אל תסגרו את החלון עד לסיום.</p>`;
@@ -13874,13 +13894,13 @@ async function impRenderStep4(){
 
   impBodyEl.innerHTML = `
     <div class="imp-sum">
-      <span class="imp-chip ok">${ok} נכסים נקלטו</span>
+      <span class="imp-chip ok">${plural(ok, 'נכס אחד נקלט', 'נכסים נקלטו')}</span>
       ${noImage ? `<span class="imp-chip guess">${noImage} בלי תמונות</span>` : ''}
       ${failedTotal ? `<span class="imp-chip bad">${failedTotal} לא נקלטו</span>` : ''}
     </div>
     <p>${ok ? 'הנכסים מפורסמים באתר ומופיעים ברשימת "הנכסים שלי".' : 'לא נקלט אף נכס.'}</p>
-    ${importState.failed.length ? `<p class="imp-note">${importState.failed.length} שורות נדחו על ידי המערכת בעת השמירה. הורידו את קובץ השגיאות כדי לראות את הסיבה לכל שורה.</p>` : ''}
-    ${noImage ? `<p class="imp-note"><b>${noImage} נכסים נוצרו בלי תמונות, ולכן לא יפורסמו בדף הפייסבוק של האתר.</b> הפוסט ייצא מעצמו כ-20 דקות אחרי שתעלו את התמונה הראשונה לכל נכס - אין צורך לבקש שוב.</p>` : ''}
+    ${importState.failed.length ? `<p class="imp-note">${plural(importState.failed.length, 'שורה אחת נדחתה', 'שורות נדחו')} על ידי המערכת בעת השמירה. הורידו את קובץ השגיאות כדי לראות את הסיבה לכל שורה.</p>` : ''}
+    ${noImage ? `<p class="imp-note"><b>${plural(noImage, 'נכס אחד נוצר', 'נכסים נוצרו')} בלי תמונות, ולכן לא יפורסמו בדף הפייסבוק של האתר.</b> הפוסט ייצא מעצמו כ-20 דקות אחרי שתעלו את התמונה הראשונה לכל נכס - אין צורך לבקש שוב.</p>` : ''}
     <p class="imp-note">נכסים ללא קו רוחב/אורך לא יופיעו כסימון על מפת עמוד הבית. אפשר להשלים מיקום וכתובת דרך "עריכה" בכל נכס, ואז גם ייקלט המידע התכנוני.</p>
     ${ok && !noImage ? '<p class="imp-note">מומלץ לעבור על הנכסים החדשים ולהוסיף תמונות - מודעה עם תמונות מקבלת פניות רבות יותר.</p>' : ''}`;
   impFootEl.innerHTML = `
@@ -13897,7 +13917,7 @@ async function impRenderStep4(){
   document.getElementById('impDone').addEventListener('click', impClose);
 
   if (ok){
-    showToast(`${ok} נכסים נוספו בהצלחה`);
+    showToast(`${plural(ok, 'נכס אחד נוסף', 'נכסים נוספו')} בהצלחה`);
     await loadProperties(currentAgent.id);
   }
 }
@@ -14302,7 +14322,7 @@ async function expDownload(){
     }
     XLSX.writeFile(book, expFileName(fileLabel));
     expClose();
-    showToast(`${rows.length} נכסים ירדו לקובץ`);
+    showToast(`${plural(rows.length, 'נכס אחד ירד', 'נכסים ירדו')} לקובץ`);
   } catch(err){
     showToast('הייצוא נכשל: ' + (err?.message || 'שגיאה לא ידועה'));
   } finally {
@@ -14435,7 +14455,7 @@ function renderLeads(agentId){
   accSetCount('accLeads', active.filter(l => l.status !== 'unlocked').length);
   // המונה אומר "כמה ממתינים"; הסיכום אומר מה יש שם בכלל
   accSetSummary('accLeads', active.length
-    ? active.length + ' לידים · ' + active.filter(l => l.status === 'unlocked').length + ' נפתחו'
+    ? plural(active.length, 'ליד אחד', 'לידים') + ' · ' + plural(active.filter(l => l.status === 'unlocked').length, 'אחד מהם נפתח', 'נפתחו')
     : '');
 
   const sw = document.getElementById('leadsSwitch');
@@ -14847,12 +14867,12 @@ function timeLeftLabel(ts){
   if (ms <= 0) return 'הסתיים';
   const minutes = Math.round(ms / 60000);
   if (minutes < 2)  return 'נותרה פחות מדקה';
-  if (minutes < 60) return `נותרו ${minutes} דקות`;
+  if (minutes < 60) return plural(minutes, 'נותרה דקה אחת', 'דקות', 'נותרו ' + minutes);
   const hours = Math.floor(minutes / 60);
   if (hours === 1)  return 'נותרה שעה';
-  if (hours <= 72)  return `נותרו ${hours} שעות`;
+  if (hours <= 72)  return plural(hours, 'נותרה שעה אחת', 'שעות', 'נותרו ' + hours);
   const days = Math.round(hours / 24);
-  return `נותרו ${days} ימים`;
+  return plural(days, 'נותר יום אחד', 'ימים', 'נותרו ' + days);
 }
 
 /* ---------- Lead shelf: רכישת לידי RSS ----------
@@ -15065,7 +15085,7 @@ function shelfMetaParts(lead){
     lead.city && '📍 ' + lead.city,
     lead.neighborhood,
     lead.property_type && '🏠 ' + lead.property_type,
-    lead.rooms ? '🛏 ' + lead.rooms + ' חדרים' : null,
+    lead.rooms ? '🛏 ' + plural(lead.rooms, 'חדר אחד', 'חדרים') : null,
     lead.floor != null ? '🏢 קומה ' + lead.floor : null,
     lead.price_budget ? '💰 ' + shekel(lead.price_budget) : null,
   ].filter(Boolean);
@@ -15259,7 +15279,7 @@ function mortgageMetaParts(lead){
     lead.property_price ? 'נכס ' + shekel(lead.property_price) : null,
     lead.equity != null ? 'הון עצמי ' + shekel(lead.equity) : null,
     lead.ltv_pct != null ? Math.round(lead.ltv_pct) + '% מימון' : null,
-    lead.years ? lead.years + ' שנים' : null,
+    lead.years ? plural(lead.years, 'שנה אחת', 'שנים') : null,
     lead.interest_rate != null ? 'ריבית ' + lead.interest_rate + '%' : null,
   ].filter(Boolean);
 }
@@ -15556,8 +15576,8 @@ function savedSearchTitle(lead){
   if (lead.label) return lead.label;
   const rooms = lead.min_rooms && lead.max_rooms && lead.min_rooms !== lead.max_rooms
       ? `${lead.min_rooms}-${lead.max_rooms} חדרים`
-    : lead.min_rooms ? `${lead.min_rooms} חדרים ומעלה`
-    : lead.max_rooms ? `עד ${lead.max_rooms} חדרים` : null;
+    : lead.min_rooms ? `${plural(lead.min_rooms, 'חדר אחד', 'חדרים')} ומעלה`
+    : lead.max_rooms ? `עד ${plural(lead.max_rooms, 'חדר אחד', 'חדרים')}` : null;
   const place = savedSearchPlaces(lead).join(', ');
   return [rooms || 'נכס', place ? 'ב' + place : null,
           lead.max_price ? 'עד ' + shekel(lead.max_price) : null].filter(Boolean).join(' ');
@@ -15969,8 +15989,8 @@ async function shareProperty(p, btn, agentId){
     return;
   }
   showToast(data.newly_shared
-    ? `הנכס הופץ ל-${data.newly_shared} משרדים חדשים - סה״כ ${data.shared_count} משרדים`
-    : `ההפצה מסונכרנת - הנכס משותף עם ${data.shared_count} משרדים`);
+    ? `הנכס הופץ ל-${plural(data.newly_shared, 'משרד אחד חדש', 'משרדים חדשים')} - סה״כ ${plural(data.shared_count, 'משרד אחד', 'משרדים')}`
+    : `ההפצה מסונכרנת - הנכס משותף עם ${plural(data.shared_count, 'משרד אחד', 'משרדים')}`);
   await loadProperties(agentId);
 }
 
@@ -15984,7 +16004,7 @@ async function unshareProperty(p, btn, agentId){
     btn.disabled = false; setActionLabel(btn, original);
     return;
   }
-  showToast('השיתוף בוטל - הנכס הוסר מ-' + (data.removed || 0) + ' משרדים');
+  showToast('השיתוף בוטל - הנכס הוסר מ' + plural(data.removed || 0, 'משרד אחד', 'משרדים', '-' + (data.removed || 0)));
   await loadProperties(agentId);
 }
 
@@ -16283,7 +16303,7 @@ async function loadClients(){
   accSetCount('accClients', clientRows.length || '');
   // ההתאמות הן מנוע הכסף של הקטגוריה הזו, ולכן הן השורה שנקראת בלי לפתוח
   accSetSummary('accClients', clientRows.length
-    ? (totalMatches ? totalMatches + ' התאמות ממתינות' : 'אין כרגע התאמות')
+    ? (totalMatches ? plural(totalMatches, 'התאמה אחת ממתינה', 'התאמות ממתינות') : 'אין כרגע התאמות')
     : '');
   syncClientFilterOptions();
   renderClients();
@@ -16460,7 +16480,7 @@ function buildClientCard(c){
       </div>
       <div class="pill-row">
         <span class="status-pill status-unlocked">${CLIENT_STATUS_LABELS[c.status] || c.status}</span>
-        ${matches ? `<span class="status-pill status-shared">${matches} התאמות</span>` : ''}
+        ${matches ? `<span class="status-pill status-shared">${plural(matches, 'התאמה אחת', 'התאמות')}</span>` : ''}
       </div>
       <div class="card-menu">
         <button type="button" class="card-menu-btn" aria-haspopup="true" aria-expanded="false"
@@ -16488,7 +16508,7 @@ function buildClientCard(c){
     onClick:()=> openAgreementWizard({ kind: c.deal_type === 'rent' ? 'tenant' : 'buy', clientId: c.id }),
   });
   const matchBtn = addCardAction(actions, {
-    label: matches ? `🔍 הצגת ${matches} התאמות` : '🔍 חיפוש התאמות',
+    label: matches ? `🔍 הצגת ${plural(matches, 'התאמה אחת', 'התאמות')}` : '🔍 חיפוש התאמות',
     cls:'btn-gold act-wide',
     onClick: btn => toggleClientMatches(c, btn, panel),
   });
@@ -16572,7 +16592,7 @@ async function toggleClientMatches(client, btn, panel){
   if (panel.style.display !== 'none'){
     panel.style.display = 'none';
     btn.textContent = clientMatchCounts[client.id]
-      ? `🔍 הצגת ${clientMatchCounts[client.id]} התאמות` : '🔍 חיפוש התאמות';
+      ? `🔍 הצגת ${plural(clientMatchCounts[client.id], 'התאמה אחת', 'התאמות')}` : '🔍 חיפוש התאמות';
     return;
   }
 
@@ -16856,10 +16876,11 @@ function renderClientAlerts(){
   const listEl = document.getElementById('alertsList');
   const unseen = alertRows.filter(a => a.status === 'new').length;
 
-  accSetCount('accAlerts', unseen ? unseen + ' חדשות' : '');
+  accSetCount('accAlerts', unseen ? plural(unseen, 'התראה אחת חדשה', 'חדשות') : '');
   document.getElementById('alertsMarkAll').hidden = unseen === 0;
   document.getElementById('alertsFilterCount').textContent = alertRows.length
-    ? alertRows.length + ' התראות' + (unseen ? ' · ' + unseen + ' חדשות' : '')
+    ? plural(alertRows.length, 'התראה אחת', 'התראות')
+        + (unseen ? ' · ' + plural(unseen, 'אחת חדשה', 'חדשות') : '')
     : '';
 
   if (alertRows.length === 0){
@@ -17029,7 +17050,7 @@ async function markAllAlertsSeen(btn){
   btn.disabled = false;
 
   if (error){ showToast('שגיאה בעדכון ההתראות: ' + error.message); return; }
-  showToast(ids.length + ' התראות סומנו כנצפו');
+  showToast(plural(ids.length, 'התראה אחת סומנה', 'התראות סומנו') + ' כנצפו');
   await loadClientAlerts();
 }
 
@@ -17101,7 +17122,7 @@ function cmaCoverageBlock(cov){
     },
     insufficient: {
       t: 'אין די עסקאות כדי לחשב תמונת שוק',
-      d: `נמצאו ${cov.comparables_found} עסקאות בסביבת הנכס, והמינימום לחישוב ממוצע הוא `
+      d: `${plural(cov.comparables_found, 'נמצאה עסקה אחת', 'עסקאות נמצאו')} בסביבת הנכס, והמינימום לחישוב ממוצע הוא `
        + `${cov.min_required}. ממוצע ממדגם קטן מזה אינו אמין, ולכן הוא אינו מוצג. ` + ageLine,
     },
   };
@@ -17176,7 +17197,7 @@ function renderCmaReport(r){
 
     <h2>${esc(s.title)}</h2>
     <div class="cma-sub">
-      ${esc(s.address || s.city)} · ${esc(s.property_type)} · ${s.rooms ?? '-'} חדרים ·
+      ${esc(s.address || s.city)} · ${esc(s.property_type)} · ${s.rooms ? plural(s.rooms, 'חדר אחד', 'חדרים') : '- חדרים'} ·
       ${s.deal_type === 'rent' ? 'להשכרה' : 'למכירה'} · מחיר מבוקש ${shekel(s.price)}
       ${s.price_per_sqm ? ' · ' + shekel(s.price_per_sqm) + ' למ״ר' : ''}
     </div>
@@ -17448,7 +17469,7 @@ document.getElementById('clearRead').addEventListener('click', async ()=>{
   if (countErr){ showToast('שגיאה בטעינת ההתראות'); return; }
   if (!count){ showToast('אין התראות שנקראו למחוק'); return; }
 
-  const what = count === 1 ? 'התראה אחת שכבר נקראה' : `${count} התראות שכבר נקראו`;
+  const what = plural(count, 'התראה אחת שכבר נקראה', 'התראות שכבר נקראו');
   if (!confirm(`למחוק ${what}? הפעולה אינה הפיכה. התראות שעדיין לא נקראו יישארו.`)) return;
 
   // ‏select() אחרי delete מחזיר את השורות שנמחקו בפועל, וזה לא קישוט:
@@ -17462,7 +17483,7 @@ document.getElementById('clearRead').addEventListener('click', async ()=>{
   const removed = (data || []).length;
   showToast(removed === 0 ? 'לא נמחקה אף התראה - נסו לרענן את הדף'
           : removed === 1 ? 'התראה אחת נמחקה'
-          : `${removed} התראות נמחקו`);
+          : plural(removed, 'התראה אחת נמחקה', 'התראות נמחקו'));
   await loadNotifications(currentAgent.id);
 });
 
@@ -17577,7 +17598,7 @@ function syncNotifWaNote(){
   const on = document.querySelectorAll('.notifPrefWa:checked').length;
   if (!on){ note.textContent = ''; return; }
   note.textContent = (currentAgent && currentAgent.phone)
-    ? `${on} סוגי התראה יישלחו גם לוואטסאפ שלך (${currentAgent.phone}).`
+    ? `${plural(on, 'סוג התראה אחד יישלח', 'סוגי התראה יישלחו')} גם לוואטסאפ שלך (${currentAgent.phone}).`
     : 'כדי שההתראות יגיעו בוואטסאפ צריך מספר שמור בקטגוריית "העוזר בוואטסאפ" - בלעדיו הסימון כאן לא יעשה דבר.';
 }
 
@@ -17662,7 +17683,7 @@ document.getElementById('notifPrefsForm').addEventListener('submit', async (e)=>
   syncNotifWaNote();
   feedback.style.color = 'var(--blue)';
   const bits = [];
-  bits.push(muted.length ? muted.length + ' סוגי התראה כבויים' : 'מקבלים את כל ההתראות');
+  bits.push(muted.length ? plural(muted.length, 'סוג התראה אחד כבוי', 'סוגי התראה כבויים') : 'מקבלים את כל ההתראות');
   if (whatsapp.length) bits.push(whatsapp.length + ' מהם יישלחו גם בוואטסאפ');
   feedback.textContent = 'נשמר - ' + bits.join(', ') + '.';
   setTimeout(()=>{ feedback.textContent=''; }, 2500);
@@ -18912,7 +18933,7 @@ function waShareText(p){
   const address = [p.city, [p.street, p.house_number].filter(Boolean).join(' ')]
     .filter(Boolean).join(', ');
   const facts = [
-    p.rooms ? p.rooms + ' חדרים' : null,
+    p.rooms ? plural(p.rooms, 'חדר אחד', 'חדרים') : null,
     p.size_sqm ? p.size_sqm + ' מ״ר' : null,
     p.floor != null ? 'קומה ' + p.floor : null,
   ].filter(Boolean).join(' · ');
@@ -19011,7 +19032,8 @@ function renderQuotaMeter(freeQuota){
   bar.classList.toggle('is-full', used >= freeQuota);
   note.textContent = used >= freeQuota
     ? 'המכסה החודשית נוצלה - פתיחת ליד נוסף תיגבה מהארנק'
-    : ('נותרו ' + (freeQuota - used) + ' לידים חינמיים עד סוף החודש');
+    : (plural(freeQuota - used, 'נותר ליד חינמי אחד', 'לידים חינמיים',
+                 'נותרו ' + (freeQuota - used)) + ' עד סוף החודש');
 }
 
 /* ---------- מדדי הביצוע ---------- */
@@ -19200,7 +19222,7 @@ function renderExclusiveCard(active){
   if (thisMonth > 0){
     deltaEl.hidden = false;
     deltaEl.textContent = '▲ +' + thisMonth;
-    deltaEl.title = thisMonth + ' נכסים בבלעדיות נוספו החודש';
+    deltaEl.title = plural(thisMonth, 'נכס אחד בבלעדיות נוסף', 'נכסים בבלעדיות נוספו') + ' החודש';
   } else {
     deltaEl.hidden = true;
   }
@@ -19235,7 +19257,7 @@ function renderAgentPanelSummary(active){
   }
   const total = active.reduce((s, p)=> s + propertyCommission(p), 0);
   const exclusive = active.filter(p => Array.isArray(p.features) && p.features.includes('exclusive')).length;
-  sub.textContent = shekelShort(total) + ' פוטנציאל · ' + active.length + ' נכסים · '
+  sub.textContent = shekelShort(total) + ' פוטנציאל · ' + plural(active.length, 'נכס אחד', 'נכסים') + ' · '
     + exclusive + ' בבלעדיות';
 }
 
@@ -19615,8 +19637,8 @@ async function loadAgreements(){
 
   const pending = agreementRows.filter(a => a.status === 'sent' || a.status === 'viewed').length;
   accSetCount('accAgreements',
-    pending ? pending + ' ממתינים לחתימה'
-            : (agreementRows.length ? agreementRows.length + ' הסכמים' : ''));
+    pending ? plural(pending, 'הסכם אחד ממתין לחתימה', 'ממתינים לחתימה')
+            : (agreementRows.length ? plural(agreementRows.length, 'הסכם אחד', 'הסכמים') : ''));
 
   agrFillKindFilter();
   renderAgreements();
@@ -20904,7 +20926,7 @@ function agrExclusiveSummary(){
     (new Date(ex.until + 'T00:00:00') - new Date(ex.from + 'T00:00:00')) / 86400000) + 1;
   return 'בהסכם יודפס: מ-' + agrSlashDate(ex.from) + ' עד ' + agrSlashDate(ex.until) +
     (ex.months ? ` · ${ex.months} חודשי בלעדיות` : ' · תאריכים ידניים') +
-    (days > 0 ? ` · ${days} ימים` : ' · שימו לב: תאריך הסיום קודם לתאריך ההתחלה');
+    (days > 0 ? ` · ${plural(days, 'יום אחד', 'ימים')}` : ' · שימו לב: תאריך הסיום קודם לתאריך ההתחלה');
 }
 
 /* מעדכנת את השדות במקום לצייר את השלב מחדש: ציור מחדש היה מחזיר את הגלילה
@@ -21850,7 +21872,7 @@ async function loadDealsCoverage(){
         return `<div style="display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)">
           <span>${escapeHtml(r.city || '')}</span>
           <span style="color:${stale ? 'var(--danger,#c0392b)' : 'var(--muted)'}">
-            ${r.deals} עסקאות · עדכני ל-${escapeHtml(r.newest || 'לא ידוע')}${stale ? ' · דורש עדכון' : ''}
+            ${plural(r.deals, 'עסקה אחת', 'עסקאות')} · עדכני ל-${escapeHtml(r.newest || 'לא ידוע')}${stale ? ' · דורש עדכון' : ''}
           </span></div>`;
       }).join('');
 }
@@ -21872,9 +21894,9 @@ document.getElementById('dealsImportSaveBtn')?.addEventListener('click', async (
     const { data, error } = await sb.rpc('market_deals_import', { p_rows: dealsImportParsed });
     if (error) throw error;
     if (data && data.error){ alert('הייבוא נדחה: ' + data.error); return; }
-    const parts = [`נוספו ${data.inserted} עסקאות`];
+    const parts = [plural(data.inserted, 'נוספה עסקה אחת', 'עסקאות', 'נוספו ' + data.inserted)];
     if (data.skipped) parts.push(`${data.skipped} כבר היו במאגר`);
-    if (data.rejected_count) parts.push(`${data.rejected_count} נדחו`);
+    if (data.rejected_count) parts.push(plural(data.rejected_count, 'עסקה אחת נדחתה', 'נדחו'));
     alert(parts.join(' · '));
     document.getElementById('dealsImportPaste').value = '';
     document.getElementById('dealsImportPreview').innerHTML = '';
@@ -21940,7 +21962,7 @@ function renderDealsLookup(res){
   /* שורת ההקשר אינה קישוט: אותה רשימה בדיוק נראית אחרת לגמרי אם היא 300
      מטר או קילומטר, ומי שלא יראה את זה ישווה בין שתי הרצות שונות. */
   const head = res.mode === 'street'
-    ? `<p class="acc-sub">לא הצלחנו למקם את הכתובת, ולכן החיפוש נעשה <strong>לפי שם הרחוב</strong> ולא לפי מרחק. ${esc(String(res.total_found))} עסקאות נמצאו.</p>`
+    ? `<p class="acc-sub">לא הצלחנו למקם את הכתובת, ולכן החיפוש נעשה <strong>לפי שם הרחוב</strong> ולא לפי מרחק. ${plural(res.total_found, 'עסקה אחת נמצאה', 'עסקאות נמצאו', esc(String(res.total_found)))}.</p>`
     : `<p class="acc-sub"><strong>${esc(String(res.total_found))}</strong> עסקאות ברדיוס ${esc(String(res.radius_meters))} מ' ב-${esc(String(res.months))} החודשים האחרונים. מוצגות ${esc(String(res.returned))}.</p>`;
 
   const rows = deals.map(d => {
