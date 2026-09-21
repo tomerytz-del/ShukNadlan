@@ -1,6 +1,6 @@
 ---
 name: new-page
-description: יצירת דף HTML חדש בשורש האתר (שוק נדל״ן) — GTM, בלוק PWA, אימות Search Console, מדידת אירועים, בריחת HTML, פוטר ו-robots. Use when adding a new page to the site, creating a new .html file in the repo root, or when a page was added and something about it is not measured / not indexed / not escaped.
+description: יצירת דף HTML חדש בשורש האתר (שוק נדל״ן) — GTM, בלוק PWA, אימות Search Console, canonical, sitemap, מדידת אירועים, בריחת HTML, פוטר ו-robots. Use when adding a new page to the site, creating a new .html file in the repo root, or when a page was added and something about it is not measured / not indexed / not escaped.
 ---
 
 # דף חדש באתר
@@ -37,6 +37,7 @@ description: יצירת דף HTML חדש בשורש האתר (שוק נדל״ן)
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 ← כאן בלוק ה-PWA, מועתק מ-index.html כלשונו (ראו סעיף 3)
 ← ומיד אחריו תגית האימות של Search Console (ראו סעיף 4)
+← ואחריה canonical — בדף ציבורי סטטי בלבד (ראו סעיף 7)
 <meta name="description" content="…">
 <link rel="stylesheet" href="assets/design-system.css">
 <link rel="stylesheet" href="assets/site-footer.css">
@@ -110,18 +111,50 @@ row.innerHTML = `<div class="t">${escapeHtml(p.title)}</div>`;
 
 ### 7. האם הדף צריך להיסרק
 
-דף פרטי (אזור אישי, תשלום, חתימה, קישור עם טוקן) נוסף ל-`robots.txt`
-**בשתי הצורות** — עם `.html` ובלעדיה, כי Netlify מגיש את שתיהן:
+**דף פרטי** (אזור אישי, חתימה, קישור עם טוקן) נוסף ל-`robots.txt` **בשתי
+הצורות** — עם `.html` ובלעדיה, כי Netlify מגיש את שתיהן:
 
 ```
 Disallow: /my-page
 Disallow: /my-page.html
 ```
 
-דף ציבורי נוסף ל-`sitemap.xml` **ידנית** — הקובץ הוא מקור האמת לדפים
-הסטטיים. דפי פירוט שנוצרים מהמסד מתווספים לבדם ב-
-`netlify/edge-functions/sitemap.ts`, ואין מה לעשות בשבילם
-(`docs/sitemap.md`).
+**דף ציבורי סטטי** צריך שני דברים, ושניהם ידניים:
+
+1. שורה ב-`sitemap.xml` — הקובץ הוא מקור האמת לדפים הסטטיים.
+2. תגית `canonical` ב-`<head>`, מיד אחרי תגית האימות:
+
+```html
+<link rel="canonical" href="https://shuknadlan.co.il/my-page">
+```
+
+הכתובת היא **בלי הסיומת**, כי Netlify מגיש כל דף גם כ-`/my-page` וגם
+כ-`/my-page.html` — שתי כתובות לאותו תוכן, וגוגל בוחרת לבד איזו לאנדקס
+אם לא נאמר לה. לדף הבית זו `https://shuknadlan.co.il/`.
+
+**דף פירוט** (קובץ אחד שמגיש רשומות מהמסד לפי `?id=` או `?slug=`) הוא
+המקרה ההפוך, ובשלושה מקומות:
+
+| מה | איפה | למה |
+| --- | --- | --- |
+| הכתובות | `SOURCES` ב-`netlify/edge-functions/sitemap.ts` | הקישורים אליו נבנים ב-JS, וסורק אינו יכול לעקוב אחריהם |
+| `canonical` ו-`og:` | `config.path` ב-`netlify/edge-functions/og-tags.ts` | מוזרקות בשרת מהמסד |
+| `canonical` סטטית | **אין.** אסור | ראו למטה |
+
+**ואסור לתת לדף פירוט תגית `canonical` סטטית.** היא יכולה להצהיר רק על
+`/my-page` בלי הפרמטר, ו-`og-tags.ts` נופלת בחזרה לדף כמו שהוא בכל כשל
+(Supabase איטי, רשומה שאינה פעילה) — כלומר תקלה של דקה בשרת הייתה מאחדת
+את **כל** הרשומות לכתובת אחת ומוחקת אותן מהאינדקס.
+
+```sh
+python scripts/check_canonical.py        # בודקת את כל הסעיף הזה
+python scripts/check_canonical.py --fix  # שותלת canonical בדף סטטי
+```
+
+הבדיקה מחזיקה את שלוש המחלקות בשמן, ולכן **דף חדש שאינה מכירה נחשב דף
+סטטי ציבורי** — ואז היא דורשת ממנו canonical ושורה ב-sitemap. זו הכוונה:
+דף חדש מכריח החלטה במקום להישמט. הפרטים: `docs/security-headers.md`,
+`docs/sitemap.md`.
 
 ### 8. לפני הדחיפה
 
@@ -130,9 +163,10 @@ python scripts/check_gtm.py             # תגיות GTM בכל דף
 python scripts/check_escapers.py        # בריחה אחת, מלאה
 python scripts/check_pwa.py             # בלוק ה-PWA בכל דף
 python scripts/check_search_console.py  # תגית האימות בכל דף
+python scripts/check_canonical.py       # canonical, sitemap ו-robots
 ```
 
-ארבעתן חוסמות ב-CI. הפלט שלהן מראה בדיוק מה להדביק ואיפה.
+חמשתן חוסמות ב-CI. הפלט שלהן מראה בדיוק מה להדביק ואיפה.
 
 ## מה שנשכח הכי הרבה
 
@@ -140,5 +174,6 @@ python scripts/check_search_console.py  # תגית האימות בכל דף
 2. **`events.js` בדף ציבורי** — הדף עובד, פשוט לא נמדד.
 3. **בלוק ה-PWA** — הדף נטען, פשוט לא ניתן להתקנה.
 4. **תגית האימות** — הדף נטען, פשוט לא ניתן לאמת אותו מול גוגל.
-5. **הדף לא נוסף ל-`sitemap.xml`/`robots.txt`.**
+5. **הדף לא נוסף ל-`sitemap.xml`/`robots.txt`, או בלי `canonical`** — הדף
+   נטען, פשוט אינו מופיע בגוגל. `developer.html` היה כך עד שנתפס.
 6. **תיעוד** — יכולת חדשה מקבלת מסמך ב-`docs/`, באותו PR.

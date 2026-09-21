@@ -1,0 +1,47 @@
+name: כתובת קנונית אחת לכל דף, ודף ציבורי שגוגל יכולה למצוא
+
+# ‏הבדיקה הזו נולדה מהודעה של Search Console: "יש סיבה חדשה לכך שאי אפשר
+# להוסיף לאינדקס את הדפים באתר שלך — robots.txt נחסם על ידי". זו משפחה
+# שלמה של כשלים עם תכונה אחת משותפת: הדף נטען, נראה תקין, אין שגיאה
+# בקונסול — והוא פשוט אינו מופיע בגוגל. מגלים חודש אחרי, מהודעה.
+#
+# שלושה כאלה נמצאו בפועל: דף ציבורי שלם (developer.html) שלא היה באף אחד
+# משני ה-sitemap ולא ב-og-tags, 18 דפים סטטיים בלי canonical בעוד Netlify
+# מגיש כל אחד מהם בשתי כתובות, ופרמטרי סינון שנחסמו ב-robots במקום להצהיר
+# על canonical — כלומר נדחקו לדוח הזה בדיוק.
+#
+# הבדיקה קוראת קבצים בלבד — בלי רשת ובלי סודות — ולכן מהירה ובטוחה להריץ
+# גם על PR מ-fork. הפרטים: docs/security-headers.md, docs/sitemap.md.
+
+on:
+  pull_request:
+    paths:
+      - "*.html"
+      - "robots.txt"
+      - "sitemap.xml"
+      - "netlify/edge-functions/*.ts"
+      - "scripts/check_canonical.py"
+      - ".github/workflows/canonical.yml"
+  push:
+    branches: [main]
+    paths:
+      - "*.html"
+      - "robots.txt"
+      - "sitemap.xml"
+      - "netlify/edge-functions/*.ts"
+      - "scripts/check_canonical.py"
+      - ".github/workflows/canonical.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # ‏הבדיקה עצמה, והפלט שלה, הם המקום שבו כתוב מה להוסיף ואיפה.
+      - name: בדיקת כיסוי
+        run: python3 scripts/check_canonical.py
