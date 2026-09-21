@@ -5,7 +5,7 @@
 ## הבעיה
 
 ‏`assets/events.js` מאזין **מואצל** על ה-document: הוא סופר כל קישור
-‎wa.me‎ וכל קישור ‎tel:‎ בדף, מאיפה שלא הגיע, ומדווח ‎contact_agent‎ —
+‎wa.me‎, ‎tel:‎ ו-‎mailto:‎ בדף, מאיפה שלא הגיע, ומדווח ‎contact_agent‎ —
 פנייה של גולש/ת למתווך/ת. זה המדד העסקי המרכזי של הפלטפורמה.
 
 אבל **לא כל ‎wa.me‎ בדף הוא פנייה למתווך/ת**, ושלוש פעמים עד היום התברר
@@ -23,16 +23,23 @@
 
 ## מה נבדק
 
-  ‏1. **כל עוגן ‎wa.me‎/‎tel:‎ בדף שטוען ‎events.js‎ מסווג.** קישור למספר
-     של סוכן/ת נספר כ-‎contact_agent‎ וזה תקין; כל השאר חייב אחד משלושת
-     הסימונים — ‎data-bot‎, ‎data-share‎ או ‎data-site-contact‎.
-  ‏2. **‎wa.me/?text=‎ נושא ‎data-share‎** בכל קובץ שיש בו כזה, גם אם הדף
-     אינו נמדד היום. זה הסוג שנבנה ב-JS ולא כעוגן ב-HTML, ולכן הבדיקה
-     כאן היא על הקובץ ולא על העוגן.
-  ‏3. **המספר של הפלטפורמה נושא ‎data-site-contact‎** בכל דף שנמדד.
-  ‏4. **דף האזור האישי אינו טוען ‎events.js‎.** שם סוכנים מתקשרים ללקוחות
+  ‏1. **כל עוגן ‎wa.me‎/‎tel:‎/‎mailto:‎ בדף שטוען ‎events.js‎ מסווג.** קישור
+     למספר או למייל של סוכן/ת נספר כ-‎contact_agent‎ וזה תקין; כל השאר
+     חייב אחד מארבעת הסימונים — ‎data-bot‎, ‎data-share‎,
+     ‎data-site-contact‎ או ‎data-developer‎.
+  ‏2. **‎wa.me/?text=‎ ו-‎mailto:?‎ נושאים ‎data-share‎** בכל קובץ שיש בו
+     כאלה, גם אם הדף אינו נמדד היום. אלה הסוגים שנבנים ב-JS ולא כעוגן
+     ב-HTML, ולכן הבדיקה כאן היא על הקובץ ולא על העוגן.
+  ‏3. **המספר והמייל של הפלטפורמה נושאים ‎data-site-contact‎** בכל דף
+     שנמדד. המייל נוסף אחרי שהתברר ב-Tag Assistant ש-‎mailto:‎ לא נמדד
+     כלל: לחיצה עליו נפלה ב-‎return‎ של המאזין ולא דחפה דבר.
+  ‏4. **קישור קשר של חברה יזמית נושא ‎data-developer‎** — גם בדף החברה
+     וגם בשני כפתורי משרד המכירות ב-‎project.html‎. זה אינו תיקון של
+     קישור שנספר בטעות אלא הפרדת שני משפכים: קונה מיזם ישירות אינו
+     פנייה למתווך/ת.
+  ‏5. **דף האזור האישי אינו טוען ‎events.js‎.** שם סוכנים מתקשרים ללקוחות
      של עצמם, וזה היה נספר כפניות של גולשים (‏CLAUDE.md).
-  ‏5. **אין פרטים אישיים באירוע.** ‏GA4 אוסר שליחת PII, וחשבון שנתפס
+  ‏6. **אין פרטים אישיים באירוע.** ‏GA4 אוסר שליחת PII, וחשבון שנתפס
      מסתכן במחיקת הנתונים. הבדיקה עוברת על כל קריאת ‎shukTrack‎ בריפו
      ופוסלת שם פרמטר שהוא אימייל, טלפון, שם או כתובת.
 
@@ -42,8 +49,10 @@
 
   • **מה שיושב בתוך GTM.** התגיות עצמן — GA4, הפיקסל של Meta, והגדרת
     ‏UPD — מוגדרות במסך של GTM ולא בקוד. שינוי שם אינו עובר כאן.
-  • **קישור שנבנה ב-JS מתוך נתוני המסד**, למשל ‎wa.me‎ עם מספר של
-    סוכן/ת. אלה תקינים מעצם טבעם, ולכן זה בסדר.
+  • **מי הנמען של קישור שנבנה ב-JS מתוך נתוני המסד.** ‏‎wa.me‎ עם מספר
+    של סוכן/ת הוא ‎contact_agent‎ וזה תקין מעצם טבעו. מה שכן נבדק שם הוא
+    **שם השדה** שממנו הכתובת נבנית: ‎developer.phone‎ ו-
+    ‎project.contact_phone_e164‎ מזוהים בקוד ודורשים ‎data-developer‎.
 
 הפער הראשון הוא אמיתי, וכתוב מה עושים איתו ב-‎docs/analytics-user-data.md‎.
 
@@ -67,6 +76,10 @@ ROOT = Path(__file__).resolve().parent.parent
 # ‏המספר של שוק נדל״ן עצמו, כפי שהוא מופיע בבלוק הקשר בתחתית הדפים.
 SITE_PHONE = "+972546929991"
 
+# ‏וכתובת המייל שלנו, באותו בלוק. היא נוספה אחרי שהתברר ב-Tag Assistant
+# ש-mailto: לא נמדד בכלל — ראו ההערה ב-assets/events.js.
+SITE_EMAIL = "shuknadlan@gmail.com"
+
 # ‏המספר העסקי של העוזר הציבורי (assets/bot-link.js). קישור אליו מסומן
 # ‏data-bot, ולכן הוא נבדק כאן רק כדי שלא ייחשב "מספר של סוכן/ת".
 BOT_PHONE = "972532494740"
@@ -80,10 +93,25 @@ EVENTS_JS = re.compile(r'<script[^>]+src="assets/events\.js"')
 ANCHOR = re.compile(r"<a\b[^>]*>", re.IGNORECASE)
 HREF = re.compile(r'\bhref="([^"]*)"', re.IGNORECASE)
 
-MARKERS = ("data-bot", "data-share", "data-site-contact")
+MARKERS = ("data-bot", "data-share", "data-site-contact", "data-developer")
 
-# ‏wa.me בלי מספר — כפתור שיתוף. נבדק ברמת הקובץ, כי הוא נבנה ב-JS.
+# ‏קישורי שיתוף — wa.me או mailto: **בלי נמען**. נבדקים ברמת הקובץ, כי
+# הם נבנים ב-JS ולא כעוגן ב-HTML.
 WA_SHARE = re.compile(r"wa\.me/\?text=")
+MAIL_SHARE = re.compile(r"mailto:\?")
+
+# ---------- חברה יזמית ----------
+
+# ‏שדות הקשר של חברה יזמית ושל משרד המכירות של פרויקט שלה. שניהם חייבים
+# ‏data-developer, כי ברירת המחדל של המאזין היא contact_agent.
+#
+# ‏**ולמה גם `project.` ולא רק `developer.`:** ‏`projects.developer_id`
+# הוא `not null`, ו-`projects.contact_*` מתועד במיגרציה כמשרד המכירות של
+# הפרויקט — כלומר אין בפרויקט מספר שאינו של היזם.
+DEV_FIELD = re.compile(
+    r"\bdeveloper\.(?:phone|email|whatsapp)|\bproject\.(?:contact_|whatsapp_)"
+)
+CONTACT_SCHEME = re.compile(r"tel:|mailto:|wa\.me/|api\.whatsapp\.com/")
 
 # ---------- ‏PII ----------
 
@@ -135,14 +163,15 @@ def track_calls(text: str) -> list[str]:
 
 
 def contact_links(text: str) -> list[str]:
-    """‏עוגנים שהמאזין ב-events.js תופס: wa.me ו-tel:."""
+    """‏עוגנים שהמאזין ב-events.js תופס: wa.me, tel: ו-mailto:."""
     found = []
     for tag in ANCHOR.findall(text):
         href = HREF.search(tag)
         if not href:
             continue
         url = href.group(1)
-        if url.startswith(("https://wa.me/", "https://api.whatsapp.com/", "tel:")):
+        if url.startswith(("https://wa.me/", "https://api.whatsapp.com/",
+                           "tel:", "mailto:")):
             found.append(tag)
     return found
 
@@ -160,10 +189,17 @@ def classify(tag: str) -> str | None:
             "המספר של שוק נדל״ן עצמו, בלי data-site-contact — כל לחיצה\n"
             "            עליו נספרת כפנייה למתווך/ת"
         )
+    if SITE_EMAIL in url:
+        return (
+            "כתובת המייל של שוק נדל״ן עצמה, בלי data-site-contact — כל\n"
+            "            לחיצה עליה נספרת כפנייה למתווך/ת"
+        )
     if BOT_PHONE in url:
         return "המספר של העוזר הציבורי, בלי data-bot"
     if WA_SHARE.search(url) or url in ("https://wa.me/", "https://wa.me"):
         return "קישור שיתוף (wa.me בלי מספר), בלי data-share"
+    if MAIL_SHARE.search(url) or url == "mailto:":
+        return "קישור שיתוף (mailto: בלי נמען), בלי data-share"
     return None  # מספר של סוכן/ת — contact_agent, וזה תקין
 
 
@@ -214,10 +250,40 @@ def check_share_files() -> list[str]:
             if path.stem in PRIVATE_PAGES or path.name == "crm.js":
                 continue  # האזור האישי אינו נמדד
             code = strip_comments(path.read_text(encoding="utf-8"))
-            if WA_SHARE.search(code) and "data-share" not in code:
+            for pattern, what in ((WA_SHARE, "wa.me/?text="), (MAIL_SHARE, "mailto:?")):
+                if pattern.search(code) and "data-share" not in code:
+                    problems.append(
+                        "%s בונה %s ואין בו data-share — הכפתור\n"
+                        "        ייספר כפנייה למתווך/ת ברגע שהדף יימדד"
+                        % (path.name, what)
+                    )
+    return problems
+
+
+def check_developer_links() -> list[str]:
+    """‏קישור קשר שנבנה מנתוני חברה יזמית חייב data-developer.
+
+    ‏העוגנים האלה נבנים ב-JS, ולכן ‎classify()‎ שלמעלה אינה יכולה להכריע
+    עליהם: ה-‎href‎ שהיא מחלצת הוא ‎"tel:+'‎ — תחילית של שרשור, בלי המספר.
+    לכן הבדיקה כאן היא על **תג הפתיחה כפי שהוא נכתב בקוד**, מ-‎<a‎ ועד
+    ה-‎>‎ הראשון, כולל השרשור שבתוכו. זה הדוק יותר מבדיקה ברמת הקובץ
+    (‏`check_share_files`), כי הוא מצמיד את הדרישה לעוגן עצמו.
+    """
+    problems = []
+    for pattern in SITE_FILES:
+        for path in sorted(ROOT.glob(pattern)):
+            if path.stem in PRIVATE_PAGES or path.name == "crm.js":
+                continue  # האזור האישי אינו נמדד
+            code = strip_comments(path.read_text(encoding="utf-8"))
+            for tag in ANCHOR.findall(code):
+                if not (CONTACT_SCHEME.search(tag) and DEV_FIELD.search(tag)):
+                    continue
+                if any(marker in tag.lower() for marker in MARKERS):
+                    continue
                 problems.append(
-                    "%s בונה wa.me/?text= ואין בו data-share — הכפתור\n"
-                    "        ייספר כפנייה למתווך/ת ברגע שהדף יימדד" % path.name
+                    "%s בונה קישור קשר של חברה יזמית בלי data-developer —\n"
+                    "        הוא ייספר כפנייה למתווך/ת:\n"
+                    "        %s" % (path.name, " ".join(tag.split())[:120])
                 )
     return problems
 
@@ -250,7 +316,7 @@ def main() -> int:
         for problem in problems:
             print("      • %s" % problem)
 
-    others = check_share_files() + check_pii()
+    others = check_share_files() + check_developer_links() + check_pii()
     for problem in others:
         print("✗ %s" % problem)
 
@@ -258,7 +324,7 @@ def main() -> int:
         print(
             "\nכל אחד מהממצאים האלה משאיר את המדידה עובדת — היא פשוט סופרת\n"
             "דבר אחר ממה שהכותרת בדוח אומרת, ואי אפשר לתקן נתונים למפרע.\n"
-            "שלושת הסימונים ומה כל אחד אומר: docs/analytics-events.md"
+            "ארבעת הסימונים ומה כל אחד אומר: docs/analytics-events.md"
         )
         return 1
 

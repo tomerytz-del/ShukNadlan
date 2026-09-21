@@ -622,7 +622,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3.5 6.5h17v11h-17z"/><path d="m3.5 7 8.5 6 8.5-6"/>
             </svg>
-            <a href="mailto:shuknadlan@gmail.com">shuknadlan@gmail.com</a>
+            <a href="mailto:shuknadlan@gmail.com" data-site-contact>shuknadlan@gmail.com</a>
           </p>
         </div>
 
@@ -672,7 +672,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <summary><h4>שוק נדל״ן</h4></summary>
         <div class="footer-col-links">
           <a href="about.html">אודות</a>
-          <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
+          <a href="mailto:shuknadlan@gmail.com" data-site-contact>צור קשר</a>
           <a href="faq.html">שאלות נפוצות</a>
           <a href="pricing.html">מסלולים ומחירים</a>
           <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
@@ -848,14 +848,20 @@ function renderBanner(){
   if (occ) where.push(occ);
   el('projectWhere').innerHTML = where.map(w => '<span>' + esc(w) + '</span>').join('');
 
+  /* ‏data-developer על שני כפתורי הקשר כאן, ולא רק בדף החברה: משרד
+     המכירות של פרויקט **הוא** של היזם. ‏`projects.developer_id` הוא
+     ‏`not null`, ו-`projects.contact_*` מתועד במיגרציה כ"יצירת קשר של
+     הפרויקט (משרד המכירות), נפרד מפרטי החברה" — נפרד מהחברה, לא מתווך.
+     בלי הסימון הן היו contact_agent, כלומר קונים ישירות מיזם היו נספרים
+     כפניות למתווכים. */
   const cta = [];
   if (project.contact_phone_e164){
-    cta.push('<a class="btn btn-teal" href="tel:+' + esc(project.contact_phone_e164) + '">חיוג למשרד המכירות</a>');
+    cta.push('<a class="btn btn-teal" href="tel:+' + esc(project.contact_phone_e164) + '" data-developer>חיוג למשרד המכירות</a>');
   }
   if (project.whatsapp_e164){
     const text = encodeURIComponent('שלום, ראיתי את הפרויקט ' + (project.name || '') + ' בשוק הנדל״ן ואשמח לפרטים');
     cta.push('<a class="btn btn-wa" href="https://wa.me/' + esc(project.whatsapp_e164) + '?text=' + text +
-      '" target="_blank" rel="noopener noreferrer">וואטסאפ</a>');
+      '" target="_blank" rel="noopener noreferrer" data-developer>וואטסאפ</a>');
   }
   cta.push('<a class="btn btn-on-dark" href="#inquiryForm">השארת פרטים</a>');
   el('bannerCta').innerHTML = cta.join('');

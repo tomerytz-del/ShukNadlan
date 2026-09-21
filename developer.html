@@ -454,7 +454,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <svg viewBox="0 0 24 24" aria-hidden="true" stroke-linecap="round" stroke-linejoin="round">
               <path d="M3.5 6.5h17v11h-17z"/><path d="m3.5 7 8.5 6 8.5-6"/>
             </svg>
-            <a href="mailto:shuknadlan@gmail.com">shuknadlan@gmail.com</a>
+            <a href="mailto:shuknadlan@gmail.com" data-site-contact>shuknadlan@gmail.com</a>
           </p>
         </div>
 
@@ -504,7 +504,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <summary><h4>שוק נדל״ן</h4></summary>
         <div class="footer-col-links">
           <a href="about.html">אודות</a>
-          <a href="mailto:shuknadlan@gmail.com">צור קשר</a>
+          <a href="mailto:shuknadlan@gmail.com" data-site-contact>צור קשר</a>
           <a href="faq.html">שאלות נפוצות</a>
           <a href="pricing.html">מסלולים ומחירים</a>
           <a href="ethics-code.html">הקוד האתי ותו האיכות</a>
@@ -595,7 +595,10 @@ function renderBanner(){
   el('devWhere').textContent = where;
 
   const cta = [];
-  if (developer.phone_e164) cta.push('<a class="btn btn-teal" href="tel:+' + esc(developer.phone_e164) + '">חיוג לחברה</a>');
+  /* ‏data-developer אינו קישוט: assets/events.js סופר כל tel: בדף, וברירת
+     המחדל שלו היא contact_agent — פנייה למתווך/ת. חברה יזמית מוכרת את
+     היחידות שלה בעצמה, בלי מתווך/ת ובלי עמלה, ולכן יש לה אירוע משלה. */
+  if (developer.phone_e164) cta.push('<a class="btn btn-teal" href="tel:+' + esc(developer.phone_e164) + '" data-developer>חיוג לחברה</a>');
   if (developer.website) cta.push('<a class="btn btn-on-dark" href="' + esc(safeUrl(developer.website)) +
     '" target="_blank" rel="noopener noreferrer">האתר של החברה</a>');
   el('devCta').innerHTML = cta.join('');
@@ -639,8 +642,9 @@ function renderProjects(query){
 
 function renderContact(){
   const rows = [];
-  if (developer.phone) rows.push('טלפון: <a href="tel:+' + esc(developer.phone_e164 || '') + '">' + esc(developer.phone) + '</a>');
-  if (developer.email) rows.push('אימייל: <a href="mailto:' + esc(developer.email) + '">' + esc(developer.email) + '</a>');
+  /* ‏data-developer על שני אלה מאותה סיבה שבבאנר למעלה. */
+  if (developer.phone) rows.push('טלפון: <a href="tel:+' + esc(developer.phone_e164 || '') + '" data-developer>' + esc(developer.phone) + '</a>');
+  if (developer.email) rows.push('אימייל: <a href="mailto:' + esc(developer.email) + '" data-developer>' + esc(developer.email) + '</a>');
   if (developer.website) rows.push('אתר: <a href="' + esc(safeUrl(developer.website)) +
     '" target="_blank" rel="noopener noreferrer">' + esc(developer.website.replace(/^https?:\/\//, '')) + '</a>');
   if (developer.address) rows.push('כתובת: ' + esc([developer.address, developer.city].filter(Boolean).join(', ')));

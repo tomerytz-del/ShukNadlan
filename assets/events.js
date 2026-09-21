@@ -103,6 +103,11 @@
       let method = null;
       if (href.indexOf('https://wa.me/') === 0 || href.indexOf('https://api.whatsapp.com/') === 0) method = 'whatsapp';
       else if (href.indexOf('tel:') === 0) method = 'phone';
+      /* ‏מייל נוסף אחרי שהתברר ב-Tag Assistant שלחיצה על כתובת המייל בפוטר
+         אינה מפיקה כלום: היא נפלה ב-return הזה, ולכן הערוץ הזה לא נמדד
+         מהיום הראשון. הוא ערוץ צדדי לעומת וואטסאפ וטלפון, אבל "צדדי" אינו
+         "אפס", ו-0 בדוח לא נבדל מ"לא נמדד". */
+      else if (href.indexOf('mailto:') === 0) method = 'email';
       if (!method) return;
 
       if (link.hasAttribute('data-bot')){
@@ -131,6 +136,23 @@
       }
       if (link.hasAttribute('data-site-contact')){
         shukTrack('contact_site', { method: method });
+        return;
+      }
+
+      /* ‏**data-developer** — חברה יזמית, ומשרד המכירות של פרויקט שלה.
+         זה אינו תיקון של קישור שנספר בטעות אלא **הפרדה של שני משפכים**:
+         מי שמתקשר/ת למשרד המכירות של פרויקט קונה מהיזם ישירות, בלי
+         מתווך/ת, בלי עמלה ובלי בלעדיות. ‏contact_agent הוא "כמה גולשים
+         פנו למתווך/ת", וחברה יזמית אינה מתווכת - עירוב השניים מייצר מדד
+         שאי אפשר לפרק למפרע, כי ברמת האירוע לא נשאר סימן מי היה מי.
+
+         ‏**וכל קישורי הקשר של פרויקט הם של היזם**, ולא רק אלה שבדף
+         החברה: `projects.developer_id` הוא `not null`, ו-`contact_*` שם
+         הוא "משרד המכירות של פרויקט מסוים" (המיגרציה
+         ‏`20260921090000_new_projects.sql`). כלומר גם "חיוג למשרד
+         המכירות" ו"וואטסאפ" ב-project.html אינם פנייה למתווך/ת. */
+      if (link.hasAttribute('data-developer')){
+        shukTrack('contact_developer', { method: method });
         return;
       }
 
