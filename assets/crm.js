@@ -17372,6 +17372,55 @@ function cmaCoverageBlock(cov){
     </div>`;
 }
 
+/* ---------- על מה הסטטיסטיקה נשענה ----------
+   ‏`agent_cma_report` מחשבת ממוצע על עסקאות מאותה **מחלקת נכס** ומאותו
+   **מספר חדרים**, לפי סולם שמרחיב קודם את הרדיוס (עד
+   `cma_similar_radius_meters`) ורק אחר כך מרפה מהתאמת החדרים. השורה
+   הזו אומרת איפה הסולם נעצר.
+
+   **למה זו לא הערת שוליים.** עד המיגרציה `20261228090000` הממוצע חושב
+   על כל מה שנפל ברדיוס, כלומר דירת 5 חדרים הושוותה גם לדירות 3 חדרים.
+   בעפולה מחיר המ"ר כמעט זהה בין קבוצות החדרים (13,043 מול 13,564) והמחיר
+   הכולל נבדל פי שניים, ולכן דווקא המספר שנשלח ללקוח/ה הוא זה שנשבר:
+   חמש מתוך 20 המודעות הפעילות החליפו סימן, ואחת עברה מ-‎+99%‎ ל-‎+2%‎.
+
+   שני המצבים שבהם אין סינון חדרים הם בדיוק אלה שבהם השתיקה הייתה
+   מחזירה את המספר הישן בלי שאיש יֵדע, ולכן הם נאמרים בקול - ובמקרה של
+   נכס בלי מספר חדרים רשום, עם הדבר היחיד שסוגר את הפער: להשלים אותו. */
+function cmaSampleNote(cov, radiusUsed){
+  if (!cov || !cov.has_statistics) return '';
+  const n     = Number(cov.comparables_found) || 0;
+  const band  = cov.rooms_band;
+  const rooms = Number(cov.subject_rooms);
+  const rad   = radiusUsed ? ` ברדיוס ${esc(radiusUsed)} מ׳ מהנכס` : '';
+  /* ‏4.0 מהמסד צריך להיקרא "4 חדרים" ולא "4.0 חדרים", ו-4.5 להישאר 4.5 */
+  const num   = v => String(Number(v));
+  const other = Number(cov.excluded_other_rooms) || 0;
+  const aside = other > 0
+    ? ` ‏${esc(other)} עסקאות נוספות בסביבה הן בגודל אחר, ואינן נספרות בממוצע.` : '';
+
+  if (cov.rooms_band_reason === 'exact'){
+    return `<div class="cma-note">ההשוואה נערכה מול ${esc(n)} עסקאות של `
+         + `<strong>${esc(num(rooms))} חדרים</strong>${rad}.${aside}</div>`;
+  }
+  if (cov.rooms_band_reason === 'relaxed'){
+    return `<div class="cma-note">לא נמצאו די עסקאות של ${esc(num(rooms))} חדרים בדיוק, ולכן ההשוואה `
+         + `נערכה מול ${esc(n)} עסקאות של <strong>${esc(num(rooms - band))} עד ${esc(num(rooms + band))} חדרים</strong>`
+         + `${rad}.${aside}</div>`;
+  }
+  if (cov.rooms_band_reason === 'no_similar_rooms'){
+    return `<div class="cma-note">לא נמצאו די עסקאות במספר חדרים דומה לנכס, ולכן ההשוואה${rad} `
+         + `<strong>אינה מסוננת לפי מספר חדרים</strong> והממוצע מערבב נכסים בגדלים שונים. `
+         + `המחיר למ״ר הוא ההשוואה המהימנה יותר במצב הזה.</div>`;
+  }
+  if (cov.rooms_band_reason === 'subject_rooms_missing'){
+    return `<div class="cma-note">לנכס לא רשום מספר חדרים, ולכן ההשוואה${rad} `
+         + `<strong>אינה מסוננת לפי מספר חדרים</strong> והממוצע מערבב נכסים בגדלים שונים. `
+         + `השלימו את מספר החדרים בכרטיס הנכס והפיקו את הדוח שוב - זה המספר שמדייק אותו יותר מכל.</div>`;
+  }
+  return rad ? `<div class="cma-note">ההשוואה נערכה${rad}.</div>` : '';
+}
+
 function renderCmaReport(r){
   const s   = r.subject || {};
   const st  = r.stats || {};
@@ -17445,9 +17494,14 @@ function renderCmaReport(r){
         ? '<div class="cma-note">אין שטח רשום לנכס, ולכן אי אפשר להשוות את המחיר למ״ר.</div>'
         : '');
 
+  /* שתי סיבות שונות לכך שעסקה מופיעה בטבלה ואינה נספרת בממוצע, ולכל
+     אחת סימון משלה: מחלקת נכס אחרת, או מספר חדרים אחר. ‏`in_stats` מגיע
+     מה-RPC ואינו מחושב כאן - תצוגה שמחליטה בעצמה מי נספר היא תצוגה
+     שתיפרד מהחישוב ברגע שהסולם ישתנה. */
   const compRows = comps.map(c => `<tr>
       <td>${esc(c.property_type)}${c.same_type === false ? ' <span class="cma-basis">סוג אחר</span>' : ''}</td>
-      <td>${c.rooms ?? '-'}</td>
+      <td>${c.rooms ?? '-'}${c.same_type !== false && c.in_stats === false
+        ? ' <span class="cma-basis" title="מספר חדרים שונה מהנכס - אינה נספרת בממוצע">לא נספר</span>' : ''}</td>
       <td>${shekel(c.sale_price)} ${cmaBasisHtml(c.price_basis)}</td>
       <td>${c.price_per_sqm ? shekel(c.price_per_sqm) : '-'}</td>
       <td>${esc(c.distance_meters)} מ׳</td>
@@ -17497,11 +17551,16 @@ function renderCmaReport(r){
         <div class="cma-stat"><div class="n">${st.avg_price_per_sqm ? shekel(st.avg_price_per_sqm) : '-'}</div><div class="l">ממוצע למ״ר</div></div>
       </div>
       ${gapNote}
-      ${r.radius_meters_used ? `<div class="cma-note">ההשוואה נערכה ברדיוס ${esc(r.radius_meters_used)} מ׳ מהנכס.</div>` : ''}
+      ${cmaSampleNote(cov, r.radius_meters_used)}
       ${!st.avg_price_per_sqm
         ? '<div class="cma-note">לא נמצאו נתוני שטח לעסקאות ההשוואה, ולכן אין ממוצע מחיר למ״ר.</div>' : ''}
-      ${Number(st.same_type_count) < Number(st.comparables_count)
-        ? `<div class="cma-note">${esc(st.comparables_count - st.same_type_count)} מעסקאות ההשוואה הן בסוג נכס אחר, ומסומנות בטבלה.</div>` : ''}
+      ${/* ‏`excluded_other_type` מה-RPC ולא הפרש בין שני שדות ה-stats:
+            מאז `20261221090000` הסטטיסטיקה רצה על מחלקה תואמת בלבד,
+            ולכן `same_type_count` שווה תמיד ל-`comparables_count`
+            והשורה הזו לא הופיעה אף פעם. בדיקה שאינה יכולה להיות אמת
+            אינה בדיקה. */''}
+      ${Number(cov.excluded_other_type) > 0
+        ? `<div class="cma-note">${esc(cov.excluded_other_type)} עסקאות בסביבה הן בסוג נכס אחר, ואינן נספרות בממוצע. הן מסומנות בטבלה.</div>` : ''}
     ` : cmaCoverageBlock(cov)}
     ${askingNote}
 

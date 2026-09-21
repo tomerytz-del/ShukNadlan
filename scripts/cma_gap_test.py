@@ -35,6 +35,17 @@ CRM = ROOT / "assets" / "crm.js"
 START = "  const cmaGapPct = (ask, avg) => {"
 END = "  const compRows = comps.map("
 
+# הבלוק השני: השורה שאומרת **על מה** הממוצע נשען. אותה שיטה בדיוק - חילוץ
+# מהקוד החי והרצה ב-node - ומאותה סיבה: עותק היה מתיישן בשקט.
+#
+# מה שהיא מונעת: עד `20261228090000` הממוצע חושב על כל מה שנפל ברדיוס,
+# כלומר דירת 5 חדרים הושוותה גם לדירות 3. חמש מתוך 20 המודעות הפעילות
+# קיבלו פער בסימן הפוך, ואחת עברה מ-‎+99%‎ ל-‎+2%‎. שני המצבים שבהם הסינון
+# **לא** הצליח הם אלה שבהם המספר חוזר להיות מעורבב, ולכן שתיקה שם היא
+# בדיוק התקלה הישנה - רק שקטה יותר.
+SAMPLE_START = "function cmaSampleNote(cov, radiusUsed){"
+SAMPLE_END = "function renderCmaReport(r){"
+
 # הפלט האמיתי של agent_cma_report על מודעה #1139 (עלייה 7, עפולה),
 # הועתק משאילתת אימות מול הפרודקשן ב-21.9.2026. 80 מ"ר ב-1,320,000 ₪
 # מול ממוצע 1,243,389 ₪ ו-11,406 ₪ למ"ר ב-180 עסקאות ברדיוס 750 מ'.
@@ -54,6 +65,38 @@ for (const [name, args] of Object.entries(%s)) {
 }
 console.log(JSON.stringify(out));
 """
+
+SAMPLE_HARNESS = """
+%s
+function esc(v){ return String(v ?? ''); }
+const out = {};
+for (const [name, args] of Object.entries(%s)) out[name] = cmaSampleNote(args[0], args[1]);
+console.log(JSON.stringify(out));
+"""
+
+# ‏`subject_rooms` מגיע מ-jsonb כמחרוזת ("3.0"), וזה בכוונה בנתוני הבדיקה:
+# הצגה גולמית שלו הייתה נותנת "3.0 חדרים", וחיבור פשוט לבנד היה נותן
+# "3.00.5 עד ..." במקום "2.5 עד 3.5".
+SAMPLE_CASES = {
+    # מודעה 1139: 34 עסקאות של 3 חדרים ב-750 מ', 146 נוספות בגודל אחר
+    "exact": [{"has_statistics": True, "comparables_found": 34, "rooms_band": 0,
+               "subject_rooms": "3.0", "rooms_band_reason": "exact",
+               "excluded_other_rooms": 146}, 750],
+    # מודעה 1144: 4.5 חדרים, אין ולו עסקה אחת כזו - ירידה ל-‎±0.5‎
+    "relaxed": [{"has_statistics": True, "comparables_found": 20, "rooms_band": 0.5,
+                 "subject_rooms": "4.5", "rooms_band_reason": "relaxed",
+                 "excluded_other_rooms": 35}, 750],
+    # מודעה 1083: 8 חדרים, אין בת השוואה בעיר כולה
+    "unfiltered": [{"has_statistics": True, "comparables_found": 35, "rooms_band": None,
+                    "subject_rooms": "8.0", "rooms_band_reason": "no_similar_rooms",
+                    "excluded_other_rooms": 0}, 750],
+    # מודעה 1090: לנכס עצמו אין מספר חדרים רשום
+    "no_rooms": [{"has_statistics": True, "comparables_found": 175, "rooms_band": None,
+                  "subject_rooms": None, "rooms_band_reason": "subject_rooms_missing",
+                  "excluded_other_rooms": 0}, 750],
+    # אין סטטיסטיקה - אין שורה, בדיוק כמו שאין פער
+    "no_stats": [{"has_statistics": False, "status": "insufficient"}, 750],
+}
 
 CASES = {
     # (subject, stats, hasStats)
@@ -83,20 +126,32 @@ def main() -> int:
         return 1
 
     src = CRM.read_text(encoding="utf-8")
-    if START not in src or END not in src:
-        print("✗ לא נמצא בלוק הפער ב-assets/crm.js.")
-        print("  אם הקוד עבר רפקטור, יש לעדכן את המחרוזות START/END כאן —")
-        print("  בדיקה שאינה מוצאת את הקוד אינה בדיקה שעוברת.")
-        return 1
-    block = src[src.index(START):src.index(END)]
 
-    script = HARNESS % (json.dumps(block), json.dumps(CASES, ensure_ascii=False))
-    res = subprocess.run(["node", "--input-type=module", "-e", script],
-                         capture_output=True, text=True)
-    if res.returncode != 0:
-        print("✗ הרצת הבלוק ב-node נכשלה:\n" + (res.stderr or "").strip())
+    def run(script):
+        res = subprocess.run(["node", "--input-type=module", "-e", script],
+                             capture_output=True, text=True)
+        if res.returncode != 0:
+            print("✗ הרצת הבלוק ב-node נכשלה:\n" + (res.stderr or "").strip())
+            return None
+        return json.loads(res.stdout)
+
+    def block(start, end, what):
+        if start not in src or end not in src:
+            print("✗ לא נמצא %s ב-assets/crm.js." % what)
+            print("  אם הקוד עבר רפקטור, יש לעדכן את סימני החילוץ כאן —")
+            print("  בדיקה שאינה מוצאת את הקוד אינה בדיקה שעוברת.")
+            return None
+        return src[src.index(start):src.index(end)]
+
+    gap_block = block(START, END, "בלוק הפער")
+    sample_block = block(SAMPLE_START, SAMPLE_END, "‏cmaSampleNote")
+    if gap_block is None or sample_block is None:
         return 1
-    out = json.loads(res.stdout)
+
+    out = run(HARNESS % (json.dumps(gap_block), json.dumps(CASES, ensure_ascii=False)))
+    sample = run(SAMPLE_HARNESS % (sample_block, json.dumps(SAMPLE_CASES, ensure_ascii=False)))
+    if out is None or sample is None:
+        return 1
 
     def text(html: str) -> str:
         import re
@@ -126,6 +181,25 @@ def main() -> int:
         ("מדגם מ\"ר קטן יותר מדווח בנפרד",
          "40 עסקאות" in text(out["small_sqm"])
          and "7 עסקאות" in text(out["small_sqm"])),
+        # ---- על מה הממוצע נשען ----
+        ("התאמה מדויקת: נאמר מספר החדרים והרדיוס",
+         "3 חדרים" in text(sample["exact"]) and "750" in sample["exact"]),
+        ("ו-3.0 מה-jsonb מוצג כ-3 ולא כ-3.0",
+         "3.0 חדרים" not in text(sample["exact"])),
+        ("ומה שנשאר בחוץ בגלל הגודל - נספר ונאמר",
+         "146 עסקאות נוספות" in text(sample["exact"])),
+        ("בנד מורחב: נאמר שהטווח הורחב ומהו",
+         "4 עד 5 חדרים" in text(sample["relaxed"])
+         and "בדיוק" in text(sample["relaxed"])),
+        ("בלי עסקאות דומות: נאמר שאין סינון, ושהמ\"ר מהימן יותר",
+         "אינה מסוננת לפי מספר חדרים" in text(sample["unfiltered"])
+         and "למ״ר" in sample["unfiltered"]),
+        ("נכס בלי מספר חדרים: הדוח מבקש להשלים אותו",
+         "השלימו את מספר החדרים" in text(sample["no_rooms"])),
+        ("ואינו מתיימר שההשוואה סוננה",
+         "אינה מסוננת לפי מספר חדרים" in text(sample["no_rooms"])),
+        ("בלי has_statistics - אין שורת מדגם בכלל",
+         sample["no_stats"].strip() == ""),
     ]
     for name, ok in checks:
         bad += not ok
