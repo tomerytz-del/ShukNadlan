@@ -94,7 +94,10 @@ BENIGN_TYPES = {
 # בייצוא. תגית חדשה כאן היא **החלטה**, לא עדכון רשימה: היא מריצה JS
 # חופשי בכל דף, ו-privacy.html צריך לדעת עליה.
 REVIEWED_HTML_TAGS: dict[str, str] = {
-    # "Meta Pixel": "פרסום ושיווק מחדש — privacy.html, סעיף 'פרסום ומיקוד מחדש'",
+    # ‏הפיקסל של Meta, מזהה 1844258613237835, נורה מהטריגר המובנה All Pages.
+    # ‏מוצהר ב-privacy.html בסעיף נפרד ("פרסום ומיקוד מחדש") ולא בסעיף
+    # העוגיות, כי מיקוד מחדש אינו מדידה — ראו docs/analytics-gtm.md.
+    "meta pixel pageview": "פרסום ושיווק מחדש - privacy.html, 'פרסום ומיקוד מחדש'",
 }
 
 # ‏חתימות שמזהות מה תגית **עושה**, ולא איך היא נקראת. שם מתחלף, קריאה
@@ -344,7 +347,10 @@ def check(path: Path) -> tuple[list[str], list[str]]:
                 % (name, kind)
             )
 
-    info.append("%d תגיות, %d טריגרים, %d אירועים בקוד"
+    # ‏הטריגרים המובנים (‏All Pages, Initialization) אינם ב-trigger של
+    # הייצוא אלא רק כמזהה ב-firingTriggerId, ולכן "0 טריגרים" לצד שתי
+    # תגיות שכן נורות הוא נכון ומבלבל. מפורש כאן.
+    info.append("%d תגיות, %d טריגרים משלנו (מובנים אינם בייצוא), %d אירועים בקוד"
                 % (len(tags), len(triggers), len(pushed)))
     return problems, info
 

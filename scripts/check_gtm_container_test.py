@@ -218,7 +218,9 @@ def main() -> int:
     # שלהם היא עוברת. זה מה שמוכיח שהקובץ באמת מחבר את האירוע ולא רק
     # נראה כמו JSON של GTM.
     for rel, event in (
-        ("docs/gtm-contact-site-import.json", "contact_site"),
+        ("docs/gtm-events-import.json", "contact_site"),
+        ("docs/gtm-events-import.json", "view_item"),
+        ("docs/gtm-events-import.json", "contact_agent"),
         ("docs/gtm-pwa-import.json", "pwa_banner_shown"),
     ):
         imported = json.loads((ROOT / rel).read_text(encoding="utf-8"))["containerVersion"]
@@ -256,7 +258,7 @@ def main() -> int:
     if failures:
         print("✗ %d מקרים לא נתפסו." % failures)
         return 1
-    print("✓ כל %d המקרים התנהגו כצפוי." % (len(cases) + 3))
+    print("✓ כל %d המקרים התנהגו כצפוי." % (len(cases) + 5))
     return 0
 
 
