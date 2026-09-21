@@ -1,0 +1,134 @@
+{
+    "exportFormatVersion": 2,
+    "exportTime": "2026-09-21 13:33:58",
+    "containerVersion": {
+        "path": "accounts/6376638087/containers/264013397/versions/3",
+        "accountId": "6376638087",
+        "containerId": "264013397",
+        "containerVersionId": "3",
+        "name": "Add \"meta pixel pageview\" tag",
+        "description": "Added a new \"meta pixel pageview\" tag triggered by \"All Pages\".",
+        "container": {
+            "path": "accounts/6376638087/containers/264013397",
+            "accountId": "6376638087",
+            "containerId": "264013397",
+            "name": "shuknadlan.co.il",
+            "publicId": "GTM-NZHD7ZHT",
+            "usageContext": [
+                "WEB"
+            ],
+            "fingerprint": "1789314519482",
+            "tagManagerUrl": "https://tagmanager.google.com/#/container/accounts/6376638087/containers/264013397/workspaces?apiLink=container",
+            "features": {
+                "supportUserPermissions": true,
+                "supportEnvironments": true,
+                "supportWorkspaces": true,
+                "supportGtagConfigs": false,
+                "supportBuiltInVariables": true,
+                "supportClients": false,
+                "supportFolders": true,
+                "supportTags": true,
+                "supportTemplates": true,
+                "supportTriggers": true,
+                "supportVariables": true,
+                "supportVersions": true,
+                "supportZones": true,
+                "supportTransformations": false
+            },
+            "tagIds": [
+                "GTM-NZHD7ZHT"
+            ]
+        },
+        "tag": [
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "tagId": "3",
+                "name": "GA4 — All Pages",
+                "type": "googtag",
+                "parameter": [
+                    {
+                        "type": "TEMPLATE",
+                        "key": "tagId",
+                        "value": "G-40ZLLXSRFY"
+                    }
+                ],
+                "fingerprint": "1789328269158",
+                "firingTriggerId": [
+                    "2147479573"
+                ],
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "tagId": "5",
+                "name": "meta pixel pageview",
+                "type": "html",
+                "parameter": [
+                    {
+                        "type": "TEMPLATE",
+                        "key": "html",
+                        "value": "<!-- Meta Pixel Code -->\n<script>\n!function(f,b,e,v,n,t,s)\n{if(f.fbq)return;n=f.fbq=function(){n.callMethod?\nn.callMethod.apply(n,arguments):n.queue.push(arguments)};\nif(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';\nn.queue=[];t=b.createElement(e);t.async=!0;\nt.src=v;s=b.getElementsByTagName(e)[0];\ns.parentNode.insertBefore(t,s)}(window, document,'script',\n'https://connect.facebook.net/en_US/fbevents.js');\nfbq('init', '1844258613237835');\nfbq('track', 'PageView');\n</script>\n<noscript><img height=\"1\" width=\"1\" style=\"display:none\"\nsrc=\"https://www.facebook.com/tr?id=1844258613237835&ev=PageView&noscript=1\"\n/></noscript>\n<!-- End Meta Pixel Code -->"
+                    },
+                    {
+                        "type": "BOOLEAN",
+                        "key": "supportDocumentWrite",
+                        "value": "false"
+                    }
+                ],
+                "fingerprint": "1789840543644",
+                "firingTriggerId": [
+                    "2147479553"
+                ],
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
+            }
+        ],
+        "builtInVariable": [
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "type": "PAGE_URL",
+                "name": "Page URL"
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "type": "PAGE_HOSTNAME",
+                "name": "Page Hostname"
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "type": "PAGE_PATH",
+                "name": "Page Path"
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "type": "REFERRER",
+                "name": "Referrer"
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "type": "EVENT",
+                "name": "Event"
+            }
+        ],
+        "fingerprint": "1789840608080",
+        "tagManagerUrl": "https://tagmanager.google.com/#/versions/accounts/6376638087/containers/264013397/versions/3?apiLink=version"
+    }
+}
