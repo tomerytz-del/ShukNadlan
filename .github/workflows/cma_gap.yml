@@ -1,0 +1,47 @@
+name: שני מספרי הפער בדוח ה-CMA
+
+# הדוח מציג את הפער בין המחיר המבוקש לשוק בשני מספרים - הכולל ולמ"ר -
+# כי אחד מהם לבדו מטעה בדיוק כשהשטחים שונים. נכס של 80 מ"ר יצא +6%
+# בהשוואה הכוללת ו-+45% למ"ר, ומי שראה רק את הראשון קרא שהמחיר בשוק.
+#
+# הבדיקה רצה על הקוד ב-assets/crm.js עצמו - היא חולצת את הבלוק ומריצה
+# אותו ב-node על פלט אמיתי של agent_cma_report - ולא על עותק שמתיישן
+# בשקט.
+#
+# היא נכתבה אחרי באג חי: Number(null) ב-JavaScript הוא 0 ולא NaN, ולכן
+# נכס בלי שטח קיבל "המחיר המבוקש למ"ר: נמוך ב-100% מהממוצע". מספר מומצא
+# שנקרא כממצא, על 2 מתוך 31 המודעות הפעילות למכירה.
+
+on:
+  pull_request:
+    paths:
+      - "assets/crm.js"
+      - "supabase/functions/whatsapp-webhook/agent.ts"
+      - "scripts/cma_gap_test.py"
+      - ".github/workflows/cma_gap.yml"
+  push:
+    branches: [main]
+    paths:
+      - "assets/crm.js"
+      - "supabase/functions/whatsapp-webhook/agent.ts"
+      - "scripts/cma_gap_test.py"
+      - ".github/workflows/cma_gap.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # ‏node מגיע מותקן ב-ubuntu-latest. הבדיקה נכשלת ואינה מדלגת אם
+      # הוא חסר - היא קיימת בדיוק כדי להריץ את הקוד האמיתי.
+      - name: הדוח מציג את שני המספרים, וכל אחד נשען על נתון שקיים
+        run: python3 scripts/cma_gap_test.py

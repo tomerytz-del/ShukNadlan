@@ -1816,9 +1816,17 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
   // ב-1,320,000 ₪ יצא +3% מול ממוצע של 1,282,937 ₪ (113 מ"ר בממוצע),
   // ובאותה נשימה +43% למ"ר. מודל שמקבל רק את הראשון יאמר "המחיר בשוק",
   // וזו התשובה הלא נכונה. הצד של ה-UI: `renderCmaReport` ב-assets/crm.js.
+  // ‏`ask == null` לפני `Number()`: **`Number(null)` הוא 0 ולא NaN**, ולכן
+  // נכס בלי שטח (`price_per_sqm` חוזר null כש-`size_sqm` ריק) היה מקבל
+  // ‏`gap_vs_market_per_sqm_pct: -100` — ומודל שמקבל את זה יאמר לסוכן/ת
+  // שהמחיר למ"ר נמוך ב-100% מהשוק. שקר בטוח בעצמו, על החלטת תמחור.
+  // ‏`Number.isFinite` לבדו אינו תופס זאת כי 0 סופי לגמרי.
   const gap = (ask: unknown, avgOf: unknown): number | undefined => {
+    if (ask === null || ask === undefined || avgOf === null || avgOf === undefined) {
+      return undefined;
+    }
     const a = Number(ask), v = Number(avgOf);
-    return hasStats && Number.isFinite(a) && Number.isFinite(v) && v > 0
+    return hasStats && Number.isFinite(a) && Number.isFinite(v) && a > 0 && v > 0
       ? Math.round(((a - v) / v) * 100)
       : undefined;
   };
