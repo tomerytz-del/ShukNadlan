@@ -1764,9 +1764,30 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .cma-stat{border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px;text-align:center}
   .cma-stat .n{font-family:'Frank Ruhl Libre',serif;font-size:1.1rem;color:var(--teal-dark)}
   .cma-stat .l{font-size:.68rem;color:var(--ink-soft);margin-top:2px}
+  /* ---------- טבלאות הדוח, ולמה הן נגללות ולא נדחסות ----------
+     ‏`width:100%` בלי `table-layout:fixed` אומר שהרוחב **המינימלי** של
+     הטבלה הוא סכום ה-min-content של העמודות, ואת זה אין לה דרך לוותר
+     עליו. טבלת "נכסים דומים שמוצעים בשוק" נושאת שבע עמודות, והראשונה
+     בהן היא כותרת מודעה מלאה - כלומר ברוחב טלפון היא גולשת מהגיליון
+     ומוציאה איתה את כל הדוח, בדיוק כמו שהערת ההקשר הוציאה את כרטיס
+     הנכס. לדחוס שבע עמודות ל-348px אינה אפשרות: "התאמת מאפיינים" לבדה
+     צריכה כ-90px.
+
+     לכן מעטפת שנגללת, כמו ב-`.adm-table-wrap`, ב-`.tbl-wrap` של
+     ‏developer-crm ובטבלת בדיקת העסקאות. הטבלה עצמה נשארת `width:100%`,
+     ולכן כשהיא **כן** נכנסת (טבלאות ארבע העמודות, וכל רוחב דסקטופ) אין
+     גלילה בכלל ושום דבר לא משתנה.
+
+     ‏`@media print` מחזיר `overflow:visible`: מעטפת שנגללת נחתכת בהדפסה
+     בדיוק בקו שבו המסך נגמר, והדוח הזה נשלח ללקוחות כ-PDF. */
+  .cma-tablewrap{overflow-x:auto;overscroll-behavior-inline:contain;
+    -webkit-overflow-scrolling:touch}
   .cma-table{width:100%;border-collapse:collapse;font-size:.8rem}
   .cma-table th,.cma-table td{border-bottom:1px solid var(--line);padding:7px 6px;text-align:right}
   .cma-table th{font-size:.72rem;color:var(--ink-soft);font-weight:700}
+  /* עמודת הכותרת היא הטקסט החופשי היחיד בטבלאות, ולכן היא זו שנשברת -
+     בלי זה הרוחב המינימלי של הטבלה הוא אורך הכותרת על שורה אחת. */
+  .cma-table td.cma-c-title{min-width:132px;white-space:normal}
   .cma-note{font-size:.75rem;color:var(--ink-soft);background:var(--teal-tint);border-radius:var(--radius-sm);padding:9px 11px;margin-top:8px}
   /* ההודעה שמחליפה את "תמונת השוק" כשאין די עסקאות. היא לא הערת שוליים
      אלא התוכן עצמו באותו מקום, ולכן בולטת ולא רכה כמו .cma-note — סוכן/ת
@@ -1836,6 +1857,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .cma-sheet{box-shadow:none;max-width:none;padding:0;border-radius:0}
     .cma-actions{display:none !important}
     .cma-table{font-size:.72rem}
+    /* מעטפת שנגללת נחתכת בהדפסה בקו שבו אזור הגלילה נגמר, והדוח הזה
+       נשלח ללקוחות כ-PDF. בדף A4 יש רוחב ממילא, ולכן אין מה לגלול. */
+    .cma-tablewrap{overflow:visible !important}
   }
 
   /* ==========================================================================
