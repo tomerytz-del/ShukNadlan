@@ -151,8 +151,8 @@ Deno.serve(async (req: Request) => {
     clientEmail: email,
     // ‏topup_id ולא id: ‏crm.html מנקה מהכתובת רק את שני המפתחות האלה, ושם
     // גנרי היה מתנגש עם פרמטרים אחרים שהדף כבר קורא (‏invite, מפתחות OAuth).
-    successUrl: `${siteBaseUrl}/crm.html?topup=success&topup_id=${topupId}`,
-    failureUrl: `${siteBaseUrl}/crm.html?topup=failure&topup_id=${topupId}`,
+    successUrl: `${siteBaseUrl}/crm?topup=success&topup_id=${topupId}`,
+    failureUrl: `${siteBaseUrl}/crm?topup=failure&topup_id=${topupId}`,
     notifyUrl,
     reference: topupId,
   });

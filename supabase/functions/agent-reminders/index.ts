@@ -85,7 +85,7 @@ type Item = {
 /** הקישור שמנחית את הסוכן/ת בקטגוריה שבה באמת מטפלים בממצא. */
 function actionUrl(acc: string | null): string {
   const safe = /^acc[A-Za-z0-9]+$/.test(acc || "") ? acc : MANAGE_ACC;
-  return `${SITE_BASE}/crm.html?goto=${encodeURIComponent(safe!)}`;
+  return `${SITE_BASE}/crm?goto=${encodeURIComponent(safe!)}`;
 }
 
 const manageUrl = () => actionUrl(MANAGE_ACC);
@@ -235,7 +235,7 @@ async function sendWhatsapp(to: string, name: string | null, items: Item[]): Pro
             type: "button",
             sub_type: "url",
             index: "0",
-            parameters: [{ type: "text", text: `crm.html?goto=${MANAGE_ACC}` }],
+            parameters: [{ type: "text", text: `/crm?goto=${MANAGE_ACC}` }],
           },
         ],
       },

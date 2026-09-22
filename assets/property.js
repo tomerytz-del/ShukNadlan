@@ -1757,7 +1757,7 @@ function renderSimilarProperties(list){
         ${PropertyCard.whereHtml(sp)}
         ${PropertyCard.factsHtml(sp)}
       </div>`;
-    card.addEventListener('click', ()=> window.location.href = 'property.html?id=' + sp.id);
+    card.addEventListener('click', ()=> window.location.href = '/property?id=' + sp.id);
     scroll.appendChild(card);
   });
   section.hidden = false;
@@ -2020,7 +2020,7 @@ function renderOpenHouseBand(p){
       // הספירה לאחור ולא רק התאריך: "נותרו 2 ימים 04:11" הוא אותו מידע
       // בדיוק, אבל הוא זה שגורם להרים טלפון היום ולא בשבוע הבא
       OpenHouse.countdownHtml(p) +
-      '<a href="open-house.html">לכל נכסי היריד ←</a>' +
+      '<a href="/open-house">לכל נכסי היריד ←</a>' +
     '</div>';
   host.hidden = false;
 }
@@ -2076,7 +2076,7 @@ function renderProperty(p){
   applyOwnerLeadAgent(p);
   prefillInquiryContact();
   document.getElementById('agencyStrip').addEventListener('click', ()=>{
-    if (p.agencies?.slug) window.location.href = 'agency.html?slug=' + p.agencies.slug;
+    if (p.agencies?.slug) window.location.href = '/agency?slug=' + p.agencies.slug;
   });
 
   // המפה נטענת ברקע: היא דורשת בדיקת זכאות נוספת מול ה-DB, ואין סיבה שהיא
@@ -2137,7 +2137,7 @@ function renderAgentCard(p){
     topEl.setAttribute('role', 'link');
     topEl.tabIndex = 0;
     topEl.setAttribute('aria-label', 'לעמוד של ' + name);
-    const openAgent = ()=>{ window.location.href = 'agent.html?slug=' + encodeURIComponent(agentKey); };
+    const openAgent = ()=>{ window.location.href = '/agent?slug=' + encodeURIComponent(agentKey); };
     topEl.addEventListener('click', openAgent);
     // ‏role=link בלי מקלדת הוא תג ריק: אנטר ורווח חייבים לעשות את מה
     // שהעכבר עושה, כי הראש הוא ‎div‎ ולא ‎a‎.

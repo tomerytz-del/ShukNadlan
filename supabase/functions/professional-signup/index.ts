@@ -200,8 +200,8 @@ Deno.serve(async (req: Request) => {
       description: `${desc} - שוק נדל"ן`,
       ...clientFrom(body, advertiser_name),
       clientEmail: contact_email,
-      successUrl: `${siteBaseUrl}/professional-signup.html?payment=success&order_id=${orderId}`,
-      failureUrl: `${siteBaseUrl}/professional-signup.html?payment=failure&order_id=${orderId}`,
+      successUrl: `${siteBaseUrl}/professional-signup?payment=success&order_id=${orderId}`,
+      failureUrl: `${siteBaseUrl}/professional-signup?payment=failure&order_id=${orderId}`,
       notifyUrl,
       reference: orderId,
     });

@@ -123,7 +123,7 @@ function normalizeMobile(raw: unknown): string | null | false {
  * קורא את האסימון ומעביר אותו הלאה.
  */
 const inviteUrl = (token: string) =>
-  `${SITE_BASE_URL}/crm.html?invite=${encodeURIComponent(token)}`;
+  `${SITE_BASE_URL}/crm?invite=${encodeURIComponent(token)}`;
 
 // ---------------------------------------------------------------------------
 // מכתב ההזמנה

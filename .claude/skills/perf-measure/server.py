@@ -32,6 +32,11 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = self.path.split("?")[0].lstrip("/") or "index.html"
+        # ‏כמו Netlify: /about מוגש מ-about.html. הקישורים באתר נכתבים בצורה
+        # הזו (‏scripts/check_canonical.py), ובלי השורה הזו כל ניווט במדידה
+        # היה 404 — כלומר מספר שנראה מצוין ואינו מודד כלום.
+        if "." not in path and (ROOT / (path + ".html")).exists():
+            path += ".html"
         f = EXTRA / path if path in LOCAL else ROOT / path
         try:
             body = f.read_bytes()

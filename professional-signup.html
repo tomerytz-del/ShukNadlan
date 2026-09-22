@@ -79,7 +79,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <div class="card">
   <div id="stateForm">
-    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
+    <a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
     <h1>כרטיסיית בעל מקצוע</h1>
     <p class="sub">חשיפה לקהל רחב באזור עפולה והעמק</p>
     <span class="price-badge">₪350 לחודש · ביטול בכל עת</span>
@@ -110,7 +110,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <button type="button" class="btn" id="submitBtn">הרשמה - ₪350/חודש</button>
     <div id="feedback"></div>
     <div class="note">מצב בדיקה - לא מתבצע חיוב אמיתי כרגע. הכרטיסייה תופיע מיד בדף הבית לאחר ההרשמה.</div>
-    <a href="index.html" class="back-link">חזרה לדף הבית</a>
+    <a href="/" class="back-link">חזרה לדף הבית</a>
   </div>
 
   <!-- ---------- חזרה מעמוד התשלום ----------
@@ -119,15 +119,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        שאפשר לזייף, ולא אישור. עד שה-webhook מסתיים ההזמנה עדיין pending,
        ולכן יש כאן גם סבב בדיקות קצר. -->
   <div id="stateReturn" style="display:none">
-    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
+    <a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
     <h1 id="returnTitle">בודקים את התשלום…</h1>
     <p class="sub" id="returnSub">רגע אחד - מאמתים את התשלום מול חברת הסליקה.</p>
     <button type="button" class="btn btn-ghost" id="returnRetry" style="display:none">בדיקה שוב</button>
-    <a href="index.html" class="back-link">חזרה לדף הבית</a>
+    <a href="/" class="back-link">חזרה לדף הבית</a>
   </div>
 
   <div id="stateDone">
-    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
+    <a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
     <h1>הכרטיסייה עלתה לאוויר!</h1>
     <p class="sub">התשלום התקבל והכרטיסייה שלך עלתה לדף הבית. נשאר להשלים את העמוד שלך - תמונות, תיאור וטלפון לוואטסאפ.</p>
 
@@ -142,7 +142,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
 
     <a href="#" class="btn" id="manageOpen" style="display:flex;text-decoration:none;margin-top:16px">להשלמת העמוד שלי ←</a>
-    <a href="index.html" class="back-link">צפייה בדף הבית</a>
+    <a href="/" class="back-link">צפייה בדף הבית</a>
   </div>
 </div>
 
@@ -215,7 +215,7 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
    שתי שניות מכסות את הפער הרגיל, ואחריהן מוצג כפתור לבדיקה ידנית. */
 function showManage(token){
   if (token){
-    const manageUrl = new URL('professional-manage.html', location.href);
+    const manageUrl = new URL('/professional-manage', location.href);
     manageUrl.searchParams.set('token', token);
     document.getElementById('manageLink').value = manageUrl.href;
     document.getElementById('manageOpen').href = manageUrl.href;

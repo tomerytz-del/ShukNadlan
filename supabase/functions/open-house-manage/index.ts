@@ -59,7 +59,7 @@ function page(title: string, bodyHtml: string, status = 200) {
 }
 
 const ACTIONS = ["unsubscribe", "resubscribe"];
-const fairUrl = () => (SITE_BASE_URL ? `${SITE_BASE_URL}/open-house.html` : "");
+const fairUrl = () => (SITE_BASE_URL ? `${SITE_BASE_URL}/open-house` : "");
 
 Deno.serve(async (req: Request) => {
   const url = new URL(req.url);

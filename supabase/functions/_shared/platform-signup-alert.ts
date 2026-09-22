@@ -187,7 +187,7 @@ export async function announcePlatformSignup(
         kind === "agency" ? "משרד תיווך חדש הצטרף" : "מתווך/ת חדש/ה הצטרף/ה",
         joinParts([
           "לא הצלחנו לשלוף את הפרטים - הם בדשבורד",
-          `${SITE_BASE}/crm.html?goto=accSubscriptions`,
+          `${SITE_BASE}/crm?goto=accSubscriptions`,
         ]),
       );
       return;
@@ -207,13 +207,13 @@ export async function announcePlatformSignup(
       ? joinParts([
         `מנהל/ת: ${who}`,
         `מסלול ${tier}`,
-        agencySlug ? `${SITE_BASE}/agency.html?slug=${encodeURIComponent(agencySlug)}` : null,
+        agencySlug ? `${SITE_BASE}/agency?slug=${encodeURIComponent(agencySlug)}` : null,
       ])
       : joinParts([
         agencyName,
         member.role === "manager" ? "מנהל/ת" : null,
         `מסלול ${tier}`,
-        member.slug ? `${SITE_BASE}/agent.html?slug=${encodeURIComponent(member.slug)}` : null,
+        member.slug ? `${SITE_BASE}/agent?slug=${encodeURIComponent(member.slug)}` : null,
       ]);
 
     await notifyPlatformAdmins(supabase, title, body);
@@ -323,7 +323,7 @@ export async function announceProfessionalSignup(
       p.business_name && p.business_name !== who ? p.business_name : null,
       p.target_region,
       payLine,
-      p.slug ? `${SITE_BASE}/professional.html?slug=${encodeURIComponent(p.slug)}` : null,
+      p.slug ? `${SITE_BASE}/professional?slug=${encodeURIComponent(p.slug)}` : null,
     ]);
 
     await notifyPlatformAdmins(supabase, title, body);
@@ -367,7 +367,7 @@ export async function announceDeveloperSignup(
       d.contact_name ? `איש/אשת קשר: ${d.contact_name}` : null,
       d.city,
       "פתיחת החברה ללא תשלום · החיוב הוא לפי פרויקט",
-      d.slug ? `${SITE_BASE}/developer.html?slug=${encodeURIComponent(d.slug)}` : null,
+      d.slug ? `${SITE_BASE}/developer?slug=${encodeURIComponent(d.slug)}` : null,
     ]);
 
     await notifyPlatformAdmins(supabase, title, body);
@@ -423,7 +423,7 @@ export async function announceProfessionalPaid(
       o.months ? `${o.months} חודשים` : null,
       o.amount ? `₪${Math.round(Number(o.amount))}` : null,
       until ? `עד ${until}` : null,
-      pl?.slug ? `${SITE_BASE}/professional.html?slug=${encodeURIComponent(pl.slug)}` : null,
+      pl?.slug ? `${SITE_BASE}/professional?slug=${encodeURIComponent(pl.slug)}` : null,
     ]);
 
     await notifyPlatformAdmins(supabase, title, body, PLATFORM_UPGRADE_TYPE);

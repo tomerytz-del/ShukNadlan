@@ -90,8 +90,8 @@ function endLabel(p: any): string {
 }
 
 const propertyUrl = (id: string) =>
-  SITE_BASE_URL ? `${SITE_BASE_URL}/property.html?id=${encodeURIComponent(id)}` : "";
-const fairUrl = () => (SITE_BASE_URL ? `${SITE_BASE_URL}/open-house.html` : "");
+  SITE_BASE_URL ? `${SITE_BASE_URL}/property?id=${encodeURIComponent(id)}` : "";
+const fairUrl = () => (SITE_BASE_URL ? `${SITE_BASE_URL}/open-house` : "");
 const unsubUrl = (token: string) =>
   `${FUNCTIONS_BASE}/open-house-manage?action=unsubscribe&token=${encodeURIComponent(token)}`;
 

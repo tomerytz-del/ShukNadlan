@@ -376,7 +376,7 @@ async function sendSignedCopies(agreementId: string) {
 
   const signers = await signersOf(agreementId);
   const agent = await agentCard(agreement.agent_id);
-  const viewUrl = `${SITE_BASE_URL}/agreement.html?t=${encodeURIComponent(agreement.view_token)}`;
+  const viewUrl = `${SITE_BASE_URL}/agreement?t=${encodeURIComponent(agreement.view_token)}`;
 
   const inner =
     `<div style="padding:18px 24px;font-size:13px;line-height:1.7">` +
@@ -455,7 +455,7 @@ async function sendSigningLinks(agreementId: string, signerIds?: string[]) {
   let sent = 0, failed = 0;
 
   for (const s of targets) {
-    const url = `${SITE_BASE_URL}/sign.html?t=${encodeURIComponent(s.sign_token)}`;
+    const url = `${SITE_BASE_URL}/sign?t=${encodeURIComponent(s.sign_token)}`;
     const inner =
       `<div style="padding:18px 24px;font-size:13px;line-height:1.75">` +
         `<p style="margin:0 0 10px">שלום ${esc(s.full_name)},</p>` +
@@ -577,7 +577,7 @@ Deno.serve(async (req: Request) => {
         allow_passport: agreement.allow_passport,
         signed_at: agreement.signed_at,
         view_url: agreement.status === "signed"
-          ? `${SITE_BASE_URL}/agreement.html?t=${encodeURIComponent(agreement.view_token)}` : null,
+          ? `${SITE_BASE_URL}/agreement?t=${encodeURIComponent(agreement.view_token)}` : null,
       },
       agent: { name: agent.name, agency: agent.agency, phone: agent.phone },
       me: {

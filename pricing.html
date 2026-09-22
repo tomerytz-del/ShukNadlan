@@ -292,13 +292,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <header class="site">
   <div class="header-inner">
-    <a href="index.html" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית">
+    <a href="/" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית">
       <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
       <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
     </a>
     <div class="head-links">
-      <a href="index.html">דף הבית</a>
-      <a href="crm.html" id="crmLink">איזור סוכנים</a>
+      <a href="/">דף הבית</a>
+      <a href="/crm" id="crmLink">איזור סוכנים</a>
     </div>
   </div>
 </header>
@@ -330,8 +330,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          ‏JS לא היה מוצא אף ‎<a href="checkout…">‎ באתר. זה מה שהפיל את בדיקת
          חברת הסליקה. השורה הזו מופיעה תמיד, בכל מצב הטבה ובלי JS. -->
     <p class="fineprint">
-      התשלום באתר הוא <a href="checkout.html">טעינת ארנק</a>, שממנה נרכשים לידים והקפצת נכסים -
-      מילוי פרטים, אישור <a href="terms.html">התקנון</a> ומעבר לסליקה מאובטחת
+      התשלום באתר הוא <a href="/checkout">טעינת ארנק</a>, שממנה נרכשים לידים והקפצת נכסים -
+      מילוי פרטים, אישור <a href="/terms">התקנון</a> ומעבר לסליקה מאובטחת
     </p>
 
     <section class="compare">
@@ -390,7 +390,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <section class="closer">
       <h2 id="closerTitle">מוכנים להתחיל?</h2>
       <p id="closerLead">פתיחת משרד לוקחת שתי דקות, והסוכנים שלכם מצטרפים בקישור אחד.</p>
-      <a class="btn-main" id="closerCta" href="agency-signup.html">פתיחת משרד תיווך</a>
+      <a class="btn-main" id="closerCta" href="/agency-signup">פתיחת משרד תיווך</a>
       <!-- הקישור לטעינת ארנק יושב בשורה שמתחת לכרטיסים. הטעינה עצמה עדיין
            מזוהה: ‏checkout.html דורש התחברות לפני שהוא פונה לסליקה, ולכן
            קישור ציבורי אליו אינו מזמין תשלום של מי שאין לו/ה ארנק לזכות. -->
@@ -500,12 +500,12 @@ function ctaFor(tier){
        ‏`mailto:shuknadlan@gmail.com`, ובמחשב שאין בו תוכנת דואר מוגדרת
        (רוב המחשבים) הלחיצה עליו פותחת את חלון "איך ברצונך לפתוח זאת?" של
        מערכת ההפעלה — כלומר הסוכן/ת מקבל/ת רשימת דפדפנים במקום מסלול. הדרך
-       הקיימת היא ‏`crm.html?tier=…`: השרת רושם בקשה (‏`pending_tier_change`),
+       הקיימת היא ‏`/crm?tier=…`: השרת רושם בקשה (‏`pending_tier_change`),
        שולח מייל להנהלה, **ואינו משנה מסלול** — וה-CRM מאשר בכתב שהבקשה
        נקלטה. בדרך לשם עובר גם חלון האישור עם תיבת הסימון. */
     return {
       label: (up ? 'שדרוג ל-' : 'מעבר ל-') + tier.name,
-      href: 'crm.html?tier=' + encodeURIComponent(tier.id),
+      href: '/crm?tier=' + encodeURIComponent(tier.id),
       foot: tier.priceMonthly ? 'הבקשה נרשמת, ואנחנו חוזרים אליך להסדרת התשלום' : '',
     };
   }
@@ -524,7 +524,7 @@ function ctaFor(tier){
   if (inviteTok){
     return {
       label: promoOpen ? 'מצטרפים למשרד - ' + Tiers.PROMO.months + ' חודשים במתנה' : tier.cta,
-      href: 'crm.html?invite=' + encodeURIComponent(inviteTok) + '&tier=' + encodeURIComponent(tier.id),
+      href: '/crm?invite=' + encodeURIComponent(inviteTok) + '&tier=' + encodeURIComponent(tier.id),
       foot: promoOpen ? 'בלי כרטיס אשראי' : '',
     };
   }
@@ -532,7 +532,7 @@ function ctaFor(tier){
   // הדף הציבורי: הצטרפות למערכת היא פתיחת משרד.
   return {
     label: promoOpen ? 'מתחילים - ' + Tiers.PROMO.months + ' חודשים במתנה' : tier.cta,
-    href: 'agency-signup.html?tier=' + encodeURIComponent(tier.id),
+    href: '/agency-signup?tier=' + encodeURIComponent(tier.id),
     foot: promoOpen ? 'בלי כרטיס אשראי' : '',
   };
 }
@@ -737,7 +737,7 @@ if (fromCrm || inviteTok){
     'כל מה שכאן אפשר לשנות גם אחר כך - המסלול לא נועל אתכם.';
   const back = document.getElementById('closerCta');
   back.textContent = 'חזרה לאיזור הסוכנים';
-  back.href = inviteTok ? 'crm.html?invite=' + encodeURIComponent(inviteTok) : 'crm.html';
+  back.href = inviteTok ? '/crm?invite=' + encodeURIComponent(inviteTok) : '/crm';
   document.getElementById('crmLink').textContent = 'חזרה ל-CRM';
 }
 if (promoState.active) document.getElementById('faqPromo').open = true;

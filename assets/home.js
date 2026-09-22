@@ -1397,7 +1397,7 @@ function renderOpenHouseBanner(count){
   // שנכתב בלשון רבים על פריט בודד הוא הדבר הראשון שנקרא כתקלה.
   const many = count > 1;
   host.innerHTML =
-    `<a class="oh-banner" href="open-house.html">` +
+    `<a class="oh-banner" href="/open-house">` +
       OpenHouse.icon({ size:72 }) +
       `<span class="oh-banner-body">` +
         `<span class="oh-banner-eyebrow">${OpenHouse.FAIR_NAME}</span>` +
@@ -1576,7 +1576,7 @@ async function loadArticles(){
         title: a.title || 'כתבה',
         kicker: a.category || 'מגזין שוק נדל״ן',
         excerpt: a.subtitle || '',
-        url: 'article.html?slug=' + encodeURIComponent(a.slug || a.id),
+        url: '/article?slug=' + encodeURIComponent(a.slug || a.id),
         image: a.cover_url || '',
         published_at: a.published_at,
         internal: true,
@@ -1703,7 +1703,7 @@ const DM_TABS = {
     title:'איזה משרד תיווך מתאים לכם?',
     sub:'כל המשרדים בעפולה והסביבה - לפי התמחות, דירוג ומלאי נכסים',
     placeholder:'שם משרד או שכונה…',
-    href:'agencies.html',
+    href:'/agencies',
     seeAll:'לכל משרדי התיווך ←',
     empty:'לא נמצא משרד שמתאים לחיפוש. נסו שם אחר או נקו את התיבה.',
     quick:{ label:'התמחות', all:'כל ההתמחויות',
@@ -1713,7 +1713,7 @@ const DM_TABS = {
     title:'מחפשים מתווך/ת?',
     sub:'המתווכים של המשרדים באזור - לפי משרד, מלאי נכסים ודירוג לקוחות',
     placeholder:'שם מתווך/ת או משרד…',
-    href:'agents.html',
+    href:'/agents',
     seeAll:'לכל המתווכים ←',
     empty:'לא נמצא מתווך/ת שמתאים לחיפוש. נסו שם אחר או נקו את התיבה.',
     quick:{ label:'התמחות', all:'כל ההתמחויות',
@@ -1723,7 +1723,7 @@ const DM_TABS = {
     title:'צריכים בעל מקצוע?',
     sub:'בעלי המקצוע של עולם הנדל״ן באזור - לפי תחום ואזור פעילות',
     placeholder:'תחום, שם או עסק…',
-    href:'professionals.html',
+    href:'/professionals',
     seeAll:'לכל בעלי המקצוע ←',
     empty:'לא נמצא בעל/ת מקצוע שמתאים לחיפוש. נסו מילה אחרת.',
     // בעלי המקצוע אינם מתומחרים בהתמחויות של מלאי נכסים, ולכן המקום שמתחת
@@ -1741,7 +1741,7 @@ function dmFromAgency(a, i){
   const specs = AGENCY_SPECS.filter(sp => sp.key !== 'all' && (a.specs || []).includes(sp.key)).map(sp => sp.label);
   return {
     name,
-    href: a.slug ? 'agency.html?slug=' + encodeURIComponent(a.slug) : null,
+    href: a.slug ? '/agency?slug=' + encodeURIComponent(a.slug) : null,
     photo: a.logo_url, contain: true,
     initial: name.trim()[0] || 'מ',
     sub: areas.length ? areas.join(' · ') : 'משרד תיווך',
@@ -1760,7 +1760,7 @@ function dmFromAgent(m, i){
   const name = m.display_name || 'מתווך/ת';
   return {
     name,
-    href: (m.slug || m.id) ? 'agent.html?slug=' + encodeURIComponent(m.slug || m.id) : null,
+    href: (m.slug || m.id) ? '/agent?slug=' + encodeURIComponent(m.slug || m.id) : null,
     photo: m.photo_url, contain: false, photoPos: m.photo_position,
     initial: name.trim()[0] || 'מ',
     sub: m.agency_name || 'מתווך/ת',
@@ -1779,7 +1779,7 @@ function dmFromPro(p){
   const field = TYPE_LABELS[p.advertiser_type] || 'בעל/ת מקצוע';
   return {
     name,
-    href: key ? 'professional.html?slug=' + encodeURIComponent(key) : null,
+    href: key ? '/professional?slug=' + encodeURIComponent(key) : null,
     photo: p.creative_url, contain: false,
     initial: name.trim()[0] || 'ב',
     // שם העסק הוא שדה נפרד מהשם הפרטי, והוא התווסף אחרי שכבר נרשמו בעלי
@@ -2495,7 +2495,7 @@ function mapPopupHtml(p, kind){
   // בלי תמונה מוצג לוגו המשרד באותה מסגרת (object-fit:contain כדי שהלוגו לא
   // ייחתך) — כך הבלון שומר על אותו מבנה גם למודעה שהתמונות שלה עוד לא הועלו.
   const logo = !img && p.agency_logo ? p.agency_logo : '';
-  return `<a class="map-pop" href="property.html?id=${encodeURIComponent(p.id)}">` +
+  return `<a class="map-pop" href="/property?id=${encodeURIComponent(p.id)}">` +
     (img ? `<img class="map-pop-thumb" src="${escAttr(img)}" alt="" loading="lazy" onerror="this.remove()">` : '') +
     (logo ? `<img class="map-pop-thumb is-logo" src="${escAttr(logo)}" alt="" loading="lazy" onerror="this.remove()">` : '') +
     `<span class="map-pop-body">` +
@@ -3781,7 +3781,7 @@ if (dealTypeSelect){
     if (dealTypeSelect.value === 'projects'){
       const q = (document.getElementById('searchFreeText').value || '').trim();
       dealTypeSelect.value = searchState.activeTab;
-      location.href = 'projects.html' + (q ? '?q=' + encodeURIComponent(q) : '');
+      location.href = '/projects' + (q ? '?q=' + encodeURIComponent(q) : '');
       return;
     }
     searchState.activeTab = dealTypeSelect.value;
@@ -4141,7 +4141,7 @@ function buildSearchRow(p, i){
       <span class="sr-deal" data-deal="${dealKind(p)}">${dealBadge(p)}</span>
       <span class="sr-price">${priceLabel(p)}</span>
     </div>`;
-  const open = ()=> window.location.href = 'property.html?id=' + p.id;
+  const open = ()=> window.location.href = '/property?id=' + p.id;
   row.addEventListener('click', open);
   row.addEventListener('keydown', (e)=>{ if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(); } });
   return row;

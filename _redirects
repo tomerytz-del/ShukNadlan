@@ -5,5 +5,9 @@
 # הייתה /crmreview-request.html, עמוד 404. ההודעות שכבר יצאו בוואטסאפ אי אפשר
 # לתקן, ולכן הכתובת השבורה מופנית לעמוד הנכון. ‏Netlify מעביר את ה-query
 # (‏?lead=...) לכתובת היעד מעצמו, כך שהביקורת נשארת מקושרת לאותו ליד.
-/crmreview-request.html    /review-request.html    301
-/crm/review-request.html   /review-request.html    301
+#
+# היעד נכתב בצורה בלי הסיומת, כמו כל קישור אחר באתר: יעד עם סיומת היה
+# מפנה שוב (‏Netlify מפנה ‎.html‎ לחסרת הסיומת), כלומר שרשרת של שתי הפניות
+# במקום אחת.
+/crmreview-request.html    /review-request    301
+/crm/review-request.html   /review-request    301

@@ -216,7 +216,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
      המסך הראשון בכל טעינה. טופס הכניסה מוצג רק כשידוע שאין חיבור פעיל. -->
 <div id="bootScreen">
   <div class="login-card" style="text-align:center">
-    <a href="index.html" class="logo-link" aria-label="לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן" width="52" height="62"></a>
+    <a href="/" class="logo-link" aria-label="לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן" width="52" height="62"></a>
     <div class="boot-spinner" role="status" aria-live="polite"></div>
     <p class="sub" id="bootMessage">בודקים אם כבר יש חיבור פעיל…</p>
   </div>
@@ -224,7 +224,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <div id="loginScreen" hidden>
   <div class="login-card">
-    <a href="index.html" class="logo-link" aria-label="לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן" width="52" height="62"></a>
+    <a href="/" class="logo-link" aria-label="לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן" width="52" height="62"></a>
     <h1>אזור הניהול ליזמים</h1>
     <p class="sub">כניסה עם החשבון של החברה היזמית או הקבלנית</p>
 
@@ -241,10 +241,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <p class="msg" id="lgMsg" role="status" aria-live="polite"></p>
     </form>
     <p style="text-align:center;font-size:.8rem;margin:14px 0 0">
-      עוד אין חשבון? <a href="developer-signup.html" style="color:var(--teal);font-weight:700">פתיחת חשבון יזם</a>
+      עוד אין חשבון? <a href="/developer-signup" style="color:var(--teal);font-weight:700">פתיחת חשבון יזם</a>
     </p>
     <p style="text-align:center;font-size:.78rem;margin:8px 0 0;color:var(--ink-muted)">
-      מתווכים וסוכנים - <a href="crm.html" style="color:var(--teal);font-weight:700">הכניסה שלכם כאן</a>
+      מתווכים וסוכנים - <a href="/crm" style="color:var(--teal);font-weight:700">הכניסה שלכם כאן</a>
     </p>
   </div>
 </div>
@@ -255,7 +255,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
      האימייל והסיסמה — הם כבר הגיעו מ-Google. -->
 <div id="createScreen" hidden style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px">
   <div class="login-card" style="max-width:520px">
-    <a href="index.html" class="logo-link" aria-label="לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן" width="52" height="62"></a>
+    <a href="/" class="logo-link" aria-label="לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן" width="52" height="62"></a>
     <h1>פתיחת חברה יזמית</h1>
     <p class="sub">החשבון <b id="crEmail"></b> עדיין לא מקושר לחברה. נשלים את הפרטים ונפתח אותה.</p>
 
@@ -286,8 +286,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div style="display:flex;align-items:flex-start;gap:9px;background:var(--paper);border:1px solid var(--line);padding:11px 12px;margin:6px 0">
         <input type="checkbox" id="crTerms" style="margin:2px 0 0;width:17px;height:17px;flex:none;accent-color:var(--teal)">
         <label for="crTerms" style="font-size:.78rem;line-height:1.45;cursor:pointer">
-          קראתי ואני מסכים/ה ל<a href="terms.html" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">תנאי השימוש</a>
-          ול<a href="privacy.html" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">מדיניות הפרטיות</a>.
+          קראתי ואני מסכים/ה ל<a href="/terms" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">תנאי השימוש</a>
+          ול<a href="/privacy" target="_blank" rel="noopener" style="color:var(--teal);font-weight:700">מדיניות הפרטיות</a>.
           ידוע לי שהמידע, המחירים והתמונות בדפי הפרויקטים הם באחריות החברה.
         </label>
       </div>
@@ -1057,7 +1057,7 @@ function renderProjects(){
         actions.push('<button type="button" class="btn btn-promote btn-sm" data-act="promote">קידום לשבוע · ' +
           esc(money(pricing.project_promote_weekly_price || 50)) + '</button>');
       }
-      actions.push('<a class="btn btn-ghost btn-sm" href="project.html?slug=' + esc(p.slug || '') +
+      actions.push('<a class="btn btn-ghost btn-sm" href="/project?slug=' + esc(p.slug || '') +
         '" target="_blank" rel="noopener">צפייה בדף</a>');
       actions.push('<button type="button" class="btn btn-ghost btn-sm" data-act="pause">השהיה</button>');
       actions.push('<button type="button" class="btn btn-ghost btn-sm" data-act="renew">חידוש חודש · ' +
@@ -1715,7 +1715,7 @@ el('topupClose').addEventListener('click', ()=> el('topupSheet').close());
 function renderHeader(){
   el('devNameLabel').textContent = developer.name || '';
   el('walletBalance').textContent = money(developer.credit_balance);
-  el('devPublicLink').href = 'developer.html?slug=' + encodeURIComponent(developer.slug || '');
+  el('devPublicLink').href = '/developer?slug=' + encodeURIComponent(developer.slug || '');
   const logo = ProjectCard.safeUrl(developer.logo_url);
   const mark = el('devMark');
   if (logo){ mark.style.backgroundImage = "url('" + logo + "')"; mark.textContent = ''; }

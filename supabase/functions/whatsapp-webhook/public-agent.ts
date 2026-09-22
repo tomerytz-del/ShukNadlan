@@ -300,7 +300,7 @@ const PROPERTY_FIELDS = [
 ].join(", ");
 
 function propertyUrl(id: string): string {
-  return `${SITE_BASE}/property.html?id=${id}`;
+  return `${SITE_BASE}/property?id=${id}`;
 }
 
 
@@ -867,7 +867,7 @@ async function searchProperties(
     close_note: close.length
       ? "אלה **אינם** מה שהתבקש אלא הקרובים לו במלאי. חובה לומר במה הם שונים לפני שמציגים אותם."
       : undefined,
-    all_listings_url: `${SITE_BASE}/index.html`,
+    all_listings_url: `${SITE_BASE}/`,
   };
 }
 
@@ -929,13 +929,13 @@ async function getProperty(
     agency: agency?.name
       ? {
         name: agency.name,
-        url: agency.slug ? `${SITE_BASE}/agency.html?slug=${agency.slug}` : null,
+        url: agency.slug ? `${SITE_BASE}/agency?slug=${agency.slug}` : null,
       }
       : null,
     agent: agent?.display_name
       ? {
         name: agent.display_name,
-        url: agent.slug ? `${SITE_BASE}/agent.html?slug=${agent.slug}` : null,
+        url: agent.slug ? `${SITE_BASE}/agent?slug=${agent.slug}` : null,
       }
       : null,
     // ‏**הערה אחת, לא שתי אמיתות.** כאן חוזרים שם המשרד והסוכן/ת בלבד;
@@ -1042,7 +1042,7 @@ async function contactAgent(
       // שנשלט הוא הסדר שבו מציעים.
       phone: member.phone || null,
       phone_note: "למסור רק אם נשאלים עליו ישירות. הקישור הוא הדרך המוצעת.",
-      profile_url: member.slug ? `${SITE_BASE}/agent.html?slug=${member.slug}` : null,
+      profile_url: member.slug ? `${SITE_BASE}/agent?slug=${member.slug}` : null,
     },
     // ה-CTA. ‏`src=wa_bot` הוא מה שהופך את זה למדיד: בלעדיו הקליק על
     // "וואטסאפ לסוכן" בדף נספר כמו כל קליק אחר, ואי אפשר לדעת שהוא הגיע
@@ -1101,7 +1101,7 @@ async function findAgencies(
       specialties_source: declared.length ? "declared" : "derived",
       areas: a.specialty_areas || [],
       active_properties: owned.length,
-      url: a.slug ? `${SITE_BASE}/agency.html?slug=${a.slug}` : null,
+      url: a.slug ? `${SITE_BASE}/agency?slug=${a.slug}` : null,
     };
   });
 
@@ -1120,7 +1120,7 @@ async function findAgencies(
   return {
     count: filtered.length,
     agencies: filtered.slice(0, limit).map(({ specialty_ids: _ids, ...rest }) => rest),
-    all_agencies_url: `${SITE_BASE}/agencies.html`,
+    all_agencies_url: `${SITE_BASE}/agencies`,
     // בלי זה תשובה ל"מי מתמחה ב…" שלא מצאה כלום נראית כאילו אין משרדים בכלל
     note: filtered.length
       ? null
@@ -1181,10 +1181,10 @@ async function findProfessionals(
         services: p.services || [],
         areas: p.service_areas || [],
         years_experience: p.years_experience,
-        url: p.slug ? `${SITE_BASE}/professional.html?slug=${p.slug}` : null,
+        url: p.slug ? `${SITE_BASE}/professional?slug=${p.slug}` : null,
       };
     }),
-    all_professionals_url: `${SITE_BASE}/professionals.html`,
+    all_professionals_url: `${SITE_BASE}/professionals`,
   };
 }
 
@@ -1267,10 +1267,10 @@ async function searchProjects(
         property_types: r.property_types || [],
         available_units: r.available_units,
         has_cover: !!r.cover_url,
-        url: `${SITE_BASE}/project.html?slug=${r.slug}`,
+        url: `${SITE_BASE}/project?slug=${r.slug}`,
       };
     }),
-    all_projects_url: `${SITE_BASE}/projects.html`,
+    all_projects_url: `${SITE_BASE}/projects`,
   };
 }
 
@@ -1335,7 +1335,7 @@ function mortgageEstimate(args: Record<string, unknown>): unknown {
         : ""),
     // ההוראות מחייבות למסור את זה, ולכן הוא חוזר בכל תשובה ולא רק כשחורגים
     disclaimer: DISCLAIMER,
-    calculator_url: `${SITE_BASE}/index.html#calc`,
+    calculator_url: `${SITE_BASE}/#calc`,
   };
 }
 
@@ -1941,11 +1941,11 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "גבולות התפקיד:",
     "- מי שרוצה לפרסם נכס, לפתוח משרד או להצטרף כסוכן/ת - להפנות ל-" +
-      `${SITE_BASE}/pricing.html . אין לך דרך לרשום אותו/ה.`,
+      `${SITE_BASE}/pricing . אין לך דרך לרשום אותו/ה.`,
     "- מי שמבקש/ת לדבר עם אדם - להפנות לדף הנכס או המשרד הרלוונטי, ולומר " +
       "בפשטות שאת/ה עוזר/ת אוטומטי/ת ולא הסוכן/ת עצמו/ה.",
     "- מי שמעדיף/ה להירשם לעדכונים בעצמו/ה - \"הסוכן החכם\" באתר: " +
-      `${SITE_BASE}/index.html . אותו מנגנון בדיוק.`,
+      `${SITE_BASE}/ . אותו מנגנון בדיוק.`,
   ];
   return lines.join("\n");
 })();
@@ -2091,7 +2091,7 @@ export async function runPublicTurn(opts: {
 
   if (!finalText) {
     finalText = "לא הצלחתי למצוא תשובה לזה כרגע. אפשר לנסח אחרת, או לחפש ישירות באתר: " +
-      `${SITE_BASE}/index.html`;
+      `${SITE_BASE}/`;
   }
 
   // כמו אצל הסוכנים: ההיסטוריה נשמרת כטקסט בלבד, בלי בלוקי הכלים. מספיק

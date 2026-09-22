@@ -21,6 +21,7 @@ on:
       - "sitemap.xml"
       - "netlify/edge-functions/*.ts"
       - "scripts/check_canonical.py"
+      - "scripts/og_tags_test.ts"
       - ".github/workflows/canonical.yml"
   push:
     branches: [main]
@@ -30,6 +31,7 @@ on:
       - "sitemap.xml"
       - "netlify/edge-functions/*.ts"
       - "scripts/check_canonical.py"
+      - "scripts/og_tags_test.ts"
       - ".github/workflows/canonical.yml"
   workflow_dispatch:
 
@@ -45,3 +47,15 @@ jobs:
       # ‏הבדיקה עצמה, והפלט שלה, הם המקום שבו כתוב מה להוסיף ואיפה.
       - name: בדיקת כיסוי
         run: python3 scripts/check_canonical.py
+
+      # ‏הבדיקה שלמעלה קוראת קבצים; זו מריצה את og-tags.ts עצמה מול מסד
+      # מדומה. היא שומרת על ההפרדה שאי אפשר לראות שנשברה: "אין רשומה"
+      # (‏406/404) מקבל noindex, ואילו כשל זמני (‏timeout, 5xx, 401) משאיר
+      # את הדף כמו שהוא. איחוד השניים היה מוציא את כל דפי הפירוט
+      # מהאינדקס בכל דקה של Supabase איטי, בלי שום סימן.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: התנהגות og-tags מול מסד מדומה
+        run: node --experimental-strip-types scripts/og_tags_test.ts

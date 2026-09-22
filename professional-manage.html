@@ -138,21 +138,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <div class="card">
   <div id="stateLoading" data-on>
-    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
+    <a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
     <h1>טוען את הפרופיל…</h1>
   </div>
 
   <div id="stateError">
-    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
+    <a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
     </a>
     <h1>הקישור לא תקין</h1>
     <p class="sub" id="errorText">קישור העריכה שגוי או פג תוקפו.</p>
     <p class="note">קישור העריכה הוא הקישור שהתקבל בסיום ההרשמה. אם איבדתם אותו, כתבו לנו ונשלח אותו מחדש לכתובת המייל שאיתה נרשמתם.</p>
-    <a href="index.html" class="back-link">חזרה לדף הבית</a>
+    <a href="/" class="back-link">חזרה לדף הבית</a>
   </div>
 
   <div id="stateForm">
-    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
+    <a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
     <h1>עמוד בעל המקצוע שלך</h1>
     <p class="sub">השינויים מופיעים באתר מיד לאחר השמירה</p>
     <span class="status-badge" id="statusBadge"></span>
@@ -272,7 +272,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <button type="button" class="btn" id="saveBtn" style="margin-top:20px">שמירת השינויים</button>
     <div id="feedback"></div>
     <p class="note">שמרו את הקישור לעמוד הזה - הוא המפתח היחיד לעריכה, ומי שמחזיק בו יכול לערוך את הפרופיל.</p>
-    <a href="index.html" class="back-link">חזרה לדף הבית</a>
+    <a href="/" class="back-link">חזרה לדף הבית</a>
   </div>
 </div>
 
@@ -480,7 +480,7 @@ function fillForm(card){
   // ‏slug נוצר בשמירה הראשונה; עד אז הקישור לעמוד עובד לפי המזהה
   const key = card.slug || card.id;
   const link = el('viewPageLink');
-  link.href = 'professional.html?slug=' + encodeURIComponent(key);
+  link.href = '/professional?slug=' + encodeURIComponent(key);
   link.hidden = !live;
 
   renderMedia();
