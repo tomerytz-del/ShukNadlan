@@ -10521,6 +10521,7 @@ function buildPropertyCard(p, agentId){
           <div class="prop-price">${priceHtml}</div>
         </div>
       </div>
+      <div class="pc-note-slot"></div>
       ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
     </div>
     <div class="pc-facts">
@@ -10542,8 +10543,18 @@ function buildPropertyCard(p, agentId){
 
   /* הסטטוס בשורת הכותרת: "האם המודעה באוויר" היא השאלה הראשונה שנשאלת
      על כל נכס, ולכן היא בשורה הראשונה - רק בלי לעלות בשורה משלה.
-     ראו buildPropertyStatusPanel. */
-  el.querySelector('.pc-status-slot').replaceWith(buildPropertyStatusPanel(p, agentId));
+     ראו buildPropertyStatusPanel.
+
+     ‏**והערת ההקשר יורדת מהשורה הזו אל שורה משלה מתחת לכותרת** -
+     ‏noteSlot. הערה כמו "יש לכם הסכם בלעדיות חתום על הנכס (עד 30.9.2026)."
+     היא משפט שלם, ו-`.pc-ident` הוא `flex:0 0 auto` בלי `min-width:0`:
+     הרוחב שלו הוא ה-max-content של מה שבתוכו, כלומר רוחב המשפט על שורה
+     אחת, והוא אינו מתכווץ. בטלפון זה דחף את עמודת הזהות מחוץ לכרטיס -
+     הכותרת נשברה למילה בשורה, השבב כיסה אותה, ומספר המודעה יצא מהקצה.
+     ‏בעמודת הזהות מותר להיות רק לשבבי `nowrap` קצרים. */
+  el.querySelector('.pc-status-slot').replaceWith(buildPropertyStatusPanel(p, agentId, {
+    noteSlot: el.querySelector('.pc-note-slot'),
+  }));
 
   /* סדר הפעולות, ולמה שני מקטעים ולא רשימה אחת: ראו את ההערה שמעל
      ‎.pc-grid‎ ב-CSS. כאן רק החלוקה עצמה -
@@ -11454,8 +11465,13 @@ function propertyStatusChoices(p){
 let pspSeq = 0;
 
 /* בונה את הבלוק ומחזיר אותו מיד; הקשר הבלעדיות נטען אחריו ומעדכן את
-   ההערה ואת הכפתורים. בלי זה כל פתיחת כרטיס הייתה ממתינה לקריאת רשת. */
-function buildPropertyStatusPanel(p, agentId){
+   ההערה ואת הכפתורים. בלי זה כל פתיחת כרטיס הייתה ממתינה לקריאת רשת.
+
+   ‏`opts.noteSlot` - אלמנט שהערת ההקשר תחליף אותו, במקום לשבת מתחת לשבב.
+   כרטיס הנכס מעביר אותה כך לשורה משלה מתחת לכותרת: שם רוחבה הוא רוחב
+   עמודת המידע, ולא רוחב המשפט שלה על שורה אחת. ראו buildPropertyCard.
+   בטופס העריכה אין מה להעביר - הבלוק שם יושב ברוחב מלא ממילא. */
+function buildPropertyStatusPanel(p, agentId, opts){
   const el = document.createElement('div');
   el.className = 'prop-status-panel' + (p.status === 'active' ? ' psp-live' : '');
   /* שורה אחת סגורה, ותפריט שנפתח מתחתיה.
@@ -11484,6 +11500,9 @@ function buildPropertyStatusPanel(p, agentId){
     </div>`;
 
   const note = el.querySelector('.psp-note');
+  // ‏replaceWith ולא appendChild: ההערה נשארת אלמנט אחד שרק עובר מקום,
+  // וכל מי שמחזיק בו (התשובה מהמסד שלמטה) ממשיך לכתוב לאותו אלמנט.
+  if (opts?.noteSlot) opts.noteSlot.replaceWith(note);
   const toggle = el.querySelector('.psp-toggle');
   const menu = el.querySelector('.psp-menu');
   const actions = el.querySelector('.psp-actions');
