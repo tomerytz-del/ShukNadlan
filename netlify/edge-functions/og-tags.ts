@@ -71,6 +71,20 @@
    בשרת הייתה מוחקת כל דפי הנכסים מהאינדקס. היום כשל כזה פשוט משאיר דף
    בלי ‎canonical‎, וזה מה שהיה לפני הפונקציה הזו.
 
+   ## ודף פירוט שאין מאחוריו רשומה — ‎noindex‎
+
+   ‏"דף בלי canonical" הוא מצב תקין כשהוא נדיר, אבל יש מצב שבו הוא **חוזר
+   על עצמו בשבע כתובות זהות**: ‎/property‎ בלי ‎?id=‎, נכס שנמכר ואינו
+   ‎active‎, ‎?slug=‎ שנמחק. בכל אלה הדף מציג "לא נמצא", וה-HTML זהה
+   לחלוטין בין כתובת לכתובת. ‏Search Console קורא לאשכול הזה **"עותק
+   משוכפל בלי שנבחר דף קנוני על ידי המשתמש"** — וזה בדיוק מה שהוא.
+
+   התשובה כאן אינה ‎canonical‎ אלא ‎noindex,follow‎, ומההבחנה הזו נגזר גם
+   ‎Fetched‎ למטה: המסלול נבחר **רק** כשהמסד ענה במפורש שאין רשומה
+   (‏406/404), ולעולם לא כשלא הצלחנו לשאול. ‏canonical במקומו היה מאחד
+   נכסים אמיתיים אל ‎/property‎ ברגע הראשון של Supabase איטי — הכשל שכל
+   הסעיף שמעל נבנה כדי למנוע.
+
    ## מטמון
 
    התשובה נשמרת ב-CDN של Netlify לדקה (‏stale-while-revalidate לחמש), כדי
@@ -131,7 +145,17 @@ function absolute(u: unknown): string {
   return SITE + (s.startsWith("/") ? s : "/" + s);
 }
 
-async function sbFetch(path: string): Promise<Record<string, unknown> | null> {
+/* ‏שלוש תשובות ולא שתיים, וההפרדה בין השתיים האחרונות היא כל העניין:
+   ‏"אין רשומה כזו" ו-"לא הצלחנו לשאול" נראים אותו דבר מכאן — שניהם חוסר
+   מידע — אבל ההשלכה שלהם הפוכה. על הראשון מותר להסיק שאין דף לאנדקס
+   (‏noindex למטה); על השני אסור להסיק דבר, כי הסקה ממנו הייתה מוחקת
+   נכסים חיים מגוגל בגלל שנייה אחת של Supabase איטי. */
+type Fetched =
+  | { kind: "row"; row: Record<string, unknown> }
+  | { kind: "missing" }
+  | { kind: "error" };
+
+async function sbFetch(path: string): Promise<Fetched> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), FETCH_TIMEOUT_MS);
   try {
@@ -143,10 +167,18 @@ async function sbFetch(path: string): Promise<Record<string, unknown> | null> {
       },
       signal: ctrl.signal,
     });
-    if (!res.ok) return null;
-    return await res.json();
+    /* ‏PostgREST עם ‎Accept: vnd.pgrst.object+json‎ מחזיר 406 (‏PGRST116)
+       כשלא חזרה בדיוק שורה אחת, ו-404 לנתיב שאינו קיים. **רק שני אלה**
+       הם "אין רשומה". ‏401/403 (מפתח שהוחלף, מדיניות RLS שהשתנתה), 5xx,
+       ‏timeout ו-JSON פגום הם "לא יודעים" — ומי שיסווג אותם כאן כחוסר
+       רשומה יקבל noindex על כל האתר בבת אחת, בשקט. */
+    if (res.status === 404 || res.status === 406) return { kind: "missing" };
+    if (!res.ok) return { kind: "error" };
+    const row = await res.json();
+    // ‏גרסה עתידית שתחזיר 200 עם null במקום 406 עדיין תיקרא נכון
+    return row && typeof row === "object" ? { kind: "row", row } : { kind: "missing" };
   } catch {
-    return null; // ‏timeout, רשת, JSON פגום — בכל מקרה הדף יוצא בלי התגיות
+    return { kind: "error" }; // ‏timeout, רשת, JSON פגום — הדף יוצא כמו שהוא
   } finally {
     clearTimeout(timer);
   }
@@ -162,6 +194,10 @@ type Meta = {
   /* רק לכתבה — ‎article:published_time‎ */
   publishedAt?: string;
 };
+
+/* ‏מה שפונקציית ה-meta מחזירה: תגיות, "אין רשומה" (‏noindex), או null —
+   לא הצלחנו לברר, ואז הדף יוצא כמו שהוא בדיוק כמו קודם. */
+type MetaResult = Meta | "missing" | null;
 
 const nis = (n: unknown) => {
   const v = Number(n);
@@ -180,14 +216,15 @@ const num = (n: unknown): string => {
   return String(Number(v.toFixed(1)));
 };
 
-async function propertyMeta(id: string, canonical: string): Promise<Meta | null> {
+async function propertyMeta(id: string, canonical: string): Promise<MetaResult> {
   const cols =
     "title,house_number,address,street,city,sales_area,images,price,deal_type," +
     "rooms,size_sqm,status,neighborhoods(name)";
-  const p = await sbFetch(
+  const got = await sbFetch(
     `properties?id=eq.${encodeURIComponent(id)}&status=eq.active&select=${encodeURIComponent(cols)}`,
   );
-  if (!p) return null;
+  if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
+  const p = got.row;
 
   const title = maskHouseNumber(p.title, p.house_number) || String(p.title || "נכס");
   const hood = (p.neighborhoods as { name?: string } | null)?.name || p.sales_area || "";
@@ -211,11 +248,12 @@ async function propertyMeta(id: string, canonical: string): Promise<Meta | null>
   };
 }
 
-async function agencyMeta(slug: string, canonical: string): Promise<Meta | null> {
-  const a = await sbFetch(
+async function agencyMeta(slug: string, canonical: string): Promise<MetaResult> {
+  const got = await sbFetch(
     `agencies?slug=eq.${encodeURIComponent(slug)}&select=name,description,logo_url,cover_url`,
   );
-  if (!a) return null;
+  if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
+  const a = got.row;
   return {
     title: clamp(`${a.name || "משרד תיווך"} | ${SITE_NAME}`, 90),
     description: clamp(
@@ -227,11 +265,12 @@ async function agencyMeta(slug: string, canonical: string): Promise<Meta | null>
   };
 }
 
-async function agentMeta(slug: string, canonical: string): Promise<Meta | null> {
-  const m = await sbFetch(
+async function agentMeta(slug: string, canonical: string): Promise<MetaResult> {
+  const got = await sbFetch(
     `agency_members_public?slug=eq.${encodeURIComponent(slug)}&select=display_name,bio,photo_url,cover_url`,
   );
-  if (!m) return null;
+  if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
+  const m = got.row;
   return {
     title: clamp(`${m.display_name || "סוכן/ת"} | ${SITE_NAME}`, 90),
     description: clamp(
@@ -267,11 +306,12 @@ function canonicalBySlug(page: string, row: Record<string, unknown>, key: string
   return `${SITE}/${page}?slug=${encodeURIComponent(slug)}`;
 }
 
-async function projectMeta(slug: string, canonical: string): Promise<Meta | null> {
-  const p = await sbFetch(
+async function projectMeta(slug: string, canonical: string): Promise<MetaResult> {
+  const got = await sbFetch(
     `projects_public?slug=eq.${encodeURIComponent(slug)}&select=name,city,tagline,description,cover_url,logo_url`,
   );
-  if (!p) return null;
+  if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
+  const p = got.row;
 
   const title = `${p.name || "פרויקט חדש"}${p.city ? " - " + p.city : ""}`;
   const desc =
@@ -286,11 +326,12 @@ async function projectMeta(slug: string, canonical: string): Promise<Meta | null
   };
 }
 
-async function developerMeta(slug: string, canonical: string): Promise<Meta | null> {
-  const d = await sbFetch(
+async function developerMeta(slug: string, canonical: string): Promise<MetaResult> {
+  const got = await sbFetch(
     `developers_public?slug=eq.${encodeURIComponent(slug)}&select=name,city,tagline,description,cover_url,logo_url`,
   );
-  if (!d) return null;
+  if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
+  const d = got.row;
 
   const title = `${d.name || "חברה יזמית"}${d.city ? " - " + d.city : ""}`;
   const desc =
@@ -305,12 +346,13 @@ async function developerMeta(slug: string, canonical: string): Promise<Meta | nu
   };
 }
 
-async function professionalMeta(key: string): Promise<Meta | null> {
+async function professionalMeta(key: string): Promise<MetaResult> {
   const cols = "slug,advertiser_name,business_name,advertiser_type,target_region,headline,description,cover_url,creative_url";
-  const p = await sbFetch(
+  const got = await sbFetch(
     `professional_cards_public?${UUID.test(key) ? "id" : "slug"}=eq.${encodeURIComponent(key)}&select=${cols}`,
   );
-  if (!p) return null;
+  if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
+  const p = got.row;
 
   const name = p.advertiser_name || "בעל מקצוע";
   const role = TYPE_LABELS[String(p.advertiser_type || "")] || "בעל/ת מקצוע";
@@ -328,12 +370,13 @@ async function professionalMeta(key: string): Promise<Meta | null> {
   };
 }
 
-async function articleMeta(key: string): Promise<Meta | null> {
+async function articleMeta(key: string): Promise<MetaResult> {
   const cols = "slug,title,subtitle,body,cover_url,published_at";
-  const a = await sbFetch(
+  const got = await sbFetch(
     `articles_public?${UUID.test(key) ? "id" : "slug"}=eq.${encodeURIComponent(key)}&select=${cols}`,
   );
-  if (!a) return null;
+  if (got.kind !== "row") return got.kind === "missing" ? "missing" : null;
+  const a = got.row;
 
   /* ‏גוף הכתבה נכתב בעורך ועלול להכיל תגיות. הן יורדות לפני ה-clamp, אחרת
      תגית חתוכה באמצע נכנסת ל-content="…" של ה-meta. */
@@ -412,6 +455,26 @@ function inject(html: string, m: Meta): string {
   return out.replace(/<\/head>/i, `${add.join("\n")}\n</head>`);
 }
 
+/* ‏דף פירוט שאין מאחוריו רשומה: ‎/property‎ בלי ‎?id=‎, נכס שכבר אינו
+   ‎active‎, כתבה שנמחקה, ‎?slug=‎ שאינו קיים. שבעת הדפים האלה מגישים אז
+   את **אותו שלד "לא נמצא" בדיוק** — ובלי ‎canonical‎, כי תגית סטטית
+   אסורה כאן (ראו למעלה) ואין מה להזריק. גוגל רואה אשכול כתובות זהות
+   שאף אחת מהן לא הצהירה על מקור, וקוראת לזה **"עותק משוכפל בלי שנבחר
+   דף קנוני על ידי המשתמש"**.
+
+   ‏noindex אומר את מה שנכון באמת: אין כאן דף לאנדקס. זו גם התשובה
+   הזהירה מבין השתיים — ‎canonical‎ על ‎/property‎ היה מאחד אליו כתובות
+   של נכסים אמיתיים ברגע שהבירור נכשל, וזה בדיוק הכשל שהקובץ הזה נמנע
+   ממנו. לכן המסלול הזה נבחר **רק** כשהמסד ענה במפורש "אין רשומה"
+   (‏‎Fetched.missing‎), ולעולם לא על כשל רשת.
+
+   ‏follow נשאר: הפוטר בדף מקשר לכל האתר, ואין סיבה לעצור שם סריקה. */
+function noindex(html: string): string {
+  // דף שכבר נושא הנחיה משלו (‏sign, agreement) אינו נדרס
+  if (/<meta\b[^>]*\bname="robots"/i.test(html)) return html;
+  return html.replace(/<\/head>/i, `<meta name="robots" content="noindex,follow">\n</head>`);
+}
+
 export default async function handler(request: Request, context: Context) {
   const res = await context.next();
 
@@ -427,26 +490,30 @@ export default async function handler(request: Request, context: Context) {
     // ‏professional ו-article מקבלים גם ?id= — ראו "canonical" בראש הקובץ
     const key = slug || id;
 
-    // הכתובת הקנונית היא הצורה בלי הסיומת — זו שהאתר מוגש בה בפרודקשן
-    let meta: Meta | null = null;
-    if (page.endsWith("/property") && id) {
-      meta = await propertyMeta(id, `${SITE}/property?id=${encodeURIComponent(id)}`);
-    } else if (page.endsWith("/agency") && slug) {
-      meta = await agencyMeta(slug, `${SITE}/agency?slug=${encodeURIComponent(slug)}`);
-    } else if (page.endsWith("/agent") && slug) {
-      meta = await agentMeta(slug, `${SITE}/agent?slug=${encodeURIComponent(slug)}`);
-    } else if (page.endsWith("/project") && slug) {
-      meta = await projectMeta(slug, `${SITE}/project?slug=${encodeURIComponent(slug)}`);
-    } else if (page.endsWith("/developer") && slug) {
-      meta = await developerMeta(slug, `${SITE}/developer?slug=${encodeURIComponent(slug)}`);
-    } else if (page.endsWith("/professional") && key) {
-      meta = await professionalMeta(key);
-    } else if (page.endsWith("/article") && key) {
-      meta = await articleMeta(key);
+    /* הכתובת הקנונית היא הצורה בלי הסיומת — זו שהאתר מוגש בה בפרודקשן.
+       ‏דף פירוט שהגיע **בלי המפתח שלו** (‏‎/property‎ בלי ‎?id=‎) אינו צריך
+       קריאה למסד כדי שנדע שאין מאחוריו רשומה: זה "missing" ודאי. */
+    let meta: MetaResult = null;
+    if (page.endsWith("/property")) {
+      meta = id ? await propertyMeta(id, `${SITE}/property?id=${encodeURIComponent(id)}`) : "missing";
+    } else if (page.endsWith("/agency")) {
+      meta = slug ? await agencyMeta(slug, `${SITE}/agency?slug=${encodeURIComponent(slug)}`) : "missing";
+    } else if (page.endsWith("/agent")) {
+      meta = slug ? await agentMeta(slug, `${SITE}/agent?slug=${encodeURIComponent(slug)}`) : "missing";
+    } else if (page.endsWith("/project")) {
+      meta = slug ? await projectMeta(slug, `${SITE}/project?slug=${encodeURIComponent(slug)}`) : "missing";
+    } else if (page.endsWith("/developer")) {
+      meta = slug ? await developerMeta(slug, `${SITE}/developer?slug=${encodeURIComponent(slug)}`) : "missing";
+    } else if (page.endsWith("/professional")) {
+      meta = key ? await professionalMeta(key) : "missing";
+    } else if (page.endsWith("/article")) {
+      meta = key ? await articleMeta(key) : "missing";
     }
+    // ‏null = לא ידענו (‏Supabase איטי, 5xx, הרשאה). הדף יוצא כמו שהוא.
     if (!meta) return res;
 
-    const out = inject(await res.text(), meta);
+    const html = await res.text();
+    const out = meta === "missing" ? noindex(html) : inject(html, meta);
 
     const headers = new Headers(res.headers);
     headers.set("Netlify-CDN-Cache-Control", "public, max-age=60, stale-while-revalidate=300");
