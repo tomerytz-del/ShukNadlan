@@ -1640,30 +1640,93 @@ async function pollVisualizationJob(jobId, pendingTargets){
 }
 
 /* ---------- נכסים דומים ----------
-   אותה מדיניות כמו קרוסלות ה-featured-scroll בדף הבית: מוצגים נכסים
-   פעילים מלבד הנכס הנוכחי, קודם מאותה עיר; ואם יש בה פחות משלושה, מורחב
-   לפי סוג הנכס כדי שהקרוסלה לא תיראה ריקה/דלה בערים קטנות. אין תוצאות
-   בכלל — הסקציה כולה מוסתרת, בדיוק כמו "משרדי תיווך מובילים" ריק בדף
-   הבית. */
+   שני תנאים קשיחים, וכל השאר ניקוד:
+
+   * **אותה עסקה** — מכירה לא מציעה השכרה, ולהפך. דירה ב-4,400 ₪ לחודש
+     בדף של בית ב-4 מיליון היא בדיוק ה"לא קשור" שהסקציה הזו נועדה למנוע.
+   * **אותה משפחת סוג** — בית מול בית, דירה מול דירה, מסחרי מול מסחרי.
+     סוג שאיננו מכירים אינו נפסל, רק אינו מקבל ניקוד על סוג.
+
+   בתוך זה המועמדים מדורגים: סוג זהה, שכונה, טווח מחיר, חדרים ושטח.
+   מחיר ושכונה הם ניקוד ולא סינון בכוונה — כשההיצע דל הם פשוט לא
+   מתקיימים, והנכסים הבאים בתור עדיין מוצגים. נכסים מעיר אחרת (מאותו סוג
+   בדיוק) נכנסים רק כשבעיר אין מספיק, ותמיד אחרי כל מי שבעיר.
+
+   אין תוצאות בכלל — הסקציה כולה מוסתרת, בדיוק כמו "משרדי תיווך מובילים"
+   ריק בדף הבית. */
+const SIMILAR_MAX = 8;
+const SIMILAR_MIN_SAME_CITY = 4;   // מתחת לזה משלימים מערים אחרות
+const TYPE_FAMILIES = {
+  'בית פרטי/קוטג\'':'house', 'קוטג\'':'house', 'וילה':'house', 'דו משפחתי':'house',
+  'דירה':'apartment', 'דירות':'apartment', 'דירת גן':'apartment', 'גג/פנטהאוז':'apartment',
+  'פנטהאוז':'apartment', 'דופלקס':'apartment', 'טריפלקס':'apartment',
+  'יחידת דיור':'apartment', 'סטודיו':'apartment', 'דירת סטודיו':'apartment',
+  'חנויות/שטח מסחרי':'commercial', 'משרדים':'commercial', 'מבני תעשייה':'commercial',
+  'בנין':'commercial', 'בניין':'commercial', 'מחסן':'commercial', 'חנות':'commercial',
+  'משרד':'commercial', 'מבנה מסחרי':'commercial', 'אולם':'commercial',
+  'מגרש':'land', 'מגרשים':'land', 'קרקע':'land', 'קרקעות':'land', 'נחלה':'land', 'משק':'land'
+};
+function typeFamily(t){ return TYPE_FAMILIES[String(t || '').trim()] || null; }
+
+// קרבה יחסית בין שני מספרים: 1 כשהם זהים, 0 כשהפער גדול מ-tolerance
+function closeness(a, b, tolerance){
+  a = Number(a); b = Number(b);
+  if (!(a > 0) || !(b > 0)) return 0;
+  const gap = Math.abs(a - b) / Math.max(a, b);
+  return gap >= tolerance ? 0 : 1 - gap / tolerance;
+}
+
+function similarityScore(p, c){
+  let s = 0;
+  if (p.property_type && c.property_type === p.property_type) s += 40;
+  else if (typeFamily(p.property_type) && typeFamily(c.property_type) === typeFamily(p.property_type)) s += 20;
+  const sameHood = (p.neighborhood_id && c.neighborhood_id === p.neighborhood_id)
+    || (p.neighborhood_name && c.neighborhood_name === p.neighborhood_name);
+  if (sameHood) s += 20;
+  s += 20 * closeness(p.price, c.price, 0.5);
+  if (p.rooms && c.rooms){
+    const d = Math.abs(Number(p.rooms) - Number(c.rooms));
+    s += d <= 0.5 ? 15 : d <= 1.5 ? 7 : 0;
+  }
+  s += 5 * closeness(p.size_sqm, c.size_sqm, 0.4);
+  if (isPromoted(c)) s += 2;   // שובר שוויון, לא יותר
+  return s;
+}
+
 async function loadSimilarProperties(p){
   if (!window.supabase) return [];
   try{
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     // הלוגו של המשרד נטען יחד עם הנכס כדי שאריח בלי תמונות יציג את מיתוגו
-    const base = () => sb.from('properties').select('*, agencies(name, logo_url)').eq('status', 'active').neq('id', p.id);
+    const base = () => {
+      let q = sb.from('properties').select('*, agencies(name, logo_url)').eq('status', 'active').neq('id', p.id);
+      if (p.deal_type) q = q.eq('deal_type', p.deal_type);
+      return q;
+    };
 
-    const { data: sameCity, error } = await base().eq('city', p.city)
-      .order('is_promoted', { ascending:false }).order('created_at', { ascending:false }).limit(10);
-    if (error) throw error;
+    // שתי השאילתות במקביל: המאגר העירוני, ורשת ביטחון מאותו סוג בדיוק
+    // לערים קטנות. השנייה זולה, והמתנה לראשונה כדי להחליט עליה עולה RTT.
+    const [cityRes, typeRes] = await Promise.all([
+      p.city ? base().eq('city', p.city).order('created_at', { ascending:false }).limit(60)
+             : Promise.resolve({ data: [] }),
+      p.property_type ? base().eq('property_type', p.property_type).neq('city', p.city || '')
+                          .order('created_at', { ascending:false }).limit(20)
+                      : Promise.resolve({ data: [] })
+    ]);
+    if (cityRes.error) throw cityRes.error;
 
-    const results = [...(sameCity || [])];
-    if (results.length < 3 && p.property_type){
-      const { data: sameType } = await base().eq('property_type', p.property_type)
-        .order('is_promoted', { ascending:false }).limit(10);
-      const seen = new Set(results.map(r => r.id));
-      (sameType || []).forEach(r => { if (!seen.has(r.id)){ results.push(r); seen.add(r.id); } });
+    const family = typeFamily(p.property_type);
+    const compatible = c => !family || !typeFamily(c.property_type) || typeFamily(c.property_type) === family;
+    const rank = list => (list || []).filter(compatible)
+      .map(c => ({ c, s: similarityScore(p, c) }))
+      .sort((a, b) => b.s - a.s)
+      .map(x => x.c);
+
+    const results = rank(cityRes.data).slice(0, SIMILAR_MAX);
+    if (results.length < SIMILAR_MIN_SAME_CITY){
+      results.push(...rank(typeRes.data).slice(0, SIMILAR_MAX - results.length));
     }
-    return results.slice(0, 8);
+    return results;
   } catch(e){
     console.warn('טעינת נכסים דומים נכשלה:', e);
     return [];
@@ -1676,9 +1739,10 @@ function renderSimilarProperties(list){
   if (!list.length){ section.hidden = true; return; }
 
   scroll.innerHTML = '';
-  // עדיפות לנכסים עם וידאו, סיור או תמונות — את האריח הראשון ברצועה
-  // רואים גם מי שלא גולל/ת אותה
-  PropertyCard.sortByMedia(list).forEach((sp, i)=>{
+  // הסדר הוא סדר הדמיון מ-loadSimilarProperties, ולא ממוין מחדש לפי מדיה:
+  // את האריח הראשון ברצועה רואים גם מי שלא גולל/ת אותה, ולכן הוא צריך
+  // להיות הנכס הדומה ביותר ולא זה שיש לו וידאו.
+  list.forEach((sp, i)=>{
     const card = document.createElement('div');
     card.className = 'prop-card';
     card.innerHTML = `
