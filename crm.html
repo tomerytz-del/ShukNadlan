@@ -10,7 +10,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!-- ‏viewport-fit=cover, וזה תנאי ולא קישוט: באפליקציה המותקנת (‏display
+     ‏standalone) אנדרואיד פורש את הדף מקצה לקצה גם בלי לבקש, כלומר תחתית
+     הדף יושבת **מאחורי** סרגל הניווט של המערכת. בלי ההצהרה הזו
+     ‏env(safe-area-inset-*) מחזיר 0 בכל מקום, ולכן הריפוד שנועד לפנות
+     מקום לסרגל ההוא לא נכנס לתוקף - וסרגל הניווט התחתון של האתר איבד את
+     שורת התוויות שלו מאחורי סרגל המערכת. ראו .bottom-nav ו---sa-*. -->
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>איזור סוכנים | שוק נדל״ן</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <!-- התקנה כאפליקציה (PWA) — מניפסט, אייקוני מסך הבית וכפתור ההתקנה
@@ -65,6 +71,19 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     --line:#C5C3BC; --teal:#1C3A5E; --teal-dark:#122840; --teal-tint:#E0E7ED;
     --gold:#8B2332; --gold-dark:#6B1A26; --gold-tint:#F1DFE1; --brick:#6B1A26;
     --radius-sm:6px; --radius-md:12px; --radius-lg:20px; --shadow-sm:0 2px 8px rgba(15,52,53,.08);
+    /* ---------- האזורים הבטוחים ----------
+       ‏`viewport-fit=cover` ב-<meta> הוא מה שמפעיל אותם (ראו ההערה שם).
+       מרגע שהוא שם, **כל אלמנט שנוגע בקצה המסך חייב להוסיף את המרווח
+       המתאים**, אחרת הוא יושב מאחורי סרגל של המערכת: הכותרת הדביקה
+       מאחורי שעון המערכת, וסרגל הניווט התחתון מאחורי סרגל הניווט של
+       אנדרואיד. בדפדפן רגיל ובמחשב כל הערכים הם 0, ולכן שום דבר לא זז.
+
+       ‏start/end ולא left/right: הדף הוא RTL, ולכן תחילת השורה היא ימין.
+       בלנדסקייפ עם מגרעת זה ההבדל בין מרווח בצד הנכון לצד ההפוך. */
+    --sa-top:env(safe-area-inset-top,0px);
+    --sa-bottom:env(safe-area-inset-bottom,0px);
+    --sa-start:env(safe-area-inset-right,0px);
+    --sa-end:env(safe-area-inset-left,0px);
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;line-height:1.5}
@@ -161,7 +180,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   /* ---------- Dashboard ---------- */
   #dashboard{display:none}
-  header.crm{background:var(--paper-raised);border-bottom:1px solid var(--line);padding:16px 0}
+  /* ‏--sa-top: הכותרת היא האלמנט הראשון בדף, ועם viewport-fit=cover היא
+     מתחילה מתחת לשעון המערכת. זה הכלל גם בכותרת הדביקה של הדשבורד. */
+  header.crm{background:var(--paper-raised);border-bottom:1px solid var(--line);
+    padding:calc(16px + var(--sa-top)) 0 16px}
   .crm-header-inner{display:flex;align-items:center;justify-content:space-between}
   .agent-id{display:flex;align-items:center;gap:10px}
   .avatar{width:38px;height:38px;border-radius:50%;background:var(--teal);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-family:'Frank Ruhl Libre',serif}
@@ -359,7 +381,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      ‏align-items:center — כי מרכוז בלבד חותך את הקצה העליון גם כשיש גלילה.
      הכרטיסים שמנהלים גובה בעצמם (‏.mkt-card‏, .wa-card‏, .tour-card) לא
      מושפעים: הם לעולם לא גבוהים מהשכבה. */
-  .pm-overlay{position:fixed;inset:0;background:rgba(27,31,38,.55);display:flex;align-items:center;justify-content:center;padding:20px;z-index:400;
+  /* ‏`inset:0` עם viewport-fit=cover מגיע עד קצה המסך ממש, ולכן הריפוד
+     הוא מה שמרחיק את הכרטיס מסרגלי המערכת. ראו ‎--sa-*‎. */
+  .pm-overlay{position:fixed;inset:0;background:rgba(27,31,38,.55);display:flex;align-items:center;justify-content:center;
+    padding:calc(20px + var(--sa-top)) calc(20px + var(--sa-end)) calc(20px + var(--sa-bottom)) calc(20px + var(--sa-start));z-index:400;
     overflow-y:auto;-webkit-overflow-scrolling:touch}
   .pm-card{background:#fff;border-radius:var(--radius-md);max-width:420px;width:100%;padding:22px;box-shadow:0 18px 48px rgba(0,0,0,.28);margin:auto}
   .pm-title{font-weight:800;font-size:1.05rem;margin-bottom:10px}
@@ -460,7 +485,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ‏אשף ייבוא הנכסים מקובץ. כרטיס רחב יותר מ-pm-card כי שלב הבדיקה מציג
      טבלת תצוגה מקדימה, ועם max-height + overflow פנימי כדי שהכותרת
      והכפתורים יישארו קבועים כשגוללים בטבלה. */
-  .imp-overlay{position:fixed;inset:0;background:rgba(27,31,38,.55);display:flex;align-items:center;justify-content:center;padding:16px;z-index:420}
+  .imp-overlay{position:fixed;inset:0;background:rgba(27,31,38,.55);display:flex;align-items:center;justify-content:center;
+    padding:calc(16px + var(--sa-top)) calc(16px + var(--sa-end)) calc(16px + var(--sa-bottom)) calc(16px + var(--sa-start));z-index:420}
   .imp-card{background:#fff;border-radius:var(--radius-md);max-width:920px;width:100%;max-height:92vh;display:flex;flex-direction:column;box-shadow:0 18px 48px rgba(0,0,0,.28)}
   .imp-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:18px 22px 12px;border-bottom:1.5px solid var(--line)}
   .imp-title{font-weight:800;font-size:1.05rem}
@@ -520,7 +546,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .imp-bar{height:10px;border-radius:999px;background:var(--paper-raised);overflow:hidden;margin:14px 0}
   .imp-bar i{display:block;height:100%;background:var(--teal);width:0;transition:width .25s}
   .empty-state{padding:32px;text-align:center;color:var(--ink-soft);font-size:.88rem}
-  .toast{position:fixed;bottom:20px;right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:var(--radius-sm);font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;z-index:200}
+  /* ההודעה יושבת מעל סרגל הניווט של המערכת ולא מאחוריו */
+  .toast{position:fixed;bottom:calc(20px + var(--sa-bottom));right:20px;left:20px;max-width:400px;margin:0 auto;background:var(--teal-dark);color:#fff;padding:14px 18px;border-radius:var(--radius-sm);font-size:.85rem;box-shadow:0 8px 24px rgba(0,0,0,.25);display:none;z-index:200}
 
   /* ---------- Property images (2.1) ---------- */
   .img-dropzone{border:1.5px dashed var(--line);border-radius:var(--radius-sm);padding:14px;text-align:center;background:#fff}
@@ -1741,7 +1768,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media(max-width:480px){ .rm-grid{grid-template-columns:1fr} }
 
   /* ---------- CMA report (2.3) ---------- */
-  #cmaOverlay{position:fixed;inset:0;background:rgba(18,40,64,.55);z-index:300;display:none;overflow-y:auto;padding:20px 12px}
+  #cmaOverlay{position:fixed;inset:0;background:rgba(18,40,64,.55);z-index:300;display:none;overflow-y:auto;
+    padding:calc(20px + var(--sa-top)) calc(12px + var(--sa-end)) calc(20px + var(--sa-bottom)) calc(12px + var(--sa-start))}
   .cma-sheet{max-width:760px;margin:0 auto;background:#fff;border-radius:var(--radius-md);padding:26px 24px;box-shadow:0 20px 50px rgba(0,0,0,.3)}
   /* flex-wrap כדי שבטלפון "הדפסה / שמירה כ-PDF" ו"סגירה" ירדו לשורה נפרדת
      במקום להתכווץ זה לצד זה ולגלוש מחוץ למסך — מה שהשאיר את כפתור הסגירה
@@ -1764,9 +1792,30 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .cma-stat{border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px;text-align:center}
   .cma-stat .n{font-family:'Frank Ruhl Libre',serif;font-size:1.1rem;color:var(--teal-dark)}
   .cma-stat .l{font-size:.68rem;color:var(--ink-soft);margin-top:2px}
+  /* ---------- טבלאות הדוח, ולמה הן נגללות ולא נדחסות ----------
+     ‏`width:100%` בלי `table-layout:fixed` אומר שהרוחב **המינימלי** של
+     הטבלה הוא סכום ה-min-content של העמודות, ואת זה אין לה דרך לוותר
+     עליו. טבלת "נכסים דומים שמוצעים בשוק" נושאת שבע עמודות, והראשונה
+     בהן היא כותרת מודעה מלאה - כלומר ברוחב טלפון היא גולשת מהגיליון
+     ומוציאה איתה את כל הדוח, בדיוק כמו שהערת ההקשר הוציאה את כרטיס
+     הנכס. לדחוס שבע עמודות ל-348px אינה אפשרות: "התאמת מאפיינים" לבדה
+     צריכה כ-90px.
+
+     לכן מעטפת שנגללת, כמו ב-`.adm-table-wrap`, ב-`.tbl-wrap` של
+     ‏developer-crm ובטבלת בדיקת העסקאות. הטבלה עצמה נשארת `width:100%`,
+     ולכן כשהיא **כן** נכנסת (טבלאות ארבע העמודות, וכל רוחב דסקטופ) אין
+     גלילה בכלל ושום דבר לא משתנה.
+
+     ‏`@media print` מחזיר `overflow:visible`: מעטפת שנגללת נחתכת בהדפסה
+     בדיוק בקו שבו המסך נגמר, והדוח הזה נשלח ללקוחות כ-PDF. */
+  .cma-tablewrap{overflow-x:auto;overscroll-behavior-inline:contain;
+    -webkit-overflow-scrolling:touch}
   .cma-table{width:100%;border-collapse:collapse;font-size:.8rem}
   .cma-table th,.cma-table td{border-bottom:1px solid var(--line);padding:7px 6px;text-align:right}
   .cma-table th{font-size:.72rem;color:var(--ink-soft);font-weight:700}
+  /* עמודת הכותרת היא הטקסט החופשי היחיד בטבלאות, ולכן היא זו שנשברת -
+     בלי זה הרוחב המינימלי של הטבלה הוא אורך הכותרת על שורה אחת. */
+  .cma-table td.cma-c-title{min-width:132px;white-space:normal}
   .cma-note{font-size:.75rem;color:var(--ink-soft);background:var(--teal-tint);border-radius:var(--radius-sm);padding:9px 11px;margin-top:8px}
   /* ההודעה שמחליפה את "תמונת השוק" כשאין די עסקאות. היא לא הערת שוליים
      אלא התוכן עצמו באותו מקום, ולכן בולטת ולא רכה כמו .cma-note — סוכן/ת
@@ -1836,6 +1885,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .cma-sheet{box-shadow:none;max-width:none;padding:0;border-radius:0}
     .cma-actions{display:none !important}
     .cma-table{font-size:.72rem}
+    /* מעטפת שנגללת נחתכת בהדפסה בקו שבו אזור הגלילה נגמר, והדוח הזה
+       נשלח ללקוחות כ-PDF. בדף A4 יש רוחב ממילא, ולכן אין מה לגלול. */
+    .cma-tablewrap{overflow:visible !important}
   }
 
   /* ==========================================================================
@@ -1906,9 +1958,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ---------- Header ---------- */
   #dashboard header.crm{
     background:rgba(255,255,255,.86); backdrop-filter:blur(12px); -webkit-backdrop-filter:blur(12px);
-    border-bottom:1px solid var(--edge); padding:12px 0;
+    border-bottom:1px solid var(--edge);
+    /* ‏sticky top:0 עם viewport-fit=cover פירושו "בקצה העליון של המסך" -
+       כלומר מאחורי שעון המערכת באפליקציה המותקנת */
+    padding:calc(12px + var(--sa-top)) 0 12px;
     position:sticky; top:0; z-index:120;
   }
+  /* ‏18px נשארים 18px, ובמכוון: ‏`--qa-bleed` של ‎.quick-grid‎ הוא בדיוק
+     הערך הזה, ורכבת הפעולות מיושרת לפיו. המגרעת הצידית קיימת רק
+     בלנדסקייפ, ושם 18px ממילא מרחיקים את הטקסט ממנה. */
   .dash-wrap{max-width:1240px;margin:0 auto;padding:0 18px}
   #dashboard .crm-header-inner{display:flex;align-items:center;justify-content:space-between;gap:12px;position:relative}
   /* ‏row-reverse ב-RTL מניח את הפריט הראשון בשמאל: אווטאר, סמל הבית ואז
@@ -2168,7 +2226,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      ואי אפשר להגיע אליה. 58px גובה הסרגל + safe-area של האייפון + נשימה. */
   .dash-shell{
     display:grid;grid-template-columns:minmax(0,1fr);gap:18px;padding-top:20px;
-    padding-bottom:calc(58px + env(safe-area-inset-bottom,0px) + 22px);
+    padding-bottom:calc(58px + var(--sa-bottom) + 22px);
   }
   .dash-main{min-width:0;display:flex;flex-direction:column;gap:18px}
   #toolSections{display:flex;flex-direction:column;gap:10px}
@@ -3258,7 +3316,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      נשאר — הוא תפריט הפרופיל והיציאה, וכפתור שנעלם בגלילה הוא תכונה שאבדה
      ולא רק פיקסלים שנחסכו. */
   #dashboard header.crm{transition:padding .24s cubic-bezier(.22,1,.36,1)}
-  #dashboard.is-compact header.crm{padding:7px 0}
+  #dashboard.is-compact header.crm{padding:calc(7px + var(--sa-top)) 0 7px}
   /* ‏max-width:400px הוא מעבר לכל רוחב שהטקסט מגיע אליו בפועל (השם עצמו
      נחתך ב-ellipsis ממילא), ולכן הוא לא חותך כלום — הוא רק נותן
      ל-transition ערך התחלתי לרוץ ממנו אל אפס */
@@ -3327,7 +3385,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
        את הלשונית הנבחרת בסרגל */
     position:fixed;left:16px;z-index:190;
     /* מעל סרגל הניווט התחתון ומעל פס המחוות של האייפון */
-    bottom:calc(env(safe-area-inset-bottom,0px) + 74px);
+    bottom:calc(var(--sa-bottom) + 74px);
     width:56px;height:56px;border-radius:50%;border:none;padding:0;
     display:flex;align-items:center;justify-content:center;
     background:linear-gradient(150deg,#22456e 0%,#1C3A5E 55%,#122840 100%);
@@ -3389,8 +3447,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      ומעלה יש סרגל צד דביק שמראה את כל המפה בבת אחת, ואז הסינון כבוי לגמרי
      וכל הנושאים מוצגים (ראו navFilterActive).
 
-     ‏env(safe-area-inset-bottom) — באייפון עם פס המחוות התחתון, בלעדיו
-     הלשוניות יושבות מתחתיו ואי אפשר ללחוץ על החצי התחתון שלהן.
+     ‏**`--sa-bottom`, וזה התיקון שהיה חסר.** ‏`bottom:0` פירושו קצה
+     המסך, לא קצה השטח הפנוי, ולכן בלי ריפוד תחתון הרצועה יושבת מאחורי
+     סרגל המערכת — פס המחוות של האייפון, או סרגל הניווט של אנדרואיד.
+     ‏`.bn-tab` הוא אייקון **ומעליו תווית**, כלומר מה שנעלם שם הוא בדיוק
+     שורת התוויות: ‎53px‎ של רצועה מתוכם ‎37px‎ נראים, והמילים "ראשי",
+     "נכסים", "לידים" מאחורי הסרגל השחור.
+
+     הריפוד הזה היה כאן מהיום הראשון והוא פשוט **לא נכנס לתוקף**:
+     ‏`env(safe-area-inset-*)` מחזיר 0 כל עוד ה-<meta name="viewport">
+     אינו מצהיר `viewport-fit=cover`, וההצהרה הזו לא הייתה. בדפדפן זה
+     לא נראה — שם הדפדפן מכווץ את החלון מעל הסרגל ממילא — ולכן זה התגלה
+     רק באפליקציה המותקנת, שבה אנדרואיד פורש את הדף מקצה לקצה.
      ========================================================================== */
   /* הסרגל התחתון לובש את אותה חליפה של כרטיס העמלות: נייבי עמוק עם הילה
      זהובה בפינה הימנית (‏inset-inline-start ב-RTL), טקסט ואייקונים לבנים.
@@ -3406,7 +3474,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background:linear-gradient(150deg,rgba(34,69,110,.96) 0%,rgba(28,58,94,.97) 48%,rgba(18,40,64,.98) 100%);
     backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
     border-top:1px solid rgba(255,255,255,.10);
-    padding-bottom:env(safe-area-inset-bottom,0px);
+    padding-bottom:var(--sa-bottom);
     box-shadow:0 -6px 24px rgba(15,23,42,.24);
     /* ההילה נחתכת בגבולות הרצועה. ‏isolation: הפסאודו יושב מעל הרקע ומתחת
        ללשוניות, בלי לפתוח שכבה שתטפס על תפריט הבורגר. */

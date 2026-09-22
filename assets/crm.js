@@ -17651,8 +17651,10 @@ function renderCmaReport(r){
   const mst = r.market_stats || {};
   const featPct = v => v == null ? '<span class="cma-basis" title="למודעה אין מאפיינים רשומים">לא רשום</span>'
                                  : Math.round(Number(v) * 100) + '%';
+  /* ‏`cma-c-title` על תא הכותרת: זו העמודה היחידה בטבלאות שנושאת טקסט
+     חופשי, ולכן היא זו שקובעת את הרוחב המינימלי של הטבלה. ראו ה-CSS. */
   const marketRows = marketComps.map(c => `<tr>
-      <td>${esc(c.title)}${c.is_own ? ' <span class="cma-basis" title="מודעה שלך">שלי</span>' : ''}</td>
+      <td class="cma-c-title">${esc(c.title)}${c.is_own ? ' <span class="cma-basis" title="מודעה שלך">שלי</span>' : ''}</td>
       <td>${c.rooms ?? '-'}</td>
       <td>${c.size_sqm ? esc(c.size_sqm) + ' מ״ר' : '-'}</td>
       <td>${shekel(c.price)} <span class="cma-basis is-asking" title="מחיר מבוקש - הנכס עדיין לא נמכר">מבוקש</span></td>
@@ -17723,10 +17725,10 @@ function renderCmaReport(r){
 
     ${comps.length ? `
       <div class="cma-section-title">עסקאות בסביבת הנכס</div>
-      <table class="cma-table">
+      <div class="cma-tablewrap"><table class="cma-table">
         <thead><tr><th>סוג</th><th>חדרים</th><th>מחיר</th><th>למ״ר</th><th>מרחק</th><th>תאריך</th></tr></thead>
         <tbody>${compRows}</tbody>
-      </table>` : ''}
+      </table></div>` : ''}
 
     ${marketComps.length ? `
       <div class="cma-section-title">נכסים דומים שמוצעים בשוק עכשיו</div>
@@ -17745,31 +17747,31 @@ function renderCmaReport(r){
         ${cmaGapLine(marketSqmGap, 'המחיר המבוקש שלנו למ״ר מול המבוקש בשוק', mst.sqm_sample_size ?? mst.count)}
         ${mst.own_count > 0
           ? `<div class="cma-note">${esc(mst.own_count)} מהנכסים בהשוואה הם מודעות שלך.</div>` : ''}` : ''}
-      <table class="cma-table">
+      <div class="cma-tablewrap"><table class="cma-table">
         <thead><tr><th>נכס</th><th>חדרים</th><th>שטח</th><th>מחיר</th><th>למ״ר</th><th>התאמת מאפיינים</th><th>מרחק</th></tr></thead>
         <tbody>${marketRows}</tbody>
-      </table>
+      </table></div>
       ${Number(cov.market_comparables_total) > Number(cov.market_comparables_shown)
         ? `<div class="cma-note">מוצגים ${esc(cov.market_comparables_shown)} מתוך ${esc(cov.market_comparables_total)}, לפי סדר ההתאמה.</div>` : ''}` : ''}
 
     ${cityComps.length ? `
       <div class="cma-section-title">עסקאות נוספות ב${esc(s.city)} (ללא מיקום מדויק)</div>
       <div class="cma-note">העסקאות האלה אינן נכללות בחישוב שלמעלה, כי אי אפשר למקם אותן ביחס לנכס.</div>
-      <table class="cma-table">
+      <div class="cma-tablewrap"><table class="cma-table">
         <thead><tr><th>סוג</th><th>חדרים</th><th>מחיר</th><th>תאריך</th></tr></thead>
         <tbody>${cityRows}</tbody>
-      </table>` : ''}
+      </table></div>` : ''}
 
     ${r.planning ? `
       <div class="cma-section-title">מידע תכנוני</div>
-      <table class="cma-table">
+      <div class="cma-tablewrap"><table class="cma-table">
         <tbody>
           <tr><th>גוש / חלקה</th><td>${esc(r.planning.gush || '-')} / ${esc(r.planning.helka || '-')}</td></tr>
           <tr><th>שטח החלקה</th><td>${r.planning.parcel_area_sqm ? esc(r.planning.parcel_area_sqm) + ' מ״ר' : '-'}</td></tr>
           <tr><th>ייעוד קרקע</th><td>${esc(r.planning.land_use_designation || '-')}</td></tr>
           ${plans.length ? `<tr><th>תוכניות חלות</th><td>${plans.map(p => esc(p.number || p.description)).join(', ')}</td></tr>` : ''}
         </tbody>
-      </table>` : ''}
+      </table></div>` : ''}
 
     <div class="cma-foot">
       ${sourcesLine}
