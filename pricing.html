@@ -483,6 +483,13 @@ function ctaFor(tier){
     if (tier.id === current){
       return { label: 'המסלול הנוכחי שלך', disabled: true, foot: '' };
     }
+    /* הירידה ל-Pay&GO סגורה כרגע (‏Tiers.SWITCH, והנעילה עצמה ב-
+       ‏join-agency/set_tier). הכפתור הזה היה `crm.html?tier=free` — כלומר
+       ירידה בלחיצה אחת, שנצרכת ב-CRM אוטומטית בלי שאלה ונכנסת לתוקף מיד.
+       מסלול בתשלום נשאר כפי שהיה: פנייה אלינו, שאינה משנה מסלול. */
+    if (!tier.priceMonthly && !Tiers.switchOpen()){
+      return { label: 'המעבר נעשה מולנו', disabled: true, foot: Tiers.SWITCH.note };
+    }
     const up = Tiers.isUpgrade(current, tier.id);
     /* **אין רכישת מסלול, ולכן אין כאן קישור לעמוד תשלום.** לזמן מה הכפתור
        הזה הוביל ל-checkout.html?product=subscription. זה בוטל: כל מי שנכנס/ת

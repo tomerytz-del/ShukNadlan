@@ -1961,14 +1961,26 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   #dashboard .tier-badge:hover{filter:brightness(1.07)}
   @media(max-width:430px){#dashboard .tier-word{display:none}}
-  #dashboard .tier-free{background:var(--surface-2);color:var(--txt-soft)}
-  #dashboard .tier-mid{background:var(--navy-tint);color:var(--navy)}
+  /* ---------- סימן לכל מסלול, ולא רק לעליון ----------
+     ל-Elite היה ★ ולשני האחרים לא היה דבר, ו-Pay&GO גם נצבע ב-surface-2 עם
+     טקסט חיוור — כלומר נראה כמו תווית מושבתת ולא כמו המסלול שאני נמצא/ת בו.
+     שלושת המסלולים מקבלים עכשיו סימן משלהם ומסגרת, כדי שהתשובה ל"מה יש לי"
+     תהיה מיידית ובלי לקרוא. ‏₪ ל-Pay&GO אינו קישוט: זה המסלול שמשלמים בו
+     לפי פנייה, וזו כל ההבחנה מול השניים שמשלמים בהם חודשית. */
+  #dashboard .tier-badge::before{font-size:.72rem;line-height:1;margin-inline-end:4px}
+  #dashboard .tier-free{
+    background:#fff;color:var(--navy);border:1px solid var(--navy-tint);
+    box-shadow:0 1px 3px rgba(15,23,42,.08);
+  }
+  #dashboard .tier-free::before{content:'₪'}
+  #dashboard .tier-mid{background:var(--navy);color:#fff;box-shadow:0 3px 10px rgba(28,58,94,.25)}
+  #dashboard .tier-mid::before{content:'◆'}
   /* פרימיום מקבל טיפול "יוקרתי" — גרדיאנט זהוב-בורדו עם נצנוץ עדין */
   #dashboard .tier-premium{
     background:linear-gradient(120deg,#7d1d2b,#a8344a 45%,#c9a227);
     color:#fff;box-shadow:0 3px 10px rgba(139,35,50,.3);
   }
-  #dashboard .tier-premium::before{content:'★';font-size:.7rem;line-height:1;margin-inline-end:4px}
+  #dashboard .tier-premium::before{content:'★';font-size:.7rem}
   /* במסך צר אין מקום גם לתגית המסלול וגם לשם המשרד — השם נשאר, המשרד יורד */
   .agent-agency{display:none;font-size:.75rem;color:var(--txt-faint);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   @media(min-width:560px){.agent-agency{display:inline}}
