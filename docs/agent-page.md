@@ -187,8 +187,11 @@
 
 שניהם שולחים `agent_slug`, ו-`resolveAgentRouting` (ב-`_shared/lead-routing.ts`)
 מתרגמת אותו לסוכן/ת פעיל/ה ולמשרד שלו/ה. משם ההתנהגות זהה לזו של ליד מדף
-משרד: `status='unlocked'`, בלי תור, בלי מכסה ובלי חיוב, ו-`leads.source` נרשם
-`agent_page` במקום `agency_page`.
+משרד: בלי תור ובלי חלון בלעדיות, ו-`leads.source` נרשם `agent_page` במקום
+`agency_page`. במסלול בתשלום הליד נכנס `status='unlocked'` — אין מה לרכוש;
+ב-Pay&GO הוא נכנס `masked` ונספר במכסת הפניות החודשית (10 בחודש מכל
+המקורות יחד, ואז ₪25), כי זו בדיוק המכסה שהמסלול מוכר.
+‏`docs/pricing-and-tiers.md`.
 
 לצד `agent_slug` נשלח גם `agency_slug` **כרשת ביטחון**: פרופיל שעדיין נטען לפי
 `id` ואין לו `slug` משלו יגיע למנהל/ת המשרד, ולא ייפול לרוטציה. ‏`slug` שאינו

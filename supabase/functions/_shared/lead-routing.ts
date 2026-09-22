@@ -104,6 +104,10 @@ const KNOWN_SOURCES = new Set([
 export interface AgencyRouting {
   agencyId: string;
   agentId: string | null;
+  /** המסלול של מי שיקבל/תקבל את הליד. ‏null = לא נמצא/ה נמען/ת.
+   *  הקורא צריך אותו כדי להחליט אם הליד נפתח מיד (‏mid/premium) או נכנס
+   *  מוסתר ונספר במכסת הפניות החודשית של Pay&GO. */
+  tier: string | null;
 }
 
 export async function resolveAgencyRouting(
@@ -120,13 +124,13 @@ export async function resolveAgencyRouting(
 
   const { data: members } = await supabase
     .from("agency_members")
-    .select("id, role")
+    .select("id, role, tier")
     .eq("agency_id", agency.id)
     .eq("active", true);
 
   const list = members ?? [];
   const manager = list.find((m: any) => m.role === "manager") ?? list[0] ?? null;
-  return { agencyId: agency.id, agentId: manager?.id ?? null };
+  return { agencyId: agency.id, agentId: manager?.id ?? null, tier: manager?.tier ?? null };
 }
 
 /* ---------------------------------------------------------------------------
@@ -150,14 +154,14 @@ export async function resolveAgentRouting(
 
   const { data: member } = await supabase
     .from("agency_members")
-    .select("id, agency_id")
+    .select("id, agency_id, tier")
     .eq("slug", slug)
     .eq("active", true)
     .maybeSingle();
   // ‏agency_id הוא NOT NULL בפועל, אבל סוכן/ת שבין משרדים לא אמור/ה להפיל
   // את הליד — בלי משרד אין מה לשייך, והקורא ימשיך לניתוב לפי המשרד שבדף.
   if (!member || !member.agency_id) return null;
-  return { agencyId: member.agency_id, agentId: member.id };
+  return { agencyId: member.agency_id, agentId: member.id, tier: member.tier ?? null };
 }
 
 export function normalizeSource(value: unknown, fallback: string): string {
