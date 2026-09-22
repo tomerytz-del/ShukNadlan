@@ -2,7 +2,7 @@
 
 ## סקילים
 
-חמישה תהליכים בריפו הזה מכניים, קלים לטעות, והטעות בהם שקטה. לכל אחד יש
+שישה תהליכים בריפו הזה מכניים, קלים לטעות, והטעות בהם שקטה. לכל אחד יש
 סקיל ב-`.claude/skills/` שמרכז את הכללים ואת הסיבות שמאחוריהם:
 
 | סקיל | מתי |
@@ -11,6 +11,7 @@
 | `new-migration` | כל שינוי סכימה — שם קובץ, אידמפוטנטיות, הרשאות, ואיסור DDL מחוץ לצינור |
 | `new-edge-function` | פונקציה חדשה — `verify_jwt` ב-`config.toml`, CORS, סודות |
 | `new-tier-capability` | יכולת שתלויה במסלול — הגייט במסד, השורה ב-`pricing.html`, והשורה בתיעוד |
+| `new-search-page` | עמוד תוצאות (חיפוש פופולרי) — הרשימה בפונקציה, ה-`sitemap`, והקישור בפוטר |
 | `perf-measure` | כל טענה על ביצועים — השרת שמחקה את Netlify, שני התרחישים, והמוקשים |
 
 > ‏**שימו לב:** הטבלה הזו, וכל הערות הקוד בריפו, משתמשות במקף ארוך —
@@ -24,10 +25,12 @@
 
 - **האתר** — קובצי HTML בשורש (`index.html`, `property.html`, `agency.html`, …)
   ועוזרים ב-`assets/`. ‏Netlify מפרסם אותם תוך שניות מהמיזוג ל-`main`.
-  שתי פונקציות ב-`netlify/edge-functions/` משלימות בשרת את מה שדף סטטי
+  שלוש פונקציות ב-`netlify/edge-functions/` משלימות בשרת את מה שדף סטטי
   אינו יכול לתת לסורק: `og-tags.ts` מזריקה תגיות שיתוף לדפי הפירוט
-  (`docs/social-preview.md`), ו-`sitemap.ts` מוסיפה ל-`sitemap.xml` את
-  הכתובות שנוצרות מהמסד (`docs/sitemap.md`).
+  (`docs/social-preview.md`), `sitemap.ts` מוסיפה ל-`sitemap.xml` את
+  הכתובות שנוצרות מהמסד (`docs/sitemap.md`), ו-`search-pages.ts` נותנת
+  ל-14 החיפושים הפופולריים כותרת ו-`canonical` משלהם
+  (`docs/search-landing-pages.md`).
 - **המסד** — פרויקט Supabase `obookujgolazrwycsiyn`. הסכימה ב-
   `supabase/migrations/`, ה-Edge Functions ב-`supabase/functions/`. שניהם
   נפרסים ב-GitHub Actions בכל push ל-`main` שנוגע בהם.
@@ -240,6 +243,20 @@ python scripts/check_gtm_container_test.py   # הבדיקה נבדקת בעצמ�
 python scripts/check_canonical.py        # בדיקה
 python scripts/check_canonical.py --fix  # שתילה בדף סטטי שחסר
 ```
+
+### ‏ו-14 עמודי תוצאות שמוגשים מאותו `index.html`
+
+הבלוק "חיפושים פופולריים" שבפוטר מקשר ל-14 כתובות מסוננות
+(`/?deal=sale&rooms=4` וחבריהן). עד היום כולן הגישו אותה כותרת, אותו
+תיאור ואותה `canonical` שמצביעה על `/` — כלומר **הצהירו על עצמן כהעתקים
+של דף הבית ולא יכלו להתאנדקס לעולם**, וכך הופיעו ב-Search Console תחת
+"נסרק - לא נכלל באינדקס".
+
+`netlify/edge-functions/search-pages.ts` מזריקה לכל אחת מהן כותרת, תיאור
+ו-`canonical` משלה. **הרשימה סגורה בכוונה:** כל צירוף פרמטרים אחר יוצא
+כמו שהוא ומתאחד לדף הבית, אחרת `?minPrice=317000` ו-`?q=` של טקסט חופשי
+היו אינסוף כתובות עם אותו תוכן. הוספה נוגעת בשלושה מקומות, ויש לה סקיל
+(`new-search-page`). הפרטים: `docs/search-landing-pages.md`.
 
 הבדיקה חוסמת ב-CI, והיא מכסה גם את `sitemap.xml` ואת `robots.txt`: דף
 ציבורי שנתפס בשורת `Disallow` הוא ממצא. **הכלל הנלמד שם:** חסימה
