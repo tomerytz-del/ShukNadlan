@@ -114,7 +114,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <div class="card">
   <div id="stateForm">
-    <a href="index.html" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
+    <a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
     <h1>פתיחת חשבון יזם/קבלן</h1>
     <p class="sub">דף חברה אחד, ודף נחיתה נפרד לכל פרויקט</p>
 
@@ -165,19 +165,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="section-divider">תנאים</div>
     <div class="consent">
       <input type="checkbox" id="termsConsent">
-      <label for="termsConsent">קראתי ואני מסכים/ה ל<a href="terms.html" target="_blank" rel="noopener">תנאי השימוש</a> ול<a href="privacy.html" target="_blank" rel="noopener">מדיניות הפרטיות</a>. ידוע לי שהמידע, המחירים והתמונות בדפי הפרויקטים הם באחריות החברה, ואינם מהווים הצעה מחייבת.</label>
+      <label for="termsConsent">קראתי ואני מסכים/ה ל<a href="/terms" target="_blank" rel="noopener">תנאי השימוש</a> ול<a href="/privacy" target="_blank" rel="noopener">מדיניות הפרטיות</a>. ידוע לי שהמידע, המחירים והתמונות בדפי הפרויקטים הם באחריות החברה, ואינם מהווים הצעה מחייבת.</label>
     </div>
 
     <button class="btn" id="submitBtn">פתיחת החשבון</button>
     <div id="feedback"></div>
-    <a href="developer-crm.html" class="back-link">כבר יש לך חשבון? כניסה</a>
+    <a href="/developer-crm" class="back-link">כבר יש לך חשבון? כניסה</a>
   </div>
 
   <div id="stateDone">
     <h1>החשבון נפתח!</h1>
     <p class="sub">אפשר להתחבר עכשיו עם הפרטים שהזנת, לעצב את דף החברה ולהעלות את הפרויקט הראשון.</p>
     <p class="hint" id="doneRegistry" hidden style="text-align:center"></p>
-    <a href="developer-crm.html" class="btn" style="display:flex;text-decoration:none;margin-top:16px">מעבר לאזור הניהול</a>
+    <a href="/developer-crm" class="btn" style="display:flex;text-decoration:none;margin-top:16px">מעבר לאזור הניהול</a>
     <a href="#" id="devPageLink" class="back-link" target="_blank" rel="noopener">לדף החברה שנוצר ←</a>
   </div>
 </div>
@@ -221,7 +221,7 @@ const el = id => document.getElementById(id);
    כדי שיתאים בדיוק לכתובת שברשימת ה-Redirect URLs של Supabase — כתובת שאינה
    ברשימה מוחלפת ב-Site URL, והחזרה מ-Google נוחתת בדף הבית במקום כאן. */
 function crmUrl(){
-  const u = new URL('developer-crm.html', location.href);
+  const u = new URL('/developer-crm', location.href);
   u.search = ''; u.hash = '';
   return u.href;
 }
@@ -397,7 +397,7 @@ el('submitBtn').addEventListener('click', async ()=>{
       btn.disabled = false; btn.textContent = 'פתיחת החשבון';
       return;
     }
-    el('devPageLink').href = 'developer.html?slug=' + encodeURIComponent(data.developer_slug);
+    el('devPageLink').href = '/developer?slug=' + encodeURIComponent(data.developer_slug);
     if (data.registry_status === 'verified' && data.registry_name){
       el('doneRegistry').textContent = 'אומת מול רשם החברות: ' + data.registry_name;
       el('doneRegistry').hidden = false;

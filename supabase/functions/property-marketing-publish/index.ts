@@ -78,7 +78,7 @@ function json(obj: unknown, status = 200) {
 // ---------------------------------------------------------------------------
 
 const propertyUrl = (id: string) =>
-  `${SITE_BASE_URL}/property.html?id=${encodeURIComponent(id)}`;
+  `${SITE_BASE_URL}/property?id=${encodeURIComponent(id)}`;
 
 const generateMarketing = (row: any) =>
   generateMarketingCopy(row, { apiKey: ANTHROPIC_KEY, model: CLAUDE_MODEL });

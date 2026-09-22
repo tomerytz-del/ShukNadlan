@@ -57,7 +57,10 @@
   /* הפרמטרים שמצורפים לכל אירוע, כדי שבדוחות יהיה אפשר לפלח לפי סוג הדף
      ולפי הנכס מבלי להעביר אותם ידנית בכל קריאה. */
   function pageContext(){
-    const path = (location.pathname.split('/').pop() || 'index.html');
+    /* ‏'index' ולא כתובת: זהו **שם** סוג הדף בדוח, לא קישור. דף הבית
+       מגיע כ-/ , והמקטע האחרון שלו ריק. הסיומת יורדת כאן כדי שכתובת
+       ישנה שנשמרה בסימנייה (‏/about.html) תיספר יחד עם /about. */
+    const path = (location.pathname.split('/').pop() || 'index');
     const ctx = { page_type: path.replace(/\.html$/, '') || 'index' };
     const id = new URLSearchParams(location.search).get('id');
     if (id) ctx.item_id = id;

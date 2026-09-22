@@ -54,7 +54,7 @@ function esc(s: unknown): string {
 
 const unsubUrl = (token: string) =>
   `${FUNCTIONS_BASE}/open-house-manage?action=unsubscribe&token=${encodeURIComponent(token)}`;
-const fairUrl = () => (SITE_BASE_URL ? `${SITE_BASE_URL}/open-house.html` : "");
+const fairUrl = () => (SITE_BASE_URL ? `${SITE_BASE_URL}/open-house` : "");
 
 /* מייל האישור. הוא אומר בדיוק שלושה דברים — מה נרשמת לקבל, מה קורה עכשיו,
    ואיך יוצאים — כי אלה שלושת הדברים שמי שרק מסר/ה כתובת רוצה לדעת. */

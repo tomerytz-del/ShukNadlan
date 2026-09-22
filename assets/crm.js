@@ -475,7 +475,7 @@ function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel, 
       const need = topupNeeded(balance, price);
       if (!need){ done(false); gotoSection('accWallet', 'topupAmount'); return; }
       done(false);
-      location.href = 'checkout.html?product=wallet&amount=' + encodeURIComponent(need);
+      location.href = '/checkout?product=wallet&amount=' + encodeURIComponent(need);
     };
 
     function done(value){
@@ -1564,7 +1564,7 @@ async function loadNeighborhoodsAdmin(){
     // כלי הסימון כשהיא כבר נבחרת, כדי שהתיקון יהיה במרחק לחיצה אחת.
     const marked = Array.isArray(n.boundary) && n.boundary.length >= 3;
     const shape = document.createElement('a');
-    shape.href = 'neighborhood-boundary.html?hood=' + encodeURIComponent(n.id);
+    shape.href = '/neighborhood-boundary?hood=' + encodeURIComponent(n.id);
     shape.target = '_blank';
     shape.rel = 'noopener';
     shape.style.cssText = 'font-size:.74rem;font-weight:700;white-space:nowrap;text-decoration:none;' +
@@ -3780,7 +3780,7 @@ async function loadArticlesAdmin(){
       viewLink.style.padding = '5px 12px';
       viewLink.target = '_blank';
       viewLink.rel = 'noopener';
-      viewLink.href = 'article.html?slug=' + encodeURIComponent(article.slug || article.id);
+      viewLink.href = '/article?slug=' + encodeURIComponent(article.slug || article.id);
       viewLink.textContent = 'צפייה';
       actions.appendChild(viewLink);
     }
@@ -3947,7 +3947,7 @@ async function loadProfessionalCardsAdmin(){
     viewLink.style.padding = '5px 12px';
     viewLink.target = '_blank';
     viewLink.rel = 'noopener';
-    viewLink.href = 'professional.html?slug=' + encodeURIComponent(card.slug || card.id);
+    viewLink.href = '/professional?slug=' + encodeURIComponent(card.slug || card.id);
     viewLink.textContent = 'צפייה';
     actions.appendChild(viewLink);
 
@@ -4111,7 +4111,7 @@ function loadWhatsappSettings(agent){
         'המספר שממנו שלחתם.'
       : 'העוזר האישי זמין במסלולים <strong>PROFESSIONAL</strong> ו-<strong>Elite</strong>. ' +
         'במסלול Pay&amp;GO אפשר להוסיף ולעדכן נכסים מהדשבורד, והודעה לעוזר תיענה ' +
-        'בהסבר ובקישור. <a href="pricing.html" target="_blank" rel="noopener">לפרטים ולשדרוג</a>';
+        'בהסבר ובקישור. <a href="/pricing" target="_blank" rel="noopener">לפרטים ולשדרוג</a>';
   }
 }
 
@@ -4291,7 +4291,7 @@ function loadProfileSettings(agent){
   document.getElementById('pfCredentials').value = agent.credentials || '';
   renderSpecialtyChoices(agent.specialties);
   // slug יכול להיות ריק לסוכנים ותיקים — agent.html יודע לקבל גם id גולמי
-  document.getElementById('pfViewPageLink').href = 'agent.html?slug=' + encodeURIComponent(agent.slug || agent.id);
+  document.getElementById('pfViewPageLink').href = '/agent?slug=' + encodeURIComponent(agent.slug || agent.id);
   accSetCount('accProfile', profileComplete(agent) ? '' : 'להשלמה');
   renderProfileImages();
   renderProfilePreview();
@@ -4790,7 +4790,7 @@ function pricingUrl(agent){
   const params = new URLSearchParams({ from: 'crm' });
   if (agent?.tier) params.set('current', agent.tier);
   if (agent?.promo_ends_at && !agent?.promo_ended_at) params.set('promo_ends', agent.promo_ends_at);
-  return 'pricing.html?' + params.toString();
+  return '/pricing?' + params.toString();
 }
 
 /* ---------------------------------------------------------------------------
@@ -5775,7 +5775,7 @@ async function probeTopupMode(){
    ונעקפת בשני. ראו docs/wallet-payments.md. */
 document.getElementById('topupBtn').addEventListener('click', ()=>{
   const amount = Number(document.getElementById('topupAmount').value);
-  location.href = 'checkout.html?product=wallet&amount=' + encodeURIComponent(amount);
+  location.href = '/checkout?product=wallet&amount=' + encodeURIComponent(amount);
 });
 
 /* ---------- החזרה מעמוד התשלום ----------
@@ -6645,7 +6645,7 @@ async function renderSubsDrill(bucket){
     return `
       <div class="sd-row">
         <div>
-          <a class="sd-name" href="agent.html?slug=${esc(encodeURIComponent(r.member_slug || ''))}"
+          <a class="sd-name" href="/agent?slug=${esc(encodeURIComponent(r.member_slug || ''))}"
              target="_blank" rel="noopener">${esc(r.member_name || 'סוכן/ת')}</a>
           <div class="sd-meta">${meta}</div>
         </div>
@@ -6952,7 +6952,7 @@ async function loadBranding(agencyId){
   document.getElementById('brTagline').value = agency.tagline || '';
   renderTaglineCount();
   document.getElementById('brAddress').value = agency.address || '';
-  document.getElementById('brViewPageLink').href = 'agency.html?slug=' + encodeURIComponent(agency.slug);
+  document.getElementById('brViewPageLink').href = '/agency?slug=' + encodeURIComponent(agency.slug);
   renderPaletteGrid();
   renderBgChoice();
   syncColorInputs();
@@ -10493,7 +10493,7 @@ function buildPropertyCard(p, agentId){
     addQuickAction(actions, {
       label:'דף נכס', icon:'link', tone:'teal',
       title:'פתיחת עמוד הנכס באתר בלשונית חדשה',
-      href:'property.html?id=' + encodeURIComponent(p.id), blank:true,
+      href:'/property?id=' + encodeURIComponent(p.id), blank:true,
     });
   }
 
@@ -12600,9 +12600,12 @@ function qrPenalty(m, size){
 const QR_STICKER_W = 1063;                  // רוחב המדבקה: 90 מ"מ ב-300dpi
 let qrStickerPage = { w: 0, h: 0, mmW: 0, mmH: 0 };  // גודל העמוד ב-PDF, נקבע בציור
 
+/* ‏origin + נתיב מוחלט. הכתובת נבנתה כאן פעם מ**תיקיית** הדף הנוכחי, כדי
+   לשרוד את שתי הצורות שבהן Netlify מגיש דף (‏/crm ו-/crm.html); מאז שכל
+   הקישורים באתר נכתבים בלי הסיומת אין שתי צורות לשרוד, ותיקייה שמסתיימת
+   בלוכסן ועוד נתיב שמתחיל בלוכסן היו נותנים //property. */
 function propertyPublicLink(propertyId){
-  const dir = window.location.pathname.replace(/[^/]*$/, '');
-  return window.location.origin + dir + 'property.html?id=' + encodeURIComponent(propertyId);
+  return window.location.origin + '/property?id=' + encodeURIComponent(propertyId);
 }
 
 function qrFit(ctx, text, maxWidth){
@@ -14835,12 +14838,13 @@ function buildLeadCard(lead, agentId, isArchived){
   return el;
 }
 
-/* הכתובת מורכבת מתיקיית הדף הנוכחי ולא מהחלפת 'crm.html' בנתיב: בפרודקשן
-   הדף מוגש גם בלי הסיומת (/crm), ואז ההחלפה לא תופסת והתוצאה הייתה
-   /crmreview-request.html - קישור שבור. קיצוץ המקטע האחרון עובד בשתי הצורות. */
+/* ‏origin + נתיב מוחלט. הכתובת נבנתה כאן פעם בהחלפת 'crm.html' בנתיב,
+   ובפרודקשן הדף מוגש בלי הסיומת (/crm) - ההחלפה לא תפסה, התוצאה הייתה
+   /crmreview-request.html, וההודעות שכבר יצאו בוואטסאפ מופנות עד היום
+   ב-_redirects. אחר כך היא נבנתה מתיקיית הדף, וזה נשבר בכיוון ההפוך:
+   תיקייה שמסתיימת בלוכסן ועוד נתיב שמתחיל בלוכסן = //review-request. */
 function reviewLink(leadId){
-  const dir = window.location.pathname.replace(/[^/]*$/, '');
-  return window.location.origin + dir + 'review-request.html?lead=' + leadId;
+  return window.location.origin + '/review-request?lead=' + leadId;
 }
 
 /* פתיחת וואטסאפ עם הודעה מוכנה. הקישור נפתח בחלון חדש ולא נשלח מהשרת -
@@ -15662,7 +15666,7 @@ function buildPurchasedMortgageCard(lead){
         <a class="btn btn-ghost" href="https://wa.me/${esc(waDigits)}" target="_blank" rel="noopener noreferrer">💬 וואטסאפ</a>
         ${lead.email ? `<a class="btn btn-ghost" href="mailto:${esc(lead.email)}">✉️ אימייל</a>` : ''}
         ${lead.property_id && mortgagePropertyTitles[lead.property_id]
-          ? `<a class="btn btn-ghost" href="property.html?id=${esc(lead.property_id)}" target="_blank" rel="noopener noreferrer">🏠 הנכס</a>` : ''}
+          ? `<a class="btn btn-ghost" href="/property?id=${esc(lead.property_id)}" target="_blank" rel="noopener noreferrer">🏠 הנכס</a>` : ''}
       </div>
     `;
   return el;
@@ -16441,7 +16445,7 @@ function buildSharedCard(r){
     }
     addCardAction(actions, {
       label:'🏠 עמוד הנכס', blank:true,
-      href:'property.html?id=' + encodeURIComponent(r.property_id),
+      href:'/property?id=' + encodeURIComponent(r.property_id),
     });
 
     return el;
@@ -16894,7 +16898,7 @@ function renderClientMatches(panel, rows){
     const actions = card.querySelector('.lead-actions');
     addCardAction(actions, {
       label:'🏠 עמוד הנכס', blank:true,
-      href:'property.html?id=' + encodeURIComponent(m.property_id),
+      href:'/property?id=' + encodeURIComponent(m.property_id),
     });
 
     if (m.source !== 'own' && m.listing_agent_phone){
@@ -17209,7 +17213,7 @@ function buildAlertCard(a){
   const actions = card.querySelector('.lead-actions');
   addCardAction(actions, {
     label:'🏠 עמוד הנכס', blank:true,
-    href:'property.html?id=' + encodeURIComponent(a.property_id),
+    href:'/property?id=' + encodeURIComponent(a.property_id),
   });
 
   // ההצעה ללקוח/ה היא הפעולה שההתראה נועדה לה, ולכן הקישור נולד מוכן:
@@ -18023,7 +18027,7 @@ function syncNotifWaNote(){
   if (!assistantTierOk()){
     note.innerHTML = 'שליחת ההתראות בוואטסאפ היא חלק מהעוזר האישי, שזמין במסלולים ' +
       'PROFESSIONAL ו-Elite. ההתראות בפעמון עובדות בכל מסלול. ' +
-      '<a href="pricing.html" target="_blank" rel="noopener">לפרטים ולשדרוג</a>';
+      '<a href="/pricing" target="_blank" rel="noopener">לפרטים ולשדרוג</a>';
     return;
   }
 
@@ -20255,7 +20259,7 @@ function buildAgreementCard(a){
 
     addCardAction(actions, {
       label:'👁 צפייה', title:'פתיחת המסמך בלשונית חדשה',
-      href:'agreement.html?t=' + encodeURIComponent(a.view_token), blank:true,
+      href:'/agreement?t=' + encodeURIComponent(a.view_token), blank:true,
     });
 
     if (a.status !== 'signed' && a.status !== 'cancelled' && (a.signers || []).some(s => !s.signed_at && s.email)){
@@ -21934,7 +21938,7 @@ async function agrSaveManualSignature(signerId, btn){
 }
 
 function agrSignUrl(signer){
-  return location.origin + '/sign.html?t=' + encodeURIComponent(signer.sign_token);
+  return location.origin + '/sign?t=' + encodeURIComponent(signer.sign_token);
 }
 
 function agrSignerById(id){

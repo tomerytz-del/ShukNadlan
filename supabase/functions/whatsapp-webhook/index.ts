@@ -71,7 +71,7 @@ const TIER_ALLOWED = new Set(["mid", "premium"]);
 const TIER_REQUIRED_MSG =
   "הסוכן העוזר בוואטסאפ זמין במסלולים PROFESSIONAL ו-Elite. " +
   "במסלול Pay&GO אפשר להוסיף ולעדכן נכסים ישירות באיזור הסוכנים. " +
-  "לפרטים ולשדרוג: https://shuknadlan.co.il/pricing.html";
+  "לפרטים ולשדרוג: https://shuknadlan.co.il/pricing";
 
 const supabase = createClient(supabaseUrl, serviceRoleKey);
 

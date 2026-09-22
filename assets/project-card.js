@@ -162,7 +162,7 @@
     opts = opts || {};
     var card = document.createElement('a');
     card.className = 'pj-card';
-    card.href = 'project.html?slug=' + encodeURIComponent(p.slug || p.id);
+    card.href = '/project?slug=' + encodeURIComponent(p.slug || p.id);
 
     var cover = safeUrl(p.cover_url);
     var logo = safeUrl(p.logo_url || p.developer_logo_url);

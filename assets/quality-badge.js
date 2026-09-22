@@ -19,7 +19,7 @@
   'use strict';
 
   var BADGE_SRC = 'assets/badge-ethics.png';
-  var CODE_URL = 'ethics-code.html';
+  var CODE_URL = '/ethics-code';
   var BADGE_ALT = 'תו האמון והאיכות - עומד בתקן האתי של שוק הנדל״ן של עפולה';
 
   /* ‏xl הוא התו כפריט ראשי ולא כנספח: כך הוא מופיע בכרטיס הפרופיל בדף

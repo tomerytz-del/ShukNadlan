@@ -930,12 +930,12 @@ const FUNCTIONS_BASE =
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 
 function propertyLink(id: string): string | undefined {
-  return SITE_BASE_URL ? `${SITE_BASE_URL}/property.html?id=${id}` : undefined;
+  return SITE_BASE_URL ? `${SITE_BASE_URL}/property?id=${id}` : undefined;
 }
 
 /** הקישור הקבוע לעותק החתום — אותו אחד שנשלח לכל הצדדים במייל אחרי החתימה. */
 function agreementLink(viewToken: string): string | undefined {
-  return SITE_BASE_URL ? `${SITE_BASE_URL}/agreement.html?t=${viewToken}` : undefined;
+  return SITE_BASE_URL ? `${SITE_BASE_URL}/agreement?t=${viewToken}` : undefined;
 }
 
 /** מחיר כפי שהוא נקרא בהודעה: שכירות היא תמיד לחודש. */
@@ -1487,7 +1487,7 @@ async function toolPropertyShareStatus(ctx: ToolContext, input: Record<string, u
 const VIDEO_BLOCKERS: Record<string, string> = {
   not_eligible:
     "הפקת סרטון זמינה במסלולים PROFESSIONAL ו-Elite, על נכס פעיל של הסוכן/ת. " +
-    "לפרטים ולשדרוג: " + (SITE_BASE_URL ? `${SITE_BASE_URL}/pricing.html` : "עמוד המחירים"),
+    "לפרטים ולשדרוג: " + (SITE_BASE_URL ? `${SITE_BASE_URL}/pricing` : "עמוד המחירים"),
   job_in_progress: "כבר רצה הפקה על הנכס הזה. אפשר לשאול מה מצבה.",
   no_images: "אין תמונות לנכס הזה - אי אפשר להפיק ממנו סרטון.",
   not_enough_images: "אין מספיק תמונות לנכס להפקת סרטון.",
@@ -2825,7 +2825,7 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     .order("ord");
 
   const links = ((saved || []) as unknown as Record<string, unknown>[]).map((sg) => {
-    const url = `${SITE_BASE_URL}/sign.html?t=${sg.sign_token}`;
+    const url = `${SITE_BASE_URL}/sign?t=${sg.sign_token}`;
     const wa = waNumber(sg.phone);
     return {
       full_name: sg.full_name,
@@ -2864,7 +2864,7 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
       ? signers.filter((sg) => !(sg.email || "").trim()).map((sg) => sg.full_name)
       : undefined,
     frozen_note: "גוף המסמך ננעל ואי אפשר לערוך אותו. לתיקון - ביטול ההסכם והוצאת חדש, באשף שבדשבורד.",
-    manage_where: `${SITE_BASE_URL}/crm.html`,
+    manage_where: `${SITE_BASE_URL}/crm`,
   };
 }
 
@@ -3013,7 +3013,7 @@ async function toolAgreementSignLinks(ctx: ToolContext, input: Record<string, un
       phone: s.phone,
       // האסימון אישי לכל חותם/ת (48 תווים), ולא אחד להסכם — בני זוג לא
       // תמיד יושבים באותו חדר. לכן הקישור נמסר עם שם החותם/ת לידו.
-      sign_url: `${SITE_BASE_URL}/sign.html?t=${s.sign_token}`,
+      sign_url: `${SITE_BASE_URL}/sign?t=${s.sign_token}`,
       expires_at: s.token_expires_at,
     })),
   };
@@ -3050,7 +3050,7 @@ async function toolListLeads(ctx: ToolContext, input: Record<string, unknown>) {
     ok: true,
     returned: (data || []).length,
     waiting_to_unlock: masked ?? 0,
-    unlock_where: SITE_BASE_URL ? `${SITE_BASE_URL}/crm.html?goto=accLeads` : null,
+    unlock_where: SITE_BASE_URL ? `${SITE_BASE_URL}/crm?goto=accLeads` : null,
     leads: (data || []).map((l) => ({
       lead_id: l.id,
       lead_type: l.lead_type,

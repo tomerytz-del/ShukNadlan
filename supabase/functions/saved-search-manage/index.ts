@@ -84,8 +84,8 @@ Deno.serve(async (req: Request) => {
     }
 
     const target = SITE_BASE_URL
-      ? `${SITE_BASE_URL}/property.html?id=${encodeURIComponent(String(propertyId))}`
-      : `/property.html?id=${encodeURIComponent(String(propertyId))}`;
+      ? `${SITE_BASE_URL}/property?id=${encodeURIComponent(String(propertyId))}`
+      : `/property?id=${encodeURIComponent(String(propertyId))}`;
     return new Response(null, {
       status: 302,
       headers: { Location: target, "Cache-Control": "no-store" },

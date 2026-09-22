@@ -37,7 +37,7 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const SITE_BASE_URL = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/+$/, "");
 
-const PRICING_URL = `${SITE_BASE_URL}/pricing.html`;
+const PRICING_URL = `${SITE_BASE_URL}/pricing`;
 
 function corsHeaders() {
   return {

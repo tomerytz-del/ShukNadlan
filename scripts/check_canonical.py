@@ -35,6 +35,20 @@
   ‏7. **דף פירוט רשום בשתי פונקציות ה-edge** — ב-‎SOURCES‎ של ‎sitemap.ts‎
      (אחרת גוגל לא תדע שהרשומות קיימות) וב-‎config.path‎ של ‎og-tags.ts‎
      (אחרת אין לו ‎canonical‎ בכלל).
+  ‏8. **קישור פנימי מצביע על הצורה בלי הסיומת** — ‎/about‎ ולא
+     ‎about.html‎. ראו הנימוק למטה.
+
+## למה קישור פנימי חייב להיות בלי הסיומת
+
+‏Netlify מגיש כל דף בשתי צורות **ומפנה את בעלת הסיומת לחסרה** (‏301).
+קישור ל-‎about.html‎ עובד, נראה תקין, ומשלם סיבוב רשת נוסף בכל לחיצה —
+ובשביל גוגל הוא כתובת שכל מה שיש בה הוא הפניה. כך כל האתר נסרק פעמיים:
+פעם בצורה שמפנה ופעם ביעד.
+
+זה מה שהחזיר את ההודעה **"הדף מפנה לכתובת אתר אחרת"** מ-Search Console:
+‏1,187 הקישורים הפנימיים באתר הצביעו על הצורה עם הסיומת, בעוד ה-
+‎canonical‎ וה-‎sitemap‎ הצביעו על הצורה שבלעדיה. הם הומרו, והבדיקה הזו
+היא מה ששומר על זה - דף חדש שייכתב בהרגל הישן ייתפס כאן.
 
 ## למה דף פירוט אינו נושא תגית סטטית
 
@@ -112,6 +126,64 @@ ANCHOR = re.compile(r'<meta\s+name="google-site-verification"\s+content="[^"]*"\
 def page_url(name: str) -> str:
     """‏הכתובת הקנונית של דף לפי שם הקובץ, בצורה שבה Netlify מגיש אותו."""
     return SITE + "/" if name == "index" else SITE + "/" + name
+
+
+# ---------- ‏קישורים פנימיים: הצורה בלי הסיומת ----------
+
+# ‏שלוש הצורות שבהן כתובת פנימית נכתבת בפועל: מאפיין ב-HTML (גם כשהוא
+# בתוך מחרוזת ב-JS ולכן עם לוכסן הפוך), ליטרל שמתחיל בכתובת, וכתובת
+# שנבנית מבסיס (‏`${SITE}/property.html`).
+def link_patterns(names: list[str]) -> list[re.Pattern[str]]:
+    n = "|".join(re.escape(x) for x in names)
+    return [
+        re.compile(r'(?:href|action)=\\?["\'](?:\./|/)?(?:' + n + r")\.html"),
+        re.compile(r'["\'`](?:\./|/)?(?:' + n + r")\.html"),
+        re.compile(r"\}/(?:" + n + r")\.html"),
+    ]
+
+
+def code_lines(text: str):
+    """‏(מספר שורה, שורה) לכל שורה שאינה הערה.
+
+    ההערות בריפו הזה מזכירות שמות קבצים כתיעוד (‏"משוכפל מ-crm.html"),
+    והן אינן קישורים. המעקב פשוט בכוונה — בדיקה שמדלגת על יותר מדי
+    מפספסת ממצא, בדיקה שמדלגת על פחות מדי צועקת על תיעוד.
+    """
+    block = False          # ‏/* … */ או <!-- … -->
+    for i, raw in enumerate(text.splitlines(), 1):
+        line, stripped = raw, raw.strip()
+        if block:
+            if "*/" in line or "-->" in line:
+                block = False
+                line = line.split("*/")[-1].split("-->")[-1]
+            else:
+                continue
+        if stripped.startswith("//"):
+            continue
+        for opener, closer in (("/*", "*/"), ("<!--", "-->")):
+            if opener in line and closer not in line.split(opener, 1)[1]:
+                block = True
+                line = line.split(opener, 1)[0]
+        yield i, line
+
+
+def check_links(pages: list[Path]) -> list[str]:
+    """קישור פנימי שעדיין מצביע על הצורה עם הסיומת."""
+    names = sorted(p.stem for p in pages)
+    pats = link_patterns(names)
+    targets = (
+        pages
+        + sorted((ROOT / "assets").glob("*.js"))
+        + sorted((ROOT / "supabase" / "functions").rglob("*.ts"))
+    )
+    found: list[str] = []
+    for path in targets:
+        text = path.read_text(encoding="utf-8")
+        for num, line in code_lines(text):
+            if any(p.search(line) for p in pats):
+                rel = path.relative_to(ROOT)
+                found.append("%s:%d — %s" % (rel, num, line.strip()[:70]))
+    return found
 
 
 def head_of(text: str) -> str:
@@ -311,11 +383,20 @@ def main(argv: list[str]) -> int:
         for item in stale:
             print("      • %s" % item)
 
-    if failed or stale:
+    links = check_links(pages)
+    if links:
+        print("✗ קישורים פנימיים לצורה עם הסיומת (‏Netlify מפנה אותה ל-301)")
+        for item in links[:20]:
+            print("      • %s" % item)
+        if len(links) > 20:
+            print("      • ... ועוד %d" % (len(links) - 20))
+
+    if failed or stale or links:
         print(
             "\nכל אחד מהממצאים האלה נראה בדפדפן כמו דף תקין לגמרי — הוא פשוט\n"
             "אינו מופיע בגוגל, ואת זה מגלים מהודעה של Search Console חודש\n"
-            "אחרי. תגית חסרה בדף סטטי נשתלת אוטומטית:\n\n"
+            "אחרי. תגית חסרה בדף סטטי נשתלת אוטומטית (קישור פנימי מתוקן ביד,\n"
+            "והצורה הנכונה היא /about ולא about.html):\n\n"
             "    python scripts/check_canonical.py --fix\n\n"
             "התיעוד: docs/security-headers.md, docs/sitemap.md"
         )
@@ -324,7 +405,8 @@ def main(argv: list[str]) -> int:
     static = len(pages) - len(DETAIL) - len(PRIVATE)
     print(
         "✓ %d דפים סטטיים נושאים canonical ונמצאים ב-sitemap, %d דפי פירוט\n"
-        "  רשומים בשתי פונקציות ה-edge, ו-%d דפים פרטיים מוגנים."
+        "  רשומים בשתי פונקציות ה-edge, %d דפים פרטיים מוגנים, וכל הקישורים\n"
+        "  הפנימיים מצביעים על הצורה בלי הסיומת."
         % (static, len(DETAIL), len(PRIVATE))
     )
     return 0

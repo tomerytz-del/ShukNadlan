@@ -106,7 +106,7 @@ function firstName(name: string | null): string {
 }
 
 function gotoUrl(acc: string): string {
-  return `${SITE_BASE}/crm.html?goto=${encodeURIComponent(acc)}`;
+  return `${SITE_BASE}/crm?goto=${encodeURIComponent(acc)}`;
 }
 
 /**
@@ -194,7 +194,7 @@ async function sendWhatsapp(
             type: "button",
             sub_type: "url",
             index: "0",
-            parameters: [{ type: "text", text: `crm.html?goto=${MANAGE_ACC}` }],
+            parameters: [{ type: "text", text: `/crm?goto=${MANAGE_ACC}` }],
           },
         ],
       },

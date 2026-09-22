@@ -315,7 +315,7 @@
       el.setAttribute('role', 'link');
       el.tabIndex = 0;
       var open = function () {
-        global.location.href = 'property.html?id=' + encodeURIComponent(p.id);
+        global.location.href = '/property?id=' + encodeURIComponent(p.id);
       };
       el.addEventListener('click', function (e) {
         // כפתור שיושב על האריח (מועדפים) אינו ניווט לדף הנכס
@@ -341,7 +341,7 @@
     function propRow(p) {
       var el = document.createElement('a');
       el.className = 'prop-row';
-      el.href = 'property.html?id=' + encodeURIComponent(p.id);
+      el.href = '/property?id=' + encodeURIComponent(p.id);
       // התגית אומרת מכירה או השכרה, ולכן גם הגוון שלה נגזר מזה בלבד. גוון
       // "מסחרי" על תגית שכתוב בה "למכירה" הוא שני מסרים באותו מקום.
       el.setAttribute('data-deal', p.deal_type === 'rent' ? 'rent' : 'sale');
