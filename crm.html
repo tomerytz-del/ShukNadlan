@@ -4393,13 +4393,24 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
       </summary>
       <div class="acc-body">
-    <!-- שלושה כפתורים בשורה אחת נחתכים בטלפון, ו-flex-wrap היה מחלק אותם
-         אחרת בכל רוחב מסך. במקום זה חלוקה קבועה לפי משמעות: הוספת נכס היא
-         הפעולה הראשית ויושבת לבדה, ושתי פעולות הקובץ — ייבוא וייצוא —
-         חולקות את השורה שמתחתיה בכל רוחב. -->
+    <!-- שלושה כפתורים בשורה אחת נחתכים בטלפון. במקומם חלוקה לפי משמעות:
+         הוספת נכס היא הפעולה הראשית ויושבת לבדה, ושתי פעולות הקובץ —
+         ייבוא וייצוא — חולקות את השורה שמתחתיה.
+
+         ‏**ו-`flex-wrap:wrap` נחוץ שם.** ‏`flex:1` הוא `flex-basis:0`, אבל
+         חלוקת השורות נעשית לפי הגודל ההיפותטי - ה-basis **אחרי** הצמדה
+         ל-`min-width:auto`, כלומר ה-min-content. ‏`.btn` הוא
+         ‏`white-space:nowrap`, ולכן שני הכפתורים דורשים 287px קבועים:
+         ‏73px יותר ממה שיש במכשיר של 280px, ו-33px יותר ב-320px. גם 360px
+         אינו בטוח באמת - שם יש 294px, שבעה פיקסלים בלבד מעל הדרוש.
+
+         החשש שהיה כתוב כאן קודם, ש-`wrap` יחלק אותם אחרת בכל רוחב, נכון
+         לשלושה כפתורים (‏2+1 או 1+1+1). לשניים יש בדיוק שתי תוצאות ושתיהן
+         מכוונות, ומ-360px ומעלה הפריסה **זהה בפיקסל** למה שהייתה.
+         הפירוט והמדידה: `docs/agent-dashboard.md`. -->
     <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px">
       <button class="btn btn-ghost" id="toggleAddProperty">+ הוספת נכס חדש</button>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;flex-wrap:wrap;gap:8px">
         <button class="btn btn-ghost" id="openImportProperties" style="flex:1">⭳ ייבוא מקובץ</button>
         <button class="btn btn-ghost" id="openExportProperties" style="flex:1">⭱ ייצוא לאקסל</button>
       </div>
