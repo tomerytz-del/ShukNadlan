@@ -44,7 +44,13 @@ END = "  const compRows = comps.map("
 # **לא** הצליח הם אלה שבהם המספר חוזר להיות מעורבב, ולכן שתיקה שם היא
 # בדיוק התקלה הישנה - רק שקטה יותר.
 SAMPLE_START = "function cmaSampleNote(cov, radiusUsed){"
-SAMPLE_END = "function renderCmaReport(r){"
+SAMPLE_END = "/* ---------- שכבת השוק"
+
+# הבלוק השלישי: שכבת השוק. היא מחזירה **מחירים מבוקשים**, והסיכון היחיד
+# שבה הוא שהם ייקראו כמחירי עסקה - בדיוק הערבוב ש-`20261130090000`
+# נבנתה כדי למנוע. לכן נבדק שכל נוסח בה אומר זאת, בכל ארבעת המצבים.
+MARKET_START = "function cmaMarketNote(cov){"
+MARKET_END = "function renderCmaReport(r){"
 
 # הפלט האמיתי של agent_cma_report על מודעה #1139 (עלייה 7, עפולה),
 # הועתק משאילתת אימות מול הפרודקשן ב-21.9.2026. 80 מ"ר ב-1,320,000 ₪
@@ -98,6 +104,35 @@ SAMPLE_CASES = {
     "no_stats": [{"has_statistics": False, "status": "insufficient"}, 750],
 }
 
+MARKET_HARNESS = """
+%s
+function esc(v){ return String(v ?? ''); }
+const out = {};
+for (const [name, args] of Object.entries(%s)) out[name] = cmaMarketNote(args[0]);
+console.log(JSON.stringify(out));
+"""
+
+MARKET_CASES = {
+    # החציון נשען על נכסים שתואמים גם במאפיינים
+    "features": [{"market_comparables_total": 9, "market_feature_matched": 4,
+                  "market_band_reason": "features", "market_radius_meters": 1000,
+                  "min_market_required": 3}],
+    # יש מתחרים, אין די תואמי מאפיינים
+    "rooms_only": [{"market_comparables_total": 7, "market_feature_matched": 1,
+                    "market_band_reason": "rooms_only", "market_radius_meters": 1000,
+                    "min_market_required": 3}],
+    # לנכס עצמו לא רשומים מאפיינים
+    "no_features": [{"market_comparables_total": 7, "market_feature_matched": 0,
+                     "market_band_reason": "subject_features_missing",
+                     "market_radius_meters": 1000, "min_market_required": 3}],
+    # מתחת לסף - אין חציון, רק הרשימה
+    "too_few": [{"market_comparables_total": 2, "market_feature_matched": 0,
+                 "market_band_reason": "too_few", "market_radius_meters": 1000,
+                 "min_market_required": 3}],
+    # אין מתחרים בכלל - אין בלוק
+    "none": [{"market_comparables_total": 0, "market_band_reason": None}],
+}
+
 CASES = {
     # (subject, stats, hasStats)
     "real": [REAL["subject"], REAL["stats"], True],
@@ -145,12 +180,14 @@ def main() -> int:
 
     gap_block = block(START, END, "בלוק הפער")
     sample_block = block(SAMPLE_START, SAMPLE_END, "‏cmaSampleNote")
-    if gap_block is None or sample_block is None:
+    market_block = block(MARKET_START, MARKET_END, "‏cmaMarketNote")
+    if gap_block is None or sample_block is None or market_block is None:
         return 1
 
     out = run(HARNESS % (json.dumps(gap_block), json.dumps(CASES, ensure_ascii=False)))
     sample = run(SAMPLE_HARNESS % (sample_block, json.dumps(SAMPLE_CASES, ensure_ascii=False)))
-    if out is None or sample is None:
+    market = run(MARKET_HARNESS % (market_block, json.dumps(MARKET_CASES, ensure_ascii=False)))
+    if out is None or sample is None or market is None:
         return 1
 
     def text(html: str) -> str:
@@ -200,6 +237,23 @@ def main() -> int:
          "אינה מסוננת לפי מספר חדרים" in text(sample["no_rooms"])),
         ("בלי has_statistics - אין שורת מדגם בכלל",
          sample["no_stats"].strip() == ""),
+        # ---- שכבת השוק: מחיר מבוקש, ולעולם לא כמחיר עסקה ----
+        ("כל מצב בשכבת השוק אומר שאלה מחירים מבוקשים",
+         all("מחירים מבוקשים" in text(market[k])
+             for k in ("features", "rooms_only", "no_features", "too_few"))),
+        ("ושכולם אינם נכנסים לממוצע שלמעלה",
+         all("אינם נכנסים לממוצע" in text(market[k])
+             for k in ("features", "rooms_only", "no_features", "too_few"))),
+        ("התאמת מאפיינים: נאמר על כמה נכסים החציון נשען",
+         "4" in text(market["features"]) and "במאפיינים" in text(market["features"])),
+        ("אין די תואמים: נאמר שהחציון נשען על חדרים בלבד",
+         "לא נמצאו די נכסים שתואמים גם במאפיינים" in text(market["rooms_only"])),
+        ("נכס בלי מאפיינים: הדוח מבקש לסמן אותם",
+         "בכרטיס הנכס" in text(market["no_features"])),
+        ("מתחת לסף: **אין** חציון, ונאמר למה",
+         "אין כאן חציון" in text(market["too_few"])),
+        ("אין מתחרים בכלל - אין בלוק שוק",
+         market["none"].strip() == ""),
     ]
     for name, ok in checks:
         bad += not ok
