@@ -252,7 +252,7 @@ DEAL_COLUMNS_MIN  = 'sale_price, sold_at, rooms, property_type, city'
 
 | ווידג'ט | הפונקציה שקולטת | מה נוצר | למי |
 |---|---|---|---|
-| הערכת שווי | `owner-lead-intake` | `leads` · `owner_inbound` · `unlocked` | מנהל/ת המשרד |
+| הערכת שווי | `owner-lead-intake` | `leads` · `owner_inbound` · `unlocked` במסלול בתשלום, `masked` ב-Pay&GO | מנהל/ת המשרד |
 | התאמת נכס | `saved-search-intake` | `saved_searches` עם `agency_id` · `lead_status='sold'` | מנהל/ת המשרד |
 
 שניהם שולחים `agency_slug`, ושניהם עוקפים איתו את הרוטציה של הפלטפורמה.
@@ -301,8 +301,8 @@ DEAL_COLUMNS_MIN  = 'sale_price, sold_at, rooms, property_type, city'
 | | ליד רגיל של הפלטפורמה | ליד מדף משרד |
 |---|---|---|
 | שיוך | רוטציה: שכונה → סוג נכס → תור | **מנהל/ת המשרד** ישירות |
-| סטטוס | `masked` | `unlocked` |
-| מחיר | `ppl_price_owner_mid` / מכסה / tier | **חינם** — אין מה לרכוש |
+| סטטוס | `masked` | `unlocked` במסלול בתשלום · `masked` ב-Pay&GO |
+| מחיר | `ppl_price_owner_mid` / מכסה / tier | **חינם** ב-PROFESSIONAL ו-Elite · ב-Pay&GO נספר במכסת הפניות החודשית, ומעבר לה ₪25 |
 | בלעדיות | `owner_lead_exclusivity_hours` | לא רלוונטי |
 | `source` | `null` | `agency_page` |
 

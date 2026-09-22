@@ -117,6 +117,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .feat{display:flex;align-items:flex-start;gap:9px;font-size:.87rem;line-height:1.45}
   .feat svg{width:17px;height:17px;flex:none;margin-top:2px}
   .feat.off{opacity:.5}
+  /* השורה שהיא הסיבה לשדרג (‏strong בקטלוג המסלולים). לא רק מודגשת אלא
+     גדולה במעט: הדגשה לבדה נבלעת ברשימה של שמונה שורות באותו גודל. */
+  .feat.hi{font-size:.92rem}
+  .feat.hi span{font-weight:800}
   .plan-cta{margin:18px 20px 20px;display:block;text-align:center;text-decoration:none;
     padding:13px 18px;border-radius:9px;font-weight:700;font-size:.95rem;width:calc(100% - 40px)}
   .plan-foot{font-size:.74rem;text-align:center;margin:-8px 20px 16px;opacity:.75;min-height:1.1em}
@@ -534,7 +538,8 @@ document.getElementById('plans').innerHTML = Tiers.list().map(function(tier){
   const cta = ctaFor(tier);
   const isCurrent = tier.id === current;
   const feats = tier.features.map(function(f){
-    return '<div class="feat' + (f.on ? '' : ' off') + '">' + (f.on ? ICON_YES : ICON_NO) +
+    return '<div class="feat' + (f.on ? '' : ' off') + (f.strong ? ' hi' : '') + '">' +
+           (f.on ? ICON_YES : ICON_NO) +
            '<span>' + esc(f.text) + '</span></div>';
   }).join('');
 
@@ -597,12 +602,23 @@ const COMPARE = [
     ['חיפוש עסקאות שנסגרו לפי כתובת',                    false, false, true],
   ]],
   ['לידים ופניות', [
-    ['לידי קונה/שוכר', '10 בחודש, ואז ₪20', 'ללא הגבלה', 'ללא הגבלה'],
-    ['לידי בעל-נכס (מוכר/משכיר)',      false, '₪50 לליד', 'כלול ללא עלות'],
+    /* מכסה אחת, לא מכסה לכל מקור. ‏claim_lead סופרת את כל הפניות שנפתחות
+       באותו מונה חודשי (‏free_quota_used), ולכן שורה שמבטיחה "10 לידי
+       קונה/שוכר" בנפרד משורות ה-✓ של המחשבונים הייתה מתארת מכסה שאינה
+       קיימת. שורות המקורות שמתחת מפנות לכאן ואינן מבטיחות ✓ לעצמן. */
+    ['לידי קונה/שוכר, פניות מהבאנרים ומהמחשבונים - מכסה אחת משותפת',
+      '10 בחודש, ואז ₪25', 'ללא הגבלה', 'ללא הגבלה'],
+    ['לידי בעל-נכס מהפלטפורמה (מוכר/משכיר)', false, '₪50 לליד', 'כלול ללא עלות'],
     ['הפניה אוטומטית של לידי בעל-נכס אליך',              false, true, true],
-    ['פניות ממחשבון המשכנתא בדף הנכס',                    true, true, true],
-    ['פניות ממחשבון התשואה בדף הסוכן/ת ובדף המשרד',       true, true, true],
-    ['פניות מהערכת השווי ומהתאמת הנכס',                   true, true, true],
+    /* מחשבון המשכנתא הוא היוצא מן הכלל בקבוצה הזו: הפנייה ממנו נכנסת למדף
+       יועצי המשכנתאות (‏mortgage_leads) ואינה מגיעה לסוכן/ת כלל, ולכן היא
+       אינה נספרת במכסה ואין לה מחיר. מה שהשורה מבטיחה הוא הכלי בדף. */
+    ['מחשבון משכנתא בדף הנכס שלך',                        true, true, true],
+    ['פניות ממחשבון התשואה בדף הסוכן/ת ובדף המשרד',
+      'נכלל במכסה, ואז ₪25', 'ללא הגבלה', 'ללא הגבלה'],
+    ['פניות מהערכת השווי בדף הסוכן/ת ובדף המשרד',
+      'נכלל במכסה, ואז ₪25', 'ללא הגבלה', 'ללא הגבלה'],
+    ['התאמות מבאנר מחפשי הנכס בדף שלך - ללא עלות ומחוץ למכסה', true, true, true],
     ['חנות הלידים - משכנתאות, חיפושים שמורים ולידים חיצוניים',
       'בתשלום לפי ליד', 'בתשלום לפי ליד', 'בתשלום לפי ליד'],
   ]],

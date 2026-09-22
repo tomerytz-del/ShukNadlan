@@ -5168,8 +5168,11 @@ function renderTierGate(){
 
     // שלושה יתרונות ולא שבעה: זה מסך החלטה, לא דף מכירה. הפירוט המלא
     // נמצא בקישור להשוואה שמתחת לכרטיסים.
+    // ‏strong בקטלוג = השורה שהיא הסיבה לשדרג. היא מודגשת גם כאן, כדי שמסך
+    // ההחלטה וכרטיס המכירה לא יבליטו שני דברים שונים.
     const feats = tier.features.filter(f => f.on).slice(0, 3)
-      .map(f => '<li>' + esc(f.text) + '</li>').join('');
+      .map(f => '<li>' + (f.strong ? '<strong>' + esc(f.text) + '</strong>' : esc(f.text)) + '</li>')
+      .join('');
 
     card.innerHTML =
       (isGift ? '<span class="tg-gift">מתנת ההצטרפות · ' + Tiers.PROMO.months + ' חודשים</span>' : '') +
@@ -14887,16 +14890,20 @@ function quotaUsedThisCycle(){
 
 function claimCost(lead){
   const tier = currentAgent?.tier || 'free';
-  if (lead.lead_type === 'owner_inbound'){
-    if (tier === 'free')    return { price:0, blocked:'לידי בעל-נכס אינם זמינים במסלול Pay&GO' };
+  /* פנייה שנכנסה בערוץ של הסוכן/ת עצמו/ה - דף המשרד או דף הסוכן/ת. היא לא
+     הוצעה לאיש אחר, ולכן גם כשהיא רשומה כ-owner_inbound היא נכנסת למכסה
+     המשותפת ולא למסלול לידי הפלטפורמה. אותה הבחנה בדיוק ב-claim_lead במסד. */
+  const ownChannel = lead.source === 'agency_page' || lead.source === 'agent_page';
+  if (lead.lead_type === 'owner_inbound' && !ownChannel){
+    if (tier === 'free')    return { price:0, blocked:'לידי בעל-נכס מהפלטפורמה אינם זמינים במסלול Pay&GO' };
     if (tier === 'premium') return { price:0, note:'לידי בעל-נכס כלולים במסלול Elite' };
     return { price: priceOf('ppl_price_owner_mid', 50) };
   }
-  if (tier === 'mid' || tier === 'premium') return { price:0, note:'לידי קונה/שוכר כלולים במסלול שלך, ללא הגבלה' };
+  if (tier === 'mid' || tier === 'premium') return { price:0, note:'הפניות כלולות במסלול שלך, ללא הגבלה' };
   const quota = priceOf('free_lead_quota_monthly', 10);
   const used = quotaUsedThisCycle();
-  if (used < quota) return { price:0, note:`נכלל במכסה החינמית — ${used + 1} מתוך ${quota} החודש` };
-  return { price: priceOf('ppl_price_buyer_renter', 20), note:`המכסה החינמית (${quota} לחודש) נוצלה` };
+  if (used < quota) return { price:0, note:`נכלל במכסת הפניות החינמית - ${used + 1} מתוך ${quota} החודש` };
+  return { price: priceOf('ppl_price_buyer_renter', 25), note:`המכסה החינמית (${quota} פניות לחודש) נוצלה` };
 }
 
 async function claimLead(lead, btn, agentId){
@@ -14930,7 +14937,7 @@ async function claimLead(lead, btn, agentId){
       const errorMessages = {
         exclusive_to_another_agent: 'הליד עדיין בבלעדיות לסוכן אחר',
         insufficient_balance: `יתרה לא מספיקה — נדרש ₪${data.required}. טענו קרדיט ונסו שוב`,
-        free_tier_not_eligible_owner_lead: 'לידי בעל-נכס אינם זמינים במסלול Pay&GO',
+        free_tier_not_eligible_owner_lead: 'לידי בעל-נכס מהפלטפורמה אינם זמינים במסלול Pay&GO',
         lead_already_claimed_by_someone_else: 'הליד כבר נתפס',
         already_unlocked: 'הליד כבר פתוח',
       };
