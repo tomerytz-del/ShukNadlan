@@ -382,6 +382,11 @@ async function refreshAgentBalance(){
 
 function confirmPurchase({ title, lines = [], price = 0, ackText, confirmLabel, requireAck = false, hidePrice = false }){
   const overlay   = document.getElementById('purchaseModal');
+  /* החלון יושב ב-HTML בתוך `#dashboard`, שהוא `display:none` במסך שער
+     המסלול — ושם בדיוק נדרש עכשיו אישור המעבר עם תיבת הסימון. ההעברה
+     ל-`body` קורית פעם אחת בפועל, וכל ה-CSS של החלון מבוסס מחלקות
+     ומשתני `:root`, ולכן המיקום ב-DOM אינו משנה לו דבר. */
+  if (overlay.parentElement !== document.body) document.body.appendChild(overlay);
   const ackBox    = document.getElementById('pmAck');
   const ackWrap   = document.getElementById('pmAckWrap');
   const confirmBtn= document.getElementById('pmConfirm');
@@ -5158,18 +5163,27 @@ function renderTierGate(){
     const giftId = promo.tier || Tiers.PROMO.tier;
     order.sort((a, b) => (b.id === giftId) - (a.id === giftId));
   }
+  // הירידה ל-Pay&GO סגורה כרגע (‏Tiers.SWITCH) — היא הדבר היחיד שנכנס
+  // לתוקף בלחיצה, וכך בדיוק ירד חשבון מ-Elite בטעות. מסלול בתשלום נשאר
+  // לחיץ: הוא רושם בקשה ואינו משנה דבר. כפתור שנראה פעיל ונדחה בשרת הוא
+  // הצורה הגרועה משתיהן.
+  const freeLocked = !Tiers.switchOpen();
   order.forEach(tier => {
     const isGift = promo.active && tier.id === (promo.tier || Tiers.PROMO.tier);
-    const locked = promo.active && !isGift;      // בתקופת ההשקה אין ירידה מ-Elite
     const isCurrent = !promo.active && tier.id === agent.tier;
+    const locked = (promo.active && !isGift) ||   // בתקופת ההשקה אין ירידה מ-Elite
+                   (freeLocked && tier.id === 'free' && !isCurrent);
 
     const card = document.createElement('div');
     card.className = 'tg-plan' + (isGift ? ' is-hero' : '') + (locked ? ' is-locked' : '');
 
     // שלושה יתרונות ולא שבעה: זה מסך החלטה, לא דף מכירה. הפירוט המלא
     // נמצא בקישור להשוואה שמתחת לכרטיסים.
+    // ‏strong בקטלוג = השורה שהיא הסיבה לשדרג. היא מודגשת גם כאן, כדי שמסך
+    // ההחלטה וכרטיס המכירה לא יבליטו שני דברים שונים.
     const feats = tier.features.filter(f => f.on).slice(0, 3)
-      .map(f => '<li>' + esc(f.text) + '</li>').join('');
+      .map(f => '<li>' + (f.strong ? '<strong>' + esc(f.text) + '</strong>' : esc(f.text)) + '</li>')
+      .join('');
 
     card.innerHTML =
       (isGift ? '<span class="tg-gift">מתנת ההצטרפות · ' + Tiers.PROMO.months + ' חודשים</span>' : '') +
@@ -5182,7 +5196,7 @@ function renderTierGate(){
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'btn btn-block ' + (isGift || (!promo.active && !isCurrent && tier.id !== 'free') ? 'btn-gold' : 'btn-ghost');
-    btn.textContent = locked ? 'ייפתח בתום ההטבה'
+    btn.textContent = locked ? (promo.active ? 'ייפתח בתום ההטבה' : 'המעבר נעשה מולנו')
       : isGift ? 'מתחילים'
       : isCurrent ? 'המסלול הנוכחי שלי - להמשיך'
       : 'בחירה ב-' + tier.name;
@@ -5192,22 +5206,79 @@ function renderTierGate(){
     box.appendChild(card);
   });
 
-  if (promo.active){
+  if (promo.active || freeLocked){
     const note = document.createElement('p');
     note.className = 'tg-locked-note';
-    note.textContent = 'בתקופת ההשקה כל הסוכנים נמצאים ב-' +
-      Tiers.label(promo.tier || Tiers.PROMO.tier) + '. בחירה בין מסלולים תיפתח בתום התקופה.';
+    note.textContent = promo.active
+      ? 'בתקופת ההשקה כל הסוכנים נמצאים ב-' + Tiers.label(promo.tier || Tiers.PROMO.tier) +
+        '. בחירה בין מסלולים תיפתח בתום התקופה.'
+      : Tiers.SWITCH.note;
     box.appendChild(note);
   }
+}
+
+/* ---------- מה באמת קורה כשמסלול משתנה ----------
+   הרשימה נגזרת מהקטלוג ולא נכתבת ביד: מסלול חדש שייכנס יופיע כאן מעצמו.
+   מה שכן נכתב ביד הוא שלוש התוצאות של ירידה ל-Pay&GO שאינן "פיצ'ר חסר"
+   אלא השלכה — ובראשן מחיקת מספרי הטלפון, שהיא **חד-כיוונית**: חזרה
+   למסלול אינה מחזירה את הטקסט שנמחק. */
+function tierChangeImpact(fromId, toId){
+  const to   = Tiers.byId(toId);
+  const from = Tiers.byId(fromId);
+  if (!to) return [];
+  const down = !!from && Tiers.isUpgrade(toId, fromId);
+  const lines = [
+    `מהמסלול ${Tiers.label(fromId)} אל ${Tiers.label(toId)}.`,
+    down ? 'מה שלא יהיה זמין אחרי המעבר:' : 'מה שנפתח במסלול החדש:',
+  ];
+  const changed = down
+    ? to.features.filter(f => !f.on)
+    : to.features.filter(f => f.on && f.strong);
+  changed.slice(0, 6).forEach(f => lines.push('• ' + f.text));
+  if (down && toId === 'free'){
+    lines.push('• מספרי טלפון בתיאורי המודעות ובביו האישי יוסרו אוטומטית - וההסרה אינה הפיכה');
+    lines.push('• פניות מעבר ל-10 בחודש יחויבו ₪25 מיתרת הארנק');
+  }
+  if (!down && to.priceMonthly){
+    lines.push('המעבר אינו מיידי: נרשמת בקשה, והמסלול מופעל אחרי הסדרת התשלום.');
+  }
+  return lines;
 }
 
 /* בחירת מסלול — הקריאה היחידה שמשנה מסלול בכל ה-CRM.
    שלוש תשובות מהשרת, וכל אחת מסך אחר: applied נכנס לדשבורד, requested
    מציג שהבקשה נקלטה (מסלול בתשלום אינו מופעל בלחיצה — הוא נסגר מול
-   ההנהלה), ו-promo_locked הוא ניסיון לעקוף את נעילת ההשקה. */
+   ההנהלה), ו-promo_locked הוא ניסיון לעקוף את נעילת ההשקה.
+
+   **לפני כל אלה: שינוי מסלול אינו קורה בלחיצה אחת.** הוא נעול כרגע
+   (`Tiers.SWITCH`), וגם כשייפתח הוא עובר דרך חלון אישור עם תיבת סימון —
+   כי הדרך שבה חשבון ירד מ-Elite ל-Pay&GO בטעות הייתה בדיוק לחיצה אחת
+   בדף המסלולים, שנצרכת כאן אוטומטית מ-`?tier=`. */
 async function chooseTier(tierId, btn){
   const feedback = document.getElementById('tgFeedback');
   const original = btn ? btn.textContent : '';
+  const currentTier = (currentAgent && currentAgent.tier) || null;
+  const isChange = !!currentTier && tierId !== currentTier;
+
+  // הירידה ל-Pay&GO היא הבחירה היחידה שנכנסת לתוקף בלחיצה, והיא סגורה
+  // כרגע בשרת. מסלול בתשלום ממשיך לעבור: הוא רושם בקשה ואינו משנה מסלול.
+  if (isChange && tierId === 'free' && window.Tiers && !Tiers.switchOpen()){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = Tiers.SWITCH.note;
+    return;
+  }
+  if (isChange){
+    const approved = await confirmPurchase({
+      title: 'אישור מעבר מסלול',
+      lines: tierChangeImpact(currentTier, tierId),
+      hidePrice: true,
+      requireAck: true,
+      ackText: 'קראתי והבנתי מה משתנה במעבר, ואני מאשר/ת אותו.',
+      confirmLabel: 'מעבר ל-' + Tiers.label(tierId),
+    });
+    if (!approved) return;
+  }
+
   if (btn){ btn.disabled = true; btn.textContent = 'רגע…'; }
   feedback.style.color = 'var(--ink-soft)';
   feedback.textContent = '';
@@ -5221,7 +5292,7 @@ async function chooseTier(tierId, btn){
     });
     const data = await res.json().catch(() => ({}));
 
-    if (data.status === 'promo_locked'){
+    if (data.status === 'promo_locked' || data.status === 'tier_locked'){
       feedback.style.color = 'var(--red)';
       feedback.textContent = data.detail || 'בתקופת ההשקה אי אפשר לשנות מסלול.';
       return;
@@ -14887,16 +14958,20 @@ function quotaUsedThisCycle(){
 
 function claimCost(lead){
   const tier = currentAgent?.tier || 'free';
-  if (lead.lead_type === 'owner_inbound'){
-    if (tier === 'free')    return { price:0, blocked:'לידי בעל-נכס אינם זמינים במסלול Pay&GO' };
+  /* פנייה שנכנסה בערוץ של הסוכן/ת עצמו/ה - דף המשרד או דף הסוכן/ת. היא לא
+     הוצעה לאיש אחר, ולכן גם כשהיא רשומה כ-owner_inbound היא נכנסת למכסה
+     המשותפת ולא למסלול לידי הפלטפורמה. אותה הבחנה בדיוק ב-claim_lead במסד. */
+  const ownChannel = lead.source === 'agency_page' || lead.source === 'agent_page';
+  if (lead.lead_type === 'owner_inbound' && !ownChannel){
+    if (tier === 'free')    return { price:0, blocked:'לידי בעל-נכס מהפלטפורמה אינם זמינים במסלול Pay&GO' };
     if (tier === 'premium') return { price:0, note:'לידי בעל-נכס כלולים במסלול Elite' };
     return { price: priceOf('ppl_price_owner_mid', 50) };
   }
-  if (tier === 'mid' || tier === 'premium') return { price:0, note:'לידי קונה/שוכר כלולים במסלול שלך, ללא הגבלה' };
+  if (tier === 'mid' || tier === 'premium') return { price:0, note:'הפניות כלולות במסלול שלך, ללא הגבלה' };
   const quota = priceOf('free_lead_quota_monthly', 10);
   const used = quotaUsedThisCycle();
-  if (used < quota) return { price:0, note:`נכלל במכסה החינמית — ${used + 1} מתוך ${quota} החודש` };
-  return { price: priceOf('ppl_price_buyer_renter', 20), note:`המכסה החינמית (${quota} לחודש) נוצלה` };
+  if (used < quota) return { price:0, note:`נכלל במכסת הפניות החינמית - ${used + 1} מתוך ${quota} החודש` };
+  return { price: priceOf('ppl_price_buyer_renter', 25), note:`המכסה החינמית (${quota} פניות לחודש) נוצלה` };
 }
 
 async function claimLead(lead, btn, agentId){
@@ -14930,7 +15005,7 @@ async function claimLead(lead, btn, agentId){
       const errorMessages = {
         exclusive_to_another_agent: 'הליד עדיין בבלעדיות לסוכן אחר',
         insufficient_balance: `יתרה לא מספיקה — נדרש ₪${data.required}. טענו קרדיט ונסו שוב`,
-        free_tier_not_eligible_owner_lead: 'לידי בעל-נכס אינם זמינים במסלול Pay&GO',
+        free_tier_not_eligible_owner_lead: 'לידי בעל-נכס מהפלטפורמה אינם זמינים במסלול Pay&GO',
         lead_already_claimed_by_someone_else: 'הליד כבר נתפס',
         already_unlocked: 'הליד כבר פתוח',
       };
