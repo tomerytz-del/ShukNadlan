@@ -285,6 +285,44 @@
       });
   }
 
+  /* ---------- האיור של היריד: "0%" עם שעון עצר ובניין ----------
+     אותו איור בבאנר שבדף הבית (‏.oh-promo-art) ובראש דף היריד
+     (‏.oh-head-art) — ולכן הוא כאן ולא בכל אחד מהם. ‏SVG מוטבע ולא תמונה:
+     חד בכל צפיפות מסך ובלי בקשה נוספת לרשת. לכל קריאה מזהה גרדיאנט משלה,
+     כי שני איורים באותו מסמך עם אותו ‎id‎ היו שוברים זה לזה את המילוי. */
+  var artSeq = 0;
+  function zeroArt(className) {
+    var g = 'ohGold' + (++artSeq);
+    var gold = 'url(#' + g + ')';
+    var font = 'font-family="Heebo,Arial,sans-serif" font-weight="900"';
+    return '<svg class="' + esc(className || 'oh-zero-art') + '" viewBox="0 0 170 104" ' +
+        'aria-hidden="true" focusable="false">' +
+      '<defs><linearGradient id="' + g + '" x1="0" y1="0" x2="0" y2="1">' +
+        '<stop offset="0" stop-color="#fbe7a1"/><stop offset=".45" stop-color="#e0b54a"/>' +
+        '<stop offset=".75" stop-color="#b8862a"/><stop offset="1" stop-color="#f1d27a"/>' +
+      '</linearGradient></defs>' +
+      // שעון העצר — מאחורי ה-%
+      '<g fill="none" stroke="' + gold + '" stroke-width="4.5" stroke-linecap="round">' +
+        '<circle cx="132" cy="54" r="27"/>' +
+        '<path d="M126 22h12M132 22v5M151 32l5-5M113 32l-5-5"/>' +
+        '<path d="M132 54l11-12" stroke-width="5"/>' +
+        '<path d="M132 33v4M153 54h-4M132 75v-4M111 54h4" stroke-width="3"/>' +
+      '</g>' +
+      '<circle cx="132" cy="54" r="3.5" fill="' + gold + '"/>' +
+      // ה-0 הגדול וה-%
+      '<text x="40" y="90" ' + font + ' font-size="104" fill="' + gold + '" stroke="#6b4a12" stroke-width="1.2">0</text>' +
+      '<text x="93" y="96" ' + font + ' font-size="58" fill="' + gold + '" stroke="#6b4a12" stroke-width=".8">%</text>' +
+      // הבניין
+      '<g fill="' + gold + '"><path d="M8 100V52h24v48z" opacity=".95"/><path d="M4 100h32v3H4z"/></g>' +
+      '<g fill="#0f1a3d">' +
+        '<rect x="12" y="57" width="5" height="5"/><rect x="23" y="57" width="5" height="5"/>' +
+        '<rect x="12" y="67" width="5" height="5"/><rect x="23" y="67" width="5" height="5"/>' +
+        '<rect x="12" y="77" width="5" height="5"/><rect x="23" y="77" width="5" height="5"/>' +
+        '<rect x="17" y="89" width="6" height="11"/>' +
+      '</g>' +
+    '</svg>';
+  }
+
   /* ---------- הפין על המפה ----------
      מוחזר כ-HTML ל-‎L.divIcon‎ של Leaflet (‏iconSize 0×0, ראו ‎.map-pin‎
      ב-index.html): הסימן ממורכז על הנקודה ומעליו תווית המחיר, כדי שנכס
@@ -315,6 +353,7 @@
     rangeLabel: rangeLabel,
     hebDay: hebDay,
     icon: icon,
+    zeroArt: zeroArt,
     mapPinHtml: mapPinHtml,
     NO_FEE: NO_FEE,
     FAIR_NAME: FAIR_NAME,

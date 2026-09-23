@@ -1394,42 +1394,8 @@ async function loadOpenHouseCount(){
    ראו ‎.oh-promo‎ ב-assets/open-house.css.
 
    ‏count עדיין קובע אם הבאנר קיים בכלל (אפס → hidden), אבל כבר לא נכתב
-   בו: המוקאפ לא נושא מספר, והמספר מחכה בעמוד היריד עצמו. האיור הוא SVG
-   מוטבע ולא תמונה — הטקסט נשאר טקסט (נגיש, חד, ניתן לתרגום), ואין בקשה
-   נוספת לרשת. */
-const OH_PROMO_ART =
-  `<svg class="oh-promo-art" viewBox="0 0 170 104" aria-hidden="true" focusable="false">` +
-    `<defs>` +
-      `<linearGradient id="ohGold" x1="0" y1="0" x2="0" y2="1">` +
-        `<stop offset="0" stop-color="#fbe7a1"/><stop offset=".45" stop-color="#e0b54a"/>` +
-        `<stop offset=".75" stop-color="#b8862a"/><stop offset="1" stop-color="#f1d27a"/>` +
-      `</linearGradient>` +
-    `</defs>` +
-    // שעון העצר — מאחורי ה-%
-    `<g fill="none" stroke="url(#ohGold)" stroke-width="4.5" stroke-linecap="round">` +
-      `<circle cx="132" cy="54" r="27"/>` +
-      `<path d="M126 22h12M132 22v5M151 32l5-5M113 32l-5-5"/>` +
-      `<path d="M132 54l11-12" stroke-width="5"/>` +
-      `<path d="M132 33v4M153 54h-4M132 75v-4M111 54h4" stroke-width="3"/>` +
-    `</g>` +
-    `<circle cx="132" cy="54" r="3.5" fill="url(#ohGold)"/>` +
-    // ה-0 הגדול וה-%
-    `<text x="40" y="90" font-family="Heebo,Arial,sans-serif" font-weight="900" font-size="104" ` +
-      `fill="url(#ohGold)" stroke="#6b4a12" stroke-width="1.2">0</text>` +
-    `<text x="93" y="96" font-family="Heebo,Arial,sans-serif" font-weight="900" font-size="58" ` +
-      `fill="url(#ohGold)" stroke="#6b4a12" stroke-width=".8">%</text>` +
-    // הבניין
-    `<g fill="url(#ohGold)">` +
-      `<path d="M8 100V52h24v48z" opacity=".95"/>` +
-      `<path d="M4 100h32v3H4z"/>` +
-    `</g>` +
-    `<g fill="#0f1a3d">` +
-      `<rect x="12" y="57" width="5" height="5"/><rect x="23" y="57" width="5" height="5"/>` +
-      `<rect x="12" y="67" width="5" height="5"/><rect x="23" y="67" width="5" height="5"/>` +
-      `<rect x="12" y="77" width="5" height="5"/><rect x="23" y="77" width="5" height="5"/>` +
-      `<rect x="17" y="89" width="6" height="11"/>` +
-    `</g>` +
-  `</svg>`;
+   בו: המוקאפ לא נושא מספר, והמספר מחכה בעמוד היריד עצמו. האיור הוא
+   ‏OpenHouse.zeroArt() — אותו איור בראש דף היריד. */
 
 function renderOpenHouseBanner(count){
   const host = document.getElementById('openHouseBanner');
@@ -1439,7 +1405,7 @@ function renderOpenHouseBanner(count){
   host.innerHTML =
     `<a class="oh-promo" href="/open-house">` +
       `<h2 class="oh-promo-title">יריד דירות<br>ללא עמלת תיווך<br>לזמן מוגבל!</h2>` +
-      OH_PROMO_ART +
+      OpenHouse.zeroArt('oh-promo-art') +
       `<span class="oh-promo-body">` +
         `<span class="oh-promo-kicker">אל תחמיצו את ההזדמנות!</span>` +
         // שני משפטים, שורה לכל אחד — ‏nowrap ב-CSS, כדי שמשפט לא יישבר
