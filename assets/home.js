@@ -2074,10 +2074,10 @@ function bindRowScroller(row){
   }
 
   /* ---------- כמה כרטיסים מוצגים ----------
-     בטלפון — כולם, בקרוסלה. מ-760px — גריד בשתי שורות לכל היותר (שלוש
-     עמודות, ומ-1100px ארבע), והשאר מאחורי "צפייה בכל". גריד בן ארבע
-     שורות של משרדים היה דוחף את כל מה שמתחתיו מסך וחצי למטה. */
-  const DM_GRID_ROWS = 2;
+     בטלפון — כולם, בקרוסלה. מ-760px — **שורה אחת** בגריד (שלוש עמודות,
+     ומ-1100px ארבע), והשאר מאחורי "צפייה בכל". גם שתי שורות היו יותר
+     מדי גובה באמצע דף הבית. */
+  const DM_GRID_ROWS = 1;
   const dmMqGrid = window.matchMedia('(min-width:760px)');
   const dmMqWide = window.matchMedia('(min-width:1100px)');
   const dmLimit = ()=> dmMqGrid.matches ? (dmMqWide.matches ? 4 : 3) * DM_GRID_ROWS : Infinity;
