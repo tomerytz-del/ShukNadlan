@@ -1552,231 +1552,89 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   .ticker-more{font-size:.83rem;font-weight:700;color:var(--gold-dark);flex:0 0 auto;white-space:nowrap}
 
-  /* ====== רצועת ההדמיות ======
-     הרצועה הכהה הראשונה שאחרי ה-hero, ובכוונה: היא לא עוד רצועת נכסים אלא
-     הצגה של יכולת, והניגוד הוא מה שאומר את זה בלי כותרת שמסבירה. הזהב כאן
-     הוא הדגש ולא המשטח (ראו assets/design-system.css) — חוץ מקופסת ה-CTA,
-     שנושאת טקסט כהה ולכן מותר לה להיות זהב מלא. */
-  .ai-band{background:var(--teal-dark);padding:18px 0;overflow:hidden}
-  .ai-band-inner{position:relative;display:grid;gap:13px}
-  /* שתי הילות שנעות לאט מתחת לתוכן — אותה שפה של הרקע הנע שבשאר הדף
-     (assets/page-bg.js), בגרסה מקומית לרצועה אחת. */
-  .ai-band-glow{
-    position:absolute;inset:-26px 0;pointer-events:none;
-    background:
-      radial-gradient(circle at 18% 20%, rgba(63,110,255,.32), rgba(13,27,61,0) 62%),
-      radial-gradient(circle at 85% 85%, rgba(201,162,39,.26), rgba(13,27,61,0) 60%);
-    animation:aiSheen 14s ease-in-out infinite;
-  }
-  @keyframes aiSheen{0%,100%{opacity:.4}50%{opacity:.85}}
-  .ai-band-shots{position:relative;display:flex;flex-direction:column;gap:10px}
-  .ai-shot{
-    position:relative;height:170px;overflow:hidden;background:#b9c4de;
-    border:1px solid rgba(255,255,255,.14);
-  }
-  .ai-shot img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
-  /* השכבה ה"אחרי" יושבת בדיוק על השכבה שמתחתיה — אותו inset, אותו
-     object-fit — ורק ה-clip משתנה. זה העיקר: וילון שמצומצם ב-width היה
-     מכווץ איתו את התמונה, ושתי התמונות היו נחתכות אחרת ומפסיקות להיות
-     "אותו חדר". ‏clip-path חותך בלי לגעת בפריסה, ולכן כל פיקסל בגבול
-     הווילון הוא אותו פיקסל בשתי התמונות.
+  /* ====== באנר ההדמיות — בסוף תיבת הנכסים ======
+     יושב בתוך ‎.pp-box‎, בין הגריד לכפתור "עוד" (‏cfg.afterGrid). הרקע
+     הכהה הוא מה שאומר שזו לא עוד שורת נכסים אלא הזמנה; הזהב הוא הדגש
+     ולא המשטח (ראו assets/design-system.css) — חוץ מקופסת ה-CTA, שנושאת
+     טקסט כהה ולכן מותר לה להיות זהב מלא.
 
-     ‏clip-path אינו מאפיין לוגי ואין לו גרסת inline-start/end, ולכן הוא
-     נכתב פיזית: הדף כולו ‎dir="rtl"‎, והחשיפה היא משמאל ימינה — הכיוון
-     שבו ‎inset-inline-end‎ של הידית זז. */
-  .ai-shot-after{
-    position:absolute;inset:0;
-    clip-path:inset(0 48% 0 0);
-    animation:revealWipe 9s ease-in-out infinite;
+     הסדר ב-DOM הוא הסדר בעין בכיוון RTL: התמונון מימין, הטקסט באמצע
+     וה-CTA משמאל. בטלפון שלושתם נערמים, והתמונון יורד. */
+  .ai-promo{
+    display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,.95fr);
+    align-items:center;gap:22px;margin-top:16px;padding:14px;
+    background:linear-gradient(to left,#2a2e37,#172a5e);color:#fff;
   }
-  .ai-shot-handle{
-    position:absolute;inset-block:0;inset-inline-end:52%;width:2px;background:var(--brass,#c9a227);
-    animation:handleSlide 9s ease-in-out infinite;
+  .ai-promo[hidden]{display:none}
+  .ai-promo-copy{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0}
+  .ai-promo-title{margin:0;font-size:1.2rem;font-weight:800;line-height:1.3;color:var(--brass-light,#e5c76a)}
+  .ai-promo-star{font-size:1rem;margin-inline-start:3px}
+  .ai-promo-sub{margin:0;font-size:.85rem;line-height:1.5;color:#dbe3f5}
+  .ai-promo-go{
+    margin-top:6px;padding:10px 20px;border:1px solid rgba(255,255,255,.12);border-radius:0;
+    background:var(--brass,#c9a227);color:var(--ink);font-family:inherit;font-size:.9rem;font-weight:800;
+    cursor:pointer;transition:background .15s ease;
   }
-  .ai-shot-handle::after{
-    content:"↔";position:absolute;top:50%;inset-inline-start:-16px;
-    width:32px;height:32px;margin-top:-16px;border-radius:50%;
-    background:#fff;border:2px solid var(--brass,#c9a227);
-    display:flex;align-items:center;justify-content:center;
-    font-size:.75rem;color:var(--ink);box-shadow:0 6px 16px rgba(13,27,61,.45);
-  }
-  /* שני ה-keyframes חייבים להישאר משלימים: הידית יושבת על גבול החיתוך
-     בדיוק (‏30% חשיפה ⇔ 70% חיתוך מימין), ולכן כל שינוי כאן הוא שינוי
-     בשניהם. */
-  @keyframes revealWipe{0%,100%{clip-path:inset(0 70% 0 0)}50%{clip-path:inset(0 22% 0 0)}}
-  @keyframes handleSlide{0%,100%{inset-inline-end:30%}50%{inset-inline-end:78%}}
-  .ai-shot-tag{
-    position:absolute;z-index:2;display:inline-flex;align-items:center;gap:5px;
-    padding:4px 10px;font-size:.65rem;font-weight:700;border-radius:999px;
-  }
-  .ai-shot-tag.before{top:10px;inset-inline-start:10px;background:#fff;color:var(--ink)}
-  .ai-shot-tag.after{top:10px;inset-inline-end:10px;background:var(--teal-dark);color:var(--brass-light,#e5c76a)}
-  .ai-shot-what{
-    position:absolute;z-index:2;bottom:10px;inset-inline-start:10px;
-    padding:4px 9px;font-size:.65rem;font-weight:600;border-radius:999px;
-    background:rgba(13,27,61,.86);color:var(--paper);
-  }
-  /* מימורכז בלי transform: ‏inset אופקי משני הצדדים + margin אוטומטי עובד
-     זהה בשני כיווני הכתיבה, בעוד ש-translateX(±50%) היה צריך כלל נגדי */
-  .ai-shot-hint{
-    position:absolute;z-index:4;bottom:12px;inset-inline:0;margin-inline:auto;width:max-content;
-    padding:7px 15px;border-radius:999px;white-space:nowrap;pointer-events:none;
-    background:var(--brass,#c9a227);color:var(--ink);font-size:.7rem;font-weight:700;
-    box-shadow:0 8px 18px rgba(13,27,61,.4);
-  }
-  /* ====== הווילון נגרר באמת ======
-     "גררו כדי לראות את ההבדל" חייב להיות נכון, ולכן מתחת לכל התמונה יושב
-     ‎<input type=range>‎ שקוף במלוא השטח: העכבר גורר אותו, המקלדת מזיזה
-     אותו בחצים, וקורא מסך מכריז עליו כמחוון עם ערך. גרירה ידנית מותאמת
-     אישית הייתה משאירה את הרכיב בלתי נגיש למקלדת — אותו שיקול בדיוק
-     שב-assets/ai-showcase.js.
-
-     התנועה היא מצב מנוחה בלבד: במגע הראשון (‏.is-manual) האנימציה נעצרת
-     והשליטה עוברת לגולש/ת ולא חוזרת.
-
-     ‏direction:ltr על המחוון הוא תיקון ולא קישוט: ‎input[type=range]‎ מתהפך
-     בכיוון כתיבה RTL — הערך 0 יושב בקצה הימני — בעוד שהווילון ממוקם
-     *פיזית* (‏clip-path משמאל). התוצאה הייתה שגרירה שמאלה העלתה את
-     ‎--wipe‎ והזיזה את הווילון ימינה, כלומר לכיוון ההפוך מהאצבע. שני
-     הקצוות חייבים לדבר באותה מערכת צירים, וזו הפיזית.
-
-     ‏touch-action:pan-y משאיר לדפדפן את הגלילה האנכית מעל התמונה: בלעדיו
-     גלילה שמתחילה על ההדמיה נבלעת במחוון ומזיזה את הווילון במקום לגלול. */
-  .ai-shot-range{
-    position:absolute;inset:0;z-index:3;width:100%;height:100%;margin:0;
-    direction:ltr;touch-action:pan-y;
-    opacity:0;cursor:ew-resize;appearance:none;background:transparent;
-  }
-  .ai-shot:has(.ai-shot-range:focus-visible){outline:2px solid var(--brass-light,#e5c76a);outline-offset:2px}
-  .ai-shot.is-manual .ai-shot-after{animation:none;clip-path:inset(0 calc(100% - var(--wipe,52) * 1%) 0 0)}
-  .ai-shot.is-manual .ai-shot-handle{animation:none;inset-inline-end:calc(var(--wipe,52) * 1%)}
-  .ai-shot.is-manual .ai-shot-hint{display:none}
-  @media(prefers-reduced-motion:reduce){
-    .ai-band-glow{animation:none}
-    /* בלי תנועה הווילון נעצר על חצי־חצי: שתי התמונות נראות, וההשוואה
-       עדיין נקראת — רק בלי מה שמושך את העין. הסרגל עצמו עדיין עובד. */
-    .ai-shot-after{animation:none;clip-path:inset(0 50% 0 0)}
-    .ai-shot-handle{animation:none;inset-inline-end:50%}
-    .ai-shot-hint{display:none}
-  }
-
-  /* הכותרת ומשפט הפתיחה יושבים בראש הרצועה ולא בעמודת הטקסט: הם מכריזים
-     על מה ששתי העמודות מראות יחד — הוילונות והסגנונות — ולכן הם ממורכזים
-     ופורשים על שתיהן. בנייד הם בלוק אחד, כדי שהמרווח ביניהם יהיה של
-     כותרת ומשנה־כותרת (‏8px) ולא של שני בלוקים ברצועה (‏20px); במסך רחב
-     ‏.ai-band-head נפרק ל-display:contents והמשפט יורד לראש עמודת הטקסט
-     (ראו שאילתת המדיה למטה). */
-  .ai-band-head{
-    position:relative;grid-column:1/-1;
-    display:flex;flex-direction:column;align-items:center;gap:8px;
-  }
-  /* ‏--h2 כמו כל כותרת סקציה בעמוד, ולא ‎1.35rem‎ משלה. במסך רחב היא כן
-     גדלה (ראו שאילתת המדיה למטה) — זו רצועת שיווק ולא רצועת נכסים — אבל
-     היא מתחילה מאותו גודל. */
-  .ai-band-title{
-    position:relative;margin:0;text-align:center;
-    font-size:var(--h2);font-weight:800;line-height:1.25;letter-spacing:-.02em;
-    color:var(--brass-light,#e5c76a);
-  }
-  /* ‏.82rem ולא .85rem: בנייד ההפרש הזה הוא שורה שלמה פחות במשפט (שלוש
-     שורות במקום ארבע ברוב המסכים), וזו הסיבה היחידה שהוא כאן. במסך רחב
-     הגודל נדרס בחזרה ל-.9rem בשאילתת המדיה. */
-  .ai-band-lede{
-    position:relative;margin:0;max-width:52ch;text-align:center;
-    font-size:.82rem;line-height:1.5;color:#c3cfeb;
-  }
-  .ai-band-title span{color:#fff}
-  .ai-band-star{font-size:1.1rem;margin-inline-start:5px}
-  .ai-band-copy{position:relative;display:flex;flex-direction:column;gap:10px}
-  .ai-band-styles{border:1px solid rgba(255,255,255,.18);border-radius:14px;padding:11px 12px;
-    display:flex;flex-direction:column;gap:9px}
-  .ai-band-styles-title{font-size:.85rem;font-weight:700;color:#fff;text-align:center}
-  /* איפוס ה-ul הוא תיקון מרכוז: ‏padding-inline-start של 40px מגיליון
-     הסגנון של הדפדפן דחף את כל הרשת לצד אחד בתוך המסגרת, והאריחים נראו
-     מוסטים. ‏list-style:none לבדו לא מסיר את ה-padding הזה. */
-  .ai-band-styles ul{margin:0;padding:0;display:grid;grid-template-columns:repeat(2,1fr);gap:7px;list-style:none}
-  /* ארבע תוויות ולא ארבעה כפתורים: אין מה ללחוץ עליהן, ולכן הן שורות
-     שטוחות (אייקון וטקסט זה לצד זה) ולא אריחים מרובעים — אותו מידע בכחצי
-     מהגובה, ובלי להבטיח לחיצה שלא קיימת. */
-  .ai-band-styles li{
-    display:flex;flex-direction:row;align-items:center;justify-content:center;gap:6px;
-    padding:6px 8px;border:1px solid rgba(255,255,255,.2);border-radius:999px;
-    font-size:.75rem;font-weight:500;color:#dbe3f5;
-  }
-  .ai-band-styles li span{font-size:.9rem;line-height:1;color:#b9c6e8}
-  /* סגנון אחד מודגש כדי שהרשת תיקרא כ"בחירה" ולא כארבע תוויות. הוא מציין
-     את מה שמוצג בווילון שלצדו, ולכן ההדגשה אינה שרירותית. */
-  .ai-band-styles li.is-on{border-color:var(--brass,#c9a227);background:rgba(201,162,39,.1);color:#fff;font-weight:700}
-  .ai-band-styles li.is-on span{color:var(--brass-light,#e5c76a)}
-  .ai-band-cta{
-    display:flex;flex-direction:column;gap:3px;align-items:center;text-align:center;
-    padding:11px 16px;border:0;border-radius:14px;cursor:pointer;font-family:inherit;
+  .ai-promo-go:hover{background:var(--brass-light,#e5c76a)}
+  .ai-promo-cta{
+    align-self:stretch;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:6px;
+    padding:14px 18px;border:3px solid rgba(13,27,61,.35);border-radius:10px;cursor:pointer;
+    font-family:inherit;text-align:center;
     background:linear-gradient(135deg,#e0bf4f,var(--brass,#c9a227));
     transition:transform .15s ease,box-shadow .15s ease;
   }
-  .ai-band-cta:hover{transform:translateY(-2px);box-shadow:0 14px 30px -18px rgba(0,0,0,.8)}
-  .ai-band-cta b{font-size:1.05rem;font-weight:800;color:var(--ink)}
-  .ai-band-cta span{font-size:.8rem;color:#40350f;line-height:1.45;max-width:44ch}
-  .ai-band-note{display:flex;align-items:flex-start;gap:7px;font-size:.7rem;color:#8fa3d4;line-height:1.5}
-  .ai-band-note>span{color:var(--brass,#c9a227)}
+  .ai-promo-cta:hover{transform:translateY(-2px);box-shadow:0 14px 30px -18px rgba(0,0,0,.8)}
+  .ai-promo-cta b{font-size:1.05rem;font-weight:800;color:var(--ink)}
+  .ai-promo-cta span{font-size:.8rem;color:#40350f;line-height:1.5;max-width:44ch}
 
-  /* ====== טלפון: הרצועה נפתחת מצומצמת ======
-     ברוחב טלפון כל מה שברצועה נערם לעמודה אחת: שתי הדמיות בנות 170px,
-     קופסת ארבעת הסגנונות, ה-CTA והאזהרה — יחד יותר ממסך שלם, ותיבת
-     הנכסים שמתחתיו נדחפת בהתאם. במצב ‏.is-compact נשארים בדיוק שלושת
-     החלקים שעושים את העבודה: הדמיה אחת שמדגימה מה זה, ה-CTA **צמוד לה**,
-     והאזהרה. השאר נפתח בלחיצה על הכפתור שבתחתית וניתן לסגירה חזרה.
+  /* ====== התמונון: לפני/אחרי ======
+     הדמיה אמיתית אחת מהמסד, בוילון שנע לבד. הוא קישוט ולא כלי — אין בו
+     מחוון, והוא ‎aria-hidden‎: הכלי עצמו יושב בדף הנכס, ולשם הכפתור שלצדו
+     מוביל דרך מסנן ההדמיות.
 
-     ההסתרה היא ‎display:none‎ ולא גובה 0: שתי ההדמיות נושאות אנימציית וילון
-     רצה, וסרט שממשיך לרוץ מתחת לקיפול הוא עבודה של הדפדפן בלי צופה. */
-  .ai-band-toggle{display:none}
-  @media(max-width:759px){
-    .ai-band.is-compact .ai-band-inner{gap:10px}
-    .ai-band.is-compact .ai-shot + .ai-shot{display:none}
-    .ai-band.is-compact .ai-band-styles{display:none}
-    /* הכפתור הוא פריט של גריד הרצועה ולא של עמודת הטקסט, ולכן המרכוז שלו
-       הוא ‎justify-self‎ (הציר האופקי) ולא ‎align-self‎. */
-    .ai-band-toggle{
-      display:inline-flex;justify-self:center;align-items:center;gap:6px;cursor:pointer;
-      padding:8px 16px;border:1px solid rgba(255,255,255,.28);border-radius:999px;
-      background:transparent;color:#dce5fb;font-family:inherit;font-size:.76rem;font-weight:700;
-    }
-    .ai-band-toggle:hover{background:rgba(255,255,255,.08);color:#fff}
+     השכבה ה"אחרי" יושבת בדיוק על השכבה שמתחתיה — אותו inset, אותו
+     object-fit — ורק ה-clip משתנה: וילון שמצומצם ב-width היה מכווץ איתו
+     את התמונה, ושתי התמונות היו מפסיקות להיות "אותו חדר". ‏clip-path
+     אינו מאפיין לוגי, ולכן הוא נכתב פיזית (החשיפה משמאל ימינה, הכיוון
+     שבו ‎inset-inline-end‎ של הידית זז בדף RTL). שני ה-keyframes חייבים
+     להישאר משלימים: הידית יושבת על גבול החיתוך בדיוק. */
+  .ai-promo-thumb{
+    position:relative;width:172px;height:108px;overflow:hidden;border-radius:10px;
+    background:#b9c4de;
+  }
+  .ai-promo-thumb[hidden]{display:none}
+  .ai-promo-thumb img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;display:block}
+  .ai-promo-after{position:absolute;inset:0;clip-path:inset(0 48% 0 0);animation:revealWipe 9s ease-in-out infinite}
+  .ai-promo-handle{
+    position:absolute;inset-block:0;inset-inline-end:52%;width:2px;background:var(--brass,#c9a227);
+    animation:handleSlide 9s ease-in-out infinite;
+  }
+  .ai-promo-handle::after{
+    content:"↔";position:absolute;top:50%;inset-inline-start:-14px;
+    width:28px;height:28px;margin-top:-14px;border-radius:50%;
+    background:#fff;border:2px solid var(--brass,#c9a227);
+    display:flex;align-items:center;justify-content:center;
+    font-size:.7rem;color:var(--ink);
+  }
+  @keyframes revealWipe{0%,100%{clip-path:inset(0 70% 0 0)}50%{clip-path:inset(0 22% 0 0)}}
+  @keyframes handleSlide{0%,100%{inset-inline-end:30%}50%{inset-inline-end:78%}}
+  @media(prefers-reduced-motion:reduce){
+    .ai-promo-after{animation:none;clip-path:inset(0 50% 0 0)}
+    .ai-promo-handle{animation:none;inset-inline-end:50%}
   }
 
-  @media(min-width:760px){
-    .ai-band{padding:20px 0}
-    .ai-band-inner{grid-template-columns:1.02fr 1fr;row-gap:10px;column-gap:24px;align-items:stretch}
-    /* ‏.ai-band-head מפסיק להיות קופסה (‏display:contents) ושני ילדיו הופכים
-       לפריטי גריד בזכות עצמם: הכותרת נשארת בראש הרצועה על שתי העמודות,
-       ומשפט הפתיחה יורד לראש עמודת הטקסט — מעל לוח הסגנונות, כלומר צמוד
-       למה שהוא מזמין אליו. עמודת הוילונות פורשת על שתי השורות שנוצרו
-       ולכן היא נשארת עמודה אחת רציפה לצדן. */
-    .ai-band-head{display:contents}
-    /* במסך רחב הכותרת נקראת כמשפט אחד: השבירה הידנית מבוטלת (‏<br> מוסתר,
-       והרווח שאחריו הוא שמפריד בין שני חלקיה), והיא גדלה עם רוחב המסך.
-       ה-clamp הוא מה שמחזיק אותה בשורה אחת גם ממש בגבול השאילתה — בלעדיו
-       גופן קבוע בגודל הזה היה נשבר שם בחזרה לשתי שורות. */
-    .ai-band-title-br{display:none}
-    .ai-band-title{grid-column:1/-1;grid-row:1;font-size:clamp(1.5rem,2.4vw,2rem)}
-    /* ‏text-wrap:balance כדי שהשורה האחרונה בטור לא תישאר מילה בודדת
-       (‏"שמולכם.") מתחת לשלוש שורות מלאות. דפדפן שאינו מכיר את הערך
-       פשוט שובר כרגיל. */
-    .ai-band-lede{grid-column:2;grid-row:2;max-width:none;font-size:.9rem;text-wrap:balance}
-    .ai-band-shots{grid-column:1;grid-row:2/span 2}
-    /* עמודת הטקסט קצרה מעמודת הוילונות שלצדה, והשארית נערמה כולה בתחתית
-       הטור — כלומר הכפתור נתלה באמצע ומתחתיו חור. ‏space-between מחלק
-       אותה: הלוח נשאר בראש, ההצהרה יורדת לקו התחתון של התמונות, והכפתור
-       יושב ביניהם במרווח שווה. */
-    .ai-band-copy{grid-column:2;grid-row:3;justify-content:space-between;gap:9px}
-    .ai-band-styles{padding:8px 12px;gap:7px}
-    .ai-band-cta{padding:10px 16px}
-    .ai-band-styles ul{grid-template-columns:repeat(4,1fr)}
-    /* שתי ההדמיות זו מעל זו הן שקובעות את גובה הרצועה בדסקטופ (‏2×
-       min-height ועוד המרווח ביניהן), ולכן הקיצוץ בגובה הרצועה מתחיל
-       כאן. ‏158px הוא עדיין גובה שבו ההשוואה לפני/אחרי נקראת. */
-    .ai-shot{height:100%;min-height:158px}
-    .ai-band-shots{height:100%}
+  /* מתחת ל-900px שלוש העמודות צרות מכדי להחזיק כותרת בת שורה אחת, ולכן
+     ה-CTA יורד לשורה משלו ברוחב מלא. בטלפון גם התמונון יורד: 172px הם
+     חצי מהמסך, והטקסט שלצדו היה נשבר למילה בשורה. */
+  @media(max-width:900px){
+    .ai-promo{grid-template-columns:auto minmax(0,1fr);gap:14px 16px}
+    .ai-promo-cta{grid-column:1/-1}
+  }
+  @media(max-width:520px){
+    .ai-promo{grid-template-columns:1fr;padding:12px}
+    .ai-promo-thumb{display:none}
+    .ai-promo-title{font-size:1.05rem}
+    .ai-promo-go{align-self:stretch}
   }
 
   /* רשימת "כל העדכונים" — עשרת המבזקים האחרונים, במודאל שאפשר לגלול בו.
@@ -3968,100 +3826,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </div>
   </div>
 
-  <!-- ====== רצועת ההדמיות: "לפני ואחרי" ======
-       יושבת מיד אחרי תוצאות החיפוש ורצועת המבזקים, כלומר קרוב למפה:
-       מי שסיים/ה לעבור על השורות שואל/ת "מה עוד אפשר לראות על נכס לפני
-       שנוסעים אליו", וזו התשובה. עמוק בתוך הדף היא הייתה נקראת אחרי שכבר
-       התקבלה ההחלטה.
-
-       הרצועה הכללית שהייתה כאן פעם ירדה מהדף, ובצדק: היא הציגה נכס אקראי
-       אחרי שיפוץ, כלומר ענתה על שאלה שאיש לא שאל. מה שחוזר כאן הוא דבר אחר
-       לגמרי — לא ויטרינה של נכס מסוים אלא הצגה של *היכולת*, ולכן היא לא
-       מקשרת לנכס שבתמונה אלא לשני מקומות שבהם היא באמת שימושית: מסנן
-       ההדמיות (למי שמחפש/ת) ובאנר הערכת השווי (למי שמוכר/ת).
-
-       שתי התמונות אמיתיות ונטענות מ-property_visualizations_public — אחת
-       ממגורים ואחת ממסחרי, בדיוק שני המצבים שהמנוע יודע לייצר. אין הדמיות
-       במסד → הרצועה כולה לא מוצגת. הבטחה מצוירת שאין מאחוריה תוצר היא
-       בדיוק מה שהרצועה הקודמת נכשלה בו. ראו docs/property-visualizations.md. -->
-  <!-- ‏is-compact הוא מצב הפתיחה בטלפון: הדמיה אחת, ה-CTA צמוד לה והאזהרה
-       — ראו ‎.ai-band.is-compact‎ ב-CSS ואת המאזין של #aiBandToggle ב-JS.
-       בדסקטופ הכפתור לא מוצג, ולכן המחלקה לא עושה שם דבר. -->
-  <section class="ai-band is-compact" id="aiBand" aria-labelledby="aiBandTitle" hidden>
-    <div class="wrap ai-band-inner">
-      <div class="ai-band-glow" aria-hidden="true"></div>
-
-      <!-- ‏הכותרת והמשפט עטופים יחד כדי שבנייד המרווח ביניהם יהיה של
-           כותרת ומשנה־כותרת. במסך רחב העטיפה מתפרקת (‏display:contents)
-           והמשפט יורד לראש עמודת הטקסט — ראו את שאילתת המדיה ב-CSS. -->
-      <div class="ai-band-head">
-        <h2 id="aiBandTitle" class="ai-band-title">
-          תראו את פוטנציאל הנכס<br class="ai-band-title-br">
-          <span>עם טכנולוגיית AI מהפכנית!</span>
-          <span class="ai-band-star" aria-hidden="true">✦</span>
-        </h2>
-
-        <!-- "בנכסים שההדמיות פעילות בהם" אינו סייג משפטי אלא דיוק: בדף
-             הנכס הכפתור מייצר הדמיה בלחיצה אחת, בלי הרשמה ובלי תשלום, אבל
-             רק בנכסים שהיכולת פעילה בהם (ראו vizBandCta() ב-property.html).
-             הבטחה גורפת יותר הייתה נשברת בדיוק בדף שאליו היא שולחת. -->
-        <p class="ai-band-lede">
-          כדי שתקבלו את ההחלטה הטובה על הנכס: בנכסים שההדמיות פעילות בהם
-          תוכלו לייצר הדמיה בעצמכם, בחינם ובלחיצה אחת, ולראות אם החלום שלכם
-          מתלבש על הנכס שמולכם.
-        </p>
-      </div>
-
-      <!-- הפותח/סוגר של הרצועה בטלפון (‏.ai-band.is-compact ב-CSS). הוא יושב
-           בין משפט הפתיחה להדמיה ולא בתחתית הרצועה: שם הוא נקרא כהמשך של
-           ההבטחה ("יש עוד") לפני שהעין יורדת לתמונה, ולא ככפתור יתום אחרי
-           האזהרה. בדסקטופ הוא לא מוצג כלל — שם שתי העמודות זו לצד זו ואין
-           מה לצמצם. -->
-      <button type="button" class="ai-band-toggle" id="aiBandToggle"
-              aria-expanded="false" aria-controls="aiBand">עוד הדמיות וארבעה סגנונות ←</button>
-
-      <div class="ai-band-shots" id="aiBandShots"><!-- populated by JS --></div>
-
-      <div class="ai-band-copy">
-        <div class="ai-band-styles">
-          <span class="ai-band-styles-title">ארבעה סגנונות בכל נכס</span>
-          <ul>
-            <li><span aria-hidden="true">▢</span>מודרני נקי</li>
-            <li><span aria-hidden="true">☾</span>ים־תיכוני לבן</li>
-            <li><span aria-hidden="true">≡</span>סקנדינבי חמים</li>
-            <li class="is-on"><span aria-hidden="true">◈</span>יוקרה מודרנית</li>
-          </ul>
-        </div>
-
-        <!-- ה-CTA לא פותח טופס משלו אלא את אשף הערכת השווי שכבר בעמוד:
-             שני טפסים שמבקשים את אותם פרטים ומנתבים לאותו מקום הם שני
-             מקורות אמת לאותו ליד. ראו bindLeadBanner(). -->
-        <button type="button" class="ai-band-cta" id="aiBandCta">
-          <b>חושבים למכור או להשכיר?</b>
-          <span>השאירו פרטים וסוכן/ת יחזרו אליכם לתיאום פגישה - כולל הדמיות AI לנכס שלכם.</span>
-        </button>
-
-        <p class="ai-band-note">
-          <span aria-hidden="true">✦</span>
-          ההדמיה היא המחשה עיצובית, לא התחייבות לביצוע או לתוצאה.
-        </p>
-      </div>
-    </div>
-  </section>
-
-  <!-- ====== יריד הבתים הפתוחים: הרצועה שמובילה אליו ======
-       יושבת מיד מעל מדף הנכסים הפרטיים, כלומר בדיוק לפני המלאי ואחרי
-       המפה: מי שהגיע עד לכאן כבר מחפש דירה, וזו הנקודה שבה "אפשר לקנות
-       כאן בלי עמלת תיווך" משנה את מה שהוא/היא עומד/ת לעשות בדקה הבאה.
-
-       הרצועה נבנית ב-renderOpenHouseBanner() ונשארת מוסתרת כשאין ולו נכס
-       אחד ביריד — באנר שמוביל לעמוד ריק גרוע מהיעדר באנר. הספירה מגיעה
-       משאילתת count נפרדת ולא מהרשימה שעל המפה, שמוגבלת ל-300 נכסים
-       פעילים. ראו docs/open-house-fair.md. -->
-  <section class="section wrap" id="openHouseBanner" hidden></section>
-
   <!-- ====== הנכסים: פרטי ומסחרי, מכירה והשכרה, בתיבה אחת ======
-       יושבת מיד מתחת לרצועת ההדמיות, ובמקומן של **שתי** התצוגות שישבו
+       יושבת מיד מתחת למבזק, ובמקומן של **שתי** התצוגות שישבו
        כאן קודם — "נכסים פרטיים" ו"נכסים מסחריים", שהיו זהות לחלוטין חוץ
        מ-‎category‎ ורק באנר הערכת השווי הפריד ביניהן.
 
@@ -4086,6 +3852,43 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        דרך ppApplyHash(). ראו renderHomeProps() ו-
        docs/home-property-shelves.md. -->
   <section class="section wrap" id="allProps" hidden></section>
+
+  <!-- ====== באנר ההדמיות: בסוף תיבת הנכסים ======
+       מחליף את רצועת ההדמיות הגדולה שישבה כאן מתחת למבזק, ודחפה את
+       הנכסים עצמם מסך שלם למטה. הוא לא נשאר כאן: PropShelf.create()
+       מעביר אותו (‏cfg.afterGrid) לתוך התיבה, בין הגריד לכפתור "עוד",
+       כלומר בדיוק אחרי שהעין עברה על שתי שורות נכסים ושואלת "מה עוד".
+
+       שני פתחים יוצאים ממנו, אותם שני פתחים של הרצועה שהוא מחליף: מסנן
+       ההדמיות (למי שמחפש/ת) ואשף הערכת השווי (למי שמוכר/ת). המספר הוא
+       הנכסים *הפעילים* שיש להם הדמיה מפורסמת — אותה קבוצה שהתגית ב-hero
+       סופרת. אין אף אחד → הבאנר נשאר hidden. ראו initAiPromo(). -->
+  <div class="ai-promo" id="aiPromo" hidden>
+    <div class="ai-promo-thumb" id="aiPromoThumb" aria-hidden="true" hidden></div>
+    <div class="ai-promo-copy">
+      <h3 class="ai-promo-title"><span id="aiPromoCount"></span> מהנכסים בתוצאות האלה כוללים הדמיית AI <span class="ai-promo-star" aria-hidden="true">✦</span></h3>
+      <p class="ai-promo-sub">סננו לפי "עם הדמיית AI" וראו איך כל נכס נראה אחרי שיפוץ - כולל נכסים מסחריים.</p>
+      <button type="button" class="ai-promo-go" id="aiPromoGo"></button>
+    </div>
+    <!-- ה-CTA לא פותח טופס משלו אלא את אשף הערכת השווי שכבר בעמוד:
+         שני טפסים שמבקשים את אותם פרטים ומנתבים לאותו מקום הם שני
+         מקורות אמת לאותו ליד. ראו bindLeadBanner(). -->
+    <button type="button" class="ai-promo-cta" id="aiPromoCta">
+      <b>חושבים למכור או להשכיר?</b>
+      <span>השאירו פרטים וסוכן/ת יחזרו אליכם לתיאום פגישה - כולל הדמיות AI לנכס שלכם.</span>
+    </button>
+  </div>
+
+  <!-- ====== יריד הבתים הפתוחים: הרצועה שמובילה אליו ======
+       יושבת מיד מתחת לתיבת הנכסים ובאנר ההדמיות שבסופה: מי שגלל/ה עד
+       לכאן עבר/ה על המלאי ועוד מחפש/ת, וזו הנקודה שבה "אפשר לקנות כאן
+       בלי עמלת תיווך" משנה את מה שהוא/היא עומד/ת לעשות בדקה הבאה.
+
+       הרצועה נבנית ב-renderOpenHouseBanner() ונשארת מוסתרת כשאין ולו נכס
+       אחד ביריד — באנר שמוביל לעמוד ריק גרוע מהיעדר באנר. הספירה מגיעה
+       משאילתת count נפרדת ולא מהרשימה שעל המפה, שמוגבלת ל-300 נכסים
+       פעילים. ראו docs/open-house-fair.md. -->
+  <section class="section wrap" id="openHouseBanner" hidden></section>
 
   <!-- ====== הסוכן החכם: שמירת חיפוש וקבלת התראות ======
        נפתח מ-#ssaOpenBtn שבכותרת התוצאות ומ-#ssaEmptyBtn שנבנה בקוד כשאין
