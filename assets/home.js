@@ -1742,8 +1742,6 @@ const professionalsReady = (async function loadProfessionals(){
    ============================================================ */
 const DM_TABS = {
   agencies: {
-    title:'איזה משרד תיווך מתאים לכם?',
-    sub:'כל המשרדים בעפולה והסביבה - לפי התמחות, דירוג ומלאי נכסים',
     placeholder:'שם משרד או שכונה…',
     href:'/agencies',
     seeAll:'לכל משרדי התיווך ←',
@@ -1752,8 +1750,6 @@ const DM_TABS = {
             empty:'אין משרד עם נכסים פעילים בהתמחות הזו. בחרו התמחות אחרת.' },
   },
   agents: {
-    title:'מחפשים מתווך/ת?',
-    sub:'המתווכים של המשרדים באזור - לפי משרד, מלאי נכסים ודירוג לקוחות',
     placeholder:'שם מתווך/ת או משרד…',
     href:'/agents',
     seeAll:'לכל המתווכים ←',
@@ -1762,8 +1758,6 @@ const DM_TABS = {
             empty:'אין מתווך/ת עם נכסים פעילים בהתמחות הזו. בחרו התמחות אחרת.' },
   },
   pros: {
-    title:'צריכים בעל מקצוע?',
-    sub:'בעלי המקצוע של עולם הנדל״ן באזור - לפי תחום ואזור פעילות',
     placeholder:'תחום, שם או עסק…',
     href:'/professionals',
     seeAll:'לכל בעלי המקצוע ←',
@@ -1928,13 +1922,21 @@ function bindRowScroller(row){
     btn.disabled = data[btn.dataset.tab].length === 0;
   });
 
-  /* אריח אחד לשלושת הסוגים. שמות, שמות משרדים וכתובות תמונה מגיעים מקלט
-     של משרדים, סוכנים ומפרסמים — ולכן הטקסט נכנס דרך ‎textContent‎ וכתובות
-     התמונה עוברות סינון פרוטוקול לפני שהן נוגעות ב-src. */
+  /* אריח אחד לשלושת הסוגים, לפי המוקאפ: כרטיס לבן, התמונה בראשו (לוגו
+     שלם או תמונת פרופיל), ומתחתיה השם, "גלולה" אפורה עם האזור או המשרד,
+     ושורת הדירוג והמלאי. שמות, שמות משרדים וכתובות תמונה מגיעים מקלט של
+     משרדים, סוכנים ומפרסמים — ולכן הטקסט נכנס דרך ‎textContent‎ וכתובות
+     התמונה עוברות סינון פרוטוקול לפני שהן נוגעות ב-src.
+
+     תג הדירוג (‏#1 #2 #3) ירד עם המוקאפ; הסדר עצמו — המדורגים ראשונים —
+     נשאר, והוא מה שהתג סימן. */
   function card(item){
     const el = document.createElement(item.href ? 'a' : 'div');
     el.className = 'dm-card';
     if (item.href) el.href = item.href;
+
+    const media = document.createElement('div');
+    media.className = 'dm-media';
 
     // אות ההתחלה נשארת ב-DOM גם כשיש תמונה ופשוט מכוסה על ידה; אם הקובץ
     // נשבר ה-img מסיר את עצמו והאריח חוזר לאות על הגרדיאנט במקום לאייקון
@@ -1942,40 +1944,20 @@ function bindRowScroller(row){
     const initial = document.createElement('span');
     initial.className = 'dm-initial';
     initial.textContent = item.initial;
-    el.appendChild(initial);
+    media.appendChild(initial);
 
     const url = safeExternalUrl(item.photo);
-    if (url && item.contain){
-      // אותו קובץ פעמיים: רקע מטושטש שממלא את השוליים, ומעליו הלוגו השלם.
-      // ה-onerror של הרקע מסיר רק את עצמו — ‏:has בודק את ‎.dm-logo‎, ולכן
-      // הנפילה לאות ההתחלה תלויה בלוגו הקדמי בלבד.
-      const bg = document.createElement('img');
-      bg.className = 'dm-logo-bg';
-      bg.src = url; bg.alt = ''; bg.loading = 'lazy';
-      bg.setAttribute('aria-hidden', 'true');
-      bg.addEventListener('error', ()=> bg.remove());
-      el.appendChild(bg);
-
-      const logo = document.createElement('img');
-      logo.className = 'dm-logo';
-      logo.src = url; logo.alt = item.name; logo.loading = 'lazy';
-      logo.addEventListener('error', ()=> logo.remove());
-      el.appendChild(logo);
-    } else if (url){
-      const photo = document.createElement('img');
-      photo.className = 'dm-photo';
-      photo.src = url; photo.alt = item.name; photo.loading = 'lazy';
-      if (item.photoPos) photo.style.setProperty('--photo-pos', item.photoPos);
-      photo.addEventListener('error', ()=> photo.remove());
-      el.appendChild(photo);
+    if (url){
+      // לוגו משרד נשאר שלם (‏contain) — חיתוך היה קוטע אותיות; תמונת
+      // פרופיל ממלאת את המסגרת (‏cover)
+      const img = document.createElement('img');
+      img.className = item.contain ? 'dm-logo' : 'dm-photo';
+      img.src = url; img.alt = item.name; img.loading = 'lazy';
+      if (!item.contain && item.photoPos) img.style.setProperty('--photo-pos', item.photoPos);
+      img.addEventListener('error', ()=> img.remove());
+      media.appendChild(img);
     }
 
-    if (item.rank){
-      const rank = document.createElement('span');
-      rank.className = 'dm-rank';
-      rank.textContent = '#' + item.rank;
-      el.appendChild(rank);
-    }
     if (item.verified){
       const badge = document.createElement('img');
       badge.className = 'dm-badge';
@@ -1983,22 +1965,23 @@ function bindRowScroller(row){
       badge.width = 384; badge.height = 384; badge.loading = 'lazy';
       badge.alt = 'עומד בתקן האתי';
       badge.title = 'עומד בתקן האתי של שוק הנדל״ן של עפולה';
-      el.appendChild(badge);
+      media.appendChild(badge);
     }
+    el.appendChild(media);
 
-    const overlay = document.createElement('div');
-    overlay.className = 'dm-overlay';
+    const info = document.createElement('div');
+    info.className = 'dm-info';
 
     const name = document.createElement('div');
     name.className = 'dm-name';
     name.textContent = item.name;
-    overlay.appendChild(name);
+    info.appendChild(name);
 
     if (item.sub){
       const sub = document.createElement('div');
       sub.className = 'dm-sub';
       sub.textContent = item.sub;
-      overlay.appendChild(sub);
+      info.appendChild(sub);
     }
 
     const meta = document.createElement('div');
@@ -2016,9 +1999,9 @@ function bindRowScroller(row){
       count.textContent = item.count;
       meta.appendChild(count);
     }
-    if (meta.childNodes.length) overlay.appendChild(meta);
+    if (meta.childNodes.length) info.appendChild(meta);
 
-    el.appendChild(overlay);
+    el.appendChild(info);
     return el;
   }
 
@@ -2065,8 +2048,6 @@ function bindRowScroller(row){
       list.forEach(it => row.appendChild(card(it)));
     }
 
-    document.getElementById('dmSearchTitle').textContent = conf.title;
-    document.getElementById('dmSearchSub').textContent = conf.sub;
     searchEl.placeholder = conf.placeholder;
     const seeAll = document.getElementById('dmSeeAll');
     seeAll.href = conf.href;
