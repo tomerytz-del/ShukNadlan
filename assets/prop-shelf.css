@@ -211,17 +211,21 @@
   background:var(--paper-raised);border:1px dashed var(--line);border-radius:var(--radius-md);
 }
 .pp-more-wrap{display:flex;justify-content:center;gap:10px;flex-wrap:wrap;margin-top:16px}
+/* "עוד נכסים" — אותו כפתור של "צפייה בכל…" בסקציית האנשים בדף הבית
+   (‏.dm-all ב-index.html): גלולה עם מסגרת נייבי, שמתמלאת נייבי בריחוף.
+   כפתור אחד לכל מקום שבו נפתחים עוד נכסים, בכל הדפים שמשתמשים במדף. */
 .pp-more,.pp-less{
-  font-family:inherit;font-size:.88rem;font-weight:700;color:var(--ink);
-  background:var(--paper-raised);border:1.5px solid var(--line);
-  padding:12px 26px;border-radius:0;cursor:pointer;
-  transition:border-color .15s ease,color .15s ease;
+  display:inline-flex;align-items:center;min-height:44px;
+  font-family:inherit;font-size:.9rem;font-weight:800;color:var(--teal-dark,#0d1b3d);
+  background:#fff;border:1.5px solid var(--teal-dark,#0d1b3d);
+  padding:0 24px;border-radius:999px;cursor:pointer;white-space:nowrap;
+  transition:background .15s ease,color .15s ease,border-color .15s ease;
 }
-.pp-more:hover,.pp-less:hover{border-color:var(--teal);color:var(--teal)}
+.pp-more:hover,.pp-less:hover{background:var(--teal-dark,#0d1b3d);color:#fff}
 .pp-more[hidden],.pp-less[hidden]{display:none}
 /* הקיפול הוא הפעולה המשנית מבין השתיים — הוא מבטל, לא מקדם — ולכן הוא
-   שקט יותר מ"להצגת תוצאות נוספות" שלצדו. */
-.pp-less{background:transparent;color:var(--ink-soft);font-weight:600}
+   שקט יותר: מסגרת דקה בגוון רך, ואותו מילוי נייבי בריחוף. */
+.pp-less{border-color:rgba(13,27,61,.35);color:var(--ink-soft);font-weight:700}
 @media(max-width:520px){
   /* בטלפון בורר המיון יורד לשורה משלו: לצד התגיות הוא לקח כ-40% מהרוחב,
      והשאיר להן חלון של כמאה וחמישים פיקסלים — שתי תגיות וחצי. שורת

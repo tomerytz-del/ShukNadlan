@@ -1871,8 +1871,14 @@ function bindRowScroller(row){
 
   wrap.querySelectorAll('.row-nav').forEach(btn=>{
     btn.addEventListener('click', ()=>{
-      // כ-‎80%‎ מהרוחב הנראה: מספיק כדי להתקדם, ומעט מכדי לדלג על כרטיס
-      const step = Math.max(row.clientWidth * 0.8, 200);
+      // כ-‎80%‎ מהרוחב הנראה: מספיק כדי להתקדם, ומעט מכדי לדלג על כרטיס.
+      // מסלול שמסומן ‎data-page="full"‎ (סקציית האנשים) מדפדף עמוד שלם —
+      // רוחב המסך ועוד המרווח — כך שכל לחיצה מביאה ארבעה משרדים חדשים
+      // בדיוק ולא שלושה וחצי.
+      const gap = parseFloat(getComputedStyle(row).columnGap) || 0;
+      const step = row.dataset.page === 'full'
+        ? row.clientWidth + gap
+        : Math.max(row.clientWidth * 0.8, 200);
       row.scrollBy({ left: sign * step * (btn.dataset.rowDir === 'end' ? 1 : -1), behavior:'smooth' });
     });
   });
@@ -2074,13 +2080,33 @@ function bindRowScroller(row){
   }
 
   /* ---------- כמה כרטיסים מוצגים ----------
-     בטלפון — כולם, בקרוסלה. מ-760px — **שורה אחת** בגריד (שלוש עמודות,
-     ומ-1100px ארבע), והשאר מאחורי "צפייה בכל". גם שתי שורות היו יותר
-     מדי גובה באמצע דף הבית. */
-  const DM_GRID_ROWS = 1;
+     כולם, בשורה אחת שמדפדפים בה בחצים (ובטלפון גם בהחלקה). מ-760px
+     שלושה במסך ומ-1100px ארבעה — זה ב-CSS; כאן רק שאלת הנקודות, שמוצגות
+     בטלפון בלבד. */
   const dmMqGrid = window.matchMedia('(min-width:760px)');
   const dmMqWide = window.matchMedia('(min-width:1100px)');
-  const dmLimit = ()=> dmMqGrid.matches ? (dmMqWide.matches ? 4 : 3) * DM_GRID_ROWS : Infinity;
+  const dmLimit = ()=> Infinity;
+
+  /* שתי שורות מ-760px, בעמודים של (טורים × 2) — השורה העליונה מתמלאת
+     לפני התחתונה בכל עמוד. בטלפון (שורה אחת) הסגנון המוטבע מנוקה. */
+  function dmPlace(){
+    const items = [...row.querySelectorAll('.dm-item')];
+    if (!dmMqGrid.matches){
+      items.forEach(el => { el.style.gridColumn = ''; el.style.gridRow = ''; });
+      return;
+    }
+    const cols = dmMqWide.matches ? 4 : 3;
+    const perPage = cols * 2;
+    // מעט פריטים (עד טור אחד מלא) — שורה אחת, בלי חורים בשורה התחתונה
+    const rows = items.length > cols ? 2 : 1;
+    row.classList.toggle('is-one-row', rows === 1);
+    items.forEach((el, j) => {
+      if (rows === 1){ el.style.gridColumn = String(j + 1); el.style.gridRow = '1'; return; }
+      const page = Math.floor(j / perPage), i = j % perPage;
+      el.style.gridColumn = String(page * cols + (i % cols) + 1);
+      el.style.gridRow = String(Math.floor(i / cols) + 1);
+    });
+  }
 
   /* ---------- נקודות הקרוסלה ----------
      נקודה לכל כרטיס, והפעילה נמתחת — עד DM_MAX_DOTS; מעבר לזה (‏19
@@ -2141,6 +2167,8 @@ function bindRowScroller(row){
       (state.spec === 'all' || it.specs.includes(state.spec)));
 
     row.innerHTML = '';
+    // ריק → ההודעה ברוחב מלא ולא בטור אחד של הגריד
+    row.classList.toggle('is-empty', !list.length);
     if (!list.length){
       const empty = document.createElement('p');
       empty.className = 'dm-empty';
@@ -2150,6 +2178,7 @@ function bindRowScroller(row){
       row.appendChild(empty);
     } else {
       list.slice(0, dmLimit()).forEach(it => row.appendChild(card(it)));
+      dmPlace();
     }
     buildDots(list.length ? Math.min(list.length, dmLimit()) : 0);
 
@@ -3377,7 +3406,7 @@ function showAiPromo(count){
      כבר לא נושאת את משפט ההסבר. ה-CSS מציג אחד מהם. */
   const go = document.getElementById('aiPromoGo');
   go.replaceChildren();
-  [['ai-promo-go-long', count === 1 ? 'הצגת הנכס ←' : `הצגת ${n} הנכסים ←`],
+  [['ai-promo-go-long', count === 1 ? 'לצפייה בנכס ←' : `לצפייה ב-${n} הנכסים ←`],
    ['ai-promo-go-short', count === 1 ? 'לנכס עם ההדמיה ←' : `לכל ${n} הנכסים עם הדמיה ←`]]
     .forEach(([cls, text])=>{
       const span = document.createElement('span');
