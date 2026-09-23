@@ -229,7 +229,7 @@
 
 | חלק | מקור | כשאין |
 |---|---|---|
-| תמונת נושא | `agencies.cover_url` / `agency_members_public.cover_url` | הלוגו או תמונת הפרופיל, מטושטשים ומוגדלים, על גרדיאנט נייבי-זהב |
+| תמונת נושא | משרד: `agencies.cover_url`. מתווך/ת: `agency_members_public.cover_url`, ואם אין — של המשרד (כמו בראש `agent.html`). בעל/ת מקצוע: `professional_cards_public.cover_url` (כמו בראש `professional.html`) | הלוגו או תמונת הפרופיל, מטושטשים ומוגדלים, על גרדיאנט נייבי-זהב |
 | תג "★ #1 בדירוג" | שלושת המובילים בדירוג (`score`/`rating`) | אין תג. **אין לנו סימון "מומלץ" עריכתי**, ולכן גם לא מוצג כזה |
 | תג "57 נכסים פעילים" | `homepage_agency_cards.active_count` | אין תג (אפס נכסים) |
 | לוגו צף על קו התפר | `logo_url` (שלם, `contain`) / `photo_url` (עגול) | אות ראשונה |

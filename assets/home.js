@@ -1256,7 +1256,9 @@ async function loadLeadingAgents(){
     const agencyIds = [...new Set(members.map(m => m.agency_id).filter(Boolean))];
     const agencyById = {};
     if (agencyIds.length){
-      const { data: agencies } = await sb.from('agencies').select('id, name').in('id', agencyIds);
+      // ‏cover_url של המשרד — הנפילה של מתווך/ת שלא העלה/תה תמונת נושא,
+      // אותה נפילה של agent.html
+      const { data: agencies } = await sb.from('agencies').select('id, name, cover_url').in('id', agencyIds);
       (agencies||[]).forEach(a => agencyById[a.id] = a);
     }
 
@@ -1286,6 +1288,7 @@ async function loadLeadingAgents(){
         return {
           ...m,
           agency_name: agencyById[m.agency_id]?.name || '',
+          agency_cover: agencyById[m.agency_id]?.cover_url || null,
           // ‏avg_rating הוא null למי שאין לו/ה ביקורות — סוכן/ת חדש/ה לא
           // מקבל/ת "0 כוכבים" אלא פשוט לא מוצג/ת עם דירוג, כמו במשרדים.
           rating: agg?.avg_rating != null ? Number(agg.avg_rating) : null,
@@ -1702,7 +1705,7 @@ const professionalsReady = (async function loadProfessionals(){
     if (!sb) return [];
     const { data, error } = await sb
       .from('professional_cards_public')
-      .select('id, slug, advertiser_name, business_name, advertiser_type, target_region, creative_url, click_url')
+      .select('id, slug, advertiser_name, business_name, advertiser_type, target_region, creative_url, cover_url, click_url')
       .limit(50);
     if (error) throw error;
     return data || [];
@@ -1797,7 +1800,8 @@ function dmFromAgent(m, i){
   return {
     name, kind:'agent',
     href: (m.slug || m.id) ? '/agent?slug=' + encodeURIComponent(m.slug || m.id) : null,
-    cover: m.cover_url,
+    // תמונת הנושא של המתווך/ת, ואם אין — של המשרד, כמו בראש agent.html
+    cover: m.cover_url || m.agency_cover,
     photo: m.photo_url, contain: false, photoPos: m.photo_position, person: true,
     initial: name.trim()[0] || 'מ',
     tags: m.agency_name ? [m.agency_name] : [],
@@ -1820,9 +1824,9 @@ function dmFromPro(p){
   return {
     name, kind:'pro',
     href: key ? '/professional?slug=' + encodeURIComponent(key) : null,
-    // לבעלי מקצוע אין תמונת נושא נפרדת בכרטיס הציבורי; הקריאייטיב שלהם
-    // הוא התמונה הצפה, והנושא נופל לגרדיאנט המותג
-    cover: null,
+    // תמונת הנושא של דף בעל/ת המקצוע (‏professional_cards_public.cover_url),
+    // בדיוק כמו בראש professional.html. בלעדיה — הקריאייטיב מטושטש.
+    cover: p.cover_url,
     photo: p.creative_url, contain: false, person: true,
     initial: name.trim()[0] || 'ב',
     tags: [p.business_name || field, p.target_region].filter(Boolean),
