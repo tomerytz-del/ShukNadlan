@@ -75,53 +75,74 @@
 }
 
 /* ====== הבאנר בדף הבית ======
-   הוא לא כרטיס ולא סקציה: רצועה אחת ברוחב טור התוכן, עם הסימן בגודל
-   שרואים ממרחק גלילה, ההבטחה בגדול, ומונה שאומר שיש מה לראות שם עכשיו.
+   לפי המוקאפ: נייבי כהה, מסגרת זהב פנימית, "0%" עם שעון עצר ובניין.
+   בדסקטופ רצועה אחת — הסדר ב-DOM הוא הסדר בעין ב-RTL: כותרת מימין,
+   האיור, ההסבר, והכפתור בקצה השמאלי. מתחת ל-700px הוא נעשה כרטיס:
+   האיור למעלה, "אל תחמיצו", הכותרת והכפתור, וטקסט ההסבר יורד (המוקאפ
+   לנייד אינו נושא אותו, ובכרטיס צר הוא היה מכפיל את הגובה).
+
    הוא מוסתר לגמרי כשאין ולו נכס אחד ביריד (‏hidden ב-JS) — באנר שמוביל
-   לעמוד ריק גרוע מהיעדר באנר. */
-.oh-banner{
-  display:flex;align-items:center;gap:16px;flex-wrap:wrap;
-  background:var(--open-house-tint,#fdecee);
-  border:1px solid rgba(200,16,46,.28);
-  border-inline-start:5px solid var(--open-house,#c8102e);
-  padding:18px 20px;
-  color:var(--ink,#0d1b3d);
-  text-decoration:none;
-}
-.oh-banner:hover{border-color:rgba(200,16,46,.5)}
-.oh-banner:focus-visible{outline:2px solid var(--open-house,#c8102e);outline-offset:2px}
-.oh-banner .oh-mark{color:var(--open-house,#c8102e)}
-.oh-banner-body{flex:1 1 260px;min-width:0}
-.oh-banner-eyebrow{
-  display:block;font-size:.72rem;font-weight:800;letter-spacing:.02em;
-  color:var(--open-house-deep,#9c0c24);margin-bottom:3px;
-}
-.oh-banner h2,.oh-banner h3{
-  font-size:1.18rem;line-height:1.3;margin:0 0 4px;color:var(--ink,#0d1b3d);
-}
-.oh-banner p{margin:0;font-size:.84rem;line-height:1.5;color:var(--ink-soft,#4a5578)}
-.oh-banner-cta{
-  flex:none;background:var(--open-house,#c8102e);color:#fff;
-  font-weight:800;font-size:.86rem;padding:11px 20px;white-space:nowrap;
-}
-.oh-banner:hover .oh-banner-cta{background:var(--open-house-deep,#9c0c24)}
-/* בטלפון הכפתור יורד לשורה משלו ונמתח: כפתור צר בקצה רצועה שנשברה לשלוש
-   שורות נראה כמו הערת שוליים, וזו הפעולה של הרצועה כולה.
+   לעמוד ריק גרוע מהיעדר באנר.
 
-   הסימן, לעומתו, נשאר **לצד** הטקסט ולא מעליו. ‏flex-basis של 260px על
-   ‏.oh-banner-body דחף אותו לשורה משלו במסך צר, והסימן נשאר לבדו בשורה
-   שמעליו — שורה שלמה בגובה 72px שכל תפקידה להיות אייקון, בדיוק ברצועה
-   שיושבת באמצע הגלילה של דף הבית. ‏`flex:1 1 0` מרשה לטקסט להצטמצם מתחת
-   לרוחב הבסיס, וכך השניים נכנסים לשורה אחת.
+   המסגרת היא ‎::before‎ ולא border: היא יושבת 6px פנימה מהקצה, והקצה
+   עצמו נשאר כהה — כמו במוקאפ. */
+.oh-promo{
+  position:relative;isolation:isolate;
+  display:flex;align-items:center;gap:22px;
+  padding:16px 26px;border-radius:14px;overflow:hidden;
+  background:
+    radial-gradient(120% 90% at 50% 0%, #25356b 0%, rgba(37,53,107,0) 60%),
+    radial-gradient(60% 50% at 50% 115%, rgba(224,181,74,.35), rgba(224,181,74,0) 70%),
+    #0e1938;
+  color:#fff;text-decoration:none;
+  box-shadow:0 14px 34px -20px rgba(6,14,40,.8);
+}
+.oh-promo::before{
+  content:"";position:absolute;inset:6px;z-index:-1;border-radius:10px;pointer-events:none;
+  border:1.5px solid rgba(224,181,74,.75);
+}
+.oh-promo:focus-visible{outline:3px solid #e0b54a;outline-offset:3px}
+.oh-promo-title{
+  flex:none;margin:0;font-size:1.75rem;font-weight:900;line-height:1.08;color:#fff;
+  letter-spacing:-.01em;text-shadow:0 2px 10px rgba(0,0,0,.35);
+}
+.oh-promo-art{flex:none;height:92px;width:auto;direction:ltr}
+.oh-promo-body{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:4px}
+.oh-promo-kicker{font-size:1.25rem;font-weight:900;color:#e9c35c;line-height:1.2}
+/* שתי שורות קבועות, משפט בכל אחת: ‏nowrap על כל משפט, והגופן מצטמצם עם
+   הרוחב (‏clamp). נמדד: השורה הארוכה נכנסת בלי לגעת בכפתור עד ~1010px,
+   ולכן מתחת ל-1040px (מרווח 34px לפחות) ההסבר יורד — ולא נשבר. */
+.oh-promo-text{display:flex;flex-direction:column;font-size:clamp(.82rem,1.15vw,1rem);line-height:1.45;color:#eef2fb}
+.oh-promo-text > span{white-space:nowrap}
+.oh-promo-cta{
+  flex:none;margin-inline-start:auto;
+  padding:13px 24px;border-radius:9px;white-space:nowrap;
+  font-size:1rem;font-weight:900;color:#1b1406;
+  background:linear-gradient(180deg,#f7dc8a 0%,#e0b54a 45%,#b8862a 100%);
+  border:1.5px solid #fbe7a1;
+  box-shadow:0 6px 16px -6px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.5);
+  transition:transform .15s ease,filter .15s ease;
+}
+.oh-promo:hover .oh-promo-cta{transform:translateY(-1px);filter:brightness(1.06)}
 
-   הגובה נקבע ורוחב auto נגזר מה-viewBox, כדי שהיחס יישמר בלי לקודד אותו
-   כאן פעם שנייה (הוא כבר מחושב ב-OpenHouse.icon). */
-@media(max-width:559px){
-  .oh-banner{gap:12px;padding:16px}
-  .oh-banner-body{flex:1 1 0}
-  .oh-banner .oh-mark{flex:none;height:56px;width:auto}
-  .oh-banner-cta{flex:1 0 100%;text-align:center}
-  .oh-banner h2,.oh-banner h3{font-size:1.05rem}
+/* בין 700 ל-1040 פיקסלים ארבעת החלקים לא נכנסים בשורה: ההסבר יורד והרצועה
+   נשארת רצועה. */
+@media(max-width:1039px){
+  .oh-promo-text{display:none}
+}
+@media(max-width:980px){
+  .oh-promo-title{font-size:1.5rem}
+}
+@media(max-width:699px){
+  .oh-promo{
+    flex-direction:column;text-align:center;gap:10px;
+    padding:22px 18px 24px;max-width:460px;margin-inline:auto;
+  }
+  .oh-promo-art{order:-1;height:104px}
+  .oh-promo-body{order:0;align-items:center}
+  .oh-promo-title{order:1;font-size:1.85rem}
+  .oh-promo-cta{order:2;margin:6px 0 0;align-self:stretch;padding:14px 20px;font-size:1.1rem}
+  .oh-promo-kicker{font-size:1.3rem}
 }
 
 /* ====== הרצועה בדף הנכס ======

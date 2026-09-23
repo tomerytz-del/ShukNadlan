@@ -2070,8 +2070,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      שהמפה נראית כמו במה שהקרוסלה יושבת עליה (ולא כמו שתי קופסאות נפרדות).
      z-index:4 מציב אותה מעל .map-toolbar (z-index:3), שהורחק כלפי מעלה
      בדיוק בשביל החפיפה הזו. */
+  /* ‏margin-top:0 ולא ‎-16px‎: הבמה נכנסה פעם מתחת לקצה המפה, אבל מאז
+     שתיבת הנכסים עלתה אל מתחת למבזק #dealmakers יושבת אחרי באנר היריד,
+     והמשיכה כלפי מעלה עלתה על התחתית שלו. הפינה המעוגלת והצל נשארו —
+     הם מה שמסמן שכאן מתחילה סקציה אחרת. */
   .hot-band{
-    position:relative;z-index:4;margin-top:-16px;
+    position:relative;z-index:4;margin-top:0;
     /* ====== הבמה הזו מגוונת, ו-‎.search-results‎ שמעליה לבנה ======
        שתיהן היו ‎rgba(255,255,255,.86)‎ מעל הרקע הזורם — כלומר כמעט בדיוק
        צבע הנייר של הדף. התוצאה הייתה שלסקציה לא היה שום גבול: היא
@@ -2108,75 +2112,59 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      (ראו שאילתת המדיה למטה). ‏.head-line ממילא ממורכז בעצמו. */
   .dm-head > div{text-align:center}
 
-  /* הלשוניות הן פקד ניווט ולא קישוט, ולכן הן נצבעות ולא רק מסומנות: המגש
-     בגוון ‎--teal-tint‎ מחזיק את השלוש כקבוצה אחת, והפעילה מקבלת נייבי מלא
-     עם טקסט לבן — אותו צבע בדיוק של תיבת החיפוש שבראש השורה, כך שהשתיים
-     נקראות כמערכת אחת ולא כשני פקדים שבמקרה שכנים.
+  /* ====== הסרגל: חיפוש · לשוניות · התמחות ======
+     לפי המוקאפ, על מגש נייבי מלא: שלושת הפקדים בשורה אחת, והמגש הכהה
+     הוא מה שמפריד את הסרגל מהכרטיסים הלבנים שמתחתיו — על הבמה הבהירה
+     מגש שקוף כמעט נבלע.
 
-     **הלשוניות הכבויות הן כפתורים לבנים ולא טקסט על המגש.** בגרסה הקודמת הן
-     היו ‎background:transparent‎ על מגש בהיר, עם מסגרת ‎--line‎ שכמעט אינה
-     נראית — ולכן הן נקראו כשורת כותרת שבמקרה יש בה מלבן כהה אחד, ולא כפקד
-     שאפשר להחליף בו. הבעיה לא הייתה ניגודיות הטקסט (‏--ink-soft על
-     ‎--teal-tint‎ הוא 6.4:1, תקין) אלא **היעדר גבול**: בלי שפת כפתור, גולשים
-     פשוט לא ידעו שיש שם עוד שתי לשוניות — ורוב מי שנכנס לא ראה את המתווכים
-     ואת בעלי המקצוע מעולם.
-
-     **ההדגשה היא על הלשוניות הכבויות, לא על הפעילה.** הפעילה ממילא הבולטת
-     ביותר — מלבן נייבי מלא — ומי שמפספס אותה לא קיים. מה שפוספס הוא שתי
-     האחרות, ולכן הן אלה שמקבלות את הטיפול.
-
-     והשפה היא מצב הכפתור עצמו: **הכבויות מורמות והפעילה שקועה.** כפתור
-     שלא נלחץ בולט החוצה, וכפתור לחוץ נכנס פנימה — כך ההבלטה אינה קישוט
-     שהודבק מלמעלה אלא אמירה נכונה על מה שאפשר לעשות כאן. */
-  /* המגש נגזר מהבמה שמתחתיו ולא מצבע קבוע: ‏--teal-tint‎ (‏#eaf0fb) היה
-     כמעט בדיוק הגוון של ‎.hot-band‎ מאז שהיא הפסיקה להיות לבנה, והמגש
-     היה נעלם בתוכה — ואיתו מה שהוא עושה: מחזיק את השלוש כקבוצה אחת.
-     נייבי שקוף נשאר כהה מהבמה בכל גוון שהרקע הזורם מעביר תחתיה. */
-  .dm-tabs{
-    display:flex;gap:5px;background:rgba(14,42,107,.09);
-    border:1px solid rgba(14,42,107,.18);padding:5px;
+     **הלשונית הפעילה היא הלבנה, והכבויות שקופות על הנייבי** עם טקסט בהיר
+     — שני המצבים נקראים במבט אחד. שדה החיפוש והבורר לבנים, כי הם שדות. */
+  .dm-bar{
+    display:flex;flex-direction:column;gap:6px;margin:0 16px 14px;padding:6px;
+    background:linear-gradient(155deg,#0e2a6b,#08194a 72%);
+    box-shadow:0 10px 24px -14px rgba(6,20,34,.55);
   }
+  .dm-field,.dm-quick{
+    display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;
+    background:#fff;border:1px solid transparent;color:var(--ink-soft);cursor:text;
+  }
+  .dm-field svg,.dm-quick svg{width:17px;height:17px;flex:none}
+  .dm-field-label{flex:none;font-size:.84rem;font-weight:800;color:var(--ink)}
+  /* ‏appearance:none מסיר את ה-X של WebKit */
+  .dm-field input{flex:1;min-width:0;border:none;background:none;font-family:inherit;
+    font-size:.84rem;color:var(--ink);appearance:none}
+  .dm-field input:focus{outline:none}
+  .dm-field:focus-within,.dm-quick:focus-within{box-shadow:0 0 0 2px var(--brass,#c9a227)}
+  .dm-quick{cursor:pointer}
+  /* בלשונית שאין לה בורר (בעלי מקצוע) הוא יורד לגמרי והלשוניות מתרחבות */
+  .dm-quick.is-empty{display:none}
+  .dm-quick-select{
+    flex:1;min-width:0;height:100%;border:none;background:none;padding:0;
+    font-family:inherit;font-size:.84rem;font-weight:600;color:var(--ink);cursor:pointer;
+  }
+  .dm-quick-select:focus{outline:none}
+
+  .dm-tabs{display:flex;gap:4px;min-width:0}
   .dm-tabs button{
-    flex:1;min-height:44px;padding:0 10px;border-radius:0;cursor:pointer;
-    font-family:inherit;font-size:.8rem;font-weight:700;white-space:nowrap;
-    /* המסגרת קודם הייתה ‎--line‎ (‏#e3e8f4) — כמעט בצבע המגש, ולכן היא לא
-       תחמה דבר. נייבי מלא הוא מה שהופך את הכבויות לכפתורים במבט אחד. */
-    border:1.5px solid var(--teal);color:var(--teal);
-    background:linear-gradient(180deg,#fff,var(--teal-tint));
-    box-shadow:0 2px 0 var(--teal), 0 4px 9px rgba(13,27,61,.18);
-    transform:translateY(-1px);
-    transition:background .18s ease, color .18s ease, border-color .18s ease,
-               transform .15s ease, box-shadow .15s ease;
+    flex:1;min-width:0;min-height:44px;padding:0 6px;border-radius:0;cursor:pointer;
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;
+    font-family:inherit;font-size:.78rem;font-weight:700;white-space:nowrap;
+    border:1.5px solid rgba(255,255,255,.22);background:transparent;color:#e3e9f7;
+    transition:background .15s ease,border-color .15s ease;
   }
-  .dm-tabs button:not([aria-selected="true"]):hover{
-    background:#fff;box-shadow:0 2px 0 var(--teal), 0 6px 14px rgba(13,27,61,.22);
-    transform:translateY(-2px);
-  }
-  /* הפעילה יורדת למקומה ומאבדת את קו ההרמה: זה מה שקורה לכפתור שנלחץ.
-     במקומו היא מקבלת פס זהב תחתון — אותו ‎--brass‎ של הקו מתחת ללוגו ושל תג
-     הקוד האתי. הזהב **רק כאן ולא בשלושתן**: ברגע שהוא מופיע גם בכבויות הוא
-     מפסיק לסמן את הבחירה ונעשה קישוט. */
+  .dm-tab-ico{width:17px;height:17px;flex:none;display:none}
+  .dm-tabs button[aria-selected="true"] .dm-tab-ico{color:var(--teal)}
+  .dm-tabs button:not([aria-selected="true"]):not(:disabled):hover{background:rgba(255,255,255,.1);color:#fff}
+  /* פס הזהב התחתון מסמן את הבחירה — אותו ‎--brass‎ של הקו מתחת ללוגו */
   .dm-tabs button[aria-selected="true"]{
-    background:var(--teal);color:#fff;border-color:var(--teal);
-    box-shadow:inset 0 -3px 0 var(--brass,#c9a227), inset 0 2px 5px rgba(0,0,0,.4);
-    transform:none;
+    background:#fff;border-color:#fff;color:var(--teal);
+    box-shadow:inset 0 -3px 0 var(--brass,#c9a227);
   }
   .dm-tabs button:disabled{opacity:.45;cursor:default}
-  .dm-tabs button:disabled,
-  .dm-tabs button:disabled:hover{
-    box-shadow:none;transform:none;background:var(--paper-raised);
-  }
-  /* מי שביקש/ה פחות תנועה מקבל/ת את אותו עיצוב בלי ההרמה המונפשת */
-  @media(prefers-reduced-motion:reduce){
-    .dm-tabs button{transition:none}
-    .dm-tabs button:not([aria-selected="true"]):hover{transform:translateY(-1px)}
-  }
-  .dm-tabs .n{font-weight:800;font-size:.72rem;opacity:.72;margin-inline-start:4px}
+  @media(prefers-reduced-motion:reduce){ .dm-tabs button{transition:none} }
+  .dm-tabs .n{font-weight:700;font-size:.72rem;opacity:.7;margin-inline-start:2px}
 
-  /* גוף הסקציה: תיבת החיפוש היא עמודה קבועה בקצה השמאלי, ושורת הכרטיסים
-     נגללת לצידה בעצמה. שני אחים ב-flex ולא ‎sticky‎ בתוך אותה שורה: כך
-     התיבה באמת מחוץ למסלול הגלילה, ולא צריכה להיאבק בו. */
-  .dm-body{display:flex;flex-direction:column;gap:12px;padding:4px 16px 14px}
+  .dm-body{padding:0 16px 6px}
 
   .dm-row{
     display:flex;gap:12px;align-items:stretch;overflow-x:auto;
@@ -2237,95 +2225,51 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   .row-nav[hidden]{display:none}
 
-  /* תיבת החיפוש — קובייה קבועה, בגודל אריח מלא ובצבע הפוך לאריחים שלצידה,
-     כדי שתיקרא כפעולה ולא כאריח נוסף ברצועה. */
-  .dm-search{
-    flex:none;min-width:0;display:flex;flex-direction:column;padding:14px;
-    background:linear-gradient(155deg,#0e2a6b,#08194a 72%);
-    border-top:3px solid #C9A227;box-shadow:0 10px 26px -10px rgba(6,20,34,.45);
-  }
-  .dm-eyebrow{display:flex;align-items:center;gap:8px;
-    font-size:.68rem;font-weight:800;letter-spacing:.08em;color:#F0D089}
-  .dm-eyebrow svg{width:18px;height:18px;flex:none}
-  .dm-search h3{font-size:1.02rem;font-weight:800;
-    line-height:1.35;color:#fff;margin:10px 0 0}
-  .dm-search > p{font-size:.76rem;line-height:1.5;color:rgba(255,255,255,.82);margin:6px 0 0}
-  /* ‏margin-top:auto דוחף את התיבה והקישור לתחתית, כך שהם מיושרים עם
-     רצועת השם של האריחים שלצידם בכל גובה אריח */
-  .dm-field{display:flex;align-items:center;gap:8px;background:#fff;
-    height:44px;padding:0 12px;margin-top:auto;color:var(--ink-soft)}
-  .dm-field svg{width:17px;height:17px;flex:none}
-  /* ‏appearance:none מסיר את ה-X של WebKit, שנצבע כאן על רקע לבן */
-  .dm-field input{flex:1;min-width:0;border:none;background:none;font-family:inherit;
-    font-size:.84rem;color:var(--ink);appearance:none}
-  .dm-field input:focus{outline:none}
-  /* הבורר המהיר יושב מתחת לתיבת החיפוש, בלבן שלה: שני פקדים באותה מערכת
-     ולא פקד ועוד קישור. בלשונית שאין לה בורר (בעלי מקצוע) הוא מוסתר
-     ב-‎visibility‎ ולא ב-‎display‎, כדי שגובה התיבה — ואיתו מקומה של שורת
-     החיפוש — לא יזוז במעבר בין הלשוניות. */
-  .dm-quick{margin-top:10px}
-  .dm-quick.is-empty > *{visibility:hidden}
-  .dm-quick-label{display:block;font-size:.68rem;font-weight:800;
-    letter-spacing:.06em;color:#F0D089;margin-bottom:5px}
-  .dm-quick-select{
-    width:100%;height:40px;padding:0 10px;border:none;border-radius:0;
-    background:#fff;font-family:inherit;font-size:.82rem;font-weight:600;
-    color:var(--ink);cursor:pointer;
-  }
-  .dm-quick-select:focus{outline:2px solid #C9A227;outline-offset:1px}
-
   /* ====== אריח אדם/משרד ======
-     התמונה *היא* האריח: היא ממלאת אותו לגובה ולרוחב, והשם והנתונים יושבים
-     בתחתיתו על scrim כהה במקום בגוף כרטיס לבן נפרד. שלושת הסוגים חולקים
-     את אותו אריח בדיוק, כדי שהמעבר בין הלשוניות לא ייראה כמעבר בין שלוש
-     מערכות.
-     הגרדיאנט עם אות ההתחלה נשאר מתחת לתמונה כרשת ביטחון: מי שאין לו תמונה
-     (או שהקובץ נשבר וה-img הסיר את עצמו) מקבל אריח צבעוני ולא ריבוע ריק.
-     הריפוד התחתון ממרכז את האות בשטח שמעל רצועת השם ולא באמצע האריח. */
+     לפי המוקאפ: כרטיס לבן, התמונה בראשו, ומתחת השם, "גלולה" אפורה עם
+     האזור (או המשרד, או התחום) ושורת הדירוג והמלאי. שלושת הסוגים חולקים
+     את אותו אריח, כדי שהמעבר בין הלשוניות לא ייראה כמעבר בין שלוש מערכות.
+
+     רוחב האריח נגזר מהמסלול: ארבעה בשורה בדסקטופ, שלושה בטאבלט, ובטלפון
+     אחד ועוד הצצה לבא — ההצצה היא מה שאומר שאפשר לגלול. */
   .dm-card{
-    flex:0 0 min(248px, calc(100% - 46px));min-width:0;min-height:var(--card-h);
-    position:relative;overflow:hidden;scroll-snap-align:end;
-    display:flex;align-items:center;justify-content:center;padding-bottom:38px;
-    background:linear-gradient(155deg,var(--gold),var(--teal) 65%);
-    border:1px solid var(--line);box-shadow:var(--shadow-sm);color:#fff;
+    flex:0 0 calc(76% - 12px);min-width:0;scroll-snap-align:start;
+    display:flex;flex-direction:column;overflow:hidden;
+    background:#fff;border:1px solid rgba(14,42,107,.12);color:var(--ink);
+    box-shadow:0 4px 14px -8px rgba(13,27,61,.3);
     transition:transform .18s ease, box-shadow .18s ease;
   }
   .dm-card:hover{transform:translateY(-2px);box-shadow:0 14px 28px -14px rgba(6,20,34,.42)}
-  .dm-initial{font-weight:800;font-size:2.1rem;
-    color:#fff;line-height:1}
+  /* המסגרת לתמונה: הגרדיאנט עם אות ההתחלה הוא רשת ביטחון למי שאין לו
+     תמונה, או שהקובץ נשבר וה-img הסיר את עצמו. */
+  .dm-media{
+    position:relative;aspect-ratio:16/11;margin:8px 8px 0;
+    display:grid;place-items:center;overflow:hidden;
+    background:linear-gradient(155deg,var(--gold),var(--teal) 65%);
+  }
+  .dm-media:has(.dm-logo){background:#f6f7fb}
+  .dm-media:has(img:not(.dm-badge)) .dm-initial{display:none}
+  .dm-initial{font-weight:800;font-size:2.6rem;color:#fff;line-height:1}
   /* ‏object-position גבוה מהמרכז: בתמונות פרופיל הפנים יושבות בשליש
-     העליון, וחיתוך למרכז היה קוטע אותן בתחתית האריח. מי שסימן/ה נקודת
-     מיקוד ב-CRM דורס/ת את ברירת המחדל דרך ‎--photo-pos‎. */
+     העליון. מי שסימן/ה נקודת מיקוד ב-CRM דורס/ת את ברירת המחדל דרך
+     ‎--photo-pos‎. לוגו נשאר שלם (‏contain) — חיתוך היה קוטע אותיות. */
   .dm-photo{position:absolute;inset:0;width:100%;height:100%;
     object-fit:cover;object-position:var(--photo-pos,center 22%)}
-  /* לוגו משרד הוא לא תמונת פורטרט: חיתוך ב-cover היה קוטע אותיות, ולכן
-     הלוגו נשאר שלם (contain) ומאחוריו אותו קובץ בגרסה מוגדלת ומטושטשת
-     שממלאת את השוליים — כך האריח נראה מלא ורציף, ולא לוגו קטן על ריבוע ריק. */
-  .dm-card:has(.dm-logo){background:#fff}
-  .dm-card:has(.dm-logo) .dm-initial{display:none}
-  .dm-logo-bg{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;
-    transform:scale(1.3);filter:blur(18px) saturate(1.15) brightness(.94)}
-  /* ‏width/height מפורשים ולא ‎inset‎ בלבד: לתמונה עם ‎width:auto‎ נגזר
-     הגודל הפנימי של הקובץ גם כשכל ה-insets מוגדרים. */
-  .dm-logo{position:absolute;top:0;inset-inline:0;width:100%;height:calc(100% - 38px);
-    object-fit:contain;padding:8px}
-  .dm-rank{position:absolute;top:6px;right:6px;background:rgba(255,255,255,.94);
-    color:var(--gold-dark);font-size:.62rem;font-weight:800;padding:2px 7px;
-    box-shadow:0 2px 6px rgba(6,20,34,.22)}
-  /* תו האיכות יושב בפינה הנגדית לתג הדירוג כדי שהשניים לא יתנגשו, ואינו
-     לחיץ: האריח כולו כבר מוביל לדף, ושם התו הגדול נלחץ ופותח את ההסבר. */
-  .dm-badge{position:absolute;top:6px;left:6px;width:26px;height:26px;border-radius:50%;
+  .dm-logo{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:10px}
+  /* תו האיכות אינו לחיץ: האריח כולו כבר מוביל לדף, ושם התו הגדול נלחץ
+     ופותח את ההסבר. */
+  .dm-badge{position:absolute;top:6px;left:6px;width:30px;height:30px;border-radius:50%;
     box-shadow:0 2px 7px rgba(6,20,34,.4);pointer-events:none}
-  .dm-overlay{position:absolute;inset-inline:0;bottom:0;padding:26px 8px 9px;
-    text-align:center;color:#fff;
-    background:linear-gradient(to top, rgba(6,20,34,.94) 30%, rgba(6,20,34,.66) 62%, rgba(6,20,34,0))}
-  .dm-name{font-weight:700;font-size:.78rem;line-height:1.25;
+  .dm-info{display:flex;flex-direction:column;align-items:center;gap:6px;
+    padding:10px 10px 12px;text-align:center}
+  .dm-name{font-weight:800;font-size:.95rem;line-height:1.25;max-width:100%;
     display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
-  .dm-sub{font-size:.66rem;color:rgba(255,255,255,.86);margin-top:2px;
-    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
-  .dm-meta{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;
-    font-size:.6rem;color:rgba(255,255,255,.9);margin-top:5px}
-  .dm-meta .star{color:#FFD34D;margin-inline-end:2px}
+  .dm-sub{max-width:100%;padding:3px 10px;border-radius:999px;
+    background:#eef1f7;border:1px solid #e0e5ef;color:var(--ink-soft);
+    font-size:.72rem;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .dm-meta{display:flex;align-items:center;justify-content:center;gap:4px 10px;flex-wrap:wrap;
+    font-size:.74rem;color:var(--ink-soft)}
+  .dm-meta .star{color:#e5a800;margin-inline-end:3px}
 
   /* המסגרת המקווקוות הייתה ‎#cfd8ec‎ — גוון שנבחר מול במה לבנה, וכמעט לא
      נראה על הבמה המגוונת. נייבי שקוף נשאר גלוי בשתיהן. */
@@ -2336,44 +2280,28 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      (‏order:1 במסמך RTL) מ-760px ומעלה. */
   .dm-all{display:flex;justify-content:flex-end;align-items:center;min-height:44px;margin:0;padding:0 16px}
 
-  @media(min-width:480px){
-    .dm-initial{font-size:2.6rem}
-    .dm-name{font-size:.86rem}
-    .dm-sub{font-size:.72rem}
-    .dm-meta{font-size:.66rem}
+  @media(min-width:560px){
+    .dm-card{flex-basis:calc(50% - 8px)}
   }
 
   @media(min-width:760px){
-    .hot-band{margin-top:-20px;padding:26px 0 32px}
+    .hot-band{padding:26px 0 32px}
     .dm-head{flex-direction:row;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;
       gap:12px 24px;margin-bottom:14px}
     .dm-head > div{text-align:start}
-    /* ====== הלשוניות: אותו פקד בדיוק כמו בטלפון ======
-       עד כאן הן היו ‎flex:0 0 auto‎ בקצה שורת הכותרת — שלושה כפתורים
-       ברוחב הטקסט שלהם, שכל אחד נגמר איפה שנגמרה המילה. במסך רחב זה
-       נקרא כשלושה קישורי עזר שנדחקו לפינה, ולא כמה שהם באמת: הבורר
-       שקובע מה מוצג בכל מה שמתחתיו.
-
-       בטלפון הפקד הזה עובד — מגש ברוחב מלא ושלוש לשוניות שוות שממלאות
-       אותו — ואין סיבה שהוא ייראה אחרת במחשב. ‏flex:1 0 100% מוריד את
-       המגש לשורה מלאה משלו מתחת לכותרת, ו-‎flex:1‎ על הכפתורים מחזיר את
-       שלושת החלקים השווים. */
-    .dm-tabs{flex:1 0 100%}
-    .dm-tabs button{flex:1;padding:0 18px;font-size:.84rem}
-    /* מכאן ומעלה יש מקום לשתי עמודות: החיפוש קבוע בשמאל (‏order:1 הוא
-       הקצה השמאלי במסמך RTL) והמסלול לוקח את כל השאר ונגלל בעצמו */
-    .dm-body{flex-direction:row;align-items:stretch;gap:16px;padding:4px 16px 16px}
-    .dm-search{order:1;flex:0 0 248px;padding:16px 16px 14px}
-    .dm-row-wrap{order:0;flex:1;min-width:0}
+    /* מכאן ומעלה הסרגל הוא שורה אחת: החיפוש בימין, הלשוניות באמצע והבורר
+       בשמאל — בדיוק כמו במוקאפ */
+    .dm-bar{flex-direction:row;align-items:stretch}
+    .dm-field{flex:1.2 1 0;min-width:0}
+    .dm-tabs{flex:2 1 0}
+    .dm-tabs button{font-size:.84rem;padding:0 14px}
+    .dm-tab-ico{display:block}
+    .dm-quick{flex:.9 1 0;min-width:0}
     .dm-row{gap:16px;margin-inline:0;padding-inline:0}
-    .dm-initial{font-size:3.2rem}
-    .dm-rank{top:9px;right:9px;font-size:.7rem;padding:3px 10px}
-    .dm-badge{width:30px;height:30px;top:8px;left:8px}
-    .dm-overlay{padding:32px 12px 12px}
-    .dm-name{font-size:.95rem}
-    .dm-sub{font-size:.78rem}
-    .dm-meta{font-size:.72rem}
-    .dm-logo{padding:14px}
+    .dm-card{flex-basis:calc((100% - 32px) / 3)}
+  }
+  @media(min-width:1100px){
+    .dm-card{flex-basis:calc((100% - 48px) / 4)}
   }
   /* ====== שורת פרסומת בין הסקציות ====== */
   .ad-strip{
@@ -2915,6 +2843,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      הלשוניות היו שקופות, כך שבמצב ניגודיות גבוהה הן נשארו כהות-על-בהיר
      בתוך עמוד שחור-צהוב. מאז שיש להן משטח לבן משלהן זה היה נעשה בולט —
      אבל הכלל היה חסר גם קודם. */
+  html.a11y-contrast .dm-bar,
   html.a11y-contrast .dm-tabs{background:#000 !important;border-color:#FFD84D !important}
   html.a11y-contrast .dm-tabs button{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
   html.a11y-contrast .dm-tabs button[aria-selected="true"]{background:#FFD84D !important;color:#000 !important}
@@ -3984,12 +3913,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        "איזה משרד תיווך מתאים לכם" שמתחתיה, ושניהם התמזגו לשורת כרטיסים
        אחת עם שלוש לשוניות — משרדי תיווך, מתווכים ובעלי מקצוע.
 
-       תיבת החיפוש היא הכרטיס הראשון בשורה, בגודל כרטיס מלא ובנייבי מלא,
-       והיא מוצמדת לימין (‏position:sticky) ונשארת שם בזמן שהכרטיסים
-       נגללים תחתיה. היא מסננת בתוך הלשונית הפעילה בלבד.
+       מעל הכרטיסים סרגל אחד — חיפוש, שלוש הלשוניות ובורר התמחות — והחיפוש
+       מסנן בתוך הלשונית הפעילה בלבד. מתחת לשורה, קישור "לכל…" שמשתנה עם
+       הלשונית: משרדי התיווך, המתווכים או בעלי המקצוע.
 
-       הסקציה נושאת את ‎.hot-band‎ — הבמה שנכנסת 16px מתחת לקצה המפה — כי
-       היא שיושבת עכשיו במקום שבו ישבה הקרוסלה. -->
+       הסקציה נושאת את ‎.hot-band‎ — הבמה המגוונת עם הפינה המעוגלת. היא
+       כבר לא נכנסת מתחת למפה: היא יושבת אחרי באנר היריד, ולכן בלי
+       margin שלילי (ראו ההערה ב-CSS). -->
   <section class="hot-band" id="dealmakers" aria-labelledby="dealmakersTitle">
     <div class="wrap">
       <div class="dm-head">
@@ -4006,44 +3936,43 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
           <p class="dm-sub-line">כל מי שמלווה עסקת נדל״ן בעפולה והעמק, במקום אחד</p>
         </div>
+      </div>
+
+      <!-- ====== סרגל אחד: חיפוש · שלוש לשוניות · התמחות ======
+           לפי המוקאפ. כאן ישבה קובייה נייבי בגודל אריח (‏.dm-search) בקצה
+           השורה, עם כותרת משלה, תיבת החיפוש והבורר — היא תפסה את מקומו של
+           כרטיס שלם. עכשיו שלושת הפקדים בשורה אחת מעל הכרטיסים, והשורה
+           כולה מוקדשת להם. בטלפון הסרגל נשבר לשלוש שורות: חיפוש, לשוניות,
+           התמחות. -->
+      <div class="dm-bar">
+        <label class="dm-field" for="dmSearch">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+          <span class="dm-field-label">חיפוש</span>
+          <input type="search" id="dmSearch" placeholder="שם משרד או שכונה…"
+                 autocomplete="off" aria-label="חיפוש בתוך הלשונית הפעילה">
+        </label>
 
         <div class="dm-tabs" role="tablist" aria-label="סוג אנשי המקצוע">
           <button type="button" role="tab" id="dmTabAgencies" data-tab="agencies"
-                  aria-selected="true" aria-controls="dmRow">משרדי תיווך</button>
+                  aria-selected="true" aria-controls="dmRow"><svg class="dm-tab-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2M10.5 21v-3h3v3"/></svg>משרדי תיווך</button>
           <button type="button" role="tab" id="dmTabAgents" data-tab="agents"
-                  aria-selected="false" aria-controls="dmRow">מתווכים</button>
+                  aria-selected="false" aria-controls="dmRow"><svg class="dm-tab-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c1-4 4-6 7.5-6s6.5 2 7.5 6"/></svg>מתווכים</button>
           <button type="button" role="tab" id="dmTabPros" data-tab="pros"
-                  aria-selected="false" aria-controls="dmRow">בעלי מקצוע</button>
+                  aria-selected="false" aria-controls="dmRow"><svg class="dm-tab-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 6.5a4 4 0 0 0-5.3 5.3L3.5 17.5l3 3 5.7-5.7a4 4 0 0 0 5.3-5.3l-2.6 2.6-2.4-.6-.6-2.4z"/></svg>בעלי מקצוע</button>
         </div>
+
+        <!-- בורר מהיר לפי התמחות. האפשרויות נבנות ב-JS מהמלאי של הלשונית
+             הפעילה, ובלשונית בעלי המקצוע הוא יורד (‏.is-empty). התווית
+             קיימת לקורא מסך בלבד — האפשרות הראשונה ("כל ההתמחויות")
+             אומרת לעין מה זה. -->
+        <label class="dm-quick" id="dmQuick" for="dmSpec">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+          <span class="dm-quick-label sr-only">התמחות</span>
+          <select class="dm-quick-select" id="dmSpec"></select>
+        </label>
       </div>
 
       <div class="dm-body">
-        <div class="dm-search">
-          <span class="dm-eyebrow">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>
-            </svg>
-            חיפוש
-          </span>
-          <h3 id="dmSearchTitle">איזה משרד תיווך מתאים לכם?</h3>
-          <p id="dmSearchSub">כל המשרדים בעפולה והסביבה - לפי התמחות, דירוג ומלאי נכסים</p>
-          <label class="dm-field" for="dmSearch">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
-              <circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>
-            </svg>
-            <input type="search" id="dmSearch" placeholder="שם משרד או שכונה…"
-                   autocomplete="off" aria-label="חיפוש בתוך הלשונית הפעילה">
-          </label>
-          <!-- בורר מהיר לפי התמחות. הוא יושב במקום שבו ישב קישור "לרשימה
-               המלאה" — קישור שני לאותו דף בדיוק שאליו מוביל "לכל משרדי
-               התיווך ←" שמתחת לשורה. האפשרויות נבנות ב-JS מהמלאי של
-               הלשונית הפעילה, ובלשונית בעלי המקצוע המקום נשאר ריק. -->
-          <div class="dm-quick" id="dmQuick">
-            <label class="dm-quick-label" for="dmSpec">התמחות</label>
-            <select class="dm-quick-select" id="dmSpec"></select>
-          </div>
-        </div>
-
         <!-- ====== מסלול האריחים ======
              האריחים מוזרקים ב-JS (initDealmakers). המעטפת קיימת בשביל
              הגלילה: השורה גוללת אופקית מאז שנבנתה, אבל שום דבר לא אמר

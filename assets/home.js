@@ -1388,24 +1388,68 @@ async function loadOpenHouseCount(){
   }
 }
 
+/* הבאנר לפי המוקאפ: כהה עם מסגרת זהב, "0%" עם שעון עצר ובניין, והכותרת
+   "יריד דירות ללא עמלת תיווך לזמן מוגבל!". בדסקטופ הוא רצועה אחת
+   (כותרת · איור · הסבר · כפתור), ובטלפון כרטיס מרובע שבו ההסבר יורד —
+   ראו ‎.oh-promo‎ ב-assets/open-house.css.
+
+   ‏count עדיין קובע אם הבאנר קיים בכלל (אפס → hidden), אבל כבר לא נכתב
+   בו: המוקאפ לא נושא מספר, והמספר מחכה בעמוד היריד עצמו. האיור הוא SVG
+   מוטבע ולא תמונה — הטקסט נשאר טקסט (נגיש, חד, ניתן לתרגום), ואין בקשה
+   נוספת לרשת. */
+const OH_PROMO_ART =
+  `<svg class="oh-promo-art" viewBox="0 0 170 104" aria-hidden="true" focusable="false">` +
+    `<defs>` +
+      `<linearGradient id="ohGold" x1="0" y1="0" x2="0" y2="1">` +
+        `<stop offset="0" stop-color="#fbe7a1"/><stop offset=".45" stop-color="#e0b54a"/>` +
+        `<stop offset=".75" stop-color="#b8862a"/><stop offset="1" stop-color="#f1d27a"/>` +
+      `</linearGradient>` +
+    `</defs>` +
+    // שעון העצר — מאחורי ה-%
+    `<g fill="none" stroke="url(#ohGold)" stroke-width="4.5" stroke-linecap="round">` +
+      `<circle cx="132" cy="54" r="27"/>` +
+      `<path d="M126 22h12M132 22v5M151 32l5-5M113 32l-5-5"/>` +
+      `<path d="M132 54l11-12" stroke-width="5"/>` +
+      `<path d="M132 33v4M153 54h-4M132 75v-4M111 54h4" stroke-width="3"/>` +
+    `</g>` +
+    `<circle cx="132" cy="54" r="3.5" fill="url(#ohGold)"/>` +
+    // ה-0 הגדול וה-%
+    `<text x="40" y="90" font-family="Heebo,Arial,sans-serif" font-weight="900" font-size="104" ` +
+      `fill="url(#ohGold)" stroke="#6b4a12" stroke-width="1.2">0</text>` +
+    `<text x="93" y="96" font-family="Heebo,Arial,sans-serif" font-weight="900" font-size="58" ` +
+      `fill="url(#ohGold)" stroke="#6b4a12" stroke-width=".8">%</text>` +
+    // הבניין
+    `<g fill="url(#ohGold)">` +
+      `<path d="M8 100V52h24v48z" opacity=".95"/>` +
+      `<path d="M4 100h32v3H4z"/>` +
+    `</g>` +
+    `<g fill="#0f1a3d">` +
+      `<rect x="12" y="57" width="5" height="5"/><rect x="23" y="57" width="5" height="5"/>` +
+      `<rect x="12" y="67" width="5" height="5"/><rect x="23" y="67" width="5" height="5"/>` +
+      `<rect x="12" y="77" width="5" height="5"/><rect x="23" y="77" width="5" height="5"/>` +
+      `<rect x="17" y="89" width="6" height="11"/>` +
+    `</g>` +
+  `</svg>`;
+
 function renderOpenHouseBanner(count){
   const host = document.getElementById('openHouseBanner');
   if (!host) return;
   if (!count){ host.hidden = true; host.innerHTML = ''; return; }
 
-  // "נכס אחד" ולא "1 נכסים": יריד עם משתתף אחד הוא עדיין יריד, ומספר
-  // שנכתב בלשון רבים על פריט בודד הוא הדבר הראשון שנקרא כתקלה.
-  const many = count > 1;
   host.innerHTML =
-    `<a class="oh-banner" href="/open-house">` +
-      OpenHouse.icon({ size:72 }) +
-      `<span class="oh-banner-body">` +
-        `<span class="oh-banner-eyebrow">${OpenHouse.FAIR_NAME}</span>` +
-        `<h2>לקנות דירה בעפולה - בלי עמלת תיווך</h2>` +
-        `<p><span class="oh-count">${many ? `${count.toLocaleString('he-IL')} נכסים` : 'נכס אחד'}</span> ` +
-          `${many ? 'מוצעים' : 'מוצע'} עכשיו ללא עמלת תיווך לקונה, לתקופה מוגבלת שהמתווך/ת הגדיר/ה לכל נכס.</p>` +
+    `<a class="oh-promo" href="/open-house">` +
+      `<h2 class="oh-promo-title">יריד דירות<br>ללא עמלת תיווך<br>לזמן מוגבל!</h2>` +
+      OH_PROMO_ART +
+      `<span class="oh-promo-body">` +
+        `<span class="oh-promo-kicker">אל תחמיצו את ההזדמנות!</span>` +
+        // שני משפטים, שורה לכל אחד — ‏nowrap ב-CSS, כדי שמשפט לא יישבר
+        // באמצעו בין שתי השורות
+        `<span class="oh-promo-text">` +
+          `<span>מגוון דירות אטרקטיביות ישירות ממתווכים, ללא דמי תיווך.</span>` +
+          `<span>המבצע בתוקף לתקופה קצובה בלבד!</span>` +
+        `</span>` +
       `</span>` +
-      `<span class="oh-banner-cta">לנכסים שביריד ←</span>` +
+      `<span class="oh-promo-cta">לצפייה בדירות ביריד</span>` +
     `</a>`;
   host.hidden = false;
 }
@@ -1416,8 +1460,8 @@ function renderOpenHouseBanner(count){
 })();
 
 /* ---------- תיבת הנכסים ----------
-   **תצוגה אחת לכל המלאי** — פרטי ומסחרי, מכירה והשכרה — מיד מתחת לרצועת
-   ההדמיות: גריד לפי סדר ההעלאה, עד שני נכסים מקודמים בראש, שורת תגיות
+   **תצוגה אחת לכל המלאי** — פרטי ומסחרי, מכירה והשכרה — מיד מתחת
+   למבזק: גריד לפי סדר ההעלאה, עד שני נכסים מקודמים בראש, שורת תגיות
    מובנות שנבנית מהמלאי עצמו, בורר מיון וכפתור "עוד נכסים".
 
    כאן ישבו עד כה **שני** מדפים — "נכסים פרטיים" ומתחתיו "נכסים מסחריים"
@@ -1702,8 +1746,6 @@ const professionalsReady = (async function loadProfessionals(){
    ============================================================ */
 const DM_TABS = {
   agencies: {
-    title:'איזה משרד תיווך מתאים לכם?',
-    sub:'כל המשרדים בעפולה והסביבה - לפי התמחות, דירוג ומלאי נכסים',
     placeholder:'שם משרד או שכונה…',
     href:'/agencies',
     seeAll:'לכל משרדי התיווך ←',
@@ -1712,8 +1754,6 @@ const DM_TABS = {
             empty:'אין משרד עם נכסים פעילים בהתמחות הזו. בחרו התמחות אחרת.' },
   },
   agents: {
-    title:'מחפשים מתווך/ת?',
-    sub:'המתווכים של המשרדים באזור - לפי משרד, מלאי נכסים ודירוג לקוחות',
     placeholder:'שם מתווך/ת או משרד…',
     href:'/agents',
     seeAll:'לכל המתווכים ←',
@@ -1722,8 +1762,6 @@ const DM_TABS = {
             empty:'אין מתווך/ת עם נכסים פעילים בהתמחות הזו. בחרו התמחות אחרת.' },
   },
   pros: {
-    title:'צריכים בעל מקצוע?',
-    sub:'בעלי המקצוע של עולם הנדל״ן באזור - לפי תחום ואזור פעילות',
     placeholder:'תחום, שם או עסק…',
     href:'/professionals',
     seeAll:'לכל בעלי המקצוע ←',
@@ -1888,13 +1926,21 @@ function bindRowScroller(row){
     btn.disabled = data[btn.dataset.tab].length === 0;
   });
 
-  /* אריח אחד לשלושת הסוגים. שמות, שמות משרדים וכתובות תמונה מגיעים מקלט
-     של משרדים, סוכנים ומפרסמים — ולכן הטקסט נכנס דרך ‎textContent‎ וכתובות
-     התמונה עוברות סינון פרוטוקול לפני שהן נוגעות ב-src. */
+  /* אריח אחד לשלושת הסוגים, לפי המוקאפ: כרטיס לבן, התמונה בראשו (לוגו
+     שלם או תמונת פרופיל), ומתחתיה השם, "גלולה" אפורה עם האזור או המשרד,
+     ושורת הדירוג והמלאי. שמות, שמות משרדים וכתובות תמונה מגיעים מקלט של
+     משרדים, סוכנים ומפרסמים — ולכן הטקסט נכנס דרך ‎textContent‎ וכתובות
+     התמונה עוברות סינון פרוטוקול לפני שהן נוגעות ב-src.
+
+     תג הדירוג (‏#1 #2 #3) ירד עם המוקאפ; הסדר עצמו — המדורגים ראשונים —
+     נשאר, והוא מה שהתג סימן. */
   function card(item){
     const el = document.createElement(item.href ? 'a' : 'div');
     el.className = 'dm-card';
     if (item.href) el.href = item.href;
+
+    const media = document.createElement('div');
+    media.className = 'dm-media';
 
     // אות ההתחלה נשארת ב-DOM גם כשיש תמונה ופשוט מכוסה על ידה; אם הקובץ
     // נשבר ה-img מסיר את עצמו והאריח חוזר לאות על הגרדיאנט במקום לאייקון
@@ -1902,40 +1948,20 @@ function bindRowScroller(row){
     const initial = document.createElement('span');
     initial.className = 'dm-initial';
     initial.textContent = item.initial;
-    el.appendChild(initial);
+    media.appendChild(initial);
 
     const url = safeExternalUrl(item.photo);
-    if (url && item.contain){
-      // אותו קובץ פעמיים: רקע מטושטש שממלא את השוליים, ומעליו הלוגו השלם.
-      // ה-onerror של הרקע מסיר רק את עצמו — ‏:has בודק את ‎.dm-logo‎, ולכן
-      // הנפילה לאות ההתחלה תלויה בלוגו הקדמי בלבד.
-      const bg = document.createElement('img');
-      bg.className = 'dm-logo-bg';
-      bg.src = url; bg.alt = ''; bg.loading = 'lazy';
-      bg.setAttribute('aria-hidden', 'true');
-      bg.addEventListener('error', ()=> bg.remove());
-      el.appendChild(bg);
-
-      const logo = document.createElement('img');
-      logo.className = 'dm-logo';
-      logo.src = url; logo.alt = item.name; logo.loading = 'lazy';
-      logo.addEventListener('error', ()=> logo.remove());
-      el.appendChild(logo);
-    } else if (url){
-      const photo = document.createElement('img');
-      photo.className = 'dm-photo';
-      photo.src = url; photo.alt = item.name; photo.loading = 'lazy';
-      if (item.photoPos) photo.style.setProperty('--photo-pos', item.photoPos);
-      photo.addEventListener('error', ()=> photo.remove());
-      el.appendChild(photo);
+    if (url){
+      // לוגו משרד נשאר שלם (‏contain) — חיתוך היה קוטע אותיות; תמונת
+      // פרופיל ממלאת את המסגרת (‏cover)
+      const img = document.createElement('img');
+      img.className = item.contain ? 'dm-logo' : 'dm-photo';
+      img.src = url; img.alt = item.name; img.loading = 'lazy';
+      if (!item.contain && item.photoPos) img.style.setProperty('--photo-pos', item.photoPos);
+      img.addEventListener('error', ()=> img.remove());
+      media.appendChild(img);
     }
 
-    if (item.rank){
-      const rank = document.createElement('span');
-      rank.className = 'dm-rank';
-      rank.textContent = '#' + item.rank;
-      el.appendChild(rank);
-    }
     if (item.verified){
       const badge = document.createElement('img');
       badge.className = 'dm-badge';
@@ -1943,22 +1969,23 @@ function bindRowScroller(row){
       badge.width = 384; badge.height = 384; badge.loading = 'lazy';
       badge.alt = 'עומד בתקן האתי';
       badge.title = 'עומד בתקן האתי של שוק הנדל״ן של עפולה';
-      el.appendChild(badge);
+      media.appendChild(badge);
     }
+    el.appendChild(media);
 
-    const overlay = document.createElement('div');
-    overlay.className = 'dm-overlay';
+    const info = document.createElement('div');
+    info.className = 'dm-info';
 
     const name = document.createElement('div');
     name.className = 'dm-name';
     name.textContent = item.name;
-    overlay.appendChild(name);
+    info.appendChild(name);
 
     if (item.sub){
       const sub = document.createElement('div');
       sub.className = 'dm-sub';
       sub.textContent = item.sub;
-      overlay.appendChild(sub);
+      info.appendChild(sub);
     }
 
     const meta = document.createElement('div');
@@ -1976,9 +2003,9 @@ function bindRowScroller(row){
       count.textContent = item.count;
       meta.appendChild(count);
     }
-    if (meta.childNodes.length) overlay.appendChild(meta);
+    if (meta.childNodes.length) info.appendChild(meta);
 
-    el.appendChild(overlay);
+    el.appendChild(info);
     return el;
   }
 
@@ -2025,8 +2052,6 @@ function bindRowScroller(row){
       list.forEach(it => row.appendChild(card(it)));
     }
 
-    document.getElementById('dmSearchTitle').textContent = conf.title;
-    document.getElementById('dmSearchSub').textContent = conf.sub;
     searchEl.placeholder = conf.placeholder;
     const seeAll = document.getElementById('dmSeeAll');
     seeAll.href = conf.href;
