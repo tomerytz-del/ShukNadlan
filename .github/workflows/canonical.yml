@@ -22,6 +22,7 @@ on:
       - "netlify/edge-functions/*.ts"
       - "scripts/check_canonical.py"
       - "scripts/og_tags_test.ts"
+      - "scripts/search_pages_test.ts"
       - ".github/workflows/canonical.yml"
   push:
     branches: [main]
@@ -32,6 +33,7 @@ on:
       - "netlify/edge-functions/*.ts"
       - "scripts/check_canonical.py"
       - "scripts/og_tags_test.ts"
+      - "scripts/search_pages_test.ts"
       - ".github/workflows/canonical.yml"
   workflow_dispatch:
 
@@ -59,3 +61,9 @@ jobs:
 
       - name: התנהגות og-tags מול מסד מדומה
         run: node --experimental-strip-types scripts/og_tags_test.ts
+
+      # ‏ובאותה דרך, 14 עמודי התוצאות: מה שברשימה מקבל canonical משלו,
+      # וכל צירוף פרמטרים אחר מתאחד לדף הבית. הכיוון השני הוא שמסוכן -
+      # ‏canonical עצמי לכל צירוף מציף את האינדקס במשוכפל.
+      - name: התנהגות עמודי התוצאות
+        run: node --experimental-strip-types scripts/search_pages_test.ts
