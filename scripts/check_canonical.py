@@ -330,7 +330,78 @@ def check_page(path: Path, rules: list[str], locs: list[str]) -> list[str]:
 def check_sitemap(pages: set[str], locs: list[str]) -> list[str]:
     """‏כתובת ב-sitemap שאין לה דף סטטי — שארית מדף שנמחק או שגיאת הקלדה."""
     known = {page_url(n) for n in pages - DETAIL - PRIVATE}
-    return ["<loc>%s</loc> — אין דף סטטי כזה בשורש" % loc for loc in locs if loc not in known]
+    return [
+        "<loc>%s</loc> — אין דף סטטי כזה בשורש" % loc
+        for loc in locs
+        if loc not in known and "?" not in loc  # עמודי התוצאות נבדקים בנפרד
+    ]
+
+
+# ---------- ‏14 עמודי התוצאות ----------
+#
+# ‏HTML אחד (‏index.html) מגיש אותם לפי הפרמטרים, ולכן אין להם קובץ משלהם
+# ואי אפשר לבדוק אותם כמו דף. מה שכן אפשר לבדוק הוא שהשלושה מסכימים:
+#
+#   ‏1. SEARCH_PAGES ב-netlify/edge-functions/search-pages.ts — מי שמזריק
+#      את הכותרת, התיאור וה-canonical.
+#   ‏2. ‏sitemap.xml — איך גוגל יודעת שהם קיימים.
+#   ‏3. בלוק "חיפושים פופולריים" בפוטר — הקישור שסורק עוקב אחריו.
+#
+# ‏**צירוף שחסר באחד מהם נכשל בשקט**, וכל צורה של הכשל שונה: בלי (1) הוא
+# מצהיר על / ולא יתאנדקס לעולם; בלי (2) גוגל תגיע אליו רק דרך קישור; בלי
+# (3) הוא יתום שאין אליו קישור מהאתר. לכן שלושתם נבדקים יחד.
+
+SEARCH_TS = ROOT / "netlify" / "edge-functions" / "search-pages.ts"
+SEARCH_QUERY = re.compile(r'^\s*query:\s*"([^"]+)"', re.MULTILINE)
+FOOTER_LINK = re.compile(r'href="/\?([^"]+)"')
+
+
+def query_key(query: str) -> str:
+    """‏אותו נרמול שבפונקציה: זוגות מפוענחים וממוינים, בלי פרמטרי מעקב."""
+    from urllib.parse import parse_qsl
+
+    pairs = [
+        "%s=%s" % (k, v.strip())
+        for k, v in parse_qsl(query.replace("&amp;", "&"), keep_blank_values=False)
+        if v.strip() and k != "src" and not k.startswith("utm_")
+    ]
+    return "&".join(sorted(pairs))
+
+
+def search_pages() -> list[str]:
+    """‏מפתחות הצירופים שברשימה שבפונקציה, לפי סדר הופעתם."""
+    if not SEARCH_TS.exists():
+        return []
+    return [query_key(q) for q in SEARCH_QUERY.findall(SEARCH_TS.read_text(encoding="utf-8"))]
+
+
+def check_search_pages(pages: list[Path], locs: list[str]) -> list[str]:
+    listed = search_pages()
+    problems: list[str] = []
+    if not listed:
+        return ["‏search-pages.ts לא נמצא או שאין בו SEARCH_PAGES — עמודי התוצאות אינם מוזרקים."]
+
+    known = set(listed)
+    if len(known) != len(listed):
+        problems.append("‏אותו צירוף מופיע פעמיים ב-SEARCH_PAGES.")
+
+    in_sitemap = {query_key(loc.split("?", 1)[1]) for loc in locs if "?" in loc}
+    for key in sorted(known - in_sitemap):
+        problems.append("‏/?%s ברשימה שבפונקציה ואינו ב-sitemap.xml — גוגל לא תדע שהוא קיים." % key)
+    for key in sorted(in_sitemap - known):
+        problems.append("‏/?%s ב-sitemap.xml ואינו ברשימה שבפונקציה — הוא יצהיר על / ולא יתאנדקס." % key)
+
+    linked: set[str] = set()
+    for path in pages:
+        for query in FOOTER_LINK.findall(path.read_text(encoding="utf-8")):
+            linked.add(query_key(query))
+    for key in sorted(known - linked):
+        problems.append("‏/?%s ברשימה שבפונקציה ואין אליו קישור באף דף — עמוד יתום." % key)
+    for key in sorted(linked - known):
+        problems.append(
+            "‏/?%s מקושר מהפוטר ואינו ברשימה שבפונקציה — הוא מתאחד ל-/ ולא יתאנדקס." % key
+        )
+    return problems
 
 
 def fix_page(path: Path) -> bool:
@@ -383,6 +454,12 @@ def main(argv: list[str]) -> int:
         for item in stale:
             print("      • %s" % item)
 
+    searches = check_search_pages(pages, locs)
+    if searches:
+        print("✗ עמודי התוצאות (‏חיפושים פופולריים)")
+        for item in searches:
+            print("      • %s" % item)
+
     links = check_links(pages)
     if links:
         print("✗ קישורים פנימיים לצורה עם הסיומת (‏Netlify מפנה אותה ל-301)")
@@ -391,7 +468,7 @@ def main(argv: list[str]) -> int:
         if len(links) > 20:
             print("      • ... ועוד %d" % (len(links) - 20))
 
-    if failed or stale or links:
+    if failed or stale or links or searches:
         print(
             "\nכל אחד מהממצאים האלה נראה בדפדפן כמו דף תקין לגמרי — הוא פשוט\n"
             "אינו מופיע בגוגל, ואת זה מגלים מהודעה של Search Console חודש\n"
@@ -405,9 +482,9 @@ def main(argv: list[str]) -> int:
     static = len(pages) - len(DETAIL) - len(PRIVATE)
     print(
         "✓ %d דפים סטטיים נושאים canonical ונמצאים ב-sitemap, %d דפי פירוט\n"
-        "  רשומים בשתי פונקציות ה-edge, %d דפים פרטיים מוגנים, וכל הקישורים\n"
-        "  הפנימיים מצביעים על הצורה בלי הסיומת."
-        % (static, len(DETAIL), len(PRIVATE))
+        "  רשומים בשתי פונקציות ה-edge, %d דפים פרטיים מוגנים, %d עמודי תוצאות\n"
+        "  מוזרקים ומקושרים, וכל הקישורים הפנימיים בלי הסיומת."
+        % (static, len(DETAIL), len(PRIVATE), len(search_pages()))
     )
     return 0
 

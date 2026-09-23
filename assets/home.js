@@ -4116,6 +4116,24 @@ function buildSearchRow(p, i){
         שהגולש/ת הזיז/ה או הגדיל/ה את המפה. ראו updateMapViewRows. */
 const MAP_VIEW_MAX_ROWS = 60;   // מעבר לזה הגלילה ארוכה מלהיות שימושית
 
+/* ‏הכתובת שבה נטען הדף. ‏14 עמודי התוצאות מוגשים מ-index.html לפי
+   הפרמטרים, ולכן הכותרת שמוזרקת להם תקפה רק כל עוד הפרמטרים לא השתנו:
+   מי שהגיע/ה ל-"דירות 4 חדרים למכירה" ואז שינה/תה את המסננים מקבל/ת שוב
+   "תוצאות החיפוש", ולא כותרת שמתארת חיפוש אחר. */
+/* ‏var ולא const, מאותה סיבה שכתובה ב-CLAUDE.md על כינויי הבריחה: ‎const‎
+   אינו מורם, וקריאה שתקדים את השורה הזו הייתה **זורקת** ומפילה את רשימת
+   התוצאות. עם ‎var‎ היא מקבלת ‎undefined‎, והכותרת נופלת ל"תוצאות החיפוש". */
+var LANDING_SEARCH = location.search;
+
+/* ‏הכותרת של עמוד התוצאות, כפי ש-netlify/edge-functions/search-pages.ts
+   הזריקה אותה. **הדף אינו מחזיק עותק של הרשימה** — הוא קורא את מה שנכתב
+   לו. שתי רשימות שצריכות להסכים הן רשימה אחת שמתיישנת. */
+function searchLandingHeading(){
+  if (location.search !== LANDING_SEARCH) return '';
+  const el = document.querySelector('meta[name="shuk-search-heading"]');
+  return el ? (el.content || '').trim().slice(0, 80) : '';
+}
+
 function renderSearchRows(properties, isSearchResult, { mapView = false } = {}){
   const section = document.getElementById('searchResults');
   const rows = document.getElementById('searchResultsRows');
@@ -4132,7 +4150,8 @@ function renderSearchRows(properties, isSearchResult, { mapView = false } = {}){
   section.hidden = false;
   // הכותרת אומרת מאיפה הרשימה הגיעה. "תוצאות החיפוש" מעל רשימה שנוצרה
   // מגרירה של המפה — ובלי שאיש חיפש דבר — היא כותרת שמשקרת.
-  if (titleEl) titleEl.textContent = mapView ? 'הנכסים שבתחום המפה' : 'תוצאות החיפוש';
+  if (titleEl) titleEl.textContent = mapView ? 'הנכסים שבתחום המפה'
+                                             : (searchLandingHeading() || 'תוצאות החיפוש');
 
   // בתחום המפה מוצג רק מה שנכנס לרשימה שימושית; השאר נשאר על המפה, וההודעה
   // אומרת איך לצמצם אותו (להתקרב) במקום להעמיס מאות שורות על הטלפון.
