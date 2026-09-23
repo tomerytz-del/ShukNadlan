@@ -1553,39 +1553,40 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ticker-more{font-size:.83rem;font-weight:700;color:var(--gold-dark);flex:0 0 auto;white-space:nowrap}
 
   /* ====== באנר ההדמיות — בסוף תיבת הנכסים ======
-     יושב בתוך ‎.pp-box‎, בין הגריד לכפתור "עוד" (‏cfg.afterGrid). הרקע
-     הכהה הוא מה שאומר שזו לא עוד שורת נכסים אלא הזמנה; הזהב הוא הדגש
-     ולא המשטח (ראו assets/design-system.css) — חוץ מקופסת ה-CTA, שנושאת
-     טקסט כהה ולכן מותר לה להיות זהב מלא.
+     יושב בתוך ‎.pp-box‎, בין הגריד לכפתור "עוד" (‏cfg.afterGrid). לפי
+     המוקאפ: מימין הכותרת, משפט אחד וכפתור זהב ברוחב העמודה; באמצע
+     תמונון לפני/אחרי; משמאל קופסה נייבי עם מסגרת זהב — "חושבים למכור או
+     להשכיר?".
 
-     הסדר ב-DOM הוא הסדר בעין בכיוון RTL: התמונון מימין, הטקסט באמצע
-     וה-CTA משמאל. בטלפון שלושתם נערמים, והתמונון יורד. */
+     **כל משפט הוא שורה אחת** (‏nowrap על כל אחד): משפט שנשבר באמצעו נקרא
+     כתקלה. כשאין מקום — הגופן מצטמצם (‏clamp), ומתחת לסף משפט המשנה יורד
+     ולא נשבר. וגובה: 150px → 112px במחשב (‏-25%). */
   .ai-promo{
-    display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,.95fr);
-    align-items:center;gap:22px;margin-top:16px;padding:14px;
+    display:grid;grid-template-columns:minmax(0,1.15fr) 200px minmax(0,.9fr);
+    align-items:stretch;gap:16px;margin-top:16px;padding:10px 12px;
     background:linear-gradient(to left,#2a2e37,#172a5e);color:#fff;
   }
   .ai-promo[hidden]{display:none}
-  .ai-promo-copy{display:flex;flex-direction:column;align-items:flex-start;gap:6px;min-width:0}
-  .ai-promo-title{margin:0;font-size:1.2rem;font-weight:800;line-height:1.3;color:var(--brass-light,#e5c76a)}
-  .ai-promo-star{font-size:1rem;margin-inline-start:3px}
-  .ai-promo-sub{margin:0;font-size:.85rem;line-height:1.5;color:#dbe3f5}
+  .ai-promo-copy{display:flex;flex-direction:column;justify-content:center;align-items:stretch;gap:3px;min-width:0}
+  .ai-promo-title{margin:0;font-size:clamp(.9rem,1.35vw,1.05rem);font-weight:800;line-height:1.3;color:var(--brass-light,#e5c76a);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ai-promo-star{font-size:.9em;margin-inline-start:3px}
+  .ai-promo-sub{margin:0;font-size:clamp(.74rem,1.05vw,.82rem);line-height:1.4;color:#dbe3f5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .ai-promo-go{
-    margin-top:6px;padding:10px 20px;border:1px solid rgba(255,255,255,.12);border-radius:0;
-    background:var(--brass,#c9a227);color:var(--ink);font-family:inherit;font-size:.9rem;font-weight:800;
-    cursor:pointer;transition:background .15s ease;
+    margin-top:5px;min-height:32px;padding:0 16px;border:0;border-radius:6px;
+    background:linear-gradient(180deg,#e9c35c,var(--brass,#c9a227));color:var(--ink);
+    font-family:inherit;font-size:.86rem;font-weight:800;white-space:nowrap;
+    cursor:pointer;transition:filter .15s ease;
   }
-  .ai-promo-go:hover{background:var(--brass-light,#e5c76a)}
+  .ai-promo-go:hover{filter:brightness(1.08)}
   .ai-promo-cta{
-    align-self:stretch;display:flex;flex-direction:column;justify-content:center;align-items:center;gap:6px;
-    padding:14px 18px;border:3px solid rgba(13,27,61,.35);border-radius:10px;cursor:pointer;
-    font-family:inherit;text-align:center;
-    background:linear-gradient(135deg,#e0bf4f,var(--brass,#c9a227));
-    transition:transform .15s ease,box-shadow .15s ease;
+    display:flex;flex-direction:column;justify-content:center;align-items:center;gap:3px;
+    padding:8px 14px;border:1.5px solid rgba(224,181,74,.7);border-radius:10px;cursor:pointer;
+    font-family:inherit;text-align:center;background:#0e1938;
+    transition:border-color .15s ease,box-shadow .15s ease;
   }
-  .ai-promo-cta:hover{transform:translateY(-2px);box-shadow:0 14px 30px -18px rgba(0,0,0,.8)}
-  .ai-promo-cta b{font-size:1.05rem;font-weight:800;color:var(--ink)}
-  .ai-promo-cta span{font-size:.8rem;color:#40350f;line-height:1.5;max-width:44ch}
+  .ai-promo-cta:hover{border-color:#e9c35c;box-shadow:0 10px 24px -14px rgba(0,0,0,.8)}
+  .ai-promo-cta b{font-size:clamp(.9rem,1.3vw,1.02rem);font-weight:800;color:#e9c35c;white-space:nowrap}
+  .ai-promo-cta span{font-size:clamp(.72rem,1vw,.8rem);color:#e6ebf7;line-height:1.4;white-space:nowrap}
 
   /* ====== התמונון: לפני/אחרי ======
      הדמיה אמיתית אחת מהמסד, בוילון שנע לבד. הוא קישוט ולא כלי — אין בו
@@ -1599,7 +1600,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      שבו ‎inset-inline-end‎ של הידית זז בדף RTL). שני ה-keyframes חייבים
      להישאר משלימים: הידית יושבת על גבול החיתוך בדיוק. */
   .ai-promo-thumb{
-    position:relative;width:172px;height:108px;overflow:hidden;border-radius:10px;
+    position:relative;width:100%;min-height:80px;overflow:hidden;border-radius:10px;
     background:#b9c4de;
   }
   .ai-promo-thumb[hidden]{display:none}
@@ -1623,12 +1624,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .ai-promo-handle{animation:none;inset-inline-end:50%}
   }
 
-  /* מתחת ל-900px שלוש העמודות צרות מכדי להחזיק כותרת בת שורה אחת, ולכן
-     ה-CTA יורד לשורה משלו ברוחב מלא. בטלפון גם התמונון יורד: 172px הם
-     חצי מהמסך, והטקסט שלצדו היה נשבר למילה בשורה. */
-  @media(max-width:900px){
-    .ai-promo{grid-template-columns:auto minmax(0,1fr);gap:14px 16px}
-    .ai-promo-cta{grid-column:1/-1}
+  /* מתחת ל-1000px שלוש העמודות צרות מכדי להחזיק כל משפט בשורה, ולכן
+     קופסת ה-CTA יורדת לשורה משלה ברוחב מלא, והמשפט שבתוכה עובר לצד השאלה.
+     בטלפון גם התמונון יורד (ראו למטה). */
+  @media(max-width:999px){
+    .ai-promo{grid-template-columns:minmax(0,1fr) 170px;gap:10px 14px}
+    .ai-promo-cta{grid-column:1/-1;flex-direction:row;justify-content:center;gap:12px;padding:8px 14px}
   }
   /* ====== טלפון: בחצי מהגובה ======
      הבאנר בגרסה הקודמת תפס כ-290px ב-390px: כותרת בשתי שורות, משפט הסבר,
@@ -1640,14 +1641,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media(max-width:520px){
     /* ‏minmax(0,1fr) ולא 1fr: ‏1fr הוא minmax(auto,1fr), והעמודה גדלה עם
        תוכן ה-nowrap של ה-CTA עד שהכפתור גלש מחוץ לבאנר */
-    .ai-promo{grid-template-columns:minmax(0,1fr);gap:10px;padding:12px 14px}
+    .ai-promo{grid-template-columns:minmax(0,1fr);gap:8px;padding:10px 12px}
     .ai-promo-thumb{display:none}
-    .ai-promo-copy{gap:4px}
-    .ai-promo-title{font-size:.98rem;line-height:1.35}
+    .ai-promo-copy{gap:2px}
+    .ai-promo-title{font-size:clamp(.82rem,4.2vw,.95rem);line-height:1.3}
     .ai-promo-sub{display:none}
     .ai-promo-go{
-      margin:0;padding:2px 0;border:0;background:none;
-      color:var(--brass-light,#e5c76a);font-size:.84rem;font-weight:700;
+      margin:0;padding:0;min-height:0;border:0;background:none;align-self:flex-start;
+      color:var(--brass-light,#e5c76a);font-size:.8rem;font-weight:700;line-height:1.4;
       text-decoration:underline;text-underline-offset:3px;
     }
     .ai-promo-go:hover{background:none;color:#fff}
@@ -1655,11 +1656,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .ai-promo-go-short{display:inline}
     .ai-promo-cta{
       flex-direction:row;justify-content:space-between;gap:10px;
-      padding:9px 14px;border-width:2px;border-radius:8px;
+      padding:7px 14px;border-radius:8px;
     }
     .ai-promo-cta b{font-size:clamp(.8rem,3.9vw,.92rem);white-space:nowrap}
     .ai-promo-cta-long{display:none}
-    .ai-promo-cta .ai-promo-cta-short{display:inline;font-size:clamp(.72rem,3.4vw,.8rem);font-weight:800;color:var(--ink);white-space:nowrap}
+    .ai-promo-cta .ai-promo-cta-short{display:inline;font-size:clamp(.72rem,3.4vw,.8rem);font-weight:800;color:#e9c35c;white-space:nowrap}
   }
   /* מתחת ל-420px השאלה ו"השאירו פרטים" לא נכנסים יחד בשורה אחת: נשארת
      השאלה עם חץ, ממורכזת */
@@ -2172,11 +2173,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .dm-tabs::-webkit-scrollbar{display:none}
   .dm-tabs button{
     flex:none;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 16px;
-    border-radius:999px;border:1px solid #e2e7f1;background:#f3f5fa;color:var(--ink);
+    /* מסגרת נייבי גם לכבויות: בלעדיה הן נקראו כתגיות ולא ככפתורים */
+    border-radius:999px;border:1.5px solid var(--teal-dark);background:#fff;color:var(--teal-dark);
     font-family:inherit;font-size:.86rem;font-weight:700;white-space:nowrap;cursor:pointer;
     transition:background .15s ease,border-color .15s ease,color .15s ease;
   }
-  .dm-tabs button:not([aria-selected="true"]):not(:disabled):hover{background:#e9edf6;border-color:#cfd7e8}
+  .dm-tabs button:not([aria-selected="true"]):not(:disabled):hover{background:#eef2fa}
   .dm-tabs button[aria-selected="true"]{background:var(--teal-dark);border-color:var(--teal-dark);color:#fff}
   .dm-tabs button:disabled{opacity:.45;cursor:default}
   .dm-tab-ico{width:16px;height:16px;flex:none}
@@ -2187,7 +2189,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   .dm-field,.dm-quick{
     display:flex;align-items:center;gap:8px;height:44px;padding:0 14px;min-width:0;
-    background:#f6f8fc;border:1px solid #e2e7f1;border-radius:12px;color:var(--ink-soft);
+    background:#fff;border:1.5px solid var(--teal-dark);border-radius:12px;color:var(--ink-soft);
   }
   .dm-field{grid-area:search;cursor:text}
   /* בטלפון הבורר צר (בלי זכוכית מגדלת) כדי שלשדה החיפוש יישאר מקום
@@ -2200,7 +2202,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .dm-field input{flex:1;min-width:0;border:none;background:none;font-family:inherit;
     font-size:.88rem;color:var(--ink);appearance:none}
   .dm-field input:focus{outline:none}
-  .dm-field:focus-within,.dm-quick:focus-within{border-color:var(--teal);background:#fff;box-shadow:0 0 0 3px rgba(14,42,107,.1)}
+  .dm-field:focus-within,.dm-quick:focus-within{box-shadow:0 0 0 3px rgba(14,42,107,.14)}
   /* בלשונית שאין לה בורר (בעלי מקצוע) הוא יורד, והחיפוש מתרחב למקומו */
   .dm-quick.is-empty{display:none}
   .dm-bar:has(.dm-quick.is-empty){grid-template-areas:"tabs tabs" "search search"}
@@ -2222,10 +2224,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   .dm-body{padding:0 16px 6px}
 
-  /* ====== המסלול: קרוסלה בטלפון, גריד במחשב ======
-     בטלפון — גלילה אופקית עם ‎scroll-snap‎, והכרטיס הבא מציץ (‏~18%) כדי
-     לומר שיש עוד; מתחת נקודות. מ-760px — גריד של שלוש עמודות, ומ-1100px
-     ארבע, בשורה אחת (‏DM_GRID_ROWS ב-JS); השאר ב"צפייה בכל". */
+  /* ====== המסלול: מדפדפים בו בחצים ======
+     בכל הרוחבים — גלילה אופקית עם ‎scroll-snap‎ וחצים עגולים בשני הצדדים.
+     בטלפון שורה אחת: הכרטיס הבא מציץ (‏~18%) ומתחת נקודות.
+     מ-760px **שתי שורות** — סימטרי לשתי שורות הנכסים שמעל — בשלושה טורים,
+     ומ-1100px בארבעה. כל "עמוד" של החצים הוא 2×4: ‏#1-#4 בשורה העליונה
+     ו-#5-#8 מתחת, והמיקום נקבע ב-JS (‏dmPlace) כי ‏grid-auto-flow:column
+     לבדו היה ממלא טור-טור (‏#1 מעל #2). */
   .dm-row{
     display:flex;gap:14px;align-items:stretch;overflow-x:auto;
     scroll-snap-type:x mandatory;scroll-padding-inline:16px;
@@ -2238,12 +2243,39 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .dm-dots span.is-on{width:20px;border-radius:999px;background:var(--teal-dark)}
   @media(min-width:760px){
     .dm-row{
-      display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;
-      overflow:visible;margin-inline:0;padding:6px 0 10px;
+      display:grid;grid-template-rows:repeat(2,auto);grid-auto-flow:column;
+      grid-auto-columns:calc((100% - 40px) / 3);gap:20px;
+      margin-inline:0;padding:6px 2px 14px;scroll-padding-inline:2px;
     }
     .dm-dots{display:none}
   }
-  @media(min-width:1100px){ .dm-row{grid-template-columns:repeat(4,minmax(0,1fr))} }
+  @media(min-width:1100px){ .dm-row{grid-auto-columns:calc((100% - 60px) / 4)} }
+  /* עד טור אחד מלא — שורה אחת, בלי שורה תחתונה ריקה עם המרווח שלה */
+  .dm-row.is-one-row{grid-template-rows:auto}
+  .dm-row.is-empty{display:flex}
+
+  /* החצים של המסלול הזה מוצגים בכל מכשיר ולא רק עם עכבר (בשונה מקרוסלת
+     הכתבות): הם הדרך המפורשת לדפדף בין המשרדים, ובטלפון הם יושבים על
+     שפת הכרטיס המציץ ולא על הכרטיס שבמרכז. עגולים, לבנים עם מסגרת נייבי,
+     ומתמלאים נייבי בריחוף. */
+  #dmRowWrap[data-can-start] .row-prev,
+  #dmRowWrap[data-can-end] .row-next{display:grid}
+  /* בלי דהייה בקצוות במסלול הזה: החצים כבר אומרים שיש עוד, והדהייה
+     כיסתה חלק מהכרטיס הראשון בכל עמוד אחרי הדפדוף */
+  #dmRowWrap > .row-track{-webkit-mask-image:none;mask-image:none}
+  #dmRowWrap .row-nav{
+    width:42px;height:42px;border-radius:50%;top:50%;
+    background:#fff;border:1.5px solid var(--teal-dark);color:var(--teal-dark);
+    box-shadow:0 8px 20px -8px rgba(13,27,61,.45);
+    transition:background .15s ease,color .15s ease;
+  }
+  #dmRowWrap .row-nav:hover{background:var(--teal-dark);color:#fff}
+  #dmRowWrap .row-prev{inset-inline-start:-6px}
+  #dmRowWrap .row-next{inset-inline-end:-6px}
+  @media(min-width:1180px){
+    #dmRowWrap .row-prev{inset-inline-start:-22px}
+    #dmRowWrap .row-next{inset-inline-end:-22px}
+  }
 
   /* ====== גלילת שורה אופקית — מעטפת אחת לשתי הרצועות ======
      גם מסלול האנשים וגם קרוסלת הכתבות גוללים אופקית, ובשתיהן בדסקטופ
@@ -3089,7 +3121,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/projects">פרויקטים חדשים</a>
       <a href="#dealmakers" data-dm-tab="agencies">משרדי תיווך</a>
       <a href="#dealmakers" data-dm-tab="agents">מתווכים</a>
-      <a href="#dealmakers" data-dm-tab="pros">בעלי מקצוע</a>
+      <a href="/professionals">בעלי מקצוע</a>
       <a href="#articles">כתבות</a>
     </nav>
     <div class="header-actions">
@@ -3139,7 +3171,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="menu-panel" id="menuPanelPeople" role="tabpanel" aria-labelledby="menuTabPeople" hidden>
       <a href="#dealmakers" data-dm-tab="agencies">משרדי תיווך</a>
       <a href="#dealmakers" data-dm-tab="agents">מתווכים</a>
-      <a href="#dealmakers" data-dm-tab="pros">בעלי מקצוע</a>
+      <a href="/professionals">בעלי מקצוע</a>
     </div>
 
     <div class="menu-panel" id="menuPanelTools" role="tabpanel" aria-labelledby="menuTabTools" hidden>
@@ -3904,18 +3936,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        הנכסים *הפעילים* שיש להם הדמיה מפורסמת — אותה קבוצה שהתגית ב-hero
        סופרת. אין אף אחד → הבאנר נשאר hidden. ראו initAiPromo(). -->
   <div class="ai-promo" id="aiPromo" hidden>
-    <div class="ai-promo-thumb" id="aiPromoThumb" aria-hidden="true" hidden></div>
+    <!-- הסדר ב-DOM הוא הסדר בעין ב-RTL, כמו במוקאפ: הטקסט והכפתור מימין,
+         התמונון באמצע, וקופסת ה-CTA משמאל. כל משפט כאן הוא שורה אחת
+         (‏nowrap) — ראו ‎.ai-promo‎ ב-CSS. -->
     <div class="ai-promo-copy">
-      <h3 class="ai-promo-title"><span id="aiPromoCount"></span> מהנכסים בתוצאות האלה כוללים הדמיית AI <span class="ai-promo-star" aria-hidden="true">✦</span></h3>
-      <p class="ai-promo-sub">סננו לפי "עם הדמיית AI" וראו איך כל נכס נראה אחרי שיפוץ - כולל נכסים מסחריים.</p>
+      <h3 class="ai-promo-title"><span id="aiPromoCount"></span> מהנכסים כאן כוללים הדמיית AI <span class="ai-promo-star" aria-hidden="true">✦</span></h3>
+      <p class="ai-promo-sub">ראו איך כל נכס ייראה אחרי שיפוץ - בלחיצה אחת.</p>
       <button type="button" class="ai-promo-go" id="aiPromoGo"></button>
     </div>
+    <div class="ai-promo-thumb" id="aiPromoThumb" aria-hidden="true" hidden></div>
     <!-- ה-CTA לא פותח טופס משלו אלא את אשף הערכת השווי שכבר בעמוד:
          שני טפסים שמבקשים את אותם פרטים ומנתבים לאותו מקום הם שני
          מקורות אמת לאותו ליד. ראו bindLeadBanner(). -->
     <button type="button" class="ai-promo-cta" id="aiPromoCta">
       <b>חושבים למכור או להשכיר?</b>
-      <span class="ai-promo-cta-long">השאירו פרטים וסוכן/ת יחזרו אליכם לתיאום פגישה - כולל הדמיות AI לנכס שלכם.</span>
+      <span class="ai-promo-cta-long">השאירו פרטים לפגישה - כולל הדמיית AI לנכס שלכם</span>
       <span class="ai-promo-cta-short" aria-hidden="true">השאירו פרטים ←</span>
     </button>
   </div>
@@ -4023,7 +4058,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- ====== האנשים מאחורי העסקאות ======
        סקציה אחת במקום שתיים: כאן ישבו קרוסלת משרדי התיווך והבאנר המתקפל
        "איזה משרד תיווך מתאים לכם" שמתחתיה, ושניהם התמזגו לשורת כרטיסים
-       אחת עם שלוש לשוניות — משרדי תיווך, מתווכים ובעלי מקצוע.
+       אחת עם לשוניות — משרדי תיווך ומתווכים (בעלי המקצוע יצאו לבאנר משלהם, #expertBanner).
 
        מעל הכרטיסים סרגל אחד — חיפוש, שלוש הלשוניות ובורר התמחות — והחיפוש
        מסנן בתוך הלשונית הפעילה בלבד. מתחת לשורה, קישור "לכל…" שמשתנה עם
@@ -4066,8 +4101,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                   aria-selected="true" aria-controls="dmRow"><svg class="dm-tab-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2M10.5 21v-3h3v3"/></svg>משרדי תיווך</button>
           <button type="button" role="tab" id="dmTabAgents" data-tab="agents"
                   aria-selected="false" aria-controls="dmRow"><svg class="dm-tab-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c1-4 4-6 7.5-6s6.5 2 7.5 6"/></svg>מתווכים</button>
-          <button type="button" role="tab" id="dmTabPros" data-tab="pros"
-                  aria-selected="false" aria-controls="dmRow"><svg class="dm-tab-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 6.5a4 4 0 0 0-5.3 5.3L3.5 17.5l3 3 5.7-5.7a4 4 0 0 0 5.3-5.3l-2.6 2.6-2.4-.6-.6-2.4z"/></svg>בעלי מקצוע</button>
         </div>
 
         <!-- בורר מהיר לפי התמחות. האפשרויות נבנות ב-JS מהמלאי של הלשונית
@@ -4091,7 +4124,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              (‏.pp-tags-wrap ב-assets/prop-shelf.css): דהייה בקצה שאומרת
              שיש עוד, ומעליה חץ לחיץ. -->
         <div class="dm-row-wrap row-scroller" id="dmRowWrap">
-          <div class="dm-row row-track" id="dmRow" role="tabpanel" aria-labelledby="dmTabAgencies"></div>
+          <div class="dm-row row-track" id="dmRow" role="tabpanel" aria-labelledby="dmTabAgencies" data-page="full"></div>
           <button type="button" class="row-nav row-prev" data-row-dir="start" tabindex="-1" aria-hidden="true" hidden>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
           </button>
@@ -4106,6 +4139,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <p class="dm-all"><a href="/agencies" id="dmSeeAll">צפייה בכל משרדי התיווך ←</a></p>
     </div>
   </section>
+
+  <!-- ====== בעלי המקצוע: באנר שמוביל לדף שלהם ======
+       בעלי המקצוע ישבו עד כה כלשונית שלישית בסקציית האנשים, לצד משרדי
+       התיווך והמתווכים — אבל הם לא "מי שמוכר לכם דירה" אלא מי שמייעץ לכם
+       לפני שקונים, והשאלה שהם עונים עליה אחרת. עכשיו יש להם באנר משלהם,
+       באותה שפה של באנר היריד (‏.oh-promo), שמוביל ל-/professionals — שם
+       מסננים לפי תחום ואזור ופונים ישירות.
+
+       הבאנר נבנה ב-renderExpertBanner() ונשאר hidden כשאין אף בעל/ת מקצוע
+       פעיל/ה: באנר שמוביל לדף ריק גרוע מהיעדר באנר. רשימת התחומים שבו
+       נגזרת מבעלי המקצוע שקיימים בפועל, ולא מרשימה קבועה — הבטחה על "עורכי
+       דין" כשאין אף אחד הייתה נשברת בדיוק בדף שאליו היא שולחת. -->
+  <section class="section wrap" id="expertBanner" hidden></section>
 
   <!-- ====== Owner-lead banner ======
        יושב מיד מתחת לרצועת הנכסים למכירה: מי שגלל/ה את מחירי השכנים הוא/היא
