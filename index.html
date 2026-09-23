@@ -1630,11 +1630,43 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .ai-promo{grid-template-columns:auto minmax(0,1fr);gap:14px 16px}
     .ai-promo-cta{grid-column:1/-1}
   }
+  /* ====== טלפון: בחצי מהגובה ======
+     הבאנר בגרסה הקודמת תפס כ-290px ב-390px: כותרת בשתי שורות, משפט הסבר,
+     כפתור זהב ברוחב מלא וקופסת CTA בת שלוש שורות. כאן נשארים הכותרת,
+     **קישור קטן** במקום הכפתור ("לכל N הנכסים עם הדמיה ←"), ו-CTA בשורה
+     אחת — השאלה מימין ו"השאירו פרטים ←" משמאל. משפט ההסבר יורד: הכותרת
+     והקישור כבר אומרים מה יש כאן ולאן לוחצים. */
+  .ai-promo-go-short,.ai-promo-cta-short{display:none}
   @media(max-width:520px){
-    .ai-promo{grid-template-columns:1fr;padding:12px}
+    /* ‏minmax(0,1fr) ולא 1fr: ‏1fr הוא minmax(auto,1fr), והעמודה גדלה עם
+       תוכן ה-nowrap של ה-CTA עד שהכפתור גלש מחוץ לבאנר */
+    .ai-promo{grid-template-columns:minmax(0,1fr);gap:10px;padding:12px 14px}
     .ai-promo-thumb{display:none}
-    .ai-promo-title{font-size:1.05rem}
-    .ai-promo-go{align-self:stretch}
+    .ai-promo-copy{gap:4px}
+    .ai-promo-title{font-size:.98rem;line-height:1.35}
+    .ai-promo-sub{display:none}
+    .ai-promo-go{
+      margin:0;padding:2px 0;border:0;background:none;
+      color:var(--brass-light,#e5c76a);font-size:.84rem;font-weight:700;
+      text-decoration:underline;text-underline-offset:3px;
+    }
+    .ai-promo-go:hover{background:none;color:#fff}
+    .ai-promo-go-long{display:none}
+    .ai-promo-go-short{display:inline}
+    .ai-promo-cta{
+      flex-direction:row;justify-content:space-between;gap:10px;
+      padding:9px 14px;border-width:2px;border-radius:8px;
+    }
+    .ai-promo-cta b{font-size:clamp(.8rem,3.9vw,.92rem);white-space:nowrap}
+    .ai-promo-cta-long{display:none}
+    .ai-promo-cta .ai-promo-cta-short{display:inline;font-size:clamp(.72rem,3.4vw,.8rem);font-weight:800;color:var(--ink);white-space:nowrap}
+  }
+  /* מתחת ל-420px השאלה ו"השאירו פרטים" לא נכנסים יחד בשורה אחת: נשארת
+     השאלה עם חץ, ממורכזת */
+  @media(max-width:419px){
+    .ai-promo-cta{justify-content:center}
+    .ai-promo-cta .ai-promo-cta-short{display:none}
+    .ai-promo-cta b::after{content:" ←"}
   }
 
   /* רשימת "כל העדכונים" — עשרת המבזקים האחרונים, במודאל שאפשר לגלול בו.
@@ -3804,7 +3836,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          מקורות אמת לאותו ליד. ראו bindLeadBanner(). -->
     <button type="button" class="ai-promo-cta" id="aiPromoCta">
       <b>חושבים למכור או להשכיר?</b>
-      <span>השאירו פרטים וסוכן/ת יחזרו אליכם לתיאום פגישה - כולל הדמיות AI לנכס שלכם.</span>
+      <span class="ai-promo-cta-long">השאירו פרטים וסוכן/ת יחזרו אליכם לתיאום פגישה - כולל הדמיות AI לנכס שלכם.</span>
+      <span class="ai-promo-cta-short" aria-hidden="true">השאירו פרטים ←</span>
     </button>
   </div>
 

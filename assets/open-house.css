@@ -142,17 +142,17 @@
   .oh-promo{
     display:grid;grid-template-columns:auto minmax(0,1fr);
     grid-template-areas:"art body" "art title" "cta cta";
-    align-items:center;column-gap:12px;row-gap:4px;
-    padding:14px 16px 16px;text-align:start;
+    align-items:center;column-gap:12px;row-gap:3px;
+    padding:12px 14px 14px;text-align:start;
   }
   .oh-promo::before{inset:5px}
-  .oh-promo-art{grid-area:art;height:clamp(60px,18vw,76px);align-self:center}
+  .oh-promo-art{grid-area:art;height:clamp(54px,16vw,66px);align-self:center}
   .oh-promo-body{grid-area:body;align-self:end}
-  .oh-promo-title{grid-area:title;align-self:start;font-size:1.3rem;line-height:1.12}
+  .oh-promo-title{grid-area:title;align-self:start;font-size:clamp(1.08rem,4.7vw,1.22rem);line-height:1.1}
   /* שורה אחת תמיד: הגופן נגזר מרוחב המסך, כדי ש"אל תחמיצו" לא יישבר
      ב-360px */
   .oh-promo-kicker{font-size:clamp(.8rem,3.9vw,.95rem);white-space:nowrap}
-  .oh-promo-cta{grid-area:cta;margin:10px 0 0;text-align:center;padding:11px 16px;font-size:1rem}
+  .oh-promo-cta{grid-area:cta;margin:8px 0 0;text-align:center;padding:9px 16px;font-size:.96rem}
 }
 /* מתחת ל-360px (מכשירים ישנים וצרים) השורה לא נכנסת גם בגופן המוקטן —
    עדיף שתישבר מאשר שתגלוש מחוץ לכרטיס */
