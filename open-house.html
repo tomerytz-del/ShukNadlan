@@ -113,12 +113,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
        מחשב — האיור בעמודה השמאלית לכל הגובה, והטקסט והגוף זה מעל זה מימין.
        טלפון — האיור **לצד** הכותרת (כמו הבאנר הקומפקטי), והגוף מתחת ברוחב
                 מלא. איור בגובה 170px מעל הכותרת היה דוחף את הנכסים מסך למטה. */
-  .oh-head{padding-block:18px 4px}
+  .oh-head{padding-block:14px 0}
   .oh-head-box{
     position:relative;isolation:isolate;overflow:hidden;color:#fff;
     display:grid;grid-template-columns:auto minmax(0,1fr);
     grid-template-areas:"art text" "body body";
-    align-items:center;gap:6px 14px;padding:18px 18px 20px;border-radius:14px;
+    align-items:center;gap:10px 14px;padding:14px 16px 16px;border-radius:14px;
     background:
       radial-gradient(120% 90% at 50% 0%, #25356b 0%, rgba(37,53,107,0) 60%),
       radial-gradient(60% 50% at 50% 115%, rgba(224,181,74,.35), rgba(224,181,74,0) 70%),
@@ -126,71 +126,71 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     box-shadow:0 18px 40px -24px rgba(6,14,40,.8);
   }
   .oh-head-box::before{
-    content:"";position:absolute;inset:6px;z-index:-1;border-radius:10px;pointer-events:none;
+    content:"";position:absolute;inset:5px;z-index:-1;border-radius:10px;pointer-events:none;
     border:1.5px solid rgba(224,181,74,.75);
   }
   .oh-head-art{grid-area:art;display:flex;align-items:center}
-  .oh-head-art-svg{height:clamp(62px,19vw,84px);width:auto;direction:ltr}
+  .oh-head-art-svg{height:clamp(56px,17vw,72px);width:auto;direction:ltr}
   .oh-head-text{grid-area:text;min-width:0}
-  .oh-head-kicker{margin:0 0 4px;font-size:clamp(.74rem,3.55vw,1rem);font-weight:900;color:#e9c35c;white-space:nowrap}
+  .oh-head-kicker{margin:0 0 3px;font-size:clamp(.74rem,3.55vw,.95rem);font-weight:900;color:#e9c35c;white-space:nowrap}
+  /* שלושת חלקי הכותרת הם שלוש שורות בטלפון (כמו בבאנר), ושורה אחת במחשב */
   .oh-head h1{
     margin:0;color:#fff;font-weight:900;line-height:1.1;letter-spacing:-.01em;
-    font-size:clamp(1.3rem,5.4vw,2.6rem);text-shadow:0 2px 10px rgba(0,0,0,.35);
+    font-size:clamp(1.2rem,5vw,1.5rem);text-shadow:0 2px 10px rgba(0,0,0,.35);
   }
-  .oh-head-body{grid-area:body;min-width:0;margin-top:8px}
-  .oh-head .lede{
-    color:#e7ecf8;font-size:.9rem;line-height:1.55;margin:0;max-width:58ch;text-wrap:pretty;
-  }
-  .oh-head .lede b{color:#fff}
+  .oh-head h1 span{display:block}
+  .oh-head-body{grid-area:body;min-width:0;display:flex;flex-direction:column;gap:10px}
 
-  /* שורת הנתונים: צ׳יפים שלעולם אינם נשברים באמצע (‏nowrap), ושיורדים
-     לשורה הבאה בשלמותם כשאין מקום. הראשון בזהב — המספר שבגללו נכנסים. */
-  .oh-head-stats{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
-  .oh-stat{
-    display:inline-flex;align-items:center;gap:7px;white-space:nowrap;border-radius:999px;
-    background:rgba(255,255,255,.08);border:1px solid rgba(224,181,74,.45);color:#f4f6fc;
-    padding:6px 14px;font-size:.8rem;font-weight:700;
-  }
-  .oh-stat b{font-size:.98rem;color:#e9c35c}
-  .oh-stat.is-primary{background:rgba(224,181,74,.16);border-color:#e0b54a}
-  .oh-stat.is-primary::before{content:"";width:7px;height:7px;border-radius:50%;background:#e9c35c;flex:none}
+  /* שורת הנתונים: שורה אחת קטנה ולא צ׳יפים — "2 דירות ביריד · הראשונה
+     יוצאת עד 27.9". כל חלק ‎nowrap‎, והנקודה המפרידה היא ‎::before‎ של
+     השני, כדי שלא תישאר יתומה בסוף שורה. */
+  .oh-head-stats{margin:0;display:flex;flex-wrap:wrap;gap:2px 0;font-size:.82rem;color:#dfe5f4}
+  .oh-head-stats[hidden]{display:none}
+  .oh-stat{white-space:nowrap}
+  .oh-stat[hidden]{display:none}
+  .oh-stat b{color:#e9c35c;font-weight:900}
+  .oh-stat + .oh-stat::before{content:"·";margin-inline:8px;color:#e9c35c}
 
-  .oh-head-actions{display:flex;flex-direction:column;align-items:stretch;gap:12px;margin-top:16px}
   .oh-head-go{
     display:flex;align-items:center;justify-content:center;
-    padding:13px 22px;border-radius:9px;white-space:nowrap;
-    font-size:1.02rem;font-weight:900;color:#1b1406;
+    padding:10px 20px;border-radius:9px;white-space:nowrap;
+    font-size:.98rem;font-weight:900;color:#1b1406;
     background:linear-gradient(180deg,#f7dc8a 0%,#e0b54a 45%,#b8862a 100%);
     border:1.5px solid #fbe7a1;
     box-shadow:0 6px 16px -6px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.5);
     transition:filter .15s ease;
   }
-  .oh-head-go[hidden]{display:none}
+  .oh-head-go[hidden],.oh-head-cta[hidden]{display:none}
   .oh-head-go:hover{filter:brightness(1.06)}
   .oh-head-cta{
-    align-self:center;white-space:nowrap;font-size:.86rem;font-weight:700;color:#e9c35c;
+    align-self:flex-start;white-space:nowrap;font-size:.86rem;font-weight:700;color:#e9c35c;
     text-decoration:underline;text-underline-offset:4px;
   }
   .oh-head-cta:hover{color:#fff}
 
   /* מתחת ל-360px גם הגופן המוקטן לא נכנס לצד האיור — עדיף שבירה מגלישה */
   @media(max-width:359px){ .oh-head-kicker{white-space:normal} }
+
+  /* ====== מחשב: רצועה אחת ======
+     הכותרת בשורה אחת, ומתחתיה הנתונים והכפתור באותה שורה; האיור בקצה
+     השמאלי לכל הגובה. */
   @media(min-width:760px){
-    .oh-head{padding-block:26px 6px}
+    .oh-head{padding-block:20px 0}
     .oh-head-box{
       grid-template-columns:minmax(0,1fr) auto;
       grid-template-areas:"text art" "body art";
-      gap:6px 36px;padding:34px 40px 34px;
+      gap:12px 32px;padding:22px 30px;
     }
-    .oh-head-box::before{inset:8px}
-    .oh-head-art-svg{height:clamp(130px,17vw,190px)}
-    .oh-head-kicker{font-size:1.3rem}
-    .oh-head-body{margin-top:10px}
-    .oh-head .lede{font-size:1rem}
-    .oh-head-actions{flex-direction:row;align-items:center;gap:22px}
-    .oh-head-go{padding:13px 30px}
+    .oh-head-box::before{inset:7px}
+    .oh-head-art-svg{height:112px}
+    .oh-head-kicker{font-size:1.05rem}
+    .oh-head h1{font-size:clamp(1.5rem,2.6vw,2.1rem)}
+    .oh-head h1 span{display:inline}
+    .oh-head-body{flex-direction:row;align-items:center;flex-wrap:wrap;gap:12px 22px}
+    .oh-head-stats{font-size:.9rem}
+    .oh-head-go{padding:10px 28px}
+    .oh-head-cta{align-self:center}
   }
-
 
   /* ====== מקטעים ======
      ‏padding-block בלבד: המקטעים כאן נושאים ‎class="section wrap"‎ יחד,
@@ -201,39 +201,34 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .section-head p{margin:7px 0 0;font-size:.86rem;color:var(--ink-soft);max-width:74ch;text-wrap:pretty}
 
   /* ====== איך זה עובד ======
-     שלוש שורות קצרות ולא שלושה כרטיסים עם פסקה: רצועה אחת לבנה עם קו זהב
-     עליון, ובה לכל שלב עיגול נייבי עם אייקון בזהב ומספר קטן, כותרת בשורה
-     אחת ומשפט אחד. בטלפון השלבים הם שורות (העיגול בצד הטקסט), ומ-760px
-     שלוש עמודות עם קו מפריד ביניהן. */
-  .oh-how{padding-block:22px 10px}
-  .oh-how h2{font-size:clamp(1.15rem,3vw,1.45rem);margin:0 0 12px}
+     שורה אחת של שלושה שלבים — עיגול נייבי עם אייקון בזהב ומספר, וכותרת
+     קצרה מתחתיו. בלי כותרת סקציה גלויה ובלי משפטי הסבר: שלוש עובדות
+     שנקראות במבט, ולא עוד סקציה שצריך לגלול דרכה בדרך לדירות. */
+  .oh-how{padding-block:12px 0}
   .oh-steps{
-    list-style:none;margin:0;padding:6px 16px;display:grid;grid-template-columns:1fr;
+    list-style:none;margin:0;padding:10px 6px;display:grid;grid-template-columns:repeat(3,1fr);
     background:#fff;border:1px solid var(--line);border-top:3px solid #e0b54a;
-    box-shadow:0 8px 22px -16px rgba(13,27,61,.35);
   }
-  .oh-steps li{display:flex;align-items:center;gap:14px;padding:12px 0}
-  .oh-steps li + li{border-top:1px solid var(--line)}
+  .oh-steps li{display:flex;flex-direction:column;align-items:center;gap:6px;padding:0 6px;text-align:center}
+  .oh-steps li + li{border-inline-start:1px solid var(--line)}
   .oh-step-ico{
-    position:relative;flex:none;width:46px;height:46px;border-radius:50%;
+    position:relative;flex:none;width:38px;height:38px;border-radius:50%;
     display:grid;place-items:center;
     background:linear-gradient(155deg,#1c2d63,#0e1938);color:#e9c35c;
     box-shadow:inset 0 0 0 1.5px rgba(224,181,74,.6);
   }
-  .oh-step-ico svg{width:22px;height:22px}
+  .oh-step-ico svg{width:19px;height:19px}
   .oh-step-ico i{
-    position:absolute;top:-3px;inset-inline-end:-3px;width:19px;height:19px;border-radius:50%;
-    display:grid;place-items:center;font-style:normal;font-size:.68rem;font-weight:900;
+    position:absolute;top:-4px;inset-inline-end:-6px;width:17px;height:17px;border-radius:50%;
+    display:grid;place-items:center;font-style:normal;font-size:.62rem;font-weight:900;
     background:#e0b54a;color:#1b1406;box-shadow:0 0 0 2px #fff;
   }
-  .oh-step-text{min-width:0}
-  .oh-steps b{display:block;font-size:.98rem;line-height:1.3;color:var(--ink)}
-  .oh-step-text > span{display:block;margin-top:2px;font-size:.84rem;line-height:1.45;color:var(--ink-soft)}
+  .oh-steps b{display:block;font-size:.76rem;line-height:1.3;color:var(--ink);text-wrap:balance}
   @media(min-width:760px){
-    .oh-how{padding-block:30px 12px}
-    .oh-steps{grid-template-columns:repeat(3,1fr);padding:18px 8px}
-    .oh-steps li{padding:4px 18px}
-    .oh-steps li + li{border-top:0;border-inline-start:1px solid var(--line)}
+    .oh-how{padding-block:14px 0}
+    .oh-steps{padding:12px 8px}
+    .oh-steps li{flex-direction:row;justify-content:center;gap:10px;text-align:start}
+    .oh-steps b{font-size:.92rem}
   }
 
   /* ====== המפה ======
@@ -376,47 +371,35 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="oh-head-art" id="fairArt" aria-hidden="true"></div>
         <div class="oh-head-text">
           <p class="oh-head-kicker">אל תחמיצו את ההזדמנות!</p>
-          <h1>יריד דירות<br>ללא עמלת תיווך<br>לזמן מוגבל!</h1>
+          <h1><span>יריד דירות</span> <span>ללא עמלת תיווך</span> <span>לזמן מוגבל!</span></h1>
         </div>
+        <!-- שורה אחת של נתונים ולא צ׳יפים: "2 דירות ביריד · הראשונה יוצאת
+             27.9". פסקת ההסבר שישבה כאן ירדה — "איך זה עובד" שמתחת אומר
+             אותו דבר בשלוש מילים לכל שלב. -->
         <div class="oh-head-body">
-          <p class="lede">מתווכים בעפולה והעמק מציעים כאן דירות <b>ללא עמלת תיווך לקונה</b> - כל אחת לתקופה קצובה משלה. מה שמוצג כאן פתוח היום.</p>
-          <div class="oh-head-stats" id="fairStats" hidden>
+          <p class="oh-head-stats" id="fairStats" hidden>
             <span class="oh-stat is-primary" id="fairStatCount"></span>
             <span class="oh-stat" id="fairStatSoon" hidden></span>
-          </div>
-          <div class="oh-head-actions">
-            <a class="oh-head-go" id="fairGo" href="#fairProps" hidden>לצפייה בדירות ביריד</a>
-            <a class="oh-head-cta" href="#fairSignup">עדכנו אותי כשנכנס נכס חדש ←</a>
-          </div>
+          </p>
+          <a class="oh-head-go" id="fairGo" href="#fairProps" hidden>לצפייה בדירות ביריד</a>
+          <!-- מוצג רק כשהיריד ריק: אז אין דירות לראות, וההרשמה היא הפעולה.
+               כשיש דירות — ההרשמה יושבת בתחתית העמוד ולא מתחרה בכפתור. -->
+          <a class="oh-head-cta" id="fairNotify" href="#fairSignup" hidden>עדכנו אותי כשנכנסת דירה ←</a>
         </div>
       </div>
     </div>
   </section>
 
   <!-- ====== איך זה עובד ======
-       שלוש שורות קצרות ולא שלושה כרטיסים עם פסקה בכל אחד: מה מקבלים, ממי,
-       ועד מתי. ה"עד מתי" הוא חצי מהמוצר, ולכן הוא השלב השלישי ולא הערת
-       שוליים. מה שירד מהנוסח הקודם מדבר אל המתווך/ת ולא אל הקונה ("הנכס
-       ממשיך להיות מפורסם כרגיל", "בתוך המערכת") — הוא נשאר ב-CRM ובתיעוד.
-       המספרים ‎aria-hidden‎: הסדר כבר נאמר ב-‎<ol>‎. -->
-  <section class="section wrap oh-how" aria-labelledby="fairHowTitle">
-    <h2 id="fairHowTitle">איך זה עובד</h2>
+       שורה אחת, שלושה שלבים, כותרת קצרה לכל אחד — בלי כותרת סקציה גלויה
+       ובלי משפטי הסבר: מה מקבלים, ממי, ועד מתי. הכותרת נשארת לקורא מסך
+       (‏sr-only), והמספרים ‎aria-hidden‎ — הסדר כבר נאמר ב-‎<ol>‎. -->
+  <section class="wrap oh-how" aria-labelledby="fairHowTitle">
+    <h2 id="fairHowTitle" class="sr-only">איך זה עובד</h2>
     <ol class="oh-steps">
-      <li>
-        <span class="oh-step-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11 12 4l8.5 7"></path><path d="M5.6 12.4V20h12.8v-7.6"></path><path d="M10 20v-5.2h4V20"></path></svg><i>1</i></span>
-        <span class="oh-step-text"><b>מתווך/ת מכניס/ה דירה ליריד</b>
-          <span>לתקופה קצובה, עם תאריך סיום ידוע מראש.</span></span>
-      </li>
-      <li>
-        <span class="oh-step-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="6.2" width="18.8" height="11.6" rx="1.6"></rect><circle cx="12" cy="12" r="2.6"></circle><path d="M4.3 20.6 19.7 3.4"></path></svg><i>2</i></span>
-        <span class="oh-step-text"><b>אתם לא משלמים עמלת תיווך</b>
-          <span>כל עוד הדירה ביריד. ההסכם עם המוכר/ת לא משתנה.</span></span>
-      </li>
-      <li>
-        <span class="oh-step-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l2.5 2.5"></path><path d="M9.5 2.5h5"></path></svg><i>3</i></span>
-        <span class="oh-step-text"><b>בסוף התקופה הדירה יוצאת</b>
-          <span>אוטומטית - ולכן כדאי לא לחכות.</span></span>
-      </li>
+      <li><span class="oh-step-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 11 12 4l8.5 7"></path><path d="M5.6 12.4V20h12.8v-7.6"></path><path d="M10 20v-5.2h4V20"></path></svg><i>1</i></span><b>דירה נכנסת ליריד</b></li>
+      <li><span class="oh-step-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="2.6" y="6.2" width="18.8" height="11.6" rx="1.6"></rect><circle cx="12" cy="12" r="2.6"></circle><path d="M4.3 20.6 19.7 3.4"></path></svg><i>2</i></span><b>בלי עמלת תיווך לקונה</b></li>
+      <li><span class="oh-step-ico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="8"></circle><path d="M12 9v4l2.5 2.5"></path><path d="M9.5 2.5h5"></path></svg><i>3</i></span><b>לתקופה קצובה בלבד</b></li>
     </ol>
   </section>
 
@@ -930,17 +913,18 @@ function renderFairStats(list){
   const stats = el('fairStats');
   // הכפתור הזהוב מוביל לנכסים — ביריד ריק אין לאן, והוא יורד
   el('fairGo').hidden = !list.length;
+  el('fairNotify').hidden = !!list.length;
   if (!list.length){ stats.hidden = true; return; }
   el('fairStatCount').innerHTML = list.length > 1
-    ? `<b>${list.length.toLocaleString('he-IL')}</b> נכסים ביריד עכשיו`
-    : '<b>נכס אחד</b> ביריד עכשיו';
+    ? `<b>${list.length.toLocaleString('he-IL')}</b> דירות ביריד`
+    : '<b>דירה אחת</b> ביריד';
 
   // "הראשון יוצא…" הוא הדחיפות האמיתית של היריד, והוא נלקח מהנכס שהחלון
   // שלו נגמר ראשון — לא מתאריך כללי, שאין כזה: לכל נכס חלון משלו.
   const soonest = list.reduce((a, b) =>
     OpenHouse.endsAt(a) <= OpenHouse.endsAt(b) ? a : b);
   const soon = el('fairStatSoon');
-  soon.textContent = 'הראשון יוצא ' + OpenHouse.endLabel(soonest);
+  soon.textContent = (list.length > 1 ? 'הראשונה יוצאת ' : 'יוצאת ') + OpenHouse.endLabel(soonest);
   soon.hidden = false;
   stats.hidden = false;
 }
