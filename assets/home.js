@@ -1442,8 +1442,12 @@ function renderOpenHouseBanner(count){
       OH_PROMO_ART +
       `<span class="oh-promo-body">` +
         `<span class="oh-promo-kicker">אל תחמיצו את ההזדמנות!</span>` +
-        `<span class="oh-promo-text">מגוון דירות אטרקטיביות ישירות ממתווכים, בביטול דמי תיווך. ` +
-          `המבצע בתוקף לתקופה קצובה בלבד!</span>` +
+        // שני משפטים, שורה לכל אחד — ‏nowrap ב-CSS, כדי שמשפט לא יישבר
+        // באמצעו בין שתי השורות
+        `<span class="oh-promo-text">` +
+          `<span>מגוון דירות אטרקטיביות ישירות ממתווכים, ללא דמי תיווך.</span>` +
+          `<span>המבצע בתוקף לתקופה קצובה בלבד!</span>` +
+        `</span>` +
       `</span>` +
       `<span class="oh-promo-cta">לצפייה בדירות ביריד</span>` +
     `</a>`;

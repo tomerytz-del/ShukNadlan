@@ -109,7 +109,11 @@
 .oh-promo-art{flex:none;height:92px;width:auto;direction:ltr}
 .oh-promo-body{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:4px}
 .oh-promo-kicker{font-size:1.25rem;font-weight:900;color:#e9c35c;line-height:1.2}
-.oh-promo-text{font-size:1rem;line-height:1.4;color:#eef2fb;max-width:36ch}
+/* שתי שורות קבועות, משפט בכל אחת: ‏nowrap על כל משפט, והגופן מצטמצם עם
+   הרוחב (‏clamp). נמדד: השורה הארוכה נכנסת בלי לגעת בכפתור עד ~1010px,
+   ולכן מתחת ל-1040px (מרווח 34px לפחות) ההסבר יורד — ולא נשבר. */
+.oh-promo-text{display:flex;flex-direction:column;font-size:clamp(.82rem,1.15vw,1rem);line-height:1.45;color:#eef2fb}
+.oh-promo-text > span{white-space:nowrap}
 .oh-promo-cta{
   flex:none;margin-inline-start:auto;
   padding:13px 24px;border-radius:9px;white-space:nowrap;
@@ -121,10 +125,12 @@
 }
 .oh-promo:hover .oh-promo-cta{transform:translateY(-1px);filter:brightness(1.06)}
 
-/* בין 700 ל-980 פיקסלים ארבעת החלקים לא נכנסים בשורה: ההסבר יורד והרצועה
+/* בין 700 ל-1040 פיקסלים ארבעת החלקים לא נכנסים בשורה: ההסבר יורד והרצועה
    נשארת רצועה. */
-@media(max-width:980px){
+@media(max-width:1039px){
   .oh-promo-text{display:none}
+}
+@media(max-width:980px){
   .oh-promo-title{font-size:1.5rem}
 }
 @media(max-width:699px){
