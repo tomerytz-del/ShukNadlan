@@ -2144,69 +2144,106 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      (ראו שאילתת המדיה למטה). ‏.head-line ממילא ממורכז בעצמו. */
   .dm-head > div{text-align:center}
 
-  /* ====== הסרגל: חיפוש · לשוניות · התמחות ======
-     לפי המוקאפ, על מגש נייבי מלא: שלושת הפקדים בשורה אחת, והמגש הכהה
-     הוא מה שמפריד את הסרגל מהכרטיסים הלבנים שמתחתיו — על הבמה הבהירה
-     מגש שקוף כמעט נבלע.
+  /* ====== הסרגל: לשוניות · חיפוש · התמחות ======
+     סרגל בהיר עם צל רך, ולא מגש כהה: הוא כלי ולא כותרת, והכרטיסים שמתחתיו
+     הם מה שצריך לבלוט. הלשוניות הן "גלולות" — הפעילה נייבי מלא עם טקסט
+     לבן, השאר אפור בהיר עם מסגרת עדינה.
 
-     **הלשונית הפעילה היא הלבנה, והכבויות שקופות על הנייבי** עם טקסט בהיר
-     — שני המצבים נקראים במבט אחד. שדה החיפוש והבורר לבנים, כי הם שדות. */
+     **שמות המחלקות כאן נבחרו כדי לא לפגוש כלל גלובלי**: ‏design-system
+     מיישר פינות (‏border-radius:0 !important) לכל מחלקה שמכילה ‎-tab‎,
+     ‎-card‎, ‎-chip‎, ‎-badge‎, ‎-btn‎ או ‎-panel‎, ולכל ‎input‎/‎select‎.
+     לכן הגלולות הן ‎button‎ בלי מחלקה בתוך ‎.dm-tabs‎, הכרטיס הוא ‎.dm-item‎,
+     התגיות ‎.dm-flag‎/‎.dm-tag‎, והפינות המעוגלות של שדה החיפוש והבורר יושבות
+     על העוטף (‏label) ולא על ה-input/select עצמם.
+
+     בטלפון: הלשוניות בשורה נגללת אופקית, ומתחתן החיפוש והבורר זה לצד זה.
+     מ-1024px: שורה אחת — לשוניות, חיפוש, בורר. */
   .dm-bar{
-    display:flex;flex-direction:column;gap:6px;margin:0 16px 14px;padding:6px;
-    background:linear-gradient(155deg,#0e2a6b,#08194a 72%);
-    box-shadow:0 10px 24px -14px rgba(6,20,34,.55);
+    display:grid;grid-template-columns:minmax(0,1fr) auto;
+    grid-template-areas:"tabs tabs" "search quick";
+    gap:10px;margin:0 16px 16px;padding:10px;
+    background:#fff;border:1px solid rgba(14,42,107,.08);border-radius:18px;
+    box-shadow:0 10px 28px -18px rgba(13,27,61,.35);
   }
+  .dm-tabs{
+    grid-area:tabs;display:flex;gap:8px;overflow-x:auto;min-width:0;
+    scrollbar-width:none;-webkit-overflow-scrolling:touch;
+  }
+  .dm-tabs::-webkit-scrollbar{display:none}
+  .dm-tabs button{
+    flex:none;display:inline-flex;align-items:center;gap:6px;min-height:40px;padding:0 16px;
+    border-radius:999px;border:1px solid #e2e7f1;background:#f3f5fa;color:var(--ink);
+    font-family:inherit;font-size:.86rem;font-weight:700;white-space:nowrap;cursor:pointer;
+    transition:background .15s ease,border-color .15s ease,color .15s ease;
+  }
+  .dm-tabs button:not([aria-selected="true"]):not(:disabled):hover{background:#e9edf6;border-color:#cfd7e8}
+  .dm-tabs button[aria-selected="true"]{background:var(--teal-dark);border-color:var(--teal-dark);color:#fff}
+  .dm-tabs button:disabled{opacity:.45;cursor:default}
+  .dm-tab-ico{width:16px;height:16px;flex:none}
+  .dm-tabs .n{font-weight:600;opacity:.75}
+  .dm-tabs .n::before{content:"("}
+  .dm-tabs .n::after{content:")"}
+  @media(prefers-reduced-motion:reduce){ .dm-tabs button{transition:none} }
+
   .dm-field,.dm-quick{
-    display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;
-    background:#fff;border:1px solid transparent;color:var(--ink-soft);cursor:text;
+    display:flex;align-items:center;gap:8px;height:44px;padding:0 14px;min-width:0;
+    background:#f6f8fc;border:1px solid #e2e7f1;border-radius:12px;color:var(--ink-soft);
   }
+  .dm-field{grid-area:search;cursor:text}
+  /* בטלפון הבורר צר (בלי זכוכית מגדלת) כדי שלשדה החיפוש יישאר מקום
+     לפלייסהולדר שלם */
+  .dm-quick{grid-area:quick;cursor:pointer;max-width:40vw;padding:0 10px}
+  .dm-quick svg{display:none}
   .dm-field svg,.dm-quick svg{width:17px;height:17px;flex:none}
-  .dm-field-label{flex:none;font-size:.84rem;font-weight:800;color:var(--ink)}
+  .dm-field-label{display:none}
   /* ‏appearance:none מסיר את ה-X של WebKit */
   .dm-field input{flex:1;min-width:0;border:none;background:none;font-family:inherit;
-    font-size:.84rem;color:var(--ink);appearance:none}
+    font-size:.88rem;color:var(--ink);appearance:none}
   .dm-field input:focus{outline:none}
-  .dm-field:focus-within,.dm-quick:focus-within{box-shadow:0 0 0 2px var(--brass,#c9a227)}
-  .dm-quick{cursor:pointer}
-  /* בלשונית שאין לה בורר (בעלי מקצוע) הוא יורד לגמרי והלשוניות מתרחבות */
+  .dm-field:focus-within,.dm-quick:focus-within{border-color:var(--teal);background:#fff;box-shadow:0 0 0 3px rgba(14,42,107,.1)}
+  /* בלשונית שאין לה בורר (בעלי מקצוע) הוא יורד, והחיפוש מתרחב למקומו */
   .dm-quick.is-empty{display:none}
+  .dm-bar:has(.dm-quick.is-empty){grid-template-areas:"tabs tabs" "search search"}
   .dm-quick-select{
     flex:1;min-width:0;height:100%;border:none;background:none;padding:0;
-    font-family:inherit;font-size:.84rem;font-weight:600;color:var(--ink);cursor:pointer;
+    font-family:inherit;font-size:.86rem;font-weight:600;color:var(--ink);cursor:pointer;
   }
   .dm-quick-select:focus{outline:none}
-
-  .dm-tabs{display:flex;gap:4px;min-width:0}
-  .dm-tabs button{
-    flex:1;min-width:0;min-height:44px;padding:0 6px;border-radius:0;cursor:pointer;
-    display:inline-flex;align-items:center;justify-content:center;gap:6px;
-    font-family:inherit;font-size:.78rem;font-weight:700;white-space:nowrap;
-    border:1.5px solid rgba(255,255,255,.22);background:transparent;color:#e3e9f7;
-    transition:background .15s ease,border-color .15s ease;
+  @media(min-width:1024px){
+    .dm-bar{
+      grid-template-columns:auto minmax(0,1fr) 220px;grid-template-areas:"tabs search quick";
+      align-items:center;padding:8px;border-radius:999px;
+    }
+    .dm-bar:has(.dm-quick.is-empty){grid-template-columns:auto minmax(0,1fr);grid-template-areas:"tabs search"}
+    .dm-field,.dm-quick{border-radius:999px;max-width:none}
+    .dm-quick{padding:0 14px}
+    .dm-quick svg{display:block}
   }
-  .dm-tab-ico{width:17px;height:17px;flex:none;display:none}
-  .dm-tabs button[aria-selected="true"] .dm-tab-ico{color:var(--teal)}
-  .dm-tabs button:not([aria-selected="true"]):not(:disabled):hover{background:rgba(255,255,255,.1);color:#fff}
-  /* פס הזהב התחתון מסמן את הבחירה — אותו ‎--brass‎ של הקו מתחת ללוגו */
-  .dm-tabs button[aria-selected="true"]{
-    background:#fff;border-color:#fff;color:var(--teal);
-    box-shadow:inset 0 -3px 0 var(--brass,#c9a227);
-  }
-  .dm-tabs button:disabled{opacity:.45;cursor:default}
-  @media(prefers-reduced-motion:reduce){ .dm-tabs button{transition:none} }
-  .dm-tabs .n{font-weight:700;font-size:.72rem;opacity:.7;margin-inline-start:2px}
 
   .dm-body{padding:0 16px 6px}
 
+  /* ====== המסלול: קרוסלה בטלפון, גריד במחשב ======
+     בטלפון — גלילה אופקית עם ‎scroll-snap‎, והכרטיס הבא מציץ (‏~18%) כדי
+     לומר שיש עוד; מתחת נקודות. מ-760px — גריד של שלוש עמודות, ומ-1100px
+     ארבע, בשורה אחת (‏DM_GRID_ROWS ב-JS); השאר ב"צפייה בכל". */
   .dm-row{
-    display:flex;gap:12px;align-items:stretch;overflow-x:auto;
-    scroll-snap-type:x proximity;
-    /* במובייל המסלול פורץ את ריפוד הגוף ונוגע בקצה המסך, כדי שההצצה
-       לאריח הבא תרמז שאפשר להמשיך לגלול */
-    margin-inline:-16px;padding-inline:16px;
+    display:flex;gap:14px;align-items:stretch;overflow-x:auto;
+    scroll-snap-type:x mandatory;scroll-padding-inline:16px;
+    margin-inline:-16px;padding:6px 16px 14px;
     scrollbar-width:none;-ms-overflow-style:none;-webkit-overflow-scrolling:touch;
   }
   .dm-row::-webkit-scrollbar{display:none}
+  .dm-dots{display:flex;justify-content:center;gap:6px;margin:2px 0 6px}
+  .dm-dots span{width:7px;height:7px;border-radius:50%;background:#cdd5e6;transition:width .2s ease,background .2s ease}
+  .dm-dots span.is-on{width:20px;border-radius:999px;background:var(--teal-dark)}
+  @media(min-width:760px){
+    .dm-row{
+      display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:24px;
+      overflow:visible;margin-inline:0;padding:6px 0 10px;
+    }
+    .dm-dots{display:none}
+  }
+  @media(min-width:1100px){ .dm-row{grid-template-columns:repeat(4,minmax(0,1fr))} }
 
   /* ====== גלילת שורה אופקית — מעטפת אחת לשתי הרצועות ======
      גם מסלול האנשים וגם קרוסלת הכתבות גוללים אופקית, ובשתיהן בדסקטופ
@@ -2257,83 +2294,125 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   .row-nav[hidden]{display:none}
 
-  /* ====== אריח אדם/משרד ======
-     לפי המוקאפ: כרטיס לבן, התמונה בראשו, ומתחת השם, "גלולה" אפורה עם
-     האזור (או המשרד, או התחום) ושורת הדירוג והמלאי. שלושת הסוגים חולקים
-     את אותו אריח, כדי שהמעבר בין הלשוניות לא ייראה כמעבר בין שלוש מערכות.
+  /* ====== כרטיס פרופיל ======
+     תמונת נושא בראש (‏cover_url — של המשרד או של המתווך/ת), ועליה שתי
+     תגיות: דירוג (לשלושת המובילים בלבד) ומספר הנכסים הפעילים. הלוגו (או
+     תמונת הפרופיל) "צף" על קו התפר בין התמונה לגוף הלבן. בגוף: שם, אזורי
+     פעילות כתגיות, הצוות (בכרטיס משרד), הדירוג, ושני כפתורים — הפרופיל
+     ווואטסאפ.
 
-     רוחב האריח נגזר מהמסלול: ארבעה בשורה בדסקטופ, שלושה בטאבלט, ובטלפון
-     אחד ועוד הצצה לבא — ההצצה היא מה שאומר שאפשר לגלול. */
-  .dm-card{
-    flex:0 0 calc(76% - 12px);min-width:0;scroll-snap-align:start;
+     אין תמונת נושא → גרדיאנט נייבי-זהב עם הלוגו מטושטש מעליו, ולא ריבוע
+     ריק. הכרטיס הוא ‎article‎ ולא קישור: יש בו שני קישורים (פרופיל,
+     וואטסאפ), וקישור בתוך קישור אינו HTML תקין. התמונה והשם מובילים לפרופיל
+     גם הם, כי לשם לוחצים. */
+  .dm-item{
+    flex:0 0 82%;min-width:0;scroll-snap-align:start;position:relative;
     display:flex;flex-direction:column;overflow:hidden;
-    background:#fff;border:1px solid rgba(14,42,107,.12);color:var(--ink);
-    box-shadow:0 4px 14px -8px rgba(13,27,61,.3);
-    transition:transform .18s ease, box-shadow .18s ease;
+    background:#fff;border:1px solid rgba(14,42,107,.09);border-radius:18px;color:var(--ink);
+    box-shadow:0 8px 24px -16px rgba(13,27,61,.4);
+    transition:transform .2s ease, box-shadow .2s ease;
   }
-  .dm-card:hover{transform:translateY(-2px);box-shadow:0 14px 28px -14px rgba(6,20,34,.42)}
-  /* המסגרת לתמונה: הגרדיאנט עם אות ההתחלה הוא רשת ביטחון למי שאין לו
-     תמונה, או שהקובץ נשבר וה-img הסיר את עצמו. */
-  .dm-media{
-    position:relative;aspect-ratio:16/11;margin:8px 8px 0;
-    display:grid;place-items:center;overflow:hidden;
-    background:linear-gradient(155deg,var(--gold),var(--teal) 65%);
+  .dm-cover{
+    position:relative;display:block;height:132px;overflow:hidden;
+    background:
+      radial-gradient(120% 90% at 80% 0%, rgba(224,181,74,.35), rgba(224,181,74,0) 55%),
+      linear-gradient(150deg,#1c2d63,#0e1938 70%);
   }
-  .dm-media:has(.dm-logo){background:#f6f7fb}
-  .dm-media:has(img:not(.dm-badge)) .dm-initial{display:none}
-  .dm-initial{font-weight:800;font-size:2.6rem;color:#fff;line-height:1}
-  /* ‏object-position גבוה מהמרכז: בתמונות פרופיל הפנים יושבות בשליש
-     העליון. מי שסימן/ה נקודת מיקוד ב-CRM דורס/ת את ברירת המחדל דרך
-     ‎--photo-pos‎. לוגו נשאר שלם (‏contain) — חיתוך היה קוטע אותיות. */
-  .dm-photo{position:absolute;inset:0;width:100%;height:100%;
-    object-fit:cover;object-position:var(--photo-pos,center 22%)}
-  .dm-logo{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;padding:10px}
-  /* תו האיכות אינו לחיץ: האריח כולו כבר מוביל לדף, ושם התו הגדול נלחץ
-     ופותח את ההסבר. */
-  .dm-badge{position:absolute;top:6px;left:6px;width:30px;height:30px;border-radius:50%;
-    box-shadow:0 2px 7px rgba(6,20,34,.4);pointer-events:none}
-  .dm-info{display:flex;flex-direction:column;align-items:center;gap:6px;
-    padding:10px 10px 12px;text-align:center}
-  .dm-name{font-weight:800;font-size:.95rem;line-height:1.25;max-width:100%;
-    display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical;overflow:hidden}
-  .dm-sub{max-width:100%;padding:3px 10px;border-radius:999px;
-    background:#eef1f7;border:1px solid #e0e5ef;color:var(--ink-soft);
-    font-size:.72rem;line-height:1.4;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .dm-meta{display:flex;align-items:center;justify-content:center;gap:4px 10px;flex-wrap:wrap;
-    font-size:.74rem;color:var(--ink-soft)}
-  .dm-meta .star{color:#e5a800;margin-inline-end:3px}
+  .dm-cover img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:transform .45s ease}
+  .dm-cover img.is-blur{filter:blur(22px) saturate(1.1) brightness(.8);transform:scale(1.4)}
+  .dm-cover::after{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background:linear-gradient(180deg,rgba(6,14,40,.35) 0%,rgba(6,14,40,0) 38%,rgba(6,14,40,.18) 100%);
+  }
+  .dm-flag{
+    position:absolute;top:10px;z-index:1;display:inline-flex;align-items:center;gap:5px;
+    padding:4px 10px;border-radius:999px;font-size:.72rem;font-weight:800;white-space:nowrap;
+    box-shadow:0 4px 12px -4px rgba(0,0,0,.45);
+  }
+  .dm-flag.is-rank{inset-inline-start:10px;background:linear-gradient(180deg,#f7dc8a,#e0b54a);color:#1b1406}
+  .dm-flag.is-count{inset-inline-end:10px;background:rgba(14,25,56,.82);color:#fff;backdrop-filter:blur(4px)}
 
-  /* המסגרת המקווקוות הייתה ‎#cfd8ec‎ — גוון שנבחר מול במה לבנה, וכמעט לא
-     נראה על הבמה המגוונת. נייבי שקוף נשאר גלוי בשתיהן. */
-  .dm-empty{flex:1;min-width:min(280px,100%);min-height:var(--card-h);
-    display:grid;place-items:center;text-align:center;border:1px dashed rgba(14,42,107,.26);
+  .dm-face{
+    position:relative;z-index:2;align-self:center;margin-top:-34px;
+    width:68px;height:68px;border-radius:16px;overflow:hidden;
+    display:grid;place-items:center;background:#fff;
+    border:3px solid #fff;box-shadow:0 8px 20px -8px rgba(13,27,61,.5),0 0 0 1px rgba(14,42,107,.08);
+  }
+  .dm-face.is-person{border-radius:50%}
+  .dm-face img{width:100%;height:100%;object-fit:cover;object-position:var(--photo-pos,center 22%)}
+  .dm-face img.is-logo{object-fit:contain;padding:6px}
+  .dm-initial{font-weight:900;font-size:1.6rem;color:var(--teal-dark);line-height:1}
+  .dm-face:has(img) .dm-initial{display:none}
+
+  .dm-info{display:flex;flex-direction:column;align-items:center;gap:8px;padding:8px 14px 14px;text-align:center;flex:1}
+  .dm-name{display:flex;align-items:center;gap:6px;max-width:100%;margin:0;font-size:1.02rem;font-weight:900;line-height:1.25;color:var(--ink)}
+  .dm-name a{color:inherit;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .dm-verified{width:20px;height:20px;flex:none;border-radius:50%}
+  .dm-tags{display:flex;flex-wrap:wrap;justify-content:center;gap:5px;max-width:100%}
+  .dm-tag{
+    max-width:100%;padding:3px 10px;border-radius:999px;background:#f1f4f9;border:1px solid #e3e8f1;
+    color:var(--ink-soft);font-size:.72rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .dm-tag.is-more{color:var(--teal-dark);font-weight:800}
+  .dm-team{display:flex;align-items:center;gap:8px;font-size:.76rem;color:var(--ink-soft)}
+  .dm-faces{display:flex;flex-direction:row-reverse}
+  .dm-faces span{
+    width:26px;height:26px;border-radius:50%;overflow:hidden;margin-inline-start:-8px;
+    display:grid;place-items:center;background:#dfe5f2;border:2px solid #fff;
+    font-size:.66rem;font-weight:800;color:var(--teal-dark);
+  }
+  .dm-faces span:last-child{margin-inline-start:0}
+  .dm-faces img{width:100%;height:100%;object-fit:cover}
+  .dm-rate{display:flex;align-items:center;gap:5px;font-size:.8rem;color:var(--ink-soft)}
+  .dm-rate b{color:var(--ink);font-weight:900}
+  .dm-rate .star{color:#e5a800;font-size:.95rem;line-height:1}
+  .dm-rate.is-new{color:#8a94ad;font-size:.76rem}
+
+  .dm-actions{display:flex;gap:8px;width:100%;margin-top:auto;padding-top:4px}
+  .dm-go{
+    flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:42px;
+    border-radius:12px;background:var(--teal-dark);color:#fff;text-decoration:none;
+    font-size:.86rem;font-weight:800;white-space:nowrap;transition:background .15s ease;
+  }
+  .dm-go:hover{background:#1c2d63}
+  .dm-wa{
+    flex:none;width:42px;height:42px;display:grid;place-items:center;border-radius:12px;
+    background:#e9f8ef;border:1px solid #bfe9cf;color:#1a8f4a;transition:background .15s ease;
+  }
+  .dm-wa:hover{background:#d6f2e1}
+  .dm-wa svg{width:21px;height:21px}
+
+  /* ריחוף — רק במכשיר עם עכבר: הכרטיס עולה, הצל מעמיק, ותמונת הנושא
+     מתקרבת מעט. במגע הריחוף "נדבק" אחרי לחיצה, ולכן הוא לא חל שם. */
+  @media(hover:hover) and (pointer:fine){
+    .dm-item:hover{transform:translateY(-4px);box-shadow:0 22px 40px -22px rgba(13,27,61,.55)}
+    .dm-item:hover .dm-cover img:not(.is-blur){transform:scale(1.06)}
+  }
+  @media(prefers-reduced-motion:reduce){
+    .dm-item,.dm-cover img{transition:none}
+    .dm-item:hover{transform:none}
+    .dm-item:hover .dm-cover img:not(.is-blur){transform:none}
+  }
+
+  .dm-empty{flex:1;grid-column:1/-1;min-width:min(280px,100%);min-height:160px;
+    display:grid;place-items:center;text-align:center;border:1px dashed rgba(14,42,107,.26);border-radius:18px;
     padding:20px;margin:0;font-size:.82rem;color:var(--ink-soft);line-height:1.6}
-  /* הקישור נצמד לקצה השמאלי — בדיוק מתחת לתיבת החיפוש, שיושבת שם
-     (‏order:1 במסמך RTL) מ-760px ומעלה. */
-  .dm-all{display:flex;justify-content:flex-end;align-items:center;min-height:44px;margin:0;padding:0 16px}
-
-  @media(min-width:560px){
-    .dm-card{flex-basis:calc(50% - 8px)}
+  /* "צפייה בכל…" — כפתור ממורכז בתחתית הסקציה, והטקסט והקישור מתחלפים
+     עם הלשונית (‏DM_TABS). */
+  .dm-all{display:flex;justify-content:center;margin:8px 0 0;padding:0 16px}
+  .dm-all a{
+    display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 24px;border-radius:999px;
+    background:#fff;border:1.5px solid var(--teal-dark);color:var(--teal-dark);
+    font-size:.9rem;font-weight:800;text-decoration:none;white-space:nowrap;transition:background .15s ease,color .15s ease;
   }
+  .dm-all a:hover{background:var(--teal-dark);color:#fff}
 
   @media(min-width:760px){
     .hot-band{padding:26px 0 32px}
     .dm-head{flex-direction:row;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;
       gap:12px 24px;margin-bottom:14px}
     .dm-head > div{text-align:start}
-    /* מכאן ומעלה הסרגל הוא שורה אחת: החיפוש בימין, הלשוניות באמצע והבורר
-       בשמאל — בדיוק כמו במוקאפ */
-    .dm-bar{flex-direction:row;align-items:stretch}
-    .dm-field{flex:1.2 1 0;min-width:0}
-    .dm-tabs{flex:2 1 0}
-    .dm-tabs button{font-size:.84rem;padding:0 14px}
-    .dm-tab-ico{display:block}
-    .dm-quick{flex:.9 1 0;min-width:0}
-    .dm-row{gap:16px;margin-inline:0;padding-inline:0}
-    .dm-card{flex-basis:calc((100% - 32px) / 3)}
-  }
-  @media(min-width:1100px){
-    .dm-card{flex-basis:calc((100% - 48px) / 4)}
+    .dm-cover{height:140px}
   }
   /* ====== שורת פרסומת בין הסקציות ====== */
   .ad-strip{
@@ -2924,7 +3003,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   html.a11y-contrast .sr-row,
   html.a11y-contrast .map-panel,
   html.a11y-contrast .ad-strip,
-  html.a11y-contrast .dm-card,
+  html.a11y-contrast .dm-item,
   html.a11y-contrast .article-card{background:#000 !important;border-color:#fff !important;color:#fff !important}
   html.a11y-contrast .sr-price,
   html.a11y-contrast .sr-deal,
@@ -3971,16 +4050,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </div>
 
-      <!-- ====== סרגל אחד: חיפוש · שלוש לשוניות · התמחות ======
-           לפי המוקאפ. כאן ישבה קובייה נייבי בגודל אריח (‏.dm-search) בקצה
-           השורה, עם כותרת משלה, תיבת החיפוש והבורר — היא תפסה את מקומו של
-           כרטיס שלם. עכשיו שלושת הפקדים בשורה אחת מעל הכרטיסים, והשורה
-           כולה מוקדשת להם. בטלפון הסרגל נשבר לשלוש שורות: חיפוש, לשוניות,
-           התמחות. -->
+      <!-- ====== הסרגל: לשוניות · חיפוש · התמחות ======
+           סרגל בהיר עם צל רך. בטלפון הלשוניות בשורה נגללת ומתחתן החיפוש
+           והבורר; מ-1024px שורה אחת. הסדר ב-DOM (חיפוש, לשוניות, בורר)
+           נשאר, והפריסה נקבעת ב-grid-template-areas — ראו ‎.dm-bar‎ ב-CSS. -->
       <div class="dm-bar">
         <label class="dm-field" for="dmSearch">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
-          <span class="dm-field-label">חיפוש</span>
           <input type="search" id="dmSearch" placeholder="שם משרד או שכונה…"
                  autocomplete="off" aria-label="חיפוש בתוך הלשונית הפעילה">
         </label>
@@ -4023,9 +4099,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m14 6-6 6 6 6"/></svg>
           </button>
         </div>
+        <!-- נקודות הקרוסלה — בטלפון בלבד. נבנות ומתעדכנות ב-JS (‏dmDots). -->
+        <div class="dm-dots" id="dmDots" aria-hidden="true"></div>
       </div>
 
-      <p class="dm-all"><a href="/agencies" class="see-all" id="dmSeeAll">לכל משרדי התיווך ←</a></p>
+      <p class="dm-all"><a href="/agencies" id="dmSeeAll">צפייה בכל משרדי התיווך ←</a></p>
     </div>
   </section>
 

@@ -1116,12 +1116,16 @@ const AGENCY_SPECS = [
    בכלל עודף רוחב והוא לא נגלל, ומשרדים חדשים שטרם דורגו פשוט לא הופיעו.
    כאן הדירוג קובע רק את הסדר: המדורגים ראשונים (השלושה הראשונים נושאים
    תג #1..#3), ואחריהם שאר המשרדים לפי מספר הנכסים הפעילים ואז לפי שם. */
+/* מספר טלפון שנכנס ל-href של wa.me: ספרות בלבד, 9-15 — אותה בדיקה של
+   ‏hasPhone ב-agency.html. היא גם שער אבטחה, כי הערך מגיע מהמסד. */
+const DM_PHONE_RE = /^\d{9,15}$/;
+
 async function loadLeadingAgencies(){
   try{
     if (!sb) return [];
     const [agenciesRes, rankingsRes, ratingsRes, activeRes, membersRes] = await Promise.all([
       // התקרות כאן הן רק גבול בטיחות לגודל התשובה, לא מכסת תצוגה.
-      sb.from('agencies').select('id, name, slug, logo_url, specialty_areas, ethics_code_accepted_at, ethics_badge_revoked_at').limit(200),
+      sb.from('agencies').select('id, name, slug, logo_url, cover_url, specialty_areas, ethics_code_accepted_at, ethics_badge_revoked_at').limit(200),
       sb.from('agency_rankings').select('agency_id, composite_score, active_properties_count').limit(200),
       // הדירוג נלקח מה-view ולא מ-agency_rankings.bayesian_rating: הטבלה
       // מתרעננת אחת לשבועיים, וה-view מחושב מהביקורות המפורסמות ברגע הטעינה,
@@ -1136,7 +1140,10 @@ async function loadLeadingAgencies(){
       // מי מאויש. ‏agency_members_public מחזיר/ה שורות active בלבד, ולכן
       // משרד שאינו כאן הוא משרד שכל חבריו סגרו חשבון או הושעו — שלט בלי
       // איש מאחוריו, שאין למי לפנות בו.
-      sb.from('agency_members_public').select('agency_id, active').limit(1000),
+      // ‏role ו-phone_e164 בשביל כפתור הוואטסאפ שבכרטיס: ל-agencies אין
+      // טלפון, והפנייה הולכת למנהל/ת המשרד — בדיוק כמו בדף המשרד
+      // (‏renderAgencyContact ב-agency.html).
+      sb.from('agency_members_public').select('agency_id, active, role, phone_e164').limit(1000),
     ]);
     const allAgencies = agenciesRes.data;
     if (agenciesRes.error || !allAgencies) throw agenciesRes.error || new Error('empty');
@@ -1148,6 +1155,14 @@ async function loadLeadingAgencies(){
     const agencies = (!membersRes.error && members.length && members.length < 1000)
       ? allAgencies.filter(a => staffed.has(a.id))
       : allAgencies;
+
+    // מספר הוואטסאפ של כל משרד: מנהל/ת עם מספר תקין, ואם אין — החבר/ה
+    // הראשון/ה שיש לו/ה. ‏phone_e164 נכנס ל-href, ולכן הוא עובר את אותה
+    // בדיקת ספרות-בלבד של דף המשרד.
+    const waByAgency = new Map();
+    members.filter(m => m.active !== false && DM_PHONE_RE.test(String(m.phone_e164 || '')))
+      .sort((x, y) => (y.role === 'manager') - (x.role === 'manager'))
+      .forEach(m => { if (!waByAgency.has(m.agency_id)) waByAgency.set(m.agency_id, m.phone_e164); });
 
     const rankByAgency = {};
     (rankingsRes.data || []).forEach(r => { rankByAgency[r.agency_id] = r; });
@@ -1176,6 +1191,7 @@ async function loadLeadingAgencies(){
           rating: rated?.score != null ? Number(rated.score) : null,
           reviews_count: Number(rated?.review_count) || 0,
           active_properties_count: card?.active_count ?? (ranking?.active_properties_count ?? 0),
+          wa_phone: waByAgency.get(a.id) || null,
           // שני השדות האלה משרתים רק את מאתר המשרדים שמתחת לקרוסלה
           specs: card?.specs || [],
           // ‏specialty_areas שהוקלד ב-CRM נשאר הגיבוי למשרד בלי נכסים ממופים
@@ -1217,7 +1233,7 @@ async function loadLeadingAgents(){
     if (!sb) return [];
     const [membersRes, rankingsRes, reviewsRes, activeRes] = await Promise.all([
       // התקרות כאן הן רק גבול בטיחות לגודל התשובה, לא מכסת תצוגה.
-      sb.from('agency_members_public').select('id, display_name, slug, photo_url, photo_position, agency_id, has_ethics_badge').limit(200),
+      sb.from('agency_members_public').select('id, display_name, slug, photo_url, photo_position, cover_url, phone_e164, agency_id, has_ethics_badge').limit(200),
       sb.from('agent_rankings').select('agent_id, composite_score, active_properties_count').limit(200),
       // הממוצע ומספר הביקורות מחושבים ב-view ולא בדפדפן. קודם נשלפו כאן
       // כל הביקורות המפורסמות באתר (‏limit(2000)) רק כדי לחלק סכום במספר —
@@ -1714,7 +1730,9 @@ const DM_TABS = {
   agencies: {
     placeholder:'שם משרד או שכונה…',
     href:'/agencies',
-    seeAll:'לכל משרדי התיווך ←',
+    // "צפייה בכל 14 משרדי התיווך" — המספר הוא כל המשרדים, לא רק מה שבגריד
+    seeAll: n => `צפייה בכל ${n} משרדי התיווך ←`,
+    cta:'פרופיל משרד ונכסים ←',
     empty:'לא נמצא משרד שמתאים לחיפוש. נסו שם אחר או נקו את התיבה.',
     quick:{ label:'התמחות', all:'כל ההתמחויות',
             empty:'אין משרד עם נכסים פעילים בהתמחות הזו. בחרו התמחות אחרת.' },
@@ -1722,7 +1740,8 @@ const DM_TABS = {
   agents: {
     placeholder:'שם מתווך/ת או משרד…',
     href:'/agents',
-    seeAll:'לכל המתווכים ←',
+    seeAll: n => `צפייה בכל ${n} המתווכים ←`,
+    cta:'לפרופיל ולנכסים ←',
     empty:'לא נמצא מתווך/ת שמתאים לחיפוש. נסו שם אחר או נקו את התיבה.',
     quick:{ label:'התמחות', all:'כל ההתמחויות',
             empty:'אין מתווך/ת עם נכסים פעילים בהתמחות הזו. בחרו התמחות אחרת.' },
@@ -1730,33 +1749,44 @@ const DM_TABS = {
   pros: {
     placeholder:'תחום, שם או עסק…',
     href:'/professionals',
-    seeAll:'לכל בעלי המקצוע ←',
+    seeAll: n => n > 1 ? `צפייה בכל ${n} בעלי המקצוע ←` : 'לכל בעלי המקצוע ←',
+    cta:'לפרופיל ←',
     empty:'לא נמצא בעל/ת מקצוע שמתאים לחיפוש. נסו מילה אחרת.',
-    // בעלי המקצוע אינם מתומחרים בהתמחויות של מלאי נכסים, ולכן המקום שמתחת
-    // לתיבת החיפוש נשאר אצלם ריק עד שתהיה להם חלוקה משלהם.
+    // בעלי המקצוע אינם מתומחרים בהתמחויות של מלאי נכסים, ולכן אין להם בורר
     quick:null,
   },
 };
 
-/* שלושת סוגי הרשומות נורמלו לאותו כרטיס: שם, שורת זיהוי, מונה, דירוג
-   ושורת תגיות. כך שורת הכרטיסים היא markup אחד ולא שלושה, והלשוניות
-   באמת מחליפות רק נתונים. ‏search הוא הטקסט שהחיפוש רץ עליו. */
-function dmFromAgency(a, i){
+/* שלושת סוגי הרשומות נורמלו לאותו כרטיס פרופיל: תמונת נושא, לוגו או
+   תמונה צפה, שם, תגיות, צוות, דירוג ושני כפתורים. כך המסלול הוא markup
+   אחד ולא שלושה, והלשוניות באמת מחליפות רק נתונים. ‏search הוא הטקסט
+   שהחיפוש רץ עליו.
+
+   כל שדה כאן נשען על נתון אמיתי, ובלעדיו החלק פשוט לא מוצג: תג "#1
+   בדירוג" לשלושת המובילים בדירוג בלבד (אין לנו סימון "מומלץ" עריכתי),
+   שורת צוות רק כשיש מתווכים פעילים, וכפתור וואטסאפ רק כשיש מספר. */
+const dmCount = n => n === 1 ? 'נכס פעיל אחד' : `${n} נכסים פעילים`;
+
+function dmFromAgency(a, i, team){
   const name = a.name || 'משרד תיווך';
   const areas = a.areas || [];
   const specs = AGENCY_SPECS.filter(sp => sp.key !== 'all' && (a.specs || []).includes(sp.key)).map(sp => sp.label);
   return {
-    name,
+    name, kind:'agency',
     href: a.slug ? '/agency?slug=' + encodeURIComponent(a.slug) : null,
+    cover: a.cover_url,
     photo: a.logo_url, contain: true,
     initial: name.trim()[0] || 'מ',
-    sub: areas.length ? areas.join(' · ') : 'משרד תיווך',
-    count: a.active_properties_count === 1 ? 'נכס פעיל אחד' : a.active_properties_count + ' נכסים פעילים',
+    tags: areas,
+    countNum: a.active_properties_count || 0,
     rating: a.rating, reviews: a.reviews_count,
     // התג הוא סימן דירוג ולא מספר סידורי, ולכן הוא שמור לשלושה המדורגים
     // הראשונים בלבד; לשאר האריחים אין תג
     rank: (i < 3 && a.score !== null) ? i + 1 : 0,
     verified: !!(a.ethics_code_accepted_at && !a.ethics_badge_revoked_at),
+    team: team || [],
+    wa: a.wa_phone || null,
+    waText: `היי, הגעתי אל ${name} דרך שוק הנדל״ן של עפולה והסביבה ואשמח לקבל פרטים.`,
     specs: a.specs || [],
     search: [name, ...areas, ...specs].join(' '),
   };
@@ -1765,15 +1795,19 @@ function dmFromAgency(a, i){
 function dmFromAgent(m, i){
   const name = m.display_name || 'מתווך/ת';
   return {
-    name,
+    name, kind:'agent',
     href: (m.slug || m.id) ? '/agent?slug=' + encodeURIComponent(m.slug || m.id) : null,
-    photo: m.photo_url, contain: false, photoPos: m.photo_position,
+    cover: m.cover_url,
+    photo: m.photo_url, contain: false, photoPos: m.photo_position, person: true,
     initial: name.trim()[0] || 'מ',
-    sub: m.agency_name || 'מתווך/ת',
-    count: m.active_properties_count === 1 ? 'נכס פעיל אחד' : m.active_properties_count + ' נכסים פעילים',
+    tags: m.agency_name ? [m.agency_name] : [],
+    countNum: m.active_properties_count || 0,
     rating: m.rating, reviews: m.reviews_count,
     rank: (i < 3 && m.rating !== null) ? i + 1 : 0,
     verified: !!m.has_ethics_badge,
+    team: [],
+    wa: DM_PHONE_RE.test(String(m.phone_e164 || '')) ? m.phone_e164 : null,
+    waText: `היי ${name}, הגעתי אלייך דרך שוק הנדל״ן של עפולה והסביבה ואשמח לקבל פרטים.`,
     specs: m.specs || [],
     search: [name, m.agency_name].join(' '),
   };
@@ -1784,19 +1818,21 @@ function dmFromPro(p){
   const key = p.slug || p.id;
   const field = TYPE_LABELS[p.advertiser_type] || 'בעל/ת מקצוע';
   return {
-    name,
+    name, kind:'pro',
     href: key ? '/professional?slug=' + encodeURIComponent(key) : null,
-    photo: p.creative_url, contain: false,
+    // לבעלי מקצוע אין תמונת נושא נפרדת בכרטיס הציבורי; הקריאייטיב שלהם
+    // הוא התמונה הצפה, והנושא נופל לגרדיאנט המותג
+    cover: null,
+    photo: p.creative_url, contain: false, person: true,
     initial: name.trim()[0] || 'ב',
-    // שם העסק הוא שדה נפרד מהשם הפרטי, והוא התווסף אחרי שכבר נרשמו בעלי
-    // מקצוע — ולכן יש נפילה מסודרת לתחום העיסוק, כדי שהרצועה התחתונה של
-    // האריח לא תישאר חצי ריקה
-    sub: p.business_name || field,
-    count: p.target_region || (p.business_name ? field : ''),
+    tags: [p.business_name || field, p.target_region].filter(Boolean),
+    countNum: 0,
     // בעלי מקצוע אינם מדורגים בפלטפורמה, ולכן שורת הדירוג לא נכתבת אצלם
     rating: undefined, reviews: 0,
     rank: 0,
     verified: false,
+    team: [],
+    wa: null,
     specs: [],
     search: [name, p.business_name, field, p.target_region].join(' '),
   };
@@ -1857,8 +1893,16 @@ function bindRowScroller(row){
   if (!section || !row) return;
 
   const [agencies, agents, pros] = await Promise.all([agenciesReady, agentsReady, professionalsReady]);
+  // הצוות של כל משרד — מאותה רשימת מתווכים שמזינה את לשונית המתווכים,
+  // ולא משאילתה נוספת. המדורגים ראשונים, כך שהפנים בשורה הן של המובילים.
+  const teamByAgency = new Map();
+  agents.forEach(m => {
+    if (!m.agency_id) return;
+    if (!teamByAgency.has(m.agency_id)) teamByAgency.set(m.agency_id, []);
+    teamByAgency.get(m.agency_id).push(m);
+  });
   const data = {
-    agencies: agencies.map((a, i)=> dmFromAgency(a, i)),
+    agencies: agencies.map((a, i)=> dmFromAgency(a, i, teamByAgency.get(a.id))),
     agents: agents.map((m, i)=> dmFromAgent(m, i)),
     pros: pros.map(dmFromPro),
   };
@@ -1892,88 +1936,178 @@ function bindRowScroller(row){
     btn.disabled = data[btn.dataset.tab].length === 0;
   });
 
-  /* אריח אחד לשלושת הסוגים, לפי המוקאפ: כרטיס לבן, התמונה בראשו (לוגו
-     שלם או תמונת פרופיל), ומתחתיה השם, "גלולה" אפורה עם האזור או המשרד,
-     ושורת הדירוג והמלאי. שמות, שמות משרדים וכתובות תמונה מגיעים מקלט של
-     משרדים, סוכנים ומפרסמים — ולכן הטקסט נכנס דרך ‎textContent‎ וכתובות
-     התמונה עוברות סינון פרוטוקול לפני שהן נוגעות ב-src.
+  /* ---------- כרטיס הפרופיל ----------
+     שמות, שמות משרדים וכתובות תמונה מגיעים מקלט של משרדים, סוכנים
+     ומפרסמים — ולכן הטקסט נכנס דרך ‎textContent‎, וכתובות התמונה עוברות
+     סינון פרוטוקול (‏safeExternalUrl) לפני שהן נוגעות ב-src. מספר הוואטסאפ
+     עבר את DM_PHONE_RE כבר בנרמול. */
+  const mk = (tag, cls, text)=>{
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (text != null) n.textContent = text;
+    return n;
+  };
+  const WA_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.45 1.32 4.95L2.05 22l5.25-1.38a9.9 9.9 0 0 0 4.74 1.21h.01c5.46 0 9.91-4.45 9.91-9.91S17.5 2 12.04 2zm5.8 14.03c-.25.69-1.44 1.32-2 1.36-.51.04-1 .24-3.37-.7-2.84-1.12-4.63-4.03-4.77-4.22-.14-.19-1.14-1.52-1.14-2.9s.72-2.06.98-2.34c.25-.28.55-.35.74-.35l.53.01c.17.01.4-.06.62.48.24.56.8 1.94.87 2.08.07.14.12.3.02.49-.09.19-.14.3-.28.46-.14.16-.29.36-.42.49-.14.14-.28.29-.12.57.16.28.72 1.19 1.55 1.93 1.06.95 1.96 1.24 2.24 1.38.28.14.44.12.6-.07.16-.19.7-.81.88-1.09.19-.28.37-.23.62-.14.25.09 1.62.76 1.9.9.28.14.46.21.53.33.07.12.07.69-.18 1.38z"/></svg>';
 
-     תג הדירוג (‏#1 #2 #3) ירד עם המוקאפ; הסדר עצמו — המדורגים ראשונים —
-     נשאר, והוא מה שהתג סימן. */
   function card(item){
-    const el = document.createElement(item.href ? 'a' : 'div');
-    el.className = 'dm-card';
-    if (item.href) el.href = item.href;
+    const el = mk('article', 'dm-item');
 
-    const media = document.createElement('div');
-    media.className = 'dm-media';
-
-    // אות ההתחלה נשארת ב-DOM גם כשיש תמונה ופשוט מכוסה על ידה; אם הקובץ
-    // נשבר ה-img מסיר את עצמו והאריח חוזר לאות על הגרדיאנט במקום לאייקון
-    // תמונה שבורה
-    const initial = document.createElement('span');
-    initial.className = 'dm-initial';
-    initial.textContent = item.initial;
-    media.appendChild(initial);
-
-    const url = safeExternalUrl(item.photo);
-    if (url){
-      // לוגו משרד נשאר שלם (‏contain) — חיתוך היה קוטע אותיות; תמונת
-      // פרופיל ממלאת את המסגרת (‏cover)
-      const img = document.createElement('img');
-      img.className = item.contain ? 'dm-logo' : 'dm-photo';
-      img.src = url; img.alt = item.name; img.loading = 'lazy';
-      if (!item.contain && item.photoPos) img.style.setProperty('--photo-pos', item.photoPos);
+    // תמונת הנושא. היא קישור לפרופיל גם היא (לשם לוחצים), אבל מחוץ לסדר
+    // הטאב ולעץ הנגישות — הקישור "האמיתי" הוא השם והכפתור.
+    const cover = mk(item.href ? 'a' : 'div', 'dm-cover');
+    if (item.href){ cover.href = item.href; cover.tabIndex = -1; cover.setAttribute('aria-hidden', 'true'); }
+    const coverUrl = safeExternalUrl(item.cover);
+    const logoUrl = safeExternalUrl(item.photo);
+    // אין תמונת נושא → הלוגו (או תמונת הפרופיל) עצמו, מטושטש ומוגדל, על
+    // גרדיאנט המותג. כך גם מי שלא העלה/תה תמונת נושא מקבל/ת ראש בצבעים
+    // שלו/ה ולא רצועה אחידה.
+    const bgUrl = coverUrl || logoUrl;
+    if (bgUrl){
+      const img = mk('img', coverUrl ? '' : 'is-blur');
+      img.src = bgUrl; img.alt = ''; img.loading = 'lazy'; img.decoding = 'async';
       img.addEventListener('error', ()=> img.remove());
-      media.appendChild(img);
+      cover.appendChild(img);
     }
+    if (item.rank) cover.appendChild(mk('span', 'dm-flag is-rank', `★ #${item.rank} בדירוג`));
+    if (item.countNum > 0) cover.appendChild(mk('span', 'dm-flag is-count', dmCount(item.countNum)));
+    el.appendChild(cover);
 
+    // הלוגו (או תמונת הפרופיל) שצף על קו התפר
+    const face = mk('div', 'dm-face' + (item.person ? ' is-person' : ''));
+    face.appendChild(mk('span', 'dm-initial', item.initial));
+    if (logoUrl){
+      const img = mk('img', item.contain ? 'is-logo' : '');
+      img.src = logoUrl; img.alt = item.contain ? 'הלוגו של ' + item.name : item.name;
+      img.loading = 'lazy'; img.decoding = 'async';
+      if (item.photoPos && /^\d{1,3}% \d{1,3}%$/.test(item.photoPos)) img.style.setProperty('--photo-pos', item.photoPos);
+      img.addEventListener('error', ()=> img.remove());
+      face.appendChild(img);
+    }
+    el.appendChild(face);
+
+    const info = mk('div', 'dm-info');
+
+    const name = mk('h3', 'dm-name');
+    const nameLink = mk(item.href ? 'a' : 'span', '', item.name);
+    if (item.href) nameLink.href = item.href;
+    name.appendChild(nameLink);
     if (item.verified){
-      const badge = document.createElement('img');
-      badge.className = 'dm-badge';
-      badge.src = 'assets/badge-ethics.png';
-      badge.width = 384; badge.height = 384; badge.loading = 'lazy';
-      badge.alt = 'עומד בתקן האתי';
-      badge.title = 'עומד בתקן האתי של שוק הנדל״ן של עפולה';
-      media.appendChild(badge);
+      const v = mk('img', 'dm-verified');
+      v.src = 'assets/badge-ethics.png'; v.width = 40; v.height = 40; v.loading = 'lazy';
+      v.alt = 'עומד בתקן האתי';
+      v.title = 'עומד בתקן האתי של שוק הנדל״ן של עפולה';
+      name.appendChild(v);
     }
-    el.appendChild(media);
-
-    const info = document.createElement('div');
-    info.className = 'dm-info';
-
-    const name = document.createElement('div');
-    name.className = 'dm-name';
-    name.textContent = item.name;
     info.appendChild(name);
 
-    if (item.sub){
-      const sub = document.createElement('div');
-      sub.className = 'dm-sub';
-      sub.textContent = item.sub;
-      info.appendChild(sub);
+    // אזורי פעילות: שניים הראשונים, והשאר כ"+N"
+    if (item.tags.length){
+      const tags = mk('div', 'dm-tags');
+      item.tags.slice(0, 2).forEach(t => tags.appendChild(mk('span', 'dm-tag', t)));
+      if (item.tags.length > 2){
+        const more = mk('span', 'dm-tag is-more', '+' + (item.tags.length - 2));
+        more.title = item.tags.slice(2).join(' · ');
+        tags.appendChild(more);
+      }
+      info.appendChild(tags);
     }
 
-    const meta = document.createElement('div');
-    meta.className = 'dm-meta';
-    // מי שאין לו ביקורות לא מקבל "0 כוכבים" אלא פשוט לא מוצג עם דירוג
-    if (item.rating !== null && item.rating !== undefined){
-      const rating = document.createElement('span');
-      rating.innerHTML = '<span class="star">★</span>';
-      rating.append(`${item.rating.toFixed(1).replace(/\.0$/, '')} · ${
-        item.reviews === 1 ? 'ביקורת אחת' : item.reviews + ' ביקורות'}`);
-      meta.appendChild(rating);
+    // הצוות — "האנשים מאחורי העסקאות" בכרטיס המשרד עצמו
+    if (item.team.length){
+      const team = mk('div', 'dm-team');
+      const faces = mk('span', 'dm-faces');
+      faces.setAttribute('aria-hidden', 'true');
+      item.team.slice(0, 4).forEach(m => {
+        const f = mk('span');
+        const url = safeExternalUrl(m.photo_url);
+        if (url){
+          const img = mk('img');
+          img.src = url; img.alt = ''; img.loading = 'lazy';
+          img.addEventListener('error', ()=>{ img.remove(); f.textContent = (m.display_name || '?').trim()[0]; });
+          f.appendChild(img);
+        } else {
+          f.textContent = (m.display_name || '?').trim()[0];
+        }
+        faces.appendChild(f);
+      });
+      team.appendChild(faces);
+      const n = item.team.length;
+      team.appendChild(mk('span', '', n === 1 ? 'מתווך/ת אחד/ת בצוות' : `צוות של ${n} מתווכים`));
+      info.appendChild(team);
     }
-    if (item.count){
-      const count = document.createElement('span');
-      count.textContent = item.count;
-      meta.appendChild(count);
+
+    // דירוג: כוכב, ציון ומספר חוות הדעת. מי שאין לו ביקורות לא מקבל
+    // "0 כוכבים" — הוא מקבל "עדיין אין ביקורות", כדי שהכרטיסים יישארו
+    // באותו גובה. בעלי מקצוע אינם מדורגים, ואצלם השורה לא נכתבת.
+    if (item.rating !== undefined){
+      if (item.rating !== null){
+        const rate = mk('div', 'dm-rate');
+        rate.appendChild(mk('span', 'star', '★'));
+        rate.appendChild(mk('b', '', item.rating.toFixed(1).replace(/\.0$/, '')));
+        rate.appendChild(mk('span', '', item.reviews === 1 ? '(חוות דעת אחת)' : `(${item.reviews} חוות דעת)`));
+        info.appendChild(rate);
+      } else {
+        info.appendChild(mk('div', 'dm-rate is-new', 'עדיין אין ביקורות'));
+      }
     }
-    if (meta.childNodes.length) info.appendChild(meta);
+
+    const actions = mk('div', 'dm-actions');
+    if (item.href){
+      const go = mk('a', 'dm-go', DM_TABS[state.tab].cta);
+      go.href = item.href;
+      actions.appendChild(go);
+    }
+    if (item.wa){
+      // קישור קשר למתווך/ת או למשרד — ‏contact_agent, בלי סימון (ראו
+      // CLAUDE.md, "וכל קישור קשר בדף נמדד חייב להיות מסווג")
+      const wa = mk('a', 'dm-wa');
+      wa.href = 'https://wa.me/' + item.wa + '?text=' + encodeURIComponent(item.waText);
+      wa.target = '_blank'; wa.rel = 'noopener noreferrer';
+      wa.setAttribute('aria-label', 'וואטסאפ ל' + item.name);
+      wa.innerHTML = WA_ICON;
+      actions.appendChild(wa);
+    }
+    if (actions.childNodes.length) info.appendChild(actions);
 
     el.appendChild(info);
     return el;
   }
+
+  /* ---------- כמה כרטיסים מוצגים ----------
+     בטלפון — כולם, בקרוסלה. מ-760px — **שורה אחת** בגריד (שלוש עמודות,
+     ומ-1100px ארבע), והשאר מאחורי "צפייה בכל". גם שתי שורות היו יותר
+     מדי גובה באמצע דף הבית. */
+  const DM_GRID_ROWS = 1;
+  const dmMqGrid = window.matchMedia('(min-width:760px)');
+  const dmMqWide = window.matchMedia('(min-width:1100px)');
+  const dmLimit = ()=> dmMqGrid.matches ? (dmMqWide.matches ? 4 : 3) * DM_GRID_ROWS : Infinity;
+
+  /* ---------- נקודות הקרוסלה ----------
+     נקודה לכל כרטיס, והפעילה נמתחת — עד DM_MAX_DOTS; מעבר לזה (‏19
+     מתווכים) הנקודות הן מפה יחסית של המיקום ולא כרטיס-כרטיס, אחרת השורה
+     רחבה מהמסך. המיקום נגזר מהגלילה עצמה, ולכן הוא נכון גם אחרי החלקה, חץ
+     או מקלדת. ב-RTL ‏scrollLeft שלילי — ‏Math.abs. */
+  const DM_MAX_DOTS = 10;
+  const dotsEl = document.getElementById('dmDots');
+  let dotsCount = 0;
+  function paintDots(){
+    if (!dotsEl || dmMqGrid.matches || !dotsEl.children.length) return;
+    const first = row.querySelector('.dm-item');
+    const step = first ? first.getBoundingClientRect().width + 14 : 1;
+    const idx = Math.min(dotsCount - 1, Math.round(Math.abs(row.scrollLeft) / step));
+    const n = dotsEl.children.length;
+    const on = dotsCount > n ? Math.round(idx * (n - 1) / (dotsCount - 1)) : idx;
+    [...dotsEl.children].forEach((d, i)=> d.classList.toggle('is-on', i === on));
+  }
+  function buildDots(count){
+    if (!dotsEl) return;
+    dotsEl.innerHTML = '';
+    dotsCount = count;
+    if (dmMqGrid.matches || count < 2) return;
+    for (let i = 0; i < Math.min(count, DM_MAX_DOTS); i++) dotsEl.appendChild(document.createElement('span'));
+    paintDots();
+  }
+  row.addEventListener('scroll', ()=> requestAnimationFrame(paintDots), { passive:true });
 
   /* הבורר המהיר נבנה מהמלאי של הלשונית עצמה: התמחות שאין בה אף אחד לא
      מוצעת מלכתחילה, כדי שבחירה מתוך הרשימה תמיד תחזיר תוצאות. */
@@ -2015,13 +2149,14 @@ function bindRowScroller(row){
       empty.textContent = (!q && state.spec !== 'all' && conf.quick) ? conf.quick.empty : conf.empty;
       row.appendChild(empty);
     } else {
-      list.forEach(it => row.appendChild(card(it)));
+      list.slice(0, dmLimit()).forEach(it => row.appendChild(card(it)));
     }
+    buildDots(list.length ? Math.min(list.length, dmLimit()) : 0);
 
     searchEl.placeholder = conf.placeholder;
     const seeAll = document.getElementById('dmSeeAll');
     seeAll.href = conf.href;
-    seeAll.textContent = conf.seeAll;
+    seeAll.textContent = conf.seeAll(data[state.tab].length);
     row.setAttribute('aria-labelledby', 'dmTab' + state.tab.charAt(0).toUpperCase() + state.tab.slice(1));
     // מעבר לשונית מחזיר את השורה לתחילתה, אחרת הלשונית החדשה נפתחת
     // באמצע הגלילה של הקודמת
@@ -2077,6 +2212,13 @@ function bindRowScroller(row){
   }
   fillQuick();
   render();
+
+  // חציית 760px או 1100px משנה כמה כרטיסים מוצגים ואם יש נקודות — ציור
+  // מחדש, כמו במדף הנכסים. ‏addListener הוא הנפילה-לאחור ל-Safari ישן.
+  [dmMqGrid, dmMqWide].forEach(mq=>{
+    if (mq.addEventListener) mq.addEventListener('change', render);
+    else if (mq.addListener) mq.addListener(render);
+  });
 })();
 
 
