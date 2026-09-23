@@ -1448,6 +1448,8 @@ const propsShelf = PropShelf.create({
   // המסחריים — המיעוט — נדחקו כולם אחרי תגיות החדרים ונחתכו.
   kindTagsMax:14,
   sortId:'ppSort',
+  // באנר ההדמיות יושב בין הגריד לכפתור "עוד" — ראו showAiPromo()
+  afterGrid:'aiPromo',
   countText: (shown, total) => (shown === total)
     ? `${total.toLocaleString('he-IL')} נכסים בעפולה והעמק - פרטיים ומסחריים`
     : `${shown.toLocaleString('he-IL')} מתוך ${total.toLocaleString('he-IL')} נכסים · מסומנים על המפה שלמעלה`,
@@ -2848,9 +2850,10 @@ function updateSplitPanel(){
    עד כה "תחום המפה מסנן את הרשימה" היה קיים בתצוגה המפוצלת בלבד, כלומר
    מ-1024px ומעלה ורק למי שהדליק/ה אותה. בטלפון — ששם רוב הגולשים — גלגלת
    או שתי אצבעות הזיזו את הפינים ולא שינו שום רשימה, והרשימה היחידה שהייתה
-   על המסך היא תיבת הנכסים שיושבת **אחרי** הבאנרים (המבזק, רצועת ההדמיות,
-   באנר היריד). כלומר מי שצמצם/ה את המפה לרחוב אחד לא ראה/תה את התוצאה
-   בלי לגלול דרך שלושה באנרים — ובפועל פשוט לא ראה/תה אותה.
+   על המסך הייתה תיבת הנכסים שישבה אז **אחרי** הבאנרים (המבזק, רצועת
+   ההדמיות, באנר היריד). כלומר מי שצמצם/ה את המפה לרחוב אחד לא ראה/תה את
+   התוצאה בלי לגלול דרך שלושה באנרים — ובפועל פשוט לא ראה/תה אותה. (היום
+   התיבה יושבת מיד מתחת למבזק, אבל היא עדיין הוויטרינה ולא התוצאה.)
 
    ‏#searchResults היא הסקציה היחידה בדף שיושבת בין ה-hero לבאנרים, ולכן
    זו הסקציה שמתמלאת כאן. הרשימה נגזרת מ-mapProperties — מה שהמפה מציגה
@@ -3219,112 +3222,66 @@ document.getElementById('heroQuick')?.addEventListener('click', (e)=>{
 });
 
 /* ============================================================
-   רצועת ההדמיות — "לפני ואחרי" בדף הבית
+   באנר ההדמיות — בסוף תיבת הנכסים
    ------------------------------------------------------------
-   שני וילונות: אחד ממגורים ואחד ממסחרי, שני המצבים שהמנוע יודע לייצר
-   (ראו docs/property-visualizations.md). התמונות אמיתיות ונטענות מהמסד;
-   אין הדמיות → הרצועה כולה נשארת hidden. זה העיקר כאן: הרצועה מציגה
-   יכולת, והמחיר של הצגת יכולת בתמונות מומצאות הוא בדיוק האמון שהיא באה
-   לבנות.
+   כאן ישבה רצועת "לפני ואחרי" גדולה, מיד מתחת למבזק: שתי הדמיות, לוח
+   סגנונות ו-CTA — מסך שלם שדחף את הנכסים עצמם למטה. מה שנשאר ממנה הוא
+   באנר בגובה שורה אחת בתוך התיבה (‏cfg.afterGrid של המדף), עם אותם שני
+   פתחים: מסנן ההדמיות ואשף הערכת השווי.
 
-   הרצועה לא מקשרת לנכס שבתמונה. היא לא ויטרינה של מודעה מסוימת אלא של
-   היכולת עצמה, ולכן שתי הדרכים החוצה ממנה הן שתי השאלות שהיא מעוררת:
-   "איפה עוד יש כאלה" (מסנן ההדמיות) ו"מה עם הנכס שלי" (הערכת השווי).
+   המספר נכתב רק כשהוא ידוע — מ-visualizedIds, אחרי שהנכסים נטענו — ולכן
+   הבאנר נולד hidden ונחשף ב-showAiPromo(). אין אף נכס פעיל עם הדמיה →
+   הוא לא נחשף: הבטחה בלי תוצר מאחוריה היא בדיוק מה שהרצועה הכללית שלפניה
+   נכשלה בו. התמונון נטען בנפרד ואינו תנאי — באנר בלי תמונון הוא באנר שלם.
    ============================================================ */
-const AI_BAND_TARGETS = {
-  living_room:   'הסלון',
-  kitchen:       'המטבח',
-  exterior:      'חזית הנכס',
-  interior_main: 'החלל המרכזי',
-};
+function showAiPromo(count){
+  const box = document.getElementById('aiPromo');
+  if (!box || !count) return;
+  const n = count.toLocaleString('he-IL');
+  document.getElementById('aiPromoCount').textContent = n;
+  document.getElementById('aiPromoGo').textContent = count === 1 ? 'הצגת הנכס ←' : `הצגת ${n} הנכסים ←`;
+  box.hidden = false;
+}
 
-async function initAiBand(){
-  const band = document.getElementById('aiBand');
-  const shots = document.getElementById('aiBandShots');
-  if (!band || !shots || !sb) return;
-
+async function initAiPromoThumb(){
+  const thumb = document.getElementById('aiPromoThumb');
+  if (!thumb || !sb) return;
   let rows = [];
   try{
     const { data, error } = await sb.from('property_visualizations_public')
       .select('kind, target, source_image_url, result_url')
       .order('created_at', { ascending:false })
-      .limit(60);
+      .limit(30);
     if (error) throw error;
-    rows = (data || []).filter(r => r.source_image_url && r.result_url && AI_BAND_TARGETS[r.target]);
+    rows = (data || []).filter(r => r.source_image_url && r.result_url);
   } catch(e){
-    console.warn('טעינת ההדמיות לרצועה נכשלה, הרצועה לא תוצג:', e);
+    console.warn('טעינת ההדמיה לבאנר נכשלה, הבאנר יוצג בלי תמונון:', e);
     return;
   }
-  if (!rows.length) return;
-
-  /* אחד מכל סוג, ובסדר הזה: הסלון הוא ההדמיה שהכי קל לקרוא במבט אחד,
-     ולכן הוא מועדף על המטבח והחזית כשיש בחירה. */
-  const pick = (kind, prefer)=>{
-    const same = rows.filter(r => r.kind === kind);
-    return same.find(r => r.target === prefer) || same[0] || null;
-  };
-  const chosen = [
-    { row: pick('private_room', 'living_room'), scope: 'מגורים' },
-    { row: pick('commercial_business', 'interior_main'), scope: 'מסחרי' },
-  ].filter(x => x.row);
-  if (!chosen.length) return;
-
-  chosen.forEach(({ row, scope }, i)=>{
-    const what = AI_BAND_TARGETS[row.target];
-    const shot = document.createElement('div');
-    shot.className = 'ai-shot';
-    /* ‏escAttr על הכתובות בלבד — הן היחידות כאן שמגיעות מהמסד. ‏scope
-       ו-what נלקחים מקבועים בקובץ הזה, ואין מה לברוח מהם. */
-    shot.innerHTML =
-      `<img src="${escAttr(row.source_image_url)}" alt="${what} לפני ההדמיה" loading="lazy" decoding="async">` +
-      `<span class="ai-shot-tag before">לפני</span>` +
-      `<span class="ai-shot-what">${scope} · ${what} כיום</span>` +
-      `<div class="ai-shot-after">` +
-        `<img src="${escAttr(row.result_url)}" alt="${what} אחרי הדמיית AI" loading="lazy" decoding="async">` +
-        `<span class="ai-shot-tag after"><span aria-hidden="true">✦</span> אחרי</span>` +
-      `</div>` +
-      `<div class="ai-shot-handle" aria-hidden="true"></div>` +
-      (i === 0 ? `<span class="ai-shot-hint">גררו כדי לראות את ההבדל</span>` : '') +
-      `<input type="range" class="ai-shot-range" min="0" max="100" value="52" ` +
-        `aria-label="השוואה בין ${what} לפני ההדמיה ואחריה">`;
-
-    // מגע ראשון — עכבר, מגע או מקלדת — עוצר את האנימציה ומעביר את השליטה
-    const range = shot.querySelector('.ai-shot-range');
-    range.addEventListener('input', ()=>{
-      shot.classList.add('is-manual');
-      shot.style.setProperty('--wipe', range.value);
-    });
-    shots.appendChild(shot);
-  });
-
-  band.hidden = false;
+  /* הסלון הוא ההדמיה שהכי קל לקרוא במבט אחד, ובתמונון בגודל הזה זה
+     ההבדל בין "רואים את השינוי" לבין שני כתמים. */
+  const row = rows.find(r => r.target === 'living_room') || rows[0];
+  if (!row) return;
+  // ‏escAttr על הכתובות — הן מגיעות מהמסד
+  thumb.innerHTML =
+    `<img src="${escAttr(row.source_image_url)}" alt="" loading="lazy" decoding="async">` +
+    `<div class="ai-promo-after"><img src="${escAttr(row.result_url)}" alt="" loading="lazy" decoding="async"></div>` +
+    `<div class="ai-promo-handle"></div>`;
+  thumb.hidden = false;
 }
 
-/* פותח/סוגר את הרצועה בטלפון. המצב נשמר במחלקה אחת על ה-section, ומי
-   שקורא אותה הוא ה-CSS בלבד — ראו ‎.ai-band.is-compact‎. הכפתור עצמו מוסתר
-   בדסקטופ, ולכן אין כאן matchMedia: המחלקה פשוט לא עושה שם דבר. */
-document.getElementById('aiBandToggle')?.addEventListener('click', (e)=>{
-  const band = document.getElementById('aiBand');
-  if (!band) return;
-  const compact = band.classList.toggle('is-compact');
-  const btn = e.currentTarget;
-  btn.textContent = compact ? 'עוד הדמיות וארבעה סגנונות ←' : 'סגירת ההדמיות ✕';
-  btn.setAttribute('aria-expanded', String(!compact));
-  // בסגירה הרצועה מתקצרת בבת אחת, והכפתור שנלחץ היה קופץ לראש המסך יחד עם
-  // כל מה שמתחתיו. גלילה לראש הרצועה משאירה את העין במקום שבו היא הייתה.
-  if (compact) band.scrollIntoView({ behavior:'smooth', block:'start' });
-});
+document.getElementById('aiPromoGo')?.addEventListener('click', ()=> ShukSearch.applyAiFilter());
 
 /* ה-CTA פותח את אשף הערכת השווי שכבר בעמוד במקום טופס שני משלו: שני
    טפסים שמבקשים את אותם פרטים ומנתבים לאותו מקום הם שני מקורות אמת
    לאותו ליד. הכפתור פותח את הבאנר אם הוא סגור, וגולל אליו בכל מקרה. */
-document.getElementById('aiBandCta')?.addEventListener('click', ()=>{
+document.getElementById('aiPromoCta')?.addEventListener('click', ()=>{
   const start = document.getElementById('ownerStartBtn');
   if (start && start.getAttribute('aria-expanded') !== 'true') start.click();
   document.getElementById('ownerBanner')?.scrollIntoView({ behavior:'smooth', block:'center' });
 });
 
-initAiBand();
+initAiPromoThumb();
 
 /* ============================================================
    שכונות: סינון לפי שכונות וסימון על המפה
@@ -3634,6 +3591,7 @@ try {
       // התיבה מחזיקה עותק משלה של הקבוצה (היא מציירת את האריח), ולכן
       // היא מקבלת אותה במפורש במקום לקרוא את המשתנה של העמוד
       propsShelf.setVisualized(ids);
+      showAiPromo(ids.size);
       if (!searchHasRun) renderPropertyGrid(properties);
     });
   })();
@@ -4151,7 +4109,7 @@ function buildSearchRow(p, i){
    כאן היא פין על המפה שמעליה — כולל אותה תגית צבע לסוג העסקה.
 
    שני מצבים לאותה סקציה, ובכוונה אותה סקציה: היא היחידה בדף שיושבת בין
-   ה-hero לבין הבאנרים (המבזק, רצועת ההדמיות, באנר היריד), ולכן היא המקום
+   ה-hero לבין המבזק ותיבת הנכסים, ולכן היא המקום
    היחיד שבו "מיד מתחת למפה" נכון.
      ‏1. תוצאות חיפוש — מה שהשאילתה החזירה.
      ‏2. תחום המפה (‏mapView) — מה שנמצא כרגע בתוך המסגרת הנראית, אחרי
@@ -4979,8 +4937,8 @@ function renderPropertyGrid(properties, isSearchResult){
 /* ============================================================
    מסנן ההדמיות
    ------------------------------------------------------------
-   רצועת ההדמיות הכללית ירדה מהדף, ולכן נקודת הכניסה שנשארה היא הכתובת
-   עצמה: ‎?ai=1‎ מדליק את המסנן דרך applyDeepLinkFilters. ‏window.ShukSearch
+   נקודות הכניסה: התגית ב-hero, באנר ההדמיות שבסוף תיבת הנכסים, והכתובת
+   עצמה — ‎?ai=1‎ מדליק את המסנן דרך applyDeepLinkFilters. ‏window.ShukSearch
    נשאר חשוף כדי שרכיב חיצוני יוכל להדליק אותו בלי לגעת במנוע החיפוש.
 
    הכתובת מתעדכנת ולא רק המצב הפנימי: תוצאות צריכות להיות ניתנות לשיתוף
