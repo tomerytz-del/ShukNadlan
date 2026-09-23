@@ -2070,8 +2070,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      שהמפה נראית כמו במה שהקרוסלה יושבת עליה (ולא כמו שתי קופסאות נפרדות).
      z-index:4 מציב אותה מעל .map-toolbar (z-index:3), שהורחק כלפי מעלה
      בדיוק בשביל החפיפה הזו. */
+  /* ‏margin-top:0 ולא ‎-16px‎: הבמה נכנסה פעם מתחת לקצה המפה, אבל מאז
+     שתיבת הנכסים עלתה אל מתחת למבזק #dealmakers יושבת אחרי באנר היריד,
+     והמשיכה כלפי מעלה עלתה על התחתית שלו. הפינה המעוגלת והצל נשארו —
+     הם מה שמסמן שכאן מתחילה סקציה אחרת. */
   .hot-band{
-    position:relative;z-index:4;margin-top:-16px;
+    position:relative;z-index:4;margin-top:0;
     /* ====== הבמה הזו מגוונת, ו-‎.search-results‎ שמעליה לבנה ======
        שתיהן היו ‎rgba(255,255,255,.86)‎ מעל הרקע הזורם — כלומר כמעט בדיוק
        צבע הנייר של הדף. התוצאה הייתה שלסקציה לא היה שום גבול: היא
@@ -2344,7 +2348,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
 
   @media(min-width:760px){
-    .hot-band{margin-top:-20px;padding:26px 0 32px}
+    .hot-band{padding:26px 0 32px}
     .dm-head{flex-direction:row;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;
       gap:12px 24px;margin-bottom:14px}
     .dm-head > div{text-align:start}
@@ -3988,8 +3992,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        והיא מוצמדת לימין (‏position:sticky) ונשארת שם בזמן שהכרטיסים
        נגללים תחתיה. היא מסננת בתוך הלשונית הפעילה בלבד.
 
-       הסקציה נושאת את ‎.hot-band‎ — הבמה שנכנסת 16px מתחת לקצה המפה — כי
-       היא שיושבת עכשיו במקום שבו ישבה הקרוסלה. -->
+       הסקציה נושאת את ‎.hot-band‎ — הבמה המגוונת עם הפינה המעוגלת. היא
+       כבר לא נכנסת מתחת למפה: היא יושבת אחרי באנר היריד, ולכן בלי
+       margin שלילי (ראו ההערה ב-CSS). -->
   <section class="hot-band" id="dealmakers" aria-labelledby="dealmakersTitle">
     <div class="wrap">
       <div class="dm-head">
