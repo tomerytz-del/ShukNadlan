@@ -415,7 +415,11 @@ function renderContact(p){
   if (site) buttons.push({ href:site, cls:'btn-ghost', icon:'site', label:'לאתר', external:true });
   if (p.public_email) buttons.push({ href:'mailto:' + p.public_email, cls:'btn-ghost', icon:'mail', label:'אימייל' });
 
-  const html = b => `<a class="btn ${b.cls}" href="${escapeHtml(b.href)}"${b.external ? ' target="_blank" rel="noopener"' : ''}` +
+  /* ‏data-professional על כל כפתורי הקשר: הפנייה כאן היא לבעל/ת המקצוע
+     ולא למתווך/ת, ובלי הסימון events.js סופר אותה כ-contact_agent
+     (‏docs/analytics-events.md). הוא יושב גם על "לאתר" — קישור https שהמאזין
+     ממילא לא סופר — כדי שלא יהיה כפתור קשר אחד בדף שנשכח. */
+  const html = b => `<a class="btn ${b.cls}" data-professional href="${escapeHtml(b.href)}"${b.external ? ' target="_blank" rel="noopener"' : ''}` +
     `${b.aria ? ` aria-label="${escapeHtml(b.aria)}"` : ''}>${ICONS[b.icon]}<span>${escapeHtml(b.label)}</span></a>`;
 
   row.innerHTML = buttons.map(html).join('');

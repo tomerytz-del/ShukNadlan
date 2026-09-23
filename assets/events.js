@@ -159,6 +159,17 @@
         return;
       }
 
+      /* ‏**data-professional** — בעל/ת מקצוע: שמאי/ת, עו"ד, אדריכל/ית,
+         יועץ/ת משכנתאות. אותה הפרדה של data-developer, מאותה סיבה: זו
+         פנייה להתייעצות ולא למי שמוכר/ת דירה, ועד שסומנה כל לחיצה על
+         וואטסאפ, טלפון או מייל בעמוד הפרופיל (‏professional.html) וברשימה
+         (‏professionals.html) נספרה כ-contact_agent — כלומר הדף שנועד
+         להתייעצות ניפח את המדד של הלידים למתווכים. */
+      if (link.hasAttribute('data-professional')){
+        shukTrack('contact_professional', { method: method });
+        return;
+      }
+
       shukTrack('contact_agent', { method: method });
     } catch(err){ /* מדידה לא שוברת אתר */ }
   }, true);

@@ -117,6 +117,16 @@ python scripts/check_gtm_container.py
 חודשים. כאן היא החזיקה את הפער פתוח למשך שעה אחת, מהקומיט ועד הפרסום,
 וסירבה להיות ירוקה באמצע.
 
+### המחזור השלישי: `contact_professional`
+
+אותה צורה של השני: אירוע **חדש בקוד** (הפרדת בעלי מקצוע מ-`contact_agent`,
+‏`docs/analytics-events.md`), ולכן `check_gtm_container.py` אדום מהקומיט
+ועד שהמכולה מעודכנת. הטריגר (‏`CE — contact_professional`) והתגית
+(‏`GA4 — contact_professional`) מוכנים ב-`docs/gtm-events-import.json`;
+‏`method` דרך `DLV - method` הקיים, כלומר אין משתנה חדש ואין מימד מותאם
+חדש ב-GA4. הסגירה: ייבוא (‏`Merge`, ובהתנגשות `Overwrite`), ‏`Publish`,
+ייצוא ל-`gtm/container.json` — ואז ירוק.
+
 ### והמחזור השני מצא גם ממצא בבדיקה עצמה
 
 בדרך התברר ש**כלל ה-PII לא בדק כלום על המכולה האמיתית.** הוא קרא
