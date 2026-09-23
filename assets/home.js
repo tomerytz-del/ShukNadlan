@@ -3264,7 +3264,19 @@ function showAiPromo(count){
   if (!box || !count) return;
   const n = count.toLocaleString('he-IL');
   document.getElementById('aiPromoCount').textContent = n;
-  document.getElementById('aiPromoGo').textContent = count === 1 ? 'הצגת הנכס ←' : `הצגת ${n} הנכסים ←`;
+  /* שני נוסחים לאותו כפתור: בדסקטופ כפתור זהב ("הצגת N הנכסים"), ובטלפון
+     קישור קטן שאומר גם מה מסונן ("לכל N הנכסים עם הדמיה") — הכותרת שמעליו
+     כבר לא נושאת את משפט ההסבר. ה-CSS מציג אחד מהם. */
+  const go = document.getElementById('aiPromoGo');
+  go.replaceChildren();
+  [['ai-promo-go-long', count === 1 ? 'הצגת הנכס ←' : `הצגת ${n} הנכסים ←`],
+   ['ai-promo-go-short', count === 1 ? 'לנכס עם ההדמיה ←' : `לכל ${n} הנכסים עם הדמיה ←`]]
+    .forEach(([cls, text])=>{
+      const span = document.createElement('span');
+      span.className = cls;
+      span.textContent = text;
+      go.appendChild(span);
+    });
   box.hidden = false;
 }
 
