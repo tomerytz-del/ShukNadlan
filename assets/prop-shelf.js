@@ -21,6 +21,9 @@
 
      PropShelf.create(cfg)  →  { set(list), setVisualized(ids), selectTag(key) }
 
+   ‏cfg.afterGrid מקבל אלמנט שיושב בין הגריד לכפתור "עוד" — בדף הבית
+   זה באנר ההדמיות.
+
    מי שקורא מביא את הנכסים; המדף לא יורה שאילתות משלו. ה-CSS יושב
    ב-assets/prop-shelf.css, והאריח עצמו מגיע מ-assets/property-card.js,
    ולכן הוא זהה בשלושת הדפים.
@@ -262,6 +265,14 @@
        המסגרת היא ‎div‎ פנימי ולא הסקציה עצמה: הסקציה היא ‎.wrap‎, והגבול
        עליה היה נצמד לשפת המסך בטלפון במקום להישמר בתוך השוליים. */
     root.innerHTML = cfg.box ? '<div class="pp-box">' + body + '</div>' : body;
+
+    /* ‏cfg.afterGrid — אלמנט שהעמוד הכין (או ה-id שלו) ושיושב בין הגריד
+       לכפתור "עוד". הוא מועבר לכאן פעם אחת, כמו שהוא: הגריד מצויר מחדש
+       בכל סינון, אבל השלד לא, ולכן הוא נשאר במקומו. בדף הבית זה באנר
+       ההדמיות (‏#aiPromo) — ראו initAiPromo() ב-assets/home.js. */
+    var after = typeof cfg.afterGrid === 'string' ? document.getElementById(cfg.afterGrid) : cfg.afterGrid;
+    var moreWrap = root.querySelector('.pp-more-wrap');
+    if (after && moreWrap) moreWrap.parentNode.insertBefore(after, moreWrap);
 
     if (cfg.title && cfg.titleId) root.setAttribute('aria-labelledby', cfg.titleId);
   }
