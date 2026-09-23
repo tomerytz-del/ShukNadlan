@@ -289,6 +289,28 @@ def check(path: Path) -> tuple[list[str], list[str]]:
                 "        הטריגר נדלק לריק." % (name, tid)
             )
 
+    # ‏2א. תגית אחת לכל טריגר. שתי תגיות GA4 על אותו טריגר שולחות כל
+    # אירוע פעמיים, והדוח מראה פי שניים — בלי שגיאה ובלי סימן. כך קרה
+    # בגרסה 6: הייבוא של contact_professional הוסיף "GA4 — contact_developer"
+    # ליד התגית הקיימת, שנקראה "Google Analytics GA4 Event", כי השמות
+    # לא תאמו וה-Overwrite לא זיהה אותה.
+    tags_by_trigger: dict[str, list[str]] = {}
+    for tag in tags:
+        if tag.get("type") != "gaawe":
+            continue
+        for tid in tag.get("firingTriggerId") or []:
+            tags_by_trigger.setdefault(str(tid), []).append(tag.get("name", "?"))
+    event_by_tid = {tid: name for name, tid in by_event.items()}
+    for tid, names in sorted(tags_by_trigger.items()):
+        if len(names) > 1 and tid in event_by_tid:
+            problems.append(
+                "לאירוע `%s` יש %d תגיות GA4 על אותו טריגר (%s):\n"
+                "        %s\n"
+                "        כל לחיצה נשלחת ל-GA4 %d פעמים. מוחקים את כולן חוץ\n"
+                "        מאחת ב-GTM, מפרסמים ומייצאים מחדש."
+                % (event_by_tid[tid], len(names), tid, " · ".join(names), len(names))
+            )
+
     for name in sorted(set(by_event) - set(pushed)):
         problems.append(
             "טריגר ל-`%s`, ואין בקוד מי שדוחף אותו. שארית משינוי שם —\n"

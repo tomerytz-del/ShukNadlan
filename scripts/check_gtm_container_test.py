@@ -228,6 +228,17 @@ def main() -> int:
               }]}),
          "‏GA4 אוסר פרטים")
 
+    # ‏גרסה 6 האמיתית: הייבוא הוסיף "GA4 — contact_developer" ליד התגית
+    # הקיימת ("Google Analytics GA4 Event"), שתיהן על אותו טריגר — וכל
+    # לחיצה נשלחה ל-GA4 פעמיים.
+    def dup_tag(c):
+        trig = next(t for t in c["containerVersion"]["trigger"]
+                    if t.get("type") == "CUSTOM_EVENT"
+                    and chk.ce_event_name(t) == "contact_developer")
+        c["containerVersion"]["tag"].append(
+            ga4_tag("402", "contact_developer", trig["triggerId"]))
+    case("שתי תגיות GA4 על אותו טריגר", dup_tag, "תגיות GA4 על אותו טריגר")
+
     case("הפיקסל נעלם מהמכולה והמדיניות מצהירה עליו",
          lambda c: c["containerVersion"]["tag"].pop(
              next(i for i, t in enumerate(c["containerVersion"]["tag"])
@@ -271,6 +282,8 @@ def main() -> int:
         # כלומר היחיד שהצלבה מול הייצוא האמיתי מסמנת כחסר. המקרה הזה
         # מוכיח שקובץ הייבוא באמת מחבר אותו, לפני שמישהו מייבא אותו.
         ("docs/gtm-events-import.json", "contact_developer"),
+        # ‏contact_professional — המחזור השלישי, אותה צורה בדיוק
+        ("docs/gtm-events-import.json", "contact_professional"),
         ("docs/gtm-pwa-import.json", "pwa_banner_shown"),
     )
     for rel, event in imports:
@@ -279,6 +292,17 @@ def main() -> int:
         without = drop_event(copy.deepcopy(baseline()), event, "both")
         problems, _ = run(without)
         missing_caught = any("ואין לו טריגר CUSTOM_EVENT" in p and event in p for p in problems)
+
+        # ‏GTM נותן מזהים חדשים לכל מה שמיובא, ולכן גם המיזוג כאן מחליף
+        # אותם: קובץ הייבוא ומכולת הבסיס של הבדיקה משתמשים שניהם ב-200+,
+        # ובלי ההחלפה הכלל "תגית אחת לכל טריגר" היה רואה התנגשות שלא
+        # קורית במכולה אמיתית.
+        imported = copy.deepcopy(imported)
+        for t in imported.get("trigger") or []:
+            t["triggerId"] = "imp" + str(t["triggerId"])
+        for t in imported.get("tag") or []:
+            t["tagId"] = "imp" + str(t.get("tagId"))
+            t["firingTriggerId"] = ["imp" + str(x) for x in t.get("firingTriggerId") or []]
 
         merged = without
         for key in ("tag", "trigger", "variable"):
