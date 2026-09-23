@@ -3121,7 +3121,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/projects">פרויקטים חדשים</a>
       <a href="#dealmakers" data-dm-tab="agencies">משרדי תיווך</a>
       <a href="#dealmakers" data-dm-tab="agents">מתווכים</a>
-      <a href="#dealmakers" data-dm-tab="pros">בעלי מקצוע</a>
+      <a href="/professionals">בעלי מקצוע</a>
       <a href="#articles">כתבות</a>
     </nav>
     <div class="header-actions">
@@ -3171,7 +3171,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="menu-panel" id="menuPanelPeople" role="tabpanel" aria-labelledby="menuTabPeople" hidden>
       <a href="#dealmakers" data-dm-tab="agencies">משרדי תיווך</a>
       <a href="#dealmakers" data-dm-tab="agents">מתווכים</a>
-      <a href="#dealmakers" data-dm-tab="pros">בעלי מקצוע</a>
+      <a href="/professionals">בעלי מקצוע</a>
     </div>
 
     <div class="menu-panel" id="menuPanelTools" role="tabpanel" aria-labelledby="menuTabTools" hidden>
@@ -4058,7 +4058,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- ====== האנשים מאחורי העסקאות ======
        סקציה אחת במקום שתיים: כאן ישבו קרוסלת משרדי התיווך והבאנר המתקפל
        "איזה משרד תיווך מתאים לכם" שמתחתיה, ושניהם התמזגו לשורת כרטיסים
-       אחת עם שלוש לשוניות — משרדי תיווך, מתווכים ובעלי מקצוע.
+       אחת עם לשוניות — משרדי תיווך ומתווכים (בעלי המקצוע יצאו לבאנר משלהם, #expertBanner).
 
        מעל הכרטיסים סרגל אחד — חיפוש, שלוש הלשוניות ובורר התמחות — והחיפוש
        מסנן בתוך הלשונית הפעילה בלבד. מתחת לשורה, קישור "לכל…" שמשתנה עם
@@ -4101,8 +4101,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                   aria-selected="true" aria-controls="dmRow"><svg class="dm-tab-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="16" height="18" rx="1.5"/><path d="M8 7h2M14 7h2M8 11h2M14 11h2M8 15h2M14 15h2M10.5 21v-3h3v3"/></svg>משרדי תיווך</button>
           <button type="button" role="tab" id="dmTabAgents" data-tab="agents"
                   aria-selected="false" aria-controls="dmRow"><svg class="dm-tab-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4.5 21c1-4 4-6 7.5-6s6.5 2 7.5 6"/></svg>מתווכים</button>
-          <button type="button" role="tab" id="dmTabPros" data-tab="pros"
-                  aria-selected="false" aria-controls="dmRow"><svg class="dm-tab-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 6.5a4 4 0 0 0-5.3 5.3L3.5 17.5l3 3 5.7-5.7a4 4 0 0 0 5.3-5.3l-2.6 2.6-2.4-.6-.6-2.4z"/></svg>בעלי מקצוע</button>
         </div>
 
         <!-- בורר מהיר לפי התמחות. האפשרויות נבנות ב-JS מהמלאי של הלשונית
@@ -4141,6 +4139,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <p class="dm-all"><a href="/agencies" id="dmSeeAll">צפייה בכל משרדי התיווך ←</a></p>
     </div>
   </section>
+
+  <!-- ====== בעלי המקצוע: באנר שמוביל לדף שלהם ======
+       בעלי המקצוע ישבו עד כה כלשונית שלישית בסקציית האנשים, לצד משרדי
+       התיווך והמתווכים — אבל הם לא "מי שמוכר לכם דירה" אלא מי שמייעץ לכם
+       לפני שקונים, והשאלה שהם עונים עליה אחרת. עכשיו יש להם באנר משלהם,
+       באותה שפה של באנר היריד (‏.oh-promo), שמוביל ל-/professionals — שם
+       מסננים לפי תחום ואזור ופונים ישירות.
+
+       הבאנר נבנה ב-renderExpertBanner() ונשאר hidden כשאין אף בעל/ת מקצוע
+       פעיל/ה: באנר שמוביל לדף ריק גרוע מהיעדר באנר. רשימת התחומים שבו
+       נגזרת מבעלי המקצוע שקיימים בפועל, ולא מרשימה קבועה — הבטחה על "עורכי
+       דין" כשאין אף אחד הייתה נשברת בדיוק בדף שאליו היא שולחת. -->
+  <section class="section wrap" id="expertBanner" hidden></section>
 
   <!-- ====== Owner-lead banner ======
        יושב מיד מתחת לרצועת הנכסים למכירה: מי שגלל/ה את מחירי השכנים הוא/היא

@@ -1716,6 +1716,85 @@ const professionalsReady = (async function loadProfessionals(){
 })();
 
 /* ============================================================
+   באנר "בואו להתייעץ עם מומחה אמיתי"
+   ------------------------------------------------------------
+   בעלי המקצוע יצאו מסקציית האנשים (שם ישבו כלשונית שלישית) לבאנר משלהם,
+   באותה שפה של באנר היריד (‏.oh-promo ב-assets/open-house.css), שמוביל
+   ל-/professionals — שם מסננים לפי תחום ואזור ופונים ישירות.
+
+   שני כללים, שניהם מאותו מקום של באנר היריד:
+     1. אין אף בעל/ת מקצוע פעיל/ה → הבאנר נשאר hidden.
+     2. רשימת התחומים נגזרת ממי שקיים/ת בפועל, ולא מרשימה קבועה: "עורכי
+        דין" בבאנר כשאין אף אחד היה נשבר בדיוק בדף שאליו הוא שולח.
+   כל הטקסט כאן מקבועים בקובץ — שום ערך מהמסד לא נכנס ל-innerHTML.
+   ============================================================ */
+/* שמות קצרים בכוונה: השורה היא ‎nowrap‎ (משפט לא נשבר), ו"עורכי דין
+   למקרקעין" לצד שני תחומים נוספים דחף אותה אל הכפתור. */
+const EXPERT_PLURAL = {
+  appraiser:'שמאים', real_estate_lawyer:'עורכי דין', architect:'אדריכלים',
+  mortgage_advisor:'יועצי משכנתאות', interior_designer:'מעצבי פנים',
+};
+/* הסדר כאן הוא סדר ההצגה: קודם מה שהכי קרוב לעסקה עצמה */
+const EXPERT_ORDER = ['appraiser', 'real_estate_lawyer', 'architect', 'mortgage_advisor', 'interior_designer'];
+
+/* איש/אשה עם בועת שיחה ו-✓ — "מומחה שמדברים איתו", בזהב של באנר היריד.
+   ‏SVG מוטבע כמו ‎OpenHouse.zeroArt()‎, עם מזהה גרדיאנט משלו. */
+function expertArt(){
+  const gold = 'url(#exGold)';
+  return `<svg class="oh-promo-art" viewBox="0 0 170 104" aria-hidden="true" focusable="false">` +
+    `<defs><linearGradient id="exGold" x1="0" y1="0" x2="0" y2="1">` +
+      `<stop offset="0" stop-color="#fbe7a1"/><stop offset=".45" stop-color="#e0b54a"/>` +
+      `<stop offset=".75" stop-color="#b8862a"/><stop offset="1" stop-color="#f1d27a"/>` +
+    `</linearGradient></defs>` +
+    // האיש/ה: ראש וכתפיים, ועניבה כהה
+    `<circle cx="48" cy="34" r="18" fill="${gold}"/>` +
+    `<path d="M14 102c0-22 15-38 34-38s34 16 34 38z" fill="${gold}"/>` +
+    `<path d="M48 66l-6 9 6 22 6-22z" fill="#0f1a3d"/>` +
+    // בועת השיחה עם ‎✓‎
+    `<path d="M96 8h56a12 12 0 0 1 12 12v30a12 12 0 0 1-12 12h-30l-16 14 3-14h-13a12 12 0 0 1-12-12V20a12 12 0 0 1 12-12z" ` +
+      `fill="none" stroke="${gold}" stroke-width="5" stroke-linejoin="round"/>` +
+    `<path d="M112 35l9 9 19-19" fill="none" stroke="${gold}" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>` +
+  `</svg>`;
+}
+
+async function renderExpertBanner(){
+  const host = document.getElementById('expertBanner');
+  if (!host) return;
+  const pros = await professionalsReady;
+  if (!pros.length){ host.hidden = true; return; }
+
+  const present = new Set(pros.map(p => p.advertiser_type));
+  const fields = EXPERT_ORDER.filter(t => present.has(t)).map(t => EXPERT_PLURAL[t]);
+  // "שמאים, עורכי דין ואדריכלים מהאזור - במקום אחד." — ומעל שלושה תחומים
+  // "שמאים, עורכי דין, אדריכלים ועוד מהאזור."
+  const shown = fields.slice(0, 3);
+  let line;
+  if (fields.length > 3) line = shown.join(', ') + ' ועוד מהאזור.';
+  else {
+    const list = shown.length > 1
+      ? shown.slice(0, -1).join(', ') + ' ו' + shown[shown.length - 1]
+      : (shown[0] || 'בעלי מקצוע');
+    line = list + ' מהאזור - במקום אחד.';
+  }
+
+  host.innerHTML =
+    `<a class="oh-promo is-expert" href="/professionals">` +
+      `<h2 class="oh-promo-title">בואו להתייעץ<br>עם מומחה אמיתי</h2>` +
+      expertArt() +
+      `<span class="oh-promo-body">` +
+        `<span class="oh-promo-kicker">לפני שחותמים על עסקה</span>` +
+        `<span class="oh-promo-text">` +
+          `<span>${line}</span>` +
+          `<span>מצאו את המומחה שלכם וצרו קשר להתייעצות אישית.</span>` +
+        `</span>` +
+      `</span>` +
+      `<span class="oh-promo-cta">למציאת מומחה ←</span>` +
+    `</a>`;
+  host.hidden = false;
+}
+renderExpertBanner();
+
+/* ============================================================
    האנשים מאחורי העסקאות
    ------------------------------------------------------------
    סקציה אחת שהחליפה את קרוסלת משרדי התיווך ואת באנר "איזה משרד תיווך
@@ -1748,15 +1827,6 @@ const DM_TABS = {
     empty:'לא נמצא מתווך/ת שמתאים לחיפוש. נסו שם אחר או נקו את התיבה.',
     quick:{ label:'התמחות', all:'כל ההתמחויות',
             empty:'אין מתווך/ת עם נכסים פעילים בהתמחות הזו. בחרו התמחות אחרת.' },
-  },
-  pros: {
-    placeholder:'תחום, שם או עסק…',
-    href:'/professionals',
-    seeAll: n => n > 1 ? `צפייה בכל ${n} בעלי המקצוע ←` : 'לכל בעלי המקצוע ←',
-    cta:'לפרופיל ←',
-    empty:'לא נמצא בעל/ת מקצוע שמתאים לחיפוש. נסו מילה אחרת.',
-    // בעלי המקצוע אינם מתומחרים בהתמחויות של מלאי נכסים, ולכן אין להם בורר
-    quick:null,
   },
 };
 
@@ -1814,31 +1884,6 @@ function dmFromAgent(m, i){
     waText: `היי ${name}, הגעתי אלייך דרך שוק הנדל״ן של עפולה והסביבה ואשמח לקבל פרטים.`,
     specs: m.specs || [],
     search: [name, m.agency_name].join(' '),
-  };
-}
-
-function dmFromPro(p){
-  const name = p.advertiser_name || 'בעל/ת מקצוע';
-  const key = p.slug || p.id;
-  const field = TYPE_LABELS[p.advertiser_type] || 'בעל/ת מקצוע';
-  return {
-    name, kind:'pro',
-    href: key ? '/professional?slug=' + encodeURIComponent(key) : null,
-    // תמונת הנושא של דף בעל/ת המקצוע (‏professional_cards_public.cover_url),
-    // בדיוק כמו בראש professional.html. בלעדיה — הקריאייטיב מטושטש.
-    cover: p.cover_url,
-    photo: p.creative_url, contain: false, person: true,
-    initial: name.trim()[0] || 'ב',
-    tags: [p.business_name || field, p.target_region].filter(Boolean),
-    countNum: 0,
-    // בעלי מקצוע אינם מדורגים בפלטפורמה, ולכן שורת הדירוג לא נכתבת אצלם
-    rating: undefined, reviews: 0,
-    rank: 0,
-    verified: false,
-    team: [],
-    wa: null,
-    specs: [],
-    search: [name, p.business_name, field, p.target_region].join(' '),
   };
 }
 
@@ -1902,7 +1947,8 @@ function bindRowScroller(row){
   const row = document.getElementById('dmRow');
   if (!section || !row) return;
 
-  const [agencies, agents, pros] = await Promise.all([agenciesReady, agentsReady, professionalsReady]);
+  // בעלי המקצוע יצאו מכאן לבאנר משלהם (‏renderExpertBanner)
+  const [agencies, agents] = await Promise.all([agenciesReady, agentsReady]);
   // הצוות של כל משרד — מאותה רשימת מתווכים שמזינה את לשונית המתווכים,
   // ולא משאילתה נוספת. המדורגים ראשונים, כך שהפנים בשורה הן של המובילים.
   const teamByAgency = new Map();
@@ -1914,7 +1960,6 @@ function bindRowScroller(row){
   const data = {
     agencies: agencies.map((a, i)=> dmFromAgency(a, i, teamByAgency.get(a.id))),
     agents: agents.map((m, i)=> dmFromAgent(m, i)),
-    pros: pros.map(dmFromPro),
   };
 
   // אותה רשימה מזינה גם את מונה המשרדים שב-hero
@@ -1923,7 +1968,7 @@ function bindRowScroller(row){
 
   // אין אף אחד להציג בשום לשונית — הסקציה יורדת, בדיוק כמו שהקרוסלה
   // שקדמה לה ירדה כשהרשימה חזרה ריקה
-  if (!agencies.length && !agents.length && !pros.length){
+  if (!agencies.length && !agents.length){
     section.style.display = 'none';
     return;
   }
