@@ -114,8 +114,12 @@ function thumbFallback(p){
       <span class="tf-note">${NO_PHOTOS_NOTE}</span>
     </div>`;
 }
+/* מחיר מסחרי נמסר כמעט תמיד לפני מע"מ, ולכן "+ מע״מ" מוצג ליד המחיר
+   אלא אם הסוכן/ת סימן/ה במפורש שהמחיר כולל (‏price_includes_vat = true).
+   אותו כלל ב-property-card.js, property.js, home.js ו-open-house.html. */
 function priceLabel(p){
-  return p.deal_type === 'rent' ? ('₪' + Number(p.price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(p.price).toLocaleString('he-IL'));
+  const vat = p.category === 'commercial' && p.price_includes_vat !== true ? ' + מע״מ' : '';
+  return (p.deal_type === 'rent' ? ('₪' + Number(p.price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(p.price).toLocaleString('he-IL'))) + vat;
 }
 
 /* ============================================================
@@ -975,7 +979,7 @@ const isPromoted = p => !!p.is_promoted && (!p.promoted_until || new Date(p.prom
    והמדיה, ולתת עדיפות בתצוגה לנכסים שיש להם וידאו או סיור. כולן עמודות
    ותיקות שדף הסוכן/ת ודף המשרד כבר שולפים. */
 const PROPERTY_SELECT =
-  'id, price, title, rooms, size_sqm, floor, city, street, address, property_type, deal_type, category, ' +
+  'id, price, title, rooms, size_sqm, floor, city, street, address, property_type, deal_type, category, price_includes_vat, ' +
   'created_at, lat, lng, is_promoted, promoted_until, images, features, video_url, tour_3d_url, has_virtual_tour, neighborhood_id, ' +
   /* יריד הבתים הפתוחים: שלוש העמודות נשלפות יחד כי התצוגה בודקת את החלון
      ולא את הדגל לבדו (ראו assets/open-house.js). בלעדיהן הפין על המפה,
