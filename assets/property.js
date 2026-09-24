@@ -961,9 +961,9 @@ function renderPlanningInfo(row){
    ‏commercial — אין סגנונות: מדמים עסק, ולכן הקלט הוא סוג העסק בטקסט חופשי.
    אין סט בסיס, כי "משרד" ו"חנות בגדים" באותו נכס נראים אחרת לגמרי.
 
-   ההדמיות שנוצרו לפי דרישה נשמרות ב-vizState בלבד — ריענון דף מחזיר את
-   המבקר/ת לסט הבסיס, וזה מכוון: לא רוצים שהעמוד הפומבי יציג הדמיות שגולש
-   אחר הזמין. */
+   כל הדמיה שנוצרה — סט בסיס או לפי דרישה, פרטית או מסחרית — נשמרת על הנכס
+   ומוצגת גם למבקרים הבאים (‏property_visualizations_recent). במסחרי כל עסק
+   שהודמה מקבל שבב משלו; ראו bizKey. */
 const VIZ_FUNCTION_URL = SUPABASE_URL + '/functions/v1/property-visualize';
 
 const VIZ_STYLES = [
@@ -1016,7 +1016,40 @@ const vizState = {
      לא להישמע כלל. הסדר כאן הפוך — קודם הצומת מגיע למקומו, ורק אז נכתב
      לתוכו. */
   error:'',
+  /* נכס מסחרי: מפתח העסק (bizKey) ← השם כפי שנכתב, מהחדש לישן. העסקים
+     הם ה"סגנונות" של הנכס המסחרי — כל אחד שבב, וכל שבב מציג את ההדמיות
+     שלו. עד כאן כל ההדמיות המסחריות ישבו תחת מפתח אחד ודוללו לפי מטרה,
+     ולכן רק העסק האחרון שמישהו ביקש נראה בדף: מי שחזר/ה לבית הקפה שלו/ה
+     מצא/ה משרד, וביקש/ה את בית הקפה שוב. */
+  bizLabels:new Map(),
 };
+
+/* סוג עסק הוא טקסט חופשי, ו"בית קפה" ו"בית  קפה." הם אותו עסק. זהה ל-
+   businessKey() ב-property-visualize, שלפיו השרת מחזיר הדמיה קיימת במקום
+   לייצר אותה מחדש. */
+function bizKey(s){
+  const k = String(s == null ? '' : s)
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/["'`\u05F3\u05F4.,!?()\-\u2013\u2014]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return k ? 'biz:' + k : '_';
+}
+
+/* השבבים של נכס מסחרי: שישה העסקים האחרונים שיש להם הדמיה, ועוד העסק
+   שמתבקש ברגע זה אם הוא חדש. ‏'_' הוא הדמיה בלי סוג עסק (שורה ישנה). */
+const VIZ_BIZ_CHIPS = 6;
+function vizBusinessChips(){
+  const out = [];
+  vizState.bizLabels.forEach((label, key)=>{
+    const has = (vizState.byStyle.get(key) || []).length;
+    if (!has && key !== vizState.current) return;
+    if (out.length >= VIZ_BIZ_CHIPS && key !== vizState.current) return;
+    out.push({ key, label: label.length > 40 ? label.slice(0, 39) + '…' : label });
+  });
+  return out;
+}
 
 async function loadVisualizations(p){
   if (!window.supabase) return;
@@ -1038,11 +1071,17 @@ async function loadVisualizations(p){
        דרישה נעלמה ממנו — ולכן הרשת כאן הייתה ריקה בנכסים שכבר היו להם
        הדמיות מוכנות, והגולש/ת ראה/תה טופס בלי שום ראיה שהכלי עובד.
        ‏recent מחזיר את שתיהן, מסונן לנכס הזה בלבד. */
-    const { data: base } = await sb
+    /* ‏business_type נוסף ל-view במיגרציה ‎20270110090000‎. עד שהיא רצה
+       השאילתה עם העמודה נכשלת, ואז נופלים לשאילתה בלעדיה — הדף מציג את
+       מה שהציג קודם, ולא תיבה ריקה. */
+    const COLS = 'target, style_key, source_image_url, result_url, created_at';
+    const fetchRecent = cols => sb
       .from('property_visualizations_recent')
-      .select('target, style_key, source_image_url, result_url, created_at')
+      .select(cols)
       .eq('property_id', p.id)
       .order('created_at', { ascending:false });
+    let { data: base, error: baseErr } = await fetchRecent(COLS + ', business_type');
+    if (baseErr) ({ data: base } = await fetchRecent(COLS));
 
     /* דילול לפי סגנון+מטרה, החדש ביותר מנצח. אותו נכס יכול לצבור כמה
        הדמיות של אותו מטבח באותו סגנון — כל גולש/ת שביקש/ה מוסיף/ה אחת —
@@ -1051,7 +1090,10 @@ async function loadVisualizations(p){
        זהו גם הכלל של mergeVizRows() כשמגיעה תוצאה חדשה בזמן אמת. */
     const seenViz = new Set();
     (base || []).forEach(r=>{
-      const key = r.style_key || '_';
+      const key = vizState.isPrivate ? (r.style_key || '_') : bizKey(r.business_type);
+      if (!vizState.isPrivate && !vizState.bizLabels.has(key)){
+        vizState.bizLabels.set(key, key === '_' ? 'הדמיה' : String(r.business_type).trim());
+      }
       const dedupeKey = key + '|' + r.target;
       if (seenViz.has(dedupeKey)) return;
       seenViz.add(dedupeKey);
@@ -1072,10 +1114,11 @@ async function loadVisualizations(p){
       const first = vizState.byStyle.keys().next();
       vizState.current = first.done ? VIZ_STYLES[0].key : first.value;
     } else {
-      // במסחרי אין סגנונות — כל התוצאות יושבות תחת מפתח יחיד, והשאלה
-      // היחידה היא איזה עסק מדמים. הבלוק נפתח מיד ולא אחרי לחיצה: בלעדיו
-      // הכפתור שברצועה לא יודע מה ליצור.
-      vizState.current = '_';
+      // במסחרי ה"סגנונות" הם העסקים שכבר הודמו בנכס, והתיבה נפתחת על
+      // האחרון שבהם. הבלוק נפתח מיד ולא אחרי לחיצה: בלעדיו הכפתור שברצועה
+      // לא יודע מה ליצור.
+      const first = vizState.bizLabels.keys().next();
+      vizState.current = first.done ? '_' : first.value;
       document.getElementById('vizCta').hidden = false;
       applyVizContactFields();
     }
@@ -1101,7 +1144,11 @@ function vizItemsFlat(){
   const out = [];
   vizState.byStyle.forEach((list, key)=>{
     (list || []).forEach(it=>{
-      if (it && it.result_url) out.push({ ...it, style_key: key === '_' ? null : key });
+      /* במסחרי המפתח הוא העסק, והוא נשמר גם כשהוא '_': הרכיב מסנן את
+         התמונות לפי ‎activeStyle‎, ו-null לא היה תואם לשום שבב. */
+      if (it && it.result_url){
+        out.push({ ...it, style_key: (key === '_' && vizState.isPrivate) ? null : key });
+      }
     });
   });
   return out;
@@ -1169,8 +1216,11 @@ function renderPropertyShowcase(){
     window.AiShowcase.mountProperty(el, {
       items: vizItemsFlat(),
       /* ארבעת הסגנונות. בנכס מסחרי אין סגנונות — מדמים עסק, לא עיצוב. */
-      styles: vizState.isPrivate ? VIZ_STYLES.map(x=>({ key:x.key, label:x.label })) : [],
-      activeStyle: vizState.isPrivate ? vizState.current : null,
+      /* ארבעת הסגנונות בנכס פרטי; בנכס מסחרי — העסקים שכבר הודמו בו. */
+      styles: vizState.isPrivate
+        ? VIZ_STYLES.map(x=>({ key:x.key, label:x.label }))
+        : vizBusinessChips(),
+      activeStyle: vizState.isPrivate || vizState.bizLabels.size ? vizState.current : null,
       /* הרצועה מכנה את החזית "חזית הבית" בנכס פרטי ו"חזית העסק" במסחרי.
          הדגל נשלח מכאן ולא נגזר שם מ-‎styles.length‎: היעדר סגנונות הוא
          *תוצאה* של היות הנכס מסחרי, לא ההגדרה שלו. */
@@ -1527,6 +1577,19 @@ async function requestVisualization(){
     }
   }
 
+  /* במסחרי העסק המבוקש הוא השבב הפעיל, עוד לפני שהבקשה יוצאת: אם הוא
+     כבר הודמה, ההדמיה שלו על המסך מיד; אם לא, המסגרת שלו מציגה את מסך
+     ההמתנה ומשם תוצאה חדשה נכנסת תחתיו (mergeVizResults). */
+  const prevCurrent = vizState.current;
+  if (!vizState.isPrivate){
+    const key = bizKey(business.value);
+    if (!vizState.bizLabels.has(key)){
+      // חדש נכנס בראש הרשימה — הוא העסק האחרון שהודמה
+      vizState.bizLabels = new Map([[key, business.value.trim()], ...vizState.bizLabels]);
+    }
+    vizState.current = key;
+  }
+
   vizState.busy = true;
   // הכפתור היחיד נמצא ברצועה, בתוך innerHTML שמורכב מחדש, ולכן מצב
   // ה"יוצרים…" שלו עובר דרך vizState.busy ולא דרך נגיעה ישירה באלמנט.
@@ -1569,6 +1632,11 @@ async function requestVisualization(){
   } catch(e){
     // המצב בלבד — ‎finally‎ שמתחת מרנדר, ושם הפסקה נשתלת מעל הכפתור ונכתבת.
     vizState.error = e.message || 'שגיאה ביצירת ההדמיה';
+    // עסק שלא נוצרה לו אף הדמיה לא נשאר כשבב ריק: חוזרים למה שהוצג
+    if (!vizState.isPrivate && !(vizState.byStyle.get(vizState.current) || []).length){
+      vizState.bizLabels.delete(vizState.current);
+      vizState.current = prevCurrent;
+    }
   } finally{
     vizState.busy = false;
     renderVizPending([]);
