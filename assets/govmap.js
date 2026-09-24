@@ -154,29 +154,73 @@
    * זהים למה שביקשנו. תוצאה אחרת נדחית ולא "מתוקנת" - פין ברחוב כורש
    * שנראה מושלם גרוע בהרבה מ"לא נמצא".
    */
+  /* שגיאות כתיב שנצפו בפועל במסד (docs/street-registry.md) ושאינן ציר של
+     textKey: וי"ו של אם קריאה ושיכול אותיות. רשימה סגורה ולא כלל - כלל
+     כללי ("מחק ו' אחרי ש'") היה ממזג שמות אחרים בשקט. */
+  var STREET_TYPOS = { 'יהושוע': 'יהושע', 'אושיסקין': 'אוסישקין' };
+
+  /**
+   * הצורות שבהן שואלים את GovMap על רחוב, לפי הסדר:
+   *   1. השם כפי שהוזן, אחרי תיקון STREET_TYPOS
+   *   2. בלי תחילית (שדרות / שד / רחוב / רח / כיכר)
+   *   3. המילה האחרונה בלבד - "מנחם אוסישקין" -> "אוסישקין", "יצחק רבין" -> "רבין"
+   *      (GovMap רושם לעיתים קרובות את שם המשפחה בלבד)
+   * כל צורה עולה קריאת search, ולכן עוצרים בהתאמה הראשונה.
+   */
+  function streetCandidates(street) {
+    var fixed = String(street || '').trim().split(/\s+/)
+      .map(function (w) { return STREET_TYPOS[w] || w; }).join(' ');
+    var bare = fixed.replace(/^(שדרות|שד'?|רחוב|רח'?|כיכר)\s+/, '').trim();
+    var words = bare.split(/\s+/);
+    var out = [fixed, bare];
+    if (words.length > 1 && words[words.length - 1].length >= 3) out.push(words[words.length - 1]);
+    return out.filter(function (v, i) { return v && out.indexOf(v) === i; });
+  }
+
+  /* האם "רחוב מספר יישוב" שחזר מ-GovMap הוא מה שביקשנו. שוויון מלא, או
+     שאחד הוא סיומת-מילים של השני: "מנחם אוסישקין 5 עפול" מול "אוסישקין 5
+     עפול", לשני הכיוונים. המספר והיישוב נמצאים בסוף שתי המחרוזות, ולכן
+     סיומת-מילים תמיד כוללת אותם במלואם - "חורש" מול "כורש" עדיין נדחה. */
+  function sameAddress(got, want) {
+    return got === want
+        || got.slice(-(want.length + 1)) === ' ' + want
+        || want.slice(-(got.length + 1)) === ' ' + got;
+  }
+
+  /**
+   * כתובת -> נקודת בית. `precision: 'rooftop'` רק כשהרחוב, המספר והיישוב
+   * זהים למה שביקשנו (sameAddress). תוצאה אחרת נדחית ולא "מתוקנת" - פין
+   * ברחוב כורש שנראה מושלם גרוע בהרבה מ"לא נמצא".
+   */
   function lookupAddress(q) {
     var street = String(q.street || '').trim();
     var num = String(q.houseNumber || '').trim();
     var city = String(q.city || '').trim();
     if (!street || !num || !city) return Promise.resolve(null);
-    var want = textKey(street + ' ' + num + ' ' + city);
+    var candidates = streetCandidates(street);
 
-    return govmapReady().then(function (gm) {
-      return gm.search({ apiKey: GOVMAP_TOKEN, searchText: street + ' ' + num + ' ' + city,
-                         isAccurate: true, maxResults: 5, language: 'he' });
-    }).then(function (r) {
-      assertSearchShape(r);
-      for (var i = 0; i < r.results.length; i++) {
-        var hit = r.results[i];
-        if (hit.type !== 'address') continue;
-        // בחלק מהערים `text` באנגלית (HERZELIA) ו-originalText בעברית.
-        var got = textKey(hit.originalText || hit.text);
-        if (got !== want) continue;
-        var p = parsePoint(hit.centroid);
-        if (p) return { x: p.x, y: p.y, precision: 'rooftop', matched: hit.originalText || hit.text };
-      }
-      return null;
-    });
+    function tryAt(i) {
+      if (i >= candidates.length) return Promise.resolve(null);
+      var v = candidates[i];
+      var want = textKey(v + ' ' + num + ' ' + city);
+      return govmapReady().then(function (gm) {
+        return gm.search({ apiKey: GOVMAP_TOKEN, searchText: v + ' ' + num + ' ' + city,
+                           isAccurate: true, maxResults: 5, language: 'he' });
+      }).then(function (r) {
+        assertSearchShape(r);
+        for (var j = 0; j < r.results.length; j++) {
+          var hit = r.results[j];
+          if (hit.type !== 'address') continue;
+          // בחלק מהערים `text` באנגלית (HERZELIA) ו-originalText בעברית.
+          var got = textKey(hit.originalText || hit.text);
+          if (!sameAddress(got, want)) continue;
+          var p = parsePoint(hit.centroid);
+          if (p) return { x: p.x, y: p.y, precision: 'rooftop', matched: hit.originalText || hit.text };
+        }
+        return tryAt(i + 1);
+      });
+    }
+    return tryAt(0);
   }
 
   /** גוש/חלקה -> מרכז החלקה ו-SearchData (לשליפת הגאומטריה). */
@@ -350,6 +394,8 @@
     addressLatLng: addressLatLng,
     parcelLatLng: parcelLatLng,
     _textKey: textKey,                 // לבדיקות בלבד
+    _streetCandidates: streetCandidates,
+    _sameAddress: sameAddress,
     _parseMultiPolygon: parseMultiPolygon,
   };
 })();

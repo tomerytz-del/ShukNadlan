@@ -9582,6 +9582,21 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   let   street = document.getElementById('npStreet').value.trim();
   const houseNumber = document.getElementById('npHouseNumber').value.trim();
   const city = document.getElementById('npCity').value.trim();
+  /* גוש/חלקה: לא חובה, אבל כשמולאו - ספרות בלבד, ושניהם יחד. גוש בלי חלקה
+     אינו מקום, ו"16742/96" בשדה אחד היה נשמר כגוש לא חוקי. */
+  const gush = document.getElementById('npGush').value.trim();
+  const helka = document.getElementById('npHelka').value.trim();
+  if ((gush || helka) && !(/^\d{1,7}$/.test(gush) && /^\d{1,5}$/.test(helka))){
+    feedback.style.color = 'var(--brick)';
+    feedback.textContent = 'גוש וחלקה: שני מספרים, בכל שדה מספר אחד (למשל גוש 16742, חלקה 96).';
+    document.getElementById(gush ? 'npHelka' : 'npGush').focus();
+    btn.disabled = false;
+    btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
+    return;
+  }
+  const savedPlanning = (editingPropertyId && propertyPlanningInfo[editingPropertyId]) || {};
+  const parcelChanged = !!(gush && helka)
+    && (String(savedPlanning.gush || '') !== gush || String(savedPlanning.helka || '') !== helka);
 
   /* הרשימה הסגורה נאכפת כאן ולא ברכיב: ‏datalist מציע ואינו חוסם, וכל
      הטעם בשדה הזה הוא שהשם שנשמר יהיה השם שהשכבה של העירייה מכירה —
@@ -9642,6 +9657,25 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
       }
     } catch(err){
       console.warn('GovMap: גיאוקוד נכשל, הנכס יישמר בלי מיקום על המפה:', err);
+    }
+  }
+  /* הכתובת לא נמצאה (או חסרה) ויש גוש/חלקה: מרכז החלקה, רק לחלקה של עד
+     250 מ'. חלקת פרויקט בגודל שכונה אינה מיקום - אז בלי פין, כמו קודם.
+
+     **גם בעפולה.** הכלל "עפולה נשארת על שכבת העירייה" חל על נקודות
+     הכתובת, שבהן GovMap חסר (החורש 8, הפרסה 5). כאן אין נקודת כתובת בכלל,
+     והחלקה עצמה מגיעה מהקדסטר של מפ"י - אותו מקור שהשכבה העירונית נשענת
+     עליו; בשתי חלקות הייחוס גוש, חלקה ושטח היו זהים (docs/govmap.md).
+     בלי זה, נכס ברחוב שהעירייה טרם הזינה (היצירה, אדמונית) נשאר בלי פין. */
+  if (!resolvedLat && !resolvedLng && gush && helka && window.GovmapLookup){
+    try{
+      const p = await GovmapLookup.parcelLatLng(gush, helka, 250);
+      if (p && !p.tooLarge){
+        resolvedLat = p.lat;
+        resolvedLng = p.lng;
+      }
+    } catch(err){
+      console.warn('GovMap: מיקום לפי גוש/חלקה נכשל:', err);
     }
   }
 
@@ -9919,11 +9953,25 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   // קליטת/עדכון מידע תכנוני: (א) פעם ראשונה בקליטת נכס חדש, או (ב) כשהכתובת השתנתה
   // בעריכה — כדי לשמור על דיוק המידע. לא נשלף מחדש בשמירות שלא נוגעות לכתובת.
   // נכס שהוחזר מהארכיון כבר נסרק בעבר על אותה כתובת — אין טעם בקריאת WFS נוספת
-  const shouldFetchPlanning = (!editingPropertyId && !restoredProperty && newPropertyId && street && houseNumber) ||
-    (addressActuallyChanged && street && houseNumber);
+  const hasAddress = !!(street && houseNumber);
+  const hasParcel = !!(gush && helka);
+  const shouldFetchPlanning = (!editingPropertyId && !restoredProperty && newPropertyId && (hasAddress || hasParcel)) ||
+    (addressActuallyChanged && hasAddress) || (editingPropertyId && parcelChanged);
+
+  /* גוש/חלקה שהוקלדו נשמרים לנכס בכל מסלול: זו הזנת נתונים ולא השליפה
+     האוטומטית שנמכרת. לדפדפן מותר לכתוב את שתי העמודות האלה בלבד (מיגרציה
+     20270102090000). השליפה שאחריה עשויה לדרוס אותן בערכים מהשכבה. */
+  // נכס חדש: savedPlanning ריק, ולכן parcelChanged אמת כשהוקלד גוש/חלקה
+  if (newPropertyId && parcelChanged){
+    const { error: parcelErr } = await sb.from('property_planning_info')
+      .upsert({ property_id: newPropertyId, gush, helka }, { onConflict: 'property_id' });
+    if (parcelErr) console.warn('שמירת גוש/חלקה נכשלה:', parcelErr);
+    else propertyPlanningInfo[newPropertyId] =
+      Object.assign({}, propertyPlanningInfo[newPropertyId] || {}, { gush, helka });
+  }
 
   if (shouldFetchPlanning && city !== STREET_PLANNING_CITY){
-    await fetchGovmapPlanning(newPropertyId, { street, houseNumber, city }, planningStatus);
+    await fetchGovmapPlanning(newPropertyId, { street, houseNumber, city, gush, helka }, planningStatus);
   } else if (shouldFetchPlanning){
     planningStatus.textContent = editingPropertyId ? 'הכתובת השתנתה - מעדכן מידע תכנוני…' : 'קולט מידע תכנוני ברקע…';
     try{
@@ -9934,7 +9982,11 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
         // ‏property_id: הפונקציה שומרת לנכס בעצמה, אחרי בדיקת בעלות ומסלול.
         // לדפדפן מותר לכתוב ל-property_planning_info גוש וחלקה בלבד
         // (מיגרציה 20270102090000), ולכן אין כאן upsert.
-        body: JSON.stringify({ street, house_number: houseNumber, property_id: newPropertyId }),
+        // לפי גוש/חלקה כשאין כתובת, או כשרק הם השתנו בעריכה
+        // (afula-planning-lookup תומכת בשניהם, וגוש/חלקה גוברים שם על כתובת).
+        body: JSON.stringify(hasAddress && !(parcelChanged && !addressActuallyChanged)
+          ? { street, house_number: houseNumber, property_id: newPropertyId }
+          : { gush, helka, property_id: newPropertyId }),
       });
       const planData = await res.json();
       if (res.ok && planData.data && planData.saved){
@@ -13048,6 +13100,9 @@ function openEditProperty(p){
   // הכתיב שלו עדיין עומד ברשימה — בלי לגעת בנכס עד שנשמר מחדש.
   ensureStreetsLoaded().then(refreshStreetHint);
   document.getElementById('npHouseNumber').value = p.house_number || '';
+  const plan = propertyPlanningInfo[p.id] || {};
+  document.getElementById('npGush').value = plan.gush || '';
+  document.getElementById('npHelka').value = plan.helka || '';
   document.getElementById('npLat').value = p.lat || '';
   document.getElementById('npLng').value = p.lng || '';
   document.getElementById('npSalesArea').value = p.sales_area || '';
