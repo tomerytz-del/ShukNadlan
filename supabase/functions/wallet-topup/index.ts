@@ -20,17 +20,18 @@ import {
 // אחרי אימות מול ה-API של מורנינג. הפרדה זו היא כל ההבדל בין "לחצתי טען"
 // לבין "שילמתי" — ועד היום הקוד כאן לא הבדיל ביניהם.
 //
-// **שני מסלולים, לפי מה שמוגדר בסביבה:**
+// **שני מסלולים:**
 //
-//   מורנינג מוגדר   → start_wallet_topup + טופס תשלום. כסף אמיתי.
-//   מורנינג לא מוגדר → process_wallet_topup. מצב בדיקה, זיכוי מיידי, מסומן.
+//   רגיל               → start_wallet_topup + טופס תשלום. כסף אמיתי.
+//   ‏test_mode: true    → process_wallet_topup. זיכוי מיידי, מסומן כבדיקה —
+//                         **למנהל/ת פלטפורמה בלבד** (‏is_platform_admin).
 //
-// מסלול הנפילה אינו נוחות — הוא מה שמאפשר למזג את השינוי הזה בלי להפיל את
-// הארנק ברגע המיזוג. הסודות מוגדרים ב-Supabase → Edge Functions → Secrets,
-// והמעבר לסליקה אמיתית קורה כשמגדירים אותם, בלי פריסה נוספת.
+// עד ספטמבר 2026 המסלול השני קרה **מעצמו** כשמורנינג לא הוגדר, לכל
+// סוכן/ת. זה אפשר את המיזוג לפני שהסליקה חוברה, והפך כל סוד חסר לכסף
+// בחינם. מורנינג לא מוגדר מחזיר עכשיו morning_not_configured (503).
 //
-// ‏GET מחזיר את המצב בלי לפתוח תשלום, כדי שהממשק ידע אם להציג את תג
-// "מצב בדיקה". ‏verify_jwt=true, ולכן גם הוא דורש התחברות.
+// ‏GET מחזיר את המצב בלי לפתוח תשלום: האם הסליקה פעילה, והאם הקורא/ת
+// רשאי/ת לטעינת בדיקה. ‏verify_jwt=true, ולכן גם הוא דורש התחברות.
 // ============================================================================
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -55,7 +56,7 @@ async function resolveAgent(req: Request, supabase: any) {
 
   const { data: agentRow, error: agentErr } = await supabase
     .from("agency_members")
-    .select("id, active, display_name")
+    .select("id, active, display_name, is_platform_admin")
     .eq("user_id", userData.user.id)
     .maybeSingle();
   if (agentErr || !agentRow) return { error: "no_matching_agent_profile", status: 403 };
@@ -78,8 +79,12 @@ Deno.serve(async (req: Request) => {
     if ("error" in resolved) return json({ error: resolved.error }, resolved.status);
     return json({
       configured: morningConfigured(),
-      test_mode: !morningConfigured(),
-      environment: morningConfigured() ? morningEnvLabel() : "test_mode",
+      // אין יותר "מצב בדיקה" אוטומטי. ‏test_mode נשאר בתשובה (false) כדי
+      // שלקוח ישן לא יציג הצהרה שגויה.
+      test_mode: false,
+      environment: morningConfigured() ? morningEnvLabel() : "not_configured",
+      // טעינה בלי חיוב — מנהל/ת פלטפורמה בלבד, ורק כשביקש/ה אותה במפורש.
+      can_test_topup: resolved.agent.is_platform_admin === true,
       amounts: ALLOWED_AMOUNTS,
     });
   }
@@ -97,24 +102,32 @@ Deno.serve(async (req: Request) => {
   if ("error" in resolved) return json({ error: resolved.error }, resolved.status);
   const { agent, email } = resolved;
 
-  // ---- מסלול מצב הבדיקה ------------------------------------------------
-  // אין ספק סליקה מוגדר. מתנהג בדיוק כפי שהתנהג עד היום, כולל הסימון —
-  // שקיפות כאן חשובה יותר מאשר להיראות מוכן: מי שרואה "מצב בדיקה" יודע/ת
-  // שלא חויב/ה, ומי שלא רואה — מצפה/ה לחיוב.
-  if (!morningConfigured()) {
+  // ---- טעינה בלי חיוב — מנהל/ת פלטפורמה בלבד ------------------------
+  // עד היום זה קרה **אוטומטית** כשמורנינג לא הוגדר: כל סוכן/ת קיבל/ה כסף
+  // בארנק בלי לשלם, וסוד שנמחק בטעות היה הופך את האתר לחלוקת קרדיט. מעכשיו
+  // זו בקשה מפורשת (`test_mode: true`), והיא נענית רק למנהל/ת פלטפורמה.
+  // השורה נשמרת עם test_mode=true ב-process_wallet_topup, כמו קודם.
+  if (body?.test_mode === true) {
+    if (agent.is_platform_admin !== true) {
+      return json({ error: "test_topup_forbidden" }, 403);
+    }
     const { data: result, error: rpcErr } = await supabase.rpc("process_wallet_topup", {
       p_agent_id: agent.id,
       p_amount: amount,
     });
     if (rpcErr) return json({ error: "db_error", detail: rpcErr.message }, 500);
     if (result?.error) return json(result, 400);
+    console.log("wallet-topup: admin test top-up", agent.id, amount);
     return json({ ...result, test_mode: true }, 200);
   }
 
-  // ---- מסלול הסליקה ----------------------------------------------------
-  // 1. שורת pending אצלנו, **לפני** הפנייה למורנינג. הסדר הזה מכוון: המזהה
-  //    שלה הוא מה שנשלח כאסמכתא, וכך לכל תשלום שייווצר שם כבר יש בית כאן.
-  //    הסדר ההפוך היה יוצר תשלום שאין לו למי להיזקף.
+  // ---- בלי ספק סליקה אין טעינה ---------------------------------------
+  // שגיאה ולא כסף מדומה. זו אותה דוקטרינה של professional-signup: תקלה
+  // בהגדרות היא תקלה, לא הטבה.
+  if (!morningConfigured()) {
+    return json({ error: "morning_not_configured" }, 503);
+  }
+
   const { data: started, error: startErr } = await supabase.rpc("start_wallet_topup", {
     p_agent_id: agent.id,
     p_amount: amount,
