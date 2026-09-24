@@ -9929,22 +9929,16 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
       const res = await fetch(SUPABASE_URL + '/functions/v1/afula-planning-lookup', {
         method:'POST',
         headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
-        body: JSON.stringify({ street, house_number: houseNumber }),
+        // ‏property_id: הפונקציה שומרת לנכס בעצמה, אחרי בדיקת בעלות ומסלול.
+        // לדפדפן מותר לכתוב ל-property_planning_info גוש וחלקה בלבד
+        // (מיגרציה 20270102090000), ולכן אין כאן upsert.
+        body: JSON.stringify({ street, house_number: houseNumber, property_id: newPropertyId }),
       });
       const planData = await res.json();
-      if (res.ok && planData.data){
-        const d = planData.data;
-        await sb.from('property_planning_info').upsert({
-          property_id: newPropertyId,
-          gush: d.gush, helka: d.helka,
-          parcel_area_sqm: d.parcel_area_sqm, parcel_status: d.parcel_status,
-          land_use_designation: d.land_use_designation,
-          applicable_plans: d.applicable_plans,
-          geometry_wgs84: d.geometry_wgs84,
-          lat: d.lat, lng: d.lng,
-          looked_up_at: new Date().toISOString(),
-        }, { onConflict: 'property_id' });
+      if (res.ok && planData.data && planData.saved){
         planningStatus.textContent = 'מידע תכנוני עודכן ונשמר לנכס ✓';
+      } else if (res.ok && planData.data){
+        planningStatus.textContent = 'המידע התכנוני נשלף אך לא נשמר - ייקלט בסבב ההשלמה הבא';
       } else if (planData.error === 'upgrade_required'){
         planningStatus.textContent = 'מידע תכנוני לא נקלט - זמין ב-PROFESSIONAL וב-Elite';
       } else {
