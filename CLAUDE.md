@@ -149,6 +149,7 @@ python scripts/check_search_console.py --fix  # שתילה בדף שחסר
 | `data-share` | שיתוף — `wa.me/?text=` או `mailto:?` בלי נמען | `share` |
 | `data-site-contact` | המספר או המייל של שוק נדל״ן עצמו | `contact_site` |
 | `data-developer` | חברה יזמית, ומשרד המכירות של פרויקט שלה | `contact_developer` |
+| `data-professional` | בעל/ת מקצוע (שמאי/ת, עו"ד, אדריכל/ית) | `contact_professional` |
 | (ללא) | מספר או מייל של סוכן/ת | `contact_agent` |
 
 שניים מהם נמצאו אחרי הראשון, ושניהם היו חיים: כפתור השיתוף ב-`project.html`
