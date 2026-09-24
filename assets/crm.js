@@ -19622,31 +19622,91 @@ function navReduceMotion(){
    צבע המונה הוא ההבדל בין "יש כאן" ל"מחכה לך": אדום רק ל-NAV_HOT_ACCS
    (לידים שלא נפתחו, התאמות חדשות, ביקורות), וכל השאר — סך הנכסים, הסכמים,
    המשימות — בגלולה אפורה ושקטה. */
+/* הקבוצות בסרגל מתקפלות, כמו בתפריט הבורגר: כותרת היא כפתור, והפריטים
+   שלה נפתחים ונסגרים בלחיצה עליה. ברירת המחדל סגורה — שלוש כותרות וכפתור
+   הבית — ומה שנפתח נשמר ב-localStorage תחת מפתח משלו (לא של הבורגר: בטלפון
+   ובמחשב מחפשים דברים אחרים). כך גם אין גלילה בסרגל: שלוש-עשרה שורות
+   פרושות לא נכנסו במסך לפטופ עם סרגלי דפדפן. */
+const SIDE_GROUP_KEY = 'crmSideGroupsOpen';
+
+function sideGroupsOpen(){
+  try {
+    const raw = JSON.parse(localStorage.getItem(SIDE_GROUP_KEY) || '{}');
+    return (raw && typeof raw === 'object') ? raw : {};
+  } catch { return {}; }
+}
+
+function sideGroupSetOpen(key, open){
+  const state = sideGroupsOpen();
+  state[key] = open;
+  try { localStorage.setItem(SIDE_GROUP_KEY, JSON.stringify(state)); } catch {}
+}
+
+function sideNavItem(item){
+  const count = navItemCount(item);
+  const hot = count > 0 && NAV_HOT_ACCS.has(navItemTarget(item));
+  const isHome = navIsHomeItem(item);
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'sn-item' + (isHome && navTab === 'home' ? ' is-on' : '');
+  btn.innerHTML = dashIcon(item.icon, 'sn-ico')
+    + '<span class="sn-label">' + esc(item.label) + '</span>'
+    + (count ? '<span class="sn-count' + (hot ? ' is-hot' : '') + '">' + esc(String(count)) + '</span>' : '');
+  btn.addEventListener('click', ()=> navGo(item));
+  return btn;
+}
+
 function renderSideNav(){
   const nav = document.getElementById('sideNav');
   if (!nav) return;
   nav.innerHTML = '';
   const list = document.createElement('div');
   list.className = 'sn-list';
-  navGroupsForView().forEach(group=>{
-    const head = document.createElement('div');
+  const saved = sideGroupsOpen();
+
+  // כפתור הבית נעוץ בראש, מחוץ לקבוצות — אותו כלל של תפריט הבורגר: הדרך
+  // חזרה לא מסתתרת מאחורי קבוצה סגורה
+  const groups = navGroupsForView().map(g => ({ ...g, items: g.items.filter(it =>{
+    if (navIsHomeItem(it)){ list.appendChild(sideNavItem(it)); return false; }
+    return true;
+  }) })).filter(g => g.items.length);
+
+  groups.forEach(group=>{
+    const open = saved[group.key] === true;
+    const sub = document.createElement('div');
+    sub.className = 'sn-sub';
+    sub.id = 'sideGroup-' + group.key;
+    sub.hidden = !open;
+
+    /* על קבוצה סגורה: סכום מה שמחכה בתוכה באדום (רק NAV_HOT_ACCS), ואחרת
+       מספר הפריטים. בלי זה הקיפול היה מסתיר עבודה שממתינה. */
+    const hotSum = group.items.reduce(
+      (sum, it) => sum + (NAV_HOT_ACCS.has(navItemTarget(it)) ? navItemCount(it) : 0), 0);
+
+    const head = document.createElement('button');
+    head.type = 'button';
     head.className = 'sn-group';
-    head.innerHTML = dashIcon(group.icon, 'sn-gico') + '<span>' + esc(group.label) + '</span>';
-    list.appendChild(head);
-    group.items.forEach(item=>{
-      const count = navItemCount(item);
-      const hot = count > 0 && NAV_HOT_ACCS.has(navItemTarget(item));
-      const isHome = item.acc === NAV_HOME || item.acc === NAV_ADMIN_HOME;
-      const btn = document.createElement('button');
-      btn.type = 'button';
-      btn.className = 'sn-item' + (isHome && navTab === 'home' ? ' is-on' : '');
-      btn.innerHTML = dashIcon(item.icon, 'sn-ico')
-        + '<span class="sn-label">' + esc(item.label) + '</span>'
-        + (count ? '<span class="sn-count' + (hot ? ' is-hot' : '') + '">' + esc(String(count)) + '</span>' : '');
-      btn.addEventListener('click', ()=> navGo(item));
-      list.appendChild(btn);
+    head.setAttribute('aria-expanded', String(open));
+    head.setAttribute('aria-controls', sub.id);
+    if (group.short) head.title = group.label;
+    head.innerHTML = dashIcon(group.icon, 'sn-gico')
+      // לצד המונה והחץ הכותרת המלאה נחתכה; ‏short (אם יש) והמלאה ב-title
+      + '<span class="sn-glabel">' + esc(group.short || group.label) + '</span>'
+      + (hotSum ? '<span class="sn-gcount is-hot">' + esc(String(hotSum)) + '</span>'
+                : '<span class="sn-gcount">' + esc(String(group.items.length)) + '</span>')
+      + '<svg class="sn-gchev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>';
+    head.addEventListener('click', ()=>{
+      const nowOpen = head.getAttribute('aria-expanded') !== 'true';
+      head.setAttribute('aria-expanded', String(nowOpen));
+      sub.hidden = !nowOpen;
+      sideGroupSetOpen(group.key, nowOpen);
     });
+    list.appendChild(head);
+
+    group.items.forEach(item => sub.appendChild(sideNavItem(item)));
+    list.appendChild(sub);
   });
+
   nav.appendChild(list);
   // הארנק וההגדרות שייכים לסוכן/ת. בתצוגת מנהל/ת הפלטפורמה הסרגל הוא
   // כלי הפלטפורמה בלבד.
