@@ -15,7 +15,7 @@ import { sendPlatformEmail, PLATFORM_CONTACT_EMAIL } from "../_shared/platform-m
 // החיוב החודשי של בעלי מקצוע
 //
 // ‏pg_cron קורא לכאן פעם בשעה, רק כשיש מנוי שהגיע תאריכו או הודעה שממתינה
-// (‏20270102090000_professional_auto_renew.sql). שני שלבים:
+// (‏20270106090000_professional_auto_renew.sql). שני שלבים:
 //
 //   ‏1. **חיוב.** ‏claim_due_professional_renewals פותחת הזמנת חידוש לכל מנוי
 //      שהגיע זמנו ומסמנת אותה על המנוי — לפני שמורנינג שומע/ת עליה. כאן

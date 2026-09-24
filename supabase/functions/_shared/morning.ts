@@ -555,7 +555,7 @@ export function secretsMatch(a: string, b: string): boolean {
 //      ‏MORNING_SAVE_CARD_FIELDS (JSON, למשל `{"<שם השדה>": true}`), ונשלח
 //      רק כשהוא מוגדר. בלעדיו הטופס נשלח בדיוק כמו היום.
 //   2. החיוב עצמו נעול במתג `pricing_config.recurring_charging_enabled`,
-//      שנולד כבוי (‏20270102090000_professional_auto_renew.sql).
+//      שנולד כבוי (‏20270106090000_professional_auto_renew.sql).
 //   3. גם כשמורנינג עונה "הצליח", ההזמנה נסגרת רק אחרי שמסמך ה-320 נמצא ב-
 //      ‏verifyPaymentByReference — אותו אימות של כל תשלום אחר באתר.
 //

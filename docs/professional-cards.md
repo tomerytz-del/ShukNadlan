@@ -271,7 +271,7 @@ RLS. הוא רץ בהרשאות הקורא, ה-policy של הטבלה עדיין
 | `supabase/migrations/20261231090000_professional_free_months.sql` | הטבת ההצטרפות — יומן המימושים, הזכאות, המימוש וסימון ההטבה ברשימת המנהל/ת |
 | `supabase/functions/professional-signup/index.ts` | ההרשמה (anon) — יוצרת את הכרטיסייה ואת האסימון ומחזירה אותו פעם אחת |
 | `supabase/functions/professional-manage/index.ts` | load / save / upload / extend / renew_on / renew_off לפי אסימון (anon) |
-| `supabase/migrations/20270102090000_professional_auto_renew.sql` | החידוש החודשי — המנויים, הטריגר, הבחירה לחיוב, הביטול, והתזמון |
+| `supabase/migrations/20270106090000_professional_auto_renew.sql` | החידוש החודשי — המנויים, הטריגר, הבחירה לחיוב, הביטול, והתזמון |
 | `supabase/functions/billing-renew/index.ts` | החיוב החודשי וההודעות במייל (pg_cron) |
 | `professional-signup.html` | טופס ההצטרפות + מסך הסיום עם קישור העריכה |
 | `professional-manage.html` | מסך העריכה — כולל העלאת תמונות, תצוגה מקדימה של האריח והארכת הפרסום |
@@ -320,7 +320,7 @@ RLS. הוא רץ בהרשאות הקורא, ה-policy של הטבלה עדיין
 
 ## חידוש חודשי אוטומטי
 
-מיגרציה `20270102090000_professional_auto_renew.sql`, פונקציה
+מיגרציה `20270106090000_professional_auto_renew.sql`, פונקציה
 `supabase/functions/billing-renew`. רכישה בתשלום (הרשמה או הארכה) מסמנת
 **כברירת מחדל** חידוש חודשי: יום לפני סוף התקופה נגבה חודש נוסף מהכרטיס
 ששמור אצל מורנינג, עד ביטול במסך העריכה. תנאי השימוש: `terms.html` §15.
