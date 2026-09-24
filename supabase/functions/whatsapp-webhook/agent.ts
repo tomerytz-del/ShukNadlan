@@ -440,7 +440,9 @@ const TOOLS: Anthropic.Tool[] = [
       "מחיר, מחיר למ\"ר, תאריך ומרחק. " +
       "**זמין במסלול Elite בלבד**; במסלול אחר הכלי מחזיר tier_required, ואז " +
       "יש לומר לסוכן/ת שהיכולת שייכת ל-Elite ולא להמציא נתונים. " +
-      "אלה עסקאות מכר בלבד, ולא שכירות.",
+      "אלה עסקאות מכר בלבד, ולא שכירות. " +
+      "**בלי רחוב** (\"איזה עסקאות היו בנוף הגליל\") הכלי מחזיר את העסקאות " +
+      "האחרונות בעיר כולה - אל תנחש/י רחוב בשביל זה.",
     input_schema: {
       type: "object",
       properties: {
@@ -461,7 +463,7 @@ const TOOLS: Anthropic.Tool[] = [
           description: "סינון לסוג נכס כפי שהוא במאגר: דירה, בנין או קרקע.",
         },
       },
-      required: ["street"],
+      required: [],
     },
   },
   {
@@ -1988,16 +1990,17 @@ async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unk
   const city = String(input.city || "עפולה").trim();
   const street = String(input.street || "").trim();
   const houseNumber = String(input.house_number || "").trim();
-  if (!street) return { ok: false, error: "צריך שם רחוב." };
 
-  const coords = houseNumber ? await geocodeInCity(ctx.supabase, city, street, houseNumber) : null;
+  // בלי רחוב = העיר כולה (מיגרציה 20270104090000). קודם זה החזיר "צריך
+  // שם רחוב", והעוזר ניחש שני רחובות "מרכזיים" שלא היו במאגר.
+  const coords = street && houseNumber ? await geocodeInCity(ctx.supabase, city, street, houseNumber) : null;
 
   const { data, error } = await ctx.supabase.rpc("agent_market_deals_lookup", {
     p_agent_id:      ctx.agent.id,
     p_city:          city,
     p_lat:           coords?.lat ?? null,
     p_lng:           coords?.lng ?? null,
-    p_street:        street,
+    p_street:        street || null,
     p_house_number:  houseNumber || null,
     p_radius_m:      Number(input.radius_m) || 300,
     p_months:        Number(input.months) || 24,
@@ -2020,10 +2023,22 @@ async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unk
 
   // הנחיה ולא נתון, באותו היגיון של COVERAGE_GUIDANCE ב-cma_report: מודל
   // שמקבל רשימה ריקה ימלא את החסר באומדן משלו אם לא ייאמר לו במפורש שאסור.
+  // ‏coverage חוזר רק כשהתוצאה ריקה: מה **כן** יש במאגר לעיר. בלעדיו העוזר
+  // הסיק "המאגר לא מכסה את נוף הגליל" על עיר עם 1,512 עסקאות.
+  const coverage = res.coverage as Record<string, unknown> | null | undefined;
   const guidance = deals.length === 0
-    ? "לא נמצאה אף עסקה בטווח ובחלון הזמן. אמור/י זאת במפורש, הצע/י להרחיב את הרדיוס או את מספר החודשים, ואל תאמוד/תאמדי מחיר בעצמך."
+    ? (coverage && Number(coverage.deals_in_city) > 0
+      ? "לא נמצאה עסקה שעונה על החיפוש, **אבל העיר כן במאגר**: coverage מראה כמה עסקאות יש בה, " +
+        "באיזה טווח תאריכים (first_sold_at עד last_sold_at) ובאילו רחובות (top_streets). " +
+        "אמור/י זאת, הצע/י רחוב מתוך top_streets או חיפוש בעיר כולה, ואל תאמר/י שהעיר אינה במאגר. " +
+        "אם החיפוש היה על תקופה ארוכה מהטווח - הסבר/י שהמאגר מחזיק רק את 1,500 העסקאות האחרונות ביישוב."
+      : "אין במאגר אף עסקה בעיר הזו. אמור/י זאת במפורש, ואל תאמוד/תאמדי מחיר בעצמך.")
     : res.mode === "street"
     ? "לא הצלחנו למקם את הכתובת, ולכן החיפוש נעשה לפי **שם הרחוב** ולא לפי מרחק. אמור/י זאת, ואל תציג/י מרחקים."
+    : res.mode === "street_partial"
+    ? "שם הרחוב לא נמצא כמו שהוא, והתוצאות הן מרחוב ש**שמו דומה** (שם אחד מוכל בשני). אמור/י מה שם הרחוב במאגר, כדי שהסוכן/ת יוודא/תוודא שזה הרחוב הנכון."
+    : res.mode === "city"
+    ? "אלה העסקאות האחרונות **בעיר כולה**, לא ברחוב מסוים. אל תציג/י מרחקים."
     : "";
 
   return {
@@ -2037,6 +2052,7 @@ async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unk
     total_found: res.total_found,
     source: res.source,
     deals,
+    ...(coverage ? { coverage } : {}),
     ...(guidance ? { guidance } : {}),
   };
 }
@@ -3304,7 +3320,8 @@ const SYSTEM_STATIC: string = (() => {
       "= market_deals_lookup. ההבדל מ-cma_report: הוא מקבל **כתובת** ולא נכס, ולכן הוא " +
       "עונה גם לפני שהנכס במערכת. הוא Elite בלבד; אם חזר tier_required אמור/אמרי שזו " +
       "יכולת של Elite ואל תמציא/י עסקאות. אם mode הוא street, ציין/י שהחיפוש היה לפי " +
-      "שם הרחוב ולא לפי מרחק, ואל תציג/י מרחקים.",
+      "שם הרחוב ולא לפי מרחק, ואל תציג/י מרחקים. \"איזה עסקאות היו בעיר X\" = הכלי **בלי רחוב**. " +
+      "ואם חזר guidance - בצע/י אותו; בפרט, לעולם אל תאמר/י שעיר אינה במאגר כש-coverage מראה עסקאות.",
     "- \"מה מותר לבנות\" / \"מה הייעוד\" / \"יש תוכנית על המגרש\" = planning_info. " +
       "סיים/י תמיד במשפט ה-disclaimer שחוזר מהכלי - זה מידע כללי ולא בדיקה מול הוועדה.",
     "- \"כמה צפיות\" / \"למה אין פניות\" = property_performance. אם יש מעט צפיות והנכס " +
