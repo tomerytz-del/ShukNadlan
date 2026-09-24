@@ -22767,12 +22767,27 @@ function renderDealsLookup(res){
   if (!box) return;
   const deals = res.deals || [];
   if (!deals.length){
-    box.innerHTML = '<div class="empty-state">לא נמצאה אף עסקה בטווח ובחלון הזמן. נסו רדיוס גדול יותר או יותר חודשים.</div>';
+    /* ‏coverage: מה כן יש במאגר לעיר. בלעדיו "אפס" נקרא כמו "העיר אינה
+       במאגר", גם כשיש בה 1,512 עסקאות (מיגרציה 20270104090000). */
+    const cov = res.coverage;
+    if (cov && Number(cov.deals_in_city) > 0){
+      const streets = (cov.top_streets || []).map(s => `${esc(s.street)} (${esc(String(s.deals))})`).join(', ');
+      box.innerHTML = `<div class="empty-state">לא נמצאה עסקה שעונה על החיפוש.
+        בעיר יש במאגר ${esc(String(cov.deals_in_city))} עסקאות, מ-${esc(String(cov.first_sold_at || ''))} עד ${esc(String(cov.last_sold_at || ''))}.
+        ${streets ? `<br>הרחובות עם הכי הרבה עסקאות: ${streets}` : ''}
+        <br>אפשר גם להשאיר את הרחוב ריק ולחפש בעיר כולה.</div>`;
+    } else {
+      box.innerHTML = '<div class="empty-state">אין במאגר עסקאות בעיר הזו.</div>';
+    }
     return;
   }
   /* שורת ההקשר אינה קישוט: אותה רשימה בדיוק נראית אחרת לגמרי אם היא 300
      מטר או קילומטר, ומי שלא יראה את זה ישווה בין שתי הרצות שונות. */
-  const head = res.mode === 'street'
+  const head = res.mode === 'city'
+    ? `<p class="acc-sub">העסקאות האחרונות <strong>בעיר כולה</strong> ב-${esc(String(res.months))} החודשים האחרונים. ${plural(res.total_found, 'עסקה אחת נמצאה', 'עסקאות נמצאו', esc(String(res.total_found)))}.</p>`
+    : res.mode === 'street_partial'
+    ? `<p class="acc-sub">שם הרחוב לא נמצא כמו שהוא, ולכן מוצגות עסקאות מרחוב <strong>ששמו דומה</strong>. בדקו את שם הרחוב בטבלה. ${plural(res.total_found, 'עסקה אחת נמצאה', 'עסקאות נמצאו', esc(String(res.total_found)))}.</p>`
+    : res.mode === 'street'
     ? `<p class="acc-sub">לא הצלחנו למקם את הכתובת, ולכן החיפוש נעשה <strong>לפי שם הרחוב</strong> ולא לפי מרחק. ${plural(res.total_found, 'עסקה אחת נמצאה', 'עסקאות נמצאו', esc(String(res.total_found)))}.</p>`
     : `<p class="acc-sub"><strong>${esc(String(res.total_found))}</strong> עסקאות ברדיוס ${esc(String(res.radius_meters))} מ' ב-${esc(String(res.months))} החודשים האחרונים. מוצגות ${esc(String(res.returned))}.</p>`;
 
@@ -22815,9 +22830,10 @@ document.getElementById('mdLookupBtn')?.addEventListener('click', async ()=>{
   box.innerHTML = '';
   feedback.textContent = '';
 
-  if (!city || !street){
+  // רחוב אינו חובה: בלעדיו מוחזרות העסקאות האחרונות בעיר כולה
+  if (!city){
     feedback.style.color = 'var(--red)';
-    feedback.textContent = 'נא למלא עיר ורחוב';
+    feedback.textContent = 'נא למלא עיר';
     return;
   }
 
@@ -22828,7 +22844,7 @@ document.getElementById('mdLookupBtn')?.addEventListener('click', async ()=>{
       p_city:          city,
       p_lat:           coords?.lat ?? null,
       p_lng:           coords?.lng ?? null,
-      p_street:        street,
+      p_street:        street || null,
       p_house_number:  houseNum || null,
       p_radius_m:      Number(document.getElementById('mdRadius').value) || 300,
       p_months:        Number(document.getElementById('mdMonths').value) || 24,
