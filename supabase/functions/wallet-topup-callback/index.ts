@@ -7,7 +7,7 @@ import {
   json,
   morningConfigured,
   secretsMatch,
-  verifyPayment,
+  verifyPaymentByReference,
 } from "../_shared/morning.ts";
 import { announceProfessionalPaid } from "../_shared/platform-signup-alert.ts";
 
@@ -99,19 +99,16 @@ const KINDS: Record<OrderKind, { table: string; complete: string; fail: string; 
 async function settleOrder(
   supabase: any,
   kind: OrderKind,
-  order: { id: string; amount: number; status: string; provider_form_id: string | null },
+  order: { id: string; amount: number; status: string; created_at: string | null },
 ): Promise<string> {
   const k = KINDS[kind];
   if (order.status !== "pending") return order.status;
 
-  // אין מזהה טופס — כלומר יצירת הטופס נכשלה אחרי שהשורה כבר נפתחה. אין למה
-  // לפנות, ואין תשלום שיכול היה להיווצר.
-  if (!order.provider_form_id) {
-    await supabase.rpc(k.fail, { [k.idParam]: order.id, p_reason: "no_provider_form_id" });
-    return "failed";
-  }
-
-  const status = await verifyPayment(order.provider_form_id);
+  // **אין כאן עוד יציאה על provider_form_id ריק.** ‏`/payments/form` אינו
+  // מחזיר מזהה, כך שהוא ריק בכל תשלום — והבדיקה הזו סגרה ככושל את התשלום
+  // האמיתי הראשון (24.9.2026) אחרי שהכרטיס כבר חויב. האימות הולך למסמך
+  // שמורנינג הפיקה, לפי מזהה השורה שלנו.
+  const status = await verifyPaymentByReference(order.id, order.created_at);
 
   // מורנינג לא ענה/תה. **לא נוגעים בשורה** — היא נשארת pending והסבב הבא
   // ינסה שוב. סגירה ככושלת כאן הייתה מוחקת תשלום אמיתי בגלל תקלת רשת רגעית.
@@ -165,7 +162,7 @@ async function reconcile(supabase: any): Promise<Record<string, number>> {
     const k = KINDS[kind];
     const { data: rows } = await supabase
       .from(k.table)
-      .select("id, amount, status, provider_form_id, created_at")
+      .select("id, amount, status, created_at")
       .eq("status", "pending")
       .lt("created_at", staleCutoff)
       .order("created_at", { ascending: true })
@@ -227,6 +224,12 @@ Deno.serve(async (req: Request) => {
 
   // מהגוף נלקחים **מזהים בלבד**, ורק כדי לדעת איזו שורה לבדוק.
   const { topupId, formId } = extractReference(body);
+  // צורת הגוף טרם נצפתה מעולם, ולכן היא נרשמת — שמות מפתחות ומזהים בלבד,
+  // בלי פרטי הלקוח/ה שבו.
+  console.log("wallet-topup-callback: webhook", JSON.stringify({
+    keys: body && typeof body === "object" ? Object.keys(body) : typeof body,
+    topupId, formId,
+  }));
   if (!topupId && !formId) return json({ error: "missing_reference" }, 400);
 
   // איזו משלוש הטבלאות. אין כאן ניחוש: המזהה הוא UUID של שורה, ולכן הוא
@@ -234,7 +237,7 @@ Deno.serve(async (req: Request) => {
   let found: { kind: OrderKind; row: any } | null = null;
   for (const kind of ["topup", "subscription", "ad"] as OrderKind[]) {
     const q = supabase.from(KINDS[kind].table)
-      .select("id, amount, status, provider_form_id");
+      .select("id, amount, status, created_at");
     const { data } = topupId
       ? await q.eq("id", topupId).maybeSingle()
       : await q.eq("provider_form_id", formId).maybeSingle();
