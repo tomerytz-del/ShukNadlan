@@ -17176,6 +17176,8 @@ async function loadClients(){
         ? 'קובץ הלקוחות לא הופעל עדיין בפרויקט הזה.'
         : 'שגיאה בטעינת הלקוחות: ' + esc(error.message)) + '</div>';
     accSetCount('accClients', '');
+    const kpiNote = document.getElementById('kpiClientsNote');
+    if (kpiNote) kpiNote.textContent = 'קובץ הלקוחות לא נטען';
     return;
   }
 
@@ -17252,6 +17254,8 @@ function clientSearchBlob(c){
 }
 
 function renderClients(){
+  // כרטיס "לקוחות מחפשים" בדף הבית קורא מאותן שורות — כל שינוי כאן מגיע אליו
+  renderClientsCard();
   const listEl = document.getElementById('clientsList');
   const q = document.getElementById('clientSearch').value.trim().toLowerCase();
   const status = document.getElementById('clientStatusFilter').value;
@@ -19874,8 +19878,9 @@ const TODO_ITEMS = [
     cta:{ html:'פתחו את הליד עכשיו', icon:'flame', run:()=> gotoSection('accLeads') } },
   { acc:'accAlerts',   icon:'target',  tone:'sand',  many:n => n + ' התאמות נכס ללקוחות',
     one:'התאמת נכס אחת ללקוח/ה',          sub:'נכסים שעונים על הדרישות',
-    cta:{ kind:'wa', html:'שלח <span class="todo-cta-em">וואטסאפ</span> ללקוח',
-          run:()=> openWaShare() } },
+    /* הכפתור היה "שלח וואטסאפ ללקוח", והוא כפול: השיתוף בוואטסאפ יושב
+       בשורת הפעולות המהירות שמתחת. כאן הפעולה היא לראות את ההתאמות. */
+    cta:{ html:'לצפייה בהתאמות', icon:'target', run:()=> gotoSection('accAlerts') } },
   { acc:'accReviews',  icon:'star',    tone:'mint',  many:n => n + ' ביקורות לאישור',
     one:'ביקורת אחת לאישור',              sub:'חוות דעת שממתינות לך',
     cta:{ html:'לאישור הביקורות', icon:'check', run:()=> gotoSection('accReviews') } },
@@ -20173,7 +20178,7 @@ function syncStickyKpis(){
   const pairs = [
     ['kpiCommissionValue', 'ksCommission'],
     ['kpiActiveValue',     'ksActive'],
-    ['kpiExclusiveValue',  'ksExclusive'],
+    ['kpiClientsValue',    'ksClients'],
   ];
   pairs.forEach(([from, to])=>{
     const src = document.getElementById(from);
@@ -20627,49 +20632,64 @@ function renderActiveCard(active){
   }).length;
   deltaEl.hidden = thisMonth === 0;
   if (thisMonth > 0) deltaEl.textContent = '▲ +' + thisMonth;
-}
-
-function renderExclusiveCard(active){
-  const valueEl = document.getElementById('kpiExclusiveValue');
-  const noteEl = document.getElementById('kpiExclusiveNote');
-  const deltaEl = document.getElementById('kpiExclusiveDelta');
-  const ratioEl = document.getElementById('kpiExclusiveRatio');
-  if (!valueEl) return;
 
   // "בבלעדיות" הוא מאפיין הנכס exclusive — אותו אחד שמסומן בטופס הוספת נכס
-  const exclusive = active.filter(p => Array.isArray(p.features) && p.features.includes('exclusive'));
-  const pct = active.length ? Math.round(exclusive.length / active.length * 100) : 0;
+  const tagEl = document.getElementById('kpiActiveExclusive');
+  if (tagEl){
+    const exclusive = active.filter(p => Array.isArray(p.features) && p.features.includes('exclusive')).length;
+    tagEl.hidden = active.length === 0;
+    tagEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 8.8-8.8"/><path d="m17 6 3 3"/></svg>'
+      + esc(exclusive + ' בבלעדיות');
+    tagEl.title = active.length
+      ? Math.round(exclusive / active.length * 100) + '% מהתיק הפעיל בבלעדיות'
+      : '';
+  }
+}
 
-  countUp(valueEl, exclusive.length, v => String(Math.round(v)));
-  noteEl.textContent = active.length === 0
-    ? 'סמנו "בבלעדיות" בטופס הנכס'
-    : `${pct}% מהתיק (${exclusive.length} מתוך ${active.length})`;
+/* ---------- לקוחות מחפשים ----------
+   הביקוש מול ההיצע שבכרטיס הנכסים: כמה לקוחות מחפשים עכשיו (‏status
+   ‏active), וכמה מהם כבר יש להם נכס מתאים — זה הפס. הכרטיס הזה החליף את
+   "נכסים בבלעדיות", שהיה עוד מספר על אותו תיק ועוד קישור לאותה רשימה. */
+function renderClientsCard(){
+  const valueEl = document.getElementById('kpiClientsValue');
+  const noteEl = document.getElementById('kpiClientsNote');
+  const deltaEl = document.getElementById('kpiClientsDelta');
+  const ratioEl = document.getElementById('kpiClientsRatio');
+  if (!valueEl) return;
+
+  const searching = clientRows.filter(c => (c.status || 'active') === 'active');
+  const matched = searching.filter(c => (clientMatchCounts[c.id] || 0) > 0).length;
+  const pct = searching.length ? Math.round(matched / searching.length * 100) : 0;
+
+  countUp(valueEl, searching.length, v => String(Math.round(v)));
+  noteEl.textContent = searching.length === 0
+    ? 'הוסיפו לקוח ונתחיל להתאים'
+    : (matched === 1 ? 'לאחד מהם יש נכס מתאים' : matched + ' מהם עם נכס מתאים');
 
   const now = new Date();
-  const thisMonth = exclusive.filter(p =>{
-    const d = p.created_at ? new Date(p.created_at) : null;
+  const thisMonth = clientRows.filter(c =>{
+    const d = c.created_at ? new Date(c.created_at) : null;
     return d && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
   }).length;
+  deltaEl.hidden = thisMonth === 0;
   if (thisMonth > 0){
-    deltaEl.hidden = false;
     deltaEl.textContent = '▲ +' + thisMonth;
-    deltaEl.title = plural(thisMonth, 'נכס אחד בבלעדיות נוסף', 'נכסים בבלעדיות נוספו') + ' החודש';
-  } else {
-    deltaEl.hidden = true;
+    deltaEl.title = plural(thisMonth, 'לקוח אחד נוסף', 'לקוחות נוספו') + ' החודש';
   }
 
   if (ratioEl){
     ratioEl.querySelector('span').style.width = pct + '%';
     ratioEl.setAttribute('aria-label',
-      active.length ? pct + '% מהתיק הפעיל בבלעדיות' : 'אין עדיין נכסים פעילים');
+      searching.length ? pct + '% מהלקוחות המחפשים עם נכס מתאים' : 'אין עדיין לקוחות מחפשים');
   }
+  syncStickyKpis();
+  setTimeout(syncStickyKpis, 700);
 }
 
 function renderDashboardOverview(){
   const active = dashActiveProperties();
   renderCommissionCard(active);
   renderActiveCard(active);
-  renderExclusiveCard(active);
   renderAgentPanelSummary(active);
   // ‏countUp מגלגל את המספרים לאורך 650ms; הפס הדביק מסתנכרן בסופם
   setTimeout(syncStickyKpis, 700);
