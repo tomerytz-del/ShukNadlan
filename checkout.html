@@ -212,6 +212,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
       <button type="submit" class="btn btn-gold" id="payBtn" disabled
               style="width:100%;padding:14px">המשך לתשלום מאובטח ←</button>
+      <!-- טעינה בלי חיוב אמיתי — מנהל/ת פלטפורמה בלבד. מוסתר לכל השאר, והשרת
+           (wallet-topup / project-manage) דוחה בקשה כזו מכל אחד/ת אחר/ת. -->
+      <button type="button" class="btn btn-ghost" id="testTopupBtn"
+              style="display:none;width:100%;padding:10px;margin-top:10px;font-size:.85rem">טעינת בדיקה ללא חיוב (מנהל/ת פלטפורמה)</button>
       <p id="checkoutMsg" role="status" aria-live="polite"
          style="min-height:1.3em;margin-top:10px;font-size:.88rem;text-align:center"></p>
     </form>
@@ -260,7 +264,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
    נשלח/ת להתחברות, וחוזר/ת עם מה שהקליד/ה — אבל לא מגיע/ה לסליקה בלי חשבון. */
 const params     = new URLSearchParams(location.search);
 const rawProduct = params.get('product');
-const isWallet   = rawProduct === null || rawProduct === 'wallet';
+/* ‏?product=developer_wallet — ארנק היזם/ית (developer-crm). אותו עמוד, אותם
+   שדות ואותו אישור תקנון; ההבדל הוא נקודת הקצה (project-manage) והסכומים. */
+const isDevWallet = rawProduct === 'developer_wallet';
+const isWallet   = rawProduct === null || rawProduct === 'wallet' || isDevWallet;
 
 if (!isWallet){
   /* כל מה שאינו טעינת ארנק — ובכלל זה המנוי שהוסר — לא מקבל כאן טופס. */
@@ -276,7 +283,12 @@ if (!isWallet){
   document.title = 'אין רכישת מסלול | שוק נדל״ן';
 } else {
   document.getElementById('headKicker').textContent = 'עמוד תשלום';
-  document.getElementById('headTitle').textContent = 'טעינת ארנק';
+  document.getElementById('headTitle').textContent = isDevWallet ? 'טעינת ארנק יזם' : 'טעינת ארנק';
+  if (isDevWallet){
+    document.getElementById('productName').textContent = 'טעינת ארנק יזם';
+    document.getElementById('productDesc').textContent =
+      'הסכום נזקף לארנק החברה ומשמש לדמי דף הנחיתה, לקידומים ולרכישת לידים. אין חיוב חוזר ואין כרטיס שמור.';
+  }
   document.getElementById('headLead').textContent =
     'שלב אחרון לפני המעבר לתשלום. בחרו סכום, בדקו את הפרטים, אשרו את התקנון, והמשיכו לעמוד הסליקה המאובטח.';
 }
@@ -349,7 +361,12 @@ function localFromFullPhone(raw){
 /* ‏crm.html מגיע לכאן עם ?amount=… שנגזר ממה שחסר בארנק לרכישה מסוימת.
    ‏TOPUP_AMOUNTS שם, ALLOWED_AMOUNTS ב-wallet-topup והאפשרויות ב-select כאן
    הן אותה רשימה; סכום שאינו בה פשוט לא נבחר, והברירה נשארת ₪100. */
-const ALLOWED_AMOUNTS = [100,200,300,400,500];
+/* ארנק היזם/ית: הסכומים של DEVELOPER_TOPUP_AMOUNTS ב-project-manage. */
+const ALLOWED_AMOUNTS = isDevWallet ? [100,350,500,1000,2000] : [100,200,300,400,500];
+if (isDevWallet){
+  amountEl.innerHTML = ALLOWED_AMOUNTS.map(a =>
+    '<option value="' + a + '">₪' + a.toLocaleString('he-IL') + '</option>').join('');
+}
 const urlAmount = Number(params.get('amount'));
 if (ALLOWED_AMOUNTS.includes(urlAmount)) amountEl.value = String(urlAmount);
 
@@ -417,8 +434,12 @@ let countryRestored = false;
     signedIn = true;
     setIfEmpty(emailEl, session.user.email || '');
     const { data: agent } = await sb.from('agency_members')
-      .select('id, display_name, phone').eq('user_id', session.user.id).maybeSingle();
-    if (!agent) return;
+      .select('id, display_name, phone, is_platform_admin').eq('user_id', session.user.id).maybeSingle();
+    /* כפתור טעינת הבדיקה — למנהל/ת פלטפורמה בלבד. זו תצוגה; השרת בודק שוב
+       ודוחה כל אחד/ת אחר/ת ב-test_topup_forbidden. */
+    if (agent && agent.is_platform_admin) document.getElementById('testTopupBtn').style.display = '';
+    /* יזם/ית אינו/ה סוכן/ת: אין פרופיל חשבונית של סוכן/ת למלא ממנו. */
+    if (!agent || isDevWallet) return;
 
     /* ---------- הפרטים מהחשבונית הקודמת ----------
        חמשת השדות האלה אינם משתנים לעולם, והם הוקלדו מחדש בכל טעינת ארנק.
@@ -473,6 +494,41 @@ let countryRestored = false;
   }
 })();
 
+/* ---------- טעינת בדיקה (מנהל/ת פלטפורמה) ----------
+   בלי פרטי חשבונית ובלי אישור תקנון: אין כאן חיוב ואין מסמך. השורה נרשמת
+   בשרת כ-test_mode, עם מי שביצע/ה אותה. */
+document.getElementById('testTopupBtn').addEventListener('click', async ()=>{
+  const btn = document.getElementById('testTopupBtn');
+  const amount = Number(amountEl.value);
+  if (!confirm('לטעון ₪' + amount.toLocaleString('he-IL') + ' לארנק כטעינת בדיקה, ללא חיוב?')) return;
+  btn.disabled = true;
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(SUPABASE_URL + (isDevWallet ? '/functions/v1/project-manage' : '/functions/v1/wallet-topup'), {
+      method: 'POST',
+      headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY,
+                 'Authorization': 'Bearer ' + (session ? session.access_token : '') },
+      body: JSON.stringify(isDevWallet ? { action:'topup', amount, test_mode:true } : { amount, test_mode:true }),
+    });
+    const data = await res.json();
+    if (!res.ok || data.error){
+      msgEl.style.color = 'var(--red)';
+      msgEl.textContent = data.error === 'test_topup_forbidden'
+        ? 'טעינת בדיקה מותרת למנהל/ת פלטפורמה בלבד.'
+        : 'טעינת הבדיקה נכשלה - נסו שוב.';
+      return;
+    }
+    msgEl.style.color = 'var(--blue)';
+    msgEl.textContent = 'נטענו ₪' + amount.toLocaleString('he-IL') + ' לארנק כטעינת בדיקה, ללא חיוב אמיתי.';
+  } catch(err){
+    console.error(err);
+    msgEl.style.color = 'var(--red)';
+    msgEl.textContent = 'שגיאת רשת - נסו שוב.';
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   if (!isWallet) return;       /* הטופס מוסתר בלאו הכי; זו הרצועה השנייה */
@@ -515,12 +571,12 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
     msgEl.textContent = 'מעבירים להתחברות - הפרטים יישמרו וניתן יהיה להשלים את התשלום מיד אחריה.';
     try{
       sessionStorage.setItem('shuknadlan.checkout', JSON.stringify(
-        { product: 'wallet',
+        { product: isDevWallet ? 'developer_wallet' : 'wallet',
           amount: Number(amountEl.value), first_name: first, last_name: last,
           email, country: countryEl.value, phone_local: phoneEl.value.trim(), phone,
           business: businessEl.value.trim(), tax_id: taxIdEl.value.trim() }));
     } catch(_){ /* גלישה פרטית — ההתחברות עדיין תעבוד, רק בלי מילוי אוטומטי */ }
-    setTimeout(()=>{ location.href = '/crm'; }, 900);
+    setTimeout(()=>{ location.href = isDevWallet ? '/developer-crm' : '/crm'; }, 900);
     return;
   }
 
@@ -542,8 +598,10 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
       client_business: businessEl.value.trim(),
       client_tax_id: taxIdEl.value.trim(),
     };
-    const payload = { amount: Number(amountEl.value), ...client };
-    const res = await fetch(SUPABASE_URL + '/functions/v1/wallet-topup', {
+    const payload = isDevWallet
+      ? { action: 'topup', amount: Number(amountEl.value), ...client }
+      : { amount: Number(amountEl.value), ...client };
+    const res = await fetch(SUPABASE_URL + (isDevWallet ? '/functions/v1/project-manage' : '/functions/v1/wallet-topup'), {
       method: 'POST',
       headers: { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY,
                  'Authorization': 'Bearer ' + session.access_token },
@@ -555,6 +613,8 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
       msgEl.textContent =
         data.error === 'no_matching_agent_profile'
           ? 'החשבון אינו משויך למשרד או לבעל/ת מקצוע. פנו אלינו ונסדר.'
+        : data.error === 'no_developer_account'
+          ? 'החשבון אינו משויך לחברה יזמית. היכנסו דרך אזור היזמים ונסו שוב.'
         : data.error === 'too_many_open_topups'
           ? 'יש כמה טעינות שטרם הושלמו. השלימו או המתינו מעט ונסו שוב.'
         : data.error === 'morning_not_configured' || data.error === 'morning_misconfigured'
@@ -576,11 +636,10 @@ document.getElementById('checkoutForm').addEventListener('submit', async (e)=>{
     }
     if (data.redirect_url){ location.href = data.redirect_url; return; }
 
-    /* אין redirect_url — כלומר הסליקה עדיין לא מחוברת והשרת פעל במצב בדיקה.
-       שם הזיכוי כבר קרה, ולכן מותר להצהיר עליו — ובמפורש כמצב בדיקה. */
-    msgEl.style.color = 'var(--blue)';
-    msgEl.textContent = 'נטענו ₪' + Number(amountEl.value).toLocaleString('he-IL') +
-      ' לארנק במצב בדיקה, ללא חיוב אמיתי.';
+    /* אין redirect_url ואין שגיאה — לא אמור לקרות: טעינה בלי תשלום קיימת רק
+       בכפתור הבדיקה של מנהל/ת הפלטפורמה, והיא לא עוברת כאן. */
+    msgEl.style.color = 'var(--red)';
+    msgEl.textContent = 'שגיאה בפתיחת התשלום - נסו שוב.';
     payBtn.disabled = false;
   } catch(err){
     console.error(err);

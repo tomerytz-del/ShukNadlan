@@ -61,9 +61,9 @@ const STALE_MINUTES = 10;
 const EXPIRE_MINUTES = 180;
 
 // ---------------------------------------------------------------------------
-// שלושה סוגי תשלום, מכונת מצבים אחת
+// ארבעה סוגי תשלום, מכונת מצבים אחת
 //
-// טעינת ארנק, רכישת מנוי ורכישת כרטיסיית פרסום הן אותו מסלול בדיוק: שורת
+// טעינת ארנק, רכישת מנוי, רכישת כרטיסיית פרסום וטעינת ארנק יזם/ית הן אותו מסלול: שורת
 // pending, טופס תשלום, אימות מול מורנינג, ואז הפעולה. ההבדל היחיד הוא שם
 // הטבלה ושמות שלוש הפונקציות — ולכן הוא נתון, ולא ענף נוסף בקוד.
 //
@@ -71,7 +71,8 @@ const EXPIRE_MINUTES = 180;
 // שני היה סוד נוסף לנהל, לסובב ולשכוח. ההפרדה נעשית לפי המזהה שחוזר —
 // ‏UUID של שורה, שממילא ייחודי בין הטבלאות.
 // ---------------------------------------------------------------------------
-type OrderKind = "topup" | "subscription" | "ad";
+type OrderKind = "topup" | "subscription" | "ad" | "developer_topup";
+const ALL_KINDS: OrderKind[] = ["topup", "subscription", "ad", "developer_topup"];
 
 const KINDS: Record<OrderKind, { table: string; complete: string; fail: string; idParam: string }> = {
   topup: {
@@ -93,6 +94,14 @@ const KINDS: Record<OrderKind, { table: string; complete: string; fail: string; 
     complete: "complete_ad_order",
     fail: "fail_ad_order",
     idParam: "p_order_id",
+  },
+  // ארנק היזם/ית. עד 20270107090000 הטעינה זוכתה בלי תשלום בכלל; מעכשיו
+  // היא הרביעית באותה מכונה, ו-complete_developer_topup היא היחידה שמזכה.
+  developer_topup: {
+    table: "developer_topups",
+    complete: "complete_developer_topup",
+    fail: "fail_developer_topup",
+    idParam: "p_topup_id",
   },
 };
 
@@ -149,7 +158,7 @@ async function settleOrder(
 // ---------------------------------------------------------------------------
 // ה-reconcile
 // ---------------------------------------------------------------------------
-// סורק את שלוש הטבלאות. מנוי תקוע יקר יותר מטעינה תקועה — הסוכן/ת שילם/ה
+// סורק את ארבע הטבלאות. מנוי תקוע יקר יותר מטעינה תקועה — הסוכן/ת שילם/ה
 // ‏₪750 ועובד/ת במסלול החינמי — ולכן אין שום סיבה שהוא ייסרק בתדירות נמוכה
 // יותר או יחכה למחזור נפרד.
 async function reconcile(supabase: any): Promise<Record<string, number>> {
@@ -158,7 +167,7 @@ async function reconcile(supabase: any): Promise<Record<string, number>> {
 
   const stats = { checked: 0, credited: 0, failed: 0, still_pending: 0 };
 
-  for (const kind of ["topup", "subscription", "ad"] as OrderKind[]) {
+  for (const kind of ALL_KINDS) {
     const k = KINDS[kind];
     const { data: rows } = await supabase
       .from(k.table)
@@ -232,10 +241,10 @@ Deno.serve(async (req: Request) => {
   }));
   if (!topupId && !formId) return json({ error: "missing_reference" }, 400);
 
-  // איזו משלוש הטבלאות. אין כאן ניחוש: המזהה הוא UUID של שורה, ולכן הוא
+  // איזו מארבע הטבלאות. אין כאן ניחוש: המזהה הוא UUID של שורה, ולכן הוא
   // נמצא באחת מהן בלבד. הסדר הוא לפי שכיחות ולא לפי חשיבות.
   let found: { kind: OrderKind; row: any } | null = null;
-  for (const kind of ["topup", "subscription", "ad"] as OrderKind[]) {
+  for (const kind of ALL_KINDS) {
     const q = supabase.from(KINDS[kind].table)
       .select("id, amount, status, created_at");
     const { data } = topupId

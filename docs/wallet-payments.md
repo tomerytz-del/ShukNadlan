@@ -161,19 +161,62 @@ crm.html                → חוזר עם ?topup=success, בודק את השור
 הסכום המזוכה נלקח תמיד מ-`wallet_topups.amount` — כלומר ממה **שאנחנו**
 רשמנו — ולעולם לא מהקריאה הנכנסת.
 
-## מצב בדיקה, ולמה הוא נשאר
+## טעינה בלי חיוב — מנהל/ת פלטפורמה בלבד
 
-בלי `MORNING_API_KEY_ID`/`SECRET` הכול ממשיך לעבוד כמו קודם: `wallet-topup`
-נופלת ל-`process_wallet_topup`, הטעינה מזכה מיידית, והממשק מציג "מצב בדיקה —
-ללא חיוב אמיתי". איש אינו מחויב.
+**עד ספטמבר 2026** בלי `MORNING_API_KEY_ID`/`SECRET` הטעינה נפלה **מעצמה**
+ל-`process_wallet_topup` וזיכתה מיד, לכל סוכן/ת. זה אפשר למזג את הסליקה לפני
+שחוברה, אבל גם הפך כל סוד שנמחק בטעות לחלוקת קרדיט.
 
-זו לא נוחות אלא תנאי למיזוג בטוח: השינוי הזה נכנס ל-`main` בלי לגעת בהתנהגות
-הקיימת, והמעבר לסליקה אמיתית קורה כשמגדירים את הסודות — **בלי פריסה נוספת
-ובלי שינוי HTML**.
+מעכשיו:
 
-הממשק שואל את השרת מה המצב (`GET /wallet-topup`) במקום להחליט בעצמו. לכן אין
-רגע שבו הכפתור אומר דבר אחד והשרת עושה אחר. התג מתחיל ריק ולא כ"מצב בדיקה":
-תג שגוי לרגע גורם למי שקורא/ת אותו להסיק שלא ייגבה תשלום — ואז נגבה.
+| מצב | התשובה |
+| --- | --- |
+| מורנינג מוגדר | טופס תשלום, כמו תמיד |
+| מורנינג **לא** מוגדר | `503 morning_not_configured` — שגיאה, לא כסף |
+| `test_mode: true` ממנהל/ת פלטפורמה | `process_wallet_topup`, זיכוי מיידי, השורה `test_mode=true` |
+| `test_mode: true` מכל אחד/ת אחר/ת | `403 test_topup_forbidden` |
+
+בעמוד התשלום (`checkout.html`) מופיע למנהל/ת הפלטפורמה כפתור נפרד, "טעינת
+בדיקה ללא חיוב". ההצגה היא תצוגה בלבד; ההכרעה בשרת, לפי
+`agency_members.is_platform_admin`. `GET /wallet-topup` מחזיר `can_test_topup`,
+ו-`test_mode` בתשובה הוא תמיד `false` (נשאר בשביל לקוחות ישנים).
+
+## ארנק היזמים
+
+מיגרציה `20270107090000_developer_wallet_payments.sql`. **עד היום
+`project-manage` (action `topup`) זיכה את ארנק היזם/ית בלי שום תשלום** — עד
+‏₪5,000 ללחיצה, בלי מגבלה, ומהיתרה ירדו דף נחיתה, קידומים ולידים. בבדיקה
+ב-24.9.2026 עוד לא נוצלה אף טעינה כזו.
+
+עכשיו זו המכונה הרביעית באותה נקודת קצה:
+
+```
+developer-crm → "טעינת ארנק" → checkout.html?product=developer_wallet
+checkout.html → POST project-manage {action:"topup", amount, פרטי חשבונית}
+  project-manage → start_developer_topup → POST /payments/form
+מורנינג       → POST /wallet-topup-callback?token=…
+  callback    → /documents/search → complete_developer_topup → הזיכוי
+developer-crm?topup=success&topup_id=… → project-manage {action:"topup_status"}
+```
+
+* `complete_developer_topup` היא **היחידה** שמזכה ארנק יזם/ית בעקבות תשלום:
+  נעילת שורה, בדיקת סטטוס, השוואת סכום, וזיכוי `credit_balance + amount`
+  בפקודה אחת. הקוד הקודם קרא את היתרה ואז כתב, ושתי טעינות במקביל היו
+  מוחקות זו את זו.
+* טעינת בדיקה: `test_mode: true` — `admin_test_developer_topup`, שבודקת
+  `is_platform_admin` **בעצמה**, ושומרת את מזהה המנהל/ת ב-`credited_by`.
+* ברירות המחדל של הטבלה היו `status='paid'` ו-`test_mode=true`, כלומר שורה
+  שנוספה בלי לציין אחרת נחשבה טעינה ששולמה. עכשיו `pending` ו-`false`.
+* הסכומים: `DEVELOPER_TOPUP_AMOUNTS` ב-`project-manage` (100, 350, 500, 1000,
+  2000), ואותם ב-`checkout.html`.
+
+## ה-reconcile ראה רק שתי טבלאות מתוך ארבע
+
+תנאי ה-cron של `wallet-topup-reconcile` (‏`20261021090000`) בדק רק
+`wallet_topups` ו-`subscription_orders`. הזמנת `ad_orders` (כרטיסיית בעל/ת
+מקצוע) שה-webhook שלה אבד לא הייתה מתיישבת לעולם, אלא אם במקרה הייתה באותו
+רגע טעינת ארנק פתוחה. `20270107090000` מוסיפה את `ad_orders` ואת
+`developer_topups` לתנאי.
 
 ## ההגדרה
 
@@ -955,6 +998,11 @@ Payment Form`), ולא ב-apiary. הוא אישר את **גוף הבקשה** ב�
 
 ההרחבה לחיוב חוזר אפשרית על אותה סכימה — `subscription_orders` כבר נושא
 תקופה — אבל היא החלטה נפרדת.
+
+**לבעלי מקצוע היא נכתבה** (ספטמבר 2026): כרטיס שמור אצל מורנינג, חיוב חודשי
+ב-`billing-renew`, ומתג כיבוי שנולד כבוי עד חיוב בדיקה בסנדבוקס. כל
+הזהירויות שלמעלה מטופלות שם במפורש — ראו `docs/professional-cards.md`,
+"חידוש חודשי אוטומטי".
 
 ### המסלול
 

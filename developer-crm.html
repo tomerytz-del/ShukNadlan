@@ -658,7 +658,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </p>
       <div class="chips" id="topupChips"></div>
       <div class="notice" style="margin-top:14px">
-        אין עדיין ספק סליקה מחובר, ולכן הטעינה נרשמת במצב בדיקה ואינה מחייבת כרטיס אשראי.
+        בחירת סכום מעבירה לעמוד התשלום - שם ממלאים את פרטי החשבונית ומאשרים את התקנון. פרטי הכרטיס נמסרים בעמוד של חברת הסליקה בלבד.
       </div>
       <p class="msg" id="topupMsg" role="status" aria-live="polite"></p>
     </div>
@@ -734,6 +734,7 @@ const ERRORS = {
   delete_not_requested: 'לא נפתחה בקשת מחיקה לפרויקט הזה.',
   already_sold: 'הליד כבר נרכש על ידי חברה אחרת.',
   developer_suspended: 'החשבון מושהה. פנו אלינו כדי לחדש אותו.',
+  morning_not_configured: 'התשלום אינו זמין כרגע. פנו אלינו ונטען את הארנק.',
   developer_exists: 'כבר יש חברה מקושרת לחשבון הזה.',
   company_number_taken: 'מספר הח״פ הזה כבר רשום במערכת. אם זו החברה שלכם - היכנסו לחשבון הקיים.',
 };
@@ -1692,23 +1693,55 @@ async function loadBilling(){
     '<div style="font-size:1.05rem;font-weight:800">' + esc(value) + '</div></div>').join('');
 }
 
-/* ---------- טעינת ארנק ---------- */
+/* ---------- טעינת ארנק ----------
+   **עד ספטמבר 2026 הכפתור הזה זיכה את הארנק בלי שום תשלום.** מעכשיו הוא
+   מעביר לעמוד התשלום של האתר (checkout.html?product=developer_wallet) —
+   פרטי חשבונית, אישור תקנון, ומשם מורנינג. הזיכוי קורה בשרת רק אחרי שהתשלום
+   אומת, ולכן שום דבר כאן לא מצהיר "נטען" לפני שהשרת אומר זאת. */
+const DEV_TOPUP_AMOUNTS = [100, 350, 500, 1000, 2000];
 el('topupBtn').addEventListener('click', ()=>{
-  el('topupChips').innerHTML = [100, 350, 500, 1000, 2000].map(a =>
+  el('topupChips').innerHTML = DEV_TOPUP_AMOUNTS.map(a =>
     '<button type="button" class="chip-btn" data-amount="' + a + '">' + money(a) + '</button>').join('');
   el('topupChips').querySelectorAll('[data-amount]').forEach(btn=>{
-    btn.addEventListener('click', async ()=>{
-      btn.disabled = true;
-      const res = await api('topup', { amount: Number(btn.dataset.amount) });
-      btn.disabled = false;
-      if (!res.ok){ setMsg('topupMsg', errText(res.data), 'err'); return; }
-      setMsg('topupMsg','הארנק נטען. היתרה: ' + money(res.data.credit_balance),'ok');
-      await refresh();
+    btn.addEventListener('click', ()=>{
+      location.href = '/checkout?product=developer_wallet&amount=' + encodeURIComponent(btn.dataset.amount);
     });
   });
   setMsg('topupMsg','');
   el('topupSheet').showModal();
 });
+
+/* ---------- חזרה מעמוד התשלום ----------
+   הכתובת נושאת topup_id ואת "success"/"failure" — רמז בלבד, שאפשר לזייף.
+   המצב האמיתי נשאל מהשרת (topup_status), וה-webhook והדפדפן הם שני מרוצים,
+   ולכן סבב בדיקות קצר. */
+async function handleTopupReturn(){
+  const params = new URLSearchParams(location.search);
+  const topupId = params.get('topup_id');
+  const mode = params.get('topup');
+  if (!topupId || !mode) return;
+  params.delete('topup_id'); params.delete('topup');
+  history.replaceState(null, '', location.pathname + (params.toString() ? '?' + params : ''));
+
+  el('topupChips').innerHTML = '';
+  el('topupSheet').showModal();
+  if (mode === 'failure'){ setMsg('topupMsg', 'התשלום בוטל ולא בוצע חיוב.', 'err'); return; }
+  setMsg('topupMsg', 'מאמתים את התשלום מול חברת הסליקה…');
+  for (let i = 0; i < 8; i++){
+    const res = await api('topup_status', { topup_id: topupId }).catch(()=>({ ok:false, data:{} }));
+    if (res.ok && res.data.status === 'paid'){
+      setMsg('topupMsg', 'הארנק נטען. היתרה: ' + money(res.data.credit_balance), 'ok');
+      await refresh();
+      return;
+    }
+    if (res.ok && res.data.status === 'failed'){
+      setMsg('topupMsg', 'התשלום לא הושלם ולא בוצע חיוב.', 'err');
+      return;
+    }
+    await new Promise(r => setTimeout(r, 2000));
+  }
+  setMsg('topupMsg', 'האישור מחברת הסליקה מתעכב. הארנק ייטען מעצמו ברגע שיגיע - אפשר לרענן בעוד כמה דקות.');
+}
 el('topupClose').addEventListener('click', ()=> el('topupSheet').close());
 
 /* ---------- טעינה ורענון ---------- */
@@ -1845,6 +1878,7 @@ sb.auth.onAuthStateChange((event, session)=>{
   const { data: { session } } = await sb.auth.getSession();
   if (session) bootedUserId = session.user.id;
   await boot();
+  if (session) handleTopupReturn();
 })();
 </script>
 </body>
