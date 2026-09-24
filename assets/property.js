@@ -77,6 +77,11 @@ const CONDITION_LABELS = {
   new_from_contractor:'חדש מקבלן', new:'חדש', renovated:'משופץ',
   maintained:'שמור', needs_renovation:'דרוש שיפוץ',
 };
+// אותם ערכים של בורר "סטטוס הפרויקט" בטופס הנכס ב-crm.html
+const PROJECT_STATUS_LABELS = {
+  planning:'תכנון ראשוני', permit_requested:'הוגשה בקשה להיתר',
+  permit_issued:'ניתן היתר בנייה', construction_complete:'הבנייה הסתיימה',
+};
 /* מצב הנכס מוצג גם כיתרון מאויר — "חדש מקבלן" הוא טיעון מכירה, לא שורה
    בטבלה. רק המצבים החיוביים; "דרוש שיפוץ" נשאר בטבלת הפרטים בלבד. */
 const CONDITION_HIGHLIGHTS = {
@@ -1796,6 +1801,7 @@ function renderSpecPills(p){
     p.garden_sqm     ? { icon:'balcony',v:Number(p.garden_sqm).toLocaleString('he-IL') + ' מ״ר', k:'גינה' } : null,
     CONDITION_LABELS[p.condition] ? { icon:'sparkle', v:CONDITION_LABELS[p.condition], k:'מצב הנכס' } : null,
     moveIn           ? { icon:'key',    v:moveIn, k:'תאריך כניסה', accent:true } : null,
+    PROJECT_STATUS_LABELS[p.project_status] ? { icon:'key', v:PROJECT_STATUS_LABELS[p.project_status], k:'סטטוס הפרויקט' } : null,
     p.furniture_details ? { icon:'sofa', v:p.furniture_details, k:'ריהוט', wide:true } : null,
     // עלויות שוטפות. הארנונה נשמרת כפי שהיא בשובר, ותקופת החיוב נגזרת
     // מהקטגוריה: לחודשיים במגורים, לחודש במסחרי. docs/property-form.md
@@ -1814,12 +1820,43 @@ function renderSpecPills(p){
    המאפיינים שהוזנו במודעה, כרשימה מאוירת ולא כענן צ׳יפים: כל שורה היא טיעון
    מכירה אחד. מצב הנכס ("חדש מקבלן") וכניסה מיידית מצטרפים לרשימה כי הם
    נקראים בדיוק כמו מאפיין.                                                 */
+/* מרחב מוגן ראשון: זו השאלה הראשונה שקונים ושוכרים שואלים היום, ולכן היא
+   פותחת את הרשימה כשהיא קיימת - לפני מצב הנכס ולפני כל מאפיין אחר.
+   במגורים זה מאפיין (mamad/mamak/building_shelter), ובמסחרי הטופס שומר
+   *מיקום* (‏mamad_location: בנכס/בבניין) ולא מאפיין - ולכן שניהם נקראים כאן.
+   אותו דבר למחסן ולשירותים במסחרי, שעד היום לא הוצגו בדף בכלל. */
+const PROTECTION_FEATURES = ['mamad', 'mamak', 'building_shelter'];
+const LOCATION_WORD = { unit:'בנכס', building:'בבניין' };
+
 function renderHighlights(p){
   const items = [];
+  const features = p.features || [];
+  const locationItem = (loc, icon, noun) =>
+    LOCATION_WORD[loc] ? { icon, label: noun + ' ' + LOCATION_WORD[loc] } : null;
+
+  // 1. מרחב מוגן
+  const mamadLoc = locationItem(p.mamad_location, 'shield', 'ממ״ד');
+  if (mamadLoc) items.push(mamadLoc);
+  PROTECTION_FEATURES.forEach(code=>{
+    if (code === 'mamad' && mamadLoc) return;   // "ממ״ד בנכס" אומר יותר מ"ממ״ד"
+    if (features.includes(code)) items.push({ icon:FEATURE_ICONS[code], label:FEATURE_LABELS[code] });
+  });
+
+  // 2. מצב וכניסה
   const cond = CONDITION_HIGHLIGHTS[p.condition];
   if (cond) items.push(cond);
   if (p.move_in_soon) items.push({ icon:'key', label:'כניסה מיידית' });
-  (p.features || []).forEach(code=>{
+
+  // 3. מיקומים במסחרי
+  const storageLoc = locationItem(p.storage_location, 'box', 'מחסן');
+  if (storageLoc) items.push(storageLoc);
+  const restroomsLoc = locationItem(p.restrooms_location, 'check', 'שירותים');
+  if (restroomsLoc) items.push(restroomsLoc);
+
+  // 4. שאר המאפיינים
+  features.forEach(code=>{
+    if (PROTECTION_FEATURES.includes(code)) return;
+    if (code === 'storage' && storageLoc) return;
     const label = FEATURE_LABELS[code];
     if (label) items.push({ icon:FEATURE_ICONS[code] || 'check', label });
   });
