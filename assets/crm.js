@@ -17221,12 +17221,76 @@ async function toggleClientMatches(client, btn, panel){
   btn.textContent = '🔍 הסתרת ההתאמות';
 }
 
+/* ---------- סינון ומיון בפאנל ההתאמות ----------
+   לקוח/ה עם עשרים התאמות מערבב/ת נכסים שלי (עמלה מלאה, אפשר להתקשר עכשיו)
+   עם נכסים בשת"פ (עמלה מתחלקת, צריך לתאם עם המשרד השני). הסוכן/ת רוצה
+   לראות קודם את מה ששלו/ה, או דווקא רק את השת"פ. הסינון והמיון נעשים על
+   השורות שכבר חזרו - בלי קריאה נוספת למסד - והבחירה נשמרת בין כרטיסים,
+   כי מי שמסנן/ת "שלי" אצל לקוח/ה אחד/ת רוצה אותו גם בבא/ה.
+
+   ‏"המשרד" (נכס של עמית/ה במשרד) מופיע רק כשיש כזה, כדי שסוכן/ת עצמאי/ת
+   יראה/תראה בדיוק את שלוש האפשרויות: כולם, שלי, שת"פ.                */
+const MATCH_FILTERS = [
+  { key:'all',    label:'כולם',   test: ()=> true },
+  { key:'own',    label:'שלי',    test: m => m.source === 'own' },
+  { key:'agency', label:'המשרד',  test: m => m.source === 'agency' },
+  { key:'shared', label:'שת״פ',   test: m => m.source === 'shared' },
+];
+const MATCH_SORTS = {
+  score:      (a, b) => (b.score - a.score) || numericCompare(a.price, b.price, 'asc'),
+  price_asc:  (a, b) => numericCompare(a.price, b.price, 'asc'),
+  price_desc: (a, b) => numericCompare(a.price, b.price, 'desc'),
+};
+let matchFilter = 'all';
+let matchSort = 'score';
+
 function renderClientMatches(panel, rows){
   if (rows.length === 0){
     panel.innerHTML = '<div class="lead-meta">אין כרגע נכס שעונה על הדרישות - לא אצלך, לא במשרד ולא בין הנכסים ששותפו איתך.</div>';
     return;
   }
 
+  const counts = Object.fromEntries(MATCH_FILTERS.map(f => [f.key, rows.filter(f.test).length]));
+  const filters = MATCH_FILTERS.filter(f => f.key !== 'agency' || counts.agency);
+  // בחירה שנשמרה מלקוח/ה אחר/ת ואין לה כאן אף שורה - חוזרים ל"כולם"
+  // במקום להציג פאנל ריק שנראה כמו "אין התאמות"
+  const active = filters.some(f => f.key === matchFilter) && counts[matchFilter] ? matchFilter : 'all';
+
+  panel.innerHTML = `
+    <div class="match-tools">
+      <div class="match-seg" role="group" aria-label="סינון לפי מקור הנכס">
+        ${filters.map(f => `<button type="button" data-match-filter="${f.key}"
+            aria-pressed="${f.key === active}" ${counts[f.key] ? '' : 'disabled'}>${esc(f.label)} <span>${counts[f.key]}</span></button>`).join('')}
+      </div>
+      <select class="match-sort" aria-label="מיון ההתאמות">
+        <option value="score">מיון: הכי מתאים</option>
+        <option value="price_asc">מיון: מחיר - מהנמוך לגבוה</option>
+        <option value="price_desc">מיון: מחיר - מהגבוה לנמוך</option>
+      </select>
+    </div>
+    <div class="match-list"></div>`;
+
+  const sortSel = panel.querySelector('.match-sort');
+  sortSel.value = matchSort;
+  const draw = filterKey => {
+    panel.querySelectorAll('[data-match-filter]').forEach(b =>
+      b.setAttribute('aria-pressed', String(b.dataset.matchFilter === filterKey)));
+    const test = MATCH_FILTERS.find(f => f.key === filterKey).test;
+    renderMatchCards(panel.querySelector('.match-list'),
+      rows.filter(test).sort(MATCH_SORTS[matchSort] || MATCH_SORTS.score));
+  };
+  panel.querySelectorAll('[data-match-filter]').forEach(b => b.addEventListener('click', ()=>{
+    matchFilter = b.dataset.matchFilter;
+    draw(matchFilter);
+  }));
+  sortSel.addEventListener('change', ()=>{
+    matchSort = sortSel.value;
+    draw(panel.querySelector('[data-match-filter][aria-pressed="true"]')?.dataset.matchFilter || 'all');
+  });
+  draw(active);
+}
+
+function renderMatchCards(panel, rows){
   panel.innerHTML = '';
   rows.forEach(m => {
     const address = [m.city, [m.street, m.house_number].filter(Boolean).join(' ')].filter(Boolean).join(', ');
