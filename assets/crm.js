@@ -1617,44 +1617,60 @@ function handleGotoParam(){
    מתוך ארבע — הברכה הקלאסית. משפט שיוצא בכל פעם הופך לטפט אחרי שבוע, ולכן
    יש מאגר, והמשפט האחרון שהוצג נשמר כדי לא לחזור עליו פעמיים ברצף.
 
-   הנוסח ניטרלי מגדרית בכוונה ("שלך", "אותך", פנייה ברבים): אין לנו שדה
-   מגדר, ו"מוכן לטרוף?" לסוכנת הוא בדיוק ההפך מהחיוך שהוא נועד לייצר.
+   שלושה כללים למשפט במאגר:
+   * **שורה אחת.** קצר — ובנוסף greetingFits מודד בפועל ומדלג על משפט
+     שאינו נכנס ברוחב המסך הזה עם השם הזה.
+   * **ניטרלי מגדרית** ("שלך", "אותך", פנייה ברבים): אין לנו שדה מגדר,
+     ו"מוכן לטרוף?" לסוכנת הוא ההפך מהחיוך שהמשפט נועד לייצר.
+   * **נכון לשעה.** המאגר any מוצג גם ב-02:00, ולכן אין בו "בוקר" או "היום".
+
    ‏{name} הוא השם הפרטי; בלעדיו הפנייה נושרת (ראו greetingText). */
 const GREETINGS = {
   morning: [
-    'בוקר אור, {name}! יום של אריות היום - ההזדמנויות כבר ערות',
-    'בוקר טוב, {name}. הקפה חם, והלידים חמים עוד יותר',
-    '{name}, השמש זרחה, ועסקאות עדיין לא סוגרות את עצמן. בינתיים.',
-    'בוקר טוב, {name}! יום מושלם להחתים בלעדיות',
-    'בוקר אור, {name}. מישהו שם בחוץ מחפש בדיוק את הנכס שלך',
-    'בוקר טוב, {name}! המפתחות לא יעברו ידיים לבד',
+    'בוקר אור, {name}! יום של אריות',
+    'בוקר טוב, {name}. הלידים כבר ערים',
+    'בוקר טוב, {name}! יום טוב לבלעדיות',
+    '{name}, קפה ביד, ויוצאים לסגור',
+    '{name}, יום מושלם לעשות עסקאות',
   ],
   noon: [
-    'צהריים טובים, {name}! אחרי הצהריים סוגרים עסקאות, לא מנמנמים',
-    '{name}, חצי יום מאחורינו - והחצי השני שמור לעסקה הגדולה',
-    'צהריים טובים, {name}. השקשוקה תחכה, הלקוח החם - פחות',
-    '{name}, עוד טלפון אחד - ואולי זה ה-טלפון',
-    'צהריים טובים, {name}! הנכסים שלך נראים היום במיטבם',
+    'צהריים טובים, {name}. ממשיכים בתנופה',
+    '{name}, השקשוקה תחכה. הלקוח פחות',
+    '{name}, עוד שיחה אחת, ואולי זו השיחה',
+    '{name}, חצי יום עבר. הטוב עוד לפנינו',
   ],
   evening: [
-    'ערב טוב, {name}! עוד לא מאוחר לסגור את היום בחתימה',
-    '{name}, ערב מושלם לשלוח ללקוח את ההתאמה שהוא חיכה לה',
-    'ערב טוב, {name}. עוד שיחה אחת לפני הבית - ככה נסגרות עסקאות',
+    'ערב טוב, {name}! עוד חתימה לסיום?',
+    '{name}, ערב מושלם לשלוח התאמות',
+    'ערב טוב, {name}. עוד שיחה אחת ונסגור',
   ],
   night: [
-    'לילה טוב, {name}. גם הכוכבים במשמרת לילה - אבל לא לשכוח לישון',
-    '{name}, שעת לילה ועדיין כאן? ככה נראית מחויבות אמיתית',
-    'לילה טוב, {name}! מחר הלידים יחכו - הלילה טוענים מצברים',
+    'לילה טוב, {name}. גם הכוכבים במשמרת',
+    '{name}, עוד כאן? זו מחויבות אמיתית',
+    'לילה טוב, {name}. מחר סוגרים עסקאות',
+    '{name}, טוענים מצברים. מחר טורפים',
   ],
   any: [
-    '{name}, היום זה יום מושלם לעשות עסקאות. גם מחר, אבל היום קודם',
-    '{name}, בעלי הדירות עוד לא יודעים שהם צריכים אותך. עוד.',
-    '{name}, כל "לא" מקרב אותך ל"כן" הבא',
-    '{name}, מה מוכרים היום? חוץ מחלומות, כמובן',
-    '{name}, העמלה הבאה כבר בדרך. נשאר רק לענות לטלפון',
+    '{name}, כל "לא" מקרב את ה"כן" הבא',
+    '{name}, העמלה הבאה כבר בדרך',
+    '{name}, העסקה הבאה במרחק שיחה',
+    '{name}, מה מוכרים? חוץ מחלומות',
   ],
 };
 const GREETING_LAST_KEY = 'crmGreetingLast';
+
+/* ‏05:00-11:59 בוקר, 12:00-16:59 צהריים, 17:00-20:59 ערב, ומ-21:00 לילה —
+   גם בברכה הקלאסית. עד היום היא אמרה "בוקר טוב" בשתיים בלילה, כי כל שעה
+   לפני 12 נחשבה בוקר. */
+function greetingSlot(hour){
+  if (hour >= 21 || hour < 5) return 'night';
+  if (hour < 12) return 'morning';
+  if (hour < 17) return 'noon';
+  return 'evening';
+}
+const GREETING_CLASSIC = {
+  morning: 'בוקר טוב', noon: 'צהריים טובים', evening: 'ערב טוב', night: 'לילה טוב',
+};
 
 function greetingText(template, first){
   if (first) return template.replace('{name}', first);
@@ -1662,23 +1678,39 @@ function greetingText(template, first){
   return template.replace(/^\{name\},\s*/, '').replace(/,\s*\{name\}/, '');
 }
 
+/* האם הטקסט נכנס בשורה אחת. נמדד עם nowrap על האלמנט עצמו, באותו פונט
+   ובאותו רוחב. אלמנט שעוד אין לו רוחב (מוסתר) — לא נמדד, ונחשב נכנס. */
+function greetingFits(el, text){
+  el.textContent = text;
+  if (!el.clientWidth) return true;
+  return el.scrollWidth <= el.clientWidth + 1;
+}
+
 function renderGreeting(agent){
   const el = document.getElementById('dashGreet');
   if (!el) return;
   const first = String(agent.display_name || '').trim().split(/\s+/)[0] || '';
-  const hour = new Date().getHours();
-  const part = hour < 12 ? 'בוקר טוב' : hour < 17 ? 'צהריים טובים' : hour < 21 ? 'ערב טוב' : 'לילה טוב';
-  const classic = part + (first ? ', ' + first : '') + ' - הנה תמונת המצב שלך להיום';
-  if (Math.random() < 0.25){ el.textContent = classic; return; }
+  const slot = greetingSlot(new Date().getHours());
+  const classic = GREETING_CLASSIC[slot] + (first ? ', ' + first : '');
+  el.classList.add('is-oneline');
 
-  const slot = (hour >= 21 || hour < 5) ? 'night' : hour < 12 ? 'morning' : hour < 17 ? 'noon' : 'evening';
-  const pool = GREETINGS[slot].concat(GREETINGS.any);
   let last = '';
   try { last = localStorage.getItem(GREETING_LAST_KEY) || ''; } catch {}
-  const options = pool.filter(t => t !== last);
-  const pick = options[Math.floor(Math.random() * options.length)];
-  try { localStorage.setItem(GREETING_LAST_KEY, pick); } catch {}
-  el.textContent = greetingText(pick, first);
+  const pool = GREETINGS[slot].concat(GREETINGS.any).filter(t => t !== last);
+  // ערבוב, ואז הראשון שנכנס בשורה אחת
+  for (let i = pool.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const pick = Math.random() < 0.25 ? null : pool.find(t => greetingFits(el, greetingText(t, first)));
+  if (pick){
+    try { localStorage.setItem(GREETING_LAST_KEY, pick); } catch {}
+    el.textContent = greetingText(pick, first);
+    return;
+  }
+  // הקלאסית קצרה מספיק כמעט לכל שם; שם ארוך במיוחד מקבל שורה שנייה ולא חיתוך
+  el.textContent = classic;
+  if (!greetingFits(el, classic)) el.classList.remove('is-oneline');
 }
 
 /* ---------- Test menu (מצב בדיקה) ----------

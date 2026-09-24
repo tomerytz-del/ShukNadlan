@@ -2781,6 +2781,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     margin:0 0 2px;line-height:1.35;
   }
   @media(min-width:700px){.dash-greet{font-size:1.35rem}}
+  /* ‏renderGreeting בוחרת רק משפט שנכנס בשורה אחת (ראו greetingFits), וה-
+     nowrap הוא מה שמאפשר למדוד את זה. ‏ellipsis הוא רק רשת ביטחון לסיבוב
+     מסך אחרי הבחירה. */
+  .dash-greet.is-oneline{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .section-h{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--txt);font-size:1.05rem;margin:0;display:flex;align-items:center;gap:8px}
   /* display:flex גובר על [hidden] של הדפדפן — בלי זה כותרת מוסתרת נשארת */
   .section-h[hidden]{display:none}
