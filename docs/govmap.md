@@ -19,7 +19,7 @@
 | ישות מקום: 7 מחוזות, 11 אזורים, ערים | `docs/cities-and-regions.md` | סכימה קיימת |
 | העיר הפעילה | `assets/city-context.js`, `docs/active-city.md` | מוכן; נופל לעפולה |
 | ייבוא עסקאות ידני מ-GovMap | `crm.js` → `parseGovmapDeals` | פעיל |
-| טעינה עצלה + מקום לטוקן | `assets/govmap.js` | **הטוקן ריק** |
+| טעינה עצלה + הטוקן | `assets/govmap.js` | הטוקן מוזן; טרם נבדק באתר החי |
 | ‏CSP | `_headers` | `*.govmap.gov.il` נוסף (Report-Only) |
 
 ## הכנסת הטוקן

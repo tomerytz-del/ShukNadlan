@@ -17,7 +17,8 @@
    ============================================================================ */
 (function () {
   // ריק = GovMap כבוי. govmapReady() נדחית, והקוראים נופלים להתנהגות הקיימת.
-  var GOVMAP_TOKEN = '';
+  // הטוקן נעול לדומיין האתר; החלפה (אם מפ"י תנפיק חדש) היא השורה הזו בלבד.
+  var GOVMAP_TOKEN = 'a888579d-2bc4-4768-97d5-bd1642e2633b';
   var SRC = 'https://www.govmap.gov.il/govmap/api/govmap.api.js';
   var pending = null;
 
