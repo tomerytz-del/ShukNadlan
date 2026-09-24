@@ -43,6 +43,17 @@ import {
 //      יהיו שתי הגדרות שונות ל"מי זכאי".
 // ============================================================================
 
+// סוג עסק הוא טקסט חופשי, ו"בית קפה" ו"בית  קפה." הם אותה בקשה. הנרמול
+// הזה זהה ל-bizKey() ב-assets/property.js, שמקבץ לפיו את השבבים בדף הנכס.
+function businessKey(s: unknown): string {
+  return String(s ?? "")
+    .normalize("NFKC")
+    .toLowerCase()
+    .replace(/["'`׳״.,!?()\-–—]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
@@ -227,6 +238,50 @@ Deno.serve(async (req: Request) => {
         source_image_url: r.source_image_url,
         result_url: r.result_url,
       }));
+  } else {
+    // ‏**גם הדמיה מסחרית נשמרת לבא/ה אחריה.** עד כאן כל בקשה מסחרית ייצרה
+    // מחדש, מתוך הנחה שסוג עסק חופשי לא חוזר על עצמו. הוא חוזר: בנכס אחד
+    // נוצר "בית קפה" שלוש פעמים ויותר, כי מי שחזר/ה לדף לא מצא/ה את
+    // ההדמיה הקודמת וביקש/ה אותה שוב — כל פעם קריאת Gemini בתשלום.
+    //
+    // ההתאמה היא לפי סוג העסק המנורמל (רווחים, פיסוק, אותיות) ולפי התיאור,
+    // ו**רק כשתמונת המקור זהה**: נכס שהחליף תמונות מקבל הדמיה חדשה מהתמונה
+    // החדשה, ולא את הישנה מתמונה שכבר איננה בנכס.
+    const wanted = businessKey(business_type) + "|" + businessKey(business_description);
+    const { data: jobs } = await supabase
+      .from("visualization_jobs")
+      .select("id, business_type, business_description")
+      .eq("property_id", property_id)
+      .eq("kind", "commercial_business")
+      .order("created_at", { ascending: false })
+      .limit(100);
+    const jobIds = (jobs ?? [])
+      .filter((j: any) =>
+        businessKey(j.business_type) + "|" + businessKey(j.business_description) === wanted
+      )
+      .map((j: any) => j.id);
+
+    if (jobIds.length) {
+      const { data: prior } = await supabase
+        .from("property_visualizations")
+        .select("target, source_image_url, result_url, created_at")
+        .in("job_id", jobIds)
+        .eq("status", "done")
+        .not("result_url", "is", null)
+        .order("created_at", { ascending: false });
+      const sourceOf = new Map(sources.map((s) => [s.target, s.url]));
+      const seen = new Set<string>();
+      for (const r of prior ?? []) {
+        if (seen.has(r.target) || sourceOf.get(r.target) !== r.source_image_url) continue;
+        seen.add(r.target);
+        ready.push({
+          target: r.target,
+          style_key: null,
+          source_image_url: r.source_image_url,
+          result_url: r.result_url,
+        });
+      }
+    }
   }
 
   const readyTargets = new Set(ready.map((r) => r.target));

@@ -38,8 +38,8 @@
 
    ‏opts:
        items          — ההדמיות: { target, style_key, result_url, source_image_url }
-       styles         — [{ key, label }] · ריק בנכס מסחרי
-       activeStyle    — מפתח הסגנון המוצג · ‏null במסחרי
+       styles         — [{ key, label }] · במסחרי: העסקים שכבר הודמו בנכס
+       activeStyle    — מפתח הסגנון (או העסק) המוצג · ‏null כשאין
        commercial     — משנה את תוויות החללים ואת שורות ההסבר
        staging        — נכס להשכרה: ההדמיה היא ריהוט ועיצוב ולא שיפוץ, ושורות
                         ההסבר אומרות את זה. הדף הקורא מחליט לפי ‎deal_type‎
@@ -756,8 +756,12 @@
        כרשימה, וארבעה סמלים שונים נקראים כארבע אפשרויות. */
     var stylesHtml = styles.length
       ? '<div class="ai-styles-card">' +
-          '<p class="ai-styles-title">בחרו את הסגנון המועדף עליכם!</p>' +
-          '<div class="ai-styles" role="group" aria-label="כיוון עיצובי">' +
+          /* בנכס מסחרי השבבים הם העסקים שכבר הודמו בנכס — כל הדמיה נשמרת
+             לבאים אחריה — ולא ארבעה סגנונות קבועים. */
+          '<p class="ai-styles-title">' +
+            (opts.commercial ? 'עסקים שכבר הודמו בנכס:' : 'בחרו את הסגנון המועדף עליכם!') + '</p>' +
+          '<div class="ai-styles" role="group" aria-label="' +
+            (opts.commercial ? 'עסק מודמה' : 'כיוון עיצובי') + '">' +
             styles.map(function (s) {
               return '<button class="ai-style" type="button" data-style="' + esc(s.key) + '" ' +
                      'aria-pressed="' + (s.key === opts.activeStyle ? 'true' : 'false') + '">' +
@@ -813,7 +817,7 @@
                שגויות באותה שורה: השוכר/ת לא קונה ולא ישפץ, וההדמיה שהוא
                רואה היא אותו נכס בדיוק עם ריהוט אחר. */
             '<ul class="ai-points">' +
-              (styles.length
+              (!opts.commercial
                 ? (opts.staging
                     ? '<li>' + icon(ICON_TAP) + '<span>לחצו על כפתורי הסגנון וצפו בהדמיות מיידיות ' +
                         'של הנכס מרוהט ומעוצב - בלי לשנות דבר בנכס עצמו.</span></li>' +
@@ -860,7 +864,7 @@
                   (cta.busy
                     ? loaderHtml()
                     : esc(activeStyleLabel
-                        ? 'עדיין אין הדמיה בסגנון ' + activeStyleLabel
+                        ? (opts.commercial ? 'עדיין אין הדמיה ל' : 'עדיין אין הדמיה בסגנון ') + activeStyleLabel
                         : 'עדיין אין הדמיה לנכס הזה')) +
                 '</div>') +
           '</div>' +
