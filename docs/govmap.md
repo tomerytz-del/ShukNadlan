@@ -111,6 +111,12 @@
   פונה אליה: ‏`https://www.govmap.gov.il/api/search-service/api-search`.
   דיווח ה-CSP באותה הרצה ("violates connect-src") הוא מלפני שהענף הזה
   מוזג, והוא הסיבה ש-`*.govmap.gov.il` נוסף ל-`_headers`.
+- ‏**‏`probe.js` הרצה 1 (24.9.2026):** אפס תוצאות ל-`החורש 8 עפולה` ול-
+  `הפרסה 5 עפולה` ב-`isAccurate: true`, ומערכים ריקים מ-`getLayerFilterFields`
+  לכל השכבות - בלי שגיאה. הסקריפט שמר רק את הצורה שציפה לה, ולכן ריק
+  לא הכריע בין "אין הרשאה" ל"פורמט אחר"; גרסה 2 שומרת תשובות גולמיות.
+  נקודות הקצה שנצפו: ‏`/api/layers-catalog/layer/<id>/filter/fields?apiToken=`
+  ו-`/api/search-service/api-search`. הטוקן עובר ב-query string.
 
 - ‏**לא נבדק:** האם ה-API עונה מצד שרת. סביבת הפיתוח שבה נכתב המסמך
   חסומה ל-`govmap.gov.il`, ולכן גם צורת התשובות כאן מבוססת על התיעוד
