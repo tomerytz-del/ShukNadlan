@@ -34,6 +34,7 @@
     car:    S('<path d="M4.5 16.5h15"/><path d="M5 16.5V19H3.5v-2.5"/><path d="M19 16.5V19h1.5v-2.5"/><path d="M4.5 16.5v-4l1.8-4.3A1.5 1.5 0 0 1 7.7 7h8.6a1.5 1.5 0 0 1 1.4 1.2l1.8 4.3v4z"/><path d="M7 14h1.5M15.5 14H17"/>'),
     video:  S('<rect x="2.5" y="6" width="13" height="12" rx="2.5"/><path d="m15.5 11 6-3.2v8.4l-6-3.2z"/>'),
     cube:   S('<path d="M21 8 12 3 3 8v8l9 5 9-5Z"/><path d="M3 8l9 5 9-5M12 13v8"/>'),
+    shield: S('<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/>'),
   };
 
   /* ---------- שורת המאפיינים ----------
@@ -48,6 +49,11 @@
     } },
     { icon: 'ruler', get: function (p) {
       return p.size_sqm ? Number(p.size_sqm).toLocaleString('he-IL') + ' מ״ר' : null;
+    } },
+    /* ממ״ד מיד אחרי השטח: זה הפרט שקונים ושוכרים שואלים עליו ראשון, גם
+       במסחרי - ושם הוא נשמר כמיקום (‏mamad_location) ולא כמאפיין. */
+    { icon: 'shield', get: function (p) {
+      return (hasFeature(p, 'mamad') || p.mamad_location === 'unit' || p.mamad_location === 'building') ? 'ממ״ד' : null;
     } },
     { icon: 'stairs', get: function (p) {
       // קומה 0 היא קומת קרקע, לא "אין נתון" — ולכן הבדיקה היא על null/undefined
@@ -82,6 +88,8 @@
     FACTS.forEach(function (fact) {
       var text = fact.get(p || {});
       if (!text) return;
+      // ארבעה לכל היותר (ראו מעל FACTS): כשהכל מולא, הסדר הוא שקובע מה נחתך
+      if (cells.length >= 4) return;
       cells.push('<span class="pc-fact">' + ICONS[fact.icon] + escapeHtml(text) + '</span>');
     });
     // המעטפת נכתבת תמיד, גם כשאין ולו מאפיין אחד: היא שומרת את גובה השורה,
