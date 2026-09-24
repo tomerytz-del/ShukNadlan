@@ -1521,6 +1521,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .match-peek-text{min-width:0;overflow:hidden;text-overflow:ellipsis}
 
   .match-panel{margin-top:8px;border-top:1px dashed var(--line);padding-top:10px}
+  /* סינון לפי מקור ומיון - מעל כרטיסי ההתאמה. ההסבר: MATCH_FILTERS ב-crm.js */
+  .match-tools{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  .match-seg{display:inline-flex;background:#F1F5F9;border:1px solid #E2E8F0;border-radius:12px;padding:3px;gap:3px}
+  .match-seg button{border:none;border-radius:9px;padding:6px 12px;background:transparent;font:inherit;font-size:.8rem;
+    font-weight:700;color:var(--ink-soft);cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+  .match-seg button span{font-size:.68rem;font-weight:800;padding:1px 6px;border-radius:999px;background:#E2E8F0;color:var(--ink-soft)}
+  .match-seg button[aria-pressed="true"]{background:#fff;color:var(--teal-dark);box-shadow:0 1px 3px rgba(15,23,42,.14)}
+  .match-seg button[aria-pressed="true"] span{background:var(--teal);color:#fff}
+  .match-seg button:disabled{opacity:.45;cursor:default}
+  .match-seg button:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
+  .match-sort{border:1px solid #E2E8F0;border-radius:10px;padding:7px 10px;font:inherit;font-size:.8rem;background:#fff;color:var(--ink)}
+  @media(max-width:480px){.match-tools{align-items:stretch}.match-seg{width:100%}.match-seg button{flex:1;justify-content:center}.match-sort{width:100%}}
   .match-card{border:1px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;margin-bottom:8px;background:var(--paper-raised)}
   .match-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
   .match-title{font-weight:700;font-size:.88rem}
