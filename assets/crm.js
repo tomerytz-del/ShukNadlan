@@ -4926,7 +4926,7 @@ function renderPromoStrip(agent){
     : `${Tiers.label(promo.tier)} במתנה - עד ${Tiers.formatDate(promo.endsAt)}`;
   document.getElementById('promoStripSub').textContent = urgent
     ? 'אחרי התאריך הזה מי שלא בחר/ה מסלול ממשיך/ה ב-Pay&GO. לבחירת המסלול ←'
-    : 'כל היכולות פתוחות, בלי תשלום. לפירוט המסלולים ←';
+    : 'כל היכולות פתוחות. לפירוט המסלולים ←';
   labelPromoGift(strip, promo, agent);
   strip.hidden = false;
 }
