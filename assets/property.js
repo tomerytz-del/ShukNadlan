@@ -1797,6 +1797,10 @@ function renderSpecPills(p){
     CONDITION_LABELS[p.condition] ? { icon:'sparkle', v:CONDITION_LABELS[p.condition], k:'מצב הנכס' } : null,
     moveIn           ? { icon:'key',    v:moveIn, k:'תאריך כניסה', accent:true } : null,
     p.furniture_details ? { icon:'sofa', v:p.furniture_details, k:'ריהוט', wide:true } : null,
+    // עלויות שוטפות. הארנונה נשמרת כפי שהיא בשובר, ותקופת החיוב נגזרת
+    // מהקטגוריה: לחודשיים במגורים, לחודש במסחרי. docs/property-form.md
+    p.maintenance_fee ? { icon:'shekel', v:Number(p.maintenance_fee).toLocaleString('he-IL') + ' ₪ לחודש', k:'ועד בית / דמי ניהול' } : null,
+    p.arnona          ? { icon:'shekel', v:Number(p.arnona).toLocaleString('he-IL') + (p.category === 'commercial' ? ' ₪ לחודש' : ' ₪ לחודשיים'), k:'ארנונה' } : null,
   ].filter(Boolean);
 
   document.getElementById('specPills').innerHTML = candidates.map(c => `
