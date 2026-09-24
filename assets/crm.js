@@ -525,6 +525,72 @@ const SCREEN_CARDS = {
   tierGate:     'tierGateScreen',
 };
 
+/* ==========================================================================
+   שמי לילה בדשבורד — 20:00 עד 06:00 לפי השעון של המכשיר
+   --------------------------------------------------------------------------
+   ‏body.crm-night מדליק את .crm-sky (העיצוב והנימוק ב-crm.html, תחת "שמי
+   לילה"). השכבה נבנית פעם אחת, והבדיקה חוזרת כל דקה — מי שהשאיר/ה את
+   ה-CRM פתוח עובר/ת ללילה ב-20:00 בלי לרענן.
+
+   ‏?sky=night / ?sky=day בכתובת כופים מצב, כדי לראות את הלילה גם בצהריים.
+   ========================================================================== */
+const NIGHT_FROM = 20, NIGHT_UNTIL = 6;
+
+function isNightNow(){
+  const force = new URLSearchParams(location.search).get('sky');
+  if (force === 'night') return true;
+  if (force === 'day') return false;
+  const h = new Date().getHours();
+  return h >= NIGHT_FROM || h < NIGHT_UNTIL;
+}
+
+/* פיזור כוכבים כ-box-shadow של נקודה אחת. עם זרע קבוע, כדי שהשמיים לא
+   יסתדרו מחדש בכל טעינה — אותו רקיע בכל ערב. */
+function skyStarShadows(count, seed, maxAlpha){
+  let x = seed;
+  const rnd = () => (x = (x * 16807) % 2147483647) / 2147483647;
+  const out = [];
+  for (let i = 0; i < count; i++){
+    const a = (0.45 + rnd() * (maxAlpha - 0.45)).toFixed(2);
+    // גוון קר או חם מעט, כמו כוכבים אמיתיים
+    const tint = rnd() < 0.2 ? '255,236,200' : rnd() < 0.5 ? '205,220,255' : '255,255,255';
+    out.push(Math.round(rnd() * 120) + 'vw ' + Math.round(rnd() * 120) + 'vh 0 rgba(' + tint + ',' + a + ')');
+  }
+  return out.join(',');
+}
+
+function buildNightSky(){
+  if (document.querySelector('.crm-sky')) return;
+  const sky = document.createElement('div');
+  sky.className = 'crm-sky';
+  sky.setAttribute('aria-hidden', 'true');
+  sky.innerHTML =
+      '<div class="sky-field">'
+    +   '<i class="sky-stars sky-s1"></i><i class="sky-stars sky-s2"></i><i class="sky-stars sky-s3"></i>'
+    + '</div>'
+    + '<i class="sky-moon"></i>'
+    + '<i class="sky-shoot"></i><i class="sky-shoot two"></i>';
+  sky.querySelector('.sky-s1').style.boxShadow = skyStarShadows(230, 7,  0.8);
+  sky.querySelector('.sky-s2').style.boxShadow = skyStarShadows(80,  29, 0.95);
+  sky.querySelector('.sky-s3').style.boxShadow = skyStarShadows(24,  113, 1);
+  document.body.prepend(sky);
+}
+
+function syncNightSky(){
+  const night = isNightNow();
+  if (night) buildNightSky();
+  document.body.classList.toggle('crm-night', night);
+  // שורת הסטטוס של הטלפון והאפליקציה המותקנת עוברות לנייבי כהה יחד עם הרקע
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta){
+    if (!meta.dataset.day) meta.dataset.day = meta.getAttribute('content') || '';
+    meta.setAttribute('content', night ? '#0b1633' : meta.dataset.day);
+  }
+}
+
+syncNightSky();
+setInterval(syncNightSky, 60 * 1000);
+
 function showScreen(name){
   const onDashboard = name === 'dashboard';
   dashboard.style.display = onDashboard ? 'block' : 'none';
