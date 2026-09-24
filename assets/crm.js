@@ -9386,11 +9386,29 @@ function pfRevealField(id){
   pfShowStep(pfStepOf(el));
   el.focus();
 }
+/* ראש הטופס (שורת המקטעים) מתחת לכותרת הדביקה, ולא מאחוריה.
+   ‏scrollIntoView לבדו החביא אותו: הכותרת דביקה, ואחרי הגלילה היא גם
+   גדלה (שורת המדדים ‏.kpi-sticky נפתחת והריפוד משתנה), כך שגם חישוב
+   נכון לפני הגלילה נוחת נמוך מדי. לכן גלילה ראשונה עם scrollToTopOf,
+   ותיקון אחד אחרי שהכותרת התייצבה - מול הקצה התחתון שלה בפועל. */
+function pfScrollToForm(){
+  scrollToTopOf(addForm);
+  clearTimeout(pfScrollToForm._t);
+  pfScrollToForm._t = setTimeout(()=>{
+    if (addForm.style.display === 'none') return;
+    const header = document.querySelector('#dashboard header.crm');
+    const want = (header ? header.getBoundingClientRect().bottom : 0) + 14;
+    const off = addForm.getBoundingClientRect().top - want;
+    if (Math.abs(off) > 4) window.scrollBy({ top: off, behavior: navReduceMotion() ? 'auto' : 'smooth' });
+  }, navReduceMotion() ? 60 : 650);
+}
 function pfGoto(n){
   pfShowStep(n);
-  // ראש הטופס, ולא ראש העמוד: המקטע החדש מתחיל שם
-  const top = addForm.getBoundingClientRect().top;
-  if (top < 0) addForm.scrollIntoView({ behavior: navReduceMotion() ? 'auto' : 'smooth', block:'start' });
+  // ראש הטופס, ולא ראש העמוד: המקטע החדש מתחיל שם. רק כשהוא כבר מחוץ
+  // למסך או מאחורי הכותרת - מעבר מקטע בלי גלילה לא צריך להזיז דבר.
+  const header = document.querySelector('#dashboard header.crm');
+  const headerBottom = header ? header.getBoundingClientRect().bottom : 0;
+  if (addForm.getBoundingClientRect().top < headerBottom) pfScrollToForm();
 }
 addForm.querySelectorAll('[data-pf-go]').forEach(b => b.addEventListener('click', () => pfGoto(Number(b.dataset.pfGo))));
 document.getElementById('npPrevStep').addEventListener('click', () => pfGoto(pfStep - 1));
@@ -13281,7 +13299,7 @@ function openEditProperty(p){
   document.getElementById('addPropertyBtn').textContent = 'שמירת שינויים';
   toggleBtn.textContent = '✕ ביטול';
   openAcc('accProperties');
-  addForm.scrollIntoView({ behavior:'smooth' });
+  pfScrollToForm();
 }
 
 /* ---------- ייבוא נכסים מקובץ חיצוני (שלב א') ----------
