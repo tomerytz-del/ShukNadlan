@@ -1749,6 +1749,8 @@ function renderHeader(){
   el('devNameLabel').textContent = developer.name || '';
   el('walletBalance').textContent = money(developer.credit_balance);
   el('devPublicLink').href = '/developer?slug=' + encodeURIComponent(developer.slug || '');
+  // חברת בדיקה (מתפריט הבדיקה ב-CRM) נוצרת בלי slug, ואין לה דף ציבורי
+  el('devPublicLink').hidden = !developer.slug;
   const logo = ProjectCard.safeUrl(developer.logo_url);
   const mark = el('devMark');
   if (logo){ mark.style.backgroundImage = "url('" + logo + "')"; mark.textContent = ''; }

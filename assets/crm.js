@@ -1552,6 +1552,33 @@ document.getElementById('devRolePills').addEventListener('click', (e)=>{
   devSwitch({ role: btn.dataset.role }, [...document.querySelectorAll('#devRolePills button')]);
 });
 
+/* כניסה כיזם: dev-switch-mode יוצר (פעם אחת) חברת בדיקה על המשתמש הזה,
+   ו-developer-crm מזהה אותה לפי developers.user_id — הסשן משותף. */
+document.getElementById('devEnterDeveloper').addEventListener('click', async (e)=>{
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  try{
+    const { data: { session } } = await sb.auth.getSession();
+    const res = await fetch(DEV_SWITCH_FUNCTION_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + session.access_token },
+      body: JSON.stringify({ action: 'ensure_developer' }),
+    });
+    const data = await res.json().catch(()=> ({}));
+    if (!res.ok || data.error){
+      showToast(data.error === 'not_platform_admin' ? 'תפריט הבדיקה זמין רק למנהל פלטפורמה' : ('שגיאה: ' + (data.error || 'לא ידועה')));
+      return;
+    }
+    if (data.status === 'suspended'){ showToast('חשבון היזם של המשתמש הזה מושהה'); return; }
+    location.href = '/developer-crm';
+  } catch(err){
+    console.error(err);
+    showToast('שגיאת רשת - נסו שוב');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 /* ---------- Neighborhoods admin (platform admin only) ---------- */
 async function loadNeighborhoodsAdmin(){
   const listEl = document.getElementById('neighborhoodsAdminList');
