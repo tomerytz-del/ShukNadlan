@@ -136,7 +136,7 @@ checkout.html           → POST /wallet-topup {amount, client_*}
 checkout.html           → הפניה לעמוד של מורנינג
   [הסוכן/ת משלם/ת שם. פרטי הכרטיס לא עוברים דרכנו בשום שלב]
 מורנינג                 → POST /wallet-topup-callback?token=…
-  wallet-topup-callback → GET /payments/{id}   ← אימות מול ה-API
+  wallet-topup-callback → POST /documents/search ← אימות מול ה-API
                         → complete_wallet_topup → היתרה עולה
 crm.html                → חוזר עם ?topup=success, בודק את השורה עד שנסגרת
 ```
@@ -768,8 +768,16 @@ Payment Form`), ולא ב-apiary. הוא אישר את **גוף הבקשה** ב�
    בלבד: ‏`Get Payment Form`, ‏`Search Credit Card Tokens`,
    ‏`Charge Credit Card Token`. ‏`verifyPayment()` קוראת לנתיב הזה.
 
-**למה זה לא התפוצץ עדיין:** אף תשלום לא הושלם מעולם — כולם נעצרו ב-2600.
-שני הכשלים האלה ממתינים בדיוק לרגע שבו `ecommerce` יהפוך ל-`true`.
+**זה התפוצץ בתשלום האמיתי הראשון, 24.9.2026.** הכרטיס חויב ‎₪100, ה-webhook
+הגיע, והשורה נסגרה כ-`no_provider_form_id` — בלי שאיש שאל את מורנינג, והארנק
+לא נטען. **תוקן:** ‏`verifyPaymentByReference()` מחפשת ב-`POST /documents/search`
+את מסמך ה-320 שנושא את מזהה השורה שלנו (ה-`remarks` מודפס עליו), ומשווה
+סכום. ההתאמה נעשית על כל המסמך כמחרוזת, כך ששם שדה שונה ממה שציפינו אינו
+מפיל תשלום. ‏`provider_form_id` כבר אינו תנאי לשום דבר.
+
+שני דברים נרשמים עכשיו ללוג של הפונקציה, כי אף אחד מהם עוד לא נצפה: מפתחות
+גוף ה-webhook (‏`wallet-topup-callback: webhook`), והמסמך שנמצא
+(‏`morning: matched document`).
 
 **הדרך המתועדת להחליף אותם**, ובלי לוותר על עקרון "לא מאמינים ל-webhook":
 ‏webhook `document/created` נושא `id` של המסמך ואת `custom` שלנו; משם
@@ -957,7 +965,7 @@ checkout.html → subscription_price()  ← הסכום מהמסד, לא מחוש
   subscription-purchase → start_subscription_order  → שורת pending
                         → POST /payments/form       → כתובת תשלום
 מורנינג       → POST /wallet-topup-callback?token=…
-  callback    → GET /payments/{id}                  ← אימות מול ה-API
+  callback    → POST /documents/search              ← אימות מול ה-API
               → complete_subscription_order         → המסלול נפתח
 ```
 

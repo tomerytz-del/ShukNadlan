@@ -128,6 +128,21 @@ Deno.serve(async (req: Request) => {
   if (months < 1 || months > 12) return json({ error: "invalid_months" }, 400);
 
   try {
+    // ---- הטבת ההצטרפות: חודשי פרסום חינם, פעם אחת לכל אימייל -------------
+    // הזכאות נבדקת **לפני** שנוצרת שורה: מי שכבר מימש/ה את ההטבה לחץ/ה על
+    // כפתור שהבטיח "חינם", ולא יועבר/תועבר לעמוד תשלום בלי שנאמר לו/ה. הטופס
+    // מציג את ההודעה ושולח שוב עם `accept_paid` רק אחרי הסכמה מפורשת.
+    // ראו `20261231090000_professional_free_months.sql`.
+    const { data: freeAvail, error: freeErr } = await supabase.rpc(
+      "professional_free_months_available",
+      { p_email: contact_email },
+    );
+    if (freeErr) return json({ error: "db_error", detail: freeErr.message }, 500);
+    const freeMonths = Number(freeAvail) || 0;
+    if (freeMonths <= 0 && body?.accept_paid !== true) {
+      return json({ error: "promo_already_used" }, 409);
+    }
+
     // ‏status='pending_payment' — נשמר, ולא מוצג לאיש עד שההזמנה תושלם.
     const { data: placement, error: insertErr } = await supabase
       .from("ad_placements")
@@ -160,6 +175,39 @@ Deno.serve(async (req: Request) => {
       .from("ad_placement_access")
       .insert({ placement_id: placement.id });
     if (accessErr) console.error("manage token creation failed", accessErr.message);
+
+    // ---- מסלול ההטבה: עולה לאוויר מיד, בלי סולק -------------------------
+    // הוא קודם לבדיקת מורנינג בכוונה: הטבה אינה תלויה בסליקה. האסימון מוחזר
+    // כאן ישירות — הוא נמסר למי שמילא/ה את הטופס עכשיו, ואין מזהה הזמנה
+    // שאפשר לנחש כדי להגיע אליו.
+    if (freeMonths > 0) {
+      const { data: claim, error: claimErr } = await supabase.rpc(
+        "claim_professional_free_months",
+        { p_placement_id: placement.id },
+      );
+      if (claimErr) return json({ error: "db_error", detail: claimErr.message }, 500);
+      // מרוץ בין שתי הרשמות עם אותו אימייל: רק אחת מממשת, והשנייה נשארת
+      // ‏pending_payment ויורדת בניקוי היומי.
+      if (claim?.error) return json({ error: claim.error }, 409);
+
+      const { data: access } = await supabase
+        .from("ad_placement_access")
+        .select("manage_token")
+        .eq("placement_id", placement.id)
+        .maybeSingle();
+
+      await announceProfessionalSignup(supabase, placement.id, { freeMonths: Number(claim.months) });
+
+      return json({
+        success: true,
+        paid: false,
+        free: true,
+        placement_id: placement.id,
+        months: claim.months,
+        ends_at: claim.ends_at,
+        manage_token: access?.manage_token ?? null,
+      });
+    }
 
     // ---- בלי ספק סליקה אין פרסום --------------------------------------
     if (!morningConfigured() || !webhookSecret) {

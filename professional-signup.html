@@ -82,7 +82,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
     <h1>כרטיסיית בעל מקצוע</h1>
     <p class="sub">חשיפה לקהל רחב באזור עפולה והעמק</p>
-    <span class="price-badge">₪350 לחודש · ביטול בכל עת</span>
+    <!-- הטבת ההצטרפות: חצי שנה חינם, פעם אחת לכל אימייל. השרת הוא שמחליט
+         מי זכאי/ת (‏professional_free_months_available); הדף רק מציג. -->
+    <span class="price-badge">6 חודשי פרסום ראשונים חינם · אחר כך ₪350 לחודש</span>
 
     <!-- השם ושם העסק הם שתי השורות שמופיעות בכרטיסייה בדף הבית, ולכן שני
          שדות נפרדים ולא שדה אחד משולב. -->
@@ -107,9 +109,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          במקום להדביק כתובות, ולכן אין להם שדה כאן. -->
     <p class="note" style="margin-top:14px;margin-bottom:0">מיד אחרי ההרשמה ייפתח מסך שבו תעלו תמונות, תכתבו על עצמכם ותוסיפו טלפון לוואטסאפ.</p>
 
-    <button type="button" class="btn" id="submitBtn">הרשמה - ₪350/חודש</button>
+    <button type="button" class="btn" id="submitBtn">הצטרפות - 6 חודשים חינם</button>
     <div id="feedback"></div>
-    <div class="note">מצב בדיקה - לא מתבצע חיוב אמיתי כרגע. הכרטיסייה תופיע מיד בדף הבית לאחר ההרשמה.</div>
+    <div class="note">ההטבה חד-פעמית לכל בעל/ת מקצוע (לפי כתובת האימייל), ללא פרטי אשראי וללא חידוש אוטומטי. הכרטיסייה עולה לדף הבית מיד עם ההרשמה.</div>
     <a href="/" class="back-link">חזרה לדף הבית</a>
   </div>
 
@@ -129,7 +131,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div id="stateDone">
     <a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
     <h1>הכרטיסייה עלתה לאוויר!</h1>
-    <p class="sub">התשלום התקבל והכרטיסייה שלך עלתה לדף הבית. נשאר להשלים את העמוד שלך - תמונות, תיאור וטלפון לוואטסאפ.</p>
+    <p class="sub" id="doneSub">התשלום התקבל והכרטיסייה שלך עלתה לדף הבית. נשאר להשלים את העמוד שלך - תמונות, תיאור וטלפון לוואטסאפ.</p>
 
     <!-- קישור העריכה מוחזר פעם אחת בלבד, בתשובה להרשמה. אין לבעלי מקצוע
          חשבון באתר, ולכן הקישור הזה *הוא* הדרך לחזור ולערוך — ומכאן
@@ -150,6 +152,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 const SUPABASE_URL = 'https://obookujgolazrwycsiyn.supabase.co';
 const SUPABASE_ANON_KEY = 'sb_publishable_oq0dgmwKy83K7sDO3hoDMA_VpSnR5Fx';
 const SIGNUP_FUNCTION_URL = SUPABASE_URL + '/functions/v1/professional-signup';
+const PAID_LABEL = 'הרשמה בתשלום - ₪350/חודש';
+
+// מי שכבר מימש/ה את ההטבה מקבל/ת מהשרת promo_already_used, ורק אחרי שזה
+// נאמר לו/ה הכפתור עובר למסלול התשלום — לחיצה על "חינם" לא מובילה לסולק.
+let acceptPaid = false;
+function submitLabel(){ return acceptPaid ? PAID_LABEL : 'הצטרפות - 6 חודשים חינם'; }
 
 document.getElementById('submitBtn').addEventListener('click', async ()=>{
   const advertiser_name = document.getElementById('advName').value.trim();
@@ -178,9 +186,29 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
         contact_email,
         click_url: click_url || null,
         target_region: 'עפולה',
+        accept_paid: acceptPaid,
       }),
     });
     const data = await res.json();
+
+    // הטבת ההצטרפות מומשה: הכרטיסייה כבר באוויר, בלי עמוד תשלום.
+    if (data.free){
+      const until = data.ends_at ? new Date(data.ends_at).toLocaleDateString('he-IL') : '';
+      document.getElementById('doneSub').textContent =
+        'הכרטיסייה שלך עלתה לדף הבית ל-' + (data.months || 6) + ' חודשים ללא תשלום' +
+        (until ? ' (עד ' + until + ')' : '') +
+        '. נשאר להשלים את העמוד שלך - תמונות, תיאור וטלפון לוואטסאפ.';
+      document.getElementById('stateForm').style.display = 'none';
+      showManage(data.manage_token);
+      return;
+    }
+    if (data.error === 'promo_already_used'){
+      acceptPaid = true;
+      feedback.style.color = 'var(--ink-soft)';
+      feedback.textContent = 'הטבת ההצטרפות כבר נוצלה עבור כתובת האימייל הזו. אפשר להמשיך בהרשמה בתשלום.';
+      btn.disabled = false; btn.textContent = PAID_LABEL;
+      return;
+    }
 
     // הסליקה אינה מוגדרת. ההרשמה נשמרה, אבל הכרטיסייה **לא** עלתה — וזה
     // מה שנאמר, במקום "נרשמת בהצלחה" על פרסום שלא קיים.
@@ -193,7 +221,7 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     if (!res.ok || data.error || !data.redirect_url){
       feedback.style.color = 'var(--red)';
       feedback.textContent = 'שגיאה בהרשמה - נסו שוב';
-      btn.disabled = false; btn.textContent = 'הרשמה - ₪350/חודש';
+      btn.disabled = false; btn.textContent = submitLabel();
       return;
     }
 
@@ -205,7 +233,7 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     console.error(err);
     feedback.style.color = 'var(--red)';
     feedback.textContent = 'שגיאת רשת - נסו שוב';
-    btn.disabled = false; btn.textContent = 'הרשמה - ₪350/חודש';
+    btn.disabled = false; btn.textContent = submitLabel();
   }
 });
 

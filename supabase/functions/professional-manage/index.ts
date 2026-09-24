@@ -1,5 +1,11 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
+import {
+  clientFrom,
+  createPaymentForm,
+  isTerminalMissing,
+  morningConfigured,
+} from "../_shared/morning.ts";
 
 // עריכה עצמית של כרטיסיית בעל-מקצוע ושל עמוד הפרופיל שלה
 // (professional-manage.html → professional.html).
@@ -10,13 +16,18 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 // אליה גישה מהלקוח בשום מפתח ציבורי, ולכן כל קריאה אליה עוברת דרך כאן עם
 // service_role. verify_jwt=false מסיבה זו בדיוק.
 //
-// שלושה מסלולים: load (טעינת הפרופיל למסך העריכה), save (שמירת מה שמותר
-// לערוך) ו-upload (כתובת העלאה חתומה לתמונה). מה שנוגע לכסף ולתקופת
-// הפרסום — status, monthly_price, starts_at/ends_at, test_mode — לא נגזר
-// מהבקשה בשום מקרה, גם אם נשלח בגוף שלה.
+// ארבעה מסלולים: load (טעינת הפרופיל למסך העריכה), save (שמירת מה שמותר
+// לערוך), upload (כתובת העלאה חתומה לתמונה) ו-extend (הארכת תקופת הפרסום
+// בתשלום). מה שנוגע לכסף ולתקופת הפרסום — status, monthly_price,
+// starts_at/ends_at, test_mode — לא נגזר מהבקשה בשום מקרה, גם אם נשלח בגוף
+// שלה: ‏extend מקבל מספר חודשים בלבד, והסכום והתאריכים נקבעים במסד
+// (‏start_ad_order, ואחרי אימות התשלום complete_ad_order).
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const siteBaseUrl = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/+$/, "");
+const webhookSecret = Deno.env.get("MORNING_WEBHOOK_SECRET") || "";
+const EXTEND_MONTHS = [1, 3, 6, 12];
 
 // אותו bucket ציבורי של הנכסים; הנתיב מפריד בין נכסים לבעלי מקצוע, בדיוק
 // כמו שתמונות הפרופיל של הסוכנים יושבות בו תחת קידומת משלהן.
@@ -120,7 +131,7 @@ Deno.serve(async (req: Request) => {
   const token = typeof body.token === "string" ? body.token.trim() : "";
   if (!UUID_RE.test(token)) return json({ error: "invalid_token" }, 400);
 
-  const action = ["save", "upload"].includes(body.action) ? body.action : "load";
+  const action = ["save", "upload", "extend"].includes(body.action) ? body.action : "load";
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   try {
@@ -143,7 +154,84 @@ Deno.serve(async (req: Request) => {
     if (readErr) return json({ error: "db_error", detail: readErr.message }, 500);
     if (!card) return json({ error: "not_found" }, 404);
 
-    if (action === "load") return json({ success: true, card });
+    if (action === "load") {
+      // המחיר לחודש, לתיבת ההארכה. הסכום שנגבה בפועל נקבע שוב ב-start_ad_order.
+      const { data: pricing } = await supabase.rpc("professional_card_price", { p_months: 1 });
+      return json({
+        success: true,
+        card,
+        pricing: pricing && !pricing.error ? pricing : null,
+        extend_months: EXTEND_MONTHS,
+      });
+    }
+
+    // ------------------------------------------------------------------
+    // הארכת תקופת הפרסום
+    //
+    // אותה מכונת מצבים של ההרשמה: ‏start_ad_order פותח/ת שורת pending על
+    // **הכרטיסייה הקיימת**, מורנינג גובה, ו-wallet-topup-callback מאמת/ת
+    // וקורא/ת ל-complete_ad_order — שמאריכה מסוף התקופה הנוכחית אם היא עוד
+    // בתוקף, ומהיום אם לא. הפרופיל, ה-slug והתמונות נשארים כמו שהם.
+    //
+    // **אסימון הניהול אינו נכנס לכתובות החזרה.** הן נשלחות לצד שלישי ונשמרות
+    // אצלו; החזרה היא עם order_id בלבד, והדף שואל את professional-signup
+    // ‏(action:"status") — שמוסר/ת את האסימון רק אחרי שהתשלום אומת.
+    // ------------------------------------------------------------------
+    if (action === "extend") {
+      const months = Number(body.months);
+      if (!EXTEND_MONTHS.includes(months)) {
+        return json({ error: "invalid_months", allowed: EXTEND_MONTHS }, 400);
+      }
+      // מושהית = מנהל/ת הפלטפורמה הוריד/ה אותה. תשלום לא אמור להחזיר אותה
+      // לאוויר מעל ההחלטה הזו (complete_ad_order קובעת status='active').
+      if (card.status === "paused") return json({ error: "placement_paused" }, 409);
+      if (!morningConfigured() || !webhookSecret) {
+        return json({ error: "payment_unavailable" }, 503);
+      }
+
+      const { data: started, error: startErr } = await supabase.rpc("start_ad_order", {
+        p_placement_id: access.placement_id,
+        p_months: months,
+      });
+      if (startErr) return json({ error: "db_error", detail: startErr.message }, 500);
+      if (started?.error) return json(started, 400);
+
+      const orderId = started.order_id as string;
+      const { data: billing } = await supabase
+        .from("ad_placements")
+        .select("contact_email")
+        .eq("id", access.placement_id)
+        .maybeSingle();
+
+      const form = await createPaymentForm({
+        amount: Number(started.amount),
+        description: (months === 1
+          ? "הארכת כרטיסיית בעל/ת מקצוע - חודש"
+          : `הארכת כרטיסיית בעל/ת מקצוע - ${months} חודשים`) + ' - שוק נדל"ן',
+        ...clientFrom(body, card.business_name || card.advertiser_name),
+        clientEmail: billing?.contact_email ?? null,
+        successUrl: `${siteBaseUrl}/professional-manage?payment=success&order_id=${orderId}`,
+        failureUrl: `${siteBaseUrl}/professional-manage?payment=failure&order_id=${orderId}`,
+        notifyUrl: `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/wallet-topup-callback` +
+          `?token=${encodeURIComponent(webhookSecret)}`,
+        reference: orderId,
+      });
+
+      if (!form.ok) {
+        await supabase.rpc("fail_ad_order", { p_order_id: orderId, p_reason: form.error });
+        console.error("professional-manage: extend form creation failed", form.error);
+        return json({
+          error: isTerminalMissing(form.error) ? "payment_terminal_missing" : "payment_provider_error",
+        }, 502);
+      }
+
+      await supabase
+        .from("ad_orders")
+        .update({ provider_form_id: form.formId, provider_payment_url: form.url })
+        .eq("id", orderId);
+
+      return json({ success: true, order_id: orderId, amount: started.amount, months, redirect_url: form.url });
+    }
 
     // ------------------------------------------------------------------
     // כתובת העלאה חתומה

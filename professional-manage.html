@@ -71,6 +71,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   #feedback{font-size:.84rem;text-align:center;margin-top:12px;min-height:1.2em;font-weight:600}
   .note{font-size:.72rem;color:var(--ink-soft);background:var(--gold-tint);border-radius:var(--radius-sm);padding:10px 12px;margin-top:16px;text-align:center}
   .back-link{display:block;text-align:center;font-size:.8rem;color:var(--blue);margin-top:16px;text-decoration:none}
+  .extend-box{border:1.5px solid var(--line);border-radius:var(--radius-md);padding:14px;margin:0 0 18px}
+  .extend-box[data-urgent]{border-color:var(--red);background:var(--gold-tint)}
+  .extend-title{font-weight:800;font-size:.9rem;color:var(--blue-dark);margin:0 0 3px}
+  .extend-note{font-size:.76rem;color:var(--ink-soft);margin:0 0 10px}
+  .extend-row{display:flex;gap:8px;align-items:stretch}
+  .extend-row select{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;background:#fff}
+  .extend-row .btn{width:auto;flex:0 0 auto;padding:10px 18px}
+  #extendFeedback{font-size:.78rem;text-align:center;margin-top:8px;min-height:1em}
+  .extended-banner{background:var(--green);color:#fff;font-weight:700;font-size:.84rem;text-align:center;padding:10px;border-radius:var(--radius-sm);margin-bottom:12px}
 
   /* ====== תצוגה מקדימה של האריח ======
      אותו אריח בדיוק כמו בדף הבית (תמונה שממלאת את הכרטיס, שם ושם עסק על
@@ -139,7 +148,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <div class="card">
   <div id="stateLoading" data-on>
     <a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
-    <h1>טוען את הפרופיל…</h1>
+    <h1 id="loadingTitle">טוען את הפרופיל…</h1>
+    <p class="sub" id="loadingSub" hidden></p>
   </div>
 
   <div id="stateError">
@@ -157,6 +167,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <p class="sub">השינויים מופיעים באתר מיד לאחר השמירה</p>
     <span class="status-badge" id="statusBadge"></span>
     <a href="#" class="view-link" id="viewPageLink" target="_blank" rel="noopener">צפייה בעמוד שלי ←</a>
+    <div class="extended-banner" id="extendedBanner" hidden></div>
+
+    <!-- הארכת הפרסום. אין חידוש אוטומטי (terms.html §15), ולכן זה המקום
+         היחיד שבו כרטיסייה ממשיכה אחרי סוף התקופה - כולל סוף הטבת
+         ההצטרפות. ההארכה מצטברת מסוף התקופה הנוכחית, כך שאין מחיר
+         להאריך מוקדם. -->
+    <div class="extend-box" id="extendBox" hidden>
+      <p class="extend-title">הארכת הפרסום</p>
+      <p class="extend-note" id="extendNote"></p>
+      <div class="extend-row">
+        <select id="extendMonths" aria-label="תקופת ההארכה"></select>
+        <button type="button" class="btn" id="extendBtn">להארכה</button>
+      </div>
+      <div id="extendFeedback"></div>
+    </div>
 
     <div class="preview-wrap">
       <p class="preview-label">כך תיראה הכרטיסייה בדף הבית</p>
@@ -482,8 +507,122 @@ function fillForm(card){
   const link = el('viewPageLink');
   link.href = '/professional?slug=' + encodeURIComponent(key);
   link.hidden = !live;
+  renderExtend(card, live);
 
   renderMedia();
+}
+
+/* ---------- הארכה ----------
+   המחיר מגיע מהשרת (pricing_config) רק לתצוגה; הסכום שנגבה נקבע שוב במסד
+   כשההזמנה נפתחת. */
+let pricing = null;
+let extendMonths = [1, 3, 6, 12];
+const SIGNUP_FUNCTION_URL = SUPABASE_URL + '/functions/v1/professional-signup';
+
+function renderExtend(card, live){
+  const box = el('extendBox');
+  // מושהית = הורדה בידי מנהל/ת הפלטפורמה; אין מה להאריך מכאן.
+  if (card.status === 'paused'){ box.hidden = true; return; }
+  const today = new Date(new Date().toISOString().slice(0,10) + 'T00:00:00');
+  const ends = card.ends_at ? new Date(card.ends_at + 'T00:00:00') : null;
+  const daysLeft = ends ? Math.round((ends - today) / 86400000) : null;
+  const vat = pricing ? Number(pricing.vat_rate) || 0 : 0;
+  const monthly = pricing ? Number(pricing.monthly_price) : null;
+
+  el('extendMonths').innerHTML = extendMonths.map(m => {
+    const n = Number(m);
+    const label = n === 1 ? 'חודש' : n + ' חודשים';
+    const price = monthly ? ' - ₪' + Math.round(monthly * n * (1 + vat)).toLocaleString('he-IL') + ' כולל מע״מ' : '';
+    return '<option value="' + n + '">' + label + price + '</option>';
+  }).join('');
+
+  let note;
+  if (!live){
+    note = 'הפרופיל אינו מוצג כרגע באתר. הארכה מחזירה אותו לאוויר מיד עם אישור התשלום, עם כל התוכן שכבר מילאתם.';
+  } else if (daysLeft !== null){
+    note = (daysLeft <= 0 ? 'הפרסום מסתיים היום.' : 'נשארו ' + daysLeft + ' ימים לפרסום.') +
+      ' ההארכה נוספת לסוף התקופה הנוכחית, כך שלא מפסידים יום.';
+  } else {
+    note = 'ההארכה נוספת לסוף התקופה הנוכחית.';
+  }
+  if (monthly) note += ' ₪' + monthly.toLocaleString('he-IL') + ' לחודש בתוספת מע״מ, ללא חידוש אוטומטי.';
+  el('extendNote').textContent = note;
+  if (!live || (daysLeft !== null && daysLeft <= 30)) box.setAttribute('data-urgent', '');
+  else box.removeAttribute('data-urgent');
+  box.hidden = false;
+}
+
+el('extendBtn').addEventListener('click', async ()=>{
+  const btn = el('extendBtn');
+  const fb = el('extendFeedback');
+  btn.disabled = true; btn.textContent = 'רגע…'; fb.textContent = '';
+  const { ok, data } = await callManage({ action:'extend', months: Number(el('extendMonths').value) })
+    .catch(()=>({ ok:false, data:{} }));
+  if (ok && data.redirect_url){
+    // החזרה מעמוד התשלום היא עם order_id בלבד - האסימון לא נשלח לחברת
+    // הסליקה. שמירה בלשונית הזו מחזירה לעמוד גם אם התשלום בוטל.
+    try{ sessionStorage.setItem('proManageToken', token); } catch(e){}
+    btn.textContent = 'מעבר לתשלום…';
+    location.href = data.redirect_url;
+    return;
+  }
+  btn.disabled = false; btn.textContent = 'להארכה';
+  fb.style.color = 'var(--red)';
+  fb.textContent = data.error === 'payment_unavailable'
+    ? 'התשלום אינו זמין כרגע. כתבו לנו ונאריך עבורכם.'
+    : 'לא הצלחנו לפתוח את התשלום - נסו שוב.';
+});
+
+/* ---------- חזרה מעמוד התשלום ----------
+   הכתובת נושאת order_id ולא את האסימון. השרת מוסר את האסימון רק אחרי
+   שהתשלום אומת (אותה בדיקה של טופס ההצטרפות), וה-webhook והדפדפן הם שני
+   מרוצים - ולכן סבב בדיקות קצר ולא שאלה אחת. */
+function storedToken(){
+  try{ return sessionStorage.getItem('proManageToken') || ''; } catch(e){ return ''; }
+}
+function goToManage(t, extended){
+  const url = new URL('/professional-manage', location.href);
+  url.searchParams.set('token', t);
+  if (extended) url.searchParams.set('extended', '1');
+  location.replace(url.href);
+}
+async function pollExtension(orderId, attempt){
+  try{
+    const res = await fetch(SIGNUP_FUNCTION_URL, {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY },
+      body: JSON.stringify({ action:'status', order_id: orderId }),
+    });
+    const data = await res.json();
+    if (data.paid && data.manage_token){ goToManage(data.manage_token, true); return; }
+    if (data.status === 'failed'){
+      const t = storedToken();
+      if (t){ goToManage(t, false); return; }
+      el('errorText').textContent = 'התשלום לא הושלם ולא בוצע חיוב. חזרו לעמוד העריכה דרך הקישור האישי שלכם.';
+      showState('stateError');
+      return;
+    }
+  } catch(err){ console.warn('בדיקת מצב התשלום נכשלה:', err); }
+  if (attempt < 8){
+    setTimeout(()=> pollExtension(orderId, attempt + 1), 2000);
+  } else {
+    el('loadingTitle').textContent = 'התשלום עדיין מתאמת';
+    el('loadingSub').textContent = 'האישור מחברת הסליקה מתעכב. ההארכה תיכנס מעצמה ברגע שיגיע - אפשר לחזור לעמוד דרך הקישור האישי שלכם.';
+    el('loadingSub').hidden = false;
+  }
+}
+function handlePaymentReturn(params){
+  if (params.get('payment') === 'failure'){
+    const t = storedToken();
+    if (t){ goToManage(t, false); return; }
+    el('errorText').textContent = 'התשלום בוטל ולא בוצע חיוב. חזרו לעמוד העריכה דרך הקישור האישי שלכם.';
+    showState('stateError');
+    return;
+  }
+  el('loadingTitle').textContent = 'בודקים את התשלום…';
+  el('loadingSub').textContent = 'רגע אחד - מאמתים את התשלום מול חברת הסליקה.';
+  el('loadingSub').hidden = false;
+  pollExtension(params.get('order_id'), 0);
 }
 
 ['advName','advBusiness'].forEach(id => el(id).addEventListener('input', renderPreview));
@@ -536,6 +675,11 @@ el('saveBtn').addEventListener('click', async ()=>{
 });
 
 (async function init(){
+  const params = new URLSearchParams(location.search);
+  if (!token && params.get('order_id')){
+    handlePaymentReturn(params);
+    return;
+  }
   if (!token){
     showState('stateError');
     return;
@@ -549,7 +693,17 @@ el('saveBtn').addEventListener('click', async ()=>{
       showState('stateError');
       return;
     }
+    if (data.pricing) pricing = data.pricing;
+    if (Array.isArray(data.extend_months) && data.extend_months.length) extendMonths = data.extend_months;
     fillForm(data.card);
+    if (params.get('extended') === '1'){
+      const ends = data.card.ends_at ? new Date(data.card.ends_at + 'T00:00:00').toLocaleDateString('he-IL') : '';
+      el('extendedBanner').textContent = 'התשלום התקבל - הפרסום הוארך' + (ends ? ' עד ' + ends : '') + '. תודה!';
+      el('extendedBanner').hidden = false;
+      // שרענון לא יציג את ההודעה שוב
+      params.delete('extended');
+      history.replaceState(null, '', location.pathname + '?' + params.toString());
+    }
     showState('stateForm');
   } catch(err){
     console.error(err);
