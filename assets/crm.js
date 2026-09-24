@@ -22576,7 +22576,7 @@ function govmapDistanceMeters(lat1, lng1, lat2, lng2){
 let govmapBusy = false;
 function govmapSetBusy(on){
   govmapBusy = on;
-  ['govmapBackfillBtn', 'govmapParityBtn'].forEach(id => {
+  ['govmapBackfillBtn', 'govmapParityBtn', 'govmapDealsBtn'].forEach(id => {
     const b = document.getElementById(id);
     if (b) b.disabled = on;
   });
@@ -22707,7 +22707,70 @@ async function runGovmapParity(){
   }
 }
 
+/* מיקום לעסקאות הרשמיות מחוץ לעפולה (מיגרציה 20270105090000).
+   התור מחזיר **מיקומים** ולא עסקאות: ~4,600 עסקאות על ~1,500 מיקומים,
+   והשמירה מעדכנת את כולן. כתובת קודם; אחריה מרכז החלקה, רק לחלקה של עד
+   250 מ' - חלקת פרויקט או משק היא שכונה שלמה, ופין אחד לכולה אינו מיקום. */
+async function runGovmapDeals(){
+  if (govmapBusy || !window.GovmapLookup) return;
+  const status = document.getElementById('govmapBackfillStatus');
+  const out = document.getElementById('govmapBackfillResult');
+  govmapSetBusy(true);
+  out.innerHTML = '';
+  status.textContent = 'טוען את רשימת המיקומים…';
+  try{
+    const { data: rows, error } = await sb.rpc('govmap_deal_locations', { p_limit: 150 });
+    if (error) throw error;
+    if (!rows || !rows.length){ status.textContent = 'אין עסקאות שחסר להן מיקום מחוץ לעפולה.'; return; }
+    const c = { locDone:0, dealsDone:0, byAddress:0, byParcel:0, tooLarge:0, tooLargeDeals:0, notFound:0, errors:0 };
+    for (let i = 0; i < rows.length; i++){
+      const r = rows[i];
+      const label = r.street ? `${r.street} ${r.house_number || ''}` : `גוש ${r.gush} חלקה ${r.helka}`;
+      status.textContent = `${i + 1} מתוך ${rows.length}: ${label}, ${r.city}`;
+      try{
+        let hit = null, reason = 'not_found';
+        if (r.street && r.house_number){
+          hit = await GovmapLookup.addressLatLng({ street: r.street, houseNumber: r.house_number, city: r.city });
+          if (hit) c.byAddress++;
+        }
+        if (!hit && r.gush && r.helka){
+          const p = await GovmapLookup.parcelLatLng(r.gush, r.helka, 250);
+          if (p && p.tooLarge){ reason = 'parcel_too_large'; c.tooLarge++; c.tooLargeDeals += r.deals; }
+          else if (p){ hit = p; c.byParcel++; }
+        }
+        const { data: n, error: saveErr } = await sb.rpc('govmap_deal_save', {
+          p_city: r.city, p_street: r.street, p_house_number: r.house_number,
+          p_gush: r.gush, p_helka: r.helka,
+          p_lat: hit ? hit.lat : null, p_lng: hit ? hit.lng : null,
+          p_reason: hit ? null : reason,
+        });
+        if (saveErr) throw saveErr;
+        if (hit){ c.locDone++; c.dealsDone += (n || 0); }
+        else if (reason === 'not_found') c.notFound++;
+      } catch(err){
+        // תקלה זמנית: לא נרשם כלום, והמיקום יחזור בלחיצה הבאה
+        console.warn('GovMap deals:', label, err);
+        c.errors++;
+      }
+    }
+    status.textContent = '';
+    out.innerHTML = `<p class="acc-sub">עובדו ${esc(String(rows.length))} מיקומים.
+      <strong>${esc(String(c.dealsDone))} עסקאות</strong> קיבלו מיקום
+      (${esc(String(c.byAddress))} לפי כתובת, ${esc(String(c.byParcel))} לפי מרכז החלקה).
+      ${esc(String(c.notFound))} מיקומים לא נמצאו ב-GovMap,
+      ${esc(String(c.tooLarge))} חלקות גדולות מדי לפין אחד (${esc(String(c.tooLargeDeals))} עסקאות),
+      ${esc(String(c.errors))} נכשלו וינוסו שוב.
+      ${rows.length >= 150 ? '<br>יש עוד - לחצו שוב להמשך.' : ''}</p>`;
+  } catch(err){
+    console.warn('GovMap deals failed:', err);
+    status.textContent = 'ההשלמה נכשלה: ' + ((err && err.message) || err);
+  } finally {
+    govmapSetBusy(false);
+  }
+}
+
 document.getElementById('govmapBackfillBtn')?.addEventListener('click', runGovmapBackfill);
+document.getElementById('govmapDealsBtn')?.addEventListener('click', runGovmapDeals);
 document.getElementById('govmapParityBtn')?.addEventListener('click', runGovmapParity);
 
 document.getElementById('accDealsImport')?.addEventListener('toggle', function(){
