@@ -18751,6 +18751,7 @@ const NAV_GROUPS = [
     { acc:'accSubscriptions', label:'מנויים ומסלולים', icon:'shield',  tab:'admin' },
     { acc:'accNeighborhoods', label:'ניהול שכונות',   icon:'map',     tab:'admin' },
     { acc:'accDealsImport',   label:'ייבוא עסקאות',   icon:'chart',   tab:'admin' },
+    { acc:'accGovmapBackfill', label:'נתוני GovMap',  icon:'map',     tab:'admin' },
     { acc:'accRssSources',    label:'מקורות RSS',     icon:'rss',     tab:'admin' },
     { acc:'accArticles',      label:'כתבות ובלוגים',  icon:'article', tab:'admin' },
     { acc:'accProfessionals', label:'בעלי מקצוע',     icon:'user',    tab:'admin' },
@@ -22549,6 +22550,165 @@ document.getElementById('dealsImportSaveBtn')?.addEventListener('click', async (
     btn.disabled = false; btn.textContent = 'ייבוא';
   }
 });
+
+/* ==========================================================================
+   נתוני GovMap - השלמה לנכסים קיימים, והשוואה מול עפולה
+   --------------------------------------------------------------------------
+   שני כפתורים, ושניהם בדפדפן כי הטוקן נעול לדומיין (docs/govmap.md):
+
+   * השלמה - govmap_backfill_candidates -> GovMap -> govmap_admin_save.
+     **המסד מחליט מה נשמר:** פין רק אם חסר, תכנון רק למסלול בתשלום, ונכס
+     שנוסה אינו חוזר לתור שבוע. הדפדפן רק שולף ומעביר.
+   * השוואה - govmap_parity_candidates -> GovMap, **בלי שום כתיבה**. זה
+     "התנאי לניתוק עפולה": גוש/חלקה זהים ב-100% ופינים עד 15 מטר.
+
+   הקריאות רצות אחת-אחת ולא במקביל: אין מכסה מתועדת, והטוקן אחד לכל האתר.
+   ========================================================================== */
+const GOVMAP_PARITY_MAX_METERS = 15;
+
+function govmapDistanceMeters(lat1, lng1, lat2, lng2){
+  const R = 6371000, rad = Math.PI / 180;
+  const dLat = (lat2 - lat1) * rad, dLng = (lng2 - lng1) * rad;
+  const a = Math.sin(dLat/2) ** 2 + Math.cos(lat1*rad) * Math.cos(lat2*rad) * Math.sin(dLng/2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+let govmapBusy = false;
+function govmapSetBusy(on){
+  govmapBusy = on;
+  ['govmapBackfillBtn', 'govmapParityBtn'].forEach(id => {
+    const b = document.getElementById(id);
+    if (b) b.disabled = on;
+  });
+}
+
+async function runGovmapBackfill(){
+  if (govmapBusy || !window.GovmapLookup) return;
+  const status = document.getElementById('govmapBackfillStatus');
+  const out = document.getElementById('govmapBackfillResult');
+  govmapSetBusy(true);
+  out.innerHTML = '';
+  status.textContent = 'טוען את רשימת הנכסים…';
+  try{
+    const { data: rows, error } = await sb.rpc('govmap_backfill_candidates', { p_limit: 40 });
+    if (error) throw error;
+    if (!rows || !rows.length){
+      status.textContent = 'אין נכסים שחסרים להם נתונים מחוץ לעפולה.';
+      return;
+    }
+    const counts = { saved:0, pin_only:0, not_found:0, error:0 };
+    for (let i = 0; i < rows.length; i++){
+      const r = rows[i];
+      status.textContent = `${i + 1} מתוך ${rows.length}: ${r.street} ${r.house_number}, ${r.city}`;
+      try{
+        const q = { street: r.street, houseNumber: r.house_number, city: r.city };
+        let record = {};
+        if (r.need_planning){
+          const res = await GovmapLookup.lookupProperty(q);
+          if (res){
+            record = { planning: Object.assign({}, res.planning || {}, { lat: res.lat, lng: res.lng }) };
+            // פין לפי כתובת בלבד. מרכז חלקה כאן אינו אפשרי ממילא - אין גוש/חלקה בקלט.
+            if (res.pinSource === 'address'){ record.pin_lat = res.lat; record.pin_lng = res.lng; }
+            if (!res.planning) delete record.planning;
+          }
+        } else {
+          const hit = await GovmapLookup.addressLatLng(q);
+          if (hit) record = { pin_lat: hit.lat, pin_lng: hit.lng };
+        }
+        const { data: result, error: saveErr } = await sb.rpc('govmap_admin_save', { p_property_id: r.id, p_record: record });
+        if (saveErr) throw saveErr;
+        counts[result] = (counts[result] || 0) + 1;
+      } catch(err){
+        // תקלה זמנית - לא נרשם "לא נמצא", כדי שהנכס יחזור בלחיצה הבאה
+        console.warn('GovMap backfill:', r.id, err);
+        counts.error++;
+      }
+    }
+    status.textContent = '';
+    out.innerHTML = `<p class="acc-sub">עובדו ${esc(String(rows.length))} נכסים:
+      ${esc(String(counts.saved))} עם מידע תכנוני,
+      ${esc(String(counts.pin_only))} מיקום בלבד,
+      ${esc(String(counts.not_found))} לא נמצאו ב-GovMap,
+      ${esc(String(counts.error))} נכשלו (ינוסו שוב בלחיצה הבאה).</p>`;
+  } catch(err){
+    console.warn('GovMap backfill failed:', err);
+    status.textContent = 'ההשלמה נכשלה: ' + ((err && err.message) || err);
+  } finally {
+    govmapSetBusy(false);
+  }
+}
+
+async function runGovmapParity(){
+  if (govmapBusy || !window.GovmapLookup) return;
+  const status = document.getElementById('govmapBackfillStatus');
+  const out = document.getElementById('govmapBackfillResult');
+  govmapSetBusy(true);
+  out.innerHTML = '';
+  status.textContent = 'טוען את נכסי עפולה…';
+  try{
+    const { data: rows, error } = await sb.rpc('govmap_parity_candidates', { p_limit: 100 });
+    if (error) throw error;
+    if (!rows || !rows.length){ status.textContent = 'אין נכסים להשוואה.'; return; }
+    const results = [];
+    for (let i = 0; i < rows.length; i++){
+      const r = rows[i];
+      status.textContent = `${i + 1} מתוך ${rows.length}: ${r.street} ${r.house_number}`;
+      const row = { r, found: false, dist: null, parcelMatch: null, govGush: null, govHelka: null, err: null };
+      try{
+        const q = { street: r.street, houseNumber: r.house_number, city: 'עפולה' };
+        const hit = await GovmapLookup.addressLatLng(q);
+        if (hit){
+          row.found = true;
+          row.dist = govmapDistanceMeters(r.lat, r.lng, hit.lat, hit.lng);
+          if (r.gush && r.helka){
+            const pl = await GovmapLookup.lookupProperty(q);
+            const g = pl && pl.planning;
+            if (g){
+              row.govGush = g.gush; row.govHelka = g.helka;
+              row.parcelMatch = String(g.gush) === String(r.gush) && String(g.helka) === String(r.helka);
+            }
+          }
+        }
+      } catch(err){ row.err = (err && err.message) || String(err); }
+      results.push(row);
+    }
+    status.textContent = '';
+    const found = results.filter(x => x.found);
+    const dists = found.map(x => x.dist).sort((a, b) => a - b);
+    const median = dists.length ? dists[Math.floor(dists.length / 2)] : null;
+    const far = found.filter(x => x.dist > GOVMAP_PARITY_MAX_METERS);
+    const withParcel = results.filter(x => x.parcelMatch !== null);
+    const parcelOk = withParcel.filter(x => x.parcelMatch);
+    const errors = results.filter(x => x.err);
+    const ready = found.length === results.length && !far.length && parcelOk.length === withParcel.length && !errors.length;
+
+    const bad = results.filter(x => !x.found || x.err || x.dist > GOVMAP_PARITY_MAX_METERS || x.parcelMatch === false);
+    const rowsHtml = bad.map(x => `<tr>
+      <td>${esc(x.r.street)} ${esc(x.r.house_number)}</td>
+      <td>${x.err ? 'שגיאה' : (!x.found ? 'לא נמצאה ב-GovMap' : (x.dist > GOVMAP_PARITY_MAX_METERS ? esc(String(Math.round(x.dist))) + ' מ\'' : '-'))}</td>
+      <td>${x.parcelMatch === false ? esc(String(x.r.gush)) + '/' + esc(String(x.r.helka)) + ' מול ' + esc(String(x.govGush)) + '/' + esc(String(x.govHelka)) : '-'}</td>
+    </tr>`).join('');
+
+    out.innerHTML = `
+      <p class="acc-sub"><strong>${ready ? 'עפולה עומדת בתנאי המעבר ל-GovMap.' : 'עפולה עדיין לא עומדת בתנאי המעבר.'}</strong></p>
+      <ul class="acc-sub" style="margin:0 0 12px;padding-inline-start:18px">
+        <li>נמצאו ב-GovMap: ${esc(String(found.length))} מתוך ${esc(String(results.length))}</li>
+        <li>מרחק חציוני בין הפינים: ${median == null ? '-' : esc(String(Math.round(median))) + ' מ\''}</li>
+        <li>רחוקים מ-${GOVMAP_PARITY_MAX_METERS} מ': ${esc(String(far.length))}</li>
+        <li>גוש/חלקה זהים: ${esc(String(parcelOk.length))} מתוך ${esc(String(withParcel.length))}</li>
+        ${errors.length ? `<li>שגיאות: ${esc(String(errors.length))}</li>` : ''}
+      </ul>
+      ${bad.length ? `<div style="overflow-x:auto"><table class="cma-table"><thead><tr><th>כתובת</th><th>מיקום</th><th>גוש/חלקה (עירייה מול GovMap)</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>` : ''}`;
+  } catch(err){
+    console.warn('GovMap parity failed:', err);
+    status.textContent = 'ההשוואה נכשלה: ' + ((err && err.message) || err);
+  } finally {
+    govmapSetBusy(false);
+  }
+}
+
+document.getElementById('govmapBackfillBtn')?.addEventListener('click', runGovmapBackfill);
+document.getElementById('govmapParityBtn')?.addEventListener('click', runGovmapParity);
 
 document.getElementById('accDealsImport')?.addEventListener('toggle', function(){
   if (this.open) loadDealsCoverage();

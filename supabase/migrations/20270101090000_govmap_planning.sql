@@ -55,16 +55,20 @@ comment on column public.property_planning_info.neighborhood_name is
   'שם השכונה משכבת neighborhoods_area של GovMap. לא כל נקודה מכוסה.';
 
 -- ---------------------------------------------------------------------------
--- השמירה
+-- הכתיבה עצמה: אימות + upsert, בלי שאלת "מי מותר"
+--
+-- פונקציה פנימית אחת, ששתי הדלתות קוראות לה: ‏govmap_save_planning (סוכן/ת,
+-- על נכס שלו/ה) ו-govmap_admin_save (מנהל/ת פלטפורמה, השלמה לנכסים
+-- קיימים, מיגרציה 20270103090000). אימות בשני עותקים היה נפרד ביום
+-- הראשון שמישהו מתקן אחד מהם. **אין לה הרשאת הרצה לאף תפקיד חיצוני.**
 -- ---------------------------------------------------------------------------
-create or replace function public.govmap_save_planning(p_property_id uuid, p_record jsonb)
+create or replace function public.govmap_planning_write(p_property_id uuid, p_record jsonb)
 returns boolean
 language plpgsql
 security definer
 set search_path to ''
 as $$
 declare
-  v_agent_id uuid := public.current_agent_id();
   v_gush     text := nullif(btrim(coalesce(p_record->>'gush', '')), '');
   v_helka    text := nullif(btrim(coalesce(p_record->>'helka', '')), '');
   v_area     numeric;
@@ -73,25 +77,6 @@ declare
   v_plans    jsonb := coalesce(p_record->'applicable_plans', '[]'::jsonb);
   v_geom     jsonb := p_record->'geometry_wgs84';
 begin
-  if v_agent_id is null then
-    raise exception 'not_authenticated';
-  end if;
-
-  -- הנכס של הסוכן/ת, ולא נכס של מישהו אחר במשרד
-  if not exists (select 1 from public.properties p
-                  where p.id = p_property_id and p.agent_id = v_agent_id) then
-    raise exception 'not_your_property';
-  end if;
-
-  -- הגייט: אותו מסלול כמו afula-planning-lookup, ומסלול שפג אינו מסלול
-  if not exists (select 1 from public.agency_members m
-                  where m.id = v_agent_id
-                    and m.active = true
-                    and m.billing_status = 'active'
-                    and m.tier in ('mid', 'premium')) then
-    raise exception 'upgrade_required';
-  end if;
-
   -- אימות: הדפדפן אינו מקור אמין. ערך שאינו עובר - נזרק ולא "מתוקן".
   if v_gush is not null and v_gush !~ '^\d{1,7}$' then raise exception 'bad_gush'; end if;
   if v_helka is not null and v_helka !~ '^\d{1,5}$' then raise exception 'bad_helka'; end if;
@@ -150,6 +135,46 @@ begin
     neighborhood_name    = excluded.neighborhood_name;
 
   return true;
+end;
+$$;
+
+comment on function public.govmap_planning_write(uuid, jsonb) is
+  'פנימית: אימות ו-upsert של שורת תכנון מ-GovMap. בלי בדיקת הרשאה - נקראת רק מ-govmap_save_planning ומ-govmap_admin_save.';
+
+revoke all on function public.govmap_planning_write(uuid, jsonb) from public, anon, authenticated;
+
+-- ---------------------------------------------------------------------------
+-- הדלת של הסוכן/ת: בעלות + מסלול, ואז הכתיבה
+-- ---------------------------------------------------------------------------
+create or replace function public.govmap_save_planning(p_property_id uuid, p_record jsonb)
+returns boolean
+language plpgsql
+security definer
+set search_path to ''
+as $$
+declare
+  v_agent_id uuid := public.current_agent_id();
+begin
+  if v_agent_id is null then
+    raise exception 'not_authenticated';
+  end if;
+
+  -- הנכס של הסוכן/ת, ולא נכס של מישהו אחר במשרד
+  if not exists (select 1 from public.properties p
+                  where p.id = p_property_id and p.agent_id = v_agent_id) then
+    raise exception 'not_your_property';
+  end if;
+
+  -- הגייט: אותו מסלול כמו afula-planning-lookup, ומסלול שפג אינו מסלול
+  if not exists (select 1 from public.agency_members m
+                  where m.id = v_agent_id
+                    and m.active = true
+                    and m.billing_status = 'active'
+                    and m.tier in ('mid', 'premium')) then
+    raise exception 'upgrade_required';
+  end if;
+
+  return public.govmap_planning_write(p_property_id, p_record);
 end;
 $$;
 

@@ -5547,6 +5547,29 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </details>
 
+      <!-- ‏GovMap: השלמת פין ומידע תכנוני לנכסים קיימים מחוץ לעפולה, והשוואה
+           מול שכבת העירייה בעפולה. בדפדפן ולא בסורק, כי הטוקן נעול לדומיין.
+           docs/govmap.md -->
+      <details class="acc" id="accGovmapBackfill">
+        <summary>
+          <span class="acc-title">נתוני GovMap</span>
+          <span class="acc-count" id="accGovmapBackfillCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <p class="acc-sub">
+            השלמת מיקום על המפה ומידע תכנוני לנכסים שכבר במערכת, בכל עיר שאינה עפולה.
+            פין קיים לא זז, ומידע תכנוני נשמר רק לנכס של מנוי/ה PROFESSIONAL או Elite.
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+            <button type="button" class="btn btn-gold" id="govmapBackfillBtn">השלמת נתונים חסרים</button>
+            <button type="button" class="btn btn-ghost" id="govmapParityBtn">השוואה מול עפולה (בלי שמירה)</button>
+          </div>
+          <div id="govmapBackfillStatus" class="acc-sub" style="margin-bottom:10px"></div>
+          <div id="govmapBackfillResult"></div>
+        </div>
+      </details>
+
       <details class="acc" id="accRssSources">
         <summary>
           <span class="acc-title">ניהול מקורות RSS</span>
