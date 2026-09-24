@@ -1446,16 +1446,52 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media(min-width:560px){.share-partner-list{grid-template-columns:1fr 1fr}}
   .share-partner-list label{padding:6px 4px;border-radius:var(--radius-sm);cursor:pointer}
   .share-partner-list label:hover{background:var(--paper)}
-  .filter-input{border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;background:#fff}
+  /* ---------- פקדי חיפוש וסינון ----------
+     כל שדה חיפוש וכל תפריט סינון ב-CRM נושא את המחלקה הזו, ולכן העיצוב
+     כולו יושב כאן ולא בכל רשימה בנפרד: גלולה עגולה, משטח לבן עם צל רך,
+     זכוכית מגדלת בשדה החיפוש וחץ משלנו בתפריט (ה-appearance של הדפדפן
+     מבוטל, כי החץ המקורי שונה בכל מערכת הפעלה ונראה כמו טופס ישן).
+     ‏dir="rtl" קבוע בדף, ולכן המיקומים הפיזיים של האייקונים בטוחים:
+     הזכוכית בימין (תחילת השורה) והחץ בשמאל (סופה). */
+  .filter-input{
+    font:inherit;font-size:.92rem;color:#0f172a;
+    border:1px solid #d5dce6;border-radius:999px;padding:11px 18px;
+    background-color:#fff;
+    box-shadow:0 1px 2px rgba(15,23,42,.04),0 3px 10px rgba(15,23,42,.06);
+    transition:border-color .15s,box-shadow .15s,background-color .15s;
+    min-height:46px;
+  }
+  .filter-input:hover{border-color:#b8c3d2}
+  .filter-input:focus{outline:none;border-color:#2c5a8c;
+    box-shadow:0 0 0 3px rgba(44,90,140,.16),0 3px 10px rgba(15,23,42,.06)}
+  select.filter-input{
+    -webkit-appearance:none;appearance:none;cursor:pointer;
+    padding-left:40px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:left 15px center;background-size:16px;
+  }
+  select.filter-input::-ms-expand{display:none}
+  input[type=search].filter-input{
+    background-color:#f1f5f9;border-color:#e2e8f0;padding-right:46px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='20' y1='20' x2='16.2' y2='16.2'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 17px center;background-size:19px;
+    box-shadow:inset 0 1px 2px rgba(15,23,42,.05);
+  }
+  input[type=search].filter-input:focus{background-color:#fff;border-color:#2c5a8c;
+    box-shadow:0 0 0 3px rgba(44,90,140,.16)}
+  input[type=search].filter-input::placeholder{color:#94a3b8}
 
   /* ---------- סרגל חיפוש/סינון/מיון לרשימות ----------
      אותו סרגל משרת את שלוש הרשימות (הנכסים שלי, ששותפו איתי, הלקוחות).
      ברוחב טלפון הפקדים נערמים בשורות ומתמתחים לרוחב מלא — בחירה בשדה
      צר מדי היא הדרך הבטוחה לגרום לסוכן/ת לוותר על הסינון. */
-  .list-toolbar{display:grid;gap:8px;margin-bottom:12px}
-  .list-toolbar .toolbar-row{display:flex;gap:8px;flex-wrap:wrap}
+  .list-toolbar{display:grid;gap:10px;margin-bottom:14px}
+  .list-toolbar .toolbar-row{display:flex;gap:10px;flex-wrap:wrap}
   .list-toolbar .toolbar-row > *{flex:1 1 130px;min-width:0}
   .list-toolbar .filter-input{width:100%}
+  .list-toolbar .btn{border-radius:999px;min-height:46px}
+  .list-toolbar .btn-ghost{background:#fff;border:1px solid #d5dce6;color:#1C3A5E;
+    box-shadow:0 1px 2px rgba(15,23,42,.04),0 3px 10px rgba(15,23,42,.06)}
   .list-toolbar .toolbar-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
   .list-count{font-size:.74rem;color:var(--ink-soft);margin:0}
   .clear-filters{background:none;border:none;padding:0;font:inherit;font-size:.74rem;font-weight:700;
