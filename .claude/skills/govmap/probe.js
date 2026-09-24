@@ -18,7 +18,9 @@
    ============================================================================ */
 (async () => {
   const T = 'a888579d-2bc4-4768-97d5-bd1642e2633b';
-  const EXTRA_LAYERS = [];   // ← להדביק כאן את ערכי lay= (מחרוזות)
+  // ערכי lay= מ-apiManagement ב-24.9.2026 (שכבת "עסקאות נדל\"ן" ושכנותיה). מזהה
+  // מספרי ו-layer_<id> שניהם מתועדים כתקפים; שולחים את שניהם ורואים מי עונה.
+  const EXTRA_LAYERS = ['218358', '212537', '16', 'layer_218358', 'layer_212537'];
   const LAYERS = ['PARCEL_ALL', 'SUB_GUSH_ALL', 'retzefMigrashim', 'neighborhoods_area', ...EXTRA_LAYERS];
   const REFS = [
     { q: 'החורש 8 עפולה', expect: { gush: '16742', helka: '96', area: 1252, landUse: 'מגורים ב', plan: 'ג/20010' } },
@@ -55,7 +57,7 @@
       const hit = s && s.results && s.results.find(x => x.type === 'address');
       if (hit) {
         const layers = LAYERS.filter(l => out.fields[l]).map(l => ({ name: l, fields: out.fields[l].map(f => f.name) }));
-        const g = await govmap.getLayerFeaturesByLocation({ geometry: hit.centroid, radius: 1, layers }, T);
+        const g = await govmap.getLayerFeaturesByLocation({ geometry: hit.centroid, radius: 25, layers }, T);
         r.features = g && g.layers;
       }
     } catch (e) { err('ref:' + ref.q, e); }
