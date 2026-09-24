@@ -576,10 +576,71 @@ function buildNightSky(){
   document.body.prepend(sky);
 }
 
+/* ---------- פרלקסה ----------
+   כל שכבה זזה במרחק משלה: הכוכבים הקטנים (הרחוקים) כמעט לא, הגדולים יותר,
+   והירח הכי הרבה — וזה מה שנותן לשמיים עומק. שני מקורות תנועה:
+
+   * גלילה — ההיסט יחסי ל*התקדמות* בעמוד (0 עד 1) ולא לפיקסלים, ולכן הוא
+     חסום: בדשבורד של אלפי פיקסלים הכוכבים לא "נגמרים" בתחתית.
+   * עכבר — בדסקטופ בלבד (‏pointer:fine), היסט של כמה פיקסלים לכיוון ההפוך
+     לסמן, מוחלק לאט כדי שירגיש כמו ציפה ולא כמו מעקב.
+
+   ‏transform נכתב על השכבות עצמן: האנימציה שלהן היא opacity בלבד, ו-
+   ‏.sky-field (שנושא את הסחיפה ב-transform) אינו נגוע. נכבה לגמרי ב-
+   reduced-motion וב-a11y-nomotion. */
+const SKY_DEPTH = [
+  // בורר, טווח גלילה (vh), טווח עכבר (px)
+  ['.sky-s1',   4,  5],
+  ['.sky-s2',   9, 11],
+  ['.sky-s3',  16, 20],
+  ['.sky-moon', 26, 30],
+];
+let skyRaf = 0, skyMx = 0, skyMy = 0, skyTx = 0, skyTy = 0;
+
+function skyMotionOff(){
+  return navReduceMotion() || document.documentElement.classList.contains('a11y-nomotion');
+}
+
+function skyFrame(){
+  skyRaf = 0;
+  const sky = document.querySelector('.crm-sky');
+  if (!sky || !document.body.classList.contains('crm-night')) return;
+  const max = document.documentElement.scrollHeight - innerHeight;
+  const progress = max > 0 ? Math.min(1, scrollY / max) : 0;
+  // החלקה: הסמן "נגרר" אחרי העכבר ב-8% בכל פריים
+  skyTx += (skyMx - skyTx) * 0.08;
+  skyTy += (skyMy - skyTy) * 0.08;
+  SKY_DEPTH.forEach(([sel, vh, px])=>{
+    const el = sky.querySelector(sel);
+    if (!el) return;
+    const y = -progress * vh * innerHeight / 100 + skyTy * px;
+    el.style.transform = 'translate3d(' + (skyTx * px).toFixed(1) + 'px,' + y.toFixed(1) + 'px,0)';
+  });
+  if (Math.abs(skyMx - skyTx) > 0.002 || Math.abs(skyMy - skyTy) > 0.002) skyQueue();
+}
+
+function skyQueue(){
+  if (skyRaf || skyMotionOff()) return;
+  skyRaf = requestAnimationFrame(skyFrame);
+}
+
+window.addEventListener('scroll', skyQueue, { passive:true });
+window.addEventListener('resize', skyQueue, { passive:true });
+if (window.matchMedia('(pointer:fine)').matches){
+  window.addEventListener('pointermove', (e)=>{
+    if (!document.body.classList.contains('crm-night')) return;
+    // ‏-0.5..0.5 מהמרכז, בכיוון ההפוך לסמן
+    skyMx = -(e.clientX / innerWidth - 0.5);
+    skyMy = -(e.clientY / innerHeight - 0.5);
+    skyQueue();
+  }, { passive:true });
+}
+
 function syncNightSky(){
   const night = isNightNow();
   if (night) buildNightSky();
   document.body.classList.toggle('crm-night', night);
+  if (night) skyQueue();
   // שורת הסטטוס של הטלפון והאפליקציה המותקנת עוברות לנייבי כהה יחד עם הרקע
   const meta = document.querySelector('meta[name="theme-color"]');
   if (meta){
@@ -1550,14 +1611,74 @@ function handleGotoParam(){
 }
 
 /* הברכה נושאת את השם ואת שעת היום — היא הדבר הראשון שנקרא בעמוד, ולכן היא
-   גם המקום הנכון לתת הקשר במקום עוד כותרת גנרית */
+   גם המקום הנכון לתת הקשר במקום עוד כותרת גנרית.
+
+   ברוב הכניסות היא משפט מוטיבציה עם קריצה, לפי שעת היום, ובכניסה אחת
+   מתוך ארבע — הברכה הקלאסית. משפט שיוצא בכל פעם הופך לטפט אחרי שבוע, ולכן
+   יש מאגר, והמשפט האחרון שהוצג נשמר כדי לא לחזור עליו פעמיים ברצף.
+
+   הנוסח ניטרלי מגדרית בכוונה ("שלך", "אותך", פנייה ברבים): אין לנו שדה
+   מגדר, ו"מוכן לטרוף?" לסוכנת הוא בדיוק ההפך מהחיוך שהוא נועד לייצר.
+   ‏{name} הוא השם הפרטי; בלעדיו הפנייה נושרת (ראו greetingText). */
+const GREETINGS = {
+  morning: [
+    'בוקר אור, {name}! יום של אריות היום - ההזדמנויות כבר ערות',
+    'בוקר טוב, {name}. הקפה חם, והלידים חמים עוד יותר',
+    '{name}, השמש זרחה, ועסקאות עדיין לא סוגרות את עצמן. בינתיים.',
+    'בוקר טוב, {name}! יום מושלם להחתים בלעדיות',
+    'בוקר אור, {name}. מישהו שם בחוץ מחפש בדיוק את הנכס שלך',
+    'בוקר טוב, {name}! המפתחות לא יעברו ידיים לבד',
+  ],
+  noon: [
+    'צהריים טובים, {name}! אחרי הצהריים סוגרים עסקאות, לא מנמנמים',
+    '{name}, חצי יום מאחורינו - והחצי השני שמור לעסקה הגדולה',
+    'צהריים טובים, {name}. השקשוקה תחכה, הלקוח החם - פחות',
+    '{name}, עוד טלפון אחד - ואולי זה ה-טלפון',
+    'צהריים טובים, {name}! הנכסים שלך נראים היום במיטבם',
+  ],
+  evening: [
+    'ערב טוב, {name}! עוד לא מאוחר לסגור את היום בחתימה',
+    '{name}, ערב מושלם לשלוח ללקוח את ההתאמה שהוא חיכה לה',
+    'ערב טוב, {name}. עוד שיחה אחת לפני הבית - ככה נסגרות עסקאות',
+  ],
+  night: [
+    'לילה טוב, {name}. גם הכוכבים במשמרת לילה - אבל לא לשכוח לישון',
+    '{name}, שעת לילה ועדיין כאן? ככה נראית מחויבות אמיתית',
+    'לילה טוב, {name}! מחר הלידים יחכו - הלילה טוענים מצברים',
+  ],
+  any: [
+    '{name}, היום זה יום מושלם לעשות עסקאות. גם מחר, אבל היום קודם',
+    '{name}, בעלי הדירות עוד לא יודעים שהם צריכים אותך. עוד.',
+    '{name}, כל "לא" מקרב אותך ל"כן" הבא',
+    '{name}, מה מוכרים היום? חוץ מחלומות, כמובן',
+    '{name}, העמלה הבאה כבר בדרך. נשאר רק לענות לטלפון',
+  ],
+};
+const GREETING_LAST_KEY = 'crmGreetingLast';
+
+function greetingText(template, first){
+  if (first) return template.replace('{name}', first);
+  // בלי שם: "{name}, " בתחילת משפט ו-", {name}" באמצעו נושרים יחד עם הפסיק
+  return template.replace(/^\{name\},\s*/, '').replace(/,\s*\{name\}/, '');
+}
+
 function renderGreeting(agent){
   const el = document.getElementById('dashGreet');
   if (!el) return;
   const first = String(agent.display_name || '').trim().split(/\s+/)[0] || '';
   const hour = new Date().getHours();
   const part = hour < 12 ? 'בוקר טוב' : hour < 17 ? 'צהריים טובים' : hour < 21 ? 'ערב טוב' : 'לילה טוב';
-  el.textContent = part + (first ? ', ' + first : '') + ' - הנה תמונת המצב שלך להיום';
+  const classic = part + (first ? ', ' + first : '') + ' - הנה תמונת המצב שלך להיום';
+  if (Math.random() < 0.25){ el.textContent = classic; return; }
+
+  const slot = (hour >= 21 || hour < 5) ? 'night' : hour < 12 ? 'morning' : hour < 17 ? 'noon' : 'evening';
+  const pool = GREETINGS[slot].concat(GREETINGS.any);
+  let last = '';
+  try { last = localStorage.getItem(GREETING_LAST_KEY) || ''; } catch {}
+  const options = pool.filter(t => t !== last);
+  const pick = options[Math.floor(Math.random() * options.length)];
+  try { localStorage.setItem(GREETING_LAST_KEY, pick); } catch {}
+  el.textContent = greetingText(pick, first);
 }
 
 /* ---------- Test menu (מצב בדיקה) ----------
