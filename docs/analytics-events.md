@@ -300,7 +300,9 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 **‏`contact_professional` הוא ה-15**, באותו מחזור בדיוק: הקוד נכתב, הבדיקה
 אדומה עד שהמכולה מעודכנת, והטריגר והתגית שלו מוכנים בקובץ הייבוא
 (`docs/gtm-events-import.json`, ‏`CE — contact_professional` / ‏`GA4 —
-contact_professional`, ‏`method` דרך `DLV - method` הקיים).
+contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
+ב-24.9.2026 בגרסה 8** - 17 תגיות ו-15 טריגרים, וההצלבה ירוקה (גרסאות 6-7
+נשאו תגית כפולה ל-`contact_developer`; ‏`gtm/README.md`).
 
 ‏`method` ממופה בתגית החדשה דרך `DLV - method` הקיים, ולכן **לא היה
 משתנה חדש לייבא ואין מימד מותאם חדש לרשום ב-GA4** - שלושת הפרמטרים של
