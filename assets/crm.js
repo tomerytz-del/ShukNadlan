@@ -16832,6 +16832,13 @@ const FEATURE_LABELS = Object.fromEntries([
   ...LISTING_FEATURES, ...COMMERCIAL_PROPERTY_FEATURES, ...RESIDENTIAL_PROPERTY_FEATURES,
 ]);
 const CLIENT_STATUS_LABELS = { active:'מחפש/ת', paused:'בהמתנה', closed:'סגר/ה עסקה' };
+// שני שדות איש הקשר מהטופס (מיגרציה 20270109090000) - רשימות סגורות במסד
+const CLIENT_FINANCING_LABELS = {
+  approved:'יש אישור עקרוני / הון נזיל', pending_sale:'תלוי במכירת נכס קיים', initial:'בירור ראשוני / ללא אישור',
+};
+const CLIENT_SOURCE_LABELS = {
+  social:'פייסבוק / אינסטגרם', yad2:'יד 2', sign:'שלט על נכס', referral:'המלצה / לקוח חוזר', other:'אחר',
+};
 const MATCH_SOURCE_LABELS = { own:'הנכס שלי', agency:'נכס של המשרד', shared:'שותף איתי' };
 
 let clientRows = [];
@@ -16928,6 +16935,7 @@ function clientSearchBlob(c){
     c.deal_type === 'rent' ? 'שכירות' : 'קנייה',
     c.category === 'commercial' ? 'מסחרי' : 'מגורים',
     CLIENT_STATUS_LABELS[c.status],
+    CLIENT_FINANCING_LABELS[c.financing_status], CLIENT_SOURCE_LABELS[c.lead_source],
   ].filter(Boolean).join(' ').toLowerCase();
 }
 
@@ -17056,6 +17064,10 @@ function buildClientCard(c){
                title="וואטסאפ ל${esc(c.full_name)}" aria-label="וואטסאפ ל${esc(c.full_name)}">💬</a>` : ''}
           </div>` : ''}
         <div class="req-line">${esc(clientRequirementLine(c))}</div>
+        ${(c.financing_status || c.lead_source) ? `<div class="lead-meta">${esc([
+          c.financing_status && '💳 ' + (CLIENT_FINANCING_LABELS[c.financing_status] || c.financing_status),
+          c.lead_source && 'מקור: ' + (CLIENT_SOURCE_LABELS[c.lead_source] || c.lead_source),
+        ].filter(Boolean).join(' · '))}</div>` : ''}
         ${c.notes ? `<div class="lead-meta">${esc(c.notes)}</div>` : ''}
       </div>
       <div class="pill-row">
@@ -17255,57 +17267,176 @@ function renderClientMatches(panel, rows){
   });
 }
 
-/* ---------- טופס הלקוח/ה ---------- */
+/* ---------- טופס הלקוח/ה ----------
+   שני כרטיסים - פרטי איש קשר ופרופיל חיפוש (ההסבר המלא מעל #addClientForm
+   ב-crm.html). שלושה ערכים חיים כאן כ-state ולא בשדה: סוג העסקה והקטגוריה
+   (מתגים), והערים - מערך של תגיות שנשלח כמו שהוא ל-cities. עד היום הערים
+   היו שדה טקסט שנחתך בפסיקים, וכל טעות הקלדה הפכה לעיר שאין לה נכסים. */
+let clientFormDeal = 'sale';
+let clientFormCities = [];
+let editingClientRow = null;
+
+/* שבעת מאפייני החובה שסוכנים מסננים לפיהם בפועל מוצגים ראשונים; השאר
+   מוסתרים מאחורי "עוד מאפיינים" - אבל מאפיין שכבר סומן אצל לקוח/ה תמיד
+   נראה, כדי שעריכה לא תמחק בשקט דרישה שאי אפשר לראות. */
+const CLIENT_CORE_FEATURES = ['elevator','parking','mamad','sun_balcony','ac','accessible','renovated_feature'];
+
 function clientTypeOptions(){
   return (clientFormCategory === 'commercial' ? COMMERCIAL_PTYPE_OPTIONS : RESIDENTIAL_PTYPE_OPTIONS)
     .map(t => [t, t]);
 }
 function clientFeatureOptions(){
-  return clientFormCategory === 'commercial' ? COMMERCIAL_PROPERTY_FEATURES : RESIDENTIAL_PROPERTY_FEATURES;
+  if (clientFormCategory === 'commercial') return COMMERCIAL_PROPERTY_FEATURES;
+  const byKey = new Map(RESIDENTIAL_PROPERTY_FEATURES);
+  return [
+    ...CLIENT_CORE_FEATURES.filter(k => byKey.has(k)).map(k => [k, byKey.get(k)]),
+    ...RESIDENTIAL_PROPERTY_FEATURES.filter(([k]) => !CLIENT_CORE_FEATURES.includes(k)),
+  ];
 }
 
 function renderClientFormLists(selectedTypes = [], selectedFeatures = []){
   renderFeatureCheckboxes('clPropertyTypes', clientTypeOptions(), selectedTypes);
   renderFeatureCheckboxes('clFeatures', clientFeatureOptions(), selectedFeatures);
+  const box = document.getElementById('clFeatures');
+  box.classList.remove('show-extra');
+  let extras = 0;
+  if (clientFormCategory !== 'commercial'){
+    box.querySelectorAll('.checkbox-item').forEach(item => {
+      if (CLIENT_CORE_FEATURES.includes(item.querySelector('input').value)) return;
+      item.classList.add('is-extra');
+      extras++;
+    });
+  }
+  const more = document.getElementById('clFeaturesMore');
+  more.hidden = extras === 0;
+  more.textContent = '+ עוד מאפיינים';
 }
 
 function setClientFormCategory(category, selectedTypes = [], selectedFeatures = []){
   clientFormCategory = category;
-  document.querySelectorAll('[data-client-category]').forEach(b =>
-    b.classList.toggle('active', b.dataset.clientCategory === category));
+  document.querySelectorAll('[data-client-category]').forEach(b => {
+    const on = b.dataset.clientCategory === category;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
   renderClientFormLists(selectedTypes, selectedFeatures);
 }
 
+function setClientFormDeal(deal){
+  clientFormDeal = deal === 'rent' ? 'rent' : 'sale';
+  document.querySelectorAll('[data-client-deal]').forEach(b => {
+    const on = b.dataset.clientDeal === clientFormDeal;
+    b.classList.toggle('active', on);
+    b.setAttribute('aria-pressed', String(on));
+  });
+  // בשכירות התקציב הוא שכר דירה חודשי - התווית אומרת את זה כדי שאף אחד
+  // לא יקליד מחיר קנייה ויקבל אפס התאמות
+  const suffix = clientFormDeal === 'rent' ? ' (₪ לחודש)' : ' (₪)';
+  document.getElementById('clMinPriceLabel').textContent = 'תקציב מינימלי' + suffix;
+  document.getElementById('clMaxPriceLabel').textContent = 'תקציב מקסימלי' + suffix;
+}
+
+/* ---------- בורר הערים ---------- */
+function renderClientCityChips(){
+  const wrap = document.getElementById('clCityChips');
+  wrap.innerHTML = clientFormCities.map((c, i) =>
+    `<span class="cf-tag">${esc(c)}<button type="button" data-remove-city="${i}"
+       aria-label="הסרת ${esc(c)}" title="הסרה">✕</button></span>`).join('');
+}
+
+function addClientCities(raw){
+  String(raw || '').split(',').map(s => s.trim().replace(/\s+/g, ' ')).filter(Boolean).forEach(city => {
+    if (!clientFormCities.includes(city)) clientFormCities.push(city);
+  });
+  renderClientCityChips();
+}
+
+// הצעות: כל עיר שיש לה רחובות במאגר, וכל עיר שכבר מופיעה בקובץ הלקוחות
+function syncClientCityOptions(){
+  const list = document.getElementById('clCityOptions');
+  const cities = uniqueSorted([
+    ...streetsByCity.keys(),
+    ...clientRows.flatMap(c => c.cities || []),
+  ]);
+  list.innerHTML = cities.map(c => `<option value="${esc(c)}"></option>`).join('');
+}
+
+(function wireClientCityInput(){
+  const input = document.getElementById('clCityInput');
+  const commit = ()=>{ if (input.value.trim()){ addClientCities(input.value); input.value = ''; } };
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter' || e.key === ','){ e.preventDefault(); commit(); }
+    else if (e.key === 'Backspace' && !input.value && clientFormCities.length){
+      clientFormCities.pop(); renderClientCityChips();
+    }
+  });
+  // בחירה מתוך ההצעות (או הדבקה עם פסיק) מוסיפה תגית בלי לחכות ל-Enter
+  input.addEventListener('input', e => {
+    // בחירה מה-datalist מגיעה בלי inputType (או כ-insertReplacementText);
+    // הקלדה רגילה אינה נסגרת מעצמה, כדי ש"עפולה" לא תיתפס באמצע "עפולה עילית"
+    const picked = e.inputType === 'insertReplacementText' || !e.inputType;
+    if (input.value.includes(',') || (picked && input.value.trim())) commit();
+  });
+  input.addEventListener('blur', commit);
+  document.getElementById('clCitiesBox').addEventListener('click', e => {
+    const btn = e.target.closest('[data-remove-city]');
+    if (btn){
+      clientFormCities.splice(Number(btn.dataset.removeCity), 1);
+      renderClientCityChips();
+      input.focus();
+      return;
+    }
+    if (e.target === e.currentTarget) input.focus();
+  });
+})();
+
 function resetClientForm(){
   editingClientId = null;
+  editingClientRow = null;
   document.getElementById('addClientForm').reset();
   document.getElementById('clientFeedback').textContent = '';
-  document.getElementById('saveClientBtn').textContent = 'שמירת הלקוח/ה';
+  document.getElementById('saveClientBtn').textContent = 'שמור לקוח והצלב נכסים';
+  clientFormCities = [];
+  renderClientCityChips();
+  setClientFormDeal('sale');
   setClientFormCategory('residential');
 }
 
+function openClientForm(){
+  const form = document.getElementById('addClientForm');
+  form.style.display = 'block';
+  syncClientCityOptions();
+  // רשימת הרחובות כנראה כבר נטענה לטופס הנכס; אם לא - היא נטענת ברקע
+  // ומעשירה את ההצעות, בלי לעכב את פתיחת הטופס
+  ensureStreetsLoaded().then(syncClientCityOptions).catch(()=>{});
+  return form;
+}
+
 function openEditClient(c){
+  resetClientForm();
   editingClientId = c.id;
+  editingClientRow = c;
   document.getElementById('clName').value  = c.full_name;
   document.getElementById('clPhone').value = c.phone || '';
   document.getElementById('clEmail').value = c.email || '';
   document.getElementById('clIdNumber').value = c.id_number || '';
   document.getElementById('clAddress').value  = c.address || '';
-  document.getElementById('clDeal').value  = c.deal_type;
-  document.getElementById('clCities').value = (c.cities || []).join(', ');
+  document.getElementById('clFinancing').value  = c.financing_status || '';
+  document.getElementById('clLeadSource').value = c.lead_source || '';
   document.getElementById('clMinPrice').value = c.min_price ?? '';
   document.getElementById('clMaxPrice').value = c.max_price ?? '';
   document.getElementById('clMinRooms').value = c.min_rooms ?? '';
-  document.getElementById('clMaxRooms').value = c.max_rooms ?? '';
   document.getElementById('clMinSize').value  = c.min_size_sqm ?? '';
   document.getElementById('clMaxFloor').value = c.max_floor ?? '';
   document.getElementById('clNotes').value    = c.notes || '';
   document.getElementById('clStatus').value   = c.status;
+  clientFormCities = (c.cities || []).slice();
+  renderClientCityChips();
+  setClientFormDeal(c.deal_type);
   setClientFormCategory(c.category || 'residential', c.property_types || [], c.required_features || []);
 
-  document.getElementById('saveClientBtn').textContent = 'עדכון הלקוח/ה';
-  const form = document.getElementById('addClientForm');
-  form.style.display = 'block';
+  document.getElementById('saveClientBtn').textContent = 'עדכן לקוח והצלב נכסים';
+  const form = openClientForm();
   form.scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
@@ -17328,15 +17459,40 @@ const numOrNull = id => {
   return raw === '' ? null : Number(raw);
 };
 
+/* "הצלב נכסים": אחרי השמירה הכרטיס של הלקוח/ה נפתח ברשימה ופאנל ההתאמות
+   נטען בו - אותה קריאה ל-match_properties_for_client שהכפתור בכרטיס עושה.
+   לקוח/ה שהסינון הנוכחי מסתיר (למשל "בהמתנה" מול סינון "מחפשים") פשוט
+   לא נפתח/ת - ההתאמות ממתינות בכרטיס. */
+function crossMatchClient(clientId){
+  const panel = document.getElementById('tabPanel-client-' + clientId);
+  if (!panel) return;
+  const cta = panel.querySelector('.match-cta');
+  if (cta) cta.click();
+  panel.closest('.prop-tab')?.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
 document.getElementById('toggleAddClient').addEventListener('click', ()=>{
   const form = document.getElementById('addClientForm');
   const opening = form.style.display === 'none';
-  if (opening) resetClientForm();
-  form.style.display = opening ? 'block' : 'none';
+  if (opening){ resetClientForm(); openClientForm(); }
+  else form.style.display = 'none';
+});
+
+document.getElementById('clCancel').addEventListener('click', ()=>{
+  resetClientForm();
+  document.getElementById('addClientForm').style.display = 'none';
 });
 
 document.querySelectorAll('[data-client-category]').forEach(btn =>
   btn.addEventListener('click', ()=> setClientFormCategory(btn.dataset.clientCategory)));
+document.querySelectorAll('[data-client-deal]').forEach(btn =>
+  btn.addEventListener('click', ()=> setClientFormDeal(btn.dataset.clientDeal)));
+
+document.getElementById('clFeaturesMore').addEventListener('click', e => {
+  const box = document.getElementById('clFeatures');
+  const on = box.classList.toggle('show-extra');
+  e.currentTarget.textContent = on ? '- פחות מאפיינים' : '+ עוד מאפיינים';
+});
 
 document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
@@ -17345,17 +17501,16 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
   const feedback = document.getElementById('clientFeedback');
   const original = btn.textContent;
 
+  // עיר שהוקלדה ולא אושרה ב-Enter נספרת - אחרת היא נעלמת בשקט בשמירה
+  const cityInput = document.getElementById('clCityInput');
+  if (cityInput.value.trim()){ addClientCities(cityInput.value); cityInput.value = ''; }
+
   const minPrice = numOrNull('clMinPrice'), maxPrice = numOrNull('clMaxPrice');
-  const minRooms = numOrNull('clMinRooms'), maxRooms = numOrNull('clMaxRooms');
-  // אותן בדיקות קיימות כ-check constraint ב-DB; כאן הן חוסכות הלוך-חזור לשרת
+  const minRooms = numOrNull('clMinRooms');
+  // אותה בדיקה קיימת כ-check constraint ב-DB; כאן היא חוסכת הלוך-חזור לשרת
   if (minPrice != null && maxPrice != null && minPrice > maxPrice){
     feedback.style.color = 'var(--brick)';
     feedback.textContent = 'התקציב המינימלי גבוה מהמקסימלי';
-    return;
-  }
-  if (minRooms != null && maxRooms != null && minRooms > maxRooms){
-    feedback.style.color = 'var(--brick)';
-    feedback.textContent = 'מינימום החדרים גבוה מהמקסימום';
     return;
   }
 
@@ -17365,28 +17520,37 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     email:  document.getElementById('clEmail').value.trim() || null,
     id_number: document.getElementById('clIdNumber').value.trim() || null,
     address:   document.getElementById('clAddress').value.trim() || null,
+    financing_status: document.getElementById('clFinancing').value || null,
+    lead_source:      document.getElementById('clLeadSource').value || null,
     notes:  document.getElementById('clNotes').value.trim() || null,
-    deal_type: document.getElementById('clDeal').value,
+    deal_type: clientFormDeal,
     category:  clientFormCategory,
     property_types: getCheckedValues('clPropertyTypes'),
-    cities: document.getElementById('clCities').value.split(',').map(s => s.trim()).filter(Boolean),
+    cities: clientFormCities.slice(),
     min_price: minPrice, max_price: maxPrice,
-    min_rooms: minRooms, max_rooms: maxRooms,
+    min_rooms: minRooms,
     min_size_sqm: numOrNull('clMinSize'),
     max_floor: numOrNull('clMaxFloor'),
     required_features: getCheckedValues('clFeatures'),
     status: document.getElementById('clStatus').value,
   };
+  // מקסימום החדרים ירד מהטופס (המפרט הפיזי הוא שלושה שדות), ולכן הוא לא
+  // נשלח ונשמר כמו שהוא אצל מי שכבר יש לו. רק כשהמינימום החדש עוקף אותו
+  // הוא מתאפס - אחרת ה-check של הטבלה היה דוחה את השמירה בלי שאפשר לתקן.
+  const oldMaxRooms = editingClientRow?.max_rooms;
+  if (minRooms != null && oldMaxRooms != null && minRooms > Number(oldMaxRooms)) payload.max_rooms = null;
 
-  btn.disabled = true; btn.textContent = 'שומר…';
+  btn.disabled = true; btn.textContent = 'שומר ומצליב…';
   feedback.textContent = '';
-  let error;
+  let error, savedId = editingClientId;
   if (editingClientId){
     ({ error } = await sb.from('agent_clients').update(payload).eq('id', editingClientId));
   } else {
     payload.agent_id  = currentAgent.id;
     payload.agency_id = currentAgent.agency_id;
-    ({ error } = await sb.from('agent_clients').insert(payload));
+    let row;
+    ({ data: row, error } = await sb.from('agent_clients').insert(payload).select('id').single());
+    savedId = row?.id;
   }
   btn.disabled = false; btn.textContent = original;
 
@@ -17395,12 +17559,15 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
     feedback.textContent = 'שגיאה בשמירה: ' + error.message;
     return;
   }
-  showToast(editingClientId ? 'הלקוח/ה עודכן/ה' : 'הלקוח/ה נוסף/ה - מחפשים התאמות');
+  const wasEditing = !!editingClientId;
+  showToast(wasEditing ? 'הלקוח/ה עודכן/ה - מצליבים נכסים' : 'הלקוח/ה נוסף/ה - מצליבים נכסים');
   // הצעד האחרון במדריך ההתחלה, וזה גם הרגע שבו המדריך כולו נסגר
-  if (!editingClientId) refreshOnboarding();
+  if (!wasEditing) refreshOnboarding();
   resetClientForm();
   document.getElementById('addClientForm').style.display = 'none';
+  if (savedId) expandedClientIds.add(savedId);
   await loadClients();
+  if (savedId) crossMatchClient(savedId);
 });
 
 document.getElementById('clientSearch').addEventListener('input', renderClients);
