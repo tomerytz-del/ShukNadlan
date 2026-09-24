@@ -4565,7 +4565,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
         <div class="field"><label>מספר בית (לא חובה)</label><input type="text" id="npHouseNumber"></div>
       </div>
-      <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">אם מולאו רחוב+מספר, מידע תכנוני (גוש/חלקה/ייעוד) ייקלט אוטומטית ברקע, ובדף הנכס תוצג מפת מיקום עם הפין המדויק (מסלולי PROFESSIONAL ו-Elite בלבד). בלי מספר בית אין מפה: הגאוקודינג נופל למרכז העיר, ופין כזה נראה מדויק ואינו כזה.</p>
+      <!-- גוש/חלקה: הדרך למקם נכס כשמספר הבית עדיין אינו בשכבת הכתובות של
+           מפ"י (שכונה חדשה, אזור תעשייה, מגרש). כשהכתובת לא נמצאה, הפין הוא
+           מרכז החלקה - רק לחלקה של עד 250 מ'. docs/govmap.md -->
+      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div class="field"><label>גוש (לא חובה)</label><input type="text" id="npGush" inputmode="numeric" pattern="\d*" placeholder="16742"></div>
+        <div class="field"><label>חלקה (לא חובה)</label><input type="text" id="npHelka" inputmode="numeric" pattern="\d*" placeholder="96"></div>
+      </div>
+      <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">אם מולאו רחוב+מספר (או גוש+חלקה), מידע תכנוני (גוש/חלקה/ייעוד) ייקלט אוטומטית ברקע. בשכונה חדשה או באזור תעשייה, שבהם מספר הבית עוד לא רשום במפה הארצית, גוש+חלקה הם מה שמאפשר למקם את הנכס, ובדף הנכס תוצג מפת מיקום עם הפין המדויק (מסלולי PROFESSIONAL ו-Elite בלבד). בלי מספר בית אין מפה: הגאוקודינג נופל למרכז העיר, ופין כזה נראה מדויק ואינו כזה.</p>
       <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <!-- step="any" ולא step="0.0001": הקואורדינטות נשמרות ב-DB ברזולוציה מלאה
              (double precision — למשל 32.6053163), ואם ה-step מגביל לארבע ספרות
