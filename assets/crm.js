@@ -19250,7 +19250,7 @@ const NAV_GROUPS = [
     { acc:'accAgreements',       label:'הסכמים והחתמות',    icon:'sign',     tab:'docs', focus:'agrSearch' },
     { acc:NAV_TASKS,             label:'יומן ומשימות',      icon:'calendar', tab:'home' },
   ]},
-  { key:'market', label:'מודיעין וזירת שיתופי פעולה', icon:'layers', items:[
+  { key:'market', label:'מודיעין וזירת שיתופי פעולה', short:'מודיעין ושיתופים', icon:'layers', items:[
     { acc:'accLeadShelf',        label:'חנות הלידים',       icon:'store',    tab:'leads' },
     { acc:'accSharedWithMe',     label:'שיתופי פעולה ומשרדים', icon:'handshake', tab:'props',
       also:['accSharePartners'] },
@@ -19383,7 +19383,7 @@ function navGroupsForView(){
   const admin = dashView === 'admin';
   return NAV_GROUPS
     .filter(g => !!g.adminOnly === admin && !g.placement)
-    .map(g => ({ key:g.key, label:g.label, icon:g.icon, items:g.items.filter(navItemVisible) }))
+    .map(g => ({ key:g.key, label:g.label, short:g.short, icon:g.icon, items:g.items.filter(navItemVisible) }))
     .filter(g => g.items.length);
 }
 
@@ -19408,7 +19408,7 @@ function renderSideNav(){
   navGroupsForView().forEach(group=>{
     const head = document.createElement('div');
     head.className = 'sn-group';
-    head.textContent = group.label;
+    head.innerHTML = dashIcon(group.icon, 'sn-gico') + '<span>' + esc(group.label) + '</span>';
     list.appendChild(head);
     group.items.forEach(item=>{
       const count = navItemCount(item);
@@ -20550,7 +20550,8 @@ function buildMenuPanel(){
   const groups = navGroupsForView()
     .map(g => ({
       key:   g.key,
-      label: g.label,
+      // בתפריט הצר כותרת ארוכה נחתכה ל"פעילות עסק…" — ‏short היא הגרסה שנכנסת
+      label: g.short || g.label,
       icon:  g.icon,
       items: g.items.filter(it => { if (navIsHomeItem(it)){ homeItems.push(it); return false; } return true; }),
     }))
