@@ -1714,7 +1714,18 @@ el('topupBtn').addEventListener('click', ()=>{
 /* ---------- חזרה מעמוד התשלום ----------
    הכתובת נושאת topup_id ואת "success"/"failure" — רמז בלבד, שאפשר לזייף.
    המצב האמיתי נשאל מהשרת (topup_status), וה-webhook והדפדפן הם שני מרוצים,
-   ולכן סבב בדיקות קצר. */
+   ולכן סבב בדיקות. ה-webhook של מורנינג הגיע בבדיקה הראשונה 44 שניות אחרי
+   פתיחת הטופס, וסבב של 16 שניות נגמר לפניו והשאיר את הארנק על 0 ₪ — לכן
+   כ-90 שניות בדיאלוג, ואחריהן המשך שקט ברקע עד 10 דקות, שמעדכן את היתרה
+   בעצמו במקום לבקש לרענן. */
+async function checkTopup(topupId){
+  const res = await api('topup_status', { topup_id: topupId }).catch(()=>({ ok:false, data:{} }));
+  return res.ok ? res.data.status : null;
+}
+async function topupPaid(){
+  await refresh();
+  setMsg('topupMsg', 'הארנק נטען. היתרה: ' + money(developer && developer.credit_balance), 'ok');
+}
 async function handleTopupReturn(){
   const params = new URLSearchParams(location.search);
   const topupId = params.get('topup_id');
@@ -1727,20 +1738,20 @@ async function handleTopupReturn(){
   el('topupSheet').showModal();
   if (mode === 'failure'){ setMsg('topupMsg', 'התשלום בוטל ולא בוצע חיוב.', 'err'); return; }
   setMsg('topupMsg', 'מאמתים את התשלום מול חברת הסליקה…');
-  for (let i = 0; i < 8; i++){
-    const res = await api('topup_status', { topup_id: topupId }).catch(()=>({ ok:false, data:{} }));
-    if (res.ok && res.data.status === 'paid'){
-      setMsg('topupMsg', 'הארנק נטען. היתרה: ' + money(res.data.credit_balance), 'ok');
-      await refresh();
-      return;
-    }
-    if (res.ok && res.data.status === 'failed'){
-      setMsg('topupMsg', 'התשלום לא הושלם ולא בוצע חיוב.', 'err');
-      return;
-    }
-    await new Promise(r => setTimeout(r, 2000));
+  const started = Date.now();
+  while (Date.now() - started < 90000){
+    const status = await checkTopup(topupId);
+    if (status === 'paid'){ await topupPaid(); return; }
+    if (status === 'failed'){ setMsg('topupMsg', 'התשלום לא הושלם ולא בוצע חיוב.', 'err'); return; }
+    await new Promise(r => setTimeout(r, 3000));
   }
-  setMsg('topupMsg', 'האישור מחברת הסליקה מתעכב. הארנק ייטען מעצמו ברגע שיגיע - אפשר לרענן בעוד כמה דקות.');
+  setMsg('topupMsg', 'האישור מחברת הסליקה מתעכב. היתרה תתעדכן כאן מעצמה ברגע שיגיע - אין צורך לשלם שוב.');
+  while (Date.now() - started < 600000){
+    await new Promise(r => setTimeout(r, 10000));
+    const status = await checkTopup(topupId);
+    if (status === 'paid'){ await topupPaid(); return; }
+    if (status === 'failed'){ setMsg('topupMsg', 'התשלום לא הושלם ולא בוצע חיוב.', 'err'); return; }
+  }
 }
 el('topupClose').addEventListener('click', ()=> el('topupSheet').close());
 

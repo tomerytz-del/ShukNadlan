@@ -207,6 +207,10 @@ developer-crm?topup=success&topup_id=… → project-manage {action:"topup_statu
   `is_platform_admin` **בעצמה**, ושומרת את מזהה המנהל/ת ב-`credited_by`.
 * ברירות המחדל של הטבלה היו `status='paid'` ו-`test_mode=true`, כלומר שורה
   שנוספה בלי לציין אחרת נחשבה טעינה ששולמה. עכשיו `pending` ו-`false`.
+* החזרה מעמוד התשלום: `developer-crm` שואל `topup_status` כ-90 שניות בדיאלוג,
+  ואז ממשיך ברקע עד 10 דקות ומעדכן את היתרה בעצמו. בחיוב האמיתי הראשון
+  (24.9.2026) ה-webhook הגיע 44 שניות אחרי פתיחת הטופס, והסבב הקודם (16
+  שניות) נגמר לפניו והשאיר ארנק שנטען על 0 ₪ במסך.
 * הסכומים: `DEVELOPER_TOPUP_AMOUNTS` ב-`project-manage` (100, 350, 500, 1000,
   2000), ואותם ב-`checkout.html`.
 
