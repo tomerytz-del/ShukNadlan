@@ -311,6 +311,35 @@
     });
   }
 
+  /**
+   * גוש/חלקה -> מרכז החלקה ב-{lat, lng}, **רק כשהחלקה קטנה מספיק**.
+   *
+   * חלקה חקלאית או חלקת משק במושב יכולה להשתרע על מאות מטרים, ומרכז שלה
+   * הוא פין שנראה מדויק ואינו כזה - בדיוק מה ש-docs/property-map.md אוסר.
+   * לכן: `maxSpanMeters` (ברירת מחדל 250) על הצלע הארוכה של התיבה החוסמת,
+   * ב-ITM שבו היחידה היא מטר. חלקה גדולה יותר = `{ tooLarge: true }`,
+   * תשובה סופית ולא תקלה.
+   */
+  function parcelLatLng(gush, helka, maxSpanMeters) {
+    var maxSpan = maxSpanMeters || 250;
+    return lookupParcel(gush, helka).then(function (p) {
+      if (!p) return null;
+      return Promise.all([govmapReady(), projReady()]).then(function (mods) {
+        return mods[0].getSearchResultData(p.hit, GOVMAP_TOKEN).then(function (d) {
+          var polys = parseMultiPolygon(d && d.geom);
+          if (!polys) throw new Error('govmap parcel: no geometry');
+          var xs = [], ys = [];
+          polys.forEach(function (rings) { rings[0].forEach(function (pt) { xs.push(pt[0]); ys.push(pt[1]); }); });
+          var span = Math.max(Math.max.apply(null, xs) - Math.min.apply(null, xs),
+                              Math.max.apply(null, ys) - Math.min.apply(null, ys));
+          if (span > maxSpan) return { tooLarge: true, span: span };
+          var ll = itmToWgs84(mods[1], p.x, p.y);
+          return { lat: ll[1], lng: ll[0], span: span };
+        });
+      });
+    });
+  }
+
   window.GOVMAP_TOKEN = GOVMAP_TOKEN;
   window.govmapReady = govmapReady;
   window.GovmapLookup = {
@@ -319,6 +348,7 @@
     planningAt: planningAt,
     lookupProperty: lookupProperty,
     addressLatLng: addressLatLng,
+    parcelLatLng: parcelLatLng,
     _textKey: textKey,                 // לבדיקות בלבד
     _parseMultiPolygon: parseMultiPolygon,
   };

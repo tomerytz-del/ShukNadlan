@@ -5093,7 +5093,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="acc-body">
       <p class="acc-sub">מה נמכר בפועל ליד כתובת, ממאגר עסקאות המקרקעין של רשות המיסים. החיפוש הוא לפי מרחק מהכתובת ולא לפי שם הרחוב.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px">
-        <input type="text" id="mdStreet" list="mdStreetOptions" autocomplete="off" placeholder="רחוב (למשל: הרצל)">
+        <input type="text" id="mdStreet" list="mdStreetOptions" autocomplete="off" placeholder="רחוב (אפשר להשאיר ריק לכל העיר)">
         <!-- ‏datalist נפרד, מאותה סיבה שיש אחד נפרד למידע התכנוני: הרשימה
              של טופס הנכס עוקבת אחרי שדה העיר שבטופס, וכאן העיר היא שדה
              אחר. רשימה משותפת הייתה מציגה רחובות של עיר אחרת בלי שום סימן. -->
@@ -5544,6 +5544,32 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
           <div id="dealsImportPreview"></div>
           <div id="dealsImportCoverage" style="margin-top:18px"></div>
+        </div>
+      </details>
+
+      <!-- ‏GovMap: השלמת פין ומידע תכנוני לנכסים קיימים מחוץ לעפולה, והשוואה
+           מול שכבת העירייה בעפולה. בדפדפן ולא בסורק, כי הטוקן נעול לדומיין.
+           docs/govmap.md -->
+      <details class="acc" id="accGovmapBackfill">
+        <summary>
+          <span class="acc-title">נתוני GovMap</span>
+          <span class="acc-count" id="accGovmapBackfillCount"></span>
+          <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </summary>
+        <div class="acc-body">
+          <p class="acc-sub">
+            השלמת מיקום על המפה ומידע תכנוני לנכסים שכבר במערכת, בכל עיר שאינה עפולה.
+            פין קיים לא זז, ומידע תכנוני נשמר רק לנכס של מנוי/ה PROFESSIONAL או Elite.
+            "השלמת מיקום לעסקאות" ממקמת את העסקאות הרשמיות מחוץ לעפולה, כדי שחיפוש
+            העסקאות ודוח ה-CMA יעבדו לפי מרחק. כל לחיצה מטפלת בעד 150 מיקומים.
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px">
+            <button type="button" class="btn btn-gold" id="govmapBackfillBtn">השלמת נתונים חסרים</button>
+            <button type="button" class="btn btn-ghost" id="govmapParityBtn">השוואה מול עפולה (בלי שמירה)</button>
+            <button type="button" class="btn btn-ghost" id="govmapDealsBtn">השלמת מיקום לעסקאות</button>
+          </div>
+          <div id="govmapBackfillStatus" class="acc-sub" style="margin-bottom:10px"></div>
+          <div id="govmapBackfillResult"></div>
         </div>
       </details>
 
