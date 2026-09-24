@@ -979,7 +979,7 @@ const isPromoted = p => !!p.is_promoted && (!p.promoted_until || new Date(p.prom
    והמדיה, ולתת עדיפות בתצוגה לנכסים שיש להם וידאו או סיור. כולן עמודות
    ותיקות שדף הסוכן/ת ודף המשרד כבר שולפים. */
 const PROPERTY_SELECT =
-  'id, price, title, rooms, size_sqm, floor, city, street, address, property_type, deal_type, category, price_includes_vat, ' +
+  'id, price, title, rooms, size_sqm, floor, city, street, address, property_type, deal_type, category, price_includes_vat, mamad_location, ' +
   'created_at, lat, lng, is_promoted, promoted_until, images, features, video_url, tour_3d_url, has_virtual_tour, neighborhood_id, ' +
   /* יריד הבתים הפתוחים: שלוש העמודות נשלפות יחד כי התצוגה בודקת את החלון
      ולא את הדגל לבדו (ראו assets/open-house.js). בלעדיהן הפין על המפה,
