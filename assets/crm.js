@@ -13371,6 +13371,11 @@ const IMPORT_FIELDS = [
   { key:'size_sqm', label:'גודל במ"ר', aliases:['גודל','שטח','מ"ר','גודל במ"ר','שטח במ"ר','size','size_sqm'] },
   { key:'built_size_sqm', label:'מ"ר בנוי', aliases:['מ"ר בנוי','שטח בנוי','בנוי','built_size_sqm'] },
   { key:'garden_sqm', label:'מ"ר גינה', aliases:['מ"ר גינה','שטח גינה','גינה','garden_sqm','garden'] },
+  // עלויות שוטפות: הייצוא בונה את עמודותיו מהרשימה הזו, ולכן קובץ שירד
+  // עולה בחזרה עם שתיהן. הארנונה בסכום שבשובר - תקופת החיוב נגזרת
+  // מהקטגוריה (docs/property-form.md).
+  { key:'maintenance_fee', label:'ועד בית (₪ לחודש)', aliases:['ועד בית (₪ לחודש)','ועד בית','ועד','דמי ניהול','maintenance_fee'] },
+  { key:'arnona', label:'ארנונה (₪)', hint:'לחודשיים במגורים, לחודש במסחרי', aliases:['ארנונה (₪)','ארנונה','arnona'] },
   { key:'description', label:'תיאור המודעה', aliases:['תיאור','תיאור המודעה','פירוט','הערות','description','notes'] },
   { key:'condition', label:'מצב הנכס', hint:'מגורים בלבד', aliases:['מצב','מצב הנכס','condition'] },
   { key:'project_status', label:'סטטוס הפרויקט', aliases:['סטטוס פרויקט','סטטוס הפרויקט','project_status'] },
@@ -13973,6 +13978,15 @@ function impBuildRow(rawRow, rowNumber){
     if (totalFloors <= 0 || totalFloors > 200) warnings.push('מספר קומות לא תקין - לא נקלט');
     else payload.total_floors = Math.round(totalFloors);
   }
+
+  // עלויות שוטפות: 0 הוא ערך אמיתי ("אין ועד בית"), ולכן רק שלילי נפסל
+  [['maintenance_fee','ועד בית'], ['arnona','ארנונה']].forEach(([key, label])=>{
+    const n = impNumber(cell(key));
+    if (n !== null){
+      if (n < 0) warnings.push(`${label} לא תקין - לא נקלט`);
+      else payload[key] = n;
+    }
+  });
 
   [['size_sqm','גודל במ"ר'], ['built_size_sqm','מ"ר בנוי'], ['garden_sqm','מ"ר גינה']].forEach(([key, label])=>{
     const n = impNumber(cell(key));
@@ -14634,6 +14648,7 @@ function expNumber(value){
 
 const EXPORT_NUMERIC_KEYS = new Set([
   'price','rooms','floor','total_floors','size_sqm','built_size_sqm','garden_sqm','lat','lng',
+  'maintenance_fee','arnona',
 ]);
 
 // ערך תא אחד, לפי אותו מפתח שדה שבו משתמש הייבוא
