@@ -40,6 +40,10 @@
 | סטטוס רישום החלקה | `property_planning_info.parcel_status` |
 | תוכניות החלות | `property_planning_info.applicable_plans` — מספר, תיאור ושנה |
 
+> **מחוץ לעפולה** המידע מגיע מ-GovMap ולא משכבת העירייה: גוש, חלקה, שטח,
+> סטטוס, ייעוד (‏`kvuz_trg`), **תוכנית אחת** - זו שקבעה את המגרש, ולא כל
+> החלות - ושכונה. ‏`property_planning_info.source` אומר מאיפה. ‏`docs/govmap.md`.
+
 חמשת השדות הראשונים מוזנים בטופס הנכס ב-CRM ונפתחים שם רק כשסוג הנכס הוא
 קרקע. שני האחרונים נקלטים אוטומטית מ-`afula-planning-lookup` בעת שמירת הנכס
 (מסלולי Mid/Premium).
