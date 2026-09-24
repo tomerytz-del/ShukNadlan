@@ -4902,7 +4902,21 @@ function renderPromoStrip(agent){
     return;
   }
 
-  if (!promo.active){ strip.hidden = true; return; }
+  // בלי הטבה אישית המתנה נשארת בכותרת ומובילה לדף המסלולים: היא מחליפה את
+  // הרצועה, והרצועה הישנה הוצגה בפועל תמיד (display:flex גבר על hidden),
+  // כך שהסתרה כאן הייתה נראית כמו פיצ׳ר שנעלם.
+  if (!promo.active){
+    strip.classList.remove('is-urgent');
+    strip.href = pricingUrl(agent);
+    const P = window.Tiers && Tiers.PROMO;
+    document.getElementById('promoStripTitle').textContent = 'הטבות ומסלולים';
+    document.getElementById('promoStripSub').textContent = (P && P.active)
+      ? `הטבת ההשקה: ${P.headline} למצטרפים. לפירוט המסלולים ←`
+      : 'לפירוט המסלולים ←';
+    labelPromoGift(strip);
+    strip.hidden = false;
+    return;
+  }
 
   const urgent = promo.daysLeft <= 30;
   strip.classList.toggle('is-urgent', urgent);
