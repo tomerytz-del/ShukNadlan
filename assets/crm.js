@@ -8093,11 +8093,24 @@ function populatePropertyTypeSelect(category){
   const options = category === 'commercial' ? COMMERCIAL_PTYPE_OPTIONS : RESIDENTIAL_PTYPE_OPTIONS;
   select.innerHTML = options.map(o => `<option value="${o}">${o}</option>`).join('');
 }
+/* אייקון לכל מאפיין בטופס הנכס, שם הם מוצגים כצ'יפים (‏.pf-chips). מפתח
+   שאין לו אייקון מוצג בלי - גם בטופס הלקוח, שחולק את הפונקציה. */
+const FEATURE_ICONS = {
+  parking:'🅿️', elevator:'🛗', balcony:'🌿', sun_balcony:'☀️', ac:'❄️', bars:'🪟',
+  accessible:'♿', renovated_feature:'🛠️', furnished:'🛋️', mamad:'🛡️', exclusive:'⭐',
+  building_shelter:'🏚️', mamak:'🛡️', storage:'📦', high_ceiling:'⬆️', cameras:'📹',
+  kitchenette:'☕', alarm:'🚨', meeting_room:'👥', loading_ramp:'🚚', comms:'📶',
+  cold_room:'🧊', moshav_kibbutz_only:'🌾', price_dropped:'📉',
+};
 function renderFeatureCheckboxes(containerId, items, preselected){
   const container = document.getElementById(containerId);
-  container.innerHTML = items.map(([value,label]) => `
-    <label class="checkbox-item"><input type="checkbox" value="${value}" ${preselected.includes(value)?'checked':''}> ${label}</label>
-  `).join('');
+  const withIcons = container.classList.contains('pf-chips');
+  container.innerHTML = items.map(([value,label]) => {
+    const ico = withIcons && FEATURE_ICONS[value] ? `<span class="pf-chip-ico" aria-hidden="true">${FEATURE_ICONS[value]}</span>` : '';
+    return `
+    <label class="checkbox-item"><input type="checkbox" value="${value}" ${preselected.includes(value)?'checked':''}> ${ico}${label}</label>
+  `;
+  }).join('');
 }
 function getCheckedValues(containerId){
   return Array.from(document.querySelectorAll(`#${containerId} input:checked`)).map(el => el.value);
@@ -8123,6 +8136,10 @@ function updateFormForCategory(category, preselectedFeatures){
   const isCommercial = category === 'commercial';
   document.getElementById('npConditionField').style.display = isCommercial ? 'none' : 'block';
   document.getElementById('npCommercialLocFields').style.display = isCommercial ? 'block' : 'none';
+  // ארנונה נגבית לחודשיים במגורים ולחודש במסחרי - השדה שומר את הסכום
+  // שבשובר, והיחידה נגזרת מ-category. ‏מע"מ רלוונטי רק למסחרי.
+  document.getElementById('npArnonaLabel').textContent = isCommercial ? 'ארנונה (₪ לחודש)' : 'ארנונה (₪ לחודשיים)';
+  document.getElementById('npVatField').style.display = isCommercial ? 'block' : 'none';
   renderFeatureCheckboxes('npListingFeatures', LISTING_FEATURES, preselectedFeatures);
   renderFeatureCheckboxes('npPropertyFeatures', isCommercial ? COMMERCIAL_PROPERTY_FEATURES : RESIDENTIAL_PROPERTY_FEATURES, preselectedFeatures);
   // החלפת קטגוריה מאתחלת את רשימת סוגי הנכס, ולכן גם את השאלה אם זו קרקע
@@ -9330,11 +9347,75 @@ toggleBtn.addEventListener('click', ()=>{
     syncMarketingCopyField(null);
     renderPropertyStatusPanel(null);
     document.getElementById('addPropertyBtn').textContent = 'פרסום הנכס';
+    pfShowStep(1);
     currentCategory = 'residential';
     document.querySelectorAll('[data-category]').forEach(b=> b.classList.toggle('active', b.dataset.category === 'residential'));
     updateFormForCategory('residential');
   }
 });
+
+/* ---------- טופס הנכס: מקטעים ----------
+   שישה מקטעים שכולם נשארים ב-DOM (ההסבר מעל #addPropertyForm ב-crm.html).
+   הטופס הוא novalidate, והבדיקה נעשית כאן, בשלב ה-capture של submit - לפני
+   המאזין הקיים: שדה חובה חסר במקטע מוסתר היה עוצר את השליחה בשקט, כי
+   הדפדפן אינו יכול להתמקד בשדה שאינו מוצג ולכן גם לא להראות את הבועה. */
+const PF_STEPS = 6;
+let pfStep = 1;
+function pfShowStep(n){
+  pfStep = Math.min(PF_STEPS, Math.max(1, n));
+  addForm.querySelectorAll('.pf-section').forEach(sec => { sec.hidden = Number(sec.dataset.pfStep) !== pfStep; });
+  addForm.querySelectorAll('.pf-step-btn').forEach(b => {
+    const k = Number(b.dataset.pfGo);
+    b.classList.toggle('is-active', k === pfStep);
+    b.classList.toggle('is-done', k < pfStep);
+    if (k === pfStep){ b.setAttribute('aria-current', 'step'); b.scrollIntoView({ block:'nearest', inline:'nearest' }); }
+    else b.removeAttribute('aria-current');
+  });
+  document.getElementById('npPrevStep').disabled = pfStep === 1;
+  document.getElementById('npNextStep').disabled = pfStep === PF_STEPS;
+}
+function pfStepOf(el){
+  const sec = el && el.closest('.pf-section');
+  return sec ? Number(sec.dataset.pfStep) : pfStep;
+}
+/* ‏focus() על שדה במקטע מוסתר אינו עושה דבר - לכן כל הודעת שגיאה שמפנה
+   לשדה עוברת קודם למקטע שלו. */
+function pfRevealField(id){
+  const el = document.getElementById(id);
+  if (!el) return;
+  pfShowStep(pfStepOf(el));
+  el.focus();
+}
+function pfGoto(n){
+  pfShowStep(n);
+  // ראש הטופס, ולא ראש העמוד: המקטע החדש מתחיל שם
+  const top = addForm.getBoundingClientRect().top;
+  if (top < 0) addForm.scrollIntoView({ behavior: navReduceMotion() ? 'auto' : 'smooth', block:'start' });
+}
+addForm.querySelectorAll('[data-pf-go]').forEach(b => b.addEventListener('click', () => pfGoto(Number(b.dataset.pfGo))));
+document.getElementById('npPrevStep').addEventListener('click', () => pfGoto(pfStep - 1));
+document.getElementById('npNextStep').addEventListener('click', () => pfGoto(pfStep + 1));
+// ביטול = אותה פעולה של "✕ ביטול" שבראש הרשימה: סגירה ואיפוס
+document.getElementById('npCancel').addEventListener('click', () => {
+  if (addForm.style.display !== 'none') toggleBtn.click();
+});
+addForm.addEventListener('submit', (e) => {
+  const bad = addForm.querySelector('input:invalid, select:invalid, textarea:invalid');
+  if (!bad) return;
+  e.preventDefault();
+  e.stopImmediatePropagation();
+  pfShowStep(pfStepOf(bad));
+  bad.reportValidity();
+}, true);
+pfShowStep(1);
+
+/* מע"מ על מחיר מסחרי: שלושה מצבים ולא סימון אחד. במסחר המחיר נמסר בדרך
+   כלל לפני מע"מ, ולכן "לא צוין" מוצג באתר כ-"+ מע״מ" - אבל הסוכן/ת יכול/ה
+   לקבוע אחרת. null = לא צוין, true = כולל, false = לא כולל. */
+function vatSelectValue(){
+  const v = document.getElementById('npPriceVat').value;
+  return v === 'incl' ? true : v === 'plus' ? false : null;
+}
 
 /* ==========================================================================
    נכס כפול
@@ -9616,7 +9697,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   if ((gush || helka) && !(/^\d{1,7}$/.test(gush) && /^\d{1,5}$/.test(helka))){
     feedback.style.color = 'var(--brick)';
     feedback.textContent = 'גוש וחלקה: שני מספרים, בכל שדה מספר אחד (למשל גוש 16742, חלקה 96).';
-    document.getElementById(gush ? 'npHelka' : 'npGush').focus();
+    pfRevealField(gush ? 'npHelka' : 'npGush');
     btn.disabled = false;
     btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
     return;
@@ -9641,7 +9722,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     feedback.textContent = `הרחוב «${street}» אינו ברשימת הרחובות של ${city}. `
       + 'בחרו רחוב מהרשימה, או הוסיפו אותו בכפתור שמתחת לשדה.';
     refreshStreetHint();
-    document.getElementById('npStreet').focus();
+    pfRevealField('npStreet');
     btn.disabled = false;
     btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
     return;
@@ -9737,7 +9818,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     feedback.style.color = 'var(--brick)';
     feedback.textContent = openHouseProblem;
     syncOpenHouseFields();
-    document.getElementById('npOpenHouseStart').focus();
+    pfRevealField('npOpenHouseStart');
     btn.disabled = false;
     btn.textContent = editingPropertyId ? 'שמירת שינויים' : 'פרסום הנכס';
     return;
@@ -9750,6 +9831,9 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     property_type: document.getElementById('npType').value,
     deal_type: document.getElementById('npDeal').value,
     price: parseFloat(document.getElementById('npPrice').value),
+    price_includes_vat: currentCategory === 'commercial' ? vatSelectValue() : null,
+    maintenance_fee: document.getElementById('npMaintenanceFee').value ? parseFloat(document.getElementById('npMaintenanceFee').value) : null,
+    arnona: document.getElementById('npArnona').value ? parseFloat(document.getElementById('npArnona').value) : null,
     rooms: document.getElementById('npRooms').value ? parseFloat(document.getElementById('npRooms').value) : null,
     city: document.getElementById('npCity').value,
     street: street || null,
@@ -10043,6 +10127,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   // ‏reset() מכבה את תיבת הסימון אך לא מקפל את שדות התאריך שנפתחו בגללה
   syncOpenHouseFields();
   renderPropertyStatusPanel(null);
+  pfShowStep(1);
   editingPropertyId = null;
   editingPropertyOriginalAddress = null;
   currentCategory = 'residential';
@@ -10285,7 +10370,7 @@ document.getElementById('propClearFilters').addEventListener('click', clearPrope
 /* רשימת העמודות של "הנכסים שלי". קבוע ולא מחרוזת אינליין, כי גם ייצוא
    הנכסים לאקסל שולף את אותן עמודות — עמודה שנוספת כאן חייבת להגיע גם לקובץ
    שיורד, ושתי רשימות היו נפרדות תוך שבוע. */
-const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, shared_with_partners, shared_at, property_owners(owner_name, owner_phone)';
+const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, maintenance_fee, arnona, price_includes_vat, shared_with_partners, shared_at, property_owners(owner_name, owner_phone)';
 
 async function loadProperties(agentId){
   const listEl = document.getElementById('propertiesList');
@@ -10501,7 +10586,8 @@ function buildPropertyTab(p, agentId){
   const el = document.createElement('div');
   el.className = 'prop-tab' + (isOpen ? ' is-open' : '');
   const panelId = 'propTabPanel-' + esc(String(p.id));
-  const priceHtml = shekel(p.price) + (p.deal_type === 'rent' ? ' <span class="per">לחודש</span>' : '');
+  const priceHtml = shekel(p.price) + (p.deal_type === 'rent' ? ' <span class="per">לחודש</span>' : '')
+    + (p.category === 'commercial' && p.price_includes_vat !== true ? ' <span class="per">+ מע״מ</span>' : '');
   // השורה השנייה היא רק מה שמזהה ומה שדחוף: המספר שנמסר בטלפון, הסטטוס,
   // וכוכב הקידום. כל השאר מחכה לפתיחת הכרטיס.
   const sub = [
@@ -10554,7 +10640,8 @@ function buildPropertyCard(p, agentId){
   const viewCounts = propertyViewCounts;
   const planningByProperty = propertyPlanningInfo;
 
-  const priceHtml = shekel(p.price) + (p.deal_type === 'rent' ? ' <span class="per">לחודש</span>' : '');
+  const priceHtml = shekel(p.price) + (p.deal_type === 'rent' ? ' <span class="per">לחודש</span>' : '')
+    + (p.category === 'commercial' && p.price_includes_vat !== true ? ' <span class="per">+ מע״מ</span>' : '');
   // ‏promoted_until ריק = קידום ידני/היסטורי בלי מועד סיום, נחשב פעיל
   const isCurrentlyPromoted = propertyIsPromoted(p);
   // תוקף המודעה הוא תזכורת לסוכן/ת בלבד — הוא לא מוריד את הנכס מהאתר
@@ -13120,6 +13207,9 @@ function openEditProperty(p){
   document.getElementById('npLandPlanningNotes').value = p.land_planning_notes || '';
   document.getElementById('npDeal').value = p.deal_type;
   document.getElementById('npPrice').value = p.price;
+  document.getElementById('npMaintenanceFee').value = p.maintenance_fee ?? '';
+  document.getElementById('npArnona').value = p.arnona ?? '';
+  document.getElementById('npPriceVat').value = p.price_includes_vat === true ? 'incl' : p.price_includes_vat === false ? 'plus' : '';
   document.getElementById('npRooms').value = p.rooms || '';
   document.getElementById('npCity').value = p.city || 'עפולה';
   document.getElementById('npStreet').value = p.street || '';
@@ -13186,6 +13276,7 @@ function openEditProperty(p){
     document.getElementById('npVideoUrl').value = p.video_url || '';
   }
   renderVideoPreview();
+  pfShowStep(1);
   addForm.style.display = 'block';
   document.getElementById('addPropertyBtn').textContent = 'שמירת שינויים';
   toggleBtn.textContent = '✕ ביטול';

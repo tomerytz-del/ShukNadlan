@@ -93,14 +93,20 @@ function showToast(msg){
   showToast._t = setTimeout(()=> t.style.display='none', 3500);
 }
 
+/* מחיר מסחרי נמסר כמעט תמיד לפני מע"מ, ולכן "+ מע״מ" מוצג ליד המחיר
+   אלא אם הסוכן/ת סימן/ה במפורש שהמחיר כולל (‏price_includes_vat = true).
+   אותו כלל ב-property-card.js, property.js, home.js ו-open-house.html. */
+function vatSuffix(p){
+  return p.category === 'commercial' && p.price_includes_vat !== true ? ' + מע״מ' : '';
+}
 function priceLabel(p){
-  return p.deal_type === 'rent' ? ('₪' + Number(p.price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(p.price).toLocaleString('he-IL'));
+  return (p.deal_type === 'rent' ? ('₪' + Number(p.price).toLocaleString('he-IL') + '/חוד׳') : ('₪' + Number(p.price).toLocaleString('he-IL'))) + vatSuffix(p);
 }
 /* המחיר בתצוגה הגדולה: מספר גדול + סיומת קטנה, כדי שהעין תתפוס קודם את
    הסכום ורק אחריו את "לחודש". */
 function priceParts(p){
   const num = Number(p.price).toLocaleString('he-IL') + ' ₪';
-  return { num, suffix: p.deal_type === 'rent' ? ' / חודש' : '' };
+  return { num, suffix: (p.deal_type === 'rent' ? ' / חודש' : '') + vatSuffix(p) };
 }
 function priceFlat(p){
   const parts = priceParts(p);

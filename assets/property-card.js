@@ -102,6 +102,9 @@
     }
     var amount = '₪' + price.toLocaleString('he-IL');
     var suffix = (p.deal_type === 'rent') ? '<span class="pc-per">לחודש</span>' : '';
+    /* מחיר מסחרי נמסר כמעט תמיד לפני מע"מ: "+ מע״מ" אלא אם סומן שהוא כולל.
+       אותו כלל ב-property.js, home.js ו-open-house.html. */
+    if (p.category === 'commercial' && p.price_includes_vat !== true) suffix += '<span class="pc-per">+ מע״מ</span>';
     return '<div class="pc-price">' + amount + suffix + '</div>';
   }
 

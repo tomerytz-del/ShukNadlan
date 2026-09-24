@@ -171,6 +171,91 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .checkbox-item{display:flex;align-items:center;gap:7px;font-size:.82rem;font-weight:400;color:var(--ink)}
   .checkbox-item input{margin:0;width:auto}
   .form-subheading{font-size:.78rem;font-weight:700;color:var(--gold-dark);margin:14px 0 8px;text-transform:uppercase;letter-spacing:.03em}
+  /* ---------- טופס הנכס: מקטעים, צ'יפים וסרגל דביק ----------
+     הכל מוגבל ל-.pf כדי לא לגעת בטופסי הלקוח וההסכם, שחולקים איתו את
+     ‏.field ו-.checkbox-grid. המבנה וההסבר: ההערה מעל #addPropertyForm. */
+  .pf{padding:0;--pf-bg:#F8FAFC;--pf-edge:#CBD5E1;--pf-ring:rgba(28,58,94,.18)}
+  /* ‏clip ולא hidden: hidden הופך את האקורדיון ל-scroll container, ואז הסרגל
+     הדביק שבתחתית הטופס נצמד אליו ולא לחלון. clip חותך בדיוק אותו דבר בלי
+     להפוך לגולל. דפדפן בלי clip נופל ל-hidden - והסרגל פשוט אינו דביק. */
+  #accProperties{overflow:hidden;overflow:clip}
+  .pf-steps{display:flex;gap:6px;padding:12px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--line);
+    background:var(--paper-raised);border-radius:var(--radius-lg) var(--radius-lg) 0 0}
+  .pf-steps::-webkit-scrollbar{display:none}
+  .pf-step-btn{display:inline-flex;align-items:center;gap:7px;flex:none;padding:7px 12px 7px 14px;border-radius:999px;
+    border:1.5px solid transparent;background:transparent;font:inherit;font-size:.8rem;font-weight:700;color:var(--ink-soft);cursor:pointer}
+  .pf-step-btn:hover{background:rgba(28,58,94,.06)}
+  .pf-step-btn:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+  .pf-num{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+    background:#E2E8F0;color:var(--ink-soft);font-size:.72rem;font-weight:800}
+  .pf-step-btn.is-active{background:#fff;border-color:var(--teal);color:var(--teal-dark)}
+  .pf-step-btn.is-active .pf-num{background:var(--teal);color:#fff}
+  .pf-step-btn.is-done .pf-num{background:var(--teal-tint);color:var(--teal)}
+  .pf-section{padding:18px 18px 6px}
+  .pf-section[hidden]{display:none}
+  .pf-title{font-family:'Heebo',sans-serif;font-size:1rem;font-weight:800;color:var(--teal-dark);margin:0 0 14px;
+    display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .pf-lock{font-size:.68rem;font-weight:700;padding:2px 9px;border-radius:999px;background:var(--gold-tint);color:var(--gold-dark)}
+  .pf-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 12px}
+  .pf-grid-3{grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+  .pf-grid-4{grid-template-columns:repeat(4,minmax(0,1fr))}
+  @media(max-width:640px){.pf-grid-4{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  @media(max-width:380px){.pf-grid:not(.pf-grid-3){grid-template-columns:minmax(0,1fr)}}
+  .pf .field label{font-size:.8rem;color:var(--ink);margin-bottom:6px}
+  .pf .field input:not([type=checkbox]):not([type=file]),.pf .field select,.pf .field textarea,.pf #npCommercialLocFields select{
+    width:100%;background:var(--pf-bg);border:1.5px solid var(--pf-edge);border-radius:12px;padding:11px 13px;
+    font:inherit;font-size:.95rem;color:var(--ink);transition:border-color .15s,box-shadow .15s,background .15s}
+  .pf .field input:not([type=checkbox]):not([type=file]):focus,.pf .field select:focus,.pf .field textarea:focus,.pf #npCommercialLocFields select:focus{
+    outline:none;background:#fff;border-color:var(--teal);box-shadow:0 0 0 3px var(--pf-ring)}
+  .pf .field input::placeholder,.pf .field textarea::placeholder{color:#94A3B8}
+  .pf-note{font-size:.74rem;color:var(--ink-soft);line-height:1.55;margin:-2px 0 12px}
+  .pf-box{background:#F1F5F9;border:1px solid #E2E8F0;border-radius:14px;padding:14px 14px 4px;margin:4px 0 14px}
+  .pf-box-title{font-size:.8rem;font-weight:800;color:var(--teal-dark);margin-bottom:10px}
+  .pf-box .pf-note{margin-top:-4px}
+  .pf-box .field input:not([type=checkbox]){background:#fff}
+  .pf-box-private{background:var(--gold-tint);border-color:rgba(139,35,50,.18)}
+  .pf-inline-check{display:flex;align-items:flex-end;padding-bottom:12px}
+  .pf-adv{margin:0 0 14px;border:1px solid #E2E8F0;border-radius:12px;padding:0 14px}
+  .pf-adv>summary{cursor:pointer;padding:11px 0;font-size:.8rem;font-weight:700;color:var(--ink-soft)}
+  .pf-adv[open]>summary{margin-bottom:4px}
+  /* בורר הקטגוריה: שני כפתורים צמודים */
+  .pf-seg{display:flex;background:var(--pf-bg);border:1.5px solid var(--pf-edge);border-radius:12px;padding:3px;gap:3px}
+  .pf-seg button{flex:1;border:none;border-radius:9px;padding:8px 10px;background:transparent;font:inherit;font-size:.88rem;
+    font-weight:700;color:var(--ink-soft);cursor:pointer}
+  .pf-seg button.active{background:#fff;color:var(--teal-dark);box-shadow:0 1px 3px rgba(15,23,42,.14)}
+  .pf-seg button:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
+  /* מאפיינים כצ'יפים: תיבת הסימון נשארת בתוך התווית (נגישות, getCheckedValues),
+     ורק מוסתרת ויזואלית */
+  .pf-chips{display:flex;flex-wrap:wrap;gap:8px}
+  .pf-chips .checkbox-item{position:relative;display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;
+    border:1.5px solid var(--pf-edge);background:#fff;font-size:.84rem;font-weight:600;color:var(--ink);cursor:pointer;
+    user-select:none;transition:background .15s,border-color .15s,color .15s}
+  .pf-chips .checkbox-item input{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}
+  .pf-chips .checkbox-item:hover{border-color:var(--teal)}
+  .pf-chips .checkbox-item:has(input:checked){background:var(--teal);border-color:var(--teal);color:#fff}
+  .pf-chips .checkbox-item:has(input:focus-visible){outline:2px solid var(--teal);outline-offset:2px}
+  .pf-chip-ico{font-size:1rem;line-height:1}
+  /* סרגל הפעולות: דביק לתחתית החלון, ומעל סרגל הניווט התחתון בנייד */
+  .pf-footer{position:sticky;bottom:calc(58px + var(--sa-bottom));z-index:20;margin-top:8px;padding:10px 14px 12px;
+    background:rgba(255,255,255,.96);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    border-top:1px solid var(--line);border-radius:0 0 var(--radius-lg) var(--radius-lg);box-shadow:0 -6px 16px rgba(15,23,42,.06)}
+  @media(min-width:1024px){.pf-footer{bottom:0}}
+  .pf-feedback{font-size:.8rem;text-align:center;min-height:0}
+  .pf-feedback:not(:empty){margin-bottom:8px}
+  .pf-planning{font-size:.75rem;text-align:center;color:var(--ink-soft)}
+  .pf-planning:not(:empty){margin-bottom:8px}
+  .pf-actions{display:flex;align-items:center;gap:8px}
+  .pf-actions .btn{padding:10px 16px}
+  .pf-actions #addPropertyBtn{padding:11px 22px}
+  .pf-spacer{flex:1}
+  .pf-nav:disabled{opacity:.4;cursor:default}
+  @media(max-width:480px){
+    .pf-actions{flex-wrap:wrap}
+    .pf-actions #addPropertyBtn{order:-2;flex:1 1 100%}
+    .pf-actions #npCancel{order:-1}
+    .pf-spacer{display:none}
+    .pf-actions .btn{flex:1}
+  }
   #loginError{color:var(--brick);font-size:.82rem;margin-top:10px;text-align:center;min-height:1.2em}
   /* ---------- מסך המתנה ----------
      זה המסך הראשון שנצבע בכל טעינה, במקום כרטיס הכניסה. בלעדיו כל כניסה —
@@ -4516,267 +4601,356 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <button class="btn btn-ghost" id="openExportProperties" style="flex:1">⭱ ייצוא לאקסל</button>
       </div>
     </div>
-    <form id="addPropertyForm" class="card" style="display:none;padding:18px;margin-bottom:18px">
-      <!-- בלוק הסטטוס — ראשון בטופס, ורק בעריכת נכס קיים. נכס חדש עדיין
-           אין לו סטטוס לשנות, וכפתור "ירד מפרסום" לפני שהמודעה נוצרה הוא
-           שאלה בלי משמעות. נבנה ב-renderPropertyStatusPanel(). -->
-      <div id="npStatusPanel" hidden></div>
+    <!-- ====== טופס הנכס: שישה מקטעים ======
+         היה גלילה אחת ארוכה; עכשיו שישה מקטעים בסדר שבו סוכן/ת חושב/ת על
+         נכס - מה הוא, איפה הוא, כמה הוא גדול ועולה, מה יש בו, איך הוא נראה,
+         ומי הבעלים. **כל המקטעים נשארים ב-DOM** ורק מוסתרים: קוד השמירה,
+         העריכה והאיפוס ב-assets/crm.js קורא לשדות לפי id ואינו יודע על
+         המקטעים. שני דברים כן יודעים עליהם - שדה חובה לא תקין במקטע מוסתר
+         (הדפדפן אינו יכול להתמקד בו, והשליחה נעצרת בשקט), ו-focus() על שדה
+         מוסתר. את שניהם פותר pfRevealField() ב-crm.js, שעובר למקטע של השדה.
+         סרגל הפעולות שבתחתית דביק, כדי שהשמירה לא תדרוש גלילה עד הסוף. -->
+    <form id="addPropertyForm" class="card pf" style="display:none;margin-bottom:18px" novalidate>
+      <nav class="pf-steps" aria-label="מקטעי טופס הנכס">
+        <button type="button" class="pf-step-btn is-active" data-pf-go="1" aria-current="step"><span class="pf-num">1</span><span class="pf-lbl">פרטים בסיסיים</span></button>
+        <button type="button" class="pf-step-btn" data-pf-go="2"><span class="pf-num">2</span><span class="pf-lbl">מיקום ורישום</span></button>
+        <button type="button" class="pf-step-btn" data-pf-go="3"><span class="pf-num">3</span><span class="pf-lbl">מפרט ועלויות</span></button>
+        <button type="button" class="pf-step-btn" data-pf-go="4"><span class="pf-num">4</span><span class="pf-lbl">מאפיינים</span></button>
+        <button type="button" class="pf-step-btn" data-pf-go="5"><span class="pf-num">5</span><span class="pf-lbl">תיאור ומדיה</span></button>
+        <button type="button" class="pf-step-btn" data-pf-go="6"><span class="pf-num">6</span><span class="pf-lbl">פרטי בעלים</span></button>
+      </nav>
 
-      <div class="field"><label>כותרת</label><input type="text" id="npTitle" required placeholder="לדוגמה: דירת 3 חדרים, שכונת רמת דוד"></div>
+      <!-- ====== מקטע 1: זיהוי וסיווג ====== -->
+      <section class="pf-section" data-pf-step="1">
+        <h3 class="pf-title">פרטי זיהוי וסיווג</h3>
+        <!-- בלוק הסטטוס — ראשון בטופס, ורק בעריכת נכס קיים. נכס חדש עדיין
+             אין לו סטטוס לשנות, וכפתור "ירד מפרסום" לפני שהמודעה נוצרה הוא
+             שאלה בלי משמעות. נבנה ב-renderPropertyStatusPanel(). -->
+        <div id="npStatusPanel" hidden></div>
 
-      <div class="field"><label>קטגוריה</label>
-        <div class="deal-toggle" style="max-width:280px">
-          <button type="button" class="active" data-category="residential">מגורים</button>
-          <button type="button" data-category="commercial">מסחרי</button>
-        </div>
-      </div>
+        <div class="field"><label for="npTitle">כותרת הנכס</label><input type="text" id="npTitle" required placeholder="לדוגמה: דירת 3 חדרים, שכונת רמת דוד"></div>
 
-      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field"><label>סוג נכס</label>
-          <select id="npType" required></select>
-        </div>
-        <div class="field"><label>סוג עסקה</label>
-          <select id="npDeal" required>
-            <option value="sale">מכירה</option>
-            <option value="rent">השכרה</option>
-          </select>
-        </div>
-      </div>
-      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field"><label>מחיר (₪)</label><input type="number" id="npPrice" required></div>
-        <div class="field"><label>חדרים</label><input type="number" id="npRooms" step="0.1"></div>
-      </div>
-      <div class="field"><label>עיר</label><input type="text" id="npCity" value="עפולה" required></div>
-      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field"><label>שכונה (לא חובה)</label>
-          <select id="npNeighborhood"><option value="">- לא צוין -</option></select>
-        </div>
-        <div class="field"><label>איזור מכירה (לא חובה)</label><input type="text" id="npSalesArea" placeholder="לדוגמה: צפון העיר"></div>
-      </div>
-      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field"><label>רחוב (לא חובה)</label>
-          <!-- ‏datalist ולא select: לעפולה מאות רחובות, ובורר נפתח הוא גלילה
-               ארוכה. כאן מקלידים שתי אותיות ורואים את מה שמתאים, וגם המקלדת
-               בנייד נשארת הדרך הטבעית. הרשימה הסגורה נאכפת בשמירה (‏canonicalStreet)
-               ולא ברכיב — ‏datalist לבדו אינו חוסם הקלדה חופשית. -->
-          <input type="text" id="npStreet" list="streetOptions" autocomplete="off" placeholder="הקלידו ובחרו מהרשימה">
-          <datalist id="streetOptions"></datalist>
-          <p id="npStreetHint" style="font-size:.72rem;margin:5px 0 0;line-height:1.5"></p>
-        </div>
-        <div class="field"><label>מספר בית (לא חובה)</label><input type="text" id="npHouseNumber"></div>
-      </div>
-      <!-- גוש/חלקה: הדרך למקם נכס כשמספר הבית עדיין אינו בשכבת הכתובות של
-           מפ"י (שכונה חדשה, אזור תעשייה, מגרש). כשהכתובת לא נמצאה, הפין הוא
-           מרכז החלקה - רק לחלקה של עד 250 מ'. docs/govmap.md -->
-      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field"><label>גוש (לא חובה)</label><input type="text" id="npGush" inputmode="numeric" pattern="\d*" placeholder="16742"></div>
-        <div class="field"><label>חלקה (לא חובה)</label><input type="text" id="npHelka" inputmode="numeric" pattern="\d*" placeholder="96"></div>
-      </div>
-      <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">אם מולאו רחוב+מספר (או גוש+חלקה), מידע תכנוני (גוש/חלקה/ייעוד) ייקלט אוטומטית ברקע. בשכונה חדשה או באזור תעשייה, שבהם מספר הבית עוד לא רשום במפה הארצית, גוש+חלקה הם מה שמאפשר למקם את הנכס, ובדף הנכס תוצג מפת מיקום עם הפין המדויק (מסלולי PROFESSIONAL ו-Elite בלבד). בלי מספר בית אין מפה: הגאוקודינג נופל למרכז העיר, ופין כזה נראה מדויק ואינו כזה.</p>
-      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <!-- step="any" ולא step="0.0001": הקואורדינטות נשמרות ב-DB ברזולוציה מלאה
-             (double precision — למשל 32.6053163), ואם ה-step מגביל לארבע ספרות
-             אחרי הנקודה, הדפדפן פוסל ערך כזה ברגע שפותחים נכס קיים לעריכה
-             ("יש להזין ערך חוקי…") ולא מאפשר לשמור עד שמוחקים את השדה. -->
-        <div class="field"><label>קו רוחב (lat, לא חובה - מתמלא אוטומטית מהכתובת אם ריק)</label><input type="number" id="npLat" step="any" min="-90" max="90" placeholder="32.6078"></div>
-        <div class="field"><label>קו אורך (lng, לא חובה - מתמלא אוטומטית מהכתובת אם ריק)</label><input type="number" id="npLng" step="any" min="-180" max="180" placeholder="35.2897"></div>
-      </div>
-
-      <div class="form-subheading">פרטים נוספים - לצורך הופעה בחיפוש המתקדם</div>
-      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field"><label>קומה (לא חובה)</label><input type="number" id="npFloor"></div>
-        <div class="field"><label>מספר קומות בבניין (לא חובה)</label><input type="number" id="npTotalFloors" min="1"></div>
-      </div>
-      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field"><label>גודל נכס במ״ר (לא חובה)</label><input type="number" id="npSizeSqm" step="any" min="0"></div>
-        <div class="field"><label>מ״ר בנוי (לא חובה)</label><input type="number" id="npBuiltSizeSqm" step="any" min="0"></div>
-      </div>
-      <div class="field"><label>מ״ר גינה (לא חובה)</label><input type="number" id="npGardenSqm" step="any" min="0"></div>
-
-      <div class="field" id="npConditionField"><label>מצב הנכס (לא חובה)</label>
-        <select id="npCondition">
-          <option value="">- לא צוין -</option>
-          <option value="new_from_contractor">חדש מקבלן (לא גרו בכלל)</option>
-          <option value="new">חדש (נכס בן עד 10 שנים)</option>
-          <option value="renovated">משופץ (שופץ ב-5 שנים האחרונות)</option>
-          <option value="maintained">במצב שמור (במצב טוב, לא שופץ)</option>
-          <option value="needs_renovation">דרוש שיפוץ (זקוק לעבודת שיפוץ)</option>
-        </select>
-      </div>
-
-      <div class="field"><label>סטטוס הפרויקט (לא חובה - לנכסים חדשים/בבנייה)</label>
-        <select id="npProjectStatus">
-          <option value="">- לא צוין -</option>
-          <option value="planning">תכנון ראשוני</option>
-          <option value="permit_requested">הוגשה בקשה להיתר</option>
-          <option value="permit_issued">ניתן היתר בנייה</option>
-          <option value="construction_complete">הבנייה הסתיימה</option>
-        </select>
-      </div>
-
-      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field"><label>תאריך כניסה (לא חובה)</label><input type="date" id="npMoveInDate"></div>
-        <div class="field"><label>תוקף המודעה (לא חובה)</label><input type="date" id="npExpiresAt"></div>
-      </div>
-      <div class="field"><label class="checkbox-item"><input type="checkbox" id="npMoveInSoon"> כניסה קרובה (מיידית עד שנה)</label></div>
-
-      <!-- ====== יריד הבתים הפתוחים ======
-           סימון + חלון תאריכים, ושניהם חובה יחד: ההשתתפות ביריד היא הבטחה
-           שהנכס מוצע ללא עמלת תיווך לקונה, והבטחה כזו בלי תאריך סיום היא
-           הבטחה לנצח. ה-check במסד אוכף את אותו כלל (ראו המיגרציה
-           20261102090000_open_house_fair.sql), והטופס מוסיף עליו את מה שהוא
-           כלל מוצר ולא כלל נתונים: אורך מרבי (open_house_max_days) ותאריך
-           סיום שלא עבר. ראו docs/open-house-fair.md. -->
-      <div class="form-subheading">יריד הבתים הפתוחים</div>
-      <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">נכס ביריד מוצג בדף ייעודי באתר, מסומן בסימן משלו על המפה, ומוצע <b>ללא עמלת תיווך לקונה</b> - בתקופה שתגדירו כאן ורק בה. בתום התקופה הנכס יוצא מהיריד לבד, והמודעה נשארת כרגיל.</p>
-      <div class="field"><label class="checkbox-item"><input type="checkbox" id="npOpenHouse"> הנכס משתתף ביריד הבתים הפתוחים</label></div>
-      <!-- ‏style.display ולא ‎hidden‎: אין בדף כלל ‎[hidden]{display:none !important}‎,
-           ו-‎display:grid‎ בסגנון מוטבע גובר על ברירת המחדל של הדפדפן ל-hidden —
-           השדות היו נשארים גלויים תמיד. אותה שיטה של npLandPlanningFields. -->
-      <div class="field-row" id="npOpenHouseDates" style="display:none;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field"><label>תחילת התקופה</label><input type="date" id="npOpenHouseStart"></div>
-        <div class="field"><label>סוף התקופה (כולל)</label><input type="date" id="npOpenHouseEnd"></div>
-      </div>
-      <p id="npOpenHouseNote" style="font-size:.72rem;margin:-4px 0 10px;min-height:1.1em" role="status"></p>
-
-      <div class="field" id="npCommercialLocFields" style="display:none">
-        <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
-          <div><label>שירותים</label><select id="npRestrooms"><option value="">-</option><option value="building">בבניין</option><option value="unit">בנכס</option></select></div>
-          <div><label>מחסן</label><select id="npStorageLoc"><option value="">-</option><option value="building">בבניין</option><option value="unit">בנכס</option></select></div>
-          <div><label>ממ"ד</label><select id="npMamadLoc"><option value="">-</option><option value="building">בבניין</option><option value="unit">בנכס</option></select></div>
-        </div>
-      </div>
-
-      <!-- ====== מידע תכנוני (מגרש/קרקע) ======
-           נפתח רק כשסוג הנכס הוא קרקע. בדף הנכס השדות האלה מחליפים את סקציית
-           ההדמיות: אין מה לדמות בשטח ריק, ומה שקונה קרקע שואל הוא מה מותר
-           לבנות כאן. גוש וחלקה לא מוצגים בדף הנכס בשום מצב — הם נשארים
-           בכרטיס המידע התכנוני שבמערכת בלבד. -->
-      <div id="npLandPlanningFields" style="display:none">
-        <div class="form-subheading">מידע תכנוני (מגרש/קרקע)</div>
-        <p style="font-size:.72rem;color:var(--ink-soft);margin:-4px 0 10px">מה שיוזן כאן יוצג בדף הנכס בסקציית "מידע תכנוני", יחד עם ייעוד הקרקע ומספרי התוכניות שנקלטו אוטומטית. גוש, חלקה, שטח החלקה והקואורדינטות אינם מוצגים לגולשים.</p>
-        <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div class="field"><label>ייעוד קרקע (לא חובה)</label><input type="text" id="npLandZoning" placeholder="לדוגמה: מגורים א'"></div>
-          <div class="field"><label>אחוזי בנייה (לא חובה)</label><input type="number" id="npLandBuildingPct" min="0" max="1000" step="any" placeholder="לדוגמה: 60"></div>
-        </div>
-        <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-          <div class="field"><label>יח״ד מותרות (לא חובה)</label><input type="number" id="npLandMaxUnits" min="0" max="500"></div>
-          <div class="field"><label>קומות מותרות (לא חובה)</label><input type="number" id="npLandMaxFloors" min="0" max="100"></div>
-        </div>
-        <div class="field"><label>הערה תכנונית (לא חובה)</label>
-          <input type="text" id="npLandPlanningNotes" maxlength="400" placeholder="לדוגמה: מאושר לבניית דו משפחתי, טאבו, מוכן לבנייה מיידית">
-        </div>
-      </div>
-
-      <div class="form-subheading">מאפייני מודעה</div>
-      <div class="checkbox-grid" id="npListingFeatures"></div>
-
-      <div class="form-subheading">מאפייני הנכס</div>
-      <div class="checkbox-grid" id="npPropertyFeatures"></div>
-      <div class="field" style="margin-top:10px"><label>פירוט ריהוט (לא חובה)</label>
-        <input type="text" id="npFurnitureDetails" placeholder="לדוגמה: מטבח מלא, ארונות, מזגנים בכל חדר">
-      </div>
-
-      <div class="form-subheading">תיאור ושיווק</div>
-      <div class="field"><label>תיאור המודעה (לא חובה - מוצג בדף הנכס)</label>
-        <textarea id="npDescription" rows="4" placeholder="מה חשוב שיידעו על הנכס: מצב, נוף, שכנים, קרבה לשירותים…"></textarea>
-        <div class="hint">הטקסט הזה גלוי לכל גולש/ת ונכנס גם לפוסט ולתצוגה בגוגל. שם או טלפון של בעל/ת הנכס לא נכתבים כאן - יש להם שדות פנימיים בהמשך הטופס, ומה שנכתב כאן נמחק אוטומטית.</div>
-        <!-- מדיניות התוכן הציבורי. הטקסט נבנה ב-renderTextPolicyHint() כי
-             חלקו תלוי במסלול, והמסלול ידוע רק אחרי טעינת הפרופיל.
-             מכוון: ההודעה הזו חיה כאן ולא ב-pricing.html. -->
-        <div class="hint" id="npTextPolicyHint" hidden></div>
-      </div>
-      <!-- התיאור השיווקי הוא השדה היחיד בטופס שהמערכת יודעת למלא לבד: הוא
-           נגזר כולו מהנתונים שמעליו. השדה נשאר פתוח לעריכה — הכפתור מציע
-           נוסח, והשמירה היא של הסוכן/ת. נכס שנשמר בלי תיאור מקבל אחד
-           אוטומטית כעבור עשר דקות, ולכן הכפתור אינו חובה בשום שלב. -->
-      <div class="field"><label>תיאור שיווקי (לא חובה - נוסח פרסומי המוצג בדף הנכס כשאין תיאור מודעה)</label>
-        <textarea id="npMarketingDescription" rows="3"></textarea>
-        <div class="mkt-row">
-          <button type="button" class="mkt-btn" id="npGenDesc">✨ כתיבת נוסח מהנתונים</button>
-          <span class="mkt-note" id="npGenDescHint"></span>
-        </div>
-      </div>
-      <div class="field"><label>טקסט פוסט (לא חובה - מוכן להעתקה לרשתות/וואטסאפ)</label>
-        <textarea id="npPostText" rows="3"></textarea>
-      </div>
-
-      <!-- כתובות חיצוניות ולא העלאת קבצים: הסיור והסרטון מתארחים אצל הספק
-           שיצר אותם (Matterport, יוטיוב), ומודעה עם סיור או סרטון מקבלת
-           כפתור ותגית בדף הנכס. -->
-      <div class="form-subheading">מדיה נוספת</div>
-      <div class="field"><label>קישור לסיור וירטואלי (לא חובה)</label>
-        <input type="url" id="npTour3dUrl" dir="ltr" placeholder="https://my.matterport.com/show/?m=…">
-        <div class="hint">Matterport, Kuula, סיור 360 - כתובת מלאה שמתחילה ב-https</div>
-      </div>
-      <!-- שני מסלולים לאותו שדה אחד (video_url): קובץ מהמכשיר או קישור חיצוני.
-           רוב הסרטונים נולדים כקובץ בטלפון, ולכן ההעלאה ראשונה. בחירת קובץ
-           מנטרלת את שדה הקישור (ולהפך) כדי שלא ייווצר מצב של שני מקורות
-           לסרטון אחד — במסד יש כתובת אחת בלבד. -->
-      <div class="field">
-        <label>סרטון הנכס (לא חובה)</label>
-        <div class="img-dropzone">
-          <label class="pick" for="npVideoFile">+ העלאת סרטון מהמכשיר</label>
-          <input type="file" id="npVideoFile" accept="video/mp4,video/webm,video/quicktime">
-          <div class="hint">‏MP4, WebM או MOV · עד <span id="npVideoMaxLen">דקה אחת</span> · הסרטון נדחס אוטומטית במכשיר לפני ההעלאה, כך שאפשר לבחור קובץ ישירות מהגלריה</div>
-        </div>
-        <div class="video-progress" id="npVideoProgress" hidden>
-          <div class="bar"><span id="npVideoProgressFill"></span></div>
-          <div class="progress-row">
-            <span class="txt" id="npVideoProgressTxt">מכין את הסרטון…</span>
-            <button type="button" class="progress-cancel" id="npVideoCancel">ביטול</button>
+        <div class="pf-grid">
+          <div class="field"><label>קטגוריה</label>
+            <div class="deal-toggle pf-seg">
+              <button type="button" class="active" data-category="residential">מגורים</button>
+              <button type="button" data-category="commercial">מסחרי</button>
+            </div>
+          </div>
+          <div class="field"><label for="npDeal">סוג עסקה</label>
+            <select id="npDeal" required>
+              <option value="sale">מכירה</option>
+              <option value="rent">השכרה</option>
+            </select>
           </div>
         </div>
-        <div class="img-preview" id="npVideoPreview"></div>
-      </div>
-      <div class="field"><label>או קישור לסרטון חיצוני</label>
-        <input type="url" id="npVideoUrl" dir="ltr" placeholder="https://www.youtube.com/watch?v=…">
-        <div class="hint" id="npVideoUrlHint">יוטיוב, וימאו או צילומי רחפן - כתובת מלאה שמתחילה ב-https</div>
-      </div>
-
-      <div class="form-subheading">סוכן/ת נוסף/ת על המודעה</div>
-      <div class="field">
-        <label for="npAgent2Pick">סוכן 2 (לא חובה)</label>
-        <select id="npAgent2Pick">
-          <option value="">- ללא -</option>
-          <option value="manual">אחר - הקלדת שם וטלפון</option>
-        </select>
-        <div class="hint">אפשר לבחור סוכן/ת מהמשרד - השם והטלפון יתמלאו לבד - או להקליד שם וטלפון של גורם חיצוני.</div>
-      </div>
-      <div class="field-row" id="npAgent2Manual" style="display:none;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field"><label>שם סוכן/ת 2</label><input type="text" id="npAgent2Name"></div>
-        <div class="field"><label>טלפון 2</label><input type="tel" id="npAgent2Phone"></div>
-      </div>
-
-      <div class="form-subheading">פרטי בעל/ת הנכס - פנימי</div>
-      <p style="font-size:.72rem;color:var(--ink-soft);margin:-6px 0 10px">גלוי רק לך ולמנהל/ת המשרד. לא מוצג באתר, לא נחשף למשרדים אחרים ולא נכלל בהפצת שת״פ.</p>
-      <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-        <div class="field"><label>שם הבעלים</label><input type="text" id="npOwnerName"></div>
-        <div class="field"><label>טלפון הבעלים</label><input type="tel" id="npOwnerPhone"></div>
-      </div>
-
-      <div class="field">
-        <label>תמונות הנכס</label>
-        <div class="img-dropzone">
-          <label class="pick" for="npImages">+ בחירת תמונות מהמכשיר</label>
-          <input type="file" id="npImages" accept="image/jpeg,image/png,image/webp" multiple>
-          <div class="hint">עד 8 תמונות · התמונה הראשונה היא הראשית · הקבצים מוקטנים אוטומטית לפני ההעלאה</div>
+        <div class="pf-grid">
+          <div class="field"><label for="npType">סוג נכס</label>
+            <select id="npType" required></select>
+          </div>
+          <div class="field"><label for="npPrice">מחיר (₪)</label><input type="number" id="npPrice" required min="0" inputmode="numeric" placeholder="לדוגמה: 1850000"></div>
         </div>
-        <div class="img-preview" id="npImagePreview"></div>
-      </div>
-
-      <div class="field">
-        <label>תמונה שיווקית (לא חובה)</label>
-        <div class="img-dropzone">
-          <label class="pick" for="npMarketingImage">+ בחירת תמונה שיווקית</label>
-          <input type="file" id="npMarketingImage" accept="image/jpeg,image/png,image/webp">
-          <div class="hint">תמונה מעוצבת אחת (לוגו/מחיר/טקסט) לשימוש בפרסום - נפרדת מגלריית הנכס</div>
+        <!-- מסחרי בלבד. "לא צוין" מוצג באתר כ-"+ מע״מ" ליד המחיר, כי כך
+             נמסר מחיר מסחרי כמעט תמיד. properties.price_includes_vat. -->
+        <div class="field" id="npVatField" style="display:none"><label for="npPriceVat">מע״מ</label>
+          <select id="npPriceVat">
+            <option value="">לא צוין (יוצג: + מע״מ)</option>
+            <option value="plus">המחיר לא כולל מע״מ (+ מע״מ)</option>
+            <option value="incl">המחיר כולל מע״מ</option>
+          </select>
         </div>
-        <div class="img-preview" id="npMarketingImagePreview"></div>
+        <div class="field"><label for="npExpiresAt">תוקף המודעה (לא חובה)</label><input type="date" id="npExpiresAt"></div>
+      </section>
+
+      <!-- ====== מקטע 2: מיקום ורישום מקרקעין ====== -->
+      <section class="pf-section" data-pf-step="2" hidden>
+        <h3 class="pf-title">מיקום ורישום מקרקעין</h3>
+        <div class="pf-grid">
+          <div class="field"><label for="npCity">עיר</label><input type="text" id="npCity" value="עפולה" required></div>
+          <div class="field"><label for="npNeighborhood">שכונה (לא חובה)</label>
+            <select id="npNeighborhood"><option value="">- לא צוין -</option></select>
+          </div>
+        </div>
+        <div class="pf-grid">
+          <div class="field"><label for="npStreet">רחוב (לא חובה)</label>
+            <!-- ‏datalist ולא select: לעפולה מאות רחובות, ובורר נפתח הוא גלילה
+                 ארוכה. כאן מקלידים שתי אותיות ורואים את מה שמתאים, וגם המקלדת
+                 בנייד נשארת הדרך הטבעית. הרשימה הסגורה נאכפת בשמירה (‏canonicalStreet)
+                 ולא ברכיב — ‏datalist לבדו אינו חוסם הקלדה חופשית. -->
+            <input type="text" id="npStreet" list="streetOptions" autocomplete="off" placeholder="הקלידו ובחרו מהרשימה">
+            <datalist id="streetOptions"></datalist>
+            <p id="npStreetHint" style="font-size:.72rem;margin:5px 0 0;line-height:1.5"></p>
+          </div>
+          <div class="field"><label for="npHouseNumber">מספר בית (לא חובה)</label><input type="text" id="npHouseNumber" placeholder="לדוגמה: 12"></div>
+        </div>
+        <div class="field"><label for="npSalesArea">איזור מכירה (לא חובה)</label><input type="text" id="npSalesArea" placeholder="לדוגמה: צפון העיר"></div>
+
+        <!-- גוש/חלקה: הדרך למקם נכס כשמספר הבית עדיין אינו בשכבת הכתובות של
+             מפ"י (שכונה חדשה, אזור תעשייה, מגרש). כשהכתובת לא נמצאה, הפין הוא
+             מרכז החלקה - רק לחלקה של עד 250 מ'. נשמרים ב-property_planning_info
+             ולא ב-properties, ואינם מוצגים לגולשים. docs/govmap.md -->
+        <div class="pf-box">
+          <div class="pf-box-title">רישום מקרקעין</div>
+          <div class="pf-grid">
+            <div class="field"><label for="npGush">גוש</label><input type="text" id="npGush" inputmode="numeric" pattern="\d*" placeholder="לדוגמה: 16500"></div>
+            <div class="field"><label for="npHelka">חלקה</label><input type="text" id="npHelka" inputmode="numeric" pattern="\d*" placeholder="לדוגמה: 96"></div>
+          </div>
+          <p class="pf-note">משמש לאיתור תכנוני והתאמת תב"ע. לא מוצג לגולשים.</p>
+        </div>
+        <p class="pf-note">אם מולאו רחוב+מספר (או גוש+חלקה), מידע תכנוני (גוש/חלקה/ייעוד) ייקלט אוטומטית ברקע. בשכונה חדשה או באזור תעשייה, שבהם מספר הבית עוד לא רשום במפה הארצית, גוש+חלקה הם מה שמאפשר למקם את הנכס, ובדף הנכס תוצג מפת מיקום עם הפין המדויק (מסלולי PROFESSIONAL ו-Elite בלבד). בלי מספר בית אין מפה: הגאוקודינג נופל למרכז העיר, ופין כזה נראה מדויק ואינו כזה.</p>
+
+        <!-- הקואורדינטות מתמלאות לבד מהכתובת או מהחלקה, ולכן הן מקופלות:
+             רוב הסוכנים לא צריכים לראות אותן לעולם. -->
+        <details class="pf-adv">
+          <summary>הגדרות מיפוי מתקדמות</summary>
+          <p class="pf-note">מתמלא אוטומטית מהכתובת אם ריק. יש למלא רק כשהפין על המפה אינו במקום.</p>
+          <div class="pf-grid">
+            <!-- step="any" ולא step="0.0001": הקואורדינטות נשמרות ב-DB ברזולוציה מלאה
+                 (double precision — למשל 32.6053163), ואם ה-step מגביל לארבע ספרות
+                 אחרי הנקודה, הדפדפן פוסל ערך כזה ברגע שפותחים נכס קיים לעריכה
+                 ("יש להזין ערך חוקי…") ולא מאפשר לשמור עד שמוחקים את השדה. -->
+            <div class="field"><label for="npLat">קו רוחב (lat)</label><input type="number" id="npLat" step="any" min="-90" max="90" placeholder="32.6078"></div>
+            <div class="field"><label for="npLng">קו אורך (lng)</label><input type="number" id="npLng" step="any" min="-180" max="180" placeholder="35.2897"></div>
+          </div>
+        </details>
+
+        <!-- ====== מידע תכנוני (מגרש/קרקע) ======
+             נפתח רק כשסוג הנכס הוא קרקע. בדף הנכס השדות האלה מחליפים את סקציית
+             ההדמיות: אין מה לדמות בשטח ריק, ומה שקונה קרקע שואל הוא מה מותר
+             לבנות כאן. גוש וחלקה לא מוצגים בדף הנכס בשום מצב — הם נשארים
+             בכרטיס המידע התכנוני שבמערכת בלבד. -->
+        <div id="npLandPlanningFields" style="display:none">
+          <div class="form-subheading">מידע תכנוני (מגרש/קרקע)</div>
+          <p class="pf-note">מה שיוזן כאן יוצג בדף הנכס בסקציית "מידע תכנוני", יחד עם ייעוד הקרקע ומספרי התוכניות שנקלטו אוטומטית. גוש, חלקה, שטח החלקה והקואורדינטות אינם מוצגים לגולשים.</p>
+          <div class="pf-grid">
+            <div class="field"><label for="npLandZoning">ייעוד קרקע (לא חובה)</label><input type="text" id="npLandZoning" placeholder="לדוגמה: מגורים א'"></div>
+            <div class="field"><label for="npLandBuildingPct">אחוזי בנייה (לא חובה)</label><input type="number" id="npLandBuildingPct" min="0" max="1000" step="any" placeholder="לדוגמה: 60"></div>
+          </div>
+          <div class="pf-grid">
+            <div class="field"><label for="npLandMaxUnits">יח״ד מותרות (לא חובה)</label><input type="number" id="npLandMaxUnits" min="0" max="500"></div>
+            <div class="field"><label for="npLandMaxFloors">קומות מותרות (לא חובה)</label><input type="number" id="npLandMaxFloors" min="0" max="100"></div>
+          </div>
+          <div class="field"><label for="npLandPlanningNotes">הערה תכנונית (לא חובה)</label>
+            <input type="text" id="npLandPlanningNotes" maxlength="400" placeholder="לדוגמה: מאושר לבניית דו משפחתי, טאבו, מוכן לבנייה מיידית">
+          </div>
+        </div>
+      </section>
+
+      <!-- ====== מקטע 3: מפרט טכני ועלויות שוטפות ====== -->
+      <section class="pf-section" data-pf-step="3" hidden>
+        <h3 class="pf-title">מפרט טכני ועלויות שוטפות</h3>
+        <div class="pf-grid pf-grid-4">
+          <div class="field"><label for="npBuiltSizeSqm">שטח בנוי (מ״ר)</label><input type="number" id="npBuiltSizeSqm" step="any" min="0" placeholder="לדוגמה: 95"></div>
+          <div class="field"><label for="npSizeSqm">גודל הנכס (מ״ר)</label><input type="number" id="npSizeSqm" step="any" min="0" placeholder="לדוגמה: 110"></div>
+          <div class="field"><label for="npGardenSqm">גינה / מרפסת (מ״ר)</label><input type="number" id="npGardenSqm" step="any" min="0" placeholder="לדוגמה: 12"></div>
+          <div class="field"><label for="npRooms">חדרים</label><input type="number" id="npRooms" step="0.1" min="0" placeholder="לדוגמה: 4.5"></div>
+        </div>
+        <div class="pf-grid">
+          <div class="field"><label for="npFloor">קומה</label><input type="number" id="npFloor" placeholder="לדוגמה: 3"></div>
+          <div class="field"><label for="npTotalFloors">מתוך קומות בבניין</label><input type="number" id="npTotalFloors" min="1" placeholder="לדוגמה: 8"></div>
+        </div>
+
+        <!-- עלויות שוטפות: ביחידות שבהן הן נגבות בפועל - ועד בית לחודש,
+             וארנונה לפי תקופת החיוב של העירייה: לחודשיים במגורים, לחודש
+             במסחרי. התווית מתחלפת ב-updateFormForCategory().
+             המיגרציה 20270108090000_property_monthly_costs.sql. -->
+        <div class="pf-box">
+          <div class="pf-box-title">עלויות שוטפות</div>
+          <div class="pf-grid">
+            <div class="field"><label for="npMaintenanceFee">ועד בית / דמי ניהול (₪ לחודש)</label><input type="number" id="npMaintenanceFee" min="0" step="any" inputmode="numeric" placeholder="לדוגמה: 250"></div>
+            <div class="field"><label for="npArnona" id="npArnonaLabel">ארנונה (₪ לחודשיים)</label><input type="number" id="npArnona" min="0" step="any" inputmode="numeric" placeholder="לדוגמה: 780"></div>
+          </div>
+        </div>
+
+        <div class="pf-grid">
+          <div class="field"><label for="npMoveInDate">תאריך כניסה (לא חובה)</label><input type="date" id="npMoveInDate"></div>
+          <div class="field pf-inline-check"><label class="checkbox-item"><input type="checkbox" id="npMoveInSoon"> כניסה מיידית / קרובה (עד שנה)</label></div>
+        </div>
+
+        <div class="pf-grid">
+          <div class="field" id="npConditionField"><label for="npCondition">מצב הנכס (לא חובה)</label>
+            <select id="npCondition">
+              <option value="">- לא צוין -</option>
+              <option value="new_from_contractor">חדש מקבלן (לא גרו בכלל)</option>
+              <option value="new">חדש (נכס בן עד 10 שנים)</option>
+              <option value="renovated">משופץ (שופץ ב-5 שנים האחרונות)</option>
+              <option value="maintained">במצב שמור (במצב טוב, לא שופץ)</option>
+              <option value="needs_renovation">דרוש שיפוץ (זקוק לעבודת שיפוץ)</option>
+            </select>
+          </div>
+          <div class="field"><label for="npProjectStatus">סטטוס הפרויקט (לנכסים חדשים/בבנייה)</label>
+            <select id="npProjectStatus">
+              <option value="">- לא צוין -</option>
+              <option value="planning">תכנון ראשוני</option>
+              <option value="permit_requested">הוגשה בקשה להיתר</option>
+              <option value="permit_issued">ניתן היתר בנייה</option>
+              <option value="construction_complete">הבנייה הסתיימה</option>
+            </select>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====== מקטע 4: מאפייני הנכס ======
+           הצ'קבוקסים נבנים ב-renderFeatureCheckboxes() ומוצגים כצ'יפים
+           (‏.pf-chips) - תיבת הסימון עצמה נשארת בתוכם, ולכן getCheckedValues
+           והנגישות במקלדת לא השתנו. -->
+      <section class="pf-section" data-pf-step="4" hidden>
+        <h3 class="pf-title">מאפייני הנכס</h3>
+        <div class="checkbox-grid pf-chips" id="npPropertyFeatures"></div>
+        <div class="field" style="margin-top:14px"><label for="npFurnitureDetails">פירוט ריהוט (לא חובה)</label>
+          <input type="text" id="npFurnitureDetails" placeholder="לדוגמה: מטבח מלא, ארונות, מזגנים בכל חדר">
+        </div>
+
+        <div class="field" id="npCommercialLocFields" style="display:none">
+          <div class="pf-grid pf-grid-3">
+            <div><label for="npRestrooms">שירותים</label><select id="npRestrooms"><option value="">-</option><option value="building">בבניין</option><option value="unit">בנכס</option></select></div>
+            <div><label for="npStorageLoc">מחסן</label><select id="npStorageLoc"><option value="">-</option><option value="building">בבניין</option><option value="unit">בנכס</option></select></div>
+            <div><label for="npMamadLoc">ממ"ד</label><select id="npMamadLoc"><option value="">-</option><option value="building">בבניין</option><option value="unit">בנכס</option></select></div>
+          </div>
+        </div>
+
+        <div class="form-subheading">מאפייני מודעה</div>
+        <div class="checkbox-grid pf-chips" id="npListingFeatures"></div>
+
+        <!-- ====== יריד הבתים הפתוחים ======
+             סימון + חלון תאריכים, ושניהם חובה יחד: ההשתתפות ביריד היא הבטחה
+             שהנכס מוצע ללא עמלת תיווך לקונה, והבטחה כזו בלי תאריך סיום היא
+             הבטחה לנצח. ה-check במסד אוכף את אותו כלל (ראו המיגרציה
+             20261102090000_open_house_fair.sql), והטופס מוסיף עליו את מה שהוא
+             כלל מוצר ולא כלל נתונים: אורך מרבי (open_house_max_days) ותאריך
+             סיום שלא עבר. ראו docs/open-house-fair.md. -->
+        <div class="form-subheading">יריד הבתים הפתוחים</div>
+        <p class="pf-note">נכס ביריד מוצג בדף ייעודי באתר, מסומן בסימן משלו על המפה, ומוצע <b>ללא עמלת תיווך לקונה</b> - בתקופה שתגדירו כאן ורק בה. בתום התקופה הנכס יוצא מהיריד לבד, והמודעה נשארת כרגיל.</p>
+        <div class="field"><label class="checkbox-item"><input type="checkbox" id="npOpenHouse"> הנכס משתתף ביריד הבתים הפתוחים</label></div>
+        <!-- ‏style.display ולא ‎hidden‎: אין בדף כלל ‎[hidden]{display:none !important}‎,
+             ו-‎display:grid‎ בסגנון מוטבע גובר על ברירת המחדל של הדפדפן ל-hidden —
+             השדות היו נשארים גלויים תמיד. אותה שיטה של npLandPlanningFields. -->
+        <div class="field-row" id="npOpenHouseDates" style="display:none;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="field"><label for="npOpenHouseStart">תחילת התקופה</label><input type="date" id="npOpenHouseStart"></div>
+          <div class="field"><label for="npOpenHouseEnd">סוף התקופה (כולל)</label><input type="date" id="npOpenHouseEnd"></div>
+        </div>
+        <p id="npOpenHouseNote" style="font-size:.72rem;margin:-4px 0 10px;min-height:1.1em" role="status"></p>
+      </section>
+
+      <!-- ====== מקטע 5: תיאור ומדיה ====== -->
+      <section class="pf-section" data-pf-step="5" hidden>
+        <h3 class="pf-title">תיאור ומדיה</h3>
+        <div class="field"><label for="npDescription">תיאור המודעה (לא חובה - מוצג בדף הנכס)</label>
+          <textarea id="npDescription" rows="5" placeholder="מה חשוב שיידעו על הנכס: מצב, נוף, שכנים, קרבה לשירותים…"></textarea>
+          <div class="hint">הטקסט הזה גלוי לכל גולש/ת ונכנס גם לפוסט ולתצוגה בגוגל. שם או טלפון של בעל/ת הנכס לא נכתבים כאן - יש להם שדות פנימיים במקטע "פרטי בעלים", ומה שנכתב כאן נמחק אוטומטית.</div>
+          <!-- מדיניות התוכן הציבורי. הטקסט נבנה ב-renderTextPolicyHint() כי
+               חלקו תלוי במסלול, והמסלול ידוע רק אחרי טעינת הפרופיל.
+               מכוון: ההודעה הזו חיה כאן ולא ב-pricing.html. -->
+          <div class="hint" id="npTextPolicyHint" hidden></div>
+        </div>
+        <!-- התיאור השיווקי הוא השדה היחיד בטופס שהמערכת יודעת למלא לבד: הוא
+             נגזר כולו מהנתונים שמעליו. השדה נשאר פתוח לעריכה — הכפתור מציע
+             נוסח, והשמירה היא של הסוכן/ת. נכס שנשמר בלי תיאור מקבל אחד
+             אוטומטית כעבור עשר דקות, ולכן הכפתור אינו חובה בשום שלב. -->
+        <div class="field"><label for="npMarketingDescription">תיאור שיווקי (לא חובה - נוסח פרסומי המוצג בדף הנכס כשאין תיאור מודעה)</label>
+          <textarea id="npMarketingDescription" rows="4"></textarea>
+          <div class="mkt-row">
+            <button type="button" class="mkt-btn" id="npGenDesc">✨ כתיבת נוסח מהנתונים</button>
+            <span class="mkt-note" id="npGenDescHint"></span>
+          </div>
+        </div>
+        <div class="field"><label for="npPostText">טקסט פוסט (לא חובה - מוכן להעתקה לרשתות/וואטסאפ)</label>
+          <textarea id="npPostText" rows="3"></textarea>
+        </div>
+
+        <div class="field">
+          <label>תמונות הנכס</label>
+          <div class="img-dropzone">
+            <label class="pick" for="npImages">+ בחירת תמונות מהמכשיר</label>
+            <input type="file" id="npImages" accept="image/jpeg,image/png,image/webp" multiple>
+            <div class="hint">עד 8 תמונות · התמונה הראשונה היא הראשית · הקבצים מוקטנים אוטומטית לפני ההעלאה</div>
+          </div>
+          <div class="img-preview" id="npImagePreview"></div>
+        </div>
+
+        <div class="field">
+          <label>תמונה שיווקית (לא חובה)</label>
+          <div class="img-dropzone">
+            <label class="pick" for="npMarketingImage">+ בחירת תמונה שיווקית</label>
+            <input type="file" id="npMarketingImage" accept="image/jpeg,image/png,image/webp">
+            <div class="hint">תמונה מעוצבת אחת (לוגו/מחיר/טקסט) לשימוש בפרסום - נפרדת מגלריית הנכס</div>
+          </div>
+          <div class="img-preview" id="npMarketingImagePreview"></div>
+        </div>
+
+        <!-- כתובות חיצוניות ולא העלאת קבצים: הסיור והסרטון מתארחים אצל הספק
+             שיצר אותם (Matterport, יוטיוב), ומודעה עם סיור או סרטון מקבלת
+             כפתור ותגית בדף הנכס. -->
+        <div class="field"><label for="npTour3dUrl">קישור לסיור וירטואלי (לא חובה)</label>
+          <input type="url" id="npTour3dUrl" dir="ltr" placeholder="https://my.matterport.com/show/?m=…">
+          <div class="hint">Matterport, Kuula, סיור 360 - כתובת מלאה שמתחילה ב-https</div>
+        </div>
+        <!-- שני מסלולים לאותו שדה אחד (video_url): קובץ מהמכשיר או קישור חיצוני.
+             רוב הסרטונים נולדים כקובץ בטלפון, ולכן ההעלאה ראשונה. בחירת קובץ
+             מנטרלת את שדה הקישור (ולהפך) כדי שלא ייווצר מצב של שני מקורות
+             לסרטון אחד — במסד יש כתובת אחת בלבד. -->
+        <div class="field">
+          <label>סרטון הנכס (לא חובה)</label>
+          <div class="img-dropzone">
+            <label class="pick" for="npVideoFile">+ העלאת סרטון מהמכשיר</label>
+            <input type="file" id="npVideoFile" accept="video/mp4,video/webm,video/quicktime">
+            <div class="hint">‏MP4, WebM או MOV · עד <span id="npVideoMaxLen">דקה אחת</span> · הסרטון נדחס אוטומטית במכשיר לפני ההעלאה, כך שאפשר לבחור קובץ ישירות מהגלריה</div>
+          </div>
+          <div class="video-progress" id="npVideoProgress" hidden>
+            <div class="bar"><span id="npVideoProgressFill"></span></div>
+            <div class="progress-row">
+              <span class="txt" id="npVideoProgressTxt">מכין את הסרטון…</span>
+              <button type="button" class="progress-cancel" id="npVideoCancel">ביטול</button>
+            </div>
+          </div>
+          <div class="img-preview" id="npVideoPreview"></div>
+        </div>
+        <div class="field"><label for="npVideoUrl">או קישור לסרטון חיצוני (YouTube / Vimeo)</label>
+          <input type="url" id="npVideoUrl" dir="ltr" placeholder="https://www.youtube.com/watch?v=…">
+          <div class="hint" id="npVideoUrlHint">יוטיוב, וימאו או צילומי רחפן - כתובת מלאה שמתחילה ב-https</div>
+        </div>
+      </section>
+
+      <!-- ====== מקטע 6: פרטי בעלים (פנימי) ====== -->
+      <section class="pf-section" data-pf-step="6" hidden>
+        <h3 class="pf-title">פרטי בעלים <span class="pf-lock">פנימי לסוכן/ת בלבד</span></h3>
+        <div class="pf-box pf-box-private">
+          <p class="pf-note" style="margin-top:0">גלוי רק לך ולמנהל/ת המשרד. לא מוצג באתר, לא נחשף למשרדים אחרים ולא נכלל בהפצת שת״פ.</p>
+          <div class="pf-grid">
+            <div class="field"><label for="npOwnerName">שם הבעלים</label><input type="text" id="npOwnerName" placeholder="לדוגמה: ישראל ישראלי"></div>
+            <div class="field"><label for="npOwnerPhone">טלפון הבעלים</label><input type="tel" id="npOwnerPhone" dir="ltr" placeholder="050-0000000"></div>
+          </div>
+        </div>
+
+        <div class="form-subheading">סוכן/ת נוסף/ת על המודעה</div>
+        <div class="field">
+          <label for="npAgent2Pick">סוכן 2 (לא חובה)</label>
+          <select id="npAgent2Pick">
+            <option value="">- ללא -</option>
+            <option value="manual">אחר - הקלדת שם וטלפון</option>
+          </select>
+          <div class="hint">אפשר לבחור סוכן/ת מהמשרד - השם והטלפון יתמלאו לבד - או להקליד שם וטלפון של גורם חיצוני.</div>
+        </div>
+        <div class="field-row" id="npAgent2Manual" style="display:none;grid-template-columns:1fr 1fr;gap:10px">
+          <div class="field"><label for="npAgent2Name">שם סוכן/ת 2</label><input type="text" id="npAgent2Name"></div>
+          <div class="field"><label for="npAgent2Phone">טלפון 2</label><input type="tel" id="npAgent2Phone"></div>
+        </div>
+      </section>
+
+      <!-- סרגל הפעולות הדביק. ‏#accProperties עובר ל-overflow:clip כדי שה-sticky
+           ייצמד לחלון ולא לאקורדיון - ‏overflow:hidden הופך אותו ל-scroll
+           container, ואז ה-sticky "נדבק" לתיבה שלעולם אינה גוללת. -->
+      <div class="pf-footer">
+        <div id="addPropertyFeedback" class="pf-feedback" role="status"></div>
+        <div id="addPropertyPlanningStatus" class="pf-planning"></div>
+        <div class="pf-actions">
+          <button type="submit" class="btn btn-gold" id="addPropertyBtn">פרסום הנכס</button>
+          <button type="button" class="btn btn-ghost" id="npCancel">ביטול</button>
+          <span class="pf-spacer"></span>
+          <button type="button" class="btn btn-ghost pf-nav" id="npPrevStep" aria-label="המקטע הקודם">הקודם</button>
+          <button type="button" class="btn btn-ghost pf-nav" id="npNextStep" aria-label="המקטע הבא">הבא</button>
+        </div>
       </div>
-      <button type="submit" class="btn btn-gold btn-block" id="addPropertyBtn" style="margin-top:16px">פרסום הנכס</button>
-      <div id="addPropertyFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
-      <div id="addPropertyPlanningStatus" style="font-size:.75rem;text-align:center;margin-top:4px;color:var(--ink-soft)"></div>
     </form>
     <div class="list-toolbar" id="propToolbar" hidden>
       <input type="search" id="propSearch" class="filter-input"
