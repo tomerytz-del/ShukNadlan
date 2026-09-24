@@ -14,7 +14,8 @@
 הבדיקה משווה שתי רשימות:
 
   * כל `<details class="acc" id="...">` ב-`crm.html`
-  * כל `{ acc:'...' }` ב-`NAV_GROUPS` שב-`assets/crm.js`
+  * כל `{ acc:'...' }` ב-`NAV_GROUPS` שב-`assets/crm.js`, וכל מזהה ב-
+    `also:[...]` — קטגוריות שנפתחות יחד עם הראשית תחת שורה מאוחדת
 
 וגם את הכיוון ההפוך: רשומת ניווט שמצביעה על מזהה שאינו קיים ב-HTML היא
 פריט תפריט שלחיצה עליו אינה עושה דבר.
@@ -32,8 +33,9 @@ NOT_IN_NAV = {
     # אין כרגע. שם שנכנס לכאן חייב נימוק בשורה שלו.
 }
 
-# יעדי ניווט שאינם אקורדיון: ראש הדשבורד בכל אחת משתי התצוגות.
-SENTINELS = {'__home', '__adminHome'}
+# יעדי ניווט שאינם אקורדיון: ראש הדשבורד בכל אחת משתי התצוגות, ו"יומן
+# ומשימות" — בלוק "דורש טיפול מיידי" שבראש דף הבית (#todoSection).
+SENTINELS = {'__home', '__adminHome', '__tasks'}
 
 
 def main():
@@ -48,6 +50,8 @@ def main():
     nav = set(re.findall(r"\{\s*acc:\s*'(\w+)'", js))
     for m in re.findall(r"\{\s*acc:\s*(NAV_\w+)", js):
         if m in consts: nav.add(consts[m])
+    for group in re.findall(r"also:\s*\[([^\]]*)\]", js):
+        nav.update(re.findall(r"'(\w+)'", group))
 
     problems = []
     for acc, title in sorted(accs.items()):

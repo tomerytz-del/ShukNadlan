@@ -124,12 +124,15 @@ function accWriteState(state){
   try{ localStorage.setItem(ACC_STATE_KEY, JSON.stringify(state)); }catch(e){}
 }
 
-function accSetCount(accId, value){
+/* ‏n הוא המספר עצמו כשהטקסט אינו מכיל אותו: "התראה אחת חדשה" אינה מכילה
+   ספרה ונקראה כאפס, ו-"3 מתוך 10" נקרא כ-310. */
+function accSetCount(accId, value, n){
   const el = document.getElementById(accId + 'Count');
   if (el) el.textContent = (value === 0 || value == null || value === '') ? '' : String(value);
   // המונה נשמר גם כמספר, כי חלק מהקטגוריות מציגות אותו כטקסט ("₪1,240"
   // בארנק). הניווט ובלוק "דורש טיפול מיידי" צריכים לדעת רק כמה יש כאן.
-  accCounts[accId] = (typeof value === 'number') ? value
+  accCounts[accId] = (typeof n === 'number') ? n
+    : (typeof value === 'number') ? value
     : Number(String(value == null ? '' : value).replace(/[^\d.-]/g, ''));
   refreshNavCounts();
 }
@@ -16565,7 +16568,7 @@ function renderSharePartners(){
   const listEl = document.getElementById('sharePartnerList');
   const q = document.getElementById('partnerSearch').value.trim().toLowerCase();
   const total = sharePartnerAgencies.length;
-  accSetCount('accSharePartners', total ? sharePartnerCount() + ' מתוך ' + total : '');
+  accSetCount('accSharePartners', total ? sharePartnerCount() + ' מתוך ' + total : '', total ? sharePartnerCount() : 0);
 
   if (total === 0){
     listEl.innerHTML = '<div class="empty-state">אין עדיין משרד תיווך נוסף במערכת לשיתוף פעולה.</div>';
@@ -16588,7 +16591,7 @@ function renderSharePartners(){
     // בכלל, וקריאה מה-DOM בזמן השמירה הייתה מוחקת את הבחירה שלהן
     cb.addEventListener('change', ()=>{
       if (cb.checked) shareExcludedIds.delete(a.id); else shareExcludedIds.add(a.id);
-      accSetCount('accSharePartners', sharePartnerCount() + ' מתוך ' + total);
+      accSetCount('accSharePartners', sharePartnerCount() + ' מתוך ' + total, sharePartnerCount());
     });
     label.appendChild(cb);
     label.appendChild(document.createTextNode(' ' + a.name));
@@ -17777,7 +17780,7 @@ function renderClientAlerts(){
   const listEl = document.getElementById('alertsList');
   const unseen = alertRows.filter(a => a.status === 'new').length;
 
-  accSetCount('accAlerts', unseen ? plural(unseen, 'התראה אחת חדשה', 'חדשות') : '');
+  accSetCount('accAlerts', unseen ? plural(unseen, 'התראה אחת חדשה', 'חדשות') : '', unseen);
   document.getElementById('alertsMarkAll').hidden = unseen === 0;
   document.getElementById('alertsFilterCount').textContent = alertRows.length
     ? plural(alertRows.length, 'התראה אחת', 'התראות')
@@ -19138,6 +19141,11 @@ const DASH_ICONS = {
   /* טלפון עם חץ פנימה — "התקנת האפליקציה" בתפריט. חץ הורדה רגיל היה
      נקרא כהורדת קובץ, וכאן לא יורד שום קובץ: האתר נוסף למסך הבית. */
   install:'<rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M12 7v7"/><path d="m9 11 3 3 3-3"/>',
+  /* שלושת האייקונים של סרגל הצד המחודש: יומן המשימות, חנות הלידים (דוכן
+     עם סוכך — "layers" נשאר למדפים שבתוכה), ויציאה בתחתית כרטיס הארנק */
+  calendar:'<rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M16 2.5v4"/><path d="M8 2.5v4"/><path d="M3 10h18"/><path d="m9 15 2 2 4-4"/>',
+  store:'<path d="M3 9 4.5 4h15L21 9"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M5 12v8h14v-8"/><path d="M10 20v-5h4v5"/>',
+  logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
 };
 
 function dashIcon(name, cls){
@@ -19208,57 +19216,67 @@ document.addEventListener('click', (e)=>{
    ========================================================================== */
 const NAV_HOME = '__home';
 const NAV_ADMIN_HOME = '__adminHome';
+/* "יומן ומשימות" אינו קטגוריה בעמוד אלא בלוק "דורש טיפול מיידי" שבראש דף
+   הבית (#todoSection), ולכן הוא יעד מדומה כמו NAV_HOME — ראו navGo. */
+const NAV_TASKS = '__tasks';
 
-/* שלוש קבוצות ולא חמש. הרשימה לא התקצרה — היא הפסיקה להיות טור אחד ארוך:
-   בתפריט הבורגר כל קבוצה מתקפלת (ראו buildMenuPanel), ורק זו שנמצאים בה
-   פתוחה. חמש כותרות מעל עשרים ושניים פריטים היו חמישה גבולות שאף אחד לא
-   נעצר בהם; שלוש קבוצות הן חלוקה שאפשר לזכור: מה שעושים, במה משתמשים,
-   ומה שמגדירים פעם בחודש. */
+/* שלוש קבוצות בסרגל, בסדר חשיבות: ליבת העבודה (מה שעושים כל יום), הזירה
+   (מה שמגיע מבחוץ — לידים לקנייה, שותפים, מידע על האזור), והניהול (מה
+   שבודקים פעם בשבוע). ההגדרות האישיות אינן בסרגל: הן קבוצה רביעית עם
+   placement:'profile', שמוצגת רק בתפריט הפרופיל שמתחת לאווטאר (ראו
+   buildProfilePanel). ארבע-עשרה שורות של "פרטי הסוכן/ת" ו"סגירת החשבון"
+   מתחת ל"הנכסים שלי" היו מה שדחף את הסרגל לגלילה, והן לא עבודה יומית.
+
+   ‏also: קטגוריות שנפתחות יחד עם הראשית תחת שורה אחת בתפריט. "שותף איתי"
+   ו"משרדי שת״פ" הם שני צדדים של אותו שיתוף, והמידע התכנוני והעסקאות באזור
+   עונים על אותה שאלה — מה קורה סביב הנכס. הקטגוריות עצמן נשארו נפרדות
+   בעמוד (ובאותה לשונית), רק הניווט אליהן אוחד. */
 const NAV_GROUPS = [
   /* סדר הפריטים כאן הוא סדר יום העבודה ולא סדר הקוד: קודם הנכסים, אחריהם
-     הלקוחות והלידים שהם מייצרים, ואז ההתאמות, ההסכמים והמידע התכנוני. */
-  { key:'work', label:'פעילות עסקית', icon:'briefcase', items:[
+     הלידים והלקוחות, ואז ההתאמות, ההסכמים והמשימות של היום. */
+  { key:'core', label:'ליבת העבודה', icon:'briefcase', items:[
     /* דף הבית אינו "עוד סעיף ברשימה" אלא הדרך חזרה, ולכן הוא מצויר כפתור
        הפוך (ראו .menu-item.is-home) ונושא את שם הלשונית בסרגל התחתון. */
-    { acc:NAV_HOME,              label:'ראשי',              icon:'home',     tab:'home' },
+    { acc:NAV_HOME,              label:'דשבורד ראשי',       icon:'home',     tab:'home' },
     { acc:'accProperties',       label:'הנכסים שלי',        icon:'building', tab:'props' },
-    { acc:'accClients',          label:'קובץ הלקוחות',      icon:'contact',  tab:'clients' },
     /* לשונית הלידים היא שתי קטגוריות בלבד: מה ששלי, ומה שאפשר לקנות.
        מדפי המשכנתאות ומחפשי הדירה אינם קטגוריות נפרדות עוד — הם מגירות
        בתוך חנות הלידים (ראו #shelfTabs). */
     { acc:'accLeads',            label:'הלידים שלי',        icon:'inbox',    tab:'leads' },
-    { acc:'accAlerts',           label:'התראות התאמה',      icon:'target',   tab:'clients' },
+    { acc:'accClients',          label:'קובץ לקוחות',       icon:'users',    tab:'clients' },
+    { acc:'accAlerts',           label:'התאמות חכמות',      icon:'target',   tab:'clients' },
     /* ‏focus על שדה החיפוש שם את הסמן במקום שאליו באו — לא בראש רשימה
        שצריך לגלול */
     { acc:'accAgreements',       label:'הסכמים והחתמות',    icon:'sign',     tab:'docs', focus:'agrSearch' },
-    { acc:'accPlanning',         label:'מידע תכנוני',       icon:'map',      tab:'more' },
-    { acc:'accDealsLookup',      label:'עסקאות באזור',      icon:'chart',    tab:'more' },
-    { acc:'accLeadShelf',        label:'חנות הלידים',       icon:'layers',   tab:'leads' },
+    { acc:NAV_TASKS,             label:'יומן ומשימות',      icon:'calendar', tab:'home' },
   ]},
-  { key:'tools', label:'כלים וצוות', icon:'wrench', items:[
+  { key:'market', label:'מודיעין וזירת שיתופי פעולה', icon:'layers', items:[
+    { acc:'accLeadShelf',        label:'חנות הלידים',       icon:'store',    tab:'leads' },
+    { acc:'accSharedWithMe',     label:'שיתופי פעולה ומשרדים', icon:'handshake', tab:'props',
+      also:['accSharePartners'] },
+    { acc:'accPlanning',         label:'מידע אזורי ותכנוני', icon:'map',     tab:'more',
+      also:['accDealsLookup'] },
+  ]},
+  { key:'manage', label:'ניהול וביצועים', icon:'chart', items:[
     { acc:'accReports',  label:'דוחות וביצועים', icon:'chart', tab:'more' },
     { acc:'accReviews',  label:'ביקורות לאישור', icon:'star',  tab:'more' },
+    /* ‏accTeam יושב ב-#managerSection, ולכן navAccVisible מציג אותו רק
+       למנהל/ת משרד או זכיין/ית — בלי לשכפל כאן את בדיקת התפקיד */
     { acc:'accTeam',     label:'צוות המשרד',     icon:'users', tab:'more' },
-    /* נכסים ששותפו איתי הם עבודה של שיתוף פעולה ולא רשימת הנכסים שלי,
-       ולכן הם כאן ליד צוות המשרד ולא בין תשעת הפריטים של יום העבודה. */
-    { acc:'accSharedWithMe', label:'שותף איתי',      icon:'share', tab:'props' },
   ]},
-  /* משרדי שת״פ והנכסים מוואטסאפ הם הגדרה שמבצעים פעם אחת ולא עבודה יומית,
-     ולכן הם יושבים כאן ולא בין הנכסים. ‏tab:'more' ולא 'props' כדי שהקטגוריה
-     בעמוד תשב באותה לשונית שבה התפריט מבטיח אותה.
-
-     שלושת הפריטים שלפני סגירת החשבון הם שרשרת אחת: עיצוב דף הסוכן/ת, עיצוב
-     דף המשרד ואז ניהול ההתראות — מה שמגדירים פעם אחת ולא חוזרים אליו. */
-  { key:'account', label:'הגדרות חשבון', icon:'cog', items:[
-    { acc:'accWallet',        label:'יתרת ארנק',         icon:'wallet',   tab:'more' },
-    { acc:'accEthics',        label:'הקוד האתי',         icon:'shield',   tab:'more' },
-    { acc:'accPrefs',         label:'העדפות לידים',      icon:'sliders',  tab:'more' },
-    { acc:'accReminders',     label:'תזכורות וטיפים',    icon:'clock',    tab:'more' },
-    { acc:'accSharePartners', label:'משרדי שיתוף פעולה', icon:'handshake',tab:'more' },
-    { acc:'accWhatsapp',      label:'העוזר בוואטסאפ',    icon:'chat',     tab:'more' },
+  /* ההגדרות — מה שמגדירים פעם אחת ולא חוזרים אליו. ‏placement:'profile'
+     מוציא את הקבוצה מסרגל הצד ומתפריט הבורגר ומכניס אותה לתפריט הפרופיל.
+     היא נשארת כאן ולא ברשימה נפרדת כדי שהלשוניות, navAccVisible ובדיקת
+     ‏check_crm_nav ימשיכו לראות מקור אמת אחד. */
+  { key:'account', label:'הגדרות חשבון', icon:'cog', placement:'profile', items:[
     { acc:'accProfile',       label:'פרטי הסוכן/ת',      icon:'user',     tab:'more' },
-    { acc:'accBranding',      label:'עיצוב דף המשרד',    icon:'brush',    tab:'more' },
+    { acc:'accWallet',        label:'הארנק והטעינות',    icon:'wallet',   tab:'more' },
+    { acc:'accPrefs',         label:'העדפות לידים',      icon:'sliders',  tab:'more' },
     { acc:'accNotifPrefs',    label:'ניהול התראות',      icon:'bell',     tab:'more' },
+    { acc:'accReminders',     label:'תזכורות וטיפים',    icon:'clock',    tab:'more' },
+    { acc:'accWhatsapp',      label:'העוזר בוואטסאפ',    icon:'chat',     tab:'more' },
+    { acc:'accBranding',      label:'עיצוב דף המשרד',    icon:'brush',    tab:'more' },
+    { acc:'accEthics',        label:'הקוד האתי',         icon:'shield',   tab:'more' },
     /* אחרון בקבוצה, ובכוונה: הדרך החוצה קיימת ואינה מוסתרת, אבל היא גם לא
        שכנה של פעולה שעושים כל יום. */
     { acc:'accCloseAccount',  label:'סגירת החשבון',      icon:'alert',    tab:'more' },
@@ -19303,9 +19321,13 @@ const NAV_TAB_BADGE = {
   more:    ['accReviews'],
 };
 
-/* accId → הלשונית שהוא שייך אליה */
+/* accId → הלשונית שהוא שייך אליה. קטגוריה שב-also יושבת באותה לשונית
+   כמו הראשית שלה, אחרת במובייל היא הייתה נפתחת בלשונית שאינה על המסך. */
 const NAV_TAB_OF = new Map();
-NAV_GROUPS.forEach(g => g.items.forEach(it => NAV_TAB_OF.set(it.acc, it.tab)));
+NAV_GROUPS.forEach(g => g.items.forEach(it => {
+  NAV_TAB_OF.set(it.acc, it.tab);
+  (it.also || []).forEach(acc => NAV_TAB_OF.set(acc, it.tab));
+}));
 
 /* המונים של הקטגוריות. accSetCount כותב לכאן, וכל מי שמציג מספר (סרגל הצד,
    הסרגל התחתון, בלוק המשימות, כרטיס הלידים החמים) קורא מכאן — ולכן אין מצב
@@ -19334,15 +19356,33 @@ function navAccVisible(accId){
 }
 
 function navItemVisible(item){
-  if (item.acc === NAV_HOME) return dashView === 'agent';
+  if (item.acc === NAV_HOME || item.acc === NAV_TASKS) return dashView === 'agent';
   if (item.acc === NAV_ADMIN_HOME) return dashView === 'admin';
-  return navAccVisible(item.acc);
+  // שורה מאוחדת גלויה כל עוד אחת מהקטגוריות שלה גלויה
+  return [item.acc, ...(item.also || [])].some(navAccVisible);
+}
+
+/* הקטגוריה שהשורה פותחת בפועל: הראשית, ואם היא מוסתרת — הראשונה ב-also
+   שגלויה. */
+function navItemTarget(item){
+  return [item.acc, ...(item.also || [])].find(navAccVisible) || item.acc;
+}
+
+/* המונה של שורה בניווט. "יומן ומשימות" סופר את הכרטיסים שבבלוק "דורש טיפול
+   מיידי" — אותו חישוב של renderTodoList, ולכן אותו מספר. שורה מאוחדת
+   מציגה רק את מונה הראשית: המונה של משרדי השת״פ הוא "3 מתוך 10" ואינו
+   סכום של שום דבר. */
+function navItemCount(item){
+  if (item.acc === NAV_TASKS){
+    return TODO_ITEMS.filter(t => navAccVisible(t.acc) && accCountOf(t.acc) > 0).length;
+  }
+  return accCountOf(navItemTarget(item));
 }
 
 function navGroupsForView(){
   const admin = dashView === 'admin';
   return NAV_GROUPS
-    .filter(g => !!g.adminOnly === admin)
+    .filter(g => !!g.adminOnly === admin && !g.placement)
     .map(g => ({ key:g.key, label:g.label, icon:g.icon, items:g.items.filter(navItemVisible) }))
     .filter(g => g.items.length);
 }
@@ -19351,19 +19391,28 @@ function navReduceMotion(){
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-/* ---------- סרגל הצד (דסקטופ) ---------- */
+/* ---------- סרגל הצד (דסקטופ) ----------
+   גובה מסך אחד בלי פס גלילה: רשימה בראש (‏.sn-list, גמישה) וכרטיס הארנק
+   נעוץ בתחתית (‏.sn-foot). כך היתרה, הטעינה והיציאה נמצאות תמיד באותה
+   נקודה, בלי לגלול אליהן מתחת לשלוש-עשרה שורות.
+
+   צבע המונה הוא ההבדל בין "יש כאן" ל"מחכה לך": אדום רק ל-NAV_HOT_ACCS
+   (לידים שלא נפתחו, התאמות חדשות, ביקורות), וכל השאר — סך הנכסים, הסכמים,
+   המשימות — בגלולה אפורה ושקטה. */
 function renderSideNav(){
   const nav = document.getElementById('sideNav');
   if (!nav) return;
   nav.innerHTML = '';
+  const list = document.createElement('div');
+  list.className = 'sn-list';
   navGroupsForView().forEach(group=>{
     const head = document.createElement('div');
     head.className = 'sn-group';
     head.textContent = group.label;
-    nav.appendChild(head);
+    list.appendChild(head);
     group.items.forEach(item=>{
-      const count = accCountOf(item.acc);
-      const hot = count > 0 && NAV_HOT_ACCS.has(item.acc);
+      const count = navItemCount(item);
+      const hot = count > 0 && NAV_HOT_ACCS.has(navItemTarget(item));
       const isHome = item.acc === NAV_HOME || item.acc === NAV_ADMIN_HOME;
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -19372,9 +19421,52 @@ function renderSideNav(){
         + '<span class="sn-label">' + esc(item.label) + '</span>'
         + (count ? '<span class="sn-count' + (hot ? ' is-hot' : '') + '">' + esc(String(count)) + '</span>' : '');
       btn.addEventListener('click', ()=> navGo(item));
-      nav.appendChild(btn);
+      list.appendChild(btn);
     });
   });
+  nav.appendChild(list);
+  // הארנק וההגדרות שייכים לסוכן/ת. בתצוגת מנהל/ת הפלטפורמה הסרגל הוא
+  // כלי הפלטפורמה בלבד.
+  if (dashView === 'agent') nav.appendChild(sideNavFoot());
+}
+
+/* כרטיס הארנק בתחתית הסרגל. היתרה נקראת מ-currentAgent, שאליו כותב
+   ‏setAgentBalance — והוא גם קורא ל-accSetCount('accWallet'), כך שהכרטיס
+   נבנה מחדש עם כל שינוי יתרה בלי מאזין משלו. */
+function sideNavFoot(){
+  const foot = document.createElement('div');
+  foot.className = 'sn-foot';
+  const balance = currentAgent ? Number(currentAgent.credit_balance) || 0 : null;
+  foot.innerHTML =
+      '<div class="sn-wallet">'
+    +   '<div class="sn-wallet-top">'
+    +     dashIcon('wallet', 'sn-ico')
+    +     '<span class="sn-wallet-title">יתרת ארנק</span>'
+    +   '</div>'
+    +   '<div class="sn-wallet-row">'
+    +     '<span class="sn-wallet-sum">' + esc(shekel(balance)) + '</span>'
+    +     '<button type="button" class="sn-topup" data-sn="topup">+ טעינה</button>'
+    +   '</div>'
+    + '</div>'
+    + '<div class="sn-links">'
+    +   '<button type="button" class="sn-link" data-sn="settings" aria-controls="profilePanel">'
+    +     dashIcon('cog', 'sn-ico') + '<span>הגדרות חשבון</span></button>'
+    +   '<button type="button" class="sn-link sn-signout" data-sn="signout">'
+    +     dashIcon('logout', 'sn-ico') + '<span>יציאה</span></button>'
+    + '</div>';
+  foot.querySelector('[data-sn="topup"]').addEventListener('click', ()=>
+    gotoSection('accWallet', 'topupAmount'));
+  // ההגדרות הן תפריט הפרופיל שמתחת לאווטאר — מקום אחד לכל ההגדרות.
+  // ‏stopPropagation: המאזין של document סוגר את התפריט בכל לחיצה, והיה
+  // סוגר אותו מיד אחרי שנפתח מכאן.
+  foot.querySelector('[data-sn="settings"]').addEventListener('click', (e)=>{
+    e.stopPropagation();
+    document.getElementById('avatarBtn').click();
+  });
+  // הכפתור המקורי נשאר נקודת היציאה היחידה — כאן רק לוחצים עליו
+  foot.querySelector('[data-sn="signout"]').addEventListener('click', ()=>
+    document.getElementById('logoutBtn').click());
+  return foot;
 }
 
 /* יעד ניווט אחד לכל שלושת הניווטים ולכל הכרטיסים */
@@ -19383,7 +19475,16 @@ function navGo(item){
     setNavTab('home');
     return;
   }
-  gotoSection(item.acc, item.focus);   // הוא זה שמעביר ללשונית הנכונה
+  if (item.acc === NAV_TASKS){
+    setNavTab('home', { silent:true });
+    scrollToTopOf(document.getElementById('todoSection'));
+    return;
+  }
+  const target = navItemTarget(item);
+  gotoSection(target, item.focus);   // הוא זה שמעביר ללשונית הנכונה
+  // השורה המאוחדת פותחת גם את השכנות שלה, בלי לגלול אליהן: הן יושבות
+  // מיד אחרי הראשית בעמוד
+  (item.also || []).filter(acc => acc !== target && navAccVisible(acc)).forEach(openAcc);
 }
 
 /* ---------- הסרגל התחתון (מובייל) ---------- */
@@ -20416,8 +20517,8 @@ function navIsHomeItem(item){
    חזרה להתחלה, ולכן הוא נראה אחרת מכל השאר: כפתור מלא בצבעים הפוכים ועם
    אייקון בית, בלי חץ "המשך לקטגוריה" שאין לו לאן להוביל. */
 function menuItemButton(navItem){
-  const count  = accCountOf(navItem.acc);
-  const hot    = count > 0 && NAV_HOT_ACCS.has(navItem.acc);
+  const count  = navItemCount(navItem);
+  const hot    = count > 0 && NAV_HOT_ACCS.has(navItemTarget(navItem));
   const isHome = navIsHomeItem(navItem);
   const item = document.createElement('button');
   item.type = 'button';
@@ -20576,16 +20677,13 @@ document.addEventListener('keydown', (e)=>{
    יציאה קבוע בכותרת, ופריטים שהיו קבורים בעומק תפריט הבורגר בין הקטגוריות
    התפעוליות.
 
-   הרשימה מסוננת ב-navAccVisible בדיוק כמו שאר הניווטים, ולכן קטגוריה
-   שאינה קיימת לסוכן/ת הזה/הזו לא תופיע כאן.
+   הרשימה היא הקבוצה placement:'profile' ב-NAV_GROUPS — ההגדרות שיצאו מסרגל
+   הצד ומתפריט הבורגר כדי לפנות אותם לעבודה היומית. היא מסוננת ב-
+   navAccVisible בדיוק כמו שאר הניווטים, ולכן קטגוריה שאינה קיימת לסוכן/ת
+   הזה/הזו (עיצוב דף המשרד למי שאינו מנהל/ת) לא תופיע כאן. "סגירת החשבון"
+   מופרדת בקו ונצבעת אדום, כמו האקורדיון שלה (‏.acc-danger).
    ========================================================================== */
-const PROFILE_MENU = [
-  { acc:'accProfile',    label:'פרטי הסוכן/ת' },
-  { acc:'accPrefs',      label:'העדפות לידים' },
-  { acc:'accReminders',  label:'תזכורות וטיפים' },
-  { acc:'accNotifPrefs', label:'ניהול התראות' },
-  { acc:'accEthics',     label:'הקוד האתי' },
-];
+const PROFILE_MENU = NAV_GROUPS.find(g => g.placement === 'profile').items;
 
 function buildProfilePanel(){
   const panel = document.getElementById('profilePanel');
@@ -20600,12 +20698,19 @@ function buildProfilePanel(){
   panel.appendChild(head);
 
   PROFILE_MENU.filter(item => navAccVisible(item.acc)).forEach(item=>{
+    const danger = item.acc === 'accCloseAccount';
+    if (danger) panel.appendChild(Object.assign(document.createElement('div'), { className:'menu-sep' }));
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'menu-item';
+    btn.className = 'menu-item' + (danger ? ' is-danger' : '');
     const count = accCountOf(item.acc);
-    btn.innerHTML = '<span class="mi-label">' + esc(item.label) + '</span>'
-      + (count ? '<span class="mi-count">' + esc(String(count)) + '</span>' : '')
+    btn.innerHTML = dashIcon(item.icon, 'mi-ico')
+      + '<span class="mi-label">' + esc(item.label) + '</span>'
+      // ‏accWallet נושא את היתרה כטקסט ("₪1,240"), ולכן הוא מוצג כפי שהוא
+      // ולא כמספר שחולץ ממנו
+      + (item.acc === 'accWallet' && currentAgent
+          ? '<span class="mi-count">' + esc(shekel(Number(currentAgent.credit_balance) || 0)) + '</span>'
+          : count ? '<span class="mi-count">' + esc(String(count)) + '</span>' : '')
       + '<svg class="mi-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>';
     btn.addEventListener('click', ()=>{ closeProfilePanel(); gotoSection(item.acc); });
     panel.appendChild(btn);

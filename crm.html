@@ -2403,13 +2403,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      נפתח מהאווטאר שבצד הימני של הכותרת, ולכן הוא מיושר לימין פיזית (‏right)
      ולא לפי כיוון הכתיבה: הקצה שאסור לו לחרוג מהמסך הוא הימני. */
   .profile-wrap{position:relative}
-  .profile-panel{left:auto;right:0;width:250px}
+  .profile-panel{left:auto;right:0;width:270px}
   @media(max-width:720px){
     #dashboard .profile-wrap{position:static}
     #dashboard .profile-panel{top:calc(100% + 12px);inset-inline:12px;width:auto;max-width:none}
   }
   .menu-item.is-signout{color:var(--wine);font-weight:700}
   .menu-item.is-signout:hover{background:var(--wine-tint)}
+  /* סגירת החשבון — אותו אדום של האקורדיון שלה (‏.acc-danger): הפעולה היחידה
+     בתפריט שאינה הפיכה לא נראית כמו שכנותיה */
+  .menu-item.is-danger{color:var(--wine)}
+  .menu-item.is-danger .mi-ico{color:var(--wine)}
+  .menu-item.is-danger:hover{background:var(--wine-tint)}
   /* שם הסוכן/ת בראש התפריט — התפריט נפתח מהאווטאר, וכותרת שאומרת של מי
      החשבון הזה היא ההבדל בין "תפריט" ל"התפריט שלי" */
   .menu-head{padding:10px 10px 4px}
@@ -2503,36 +2508,114 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .dash-shell{grid-template-columns:264px minmax(0,1fr);gap:26px;align-items:start;
                 padding-top:26px;padding-bottom:56px}
     .dash-main{grid-column:2;grid-row:1;gap:22px}
+    /* גובה מסך אחד, בלי פס גלילה. ‏116px הם הכותרת (74px) והריווח שמעל
+       הסרגל לפני גלילה (26px) ועוד נשימה מתחת — כך גם בראש הדף, לפני שה-
+       sticky נתפס, התחתית לא נחתכת. ‏dvh אחרי vh — דפדפן שאינו מכיר אותו
+       נשאר עם הראשון. */
     .dash-side{
-      display:block;grid-column:1;grid-row:1;position:sticky;top:84px;
-      max-height:calc(100vh - 104px);overflow-y:auto;scrollbar-width:thin;
-      background:rgba(255,255,255,.9);border:1px solid var(--edge);
-      border-radius:var(--r-lg);box-shadow:var(--sh-1);padding:10px;
+      display:flex;flex-direction:column;justify-content:space-between;gap:8px;
+      grid-column:1;grid-row:1;position:sticky;top:84px;
+      height:calc(100vh - 116px);height:calc(100dvh - 116px);overflow:hidden;
+      background:rgba(255,255,255,.92);border:1px solid var(--edge);
+      border-radius:var(--r-lg);box-shadow:var(--sh-1);padding:10px 10px 12px;
     }
   }
 
-  /* ---------- ניווט הצד (דסקטופ) ---------- */
+  /* ---------- ניווט הצד (דסקטופ) ----------
+     שלוש קבוצות ושלוש-עשרה שורות לכל היותר, בגובה אחיד של 38px — זה מה
+     שנכנס במסך של 768px יחד עם כרטיס הארנק. ההגדרות האישיות יצאו לתפריט
+     הפרופיל (ראו NAV_GROUPS) בדיוק בשביל זה. ‏.sn-list עדיין רשאית לגלול
+     במסך נמוך במיוחד, בלי פס: פריט שאי אפשר להגיע אליו גרוע מגלילה. */
+  .sn-list{
+    flex:1;min-height:0;display:flex;flex-direction:column;gap:2px;
+    overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;
+  }
+  .sn-list::-webkit-scrollbar{display:none}
   .sn-group{
-    font-size:.66rem;font-weight:800;letter-spacing:.04em;color:var(--txt-faint);
-    padding:12px 10px 5px;
+    font-size:.68rem;font-weight:700;letter-spacing:.06em;color:var(--txt-faint);
+    padding:12px 12px 4px;
   }
-  .sn-group:first-child{padding-top:4px}
+  .sn-group:first-child{padding-top:2px}
   .sn-item{
-    width:100%;display:flex;align-items:center;gap:9px;text-align:start;
-    background:transparent;border:none;border-radius:var(--r-xs);padding:9px 10px;
-    color:var(--txt);font-size:.85rem;font-weight:600;transition:background .14s ease;
+    width:100%;height:38px;flex-shrink:0;display:flex;align-items:center;gap:10px;text-align:start;
+    background:transparent;border:none;border-radius:var(--r-xs);padding:0 12px;
+    color:var(--txt);font-size:.85rem;font-weight:600;
+    transition:background .14s ease,color .14s ease;
   }
-  .sn-item:hover{background:var(--surface-2)}
+  .sn-item:hover{background:var(--navy-tint)}
+  .sn-item:hover .sn-ico{color:var(--navy)}
   .sn-item:focus-visible{outline:2px solid var(--navy);outline-offset:-2px}
   .sn-item.is-on{background:var(--navy-tint);color:var(--navy);font-weight:800}
-  .sn-ico{width:17px;height:17px;flex-shrink:0;color:var(--txt-faint)}
+  .sn-ico{width:18px;height:18px;flex-shrink:0;color:var(--txt-faint);transition:color .14s ease}
   .sn-item.is-on .sn-ico{color:var(--navy)}
   .sn-label{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* שני סוגי מונים: אפור ושקט ל"כמה יש" (סך הנכסים, הסכמים, משימות),
+     ואדום רק ל"מחכה לך" — ראו NAV_HOT_ACCS */
   .sn-count{
-    flex-shrink:0;font-size:.68rem;font-weight:800;color:var(--txt-soft);
+    flex-shrink:0;min-width:22px;text-align:center;
+    font-size:.68rem;font-weight:700;color:var(--txt-soft);
     background:var(--surface-2);border-radius:999px;padding:2px 8px;
   }
-  .sn-count.is-hot{background:#dc2626;color:#fff}
+  .sn-count.is-hot{background:#dc2626;color:#fff;font-weight:800}
+
+  /* ---------- כרטיס הארנק, נעוץ בתחתית הסרגל ---------- */
+  .sn-foot{flex-shrink:0;display:flex;flex-direction:column;gap:6px;
+           padding-top:10px;border-top:1px solid var(--edge)}
+  .sn-wallet{
+    border-radius:var(--r-md);padding:10px 12px;
+    background:linear-gradient(135deg,var(--navy-tint),var(--surface-2));
+    border:1px solid var(--edge);
+  }
+  .sn-wallet-top{display:flex;align-items:center;gap:7px}
+  .sn-wallet-top .sn-ico{width:16px;height:16px;color:var(--navy)}
+  .sn-wallet-title{font-size:.74rem;font-weight:700;color:var(--txt-soft)}
+  .sn-wallet-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px}
+  .sn-wallet-sum{font-size:1.3rem;font-weight:800;color:var(--navy);
+                 font-variant-numeric:tabular-nums;white-space:nowrap}
+  .sn-topup{
+    flex-shrink:0;border:none;border-radius:999px;padding:6px 12px;
+    background:var(--navy);color:#fff;font-size:.76rem;font-weight:800;
+    transition:background .14s ease;
+  }
+  .sn-topup:hover{background:var(--navy-2)}
+  .sn-topup:focus-visible{outline:2px solid var(--navy);outline-offset:2px}
+  .sn-links{display:flex;gap:4px}
+  .sn-link{
+    flex:1;display:flex;align-items:center;justify-content:center;gap:6px;height:32px;
+    background:transparent;border:none;border-radius:var(--r-xs);
+    color:var(--txt-soft);font-size:.76rem;font-weight:600;transition:background .14s ease;
+  }
+  .sn-link .sn-ico{width:15px;height:15px}
+  .sn-link:hover{background:var(--surface-2);color:var(--txt)}
+  .sn-link:focus-visible{outline:2px solid var(--navy);outline-offset:-2px}
+  .sn-link.sn-signout:hover{background:var(--wine-tint);color:var(--wine)}
+  .sn-link.sn-signout:hover .sn-ico{color:var(--wine)}
+
+  /* מסך נמוך (לפטופ של 768px עם סרגלי דפדפן): אותן שורות, צפופות יותר —
+     וכך הרשימה נשארת בלי גלילה גם שם */
+  @media(min-width:1024px) and (max-height:820px){
+    .sn-item{height:33px;font-size:.82rem}
+    .sn-group{padding:8px 12px 2px}
+    .sn-wallet{padding:8px 10px}
+    .sn-wallet-sum{font-size:1.12rem}
+    .sn-links .sn-link{height:28px}
+  }
+  /* ומסך נמוך באמת (‏680px ומטה — לפטופ 1366×768 עם סרגלי הדפדפן): הכרטיס
+     מתכווץ לשורה אחת של סכום וטעינה, והשורות ל-29px */
+  @media(min-width:1024px) and (max-height:720px){
+    .sn-list{gap:1px}
+    .sn-item{height:29px;font-size:.8rem}
+    .sn-ico{width:16px;height:16px}
+    .sn-group{font-size:.62rem;padding:6px 12px 1px}
+    .sn-foot{gap:4px;padding-top:8px}
+    .sn-wallet{padding:6px 10px}
+    .sn-wallet-top{display:none}
+    .sn-wallet-row{margin-top:0}
+    .sn-wallet-sum{font-size:1rem}
+    .sn-wallet-sum::before{content:'ארנק ';font-size:.7rem;font-weight:700;color:var(--txt-soft)}
+    .sn-topup{padding:4px 10px;font-size:.72rem}
+    .sn-links .sn-link{height:26px}
+  }
 
   /* ==========================================================================
      מדריך ההתחלה
@@ -5198,6 +5281,29 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </details>
 
+    <details class="acc" id="accLeads" open>
+      <summary>
+        <span class="acc-title">הלידים שלי<span class="acc-sum" id="accLeadsSum"></span></span>
+        <span class="acc-count hot" id="accLeadsCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <!-- ====== פעילים / ארכיון ======
+             הקטגוריה הזו רק צוברת: כל ליד שנכנס אי פעם נשאר בה לנצח, והליד
+             שהגיע הבוקר יושב בראש רשימה של מאות כרטיסים שכבר נסגרו. המתג
+             מוריד מהמסך את מה שכבר טופל בלי למחוק אותו — הארכיון הוא לשונית
+             מלאה עם אותם כרטיסים ואותם כפתורים, והחזרה משם היא לחיצה אחת.
+
+             מוסתר כשאין ארכיון וגם אין לידים: מתג שמציע "פעילים / ארכיון (0)"
+             מעל רשימה ריקה הוא שאלה על משהו שעוד לא קרה. -->
+        <div class="view-switch lead-switch" id="leadsSwitch" role="group" aria-label="מעבר בין לידים פעילים לארכיון" hidden>
+          <button type="button" data-leads-view="active" aria-pressed="true">פעילים · <span id="leadsActiveCount">0</span></button>
+          <button type="button" data-leads-view="archived" aria-pressed="false">ארכיון · <span id="leadsArchivedCount">0</span></button>
+        </div>
+        <div id="leadsList"></div>
+      </div>
+    </details>
+
     <details class="acc" id="accClients" open>
       <summary>
         <span class="acc-title">קובץ הלקוחות שלי<span class="acc-sum" id="accClientsSum"></span></span>
@@ -5384,29 +5490,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </details>
 
-    <details class="acc" id="accLeads" open>
-      <summary>
-        <span class="acc-title">הלידים שלי<span class="acc-sum" id="accLeadsSum"></span></span>
-        <span class="acc-count hot" id="accLeadsCount"></span>
-        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-      </summary>
-      <div class="acc-body">
-        <!-- ====== פעילים / ארכיון ======
-             הקטגוריה הזו רק צוברת: כל ליד שנכנס אי פעם נשאר בה לנצח, והליד
-             שהגיע הבוקר יושב בראש רשימה של מאות כרטיסים שכבר נסגרו. המתג
-             מוריד מהמסך את מה שכבר טופל בלי למחוק אותו — הארכיון הוא לשונית
-             מלאה עם אותם כרטיסים ואותם כפתורים, והחזרה משם היא לחיצה אחת.
-
-             מוסתר כשאין ארכיון וגם אין לידים: מתג שמציע "פעילים / ארכיון (0)"
-             מעל רשימה ריקה הוא שאלה על משהו שעוד לא קרה. -->
-        <div class="view-switch lead-switch" id="leadsSwitch" role="group" aria-label="מעבר בין לידים פעילים לארכיון" hidden>
-          <button type="button" data-leads-view="active" aria-pressed="true">פעילים · <span id="leadsActiveCount">0</span></button>
-          <button type="button" data-leads-view="archived" aria-pressed="false">ארכיון · <span id="leadsArchivedCount">0</span></button>
-        </div>
-        <div id="leadsList"></div>
-      </div>
-    </details>
-
     <details class="acc" id="accAlerts" open>
       <summary>
         <span class="acc-title">התראות התאמה</span>
@@ -5472,6 +5555,168 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
 
         <div id="agreementsList"></div>
+      </div>
+    </details>
+
+    <!-- ---------- חנות הלידים ----------
+         שלושה מדפים נפרדים היו שלוש קטגוריות שונות באותה לשונית, וסוכן/ת
+         שחיפש/ה ליד לקנות היה/תה צריך/ה לפתוח שלושתן כדי לדעת מה יש היום.
+         זה מדף אחד עם שלוש מגירות: מלאי אחר בכל אחת, אותו מחיר ואותה שפה.
+         המגירה של המשכנתאות מוצגת רק ליועצ/ת משכנתאות (ראו loadDashboard). -->
+    <details class="acc" id="accLeadShelf">
+      <summary>
+        <span class="acc-title">חנות הלידים<span class="acc-sum" id="accLeadShelfSum"></span></span>
+        <span class="acc-count" id="accLeadShelfCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">כל הלידים שעומדים למכירה במקום אחד - מוכרים, קונים ומשכנתאות. כל ליד עולה <b id="shelfPriceLabel">₪50</b> מיתרת הארנק ונמכר לסוכן/ת אחד/ת בלבד.</p>
+
+        <div class="view-switch shelf-switch" id="shelfTabs" role="group" aria-label="מעבר בין מדפי חנות הלידים">
+          <button type="button" data-shelf-tab="rss" aria-pressed="true">מוכרים וקונים · <span id="shelfTabRssCount">0</span></button>
+          <button type="button" data-shelf-tab="saved" aria-pressed="false">מחפשי דירה · <span id="shelfTabSavedCount">0</span></button>
+          <button type="button" data-shelf-tab="mortgage" aria-pressed="false" hidden>משכנתאות · <span id="shelfTabMortgageCount">0</span></button>
+        </div>
+
+        <!-- מדף ה-RSS: מוכרים, משכירים, קונים ושוכרים שנאספו מקבוצות ומלוחות -->
+        <div class="shelf-pane" data-shelf-pane="rss">
+          <p class="shelf-note">לידים שמנוע ה-RSS אסף מקבוצות ומלוחות וסיווג אוטומטית. הרכישה חושפת את הפוסט המקורי ואת פרטי הפונה.</p>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+            <select id="shelfSideFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
+              <option value="">כל סוגי הפונים</option>
+              <option value="מוכר פרטי">מוכר פרטי</option>
+              <option value="משכיר">משכיר</option>
+              <option value="קונה פרטי">קונה פרטי</option>
+              <option value="שוכר">שוכר</option>
+            </select>
+            <select id="shelfCityFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
+              <option value="">כל הערים</option>
+            </select>
+            <button type="button" class="btn btn-ghost" id="shelfRefreshBtn" style="white-space:nowrap">רענון</button>
+          </div>
+
+          <div id="leadShelfList"></div>
+
+          <div class="form-subheading">הלידים שרכשתי</div>
+          <div id="purchasedLeadsList"></div>
+        </div>
+
+        <!-- מחפשי דירה: חיפושים שמורים שבהם ניתן אישור מפורש ליצירת קשר.
+             מלאי אחר לגמרי מזה של מדף ה-RSS — כאן הפונה הגדיר/ה בעצמו/ה
+             תקציב, אזור וחדרים, וההתראות שנשלחו אליו/ה מודדות התעניינות. -->
+        <div class="shelf-pane" data-shelf-pane="saved" hidden>
+          <p class="shelf-note">אנשים שהגדירו באתר "סוכן חכם" - חיפוש שמור עם תקציב ואזור - ואישרו שמתווך/ת ייצור איתם קשר. הרכישה (<b id="savedSearchPriceLabel">₪50</b>) חושפת שם וטלפון, וגם את הנכסים שכבר נשלחו אליהם ומה מתוכם נלחץ.</p>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+            <select id="savedSearchDealFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
+              <option value="">מכירה והשכרה</option>
+              <option value="sale">מחפשי קנייה</option>
+              <option value="rent">מחפשי שכירות</option>
+            </select>
+            <select id="savedSearchHoodFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
+              <option value="">כל האזורים</option>
+            </select>
+            <button type="button" class="btn btn-ghost" id="savedSearchRefreshBtn" style="white-space:nowrap">רענון</button>
+          </div>
+
+          <div id="savedSearchShelfList"></div>
+
+          <div class="form-subheading">הלידים שרכשתי</div>
+          <div id="purchasedSavedSearchList"></div>
+        </div>
+
+        <!-- משכנתאות: מוצג רק ל-is_mortgage_advisor. ראו loadDashboard() -->
+        <div class="shelf-pane" data-shelf-pane="mortgage" hidden>
+          <p class="shelf-note">פניות שהושארו במחשבון המשכנתא בדף הבית. הרכישה (<b id="mortgageShelfPriceLabel">₪50</b>) חושפת שם, טלפון ואימייל.</p>
+
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+            <select id="mortgageOwnsFilter" style="flex:1;min-width:150px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
+              <option value="">כל הפונים</option>
+              <option value="no">דירה יחידה (אין דירה בבעלות)</option>
+              <option value="yes">יש דירה בבעלות</option>
+            </select>
+            <button type="button" class="btn btn-ghost" id="mortgageShelfRefreshBtn" style="white-space:nowrap">רענון</button>
+          </div>
+
+          <div id="mortgageShelfList"></div>
+
+          <div class="form-subheading">הלידים שרכשתי</div>
+          <div id="purchasedMortgageList"></div>
+        </div>
+      </div>
+    </details>
+
+    <details class="acc" id="accSharedWithMe" open>
+      <summary>
+        <span class="acc-title">נכסים ששותפו איתי<span class="acc-sum" id="accSharedWithMeSum"></span></span>
+        <span class="acc-count hot" id="accSharedWithMeCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">נכסים שמשרדי תיווך אחרים פתחו לשת״פ מולכם. ליד כל נכס מופיע המשרד המשתף ופרטי הקשר של הסוכן/ת שאחראי/ת עליו.</p>
+
+        <div class="list-toolbar">
+          <input type="search" id="sharedSearch" class="filter-input" placeholder="חיפוש חופשי - כותרת, עיר, רחוב, סוג נכס, משרד או סוכן/ת">
+          <div class="toolbar-row">
+            <select id="sharedAgencyFilter" class="filter-input" aria-label="סינון לפי משרד">
+              <option value="">כל המשרדים</option>
+            </select>
+            <select id="sharedDealFilter" class="filter-input" aria-label="סינון לפי סוג עסקה">
+              <option value="">מכירה והשכרה</option>
+              <option value="sale">מכירה</option>
+              <option value="rent">השכרה</option>
+            </select>
+            <select id="sharedCityFilter" class="filter-input" aria-label="סינון לפי עיר">
+              <option value="">כל הערים</option>
+            </select>
+            <select id="sharedTypeFilter" class="filter-input" aria-label="סינון לפי סוג נכס">
+              <option value="">כל סוגי הנכס</option>
+            </select>
+          </div>
+          <div class="toolbar-row">
+            <select id="sharedSort" class="filter-input" aria-label="מיון">
+              <option value="shared_desc">מיון: שותפו לאחרונה</option>
+              <option value="shared_asc">מיון: שותפו מזמן</option>
+              <option value="price_desc">מיון: מחיר - מהגבוה לנמוך</option>
+              <option value="price_asc">מיון: מחיר - מהנמוך לגבוה</option>
+              <option value="rooms_desc">מיון: חדרים - מהרב למעט</option>
+              <option value="rooms_asc">מיון: חדרים - מהמעט לרב</option>
+              <option value="size_desc">מיון: שטח - מהגדול לקטן</option>
+              <option value="title_asc">מיון: כותרת - א׳ עד ת׳</option>
+            </select>
+            <button type="button" class="btn btn-ghost" id="sharedRefreshBtn" style="white-space:nowrap">רענון</button>
+          </div>
+          <div class="toolbar-foot">
+            <p class="list-count" id="sharedFilterCount"></p>
+            <button type="button" class="clear-filters" id="sharedClearFilters" hidden>ניקוי הסינון</button>
+          </div>
+        </div>
+
+        <div id="sharedWithMeList"></div>
+      </div>
+    </details>
+
+    <details class="acc" id="accSharePartners">
+      <summary>
+        <span class="acc-title">משרדי שיתוף פעולה</span>
+        <span class="acc-count" id="accSharePartnersCount"></span>
+        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+      </summary>
+      <div class="acc-body">
+        <p class="acc-sub">בחירה חד-פעמית: אלה המשרדים שאליהם יופץ כל נכס שתפתחו לשת״פ מרשימת הנכסים שלכם. ברירת המחדל היא כל משרדי התיווך במערכת - כולל משרדים שיצטרפו בעתיד - והסרת סימון מוציאה משרד מהשת״פ שלכם.</p>
+
+        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
+          <input type="search" id="partnerSearch" class="filter-input" placeholder="חיפוש משרד…" style="flex:1;min-width:150px">
+          <button type="button" class="btn btn-ghost" id="partnerSelectAll" style="white-space:nowrap">סימון הכל</button>
+          <button type="button" class="btn btn-ghost" id="partnerClearAll" style="white-space:nowrap">ניקוי הכל</button>
+        </div>
+
+        <div class="share-partner-list" id="sharePartnerList"></div>
+
+        <button type="button" class="btn btn-gold btn-block" id="savePartnersBtn" style="margin-top:12px">שמירת רשימת השת״פ</button>
+        <div id="partnersFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
+        <p style="font-size:.72rem;color:var(--ink-soft);margin:8px 0 0">הרשימה חלה על ההפצה הבאה. נכס שכבר הופץ מסתנכרן מחדש בלחיצה על "עדכון הפצה" בשורת הנכס - משרד שהוסר יאבד אז את הגישה אליו.</p>
       </div>
     </details>
 
@@ -5572,95 +5817,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
 
       <div id="mdResults" style="margin-top:16px"></div>
-      </div>
-    </details>
-
-    <!-- ---------- חנות הלידים ----------
-         שלושה מדפים נפרדים היו שלוש קטגוריות שונות באותה לשונית, וסוכן/ת
-         שחיפש/ה ליד לקנות היה/תה צריך/ה לפתוח שלושתן כדי לדעת מה יש היום.
-         זה מדף אחד עם שלוש מגירות: מלאי אחר בכל אחת, אותו מחיר ואותה שפה.
-         המגירה של המשכנתאות מוצגת רק ליועצ/ת משכנתאות (ראו loadDashboard). -->
-    <details class="acc" id="accLeadShelf">
-      <summary>
-        <span class="acc-title">חנות הלידים<span class="acc-sum" id="accLeadShelfSum"></span></span>
-        <span class="acc-count" id="accLeadShelfCount"></span>
-        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-      </summary>
-      <div class="acc-body">
-        <p class="acc-sub">כל הלידים שעומדים למכירה במקום אחד - מוכרים, קונים ומשכנתאות. כל ליד עולה <b id="shelfPriceLabel">₪50</b> מיתרת הארנק ונמכר לסוכן/ת אחד/ת בלבד.</p>
-
-        <div class="view-switch shelf-switch" id="shelfTabs" role="group" aria-label="מעבר בין מדפי חנות הלידים">
-          <button type="button" data-shelf-tab="rss" aria-pressed="true">מוכרים וקונים · <span id="shelfTabRssCount">0</span></button>
-          <button type="button" data-shelf-tab="saved" aria-pressed="false">מחפשי דירה · <span id="shelfTabSavedCount">0</span></button>
-          <button type="button" data-shelf-tab="mortgage" aria-pressed="false" hidden>משכנתאות · <span id="shelfTabMortgageCount">0</span></button>
-        </div>
-
-        <!-- מדף ה-RSS: מוכרים, משכירים, קונים ושוכרים שנאספו מקבוצות ומלוחות -->
-        <div class="shelf-pane" data-shelf-pane="rss">
-          <p class="shelf-note">לידים שמנוע ה-RSS אסף מקבוצות ומלוחות וסיווג אוטומטית. הרכישה חושפת את הפוסט המקורי ואת פרטי הפונה.</p>
-
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-            <select id="shelfSideFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
-              <option value="">כל סוגי הפונים</option>
-              <option value="מוכר פרטי">מוכר פרטי</option>
-              <option value="משכיר">משכיר</option>
-              <option value="קונה פרטי">קונה פרטי</option>
-              <option value="שוכר">שוכר</option>
-            </select>
-            <select id="shelfCityFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
-              <option value="">כל הערים</option>
-            </select>
-            <button type="button" class="btn btn-ghost" id="shelfRefreshBtn" style="white-space:nowrap">רענון</button>
-          </div>
-
-          <div id="leadShelfList"></div>
-
-          <div class="form-subheading">הלידים שרכשתי</div>
-          <div id="purchasedLeadsList"></div>
-        </div>
-
-        <!-- מחפשי דירה: חיפושים שמורים שבהם ניתן אישור מפורש ליצירת קשר.
-             מלאי אחר לגמרי מזה של מדף ה-RSS — כאן הפונה הגדיר/ה בעצמו/ה
-             תקציב, אזור וחדרים, וההתראות שנשלחו אליו/ה מודדות התעניינות. -->
-        <div class="shelf-pane" data-shelf-pane="saved" hidden>
-          <p class="shelf-note">אנשים שהגדירו באתר "סוכן חכם" - חיפוש שמור עם תקציב ואזור - ואישרו שמתווך/ת ייצור איתם קשר. הרכישה (<b id="savedSearchPriceLabel">₪50</b>) חושפת שם וטלפון, וגם את הנכסים שכבר נשלחו אליהם ומה מתוכם נלחץ.</p>
-
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-            <select id="savedSearchDealFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
-              <option value="">מכירה והשכרה</option>
-              <option value="sale">מחפשי קנייה</option>
-              <option value="rent">מחפשי שכירות</option>
-            </select>
-            <select id="savedSearchHoodFilter" style="flex:1;min-width:140px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
-              <option value="">כל האזורים</option>
-            </select>
-            <button type="button" class="btn btn-ghost" id="savedSearchRefreshBtn" style="white-space:nowrap">רענון</button>
-          </div>
-
-          <div id="savedSearchShelfList"></div>
-
-          <div class="form-subheading">הלידים שרכשתי</div>
-          <div id="purchasedSavedSearchList"></div>
-        </div>
-
-        <!-- משכנתאות: מוצג רק ל-is_mortgage_advisor. ראו loadDashboard() -->
-        <div class="shelf-pane" data-shelf-pane="mortgage" hidden>
-          <p class="shelf-note">פניות שהושארו במחשבון המשכנתא בדף הבית. הרכישה (<b id="mortgageShelfPriceLabel">₪50</b>) חושפת שם, טלפון ואימייל.</p>
-
-          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
-            <select id="mortgageOwnsFilter" style="flex:1;min-width:150px;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px">
-              <option value="">כל הפונים</option>
-              <option value="no">דירה יחידה (אין דירה בבעלות)</option>
-              <option value="yes">יש דירה בבעלות</option>
-            </select>
-            <button type="button" class="btn btn-ghost" id="mortgageShelfRefreshBtn" style="white-space:nowrap">רענון</button>
-          </div>
-
-          <div id="mortgageShelfList"></div>
-
-          <div class="form-subheading">הלידים שרכשתי</div>
-          <div id="purchasedMortgageList"></div>
-        </div>
       </div>
     </details>
 
@@ -5801,56 +5957,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
       </details>
     </div>
-
-    <details class="acc" id="accSharedWithMe" open>
-      <summary>
-        <span class="acc-title">נכסים ששותפו איתי<span class="acc-sum" id="accSharedWithMeSum"></span></span>
-        <span class="acc-count hot" id="accSharedWithMeCount"></span>
-        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-      </summary>
-      <div class="acc-body">
-        <p class="acc-sub">נכסים שמשרדי תיווך אחרים פתחו לשת״פ מולכם. ליד כל נכס מופיע המשרד המשתף ופרטי הקשר של הסוכן/ת שאחראי/ת עליו.</p>
-
-        <div class="list-toolbar">
-          <input type="search" id="sharedSearch" class="filter-input" placeholder="חיפוש חופשי - כותרת, עיר, רחוב, סוג נכס, משרד או סוכן/ת">
-          <div class="toolbar-row">
-            <select id="sharedAgencyFilter" class="filter-input" aria-label="סינון לפי משרד">
-              <option value="">כל המשרדים</option>
-            </select>
-            <select id="sharedDealFilter" class="filter-input" aria-label="סינון לפי סוג עסקה">
-              <option value="">מכירה והשכרה</option>
-              <option value="sale">מכירה</option>
-              <option value="rent">השכרה</option>
-            </select>
-            <select id="sharedCityFilter" class="filter-input" aria-label="סינון לפי עיר">
-              <option value="">כל הערים</option>
-            </select>
-            <select id="sharedTypeFilter" class="filter-input" aria-label="סינון לפי סוג נכס">
-              <option value="">כל סוגי הנכס</option>
-            </select>
-          </div>
-          <div class="toolbar-row">
-            <select id="sharedSort" class="filter-input" aria-label="מיון">
-              <option value="shared_desc">מיון: שותפו לאחרונה</option>
-              <option value="shared_asc">מיון: שותפו מזמן</option>
-              <option value="price_desc">מיון: מחיר - מהגבוה לנמוך</option>
-              <option value="price_asc">מיון: מחיר - מהנמוך לגבוה</option>
-              <option value="rooms_desc">מיון: חדרים - מהרב למעט</option>
-              <option value="rooms_asc">מיון: חדרים - מהמעט לרב</option>
-              <option value="size_desc">מיון: שטח - מהגדול לקטן</option>
-              <option value="title_asc">מיון: כותרת - א׳ עד ת׳</option>
-            </select>
-            <button type="button" class="btn btn-ghost" id="sharedRefreshBtn" style="white-space:nowrap">רענון</button>
-          </div>
-          <div class="toolbar-foot">
-            <p class="list-count" id="sharedFilterCount"></p>
-            <button type="button" class="clear-filters" id="sharedClearFilters" hidden>ניקוי הסינון</button>
-          </div>
-        </div>
-
-        <div id="sharedWithMeList"></div>
-      </div>
-    </details>
 
     <div id="platformAdminSection" style="display:none">
       <!-- תור בקשות ההחזר. ראשון בסקציה בכוונה: זו הפעולה היחידה כאן שמישהו
@@ -6379,29 +6485,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div id="reminderPrefsFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
           <p class="rm-last" id="rmLastSent"></p>
         </form>
-      </div>
-    </details>
-
-    <details class="acc" id="accSharePartners">
-      <summary>
-        <span class="acc-title">משרדי שיתוף פעולה</span>
-        <span class="acc-count" id="accSharePartnersCount"></span>
-        <svg class="acc-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
-      </summary>
-      <div class="acc-body">
-        <p class="acc-sub">בחירה חד-פעמית: אלה המשרדים שאליהם יופץ כל נכס שתפתחו לשת״פ מרשימת הנכסים שלכם. ברירת המחדל היא כל משרדי התיווך במערכת - כולל משרדים שיצטרפו בעתיד - והסרת סימון מוציאה משרד מהשת״פ שלכם.</p>
-
-        <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px">
-          <input type="search" id="partnerSearch" class="filter-input" placeholder="חיפוש משרד…" style="flex:1;min-width:150px">
-          <button type="button" class="btn btn-ghost" id="partnerSelectAll" style="white-space:nowrap">סימון הכל</button>
-          <button type="button" class="btn btn-ghost" id="partnerClearAll" style="white-space:nowrap">ניקוי הכל</button>
-        </div>
-
-        <div class="share-partner-list" id="sharePartnerList"></div>
-
-        <button type="button" class="btn btn-gold btn-block" id="savePartnersBtn" style="margin-top:12px">שמירת רשימת השת״פ</button>
-        <div id="partnersFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
-        <p style="font-size:.72rem;color:var(--ink-soft);margin:8px 0 0">הרשימה חלה על ההפצה הבאה. נכס שכבר הופץ מסתנכרן מחדש בלחיצה על "עדכון הפצה" בשורת הנכס - משרד שהוסר יאבד אז את הגישה אליו.</p>
       </div>
     </details>
 
