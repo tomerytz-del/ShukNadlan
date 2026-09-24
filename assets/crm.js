@@ -17221,12 +17221,76 @@ async function toggleClientMatches(client, btn, panel){
   btn.textContent = '🔍 הסתרת ההתאמות';
 }
 
+/* ---------- סינון ומיון בפאנל ההתאמות ----------
+   לקוח/ה עם עשרים התאמות מערבב/ת נכסים שלי (עמלה מלאה, אפשר להתקשר עכשיו)
+   עם נכסים בשת"פ (עמלה מתחלקת, צריך לתאם עם המשרד השני). הסוכן/ת רוצה
+   לראות קודם את מה ששלו/ה, או דווקא רק את השת"פ. הסינון והמיון נעשים על
+   השורות שכבר חזרו - בלי קריאה נוספת למסד - והבחירה נשמרת בין כרטיסים,
+   כי מי שמסנן/ת "שלי" אצל לקוח/ה אחד/ת רוצה אותו גם בבא/ה.
+
+   ‏"המשרד" (נכס של עמית/ה במשרד) מופיע רק כשיש כזה, כדי שסוכן/ת עצמאי/ת
+   יראה/תראה בדיוק את שלוש האפשרויות: כולם, שלי, שת"פ.                */
+const MATCH_FILTERS = [
+  { key:'all',    label:'כולם',   test: ()=> true },
+  { key:'own',    label:'שלי',    test: m => m.source === 'own' },
+  { key:'agency', label:'המשרד',  test: m => m.source === 'agency' },
+  { key:'shared', label:'שת״פ',   test: m => m.source === 'shared' },
+];
+const MATCH_SORTS = {
+  score:      (a, b) => (b.score - a.score) || numericCompare(a.price, b.price, 'asc'),
+  price_asc:  (a, b) => numericCompare(a.price, b.price, 'asc'),
+  price_desc: (a, b) => numericCompare(a.price, b.price, 'desc'),
+};
+let matchFilter = 'all';
+let matchSort = 'score';
+
 function renderClientMatches(panel, rows){
   if (rows.length === 0){
     panel.innerHTML = '<div class="lead-meta">אין כרגע נכס שעונה על הדרישות - לא אצלך, לא במשרד ולא בין הנכסים ששותפו איתך.</div>';
     return;
   }
 
+  const counts = Object.fromEntries(MATCH_FILTERS.map(f => [f.key, rows.filter(f.test).length]));
+  const filters = MATCH_FILTERS.filter(f => f.key !== 'agency' || counts.agency);
+  // בחירה שנשמרה מלקוח/ה אחר/ת ואין לה כאן אף שורה - חוזרים ל"כולם"
+  // במקום להציג פאנל ריק שנראה כמו "אין התאמות"
+  const active = filters.some(f => f.key === matchFilter) && counts[matchFilter] ? matchFilter : 'all';
+
+  panel.innerHTML = `
+    <div class="match-tools">
+      <div class="match-seg" role="group" aria-label="סינון לפי מקור הנכס">
+        ${filters.map(f => `<button type="button" data-match-filter="${f.key}"
+            aria-pressed="${f.key === active}" ${counts[f.key] ? '' : 'disabled'}>${esc(f.label)} <span>${counts[f.key]}</span></button>`).join('')}
+      </div>
+      <select class="match-sort" aria-label="מיון ההתאמות">
+        <option value="score">מיון: הכי מתאים</option>
+        <option value="price_asc">מיון: מחיר - מהנמוך לגבוה</option>
+        <option value="price_desc">מיון: מחיר - מהגבוה לנמוך</option>
+      </select>
+    </div>
+    <div class="match-list"></div>`;
+
+  const sortSel = panel.querySelector('.match-sort');
+  sortSel.value = matchSort;
+  const draw = filterKey => {
+    panel.querySelectorAll('[data-match-filter]').forEach(b =>
+      b.setAttribute('aria-pressed', String(b.dataset.matchFilter === filterKey)));
+    const test = MATCH_FILTERS.find(f => f.key === filterKey).test;
+    renderMatchCards(panel.querySelector('.match-list'),
+      rows.filter(test).sort(MATCH_SORTS[matchSort] || MATCH_SORTS.score));
+  };
+  panel.querySelectorAll('[data-match-filter]').forEach(b => b.addEventListener('click', ()=>{
+    matchFilter = b.dataset.matchFilter;
+    draw(matchFilter);
+  }));
+  sortSel.addEventListener('change', ()=>{
+    matchSort = sortSel.value;
+    draw(panel.querySelector('[data-match-filter][aria-pressed="true"]')?.dataset.matchFilter || 'all');
+  });
+  draw(active);
+}
+
+function renderMatchCards(panel, rows){
   panel.innerHTML = '';
   rows.forEach(m => {
     const address = [m.city, [m.street, m.house_number].filter(Boolean).join(' ')].filter(Boolean).join(', ');
@@ -18311,6 +18375,14 @@ const NOTIF_TYPES = [
      "מי הגיע", וזה "כסף". לכן גם תשלום של בעל/ת מקצוע יושב כאן ולא שם.
      ‏tone:'alert' כי בקשת שדרוג ממתינה לאישור, וכל עוד אין סליקה באתר היא
      גם דורשת שמישהו יסדיר תשלום מחוץ למערכת. */
+  /* חור בנתוני העסקאות: חיפוש שחזר ריק בגלל הנתונים ולא בגלל השאלה.
+     ‏goto למסך הייבוא הידני, כי זה מה שסוגר אותו. */
+  { type:'deal_data_gap', tone:'alert', goto:'accDealsImport', focus:'#dealGapsList',
+    view:'admin',
+    title:'חסרות עסקאות במאגר',
+    sub:'סוכן/ת חיפש/ה עסקאות ולא קיבל/ה תוצאה בגלל הנתונים: עיר שלא נטענה, מאגר שלא עודכן, או רחוב בלי עסקאות. ייבוא ידני מ-GovMap פותר.',
+    when: ()=> currentAgent && currentAgent.is_platform_admin,
+    refresh: ()=> loadDealGaps() },
   { type:'platform_upgrade', tone:'alert', goto:'accSubscriptions', focus:'#subsRequests',
     view:'admin',
     title:'תשלומים ושדרוגי מסלול',
@@ -22871,6 +22943,43 @@ function renderDealsImportPreview(rows, errors){
   if (saveBtn) saveBtn.disabled = !rows.length;
 }
 
+/* חורים בנתוני העסקאות שעלו מחיפושים ריקים. כל שורה היא עבודת ייבוא
+   ידני; "טופל" סוגר אותה, וחיפוש ריק נוסף יפתח חור חדש. */
+const DEAL_GAP_REASON = {
+  no_deals_in_city: 'אין עסקאות בעיר',
+  stale: 'המאגר לא עודכן יותר מ-120 יום',
+  no_deals_on_street: 'אין עסקאות ברחוב',
+};
+async function loadDealGaps(){
+  const box = document.getElementById('dealGapsList');
+  if (!box) return;
+  const { data, error } = await sb.rpc('deal_gaps_open');
+  if (error){ box.innerHTML = ''; console.warn('deal_gaps_open:', error); return; }
+  if (!data || !data.length){
+    box.innerHTML = '<p class="acc-sub">אין חורים פתוחים בנתוני העסקאות.</p>';
+    return;
+  }
+  box.innerHTML = `<div class="form-subheading">חסרות עסקאות - לפי חיפושים שחזרו ריקים</div>
+    <div style="overflow-x:auto"><table class="cma-table"><thead><tr>
+      <th>עיר</th><th>רחוב</th><th>סיבה</th><th>חיפושים</th><th>אחרון</th><th></th>
+    </tr></thead><tbody>${data.map(g => `<tr>
+      <td>${esc(g.city)}</td>
+      <td>${g.street ? esc(g.street) : '-'}</td>
+      <td>${esc(DEAL_GAP_REASON[g.reason] || g.reason)}</td>
+      <td>${esc(String(g.hits))}</td>
+      <td>${esc(new Date(g.last_seen).toLocaleDateString('he-IL'))}</td>
+      <td><button type="button" class="btn btn-ghost" data-gap-resolve="${esc(g.id)}">טופל</button></td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+document.getElementById('dealGapsList')?.addEventListener('click', async e => {
+  const b = e.target.closest('[data-gap-resolve]');
+  if (!b) return;
+  b.disabled = true;
+  const { error } = await sb.rpc('deal_gap_resolve', { p_id: b.dataset.gapResolve });
+  if (error){ b.disabled = false; showToast('הסגירה נכשלה'); return; }
+  loadDealGaps();
+});
+
 async function loadDealsCoverage(){
   const box = document.getElementById('dealsImportCoverage');
   if (!box || !sb) return;
@@ -23149,7 +23258,7 @@ document.getElementById('govmapDealsBtn')?.addEventListener('click', runGovmapDe
 document.getElementById('govmapParityBtn')?.addEventListener('click', runGovmapParity);
 
 document.getElementById('accDealsImport')?.addEventListener('toggle', function(){
-  if (this.open) loadDealsCoverage();
+  if (this.open){ loadDealsCoverage(); loadDealGaps(); }
 });
 
 /* ==========================================================================
@@ -23298,6 +23407,13 @@ document.getElementById('mdLookupBtn')?.addEventListener('click', async ()=>{
       return;
     }
     renderDealsLookup(data || {});
+    /* חיפוש ריק: אולי חור בנתונים. ‏report_deal_gap מחליטה בעצמה מהמסד אם
+       כן (עיר ריקה, מאגר ישן, רחוב חסר) ומתריעה למנהל/ת הפלטפורמה. לא ממתינים
+       לה - היא אינה חלק מהתשובה לסוכן/ת. */
+    if (data && data.ok && !data.total_found){
+      sb.rpc('report_deal_gap', { p_city: city, p_street: street || null })
+        .then(({ error }) => { if (error) console.warn('report_deal_gap:', error); });
+    }
   } catch(err){
     console.error(err);
     feedback.style.color = 'var(--red)';

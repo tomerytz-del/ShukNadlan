@@ -2404,7 +2404,7 @@ async function loadActiveProperties(sb, agencyId){
     // ‏created_at, floor, features, is_promoted ו-promoted_until נוספו בשביל
     // המדף: הוא ממיין לפי סדר ההעלאה, מציג קומה וחניה בשורת המאפיינים,
     // ומצמיד עד שני נכסים מקודמים לראש — בדיוק כמו בדף הבית.
-    .select('id, title, price, deal_type, category, price_includes_vat, rooms, property_type, size_sqm, floor, features, city, street, images, tour_3d_url, has_virtual_tour, video_url, created_at, is_promoted, promoted_until')
+    .select('id, title, price, deal_type, category, price_includes_vat, mamad_location, rooms, property_type, size_sqm, floor, features, city, street, images, tour_3d_url, has_virtual_tour, video_url, created_at, is_promoted, promoted_until')
     .eq('agency_id', agencyId).eq('status', 'active').order('created_at', { ascending:false });
   // משרד בלי נכסים פעילים לא מקבל מקטע עם הכיתוב "אין כרגע נכסים" — מקטע
   // כזה אומר לגולש/ת רק שאין כאן מה לחפש. המקטע פשוט לא נפתח. הווידג'טים
