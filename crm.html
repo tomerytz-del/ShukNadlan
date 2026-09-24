@@ -145,18 +145,28 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .tier-gate .tg-plan .btn{margin-top:12px}
   .tier-gate .tg-locked-note{font-size:.74rem;color:var(--ink-soft);margin-top:10px;text-align:center}
 
-  /* ---------- רצועת ההטבה בדשבורד ---------- */
-  .promo-strip{
-    display:flex;align-items:center;gap:11px;text-decoration:none;color:inherit;
-    background:linear-gradient(135deg,#fffdf6,#f7f1e2);border:1.5px solid #e5c76a;
-    border-radius:var(--radius-md);padding:11px 14px;margin-bottom:14px;
+  /* ---------- אייקון ההטבה בכותרת ----------
+     הייתה כאן רצועה ברוחב מלא בראש הדשבורד, והיא דחפה את הפעולות המהירות
+     אל מתחת לקפל בטלפון — כל בוקר, בשביל הודעה שכבר נקראה. עכשיו זו מתנה
+     קטנה ליד תגית המסלול: אותו קישור ואותו נוסח (ב-title וב-aria-label),
+     ובחודש האחרון נקודה אדומה פועמת במקום רצועה בצבע אחר. */
+  .promo-gift{
+    position:relative;flex:none;display:inline-grid;place-items:center;
+    width:26px;height:26px;border-radius:999px;text-decoration:none;
+    background:linear-gradient(135deg,#fffdf6,#f7f1e2);border:1px solid #e5c76a;
+    box-shadow:0 2px 6px rgba(138,109,16,.18);transition:transform .15s;
   }
-  .promo-strip.is-urgent{border-color:#c0873a;background:linear-gradient(135deg,#fff8ee,#f6e3cb)}
-  .promo-strip .ps-gift{font-size:1.2rem;line-height:1}
-  .promo-strip .ps-text{display:flex;flex-direction:column;min-width:0;flex:1}
-  .promo-strip .ps-text b{font-size:.87rem}
-  .promo-strip .ps-text span{font-size:.76rem;color:var(--ink-soft);line-height:1.45}
-  .promo-strip .ps-cta{font-size:1.1rem;color:#8a6d10;flex:none}
+  .promo-gift[hidden]{display:none}
+  .promo-gift:hover{transform:scale(1.08)}
+  .promo-gift .ps-gift{font-size:.9rem;line-height:1}
+  .promo-gift .ps-text{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+  .promo-gift.is-urgent{border-color:#c0873a}
+  .promo-gift.is-urgent::after{
+    content:'';position:absolute;top:-2px;inset-inline-end:-2px;width:8px;height:8px;border-radius:50%;
+    background:#dc2626;border:1.5px solid #fff;animation:promoPulse 1.8s ease-in-out infinite;
+  }
+  @keyframes promoPulse{50%{transform:scale(1.35);opacity:.7}}
+  @media (prefers-reduced-motion:reduce){.promo-gift.is-urgent::after{animation:none}}
   .field{margin-bottom:12px}
   .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
   .field input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
@@ -1446,16 +1456,63 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media(min-width:560px){.share-partner-list{grid-template-columns:1fr 1fr}}
   .share-partner-list label{padding:6px 4px;border-radius:var(--radius-sm);cursor:pointer}
   .share-partner-list label:hover{background:var(--paper)}
-  .filter-input{border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;background:#fff}
+  /* ---------- פקדי חיפוש וסינון ----------
+     כל שדה חיפוש וכל תפריט סינון ב-CRM נושא את המחלקה הזו, ולכן העיצוב
+     כולו יושב כאן ולא בכל רשימה בנפרד: גלולה עגולה, משטח לבן עם צל רך,
+     זכוכית מגדלת בשדה החיפוש וחץ משלנו בתפריט (ה-appearance של הדפדפן
+     מבוטל, כי החץ המקורי שונה בכל מערכת הפעלה ונראה כמו טופס ישן).
+     ‏dir="rtl" קבוע בדף, ולכן המיקומים הפיזיים של האייקונים בטוחים:
+     הזכוכית בימין (תחילת השורה) והחץ בשמאל (סופה). */
+  .filter-input{
+    font:inherit;font-size:.92rem;color:#0f172a;
+    border:1px solid #d5dce6;border-radius:999px;padding:11px 18px;
+    background-color:#fff;
+    box-shadow:0 1px 2px rgba(15,23,42,.04),0 3px 10px rgba(15,23,42,.06);
+    transition:border-color .15s,box-shadow .15s,background-color .15s;
+    min-height:46px;
+  }
+  .filter-input:hover{border-color:#b8c3d2}
+  .filter-input:focus{outline:none;border-color:#2c5a8c;
+    box-shadow:0 0 0 3px rgba(44,90,140,.16),0 3px 10px rgba(15,23,42,.06)}
+  select.filter-input{
+    -webkit-appearance:none;appearance:none;cursor:pointer;
+    padding-left:40px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:left 15px center;background-size:16px;
+  }
+  select.filter-input::-ms-expand{display:none}
+  input[type=search].filter-input{
+    background-color:#f1f5f9;border-color:#e2e8f0;padding-right:46px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='11' cy='11' r='7'/%3E%3Cline x1='20' y1='20' x2='16.2' y2='16.2'/%3E%3C/svg%3E");
+    background-repeat:no-repeat;background-position:right 17px center;background-size:19px;
+    box-shadow:inset 0 1px 2px rgba(15,23,42,.05);
+  }
+  input[type=search].filter-input:focus{background-color:#fff;border-color:#2c5a8c;
+    box-shadow:0 0 0 3px rgba(44,90,140,.16)}
+  input[type=search].filter-input::placeholder{color:#94a3b8}
+  /* סינון פעיל: תפריט שנבחרה בו אפשרות שאינה הראשונה (ברירת המחדל בכל
+     תפריט כאן), ושדה חיפוש שיש בו טקסט. ‏:has מתעדכן גם כשהקוד מאפס את
+     הערך בלי אירוע ("ניקוי הסינון"), ולכן אין צורך ב-JS. */
+  select.filter-input:has(option:checked:not(:first-child)),
+  input[type=search].filter-input:not(:placeholder-shown){
+    background-color:#eef3f9;border-color:#2c5a8c;color:#1C3A5E;font-weight:700;
+    box-shadow:0 0 0 1px #2c5a8c inset,0 3px 10px rgba(28,58,94,.10);
+  }
+  select.filter-input:has(option:checked:not(:first-child)){
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231C3A5E' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  }
 
   /* ---------- סרגל חיפוש/סינון/מיון לרשימות ----------
      אותו סרגל משרת את שלוש הרשימות (הנכסים שלי, ששותפו איתי, הלקוחות).
      ברוחב טלפון הפקדים נערמים בשורות ומתמתחים לרוחב מלא — בחירה בשדה
      צר מדי היא הדרך הבטוחה לגרום לסוכן/ת לוותר על הסינון. */
-  .list-toolbar{display:grid;gap:8px;margin-bottom:12px}
-  .list-toolbar .toolbar-row{display:flex;gap:8px;flex-wrap:wrap}
+  .list-toolbar{display:grid;gap:10px;margin-bottom:14px}
+  .list-toolbar .toolbar-row{display:flex;gap:10px;flex-wrap:wrap}
   .list-toolbar .toolbar-row > *{flex:1 1 130px;min-width:0}
   .list-toolbar .filter-input{width:100%}
+  .list-toolbar .btn{border-radius:999px;min-height:46px}
+  .list-toolbar .btn-ghost{background:#fff;border:1px solid #d5dce6;color:#1C3A5E;
+    box-shadow:0 1px 2px rgba(15,23,42,.04),0 3px 10px rgba(15,23,42,.06)}
   .list-toolbar .toolbar-foot{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
   .list-count{font-size:.74rem;color:var(--ink-soft);margin:0}
   .clear-filters{background:none;border:none;padding:0;font:inherit;font-size:.74rem;font-weight:700;
@@ -4206,6 +4263,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="agent-id-meta">
             <a class="tier-badge" id="tierBadge" href="/pricing" target="_blank" rel="noopener"
                title="המסלול שלי ואפשרויות השדרוג">-</a>
+            <!-- הטבת ההשקה / בקשת שדרוג פתוחה. מוצג/ת רק כשיש מה לומר,
+                 ו-renderPromoStrip() מחליט/ה. הנוסח המלא ב-title ובטקסט
+                 הנסתר, לקוראי מסך. -->
+            <a class="promo-gift" id="promoStrip" href="/pricing" target="_blank" rel="noopener" hidden>
+              <span class="ps-gift" aria-hidden="true">🎁</span>
+              <span class="ps-text"><b id="promoStripTitle"></b> <span id="promoStripSub"></span></span>
+            </a>
             <span class="agent-agency" id="agentAgency"></span>
           </div>
         </div>
@@ -4257,22 +4321,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <button type="button" data-view="admin" aria-pressed="false">תצוגת מנהל/ת</button>
       </div>
 
-      <!-- רצועת הטבת ההשקה. מוצגת רק כשההטבה פעילה, ובחודש האחרון היא
-           מחליפה צבע: התראה במייל אפשר לפספס, ו"נשארו 12 ימים" בראש המסך
-           שאליו נכנסים כל בוקר — פחות. ‏renderPromoStrip() מחליט/ה. -->
-      <a class="promo-strip" id="promoStrip" href="/pricing" target="_blank" rel="noopener" hidden>
-        <span class="ps-gift" aria-hidden="true">🎁</span>
-        <span class="ps-text"><b id="promoStripTitle"></b><span id="promoStripSub"></span></span>
-        <span class="ps-cta" aria-hidden="true">←</span>
-      </a>
-
       <!-- ---------- מדריך ההתחלה ----------
            ששת הצעדים הראשונים של סוכן/ת חדש/ה במסלול PROFESSIONAL ומעלה,
            ורק שלהם: המצב מגיע מ-agent_onboarding_state() במסד, שמחזירה אפס
            שורות לכל מי שאינו/ה בתוך המדריך — ותיק/ה, מסלול Pay&GO, או מי
            שסגר/ה אותו. ראו docs/agent-onboarding.md.
 
-           מחוץ ל-#overviewBlock, כמו רצועת ההטבה: המדריך אינו חלק מתמונת
+           מחוץ ל-#overviewBlock: המדריך אינו חלק מתמונת
            המצב אלא מה שמוביל אליה, ולכן הוא עומד גם בלשוניות האחרות של
            הסרגל התחתון — שאצל מי שרואה אותו ריקות ממילא. -->
       <section class="onb" id="onbGuide" hidden aria-labelledby="onbTitle">

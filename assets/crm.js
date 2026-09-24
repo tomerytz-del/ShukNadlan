@@ -1311,7 +1311,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // בתקופת ההשקה אין כאן בחירה: כולם מקבלים Elite, ושני המסלולים האחרים
   // מוצגים נעולים. כלומר המסך היה עמוד שלם שכל תפקידו לחיצה אחת על
   // האפשרות היחידה, בין ההתחברות לבין הדשבורד. מה שהוא אמר — מה קיבלת
-  // ועד מתי — נאמר ממילא ברצועת ההטבה שבראש הדשבורד, ונשאר שם.
+  // ועד מתי — נאמר ממילא באייקון ההטבה (🎁) שליד תגית המסלול, ונשאר שם.
   //
   // לכן ההטבה מאושרת כאן בשקט (אותה `set_tier` בדיוק, אותה רשומה
   // ב-`tier_changes`), והמסך נשמר לרגע שבו יש בו החלטה אמיתית: תום
@@ -4897,6 +4897,7 @@ function renderPromoStrip(agent){
       'בקשת המעבר ל-' + Tiers.label(agent.pending_tier_change) + ' נקלטה';
     document.getElementById('promoStripSub').textContent =
       'ניצור קשר להסדרת התשלום, והמסלול יופעל מיד אחריה. עד אז לא חל שינוי.';
+    labelPromoGift(strip);
     strip.hidden = false;
     return;
   }
@@ -4912,7 +4913,16 @@ function renderPromoStrip(agent){
   document.getElementById('promoStripSub').textContent = urgent
     ? 'אחרי התאריך הזה מי שלא בחר/ה מסלול ממשיך/ה ב-Pay&GO. לבחירת המסלול ←'
     : 'כל היכולות פתוחות, בלי תשלום. לפירוט המסלולים ←';
+  labelPromoGift(strip);
   strip.hidden = false;
+}
+
+// הרצועה הפכה לאייקון בכותרת, ולכן הנוסח עובר ל-title (ריחוף) ול-aria-label
+function labelPromoGift(strip){
+  const text = document.getElementById('promoStripTitle').textContent + ' - ' +
+    document.getElementById('promoStripSub').textContent.replace(/\s*←$/, '');
+  strip.title = text;
+  strip.setAttribute('aria-label', text);
 }
 
 /* ==========================================================================
