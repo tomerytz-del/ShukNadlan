@@ -1617,44 +1617,60 @@ function handleGotoParam(){
    מתוך ארבע — הברכה הקלאסית. משפט שיוצא בכל פעם הופך לטפט אחרי שבוע, ולכן
    יש מאגר, והמשפט האחרון שהוצג נשמר כדי לא לחזור עליו פעמיים ברצף.
 
-   הנוסח ניטרלי מגדרית בכוונה ("שלך", "אותך", פנייה ברבים): אין לנו שדה
-   מגדר, ו"מוכן לטרוף?" לסוכנת הוא בדיוק ההפך מהחיוך שהוא נועד לייצר.
+   שלושה כללים למשפט במאגר:
+   * **שורה אחת.** קצר — ובנוסף greetingFits מודד בפועל ומדלג על משפט
+     שאינו נכנס ברוחב המסך הזה עם השם הזה.
+   * **ניטרלי מגדרית** ("שלך", "אותך", פנייה ברבים): אין לנו שדה מגדר,
+     ו"מוכן לטרוף?" לסוכנת הוא ההפך מהחיוך שהמשפט נועד לייצר.
+   * **נכון לשעה.** המאגר any מוצג גם ב-02:00, ולכן אין בו "בוקר" או "היום".
+
    ‏{name} הוא השם הפרטי; בלעדיו הפנייה נושרת (ראו greetingText). */
 const GREETINGS = {
   morning: [
-    'בוקר אור, {name}! יום של אריות היום - ההזדמנויות כבר ערות',
-    'בוקר טוב, {name}. הקפה חם, והלידים חמים עוד יותר',
-    '{name}, השמש זרחה, ועסקאות עדיין לא סוגרות את עצמן. בינתיים.',
-    'בוקר טוב, {name}! יום מושלם להחתים בלעדיות',
-    'בוקר אור, {name}. מישהו שם בחוץ מחפש בדיוק את הנכס שלך',
-    'בוקר טוב, {name}! המפתחות לא יעברו ידיים לבד',
+    'בוקר אור, {name}! יום של אריות',
+    'בוקר טוב, {name}. הלידים כבר ערים',
+    'בוקר טוב, {name}! יום טוב לבלעדיות',
+    '{name}, קפה ביד, ויוצאים לסגור',
+    '{name}, יום מושלם לעשות עסקאות',
   ],
   noon: [
-    'צהריים טובים, {name}! אחרי הצהריים סוגרים עסקאות, לא מנמנמים',
-    '{name}, חצי יום מאחורינו - והחצי השני שמור לעסקה הגדולה',
-    'צהריים טובים, {name}. השקשוקה תחכה, הלקוח החם - פחות',
-    '{name}, עוד טלפון אחד - ואולי זה ה-טלפון',
-    'צהריים טובים, {name}! הנכסים שלך נראים היום במיטבם',
+    'צהריים טובים, {name}. ממשיכים בתנופה',
+    '{name}, השקשוקה תחכה. הלקוח פחות',
+    '{name}, עוד שיחה אחת, ואולי זו השיחה',
+    '{name}, חצי יום עבר. הטוב עוד לפנינו',
   ],
   evening: [
-    'ערב טוב, {name}! עוד לא מאוחר לסגור את היום בחתימה',
-    '{name}, ערב מושלם לשלוח ללקוח את ההתאמה שהוא חיכה לה',
-    'ערב טוב, {name}. עוד שיחה אחת לפני הבית - ככה נסגרות עסקאות',
+    'ערב טוב, {name}! עוד חתימה לסיום?',
+    '{name}, ערב מושלם לשלוח התאמות',
+    'ערב טוב, {name}. עוד שיחה אחת ונסגור',
   ],
   night: [
-    'לילה טוב, {name}. גם הכוכבים במשמרת לילה - אבל לא לשכוח לישון',
-    '{name}, שעת לילה ועדיין כאן? ככה נראית מחויבות אמיתית',
-    'לילה טוב, {name}! מחר הלידים יחכו - הלילה טוענים מצברים',
+    'לילה טוב, {name}. גם הכוכבים במשמרת',
+    '{name}, עוד כאן? זו מחויבות אמיתית',
+    'לילה טוב, {name}. מחר סוגרים עסקאות',
+    '{name}, טוענים מצברים. מחר טורפים',
   ],
   any: [
-    '{name}, היום זה יום מושלם לעשות עסקאות. גם מחר, אבל היום קודם',
-    '{name}, בעלי הדירות עוד לא יודעים שהם צריכים אותך. עוד.',
-    '{name}, כל "לא" מקרב אותך ל"כן" הבא',
-    '{name}, מה מוכרים היום? חוץ מחלומות, כמובן',
-    '{name}, העמלה הבאה כבר בדרך. נשאר רק לענות לטלפון',
+    '{name}, כל "לא" מקרב את ה"כן" הבא',
+    '{name}, העמלה הבאה כבר בדרך',
+    '{name}, העסקה הבאה במרחק שיחה',
+    '{name}, מה מוכרים? חוץ מחלומות',
   ],
 };
 const GREETING_LAST_KEY = 'crmGreetingLast';
+
+/* ‏05:00-11:59 בוקר, 12:00-16:59 צהריים, 17:00-20:59 ערב, ומ-21:00 לילה —
+   גם בברכה הקלאסית. עד היום היא אמרה "בוקר טוב" בשתיים בלילה, כי כל שעה
+   לפני 12 נחשבה בוקר. */
+function greetingSlot(hour){
+  if (hour >= 21 || hour < 5) return 'night';
+  if (hour < 12) return 'morning';
+  if (hour < 17) return 'noon';
+  return 'evening';
+}
+const GREETING_CLASSIC = {
+  morning: 'בוקר טוב', noon: 'צהריים טובים', evening: 'ערב טוב', night: 'לילה טוב',
+};
 
 function greetingText(template, first){
   if (first) return template.replace('{name}', first);
@@ -1662,23 +1678,39 @@ function greetingText(template, first){
   return template.replace(/^\{name\},\s*/, '').replace(/,\s*\{name\}/, '');
 }
 
+/* האם הטקסט נכנס בשורה אחת. נמדד עם nowrap על האלמנט עצמו, באותו פונט
+   ובאותו רוחב. אלמנט שעוד אין לו רוחב (מוסתר) — לא נמדד, ונחשב נכנס. */
+function greetingFits(el, text){
+  el.textContent = text;
+  if (!el.clientWidth) return true;
+  return el.scrollWidth <= el.clientWidth + 1;
+}
+
 function renderGreeting(agent){
   const el = document.getElementById('dashGreet');
   if (!el) return;
   const first = String(agent.display_name || '').trim().split(/\s+/)[0] || '';
-  const hour = new Date().getHours();
-  const part = hour < 12 ? 'בוקר טוב' : hour < 17 ? 'צהריים טובים' : hour < 21 ? 'ערב טוב' : 'לילה טוב';
-  const classic = part + (first ? ', ' + first : '') + ' - הנה תמונת המצב שלך להיום';
-  if (Math.random() < 0.25){ el.textContent = classic; return; }
+  const slot = greetingSlot(new Date().getHours());
+  const classic = GREETING_CLASSIC[slot] + (first ? ', ' + first : '');
+  el.classList.add('is-oneline');
 
-  const slot = (hour >= 21 || hour < 5) ? 'night' : hour < 12 ? 'morning' : hour < 17 ? 'noon' : 'evening';
-  const pool = GREETINGS[slot].concat(GREETINGS.any);
   let last = '';
   try { last = localStorage.getItem(GREETING_LAST_KEY) || ''; } catch {}
-  const options = pool.filter(t => t !== last);
-  const pick = options[Math.floor(Math.random() * options.length)];
-  try { localStorage.setItem(GREETING_LAST_KEY, pick); } catch {}
-  el.textContent = greetingText(pick, first);
+  const pool = GREETINGS[slot].concat(GREETINGS.any).filter(t => t !== last);
+  // ערבוב, ואז הראשון שנכנס בשורה אחת
+  for (let i = pool.length - 1; i > 0; i--){
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  const pick = Math.random() < 0.25 ? null : pool.find(t => greetingFits(el, greetingText(t, first)));
+  if (pick){
+    try { localStorage.setItem(GREETING_LAST_KEY, pick); } catch {}
+    el.textContent = greetingText(pick, first);
+    return;
+  }
+  // הקלאסית קצרה מספיק כמעט לכל שם; שם ארוך במיוחד מקבל שורה שנייה ולא חיתוך
+  el.textContent = classic;
+  if (!greetingFits(el, classic)) el.classList.remove('is-oneline');
 }
 
 /* ---------- Test menu (מצב בדיקה) ----------
@@ -17144,6 +17176,8 @@ async function loadClients(){
         ? 'קובץ הלקוחות לא הופעל עדיין בפרויקט הזה.'
         : 'שגיאה בטעינת הלקוחות: ' + esc(error.message)) + '</div>';
     accSetCount('accClients', '');
+    const kpiNote = document.getElementById('kpiClientsNote');
+    if (kpiNote) kpiNote.textContent = 'קובץ הלקוחות לא נטען';
     return;
   }
 
@@ -17220,6 +17254,8 @@ function clientSearchBlob(c){
 }
 
 function renderClients(){
+  // כרטיס "לקוחות מחפשים" בדף הבית קורא מאותן שורות — כל שינוי כאן מגיע אליו
+  renderClientsCard();
   const listEl = document.getElementById('clientsList');
   const q = document.getElementById('clientSearch').value.trim().toLowerCase();
   const status = document.getElementById('clientStatusFilter').value;
@@ -19842,8 +19878,9 @@ const TODO_ITEMS = [
     cta:{ html:'פתחו את הליד עכשיו', icon:'flame', run:()=> gotoSection('accLeads') } },
   { acc:'accAlerts',   icon:'target',  tone:'sand',  many:n => n + ' התאמות נכס ללקוחות',
     one:'התאמת נכס אחת ללקוח/ה',          sub:'נכסים שעונים על הדרישות',
-    cta:{ kind:'wa', html:'שלח <span class="todo-cta-em">וואטסאפ</span> ללקוח',
-          run:()=> openWaShare() } },
+    /* הכפתור היה "שלח וואטסאפ ללקוח", והוא כפול: השיתוף בוואטסאפ יושב
+       בשורת הפעולות המהירות שמתחת. כאן הפעולה היא לראות את ההתאמות. */
+    cta:{ html:'לצפייה בהתאמות', icon:'target', run:()=> gotoSection('accAlerts') } },
   { acc:'accReviews',  icon:'star',    tone:'mint',  many:n => n + ' ביקורות לאישור',
     one:'ביקורת אחת לאישור',              sub:'חוות דעת שממתינות לך',
     cta:{ html:'לאישור הביקורות', icon:'check', run:()=> gotoSection('accReviews') } },
@@ -20141,7 +20178,7 @@ function syncStickyKpis(){
   const pairs = [
     ['kpiCommissionValue', 'ksCommission'],
     ['kpiActiveValue',     'ksActive'],
-    ['kpiExclusiveValue',  'ksExclusive'],
+    ['kpiClientsValue',    'ksClients'],
   ];
   pairs.forEach(([from, to])=>{
     const src = document.getElementById(from);
@@ -20595,49 +20632,64 @@ function renderActiveCard(active){
   }).length;
   deltaEl.hidden = thisMonth === 0;
   if (thisMonth > 0) deltaEl.textContent = '▲ +' + thisMonth;
-}
-
-function renderExclusiveCard(active){
-  const valueEl = document.getElementById('kpiExclusiveValue');
-  const noteEl = document.getElementById('kpiExclusiveNote');
-  const deltaEl = document.getElementById('kpiExclusiveDelta');
-  const ratioEl = document.getElementById('kpiExclusiveRatio');
-  if (!valueEl) return;
 
   // "בבלעדיות" הוא מאפיין הנכס exclusive — אותו אחד שמסומן בטופס הוספת נכס
-  const exclusive = active.filter(p => Array.isArray(p.features) && p.features.includes('exclusive'));
-  const pct = active.length ? Math.round(exclusive.length / active.length * 100) : 0;
+  const tagEl = document.getElementById('kpiActiveExclusive');
+  if (tagEl){
+    const exclusive = active.filter(p => Array.isArray(p.features) && p.features.includes('exclusive')).length;
+    tagEl.hidden = active.length === 0;
+    tagEl.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 8.8-8.8"/><path d="m17 6 3 3"/></svg>'
+      + esc(exclusive + ' בבלעדיות');
+    tagEl.title = active.length
+      ? Math.round(exclusive / active.length * 100) + '% מהתיק הפעיל בבלעדיות'
+      : '';
+  }
+}
 
-  countUp(valueEl, exclusive.length, v => String(Math.round(v)));
-  noteEl.textContent = active.length === 0
-    ? 'סמנו "בבלעדיות" בטופס הנכס'
-    : `${pct}% מהתיק (${exclusive.length} מתוך ${active.length})`;
+/* ---------- לקוחות מחפשים ----------
+   הביקוש מול ההיצע שבכרטיס הנכסים: כמה לקוחות מחפשים עכשיו (‏status
+   ‏active), וכמה מהם כבר יש להם נכס מתאים — זה הפס. הכרטיס הזה החליף את
+   "נכסים בבלעדיות", שהיה עוד מספר על אותו תיק ועוד קישור לאותה רשימה. */
+function renderClientsCard(){
+  const valueEl = document.getElementById('kpiClientsValue');
+  const noteEl = document.getElementById('kpiClientsNote');
+  const deltaEl = document.getElementById('kpiClientsDelta');
+  const ratioEl = document.getElementById('kpiClientsRatio');
+  if (!valueEl) return;
+
+  const searching = clientRows.filter(c => (c.status || 'active') === 'active');
+  const matched = searching.filter(c => (clientMatchCounts[c.id] || 0) > 0).length;
+  const pct = searching.length ? Math.round(matched / searching.length * 100) : 0;
+
+  countUp(valueEl, searching.length, v => String(Math.round(v)));
+  noteEl.textContent = searching.length === 0
+    ? 'הוסיפו לקוח ונתחיל להתאים'
+    : (matched === 1 ? 'לאחד מהם יש נכס מתאים' : matched + ' מהם עם נכס מתאים');
 
   const now = new Date();
-  const thisMonth = exclusive.filter(p =>{
-    const d = p.created_at ? new Date(p.created_at) : null;
+  const thisMonth = clientRows.filter(c =>{
+    const d = c.created_at ? new Date(c.created_at) : null;
     return d && d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
   }).length;
+  deltaEl.hidden = thisMonth === 0;
   if (thisMonth > 0){
-    deltaEl.hidden = false;
     deltaEl.textContent = '▲ +' + thisMonth;
-    deltaEl.title = plural(thisMonth, 'נכס אחד בבלעדיות נוסף', 'נכסים בבלעדיות נוספו') + ' החודש';
-  } else {
-    deltaEl.hidden = true;
+    deltaEl.title = plural(thisMonth, 'לקוח אחד נוסף', 'לקוחות נוספו') + ' החודש';
   }
 
   if (ratioEl){
     ratioEl.querySelector('span').style.width = pct + '%';
     ratioEl.setAttribute('aria-label',
-      active.length ? pct + '% מהתיק הפעיל בבלעדיות' : 'אין עדיין נכסים פעילים');
+      searching.length ? pct + '% מהלקוחות המחפשים עם נכס מתאים' : 'אין עדיין לקוחות מחפשים');
   }
+  syncStickyKpis();
+  setTimeout(syncStickyKpis, 700);
 }
 
 function renderDashboardOverview(){
   const active = dashActiveProperties();
   renderCommissionCard(active);
   renderActiveCard(active);
-  renderExclusiveCard(active);
   renderAgentPanelSummary(active);
   // ‏countUp מגלגל את המספרים לאורך 650ms; הפס הדביק מסתנכרן בסופם
   setTimeout(syncStickyKpis, 700);

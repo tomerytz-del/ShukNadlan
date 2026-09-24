@@ -2279,7 +2279,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* הכרטיסים נשארים בהירים אבל לא אטומים לגמרי — כך הזרימה של הרקע
      מבצבצת ביניהם, והדף מרגיש שכבתי במקום לבן־על־לבן.
      כרטיסי המדד הבהירים ירדו מכאן: השקיפות שלהם יושבת בשיפוע עצמו
-     (‏.kpi-exclusive,.kpi-active), כדי ששניהם יקבלו בדיוק אותו משטח. */
+     (‏.kpi-clients,.kpi-active), כדי ששניהם יקבלו בדיוק אותו משטח. */
   #dashboard .acc,
   #dashboard .panel,
   #dashboard .meter-card{background:rgba(255,255,255,.88)}
@@ -2781,6 +2781,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     margin:0 0 2px;line-height:1.35;
   }
   @media(min-width:700px){.dash-greet{font-size:1.35rem}}
+  /* ‏renderGreeting בוחרת רק משפט שנכנס בשורה אחת (ראו greetingFits), וה-
+     nowrap הוא מה שמאפשר למדוד את זה. ‏ellipsis הוא רק רשת ביטחון לסיבוב
+     מסך אחרי הבחירה. */
+  .dash-greet.is-oneline{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .section-h{font-family:'Frank Ruhl Libre',serif;font-weight:700;color:var(--txt);font-size:1.05rem;margin:0;display:flex;align-items:center;gap:8px}
   /* display:flex גובר על [hidden] של הדפדפן — בלי זה כותרת מוסתרת נשארת */
   .section-h[hidden]{display:none}
@@ -3199,8 +3203,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .kpi-ratio span{display:block;height:100%;border-radius:999px;
     background:linear-gradient(90deg,#2c5a8c,#c9a227);transition:width .6s cubic-bezier(.22,1,.36,1)}
   /* הבר יושב היום בכרטיס הבלעדיות, ולוקח את דיו המשפחה שלו */
-  .kpi-exclusive .kpi-ratio{background:rgba(13,122,104,.2)}
-  .kpi-exclusive .kpi-ratio span{background:linear-gradient(90deg,var(--mint),var(--mint-deep))}
+  .kpi-clients .kpi-ratio{background:rgba(13,122,104,.2)}
+  .kpi-clients .kpi-ratio span{background:linear-gradient(90deg,var(--mint),var(--mint-deep))}
 
   /* ==========================================================================
      מגמת פוטנציאל העמלות
@@ -3348,10 +3352,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      מגיעה מאנשים), הנכסים הפעילים בחול (הם התיק) והעמלות בנייבי — ואותם
      שלושה גוונים חוזרים בכפתורים המהירים מתחת. כך שורת המדדים והפעולות
      נקראות כמערכת אחת, ולא כשתי שורות שנפגשו במקרה. */
-  .kpi-exclusive,.kpi-active{
+  .kpi-clients,.kpi-active{
     box-shadow:var(--sh-1),inset 0 1px 0 rgba(255,255,255,.55);
   }
-  .kpi-exclusive{
+  .kpi-clients{
     background:linear-gradient(158deg,var(--mint-surf-1) 0%,var(--mint-surf-2) 100%);
     border-color:var(--mint-edge);
   }
@@ -3367,15 +3371,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      הכהה מאיר, ועל תכלת בהיר הוא היה מכהה — צהוב על תכלת נותן חאקי, לא
      נגיעת זהב. גוון בהיר יותר מאיר את הפינה גם כאן, וזה מה שההילה אמורה
      לעשות. */
-  .kpi-exclusive::after,.kpi-active::after{
+  .kpi-clients::after,.kpi-active::after{
     content:'';position:absolute;inset-inline-start:-70px;top:-90px;width:230px;height:230px;
     background:radial-gradient(circle,rgba(255,255,255,.55),transparent 68%);pointer-events:none;
   }
   /* הטקסט מעמיק יחד עם המשטח, וכל כרטיס בדיו של המשפחה שלו — ‏txt-soft
      ו-txt-faint נבנו לכרטיס לבן, ועל משטח צבוע הם מטשטשים אל תוך הרקע */
-  .kpi-exclusive .kpi-label{color:var(--mint-deep)}
-  .kpi-exclusive .kpi-note{color:var(--mint-ink)}
-  .kpi-exclusive .kpi-value{color:var(--mint-ink)}
+  .kpi-clients .kpi-label{color:var(--mint-deep)}
+  .kpi-clients .kpi-note{color:var(--mint-ink)}
+  .kpi-clients .kpi-value{color:var(--mint-ink)}
   .kpi-active .kpi-label{color:var(--sand-deep)}
   .kpi-active .kpi-note{color:var(--sand-ink)}
   .kpi-active .kpi-value{color:var(--sand-ink)}
@@ -3384,7 +3388,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background:linear-gradient(150deg,#fff,#e7eff9);
     box-shadow:inset 0 0 0 1px rgba(28,58,94,.14);
   }
-  .kpi-exclusive .kpi-icon-soft{
+  .kpi-clients .kpi-icon-soft{
     background:linear-gradient(150deg,#fff,#dff1ec);color:var(--mint-deep);
     box-shadow:inset 0 0 0 1px rgba(13,122,104,.2);
   }
@@ -3392,14 +3396,23 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background:linear-gradient(150deg,#fff,#f8ecd1);color:var(--sand-deep);
     box-shadow:inset 0 0 0 1px rgba(138,107,18,.22);
   }
-  .kpi-exclusive .kpi-chip-soft{background:rgba(255,255,255,.75);color:var(--mint-deep)}
+  .kpi-clients .kpi-chip-soft{background:rgba(255,255,255,.75);color:var(--mint-deep)}
   .kpi-active .kpi-chip-soft{background:rgba(255,255,255,.75);color:var(--sand-deep)}
+  /* הבלעדיות בכרטיס הנכסים: תגית עם מפתח, במנטה של "הושג מאנשים" */
+  .kpi-tag{
+    align-self:flex-start;display:inline-flex;align-items:center;gap:5px;
+    margin-top:6px;padding:3px 9px;border-radius:999px;
+    background:rgba(255,255,255,.78);color:var(--mint-deep);
+    font-size:.72rem;font-weight:800;white-space:nowrap;
+  }
+  .kpi-tag[hidden]{display:none}
+  .kpi-tag svg{width:13px;height:13px;flex-shrink:0}
   /* שער הכניסה לוקח את דיו המשפחה במקום את הנייבי הכללי */
-  .kpi-exclusive .kpi-link-soft{
+  .kpi-clients .kpi-link-soft{
     color:var(--mint-deep);
     box-shadow:inset 0 0 0 1px rgba(13,122,104,.2),0 1px 2px rgba(15,23,42,.06);
   }
-  .kpi-exclusive .kpi-link-soft:focus-visible{outline-color:var(--mint-deep)}
+  .kpi-clients .kpi-link-soft:focus-visible{outline-color:var(--mint-deep)}
   .kpi-active .kpi-link-soft{
     color:var(--sand-deep);
     box-shadow:inset 0 0 0 1px rgba(138,107,18,.22),0 1px 2px rgba(15,23,42,.06);
@@ -4545,9 +4558,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <span class="ks-lbl">נכסים</span>
         </button>
         <span class="ks-dot" aria-hidden="true">·</span>
-        <button type="button" class="ks-item" data-goto="accProperties">
-          <span class="ks-val" id="ksExclusive">0</span>
-          <span class="ks-lbl">בלעדיות</span>
+        <button type="button" class="ks-item" data-goto="accClients">
+          <span class="ks-val" id="ksClients">0</span>
+          <span class="ks-lbl">לקוחות</span>
         </button>
       </div>
     </div>
@@ -4597,8 +4610,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
         <!-- ---------- שורת המדדים ----------
              שלושה מדדים קומפקטיים בשורה אחת, בלי גלילה אופקית ובלי כרטיס
-             שנחתך בקצה: פוטנציאל העמלות, הנכסים הפעילים שמייצרים אותו,
-             והבלעדיות מתוכם. מדד המשנה היחיד (הארנק) יושב ב-.kpi-more
+             שנחתך בקצה: הכסף (פוטנציאל העמלות), ההיצע (הנכסים הפעילים,
+             והבלעדיות מתוכם בתגית) והביקוש (הלקוחות שמחפשים). כרטיס שלישי של
+             "נכסים בבלעדיות" ישב כאן עד היום, והיה שני כרטיסים שמובילים
+             לאותה רשימה ומספרים על אותו תיק. מדד המשנה היחיד (הארנק) יושב ב-.kpi-more
              מתחת לפעולות המהירות. -->
         <section aria-label="המדדים שלי">
           <div class="kpi-strip">
@@ -4638,6 +4653,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <div class="kpi-value" id="kpiActiveValue">0</div>
               <div class="kpi-foot">
                 <p class="kpi-note" id="kpiActiveNote">טוענים את הנכסים שלך…</p>
+                <!-- הבלעדיות היא חלק מהתיק ולא תיק נוסף, ולכן היא תגית כאן
+                     ולא כרטיס משלה (ראו renderActiveCard) -->
+                <span class="kpi-tag" id="kpiActiveExclusive" hidden></span>
                 <button type="button" class="kpi-link kpi-link-soft" data-goto="accProperties"
                         aria-label="הנכסים הפעילים שלי - ניהול נכסים">
                   לנכסים
@@ -4646,21 +4664,23 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               </div>
             </article>
 
-            <article class="kpi-card kpi-exclusive">
+            <!-- הביקוש מול ההיצע: הלקוחות שמחפשים עכשיו, והחלק מהם שכבר יש
+                 לו נכס מתאים. מנטה — המשפחה של "אנשים" בשורת הצבעים. -->
+            <article class="kpi-card kpi-clients">
               <div class="kpi-top">
                 <span class="kpi-icon kpi-icon-soft">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7.5" cy="15.5" r="4.5"/><path d="m10.7 12.3 8.8-8.8"/><path d="m17 6 3 3"/></svg>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c.8-3.5 3.4-5.5 6.5-5.5s5.7 2 6.5 5.5"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18.5 14.8c1.6.8 2.7 2.6 3 5.2"/></svg>
                 </span>
-                <span class="kpi-chip kpi-chip-soft" id="kpiExclusiveDelta" hidden></span>
+                <span class="kpi-chip kpi-chip-soft" id="kpiClientsDelta" hidden></span>
               </div>
-              <div class="kpi-label">נכסים בבלעדיות</div>
-              <div class="kpi-value" id="kpiExclusiveValue">0</div>
+              <div class="kpi-label">לקוחות מחפשים</div>
+              <div class="kpi-value" id="kpiClientsValue">0</div>
               <div class="kpi-foot">
-                <p class="kpi-note" id="kpiExclusiveNote">טוענים את הנכסים שלך…</p>
-                <div class="kpi-ratio" id="kpiExclusiveRatio" role="img" aria-label="שיעור הנכסים בבלעדיות מתוך התיק הפעיל"><span style="width:0%"></span></div>
-                <button type="button" class="kpi-link kpi-link-soft" data-goto="accProperties"
-                        aria-label="הנכסים שלי בבלעדיות - ניהול נכסים">
-                  לנכסים
+                <p class="kpi-note" id="kpiClientsNote">טוענים את הלקוחות שלך…</p>
+                <div class="kpi-ratio" id="kpiClientsRatio" role="img" aria-label="שיעור הלקוחות שיש להם נכס מתאים"><span style="width:0%"></span></div>
+                <button type="button" class="kpi-link kpi-link-soft" data-goto="accClients"
+                        aria-label="הלקוחות שלי - קובץ לקוחות">
+                  ללקוחות
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
                 </button>
               </div>
