@@ -67,6 +67,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .manage-note{font-size:.74rem;color:var(--ink-soft);margin:0 0 10px}
   .manage-box input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:9px 10px;font-size:.76rem;background:#fff;text-align:left;direction:ltr}
   .back-link{display:block;text-align:center;font-size:.8rem;color:var(--blue);margin-top:16px;text-decoration:none}
+  .renew-row{display:flex;gap:8px;align-items:flex-start;font-size:.78rem;color:var(--ink-soft);margin-top:12px;cursor:pointer}
+  .renew-row input{margin-top:3px;flex:0 0 auto}
+  .renew-row[hidden]{display:none}
 </style>
 <link rel="stylesheet" href="assets/design-system.css">
 <script src="assets/page-bg.js" data-auto></script>
@@ -109,6 +112,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          במקום להדביק כתובות, ולכן אין להם שדה כאן. -->
     <p class="note" style="margin-top:14px;margin-bottom:0">מיד אחרי ההרשמה ייפתח מסך שבו תעלו תמונות, תכתבו על עצמכם ותוסיפו טלפון לוואטסאפ.</p>
 
+    <!-- חידוש חודשי: מוצג רק במסלול התשלום (מי שכבר מימש/ה את ההטבה).
+         מסומן כברירת מחדל, ונשלח לשרת כ-auto_renew. -->
+    <label class="renew-row" id="renewRow" hidden>
+      <input type="checkbox" id="autoRenew" checked>
+      <span>חידוש אוטומטי כל חודש - ₪350 בתוספת מע״מ מהכרטיס שבו תשלמו. אפשר לבטל בכל עת במסך העריכה, והפרסום יימשך עד סוף התקופה ששולמה.</span>
+    </label>
     <button type="button" class="btn" id="submitBtn">הצטרפות - 6 חודשים חינם</button>
     <div id="feedback"></div>
     <div class="note">ההטבה חד-פעמית לכל בעל/ת מקצוע (לפי כתובת האימייל), ללא פרטי אשראי וללא חידוש אוטומטי. הכרטיסייה עולה לדף הבית מיד עם ההרשמה.</div>
@@ -187,6 +196,7 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
         click_url: click_url || null,
         target_region: 'עפולה',
         accept_paid: acceptPaid,
+        ...(acceptPaid ? { auto_renew: document.getElementById('autoRenew').checked } : {}),
       }),
     });
     const data = await res.json();
@@ -204,6 +214,7 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     }
     if (data.error === 'promo_already_used'){
       acceptPaid = true;
+      document.getElementById('renewRow').hidden = false;
       feedback.style.color = 'var(--ink-soft)';
       feedback.textContent = 'הטבת ההצטרפות כבר נוצלה עבור כתובת האימייל הזו. אפשר להמשיך בהרשמה בתשלום.';
       btn.disabled = false; btn.textContent = PAID_LABEL;

@@ -274,3 +274,8 @@ verify_jwt = false
 # מסלול ה-reconcile מאומת בנפרד דרך _shared/cron-auth.ts.
 [functions.wallet-topup-callback]
 verify_jwt = false
+
+# החיוב החודשי של בעלי מקצוע. נקרא מ-pg_cron בלבד, עם x-alert-cron-secret
+# (‏_shared/cron-auth.ts) — אין JWT של משתמש/ת לאמת.
+[functions.billing-renew]
+verify_jwt = false
