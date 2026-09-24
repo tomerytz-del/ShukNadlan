@@ -180,7 +180,12 @@
   /* האם "רחוב מספר יישוב" שחזר מ-GovMap הוא מה שביקשנו. שוויון מלא, או
      שאחד הוא סיומת-מילים של השני: "מנחם אוסישקין 5 עפול" מול "אוסישקין 5
      עפול", לשני הכיוונים. המספר והיישוב נמצאים בסוף שתי המחרוזות, ולכן
-     סיומת-מילים תמיד כוללת אותם במלואם - "חורש" מול "כורש" עדיין נדחה. */
+     סיומת-מילים תמיד כוללת אותם במלואם - "חורש" מול "כורש" עדיין נדחה.
+
+     ‏`want` הוא תמיד השם **המלא** שביקשנו, גם כשהשאילתה נשלחה בצורה
+     מקוצרת (המילה האחרונה). השוואה מול הצורה המקוצרת קיבלה כל רחוב שנגמר
+     באותה מילה: "קהילת ציון 35" נשאל כ-"ציון 35", ‏"שיבת ציון 35" חזר
+     ונקלט - פין במרחק 2,162 מ' (השוואת עפולה, 24.9.2026). */
   function sameAddress(got, want) {
     return got === want
         || got.slice(-(want.length + 1)) === ' ' + want
@@ -198,11 +203,11 @@
     var city = String(q.city || '').trim();
     if (!street || !num || !city) return Promise.resolve(null);
     var candidates = streetCandidates(street);
+    var want = textKey(candidates[0] + ' ' + num + ' ' + city);
 
     function tryAt(i) {
       if (i >= candidates.length) return Promise.resolve(null);
       var v = candidates[i];
-      var want = textKey(v + ' ' + num + ' ' + city);
       return govmapReady().then(function (gm) {
         return gm.search({ apiKey: GOVMAP_TOKEN, searchText: v + ' ' + num + ' ' + city,
                            isAccurate: true, maxResults: 5, language: 'he' });

@@ -2021,6 +2021,15 @@ async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unk
 
   const deals = (res.deals || []) as Record<string, unknown>[];
 
+  // חיפוש ריק: אולי חור בנתונים. ‏report_deal_gap מחליטה מהמסד ומתריעה
+  // למנהל/ת הפלטפורמה (מיגרציה 20270110090000). כשל כאן אינו מפיל את התשובה.
+  if (deals.length === 0) {
+    const { error: gapErr } = await ctx.supabase.rpc("report_deal_gap", {
+      p_city: city, p_street: street || null,
+    });
+    if (gapErr) console.warn("report_deal_gap failed", gapErr.message);
+  }
+
   // הנחיה ולא נתון, באותו היגיון של COVERAGE_GUIDANCE ב-cma_report: מודל
   // שמקבל רשימה ריקה ימלא את החסר באומדן משלו אם לא ייאמר לו במפורש שאסור.
   // ‏coverage חוזר רק כשהתוצאה ריקה: מה **כן** יש במאגר לעיר. בלעדיו העוזר

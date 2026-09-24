@@ -18375,6 +18375,14 @@ const NOTIF_TYPES = [
      "מי הגיע", וזה "כסף". לכן גם תשלום של בעל/ת מקצוע יושב כאן ולא שם.
      ‏tone:'alert' כי בקשת שדרוג ממתינה לאישור, וכל עוד אין סליקה באתר היא
      גם דורשת שמישהו יסדיר תשלום מחוץ למערכת. */
+  /* חור בנתוני העסקאות: חיפוש שחזר ריק בגלל הנתונים ולא בגלל השאלה.
+     ‏goto למסך הייבוא הידני, כי זה מה שסוגר אותו. */
+  { type:'deal_data_gap', tone:'alert', goto:'accDealsImport', focus:'#dealGapsList',
+    view:'admin',
+    title:'חסרות עסקאות במאגר',
+    sub:'סוכן/ת חיפש/ה עסקאות ולא קיבל/ה תוצאה בגלל הנתונים: עיר שלא נטענה, מאגר שלא עודכן, או רחוב בלי עסקאות. ייבוא ידני מ-GovMap פותר.',
+    when: ()=> currentAgent && currentAgent.is_platform_admin,
+    refresh: ()=> loadDealGaps() },
   { type:'platform_upgrade', tone:'alert', goto:'accSubscriptions', focus:'#subsRequests',
     view:'admin',
     title:'תשלומים ושדרוגי מסלול',
@@ -22935,6 +22943,43 @@ function renderDealsImportPreview(rows, errors){
   if (saveBtn) saveBtn.disabled = !rows.length;
 }
 
+/* חורים בנתוני העסקאות שעלו מחיפושים ריקים. כל שורה היא עבודת ייבוא
+   ידני; "טופל" סוגר אותה, וחיפוש ריק נוסף יפתח חור חדש. */
+const DEAL_GAP_REASON = {
+  no_deals_in_city: 'אין עסקאות בעיר',
+  stale: 'המאגר לא עודכן יותר מ-120 יום',
+  no_deals_on_street: 'אין עסקאות ברחוב',
+};
+async function loadDealGaps(){
+  const box = document.getElementById('dealGapsList');
+  if (!box) return;
+  const { data, error } = await sb.rpc('deal_gaps_open');
+  if (error){ box.innerHTML = ''; console.warn('deal_gaps_open:', error); return; }
+  if (!data || !data.length){
+    box.innerHTML = '<p class="acc-sub">אין חורים פתוחים בנתוני העסקאות.</p>';
+    return;
+  }
+  box.innerHTML = `<div class="form-subheading">חסרות עסקאות - לפי חיפושים שחזרו ריקים</div>
+    <div style="overflow-x:auto"><table class="cma-table"><thead><tr>
+      <th>עיר</th><th>רחוב</th><th>סיבה</th><th>חיפושים</th><th>אחרון</th><th></th>
+    </tr></thead><tbody>${data.map(g => `<tr>
+      <td>${esc(g.city)}</td>
+      <td>${g.street ? esc(g.street) : '-'}</td>
+      <td>${esc(DEAL_GAP_REASON[g.reason] || g.reason)}</td>
+      <td>${esc(String(g.hits))}</td>
+      <td>${esc(new Date(g.last_seen).toLocaleDateString('he-IL'))}</td>
+      <td><button type="button" class="btn btn-ghost" data-gap-resolve="${esc(g.id)}">טופל</button></td>
+    </tr>`).join('')}</tbody></table></div>`;
+}
+document.getElementById('dealGapsList')?.addEventListener('click', async e => {
+  const b = e.target.closest('[data-gap-resolve]');
+  if (!b) return;
+  b.disabled = true;
+  const { error } = await sb.rpc('deal_gap_resolve', { p_id: b.dataset.gapResolve });
+  if (error){ b.disabled = false; showToast('הסגירה נכשלה'); return; }
+  loadDealGaps();
+});
+
 async function loadDealsCoverage(){
   const box = document.getElementById('dealsImportCoverage');
   if (!box || !sb) return;
@@ -23213,7 +23258,7 @@ document.getElementById('govmapDealsBtn')?.addEventListener('click', runGovmapDe
 document.getElementById('govmapParityBtn')?.addEventListener('click', runGovmapParity);
 
 document.getElementById('accDealsImport')?.addEventListener('toggle', function(){
-  if (this.open) loadDealsCoverage();
+  if (this.open){ loadDealsCoverage(); loadDealGaps(); }
 });
 
 /* ==========================================================================
@@ -23362,6 +23407,13 @@ document.getElementById('mdLookupBtn')?.addEventListener('click', async ()=>{
       return;
     }
     renderDealsLookup(data || {});
+    /* חיפוש ריק: אולי חור בנתונים. ‏report_deal_gap מחליטה בעצמה מהמסד אם
+       כן (עיר ריקה, מאגר ישן, רחוב חסר) ומתריעה למנהל/ת הפלטפורמה. לא ממתינים
+       לה - היא אינה חלק מהתשובה לסוכן/ת. */
+    if (data && data.ok && !data.total_found){
+      sb.rpc('report_deal_gap', { p_city: city, p_street: street || null })
+        .then(({ error }) => { if (error) console.warn('report_deal_gap:', error); });
+    }
   } catch(err){
     console.error(err);
     feedback.style.color = 'var(--red)';
