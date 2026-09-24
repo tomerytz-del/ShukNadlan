@@ -58,8 +58,15 @@ jobs:
 
       - name: התקנת Supabase CLI
         uses: supabase/setup-cli@v1
+        # גרסה קבועה ולא latest: ‏latest נפתר דרך ה-API של GitHub בלי אימות,
+        # ובמכונות המשותפות של Actions הוא נופל על "rate limit exceeded" —
+        # כך נכשלה פריסת #396 (24.9.2026) לפני שפונקציה אחת נפרסה, בזמן
+        # שה-HTML כבר היה באוויר. גרסה קבועה היא הורדה ישירה, בלי ה-API.
+        # ‏2.117.0 היא הגרסה שכל ההרצות המוצלחות השתמשו בה מאז 7.9.2026.
+        # עדכון: להחליף את המספר כאן ובקובץ המקביל
+        # (supabase_functions.yml / supabase_migrations.yml) באותו PR.
         with:
-          version: latest
+          version: 2.117.0
 
       # ‏SUPABASE_DB_URL ריק הוא מצב שקורה — סוד שלא הוגדר, שהוגדר כ-variable
       # במקום כ-secret, או שנמחק. בלעדיו ה-CLI לא נכשל על "חסר סוד" אלא נופל
