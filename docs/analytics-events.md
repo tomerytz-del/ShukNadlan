@@ -28,6 +28,7 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `contact_bot` | לחיצה על קישור שמוביל ל**עוזר הציבורי בוואטסאפ** | `entry`: נקודת הכניסה (`search_empty`) |
 | `contact_site` | לחיצה על המספר או המייל של **שוק נדל״ן עצמו** בבלוק הקשר | `method`: ‏`phone` \| `email` |
 | `contact_developer` | לחיצה על טלפון, מייל או וואטסאפ של **חברה יזמית** - בדף החברה או במשרד המכירות של פרויקט שלה | `method`: ‏`whatsapp` \| `phone` \| `email` |
+| `contact_professional` | לחיצה על וואטסאפ, טלפון או מייל של **בעל/ת מקצוע** (שמאי/ת, עו"ד, אדריכל/ית...) - בעמוד הפרופיל וברשימת בעלי המקצוע | `method`: ‏`whatsapp` \| `phone` \| `email` |
 | `view_item` | נכס נטען בהצלחה בדף הנכס | `item_name`, `item_category`, `deal_type`, `city`, `value`, `currency` |
 | `share` | שיתוף שהושלם, או לחיצה על כפתור שיתוף בוואטסאפ/מייל | `method`: ‏`web_share` \| `copy_link` \| `whatsapp` \| `email` |
 | `generate_lead` | טופס שהשרת אישר | `form_id`, ולפעמים `is_duplicate` |
@@ -93,6 +94,7 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `data-share` | שיתוף — `wa.me/?text=` או `mailto:?` **בלי נמען** | `share` |
 | `data-site-contact` | המספר או המייל של שוק נדל״ן עצמו | `contact_site` |
 | `data-developer` | חברה יזמית, ומשרד המכירות של פרויקט שלה | `contact_developer` |
+| `data-professional` | בעל/ת מקצוע — בעמוד הפרופיל (`professional.html`) וברשימה (`professionals.html`) | `contact_professional` |
 | (ללא) | מספר או מייל של סוכן/ת | `contact_agent` |
 
 שניים מהם נמצאו אחרי `data-bot`, ושניהם היו חיים:
@@ -101,6 +103,13 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
    וואטסאפ כדי שהגולש/ת יבחר/תבחר למי לשלוח. זה **ההיפך** מפנייה — הוא
    מפיץ את המודעה החוצה — ונספר כפנייה.
 2. **המספר שלנו בבלוק הקשר שבתחתית הדף**, שיושב בכל הדפים הנמדדים (‏21 היום).
+
+**ו-`data-professional` (ספטמבר 2026) הוא הפרדה שנייה מסוג `data-developer`:**
+וואטסאפ, טלפון ומייל של בעל/ת מקצוע — בעמוד הפרופיל וברשימה — נספרו
+כ-`contact_agent`, כלומר דף שנועד להתייעצות ניפח את מדד הלידים
+למתווכים. ‏`check_events.py` חוסם מעכשיו קישור קשר לא מסומן בשני הדפים:
+ברשימה לפי העוגן, ובעמוד הפרופיל ברמת הקובץ, כי שם כל הכפתורים
+מתרנדרים דרך פונקציה אחת.
 
 ## ‏ומי בכלל נמדד: החור שהיה בבדיקה עצמה
 
@@ -287,6 +296,13 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 משתנים, וההצלבה ירוקה. בין הקומיט לפרסום הבדיקה הייתה אדומה, וזה
 בכוונה: זה בדיוק מה שהיא נולדה למצוא, והפעם היא מצאה את זה תוך שעה
 ולא תוך חודשים.
+
+**‏`contact_professional` הוא ה-15**, באותו מחזור בדיוק: הקוד נכתב, הבדיקה
+אדומה עד שהמכולה מעודכנת, והטריגר והתגית שלו מוכנים בקובץ הייבוא
+(`docs/gtm-events-import.json`, ‏`CE — contact_professional` / ‏`GA4 —
+contact_professional`, ‏`method` דרך `DLV - method` הקיים). **נסגר
+ב-24.9.2026 בגרסה 8** - 17 תגיות ו-15 טריגרים, וההצלבה ירוקה (גרסאות 6-7
+נשאו תגית כפולה ל-`contact_developer`; ‏`gtm/README.md`).
 
 ‏`method` ממופה בתגית החדשה דרך `DLV - method` הקיים, ולכן **לא היה
 משתנה חדש לייבא ואין מימד מותאם חדש לרשום ב-GA4** - שלושת הפרמטרים של

@@ -1,12 +1,13 @@
 {
     "exportFormatVersion": 2,
-    "exportTime": "2026-09-21 16:02:46",
+    "exportTime": "2026-09-24 06:48:38",
     "containerVersion": {
-        "path": "accounts/6376638087/containers/264013397/versions/5",
+        "path": "accounts/6376638087/containers/264013397/versions/8",
         "accountId": "6376638087",
         "containerId": "264013397",
-        "containerVersionId": "5",
-        "name": "contact_developer - חברה יזמית אירוע משלה",
+        "containerVersionId": "8",
+        "name": "Delete Google Analytics GA4 Event tag2",
+        "description": "Deleted the \"Google Analytics GA4 Event\" tag.",
         "container": {
             "path": "accounts/6376638087/containers/264013397",
             "accountId": "6376638087",
@@ -1393,14 +1394,66 @@
             {
                 "accountId": "6376638087",
                 "containerId": "264013397",
-                "tagId": "53",
-                "name": "Google Analytics GA4 Event",
+                "tagId": "54",
+                "name": "GA4 — contact_developer",
                 "type": "gaawe",
+                "notes": "לחיצה על טלפון, מייל או וואטסאפ של חברה יזמית - בדף החברה ובמשרד המכירות של פרויקט. לא מתווך/ת: קונה מיזם ישירות, בלי עמלה ובלי בלעדיות.",
                 "parameter": [
                     {
                         "type": "BOOLEAN",
                         "key": "sendEcommerceData",
                         "value": "false"
+                    },
+                    {
+                        "type": "LIST",
+                        "key": "eventSettingsTable",
+                        "list": [
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "method"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - method}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "page_type"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - page_type}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "src"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - src}}"
+                                    }
+                                ]
+                            }
+                        ]
                     },
                     {
                         "type": "TEMPLATE",
@@ -1411,16 +1464,98 @@
                         "type": "TEMPLATE",
                         "key": "measurementIdOverride",
                         "value": "G-40ZLLXSRFY"
+                    }
+                ],
+                "fingerprint": "1790206246576",
+                "firingTriggerId": [
+                    "51"
+                ],
+                "tagFiringOption": "ONCE_PER_EVENT",
+                "monitoringMetadata": {
+                    "type": "MAP"
+                },
+                "consentSettings": {
+                    "consentStatus": "NOT_SET"
+                }
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "tagId": "56",
+                "name": "GA4 — contact_professional",
+                "type": "gaawe",
+                "notes": "לחיצה על וואטסאפ, טלפון או מייל של בעל/ת מקצוע (שמאי/ת, עו\"ד, אדריכל/ית וכו') - בעמוד הפרופיל וברשימת בעלי המקצוע. לא מתווך/ת: ייעוץ, לא פנייה לקנייה.",
+                "parameter": [
+                    {
+                        "type": "BOOLEAN",
+                        "key": "sendEcommerceData",
+                        "value": "false"
+                    },
+                    {
+                        "type": "LIST",
+                        "key": "eventSettingsTable",
+                        "list": [
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "method"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - method}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "page_type"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - page_type}}"
+                                    }
+                                ]
+                            },
+                            {
+                                "type": "MAP",
+                                "map": [
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameter",
+                                        "value": "src"
+                                    },
+                                    {
+                                        "type": "TEMPLATE",
+                                        "key": "parameterValue",
+                                        "value": "{{DLV - src}}"
+                                    }
+                                ]
+                            }
+                        ]
                     },
                     {
                         "type": "TEMPLATE",
-                        "key": "eventSettingsVariable",
-                        "value": "{{Google Tag Event Settings}}"
+                        "key": "eventName",
+                        "value": "contact_professional"
+                    },
+                    {
+                        "type": "TEMPLATE",
+                        "key": "measurementIdOverride",
+                        "value": "G-40ZLLXSRFY"
                     }
                 ],
-                "fingerprint": "1790004736829",
+                "fingerprint": "1790206246576",
                 "firingTriggerId": [
-                    "51"
+                    "55"
                 ],
                 "tagFiringOption": "ONCE_PER_EVENT",
                 "monitoringMetadata": {
@@ -1781,6 +1916,31 @@
                     }
                 ],
                 "fingerprint": "1790004340363"
+            },
+            {
+                "accountId": "6376638087",
+                "containerId": "264013397",
+                "triggerId": "55",
+                "name": "CE — contact_professional",
+                "type": "CUSTOM_EVENT",
+                "customEventFilter": [
+                    {
+                        "type": "EQUALS",
+                        "parameter": [
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg0",
+                                "value": "{{_event}}"
+                            },
+                            {
+                                "type": "TEMPLATE",
+                                "key": "arg1",
+                                "value": "contact_professional"
+                            }
+                        ]
+                    }
+                ],
+                "fingerprint": "1790206246576"
             }
         ],
         "variable": [
@@ -2372,7 +2532,7 @@
                 "name": "Event"
             }
         ],
-        "fingerprint": "1790005054519",
-        "tagManagerUrl": "https://tagmanager.google.com/#/versions/accounts/6376638087/containers/264013397/versions/5?apiLink=version"
+        "fingerprint": "1790232486609",
+        "tagManagerUrl": "https://tagmanager.google.com/#/versions/accounts/6376638087/containers/264013397/versions/8?apiLink=version"
     }
 }

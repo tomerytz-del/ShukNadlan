@@ -568,6 +568,31 @@
       {
         "accountId": "0",
         "containerId": "0",
+        "triggerId": "228",
+        "name": "CE — contact_professional",
+        "type": "CUSTOM_EVENT",
+        "fingerprint": "0",
+        "customEventFilter": [
+          {
+            "type": "EQUALS",
+            "parameter": [
+              {
+                "type": "TEMPLATE",
+                "key": "arg0",
+                "value": "{{_event}}"
+              },
+              {
+                "type": "TEMPLATE",
+                "key": "arg1",
+                "value": "contact_professional"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "accountId": "0",
+        "containerId": "0",
         "triggerId": "223",
         "name": "CE — view_item",
         "type": "CUSTOM_EVENT",
@@ -1021,6 +1046,93 @@
         ],
         "firingTriggerId": [
           "227"
+        ],
+        "tagFiringOption": "ONCE_PER_EVENT",
+        "monitoringMetadata": {
+          "type": "MAP"
+        },
+        "consentSettings": {
+          "consentStatus": "NOT_SET"
+        }
+      },
+      {
+        "accountId": "0",
+        "containerId": "0",
+        "tagId": "328",
+        "name": "GA4 — contact_professional",
+        "type": "gaawe",
+        "fingerprint": "0",
+        "notes": "לחיצה על וואטסאפ, טלפון או מייל של בעל/ת מקצוע (שמאי/ת, עו\"ד, אדריכל/ית וכו') - בעמוד הפרופיל וברשימת בעלי המקצוע. לא מתווך/ת: ייעוץ, לא פנייה לקנייה.",
+        "parameter": [
+          {
+            "type": "BOOLEAN",
+            "key": "sendEcommerceData",
+            "value": "false"
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "eventName",
+            "value": "contact_professional"
+          },
+          {
+            "type": "LIST",
+            "key": "eventParameters",
+            "list": [
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "name",
+                    "value": "method"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "value",
+                    "value": "{{DLV - method}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "name",
+                    "value": "page_type"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "value",
+                    "value": "{{DLV - page_type}}"
+                  }
+                ]
+              },
+              {
+                "type": "MAP",
+                "map": [
+                  {
+                    "type": "TEMPLATE",
+                    "key": "name",
+                    "value": "src"
+                  },
+                  {
+                    "type": "TEMPLATE",
+                    "key": "value",
+                    "value": "{{DLV - src}}"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "type": "TEMPLATE",
+            "key": "measurementIdOverride",
+            "value": "G-40ZLLXSRFY"
+          }
+        ],
+        "firingTriggerId": [
+          "228"
         ],
         "tagFiringOption": "ONCE_PER_EVENT",
         "monitoringMetadata": {

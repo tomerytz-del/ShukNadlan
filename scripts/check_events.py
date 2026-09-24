@@ -25,8 +25,8 @@
 
   ‏1. **כל עוגן ‎wa.me‎/‎tel:‎/‎mailto:‎ בדף שטוען ‎events.js‎ מסווג.** קישור
      למספר או למייל של סוכן/ת נספר כ-‎contact_agent‎ וזה תקין; כל השאר
-     חייב אחד מארבעת הסימונים — ‎data-bot‎, ‎data-share‎,
-     ‎data-site-contact‎ או ‎data-developer‎.
+     חייב אחד מחמשת הסימונים — ‎data-bot‎, ‎data-share‎,
+     ‎data-site-contact‎, ‎data-developer‎ או ‎data-professional‎.
   ‏2. **‎wa.me/?text=‎ ו-‎mailto:?‎ נושאים ‎data-share‎** בכל קובץ שיש בו
      כאלה, גם אם הדף אינו נמדד היום. אלה הסוגים שנבנים ב-JS ולא כעוגן
      ב-HTML, ולכן הבדיקה כאן היא על הקובץ ולא על העוגן.
@@ -37,6 +37,12 @@
      וגם בשני כפתורי משרד המכירות ב-‎project.html‎. זה אינו תיקון של
      קישור שנספר בטעות אלא הפרדת שני משפכים: קונה מיזם ישירות אינו
      פנייה למתווך/ת.
+  ‏4א. **קישור קשר בשני דפי בעלי המקצוע נושא ‎data-professional‎** —
+     ‏professional.html (העמוד האישי) ו-professionals.html (הרשימה). כל
+     קישור קשר שם הוא לבעל/ת מקצוע ולא למתווך/ת, חוץ מהמספר והמייל של
+     הפלטפורמה (‏data-site-contact). ‏professional.html בונה את כפתוריו
+     דרך פונקציה אחת, ולכן שם הבדיקה היא ברמת הקובץ: יש בו ‎wa.me/‎tel:/‎
+     ‏mailto:‎ שנבנים ב-JS → חייב להיות בו ‎data-professional‎.
   ‏5. **דף האזור האישי אינו טוען ‎events.js‎.** שם סוכנים מתקשרים ללקוחות
      של עצמם, וזה היה נספר כפניות של גולשים (‏CLAUDE.md).
   ‏6. **ודף ציבורי שיש בו קישור קשר — כן טוען אותו.** זה הכיוון ההפוך של
@@ -100,7 +106,12 @@ EVENTS_JS = re.compile(r'<script[^>]+src="assets/events\.js"')
 ANCHOR = re.compile(r"<a\b[^>]*>", re.IGNORECASE)
 HREF = re.compile(r'\bhref="([^"]*)"', re.IGNORECASE)
 
-MARKERS = ("data-bot", "data-share", "data-site-contact", "data-developer")
+MARKERS = ("data-bot", "data-share", "data-site-contact", "data-developer", "data-professional")
+
+# ‏שני הדפים שכל קישור קשר בהם הוא לבעל/ת מקצוע (חוץ מזה של הפלטפורמה)
+PRO_PAGES = ("professional.html", "professionals.html")
+# ‏כתובת קשר שנבנית ב-JS — מחרוזת שמתחילה בסכמה ונחתכת בשרשור
+JS_CONTACT = re.compile(r"""['"`](?:https://wa\.me/|tel:\+?|mailto:)['"`]?\s*\+|href="tel:\+\$\{|href="\$\{[^}]*waLink""")
 
 # ‏קישורי שיתוף — wa.me או mailto: **בלי נמען**. נבדקים ברמת הקובץ, כי
 # הם נבנים ב-JS ולא כעוגן ב-HTML.
@@ -305,6 +316,38 @@ def check_developer_links() -> list[str]:
     return problems
 
 
+def check_professional_links() -> list[str]:
+    """‏קישור קשר בדפי בעלי המקצוע חייב data-professional.
+
+    ‏שתי רמות: (1) עוגן שנכתב בקוד עם סכמת קשר ובלי אף סימון — כמו
+    ‏‎href="tel:+${…}"‎ ב-professionals.html; (2) קובץ שבונה כתובת קשר
+    ב-JS (‏‎'tel:+' + …‎) ואין בו ‎data-professional‎ בכלל — כמו מערך
+    הכפתורים של professional.html, שמתרנדר דרך פונקציה אחת.
+    """
+    problems = []
+    for name in PRO_PAGES:
+        path = ROOT / name
+        if not path.exists():
+            continue
+        code = strip_comments(path.read_text(encoding="utf-8"))
+        for tag in ANCHOR.findall(code):
+            if not CONTACT_SCHEME.search(tag):
+                continue
+            if any(marker in tag.lower() for marker in MARKERS):
+                continue
+            problems.append(
+                "%s: קישור קשר לבעל/ת מקצוע בלי data-professional —\n"
+                "        הוא ייספר כפנייה למתווך/ת (contact_agent):\n"
+                "        %s" % (name, " ".join(tag.split())[:120])
+            )
+        if JS_CONTACT.search(code) and "data-professional" not in code:
+            problems.append(
+                "%s בונה כתובות קשר ב-JS ואין בו data-professional —\n"
+                "        כפתורי הוואטסאפ והטלפון ייספרו כ-contact_agent." % name
+            )
+    return problems
+
+
 def check_pii() -> list[str]:
     problems = []
     for pattern in SITE_FILES:
@@ -333,7 +376,8 @@ def main() -> int:
         for problem in problems:
             print("      • %s" % problem)
 
-    others = check_share_files() + check_developer_links() + check_pii()
+    others = (check_share_files() + check_developer_links()
+              + check_professional_links() + check_pii())
     for problem in others:
         print("✗ %s" % problem)
 
@@ -341,7 +385,7 @@ def main() -> int:
         print(
             "\nכל אחד מהממצאים האלה משאיר את המדידה עובדת — היא פשוט סופרת\n"
             "דבר אחר ממה שהכותרת בדוח אומרת, ואי אפשר לתקן נתונים למפרע.\n"
-            "ארבעת הסימונים ומה כל אחד אומר: docs/analytics-events.md"
+            "חמשת הסימונים ומה כל אחד אומר: docs/analytics-events.md"
         )
         return 1
 

@@ -932,11 +932,12 @@ function proCardHtml(p){
     ...(p.years > 0 ? [`<span class="ag-chip exp">${p.years}+ שנות ניסיון</span>`] : []),
   ].join('');
 
+  // ‏data-professional: פנייה לבעל/ת מקצוע ולא למתווך/ת — contact_professional
   const contact = hasPhone(p.phone)
-    ? `<a class="ag-icon-btn wa" href="${escapeHtml(waLink(p.phone, p.name))}"
+    ? `<a class="ag-icon-btn wa" data-professional href="${escapeHtml(waLink(p.phone, p.name))}"
           target="_blank" rel="noopener noreferrer"
           aria-label="${escapeHtml('שליחת הודעת וואטסאפ ל' + p.name)}" title="וואטסאפ">${ICON.wa}</a>
-       <a class="ag-icon-btn tel" href="tel:+${escapeHtml(p.phone)}"
+       <a class="ag-icon-btn tel" data-professional href="tel:+${escapeHtml(p.phone)}"
           aria-label="${escapeHtml('חיוג ל' + p.name)}" title="חיוג">${ICON.tel}</a>`
     : '';
 
