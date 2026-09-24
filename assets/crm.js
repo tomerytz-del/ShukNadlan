@@ -9660,8 +9660,14 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     }
   }
   /* הכתובת לא נמצאה (או חסרה) ויש גוש/חלקה: מרכז החלקה, רק לחלקה של עד
-     250 מ'. חלקת פרויקט בגודל שכונה אינה מיקום - אז בלי פין, כמו קודם. */
-  if (!resolvedLat && !resolvedLng && gush && helka && city !== 'עפולה' && window.GovmapLookup){
+     250 מ'. חלקת פרויקט בגודל שכונה אינה מיקום - אז בלי פין, כמו קודם.
+
+     **גם בעפולה.** הכלל "עפולה נשארת על שכבת העירייה" חל על נקודות
+     הכתובת, שבהן GovMap חסר (החורש 8, הפרסה 5). כאן אין נקודת כתובת בכלל,
+     והחלקה עצמה מגיעה מהקדסטר של מפ"י - אותו מקור שהשכבה העירונית נשענת
+     עליו; בשתי חלקות הייחוס גוש, חלקה ושטח היו זהים (docs/govmap.md).
+     בלי זה, נכס ברחוב שהעירייה טרם הזינה (היצירה, אדמונית) נשאר בלי פין. */
+  if (!resolvedLat && !resolvedLng && gush && helka && window.GovmapLookup){
     try{
       const p = await GovmapLookup.parcelLatLng(gush, helka, 250);
       if (p && !p.tooLarge){
