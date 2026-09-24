@@ -178,7 +178,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* ‏clip ולא hidden: hidden הופך את האקורדיון ל-scroll container, ואז הסרגל
      הדביק שבתחתית הטופס נצמד אליו ולא לחלון. clip חותך בדיוק אותו דבר בלי
      להפוך לגולל. דפדפן בלי clip נופל ל-hidden - והסרגל פשוט אינו דביק. */
-  #accProperties{overflow:hidden;overflow:clip}
+  #accProperties,#accClients{overflow:hidden;overflow:clip}
   .pf-steps{display:flex;gap:6px;padding:12px;overflow-x:auto;scrollbar-width:none;border-bottom:1px solid var(--line);
     background:var(--paper-raised);border-radius:var(--radius-lg) var(--radius-lg) 0 0}
   .pf-steps::-webkit-scrollbar{display:none}
@@ -235,6 +235,67 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .pf-chips .checkbox-item:has(input:checked){background:var(--teal);border-color:var(--teal);color:#fff}
   .pf-chips .checkbox-item:has(input:focus-visible){outline:2px solid var(--teal);outline-offset:2px}
   .pf-chip-ico{font-size:1rem;line-height:1}
+  /* ---------- טופס הלקוח/ה: שני כרטיסים ----------
+     יושב על .pf כדי לרשת את השדות, ה-.pf-seg וה-.pf-chips של טופס הנכס;
+     כאן רק מה שייחודי לו. ההסבר על המבנה: ההערה מעל #addClientForm. */
+  .cf{padding:16px;background:#fff}
+  .cf-card{background:rgba(248,250,252,.6);border:1px solid #E2E8F0;border-radius:16px;padding:24px 24px 10px;margin-bottom:16px}
+  .cf-card-match{background:#fff;box-shadow:0 1px 3px rgba(15,23,42,.05)}
+  .cf-head{display:flex;align-items:center;justify-content:space-between;gap:8px 12px;flex-wrap:wrap;margin-bottom:6px}
+  .cf-head .cf-title{margin:0}
+  .cf-title{font-family:'Heebo',sans-serif;font-size:1.02rem;font-weight:800;color:var(--teal-dark);margin:0 0 16px;display:flex;align-items:center;gap:8px}
+  .cf-ico{font-size:1.05rem;line-height:1}
+  .cf-live{display:inline-flex;align-items:center;gap:7px;padding:4px 11px;border-radius:999px;background:var(--green-tint,#e6f5f2);
+    color:var(--green,#0f766e);font-size:.72rem;font-weight:800;white-space:nowrap}
+  .cf-dot{width:8px;height:8px;border-radius:50%;background:currentColor;box-shadow:0 0 0 0 rgba(15,118,110,.45);animation:cfPulse 2s infinite}
+  @keyframes cfPulse{70%{box-shadow:0 0 0 6px rgba(15,118,110,0)}100%{box-shadow:0 0 0 0 rgba(15,118,110,0)}}
+  @media(prefers-reduced-motion:reduce){.cf-dot{animation:none}}
+  .cf .pf-note{margin:10px 0 4px}
+  .cf .cf-note-under{margin:6px 0 0}
+  .cf-req{color:var(--gold)}
+  .cf-grid{display:grid;gap:0 16px}
+  .cf-grid-2{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cf-grid-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .cf-span-2{grid-column:span 2}
+  @media(max-width:640px){
+    .cf-card{padding:16px 14px 6px}
+    .cf-grid-3:not(.cf-grid-keep){grid-template-columns:minmax(0,1fr)}
+    .cf-span-2{grid-column:auto}
+    .cf-grid-keep{gap:0 8px}
+    .pf .cf-grid-keep .field input{padding:11px 8px;font-size:.86rem}
+    .cf-grid-keep .field label{font-size:.74rem}
+  }
+  @media(max-width:380px){.cf-grid-2{grid-template-columns:minmax(0,1fr)}}
+  .cf-block-title{font-size:.8rem;font-weight:800;color:var(--ink);margin:18px 0 10px;padding-top:16px;border-top:1px solid #EEF2F6}
+  .cf-block-title:first-of-type{border-top:none;padding-top:0}
+  .cf-block-title label{font:inherit;color:inherit;margin:0}
+  .cf-chips{gap:8px}
+  .cf-chips .checkbox-item:has(input:checked)::before{content:'✓';font-weight:800}
+  .cf-chips .checkbox-item.is-extra{display:none}
+  .cf-chips.show-extra .checkbox-item.is-extra,.cf-chips .checkbox-item.is-extra:has(input:checked){display:inline-flex}
+  .cf-more{margin-top:10px;background:none;border:none;padding:0;font:inherit;font-size:.78rem;font-weight:700;color:var(--teal);cursor:pointer}
+  .cf-more:hover{text-decoration:underline}
+  .cf-more[hidden]{display:none}
+  /* בורר הערים: תגיות ושדה ההקלדה באותה מסגרת, כמו שדה אחד */
+  .cf-tags{display:flex;flex-wrap:wrap;align-items:center;gap:6px;min-height:48px;padding:6px 8px;cursor:text;
+    background:var(--pf-bg);border:1.5px solid var(--pf-edge);border-radius:12px;transition:border-color .15s,box-shadow .15s,background .15s}
+  .cf-tags:focus-within{background:#fff;border-color:var(--teal);box-shadow:0 0 0 3px var(--pf-ring)}
+  .cf-tag-list{display:contents}
+  .cf-tag{display:inline-flex;align-items:center;gap:4px;padding:5px 6px 5px 12px;border-radius:999px;background:var(--teal);color:#fff;
+    font-size:.84rem;font-weight:700}
+  .cf-tag button{width:22px;height:22px;border-radius:50%;border:none;background:rgba(255,255,255,.18);color:#fff;font-size:.72rem;
+    line-height:1;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+  .cf-tag button:hover{background:rgba(255,255,255,.34)}
+  .cf-tag button:focus-visible{outline:2px solid #fff;outline-offset:1px}
+  .pf .cf-tags input#clCityInput{flex:1 1 140px;min-width:120px;width:auto;border:none;background:transparent;box-shadow:none;padding:6px 4px}
+  .pf .cf-tags input#clCityInput:focus{box-shadow:none;background:transparent}
+  .cf-footer{position:sticky;bottom:calc(58px + var(--sa-bottom));z-index:20;margin:0 -16px -16px;padding:12px 16px 14px;
+    background:rgba(255,255,255,.96);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
+    border-top:1px solid var(--line);border-radius:0 0 var(--radius-md) var(--radius-md)}
+  @media(min-width:1024px){.cf-footer{bottom:0}}
+  .cf-actions{display:flex;gap:8px;justify-content:flex-end}
+  .cf-actions #saveClientBtn{padding:12px 24px;font-weight:800;box-shadow:0 4px 12px rgba(139,35,50,.22)}
+  @media(max-width:480px){.cf-actions #saveClientBtn{flex:1}}
   /* סרגל הפעולות: דביק לתחתית החלון, ומעל סרגל הניווט התחתון בנייד */
   .pf-footer{position:sticky;bottom:calc(58px + var(--sa-bottom));z-index:20;margin-top:8px;padding:10px 14px 12px;
     background:rgba(255,255,255,.96);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);
@@ -5017,69 +5078,130 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
         <button class="btn btn-ghost btn-block" id="toggleAddClient" style="margin-bottom:12px">+ הוספת לקוח/ה</button>
 
-        <form id="addClientForm" class="card" style="display:none;padding:18px;margin-bottom:18px">
-          <div class="field"><label>שם הלקוח/ה</label><input type="text" id="clName" required placeholder="לדוגמה: משפחת כהן"></div>
-          <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>טלפון (לא חובה)</label><input type="tel" id="clPhone" dir="ltr" style="text-align:right" placeholder="050-1234567"></div>
-            <div class="field"><label>אימייל (לא חובה)</label><input type="email" id="clEmail" dir="ltr" style="text-align:right"></div>
-          </div>
-          <!-- ‏ת.ז. וכתובת אינן חלק מהתאמת הנכסים — הן יושבות כאן מפני שהן
-               מה שתקנות המתווכים במקרקעין (פרטי הזמנה בכתב) דורשות בהזמנת
-               שירותי תיווך. בלעדיהן אשף ההסכמים עוצר בשלב התצוגה המקדימה,
-               ומי שממלא/ת אותן פעם אחת כאן לא נדרש/ת להן שוב בכל הסכם. -->
-          <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>ת.ז. / ח״פ (נדרש להסכם תיווך)</label>
-              <input type="text" id="clIdNumber" inputmode="numeric" dir="ltr" style="text-align:right" placeholder="123456789"></div>
-            <div class="field"><label>כתובת (לא חובה)</label><input type="text" id="clAddress" placeholder="רחוב ומספר, עיר"></div>
-          </div>
+        <!-- ====== טופס הלקוח/ה: שני כרטיסים ======
+             הטופס היה רצף אחד של שדות וצ'קבוקסים קטנים, והעיר נכתבה כטקסט
+             חופשי מופרד בפסיקים - "עפולה ,מגדל העמק" עם רווח במקום הלא נכון
+             הייתה עיר שמנוע ההתאמות לא הכיר. הוא חולק לשניים:
 
-          <div class="form-subheading">מה הם מחפשים</div>
-          <div class="field"><label>קטגוריה</label>
-            <div class="deal-toggle" style="max-width:280px">
-              <button type="button" class="active" data-client-category="residential">מגורים</button>
-              <button type="button" data-client-category="commercial">מסחרי</button>
+             1. פרטי איש קשר - מה שהסוכן/ת צריך/ה כדי לחזור ללקוח/ה ולהחתים
+                אותו/ה. ‏ת.ז. וכתובת יושבות כאן כי תקנות המתווכים במקרקעין
+                (פרטי הזמנה בכתב) דורשות אותן בהזמנת שירותי תיווך, ובלעדיהן
+                אשף ההסכמים עוצר בתצוגה המקדימה.
+             2. פרופיל החיפוש - כל מה שמנוע ההתאמות מסנן או מנקד לפיו, ורק
+                הוא. הערים הן תגיות (מערך אמיתי), וסוגי הנכס והמאפיינים הם
+                צ'יפים של .pf-chips - אותם צ'יפים של טופס הנכס, ולכן
+                getCheckedValues ממשיכה לעבוד בלי שינוי.
+
+             כפתור השמירה גם מצליב: אחרי השמירה הכרטיס של הלקוח/ה נפתח ברשימה
+             ופאנל ההתאמות שלו נטען מיד. -->
+        <form id="addClientForm" class="card pf cf" style="display:none;margin-bottom:18px">
+          <section class="cf-card" aria-labelledby="cfContactTitle">
+            <h3 class="cf-title" id="cfContactTitle"><span class="cf-ico" aria-hidden="true">👤</span>פרטי איש קשר</h3>
+            <div class="cf-grid cf-grid-3">
+              <div class="field"><label for="clName">שם מלא <span class="cf-req">*</span></label>
+                <input type="text" id="clName" required autocomplete="off" placeholder="לדוגמה: משפחת כהן"></div>
+              <div class="field"><label for="clPhone">טלפון ראשי <span class="cf-req">*</span></label>
+                <input type="tel" id="clPhone" required dir="ltr" style="text-align:right" placeholder="050-1234567"></div>
+              <div class="field"><label for="clIdNumber">ת.ז. / ח״פ</label>
+                <input type="text" id="clIdNumber" inputmode="numeric" dir="ltr" style="text-align:right" placeholder="להפקת הסכם תיווך"></div>
+            </div>
+            <div class="cf-grid cf-grid-3">
+              <div class="field"><label for="clEmail">דוא״ל</label>
+                <input type="email" id="clEmail" dir="ltr" style="text-align:right" placeholder="name@example.com"></div>
+              <div class="field"><label for="clFinancing">בשלות עסקה / מימון</label>
+                <select id="clFinancing">
+                  <option value="">לא צוין</option>
+                  <option value="approved">יש אישור עקרוני / הון נזיל</option>
+                  <option value="pending_sale">תלוי במכירת נכס קיים</option>
+                  <option value="initial">בירור ראשוני / ללא אישור</option>
+                </select></div>
+              <div class="field"><label for="clLeadSource">מקור הגעה</label>
+                <select id="clLeadSource">
+                  <option value="">לא צוין</option>
+                  <option value="social">פייסבוק / אינסטגרם</option>
+                  <option value="yad2">יד 2</option>
+                  <option value="sign">שלט על נכס</option>
+                  <option value="referral">המלצה / לקוח חוזר</option>
+                  <option value="other">אחר</option>
+                </select></div>
+            </div>
+            <div class="cf-grid cf-grid-3">
+              <div class="field cf-span-2"><label for="clAddress">כתובת מגורים</label>
+                <input type="text" id="clAddress" placeholder="רחוב ומספר, עיר"></div>
+              <div class="field"><label for="clStatus">סטטוס</label>
+                <select id="clStatus">
+                  <option value="active">מחפש/ת</option>
+                  <option value="paused">בהמתנה</option>
+                  <option value="closed">סגר/ה עסקה</option>
+                </select></div>
+            </div>
+          </section>
+
+          <section class="cf-card cf-card-match" aria-labelledby="cfMatchTitle">
+            <div class="cf-head">
+              <h3 class="cf-title" id="cfMatchTitle"><span class="cf-ico" aria-hidden="true">🎯</span>פרופיל חיפוש והתאמה אוטומטית</h3>
+              <span class="cf-live" title="כל נכס חדש שנכנס למערכת נבדק מול הפרופיל הזה"><span class="cf-dot" aria-hidden="true"></span>התאמה אוטומטית פעילה</span>
+            </div>
+            <p class="pf-note">שדה שנשאר ריק פירושו "לא משנה" ואינו מסנן. מאפייני החובה הם סינון קשיח - נכס בלעדיהם יורד בציון.</p>
+
+            <div class="cf-block-title">סוג עסקה ותקציב</div>
+            <div class="cf-grid cf-grid-2">
+              <div class="field"><label id="clDealLabel">סוג עסקה</label>
+                <div class="pf-seg" role="group" aria-labelledby="clDealLabel">
+                  <button type="button" class="active" data-client-deal="sale" aria-pressed="true">קנייה</button>
+                  <button type="button" data-client-deal="rent" aria-pressed="false">שכירות</button>
+                </div></div>
+              <div class="field"><label id="clCategoryLabel">קטגוריה</label>
+                <div class="pf-seg" role="group" aria-labelledby="clCategoryLabel">
+                  <button type="button" class="active" data-client-category="residential" aria-pressed="true">מגורים</button>
+                  <button type="button" data-client-category="commercial" aria-pressed="false">מסחרי</button>
+                </div></div>
+            </div>
+            <div class="cf-grid cf-grid-2">
+              <div class="field"><label for="clMinPrice" id="clMinPriceLabel">תקציב מינימלי (₪)</label>
+                <input type="number" id="clMinPrice" min="0" inputmode="numeric" placeholder="ללא מינימום"></div>
+              <div class="field"><label for="clMaxPrice" id="clMaxPriceLabel">תקציב מקסימלי (₪)</label>
+                <input type="number" id="clMaxPrice" min="0" inputmode="numeric" placeholder="ללא תקרה"></div>
+            </div>
+
+            <div class="cf-block-title"><label for="clCityInput">ערים ואזורים מבוקשים</label></div>
+            <div class="cf-tags" id="clCitiesBox">
+              <span id="clCityChips" class="cf-tag-list"></span>
+              <input type="text" id="clCityInput" list="clCityOptions" autocomplete="off" enterkeyhint="enter"
+                     placeholder="הקלידו עיר ולחצו Enter">
+              <datalist id="clCityOptions"></datalist>
+            </div>
+            <p class="pf-note cf-note-under">ריק = כל עיר.</p>
+
+            <div class="cf-block-title">סוגי נכס מועדפים</div>
+            <div class="pf-chips cf-chips" id="clPropertyTypes"></div>
+            <p class="pf-note cf-note-under">בלי בחירה = כל סוג.</p>
+
+            <div class="cf-block-title">מפרט פיזי</div>
+            <div class="cf-grid cf-grid-3 cf-grid-keep">
+              <div class="field"><label for="clMinRooms">חדרים מינימום</label>
+                <input type="number" id="clMinRooms" step="0.5" min="0" inputmode="decimal" placeholder="לא משנה"></div>
+              <div class="field"><label for="clMaxFloor">קומה מקסימלית</label>
+                <input type="number" id="clMaxFloor" inputmode="numeric" placeholder="ללא הגבלה"></div>
+              <div class="field"><label for="clMinSize">מ״ר מינימום</label>
+                <input type="number" id="clMinSize" step="any" min="0" inputmode="decimal" placeholder="לא משנה"></div>
+            </div>
+
+            <div class="cf-block-title">מאפייני חובה</div>
+            <div class="pf-chips cf-chips" id="clFeatures"></div>
+            <button type="button" class="cf-more" id="clFeaturesMore" hidden>+ עוד מאפיינים</button>
+
+            <div class="cf-block-title"><label for="clNotes">הערות פנימיות</label></div>
+            <div class="field"><textarea id="clNotes" rows="3" placeholder="דרישות מיוחדות, זמני פינוי, גמישות במחיר..."></textarea></div>
+          </section>
+
+          <div class="cf-footer">
+            <div id="clientFeedback" class="pf-feedback" role="status"></div>
+            <div class="cf-actions">
+              <button type="button" class="btn btn-ghost" id="clCancel">ביטול</button>
+              <button type="submit" class="btn btn-gold" id="saveClientBtn">שמור לקוח והצלב נכסים</button>
             </div>
           </div>
-          <div class="field"><label>סוג עסקה</label>
-            <select id="clDeal" required>
-              <option value="sale">קנייה</option>
-              <option value="rent">שכירות</option>
-            </select>
-          </div>
-          <div class="field"><label>ערים (לא חובה - מופרדות בפסיק)</label><input type="text" id="clCities" placeholder="עפולה, מגדל העמק"></div>
-
-          <div class="field"><label>סוגי נכס (לא חובה - ריק = כל סוג)</label>
-            <div class="checkbox-grid" id="clPropertyTypes"></div>
-          </div>
-
-          <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>תקציב מינימלי (₪)</label><input type="number" id="clMinPrice"></div>
-            <div class="field"><label>תקציב מקסימלי (₪)</label><input type="number" id="clMaxPrice"></div>
-          </div>
-          <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>מינימום חדרים</label><input type="number" id="clMinRooms" step="0.1"></div>
-            <div class="field"><label>מקסימום חדרים</label><input type="number" id="clMaxRooms" step="0.1"></div>
-          </div>
-          <div class="field-row" style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-            <div class="field"><label>מ״ר מינימלי</label><input type="number" id="clMinSize" step="any" min="0"></div>
-            <div class="field"><label>קומה מקסימלית</label><input type="number" id="clMaxFloor"></div>
-          </div>
-
-          <div class="field"><label>מאפיינים נדרשים (לא חובה)</label>
-            <div class="checkbox-grid" id="clFeatures"></div>
-          </div>
-
-          <div class="field"><label>הערות</label><textarea id="clNotes" rows="2" style="width:100%;font-family:inherit;font-size:.9rem;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px"></textarea></div>
-          <div class="field"><label>סטטוס</label>
-            <select id="clStatus">
-              <option value="active">מחפש/ת</option>
-              <option value="paused">בהמתנה</option>
-              <option value="closed">סגר/ה עסקה</option>
-            </select>
-          </div>
-
-          <button type="submit" class="btn btn-gold btn-block" id="saveClientBtn" style="margin-top:6px">שמירת הלקוח/ה</button>
-          <div id="clientFeedback" style="font-size:.8rem;text-align:center;margin-top:8px;min-height:1.2em"></div>
         </form>
 
         <div class="list-toolbar">
