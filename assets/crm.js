@@ -4927,17 +4927,68 @@ function renderPromoStrip(agent){
   document.getElementById('promoStripSub').textContent = urgent
     ? 'אחרי התאריך הזה מי שלא בחר/ה מסלול ממשיך/ה ב-Pay&GO. לבחירת המסלול ←'
     : 'כל היכולות פתוחות, בלי תשלום. לפירוט המסלולים ←';
-  labelPromoGift(strip);
+  labelPromoGift(strip, promo, agent);
   strip.hidden = false;
 }
 
-// הרצועה הפכה לאייקון בכותרת, ולכן הנוסח עובר ל-title (ריחוף) ול-aria-label
-function labelPromoGift(strip){
-  const text = document.getElementById('promoStripTitle').textContent + ' - ' +
-    document.getElementById('promoStripSub').textContent.replace(/\s*←$/, '');
+// הרצועה הפכה לאייקון בכותרת. הנוסח עובר ל-title (ריחוף), ל-aria-label,
+// ולחלונית שנפתחת בלחיצה — בטלפון אין ריחוף, והחלונית היא המקום היחיד שבו
+// רואים את התאריך. ‏promo מועבר רק כשההטבה פעילה, ואז נוסף פס ההתקדמות.
+function labelPromoGift(strip, promo, agent){
+  const title = document.getElementById('promoStripTitle').textContent;
+  const sub = document.getElementById('promoStripSub').textContent.replace(/\s*(לבחירת המסלול|לפירוט המסלולים)?\s*←$/, '').replace(/\.$/, '');
+  const text = title + ' - ' + sub;
   strip.title = text;
   strip.setAttribute('aria-label', text);
+
+  document.getElementById('promoPopTitle').textContent = title;
+  let popSub = sub + '.';
+  if (promo && promo.active && promo.endsAt){
+    // הכותרת כבר אומרת אחד מהשניים (התאריך, או בחודש האחרון מספר הימים),
+    // והשורה כאן משלימה את השני
+    popSub = (promo.daysLeft <= 30
+      ? 'תאריך הסיום: ' + Tiers.formatDate(promo.endsAt)
+      : (promo.daysLeft === 1 ? 'נשאר יום אחד' : 'נשארו ' + promo.daysLeft + ' ימים')) + '. ' + popSub;
+  }
+  document.getElementById('promoPopSub').textContent = popSub;
+  document.getElementById('promoPopLink').href = strip.href;
+
+  // פס ההתקדמות: כמה מהתקופה עוד נשאר. בלי תאריך התחלה אין ממה לחשב.
+  const bar = document.getElementById('promoPopBar');
+  const start = agent && agent.promo_started_at ? new Date(agent.promo_started_at).getTime() : NaN;
+  if (promo && promo.active && promo.endsAt && !isNaN(start)){
+    const total = promo.endsAt.getTime() - start;
+    const left = Math.max(0, Math.min(1, (promo.endsAt.getTime() - Date.now()) / total));
+    document.getElementById('promoPopFill').style.width = Math.round(left * 100) + '%';
+    bar.hidden = false;
+  } else {
+    bar.hidden = true;
+  }
 }
+
+// לחיצה על המתנה פותחת את החלונית במקום לנווט. הקישור עצמו נשאר href אמיתי
+// (לחיצה אמצעית או Ctrl עדיין פותחות את דף המסלולים).
+(function wirePromoGift(){
+  const gift = document.getElementById('promoStrip');
+  const pop  = document.getElementById('promoPop');
+  if (!gift || !pop) return;
+  const setOpen = (open)=>{
+    pop.hidden = !open;
+    gift.setAttribute('aria-expanded', open ? 'true' : 'false');
+  };
+  gift.addEventListener('click', (e)=>{
+    if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return;
+    e.preventDefault();
+    setOpen(pop.hidden);
+  });
+  document.addEventListener('click', (e)=>{
+    if (!pop.hidden && !pop.contains(e.target) && !gift.contains(e.target)) setOpen(false);
+  });
+  document.addEventListener('keydown', (e)=>{
+    if (e.key === 'Escape' && !pop.hidden){ setOpen(false); gift.focus(); }
+  });
+  pop.querySelector('.pp-cta').addEventListener('click', ()=> setOpen(false));
+})();
 
 /* ==========================================================================
    מדריך ההתחלה
