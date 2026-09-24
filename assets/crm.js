@@ -124,12 +124,15 @@ function accWriteState(state){
   try{ localStorage.setItem(ACC_STATE_KEY, JSON.stringify(state)); }catch(e){}
 }
 
-function accSetCount(accId, value){
+/* ‏n הוא המספר עצמו כשהטקסט אינו מכיל אותו: "התראה אחת חדשה" אינה מכילה
+   ספרה ונקראה כאפס, ו-"3 מתוך 10" נקרא כ-310. */
+function accSetCount(accId, value, n){
   const el = document.getElementById(accId + 'Count');
   if (el) el.textContent = (value === 0 || value == null || value === '') ? '' : String(value);
   // המונה נשמר גם כמספר, כי חלק מהקטגוריות מציגות אותו כטקסט ("₪1,240"
   // בארנק). הניווט ובלוק "דורש טיפול מיידי" צריכים לדעת רק כמה יש כאן.
-  accCounts[accId] = (typeof value === 'number') ? value
+  accCounts[accId] = (typeof n === 'number') ? n
+    : (typeof value === 'number') ? value
     : Number(String(value == null ? '' : value).replace(/[^\d.-]/g, ''));
   refreshNavCounts();
 }
@@ -521,6 +524,133 @@ const SCREEN_CARDS = {
   ethicsGate:   'ethicsGateScreen',
   tierGate:     'tierGateScreen',
 };
+
+/* ==========================================================================
+   שמי לילה בדשבורד — 20:00 עד 06:00 לפי השעון של המכשיר
+   --------------------------------------------------------------------------
+   ‏body.crm-night מדליק את .crm-sky (העיצוב והנימוק ב-crm.html, תחת "שמי
+   לילה"). השכבה נבנית פעם אחת, והבדיקה חוזרת כל דקה — מי שהשאיר/ה את
+   ה-CRM פתוח עובר/ת ללילה ב-20:00 בלי לרענן.
+
+   ‏?sky=night / ?sky=day בכתובת כופים מצב, כדי לראות את הלילה גם בצהריים.
+   ========================================================================== */
+const NIGHT_FROM = 20, NIGHT_UNTIL = 6;
+
+function isNightNow(){
+  const force = new URLSearchParams(location.search).get('sky');
+  if (force === 'night') return true;
+  if (force === 'day') return false;
+  const h = new Date().getHours();
+  return h >= NIGHT_FROM || h < NIGHT_UNTIL;
+}
+
+/* פיזור כוכבים כ-box-shadow של נקודה אחת. עם זרע קבוע, כדי שהשמיים לא
+   יסתדרו מחדש בכל טעינה — אותו רקיע בכל ערב. */
+function skyStarShadows(count, seed, maxAlpha){
+  let x = seed;
+  const rnd = () => (x = (x * 16807) % 2147483647) / 2147483647;
+  const out = [];
+  for (let i = 0; i < count; i++){
+    const a = (0.45 + rnd() * (maxAlpha - 0.45)).toFixed(2);
+    // גוון קר או חם מעט, כמו כוכבים אמיתיים
+    const tint = rnd() < 0.2 ? '255,236,200' : rnd() < 0.5 ? '205,220,255' : '255,255,255';
+    out.push(Math.round(rnd() * 120) + 'vw ' + Math.round(rnd() * 120) + 'vh 0 rgba(' + tint + ',' + a + ')');
+  }
+  return out.join(',');
+}
+
+function buildNightSky(){
+  if (document.querySelector('.crm-sky')) return;
+  const sky = document.createElement('div');
+  sky.className = 'crm-sky';
+  sky.setAttribute('aria-hidden', 'true');
+  sky.innerHTML =
+      '<div class="sky-field">'
+    +   '<i class="sky-stars sky-s1"></i><i class="sky-stars sky-s2"></i><i class="sky-stars sky-s3"></i>'
+    + '</div>'
+    + '<i class="sky-moon"></i>'
+    + '<i class="sky-shoot"></i><i class="sky-shoot two"></i>';
+  sky.querySelector('.sky-s1').style.boxShadow = skyStarShadows(230, 7,  0.8);
+  sky.querySelector('.sky-s2').style.boxShadow = skyStarShadows(80,  29, 0.95);
+  sky.querySelector('.sky-s3').style.boxShadow = skyStarShadows(24,  113, 1);
+  document.body.prepend(sky);
+}
+
+/* ---------- פרלקסה ----------
+   כל שכבה זזה במרחק משלה: הכוכבים הקטנים (הרחוקים) כמעט לא, הגדולים יותר,
+   והירח הכי הרבה — וזה מה שנותן לשמיים עומק. שני מקורות תנועה:
+
+   * גלילה — ההיסט יחסי ל*התקדמות* בעמוד (0 עד 1) ולא לפיקסלים, ולכן הוא
+     חסום: בדשבורד של אלפי פיקסלים הכוכבים לא "נגמרים" בתחתית.
+   * עכבר — בדסקטופ בלבד (‏pointer:fine), היסט של כמה פיקסלים לכיוון ההפוך
+     לסמן, מוחלק לאט כדי שירגיש כמו ציפה ולא כמו מעקב.
+
+   ‏transform נכתב על השכבות עצמן: האנימציה שלהן היא opacity בלבד, ו-
+   ‏.sky-field (שנושא את הסחיפה ב-transform) אינו נגוע. נכבה לגמרי ב-
+   reduced-motion וב-a11y-nomotion. */
+const SKY_DEPTH = [
+  // בורר, טווח גלילה (vh), טווח עכבר (px)
+  ['.sky-s1',   4,  5],
+  ['.sky-s2',   9, 11],
+  ['.sky-s3',  16, 20],
+  ['.sky-moon', 26, 30],
+];
+let skyRaf = 0, skyMx = 0, skyMy = 0, skyTx = 0, skyTy = 0;
+
+function skyMotionOff(){
+  return navReduceMotion() || document.documentElement.classList.contains('a11y-nomotion');
+}
+
+function skyFrame(){
+  skyRaf = 0;
+  const sky = document.querySelector('.crm-sky');
+  if (!sky || !document.body.classList.contains('crm-night')) return;
+  const max = document.documentElement.scrollHeight - innerHeight;
+  const progress = max > 0 ? Math.min(1, scrollY / max) : 0;
+  // החלקה: הסמן "נגרר" אחרי העכבר ב-8% בכל פריים
+  skyTx += (skyMx - skyTx) * 0.08;
+  skyTy += (skyMy - skyTy) * 0.08;
+  SKY_DEPTH.forEach(([sel, vh, px])=>{
+    const el = sky.querySelector(sel);
+    if (!el) return;
+    const y = -progress * vh * innerHeight / 100 + skyTy * px;
+    el.style.transform = 'translate3d(' + (skyTx * px).toFixed(1) + 'px,' + y.toFixed(1) + 'px,0)';
+  });
+  if (Math.abs(skyMx - skyTx) > 0.002 || Math.abs(skyMy - skyTy) > 0.002) skyQueue();
+}
+
+function skyQueue(){
+  if (skyRaf || skyMotionOff()) return;
+  skyRaf = requestAnimationFrame(skyFrame);
+}
+
+window.addEventListener('scroll', skyQueue, { passive:true });
+window.addEventListener('resize', skyQueue, { passive:true });
+if (window.matchMedia('(pointer:fine)').matches){
+  window.addEventListener('pointermove', (e)=>{
+    if (!document.body.classList.contains('crm-night')) return;
+    // ‏-0.5..0.5 מהמרכז, בכיוון ההפוך לסמן
+    skyMx = -(e.clientX / innerWidth - 0.5);
+    skyMy = -(e.clientY / innerHeight - 0.5);
+    skyQueue();
+  }, { passive:true });
+}
+
+function syncNightSky(){
+  const night = isNightNow();
+  if (night) buildNightSky();
+  document.body.classList.toggle('crm-night', night);
+  if (night) skyQueue();
+  // שורת הסטטוס של הטלפון והאפליקציה המותקנת עוברות לנייבי כהה יחד עם הרקע
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta){
+    if (!meta.dataset.day) meta.dataset.day = meta.getAttribute('content') || '';
+    meta.setAttribute('content', night ? '#0b1633' : meta.dataset.day);
+  }
+}
+
+syncNightSky();
+setInterval(syncNightSky, 60 * 1000);
 
 function showScreen(name){
   const onDashboard = name === 'dashboard';
@@ -1481,14 +1611,74 @@ function handleGotoParam(){
 }
 
 /* הברכה נושאת את השם ואת שעת היום — היא הדבר הראשון שנקרא בעמוד, ולכן היא
-   גם המקום הנכון לתת הקשר במקום עוד כותרת גנרית */
+   גם המקום הנכון לתת הקשר במקום עוד כותרת גנרית.
+
+   ברוב הכניסות היא משפט מוטיבציה עם קריצה, לפי שעת היום, ובכניסה אחת
+   מתוך ארבע — הברכה הקלאסית. משפט שיוצא בכל פעם הופך לטפט אחרי שבוע, ולכן
+   יש מאגר, והמשפט האחרון שהוצג נשמר כדי לא לחזור עליו פעמיים ברצף.
+
+   הנוסח ניטרלי מגדרית בכוונה ("שלך", "אותך", פנייה ברבים): אין לנו שדה
+   מגדר, ו"מוכן לטרוף?" לסוכנת הוא בדיוק ההפך מהחיוך שהוא נועד לייצר.
+   ‏{name} הוא השם הפרטי; בלעדיו הפנייה נושרת (ראו greetingText). */
+const GREETINGS = {
+  morning: [
+    'בוקר אור, {name}! יום של אריות היום - ההזדמנויות כבר ערות',
+    'בוקר טוב, {name}. הקפה חם, והלידים חמים עוד יותר',
+    '{name}, השמש זרחה, ועסקאות עדיין לא סוגרות את עצמן. בינתיים.',
+    'בוקר טוב, {name}! יום מושלם להחתים בלעדיות',
+    'בוקר אור, {name}. מישהו שם בחוץ מחפש בדיוק את הנכס שלך',
+    'בוקר טוב, {name}! המפתחות לא יעברו ידיים לבד',
+  ],
+  noon: [
+    'צהריים טובים, {name}! אחרי הצהריים סוגרים עסקאות, לא מנמנמים',
+    '{name}, חצי יום מאחורינו - והחצי השני שמור לעסקה הגדולה',
+    'צהריים טובים, {name}. השקשוקה תחכה, הלקוח החם - פחות',
+    '{name}, עוד טלפון אחד - ואולי זה ה-טלפון',
+    'צהריים טובים, {name}! הנכסים שלך נראים היום במיטבם',
+  ],
+  evening: [
+    'ערב טוב, {name}! עוד לא מאוחר לסגור את היום בחתימה',
+    '{name}, ערב מושלם לשלוח ללקוח את ההתאמה שהוא חיכה לה',
+    'ערב טוב, {name}. עוד שיחה אחת לפני הבית - ככה נסגרות עסקאות',
+  ],
+  night: [
+    'לילה טוב, {name}. גם הכוכבים במשמרת לילה - אבל לא לשכוח לישון',
+    '{name}, שעת לילה ועדיין כאן? ככה נראית מחויבות אמיתית',
+    'לילה טוב, {name}! מחר הלידים יחכו - הלילה טוענים מצברים',
+  ],
+  any: [
+    '{name}, היום זה יום מושלם לעשות עסקאות. גם מחר, אבל היום קודם',
+    '{name}, בעלי הדירות עוד לא יודעים שהם צריכים אותך. עוד.',
+    '{name}, כל "לא" מקרב אותך ל"כן" הבא',
+    '{name}, מה מוכרים היום? חוץ מחלומות, כמובן',
+    '{name}, העמלה הבאה כבר בדרך. נשאר רק לענות לטלפון',
+  ],
+};
+const GREETING_LAST_KEY = 'crmGreetingLast';
+
+function greetingText(template, first){
+  if (first) return template.replace('{name}', first);
+  // בלי שם: "{name}, " בתחילת משפט ו-", {name}" באמצעו נושרים יחד עם הפסיק
+  return template.replace(/^\{name\},\s*/, '').replace(/,\s*\{name\}/, '');
+}
+
 function renderGreeting(agent){
   const el = document.getElementById('dashGreet');
   if (!el) return;
   const first = String(agent.display_name || '').trim().split(/\s+/)[0] || '';
   const hour = new Date().getHours();
   const part = hour < 12 ? 'בוקר טוב' : hour < 17 ? 'צהריים טובים' : hour < 21 ? 'ערב טוב' : 'לילה טוב';
-  el.textContent = part + (first ? ', ' + first : '') + ' - הנה תמונת המצב שלך להיום';
+  const classic = part + (first ? ', ' + first : '') + ' - הנה תמונת המצב שלך להיום';
+  if (Math.random() < 0.25){ el.textContent = classic; return; }
+
+  const slot = (hour >= 21 || hour < 5) ? 'night' : hour < 12 ? 'morning' : hour < 17 ? 'noon' : 'evening';
+  const pool = GREETINGS[slot].concat(GREETINGS.any);
+  let last = '';
+  try { last = localStorage.getItem(GREETING_LAST_KEY) || ''; } catch {}
+  const options = pool.filter(t => t !== last);
+  const pick = options[Math.floor(Math.random() * options.length)];
+  try { localStorage.setItem(GREETING_LAST_KEY, pick); } catch {}
+  el.textContent = greetingText(pick, first);
 }
 
 /* ---------- Test menu (מצב בדיקה) ----------
@@ -16565,7 +16755,7 @@ function renderSharePartners(){
   const listEl = document.getElementById('sharePartnerList');
   const q = document.getElementById('partnerSearch').value.trim().toLowerCase();
   const total = sharePartnerAgencies.length;
-  accSetCount('accSharePartners', total ? sharePartnerCount() + ' מתוך ' + total : '');
+  accSetCount('accSharePartners', total ? sharePartnerCount() + ' מתוך ' + total : '', total ? sharePartnerCount() : 0);
 
   if (total === 0){
     listEl.innerHTML = '<div class="empty-state">אין עדיין משרד תיווך נוסף במערכת לשיתוף פעולה.</div>';
@@ -16588,7 +16778,7 @@ function renderSharePartners(){
     // בכלל, וקריאה מה-DOM בזמן השמירה הייתה מוחקת את הבחירה שלהן
     cb.addEventListener('change', ()=>{
       if (cb.checked) shareExcludedIds.delete(a.id); else shareExcludedIds.add(a.id);
-      accSetCount('accSharePartners', sharePartnerCount() + ' מתוך ' + total);
+      accSetCount('accSharePartners', sharePartnerCount() + ' מתוך ' + total, sharePartnerCount());
     });
     label.appendChild(cb);
     label.appendChild(document.createTextNode(' ' + a.name));
@@ -17777,7 +17967,7 @@ function renderClientAlerts(){
   const listEl = document.getElementById('alertsList');
   const unseen = alertRows.filter(a => a.status === 'new').length;
 
-  accSetCount('accAlerts', unseen ? plural(unseen, 'התראה אחת חדשה', 'חדשות') : '');
+  accSetCount('accAlerts', unseen ? plural(unseen, 'התראה אחת חדשה', 'חדשות') : '', unseen);
   document.getElementById('alertsMarkAll').hidden = unseen === 0;
   document.getElementById('alertsFilterCount').textContent = alertRows.length
     ? plural(alertRows.length, 'התראה אחת', 'התראות')
@@ -19138,6 +19328,11 @@ const DASH_ICONS = {
   /* טלפון עם חץ פנימה — "התקנת האפליקציה" בתפריט. חץ הורדה רגיל היה
      נקרא כהורדת קובץ, וכאן לא יורד שום קובץ: האתר נוסף למסך הבית. */
   install:'<rect x="6" y="2" width="12" height="20" rx="2.5"/><path d="M12 7v7"/><path d="m9 11 3 3 3-3"/>',
+  /* שלושת האייקונים של סרגל הצד המחודש: יומן המשימות, חנות הלידים (דוכן
+     עם סוכך — "layers" נשאר למדפים שבתוכה), ויציאה בתחתית כרטיס הארנק */
+  calendar:'<rect x="3" y="4.5" width="18" height="16.5" rx="2"/><path d="M16 2.5v4"/><path d="M8 2.5v4"/><path d="M3 10h18"/><path d="m9 15 2 2 4-4"/>',
+  store:'<path d="M3 9 4.5 4h15L21 9"/><path d="M3 9a3 3 0 0 0 6 0 3 3 0 0 0 6 0 3 3 0 0 0 6 0"/><path d="M5 12v8h14v-8"/><path d="M10 20v-5h4v5"/>',
+  logout:'<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
 };
 
 function dashIcon(name, cls){
@@ -19208,57 +19403,67 @@ document.addEventListener('click', (e)=>{
    ========================================================================== */
 const NAV_HOME = '__home';
 const NAV_ADMIN_HOME = '__adminHome';
+/* "יומן ומשימות" אינו קטגוריה בעמוד אלא בלוק "דורש טיפול מיידי" שבראש דף
+   הבית (#todoSection), ולכן הוא יעד מדומה כמו NAV_HOME — ראו navGo. */
+const NAV_TASKS = '__tasks';
 
-/* שלוש קבוצות ולא חמש. הרשימה לא התקצרה — היא הפסיקה להיות טור אחד ארוך:
-   בתפריט הבורגר כל קבוצה מתקפלת (ראו buildMenuPanel), ורק זו שנמצאים בה
-   פתוחה. חמש כותרות מעל עשרים ושניים פריטים היו חמישה גבולות שאף אחד לא
-   נעצר בהם; שלוש קבוצות הן חלוקה שאפשר לזכור: מה שעושים, במה משתמשים,
-   ומה שמגדירים פעם בחודש. */
+/* שלוש קבוצות בסרגל, בסדר חשיבות: ליבת העבודה (מה שעושים כל יום), הזירה
+   (מה שמגיע מבחוץ — לידים לקנייה, שותפים, מידע על האזור), והניהול (מה
+   שבודקים פעם בשבוע). ההגדרות האישיות אינן בסרגל: הן קבוצה רביעית עם
+   placement:'profile', שמוצגת רק בתפריט הפרופיל שמתחת לאווטאר (ראו
+   buildProfilePanel). ארבע-עשרה שורות של "פרטי הסוכן/ת" ו"סגירת החשבון"
+   מתחת ל"הנכסים שלי" היו מה שדחף את הסרגל לגלילה, והן לא עבודה יומית.
+
+   ‏also: קטגוריות שנפתחות יחד עם הראשית תחת שורה אחת בתפריט. "שותף איתי"
+   ו"משרדי שת״פ" הם שני צדדים של אותו שיתוף, והמידע התכנוני והעסקאות באזור
+   עונים על אותה שאלה — מה קורה סביב הנכס. הקטגוריות עצמן נשארו נפרדות
+   בעמוד (ובאותה לשונית), רק הניווט אליהן אוחד. */
 const NAV_GROUPS = [
   /* סדר הפריטים כאן הוא סדר יום העבודה ולא סדר הקוד: קודם הנכסים, אחריהם
-     הלקוחות והלידים שהם מייצרים, ואז ההתאמות, ההסכמים והמידע התכנוני. */
-  { key:'work', label:'פעילות עסקית', icon:'briefcase', items:[
+     הלידים והלקוחות, ואז ההתאמות, ההסכמים והמשימות של היום. */
+  { key:'core', label:'ליבת העבודה', icon:'briefcase', items:[
     /* דף הבית אינו "עוד סעיף ברשימה" אלא הדרך חזרה, ולכן הוא מצויר כפתור
        הפוך (ראו .menu-item.is-home) ונושא את שם הלשונית בסרגל התחתון. */
-    { acc:NAV_HOME,              label:'ראשי',              icon:'home',     tab:'home' },
+    { acc:NAV_HOME,              label:'דשבורד ראשי',       icon:'home',     tab:'home' },
     { acc:'accProperties',       label:'הנכסים שלי',        icon:'building', tab:'props' },
-    { acc:'accClients',          label:'קובץ הלקוחות',      icon:'contact',  tab:'clients' },
     /* לשונית הלידים היא שתי קטגוריות בלבד: מה ששלי, ומה שאפשר לקנות.
        מדפי המשכנתאות ומחפשי הדירה אינם קטגוריות נפרדות עוד — הם מגירות
        בתוך חנות הלידים (ראו #shelfTabs). */
     { acc:'accLeads',            label:'הלידים שלי',        icon:'inbox',    tab:'leads' },
-    { acc:'accAlerts',           label:'התראות התאמה',      icon:'target',   tab:'clients' },
+    { acc:'accClients',          label:'קובץ לקוחות',       icon:'users',    tab:'clients' },
+    { acc:'accAlerts',           label:'התאמות חכמות',      icon:'target',   tab:'clients' },
     /* ‏focus על שדה החיפוש שם את הסמן במקום שאליו באו — לא בראש רשימה
        שצריך לגלול */
     { acc:'accAgreements',       label:'הסכמים והחתמות',    icon:'sign',     tab:'docs', focus:'agrSearch' },
-    { acc:'accPlanning',         label:'מידע תכנוני',       icon:'map',      tab:'more' },
-    { acc:'accDealsLookup',      label:'עסקאות באזור',      icon:'chart',    tab:'more' },
-    { acc:'accLeadShelf',        label:'חנות הלידים',       icon:'layers',   tab:'leads' },
+    { acc:NAV_TASKS,             label:'יומן ומשימות',      icon:'calendar', tab:'home' },
   ]},
-  { key:'tools', label:'כלים וצוות', icon:'wrench', items:[
+  { key:'market', label:'מודיעין וזירת שיתופי פעולה', short:'מודיעין ושיתופים', icon:'layers', items:[
+    { acc:'accLeadShelf',        label:'חנות הלידים',       icon:'store',    tab:'leads' },
+    { acc:'accSharedWithMe',     label:'שיתופי פעולה ומשרדים', icon:'handshake', tab:'props',
+      also:['accSharePartners'] },
+    { acc:'accPlanning',         label:'מידע אזורי ותכנוני', icon:'map',     tab:'more',
+      also:['accDealsLookup'] },
+  ]},
+  { key:'manage', label:'ניהול וביצועים', icon:'chart', items:[
     { acc:'accReports',  label:'דוחות וביצועים', icon:'chart', tab:'more' },
     { acc:'accReviews',  label:'ביקורות לאישור', icon:'star',  tab:'more' },
+    /* ‏accTeam יושב ב-#managerSection, ולכן navAccVisible מציג אותו רק
+       למנהל/ת משרד או זכיין/ית — בלי לשכפל כאן את בדיקת התפקיד */
     { acc:'accTeam',     label:'צוות המשרד',     icon:'users', tab:'more' },
-    /* נכסים ששותפו איתי הם עבודה של שיתוף פעולה ולא רשימת הנכסים שלי,
-       ולכן הם כאן ליד צוות המשרד ולא בין תשעת הפריטים של יום העבודה. */
-    { acc:'accSharedWithMe', label:'שותף איתי',      icon:'share', tab:'props' },
   ]},
-  /* משרדי שת״פ והנכסים מוואטסאפ הם הגדרה שמבצעים פעם אחת ולא עבודה יומית,
-     ולכן הם יושבים כאן ולא בין הנכסים. ‏tab:'more' ולא 'props' כדי שהקטגוריה
-     בעמוד תשב באותה לשונית שבה התפריט מבטיח אותה.
-
-     שלושת הפריטים שלפני סגירת החשבון הם שרשרת אחת: עיצוב דף הסוכן/ת, עיצוב
-     דף המשרד ואז ניהול ההתראות — מה שמגדירים פעם אחת ולא חוזרים אליו. */
-  { key:'account', label:'הגדרות חשבון', icon:'cog', items:[
-    { acc:'accWallet',        label:'יתרת ארנק',         icon:'wallet',   tab:'more' },
-    { acc:'accEthics',        label:'הקוד האתי',         icon:'shield',   tab:'more' },
-    { acc:'accPrefs',         label:'העדפות לידים',      icon:'sliders',  tab:'more' },
-    { acc:'accReminders',     label:'תזכורות וטיפים',    icon:'clock',    tab:'more' },
-    { acc:'accSharePartners', label:'משרדי שיתוף פעולה', icon:'handshake',tab:'more' },
-    { acc:'accWhatsapp',      label:'העוזר בוואטסאפ',    icon:'chat',     tab:'more' },
+  /* ההגדרות — מה שמגדירים פעם אחת ולא חוזרים אליו. ‏placement:'profile'
+     מוציא את הקבוצה מסרגל הצד ומתפריט הבורגר ומכניס אותה לתפריט הפרופיל.
+     היא נשארת כאן ולא ברשימה נפרדת כדי שהלשוניות, navAccVisible ובדיקת
+     ‏check_crm_nav ימשיכו לראות מקור אמת אחד. */
+  { key:'account', label:'הגדרות חשבון', icon:'cog', placement:'profile', items:[
     { acc:'accProfile',       label:'פרטי הסוכן/ת',      icon:'user',     tab:'more' },
-    { acc:'accBranding',      label:'עיצוב דף המשרד',    icon:'brush',    tab:'more' },
+    { acc:'accWallet',        label:'הארנק והטעינות',    icon:'wallet',   tab:'more' },
+    { acc:'accPrefs',         label:'העדפות לידים',      icon:'sliders',  tab:'more' },
     { acc:'accNotifPrefs',    label:'ניהול התראות',      icon:'bell',     tab:'more' },
+    { acc:'accReminders',     label:'תזכורות וטיפים',    icon:'clock',    tab:'more' },
+    { acc:'accWhatsapp',      label:'העוזר בוואטסאפ',    icon:'chat',     tab:'more' },
+    { acc:'accBranding',      label:'עיצוב דף המשרד',    icon:'brush',    tab:'more' },
+    { acc:'accEthics',        label:'הקוד האתי',         icon:'shield',   tab:'more' },
     /* אחרון בקבוצה, ובכוונה: הדרך החוצה קיימת ואינה מוסתרת, אבל היא גם לא
        שכנה של פעולה שעושים כל יום. */
     { acc:'accCloseAccount',  label:'סגירת החשבון',      icon:'alert',    tab:'more' },
@@ -19303,9 +19508,13 @@ const NAV_TAB_BADGE = {
   more:    ['accReviews'],
 };
 
-/* accId → הלשונית שהוא שייך אליה */
+/* accId → הלשונית שהוא שייך אליה. קטגוריה שב-also יושבת באותה לשונית
+   כמו הראשית שלה, אחרת במובייל היא הייתה נפתחת בלשונית שאינה על המסך. */
 const NAV_TAB_OF = new Map();
-NAV_GROUPS.forEach(g => g.items.forEach(it => NAV_TAB_OF.set(it.acc, it.tab)));
+NAV_GROUPS.forEach(g => g.items.forEach(it => {
+  NAV_TAB_OF.set(it.acc, it.tab);
+  (it.also || []).forEach(acc => NAV_TAB_OF.set(acc, it.tab));
+}));
 
 /* המונים של הקטגוריות. accSetCount כותב לכאן, וכל מי שמציג מספר (סרגל הצד,
    הסרגל התחתון, בלוק המשימות, כרטיס הלידים החמים) קורא מכאן — ולכן אין מצב
@@ -19334,16 +19543,34 @@ function navAccVisible(accId){
 }
 
 function navItemVisible(item){
-  if (item.acc === NAV_HOME) return dashView === 'agent';
+  if (item.acc === NAV_HOME || item.acc === NAV_TASKS) return dashView === 'agent';
   if (item.acc === NAV_ADMIN_HOME) return dashView === 'admin';
-  return navAccVisible(item.acc);
+  // שורה מאוחדת גלויה כל עוד אחת מהקטגוריות שלה גלויה
+  return [item.acc, ...(item.also || [])].some(navAccVisible);
+}
+
+/* הקטגוריה שהשורה פותחת בפועל: הראשית, ואם היא מוסתרת — הראשונה ב-also
+   שגלויה. */
+function navItemTarget(item){
+  return [item.acc, ...(item.also || [])].find(navAccVisible) || item.acc;
+}
+
+/* המונה של שורה בניווט. "יומן ומשימות" סופר את הכרטיסים שבבלוק "דורש טיפול
+   מיידי" — אותו חישוב של renderTodoList, ולכן אותו מספר. שורה מאוחדת
+   מציגה רק את מונה הראשית: המונה של משרדי השת״פ הוא "3 מתוך 10" ואינו
+   סכום של שום דבר. */
+function navItemCount(item){
+  if (item.acc === NAV_TASKS){
+    return TODO_ITEMS.filter(t => navAccVisible(t.acc) && accCountOf(t.acc) > 0).length;
+  }
+  return accCountOf(navItemTarget(item));
 }
 
 function navGroupsForView(){
   const admin = dashView === 'admin';
   return NAV_GROUPS
-    .filter(g => !!g.adminOnly === admin)
-    .map(g => ({ key:g.key, label:g.label, icon:g.icon, items:g.items.filter(navItemVisible) }))
+    .filter(g => !!g.adminOnly === admin && !g.placement)
+    .map(g => ({ key:g.key, label:g.label, short:g.short, icon:g.icon, items:g.items.filter(navItemVisible) }))
     .filter(g => g.items.length);
 }
 
@@ -19351,19 +19578,28 @@ function navReduceMotion(){
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
-/* ---------- סרגל הצד (דסקטופ) ---------- */
+/* ---------- סרגל הצד (דסקטופ) ----------
+   גובה מסך אחד בלי פס גלילה: רשימה בראש (‏.sn-list, גמישה) וכרטיס הארנק
+   נעוץ בתחתית (‏.sn-foot). כך היתרה, הטעינה והיציאה נמצאות תמיד באותה
+   נקודה, בלי לגלול אליהן מתחת לשלוש-עשרה שורות.
+
+   צבע המונה הוא ההבדל בין "יש כאן" ל"מחכה לך": אדום רק ל-NAV_HOT_ACCS
+   (לידים שלא נפתחו, התאמות חדשות, ביקורות), וכל השאר — סך הנכסים, הסכמים,
+   המשימות — בגלולה אפורה ושקטה. */
 function renderSideNav(){
   const nav = document.getElementById('sideNav');
   if (!nav) return;
   nav.innerHTML = '';
+  const list = document.createElement('div');
+  list.className = 'sn-list';
   navGroupsForView().forEach(group=>{
     const head = document.createElement('div');
     head.className = 'sn-group';
-    head.textContent = group.label;
-    nav.appendChild(head);
+    head.innerHTML = dashIcon(group.icon, 'sn-gico') + '<span>' + esc(group.label) + '</span>';
+    list.appendChild(head);
     group.items.forEach(item=>{
-      const count = accCountOf(item.acc);
-      const hot = count > 0 && NAV_HOT_ACCS.has(item.acc);
+      const count = navItemCount(item);
+      const hot = count > 0 && NAV_HOT_ACCS.has(navItemTarget(item));
       const isHome = item.acc === NAV_HOME || item.acc === NAV_ADMIN_HOME;
       const btn = document.createElement('button');
       btn.type = 'button';
@@ -19372,9 +19608,52 @@ function renderSideNav(){
         + '<span class="sn-label">' + esc(item.label) + '</span>'
         + (count ? '<span class="sn-count' + (hot ? ' is-hot' : '') + '">' + esc(String(count)) + '</span>' : '');
       btn.addEventListener('click', ()=> navGo(item));
-      nav.appendChild(btn);
+      list.appendChild(btn);
     });
   });
+  nav.appendChild(list);
+  // הארנק וההגדרות שייכים לסוכן/ת. בתצוגת מנהל/ת הפלטפורמה הסרגל הוא
+  // כלי הפלטפורמה בלבד.
+  if (dashView === 'agent') nav.appendChild(sideNavFoot());
+}
+
+/* כרטיס הארנק בתחתית הסרגל. היתרה נקראת מ-currentAgent, שאליו כותב
+   ‏setAgentBalance — והוא גם קורא ל-accSetCount('accWallet'), כך שהכרטיס
+   נבנה מחדש עם כל שינוי יתרה בלי מאזין משלו. */
+function sideNavFoot(){
+  const foot = document.createElement('div');
+  foot.className = 'sn-foot';
+  const balance = currentAgent ? Number(currentAgent.credit_balance) || 0 : null;
+  foot.innerHTML =
+      '<div class="sn-wallet">'
+    +   '<div class="sn-wallet-top">'
+    +     dashIcon('wallet', 'sn-ico')
+    +     '<span class="sn-wallet-title">יתרת ארנק</span>'
+    +   '</div>'
+    +   '<div class="sn-wallet-row">'
+    +     '<span class="sn-wallet-sum">' + esc(shekel(balance)) + '</span>'
+    +     '<button type="button" class="sn-topup" data-sn="topup">+ טעינה</button>'
+    +   '</div>'
+    + '</div>'
+    + '<div class="sn-links">'
+    +   '<button type="button" class="sn-link" data-sn="settings" aria-controls="profilePanel">'
+    +     dashIcon('cog', 'sn-ico') + '<span>הגדרות חשבון</span></button>'
+    +   '<button type="button" class="sn-link sn-signout" data-sn="signout">'
+    +     dashIcon('logout', 'sn-ico') + '<span>יציאה</span></button>'
+    + '</div>';
+  foot.querySelector('[data-sn="topup"]').addEventListener('click', ()=>
+    gotoSection('accWallet', 'topupAmount'));
+  // ההגדרות הן תפריט הפרופיל שמתחת לאווטאר — מקום אחד לכל ההגדרות.
+  // ‏stopPropagation: המאזין של document סוגר את התפריט בכל לחיצה, והיה
+  // סוגר אותו מיד אחרי שנפתח מכאן.
+  foot.querySelector('[data-sn="settings"]').addEventListener('click', (e)=>{
+    e.stopPropagation();
+    document.getElementById('avatarBtn').click();
+  });
+  // הכפתור המקורי נשאר נקודת היציאה היחידה — כאן רק לוחצים עליו
+  foot.querySelector('[data-sn="signout"]').addEventListener('click', ()=>
+    document.getElementById('logoutBtn').click());
+  return foot;
 }
 
 /* יעד ניווט אחד לכל שלושת הניווטים ולכל הכרטיסים */
@@ -19383,7 +19662,16 @@ function navGo(item){
     setNavTab('home');
     return;
   }
-  gotoSection(item.acc, item.focus);   // הוא זה שמעביר ללשונית הנכונה
+  if (item.acc === NAV_TASKS){
+    setNavTab('home', { silent:true });
+    scrollToTopOf(document.getElementById('todoSection'));
+    return;
+  }
+  const target = navItemTarget(item);
+  gotoSection(target, item.focus);   // הוא זה שמעביר ללשונית הנכונה
+  // השורה המאוחדת פותחת גם את השכנות שלה, בלי לגלול אליהן: הן יושבות
+  // מיד אחרי הראשית בעמוד
+  (item.also || []).filter(acc => acc !== target && navAccVisible(acc)).forEach(openAcc);
 }
 
 /* ---------- הסרגל התחתון (מובייל) ---------- */
@@ -20416,8 +20704,8 @@ function navIsHomeItem(item){
    חזרה להתחלה, ולכן הוא נראה אחרת מכל השאר: כפתור מלא בצבעים הפוכים ועם
    אייקון בית, בלי חץ "המשך לקטגוריה" שאין לו לאן להוביל. */
 function menuItemButton(navItem){
-  const count  = accCountOf(navItem.acc);
-  const hot    = count > 0 && NAV_HOT_ACCS.has(navItem.acc);
+  const count  = navItemCount(navItem);
+  const hot    = count > 0 && NAV_HOT_ACCS.has(navItemTarget(navItem));
   const isHome = navIsHomeItem(navItem);
   const item = document.createElement('button');
   item.type = 'button';
@@ -20449,7 +20737,8 @@ function buildMenuPanel(){
   const groups = navGroupsForView()
     .map(g => ({
       key:   g.key,
-      label: g.label,
+      // בתפריט הצר כותרת ארוכה נחתכה ל"פעילות עסק…" — ‏short היא הגרסה שנכנסת
+      label: g.short || g.label,
       icon:  g.icon,
       items: g.items.filter(it => { if (navIsHomeItem(it)){ homeItems.push(it); return false; } return true; }),
     }))
@@ -20576,16 +20865,13 @@ document.addEventListener('keydown', (e)=>{
    יציאה קבוע בכותרת, ופריטים שהיו קבורים בעומק תפריט הבורגר בין הקטגוריות
    התפעוליות.
 
-   הרשימה מסוננת ב-navAccVisible בדיוק כמו שאר הניווטים, ולכן קטגוריה
-   שאינה קיימת לסוכן/ת הזה/הזו לא תופיע כאן.
+   הרשימה היא הקבוצה placement:'profile' ב-NAV_GROUPS — ההגדרות שיצאו מסרגל
+   הצד ומתפריט הבורגר כדי לפנות אותם לעבודה היומית. היא מסוננת ב-
+   navAccVisible בדיוק כמו שאר הניווטים, ולכן קטגוריה שאינה קיימת לסוכן/ת
+   הזה/הזו (עיצוב דף המשרד למי שאינו מנהל/ת) לא תופיע כאן. "סגירת החשבון"
+   מופרדת בקו ונצבעת אדום, כמו האקורדיון שלה (‏.acc-danger).
    ========================================================================== */
-const PROFILE_MENU = [
-  { acc:'accProfile',    label:'פרטי הסוכן/ת' },
-  { acc:'accPrefs',      label:'העדפות לידים' },
-  { acc:'accReminders',  label:'תזכורות וטיפים' },
-  { acc:'accNotifPrefs', label:'ניהול התראות' },
-  { acc:'accEthics',     label:'הקוד האתי' },
-];
+const PROFILE_MENU = NAV_GROUPS.find(g => g.placement === 'profile').items;
 
 function buildProfilePanel(){
   const panel = document.getElementById('profilePanel');
@@ -20600,12 +20886,19 @@ function buildProfilePanel(){
   panel.appendChild(head);
 
   PROFILE_MENU.filter(item => navAccVisible(item.acc)).forEach(item=>{
+    const danger = item.acc === 'accCloseAccount';
+    if (danger) panel.appendChild(Object.assign(document.createElement('div'), { className:'menu-sep' }));
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'menu-item';
+    btn.className = 'menu-item' + (danger ? ' is-danger' : '');
     const count = accCountOf(item.acc);
-    btn.innerHTML = '<span class="mi-label">' + esc(item.label) + '</span>'
-      + (count ? '<span class="mi-count">' + esc(String(count)) + '</span>' : '')
+    btn.innerHTML = dashIcon(item.icon, 'mi-ico')
+      + '<span class="mi-label">' + esc(item.label) + '</span>'
+      // ‏accWallet נושא את היתרה כטקסט ("₪1,240"), ולכן הוא מוצג כפי שהוא
+      // ולא כמספר שחולץ ממנו
+      + (item.acc === 'accWallet' && currentAgent
+          ? '<span class="mi-count">' + esc(shekel(Number(currentAgent.credit_balance) || 0)) + '</span>'
+          : count ? '<span class="mi-count">' + esc(String(count)) + '</span>' : '')
       + '<svg class="mi-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>';
     btn.addEventListener('click', ()=>{ closeProfilePanel(); gotoSection(item.acc); });
     panel.appendChild(btn);
