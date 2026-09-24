@@ -8929,6 +8929,48 @@ function cleanupReplacedVideo(finalUrl){
 
    הפרטים: docs/street-registry.md
    ========================================================================== */
+/* ==========================================================================
+   מידע תכנוני מ-GovMap - לכל עיר שאינה עפולה
+   --------------------------------------------------------------------------
+   עפולה נשארת על afula-planning-lookup (שכבת העירייה) עד שההשוואה בין
+   שני הספקים תעבור - "התנאי לניתוק עפולה" ב-docs/govmap.md.
+
+   השליפה בדפדפן כי הטוקן נעול לדומיין. **הגייט אינו כאן:**
+   ‏govmap_save_planning במסד בודקת בעלות, מסלול ו-billing_status, והבדיקה
+   כאן רק חוסכת קריאות GovMap למי שהשמירה שלו/ה ממילא תידחה.
+   ========================================================================== */
+async function fetchGovmapPlanning(propertyId, q, statusEl){
+  if (!window.GovmapLookup || !propertyId) return;
+  if (!currentAgent || (currentAgent.tier !== 'mid' && currentAgent.tier !== 'premium')){
+    statusEl.textContent = 'מידע תכנוני לא נקלט - זמין ב-PROFESSIONAL וב-Elite';
+    return;
+  }
+  statusEl.textContent = 'קולט מידע תכנוני מ-GovMap ברקע…';
+  try{
+    const res = await GovmapLookup.lookupProperty(q);
+    if (!res || !res.planning){
+      statusEl.textContent = 'לא נמצא מידע תכנוני לכתובת זו';
+      return;
+    }
+    const record = Object.assign({}, res.planning, { lat: res.lat, lng: res.lng });
+    const { error } = await sb.rpc('govmap_save_planning', { p_property_id: propertyId, p_record: record });
+    if (error){
+      statusEl.textContent = /upgrade_required/.test(error.message || '')
+        ? 'מידע תכנוני לא נקלט - זמין ב-PROFESSIONAL וב-Elite'
+        : 'המידע התכנוני לא נשמר';
+      console.warn('govmap_save_planning:', error);
+      return;
+    }
+    statusEl.textContent = res.pinSource === 'parcel'
+      ? 'מידע תכנוני נשמר ✓ (הכתובת לא נמצאה, המיקום לפי החלקה)'
+      : 'מידע תכנוני עודכן ונשמר לנכס ✓';
+  } catch(err){
+    // תקלת רשת או תשובה לא צפויה מ-GovMap - לא "לא נמצא"
+    console.warn('GovMap planning failed:', err);
+    statusEl.textContent = 'לא הצלחנו לפנות ל-GovMap כרגע. המידע ייקלט בעריכה הבאה של הכתובת';
+  }
+}
+
 /* העיר של כלי המידע התכנוני. ‏afula-planning-lookup עובדת מול שכבת עפולה
    בלבד, וכך גם כותרת האקורדיון. */
 const STREET_PLANNING_CITY = 'עפולה';
@@ -9585,6 +9627,20 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     } catch(err){
       console.warn('גיאוקוד אוטומטי נכשל, הנכס יישמר בלי מיקום על המפה:', err);
     }
+  } else if (!resolvedLat && !resolvedLng && street && houseNumber && city && window.GovmapLookup){
+    /* כל עיר שאינה עפולה: GovMap, מהדפדפן (הטוקן נעול לדומיין). ‏
+       addressLatLng מאמתת רחוב, מספר ויישוב בעצמה - בלי זה "חורש 8" קיבל
+       פין ברחוב כורש (docs/govmap.md). ‏null = לא נמצא, ואז בלי פין, כמו
+       שהיה עד היום לכל עיר שאינה עפולה. */
+    try{
+      const hit = await GovmapLookup.addressLatLng({ street, houseNumber, city });
+      if (hit){
+        resolvedLat = hit.lat;
+        resolvedLng = hit.lng;
+      }
+    } catch(err){
+      console.warn('GovMap: גיאוקוד נכשל, הנכס יישמר בלי מיקום על המפה:', err);
+    }
   }
 
   /* קישורי מדיה: ה-check במסד דורש ‎http(s)‎, ושגיאת constraint חוזרת כטקסט
@@ -9864,7 +9920,9 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   const shouldFetchPlanning = (!editingPropertyId && !restoredProperty && newPropertyId && street && houseNumber) ||
     (addressActuallyChanged && street && houseNumber);
 
-  if (shouldFetchPlanning){
+  if (shouldFetchPlanning && city !== STREET_PLANNING_CITY){
+    await fetchGovmapPlanning(newPropertyId, { street, houseNumber, city }, planningStatus);
+  } else if (shouldFetchPlanning){
     planningStatus.textContent = editingPropertyId ? 'הכתובת השתנתה - מעדכן מידע תכנוני…' : 'קולט מידע תכנוני ברקע…';
     try{
       const { data: { session } } = await sb.auth.getSession();
@@ -22514,14 +22572,24 @@ document.getElementById('accDealsImport')?.addEventListener('toggle', function()
    ומי שיקרא ל-RPC ישירות ייחסם באותה מידה; ההודעה למטה היא תצוגה.
    ========================================================================== */
 
-/* הגאוקוד הוא **עפולה בלבד** כרגע, ובמכוון: `geocode-address` אינה מקבלת
-   עיר, והשכבה שמאחוריה היא של עיריית עפולה. עיר אחרת נופלת לחיפוש לפי שם
-   רחוב - נחות, ומסומן ככזה בתשובה. זה גם התנאי הקשיח היחיד שנשאר כאן,
-   והוא יורד ברגע ש-geocode-address תקבל city. */
+/* עפולה עוברת דרך `geocode-address` (שכבת העירייה); כל עיר אחרת דרך GovMap
+   בדפדפן (assets/govmap.js). כתובת ש-GovMap אינו מכיר נופלת לחיפוש לפי שם
+   רחוב - נחות, ומסומן ככזה בתשובה. */
 const DEALS_GEOCODE_CITY = 'עפולה';
 
 async function dealsLookupCoords(city, street, houseNumber){
-  if (city !== DEALS_GEOCODE_CITY || !street || !houseNumber) return null;
+  if (!street || !houseNumber) return null;
+  if (city !== DEALS_GEOCODE_CITY){
+    // כל עיר אחרת: GovMap מהדפדפן, עם אימות רחוב, מספר ויישוב (docs/govmap.md)
+    if (!window.GovmapLookup || !city) return null;
+    try{
+      const hit = await GovmapLookup.addressLatLng({ street, houseNumber, city });
+      return hit ? { lat: hit.lat, lng: hit.lng } : null;
+    } catch(err){
+      console.warn('deals lookup: GovMap geocode failed', err);
+      return null;
+    }
+  }
   try{
     const { data: { session } } = await sb.auth.getSession();
     const res = await fetch(GEOCODE_FUNCTION_URL, {
