@@ -79,6 +79,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .extend-row select{flex:1;min-width:0;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px 12px;background:#fff}
   .extend-row .btn{width:auto;flex:0 0 auto;padding:10px 18px}
   #extendFeedback{font-size:.78rem;text-align:center;margin-top:8px;min-height:1em}
+  .renew-row{display:flex;gap:8px;align-items:flex-start;font-size:.76rem;color:var(--ink-soft);margin-top:10px;cursor:pointer}
+  .renew-row input{margin-top:3px;flex:0 0 auto}
+  .renew-box{border:1.5px solid var(--line);border-radius:var(--radius-md);padding:12px 14px;margin:0 0 12px;font-size:.8rem}
+  .renew-box[hidden]{display:none}
+  .renew-box p{margin:0 0 8px;font-size:.82rem;color:var(--ink)}
+  .renew-box .btn{width:auto;padding:8px 16px;font-size:.82rem}
+  #renewFeedback{font-size:.76rem;margin-top:6px;min-height:1em}
   .extended-banner{background:var(--green);color:#fff;font-weight:700;font-size:.84rem;text-align:center;padding:10px;border-radius:var(--radius-sm);margin-bottom:12px}
 
   /* ====== תצוגה מקדימה של האריח ======
@@ -169,10 +176,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <a href="#" class="view-link" id="viewPageLink" target="_blank" rel="noopener">צפייה בעמוד שלי ←</a>
     <div class="extended-banner" id="extendedBanner" hidden></div>
 
-    <!-- הארכת הפרסום. אין חידוש אוטומטי (terms.html §15), ולכן זה המקום
-         היחיד שבו כרטיסייה ממשיכה אחרי סוף התקופה - כולל סוף הטבת
-         ההצטרפות. ההארכה מצטברת מסוף התקופה הנוכחית, כך שאין מחיר
-         להאריך מוקדם. -->
+    <!-- החיוב החודשי. מוצג רק כשיש מנוי (billing_subscriptions): פעיל,
+         מבוטל או שנכשל. הכפתור מבטל/מחדש; ביטול אינו מוריד את הכרטיסייה
+         לפני סוף התקופה ששולמה (terms.html §15). -->
+    <div class="renew-box" id="renewBox" hidden>
+      <p id="renewText"></p>
+      <button type="button" class="btn btn-ghost" id="renewBtn"></button>
+      <div id="renewFeedback"></div>
+    </div>
+
+    <!-- הארכת הפרסום. זו הדרך להמשיך אחרי סוף התקופה כשאין חידוש פעיל -
+         כולל סוף הטבת ההצטרפות - ולהפעיל חידוש חודשי (התיבה מסומנת כברירת
+         מחדל). ההארכה מצטברת מסוף התקופה הנוכחית, כך שאין מחיר להאריך
+         מוקדם. -->
     <div class="extend-box" id="extendBox" hidden>
       <p class="extend-title">הארכת הפרסום</p>
       <p class="extend-note" id="extendNote"></p>
@@ -180,6 +196,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <select id="extendMonths" aria-label="תקופת ההארכה"></select>
         <button type="button" class="btn" id="extendBtn">להארכה</button>
       </div>
+      <label class="renew-row">
+        <input type="checkbox" id="extendAutoRenew" checked>
+        <span>ואחר כך חידוש אוטומטי כל חודש מאותו כרטיס. אפשר לבטל בכל עת כאן.</span>
+      </label>
       <div id="extendFeedback"></div>
     </div>
 
@@ -508,6 +528,7 @@ function fillForm(card){
   link.href = '/professional?slug=' + encodeURIComponent(key);
   link.hidden = !live;
   renderExtend(card, live);
+  renderRenewal();
 
   renderMedia();
 }
@@ -516,7 +537,57 @@ function fillForm(card){
    המחיר מגיע מהשרת (pricing_config) רק לתצוגה; הסכום שנגבה נקבע שוב במסד
    כשההזמנה נפתחת. */
 let pricing = null;
+let renewal = null;
 let extendMonths = [1, 3, 6, 12];
+
+/* ---------- החיוב החודשי ---------- */
+function renderRenewal(){
+  const box = el('renewBox');
+  if (!renewal){ box.hidden = true; return; }
+  const btn = el('renewBtn');
+  const d = s => s ? new Date(s.length === 10 ? s + 'T00:00:00' : s).toLocaleDateString('he-IL') : '';
+  let text, label = '', action = '';
+  if (renewal.status === 'active' && renewal.failed_attempts > 0){
+    text = 'החיוב החודשי נכשל. ננסה שוב ב-' + d(renewal.next_retry_at) + '. אם הכרטיס פג, אפשר להאריך למטה עם כרטיס אחר.';
+    label = 'ביטול החידוש'; action = 'renew_off';
+  } else if (renewal.status === 'active'){
+    text = 'חידוש אוטומטי פעיל: החודש הבא ייגבה ב-' + d(renewal.next_charge_on) + '.';
+    label = 'ביטול החידוש'; action = 'renew_off';
+  } else if (renewal.status === 'cancelled'){
+    text = 'החידוש האוטומטי בוטל. הפרסום יימשך עד סוף התקופה ששולמה.';
+    if (renewal.has_card){ label = 'הפעלת החידוש מחדש'; action = 'renew_on'; }
+  } else {
+    text = 'החידוש האוטומטי הופסק אחרי שלושה ניסיונות חיוב שנכשלו. כדי להמשיך, אפשר להאריך למטה.';
+  }
+  el('renewText').textContent = text;
+  btn.hidden = !action;
+  btn.textContent = label;
+  btn.dataset.action = action;
+  box.hidden = false;
+}
+
+el('renewBtn').addEventListener('click', async ()=>{
+  const btn = el('renewBtn');
+  const fb = el('renewFeedback');
+  const action = btn.dataset.action;
+  if (!action) return;
+  if (action === 'renew_off' &&
+      !confirm('לבטל את החידוש האוטומטי? הפרסום יימשך עד סוף התקופה ששולמה, ולא ייגבה חודש נוסף.')) return;
+  btn.disabled = true; fb.textContent = '';
+  const { ok, data } = await callManage({ action }).catch(()=>({ ok:false, data:{} }));
+  btn.disabled = false;
+  if (!ok){
+    fb.style.color = 'var(--red)';
+    fb.textContent = data.error === 'needs_new_payment'
+      ? 'כדי לחדש צריך תשלום חדש - אפשר להאריך למטה.'
+      : 'הפעולה נכשלה - נסו שוב.';
+    return;
+  }
+  renewal = data.renewal || null;
+  renderRenewal();
+  fb.style.color = 'var(--green)';
+  fb.textContent = action === 'renew_off' ? 'החידוש בוטל.' : 'החידוש הופעל מחדש.';
+});
 const SIGNUP_FUNCTION_URL = SUPABASE_URL + '/functions/v1/professional-signup';
 
 function renderExtend(card, live){
@@ -545,9 +616,11 @@ function renderExtend(card, live){
   } else {
     note = 'ההארכה נוספת לסוף התקופה הנוכחית.';
   }
-  if (monthly) note += ' ₪' + monthly.toLocaleString('he-IL') + ' לחודש בתוספת מע״מ, ללא חידוש אוטומטי.';
+  if (monthly) note += ' ₪' + monthly.toLocaleString('he-IL') + ' לחודש בתוספת מע״מ.';
   el('extendNote').textContent = note;
-  if (!live || (daysLeft !== null && daysLeft <= 30)) box.setAttribute('data-urgent', '');
+  // חידוש פעיל ותקין = אין מה להדגיש; הכרטיסייה תמשיך לבד.
+  const renewing = renewal && renewal.status === 'active' && !renewal.failed_attempts;
+  if (!renewing && (!live || (daysLeft !== null && daysLeft <= 30))) box.setAttribute('data-urgent', '');
   else box.removeAttribute('data-urgent');
   box.hidden = false;
 }
@@ -556,7 +629,11 @@ el('extendBtn').addEventListener('click', async ()=>{
   const btn = el('extendBtn');
   const fb = el('extendFeedback');
   btn.disabled = true; btn.textContent = 'רגע…'; fb.textContent = '';
-  const { ok, data } = await callManage({ action:'extend', months: Number(el('extendMonths').value) })
+  const { ok, data } = await callManage({
+    action:'extend',
+    months: Number(el('extendMonths').value),
+    auto_renew: el('extendAutoRenew').checked,
+  })
     .catch(()=>({ ok:false, data:{} }));
   if (ok && data.redirect_url){
     // החזרה מעמוד התשלום היא עם order_id בלבד - האסימון לא נשלח לחברת
@@ -694,6 +771,7 @@ el('saveBtn').addEventListener('click', async ()=>{
       return;
     }
     if (data.pricing) pricing = data.pricing;
+    renewal = data.renewal || null;
     if (Array.isArray(data.extend_months) && data.extend_months.length) extendMonths = data.extend_months;
     fillForm(data.card);
     if (params.get('extended') === '1'){

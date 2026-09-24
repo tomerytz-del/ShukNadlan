@@ -177,6 +177,8 @@ export type PaymentFormRequest = {
   notifyUrl: string;
   /** מזהה הטעינה שלנו. חוזר אלינו ב-webhook וקושר את התשלום לשורה במסד. */
   reference: string;
+  /** לבקש ממורנינג לשמור את הכרטיס לחיוב חודשי. ראו SAVE_CARD_FIELDS. */
+  saveCard?: boolean;
 };
 
 export type PaymentFormResult =
@@ -298,6 +300,8 @@ export async function createPaymentForm(req: PaymentFormRequest): Promise<Paymen
     custom: req.reference,
     remarks: req.reference,
     ...(PLUGIN_ID ? { pluginId: PLUGIN_ID } : {}),
+    // שמירת הכרטיס — רק כשהשדה ידוע. ראו SAVE_CARD_FIELDS למטה.
+    ...(req.saveCard && SAVE_CARD_FIELDS ? SAVE_CARD_FIELDS : {}),
   });
 
   const post = async (payload: Record<string, unknown>) =>
@@ -535,4 +539,137 @@ export function secretsMatch(a: string, b: string): boolean {
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
+}
+
+// ===========================================================================
+// כרטיס שמור — החיוב החודשי של בעלי מקצוע
+//
+// ‼ **שום דבר בסעיף הזה טרם אומת מול מורנינג.** מה שידוע (מרשימת הנתיבים
+// המתועדת): ‏`POST /payments/tokens/search` ו-`POST /payments/tokens/{id}/charge`.
+// מה שאינו ידוע: גוף הבקשות, צורת התשובות, ובעיקר — **איזה שדה ב-
+// ‏`/payments/form` מורה לשמור את הכרטיס**.
+//
+// לכן שלוש הגנות, ואף אחת מהן אינה ניחוש שנכנס לכסף:
+//
+//   1. השדה ששומר את הכרטיס **אינו כתוב בקוד**. הוא נקרא מהסוד
+//      ‏MORNING_SAVE_CARD_FIELDS (JSON, למשל `{"<שם השדה>": true}`), ונשלח
+//      רק כשהוא מוגדר. בלעדיו הטופס נשלח בדיוק כמו היום.
+//   2. החיוב עצמו נעול במתג `pricing_config.recurring_charging_enabled`,
+//      שנולד כבוי (‏20270106090000_professional_auto_renew.sql).
+//   3. גם כשמורנינג עונה "הצליח", ההזמנה נסגרת רק אחרי שמסמך ה-320 נמצא ב-
+//      ‏verifyPaymentByReference — אותו אימות של כל תשלום אחר באתר.
+//
+// כל תשובה נרשמת ללוג (מפתחות ומזהים, לא פרטי כרטיס), כדי שהחיוב הראשון
+// בסנדבוקס יגלה את הצורה האמיתית ולא נצטרך לנחש אותה.
+// ===========================================================================
+const SAVE_CARD_FIELDS: Record<string, unknown> | null = (() => {
+  const raw = Deno.env.get("MORNING_SAVE_CARD_FIELDS");
+  if (!raw) return null;
+  try {
+    const v = JSON.parse(raw);
+    return v && typeof v === "object" && !Array.isArray(v) ? v : null;
+  } catch {
+    console.error("morning: MORNING_SAVE_CARD_FIELDS is not valid JSON - ignored");
+    return null;
+  }
+})();
+
+export function saveCardConfigured(): boolean {
+  return SAVE_CARD_FIELDS !== null;
+}
+
+async function morningPost(path: string, payload: unknown): Promise<
+  { ok: true; status: number; body: any } | { ok: false; status: number | null; error: string }
+> {
+  const auth = await morningToken();
+  if (!auth.token) return { ok: false, status: null, error: auth.error ?? "morning_not_configured" };
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE}${path}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${auth.token}` },
+      body: JSON.stringify(payload),
+    });
+  } catch (err) {
+    return { ok: false, status: null, error: `morning_network: ${(err as Error).message}` };
+  }
+  const raw = await res.text();
+  let body: any = null;
+  try { body = raw ? JSON.parse(raw) : null; } catch { /* נשאר null */ }
+  if (!res.ok) {
+    return { ok: false, status: res.status, error: `morning_${res.status}: ${raw.slice(0, 300)}` };
+  }
+  return { ok: true, status: res.status, body };
+}
+
+/**
+ * הכרטיס השמור של לקוח/ה, לפי כתובת המייל שבחשבונית.
+ * ‼ גוף החיפוש לא אומת. התשובה נרשמת (מפתחות בלבד) כדי שיהיה אפשר לתקן.
+ */
+export async function findCardToken(email: string): Promise<
+  { ok: true; token: string | null } | { ok: false; error: string }
+> {
+  const r = await morningPost("/payments/tokens/search", { email, page: 1, pageSize: 10 });
+  if (!r.ok) return { ok: false, error: r.error };
+  const items: any[] = Array.isArray(r.body) ? r.body
+    : Array.isArray(r.body?.items) ? r.body.items
+    : Array.isArray(r.body?.data) ? r.body.data
+    : [];
+  console.log("morning: token search", JSON.stringify({
+    keys: r.body && typeof r.body === "object" ? Object.keys(r.body) : typeof r.body,
+    count: items.length,
+    itemKeys: items[0] && typeof items[0] === "object" ? Object.keys(items[0]) : null,
+  }));
+  const id = items.map((t) => t?.id ?? t?.tokenId ?? t?.token).find((v) => typeof v === "string" && v);
+  return { ok: true, token: id ?? null };
+}
+
+export type TokenChargeResult =
+  /** מורנינג אישר/ה שהחיוב עבר. עדיין מאמתים מול המסמך לפני שסוגרים. */
+  | { outcome: "charged"; transactionId: string | null }
+  /** דחייה ודאית (4xx או errorCode): הכרטיס לא חויב. */
+  | { outcome: "declined"; error: string }
+  /** לא ידוע אם חויב (רשת, 5xx). **לא סוגרים את ההזמנה** — ה-reconcile יכריע. */
+  | { outcome: "unknown"; error: string };
+
+/**
+ * חיוב כרטיס שמור.
+ * ‼ גוף הבקשה לא אומת. הוא בנוי כמו טופס התשלום (שכן אומת): אותו type 320,
+ * אותו amount כולל מע״מ, ואותו custom/remarks שמחבר את המסמך להזמנה שלנו.
+ */
+export async function chargeCardToken(
+  tokenId: string,
+  req: { amount: number; description: string; reference: string; clientName: string; clientEmail: string | null },
+): Promise<TokenChargeResult> {
+  const r = await morningPost(`/payments/tokens/${encodeURIComponent(tokenId)}/charge`, {
+    description: req.description,
+    type: 320,
+    lang: "he",
+    currency: "ILS",
+    vatType: 0,
+    amount: req.amount,
+    maxPayments: 1,
+    client: { name: req.clientName, ...(req.clientEmail ? { emails: [req.clientEmail] } : {}) },
+    custom: req.reference,
+    remarks: req.reference,
+    ...(PLUGIN_ID ? { pluginId: PLUGIN_ID } : {}),
+  });
+
+  if (!r.ok) {
+    // ‏4xx = הבקשה נדחתה ולא בוצע חיוב. כל השאר — אין לדעת.
+    if (r.status !== null && r.status >= 400 && r.status < 500) {
+      return { outcome: "declined", error: r.error };
+    }
+    return { outcome: "unknown", error: r.error };
+  }
+
+  console.log("morning: token charge", JSON.stringify({
+    keys: r.body && typeof r.body === "object" ? Object.keys(r.body) : typeof r.body,
+    errorCode: r.body?.errorCode ?? null,
+  }));
+  if (r.body?.errorCode) {
+    return { outcome: "declined", error: `morning_error ${r.body.errorCode}: ${String(r.body.errorMessage ?? "").slice(0, 200)}` };
+  }
+  const tx = r.body?.transactionId ?? r.body?.id ?? null;
+  return { outcome: "charged", transactionId: tx ? String(tx) : null };
 }

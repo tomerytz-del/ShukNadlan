@@ -235,6 +235,14 @@ Deno.serve(async (req: Request) => {
     const orderId = started.order_id as string;
     const amount = Number(started.amount);
 
+    // חידוש חודשי — ברירת המחדל, וביטול בכל עת במסך העריכה. הדגל נשמר על
+    // ההזמנה, וכשהיא מצליחה הטריגר ad_orders_sync_subscription פותח את המנוי.
+    // ‏false מפורש בלבד מכבה אותו.
+    const autoRenew = body?.auto_renew !== false;
+    if (autoRenew) {
+      await supabase.from("ad_orders").update({ auto_renew: true }).eq("id", orderId);
+    }
+
     const label = TYPE_LABELS[advertiser_type] ?? "בעל/ת מקצוע";
     const desc = months === 1
       ? `כרטיסיית ${label} - חודש`
@@ -252,6 +260,7 @@ Deno.serve(async (req: Request) => {
       failureUrl: `${siteBaseUrl}/professional-signup?payment=failure&order_id=${orderId}`,
       notifyUrl,
       reference: orderId,
+      saveCard: autoRenew,
     });
 
     if (!form.ok) {

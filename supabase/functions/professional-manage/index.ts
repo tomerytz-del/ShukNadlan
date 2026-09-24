@@ -16,9 +16,9 @@ import {
 // אליה גישה מהלקוח בשום מפתח ציבורי, ולכן כל קריאה אליה עוברת דרך כאן עם
 // service_role. verify_jwt=false מסיבה זו בדיוק.
 //
-// ארבעה מסלולים: load (טעינת הפרופיל למסך העריכה), save (שמירת מה שמותר
-// לערוך), upload (כתובת העלאה חתומה לתמונה) ו-extend (הארכת תקופת הפרסום
-// בתשלום). מה שנוגע לכסף ולתקופת הפרסום — status, monthly_price,
+// המסלולים: load (טעינת הפרופיל למסך העריכה), save (שמירת מה שמותר
+// לערוך), upload (כתובת העלאה חתומה לתמונה), extend (הארכת תקופת הפרסום
+// בתשלום), ו-renew_on/renew_off (החיוב החודשי). מה שנוגע לכסף ולתקופת הפרסום — status, monthly_price,
 // starts_at/ends_at, test_mode — לא נגזר מהבקשה בשום מקרה, גם אם נשלח בגוף
 // שלה: ‏extend מקבל מספר חודשים בלבד, והסכום והתאריכים נקבעים במסד
 // (‏start_ad_order, ואחרי אימות התשלום complete_ad_order).
@@ -121,6 +121,24 @@ const CARD_FIELDS = `id, slug, advertiser_name, business_name, advertiser_type, 
   click_url, phone_e164, public_email, license_number, years_experience, service_areas,
   status, starts_at, ends_at`;
 
+// מצב החיוב החודשי, כפי שמסך העריכה מציג אותו. ‏card_token עצמו אינו יוצא
+// מכאן — רק האם יש כרטיס שמור.
+async function loadRenewal(supabase: any, placementId: string) {
+  const { data } = await supabase
+    .from("billing_subscriptions")
+    .select("status, next_charge_on, failed_attempts, next_retry_at, card_token")
+    .eq("placement_id", placementId)
+    .maybeSingle();
+  if (!data) return null;
+  return {
+    status: data.status,
+    next_charge_on: data.next_charge_on,
+    failed_attempts: data.failed_attempts,
+    next_retry_at: data.next_retry_at,
+    has_card: Boolean(data.card_token),
+  };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders() });
   if (req.method !== "POST") return json({ error: "method_not_allowed" }, 405);
@@ -131,7 +149,8 @@ Deno.serve(async (req: Request) => {
   const token = typeof body.token === "string" ? body.token.trim() : "";
   if (!UUID_RE.test(token)) return json({ error: "invalid_token" }, 400);
 
-  const action = ["save", "upload", "extend"].includes(body.action) ? body.action : "load";
+  const action = ["save", "upload", "extend", "renew_on", "renew_off"].includes(body.action)
+    ? body.action : "load";
   const supabase = createClient(supabaseUrl, serviceRoleKey);
 
   try {
@@ -162,7 +181,26 @@ Deno.serve(async (req: Request) => {
         card,
         pricing: pricing && !pricing.error ? pricing : null,
         extend_months: EXTEND_MONTHS,
+        renewal: await loadRenewal(supabase, access.placement_id),
       });
+    }
+
+    // ------------------------------------------------------------------
+    // ביטול / חידוש מחדש של החיוב החודשי
+    //
+    // ביטול אינו מוריד את הכרטיסייה ואינו מחזיר כסף: הפרסום נמשך עד התאריך
+    // ששולם. הפעלה מחדש אפשרית רק כשיש כרטיס שמור ולא אחרי שלושה כישלונות —
+    // אחרת set_professional_auto_renew מחזירה needs_new_payment, והמסך מפנה
+    // להארכה עם תיבת החידוש.
+    // ------------------------------------------------------------------
+    if (action === "renew_on" || action === "renew_off") {
+      const { data: r, error: rErr } = await supabase.rpc("set_professional_auto_renew", {
+        p_placement_id: access.placement_id,
+        p_on: action === "renew_on",
+      });
+      if (rErr) return json({ error: "db_error", detail: rErr.message }, 500);
+      if (r?.error) return json({ error: r.error }, 409);
+      return json({ success: true, renewal: await loadRenewal(supabase, access.placement_id) });
     }
 
     // ------------------------------------------------------------------
@@ -197,6 +235,11 @@ Deno.serve(async (req: Request) => {
       if (started?.error) return json(started, 400);
 
       const orderId = started.order_id as string;
+      // חידוש חודשי מההארכה הזו והלאה — ברירת המחדל. ‏false מפורש בלבד מכבה.
+      const autoRenew = body.auto_renew !== false;
+      if (autoRenew) {
+        await supabase.from("ad_orders").update({ auto_renew: true }).eq("id", orderId);
+      }
       const { data: billing } = await supabase
         .from("ad_placements")
         .select("contact_email")
@@ -215,6 +258,7 @@ Deno.serve(async (req: Request) => {
         notifyUrl: `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/wallet-topup-callback` +
           `?token=${encodeURIComponent(webhookSecret)}`,
         reference: orderId,
+        saveCard: autoRenew,
       });
 
       if (!form.ok) {

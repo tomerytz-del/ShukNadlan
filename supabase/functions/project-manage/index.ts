@@ -7,6 +7,9 @@ import {
 } from "../_shared/projects.ts";
 import { registryMessage, verifyCompanyNumber } from "../_shared/company-registry.ts";
 import { blockUnknown, cachedLookup, registryColumns, registryEnabled } from "../_shared/registry-cache.ts";
+import {
+  clientFrom, createPaymentForm, isTerminalMissing, morningConfigured,
+} from "../_shared/morning.ts";
 
 // ============================================================================
 // ניהול הפרויקטים של היזם — כל הפעולות בפונקציה אחת
@@ -31,6 +34,10 @@ import { blockUnknown, cachedLookup, registryColumns, registryEnabled } from "..
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const anonKey = Deno.env.get("SUPABASE_ANON_KEY")!;
 const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const siteBaseUrl = (Deno.env.get("SITE_BASE_URL") || "https://shuknadlan.co.il").replace(/\/+$/, "");
+const webhookSecret = Deno.env.get("MORNING_WEBHOOK_SECRET") || "";
+// הסכומים שהמסך מציע. סכום אחר נדחה כאן, והמסד בודק שוב טווח.
+const DEVELOPER_TOPUP_AMOUNTS = [100, 350, 500, 1000, 2000];
 
 const MAX_PROJECTS_PER_DEVELOPER = 60;
 const MAX_MEDIA_PER_PROJECT = 120;
@@ -458,22 +465,94 @@ Deno.serve(async (req: Request) => {
       }
 
       // ---------------------------------------------------------------
-      // טעינת ארנק. ‏test_mode כל עוד אין ספק סליקה מחובר — בדיוק כמו
-      // wallet-topup בעולם התיווך, כולל התקרה שמונעת "טעינה" של מיליון.
+      // טעינת ארנק
+      //
+      // **עד 20270107090000 כאן זוכה הארנק בלי שום תשלום** — עד ₪5,000
+      // ללחיצה, בלי מגבלת לחיצות, ומהיתרה ירדו דף נחיתה, קידומים ולידים.
+      // מעכשיו זו אותה מכונה של ארנק הסוכנים: start_developer_topup פותחת
+      // שורת pending, מורנינג גובה, ו-wallet-topup-callback מאמת/ת מול מסמך
+      // ה-320 וקורא/ת ל-complete_developer_topup — היחידה שמזכה.
+      //
+      // ‏test_mode: true — זיכוי בלי חיוב, **למנהל/ת פלטפורמה בלבד**.
+      // ‏admin_test_developer_topup בודקת את ההרשאה בעצמה, והשורה נשמרת עם
+      // מזהה המנהל/ת.
       case "topup": {
-        const amount = num(body.amount, 100, 5000);
-        if (amount === null) return json({ error: "bad_amount", min: 100, max: 5000 }, 400);
-        const { error: topErr } = await supabase.from("developer_topups")
-          .insert({ developer_id: developer.id, amount, status: "paid", test_mode: true });
-        if (topErr) return json({ error: "db_error", detail: topErr.message }, 500);
+        const amount = Number(body.amount);
+        if (!DEVELOPER_TOPUP_AMOUNTS.includes(amount)) {
+          return json({ error: "bad_amount", allowed: DEVELOPER_TOPUP_AMOUNTS }, 400);
+        }
 
-        const { data: current } = await supabase
-          .from("developers").select("credit_balance").eq("id", developer.id).single();
-        const next = Number(current?.credit_balance ?? 0) + amount;
-        const { error } = await supabase
-          .from("developers").update({ credit_balance: next }).eq("id", developer.id);
-        if (error) return json({ error: "db_error", detail: error.message }, 500);
-        return json({ success: true, credit_balance: next, test_mode: true });
+        if (body.test_mode === true) {
+          const { data: admin } = await supabase
+            .from("agency_members").select("id, is_platform_admin, active")
+            .eq("user_id", userData.user.id).maybeSingle();
+          if (!admin?.is_platform_admin || !admin.active) {
+            return json({ error: "test_topup_forbidden" }, 403);
+          }
+          const { data: r, error: rErr } = await supabase.rpc("admin_test_developer_topup", {
+            p_developer_id: developer.id, p_amount: amount, p_admin_agent_id: admin.id,
+          });
+          if (rErr) return json({ error: "db_error", detail: rErr.message }, 500);
+          if (r?.error) return json(r, 403);
+          console.log("project-manage: admin test top-up", developer.id, amount, admin.id);
+          return json(r);
+        }
+
+        // בלי ספק סליקה אין טעינה — שגיאה, ולא כסף מדומה.
+        if (!morningConfigured() || !webhookSecret) {
+          return json({ error: "morning_not_configured" }, 503);
+        }
+
+        const { data: started, error: startErr } = await supabase.rpc("start_developer_topup", {
+          p_developer_id: developer.id, p_amount: amount,
+        });
+        if (startErr) return json({ error: "db_error", detail: startErr.message }, 500);
+        if (started?.error) return json(started, 400);
+        const topupId = started.topup_id as string;
+
+        const { data: dev } = await supabase
+          .from("developers").select("name").eq("id", developer.id).maybeSingle();
+
+        const form = await createPaymentForm({
+          amount,
+          description: 'טעינת ארנק יזם - שוק נדל"ן',
+          ...clientFrom(body, dev?.name ?? null),
+          clientEmail: userData.user.email ?? null,
+          successUrl: `${siteBaseUrl}/developer-crm?topup=success&topup_id=${topupId}`,
+          failureUrl: `${siteBaseUrl}/developer-crm?topup=failure&topup_id=${topupId}`,
+          notifyUrl: `${supabaseUrl.replace(/\/+$/, "")}/functions/v1/wallet-topup-callback` +
+            `?token=${encodeURIComponent(webhookSecret)}`,
+          reference: topupId,
+        });
+
+        if (!form.ok) {
+          await supabase.rpc("fail_developer_topup", { p_topup_id: topupId, p_reason: form.error });
+          console.error("project-manage: topup form creation failed", form.error);
+          return json({
+            error: isTerminalMissing(form.error) ? "payment_terminal_missing" : "payment_provider_error",
+          }, 502);
+        }
+
+        await supabase.from("developer_topups")
+          .update({ provider_form_id: form.formId, provider_payment_url: form.url })
+          .eq("id", topupId);
+
+        return json({ success: true, topup_id: topupId, amount, redirect_url: form.url });
+      }
+
+      // מצב טעינה אחרי החזרה מעמוד התשלום. הדפדפן אינו מחליט שהתשלום עבר —
+      // הוא שואל כאן, והתשובה היא מה שהמסד אומר על **השורה של היזם/ית הזה/הזאת**.
+      case "topup_status": {
+        const topupId = typeof body.topup_id === "string" ? body.topup_id : "";
+        if (!topupId) return json({ error: "missing_topup_id" }, 400);
+        const { data: row } = await supabase
+          .from("developer_topups").select("status, amount")
+          .eq("id", topupId).eq("developer_id", developer.id).maybeSingle();
+        if (!row) return json({ error: "not_found" }, 404);
+        const { data: dev } = await supabase
+          .from("developers").select("credit_balance").eq("id", developer.id).maybeSingle();
+        return json({ success: true, status: row.status, amount: row.amount,
+                      credit_balance: dev?.credit_balance ?? null });
       }
 
       // ---------------------------------------------------------------
