@@ -3912,6 +3912,10 @@ async function loadProfessionalCardsAdmin(){
     if (card.test_mode){
       head.appendChild(proPill('בדיקה', 'background:var(--gold-tint);color:var(--gold-dark)'));
     }
+    // הטבת ההצטרפות (6 חודשים חינם): באוויר כמו מפרסם/ת משלם/ת, בלי שעבר כסף.
+    if (card.free_until && !card.paid_at){
+      head.appendChild(proPill('הטבת הצטרפות', 'background:var(--green-tint);color:var(--green)'));
+    }
     if (!card.profile_filled){
       head.appendChild(proPill('פרופיל לא מולא', 'background:var(--paper);color:var(--ink-soft)'));
     }
