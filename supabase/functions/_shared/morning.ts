@@ -14,7 +14,7 @@
 // ‏wallet-topup ו-wallet-topup-callback לא יודעות שום דבר על מורנינג מלבד מה
 // שהקובץ הזה חושף. אם מחר יחליפו ספק סליקה — זה הקובץ שנכתב מחדש.
 //
-// **קריאה חשובה על אימות:** ‏verifyPayment() קוראת בחזרה למורנינג במקום
+// **קריאה חשובה על אימות:** ‏verifyPaymentByReference() קוראת בחזרה למורנינג במקום
 // להאמין לגוף ה-webhook. גוף webhook הוא טקסט שכל אחד יכול לשלוח לכתובת
 // ציבורית; תשובת ה-API מול המפתח הפרטי שלנו — לא. ההפרש בין השניים הוא
 // ההפרש בין "מישהו טוען שהתשלום עבר" לבין "התשלום עבר".
@@ -341,7 +341,9 @@ export async function createPaymentForm(req: PaymentFormRequest): Promise<Paymen
   }
 
   const url = pickUrl(body?.url ?? body?.paymentUrl);
-  const formId = body?.id ?? body?.formId ?? "";     // ‼ לאימות: שם שדה המזהה
+  // התשובה המתועדת אינה נושאת מזהה, ולכן formId ריק הוא המצב הרגיל. האימות
+  // אינו נשען עליו — ראו verifyPaymentByReference.
+  const formId = body?.id ?? body?.formId ?? "";
   if (!url) return { ok: false, error: "morning_form_no_url" };
 
   return { ok: true, formId: String(formId), url };
@@ -370,17 +372,54 @@ export type PaymentStatus = {
   raw?: string;
 };
 
-export async function verifyPayment(formId: string): Promise<PaymentStatus> {
+// ---------------------------------------------------------------------------
+// האימות עובר דרך **המסמך**, לא דרך הטופס
+//
+// הגרסה הקודמת קראה ל-`GET /payments/{formId}`, ושני הדברים לא התקיימו:
+// תשובת `/payments/form` אינה מחזירה `id`, ונקודת הקצה הזו אינה קיימת. זה
+// התפוצץ בתשלום האמיתי הראשון (24.9.2026): הכרטיס חויב ‎₪100, ה-webhook הגיע,
+// והשורה נסגרה כ-`no_provider_form_id` בלי שאיש שאל את מורנינג.
+//
+// מה שכן קיים: תשלום שעבר מפיק **חשבונית מס/קבלה (320)**, ועליה מודפס
+// ה-`remarks` שלנו — מזהה השורה. ‏`POST /documents/search` מחזיר את המסמכים,
+// ומסמך 320 שנושא את המזהה שלנו הוא הראיה שהתשלום נגבה. זו עדיין תשובת ה-API
+// מול המפתח שלנו, לא גוף ה-webhook.
+//
+// ההתאמה למזהה נעשית על **כל** המסמך כמחרוזת ולא על שדה בשם מסוים: ‏UUID
+// אינו יכול להופיע במקרה, וכך שם שדה שונה ממה שציפינו (`remarks`, ‏`custom`,
+// ‏`description`) אינו מפיל תשלום אמיתי. הסכום מושווה בנפרד, גם כאן וגם שוב
+// בתוך complete_wallet_topup.
+// ---------------------------------------------------------------------------
+export async function verifyPaymentByReference(
+  reference: string,
+  since: string | null,
+): Promise<PaymentStatus> {
   const empty = { paid: false, amount: null, transactionId: null, documentId: null, pdfUrl: null };
 
   const auth = await morningToken();
   if (!auth.token) return { ok: false, ...empty, error: auth.error ?? "morning_not_configured" };
 
+  // יום אחד לכל כיוון: ‏documentDate של מורנינג הוא תאריך ישראלי, ו-created_at
+  // שלנו ב-UTC. חלון רחב מעט אינו מסוכן — ההתאמה היא לפי UUID.
+  const day = (ms: number) => new Date(ms).toISOString().slice(0, 10);
+  const from = since ? Date.parse(since) : Date.now();
+  const payload = {
+    page: 1,
+    pageSize: 100,
+    type: [320],
+    fromDate: day((Number.isFinite(from) ? from : Date.now()) - 86_400_000),
+    toDate: day(Date.now() + 86_400_000),
+  };
+
   let res: Response;
   try {
-    // ‼ לאימות: הנתיב לשליפת מצב תשלום לפי מזהה טופס
-    res = await fetch(`${API_BASE}/payments/${encodeURIComponent(formId)}`, {
-      headers: { "Authorization": `Bearer ${auth.token}` },
+    res = await fetch(`${API_BASE}/documents/search`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${auth.token}`,
+      },
+      body: JSON.stringify(payload),
     });
   } catch (err) {
     return { ok: false, ...empty, error: `morning_network: ${(err as Error).message}` };
@@ -388,53 +427,63 @@ export async function verifyPayment(formId: string): Promise<PaymentStatus> {
 
   const raw = await res.text();
   if (!res.ok) {
-    return { ok: false, ...empty, error: `morning_lookup_failed: ${res.status}`, raw: raw.slice(0, 300) };
+    return { ok: false, ...empty, error: `morning_search_failed: ${res.status}`, raw: raw.slice(0, 300) };
   }
 
   let body: any;
   try {
     body = JSON.parse(raw);
   } catch {
-    return { ok: false, ...empty, error: "morning_lookup_bad_json" };
+    return { ok: false, ...empty, error: "morning_search_bad_json" };
   }
 
-  return { ok: true, ...readPaymentShape(body), raw: raw.slice(0, 500) };
+  const doc = findDocumentByReference(body, reference);
+  if (!doc) return { ok: true, ...empty };
+
+  // מה שהגיע בפועל נרשם, כדי שהתשובה האמיתית הראשונה תהיה בלוג ולא בניחוש.
+  console.log("morning: matched document", JSON.stringify(doc).slice(0, 800));
+  return { ok: true, ...readDocumentShape(doc) };
 }
 
 // ---------------------------------------------------------------------------
 // קריאת צורת התשובה
 //
-// מופרד מ-verifyPayment כדי שיהיה אפשר להריץ עליו בדיקה עם תשובה אמיתית
-// שהודבקה מהסנדבוקס, בלי לקרוא לרשת. **זו הפונקציה שתשתנה כשנראה תשובה
-// אמיתית ראשונה** — ומדובר בשינוי בטוח, כי היא לא מקבלת החלטות ולא נוגעת
-// במסד; היא רק מתרגמת צורה אחת לאחרת.
-//
-// הקריאה מקבלת כמה שמות אפשריים לכל שדה בכוונה: עדיף לקרוא נכון שדה
-// שהתיעוד קורא לו אחרת, מאשר לפספס תשלום שנגבה ולהשאיר סוכן/ת בלי הכסף.
-// ‏paid, לעומת זאת, מחמיר/ה — רק סימן חיובי מפורש נחשב.
+// מופרד מהקריאה לרשת כדי שיהיה אפשר להריץ עליו בדיקה עם תשובה אמיתית
+// שהודבקה, בלי לקרוא לרשת. הוא לא מקבל החלטות ולא נוגע במסד; הוא רק מתרגם
+// צורה אחת לאחרת.
 // ---------------------------------------------------------------------------
-export function readPaymentShape(body: any): Omit<PaymentStatus, "ok" | "error" | "raw"> {
+export function findDocumentByReference(body: any, reference: string): any | null {
+  const items: any[] = Array.isArray(body) ? body
+    : Array.isArray(body?.items) ? body.items
+    : Array.isArray(body?.data) ? body.data
+    : Array.isArray(body?.documents) ? body.documents
+    : [];
+  const needle = reference.toLowerCase();
+  return items.find((item) => JSON.stringify(item ?? {}).toLowerCase().includes(needle)) ?? null;
+}
+
+export function readDocumentShape(doc: any): Omit<PaymentStatus, "ok" | "error" | "raw"> {
   const num = (v: unknown): number | null => {
+    if (v === null || v === undefined || v === "") return null;
     const n = Number(v);
     return Number.isFinite(n) ? n : null;
   };
   const str = (v: unknown): string | null =>
     v === null || v === undefined || v === "" ? null : String(v);
 
-  // ‼ לאימות: קוד/שדה הסטטוס. במורנינג מקובל status מספרי שבו 1 = שולם.
-  const rawStatus = body?.status ?? body?.paymentStatus;
-  const paid =
-    rawStatus === 1 || rawStatus === "1" ||
-    String(rawStatus).toLowerCase() === "paid" ||
-    String(rawStatus).toLowerCase() === "success" ||
-    body?.paid === true;
+  // מסמך 320 הוא **קבלה** — הוא נוצר רק כשהתשלום נגבה. מה שפוסל אותו הוא
+  // ביטול: ‏3 = מבטל, ‏4 = בוטל (טבלת ה-status של /documents/search).
+  const status = Number(doc?.status);
+  const cancelled = status === 3 || status === 4;
+  const payment = Array.isArray(doc?.payment) ? doc.payment[0] : null;
 
   return {
-    paid,
-    amount: num(body?.amount ?? body?.sum ?? body?.total),
-    transactionId: str(body?.transactionId ?? body?.paymentId ?? body?.id),
-    documentId: str(body?.documentId ?? body?.document?.id),
-    pdfUrl: str(body?.documentUrl ?? body?.document?.url ?? body?.url),
+    // החיפוש כבר מסונן ל-320; שדה type חסר אינו סיבה לפסול.
+    paid: (doc?.type === undefined || Number(doc.type) === 320) && !cancelled,
+    amount: num(doc?.amount ?? doc?.amountTotal ?? doc?.total),
+    transactionId: str(payment?.transactionId ?? payment?.id ?? null),
+    documentId: str(doc?.id),
+    pdfUrl: pickUrl(doc?.url) || null,
   };
 }
 
@@ -443,7 +492,7 @@ export function readPaymentShape(body: any): Omit<PaymentStatus, "ok" | "error" 
 //
 // גוף ה-webhook הוא **קלט לא מהימן** ומשמש כאן למטרה אחת בלבד: להצביע על
 // השורה שצריך לבדוק. שום ערך ממנו לא נכנס למסד ולא משפיע על סכום — האימות
-// עצמו נעשה ב-verifyPayment מול ה-API. לכן גם אין סיכון בכך שאנחנו קוראים
+// עצמו נעשה ב-verifyPaymentByReference מול ה-API. לכן גם אין סיכון בכך שאנחנו קוראים
 // ממנו כמה שדות אפשריים.
 // ---------------------------------------------------------------------------
 export function extractReference(body: any): { topupId: string | null; formId: string | null } {
