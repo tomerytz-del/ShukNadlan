@@ -1198,7 +1198,7 @@ async function loadLeadingAgencies(){
     if (!sb) return [];
     const [agenciesRes, rankingsRes, ratingsRes, activeRes, membersRes] = await Promise.all([
       // התקרות כאן הן רק גבול בטיחות לגודל התשובה, לא מכסת תצוגה.
-      sb.from('agencies').select('id, name, slug, logo_url, cover_url, specialty_areas, ethics_code_accepted_at, ethics_badge_revoked_at').limit(200),
+      sb.from('agencies').select('id, name, slug, logo_url, cover_url, specialty_areas, ethics_code_accepted_at, ethics_badge_revoked_at, city_id').limit(200),
       sb.from('agency_rankings').select('agency_id, composite_score, active_properties_count').limit(200),
       // הדירוג נלקח מה-view ולא מ-agency_rankings.bayesian_rating: הטבלה
       // מתרעננת אחת לשבועיים, וה-view מחושב מהביקורות המפורסמות ברגע הטעינה,
@@ -1225,9 +1225,13 @@ async function loadLeadingAgencies(){
     // תמונה מלאה של מי פעיל/ה, ועדיף להציג משרד ריק מלהעלים משרד חי.
     const members = membersRes.data || [];
     const staffed = new Set(members.filter(m => m.active !== false).map(m => m.agency_id));
-    const agencies = (!membersRes.error && members.length && members.length < 1000)
+    const staffedAgencies = (!membersRes.error && members.length && members.length < 1000)
       ? allAgencies.filter(a => staffed.has(a.id))
       : allAgencies;
+    // ‏המשרדים של השוק (MARKET_FILTER): לפי העיר של המשרד (agencies.city_id,
+    // מהכתובת הרשומה). משרד בלי עיר נספר בשוק ברירת המחדל - כמו נכס בלי עיר.
+    const marketSpec = await marketFilterSpec();
+    const agencies = staffedAgencies.filter(a => inMarket(marketSpec, a.city_id));
 
     // מספר הוואטסאפ של כל משרד: מנהל/ת עם מספר תקין, ואם אין — החבר/ה
     // הראשון/ה שיש לו/ה. ‏phone_e164 נכנס ל-href, ולכן הוא עובר את אותה
@@ -1331,9 +1335,12 @@ async function loadLeadingAgents(){
     if (agencyIds.length){
       // ‏cover_url של המשרד — הנפילה של מתווך/ת שלא העלה/תה תמונת נושא,
       // אותה נפילה של agent.html
-      const { data: agencies } = await sb.from('agencies').select('id, name, cover_url').in('id', agencyIds);
+      const { data: agencies } = await sb.from('agencies').select('id, name, cover_url, city_id').in('id', agencyIds);
       (agencies||[]).forEach(a => agencyById[a.id] = a);
     }
+    // ‏המתווכים של השוק: לפי העיר של המשרד שלהם, אותו כלל של כרטיסי המשרדים
+    const marketSpec = await marketFilterSpec();
+    const inThisMarket = m => inMarket(marketSpec, agencyById[m.agency_id]?.city_id || null);
 
     const rankByAgent = {};
     (rankingsRes.data || []).forEach(r => { rankByAgent[r.agent_id] = r; });
@@ -1355,6 +1362,7 @@ async function loadLeadingAgents(){
     });
 
     return members
+      .filter(inThisMarket)
       .map(m => {
         const agg = reviewAgg[m.id];
         const ranking = rankByAgent[m.id];
