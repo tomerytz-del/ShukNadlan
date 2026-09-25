@@ -995,6 +995,74 @@ const shapeProperty = p => ({
   neighborhood_name: p.neighborhoods?.name || '',
 });
 
+/* ---------- MARKET_FILTER: הנכסים של השוק שהדף מציג ----------
+   docs/regional-pages.md, שלב 2. ‏check_markets.py מחפש את השם הזה: כל עוד
+   הוא אינו כאן, שוק שאינו ברירת המחדל אינו יכול להידלק - אחרת
+   ‏/haifa-krayot היה מציג את נכסי עפולה תחת השם "חיפה והקריות".
+
+   שני כללים, ולא אחד, והאסימטריה מכוונת:
+
+   ‏- **שוק רגיל** (‏/haifa-krayot): רק הערים שלו. ‏`in` פשוט.
+   ‏- **שוק ברירת המחדל** (‏/): כל מה ש**אינו** שייך לשוק אחר - כולל נכס
+     בלי עיר מזוהה (‏city_id ריק) ונכס בעיר שאין לה שוק. יישובי העמק
+     שעוד לא נכנסו לרישום ("כפר תבור") הופיעו בדף הבית עד היום, והסינון
+     אסור שיעלים אותם בשקט. כך דף הבית של עפולה נשאר בדיוק כמו שהיה, חוץ
+     מנכסים של חיפה.
+
+   המיפוי עיר ← שוק מגיע מ-`market_cities_public` (מזהים ו-slug בלבד), פעם
+   אחת לטעינת דף. בכשל: שוק ברירת המחדל לא מסנן (ההתנהגות הקודמת), ושוק
+   אחר **לא מציג כלום** - עדיף דף ריק לרגע מדף חיפה עם נכסי עפולה. */
+const NO_CITY = '00000000-0000-0000-0000-000000000000';
+let marketSpecPromise = null;
+
+function marketFilterSpec(){
+  if (marketSpecPromise) return marketSpecPromise;
+  /* ‏window.CityContext ולא CityCtx: המלאי המסחרי ויריד הבתים הפתוחים
+     נטענים ב-IIFE שרץ בזמן טעינת הסקריפט, מאות שורות **לפני** שה-const
+     ‏CityCtx מאותחל. גישה אליו שם היא TDZ שנבלע ב-catch של הטוען, והמדף
+     היה נופל בשקט לנתוני ה-fallback. */
+  const ctx = window.CityContext;
+  const market = (ctx && typeof ctx.market === 'function') ? ctx.market() : null;
+  if (!market || !sb){ marketSpecPromise = Promise.resolve(null); return marketSpecPromise; }
+  marketSpecPromise = sb.from('market_cities_public').select('city_id, market_slug')
+    .then(({ data, error }) => {
+      if (error || !Array.isArray(data)) throw error || new Error('no data');
+      if (market.isDefault){
+        const others = data.filter(r => r.market_slug !== market.slug).map(r => r.city_id);
+        return others.length ? { mode:'exclude', ids: others } : null;
+      }
+      const mine = data.filter(r => r.market_slug === market.slug).map(r => r.city_id);
+      return { mode:'include', ids: mine.length ? mine : [NO_CITY] };
+    })
+    .catch(e => {
+      console.warn('מיפוי השווקים לא נטען:', e);
+      return market.isDefault ? null : { mode:'include', ids: [NO_CITY] };
+    });
+  return marketSpecPromise;
+}
+
+/* ‏"exclude" הוא `or` (עיר ריקה, או עיר שאינה בשוק אחר). הפונקציה מחזירה
+   אותו כמחרוזת ולא מחילה אותו, כי החיפוש החופשי הוא `or` משלו - ושני
+   ‏`or` נפרדים באותה בקשה אינם צורה שאפשר לסמוך עליה. החיפוש מאחד אותם
+   לעץ אחד (‏and(or(…),or(…))), והשאר קוראים ל-applyMarketFilter. */
+function marketOrFilter(spec){
+  if (!spec || spec.mode !== 'exclude') return null;
+  return `city_id.is.null,city_id.not.in.(${spec.ids.join(',')})`;
+}
+
+/* אותו כלל, בדפדפן, לשורה שכבר נטענה (שכונות). */
+function inMarket(spec, cityId){
+  if (!spec) return true;
+  if (spec.mode === 'include') return spec.ids.includes(cityId);
+  return !cityId || !spec.ids.includes(cityId);
+}
+
+function applyMarketFilter(query, spec){
+  if (!spec) return query;
+  if (spec.mode === 'include') return query.in('city_id', spec.ids);
+  return query.or(marketOrFilter(spec));
+}
+
 /* כל הנכסים הפעילים במאגר, ולא רק 12: המפה בעמוד הבית אמורה להראות את
    התמונה המלאה של השוק לפני שהגולש בכלל חיפש. המקודמים ראשונים, ואחריהם
    הנכסים החדשים — הסדר קובע גם את הקרוסלה וגם את הגריד שלמטה. */
@@ -1003,10 +1071,11 @@ const PROPERTY_LIMIT = 300;
 async function loadProperties(){
   if (!sb) return FALLBACK_PROPERTIES;
   try{
-    const { data, error } = await sb
+    const spec = await marketFilterSpec();
+    const { data, error } = await applyMarketFilter(sb
       .from('properties')
       .select(PROPERTY_SELECT)
-      .eq('status', 'active')
+      .eq('status', 'active'), spec)
       .order('is_promoted', { ascending:false })
       .order('created_at', { ascending:false })
       .limit(PROPERTY_LIMIT);
@@ -1343,11 +1412,12 @@ async function loadCommercialProperties(){
        גם למפה (‏ppShelfToMap), נכס מכאן חייב להיות זהה בצורתו לנכס
        מהרשימה הראשית — אחרת הוא מגיע בלי lat/lng ובלי שם שכונה, כלומר
        נספר בתוצאות ולא מקבל פין. */
-    const { data, error } = await sb
+    const spec = await marketFilterSpec();
+    const { data, error } = await applyMarketFilter(sb
       .from('properties')
       .select(PROPERTY_SELECT)
       .eq('status', 'active')
-      .eq('category', 'commercial')
+      .eq('category', 'commercial'), spec)
       // בלי סדר מפורש ה-DB מחזיר שורות בסדר לא מוגדר, ואז גם הבריכה שממנה
       // בוחרים משתנה מטעינה לטעינה. החדשים קודם, כמו בשתי הרצועות האחרות.
       .order('created_at', { ascending: false })
@@ -1396,10 +1466,11 @@ async function loadOpenHouseCount(){
   if (!sb) return 0;
   try{
     const nowIso = new Date().toISOString();
-    const { count, error } = await sb
+    const spec = await marketFilterSpec();
+    const { count, error } = await applyMarketFilter(sb
       .from('properties')
       .select('id', { count:'exact', head:true })
-      .eq('status', 'active')
+      .eq('status', 'active'), spec)
       .eq('open_house', true)
       .lte('open_house_start', nowIso)
       .gt('open_house_end', nowIso);
@@ -3542,9 +3613,14 @@ let hoodShapes = [];
 async function loadNeighborhoods(){
   if (!sb) return [];
   try{
-    const { data, error } = await sb.from('neighborhoods').select('*');
+    const [{ data, error }, spec] = await Promise.all([
+      sb.from('neighborhoods').select('*'),
+      marketFilterSpec(),
+    ]);
     if (error) throw error;
-    return data || [];
+    // ‏השכונות של השוק בלבד - אותו כלל של הנכסים (MARKET_FILTER), על city_id
+    // של השכונה. בלעדיו גלולות השכונה של חיפה היו מופיעות בדף הבית של עפולה.
+    return (data || []).filter(n => inMarket(spec, n.city_id));
   } catch(e){
     console.warn('טעינת השכונות נכשלה, ממשיכים בלי גלולות השכונה:', e);
     return [];
@@ -4106,9 +4182,12 @@ function countActiveFilters(){
 async function matchingNeighborhoodIds(text){
   if (!sb) return [];
   try{
-    const { data, error } = await sb.from('neighborhoods').select('id').ilike('name', `%${text}%`).limit(20);
+    const [{ data, error }, spec] = await Promise.all([
+      sb.from('neighborhoods').select('id, city_id').ilike('name', `%${text}%`).limit(20),
+      marketFilterSpec(),
+    ]);
     if (error) throw error;
-    return (data || []).map(n => n.id);
+    return (data || []).filter(n => inMarket(spec, n.city_id)).map(n => n.id);
   } catch(e){
     console.warn('התאמת שכונה לחיפוש נכשלה:', e);
     return [];
@@ -4182,9 +4261,13 @@ async function runSearchInner(){
     // אותן עמודות כמו loadProperties: תוצאות חיפוש מרונדרות באותם כרטיסים
     // (שורות + קרוסלה + מפה), וכשחסרו כאן images/size_sqm/city הן ירדו
     // לגרדיאנט ולטקסט ברירת המחדל ברגע שהמשתמש חיפש
+    const marketSpec = await marketFilterSpec();
     let query = sb.from('properties').select(PROPERTY_SELECT)
       .eq('status', 'active')
       .eq('category', isCommercial ? 'commercial' : 'residential');
+    // ‏"include" הוא in רגיל; "exclude" הוא or, ומתאחד עם החיפוש החופשי למטה
+    if (marketSpec && marketSpec.mode === 'include') query = applyMarketFilter(query, marketSpec);
+    const marketOr = marketOrFilter(marketSpec);
     // במסחרי מותר ש-dealType יהיה ריק ("הכול"), ואז לא מסננים לפי סוג
     // העסקה כלל. בלי התנאי הזה הבחירה ב"מסחרי" הייתה תמיד מוסיפה
     // deal_type='sale' ומחזירה רק את נכסי המכירה מתוך המלאי המסחרי.
@@ -4223,10 +4306,10 @@ async function runSearchInner(){
     ];
     if (allFeatures.length) query = query.contains('features', allFeatures);
     const freeText = (s.freeText || freeTextMain).trim();
-    if (freeText){
-      const orFilter = await locationOrFilter(freeText);
-      if (orFilter) query = query.or(orFilter);
-    }
+    const textOr = freeText ? await locationOrFilter(freeText) : null;
+    if (textOr && marketOr) query = query.or(`and(or(${marketOr}),or(${textOr}))`);
+    else if (textOr)        query = query.or(textOr);
+    else if (marketOr)      query = query.or(marketOr);
 
     /* מסנן ההדמיות הוא היחיד שלא יושב על עמודה ב-properties: ההדמיות הן
        טבלה נפרדת, ולכן הוא מתורגם לרשימת מזהים ומצורף כ-in. הרשימה קטנה
