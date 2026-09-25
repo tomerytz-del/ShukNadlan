@@ -886,7 +886,7 @@ async function getProperty(
 
   let query = ctx.supabase
     .from("properties")
-    .select(`${PROPERTY_FIELDS}, description, marketing_description, agency_id, agent_id`)
+    .select(`${PROPERTY_FIELDS}, description, marketing_description, marketing_description_stale, agency_id, agent_id`)
     .eq("status", "active");
 
   if (id) query = query.eq("id", id);
@@ -920,10 +920,13 @@ async function getProperty(
   return {
     found: true,
     ...publicProperty(p),
-    // התיאור השיווקי הוא הניסוח שהמשרד בחר לפרסם; התיאור הגולמי הוא הגיבוי.
+    // התיאור השיווקי הוא הניסוח שהמשרד בחר לפרסם; התיאור הגולמי הוא הגיבוי -
+    // וגם מה שעונים כשהשיווקי מתיישן (נכתב לפני שינוי מחיר/שטח). אותו כלל
+    // כמו בדף הנכס, ‏docs/marketing-description.md.
     // טלפונים וגוש/חלקה נמחקים כאן, לא בפרומפט. ראו scrubPublicText.
     description: maskPublicText(
-      p.marketing_description || p.description || "",
+      (p.marketing_description_stale && p.description ? "" : p.marketing_description) ||
+        p.description || "",
       p.house_number,
     ),
     agency: agency?.name

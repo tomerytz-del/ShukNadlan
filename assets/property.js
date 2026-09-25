@@ -1947,8 +1947,12 @@ function renderDescription(p){
   // ‏marketing_description קודם: זה הנוסח שהסוכן/ת מרענן/ת ושומר/ת מה-CRM
   // ("התיאור השיווקי נשמר ומוצג בדף הנכס"). בסדר ההפוך כל נכס שיש לו גם
   // תיאור מודעה הציג את הישן לנצח, והרענון נשמר במסד ולא נראה בשום מקום.
-  // זה גם הסדר של הבוט הציבורי (public-agent.ts). ‏docs/marketing-description.md
-  const description = p.marketing_description || p.description || '';
+  //
+  // חוץ מנוסח **מתיישן**: הנתונים (מחיר, שטח, תיאור המודעה עצמו) השתנו אחרי
+  // שנכתב, ולכן הוא עלול לצטט מחיר של אתמול. אז תיאור המודעה עדיף - ובמיוחד
+  // כשהסוכן/ת בדיוק ערך/ה אותו, שאחרת לא היה נראה בדף. ‏docs/marketing-description.md
+  const marketing = p.marketing_description_stale && p.description ? '' : p.marketing_description;
+  const description = marketing || p.description || '';
   const block = document.getElementById('descSection');
   const textEl = document.getElementById('propDescription');
   textEl.textContent = description;
