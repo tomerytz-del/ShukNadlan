@@ -11987,7 +11987,9 @@ function marketingCopyState(p){
   }
   if (p.marketing_description_stale){
     return { level:'stale', tag:'♻️ כדאי לרענן תיאור',
-             note:'נתוני הנכס השתנו מאז שהתיאור נכתב — כדאי לבקש נוסח מעודכן.' };
+             note: p.description
+               ? 'נתוני הנכס השתנו מאז שהתיאור נכתב - עד שיישמר נוסח מעודכן, דף הנכס מציג את תיאור המודעה.'
+               : 'נתוני הנכס השתנו מאז שהתיאור נכתב - כדאי לבקש נוסח מעודכן.' };
   }
   if (p.marketing_description_source === 'ai'){
     return { level:'ai', tag:null,
