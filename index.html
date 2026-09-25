@@ -19,6 +19,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="assets/city-context.js"></script>
 <script src="assets/market-scope.js"></script>
 <script defer src="assets/near-me.js"></script>
+<!-- בורר השוק ליד שם השוק ב-H1 (docs/regional-pages.md) -->
+<script defer src="assets/city-menu.js"></script>
 <script src="assets/events.js"></script>
 <script src="assets/bot-link.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -3308,7 +3310,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <!-- שם העיר יושב ב-span משלו, ומיד אחרי ה-H1 יש סקריפט מוטבע
                של שורה אחת שכותב אותו. סינכרוני ובאותו מקום במסמך, ולכן
                הדפדפן לעולם אינו מצייר את שם העיר הקודם ואז מחליף אותו. -->
-          <h1>כל הנכסים ב<span id="heroCityName">עפולה והעמק</span> <span class="hero-h1-break">בכתובת אחת</span></h1>
+          <h1>כל הנכסים ב<span id="heroCityName">עפולה והעמק</span><button type="button" class="mkt-menu-btn" data-market-menu hidden aria-label="בחירת אזור"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg></button> <span class="hero-h1-break">בכתובת אחת</span></h1>
           <script>
             /* ‏city-context.js נטען למעלה כ-‎<script src>‎ רגיל, ולכן הוא
                כבר כאן. אם הוא לא נטען, הכיתוב שב-HTML נשאר כמו שהוא. */
