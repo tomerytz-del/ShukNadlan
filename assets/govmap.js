@@ -485,13 +485,30 @@
     }).catch(function () { return false; });
   }
 
+  /* ניסיון חוזר ל-getSearchResultData. בריצה של 25.9.2026 השרת של GovMap
+     החזיר 500 לחלק מהשכונות בלבד (10 מ-144), ובאותה ריצה שכונות סמוכות עברו
+     - תקלה זמנית בצד שלהם, לא תשובה על השכונה. שלושה ניסיונות בהשהיה
+     עולה; אחריהם - בלי גבול (ולא גבול של מועמד אחר שלא אומת). */
+  var RETRY_MS = [700, 2000];
+  function withRetry(fn) {
+    function attempt(i) {
+      return fn().catch(function (e) {
+        if (i >= RETRY_MS.length) throw e;
+        return new Promise(function (r) { setTimeout(r, RETRY_MS[i]); }).then(function () { return attempt(i + 1); });
+      });
+    }
+    return attempt(0);
+  }
+
+  function isHoodHit(h) { return h && h.type === 'neighborhood'; }
+
   function neighborhoodBoundary(gm, proj4, name, settlement, diag) {
     var wantName = textKey(name), wantSet = settlementKey(settlement);
     var q = { apiKey: GOVMAP_TOKEN, searchText: name + ' ' + settlement, isAccurate: false, maxResults: 5, language: 'he' };
     var withLayer = {}; for (var k in q) withLayer[k] = q[k]; withLayer.layers = ['neighborhood'];
 
     function ask(p, tag) {
-      return gm.search(p).then(function (r) {
+      return withRetry(function () { return gm.search(p); }).then(function (r) {
         if (diag && !diag[tag]) diag[tag] = sample(r);
         assertSearchShape(r);
         return r.results;
@@ -506,29 +523,48 @@
     return ask(withLayer, 'searchHood').then(function (res) {
       return res.length ? res : ask(q, 'searchPlain');
     }).then(function (res) {
+      // שם **מדויק**, לא "מכיל": בחיפוש "גאולה חיפה" התוצאה הראשונה היא
+      // "מעונות גאולה חיפה" - שכונה אחרת, שהכלה הייתה מקבלת (נמדד 26.9.2026).
+      // שכונה קודמת לרחוב באותו שם, וכל רישומי השכונה נוסים: לפארק הקישון
+      // יש שניים, ולפעמים רק אחד מהם מחזיר מצולע.
+      var full = textKey(name + ' ' + settlement);
       var cands = res.filter(function (h) {
-        return textKey(String(h.originalText || h.text || '')).indexOf(wantName) !== -1;
-      }).slice(0, 3);
+        var k = textKey(String(h.originalText || h.text || ''));
+        return k === full || k === wantName;
+      }).sort(function (a, b) {
+        return (a.type === 'neighborhood' ? 0 : 1) - (b.type === 'neighborhood' ? 0 : 1);
+      }).slice(0, 4);
+      // מועמד שאומת אבל בלי מצולע (500 גם אחרי הניסיונות) - שומרים את המרכז
+      // שלו וממשיכים למועמד הבא; אם אף אחד לא נתן מצולע, חוזרים עם המרכז.
+      var pointOnly = null;
       return cands.reduce(function (chain, hit) {
         return chain.then(function (got) {
           if (got) return got;
           var txt = String(hit.originalText || hit.text || '');
           var c = parsePoint(hit.centroid);
-          var named = settlementKey(txt).indexOf(wantSet) !== -1;
+          // בלי אימות רק שכונה שהיישוב בטקסט שלה. רחוב באותו שם (רחוב ביאליק
+          // בטירת כרמל, רחוב גאולה בחיפה) יכול לשבת בשכונה אחרת - מאומת בשכבה.
+          var named = isHoodHit(hit) && settlementKey(txt).indexOf(wantSet) !== -1;
           return (named ? Promise.resolve(true) : (c ? sameHoodAt(gm, c, name, settlement) : Promise.resolve(false)))
             .then(function (okHit) {
               if (!okHit) return null;
-              return gm.getSearchResultData(hit, GOVMAP_TOKEN).then(function (d) {
+              return withRetry(function () { return gm.getSearchResultData(hit, GOVMAP_TOKEN); }).then(function (d) {
                 if (diag && !diag.resultData) diag.resultData = sample(d);
                 return d;
-              }, function () { return null; }).then(function (d) {
+              }, function (e) {
+                if (diag && !diag.resultDataError) diag.resultDataError = name + ': ' + (e && e.message ? e.message : e);
+                return null;
+              }).then(function (d) {
                 var polys = findPolys(d) || findPolys(hit);
                 var ll = c ? toLatLng(proj4, c.x, c.y) : null;
-                return { boundary: polys ? outerRingLatLng(proj4, polys) : null, lat: ll ? ll[0] : null, lng: ll ? ll[1] : null };
+                var out = { boundary: polys ? outerRingLatLng(proj4, polys) : null, lat: ll ? ll[0] : null, lng: ll ? ll[1] : null };
+                if (out.boundary) return out;
+                if (!pointOnly && out.lat != null) pointOnly = out;
+                return null;
               });
             });
         });
-      }, Promise.resolve(null));
+      }, Promise.resolve(null)).then(function (got) { return got || pointOnly; });
     }).catch(function (e) { console.warn('govmap: neighborhood boundary failed', name, e); return null; });
   }
 

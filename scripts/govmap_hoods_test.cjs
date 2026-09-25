@@ -12,6 +12,8 @@
      כבר מהסריקה נלקח משם; חיפוש עם layers שנכשל נופל לחיפוש בלעדיו; טקסט
      בלי שם היישוב מאומת בשכבה על המרכז; מצולע מחוץ לתיבה נדחה; ו-diag
      נושא את התשובות הגולמיות לאבחון
+   - ‏500 מ-getSearchResultData (קרה ל-10 מ-144 באותה ריצה): ניסיון חוזר,
+     ואם הוא נכשל שוב ושוב - מרכז בלי גבול, לא כישלון של הסריקה
 
        node scripts/govmap_hoods_test.cjs
 
@@ -20,7 +22,7 @@
 const fs = require('fs');
 const src = fs.readFileSync(require('path').join(__dirname, '..', 'assets', 'govmap.js'), 'utf8');
 function run(opts){
-  const calls = { layer: 0, verify: 0, search: [] };
+  const calls = { layer: 0, verify: 0, rd: 0, search: [] };
   const win = {
     proj4: (from, to, xy) => xy,                       // זהות: מספיק לבדיקת הלוגיקה
     govmap: {
@@ -39,11 +41,14 @@ function run(opts){
         ] } }); },
       search: (p) => { calls.search.push(p.searchText + (p.layers ? ' [L]' : ''));
         if (opts.layersReject && p.layers) return Promise.reject(new Error('bad layers'));
+        if (opts.hits) return Promise.resolve({ resultsCount: opts.hits.length, results: opts.hits });
         if (opts.bareText) return Promise.resolve({ resultsCount: 1, results: [{ type: 'neighborhood', text: 'נווה שאנן', centroid: 'POINT (35.0 32.8)' }] });
         const wrong = p.searchText.startsWith('בת גלים');   // מחזיר שכונה אחרת - חייב להידחות
         return Promise.resolve({ resultsCount: 1, results: [{ type: 'neighborhood',
           text: wrong ? 'הדר, חיפה' : p.searchText.replace(' ', ', '), centroid: 'POINT (35.0 32.8)' }] }); },
-      getSearchResultData: () => Promise.resolve(opts.farPolygon
+      getSearchResultData: () => (opts.fail500 && calls.rd++ < opts.fail500)
+        ? Promise.reject(new Error('Request failed with status code 500'))
+        : Promise.resolve(opts.farPolygon
         ? { geom: 'MULTIPOLYGON (((32.8 35.0, 32.81 35.0, 32.81 35.01, 32.8 35.01, 32.8 35.0)))' }   // צירים הפוכים
         : { geom: 'MULTIPOLYGON (((35.0 32.8, 35.01 32.8, 35.01 32.81, 35.0 32.81, 35.0 32.8)))' }),
     },
@@ -84,6 +89,24 @@ function run(opts){
 
   const far = await run({ farPolygon: true, layerFeatures: [{ attributes: { fname: 'נווה שאנן', setl_name: 'חיפה' } }] });
   ok('מצולע מחוץ לתיבת השוק (צירים הפוכים) - נדחה', !far.r[0].boundary && far.r[0].lat === 32.8);
+
+  const one = [{ attributes: { fname: 'נווה שאנן', setl_name: 'חיפה' } }];
+  const r1 = await run({ fail500: 2, layerFeatures: one });
+  ok('‏500 פעמיים ואז הצלחה - הגבול נשמר', r1.r[0].boundary && r1.calls.rd === 3);
+  const r2 = await run({ fail500: 99, layerFeatures: one });
+  ok('‏500 בכל הניסיונות - מרכז בלי גבול, והסריקה לא נכשלת', !r2.err && !r2.r[0].boundary && r2.r[0].lat === 32.8 && r2.calls.rd === 3 && /500/.test(r2.r.diag.resultDataError));
+
+  // נמדד 26.9.2026: "גאולה חיפה" מחזיר קודם את "מעונות גאולה חיפה"
+  const P = 'POINT (35.0 32.8)';
+  const mg = await run({ layerFeatures: [{ attributes: { fname: 'גאולה', setl_name: 'חיפה' } }],
+    hits: [{ type: 'neighborhood', text: 'מעונות גאולה חיפה', centroid: P }] });
+  ok('"מעונות גאולה" אינה "גאולה" - התאמת שם מדויקת', !mg.r[0].boundary && mg.r[0].lat == null);
+  const st = await run({ verifyName: 'הדר', layerFeatures: [{ attributes: { fname: 'גאולה', setl_name: 'חיפה' } }],
+    hits: [{ type: 'street', text: 'גאולה חיפה', centroid: P }] });
+  ok('רחוב באותו שם, בשכונה אחרת לפי השכבה - נדחה', !st.r[0].boundary && st.calls.verify === 1);
+  const nf = await run({ layerFeatures: [{ attributes: { fname: 'גאולה', setl_name: 'חיפה' } }],
+    hits: [{ type: 'street', text: 'גאולה חיפה', centroid: P }, { type: 'neighborhood', text: 'גאולה חיפה', centroid: P }] });
+  ok('שכונה קודמת לרחוב באותו שם, בלי אימות נוסף', nf.r[0].boundary && nf.calls.verify === 0);
 
   console.log(fail ? `\n✗ ${fail} נכשלו` : '\n✓ סריקת השכונות מתנהגת כמתוכנן');
   process.exit(fail ? 1 : 0);
