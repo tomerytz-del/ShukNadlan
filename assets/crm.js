@@ -5127,10 +5127,24 @@ function renderPromoStrip(agent){
   // בלי הטבה אישית המתנה נשארת בכותרת ומובילה לדף המסלולים: היא מחליפה את
   // הרצועה, והרצועה הישנה הוצגה בפועל תמיד (display:flex גבר על hidden),
   // כך שהסתרה כאן הייתה נראית כמו פיצ׳ר שנעלם.
+  const P = window.Tiers && Tiers.PROMO;
+  // מנהל/ת הפלטפורמה מקבל/ת Elite ישירות (tier_source=platform_admin) ולכן
+  // אין לו/ה הטבה אישית — ובלי זה לא היה רואה לעולם את החלונית שרוב
+  // הסוכנים רואים. תצוגה מקדימה: הטבה מדומה שמתחילה היום, מסומנת ככזו.
+  if (!promo.active && agent.is_platform_admin && P && P.active){
+    const start = new Date();
+    const ends = new Date(start); ends.setMonth(ends.getMonth() + (P.months || 6));
+    const sample = Object.assign({}, agent, {
+      promo_tier: P.tier, promo_started_at: start.toISOString(),
+      promo_ends_at: ends.toISOString(), promo_ended_at: null,
+    });
+    renderActivePromo(strip, promoOf(sample), sample, true);
+    return;
+  }
+
   if (!promo.active){
     strip.classList.remove('is-urgent');
     strip.href = pricingUrl(agent);
-    const P = window.Tiers && Tiers.PROMO;
     document.getElementById('promoStripTitle').textContent = 'הטבות ומסלולים';
     document.getElementById('promoStripSub').textContent = (P && P.active)
       ? `הטבת ההשקה: ${P.headline} למצטרפים. לפירוט המסלולים ←`
@@ -5140,6 +5154,10 @@ function renderPromoStrip(agent){
     return;
   }
 
+  renderActivePromo(strip, promo, agent, false);
+}
+
+function renderActivePromo(strip, promo, agent, preview){
   const urgent = promo.daysLeft <= 30;
   strip.classList.toggle('is-urgent', urgent);
   strip.href = pricingUrl(agent);
@@ -5150,6 +5168,7 @@ function renderPromoStrip(agent){
     ? 'אחרי התאריך הזה מי שלא בחר/ה מסלול ממשיך/ה ב-Pay&GO. לבחירת המסלול ←'
     : 'כל היכולות פתוחות. לפירוט המסלולים ←';
   labelPromoGift(strip, promo, agent);
+  document.getElementById('promoPopNote').hidden = !preview;
   strip.hidden = false;
 }
 
@@ -5157,6 +5176,7 @@ function renderPromoStrip(agent){
 // ולחלונית שנפתחת בלחיצה — בטלפון אין ריחוף, והחלונית היא המקום היחיד שבו
 // רואים את התאריך. ‏promo מועבר רק כשההטבה פעילה, ואז נוסף פס ההתקדמות.
 function labelPromoGift(strip, promo, agent){
+  document.getElementById('promoPopNote').hidden = true;
   const title = document.getElementById('promoStripTitle').textContent;
   const sub = document.getElementById('promoStripSub').textContent.replace(/\s*(לבחירת המסלול|לפירוט המסלולים)?\s*←$/, '').replace(/\.$/, '');
   const text = title + ' - ' + sub;
@@ -5194,10 +5214,31 @@ function labelPromoGift(strip, promo, agent){
   const gift = document.getElementById('promoStrip');
   const pop  = document.getElementById('promoPop');
   if (!gift || !pop) return;
+  // החלונית ממוקמת מתחת למתנה עצמה, ולא בקצה הכותרת: במחשב הכותרת רחבה
+  // והמתנה יושבת רחוק מהקצה. ‏fixed מול המלבן של האייקון, עם חץ שמצביע עליו,
+  // ובתוך גבולות המסך בכל רוחב.
+  const place = ()=>{
+    const r = gift.getBoundingClientRect();
+    const vw = document.documentElement.clientWidth;
+    const w = pop.offsetWidth;
+    const center = r.left + r.width / 2;
+    const left = Math.max(12, Math.min(vw - w - 12, center - w + 34));
+    pop.style.left = left + 'px';
+    pop.style.top = (r.bottom + 12) + 'px';
+    pop.style.setProperty('--arrow-x', (center - left) + 'px');
+  };
   const setOpen = (open)=>{
     pop.hidden = !open;
     gift.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if (open) place();
   };
+  window.addEventListener('resize', ()=>{ if (!pop.hidden) place(); });
+  window.addEventListener('scroll', ()=>{
+    if (pop.hidden) return;
+    // בגלילה הכותרת מתכווצת והמתנה נעלמת איתה (is-compact) — ואז אין למה להצביע
+    if (document.getElementById('dashboard').classList.contains('is-compact')) setOpen(false);
+    else place();
+  }, { passive:true });
   gift.addEventListener('click', (e)=>{
     if (e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return;
     e.preventDefault();

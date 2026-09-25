@@ -169,13 +169,22 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* החלונית: לחיצה על המתנה אומרת מה ההטבה ועד מתי, במקום לקפוץ ישר לדף
      המסלולים. בטלפון אין ריחוף, ולכן ה-title לבדו לא הראה לאף אחד את התאריך. */
   .promo-pop{
-    position:absolute;top:calc(100% + 10px);inset-inline-start:14px;z-index:130;
+    position:fixed;top:0;left:0;z-index:130;
     width:290px;max-width:calc(100vw - 36px);
     background:#fff;border:1px solid #efe3bd;border-radius:18px;padding:14px 16px;
     box-shadow:0 18px 40px rgba(15,23,42,.16),0 2px 6px rgba(15,23,42,.06);
     text-align:right;animation:promoPopIn .16s ease-out;
   }
   .promo-pop[hidden]{display:none}
+  /* החץ שמצביע על המתנה. ‏--arrow-x נכתב ב-place() ב-crm.js */
+  .promo-pop::before{
+    content:'';position:absolute;top:-7px;left:calc(var(--arrow-x,40px) - 7px);
+    width:12px;height:12px;background:#fff;transform:rotate(45deg);
+    border-top:1px solid #efe3bd;border-left:1px solid #efe3bd;border-radius:2px 0 0 0;
+  }
+  .promo-pop .pp-note{font-size:.72rem;color:#8a6d10;background:#fbf6e6;border-radius:8px;
+    padding:5px 9px;margin:-4px 0 10px}
+  .promo-pop .pp-note[hidden]{display:none}
   @keyframes promoPopIn{from{opacity:0;transform:translateY(-4px)}}
   .promo-pop .pp-head{display:flex;align-items:center;gap:8px;margin-bottom:6px}
   .promo-pop .pp-gift{font-size:1.15rem;line-height:1}
@@ -4545,6 +4554,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <b id="promoPopTitle"></b>
         </div>
         <p class="pp-sub" id="promoPopSub"></p>
+        <p class="pp-note" id="promoPopNote" hidden>תצוגה מקדימה - כך רואים את החלונית סוכנים בהטבת ההשקה.</p>
         <div class="pp-bar" id="promoPopBar" hidden><span id="promoPopFill"></span></div>
         <a class="pp-cta" id="promoPopLink" href="/pricing" target="_blank" rel="noopener">לפירוט המסלולים ←</a>
       </div>
