@@ -105,6 +105,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 </style>
 <link rel="stylesheet" href="assets/design-system.css">
 <script src="assets/page-bg.js" data-auto></script>
+<!-- השוק הפעיל, ושמו בלוגו ובפוטר (scripts/convert_market_text.py,
+     docs/regional-pages.md) -->
+<script defer src="assets/markets.js"></script>
+<script defer src="assets/city-context.js"></script>
+<script defer src="assets/market-text.js"></script>
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -114,7 +119,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <div class="card">
   <div id="stateForm">
-    <a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62"></a>
+    <a href="/" class="logo-link" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית" data-market-aria="aria-label"><img src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" data-market-aria="alt" width="52" height="62"></a>
     <h1>פתיחת חשבון יזם/קבלן</h1>
     <p class="sub">דף חברה אחד, ודף נחיתה נפרד לכל פרויקט</p>
 

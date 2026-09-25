@@ -3125,6 +3125,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="assets/open-house.css">
 <script src="assets/page-bg.js" data-auto></script>
 <script src="assets/site-footer.js" defer></script>
+<!-- השוק הפעיל, ושמו בלוגו ובפוטר (scripts/convert_market_text.py,
+     docs/regional-pages.md) -->
+<script defer src="assets/market-text.js"></script>
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -3137,9 +3140,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <header class="site">
   <div class="wrap header-inner">
-    <a href="/" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית">
-      <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
-      <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
+    <a href="/" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית" data-market-aria="aria-label">
+      <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" data-market-aria="alt" width="52" height="62">
+      <span class="logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
     </a>
     <!-- שורת הניווט של הדסקטופ: שישה יעדים שכולם קיימים בעמוד או בדף
          משלהם. "נכסים" מוביל לתיבת הנכסים — הרשימה "כל הנכסים
@@ -3394,11 +3397,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                  השבבים וממה שנכנס בשורה ברוחב מסך נתון. -->
             <div class="hero-quick-chips">
               <span class="hero-quick-label">מהיר:</span>
-              <button type="button" class="hero-chip" data-q="3 חדרים בגבעת המורה">3 חדרים בגבעת המורה</button>
+              <button type="button" class="hero-chip" data-q="3 חדרים בגבעת המורה" data-market-default-only>3 חדרים בגבעת המורה</button>
               <button type="button" class="hero-chip" data-q="חנויות להשכרה">חנויות להשכרה</button>
               <!-- התווית מקוצרת אבל ‎data-q‎ שלם: הוא מה שנכתב בשדה החיפוש
                    ומורץ בפועל, ו-"בתים בע.עילית" אינו שאילתה שתחזיר משהו. -->
-              <button type="button" class="hero-chip" data-q="בתים בעפולה עילית">בתים בע.עילית</button>
+              <button type="button" class="hero-chip" data-q="בתים בעפולה עילית" data-market-default-only>בתים בע.עילית</button>
               <button type="button" class="hero-chip hero-chip-ai" data-ai="1">
                 <span aria-hidden="true">✦</span> עם הדמיה
               </button>
@@ -3899,7 +3902,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <!-- מירכוז המפה חזרה למרכז עפולה, לתצוגה שאיתה הדף נפתח. משנה רק
                את תצוגת המפה — החיפוש והפינים שעליה נשארים כמו שהם. אחרון
                בשורה, כלומר הפריט השמאלי ביותר ב-RTL. -->
-          <button type="button" class="map-recenter-btn" id="mapRecenterBtn" title="מירכוז המפה על עפולה" aria-label="מירכוז המפה על עפולה">
+          <button type="button" class="map-recenter-btn" id="mapRecenterBtn" title="מירכוז המפה על עפולה" aria-label="מירכוז המפה על עפולה" data-market-city-attrs="title aria-label">
             <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
               <path d="M12 2c-3.87 0-7 3.13-7 7 0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7Zm0 9.5A2.5 2.5 0 1 1 12 6.5a2.5 2.5 0 0 1 0 5Z"/>
             </svg>
@@ -4127,7 +4130,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                     aria-haspopup="dialog" data-info="לחיצה - איך נקבע הדירוג"
                     aria-label="איך עובד הדירוג של המשרדים והמתווכים">i</button></h2>
           </div>
-          <p class="dm-sub-line">כל מי שמלווה עסקת נדל״ן בעפולה והעמק, במקום אחד</p>
+          <p class="dm-sub-line">כל מי שמלווה עסקת נדל״ן ב<span data-market-label>עפולה והעמק</span>, במקום אחד</p>
         </div>
       </div>
 
@@ -4250,7 +4253,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <button type="button" data-owner="rent">רוצה להשכיר</button>
             </div>
             <label class="wiz-label" for="wizAddress">כתובת מדויקת</label>
-            <input type="text" id="wizAddress" class="wiz-input" placeholder="לדוגמה: הרצל 24, עפולה" autocomplete="street-address">
+            <input type="text" id="wizAddress" class="wiz-input" placeholder="לדוגמה: הרצל 24, עפולה" data-market-placeholder autocomplete="street-address">
             <p class="wiz-err" id="wizErr1"></p>
             <div class="wiz-nav">
               <button type="button" class="btn btn-gold" data-next="2">להמשך ←</button>
@@ -4373,7 +4376,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                היה יורד לשורה שלישית משלו (ראו ‎.head-line h2 > .info-dot‎) -->
           <h2>פרויקטים חדשים מקבלנים ויזמים<button
                   type="button" class="info-dot" aria-label="מידע על הרצועה"
-                  data-info="דירות מקבלן בעפולה והעמק - ישירות מהיזם, בלי מתווך">i</button></h2>
+                  data-info="דירות מקבלן בעפולה והעמק - ישירות מהיזם, בלי מתווך" data-market-aria="data-info">i</button></h2>
         </div>
       </div>
       <a href="/projects" class="see-all">כל הפרויקטים החדשים ←</a>
@@ -4752,7 +4755,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                    שלב 1 היה נשאר בלי שום דרך לציין אזור. -->
               <div id="buyAreaFallback" hidden>
                 <label class="wiz-label" for="buyArea">עיר או אזור</label>
-                <input type="text" id="buyArea" class="wiz-input" placeholder="לדוגמה: עפולה">
+                <input type="text" id="buyArea" class="wiz-input" placeholder="לדוגמה: עפולה" data-market-placeholder>
               </div>
 
               <p class="wiz-err" id="buyErr1"></p>
@@ -4872,12 +4875,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div class="footer-wrap footer-top">
 
     <div class="footer-brand">
-      <a href="/" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק - לדף הבית">
+      <a href="/" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק - לדף הבית" data-market-aria="aria-label">
         <img src="assets/logo-shuknadlan-dark.svg" alt="" width="52" height="62" loading="lazy">
-        <span class="footer-logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
+        <span class="footer-logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
       </a>
       <p class="footer-tagline">
-        <span>כל הנכסים, כל המתווכים ובעלי המקצוע בעפולה והעמק בכתובת אחת</span>
+        <span>כל הנכסים, כל המתווכים ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
         <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
       </p>
       <div class="footer-cta">
@@ -4923,8 +4926,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <details class="footer-col" open>
         <summary><h4>נכסים</h4></summary>
         <div class="footer-col-links">
-          <a href="#allProps-sale">למכירה בעפולה</a>
-          <a href="#allProps-rent">להשכרה בעפולה</a>
+          <a href="#allProps-sale">למכירה ב<span data-market-city>עפולה</span></a>
+          <a href="#allProps-rent">להשכרה ב<span data-market-city>עפולה</span></a>
           <a href="#allProps-commercial">נכסים מסחריים</a>
           <a href="#allProps">כל הנכסים</a>
           <a href="/open-house">יריד הבתים הפתוחים</a>
@@ -4968,7 +4971,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- חיפושים פופולריים: קישורים פנימיים שמגיעים לתוצאות מסוננות דרך
        פרמטרים ב-URL (ראו applyDeepLinkFilters ב-index.html). זה הבלוק
        שמאפשר למנוע החיפוש להגיע לעמודי תוצאות ולא רק לדף הבית הכללי. -->
-  <details class="footer-wrap footer-seo" id="footerSeo" open>
+  <details class="footer-wrap footer-seo" id="footerSeo" data-market-default-only open>
     <summary><h4>חיפושים פופולריים בעפולה והעמק</h4></summary>
     <div class="footer-seo-links">
       <a href="?deal=sale&amp;rooms=3">דירות 3 חדרים למכירה בעפולה</a>

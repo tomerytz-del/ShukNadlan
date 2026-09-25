@@ -1011,6 +1011,16 @@ const shapeProperty = p => ({
    הפתוחים נטענים ב-IIFE שרץ בזמן טעינת הסקריפט, מאות שורות לפני שה-const
    ‏CityCtx מאותחל - גישה אליו היא TDZ שנבלע ב-catch, והמדף נופל בשקט
    לנתוני ה-fallback. */
+/* טקסט שתלוי בשוק. בשוק ברירת המחדל - המחרוזת המקורית, מילה במילה, כך
+   שדף הבית של עפולה אינו משתנה באות אחת; בשוק אחר - מה ש-other מחזירה.
+   ‏function ולא const, ו-window.CityContext ולא CityCtx: חלק מהקוראים רצים
+   בזמן טעינת הסקריפט, לפני ש-CityCtx מאותחל (ראו למטה). */
+function marketText(afula, other){
+  const ctx = window.CityContext;
+  const m = ctx && typeof ctx.market === 'function' ? ctx.market() : null;
+  return (!m || m.isDefault) ? afula : other(m);
+}
+
 const MS = window.MarketScope || null;
 function marketFilterSpec(){ return MS ? MS.spec(sb) : Promise.resolve(null); }
 function marketOrFilter(spec){ return MS ? MS.orFilter(spec) : null; }
@@ -1033,9 +1043,13 @@ async function loadProperties(){
       .order('is_promoted', { ascending:false })
       .order('created_at', { ascending:false })
       .limit(PROPERTY_LIMIT);
+    /* ‏בשוק שאינו ברירת המחדל, "אין נכסים" היא תשובה אמיתית ולא תקלה: נתוני
+       ה-fallback הם נכסי דמו של עפולה, ודף חיפה שמציג אותם משקר. */
+    if (!error && Array.isArray(data) && data.length === 0 && marketText(false, () => true)) return [];
     if (error || !data || data.length === 0) throw error || new Error('empty');
     return data.map(shapeProperty);
   } catch(e){
+    if (marketText(false, () => true)) return [];
     console.warn('נכשל טעינת נכסים מה-DB, משתמש בנתוני fallback:', e);
     return FALLBACK_PROPERTIES;
   }
@@ -1384,11 +1398,14 @@ async function loadCommercialProperties(){
       // בוחרים משתנה מטעינה לטעינה. החדשים קודם, כמו בשתי הרצועות האחרות.
       .order('created_at', { ascending: false })
       .limit(COMMERCIAL_POOL);
+    // ‏כמו בטעינה הראשית: בשוק אחר, מלאי מסחרי ריק הוא ריק ולא נכסי דמו של עפולה
+    if (!error && Array.isArray(data) && data.length === 0 && marketText(false, () => true)) return [];
     if (error || !data || data.length === 0) throw error || new Error('empty');
     // הסידור נעשה במדף עצמו (assets/prop-shelf.js → ordered), כמו בתצוגה
     // הפרטית: מקודמים, עדיפות למדיה וסדר ההעלאה במקום אחד.
     return data.map(shapeProperty);
   } catch(e){
+    if (marketText(false, () => true)) return [];
     console.warn('טעינת נכסים מסחריים נכשלה, משתמש בנתוני fallback:', e);
     return FALLBACK_COMMERCIAL;
   }
@@ -1499,7 +1516,7 @@ function renderOpenHouseBanner(count){
    הנכסים. אותו קובץ מצייר גם את הנכסים בדף המשרד ובדף הסוכן/ת, ושם הם
    עדיין שני מדפים — המלאי של משרד אחד קטן, ושניהם נכנסים למסך ממילא. */
 const propsShelf = PropShelf.create({
-  mount:'allProps', titleId:'allPropsTitle', title:'נכסים בעפולה והעמק',
+  mount:'allProps', titleId:'allPropsTitle', title:marketText('נכסים בעפולה והעמק', m => 'נכסים ב' + m.label),
   info:'פרטי ומסחרי, מכירה והשכרה - כל המלאי מכל משרדי התיווך באזור, לפי סדר ההעלאה, ובראש שני נכסים מקודמים',
   // מסגרת אחת סביב הכול, ושתי שורות נכסים בפתיחה: זה מה שנשאר משתי
   // הסקציות שהתמזגו — תצוגה אחת שנקראת כתצוגה אחת, בלי לוותר על כמות
@@ -1517,7 +1534,7 @@ const propsShelf = PropShelf.create({
   // באנר ההדמיות יושב בין הגריד לכפתור "עוד" — ראו showAiPromo()
   afterGrid:'aiPromo',
   countText: (shown, total) => (shown === total)
-    ? `${total.toLocaleString('he-IL')} נכסים בעפולה והעמק - פרטיים ומסחריים`
+    ? `${total.toLocaleString('he-IL')} ${marketText('נכסים בעפולה והעמק', m => 'נכסים ב' + m.label)} - פרטיים ומסחריים`
     : `${shown.toLocaleString('he-IL')} מתוך ${total.toLocaleString('he-IL')} נכסים · מסומנים על המפה שלמעלה`,
   /* תגית שנבחרת כאן היא חיפוש לכל דבר, ולכן היא מגיעה גם למפה ולשורות
      התוצאות שמתחתיה. עד כה היא סיננה את הגריד הזה בלבד: מי שסינן/ה
@@ -1896,7 +1913,7 @@ function dmFromAgency(a, i, team){
     verified: !!(a.ethics_code_accepted_at && !a.ethics_badge_revoked_at),
     team: team || [],
     wa: a.wa_phone || null,
-    waText: `היי, הגעתי אל ${name} דרך שוק הנדל״ן של עפולה והסביבה ואשמח לקבל פרטים.`,
+    waText: `היי, הגעתי אל ${name} דרך ${marketText('שוק הנדל״ן של עפולה והסביבה', m => 'שוק הנדל״ן של ' + m.label)} ואשמח לקבל פרטים.`,
     specs: a.specs || [],
     search: [name, ...areas, ...specs].join(' '),
   };
@@ -1918,7 +1935,7 @@ function dmFromAgent(m, i){
     verified: !!m.has_ethics_badge,
     team: [],
     wa: DM_PHONE_RE.test(String(m.phone_e164 || '')) ? m.phone_e164 : null,
-    waText: `היי ${name}, הגעתי אלייך דרך שוק הנדל״ן של עפולה והסביבה ואשמח לקבל פרטים.`,
+    waText: `היי ${name}, הגעתי אלייך דרך ${marketText('שוק הנדל״ן של עפולה והסביבה', m => 'שוק הנדל״ן של ' + m.label)} ואשמח לקבל פרטים.`,
     specs: m.specs || [],
     search: [name, m.agency_name].join(' '),
   };
@@ -2087,7 +2104,7 @@ function bindRowScroller(row){
       const v = mk('img', 'dm-verified');
       v.src = 'assets/badge-ethics.png'; v.width = 40; v.height = 40; v.loading = 'lazy';
       v.alt = 'עומד בתקן האתי';
-      v.title = 'עומד בתקן האתי של שוק הנדל״ן של עפולה';
+      v.title = marketText('עומד בתקן האתי של שוק הנדל״ן של עפולה', () => 'עומד בתקן האתי של שוק הנדל״ן');
       name.appendChild(v);
     }
     info.appendChild(name);
@@ -2732,7 +2749,7 @@ const DEAL_LABELS = { sale:'מכירה', rent:'השכרה', commercial:'מסחר
 
 // כתובת להצגה: מה שהכי ספציפי שקיים על הנכס, ובלית ברירה שם העיר
 function locationLabel(p){
-  return p.address || p.street || p.neighborhood_name || p.city || 'עפולה והעמק';
+  return p.address || p.street || p.neighborhood_name || p.city || marketText('עפולה והעמק', m => m.label);
 }
 
 /* בלון המידע של הפין. הבלון כולו <a> לדף הנכס: קודם הוא היה טקסט מת, ולחיצה

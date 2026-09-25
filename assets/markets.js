@@ -42,6 +42,8 @@
     {
       slug: 'afula-emek',
       label: 'עפולה והעמק',
+      /* העיר המרכזית - "למכירה בעפולה", "לדוגמה: הרצל 24, עפולה" */
+      city: 'עפולה',
       path: '/',
       live: true,
       isDefault: true,
@@ -55,6 +57,7 @@
     {
       slug: 'haifa-krayot',
       label: 'חיפה והקריות',
+      city: 'חיפה',
       path: '/haifa-krayot',
       live: false,
       isDefault: false,

@@ -19,6 +19,8 @@ on:
       - "supabase/migrations/**"
       - "scripts/check_markets.py"
       - "scripts/markets_test.ts"
+      - "scripts/convert_market_text.py"
+      - "*.html"
       - ".github/workflows/markets.yml"
   push:
     branches: [main]
@@ -45,6 +47,11 @@ jobs:
 
       - name: חמשת המקומות מסכימים
         run: python3 scripts/check_markets.py
+
+      # ‏"עפולה והעמק" בלוגו ובפוטר של דף חדש, בלי סימון data-market-*, נראה
+      # תקין בעפולה ומופיע כ"עפולה" בדף של חיפה.
+      - name: שם השוק בטקסט הקבוע מסומן
+        run: python3 scripts/convert_market_text.py --check
 
       - uses: actions/setup-node@v4
         with:
