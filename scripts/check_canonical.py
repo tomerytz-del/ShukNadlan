@@ -330,9 +330,19 @@ def check_page(path: Path, rules: list[str], locs: list[str]) -> list[str]:
     return problems
 
 
+def market_urls() -> set[str]:
+    """‏כתובות השווקים (‏/haifa-krayot) - אין להן קובץ משלהן, ‏index.html מגיש
+    אותן דרך _redirects. ‏check_markets.py הוא שמוודא ששוק חי נמצא ב-sitemap
+    ושסגור אינו שם; כאן רק לא לסמן אותן כ"אין דף כזה". docs/regional-pages.md"""
+    path = ROOT / "assets" / "markets.js"
+    if not path.exists():
+        return set()
+    return {SITE + p for p in re.findall(r"path:\s*'(/[a-z0-9-]+)'", path.read_text(encoding="utf-8"))}
+
+
 def check_sitemap(pages: set[str], locs: list[str]) -> list[str]:
     """‏כתובת ב-sitemap שאין לה דף סטטי — שארית מדף שנמחק או שגיאת הקלדה."""
-    known = {page_url(n) for n in pages - DETAIL - PRIVATE}
+    known = {page_url(n) for n in pages - DETAIL - PRIVATE} | market_urls()
     return [
         "<loc>%s</loc> — אין דף סטטי כזה בשורש" % loc
         for loc in locs

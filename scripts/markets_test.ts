@@ -21,6 +21,12 @@ import { inject } from "../netlify/edge-functions/market-pages.ts";
 import searchPages from "../netlify/edge-functions/search-pages.ts";
 
 const reg = registry()!;
+
+/* ‏הבדיקה בודקת התנהגות ולא את המצב היום: חיפה מתחילה סגורה כאן בזיכרון,
+   ונדלקת במקרים שצריכים אותה - כדי שהבדיקה לא תיכשל ביום שחיפה באמת
+   נדלקת ב-assets/markets.js. */
+const haifaLiveInFile = reg.bySlug("haifa-krayot")!.live;
+reg.bySlug("haifa-krayot")!.live = false;
 let failed = 0;
 
 function check(name: string, ok: boolean, detail = "") {
@@ -150,6 +156,8 @@ haifa.live = false;
 
 r = await searchPages(req("/", "shuk_market=haifa-krayot%7Cchoice"), ctx());
 check("‎/‎ עם בחירה בשוק שאינו חי: 200, הדף כמו שהוא", r.status === 200 && (await r.text()) === HOME);
+
+reg.bySlug("haifa-krayot")!.live = haifaLiveInFile;
 
 console.log(failed ? `\n✗ ${failed} מקרים נכשלו` : "\n✓ השווקים: זיהוי, הפניה והזרקה מתנהגים כמתוכנן.");
 if (failed) (globalThis as unknown as { process: { exit(n: number): void } }).process.exit(1);

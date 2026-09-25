@@ -53,11 +53,31 @@ def check(name, ok):
         failed += 1
 
 
-def codes(rows, loose=0):
-    return sorted((f.code, f.subject) for f in _market_gate(_Ctx(rows, loose)))
+import shutil, tempfile  # noqa: E402
 
 
-# ‏המצב היום: חיפה אינה חיה (assets/markets.js) ויש בה מעט
+def root_with(haifa_live: bool) -> Path:
+    """‏עותק מינימלי של הריפו שבו חיפה חיה או לא - כדי שהבדיקה לא תיכשל ביום
+    שחיפה באמת נדלקת (היא אינה בודקת את המצב היום, אלא את ההתנהגות)."""
+    tmp = Path(tempfile.mkdtemp())
+    (tmp / "assets").mkdir()
+    (tmp / "scripts").mkdir()
+    shutil.copy(ROOT / "scripts" / "check_markets.py", tmp / "scripts" / "check_markets.py")
+    src = (ROOT / "assets" / "markets.js").read_text(encoding="utf-8")
+    i = src.index("slug: 'haifa-krayot'")
+    head, tail = src[:i], src[i:]
+    tail = tail.replace("live: true", "live: false", 1) if not haifa_live else tail.replace("live: false", "live: true", 1)
+    (tmp / "assets" / "markets.js").write_text(head + tail, encoding="utf-8")
+    return tmp
+
+
+CLOSED, OPEN = root_with(False), root_with(True)
+
+
+def codes(rows, loose=0, root=CLOSED):
+    return sorted((f.code, f.subject) for f in _market_gate(_Ctx(rows, loose, root)))
+
+
 got = codes([{"market_slug": "haifa-krayot", "props": 4, "agencies": 1},
              {"market_slug": "afula-emek", "props": 85, "agencies": 10}])
 check("חיפה סגורה ומתחת לסף - שקט", got == [])
@@ -74,18 +94,14 @@ check("שוק ברירת המחדל ריק - לא מדווח כ'מתחת לסף'
 got = codes([], loose=3)
 check("3 נכסים בלי שוק - ממצא אחד", got == [("listings_no_market", "properties_no_market")])
 
-# ‏שוק חי מתחת לסף: מדמים דרך עותק של markets.js עם חיפה חיה
-import shutil, tempfile  # noqa: E402
-tmp = Path(tempfile.mkdtemp())
-(tmp / "assets").mkdir()
-(tmp / "scripts").mkdir()
-shutil.copy(ROOT / "scripts" / "check_markets.py", tmp / "scripts" / "check_markets.py")
-src = (ROOT / "assets" / "markets.js").read_text(encoding="utf-8")
-i = src.index("slug: 'haifa-krayot'")
-(tmp / "assets" / "markets.js").write_text(src[:i] + src[i:].replace("live: false", "live: true", 1), encoding="utf-8")
-got = sorted((f.code, f.severity) for f in _market_gate(_Ctx([{"market_slug": "haifa-krayot", "props": 3, "agencies": 1}], root=tmp)))
+got = sorted((f.code, f.severity) for f in _market_gate(_Ctx([{"market_slug": "haifa-krayot", "props": 3, "agencies": 1}], root=OPEN)))
 check("חיפה חיה עם 3 נכסים - 'מתחת לסף', high", got == [("market_below_gate", "high")])
-shutil.rmtree(tmp)
+
+got = codes([{"market_slug": "haifa-krayot", "props": 40, "agencies": 3}], root=OPEN)
+check("חיפה חיה ומעל הסף - שקט", got == [])
+
+shutil.rmtree(CLOSED)
+shutil.rmtree(OPEN)
 
 print("\n✗ %d מקרים נכשלו" % failed if failed else "\n✓ בדיקת הסף של השווקים מתנהגת כמתוכנן.")
 sys.exit(1 if failed else 0)
