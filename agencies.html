@@ -12,6 +12,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="assets/esc.js"></script>
 <script src="assets/markets.js"></script>
 <script src="assets/city-context.js"></script>
+<script src="assets/market-scope.js"></script>
 <script src="assets/events.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>כל משרדי התיווך בשוק הנדל״ן</title>
@@ -390,6 +391,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="assets/page-bg.js" data-auto></script>
 <script src="assets/site-footer.js" defer></script>
 <script src="assets/buyer-banner.js" defer></script>
+<!-- השוק הפעיל, ושמו בלוגו ובפוטר (scripts/convert_market_text.py,
+     docs/regional-pages.md) -->
+<script defer src="assets/market-text.js"></script>
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -403,9 +407,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <header class="site">
   <div class="wrap header-inner">
-    <a href="/" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית">
-      <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
-      <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
+    <a href="/" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית" data-market-aria="aria-label">
+      <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" data-market-aria="alt" width="52" height="62">
+      <span class="logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
     </a>
     <a href="/" class="back-link">← לדף הבית</a>
   </div>
@@ -566,7 +570,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                    שלב 1 היה נשאר בלי שום דרך לציין אזור. -->
               <div id="buyAreaFallback" hidden>
                 <label class="wiz-label" for="buyArea">עיר או אזור</label>
-                <input type="text" id="buyArea" class="wiz-input" placeholder="לדוגמה: עפולה">
+                <input type="text" id="buyArea" class="wiz-input" placeholder="לדוגמה: עפולה" data-market-placeholder>
               </div>
 
               <p class="wiz-err" id="buyErr1"></p>
@@ -686,12 +690,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div class="footer-wrap footer-top">
 
     <div class="footer-brand">
-      <a href="/" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק - לדף הבית">
+      <a href="/" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק - לדף הבית" data-market-aria="aria-label">
         <img src="assets/logo-shuknadlan-dark.svg" alt="" width="52" height="62" loading="lazy">
-        <span class="footer-logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
+        <span class="footer-logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
       </a>
       <p class="footer-tagline">
-        <span>כל הנכסים, כל המתווכים ובעלי המקצוע בעפולה והעמק בכתובת אחת</span>
+        <span>כל הנכסים, כל המתווכים ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
         <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
       </p>
       <div class="footer-cta">
@@ -737,8 +741,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <details class="footer-col" open>
         <summary><h4>נכסים</h4></summary>
         <div class="footer-col-links">
-          <a href="/#allProps-sale">למכירה בעפולה</a>
-          <a href="/#allProps-rent">להשכרה בעפולה</a>
+          <a href="/#allProps-sale">למכירה ב<span data-market-city>עפולה</span></a>
+          <a href="/#allProps-rent">להשכרה ב<span data-market-city>עפולה</span></a>
           <a href="/#allProps-commercial">נכסים מסחריים</a>
           <a href="/#allProps">כל הנכסים</a>
           <a href="/open-house">יריד הבתים הפתוחים</a>
@@ -782,7 +786,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- חיפושים פופולריים: קישורים פנימיים שמגיעים לתוצאות מסוננות דרך
        פרמטרים ב-URL (ראו applyDeepLinkFilters ב-index.html). זה הבלוק
        שמאפשר למנוע החיפוש להגיע לעמודי תוצאות ולא רק לדף הבית הכללי. -->
-  <details class="footer-wrap footer-seo" id="footerSeo" open>
+  <details class="footer-wrap footer-seo" id="footerSeo" data-market-default-only open>
     <summary><h4>חיפושים פופולריים בעפולה והעמק</h4></summary>
     <div class="footer-seo-links">
       <a href="/?deal=sale&amp;rooms=3">דירות 3 חדרים למכירה בעפולה</a>
@@ -1272,7 +1276,7 @@ function shapeAgency(a, props, ranking, rated, propsLoaded){
   try{
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const [agenciesRes, rankingsRes, ratingsRes, propsRes, membersRes] = await Promise.allSettled([
-      sb.from('agencies').select('id, name, slug, logo_url, tagline, specialties, specialty_areas, ethics_code_accepted_at, ethics_badge_revoked_at').limit(500),
+      sb.from('agencies').select('id, name, slug, logo_url, tagline, specialties, specialty_areas, ethics_code_accepted_at, ethics_badge_revoked_at, city_id').limit(500),
       sb.from('agency_rankings').select('agency_id, composite_score, active_properties_count').limit(500),
       sb.from('agency_ratings_public').select('agency_id, score, review_count').limit(500),
       sb.from('properties').select(PROPS_SELECT).eq('status', 'active').limit(5000),
@@ -1319,7 +1323,11 @@ function shapeAgency(a, props, ranking, rated, propsLoaded){
     const membersComplete = membersRes.status === 'fulfilled'
       && !membersRes.value.error && members.length < 1000;
     const staffedAgencies = new Set(members.filter(m => m.active !== false).map(m => m.agency_id));
-    const visible = membersComplete ? rows.filter(a => staffedAgencies.has(a.id)) : rows;
+    const staffed = membersComplete ? rows.filter(a => staffedAgencies.has(a.id)) : rows;
+    // ‏המשרדים של השוק הפעיל (assets/market-scope.js): לפי העיר של המשרד.
+    // משרד בלי עיר נספר בשוק ברירת המחדל. בלי הקובץ - כולם, כמו קודם.
+    const scope = window.MarketScope ? await window.MarketScope.spec(sb) : null;
+    const visible = window.MarketScope ? staffed.filter(a => window.MarketScope.inMarket(scope, a.city_id)) : staffed;
 
     finish(visible.map(a => {
       const shaped = shapeAgency(a, propsByAgency.get(a.id) || [], rankByAgency.get(a.id), ratingByAgency.get(a.id), propsLoaded);

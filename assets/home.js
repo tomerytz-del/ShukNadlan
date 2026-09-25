@@ -282,7 +282,12 @@ document.querySelectorAll('.deal-toggle button').forEach(btn=>{
    מחליף אותם במה שנאסף מהפידים ברגע שהתשובה מ-Supabase חוזרת. כך אין
    רצועה ריקה בטעינה, ואין תלות ב-DB לתצוגה הראשונה. */
 const TICKER_MAX = 10;   // כמה מבזקים נשמרים לרוטציה ולמודאל
-let TICKER_ITEMS = FALLBACK_TICKER;
+/* ‏tickerFallback() ולא FALLBACK_TICKER ישירות: בשוק שאינו ברירת המחדל
+   מבזקי הדמו של עפולה אינם מוצגים (ראו loadTicker). */
+function tickerFallback(){
+  return marketText(FALLBACK_TICKER, () => FALLBACK_TICKER.filter(i => !i.is_local));
+}
+let TICKER_ITEMS = tickerFallback();
 let tickerIndex = 0;
 const tickerText = document.getElementById('tickerText');
 const newsModal = document.getElementById('newsModal');
@@ -995,6 +1000,38 @@ const shapeProperty = p => ({
   neighborhood_name: p.neighborhoods?.name || '',
 });
 
+/* ---------- MARKET_FILTER: הנכסים של השוק שהדף מציג ----------
+   docs/regional-pages.md, שלב 2. ‏check_markets.py מחפש את השם הזה: כל עוד
+   הוא אינו כאן, שוק שאינו ברירת המחדל אינו יכול להידלק - אחרת
+   ‏/haifa-krayot היה מציג את נכסי עפולה תחת השם "חיפה והקריות".
+
+   הנכסים, המלאי המסחרי, יריד הבתים הפתוחים, החיפוש, השכונות וכרטיסי
+   המשרדים והמתווכים - כולם עוברים כאן. */
+/* הכלל עצמו - include לשוק רגיל, exclude לשוק ברירת המחדל, והנפילה בכשל -
+   יושב ב-assets/market-scope.js, כדי שדף הבית, ‏/agencies, ‏/agents ו-
+   ‏/projects לא יוכלו להיפרד. כאן רק העטיפות, עם נפילה ל"אין סינון" אם
+   הקובץ לא נטען (חוסם, רשת): בדיוק ההתנהגות שהייתה לפני השווקים.
+
+   ‏window.CityContext ולא CityCtx בתוך MarketScope: המלאי המסחרי ויריד הבתים
+   הפתוחים נטענים ב-IIFE שרץ בזמן טעינת הסקריפט, מאות שורות לפני שה-const
+   ‏CityCtx מאותחל - גישה אליו היא TDZ שנבלע ב-catch, והמדף נופל בשקט
+   לנתוני ה-fallback. */
+/* טקסט שתלוי בשוק. בשוק ברירת המחדל - המחרוזת המקורית, מילה במילה, כך
+   שדף הבית של עפולה אינו משתנה באות אחת; בשוק אחר - מה ש-other מחזירה.
+   ‏function ולא const, ו-window.CityContext ולא CityCtx: חלק מהקוראים רצים
+   בזמן טעינת הסקריפט, לפני ש-CityCtx מאותחל (ראו למטה). */
+function marketText(afula, other){
+  const ctx = window.CityContext;
+  const m = ctx && typeof ctx.market === 'function' ? ctx.market() : null;
+  return (!m || m.isDefault) ? afula : other(m);
+}
+
+const MS = window.MarketScope || null;
+function marketFilterSpec(){ return MS ? MS.spec(sb) : Promise.resolve(null); }
+function marketOrFilter(spec){ return MS ? MS.orFilter(spec) : null; }
+function inMarket(spec, cityId){ return MS ? MS.inMarket(spec, cityId) : true; }
+function applyMarketFilter(query, spec){ return MS ? MS.apply(query, spec) : query; }
+
 /* כל הנכסים הפעילים במאגר, ולא רק 12: המפה בעמוד הבית אמורה להראות את
    התמונה המלאה של השוק לפני שהגולש בכלל חיפש. המקודמים ראשונים, ואחריהם
    הנכסים החדשים — הסדר קובע גם את הקרוסלה וגם את הגריד שלמטה. */
@@ -1003,16 +1040,21 @@ const PROPERTY_LIMIT = 300;
 async function loadProperties(){
   if (!sb) return FALLBACK_PROPERTIES;
   try{
-    const { data, error } = await sb
+    const spec = await marketFilterSpec();
+    const { data, error } = await applyMarketFilter(sb
       .from('properties')
       .select(PROPERTY_SELECT)
-      .eq('status', 'active')
+      .eq('status', 'active'), spec)
       .order('is_promoted', { ascending:false })
       .order('created_at', { ascending:false })
       .limit(PROPERTY_LIMIT);
+    /* ‏בשוק שאינו ברירת המחדל, "אין נכסים" היא תשובה אמיתית ולא תקלה: נתוני
+       ה-fallback הם נכסי דמו של עפולה, ודף חיפה שמציג אותם משקר. */
+    if (!error && Array.isArray(data) && data.length === 0 && marketText(false, () => true)) return [];
     if (error || !data || data.length === 0) throw error || new Error('empty');
     return data.map(shapeProperty);
   } catch(e){
+    if (marketText(false, () => true)) return [];
     console.warn('נכשל טעינת נכסים מה-DB, משתמש בנתוני fallback:', e);
     return FALLBACK_PROPERTIES;
   }
@@ -1032,8 +1074,13 @@ async function loadProperties(){
 
    שתי השאילתות רצות במקביל, וכישלון של אחת (טבלה שטרם נוצרה בסביבה הזו)
    אינו מפיל את השנייה — ‎allSettled‎ ולא ‎all‎. */
+/* ‏מבזק מקומי (‏is_local) הוא של עפולה והעמק - מנוע המבזקים אוסף מפרסומי
+   העירייה ומאתרים אזוריים (news_engine/). בשוק אחר הוא אינו מקומי אלא זר,
+   ולכן שם מוצגים רק המבזקים הארציים, בלי עסקאות הפלטפורמה (שרובן בעפולה)
+   ובלי מבזק הדמו של עפולה. היקף מבזקים לכל שוק - שלב 4 ב-regional-pages. */
 async function loadTicker(){
-  if (!sb) return FALLBACK_TICKER;
+  const otherMarket = marketText(false, () => true);
+  if (!sb) return tickerFallback();
   try{
     const [newsRes, dealsRes] = await Promise.allSettled([
       sb.from('news_items_public')
@@ -1046,8 +1093,9 @@ async function loadTicker(){
         .limit(3),
     ]);
 
-    const news = newsRes.status === 'fulfilled' ? (newsRes.value.data || []) : [];
-    const deals = dealsRes.status === 'fulfilled' ? (dealsRes.value.data || []) : [];
+    const allNews = newsRes.status === 'fulfilled' ? (newsRes.value.data || []) : [];
+    const news = otherMarket ? allNews.filter(n => !n.is_local) : allNews;
+    const deals = (!otherMarket && dealsRes.status === 'fulfilled') ? (dealsRes.value.data || []) : [];
 
     const items = [
       ...news.map(n => ({
@@ -1076,10 +1124,10 @@ async function loadTicker(){
       .filter(i => i.headline)
       .sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
 
-    return items.length ? items : FALLBACK_TICKER;
+    return items.length ? items : tickerFallback();
   } catch(e){
     console.warn('נכשל טעינת מבזק מה-DB, משתמש בנתוני fallback:', e);
-    return FALLBACK_TICKER;
+    return tickerFallback();
   }
 }
 
@@ -1129,7 +1177,7 @@ async function loadLeadingAgencies(){
     if (!sb) return [];
     const [agenciesRes, rankingsRes, ratingsRes, activeRes, membersRes] = await Promise.all([
       // התקרות כאן הן רק גבול בטיחות לגודל התשובה, לא מכסת תצוגה.
-      sb.from('agencies').select('id, name, slug, logo_url, cover_url, specialty_areas, ethics_code_accepted_at, ethics_badge_revoked_at').limit(200),
+      sb.from('agencies').select('id, name, slug, logo_url, cover_url, specialty_areas, ethics_code_accepted_at, ethics_badge_revoked_at, city_id').limit(200),
       sb.from('agency_rankings').select('agency_id, composite_score, active_properties_count').limit(200),
       // הדירוג נלקח מה-view ולא מ-agency_rankings.bayesian_rating: הטבלה
       // מתרעננת אחת לשבועיים, וה-view מחושב מהביקורות המפורסמות ברגע הטעינה,
@@ -1156,9 +1204,13 @@ async function loadLeadingAgencies(){
     // תמונה מלאה של מי פעיל/ה, ועדיף להציג משרד ריק מלהעלים משרד חי.
     const members = membersRes.data || [];
     const staffed = new Set(members.filter(m => m.active !== false).map(m => m.agency_id));
-    const agencies = (!membersRes.error && members.length && members.length < 1000)
+    const staffedAgencies = (!membersRes.error && members.length && members.length < 1000)
       ? allAgencies.filter(a => staffed.has(a.id))
       : allAgencies;
+    // ‏המשרדים של השוק (MARKET_FILTER): לפי העיר של המשרד (agencies.city_id,
+    // מהכתובת הרשומה). משרד בלי עיר נספר בשוק ברירת המחדל - כמו נכס בלי עיר.
+    const marketSpec = await marketFilterSpec();
+    const agencies = staffedAgencies.filter(a => inMarket(marketSpec, a.city_id));
 
     // מספר הוואטסאפ של כל משרד: מנהל/ת עם מספר תקין, ואם אין — החבר/ה
     // הראשון/ה שיש לו/ה. ‏phone_e164 נכנס ל-href, ולכן הוא עובר את אותה
@@ -1262,9 +1314,12 @@ async function loadLeadingAgents(){
     if (agencyIds.length){
       // ‏cover_url של המשרד — הנפילה של מתווך/ת שלא העלה/תה תמונת נושא,
       // אותה נפילה של agent.html
-      const { data: agencies } = await sb.from('agencies').select('id, name, cover_url').in('id', agencyIds);
+      const { data: agencies } = await sb.from('agencies').select('id, name, cover_url, city_id').in('id', agencyIds);
       (agencies||[]).forEach(a => agencyById[a.id] = a);
     }
+    // ‏המתווכים של השוק: לפי העיר של המשרד שלהם, אותו כלל של כרטיסי המשרדים
+    const marketSpec = await marketFilterSpec();
+    const inThisMarket = m => inMarket(marketSpec, agencyById[m.agency_id]?.city_id || null);
 
     const rankByAgent = {};
     (rankingsRes.data || []).forEach(r => { rankByAgent[r.agent_id] = r; });
@@ -1286,6 +1341,7 @@ async function loadLeadingAgents(){
     });
 
     return members
+      .filter(inThisMarket)
       .map(m => {
         const agg = reviewAgg[m.id];
         const ranking = rankByAgent[m.id];
@@ -1343,20 +1399,24 @@ async function loadCommercialProperties(){
        גם למפה (‏ppShelfToMap), נכס מכאן חייב להיות זהה בצורתו לנכס
        מהרשימה הראשית — אחרת הוא מגיע בלי lat/lng ובלי שם שכונה, כלומר
        נספר בתוצאות ולא מקבל פין. */
-    const { data, error } = await sb
+    const spec = await marketFilterSpec();
+    const { data, error } = await applyMarketFilter(sb
       .from('properties')
       .select(PROPERTY_SELECT)
       .eq('status', 'active')
-      .eq('category', 'commercial')
+      .eq('category', 'commercial'), spec)
       // בלי סדר מפורש ה-DB מחזיר שורות בסדר לא מוגדר, ואז גם הבריכה שממנה
       // בוחרים משתנה מטעינה לטעינה. החדשים קודם, כמו בשתי הרצועות האחרות.
       .order('created_at', { ascending: false })
       .limit(COMMERCIAL_POOL);
+    // ‏כמו בטעינה הראשית: בשוק אחר, מלאי מסחרי ריק הוא ריק ולא נכסי דמו של עפולה
+    if (!error && Array.isArray(data) && data.length === 0 && marketText(false, () => true)) return [];
     if (error || !data || data.length === 0) throw error || new Error('empty');
     // הסידור נעשה במדף עצמו (assets/prop-shelf.js → ordered), כמו בתצוגה
     // הפרטית: מקודמים, עדיפות למדיה וסדר ההעלאה במקום אחד.
     return data.map(shapeProperty);
   } catch(e){
+    if (marketText(false, () => true)) return [];
     console.warn('טעינת נכסים מסחריים נכשלה, משתמש בנתוני fallback:', e);
     return FALLBACK_COMMERCIAL;
   }
@@ -1396,10 +1456,11 @@ async function loadOpenHouseCount(){
   if (!sb) return 0;
   try{
     const nowIso = new Date().toISOString();
-    const { count, error } = await sb
+    const spec = await marketFilterSpec();
+    const { count, error } = await applyMarketFilter(sb
       .from('properties')
       .select('id', { count:'exact', head:true })
-      .eq('status', 'active')
+      .eq('status', 'active'), spec)
       .eq('open_house', true)
       .lte('open_house_start', nowIso)
       .gt('open_house_end', nowIso);
@@ -1466,7 +1527,7 @@ function renderOpenHouseBanner(count){
    הנכסים. אותו קובץ מצייר גם את הנכסים בדף המשרד ובדף הסוכן/ת, ושם הם
    עדיין שני מדפים — המלאי של משרד אחד קטן, ושניהם נכנסים למסך ממילא. */
 const propsShelf = PropShelf.create({
-  mount:'allProps', titleId:'allPropsTitle', title:'נכסים בעפולה והעמק',
+  mount:'allProps', titleId:'allPropsTitle', title:marketText('נכסים בעפולה והעמק', m => 'נכסים ב' + m.label),
   info:'פרטי ומסחרי, מכירה והשכרה - כל המלאי מכל משרדי התיווך באזור, לפי סדר ההעלאה, ובראש שני נכסים מקודמים',
   // מסגרת אחת סביב הכול, ושתי שורות נכסים בפתיחה: זה מה שנשאר משתי
   // הסקציות שהתמזגו — תצוגה אחת שנקראת כתצוגה אחת, בלי לוותר על כמות
@@ -1484,7 +1545,7 @@ const propsShelf = PropShelf.create({
   // באנר ההדמיות יושב בין הגריד לכפתור "עוד" — ראו showAiPromo()
   afterGrid:'aiPromo',
   countText: (shown, total) => (shown === total)
-    ? `${total.toLocaleString('he-IL')} נכסים בעפולה והעמק - פרטיים ומסחריים`
+    ? `${total.toLocaleString('he-IL')} ${marketText('נכסים בעפולה והעמק', m => 'נכסים ב' + m.label)} - פרטיים ומסחריים`
     : `${shown.toLocaleString('he-IL')} מתוך ${total.toLocaleString('he-IL')} נכסים · מסומנים על המפה שלמעלה`,
   /* תגית שנבחרת כאן היא חיפוש לכל דבר, ולכן היא מגיעה גם למפה ולשורות
      התוצאות שמתחתיה. עד כה היא סיננה את הגריד הזה בלבד: מי שסינן/ה
@@ -1594,8 +1655,13 @@ const FALLBACK_ARTICLES = [
 /* שם מקומי היסטורי ל-escapeHtml שב-assets/esc.js. */
 function escapeArticleText(s){ return escapeHtml(s); }
 
+/* כתבות הדמו, בלי אלה שכותרתן על עפולה - בשוק אחר הן לא שייכות */
+function articlesFallback(){
+  return marketText(FALLBACK_ARTICLES, () => FALLBACK_ARTICLES.filter(a => !/עפולה/.test(a.title || '')));
+}
+
 async function loadArticles(){
-  if (!sb) return FALLBACK_ARTICLES;
+  if (!sb) return articlesFallback();
 
   // 1. המגזין של הפלטפורמה — כתבות שנכתבו ב-CRM. זה המקור המועדף, והוא
   //    היחיד שיש לו עמוד משלו באתר (article.html).
@@ -1627,9 +1693,12 @@ async function loadArticles(){
   //    ה"מבזק" — הקריאה עוברת ב-view הציבורי, בלי הכתובת הגולמית ובלי
   //    שדות התחקור של המנוע.
   try{
-    const { data, error } = await sb
+    // ‏בשוק אחר - הארציים בלבד, מאותה סיבה שבמבזק (loadTicker)
+    let newsQuery = sb
       .from('news_items_public')
-      .select('headline, summary, url, image_url, category, source_name, published_at')
+      .select('headline, summary, url, image_url, category, source_name, published_at');
+    if (marketText(false, () => true)) newsQuery = newsQuery.eq('is_local', false);
+    const { data, error } = await newsQuery
       .order('published_at', { ascending:false })
       .limit(8);
     if (error || !data || data.length === 0) throw error || new Error('empty');
@@ -1644,7 +1713,7 @@ async function loadArticles(){
     }));
   } catch(e){
     console.warn('טעינת כתבות נכשלה, משתמש בנתוני fallback:', e);
-    return FALLBACK_ARTICLES;
+    return articlesFallback();
   }
 }
 
@@ -1863,7 +1932,7 @@ function dmFromAgency(a, i, team){
     verified: !!(a.ethics_code_accepted_at && !a.ethics_badge_revoked_at),
     team: team || [],
     wa: a.wa_phone || null,
-    waText: `היי, הגעתי אל ${name} דרך שוק הנדל״ן של עפולה והסביבה ואשמח לקבל פרטים.`,
+    waText: `היי, הגעתי אל ${name} דרך ${marketText('שוק הנדל״ן של עפולה והסביבה', m => 'שוק הנדל״ן של ' + m.label)} ואשמח לקבל פרטים.`,
     specs: a.specs || [],
     search: [name, ...areas, ...specs].join(' '),
   };
@@ -1885,7 +1954,7 @@ function dmFromAgent(m, i){
     verified: !!m.has_ethics_badge,
     team: [],
     wa: DM_PHONE_RE.test(String(m.phone_e164 || '')) ? m.phone_e164 : null,
-    waText: `היי ${name}, הגעתי אלייך דרך שוק הנדל״ן של עפולה והסביבה ואשמח לקבל פרטים.`,
+    waText: `היי ${name}, הגעתי אלייך דרך ${marketText('שוק הנדל״ן של עפולה והסביבה', m => 'שוק הנדל״ן של ' + m.label)} ואשמח לקבל פרטים.`,
     specs: m.specs || [],
     search: [name, m.agency_name].join(' '),
   };
@@ -2054,7 +2123,7 @@ function bindRowScroller(row){
       const v = mk('img', 'dm-verified');
       v.src = 'assets/badge-ethics.png'; v.width = 40; v.height = 40; v.loading = 'lazy';
       v.alt = 'עומד בתקן האתי';
-      v.title = 'עומד בתקן האתי של שוק הנדל״ן של עפולה';
+      v.title = marketText('עומד בתקן האתי של שוק הנדל״ן של עפולה', () => 'עומד בתקן האתי של שוק הנדל״ן');
       name.appendChild(v);
     }
     info.appendChild(name);
@@ -2699,7 +2768,7 @@ const DEAL_LABELS = { sale:'מכירה', rent:'השכרה', commercial:'מסחר
 
 // כתובת להצגה: מה שהכי ספציפי שקיים על הנכס, ובלית ברירה שם העיר
 function locationLabel(p){
-  return p.address || p.street || p.neighborhood_name || p.city || 'עפולה והעמק';
+  return p.address || p.street || p.neighborhood_name || p.city || marketText('עפולה והעמק', m => m.label);
 }
 
 /* בלון המידע של הפין. הבלון כולו <a> לדף הנכס: קודם הוא היה טקסט מת, ולחיצה
@@ -3542,9 +3611,14 @@ let hoodShapes = [];
 async function loadNeighborhoods(){
   if (!sb) return [];
   try{
-    const { data, error } = await sb.from('neighborhoods').select('*');
+    const [{ data, error }, spec] = await Promise.all([
+      sb.from('neighborhoods').select('*'),
+      marketFilterSpec(),
+    ]);
     if (error) throw error;
-    return data || [];
+    // ‏השכונות של השוק בלבד - אותו כלל של הנכסים (MARKET_FILTER), על city_id
+    // של השכונה. בלעדיו גלולות השכונה של חיפה היו מופיעות בדף הבית של עפולה.
+    return (data || []).filter(n => inMarket(spec, n.city_id));
   } catch(e){
     console.warn('טעינת השכונות נכשלה, ממשיכים בלי גלולות השכונה:', e);
     return [];
@@ -4106,9 +4180,12 @@ function countActiveFilters(){
 async function matchingNeighborhoodIds(text){
   if (!sb) return [];
   try{
-    const { data, error } = await sb.from('neighborhoods').select('id').ilike('name', `%${text}%`).limit(20);
+    const [{ data, error }, spec] = await Promise.all([
+      sb.from('neighborhoods').select('id, city_id').ilike('name', `%${text}%`).limit(20),
+      marketFilterSpec(),
+    ]);
     if (error) throw error;
-    return (data || []).map(n => n.id);
+    return (data || []).filter(n => inMarket(spec, n.city_id)).map(n => n.id);
   } catch(e){
     console.warn('התאמת שכונה לחיפוש נכשלה:', e);
     return [];
@@ -4182,9 +4259,13 @@ async function runSearchInner(){
     // אותן עמודות כמו loadProperties: תוצאות חיפוש מרונדרות באותם כרטיסים
     // (שורות + קרוסלה + מפה), וכשחסרו כאן images/size_sqm/city הן ירדו
     // לגרדיאנט ולטקסט ברירת המחדל ברגע שהמשתמש חיפש
+    const marketSpec = await marketFilterSpec();
     let query = sb.from('properties').select(PROPERTY_SELECT)
       .eq('status', 'active')
       .eq('category', isCommercial ? 'commercial' : 'residential');
+    // ‏"include" הוא in רגיל; "exclude" הוא or, ומתאחד עם החיפוש החופשי למטה
+    if (marketSpec && marketSpec.mode === 'include') query = applyMarketFilter(query, marketSpec);
+    const marketOr = marketOrFilter(marketSpec);
     // במסחרי מותר ש-dealType יהיה ריק ("הכול"), ואז לא מסננים לפי סוג
     // העסקה כלל. בלי התנאי הזה הבחירה ב"מסחרי" הייתה תמיד מוסיפה
     // deal_type='sale' ומחזירה רק את נכסי המכירה מתוך המלאי המסחרי.
@@ -4223,10 +4304,10 @@ async function runSearchInner(){
     ];
     if (allFeatures.length) query = query.contains('features', allFeatures);
     const freeText = (s.freeText || freeTextMain).trim();
-    if (freeText){
-      const orFilter = await locationOrFilter(freeText);
-      if (orFilter) query = query.or(orFilter);
-    }
+    const textOr = freeText ? await locationOrFilter(freeText) : null;
+    if (textOr && marketOr) query = query.or(`and(or(${marketOr}),or(${textOr}))`);
+    else if (textOr)        query = query.or(textOr);
+    else if (marketOr)      query = query.or(marketOr);
 
     /* מסנן ההדמיות הוא היחיד שלא יושב על עמודה ב-properties: ההדמיות הן
        טבלה נפרדת, ולכן הוא מתורגם לרשימת מזהים ומצורף כ-in. הרשימה קטנה

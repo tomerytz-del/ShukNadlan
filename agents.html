@@ -10,6 +10,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
+<!-- השוק הפעיל, והכלל "מה שייך אליו": הרשימה מציגה את מתווכי השוק בלבד.
+     docs/regional-pages.md -->
+<script src="assets/markets.js"></script>
+<script src="assets/city-context.js"></script>
+<script src="assets/market-scope.js"></script>
 <script src="assets/events.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>כל המתווכים בשוק הנדל״ן</title>
@@ -323,6 +328,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <link rel="stylesheet" href="assets/design-system.css">
 <script src="assets/site-footer.js" defer></script>
 <script src="assets/buyer-banner.js" defer></script>
+<!-- השוק הפעיל, ושמו בלוגו ובפוטר (scripts/convert_market_text.py,
+     docs/regional-pages.md) -->
+<script defer src="assets/market-text.js"></script>
 </head>
 <body>
 <!-- Google Tag Manager (noscript) -->
@@ -334,9 +342,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <header class="site">
   <div class="wrap header-inner">
-    <a href="/" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית">
-      <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" width="52" height="62">
-      <span class="logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
+    <a href="/" class="logo" aria-label="שוק הנדל״ן של עפולה והסביבה - לדף הבית" data-market-aria="aria-label">
+      <img class="logo-img" src="assets/logo-shuknadlan.svg" alt="שוק הנדל״ן של עפולה והסביבה" data-market-aria="alt" width="52" height="62">
+      <span class="logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
     </a>
     <a href="/" class="back-link">← לדף הבית</a>
   </div>
@@ -496,7 +504,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                    שלב 1 היה נשאר בלי שום דרך לציין אזור. -->
               <div id="buyAreaFallback" hidden>
                 <label class="wiz-label" for="buyArea">עיר או אזור</label>
-                <input type="text" id="buyArea" class="wiz-input" placeholder="לדוגמה: עפולה">
+                <input type="text" id="buyArea" class="wiz-input" placeholder="לדוגמה: עפולה" data-market-placeholder>
               </div>
 
               <p class="wiz-err" id="buyErr1"></p>
@@ -616,12 +624,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <div class="footer-wrap footer-top">
 
     <div class="footer-brand">
-      <a href="/" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק - לדף הבית">
+      <a href="/" class="footer-logo" aria-label="שוק הנדל״ן, עפולה והעמק - לדף הבית" data-market-aria="aria-label">
         <img src="assets/logo-shuknadlan-dark.svg" alt="" width="52" height="62" loading="lazy">
-        <span class="footer-logo-word">שוק הנדל״ן<span>עפולה והעמק</span></span>
+        <span class="footer-logo-word">שוק הנדל״ן<span data-market-label>עפולה והעמק</span></span>
       </a>
       <p class="footer-tagline">
-        <span>כל הנכסים, כל המתווכים ובעלי המקצוע בעפולה והעמק בכתובת אחת</span>
+        <span>כל הנכסים, כל המתווכים ובעלי המקצוע ב<span data-market-label>עפולה והעמק</span> בכתובת אחת</span>
         <span class="footer-tagline-strong">העסקה הבאה שלך מתחילה כאן</span>
       </p>
       <div class="footer-cta">
@@ -667,8 +675,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <details class="footer-col" open>
         <summary><h4>נכסים</h4></summary>
         <div class="footer-col-links">
-          <a href="/#allProps-sale">למכירה בעפולה</a>
-          <a href="/#allProps-rent">להשכרה בעפולה</a>
+          <a href="/#allProps-sale">למכירה ב<span data-market-city>עפולה</span></a>
+          <a href="/#allProps-rent">להשכרה ב<span data-market-city>עפולה</span></a>
           <a href="/#allProps-commercial">נכסים מסחריים</a>
           <a href="/#allProps">כל הנכסים</a>
           <a href="/open-house">יריד הבתים הפתוחים</a>
@@ -712,7 +720,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <!-- חיפושים פופולריים: קישורים פנימיים שמגיעים לתוצאות מסוננות דרך
        פרמטרים ב-URL (ראו applyDeepLinkFilters ב-index.html). זה הבלוק
        שמאפשר למנוע החיפוש להגיע לעמודי תוצאות ולא רק לדף הבית הכללי. -->
-  <details class="footer-wrap footer-seo" id="footerSeo" open>
+  <details class="footer-wrap footer-seo" id="footerSeo" data-market-default-only open>
     <summary><h4>חיפושים פופולריים בעפולה והעמק</h4></summary>
     <div class="footer-seo-links">
       <a href="/?deal=sale&amp;rooms=3">דירות 3 חדרים למכירה בעפולה</a>
@@ -1252,7 +1260,7 @@ function applyDeepLink(){
     const agencyIds = [...new Set(members.map(m => m.agency_id).filter(Boolean))];
     const [agenciesRes, rankingsRes, reviewsRes, propsRes] = await Promise.allSettled([
       agencyIds.length
-        ? sb.from('agencies').select('id, name, slug').in('id', agencyIds)
+        ? sb.from('agencies').select('id, name, slug, city_id').in('id', agencyIds)
         : Promise.resolve({ data: [] }),
       sb.from('agent_rankings').select('agent_id, active_properties_count').limit(500),
       sb.from('reviews').select('agent_id, rating').eq('status', 'published').limit(5000),
@@ -1278,7 +1286,15 @@ function applyDeepLink(){
       if (p.agent_id) liveCount.set(p.agent_id, (liveCount.get(p.agent_id) || 0) + 1);
     });
 
-    finish(members.map(m => shapeAgent(
+    // ‏המתווכים של השוק הפעיל (assets/market-scope.js): לפי העיר של המשרד.
+    // מתווך/ת במשרד בלי עיר נספר/ת בשוק ברירת המחדל. בלי הקובץ - כולם.
+    const MS = window.MarketScope;
+    const scope = MS ? await MS.spec(sb) : null;
+    const local = MS
+      ? members.filter(m => MS.inMarket(scope, agencyById.get(m.agency_id)?.city_id || null))
+      : members;
+
+    finish(local.map(m => shapeAgent(
       m,
       agencyById.get(m.agency_id),
       reviewAgg.get(m.id),
