@@ -5176,19 +5176,6 @@ function renderActivePromo(strip, promo, agent, preview){
 // ולחלונית שנפתחת בלחיצה — בטלפון אין ריחוף, והחלונית היא המקום היחיד שבו
 // רואים את התאריך. ‏promo מועבר רק כשההטבה פעילה, ואז נוסף פס ההתקדמות.
 function labelPromoGift(strip, promo, agent){
-  // התווית שליד המתנה במחשב: שתי שורות קצרות. ‏promo פעיל → ההטבה והימים;
-  // אחרת - מהכותרת (בקשה פתוחה) או "הטבות ומסלולים".
-  let chipMain, chipSub;
-  if (promo && promo.active){
-    chipMain = promo.daysLeft <= 30 ? 'ההטבה מסתיימת' : Tiers.label(promo.tier) + ' במתנה';
-    chipSub = promo.daysLeft === 1 ? 'נשאר יום אחד' : 'נשארו ' + promo.daysLeft + ' ימים';
-  } else if (agent && agent.pending_tier_change){
-    chipMain = 'בקשת שדרוג'; chipSub = 'נקלטה';
-  } else {
-    chipMain = 'הטבות'; chipSub = 'ומסלולים';
-  }
-  document.getElementById('promoChipMain').textContent = chipMain;
-  document.getElementById('promoChipSub').textContent = chipSub;
   document.getElementById('promoPopNote').hidden = true;
   const title = document.getElementById('promoStripTitle').textContent;
   const sub = document.getElementById('promoStripSub').textContent.replace(/\s*(לבחירת המסלול|לפירוט המסלולים)?\s*←$/, '').replace(/\.$/, '');
