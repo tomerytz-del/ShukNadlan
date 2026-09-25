@@ -389,6 +389,126 @@
     });
   }
 
+  /* ==========================================================================
+     שכונות של אזור - ייבוא חד-פעמי לרישום השכונות (docs/regional-pages.md)
+
+     ‏neighborhoods_area אינה ניתנת לשאילתה "כל השכונות של יישוב X" בלי מפה,
+     ולכן הסריקה היא **רשת של נקודות** על תיבת השוק: בכל נקודה
+     getLayerFeaturesByLocation ברדיוס 2,500 מ', והתוצאות מאוחדות לפי
+     (יישוב, שם). הרווח בין הנקודות (3.5 ק"מ) קטן מהקוטר, כך שאין חור
+     ביניהן. תיבת חיפה והקריות היא כ-25 נקודות - קריאה אחת לכל אחת.
+
+     הגבול מגיע מ-search על "<שכונה> <יישוב>" עם layers:['neighborhood']
+     ו-getSearchResultData - **ורק כשהטקסט שחזר מתאים** לשכונה וליישוב
+     (אותו כלל של lookupAddress: תוצאה אחרת נדחית, לא "מתוקנת"). בלי
+     התאמה השכונה נכנסת בלי גבול, והמפה מציגה לה עיגול - עדיף על מצולע
+     של שכונה אחרת.
+
+     זו פעולה של מנהל/ת, פעם אחת לשוק, והתוצאה נשמרת במסד (סעיף 7 בסקיל:
+     לא קוראים ל-GovMap בכל צפייה). הטוקן נעול לדומיין - רץ רק מהאתר החי.
+     ========================================================================== */
+
+  /* מפתח ליישוב: "קרית"/"קריית", רווחים ומקפים. אותם צירים של city_name_key. */
+  function settlementKey(s) {
+    return String(s == null ? '' : s).replace(/['"`׳״]/g, '').replace(/[־\-]/g, ' ')
+      .replace(/\s+/g, ' ').trim().replace(/י{2,}/g, 'י').replace(/ו{2,}/g, 'ו');
+  }
+
+  /* הטבעת החיצונית הגדולה ביותר, כ-[lat, lng] (הפורמט של neighborhoods.boundary),
+     מדוללת לכ-160 נקודות: הגבול מצויר על מפת החיפוש, לא נמדד בה. */
+  function outerRingLatLng(proj4, polys) {
+    var best = null, bestLen = 0;
+    polys.forEach(function (rings) { if (rings[0] && rings[0].length > bestLen) { best = rings[0]; bestLen = rings[0].length; } });
+    if (!best || best.length < 3) return null;
+    var step = Math.max(1, Math.ceil(best.length / 160));
+    var out = [];
+    for (var i = 0; i < best.length; i += step) {
+      var ll = itmToWgs84(proj4, best[i][0], best[i][1]);
+      out.push([Math.round(ll[1] * 1e6) / 1e6, Math.round(ll[0] * 1e6) / 1e6]);
+    }
+    return out.length >= 3 ? out : null;
+  }
+
+  function neighborhoodBoundary(gm, proj4, name, settlement) {
+    return gm.search({ apiKey: GOVMAP_TOKEN, searchText: name + ' ' + settlement, isAccurate: false,
+                       maxResults: 5, language: 'he', layers: ['neighborhood'] })
+      .then(function (r) {
+        assertSearchShape(r);
+        var wantName = textKey(name), wantSet = settlementKey(settlement);
+        var hit = r.results.filter(function (h) {
+          if (h.type !== 'neighborhood') return false;
+          var txt = String(h.originalText || h.text || '');
+          return textKey(txt).indexOf(wantName) !== -1 && settlementKey(txt).indexOf(wantSet) !== -1;
+        })[0];
+        if (!hit) return null;
+        return gm.getSearchResultData(hit, GOVMAP_TOKEN).then(function (d) {
+          var polys = parseMultiPolygon(d && d.geom);
+          var ring = polys ? outerRingLatLng(proj4, polys) : null;
+          var c = parsePoint(hit.centroid);
+          var ll = c ? itmToWgs84(proj4, c.x, c.y) : null;
+          return { boundary: ring, lat: ll ? ll[1] : null, lng: ll ? ll[0] : null };
+        });
+      })
+      .catch(function (e) { console.warn('govmap: neighborhood boundary failed', name, e); return null; });
+  }
+
+  /**
+   * השכונות ביישובים `cities` שבתוך `bbox` ([lat_min, lng_min, lat_max, lng_max]).
+   * מחזירה [{settlement, name, code, boundary|null, lat|null, lng|null}].
+   * ‏onProgress(done, total, phase) - לסרגל ההתקדמות. זורקת על תקלת GovMap
+   * בסריקה עצמה: רשימה חלקית בשקט היא בדיוק מה שאסור כאן.
+   */
+  function neighborhoodsInArea(bbox, cities, onProgress) {
+    var want = {};
+    (cities || []).forEach(function (c) { want[settlementKey(c)] = c; });
+    var tick = typeof onProgress === 'function' ? onProgress : function () {};
+
+    return Promise.all([govmapReady(), projReady()]).then(function (mods) {
+      var gm = mods[0], proj4 = mods[1];
+      var latStep = 3.5 / 111, midLat = (bbox[0] + bbox[2]) / 2;
+      var lngStep = 3.5 / (111 * Math.cos(midLat * Math.PI / 180));
+      var points = [];
+      for (var la = bbox[0]; la <= bbox[2] + latStep / 2; la += latStep) {
+        for (var ln = bbox[1]; ln <= bbox[3] + lngStep / 2; ln += lngStep) points.push([la, ln]);
+      }
+      var found = {};
+      var done = 0;
+
+      return points.reduce(function (chain, pt) {
+        return chain.then(function () {
+          var xy = proj4('WGS84', ITM_DEF, [pt[1], pt[0]]);
+          return gm.getLayerFeaturesByLocation({
+            geometry: 'POINT(' + xy[0] + ' ' + xy[1] + ')',
+            radius: 2500,
+            layers: [{ name: 'neighborhoods_area', fields: LAYER_FIELDS.neighborhoods_area }],
+          }, GOVMAP_TOKEN).then(function (r) {
+            assertNoLayerErrors(r);
+            (r.layers.neighborhoods_area || []).forEach(function (f) {
+              var a = f.attributes || {};
+              var city = want[settlementKey(a.setl_name)];
+              var name = String(a.fname || '').trim();
+              if (!city || !name) return;
+              var key = settlementKey(city) + '|' + textKey(name);
+              if (!found[key]) found[key] = { settlement: city, name: name, code: a.nbr_code != null ? String(a.nbr_code) : null };
+            });
+            tick(++done, points.length, 'scan');
+          });
+        });
+      }, Promise.resolve()).then(function () {
+        var list = Object.keys(found).map(function (k) { return found[k]; });
+        var n = 0;
+        return list.reduce(function (chain, h) {
+          return chain.then(function () {
+            return neighborhoodBoundary(gm, proj4, h.name, h.settlement).then(function (b) {
+              h.boundary = b && b.boundary; h.lat = b && b.lat; h.lng = b && b.lng;
+              tick(++n, list.length, 'boundary');
+            });
+          });
+        }, Promise.resolve()).then(function () { return list; });
+      });
+    });
+  }
+
   window.GOVMAP_TOKEN = GOVMAP_TOKEN;
   window.govmapReady = govmapReady;
   window.GovmapLookup = {
@@ -402,5 +522,7 @@
     _streetCandidates: streetCandidates,
     _sameAddress: sameAddress,
     _parseMultiPolygon: parseMultiPolygon,
+    neighborhoodsInArea: neighborhoodsInArea,
+    _settlementKey: settlementKey,
   };
 })();
