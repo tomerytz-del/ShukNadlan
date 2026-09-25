@@ -1899,6 +1899,10 @@ async function loadNeighborhoodCityOptions(){
    ההתאמה בין שכונה קיימת לחדשה: שם העיר (hoodCityKey) ושם השכונה
    (GovmapLookup._textKey - ה"א פותחת/סופית ויו"ד כפולה). */
 let hoodImportRows = [];
+/* התשובות הגולמיות הראשונות של GovMap (neighborhoodsInArea → diag). כשהסריקה
+   חוזרת בלי גבולות, כפתור אחד מעתיק אותן - צורת התשובה לשכונה לא נמדדה
+   לפני הריצה הראשונה, ובלעדיהן כל תיקון הוא ניחוש. */
+let hoodImportDiag = null;
 
 function hoodImportInit(){
   const sel = document.getElementById('hoodImportMarket');
@@ -1919,7 +1923,8 @@ function renderHoodImport(){
   const host = document.getElementById('hoodImportResult');
   if (!host) return;
   if (!hoodImportRows.length){ host.innerHTML = ''; return; }
-  const label = { new: 'חדשה', fill: 'קיימת - יתווסף גבול', keep: 'קיימת - לא ישתנה' };
+  const label = { new: 'חדשה', fill: 'קיימת - יתווסף גבול', fillPoint: 'קיימת - תתווסף נקודה', keep: 'קיימת - לא ישתנה' };
+  const labelOf = r => r.action === 'fill' && !(r.boundary && !r.hasBoundary) ? label.fillPoint : label[r.action];
   const actionable = hoodImportRows.filter(r => r.action !== 'keep');
   host.innerHTML = `
     <div class="adm-table-wrap"><table class="adm-table">
@@ -1929,17 +1934,23 @@ function renderHoodImport(){
           <td>${r.action === 'keep' ? '' : `<input type="checkbox" data-hood-row="${i}" ${r.checked ? 'checked' : ''} aria-label="${esc(r.name)}">`}</td>
           <td>${esc(r.name)}</td><td>${esc(r.city)}</td>
           <td>${r.boundary ? esc(r.boundary.length + ' נק׳') : 'אין'}</td>
-          <td>${esc(label[r.action])}</td>
+          <td>${esc(labelOf(r))}</td>
         </tr>`).join('')}</tbody>
     </table></div>
     <div style="display:flex;gap:8px;align-items:center;margin-top:10px;flex-wrap:wrap">
       <button type="button" class="btn btn-gold" id="hoodImportSave" ${actionable.length ? '' : 'disabled'}>שמירת השכונות שסומנו</button>
       <span class="acc-sub" style="margin:0">${esc(hoodImportRows.length + ' נמצאו · ' + actionable.length + ' לשמירה')}</span>
+      ${hoodImportDiag && !hoodImportRows.some(r => r.boundary) ? '<button type="button" class="btn btn-ghost" id="hoodImportDiag">העתקת פרטי אבחון</button>' : ''}
     </div>`;
   host.querySelectorAll('[data-hood-row]').forEach(cb => cb.addEventListener('change', ()=>{
     hoodImportRows[Number(cb.dataset.hoodRow)].checked = cb.checked;
   }));
   document.getElementById('hoodImportSave')?.addEventListener('click', saveHoodImport);
+  document.getElementById('hoodImportDiag')?.addEventListener('click', async ()=>{
+    const text = JSON.stringify(hoodImportDiag, null, 1);
+    try { await navigator.clipboard.writeText(text); showToast('פרטי האבחון הועתקו'); }
+    catch(e){ console.log(text); showToast('ההעתקה נחסמה - הפרטים בקונסול'); }
+  });
 }
 
 async function scanHoodImport(){
@@ -1966,10 +1977,15 @@ async function scanHoodImport(){
     hoodImportRows = found.map(h => {
       const ex = byKey.get(key(h.settlement, h.name));
       const hasBoundary = ex && Array.isArray(ex.boundary) && ex.boundary.length >= 3;
-      const action = !ex ? 'new' : (!hasBoundary && h.boundary ? 'fill' : 'keep');
-      return { ...h, city: h.settlement, existing: ex || null, action, checked: action !== 'keep' };
+      const addsPoint = ex && ex.lat == null && h.lat != null;
+      const action = !ex ? 'new' : ((!hasBoundary && h.boundary) || addsPoint ? 'fill' : 'keep');
+      return { ...h, city: h.settlement, existing: ex || null, hasBoundary, action, checked: action !== 'keep' };
     }).sort((a, b) => a.city.localeCompare(b.city, 'he') || a.name.localeCompare(b.name, 'he'));
-    hoodImportStatus(hoodImportRows.length ? '' : 'לא נמצאו שכונות בערי השוק. אם זה לא האתר החי - הטוקן של GovMap עובד רק ב-shuknadlan.co.il.');
+    hoodImportDiag = found.diag || null;
+    const withB = found.filter(h => h.boundary).length;
+    hoodImportStatus(!hoodImportRows.length
+      ? 'לא נמצאו שכונות בערי השוק. אם זה לא האתר החי - הטוקן של GovMap עובד רק ב-shuknadlan.co.il.'
+      : `נמצאו גבולות ל-${withB} מתוך ${found.length} שכונות.`);
     renderHoodImport();
   } catch(e){
     console.warn('hood import scan failed', e);
@@ -1993,7 +2009,9 @@ async function saveHoodImport(){
         lat: r.lat ?? null, lng: r.lng ?? null,
       });
     } else {
-      const patch = { boundary: r.boundary };
+      // גבול רק למי שאין לו - גבול שסומן ביד הוא החלטה (ראו למעלה)
+      const patch = {};
+      if (!r.hasBoundary && r.boundary) patch.boundary = r.boundary;
       if (r.existing && r.existing.lat == null && r.lat != null){ patch.lat = r.lat; patch.lng = r.lng; }
       res = await sb.from('neighborhoods').update(patch).eq('id', r.existing.id);
     }

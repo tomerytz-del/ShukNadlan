@@ -414,6 +414,14 @@
       .replace(/\s+/g, ' ').trim().replace(/י{2,}/g, 'י').replace(/ו{2,}/g, 'ו');
   }
 
+  /* נקודה ברשת של GovMap -> [lat, lng]. רוב התשובות ב-ITM, אבל identify כבר
+     הוכיח ש-3857 מופיע לצידו (SKILL.md, סעיף 2) - ולכן מזהים לפי הטווח:
+     ‏ITM הוא מאות אלפים, Web Mercator מיליונים. */
+  function toLatLng(proj4, x, y) {
+    var ll = Math.abs(x) > 1e6 ? proj4('EPSG:3857', 'WGS84', [x, y]) : itmToWgs84(proj4, x, y);
+    return [Math.round(ll[1] * 1e6) / 1e6, Math.round(ll[0] * 1e6) / 1e6];
+  }
+
   /* הטבעת החיצונית הגדולה ביותר, כ-[lat, lng] (הפורמט של neighborhoods.boundary),
      מדוללת לכ-160 נקודות: הגבול מצויר על מפת החיפוש, לא נמדד בה. */
   function outerRingLatLng(proj4, polys) {
@@ -422,46 +430,129 @@
     if (!best || best.length < 3) return null;
     var step = Math.max(1, Math.ceil(best.length / 160));
     var out = [];
-    for (var i = 0; i < best.length; i += step) {
-      var ll = itmToWgs84(proj4, best[i][0], best[i][1]);
-      out.push([Math.round(ll[1] * 1e6) / 1e6, Math.round(ll[0] * 1e6) / 1e6]);
-    }
+    for (var i = 0; i < best.length; i += step) out.push(toLatLng(proj4, best[i][0], best[i][1]));
     return out.length >= 3 ? out : null;
   }
 
-  function neighborhoodBoundary(gm, proj4, name, settlement) {
-    return gm.search({ apiKey: GOVMAP_TOKEN, searchText: name + ' ' + settlement, isAccurate: false,
-                       maxResults: 5, language: 'he', layers: ['neighborhood'] })
-      .then(function (r) {
+  /* מצולע מכל צורה ש-GovMap עשוי להחזיר: מחרוזת WKT בכל שדה של הישות או
+     של attributes, או ‏Esri JSON (`{rings: [...]}`). הצורה המדויקת של
+     getLayerFeaturesByLocation ושל getSearchResultData לשכונה לא נמדדה
+     (הריצה הראשונה, 25.9.2026, חזרה בלי אף גבול) - ולכן מחפשים, לא מניחים. */
+  function findPolys(obj) {
+    if (!obj || typeof obj !== 'object') return null;
+    var bags = [obj, obj.attributes, obj.data, obj.geometry].filter(function (b) { return b && typeof b === 'object'; });
+    for (var i = 0; i < bags.length; i++) {
+      var b = bags[i];
+      if (Array.isArray(b.rings) && b.rings.length) {
+        return [b.rings.map(function (r) { return r.map(function (p) { return [Number(p[0]), Number(p[1])]; }); })];
+      }
+      for (var k in b) {
+        if (typeof b[k] === 'string' && /^\s*(MULTI)?POLYGON/i.test(b[k])) {
+          var polys = parseMultiPolygon(b[k]);
+          if (polys) return polys;
+        }
+      }
+    }
+    return null;
+  }
+
+  function ringCenter(ring) {
+    var la = 0, ln = 0;
+    ring.forEach(function (p) { la += p[0]; ln += p[1]; });
+    return [Math.round(la / ring.length * 1e6) / 1e6, Math.round(ln / ring.length * 1e6) / 1e6];
+  }
+
+  /* אבחון: התשובות הגולמיות הראשונות, כדי שכשל יהיה לחיצה אחת בתצוגת המנהל/ת
+     ולא סשן בקונסול. קטוע - זה לקריאה, לא לשמירה. */
+  function sample(v) {
+    try { var s = JSON.stringify(v); return s && s.length > 3000 ? s.slice(0, 3000) + '…' : s; }
+    catch (e) { return String(v); }
+  }
+
+  /* האם בנקודה הזו יש את השכונה הזו? ‏getLayerFeaturesByLocation קטנה על
+     המרכז שחזר מהחיפוש - הוכחה שאינה תלויה בנוסח הטקסט של החיפוש, שבו
+     היישוב לפעמים חסר ("נווה שאנן" בלבד). */
+  function sameHoodAt(gm, pt, name, settlement) {
+    return gm.getLayerFeaturesByLocation({
+      geometry: 'POINT(' + pt.x + ' ' + pt.y + ')', radius: 30,
+      layers: [{ name: 'neighborhoods_area', fields: LAYER_FIELDS.neighborhoods_area }],
+    }, GOVMAP_TOKEN).then(function (r) {
+      assertNoLayerErrors(r);
+      return (r.layers.neighborhoods_area || []).some(function (f) {
+        var a = f.attributes || {};
+        return textKey(a.fname) === textKey(name) && settlementKey(a.setl_name) === settlementKey(settlement);
+      });
+    }).catch(function () { return false; });
+  }
+
+  function neighborhoodBoundary(gm, proj4, name, settlement, diag) {
+    var wantName = textKey(name), wantSet = settlementKey(settlement);
+    var q = { apiKey: GOVMAP_TOKEN, searchText: name + ' ' + settlement, isAccurate: false, maxResults: 5, language: 'he' };
+    var withLayer = {}; for (var k in q) withLayer[k] = q[k]; withLayer.layers = ['neighborhood'];
+
+    function ask(p, tag) {
+      return gm.search(p).then(function (r) {
+        if (diag && !diag[tag]) diag[tag] = sample(r);
         assertSearchShape(r);
-        var wantName = textKey(name), wantSet = settlementKey(settlement);
-        var hit = r.results.filter(function (h) {
-          if (h.type !== 'neighborhood') return false;
-          var txt = String(h.originalText || h.text || '');
-          return textKey(txt).indexOf(wantName) !== -1 && settlementKey(txt).indexOf(wantSet) !== -1;
-        })[0];
-        if (!hit) return null;
-        return gm.getSearchResultData(hit, GOVMAP_TOKEN).then(function (d) {
-          var polys = parseMultiPolygon(d && d.geom);
-          var ring = polys ? outerRingLatLng(proj4, polys) : null;
+        return r.results;
+      }, function (e) {
+        if (diag && !diag[tag]) diag[tag] = 'ERR ' + (e && e.message ? e.message : e);
+        return [];
+      });
+    }
+
+    // עם סינון לשכונות, ואם לא יצא ממנו כלום - בלעדיו. התשובה של GovMap
+    // ל-layers לא נמדדה, ואסור שהיא תהיה נקודת כשל יחידה.
+    return ask(withLayer, 'searchHood').then(function (res) {
+      return res.length ? res : ask(q, 'searchPlain');
+    }).then(function (res) {
+      var cands = res.filter(function (h) {
+        return textKey(String(h.originalText || h.text || '')).indexOf(wantName) !== -1;
+      }).slice(0, 3);
+      return cands.reduce(function (chain, hit) {
+        return chain.then(function (got) {
+          if (got) return got;
+          var txt = String(hit.originalText || hit.text || '');
           var c = parsePoint(hit.centroid);
-          var ll = c ? itmToWgs84(proj4, c.x, c.y) : null;
-          return { boundary: ring, lat: ll ? ll[1] : null, lng: ll ? ll[0] : null };
+          var named = settlementKey(txt).indexOf(wantSet) !== -1;
+          return (named ? Promise.resolve(true) : (c ? sameHoodAt(gm, c, name, settlement) : Promise.resolve(false)))
+            .then(function (okHit) {
+              if (!okHit) return null;
+              return gm.getSearchResultData(hit, GOVMAP_TOKEN).then(function (d) {
+                if (diag && !diag.resultData) diag.resultData = sample(d);
+                return d;
+              }, function () { return null; }).then(function (d) {
+                var polys = findPolys(d) || findPolys(hit);
+                var ll = c ? toLatLng(proj4, c.x, c.y) : null;
+                return { boundary: polys ? outerRingLatLng(proj4, polys) : null, lat: ll ? ll[0] : null, lng: ll ? ll[1] : null };
+              });
+            });
         });
-      })
-      .catch(function (e) { console.warn('govmap: neighborhood boundary failed', name, e); return null; });
+      }, Promise.resolve(null));
+    }).catch(function (e) { console.warn('govmap: neighborhood boundary failed', name, e); return null; });
   }
 
   /**
    * השכונות ביישובים `cities` שבתוך `bbox` ([lat_min, lng_min, lat_max, lng_max]).
-   * מחזירה [{settlement, name, code, boundary|null, lat|null, lng|null}].
+   * מחזירה [{settlement, name, code, boundary|null, lat|null, lng|null}], ועל
+   * המערך `diag` - התשובות הגולמיות הראשונות, לאבחון כשהגבולות לא חזרו.
    * ‏onProgress(done, total, phase) - לסרגל ההתקדמות. זורקת על תקלת GovMap
    * בסריקה עצמה: רשימה חלקית בשקט היא בדיוק מה שאסור כאן.
+   *
+   * הגבול, לפי הסדר: המצולע שחזר עם הישות בסריקה עצמה (אם השכבה מחזירה
+   * גיאומטריה - בלי קריאה נוספת), ואחרת חיפוש השכונה (neighborhoodBoundary).
+   * **כל גבול נבדק מול תיבת השוק** (בשוליים): ציר הפוך או רשת אחרת נותנים
+   * מצולע בירדן, ועדיף בלי גבול (SKILL.md, "סדר הצירים").
    */
   function neighborhoodsInArea(bbox, cities, onProgress) {
     var want = {};
     (cities || []).forEach(function (c) { want[settlementKey(c)] = c; });
     var tick = typeof onProgress === 'function' ? onProgress : function () {};
+    var diag = {};
+    var M = 0.05;
+    function inArea(ll) {
+      return ll && ll[0] >= bbox[0] - M && ll[0] <= bbox[2] + M && ll[1] >= bbox[1] - M && ll[1] <= bbox[3] + M;
+    }
 
     return Promise.all([govmapReady(), projReady()]).then(function (mods) {
       var gm = mods[0], proj4 = mods[1];
@@ -483,13 +574,20 @@
             layers: [{ name: 'neighborhoods_area', fields: LAYER_FIELDS.neighborhoods_area }],
           }, GOVMAP_TOKEN).then(function (r) {
             assertNoLayerErrors(r);
-            (r.layers.neighborhoods_area || []).forEach(function (f) {
+            var feats = r.layers.neighborhoods_area || [];
+            if (!diag.layerFeature && feats.length) diag.layerFeature = sample(feats[0]);
+            feats.forEach(function (f) {
               var a = f.attributes || {};
               var city = want[settlementKey(a.setl_name)];
               var name = String(a.fname || '').trim();
               if (!city || !name) return;
               var key = settlementKey(city) + '|' + textKey(name);
-              if (!found[key]) found[key] = { settlement: city, name: name, code: a.nbr_code != null ? String(a.nbr_code) : null };
+              if (!found[key]) found[key] = { settlement: city, name: name, code: a.nbr_code != null ? String(a.nbr_code) : null, boundary: null };
+              if (!found[key].boundary) {
+                var polys = findPolys(f);
+                var ring = polys ? outerRingLatLng(proj4, polys) : null;
+                if (ring && inArea(ringCenter(ring))) found[key].boundary = ring;
+              }
             });
             tick(++done, points.length, 'scan');
           });
@@ -499,12 +597,15 @@
         var n = 0;
         return list.reduce(function (chain, h) {
           return chain.then(function () {
-            return neighborhoodBoundary(gm, proj4, h.name, h.settlement).then(function (b) {
-              h.boundary = b && b.boundary; h.lat = b && b.lat; h.lng = b && b.lng;
+            var got = h.boundary ? Promise.resolve({ boundary: h.boundary }) : neighborhoodBoundary(gm, proj4, h.name, h.settlement, diag);
+            return got.then(function (b) {
+              var ring = b && b.boundary && inArea(ringCenter(b.boundary)) ? b.boundary : null;
+              var ll = b && b.lat != null && inArea([b.lat, b.lng]) ? [b.lat, b.lng] : (ring ? ringCenter(ring) : null);
+              h.boundary = ring; h.lat = ll ? ll[0] : null; h.lng = ll ? ll[1] : null;
               tick(++n, list.length, 'boundary');
             });
           });
-        }, Promise.resolve()).then(function () { return list; });
+        }, Promise.resolve()).then(function () { list.diag = diag; return list; });
       });
     });
   }
