@@ -103,6 +103,9 @@ PRIVATE = {
     "review-request",
     "neighborhood-boundary",
     "agreement",
+    # ‏"נפתחים בקרוב" של שוק שעוד לא חי. מוגש תחת ‎/haifa-krayot‎ וחבריו,
+    # ונושא noindex כי דף עם אפס נכסים מזיק לאתר (docs/regional-pages.md).
+    "market-soon",
 }
 
 TAG = '<link rel="canonical" href="%s">'

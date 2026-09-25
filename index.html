@@ -15,7 +15,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="assets/auth-return.js" data-catch></script>
 <script src="assets/esc.js"></script>
 <!-- העיר הפעילה. לפני כל מה שמצייר, כי ה-H1 והמפה שואלים אותו. -->
+<script src="assets/markets.js"></script>
 <script src="assets/city-context.js"></script>
+<script defer src="assets/near-me.js"></script>
 <script src="assets/events.js"></script>
 <script src="assets/bot-link.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -478,6 +480,23 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     text-shadow:0 1px 0 rgba(255,255,255,.7);
   }
   .hero-roll-window{display:inline-block;overflow:hidden;height:1.5em;min-width:8.6em}
+  /* ‏"הצג נכסים לידי" - גלולה שקטה מתחת לשורה המתחלפת. שקטה בכוונה: היא
+     פעולה משנית לחיפוש, ובקשת מיקום שנראית כמו הכפתור הראשי נדחית. */
+  .hero-near{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 10px;margin:10px 0 0}
+  /* ‏.hero-inner הוא pointer-events:none כדי שהמפה שמתחתיו תיגרר, וכל פקד
+     בתוכו מחזיר את הלחיצה לעצמו - כמו .search-shell ו-.hero-badges. */
+  .hero-near-btn,.hero-near-msg{pointer-events:auto}
+  .hero-near-btn{
+    display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;
+    border:1px solid rgba(14,42,107,.18);background:rgba(255,255,255,.78);color:var(--navy,#0e2a6b);
+    font:inherit;font-size:.92rem;font-weight:600;cursor:pointer;
+    transition:background .15s ease,border-color .15s ease;
+  }
+  .hero-near-btn:hover{background:#fff;border-color:rgba(14,42,107,.35)}
+  .hero-near-btn:disabled{opacity:.65;cursor:progress}
+  .hero-near-btn svg{width:16px;height:16px;flex:none}
+  .hero-near-msg{font-size:.88rem;color:var(--ink-soft)}
+  .hero-near-msg:empty{display:none}
   .hero-roll-track{display:block;animation:rollWords 11.4s ease-in-out infinite}
   /* המילה המתחלפת בזהב ולא בנייבי: היא והסמן שלצידה הם הדבר היחיד שזז
      בראש המסך, וכשהיא בנייבי היא נקראת כהמשך של "מחפשים" שלפניה במקום
@@ -1513,6 +1532,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     }
     .hero-badges{justify-content:flex-start}
     .hero-roll{justify-content:flex-start;font-size:1.28rem;margin-top:10px}
+    .hero-near{justify-content:flex-start}
     .search-shell{margin-inline:0;max-width:min(560px,46vw)}
     .hero-stats{justify-content:flex-start;gap:22px;margin-top:18px}
     /* הסקרים כבר מכהה את הצד הזה; ההילה שמתחת לסרגל החיפוש הייתה כתם שני */
@@ -3318,6 +3338,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               </span>
             </span>
             <span class="hero-caret" aria-hidden="true"></span>
+          </p>
+
+          <!-- ‏"הצג נכסים לידי": מיקום מהדפדפן בוחר את השוק המקומי, ומי שנמצא/ת
+               בשוק אחר מועבר/ת לכתובת שלו. בקשת ההרשאה עולה רק בלחיצה, ורק
+               השוק נשמר - לא הקואורדינטות. ‏assets/near-me.js,
+               docs/regional-pages.md -->
+          <p class="hero-near">
+            <button type="button" class="hero-near-btn" id="heroNearBtn">
+              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 10c0 5.2-8 12-8 12s-8-6.8-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.8"/>
+              </svg>
+              <span>הצג נכסים לידי</span>
+            </button>
+            <span class="hero-near-msg" id="heroNearMsg" role="status" aria-live="polite"></span>
           </p>
         </div><!-- /.hero-lead -->
 

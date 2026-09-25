@@ -183,7 +183,7 @@ const propertyFields = {
   },
   description: { type: "string", description: "תיאור חופשי של הנכס." },
   rooms: { type: "number", description: "מספר חדרים (אפשר 3.5)." },
-  city: { type: "string", description: "עיר. ברירת מחדל עפולה." },
+  city: { type: "string", description: "עיר. ברירת מחדל: העיר של המשרד של הסוכן/ת." },
   street: { type: "string", description: "שם רחוב בלי מספר בית." },
   house_number: { type: "string", description: "מספר בית בלבד." },
   floor: { type: "integer", description: "קומה." },
@@ -1088,6 +1088,32 @@ async function findDuplicateProperty(ctx: ToolContext, payload: Record<string, u
   return { match: matches[0], total: matches.length };
 }
 
+/* העיר שנכס חדש נוצר בה כשהסוכן/ת לא אמר/ה: העיר של המשרד (agencies.city_id).
+   עד השווקים זו הייתה "עפולה" קבועה, ומשרד בחיפה שהכתיב "דירת 4 חדרים בהרצל"
+   היה מקבל נכס בעפולה. שתי שאילתות ולא embed, וכל כשל נופל לעפולה - בדיוק
+   ההתנהגות שהייתה. docs/regional-pages.md */
+async function agencyDefaultCity(ctx: ToolContext): Promise<string> {
+  try {
+    const { data: agency } = await ctx.supabase
+      .from("agencies").select("city_id").eq("id", ctx.agent.agency_id).maybeSingle();
+    if (!agency?.city_id) return "עפולה";
+    const { data: city } = await ctx.supabase
+      .from("cities").select("name").eq("id", agency.city_id).maybeSingle();
+    return String(city?.name || "").trim() || "עפולה";
+  } catch {
+    return "עפולה";
+  }
+}
+
+/* פין לנכס בכל עיר שיש לה ספק גאוקוד פעיל. עפולה נשארת על הקבועים שבקוד
+   (geocodeAfula) ולא על השורה במסד, כדי שתקלת מסד לא תוריד לה את הפין -
+   שם זה עבד כך מתמיד. שתי הפונקציות לעולם אינן זורקות. */
+function geocodeForProperty(ctx: ToolContext, city: string, street: string, houseNumber: string) {
+  return city === "עפולה"
+    ? geocodeAfula(street, houseNumber)
+    : geocodeInCity(ctx.supabase, city, street, houseNumber);
+}
+
 async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknown>) {
   if (!ctx.agent.agency_id) {
     return { ok: false, error: "לסוכן/ת אין משרד משויך - צריך להשלים הרשמה בדשבורד." };
@@ -1095,7 +1121,7 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
 
   const payload = pickWritable(input);
   payload.category ??= "residential";
-  payload.city ??= "עפולה";
+  payload.city ??= await agencyDefaultCity(ctx);
   payload.agent_id = ctx.agent.id;
   payload.agency_id = ctx.agent.agency_id;
   payload.status = "active";
@@ -1108,8 +1134,8 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
   }
 
   // פין על המפה: בלי lat/lng הנכס לא מופיע במפה בעמוד הבית
-  if (payload.city === "עפולה" && street && houseNumber) {
-    const coords = await geocodeAfula(street, houseNumber);
+  if (payload.city && street && houseNumber) {
+    const coords = await geocodeForProperty(ctx, String(payload.city), street, houseNumber);
     if (coords) {
       payload.lat = coords.lat;
       payload.lng = coords.lng;
@@ -1184,8 +1210,8 @@ async function toolUpdateProperty(ctx: ToolContext, input: Record<string, unknow
   if (payload.street !== undefined || payload.house_number !== undefined) {
     payload.address = [street, houseNumber].filter(Boolean).join(" ") || null;
     const city = (payload.city ?? existing.city) as string | undefined;
-    if (city === "עפולה" && street && houseNumber) {
-      const coords = await geocodeAfula(street, houseNumber);
+    if (city && street && houseNumber) {
+      const coords = await geocodeForProperty(ctx, city, street, houseNumber);
       if (coords) {
         payload.lat = coords.lat;
         payload.lng = coords.lng;
@@ -3268,7 +3294,7 @@ async function runTool(
  */
 const SYSTEM_STATIC: string = (() => {
   const lines = [
-    "את/ה העוזר/ת של שוק נדל\"ן - מערכת ניהול נכסים לסוכני נדל\"ן בעפולה.",
+    "את/ה העוזר/ת של שוק נדל\"ן - מערכת ניהול נכסים לסוכני נדל\"ן.",
     "את/ה מדבר/ת עם הסוכן/ת בוואטסאפ ומבצע/ת עבורו/ה פעולות במערכת דרך הכלים.",
     "",
     "מה יש לך: נכסים, שת\"פ בין משרדים, הפקת סרטון שיווקי, קובץ הלקוחות, ההתאמות " +

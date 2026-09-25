@@ -1,7 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
-import { afulaAddressToCoords } from "../_shared/afula-geocode.ts";
+import { geocodeAddress } from "../_shared/geocode/index.ts";
+import { loadCitySource } from "../_shared/geocode/source.ts";
 
 // ============================================================================
 // השלמת קואורדינטות לנכסים שיש להם כתובת מדויקת ואין להם פין
@@ -33,6 +34,20 @@ import { afulaAddressToCoords } from "../_shared/afula-geocode.ts";
 // בלבד (פין על מרכז עפולה נראה מדויק ואינו כזה — ראו docs/property-map.md),
 // ולא מזיזה קואורדינטות שכבר קיימות, גם אם השכבה חושבת אחרת: ייתכן מאוד
 // שסוכן/ת הזיז/ה את הפין ידנית, וזו החלטה שלו/ה.
+//
+// ## הספק נבחר לפי העיר של השורה
+//
+// עד השווקים הלולאה קראה תמיד ל-afulaAddressToCoords, והתור החזיר את העיר
+// בלי שאיש השתמש בה. זה היה בסדר כל עוד עפולה הייתה העיר היחידה עם ספק
+// פעיל - ומוקש מרגע שנוספת שנייה: כל נכס שלה היה נשאל בשכבה של עפולה,
+// מקבל "לא נמצא" שלוש פעמים, ויוצא מהתור **לתמיד**. עכשיו הספק נקבע
+// ב-loadCitySource לפי `row.city`, ועפולה מקבלת בדיוק את הערכים שהיו בקוד
+// (השורה שלה ב-city_geocode_sources זהה להם, מילה במילה).
+//
+// עיר בלי ספק פעיל אינה אמורה להגיע לכאן - התור מצטרף ל-city_geocode_sources
+// עם `active`. אם בכל זאת (שורה שכובתה בין התור ללולאה), השורה מדולגת בלי
+// לרשום תוצאה: "אין לנו איפה לחפש" אינו "אין כתובת כזו", ואסור שיעלה את
+// המונה (types.ts).
 //
 // ## התור והמונה
 //
@@ -95,7 +110,9 @@ Deno.serve(async (req: Request) => {
     const kind = String(row.kind || "property");
 
     try {
-      const coords = await afulaAddressToCoords(street, house);
+      const source = await loadCitySource(supabase, String(row.city || ""));
+      if (!source) continue;
+      const coords = await geocodeAddress(source, street, house);
       streak = 0;
       if (coords) {
         resolved++;
