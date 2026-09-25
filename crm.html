@@ -166,6 +166,42 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background:#dc2626;border:1.5px solid #fff;animation:promoPulse 1.8s ease-in-out infinite;
   }
   @keyframes promoPulse{50%{transform:scale(1.35);opacity:.7}}
+  .promo-gift .ps-svg,.promo-gift .ps-chip{display:none}
+  /* ---------- במחשב: מתנה מושקעת ----------
+     יש מקום, ולכן העיגול עם האימוג׳י הופך לגלולה: מתנה מצוירת (קופסה זהובה,
+     סרט בורדו, נצנוץ), ולצידה מה שהחלונית מפרטת בקיצור - "Elite במתנה ·
+     נשארו 181 ימים". ברק שעובר על הגלולה פעם בכמה שניות, והמכסה קופץ בריחוף. */
+  @media (min-width:900px){
+    .promo-gift{
+      width:auto;height:34px;display:inline-flex;align-items:center;gap:8px;
+      padding:0 6px 0 14px;overflow:hidden;
+      background:linear-gradient(135deg,#fffaf0 0%,#fbefd0 55%,#f5e1ad 100%);
+      border:1px solid #e3c46f;
+      box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 4px 14px rgba(160,120,20,.22);
+      transition:transform .18s ease,box-shadow .18s ease;
+    }
+    .promo-gift:hover{transform:translateY(-1px);box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 8px 20px rgba(160,120,20,.3)}
+    .promo-gift .ps-gift{display:none}
+    .promo-gift .ps-svg{display:block;width:26px;height:26px;flex:none;filter:drop-shadow(0 1px 1.5px rgba(125,29,43,.25))}
+    .promo-gift .ps-chip{display:flex;flex-direction:column;line-height:1.15;text-align:right;white-space:nowrap}
+    .promo-gift .ps-chip b{font-size:.74rem;font-weight:800;color:#6b1a26}
+    .promo-gift .ps-chip small{font-size:.66rem;font-weight:600;color:#8a6d10}
+    .promo-gift .ps-lid{transform-origin:16px 14px;transition:transform .25s cubic-bezier(.34,1.56,.64,1)}
+    .promo-gift:hover .ps-lid,.promo-gift[aria-expanded="true"] .ps-lid{transform:translateY(-2.5px) rotate(-6deg)}
+    .promo-gift .ps-spark{transform-origin:27px 6.7px;animation:promoSpark 2.6s ease-in-out infinite}
+    .promo-gift::before{
+      content:'';position:absolute;top:0;bottom:0;width:40%;left:-60%;pointer-events:none;
+      background:linear-gradient(100deg,transparent,rgba(255,255,255,.75),transparent);
+      animation:promoShine 5s ease-in-out infinite;
+    }
+    .promo-gift.is-urgent{border-color:#c0873a;background:linear-gradient(135deg,#fff6ec,#f8dfc0)}
+    .promo-gift.is-urgent::after{top:3px;inset-inline-end:3px}
+  }
+  @keyframes promoShine{0%,70%{left:-60%}100%{left:130%}}
+  @keyframes promoSpark{0%,100%{transform:scale(.6);opacity:.4}50%{transform:scale(1.15);opacity:1}}
+  @media (prefers-reduced-motion:reduce){
+    .promo-gift::before,.promo-gift .ps-spark{animation:none}
+  }
   /* החלונית: לחיצה על המתנה אומרת מה ההטבה ועד מתי, במקום לקפוץ ישר לדף
      המסלולים. בטלפון אין ריחוף, ולכן ה-title לבדו לא הראה לאף אחד את התאריך. */
   .promo-pop{
@@ -4537,6 +4573,23 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <a class="promo-gift" id="promoStrip" href="/pricing" target="_blank" rel="noopener"
                aria-haspopup="dialog" aria-expanded="false" aria-controls="promoPop" hidden>
               <span class="ps-gift" aria-hidden="true">🎁</span>
+              <!-- במחשב: מתנה מצוירת ותווית קצרה במקום האימוג׳י (ראו .ps-svg ב-CSS) -->
+              <svg class="ps-svg" viewBox="0 0 32 32" aria-hidden="true">
+                <defs>
+                  <linearGradient id="pgBox" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#f6d77a"/><stop offset="1" stop-color="#c9962a"/></linearGradient>
+                  <linearGradient id="pgLid" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ffe7a0"/><stop offset="1" stop-color="#d9a73a"/></linearGradient>
+                  <linearGradient id="pgRib" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#b8344c"/><stop offset="1" stop-color="#7d1d2b"/></linearGradient>
+                </defs>
+                <rect x="6" y="15" width="20" height="13" rx="2.5" fill="url(#pgBox)"/>
+                <rect x="14" y="15" width="4" height="13" fill="url(#pgRib)"/>
+                <g class="ps-lid">
+                  <path d="M16 11.5c-2.2-4.6-7.4-5.2-7.6-2.2-.2 2.4 4.2 2.9 7.6 2.2zM16 11.5c2.2-4.6 7.4-5.2 7.6-2.2.2 2.4-4.2 2.9-7.6 2.2z" fill="url(#pgRib)"/>
+                  <rect x="4.5" y="11" width="23" height="5.5" rx="2" fill="url(#pgLid)"/>
+                  <rect x="14" y="11" width="4" height="5.5" fill="url(#pgRib)"/>
+                </g>
+                <path class="ps-spark" d="M27 4l.8 1.9L29.7 6.7l-1.9.8L27 9.4l-.8-1.9-1.9-.8 1.9-.8z" fill="#f2c94c"/>
+              </svg>
+              <span class="ps-chip" aria-hidden="true"><b id="promoChipMain"></b><small id="promoChipSub"></small></span>
               <span class="ps-text"><b id="promoStripTitle"></b> <span id="promoStripSub"></span></span>
             </a>
             <span class="agent-agency" id="agentAgency"></span>
