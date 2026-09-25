@@ -26,12 +26,15 @@
 
 - **האתר** — קובצי HTML בשורש (`index.html`, `property.html`, `agency.html`, …)
   ועוזרים ב-`assets/`. ‏Netlify מפרסם אותם תוך שניות מהמיזוג ל-`main`.
-  שלוש פונקציות ב-`netlify/edge-functions/` משלימות בשרת את מה שדף סטטי
+  ארבע פונקציות ב-`netlify/edge-functions/` משלימות בשרת את מה שדף סטטי
   אינו יכול לתת לסורק: `og-tags.ts` מזריקה תגיות שיתוף לדפי הפירוט
   (`docs/social-preview.md`), `sitemap.ts` מוסיפה ל-`sitemap.xml` את
-  הכתובות שנוצרות מהמסד (`docs/sitemap.md`), ו-`search-pages.ts` נותנת
+  הכתובות שנוצרות מהמסד (`docs/sitemap.md`), `search-pages.ts` נותנת
   ל-14 החיפושים הפופולריים כותרת ו-`canonical` משלהם
-  (`docs/search-landing-pages.md`).
+  (`docs/search-landing-pages.md`) ומפנה מ-`/` לשוק המקומי, ו-
+  `market-pages.ts` מגישה את דפי השווקים (`/haifa-krayot`). רשימת השווקים
+  אחת לשרת ולדפדפן, ב-`assets/markets.js`, ו-`check_markets.py` מצליב
+  אותה מול `_redirects`, ה-`sitemap` והמיגרציות (`docs/regional-pages.md`).
 - **המסד** — פרויקט Supabase `obookujgolazrwycsiyn`. הסכימה ב-
   `supabase/migrations/`, ה-Edge Functions ב-`supabase/functions/`. שניהם
   נפרסים ב-GitHub Actions בכל push ל-`main` שנוגע בהם.
