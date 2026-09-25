@@ -11,3 +11,11 @@
 # במקום אחת.
 /crmreview-request.html    /review-request    301
 /crm/review-request.html   /review-request    301
+
+# ‏השווקים המקומיים (docs/regional-pages.md). כל שוק שאינו ברירת המחדל מקבל
+# כתובת משלו, והשורה כאן אומרת איזה קובץ מגיש אותה: ‏index.html לשוק חי,
+# ‏market-soon.html ("נפתחים בקרוב", ‏noindex) לשוק שעוד לא נפתח. ‏‎200‎ ולא
+# הפניה - הכתובת בדפדפן נשארת של השוק. ‏netlify/edge-functions/market-pages.ts
+# רץ לפני השורה הזו ומזריק את שם השוק, והבדיקה ‎check_markets.py‎ מוודאת
+# שהיעד כאן מתאים ל-live ב-assets/markets.js.
+/haifa-krayot    /market-soon    200

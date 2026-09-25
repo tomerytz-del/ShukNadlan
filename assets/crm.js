@@ -1411,9 +1411,16 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   let agencyName = '';
   if (agent.agency_id){
     // הכתובת נטענת יחד עם השם כי היא נכנסת לבלוק "לבין" בהסכמי התיווך
-    const { data: agency } = await sb.from('agencies').select('name, address').eq('id', agent.agency_id).maybeSingle();
+    const { data: agency } = await sb.from('agencies').select('name, address, city_id').eq('id', agent.agency_id).maybeSingle();
     agencyName = agency?.name || '';
     window.currentAgency = agency || null;
+    // ‏העיר של המשרד - ברירת המחדל לנכס חדש (defaultPropertyCity). שאילתה
+    // נפרדת ולא embed, כדי שכשל בה לא יפיל את טעינת המשרד עצמו.
+    if (agency?.city_id){
+      sb.from('cities').select('name').eq('id', agency.city_id).maybeSingle()
+        .then(({ data }) => { if (data?.name) window.currentAgencyCityName = data.name; })
+        .catch(() => {});
+    }
   }
 
   // ניתוק מהמשרד קודם לכל השאר, ובפרט לשער הקוד האתי: מי שכבר לא במשרד לא
@@ -1805,14 +1812,15 @@ document.getElementById('devEnterDeveloper').addEventListener('click', async (e)
 async function loadNeighborhoodsAdmin(){
   const listEl = document.getElementById('neighborhoodsAdminList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
-  const { data, error } = await sb.from('neighborhoods').select('id, city, name, boundary').order('name');
-  if (error){ listEl.innerHTML = '<div class="empty-state">שגיאה: ' + error.message + '</div>'; return; }
+  loadNeighborhoodCityOptions();
+  const { data, error } = await sb.from('neighborhoods').select('id, city, name, boundary').order('city').order('name');
+  if (error){ listEl.innerHTML = '<div class="empty-state">שגיאה: ' + esc(error.message) + '</div>'; return; }
   accSetCount('accNeighborhoods', (data||[]).length);
   listEl.innerHTML = '';
   (data||[]).forEach(n=>{
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)';
-    row.innerHTML = `<span style="font-size:.88rem;flex:1 1 auto;min-width:0">${n.name} <span style="color:var(--ink-soft);font-size:.74rem">(${n.city})</span></span>`;
+    row.innerHTML = `<span style="font-size:.88rem;flex:1 1 auto;min-width:0">${esc(n.name)} <span style="color:var(--ink-soft);font-size:.74rem">(${esc(n.city)})</span></span>`;
 
     // מסומנת או לא — מה שקובע איך השכונה נראית במפת החיפוש. הקישור פותח את
     // כלי הסימון כשהיא כבר נבחרת, כדי שהתיקון יהיה במרחק לחיצה אחת.
@@ -1855,11 +1863,34 @@ async function loadNeighborhoodsAdmin(){
   });
 }
 
+/* הערים שאפשר לשייך אליהן שכונה: כל עיר ששויכה לשוק (cities.market_slug).
+   נטען פעם אחת. בכשל נשארת האפשרות היחידה שב-HTML (עפולה) - בדיוק ההתנהגות
+   שהייתה לפני השווקים. docs/regional-pages.md */
+let neighborhoodCitiesLoaded = false;
+async function loadNeighborhoodCityOptions(){
+  if (neighborhoodCitiesLoaded) return;
+  const sel = document.getElementById('newNeighborhoodAdminCity');
+  if (!sel) return;
+  const { data, error } = await sb.from('cities')
+    .select('name, market_slug').not('market_slug', 'is', null).order('name');
+  if (error || !data || !data.length) return;
+  neighborhoodCitiesLoaded = true;
+  const labelOf = slug => {
+    const m = window.ShukMarkets && window.ShukMarkets.bySlug(slug);
+    return m ? m.label : slug;
+  };
+  const prev = sel.value || 'עפולה';
+  sel.innerHTML = data.map(c =>
+    `<option value="${esc(c.name)}">${esc(c.name)} · ${esc(labelOf(c.market_slug))}</option>`).join('');
+  sel.value = data.some(c => c.name === prev) ? prev : data[0].name;
+}
+
 document.getElementById('addNeighborhoodAdminBtn').addEventListener('click', async ()=>{
   const input = document.getElementById('newNeighborhoodAdminName');
   const name = input.value.trim();
   if (!name) return;
-  const { error } = await sb.from('neighborhoods').insert({ city: 'עפולה', name });
+  const city = (document.getElementById('newNeighborhoodAdminCity') || {}).value || 'עפולה';
+  const { error } = await sb.from('neighborhoods').insert({ city, name });
   if (error){
     showToast(error.code === '23505' ? 'השכונה כבר קיימת ברשימה' : ('שגיאה: ' + error.message));
     return;
@@ -9518,6 +9549,7 @@ document.getElementById('npStreet').addEventListener('change', refreshStreetHint
 document.getElementById('npCity').addEventListener('input', ()=>{
   populateStreetOptions('streetOptions', document.getElementById('npCity').value);
   refreshStreetHint();
+  populateNeighborhoodSelect(document.getElementById('npNeighborhood').value);
 });
 /* כלי המידע התכנוני יושב באקורדיון נפרד ועשוי להיפתח לפני טופס הנכס */
 document.getElementById('planStreet').addEventListener('focus', ensureStreetsLoaded, { once:true });
@@ -9530,11 +9562,36 @@ async function ensureNeighborhoodsLoaded(){
   allNeighborhoods = data || [];
 }
 
+/* העיר שנכס חדש נפתח עליה: העיר של המשרד (agencies.city_id), ועפולה כשאין.
+   עד השווקים זו הייתה "עפולה" קבועה - ומשרד בחיפה היה מתקן אותה בכל נכס. */
+function defaultPropertyCity(){
+  return window.currentAgencyCityName || 'עפולה';
+}
+
+/* השוואת שם עיר לסינון השכונות: רווחים, יו"ד כפולה ווי"ו כפולה - מה
+   שמבדיל "קרית ביאליק" מ"קריית ביאליק". גרסה מקוצרת של city_name_key במסד,
+   לסינון בלבד: היא אינה שומרת ואינה מכריעה דבר. */
+function hoodCityKey(s){
+  return String(s || '').trim().replace(/\s+/g, ' ').replace(/יי/g, 'י').replace(/וו/g, 'ו');
+}
+
+/* הבורר מציג את השכונות של העיר שבטופס. עד היום הוא הציג את כל השכונות
+   במערכת, וכשכולן היו בעפולה זה לא שינה דבר; מתווך/ת בחיפה היה/הייתה רואה
+   את שכונות עפולה. עיר שאין לה שכונות ברשימה (או שדה ריק) - כל הרשימה, כמו
+   קודם. שכונה שכבר שמורה על הנכס נשארת בבורר גם אם היא מעיר אחרת, כדי
+   שעריכה לא תמחק שיוך בשקט. docs/regional-pages.md */
 async function populateNeighborhoodSelect(selectedId){
   await ensureNeighborhoodsLoaded();
   const select = document.getElementById('npNeighborhood');
+  const cityKey = hoodCityKey(document.getElementById('npCity')?.value);
+  const ofCity = cityKey ? allNeighborhoods.filter(n => hoodCityKey(n.city) === cityKey) : [];
+  let list = ofCity.length ? ofCity : allNeighborhoods;
+  if (selectedId && !list.some(n => n.id === selectedId)){
+    const kept = allNeighborhoods.find(n => n.id === selectedId);
+    if (kept) list = [kept, ...list];
+  }
   select.innerHTML = '<option value="">- לא צוין -</option>' +
-    allNeighborhoods.map(n => `<option value="${n.id}">${esc(n.name)}</option>`).join('');
+    list.map(n => `<option value="${esc(n.id)}">${esc(n.name)}</option>`).join('');
   select.value = selectedId || '';
 }
 
@@ -9676,7 +9733,7 @@ toggleBtn.addEventListener('click', ()=>{
     editingPropertyId = null;
     editingPropertyOriginalAddress = null;
     document.getElementById('addPropertyForm').reset();
-    document.getElementById('npCity').value = 'עפולה';
+    document.getElementById('npCity').value = defaultPropertyCity();
     populateNeighborhoodSelect('');
     document.getElementById('npStreetHint').innerHTML = '';
     ensureStreetsLoaded();

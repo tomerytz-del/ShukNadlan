@@ -110,7 +110,70 @@
     } catch (e) { return null; }
   }
 
+  /* ---------- השווקים (docs/regional-pages.md) ----------
+
+     מאז שיש יותר משוק אחד, **הכתובת היא מקור האמת לשוק שהדף מציג**:
+     ‏`/haifa-krayot` מציג את חיפה והקריות, ו-`/` את ברירת המחדל. בחירה
+     שמורה, תוצאת GPS וזיהוי IP אינם מחליפים את מה שהדף מציג - הם קובעים
+     **לאן מפנים**, וההפניה נעשית בשרת (`search-pages.ts`) לפני שהדף נטען.
+
+     הסיבה: דף שהכתובת שלו אומרת "עפולה" והכותרת שלו "חיפה" אי אפשר לשתף,
+     אי אפשר לאנדקס, ואי אפשר לסמוך עליו. ובשלב הזה דף הבית עוד אינו מסנן
+     נכסים לפי שוק - שם בחיפה מעל נכסי עפולה היה שקר.
+
+     ‏localStorage והעוגייה עדיין נקראים - בדפים שאינם שייכים לשוק
+     (`/agencies`, `/agents`) - אבל רק כשהם מצביעים על שוק **חי**. */
+
+  var MARKET_COOKIE = 'shuk_market';
+
+  function markets() { return global.ShukMarkets || null; }
+
+  /* שוק ברישום → הצורה שהשרשרת כאן מכירה. */
+  function fromMarket(m) {
+    if (!m) return null;
+    return {
+      slug: m.slug, name: m.label, label: m.label,
+      lat: m.center[0], lng: m.center[1], zoom: m.zoom || DEFAULT_CITY.zoom,
+      market: m
+    };
+  }
+
+  /* רשומה שמורה עוברת רק אם היא שוק חי שהרישום מכיר. רשומה של עיר (לפני
+     השווקים) או של שוק שנסגר נופלת לברירת המחדל - בלי להחיל אותה חלקית. */
+  function liveMarketOf(c) {
+    var M = markets();
+    if (!c || !M) return null;
+    var m = M.bySlug(c.slug);
+    return (m && m.live) ? m : null;
+  }
+
+  function pageMarket() {
+    var M = markets();
+    var injected = global.SHUK_MARKET;
+    if (injected && M && M.bySlug(injected.slug)) return M.bySlug(injected.slug);
+    if (!M) return null;
+    try { return M.byPath(location.pathname); } catch (e) { return null; }
+  }
+
+  function writeMarketCookie(slug, source) {
+    try {
+      document.cookie = MARKET_COOKIE + '=' + encodeURIComponent(slug + '|' + source) +
+        '; Max-Age=31536000; Path=/; SameSite=Lax' +
+        (location.protocol === 'https:' ? '; Secure' : '');
+    } catch (e) { /* בלי עוגייה ההפניה בשרת לא תדע, והבחירה עדיין חלה כאן */ }
+  }
+
   function resolve() {
+    var M = markets();
+    if (M) {
+      var onPage = pageMarket();
+      if (onPage) return Object.assign(fromMarket(onPage), { source: 'path' });
+      var kept = liveMarketOf(readStore()) || liveMarketOf(readCookie());
+      if (kept) return Object.assign(fromMarket(kept), { source: 'stored' });
+      return Object.assign(fromMarket(M.defaultMarket()), { source: 'default' });
+    }
+
+    /* ‏markets.js לא נטען: השרשרת הישנה, כמו שהייתה. */
     var c = fromQuery() || readStore() || readCookie();
     if (!c) return Object.assign({}, DEFAULT_CITY, { source: 'default' });
     /* שלד מקישור עמוק, בלי פין: מחזיקים את המזהה ונופלים לברירת המחדל
@@ -137,7 +200,26 @@
     label: function () { var c = this.active(); return c.label || c.name || DEFAULT_CITY.label; },
     name:  function () { var c = this.active(); return c.name || c.label || DEFAULT_CITY.name; },
 
-    isDefault: function () { return this.active().slug === DEFAULT_CITY.slug; },
+    isDefault: function () {
+      var a = this.active();
+      if (a.market) return !!a.market.isDefault;
+      return a.slug === DEFAULT_CITY.slug;
+    },
+
+    /** השוק שהדף מציג, או null כשהרישום לא נטען. */
+    market: function () { return this.active().market || null; },
+
+    /** בחירה מפורשת של שוק (בורר, "לשוק של עפולה") או תוצאת GPS.
+        נשמרת ב-localStorage לדפים בלי שוק, ובעוגייה - כדי שההפניה בשרת
+        תכיר אותה בביקור הבא. **אינה מחליפה את מה שהדף הנוכחי מציג**:
+        הקורא/ת מנווט/ת לכתובת של השוק. `source`: ‏choice | gps. */
+    choose: function (m, source) {
+      if (!m || !SLUG_RE.test(String(m.slug || ''))) return null;
+      var src = source === 'gps' ? 'gps' : 'choice';
+      writeStore(fromMarket(m));
+      writeMarketCookie(m.slug, src);
+      return m;
+    },
 
     /** קביעת העיר הפעילה ושמירתה לביקור הבא. אינה מרעננת את הדף. */
     set: function (city) {

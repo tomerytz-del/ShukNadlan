@@ -6227,7 +6227,13 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="acc-body">
           <p class="acc-sub">רשימה סגורה - רק כאן ניתן להוסיף/לערוך/למחוק. סוכנים בוחרים מהרשימה בלבד.</p>
           <div style="display:flex;gap:8px;margin-bottom:14px">
-            <input type="text" id="newNeighborhoodAdminName" placeholder="שם שכונה חדשה" style="flex:1;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px">
+            <!-- העיר של השכונה. עד היום כל שכונה חדשה נשמרה "עפולה" קבוע, ולכן
+                 שכונה בחיפה הייתה נרשמת בעפולה. הרשימה: הערים ששויכו לשוק
+                 (cities.market_slug), כדי שהבחירה תהיה מהרשימה ולא הקלדה חופשית. -->
+            <select id="newNeighborhoodAdminCity" aria-label="עיר" style="border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 10px;background:#fff">
+              <option value="עפולה">עפולה</option>
+            </select>
+            <input type="text" id="newNeighborhoodAdminName" placeholder="שם שכונה חדשה" style="flex:1;min-width:0;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px">
             <button type="button" class="btn btn-gold" id="addNeighborhoodAdminBtn" style="white-space:nowrap">+ הוספה</button>
           </div>
           <!-- שכונה חדשה נולדת בלי גבול, ועד שיסומן היא מקבלת במפת החיפוש עיגול
@@ -7576,6 +7582,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <div class="toast" id="toast"></div>
 
+<!-- רשימת השווקים המקומיים: שם השוק בבחירת עיר לשכונה, ותצוגת השווקים של
+     מנהל/ת הפלטפורמה. docs/regional-pages.md -->
+<script src="assets/markets.js"></script>
 <script src="assets/crm.js"></script>
 </body>
 </html>

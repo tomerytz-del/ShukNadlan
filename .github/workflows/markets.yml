@@ -1,0 +1,54 @@
+name: השווקים המקומיים
+
+# ‏שוק (‏"עפולה והעמק", "חיפה והקריות") הוא כתובת, שם ושיוך ערים - וחמישה
+# מקומות צריכים להסכים עליו: assets/markets.js, ‏market-pages.ts, ‏_redirects,
+# ‏sitemap.xml והמיגרציות. אף אחד מהם אינו מתלונן כשהוא לא מעודכן: הכתובת
+# מחזירה 404, או מגישה דף בלי שם השוק, או נכנסת לאינדקס כשהיא ריקה.
+#
+# ‏ובנוסף ההתנהגות עצמה: לאן ‎/‎ מפנה (רק לשוק חי, בחירה מפורשת גוברת,
+# סורקים לעולם לא), ו-noindex לשוק שעוד לא נפתח. הפרטים: docs/regional-pages.md.
+
+on:
+  pull_request:
+    paths:
+      - "assets/markets.js"
+      - "assets/home.js"
+      - "_redirects"
+      - "sitemap.xml"
+      - "netlify/edge-functions/**"
+      - "supabase/migrations/**"
+      - "scripts/check_markets.py"
+      - "scripts/markets_test.ts"
+      - ".github/workflows/markets.yml"
+  push:
+    branches: [main]
+    paths:
+      - "assets/markets.js"
+      - "assets/home.js"
+      - "_redirects"
+      - "sitemap.xml"
+      - "netlify/edge-functions/**"
+      - "supabase/migrations/**"
+      - "scripts/check_markets.py"
+      - "scripts/markets_test.ts"
+      - ".github/workflows/markets.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: חמשת המקומות מסכימים
+        run: python3 scripts/check_markets.py
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: זיהוי, הפניה והזרקה
+        run: node --experimental-strip-types scripts/markets_test.ts

@@ -59,6 +59,7 @@
    ========================================================================== */
 
 import type { Config, Context } from "https://edge.netlify.com/v1/index.ts";
+import { decide, registry } from "./lib/markets.ts";
 
 const SITE = "https://shuknadlan.co.il";
 const SITE_NAME = "שוק נדל״ן";
@@ -223,8 +224,52 @@ function inject(html: string, page: SearchPage): string {
   return out.replace(/<\/head>/i, `${add.join("\n")}\n</head>`);
 }
 
+/* ---------- ההפניה לשוק המקומי (docs/regional-pages.md) ----------
+
+   ‏‎/‎ בלי פרמטרי תוכן, ורק שם: מי ששוקו/ה אחר מברירת המחדל מופנה/ית
+   לכתובת שלו (‏‎/haifa-krayot‎). ההחלטה עצמה - בחירה, GPS, ‏IP, סורקים -
+   ב-‎decide()‎ שב-lib/markets.ts. היא יושבת כאן ולא בפונקציה משלה
+   (‏geo-city.ts, שנדחה ב-‎#346‎) כי זו כבר רצה על כל בקשה ל-‎/‎: הרחבה
+   שלה אינה מוסיפה אף הפעלה בחיוב.
+
+   ‏‎302‎ ולא ‎301‎, ו-‎no-store‎: הפניה לפי מיקום שנשמרה במטמון הייתה שולחת את
+   כל מי שבא אחריו לאותו שוק. */
+function marketRouting(request: Request, context: Context, url: URL) {
+  if (request.method !== "GET" || matchKey(url.searchParams) !== "") return null;
+  const reg = registry();
+  if (!reg) return null;
+  return decide(reg, {
+    cookie: request.headers.get("cookie") || "",
+    userAgent: request.headers.get("user-agent") || "",
+    geo: (context as unknown as { geo?: Parameters<typeof decide>[1]["geo"] }).geo || null,
+    search: url.search,
+  });
+}
+
+const GEO_COOKIE_TAIL = "; Max-Age=86400; Path=/; SameSite=Lax; Secure";
+
 export default async function handler(request: Request, context: Context) {
-  const res = await context.next();
+  let routing: ReturnType<typeof marketRouting> = null;
+  try {
+    const url = new URL(request.url);
+    const page = url.pathname.replace(/\.html$/, "").replace(/\/+$/, "") || "/";
+    if (page === "/" || page === "/index") routing = marketRouting(request, context, url);
+  } catch {
+    routing = null; // ‏הפניה שנכשלה לא תשבור את דף הבית
+  }
+
+  if (routing?.location) {
+    const headers = new Headers({
+      "Location": routing.location,
+      "Cache-Control": "private, no-store",
+    });
+    if (routing.geoCookie) {
+      headers.append("Set-Cookie", `shuk_geo=${encodeURIComponent(routing.geoCookie)}${GEO_COOKIE_TAIL}`);
+    }
+    return new Response(null, { status: 302, headers });
+  }
+
+  const res = await withGeoCookie(await context.next(), routing?.geoCookie || null);
 
   // רק HTML
   const type = res.headers.get("content-type") || "";
@@ -248,6 +293,16 @@ export default async function handler(request: Request, context: Context) {
   } catch {
     return res; // הזרקה שנכשלה לא תשבור את דף הבית
   }
+}
+
+/* ‏עוגיית shuk_geo על התשובה הרגילה: הדפדפן קורא אותה בדפים שאינם שייכים
+   לשוק (‏‎/agencies‎). התשובה המקורית אינה ניתנת לשינוי, ולכן עותק - ורק
+   כשיש מה לכתוב, כך שרוב הבקשות יוצאות בדיוק כמו קודם. */
+function withGeoCookie(res: Response, value: string | null): Response {
+  if (!value) return res;
+  const copy = new Response(res.body, res);
+  copy.headers.append("Set-Cookie", `shuk_geo=${encodeURIComponent(value)}${GEO_COOKIE_TAIL}`);
+  return copy;
 }
 
 /* שתי הצורות שבהן Netlify מגיש את דף הבית. */
