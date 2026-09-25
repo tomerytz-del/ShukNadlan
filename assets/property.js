@@ -1944,8 +1944,11 @@ function renderHighlights(p){
    באותו עמוד רק פיצלו את תשומת הלב. מה שנשאר כאן הוא הטקסט החופשי — ומספר
    המודעה, שיורד לשורה מוצנעת בתחתית.                                       */
 function renderDescription(p){
-  // ‏marketing_description הוא נוסח פרסומי פנימי — משמש רק כשאין תיאור מודעה
-  const description = p.description || p.marketing_description || '';
+  // ‏marketing_description קודם: זה הנוסח שהסוכן/ת מרענן/ת ושומר/ת מה-CRM
+  // ("התיאור השיווקי נשמר ומוצג בדף הנכס"). בסדר ההפוך כל נכס שיש לו גם
+  // תיאור מודעה הציג את הישן לנצח, והרענון נשמר במסד ולא נראה בשום מקום.
+  // זה גם הסדר של הבוט הציבורי (public-agent.ts). ‏docs/marketing-description.md
+  const description = p.marketing_description || p.description || '';
   const block = document.getElementById('descSection');
   const textEl = document.getElementById('propDescription');
   textEl.textContent = description;
