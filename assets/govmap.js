@@ -500,6 +500,8 @@
     return attempt(0);
   }
 
+  function isHoodHit(h) { return h && h.type === 'neighborhood'; }
+
   function neighborhoodBoundary(gm, proj4, name, settlement, diag) {
     var wantName = textKey(name), wantSet = settlementKey(settlement);
     var q = { apiKey: GOVMAP_TOKEN, searchText: name + ' ' + settlement, isAccurate: false, maxResults: 5, language: 'he' };
@@ -521,9 +523,17 @@
     return ask(withLayer, 'searchHood').then(function (res) {
       return res.length ? res : ask(q, 'searchPlain');
     }).then(function (res) {
+      // שם **מדויק**, לא "מכיל": בחיפוש "גאולה חיפה" התוצאה הראשונה היא
+      // "מעונות גאולה חיפה" - שכונה אחרת, שהכלה הייתה מקבלת (נמדד 26.9.2026).
+      // שכונה קודמת לרחוב באותו שם, וכל רישומי השכונה נוסים: לפארק הקישון
+      // יש שניים, ולפעמים רק אחד מהם מחזיר מצולע.
+      var full = textKey(name + ' ' + settlement);
       var cands = res.filter(function (h) {
-        return textKey(String(h.originalText || h.text || '')).indexOf(wantName) !== -1;
-      }).slice(0, 3);
+        var k = textKey(String(h.originalText || h.text || ''));
+        return k === full || k === wantName;
+      }).sort(function (a, b) {
+        return (a.type === 'neighborhood' ? 0 : 1) - (b.type === 'neighborhood' ? 0 : 1);
+      }).slice(0, 4);
       // מועמד שאומת אבל בלי מצולע (500 גם אחרי הניסיונות) - שומרים את המרכז
       // שלו וממשיכים למועמד הבא; אם אף אחד לא נתן מצולע, חוזרים עם המרכז.
       var pointOnly = null;
@@ -532,7 +542,9 @@
           if (got) return got;
           var txt = String(hit.originalText || hit.text || '');
           var c = parsePoint(hit.centroid);
-          var named = settlementKey(txt).indexOf(wantSet) !== -1;
+          // בלי אימות רק שכונה שהיישוב בטקסט שלה. רחוב באותו שם (רחוב ביאליק
+          // בטירת כרמל, רחוב גאולה בחיפה) יכול לשבת בשכונה אחרת - מאומת בשכבה.
+          var named = isHoodHit(hit) && settlementKey(txt).indexOf(wantSet) !== -1;
           return (named ? Promise.resolve(true) : (c ? sameHoodAt(gm, c, name, settlement) : Promise.resolve(false)))
             .then(function (okHit) {
               if (!okHit) return null;
