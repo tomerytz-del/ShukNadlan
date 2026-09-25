@@ -12,12 +12,18 @@ on:
     paths:
       - "ops_agent/**"
       - "scripts/ops_stand_in_pin_test.py"
+      - "scripts/ops_market_gate_test.py"
+      - "scripts/check_markets.py"
+      - "assets/markets.js"
       - ".github/workflows/ops_agent_test.yml"
   push:
     branches: [main]
     paths:
       - "ops_agent/**"
       - "scripts/ops_stand_in_pin_test.py"
+      - "scripts/ops_market_gate_test.py"
+      - "scripts/check_markets.py"
+      - "assets/markets.js"
       - ".github/workflows/ops_agent_test.yml"
   workflow_dispatch:
 
@@ -38,3 +44,8 @@ jobs:
       # צורך ב-psycopg2 ואין התקנת תלויות.
       - name: ‏listings_stand_in_pin מדווחת בדיוק מתי שצריך
         run: python3 scripts/ops_stand_in_pin_test.py
+
+      # ‏סף השווקים: שוק חי מתחת לסף, שוק סגור שכבר עבר אותו, ונכסים בלי
+      # שוק. ה-probe קורא את assets/markets.js דרך המפרש של check_markets.py.
+      - name: ‏market_below_gate / market_ready מדווחות בדיוק מתי שצריך
+        run: python3 scripts/ops_market_gate_test.py

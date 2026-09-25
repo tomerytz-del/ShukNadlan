@@ -13,6 +13,7 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.util
 
 from typing import Iterator
 
@@ -28,6 +29,7 @@ def run(ctx) -> Iterator[Finding]:
     yield from _listings_without_images(ctx)
     yield from _saved_search_silence(ctx)
     yield from _stand_in_pins(ctx)
+    yield from _market_gate(ctx)
 
 
 def _views_without_leads(ctx) -> Iterator[Finding]:
@@ -420,6 +422,124 @@ def _stand_in_pins(ctx) -> Iterator[Finding]:
             evidence={"city": city, "street": street, "lat": lat, "lng": lng,
                       "borrowed_from": borrowed_from, "migration": migration,
                       "registry_source": row.get("src")},
+        )
+
+
+# ‏הסף להדלקת שוק - אותו מספר של docs/cities-and-regions.md (`is_live`) ושל
+# ‏MARKET_GATE בפאנל השווקים ב-CRM. דף שוק עם פחות מזה מלמד את גוגל שהאתר דק,
+# ואת המבקר/ת הראשון/ה שהאתר ריק.
+MARKET_GATE_AGENCIES = 1
+MARKET_GATE_PROPERTIES = 10
+
+
+def _load_markets(root) -> list[dict]:
+    """‏השווקים מ-assets/markets.js, דרך המפרש של scripts/check_markets.py.
+
+    מפרש אחד ולא שניים: אם הסוכן והבדיקה ב-CI היו קוראים את הקובץ אחרת,
+    שוק אחד היה יכול להיות "חי" באחד ו"סגור" בשני.
+    """
+    path = root / "scripts" / "check_markets.py"
+    if not path.exists() or not (root / "assets" / "markets.js").exists():
+        return []
+    spec = importlib.util.spec_from_file_location("check_markets", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)  # type: ignore[union-attr]
+    mod.MARKETS_JS = root / "assets" / "markets.js"
+    return mod.parse_markets()
+
+
+def _market_gate(ctx) -> Iterator[Finding]:
+    """שוק מקומי ביחס לסף: חי ומתחת לו, או סגור וכבר מעליו.
+
+    ‏**שני הכיוונים שקטים בלי הבדיקה.** שוק חי שירד מתחת לסף נראה תקין -
+    הדף נטען, יש בו שלושה נכסים - ומה שיש בו הוא דף דל. ושוק שעבר את הסף
+    ממשיך להגיש "נפתחים בקרוב" עד שמישהו נזכר לבדוק. ‏docs/regional-pages.md,
+    והסקיל market-go-live.
+
+    ובנוסף: נכסים פעילים שאינם שייכים לאף שוק - עיר שלא הוכרה, או עיר בלי
+    שוק. הם נשמרים ומופיעים בדף הבית של ברירת המחדל, אבל לא בשוק שלהם.
+    """
+    markets = _load_markets(ctx.root)
+    if not markets:
+        return
+    if not (ctx.db.has_table("cities") and ctx.db.has_table("properties")):
+        return
+
+    rows = ctx.db.rows(
+        """
+        select c.market_slug,
+               count(distinct p.id) filter (where p.status = 'active') as props,
+               count(distinct a.id)                                    as agencies
+          from public.cities c
+          left join public.properties p on p.city_id = c.id
+          left join public.agencies   a on a.city_id = c.id
+         where c.market_slug is not null
+         group by c.market_slug
+        """
+    ) or []
+    by_slug = {r.get("market_slug"): r for r in rows}
+
+    for m in markets:
+        ctx.count()
+        r = by_slug.get(m["slug"]) or {}
+        props = int(r.get("props") or 0)
+        agencies = int(r.get("agencies") or 0)
+        ready = agencies >= MARKET_GATE_AGENCIES and props >= MARKET_GATE_PROPERTIES
+        evidence = {"market": m["slug"], "live": m["live"], "active_properties": props,
+                    "agencies": agencies, "gate": [MARKET_GATE_AGENCIES, MARKET_GATE_PROPERTIES]}
+
+        # ‏שוק ברירת המחדל הוא דף הבית של כל האתר - הוא לא נסגר, ולכן אין
+        # על מה לדווח אם הוא מתחת לסף (הוא יהיה שם גם כשהמסד ריק לגמרי).
+        if m["live"] and not ready and not m["default"]:
+            yield Finding(
+                area="health", code="market_below_gate", severity="high",
+                subject="market:%s" % m["slug"],
+                title="השוק %s חי עם %d נכסים פעילים ו-%d משרדים - מתחת לסף"
+                      % (m["slug"], props, agencies),
+                detail="שוק חי הוא דף הבית של כל מי שנמצא/ת באזור, והסף הוא "
+                       "משרד אחד ו-10 נכסים פעילים. מתחתיו הדף דל: גוגל לומדת "
+                       "שהאתר דק, והמבקר/ת הראשון/ה רואה אתר ריק.",
+                suggestion="לגייס מלאי באזור, או לכבות את השוק (live: false ב-"
+                           "assets/markets.js ו-market-soon ב-_redirects) - הסקיל "
+                           "market-go-live, סעיף 'כיבוי'.",
+                metric=props, metric_unit="נכסים", evidence=evidence,
+            )
+        elif not m["live"] and ready:
+            yield Finding(
+                area="health", code="market_ready", severity="info",
+                subject="market:%s" % m["slug"],
+                title="השוק %s עבר את הסף: %d נכסים פעילים ו-%d משרדים"
+                      % (m["slug"], props, agencies),
+                detail="הכתובת שלו עדיין מגישה 'נפתחים בקרוב'. אפשר להדליק "
+                       "אותו לגולשים.",
+                suggestion="הסקיל market-go-live: ‏live: true, ‏_redirects ל-/index, "
+                           "שורה ב-sitemap.xml, והערים חיות במסד.",
+                metric=props, metric_unit="נכסים", evidence=evidence,
+            )
+
+    ctx.count()
+    loose = ctx.db.one(
+        """
+        select count(*) as n
+          from public.properties p
+          left join public.cities c on c.id = p.city_id
+         where p.status = 'active' and c.market_slug is null
+        """
+    ) or {}
+    n = int(loose.get("n") or 0)
+    if n:
+        yield Finding(
+            area="behavior", code="listings_no_market", severity="low",
+            subject="properties_no_market",
+            title="‏%d נכסים פעילים אינם שייכים לאף שוק מקומי" % n,
+            detail="עיר שלא הוכרה (כתיב אחר, יישוב שאינו ברישום) או עיר שלא "
+                   "שויכה לשוק. הם מופיעים בדף הבית של שוק ברירת המחדל, ולא "
+                   "בדף של האזור שלהם. הרשימה המלאה: פאנל 'שווקים מקומיים' "
+                   "ב-CRM, בתחתיתו.",
+            suggestion="כינוי ב-city_aliases לכתיב חלופי, או שורה במיגרציה "
+                       "ששייכת את העיר לשוק (הסקיל new-market). לא לשכתב את "
+                       "properties.city.",
+            metric=n, metric_unit="נכסים",
         )
 
 

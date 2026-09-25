@@ -282,7 +282,12 @@ document.querySelectorAll('.deal-toggle button').forEach(btn=>{
    מחליף אותם במה שנאסף מהפידים ברגע שהתשובה מ-Supabase חוזרת. כך אין
    רצועה ריקה בטעינה, ואין תלות ב-DB לתצוגה הראשונה. */
 const TICKER_MAX = 10;   // כמה מבזקים נשמרים לרוטציה ולמודאל
-let TICKER_ITEMS = FALLBACK_TICKER;
+/* ‏tickerFallback() ולא FALLBACK_TICKER ישירות: בשוק שאינו ברירת המחדל
+   מבזקי הדמו של עפולה אינם מוצגים (ראו loadTicker). */
+function tickerFallback(){
+  return marketText(FALLBACK_TICKER, () => FALLBACK_TICKER.filter(i => !i.is_local));
+}
+let TICKER_ITEMS = tickerFallback();
 let tickerIndex = 0;
 const tickerText = document.getElementById('tickerText');
 const newsModal = document.getElementById('newsModal');
@@ -1069,8 +1074,13 @@ async function loadProperties(){
 
    שתי השאילתות רצות במקביל, וכישלון של אחת (טבלה שטרם נוצרה בסביבה הזו)
    אינו מפיל את השנייה — ‎allSettled‎ ולא ‎all‎. */
+/* ‏מבזק מקומי (‏is_local) הוא של עפולה והעמק - מנוע המבזקים אוסף מפרסומי
+   העירייה ומאתרים אזוריים (news_engine/). בשוק אחר הוא אינו מקומי אלא זר,
+   ולכן שם מוצגים רק המבזקים הארציים, בלי עסקאות הפלטפורמה (שרובן בעפולה)
+   ובלי מבזק הדמו של עפולה. היקף מבזקים לכל שוק - שלב 4 ב-regional-pages. */
 async function loadTicker(){
-  if (!sb) return FALLBACK_TICKER;
+  const otherMarket = marketText(false, () => true);
+  if (!sb) return tickerFallback();
   try{
     const [newsRes, dealsRes] = await Promise.allSettled([
       sb.from('news_items_public')
@@ -1083,8 +1093,9 @@ async function loadTicker(){
         .limit(3),
     ]);
 
-    const news = newsRes.status === 'fulfilled' ? (newsRes.value.data || []) : [];
-    const deals = dealsRes.status === 'fulfilled' ? (dealsRes.value.data || []) : [];
+    const allNews = newsRes.status === 'fulfilled' ? (newsRes.value.data || []) : [];
+    const news = otherMarket ? allNews.filter(n => !n.is_local) : allNews;
+    const deals = (!otherMarket && dealsRes.status === 'fulfilled') ? (dealsRes.value.data || []) : [];
 
     const items = [
       ...news.map(n => ({
@@ -1113,10 +1124,10 @@ async function loadTicker(){
       .filter(i => i.headline)
       .sort((a, b) => new Date(b.published_at || 0) - new Date(a.published_at || 0));
 
-    return items.length ? items : FALLBACK_TICKER;
+    return items.length ? items : tickerFallback();
   } catch(e){
     console.warn('נכשל טעינת מבזק מה-DB, משתמש בנתוני fallback:', e);
-    return FALLBACK_TICKER;
+    return tickerFallback();
   }
 }
 
@@ -1644,8 +1655,13 @@ const FALLBACK_ARTICLES = [
 /* שם מקומי היסטורי ל-escapeHtml שב-assets/esc.js. */
 function escapeArticleText(s){ return escapeHtml(s); }
 
+/* כתבות הדמו, בלי אלה שכותרתן על עפולה - בשוק אחר הן לא שייכות */
+function articlesFallback(){
+  return marketText(FALLBACK_ARTICLES, () => FALLBACK_ARTICLES.filter(a => !/עפולה/.test(a.title || '')));
+}
+
 async function loadArticles(){
-  if (!sb) return FALLBACK_ARTICLES;
+  if (!sb) return articlesFallback();
 
   // 1. המגזין של הפלטפורמה — כתבות שנכתבו ב-CRM. זה המקור המועדף, והוא
   //    היחיד שיש לו עמוד משלו באתר (article.html).
@@ -1677,9 +1693,12 @@ async function loadArticles(){
   //    ה"מבזק" — הקריאה עוברת ב-view הציבורי, בלי הכתובת הגולמית ובלי
   //    שדות התחקור של המנוע.
   try{
-    const { data, error } = await sb
+    // ‏בשוק אחר - הארציים בלבד, מאותה סיבה שבמבזק (loadTicker)
+    let newsQuery = sb
       .from('news_items_public')
-      .select('headline, summary, url, image_url, category, source_name, published_at')
+      .select('headline, summary, url, image_url, category, source_name, published_at');
+    if (marketText(false, () => true)) newsQuery = newsQuery.eq('is_local', false);
+    const { data, error } = await newsQuery
       .order('published_at', { ascending:false })
       .limit(8);
     if (error || !data || data.length === 0) throw error || new Error('empty');
@@ -1694,7 +1713,7 @@ async function loadArticles(){
     }));
   } catch(e){
     console.warn('טעינת כתבות נכשלה, משתמש בנתוני fallback:', e);
-    return FALLBACK_ARTICLES;
+    return articlesFallback();
   }
 }
 
