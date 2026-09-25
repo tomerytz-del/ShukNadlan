@@ -6341,6 +6341,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <a href="/neighborhood-boundary" target="_blank" rel="noopener"
                style="color:var(--gold-dark);font-weight:700;text-decoration:none;white-space:nowrap">סימון על המפה ←</a>
           </p>
+          <!-- ייבוא שכונות מ-GovMap לשוק שלם (docs/regional-pages.md, שלב 3).
+               רץ בדפדפן של המנהל/ת, כי הטוקן של GovMap נעול לדומיין האתר.
+               הסריקה מציגה קודם רשימה - שום דבר לא נשמר בלי אישור. -->
+          <div class="hood-import" id="hoodImport">
+            <p class="acc-sub" style="margin:0 0 8px"><b>ייבוא מ-GovMap</b> - כל השכונות של שוק, עם הגבול שלהן. רץ רק מהאתר החי.</p>
+            <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+              <select id="hoodImportMarket" aria-label="שוק" style="border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:10px;background:#fff"></select>
+              <button type="button" class="btn btn-ghost" id="hoodImportScan">סריקה</button>
+              <span id="hoodImportStatus" class="acc-sub" role="status" aria-live="polite" style="margin:0"></span>
+            </div>
+            <div id="hoodImportResult" style="margin-top:10px"></div>
+          </div>
           <div id="neighborhoodsAdminList"></div>
         </div>
       </details>

@@ -20,6 +20,8 @@ on:
       - "scripts/check_markets.py"
       - "scripts/markets_test.ts"
       - "scripts/convert_market_text.py"
+      - "scripts/govmap_hoods_test.cjs"
+      - "assets/govmap.js"
       - "*.html"
       - ".github/workflows/markets.yml"
   push:
@@ -59,3 +61,7 @@ jobs:
 
       - name: זיהוי, הפניה והזרקה
         run: node --experimental-strip-types scripts/markets_test.ts
+
+      # ‏ייבוא השכונות מ-GovMap (GovMap ו-proj4 מדומים - הטוקן נעול לדומיין)
+      - name: סריקת השכונות מ-GovMap
+        run: node scripts/govmap_hoods_test.cjs

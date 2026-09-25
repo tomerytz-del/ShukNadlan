@@ -41,7 +41,7 @@
 | 2 | ‏`street_registry` לכל עיר מ-`search` עם `layers:['street']` | הטופס כבר אוכף רחוב מרשימה סגורה; בלי רשימה לעיר, אין טופס |
 | 3 | גוש/חלקה אוטומטי לנכס (‏`searchAndLocate` / `PARCEL_ALL`) | מחבר נכס לעסקאות רשות המיסים, שממופתחות בגוש/חלקה — ה-CMA בכל עיר |
 | 4 | "מה ליד הנכס" בדף הנכס (`getLayerFeaturesByLocation`: בתי ספר, גנים, תחבורה) | תוכן ייחודי לכל דף נכס — ערך לגולש/ת ול-SEO |
-| 5 | שכונות ממצולעי `neighborhoods_area` | מחליף את הציור הידני ב-`neighborhood-boundary.html` לכל עיר |
+| 5 | שכונות ממצולעי `neighborhoods_area` | **נבנה** (25.9.2026): CRM ← ניהול שכונות ← "ייבוא מ-GovMap" לשוק שלם. `GovmapLookup.neighborhoodsInArea` - ראו `docs/regional-pages.md` |
 | 6 | קישור "פתח ב-GovMap" (‏`?c=…&lay=PARCEL_ALL&b=1`) בדף הנכס ובדוח CMA | בלי טוקן ובלי קוד צד שלישי בדף. אפשר מחר |
 
 **עיר עולה לאוויר (`is_live`) רק אחרי 1-2**, ועדיין לפי כלל המלאי
