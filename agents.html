@@ -10,6 +10,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 })(window,document,'script','dataLayer','GTM-NZHD7ZHT');</script>
 <!-- End Google Tag Manager -->
 <script src="assets/esc.js"></script>
+<!-- השוק הפעיל, והכלל "מה שייך אליו": הרשימה מציגה את מתווכי השוק בלבד.
+     docs/regional-pages.md -->
+<script src="assets/markets.js"></script>
+<script src="assets/city-context.js"></script>
+<script src="assets/market-scope.js"></script>
 <script src="assets/events.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>כל המתווכים בשוק הנדל״ן</title>
@@ -1252,7 +1257,7 @@ function applyDeepLink(){
     const agencyIds = [...new Set(members.map(m => m.agency_id).filter(Boolean))];
     const [agenciesRes, rankingsRes, reviewsRes, propsRes] = await Promise.allSettled([
       agencyIds.length
-        ? sb.from('agencies').select('id, name, slug').in('id', agencyIds)
+        ? sb.from('agencies').select('id, name, slug, city_id').in('id', agencyIds)
         : Promise.resolve({ data: [] }),
       sb.from('agent_rankings').select('agent_id, active_properties_count').limit(500),
       sb.from('reviews').select('agent_id, rating').eq('status', 'published').limit(5000),
@@ -1278,7 +1283,15 @@ function applyDeepLink(){
       if (p.agent_id) liveCount.set(p.agent_id, (liveCount.get(p.agent_id) || 0) + 1);
     });
 
-    finish(members.map(m => shapeAgent(
+    // ‏המתווכים של השוק הפעיל (assets/market-scope.js): לפי העיר של המשרד.
+    // מתווך/ת במשרד בלי עיר נספר/ת בשוק ברירת המחדל. בלי הקובץ - כולם.
+    const MS = window.MarketScope;
+    const scope = MS ? await MS.spec(sb) : null;
+    const local = MS
+      ? members.filter(m => MS.inMarket(scope, agencyById.get(m.agency_id)?.city_id || null))
+      : members;
+
+    finish(local.map(m => shapeAgent(
       m,
       agencyById.get(m.agency_id),
       reviewAgg.get(m.id),

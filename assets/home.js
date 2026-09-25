@@ -1000,68 +1000,22 @@ const shapeProperty = p => ({
    הוא אינו כאן, שוק שאינו ברירת המחדל אינו יכול להידלק - אחרת
    ‏/haifa-krayot היה מציג את נכסי עפולה תחת השם "חיפה והקריות".
 
-   שני כללים, ולא אחד, והאסימטריה מכוונת:
+   הנכסים, המלאי המסחרי, יריד הבתים הפתוחים, החיפוש, השכונות וכרטיסי
+   המשרדים והמתווכים - כולם עוברים כאן. */
+/* הכלל עצמו - include לשוק רגיל, exclude לשוק ברירת המחדל, והנפילה בכשל -
+   יושב ב-assets/market-scope.js, כדי שדף הבית, ‏/agencies, ‏/agents ו-
+   ‏/projects לא יוכלו להיפרד. כאן רק העטיפות, עם נפילה ל"אין סינון" אם
+   הקובץ לא נטען (חוסם, רשת): בדיוק ההתנהגות שהייתה לפני השווקים.
 
-   ‏- **שוק רגיל** (‏/haifa-krayot): רק הערים שלו. ‏`in` פשוט.
-   ‏- **שוק ברירת המחדל** (‏/): כל מה ש**אינו** שייך לשוק אחר - כולל נכס
-     בלי עיר מזוהה (‏city_id ריק) ונכס בעיר שאין לה שוק. יישובי העמק
-     שעוד לא נכנסו לרישום ("כפר תבור") הופיעו בדף הבית עד היום, והסינון
-     אסור שיעלים אותם בשקט. כך דף הבית של עפולה נשאר בדיוק כמו שהיה, חוץ
-     מנכסים של חיפה.
-
-   המיפוי עיר ← שוק מגיע מ-`market_cities_public` (מזהים ו-slug בלבד), פעם
-   אחת לטעינת דף. בכשל: שוק ברירת המחדל לא מסנן (ההתנהגות הקודמת), ושוק
-   אחר **לא מציג כלום** - עדיף דף ריק לרגע מדף חיפה עם נכסי עפולה. */
-const NO_CITY = '00000000-0000-0000-0000-000000000000';
-let marketSpecPromise = null;
-
-function marketFilterSpec(){
-  if (marketSpecPromise) return marketSpecPromise;
-  /* ‏window.CityContext ולא CityCtx: המלאי המסחרי ויריד הבתים הפתוחים
-     נטענים ב-IIFE שרץ בזמן טעינת הסקריפט, מאות שורות **לפני** שה-const
-     ‏CityCtx מאותחל. גישה אליו שם היא TDZ שנבלע ב-catch של הטוען, והמדף
-     היה נופל בשקט לנתוני ה-fallback. */
-  const ctx = window.CityContext;
-  const market = (ctx && typeof ctx.market === 'function') ? ctx.market() : null;
-  if (!market || !sb){ marketSpecPromise = Promise.resolve(null); return marketSpecPromise; }
-  marketSpecPromise = sb.from('market_cities_public').select('city_id, market_slug')
-    .then(({ data, error }) => {
-      if (error || !Array.isArray(data)) throw error || new Error('no data');
-      if (market.isDefault){
-        const others = data.filter(r => r.market_slug !== market.slug).map(r => r.city_id);
-        return others.length ? { mode:'exclude', ids: others } : null;
-      }
-      const mine = data.filter(r => r.market_slug === market.slug).map(r => r.city_id);
-      return { mode:'include', ids: mine.length ? mine : [NO_CITY] };
-    })
-    .catch(e => {
-      console.warn('מיפוי השווקים לא נטען:', e);
-      return market.isDefault ? null : { mode:'include', ids: [NO_CITY] };
-    });
-  return marketSpecPromise;
-}
-
-/* ‏"exclude" הוא `or` (עיר ריקה, או עיר שאינה בשוק אחר). הפונקציה מחזירה
-   אותו כמחרוזת ולא מחילה אותו, כי החיפוש החופשי הוא `or` משלו - ושני
-   ‏`or` נפרדים באותה בקשה אינם צורה שאפשר לסמוך עליה. החיפוש מאחד אותם
-   לעץ אחד (‏and(or(…),or(…))), והשאר קוראים ל-applyMarketFilter. */
-function marketOrFilter(spec){
-  if (!spec || spec.mode !== 'exclude') return null;
-  return `city_id.is.null,city_id.not.in.(${spec.ids.join(',')})`;
-}
-
-/* אותו כלל, בדפדפן, לשורה שכבר נטענה (שכונות). */
-function inMarket(spec, cityId){
-  if (!spec) return true;
-  if (spec.mode === 'include') return spec.ids.includes(cityId);
-  return !cityId || !spec.ids.includes(cityId);
-}
-
-function applyMarketFilter(query, spec){
-  if (!spec) return query;
-  if (spec.mode === 'include') return query.in('city_id', spec.ids);
-  return query.or(marketOrFilter(spec));
-}
+   ‏window.CityContext ולא CityCtx בתוך MarketScope: המלאי המסחרי ויריד הבתים
+   הפתוחים נטענים ב-IIFE שרץ בזמן טעינת הסקריפט, מאות שורות לפני שה-const
+   ‏CityCtx מאותחל - גישה אליו היא TDZ שנבלע ב-catch, והמדף נופל בשקט
+   לנתוני ה-fallback. */
+const MS = window.MarketScope || null;
+function marketFilterSpec(){ return MS ? MS.spec(sb) : Promise.resolve(null); }
+function marketOrFilter(spec){ return MS ? MS.orFilter(spec) : null; }
+function inMarket(spec, cityId){ return MS ? MS.inMarket(spec, cityId) : true; }
+function applyMarketFilter(query, spec){ return MS ? MS.apply(query, spec) : query; }
 
 /* כל הנכסים הפעילים במאגר, ולא רק 12: המפה בעמוד הבית אמורה להראות את
    התמונה המלאה של השוק לפני שהגולש בכלל חיפש. המקודמים ראשונים, ואחריהם

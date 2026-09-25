@@ -12,6 +12,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 <script src="assets/esc.js"></script>
 <script src="assets/markets.js"></script>
 <script src="assets/city-context.js"></script>
+<script src="assets/market-scope.js"></script>
 <script src="assets/events.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>כל משרדי התיווך בשוק הנדל״ן</title>
@@ -1272,7 +1273,7 @@ function shapeAgency(a, props, ranking, rated, propsLoaded){
   try{
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     const [agenciesRes, rankingsRes, ratingsRes, propsRes, membersRes] = await Promise.allSettled([
-      sb.from('agencies').select('id, name, slug, logo_url, tagline, specialties, specialty_areas, ethics_code_accepted_at, ethics_badge_revoked_at').limit(500),
+      sb.from('agencies').select('id, name, slug, logo_url, tagline, specialties, specialty_areas, ethics_code_accepted_at, ethics_badge_revoked_at, city_id').limit(500),
       sb.from('agency_rankings').select('agency_id, composite_score, active_properties_count').limit(500),
       sb.from('agency_ratings_public').select('agency_id, score, review_count').limit(500),
       sb.from('properties').select(PROPS_SELECT).eq('status', 'active').limit(5000),
@@ -1319,7 +1320,11 @@ function shapeAgency(a, props, ranking, rated, propsLoaded){
     const membersComplete = membersRes.status === 'fulfilled'
       && !membersRes.value.error && members.length < 1000;
     const staffedAgencies = new Set(members.filter(m => m.active !== false).map(m => m.agency_id));
-    const visible = membersComplete ? rows.filter(a => staffedAgencies.has(a.id)) : rows;
+    const staffed = membersComplete ? rows.filter(a => staffedAgencies.has(a.id)) : rows;
+    // ‏המשרדים של השוק הפעיל (assets/market-scope.js): לפי העיר של המשרד.
+    // משרד בלי עיר נספר בשוק ברירת המחדל. בלי הקובץ - כולם, כמו קודם.
+    const scope = window.MarketScope ? await window.MarketScope.spec(sb) : null;
+    const visible = window.MarketScope ? staffed.filter(a => window.MarketScope.inMarket(scope, a.city_id)) : staffed;
 
     finish(visible.map(a => {
       const shaped = shapeAgency(a, propsByAgency.get(a.id) || [], rankByAgency.get(a.id), ratingByAgency.get(a.id), propsLoaded);
