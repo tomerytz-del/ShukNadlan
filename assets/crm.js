@@ -2517,6 +2517,300 @@ function admChart(months, pick, format){
 let adminReportMonths = 6;
 let adminReportBusy = false;
 
+/* ==========================================================================
+   שווקים מקומיים - תצוגת השוק של מנהל/ת הפלטפורמה
+   --------------------------------------------------------------------------
+   בוחרים שוק ורואים רק אותו: מה חסר עד שהוא נדלק (משרד אחד ו-10 נכסים
+   פעילים), הערים, המשרדים, הנכסים האחרונים, וקישור לדף האזורי כמו שגולש/ת
+   רואה/ה אותו. הרשימה מ-assets/markets.js והמספרים מ-platform_market_report
+   - מספרים ושמות פומביים בלבד. docs/regional-pages.md
+   ========================================================================== */
+const MARKET_VIEW_KEY = 'crmMarketView';
+const MARKET_GATE = { agencies: 1, props: 10 };
+let marketReportBusy = false;
+
+function marketList(){
+  return (window.ShukMarkets && window.ShukMarkets.list) || [];
+}
+
+function marketViewSlug(){
+  let slug = '';
+  try{ slug = localStorage.getItem(MARKET_VIEW_KEY) || ''; }catch(e){}
+  const list = marketList();
+  return list.some(m => m.slug === slug) ? slug : (list[0] ? list[0].slug : '');
+}
+
+function renderMarketPicker(){
+  const host = document.getElementById('marketPicker');
+  if (!host) return;
+  const current = marketViewSlug();
+  host.innerHTML = '';
+  marketList().forEach(m => {
+    const b = admEl('button', m.slug === current ? 'is-on' : '', m.label);
+    b.type = 'button';
+    b.dataset.market = m.slug;
+    b.setAttribute('aria-pressed', String(m.slug === current));
+    host.appendChild(b);
+  });
+}
+
+async function loadMarketReport(){
+  const host = document.getElementById('marketReport');
+  if (!host || marketReportBusy) return;
+  const list = marketList();
+  renderMarketPicker();
+  if (!list.length){
+    host.innerHTML = '';
+    host.appendChild(admEl('div', 'empty-state', 'רשימת השווקים (assets/markets.js) לא נטענה.'));
+    dashPanelsMeasure();
+    return;
+  }
+  const market = list.find(m => m.slug === marketViewSlug());
+  marketReportBusy = true;
+  const refreshBtn = document.getElementById('marketRefreshBtn');
+  if (refreshBtn) refreshBtn.disabled = true;
+  host.innerHTML = '<div class="empty-state">טוען את נתוני השוק…</div>';
+
+  const { data, error } = await sb.rpc('platform_market_report', { p_market: market.slug });
+
+  marketReportBusy = false;
+  if (refreshBtn) refreshBtn.disabled = false;
+
+  if (error){
+    host.innerHTML = '';
+    const msg = (error.code === '42883' || error.code === 'PGRST202')
+      ? 'הדוח לא קיים עדיין במסד - המיגרציה 20270112090000_markets.sql טרם רצה.'
+      : (error.code === '42501' || /not_platform_admin/.test(error.message || ''))
+        ? 'התצוגה פתוחה למנהל/ת פלטפורמה בלבד.'
+        : 'שגיאה בטעינת השוק: ' + error.message;
+    host.appendChild(admEl('div', 'empty-state', msg));
+    dashPanelsMeasure();
+    return;
+  }
+  renderMarketReport(market, data || {});
+}
+
+function marketMeter(label, have, need){
+  const done = have >= need;
+  const box = admEl('div', 'mkt-meter' + (done ? ' is-done' : ''));
+  const top = admEl('div', 'mkt-meter-top');
+  top.appendChild(admEl('span', 'mkt-meter-lbl', label));
+  top.appendChild(admEl('span', 'mkt-meter-val', admInt(have) + ' / ' + admInt(need)));
+  box.appendChild(top);
+  const bar = admEl('div', 'mkt-meter-bar');
+  const fill = admEl('span');
+  fill.style.width = Math.min(100, Math.round((have / need) * 100)) + '%';
+  bar.appendChild(fill);
+  box.appendChild(bar);
+  return box;
+}
+
+function renderMarketReport(market, report){
+  const host = document.getElementById('marketReport');
+  if (!host) return;
+  host.innerHTML = '';
+  const tot = report.totals || {};
+  const agencies = Number(tot.agencies) || 0;
+  const props = Number(tot.props_active) || 0;
+  const ready = agencies >= MARKET_GATE.agencies && props >= MARKET_GATE.props;
+
+  const stamp = document.getElementById('marketStamp');
+  if (stamp && report.generated_at){
+    stamp.textContent = 'עודכן ' + new Date(report.generated_at)
+      .toLocaleString('he-IL', { dateStyle:'short', timeStyle:'short' });
+  }
+  const sub = document.getElementById('marketPanelSub');
+  if (sub){
+    sub.textContent = market.label + ' · ' + admInt(props) + ' נכסים פעילים · ' +
+      admInt(agencies) + ' משרדים · ' + (market.live ? 'חי באתר' : 'נפתח בקרוב');
+  }
+
+  /* ---- 1. כרטיס השוק: מצב, והדף האזורי ---- */
+  const card = admEl('div', 'mkt-card');
+  const head = admEl('div');
+  const titleRow = admEl('div');
+  titleRow.style.cssText = 'display:flex;align-items:center;gap:8px;flex-wrap:wrap';
+  titleRow.appendChild(admEl('h3', 'mkt-card-title', market.label));
+  titleRow.appendChild(admEl('span', 'mkt-badge ' + (market.live ? 'is-live' : 'is-soon'),
+    market.live ? 'חי באתר' : 'נפתח בקרוב'));
+  head.appendChild(titleRow);
+  head.appendChild(admEl('p', 'mkt-card-sub', market.live
+    ? 'גולשים מהאזור מופנים לכאן אוטומטית, והדף נמצא במפת האתר של גוגל.'
+    : 'הכתובת מגישה דף "נפתחים בקרוב" לגיוס משרדים, מחוץ לגוגל. ההדלקה נעשית ב-assets/markets.js.'));
+  card.appendChild(head);
+
+  const url = 'https://shuknadlan.co.il' + market.path;
+  const actions = admEl('div', 'mkt-actions');
+  const view = admEl('a', 'is-primary', 'צפייה בדף האזורי ↗');
+  view.href = market.path;
+  view.target = '_blank';
+  view.rel = 'noopener';
+  actions.appendChild(view);
+  const copy = admEl('button', null, 'העתקת הקישור');
+  copy.type = 'button';
+  copy.title = url;
+  copy.addEventListener('click', async ()=>{
+    try{ await navigator.clipboard.writeText(url); showToast('הקישור הועתק: ' + url); }
+    catch(e){ showToast(url); }
+  });
+  actions.appendChild(copy);
+  card.appendChild(actions);
+  host.appendChild(card);
+
+  /* ---- 2. הדרך לפתיחה ---- */
+  const gate = admBlock(ready ? 'מוכן לפתיחה' : 'מה חסר עד הפתיחה',
+    market.live
+      ? 'השוק כבר חי. הסף נשאר כאן כדי לראות אם הוא יורד מתחתיו.'
+      : ready
+        ? 'השוק עבר את הסף. ההדלקה היא שורה ב-assets/markets.js (live: true) - הבדיקה check_markets.py תדרוש גם את הסינון בדף הבית ואת השורה ב-sitemap.'
+        : 'שוק נפתח לגולשים רק עם משרד אחד לפחות ו-10 נכסים פעילים - דף עם אפס נכסים גרוע מאין דף.');
+  const meters = admEl('div', 'mkt-gate');
+  meters.appendChild(marketMeter('משרדים בשוק', agencies, MARKET_GATE.agencies));
+  meters.appendChild(marketMeter('נכסים פעילים', props, MARKET_GATE.props));
+  gate.appendChild(meters);
+  host.appendChild(gate);
+
+  /* ---- 3. המספרים ---- */
+  const tiles = admEl('div', 'adm-tiles');
+  tiles.appendChild(admTile('נכסים פעילים', admInt(props), {
+    wine: true, note: admInt(tot.props_new_30d) + ' נוספו ב-30 יום' }));
+  tiles.appendChild(admTile('משרדים ומתווכים', admInt(agencies), {
+    note: admInt(tot.agents) + ' מתווכים פעילים' }));
+  tiles.appendChild(admTile('לידים ב-30 יום', admInt(tot.leads_30d), {
+    note: admInt(tot.leads_open) + ' עוד לא נפתחו' }));
+  tiles.appendChild(admTile('שכונות', admInt(tot.neighborhoods), {
+    note: admInt(tot.hoods_marked) + ' מסומנות על המפה' }));
+  host.appendChild(tiles);
+
+  const warn = [];
+  if (Number(tot.props_no_pin)) warn.push(admInt(tot.props_no_pin) + ' נכסים פעילים בלי פין - הם לא מופיעים על המפה');
+  if (!Number(tot.deals_official)) warn.push('אין עסקאות רשמיות לשוק - דוח ה-CMA כאן יעבוד בלי השוואות');
+  else warn.push(admInt(tot.deals_official) + ' עסקאות רשמיות במאגר');
+  if (warn.length) host.appendChild(admEl('p', 'adm-note', warn.join(' · ')));
+
+  /* ---- 4. הערים ---- */
+  const cities = Array.isArray(report.cities) ? report.cities : [];
+  const cityBlock = admBlock('הערים בשוק', 'השיוך במסד: cities.market_slug. נכס נספר לפי העיר שנרשמה עליו.');
+  if (!cities.length){
+    cityBlock.appendChild(admEl('div', 'empty-state', 'אין ערים משויכות לשוק הזה.'));
+  } else {
+    const wrap = admEl('div', 'adm-table-wrap');
+    const table = admEl('table', 'adm-table');
+    const thead = admEl('thead'); const hr = admEl('tr');
+    ['עיר', 'נכסים פעילים', 'משרדים', 'שכונות'].forEach(h => hr.appendChild(admEl('th', null, h)));
+    thead.appendChild(hr); table.appendChild(thead);
+    const tbody = admEl('tbody');
+    cities.forEach(c => {
+      const tr = admEl('tr');
+      tr.appendChild(admEl('td', null, c.name));
+      tr.appendChild(admEl('td', 'num', admInt(c.props_active)));
+      tr.appendChild(admEl('td', 'num', admInt(c.agencies)));
+      tr.appendChild(admEl('td', 'num', admInt(c.neighborhoods)));
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody); wrap.appendChild(table); cityBlock.appendChild(wrap);
+  }
+  host.appendChild(cityBlock);
+
+  /* ---- 5. המשרדים ---- */
+  const ags = Array.isArray(report.agencies) ? report.agencies : [];
+  const agBlock = admBlock('המשרדים בשוק', 'משרד משויך לשוק לפי הכתובת הרשומה שלו (agencies.city_id). משרד בלי כתובת לא יופיע כאן.');
+  if (!ags.length){
+    agBlock.appendChild(admEl('div', 'empty-state', 'עוד אין משרדים בשוק הזה.'));
+  } else {
+    const ul = admEl('ul', 'mkt-list');
+    ags.forEach(a => {
+      const li = admEl('li');
+      const link = admEl('a', null, a.name);
+      link.href = '/agency?slug=' + encodeURIComponent(a.slug || '');
+      link.target = '_blank'; link.rel = 'noopener';
+      li.appendChild(link);
+      li.appendChild(admEl('small', null, (a.city ? a.city + ' · ' : '') +
+        admInt(a.props_active) + ' נכסים · ' + admInt(a.agents) + ' מתווכים'));
+      ul.appendChild(li);
+    });
+    agBlock.appendChild(ul);
+  }
+  host.appendChild(agBlock);
+
+  /* ---- 6. נכנס לאחרונה ---- */
+  const recent = Array.isArray(report.recent) ? report.recent : [];
+  const recBlock = admBlock('נכנס לאחרונה', 'שמונת הנכסים האחרונים שנרשמו בערי השוק, בכל סטטוס.');
+  if (!recent.length){
+    recBlock.appendChild(admEl('div', 'empty-state', 'עוד לא נרשמו נכסים בשוק הזה.'));
+  } else {
+    const ul = admEl('ul', 'mkt-list');
+    recent.forEach(r => {
+      const li = admEl('li');
+      const link = admEl('a', null, r.title || r.city || 'נכס');
+      link.href = '/property?id=' + encodeURIComponent(r.id);
+      link.target = '_blank'; link.rel = 'noopener';
+      li.appendChild(link);
+      const bits = [r.city, r.status === 'active' ? 'פעיל' : r.status,
+                    r.has_pin ? null : 'בלי פין',
+                    r.created_at ? new Date(r.created_at).toLocaleDateString('he-IL') : null];
+      li.appendChild(admEl('small', null, bits.filter(Boolean).join(' · ')));
+      ul.appendChild(li);
+    });
+    recBlock.appendChild(ul);
+  }
+  host.appendChild(recBlock);
+
+  /* ---- 7. נכסים בלי שוק (לכל הפלטפורמה) ---- */
+  const loose = Array.isArray(report.unassigned) ? report.unassigned : [];
+  if (loose.length){
+    const lb = admBlock('נכסים פעילים שאינם שייכים לאף שוק',
+      'לא של השוק הזה - של כל האתר. עיר שלא הוכרה, או עיר שלא שויכה לשוק. הם נשמרים ומופיעים בחיפוש הכללי, אבל לא בדף אזורי.');
+    lb.appendChild(admEl('p', 'adm-note',
+      loose.map(u => (u.city || '') + ' (' + admInt(u.n) + ')').join(' · ')));
+    host.appendChild(lb);
+  }
+
+  dashPanelsMeasure();
+}
+
+document.getElementById('marketPicker')?.addEventListener('click', (e)=>{
+  const btn = e.target.closest('button[data-market]');
+  if (!btn) return;
+  try{ localStorage.setItem(MARKET_VIEW_KEY, btn.dataset.market); }catch(err){}
+  loadMarketReport();
+});
+document.getElementById('marketRefreshBtn')?.addEventListener('click', loadMarketReport);
+
+/* ---------- סרגל הניווט של תצוגת המנהל/ת ----------
+   תוכן עניינים לחמשת הפאנלים. לחיצה פותחת את הפאנל (ושומרת את זה, כמו
+   לחיצה על הכותרת שלו) וגוללת אליו. הסרגל דביק, כך שהוא זמין גם מלמטה. */
+const ADMIN_NAV = [
+  { id: 'dashPanelMarkets',   label: 'שווקים',        dot: '#9a7418' },
+  { id: 'dashPanelAdmin',     label: 'דוח חודשי',     dot: '#a03449' },
+  { id: 'dashPanelLeads',     label: 'לידים',         dot: '#22456e' },
+  { id: 'dashPanelOps',       label: 'בריאות המערכת', dot: '#1f6f63' },
+  { id: 'dashPanelInventory', label: 'מצבת',          dot: '#2f4f7a' },
+  { id: 'platformAdminSection', label: 'כלי ניהול',   dot: '#6b7280' },
+];
+
+function renderAdminNav(){
+  const nav = document.getElementById('adminNav');
+  if (!nav || nav.dataset.ready) return;
+  nav.dataset.ready = '1';
+  ADMIN_NAV.forEach(item => {
+    if (!document.getElementById(item.id)) return;
+    const b = admEl('button', null, item.label);
+    b.type = 'button';
+    b.style.setProperty('--nav-dot', item.dot);
+    b.addEventListener('click', ()=>{
+      const target = document.getElementById(item.id);
+      if (!target) return;
+      if (target.classList.contains('dash-panel')){
+        dashPanelsMeasure();
+        dashPanelSetOpen(target, true, true);
+      }
+      target.scrollIntoView({ behavior: navReduceMotion() ? 'auto' : 'smooth', block: 'start' });
+    });
+    nav.appendChild(b);
+  });
+}
+
 async function loadAdminReport(){
   const host = document.getElementById('adminReport');
   if (!host || adminReportBusy) return;
@@ -19912,6 +20206,10 @@ function applyNavFilter(){
   if (opsPanel) opsPanel.classList.toggle('nav-off', !isAdminView);
   const invPanel = document.getElementById('dashPanelInventory');
   if (invPanel) invPanel.classList.toggle('nav-off', !isAdminView);
+  const marketPanel = document.getElementById('dashPanelMarkets');
+  if (marketPanel) marketPanel.classList.toggle('nav-off', !isAdminView);
+  const adminNav = document.getElementById('adminNav');
+  if (adminNav) adminNav.classList.toggle('nav-off', !isAdminView);
 
   document.querySelectorAll('#dashboard details.acc').forEach(acc=>{
     const tab = NAV_TAB_OF.get(acc.id) || 'more';
@@ -19981,6 +20279,13 @@ function setDashView(view, opts){
   if (opsPanel) opsPanel.hidden = (dashView !== 'admin');
   const invPanel = document.getElementById('dashPanelInventory');
   if (invPanel) invPanel.hidden = (dashView !== 'admin');
+  const marketPanel = document.getElementById('dashPanelMarkets');
+  if (marketPanel) marketPanel.hidden = (dashView !== 'admin');
+  const adminNav = document.getElementById('adminNav');
+  if (adminNav){
+    adminNav.hidden = (dashView !== 'admin');
+    if (dashView === 'admin') renderAdminNav();
+  }
   if (!initial) navTab = 'home';
   renderViewSwitch();
   applyNavFilter();
@@ -19996,6 +20301,7 @@ function setDashView(view, opts){
   // לתשובה הוא לרוב רק הכותרת שלו. טעינה בטור הייתה מעכבת את הרביעי
   // בגלל הראשון בלי סיבה.
   if (dashView === 'admin'){
+    loadMarketReport();
     loadAdminReport();
     loadLeadReport();
     loadOpsReport();

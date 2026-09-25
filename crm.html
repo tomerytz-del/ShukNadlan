@@ -2872,6 +2872,56 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      יהיה ברור שזה מסך אחר ולא המשך של אותו דוח. */
   .dp-ops{--dp-a:#1f6f63; --dp-b:#0e3f38}
   .dp-inv{--dp-a:#2f4f7a; --dp-b:#1a2f4d}
+  /* שווקים מקומיים - זהב-חום, הצבע של הפין בדף הבית */
+  .dp-markets{--dp-a:#9a7418; --dp-b:#5e4508}
+
+  /* ---- סרגל הניווט של תצוגת המנהל/ת ---- */
+  .adm-nav{
+    display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 2px 4px;
+    position:sticky;top:0;z-index:5;background:linear-gradient(var(--bg,#f6f4ef) 70%,transparent);
+  }
+  .adm-nav::-webkit-scrollbar{display:none}
+  .adm-nav[hidden]{display:none}
+  .adm-nav button{
+    flex:none;display:inline-flex;align-items:center;gap:6px;border:1px solid var(--edge);
+    background:var(--surface);border-radius:999px;padding:7px 14px;
+    font-size:.76rem;font-weight:800;color:var(--txt-soft);white-space:nowrap;
+  }
+  .adm-nav button::before{content:'';width:8px;height:8px;border-radius:50%;background:var(--nav-dot,#22456e)}
+  .adm-nav button:hover{color:var(--txt);border-color:var(--txt-faint)}
+  .adm-nav button b{font-weight:800;color:var(--txt)}
+
+  /* ---- תצוגת השוק ---- */
+  #marketReport{display:flex;flex-direction:column;gap:18px}
+  .mkt-card{
+    display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;
+    background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-md);padding:14px 16px;
+  }
+  .mkt-card-title{font-size:1.1rem;font-weight:800;color:var(--txt);margin:0}
+  .mkt-card-sub{font-size:.74rem;color:var(--txt-faint);margin:2px 0 0}
+  .mkt-badge{border-radius:999px;padding:3px 10px;font-size:.7rem;font-weight:800;white-space:nowrap}
+  .mkt-badge.is-live{background:var(--green-tint);color:var(--green)}
+  .mkt-badge.is-soon{background:#fdf3dc;color:#8a6d10}
+  .mkt-actions{display:flex;gap:8px;flex-wrap:wrap;margin-inline-start:auto}
+  .mkt-actions a,.mkt-actions button{
+    display:inline-flex;align-items:center;gap:6px;border-radius:999px;padding:7px 14px;
+    font-size:.76rem;font-weight:800;text-decoration:none;white-space:nowrap;
+    border:1px solid var(--edge);background:var(--surface);color:var(--txt-soft);
+  }
+  .mkt-actions a.is-primary{background:var(--dp-a,#9a7418);border-color:transparent;color:#fff}
+  .mkt-gate{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .mkt-meter{background:var(--surface);border:1px solid var(--edge);border-radius:var(--r-md);padding:12px 14px}
+  .mkt-meter-top{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+  .mkt-meter-lbl{font-size:.74rem;font-weight:700;color:var(--txt-soft)}
+  .mkt-meter-val{font-size:1.05rem;font-weight:800;color:var(--txt);font-variant-numeric:tabular-nums}
+  .mkt-meter-bar{height:6px;border-radius:3px;background:var(--edge);overflow:hidden;margin-top:8px}
+  .mkt-meter-bar span{display:block;height:100%;border-radius:3px;background:linear-gradient(90deg,#c9a227,#9a7418)}
+  .mkt-meter.is-done .mkt-meter-bar span{background:linear-gradient(90deg,#2f9e7e,#1f6f63)}
+  .mkt-list{display:flex;flex-direction:column;gap:2px;margin:0;padding:0;list-style:none}
+  .mkt-list li{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:var(--r-xs);font-size:.78rem}
+  .mkt-list li:nth-child(odd){background:var(--surface-2)}
+  .mkt-list a{color:var(--txt);font-weight:700;text-decoration:none;min-width:0;flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .mkt-list small{color:var(--txt-faint);white-space:nowrap}
   .dash-panel[hidden]{display:none}
   /* הסינון של הסרגל התחתון. ‏!important כי חלק מהקטגוריות נשלטות ב-display
      אינליין (מדף המשכנתאות, אזורי הניהול), ומחלקה רגילה לא הייתה מנצחת. */
@@ -4842,6 +4892,52 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         </div>
 
       </div>
+
+      <!-- ==========================================================
+           ניווט בתצוגת מנהל/ת
+           ----------------------------------------------------------
+           חמישה פאנלים מכווצים זה מתחת לזה, וכל אחד עונה על שאלה אחרת.
+           עד היום הדרך למצוא את הרביעי הייתה לגלול מעבר לשלושה, ומי
+           שפתח/ה אחד מהם דחף/ה את השאר מטה. הסרגל כאן הוא תוכן העניינים:
+           לחיצה פותחת את הפאנל וגוללת אליו. ‏renderAdminNav ב-assets/crm.js -->
+      <nav class="adm-nav" id="adminNav" aria-label="ניווט בין לוחות המנהל/ת" hidden></nav>
+
+      <!-- ==========================================================
+           שווקים מקומיים — תצוגת השוק של מנהל/ת הפלטפורמה
+           ----------------------------------------------------------
+           בוחרים שוק (עפולה והעמק, חיפה והקריות…) ורואים רק אותו: מה
+           חסר עד שהוא נדלק, הערים, המשרדים והנכסים האחרונים, וקישור לדף
+           האזורי כפי שגולש/ת רואה/ה אותו. ‏RPC ‏platform_market_report
+           מחזיר מספרים ושמות פומביים בלבד. ‏docs/regional-pages.md -->
+      <section class="dash-panel dp-markets" id="dashPanelMarkets" aria-label="שווקים מקומיים - מנהל/ת הפלטפורמה" hidden>
+        <button type="button" class="dp-head" id="dashPanelMarketsHead"
+                aria-expanded="false" aria-controls="dashPanelMarketsBody">
+          <span class="dp-ico" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 5.2-8 12-8 12s-8-6.8-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.8"/></svg>
+          </span>
+          <span class="dp-titles">
+            <span class="dp-title">שווקים מקומיים · תצוגה לפי אזור</span>
+            <span class="dp-sub" id="marketPanelSub">הדף האזורי, המשרדים, הנכסים ומה חסר עד הפתיחה</span>
+          </span>
+          <span class="dp-toggle">
+            <span class="dp-toggle-label">הרחבה</span>
+            <svg class="dp-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+          </span>
+        </button>
+        <div class="dp-body" id="dashPanelMarketsBody">
+          <div class="dp-inner">
+            <div class="adm-toolbar">
+              <div class="adm-range" id="marketPicker" role="group" aria-label="בחירת שוק"></div>
+              <button type="button" class="adm-refresh" id="marketRefreshBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 1 1-2.6-6.4"/><polyline points="21 3 21 9 15 9"/></svg>
+                רענון
+              </button>
+              <span class="adm-stamp" id="marketStamp"></span>
+            </div>
+            <div id="marketReport"><div class="empty-state">טוען את נתוני השוק…</div></div>
+          </div>
+        </div>
+      </section>
 
       <!-- ==========================================================
            דשבורד 2 מתוך 2 — לוח הבקרה החודשי של מנהל/ת הפלטפורמה
