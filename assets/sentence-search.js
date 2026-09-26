@@ -666,15 +666,15 @@
       return null;
     }
 
-    /* מה שכבר שונה מברירת המחדל נחשב נבחר: קישור עמוק (‎?deal=sale&rooms=4‎)
-       או טקסט חופשי לא מתחילים מ"המילה הבאה" שכבר נבחרה. */
-    function touchNonDefault() {
+    /* ערך שהגיע מהכתובת (‎?deal=sale‎ אחרי רענון, עמוד חיפוש פופולרי, קישור
+       ששותף) **אינו** נחשב נבחר: בכל כניסה לדף המילה הראשונה במשפט היא זו
+       שמתחלפת - רק מה שנבחר בביקור הזה מקדם את "המילה הבאה". כשלמילה
+       המתחלפת כבר יש ערך, החילוף מתחיל ממנו (ראו renderSentence), כך
+       שהמשפט והמונה אומרים את אותו דבר ברגע הכניסה. */
+    function presetLabel(slot, value) {
       var d = defaultState();
-      if (st.deal !== d.deal) touched.deal = true;
-      if (st.type !== d.type) touched.type = true;
-      if (st.area !== d.area) touched.area = true;
-      if (st.rooms) touched.rooms = true;
-      if (st.priceMax !== null && st.priceMax !== undefined) touched.price = true;
+      var key = slot === 'price' ? 'priceMax' : slot;
+      return JSON.stringify(st[key]) !== JSON.stringify(d[key]) ? value : null;
     }
 
     /* ---------- ציור ---------- */
@@ -688,6 +688,8 @@
         if (s.pre) seg.appendChild(el('span', 'ss-pre', s.pre));
         var isNext = s.slot === hint && !active;
         var labels = isNext && loaded && !noMotion() ? rollLabels(s.slot, st, props, ctx, areas) : [];
+        var preset = isNext ? presetLabel(s.slot, s.value) : null;
+        if (preset && labels.length) labels = [preset].concat(labels.filter(function (l) { return l !== preset; }));
         var b;
         if (labels.length >= 2) {
           /* כל התוויות באותו תא של grid: ה-slot מקבל את רוחב הארוכה שבהן,
@@ -1083,7 +1085,6 @@
       setFromParams: function (params) {
         st = fromParams(params);
         if (loaded) st = resolveArea(st, areas);
-        touchNonDefault();
         render();
       },
       setAi: function (on) { change({ ai: !!on }, 'ai'); },
