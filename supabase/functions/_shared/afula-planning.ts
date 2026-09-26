@@ -23,6 +23,7 @@
 // כאן מפרקים אותה באותו סדר.
 import { itmToWgs84 } from "./geocode/itm.ts";
 import { streetVariants } from "./geocode/street-variants.ts";
+import { xmlLiteral } from "./xml.ts";
 
 const WFS_URL = "https://layers.intertown.co.il/opengis/wfs";
 const WFS_REFERER = "https://up.intertown.co.il/afl/public";
@@ -76,8 +77,8 @@ async function addressToCoords(street, houseNumber) {
     const xml = '<wfs:GetFeature service="WFS" version="2.0.0" xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:fes="http://www.opengis.net/fes/2.0" outputFormat="application/json" count="5">' +
       '<wfs:Query typeNames="afl_bld:afl_bld-Address_Points_1">' +
       '<fes:Filter><fes:And>' +
-      '<fes:PropertyIsEqualTo><fes:ValueReference>שם_רחוב</fes:ValueReference><fes:Literal>' + variant + '</fes:Literal></fes:PropertyIsEqualTo>' +
-      '<fes:PropertyIsEqualTo><fes:ValueReference>מספר_בית</fes:ValueReference><fes:Literal>' + houseNumber + '</fes:Literal></fes:PropertyIsEqualTo>' +
+      '<fes:PropertyIsEqualTo><fes:ValueReference>שם_רחוב</fes:ValueReference><fes:Literal>' + xmlLiteral(variant) + '</fes:Literal></fes:PropertyIsEqualTo>' +
+      '<fes:PropertyIsEqualTo><fes:ValueReference>מספר_בית</fes:ValueReference><fes:Literal>' + xmlLiteral(houseNumber) + '</fes:Literal></fes:PropertyIsEqualTo>' +
       '</fes:And></fes:Filter></wfs:Query></wfs:GetFeature>';
     let data;
     try {
@@ -174,8 +175,8 @@ async function gushHelkaToParcel(gush, helka) {
   const xml = '<wfs:GetFeature service="WFS" version="2.0.0" xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:fes="http://www.opengis.net/fes/2.0" outputFormat="application/json" count="5">' +
     '<wfs:Query typeNames="afl_cadaster:afl_cadaster-parcel">' +
     '<fes:Filter><fes:And>' +
-    '<fes:PropertyIsEqualTo><fes:ValueReference>גוש</fes:ValueReference><fes:Literal>' + gush + '</fes:Literal></fes:PropertyIsEqualTo>' +
-    '<fes:PropertyIsEqualTo><fes:ValueReference>חלקה</fes:ValueReference><fes:Literal>' + helka + '</fes:Literal></fes:PropertyIsEqualTo>' +
+    '<fes:PropertyIsEqualTo><fes:ValueReference>גוש</fes:ValueReference><fes:Literal>' + xmlLiteral(gush) + '</fes:Literal></fes:PropertyIsEqualTo>' +
+    '<fes:PropertyIsEqualTo><fes:ValueReference>חלקה</fes:ValueReference><fes:Literal>' + xmlLiteral(helka) + '</fes:Literal></fes:PropertyIsEqualTo>' +
     '</fes:And></fes:Filter></wfs:Query></wfs:GetFeature>';
   const data = await wfsQuery(xml, "gush-helka:" + gush + "/" + helka);
   return (data && data.features && data.features[0]) || null;
