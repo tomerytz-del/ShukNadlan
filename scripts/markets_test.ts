@@ -109,7 +109,9 @@ check("רק שווקים חיים: נוף הגליל → עפולה והעמק �
   reg.locate(NOF_HAGALIL[0], NOF_HAGALIL[1], true)?.slug === "afula-emek");
 check("עתלית → haifa-krayot", reg.locate(ATLIT[0], ATLIT[1])?.slug === "haifa-krayot");
 check("עין איילה → haifa-krayot", reg.locate(EIN_AYALA[0], EIN_AYALA[1])?.slug === "haifa-krayot");
-check("זכרון יעקב → לא חיפה (דרומה מהתיבה; היום מגיעה לחדרה כשוק הקרוב)", reg.locate(ZICHRON[0], ZICHRON[1])?.slug !== "haifa-krayot");
+check("זכרון יעקב → hadera", reg.locate(ZICHRON[0], ZICHRON[1])?.slug === "hadera");
+check("הגבול: 32.619 → חדרה (דור ונחשולים), 32.62 → חיפה",
+  reg.locate(32.619, 34.93)?.slug === "hadera" && reg.locate(32.62, 34.93)?.slug === "haifa-krayot");
 check("חדרה → hadera", reg.locate(HADERA[0], HADERA[1])?.slug === "hadera");
 check("חריש → hadera", reg.locate(HARISH[0], HARISH[1])?.slug === "hadera");
 check("פרדס חנה-כרכור → hadera", reg.locate(PARDES_HANNA[0], PARDES_HANNA[1])?.slug === "hadera");
