@@ -994,6 +994,9 @@ const PROPERTY_SELECT =
      ולא את הדגל לבדו (ראו assets/open-house.js). בלעדיהן הפין על המפה,
      התגית על האריח והבאנר שמעל תיבת הנכסים לא היו יודעים על היריד דבר. */
   'open_house, open_house_start, open_house_end, ' +
+  /* הסינון המתקדם של החיפוש במשפט רץ בדפדפן, על אותה רשימה - ולכן העמודות
+     שהוא מסנן לפיהן נטענות כאן (‏applyAdvancedFilters). */
+  'condition, project_status, move_in_soon, move_in_date, restrooms_location, storage_location, ' +
   'agencies(name, logo_url), neighborhoods(name)';
 
 const shapeProperty = p => ({
@@ -2934,8 +2937,10 @@ document.querySelectorAll('.map-legend button').forEach(btn=>{
     const kind = btn.dataset.dealKind;
     // ‏"מכירה"/"השכרה" במקרא מחליפים את העסקה במשפט, ו"מסחרי" את סוג הנכס
     if (sentence && sentence.loaded()){
-      if (kind === 'commercial') sentence.setType('commercial');
-      else sentence.setDeal(kind);
+      // לחיצה על הבחירה הנוכחית מבטלת אותה - חזרה ל"לקנות או לשכור" / "נכס"
+      const pressed = btn.getAttribute('aria-pressed') === 'true';
+      if (kind === 'commercial') sentence.setType(pressed ? 'any' : 'commercial');
+      else sentence.setDeal(pressed ? null : kind);
       return;
     }
     if (activeDealKinds.has(kind)) activeDealKinds.delete(kind);
@@ -4133,8 +4138,12 @@ document.getElementById('openFiltersBtn')?.addEventListener('click', ()=>{
    ראה/תה את המודאל נסגר ואת אותה תצוגה בדיוק — כלומר "כלום לא קרה" —
    ולמד/ה לחפש פעמיים. ‏runSearch() סוגרת בעצמה כל מודאל סינון פתוח, ולכן
    הלחיצה הזו עושה את שתי הפעולות. */
-document.getElementById('rApplyFilters')?.addEventListener('click', runSearch);
-document.getElementById('cApplyFilters')?.addEventListener('click', runSearch);
+document.getElementById('rApplyFilters')?.addEventListener('click', ()=>{
+  if (sentence && sentence.loaded()) applyAdvancedFilters(); else runSearch();
+});
+document.getElementById('cApplyFilters')?.addEventListener('click', ()=>{
+  if (sentence && sentence.loaded()) applyAdvancedFilters(); else runSearch();
+});
 
 // המודאל נפתח תמיד מהבחירה שכבר פעילה: מי שסגר/ה בטעות וחזר/ה מוצא/ת את
 // הסימון כפי שהיה, ולא דף ריק.
@@ -5585,7 +5594,102 @@ function renderSentenceMapTag(results, st){
 
 let sentenceDeepLink = false;
 
+/* ============================================================
+   הסינון המתקדם, מתוך הכרטיס
+   ------------------------------------------------------------
+   אותם שני מודאלים של החיפוש הקודם (מגורים / מסחרי). מה שיש לו מקום
+   במשפט - חדרים, מחיר, סוג נכס ועסקה מסחרית - נכנס למשפט ומופיע בו; כל
+   השאר (קומה, מ״ר, מאפיינים, מצב, כניסה…) הופך לפרדיקט אחד ש-Core מחיל
+   על כל מונה. לכן גם עם סינון מתקדם "הצג N נכסים" הוא מספר הפינים.
+   ============================================================ */
+let advancedCount = 0;
+
+function renderAdvancedBadge(){
+  const el = document.getElementById('ssAdvancedCount');
+  if (!el) return;
+  const n = sentence && sentence.hasExtra() ? advancedCount : 0;
+  el.hidden = !n;
+  el.textContent = n || '';
+}
+
+function applyAdvancedFilters(){
+  collectFormValues();
+  document.querySelectorAll('.filter-modal-overlay').forEach(m => m.classList.remove('open'));
+  const Core = sentence.Core;
+  const commercial = searchState.activeTab === 'commercial';
+  const s = commercial ? searchState.c : searchState.r;
+  const cur = sentence.state();
+
+  const patch = {};
+  const rooms = [...s.rooms].map(r => r === '+6' ? 6 : parseFloat(r)).filter(Number.isFinite);
+  patch.rooms = rooms.length ? [Math.min(...rooms), s.rooms.has('+6') ? 99 : Math.max(...rooms)] : null;
+  patch.priceMax = s.priceMax ? Number(s.priceMax) : null;
+  patch.priceMin = s.priceMin ? Number(s.priceMin) : null;
+  if (commercial) patch.deal = s.deal || null;
+
+  const checks = [];
+  /* סוג הנכס: קבוצה שלמה ← הסוג במשפט; ערך אחד ← הסוג "הגולמי"; כמה ערכים
+     שאינם קבוצה ← פרדיקט, והמשפט אומר "נכס" / "נכס מסחרי". */
+  const pt = [...s.ptypes];
+  const same = (a, b)=> a.length === b.length && a.every(x => b.includes(x));
+  const group = Core.TYPES.find(t => t.ptypes && same(t.ptypes, pt) && !!t.commercial === commercial);
+  if (!pt.length) patch.type = commercial ? 'commercial' : (Core.typeDef(cur.type).commercial ? 'any' : cur.type);
+  else if (group) patch.type = group.key;
+  else if (pt.length === 1) patch.type = 'raw:' + pt[0];
+  else { patch.type = commercial ? 'commercial' : 'any'; checks.push(p => pt.includes(p.property_type)); }
+
+  const feats = p => Array.isArray(p.features) ? p.features : [];
+  [...s.listingFeatures].forEach(code => {
+    if (code === 'has_photo') checks.push(p => Array.isArray(p.images) && p.images.length > 0);
+    else if (code === 'has_price') checks.push(p => p.price !== null && p.price !== undefined);
+    else if (code === 'tour_3d') checks.push(p => /^http/i.test(p.tour_3d_url || '') || p.has_virtual_tour === true);
+    else checks.push(p => feats(p).includes(code));
+  });
+  const propFeats = [...s.propertyFeatures];
+  if (propFeats.length) checks.push(p => propFeats.every(f => feats(p).includes(f)));
+  const num = v => (v === null || v === undefined || v === '') ? null : Number(v);
+  const range = (field, lo, hi)=>{
+    lo = num(lo); hi = num(hi);
+    if (lo === null && hi === null) return;
+    checks.push(p => {
+      const v = num(p[field]);
+      return v !== null && (lo === null || v >= lo) && (hi === null || v <= hi);
+    });
+  };
+  range('floor', s.floorMin, s.floorMax);
+  range('size_sqm', s.sizeMin, s.sizeMax);
+  if (!commercial && s.condition) checks.push(p => p.condition === s.condition);
+  if (s.projectStatus) checks.push(p => p.project_status === s.projectStatus);
+  if (s.moveInSoon) checks.push(p => p.move_in_soon === true);
+  if (s.moveInDate) checks.push(p => !!p.move_in_date && p.move_in_date >= s.moveInDate);
+  if (commercial){
+    if (s.restrooms) checks.push(p => p.restrooms_location === s.restrooms);
+    if (s.storage) checks.push(p => p.storage_location === s.storage);
+    if (s.mamad) checks.push(p => p.mamad_location === s.mamad);
+  }
+  const q = Core.norm(s.freeText || '');
+  if (q) checks.push(p => Core.norm([p.title, p.street, p.address, p.city, p.neighborhood_name].join(' ')).includes(q));
+
+  advancedCount = checks.length;
+  sentence.applyAdvanced(patch, checks.length ? (p => checks.every(c => c(p))) : null);
+}
+
+function clearAdvancedFilters(){
+  document.getElementById('rClearFilters')?.click();
+  document.getElementById('cClearFilters')?.click();
+  advancedCount = 0;
+  sentence.setExtra(null);
+}
+
+document.getElementById('ssAdvancedBtn')?.addEventListener('click', ()=>{
+  // המודאל נבנה מחדש מהמצב הנוכחי של המשפט (חדרים, סוג, מחיר) - הקבוצות
+  // שב-searchState מתחלפות עם כל שינוי במשפט, והכפתורים חייבים את החדשות
+  initFilterModals();
+  openModal(searchState.activeTab === 'commercial' ? 'commercialFilterModal' : 'residentialFilterModal');
+});
+
 function onSentenceChange(results, st, reason){
+  renderAdvancedBadge();
   if (reason === 'load' && sentenceDeepLink){
     sentenceDeepLink = false;
     syncSearchStateFromSentence(st);
@@ -5692,6 +5796,7 @@ function initSentenceDock(){
     onSubmit: ()=> showSentenceResults(),
     // אם המשתמש/ת בחר/ה אזור אחר, הצורה שסומנה על המפה יורדת איתו
     onLeaveDrawn: ()=> mapDraw?.clear(),
+    onClearExtra: clearAdvancedFilters,
   });
   if (!sentence) return;
 
