@@ -5822,16 +5822,36 @@ function initSentenceDock(){
   // ‏?deal=sale&rooms=4 וחבריו - עמודי החיפוש הפופולרי וכל קישור ששותף
   const params = new URLSearchParams(location.search);
   const known = ['deal', 'ptype', 'type', 'rooms', 'minPrice', 'maxPrice', 'q', 'ai'];
-  /* כתובת שהחיפוש כתב בעצמו (רענון, לשונית ששוחזרה) מתחילה נקייה: כל
-     הנכסים, והמילה הראשונה מתחלפת. הפרמטרים יורדים גם מהכתובת, כדי שמה
-     שבשורת הכתובת יתאים למה שעל המסך. ‏SentenceSearch.isOwnUrl. */
-  if (SentenceSearch.isOwnUrl && SentenceSearch.isOwnUrl(location.search)){
+  /* ‏**דף הבית נפתח נקי, חוץ משני מקרים שהם באמת חיפוש.**
+
+     הכתובת מתעדכנת עם כל בחירה, ולכן לשונית ששוחזרה, רענון או כתובת שנשארה
+     מביקור קודם נושאות ‎?deal=sale&type=apt&rooms=4-5‎ - והדף נפתח כאילו
+     הגולש/ת כבר בחר/ה: "הצג 17 נכסים" במקום כל הנכסים. ניסיון קודם זיהה
+     "כתובת שהדף כתב" לפי sessionStorage, ונכשל: כתובת מלפני הסימון, ולשונית
+     שהטלפון שחזר בלי האחסון, נקראו כקישור.
+
+     עכשיו הכלל הפוך - הכתובת מוחלת רק כשברור שהגיעו אליה כחיפוש:
+       1. עמוד חיפוש פופולרי - ‏search-pages.ts מזריקה לו
+          ‎<meta name="shuk-search-heading">‎, ורק ל-14 הכתובות שברשימה.
+       2. הגעה דרך קישור - מדף אחר באתר או מאתר אחר (גוגל). ה-referrer
+          ריק בלשונית ששוחזרה, בכתובת שהוקלדה ובסימנייה.
+     בכל מקרה אחר הפרמטרים יורדים מהכתובת, כדי ששורת הכתובת תתאים למסך. */
+  const landing = !!document.querySelector('meta[name="shuk-search-heading"]');
+  let viaLink = false;
+  try {
+    if (document.referrer){
+      const ref = new URL(document.referrer);
+      viaLink = ref.origin !== location.origin || !/^\/(index(\.html)?)?$/.test(ref.pathname);
+    }
+  } catch(e){ /* referrer לא תקין - כאילו אין */ }
+  const hasSearch = known.some(k => params.has(k));
+  if (hasSearch && !landing && !viaLink){
     try {
       const url = new URL(location.href);
       known.forEach(k => url.searchParams.delete(k));
       history.replaceState(history.state, '', url);
     } catch(e){ /* דפדפן שחוסם היסטוריה - הדף עדיין נפתח נקי */ }
-  } else if (known.some(k => params.has(k))){
+  } else if (hasSearch){
     sentence.setFromParams(params);
     /* הרשימה המסוננת מגיעה כשהנכסים נטענים (‏setProperties → onChange עם
        'load'), ואז נפתחות גם השורות והתצוגה המפוצלת - כמו בחיפוש */
