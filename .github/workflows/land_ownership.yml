@@ -1,0 +1,68 @@
+name: סוג בעלות בקרקע — טאבו
+
+# טוען ל-`land_ownership` את "סוג בעלות בנכסים הרשומים בפנקסי המקרקעין"
+# של משרד המשפטים (data.gov.il). שורה לחלקה, ~1.1 מיליון. הפירוט:
+# docs/land-ownership.md.
+#
+# **פעם בחודש, ורק אם הקובץ השתנה.** הטוען משווה את תאריך העדכון של
+# המשאב ב-CKAN לזה של הטעינה האחרונה שהצליחה, ויוצא בלי לכתוב אם הם
+# זהים: מיליון upsert על נתונים שלא זזו הם רק bloat במסד.
+#
+# **כשל כאן אינו מוחק דבר.** הנתונים הקודמים נמחקים רק בסוף, ב-
+# `land_ownership_finish`, ורק אם נכתבו לפחות 900 אלף חלקות.
+
+on:
+  schedule:
+    # ה-3 בחודש, 03:17 UTC. לא בדקה עגולה - שם כל ה-cron של GitHub מתנגשים.
+    - cron: "17 3 3 * *"
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "לטעון גם אם הקובץ לא השתנה"
+        type: boolean
+        default: false
+      dry_run:
+        description: "הרצה יבשה - להוריד ולנתח בלי לכתוב"
+        type: boolean
+        default: false
+      source_url:
+        description: "כתובת CSV במקום זו שב-data.gov.il (ריק = לפי CKAN)"
+        type: string
+        default: ""
+
+concurrency:
+  group: land-ownership
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - run: pip install -r requirements.txt
+
+      # לפני שנוגעים ברשת: אם הצמצום שבור, כל מה שייטען ייטען שגוי.
+      - name: בדיקת הצמצום
+        run: python3 scripts/land_ownership_test.py
+
+      - name: טעינה
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          LAND_OWNERSHIP_URL: ${{ inputs.source_url }}
+        run: |
+          args=()
+          [ "${{ inputs.force }}" = "true" ] && args+=(--force)
+          [ "${{ inputs.dry_run }}" = "true" ] && args+=(--dry-run)
+          python3 land_ownership_loader.py "${args[@]}"
