@@ -103,7 +103,7 @@ PRIVATE = {
     "review-request",
     "neighborhood-boundary",
     "agreement",
-    # ‏"נפתחים בקרוב" של שוק שעוד לא חי. מוגש תחת ‎/haifa-krayot‎ וחבריו,
+    # ‏"נפתחים בקרוב" של שוק שעוד לא חי. מוגש תחת ‎/haifa‎ וחבריו,
     # ונושא noindex כי דף עם אפס נכסים מזיק לאתר (docs/regional-pages.md).
     "market-soon",
 }
@@ -331,7 +331,7 @@ def check_page(path: Path, rules: list[str], locs: list[str]) -> list[str]:
 
 
 def market_urls() -> set[str]:
-    """‏כתובות השווקים (‏/haifa-krayot) - אין להן קובץ משלהן, ‏index.html מגיש
+    """‏כתובות השווקים (‏/haifa) - אין להן קובץ משלהן, ‏index.html מגיש
     אותן דרך _redirects. ‏check_markets.py הוא שמוודא ששוק חי נמצא ב-sitemap
     ושסגור אינו שם; כאן רק לא לסמן אותן כ"אין דף כזה". docs/regional-pages.md"""
     path = ROOT / "assets" / "markets.js"

@@ -1,6 +1,6 @@
 ---
 name: market-go-live
-description: הדלקת שוק מקומי לגולשים באתר שוק נדל״ן (למשל חיפה והקריות) - בדיקת הסף (משרד אחד ו-10 נכסים פעילים), live: true ב-assets/markets.js, העברת ה-_redirects מ-market-soon ל-index, השורה ב-sitemap.xml, והבדיקות שאחרי. Use when a market reached its inventory threshold, when asked to "open" or "launch" a region to buyers, when switching /haifa-krayot from "coming soon" to the real home page, or when check_markets.py fails on a live market.
+description: הדלקת שוק מקומי לגולשים באתר שוק נדל״ן (למשל חיפה והסביבה) - בדיקת הסף (משרד אחד ו-10 נכסים פעילים), live: true ב-assets/markets.js, העברת ה-_redirects מ-market-soon ל-index, השורה ב-sitemap.xml, והבדיקות שאחרי. Use when a market reached its inventory threshold, when asked to "open" or "launch" a region to buyers, when switching /haifa from "coming soon" to the real home page, or when check_markets.py fails on a live market.
 ---
 
 # הדלקת שוק
@@ -47,8 +47,8 @@ description: הדלקת שוק מקומי לגולשים באתר שוק נדל�
 | המקום | לפני | אחרי |
 | --- | --- | --- |
 | `assets/markets.js` | `live: false` | `live: true` |
-| `_redirects` | `/haifa-krayot    /market-soon    200` | `/haifa-krayot    /index    200` |
-| `sitemap.xml` | - | `<url><loc>https://shuknadlan.co.il/haifa-krayot</loc></url>` |
+| `_redirects` | `/haifa    /market-soon    200` | `/haifa    /index    200` |
+| `sitemap.xml` | - | `<url><loc>https://shuknadlan.co.il/haifa</loc></url>` |
 `check_markets.py` מצליב את שלושתם, ו-`check_canonical.py` מכיר את כתובות
 השווקים (הוא קורא את `assets/markets.js`), כך שהשורה ב-sitemap אינה נחשבת
 "דף שאינו קיים". ‏`market-pages.ts` אינו משתנה:
@@ -68,12 +68,12 @@ description: הדלקת שוק מקומי לגולשים באתר שוק נדל�
 ## 3. אחרי המיזוג
 
 1. **Actions** - המיגרציה, אם הייתה.
-2. **הדף עצמו**, בחלון פרטי: `https://shuknadlan.co.il/haifa-krayot` - כותרת
+2. **הדף עצמו**, בחלון פרטי: `https://shuknadlan.co.il/haifa` - כותרת
    השוק, נכסים של השוק בלבד, מפה על המרכז שלו.
 3. **המקור** (`view-source:`): canonical אחד, בלי `noindex`,
    ו-`window.SHUK_MARKET` עם `"live":true`.
-4. **ההפניה**: בחלון פרטי, `document.cookie = "shuk_market=haifa-krayot%7Cchoice"`
-   וטעינה של `/` - צריך לנחות על `/haifa-krayot`.
+4. **ההפניה**: בחלון פרטי, `document.cookie = "shuk_market=haifa%7Cchoice"`
+   וטעינה של `/` - צריך לנחות על `/haifa`.
 5. **Search Console** ← בדיקת כתובת ← בקשת אינדוקס לכתובת השוק.
 6. `docs/regional-pages.md` - השוק בטבלה עם תאריך ההדלקה.
 

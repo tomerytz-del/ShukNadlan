@@ -28,13 +28,13 @@ def city(market, name, deals, unpinned=0, hoods=0, no_boundary=0, days=45):
 
 
 KRAYOT = [
-    city("haifa-krayot", "חיפה", 1510, 468, hoods=77),
-    city("haifa-krayot", "קריית אתא", 1512, 524, hoods=16),
-    city("haifa-krayot", "קריית ים", 1512, 124, hoods=7),
-    city("haifa-krayot", "קריית מוצקין", 1508, 0, hoods=4),
-    city("haifa-krayot", "נשר", 1501, 195, hoods=9),
-    city("haifa-krayot", "טירת כרמל", 1253, 8, hoods=19),
-    city("haifa-krayot", "קריית ביאליק", 42, 0, hoods=12),
+    city("haifa", "חיפה", 1510, 468, hoods=77),
+    city("haifa", "קריית אתא", 1512, 524, hoods=16),
+    city("haifa", "קריית ים", 1512, 124, hoods=7),
+    city("haifa", "קריית מוצקין", 1508, 0, hoods=4),
+    city("haifa", "נשר", 1501, 195, hoods=9),
+    city("haifa", "טירת כרמל", 1253, 8, hoods=19),
+    city("haifa", "קריית ביאליק", 42, 0, hoods=12),
 ]
 EMEK = [
     city("afula-emek", "עפולה", 1512, 224, hoods=14),
@@ -42,8 +42,8 @@ EMEK = [
     city("afula-emek", "היוגב", 0),
 ]
 UNMATCHED = [
-    {"market_slug": "haifa-krayot", "city": "נשר", "neighborhood": "אזור תעשיה", "n": 368},
-    {"market_slug": "haifa-krayot", "city": "חיפה", "neighborhood": "גבעת דאונס", "n": 27},
+    {"market_slug": "haifa", "city": "נשר", "neighborhood": "אזור תעשיה", "n": 368},
+    {"market_slug": "haifa", "city": "חיפה", "neighborhood": "גבעת דאונס", "n": 27},
 ]
 
 
@@ -110,8 +110,8 @@ stale = of(run([city("afula-emek", "עפולה", 1512, hoods=14, days=200)]), "m
 check("עסקה אחרונה לפני 200 ימים - ממצא", len(stale) == 1 and stale[0].metric == 200)
 
 check("כל השכונות עם גבול - אין ממצא", not of(fs, "market_hoods_no_boundary"))
-nb = of(run([city("haifa-krayot", "חיפה", 1510, hoods=77, no_boundary=6),
-             city("haifa-krayot", "טירת כרמל", 1253, hoods=19, no_boundary=2)]),
+nb = of(run([city("haifa", "חיפה", 1510, hoods=77, no_boundary=6),
+             city("haifa", "טירת כרמל", 1253, hoods=19, no_boundary=2)]),
         "market_hoods_no_boundary")
 check("שכונות בלי גבול - ממצא אחד לשוק, עם הפירוט לפי עיר",
       len(nb) == 1 and nb[0].metric == 8 and nb[0].evidence["by_city"] == {"חיפה": 6, "טירת כרמל": 2})

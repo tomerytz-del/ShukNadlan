@@ -35,7 +35,7 @@
   הכתובות שנוצרות מהמסד (`docs/sitemap.md`), `search-pages.ts` נותנת
   ל-14 החיפושים הפופולריים כותרת ו-`canonical` משלהם
   (`docs/search-landing-pages.md`) ומפנה מ-`/` לשוק המקומי, ו-
-  `market-pages.ts` מגישה את דפי השווקים (`/haifa-krayot`). רשימת השווקים
+  `market-pages.ts` מגישה את דפי השווקים (`/haifa`). רשימת השווקים
   אחת לשרת ולדפדפן, ב-`assets/markets.js`, ו-`check_markets.py` מצליב
   אותה מול `_redirects`, ה-`sitemap` והמיגרציות (`docs/regional-pages.md`).
 - **המסד** — פרויקט Supabase `obookujgolazrwycsiyn`. הסכימה ב-

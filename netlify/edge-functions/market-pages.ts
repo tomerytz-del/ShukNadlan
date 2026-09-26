@@ -1,5 +1,5 @@
 /* ============================================================================
-   דפי השווקים - ‎/haifa-krayot‎ וחבריו
+   דפי השווקים - ‎/haifa‎ וחבריו
    ----------------------------------------------------------------------------
    כל שוק שאינו ברירת המחדל מקבל כתובת משלו. ‏`_redirects` ממפה אותה לקובץ
    שמגיש אותה (‏`index.html` לשוק חי, ‏`market-soon.html` לשוק שעוד לא
@@ -97,5 +97,5 @@ export default async function handler(request: Request, context: Context) {
 
 /* ‏כל שוק שאינו ברירת המחדל. ‏check_markets.py חוסם פער מול markets.js. */
 export const config: Config = {
-  path: ["/haifa-krayot", "/akko-nahariya", "/karmiel-misgav", "/nof-hagalil-migdal", "/hadera", "/netanya"],
+  path: ["/haifa", "/krayot", "/akko-nahariya", "/karmiel-misgav", "/nof-hagalil-migdal", "/hadera", "/netanya"],
 };
