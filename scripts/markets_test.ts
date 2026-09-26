@@ -55,6 +55,9 @@ const NOF_HAGALIL = [32.71, 35.33];
 const MIGDAL_HAEMEK = [32.68, 35.24];
 const TEL_ADASHIM = [32.656, 35.303]; // מפיני העסקאות - הגבול הדרומי של נצרת
 const KFAR_TAVOR = [32.69, 35.42];
+const ATLIT = [32.688, 34.94];
+const EIN_AYALA = [32.633, 34.95]; // הדרומי שבחלק של חוף הכרמל שבשוק
+const ZICHRON = [32.57, 34.955];
 const RAMAT_YISHAI = [32.705, 35.167]; // הגבול: 3 ק"מ מזרחית לטבעון, בעמק
 
 check("עפולה → afula-emek", reg.locate(AFULA[0], AFULA[1])?.slug === "afula-emek");
@@ -92,13 +95,16 @@ check("הגבול: 32.975 → כרמיאל, 32.98 → עכו (הרצועה של 
 }
 check("הגבול: 32.89 (קצה חיפה) → haifa-krayot, 32.9 → akko-nahariya",
   reg.locate(32.89, 35.08)?.slug === "haifa-krayot" && reg.locate(32.9, 35.08)?.slug === "akko-nahariya");
-check("נצרת → nazareth-nof-hagalil", reg.locate(NAZARETH[0], NAZARETH[1])?.slug === "nazareth-nof-hagalil");
-check("נוף הגליל → nazareth-nof-hagalil", reg.locate(NOF_HAGALIL[0], NOF_HAGALIL[1])?.slug === "nazareth-nof-hagalil");
-check("מגדל העמק → nazareth-nof-hagalil", reg.locate(MIGDAL_HAEMEK[0], MIGDAL_HAEMEK[1])?.slug === "nazareth-nof-hagalil");
+check("נצרת (לא בשום שוק) → נוף הגליל ומגדל העמק כשוק הקרוב, עד שיהיה שוק לנצרת", reg.locate(NAZARETH[0], NAZARETH[1])?.slug === "nof-hagalil-migdal");
+check("נוף הגליל → nof-hagalil-migdal", reg.locate(NOF_HAGALIL[0], NOF_HAGALIL[1])?.slug === "nof-hagalil-migdal");
+check("מגדל העמק → nof-hagalil-migdal", reg.locate(MIGDAL_HAEMEK[0], MIGDAL_HAEMEK[1])?.slug === "nof-hagalil-migdal");
 check("תל עדשים (צמודה מדרום) → afula-emek", reg.locate(TEL_ADASHIM[0], TEL_ADASHIM[1])?.slug === "afula-emek");
 check("כפר תבור (ממזרח) → afula-emek", reg.locate(KFAR_TAVOR[0], KFAR_TAVOR[1])?.slug === "afula-emek");
-check("רק שווקים חיים: נוף הגליל → עפולה והעמק כשוק הקרוב, עד שנצרת תיפתח",
+check("רק שווקים חיים: נוף הגליל → עפולה והעמק כשוק הקרוב, עד שהשוק ייפתח",
   reg.locate(NOF_HAGALIL[0], NOF_HAGALIL[1], true)?.slug === "afula-emek");
+check("עתלית → haifa-krayot", reg.locate(ATLIT[0], ATLIT[1])?.slug === "haifa-krayot");
+check("עין איילה → haifa-krayot", reg.locate(EIN_AYALA[0], EIN_AYALA[1])?.slug === "haifa-krayot");
+check("זכרון יעקב → לא חיפה (דרומה מהתיבה, ומעבר ל-NEAR_KM)", reg.locate(ZICHRON[0], ZICHRON[1])?.slug !== "haifa-krayot");
 check("תל אביב → אין שוק (ולא הקרוב ביותר, 80 ק\"מ משם)", reg.locate(TEL_AVIV[0], TEL_AVIV[1]) === null);
 check("רק שווקים חיים: קריית ביאליק → אין (חיפה עוד לא נפתחה)",
   reg.locate(KIRYAT_BIALIK[0], KIRYAT_BIALIK[1], true) === null);
