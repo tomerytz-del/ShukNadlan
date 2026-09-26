@@ -535,6 +535,30 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ss-roll-item.is-on{opacity:1;transform:none}
   @media(prefers-reduced-motion:reduce){ .ss-roll-item{transition:none} }
 
+  /* ====== סמן הלחיצה ======
+     חץ עכבר שנכנס אל המילה המתחלפת, "לוחץ" עליה ויוצא, בלולאה - עד הלחיצה
+     הראשונה על מילה כלשהי (‏tapCursor ב-sentence-search.js). ‏pointer-events
+     כבויים, כך שהלחיצה עוברת ל-slot שמתחתיו. אין צורך בכלל reduced-motion
+     משלו: בלי אנימציות אין חילוף, ובלי חילוף הסמן לא נוצר. */
+  .ss-slot.is-rolling{position:relative}
+  .ss-tap{
+    position:absolute;left:50%;top:62%;width:38px;height:38px;margin:-14px 0 0 -14px;
+    pointer-events:none;z-index:2;opacity:0;transform-origin:14px 14px;
+    animation:ssTap 2.6s ease-in-out .6s infinite;
+  }
+  .ss-tap svg{display:block;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 2px 3px rgba(14,42,107,.35))}
+  .ss-tap-arrow{fill:#fff;stroke:var(--ss-navy)}
+  .ss-tap-rays{stroke:var(--ss-gold);opacity:0;animation:ssTapRays 2.6s ease-out .6s infinite}
+  @keyframes ssTap{
+    0%{opacity:0;transform:translate(16px,18px)}
+    22%{opacity:1;transform:translate(0,0)}
+    34%{transform:scale(.8)}
+    44%{transform:scale(1)}
+    78%{opacity:1;transform:translate(0,0)}
+    100%{opacity:0;transform:translate(6px,8px)}
+  }
+  @keyframes ssTapRays{0%,32%{opacity:0}40%{opacity:1}62%,100%{opacity:0}}
+
   /* ‏"סינון מתקדם" - קישור שקט בתחתית הכרטיס, לא עוד כפתור שמתחרה בזהב */
   .ss-tools{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 22px 10px}
   .ss-clear{

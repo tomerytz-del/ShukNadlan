@@ -655,6 +655,12 @@
        - היחיד שמתחלף. אף פעם לא שתי מילים מתחלפות בו זמנית. */
     var touched = {};
     var rollIndex = 0, rollSlot = null;
+    /* סמן הלחיצה על המילה המתחלפת: גולשים קראו את המשפט כטקסט מתחלף לקישוט
+       ולא הבינו שהמילים נלחצות. הוא מופיע רק עד הלחיצה הראשונה על מילה
+       כלשהי, ואחריה לא חוזר - גם לא בביקור הבא (‏localStorage). */
+    var TAP_KEY = 'ssTapHintDone';
+    var tapDone = false;
+    try { tapDone = root.localStorage.getItem(TAP_KEY) === '1'; } catch (e) { /* אחסון חסום - מציגים */ }
     var reduceMq = root.matchMedia ? root.matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
     var mq = root.matchMedia ? root.matchMedia(MOBILE_MQ) : { matches: false, addEventListener: function () {} };
 
@@ -710,6 +716,7 @@
           roll.setAttribute('aria-hidden', 'true');
           labels.forEach(function (l, i) { roll.appendChild(el('span', 'ss-roll-item' + (i === rollIndex % labels.length ? ' is-on' : ''), l)); });
           b.appendChild(roll);
+          if (!tapDone && !Object.keys(touched).length) b.appendChild(tapCursor());
         } else {
           b = el('button', 'ss-slot' + (active === s.slot ? ' is-active' : '') + (isNext ? ' is-next' : ''), s.value);
         }
@@ -730,6 +737,18 @@
         var again = sentenceEl.querySelector('[data-slot="' + hadFocus + '"]');
         if (again) again.focus();
       }
+    }
+
+    /* חץ עכבר עם "קרני לחיצה" - ‏aria-hidden, ה-aria-label של ה-slot כבר
+       אומר "לחצו לבחירה". האנימציה עצמה ב-CSS (‏.ss-tap ב-index.html). */
+    function tapCursor() {
+      var wrap = el('span', 'ss-tap');
+      wrap.setAttribute('aria-hidden', 'true');
+      wrap.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">' +
+        '<g class="ss-tap-rays" stroke-width="2"><path d="M14 4.1 12 6"/><path d="m5.1 8-2.9-.8"/><path d="m6 12-1.9 2"/><path d="M7.2 2.2 8 5.1"/></g>' +
+        '<path class="ss-tap-arrow" stroke-width="1.6" d="M9.04 9.69a.5.5 0 0 1 .65-.65l11 4.5a.5.5 0 0 1-.07.95l-4.35 1.04a1 1 0 0 0-.74.74l-1.04 4.35a.5.5 0 0 1-.95.07z"/>' +
+        '</svg>';
+      return wrap;
     }
 
     function renderPicker() {
@@ -817,6 +836,10 @@
     function open(slot, viaKeyboard) {
       keyboardOpen = !!viaKeyboard;
       active = slot;
+      if (slot && !tapDone) {
+        tapDone = true;
+        try { root.localStorage.setItem(TAP_KEY, '1'); } catch (e) { /* אחסון חסום - רק לביקור הזה */ }
+      }
       render();
       if (slot) track('search_slot_open', { slot: slot });
     }
