@@ -70,4 +70,39 @@ check("אותו רגע, בפורמטים שונים", L.same_instant("2026-09-01
 check("רגעים שונים", not L.same_instant("2026-09-01T10:00:00", "2026-10-01T10:00:00"))
 check("חסר = לא אותו", not L.same_instant(None, "2026-09-01T10:00:00"))
 
+# datastore_search: דפדוף, ערך null, והצינור המלא עד reduce_rows
+class FakeRes:
+    def __init__(self, body): self._b = body
+    def raise_for_status(self): pass
+    def json(self): return self._b
+
+
+class FakeSession:
+    def __init__(self, pages): self.pages = pages; self.calls = []
+    def get(self, url, timeout=None):
+        self.calls.append(url)
+        return FakeRes(self.pages[len(self.calls) - 1])
+
+
+FIELDS = [{"id": h} for h in L.HEADER]
+page1 = {"success": True, "result": {"total": 3, "fields": FIELDS, "_links": {"next": "/api/3/action/datastore_search?offset=2"},
+         "records": [{"גוש": "16742", "חלקה": "96", "תת חלקה": "1", "תיאור שיטה": None, "סוג בעלות": "פרטית"},
+                     {"גוש": "16742", "חלקה": "96", "תת חלקה": "2", "תיאור שיטה": "", "סוג בעלות": "מדינה"}]}}
+page2 = {"success": True, "result": {"total": 3, "fields": FIELDS, "_links": {"next": "/api/3/action/datastore_search?offset=3"},
+         "records": [{"גוש": "16697", "חלקה": "64", "תת חלקה": "0", "תיאור שיטה": "", "סוג בעלות": "מדינה"}]}}
+sess = FakeSession([page1, page2])
+p, s = L.reduce_rows(L.datastore_lines(sess))
+check("datastore: שני עמודים, שלוש רשומות", s["read"] == 3 and len(sess.calls) == 2)
+check("datastore: null בתיאור שיטה נחשב מוסדר", p[(16742, 96)] == ("S", True))
+check("datastore: הדפדוף נעצר ב-total", p[(16697, 64)] == ("S", False))
+
+bad = {"success": True, "result": {"total": 1, "fields": [{"id": "גוש"}], "records": [{}]}}
+try:
+    list(L.datastore_lines(FakeSession([bad])))
+    check("datastore: עמודה חסרה זורקת", False)
+except ValueError:
+    check("datastore: עמודה חסרה זורקת", True)
+
+check("User-Agent הוא זה של data.gov.il", L.USER_AGENT == "datagov-external-client")
+
 sys.exit(1 if failures else 0)
