@@ -491,7 +491,9 @@ const TOOLS: Anthropic.Tool[] = [
       "תן/י **או** street + house_number **או** gush + helka. " +
       "המקור הוא שכבות ה-GIS של עיריית עפולה, ולכן כתובת מחוץ לעפולה אינה " +
       "נתמכת עדיין - הכלי מחזיר city_not_supported עם קישור לחיפוש ב-GovMap. " +
-      "לנכס שכבר במערכת עדיף planning_info, שמחבר גם את מה שהסוכן/ת הזין/ה.",
+      "לנכס שכבר במערכת עדיף planning_info, שמחבר גם את מה שהסוכן/ת הזין/ה. " +
+      "מחזיר גם ownership - סוג הבעלות הרשום בטאבו (פרטית / מדינה / רשות מקומית / " +
+      "מעורבת / אחר). הבעלות ארצית: גוש/חלקה מחוץ לעפולה מחזירים אותה גם כשאין ייעוד.",
     input_schema: {
       type: "object",
       properties: {
@@ -1828,9 +1830,11 @@ async function toolPropertyPerformance(ctx: ToolContext, input: Record<string, u
 /**
  * דוח CMA.
  *
- * ‏`agent_cma_report` ולא `cma_report`: זו אותה פונקציה בדיוק, רק עם מזהה
- * סוכן/ת מפורש במקום `current_agent_id()` — ל-Edge Function אין JWT. מקור
- * האמת אחד, כדי שהמספר בוואטסאפ יהיה המספר שבמסך.
+ * ‏`agent_cma_report_full` ולא `cma_report`: זו אותה פונקציה בדיוק, רק עם
+ * מזהה סוכן/ת מפורש במקום `current_agent_id()` — ל-Edge Function אין JWT.
+ * מקור האמת אחד, כדי שהמספר בוואטסאפ יהיה המספר שבמסך. ‏`_full` היא
+ * ‏`agent_cma_report` ועליה שכבת סוג הבעלות (20270115091000), והיא מה ש-
+ * ‏`cma_report` של הדשבורד קוראת.
  *
  * החזרת הדוח **המלא** לצ'אט הייתה מציפה: הוא כולל את כל העסקאות ברדיוס ואת
  * עסקאות העיר שאי אפשר למקם. לכן חוזרות רק ההשוואות הקרובות ביותר, והדוח
@@ -1840,7 +1844,7 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
   const propertyId = String(input.property_id || "");
   const limit = Math.min(Math.max(Number(input.limit) || 5, 1), 10);
 
-  const { data, error } = await ctx.supabase.rpc("agent_cma_report", {
+  const { data, error } = await ctx.supabase.rpc("agent_cma_report_full", {
     p_agent_id: ctx.agent.id,
     p_property_id: propertyId,
   });
@@ -1971,6 +1975,24 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
 
   ctx.conv.last_property_id = propertyId;
 
+  // שכבת הבעלות (טאבו). ‏null = עוד לא נטענה, ואז פשוט לא מוזכרת.
+  const own = (report.ownership || null) as Record<string, unknown> | null;
+  const ownSubject = (own?.subject || null) as { ownership?: string; mixed_units?: boolean } | null;
+  const ownSplit = (own?.split || null) as Record<string, number> | null;
+  const ownership = own
+    ? {
+      subject: ownSubject?.ownership ? OWNERSHIP_LABEL[ownSubject.ownership] || null : null,
+      subject_mixed_units: ownSubject?.mixed_units || undefined,
+      in_stats_by_ownership: own.counts,
+      // הפיצול קיים רק כששתי הקבוצות מעל הסף - המסד משתיק אותו אחרת.
+      private_median_price_per_sqm: ownSplit?.private_median_price_per_sqm,
+      state_median_price_per_sqm: ownSplit?.state_median_price_per_sqm,
+      private_sample: ownSplit?.private_sample,
+      state_sample: ownSplit?.state_sample,
+      as_of: own.as_of ? String(own.as_of).slice(0, 10) : null,
+    }
+    : undefined;
+
   return {
     ok: true,
     property_id: propertyId,
@@ -2035,8 +2057,22 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
     neighborhood_gap_pct: hoodGap(subject.price, hoodStats.median_price),
     neighborhood_gap_per_sqm_pct: hoodGap(subject.price_per_sqm, hoodStats.median_price_per_sqm),
     full_report_where: "הדוח המלא להדפסה או לשליחה ללקוח/ה: כפתור \"דוח CMA\" בכרטיס הנכס בדשבורד.",
+    ownership,
+    ...(ownership ? { ownership_guidance: CMA_OWNERSHIP_GUIDANCE } : {}),
   };
 }
+
+// ‏**הסכנה כאן היא מסקנה שהנתונים אינם תומכים בה.** "קרקע מדינה זולה יותר"
+// נשמע נכון ואינו בהכרח נכון: בבדיקה על שני נכסים ברובע יזרעאל (26.9.2026)
+// החציון למ"ר היה 12,522 בפרטית מול 12,621 במדינה - כמעט זהה. מודל שלא נאמר
+// לו ימציא הנחה על מחיר. לכן: לדווח מה יש, ולא לתקן שווי.
+const CMA_OWNERSHIP_GUIDANCE =
+  "ownership מתאר את סוג הבעלות בטאבו. subject - הנכס עצמו; אם הוא \"מדינה\", ציין/י שבדרך כלל " +
+  "זו חכירה מרמ\"י ושכדאי לבדוק בנסח טאבו - כנקודה לבדיקה, לא כגורם מחיר. " +
+  "in_stats_by_ownership - על כמה עסקאות פרטיות וכמה על קרקע מדינה הממוצע נשען. " +
+  "אם יש private_median_price_per_sqm ו-state_median_price_per_sqm - מסור/מסרי את שניהם כמו שהם, " +
+  "גם כשהם כמעט זהים (ואז אמור/אמרי שאין כאן פער משמעותי). אם הם חסרים - אין די עסקאות בשתי " +
+  "הקבוצות, ואסור לטעון שיש או שאין פער. **לעולם אל תתקן/י את הערכת השווי בעצמך לפי סוג הבעלות.**";
 
 /**
  * מידע תכנוני ובנייה.
@@ -2170,8 +2206,64 @@ async function toolPlanningInfo(ctx: ToolContext, input: Record<string, unknown>
     };
   }
 
-  return { ok: true, ...info };
+  // בעלות רק כשהגוש והחלקה חזרו - כלומר על נכס של הסוכן/ת עצמו/ה.
+  // ‏agent_property_planning מצנזרת אותם בכל נכס אחר, ובלעדיהם אין מה לחפש.
+  const gis = (info.gis || {}) as Record<string, unknown>;
+  const ownership = await landOwnership(ctx, gis.gush, gis.helka);
+  return {
+    ok: true,
+    ...info,
+    ...(ownership ? { ownership, ownership_guidance: OWNERSHIP_GUIDANCE } : {}),
+  };
 }
+
+/**
+ * סוג הבעלות בחלקה, מפנקסי המקרקעין (‏`land_ownership`, docs/land-ownership.md).
+ *
+ * ‏**ארצי, בניגוד למידע התכנוני:** השכבות התכנוניות הן של עפולה, אבל
+ * הטאבו מכסה את כל הארץ. לכן גוש/חלקה מחוץ לעפולה מקבלים בעלות גם כשאין
+ * להם ייעוד.
+ *
+ * ‏null = אין במאגר (קרקע לא מוסדרת, חלקה שעוד לא נרשמה, או שעוד לא נטען
+ * כלום). **זו לא "פרטית"** - היעדר אינו ראיה. לעולם לא זורקת: זו העשרה,
+ * ותקלה בה אינה מפילה את התשובה.
+ */
+const OWNERSHIP_LABEL: Record<string, string> = {
+  P: "פרטית",
+  S: "מדינה",
+  L: "רשות מקומית",
+  M: "מעורבת",
+  O: "אחר",
+};
+
+async function landOwnership(ctx: ToolContext, gush: unknown, helka: unknown) {
+  if (!gush || !helka) return null;
+  try {
+    const { data, error } = await ctx.supabase.rpc("land_ownership_of", {
+      p_gush: String(gush), p_helka: String(helka),
+    });
+    if (error || !data) return null;
+    const row = data as { ownership: string; mixed_units: boolean; as_of: string | null };
+    return {
+      type: OWNERSHIP_LABEL[row.ownership] || null,
+      mixed_units: row.mixed_units,
+      as_of: row.as_of ? String(row.as_of).slice(0, 10) : null,
+    };
+  } catch (err) {
+    console.warn("landOwnership failed", err);
+    return null;
+  }
+}
+
+// הנחיה ולא נתון. "מדינה" נשמע לרוב הקונים כמו פרט טכני, והוא משנה את כל
+// העסקה - ולכן המודל מקבל גם מה לומר עליו, וגם מה אסור לו להסיק.
+const OWNERSHIP_GUIDANCE =
+  "ownership הוא סוג הבעלות הרשום בטאבו. אמור/י אותו בשורה אחת אחרי הגוש והחלקה. " +
+  "אם הוא \"מדינה\" - הוסף/הוסיפי שבדרך כלל זו קרקע בניהול רשות מקרקעי ישראל שמוחכרת ולא נמכרת, " +
+  "ולכן העברה עשויה לדרוש הסכמת רמ\"י ולפעמים דמי היתר - כדאי לבדוק בנסח טאבו. " +
+  "אם mixed_units - בחלקה יש יחידות בסוגי בעלות שונים. " +
+  "אם ownership הוא null - אל תאמר/י דבר על הבעלות, ובפרט אל תסיק/י \"פרטית\". " +
+  "ציין/י את as_of כתאריך הנתונים, ושהמידע אינו קובע זכות משפטית.";
 
 /**
  * מידע תכנוני לפי כתובת או גוש/חלקה, בלי נכס.
@@ -2284,10 +2376,13 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
       };
     }
     if (!result.ok) {
+      // גוש/חלקה מחוץ לעפולה: אין ייעוד, אבל יש בעלות - הטאבו ארצי.
+      const ownership = byParcel ? await landOwnership(ctx, gush, helka) : null;
       return {
         ok: false,
         error: result.error,
         govmap_url: govmapUrl,
+        ...(ownership ? { gush, helka, ownership, ownership_guidance: OWNERSHIP_GUIDANCE } : {}),
         guidance: result.error === "parcel_not_found"
           ? "החלקה לא נמצאה בשכבת הקדסטר של עפולה. ייתכן שהיא מחוץ לעפולה - המידע האוטומטי מכסה כרגע רק אותה. הצע/י את govmap_url."
           : "הכתובת לא נמצאה בשכבת הכתובות של העירייה. בקש/י לוודא את שם הרחוב והמספר, או גוש וחלקה אם ידועים. אפשר גם להציע את govmap_url.",
@@ -2309,6 +2404,7 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
       year: p.date ? String(p.date).slice(0, 4) : null,
     }));
   const lat = Number(record.lat), lng = Number(record.lng);
+  const ownership = await landOwnership(ctx, record.gush, record.helka);
 
   return {
     ok: true,
@@ -2322,6 +2418,8 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
     land_use_designation: record.land_use_designation ?? null,
     applicable_plans: plans,
     plans_total: ((record.applicable_plans || []) as unknown[]).length,
+    ownership,
+    ...(ownership ? { ownership_guidance: OWNERSHIP_GUIDANCE } : {}),
     map_url: Number.isFinite(lat) && Number.isFinite(lng)
       ? `https://www.google.com/maps?q=${lat},${lng}`
       : null,
@@ -3599,7 +3697,9 @@ const SYSTEM_STATIC: string = (() => {
       "<כתובת>\" - כשאין נכס במערכת = planning_lookup עם כתובת או גוש+חלקה. אם חזר " +
       "city_not_supported, parcel_not_found או gis_unavailable - בצע/י את ה-guidance ושלח/י " +
       "את govmap_url כשיש; **לעולם אל תנחש/י גוש, חלקה או ייעוד**. אם חזר tier_required - " +
-      "אמור/אמרי שהיכולת במסלולי PROFESSIONAL ו-Elite עם מנוי פעיל.",
+      "אמור/אמרי שהיכולת במסלולי PROFESSIONAL ו-Elite עם מנוי פעיל. " +
+      "\"מה סוג הבעלות\" / \"זה קרקע מדינה?\" / \"זה רמ\"י?\" = planning_lookup עם גוש+חלקה או כתובת. " +
+      "אם חזר ownership_guidance - בצע/י אותו.",
     "- \"כמה צפיות\" / \"למה אין פניות\" = property_performance. אם יש מעט צפיות והנכס " +
       "בלי תמונות או בלי קידום - זו התשובה, ואמור/אמרי אותה.",
     "",
