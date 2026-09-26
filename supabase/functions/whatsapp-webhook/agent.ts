@@ -381,6 +381,29 @@ const TOOLS: Anthropic.Tool[] = [
     },
   },
   {
+    name: "manage_images",
+    description:
+      "סדר ומחיקה של תמונות בנכס קיים. התמונה הראשונה היא התמונה הראשית בכרטיס " +
+      "ובדף הנכס. המספור הוא לפי הסדר בדף הנכס, מ-1. ‏list = כמה תמונות יש ומה " +
+      "הסדר · set_main = תמונה position הופכת לראשית · move = העברת position " +
+      "למקום to · remove = מחיקת positions מהנכס.",
+    input_schema: {
+      type: "object",
+      properties: {
+        property_id: { type: "string" },
+        action: { type: "string", enum: ["list", "set_main", "move", "remove"] },
+        position: { type: "integer", description: "מספר התמונה (מ-1). ל-set_main ול-move." },
+        to: { type: "integer", description: "המקום החדש (מ-1). ל-move." },
+        positions: {
+          type: "array",
+          items: { type: "integer" },
+          description: "מספרי התמונות למחיקה (מ-1). ל-remove.",
+        },
+      },
+      required: ["property_id", "action"],
+    },
+  },
+  {
     name: "property_stats",
     description:
       "מחזיר ספירות מדויקות של הנכסים של הסוכן/ת: סך הכול, לפי סטטוס, לפי " +
@@ -1519,6 +1542,80 @@ async function toolAttachImages(ctx: ToolContext, input: Record<string, unknown>
   ctx.conv.pending_images = [];
   ctx.conv.last_property_id = propertyId;
   return { ok: true, property_id: propertyId, images_added: urls.length, total_images: total };
+}
+
+/**
+ * סדר ומחיקה של תמונות בנכס.
+ *
+ * נולד מבקשה אמיתית (22.9, מיד אחרי פרסום): "תוכל להחליף את סדר התמונות" -
+ * והבוט ענה שאין לו אפשרות. ‏`images[0]` היא הראשית (‏`property-card.js`,
+ * ‏`property.js`).
+ *
+ * הכתיבה דרך `property_images_set`, שמחליפה את הרשימה רק אם היא לא השתנתה
+ * מאז שנקראה: אלבום שנכנס באמצע (‏`property_images_append`) לא יימחק בשקט.
+ * כשהרשימה השתנתה - קוראים שוב ומנסים פעם אחת.
+ */
+async function toolManageImages(ctx: ToolContext, input: Record<string, unknown>) {
+  const propertyId = String(input.property_id || "");
+  const action = String(input.action || "list");
+
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const existing = await ownedProperty(ctx, propertyId);
+    if (!existing) return { ok: false, error: "לא נמצא נכס כזה אצל הסוכן/ת." };
+    ctx.conv.last_property_id = propertyId;
+
+    const images: string[] = Array.isArray(existing.images) ? existing.images : [];
+    const n = images.length;
+    if (action === "list") {
+      return {
+        ok: true,
+        title: existing.title,
+        count: n,
+        note: n ? "תמונה 1 היא הראשית. המספור לפי הסדר בדף הנכס." : "אין לנכס תמונות.",
+        link: propertyLink(propertyId),
+      };
+    }
+    if (!n) return { ok: false, error: "אין לנכס תמונות." };
+
+    const valid = (i: unknown) => Number.isInteger(Number(i)) && Number(i) >= 1 && Number(i) <= n;
+    let next: string[];
+
+    if (action === "set_main" || action === "move") {
+      const from = Number(input.position);
+      const to = action === "set_main" ? 1 : Number(input.to);
+      if (!valid(from) || !valid(to)) {
+        return { ok: false, error: `יש לנכס ${n} תמונות - צריך מספר בין 1 ל-${n}.` };
+      }
+      next = [...images];
+      const [moved] = next.splice(from - 1, 1);
+      next.splice(to - 1, 0, moved);
+    } else if (action === "remove") {
+      const drop = new Set(
+        (Array.isArray(input.positions) ? input.positions : []).map(Number).filter(valid),
+      );
+      if (!drop.size) return { ok: false, error: `צריך את מספרי התמונות למחיקה, בין 1 ל-${n}.` };
+      next = images.filter((_, i) => !drop.has(i + 1));
+    } else {
+      return { ok: false, error: "פעולה לא מוכרת." };
+    }
+
+    const { data: total, error } = await ctx.supabase.rpc("property_images_set", {
+      p_property_id: propertyId, p_agent_id: ctx.agent.id, p_expected: images, p_images: next,
+    });
+    if (error) return { ok: false, error: error.message };
+    if (total == null) continue; // הרשימה השתנתה מאז שנקראה - קוראים שוב
+
+    return {
+      ok: true,
+      title: existing.title,
+      action,
+      total_images: total,
+      removed: action === "remove" ? n - next.length : undefined,
+      link: propertyLink(propertyId),
+      guidance: "אשר/י במשפט אחד מה השתנה, וצרף/י את link כדי שהסוכן/ת יראה/תראה את הסדר.",
+    };
+  }
+  return { ok: false, error: "התמונות של הנכס השתנו בדיוק עכשיו. אפשר לנסות שוב." };
 }
 
 /** כל התמונות הממתינות, ורשימה ריקה אחריהן - בפקודה אחת במסד. */
@@ -3871,6 +3968,7 @@ async function runTool(
       case "set_property_status": return await toolSetStatus(ctx, input);
       case "list_properties": return await toolListProperties(ctx, input);
       case "attach_images": return await toolAttachImages(ctx, input);
+      case "manage_images": return await toolManageImages(ctx, input);
       case "property_stats": return await toolPropertyStats(ctx);
       case "property_link": return await toolPropertyLink(ctx, input);
       case "property_performance": return await toolPropertyPerformance(ctx, input);
@@ -4086,6 +4184,9 @@ const SYSTEM_STATIC: string = (() => {
     "- אמור/אמרי גם את frozen_note: גוף המסמך ננעל, ותיקון נעשה בביטול והוצאת " +
       "הסכם חדש בדשבורד. אם requires_otp - אמור/אמרי את otp_note.",
     "- **הבוט אינו שולח ללקוח/ה**, כאן כמו בכל קישור אחר. הסוכן/ת מעביר/ה.",
+    "",
+    "- \"תשים את תמונה 3 ראשונה\" / \"תמחק את התמונה האחרונה\" / \"תחליף סדר\" = manage_images. " +
+      "\"האחרונה\" = המספר של הספירה; אם לא ברור איזו - list קודם, ושאל/י לפי מספר.",
     "",
     "הפרופיל האישי (דף הסוכן/ת באתר):",
     "- \"תשנה לי את התמונה\" + תמונה בשיחה = update_profile עם photo=profile. \"תמונת נושא\" / \"רקע\" / " +
