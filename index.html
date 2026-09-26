@@ -502,6 +502,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     font-size:clamp(1.3rem,5.4vw,1.65rem);font-weight:300;line-height:1.4;letter-spacing:-.02em;
   }
   .ss-lead,.ss-seg{white-space:nowrap}
+  .ss-break{display:none}
   .ss-seg{display:inline-flex;align-items:baseline;gap:8px}
   /* מילית של אות אחת נצמדת לערך ("בגבעת המורה") ולא עומדת לבד */
   .ss-seg.is-tight{gap:1px}
@@ -514,6 +515,39 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   button.ss-slot:hover{background:var(--ss-hover)}
   .ss-slot:focus-visible{outline:2px solid var(--ss-gold);outline-offset:3px}
   .ss-slot.is-active,.ss-slot.is-active:hover{background:var(--ss-navy);color:#fff;border-bottom-style:solid;padding:0 10px}
+
+  /* ====== המילה הבאה ======
+     ה-slot הראשון שעוד לא נבחר מתחלף בין כמה מהאפשרויות שלו (‏rollLabels
+     ב-JS), בזהב - כמו גלגל המילים "מחפשים…" שהיה כאן. אחת בלבד בכל רגע.
+     כל התוויות יושבות באותו תא של grid, ולכן רוחב ה-slot הוא של הארוכה
+     שבהן והחילוף אינו מזיז את שאר המשפט. */
+  .ss-slot.is-next{border-bottom-style:solid;color:var(--ss-rolling,#8a6d10)}
+  .ss-roll{display:inline-grid;overflow:hidden;vertical-align:bottom}
+  /* גלגול אנכי ולא הצלבה: היוצאת עולה ונחתכת, הנכנסת עולה מלמטה - כך
+     שתי מילים לעולם אינן על המסך יחד. היוצאת (‏is-off) חוזרת למטה כשהיא
+     שקופה, ולכן הדרך חזרה אינה נראית. */
+  .ss-roll-item{
+    grid-area:1/1;white-space:nowrap;opacity:0;transform:translateY(100%);
+    transition:opacity .4s ease,transform .4s ease;
+  }
+  .ss-roll-item.is-on{opacity:1;transform:none}
+  .ss-roll-item.is-off{transform:translateY(-100%)}
+  @media(prefers-reduced-motion:reduce){ .ss-roll-item{transition:none} }
+
+  /* ‏"סינון מתקדם" - קישור שקט בתחתית הכרטיס, לא עוד כפתור שמתחרה בזהב */
+  .ss-tools{display:flex;justify-content:flex-end;padding:0 22px 10px}
+  .ss-adv{
+    display:inline-flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer;
+    background:none;border:0;padding:6px 0;font:inherit;font-size:13px;font-weight:600;
+    color:var(--ss-navy);text-decoration:underline;text-underline-offset:3px;
+  }
+  .ss-adv svg{width:15px;height:15px;flex:none}
+  .ss-adv:focus-visible{outline:2px solid var(--ss-gold);outline-offset:2px}
+  .ss-adv-count{
+    min-width:18px;height:18px;padding:0 5px;display:inline-flex;align-items:center;justify-content:center;
+    background:var(--ss-gold);color:var(--ss-ink);font-size:11px;font-weight:800;text-decoration:none;
+  }
+  .ss-adv-count[hidden]{display:none}
 
   .ss-picker{padding:0 22px 18px;display:flex;flex-direction:column;gap:10px}
   .ss-picker[hidden]{display:none}
@@ -540,6 +574,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .ss-opt.is-zero:not(.is-selected){background:#fff;border-style:dashed;color:var(--ss-muted)}
 
   .ss-smart{display:flex;align-items:stretch;margin:0;border-top:1px solid var(--ss-line-2)}
+  .ss-smart + .ss-tools{padding-top:6px;border-top:1px solid var(--ss-line-2)}
   .ss-smart:focus-within{box-shadow:inset 0 2px 0 var(--ss-gold)}
   .ss-spark{align-self:center;color:var(--ss-gold);font-size:16px;padding-inline-start:20px;flex:none}
   .ss-input{
@@ -601,6 +636,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media(min-width:760px){
     .ss-sentence{font-size:1.75rem;padding:22px 24px 16px}
   }
+  /* מתחת ל-1024px ה-hero ממורכז, והמשפט איתו: משפט מיושר לימין מתחת
+     לכותרת ממורכזת נקרא כהמשך שלה, ולא כשורת חיפוש. */
+  @media(max-width:1023px){
+    .ss-sentence{justify-content:center;text-align:center}
+    .ss-picker-head{justify-content:space-between}
+  }
   @media(min-width:1024px){
     .ss-shell.search-shell{max-width:min(664px,50vw)}
     .ss-sentence{font-size:clamp(1.6rem,2.1vw,1.875rem);padding:24px 26px 18px;gap:8px 10px}
@@ -617,6 +658,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .ss-sentence{padding:4px 2px 12px;gap:4px 7px;font-size:clamp(1.35rem,6.7vw,1.625rem);line-height:1.45}
     .ss-seg{gap:7px}
     .ss-seg.is-tight{gap:1px}
+    /* ‏flex-basis:100% הוא שורה חדשה בתוך ה-flex של המשפט */
+    .ss-break{display:block;flex-basis:100%;height:0}
     .ss-smart{border:1px solid var(--ss-line);background:#fff;align-items:center}
     .ss-smart .ss-go{display:none}
     .ss-spark{padding-inline-start:14px}
@@ -632,15 +675,22 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       background:#fff;border-top:1px solid var(--ss-line-2);
       box-shadow:0 -16px 30px -20px rgba(22,41,107,.5);
     }
-    .ss-dock .ss-picker{padding:0;gap:10px}
-    .ss-dock .ss-picker-close{display:inline-block}
+    /* הבורר צמוד למשפט (לא בפאנל התחתון), במשטח לבן משלו - הכרטיס עצמו
+       שקוף בטלפון. */
+    .ss-card .ss-picker{
+      background:#fff;border:1px solid var(--ss-line);padding:12px;margin:0 0 12px;gap:10px;
+      box-shadow:0 14px 28px -20px rgba(22,41,107,.55);
+    }
+    .ss-card .ss-picker-close{display:inline-block}
+    .ss-card .ss-options{grid-template-columns:repeat(2,minmax(0,1fr))}
+    .ss-tools{padding:8px 2px 0;justify-content:center}
+    .ss-smart + .ss-tools{border-top:0}
     /* ‏minmax(0,1fr) ולא 1fr: אפשרות ארוכה עם nowrap הייתה מרחיבה את העמודה
        שלה אל מחוץ למסך. אפשרות ארוכה ("מערב העיר (שיכון גאולים)") תופסת את
        שתי העמודות (‏is-wide, נקבע ב-JS לפי אורך התווית) - בלי לשבור מילה. */
-    .ss-dock .ss-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-flow:dense;gap:8px;max-height:min(46vh,340px);overflow-y:auto}
-    .ss-dock .ss-opt{min-height:46px;padding:8px 10px;min-width:0}
-    .ss-dock .ss-opt.is-wide{grid-column:1/-1}
-    .ss-dock-picker:empty{display:none}
+    .ss-card .ss-options{display:grid;grid-auto-flow:dense;gap:8px;max-height:min(46vh,340px);overflow-y:auto}
+    .ss-card .ss-opt{min-height:46px;padding:8px 10px;min-width:0}
+    .ss-card .ss-opt.is-wide{grid-column:1/-1}
     .ss-dock-actions{display:grid;grid-template-columns:1fr auto;gap:8px}
     .ss-dock-list{
       min-height:54px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:6px;
@@ -650,8 +700,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     /* הפאנל קבוע בתחתית, ולכן מה שמתחתיו צריך מקום: ה-hero מתארך בגובהו,
        וכפתור הנגישות עולה מעליו. ‏--ss-dock-h נמדד ב-JS. */
     body.ss-dock-on .a11y-fab{bottom:calc(var(--ss-dock-h,100px) + 10px)}
-    /* כשהבורר פתוח הפאנל גבוה, וכפתור שמעליו היה נוחת על השדה החכם */
-    body.ss-dock-on:has(.ss-dock.has-picker) .a11y-fab{display:none}
     body.ss-dock-on .a11y-panel{bottom:calc(var(--ss-dock-h,100px) + var(--a11y-fab-size) + 20px)}
   }
   @media(prefers-reduced-motion:reduce){
@@ -3001,6 +3049,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   html.a11y-contrast .ss-slot, html.a11y-contrast .ss-opt span,
   html.a11y-contrast .ss-go span, html.a11y-contrast .ss-go b{color:#FFD84D !important}
   /* הערך הנבחר והמשבצת הפתוחה חייבים להיבדל גם כשהכול שחור-על-צהוב */
+  html.a11y-contrast .ss-roll-item, html.a11y-contrast .ss-adv,
+  html.a11y-contrast .ss-slot.is-next{color:#FFD84D !important}
   html.a11y-contrast .ss-slot.is-active,
   html.a11y-contrast .ss-opt.is-selected{background:#FFD84D !important;color:#000 !important}
   html.a11y-contrast .ss-opt.is-selected span{color:#000 !important}
@@ -3288,10 +3338,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              רץ; הסקריפט מצייר אותו מחדש מהמצב (ומהכתובת). -->
         <div class="search-shell ss-shell">
           <div class="ss-card" id="ssCard">
-            <p class="ss-sentence" id="ssSentence"><span class="ss-lead">אני רוצה</span> <span class="ss-seg"><span class="ss-slot">לקנות</span></span> <span class="ss-seg"><span class="ss-slot">נכס</span></span> <span class="ss-seg is-tight"><span class="ss-pre">ב</span><span class="ss-slot">כל עפולה והעמק</span></span> <span class="ss-seg"><span class="ss-pre">עם</span><span class="ss-slot">כל גודל</span></span> <span class="ss-seg is-tight"><span class="ss-pre">ב</span><span class="ss-slot">כל תקציב</span></span></p>
+            <p class="ss-sentence" id="ssSentence"><span class="ss-lead">אני רוצה</span> <span class="ss-seg"><span class="ss-slot">לקנות</span></span> <span class="ss-seg"><span class="ss-slot">נכס</span></span> <span class="ss-seg is-tight"><span class="ss-pre">ב</span><span class="ss-slot">כל עפולה והעמק</span></span> <span class="ss-break"></span> <span class="ss-seg"><span class="ss-pre">עם</span><span class="ss-slot">כל גודל</span></span> <span class="ss-seg is-tight"><span class="ss-pre">ב</span><span class="ss-slot">כל תקציב</span></span></p>
 
-            <!-- הבורר. בטלפון הוא עובר (כאותו אלמנט) לפאנל התחתון ‎#ssDockPicker‎,
-                 ליד האגודל. -->
+            <!-- הבורר - צמוד למשפט בכל רוחב מסך, כדי שהאפשרויות יופיעו ליד
+                 המילה שנלחצה. -->
             <div class="ss-picker" id="ssPicker" hidden>
               <div class="ss-picker-head">
                 <span class="ss-picker-title" id="ssPickerTitle"></span>
@@ -3313,6 +3363,21 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               </button>
               <button type="submit" class="ss-go" data-ss-go>הצג <b data-ss-count></b> נכסים <span aria-hidden="true">←</span></button>
             </form>
+
+            <!-- הסינון המתקדם (קומה, מ״ר, מאפיינים, מצב הנכס…): אותם מודאלים של
+                 החיפוש הקודם, והתוצאה שלהם חלה על המשפט ועל כל המונים שבו. -->
+            <div class="ss-tools">
+              <button type="button" class="ss-adv" id="ssAdvancedBtn" aria-haspopup="dialog">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                  <path d="M3 7h13M19 7h2M3 12h4M10 12h11M3 17h9M15 17h6"/>
+                  <circle cx="17.5" cy="7" r="2.2" fill="currentColor" stroke="none"/>
+                  <circle cx="8.5" cy="12" r="2.2" fill="currentColor" stroke="none"/>
+                  <circle cx="13.5" cy="17" r="2.2" fill="currentColor" stroke="none"/>
+                </svg>
+                סינון מתקדם
+                <span class="ss-adv-count" id="ssAdvancedCount" hidden></span>
+              </button>
+            </div>
 
             <!-- לעולם לא נגמרים במסך ריק: ההרחבה האחת שמחזירה משהו -->
             <div class="ss-empty" id="ssEmpty" hidden>
@@ -3813,11 +3878,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </section>
 
   <!-- ====== הפאנל התחתון של החיפוש במשפט - טלפון בלבד ======
-       צמוד לתחתית המסך כל עוד ה-hero במסך: הבורר נפתח כאן, ליד האגודל, ולא
-       ליד המשפט שבראש המסך. ‏assets/sentence-search.js מעביר אליו את
-       ‎#ssPicker‎ מתחת ל-760px. -->
+       צמוד לתחתית המסך כל עוד ה-hero במסך, ונושא את כפתור הזהב. הבורר עצמו
+       נפתח צמוד למשפט ולא כאן: מי שלחץ/ה על מילה במשפט מצפה לראות את
+       האפשרויות שלה לידה. -->
   <div class="ss-dock" id="ssDock" hidden>
-    <div class="ss-dock-picker" id="ssDockPicker"></div>
     <div class="ss-dock-actions">
       <button type="button" class="ss-go" data-ss-go data-ss-dock-go>הצג <b data-ss-count></b> נכסים <span aria-hidden="true">←</span></button>
       <button type="button" class="ss-dock-list" id="ssDockList"><span aria-hidden="true">▤</span> רשימה</button>

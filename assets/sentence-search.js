@@ -92,7 +92,10 @@
   }
 
   function defaultState() {
-    return { deal: 'sale', type: 'any', area: 'all', rooms: null, priceMax: null, priceMin: null, ai: false };
+    /* ‏deal: null - לפני שנבחר משהו, המשפט אינו מסנן כלום: המפה והכפתור
+       מציגים את כל הנכסים, כמו לפני החיפוש במשפט. "לקנות" כברירת מחדל
+       היה מציג "הצג 36 נכסים" לגולש/ת שעוד לא ביקש/ה דבר. */
+    return { deal: null, type: 'any', area: 'all', rooms: null, priceMax: null, priceMin: null, ai: false };
   }
 
   /* ---------- נרמול עברית ----------
@@ -252,6 +255,9 @@
     }
 
     if (st.ai && ctx.aiIds && !ctx.aiIds.has(p.id)) return false;
+    /* הסינון המתקדם (קומה, מ״ר, מאפיינים…) מגיע מהדף כפרדיקט: הוא חל על
+       כל מונה בדיוק כמו ה-slots, ולכן המספרים נשארים נכונים גם איתו. */
+    if (skip !== 'extra' && ctx.extra && !ctx.extra(p)) return false;
     return true;
   }
 
@@ -301,8 +307,8 @@
     var list = [];
     var count = function (patch) { return filter(props, applyPatch(st, patch), ctx).length; };
     if (slot === 'deal') {
-      list = ['sale', 'rent'].map(function (d) {
-        return { value: d, label: dealLabel(d), count: count({ deal: d }), selected: st.deal === d };
+      list = ['sale', 'rent', null].map(function (d) {
+        return { value: d, label: d ? dealLabel(d) : 'לקנות או לשכור', count: count({ deal: d }), selected: st.deal === d };
       });
     } else if (slot === 'type') {
       var keys = TYPES.map(function (t) { return t.key; });
@@ -357,6 +363,10 @@
     { slot: 'ai', patch: { ai: false }, text: 'בלי מסנן ההדמיות', action: 'בטל מסנן' },
   ];
   function widenHint(st, props, ctx) {
+    if (ctx && ctx.extra) {
+      var withoutExtra = filter(props, st, ctx, 'extra').length;
+      if (withoutExtra > 0) return { slot: 'extra', patch: {}, count: withoutExtra, text: 'בלי הסינון המתקדם', action: 'נקה סינון מתקדם' };
+    }
     for (var i = 0; i < WIDEN.length; i++) {
       var w = WIDEN[i];
       var changes = Object.keys(w.patch).some(function (k) {
@@ -367,6 +377,21 @@
       if (n > 0) return { slot: w.slot, patch: w.patch, count: n, text: w.text, action: w.action };
     }
     return null;
+  }
+
+  /* ---------- המילה המתחלפת ----------
+     ה-slot הבא שהגולש/ת עוד לא בחר/ה מתחלף בין כמה מהאפשרויות שלו - כמו
+     "מחפשים [דירה למשפחה]" בדף הבית הקודם - כדי שיהיה ברור שזו שורת חיפוש
+     ולא עוד כותרת. רק אפשרויות שיש בהן נכסים, וקצרות: ה-slot מקבל את רוחב
+     הארוכה שבהן, ושם של 25 תווים היה מותח את כל המשפט. */
+  function rollLabels(slot, st, props, ctx, areas) {
+    if (slot === 'deal') return ['לקנות', 'לשכור'];
+    var list = options(slot, st, props, ctx, areas).filter(function (o) {
+      if (o.value === null || o.value === 'all' || o.value === 'any' || o.value === 'near') return false;
+      return (o.count === null || o.count > 0) && String(o.label).length <= 14;
+    });
+    if (slot === 'area') list.sort(function (a, b) { return b.count - a.count; });
+    return list.slice(0, 5).map(function (o) { return o.label; });
   }
 
   /* ---------- הפירוש של הטקסט החופשי ----------
@@ -558,7 +583,7 @@
     typeDef: typeDef, roomsLabel: roomsLabel, priceLabel: priceLabel, priceScale: priceScale,
     defaultState: defaultState, norm: norm, deriveAreas: deriveAreas, findArea: findArea,
     areaLabel: areaLabel, matches: matches, filter: filter, applyPatch: applyPatch,
-    slotsFor: slotsFor, options: options, nextSlot: nextSlot, widenHint: widenHint,
+    slotsFor: slotsFor, options: options, nextSlot: nextSlot, widenHint: widenHint, rollLabels: rollLabels,
     parse: parse, parsedNote: parsedNote, sentenceText: sentenceText,
     fromParams: fromParams, resolveArea: resolveArea, toParams: toParams, parseRooms: parseRooms,
   };
@@ -590,8 +615,6 @@
     var picker = ids('ssPicker');
     var pickerTitle = ids('ssPickerTitle');
     var optionsEl = ids('ssOptions');
-    var pickerHome = picker.parentNode;
-    var pickerNext = picker.nextSibling;
     var form = ids('ssSmart');
     var input = ids('ssQuery');
     var goBtns = [].slice.call(doc.querySelectorAll('[data-ss-go]'));
@@ -601,7 +624,6 @@
     var emptyText = ids('ssEmptyText');
     var emptyBtn = ids('ssEmptyBtn');
     var dock = ids('ssDock');
-    var dockPicker = ids('ssDockPicker');
     var closeBtn = ids('ssPickerClose');
     var micBtn = ids('ssMic');
     var liveEl = ids('ssLive');
@@ -621,6 +643,11 @@
     var keyboardOpen = false;     // הבורר נפתח מהמקלדת → הפוקוס עובר אליו
     var parsedText = '';          // הטקסט שכבר פורש, כדי ש"הצג" לא יפרש אותו שוב
     var urlTouched = false;       // הכתובת נכתבת רק אחרי שינוי של הגולש/ת
+    /* ה-slots שהגולש/ת כבר בחר/ה בהם. הראשון שעוד לא נבחר הוא "המילה הבאה"
+       - היחיד שמתחלף. אף פעם לא שתי מילים מתחלפות בו זמנית. */
+    var touched = {};
+    var rollIndex = 0, rollSlot = null;
+    var reduceMq = root.matchMedia ? root.matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
     var mq = root.matchMedia ? root.matchMedia(MOBILE_MQ) : { matches: false, addEventListener: function () {} };
 
     function track(name, params) {
@@ -629,23 +656,63 @@
 
     function results() { return filter(props, st, ctx); }
 
+    function noMotion() {
+      return reduceMq.matches || doc.documentElement.classList.contains('a11y-nomotion');
+    }
+
+    function hintSlot() {
+      var list = slotsFor(st, areas, ctx);
+      for (var i = 0; i < list.length; i++) if (!touched[list[i].slot]) return list[i].slot;
+      return null;
+    }
+
+    /* מה שכבר שונה מברירת המחדל נחשב נבחר: קישור עמוק (‎?deal=sale&rooms=4‎)
+       או טקסט חופשי לא מתחילים מ"המילה הבאה" שכבר נבחרה. */
+    function touchNonDefault() {
+      var d = defaultState();
+      if (st.deal !== d.deal) touched.deal = true;
+      if (st.type !== d.type) touched.type = true;
+      if (st.area !== d.area) touched.area = true;
+      if (st.rooms) touched.rooms = true;
+      if (st.priceMax !== null && st.priceMax !== undefined) touched.price = true;
+    }
+
     /* ---------- ציור ---------- */
     function renderSentence() {
       var hadFocus = doc.activeElement && doc.activeElement.dataset && doc.activeElement.dataset.slot;
       sentenceEl.textContent = '';
       sentenceEl.appendChild(el('span', 'ss-lead', 'אני רוצה'));
+      var hint = hintSlot();
       slotsFor(st, areas, ctx).forEach(function (s) {
         var seg = el('span', 'ss-seg' + (s.pre.length === 1 ? ' is-tight' : ''));
         if (s.pre) seg.appendChild(el('span', 'ss-pre', s.pre));
-        var b = el('button', 'ss-slot' + (active === s.slot ? ' is-active' : ''), s.value);
+        var isNext = s.slot === hint && !active;
+        var labels = isNext && loaded && !noMotion() ? rollLabels(s.slot, st, props, ctx, areas) : [];
+        var b;
+        if (labels.length >= 2) {
+          /* כל התוויות באותו תא של grid: ה-slot מקבל את רוחב הארוכה שבהן,
+             ולכן החילוף אינו מזיז את שאר המשפט. */
+          if (rollSlot !== s.slot) { rollSlot = s.slot; rollIndex = 0; }
+          b = el('button', 'ss-slot is-next is-rolling');
+          var roll = el('span', 'ss-roll');
+          roll.setAttribute('aria-hidden', 'true');
+          labels.forEach(function (l, i) { roll.appendChild(el('span', 'ss-roll-item' + (i === rollIndex % labels.length ? ' is-on' : ''), l)); });
+          b.appendChild(roll);
+        } else {
+          b = el('button', 'ss-slot' + (active === s.slot ? ' is-active' : '') + (isNext ? ' is-next' : ''), s.value);
+        }
         b.type = 'button';
         b.dataset.slot = s.slot;
         b.setAttribute('aria-haspopup', 'listbox');
         b.setAttribute('aria-expanded', String(active === s.slot));
         b.setAttribute('aria-controls', 'ssOptions');
-        b.setAttribute('aria-label', SLOT_NAMES[s.slot] + ': ' + s.value);
+        b.setAttribute('aria-label', SLOT_NAMES[s.slot] + ': ' + s.value + (isNext ? ' - לחצו לבחירה' : ''));
         seg.appendChild(b);
         sentenceEl.appendChild(seg);
+        /* שבירת שורה אחרי האזור - בטלפון בלבד (‏‎.ss-break‎ ב-CSS): "עם N
+           חדרים" ו"בתקציב" יורדים יחד לשורה האחרונה, במקום שהחדרים ייתלו
+           בסוף שורת האזור והתקציב יישאר לבד מתחתיה. */
+        if (s.slot === 'area') sentenceEl.appendChild(el('span', 'ss-break'));
       });
       if (hadFocus) {
         var again = sentenceEl.querySelector('[data-slot="' + hadFocus + '"]');
@@ -657,7 +724,6 @@
       if (!active) {
         picker.hidden = true;
         card.classList.remove('has-picker');
-        if (dock) dock.classList.remove('has-picker');
         return;
       }
       pickerTitle.textContent = SLOT_TITLES[active];
@@ -685,7 +751,6 @@
       if (all[selIndex]) all[selIndex].tabIndex = 0;
       picker.hidden = false;
       card.classList.add('has-picker');
-      if (dock) dock.classList.add('has-picker');
       if (keyboardOpen && all[selIndex]) all[selIndex].focus();
     }
 
@@ -766,15 +831,17 @@
         if (value === 'near') { locateNear(); return; }
         patch.area = value;
       }
+      /* הבורר נסגר אחרי כל בחירה, והמילה הבאה במשפט מתחילה להתחלף - היא
+         ההזמנה לבחירה הבאה. מהמקלדת הפוקוס עובר אליה, כך ש-Enter אחד פותח
+         אותה; אחרי ה-slot האחרון הוא חוזר ל-slot שנבחר. */
       var wasKeyboard = keyboardOpen;
-      var next = nextSlot(slot, applyPatch(st, patch));
-      active = next;
-      if (!next) keyboardOpen = false;
+      touched[slot] = true;
+      active = null;
+      keyboardOpen = false;
       change(patch, 'slot');
       track('search_slot_select', { slot: slot, value: slot === 'area' ? (value === 'all' ? 'all' : 'area') : String(value) });
-      /* אחרי ה-slot האחרון הבורר נסגר, והפוקוס חוזר למשפט ולא נופל ל-body */
-      if (!next && wasKeyboard) {
-        var b = sentenceEl.querySelector('[data-slot="' + slot + '"]');
+      if (wasKeyboard) {
+        var b = sentenceEl.querySelector('[data-slot="' + (hintSlot() || slot) + '"]');
         if (b) b.focus();
       }
     }
@@ -799,7 +866,8 @@
         ctx.near = here;
         var n = filter(props, applyPatch(st, { area: 'near' }), ctx).length;
         say(n ? 'הבנתי: נכסים ברדיוס ' + NEAR_KM + ' ק״מ ממך' : 'אין כרגע נכסים ברדיוס ' + NEAR_KM + ' ק״מ ממך - אפשר להרחיב את האזור.');
-        active = nextSlot('area', st);
+        touched.area = true;
+        active = null;
         change({ area: 'near' }, 'slot');
       }, function (err) {
         say(err && err.code === 1
@@ -826,6 +894,7 @@
       active = null;
       keyboardOpen = false;
       if (fields.length) {
+        fields.forEach(function (f) { touched[f] = true; });
         change(patch, 'freetext');
         noteEl.textContent = 'הבנתי: ' + parsedNote(fields, st, areas, ctx);
       } else {
@@ -913,6 +982,7 @@
       var h = emptyBtn._ssHint;
       if (!h) return;
       track('search_empty_widen', { slot: h.slot });
+      if (h.slot === 'extra') { if (typeof opts.onClearExtra === 'function') opts.onClearExtra(); return; }
       change(h.patch, 'widen');
     });
 
@@ -949,14 +1019,28 @@
     var longPlaceholder = input.getAttribute('placeholder') || '';
     var shortPlaceholder = input.getAttribute('data-short-placeholder') || longPlaceholder;
 
-    function placePicker() {
+    function placeholder() {
       input.setAttribute('placeholder', mq.matches ? shortPlaceholder : longPlaceholder);
-      if (!dockPicker) return;
-      if (mq.matches) { if (picker.parentNode !== dockPicker) dockPicker.appendChild(picker); }
-      else if (picker.parentNode !== pickerHome) pickerHome.insertBefore(picker, pickerNext);
     }
-    placePicker();
-    if (mq.addEventListener) mq.addEventListener('change', placePicker);
+    placeholder();
+    if (mq.addEventListener) mq.addEventListener('change', placeholder);
+
+    /* טיימר אחד למילה המתחלפת. הוא מחפש אותה בכל פעימה (המשפט מצויר מחדש
+       עם כל שינוי) ועוצר כשהבורר פתוח, כשאין מילה הבאה, או כשהגולש/ת ביקש/ה
+       בלי אנימציות. */
+    root.setInterval(function () {
+      if (active || doc.hidden) return;
+      var roll = sentenceEl.querySelector('.ss-roll');
+      if (!roll) return;
+      var items = roll.children;
+      if (items.length < 2) return;
+      [].forEach.call(items, function (it) { it.classList.remove('is-off'); });
+      var out = items[rollIndex % items.length];
+      out.classList.remove('is-on');
+      out.classList.add('is-off');
+      rollIndex = (rollIndex + 1) % items.length;
+      items[rollIndex].classList.add('is-on');
+    }, 2200);
 
     render();
 
@@ -982,17 +1066,34 @@
       setFromParams: function (params) {
         st = fromParams(params);
         if (loaded) st = resolveArea(st, areas);
+        touchNonDefault();
         render();
       },
       setAi: function (on) { change({ ai: !!on }, 'ai'); },
       setDeal: function (deal) {
+        touched.deal = true;
         var patch = { deal: deal };
         if (typeDef(st.type).commercial) patch.type = 'any';
         change(patch, 'legend');
       },
-      setType: function (type) { change({ type: type }, 'legend'); },
+      setType: function (type) { touched.type = true; change({ type: type }, 'legend'); },
+      /* הסינון המתקדם: פרדיקט מהדף (או null לניקוי) */
+      setExtra: function (fn) { ctx.extra = fn || null; change({}, 'extra'); },
+      /* המודאל של הסינון המתקדם: מה שיש לו מקום במשפט (חדרים, מחיר, סוג,
+         עסקה) נכנס למשפט, והשאר הוא הפרדיקט. שינוי אחד, ציור אחד. */
+      applyAdvanced: function (patch, fn) {
+        ctx.extra = fn || null;
+        var d = defaultState();
+        Object.keys(patch).forEach(function (k) {
+          var slot = k === 'priceMax' ? 'price' : k;
+          if (JSON.stringify(patch[k]) !== JSON.stringify(d[k]) && slot in SLOT_NAMES) touched[slot] = true;
+        });
+        change(patch, 'extra');
+      },
+      hasExtra: function () { return !!ctx.extra; },
       setDrawn: function (on, inDrawn) {
         ctx.inDrawn = inDrawn || null;
+        if (on) touched.area = true;
         if (on) change({ area: 'drawn' }, 'drawn');
         else if (st.area === 'drawn') change({ area: 'all' }, 'drawn');
       },
@@ -1001,6 +1102,9 @@
         parsedText = '';
         if (noteEl) noteEl.textContent = '';
         active = null;
+        touched = {};
+        rollIndex = 0;
+        ctx.extra = null;
         change(defaultState(), 'reset');
       },
       count: function (patch) { return filter(props, applyPatch(st, patch || {}), ctx).length; },

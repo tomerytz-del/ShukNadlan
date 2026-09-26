@@ -119,7 +119,7 @@ test('אזור בלי התאמה יורד מהרשימה, ושאר האפשרו�
 });
 
 test('כשאין תוצאה - הרחבה שמחזירה משהו', () => {
-  const st = C.applyPatch(C.defaultState(), { area: 'hood:1', priceMax: 1200000, rooms: [4, 5.5] });
+  const st = C.applyPatch(C.defaultState(), { deal: 'sale', area: 'hood:1', priceMax: 1200000, rooms: [4, 5.5] });
   assert.strictEqual(C.filter(PROPS, st, CTX).length, 0);
   const hint = C.widenHint(st, PROPS, CTX);
   assert.strictEqual(hint.slot, 'price');
@@ -162,6 +162,32 @@ test('מצב → כתובת → מצב שומר על החיפוש', () => {
   const st = C.applyPatch(C.defaultState(), { deal: 'rent', type: 'apt', area: 'hood:1', rooms: [4, 5.5], priceMax: 5500 });
   const back = C.resolveArea(C.fromParams(new URLSearchParams(C.toParams(st, AREAS, CTX))), AREAS);
   ['deal', 'type', 'area', 'rooms', 'priceMax'].forEach(k => assert.deepStrictEqual(back[k], st[k], k));
+});
+
+test('לפני כל בחירה המשפט אינו מסנן: כל הנכסים', () => {
+  assert.strictEqual(C.filter(PROPS, C.defaultState(), CTX).length, PROPS.length);
+  assert.strictEqual(C.toParams(C.defaultState(), AREAS, CTX), '');
+  const deal = C.options('deal', C.defaultState(), PROPS, CTX, AREAS);
+  assert.deepStrictEqual(deal.map(o => o.value), ['sale', 'rent', null]);
+  assert.ok(deal[2].selected);
+});
+
+test('המילה המתחלפת: רק אפשרויות עם נכסים, וקצרות', () => {
+  assert.deepStrictEqual(C.rollLabels('deal', C.defaultState(), PROPS, CTX, AREAS), ['לקנות', 'לשכור']);
+  const types = C.rollLabels('type', C.defaultState(), PROPS, CTX, AREAS);
+  assert.ok(types.includes('דירה') && !types.includes('פנטהאוז') && !types.includes('נכס'));
+  const hoods = C.rollLabels('area', C.defaultState(), PROPS, CTX, AREAS);
+  assert.strictEqual(hoods[0], 'גבעת המורה');
+  assert.ok(hoods.every(l => l.length <= 14));
+});
+
+test('סינון מתקדם חל על המונים, וההרחבה מציעה לנקות אותו', () => {
+  const ctx = Object.assign({}, CTX, { extra: p => p.rooms === 99 });
+  const st = C.defaultState();
+  assert.strictEqual(C.filter(PROPS, st, ctx).length, 0);
+  const hint = C.widenHint(st, PROPS, ctx);
+  assert.strictEqual(hint.slot, 'extra');
+  assert.strictEqual(hint.count, PROPS.length);
 });
 
 test('תוויות המשפט בלי מקף ארוך', () => {
