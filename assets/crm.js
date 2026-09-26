@@ -1414,6 +1414,9 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
     const { data: agency } = await sb.from('agencies').select('name, address, city_id').eq('id', agent.agency_id).maybeSingle();
     agencyName = agency?.name || '';
     window.currentAgency = agency || null;
+    // ‏השוק של המשרד נגזר מהעיר הזו (agentMarketSlug) - הוא מה שמגביל את
+    // רשימות השכונות שסוכן/ת רואה.
+    window.currentAgencyCityId = agency?.city_id || null;
     // ‏העיר של המשרד - ברירת המחדל לנכס חדש (defaultPropertyCity). שאילתה
     // נפרדת ולא embed, כדי שכשל בה לא יפיל את טעינת המשרד עצמו.
     if (agency?.city_id){
@@ -4710,10 +4713,45 @@ async function loadProfessionalCardsAdmin(){
 }
 
 /* ---------- Lead preferences (module 2 §3 — every agent, regardless of role) ---------- */
+/* ‏allNeighborhoods היא **כל** השכונות במערכת, ונשארת כזו: היא משמשת גם
+   לתרגום מזהה לשם (נכס שנשמר עם שכונה מעיר אחרת עדיין מציג את שמה). מה
+   שסוכן/ת **בוחר/ת ממנו** הוא marketNeighborhoods() - השכונות בשוק של
+   המשרד שלו/ה. מאז שחיפה והקריות נכנסו (144 שכונות) סוכן/ת בעפולה ראה/תה
+   רשימה של 158, רובה בחיפה. docs/regional-pages.md. */
 let allNeighborhoods = [];
+let marketCityMap = null;   // city_id → market_slug, מ-market_cities_public
+
+async function loadAllNeighborhoods(){
+  const [{ data: hoods }, { data: mc }] = await Promise.all([
+    sb.from('neighborhoods').select('id, city, name, city_id').order('name'),
+    marketCityMap ? Promise.resolve({ data: null }) : sb.from('market_cities_public').select('city_id, market_slug'),
+  ]);
+  allNeighborhoods = hoods || [];
+  if (!marketCityMap){
+    marketCityMap = new Map((mc || []).map(r => [r.city_id, r.market_slug]));
+  }
+}
+
+/* השוק של הסוכן/ת: לפי העיר של המשרד. משרד בלי עיר רשומה (או עיר שאינה
+   בשום שוק) - שוק ברירת המחדל, כמו שדף הבית עושה לגולש/ת בלי מיקום. */
+function agentMarketSlug(){
+  const bySlug = marketCityMap && window.currentAgencyCityId
+    ? marketCityMap.get(window.currentAgencyCityId) : null;
+  if (bySlug) return bySlug;
+  const def = window.ShukMarkets && window.ShukMarkets.defaultMarket();
+  return def ? def.slug : null;
+}
+
+/* השכונות שסוכן/ת בוחר/ת מהן. שכונה בלי city_id, או כשמיפוי השווקים לא
+   נטען - נכללת, כדי שכשל ברשת לא ירוקן את הבורר (ריק גרוע מרחב). */
+function marketNeighborhoods(){
+  const slug = agentMarketSlug();
+  if (!slug || !marketCityMap || !marketCityMap.size) return allNeighborhoods;
+  return allNeighborhoods.filter(n => !n.city_id || marketCityMap.get(n.city_id) === slug);
+}
+
 async function loadPreferences(agentId){
-  const { data: neighborhoods } = await sb.from('neighborhoods').select('id, city, name').order('name');
-  allNeighborhoods = neighborhoods || [];
+  await loadAllNeighborhoods();
 
   const { data: prefs } = await sb
     .from('agent_lead_preferences')
@@ -4733,14 +4771,34 @@ async function loadPreferences(agentId){
   accSetCount('accPrefs', (prefs && prefs.active) ? 'פעיל' : 'כבוי');
 }
 
+/* השכונות בשוק של הסוכן/ת, ובשוק של כמה ערים (חיפה והקריות: שבע) - לפי
+   עיר, עם כותרת, כי "מרכז העיר" קיים בכמה מהן. שכונה שכבר נבחרה ואינה
+   בשוק (בחירה ישנה) נשארת מסומנת בסוף, כדי ששמירה לא תמחק אותה בשקט. */
 function renderNeighborhoodCheckboxes(selectedIds){
   const el = document.getElementById('neighborhoodCheckboxes');
   el.innerHTML = '';
-  allNeighborhoods.forEach(n=>{
-    const label = document.createElement('label');
-    label.style.cssText = 'font-weight:400;font-size:.8rem;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:5px 12px;display:inline-flex;align-items:center;gap:5px;cursor:pointer';
-    label.innerHTML = `<input type="checkbox" class="prefNeighborhood" value="${n.id}" style="margin:0" ${selectedIds.includes(n.id) ? 'checked' : ''}> ${n.name}`;
-    el.appendChild(label);
+  const list = marketNeighborhoods();
+  const extra = allNeighborhoods.filter(n => selectedIds.includes(n.id) && !list.includes(n));
+  const byCity = new Map();
+  [...list, ...extra].forEach(n => {
+    const c = n.city || '';
+    if (!byCity.has(c)) byCity.set(c, []);
+    byCity.get(c).push(n);
+  });
+  const multi = byCity.size > 1;
+  [...byCity.keys()].sort((a, b) => a.localeCompare(b, 'he')).forEach(city => {
+    if (multi){
+      const h = document.createElement('div');
+      h.style.cssText = 'width:100%;font-size:.75rem;font-weight:700;color:var(--muted);margin:8px 0 2px';
+      h.textContent = city || 'ללא עיר';
+      el.appendChild(h);
+    }
+    byCity.get(city).forEach(n => {
+      const label = document.createElement('label');
+      label.style.cssText = 'font-weight:400;font-size:.8rem;background:var(--paper);border:1px solid var(--line);border-radius:999px;padding:5px 12px;display:inline-flex;align-items:center;gap:5px;cursor:pointer';
+      label.innerHTML = `<input type="checkbox" class="prefNeighborhood" value="${esc(n.id)}" style="margin:0" ${selectedIds.includes(n.id) ? 'checked' : ''}> ${esc(n.name)}`;
+      el.appendChild(label);
+    });
   });
 }
 
@@ -9895,7 +9953,7 @@ function populateStreetOptions(listId, city){
    עפולה, וזו של חיפוש העסקאות לפי שדה העיר שלו. כל אחת עוקבת אחרי העיר
    **שלה** - רשימה משותפת הייתה מציגה רחובות של עיר אחרת בלי שום סימן. */
 function refreshStreetOptions(){
-  populateStreetOptions('streetOptions', document.getElementById('npCity')?.value || '');
+  populateStreetOptions('streetOptions', propertyCity());
   populateStreetOptions('planStreetOptions', STREET_PLANNING_CITY);
   populateStreetOptions('mdStreetOptions', document.getElementById('mdCity')?.value || '');
 }
@@ -9924,7 +9982,7 @@ function refreshStreetHint(){
   const input = document.getElementById('npStreet');
   const hint  = document.getElementById('npStreetHint');
   if (!input || !hint) return;
-  const city = document.getElementById('npCity').value.trim();
+  const city = propertyCity();
   const raw  = input.value.replace(/\s+/g, ' ').trim();
   if (!raw || !streetEnforced(city)){ hint.innerHTML = ''; return; }
   const hit = (streetKeyIndex.get(city) || new Map()).get(streetNameKey(raw));
@@ -9946,7 +10004,7 @@ function refreshStreetHint(){
 async function addStreetToRegistry(){
   const input = document.getElementById('npStreet');
   const hint  = document.getElementById('npStreetHint');
-  const city  = document.getElementById('npCity').value.trim();
+  const city  = propertyCity();
   const raw   = input.value.replace(/\s+/g, ' ').trim();
   if (!raw || !city) return;
   hint.style.color = 'var(--ink-soft)';
@@ -9980,20 +10038,25 @@ document.getElementById('npStreetHint').addEventListener('click', (e)=>{
 document.getElementById('npStreet').addEventListener('input', refreshStreetHint);
 document.getElementById('npStreet').addEventListener('change', refreshStreetHint);
 /* העיר קובעת גם את הרשימה וגם אם יש אכיפה בכלל, ולכן שינוי שלה מרענן את שתיהן */
-document.getElementById('npCity').addEventListener('input', ()=>{
-  populateStreetOptions('streetOptions', document.getElementById('npCity').value);
+function onPropertyCityChange(){
+  syncCityOther();
+  populateStreetOptions('streetOptions', propertyCity());
   refreshStreetHint();
   populateNeighborhoodSelect(document.getElementById('npNeighborhood').value);
+}
+document.getElementById('npCity').addEventListener('input', ()=>{
+  onPropertyCityChange();
+  if (document.getElementById('npCity').value === CITY_OTHER) document.getElementById('npCityOther').focus();
 });
+document.getElementById('npCityOther').addEventListener('input', onPropertyCityChange);
 /* כלי המידע התכנוני יושב באקורדיון נפרד ועשוי להיפתח לפני טופס הנכס */
 document.getElementById('planStreet').addEventListener('focus', ensureStreetsLoaded, { once:true });
 
 /* ‏allNeighborhoods נטענת ב-loadPreferences, שרצה אחרי loadProperties. הטופס
    נפתח רק בלחיצה, ולכן מספיק לוודא כאן שהרשימה קיימת לפני שמאכלסים את הבורר. */
 async function ensureNeighborhoodsLoaded(){
-  if (allNeighborhoods.length) return;
-  const { data } = await sb.from('neighborhoods').select('id, city, name').order('name');
-  allNeighborhoods = data || [];
+  if (allNeighborhoods.length && marketCityMap) return;
+  await loadAllNeighborhoods();
 }
 
 /* העיר שנכס חדש נפתח עליה: העיר של המשרד (agencies.city_id), ועפולה כשאין.
@@ -10009,22 +10072,96 @@ function hoodCityKey(s){
   return String(s || '').trim().replace(/\s+/g, ' ').replace(/יי/g, 'י').replace(/וו/g, 'ו');
 }
 
-/* הבורר מציג את השכונות של העיר שבטופס. עד היום הוא הציג את כל השכונות
-   במערכת, וכשכולן היו בעפולה זה לא שינה דבר; מתווך/ת בחיפה היה/הייתה רואה
-   את שכונות עפולה. עיר שאין לה שכונות ברשימה (או שדה ריק) - כל הרשימה, כמו
-   קודם. שכונה שכבר שמורה על הנכס נשארת בבורר גם אם היא מעיר אחרת, כדי
-   שעריכה לא תמחק שיוך בשקט. docs/regional-pages.md */
+/* ---------- העיר בטופס הנכס: רשימה סגורה ----------
+   ערי השוק של המשרד (cities.market_slug), ועיר המשרד ראשונה. עד כאן זה
+   היה שדה טקסט חופשי, ולכן בורר השכונה לא ידע על איזו עיר מדובר ונפל
+   לרשימה של כל השוק - כ-150 שכונות לסוכן/ת בחיפה. עכשיו העיר נבחרת
+   מהרשימה, והשכונות הן של העיר הזו בלבד.
+
+   הערך הוא **שם העיר כפי שהוא ב-cities** - בדיוק מה שהטריגר של city_id
+   מחפש, כך שנכס חדש לעולם אינו נשמר בכתיב שלא הוכר. נכס ישן שנשמר בעיר
+   שאינה ברשימה (כתיב אחר, או עיר מחוץ לשוק) מקבל את העיר שלו כאפשרות
+   נוספת, כדי שעריכה לא תחליף לו עיר בשקט. docs/regional-pages.md */
+let propCities = null;
+/* ‏"עיר אחרת…" - לנכס מחוץ לערי השוק (סוכן/ת מעפולה בנוף הגליל). השם נכתב
+   בשדה שנפתח מתחת, ונשמר כמו שהוא; אם הוא עיר שאנחנו מכירים, הטריגר ישייך
+   city_id כרגיל, ואם לא - הנכס יופיע ב-listings_no_market בסוכן התפעולי. */
+const CITY_OTHER = '__other__';
+
+/* העיר של הנכס, כמו שהיא תישמר. כל מי שקורא את העיר קורא מכאן ולא מהבורר. */
+function propertyCity(){
+  const sel = document.getElementById('npCity');
+  if (!sel) return '';
+  return sel.value === CITY_OTHER
+    ? (document.getElementById('npCityOther')?.value || '').trim()
+    : sel.value.trim();
+}
+
+function syncCityOther(){
+  const other = document.getElementById('npCityOther');
+  if (!other) return;
+  const on = document.getElementById('npCity')?.value === CITY_OTHER;
+  other.style.display = on ? '' : 'none';
+  other.required = on;
+}
+
+async function loadPropCities(){
+  if (propCities) return;
+  await ensureNeighborhoodsLoaded();
+  const { data } = await sb.from('cities').select('id, name, market_slug').not('market_slug', 'is', null);
+  propCities = data || [];
+}
+
+function renderCityOptions(keep){
+  const sel = document.getElementById('npCity');
+  if (!sel) return;
+  const slug = agentMarketSlug();
+  const home = hoodCityKey(window.currentAgencyCityName);
+  let names = (propCities || []).filter(c => !slug || c.market_slug === slug).map(c => c.name)
+    .sort((a, b) => (hoodCityKey(b) === home) - (hoodCityKey(a) === home) || a.localeCompare(b, 'he'));
+  const keepKey = hoodCityKey(keep);
+  const hit = keepKey ? names.find(n => hoodCityKey(n) === keepKey) : null;
+  sel.innerHTML = '<option value="">- בחרו עיר -</option>' +
+    names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('') +
+    `<option value="${CITY_OTHER}">עיר אחרת…</option>`;
+  // עיר שאינה ברשימה (נכס ישן, או עיר מחוץ לשוק) - "עיר אחרת" עם השם בשדה
+  const other = document.getElementById('npCityOther');
+  if (keep && !hit){
+    sel.value = CITY_OTHER;
+    if (other) other.value = keep;
+  } else {
+    sel.value = hit || '';
+    if (other) other.value = '';
+  }
+  syncCityOther();
+}
+
+/* כל מי שהציב ערך בשדה העיר עובר מכאן. הצבה ישירה של `.value` בבורר
+   שאין בו האפשרות הזו מאפסת אותו לריק - בלי שגיאה. */
+function setPropertyCity(name){
+  renderCityOptions(name);
+  loadPropCities().then(() => {
+    renderCityOptions(propertyCity() || name);
+    populateStreetOptions('streetOptions', propertyCity());
+    populateNeighborhoodSelect(document.getElementById('npNeighborhood').value);
+  }).catch(err => console.warn('property cities load failed', err));
+}
+
+/* הבורר מציג את השכונות של העיר שנבחרה, ורק אותן. עיר בלי שכונות רשומות
+   (יישוב בעמק) - בלי רשימה, ולא "כל השוק": שכונה מעיר אחרת היא שיוך שגוי.
+   לפני שנבחרה עיר - השכונות בשוק של המשרד. שכונה שכבר שמורה על הנכס
+   נשארת בבורר גם אם היא מעיר אחרת, כדי שעריכה לא תמחק שיוך בשקט. */
 async function populateNeighborhoodSelect(selectedId){
   await ensureNeighborhoodsLoaded();
   const select = document.getElementById('npNeighborhood');
-  const cityKey = hoodCityKey(document.getElementById('npCity')?.value);
-  const ofCity = cityKey ? allNeighborhoods.filter(n => hoodCityKey(n.city) === cityKey) : [];
-  let list = ofCity.length ? ofCity : allNeighborhoods;
+  const cityKey = hoodCityKey(propertyCity());
+  let list = cityKey ? allNeighborhoods.filter(n => hoodCityKey(n.city) === cityKey) : marketNeighborhoods();
+  const none = cityKey && !list.length;
   if (selectedId && !list.some(n => n.id === selectedId)){
     const kept = allNeighborhoods.find(n => n.id === selectedId);
     if (kept) list = [kept, ...list];
   }
-  select.innerHTML = '<option value="">- לא צוין -</option>' +
+  select.innerHTML = `<option value="">${none ? '- אין שכונות רשומות בעיר -' : '- לא צוין -'}</option>` +
     list.map(n => `<option value="${esc(n.id)}">${esc(n.name)}</option>`).join('');
   select.value = selectedId || '';
 }
@@ -10167,7 +10304,7 @@ toggleBtn.addEventListener('click', ()=>{
     editingPropertyId = null;
     editingPropertyOriginalAddress = null;
     document.getElementById('addPropertyForm').reset();
-    document.getElementById('npCity').value = defaultPropertyCity();
+    setPropertyCity(defaultPropertyCity());
     populateNeighborhoodSelect('');
     document.getElementById('npStreetHint').innerHTML = '';
     ensureStreetsLoaded();
@@ -10536,7 +10673,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   const lng = document.getElementById('npLng').value;
   let   street = document.getElementById('npStreet').value.trim();
   const houseNumber = document.getElementById('npHouseNumber').value.trim();
-  const city = document.getElementById('npCity').value.trim();
+  const city = propertyCity();
   /* גוש/חלקה: לא חובה, אבל כשמולאו - ספרות בלבד, ושניהם יחד. גוש בלי חלקה
      אינו מקום, ו"16742/96" בשדה אחד היה נשמר כגוש לא חוקי. */
   const gush = document.getElementById('npGush').value.trim();
@@ -10682,7 +10819,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
     maintenance_fee: document.getElementById('npMaintenanceFee').value ? parseFloat(document.getElementById('npMaintenanceFee').value) : null,
     arnona: document.getElementById('npArnona').value ? parseFloat(document.getElementById('npArnona').value) : null,
     rooms: document.getElementById('npRooms').value ? parseFloat(document.getElementById('npRooms').value) : null,
-    city: document.getElementById('npCity').value,
+    city: propertyCity(),
     street: street || null,
     house_number: houseNumber || null,
     address: (street || houseNumber) ? (street + (houseNumber ? ' ' + houseNumber : '')) : null,
@@ -10963,7 +11100,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   }
 
   document.getElementById('addPropertyForm').reset();
-  document.getElementById('npCity').value = 'עפולה';
+  setPropertyCity(defaultPropertyCity());
   // ‏reset() מרוקן את שדה הרחוב אך לא את ההערה שמתחתיו
   document.getElementById('npStreetHint').innerHTML = '';
   // ‏form.reset() לא מחזיר את בורר סוכן 2 למצב "ללא": האפשרויות שלו נבנות
@@ -14060,7 +14197,7 @@ function openEditProperty(p){
   document.getElementById('npArnona').value = p.arnona ?? '';
   document.getElementById('npPriceVat').value = p.price_includes_vat === true ? 'incl' : p.price_includes_vat === false ? 'plus' : '';
   document.getElementById('npRooms').value = p.rooms || '';
-  document.getElementById('npCity').value = p.city || 'עפולה';
+  setPropertyCity(p.city || defaultPropertyCity());
   document.getElementById('npStreet').value = p.street || '';
   // אסינכרונית: הנכס נשמר בזמנו בטקסט חופשי, וההערה מתחת לשדה תגיד אם
   // הכתיב שלו עדיין עומד ברשימה — בלי לגעת בנכס עד שנשמר מחדש.
@@ -14767,7 +14904,11 @@ function impBuildRow(rawRow, rowNumber){
   // השכונות מנוהלות על ידי הפלטפורמה, ולכן שם שלא ברשימה לא נקלט אלא מתריע
   const rawNeighborhood = impNorm(cell('neighborhood'));
   if (rawNeighborhood){
-    const match = allNeighborhoods.find(n => impNorm(n.name) === rawNeighborhood);
+    // בתוך העיר של השורה: "מרכז העיר" קיים בעפולה ובקריית אתא, והתאמה לפי
+    // שם בלבד הייתה משייכת נכס בעפולה לשכונה בקריית אתא.
+    const cityKey = hoodCityKey(city);
+    const match = allNeighborhoods.find(n => impNorm(n.name) === rawNeighborhood
+                                          && (!cityKey || hoodCityKey(n.city) === cityKey));
     if (match) payload.neighborhood_id = match.id;
     else warnings.push(`השכונה "${impText(cell('neighborhood'))}" אינה ברשימת השכונות - לא נקלטה`);
   }
@@ -19001,6 +19142,25 @@ function renderCmaReport(r){
   const marketGap    = cmaGapPct(s.price, mst.median_price);
   const marketSqmGap = cmaGapPct(s.price_per_sqm, mst.median_price_per_sqm);
 
+  /* שכבת השכונה: עסקאות רשמיות בלי פין, באותה שכונה כמו הנכס. אין להן
+     מרחק - הן לא מוקמו - ולכן אין עמודת מרחק, ו-`in_stats` מגיע מה-RPC
+     כמו בשאר הטבלאות. החציון שלהן נפרד מ"תמונת השוק" שלמעלה ואינו נכנס
+     לממוצע שלה: "באותה שכונה" ו"ברדיוס X" הן שתי השוואות שונות. */
+  const hoodComps = r.neighborhood_comparables || [];
+  const hst = r.neighborhood_stats || {};
+  const hoodGap    = cmaGapPct(s.price, hst.median_price);
+  const hoodSqmGap = cmaGapPct(s.price_per_sqm, hst.median_price_per_sqm);
+  const hoodRows = hoodComps.map(c => `<tr>
+      <td>${esc(c.property_type)}${c.same_type === false ? ' <span class="cma-basis">סוג אחר</span>' : ''}${c.shared_neighborhood
+        ? ' <span class="cma-basis" title="במאגר העסקה רשומה בשם שמכסה כמה שכונות, ונספרת בכל אחת מהן">משותפת</span>' : ''}</td>
+      <td>${c.rooms ?? '-'}${c.same_type !== false && c.in_stats === false
+        ? ' <span class="cma-basis" title="מספר חדרים שונה מהנכס - אינה נספרת בחציון">לא נספר</span>' : ''}</td>
+      <td>${c.size_sqm ? esc(c.size_sqm) + ' מ״ר' : '-'}</td>
+      <td>${shekel(c.sale_price)} ${cmaBasisHtml(c.price_basis)}</td>
+      <td>${c.price_per_sqm ? shekel(c.price_per_sqm) : '-'}</td>
+      <td>${hebDate(c.sold_at)}</td>
+    </tr>`).join('');
+
   const cityRows = cityComps.map(c => `<tr>
       <td>${esc(c.property_type)}</td>
       <td>${c.rooms ?? '-'}</td>
@@ -19087,6 +19247,29 @@ function renderCmaReport(r){
       </table></div>
       ${Number(cov.market_comparables_total) > Number(cov.market_comparables_shown)
         ? `<div class="cma-note">מוצגים ${esc(cov.market_comparables_shown)} מתוך ${esc(cov.market_comparables_total)}, לפי סדר ההתאמה.</div>` : ''}` : ''}
+
+    ${hoodComps.length ? `
+      <div class="cma-section-title">עסקאות בשכונת ${esc(cov.neighborhood_name || '')} (ללא מיקום מדויק)</div>
+      <div class="cma-note">עסקאות רשמיות שרשומות באותה שכונה כמו הנכס, אבל בלי כתובת מדויקת, ולכן אינן בחישוב הרדיוס שלמעלה.
+        הן מוצגות כהשוואה נפרדת, לפי שכונה.</div>
+      ${Number(cov.neighborhood_shared_count) > 0
+        ? `<div class="cma-note">${esc(cov.neighborhood_shared_count)} מהן רשומות במאגר בשם שמכסה כמה שכונות סמוכות, ונספרות בכל אחת מהן. הן מסומנות "משותפת".</div>` : ''}
+      ${hst.median_price ? `
+        <div class="cma-stats">
+          <div class="cma-stat"><div class="n">${esc(hst.count)}</div><div class="l">עסקאות בשכונה</div></div>
+          <div class="cma-stat"><div class="n">${shekel(hst.median_price)}</div><div class="l">מחיר חציוני</div></div>
+          <div class="cma-stat"><div class="n">${hst.median_price_per_sqm ? shekel(hst.median_price_per_sqm) : '-'}</div><div class="l">חציון למ״ר</div></div>
+          <div class="cma-stat"><div class="n">${esc(cov.neighborhood_comparables_total)}</div><div class="l">סה״כ בשכונה</div></div>
+        </div>
+        ${cmaGapLine(hoodGap,    'המחיר המבוקש מול החציון בשכונה',      hst.count)}
+        ${cmaGapLine(hoodSqmGap, 'המחיר המבוקש למ״ר מול החציון בשכונה', hst.sqm_sample_size ?? hst.count)}`
+      : `<div class="cma-note">${esc(cov.neighborhood_comparables_counted)} מהן תואמות לנכס בסוג ובמספר החדרים - פחות מ-${esc(cov.min_required)}, ולכן אין כאן חציון, רק העסקאות עצמן.</div>`}
+      <div class="cma-tablewrap"><table class="cma-table">
+        <thead><tr><th>סוג</th><th>חדרים</th><th>שטח</th><th>מחיר</th><th>למ״ר</th><th>תאריך</th></tr></thead>
+        <tbody>${hoodRows}</tbody>
+      </table></div>
+      ${Number(cov.neighborhood_comparables_total) > Number(cov.neighborhood_comparables_shown)
+        ? `<div class="cma-note">מוצגות ${esc(cov.neighborhood_comparables_shown)} האחרונות מתוך ${esc(cov.neighborhood_comparables_total)}.</div>` : ''}` : ''}
 
     ${cityComps.length ? `
       <div class="cma-section-title">עסקאות נוספות ב${esc(s.city)} (ללא מיקום מדויק)</div>

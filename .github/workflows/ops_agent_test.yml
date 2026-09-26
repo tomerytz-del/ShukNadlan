@@ -13,6 +13,7 @@ on:
       - "ops_agent/**"
       - "scripts/ops_stand_in_pin_test.py"
       - "scripts/ops_market_gate_test.py"
+      - "scripts/ops_market_data_test.py"
       - "scripts/check_markets.py"
       - "assets/markets.js"
       - ".github/workflows/ops_agent_test.yml"
@@ -22,6 +23,7 @@ on:
       - "ops_agent/**"
       - "scripts/ops_stand_in_pin_test.py"
       - "scripts/ops_market_gate_test.py"
+      - "scripts/ops_market_data_test.py"
       - "scripts/check_markets.py"
       - "assets/markets.js"
       - ".github/workflows/ops_agent_test.yml"
@@ -49,3 +51,8 @@ jobs:
       # שוק. ה-probe קורא את assets/markets.js דרך המפרש של check_markets.py.
       - name: ‏market_below_gate / market_ready מדווחות בדיוק מתי שצריך
         run: python3 scripts/ops_market_gate_test.py
+
+      # ‏הנתונים של כל שוק: עיר עם מעט עסקאות, עסקאות ישנות, עסקאות בלי
+      # פין, שכונות בלי גבול ושמות שכונה שלא הותאמו - על המספרים של 26.9.2026.
+      - name: ‏_market_data מדווחת בדיוק מתי שצריך
+        run: python3 scripts/ops_market_data_test.py

@@ -1879,6 +1879,19 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
       : undefined;
   };
 
+  // שכבת השכונה: עסקאות רשמיות **בלי פין** באותה שכונה כמו הנכס
+  // (20270114091000). חציון משלה, נפרד מממוצע הרדיוס, ומושתק מתחת לסף
+  // בדיוק כמוהו - `neighborhood_stats` חוזר null במדגם קטן.
+  const hoodStats = (report.neighborhood_stats || {}) as Record<string, unknown>;
+  const hasHood = coverage.has_neighborhood_statistics === true;
+  const hoodGap = (ask: unknown, mid: unknown): number | undefined => {
+    if (ask === null || ask === undefined || mid === null || mid === undefined) return undefined;
+    const a = Number(ask), v = Number(mid);
+    return hasHood && Number.isFinite(a) && Number.isFinite(v) && a > 0 && v > 0
+      ? Math.round(((a - v) / v) * 100)
+      : undefined;
+  };
+
   // הנחיה ולא נתון: מודל שמקבל "0 עסקאות" ימלא את החסר באומדן משלו אם לא
   // ייאמר לו במפורש שאסור. זה בדיוק המקום שבו דוח כן הופך לדוח שנשמע כן.
   // על מה הממוצע נשען. מאז `20261228090000` הסטטיסטיקה מחושבת על עסקאות
@@ -1988,6 +2001,15 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
     comparables_returned: Math.min(comparables.length, limit),
     // עסקאות באותה עיר שאין להן מיקום — לא מעורבבות בממוצע, ולכן רק נספרות
     city_comparables_count: cityComparables.length,
+    // עסקאות בלי פין באותה שכונה - השוואה "לפי שכונה", לא ברדיוס. כשמציגים
+    // את החציון הזה אומרים שהוא לפי שכונה ושהוא נפרד מהממוצע שלמעלה.
+    neighborhood_name: coverage.neighborhood_name || undefined,
+    neighborhood_deals_total: coverage.neighborhood_comparables_total || undefined,
+    neighborhood_median_price: hasHood ? hoodStats.median_price : undefined,
+    neighborhood_median_price_per_sqm: hasHood ? hoodStats.median_price_per_sqm : undefined,
+    neighborhood_sample_size: hasHood ? hoodStats.count : undefined,
+    neighborhood_gap_pct: hoodGap(subject.price, hoodStats.median_price),
+    neighborhood_gap_per_sqm_pct: hoodGap(subject.price_per_sqm, hoodStats.median_price_per_sqm),
     full_report_where: "הדוח המלא להדפסה או לשליחה ללקוח/ה: כפתור \"דוח CMA\" בכרטיס הנכס בדשבורד.",
   };
 }
