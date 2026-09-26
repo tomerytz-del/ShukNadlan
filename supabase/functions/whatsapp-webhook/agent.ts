@@ -2198,8 +2198,12 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
   const digits = (v: unknown) => String(v ?? "").replace(/[^\d]/g, "");
   const gush = digits(input.gush);
   const helka = digits(input.helka);
-  let street = String(input.street || "").trim();
-  const houseNumber = String(input.house_number || "").trim();
+  // ‏lookupPlanning משרשרת רחוב ומספר לתוך XML של שאילתת ה-WFS בלי בריחה.
+  // בדשבורד הקלט עובר בשדה מרשימה; כאן הוא טקסט חופשי מהמודל, ו-`<` או `&`
+  // היו שוברים את השאילתה ומחזירים "השכבה לא ענתה" על כתובת תקינה.
+  const xmlSafe = (v: unknown) => String(v ?? "").replace(/[<>&"']/g, " ").replace(/\s+/g, " ").trim();
+  let street = xmlSafe(input.street);
+  const houseNumber = xmlSafe(input.house_number);
   const byParcel = Boolean(gush && helka);
 
   if (!byParcel && !(street && houseNumber)) {
