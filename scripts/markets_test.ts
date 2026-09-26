@@ -43,6 +43,10 @@ const TEL_AVIV = [32.0853, 34.7818];
 /* מרכזי יישוב בקירוב (מעלות-דקות) - מספיק למבחן תיבה, לא לפין */
 const KIRYAT_TIVON = [32.717, 35.133];
 const REKHASIM = [32.75, 35.1];
+const AKKO = [32.927, 35.083];
+const NAHARIYA = [33.006, 35.095];
+const SHLOMI = [33.075, 35.145];
+const MAALOT = [33.016, 35.27]; // מחוץ לתיבה (הקצה המזרחי 35.22) - השוק הקרוב
 const RAMAT_YISHAI = [32.705, 35.167]; // הגבול: 3 ק"מ מזרחית לטבעון, בעמק
 
 check("עפולה → afula-emek", reg.locate(AFULA[0], AFULA[1])?.slug === "afula-emek");
@@ -51,6 +55,12 @@ check("נשר → haifa-krayot", reg.locate(NESHER[0], NESHER[1])?.slug === "hai
 check("קריית טבעון → haifa-krayot", reg.locate(KIRYAT_TIVON[0], KIRYAT_TIVON[1])?.slug === "haifa-krayot");
 check("רכסים → haifa-krayot", reg.locate(REKHASIM[0], REKHASIM[1])?.slug === "haifa-krayot");
 check("רמת ישי (מעבר לגבול עם טבעון) → afula-emek", reg.locate(RAMAT_YISHAI[0], RAMAT_YISHAI[1])?.slug === "afula-emek");
+check("עכו → akko-nahariya", reg.locate(AKKO[0], AKKO[1])?.slug === "akko-nahariya");
+check("נהריה → akko-nahariya", reg.locate(NAHARIYA[0], NAHARIYA[1])?.slug === "akko-nahariya");
+check("שלומי → akko-nahariya", reg.locate(SHLOMI[0], SHLOMI[1])?.slug === "akko-nahariya");
+check("מעלות-תרשיחא (מחוץ לתיבה) → akko-nahariya כשוק הקרוב", reg.locate(MAALOT[0], MAALOT[1])?.slug === "akko-nahariya");
+check("הגבול: 32.89 (קצה חיפה) → haifa-krayot, 32.9 → akko-nahariya",
+  reg.locate(32.89, 35.08)?.slug === "haifa-krayot" && reg.locate(32.9, 35.08)?.slug === "akko-nahariya");
 check("תל אביב → אין שוק (ולא הקרוב ביותר, 80 ק\"מ משם)", reg.locate(TEL_AVIV[0], TEL_AVIV[1]) === null);
 check("רק שווקים חיים: קריית ביאליק → אין (חיפה עוד לא נפתחה)",
   reg.locate(KIRYAT_BIALIK[0], KIRYAT_BIALIK[1], true) === null);

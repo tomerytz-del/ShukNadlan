@@ -97,5 +97,5 @@ export default async function handler(request: Request, context: Context) {
 
 /* ‏כל שוק שאינו ברירת המחדל. ‏check_markets.py חוסם פער מול markets.js. */
 export const config: Config = {
-  path: ["/haifa-krayot"],
+  path: ["/haifa-krayot", "/akko-nahariya"],
 };
