@@ -709,6 +709,10 @@
         b.setAttribute('aria-label', SLOT_NAMES[s.slot] + ': ' + s.value + (isNext ? ' - לחצו לבחירה' : ''));
         seg.appendChild(b);
         sentenceEl.appendChild(seg);
+        /* שבירת שורה אחרי האזור - בטלפון בלבד (‏‎.ss-break‎ ב-CSS): "עם N
+           חדרים" ו"בתקציב" יורדים יחד לשורה האחרונה, במקום שהחדרים ייתלו
+           בסוף שורת האזור והתקציב יישאר לבד מתחתיה. */
+        if (s.slot === 'area') sentenceEl.appendChild(el('span', 'ss-break'));
       });
       if (hadFocus) {
         var again = sentenceEl.querySelector('[data-slot="' + hadFocus + '"]');

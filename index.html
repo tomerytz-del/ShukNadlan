@@ -502,6 +502,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     font-size:clamp(1.3rem,5.4vw,1.65rem);font-weight:300;line-height:1.4;letter-spacing:-.02em;
   }
   .ss-lead,.ss-seg{white-space:nowrap}
+  .ss-break{display:none}
   .ss-seg{display:inline-flex;align-items:baseline;gap:8px}
   /* מילית של אות אחת נצמדת לערך ("בגבעת המורה") ולא עומדת לבד */
   .ss-seg.is-tight{gap:1px}
@@ -657,6 +658,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .ss-sentence{padding:4px 2px 12px;gap:4px 7px;font-size:clamp(1.35rem,6.7vw,1.625rem);line-height:1.45}
     .ss-seg{gap:7px}
     .ss-seg.is-tight{gap:1px}
+    /* ‏flex-basis:100% הוא שורה חדשה בתוך ה-flex של המשפט */
+    .ss-break{display:block;flex-basis:100%;height:0}
     .ss-smart{border:1px solid var(--ss-line);background:#fff;align-items:center}
     .ss-smart .ss-go{display:none}
     .ss-spark{padding-inline-start:14px}
@@ -3335,7 +3338,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              רץ; הסקריפט מצייר אותו מחדש מהמצב (ומהכתובת). -->
         <div class="search-shell ss-shell">
           <div class="ss-card" id="ssCard">
-            <p class="ss-sentence" id="ssSentence"><span class="ss-lead">אני רוצה</span> <span class="ss-seg"><span class="ss-slot">לקנות</span></span> <span class="ss-seg"><span class="ss-slot">נכס</span></span> <span class="ss-seg is-tight"><span class="ss-pre">ב</span><span class="ss-slot">כל עפולה והעמק</span></span> <span class="ss-seg"><span class="ss-pre">עם</span><span class="ss-slot">כל גודל</span></span> <span class="ss-seg is-tight"><span class="ss-pre">ב</span><span class="ss-slot">כל תקציב</span></span></p>
+            <p class="ss-sentence" id="ssSentence"><span class="ss-lead">אני רוצה</span> <span class="ss-seg"><span class="ss-slot">לקנות</span></span> <span class="ss-seg"><span class="ss-slot">נכס</span></span> <span class="ss-seg is-tight"><span class="ss-pre">ב</span><span class="ss-slot">כל עפולה והעמק</span></span> <span class="ss-break"></span> <span class="ss-seg"><span class="ss-pre">עם</span><span class="ss-slot">כל גודל</span></span> <span class="ss-seg is-tight"><span class="ss-pre">ב</span><span class="ss-slot">כל תקציב</span></span></p>
 
             <!-- הבורר - צמוד למשפט בכל רוחב מסך, כדי שהאפשרויות יופיעו ליד
                  המילה שנלחצה. -->
