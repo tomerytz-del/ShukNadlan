@@ -3783,11 +3783,6 @@ async function toolUpdateProfile(ctx: ToolContext, input: Record<string, unknown
 
   const row = saved as unknown as Record<string, unknown>;
   const notes: string[] = [];
-  // ‏`zz_agency_members_apply_text_policy` מסיר טלפון מהביו במסלול Pay&GO,
-  // בשקט. מה שנשמר הוא מה שחוזר, ואם הוא שונה ממה שנשלח - לומר למה.
-  if (typeof patch.bio === "string" && String(row.bio || "") !== patch.bio) {
-    notes.push("חלק מהביו הוסר בשמירה: במסלול Pay&GO אסור טלפון או קישור בביו, כדי שהפניות יעברו דרך האתר.");
-  }
   if (taken.length > 1) {
     notes.push(`נבחרה התמונה האחרונה מתוך ${taken.length}; השאר נשארו ממתינות לצירוף לנכס.`);
   }
