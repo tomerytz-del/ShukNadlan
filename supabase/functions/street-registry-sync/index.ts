@@ -36,8 +36,8 @@ import { DEFAULT_RESOURCE_ID, fetchAllRows, streetsByCity } from "./gov.ts";
 //
 // ## מקור שני: data.gov.il (‏body: {"source":"gov"})
 //
-// לכל עיר בשווקים (cities.market_slug) - המאגר "רשימת רחובות בישראל" של
-// רשות האוכלוסין. ‏cron נפרד (street-registry-sync-gov), ואותו כלל: הורדה
+// לכל עיר בשווקים (cities.market_slug) - המאגר של רשות האוכלוסין: רחובות
+// רשמיים ושמות נרדפים (street_registry_aliases, 20270114094000). ‏cron נפרד (street-registry-sync-gov), ואותו כלל: הורדה
 // חלקית אינה סנכרון. עפולה מדולגת (יש לה gis). ‏gov.ts, והמיגרציה
 // ‏20270114093000_street_registry_gov.sql.
 // ============================================================================
@@ -111,9 +111,9 @@ async function syncGov(supabase: ReturnType<typeof createClient>): Promise<Respo
     const byCity = streetsByCity(rows, names);
 
     const results: unknown[] = [];
-    for (const [city, streets] of byCity) {
+    for (const [city, { streets, aliases }] of byCity) {
       const { data, error } = await supabase.rpc("street_registry_absorb_gov", {
-        p_city: city, p_names: streets,
+        p_city: city, p_names: streets, p_aliases: aliases,
       });
       if (error) {
         await supabase.rpc("street_registry_sync_failed_source", {

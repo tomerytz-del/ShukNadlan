@@ -9920,12 +9920,28 @@ function streetNameKey(name){
   return key || base;
 }
 
+/* כל השורות, בעמודים של 1,000. ‏PostgREST מחזיר לכל היותר 1,000 שורות
+   לשאילתה (max_rows של Supabase), **בלי שגיאה** - וכל עוד הרשימה הייתה
+   341 רחובות של עפולה זה לא שינה דבר. מאז הרחובות מ-data.gov.il (כ-3,800,
+   מהם 1,438 בחיפה) שאילתה אחת הייתה חותכת את הרשימה, והטופס היה חוסם
+   רחובות אמיתיים כ"לא ברשימה". ‏`build` בונה את השאילתה מחדש לכל עמוד. */
+async function fetchAllPages(build, pageSize = 1000){
+  const all = [];
+  for (let from = 0; ; from += pageSize){
+    const { data, error } = await build().range(from, from + pageSize - 1);
+    if (error) return { data: null, error };
+    all.push(...(data || []));
+    if (!data || data.length < pageSize) return { data: all, error: null };
+  }
+}
+
 async function ensureStreetsLoaded(){
   if (streetRegistry) return streetRegistry;
-  const { data, error } = await sb.from('street_registry')
+  const { data, error } = await fetchAllPages(() => sb.from('street_registry')
     .select('city, name, source')
     .eq('active', true)
-    .order('name');
+    .order('name')
+    .order('id'));
   if (error){
     // ‏streetRegistry נשאר null כדי שהניסיון הבא ישלוף מחדש, ו-ready שקרי
     // כדי שבינתיים השדה יתנהג כמו טקסט חופשי — כמו שהתנהג עד היום.
@@ -9950,6 +9966,24 @@ async function ensureStreetsLoaded(){
     if (!keys.has(k)) keys.set(k, row.name);
     if (row.source === 'gis' || row.source === 'gov') streetEnforcedCities.add(row.city);
   });
+  /* שמות נרדפים (street_registry_aliases, מהמאגר של רשות האוכלוסין): "הרצל"
+     בקריית ביאליק מתורגם ל"שד הרצל" באותו אינדקס שמתקן כתיב, ולכן הטופס
+     מציג "ייכתב «שד הרצל»" במקום "הוסיפו אותו לרשימה". רחוב אמיתי גובר
+     תמיד (אם המפתח כבר באינדקס - לא נוגעים). כשל בטעינה אינו חוסם: הרשימה
+     עצמה כבר נטענה, ובלי הנרדפים הטופס מתנהג כמו קודם. */
+  try {
+    const { data: aliases, error: aErr } = await fetchAllPages(() =>
+      sb.from('street_registry_aliases').select('city, alias, name').order('id'));
+    if (aErr) throw aErr;
+    (aliases || []).forEach(a => {
+      const keys = streetKeyIndex.get(a.city);
+      if (!keys) return;
+      const k = streetNameKey(a.alias);
+      if (!keys.has(k) && (streetsByCity.get(a.city) || []).includes(a.name)) keys.set(k, a.name);
+    });
+  } catch (err) {
+    console.warn('שמות נרדפים לרחובות לא נטענו:', err && err.message);
+  }
   streetRegistryReady = streetRegistry.length > 0;
   refreshStreetOptions();
   return streetRegistry;
