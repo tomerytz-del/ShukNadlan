@@ -32,7 +32,12 @@
   # אותו לדפים שלנו בלבד - לא ל-iframe של צד שלישי. בלי השינוי הזה הכפתור
   # היה נראה תקין ולא עושה כלום: ‎geolocation=()‎ חוסם בלי בקשת הרשאה, בלי
   # שגיאה בקונסול, וה-callback פשוט לא נקרא. ‏docs/regional-pages.md.
-  Permissions-Policy: camera=(), microphone=(), payment=(), usb=(), geolocation=(self)
+  #
+  # ‏‎microphone=(self)‎ מאותה סיבה בדיוק: כפתור המיקרופון בשדה החכם של
+  # החיפוש במשפט (‏assets/sentence-search.js, Web Speech API) נחסם ב-‎()‎
+  # בשקט - הכפתור הוצג, נלחץ, ולא קרה דבר. ‏(self) פותח אותו לדפים שלנו
+  # בלבד; ה-iframe של יוטיוב/וימאו עדיין אינו יכול לבקש מיקרופון.
+  Permissions-Policy: camera=(), microphone=(self), payment=(), usb=(), geolocation=(self)
 
   # ‏HTTPS בלבד לשנה. בלי ‎preload‎ ובלי ‎includeSubDomains‎ בכוונה: שניהם
   # דלת חד-כיוונית שקשה לחזור ממנה, ותת-דומיין עתידי שיוגש ב-HTTP (סביבת
