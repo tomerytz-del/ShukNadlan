@@ -18,7 +18,8 @@
 # הפניה - הכתובת בדפדפן נשארת של השוק. ‏netlify/edge-functions/market-pages.ts
 # רץ לפני השורה הזו ומזריק את שם השוק, והבדיקה ‎check_markets.py‎ מוודאת
 # שהיעד כאן מתאים ל-live ב-assets/markets.js.
-/haifa-krayot    /market-soon    200
+/haifa    /market-soon    200
+/krayot    /market-soon    200
 /akko-nahariya    /market-soon    200
 /karmiel-misgav    /market-soon    200
 /nof-hagalil-migdal    /market-soon    200
@@ -26,3 +27,5 @@
 /netanya    /market-soon    200
 # ‏הכתובת הקודמת (26.9.2026, שעה אחת כ"נפתחים בקרוב") - לשוק ששמו תוקן
 /nazareth-nof-hagalil    /nof-hagalil-migdal    301
+# ‏"חיפה והקריות" עד 27.9.2026 - הקריות יצאו לשוק משלהן (/krayot)
+/haifa-krayot    /haifa    301

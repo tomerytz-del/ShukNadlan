@@ -64,7 +64,7 @@ def root_with(haifa_live: bool) -> Path:
     (tmp / "scripts").mkdir()
     shutil.copy(ROOT / "scripts" / "check_markets.py", tmp / "scripts" / "check_markets.py")
     src = (ROOT / "assets" / "markets.js").read_text(encoding="utf-8")
-    i = src.index("slug: 'haifa-krayot'")
+    i = src.index("slug: 'haifa'")
     head, tail = src[:i], src[i:]
     tail = tail.replace("live: true", "live: false", 1) if not haifa_live else tail.replace("live: false", "live: true", 1)
     (tmp / "assets" / "markets.js").write_text(head + tail, encoding="utf-8")
@@ -78,14 +78,14 @@ def codes(rows, loose=0, root=CLOSED):
     return sorted((f.code, f.subject) for f in _market_gate(_Ctx(rows, loose, root)))
 
 
-got = codes([{"market_slug": "haifa-krayot", "props": 4, "agencies": 1},
+got = codes([{"market_slug": "haifa", "props": 4, "agencies": 1},
              {"market_slug": "afula-emek", "props": 85, "agencies": 10}])
 check("חיפה סגורה ומתחת לסף - שקט", got == [])
 
-got = codes([{"market_slug": "haifa-krayot", "props": 10, "agencies": 1}])
-check("חיפה סגורה ובדיוק בסף - 'מוכן לפתיחה'", got == [("market_ready", "market:haifa-krayot")])
+got = codes([{"market_slug": "haifa", "props": 10, "agencies": 1}])
+check("חיפה סגורה ובדיוק בסף - 'מוכן לפתיחה'", got == [("market_ready", "market:haifa")])
 
-got = codes([{"market_slug": "haifa-krayot", "props": 30, "agencies": 0}])
+got = codes([{"market_slug": "haifa", "props": 30, "agencies": 0}])
 check("30 נכסים בלי משרד - עדיין לא מוכן", got == [])
 
 got = codes([{"market_slug": "afula-emek", "props": 0, "agencies": 0}])
@@ -94,10 +94,10 @@ check("שוק ברירת המחדל ריק - לא מדווח כ'מתחת לסף'
 got = codes([], loose=3)
 check("3 נכסים בלי שוק - ממצא אחד", got == [("listings_no_market", "properties_no_market")])
 
-got = sorted((f.code, f.severity) for f in _market_gate(_Ctx([{"market_slug": "haifa-krayot", "props": 3, "agencies": 1}], root=OPEN)))
+got = sorted((f.code, f.severity) for f in _market_gate(_Ctx([{"market_slug": "haifa", "props": 3, "agencies": 1}], root=OPEN)))
 check("חיפה חיה עם 3 נכסים - 'מתחת לסף', high", got == [("market_below_gate", "high")])
 
-got = codes([{"market_slug": "haifa-krayot", "props": 40, "agencies": 3}], root=OPEN)
+got = codes([{"market_slug": "haifa", "props": 40, "agencies": 3}], root=OPEN)
 check("חיפה חיה ומעל הסף - שקט", got == [])
 
 shutil.rmtree(CLOSED)
