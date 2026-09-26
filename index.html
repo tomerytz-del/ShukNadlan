@@ -536,11 +536,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media(prefers-reduced-motion:reduce){ .ss-roll-item{transition:none} }
 
   /* ====== סמן הלחיצה ======
-     חץ עכבר שנכנס אל המילה המתחלפת, "לוחץ" עליה ויוצא, בלולאה - עד הלחיצה
-     הראשונה על מילה כלשהי (‏tapCursor ב-sentence-search.js). ‏pointer-events
-     כבויים, כך שהלחיצה עוברת ל-slot שמתחתיו. אין צורך בכלל reduced-motion
-     משלו: בלי אנימציות אין חילוף, ובלי חילוף הסמן לא נוצר. */
-  .ss-slot.is-rolling{position:relative}
+     חץ עכבר שנכנס אל המילה הבאה, "לוחץ" עליה ויוצא, בלולאה. אחרי כל בחירה
+     הוא עובר למילה הבאה, עד סוף המשפט (‏tapCursor ב-sentence-search.js).
+     ‏pointer-events כבויים, כך שהלחיצה עוברת ל-slot שמתחתיו. בלי אנימציות
+     ה-JS אינו יוצר אותו, ולכן אין כאן כלל reduced-motion משלו. */
+  .ss-slot.is-next{position:relative}
   .ss-tap{
     position:absolute;left:50%;top:62%;width:38px;height:38px;margin:-14px 0 0 -14px;
     pointer-events:none;z-index:2;opacity:0;transform-origin:14px 14px;

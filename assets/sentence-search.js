@@ -655,12 +655,6 @@
        - היחיד שמתחלף. אף פעם לא שתי מילים מתחלפות בו זמנית. */
     var touched = {};
     var rollIndex = 0, rollSlot = null;
-    /* סמן הלחיצה על המילה המתחלפת: גולשים קראו את המשפט כטקסט מתחלף לקישוט
-       ולא הבינו שהמילים נלחצות. הוא מופיע רק עד הלחיצה הראשונה על מילה
-       כלשהי, ואחריה לא חוזר - גם לא בביקור הבא (‏localStorage). */
-    var TAP_KEY = 'ssTapHintDone';
-    var tapDone = false;
-    try { tapDone = root.localStorage.getItem(TAP_KEY) === '1'; } catch (e) { /* אחסון חסום - מציגים */ }
     var reduceMq = root.matchMedia ? root.matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
     var mq = root.matchMedia ? root.matchMedia(MOBILE_MQ) : { matches: false, addEventListener: function () {} };
 
@@ -716,10 +710,13 @@
           roll.setAttribute('aria-hidden', 'true');
           labels.forEach(function (l, i) { roll.appendChild(el('span', 'ss-roll-item' + (i === rollIndex % labels.length ? ' is-on' : ''), l)); });
           b.appendChild(roll);
-          if (!tapDone && !Object.keys(touched).length) b.appendChild(tapCursor());
         } else {
           b = el('button', 'ss-slot' + (active === s.slot ? ' is-active' : '') + (isNext ? ' is-next' : ''), s.value);
         }
+        /* סמן הלחיצה מוביל את המשפט: הוא יושב על המילה הבאה, ואחרי כל בחירה
+           עובר לבאה אחריה, עד סוף המשפט. גולשים קראו את המשפט כטקסט מתחלף
+           לקישוט ולא הבינו שהמילים נלחצות. בכל טעינה הוא מתחיל מחדש. */
+        if (isNext && loaded && !noMotion()) b.appendChild(tapCursor());
         b.type = 'button';
         b.dataset.slot = s.slot;
         b.setAttribute('aria-haspopup', 'listbox');
@@ -836,10 +833,6 @@
     function open(slot, viaKeyboard) {
       keyboardOpen = !!viaKeyboard;
       active = slot;
-      if (slot && !tapDone) {
-        tapDone = true;
-        try { root.localStorage.setItem(TAP_KEY, '1'); } catch (e) { /* אחסון חסום - רק לביקור הזה */ }
-      }
       render();
       if (slot) track('search_slot_open', { slot: slot });
     }
