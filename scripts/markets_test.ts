@@ -40,10 +40,17 @@ const AFULA = [32.6078, 35.2897];
 const KIRYAT_BIALIK = [32.8275, 35.0857];
 const NESHER = [32.766, 35.044];
 const TEL_AVIV = [32.0853, 34.7818];
+/* מרכזי יישוב בקירוב (מעלות-דקות) - מספיק למבחן תיבה, לא לפין */
+const KIRYAT_TIVON = [32.717, 35.133];
+const REKHASIM = [32.75, 35.1];
+const RAMAT_YISHAI = [32.705, 35.167]; // הגבול: 3 ק"מ מזרחית לטבעון, בעמק
 
 check("עפולה → afula-emek", reg.locate(AFULA[0], AFULA[1])?.slug === "afula-emek");
 check("קריית ביאליק → haifa-krayot", reg.locate(KIRYAT_BIALIK[0], KIRYAT_BIALIK[1])?.slug === "haifa-krayot");
 check("נשר → haifa-krayot", reg.locate(NESHER[0], NESHER[1])?.slug === "haifa-krayot");
+check("קריית טבעון → haifa-krayot", reg.locate(KIRYAT_TIVON[0], KIRYAT_TIVON[1])?.slug === "haifa-krayot");
+check("רכסים → haifa-krayot", reg.locate(REKHASIM[0], REKHASIM[1])?.slug === "haifa-krayot");
+check("רמת ישי (מעבר לגבול עם טבעון) → afula-emek", reg.locate(RAMAT_YISHAI[0], RAMAT_YISHAI[1])?.slug === "afula-emek");
 check("תל אביב → אין שוק (ולא הקרוב ביותר, 80 ק\"מ משם)", reg.locate(TEL_AVIV[0], TEL_AVIV[1]) === null);
 check("רק שווקים חיים: קריית ביאליק → אין (חיפה עוד לא נפתחה)",
   reg.locate(KIRYAT_BIALIK[0], KIRYAT_BIALIK[1], true) === null);
