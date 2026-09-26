@@ -12,7 +12,7 @@
 | `supabase/migrations/20260831120000_neighborhood_boundary.sql` | `boundary` — טבעת `[lat,lng]` ב-jsonb |
 | `supabase/migrations/20261212093000_neighborhoods_city_id.sql` | `city_id` וקישור לרישום הערים |
 | `supabase/migrations/20261212099000_neighborhood_from_point.sql` | `is_planned`, `point_in_ring`, הדוח וההחלה |
-| `supabase/migrations/20270114103000_property_neighborhood_autofill.sql` | הטריגר שממלא שכונה חסרה בשמירה, וההשלמה למפרע |
+| `supabase/migrations/20270114104000_property_neighborhood_autofill.sql` | הטריגר שממלא שכונה חסרה בשמירה, וההשלמה למפרע |
 | `assets/home.js` → `hoodChoices()` | רשימת השכונות בסינון |
 | `assets/home.js` → `renderBuyerHoods()` | גלולות השכונה בבאנר מחפשי הנכס |
 | `neighborhood-boundary.html` | סימון ותיקון ידני של מצולע |
@@ -106,7 +106,7 @@ ray casting קלאסי על טבעת `[lat, lng]` **פתוחה**, בדיוק ה�
 פעולה מפורשת שאיש אינו מבצע היא פער שגדל עם כל נכס חדש, כי השדה בטופס
 "לא חובה".
 
-לכן `20270114103000` מוסיפה את `properties_set_neighborhood_trg`, והיא
+לכן `20270114104000` מוסיפה את `properties_set_neighborhood_trg`, והיא
 **אינה** מצטרפת ל-11 הטריגרים שיורים על כל עדכון:
 
 | | |
