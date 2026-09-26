@@ -14,6 +14,7 @@ import {
   type AgreementSigner,
 } from "../_shared/agreement-build.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
+import { noLongDash } from "../_shared/marketing-copy.ts";
 
 // ה"מוח" של בוט הוואטסאפ: מקבל את מה שהסוכן/ת כתב/ה (או הכתיב/ה בהקלטה),
 // מריץ לולאת tool-use מול Claude, ומחזיר את הטקסט לשליחה חזרה בוואטסאפ.
@@ -154,6 +155,8 @@ export interface ConversationState {
   pending_images: string[];
   last_property_id: string | null;
   last_client_id: string | null;
+  /** בתור הנוכחי בלבד, לא נשמר: הסוכן/ת כבר עוסק/ת בפרופיל, ותזכורת עליו מיותרת. */
+  profile_touched?: boolean;
 }
 
 // ---------------------------------------------------------------------------
@@ -267,6 +270,27 @@ const NOTIFY_TYPES = [
   "new_lead", "client_match", "agreement_signed", "review_new", "deal_closed",
   "review_request", "marketing_copy", "system",
 ];
+
+/**
+ * השדות שהבוט רשאי לכתוב ב-`agency_members`. **רשימה סגורה, בכוונה:** הבוט
+ * רץ כ-service_role, ו-`protect_sensitive_agency_member_fields` מדלג על
+ * service_role לגמרי - מסלול, יתרה, רישיון וסגירת חשבון היו נכתבים כמו כל
+ * שדה אחר. הגבול היחיד כאן הוא הרשימה הזו. טלפון אינו בה: לפיו הבוט מזהה
+ * את הסוכן/ת, ושינוי שלו מהצ'אט היה מנתק את השיחה עצמה.
+ */
+const PROFILE_TEXT_FIELDS: Record<string, number> = {
+  display_name: 80,
+  bio: 600,
+  service_area: 60,
+  credentials: 80,
+};
+
+/** אותו אוצר מילים סגור של `SPECIALTY_OPTIONS` ב-`assets/crm.js`. */
+const PROFILE_SPECIALTIES = [
+  "מגורים", "מסחרי", "מגרשים וקרקעות", "השקעות ונכסים מניבים",
+  "יזמות ופרויקטים", "שכירות", "תמ״א והתחדשות עירונית", "משקי בית ונחלות",
+];
+const MAX_PROFILE_SPECIALTIES = 4;
 
 const TOOLS: Anthropic.Tool[] = [
   {
@@ -941,6 +965,50 @@ const TOOLS: Anthropic.Tool[] = [
       required: ["action"],
     },
   },
+  {
+    name: "profile_get",
+    description:
+      "הפרופיל האישי של הסוכן/ת כפי שהוא מוצג בדף הסוכן/ת באתר: שם, ביו, תמונת " +
+      "פרופיל ותמונת נושא, ותק, אזור, השכלה/הסמכות ותחומי התמחות - ומה חסר בו. " +
+      "לקרוא לפני עריכת ביו קיים (\"תוסיף לביו ש...\"), כדי לשלוח את הנוסח המלא.",
+    input_schema: { type: "object", properties: {}, required: [] },
+  },
+  {
+    name: "update_profile",
+    description:
+      "עורך את הפרופיל האישי של הסוכן/ת (דף הסוכן/ת באתר). רק השדות שנשלחים משתנים. " +
+      "photo = להפוך את התמונה שהסוכן/ת שלח/ה עכשיו בשיחה לתמונת הפרופיל (profile) " +
+      "או לתמונת הנושא (cover). מספר רישיון, טלפון ומסלול אינם נערכים כאן.",
+    input_schema: {
+      type: "object",
+      properties: {
+        display_name: { type: "string", description: "שם מלא לתצוגה. עד 80 תווים." },
+        bio: {
+          type: "string",
+          description: "הביו **המלא** אחרי השינוי (לא רק התוספת). עד 600 תווים. " +
+            "בגוף ראשון, כמו שהסוכן/ת היה/הייתה כותב/ת.",
+        },
+        service_area: { type: "string", description: "אזור פעילות, למשל \"עפולה והעמקים\". עד 60 תווים." },
+        credentials: { type: "string", description: "השכלה והסמכות, למשל \"B.A ומגשר מוסמך\". עד 80 תווים." },
+        years_experience: { type: "integer", description: "שנות ותק בנדל\"ן, 0 עד 70." },
+        specialties: {
+          type: "array",
+          items: { type: "string", enum: PROFILE_SPECIALTIES },
+          description: "הרשימה המלאה של תחומי ההתמחות אחרי השינוי, עד 4.",
+        },
+        photo: {
+          type: "string",
+          enum: ["profile", "cover"],
+          description: "התמונה האחרונה שהתקבלה בשיחה הופכת לתמונת הפרופיל או לתמונת הנושא.",
+        },
+        remove_cover: {
+          type: "boolean",
+          description: "true מסיר את תמונת הנושא האישית, והדף חוזר לתמונת המשרד.",
+        },
+      },
+      required: [],
+    },
+  },
 ];
 
 // ---------------------------------------------------------------------------
@@ -950,6 +1018,46 @@ interface ToolContext {
   supabase: SupabaseClient;
   agent: AgentRow;
   conv: ConversationState;
+}
+
+// ---------------------------------------------------------------------------
+// הפרופיל האישי - דף הסוכן/ת באתר (`/agent?slug=`)
+// ---------------------------------------------------------------------------
+
+const PROFILE_SELECT =
+  "slug, display_name, bio, photo_url, cover_url, years_experience, service_area, " +
+  "credentials, specialties, tier";
+
+// ביו קצר מזה נראה בדף כמו שדה שלא מולא. ‏40 תווים הם משפט אחד.
+const MIN_BIO_CHARS = 40;
+
+/**
+ * מה חסר בפרופיל, לפי סדר החשיבות לגולש/ת שנוחת/ת בדף. תמונת נושא אינה
+ * כאן: בלעדיה הדף יורש את תמונת המשרד, ונראה שלם.
+ */
+export function profileGaps(row: Record<string, unknown> | null): string[] {
+  if (!row) return [];
+  const gaps: string[] = [];
+  if (!row.photo_url) gaps.push("תמונת פרופיל");
+  if (String(row.bio || "").trim().length < MIN_BIO_CHARS) gaps.push("כמה משפטים עליך (ביו)");
+  if (!String(row.service_area || "").trim()) gaps.push("אזור פעילות");
+  if (!Array.isArray(row.specialties) || !row.specialties.length) gaps.push("תחומי התמחות");
+  if (row.years_experience == null) gaps.push("שנות ותק");
+  return gaps;
+}
+
+export async function loadProfile(
+  supabase: SupabaseClient,
+  agentId: string,
+): Promise<Record<string, unknown> | null> {
+  const { data, error } = await supabase.from("agency_members")
+    .select(PROFILE_SELECT).eq("id", agentId).maybeSingle();
+  if (error) console.error("profile load failed", error);
+  return (data as unknown as Record<string, unknown>) || null;
+}
+
+function agentPageUrl(slug: unknown): string | undefined {
+  return SITE_BASE_URL && slug ? `${SITE_BASE_URL}/agent?slug=${encodeURIComponent(String(slug))}` : undefined;
 }
 
 const SITE_BASE_URL = (Deno.env.get("SITE_BASE_URL") || "").replace(/\/$/, "");
@@ -3573,6 +3681,127 @@ async function toolListNotifications(ctx: ToolContext, input: Record<string, unk
   };
 }
 
+async function toolProfileGet(ctx: ToolContext) {
+  ctx.conv.profile_touched = true;
+  const row = await loadProfile(ctx.supabase, ctx.agent.id);
+  if (!row) return { error: "לא נמצא כרטיס סוכן/ת." };
+  return {
+    ok: true,
+    display_name: row.display_name,
+    bio: row.bio,
+    has_profile_photo: !!row.photo_url,
+    has_cover_photo: !!row.cover_url,
+    cover_note: row.cover_url ? undefined : "בלי תמונת נושא אישית הדף מציג את תמונת המשרד.",
+    years_experience: row.years_experience,
+    service_area: row.service_area,
+    credentials: row.credentials,
+    specialties: row.specialties || [],
+    specialty_options: PROFILE_SPECIALTIES,
+    missing: profileGaps(row),
+    page_url: agentPageUrl(row.slug),
+  };
+}
+
+async function toolUpdateProfile(ctx: ToolContext, input: Record<string, unknown>) {
+  ctx.conv.profile_touched = true;
+  const patch: Record<string, unknown> = {};
+  const problems: string[] = [];
+
+  for (const [field, max] of Object.entries(PROFILE_TEXT_FIELDS)) {
+    if (input[field] === undefined) continue;
+    const v = noLongDash(String(input[field] ?? "").trim());
+    if (v.length > max) {
+      problems.push(`${field} ארוך מדי (${v.length} תווים, עד ${max}).`);
+      continue;
+    }
+    if (field === "display_name" && !v) {
+      problems.push("שם לתצוגה אינו יכול להיות ריק.");
+      continue;
+    }
+    patch[field] = v || null;
+  }
+
+  if (input.years_experience !== undefined) {
+    const y = Number(input.years_experience);
+    if (!Number.isInteger(y) || y < 0 || y > 70) problems.push("שנות ותק צריכות להיות מספר שלם בין 0 ל-70.");
+    else patch.years_experience = y;
+  }
+
+  if (input.specialties !== undefined) {
+    const list = [...new Set((Array.isArray(input.specialties) ? input.specialties : [])
+      .map((x) => String(x)).filter((x) => PROFILE_SPECIALTIES.includes(x)))];
+    if (list.length > MAX_PROFILE_SPECIALTIES) {
+      problems.push(`עד ${MAX_PROFILE_SPECIALTIES} תחומי התמחות - יותר מזה שורת התגיות בדף נשברת.`);
+    } else {
+      patch.specialties = list.length ? list : null;
+    }
+  }
+
+  if (input.remove_cover === true) patch.cover_url = null;
+
+  if (problems.length) return { error: problems.join(" "), specialty_options: PROFILE_SPECIALTIES };
+
+  // התמונה נלקחת מהרשימה הממתינה באותה פעולה אטומית של צירוף לנכס, כדי
+  // שאותה תמונה לא תגיע גם לנכס. כמה תמונות - האחרונה נבחרת, והשאר חוזרות.
+  let taken: string[] = [];
+  const photo = input.photo === "profile" || input.photo === "cover" ? String(input.photo) : null;
+  if (photo) {
+    taken = await takePendingImages(ctx);
+    if (!taken.length) {
+      return {
+        error: "no_image",
+        detail: "לא התקבלה תמונה בשיחה. בקש/י מהסוכן/ת לשלוח תמונה עם הכיתוב " +
+          (photo === "profile" ? "\"תמונת פרופיל\"." : "\"תמונת נושא\"."),
+      };
+    }
+    const chosen = taken[taken.length - 1];
+    if (photo === "profile") {
+      patch.photo_url = chosen;
+      // נקודת המיקוד של התמונה הקודמת אינה שייכת לחדשה - חזרה למרכז.
+      patch.photo_position = null;
+    } else {
+      patch.cover_url = chosen;
+    }
+  }
+
+  if (!Object.keys(patch).length) {
+    return { error: "לא צוין מה לשנות.", hint: "אפשר לשנות שם, ביו, אזור, ותק, השכלה, תחומי התמחות ותמונות." };
+  }
+
+  patch.updated_at = new Date().toISOString();
+  const { data: saved, error } = await ctx.supabase.from("agency_members")
+    .update(patch).eq("id", ctx.agent.id).select(PROFILE_SELECT).single();
+
+  if (error || !saved) {
+    if (taken.length) await returnPendingImages(ctx, taken);
+    console.error("profile update failed", error);
+    return { error: "השמירה נכשלה. אפשר לנסות שוב, או לערוך בדשבורד תחת \"הפרופיל שלי\"." };
+  }
+  // השאר חוזרות לרשימה - אולי הן לנכס.
+  if (taken.length > 1) await returnPendingImages(ctx, taken.slice(0, -1));
+
+  const row = saved as unknown as Record<string, unknown>;
+  const notes: string[] = [];
+  // ‏`zz_agency_members_apply_text_policy` מסיר טלפון מהביו במסלול Pay&GO,
+  // בשקט. מה שנשמר הוא מה שחוזר, ואם הוא שונה ממה שנשלח - לומר למה.
+  if (typeof patch.bio === "string" && String(row.bio || "") !== patch.bio) {
+    notes.push("חלק מהביו הוסר בשמירה: במסלול Pay&GO אסור טלפון או קישור בביו, כדי שהפניות יעברו דרך האתר.");
+  }
+  if (taken.length > 1) {
+    notes.push(`נבחרה התמונה האחרונה מתוך ${taken.length}; השאר נשארו ממתינות לצירוף לנכס.`);
+  }
+
+  return {
+    ok: true,
+    changed: Object.keys(patch).filter((k) => k !== "updated_at" && k !== "photo_position"),
+    notes: notes.length ? notes : undefined,
+    missing: profileGaps(row),
+    page_url: agentPageUrl(row.slug),
+    guidance: "אשר/י במשפט אחד מה השתנה וצרף/י את page_url. אם missing אינו ריק - " +
+      "הצע/י בשורה אחת לשלוח כאן את הפריט הראשון שחסר.",
+  };
+}
+
 async function toolWhatsappAlerts(ctx: ToolContext, input: Record<string, unknown>) {
   const action = String(input.action || "get");
   const asked = (Array.isArray(input.types) ? input.types : [])
@@ -3678,6 +3907,8 @@ async function runTool(
       case "list_leads": return await toolListLeads(ctx, input);
       case "list_notifications": return await toolListNotifications(ctx, input);
       case "whatsapp_alerts": return await toolWhatsappAlerts(ctx, input);
+      case "profile_get": return await toolProfileGet(ctx);
+      case "update_profile": return await toolUpdateProfile(ctx, input);
       default: return { ok: false, error: `כלי לא מוכר: ${name}` };
     }
   } catch (err) {
@@ -3860,6 +4091,14 @@ const SYSTEM_STATIC: string = (() => {
       "הסכם חדש בדשבורד. אם requires_otp - אמור/אמרי את otp_note.",
     "- **הבוט אינו שולח ללקוח/ה**, כאן כמו בכל קישור אחר. הסוכן/ת מעביר/ה.",
     "",
+    "הפרופיל האישי (דף הסוכן/ת באתר):",
+    "- \"תשנה לי את התמונה\" + תמונה בשיחה = update_profile עם photo=profile. \"תמונת נושא\" / \"רקע\" / " +
+      "\"באנר\" = photo=cover. **תמונה עם כיתוב על פרופיל אינה תמונה לנכס** - אל תצרף/י אותה לנכס.",
+    "- לעריכת ביו קיים (\"תוסיף שאני גם שמאי\") - קודם profile_get, ואז update_profile עם הנוסח המלא. " +
+      "ביו חדש שהסוכן/ת הכתיב/ה - כמו שנאמר, בלי לייפות ובלי להמציא.",
+    "- תחומי התמחות הם רשימה סגורה (specialty_options). מה שלא בה - הצע/י את הקרוב ביותר ושאל/י.",
+    "- מספר רישיון וטלפון אינם נערכים בצ'אט - הפנה/י לדשבורד.",
+    "",
     "לידים והתראות:",
     "- שם וטלפון של ליד שטרם נפתח מגיעים מוסתרים. זה מכוון - אל תתנצל/י ואל תנסה/י " +
       "לעקוף. אמור/אמרי שהפתיחה נעשית בדשבורד וצרף/י את unlock_where.",
@@ -3878,7 +4117,7 @@ const SYSTEM_STATIC: string = (() => {
  * הסיבה שהחלוקה עובדת: ההוראות (‏~29KB) נקראות מהמטמון, ורק מאות התווים
  * האלה נשלחים במלואם.
  */
-function sessionContext(agent: AgentRow, conv: ConversationState): string {
+function sessionContext(agent: AgentRow, conv: ConversationState, gaps: string[] = []): string {
   const today = new Date().toISOString().slice(0, 10);
   const lines = [
     `הסוכן/ת: ${agent.display_name || "ללא שם"}${agent.agencies?.name ? ` · משרד ${agent.agencies.name}` : ""}.`,
@@ -3890,6 +4129,13 @@ function sessionContext(agent: AgentRow, conv: ConversationState): string {
       "",
       `יש כרגע ${conv.pending_images.length} תמונות שהתקבלו בשיחה וטרם שויכו לנכס. ` +
         "יצירת נכס חדש תצרף אותן אוטומטית; לצירוף לנכס קיים יש להשתמש ב-attach_images.",
+    );
+  }
+  if (gaps.length) {
+    lines.push(
+      "",
+      `בפרופיל האישי חסר: ${gaps.join(", ")}. אם הסוכן/ת שולח/ת עכשיו אחד מהם ` +
+        "(\"אני 12 שנה בתחום\", תמונה עם \"תמונת פרופיל\") - update_profile.",
     );
   }
   if (conv.last_property_id) {
@@ -3948,6 +4194,7 @@ export async function runAgentTurn(opts: {
 }): Promise<string> {
   const { supabase, agent, conv, userContent, userSummary } = opts;
   const ctx: ToolContext = { supabase, agent, conv };
+  const gaps = profileGaps(await loadProfile(supabase, agent.id));
 
   const messages: Anthropic.MessageParam[] = [
     ...conv.history,
@@ -3977,7 +4224,7 @@ export async function runAgentTurn(opts: {
       // החלק המשתנה יושב אחריו ולכן אינו מבטל אותו. ראו SYSTEM_STATIC.
       system: [
         { type: "text", text: SYSTEM_STATIC, cache_control: { type: "ephemeral" } },
-        { type: "text", text: sessionContext(agent, conv) },
+        { type: "text", text: sessionContext(agent, conv, gaps) },
       ],
       tools: TOOLS,
       messages,
