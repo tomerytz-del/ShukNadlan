@@ -10066,22 +10066,66 @@ function hoodCityKey(s){
   return String(s || '').trim().replace(/\s+/g, ' ').replace(/יי/g, 'י').replace(/וו/g, 'ו');
 }
 
-/* הבורר מציג את השכונות של העיר שבטופס. עיר שאין לה שכונות ברשימה (יישוב
-   בעמק, או שדה ריק) - השכונות **בשוק של המשרד**, ולא כל השכונות במערכת:
-   הנפילה ל"כל הרשימה" היא מה שהציג לסוכן/ת בעפולה את שכונות חיפה. שכונה
-   שכבר שמורה על הנכס נשארת בבורר גם אם היא מעיר אחרת, כדי שעריכה לא
-   תמחק שיוך בשקט. docs/regional-pages.md */
+/* ---------- העיר בטופס הנכס: רשימה סגורה ----------
+   ערי השוק של המשרד (cities.market_slug), ועיר המשרד ראשונה. עד כאן זה
+   היה שדה טקסט חופשי, ולכן בורר השכונה לא ידע על איזו עיר מדובר ונפל
+   לרשימה של כל השוק - כ-150 שכונות לסוכן/ת בחיפה. עכשיו העיר נבחרת
+   מהרשימה, והשכונות הן של העיר הזו בלבד.
+
+   הערך הוא **שם העיר כפי שהוא ב-cities** - בדיוק מה שהטריגר של city_id
+   מחפש, כך שנכס חדש לעולם אינו נשמר בכתיב שלא הוכר. נכס ישן שנשמר בעיר
+   שאינה ברשימה (כתיב אחר, או עיר מחוץ לשוק) מקבל את העיר שלו כאפשרות
+   נוספת, כדי שעריכה לא תחליף לו עיר בשקט. docs/regional-pages.md */
+let propCities = null;
+
+async function loadPropCities(){
+  if (propCities) return;
+  await ensureNeighborhoodsLoaded();
+  const { data } = await sb.from('cities').select('id, name, market_slug').not('market_slug', 'is', null);
+  propCities = data || [];
+}
+
+function renderCityOptions(keep){
+  const sel = document.getElementById('npCity');
+  if (!sel) return;
+  const slug = agentMarketSlug();
+  const home = hoodCityKey(window.currentAgencyCityName);
+  let names = (propCities || []).filter(c => !slug || c.market_slug === slug).map(c => c.name)
+    .sort((a, b) => (hoodCityKey(b) === home) - (hoodCityKey(a) === home) || a.localeCompare(b, 'he'));
+  const keepKey = hoodCityKey(keep);
+  const hit = keepKey ? names.find(n => hoodCityKey(n) === keepKey) : null;
+  if (keep && !hit) names = [keep, ...names];
+  sel.innerHTML = '<option value="">- בחרו עיר -</option>' +
+    names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  sel.value = hit || keep || '';
+}
+
+/* כל מי שהציב ערך בשדה העיר עובר מכאן. הצבה ישירה של `.value` בבורר
+   שאין בו האפשרות הזו מאפסת אותו לריק - בלי שגיאה. */
+function setPropertyCity(name){
+  renderCityOptions(name);
+  loadPropCities().then(() => {
+    renderCityOptions(document.getElementById('npCity').value || name);
+    populateStreetOptions('streetOptions', document.getElementById('npCity').value);
+    populateNeighborhoodSelect(document.getElementById('npNeighborhood').value);
+  }).catch(err => console.warn('property cities load failed', err));
+}
+
+/* הבורר מציג את השכונות של העיר שנבחרה, ורק אותן. עיר בלי שכונות רשומות
+   (יישוב בעמק) - בלי רשימה, ולא "כל השוק": שכונה מעיר אחרת היא שיוך שגוי.
+   לפני שנבחרה עיר - השכונות בשוק של המשרד. שכונה שכבר שמורה על הנכס
+   נשארת בבורר גם אם היא מעיר אחרת, כדי שעריכה לא תמחק שיוך בשקט. */
 async function populateNeighborhoodSelect(selectedId){
   await ensureNeighborhoodsLoaded();
   const select = document.getElementById('npNeighborhood');
   const cityKey = hoodCityKey(document.getElementById('npCity')?.value);
-  const ofCity = cityKey ? allNeighborhoods.filter(n => hoodCityKey(n.city) === cityKey) : [];
-  let list = ofCity.length ? ofCity : marketNeighborhoods();
+  let list = cityKey ? allNeighborhoods.filter(n => hoodCityKey(n.city) === cityKey) : marketNeighborhoods();
+  const none = cityKey && !list.length;
   if (selectedId && !list.some(n => n.id === selectedId)){
     const kept = allNeighborhoods.find(n => n.id === selectedId);
     if (kept) list = [kept, ...list];
   }
-  select.innerHTML = '<option value="">- לא צוין -</option>' +
+  select.innerHTML = `<option value="">${none ? '- אין שכונות רשומות בעיר -' : '- לא צוין -'}</option>` +
     list.map(n => `<option value="${esc(n.id)}">${esc(n.name)}</option>`).join('');
   select.value = selectedId || '';
 }
@@ -10224,7 +10268,7 @@ toggleBtn.addEventListener('click', ()=>{
     editingPropertyId = null;
     editingPropertyOriginalAddress = null;
     document.getElementById('addPropertyForm').reset();
-    document.getElementById('npCity').value = defaultPropertyCity();
+    setPropertyCity(defaultPropertyCity());
     populateNeighborhoodSelect('');
     document.getElementById('npStreetHint').innerHTML = '';
     ensureStreetsLoaded();
@@ -11020,7 +11064,7 @@ document.getElementById('addPropertyForm').addEventListener('submit', async (e)=
   }
 
   document.getElementById('addPropertyForm').reset();
-  document.getElementById('npCity').value = 'עפולה';
+  setPropertyCity(defaultPropertyCity());
   // ‏reset() מרוקן את שדה הרחוב אך לא את ההערה שמתחתיו
   document.getElementById('npStreetHint').innerHTML = '';
   // ‏form.reset() לא מחזיר את בורר סוכן 2 למצב "ללא": האפשרויות שלו נבנות
@@ -14117,7 +14161,7 @@ function openEditProperty(p){
   document.getElementById('npArnona').value = p.arnona ?? '';
   document.getElementById('npPriceVat').value = p.price_includes_vat === true ? 'incl' : p.price_includes_vat === false ? 'plus' : '';
   document.getElementById('npRooms').value = p.rooms || '';
-  document.getElementById('npCity').value = p.city || 'עפולה';
+  setPropertyCity(p.city || defaultPropertyCity());
   document.getElementById('npStreet').value = p.street || '';
   // אסינכרונית: הנכס נשמר בזמנו בטקסט חופשי, וההערה מתחת לשדה תגיד אם
   // הכתיב שלו עדיין עומד ברשימה — בלי לגעת בנכס עד שנשמר מחדש.
