@@ -151,14 +151,24 @@ def resolve_source(session) -> tuple[str, str | None]:
     return result["url"], result.get("last_modified") or result.get("metadata_modified")
 
 
+class SourceBlocked(RuntimeError):
+    """שרת הקבצים לא נתן את הקובץ: 401/403, או עמוד HTML (בדיקת בוטים) עם 200.
+
+    בהרצה השנייה (26.9.2026) הוא החזיר 200 עם text/html - ולכן זו אינה רק
+    שאלה של קוד סטטוס. שגיאת שרת (5xx) אינה חסימה, ולכן אינה כאן.
+    """
+
+
 def download(session, url: str) -> str:
     """מוריד לקובץ זמני ומחזיר את הנתיב. עמוד HTML במקום CSV הוא כשל."""
     fd, path = tempfile.mkstemp(suffix=".csv")
     with os.fdopen(fd, "wb") as out, session.get(url, stream=True, timeout=300) as res:
+        if res.status_code in (401, 403):
+            raise SourceBlocked(f"שרת הקבצים החזיר {res.status_code}")
         res.raise_for_status()
         ctype = res.headers.get("Content-Type", "")
         if "html" in ctype.lower():
-            raise RuntimeError(f"התקבל {ctype} במקום CSV - כנראה עמוד חסימה")
+            raise SourceBlocked(f"התקבל {ctype} במקום CSV - כנראה עמוד חסימה")
         for chunk in res.iter_content(1 << 20):
             out.write(chunk)
     log.info("הורדו %.1f MB", os.path.getsize(path) / 1e6)
@@ -287,11 +297,8 @@ def main(argv: list[str]) -> int:
     else:
         try:
             lines = open_lines(download(session, source_url))
-        except requests.HTTPError as err:
-            # רק 403/401 - חסימה. שגיאת שרת (5xx) היא תקלה, ולא סיבה לעבור מקור.
-            if err.response is None or err.response.status_code not in (401, 403):
-                raise
-            log.warning("שרת הקבצים חסם (%s) - עוברים ל-datastore_search", err.response.status_code)
+        except SourceBlocked as err:
+            log.warning("%s - עוברים ל-datastore_search", err)
             lines = datastore_lines(session)
     parcels, stats = reduce_rows(lines)
     log.info("נקראו %d שורות: %d לא מוסדרות (דולגו), %d נדחו → %d חלקות, %d מעורבות",

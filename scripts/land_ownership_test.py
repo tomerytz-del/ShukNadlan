@@ -105,4 +105,33 @@ except ValueError:
 
 check("User-Agent הוא זה של data.gov.il", L.USER_AGENT == "datagov-external-client")
 
+
+class DlRes:
+    def __init__(self, code, ctype): self.status_code = code; self.headers = {"Content-Type": ctype}
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+    def raise_for_status(self):
+        if self.status_code >= 400: raise RuntimeError(f"http {self.status_code}")
+    def iter_content(self, n): yield b"x"
+
+
+class DlSession:
+    def __init__(self, res): self.res = res
+    def get(self, url, stream=False, timeout=None): return self.res
+
+
+for code, ctype, name in [(403, "text/html", "403"), (200, "text/html; charset=utf-8", "200 עם HTML")]:
+    try:
+        L.download(DlSession(DlRes(code, ctype)), "u")
+        check(f"הורדה: {name} = חסימה", False)
+    except L.SourceBlocked:
+        check(f"הורדה: {name} = חסימה", True)
+try:
+    L.download(DlSession(DlRes(503, "text/plain")), "u")
+    check("הורדה: 503 אינו חסימה", False)
+except L.SourceBlocked:
+    check("הורדה: 503 אינו חסימה", False)
+except RuntimeError:
+    check("הורדה: 503 אינו חסימה", True)
+
 sys.exit(1 if failures else 0)
