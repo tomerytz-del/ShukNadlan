@@ -1,6 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
+import { DEFAULT_RESOURCE_ID, fetchAllRows, streetsByCity } from "./gov.ts";
 
 // ============================================================================
 // רשימת הרחובות של עפולה — סנכרון משכבת הכתובות של העירייה
@@ -32,6 +33,13 @@ import { authorizeInternalCaller } from "../_shared/cron-auth.ts";
 // אותו היגיון גם בכיוון השני: ‏absorb מסרבת לרשימה קצרה מדי (‏p_min_names).
 // לעפולה יש מאות רחובות, ותשובה עם 30 שמות היא תקלה בשכבה ולא עיר
 // שהתכווצה.
+//
+// ## מקור שני: data.gov.il (‏body: {"source":"gov"})
+//
+// לכל עיר בשווקים (cities.market_slug) - המאגר "רשימת רחובות בישראל" של
+// רשות האוכלוסין. ‏cron נפרד (street-registry-sync-gov), ואותו כלל: הורדה
+// חלקית אינה סנכרון. עפולה מדולגת (יש לה gis). ‏gov.ts, והמיגרציה
+// ‏20270114093000_street_registry_gov.sql.
 // ============================================================================
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
@@ -86,11 +94,57 @@ async function wfsPage(startIndex: number): Promise<{ features: unknown[] }> {
   return data;
 }
 
+// ‏סבב gov: כל הערים בשווקים, מהמאגר של רשות האוכלוסין. הורדה אחת לכל
+// הערים; כישלון בהורדה - אף עיר לא נקלטת. כישלון בקליטה של עיר אחת נרשם
+// לעיר הזו, והשאר ממשיכות.
+async function syncGov(supabase: ReturnType<typeof createClient>): Promise<Response> {
+  const startedAt = Date.now();
+  try {
+    const { data: cities, error: cErr } = await supabase
+      .from("cities").select("name").not("market_slug", "is", null);
+    if (cErr) throw new Error("cities: " + cErr.message);
+    const names = (cities || []).map((c: { name: string }) => c.name);
+    if (!names.length) throw new Error("no market cities");
+
+    const resourceId = Deno.env.get("STREETS_RESOURCE_ID") || DEFAULT_RESOURCE_ID;
+    const rows = await fetchAllRows(fetch, resourceId, startedAt + 110_000);
+    const byCity = streetsByCity(rows, names);
+
+    const results: unknown[] = [];
+    for (const [city, streets] of byCity) {
+      const { data, error } = await supabase.rpc("street_registry_absorb_gov", {
+        p_city: city, p_names: streets,
+      });
+      if (error) {
+        await supabase.rpc("street_registry_sync_failed_source", {
+          p_city: city, p_error: "absorb: " + error.message, p_source: "gov",
+        });
+        results.push({ city, error: error.message });
+      } else {
+        results.push(data);
+      }
+    }
+    return json({ ok: true, source: "gov", rows: rows.length, cities: results });
+  } catch (err) {
+    const detail = String((err && (err as Error).message) || err);
+    const { error: logError } = await supabase.rpc("street_registry_sync_failed_source", {
+      p_city: "*", p_error: detail, p_source: "gov",
+    });
+    if (logError) console.error("could not record gov sync failure:", logError.message);
+    console.error("street-registry-sync (gov) failed:", detail);
+    return json({ ok: false, source: "gov", error: "sync_failed", detail }, 500);
+  }
+}
+
 Deno.serve(async (req: Request) => {
   const auth = authorizeInternalCaller(req);
   if (!auth.ok) return json({ error: auth.error, detail: auth.detail }, auth.status);
 
   const supabase = createClient(supabaseUrl, serviceRoleKey);
+  // בלי גוף, או כל מקור אחר - הסנכרון המקורי של עפולה, כמו עד היום.
+  const body = await req.json().catch(() => ({})) as { source?: string };
+  if (body && body.source === "gov") return await syncGov(supabase);
+
   const startedAt = Date.now();
   const names = new Set<string>();
   let pages = 0;
