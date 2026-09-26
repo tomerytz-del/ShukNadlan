@@ -2,7 +2,13 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import type Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import { downloadMedia, formatForWhatsapp, markReadAndTyping, sendText, verifySignature } from "./whatsapp.ts";
-import { type AgentRow, type ConversationState, runAgentTurn } from "./agent.ts";
+import {
+  type AgentRow,
+  type ConversationState,
+  loadProfile,
+  profileGaps,
+  runAgentTurn,
+} from "./agent.ts";
 import { type PublicConversationState, runPublicTurn } from "./public-agent.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
 
@@ -486,7 +492,8 @@ async function flushImageBatch(
   await reply(
     from,
     `📸 קיבלתי ${what}. לאיזה נכס לצרף? אפשר לכתוב כתובת או מספר מודעה, ` +
-      "או לכתוב את פרטי נכס חדש (סוג, עסקה ומחיר) ואפתח אותו עם התמונות.",
+      "או לכתוב את פרטי נכס חדש (סוג, עסקה ומחיר) ואפתח אותו עם התמונות. " +
+      "תמונה שלך? כתוב/כתבי \"תמונת פרופיל\" או \"תמונת נושא\".",
     agentId,
   );
 }
@@ -678,7 +685,29 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   }
 
   await saveConversation(agent.id, from, conv);
-  await reply(from, answer, agent.id);
+  await reply(from, answer + (await profileNudge(agent.id, conv)), agent.id);
+}
+
+/**
+ * שורת תזכורת על פרופיל חסר, או מחרוזת ריקה.
+ *
+ * נכתבת בקוד ולא מבוקשת מהמודל: הוראה בפרומפט הייתה חוזרת בכל תשובה או
+ * נשכחת, ואין דרך לדעת איזה מהשניים. כאן יש תקרה - פעם בשבוע
+ * (‏`whatsapp_profile_nudge_claim`, אטומית) - ואין תזכורת בתור שבו הסוכן/ת
+ * כבר עוסק/ת בפרופיל. הקריאה מחדש של הפרופיל היא **אחרי** התור, כדי שמה
+ * שנשלח בו עצמו לא יוזכר כחסר.
+ */
+async function profileNudge(agentId: string, conv: ConversationState): Promise<string> {
+  if (conv.profile_touched) return "";
+  const gaps = profileGaps(await loadProfile(supabase, agentId));
+  if (!gaps.length) return "";
+  const { data: ok, error } = await supabase.rpc("whatsapp_profile_nudge_claim", { p_agent_id: agentId });
+  if (error || !ok) return "";
+  const example = gaps[0] === "תמונת פרופיל"
+    ? "למשל תמונה שלך עם הכיתוב \"תמונת פרופיל\""
+    : "למשל \"אני 12 שנה בתחום, מתמחה במגורים בעפולה\"";
+  return `\n\n💡 בדף הסוכן/ת שלך באתר עדיין חסר: ${gaps.join(", ")}. ` +
+    `אפשר פשוט לשלוח לי את זה כאן - ${example}.`;
 }
 
 /**
