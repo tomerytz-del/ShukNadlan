@@ -596,6 +596,27 @@
   var doc = root.document;
   var MOBILE_MQ = '(max-width:759px)';
 
+  /* ---------- כתובת שהדף כתב, מול כתובת שהגיעה מבחוץ ----------
+     הכתובת מתעדכנת עם כל בחירה (כדי שאפשר יהיה לשתף חיפוש), ולכן לשונית
+     שנשארה פתוחה, רענון או לשונית ששוחזרה נוחתים על ‎?deal=sale‎ - והדף
+     נפתח כאילו כבר נבחר "לקנות": "הצג 36 נכסים" במקום כל הנכסים, ובמשפט
+     מילה מתחלפת שאינה תואמת את המונה. זו לא כוונה של הגולש/ת אלא שארית.
+
+     ההבחנה: כל כתובת שהדף כותב נשמרת ב-sessionStorage של הלשונית. כניסה
+     לכתובת שזהה לה - מתחילה נקייה. כתובת שלא הדף כתב בלשונית הזו (עמוד
+     חיפוש פופולרי, קישור ששותף, תוצאה מגוגל) - היא חיפוש, ומוחלת. */
+  var OWN_URL_KEY = 'shuk_ss_own_qs';
+
+  /* ‏?deal=sale / ?deal=rent לבד: מה שהגרסאות הראשונות של החיפוש במשפט
+     כתבו לכתובת לפני שהסימון שלמעלה היה קיים. אף עמוד חיפוש פופולרי ואף
+     קישור אינו נראה כך, ולכן גם הוא נחשב שארית. */
+  function isOwnUrl(search) {
+    var qs = String(search || '').replace(/^\?/, '');
+    if (!qs) return false;
+    if (/^deal=(sale|rent)$/.test(qs)) return true;
+    try { return root.sessionStorage.getItem(OWN_URL_KEY) === qs; } catch (e) { return false; }
+  }
+
   function el(tag, cls, text) {
     var n = doc.createElement(tag);
     if (cls) n.className = cls;
@@ -666,15 +687,18 @@
       return null;
     }
 
-    /* ערך שהגיע מהכתובת (‎?deal=sale‎ אחרי רענון, עמוד חיפוש פופולרי, קישור
-       ששותף) **אינו** נחשב נבחר: בכל כניסה לדף המילה הראשונה במשפט היא זו
-       שמתחלפת - רק מה שנבחר בביקור הזה מקדם את "המילה הבאה". כשלמילה
-       המתחלפת כבר יש ערך, החילוף מתחיל ממנו (ראו renderSentence), כך
-       שהמשפט והמונה אומרים את אותו דבר ברגע הכניסה. */
-    function presetLabel(slot, value) {
+    /* ערך שהגיע מקישור אמיתי (עמוד חיפוש פופולרי, קישור ששותף) הוא בחירה:
+       הוא מוצג קבוע, והמילה המתחלפת היא הראשונה שעוד לא נבחרה. כתובת שהדף
+       עצמו כתב אינה מגיעה לכאן בכלל - היא מתחילה נקייה (‏isOwnUrl), ולכן
+       בכניסה רגילה המילה הראשונה היא זו שמתחלפת. מילה מתחלפת שיש לה ערך
+       שמסנן הייתה מראה "לשכור" מעל מונה של נכסי מכירה. */
+    function touchNonDefault() {
       var d = defaultState();
-      var key = slot === 'price' ? 'priceMax' : slot;
-      return JSON.stringify(st[key]) !== JSON.stringify(d[key]) ? value : null;
+      if (st.deal !== d.deal) touched.deal = true;
+      if (st.type !== d.type) touched.type = true;
+      if (st.area !== d.area) touched.area = true;
+      if (st.rooms) touched.rooms = true;
+      if (st.priceMax !== null && st.priceMax !== undefined) touched.price = true;
     }
 
     /* ---------- ציור ---------- */
@@ -688,8 +712,6 @@
         if (s.pre) seg.appendChild(el('span', 'ss-pre', s.pre));
         var isNext = s.slot === hint && !active;
         var labels = isNext && loaded && !noMotion() ? rollLabels(s.slot, st, props, ctx, areas) : [];
-        var preset = isNext ? presetLabel(s.slot, s.value) : null;
-        if (preset && labels.length) labels = [preset].concat(labels.filter(function (l) { return l !== preset; }));
         var b;
         if (labels.length >= 2) {
           /* כל התוויות באותו תא של grid: ה-slot מקבל את רוחב הארוכה שבהן,
@@ -791,6 +813,9 @@
         var qs = toParams(st, areas, ctx);
         url.search = qs ? '?' + qs : '';
         root.history.replaceState(root.history.state, '', url);
+        /* הכתובת שהדף כתב בעצמו נרשמת בלשונית, כדי שכניסה הבאה אליה (רענון,
+           לשונית ששוחזרה) תתחיל נקייה ולא כחיפוש - ראו OWN_URL_KEY. */
+        try { root.sessionStorage.setItem(OWN_URL_KEY, qs); } catch (e2) { /* חסום - לא נורא */ }
       } catch (e) { /* דפדפן שחוסם היסטוריה - החיפוש עדיין עובד */ }
     }
 
@@ -1085,6 +1110,7 @@
       setFromParams: function (params) {
         st = fromParams(params);
         if (loaded) st = resolveArea(st, areas);
+        touchNonDefault();
         render();
       },
       setAi: function (on) { change({ ai: !!on }, 'ai'); },
@@ -1131,5 +1157,5 @@
     };
   }
 
-  root.SentenceSearch = { Core: Core, mount: mount };
+  root.SentenceSearch = { Core: Core, mount: mount, isOwnUrl: isOwnUrl };
 })(typeof window !== 'undefined' ? window : globalThis);

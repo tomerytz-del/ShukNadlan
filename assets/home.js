@@ -5803,7 +5803,16 @@ function initSentenceDock(){
   // ‏?deal=sale&rooms=4 וחבריו - עמודי החיפוש הפופולרי וכל קישור ששותף
   const params = new URLSearchParams(location.search);
   const known = ['deal', 'ptype', 'type', 'rooms', 'minPrice', 'maxPrice', 'q', 'ai'];
-  if (known.some(k => params.has(k))){
+  /* כתובת שהחיפוש כתב בעצמו (רענון, לשונית ששוחזרה) מתחילה נקייה: כל
+     הנכסים, והמילה הראשונה מתחלפת. הפרמטרים יורדים גם מהכתובת, כדי שמה
+     שבשורת הכתובת יתאים למה שעל המסך. ‏SentenceSearch.isOwnUrl. */
+  if (SentenceSearch.isOwnUrl && SentenceSearch.isOwnUrl(location.search)){
+    try {
+      const url = new URL(location.href);
+      known.forEach(k => url.searchParams.delete(k));
+      history.replaceState(history.state, '', url);
+    } catch(e){ /* דפדפן שחוסם היסטוריה - הדף עדיין נפתח נקי */ }
+  } else if (known.some(k => params.has(k))){
     sentence.setFromParams(params);
     /* הרשימה המסוננת מגיעה כשהנכסים נטענים (‏setProperties → onChange עם
        'load'), ואז נפתחות גם השורות והתצוגה המפוצלת - כמו בחיפוש */

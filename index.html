@@ -657,12 +657,23 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .ss-shell.search-shell::before{display:none}
     /* כרטיס לבן, כמו בדסקטופ, בשקיפות קלה: בלעדיו המשפט ישב על אותו רקע
        תכלת של הכותרת ונקרא כהמשך שלה ולא כשורת חיפוש. */
+    /* והכרטיס נמס אל המפה שמתחתיו: הלבן יורד בשקיפות לאורך הכרטיס,
+       ופס של 34px מתחתיו (‏::after) ממשיך את הדעיכה עד שקוף, מעל ראש
+       המפה. בלי קו תחתון ובלי צל - הקו היה מפריד בדיוק במקום שבו המשפט
+       והמפה אמורים להיקרא כיחידה אחת ("אני רוצה…" ← מה שרואים על המפה). */
     .ss-card{
-      background:rgba(255,255,255,.88);border-top:3px solid var(--ss-gold);
-      box-shadow:0 18px 36px -24px rgba(22,41,107,.55);
+      position:relative;z-index:3;
+      background:linear-gradient(180deg, rgba(255,255,255,.94) 0%, rgba(255,255,255,.9) 55%, rgba(255,255,255,.74) 100%);
+      border-top:3px solid var(--ss-gold);box-shadow:none;
       -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
-      padding:0 12px 12px;
+      padding:0 12px 6px;
     }
+    .ss-card::after{
+      content:"";position:absolute;inset-inline:0;top:100%;height:34px;pointer-events:none;
+      background:linear-gradient(180deg, rgba(255,255,255,.74), rgba(255,255,255,0));
+    }
+    /* המפה עולה אל מתחת לדעיכה, כך שהפס נפרש מעליה ולא מעל רקע ריק */
+    .hero.map-peek .ss-shell{margin-bottom:-34px;position:relative;z-index:3}
     .ss-sentence{padding:12px 2px 12px;gap:4px 7px;font-size:clamp(1.35rem,6.7vw,1.625rem);line-height:1.45}
     .ss-seg{gap:7px}
     .ss-seg.is-tight{gap:1px}
@@ -697,7 +708,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     }
     .ss-card .ss-picker-close{display:inline-block}
     .ss-card .ss-options{grid-template-columns:repeat(2,minmax(0,1fr))}
-    .ss-tools{padding:8px 2px 0;justify-content:center}
+    /* ‏"סינון מתקדם" נצמד לשמאל (סוף השורה ב-RTL), בחלק הדועך של הכרטיס */
+    .ss-tools{padding:6px 4px 0;justify-content:flex-end}
     .ss-smart + .ss-tools{border-top:0}
     /* ‏minmax(0,1fr) ולא 1fr: אפשרות ארוכה עם nowrap הייתה מרחיבה את העמודה
        שלה אל מחוץ למסך. אפשרות ארוכה ("מערב העיר (שיכון גאולים)") תופסת את
