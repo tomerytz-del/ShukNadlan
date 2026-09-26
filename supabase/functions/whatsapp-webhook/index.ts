@@ -232,11 +232,14 @@ async function saveConversation(
   phone: string,
   conv: ConversationState,
 ): Promise<void> {
+  // ‏**בלי `pending_images`.** הרשימה משתנה רק דרך הפונקציות האטומיות
+  // (‏`whatsapp_pending_image_add` / `_take`, מיגרציה 20270115095000). כתיבה
+  // שלה מכאן היא מה שאיבד תמונות: אלבום מגיע כבקשות מקבילות, וכל אחת כתבה
+  // את הרשימה שקראה - בלי התמונות שהמקבילות הוסיפו בינתיים.
   const { error } = await supabase.from("whatsapp_conversations").upsert({
     agent_id: agentId,
     wa_phone: phone,
     history: conv.history,
-    pending_images: conv.pending_images,
     last_property_id: conv.last_property_id,
     last_client_id: conv.last_client_id,
     last_message_at: new Date().toISOString(),
@@ -421,6 +424,73 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
 // ---------------------------------------------------------------------------
 // טיפול בהודעה בודדת
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// אלבומים
+// ---------------------------------------------------------------------------
+
+// חלון ההמתנה לתמונות נוספות באותו אלבום. בנתונים (24 אלבומים, 20-26.9) הפער
+// בין תמונה לתמונה באלבום היה עד שנייה, ואלבום של 17 תמונות נפרש על 6 שניות -
+// אבל כל תמונה פותחת חלון משלה, כך שהחלון נמדד מהאחרונה ולא מהראשונה.
+const IMAGE_BATCH_WAIT_MS = 5000;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function freshPendingImages(agentId: string): Promise<string[]> {
+  const { data } = await supabase.from("whatsapp_conversations")
+    .select("pending_images").eq("agent_id", agentId).maybeSingle();
+  return (data?.pending_images as string[]) || [];
+}
+
+/**
+ * התמונה האחרונה באלבום: צירוף לנכס הפעיל בשיחה, או שאלה לאיזה נכס.
+ *
+ * ‏**אף פעם לא שתיקה.** עד כאן, בלי נכס פעיל, התמונות נשמרו בצד בלי מילה
+ * (7 תמונות ב-20.9 לא קיבלו שום תשובה), והסוכן/ת לא ידע/ה אם הן הגיעו.
+ */
+async function flushImageBatch(
+  agentId: string,
+  from: string,
+  conv: ConversationState,
+  count: number,
+): Promise<void> {
+  const what = count === 1 ? "תמונה אחת" : `${count} תמונות`;
+
+  if (conv.last_property_id) {
+    const { data: property } = await supabase.from("properties")
+      .select("id, title").eq("id", conv.last_property_id).eq("agent_id", agentId).maybeSingle();
+
+    if (property) {
+      const { data: taken } = await supabase.rpc("whatsapp_pending_images_take", { p_agent_id: agentId });
+      const urls = (taken as string[]) || [];
+      if (!urls.length) return; // טקסט מקביל כבר לקח אותן, והוא עונה עליהן
+      const { data: total, error } = await supabase.rpc("property_images_append", {
+        p_property_id: property.id, p_agent_id: agentId, p_urls: urls,
+      });
+      if (error || total == null) {
+        console.error("property images append failed", error);
+        // ההחזרה לרשימה: עדיף שיישארו ממתינות מאשר ייעלמו
+        for (const u of urls) {
+          await supabase.rpc("whatsapp_pending_image_add", { p_agent_id: agentId, p_phone: from, p_url: u });
+        }
+        await reply(from, `לא הצלחתי לצרף את התמונות ל"${property.title}". הן שמורות בצד - אפשר לכתוב לאיזה נכס לצרף.`, agentId);
+        return;
+      }
+      const added = urls.length === 1 ? "נוספה תמונה אחת" : `נוספו ${urls.length} תמונות`;
+      await reply(from, `📸 ${added} ל"${property.title}" (${total} בסך הכול).`, agentId);
+      return;
+    }
+  }
+
+  await reply(
+    from,
+    `📸 קיבלתי ${what}. לאיזה נכס לצרף? אפשר לכתוב כתובת או מספר מודעה, ` +
+      "או לכתוב את פרטי נכס חדש (סוג, עסקה ומחיר) ואפתח אותו עם התמונות.",
+    agentId,
+  );
+}
+
 async function handleMessage(msg: Record<string, any>): Promise<void> {
   const from: string = msg.from;
   if (!from || !msg.id) return;
@@ -481,6 +551,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   const content: Anthropic.ContentBlockParam[] = [];
   let userText = "";
   let newImageUrl: string | null = null;
+  let imagePosition = 0;   // מיקום התמונה ברשימת הממתינות, אחרי ההוספה
 
   switch (msg.type) {
     case "text":
@@ -497,7 +568,16 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
         await reply(from, "לא הצלחתי לשמור את התמונה. אפשר לנסות לשלוח אותה שוב?", agent.id);
         return;
       }
-      conv.pending_images = [...conv.pending_images, newImageUrl];
+      // הוספה אטומית: בקשות מקבילות של אותו אלבום אינן דורסות זו את זו.
+      const { data: pos, error: addErr } = await supabase.rpc("whatsapp_pending_image_add", {
+        p_agent_id: agent.id, p_phone: from, p_url: newImageUrl,
+      });
+      if (addErr) {
+        console.error("pending image add failed", addErr);
+        await reply(from, "לא הצלחתי לשמור את התמונה. אפשר לנסות לשלוח אותה שוב?", agent.id);
+        return;
+      }
+      imagePosition = Number(pos) || 0;
       userText = msg.image?.caption || "";
       break;
     }
@@ -544,33 +624,26 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       return;
   }
 
-  // תמונה בלי כיתוב: וואטסאפ שולחת אלבום כהודעות נפרדות, והכיתוב מגיע רק על
-  // אחת מהן. הרצת ה-LLM על כל תמונה בנפרד הייתה מייצרת נכס כפול והצפת תשובות.
-  // לכן: אם יש נכס פעיל בשיחה — מצרפים אליו מיד; אחרת שומרים בצד בשקט
-  // וממתינים להודעת הטקסט שתגיע איתן.
-  if (newImageUrl && !userText.trim()) {
-    if (conv.last_property_id) {
-      const { data: property } = await supabase
-        .from("properties")
-        .select("id, title, images")
-        .eq("id", conv.last_property_id)
-        .eq("agent_id", agent.id)
-        .maybeSingle();
+  // ‏**אלבום = כמה בקשות מקבילות.** וואטסאפ שולחת כל תמונה כהודעה נפרדת,
+  // והכיתוב מגיע רק על אחת מהן. כל תמונה ממתינה חלון קצר; בסופו רק האחרונה
+  // (זו שהמיקום שלה עדיין אחרון ברשימה) עונה - תשובה אחת לאלבום, במקום
+  // תשובה לכל תמונה שהובילה לחסימה של Meta (131056). ‏docs/whatsapp-setup.md.
+  if (newImageUrl) {
+    await sleep(IMAGE_BATCH_WAIT_MS);
+    const { data: nowCount } = await supabase.rpc("whatsapp_pending_image_count", {
+      p_agent_id: agent.id,
+    });
+    const isLast = Number(nowCount) === imagePosition;
 
-      if (property) {
-        const merged = [...(property.images || []), ...conv.pending_images];
-        await supabase.from("properties")
-          .update({ images: merged, updated_at: new Date().toISOString() })
-          .eq("id", property.id)
-          .eq("agent_id", agent.id);
-        conv.pending_images = [];
-        await saveConversation(agent.id, from, conv);
-        await reply(from, `📸 התמונה נוספה ל"${property.title}".`, agent.id);
-        return;
-      }
+    if (!userText.trim()) {
+      // לא האחרונה: תמונה מאוחרת יותר, או טקסט שכבר לקח אותן - הן יטופלו שם.
+      if (!isLast) return;
+      await flushImageBatch(agent.id, from, conv, imagePosition);
+      return;
     }
-    await saveConversation(agent.id, from, conv);
-    return; // ממתינים לטקסט המלווה, בלי להציף את הסוכן/ת בתשובות
+    // תמונה עם כיתוב: המודל מקבל את הרשימה המעודכנת, כולל תמונות שהגיעו
+    // אחריה באותו אלבום.
+    conv.pending_images = await freshPendingImages(agent.id);
   }
 
   if (!userText.trim()) {
