@@ -383,6 +383,7 @@ select public.properties_backfill_city_id(500);  -- חוזרים עד שמחזי
 | ‏`agencies.city_id`, פענוח הכתובת וה-backfill | `supabase/migrations/20261212090000_agencies_city_id.sql` |
 | ‏`neighborhoods.city_id`, הטריגר וההשלמה | `supabase/migrations/20261212093000_neighborhoods_city_id.sql` |
 | שיוך שכונה מהפין ואזורי תכנון | `supabase/migrations/20261212099000_neighborhood_from_point.sql` |
+| שיוך שכונה אוטומטי בשמירה, וההשלמה למפרע | `supabase/migrations/20270115092000_property_neighborhood_autofill.sql` |
 
 קשור: [geocoding.md](geocoding.md) · [street-registry.md](street-registry.md) ·
 [neighborhood-assignment.md](neighborhood-assignment.md) ·
