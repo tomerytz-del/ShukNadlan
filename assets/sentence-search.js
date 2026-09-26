@@ -851,7 +851,9 @@
       active = null;
       keyboardOpen = false;
       change(patch, 'slot');
-      track('search_slot_select', { slot: slot, value: slot === 'area' ? (value === 'all' ? 'all' : 'area') : String(value) });
+      /* ‏option ולא value: ‏value שמור ב-GA4 לערך כספי (המרות). מפתח של
+         אפשרות ולא טקסט - שם שכונה נשלח כ-'area' בלבד. */
+      track('search_slot_select', { slot: slot, option: slot === 'area' ? (value === 'all' ? 'all' : 'area') : String(value) });
       if (wasKeyboard) {
         var b = sentenceEl.querySelector('[data-slot="' + (hintSlot() || slot) + '"]');
         if (b) b.focus();
@@ -923,7 +925,7 @@
       keyboardOpen = false;
       render();
       var list = results();
-      track('search_submit', { count: list.length });
+      track('search_submit', { result_count: list.length });
       if (typeof opts.onSubmit === 'function') opts.onSubmit(list, st);
     }
 
