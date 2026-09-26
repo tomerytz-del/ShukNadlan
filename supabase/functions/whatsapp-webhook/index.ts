@@ -434,10 +434,11 @@ async function handlePublicMessage(msg: Record<string, any>): Promise<void> {
 // אלבומים
 // ---------------------------------------------------------------------------
 
-// חלון ההמתנה לתמונות נוספות באותו אלבום. בנתונים (24 אלבומים, 20-26.9) הפער
-// בין תמונה לתמונה באלבום היה עד שנייה, ואלבום של 17 תמונות נפרש על 6 שניות -
-// אבל כל תמונה פותחת חלון משלה, כך שהחלון נמדד מהאחרונה ולא מהראשונה.
-const IMAGE_BATCH_WAIT_MS = 5000;
+// חלון השקט שאחריו רצף הודעות נחשב גמור. נמדד (30 יום): 190 הודעות הגיעו
+// 0-4 שניות אחרי הקודמת - אלבומים ומודעות מועברות - **אף אחת** בין 4 ל-5,
+// ומשם רק הקלדה ידנית. כל הודעה פותחת חלון משלה, כך שהחלון נמדד מהאחרונה.
+// מיגרציה 20270115099000.
+const BURST_WAIT_MS = 4000;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -558,7 +559,6 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   const content: Anthropic.ContentBlockParam[] = [];
   let userText = "";
   let newImageUrl: string | null = null;
-  let imagePosition = 0;   // מיקום התמונה ברשימת הממתינות, אחרי ההוספה
 
   switch (msg.type) {
     case "text":
@@ -575,16 +575,6 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
         await reply(from, "לא הצלחתי לשמור את התמונה. אפשר לנסות לשלוח אותה שוב?", agent.id);
         return;
       }
-      // הוספה אטומית: בקשות מקבילות של אותו אלבום אינן דורסות זו את זו.
-      const { data: pos, error: addErr } = await supabase.rpc("whatsapp_pending_image_add", {
-        p_agent_id: agent.id, p_phone: from, p_url: newImageUrl,
-      });
-      if (addErr) {
-        console.error("pending image add failed", addErr);
-        await reply(from, "לא הצלחתי לשמור את התמונה. אפשר לנסות לשלוח אותה שוב?", agent.id);
-        return;
-      }
-      imagePosition = Number(pos) || 0;
       userText = msg.image?.caption || "";
       break;
     }
@@ -622,6 +612,13 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       userText = msg.button?.text || "";
       break;
 
+    // ‏Meta שולחת הודעה מסוג unsupported לפני כל אלבום (24 מתוך 24 ב-30 יום,
+    // כולן תוך 10 שניות מתמונה). התשובה "אני יודע לקבל טקסט, תמונות..." הגיעה
+    // בדיוק כשהסוכן/ת שלח/ה תמונות - נשמעה כמו סירוב, והוסיפה הודעה לספירה
+    // של הגבלת הקצב (131056). ההודעה כבר רשומה ב-whatsapp_messages.
+    case "unsupported":
+      return;
+
     default:
       await reply(
         from,
@@ -631,26 +628,43 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
       return;
   }
 
-  // ‏**אלבום = כמה בקשות מקבילות.** וואטסאפ שולחת כל תמונה כהודעה נפרדת,
-  // והכיתוב מגיע רק על אחת מהן. כל תמונה ממתינה חלון קצר; בסופו רק האחרונה
-  // (זו שהמיקום שלה עדיין אחרון ברשימה) עונה - תשובה אחת לאלבום, במקום
-  // תשובה לכל תמונה שהובילה לחסימה של Meta (131056). ‏docs/whatsapp-setup.md.
-  if (newImageUrl) {
-    await sleep(IMAGE_BATCH_WAIT_MS);
-    const { data: nowCount } = await supabase.rpc("whatsapp_pending_image_count", {
-      p_agent_id: agent.id,
-    });
-    const isLast = Number(nowCount) === imagePosition;
-
-    if (!userText.trim()) {
-      // לא האחרונה: תמונה מאוחרת יותר, או טקסט שכבר לקח אותן - הן יטופלו שם.
-      if (!isLast) return;
-      await flushImageBatch(agent.id, from, conv, imagePosition);
+  // ‏**רצף = כמה בקשות מקבילות.** אלבום מגיע כתמונה להודעה, ומודעה מועברת
+  // כתיאור, תמונות ו"מחיר X תפרסם" בהודעות נפרדות. כל הודעה מוסיפה את עצמה
+  // לרצף וממתינה; בסוף החלון רק האחרונה (זו שהמספר שלה עדיין האחרון) מריצה
+  // תור אחד על כל מה שנאסף. בלי זה כל טקסט הריץ תור משלו, והתשובות סתרו זו
+  // את זו (22.9: "רק חסר מחיר" ו"חסר לי סוג הנכס" באותה שנייה).
+  // ‏docs/whatsapp-setup.md, מיגרציות 20270115095000 ו-20270115099000.
+  const { data: mySeq, error: burstErr } = await supabase.rpc("whatsapp_burst_add", {
+    p_agent_id: agent.id, p_phone: from, p_text: userText, p_image_url: newImageUrl,
+  });
+  if (burstErr) {
+    console.error("burst add failed", burstErr);
+    if (newImageUrl) {
+      await reply(from, "לא הצלחתי לשמור את התמונה. אפשר לנסות לשלוח אותה שוב?", agent.id);
       return;
     }
-    // תמונה עם כיתוב: המודל מקבל את הרשימה המעודכנת, כולל תמונות שהגיעו
-    // אחריה באותו אלבום.
+    // טקסט בלי רצף: עדיף לענות עליו לבד מאשר לא לענות.
+  } else {
+    await sleep(BURST_WAIT_MS);
+    const { data: nowSeq } = await supabase.rpc("whatsapp_burst_seq", { p_agent_id: agent.id });
+    if (Number(nowSeq) !== Number(mySeq)) return; // הודעה מאוחרת יותר עונה על כל הרצף
+
+    // השיחה נטענה לפני ההמתנה. תור קודם שהסתיים בינתיים כבר שמר היסטוריה,
+    // ונכס שנוצר בו הוא "הנכס האחרון" - בלי טעינה מחדש, השמירה שלנו דורסת אותם.
+    Object.assign(conv, await loadConversation(agent.id, from));
+    const { data: texts } = await supabase.rpc("whatsapp_pending_texts_take", { p_agent_id: agent.id });
+    userText = ((texts as string[]) || []).join("\n");
     conv.pending_images = await freshPendingImages(agent.id);
+
+    if (!userText.trim()) {
+      // רצף של תמונות בלבד: צירוף לנכס הפעיל, או שאלה לאיזה נכס.
+      if (conv.pending_images.length) {
+        await flushImageBatch(agent.id, from, conv, conv.pending_images.length);
+      }
+      return;
+    }
+    // התמונה שהמודל רואה: האחרונה ברצף (קודם - התמונה של ההודעה הנוכחית).
+    newImageUrl = conv.pending_images[conv.pending_images.length - 1] || null;
   }
 
   if (!userText.trim()) {
