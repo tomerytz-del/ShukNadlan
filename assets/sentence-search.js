@@ -666,15 +666,15 @@
       return null;
     }
 
-    /* מה שכבר שונה מברירת המחדל נחשב נבחר: קישור עמוק (‎?deal=sale&rooms=4‎)
-       או טקסט חופשי לא מתחילים מ"המילה הבאה" שכבר נבחרה. */
-    function touchNonDefault() {
+    /* ערך שהגיע מהכתובת (‎?deal=sale‎ אחרי רענון, עמוד חיפוש פופולרי, קישור
+       ששותף) **אינו** נחשב נבחר: בכל כניסה לדף המילה הראשונה במשפט היא זו
+       שמתחלפת - רק מה שנבחר בביקור הזה מקדם את "המילה הבאה". כשלמילה
+       המתחלפת כבר יש ערך, החילוף מתחיל ממנו (ראו renderSentence), כך
+       שהמשפט והמונה אומרים את אותו דבר ברגע הכניסה. */
+    function presetLabel(slot, value) {
       var d = defaultState();
-      if (st.deal !== d.deal) touched.deal = true;
-      if (st.type !== d.type) touched.type = true;
-      if (st.area !== d.area) touched.area = true;
-      if (st.rooms) touched.rooms = true;
-      if (st.priceMax !== null && st.priceMax !== undefined) touched.price = true;
+      var key = slot === 'price' ? 'priceMax' : slot;
+      return JSON.stringify(st[key]) !== JSON.stringify(d[key]) ? value : null;
     }
 
     /* ---------- ציור ---------- */
@@ -688,6 +688,8 @@
         if (s.pre) seg.appendChild(el('span', 'ss-pre', s.pre));
         var isNext = s.slot === hint && !active;
         var labels = isNext && loaded && !noMotion() ? rollLabels(s.slot, st, props, ctx, areas) : [];
+        var preset = isNext ? presetLabel(s.slot, s.value) : null;
+        if (preset && labels.length) labels = [preset].concat(labels.filter(function (l) { return l !== preset; }));
         var b;
         if (labels.length >= 2) {
           /* כל התוויות באותו תא של grid: ה-slot מקבל את רוחב הארוכה שבהן,
@@ -1003,11 +1005,26 @@
             rec.onresult = function (ev) {
               var said = ev.results && ev.results[0] && ev.results[0][0] ? ev.results[0][0].transcript : '';
               if (said) { input.value = said; runParse(); }
+              else if (noteEl) noteEl.textContent = '';
             };
-            rec.onend = rec.onerror = function () {
+            var stop = function () {
               micBtn.classList.remove('is-listening');
               micBtn.setAttribute('aria-pressed', 'false');
             };
+            rec.onend = stop;
+            /* כשל שקט הוא בדיוק מה שקרה כאן (‏microphone=() ב-_headers): הכפתור
+               נלחץ ולא קרה דבר. עכשיו כל כשל אומר מה קרה. */
+            rec.onerror = function (ev) {
+              stop();
+              var code = ev && ev.error;
+              if (noteEl) noteEl.textContent =
+                code === 'not-allowed' || code === 'service-not-allowed'
+                  ? 'אין הרשאה למיקרופון. אפשר לאשר אותה בהגדרות הדפדפן, או לכתוב בשדה.'
+                  : code === 'no-speech'
+                    ? 'לא שמענו כלום - נסו שוב, או כתבו בשדה.'
+                    : 'החיפוש הקולי לא זמין כרגע - אפשר לכתוב בשדה.';
+            };
+            if (noteEl) noteEl.textContent = 'מקשיבים...';
             rec.start();
           } catch (err) { micBtn.hidden = true; }
         });
@@ -1034,12 +1051,14 @@
       if (!roll) return;
       var items = roll.children;
       if (items.length < 2) return;
-      [].forEach.call(items, function (it) { it.classList.remove('is-off'); });
-      var out = items[rollIndex % items.length];
-      out.classList.remove('is-on');
-      out.classList.add('is-off');
+      /* קודם היוצאת נעלמת, ורק אחרי שנעלמה הנכנסת מופיעה - אף פעם לא שתיהן */
+      items[rollIndex % items.length].classList.remove('is-on');
       rollIndex = (rollIndex + 1) % items.length;
-      items[rollIndex].classList.add('is-on');
+      var next = rollIndex;
+      root.setTimeout(function () {
+        var now = sentenceEl.querySelector('.ss-roll');
+        if (now === roll && roll.children[next]) roll.children[next].classList.add('is-on');
+      }, 260);
     }, 2200);
 
     render();
@@ -1066,7 +1085,6 @@
       setFromParams: function (params) {
         st = fromParams(params);
         if (loaded) st = resolveArea(st, areas);
-        touchNonDefault();
         render();
       },
       setAi: function (on) { change({ ai: !!on }, 'ai'); },

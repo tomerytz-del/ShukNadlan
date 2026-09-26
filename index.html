@@ -522,16 +522,17 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      כל התוויות יושבות באותו תא של grid, ולכן רוחב ה-slot הוא של הארוכה
      שבהן והחילוף אינו מזיז את שאר המשפט. */
   .ss-slot.is-next{border-bottom-style:solid;color:var(--ss-rolling,#8a6d10)}
-  .ss-roll{display:inline-grid;overflow:hidden;vertical-align:bottom}
-  /* גלגול אנכי ולא הצלבה: היוצאת עולה ונחתכת, הנכנסת עולה מלמטה - כך
-     שתי מילים לעולם אינן על המסך יחד. היוצאת (‏is-off) חוזרת למטה כשהיא
-     שקופה, ולכן הדרך חזרה אינה נראית. */
+  /* החילוף הוא ברצף ולא בחפיפה: המילה היוצאת נעלמת (‏.25s), ורק אחריה
+     הנכנסת מופיעה (ראו הטיימר ב-sentence-search.js). גרסה קודמת גלגלה
+     אנכית ונשענה על overflow/clip-path כדי להסתיר את היוצאת - ובטלפונים
+     שתי המילים נראו זו מעל זו באמצע המעבר, כי החיתוך לא חל בתוך <button>.
+     כך אין מה לחתוך: בכל רגע לכל היותר מילה אחת גלויה. */
+  .ss-roll{display:inline-grid;vertical-align:bottom}
   .ss-roll-item{
-    grid-area:1/1;white-space:nowrap;opacity:0;transform:translateY(100%);
-    transition:opacity .4s ease,transform .4s ease;
+    grid-area:1/1;white-space:nowrap;opacity:0;transform:translateY(.18em);
+    transition:opacity .25s ease,transform .25s ease;
   }
   .ss-roll-item.is-on{opacity:1;transform:none}
-  .ss-roll-item.is-off{transform:translateY(-100%)}
   @media(prefers-reduced-motion:reduce){ .ss-roll-item{transition:none} }
 
   /* ‏"סינון מתקדם" - קישור שקט בתחתית הכרטיס, לא עוד כפתור שמתחרה בזהב */
@@ -654,15 +655,29 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     /* ‏9b: אין כרטיס לבן - המשפט יושב על הרקע, השדה החכם הוא שדה עם מסגרת,
        וכפתור הזהב והבורר יורדים לפאנל התחתון. */
     .ss-shell.search-shell::before{display:none}
-    .ss-card{background:transparent;border-top:0;box-shadow:none}
-    .ss-sentence{padding:4px 2px 12px;gap:4px 7px;font-size:clamp(1.35rem,6.7vw,1.625rem);line-height:1.45}
+    /* כרטיס לבן, כמו בדסקטופ, בשקיפות קלה: בלעדיו המשפט ישב על אותו רקע
+       תכלת של הכותרת ונקרא כהמשך שלה ולא כשורת חיפוש. */
+    .ss-card{
+      background:rgba(255,255,255,.88);border-top:3px solid var(--ss-gold);
+      box-shadow:0 18px 36px -24px rgba(22,41,107,.55);
+      -webkit-backdrop-filter:blur(6px);backdrop-filter:blur(6px);
+      padding:0 12px 12px;
+    }
+    .ss-sentence{padding:12px 2px 12px;gap:4px 7px;font-size:clamp(1.35rem,6.7vw,1.625rem);line-height:1.45}
     .ss-seg{gap:7px}
     .ss-seg.is-tight{gap:1px}
     /* ‏flex-basis:100% הוא שורה חדשה בתוך ה-flex של המשפט */
     .ss-break{display:block;flex-basis:100%;height:0}
-    .ss-smart{border:1px solid var(--ss-line);background:#fff;align-items:center}
+    /* השדה החכם כגלולה, כמו שדה החיפוש של הנכסים ב-CRM (‏‎.filter-input‎) */
+    .ss-smart{
+      border:1px solid #e2e8f0;border-radius:999px;background:#f1f5f9;align-items:center;
+      box-shadow:inset 0 1px 2px rgba(15,23,42,.05);min-height:48px;padding-inline-end:4px;
+      transition:border-color .15s,box-shadow .15s,background-color .15s;
+    }
+    .ss-smart:focus-within{background:#fff;border-color:#2c5a8c;box-shadow:0 0 0 3px rgba(44,90,140,.16)}
+    .ss-mic{border-radius:999px}
     .ss-smart .ss-go{display:none}
-    .ss-spark{padding-inline-start:14px}
+    .ss-spark{padding-inline-start:16px}
     /* ‏16px ולא פחות: מתחת לזה iOS מגדיל את הדף כשהשדה מקבל פוקוס */
     .ss-input{font-size:16px;padding:13px 8px}
     .ss-mic:not([hidden]){display:inline-flex;min-height:44px}
@@ -679,7 +694,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
        שקוף בטלפון. */
     .ss-card .ss-picker{
       background:#fff;border:1px solid var(--ss-line);padding:12px;margin:0 0 12px;gap:10px;
-      box-shadow:0 14px 28px -20px rgba(22,41,107,.55);
     }
     .ss-card .ss-picker-close{display:inline-block}
     .ss-card .ss-options{grid-template-columns:repeat(2,minmax(0,1fr))}
