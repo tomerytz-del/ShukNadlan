@@ -1,6 +1,8 @@
 // עטיפה דקה מעל Meta WhatsApp Cloud API (Graph API).
 // כל הקריאות היוצאות לוואטסאפ עוברות דרך כאן.
 
+import { noLongDash } from "../_shared/marketing-copy.ts";
+
 const GRAPH_VERSION = Deno.env.get("WHATSAPP_GRAPH_VERSION") || "v23.0";
 const GRAPH_BASE = `https://graph.facebook.com/${GRAPH_VERSION}`;
 const TOKEN = Deno.env.get("WHATSAPP_TOKEN") || "";
@@ -8,6 +10,29 @@ const PHONE_NUMBER_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") || "";
 
 // מגבלת גוף הודעת טקסט ב-Cloud API. גזירה עדיפה על 400 מ-Meta ואפס תשובה לסוכן/ת.
 const MAX_TEXT_LEN = 4096;
+
+/**
+ * הטקסט כפי שהוא יוצא לוואטסאפ: בלי מקף ארוך, ועם הדגשה בתחביר של וואטסאפ.
+ *
+ * ‏**שתי בעיות שנמדדו ביומן, לא הנחות.** ב-30 הימים שעד 26.9.2026 הבוטים
+ * שלחו 436 תשובות: 198 מהן עם מקף ארוך - מה שהמודל מייצר כברירת מחדל,
+ * ומה שהכלל ב-CLAUDE.md אוסר בכל טקסט שהאתר מציג - ו-45 עם `**מודגש**`.
+ * וואטסאפ מדגיש בכוכבית **אחת** (`*מודגש*`); שתיים מוצגות כמו שהן.
+ *
+ * ‏**למה כאן ולא רק בפרומפט:** אותה סיבה של `noLongDash` בתיאור השיווקי.
+ * הנחיה היא בקשה, והמקף חוזר בדיוק כשהניסוח נעשה יפה יותר. כאן עוברת כל
+ * הודעה של שני הבוטים, ולכן זה המקום שהופך את הבקשה לערובה.
+ *
+ * ‏**מה לא נוגעים בו:** כותרות, קישורי Markdown וקוד - לא הופיעו אף פעם
+ * ביומן, ומה שלא נמדד לא מתוקן. ‏`**` בלי זוג באותה שורה נשאר כמו שהוא:
+ * להחליף אותו היה מדביק כוכבית בודדת באמצע משפט.
+ *
+ * אידמפוטנטית: הרצה שנייה אינה משנה דבר, ולכן `reply` רושמת ביומן את מה
+ * שיצא בפועל, ו-`sendText` מריצה אותה שוב בלי נזק.
+ */
+export function formatForWhatsapp(text: string): string {
+  return noLongDash(text).replace(/\*\*([^*\n]+?)\*\*/g, "*$1*");
+}
 
 function authHeaders(extra: Record<string, string> = {}) {
   return { Authorization: `Bearer ${TOKEN}`, ...extra };
@@ -38,9 +63,10 @@ async function messageIdFrom(res: Response): Promise<string | null> {
  * שלה למעקב מסירה.
  */
 export async function sendText(to: string, body: string): Promise<string | null> {
-  const text = body.length > MAX_TEXT_LEN
-    ? body.slice(0, MAX_TEXT_LEN - 1) + "…"
-    : body;
+  const clean = formatForWhatsapp(body);
+  const text = clean.length > MAX_TEXT_LEN
+    ? clean.slice(0, MAX_TEXT_LEN - 1) + "…"
+    : clean;
 
   const res = await fetch(`${GRAPH_BASE}/${PHONE_NUMBER_ID}/messages`, {
     method: "POST",
@@ -73,9 +99,10 @@ export async function sendImage(
   imageUrl: string,
   caption: string,
 ): Promise<string | null> {
-  const text = caption.length > MAX_CAPTION_LEN
-    ? caption.slice(0, MAX_CAPTION_LEN - 1) + "…"
-    : caption;
+  const clean = formatForWhatsapp(caption);
+  const text = clean.length > MAX_CAPTION_LEN
+    ? clean.slice(0, MAX_CAPTION_LEN - 1) + "…"
+    : clean;
 
   const res = await fetch(`${GRAPH_BASE}/${PHONE_NUMBER_ID}/messages`, {
     method: "POST",

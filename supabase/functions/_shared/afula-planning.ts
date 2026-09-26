@@ -23,6 +23,7 @@
 // כאן מפרקים אותה באותו סדר.
 import { itmToWgs84 } from "./geocode/itm.ts";
 import { streetVariants } from "./geocode/street-variants.ts";
+import { xmlLiteral } from "./xml.ts";
 
 const WFS_URL = "https://layers.intertown.co.il/opengis/wfs";
 const WFS_REFERER = "https://up.intertown.co.il/afl/public";
@@ -76,8 +77,8 @@ async function addressToCoords(street, houseNumber) {
     const xml = '<wfs:GetFeature service="WFS" version="2.0.0" xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:fes="http://www.opengis.net/fes/2.0" outputFormat="application/json" count="5">' +
       '<wfs:Query typeNames="afl_bld:afl_bld-Address_Points_1">' +
       '<fes:Filter><fes:And>' +
-      '<fes:PropertyIsEqualTo><fes:ValueReference>שם_רחוב</fes:ValueReference><fes:Literal>' + variant + '</fes:Literal></fes:PropertyIsEqualTo>' +
-      '<fes:PropertyIsEqualTo><fes:ValueReference>מספר_בית</fes:ValueReference><fes:Literal>' + houseNumber + '</fes:Literal></fes:PropertyIsEqualTo>' +
+      '<fes:PropertyIsEqualTo><fes:ValueReference>שם_רחוב</fes:ValueReference><fes:Literal>' + xmlLiteral(variant) + '</fes:Literal></fes:PropertyIsEqualTo>' +
+      '<fes:PropertyIsEqualTo><fes:ValueReference>מספר_בית</fes:ValueReference><fes:Literal>' + xmlLiteral(houseNumber) + '</fes:Literal></fes:PropertyIsEqualTo>' +
       '</fes:And></fes:Filter></wfs:Query></wfs:GetFeature>';
     let data;
     try {
@@ -174,8 +175,8 @@ async function gushHelkaToParcel(gush, helka) {
   const xml = '<wfs:GetFeature service="WFS" version="2.0.0" xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:fes="http://www.opengis.net/fes/2.0" outputFormat="application/json" count="5">' +
     '<wfs:Query typeNames="afl_cadaster:afl_cadaster-parcel">' +
     '<fes:Filter><fes:And>' +
-    '<fes:PropertyIsEqualTo><fes:ValueReference>גוש</fes:ValueReference><fes:Literal>' + gush + '</fes:Literal></fes:PropertyIsEqualTo>' +
-    '<fes:PropertyIsEqualTo><fes:ValueReference>חלקה</fes:ValueReference><fes:Literal>' + helka + '</fes:Literal></fes:PropertyIsEqualTo>' +
+    '<fes:PropertyIsEqualTo><fes:ValueReference>גוש</fes:ValueReference><fes:Literal>' + xmlLiteral(gush) + '</fes:Literal></fes:PropertyIsEqualTo>' +
+    '<fes:PropertyIsEqualTo><fes:ValueReference>חלקה</fes:ValueReference><fes:Literal>' + xmlLiteral(helka) + '</fes:Literal></fes:PropertyIsEqualTo>' +
     '</fes:And></fes:Filter></wfs:Query></wfs:GetFeature>';
   const data = await wfsQuery(xml, "gush-helka:" + gush + "/" + helka);
   return (data && data.features && data.features[0]) || null;
@@ -214,6 +215,28 @@ function cleanPlans(rawPlans) {
 }
 
 /**
+ * המפתח של שורה ב-planning_lookups - מקור אחד לכל הקוראים.
+ *
+ * עד כאן כל קורא בנה אותו בעצמו (כאן, ב-afula-planning-lookup ובעוזר
+ * בוואטסאפ), וכתובת נשמרה כ-`רחוב:מספר` **בלי עיר**. כל עוד השכבה היא של
+ * עפולה זה נכון, אבל ביום שיתווסף ספק לעיר נוספת "הרצל 20" בחיפה היה מקבל
+ * מהמטמון את התשובה של הרצל 20 בעפולה - בלי שגיאה ובלי סימן.
+ *
+ * ‏**גוש/חלקה נשארים בלי עיר:** המספור הוא ארצי (מפ"י), ושתי ערים אינן
+ * חולקות גוש. שורות כתובת ישנות, בלי העיר, פשוט לא נקראות יותר - זה מטמון
+ * של 24 שעות, ולכן אין מה להעביר.
+ */
+export const PLANNING_CITY = "עפולה";
+
+export function planningLookupKey(input: {
+  street?: string | null; house_number?: string | null;
+  gush?: string | null; helka?: string | null;
+}): string {
+  if (input.gush && input.helka) return input.gush + ":" + input.helka;
+  return PLANNING_CITY + ":" + input.street + ":" + input.house_number;
+}
+
+/**
  * שליפה מלאה לכתובת או לגוש/חלקה.
  *
  * מחזירה ‏`{ ok: true, record }` עם השדות כפי שהם נשמרים ב-planning_lookups,
@@ -227,7 +250,7 @@ export async function lookupPlanning(input) {
     return { ok: false, error: "missing_fields", status: 400 };
   }
 
-  const lookupKey = (gush && helka) ? (gush + ":" + helka) : (street + ":" + house_number);
+  const lookupKey = planningLookupKey({ street, house_number, gush, helka });
   let x, y;
   let resolvedGush = gush, resolvedHelka = helka;
   let parcelArea = null, parcelStatus = null, parcelGeometry = null;

@@ -1,6 +1,7 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
+import { lookupPlanning, planningLookupKey } from "../_shared/afula-planning.ts";
 import {
   addMonthsIso,
   documentHtml,
@@ -478,6 +479,29 @@ const TOOLS: Anthropic.Tool[] = [
       type: "object",
       properties: { property_id: { type: "string" } },
       required: ["property_id"],
+    },
+  },
+  {
+    name: "planning_lookup",
+    description:
+      "מידע תכנוני על **כתובת או גוש/חלקה** - בלי שיהיה נכס במערכת. זה הכלי " +
+      "ל\"מה הגוש והחלקה של הרצל 20\", ל\"מה הייעוד בגוש 16742 חלקה 96\" ול\"אילו " +
+      "תוכניות חלות על הכתובת\". מחזיר גוש, חלקה, שטח החלקה הרשום, סטטוס רישום, " +
+      "ייעוד קרקע, והתוכניות החלות (מספר, תיאור, תאריך). " +
+      "תן/י **או** street + house_number **או** gush + helka. " +
+      "המקור הוא שכבות ה-GIS של עיריית עפולה, ולכן כתובת מחוץ לעפולה אינה " +
+      "נתמכת עדיין - הכלי מחזיר city_not_supported עם קישור לחיפוש ב-GovMap. " +
+      "לנכס שכבר במערכת עדיף planning_info, שמחבר גם את מה שהסוכן/ת הזין/ה.",
+    input_schema: {
+      type: "object",
+      properties: {
+        city: { type: "string", description: "העיר. ברירת מחדל: העיר של המשרד." },
+        street: { type: "string", description: "שם רחוב, בלי מספר בית." },
+        house_number: { type: "string", description: "מספר בית." },
+        gush: { type: "string", description: "מספר גוש, ספרות בלבד." },
+        helka: { type: "string", description: "מספר חלקה, ספרות בלבד." },
+      },
+      required: [],
     },
   },
 
@@ -2142,11 +2166,199 @@ async function toolPlanningInfo(ctx: ToolContext, input: Record<string, unknown>
       is_land: info.is_land,
       // המידע התכנוני נקלט אוטומטית בשמירת נכס עם רחוב ומספר בית בעפולה.
       // נכס בעיר אחרת, או כזה שנשמר בלי כתובת מלאה, פשוט אין לו מה להציג.
-      note: "אין מידע תכנוני שמור על הנכס הזה. הקליטה האוטומטית עובדת על כתובת בעפולה עם רחוב ומספר בית; בדיקה נקודתית לפי גוש/חלקה אפשרית בקטגוריית \"מידע תכנוני\" בדשבורד.",
+      note: "אין מידע תכנוני שמור על הנכס הזה. הקליטה האוטומטית עובדת על כתובת בעפולה עם רחוב ומספר בית; בדיקה נקודתית לפי הכתובת או לפי גוש/חלקה אפשרית עם planning_lookup.",
     };
   }
 
   return { ok: true, ...info };
+}
+
+/**
+ * מידע תכנוני לפי כתובת או גוש/חלקה, בלי נכס.
+ *
+ * ‏`planning_info` עונה רק על נכס שכבר במערכת. אבל השאלה "מה הגוש והחלקה
+ * של הרצל 20" נשאלת **לפני** שיש נכס - בשיחה הראשונה עם בעלים, או כשמתווך/ת
+ * בודק/ת מגרש. בדשבורד זה הכלי "מידע תכנוני"; כאן זה אותו מנוע בדיוק.
+ *
+ * ‏**אותה שליפה, לא עותק:** ‏`lookupPlanning` מ-`_shared/afula-planning.ts`,
+ * שגם `afula-planning-lookup` וגם `planning-backfill` קוראות לה. ואותו
+ * מטמון (‏`planning_lookups`, ‏24 שעות, אותו `lookup_key`), כך ששאלה בבוט
+ * ובדשבורד על אותה כתובת עולה קריאת WFS אחת.
+ *
+ * ‏**הגייט:** אותו מסלול כמו `afula-planning-lookup` - ‏mid/premium עם
+ * ‏`billing_status = 'active'`. הוובהוק בודק רק `tier` בכניסה, ולכן מנוי
+ * שפג נבדק כאן (‏`.claude/skills/new-tier-capability`).
+ *
+ * ‏**רק עפולה, ביושר.** השכבות הן של העירייה. ‏GovMap נותן את אותו מידע
+ * לכל הארץ, אבל הטוקן שלו נעול לדפדפן ועוד לא ידוע אם הוא עונה לשרת
+ * (‏`docs/govmap.md`). עד אז מחוץ לעפולה חוזר `city_not_supported` עם קישור
+ * לחיפוש ב-GovMap - ולא ניחוש.
+ */
+async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknown>) {
+  const digits = (v: unknown) => String(v ?? "").replace(/[^\d]/g, "");
+  const gush = digits(input.gush);
+  const helka = digits(input.helka);
+  // ‏lookupPlanning משרשרת רחוב ומספר לתוך XML של שאילתת ה-WFS בלי בריחה.
+  // בדשבורד הקלט עובר בשדה מרשימה; כאן הוא טקסט חופשי מהמודל, ו-`<` או `&`
+  // היו שוברים את השאילתה ומחזירים "השכבה לא ענתה" על כתובת תקינה.
+  const xmlSafe = (v: unknown) => String(v ?? "").replace(/[<>&"']/g, " ").replace(/\s+/g, " ").trim();
+  let street = xmlSafe(input.street);
+  const houseNumber = xmlSafe(input.house_number);
+  const byParcel = Boolean(gush && helka);
+
+  if (!byParcel && !(street && houseNumber)) {
+    return {
+      ok: false,
+      error: "missing_fields",
+      guidance: "צריך רחוב ומספר בית, או גוש וחלקה. שאל/י בשאלה אחת קצרה מה חסר.",
+    };
+  }
+
+  const { data: member, error: memberErr } = await ctx.supabase
+    .from("agency_members").select("tier, active, billing_status")
+    .eq("id", ctx.agent.id).maybeSingle();
+  if (memberErr) return { ok: false, error: memberErr.message };
+  if (
+    !member?.active || member.billing_status !== "active" ||
+    (member.tier !== "mid" && member.tier !== "premium")
+  ) {
+    return {
+      ok: false,
+      error: "tier_required",
+      detail: "מידע תכנוני זמין במסלולים PROFESSIONAL ו-Elite עם מנוי פעיל.",
+      upgrade_to: "PROFESSIONAL",
+    };
+  }
+
+  const city = String(input.city || "").trim() || await agencyDefaultCity(ctx);
+  const query = byParcel
+    ? `גוש ${gush} חלקה ${helka}`
+    : `${street} ${houseNumber} ${city}`;
+  const govmapUrl = "https://www.govmap.gov.il/?q=" + encodeURIComponent(query);
+
+  // גוש/חלקה הם מזהה ארצי, ולכן העיר אינה חוסמת אותם: שכבת הקדסטר של
+  // עפולה פשוט לא תמצא חלקה מחוץ לתחומה, וזה מטופל למטה. כתובת, לעומת זאת,
+  // תיבדק מול רחובות עפולה - ו"הרצל 20" בחיפה היה מחזיר את הרצל 20 בעפולה.
+  if (!byParcel && city !== "עפולה") {
+    return {
+      ok: false,
+      error: "city_not_supported",
+      city,
+      govmap_url: govmapUrl,
+      guidance:
+        "המידע התכנוני האוטומטי זמין כרגע רק בעפולה. אמור/י זאת, והצע/י את govmap_url " +
+        "(חיפוש הכתובת במפה הממשלתית, שם אפשר ללחוץ על החלקה). אם הסוכן/ת יודע/ת " +
+        "גוש וחלקה - אפשר לנסות איתם. אל תנחש/י גוש, חלקה או ייעוד.",
+    };
+  }
+
+  if (!byParcel) street = await canonicalAfulaStreet(ctx, street);
+
+  const lookupKey = byParcel
+    ? planningLookupKey({ gush, helka })
+    : planningLookupKey({ street, house_number: houseNumber });
+  let record: Record<string, unknown>;
+  let cached = false;
+
+  const { data: hit } = await ctx.supabase
+    .from("planning_lookups").select("*").eq("lookup_key", lookupKey).maybeSingle();
+  if (hit && new Date(hit.looked_up_at).getTime() > Date.now() - 24 * 60 * 60 * 1000) {
+    record = hit as Record<string, unknown>;
+    cached = true;
+  } else {
+    let result: Awaited<ReturnType<typeof lookupPlanning>>;
+    try {
+      result = await lookupPlanning({
+        street: byParcel ? undefined : street,
+        house_number: byParcel ? undefined : houseNumber,
+        gush: byParcel ? gush : undefined,
+        helka: byParcel ? helka : undefined,
+      });
+    } catch (err) {
+      // תקלת שכבה אינה "לא נמצא" - ואסור שתיאמר כך לסוכן/ת.
+      console.error("planning_lookup: WFS failed", err);
+      return {
+        ok: false,
+        error: "gis_unavailable",
+        guidance: "שכבות ה-GIS של העירייה לא ענו כרגע. אמור/י שכדאי לנסות שוב בעוד כמה דקות, ואל תאמר/י שהכתובת לא קיימת.",
+      };
+    }
+    if (!result.ok) {
+      return {
+        ok: false,
+        error: result.error,
+        govmap_url: govmapUrl,
+        guidance: result.error === "parcel_not_found"
+          ? "החלקה לא נמצאה בשכבת הקדסטר של עפולה. ייתכן שהיא מחוץ לעפולה - המידע האוטומטי מכסה כרגע רק אותה. הצע/י את govmap_url."
+          : "הכתובת לא נמצאה בשכבת הכתובות של העירייה. בקש/י לוודא את שם הרחוב והמספר, או גוש וחלקה אם ידועים. אפשר גם להציע את govmap_url.",
+      };
+    }
+    record = result.record as Record<string, unknown>;
+    const { error: upErr } = await ctx.supabase
+      .from("planning_lookups").upsert(record, { onConflict: "lookup_key" });
+    if (upErr) console.warn("planning_lookup: cache write failed", upErr.message);
+  }
+
+  // תוכניות: מספר, תיאור ושנה. ‏area_sqm של תוכנית לא נחוץ בצ'אט, ורשימה של
+  // שבע תוכניות מלאות בהודעת וואטסאפ מסתירה את השורה החשובה - הייעוד.
+  const plans = ((record.applicable_plans || []) as Record<string, unknown>[])
+    .slice(0, 8)
+    .map((p) => ({
+      number: p.number ?? null,
+      description: p.description ?? null,
+      year: p.date ? String(p.date).slice(0, 4) : null,
+    }));
+  const lat = Number(record.lat), lng = Number(record.lng);
+
+  return {
+    ok: true,
+    cached,
+    city: "עפולה",
+    queried: byParcel ? { gush, helka } : { street, house_number: houseNumber },
+    gush: record.gush ?? null,
+    helka: record.helka ?? null,
+    parcel_area_sqm: record.parcel_area_sqm ?? null,
+    parcel_status: record.parcel_status ?? null,
+    land_use_designation: record.land_use_designation ?? null,
+    applicable_plans: plans,
+    plans_total: ((record.applicable_plans || []) as unknown[]).length,
+    map_url: Number.isFinite(lat) && Number.isFinite(lng)
+      ? `https://www.google.com/maps?q=${lat},${lng}`
+      : null,
+    guidance:
+      "פתח/י בגוש ובחלקה, אחריהם הייעוד, ואז התוכניות. אם גוש או חלקה חזרו ריקים - " +
+      "אמור/י שהכתובת נמצאה אבל החלקה לא זוהתה, ואל תשלים/י אותם. סיים/י במשפט ה-disclaimer.",
+    disclaimer:
+      "המידע כללי, מבוסס על שכבות ה-GIS של עיריית עפולה, ואינו תחליף לבדיקה מול הוועדה המקומית לתכנון ובנייה.",
+  };
+}
+
+/**
+ * שם הרחוב הקנוני מרשימת הרחובות של עפולה, או מה שהוקלד אם אין התאמה.
+ *
+ * ‏`planning-backfill` למדה את זה בדרך הקשה: "יצחק רבין 1" לא נמצא, כי
+ * בשכבה זה "שדרות יצחק רבין" - ו-`streetVariants` אינו מכסה תחילית שלמה.
+ * הרשימה (ושמות נרדפים ממאגר רשות האוכלוסין) יודעת לתרגם. לעולם לא זורקת:
+ * זה תיקון כתיב, ולא תנאי לשליפה.
+ */
+async function canonicalAfulaStreet(ctx: ToolContext, street: string): Promise<string> {
+  try {
+    const { data: key } = await ctx.supabase.rpc("street_name_key", { p_name: street });
+    if (!key) return street;
+    const { data: exact } = await ctx.supabase
+      .from("street_registry").select("name")
+      .eq("city", "עפולה").eq("name_key", key).eq("active", true)
+      .limit(1).maybeSingle();
+    if (exact?.name) return String(exact.name);
+    const { data: alias } = await ctx.supabase
+      .from("street_registry_aliases").select("name")
+      .eq("city", "עפולה").eq("alias_key", key)
+      .limit(1).maybeSingle();
+    if (alias?.name) return String(alias.name);
+  } catch (err) {
+    console.warn("canonicalAfulaStreet failed", err);
+  }
+  return street;
 }
 
 // ---------------------------------------------------------------------------
@@ -3253,6 +3465,7 @@ async function runTool(
       case "cma_report": return await toolCmaReport(ctx, input);
       case "market_deals_lookup": return await toolMarketDealsLookup(ctx, input);
       case "planning_info": return await toolPlanningInfo(ctx, input);
+      case "planning_lookup": return await toolPlanningLookup(ctx, input);
       // שת"פ
       case "share_property": return await toolShareProperty(ctx, input);
       case "unshare_property": return await toolUnshareProperty(ctx, input);
@@ -3324,6 +3537,7 @@ const SYSTEM_STATIC: string = (() => {
     "",
     "כללים כלליים:",
     "- ענה/י בעברית, קצר, בסגנון וואטסאפ. אימוג'י אחד לכל היותר.",
+    "- הדגשה בוואטסאפ היא כוכבית אחת: *כך*, ולא שתיים. מקף רגיל (-) ולא מקף ארוך.",
     "- מחירים בעברית מדוברת: \"1.8 מליון\" = 1800000, \"5,500 שקל\" = 5500. שכירות היא מחיר חודשי.",
     "- אל תשאל/י שאלות מיותרות, ואל תמציא/י פרטים שלא נאמרו. מה שלא ידוע נשאר ריק.",
     "- אל תציג/י UUID לסוכן/ת. התייחס/י לנכסים לפי כתובת או כותרת, וללקוחות לפי שם.",
@@ -3381,6 +3595,11 @@ const SYSTEM_STATIC: string = (() => {
       "ואם חזר guidance - בצע/י אותו; בפרט, לעולם אל תאמר/י שעיר אינה במאגר כש-coverage מראה עסקאות.",
     "- \"מה מותר לבנות\" / \"מה הייעוד\" / \"יש תוכנית על המגרש\" = planning_info. " +
       "סיים/י תמיד במשפט ה-disclaimer שחוזר מהכלי - זה מידע כללי ולא בדיקה מול הוועדה.",
+    "- \"מה הגוש והחלקה של <כתובת>\" / \"מה הייעוד בגוש X חלקה Y\" / \"אילו תוכניות חלות על " +
+      "<כתובת>\" - כשאין נכס במערכת = planning_lookup עם כתובת או גוש+חלקה. אם חזר " +
+      "city_not_supported, parcel_not_found או gis_unavailable - בצע/י את ה-guidance ושלח/י " +
+      "את govmap_url כשיש; **לעולם אל תנחש/י גוש, חלקה או ייעוד**. אם חזר tier_required - " +
+      "אמור/אמרי שהיכולת במסלולי PROFESSIONAL ו-Elite עם מנוי פעיל.",
     "- \"כמה צפיות\" / \"למה אין פניות\" = property_performance. אם יש מעט צפיות והנכס " +
       "בלי תמונות או בלי קידום - זו התשובה, ואמור/אמרי אותה.",
     "",

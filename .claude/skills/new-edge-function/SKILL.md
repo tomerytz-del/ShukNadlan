@@ -80,6 +80,15 @@ python scripts/check_edge_config.py
 תופס גוש חסר, גוש בלי `verify_jwt`, ורשומה ב-`config.toml` שאין לה
 תיקייה. רץ גם ב-CI על ה-PR.
 
+```sh
+python scripts/check_edge_types.py my-function
+```
+
+בדיקת טיפוסים (צריך `deno`). הפריסה אינה בודקת טיפוסים, ולכן זה המקום
+היחיד שבו `null` שלא נבדק נתפס לפני הפרודקשן. **פונקציה חדשה חייבת להיות
+על אפס שגיאות** - היא אינה ב-`scripts/edge_types_baseline.json`, ולא
+מוסיפים אותה לשם. רץ גם ב-CI.
+
 ## הפריסה
 
 `.github/workflows/supabase_functions.yml` פורס במיזוג ל-`main` — רק את

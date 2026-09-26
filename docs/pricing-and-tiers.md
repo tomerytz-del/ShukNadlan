@@ -61,7 +61,7 @@
 | ניתוב אוטומטי של לידי בעל-נכס | `lead_audience_size` / `lead_routing` — `mid`/`premium` |
 | דוח CMA | `cma_report` במסד — ולעוזר בוואטסאפ `agent_cma_report`, אותו קוד עם מזהה סוכן/ת מפורש |
 | שאילתת עסקאות היסטוריות | `agent_market_deals_lookup` — `premium` בלבד, ‏`market_deals_lookup` היא העטיפה לדפדפן |
-| מפת מיקום ומידע תכנוני | `property_map_enabled` — `mid`/`premium`; ‏`agent_property_planning` בודקת את אותו מסלול. בערים שאינן עפולה המידע נשלף מ-GovMap בדפדפן, ולכן הגייט הוא **בשמירה**: ‏`govmap_save_planning` בודקת בעלות, מסלול ו-`billing_status` (`docs/govmap.md`) |
+| מפת מיקום ומידע תכנוני | `property_map_enabled` — `mid`/`premium`; ‏`agent_property_planning` בודקת את אותו מסלול. בערים שאינן עפולה המידע נשלף מ-GovMap בדפדפן, ולכן הגייט הוא **בשמירה**: ‏`govmap_save_planning` בודקת בעלות, מסלול ו-`billing_status` (`docs/govmap.md`). בוואטסאפ, על כתובת או גוש/חלקה בלי נכס: ‏`toolPlanningLookup` ב-`whatsapp-webhook/agent.ts` בודקת `tier` ו-`billing_status` |
 | סרטון שיווקי | `property_video_tier` במסד |
 | הדמיות AI | `property_visualizations_enabled` — `premium` בלבד, ובנוסף ב-policies של טבלת `property_visualizations` |
 | הפקת סיור 360° | `property_virtual_tour_eligible` — `premium` בלבד, ב-policies של **הכתיבה** לטבלה ולדלי. התצוגה אינה תלויה במסלול: סיור שהופק נשאר בדף |
@@ -125,7 +125,10 @@ CMA), ובטופס העריכה הוא נשאר מושבת עם ההסבר — �
 **הכיוון הנכנס.** הבדיקה ב-`whatsapp-webhook` יושבת מיד אחרי זיהוי הסוכן/ת
 לפי `phone_e164` ולפני כל דבר שעולה כסף (‏Whisper, ‏Claude, אחסון תמונה) וכל
 דבר שכותב למסד. סוכן/ת Pay&GO מקבל/ת תשובה שמסבירה מה היכולת נותנת ומפנה
-ל-`pricing.html` — ולא שתיקה, שנראית כמו תקלה. וזה כתוב גם בקטגוריה "העוזר
+ל-`pricing.html` — ולא שתיקה, שנראית כמו תקלה. **ומאז 26.9.2026 גם
+`billing_status`:** עד אז נבדק רק `tier`, כך שמנוי במצב `past_due` או `canceled`
+- שנשאר `mid` עד ש-`expire_paid_subscriptions` מורידה אותו - קיבל את כל העוזר.
+הוא מקבל עכשיו הודעה שהמנוי אינו פעיל, עם קישור לחידוש. וזה כתוב גם בקטגוריה "העוזר
 בוואטסאפ" בדשבורד, לפני שמירת המספר, כדי שהגידור לא יתגלה רק אחרי שנשלחה
 הודעה.
 

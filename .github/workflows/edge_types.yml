@@ -1,0 +1,50 @@
+name: טיפוסים ב-Edge Functions
+
+# ‏`supabase functions deploy` אינה בודקת טיפוסים - היא מאגדת ופורסת. שדה
+# ש-`select` לא טען או `null` שלא נבדק עוברים עד הפרודקשן, ושם הם נראים
+# כמו "הבוט לא ענה".
+#
+# הבדיקה היא **מחגר**: ‏`scripts/edge_types_baseline.json` רושם כמה שגיאות
+# יש היום בכל פונקציה, פונקציה שאינה שם חייבת אפס, ועלייה נכשלת. הפירוט
+# וההסבר למה לא "אפס שגיאות" - בראש `scripts/check_edge_types.py`.
+#
+# ‏`paths` על `pull_request` מותר כאן, בניגוד ל-`function_grants.yml`: זו
+# אינה בדיקה נדרשת בהגנת הענף. מי שיהפוך אותה לנדרשת מסיר את הפילטר,
+# מאותה סיבה שכתובה שם.
+
+on:
+  pull_request:
+    paths:
+      - "supabase/functions/**"
+      - "scripts/check_edge_types.py"
+      - "scripts/edge_types_baseline.json"
+      - ".github/workflows/edge_types.yml"
+  push:
+    branches: [main]
+    paths:
+      - "supabase/functions/**"
+      - "scripts/check_edge_types.py"
+      - "scripts/edge_types_baseline.json"
+      - ".github/workflows/edge_types.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: טיפוסים ב-Edge Functions
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # ‏**הגרסה נעולה, וזה חלק מהבדיקה.** מספר השגיאות תלוי בגרסת
+      # TypeScript שבתוך Deno; גרסה אחרת מזיזה את הרף בלי שורת קוד אחת
+      # שהשתנתה. מי שמעדכן כאן מריץ `--update` באותו PR.
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.9.7
+
+      - name: בדיקת טיפוסים מול הרף
+        run: python3 scripts/check_edge_types.py

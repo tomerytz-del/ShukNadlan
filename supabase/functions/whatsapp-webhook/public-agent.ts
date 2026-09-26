@@ -1,7 +1,7 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { callClaude, COMMERCIAL_PTYPES, RESIDENTIAL_PTYPES } from "./agent.ts";
-import { sendImage } from "./whatsapp.ts";
+import { formatForWhatsapp, sendImage } from "./whatsapp.ts";
 import {
   LEAD_PURPOSES,
   LEAD_TIMELINES,
@@ -1420,7 +1420,7 @@ async function sendPropertyCards(
         direction: "out",
         wa_phone: ctx.waPhone,
         msg_type: "image",
-        body: caption,
+        body: formatForWhatsapp(caption),
         media_url: image,
         status: waMessageId ? "sent" : null,
       });
@@ -1835,6 +1835,7 @@ const SYSTEM_STATIC: string = (() => {
     "- עברית, גוף פונה ישיר, חם ולעניין. זו וואטסאפ ולא דוא\"ל.",
     "- תשובה קצרה: 2-5 שורות, ולא יותר מ-5 נכסים בהודעה אחת.",
     "- בלי טבלאות ובלי כותרות מעוצבות. רשימה קצרה עם מקף היא הפורמט.",
+    "- הדגשה בוואטסאפ היא כוכבית אחת: *כך*, ולא שתיים. מקף רגיל (-) ולא מקף ארוך.",
     "- כל נכס שמוזכר מגיע עם הקישור שלו מהכלי, כלשונו. בלי קישור אין טעם.",
     "",
     "הצגת נכסים - בתמונה:",
