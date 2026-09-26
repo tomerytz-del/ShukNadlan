@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import type Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
-import { downloadMedia, markReadAndTyping, sendText, verifySignature } from "./whatsapp.ts";
+import { downloadMedia, formatForWhatsapp, markReadAndTyping, sendText, verifySignature } from "./whatsapp.ts";
 import { type AgentRow, type ConversationState, runAgentTurn } from "./agent.ts";
 import { type PublicConversationState, runPublicTurn } from "./public-agent.ts";
 import { loadAgency } from "../_shared/agency-lookup.ts";
@@ -107,9 +107,12 @@ async function logInbound(msg: Record<string, any>): Promise<boolean> {
 
 async function reply(
   to: string,
-  body: string,
+  raw: string,
   agentId: string | null,
 ): Promise<void> {
+  // היומן רושם את מה שיצא בפועל, לא את מה שהמודל כתב. אחרת בדיקה ביומן
+  // הייתה מראה מקף ארוך שהסוכן/ת מעולם לא קיבל/ה.
+  const body = formatForWhatsapp(raw);
   try {
     // מזהה ההודעה של מטא נשמר כדי שאירועי המסירה שיחזרו יידעו על איזו שורה
     // לשבת. בלעדיו "נשלח" הוא כל מה שנדע לעולם — וזה בדיוק ההבדל בין הודעה

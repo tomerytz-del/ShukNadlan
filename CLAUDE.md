@@ -395,6 +395,7 @@ python scripts/check_long_dash.py --fix  # החלפה למקף רגיל
 | סעיף בפרומפט | `SYSTEM_PROMPT` ב-`_shared/marketing-copy.ts` |
 | ניקוי התוצאה | `noLongDash()` על `description` ועל `post` |
 | ניקוי הפוסט המורכב | `buildMessage()` ב-`property-marketing-publish` |
+| תשובות הבוטים בוואטסאפ | `formatForWhatsapp()` ב-`whatsapp-webhook/whatsapp.ts` |
 
 **למה שתי שכבות ולא רק ההנחיה:** מקף ארוך הוא מה שמודל שפה מייצר כברירת
 מחדל, והוא חוזר בדיוק כשהניסוח נעשה יפה יותר. הנחיה היא בקשה; הניקוי הוא
