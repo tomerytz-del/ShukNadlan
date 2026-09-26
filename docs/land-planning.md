@@ -177,6 +177,9 @@ definer` שמצנזר במקור. ‏`anon` אינו קורא/ת את `property_
 | `agent_property_planning(uuid, uuid)` | אותו מידע לעוזר בוואטסאפ, לפי מזהה סוכן/ת מפורש. נכס שלו/ה — מלא, כולל גוש וחלקה; כל נכס אחר — בדיוק מה שהפומבי רואה. ‏`service_role` בלבד |
 | `is_land_property_type(text)` | "האם זו קרקע" בצד ה-DB, לשימוש הטריגר של ההדמיות |
 
+סוג הבעלות בטאבו (פרטית / מדינה / רשות מקומית) מגיע ממאגר נפרד ומכסה את כל
+הארץ: [`land-ownership.md`](land-ownership.md).
+
 העוזר בוואטסאפ עונה גם על **כתובת או גוש/חלקה בלי נכס** (הכלי `planning_lookup`,
 אותה שליפה ואותו מטמון `planning_lookups`). הפרטים: [`whatsapp-setup.md`](whatsapp-setup.md).
 
