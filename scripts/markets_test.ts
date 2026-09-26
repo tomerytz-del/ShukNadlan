@@ -63,6 +63,9 @@ const HARISH = [32.46, 35.045];
 const PARDES_HANNA = [32.473, 34.97];
 const OR_AKIVA = [32.508, 34.918];
 const CAESAREA = [32.50, 34.90];
+const NETANYA = [32.32, 34.855];
+const KFAR_YONA = [32.316, 34.935];
+const TEL_MOND = [32.255, 34.917];
 const RAMAT_YISHAI = [32.705, 35.167]; // הגבול: 3 ק"מ מזרחית לטבעון, בעמק
 
 check("עפולה → afula-emek", reg.locate(AFULA[0], AFULA[1])?.slug === "afula-emek");
@@ -117,6 +120,11 @@ check("חריש → hadera", reg.locate(HARISH[0], HARISH[1])?.slug === "hadera"
 check("פרדס חנה-כרכור → hadera", reg.locate(PARDES_HANNA[0], PARDES_HANNA[1])?.slug === "hadera");
 check("אור עקיבא → hadera", reg.locate(OR_AKIVA[0], OR_AKIVA[1])?.slug === "hadera");
 check("קיסריה → hadera", reg.locate(CAESAREA[0], CAESAREA[1])?.slug === "hadera");
+check("נתניה → netanya", reg.locate(NETANYA[0], NETANYA[1])?.slug === "netanya");
+check("כפר יונה → netanya", reg.locate(KFAR_YONA[0], KFAR_YONA[1])?.slug === "netanya");
+check("תל מונד → netanya", reg.locate(TEL_MOND[0], TEL_MOND[1])?.slug === "netanya");
+check("הגבול: 32.384 → נתניה, 32.385 → חדרה",
+  reg.locate(32.384, 34.9)?.slug === "netanya" && reg.locate(32.385, 34.9)?.slug === "hadera");
 check("תל אביב → אין שוק (ולא הקרוב ביותר, 80 ק\"מ משם)", reg.locate(TEL_AVIV[0], TEL_AVIV[1]) === null);
 check("רק שווקים חיים: קריית ביאליק → אין (חיפה עוד לא נפתחה)",
   reg.locate(KIRYAT_BIALIK[0], KIRYAT_BIALIK[1], true) === null);
