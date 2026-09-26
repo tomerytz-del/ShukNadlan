@@ -1821,7 +1821,22 @@ async function loadNeighborhoodsAdmin(){
   if (error){ listEl.innerHTML = '<div class="empty-state">שגיאה: ' + esc(error.message) + '</div>'; return; }
   accSetCount('accNeighborhoods', (data||[]).length);
   listEl.innerHTML = '';
-  (data||[]).forEach(n=>{
+  /* שכונות בלי גבול קודם: הן העבודה שנשארה ("סימון על המפה"), ובלי המיון
+     צריך לעבור על ~160 שורות כדי למצוא את השמונה החסרות. בתוך כל קבוצה -
+     לפי עיר ושם, כמו קודם. */
+  const hasShape = n => Array.isArray(n.boundary) && n.boundary.length >= 3;
+  const rows = (data || []).slice().sort((a, b) =>
+    (hasShape(a) - hasShape(b)) || String(a.city).localeCompare(String(b.city), 'he')
+                                || String(a.name).localeCompare(String(b.name), 'he'));
+  const missing = rows.filter(n => !hasShape(n)).length;
+  const head = document.createElement('div');
+  head.className = 'acc-sub';
+  head.style.margin = '4px 0 6px';
+  head.textContent = missing
+    ? `${missing} שכונות בלי גבול - מוצגות ראשונות.`
+    : 'לכל השכונות יש גבול.';
+  listEl.appendChild(head);
+  rows.forEach(n=>{
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)';
     row.innerHTML = `<span style="font-size:.88rem;flex:1 1 auto;min-width:0">${esc(n.name)} <span style="color:var(--ink-soft);font-size:.74rem">(${esc(n.city)})</span></span>`;
@@ -10112,17 +10127,33 @@ async function loadPropCities(){
   propCities = data || [];
 }
 
+/* מנהל/ת הפלטפורמה עובד/ת על כל השווקים, ולכן רואה את ערי כולם, מקובצות
+   לפי שוק (optgroup) - השוק של המשרד ראשון. סוכן/ת רגיל/ה רואה רק את שלו/ה. */
 function renderCityOptions(keep){
   const sel = document.getElementById('npCity');
   if (!sel) return;
   const slug = agentMarketSlug();
+  const isAdmin = !!(currentAgent && currentAgent.is_platform_admin);
   const home = hoodCityKey(window.currentAgencyCityName);
-  let names = (propCities || []).filter(c => !slug || c.market_slug === slug).map(c => c.name)
-    .sort((a, b) => (hoodCityKey(b) === home) - (hoodCityKey(a) === home) || a.localeCompare(b, 'he'));
+  const byHome = (a, b) => (hoodCityKey(b) === home) - (hoodCityKey(a) === home) || a.localeCompare(b, 'he');
+  const pool = (propCities || []).filter(c => isAdmin || !slug || c.market_slug === slug);
+  const names = pool.map(c => c.name);
   const keepKey = hoodCityKey(keep);
   const hit = keepKey ? names.find(n => hoodCityKey(n) === keepKey) : null;
-  sel.innerHTML = '<option value="">- בחרו עיר -</option>' +
-    names.map(n => `<option value="${esc(n)}">${esc(n)}</option>`).join('') +
+  const opt = n => `<option value="${esc(n)}">${esc(n)}</option>`;
+  let body;
+  if (isAdmin){
+    const groups = new Map();
+    pool.forEach(c => { if (!groups.has(c.market_slug)) groups.set(c.market_slug, []); groups.get(c.market_slug).push(c.name); });
+    const labelOf = m => (window.ShukMarkets && window.ShukMarkets.bySlug(m) || {}).label || m;
+    body = [...groups.keys()]
+      .sort((a, b) => (b === slug) - (a === slug) || labelOf(a).localeCompare(labelOf(b), 'he'))
+      .map(m => `<optgroup label="${esc(labelOf(m))}">${groups.get(m).sort(byHome).map(opt).join('')}</optgroup>`)
+      .join('');
+  } else {
+    body = names.sort(byHome).map(opt).join('');
+  }
+  sel.innerHTML = '<option value="">- בחרו עיר -</option>' + body +
     `<option value="${CITY_OTHER}">עיר אחרת…</option>`;
   // עיר שאינה ברשימה (נכס ישן, או עיר מחוץ לשוק) - "עיר אחרת" עם השם בשדה
   const other = document.getElementById('npCityOther');
