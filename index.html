@@ -292,6 +292,25 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .hamburger span,.hamburger span::before,.hamburger span::after{
     content:"";display:block;width:18px;height:2px;background:var(--ink);position:relative;
   }
+  /* ====== כניסת המתווכים בנייד ======
+     כפתור כחול מלא בגובה ההמבורגר (‏40px): המלא הוא הפעולה, והמסגרתי
+     שלידו הוא הניווט. מילה אחת בטלפון צר ("כניסה", "ה-CRM"), והנוסח המלא
+     מ-400px - גם "ה-CRM שלי" עלה על הלוגו ב-320px. מ-900px
+     הוא מוסתר, כי שם יש את ‎#cta-desktop‎. */
+  .hdr-login{
+    display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 12px;white-space:nowrap;
+    background:var(--teal);color:#fff;border:1px solid var(--teal);border-radius:0;
+    font-size:.82rem;font-weight:700;line-height:1;text-decoration:none;
+  }
+  .hdr-login svg{width:17px;height:17px;flex:none}
+  .hdr-login:hover,.hdr-login:focus-visible{background:var(--teal-dark);border-color:var(--teal-dark);color:#fff}
+  .hdr-login:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .hdr-login-long{display:none}
+  @media(max-width:359px){ .hdr-login{padding:0 8px;gap:4px} .header-actions{gap:6px} }
+  @media(min-width:400px){
+    .hdr-login-short{display:none}
+    .hdr-login-long{display:inline}
+  }
   .hamburger span::before{position:absolute;top:-6px}
   .hamburger span::after{position:absolute;top:6px}
   /* ====== תפריט ההמבורגר ======
@@ -344,7 +363,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   @media(min-width:900px){
     nav.primary{display:flex}
-    .hamburger{display:none}
+    .hamburger,.hdr-login{display:none}
     #cta-desktop{display:inline-flex !important}
     .logo-img{height:54px;width:auto}
     .logo-word{font-size:.95rem;white-space:nowrap}
@@ -3231,6 +3250,32 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </nav>
     <div class="header-actions">
       <a href="/crm" class="btn btn-teal" style="display:none" id="cta-desktop">כניסת מתווכים</a>
+      <!-- כניסת המתווכים בנייד, ליד ההמבורגר: עד עכשיו היא ישבה רק בתחתית
+           התפריט, ומתווכים שנכנסים כל יום ביקשו אותה בלחיצה אחת. הסקריפט
+           שמתחת מחליף את התווית ל"ה-CRM שלי" כשיש במכשיר סשן שמור. -->
+      <a href="/crm" class="hdr-login" id="hdrLogin">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>
+        </svg>
+        <span class="hdr-login-short">כניסה</span><span class="hdr-login-long">כניסת מתווכים</span>
+      </a>
+      <script>
+        /* ‏supabase-js שומר את הסשן ב-localStorage תחת sb-<ref>-auth-token
+           (‏assets/crm.js יוצר את הלקוח בלי storageKey משלו). קריאה אחת,
+           בלי רשת, לפני הציור - כדי שהתווית לא תקפוץ. אחסון חסום = "כניסה". */
+        (function () {
+          try {
+            var raw = localStorage.getItem('sb-obookujgolazrwycsiyn-auth-token');
+            var tok = raw && JSON.parse(raw);
+            if (tok && (tok.refresh_token || (tok.currentSession && tok.currentSession.refresh_token))) {
+              var a = document.getElementById('hdrLogin');
+              a.classList.add('is-in');
+              a.querySelector('.hdr-login-short').textContent = 'ה-CRM';
+              a.querySelector('.hdr-login-long').textContent = 'ה-CRM שלי';
+            }
+          } catch (e) { /* נשאר "כניסה" */ }
+        })();
+      </script>
       <button class="hamburger" id="menuToggle" aria-expanded="false" aria-controls="mobileMenu" aria-label="פתיחת תפריט">
         <span></span>
       </button>
