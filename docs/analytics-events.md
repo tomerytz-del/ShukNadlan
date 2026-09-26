@@ -33,6 +33,11 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `share` | שיתוף שהושלם, או לחיצה על כפתור שיתוף בוואטסאפ/מייל | `method`: ‏`web_share` \| `copy_link` \| `whatsapp` \| `email` |
 | `generate_lead` | טופס שהשרת אישר | `form_id`, ולפעמים `is_duplicate` |
 | `search` | חיפוש שהתוצאות שלו חזרו | `search_term`, `deal_type`, `category`, `filter_count`, `result_count`, `search_source` |
+| `search_slot_open` | נפתח בורר של מילה בחיפוש במשפט | `slot`: ‏`deal` \| `type` \| `area` \| `rooms` \| `price` |
+| `search_slot_select` | נבחרה אפשרות בבורר | `slot`, `option` - מפתח של אפשרות (‏`sale`, `apt`, `3,4.5`); שכונה נשלחת כ-`area` |
+| `search_freetext_submit` | פירוש של השדה החכם | `parsed_fields` (‏`deal,area` או `none`), `field_count` - **הטקסט עצמו לא נשלח** |
+| `search_submit` | "הצג N נכסים" בחיפוש במשפט | `result_count` |
+| `search_empty_widen` | ההרחבה המוצעת כשאין תוצאות | `slot` (כולל `extra` - הסינונים המתקדמים) |
 | `pwa_banner_shown` | רצועת ההתקנה עלתה | `mode`: ‏`prompt` \| `ios` \| `ios-other` \| `in-app` |
 | `pwa_banner_dismiss` | ✕ ברצועה | `mode` |
 | `pwa_install_click` | לחיצה על כפתור ההתקנה (ברצועה או בתפריט) | `mode` |

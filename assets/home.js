@@ -5816,6 +5816,18 @@ function initSentenceDock(){
     // אם המשתמש/ת בחר/ה אזור אחר, הצורה שסומנה על המפה יורדת איתו
     onLeaveDrawn: ()=> mapDraw?.clear(),
     onClearExtra: clearAdvancedFilters,
+    // כל שם נכתב מפורש: check_gtm_container מצליב את השמות שבקוד מול
+    // הטריגרים במכולה, ומזהה רק shukTrack('<שם>'). ‏docs/sentence-search.md §8.
+    track(name, p){
+      if (!window.shukTrack) return;
+      switch (name){
+        case 'search_slot_open':       shukTrack('search_slot_open', p); break;
+        case 'search_slot_select':     shukTrack('search_slot_select', p); break;
+        case 'search_freetext_submit': shukTrack('search_freetext_submit', p); break;
+        case 'search_submit':          shukTrack('search_submit', p); break;
+        case 'search_empty_widen':     shukTrack('search_empty_widen', p); break;
+      }
+    },
   });
   if (!sentence) return;
 
