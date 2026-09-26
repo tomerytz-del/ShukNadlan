@@ -995,9 +995,15 @@
       close(false);
     });
 
+    /* ‏Enter בשדה מפרש את הטקסט ומעדכן את המשפט - הוא לא "הצג". בשליחה
+       מרומזת (Enter) הדפדפן מדווח את כפתור הזהב כ-submitter, ולכן בלי
+       הסימון הזה כל Enter היה פותח את התוצאות ואת התצוגה המפוצלת. */
+    var enterSubmit = false;
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') enterSubmit = true; });
     form.addEventListener('submit', function (e) {
       e.preventDefault();
-      var fromButton = e.submitter && e.submitter.hasAttribute('data-ss-go');
+      var fromButton = !enterSubmit && e.submitter && e.submitter.hasAttribute('data-ss-go');
+      enterSubmit = false;
       if (fromButton) { submit(); return; }
       runParse();
     });
@@ -1042,16 +1048,26 @@
             rec.onerror = function (ev) {
               stop();
               var code = ev && ev.error;
+              /* קוד השגיאה נכתב בסוגריים: בלעדיו "לא עובד" מהטלפון של גולש/ת
+                 אינו ניתן לאבחון - ‏not-allowed (הרשאה/מדיניות), ‏network (שירות
+                 הזיהוי של הדפדפן), ‏audio-capture (אין מיקרופון) הם שלוש בעיות
+                 שונות לגמרי. */
               if (noteEl) noteEl.textContent =
-                code === 'not-allowed' || code === 'service-not-allowed'
-                  ? 'אין הרשאה למיקרופון. אפשר לאשר אותה בהגדרות הדפדפן, או לכתוב בשדה.'
+                (code === 'not-allowed' || code === 'service-not-allowed'
+                  ? 'אין הרשאה למיקרופון. אפשר לאשר אותה בהגדרות האתר בדפדפן, או לכתוב בשדה.'
                   : code === 'no-speech'
                     ? 'לא שמענו כלום - נסו שוב, או כתבו בשדה.'
-                    : 'החיפוש הקולי לא זמין כרגע - אפשר לכתוב בשדה.';
+                    : code === 'audio-capture'
+                      ? 'לא נמצא מיקרופון במכשיר - אפשר לכתוב בשדה.'
+                      : 'החיפוש הקולי לא זמין כרגע - אפשר לכתוב בשדה.') +
+                (code ? ' (' + code + ')' : '');
             };
             if (noteEl) noteEl.textContent = 'מקשיבים...';
             rec.start();
-          } catch (err) { micBtn.hidden = true; }
+          } catch (err) {
+            micBtn.classList.remove('is-listening');
+            if (noteEl) noteEl.textContent = 'החיפוש הקולי לא זמין בדפדפן הזה - אפשר לכתוב בשדה. (' + ((err && err.name) || 'error') + ')';
+          }
         });
       }
     }

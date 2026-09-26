@@ -590,7 +590,11 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     background:none;border:0;color:var(--ss-muted);cursor:pointer;
   }
   .ss-mic svg{width:20px;height:20px}
-  .ss-mic.is-listening{color:#b3261e}
+  /* מקשיבים: עיגול אדום פועם סביב המיקרופון - בלעדיו לחיצה על הכפתור
+     נראית בדיוק כמו לחיצה שלא עשתה כלום */
+  .ss-mic.is-listening{color:#fff;background:#b3261e;border-radius:999px;animation:ssMicPulse 1.2s ease-in-out infinite}
+  @keyframes ssMicPulse{0%,100%{box-shadow:0 0 0 0 rgba(179,38,30,.45)}50%{box-shadow:0 0 0 8px rgba(179,38,30,0)}}
+  @media(prefers-reduced-motion:reduce){ .ss-mic.is-listening{animation:none} }
   .ss-go{
     flex:none;display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;
     padding:0 24px;min-height:54px;border:0;border-radius:0;cursor:pointer;
@@ -612,10 +616,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     padding:7px 14px;border:0;border-radius:0;background:var(--ss-navy);color:#fff;
   }
   .ss-empty-btn[hidden]{display:none}
-  .ss-note{
-    margin:9px 0 0;font-size:13px;color:var(--ss-soft);pointer-events:auto;
-    text-shadow:0 1px 3px rgba(255,255,255,.95);
-  }
+  .ss-note{margin:0;padding:0 22px 12px;font-size:13px;color:var(--ss-soft);pointer-events:auto}
   .ss-note:empty{display:none}
   .ss-shell .hero-near-msg{margin:6px 0 0;pointer-events:auto;text-shadow:0 1px 3px rgba(255,255,255,.95)}
 
@@ -708,8 +709,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     }
     .ss-card .ss-picker-close{display:inline-block}
     .ss-card .ss-options{grid-template-columns:repeat(2,minmax(0,1fr))}
-    /* ‏"סינון מתקדם" נצמד לשמאל (סוף השורה ב-RTL), בחלק הדועך של הכרטיס */
-    .ss-tools{padding:6px 4px 0;justify-content:flex-end}
+    /* ‏"סינון מתקדם" נצמד לימין (תחילת השורה ב-RTL), בחלק הדועך של הכרטיס */
+    .ss-tools{padding:6px 4px 0;justify-content:flex-start}
+    .ss-note{padding:6px 4px 4px}
     .ss-smart + .ss-tools{border-top:0}
     /* ‏minmax(0,1fr) ולא 1fr: אפשרות ארוכה עם nowrap הייתה מרחיבה את העמודה
        שלה אל מחוץ למסך. אפשרות ארוכה ("מערב העיר (שיכון גאולים)") תופסת את
@@ -3410,9 +3412,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <span id="ssEmptyText"></span>
               <button type="button" class="ss-empty-btn" id="ssEmptyBtn" hidden></button>
             </div>
+            <!-- ‏"הבנתי: …", הודעות המיקרופון ו"לידי" - בתוך הכרטיס, כדי שיהיו
+                 קריאות גם בטלפון, שם מתחת לכרטיס כבר מתחילה המפה -->
+            <p class="ss-note" id="ssNote" aria-live="polite"></p>
           </div>
 
-          <p class="ss-note" id="ssNote" aria-live="polite"></p>
           <span class="visually-hidden" id="ssLive" aria-live="polite"></span>
 
           <!-- ‏"הצג נכסים לידי" הפך לאפשרות "📍 לידי" ברשימת האזורים. הכפתור
