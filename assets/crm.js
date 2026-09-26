@@ -9836,7 +9836,8 @@ function cleanupReplacedVideo(finalUrl){
    שלושה כללים שמסבירים כמעט כל שורה כאן:
 
    1. **אכיפה רק כשיש על מה להישען.** עיר נאכפת רק אם יש לה ברשימה רחוב אחד
-      לפחות שמקורו בשכבת העירייה (‏source='gis'). כך עיר שאין לה שכבה חוזרת
+      לפחות ממקור רשמי: שכבת העירייה (‏source='gis', עפולה) או מאגר רשות
+      האוכלוסין (‏source='gov', כל שאר ערי השווקים - 20270114093000). כך עיר שאין לה רשימה חוזרת
       להקלדה חופשית במקום לחסום שמירה, וגם החלון שבין המיזוג לסנכרון הראשון
       (הרשימה כולה 'legacy') עובר בלי שאף אחד ייתקע.
 
@@ -9901,7 +9902,7 @@ let streetRegistry = null;            // null = טרם נטענה
 let streetRegistryReady = false;      // האם מותר לאכוף רשימה סגורה
 let streetsByCity = new Map();        // city -> [שמות, ממוינים]
 let streetKeyIndex = new Map();       // city -> Map(key -> השם הקנוני)
-let streetEnforcedCities = new Set(); // ערים שיש להן רחוב אחד לפחות מה-GIS
+let streetEnforcedCities = new Set(); // ערים שיש להן רחוב אחד לפחות ממקור רשמי (gis/gov)
 
 /* העתק של public.street_name_key. הסדר אינו שרירותי: ה"א פותחת יורדת לפני
    כיווץ היו"ד ולפני ה"א סופית, אחרת "העליה" ו-"עלייה" אינם מתכנסים. */
@@ -9947,7 +9948,7 @@ async function ensureStreetsLoaded(){
     // הראשון מנצח — הרשימה ממוינת, וממילא האינדקס הייחודי במסד מבטיח
     // שלא יהיו שתי שורות עם אותו מפתח באותה עיר.
     if (!keys.has(k)) keys.set(k, row.name);
-    if (row.source === 'gis') streetEnforcedCities.add(row.city);
+    if (row.source === 'gis' || row.source === 'gov') streetEnforcedCities.add(row.city);
   });
   streetRegistryReady = streetRegistry.length > 0;
   refreshStreetOptions();
@@ -10003,7 +10004,7 @@ function refreshStreetHint(){
   const hit = (streetKeyIndex.get(city) || new Map()).get(streetNameKey(raw));
   if (hit){
     hint.style.color = 'var(--ink-soft)';
-    hint.textContent = hit === raw ? '' : `ייכתב «${hit}» - הכתיב שבשכבת הכתובות של העירייה`;
+    hint.textContent = hit === raw ? '' : `ייכתב «${hit}» - הכתיב הרשמי ברשימת הרחובות`;
     return;
   }
   hint.style.color = 'var(--brick)';
