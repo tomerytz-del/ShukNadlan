@@ -60,7 +60,7 @@
 | לידי בעל-נכס, מכסת הפניות החינמית, מחיר הפנייה הנוספת | `claim_lead` במסד — ומי שמכניס את הליד קובע אם הוא נולד `masked` (‏`owner-lead-intake`, `property-inquiry-intake`, `agent-direct-inquiry-intake`, `property-visualize`) |
 | ניתוב אוטומטי של לידי בעל-נכס | `lead_audience_size` / `lead_routing` — `mid`/`premium` |
 | דוח CMA | `cma_report` במסד — ולעוזר בוואטסאפ `agent_cma_report`, אותו קוד עם מזהה סוכן/ת מפורש |
-| שאילתת עסקאות היסטוריות | `agent_market_deals_lookup` — `premium` בלבד, ‏`market_deals_lookup` היא העטיפה לדפדפן |
+| שאילתת עסקאות היסטוריות | `agent_market_deals_lookup` — `premium` בלבד, ‏`market_deals_lookup` היא העטיפה לדפדפן. לפי גוש/חלקה: `agent_market_deals_by_parcel` בודקת את אותו גייט בעצמה |
 | מפת מיקום ומידע תכנוני | `property_map_enabled` — `mid`/`premium`; ‏`agent_property_planning` בודקת את אותו מסלול. בערים שאינן עפולה המידע נשלף מ-GovMap בדפדפן, ולכן הגייט הוא **בשמירה**: ‏`govmap_save_planning` בודקת בעלות, מסלול ו-`billing_status` (`docs/govmap.md`). בוואטסאפ, על כתובת או גוש/חלקה בלי נכס: ‏`toolPlanningLookup` ב-`whatsapp-webhook/agent.ts` בודקת `tier` ו-`billing_status` |
 | סרטון שיווקי | `property_video_tier` במסד |
 | הדמיות AI | `property_visualizations_enabled` — `premium` בלבד, ובנוסף ב-policies של טבלת `property_visualizations` |

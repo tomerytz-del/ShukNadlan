@@ -463,6 +463,11 @@ const TOOLS: Anthropic.Tool[] = [
           type: "string",
           description: "סינון לסוג נכס כפי שהוא במאגר: דירה, בנין או קרקע.",
         },
+        gush: {
+          type: "string",
+          description: "מספר גוש. כשנשאלים \"עסקאות בגוש X (חלקה Y)\" - במקום רחוב. עובד בכל עיר.",
+        },
+        helka: { type: "string", description: "מספר חלקה. אופציונלי - בלעדיו: הגוש כולו." },
       },
       required: [],
     },
@@ -1195,8 +1200,10 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
   }
 
   // התמונות שהצטברו בשיחה מתחברות מיד לנכס החדש — זו כל הפואנטה של
-  // "לצלם את הדירה ולשלוח בוואטסאפ יחד עם הטקסט"
-  const images = ctx.conv.pending_images;
+  // "לצלם את הדירה ולשלוח בוואטסאפ יחד עם הטקסט". ‏**לקיחה אטומית** ולא
+  // ‏`ctx.conv.pending_images`: ברשימה שבזיכרון חסרות תמונות מאותו אלבום
+  // שהגיעו בבקשות מקבילות (מיגרציה 20270115095000).
+  const images = await takePendingImages(ctx);
   if (images.length) payload.images = images;
 
   const { data, error } = await ctx.supabase
@@ -1205,7 +1212,10 @@ async function toolCreateProperty(ctx: ToolContext, input: Record<string, unknow
     .select("id, title")
     .single();
 
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    await returnPendingImages(ctx, images);
+    return { ok: false, error: error.message };
+  }
 
   ctx.conv.last_property_id = data.id;
   ctx.conv.pending_images = [];
@@ -1380,26 +1390,49 @@ async function toolListProperties(ctx: ToolContext, input: Record<string, unknow
 
 async function toolAttachImages(ctx: ToolContext, input: Record<string, unknown>) {
   const propertyId = String(input.property_id || "");
-  if (!ctx.conv.pending_images.length) {
-    return { ok: false, error: "אין תמונות ממתינות בשיחה." };
-  }
 
   const existing = await ownedProperty(ctx, propertyId);
   if (!existing) return { ok: false, error: "לא נמצא נכס כזה אצל הסוכן/ת." };
 
-  const merged = [...(existing.images || []), ...ctx.conv.pending_images];
-  const { error } = await ctx.supabase
-    .from("properties")
-    .update({ images: merged, updated_at: new Date().toISOString() })
-    .eq("id", propertyId)
-    .eq("agent_id", ctx.agent.id);
+  // לקיחה וצירוף אטומיים: ‏`images || urls` בפקודה אחת ולא קריאה-מיזוג-כתיבה,
+  // שאיבדה תמונות כשאלבום הגיע בבקשות מקבילות.
+  const urls = await takePendingImages(ctx);
+  if (!urls.length) return { ok: false, error: "אין תמונות ממתינות בשיחה." };
 
-  if (error) return { ok: false, error: error.message };
+  const { data: total, error } = await ctx.supabase.rpc("property_images_append", {
+    p_property_id: propertyId, p_agent_id: ctx.agent.id, p_urls: urls,
+  });
+  if (error || total == null) {
+    await returnPendingImages(ctx, urls);
+    return { ok: false, error: error?.message || "הצירוף נכשל." };
+  }
 
-  const added = ctx.conv.pending_images.length;
   ctx.conv.pending_images = [];
   ctx.conv.last_property_id = propertyId;
-  return { ok: true, property_id: propertyId, images_added: added, total_images: merged.length };
+  return { ok: true, property_id: propertyId, images_added: urls.length, total_images: total };
+}
+
+/** כל התמונות הממתינות, ורשימה ריקה אחריהן - בפקודה אחת במסד. */
+async function takePendingImages(ctx: ToolContext): Promise<string[]> {
+  const { data, error } = await ctx.supabase.rpc("whatsapp_pending_images_take", {
+    p_agent_id: ctx.agent.id,
+  });
+  if (error) {
+    console.error("pending images take failed", error);
+    return [];
+  }
+  return (data as string[]) || [];
+}
+
+/** כשל אחרי לקיחה: התמונות חוזרות לרשימה, כדי שלא ייעלמו. */
+async function returnPendingImages(ctx: ToolContext, urls: string[]): Promise<void> {
+  const { data: conv } = await ctx.supabase.from("whatsapp_conversations")
+    .select("wa_phone").eq("agent_id", ctx.agent.id).maybeSingle();
+  for (const u of urls) {
+    await ctx.supabase.rpc("whatsapp_pending_image_add", {
+      p_agent_id: ctx.agent.id, p_phone: conv?.wa_phone || "", p_url: u,
+    });
+  }
 }
 
 /**
@@ -2095,6 +2128,7 @@ const CMA_OWNERSHIP_GUIDANCE =
  * שהחיפוש היה לפי שם רחוב ולא לפי מרחק.
  */
 async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unknown>) {
+  if (String(input.gush || "").replace(/\D/g, "")) return await dealsByParcel(ctx, input);
   const city = String(input.city || "עפולה").trim();
   const street = String(input.street || "").trim();
   const houseNumber = String(input.house_number || "").trim();
@@ -2171,6 +2205,61 @@ async function toolMarketDealsLookup(ctx: ToolContext, input: Record<string, unk
     deals,
     ...(coverage ? { coverage } : {}),
     ...(guidance ? { guidance } : {}),
+  };
+}
+
+/**
+ * עסקאות לפי גוש/חלקה (מיגרציה 20270115096000): בחלקה עצמה, ומסביב למרכז
+ * שלה. בלי GIS - הכול מהגוש, החלקה והמיקום שכבר במאגר העסקאות, ולכן עובד
+ * בכל עיר ולא רק בעפולה.
+ */
+async function dealsByParcel(ctx: ToolContext, input: Record<string, unknown>) {
+  const { data, error } = await ctx.supabase.rpc("agent_market_deals_by_parcel", {
+    p_agent_id: ctx.agent.id,
+    p_gush:     String(input.gush || ""),
+    p_helka:    input.helka ? String(input.helka) : null,
+    p_months:   Number(input.months) || 24,
+    p_limit:    Number(input.limit) || 5,
+    p_radius_m: Number(input.radius_m) || 300,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  const res = (data || {}) as Record<string, unknown>;
+  if (res.error === "tier_required") {
+    return { ok: false, error: String(res.detail || "היכולת זמינה במסלול Elite."), upgrade_to: "Elite" };
+  }
+  if (res.error) return { ok: false, error: String(res.detail || res.error) };
+
+  const inParcel = Number(res.in_parcel_total) || 0;
+  const allTime = Number(res.in_parcel_all_time) || 0;
+  const nearby = (res.nearby || null) as Record<string, unknown> | null;
+  const center = (res.center || null) as Record<string, unknown> | null;
+
+  // הנחיה ולא נתון: שלושה מצבים שנשמעים דומים ואינם.
+  const guidance = allTime === 0 && !center
+    ? "הגוש/החלקה לא מופיעים בכלל במאגר העסקאות של רשות המיסים שבידינו, ואין להם מיקום. אמור/י זאת במפורש, " +
+      "הצע/י חיפוש לפי רחוב או עיר, ואל תאמוד/תאמדי מחיר."
+    : inParcel === 0
+    ? `אין עסקאות בחלקה עצמה בתקופה שנבדקה (במאגר כולו: ${allTime}). ` +
+      (nearby ? "nearby הן עסקאות ברדיוס סביב מרכז החלקה - אמור/י שהן בסביבה ולא בחלקה." : "")
+    : "in_parcel הן עסקאות בחלקה עצמה (או בגוש, כש-mode הוא gush). nearby הן ברדיוס סביב המרכז - הצג/י אותן בנפרד.";
+
+  return {
+    ok: true,
+    mode: res.mode,
+    gush: res.gush,
+    helka: res.helka,
+    city: res.city,
+    months: res.months,
+    in_parcel: res.in_parcel,
+    in_parcel_total: inParcel,
+    in_parcel_all_time: allTime,
+    center_from: center?.from,
+    nearby_radius_meters: nearby?.radius_meters,
+    nearby_total: nearby?.total_found,
+    nearby: nearby?.deals,
+    source: res.source,
+    guidance,
   };
 }
 
@@ -3690,7 +3779,8 @@ const SYSTEM_STATIC: string = (() => {
       "עונה גם לפני שהנכס במערכת. הוא Elite בלבד; אם חזר tier_required אמור/אמרי שזו " +
       "יכולת של Elite ואל תמציא/י עסקאות. אם mode הוא street, ציין/י שהחיפוש היה לפי " +
       "שם הרחוב ולא לפי מרחק, ואל תציג/י מרחקים. \"איזה עסקאות היו בעיר X\" = הכלי **בלי רחוב**. " +
-      "ואם חזר guidance - בצע/י אותו; בפרט, לעולם אל תאמר/י שעיר אינה במאגר כש-coverage מראה עסקאות.",
+      "ואם חזר guidance - בצע/י אותו; בפרט, לעולם אל תאמר/י שעיר אינה במאגר כש-coverage מראה עסקאות. " +
+      "\"עסקאות בגוש X חלקה Y\" = market_deals_lookup עם gush ו-helka (בלי רחוב).",
     "- \"מה מותר לבנות\" / \"מה הייעוד\" / \"יש תוכנית על המגרש\" = planning_info. " +
       "סיים/י תמיד במשפט ה-disclaimer שחוזר מהכלי - זה מידע כללי ולא בדיקה מול הוועדה.",
     "- \"מה הגוש והחלקה של <כתובת>\" / \"מה הייעוד בגוש X חלקה Y\" / \"אילו תוכניות חלות על " +
