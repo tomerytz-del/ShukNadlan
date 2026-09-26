@@ -457,76 +457,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .hero-badge-live{background:rgba(255,255,255,.78);border-color:rgba(14,42,107,.16);color:var(--ink-soft);font-weight:600}
   .hero-badge-live .live-dot{background:#21a565;width:5px;height:5px}
 
-  /* ====== "מחפשים …" — גלגל המילים ======
-     חלון בגובה שורה אחת שבתוכו מסלול של שורות זהות בגובהן, והאנימציה
-     מגלגלת אותו שורה אחת בכל פעם.
-
-     ‏em ולא אחוזים, וזו הייתה כאן תקלה אמיתית: אחוזים ב-translateY נמדדים
-     מול הגובה של *האלמנט המוזז* — כלומר מול המסלול כולו — ולא מול שורה
-     אחת. ‏‎translateY(-100%)‎ הזיז את כל המסלול בבת אחת, שלוש שורות ביחד,
-     וכל המילים שביניהן חלפו בהבזק; מה שנראה על המסך היה מילה, ואז ריצה
-     מהירה של כמה מילים, ואז מילה. ‏‎-1.5em‎ הוא בדיוק גובה שורה אחת
-     (‏‎.hero-roll-track>span{height:1.5em}‎, באותו font-size), ולכן כל
-     מדרגה מחליפה מילה אחת — וזה נשאר נכון גם כשגודל הגופן משתנה בין
-     נקודות השבירה.
-
-     המסלול נושא שש מילים ואת **המילה הראשונה שוב** בסופו. השורה השביעית
-     היא זו שמאפשרת לגלגל להתקדם תמיד קדימה: בסוף המחזור הוא עומד על
-     העותק, והחזרה ל-0 מתרחשת בין שתי שורות זהות ואינה נראית כלל.
-
-     התזמון: שש מדרגות של 1.9 שניות (‎11.4s/6‎), מתוכן ‎~1.45s‎ המילה עומדת
-     ו-‎~0.45s‎ היא מחליקה. אחוזי המדרגה הם 16.667%, וההחלקה בתוך כל מדרגה
-     מתחילה ב-12.7% ממנה. */
-  .hero-roll{
-    display:flex;align-items:baseline;justify-content:center;gap:8px;
-    margin:6px 0 0;color:var(--ink-soft);font-size:1rem;font-weight:400;
-    text-shadow:0 1px 0 rgba(255,255,255,.7);
-  }
-  .hero-roll-window{display:inline-block;overflow:hidden;height:1.5em;min-width:8.6em}
-  /* ‏"הצג נכסים לידי" - גלולה שקטה מתחת לשורה המתחלפת. שקטה בכוונה: היא
-     פעולה משנית לחיפוש, ובקשת מיקום שנראית כמו הכפתור הראשי נדחית. */
-  .hero-near{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px 10px;margin:10px 0 0}
-  /* ‏.hero-inner הוא pointer-events:none כדי שהמפה שמתחתיו תיגרר, וכל פקד
-     בתוכו מחזיר את הלחיצה לעצמו - כמו .search-shell ו-.hero-badges. */
-  .hero-near-btn,.hero-near-msg{pointer-events:auto}
-  .hero-near-btn{
-    display:inline-flex;align-items:center;gap:6px;padding:6px 14px;border-radius:999px;
-    border:1px solid rgba(14,42,107,.18);background:rgba(255,255,255,.78);color:var(--navy,#0e2a6b);
-    font:inherit;font-size:.92rem;font-weight:600;cursor:pointer;
-    transition:background .15s ease,border-color .15s ease;
-  }
-  .hero-near-btn:hover{background:#fff;border-color:rgba(14,42,107,.35)}
-  .hero-near-btn:disabled{opacity:.65;cursor:progress}
-  .hero-near-btn svg{width:16px;height:16px;flex:none}
   .hero-near-msg{font-size:.88rem;color:var(--ink-soft)}
   .hero-near-msg:empty{display:none}
-  .hero-roll-track{display:block;animation:rollWords 11.4s ease-in-out infinite}
-  /* המילה המתחלפת בזהב ולא בנייבי: היא והסמן שלצידה הם הדבר היחיד שזז
-     בראש המסך, וכשהיא בנייבי היא נקראת כהמשך של "מחפשים" שלפניה במקום
-     כדבר שמתחלף. הגוון הוא ‎--brass-ink‎ ולא ‎--brass‎ עצמו (‏#c9a227, הזהב
-     של הסמן): זהב מלא על רצועת התכלת נותן יחס ניגודיות של ‎1.9:1‎ — כלומר
-     טקסט שאי אפשר לקרוא — ו-‎--brass-ink‎ הוא בדיוק הטוקן שהוגדר במערכת
-     העיצוב לזהב *כטקסט על רקע בהיר*. הסמן עצמו נשאר בזהב המלא: הוא פס
-     של 2px ולא טקסט. */
-  .hero-roll-track>span{display:block;height:1.5em;font-weight:700;color:var(--brass-ink,#8a6d10);white-space:nowrap}
-  @keyframes rollWords{
-    0%,12.7%{transform:translateY(0)}
-    16.67%,29.37%{transform:translateY(-1.5em)}
-    33.33%,46.03%{transform:translateY(-3em)}
-    50%,62.7%{transform:translateY(-4.5em)}
-    66.67%,79.37%{transform:translateY(-6em)}
-    83.33%,96.03%{transform:translateY(-7.5em)}
-    100%{transform:translateY(-9em)}
-  }
-  /* הסמן בזהב ולא בנייבי: הוא הפרט היחיד שזז בראש המסך, ובכחול הוא נראה
-     כהמשך של הטקסט שלצדו במקום כמחוון הקלדה. הזהב הוא ‎--brass‎ של מערכת
-     העיצוב — אותו צבע של קו הלוגו ושל תגית "מבזק" — ולא ‎--gold‎, שהוא בפועל
-     נייבי בפלטה הזו (ראו טוקנים למעלה). */
-  .hero-caret{width:2px;height:1.05em;background:var(--brass,#c9a227);animation:caretBlink 1.1s step-end infinite;align-self:center}
-  @keyframes caretBlink{0%,49%{opacity:1}50%,100%{opacity:0}}
-  @media(prefers-reduced-motion:reduce){
-    .hero-roll-track,.hero-caret{animation:none}
-  }
 
   /* ====== סרגל חיפוש בשורה אחת ====== */
   /* max-width: בלי זה הסרגל נמתח על כל רוחב ה-wrap בדסקטופ ותיבת הטקסט
@@ -540,58 +472,192 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      את הסרגל ואת מה שמסביבו.
 
      ‏z-index:-1 הוא תיקון של באג צביעה, לא עיטור: ההילה היא אלמנט ממוקם,
-     ושורת השבבים והרצועה שמתחתיה (‏‎.hero-quick‎, ‎.hero-mapcta‎) הן בלוקים
-     רגילים בזרימה — ולכן ההילה נצבעה *מעליהן*, על הרקע ועל הטקסט כאחד,
-     ופרשה עליהן צעיף לבן. בטלפון, שם הכרטיס ברוחב מלא והשבבים נשברים לשתי
-     שורות, מרכז ההילה נפל בדיוק עליהן: השבב "עם הדמיה" (נייבי כהה) נראה
-     אפור־מוכסף, וכל גוש החיפוש יצא בהיר ודהוי בלי סיבה נראית לעין. הכרטיס
-     עצמו (‏‎.search-card‎, position:relative) היה מעליה וכן נצבע נכון — ומכאן
-     שהחלק העליון נראה חד והתחתון מעורפל. עם z-index שלילי היא יורדת מתחת
-     לכל תוכן ה-shell ונשארת רק כמה שהיא: הפרדה מהמפה בשוליים. */
+     ומה שיושב אחרי הכרטיס בזרימה (השורה "הבנתי: …") נצבע מתחתיה — היא
+     פרשה עליו צעיף לבן. עם z-index שלילי היא יורדת מתחת לכל תוכן ה-shell
+     ונשארת רק כמה שהיא: הפרדה מהמפה בשוליים. */
   .search-shell::before{
     content:"";position:absolute;z-index:-1;inset:-16px -8px -22px;pointer-events:none;
     background:radial-gradient(58% 120% at 50% 55%, rgba(255,255,255,.82), rgba(255,255,255,0) 72%);
   }
-  .search-card{
-    position:relative;display:flex;align-items:center;gap:6px;
-    background:#fff;border-radius:0;padding:6px;
-    box-shadow:0 18px 36px -18px rgba(14,42,107,.42), 0 3px 10px rgba(14,42,107,.14);
+
+  /* ====== חיפוש במשפט (‏assets/sentence-search.js) ======
+     הצבעים של העיצוב (סבב 9) ממופים לטוקנים של הדף. שני אפורים כהים
+     מהעיצוב בכוונה: ‎#8b93b0‎ על לבן הוא 2.9:1, מתחת לסף הקריאות, ולכן
+     הכותרת הקטנה של הבורר והמונים ב-‎--ss-muted‎. ‏‎--ss-gold‎ נושא טקסט
+     ‎--ss-ink‎ ולא לבן - לבן על הזהב הזה הוא 2.3:1.
+
+     ‏white-space:nowrap על כל ‎.ss-seg‎ - המילית ("ב", "עם") והערך יחד - ועל
+     כל אפשרות וכפתור: המשפט נשבר רק *בין* חלקים, לעולם לא באמצע מילה. */
+  :root{
+    --ss-navy:#16296b; --ss-ink:#13235a; --ss-soft:#4a5578; --ss-muted:#646d8c;
+    --ss-gold:#c9a227; --ss-tint:#f4f7fe; --ss-line:#dde3f2; --ss-line-2:#e3e8f4; --ss-hover:#eef2fb;
   }
-  .search-card:focus-within{box-shadow:0 18px 36px -18px rgba(14,42,107,.42), 0 0 0 2px var(--gold)}
-  /* בחירת סוג העסקה כקונטיינר נפתח במקום שלושה טאבים — הצבע שלו משתנה לפי
-     הבחירה ותואם לצבע הפינים במפה (renderMap ב-JS) */
-  .deal-select{
-    flex:0 0 auto;-webkit-appearance:none;appearance:none;border:none;cursor:pointer;
-    font-family:inherit;font-weight:700;font-size:.86rem;color:#fff;
-    background:var(--teal);border-radius:0;padding:12px 15px 12px 30px;
-    background-image:url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.6 6 6.4l5-4.8' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
-    background-repeat:no-repeat;background-position:left 11px center;background-size:11px;
+  .ss-card{
+    position:relative;background:#fff;border-top:3px solid var(--ss-gold);border-radius:0;
+    box-shadow:0 24px 48px -28px rgba(22,41,107,.55), 0 3px 10px rgba(14,42,107,.08);
+    color:var(--ss-ink);text-align:start;
   }
-  .deal-select[data-mode="rent"]{background-color:var(--deal-rent)}
-  .deal-select[data-mode="commercial"]{background-color:var(--deal-commercial)}
-  .search-input{
-    flex:1 1 auto;min-width:0;border:none;background:transparent;
-    padding:12px 6px;font-size:.95rem;color:var(--ink);
+  .ss-sentence{
+    margin:0;padding:20px 22px 16px;display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 9px;
+    font-size:clamp(1.3rem,5.4vw,1.65rem);font-weight:300;line-height:1.4;letter-spacing:-.02em;
   }
-  .search-input:focus{outline:none}
-  /* שני הפקדים שבקצה השורה הם אייקונים בלבד — עיגול מלא לחיפוש ואייקון
-     סינון לצדו. התוויות ("חיפוש"/"סינונים") ירדו: בשורה אחת ברוחב טלפון הן
-     גזלו מהשדה עצמו את מרבית הרוחב, והמשמעות של זכוכית מגדלת ושל פסי סינון
-     מוכרת ממילא. הן נשמרות ב-aria-label לקוראי מסך. */
-  .search-card .icon-btn,.search-card .search-go{
-    flex:0 0 auto;position:relative;display:inline-flex;align-items:center;justify-content:center;
-    width:42px;height:42px;padding:0;border-radius:50%;
+  .ss-lead,.ss-seg{white-space:nowrap}
+  .ss-seg{display:inline-flex;align-items:baseline;gap:8px}
+  /* מילית של אות אחת נצמדת לערך ("בגבעת המורה") ולא עומדת לבד */
+  .ss-seg.is-tight{gap:1px}
+  .ss-slot{
+    font:inherit;font-weight:800;color:var(--ss-navy);white-space:nowrap;line-height:1.25;
+    background:none;border:0;border-bottom:3px dashed var(--ss-gold);border-radius:0;
+    padding:0 2px;margin:0;cursor:pointer;
+    transition:background .15s ease,color .15s ease;
   }
-  .search-card .icon-btn{background:transparent;color:var(--ink);border:none}
-  .search-card .icon-btn:hover{background:var(--paper)}
-  .search-card .search-go{background:var(--gold);color:#fff}
-  .search-card .icon-btn svg,.search-card .search-go svg{width:21px;height:21px;display:block}
-  /* חיפוש בדרך. הסימון יושב על שלושת הכפתורים שמריצים חיפוש (זכוכית המגדלת
-     ו"הצגת תוצאות" בשני המודאלים), כי כולם עונים על אותה שאלה: האם הלחיצה
-     שלי נקלטה. ‏.is-busy מסתובב, ולא מחליף את תוכן הכפתור — כפתור שמתרוקן
-     לרגע קופץ ומזיז את שכניו. */
+  button.ss-slot:hover{background:var(--ss-hover)}
+  .ss-slot:focus-visible{outline:2px solid var(--ss-gold);outline-offset:3px}
+  .ss-slot.is-active,.ss-slot.is-active:hover{background:var(--ss-navy);color:#fff;border-bottom-style:solid;padding:0 10px}
+
+  .ss-picker{padding:0 22px 18px;display:flex;flex-direction:column;gap:10px}
+  .ss-picker[hidden]{display:none}
+  .ss-picker-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .ss-picker-title{font-size:13px;color:var(--ss-muted);letter-spacing:.06em}
+  /* ‏"סגור" - בפאנל התחתון בטלפון בלבד. בדסקטופ הבורר נסגר מבחירה, מ-Esc
+     או מלחיצה מחוץ לכרטיס. */
+  .ss-picker-close{
+    display:none;font:inherit;font-size:13px;font-weight:600;color:var(--ss-navy);
+    background:none;border:0;padding:8px 0;cursor:pointer;
+  }
+  .ss-options{display:flex;flex-wrap:wrap;gap:8px}
+  .ss-opt{
+    display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;
+    padding:10px 16px;background:var(--ss-tint);border:1px solid var(--ss-line);border-radius:0;
+    color:var(--ss-ink);font:inherit;font-size:15px;font-weight:500;line-height:1.2;cursor:pointer;
+    transition:border-color .15s ease,background .15s ease;
+  }
+  .ss-opt:hover{border-color:var(--ss-navy)}
+  .ss-opt:focus-visible{outline:2px solid var(--ss-gold);outline-offset:2px}
+  .ss-opt-count{font-size:12px;color:var(--ss-muted);font-weight:500}
+  .ss-opt.is-selected{background:var(--ss-navy);border-color:var(--ss-navy);color:#fff;font-weight:600}
+  /* אפשרות שתחזיר אפס נשארת (אפס הוא תשובה), אבל נראית כמו מה שהיא */
+  .ss-opt.is-zero:not(.is-selected){background:#fff;border-style:dashed;color:var(--ss-muted)}
+
+  .ss-smart{display:flex;align-items:stretch;margin:0;border-top:1px solid var(--ss-line-2)}
+  .ss-smart:focus-within{box-shadow:inset 0 2px 0 var(--ss-gold)}
+  .ss-spark{align-self:center;color:var(--ss-gold);font-size:16px;padding-inline-start:20px;flex:none}
+  .ss-input{
+    flex:1 1 auto;min-width:0;border:0;outline:0;background:transparent;border-radius:0;
+    font:inherit;font-size:15px;color:var(--ss-ink);padding:17px 10px;
+    -webkit-appearance:none;appearance:none;
+  }
+  .ss-input::placeholder{color:var(--ss-muted);opacity:1}
+  .ss-input::-webkit-search-cancel-button{display:none}
+  .ss-mic{
+    flex:none;display:none;align-items:center;justify-content:center;width:44px;
+    background:none;border:0;color:var(--ss-muted);cursor:pointer;
+  }
+  .ss-mic svg{width:20px;height:20px}
+  .ss-mic.is-listening{color:#b3261e}
+  .ss-go{
+    flex:none;display:inline-flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;
+    padding:0 24px;min-height:54px;border:0;border-radius:0;cursor:pointer;
+    background:var(--ss-gold);color:var(--ss-ink);font:inherit;font-size:17px;font-weight:800;
+    transition:background .15s ease;
+  }
+  .ss-go b{font-weight:800}
+  .ss-go b:empty{display:none}
+  .ss-go:hover{background:#d6b13c}
+  .ss-go:focus-visible{outline:3px solid var(--ss-navy);outline-offset:-3px}
+
+  .ss-empty{
+    display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;
+    padding:12px 22px;background:#fdf6e1;border-top:1px solid #efe0b0;font-size:14px;color:var(--ss-soft);
+  }
+  .ss-empty[hidden]{display:none}
+  .ss-empty-btn{
+    font:inherit;font-size:14px;font-weight:700;white-space:nowrap;cursor:pointer;
+    padding:7px 14px;border:0;border-radius:0;background:var(--ss-navy);color:#fff;
+  }
+  .ss-empty-btn[hidden]{display:none}
+  .ss-note{
+    margin:9px 0 0;font-size:13px;color:var(--ss-soft);pointer-events:auto;
+    text-shadow:0 1px 3px rgba(255,255,255,.95);
+  }
+  .ss-note:empty{display:none}
+  .ss-shell .hero-near-msg{margin:6px 0 0;pointer-events:auto;text-shadow:0 1px 3px rgba(255,255,255,.95)}
+
+  /* ‏"N נכסים באזור · גבעת המורה" - על המפה, מתחת לכלי הסימון. דסקטופ
+     בלבד: בטלפון המפה היא פס מצומצם, והמונה ממילא על הכפתור שבתחתית. */
+  .ss-map-tag{
+    position:absolute;z-index:4;top:68px;inset-inline-end:14px;display:none;
+    padding:9px 14px;background:var(--ss-navy);color:#fff;font-size:13px;font-weight:700;white-space:nowrap;
+    box-shadow:0 10px 24px -14px rgba(22,41,107,.6);pointer-events:none;
+  }
+  @media(min-width:1024px){ .ss-map-tag:not([hidden]){display:block} }
+  /* בתצוגה המפוצלת הכרטיס ממורכז מעל המפה הצרה, והתגית הייתה נוחתת עליו;
+     המונה ממילא בראש הפאנל שלצד המפה */
+  .hero.split-on .ss-map-tag{display:none !important}
+
+  /* הפאנל התחתון - טלפון בלבד (ראו ‎@media(max-width:759px)‎ למטה) */
+  .ss-dock{display:none}
+
+  @media(min-width:760px){
+    .ss-sentence{font-size:1.75rem;padding:22px 24px 16px}
+  }
+  @media(min-width:1024px){
+    .ss-shell.search-shell{max-width:min(664px,50vw)}
+    .ss-sentence{font-size:clamp(1.6rem,2.1vw,1.875rem);padding:24px 26px 18px;gap:8px 10px}
+    .ss-picker{padding:0 26px 18px}
+    .ss-empty{padding:12px 26px}
+    .ss-spark{padding-inline-start:22px}
+    .ss-go{padding:0 26px}
+  }
+  @media(max-width:759px){
+    /* ‏9b: אין כרטיס לבן - המשפט יושב על הרקע, השדה החכם הוא שדה עם מסגרת,
+       וכפתור הזהב והבורר יורדים לפאנל התחתון. */
+    .ss-shell.search-shell::before{display:none}
+    .ss-card{background:transparent;border-top:0;box-shadow:none}
+    .ss-sentence{padding:4px 2px 12px;gap:4px 7px;font-size:clamp(1.35rem,6.7vw,1.625rem);line-height:1.45}
+    .ss-seg{gap:7px}
+    .ss-seg.is-tight{gap:1px}
+    .ss-smart{border:1px solid var(--ss-line);background:#fff;align-items:center}
+    .ss-smart .ss-go{display:none}
+    .ss-spark{padding-inline-start:14px}
+    /* ‏16px ולא פחות: מתחת לזה iOS מגדיל את הדף כשהשדה מקבל פוקוס */
+    .ss-input{font-size:16px;padding:13px 8px}
+    .ss-mic:not([hidden]){display:inline-flex;min-height:44px}
+    .ss-empty{padding:10px 12px;margin-top:10px;border:1px solid #efe0b0}
+
+    .ss-dock:not([hidden]){
+      display:flex;flex-direction:column;gap:12px;
+      position:fixed;inset-inline:0;bottom:0;z-index:140;
+      padding:14px 18px calc(14px + env(safe-area-inset-bottom, 0px));
+      background:#fff;border-top:1px solid var(--ss-line-2);
+      box-shadow:0 -16px 30px -20px rgba(22,41,107,.5);
+    }
+    .ss-dock .ss-picker{padding:0;gap:10px}
+    .ss-dock .ss-picker-close{display:inline-block}
+    /* ‏minmax(0,1fr) ולא 1fr: אפשרות ארוכה עם nowrap הייתה מרחיבה את העמודה
+       שלה אל מחוץ למסך. אפשרות ארוכה ("מערב העיר (שיכון גאולים)") תופסת את
+       שתי העמודות (‏is-wide, נקבע ב-JS לפי אורך התווית) - בלי לשבור מילה. */
+    .ss-dock .ss-options{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));grid-auto-flow:dense;gap:8px;max-height:min(46vh,340px);overflow-y:auto}
+    .ss-dock .ss-opt{min-height:46px;padding:8px 10px;min-width:0}
+    .ss-dock .ss-opt.is-wide{grid-column:1/-1}
+    .ss-dock-picker:empty{display:none}
+    .ss-dock-actions{display:grid;grid-template-columns:1fr auto;gap:8px}
+    .ss-dock-list{
+      min-height:54px;padding:0 16px;display:inline-flex;align-items:center;justify-content:center;gap:6px;
+      white-space:nowrap;border:1px solid var(--ss-navy);border-radius:0;background:#fff;
+      color:var(--ss-navy);font:inherit;font-size:14px;font-weight:600;cursor:pointer;
+    }
+    /* הפאנל קבוע בתחתית, ולכן מה שמתחתיו צריך מקום: ה-hero מתארך בגובהו,
+       וכפתור הנגישות עולה מעליו. ‏--ss-dock-h נמדד ב-JS. */
+    body.ss-dock-on .a11y-fab{bottom:calc(var(--ss-dock-h,100px) + 10px)}
+    /* כשהבורר פתוח הפאנל גבוה, וכפתור שמעליו היה נוחת על השדה החכם */
+    body.ss-dock-on:has(.ss-dock.has-picker) .a11y-fab{display:none}
+    body.ss-dock-on .a11y-panel{bottom:calc(var(--ss-dock-h,100px) + var(--a11y-fab-size) + 20px)}
+  }
+  @media(prefers-reduced-motion:reduce){
+    .ss-slot,.ss-opt,.ss-go{transition:none}
+  }
   .is-busy{opacity:.75;cursor:progress}
-  .search-card .search-go.is-busy svg{animation:shukSpin .7s linear infinite}
   .filter-modal-footer .btn.is-busy::after{
     content:"";width:14px;height:14px;margin-inline-start:8px;border-radius:50%;
     border:2px solid currentColor;border-top-color:transparent;
@@ -599,122 +665,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   @keyframes shukSpin{to{transform:rotate(360deg)}}
   @media(prefers-reduced-motion:reduce){
-    .search-card .search-go.is-busy svg,
     .filter-modal-footer .btn.is-busy::after{animation:none}
   }
-  /* מונה הסינונים הפעילים ישב קודם בתוך הכפתור לצד התווית; בכפתור עגול
-     בגודל אייקון אין לו מקום פנימי, ולכן הוא נתלה על הפינה שלו. */
-  .search-card .filter-count-badge{position:absolute;top:-1px;inset-inline-start:-1px}
   .map-fallback-note{margin-top:16px;font-size:.85rem;color:var(--ink-soft)}
 
-  /* ====== שבבי החיפוש המהיר ======
-     יושבים בתוך ה-shell מתחת לשורת החיפוש ונראים כחלק אחד איתה: הם דוגמאות
-     למה שאפשר להקליד בשדה, ולא ניווט נפרד. */
-  /* שורה אחת ולא רשת נשברת. קודם כל הפריטים כאן היו ילדים ישירים של אותו
-     ‎flex-wrap:wrap‎, וברוחב טלפון הם נשברו לשלוש שורות — שתיים של שבבים
-     ושלישית שכל כולה כפתור השכונות, שנדחף אליה ע"י ‎margin-inline-start:auto‎.
-     שלוש שורות בתוך כרטיס החיפוש הן הגובה שדחף את המפה למטה.
-
-     עכשיו השבבים יושבים ברצועה נגללת אחת (‏.hero-quick-chips‎) וכפתור
-     השכונות נעוץ בקצה מחוץ לה. ההפרדה היא העיקר: הכפתור אינו הצעת חיפוש
-     כמו שכניו אלא המסנן שנשאל ראשון ("איזו שכונה?"), ולכן הוא לא נגלל
-     איתם ולא זז לפי כמה שבבים יש — מקומו קבוע בכל רוחב מסך. */
-  .hero-quick{
-    display:flex;align-items:center;gap:8px;flex-wrap:nowrap;
-    padding:9px 12px;background:#fff;
-    border-top:1px solid rgba(14,42,107,.08);
-  }
-  /* ‏min-width:0 הוא מה שמאפשר לרצועה להצטמצם: פריט flex לא יורד מתחת
-     ל-‎min-content‎ שלו בלי זה, והשבבים היו דוחפים את כפתור השכונות מהמסך
-     במקום להיגלל. */
-  /* הדעיכה בקצה ה-inline-end היא ההבדל בין "יש עוד, גללו" לבין שבב שנראה
-     חתוך באמצע בגלל תקלה. היא כנה מעצמה ולא צריכה JS: לרצועה אין רקע משלה
-     (‏.hero-quick‎ הלבן שמתחתיה הוא שנראה), ולכן כשאין גלישה הקצה ריק
-     והמסכה לא מדגימה דבר — היא נראית בדיוק כשיש שם תוכן, כלומר כשיש מה
-     לגלול. */
-  .hero-quick-chips{
-    flex:1 1 auto;min-width:0;
-    display:flex;align-items:center;gap:6px;flex-wrap:nowrap;
-    overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch;
-    scrollbar-width:none;-ms-overflow-style:none;
-    -webkit-mask-image:linear-gradient(to left, transparent 0, #000 20px);
-    mask-image:linear-gradient(to left, transparent 0, #000 20px);
-  }
-  html[dir="ltr"] .hero-quick-chips{
-    -webkit-mask-image:linear-gradient(to right, transparent 0, #000 20px);
-    mask-image:linear-gradient(to right, transparent 0, #000 20px);
-  }
-  .hero-quick-chips::-webkit-scrollbar{display:none}
-  /* בלי זה השבבים היו מתכווצים לרוחב הרצועה במקום לגלוש ממנה */
-  .hero-quick-chips>*{flex:0 0 auto}
-  .hero-quick-label{font-size:.7rem;color:var(--ink-soft)}
-  .hero-chip{
-    font-family:inherit;font-size:.72rem;font-weight:500;line-height:1.3;
-    padding:6px 10px;border:0;border-radius:0;cursor:pointer;
-    background:var(--teal-tint);color:var(--teal);
-    transition:background .15s ease,color .15s ease;
-  }
-  .hero-chip:hover{background:var(--teal);color:#fff}
-  .hero-chip-ai{background:var(--teal-dark);color:#f4f7fe;display:inline-flex;align-items:center;gap:5px}
-  .hero-chip-ai>span{color:var(--brass,#c9a227)}
-  .hero-chip-ai:hover{background:#000d24;color:#fff}
-
-  /* סינון השכונות בתוך אותה שורה, נעוץ בקצה השמאלי (‏inline-end ב-RTL).
-     ‏flex:0 0 auto — הוא לא נגלל עם השבבים ולא נדחס על ידם; רצועת השבבים
-     שלצדו היא זו שסופגת את השינוי ברוחב. קודם עמד כאן
-     ‎margin-inline-start:auto‎, שדחף אותו לקצה ובדרך גם לשורה משלו. */
-  .hero-quick .hood-bar{flex:0 0 auto}
-  .hero-quick .hood-filter-btn{
-    padding:6px 10px;gap:6px;font-size:.72rem;
-    background:#fff;color:var(--teal-dark);
-    border:1px solid rgba(14,42,107,.22);box-shadow:none;
-  }
-  /* ‎:not([data-active])‎ ולא ‎:hover‎ בלבד — סלקטור עם שתי מחלקות היה גובר על
-     ‎.hood-filter-btn[data-active="true"]‎ וצובע בחירה פעילה בטיל בהיר מתחת
-     לטקסט לבן. */
-  .hero-quick .hood-filter-btn:not([data-active="true"]):hover{background:var(--teal-tint)}
-  .hero-quick .hood-filter-btn svg{width:14px;height:14px}
-  .hero-quick .hood-filter-btn .hood-filter-count{min-width:17px;height:17px;font-size:.65rem}
-
-  /* ====== הרצועה שמזמינה לסמן אזור על המפה ======
-     הכלי הזה הוא היכולת שאיש לא מחפש לבד — ולכן הוא לא מסתפק בכפתור על
-     המפה אלא מקבל שורה שאומרת מה הוא עושה. הכפתור עצמו הוא הרצועה כולה. */
-  .hero-mapcta{
-    display:flex;align-items:center;gap:9px;width:100%;
-    padding:10px 12px;border:0;border-radius:0;cursor:pointer;text-align:start;
-    background:var(--teal);color:#fff;font-family:inherit;
-    transition:background .15s ease;
-  }
-  .hero-mapcta:hover{background:var(--teal-dark)}
-  .hero-mapcta-ico{
-    flex:none;width:25px;height:25px;display:flex;align-items:center;justify-content:center;
-    border:1.5px dashed var(--brass-light,#e5c76a);color:var(--brass-light,#e5c76a);font-size:.75rem;
-  }
-  .hero-mapcta-text{flex:1;font-size:.78rem;font-weight:500;line-height:1.35}
-  .hero-mapcta-go{flex:none;font-size:.76rem;font-weight:700;color:var(--brass-light,#e5c76a);white-space:nowrap}
-  /* בנייד אין כלי סימון (ראו initMapDraw) — הרצועה הופכת להסבר בלי חץ, ולכן
-     גם לא לובשת את צבע הכפתור: משפט הסבר בכחול כהה ורחב על פני כל הרוחב היה
-     הגוש הכהה השני בראש המסך, מיד אחרי הסקרים. כרצועת תכלת בהירה הוא נקרא
-     כהערה לצד סרגל החיפוש, שזה בדיוק מה שהוא. */
-  .hero-mapcta.is-static{
-    cursor:default;background:var(--sky-tint);color:var(--teal);
-    border-top:1px solid rgba(14,42,107,.08);
-  }
-  .hero-mapcta.is-static:hover{background:var(--sky-tint)}
-  .hero-mapcta.is-static .hero-mapcta-ico{border-color:rgba(14,42,107,.4);color:var(--teal)}
-  /* ====== במצב המצומצם הרצועה יורדת מהמסך ======
-     היא הייתה ההזמנה השלישית לאותה לחיצה אחת: פס המפה עצמו לחיץ לכל
-     רוחבו, הגלולה שעליו אומרת "פתיחת המפה וחיפוש לפי אזור", והרצועה חזרה
-     על אותו משפט בשורה נפרדת מעליו ("המפה מוצגת מצומצמת — פתחו אותה כדי
-     לחפש לפי אזור" ולצדו "חיפוש במפה ←").
-
-     שלוש הזמנות לאותה פעולה אינן שלוש הזדמנויות אלא רעש, והן שילמו בשורה
-     שלמה מעל הקיפול בטלפון — בדיוק המטבע שהמצב המצומצם נועד לחסוך. נשארה
-     ההזמנה שיושבת *על* הדבר שהיא פותחת: מפה אמיתית עם גלולה עליה.
-
-     הרצועה חוזרת ברגע שהמפה נפתחת, ואז יש לה מה לומר שאין במפה עצמה —
-     שגרירת המפה מסננת את הרשימה שמתחתיה (‏MAP_DRAW_COPY.touch). */
-  .hero.map-peek .hero-mapcta{display:none}
 
   /* ====== טלפון: המפה נטענת מצומצמת ונפתחת בלחיצה ======
      במסך טלפון ה-hero לקח 500px ומעלה — כמעט מסך שלם — כדי שהמפה תהיה
@@ -738,6 +692,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
        הכותרת ודוחף את כל התוכן ב-150px. ‏order מחזיר אותו לתחתית בלי לגעת
        ב-markup, שגם הדסקטופ חי ממנו. */
     .hero.map-peek{height:auto;--peek-h:150px;display:flex;flex-direction:column}
+    /* ‏9b: המפה ממלאת את מה שנשאר מגובה המסך מתחת למשפט ולשדה החכם, ולא
+       רק פס של 150px - היא מה שמתעדכן עם כל בחירה במשפט. */
+    .hero.map-peek.has-sentence{--peek-h:clamp(180px, calc(100dvh - 500px), 460px)}
     .hero.map-peek .hero-overlay{position:static;order:1;padding:12px 0 0}
     /* ‎#hero-map‎ מוגדר ‎position:absolute;inset:0;height:100%‎ — שלושתם
        צריכים ביטול מפורש כדי שהוא ייכנס לזרימה כרצועה בגובה קבוע. */
@@ -1228,6 +1185,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      שנקרא בטעות כ"לא זמין" */
   .map-legend button[aria-pressed="false"]{color:var(--ink-soft);text-decoration:line-through}
   .map-legend button[aria-pressed="false"] i{background:var(--line)}
+  /* עם החיפוש במשפט המקרא הוא בורר ולא מסנן (ראו updateLegendCounts): מה
+     שאינו נבחר לא "כבוי" אלא אפשרות אחרת - בלי קו חוצה, והבחירה מודגשת. */
+  .hero.has-sentence .map-legend button[aria-pressed="false"]{color:var(--ink);text-decoration:none}
+  .hero.has-sentence .map-legend button[aria-pressed="false"] i.sale{background:var(--deal-sale)}
+  .hero.has-sentence .map-legend button[aria-pressed="false"] i.rent{background:var(--deal-rent)}
+  .hero.has-sentence .map-legend button[aria-pressed="false"] i.commercial{background:var(--deal-commercial)}
+  .hero.has-sentence .map-legend button[aria-pressed="true"]{font-weight:800;box-shadow:inset 0 -2px 0 var(--ss-gold,#c9a227)}
   /* בורר סגנון המפה: אותו קונטיינר בדיוק כמו בורר סוג העסקה שבשורת החיפוש
      (‎.deal-select‎) — גלולה סגורה עם חץ פתיחה — רק בקנה מידה קטן, כי כאן
      מדובר בפקד משני שיושב על המפה מעל המקרא. שלושת הסגנונות היו קודם שלושה
@@ -1312,15 +1276,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .hero.split-on .hero-inner h1{font-size:1.3rem;max-width:none;text-align:center;white-space:nowrap}
     .hero.split-on .hero-h1-break{display:inline}
     .hero.split-on .hero-badges,
-    .hero.split-on .hero-roll,
     .hero.split-on .hero-stats{display:none}
-    /* שורת השבבים היא היחידה שלא יורדת במלואה: השבבים עצמם הם הצעות חיפוש
-       ויורדים, אבל סינון השכונות שיושב בקצה שלה הוא כלי עבודה — בדיוק כמו
-       כלי הסימון — ומי שכבר במצב מפוצל זקוק/ה לו יותר, לא פחות. */
-    .hero.split-on .hero-quick{justify-content:center}
-    /* הרצועה כולה ולא השבבים שבתוכה: רצועה ריקה עם ‎flex:1‎ עדיין תופסת את
-       כל הרוחב ודוחפת את כפתור השכונות לקצה במקום למרכז. */
-    .hero.split-on .hero-quick-chips{display:none}
     .hero.split-on .hero-overlay{
       display:block;bottom:auto;padding:16px 0 48px;
       background:linear-gradient(180deg,
@@ -1487,7 +1443,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .hero{height:clamp(540px,80vh,820px)}
     .hero-overlay{padding:16px 0 48px}
     .hero-inner h1{font-size:2rem}
-    .hero-roll{font-size:1.1rem}
     /* שורת המספרים מ-760px ומעלה בלבד. בטלפון ה-hero הוא מפה עם שורת
        חיפוש מעליה וכל שורה נוספת גוזלת ממנה גובה — ובעיצוב למובייל היא
        ממילא לא מופיעה. ‏:not([hidden]) כדי שהכלל הזה לא ידרוס את ההסתרה
@@ -1534,8 +1489,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
       letter-spacing:-.035em;text-align:start;
     }
     .hero-badges{justify-content:flex-start}
-    .hero-roll{justify-content:flex-start;font-size:1.28rem;margin-top:10px}
-    .hero-near{justify-content:flex-start}
     .search-shell{margin-inline:0;max-width:min(560px,46vw)}
     .hero-stats{justify-content:flex-start;gap:22px;margin-top:18px}
     /* הסקרים כבר מכהה את הצד הזה; ההילה שמתחת לסרגל החיפוש הייתה כתם שני */
@@ -2982,7 +2935,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      שהמצב הזה מבטיח הוא צהוב/לבן על שחור מלא */
   html.a11y-contrast .page-bg{display:none !important}
   html.a11y-contrast .card,
-  html.a11y-contrast .search-card,
+  html.a11y-contrast .ss-card,
+  html.a11y-contrast .ss-dock,
   html.a11y-contrast .a11y-panel,
   html.a11y-contrast header.site,
   html.a11y-contrast .mobile-menu,
@@ -2999,9 +2953,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   html.a11y-contrast .btn, html.a11y-contrast button.opt, html.a11y-contrast input,
   html.a11y-contrast select, html.a11y-contrast .deal-toggle button,
   html.a11y-contrast .lead-toggle button, html.a11y-contrast .lead-teaser-go,
-  html.a11y-contrast .owner-toggle button, html.a11y-contrast .deal-select,
+  html.a11y-contrast .owner-toggle button,
   html.a11y-contrast .map-legend button,
-  html.a11y-contrast .search-card .icon-btn, html.a11y-contrast .search-card .search-go,
+  html.a11y-contrast .ss-slot, html.a11y-contrast .ss-opt, html.a11y-contrast .ss-go,
+  html.a11y-contrast .ss-dock-list, html.a11y-contrast .ss-empty-btn,
   html.a11y-contrast .map-expand-btn,
   html.a11y-contrast .hood-filter-btn,
   html.a11y-contrast .split-close,
@@ -3038,24 +2993,20 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      ואת הפס הבהיר בדיוק במקום שבו הטקסט הצהוב צריך שחור מלא. הצללים סביב
      הטקסט יורדים מאותה סיבה: הילה לבנה מסביב לאות צהובה על שחור. */
   html.a11y-contrast .hero-lead::before{display:none !important}
-  /* התגיות, השבבים ורצועת ההסבר לובשים עכשיו רקע בהיר וטקסט כחול; במצב
-     הזה הטקסט נצבע לבן בכלל הגורף שלמעלה, כלומר לבן על לבן. הם חוזרים
-     לשחור־על־צהוב כמו שאר הפקדים. */
-  html.a11y-contrast .hero-badge,
-  html.a11y-contrast .hero-chip,
-  html.a11y-contrast .hero-mapcta,
-  html.a11y-contrast .hero-mapcta.is-static{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
+  /* התגיות לובשות רקע בהיר וטקסט כחול; במצב הזה הטקסט נצבע לבן בכלל
+     הגורף שלמעלה, כלומר לבן על לבן. הן חוזרות לשחור־על־צהוב כמו שאר
+     הפקדים. */
+  html.a11y-contrast .hero-badge{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
   html.a11y-contrast .hero-badge span,
-  html.a11y-contrast .hero-chip span,
-  html.a11y-contrast .hero-mapcta span{color:#FFD84D !important}
-  html.a11y-contrast .hero-quick{background:#000 !important;border-color:#FFD84D !important}
-  /* הסמן הוא ‎background‎ ולא ‎color‎, ולכן אף כלל טקסט גורף לא נגע בו: בנייבי
-     הוא היה שחור־על־שחור כאן. הזהב של המצב הזה הוא ‎#FFD84D‎ ולא ‎--brass‎. */
-  html.a11y-contrast .hero-caret{background:#FFD84D !important}
+  html.a11y-contrast .ss-slot, html.a11y-contrast .ss-opt span,
+  html.a11y-contrast .ss-go span, html.a11y-contrast .ss-go b{color:#FFD84D !important}
+  /* הערך הנבחר והמשבצת הפתוחה חייבים להיבדל גם כשהכול שחור-על-צהוב */
+  html.a11y-contrast .ss-slot.is-active,
+  html.a11y-contrast .ss-opt.is-selected{background:#FFD84D !important;color:#000 !important}
+  html.a11y-contrast .ss-opt.is-selected span{color:#000 !important}
   /* ההילה הלבנה שמפרידה את סרגל החיפוש מהמפה מכתימה כאן את השחור המלא */
   html.a11y-contrast .search-shell::before{display:none !important}
   html.a11y-contrast .hero-inner h1,
-  html.a11y-contrast .hero-roll,
   html.a11y-contrast .hero-stat{text-shadow:none !important}
   /* העימום חל על שכבת המפה עצמה ולא על ‎#hero-map‎ כולו: קונטיינר מעומעם
      עימם גם את מה שמונח מעל המפה — פקדי Leaflet ובועית "שתי אצבעות" —
@@ -3243,7 +3194,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <main id="main">
 
   <!-- ====== HERO: search + map ====== -->
-  <section class="hero" id="heroSection">
+  <section class="hero has-sentence" id="heroSection">
     <div id="hero-map" role="region" aria-label="מפת הנכסים המוצגים"></div>
 
     <!-- שכבת הפתיחה של המפה המצומצמת (טלפון בלבד, ראו ‎.map-peek‎ ב-CSS
@@ -3266,6 +3217,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
          מוצגים־ואז־לא־עובדים. הסינון הזמין בנייד הוא השכונות והסינונים.
          ההצגה עצמה נעשית ב-JS ולא ב-CSS בלבד, כדי שגם ה-DOM לא יחזיק כפתור
          שאין לו משמעות — ראו initMapDraw(). -->
+    <!-- ‏"N נכסים באזור · גבעת המורה" - מה שהמשפט מחזיר, על המפה עצמה -->
+    <div class="ss-map-tag" id="ssMapTag" hidden aria-hidden="true"></div>
+
     <div class="map-tools" id="mapTools" role="group" aria-label="חיפוש לפי אזור על המפה" hidden>
       <button type="button" class="map-tool" id="drawAreaBtn" aria-pressed="false">
         <span class="map-tool-ico" aria-hidden="true">✥</span> סימון אזור
@@ -3322,118 +3276,62 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             } catch (e) { /* הכיתוב שב-HTML הוא ברירת המחדל */ }
           </script>
 
-          <!-- שורת המילים המתחלפות. ‏aria-label נושא את כל האפשרויות כמשפט
-               אחד, והגלגל עצמו aria-hidden: קורא מסך שמכריז "דירה למשפחה"
-               ושנייה אחר כך "חנות במרכז" מתאר תקלה, לא עיצוב.
-
-               השורה האחרונה במסלול היא עותק של הראשונה, ואינה מילה שביעית:
-               היא זו שמאפשרת לגלגל לחזור לתחילת המחזור בלי לגלול אחורה דרך
-               כל המילים (ראו @keyframes rollWords). מי שמוסיף/ה מילה חייב/ת
-               להוסיף מדרגה ל-keyframes, ולהשאיר את העותק אחרון. -->
-          <p class="hero-roll" aria-label="מחפשים דירה למשפחה, נכס להשקעה, דירה להשכרה, חנות במרכז, בית עם גינה או מגרש לבנייה - הכול כאן">
-            <span>מחפשים</span>
-            <span class="hero-roll-window" aria-hidden="true">
-              <span class="hero-roll-track">
-                <span>דירה למשפחה</span>
-                <span>נכס להשקעה</span>
-                <span>דירה להשכרה</span>
-                <span>חנות במרכז</span>
-                <span>בית עם גינה</span>
-                <span>מגרש לבנייה</span>
-                <span>דירה למשפחה</span>
-              </span>
-            </span>
-            <span class="hero-caret" aria-hidden="true"></span>
-          </p>
-
-          <!-- ‏"הצג נכסים לידי": מיקום מהדפדפן בוחר את השוק המקומי, ומי שנמצא/ת
-               בשוק אחר מועבר/ת לכתובת שלו. בקשת ההרשאה עולה רק בלחיצה, ורק
-               השוק נשמר - לא הקואורדינטות. ‏assets/near-me.js,
-               docs/regional-pages.md -->
-          <p class="hero-near">
-            <button type="button" class="hero-near-btn" id="heroNearBtn">
-              <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 10c0 5.2-8 12-8 12s-8-6.8-8-12a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.8"/>
-              </svg>
-              <span>הצג נכסים לידי</span>
-            </button>
-            <span class="hero-near-msg" id="heroNearMsg" role="status" aria-live="polite"></span>
-          </p>
         </div><!-- /.hero-lead -->
 
-        <div class="search-shell">
-          <div class="search-card">
-            <select id="dealTypeSelect" class="deal-select" data-mode="sale" aria-label="סוג עסקה">
-              <option value="sale">מכירה</option>
-              <option value="rent">השכרה</option>
-              <option value="commercial">מסחרי</option>
-              <!-- פרויקטים חדשים אינם נכסים בטבלת properties אלא מודול משלהם,
-                   ולכן הבחירה כאן מנווטת לדף הפרויקטים ולא מסננת את המפה.
-                   ראו הטיפול ב-change למטה. -->
-              <option value="projects">פרויקטים חדשים</option>
-            </select>
-            <input type="text" class="search-input" placeholder="עיר, שכונה או רחוב…" id="searchFreeText">
-            <button type="button" class="icon-btn" id="openFiltersBtn" aria-label="סינונים" title="סינונים">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-                <path d="M3 7h13M19 7h2M3 12h4M10 12h11M3 17h9M15 17h6"/>
-                <circle cx="17.5" cy="7" r="2.2" fill="currentColor" stroke="none"/>
-                <circle cx="8.5" cy="12" r="2.2" fill="currentColor" stroke="none"/>
-                <circle cx="13.5" cy="17" r="2.2" fill="currentColor" stroke="none"/>
-              </svg>
-              <span id="filterCountBadge" class="filter-count-badge" style="display:none">0</span>
-            </button>
-            <button type="button" class="search-go" id="searchSubmitBtn" aria-label="חיפוש נכסים" title="חיפוש">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true">
-                <circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/>
-              </svg>
-            </button>
-          </div>
+        <!-- ====== חיפוש במשפט ======
+             הכרטיס שמחליף את סרגל החיפוש, את גלגל המילים ("מחפשים דירה
+             למשפחה"), את השבבים המוכנים ואת רצועת "חיפוש במפה": המשפט עושה
+             את העבודה של כולם - הוא גם ההדגמה של מה אפשר לחפש, וגם החיפוש.
+             ‏assets/sentence-search.js, ‏docs/sentence-search.md.
 
-          <!-- חיפושים מוכנים. הם לא קיצור־דרך לעצלנים אלא הדגמה: מי שרואה
-               "3 חדרים בגבעת המורה" מבין שאפשר לכתוב בשדה משפט ולא רק עיר.
-               כל שבב ממלא את השדה ומריץ חיפוש אמיתי, ולכן אין כאן הבטחה
-               לתוצאה שלא תגיע. -->
-          <div class="hero-quick" id="heroQuick">
-            <!-- רצועה נגללת אחת. השבבים גולשים ממנה הצדה ולא נשברים לשורה
-                 שנייה, כדי שגובה כרטיס החיפוש יהיה קבוע ולא ייגזר ממספר
-                 השבבים וממה שנכנס בשורה ברוחב מסך נתון. -->
-            <div class="hero-quick-chips">
-              <span class="hero-quick-label">מהיר:</span>
-              <button type="button" class="hero-chip" data-q="3 חדרים בגבעת המורה" data-market-default-only>3 חדרים בגבעת המורה</button>
-              <button type="button" class="hero-chip" data-q="חנויות להשכרה">חנויות להשכרה</button>
-              <!-- התווית מקוצרת אבל ‎data-q‎ שלם: הוא מה שנכתב בשדה החיפוש
-                   ומורץ בפועל, ו-"בתים בע.עילית" אינו שאילתה שתחזיר משהו. -->
-              <button type="button" class="hero-chip" data-q="בתים בעפולה עילית" data-market-default-only>בתים בע.עילית</button>
-              <button type="button" class="hero-chip hero-chip-ai" data-ai="1">
-                <span aria-hidden="true">✦</span> עם הדמיה
-              </button>
+             מה שבתוך ‎#ssSentence‎ כאן הוא רק הציור הראשון, לפני שהסקריפט
+             רץ; הסקריפט מצייר אותו מחדש מהמצב (ומהכתובת). -->
+        <div class="search-shell ss-shell">
+          <div class="ss-card" id="ssCard">
+            <p class="ss-sentence" id="ssSentence"><span class="ss-lead">אני רוצה</span> <span class="ss-seg"><span class="ss-slot">לקנות</span></span> <span class="ss-seg"><span class="ss-slot">נכס</span></span> <span class="ss-seg is-tight"><span class="ss-pre">ב</span><span class="ss-slot">כל עפולה והעמק</span></span> <span class="ss-seg"><span class="ss-pre">עם</span><span class="ss-slot">כל גודל</span></span> <span class="ss-seg is-tight"><span class="ss-pre">ב</span><span class="ss-slot">כל תקציב</span></span></p>
+
+            <!-- הבורר. בטלפון הוא עובר (כאותו אלמנט) לפאנל התחתון ‎#ssDockPicker‎,
+                 ליד האגודל. -->
+            <div class="ss-picker" id="ssPicker" hidden>
+              <div class="ss-picker-head">
+                <span class="ss-picker-title" id="ssPickerTitle"></span>
+                <button type="button" class="ss-picker-close" id="ssPickerClose">סגור</button>
+              </div>
+              <div class="ss-options" id="ssOptions" role="listbox"></div>
             </div>
 
-            <!-- סינון לפי שכונות. נעוץ בקצה השמאלי של שורת השבבים, מחוץ
-                 לרצועה הנגללת: הוא לא הצעת חיפוש כמו שכניו אלא המסנן שנשאל
-                 ראשון כאן ("איזו שכונה?"), ולכן הוא לא נגלל איתם ומקומו קבוע.
-                 הכפתור פותח מודאל בחירה מרובה שנבנה מהנכסים הפעילים עצמם
-                 (renderHoodOptions), ולכן מוצגות בו רק שכונות שבאמת יש בהן מה
-                 למצוא. -->
-            <div class="hood-bar" id="hoodBar" hidden>
-              <button type="button" class="hood-filter-btn" id="hoodFilterBtn" aria-haspopup="dialog">
+            <form class="ss-smart" id="ssSmart" role="search" autocomplete="off">
+              <span class="ss-spark" aria-hidden="true">✦</span>
+              <label class="visually-hidden" for="ssQuery">חיפוש בכתיבה חופשית</label>
+              <input id="ssQuery" class="ss-input" type="search" enterkeyhint="search" maxlength="120"
+                     placeholder="או כתבו חופשי: דירת 4 חדרים בגבעת המורה עד 1.7 מיליון"
+                     data-short-placeholder="או כתבו חופשי…">
+              <button type="button" class="ss-mic" id="ssMic" hidden aria-pressed="false" aria-label="חיפוש קולי">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                  <path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11z"/><circle cx="12" cy="10" r="2.6"/>
+                  <rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>
                 </svg>
-                <span id="hoodFilterLabel">סינון לפי שכונות</span>
-                <span class="hood-filter-count" id="hoodFilterCount" hidden>0</span>
               </button>
+              <button type="submit" class="ss-go" data-ss-go>הצג <b data-ss-count></b> נכסים <span aria-hidden="true">←</span></button>
+            </form>
+
+            <!-- לעולם לא נגמרים במסך ריק: ההרחבה האחת שמחזירה משהו -->
+            <div class="ss-empty" id="ssEmpty" hidden>
+              <span id="ssEmptyText"></span>
+              <button type="button" class="ss-empty-btn" id="ssEmptyBtn" hidden></button>
             </div>
           </div>
 
-          <!-- הרצועה שמסבירה את הכלי שאיש לא מחפש לבד: אפשר לסמן אזור על
-               המפה ולקבל בדיוק את מה שבתוכו. בנייד היא מוחלפת בנוסח שמסביר
-               מה כן אפשר — ראו initMapDraw(). -->
-          <button type="button" class="hero-mapcta" id="heroMapCta">
-            <span class="hero-mapcta-ico" aria-hidden="true">✥</span>
-            <span class="hero-mapcta-text" id="heroMapCtaText">התמקדו באזור על המפה וקבלו את כל הנכסים שבתוכו</span>
-            <span class="hero-mapcta-go" aria-hidden="true">חיפוש במפה ←</span>
-          </button>
+          <p class="ss-note" id="ssNote" aria-live="polite"></p>
+          <span class="visually-hidden" id="ssLive" aria-live="polite"></span>
+
+          <!-- ‏"הצג נכסים לידי" הפך לאפשרות "📍 לידי" ברשימת האזורים. הכפתור
+               נשאר ב-DOM, מוסתר, כי assets/near-me.js הוא שיודע להעביר מי
+               שנמצא/ת בשוק אחר לכתובת שלו; האפשרות לוחצת עליו רק במקרה הזה.
+               ההודעה שלו נשארת גלויה. -->
+          <p class="hero-near" hidden>
+            <button type="button" class="hero-near-btn" id="heroNearBtn" tabindex="-1">הצג נכסים לידי</button>
+          </p>
+          <p class="hero-near-msg" id="heroNearMsg" role="status" aria-live="polite"></p>
         </div>
 
         <!-- ====== שורת המספרים והחותמות ======
@@ -3913,6 +3811,18 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       </div>
     </div>
   </section>
+
+  <!-- ====== הפאנל התחתון של החיפוש במשפט - טלפון בלבד ======
+       צמוד לתחתית המסך כל עוד ה-hero במסך: הבורר נפתח כאן, ליד האגודל, ולא
+       ליד המשפט שבראש המסך. ‏assets/sentence-search.js מעביר אליו את
+       ‎#ssPicker‎ מתחת ל-760px. -->
+  <div class="ss-dock" id="ssDock" hidden>
+    <div class="ss-dock-picker" id="ssDockPicker"></div>
+    <div class="ss-dock-actions">
+      <button type="button" class="ss-go" data-ss-go data-ss-dock-go>הצג <b data-ss-count></b> נכסים <span aria-hidden="true">←</span></button>
+      <button type="button" class="ss-dock-list" id="ssDockList"><span aria-hidden="true">▤</span> רשימה</button>
+    </div>
+  </div>
 
   <!-- ====== תוצאות החיפוש, בשורות מיד מתחת למפה ======
        מוזן מאותה רשימה בדיוק שמזינה את המפה (renderPropertyGrid → renderSearchRows),
@@ -5029,6 +4939,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   <button type="button" class="reset" id="a11yReset">איפוס הגדרות</button>
 </div>
 
+<!-- החיפוש במשפט: חייב לרוץ לפני home.js, שמרכיב אותו (‏SentenceSearch.mount) -->
+<script src="assets/sentence-search.js"></script>
 <script src="assets/home.js"></script>
 </body>
 </html>

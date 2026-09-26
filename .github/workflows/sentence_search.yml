@@ -1,0 +1,38 @@
+name: חיפוש במשפט
+
+# ‏assets/sentence-search.js מחזיק את כל הלוגיקה של החיפוש בדף הבית: מה
+# נספר בכל אפשרות בבורר, איך טקסט חופשי מתפרש, ואיך המצב נכתב לכתובת. טעות
+# באחד מהם שקטה - המשפט נראה תקין, והמונה פשוט אומר מספר אחר ממה שהמפה
+# מציגה, או ש-‎?deal=sale&rooms=4‎ (עמוד חיפוש פופולרי) נוחת על חיפוש אחר.
+# הבדיקה מריצה את Core ב-Node, בלי דפדפן, בלי רשת ובלי סודות.
+# ‏docs/sentence-search.md.
+
+on:
+  pull_request:
+    paths:
+      - "assets/sentence-search.js"
+      - "scripts/sentence_search_test.cjs"
+      - ".github/workflows/sentence_search.yml"
+  push:
+    branches: [main]
+    paths:
+      - "assets/sentence-search.js"
+      - "scripts/sentence_search_test.cjs"
+      - ".github/workflows/sentence_search.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: בדיקות Core
+        run: node scripts/sentence_search_test.cjs
