@@ -385,7 +385,14 @@
      ולא עוד כותרת. רק אפשרויות שיש בהן נכסים, וקצרות: ה-slot מקבל את רוחב
      הארוכה שבהן, ושם של 25 תווים היה מותח את כל המשפט. */
   function rollLabels(slot, st, props, ctx, areas) {
-    if (slot === 'deal') return ['לקנות', 'לשכור'];
+    /* גם העסקה מתחלפת רק בין אפשרויות שיש בהן נכסים: "אני רוצה לשכור דירה
+       בגבעת המורה" מעל שתי דירות למכירה הוא משפט שמשקר. כשרק אחת קיימת אין
+       חילוף, וה-slot עומד על "למצוא". */
+    if (slot === 'deal') {
+      return ['sale', 'rent'].filter(function (d) {
+        return filter(props, applyPatch(st, { deal: d }), ctx).length > 0;
+      }).map(dealLabel);
+    }
     var list = options(slot, st, props, ctx, areas).filter(function (o) {
       if (o.value === null || o.value === 'all' || o.value === 'any' || o.value === 'near') return false;
       return (o.count === null || o.count > 0) && String(o.label).length <= 14;
@@ -596,6 +603,7 @@
   var doc = root.document;
   var MOBILE_MQ = '(max-width:759px)';
 
+
   function el(tag, cls, text) {
     var n = doc.createElement(tag);
     if (cls) n.className = cls;
@@ -666,15 +674,19 @@
       return null;
     }
 
-    /* ערך שהגיע מהכתובת (‎?deal=sale‎ אחרי רענון, עמוד חיפוש פופולרי, קישור
-       ששותף) **אינו** נחשב נבחר: בכל כניסה לדף המילה הראשונה במשפט היא זו
-       שמתחלפת - רק מה שנבחר בביקור הזה מקדם את "המילה הבאה". כשלמילה
-       המתחלפת כבר יש ערך, החילוף מתחיל ממנו (ראו renderSentence), כך
-       שהמשפט והמונה אומרים את אותו דבר ברגע הכניסה. */
-    function presetLabel(slot, value) {
+    /* ערך שהגיע מקישור אמיתי (עמוד חיפוש פופולרי, קישור ששותף) הוא בחירה:
+       הוא מוצג קבוע, והמילה המתחלפת היא הראשונה שעוד לא נבחרה. כתובת שהדף
+       עצמו כתב אינה מגיעה לכאן בכלל - היא מתחילה נקייה (initSentenceSearch
+       ב-home.js), ולכן
+       בכניסה רגילה המילה הראשונה היא זו שמתחלפת. מילה מתחלפת שיש לה ערך
+       שמסנן הייתה מראה "לשכור" מעל מונה של נכסי מכירה. */
+    function touchNonDefault() {
       var d = defaultState();
-      var key = slot === 'price' ? 'priceMax' : slot;
-      return JSON.stringify(st[key]) !== JSON.stringify(d[key]) ? value : null;
+      if (st.deal !== d.deal) touched.deal = true;
+      if (st.type !== d.type) touched.type = true;
+      if (st.area !== d.area) touched.area = true;
+      if (st.rooms) touched.rooms = true;
+      if (st.priceMax !== null && st.priceMax !== undefined) touched.price = true;
     }
 
     /* ---------- ציור ---------- */
@@ -688,8 +700,6 @@
         if (s.pre) seg.appendChild(el('span', 'ss-pre', s.pre));
         var isNext = s.slot === hint && !active;
         var labels = isNext && loaded && !noMotion() ? rollLabels(s.slot, st, props, ctx, areas) : [];
-        var preset = isNext ? presetLabel(s.slot, s.value) : null;
-        if (preset && labels.length) labels = [preset].concat(labels.filter(function (l) { return l !== preset; }));
         var b;
         if (labels.length >= 2) {
           /* כל התוויות באותו תא של grid: ה-slot מקבל את רוחב הארוכה שבהן,
@@ -841,7 +851,9 @@
       active = null;
       keyboardOpen = false;
       change(patch, 'slot');
-      track('search_slot_select', { slot: slot, value: slot === 'area' ? (value === 'all' ? 'all' : 'area') : String(value) });
+      /* ‏option ולא value: ‏value שמור ב-GA4 לערך כספי (המרות). מפתח של
+         אפשרות ולא טקסט - שם שכונה נשלח כ-'area' בלבד. */
+      track('search_slot_select', { slot: slot, option: slot === 'area' ? (value === 'all' ? 'all' : 'area') : String(value) });
       if (wasKeyboard) {
         var b = sentenceEl.querySelector('[data-slot="' + (hintSlot() || slot) + '"]');
         if (b) b.focus();
@@ -913,7 +925,7 @@
       keyboardOpen = false;
       render();
       var list = results();
-      track('search_submit', { count: list.length });
+      track('search_submit', { result_count: list.length });
       if (typeof opts.onSubmit === 'function') opts.onSubmit(list, st);
     }
 
@@ -970,9 +982,15 @@
       close(false);
     });
 
+    /* ‏Enter בשדה מפרש את הטקסט ומעדכן את המשפט - הוא לא "הצג". בשליחה
+       מרומזת (Enter) הדפדפן מדווח את כפתור הזהב כ-submitter, ולכן בלי
+       הסימון הזה כל Enter היה פותח את התוצאות ואת התצוגה המפוצלת. */
+    var enterSubmit = false;
+    input.addEventListener('keydown', function (e) { if (e.key === 'Enter') enterSubmit = true; });
     form.addEventListener('submit', function (e) {
       e.preventDefault();
-      var fromButton = e.submitter && e.submitter.hasAttribute('data-ss-go');
+      var fromButton = !enterSubmit && e.submitter && e.submitter.hasAttribute('data-ss-go');
+      enterSubmit = false;
       if (fromButton) { submit(); return; }
       runParse();
     });
@@ -1017,16 +1035,26 @@
             rec.onerror = function (ev) {
               stop();
               var code = ev && ev.error;
+              /* קוד השגיאה נכתב בסוגריים: בלעדיו "לא עובד" מהטלפון של גולש/ת
+                 אינו ניתן לאבחון - ‏not-allowed (הרשאה/מדיניות), ‏network (שירות
+                 הזיהוי של הדפדפן), ‏audio-capture (אין מיקרופון) הם שלוש בעיות
+                 שונות לגמרי. */
               if (noteEl) noteEl.textContent =
-                code === 'not-allowed' || code === 'service-not-allowed'
-                  ? 'אין הרשאה למיקרופון. אפשר לאשר אותה בהגדרות הדפדפן, או לכתוב בשדה.'
+                (code === 'not-allowed' || code === 'service-not-allowed'
+                  ? 'אין הרשאה למיקרופון. אפשר לאשר אותה בהגדרות האתר בדפדפן, או לכתוב בשדה.'
                   : code === 'no-speech'
                     ? 'לא שמענו כלום - נסו שוב, או כתבו בשדה.'
-                    : 'החיפוש הקולי לא זמין כרגע - אפשר לכתוב בשדה.';
+                    : code === 'audio-capture'
+                      ? 'לא נמצא מיקרופון במכשיר - אפשר לכתוב בשדה.'
+                      : 'החיפוש הקולי לא זמין כרגע - אפשר לכתוב בשדה.') +
+                (code ? ' (' + code + ')' : '');
             };
             if (noteEl) noteEl.textContent = 'מקשיבים...';
             rec.start();
-          } catch (err) { micBtn.hidden = true; }
+          } catch (err) {
+            micBtn.classList.remove('is-listening');
+            if (noteEl) noteEl.textContent = 'החיפוש הקולי לא זמין בדפדפן הזה - אפשר לכתוב בשדה. (' + ((err && err.name) || 'error') + ')';
+          }
         });
       }
     }
@@ -1085,6 +1113,7 @@
       setFromParams: function (params) {
         st = fromParams(params);
         if (loaded) st = resolveArea(st, areas);
+        touchNonDefault();
         render();
       },
       setAi: function (on) { change({ ai: !!on }, 'ai'); },
@@ -1126,6 +1155,10 @@
         change(defaultState(), 'reset');
       },
       count: function (patch) { return filter(props, applyPatch(st, patch || {}), ctx).length; },
+      /* יש מה לנקות: משפט שאינו ברירת המחדל, סינון מתקדם, או טקסט בשדה */
+      isClean: function () {
+        return JSON.stringify(st) === JSON.stringify(defaultState()) && !ctx.extra && !(input.value || '').trim();
+      },
       describe: function () { return sentenceText(st, areas, ctx); },
       close: function () { close(false); },
     };

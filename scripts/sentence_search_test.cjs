@@ -174,6 +174,8 @@ test('לפני כל בחירה המשפט אינו מסנן: כל הנכסים',
 
 test('המילה המתחלפת: רק אפשרויות עם נכסים, וקצרות', () => {
   assert.deepStrictEqual(C.rollLabels('deal', C.defaultState(), PROPS, CTX, AREAS), ['לקנות', 'לשכור']);
+  // בעפולה עלית יש רק בתים למכירה - אין "לשכור" להציע
+  assert.deepStrictEqual(C.rollLabels('deal', C.applyPatch(C.defaultState(), { area: 'hood:3' }), PROPS, CTX, AREAS), ['לקנות']);
   const types = C.rollLabels('type', C.defaultState(), PROPS, CTX, AREAS);
   assert.ok(types.includes('דירה') && !types.includes('פנטהאוז') && !types.includes('נכס'));
   const hoods = C.rollLabels('area', C.defaultState(), PROPS, CTX, AREAS);
