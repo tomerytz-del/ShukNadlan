@@ -1830,9 +1830,11 @@ async function toolPropertyPerformance(ctx: ToolContext, input: Record<string, u
 /**
  * דוח CMA.
  *
- * ‏`agent_cma_report` ולא `cma_report`: זו אותה פונקציה בדיוק, רק עם מזהה
- * סוכן/ת מפורש במקום `current_agent_id()` — ל-Edge Function אין JWT. מקור
- * האמת אחד, כדי שהמספר בוואטסאפ יהיה המספר שבמסך.
+ * ‏`agent_cma_report_full` ולא `cma_report`: זו אותה פונקציה בדיוק, רק עם
+ * מזהה סוכן/ת מפורש במקום `current_agent_id()` — ל-Edge Function אין JWT.
+ * מקור האמת אחד, כדי שהמספר בוואטסאפ יהיה המספר שבמסך. ‏`_full` היא
+ * ‏`agent_cma_report` ועליה שכבת סוג הבעלות (20270115091000), והיא מה ש-
+ * ‏`cma_report` של הדשבורד קוראת.
  *
  * החזרת הדוח **המלא** לצ'אט הייתה מציפה: הוא כולל את כל העסקאות ברדיוס ואת
  * עסקאות העיר שאי אפשר למקם. לכן חוזרות רק ההשוואות הקרובות ביותר, והדוח
@@ -1842,7 +1844,7 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
   const propertyId = String(input.property_id || "");
   const limit = Math.min(Math.max(Number(input.limit) || 5, 1), 10);
 
-  const { data, error } = await ctx.supabase.rpc("agent_cma_report", {
+  const { data, error } = await ctx.supabase.rpc("agent_cma_report_full", {
     p_agent_id: ctx.agent.id,
     p_property_id: propertyId,
   });
@@ -1973,6 +1975,24 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
 
   ctx.conv.last_property_id = propertyId;
 
+  // שכבת הבעלות (טאבו). ‏null = עוד לא נטענה, ואז פשוט לא מוזכרת.
+  const own = (report.ownership || null) as Record<string, unknown> | null;
+  const ownSubject = (own?.subject || null) as { ownership?: string; mixed_units?: boolean } | null;
+  const ownSplit = (own?.split || null) as Record<string, number> | null;
+  const ownership = own
+    ? {
+      subject: ownSubject?.ownership ? OWNERSHIP_LABEL[ownSubject.ownership] || null : null,
+      subject_mixed_units: ownSubject?.mixed_units || undefined,
+      in_stats_by_ownership: own.counts,
+      // הפיצול קיים רק כששתי הקבוצות מעל הסף - המסד משתיק אותו אחרת.
+      private_median_price_per_sqm: ownSplit?.private_median_price_per_sqm,
+      state_median_price_per_sqm: ownSplit?.state_median_price_per_sqm,
+      private_sample: ownSplit?.private_sample,
+      state_sample: ownSplit?.state_sample,
+      as_of: own.as_of ? String(own.as_of).slice(0, 10) : null,
+    }
+    : undefined;
+
   return {
     ok: true,
     property_id: propertyId,
@@ -2037,8 +2057,22 @@ async function toolCmaReport(ctx: ToolContext, input: Record<string, unknown>) {
     neighborhood_gap_pct: hoodGap(subject.price, hoodStats.median_price),
     neighborhood_gap_per_sqm_pct: hoodGap(subject.price_per_sqm, hoodStats.median_price_per_sqm),
     full_report_where: "הדוח המלא להדפסה או לשליחה ללקוח/ה: כפתור \"דוח CMA\" בכרטיס הנכס בדשבורד.",
+    ownership,
+    ...(ownership ? { ownership_guidance: CMA_OWNERSHIP_GUIDANCE } : {}),
   };
 }
+
+// ‏**הסכנה כאן היא מסקנה שהנתונים אינם תומכים בה.** "קרקע מדינה זולה יותר"
+// נשמע נכון ואינו בהכרח נכון: בבדיקה על שני נכסים ברובע יזרעאל (26.9.2026)
+// החציון למ"ר היה 12,522 בפרטית מול 12,621 במדינה - כמעט זהה. מודל שלא נאמר
+// לו ימציא הנחה על מחיר. לכן: לדווח מה יש, ולא לתקן שווי.
+const CMA_OWNERSHIP_GUIDANCE =
+  "ownership מתאר את סוג הבעלות בטאבו. subject - הנכס עצמו; אם הוא \"מדינה\", ציין/י שבדרך כלל " +
+  "זו חכירה מרמ\"י ושכדאי לבדוק בנסח טאבו - כנקודה לבדיקה, לא כגורם מחיר. " +
+  "in_stats_by_ownership - על כמה עסקאות פרטיות וכמה על קרקע מדינה הממוצע נשען. " +
+  "אם יש private_median_price_per_sqm ו-state_median_price_per_sqm - מסור/מסרי את שניהם כמו שהם, " +
+  "גם כשהם כמעט זהים (ואז אמור/אמרי שאין כאן פער משמעותי). אם הם חסרים - אין די עסקאות בשתי " +
+  "הקבוצות, ואסור לטעון שיש או שאין פער. **לעולם אל תתקן/י את הערכת השווי בעצמך לפי סוג הבעלות.**";
 
 /**
  * מידע תכנוני ובנייה.
