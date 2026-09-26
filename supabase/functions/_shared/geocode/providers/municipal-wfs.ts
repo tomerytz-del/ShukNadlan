@@ -14,6 +14,7 @@
 
 import { itmToWgs84 } from "../itm.ts";
 import { streetVariants } from "../street-variants.ts";
+import { xmlLiteral } from "../../xml.ts";
 import type { GeoHit, GeoQuery, GeocodeProvider, GeoSource } from "../types.ts";
 
 // ‏label הוא מה שמופיע בלוג כשהשכבה מסרבת: בלעדיו נשאר "400" בלי לדעת על
@@ -36,8 +37,8 @@ function addressXml(layer: string, street: string, houseNumber: string): string 
   return '<wfs:GetFeature service="WFS" version="2.0.0" xmlns:wfs="http://www.opengis.net/wfs/2.0" xmlns:fes="http://www.opengis.net/fes/2.0" outputFormat="application/json" count="5">' +
     '<wfs:Query typeNames="' + layer + '">' +
     '<fes:Filter><fes:And>' +
-    '<fes:PropertyIsEqualTo><fes:ValueReference>שם_רחוב</fes:ValueReference><fes:Literal>' + street + '</fes:Literal></fes:PropertyIsEqualTo>' +
-    '<fes:PropertyIsEqualTo><fes:ValueReference>מספר_בית</fes:ValueReference><fes:Literal>' + houseNumber + '</fes:Literal></fes:PropertyIsEqualTo>' +
+    '<fes:PropertyIsEqualTo><fes:ValueReference>שם_רחוב</fes:ValueReference><fes:Literal>' + xmlLiteral(street) + '</fes:Literal></fes:PropertyIsEqualTo>' +
+    '<fes:PropertyIsEqualTo><fes:ValueReference>מספר_בית</fes:ValueReference><fes:Literal>' + xmlLiteral(houseNumber) + '</fes:Literal></fes:PropertyIsEqualTo>' +
     '</fes:And></fes:Filter></wfs:Query></wfs:GetFeature>';
 }
 

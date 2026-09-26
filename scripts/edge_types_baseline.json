@@ -1,0 +1,14 @@
+{
+  "afula-planning-lookup": 41,
+  "agreement-sign": 43,
+  "close-account": 17,
+  "geocode-backfill": 1,
+  "join-agency": 1,
+  "migrate-legacy-videos": 1,
+  "open-house-notify": 1,
+  "planning-backfill": 38,
+  "project-manage": 1,
+  "property-visualize": 1,
+  "street-registry-sync": 5,
+  "whatsapp-webhook": 108
+}
