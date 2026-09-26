@@ -491,7 +491,9 @@ const TOOLS: Anthropic.Tool[] = [
       "תן/י **או** street + house_number **או** gush + helka. " +
       "המקור הוא שכבות ה-GIS של עיריית עפולה, ולכן כתובת מחוץ לעפולה אינה " +
       "נתמכת עדיין - הכלי מחזיר city_not_supported עם קישור לחיפוש ב-GovMap. " +
-      "לנכס שכבר במערכת עדיף planning_info, שמחבר גם את מה שהסוכן/ת הזין/ה.",
+      "לנכס שכבר במערכת עדיף planning_info, שמחבר גם את מה שהסוכן/ת הזין/ה. " +
+      "מחזיר גם ownership - סוג הבעלות הרשום בטאבו (פרטית / מדינה / רשות מקומית / " +
+      "מעורבת / אחר). הבעלות ארצית: גוש/חלקה מחוץ לעפולה מחזירים אותה גם כשאין ייעוד.",
     input_schema: {
       type: "object",
       properties: {
@@ -2170,8 +2172,64 @@ async function toolPlanningInfo(ctx: ToolContext, input: Record<string, unknown>
     };
   }
 
-  return { ok: true, ...info };
+  // בעלות רק כשהגוש והחלקה חזרו - כלומר על נכס של הסוכן/ת עצמו/ה.
+  // ‏agent_property_planning מצנזרת אותם בכל נכס אחר, ובלעדיהם אין מה לחפש.
+  const gis = (info.gis || {}) as Record<string, unknown>;
+  const ownership = await landOwnership(ctx, gis.gush, gis.helka);
+  return {
+    ok: true,
+    ...info,
+    ...(ownership ? { ownership, ownership_guidance: OWNERSHIP_GUIDANCE } : {}),
+  };
 }
+
+/**
+ * סוג הבעלות בחלקה, מפנקסי המקרקעין (‏`land_ownership`, docs/land-ownership.md).
+ *
+ * ‏**ארצי, בניגוד למידע התכנוני:** השכבות התכנוניות הן של עפולה, אבל
+ * הטאבו מכסה את כל הארץ. לכן גוש/חלקה מחוץ לעפולה מקבלים בעלות גם כשאין
+ * להם ייעוד.
+ *
+ * ‏null = אין במאגר (קרקע לא מוסדרת, חלקה שעוד לא נרשמה, או שעוד לא נטען
+ * כלום). **זו לא "פרטית"** - היעדר אינו ראיה. לעולם לא זורקת: זו העשרה,
+ * ותקלה בה אינה מפילה את התשובה.
+ */
+const OWNERSHIP_LABEL: Record<string, string> = {
+  P: "פרטית",
+  S: "מדינה",
+  L: "רשות מקומית",
+  M: "מעורבת",
+  O: "אחר",
+};
+
+async function landOwnership(ctx: ToolContext, gush: unknown, helka: unknown) {
+  if (!gush || !helka) return null;
+  try {
+    const { data, error } = await ctx.supabase.rpc("land_ownership_of", {
+      p_gush: String(gush), p_helka: String(helka),
+    });
+    if (error || !data) return null;
+    const row = data as { ownership: string; mixed_units: boolean; as_of: string | null };
+    return {
+      type: OWNERSHIP_LABEL[row.ownership] || null,
+      mixed_units: row.mixed_units,
+      as_of: row.as_of ? String(row.as_of).slice(0, 10) : null,
+    };
+  } catch (err) {
+    console.warn("landOwnership failed", err);
+    return null;
+  }
+}
+
+// הנחיה ולא נתון. "מדינה" נשמע לרוב הקונים כמו פרט טכני, והוא משנה את כל
+// העסקה - ולכן המודל מקבל גם מה לומר עליו, וגם מה אסור לו להסיק.
+const OWNERSHIP_GUIDANCE =
+  "ownership הוא סוג הבעלות הרשום בטאבו. אמור/י אותו בשורה אחת אחרי הגוש והחלקה. " +
+  "אם הוא \"מדינה\" - הוסף/הוסיפי שבדרך כלל זו קרקע בניהול רשות מקרקעי ישראל שמוחכרת ולא נמכרת, " +
+  "ולכן העברה עשויה לדרוש הסכמת רמ\"י ולפעמים דמי היתר - כדאי לבדוק בנסח טאבו. " +
+  "אם mixed_units - בחלקה יש יחידות בסוגי בעלות שונים. " +
+  "אם ownership הוא null - אל תאמר/י דבר על הבעלות, ובפרט אל תסיק/י \"פרטית\". " +
+  "ציין/י את as_of כתאריך הנתונים, ושהמידע אינו קובע זכות משפטית.";
 
 /**
  * מידע תכנוני לפי כתובת או גוש/חלקה, בלי נכס.
@@ -2284,10 +2342,13 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
       };
     }
     if (!result.ok) {
+      // גוש/חלקה מחוץ לעפולה: אין ייעוד, אבל יש בעלות - הטאבו ארצי.
+      const ownership = byParcel ? await landOwnership(ctx, gush, helka) : null;
       return {
         ok: false,
         error: result.error,
         govmap_url: govmapUrl,
+        ...(ownership ? { gush, helka, ownership, ownership_guidance: OWNERSHIP_GUIDANCE } : {}),
         guidance: result.error === "parcel_not_found"
           ? "החלקה לא נמצאה בשכבת הקדסטר של עפולה. ייתכן שהיא מחוץ לעפולה - המידע האוטומטי מכסה כרגע רק אותה. הצע/י את govmap_url."
           : "הכתובת לא נמצאה בשכבת הכתובות של העירייה. בקש/י לוודא את שם הרחוב והמספר, או גוש וחלקה אם ידועים. אפשר גם להציע את govmap_url.",
@@ -2309,6 +2370,7 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
       year: p.date ? String(p.date).slice(0, 4) : null,
     }));
   const lat = Number(record.lat), lng = Number(record.lng);
+  const ownership = await landOwnership(ctx, record.gush, record.helka);
 
   return {
     ok: true,
@@ -2322,6 +2384,8 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
     land_use_designation: record.land_use_designation ?? null,
     applicable_plans: plans,
     plans_total: ((record.applicable_plans || []) as unknown[]).length,
+    ownership,
+    ...(ownership ? { ownership_guidance: OWNERSHIP_GUIDANCE } : {}),
     map_url: Number.isFinite(lat) && Number.isFinite(lng)
       ? `https://www.google.com/maps?q=${lat},${lng}`
       : null,
@@ -3599,7 +3663,9 @@ const SYSTEM_STATIC: string = (() => {
       "<כתובת>\" - כשאין נכס במערכת = planning_lookup עם כתובת או גוש+חלקה. אם חזר " +
       "city_not_supported, parcel_not_found או gis_unavailable - בצע/י את ה-guidance ושלח/י " +
       "את govmap_url כשיש; **לעולם אל תנחש/י גוש, חלקה או ייעוד**. אם חזר tier_required - " +
-      "אמור/אמרי שהיכולת במסלולי PROFESSIONAL ו-Elite עם מנוי פעיל.",
+      "אמור/אמרי שהיכולת במסלולי PROFESSIONAL ו-Elite עם מנוי פעיל. " +
+      "\"מה סוג הבעלות\" / \"זה קרקע מדינה?\" / \"זה רמ\"י?\" = planning_lookup עם גוש+חלקה או כתובת. " +
+      "אם חזר ownership_guidance - בצע/י אותו.",
     "- \"כמה צפיות\" / \"למה אין פניות\" = property_performance. אם יש מעט צפיות והנכס " +
       "בלי תמונות או בלי קידום - זו התשובה, ואמור/אמרי אותה.",
     "",
