@@ -32,7 +32,7 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 | `view_item` | נכס נטען בהצלחה בדף הנכס | `item_name`, `item_category`, `deal_type`, `city`, `value`, `currency` |
 | `share` | שיתוף שהושלם, או לחיצה על כפתור שיתוף בוואטסאפ/מייל | `method`: ‏`web_share` \| `copy_link` \| `whatsapp` \| `email` |
 | `generate_lead` | טופס שהשרת אישר | `form_id`, ולפעמים `is_duplicate` |
-| `search` | חיפוש שהתוצאות שלו חזרו | `search_term`, `deal_type`, `category`, `filter_count`, `result_count` |
+| `search` | חיפוש שהתוצאות שלו חזרו | `search_term`, `deal_type`, `category`, `filter_count`, `result_count`, `search_source` |
 | `pwa_banner_shown` | רצועת ההתקנה עלתה | `mode`: ‏`prompt` \| `ios` \| `ios-other` \| `in-app` |
 | `pwa_banner_dismiss` | ✕ ברצועה | `mode` |
 | `pwa_install_click` | לחיצה על כפתור ההתקנה (ברצועה או בתפריט) | `mode` |
@@ -194,6 +194,12 @@ if (window.shukTrack) shukTrack('share', { method:'copy_link' });
 **‏`search` נדחף אחרי שהתוצאות חזרו**, כדי ש-`result_count` יהיה אמיתי.
 חיפוש שהחזיר אפס הוא הממצא המעניין ביותר בטבלה הזאת: הוא מראה מה מחפשים
 אצלנו ולא מוצאים.
+
+**מהחיפוש במשפט** (‏`docs/sentence-search.md`) ‏`search` נדחף בלחיצה על "הצג N
+נכסים", עם `search_source: 'sentence'`, ו-`search_term` הוא **המשפט עצמו**
+("אני רוצה לקנות דירה בגבעת המורה עם 3-4 חדרים בעד 1.6 מ׳") - הוא מורכב
+מאפשרויות של האתר, ולכן אין בו טקסט חופשי של גולש/ת. הטקסט שנכתב בשדה החכם
+**אינו** נשלח: הוא יכול להכיל כל דבר, כולל טלפון.
 
 **אירועי ה-PWA נכתבים גם למסד, לא רק ל-GA4.** אותו קובץ כותב כל אירוע
 גם לטבלה `pwa_install_events`, שמזינה את הבלוק "האפליקציה במסך הבית"

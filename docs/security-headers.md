@@ -18,9 +18,16 @@
 `<iframe>` שמצביע על דף שלנו. הדף שזה מגן עליו בפועל הוא `crm.html`: לוח
 מחוונים מחובר עם ארנק ויתרת אשראי, בדיוק המטרה של התקפת clickjacking.
 
-`Permissions-Policy` חוסם גם `geolocation`, כי היום אין באתר אף קריאה
-ל-`navigator.geolocation`. **אם יתווסף "נכסים לידי" שמבקש מיקום — צריך
-לשנות שם ל-`geolocation=(self)`, אחרת הבקשה תיחסם בלי הודעה.**
+`Permissions-Policy` פותח שני ממשקים לדפים שלנו בלבד (`(self)`) וחוסם את
+כל השאר, גם מ-iframe מוטמע:
+
+- ‏`geolocation=(self)` - ‏"📍 לידי" בחיפוש במשפט ו-`assets/near-me.js`.
+- ‏`microphone=(self)` - כפתור המיקרופון בשדה החכם (Web Speech API,
+  `docs/sentence-search.md`). עם `microphone=()` הכפתור הוצג ונלחץ ולא קרה
+  דבר - הדפדפן מסרב בלי בקשת הרשאה ובלי הודעה.
+
+**הכלל: ממשק חדש שדף שלנו מבקש (מצלמה, תשלום) נפתח כאן ב-`(self)` באותו
+PR, אחרת הוא ייחסם בלי הודעה.**
 
 `Strict-Transport-Security` בלי `preload` ובלי `includeSubDomains` בכוונה:
 שניהם דלת חד-כיוונית, ותת-דומיין עתידי שיוגש ב-HTTP היה נחסם בדפדפנים
