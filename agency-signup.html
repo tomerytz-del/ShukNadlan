@@ -53,8 +53,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   p.sub{text-align:center;color:var(--ink-soft);font-size:.85rem;margin:0 0 22px}
   .field{margin-bottom:12px}
   .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
-  .field input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
-  .field input:focus{border-color:var(--blue);outline:none}
+  .field input,.field select{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;font:inherit;background:#fff}
+  .field input:focus,.field select:focus{border-color:var(--blue);outline:none}
   .section-divider{font-size:.72rem;font-weight:700;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.05em;margin:18px 0 10px;padding-top:14px;border-top:1px solid var(--line)}
   .consent{display:flex;align-items:flex-start;gap:9px;background:var(--paper);border:1px solid var(--line);
     border-radius:var(--radius-sm);padding:11px 12px}
@@ -136,6 +136,14 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
     <div class="section-divider">פרטי המשרד</div>
     <div class="field"><label>שם המשרד</label><input type="text" id="agencyName" required></div>
+    <!-- עיר המשרד קובעת לאיזה שוק מקומי הוא שייך. בלעדיה המשרד אינו נספר
+         באף שוק, ובאתר הוא מופיע בשוק ברירת המחדל גם אם הוא בנתניה
+         (20270115101000). רשימה סגורה + "עיר אחרת…", כמו בטופס הנכס. -->
+    <div class="field">
+      <label for="agencyCity">עיר המשרד</label>
+      <select id="agencyCity" required></select>
+      <input type="text" id="agencyCityOther" placeholder="שם העיר" style="display:none;margin-top:8px">
+    </div>
 
     <!-- תחומי ההתמחות נשאלים כבר כאן ולא רק בעריכת המיתוג: הם מה שיופיע
          כתגיות בראש דף המשרד, ומשרד חדש שאין לו עדיין נכסים הוא בדיוק זה
@@ -225,6 +233,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
 <script src="assets/specialties.js"></script>
 <script src="assets/tiers.js"></script>
+<script src="assets/agency-city.js"></script>
 <script>
 /* ---------- המסלול שנבחר בדף המסלולים ----------
    ‏?tier= הוא אישור ולא הגדרה: הוא מאשר למי שהגיע/ה מדף המסלולים שהבחירה
@@ -247,6 +256,9 @@ const SIGNUP_FUNCTION_URL = SUPABASE_URL + '/functions/v1/agency-signup';
 const LICENSE_LOOKUP_URL  = SUPABASE_URL + '/functions/v1/broker-license-lookup';
 const LICENSE_APPEAL_URL  = SUPABASE_URL + '/functions/v1/broker-license-appeal';
 const FN_HEADERS = { 'Content-Type':'application/json', 'apikey': SUPABASE_ANON_KEY, 'Authorization':'Bearer ' + SUPABASE_ANON_KEY };
+
+// עיר המשרד - הרשימה הסגורה של ערי השווקים (assets/agency-city.js)
+if (window.AgencyCity) AgencyCity.mount(document.getElementById('agencyCity'), document.getElementById('agencyCityOther'), { url: SUPABASE_URL, key: SUPABASE_ANON_KEY });
 
 /* ---------- בחירת תחומי ההתמחות ----------
    הרשימה מגיעה מ-assets/specialties.js — אותו קטלוג בדיוק שה-CRM ודף
@@ -332,6 +344,12 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
     feedback.textContent = 'נא למלא את כל השדות';
     return;
   }
+  const agencyCity = window.AgencyCity ? AgencyCity.value(document.getElementById('agencyCity'), document.getElementById('agencyCityOther')) : null;
+  if (window.AgencyCity && !agencyCity){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'נא לבחור את עיר המשרד';
+    return;
+  }
   if (managerPassword.length < 8){
     feedback.style.color = 'var(--red)';
     feedback.textContent = 'הסיסמה צריכה להכיל לפחות 8 תווים';
@@ -355,6 +373,7 @@ document.getElementById('submitBtn').addEventListener('click', async ()=>{
         manager_password: managerPassword,
         license_number: licenseNumber,
         specialties: chosenSpecialties,
+        ...(agencyCity || {}),
         ethics_code_accepted: true,
       }),
     });
