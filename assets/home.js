@@ -5688,8 +5688,27 @@ document.getElementById('ssAdvancedBtn')?.addEventListener('click', ()=>{
   openModal(searchState.activeTab === 'commercial' ? 'commercialFilterModal' : 'residentialFilterModal');
 });
 
+function renderClearButton(){
+  const btn = document.getElementById('ssClearBtn');
+  if (btn && sentence) btn.classList.toggle('is-idle', sentence.isClean());
+}
+
+/* ‏"ניקוי החיפוש" שבכרטיס: אותו איפוס של הכפתור שבראש התוצאות (clearSearch)
+   - המשפט, הסינון המתקדם, הסימון על המפה, השכונה והכתובת - בלי לגלול. */
+document.getElementById('ssClearBtn')?.addEventListener('click', ()=>{
+  if (!sentence || !sentence.loaded()) return;
+  document.getElementById('rClearFilters')?.click();
+  document.getElementById('cClearFilters')?.click();
+  advancedCount = 0;
+  sentenceRowsOn = false;
+  mapDraw?.clear();
+  sentence.reset();
+});
+document.getElementById('ssQuery')?.addEventListener('input', renderClearButton);
+
 function onSentenceChange(results, st, reason){
   renderAdvancedBadge();
+  renderClearButton();
   if (reason === 'load' && sentenceDeepLink){
     sentenceDeepLink = false;
     syncSearchStateFromSentence(st);

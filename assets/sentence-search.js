@@ -385,7 +385,14 @@
      ולא עוד כותרת. רק אפשרויות שיש בהן נכסים, וקצרות: ה-slot מקבל את רוחב
      הארוכה שבהן, ושם של 25 תווים היה מותח את כל המשפט. */
   function rollLabels(slot, st, props, ctx, areas) {
-    if (slot === 'deal') return ['לקנות', 'לשכור'];
+    /* גם העסקה מתחלפת רק בין אפשרויות שיש בהן נכסים: "אני רוצה לשכור דירה
+       בגבעת המורה" מעל שתי דירות למכירה הוא משפט שמשקר. כשרק אחת קיימת אין
+       חילוף, וה-slot עומד על "למצוא". */
+    if (slot === 'deal') {
+      return ['sale', 'rent'].filter(function (d) {
+        return filter(props, applyPatch(st, { deal: d }), ctx).length > 0;
+      }).map(dealLabel);
+    }
     var list = options(slot, st, props, ctx, areas).filter(function (o) {
       if (o.value === null || o.value === 'all' || o.value === 'any' || o.value === 'near') return false;
       return (o.count === null || o.count > 0) && String(o.label).length <= 14;
@@ -1168,6 +1175,10 @@
         change(defaultState(), 'reset');
       },
       count: function (patch) { return filter(props, applyPatch(st, patch || {}), ctx).length; },
+      /* יש מה לנקות: משפט שאינו ברירת המחדל, סינון מתקדם, או טקסט בשדה */
+      isClean: function () {
+        return JSON.stringify(st) === JSON.stringify(defaultState()) && !ctx.extra && !(input.value || '').trim();
+      },
       describe: function () { return sentenceText(st, areas, ctx); },
       close: function () { close(false); },
     };
