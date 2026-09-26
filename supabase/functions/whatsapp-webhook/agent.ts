@@ -1,7 +1,7 @@
 import Anthropic from "npm:@anthropic-ai/sdk@0.120.0";
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import { geocodeAfula, geocodeInCity } from "./geocode.ts";
-import { lookupPlanning } from "../_shared/afula-planning.ts";
+import { lookupPlanning, planningLookupKey } from "../_shared/afula-planning.ts";
 import {
   addMonthsIso,
   documentHtml,
@@ -2254,7 +2254,9 @@ async function toolPlanningLookup(ctx: ToolContext, input: Record<string, unknow
 
   if (!byParcel) street = await canonicalAfulaStreet(ctx, street);
 
-  const lookupKey = byParcel ? `${gush}:${helka}` : `${street}:${houseNumber}`;
+  const lookupKey = byParcel
+    ? planningLookupKey({ gush, helka })
+    : planningLookupKey({ street, house_number: houseNumber });
   let record: Record<string, unknown>;
   let cached = false;
 

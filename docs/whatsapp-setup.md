@@ -353,9 +353,9 @@ update public.agency_members set phone = '050-1234567' where id = '<agent-uuid>'
 | | |
 | --- | --- |
 | המנוע | ‏`lookupPlanning` מ-`_shared/afula-planning.ts` - אותה שליפה של הכלי בדשבורד ושל `planning-backfill`, לא עותק |
-| המטמון | ‏`planning_lookups`, ‏24 שעות, אותו `lookup_key` של `afula-planning-lookup` |
+| המטמון | ‏`planning_lookups`, ‏24 שעות. המפתח נבנה ב-`planningLookupKey` (`_shared/afula-planning.ts`) לכל הקוראים; כתובת נושאת את העיר (‏`עפולה:רחוב:מספר`), וגוש/חלקה לא - המספור ארצי |
 | שם הרחוב | עובר קודם דרך `street_registry` ו-`street_registry_aliases` של עפולה (‏"יצחק רבין" → "שדרות יצחק רבין"), כמו `planning-backfill` |
-| הגייט | ‏mid/premium עם `billing_status = 'active'`, כמו `afula-planning-lookup`. הוובהוק בודק רק `tier` בכניסה, ולכן מנוי שפג נבדק בכלי |
+| הגייט | ‏mid/premium עם `billing_status = 'active'`, כמו `afula-planning-lookup`. הוובהוק בודק בכניסה גם את `billing_status` (מ-26.9.2026); הבדיקה בכלי נשארת כשכבה שנייה |
 | הכיסוי | **עפולה בלבד.** כתובת בעיר אחרת מחזירה `city_not_supported`; חלקה שאינה בקדסטר של עפולה - `parcel_not_found`. בשניהם חוזר `govmap_url`, קישור לחיפוש ב-GovMap |
 
 **למה לא GovMap בשרת, כבר עכשיו:** הטוקן נעול לדומיין ולדפדפן, ועוד לא
@@ -933,6 +933,7 @@ python scripts/whatsapp_webhook_test.py text "תעלה נכס באבן גביר�
 | הפונקציה מחזירה 401 | חתימת HMAC לא תואמת — `WHATSAPP_APP_SECRET` שגוי |
 | הפונקציה מחזירה 500 מיד | `WHATSAPP_APP_SECRET` לא מוגדר בכלל |
 | "איני מזהה את מספר הטלפון" לסוכן/ת קיים/ת | `phone` לא מעודכן, או שולחים ממספר אחר |
+| "המנוי שלך אינו פעיל כרגע" | ‏`agency_members.billing_status` אינו `active` (‏`past_due` / `canceled`), גם כשהמסלול mid/premium |
 | ההודעה נקראת אבל אין תשובה | `ANTHROPIC_API_KEY` חסר/לא תקין — לבדוק בלוגים |
 | הקלטות לא עובדות | `OPENAI_API_KEY` לא מוגדר |
 | תמונות לא נשמרות | הקובץ מעל 3MB או פורמט שאינו JPEG/PNG/WebP (מגבלות ה-bucket) |

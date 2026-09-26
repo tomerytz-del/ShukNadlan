@@ -214,6 +214,28 @@ function cleanPlans(rawPlans) {
 }
 
 /**
+ * המפתח של שורה ב-planning_lookups - מקור אחד לכל הקוראים.
+ *
+ * עד כאן כל קורא בנה אותו בעצמו (כאן, ב-afula-planning-lookup ובעוזר
+ * בוואטסאפ), וכתובת נשמרה כ-`רחוב:מספר` **בלי עיר**. כל עוד השכבה היא של
+ * עפולה זה נכון, אבל ביום שיתווסף ספק לעיר נוספת "הרצל 20" בחיפה היה מקבל
+ * מהמטמון את התשובה של הרצל 20 בעפולה - בלי שגיאה ובלי סימן.
+ *
+ * ‏**גוש/חלקה נשארים בלי עיר:** המספור הוא ארצי (מפ"י), ושתי ערים אינן
+ * חולקות גוש. שורות כתובת ישנות, בלי העיר, פשוט לא נקראות יותר - זה מטמון
+ * של 24 שעות, ולכן אין מה להעביר.
+ */
+export const PLANNING_CITY = "עפולה";
+
+export function planningLookupKey(input: {
+  street?: string | null; house_number?: string | null;
+  gush?: string | null; helka?: string | null;
+}): string {
+  if (input.gush && input.helka) return input.gush + ":" + input.helka;
+  return PLANNING_CITY + ":" + input.street + ":" + input.house_number;
+}
+
+/**
  * שליפה מלאה לכתובת או לגוש/חלקה.
  *
  * מחזירה ‏`{ ok: true, record }` עם השדות כפי שהם נשמרים ב-planning_lookups,
@@ -227,7 +249,7 @@ export async function lookupPlanning(input) {
     return { ok: false, error: "missing_fields", status: 400 };
   }
 
-  const lookupKey = (gush && helka) ? (gush + ":" + helka) : (street + ":" + house_number);
+  const lookupKey = planningLookupKey({ street, house_number, gush, helka });
   let x, y;
   let resolvedGush = gush, resolvedHelka = helka;
   let parcelArea = null, parcelStatus = null, parcelGeometry = null;
