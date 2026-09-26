@@ -40,11 +40,19 @@ import tempfile
 import time
 from typing import Iterable, Iterator
 
+import requests
+
 log = logging.getLogger("land_ownership")
 
 RESOURCE_ID = "a1a91496-d692-4420-bc21-3487600b71a5"
 CKAN_SHOW = "https://data.gov.il/api/3/action/resource_show?id=" + RESOURCE_ID
-USER_AGENT = "ShukNadlanBot/1.0 (+https://shuknadlan.co.il)"
+CKAN_DATASTORE = "https://data.gov.il/api/3/action/datastore_search"
+
+# ‏**הזיהוי ש-data.gov.il מבקש מלקוחות חיצוניים**, ולא דפדפן מזויף. בהרצה
+# הראשונה (26.9.2026) ה-API של CKAN ענה ל-GitHub, ושרת הקבצים (e.data.gov.il)
+# החזיר 403 ל-"ShukNadlanBot". אם גם זה נחסם - `datastore_search`, למטה.
+USER_AGENT = "datagov-external-client"
+DATASTORE_PAGE = 32000
 
 HEADER = ["גוש", "חלקה", "תת חלקה", "תיאור שיטה", "סוג בעלות"]
 
@@ -143,18 +151,71 @@ def resolve_source(session) -> tuple[str, str | None]:
     return result["url"], result.get("last_modified") or result.get("metadata_modified")
 
 
+class SourceBlocked(RuntimeError):
+    """שרת הקבצים לא נתן את הקובץ: 401/403, או עמוד HTML (בדיקת בוטים) עם 200.
+
+    בהרצה השנייה (26.9.2026) הוא החזיר 200 עם text/html - ולכן זו אינה רק
+    שאלה של קוד סטטוס. שגיאת שרת (5xx) אינה חסימה, ולכן אינה כאן.
+    """
+
+
 def download(session, url: str) -> str:
     """מוריד לקובץ זמני ומחזיר את הנתיב. עמוד HTML במקום CSV הוא כשל."""
     fd, path = tempfile.mkstemp(suffix=".csv")
     with os.fdopen(fd, "wb") as out, session.get(url, stream=True, timeout=300) as res:
+        if res.status_code in (401, 403):
+            raise SourceBlocked(f"שרת הקבצים החזיר {res.status_code}")
         res.raise_for_status()
         ctype = res.headers.get("Content-Type", "")
         if "html" in ctype.lower():
-            raise RuntimeError(f"התקבל {ctype} במקום CSV - כנראה עמוד חסימה")
+            raise SourceBlocked(f"התקבל {ctype} במקום CSV - כנראה עמוד חסימה")
         for chunk in res.iter_content(1 << 20):
             out.write(chunk)
     log.info("הורדו %.1f MB", os.path.getsize(path) / 1e6)
     return path
+
+
+def datastore_lines(session) -> Iterator[str]:
+    """אותו תוכן דרך ה-API של CKAN, כשורות CSV - כדי ש-reduce_rows לא תשתנה.
+
+    דרך המילוט כששרת הקבצים חוסם: ה-API הוא הממשק שהפורטל מציע לשליפה
+    תוכניתית. דפדוף לפי `_links.next`, ~90 בקשות לכל המאגר. הכותרת נבנית
+    מ-HEADER ולא מהשדות שחזרו: אם השמות השתנו, `reduce_rows` לא תגלה זאת
+    מהכותרת - ולכן בודקים כאן שכל עמודה צפויה קיימת.
+    """
+    buf = io.StringIO()
+    w = csv.writer(buf, lineterminator="\n")
+    w.writerow(HEADER)
+    yield buf.getvalue()
+
+    url = f"{CKAN_DATASTORE}?resource_id={RESOURCE_ID}&limit={DATASTORE_PAGE}"
+    total = None
+    seen = 0
+    while url:
+        res = session.get(url, timeout=120)
+        res.raise_for_status()
+        body = res.json()
+        if not body.get("success"):
+            raise RuntimeError(f"datastore_search החזיר success=false: {json.dumps(body)[:300]}")
+        result = body["result"]
+        if total is None:
+            total = result.get("total")
+            names = {f.get("id") for f in result.get("fields", [])}
+            missing = [h for h in HEADER if h not in names]
+            if missing:
+                raise ValueError(f"עמודות חסרות ב-datastore: {missing!r}")
+        records = result.get("records") or []
+        if not records:
+            break
+        for rec in records:
+            buf.seek(0)
+            buf.truncate()
+            w.writerow([rec.get(h, "") if rec.get(h) is not None else "" for h in HEADER])
+            yield buf.getvalue()
+        seen += len(records)
+        nxt = (result.get("_links") or {}).get("next")
+        url = ("https://data.gov.il" + nxt) if nxt and seen < (total or 0) else None
+    log.info("datastore: נקראו %d מתוך %s רשומות", seen, total)
 
 
 def open_lines(path: str) -> Iterator[str]:
@@ -219,7 +280,6 @@ def main(argv: list[str]) -> int:
     session = None
 
     if not args.file:
-        import requests
         session = requests.Session()
         session.headers["User-Agent"] = USER_AGENT
         source_url, source_modified = resolve_source(session)
@@ -232,8 +292,15 @@ def main(argv: list[str]) -> int:
             log.info("הקובץ לא השתנה מאז הטעינה האחרונה - אין מה לעשות.")
             return 0
 
-    path = args.file or download(session, source_url)
-    parcels, stats = reduce_rows(open_lines(path))
+    if args.file:
+        lines = open_lines(args.file)
+    else:
+        try:
+            lines = open_lines(download(session, source_url))
+        except SourceBlocked as err:
+            log.warning("%s - עוברים ל-datastore_search", err)
+            lines = datastore_lines(session)
+    parcels, stats = reduce_rows(lines)
     log.info("נקראו %d שורות: %d לא מוסדרות (דולגו), %d נדחו → %d חלקות, %d מעורבות",
              stats.get("read", 0), stats.get("skipped", 0), stats.get("rejected", 0),
              stats["parcels"], stats["mixed"])
