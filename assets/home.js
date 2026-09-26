@@ -958,6 +958,10 @@ document.getElementById('wizRestart').addEventListener('click', ()=>{
    touches Part 1 above.
    ============================================================ */
 let sb = null;
+/* החיפוש במשפט (‏assets/sentence-search.js). מוצהר כאן, למעלה, כי המקרא
+   והמפה קוראים אותו מפונקציות שמוגדרות לפני שהוא מורכב (בסוף הקובץ).
+   ‏null = הסקריפט לא נטען, והדף חוזר להתנהגות שלפניו. */
+let sentence = null;
 try {
   if (window.supabase) {
     sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
@@ -2898,6 +2902,26 @@ function applyDealFilter({ fit = false } = {}){
    סוג ברשימה הנוכחית — גם כשהסוג כבוי — כי זו בדיוק המשמעות של הכפתור:
    "יש כאן N נכסים כאלה, לחצו כדי להסתיר/להציג אותם". */
 function updateLegendCounts(){
+  /* עם החיפוש במשפט המקרא הוא בורר ולא מסנן תצוגה: "מכירה (25)" הוא כמה
+     נכסים יהיו אם המשפט יעבור ל"לקנות", כששאר המשפט נשאר כמו שהוא. */
+  if (sentence && sentence.loaded()){
+    const st = sentence.state();
+    const t = sentence.Core.typeDef(st.type);
+    const counts = {
+      sale: sentence.count({ deal:'sale', type: t.commercial ? 'any' : st.type }),
+      rent: sentence.count({ deal:'rent', type: t.commercial ? 'any' : st.type }),
+      commercial: sentence.count({ type:'commercial' }),
+    };
+    document.querySelectorAll('[data-legend-count]').forEach(el => {
+      el.textContent = `(${counts[el.dataset.legendCount] || 0})`;
+    });
+    document.querySelectorAll('.map-legend button').forEach(b => {
+      const k = b.dataset.dealKind;
+      const on = k === 'commercial' ? !!t.commercial : (!t.commercial && st.deal === k);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    return;
+  }
   const counts = Object.fromEntries(MAP_DEAL_KINDS.map(k => [k, 0]));
   Object.values(mapMarkers).forEach(m => { counts[m.options.dealKind]++; });
   document.querySelectorAll('[data-legend-count]').forEach(el => {
@@ -2908,6 +2932,12 @@ function updateLegendCounts(){
 document.querySelectorAll('.map-legend button').forEach(btn=>{
   btn.addEventListener('click', ()=>{
     const kind = btn.dataset.dealKind;
+    // ‏"מכירה"/"השכרה" במקרא מחליפים את העסקה במשפט, ו"מסחרי" את סוג הנכס
+    if (sentence && sentence.loaded()){
+      if (kind === 'commercial') sentence.setType('commercial');
+      else sentence.setDeal(kind);
+      return;
+    }
     if (activeDealKinds.has(kind)) activeDealKinds.delete(kind);
     else activeDealKinds.add(kind);
     syncLegendButtons();
@@ -3292,7 +3322,7 @@ function initMapDraw(){
      הסדר אינו מקרי: ‏setSplitView משנה את רוחב הקונטיינר של המפה וקוראת
      ל-invalidateSize, ולכן היא קודמת להגדלה. מי שכבר במצב מפוצל לא מושפע/ת
      — הקריאה מגודרת ב-‎if (!splitOn)‎. */
-  mapCta.addEventListener('click', ()=>{
+  mapCta?.addEventListener('click', ()=>{
     if (!splitOn) setSplitView(true);
     setMapExpanded(true);
     document.getElementById('heroSection')?.scrollIntoView({ behavior:'smooth', block:'start' });
@@ -3307,6 +3337,12 @@ function onDrawnAreaChange(shape){
   const countEl = document.getElementById('areaResultCount');
 
   if (clearBtn) clearBtn.hidden = !shape;
+
+  /* האזור שסומן הוא ה-slot "איפה" של המשפט: "ב[האזור שסימנתי]". מכאן
+     והלאה המשפט הוא שמסנן - ובאותה התאמה שמזינה גם את המונים. */
+  if (sentence && sentence.loaded()){
+    sentence.setDrawn(!!shape, p => !!p.lat && !!p.lng && mapDraw.contains(+p.lat, +p.lng));
+  }
 
   // אותה לוגיקה של המקרא: פין שאינו רלוונטי יורד מהמפה במקום להתעמעם
   Object.values(mapMarkers).forEach(m => {
@@ -3493,17 +3529,6 @@ function countAddedToday(properties){
 
 // התגית היא הדרך הקצרה ביותר למסנן ההדמיות, שעד היום הגיעו אליו רק דרך ‎?ai=1‎
 document.getElementById('heroAiBadge')?.addEventListener('click', ()=> ShukSearch.applyAiFilter());
-
-/* ---------- שבבי החיפוש המהיר ---------- */
-document.getElementById('heroQuick')?.addEventListener('click', (e)=>{
-  const chip = e.target.closest('.hero-chip');
-  if (!chip) return;
-  if (chip.dataset.ai){ ShukSearch.applyAiFilter(); return; }
-  const field = document.getElementById('searchFreeText');
-  if (!field) return;
-  field.value = chip.dataset.q || '';
-  document.getElementById('searchSubmitBtn')?.click();
-});
 
 /* ============================================================
    באנר ההדמיות — בסוף תיבת הנכסים
@@ -3877,12 +3902,16 @@ try {
     // למפה.
     renderHomeProps(properties);
 
-    if (!searchHasRun) renderPropertyGrid(properties);
+    // החיפוש במשפט מסנן מכאן והלאה את המפה (ראו onSentenceChange)
+    if (sentence) sentence.setProperties(properties);
+    else if (!searchHasRun) renderPropertyGrid(properties);
 
     /* תגית "הדמיית AI" מגיעה בשאילתה שנייה. היא לא מעכבת את הצגת האריחים —
        אריח בלי התגית הוא אריח שלם — ולכן היא נטענת אחריהם, ומציירת מחדש
        רק את מה שכבר על המסך. */
     PropertyCard.visualizedIds(sb, properties.map(p => p.id)).then(ids=>{
+      // גם קבוצה ריקה: ‎?ai=1‎ בלי אף נכס עם הדמיה הוא אפס תוצאות, לא "הכול"
+      if (sentence && !ids.size) sentence.setAiIds(ids);
       if (!ids.size) return;
       visualizedProps = ids;
       // התגית שב-hero סופרת את אותה קבוצה בדיוק — נכסים *פעילים* עם הדמיה
@@ -3893,7 +3922,8 @@ try {
       // היא מקבלת אותה במפורש במקום לקרוא את המשתנה של העמוד
       propsShelf.setVisualized(ids);
       showAiPromo(ids.size);
-      if (!searchHasRun) renderPropertyGrid(properties);
+      if (sentence) sentence.setAiIds(ids);
+      else if (!searchHasRun) renderPropertyGrid(properties);
     });
   })();
 } catch(e){
@@ -4038,7 +4068,7 @@ if (dealTypeSelect){
        הבורר מוחזר לערך הקודם לפני הניווט, כדי שחזרה אחורה בדפדפן לא
        תמצא את דף הבית עם בורר שמצביע על עמוד אחר. */
     if (dealTypeSelect.value === 'projects'){
-      const q = (document.getElementById('searchFreeText').value || '').trim();
+      const q = mainFreeText();
       dealTypeSelect.value = searchState.activeTab;
       location.href = '/projects' + (q ? '?q=' + encodeURIComponent(q) : '');
       return;
@@ -4057,9 +4087,22 @@ if (dealTypeSelect){
 
 // אנטר בתיבת החיפוש = לחיצה על כפתור החיפוש; במסכים צרים הכפתור מוצג
 // כאייקון בלבד, ובלי זה לא היה ברור איך מריצים חיפוש מהמקלדת
-document.getElementById('searchFreeText').addEventListener('keydown', (e)=>{
+document.getElementById('searchFreeText')?.addEventListener('keydown', (e)=>{
   if (e.key === 'Enter'){ e.preventDefault(); runSearch(); }
 });
+
+/* הטקסט החופשי של החיפוש. מאז החיפוש במשפט אין שדה "עיר, שכונה או רחוב":
+   מה שהיה נכתב בו הוא היום האזור שבמשפט - שם שכונה, יישוב, או טקסט
+   שהשדה החכם זיהה ככתובת. חיפוש שמור (‏ssaCapture) ו-runSearch קוראים אותו
+   מכאן. */
+function mainFreeText(){
+  const field = document.getElementById('searchFreeText');
+  if (field) return (field.value || '').trim();
+  if (!sentence) return '';
+  const area = sentence.state().area || '';
+  if (/^(hood|city|text):/.test(area)) return sentence.Core.areaLabel(area, sentence.areas(), {});
+  return '';
+}
 
 function openModal(id){ document.getElementById(id).classList.add('open'); }
 function closeModal(id){ document.getElementById(id).classList.remove('open'); }
@@ -4079,7 +4122,7 @@ document.addEventListener('keydown', (e)=>{
   if (open) open.classList.remove('open');
 });
 
-document.getElementById('openFiltersBtn').addEventListener('click', ()=>{
+document.getElementById('openFiltersBtn')?.addEventListener('click', ()=>{
   openModal(searchState.activeTab === 'commercial' ? 'commercialFilterModal' : 'residentialFilterModal');
 });
 
@@ -4095,7 +4138,7 @@ document.getElementById('cApplyFilters')?.addEventListener('click', runSearch);
 
 // המודאל נפתח תמיד מהבחירה שכבר פעילה: מי שסגר/ה בטעות וחזר/ה מוצא/ת את
 // הסימון כפי שהיה, ולא דף ריק.
-document.getElementById('hoodFilterBtn').addEventListener('click', ()=>{
+document.getElementById('hoodFilterBtn')?.addEventListener('click', ()=>{
   hoodState.draft = new Set(hoodState.selected);
   renderHoodOptions();
   openModal('hoodFilterModal');
@@ -4244,12 +4287,14 @@ async function runSearchInner(){
   collectFormValues();
   const badge = document.getElementById('filterCountBadge');
   const count = countActiveFilters();
-  badge.style.display = count ? 'inline-flex' : 'none';
-  badge.textContent = count;
+  if (badge){
+    badge.style.display = count ? 'inline-flex' : 'none';
+    badge.textContent = count;
+  }
 
   document.querySelectorAll('.filter-modal-overlay').forEach(m=>m.classList.remove('open'));
 
-  const freeTextMain = document.getElementById('searchFreeText').value.trim();
+  const freeTextMain = mainFreeText();
   const isCommercial = searchState.activeTab === 'commercial';
   const s = isCommercial ? searchState.c : searchState.r;
   const dealType = isCommercial ? s.deal : searchState.activeTab;
@@ -4560,7 +4605,7 @@ async function ssaCapture(){
   const isCommercial = searchState.activeTab === 'commercial';
   const s = isCommercial ? searchState.c : searchState.r;
   const dealType = isCommercial ? s.deal : searchState.activeTab;
-  const freeText = (s.freeText || document.getElementById('searchFreeText').value || '').trim();
+  const freeText = (s.freeText || mainFreeText() || '').trim();
 
   // סינון השכונות מנצח את הטקסט: זו בחירה מפורשת לפי מזהה, ולא ניחוש.
   let hoodIds = [];
@@ -5284,6 +5329,13 @@ function setAiFilter(on){
    הרשומה שהם כותבים עליה היא הזקיף של assets/exit-guard.js, וסימון שנמחק
    ממנה היה מבלבל את השאלה שלפני היציאה מהאתר. */
 async function applyAiFilter(){
+  if (sentence && sentence.loaded()){
+    sentence.setAi(true);
+    showSentenceResults();
+    document.getElementById('searchResults')
+      ?.scrollIntoView({ behavior:'smooth', block:'start' });
+    return;
+  }
   setAiFilter(true);
   try{
     const url = new URL(location.href);
@@ -5300,6 +5352,7 @@ window.ShukSearch = { applyAiFilter };
 /* כיבוי מהצ׳יפ: מוריד את המסנן ואת הפרמטר מהכתובת, ומריץ מחדש את אותו
    חיפוש בלי לגעת בשאר הסינון — בשונה מ"ניקוי החיפוש" שמאפס הכול. */
 document.getElementById('aiFilterChip')?.addEventListener('click', async ()=>{
+  if (sentence && sentence.loaded()){ sentence.setAi(false); return; }
   setAiFilter(false);
   try{
     const url = new URL(location.href);
@@ -5310,7 +5363,8 @@ document.getElementById('aiFilterChip')?.addEventListener('click', async ()=>{
 });
 
 async function clearSearch(){
-  document.getElementById('searchFreeText').value = '';
+  const field = document.getElementById('searchFreeText');
+  if (field) field.value = '';
   setAiFilter(false);
   hoodState.selected = new Set();
   hoodState.draft = new Set();
@@ -5320,8 +5374,10 @@ async function clearSearch(){
   // ל"מכירה", ואיתו משתנים המונים ודירוג השכונות
   renderHoodFilter();
   const badge = document.getElementById('filterCountBadge');
-  badge.style.display = 'none';
-  badge.textContent = '0';
+  if (badge){
+    badge.style.display = 'none';
+    badge.textContent = '0';
+  }
 
   try{
     const url = new URL(location.href);
@@ -5342,13 +5398,20 @@ async function clearSearch(){
      הכיבוי המפורש כאן הוא כדי ש-moveend של ה-fit לא ידליק אותו בחזרה. */
   exitMapViewRows();
 
-  searchHasRun = false;
-  renderPropertyGrid(await loadProperties());
+  if (sentence && sentence.loaded()){
+    // האיפוס מחזיר את המשפט לברירת המחדל, והוא שמצייר את המפה מחדש
+    sentenceRowsOn = false;
+    mapDraw?.clear();
+    sentence.reset();
+  } else {
+    searchHasRun = false;
+    renderPropertyGrid(await loadProperties());
+  }
   document.getElementById('heroSection').scrollIntoView({ behavior:'smooth', block:'start' });
 }
 
 initFilterModals();
-document.getElementById('searchSubmitBtn').addEventListener('click', runSearch);
+document.getElementById('searchSubmitBtn')?.addEventListener('click', runSearch);
 document.getElementById('clearSearchBtn').addEventListener('click', clearSearch);
 
 /* ============================================================
@@ -5412,6 +5475,8 @@ document.getElementById('clearSearchBtn').addEventListener('click', clearSearch)
    ל-searchState ולא מגיע לשאילתה — הוא פשוט מתעלם.
    ============================================================ */
 function applyDeepLinkFilters(){
+  // עם החיפוש במשפט הכתובת נקראת שם (ראו initSentenceSearch למטה)
+  if (sentence) return;
   const params = new URLSearchParams(location.search);
   if (![...params.keys()].length) return;
 
@@ -5458,4 +5523,189 @@ function applyDeepLinkFilters(){
   renderHoodFilter();
   runSearch();
 }
+
+/* ============================================================
+   החיפוש במשפט
+   ------------------------------------------------------------
+   ‏assets/sentence-search.js מחזיק את המצב, הבורר, המונים והפירוש; כאן
+   רק החיבור לדף: כל שינוי במשפט מצייר מחדש את המפה (ואת שורות התוצאות,
+   מרגע שהוצגו), את המקרא ואת התגית שעל המפה. ‏docs/sentence-search.md.
+
+   הסינון עצמו נעשה בדפדפן, על ‎allActiveProperties‎ - אותה רשימה שהמפה
+   כבר טוענת - ולכן המונה שבכפתור "הצג N נכסים" הוא בדיוק מספר הפינים.
+   ‏searchState מתעדכן גם הוא, כדי שהחיפוש השמור (‏ssaCapture) והעוזר
+   בוואטסאפ יקבלו את מה שכתוב במשפט.
+   ============================================================ */
+
+/* שורות התוצאות שמתחת למפה נפתחות רק כשמבקשים אותן ("הצג N נכסים", Enter,
+   או כתובת שמגיעה עם חיפוש). עד אז כל שינוי במשפט מזיז את המפה בלבד -
+   אחרת כל לחיצה בבורר הייתה פותחת רשימה ארוכה ודוחפת את הדף. */
+let sentenceRowsOn = false;
+
+function sentenceRoomsSet(r){
+  if (!r) return new Set();
+  return new Set(ROOM_OPTIONS.filter(o => {
+    const n = o === '+6' ? 6 : parseFloat(o);
+    return n >= r[0] && n <= r[1];
+  }));
+}
+
+function syncSearchStateFromSentence(st){
+  const Core = sentence.Core;
+  const t = Core.typeDef(st.type);
+  const commercial = !!t.commercial;
+  searchState.activeTab = commercial ? 'commercial' : (st.deal || 'sale');
+  const s = commercial ? searchState.c : searchState.r;
+  if (commercial) searchState.c.deal = st.deal || '';
+  s.ptypes = new Set(t.ptypes || []);
+  s.rooms = sentenceRoomsSet(st.rooms);
+  searchState.hasAi = !!st.ai;
+  /* ‏collectFormValues() קורא את המחיר משדות המודאל, ולכן הוא נכתב גם לשם */
+  const setVal = (id, v)=>{ const el = document.getElementById(id); if (el) el.value = v ? String(v) : ''; };
+  const pre = commercial ? 'c' : 'r';
+  setVal(pre + 'PriceMax', st.priceMax);
+  setVal(pre + 'PriceMin', st.priceMin);
+
+  /* שכונה שנבחרה במשפט היא גם הסימון שלה על המפה (‏drawHoodShapes), ו-
+     fitMapToMarkers מתמקד בה - כולל שכונה שאין בה כרגע אף פין. */
+  const hood = /^hood:/.test(st.area || '') ? st.area.slice(5) : null;
+  const hoodProp = hood && allActiveProperties.find(p => String(p.neighborhood_id) === hood);
+  hoodState.selected = hoodProp ? new Set([hoodProp.neighborhood_id]) : new Set();
+  drawHoodShapes();
+}
+
+function renderSentenceMapTag(results, st){
+  const tag = document.getElementById('ssMapTag');
+  if (!tag) return;
+  const n = results.length;
+  const label = sentence.Core.areaLabel(st.area, sentence.areas(), { marketLabel: CityCtx.label() });
+  tag.textContent = `${n === 1 ? 'נכס אחד' : n.toLocaleString('he-IL') + ' נכסים'} באזור · ${label}`;
+  tag.hidden = false;
+}
+
+let sentenceDeepLink = false;
+
+function onSentenceChange(results, st, reason){
+  if (reason === 'load' && sentenceDeepLink){
+    sentenceDeepLink = false;
+    syncSearchStateFromSentence(st);
+    setAiFilter(!!st.ai);
+    MAP_DEAL_KINDS.forEach(k => activeDealKinds.add(k));
+    showSentenceResults({ track:false });
+    renderSentenceMapTag(results, st);
+    return;
+  }
+  if (reason !== 'load') searchHasRun = true;
+  syncSearchStateFromSentence(st);
+  setAiFilter(!!st.ai);
+  // המקרא אינו מסנן יותר (ראו updateLegendCounts): כל הפינים של הרשימה מוצגים
+  MAP_DEAL_KINDS.forEach(k => activeDealKinds.add(k));
+  /* המדף מתחת למפה מסונן בתגיות משלו; שינוי במשפט גובר עליהן, כמו שחיפוש
+     מהסרגל עשה (ראו runSearchInner). */
+  if (reason !== 'load' && ppShelfFiltered){ ppShelfFiltered = false; propsShelf.selectTag(''); }
+  renderPropertyGrid(results, sentenceRowsOn);
+  renderSentenceMapTag(results, st);
+}
+
+/* ‏"הצג N נכסים": השורות נפתחות, התצוגה המפוצלת נדלקת בפעם הראשונה (כמו
+   בחיפוש מהסרגל), והדף גולל אליהן אם הן מתחת לקפל. */
+function showSentenceResults({ track = true } = {}){
+  if (!sentence) return;
+  sentenceRowsOn = true;
+  searchHasRun = true;
+  const st = sentence.state();
+  const results = sentence.results();
+  renderPropertyGrid(results, true);
+  if (track && window.shukTrack){
+    const t = sentence.Core.typeDef(st.type);
+    shukTrack('search', {
+      // המשפט עצמו ולא טקסט חופשי: הוא מורכב מאפשרויות שלנו, בלי פרטים אישיים
+      search_term: sentence.describe(),
+      search_source: 'sentence',
+      deal_type: st.deal || 'all',
+      category: t.commercial ? 'commercial' : (t.key === 'any' ? 'all' : 'residential'),
+      filter_count: countActiveFilters(),
+      result_count: results.length,
+    });
+  }
+  if (!splitPrefSet && splitSupported()) setSplitView(true);
+  revealSearchResults();
+}
+
+/* הפאנל התחתון בטלפון מוצג רק כל עוד ה-hero במסך: מתחתיו הוא היה מכסה
+   את המבזק, את המדפים ואת הפוטר בשביל חיפוש שכבר מאחורי הגולש/ת. */
+function initSentenceDock(){
+  const dock = document.getElementById('ssDock');
+  const hero = document.getElementById('heroSection');
+  if (!dock || !hero) return;
+  const mq = window.matchMedia('(max-width:759px)');
+  let heroVisible = true;
+  const sync = ()=>{
+    const on = mq.matches && heroVisible && !hero.classList.contains('map-failed');
+    dock.hidden = !on;
+    document.body.classList.toggle('ss-dock-on', on);
+    if (on) document.documentElement.style.setProperty('--ss-dock-h', dock.offsetHeight + 'px');
+  };
+  if ('IntersectionObserver' in window){
+    new IntersectionObserver(entries => {
+      heroVisible = entries[0].isIntersecting;
+      sync();
+    }, { rootMargin:'0px 0px -120px 0px' }).observe(hero);
+  }
+  mq.addEventListener('change', sync);
+  // הבורר נפתח ונסגר בתוך הפאנל ומשנה את גובהו
+  if ('ResizeObserver' in window) new ResizeObserver(sync).observe(dock);
+  sync();
+
+  /* ‏9b: המפה ממלאת את מה שנשאר מהמסך בין השדה החכם לפאנל. ה-CSS נותן
+     הערכה (‏--peek-h ב-‎.has-sentence‎); כאן היא נמדדת, פעם אחת בטעינה ובכל
+     שינוי גודל - ולא בכל פתיחה של הבורר, שהייתה מקפיצה את המפה. */
+  const fitPeekMap = ()=>{
+    const mapEl = document.getElementById('hero-map');
+    const actions = dock.querySelector('.ss-dock-actions');
+    if (!mq.matches || !mapPeekOn() || !mapEl || !actions) { hero.style.removeProperty('--peek-h'); return; }
+    const top = mapEl.getBoundingClientRect().top + window.scrollY;
+    const dockH = actions.offsetHeight + 28;   // הריפוד של הפאנל, בלי הבורר
+    const h = Math.round(Math.min(Math.max(window.innerHeight - dockH - top, 180), 520));
+    hero.style.setProperty('--peek-h', h + 'px');
+    heroMap?.invalidateSize();
+  };
+  fitPeekMap();
+  window.addEventListener('resize', fitPeekMap);
+
+  // ‏"הצג N נכסים" בטלפון פותח את המפה המלאה עם הפינים; "רשימה" - את השורות
+  dock.querySelector('[data-ss-dock-go]')?.addEventListener('click', ()=>{
+    if (mapPeekOn()) openMapFromPeek();
+    document.getElementById('heroSection')?.scrollIntoView({ behavior:'smooth', block:'start' });
+  });
+  document.getElementById('ssDockList')?.addEventListener('click', ()=>{
+    showSentenceResults();
+    document.getElementById('searchResults')?.scrollIntoView({ behavior:'smooth', block:'start' });
+  });
+}
+
+(function initSentenceSearch(){
+  if (!window.SentenceSearch) return;   // הסקריפט נחסם - נשארים עם applyDeepLinkFilters
+  sentence = SentenceSearch.mount({
+    marketLabel: CityCtx.label(),
+    onChange: onSentenceChange,
+    onSubmit: ()=> showSentenceResults(),
+    // אם המשתמש/ת בחר/ה אזור אחר, הצורה שסומנה על המפה יורדת איתו
+    onLeaveDrawn: ()=> mapDraw?.clear(),
+  });
+  if (!sentence) return;
+
+  // ‏?deal=sale&rooms=4 וחבריו - עמודי החיפוש הפופולרי וכל קישור ששותף
+  const params = new URLSearchParams(location.search);
+  const known = ['deal', 'ptype', 'type', 'rooms', 'minPrice', 'maxPrice', 'q', 'ai'];
+  if (known.some(k => params.has(k))){
+    sentence.setFromParams(params);
+    /* הרשימה המסוננת מגיעה כשהנכסים נטענים (‏setProperties → onChange עם
+       'load'), ואז נפתחות גם השורות והתצוגה המפוצלת - כמו בחיפוש */
+    sentenceDeepLink = true;
+    searchHasRun = true;
+  }
+  initSentenceDock();
+})();
+
 applyDeepLinkFilters();
