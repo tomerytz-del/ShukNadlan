@@ -19,6 +19,8 @@ export type Market = {
   center: [number, number];
   zoom: number;
   bbox: [number, number, number, number];
+  /* תיבות ל-locate בלבד, כשהמסגרת (`bbox`) חופפת שוק שכן. ‏assets/markets.js. */
+  boxes?: [number, number, number, number][];
   title: string;
   description: string;
 };
