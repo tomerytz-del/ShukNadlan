@@ -76,6 +76,7 @@ const WA_OPTED_OUT = 131050;
 const ACC_BY_TYPE: Record<string, string> = {
   new_lead: "accLeads",
   client_match: "accAlerts",
+  listing_match: "accProperties",
   agreement_signed: "accAgreements",
   review_new: "accReviews",
   review_request: "accLeads",
