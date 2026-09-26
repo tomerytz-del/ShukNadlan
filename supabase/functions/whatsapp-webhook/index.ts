@@ -68,6 +68,12 @@ const PUBLIC_IDLE_RESET_HOURS = 12;
    שמסבירה מה זה ולאן ללכת, ולא שתיקה: הודעה שלא נענית נראית כמו תקלה, וזה
    בדיוק הרגע שבו כדאי להסביר מה המסלול נותן. */
 const TIER_ALLOWED = new Set(["mid", "premium"]);
+// ‏tier לבדו אינו מסלול: מנוי שהתשלום עליו נכשל (`past_due`) או בוטל
+// (`canceled`) נשאר עם `tier = 'mid'` עד ש-`expire_paid_subscriptions` מורידה
+// אותו, וכל שאר היכולות בתשלום כבר בודקות את זה (‏`.claude/skills/new-tier-capability`).
+const BILLING_INACTIVE_MSG =
+  "המנוי שלך אינו פעיל כרגע, ולכן העוזר בוואטסאפ מושהה. " +
+  "לפרטים ולחידוש המנוי: https://shuknadlan.co.il/pricing";
 const TIER_REQUIRED_MSG =
   "הסוכן העוזר בוואטסאפ זמין במסלולים PROFESSIONAL ו-Elite. " +
   "במסלול Pay&GO אפשר להוסיף ולעדכן נכסים ישירות באיזור הסוכנים. " +
@@ -424,7 +430,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   // ש-Meta שולחת ב-from, כך שההשוואה היא שוויון פשוט ומאונדקס.
   const { data: agent } = await supabase
     .from("agency_members")
-    .select("id, agency_id, display_name, tier, active")
+    .select("id, agency_id, display_name, tier, active, billing_status")
     .eq("phone_e164", from)
     .maybeSingle();
 
@@ -444,6 +450,10 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
   // לכל דבר שעולה כסף (Whisper, Claude, אחסון תמונה) ולכל דבר שכותב למסד.
   if (!TIER_ALLOWED.has(String(agent.tier))) {
     await reply(from, TIER_REQUIRED_MSG, agent.id);
+    return;
+  }
+  if (agent.billing_status !== "active") {
+    await reply(from, BILLING_INACTIVE_MSG, agent.id);
     return;
   }
 

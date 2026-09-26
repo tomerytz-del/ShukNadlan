@@ -1,6 +1,6 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { lookupPlanning } from "../_shared/afula-planning.ts";
+import { lookupPlanning, planningLookupKey } from "../_shared/afula-planning.ts";
 
 // ============================================================================
 // מידע תכנוני לסוכן/ת מחובר/ת — הכלי ב-CRM ובטופס הנכס
@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
     return !error;
   }
 
-  const lookupKey = (gush && helka) ? (gush + ":" + helka) : (street + ":" + house_number);
+  const lookupKey = planningLookupKey({ street, house_number, gush, helka });
 
   const cachedResult = await supabase.from("planning_lookups").select("*").eq("lookup_key", lookupKey).maybeSingle();
   const cached = cachedResult.data;
