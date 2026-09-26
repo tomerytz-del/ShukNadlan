@@ -264,7 +264,7 @@ const clientFields = {
 // ש-`notifications_type_check` מתיר. ‏review_alert ו-lead_unrouted אינם כאן
 // בכוונה: הם של מנהל/ת הפלטפורמה ומגיעים גם במייל.
 const NOTIFY_TYPES = [
-  "new_lead", "client_match", "agreement_signed", "review_new", "deal_closed",
+  "new_lead", "client_match", "listing_match", "agreement_signed", "review_new", "deal_closed",
   "review_request", "marketing_copy", "system",
 ];
 
@@ -927,7 +927,8 @@ const TOOLS: Anthropic.Tool[] = [
           items: { type: "string", enum: NOTIFY_TYPES },
           description:
             "סוגי ההתראה. ‏new_lead = ליד חדש · client_match = נכס שהתאים " +
-            "ללקוח/ה · agreement_signed = הסכם שנחתם מרחוק · review_new = " +
+            "ללקוח/ה · listing_match = נכס שלך שהתאים ללקוח/ה של " +
+            "סוכן/ת אחר/ת (לשיתוף פעולה) · agreement_signed = הסכם שנחתם מרחוק · review_new = " +
             "ביקורת חדשה · deal_closed = עסקה שנסגרה בצוות (מנהל/ת בלבד) · " +
             "review_request = תזכורת לבקש חוות דעת · marketing_copy = תיאור " +
             "שיווקי שנכתב אוטומטית · system = שיתופי נכסים והודעות מערכת.",
