@@ -10300,6 +10300,14 @@ toggleBtn.addEventListener('click', ()=>{
   const showing = addForm.style.display !== 'none';
   addForm.style.display = showing ? 'none' : 'block';
   toggleBtn.textContent = showing ? '+ הוספת נכס חדש' : '✕ ביטול';
+  /* בפתיחה: בורר העיר נבנה כאן. האיפוס שלמטה רץ ב**סגירה** (הכנה לפתיחה
+     הבאה), ולכן בפתיחה הראשונה אחרי טעינת הדף הבורר היה ריק - אפשרות
+     "בחרו עיר" בלבד, בשדה חובה, כלומר אי אפשר היה לשמור נכס חדש. כששדה
+     העיר היה טקסט עם value="עפולה" ב-HTML, זה לא היה משנה. */
+  if (!showing && !editingPropertyId && !propertyCity()){
+    setPropertyCity(defaultPropertyCity());
+    populateNeighborhoodSelect('');
+  }
   if (showing){
     editingPropertyId = null;
     editingPropertyOriginalAddress = null;
