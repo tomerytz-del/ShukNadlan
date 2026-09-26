@@ -294,12 +294,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   /* ====== כניסת המתווכים בנייד ======
      כפתור כחול מלא בגובה ההמבורגר (‏40px): המלא הוא הפעולה, והמסגרתי
-     שלידו הוא הניווט. מילה אחת בטלפון צר ("כניסה", "ה-CRM"), והנוסח המלא
-     מ-400px - גם "ה-CRM שלי" עלה על הלוגו ב-320px. מ-900px
-     הוא מוסתר, כי שם יש את ‎#cta-desktop‎. */
+     שלידו הוא הניווט. "כניסה" בטלפון צר ו"כניסת מתווכים" מ-400px, ולמי
+     שמחובר/ת - "CRM" בלבד בכל רוחב: "ה-CRM שלי" עלה על הלוגו ב-320px,
+     ו"ה-CRM" התהפך ל-"CRM-ה" בערבוב של עברית ולטינית. קצוות מעוגלים
+     כמו שורת החיפוש (‏‎.ss-smart‎). מ-900px הוא מוסתר, כי שם יש את
+     ‎#cta-desktop‎. */
   .hdr-login{
     display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 12px;white-space:nowrap;
-    background:var(--teal);color:#fff;border:1px solid var(--teal);border-radius:0;
+    background:var(--teal);color:#fff;border:1px solid var(--teal);border-radius:999px;
     font-size:.82rem;font-weight:700;line-height:1;text-decoration:none;
   }
   .hdr-login svg{width:17px;height:17px;flex:none}
@@ -3252,7 +3254,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <a href="/crm" class="btn btn-teal" style="display:none" id="cta-desktop">כניסת מתווכים</a>
       <!-- כניסת המתווכים בנייד, ליד ההמבורגר: עד עכשיו היא ישבה רק בתחתית
            התפריט, ומתווכים שנכנסים כל יום ביקשו אותה בלחיצה אחת. הסקריפט
-           שמתחת מחליף את התווית ל"ה-CRM שלי" כשיש במכשיר סשן שמור. -->
+           שמתחת מחליף את התווית ל"CRM" כשיש במכשיר סשן שמור. -->
       <a href="/crm" class="hdr-login" id="hdrLogin">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
           <circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/>
@@ -3270,8 +3272,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             if (tok && (tok.refresh_token || (tok.currentSession && tok.currentSession.refresh_token))) {
               var a = document.getElementById('hdrLogin');
               a.classList.add('is-in');
-              a.querySelector('.hdr-login-short').textContent = 'ה-CRM';
-              a.querySelector('.hdr-login-long').textContent = 'ה-CRM שלי';
+              a.querySelector('.hdr-login-short').textContent = 'CRM';
+              a.querySelector('.hdr-login-long').textContent = 'CRM';
             }
           } catch (e) { /* נשאר "כניסה" */ }
         })();
