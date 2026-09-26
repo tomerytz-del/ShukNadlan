@@ -90,7 +90,7 @@ begin
 end $$;
 
 comment on function public.properties_set_neighborhood() is
-  'ממלא neighborhood_id חסר מהפין, רק כשהוא נופל במצולע אחד ויחיד. אינו דורס שיוך קיים. ראו 20270114104000.';
+  'ממלא neighborhood_id חסר מהפין, רק כשהוא נופל במצולע אחד ויחיד. אינו דורס שיוך קיים. ראו 20270115092000.';
 
 revoke all on function public.properties_set_neighborhood() from public, anon, authenticated;
 
