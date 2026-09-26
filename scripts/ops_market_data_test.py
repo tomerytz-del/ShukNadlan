@@ -42,8 +42,8 @@ EMEK = [
     city("afula-emek", "היוגב", 0),
 ]
 UNMATCHED = [
-    {"market_slug": "haifa-krayot", "city": "חיפה", "neighborhood": "הדר", "n": 138},
-    {"market_slug": "haifa-krayot", "city": "טירת כרמל", "neighborhood": "כלניות", "n": 255},
+    {"market_slug": "haifa-krayot", "city": "נשר", "neighborhood": "אזור תעשיה", "n": 368},
+    {"market_slug": "haifa-krayot", "city": "חיפה", "neighborhood": "גבעת דאונס", "n": 27},
 ]
 
 
@@ -118,8 +118,8 @@ check("שכונות בלי גבול - ממצא אחד לשוק, עם הפירו�
 
 um = of(fs, "market_deal_hoods_unmatched")
 check("שמות שכונה שלא הותאמו - ממצא לשוק, עם השמות",
-      len(um) == 1 and um[0].metric == 393 and len(um[0].evidence["names"]) == 2)
-check("לפני המיגרציה (אין neighborhood_id) - אין ממצא ואין שגיאה",
+      len(um) == 1 and um[0].metric == 395 and len(um[0].evidence["names"]) == 2)
+check("לפני המיגרציה (אין neighborhood_ids) - אין ממצא ואין שגיאה",
       not of(run(KRAYOT, UNMATCHED, has_col=False), "market_deal_hoods_unmatched"))
 
 check("כל ממצא נושא את השוק ב-subject וב-evidence",

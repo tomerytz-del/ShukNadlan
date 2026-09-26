@@ -708,7 +708,7 @@ def _market_data(ctx) -> Iterator[Finding]:
             )
 
     # ---- שמות שכונה בעסקאות שלא הותאמו לשום שכונה ----
-    if not ctx.db.has_column("market_deals_official", "neighborhood_id"):
+    if not ctx.db.has_column("market_deals_official", "neighborhood_ids"):
         return
     unmatched = ctx.db.rows(
         """
@@ -718,7 +718,7 @@ def _market_data(ctx) -> Iterator[Finding]:
           join public.cities c on c.name_key = public.city_name_key(o.city)
          where c.market_slug is not null
            and coalesce(o.neighborhood, '') <> ''
-           and o.neighborhood_id is null
+           and o.neighborhood_ids is null
          group by 1, 2, 3
         having count(*) >= %s
          order by n desc
@@ -739,10 +739,11 @@ def _market_data(ctx) -> Iterator[Finding]:
             title="‏%d עסקאות ב%s נושאות שם שכונה שלא הותאם לשום שכונה (%d שמות)"
                   % (total, label, len(rows)),
             detail="השם מגיע ממאגר רשות המיסים, ולפעמים הוא נכתב אחרת מהשכונה אצלנו. "
-                   "עסקה כזו אינה נכנסת להשוואה לפי שכונה בדוח ה-CMA. שם שמתאים "
-                   "לשתי שכונות (\"הדר\" בחיפה) נשאר כאן בכוונה - לא מנחשים.",
+                   "עסקה כזו אינה נכנסת להשוואה לפי שכונה בדוח ה-CMA. שם שאינו "
+                   "ודאי נשאר כאן בכוונה - לא מנחשים; מנהל/ת מכריע/ה.",
             suggestion="כשהזהות ודאית - שורה ב-neighborhood_aliases במיגרציה, והעסקאות "
-                       "מתחברות לבד (טריגר). כשהשכונה חסרה אצלנו - להוסיף אותה. "
+                       "מתחברות לבד (טריגר). שם שמכסה כמה שכונות - שורה לכל אחת "
+                       "עם shared (כמו \"הדר\" בחיפה). כשהשכונה חסרה אצלנו - להוסיף אותה. "
                        "‏docs/market-deals-official.md, 'שכונה לעסקה'.",
             metric=total, metric_unit="עסקאות",
             evidence={"market": slug,

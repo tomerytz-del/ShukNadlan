@@ -5,19 +5,27 @@
 --
 -- דוח ה-CMA משווה לפי **מרחק** (`cma_deal_pool`), ועסקה בלי פין אינה
 -- נכנסת לשום רדיוס - היא יורדת לרשימת "עסקאות נוספות בעיר", בלי ממוצע.
--- בנשר זה 195 עסקאות, בקריית ים 50, בעפולה 123. לרובן **יש** שם שכונה
+-- בנשר זה 195 עסקאות, בקריית ים 50, בעפולה 123. לחלק מהן **יש** שם שכונה
 -- מהמאגר של רשות המיסים, ומאז 26.9.2026 יש לכל 144 השכונות בחיפה והקריות
 -- גבול (docs/regional-pages.md). כלומר המידע שם, והדוח פשוט לא השתמש בו.
 --
 -- ## מה כאן
 --
 -- 1. ‏`neighborhood_name_key` - צורת השוואה לשם שכונה.
--- 2. ‏`neighborhood_aliases` - כינויים מפורשים, רק כשהזהות ודאית.
--- 3. ‏`neighborhood_id_for` - השכונה של (עיר, שם), **רק אם היא אחת**.
--- 4. ‏`market_deals_official.neighborhood_id` - נקבע בטריגר ומושלם למפרע.
+-- 2. ‏`neighborhood_aliases` - כינויים מפורשים, בהכרעה של מנהל/ת.
+-- 3. ‏`neighborhood_ids_for` - השכונות של (עיר, שם).
+-- 4. ‏`market_deals_official.neighborhood_ids` - נקבע בטריגר ומושלם למפרע.
 -- 5. ‏`agent_cma_report` - שכבה חדשה, `neighborhood_comparables`, **נפרדת**
 --    מהסטטיסטיקה של הרדיוס. אותו עיקרון כמו שכבת השוק: מה שמגיע ממקור
 --    אחר מוצג לצד, ולא נבלע בממוצע.
+--
+-- ## מערך ולא מזהה אחד: "הדר"
+--
+-- במאגר של רשות המיסים "הדר" בחיפה הוא שם אחד (138 עסקאות), ואצלנו הוא שלוש
+-- שכונות: הדר מרכז, הדר עליון ורמת הדר. ההכרעה (26.9.2026): העסקאות נספרות
+-- **בכל אחת משלוש**. לכן כינוי יכול להיות `shared`, והעסקה נושאת את כל
+-- השכונות שהוא מצביע עליהן. בדוח השורה מסומנת כמשותפת - הקורא/ת רואה
+-- שהיא לא ממוקמת בשכונה הזו דווקא.
 --
 -- ## ומה שאסור כאן, בכוונה
 --
@@ -25,10 +33,10 @@
 -- שהוצבה בו הייתה נכנסת לרדיוס של כל נכס בסביבה במרחק שאינו אמיתי. לכן
 -- השכבה החדשה אינה נוגעת ב-`cma_deal_pool` ואינה מחשבת מרחק.
 --
--- **לא מנחשים שכונה.** שם שמתאים לשתי שכונות ("הדר" בחיפה: הדר מרכז, הדר
--- עליון, רמת הדר) נשאר בלי שיוך. שם שאינו מופיע אצלנו ("כלניות" בטירת
--- כרמל, "אזור תעשיה" בנשר) - גם. כינוי נכנס רק כשהזהות ודאית, והמקרים
--- הפתוחים רשומים ב-docs/market-deals-official.md להכרעה של מנהל/ת.
+-- **לא מנחשים שכונה.** התאמה אוטומטית (שם, או שם עם שם העיר) מתקבלת רק
+-- כשהיא מצביעה על שכונה אחת. ריבוי שכונות נכנס **רק** דרך כינוי משותף
+-- שמנהל/ת הכריע/ה עליו. שם שאינו מופיע אצלנו ("אזור תעשיה" בנשר) נשאר בלי
+-- שיוך, והסוכן התפעולי מדווח עליו (`market_deal_hoods_unmatched`).
 -- ===========================================================================
 
 -- ---------------------------------------------------------------------------
@@ -57,15 +65,17 @@ comment on function public.neighborhood_name_key(text) is
 -- ---------------------------------------------------------------------------
 -- 2. כינויים
 --
--- שורה כאן אומרת "השם הזה, בעיר הזו, הוא השכונה הזו". היא נכנסת רק כשזה
--- ודאי - שני שמות לאותו מקום, לא "כנראה". גישה: service_role ופונקציות
--- security definer בלבד (אין מדיניות), כמו שאר טבלאות העזר של העסקאות.
+-- שורה כאן אומרת "השם הזה, בעיר הזו, הוא השכונה הזו". ‏`shared` אומר "השם
+-- הזה מכסה כמה משכונותינו, והעסקה נספרת בכל אחת" - ואז יש שורה לכל שכונה,
+-- כולן עם `shared`. גישה: service_role ופונקציות security definer בלבד (אין
+-- מדיניות), כמו שאר טבלאות העזר של העסקאות.
 -- ---------------------------------------------------------------------------
 create table if not exists public.neighborhood_aliases (
   id              uuid primary key default gen_random_uuid(),
   neighborhood_id uuid not null references public.neighborhoods(id) on delete cascade,
   alias           text not null,
   alias_key       text generated always as (public.neighborhood_name_key(alias)) stored,
+  shared          boolean not null default false,
   note            text,
   created_at      timestamptz not null default now()
 );
@@ -76,18 +86,20 @@ create unique index if not exists neighborhood_aliases_hood_alias_uniq
 alter table public.neighborhood_aliases enable row level security;
 
 comment on table public.neighborhood_aliases is
-  'שם חלופי לשכונה, כפי שהוא מופיע במקור חיצוני (מאגר רשות המיסים). נכנס רק כשהזהות ודאית; שם שמתאים לשתי שכונות נשאר בלי שיוך.';
+  'שם חלופי לשכונה, כפי שהוא מופיע במקור חיצוני (מאגר רשות המיסים), בהכרעה של מנהל/ת. shared = השם מכסה כמה שכונות, והעסקה נספרת בכל אחת.';
 
 -- ---------------------------------------------------------------------------
--- 3. השכונה של (עיר, שם)
+-- 3. השכונות של (עיר, שם)
 --
--- שלוש דרכים להתאים, וכולן נאספות יחד: השם עצמו, השם עם שם העיר לפניו
--- (בקריית ים המאגר כותב "א" ואצלנו "קריית ים א'"), וכינוי. **התשובה
--- מתקבלת רק אם כל הדרכים הצביעו על שכונה אחת** - שתיים הן null, כמו
--- ב-neighborhood_for_point: null הוא "לא ידוע", לא "אין שכונה".
+-- שלוש דרכים להתאים: השם עצמו, השם עם שם העיר לפניו (בקריית ים המאגר
+-- כותב "א" ואצלנו "קריית ים א'"), וכינוי. התשובה:
+--
+--   - כינויים משותפים בלבד (ושום התאמה אחרת) - כל השכונות שלהם.
+--   - אחרת, רק אם כל הדרכים הצביעו על שכונה **אחת** - מערך של אחת.
+--   - אחרת null: "לא ידוע", לא "אין שכונה" - כמו ב-neighborhood_for_point.
 -- ---------------------------------------------------------------------------
-create or replace function public.neighborhood_id_for(p_city text, p_name text)
-returns uuid
+create or replace function public.neighborhood_ids_for(p_city text, p_name text)
+returns uuid[]
 language sql
 stable
 security definer
@@ -102,42 +114,56 @@ as $$
            public.neighborhood_name_key(c.name || ' ' || p_name) as k2,
            c.id as city_id
       from c
-  ), hits as (
+  ), direct as (
     select n.id
       from public.neighborhoods n, k
      where n.city_id = k.city_id
        and public.neighborhood_name_key(n.name) in (k.k1, k.k2)
-    union
-    select a.neighborhood_id
+  ), al as (
+    select a.neighborhood_id as id, a.shared
       from public.neighborhood_aliases a
       join public.neighborhoods n on n.id = a.neighborhood_id
       join k on n.city_id = k.city_id
      where a.alias_key = k.k1
+  ), all_hits as (
+    select id from direct union select id from al
   )
-  -- ‏(array_agg)[1] ולא min(): ל-PostgreSQL 17 אין min/max ל-uuid.
-  select case when count(*) = 1 then (array_agg(id))[1] end from hits;
+  select case
+    when exists (select 1 from al where shared)
+     and not exists (select 1 from al where not shared)
+     and not exists (select 1 from direct)
+      then (select array_agg(distinct id) from al)
+    when (select count(*) from all_hits) = 1
+      then (select array_agg(id) from all_hits)
+  end;
 $$;
 
-comment on function public.neighborhood_id_for(text, text) is
-  'השכונה ששם (בעיר נתונה) מצביע עליה - לפי השם, השם עם שם העיר, או כינוי - אם ורק אם היא אחת. אחרת null.';
+comment on function public.neighborhood_ids_for(text, text) is
+  'השכונות ששם (בעיר נתונה) מצביע עליהן: כל השכונות של כינוי משותף, או שכונה אחת כשכל ההתאמות מסכימות. אחרת null.';
 
-revoke all on function public.neighborhood_id_for(text, text) from public, anon, authenticated;
-grant execute on function public.neighborhood_id_for(text, text) to service_role;
+revoke all on function public.neighborhood_ids_for(text, text) from public, anon, authenticated;
+grant execute on function public.neighborhood_ids_for(text, text) to service_role;
 
 -- ---------------------------------------------------------------------------
--- 4. הכינויים הוודאיים (נבדקו מול רשימת השכונות, 26.9.2026)
+-- 4. הכינויים (נבדקו מול רשימת השכונות, 26.9.2026)
 --
--- ארבעה, כולם שני כתיבים של אותו שם. מה **שלא** נכנס כאן ולמה:
--- docs/market-deals-official.md, "שכונה לעסקה".
+-- ארבעה כתיבים של אותו שם, שלושה בהכרעה של מנהל הפלטפורמה, ו"הדר" המשותף.
+-- מה **שלא** נכנס כאן ולמה: docs/market-deals-official.md, "שכונה לעסקה".
 -- ---------------------------------------------------------------------------
-insert into public.neighborhood_aliases (neighborhood_id, alias, note)
-select n.id, v.alias, v.note
+insert into public.neighborhood_aliases (neighborhood_id, alias, shared, note)
+select n.id, v.alias, v.shared, v.note
   from (values
-    ('קריית מוצקין', 'משכנות אומנים',             'משכנות אמנים',   'כתיב חסר/מלא'),
-    ('קריית מוצקין', 'מוצקין הצעירה ונווה גנים',  'נווה גנים',      'השכונה אצלנו נושאת את שני השמות'),
-    ('חיפה',         'כבאביר',                     'כבביר',          'כתיב'),
-    ('חיפה',         'מושבה גרמנית',               'המושבה הגרמנית', 'ה"א הידיעה')
-  ) as v(city, hood, alias, note)
+    ('קריית מוצקין', 'משכנות אומנים',            'משכנות אמנים',            false, 'כתיב חסר/מלא'),
+    ('קריית מוצקין', 'מוצקין הצעירה ונווה גנים', 'נווה גנים',               false, 'השכונה אצלנו נושאת את שני השמות'),
+    ('חיפה',         'כבאביר',                    'כבביר',                   false, 'כתיב'),
+    ('חיפה',         'מושבה גרמנית',              'המושבה הגרמנית',          false, 'ה"א הידיעה'),
+    ('עפולה',        'דרום העיר',                 'עפולה דרום',              false, 'הכרעת מנהל הפלטפורמה, 26.9.2026'),
+    ('עפולה',        'רובע יזרעאל',               'רובע יזרעאל סביוני העמק', false, 'הכרעת מנהל הפלטפורמה, 26.9.2026'),
+    ('טירת כרמל',    'הפרחים',                    'כלניות',                  false, 'הכרעת מנהל הפלטפורמה: כלניות היא בשכונת הפרחים'),
+    ('חיפה',         'הדר מרכז',                  'הדר',                     true,  'משותף: "הדר" במאגר נספר בשלוש שכונות הדר (הכרעת מנהל הפלטפורמה)'),
+    ('חיפה',         'הדר עליון',                 'הדר',                     true,  'משותף: "הדר" במאגר נספר בשלוש שכונות הדר (הכרעת מנהל הפלטפורמה)'),
+    ('חיפה',         'רמת הדר',                   'הדר',                     true,  'משותף: "הדר" במאגר נספר בשלוש שכונות הדר (הכרעת מנהל הפלטפורמה)')
+  ) as v(city, hood, alias, shared, note)
   join public.cities c on c.name = v.city
   join public.neighborhoods n on n.city_id = c.id and n.name = v.hood
 on conflict (neighborhood_id, alias_key) do nothing;
@@ -146,13 +172,15 @@ on conflict (neighborhood_id, alias_key) do nothing;
 -- 5. העמודה, הטריגר וההשלמה
 -- ---------------------------------------------------------------------------
 alter table public.market_deals_official
-  add column if not exists neighborhood_id uuid
-  references public.neighborhoods(id) on delete set null;
+  add column if not exists neighborhood_ids uuid[];
 
--- השכבה החדשה שואלת "עסקאות בלי פין בשכונה X", ולכן אינדקס חלקי בדיוק
--- על זה - לא על כל 15 אלף השורות.
-create index if not exists market_deals_official_hood_unpinned_idx
-  on public.market_deals_official (neighborhood_id, sold_at)
+comment on column public.market_deals_official.neighborhood_ids is
+  'השכונות של העסקה לפי שם השכונה במאגר (neighborhood_ids_for). בדרך כלל אחת; כמה רק דרך כינוי משותף. null = לא הותאם.';
+
+-- השכבה החדשה שואלת "עסקאות בלי פין בשכונה X" (‏`X = any(...)`), ולכן GIN
+-- חלקי בדיוק על זה - לא על כל 15 אלף השורות.
+create index if not exists market_deals_official_hoods_unpinned_idx
+  on public.market_deals_official using gin (neighborhood_ids)
   where lat is null;
 
 create or replace function public.market_deals_official_set_neighborhood()
@@ -162,9 +190,9 @@ security definer
 set search_path = ''
 as $$
 begin
-  new.neighborhood_id := case
+  new.neighborhood_ids := case
     when coalesce(new.neighborhood, '') = '' then null
-    else public.neighborhood_id_for(new.city, new.neighborhood)
+    else public.neighborhood_ids_for(new.city, new.neighborhood)
   end;
   return new;
 end;
@@ -175,8 +203,9 @@ create trigger market_deals_official_set_neighborhood
   before insert or update of city, neighborhood on public.market_deals_official
   for each row execute function public.market_deals_official_set_neighborhood();
 
--- שכונה או כינוי שנוספו **אחרי** העסקה: העסקאות של אותה עיר שעדיין בלי
--- שיוך נבדקות שוב. רק הריקות - שיוך קיים אינו נדרס מכאן.
+-- שכונה או כינוי שנוספו או השתנו **אחרי** העסקה: כל העסקאות של העיר עם שם
+-- שכונה מחושבות מחדש, ורק מה שהשתנה נכתב. גם שיוך קיים - כינוי משותף שנוסף
+-- לשכונה שלישית חייב להגיע גם לעסקאות שכבר נשאו שתיים.
 create or replace function public.market_deals_official_relink_city(p_city_id uuid)
 returns integer
 language plpgsql
@@ -186,13 +215,15 @@ as $$
 declare v_done integer;
 begin
   update public.market_deals_official o
-     set neighborhood_id = public.neighborhood_id_for(o.city, o.neighborhood)
-    from public.cities c
-   where c.id = p_city_id
-     and public.city_name_key(o.city) = c.name_key
-     and o.neighborhood_id is null
-     and coalesce(o.neighborhood, '') <> ''
-     and public.neighborhood_id_for(o.city, o.neighborhood) is not null;
+     set neighborhood_ids = x.ids
+    from (
+      select o2.id, public.neighborhood_ids_for(o2.city, o2.neighborhood) as ids
+        from public.market_deals_official o2
+        join public.cities c on c.id = p_city_id and public.city_name_key(o2.city) = c.name_key
+       where coalesce(o2.neighborhood, '') <> ''
+    ) x
+   where o.id = x.id
+     and o.neighborhood_ids is distinct from x.ids;
   get diagnostics v_done = row_count;
   return v_done;
 end;
@@ -223,7 +254,7 @@ $$;
 
 drop trigger if exists neighborhood_aliases_relink_deals on public.neighborhood_aliases;
 create trigger neighborhood_aliases_relink_deals
-  after insert or update of alias, neighborhood_id on public.neighborhood_aliases
+  after insert or update of alias, neighborhood_id, shared on public.neighborhood_aliases
   for each row execute function public.neighborhood_relink_deals();
 
 drop trigger if exists neighborhoods_relink_deals on public.neighborhoods;
@@ -239,7 +270,7 @@ begin
   for r in select id from public.cities loop
     v_done := v_done + public.market_deals_official_relink_city(r.id);
   end loop;
-  raise notice 'market_deals_official.neighborhood_id: % עסקאות משויכות לשכונה', v_done;
+  raise notice 'market_deals_official.neighborhood_ids: % עסקאות שויכו לשכונה', v_done;
 end $$;
 
 -- ===========================================================================
@@ -522,7 +553,7 @@ begin
   -- ---- שכבת השכונה: עסקאות בלי פין, באותה שכונה ----
   --
   -- עסקה רשמית בלי פין אינה יכולה להיכנס לרדיוס, אבל לרובן יש שם שכונה
-  -- מהמאגר (market_deals_official.neighborhood_id). כאן הן נאספות לפי
+  -- מהמאגר (market_deals_official.neighborhood_ids). כאן הן נאספות לפי
   -- השכונה של הנכס - **בלי מרחק ובלי מיקום מומצא**, ובנפרד מ-stats: זו
   -- השוואה מסוג אחר ("באותה שכונה") ולא עוד שורות ברדיוס.
   --
@@ -553,6 +584,9 @@ begin
             select o.id, o.property_type, nullif(o.rooms, 0) as rooms, o.sale_price, o.sold_at,
                    o.size_sqm, o.source, 'official'::text as price_basis,
                    case when o.size_sqm > 0 then round(o.sale_price / o.size_sqm) end as price_per_sqm,
+                   -- שם שמכסה כמה שכונות (כינוי משותף, "הדר"): העסקה אינה
+                   -- ממוקמת בשכונה הזו דווקא, והתצוגה אומרת זאת.
+                   (cardinality(o.neighborhood_ids) > 1) as shared_neighborhood,
                    coalesce(public.property_type_class(o.property_type)
                             = public.property_type_class(v_prop.property_type), false) as same_type,
                    coalesce(public.property_type_class(o.property_type)
@@ -560,7 +594,7 @@ begin
                             and (v_hood_band is null
                                  or abs(nullif(o.rooms, 0) - v_subject_rooms) <= v_hood_band), false) as in_stats
               from public.market_deals_official o
-             where o.neighborhood_id = v_hood_id
+             where v_hood_id = any(o.neighborhood_ids)
                and o.lat is null
                and o.sold_at >= v_cutoff
           ) h
@@ -569,7 +603,7 @@ begin
 
     select count(*) into v_hood_in
       from public.market_deals_official o
-     where o.neighborhood_id = v_hood_id
+     where v_hood_id = any(o.neighborhood_ids)
        and o.lat is null
        and o.sold_at >= v_cutoff
        and coalesce(public.property_type_class(o.property_type)
@@ -593,7 +627,7 @@ begin
              )
         into v_hood_stats
         from public.market_deals_official o
-       where o.neighborhood_id = v_hood_id
+       where v_hood_id = any(o.neighborhood_ids)
          and o.lat is null
          and o.sold_at >= v_cutoff
          and coalesce(public.property_type_class(o.property_type)
@@ -628,7 +662,7 @@ begin
        where o.city = v_prop.city
          and o.sold_at >= v_cutoff
          and (o.lat is null or o.lng is null)
-         and (v_hood_id is null or o.neighborhood_id is distinct from v_hood_id)
+         and (v_hood_id is null or not (v_hood_id = any(coalesce(o.neighborhood_ids, '{}'::uuid[]))))
         ) w
     ) c
    where c.rn <= v_city_limit;
@@ -748,6 +782,8 @@ begin
       'neighborhood_comparables_shown',  jsonb_array_length(v_hood_comps),
       'neighborhood_comparables_counted', v_hood_in,
       'neighborhood_rooms_band',         v_hood_band,
+      'neighborhood_shared_count',       (select count(*) from jsonb_array_elements(v_hood_comps) x
+                                           where (x->>'shared_neighborhood')::boolean),
       'has_neighborhood_statistics',     (v_hood_stats is not null)
     ),
     'sources', v_sources
