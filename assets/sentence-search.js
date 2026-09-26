@@ -385,7 +385,14 @@
      ולא עוד כותרת. רק אפשרויות שיש בהן נכסים, וקצרות: ה-slot מקבל את רוחב
      הארוכה שבהן, ושם של 25 תווים היה מותח את כל המשפט. */
   function rollLabels(slot, st, props, ctx, areas) {
-    if (slot === 'deal') return ['לקנות', 'לשכור'];
+    /* גם העסקה מתחלפת רק בין אפשרויות שיש בהן נכסים: "אני רוצה לשכור דירה
+       בגבעת המורה" מעל שתי דירות למכירה הוא משפט שמשקר. כשרק אחת קיימת אין
+       חילוף, וה-slot עומד על "למצוא". */
+    if (slot === 'deal') {
+      return ['sale', 'rent'].filter(function (d) {
+        return filter(props, applyPatch(st, { deal: d }), ctx).length > 0;
+      }).map(dealLabel);
+    }
     var list = options(slot, st, props, ctx, areas).filter(function (o) {
       if (o.value === null || o.value === 'all' || o.value === 'any' || o.value === 'near') return false;
       return (o.count === null || o.count > 0) && String(o.label).length <= 14;
@@ -596,26 +603,6 @@
   var doc = root.document;
   var MOBILE_MQ = '(max-width:759px)';
 
-  /* ---------- כתובת שהדף כתב, מול כתובת שהגיעה מבחוץ ----------
-     הכתובת מתעדכנת עם כל בחירה (כדי שאפשר יהיה לשתף חיפוש), ולכן לשונית
-     שנשארה פתוחה, רענון או לשונית ששוחזרה נוחתים על ‎?deal=sale‎ - והדף
-     נפתח כאילו כבר נבחר "לקנות": "הצג 36 נכסים" במקום כל הנכסים, ובמשפט
-     מילה מתחלפת שאינה תואמת את המונה. זו לא כוונה של הגולש/ת אלא שארית.
-
-     ההבחנה: כל כתובת שהדף כותב נשמרת ב-sessionStorage של הלשונית. כניסה
-     לכתובת שזהה לה - מתחילה נקייה. כתובת שלא הדף כתב בלשונית הזו (עמוד
-     חיפוש פופולרי, קישור ששותף, תוצאה מגוגל) - היא חיפוש, ומוחלת. */
-  var OWN_URL_KEY = 'shuk_ss_own_qs';
-
-  /* ‏?deal=sale / ?deal=rent לבד: מה שהגרסאות הראשונות של החיפוש במשפט
-     כתבו לכתובת לפני שהסימון שלמעלה היה קיים. אף עמוד חיפוש פופולרי ואף
-     קישור אינו נראה כך, ולכן גם הוא נחשב שארית. */
-  function isOwnUrl(search) {
-    var qs = String(search || '').replace(/^\?/, '');
-    if (!qs) return false;
-    if (/^deal=(sale|rent)$/.test(qs)) return true;
-    try { return root.sessionStorage.getItem(OWN_URL_KEY) === qs; } catch (e) { return false; }
-  }
 
   function el(tag, cls, text) {
     var n = doc.createElement(tag);
@@ -689,7 +676,8 @@
 
     /* ערך שהגיע מקישור אמיתי (עמוד חיפוש פופולרי, קישור ששותף) הוא בחירה:
        הוא מוצג קבוע, והמילה המתחלפת היא הראשונה שעוד לא נבחרה. כתובת שהדף
-       עצמו כתב אינה מגיעה לכאן בכלל - היא מתחילה נקייה (‏isOwnUrl), ולכן
+       עצמו כתב אינה מגיעה לכאן בכלל - היא מתחילה נקייה (initSentenceSearch
+       ב-home.js), ולכן
        בכניסה רגילה המילה הראשונה היא זו שמתחלפת. מילה מתחלפת שיש לה ערך
        שמסנן הייתה מראה "לשכור" מעל מונה של נכסי מכירה. */
     function touchNonDefault() {
@@ -813,9 +801,6 @@
         var qs = toParams(st, areas, ctx);
         url.search = qs ? '?' + qs : '';
         root.history.replaceState(root.history.state, '', url);
-        /* הכתובת שהדף כתב בעצמו נרשמת בלשונית, כדי שכניסה הבאה אליה (רענון,
-           לשונית ששוחזרה) תתחיל נקייה ולא כחיפוש - ראו OWN_URL_KEY. */
-        try { root.sessionStorage.setItem(OWN_URL_KEY, qs); } catch (e2) { /* חסום - לא נורא */ }
       } catch (e) { /* דפדפן שחוסם היסטוריה - החיפוש עדיין עובד */ }
     }
 
@@ -1168,10 +1153,14 @@
         change(defaultState(), 'reset');
       },
       count: function (patch) { return filter(props, applyPatch(st, patch || {}), ctx).length; },
+      /* יש מה לנקות: משפט שאינו ברירת המחדל, סינון מתקדם, או טקסט בשדה */
+      isClean: function () {
+        return JSON.stringify(st) === JSON.stringify(defaultState()) && !ctx.extra && !(input.value || '').trim();
+      },
       describe: function () { return sentenceText(st, areas, ctx); },
       close: function () { close(false); },
     };
   }
 
-  root.SentenceSearch = { Core: Core, mount: mount, isOwnUrl: isOwnUrl };
+  root.SentenceSearch = { Core: Core, mount: mount };
 })(typeof window !== 'undefined' ? window : globalThis);

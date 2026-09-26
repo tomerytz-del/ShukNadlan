@@ -536,7 +536,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @media(prefers-reduced-motion:reduce){ .ss-roll-item{transition:none} }
 
   /* ‏"סינון מתקדם" - קישור שקט בתחתית הכרטיס, לא עוד כפתור שמתחרה בזהב */
-  .ss-tools{display:flex;justify-content:flex-end;padding:0 22px 10px}
+  .ss-tools{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:0 22px 10px}
+  .ss-clear{
+    display:inline-flex;align-items:center;gap:5px;white-space:nowrap;cursor:pointer;
+    background:none;border:0;padding:6px 0;font:inherit;font-size:13px;font-weight:600;color:var(--ss-soft);
+  }
+  .ss-clear span{font-size:11px}
+  .ss-clear:hover{color:var(--ss-navy)}
+  .ss-clear:focus-visible{outline:2px solid var(--ss-gold);outline-offset:2px}
+  /* אין מה לנקות: הכפתור נשאר במקומו, רק דהוי (ועדיין עומד בניגודיות) */
+  .ss-clear.is-idle{color:var(--ss-muted);opacity:.75}
   .ss-adv{
     display:inline-flex;align-items:center;gap:6px;white-space:nowrap;cursor:pointer;
     background:none;border:0;padding:6px 0;font:inherit;font-size:13px;font-weight:600;
@@ -584,6 +593,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     -webkit-appearance:none;appearance:none;
   }
   .ss-input::placeholder{color:var(--ss-muted);opacity:1}
+  /* הפוקוס מוצג על המכל (‏.ss-smart:focus-within), ולא כמסגרת מלבנית בתוך
+     הגלולה */
+  .ss-input:focus,.ss-input:focus-visible{outline:none}
   .ss-input::-webkit-search-cancel-button{display:none}
   .ss-mic{
     flex:none;display:none;align-items:center;justify-content:center;width:44px;
@@ -710,7 +722,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .ss-card .ss-picker-close{display:inline-block}
     .ss-card .ss-options{grid-template-columns:repeat(2,minmax(0,1fr))}
     /* ‏"סינון מתקדם" נצמד לימין (תחילת השורה ב-RTL), בחלק הדועך של הכרטיס */
-    .ss-tools{padding:6px 4px 0;justify-content:flex-start}
+    .ss-tools{padding:6px 4px 0;justify-content:flex-start;gap:18px}
     .ss-note{padding:6px 4px 4px}
     .ss-smart + .ss-tools{border-top:0}
     /* ‏minmax(0,1fr) ולא 1fr: אפשרות ארוכה עם nowrap הייתה מרחיבה את העמודה
@@ -3077,7 +3089,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   html.a11y-contrast .ss-slot, html.a11y-contrast .ss-opt span,
   html.a11y-contrast .ss-go span, html.a11y-contrast .ss-go b{color:#FFD84D !important}
   /* הערך הנבחר והמשבצת הפתוחה חייבים להיבדל גם כשהכול שחור-על-צהוב */
-  html.a11y-contrast .ss-roll-item, html.a11y-contrast .ss-adv,
+  html.a11y-contrast .ss-roll-item, html.a11y-contrast .ss-adv, html.a11y-contrast .ss-clear,
   html.a11y-contrast .ss-slot.is-next{color:#FFD84D !important}
   html.a11y-contrast .ss-slot.is-active,
   html.a11y-contrast .ss-opt.is-selected{background:#FFD84D !important;color:#000 !important}
@@ -3395,6 +3407,11 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <!-- הסינון המתקדם (קומה, מ״ר, מאפיינים, מצב הנכס…): אותם מודאלים של
                  החיפוש הקודם, והתוצאה שלהם חלה על המשפט ועל כל המונים שבו. -->
             <div class="ss-tools">
+              <!-- ניקוי החיפוש: ראשון ב-DOM = הימני ביותר ב-RTL. מוצג תמיד, ודהוי
+                   כשאין מה לנקות (‏is-idle), כדי שלא "יקפוץ" לתוך השורה. -->
+              <button type="button" class="ss-clear is-idle" id="ssClearBtn">
+                <span aria-hidden="true">✕</span> ניקוי החיפוש
+              </button>
               <button type="button" class="ss-adv" id="ssAdvancedBtn" aria-haspopup="dialog">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
                   <path d="M3 7h13M19 7h2M3 12h4M10 12h11M3 17h9M15 17h6"/>
