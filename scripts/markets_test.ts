@@ -50,6 +50,11 @@ const MAALOT = [33.016, 35.27]; // ברצועה הצפונית של עכו, מע
 const KFAR_VRADIM = [32.995, 35.27];
 const KARMIEL = [32.919, 35.296];
 const YODFAT = [32.838, 35.272];
+const NAZARETH = [32.70, 35.30];
+const NOF_HAGALIL = [32.71, 35.33];
+const MIGDAL_HAEMEK = [32.68, 35.24];
+const TEL_ADASHIM = [32.656, 35.303]; // מפיני העסקאות - הגבול הדרומי של נצרת
+const KFAR_TAVOR = [32.69, 35.42];
 const RAMAT_YISHAI = [32.705, 35.167]; // הגבול: 3 ק"מ מזרחית לטבעון, בעמק
 
 check("עפולה → afula-emek", reg.locate(AFULA[0], AFULA[1])?.slug === "afula-emek");
@@ -87,6 +92,13 @@ check("הגבול: 32.975 → כרמיאל, 32.98 → עכו (הרצועה של 
 }
 check("הגבול: 32.89 (קצה חיפה) → haifa-krayot, 32.9 → akko-nahariya",
   reg.locate(32.89, 35.08)?.slug === "haifa-krayot" && reg.locate(32.9, 35.08)?.slug === "akko-nahariya");
+check("נצרת → nazareth-nof-hagalil", reg.locate(NAZARETH[0], NAZARETH[1])?.slug === "nazareth-nof-hagalil");
+check("נוף הגליל → nazareth-nof-hagalil", reg.locate(NOF_HAGALIL[0], NOF_HAGALIL[1])?.slug === "nazareth-nof-hagalil");
+check("מגדל העמק → nazareth-nof-hagalil", reg.locate(MIGDAL_HAEMEK[0], MIGDAL_HAEMEK[1])?.slug === "nazareth-nof-hagalil");
+check("תל עדשים (צמודה מדרום) → afula-emek", reg.locate(TEL_ADASHIM[0], TEL_ADASHIM[1])?.slug === "afula-emek");
+check("כפר תבור (ממזרח) → afula-emek", reg.locate(KFAR_TAVOR[0], KFAR_TAVOR[1])?.slug === "afula-emek");
+check("רק שווקים חיים: נוף הגליל → עפולה והעמק כשוק הקרוב, עד שנצרת תיפתח",
+  reg.locate(NOF_HAGALIL[0], NOF_HAGALIL[1], true)?.slug === "afula-emek");
 check("תל אביב → אין שוק (ולא הקרוב ביותר, 80 ק\"מ משם)", reg.locate(TEL_AVIV[0], TEL_AVIV[1]) === null);
 check("רק שווקים חיים: קריית ביאליק → אין (חיפה עוד לא נפתחה)",
   reg.locate(KIRYAT_BIALIK[0], KIRYAT_BIALIK[1], true) === null);
