@@ -1003,11 +1003,26 @@
             rec.onresult = function (ev) {
               var said = ev.results && ev.results[0] && ev.results[0][0] ? ev.results[0][0].transcript : '';
               if (said) { input.value = said; runParse(); }
+              else if (noteEl) noteEl.textContent = '';
             };
-            rec.onend = rec.onerror = function () {
+            var stop = function () {
               micBtn.classList.remove('is-listening');
               micBtn.setAttribute('aria-pressed', 'false');
             };
+            rec.onend = stop;
+            /* כשל שקט הוא בדיוק מה שקרה כאן (‏microphone=() ב-_headers): הכפתור
+               נלחץ ולא קרה דבר. עכשיו כל כשל אומר מה קרה. */
+            rec.onerror = function (ev) {
+              stop();
+              var code = ev && ev.error;
+              if (noteEl) noteEl.textContent =
+                code === 'not-allowed' || code === 'service-not-allowed'
+                  ? 'אין הרשאה למיקרופון. אפשר לאשר אותה בהגדרות הדפדפן, או לכתוב בשדה.'
+                  : code === 'no-speech'
+                    ? 'לא שמענו כלום - נסו שוב, או כתבו בשדה.'
+                    : 'החיפוש הקולי לא זמין כרגע - אפשר לכתוב בשדה.';
+            };
+            if (noteEl) noteEl.textContent = 'מקשיבים...';
             rec.start();
           } catch (err) { micBtn.hidden = true; }
         });
@@ -1034,12 +1049,14 @@
       if (!roll) return;
       var items = roll.children;
       if (items.length < 2) return;
-      [].forEach.call(items, function (it) { it.classList.remove('is-off'); });
-      var out = items[rollIndex % items.length];
-      out.classList.remove('is-on');
-      out.classList.add('is-off');
+      /* קודם היוצאת נעלמת, ורק אחרי שנעלמה הנכנסת מופיעה - אף פעם לא שתיהן */
+      items[rollIndex % items.length].classList.remove('is-on');
       rollIndex = (rollIndex + 1) % items.length;
-      items[rollIndex].classList.add('is-on');
+      var next = rollIndex;
+      root.setTimeout(function () {
+        var now = sentenceEl.querySelector('.ss-roll');
+        if (now === roll && roll.children[next]) roll.children[next].classList.add('is-on');
+      }, 260);
     }, 2200);
 
     render();
