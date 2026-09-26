@@ -10227,7 +10227,9 @@ async function populateNeighborhoodSelect(selectedId){
     const kept = allNeighborhoods.find(n => n.id === selectedId);
     if (kept) list = [kept, ...list];
   }
-  select.innerHTML = `<option value="">${none ? '- אין שכונות רשומות בעיר -' : '- לא צוין -'}</option>` +
+  // "לא צוין" אינו "אין שכונה": בשמירה המסד משייך לפי הפין, כשהוא נופל
+  // במצולע אחד ויחיד (הטריגר properties_set_neighborhood_trg).
+  select.innerHTML = `<option value="">${none ? '- אין שכונות רשומות בעיר -' : '- זיהוי אוטומטי לפי המיקום -'}</option>` +
     list.map(n => `<option value="${esc(n.id)}">${esc(n.name)}</option>`).join('');
   select.value = selectedId || '';
 }
