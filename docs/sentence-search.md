@@ -205,8 +205,8 @@
   וגולשים קראו אותו כהמשך שלה.
 - **הכרטיס נמס אל המפה**: הלבן יורד בשקיפות לאורך הכרטיס, ופס של 34px
   מתחתיו ממשיך את הדעיכה עד שקוף מעל ראש המפה (המפה עולה אליו ב-margin
-  שלילי). בלי קו תחתון - המשפט והמפה נקראים כיחידה אחת. ‏"סינון מתקדם"
-  נצמד לימין, בחלק הדועך, ושורת ההודעה ("הבנתי", המיקרופון) יושבת **בתוך**
+  שלילי). בלי קו תחתון - המשפט והמפה נקראים כיחידה אחת. בשורה התחתונה:
+  "ניקוי החיפוש" בקצה הימני ו"סינון מתקדם" בקצה השמאלי. שורת ההודעה ("הבנתי", המיקרופון) יושבת **בתוך**
   הכרטיס - מתחתיו כבר מתחילה המפה, וטקסט עליה אינו קריא.
 - **השדה החכם הוא גלולה**, כמו שדה החיפוש של הנכסים ב-CRM (‏`.filter-input`):
   פינות מעוגלות, רקע אפור בהיר, טבעת פוקוס. ‏16px (פחות מזה גורם ל-iOS להגדיל
@@ -287,14 +287,35 @@
 `search` (קיים) נדחף בלחיצה על "הצג N נכסים", עם `search_source: 'sentence'`,
 והמשפט עצמו הוא `search_term`. ראו `docs/analytics-events.md`.
 
-**חמשת האירועים שבאפיון עוד לא מחוברים ל-GA4:** `search_slot_open`,
-‏`search_slot_select`, ‏`search_freetext_submit`, ‏`search_submit`,
-‏`search_empty_widen`. ‏`sentence-search.js` כבר קורא ל-`opts.track` בכל
-אחת מהנקודות האלה, אבל `home.js` אינו מעביר `track`. הסיבה:
-`check_gtm_container.py` חוסם (ובצדק) אירוע שנדחף בלי טריגר ותגית במכולה,
-ומכולה מתעדכנת רק בפרסום ב-GTM ובייצוא מחדש (`gtm/README.md`). **כדי להדליק
-אותם**: טריגר `CUSTOM_EVENT` ותגית GA4 לכל אחד ב-GTM, פרסום, ייצוא ל-
-`gtm/container.json`, שורה לכל אחד ב-`docs/analytics-events.md`, ו-`track` ב-
-`SentenceSearch.mount` שקורא ל-`shukTrack('<שם>', …)` **בשם מפורש** לכל
-אירוע. הבדיקה מזהה רק שמות מפורשים, ועוטף עם שם במשתנה היה עוקף אותה.
-`search_freetext_submit` שולח את **שמות השדות שזוהו** בלבד, ולא את הטקסט.
+**חמשת האירועים שבאפיון עוד לא מחוברים ל-GA4.** ‏`check_gtm_container.py`
+חוסם אירוע שנדחף בלי טריגר ותגית במכולה, **וגם** טריגר במכולה לאירוע שהקוד
+אינו דוחף. לכן הייצוא של המכולה והחיבור בקוד נכנסים **באותו PR**.
+
+| אירוע | מתי | פרמטרים |
+| --- | --- | --- |
+| `search_slot_open` | נפתח בורר של מילה במשפט | `slot` (‏deal/type/area/rooms/price) |
+| `search_slot_select` | נבחרה אפשרות | `slot`, `option` - מפתח ולא טקסט; שכונה נשלחת כ-`area` |
+| `search_freetext_submit` | פירוש של השדה החכם | `parsed_fields`, `field_count` - **הטקסט עצמו לא נשלח** |
+| `search_submit` | "הצג N נכסים" | `result_count` |
+| `search_empty_widen` | ההרחבה המוצעת כשאין תוצאות | `slot` |
+
+‏`option` ולא `value`: ‏`value` שמור ב-GA4 לערך כספי של המרה.
+
+**שלבים:**
+
+1. **GTM ← Admin ← Import Container**, הקובץ `docs/gtm-sentence-search-import.json`,
+   Workspace קיים, מצב **Merge**. אם GTM מתריע על `DLV - page_type` - **Overwrite**
+   (זהה לקיים).
+2. **Preview** על shuknadlan.co.il: פתיחת בורר, בחירה, כתיבה בשדה החכם, "הצג".
+   בחלון ה-Tag Assistant כל אחד מחמשת האירועים צריך להראות את התגית שלו כ-Fired.
+   (עד שהקוד מחובר - שלב 5 - הם לא יופיעו; זה צפוי.)
+3. **Submit ← Publish**.
+4. **Admin ← Export Container**, הגרסה ש**פורסמה** (לא Workspace) - הקובץ הולך
+   ל-`gtm/container.json`.
+5. באותו PR: הייצוא, `track` ב-`SentenceSearch.mount` (‏`home.js`) שקורא ל-
+   `shukTrack('<שם>', …)` **בשם מפורש** לכל אירוע - הבדיקה מזהה רק שמות
+   מפורשים, ועוטף עם שם במשתנה היה עוקף אותה - ושורה לכל אירוע בטבלה של
+   `docs/analytics-events.md`.
+6. ב-GA4, ‏**Admin ← Custom definitions**: ‏`slot`, `option`, `parsed_fields` ו-
+   `field_count` כ-Custom dimensions (event scope). בלי זה הם נאספים ואינם
+   מוצגים בדוחות.

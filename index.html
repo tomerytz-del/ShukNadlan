@@ -693,12 +693,14 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     /* ‏flex-basis:100% הוא שורה חדשה בתוך ה-flex של המשפט */
     .ss-break{display:block;flex-basis:100%;height:0}
     /* השדה החכם כגלולה, כמו שדה החיפוש של הנכסים ב-CRM (‏‎.filter-input‎) */
+    /* מסגרת נייבי: השדה הוא הכניסה השנייה לחיפוש, והוא צריך לבלוט על
+       הכרטיס הלבן ולא להיבלע בו כשדה אפור */
     .ss-smart{
-      border:1px solid #e2e8f0;border-radius:999px;background:#f1f5f9;align-items:center;
+      border:2px solid var(--ss-navy);border-radius:999px;background:#fff;align-items:center;
       box-shadow:inset 0 1px 2px rgba(15,23,42,.05);min-height:48px;padding-inline-end:4px;
       transition:border-color .15s,box-shadow .15s,background-color .15s;
     }
-    .ss-smart:focus-within{background:#fff;border-color:#2c5a8c;box-shadow:0 0 0 3px rgba(44,90,140,.16)}
+    .ss-smart:focus-within{background:#fff;border-color:var(--ss-navy);box-shadow:0 0 0 3px rgba(22,41,107,.18)}
     .ss-mic{border-radius:999px}
     .ss-smart .ss-go{display:none}
     .ss-spark{padding-inline-start:16px}
@@ -722,7 +724,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .ss-card .ss-picker-close{display:inline-block}
     .ss-card .ss-options{grid-template-columns:repeat(2,minmax(0,1fr))}
     /* ‏"סינון מתקדם" נצמד לימין (תחילת השורה ב-RTL), בחלק הדועך של הכרטיס */
-    .ss-tools{padding:6px 4px 0;justify-content:flex-start;gap:18px}
+    /* ‏"ניקוי החיפוש" בקצה הימני, "סינון מתקדם" בקצה השמאלי */
+    .ss-tools{padding:6px 4px 0;justify-content:space-between;gap:18px}
     .ss-note{padding:6px 4px 4px}
     .ss-smart + .ss-tools{border-top:0}
     /* ‏minmax(0,1fr) ולא 1fr: אפשרות ארוכה עם nowrap הייתה מרחיבה את העמודה
