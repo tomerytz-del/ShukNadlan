@@ -46,7 +46,10 @@ const REKHASIM = [32.75, 35.1];
 const AKKO = [32.927, 35.083];
 const NAHARIYA = [33.006, 35.095];
 const SHLOMI = [33.075, 35.145];
-const MAALOT = [33.016, 35.27]; // מחוץ לתיבה (הקצה המזרחי 35.22) - השוק הקרוב
+const MAALOT = [33.016, 35.27]; // ברצועה הצפונית של עכו, מעל כרמיאל
+const KFAR_VRADIM = [32.995, 35.27];
+const KARMIEL = [32.919, 35.296];
+const YODFAT = [32.838, 35.272];
 const RAMAT_YISHAI = [32.705, 35.167]; // הגבול: 3 ק"מ מזרחית לטבעון, בעמק
 
 check("עפולה → afula-emek", reg.locate(AFULA[0], AFULA[1])?.slug === "afula-emek");
@@ -58,7 +61,30 @@ check("רמת ישי (מעבר לגבול עם טבעון) → afula-emek", reg.
 check("עכו → akko-nahariya", reg.locate(AKKO[0], AKKO[1])?.slug === "akko-nahariya");
 check("נהריה → akko-nahariya", reg.locate(NAHARIYA[0], NAHARIYA[1])?.slug === "akko-nahariya");
 check("שלומי → akko-nahariya", reg.locate(SHLOMI[0], SHLOMI[1])?.slug === "akko-nahariya");
-check("מעלות-תרשיחא (מחוץ לתיבה) → akko-nahariya כשוק הקרוב", reg.locate(MAALOT[0], MAALOT[1])?.slug === "akko-nahariya");
+check("מעלות-תרשיחא → akko-nahariya (לא כרמיאל, 11 ק\"מ דרומה)", reg.locate(MAALOT[0], MAALOT[1])?.slug === "akko-nahariya");
+check("כפר ורדים → akko-nahariya", reg.locate(KFAR_VRADIM[0], KFAR_VRADIM[1])?.slug === "akko-nahariya");
+check("כרמיאל → karmiel-misgav", reg.locate(KARMIEL[0], KARMIEL[1])?.slug === "karmiel-misgav");
+check("יודפת (משגב) → karmiel-misgav", reg.locate(YODFAT[0], YODFAT[1])?.slug === "karmiel-misgav");
+check("הגבול: 32.975 → כרמיאל, 32.98 → עכו (הרצועה של מעלות)",
+  reg.locate(32.975, 35.27)?.slug === "karmiel-misgav" && reg.locate(32.98, 35.27)?.slug === "akko-nahariya");
+
+/* תיבות locate של שני שווקים לעולם אינן חופפות - אחרת סדר השורות מחליט */
+{
+  type Box = [number, number, number, number];
+  const boxesOf = (m: { bbox: Box; boxes?: Box[] }) => m.boxes || [m.bbox];
+  const hit = (a: Box, b: Box) => a[0] <= b[2] && b[0] <= a[2] && a[1] <= b[3] && b[1] <= a[3];
+  const list = reg.list as unknown as Array<{ slug: string; bbox: Box; boxes?: Box[] }>;
+  const clashes: string[] = [];
+  for (let i = 0; i < list.length; i++)
+    for (let j = i + 1; j < list.length; j++)
+      for (const a of boxesOf(list[i])) for (const b of boxesOf(list[j]))
+        if (hit(a, b)) clashes.push(`${list[i].slug} ↔ ${list[j].slug}`);
+  check("אין חפיפה בין תיבות locate של שווקים", clashes.length === 0, clashes.join(", "));
+  /* והמסגרת מכילה את התיבות - הסריקה של ייבוא השכונות רצה עליה */
+  const inside = (a: Box, f: Box) => a[0] >= f[0] && a[1] >= f[1] && a[2] <= f[2] && a[3] <= f[3];
+  const outside = list.filter((m) => !boxesOf(m).every((b) => inside(b, m.bbox))).map((m) => m.slug);
+  check("כל תיבת locate בתוך המסגרת של השוק", outside.length === 0, outside.join(", "));
+}
 check("הגבול: 32.89 (קצה חיפה) → haifa-krayot, 32.9 → akko-nahariya",
   reg.locate(32.89, 35.08)?.slug === "haifa-krayot" && reg.locate(32.9, 35.08)?.slug === "akko-nahariya");
 check("תל אביב → אין שוק (ולא הקרוב ביותר, 80 ק\"מ משם)", reg.locate(TEL_AVIV[0], TEL_AVIV[1]) === null);
