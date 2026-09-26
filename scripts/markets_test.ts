@@ -58,6 +58,11 @@ const KFAR_TAVOR = [32.69, 35.42];
 const ATLIT = [32.688, 34.94];
 const EIN_AYALA = [32.633, 34.95]; // הדרומי שבחלק של חוף הכרמל שבשוק
 const ZICHRON = [32.57, 34.955];
+const HADERA = [32.437, 34.918];
+const HARISH = [32.46, 35.045];
+const PARDES_HANNA = [32.473, 34.97];
+const OR_AKIVA = [32.508, 34.918];
+const CAESAREA = [32.50, 34.90];
 const RAMAT_YISHAI = [32.705, 35.167]; // הגבול: 3 ק"מ מזרחית לטבעון, בעמק
 
 check("עפולה → afula-emek", reg.locate(AFULA[0], AFULA[1])?.slug === "afula-emek");
@@ -104,7 +109,12 @@ check("רק שווקים חיים: נוף הגליל → עפולה והעמק �
   reg.locate(NOF_HAGALIL[0], NOF_HAGALIL[1], true)?.slug === "afula-emek");
 check("עתלית → haifa-krayot", reg.locate(ATLIT[0], ATLIT[1])?.slug === "haifa-krayot");
 check("עין איילה → haifa-krayot", reg.locate(EIN_AYALA[0], EIN_AYALA[1])?.slug === "haifa-krayot");
-check("זכרון יעקב → לא חיפה (דרומה מהתיבה, ומעבר ל-NEAR_KM)", reg.locate(ZICHRON[0], ZICHRON[1])?.slug !== "haifa-krayot");
+check("זכרון יעקב → לא חיפה (דרומה מהתיבה; היום מגיעה לחדרה כשוק הקרוב)", reg.locate(ZICHRON[0], ZICHRON[1])?.slug !== "haifa-krayot");
+check("חדרה → hadera", reg.locate(HADERA[0], HADERA[1])?.slug === "hadera");
+check("חריש → hadera", reg.locate(HARISH[0], HARISH[1])?.slug === "hadera");
+check("פרדס חנה-כרכור → hadera", reg.locate(PARDES_HANNA[0], PARDES_HANNA[1])?.slug === "hadera");
+check("אור עקיבא → hadera", reg.locate(OR_AKIVA[0], OR_AKIVA[1])?.slug === "hadera");
+check("קיסריה → hadera", reg.locate(CAESAREA[0], CAESAREA[1])?.slug === "hadera");
 check("תל אביב → אין שוק (ולא הקרוב ביותר, 80 ק\"מ משם)", reg.locate(TEL_AVIV[0], TEL_AVIV[1]) === null);
 check("רק שווקים חיים: קריית ביאליק → אין (חיפה עוד לא נפתחה)",
   reg.locate(KIRYAT_BIALIK[0], KIRYAT_BIALIK[1], true) === null);
