@@ -91,9 +91,9 @@ update public.neighborhoods n set city_id = public.city_id_for_name(n.city)
 
 - **`source` מקבל רק `seed`, `gov` או `manual`** (`cities_source_chk`). עיר
   שמוסיפים ביד היא `manual`. ערך אחר מפיל את כל המיגרציה.
-- **העיר כבר קיימת?** (אחרי הזנת הלמ"ס, או משוק אחר) - אל תכניסו שורה שנייה.
+- **העיר כבר קיימת - וכמעט תמיד היא קיימת:** מאז `20270114095000` כל 1,316 היישובים ברישום (slug זמני `c-<סמל>`). אל תכניסו שורה שנייה.
   ‏`cities_name_key_uniq` יפיל אותה, וזה רצוי. הכתיב הנכון הוא `update
-  public.cities set market_slug = ... where name_key = public.city_name_key('...')`.
+  public.cities set market_slug = ... where name_key = public.city_name_key('...')`, ולשוק חי - גם slug אמיתי במקום `c-<סמל>` (`cities_live_needs_real_slug_chk`).
 - **עיר עוברת בין שווקים?** ה-`coalesce` למעלה **אינו** דורס שיוך קיים -
   בכוונה, כדי שהרצה חוזרת לא תבטל החלטה של מנהל/ת. מעבר הוא `update` מפורש.
 - **אל תנחשו קואורדינטות, סמל יישוב או אוכלוסייה.** שורה ידנית נושאת שם, אזור,
