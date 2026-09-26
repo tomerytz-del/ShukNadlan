@@ -30,6 +30,7 @@ def run(ctx) -> Iterator[Finding]:
     yield from _saved_search_silence(ctx)
     yield from _stand_in_pins(ctx)
     yield from _market_gate(ctx)
+    yield from _market_data(ctx)
 
 
 def _views_without_leads(ctx) -> Iterator[Finding]:
@@ -540,6 +541,213 @@ def _market_gate(ctx) -> Iterator[Finding]:
                        "ששייכת את העיר לשוק (הסקיל new-market). לא לשכתב את "
                        "properties.city.",
             metric=n, metric_unit="נכסים",
+        )
+
+
+# ‏הנתונים של כל שוק - עסקאות רשמיות, פינים ושכונות. הספים נגזרו מהמאגר עצמו
+# ב-26.9.2026 (docs/ops-agent.md, "השווקים המקומיים"), ולא מהראש:
+#
+# - ‏GovMap מחזיר לכל עיר את 1,500 העסקאות האחרונות, ובפועל כל עיר שהודבקה
+#   במלואה ישבה בין 1,253 ל-1,512. קריית ביאליק ישבה על 42 - הדבקה של חיפוש
+#   אחד מצומצם. 20% מהחציון של ערי השוק תופס אותה בלי לגעת באף עיר אחרת.
+# - ‏"עיר" לעומת "יישוב": קריית ביאליק ועין שמר נבדלות בגודל, ולנו אין עמודת
+#   אוכלוסייה. שלוש שכונות לפחות הן המבחן: ליישובי העמק אין אף אחת, ולכן
+#   ‏13 עסקאות בגדיש אינן "הדבקה חלקית" אלא גדיש.
+# - ‏150 יום מהעסקה האחרונה: רשות המיסים מפרסמת עסקה חודשיים-שלושה אחרי
+#   שנסגרה, ולכן 45 יום (המצב היום) הוא טרי לגמרי, וחמישה חודשים הם הדבקה
+#   שלא חודשה.
+# - ‏25% עסקאות בלי פין, ולפחות 100: בקריית מוצקין 0%, בחיפה 31%, בקריית
+#   אתא 35%. מתחת ל-100 זה רעש של יישוב קטן.
+# - ‏20 עסקאות לשם שכונה שלא הותאם: "קריית ים ב" היה 411, "משכנות אמנים"
+#   ‏428. מתחת ל-20 זה שם נדיר, לא כינוי חסר.
+MARKET_DEALS_THIN_RATIO = 0.2
+MARKET_DEALS_THIN_MEDIAN_MIN = 500
+MARKET_CITY_MIN_HOODS = 3
+MARKET_DEALS_STALE_DAYS = 150
+MARKET_UNPINNED_RATIO = 0.25
+MARKET_UNPINNED_MIN = 100
+MARKET_HOOD_ALIAS_MIN = 20
+
+
+def _market_data(ctx) -> Iterator[Finding]:
+    """הנתונים של כל שוק מקומי: עסקאות רשמיות, פינים, גבולות ושמות שכונות.
+
+    ‏**בדיקה אחת שרצה בלולאה על השווקים, ולא סוכן לכל שוק.** הבדיקות זהות
+    בכל אזור; שוק חדש נכנס לסריקה ברגע שהוא ב-assets/markets.js ובמסד.
+    כל ממצא נושא את השוק ב-subject וב-evidence, כך שהדשבורד יכול להפריד.
+
+    כל אחד מחמשת הממצאים כאן היה שקט בלעדיה: דוח CMA שנשען על 42 עסקאות
+    בעיר של 40 אלף תושבים נראה כמו דוח, עסקה בלי פין פשוט לא נכנסת לממוצע,
+    ושכונה בלי גבול מוצגת כעיגול בלי שאיש יודע שחסר מצולע.
+    """
+    markets = {m["slug"]: m for m in _load_markets(ctx.root)}
+    if not markets:
+        return
+    if not (ctx.db.has_table("cities") and ctx.db.has_table("market_deals_official")
+            and ctx.db.has_table("neighborhoods")):
+        return
+
+    cities = ctx.db.rows(
+        """
+        -- market_data:cities
+        select c.market_slug, c.name,
+               (select count(*) from public.neighborhoods n where n.city_id = c.id) as hoods,
+               (select count(*) from public.neighborhoods n
+                 where n.city_id = c.id
+                   and (n.boundary is null or jsonb_typeof(n.boundary) <> 'array'
+                        or jsonb_array_length(n.boundary) < 3))                     as hoods_no_boundary,
+               count(o.id)                                   as deals,
+               count(o.id) filter (where o.lat is null)      as unpinned,
+               max(o.sold_at)                                as last_sold,
+               (current_date - max(o.sold_at))               as last_sold_days
+          from public.cities c
+          left join public.market_deals_official o
+            on public.city_name_key(o.city) = c.name_key
+         where c.market_slug is not null
+         group by c.id, c.market_slug, c.name
+        """
+    ) or []
+
+    by_market: dict[str, list[dict]] = {}
+    for r in cities:
+        by_market.setdefault(r.get("market_slug"), []).append(r)
+
+    for slug, rows in by_market.items():
+        if slug not in markets:
+            continue
+        label = markets[slug].get("label") or slug
+
+        # ---- עיר עם מעט עסקאות לעומת שאר ערי השוק ----
+        big = [r for r in rows if int(r.get("hoods") or 0) >= MARKET_CITY_MIN_HOODS]
+        counts = sorted(int(r.get("deals") or 0) for r in big)
+        median = counts[len(counts) // 2] if counts else 0
+        for r in big:
+            ctx.count()
+            deals = int(r.get("deals") or 0)
+            if median >= MARKET_DEALS_THIN_MEDIAN_MIN and deals < median * MARKET_DEALS_THIN_RATIO:
+                city = r.get("name") or ""
+                yield Finding(
+                    area="health", code="market_city_deals_thin", severity="medium",
+                    subject="market:%s:city:%s" % (slug, _slug_ascii(city)),
+                    title="ב%s (%s) רק %d עסקאות רשמיות, מול כ-%d בשאר ערי השוק"
+                          % (city, label, deals, median),
+                    detail="דוח ה-CMA של כל נכס בעיר נשען על המאגר הזה. עיר שהודבקה "
+                           "במלואה מחזיקה עד 1,500 עסקאות (המגבלה של GovMap), ומספר "
+                           "נמוך בהרבה הוא כמעט תמיד הדבקה של חיפוש מצומצם - רחוב, "
+                           "גוש או שכונה אחת - ולא עיר שאין בה עסקאות.",
+                    suggestion="להדביק שוב את העיר כולה ב-CRM (ייבוא עסקאות רשמיות "
+                               "מ-GovMap), בלי סינון לשכונה או לרחוב. ‏"
+                               "docs/market-deals-official.md.",
+                    metric=deals, metric_unit="עסקאות",
+                    evidence={"market": slug, "city": city, "deals": deals,
+                              "market_median": median, "hoods": int(r.get("hoods") or 0)},
+                )
+
+        for r in rows:
+            city = r.get("name") or ""
+            deals = int(r.get("deals") or 0)
+            unpinned = int(r.get("unpinned") or 0)
+            subject_city = "market:%s:city:%s" % (slug, _slug_ascii(city))
+
+            # ---- עסקאות ישנות ----
+            ctx.count()
+            days = r.get("last_sold_days")
+            if deals and days is not None and int(days) > MARKET_DEALS_STALE_DAYS:
+                yield Finding(
+                    area="health", code="market_city_deals_stale", severity="low",
+                    subject=subject_city,
+                    title="העסקה האחרונה במאגר של %s (%s) היא מלפני %d ימים"
+                          % (city, label, int(days)),
+                    detail="המאגר מתעדכן בהדבקה ידנית מ-GovMap. רשות המיסים מפרסמת "
+                           "עסקה חודשיים-שלושה אחרי שנסגרה, ולכן פער של יותר מחמישה "
+                           "חודשים הוא הדבקה שלא חודשה - ודוח CMA שמשווה למחירים ישנים.",
+                    suggestion="הדבקה חוזרת של העיר ב-CRM. ההדבקה אידמפוטנטית: "
+                               "עסקה שכבר קיימת מתעדכנת ואינה נכפלת.",
+                    metric=int(days), metric_unit="ימים",
+                    evidence={"market": slug, "city": city, "deals": deals,
+                              "last_sold": str(r.get("last_sold"))},
+                )
+
+            # ---- עסקאות בלי פין ----
+            ctx.count()
+            if unpinned >= MARKET_UNPINNED_MIN and deals and unpinned / deals >= MARKET_UNPINNED_RATIO:
+                yield Finding(
+                    area="behavior", code="market_deals_unpinned", severity="low",
+                    subject=subject_city,
+                    title="‏%d מ-%d העסקאות ב%s (%s) בלי פין - %d%%"
+                          % (unpinned, deals, city, label, round(100 * unpinned / deals)),
+                    detail="עסקה בלי פין אינה נכנסת לממוצע הרדיוס בדוח ה-CMA. מאז "
+                           "20270114091000 היא כן נכנסת להשוואה לפי שכונה - אם יש לה "
+                           "שם שכונה שהותאם. לרוב אין לה שם רחוב, רק גוש/חלקה, והחלקה "
+                           "גדולה מכדי שמרכזה יהיה פין (govmap:parcel_too_large).",
+                    suggestion="לבדוק את geocode_error של העסקאות בעיר. קבוצה באותו "
+                               "רחוב שכולה address_not_found היא כמעט תמיד שם רחוב "
+                               "(docs/market-deals-official.md). אסור לנחש כתובת.",
+                    metric=unpinned, metric_unit="עסקאות",
+                    evidence={"market": slug, "city": city, "deals": deals,
+                              "unpinned": unpinned},
+                )
+
+        # ---- שכונות בלי גבול ----
+        ctx.count()
+        no_b = [(r.get("name") or "", int(r.get("hoods_no_boundary") or 0))
+                for r in rows if int(r.get("hoods_no_boundary") or 0)]
+        total_no_b = sum(n for _, n in no_b)
+        if total_no_b:
+            yield Finding(
+                area="behavior", code="market_hoods_no_boundary", severity="low",
+                subject="market:%s:hoods" % slug,
+                title="‏%d שכונות ב%s בלי גבול" % (total_no_b, label),
+                detail="שכונה בלי מצולע מוצגת במפת החיפוש כעיגול, ונכס בה אינו "
+                       "משויך אליה אוטומטית מהפין שלו (neighborhood_for_point). גם "
+                       "שכבת השכונה בדוח ה-CMA נשענת על השיוך הזה.",
+                suggestion="CRM ← ניהול שכונות ← ייבוא מ-GovMap לשוק, ומה שנשאר - "
+                           "'סימון על המפה' ליד כל שכונה (docs/regional-pages.md).",
+                metric=total_no_b, metric_unit="שכונות",
+                evidence={"market": slug, "by_city": dict(no_b)},
+            )
+
+    # ---- שמות שכונה בעסקאות שלא הותאמו לשום שכונה ----
+    if not ctx.db.has_column("market_deals_official", "neighborhood_id"):
+        return
+    unmatched = ctx.db.rows(
+        """
+        -- market_data:unmatched
+        select c.market_slug, o.city, o.neighborhood, count(*) as n
+          from public.market_deals_official o
+          join public.cities c on c.name_key = public.city_name_key(o.city)
+         where c.market_slug is not null
+           and coalesce(o.neighborhood, '') <> ''
+           and o.neighborhood_id is null
+         group by 1, 2, 3
+        having count(*) >= %s
+         order by n desc
+        """ % int(MARKET_HOOD_ALIAS_MIN)
+    ) or []
+    per_market: dict[str, list[dict]] = {}
+    for r in unmatched:
+        per_market.setdefault(r.get("market_slug"), []).append(r)
+    for slug, rows in per_market.items():
+        ctx.count()
+        if slug not in markets:
+            continue
+        label = markets[slug].get("label") or slug
+        total = sum(int(r.get("n") or 0) for r in rows)
+        yield Finding(
+            area="behavior", code="market_deal_hoods_unmatched", severity="low",
+            subject="market:%s:deal_hoods" % slug,
+            title="‏%d עסקאות ב%s נושאות שם שכונה שלא הותאם לשום שכונה (%d שמות)"
+                  % (total, label, len(rows)),
+            detail="השם מגיע ממאגר רשות המיסים, ולפעמים הוא נכתב אחרת מהשכונה אצלנו. "
+                   "עסקה כזו אינה נכנסת להשוואה לפי שכונה בדוח ה-CMA. שם שמתאים "
+                   "לשתי שכונות (\"הדר\" בחיפה) נשאר כאן בכוונה - לא מנחשים.",
+            suggestion="כשהזהות ודאית - שורה ב-neighborhood_aliases במיגרציה, והעסקאות "
+                       "מתחברות לבד (טריגר). כשהשכונה חסרה אצלנו - להוסיף אותה. "
+                       "‏docs/market-deals-official.md, 'שכונה לעסקה'.",
+            metric=total, metric_unit="עסקאות",
+            evidence={"market": slug,
+                      "names": [{"city": r.get("city"), "name": r.get("neighborhood"),
+                                 "deals": int(r.get("n") or 0)} for r in rows[:15]]},
         )
 
 

@@ -58,6 +58,7 @@ def parse_markets() -> list[dict]:
         slug = re.match(r"\s*'([^']+)'", chunk)
         out.append({
             "slug": slug.group(1) if slug else "",
+            "label": field("label"),
             "path": field("path"),
             "live": field("live") == "true",
             "default": field("isDefault") == "true",
