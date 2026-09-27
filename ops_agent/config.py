@@ -13,6 +13,9 @@
   הפרודקשן.
 * ‏`GITHUB_TOKEN` + `GITHUB_REPOSITORY` — לבדיקת בריאות ה-workflows.
   בלעדיהם ה-probe מדלג ומדווח על כך.
+* ‏`MAKE_API_TOKEN` — טוקן API של Make עם ‏`scenarios:read`, לבדיקה שתרחישי
+  הפרסום לפייסבוק ולאינסטגרם פעילים. בלעדיו הבדיקה נשענת על התור בלבד
+  ומדווחת שהיא חלקית.
 """
 
 from __future__ import annotations
@@ -179,6 +182,8 @@ class Settings:
     default_branch: str = "main"
     github_token: str = ""
     github_repo: str = ""
+    make_api_token: str = ""
+    make_api_base: str = "https://eu1.make.com/api/v2"
     # פרויקט Supabase — לקישורים בדוח בלבד, לא לגישה.
     project_ref: str = "obookujgolazrwycsiyn"
 
@@ -200,6 +205,9 @@ class Settings:
                            or "https://shuknadlan.co.il").strip().rstrip("/"),
             github_token=(os.environ.get("GITHUB_TOKEN") or "").strip(),
             github_repo=(os.environ.get("GITHUB_REPOSITORY") or "").strip(),
+            make_api_token=(os.environ.get("MAKE_API_TOKEN") or "").strip(),
+            make_api_base=(os.environ.get("MAKE_API_BASE")
+                           or "https://eu1.make.com/api/v2").strip().rstrip("/"),
             dry_run=(os.environ.get("OPS_DRY_RUN") or "").strip().lower()
             in ("1", "true", "yes"),
             only=tuple(p.strip() for p in only_raw.split(",") if p.strip()),
@@ -321,6 +329,15 @@ ENGINES = (
 # מנוע שאינו עובד — ולכן היא נושאת את הסיבה ואת התנאי לחזרה. ‏workflow
 # שנכשל בהרצה ידנית עדיין מדווח (`workflow_failing`), כי כישלון אינו
 # שקט.
+# תרחישי Make שמפרסמים לרשתות: ‏(ערוץ בתור, מזהה התרחיש, המתג שלו ב-
+# ‏pricing_config, ברירת המחדל של המתג, שם קריא). המזהה גלוי בכתובת התרחיש
+# ‏(‏/scenarios/<id>/edit) ואינו סוד; אותם מזהים יושבים כברירת מחדל גם ב-
+# ‏property-marketing-publish.
+MAKE_SCENARIOS = (
+    ("facebook_page", "7218015", "facebook_autopost_enabled", 1, "פייסבוק"),
+    ("instagram", "7641885", "instagram_autopost_enabled", 0, "אינסטגרם"),
+)
+
 PAUSED_WORKFLOWS = {
     "rss_scraper.yml": "מושבת מ-25.8.2026; המקורות כבויים — rss-leads-setup.md",
     "deals_scraper.yml": "nadlan.gov.il חוסם; ממתין למקור מורשה — market-deals-official.md",

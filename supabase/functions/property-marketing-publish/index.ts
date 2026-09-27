@@ -85,6 +85,56 @@ const READY_CHANNELS = CHANNELS.filter((c) => CHANNEL_READY[c]);
 // גבול הכיתוב באינסטגרם. פוסט ארוך יותר נדחה כולו.
 const IG_CAPTION_MAX = 2200;
 
+// ---------------------------------------------------------------------------
+// מצב תרחישי Make
+//
+// ‏**למה:** תרחיש Make כבוי עדיין מקבל webhook ועונה 200 "Accepted" — הוא
+// רק שומר את הנתונים בתור שלו. ב-27.9.2026 תרחיש הפייסבוק נכבה, ואותה חנות
+// נשלחה אליו ארבע פעמים (כל ניסיון חוזר הוסיף עותק לתור של Make). כשהתרחיש
+// חזר לפעול, ארבעתם עלו לדף בבת אחת.
+//
+// שתי שכבות, והשנייה עובדת גם בלי הראשונה:
+//   1. בדיקה מקדימה ב-Make API — ערוץ שהתרחיש שלו כבוי אינו נשלח בכלל.
+//      דורשת MAKE_API_TOKEN (‏scope ‏scenarios:read). בלי הטוקן היא מדלגת.
+//   2. ‏"Accepted" בלי post_id אינו נשלח שוב אוטומטית (ראו `unconfirmed`
+//      ב-handle). ניסיון חוזר לתרחיש כבוי הוא עותק נוסף בתור שלו.
+//
+// המזהים גלויים בכתובת התרחיש ב-Make (‏/scenarios/<id>/edit) ואינם סוד.
+// ---------------------------------------------------------------------------
+const MAKE_API_TOKEN = Deno.env.get("MAKE_API_TOKEN") || "";
+const MAKE_API_BASE = (Deno.env.get("MAKE_API_BASE") || "https://eu1.make.com/api/v2").replace(/\/+$/, "");
+const MAKE_SCENARIO_ID: Record<Channel, string> = {
+  facebook_page: Deno.env.get("MAKE_FACEBOOK_SCENARIO_ID") || "7218015",
+  instagram: Deno.env.get("MAKE_INSTAGRAM_SCENARIO_ID") || "7641885",
+};
+
+// הסימון שבו נפתח last_error. ‏ops_agent מחפש אותו (‏probes/pipeline.py,
+// ‏_make_scenarios), ולכן שינוי כאן הוא שינוי גם שם.
+const MARK_SCENARIO_OFF = "[make-scenario-off]";
+const MARK_UNCONFIRMED = "[make-unconfirmed]";
+
+/** ‏true = פעיל, false = כבוי, null = לא ידוע (אין טוקן, או שה-API לא ענה). */
+async function makeScenarioActive(channel: Channel): Promise<boolean | null> {
+  if (!MAKE_API_TOKEN || !MAKE_SCENARIO_ID[channel]) return null;
+  try {
+    const res = await fetch(`${MAKE_API_BASE}/scenarios/${MAKE_SCENARIO_ID[channel]}`, {
+      headers: { Authorization: `Token ${MAKE_API_TOKEN}` },
+    });
+    if (!res.ok) {
+      console.warn("make api", channel, res.status, (await res.text()).slice(0, 200));
+      return null;
+    }
+    const sc = (await res.json())?.scenario;
+    if (!sc || typeof sc.isActive !== "boolean") return null;
+    return sc.isActive && !sc.isPaused;
+  } catch (e) {
+    // תקלה ב-API של Make אינה עוצרת את הפרסום. השכבה השנייה עדיין מגינה
+    // מפני כפילות, ותור שנעצר בגלל בדיקה שנפלה הוא תקלה שנייה על הראשונה.
+    console.warn("make api", channel, e instanceof Error ? e.message : String(e));
+    return null;
+  }
+}
+
 // כמה נכסים בהרצה. הקצב האמיתי נשמר בתקרה היומית שב-pricing_config; כאן זו
 // רק הגנה על זמן הריצה של הפונקציה — כל נכס הוא קריאה ל-Claude ועד שש
 // קריאות ל-Meta.
@@ -262,11 +312,14 @@ async function publishViaMake(row: any, message: string, images: string[], chann
   try {
     const j = JSON.parse(body);
     const postId = j?.post_id ? String(j.post_id) : null;
+    if (!postId) return { post_id: null, post_url: null, unconfirmed: body.slice(0, 120) };
     // במזהה של אינסטגרם אין ממה לגזור כתובת — היא נלקחת מהתשובה (‏permalink).
     if (channel === "instagram") return { post_id: postId, post_url: j?.post_url ? String(j.post_url) : null };
     return { post_id: postId, post_url: facebookPostUrl(postId) ?? j?.post_url ?? null };
   } catch {
-    return { post_id: null, post_url: null };
+    // ‏"Accepted" — תשובת ברירת המחדל של Make כשמודול ה-Webhook response לא
+    // רץ: התרחיש כבוי והנתונים נכנסו לתור שלו, או שהוא נפל לפני הסוף.
+    return { post_id: null, post_url: null, unconfirmed: body.slice(0, 120) };
   }
 }
 
@@ -477,6 +530,30 @@ async function handle(
         ? await publishViaMake(row, message, images)
         : await publishViaGraph(row, message, images));
 
+  // ‏Make ענה 200 ולא החזיר מזהה. לא יודעים אם הפוסט עלה, ולכן גם לא
+  // שולחים שוב: אם התרחיש כבוי, הנתונים כבר בתור שלו ויעלו כשיודלק, וכל
+  // ניסיון נוסף הוא עוד עותק של אותו פוסט (27.9.2026: ארבעה). השורה נעצרת
+  // כ-failed עם סימון שהסוכן התפעולי מחפש, ומי שבודק/ת מחזיר/ה אותה לתור
+  // ביד אם הפוסט באמת לא עלה.
+  //
+  // ‏רק כשדרישת ה-post_id דלוקה. כבויה — תשובת 200 היא אישור, כמו תמיד.
+  if ("unconfirmed" in result && result.unconfirmed !== undefined) {
+    const { data: req } = await sb.from("pricing_config").select("value")
+      .eq("key", "facebook_autopost_require_post_id").maybeSingle();
+    if (Number(req?.value ?? 0) === 1) {
+      console.error("make unconfirmed", channel, row.property_id, result.unconfirmed);
+      await sb.from("property_publications").update({
+        status: "failed",
+        message,
+        description_generated: generated,
+        last_error: `${MARK_UNCONFIRMED} Make קיבל את הפוסט ולא החזיר מזהה (${result.unconfirmed}). ` +
+          "כנראה שהתרחיש כבוי והפוסט ממתין בתור שלו. לא נשלח שוב כדי לא ליצור כפילות - " +
+          "לבדוק את הדף ואת התור ב-Make, ואם הפוסט לא עלה להחזיר לתור ביד.",
+      }).eq("id", row.publication_id);
+      return { property_id: row.property_id, channel, generated, unconfirmed: result.unconfirmed };
+    }
+  }
+
   const { error: markErr } = await sb.rpc("mark_property_publication", {
     p_publication_id: row.publication_id,
     p_ok: true,
@@ -577,6 +654,31 @@ Deno.serve(async (req: Request) => {
     return json({ error: "channel_not_configured", channel: manualChannel }, 500);
   }
 
+  // ‏ערוץ Make שהתרחיש שלו כבוי אינו נשלח. השורות שלו לא נתפסות ולא שורפות
+  // ניסיון; הן מקבלות סימון ב-last_error כדי שיהיה ברור בתור למה הן ממתינות,
+  // וממשיכות מעצמן ברגע שהתרחיש חוזר לפעול.
+  const channelsNow = propertyId ? [manualChannel] : [...READY_CHANNELS];
+  const scenarioOff: Channel[] = [];
+  if (!dryRun) {
+    for (const ch of channelsNow) {
+      const viaMake = ch === "instagram" ? Boolean(MAKE_IG_WEBHOOK_URL) : Boolean(MAKE_WEBHOOK_URL);
+      if (viaMake && (await makeScenarioActive(ch)) === false) scenarioOff.push(ch);
+    }
+  }
+  if (scenarioOff.length) {
+    console.error("make_scenario_off", scenarioOff.join(","));
+    await sb.from("property_publications").update({
+      last_error: `${MARK_SCENARIO_OFF} תרחיש Make של הערוץ כבוי - לא נשלח כדי שהפוסט לא ייכנס לתור של Make ויוכפל. ימשיך מעצמו כשהתרחיש יחזור לפעול.`,
+    }).in("channel", scenarioOff).eq("status", "pending").lte("publish_after", new Date().toISOString());
+    if (propertyId) {
+      return json({ error: "make_scenario_off", channel: manualChannel }, 409);
+    }
+  }
+  const channelsToPull = channelsNow.filter((c) => !scenarioOff.includes(c));
+  if (!propertyId && !dryRun && !channelsToPull.length) {
+    return json({ ok: true, processed: 0, skipped_channels: scenarioOff });
+  }
+
   // בקשה ידנית לנכס מסוים — מכניסים אותו לתור (או מחזירים אותו אליו) לפני
   // המשיכה. בלי זה נכס שכבר פורסם לא יופיע ברשימה.
   //
@@ -605,7 +707,7 @@ Deno.serve(async (req: Request) => {
     p_property_id: propertyId,
     // בדיקה יבשה מותרת גם לערוץ שעוד לא חובר — כך רואים את הכיתוב לפני
     // שמחברים. פרסום אמיתי מושך רק ערוצים שיש להם סודות.
-    p_channels: propertyId ? [manualChannel] : READY_CHANNELS,
+    p_channels: dryRun ? channelsNow : channelsToPull,
   });
   if (error) {
     console.error("queue_read_failed", error.message);
@@ -655,5 +757,10 @@ Deno.serve(async (req: Request) => {
     }
   }
 
-  return json({ ok: true, processed: results.length, results });
+  return json({
+    ok: true,
+    processed: results.length,
+    results,
+    ...(scenarioOff.length ? { skipped_channels: scenarioOff } : {}),
+  });
 });
