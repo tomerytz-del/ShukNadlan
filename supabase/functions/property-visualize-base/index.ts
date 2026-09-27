@@ -1,13 +1,17 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
 import {
+  buildCommercialPrompt,
   buildPrivatePrompt,
+  type CommercialTarget,
   corsHeaders,
   DEFAULT_STYLE,
+  defaultBusinessFor,
   ensureTagged,
   isLandType,
   isStyleKey,
   json,
+  pickCommercialSources,
   pickPrivateSources,
   privateTargetsFor,
   renderModeFor,
@@ -25,9 +29,8 @@ import {
 // המטרות (חוץ, סלון, מטבח) ומסמן is_base=true — אלה ההדמיות שמופיעות בדף
 // הנכס לכל מבקר/ת, בלי להשאיר פרטים.
 //
-// למה זה נכס פרטי בלבד: להדמיה מסחרית צריך לדעת איזה עסק מדמים, ואין ברירת
-// מחדל הגיונית ל"עסק" — משרד רואה חשבון וחנות בגדים באותו נכס נראים אחרת
-// לגמרי. לכן המסחרי נשאר לפי דרישה בלבד, בדיוק כמו ב-nadlan-afula.
+// נכס מסחרי מקבל כאן הדמיה אחת בלבד, של העסק ה"צפוי" לסוג הנכס
+// (defaultBusinessFor) — ראו commercialBase למטה. כל עסק אחר נשאר לפי דרישה.
 //
 // אותה תבנית אבטחה כמו rss-lead-purchase: verify_jwt=true, והסוכן/ת נגזר/ת
 // מה-JWT המאומת בלבד — לעולם לא מה-body. אחרת כל אחד יכול להעלות חשבון
@@ -120,21 +123,15 @@ Deno.serve(async (req: Request) => {
     );
   }
 
-  if (property.category !== "residential") {
-    return json(
-      {
-        error: "commercial_is_ondemand",
-        message: "בנכס מסחרי ההדמיה נוצרת לפי סוג העסק שהגולש/ת בוחר/ת, ולכן אין לה סט בסיס",
-      },
-      400
-    );
-  }
-
   // ---- תמונות המקור ----------------------------------------------------
   const images: string[] = Array.isArray(property.images) ? property.images.filter(Boolean) : [];
   if (images.length === 0) return json({ error: "no_images", message: "אין תמונות לנכס הזה" }, 400);
 
   const tags = await ensureTagged(supabase, apiKey, property_id, images);
+
+  if (property.category !== "residential") {
+    return await commercialBase(supabase, apiKey, property, tags, images, agent?.id ?? null, Boolean(force));
+  }
 
   // נכס להשכרה מקבל הלבשת בית ולא שיפוץ, ומטרה אחת יותר (חדר שינה) —
   // ראו RenderMode ו-privateTargetsFor ב-_shared.
@@ -294,3 +291,115 @@ Deno.serve(async (req: Request) => {
     skipped_targets: targets.filter((t) => !picked[t]),
   });
 });
+
+// ============================================================================
+// סט הבסיס המסחרי — הדמיה אחת, של העסק ה"צפוי" לסוג הנכס.
+//
+// עד כאן נכס מסחרי לא קיבל סט בסיס בכלל, ולכן תיבת ההדמיות בדף שלו הייתה
+// ריקה עד שגולש/ת ביקש/ה עסק. הדמיה אחת מספיקה כדי שהתיבה תראה שהכלי עובד;
+// הדמיה לכל מטרה הייתה מכפילה את העלות בלי להוסיף ראיה.
+//
+// החלל הפנימי קודם לחזית: הוא מה שמראה את העסק (ריהוט, ציוד), והחזית רק
+// שלט. ‏pickCommercialSources נופלת לתמונה הראשונה כשאין סיווג, ולכן בנכס
+// עם תמונות תמיד יש מקור.
+//
+// ‏job מסוג commercial_business עם business_type — בדיוק כמו בקשת גולש/ת,
+// כדי שדף הנכס יציג אותה כשבב של העסק, ו-property-visualize יחזיר אותה
+// מהמסד כשגולש/ת יבקש/ה את אותו עסק.
+// ============================================================================
+async function commercialBase(
+  supabase: any,
+  apiKey: string,
+  property: any,
+  tags: Awaited<ReturnType<typeof ensureTagged>>,
+  images: string[],
+  agentId: string | null,
+  force: boolean
+): Promise<Response> {
+  const property_id = property.id;
+
+  // נכס שכבר יש לו הדמיה מסחרית מוכנה אינו צריך עוד אחת. אם אף אחת מהן
+  // אינה מסומנת כבסיס, האחרונה מקודמת — אותו כלל של המסלול הפרטי.
+  if (!force) {
+    const { data: existing } = await supabase
+      .from("property_visualizations")
+      .select("id, is_base")
+      .eq("property_id", property_id)
+      .eq("kind", "commercial_business")
+      .eq("status", "done")
+      .not("result_url", "is", null)
+      .order("created_at", { ascending: false });
+    if (existing && existing.length > 0) {
+      const hasBase = existing.some((r: any) => r.is_base);
+      if (!hasBase) {
+        await supabase.from("property_visualizations").update({ is_base: true }).eq("id", existing[0].id);
+      }
+      return json({
+        ok: true,
+        job_id: null,
+        note: hasBase ? "לנכס כבר יש הדמיית בסיס" : "הדמיה קיימת סומנה כבסיס",
+        promoted: hasBase ? 0 : 1,
+      });
+    }
+  }
+
+  const picked = pickCommercialSources(tags, images);
+  const target: CommercialTarget | null = picked.interior_main
+    ? "interior_main"
+    : picked.exterior
+      ? "exterior"
+      : null;
+  if (!target) {
+    return json({ error: "no_suitable_images", message: "לא נמצאו תמונות מתאימות להדמיה בנכס הזה" }, 400);
+  }
+  const sourceUrl = picked[target]!;
+  const businessType = defaultBusinessFor(property.property_type);
+
+  const { data: job, error: jobErr } = await supabase
+    .from("visualization_jobs")
+    .insert({
+      property_id,
+      kind: "commercial_business",
+      trigger_source: "base",
+      business_type: businessType,
+      requested_by_agent_id: agentId,
+      status: "processing",
+    })
+    .select("id")
+    .single();
+  if (jobErr) return json({ error: "db_error", detail: jobErr.message }, 500);
+
+  const { data: row, error: insErr } = await supabase
+    .from("property_visualizations")
+    .insert({
+      property_id,
+      job_id: job.id,
+      kind: "commercial_business",
+      target,
+      source_image_url: sourceUrl,
+      status: "pending",
+      is_base: true,
+    })
+    .select("id")
+    .single();
+  if (insErr) {
+    await supabase
+      .from("visualization_jobs")
+      .update({ status: "failed", error_detail: "לא נוצרה שורת הדמיה" })
+      .eq("id", job.id);
+    return json({ error: "db_error", detail: insErr.message }, 500);
+  }
+
+  const sizeSqm = property.size_sqm ?? property.area_sqm ?? null;
+  const items: WorkItem[] = [{
+    rowId: row.id,
+    target,
+    sourceUrl,
+    prompt: buildCommercialPrompt(target, businessType, "", sizeSqm ? Number(sizeSqm) : null),
+  }];
+
+  // @ts-ignore — EdgeRuntime.waitUntil זמין בסביבת ה-Edge Functions של Supabase
+  EdgeRuntime.waitUntil(runVisualizationJob(supabase, apiKey, job.id, items));
+
+  return json({ ok: true, job_id: job.id, business_type: businessType, targets: [target] });
+}
