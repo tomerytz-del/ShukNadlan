@@ -144,6 +144,29 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .plan.elite .plan-cta{background:linear-gradient(135deg,#d9b53c,#a8841a);color:#fff;
     box-shadow:0 8px 18px -10px rgba(168,132,26,.9)}
   .plan.elite .plan-cta:hover{filter:brightness(1.06)}
+  /* סמן הלחיצה על כפתור ההצטרפות - אותו חץ ואותה אנימציה של ‎.ss-tap‎ בדף
+     הבית (‏index.html), כדי שהרמז ייראה זהה בשני הדפים. הקרניים בספיר ולא
+     בזהב: על רקע הכפתור הזהוב קרן זהב נעלמת. ‏pointer-events כבויים, כך
+     שהלחיצה עוברת לקישור שמתחתיו. ‏top/left נמוכים ומוסטים מאלה של דף הבית,
+     כדי שהחץ לא יסתיר את "6" שבמרכז הכיתוב. בלי אנימציות ה-JS אינו יוצר אותו. */
+  .plan-cta.has-tap{position:relative}
+  .plan-tap{
+    position:absolute;left:58%;top:74%;width:38px;height:38px;margin:-14px 0 0 -14px;
+    pointer-events:none;z-index:2;opacity:0;transform-origin:14px 14px;
+    animation:planTap 2.6s ease-in-out .6s infinite;
+  }
+  .plan-tap svg{display:block;width:100%;height:100%;overflow:visible;filter:drop-shadow(0 2px 3px rgba(14,42,107,.35))}
+  .plan-tap-arrow{fill:#fff;stroke:var(--sapphire-deep)}
+  .plan-tap-rays{stroke:var(--sapphire-deep);opacity:0;animation:planTapRays 2.6s ease-out .6s infinite}
+  @keyframes planTap{
+    0%{opacity:0;transform:translate(16px,18px)}
+    22%{opacity:1;transform:translate(0,0)}
+    34%{transform:scale(.8)}
+    44%{transform:scale(1)}
+    78%{opacity:1;transform:translate(0,0)}
+    100%{opacity:0;transform:translate(6px,8px)}
+  }
+  @keyframes planTapRays{0%,32%{opacity:0}40%{opacity:1}62%,100%{opacity:0}}
   .plan-badge{position:absolute;top:0;inset-inline-start:50%;transform:translate(50%,-50%);
     background:var(--sapphire-deep);color:#f6e0a3;font-size:.72rem;font-weight:800;
     padding:5px 14px;border-radius:99px;white-space:nowrap;box-shadow:0 6px 14px -8px rgba(13,27,61,.9)}
@@ -562,7 +585,7 @@ document.getElementById('plans').innerHTML = Tiers.list().map(function(tier){
 
   const ctaHtml = cta.disabled
     ? '<span class="plan-cta is-disabled">' + esc(cta.label) + '</span>'
-    : '<a class="plan-cta" href="' + esc(cta.href) + '">' + esc(cta.label) + '</a>';
+    : '<a class="plan-cta" data-tier="' + esc(tier.id) + '" href="' + esc(cta.href) + '">' + esc(cta.label) + '</a>';
 
   return '<article class="plan ' + tier.color + (isCurrent ? ' is-current' : '') + '">' +
     (tier.badge && !isCurrent ? '<span class="plan-badge">★ ' + esc(tier.badge) + '</span>' : '') +
@@ -578,6 +601,45 @@ document.getElementById('plans').innerHTML = Tiers.list().map(function(tier){
     '<div class="plan-foot">' + esc(cta.foot || '') + '</div>' +
   '</article>';
 }).join('');
+
+/* ---------- גלילה לכפתור ההצטרפות ב-Elite ----------
+   מי שמגיע/ה לדף הציבורי בא/ה לפתוח משרד, ומי שמגיע/ה מקישור הזמנה בא/ה
+   להצטרף למשרד — ובתקופת ההשקה לשניהם יש בדיוק כפתור אחד, ה-CTA של
+   Elite: כולם מצטרפים בו, ואין מה לבחור. בנייד הוא יושב בכרטיס השלישי,
+   כמה מסכים מתחת לכותרת, ולכן מביאים אותו אל המסך במקום שיחפשו אותו.
+
+   לא ב-?current=: סוכן/ת מחובר/ת בא/ה לראות את המסלול שלו/ה, ובתקופת
+   ההטבה כל הכפתורים שם נעולים ממילא. ולא
+   כשיש #עוגן בכתובת (קישור ל-FAQ צריך לנחות על ה-FAQ), ולא כשהגולש/ת
+   כבר גלל/ה — חזרה אחורה משחזרת מיקום, וקפיצה אז הייתה מבלבלת.
+   ‏'load' ולא מיד: גופנים ובאנר ההטבה מזיזים את הפריסה, וגלילה מוקדמת
+   נוחתת לידו ולא עליו. ועל הכפתור מהבהב סמן לחיצה, כמו במשפט החיפוש
+   בדף הבית. */
+if (!current){
+  const joinBtn = document.querySelector('.plan-cta[data-tier="' + Tiers.PROMO.tier + '"]') ||
+                  document.querySelector('.plan-cta[data-tier="premium"]');
+  const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* סמן הלחיצה - גם כשיש #עוגן: הוא רמז על הכפתור ולא תנועה של הדף. */
+  if (joinBtn && !reduce){
+    const tap = document.createElement('span');
+    tap.className = 'plan-tap';
+    tap.setAttribute('aria-hidden', 'true');
+    tap.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke-linecap="round" stroke-linejoin="round">' +
+      '<g class="plan-tap-rays" stroke-width="2"><path d="M14 4.1 12 6"/><path d="m5.1 8-2.9-.8"/><path d="m6 12-1.9 2"/><path d="M7.2 2.2 8 5.1"/></g>' +
+      '<path class="plan-tap-arrow" stroke-width="1.6" d="M9.04 9.69a.5.5 0 0 1 .65-.65l11 4.5a.5.5 0 0 1-.07.95l-4.35 1.04a1 1 0 0 0-.74.74l-1.04 4.35a.5.5 0 0 1-.95.07z"/>' +
+      '</svg>';
+    joinBtn.classList.add('has-tap');
+    joinBtn.appendChild(tap);
+  }
+
+  if (joinBtn && !location.hash){
+    window.addEventListener('load', function(){
+      if (window.scrollY > 40) return;
+      joinBtn.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+    });
+  }
+}
 
 /* ---------- טבלת ההשוואה ----------
    כל היכולות של המערכת, שורה לכל אחת, מקובצות לפי מה שהסוכן/ת בא/ה לעשות
