@@ -31,6 +31,7 @@ def run(ctx) -> Iterator[Finding]:
     yield from _stand_in_pins(ctx)
     yield from _market_gate(ctx)
     yield from _market_data(ctx)
+    yield from _agencies_no_city(ctx)
 
 
 def _views_without_leads(ctx) -> Iterator[Finding]:
@@ -761,3 +762,46 @@ def _slug_ascii(value: str) -> str:
     שהיא מלוחה מחדש בכל תהליך.
     """
     return hashlib.sha1(value.encode("utf-8")).hexdigest()[:8]
+
+
+def _agencies_no_city(ctx) -> Iterator[Finding]:
+    """משרדים בלי עיר - לא נספרים באף שוק מקומי.
+
+    ‏**למה זה שקט בלי הבדיקה:** באתר הפומבי משרד בלי עיר מופיע בשוק ברירת
+    המחדל (market-scope.js), ולכן הוא נראה "בעפולה" ואיש לא שם לב. אבל בסף
+    ההדלקה (‏_market_gate) ובפאנל השווקים הוא נספר רק לפי העיר, ושוק נראה עם
+    פחות משרדים ממה שיש לו. ומשרד מנתניה בלי עיר מופיע באתר של עפולה.
+
+    עד 27.9.2026 כל משרד נולד כך (שני מסלולי הפתיחה לא שאלו על עיר), וחמישה
+    משרדים מעפולה ישבו בלי עיר. מאז הטופס שואל, והנכס הראשון משלים
+    (20270115101000) - ולכן ממצא כאן הוא משרד שחמק משתי השכבות.
+    """
+    if not ctx.db.has_table("agencies"):
+        return
+    ctx.count()
+    rows = ctx.db.rows(
+        """
+        select a.name, a.created_at::date::text as joined,
+               (select count(*) from public.properties p where p.agency_id = a.id) as props
+          from public.agencies a
+         where a.city_id is null
+         order by a.created_at
+        """
+    ) or []
+    if not rows:
+        return
+    names = [str(r.get("name") or "") for r in rows]
+    yield Finding(
+        area="behavior", code="agency_no_city", severity="medium",
+        subject="agencies_no_city",
+        title="‏%d משרדים בלי עיר - לא נספרים באף שוק מקומי" % len(rows),
+        detail="באתר הם מופיעים בשוק ברירת המחדל, גם אם הם באזור אחר, "
+               "ובספירת השווקים (סף ההדלקה, פאנל השווקים ב-CRM) הם חסרים. "
+               "המשרדים: " + ", ".join(names[:10]) + ("…" if len(names) > 10 else ""),
+        suggestion="כתובת בהגדרות המשרד ממלאת את העיר (טריגר agencies_set_city_id). "
+                   "משרד שנפתח לפני החלוקה לשווקים הוא מעפולה. ‏docs/regional-pages.md, "
+                   "'משרד בלי עיר'.",
+        metric=len(rows), metric_unit="משרדים",
+        evidence={"agencies": [{"name": r.get("name"), "joined": r.get("joined"),
+                                "props": int(r.get("props") or 0)} for r in rows[:20]]},
+    )

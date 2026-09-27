@@ -3,6 +3,7 @@ import { createClient } from "jsr:@supabase/supabase-js@2";
 import { grantLaunchPromo } from "../_shared/launch-promo.ts";
 import { announcePlatformSignup } from "../_shared/platform-signup-alert.ts";
 import { blockedResponse, checkBrokerLicense } from "../_shared/broker-license-gate.ts";
+import { resolveAgencyCityId } from "../_shared/agency-city.ts";
 
 // פתיחת משרד חדש ("פתיחת משרד"). זו הדרך היחידה שמישהו נכנסת
 // למערכת לראשונה (רובמנו) — אין הרשמה עצמאית לסוכן, רק למשרד.
@@ -109,9 +110,11 @@ Deno.serve(async (req: Request) => {
       finalSlug = `${baseSlug}-${attempt}`;
     }
 
+    // עיר המשרד מהטופס - בלעדיה המשרד אינו נספר באף שוק מקומי (20270115101000)
+    const cityId = await resolveAgencyCityId(supabase, body);
     const { data: agency, error: agencyErr } = await supabase
       .from("agencies")
-      .insert({ slug: finalSlug, name: agency_name, specialties: cleanSpecialties(body.specialties) })
+      .insert({ slug: finalSlug, name: agency_name, city_id: cityId, specialties: cleanSpecialties(body.specialties) })
       .select()
       .single();
     if (agencyErr) return json({ error: "db_error", detail: agencyErr.message }, 500);

@@ -954,6 +954,9 @@ document.getElementById('cancelCreateAgency').addEventListener('click', async ()
   showLoginCard();
 });
 
+// עיר המשרד - הרשימה הסגורה של ערי השווקים (assets/agency-city.js, 20270115101000)
+if (window.AgencyCity) AgencyCity.mount(document.getElementById('caAgencyCity'), document.getElementById('caAgencyCityOther'), { url: SUPABASE_URL, key: SUPABASE_ANON_KEY });
+
 document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
   const agencyName = document.getElementById('caAgencyName').value.trim();
   const managerName = document.getElementById('caManagerName').value.trim();
@@ -963,6 +966,12 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
   if (!agencyName || !managerName || !license){
     feedback.style.color = 'var(--red)';
     feedback.textContent = 'נא למלא את כל השדות';
+    return;
+  }
+  const agencyCity = window.AgencyCity ? AgencyCity.value(document.getElementById('caAgencyCity'), document.getElementById('caAgencyCityOther')) : null;
+  if (window.AgencyCity && !agencyCity){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'נא לבחור את עיר המשרד';
     return;
   }
   if (!document.getElementById('caEthicsConsent').checked){
@@ -979,7 +988,7 @@ document.getElementById('createAgencyBtn').addEventListener('click', async ()=>{
       // בלי initial_tier: המסלול נקבע בשרת — הטבת ההשקה למשרד חדש, ובחירה
       // אמיתית בתום התקופה. סוכן/ת שנותק/ה שומר/ת בכל מקרה על המסלול
       // והארנק הקיימים (‏adopt_released_member_into_agency).
-      body: JSON.stringify({ agency_name: agencyName, manager_name: managerName, license_number: license, ethics_code_accepted: true }),
+      body: JSON.stringify({ agency_name: agencyName, manager_name: managerName, license_number: license, ...(agencyCity || {}), ethics_code_accepted: true }),
     });
     const data = await res.json();
 
@@ -2746,6 +2755,35 @@ async function loadMarketReport(){
     return;
   }
   renderMarketReport(market, data || {});
+  renderAgenciesWithoutCity();
+}
+
+/* משרדים בלי עיר אינם נספרים באף שוק - ולכן גם לא בשוק שבתצוגה. האזהרה
+   מעל הדוח, בכל שוק, עם השמות: התיקון הוא כתובת בהגדרות המשרד, או הנכס
+   הראשון שלו (טריגר properties_fill_agency_city). ‏20270115101000. בכשל
+   (המיגרציה טרם רצה) - שקט: זו אזהרה, לא הדוח עצמו. */
+async function renderAgenciesWithoutCity(){
+  const host = document.getElementById('marketReport');
+  if (!host) return;
+  const { data, error } = await sb.rpc('platform_agencies_without_city');
+  if (error || !Array.isArray(data) || !data.length) return;
+  const prev = document.getElementById('mktNoCity');
+  if (prev) prev.remove();
+  const box = admEl('div', 'mkt-card');
+  box.id = 'mktNoCity';
+  box.style.cssText = 'border:1.5px solid #E0A63B;background:#FFF8EC;margin-bottom:12px';
+  box.appendChild(admEl('h3', 'mkt-card-title', admInt(data.length) + ' משרדים בלי עיר - לא נספרים באף שוק'));
+  box.appendChild(admEl('p', 'mkt-card-sub',
+    'באתר הם מופיעים בשוק ברירת המחדל, ובספירה של השווקים הם חסרים. העיר תתמלא כשהמשרד יזין כתובת בהגדרות, או עם הנכס הראשון שלו.'));
+  const list = admEl('ul');
+  list.style.cssText = 'margin:8px 0 0;padding-inline-start:18px;font-size:.82rem;line-height:1.7';
+  data.forEach(a => {
+    const joined = a.created_at ? new Date(a.created_at).toLocaleDateString('he-IL') : '';
+    list.appendChild(admEl('li', '', (a.name || a.slug || '') + ' · הצטרף/ה ' + joined + ' · ' + admInt(a.props || 0) + ' נכסים'));
+  });
+  box.appendChild(list);
+  host.insertBefore(box, host.firstChild);
+  dashPanelsMeasure();
 }
 
 function marketMeter(label, have, need){
