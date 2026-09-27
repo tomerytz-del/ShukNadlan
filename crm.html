@@ -237,6 +237,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .field label{font-size:.75rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:5px}
   .field input{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px}
   .field input:focus{border-color:var(--teal);outline:none}
+  #caAgencyCity{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;font:inherit;background:#fff}
+  #caAgencyCity:focus{border-color:var(--teal);outline:none}
   /* textarea קיבל עד היום את ברירת המחדל של הדפדפן ולכן נראה זר לשאר השדות */
   .field textarea{width:100%;border:1.5px solid var(--line);border-radius:var(--radius-sm);padding:11px 12px;font-family:inherit;font-size:1rem;line-height:1.5;background:#fff;color:inherit;resize:vertical}
   .field textarea:focus{border-color:var(--teal);outline:none}
@@ -4422,6 +4424,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       המסלול ויתרת הארנק שלך ממשיכים כמו שהם.
     </div>
     <div class="field"><label>שם המשרד</label><input type="text" id="caAgencyName" required></div>
+    <!-- עיר המשרד קובעת לאיזה שוק מקומי הוא שייך (20270115101000) -->
+    <div class="field">
+      <label for="caAgencyCity">עיר המשרד</label>
+      <select id="caAgencyCity" required></select>
+      <input type="text" id="caAgencyCityOther" placeholder="שם העיר" style="display:none;margin-top:8px">
+    </div>
     <div class="field"><label>השם המלא שלך</label><input type="text" id="caManagerName" required></div>
     <div class="field"><label>מספר רישיון תיווך</label><input type="text" id="caLicense" required placeholder="לדוגמה: 123456"></div>
     <!-- ---------- המסלול ----------
@@ -7693,6 +7701,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- רשימת השווקים המקומיים: שם השוק בבחירת עיר לשכונה, ותצוגת השווקים של
      מנהל/ת הפלטפורמה. docs/regional-pages.md -->
 <script src="assets/markets.js"></script>
+<script src="assets/agency-city.js"></script>
 <script src="assets/crm.js"></script>
 </body>
 </html>
