@@ -151,17 +151,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .oh-stat b{color:#e9c35c;font-weight:900}
   .oh-stat + .oh-stat::before{content:"·";margin-inline:8px;color:#e9c35c}
 
-  .oh-head-go{
-    display:flex;align-items:center;justify-content:center;
-    padding:10px 20px;border-radius:9px;white-space:nowrap;
-    font-size:.98rem;font-weight:900;color:#1b1406;
-    background:linear-gradient(180deg,#f7dc8a 0%,#e0b54a 45%,#b8862a 100%);
-    border:1.5px solid #fbe7a1;
-    box-shadow:0 6px 16px -6px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.5);
-    transition:filter .15s ease;
-  }
-  .oh-head-go[hidden],.oh-head-cta[hidden]{display:none}
-  .oh-head-go:hover{filter:brightness(1.06)}
+  .oh-head-cta[hidden]{display:none}
   .oh-head-cta{
     align-self:flex-start;white-space:nowrap;font-size:.86rem;font-weight:700;color:#e9c35c;
     text-decoration:underline;text-underline-offset:4px;
@@ -188,7 +178,6 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .oh-head h1 span{display:inline}
     .oh-head-body{flex-direction:row;align-items:center;flex-wrap:wrap;gap:12px 22px}
     .oh-head-stats{font-size:.9rem}
-    .oh-head-go{padding:10px 28px}
     .oh-head-cta{align-self:center}
   }
 
@@ -235,6 +224,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      אותם אריחים ואותן מחוות של מפת דף הבית, על המשתתפים ביריד בלבד.
      היא יורדת כולה כשלאף משתתף אין קואורדינטות — מפה ריקה של עפולה אינה
      מידע. */
+  .oh-map-section{padding-block:14px 34px}
   .oh-map-wrap{position:relative;border:1px solid var(--line);background:#fff;box-shadow:var(--shadow)}
   #fairMap{height:320px;width:100%}
   @media(min-width:760px){#fairMap{height:430px}}
@@ -245,36 +235,67 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .oh-map-note .oh-mark{color:var(--open-house,#c8102e)}
 
   /* ====== ההרשמה לעדכונים ======
-     שתי עמודות במסך רחב: מה מקבלים מימין, והטופס משמאל. הכפתור לעולם אינו
-     נשבר (‏nowrap), והשדה הוא זה שמתכווץ. */
+     באנר קומפקטי: כותרת, שלוש שורות וכפתור גלולה אדום לכל הרוחב, עם סמן
+     יד שמהבהב ו"לוחץ" עליו. במסך רחב שתי עמודות — מה מקבלים מימין,
+     והטופס משמאל. השדה והכפתור עגולים בכוונה, בניגוד לשאר האתר
+     (‏design-system.css מיישר פינות ל-input ב-!important, ולכן גם כאן). */
   .oh-signup{
-    position:relative;overflow:hidden;
-    background:linear-gradient(135deg,var(--teal-dark) 0%,var(--teal) 62%,#123a8f 100%);
-    color:#fff;padding:24px 20px;
+    position:relative;overflow:hidden;isolation:isolate;
+    background:
+      radial-gradient(90% 70% at 100% 0%, rgba(58,94,190,.45), rgba(58,94,190,0) 60%),
+      linear-gradient(160deg,#0e1f55 0%,#0b1a45 55%,#0e1938 100%);
+    color:#fff;padding:20px 18px;
   }
+  .oh-signup-deco{position:absolute;inset:0;width:100%;height:100%;z-index:-1;color:rgba(255,255,255,.08);pointer-events:none}
   @media(min-width:900px){
-    .oh-signup{padding:30px 32px;display:grid;grid-template-columns:1.05fr .95fr;gap:30px;align-items:center}
+    .oh-signup{padding:26px 32px;display:grid;grid-template-columns:1fr 1fr;gap:30px;align-items:center}
   }
-  .oh-signup h2{color:#fff;font-size:clamp(1.15rem,2.6vw,1.4rem);text-wrap:balance}
-  .oh-signup p{margin:9px 0 0;font-size:.87rem;line-height:1.6;color:rgba(255,255,255,.86);max-width:54ch;text-wrap:pretty}
+  .oh-signup h2{color:#fff;font-weight:900;line-height:1.2;font-size:clamp(1.2rem,5vw,1.5rem);text-wrap:balance;margin:0}
   .oh-signup-head{display:flex;align-items:center;gap:12px}
-  .oh-signup-head .oh-mark{color:#fff}
-  .oh-signup-form{display:flex;gap:9px;flex-wrap:wrap;margin-top:18px}
+  .oh-signup-head .oh-mark{color:#fff;flex:none}
+  .oh-signup-points{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:4px}
+  .oh-signup-points li{font-size:.92rem;color:rgba(255,255,255,.9);white-space:nowrap}
+  .oh-signup-points li::before{content:"-";margin-inline-end:6px;color:#e9c35c;font-weight:900}
+  .oh-signup-form{display:flex;flex-direction:column;gap:10px;margin-top:16px}
   @media(min-width:900px){.oh-signup-form{margin-top:0}}
+  .oh-signup-form[hidden]{display:none}
   .oh-signup-form input{
-    flex:1 1 240px;min-width:0;border:1.5px solid rgba(255,255,255,.4);background:rgba(255,255,255,.1);
-    color:#fff;padding:13px 14px;font-size:.92rem;
+    width:100%;min-width:0;border:1.5px solid rgba(255,255,255,.75);background:rgba(255,255,255,.08);
+    color:#fff;padding:13px 16px;font-size:.95rem;border-radius:10px !important;
   }
-  .oh-signup-form input::placeholder{color:rgba(255,255,255,.66)}
+  /* השדה ‎dir="ltr"‎ בשביל האימייל, אבל ההנחיה בעברית — מימין */
+  .oh-signup-form input:placeholder-shown{direction:rtl}
+  .oh-signup-form input::placeholder{color:rgba(255,255,255,.72)}
   .oh-signup-form input:focus{outline:none;border-color:#fff;background:rgba(255,255,255,.16)}
+  .oh-signup-cta{position:relative;display:block}
   .oh-signup-form button{
-    flex:0 0 auto;white-space:nowrap;background:var(--open-house,#c8102e);color:#fff;
-    font-weight:800;font-size:.9rem;padding:13px 24px;
+    display:block;width:100%;white-space:nowrap;border-radius:999px;
+    background:linear-gradient(180deg,#e2263f 0%,var(--open-house,#c8102e) 55%,#a90d27 100%);
+    color:#fff;font-weight:900;font-size:1.02rem;padding:14px 24px;
+    border:2px solid rgba(255,255,255,.85);
+    box-shadow:0 8px 20px -8px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.35);
+    transition:filter .15s ease;
   }
-  .oh-signup-form button:hover{background:var(--open-house-deep,#9c0c24)}
+  .oh-signup-form button:hover{filter:brightness(1.08)}
   .oh-signup-form button[disabled]{opacity:.6;cursor:default}
-  .oh-signup-note{font-size:.74rem;color:rgba(255,255,255,.68);margin:10px 0 0;text-wrap:pretty}
-  .oh-signup-msg{font-size:.84rem;font-weight:700;margin:10px 0 0;min-height:1.2em}
+  /* הסמן: יושב על הכפתור, מהבהב ו"לוחץ" בלולאה. ‏pointer-events:none —
+     הוא לעולם לא חוסם לחיצה אמיתית. */
+  .oh-signup-cursor{
+    position:absolute;width:30px;height:30px;left:30%;bottom:-12px;pointer-events:none;
+    filter:drop-shadow(0 2px 3px rgba(0,0,0,.45));
+    animation:ohCursorTap 1.6s ease-in-out infinite;
+  }
+  .oh-signup-form button[disabled] + .oh-signup-cursor{display:none}
+  @keyframes ohCursorTap{
+    0%,100%{opacity:1;transform:translate(0,0) scale(1)}
+    40%{opacity:1;transform:translate(-3px,-5px) scale(.88)}
+    55%{opacity:.15}
+    70%{opacity:1;transform:translate(0,0) scale(1)}
+  }
+  @media (prefers-reduced-motion:reduce){ .oh-signup-cursor{animation:none} }
+  .oh-signup-note{font-size:.76rem;color:rgba(255,255,255,.72);margin:10px 0 0;text-wrap:pretty}
+  .oh-signup-msg{font-size:.84rem;font-weight:700;margin:6px 0 0;min-height:1.2em}
+  .oh-signup-msg:empty{min-height:0;margin:0}
   .oh-signup-msg[data-state="error"]{color:#ffc9d1}
   .oh-signup-msg[data-state="ok"]{color:#c9f2dd}
   /* מצב ההצלחה מחליף את הטופס ולא נוסף מתחתיו: טופס שנשאר על המסך אחרי
@@ -287,10 +308,10 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      הרצועה הכחולה — ולכן השדה מקבל כאן את גבול העמודים הרגיל ואת צבע
      הטקסט של הדף. הכפתור נשאר אדום: הוא אותה פעולה בדיוק. */
   .oh-empty-signup{max-width:34rem;margin:18px auto 0;text-align:start}
-  .oh-empty-signup .oh-signup-form{justify-content:center}
   .oh-empty-signup .oh-signup-form input{
     border-color:var(--line);background:#fff;color:var(--ink);
   }
+  .oh-empty-signup .oh-signup-form button{border-color:#fff}
   .oh-empty-signup .oh-signup-form input::placeholder{color:var(--ink-muted)}
   .oh-empty-signup .oh-signup-form input:focus{
     border-color:var(--open-house,#c8102e);background:#fff;
@@ -368,8 +389,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        והפין האדום בהילה. הפין נשאר הסימן של נכס ביריד — על המפה, על
        האריחים ובטופס ההרשמה — אבל ראש העמוד מדבר עכשיו בשפת הבאנר.
 
-       הכפתור הזהוב מוביל לנכסים ומוסתר כשהיריד ריק (‏renderFairStats);
-       הקישור שמתחתיו מדבר אל מי שלא מצא/ה כאן נכס היום. -->
+       הכפתור הזהוב "לצפייה בדירות ביריד" ירד (ספטמבר 2026): הדירות
+       יושבות מיד מתחת ל"איך זה עובד", כך שכפתור שגולל אליהן היה צעד
+       מיותר. הקישור שנשאר מדבר אל מי שלא מצא/ה כאן נכס היום. -->
   <section class="oh-head">
     <div class="wrap">
       <div class="oh-head-box">
@@ -386,9 +408,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <span class="oh-stat is-primary" id="fairStatCount"></span>
             <span class="oh-stat" id="fairStatSoon" hidden></span>
           </p>
-          <a class="oh-head-go" id="fairGo" href="#fairProps" hidden>לצפייה בדירות ביריד</a>
           <!-- מוצג רק כשהיריד ריק: אז אין דירות לראות, וההרשמה היא הפעולה.
-               כשיש דירות — ההרשמה יושבת בתחתית העמוד ולא מתחרה בכפתור. -->
+               כשיש דירות — ההרשמה יושבת בתחתית העמוד. -->
           <a class="oh-head-cta" id="fairNotify" href="#fairSignup" hidden>עדכנו אותי כשנכנסת דירה ←</a>
         </div>
       </div>
@@ -408,12 +429,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </ol>
   </section>
 
-  <!-- ====== המפה ====== -->
-  <section class="section wrap" id="fairMapSection" aria-labelledby="fairMapTitle" hidden>
-    <div class="section-head">
-      <h2 id="fairMapTitle">איפה הם נמצאים</h2>
-      <p id="fairMapNote">הרשימה מסודרת לפי מה שנגמר קרוב, והמפה מראה איפה. ריחוף על שורה מדליק את הנכס שלה במפה, ולחיצה פותחת אותו.</p>
-    </div>
+  <!-- ====== הנכסים שביריד: רשימה ומפה ======
+       יושב מיד מתחת ל"איך זה עובד", בלי כותרת גלויה ובלי פסקת הסבר
+       (ספטמבר 2026): "נגמרים בקרוב" שבראש הרשימה כבר אומר מה רואים, והדירות
+       הן הסיבה שנכנסו לעמוד. הכותרת נשארת לקורא מסך (‏sr-only). -->
+  <section class="section wrap oh-map-section" id="fairMapSection" aria-labelledby="fairMapTitle" hidden>
+    <h2 id="fairMapTitle" class="sr-only">הנכסים שביריד</h2>
     <!-- שתי תצוגות של אותו מלאי: הרשימה מימין אומרת *מה* נגמר קרוב, המפה
          משמאל אומרת *איפה*. ריחוף על שורה מדליק את הסימן שלה במפה — אותו
          קישור דו-כיווני של התצוגה המפוצלת בדף הבית. סדר ה-DOM הוא
@@ -470,13 +491,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
        הכללית, כי היא מבטיחה דבר אחר לגמרי: התראה על אירוע מסוים ולא
        סיכום תקופתי. ראו docs/open-house-fair.md. -->
   <section class="section wrap" id="fairSignup" aria-labelledby="fairSignupTitle">
+    <!-- באנר קומפקטי (ספטמבר 2026): כותרת, שלוש שורות קצרות וכפתור אחד
+         בולט עם סמן יד מהבהב. במקום פסקת הסבר — שלוש עובדות שנקראות במבט.
+         המפתח והפין ברקע הם קישוט בלבד (‏aria-hidden). -->
     <div class="oh-signup">
-      <div>
+      <svg class="oh-signup-deco" viewBox="0 0 400 240" aria-hidden="true" focusable="false"
+           fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="52" cy="46" r="22"></circle><path d="M68 62l48 48m-16-16l12-12m0 28l12-12"></path>
+        <path d="M352 150c0 26-30 52-30 52s-30-26-30-52a30 30 0 0 1 60 0z"></path><circle cx="322" cy="150" r="10"></circle>
+      </svg>
+      <div class="oh-signup-copy">
         <div class="oh-signup-head">
           <span id="fairSignupMark" aria-hidden="true"></span>
-          <h2 id="fairSignupTitle">ראשונים לדעת על דירה בלי עמלת תיווך</h2>
+          <h2 id="fairSignupTitle">תהיו הראשונים לדעת על נכסים ללא תיווך!</h2>
         </div>
-        <p>נכס נכנס ליריד לתקופה קצובה, ולפעמים קצרה. השאירו אימייל, ונעדכן אתכם ברגע שנכס חדש מצטרף - בלי עלות ובלי התחייבות.</p>
+        <ul class="oh-signup-points">
+          <li>עדכון מיידי כשנכס חדש נכנס ליריד</li>
+          <li>ראשונים לראות דירות שרק עלו</li>
+          <li>בלי דמי תיווך - חיסכון אמיתי</li>
+        </ul>
       </div>
       <!-- ‏#fairSignupBox היא יחידה אחת — טופס, הודעה, מצב "נרשמתם" והערה —
            כדי שאפשר יהיה להזיז את כולה בבת אחת אל תוך ההודעה של "היריד סגור
@@ -485,8 +518,16 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <form class="oh-signup-form" id="fairSignupForm" novalidate>
           <label class="sr-only" for="fairSignupEmail">אימייל</label>
           <input type="email" id="fairSignupEmail" name="email" inputmode="email" autocomplete="email"
-                 dir="ltr" placeholder="you@example.com" required>
-          <button type="submit" id="fairSignupBtn">עדכנו אותי</button>
+                 dir="ltr" placeholder="הזינו את האימייל שלכם" required>
+          <!-- הסמן הוא אח של הכפתור ולא ילד שלו: השליחה מחליפה את
+               ‎btn.textContent‎ ("רגע…"), וזה היה מוחק אותו. -->
+          <span class="oh-signup-cta">
+            <button type="submit" id="fairSignupBtn">אני רוצה לקבל עדכונים!</button>
+            <svg class="oh-signup-cursor" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+              <path d="M9 11.2V4.6a1.6 1.6 0 0 1 3.2 0v5.2l.1-1.1a1.6 1.6 0 0 1 3.2.3v1.2a1.6 1.6 0 0 1 3.1.4v1.1a1.6 1.6 0 0 1 3.1.5v4.3c0 3.6-2.6 6.3-6.2 6.3h-1.8c-2 0-3.5-.8-4.7-2.4L4.6 16a1.6 1.6 0 0 1 2.4-2.1L9 15.6z"
+                    fill="#fff" stroke="#1b1406" stroke-width="1.3" stroke-linejoin="round"></path>
+            </svg>
+          </span>
         </form>
         <p class="oh-signup-msg" id="fairSignupMsg" role="status" aria-live="polite"></p>
         <!-- מחליף את הטופס במקומו, מעל ההערה ולא מתחתיה: אישור שמופיע אחרי
@@ -495,7 +536,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <span id="fairSignupDoneMark" aria-hidden="true"></span>
           <span><b>נרשמתם</b>שלחנו לכם מייל אישור. העדכון הבא יגיע ברגע שנכס נכנס ליריד.</span>
         </div>
-        <p class="oh-signup-note">רק עדכוני יריד - לא ניוזלטר, לא פרסומות. אפשר להסיר את עצמכם מקישור שבכל הודעה.</p>
+        <p class="oh-signup-note">רק עדכוני נכסים - לא ניוזלטר. אפשר להסיר בכל עת.</p>
       </div>
     </div>
   </section>
@@ -852,7 +893,7 @@ const el = id => document.getElementById(id);
 function escAttr(s){ return escapeHtml(s); }
 
 /* ראש העמוד נושא את איור ה-0% של באנר היריד; הפין נשאר הסימן של נכס
-   ביריד בשלושת המקומות האחרים — אותו סימן, שלושה גדלים, קובץ אחד */
+   ביריד במפה, בבאנר ההרשמה ובאישור שלה — אותו סימן, שלושה גדלים, קובץ אחד */
 el('fairArt').innerHTML           = OpenHouse.zeroArt('oh-head-art-svg');
 el('fairMapMark').innerHTML       = OpenHouse.icon({ size:22 });
 el('fairSignupMark').innerHTML    = OpenHouse.icon({ size:34 });
@@ -916,8 +957,6 @@ const fairShelf = PropShelf.create({
 /* ---------- המונה שבראש ---------- */
 function renderFairStats(list){
   const stats = el('fairStats');
-  // הכפתור הזהוב מוביל לנכסים — ביריד ריק אין לאן, והוא יורד
-  el('fairGo').hidden = !list.length;
   el('fairNotify').hidden = !!list.length;
   if (!list.length){ stats.hidden = true; return; }
   el('fairStatCount').innerHTML = list.length > 1
@@ -1030,7 +1069,7 @@ function renderFairMap(list){
 
   /* שני מצבים שונים, ושתי תשובות שונות:
 
-     **לאף נכס אין קואורדינטות** — למקטע ששמו "איפה הם נמצאים" אין מה
+     **לאף נכס אין קואורדינטות** — למקטע של המפה אין מה
      להראות, ולכן הוא יורד כולו. הרשימה שבתוכו אינה אובדן: המדף שמתחת
      מציג את אותם נכסים, עם אותה ספירה לאחור. חצי מקטע ריק לצד רשימה
      שחוזרת על עצמה גרוע משני המצבים.
@@ -1047,7 +1086,6 @@ function renderFairMap(list){
   if (!window.L){
     document.querySelector('.oh-map-wrap').hidden = true;
     document.querySelector('.oh-split').classList.add('is-list-only');
-    el('fairMapNote').textContent = 'הנכסים שביריד, לפי מה שנגמר קרוב.';
     return;
   }
 
