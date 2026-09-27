@@ -113,5 +113,20 @@ check("שורות שנעצרו כי התרחיש כבוי - נספרות גם ב
 off = [f for f in got if f.code == "make_scenario_off_queue"][0]
 check("המספר בכותרת ובמדד", "3" in off.title and off.metric == 3)
 
+# ‏כל קוד שה-probe מייצר חייב להיות ב-PROBE_CODES של pipeline, אחרת הממצא
+# לא נסגר לעולם - וממצא critical משאיר Issue פתוח לנצח. כך בדיוק נכנסה
+# הגרסה הראשונה (27.9.2026). ‏store.py מייבא את psycopg2, ולכן הרשימה נקראת
+# מהקוד עצמו ולא ביבוא.
+import ast  # noqa: E402
+
+_tree = ast.parse((ROOT / "ops_agent" / "store.py").read_text(encoding="utf-8"))
+_codes = next(ast.literal_eval(n.value) for n in _tree.body
+              if isinstance(n, ast.Assign) and getattr(n.targets[0], "id", "") == "PROBE_CODES")
+_all = run(active={FB: False}) + run(token="") + run(active={}) + run(
+    queue=[{"channel": "facebook_page", "kind": "unconfirmed", "n": 1},
+           {"channel": "instagram", "kind": "off", "n": 1}])
+check("כל קוד שה-probe מייצר נסגר אוטומטית (PROBE_CODES)",
+      all(any(f.code.startswith(p) for p in _codes["pipeline"]) for f in _all))
+
 print("\n" + ("✗ %d נכשלו" % failed if failed else "✓ _make_scenarios מדווחת בדיוק מתי שצריך"))
 sys.exit(1 if failed else 0)

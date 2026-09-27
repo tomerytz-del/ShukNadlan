@@ -49,7 +49,10 @@ PROBE_CODES = {
                  "open_write_policy", "headers_missing", "csp_report_only"),
     "behavior": ("views_without_leads", "pwa_", "alerts_failing", "leads_",
                  "listings_", "saved_search_"),
-    "pipeline": ("migration_", "workflow_", "actions_"),
+    # ‏"make_" — תרחישי הפרסום ב-Make (‏_make_scenarios). בלעדיו ממצא
+    # ‏make_scenario_off (‏critical) לא היה נסגר לעולם, וה-Issue שהוא פותח
+    # היה נשאר פתוח גם אחרי שהתרחיש הודלק.
+    "pipeline": ("migration_", "workflow_", "actions_", "make_"),
     # ‏"page_weight" נשאר ברשימה אף שהבדיקה כבר אינה מייצרת אותו: זה
     # בדיוק מה שסוגר את הממצאים הישנים שנמדדו ביחידה הקודמת (קובץ לא
     # דחוס) בסריקה הראשונה אחרי המעבר ל-"page_transfer".
