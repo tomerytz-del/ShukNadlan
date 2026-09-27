@@ -251,6 +251,8 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .oh-signup{padding:26px 32px;display:grid;grid-template-columns:1fr 1fr;gap:30px;align-items:center}
   }
   .oh-signup h2{color:#fff;font-weight:900;line-height:1.2;font-size:clamp(1.2rem,5vw,1.5rem);text-wrap:balance;margin:0}
+  .oh-signup-head{display:flex;align-items:center;gap:12px}
+  .oh-signup-head .oh-mark{color:#fff;flex:none}
   .oh-signup-points{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:4px}
   .oh-signup-points li{font-size:.92rem;color:rgba(255,255,255,.9);white-space:nowrap}
   .oh-signup-points li::before{content:"-";margin-inline-end:6px;color:#e9c35c;font-weight:900}
@@ -499,7 +501,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <path d="M352 150c0 26-30 52-30 52s-30-26-30-52a30 30 0 0 1 60 0z"></path><circle cx="322" cy="150" r="10"></circle>
       </svg>
       <div class="oh-signup-copy">
-        <h2 id="fairSignupTitle">תהיו הראשונים לדעת על נכסים ללא תיווך!</h2>
+        <div class="oh-signup-head">
+          <span id="fairSignupMark" aria-hidden="true"></span>
+          <h2 id="fairSignupTitle">תהיו הראשונים לדעת על נכסים ללא תיווך!</h2>
+        </div>
         <ul class="oh-signup-points">
           <li>עדכון מיידי כשנכס חדש נכנס ליריד</li>
           <li>ראשונים לראות דירות שרק עלו</li>
@@ -888,9 +893,10 @@ const el = id => document.getElementById(id);
 function escAttr(s){ return escapeHtml(s); }
 
 /* ראש העמוד נושא את איור ה-0% של באנר היריד; הפין נשאר הסימן של נכס
-   ביריד במפה ובאישור ההרשמה — אותו סימן, שני גדלים, קובץ אחד */
+   ביריד במפה, בבאנר ההרשמה ובאישור שלה — אותו סימן, שלושה גדלים, קובץ אחד */
 el('fairArt').innerHTML           = OpenHouse.zeroArt('oh-head-art-svg');
 el('fairMapMark').innerHTML       = OpenHouse.icon({ size:22 });
+el('fairSignupMark').innerHTML    = OpenHouse.icon({ size:34 });
 el('fairSignupDoneMark').innerHTML= OpenHouse.icon({ size:30 });
 
 /* ---------- הנכסים ----------
