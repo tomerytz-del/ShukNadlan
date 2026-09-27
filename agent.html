@@ -912,6 +912,50 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     .prop-card:hover,.btn-wa:hover,.fav-btn:hover{transform:none}
     .rail{scroll-behavior:auto}
   }
+
+  /* ====== באנר הערכת השווי בשפת באנרי הזהב של האתר ======
+     אותו באנר של דף הבית (‏#ownerBanner ב-index.html, ובשפת ‎.oh-promo‎ של
+     assets/open-house.css): נייבי עמוק, מסגרת זהב פנימית כ-‎::after‎
+     (‏::before כבר נושא את הברק שבפינה), פינות מעוגלות, בית בזהב וכפתור
+     זהב מדורג. כאן הוא יוצא מגווני המשרד בכוונה — כדי שבכל האתר הבאנר
+     הזה ייראה אותו דבר — ולכן הטקסט לבן קבוע ולא ‎--on-brand‎. האשף שנפתח
+     מתחת ממשיך לסמן "נבחר" ב-‎--lead-mark‎ של המשרד. שורת המשנה נשברת
+     כאן ולא נחתכת: היא נושאת את שם המשרד או הסוכן/ת, שאורכו אינו ידוע. */
+  #ownerBanner{
+    border-radius:14px;border:0;color:#fff;
+    background:
+      radial-gradient(120% 90% at 50% 0%, #25356b 0%, rgba(37,53,107,0) 60%),
+      radial-gradient(60% 50% at 50% 115%, rgba(224,181,74,.3), rgba(224,181,74,0) 70%),
+      #0e1938;
+    box-shadow:0 14px 34px -20px rgba(6,14,40,.8);
+  }
+  #ownerBanner::after{
+    content:"";position:absolute;inset:6px;border-radius:10px;pointer-events:none;
+    border:1.5px solid rgba(224,181,74,.75);
+  }
+  #ownerBanner .lead-teaser{padding:16px 18px 18px;gap:12px 14px;color:#fff}
+  #ownerBanner .lead-teaser-icon{
+    width:52px;height:52px;border-radius:12px;background:transparent;
+    border:1.5px solid rgba(224,181,74,.8);color:#e9c35c;
+  }
+  #ownerBanner .lead-teaser-icon svg{width:30px;height:30px}
+  #ownerBanner .lead-teaser-title{
+    font-size:clamp(1.1rem,4.6vw,1.35rem);font-weight:900;line-height:1.15;
+    text-shadow:0 2px 10px rgba(0,0,0,.35);
+  }
+  #ownerBanner .lead-teaser-sub{font-size:.84rem;color:#e9c35c;font-weight:700;opacity:1}
+  #ownerBanner .lead-teaser-go{
+    padding:11px 22px;border-radius:9px;font-size:.98rem;font-weight:900;color:#1b1406;
+    background:linear-gradient(180deg,#f7dc8a 0%,#e0b54a 45%,#b8862a 100%);
+    border:1.5px solid #fbe7a1;
+    box-shadow:0 6px 16px -6px rgba(0,0,0,.6), inset 0 1px 0 rgba(255,255,255,.5);
+  }
+  #ownerBanner .lead-teaser:hover .lead-teaser-go{filter:brightness(1.06)}
+  #ownerBanner.is-open .lead-teaser-go{background:transparent;color:#fff;box-shadow:none;border-color:rgba(255,255,255,.55)}
+  #ownerBanner .owner-intro h2,#ownerBanner .owner-intro p{color:#fff}
+  @media(max-width:699px){
+    #ownerBanner .lead-teaser-go{flex:1 0 100%;text-align:center}
+  }
 </style>
 <link rel="stylesheet" href="assets/site-footer.css">
 <link rel="stylesheet" href="assets/design-system.css">
@@ -1026,7 +1070,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             </span>
             <span class="lead-teaser-copy">
               <span class="lead-teaser-title">כמה שווה הנכס שלכם היום?</span>
-              <span class="lead-teaser-sub" id="ownerTeaserSub">הערכת שווי חינם מהסוכן/ת · פחות מדקה</span>
+              <span class="lead-teaser-sub" id="ownerTeaserSub">הערכת שווי חינם מהסוכן/ת</span>
             </span>
             <span class="lead-teaser-go" aria-hidden="true">
               <span class="lead-teaser-go-open">לבדיקה ←</span>
@@ -2489,7 +2533,7 @@ function initOwnerWizard(agent){
   // ישאיר/תשאיר כאן פרטים ולא בדף הבית
   const who = leadContext.name;
   document.getElementById('ownerTeaserSub').textContent =
-    `הערכת שווי חינם מ${who} · פחות מדקה`;
+    `הערכת שווי חינם מ${who}`;
   document.getElementById('ownerLead').textContent =
     `קבלו הערכת שווי מקצועית לנכס שלכם ב-3 קליקים, ישירות מ${who}.`;
   document.getElementById('wizDoneNote').textContent =
