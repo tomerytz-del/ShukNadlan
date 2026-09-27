@@ -11,13 +11,164 @@ from __future__ import annotations
 from datetime import datetime, timedelta, timezone
 from typing import Iterator
 
-from ..config import PAUSED_WORKFLOWS
+from ..config import MAKE_SCENARIOS, PAUSED_WORKFLOWS
 from ..models import Finding
 
 
 def run(ctx) -> Iterator[Finding]:
     yield from _migrations(ctx)
     yield from _actions(ctx)
+    yield from _make_scenarios(ctx)
+
+
+def _make_get(ctx, path: str):
+    """‏GET ל-Make API. מחזיר את גוף ה-JSON, או None על כל תקלה."""
+    try:
+        import requests
+    except ImportError:
+        return None
+    try:
+        resp = requests.get(
+            ctx.settings.make_api_base + path,
+            headers={"Authorization": "Token " + ctx.settings.make_api_token},
+            timeout=ctx.settings.http_timeout_s)
+    except Exception:
+        return None
+    if resp.status_code != 200:
+        return None
+    try:
+        return resp.json()
+    except ValueError:
+        return None
+
+
+def _make_scenarios(ctx, get=None) -> Iterator[Finding]:
+    """תרחיש Make שמפרסם לרשתות — והוא כבוי.
+
+    ‏**הכשל שהבדיקה הזו נולדה ממנו (27.9.2026):** תרחיש הפייסבוק נכבה.
+    ‏Make ממשיך לקבל webhook כשהתרחיש כבוי ועונה 200 "Accepted" — הוא רק
+    שומר את הנתונים בתור שלו. השרת שלח את אותה חנות ארבע פעמים, וכשהתרחיש
+    הודלק שוב ארבעתן עלו לדף בבת אחת. שום דבר בדשבורד לא הראה את זה.
+
+    שני מקורות, והשני עובד גם בלי הראשון:
+
+    1. ‏**Make API** (‏`MAKE_API_TOKEN`): ‏`isActive` של כל תרחיש שהערוץ שלו
+       דלוק. תרחיש כבוי הוא ‏`critical` — ופותח Issue — כי כל נכס חדש
+       שיעלה בזמן הזה לא יתפרסם. ערוץ שהמתג שלו כבוי (אינסטגרם לפני
+       ההשקה) אינו נבדק: תרחיש כבוי שם הוא המצב הנכון.
+    2. ‏**התור עצמו**: ‏`property-marketing-publish` מסמנת ב-`last_error`
+       שורה שנעצרה בגלל תרחיש כבוי (‏`[make-scenario-off]`) או ש-Make קיבל
+       בלי לאשר (‏`[make-unconfirmed]`). הסימונים האלה הם ראיה לתקלה גם
+       כשאין טוקן, ושורת `unconfirmed` היא גם פוסט שצריך לבדוק ביד אם עלה.
+    """
+    get = get or (lambda path: _make_get(ctx, path))
+    db = ctx.db
+
+    enabled = {}
+    if db is not None and db.has_table("pricing_config"):
+        ctx.count()
+        rows = db.rows("select key, value from public.pricing_config where key = any(%s)",
+                       ([s[2] for s in MAKE_SCENARIOS],))
+        found = {r["key"]: r["value"] for r in rows}
+        for channel, _sid, key, default, _label in MAKE_SCENARIOS:
+            try:
+                enabled[channel] = int(float(found.get(key, default))) == 1
+            except (TypeError, ValueError):
+                enabled[channel] = bool(default)
+
+    # ---- 1. מצב התרחישים ב-Make
+    live = [s for s in MAKE_SCENARIOS if enabled.get(s[0])]
+    if live and not ctx.settings.make_api_token:
+        yield Finding(
+            area="health", code="make_unchecked", severity="low",
+            subject="make_scenarios",
+            title="מצב תרחישי Make לא נבדק",
+            detail="אין MAKE_API_TOKEN בסודות ה-workflow, ולכן תרחיש פרסום כבוי "
+                   "יתגלה רק אחרי שנכס כבר נעצר בתור.",
+            suggestion="ב-Make: פרופיל ← API access ← Add token עם scenarios:read, "
+                       "ואז סוד MAKE_API_TOKEN ב-GitHub (Settings ← Secrets ← Actions) "
+                       "וגם ב-Supabase (Edge Functions ← Secrets). ראו "
+                       "docs/facebook-auto-publish.md.",
+        )
+    elif live:
+        for channel, sid, _key, _default, label in live:
+            ctx.count()
+            data = get("/scenarios/%s" % sid)
+            sc = (data or {}).get("scenario") if isinstance(data, dict) else None
+            if not isinstance(sc, dict) or not isinstance(sc.get("isActive"), bool):
+                yield Finding(
+                    area="health", code="make_api_failed", severity="medium",
+                    subject="make_scenario:%s" % channel,
+                    title="לא ניתן לבדוק את תרחיש %s ב-Make" % label,
+                    detail="‏Make API לא החזיר את מצב התרחיש %s." % sid,
+                    suggestion="טוקן שפג, טוקן בלי scenarios:read, או מזהה תרחיש שהשתנה "
+                               "(‏MAKE_SCENARIOS ב-ops_agent/config.py).",
+                )
+                continue
+            if sc["isActive"] and not sc.get("isPaused"):
+                continue
+            yield Finding(
+                area="health", code="make_scenario_off", severity="critical",
+                subject="make_scenario:%s" % channel,
+                title="תרחיש הפרסום ל%s ב-Make כבוי" % label,
+                detail="התרחיש %s (%s) אינו פעיל, והפרסום האוטומטי ל%s דלוק. "
+                       "נכסים חדשים לא יתפרסמו עד שיודלק."
+                       % (sc.get("name") or sid, sid, label),
+                suggestion="ב-Make: לפתוח את התרחיש ← History לראות למה נכבה (Make "
+                           "מכבה תרחיש לבד אחרי שגיאות חוזרות) ← לתקן ← **לרוקן את "
+                           "התור של ה-Webhook** ← להדליק. תור שלא רוקן עולה לדף "
+                           "בבת אחת, כולל כפילויות.",
+                evidence={"scenario_id": sid, "isActive": sc.get("isActive"),
+                          "isPaused": sc.get("isPaused")},
+            )
+
+    # ---- 2. מה שהתור מספר
+    if db is None or not db.has_table("property_publications"):
+        return
+    ctx.count()
+    rows = db.rows(
+        """
+        select channel,
+               case when last_error like '[make-unconfirmed]%%' then 'unconfirmed'
+                    else 'off' end as kind,
+               count(*) as n,
+               max(updated_at) as last_at
+          from public.property_publications
+         where (last_error like '[make-unconfirmed]%%'
+                and status = 'failed' and updated_at > now() - interval '7 days')
+            or (last_error like '[make-scenario-off]%%' and status = 'pending')
+         group by 1, 2
+        """)
+    labels = {s[0]: s[4] for s in MAKE_SCENARIOS}
+    for r in rows:
+        label = labels.get(r["channel"], r["channel"])
+        n = int(r["n"] or 0)
+        if not n:
+            continue
+        if r["kind"] == "unconfirmed":
+            yield Finding(
+                area="health", code="make_unconfirmed", severity="high",
+                subject="make_unconfirmed:%s" % r["channel"],
+                title="%d פוסטים ל%s ש-Make קיבל ולא אישר" % (n, label),
+                detail="ב-7 הימים האחרונים. השורות נעצרו כ-failed ולא נשלחו שוב, כדי "
+                       "שלא ייכנסו שוב לתור של Make ויעלו כפולים.",
+                suggestion="לבדוק בדף אם הפוסט עלה. אם לא - לוודא שהתרחיש פעיל ושהתור "
+                           "שלו ריק, ואז להחזיר לתור: select queue_property_publication"
+                           "('<id>', '%s', true);" % r["channel"],
+                metric=float(n), metric_unit="פוסטים",
+                evidence={"last_at": r.get("last_at")},
+            )
+        else:
+            yield Finding(
+                area="health", code="make_scenario_off_queue", severity="high",
+                subject="make_scenario_off_queue:%s" % r["channel"],
+                title="%d נכסים ממתינים כי תרחיש %s כבוי" % (n, label),
+                detail="השרת בדק את התרחיש לפני השליחה ומצא אותו כבוי, ולכן לא שלח. "
+                       "השורות ימשיכו מעצמן כשהתרחיש יודלק.",
+                suggestion="להדליק את התרחיש ב-Make (אחרי שבודקים ב-History למה נכבה).",
+                metric=float(n), metric_unit="נכסים",
+                evidence={"last_at": r.get("last_at")},
+            )
 
 
 def _migrations(ctx) -> Iterator[Finding]:

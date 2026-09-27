@@ -167,6 +167,8 @@ update pricing_config set value = 0 where key = 'facebook_autopost_enabled';
 | `MAKE_INSTAGRAM_WEBHOOK_URL` | אינסטגרם דרך Make | כתובת ה-Webhook מתרחיש **נפרד** |
 | `INSTAGRAM_ACCOUNT_ID` | אינסטגרם ישיר | מזהה החשבון העסקי (לא שם המשתמש) |
 | `INSTAGRAM_ACCESS_TOKEN` | ✖️ | ברירת מחדל: `FACEBOOK_PAGE_ACCESS_TOKEN` |
+| `MAKE_API_TOKEN` | ✖️ · **מומלץ** | בדיקת מצב התרחישים לפני כל שליחה - ראו "תרחיש Make כבוי" למטה |
+| `MAKE_FACEBOOK_SCENARIO_ID` / `MAKE_INSTAGRAM_SCENARIO_ID` | ✖️ | ברירת מחדל: `7218015` / `7641885` |
 
 צריך **אחד** משני מסלולי הפרסום. אם שניהם מוגדרים — Make מנצח. בלי אף אחד
 מהם הפונקציה מחזירה `publish_not_configured` ולא נוגעת בתור, כך שאפשר לפרוס
@@ -383,6 +385,46 @@ select vault.create_secret('<סוד אקראי>', 'alert_cron_secret',
 > "There are N records waiting in the queue". אצלנו זה נראה כמו הצלחה.
 > ‏Make מכבה תרחיש מעצמו אחרי כשלונות חוזרים, ולכן אחרי כל תקלה כדאי לוודא
 > שהמתג חזר לדלוק ושהתור התרוקן.
+
+## תרחיש Make כבוי - ולמה הוא מייצר כפילויות
+
+**מה קרה ב-27.9.2026.** תרחיש הפייסבוק ב-Make נכבה. ‏Make ממשיך לקבל webhook
+גם כשהתרחיש כבוי: הוא עונה 200 "Accepted" ושומר את הנתונים בתור שלו. אצלנו
+זה נראה כמו פרסום בלי `post_id`, ולכן - לפי `facebook_autopost_require_post_id`
+- השורה חזרה לתור ונשלחה שוב כעבור חצי שעה. ארבעה ניסיונות = ארבעה עותקים
+בתור של Make, וכשהתרחיש הודלק שוב הם עלו לדף בבת אחת.
+
+כלומר דרישת ה-`post_id`, שנועדה לתפוס פרסום שלא אושר, היא בדיוק מה שהכפיל
+אותו כשהתרחיש כבוי. שלוש שכבות מטפלות בזה עכשיו:
+
+| שכבה | איפה | מה היא עושה |
+| --- | --- | --- |
+| בדיקה לפני שליחה | `property-marketing-publish`, ‏`makeScenarioActive` | שואלת את Make API אם התרחיש פעיל. כבוי - הערוץ לא נשלח, השורות נשארות `pending` בלי לשרוף ניסיון, ו-`last_error` מתחיל ב-`[make-scenario-off]`. ממשיך מעצמו כשהתרחיש חוזר |
+| אין שליחה חוזרת | אותה פונקציה, `unconfirmed` | ‏200 מ-Make בלי `post_id` כבר **לא** חוזר לתור: השורה נעצרת כ-`failed` עם `[make-unconfirmed]`. פוסט שאולי עלה עדיף על ארבעה שעלו בוודאות |
+| בדיקה קבועה | הסוכן התפעולי, ‏`_make_scenarios` ב-`ops_agent/probes/pipeline.py` | כל שש שעות: תרחיש כבוי כשהערוץ דלוק = ממצא **חמור** ו-Issue ב-GitHub. וגם שורות עם אחד משני הסימונים, בדשבורד בריאות המערכת |
+
+השכבה השנייה עובדת גם בלי טוקן; הראשונה והשלישית צריכות אותו.
+
+### הטוקן - פעם אחת
+
+1. ב-Make: התמונה שלך למטה משמאל ← **Profile** ← לשונית **API access** ←
+   **Add token**. שם: `shuknadlan-status`. ‏Scopes: **`scenarios:read`** בלבד.
+2. להעתיק את הטוקן (הוא מוצג פעם אחת).
+3. **Supabase** ← Edge Functions ← Secrets ← `MAKE_API_TOKEN`.
+4. **GitHub** ← Settings ← Secrets and variables ← Actions ← New repository
+   secret ← `MAKE_API_TOKEN`, אותו ערך.
+
+החשבון ב-`eu1`. חשבון באזור אחר מגדיר `MAKE_API_BASE` (למשל
+`https://us1.make.com/api/v2`).
+
+### כשזה קורה
+
+1. **History** בתרחיש - למה הוא נכבה (‏Make מכבה תרחיש לבד אחרי שגיאות חוזרות).
+2. **לרוקן את התור של ה-Webhook** (‏Webhooks ← ה-webhook של התרחיש) **לפני**
+   שמדליקים. כל מה שבתור יעלה לדף ברגע ההדלקה.
+3. להדליק.
+4. שורות `[make-unconfirmed]`: לבדוק בדף אם הפוסט עלה. אם לא -
+   `select queue_property_publication('<property-id>', '<channel>', true);`
 
 ## מסלול ב׳ — Graph API ישיר
 
