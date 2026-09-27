@@ -169,6 +169,10 @@ class Thresholds:
 
     workflow_window_runs: int = 20
     workflow_fail_rate: float = 0.25
+    # ‏workflow שההרצה האחרונה שלו עברה מדווח כ"לסירוגין" רק מעל מספר
+    # הרצות כזה. מתחת לו, כישלון שתוקן הוא אירוע ולא דפוס: ב-workflow
+    # חודשי שתי הרצות הן חודשיים.
+    workflow_flaky_min_runs: int = 8
     # ‏workflow מתוזמן שלא רץ פי כמה מהתדירות שלו — כבוי או תקוע.
     workflow_silent_days: int = 3
 
