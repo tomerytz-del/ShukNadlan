@@ -39,6 +39,13 @@ import {
 // ‏publish_not_configured ולא נוגעת בתור — נכס לא "נכשל" רק כי עוד לא
 // חיברנו את הערוץ.
 //
+// ‏**אינסטגרם** הוא ערוץ שני באותו תור (‏channel = 'instagram', מיגרציה
+// ‏20270116090000), עם שורה, ניסיונות ויומן משלו — ולא עוד מודול בתרחיש
+// הפייסבוק, כדי שכישלון שלו לעולם לא יחזיר לתור פוסט שכבר עלה בפייסבוק.
+// גם לו שני מסלולים: ‏MAKE_INSTAGRAM_WEBHOOK_URL (תרחיש Make נפרד), או
+// ‏INSTAGRAM_ACCOUNT_ID + טוקן (‏Graph API ישיר). ערוץ שאין לו סודות פשוט
+// אינו נמשך מהתור, ולכן אינו שורף ניסיונות עד שיחובר.
+//
 // ‏האימות זהה ל-saved-search-notify: סוד ה-cron ב-header, או service role,
 // או JWT של מנהל/ת פלטפורמה (המסלול הידני, לכפתור עתידי ב-CRM).
 // ============================================================================
@@ -58,6 +65,25 @@ const MAKE_WEBHOOK_SECRET = Deno.env.get("MAKE_WEBHOOK_SECRET") || "";
 const FB_PAGE_ID = Deno.env.get("FACEBOOK_PAGE_ID") || "";
 const FB_PAGE_TOKEN = Deno.env.get("FACEBOOK_PAGE_ACCESS_TOKEN") || "";
 const GRAPH_VERSION = Deno.env.get("FACEBOOK_GRAPH_VERSION") || "v23.0";
+
+const MAKE_IG_WEBHOOK_URL = Deno.env.get("MAKE_INSTAGRAM_WEBHOOK_URL") || "";
+const IG_ACCOUNT_ID = Deno.env.get("INSTAGRAM_ACCOUNT_ID") || "";
+// טוקן הדף משרת גם את אינסטגרם כשלאפליקציה יש instagram_content_publish —
+// החשבון העסקי מחובר לדף, והפרסום עובר דרכו. טוקן נפרד גובר אם הוגדר.
+const IG_TOKEN = Deno.env.get("INSTAGRAM_ACCESS_TOKEN") || FB_PAGE_TOKEN;
+
+type Channel = "facebook_page" | "instagram";
+const CHANNELS: Channel[] = ["facebook_page", "instagram"];
+
+// אילו ערוצים מחוברים. רק הם נמשכים מהתור.
+const CHANNEL_READY: Record<Channel, boolean> = {
+  facebook_page: Boolean(MAKE_WEBHOOK_URL || (FB_PAGE_ID && FB_PAGE_TOKEN)),
+  instagram: Boolean(MAKE_IG_WEBHOOK_URL || (IG_ACCOUNT_ID && IG_TOKEN)),
+};
+const READY_CHANNELS = CHANNELS.filter((c) => CHANNEL_READY[c]);
+
+// גבול הכיתוב באינסטגרם. פוסט ארוך יותר נדחה כולו.
+const IG_CAPTION_MAX = 2200;
 
 // כמה נכסים בהרצה. הקצב האמיתי נשמר בתקרה היומית שב-pricing_config; כאן זו
 // רק הגנה על זמן הריצה של הפונקציה — כל נכס הוא קריאה ל-Claude ועד שש
@@ -118,6 +144,58 @@ function buildMessage(row: any, marketing: { description: string; post: string }
 }
 
 // ---------------------------------------------------------------------------
+// הכיתוב לאינסטגרם
+//
+// אותו פתיח ואותן שורות עובדות, בשלושה הבדלים:
+//   · **אין קישור.** קישור בכיתוב באינסטגרם אינו לחיץ — הוא רק מלכלך את
+//     הטקסט. במקומו מספר המודעה והפניה לקישור שבפרופיל, ומשם חיפוש באתר.
+//   · **האשטגים** — שם העיר, השכונה וסוג העסקה. זו הדרך העיקרית שבה פוסט
+//     באינסטגרם נמצא, בניגוד לפייסבוק שבו הקהל הוא עוקבי הדף.
+//   · **תקרה של 2,200 תווים.** אם צריך לקצר — מקצרים את הפתיח, לעולם לא
+//     את העובדות.
+// ---------------------------------------------------------------------------
+function hashtag(s: string | null | undefined): string | null {
+  const t = String(s ?? "").replace(/[^\p{L}\p{N}]+/gu, "_").replace(/^_+|_+$/g, "");
+  return t ? `#${t}` : null;
+}
+
+function buildInstagramCaption(row: any, marketing: { description: string; post: string }): string {
+  const link = propertyUrl(row.property_id);
+  let lead = (row.post_text?.trim() || marketing.post || marketing.description).trim();
+  lead = lead.split(link).join("").trim();
+
+  const facts: string[] = [];
+  const place = placeLine(row);
+  const specs = specLine(row);
+  const price = priceLine(row);
+  if (place) facts.push(`📍 ${place}`);
+  if (specs) facts.push(`🏠 ${specs}`);
+  if (price) facts.push(`💰 ${price}`);
+  if (row.listing_number) facts.push(`🔖 מודעה מס׳ ${row.listing_number}`);
+  facts.push("");
+  if (row.agent_name) {
+    facts.push(`לפרטים: ${[row.agent_name, row.agency_name].filter(Boolean).join(" · ")}`);
+  }
+  facts.push(row.listing_number
+    ? `🔗 כל הפרטים והתמונות באתר - הקישור בפרופיל, מודעה מס׳ ${row.listing_number}`
+    : "🔗 כל הפרטים והתמונות באתר - הקישור בפרופיל");
+
+  const deal = row.deal_type === "rent" ? "להשכרה" : row.deal_type === "sale" ? "למכירה" : null;
+  const tags = [
+    "#שוק_נדלן", "#נדלן",
+    hashtag(row.city), hashtag(row.city ? `נדלן ${row.city}` : null),
+    hashtag(row.neighborhood),
+    deal ? hashtag(`${row.property_type || "נכס"} ${deal}`) : null,
+  ].filter((t, i, a): t is string => Boolean(t) && a.indexOf(t) === i);
+
+  const tail = [...facts, "", tags.join(" ")].join("\n");
+  const room = IG_CAPTION_MAX - tail.length - 2;
+  if (lead.length > room) lead = lead.slice(0, Math.max(room - 1, 0)).trimEnd() + "…";
+
+  return noLongDash([lead, "", tail].join("\n").replace(/\n{3,}/g, "\n\n").trim());
+}
+
+// ---------------------------------------------------------------------------
 // הכתובת הציבורית של פוסט, משני המסלולים
 //
 // מזהה פוסט של פייסבוק הוא `<page_id>_<post_id>`, וכתובת שמדביקה אותו כמו
@@ -135,19 +213,24 @@ function facebookPostUrl(id: string | null): string | null {
 // ---------------------------------------------------------------------------
 // פרסום — מסלול Make
 // ---------------------------------------------------------------------------
-async function publishViaMake(row: any, message: string, images: string[]) {
-  const res = await fetch(MAKE_WEBHOOK_URL, {
+async function publishViaMake(row: any, message: string, images: string[], channel: Channel = "facebook_page") {
+  const url = channel === "instagram" ? MAKE_IG_WEBHOOK_URL : MAKE_WEBHOOK_URL;
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       ...(MAKE_WEBHOOK_SECRET ? { "x-shuknadlan-secret": MAKE_WEBHOOK_SECRET } : {}),
     },
     body: JSON.stringify({
+      channel,
       property_id: row.property_id,
       listing_number: row.listing_number,
       message,
       link: propertyUrl(row.property_id),
       images,
+      // ‏Make צריך לבחור בין פוסט תמונה יחידה לקרוסלה (שדורשת שתיים לפחות) —
+      // ב-Router עם פילטר על השדה הזה, בלי פונקציות מערך בתוך Make.
+      image_count: images.length,
       // השדות הבודדים נשלחים כדי שאפשר יהיה לבנות ב-Make תבנית משלו או
       // תמונה מעוצבת, בלי לפרסר את הטקסט המוכן.
       title: row.title,
@@ -166,7 +249,7 @@ async function publishViaMake(row: any, message: string, images: string[]) {
   });
 
   const body = await res.text();
-  if (!res.ok) throw new Error(`make ${res.status}: ${body.slice(0, 300)}`);
+  if (!res.ok) throw new Error(`make ${channel} ${res.status}: ${body.slice(0, 300)}`);
 
   // ‏Make מחזיר כברירת מחדל "Accepted". תרחיש שמוגדר עם Webhook response
   // יכול להחזיר את מזהה הפוסט, ואז הוא נשמר ביומן.
@@ -179,6 +262,8 @@ async function publishViaMake(row: any, message: string, images: string[]) {
   try {
     const j = JSON.parse(body);
     const postId = j?.post_id ? String(j.post_id) : null;
+    // במזהה של אינסטגרם אין ממה לגזור כתובת — היא נלקחת מהתשובה (‏permalink).
+    if (channel === "instagram") return { post_id: postId, post_url: j?.post_url ? String(j.post_url) : null };
     return { post_id: postId, post_url: facebookPostUrl(postId) ?? j?.post_url ?? null };
   } catch {
     return { post_id: null, post_url: null };
@@ -232,9 +317,83 @@ async function publishViaGraph(row: any, message: string, images: string[]) {
 }
 
 // ---------------------------------------------------------------------------
+// פרסום — אינסטגרם דרך Graph API ישיר
+//
+// שני שלבים, כמו שאינסטגרם דורשת: יוצרים "מכל" (‏container) לכל תמונה, ואז
+// מפרסמים אותו ב-media_publish. יותר מתמונה אחת = מכל לכל תמונה עם
+// ‏is_carousel_item, ומכל CAROUSEL שמאגד אותם. תמונה שנדחית (למשל יחס
+// גובה-רוחב מחוץ לטווח של אינסטגרם) אינה מפילה את הפוסט, בדיוק כמו בפייסבוק.
+// ---------------------------------------------------------------------------
+async function igCall(path: string, params: Record<string, string>, method = "POST") {
+  const base = `https://graph.facebook.com/${GRAPH_VERSION}`;
+  const qs = new URLSearchParams({ ...params, access_token: IG_TOKEN });
+  const res = method === "GET"
+    ? await fetch(`${base}/${path}?${qs}`)
+    : await fetch(`${base}/${path}`, { method: "POST", body: qs });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(`instagram ${res.status}: ${data?.error?.message ?? JSON.stringify(data).slice(0, 300)}`);
+  }
+  return data;
+}
+
+async function publishViaInstagramGraph(caption: string, images: string[]) {
+  let creationId: string;
+
+  if (images.length === 1) {
+    creationId = String((await igCall(`${IG_ACCOUNT_ID}/media`, { image_url: images[0], caption })).id);
+  } else {
+    const children: string[] = [];
+    const accepted: string[] = [];
+    for (const url of images) {
+      try {
+        const c = await igCall(`${IG_ACCOUNT_ID}/media`, { image_url: url, is_carousel_item: "true" });
+        if (c?.id) { children.push(String(c.id)); accepted.push(url); }
+      } catch (e) {
+        console.warn("תמונה נדחתה באינסטגרם", url, e instanceof Error ? e.message : String(e));
+      }
+    }
+    if (!children.length) throw new Error("instagram: כל התמונות נדחו");
+    creationId = children.length === 1
+      // קרוסלה דורשת שתיים. נשארה אחת — מפרסמים אותה כפוסט תמונה רגיל.
+      ? String((await igCall(`${IG_ACCOUNT_ID}/media`, {
+          image_url: accepted[0], caption })).id)
+      : String((await igCall(`${IG_ACCOUNT_ID}/media`, {
+          media_type: "CAROUSEL", children: children.join(","), caption })).id);
+  }
+
+  // המכל מעובד אצל אינסטגרם. פרסום לפני FINISHED נכשל, ולכן ממתינים — עד
+  // כחצי דקה. אם עדיין לא מוכן, השגיאה מחזירה את השורה לתור לניסיון הבא.
+  for (let i = 0; i < 10; i++) {
+    const st = await igCall(creationId, { fields: "status_code" }, "GET").catch(() => null);
+    if (st?.status_code === "FINISHED") break;
+    if (st?.status_code === "ERROR") throw new Error("instagram: עיבוד התמונות נכשל (status_code=ERROR)");
+    await new Promise((r) => setTimeout(r, 3000));
+  }
+
+  const published = await igCall(`${IG_ACCOUNT_ID}/media_publish`, { creation_id: creationId });
+  const mediaId = published?.id ? String(published.id) : null;
+  if (!mediaId) throw new Error("instagram: media_publish לא החזיר מזהה");
+
+  // הכתובת היא נוחות ליומן בלבד. הפוסט כבר באוויר, ולכן כישלון כאן לא נזרק.
+  let permalink: string | null = null;
+  try {
+    permalink = (await igCall(mediaId, { fields: "permalink" }, "GET"))?.permalink ?? null;
+  } catch { /* ראו למעלה */ }
+
+  return { post_id: mediaId, post_url: permalink };
+}
+
+// ---------------------------------------------------------------------------
 // טיפול בנכס אחד
 // ---------------------------------------------------------------------------
-async function handle(sb: any, row: any, opts: { force: boolean; dryRun: boolean }) {
+async function handle(
+  sb: any,
+  row: any,
+  opts: { force: boolean; dryRun: boolean },
+  written: Map<string, { description: string; post: string }>,
+) {
+  const channel: Channel = row.channel === "instagram" ? "instagram" : "facebook_page";
   const gallery: string[] = (row.images ?? []).filter((u: any) => typeof u === "string" && /^https?:\/\//.test(u));
   if (row.marketing_image && /^https?:\/\//.test(row.marketing_image)) {
     // התמונה השיווקית המעוצבת קודמת לגלריה — היא נבנתה בדיוק בשביל פוסט כזה.
@@ -244,7 +403,13 @@ async function handle(sb: any, row: any, opts: { force: boolean; dryRun: boolean
   // ובמסלול Make כל תמונה היא איטרציה ומודול העלאה — כלומר פי שלושה פעולות
   // בחבילה על נכס אחד, ופוסט שגולל. חמש הן גם מה שפייסבוק מציג בגריד בלי
   // לקפל, ולכן זו אותה תקרה בשני המקומות.
-  const images = gallery.slice(0, MAX_PHOTOS);
+  //
+  // ‏אינסטגרם מקבלת JPEG בלבד. תמונות הנכס מה-CRM נשמרות כ-JPEG בכוונה
+  // (‏IMAGE_TYPE_EXTERNAL ב-assets/crm.js), אבל תמונה שהגיעה מוואטסאפ או
+  // מייבוא יכולה להיות PNG או WebP — והיא נדחית כאן, לא אצל אינסטגרם.
+  const images = (channel === "instagram"
+    ? gallery.filter((u) => !/\.(png|webp|gif|heic|avif)(\?|#|$)/i.test(u))
+    : gallery).slice(0, MAX_PHOTOS);
 
   // נכס בלי תמונה אינו מפורסם. ‏pending_property_publications כבר מסננת אותו
   // (מיגרציה 20261020090000), ולכן אין דרך מוכרת להגיע לכאן — אבל אם שתי
@@ -252,27 +417,34 @@ async function handle(sb: any, row: any, opts: { force: boolean; dryRun: boolean
   // ‏Missing value of required parameter 'url', מכבה את התרחיש ועוצר את התור.
   // הבדיקה מקדימה את הקריאה ל-Claude: אין טעם לכתוב תיאור לפוסט שלא ייצא.
   if (!images.length) {
+    const jpegOnly = channel === "instagram" && gallery.length > 0;
     if (!opts.dryRun) {
       await sb.from("property_publications").update({
         status: "skipped",
-        last_error: "נכס בלי תמונה - לא מפרסמים פוסט בלי תמונות",
+        last_error: jpegOnly
+          ? "אין לנכס תמונת JPEG - אינסטגרם אינה מקבלת PNG או WebP"
+          : "נכס בלי תמונה - לא מפרסמים פוסט בלי תמונות",
       }).eq("id", row.publication_id);
     }
-    return { property_id: row.property_id, skipped: "no_image" };
+    return { property_id: row.property_id, channel, skipped: jpegOnly ? "no_jpeg" : "no_image" };
   }
 
   // 1. תיאור שיווקי — רק אם אין, אלא אם ביקשו במפורש לכתוב מחדש
   let generated = false;
-  let marketing = {
+  let marketing = written.get(row.property_id) ?? {
     description: (row.marketing_description || "").trim(),
     post: (row.post_text || "").trim(),
   };
 
-  if (!marketing.description || opts.force) {
+  // ‏`written` — תיאור שנכתב כבר בהרצה הזו לאותו נכס בערוץ אחר. בלעדיו
+  // שורת האינסטגרם, שנמשכה יחד עם שורת הפייסבוק לפני שהתיאור נשמר, הייתה
+  // קוראת ל-Claude בשנית ודורסת את מה שנכתב דקה קודם.
+  if ((!marketing.description || opts.force) && !written.has(row.property_id)) {
     const fresh = await generateMarketing(row);
     if (fresh) {
       marketing = fresh;
       generated = true;
+      written.set(row.property_id, fresh);
       if (!opts.dryRun) {
         // דרך ה-RPC ולא בעדכון ישיר: היא מה שמסמן את הטקסט כ"נכתב אוטומטית"
         // ומעדכן את טביעת האצבע שלפיה נמדדת ההתיישנות. ‏post_text של
@@ -290,14 +462,20 @@ async function handle(sb: any, row: any, opts: { force: boolean; dryRun: boolean
   }
 
   // 2. הפוסט
-  const message = buildMessage(row, marketing);
+  const message = channel === "instagram"
+    ? buildInstagramCaption(row, marketing)
+    : buildMessage(row, marketing);
   if (opts.dryRun) {
-    return { property_id: row.property_id, dry_run: true, generated, message, images };
+    return { property_id: row.property_id, channel, dry_run: true, generated, message, images };
   }
 
-  const result = MAKE_WEBHOOK_URL
-    ? await publishViaMake(row, message, images)
-    : await publishViaGraph(row, message, images);
+  const result = channel === "instagram"
+    ? (MAKE_IG_WEBHOOK_URL
+        ? await publishViaMake(row, message, images, "instagram")
+        : await publishViaInstagramGraph(message, images))
+    : (MAKE_WEBHOOK_URL
+        ? await publishViaMake(row, message, images)
+        : await publishViaGraph(row, message, images));
 
   const { error: markErr } = await sb.rpc("mark_property_publication", {
     p_publication_id: row.publication_id,
@@ -308,7 +486,7 @@ async function handle(sb: any, row: any, opts: { force: boolean; dryRun: boolean
     p_error: null,
     p_description_generated: generated,
   });
-  // הפוסט כבר בפייסבוק. שורה שנשארת pending תפורסם שוב בעוד חצי שעה, ולכן
+  // הפוסט כבר בערוץ. שורה שנשארת pending תפורסם שוב בעוד חצי שעה, ולכן
   // כישלון בסימון לא נזרק אלא נרשם ומתוקן בכתיבה ישירה לטבלה — הדרך השנייה
   // לאותו מסד.
   if (markErr) {
@@ -323,7 +501,7 @@ async function handle(sb: any, row: any, opts: { force: boolean; dryRun: boolean
     }).eq("id", row.publication_id);
   }
 
-  return { property_id: row.property_id, generated, post_id: result.post_id, post_url: result.post_url };
+  return { property_id: row.property_id, channel, generated, post_id: result.post_id, post_url: result.post_url };
 }
 
 // ---------------------------------------------------------------------------
@@ -376,8 +554,13 @@ Deno.serve(async (req: Request) => {
   const propertyId: string | null = body?.property_id ?? null;
   const force = Boolean(body?.force);
   const dryRun = Boolean(body?.dry_run);
+  // פרסום ידני הוא לערוץ אחד. ברירת המחדל נשארת פייסבוק, כמו שהייתה.
+  const manualChannel: Channel = body?.channel === "instagram" ? "instagram" : "facebook_page";
+  if (body?.channel && !CHANNELS.includes(body.channel)) {
+    return json({ error: "unknown_channel", detail: String(body.channel) }, 400);
+  }
 
-  if (!dryRun && !MAKE_WEBHOOK_URL && !(FB_PAGE_ID && FB_PAGE_TOKEN)) {
+  if (!dryRun && !READY_CHANNELS.length) {
     // אף ערוץ לא מחובר. לא נוגעים בתור: השורות ימתינו לחיבור ולא יישרפו
     // על חמישה ניסיונות כושלים.
     //
@@ -386,8 +569,12 @@ Deno.serve(async (req: Request) => {
     // ביומן ה-Edge Functions בלי שום שורה שמסבירה למה, והתסמין היחיד הוא
     // שורה שנשארת pending עם attempts=0 אחרי מועד הפרסום שלה. כך נעלמה
     // הרצה ב-11.9.2026 בלי שאפשר היה לשחזר את הסיבה בדיעבד.
-    console.error("publish_not_configured: אין MAKE_FACEBOOK_WEBHOOK_URL ואין FACEBOOK_PAGE_ID+TOKEN");
+    console.error("publish_not_configured: אין ערוץ מחובר - לא פייסבוק (MAKE_FACEBOOK_WEBHOOK_URL / FACEBOOK_PAGE_ID+TOKEN) ולא אינסטגרם (MAKE_INSTAGRAM_WEBHOOK_URL / INSTAGRAM_ACCOUNT_ID)");
     return json({ error: "publish_not_configured" }, 500);
+  }
+  if (propertyId && !dryRun && !CHANNEL_READY[manualChannel]) {
+    console.error("channel_not_configured", manualChannel);
+    return json({ error: "channel_not_configured", channel: manualChannel }, 500);
   }
 
   // בקשה ידנית לנכס מסוים — מכניסים אותו לתור (או מחזירים אותו אליו) לפני
@@ -396,11 +583,15 @@ Deno.serve(async (req: Request) => {
   // ‏בדיקה יבשה לא מחזירה שורה לתור: המשמעות הייתה שהצצה בטקסט של נכס
   // שכבר פורסם מזמינה אותו לפרסום שני בהרצת ה-cron הבאה. לכן dry_run רואה
   // רק נכס שממתין ממילא.
-  if (propertyId) {
+  //
+  // ‏ולכן בבדיקה יבשה לא קוראים לה בכלל — גם בלי force היא **יוצרת** שורה
+  // לנכס שאין לו אחת בערוץ (כל נכס ותיק, באינסטגרם), והשורה הזו הייתה
+  // יוצאת לפוסט בהרצה הבאה.
+  if (propertyId && !dryRun) {
     const { error } = await sb.rpc("queue_property_publication", {
       p_property_id: propertyId,
-      p_channel: "facebook_page",
-      p_force: !dryRun,
+      p_channel: manualChannel,
+      p_force: true,
       p_delay_minutes: 0,
     });
     if (error) {
@@ -412,6 +603,9 @@ Deno.serve(async (req: Request) => {
   const { data: rows, error } = await sb.rpc("pending_property_publications", {
     p_limit: propertyId ? 1 : BATCH,
     p_property_id: propertyId,
+    // בדיקה יבשה מותרת גם לערוץ שעוד לא חובר — כך רואים את הכיתוב לפני
+    // שמחברים. פרסום אמיתי מושך רק ערוצים שיש להם סודות.
+    p_channels: propertyId ? [manualChannel] : READY_CHANNELS,
   });
   if (error) {
     console.error("queue_read_failed", error.message);
@@ -428,6 +622,7 @@ Deno.serve(async (req: Request) => {
   }
 
   const results: any[] = [];
+  const written = new Map<string, { description: string; post: string }>();
   for (const row of rows) {
     try {
       // התפיסה קודמת לכל השאר. שתי הרצות חופפות של ה-cron מושכות את אותה
@@ -441,10 +636,10 @@ Deno.serve(async (req: Request) => {
           continue;
         }
       }
-      results.push(await handle(sb, row, { force, dryRun }));
+      results.push(await handle(sb, row, { force, dryRun }, written));
     } catch (e) {
       const message = e instanceof Error ? e.message : String(e);
-      console.error("פרסום נכס נכשל", row.property_id, message);
+      console.error("פרסום נכס נכשל", row.channel, row.property_id, message);
       if (!dryRun) {
         await sb.rpc("mark_property_publication", {
           p_publication_id: row.publication_id,
@@ -456,7 +651,7 @@ Deno.serve(async (req: Request) => {
           p_description_generated: false,
         });
       }
-      results.push({ property_id: row.property_id, error: message });
+      results.push({ property_id: row.property_id, channel: row.channel, error: message });
     }
   }
 

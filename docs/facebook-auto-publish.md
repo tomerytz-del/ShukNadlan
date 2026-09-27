@@ -8,6 +8,9 @@
 2. **פוסט בדף הפייסבוק של האתר** —
    [‏shuknadlan](https://www.facebook.com/share/19LytY6L6b/) — עם התמונות,
    נתוני הנכס וקישור לעמוד הנכס.
+3. **פוסט בחשבון האינסטגרם** — [‏@shuknadlan](https://www.instagram.com/shuknadlan/)
+   — ערוץ שני באותו תור, עם שורה, ניסיונות ויומן משלו. כבוי עד שמחברים
+   אותו; ראו **"אינסטגרם"** למטה.
 
 מה שהסוכן/ת כתב/ה **לא נדרס לעולם**: תיאור שיווקי קיים נשאר כמו שהוא, ופוסט
 שנכתב ידנית ב-`post_text` הוא זה שיוצא.
@@ -31,6 +34,7 @@
 | `supabase/migrations/20261022090000_publication_require_post_id.sql` | דרישת `post_id` לאישור פרסום, ו-view הפרסומים הלא מאומתים |
 | `supabase/migrations/20261023090000_force_requeue_clears_post.sql` | `force` מנקה את זהות הפוסט הקודם |
 | `supabase/migrations/20261025090000_publish_when_image_arrives.sql` | נכס שקיבל תמונה מתפרסם גם אם יצא מהתור |
+| `supabase/migrations/20270116090000_instagram_publish.sql` | ערוץ האינסטגרם: מתג ותקרה משלו, והערוץ בתור |
 | `supabase/functions/property-marketing-publish/index.ts` | השרת: מרכיב את הפוסט ומפרסם |
 | `supabase/functions/_shared/marketing-copy.ts` | הפרומפט ועובדות הנכס — משותף עם `property-description` |
 | `docs/facebook-auto-publish.md` | הקובץ הזה |
@@ -160,6 +164,9 @@ update pricing_config set value = 0 where key = 'facebook_autopost_enabled';
 | `FACEBOOK_PAGE_ID` | מסלול ישיר | מזהה הדף |
 | `FACEBOOK_PAGE_ACCESS_TOKEN` | מסלול ישיר | טוקן דף ארוך-טווח |
 | `ALERT_CRON_SECRET` | ✖️ | אותו סוד של שרת ההתראות |
+| `MAKE_INSTAGRAM_WEBHOOK_URL` | אינסטגרם דרך Make | כתובת ה-Webhook מתרחיש **נפרד** |
+| `INSTAGRAM_ACCOUNT_ID` | אינסטגרם ישיר | מזהה החשבון העסקי (לא שם המשתמש) |
+| `INSTAGRAM_ACCESS_TOKEN` | ✖️ | ברירת מחדל: `FACEBOOK_PAGE_ACCESS_TOKEN` |
 
 צריך **אחד** משני מסלולי הפרסום. אם שניהם מוגדרים — Make מנצח. בלי אף אחד
 מהם הפונקציה מחזירה `publish_not_configured` ולא נוגעת בתור, כך שאפשר לפרוס
@@ -391,7 +398,148 @@ System User token מ-Business Manager, שאינו פג), ומעבר App Review �
 פוסט קישור בלי תמונות נשאר בקוד כרשת ביטחון, אבל נכס בלי תמונה לא מגיע
 לכאן ממילא.
 
+## אינסטגרם
+
+החשבון: [‏@shuknadlan](https://www.instagram.com/shuknadlan/). הקישור אליו
+יושב בפוטר של כל הדפים, ב-`sameAs` של הנתונים המובנים בדף הבית, ובסעיף 10
+בתקנון.
+
+### למה ערוץ נפרד ולא עוד מודול בתרחיש הפייסבוק
+
+זה נראה כמו הקיצור הטבעי — עוד מודול אחרי `Create a Post with Photos` — וזו
+בדיוק המלכודת. אם מודול האינסטגרם נכשל (תמונה ביחס שאינסטגרם דוחה, הרשאה
+שפגה), התרחיש כולו נכשל **אחרי** שהפוסט בפייסבוק כבר עלה. השרת רואה כישלון,
+מחזיר את השורה לתור, ובעוד חצי שעה מפרסם בפייסבוק שוב.
+
+לכן לכל נכס יש שתי שורות ב-`property_publications` — `facebook_page`
+ו-`instagram` — עם ניסיונות, תקרה יומית ויומן נפרדים, ולאינסטגרם יש תרחיש
+Make משלו. כישלון באחד אינו נוגע בשני.
+
+### מה שונה בפוסט
+
+| | פייסבוק | אינסטגרם |
+| --- | --- | --- |
+| קישור לנכס | 🔗 בסוף הפוסט | **אין** - קישור בכיתוב אינו לחיץ. במקומו "הקישור בפרופיל" + מספר המודעה |
+| האשטגים | אין | `#שוק_נדלן #נדלן`, העיר, השכונה וסוג העסקה |
+| אורך | חופשי | עד 2,200 תווים. מקצרים את הפתיח, לא את העובדות |
+| תמונות | כל פורמט שפייסבוק מקבל | **JPEG בלבד**. ‏PNG/WebP מסוננים; נכס בלי אף JPEG מסומן `skipped` |
+| תמונה אחת | פוסט עם תמונה | פוסט תמונה. **קרוסלה דורשת לפחות שתיים** |
+
+הפתיח, העובדות וכלל המקף זהים — אותו `marketing-copy.ts`. תיאור שנכתב בהרצה
+עבור שורת הפייסבוק משמש גם את שורת האינסטגרם של אותו נכס, בלי קריאה שנייה
+ל-Claude.
+
+### הפרמטרים
+
+| מפתח | ברירת מחדל | מה זה |
+| --- | --- | --- |
+| `instagram_autopost_enabled` | **0** | מתג. כבוי עד שהחשבון מחובר ופוסט בדיקה עלה |
+| `instagram_autopost_daily_cap` | 12 | תקרה ליממה, **נפרדת** מזו של פייסבוק. אינסטגרם עצמה מגבילה ל-100 |
+
+ההשהיה (`facebook_autopost_delay_minutes`), מספר הניסיונות ודרישת ה-`post_id`
+משותפים לשני הערוצים.
+
+> **‏`facebook_autopost_require_post_id` כבר דלוק בפרודקשן** — ולכן גם
+> לאינסטגרם, מהפוסט הראשון. תרחיש אינסטגרם בלי Webhook response שמחזיר
+> מזהה = כל פוסט מוצלח נספר ככישלון ומתפרסם שוב. **בונים את ה-Webhook
+> response לפני הבדיקה הראשונה**, לא אחריה.
+
+### הגדרה - פעם אחת
+
+**שלב 0 - בצד של אינסטגרם ופייסבוק (בלעדיו שום מסלול לא עובד):**
+
+1. **חשבון מקצועי.** באפליקציית אינסטגרם: פרופיל → ☰ → *Settings and
+   activity* → *Account type and tools* → *Switch to professional account* →
+   **Business**. ממשק הפרסום של Meta אינו פתוח לחשבון אישי.
+2. **חיבור לדף הפייסבוק.** בדף הפייסבוק (או ב-Meta Business Suite):
+   *Settings* → *Linked accounts* → *Instagram* → *Connect account*, ולהתחבר
+   ל-`shuknadlan`. זה מה שמאפשר ל-Make (ול-Graph) לפרסם בחשבון - הפרסום עובר
+   דרך הדף.
+3. **קישור בביו.** בפרופיל → *Edit profile* → *Links* →
+   `https://shuknadlan.co.il`. הכיתוב של כל פוסט מפנה אליו.
+
+**מסלול א׳ - Make (מומלץ, כמו בפייסבוק):**
+
+4. **תרחיש חדש** בשם `shuknadlan-instagram` - לא עוד ענף בתרחיש הקיים (ראו
+   למעלה למה). מודול ראשון: *Webhooks → Custom webhook* חדש, והכתובת שלו
+   נשמרת כסוד `MAKE_INSTAGRAM_WEBHOOK_URL` ב-Supabase → Edge Functions →
+   Secrets. הגוף זהה לזה של פייסבוק, ועוד שלושה שדות: `channel`
+   (`"instagram"`), `image_count`, ו-`message` שהוא כבר **הכיתוב
+   לאינסטגרם**.
+5. **Filter** על `x-shuknadlan-secret`, בדיוק כמו בתרחיש הפייסבוק.
+6. **Router** עם שני ענפים, כי קרוסלה דורשת שתי תמונות לפחות:
+
+   ```
+   Webhook ─ Filter ─ Router ─┬─ [image_count ≥ 2] Iterator → Array aggregator → Instagram for Business: Create a Carousel Post → Webhook response
+                              └─ [image_count = 1] Instagram for Business: Create a Photo Post → Webhook response
+   ```
+
+   - **Connection** בשני מודולי האינסטגרם: החיבור נעשה דרך חשבון הפייסבוק,
+     ובוחרים את **הדף** שהחשבון מקושר אליו (שלב 2).
+   - **קרוסלה:** Iterator על `{{1.images}}`; ב-Array aggregator ה-
+     `Target structure` הוא שדה המדיה של מודול הקרוסלה, עם סוג **Image** ו-
+     `Image URL` = `{{<iterator>.value}}`; ב-`Caption` - `{{1.message}}`.
+     אותה מלכודת כמו בפייסבוק: האגרגטור מציע רק מודולים שנמצאים **אחריו**.
+   - **תמונה יחידה:** `Image URL` = `{{1.images[1]}}`, `Caption` =
+     `{{1.message}}`.
+   - **Webhook response** בסוף **כל** ענף: `Status` = `200`, `Body` =
+     `{"post_id": "{{<מודול האינסטגרם>.id}}"}`. אפשר להוסיף גם
+     `"post_url": "{{<מודול>.permalink}}"` אם המודול מחזיר אותו - במזהה של
+     אינסטגרם, בניגוד לפייסבוק, אין ממה לגזור כתובת.
+
+   שמות השדות ב-Make משתנים מעט בין גרסאות. מה שחשוב: הכיתוב מ-`message`,
+   התמונות מ-`images`, והמזהה חוזר ב-`post_id`.
+7. **Scheduling: Immediately**, והתרחיש **Active**.
+
+**מסלול ב׳ - Graph API ישיר (במקום Make):**
+
+- `INSTAGRAM_ACCOUNT_ID` - המזהה המספרי של החשבון העסקי:
+  `GET /<FACEBOOK_PAGE_ID>?fields=instagram_business_account`.
+- הטוקן - טוקן הדף הקיים משמש גם כאן, **אם** לאפליקציה יש
+  `instagram_basic` + `instagram_content_publish` (דורש App Review). טוקן אחר
+  נכנס ב-`INSTAGRAM_ACCESS_TOKEN`.
+- הקוד יוצר מכל לכל תמונה, מאגד לקרוסלה, ממתין שהעיבוד יסתיים ומפרסם.
+
+**בדיקה והדלקה - אותו סדר בשני המסלולים:**
+
+8. **פוסט בדיקה אחד**, כשהמתג עדיין כבוי (פרסום ידני עוקף את המתג):
+
+   ```bash
+   curl -X POST "$SUPABASE_URL/functions/v1/property-marketing-publish" \
+     -H "Authorization: Bearer $SERVICE_ROLE_KEY" \
+     -H "Content-Type: application/json" \
+     -d '{"property_id":"<uuid>","channel":"instagram"}'
+   ```
+
+9. **לוודא שחזר מזהה:**
+
+   ```sql
+   select status, post_id, post_url, last_error from property_publications
+    where channel = 'instagram' order by updated_at desc limit 1;
+   ```
+
+10. **רק אחרי ששלב 9 החזיר `post_id`** - מדליקים:
+
+    ```sql
+    update pricing_config set value = 1 where key = 'instagram_autopost_enabled';
+    ```
+
+    מכאן כל נכס חדש שעולה נכנס לשני התורים, ויוצא לאינסטגרם כ-20 דקות אחרי
+    שמירתו (או אחרי התמונה הראשונה), בדיוק כמו לפייסבוק.
+
+> **נכסים ותיקים לא נכנסים לתור של אינסטגרם** - אותה החלטה כמו בפייסבוק.
+> נכס ותיק מפרסמים ידנית עם `"channel":"instagram"`.
+
+> **יחס גובה-רוחב.** אינסטגרם מקבלת תמונות בין 4:5 (לאורך) ל-1.91:1
+> (לרוחב). תמונה מחוץ לטווח - למשל צילום פנורמי - נדחית. בקרוסלה במסלול
+> הישיר היא מדולגת והפוסט יוצא בלעדיה; ב-Make מודול הקרוסלה נכשל כולו,
+> השורה חוזרת לתור, ואחרי `facebook_autopost_max_attempts` היא `failed` עם
+> השגיאה ב-`last_error`.
+
 ## פרסום ידני, בדיקה יבשה, ופרסום מחדש
+
+כל הפקודות כאן חלות על פייסבוק. לאינסטגרם מוסיפים `"channel":"instagram"`
+לגוף הבקשה (ו-`'instagram'` כפרמטר השני ב-`queue_property_publication`).
 
 ```bash
 # בדיקה יבשה: מייצר את הטקסט ומחזיר אותו, בלי לפרסם ובלי לגעת בתור
@@ -413,7 +561,7 @@ curl -X POST "$SUPABASE_URL/functions/v1/property-marketing-publish" \
 `force` דורס את `marketing_description` בלבד. `post_text` שנכתב ידנית נשאר
 גם ב-`force` — המערכת משלימה מה שחסר, לא מחליפה מה שנכתב ביד.
 
-`dry_run` מראה רק נכס שממתין בתור ממילא, ובכוונה: אילו הצצה בטקסט הייתה
+`dry_run` מראה רק נכס שממתין בתור ממילא, ואינו יוצר שורה חדשה בתור, ובכוונה: אילו הצצה בטקסט הייתה
 מחזירה נכס שכבר פורסם לתור, היא הייתה מזמינה לו פוסט שני בהרצה הבאה. על נכס
 שכבר פורסם התשובה תהיה `processed: 0` עם הסבר.
 
@@ -432,7 +580,7 @@ select queue_property_publication('<property-id>', 'facebook_page', true);
 
 ```sql
 -- מה קרה בשבוע האחרון
-select p.title, pub.status, pub.attempts, pub.posted_at, pub.post_url,
+select p.title, pub.channel, pub.status, pub.attempts, pub.posted_at, pub.post_url,
        pub.description_generated, pub.last_error
   from property_publications pub
   join properties p on p.id = pub.property_id

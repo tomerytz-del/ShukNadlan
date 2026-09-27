@@ -229,7 +229,7 @@ QUEUES = (
     ("property_description_jobs", "status", ("pending", "queued"), "created_at",
      "תיאורים שיווקיים", "נכס מתפרסם בלי תיאור"),
     ("property_publications", "status", ("pending", "queued"), "created_at",
-     "פרסום לפייסבוק", "המודעה לא יוצאת לפייסבוק"),
+     "פרסום לרשתות", "המודעה לא יוצאת לפייסבוק או לאינסטגרם"),
     ("visualization_jobs", "status", ("pending", "queued", "running"), "created_at",
      "הדמיות נכס", "ההדמיה לא נוצרת והסוכן/ת ממתין/ה"),
     ("property_video_jobs", "status", ("pending", "queued", "running"), "created_at",
