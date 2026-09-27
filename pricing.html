@@ -562,7 +562,7 @@ document.getElementById('plans').innerHTML = Tiers.list().map(function(tier){
 
   const ctaHtml = cta.disabled
     ? '<span class="plan-cta is-disabled">' + esc(cta.label) + '</span>'
-    : '<a class="plan-cta" href="' + esc(cta.href) + '">' + esc(cta.label) + '</a>';
+    : '<a class="plan-cta" data-tier="' + esc(tier.id) + '" href="' + esc(cta.href) + '">' + esc(cta.label) + '</a>';
 
   return '<article class="plan ' + tier.color + (isCurrent ? ' is-current' : '') + '">' +
     (tier.badge && !isCurrent ? '<span class="plan-badge">★ ' + esc(tier.badge) + '</span>' : '') +
@@ -578,6 +578,26 @@ document.getElementById('plans').innerHTML = Tiers.list().map(function(tier){
     '<div class="plan-foot">' + esc(cta.foot || '') + '</div>' +
   '</article>';
 }).join('');
+
+/* ---------- גלילה לכפתור ההצטרפות ב-Elite ----------
+   מי שמגיע/ה לדף הציבורי בא/ה לפתוח משרד, ובתקופת ההשקה יש בדיוק כפתור
+   אחד שמוביל לשם — ה-CTA של Elite. בנייד הוא יושב בכרטיס השלישי, כמה
+   מסכים מתחת לכותרת, ולכן מביאים אותו אל המסך במקום שיחפשו אותו.
+
+   רק בדף הציבורי: ב-?current= ובהזמנה יש כרטיס אחר שהוא העיקר. ולא
+   כשיש #עוגן בכתובת (קישור ל-FAQ צריך לנחות על ה-FAQ), ולא כשהגולש/ת
+   כבר גלל/ה — חזרה אחורה משחזרת מיקום, וקפיצה אז הייתה מבלבלת.
+   ‏'load' ולא מיד: גופנים ובאנר ההטבה מזיזים את הפריסה, וגלילה מוקדמת
+   נוחתת לידו ולא עליו. */
+if (!current && !inviteTok && !location.hash){
+  window.addEventListener('load', function(){
+    const btn = document.querySelector('.plan-cta[data-tier="' + Tiers.PROMO.tier + '"]') ||
+                document.querySelector('.plan-cta[data-tier="premium"]');
+    if (!btn || window.scrollY > 40) return;
+    const reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+    btn.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' });
+  });
+}
 
 /* ---------- טבלת ההשוואה ----------
    כל היכולות של המערכת, שורה לכל אחת, מקובצות לפי מה שהסוכן/ת בא/ה לעשות
