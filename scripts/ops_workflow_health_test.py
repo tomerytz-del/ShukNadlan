@@ -103,6 +103,12 @@ check("כל שעתיים, 4 ימים - שתק",
 check("כל שעתיים, יומיים - שקט",
       codes(NEWS, [run("success", 2, "schedule")]) == [])
 
+_CASE.update(path=LAND, runs=[run("failure", 1)])
+found = list(pipeline._actions(_Ctx()))
+check("הנושא הוא שם הקובץ, לא השם העברי",
+      [f.subject for f in found] == ["land_ownership.yml"]
+      and found[0].key == "health:workflow_failing:land_ownership.yml")
+
 ctx = _Ctx()
 check("מחזור ה-cron נקרא מהקובץ",
       (pipeline._cron_cadence_days(ctx, LAND),

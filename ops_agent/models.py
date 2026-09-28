@@ -22,6 +22,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 from dataclasses import dataclass, field
@@ -47,8 +48,21 @@ _KEY_CLEAN = re.compile(r"[^a-z0-9_.:/-]+")
 
 
 def _slug(value: str) -> str:
-    """מנקה מחרוזת למפתח. אותיות עבריות יוצאות — המפתח אינו טקסט לקריאה."""
-    return _KEY_CLEAN.sub("_", (value or "").strip().lower()).strip("_") or "-"
+    """מנקה מחרוזת למפתח. אותיות עבריות יוצאות — המפתח אינו טקסט לקריאה.
+
+    ‏**אבל מחרוזת שכולה עברית אינה נעלמת.** בלי ה-hash היא הייתה `-`, וכל
+    הנושאים העבריים של אותו קוד חלקו מפתח אחד: כל ה-workflows שנכשלו היו
+    שורה אחת (‏`health:workflow_failing:-`), שהנושא שלה "נרמול עסקאות
+    רשמיות" והכותרת שלה "סוג בעלות בקרקע" — ושני כישלונות באותה סריקה היו
+    מסתירים זה את זה. ה-hash יציב, ולכן גם המפתח.
+    """
+    raw = (value or "").strip().lower()
+    slug = _KEY_CLEAN.sub("_", raw).strip("_")
+    if slug:
+        return slug
+    if not raw:
+        return "-"
+    return "h" + hashlib.md5(raw.encode("utf-8")).hexdigest()[:10]
 
 
 @dataclass
