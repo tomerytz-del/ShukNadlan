@@ -47,8 +47,12 @@ PROBE_CODES = {
     "security": ("rls_", "anon_", "secdef_", "public_", "key_in_",
                  "target_blank", "mixed_content", "open_edge_function",
                  "open_write_policy", "headers_missing", "csp_report_only"),
+    # ‏"market_" ו-"agency_" נוספו ב-28.9.2026, אחרי שחמישה ממצאים על השוק
+    # ‏haifa-krayot - שפוצל ל-haifa ול-krayot - נשארו פתוחים יומיים אחרי
+    # שהשוק כבר לא היה קיים. ‏scripts/ops_probe_codes_test.py חוסם מעכשיו
+    # קוד שאינו מכוסה כאן, כי זו כבר הפעם השלישית (אחרי "make_").
     "behavior": ("views_without_leads", "pwa_", "alerts_failing", "leads_",
-                 "listings_", "saved_search_"),
+                 "listings_", "saved_search_", "market_", "agency_"),
     # ‏"make_" — תרחישי הפרסום ב-Make (‏_make_scenarios). בלעדיו ממצא
     # ‏make_scenario_off (‏critical) לא היה נסגר לעולם, וה-Issue שהוא פותח
     # היה נשאר פתוח גם אחרי שהתרחיש הודלק.

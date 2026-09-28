@@ -302,6 +302,9 @@ def _actions(ctx) -> Iterator[Finding]:
     for wf in workflows:
         if wf.get("state") != "active":
             continue
+        # ‏הנושא הוא שם הקובץ ולא השם שבכותרת: שם עברי היה נופל כולו מהמפתח
+        # (‏`_slug`), וכל ה-workflows חלקו ממצא אחד. ‏models.py.
+        wf_file = (wf.get("path") or "").rsplit("/", 1)[-1] or wf["name"]
         ctx.count()
         try:
             # ‏**רק ענף ברירת המחדל.** בלי הסינון הזה כישלון בבדיקת CI על
@@ -343,7 +346,7 @@ def _actions(ctx) -> Iterator[Finding]:
             if len(done) >= t.workflow_flaky_min_runs:
                 yield Finding(
                     area="health", code="workflow_flaky", severity="medium",
-                    subject=wf["name"],
+                    subject=wf_file,
                     title="‏workflow נכשל לסירוגין: %s" % wf["name"],
                     detail="ההרצה האחרונה עברה, אבל %d מתוך %d ההרצות האחרונות "
                            "נכשלו." % (len(failed), len(done)),
@@ -358,7 +361,7 @@ def _actions(ctx) -> Iterator[Finding]:
             yield Finding(
                 area="health", code="workflow_failing",
                 severity="critical" if rate >= 0.6 else "high",
-                subject=wf["name"],
+                subject=wf_file,
                 title="‏workflow נכשל: %s" % wf["name"],
                 detail="%d מתוך %d ההרצות האחרונות נכשלו."
                        % (len(failed), len(done)),
@@ -399,7 +402,7 @@ def _actions(ctx) -> Iterator[Finding]:
         if days >= limit:
             yield Finding(
                 area="health", code="workflow_silent", severity="high",
-                subject=wf["name"],
+                subject=wf_file,
                 title="‏workflow מתוזמן ששתק: %s" % wf["name"],
                 detail="ההרצה האחרונה לפני %d ימים." % days,
                 suggestion="‏GitHub מכבה תזמוני cron אחרי 60 יום בלי פעילות "
