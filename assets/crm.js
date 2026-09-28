@@ -3155,6 +3155,127 @@ async function loadAdminPwaReport(){
 
   host.appendChild(block);
   dashPanelsMeasure();
+  loadAdminSearchReport();
+}
+
+/* ---------- מה מחפשים באתר ----------
+   נטען אחרי בלוק ההתקנות, מאותו דפוס ומאותה סיבה: `search` נדחף
+   ל-dataLayer ומשם ל-GA4 בלבד, ושם הוא נעלם אצל מי שיש לו/ה חוסם
+   פרסומות - ואם המכולה אינה מחוברת, הוא נעלם אצל כולם.
+
+   **הטור שבגללו הבלוק נבנה הוא "בלי תוצאות".** חיפוש עם תוצאות מספר על
+   המלאי שיש; חיפוש שחזר ריק מספר על המלאי שחסר, כלומר על נכס שכדאי
+   להשיג או על שכונה שאין בה מספיק. הפרטים: docs/search-analytics.md */
+const SEARCH_SOURCE_LABELS = {
+  'bar':      'סרגל החיפוש',
+  'sentence': 'חיפוש במשפט',
+};
+
+async function loadAdminSearchReport(){
+  const host = document.getElementById('adminReport');
+  if (!host) return;
+
+  const { data, error } = await sb.rpc('platform_search_report',
+    { p_days: adminReportMonths * 30 });
+
+  const block = admBlock('מה מחפשים באתר',
+    'כל חיפוש מסרגל החיפוש ומהמשפט, נספר במסד שלנו ולא ב-GA4. השורה החשובה היא החיפושים שחזרו בלי תוצאות: הם מראים מה מחפשים אצלנו ולא מוצאים.');
+
+  if (error){
+    const msg = (error.code === '42883' || error.code === 'PGRST202')
+      ? 'מונה החיפושים טרם קיים במסד - הריצו את המיגרציה 20270118090000_search_events.sql.'
+      : 'שגיאה בטעינת מונה החיפושים: ' + error.message;
+    block.appendChild(admEl('div', 'empty-state', msg));
+    host.appendChild(block);
+    dashPanelsMeasure();
+    return;
+  }
+
+  const rep      = data || {};
+  const totals   = rep.totals || {};
+  const days     = Number(rep.window_days) || 30;
+  const searches = Number(totals.searches) || 0;
+  const zero     = Number(totals.zero_results) || 0;
+
+  if (!searches){
+    block.appendChild(admEl('div', 'empty-state',
+      'עדיין לא נרשמו חיפושים בחלון הזה.'));
+    host.appendChild(block);
+    dashPanelsMeasure();
+    return;
+  }
+
+  const zeroPct = Math.round((zero / searches) * 100);
+  block.appendChild(admEl('p', 'adm-legend',
+    admInt(searches) + ' חיפושים ב-' + admInt(days) + ' ימים · ' +
+    admInt(totals.sessions) + ' מבקרים · חציון תוצאות: ' + admInt(totals.median_results) +
+    ' · ' + admInt(zero) + ' חזרו ריקים (' + zeroPct + '%)'));
+
+  /* לפי מקור: הסרגל מול המשפט. אם אחד מהם מייצר הרבה יותר חיפושים
+     ריקים, זה אומר משהו על הכלי ולא רק על המלאי. */
+  const bySource = Array.isArray(rep.by_source) ? rep.by_source : [];
+  if (bySource.length){
+    const rows = admEl('div', 'adm-rows');
+    bySource.forEach(row => {
+      const n = Number(row.searches) || 0;
+      const z = Number(row.zero_results) || 0;
+      rows.appendChild(admRow(
+        SEARCH_SOURCE_LABELS[row.source] || row.source,
+        admInt(z) + ' בלי תוצאות',
+        admInt(n),
+        searches > 0 ? (n / searches) * 100 : 0));
+    });
+    block.appendChild(rows);
+  }
+
+  /* הטבלה: מה חיפשו, כמה פעמים, וכמה מהם חזרו ריקים */
+  const top = Array.isArray(rep.top_terms) ? rep.top_terms : [];
+  if (top.length){
+    block.appendChild(admEl('p', 'adm-legend', 'המונחים המובילים'));
+    const wrap = admEl('div', 'adm-table-wrap');
+    /* ‏`adm-table-narrow`: שלוש עמודות נכנסות ברוחב טלפון, ובלי הוויתור
+       על `min-width` העמודה השלישית - זו שבגללה הטבלה כאן - נדחפת מעבר
+       לקצה ודורשת גלילה לרוחב כדי לראות אותה. */
+    const table = admEl('table', 'adm-table adm-table-narrow');
+    const thead = admEl('thead');
+    const hrow = admEl('tr');
+    ['מה חיפשו','פעמים','בלי תוצאות'].forEach(h => hrow.appendChild(admEl('th', null, h)));
+    thead.appendChild(hrow);
+    table.appendChild(thead);
+    const tbody = admEl('tbody');
+    top.forEach(row => {
+      const tr = admEl('tr');
+      /* ‏textContent ולא innerHTML: זה טקסט שגולש/ת הקליד/ה */
+      tr.appendChild(admEl('td', null, row.term));
+      tr.appendChild(admEl('td', null, admInt(row.searches)));
+      tr.appendChild(admEl('td', null, admInt(row.zero_results)));
+      tbody.appendChild(tr);
+    });
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+    block.appendChild(wrap);
+  }
+
+  /* הממצא: מה חיפשו ולא מצאו. גם מונח שהופיע פעם אחת נחשב כאן - נכס
+     שחסר במלאי אינו צריך להיות פופולרי כדי להיות שווה השגה. */
+  const zeroTerms = Array.isArray(rep.zero_terms) ? rep.zero_terms : [];
+  if (zeroTerms.length){
+    block.appendChild(admEl('p', 'adm-legend', 'חיפשו ולא מצאו'));
+    const facts = admEl('div', 'adm-facts');
+    zeroTerms.forEach(row => {
+      const fact = admEl('div', 'adm-fact');
+      fact.appendChild(admEl('span', 'adm-fact-lbl', row.term));
+      /* ‏"פעמים" ולא מספר עירום: בלי היחידה אי אפשר לדעת אם 9 הוא כמה
+         חיפשו את זה או כמה תוצאות היו (כאן תמיד אפס). */
+      fact.appendChild(admEl('span', 'adm-fact-val',
+        plural(Number(row.searches) || 0, 'פעם אחת', 'פעמים', admInt(row.searches))));
+      facts.appendChild(fact);
+    });
+    block.appendChild(facts);
+  }
+
+  host.appendChild(block);
+  dashPanelsMeasure();
 }
 
 function renderAdminReport(report){
