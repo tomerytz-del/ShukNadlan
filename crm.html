@@ -3078,6 +3078,9 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   /* טבלת המשרדים — גלילה אופקית משלה, כדי שהדף עצמו לא יגלוש */
   .adm-table-wrap{overflow-x:auto}
   .adm-table{width:100%;border-collapse:collapse;font-size:.76rem;min-width:420px}
+  /* טבלה של שלוש עמודות נכנסת ברוחב טלפון, ו-420px היו דוחפים דווקא את
+     העמודה האחרונה אל מחוץ למסך בלי סיבה */
+  .adm-table.adm-table-narrow{min-width:0}
   .adm-table th,.adm-table td{padding:8px 10px;text-align:start;white-space:nowrap}
   .adm-table th{font-size:.68rem;font-weight:800;color:var(--txt-faint);border-bottom:1px solid var(--edge)}
   .adm-table td{border-bottom:1px solid var(--surface-2)}
