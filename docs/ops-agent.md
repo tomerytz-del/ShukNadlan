@@ -156,6 +156,24 @@ python ops_scan.py --only frontend --dry-run   # בלי מסד בכלל
 לפי שם ("כל מה שנגמר ב-intake") הייתה מכסה גם את הפונקציה הבאה שתיקרא
 כך בטעות.
 
+**‏`PUBLIC_RPC` הוא אותה הצהרה, לפונקציות SQL.** ‏28.9.2026: תשעה ממצאי
+‏`anon_secdef_unguarded` ישבו בפאנל תשעה ימים. כל אחד נבדק מול הקורא/ת
+שלו:
+
+| פונקציה | מי קורא/ת | הכרעה |
+| --- | --- | --- |
+| `property_map_enabled`, `property_planning_public`, `property_visualizations_enabled`, `visualization_job_status` | דף הנכס, בלי התחברות | ‏`PUBLIC_RPC` |
+| `platform_prior_rating` | ה-view `agency_rating_scores` | ‏`PUBLIC_RPC` - פונקציה בתוך view נבדקת מול **מי שקורא/ת את ה-view**, ולכן revoke היה שובר את הדירוגים |
+| `city_id_for_name` | מזהה עיר לפי שם | ‏`PUBLIC_RPC` - כבר מוצהרת ב-`check_function_grants.py` |
+| `notification_type_enabled` | טריגר SECURITY DEFINER בלבד | נסגרה - חשפה אילו התראות סוכן/ת השתיק/ה |
+| `property_video_tier` | שתי פונקציות SECURITY DEFINER | נסגרה - חשפה את המסלול בתשלום |
+| `property_virtual_tour_eligible` | ארבע policies של `authenticated` | נסגרה ל-anon בלבד - policy רצה בהרשאות המשתמש/ת |
+
+הסגירה: `20270119090000_revoke_anon_private_flags.sql`. ההצהרה חלה על
+קריאה בלבד - פונקציה ברשימה שמתחילה לכתוב מדווחת כרגיל, ב-`high`.
+‏`scripts/ops_anon_rpc_test.py` בודק את זה, וגם שכל שם ברשימה מוגדר
+באיזו מיגרציה (שגיאת כתיב הייתה משאירה את הפונקציה האמיתית פתוחה בשקט).
+
 ### והממצא שדיווח על בעיה שכבר תוקנה
 
 הממצא הכבד ביותר בדשבורד ב-19.9.2026 היה שאילתת ה-`net.http_post` של

@@ -342,6 +342,27 @@ MAKE_SCENARIOS = (
     ("instagram", "7641885", "instagram_autopost_enabled", 0, "אינסטגרם"),
 )
 
+# פונקציות SECURITY DEFINER שפתוחות ל-anon **בכוונה**, ומי קורא/ת להן.
+# בלי הרשימה הזו כל אחת מהן הייתה ממצא `anon_secdef_unguarded` בדרגה
+# בינונית לנצח, והדרך היחידה לסגור אותו הייתה לשבור את דף הנכס.
+#
+# ההצהרה חלה על **קריאה בלבד**: פונקציה ברשימה שמתחילה לכתוב למסד מדווחת
+# כרגיל, בדרגה גבוהה. ופונקציה שנסגרה ל-anon פשוט אינה נבדקת - השורה כאן
+# הופכת ללא רלוונטית, לא לשגויה.
+#
+# ‏**הדרגה של הרשימה: להסיר ממנה כשקורא/ת נעלם/ת.** שורה בלי קורא/ת היא
+# נקודת קצה פומבית שאיש אינו צריך. ‏28.9.2026: מתוך תשע שדווחו, שש נכנסו
+# לכאן ושלוש נסגרו (`20270119090000_revoke_anon_private_flags.sql`).
+PUBLIC_RPC = {
+    "property_map_enabled": "דף הנכס (property.js) - האם להציג מפה מדויקת",
+    "property_planning_public": "דף הנכס - נתוני תכנון של נכס פעיל",
+    "property_visualizations_enabled": "דף הנכס - האם להציג הדמיות AI",
+    "visualization_job_status": "דף הנכס - מעקב אחרי הדמיה לפי מזהה משימה (uuid)",
+    "platform_prior_rating": "ה-view agency_rating_scores - ממוצע ביקורות שפורסמו; "
+                             "פונקציה ב-view נבדקת מול מי שקורא/ת אותו",
+    "city_id_for_name": "מזהה עיר לפי שם - נתון פומבי; check_function_grants.py",
+}
+
 PAUSED_WORKFLOWS = {
     "rss_scraper.yml": "מושבת מ-25.8.2026; המקורות כבויים — rss-leads-setup.md",
     "deals_scraper.yml": "nadlan.gov.il חוסם; ממתין למקור מורשה — market-deals-official.md",

@@ -18,7 +18,7 @@ import re
 from pathlib import Path
 from typing import Iterator
 
-from ..config import EDGE_AUTH_PATTERNS, PUBLIC_EDGE_FUNCTIONS
+from ..config import EDGE_AUTH_PATTERNS, PUBLIC_EDGE_FUNCTIONS, PUBLIC_RPC
 from ..models import Finding
 
 _EDGE_AUTH_CACHE = None
@@ -128,6 +128,7 @@ def _anon_rpc(ctx) -> Iterator[Finding]:
         """
     )
     guarded_names: list[str] = []
+    declared_names: list[str] = []
     for row in rows:
         body = row["body"] or ""
         # פונקציה שבודקת הרשאה בעצמה היא בדיוק הדפוס שהריפו בנה. החשופות
@@ -144,6 +145,11 @@ def _anon_rpc(ctx) -> Iterator[Finding]:
         writes = bool(re.search(
             r"\b(insert\s+into|update\s+\w|delete\s+from|truncate|"
             r"perform\s+set_config|grant\s|revoke\s)\b", body, re.I))
+
+        # פומבית בכוונה (‏`PUBLIC_RPC`) - אבל רק כל עוד היא קוראת בלבד.
+        if row["name"] in PUBLIC_RPC and not writes:
+            declared_names.append(row["name"])
+            continue
 
         yield Finding(
             area="security", code="anon_secdef_unguarded",
@@ -178,6 +184,21 @@ def _anon_rpc(ctx) -> Iterator[Finding]:
                        "משטח ה-API הפומבי, לסקירה כשמשהו נראה חשוד.",
             metric=float(len(guarded_names)), metric_unit="פונקציות",
             evidence={"functions": guarded_names},
+        )
+
+
+    # המוצהרות - שורת מידע אחת, כמו המוגנות. היא מה שמראה שהרשימה חיה.
+    if declared_names:
+        yield Finding(
+            area="security", code="anon_secdef_declared", severity="info",
+            subject="public_rpc",
+            title="%d פונקציות פומביות מוצהרות" % len(declared_names),
+            detail="הפונקציות: %s" % ", ".join(declared_names),
+            suggestion="פתוחות ל-anon בכוונה, קריאה בלבד - הקורא/ת של כל אחת "
+                       "רשום/ה ב-PUBLIC_RPC ב-ops_agent/config.py. להסיר משם "
+                       "כשקורא/ת נעלם/ת.",
+            metric=float(len(declared_names)), metric_unit="פונקציות",
+            evidence={"functions": declared_names},
         )
 
 
