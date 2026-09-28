@@ -19,6 +19,7 @@ on:
       - "scripts/ops_workflow_health_test.py"
       - "scripts/ops_probe_codes_test.py"
       - "scripts/ops_anon_rpc_test.py"
+      - "scripts/ops_live_queue_test.py"
       - "scripts/check_markets.py"
       - "assets/markets.js"
       - ".github/workflows/ops_agent_test.yml"
@@ -34,6 +35,7 @@ on:
       - "scripts/ops_workflow_health_test.py"
       - "scripts/ops_probe_codes_test.py"
       - "scripts/ops_anon_rpc_test.py"
+      - "scripts/ops_live_queue_test.py"
       - "scripts/check_markets.py"
       - "assets/markets.js"
       - ".github/workflows/ops_agent_test.yml"
@@ -89,3 +91,8 @@ jobs:
       # ‏פונקציות פומביות מוצהרות (PUBLIC_RPC): משתיקות רק קריאה, וכל שם קיים.
       - name: ‏anon_secdef מדווחת בדיוק מתי שצריך
         run: python3 scripts/ops_anon_rpc_test.py
+
+      # ‏חיבור קר אינו "תגובה איטית", ושורת תור שיש לה ממצא משלה אינה נספרת
+      # פעמיים. על שני הממצאים של 28.9.2026.
+      - name: ‏slow_ttfb / queue_blocked מודדות את מה שהן טוענות
+        run: python3 scripts/ops_live_queue_test.py
