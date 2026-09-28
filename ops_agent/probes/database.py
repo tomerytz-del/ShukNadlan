@@ -18,6 +18,20 @@ from ..config import ENGINES, QUEUES
 from ..models import Finding
 
 
+# ‏שורות תור שיש להן כבר ממצא משלהן, במקום אחר ובמונחים של הסיבה ולא של
+# התור. ‏28.9.2026: ‏"ממתין לתנאי מקדים: פרסום לרשתות" (בינוני) ספר שלוש
+# שורות - ושלושתן היו מודעות בלי תמונה, שכבר נספרו ב-`listings_no_image`
+# ‏(בינוני, `blocked_publications: 3`). אותה בעיה, פעמיים, באותה דרגה.
+# ההגדרה של "בלי תמונה" זהה לזו שב-`behavior._listings_without_images`.
+QUEUE_EXPLAINED_ELSEWHERE = {
+    "property_publications": """
+               and not exists (
+                     select 1 from public.properties p
+                      where p.id = q.property_id
+                        and coalesce(array_length(p.images, 1), 0) = 0
+                        and p.marketing_image is null)""",
+}
+
 def run(ctx) -> Iterator[Finding]:
     yield from _cron(ctx)
     yield from _queues(ctx)
@@ -162,6 +176,7 @@ def _queues(ctx) -> Iterator[Finding]:
         if not ctx.db.has_table(table):
             continue
         ctx.count()
+        explained = QUEUE_EXPLAINED_ELSEWHERE.get(table, "")
 
         # לא לכל תור יש `attempts`. בלי העמודה אין דרך להבחין, ואז
         # ההתנהגות נשארת כשהייתה — עדיף לדווח מדי מאשר לבלוע.
@@ -181,11 +196,11 @@ def _queues(ctx) -> Iterator[Finding]:
                    min({time_col}) as oldest,
                    round(extract(epoch from (now() - min({time_col}))) / 3600.0, 1)
                      as age_hours{attempts_cols}
-              from public.{table}
+              from public.{table} q
              where {status_col} = any(%s)
-               and {time_col} < now() - make_interval(hours => %s)
+               and {time_col} < now() - make_interval(hours => %s){explained}
             """.format(table=table, status_col=status_col, time_col=time_col,
-                       attempts_cols=attempts_cols),
+                       attempts_cols=attempts_cols, explained=explained),
             (list(pending), t.queue_stuck_hours),
         )
         stuck = int((row or {}).get("stuck") or 0)

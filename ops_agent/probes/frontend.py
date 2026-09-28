@@ -232,6 +232,17 @@ def _live(ctx) -> Iterator[Finding]:
     session = requests.Session()
     session.headers["User-Agent"] = "ShukNadlanOpsAgent/1.0 (+ops_agent)"
 
+    # ‏**בקשת חימום, מחוץ למדידה.** ה-session ממחזר חיבור, ולכן הדף
+    # הראשון ברשימה שילם לבדו על DNS, ‏TCP ו-TLS מה-runner בארה"ב, וכל
+    # השאר נמדדו על חיבור חם. כך דף הבית - הראשון - היה "תגובה איטית"
+    # ‏(1,745-1,968ms) בכל סריקה, ואף דף אחר לא, גם לא דף הנכס שעובר
+    # ב-edge function משלו. זו הייתה עלות החיבור, לא זמן התגובה של הדף.
+    # ‏robots.txt: קטן, סטטי, ואינו עובר באף edge function.
+    try:
+        session.get(base + "/robots.txt", timeout=ctx.settings.http_timeout_s)
+    except Exception:  # noqa: BLE001
+        pass  # ‏כשל כאן יתגלה בבקשה הראשונה, שם הוא נספר כראוי
+
     for path, label in LIVE_PAGES:
         url = base + path
         ctx.count()
@@ -288,7 +299,7 @@ def _live(ctx) -> Iterator[Finding]:
                 subject=path,
                 title="תגובה איטית: %s — %.0fms" % (label, ttfb_ms),
                 detail="זמן עד הבייט הראשון %.0fms, הורדה מלאה %.0fms, %.0f KB "
-                       "ברשת." % (ttfb_ms, total_ms, kb),
+                       "בקובץ (לפני דחיסה)." % (ttfb_ms, total_ms, kb),
                 suggestion="‏TTFB גבוה על דף סטטי פירושו שה-CDN לא הגיש מהמטמון. "
                            "לבדוק את כללי המטמון ואת אזור ההגשה.",
                 metric=round(ttfb_ms), metric_unit="ms",
