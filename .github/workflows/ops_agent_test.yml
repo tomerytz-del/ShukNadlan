@@ -18,6 +18,7 @@ on:
       - "scripts/ops_make_scenario_test.py"
       - "scripts/ops_workflow_health_test.py"
       - "scripts/ops_probe_codes_test.py"
+      - "scripts/ops_anon_rpc_test.py"
       - "scripts/check_markets.py"
       - "assets/markets.js"
       - ".github/workflows/ops_agent_test.yml"
@@ -32,6 +33,7 @@ on:
       - "scripts/ops_make_scenario_test.py"
       - "scripts/ops_workflow_health_test.py"
       - "scripts/ops_probe_codes_test.py"
+      - "scripts/ops_anon_rpc_test.py"
       - "scripts/check_markets.py"
       - "assets/markets.js"
       - ".github/workflows/ops_agent_test.yml"
@@ -83,3 +85,7 @@ jobs:
       # ונושא עברי אינו מאבד את המפתח. על שני הממצאים של 28.9.2026.
       - name: ‏כל ממצא נסגר, ולכל ממצא מפתח משלו
         run: python3 scripts/ops_probe_codes_test.py
+
+      # ‏פונקציות פומביות מוצהרות (PUBLIC_RPC): משתיקות רק קריאה, וכל שם קיים.
+      - name: ‏anon_secdef מדווחת בדיוק מתי שצריך
+        run: python3 scripts/ops_anon_rpc_test.py
