@@ -385,16 +385,30 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .pf-planning:not(:empty){margin-bottom:8px}
   .pf-actions{display:flex;align-items:center;gap:8px}
   .pf-actions .btn{padding:10px 16px}
-  .pf-actions #addPropertyBtn{padding:11px 22px}
-  .pf-spacer{flex:1}
-  .pf-nav:disabled{opacity:.4;cursor:default}
+  .pf-actions #addPropertyBtn{padding:11px 22px;flex:1}
+  /* הניווט בין המקטעים: "הבא" מלא ובולט ונושא את שם המקטע הבא, "הקודם"
+     מתאר. בשלב האחרון "הבא" נעלם ולא רק מאפיר - אין לאן להמשיך. */
+  .pf-stepnav{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+  .pf-nav{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;border-radius:12px;
+    font:inherit;font-weight:800;cursor:pointer;transition:background .15s,box-shadow .15s,transform .1s}
+  .pf-nav:active{transform:scale(.98)}
+  .pf-prev{padding:9px 14px;background:#fff;border:2px solid var(--teal);color:var(--teal-dark);font-size:.88rem}
+  .pf-prev:hover{background:var(--teal-tint)}
+  .pf-next{flex:1;padding:10px 16px;background:var(--teal);border:2px solid var(--teal);color:#fff;font-size:.95rem;
+    box-shadow:0 4px 14px rgba(28,58,94,.28)}
+  .pf-next:hover{background:var(--teal-dark);border-color:var(--teal-dark)}
+  .pf-nav:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+  .pf-nav:disabled{opacity:.35;cursor:default;box-shadow:none}
+  .pf-nav[hidden]{display:none}
+  .pf-progress{flex:none;font-size:.74rem;font-weight:700;color:var(--ink-soft);white-space:nowrap}
   @media(max-width:480px){
-    .pf-actions{flex-wrap:wrap}
-    .pf-actions #addPropertyBtn{order:-2;flex:1 1 100%}
-    .pf-actions #npCancel{order:-1}
-    .pf-spacer{display:none}
-    .pf-actions .btn{flex:1}
+    .pf-progress{display:none}
+    .pf-next{font-size:.88rem;padding:10px 10px}
   }
+  /* גוף הטופס גולל בתוך עצמו (pfFitBody ב-crm.js קובע את --pf-body-h).
+     ‏contain עוצר את שרשור הגלילה: הגעה לסוף המקטע אינה מתחילה לגלול את
+     הדף שמאחור. בלי JS המשתנה אינו מוגדר והגוף פשוט אינו מוגבל. */
+  .pf-body{max-height:var(--pf-body-h,none);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
   #loginError{color:var(--brick);font-size:.82rem;margin-top:10px;text-align:center;min-height:1.2em}
   /* ---------- מסך המתנה ----------
      זה המסך הראשון שנצבע בכל טעינה, במקום כרטיס הכניסה. בלעדיו כל כניסה —
@@ -4220,6 +4234,15 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .agr-field textarea{resize:vertical;line-height:1.5}
   .agr-field input:focus,.agr-field select:focus,.agr-field textarea:focus{border-color:var(--teal);outline:none}
   .agr-field input[readonly]{background:var(--paper);color:var(--ink-soft)}
+  /* כפתורי בחירה מהירה מתחת לשדה (AGR_FIELD_CHOICES ב-crm.js) */
+  .agr-choices{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}
+  .agr-choice{padding:5px 11px;min-height:32px;border-radius:999px;border:1.5px solid var(--line);background:#fff;
+    font:inherit;font-size:.76rem;font-weight:700;color:var(--ink-soft);cursor:pointer}
+  .agr-choice:hover{border-color:var(--teal);color:var(--teal-dark)}
+  .agr-choice.is-on{background:var(--teal);border-color:var(--teal);color:#fff}
+  .agr-choice:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+  .agr-fillcount{font-size:.76rem;color:var(--ink-soft);margin:0 0 10px;padding:8px 11px;border-radius:10px;background:var(--paper)}
+  .agr-fillcount b{color:var(--teal-dark)}
 
   /* בורר משך הבלעדיות: שישה מספרים ומילת מפלט. מספרים ולא רשימה נפתחת —
      בחירת "3 חודשים" היא לחיצה אחת, וזה הרוב המוחלט של המקרים. */
@@ -5194,6 +5217,10 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <button type="button" class="pf-step-btn" data-pf-go="6"><span class="pf-num">6</span><span class="pf-lbl">פרטי בעלים</span></button>
       </nav>
 
+      <!-- גוף הטופס גולל בתוך עצמו: הגובה נקבע ב-pfFitBody() ב-crm.js כך
+           שהטופס כולו - שורת המקטעים, הגוף והסרגל - נכנס בחלון, וגלילה
+           בזמן ההזנה מזיזה את השדות ולא את כל הדף. -->
+      <div class="pf-body" id="pfBody">
       <!-- ====== מקטע 1: זיהוי וסיווג ====== -->
       <section class="pf-section" data-pf-step="1">
         <h3 class="pf-title">פרטי זיהוי וסיווג</h3>
@@ -5510,6 +5537,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <div class="field"><label for="npAgent2Phone">טלפון 2</label><input type="tel" id="npAgent2Phone"></div>
         </div>
       </section>
+      </div>
 
       <!-- סרגל הפעולות הדביק. ‏#accProperties עובר ל-overflow:clip כדי שה-sticky
            ייצמד לחלון ולא לאקורדיון - ‏overflow:hidden הופך אותו ל-scroll
@@ -5517,12 +5545,17 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="pf-footer">
         <div id="addPropertyFeedback" class="pf-feedback" role="status"></div>
         <div id="addPropertyPlanningStatus" class="pf-planning"></div>
+        <!-- "הקודם"/"הבא" בשורה משלהם, מעל השמירה, והבא מודגש: כשהם היו
+             כפתורי רפאים קטנים ליד "פרסום הנכס" הזהוב, סוכנים פרסמו מהמקטע
+             הראשון בלי לדעת שיש עוד חמישה. -->
+        <div class="pf-stepnav">
+          <button type="button" class="pf-nav pf-prev" id="npPrevStep" aria-label="המקטע הקודם"><span aria-hidden="true">→</span> הקודם</button>
+          <span class="pf-progress" id="pfProgress">שלב 1 מתוך 6</span>
+          <button type="button" class="pf-nav pf-next" id="npNextStep" aria-label="המקטע הבא">הבא: <span id="pfNextLabel">מיקום ורישום</span> <span aria-hidden="true">←</span></button>
+        </div>
         <div class="pf-actions">
           <button type="submit" class="btn btn-gold" id="addPropertyBtn">פרסום הנכס</button>
           <button type="button" class="btn btn-ghost" id="npCancel">ביטול</button>
-          <span class="pf-spacer"></span>
-          <button type="button" class="btn btn-ghost pf-nav" id="npPrevStep" aria-label="המקטע הקודם">הקודם</button>
-          <button type="button" class="btn btn-ghost pf-nav" id="npNextStep" aria-label="המקטע הבא">הבא</button>
         </div>
       </div>
     </form>

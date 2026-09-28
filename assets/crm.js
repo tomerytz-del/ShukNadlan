@@ -10527,6 +10527,8 @@ toggleBtn.addEventListener('click', ()=>{
   const showing = addForm.style.display !== 'none';
   addForm.style.display = showing ? 'none' : 'block';
   toggleBtn.textContent = showing ? '+ הוספת נכס חדש' : '✕ ביטול';
+  // הטופס בגובה החלון וגוף שגולל בתוכו - לכן הוא נפתח כשראשו מתחת לכותרת
+  if (!showing) pfScrollToForm();
   /* בפתיחה: בורר העיר נבנה כאן. האיפוס שלמטה רץ ב**סגירה** (הכנה לפתיחה
      הבאה), ולכן בפתיחה הראשונה אחרי טעינת הדף הבורר היה ריק - אפשרות
      "בחרו עיר" בלבד, בשדה חובה, כלומר אי אפשר היה לשמור נכס חדש. כששדה
@@ -10573,7 +10575,46 @@ function pfShowStep(n){
     else b.removeAttribute('aria-current');
   });
   document.getElementById('npPrevStep').disabled = pfStep === 1;
-  document.getElementById('npNextStep').disabled = pfStep === PF_STEPS;
+  document.getElementById('npNextStep').hidden = pfStep === PF_STEPS;
+  const nextBtn = addForm.querySelector('.pf-step-btn[data-pf-go="' + (pfStep + 1) + '"] .pf-lbl');
+  document.getElementById('pfNextLabel').textContent = nextBtn ? nextBtn.textContent : '';
+  document.getElementById('pfProgress').textContent = 'שלב ' + pfStep + ' מתוך ' + PF_STEPS;
+  // מקטע חדש מתחיל מראשו - הגלילה היא של גוף הטופס, לא של הדף
+  const body = document.getElementById('pfBody');
+  if (body) body.scrollTop = 0;
+}
+/* ---------- גוף הטופס גולל בתוך עצמו ----------
+   הטופס ארוך מהחלון כמעט בכל מקטע, וכשהוא גלל עם הדף, גלילה באמצע
+   ההזנה הזיזה את כל הדשבורד - הכותרת, הרשימה שמתחת - והסוכן/ת איבד/ה
+   את המקום. עכשיו הטופס כולו נכנס בחלון: שורת המקטעים למעלה, הסרגל
+   למטה, וביניהם גוף שגולל לבד (‏overscroll-behavior:contain בקצוות).
+
+   הגובה מחושב ולא נקבע ב-CSS כי מה שמעליו ומתחתיו משתנה: הכותרת הדביקה
+   גדלה אחרי גלילה (‏.kpi-sticky), הסרגל התחתון קיים רק בנייד, והסרגל של
+   הטופס גדל כשמופיעה בו הודעה. מינימום 260px - במסך נמוך מאוד (טלפון
+   לרוחב עם מקלדת) עדיף שהדף יגלול מאשר גוף של שתי שורות. */
+function pfFitBody(){
+  const body = document.getElementById('pfBody');
+  if (!body || addForm.style.display === 'none') return;
+  const header = document.querySelector('#dashboard header.crm');
+  const top = (header ? header.getBoundingClientRect().bottom : 0) + 14;
+  const steps = addForm.querySelector('.pf-steps');
+  const footer = addForm.querySelector('.pf-footer');
+  // מה שתופס את תחתית החלון (הסרגל התחתון בנייד): ההיסט הדביק של הסרגל
+  // עצמו - ‏58px + safe-area בנייד, 0 מ-1024px - כדי ששניהם יסכימו תמיד
+  const nav = document.getElementById('bottomNav');
+  const navVisible = nav && !nav.hidden && getComputedStyle(nav).display !== 'none' ? nav.offsetHeight : 0;
+  const navH = Math.max(navVisible, footer ? parseFloat(getComputedStyle(footer).bottom) || 0 : 0);
+  const vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+  const chrome = (steps ? steps.offsetHeight : 0) + (footer ? footer.offsetHeight + 8 : 0);
+  const h = Math.max(260, Math.floor(vh - top - navH - chrome - 10));
+  body.style.setProperty('--pf-body-h', h + 'px');
+}
+window.addEventListener('resize', pfFitBody);
+if (window.visualViewport) window.visualViewport.addEventListener('resize', pfFitBody);
+if (window.ResizeObserver){
+  const pfFooterEl = addForm.querySelector('.pf-footer');
+  if (pfFooterEl) new ResizeObserver(() => pfFitBody()).observe(pfFooterEl);
 }
 function pfStepOf(el){
   const sec = el && el.closest('.pf-section');
@@ -10593,10 +10634,12 @@ function pfRevealField(id){
    נכון לפני הגלילה נוחת נמוך מדי. לכן גלילה ראשונה עם scrollToTopOf,
    ותיקון אחד אחרי שהכותרת התייצבה - מול הקצה התחתון שלה בפועל. */
 function pfScrollToForm(){
+  pfFitBody();
   scrollToTopOf(addForm);
   clearTimeout(pfScrollToForm._t);
   pfScrollToForm._t = setTimeout(()=>{
     if (addForm.style.display === 'none') return;
+    pfFitBody();   // הכותרת כבר התייצבה - הגובה נמדד מולה בפועל
     const header = document.querySelector('#dashboard header.crm');
     const want = (header ? header.getBoundingClientRect().bottom : 0) + 14;
     const off = addForm.getBoundingClientRect().top - want;
@@ -22788,7 +22831,7 @@ const AGR_SOURCE_LABELS = { own:'שלי', agency:'המשרד', shared:'שותף 
 const AGR_PROPERTY_FIELDS =
   'id, listing_number, title, price, deal_type, property_type, rooms, floor, total_floors, ' +
   'size_sqm, built_size_sqm, garden_sqm, city, street, house_number, sales_area, features, ' +
-  'condition, move_in_date, description, status, agent_id';
+  'condition, move_in_date, description, status, agent_id, category, mamad_location, maintenance_fee, arnona';
 
 let agrAgencyPropertyRows = null;   // null = טרם נטען
 let agrOwnPropertyRows    = null;   // גיבוי לנכסים שלי, כשטעינת הדשבורד נפלה
@@ -22991,7 +23034,7 @@ async function agrAddProperty(propertyId, opts){
 /* ---------- הזנה ידנית ----------
    ששת השדות כאן הם מה שנדרש כדי לזהות נכס, ולא כל מה שמופיע במסמך. השאר
    נפתח מיד למטה בטופס המלא — כך שנכס שאינו במערכת נכנס בשלוש-עשרה שניות
-   ולא בשלושים ושמונה שדות. */
+   ולא בארבעים שדות. */
 function agrAddManualProperty(){
   const tpl = agrTpl(agrWizard.kind);
   const val = id => (agrEl(id) ? agrEl(id).value.trim() : '');
@@ -23032,6 +23075,19 @@ function agrAddManualProperty(){
   agrRenderPropFields();
 }
 
+/* ממ״ד בנכס נשמר בשתי צורות: במגורים כמאפיין (‏mamad, ‏mamak, ‏building_shelter),
+   ובמסחרי כמיקום (‏mamad_location). המסמך מקבל מהן משפט אחד. "אין" לא
+   נכתב לבד - נכס בלי סימון אינו בהכרח נכס בלי ממ״ד, והשדה נשאר למילוי.
+   תאום: ‏mamadText ב-supabase/functions/_shared/agreement-build.ts. */
+function agrMamadText(p){
+  const f = p.features || [];
+  if (p.mamad_location === 'unit' || f.includes('mamad')) return 'יש, בנכס';
+  if (p.mamad_location === 'building') return 'בבניין';
+  if (f.includes('mamak')) return 'ממ״ק';
+  if (f.includes('building_shelter')) return 'מקלט בבניין';
+  return '';
+}
+
 function agrFieldFromProperty(field, p, planning){
   const src = field.src;
   if (!src) return '';
@@ -23043,6 +23099,7 @@ function agrFieldFromProperty(field, p, planning){
   if (src === 'helka') return (planning && planning.helka) || '';
   if (src === 'neighborhood') return p.sales_area || '';
   if (src === 'condition') return AGR_CONDITION_LABELS[p.condition] || '';
+  if (src === 'mamad') return agrMamadText(p);
   const v = p[src];
   return (v === null || v === undefined) ? '' : String(v);
 }
@@ -23065,10 +23122,50 @@ function agrFieldFromProperty(field, p, planning){
      2. **רק נכס שלי.** ה-RLS ממילא חוסמת כתיבה לנכס של עמית/ה או של
         משרד שת"פ, וכפתור שנכשל תמיד גרוע מכפתור שאינו מוצג.
 
-   ‏feature:* אינם ברשימה בכוונה: במסמך הם טקסט חופשי ("2", "מקורה"),
+   ‏feature:* אינם ב-AGR_WRITEBACK בכוונה: במסמך הם טקסט חופשי ("2", "מקורה"),
    ובנכס הם דגל במערך — ותרגום לאחור היה הופך "2 חניות" ל"יש חניה".
    ‏condition בחוץ מאותה סיבה: "שמור מאוד" אינו אחד מחמשת הערכים הסגורים.
    ========================================================================== */
+/* מאפייני הנכס מתוך תשובות המסמך - **רק** מהערכים המדויקים של כפתורי
+   הבחירה (AGR_FIELD_CHOICES), או ממספר חיובי בשדה ספירה. "2, אחת מקורה"
+   שהוקלד ביד אינו מתורגם: זה בדיוק התרגום לאחור שההערה למעלה אוסרת. גם
+   כאן השלמה בלבד - מאפיין שכבר מסומן אינו מוסר, ו"אין" אינו מוריד דבר. */
+const AGR_FEATURE_FROM_FIELD = {
+  storage:       { yes:['יש'], feature:'storage' },
+  ac:            { yes:['יש'], feature:'ac' },
+  accessible:    { yes:['כן'], feature:'accessible' },
+  furnished:     { yes:['כן'], feature:'furnished' },
+  balconies:     { count:true, feature:'balcony' },
+  parking_count: { count:true, feature:'parking' },
+  elevators:     { count:true, feature:'elevator' },
+};
+const AGR_MAMAD_FEATURE = { 'יש, בנכס':'mamad', 'ממ״ק':'mamak', 'מקלט בבניין':'building_shelter' };
+
+/* ‏{ features, mamad_location } לפי הקטגוריה: במגורים ממ״ד הוא מאפיין,
+   ובמסחרי הוא מיקום (‏mamad_location) - בדיוק כמו בטופס הנכס עצמו. מאפיין
+   שאינו קיים ברשימת הקטגוריה (מחסן במסחרי) אינו נכתב. */
+function agrFeaturesFromFields(fields, category){
+  const list = category === 'commercial' ? COMMERCIAL_PROPERTY_FEATURES : RESIDENTIAL_PROPERTY_FEATURES;
+  const valid = new Set(list.map(r => r[0]));
+  const features = [];
+  Object.keys(AGR_FEATURE_FROM_FIELD).forEach(k => {
+    const rule = AGR_FEATURE_FROM_FIELD[k];
+    const v = String(fields[k] || '').trim();
+    if (!v) return;
+    const ok = rule.count ? (v === 'יש' || /^[1-9]\d?$/.test(v)) : rule.yes.includes(v);
+    if (ok && valid.has(rule.feature)) features.push(rule.feature);
+  });
+  const mv = String(fields.mamad || '').trim();
+  let mamad_location = null;
+  if (category === 'commercial'){
+    if (mv === 'יש, בנכס') mamad_location = 'unit';
+    else if (mv === 'מקלט בבניין') mamad_location = 'building';
+  } else if (AGR_MAMAD_FEATURE[mv]){
+    features.push(AGR_MAMAD_FEATURE[mv]);
+  }
+  return { features, mamad_location };
+}
+
 const AGR_WRITEBACK = {
   property_type:  { col:'property_type' },
   street:         { col:'street' },
@@ -23083,6 +23180,8 @@ const AGR_WRITEBACK = {
   garden_sqm:     { col:'garden_sqm',     num:{ min:0 } },
   gush:           { col:'gush',   planning:true },
   helka:          { col:'helka',  planning:true },
+  maintenance_fee:{ col:'maintenance_fee', num:{ min:0 } },
+  arnona:         { col:'arnona',          num:{ min:0 } },
 };
 
 /* מספר מתוך טקסט של מסמך: "1,850,000 ₪" הוא מה שמקלידים, ולא מה
@@ -23121,7 +23220,24 @@ function agrWritebackPlan(entry){
     if (current !== null && current !== undefined && String(current).trim() !== '') return;
     plan.push({ label: f.label, col: map.col, value, planning: !!map.planning });
   });
+
+  // מאפיינים (ממ״ד, מחסן, חניה...) - הוספה למערך הקיים, לעולם לא הסרה
+  const fromDoc = agrFeaturesFromFields(entry.fields, p.category);
+  const have = p.features || [];
+  const add = fromDoc.features.filter(k => !have.includes(k));
+  if (add.length){
+    plan.push({ label: 'מאפיינים (' + add.map(agrFeatureLabel).join(', ') + ')',
+                col: 'features', value: have.concat(add), planning: false });
+  }
+  if (fromDoc.mamad_location && !p.mamad_location){
+    plan.push({ label: 'ממ״ד', col: 'mamad_location', value: fromDoc.mamad_location, planning: false });
+  }
   return plan;
+}
+
+function agrFeatureLabel(key){
+  const row = RESIDENTIAL_PROPERTY_FEATURES.concat(COMMERCIAL_PROPERTY_FEATURES).find(r => r[0] === key);
+  return row ? row[1] : key;
 }
 
 /* בטופס של צד הנכס החותם/ת הוא/היא הבעלים — וזה בדיוק המידע ש-
@@ -23266,8 +23382,14 @@ async function agrAddPropertyToCatalog(uid, btn){
     built_size_sqm: num('built_sqm', { min:0 }),
     garden_sqm:     num('plot_sqm', { min:0 }),
     sales_area:     txt('location') || null,
+    maintenance_fee: num('vaad', { min:0 }),
+    arnona:         num('arnona', { min:0 }),
     description:    entry.notes || null,
   };
+  // ממ״ד ושאר המאפיינים שנבחרו בכפתורים (agrFeaturesFromFields)
+  const fromDoc = agrFeaturesFromFields(f, payload.category);
+  payload.features = fromDoc.features;
+  if (fromDoc.mamad_location) payload.mamad_location = fromDoc.mamad_location;
 
   const { data: created, error } = await sb.from('properties')
     .insert(payload).select('id').single();
@@ -23307,6 +23429,58 @@ async function agrAddPropertyToCatalog(uid, btn){
   agrRenderPropResults();
 }
 
+/* ---------- בחירה בלחיצה ----------
+   ארבעים שדות טקסט חופשי בטלפון, מול בעל/ת הנכס, הם המקום שבו ההחתמה
+   נתקעת - ורובם תשובת "כן/לא" או מספר קטן. לשדות האלה יש כאן כפתורים
+   שממלאים את התיבה; היא נשארת טקסט חופשי לכל תשובה אחרת ("2, אחת מקורה").
+
+   הערכים המדויקים כאן הם גם מה ש-agrFeaturesFromFields מתרגם בחזרה
+   למאפייני הנכס - תשובה שהוקלדה ביד אינה מתורגמת (ראו שם). */
+const AGR_FIELD_CHOICES = {
+  mamad:         ['יש, בנכס', 'ממ״ק', 'מקלט בבניין', 'אין'],
+  storage:       ['יש', 'אין'],
+  balconies:     ['אין', 'יש', '1', '2'],
+  parking_count: ['אין', 'יש', '1', '2'],
+  elevators:     ['אין', 'יש', '1', '2'],
+  ac:            ['יש', 'אין'],
+  accessible:    ['כן', 'לא'],
+  basement:      ['כן', 'לא'],
+  solar:         ['כן', 'לא'],
+  furnished:     ['כן', 'לא', 'חלקית'],
+  pets:          ['מותר', 'אסור'],
+  partners:      ['מותר', 'אסור'],
+  showers:       ['1', '2'],
+  restrooms:     ['1', '2'],
+  ownership:     ['טאבו', 'מינהל', 'חברה משכנת'],
+  parking_location: ['בטאבו', 'מקורה', 'לא מקורה'],
+  condition:     ['חדש מקבלן', 'משופץ', 'שמור', 'דרוש שיפוץ'],
+};
+
+function agrChoicesHtml(entry, key){
+  const opts = AGR_FIELD_CHOICES[key];
+  if (!opts) return '';
+  const cur = (entry.fields[key] || '').trim();
+  return '<div class="agr-choices">' + opts.map(v =>
+    `<button type="button" class="agr-choice${cur === v ? ' is-on' : ''}" data-agr="pf-pick"
+       data-uid="${esc(entry.uid)}" data-key="${esc(key)}" data-val="${esc(v)}"
+       aria-pressed="${cur === v}">${esc(v)}</button>`).join('') + '</div>';
+}
+
+/* כמה מהשדות מולאו - כדי שיהיה ברור כמה נשאר, ושריק אינו שגיאה */
+function agrFillCountHtml(entry, fields){
+  const filled = fields.filter(f => String(entry.fields[f.key] || '').trim()).length;
+  return `<p class="agr-fillcount" data-agr-fillcount="${esc(entry.uid)}">` +
+    `מולאו <b>${filled}</b> מתוך ${fields.length} שדות · שדה שיישאר ריק יודפס כקו למילוי בכתב יד</p>`;
+}
+
+function agrUpdateFillCount(uid){
+  const tpl = agrTpl(agrWizard.kind);
+  const entry = agrWizard.properties.find(p => p.uid === uid);
+  const el = document.querySelector('[data-agr-fillcount="' + CSS.escape(uid) + '"]');
+  if (!tpl || !entry || !el) return;
+  el.outerHTML = agrFillCountHtml(entry, tpl.propertyFields);
+}
+
 function agrRenderPropFields(){
   const host = agrEl('agrPropFields');
   if (!host) return;
@@ -23320,10 +23494,12 @@ function agrRenderPropFields(){
   host.innerHTML = agrWizard.properties.map((entry, idx) => {
     const inputs = tpl.propertyFields.map(f =>
       `<div class="agr-field"><label>${esc(overrides[f.key] || f.label)}</label>
-         <input type="text" data-agr-pf="${esc(entry.uid)}" data-key="${esc(f.key)}" value="${esc(entry.fields[f.key] || '')}"></div>`
+         <input type="text" data-agr-pf="${esc(entry.uid)}" data-key="${esc(f.key)}" value="${esc(entry.fields[f.key] || '')}">` +
+      agrChoicesHtml(entry, f.key) + '</div>'
     ).join('');
     return (agrWizard.properties.length > 1
         ? `<div class="form-subheading">נכס ${idx + 1} · ${esc(entry.label)}</div>` : '') +
+      (tpl.propertyFields.length > 12 ? agrFillCountHtml(entry, tpl.propertyFields) : '') +
       '<div class="agr-fields">' + inputs + '</div>' +
       `<div class="agr-field" style="margin-top:9px"><label>הערות לנכס</label>
          <textarea rows="2" data-agr-pnotes="${esc(entry.uid)}">${esc(entry.notes || '')}</textarea></div>` +
@@ -24105,6 +24281,23 @@ agrEl('agrModal').addEventListener('click', async (e)=>{
   if (act === 'add-manual-prop') return agrAddManualProperty();
   if (act === 'save-to-property') return agrSaveToProperty(btn.dataset.uid, btn);
   if (act === 'add-to-catalog')   return agrAddPropertyToCatalog(btn.dataset.uid, btn);
+  if (act === 'pf-pick'){
+    const entry = agrWizard.properties.find(p => p.uid === btn.dataset.uid);
+    if (!entry) return;
+    const key = btn.dataset.key;
+    // לחיצה שנייה על הבחירה הנוכחית מנקה אותה - חזרה לקו למילוי ביד
+    const val = (entry.fields[key] || '').trim() === btn.dataset.val ? '' : btn.dataset.val;
+    entry.fields[key] = val;
+    const field = btn.closest('.agr-field');
+    const input = field && field.querySelector('input[data-agr-pf]');
+    if (input) input.value = val;
+    field.querySelectorAll('.agr-choice').forEach(b => {
+      const on = b.dataset.val === val;
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    return agrUpdateFillCount(entry.uid);
+  }
   if (act === 'rm-prop'){
     agrWizard.properties = agrWizard.properties.filter(p => p.uid !== btn.dataset.uid);
     agrRenderPropChips();
@@ -24162,6 +24355,13 @@ agrEl('agrBody').addEventListener('input', async (e)=>{
   if (t.dataset.agrPf){
     const entry = agrWizard.properties.find(p => p.uid === t.dataset.agrPf);
     if (entry) entry.fields[t.dataset.key] = t.value;
+    const field = t.closest('.agr-field');
+    if (field) field.querySelectorAll('.agr-choice').forEach(b => {
+      const on = b.dataset.val === t.value.trim();
+      b.classList.toggle('is-on', on);
+      b.setAttribute('aria-pressed', String(on));
+    });
+    if (entry) agrUpdateFillCount(entry.uid);
     return;
   }
   if (t.dataset.agrPnotes){

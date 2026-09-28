@@ -117,8 +117,19 @@ function fieldFromProperty(
   if (src === "helka") return String((planning && planning.helka) || "");
   if (src === "neighborhood") return String(p.sales_area || "");
   if (src === "condition") return CONDITION_LABELS[String(p.condition || "")] || "";
+  if (src === "mamad") return mamadText(p);
   const v = p[src];
   return (v === null || v === undefined) ? "" : String(v);
+}
+
+/** ממ״ד מתוך המאפיינים (מגורים) או המיקום (מסחרי) — תאום של `agrMamadText`. */
+function mamadText(p: Record<string, unknown>): string {
+  const f = (p.features as string[] | null) || [];
+  if (p.mamad_location === "unit" || f.includes("mamad")) return "יש, בנכס";
+  if (p.mamad_location === "building") return "בבניין";
+  if (f.includes("mamak")) return "ממ״ק";
+  if (f.includes("building_shelter")) return "מקלט בבניין";
+  return "";
 }
 
 /** תווית קריאה לנכס, כמו הצ'יפ באשף: "דירה — הרצל 5, עפולה". */
