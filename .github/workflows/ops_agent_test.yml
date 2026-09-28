@@ -16,6 +16,7 @@ on:
       - "scripts/ops_market_data_test.py"
       - "scripts/ops_agency_no_city_test.py"
       - "scripts/ops_make_scenario_test.py"
+      - "scripts/ops_workflow_health_test.py"
       - "scripts/check_markets.py"
       - "assets/markets.js"
       - ".github/workflows/ops_agent_test.yml"
@@ -28,6 +29,7 @@ on:
       - "scripts/ops_market_data_test.py"
       - "scripts/ops_agency_no_city_test.py"
       - "scripts/ops_make_scenario_test.py"
+      - "scripts/ops_workflow_health_test.py"
       - "scripts/check_markets.py"
       - "assets/markets.js"
       - ".github/workflows/ops_agent_test.yml"
@@ -69,3 +71,8 @@ jobs:
       # שהשרת סימן - גם בלי טוקן. על המקרה של 27.9.2026.
       - name: ‏_make_scenarios מדווחת בדיוק מתי שצריך
         run: python3 scripts/ops_make_scenario_test.py
+
+      # ‏בריאות ה-workflows: כישלון שתוקן אינו "נכשל", ו-workflow חודשי
+      # אינו "שותק" שלושה ימים אחרי הרצה. על המקרה של 27.9.2026.
+      - name: ‏workflow_failing / workflow_silent מדווחות בדיוק מתי שצריך
+        run: python3 scripts/ops_workflow_health_test.py

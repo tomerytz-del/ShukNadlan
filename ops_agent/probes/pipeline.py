@@ -224,6 +224,40 @@ def _migrations(ctx) -> Iterator[Finding]:
         )
 
 
+def _cron_cadence_days(ctx, wf_path: str) -> int:
+    """כל כמה ימים ה-workflow אמור לרוץ, לפי ה-`cron` שבקובץ שלו.
+
+    ‏`workflow_silent_days` כויל על workflows שרצים כל שעתיים; ל-workflow
+    חודשי (‏`land_ownership.yml`, ‏`whatsapp_public_bot_check.yml`) הוא היה
+    "שתק" שלושה ימים אחרי כל הרצה תקינה. מחזיר 1 כשאין קובץ, אין cron,
+    או שהוא יומי ומעלה — כלומר ההתנהגות הקודמת.
+    """
+    import re
+    try:
+        text = (ctx.root / wf_path).read_text(encoding="utf-8")
+    except Exception:
+        return 1
+    best = None
+    for line in text.splitlines():
+        m = re.match(r"""\s*-\s*cron:\s*["']([^"']+)["']""", line)
+        if not m:
+            continue
+        fields = m.group(1).split()
+        if len(fields) != 5:
+            continue
+        _, _, dom, mon, dow = fields
+        if mon != "*":
+            days = 366
+        elif dom != "*":
+            days = int(dom[2:]) if dom.startswith("*/") and dom[2:].isdigit() else 31
+        elif dow != "*":
+            days = 7
+        else:
+            days = 1
+        best = days if best is None else min(best, days)
+    return best or 1
+
+
 def _actions(ctx) -> Iterator[Finding]:
     """שיעור הכישלון של כל workflow, ו-workflow מתוזמן ששתק."""
     settings = ctx.settings
@@ -295,7 +329,32 @@ def _actions(ctx) -> Iterator[Finding]:
         failed = [r for r in done if r.get("conclusion") == "failure"]
         rate = len(failed) / len(done)
 
-        if rate >= t.workflow_fail_rate:
+        # ‏**"נכשל" פירושו שההרצה האחרונה ב-main נכשלה**, והשיעור רק מדרג.
+        # שיעור לבדו אינו יכול לרדת בקצב של תיקון: ב-workflow חודשי חלון של
+        # 20 הרצות הוא 20 חודשים, וכישלון אחד מחזיק אותו מעל 25% עוד שלוש
+        # הרצות ירוקות. כך נפתח ב-27.9.2026 ממצא בדרגה גבוהה על "סוג בעלות
+        # בקרקע" (1 מתוך 2), יום אחרי ש-#450 תיקן את ה-403 וההרצה שאחריו
+        # ב-main עברה. ‏`done[0]` הוא האחרון — ה-API מחזיר מהחדש לישן.
+        recovered = done[0].get("conclusion") != "failure"
+        if rate >= t.workflow_fail_rate and recovered:
+            # התאושש. אם זה דפוס ולא אירוע — ‏workflow שנכשל לסירוגין —
+            # זה ממצא אחר ובדרגה אחרת, ורק כשיש מספיק הרצות לקרוא לזה דפוס.
+            # אחרת ממשיכים לבדיקת השקט למטה, כמו כל workflow תקין.
+            if len(done) >= t.workflow_flaky_min_runs:
+                yield Finding(
+                    area="health", code="workflow_flaky", severity="medium",
+                    subject=wf["name"],
+                    title="‏workflow נכשל לסירוגין: %s" % wf["name"],
+                    detail="ההרצה האחרונה עברה, אבל %d מתוך %d ההרצות האחרונות "
+                           "נכשלו." % (len(failed), len(done)),
+                    suggestion="הכישלון האחרון: %s" % failed[0].get("html_url"),
+                    metric=round(rate * 100, 1), metric_unit="%",
+                    evidence={"path": wf.get("path"),
+                              "last_failure": failed[0].get("html_url")},
+                )
+                continue
+
+        elif rate >= t.workflow_fail_rate:
             yield Finding(
                 area="health", code="workflow_failing",
                 severity="critical" if rate >= 0.6 else "high",
@@ -335,7 +394,9 @@ def _actions(ctx) -> Iterator[Finding]:
         except ValueError:
             continue
         days = (now - when).days
-        if days >= t.workflow_silent_days:
+        cadence = _cron_cadence_days(ctx, wf.get("path") or "")
+        limit = t.workflow_silent_days + (cadence if cadence > 1 else 0)
+        if days >= limit:
             yield Finding(
                 area="health", code="workflow_silent", severity="high",
                 subject=wf["name"],
