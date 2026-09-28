@@ -4227,6 +4227,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   .agr-sec>h4{margin:0 0 10px;font-size:.9rem;font-family:'Frank Ruhl Libre',serif;color:var(--teal-dark)}
   .agr-grid,.agr-fields{display:grid;grid-template-columns:1fr 1fr;gap:8px}
   @media(max-width:560px){.agr-grid,.agr-fields{grid-template-columns:1fr}}
+  /* פרטי הנכס בהסכם: שני שדות בשורה גם בטלפון. רובם ערך קצר ("4", "יש",
+     "טאבו"), ושדה ברוחב מלא לכל אחד מארבעים הפך את השלב לגלילה אינסופית. */
+  @media(max-width:560px){
+    #agrPropFields .agr-fields{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 8px}
+    #agrPropFields .agr-choice{padding:4px 9px;min-height:30px;font-size:.72rem}
+  }
   .agr-field label{font-size:.72rem;font-weight:700;color:var(--ink-soft);display:block;margin-bottom:3px}
   .agr-field input,.agr-field select,.agr-field textarea{width:100%;border:1.5px solid var(--line);
     border-radius:var(--radius-sm);padding:8px 10px;font-family:inherit;font-size:.85rem;

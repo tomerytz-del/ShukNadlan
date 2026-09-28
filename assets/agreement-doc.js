@@ -307,13 +307,21 @@
        דפדפן ישן שאינו תומך מקבל את טבלת ארבע העמודות, שממילא כבר אינה
        חורגת מהמסגרת (‏table-layout:fixed וקווי מילוי ברוחב התא). */
     '@container (max-width:620px){' +
-      /* הטבלה מתפרקת לשורות, וכל זוג תווית-ערך יושב בשורה משלו: שני זוגות
-         בשורה אחת הם מה שלא נכנס בטלפון, ולא הטבלה עצמה */
-      '.agr-doc .agr-doc-fields,.agr-doc .agr-doc-fields tbody,.agr-doc .agr-doc-fields tr{display:block;width:100%}' +
-      '.agr-doc .agr-doc-fields td{display:inline-block;box-sizing:border-box;vertical-align:top}' +
-      '.agr-doc .agr-doc-fields td.k{width:41%;padding-inline-start:0}' +
-      '.agr-doc .agr-doc-fields td.v{width:59%;padding-inline-end:0}' +
-      /* תא ריק שנועד רק להשלים שורה בת ארבע עמודות — במבנה שורה-לזוג אין
+      /* שני זוגות בשורה גם בטלפון, תווית ליד ערך. קודם כל זוג קיבל שורה
+         משלו, וארבעים השדות של טופס בעל/ת הנכס נמתחו לארבעים שורות - החלק
+         הארוך ביותר שהחותם/ת גולל/ת לפני החתימה. כאן הם עשרים.
+
+         ‏tbody הוא grid אחד ו-tr הם display:contents, כך שהעמודות מיושרות
+         לאורך כל הטבלה. עמודות התווית ‏fit-content: תווית קצרה ("עיר:")
+         אינה תופסת רוחב, וארוכה ("קומות בנכס/בניין:") נשברת לשתי שורות
+         במקום לדחוק את הערך. ה-HTML עצמו נשאר טבלה בת ארבע עמודות למייל. */
+      '.agr-doc .agr-doc-fields{display:block;width:100%;font-size:11.5px!important}' +
+      '.agr-doc .agr-doc-fields tbody{display:grid;width:100%;' +
+        'grid-template-columns:fit-content(24%) minmax(0,1fr) fit-content(24%) minmax(0,1fr)}' +
+      '.agr-doc .agr-doc-fields tr{display:contents}' +
+      '.agr-doc .agr-doc-fields td{display:block;box-sizing:border-box;padding:4px 3px!important}' +
+      '.agr-doc .agr-doc-fields td.k{padding-inline-start:0!important}' +
+      '.agr-doc .agr-doc-fields td.v{padding-inline-end:8px!important}' +      /* תא ריק שנועד רק להשלים שורה בת ארבע עמודות — במבנה שורה-לזוג אין
          לו קיום, והצגתו הייתה שורה ריקה באמצע התיאור */
       '.agr-doc .agr-doc-fields td.pad{display:none}' +
     '}' +
