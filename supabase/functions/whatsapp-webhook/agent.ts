@@ -3367,7 +3367,8 @@ async function toolPrepareAgreement(ctx: ToolContext, input: Record<string, unkn
     // כקו למילוי ידני, וזה לא מה שרוצים כשהערך קיים במודעה.
     .select("id, agent_id, status, title, property_type, street, house_number, city, " +
             "sales_area, rooms, floor, total_floors, price, built_size_sqm, " +
-            "garden_sqm, move_in_date, condition, features, deal_type")
+            "garden_sqm, move_in_date, condition, features, deal_type, " +
+            "mamad_location, maintenance_fee, arnona")
     .in("id", requested);
 
   const visible = ((rows || []) as unknown as Record<string, unknown>[])

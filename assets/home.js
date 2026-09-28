@@ -970,6 +970,79 @@ try {
   }
 } catch(e){ console.warn('יצירת Supabase client נכשלה:', e); }
 
+/* ============================================================
+   מונה החיפושים - כתיבה ל-search_events, לצד ה-dataLayer
+   ------------------------------------------------------------
+   כל `shukTrack('search', …)` בקובץ הזה נכתב **גם** לטבלה במסד, שמזינה
+   את הבלוק "מה מחפשים באתר" בדשבורד של מנהל/ת הפלטפורמה.
+
+   למה שניים ולא רק GA4: חוסם פרסומות מפיל את GTM ואיתו את האירוע;
+   המכולה יכולה להיות לא מחוברת (וזה כבר קרה - 13 אירועים בקוד מול 0
+   טריגרים); והמספר הזה שייך לאותו מסך שבו נמצא כל השאר.
+
+   **הניקוי אינו קוסמטיקה.** הטקסט בתיבת החיפוש הוא מה שאדם הקליד, ולכן
+   הוא היחיד בכל המונה שעלול להכיל פרט אישי. מי שמדביק אימייל או טלפון
+   לתיבת חיפוש - וזה קורה - לא יישמר. אותן שלוש ההגנות קיימות גם כ-
+   ‏check constraint במסד, כי לקוח אינו אמין: ‏80 תווים, בלי `@`, ובלי
+   רצף של תשע ספרות ומעלה. **תשע ולא שש:** מחיר כמו 1500000 הוא שבע
+   ספרות וחייב לעבור, אחרת נאבד בדיוק את החיפושים המעניינים.
+
+   הפרטים: docs/search-analytics.md
+   ============================================================ */
+const SEARCH_EVENTS_URL = SUPABASE_URL + '/rest/v1/search_events';
+
+function cleanSearchTerm(raw){
+  try{
+    const t = String(raw == null ? '' : raw).trim().replace(/\s+/g, ' ').toLowerCase();
+    if (!t) return null;
+    if (t.length > 80) return null;          // טקסט ארוך מדי אינו מונח חיפוש
+    if (t.indexOf('@') !== -1) return null;  // אימייל
+    if (/[0-9]{9,}/.test(t)) return null;    // טלפון או ת"ז
+    return t;
+  } catch(e){ return null; }
+}
+
+/* אותו מזהה סשן שכבר מזין את property_views, כדי שחיפוש וצפייה באותו
+   ביקור ייקראו כאותו אדם. חי עד סגירת הלשונית, ואינו עובר בין מכשירים. */
+function visitorSessionId(){
+  try{
+    let id = sessionStorage.getItem('shuknadlan_session_id');
+    if (!id){
+      id = 'sess_' + Math.random().toString(36).slice(2) + Date.now().toString(36);
+      sessionStorage.setItem('shuknadlan_session_id', id);
+    }
+    return /^sess_[a-z0-9]{1,48}$/.test(id) ? id : null;
+  } catch(e){ return null; }   // גלישה פרטית: המונה ממשיך בלי מזהה
+}
+
+function logSearchToDb(row){
+  try{
+    fetch(SEARCH_EVENTS_URL, {
+      method: 'POST',
+      headers: {
+        'apikey': SUPABASE_ANON_KEY,
+        'Authorization': 'Bearer ' + SUPABASE_ANON_KEY,
+        'Content-Type': 'application/json',
+        /* ‏**return=minimal אינו אופטימיזציה - הכתיבה תלויה בו.** לתפקיד
+           anon יש insert על הטבלה ותו לא; return=representation היה
+           מוסיף returning, שדורש select, וכל הכתיבה הייתה נכשלת ב-401. */
+        'Prefer': 'return=minimal'
+      },
+      body: JSON.stringify({
+        source:       row.source,
+        term:         cleanSearchTerm(row.term),
+        deal_type:    row.dealType || 'all',
+        category:     row.category || 'all',
+        filter_count: Math.max(0, Math.min(50, Number(row.filterCount) || 0)),
+        result_count: Math.max(0, Math.min(100000, Number(row.resultCount) || 0)),
+        session_id:   visitorSessionId()
+        /* occurred_at נקבע בשרת. הלקוח אינו שולח זמן. */
+      }),
+      keepalive: true
+    })['catch'](function(){ /* אין רשת, או שהמיגרציה טרם רצה - מונה, לא תקלה */ });
+  } catch(e){ /* מדידה לא שוברת אתר */ }
+}
+
 /* קידום נמכר לחלון של 72 שעות. ‏expire_promotions ב-DB מכבה את is_promoted
    כל רבע שעה, והבדיקה מול promoted_until כאן סוגרת גם את הפער הזה, כדי
    שנכס לא יישאר עם סרט "מקודם" אחרי שהחלון נגמר. ‏promoted_until ריק =
@@ -4398,6 +4471,17 @@ async function runSearchInner(){
       filter_count: count,
       result_count: results.length,
     });
+    /* ‏ואותו אירוע גם למסד, שמזין את הדשבורד. מחוץ ל-if: ‏shukTrack חסר
+       פירושו שחוסם פרסומות מנע את events.js, וזה בדיוק המקרה שבגללו
+       המונה הזה קיים. */
+    logSearchToDb({
+      source: 'bar',
+      term: freeTextMain,
+      dealType: dealType || 'all',
+      category: isCommercial ? 'commercial' : 'residential',
+      filterCount: count,
+      resultCount: results.length,
+    });
     // רגע הכניסה הטבעי לתצוגה המפוצלת: מהחיפוש הראשון ואילך יש תוצאות
     // להשוות מול המפה. נפתחת פעם אחת בלבד ורק למי שעוד לא בחר/ה בעצמו/ה —
     // מי שסגר/ה את הפאנל לא ימצא אותו פתוח שוב.
@@ -5739,16 +5823,28 @@ function showSentenceResults({ track = true } = {}){
   const st = sentence.state();
   const results = sentence.results();
   renderPropertyGrid(results, true);
-  if (track && window.shukTrack){
+  /* ‏track נשאר התנאי החיצוני: קורא שמבקש track:false מבקש לא לספור את
+     החיפוש הזה בכלל, בשני היעדים. ‏window.shukTrack ירד לתנאי הפנימי
+     בלבד - חסימה של events.js אינה סיבה לאבד גם את המונה במסד. */
+  if (track){
     const t = sentence.Core.typeDef(st.type);
-    shukTrack('search', {
+    const category = t.commercial ? 'commercial' : (t.key === 'any' ? 'all' : 'residential');
+    if (window.shukTrack) shukTrack('search', {
       // המשפט עצמו ולא טקסט חופשי: הוא מורכב מאפשרויות שלנו, בלי פרטים אישיים
       search_term: sentence.describe(),
       search_source: 'sentence',
       deal_type: st.deal || 'all',
-      category: t.commercial ? 'commercial' : (t.key === 'any' ? 'all' : 'residential'),
+      category: category,
       filter_count: countActiveFilters(),
       result_count: results.length,
+    });
+    logSearchToDb({
+      source: 'sentence',
+      term: sentence.describe(),
+      dealType: st.deal || 'all',
+      category: category,
+      filterCount: countActiveFilters(),
+      resultCount: results.length,
     });
   }
   if (!splitPrefSet && splitSupported()) setSplitView(true);

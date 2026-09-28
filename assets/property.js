@@ -1058,6 +1058,10 @@ function vizBusinessChips(){
 
 async function loadVisualizations(p){
   if (!window.supabase) return;
+  /* נכס בלי תמונות אין ממה לדמות: המנוע הוא img2img, והפונקציה מחזירה
+     ‏no_images לכל בקשה. תיבה שמציעה "יצירת הדמיה" כאן היא כפתור שתמיד
+     נכשל, ולכן היא לא עולה בכלל — וגם לא קיצור הדרך אליה. */
+  if (!(Array.isArray(p.images) && p.images.some(Boolean))) return;
   const section = document.getElementById('vizSection');
   try{
     const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);

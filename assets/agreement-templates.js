@@ -49,6 +49,8 @@
     { key: 'plot_sqm',         label: 'שטח מגרש',           src: 'garden_sqm' },
     { key: 'balconies',        label: 'מרפסות',             src: 'feature:balcony' },
     { key: 'balcony_size',     label: 'גודל מרפסת' },
+    { key: 'mamad',            label: 'ממ״ד',               src: 'mamad' },
+    { key: 'storage',          label: 'מחסן',               src: 'feature:storage' },
     { key: 'storage_size',     label: 'גודל מחסן' },
     { key: 'location',         label: 'מיקום הנכס',         src: 'neighborhood' },
     { key: 'ownership',        label: 'בעלות' },
@@ -66,8 +68,8 @@
     { key: 'furnished',        label: 'מרוהט?',             src: 'feature:furnished' },
     { key: 'pets',             label: 'בעלי חיים' },
     { key: 'partners',         label: 'שותפים' },
-    { key: 'vaad',             label: 'ועד' },
-    { key: 'arnona',           label: 'ארנונה' },
+    { key: 'vaad',             label: 'ועד',                src: 'maintenance_fee', money: true },
+    { key: 'arnona',           label: 'ארנונה',             src: 'arnona', money: true },
     { key: 'evacuation_date',  label: 'תאריך פינוי',        src: 'move_in_date', date: true }
   ];
 
@@ -76,7 +78,7 @@
      האלה הם בדיוק מה שנדרש כדי לומר "זה הנכס שהוצג לי, בתאריך הזה, במחיר
      הזה" — וזו כל תכליתה של רשימת ההצעות בטופס.
 
-     ‏שישה שדות ולא שלושים ושמונה, וזה מכוון: זו רשימה של הצעות, לא כרטיס נכס. */
+     ‏שישה שדות ולא ארבעים, וזה מכוון: זו רשימה של הצעות, לא כרטיס נכס. */
   var PROPERTY_FIELDS_OFFER = [
     { key: 'property_type',    label: 'סוג הנכס',     src: 'property_type' },
     { key: 'street',           label: 'רחוב',         src: 'street' },
@@ -86,7 +88,7 @@
     { key: 'price',            label: 'מחיר מבוקש',   src: 'price', money: true }
   ];
 
-  /* בטופס הבלעדיות הנכס מתואר בקצרה — שנים-עשר שדות ולא שלושים ושמונה.
+  /* בטופס הבלעדיות הנכס מתואר בקצרה — שנים-עשר שדות ולא ארבעים.
      ההיגיון שלו אחר: מה שנחתם כאן הוא **התחייבות לתקופה ולפעולות שיווק**,
      והנכס נדרש רק כדי לזהות במדויק על מה הבלעדיות חלה. תיאור מלא של מצב
      הנכס שייך לטופס ההזמנה, וכאן היה רק רעש. */
