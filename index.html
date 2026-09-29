@@ -644,18 +644,23 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   @keyframes ssGoReady{0%{box-shadow:0 0 0 0 rgba(201,162,39,.75)}70%{box-shadow:0 0 0 12px rgba(201,162,39,0)}100%{box-shadow:0 0 0 0 rgba(201,162,39,0)}}
   .ss-go.is-ready{animation:ssGoReady 1.1s ease-out 2}
   .ss-options{display:flex;flex-wrap:wrap;gap:8px}
+  /* האפשרויות נראות ככפתורים גם על הבורר הלבן: רקע תכלת מורגש, מסגרת
+     ‎#7d89b0‎ וצל דק. המסגרת הקודמת (‏--ss-line) הייתה 1.28:1 מול לבן -
+     הכפתורים נבלעו במשטח, ומתחת ל-3:1 שנדרש לגבול של רכיב (WCAG 1.4.11).
+     ‏#7d89b0 הוא 3.46:1 מול לבן ו-3.02:1 מול התכלת. */
   .ss-opt{
     display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;
-    padding:10px 16px;background:var(--ss-tint);border:1px solid var(--ss-line);border-radius:0;
+    padding:10px 16px;background:#eaf0fb;border:1px solid #7d89b0;border-radius:0;
+    box-shadow:0 1px 2px rgba(22,41,107,.14);
     color:var(--ss-ink);font:inherit;font-size:15px;font-weight:500;line-height:1.2;cursor:pointer;
     transition:border-color .15s ease,background .15s ease;
   }
-  .ss-opt:hover{border-color:var(--ss-navy)}
+  .ss-opt:hover{border-color:var(--ss-navy);background:#dde6f8}
   .ss-opt:focus-visible{outline:2px solid var(--ss-gold);outline-offset:2px}
   .ss-opt-count{font-size:12px;color:var(--ss-muted);font-weight:500}
   .ss-opt.is-selected{background:var(--ss-navy);border-color:var(--ss-navy);color:#fff;font-weight:600}
   /* אפשרות שתחזיר אפס נשארת (אפס הוא תשובה), אבל נראית כמו מה שהיא */
-  .ss-opt.is-zero:not(.is-selected){background:#fff;border-style:dashed;color:var(--ss-muted)}
+  .ss-opt.is-zero:not(.is-selected){background:#fff;border-style:dashed;box-shadow:none;color:var(--ss-muted)}
 
   .ss-smart{display:flex;align-items:stretch;margin:0;border-top:1px solid var(--ss-line-2)}
   .ss-smart + .ss-tools{padding-top:6px;border-top:1px solid var(--ss-line-2)}
