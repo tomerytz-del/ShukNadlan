@@ -1,5 +1,0 @@
-# render outputs - the web versions live in assets/ (docs/crm-reel.md)
-*.mp4
-frames/
-sheet.html
-beats-sheet.png
