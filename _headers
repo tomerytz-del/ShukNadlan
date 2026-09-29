@@ -93,6 +93,19 @@
 /assets/*.svg
   Cache-Control: public, max-age=86400
 
+# סרטון ההדגמה ב-pricing (‏docs/crm-reel.md) — אותו היגיון: בינארי שאינו
+# משתנה בפועל, ומי שמחליף/ה אותו מקבל/ת את החדש למחרת.
+/assets/*.mp4
+  Cache-Control: public, max-age=86400
+
+/assets/*.webm
+  Cache-Control: public, max-age=86400
+
+# מקור האנימציה של הסרטון. דף עבודה ולא דף באתר: אין בו GTM או canonical,
+# ואין סיבה שגוגל תאנדקס אותו.
+/tools/*
+  X-Robots-Tag: noindex
+
 /promoted.png
   Cache-Control: public, max-age=86400
 
