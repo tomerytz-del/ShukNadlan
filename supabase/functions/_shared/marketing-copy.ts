@@ -28,17 +28,33 @@ export interface MarketingCopy {
 export const nis = (n: number | null | undefined) =>
   n === null || n === undefined ? "" : "₪" + Math.round(Number(n)).toLocaleString("he-IL");
 
-/** "₪1,850,000" למכירה · "₪4,800 לחודש" להשכרה. */
+/** "₪1,850,000" למכירה · "₪4,800 לחודש" להשכרה · "₪2,966 לחודש + מע״מ" למסחרי.
+ *
+ *  ‏**"+ מע״מ" — אותו כלל של האתר** (‏vatSuffix ב-assets/property.js,
+ *  ‏property-card.js, ‏home.js): נכס מסחרי מתומחר לפני מע״מ, אלא אם הסוכן/ת
+ *  סימן/ה במפורש שהמחיר כולל (‏price_includes_vat = true). בלי הסיומת פוסט על
+ *  חנות הציג ₪2,966 ליד טקסט שאמר 3,500 כולל מע״מ (‏29.9.2026).
+ *
+ *  הסיומת נכתבת רק כשהקורא טען את השדה (המפתח קיים בשורה, גם אם ערכו null).
+ *  קורא שלא טען אותו לא יודע אם המחיר כולל - ולכן לא ממציא סיומת. */
 export function priceLine(row: PropertyFacts): string {
   if (row.price === null || row.price === undefined) return "";
-  return row.deal_type === "rent" ? `${nis(row.price)} לחודש` : nis(row.price);
+  const base = row.deal_type === "rent" ? `${nis(row.price)} לחודש` : nis(row.price);
+  const vat = "price_includes_vat" in row && row.category === "commercial" &&
+    row.price_includes_vat !== true;
+  return vat ? `${base} + מע״מ` : base;
+}
+
+/** ‏"קומה 3", ו"קומת קרקע" לקומה 0 - אותה מילה שהאתר מציג (‏property-card.js). */
+function floorLabel(floor: number | string): string {
+  return Number(floor) === 0 ? "קומת קרקע" : `קומה ${floor}`;
 }
 
 /** "4 חדרים · 98 מ״ר · קומה 3 מתוך 8" — רק מה שקיים במודעה. */
 export function specLine(row: PropertyFacts): string {
   const floor = row.floor === null || row.floor === undefined
     ? null
-    : row.total_floors ? `קומה ${row.floor} מתוך ${row.total_floors}` : `קומה ${row.floor}`;
+    : row.total_floors ? `${floorLabel(row.floor)} מתוך ${row.total_floors}` : floorLabel(row.floor);
   return [
     row.rooms ? `${row.rooms} חדרים` : null,
     row.size_sqm ? `${Math.round(row.size_sqm)} מ״ר` : null,

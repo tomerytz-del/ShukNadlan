@@ -484,6 +484,15 @@ async function handle(
     return { property_id: row.property_id, channel, skipped: jpegOnly ? "no_jpeg" : "no_image" };
   }
 
+  // ‏"+ מע״מ" ליד מחיר של נכס מסחרי (‏priceLine) דורש את price_includes_vat,
+  // ו-pending_property_publications אינה מחזירה אותו. קריאה אחת לנכס
+  // זולה בהרבה משינוי סוג ההחזרה של הפונקציה במסד.
+  if (!("price_includes_vat" in row)) {
+    const { data: vat } = await sb.from("properties").select("price_includes_vat")
+      .eq("id", row.property_id).maybeSingle();
+    row.price_includes_vat = vat?.price_includes_vat ?? null;
+  }
+
   // 1. תיאור שיווקי — רק אם אין, אלא אם ביקשו במפורש לכתוב מחדש
   let generated = false;
   let marketing = written.get(row.property_id) ?? {
