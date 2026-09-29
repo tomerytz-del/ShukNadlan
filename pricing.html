@@ -199,6 +199,16 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
      "שורה: דוח CMA, עמודה: Elite, ערך: כלול". ‏border-collapse:separate
      כדי שאפשר יהיה לעגל את קצות העמודות.
      ========================================================================== */
+  /* ==========================================================================
+     סרטון ההדגמה — ‏docs/crm-reel.md. ריבוע, והרקע שלו בצבע הפריים הראשון
+     של הסרטון, כדי שלא יהבהב מלבן ריק לפני שהפוסטר מגיע.
+     ========================================================================== */
+  .reel{margin:44px 0 0;text-align:center}
+  .reel h2{font-size:1.35rem;margin-bottom:4px}
+  .reel .sub{color:var(--ink-soft);font-size:.9rem;margin:0 0 16px}
+  .reel-video{display:block;width:100%;max-width:520px;height:auto;aspect-ratio:1;margin:0 auto;
+    border-radius:20px;background:#ebe8e3;object-fit:cover}
+
   .compare{margin:42px 0 10px}
   .compare h2{font-size:1.35rem;margin-bottom:4px}
   .compare .sub{color:var(--ink-soft);font-size:.9rem;margin:0 0 16px}
@@ -361,6 +371,51 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       התשלום באתר הוא <a href="/checkout">טעינת ארנק</a>, שממנה נרכשים לידים והקפצת נכסים -
       מילוי פרטים, אישור <a href="/terms">התקנון</a> ומעבר לסליקה מאובטחת
     </p>
+
+    <!-- ‏preload="none" ובלי autoplay, בכוונה: הסרטון יושב מתחת לקפל, ו-autoplay
+         היה מוריד אותו בכל טעינה. גם ה-poster אינו בתגית — ‏poster נטען מיד
+         גם כשהסרטון לא, ובמדידה (‏perf-measure, רשת של טלפון) הוא לבדו הוסיף
+         ‏180ms ל-load. הסקריפט שמתחת שם אותו כשהסרטון מתקרב למסך, ומפעיל
+         כשהוא בתוכו. מי שביקש/ה פחות תנועה מקבל/ת את הפוסטר בלבד. -->
+    <section class="reel" aria-labelledby="reelTitle">
+      <h2 id="reelTitle">ככה זה נראה מבפנים</h2>
+      <p class="sub">פרסום נכס, בלעדיות, לידים וחיפוש - הכל במערכת אחת</p>
+      <video class="reel-video" id="reelVideo" muted loop playsinline preload="none" width="720" height="720"
+             data-poster="/assets/crm-reel-poster.jpg"
+             aria-label="הדגמה של מערכת הסוכנים: פרסום נכס, סימון בלעדיות, גרף לידים וחיפוש נכס">
+        <source src="/assets/crm-reel.webm" type="video/webm">
+        <source src="/assets/crm-reel.mp4" type="video/mp4">
+      </video>
+    </section>
+    <script>
+    (function(){
+      var v = document.getElementById('reelVideo');
+      if (!v) return;
+      /* רק אחרי load: ‏#plans ריק עד ש-tiers.js בונה את הכרטיסים, ובפריסה
+         הראשונה הסרטון יושב כמעט בראש הדף - כך שה-poster נכנס ל-load בכל
+         זאת (‏+240ms בביקור שאחרי פריסה, לפני התיקון). */
+      if (document.readyState === 'complete') start();
+      else window.addEventListener('load', start);
+
+      function start(){
+        if (!('IntersectionObserver' in window)) { v.poster = v.getAttribute('data-poster'); return; }
+        var reduce = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+        var near = new IntersectionObserver(function(entries){
+          if (!entries.some(function(e){ return e.isIntersecting; })) return;
+          v.poster = v.getAttribute('data-poster');
+          near.disconnect();
+        }, { rootMargin: '600px 0px' });
+        near.observe(v);
+        if (reduce) return;
+        new IntersectionObserver(function(entries){
+          entries.forEach(function(e){
+            if (e.isIntersecting) { var p = v.play(); if (p && p.catch) p.catch(function(){}); }
+            else v.pause();
+          });
+        }, { threshold: 0.35 }).observe(v);
+      }
+    })();
+    </script>
 
     <section class="compare">
       <h2>מה כלול בכל מסלול</h2>
