@@ -6326,6 +6326,17 @@ async function chooseTier(tierId, btn){
   const currentTier = (currentAgent && currentAgent.tier) || null;
   const isChange = !!currentTier && tierId !== currentTier;
 
+  // בתקופת הטבת ההצטרפות אין מעבר ממסלול ההטבה — עד תום ההטבה. השרת
+  // (‏join-agency, ‏record_tier_selection) מסרב ממילא; כאן זה נעצר לפני
+  // שנפתח חלון אישור שכל תשובתו תהיה "לא".
+  const promo = promoOf(currentAgent);
+  if (promo.active && tierId !== (promo.tier || Tiers.PROMO.tier)){
+    feedback.style.color = 'var(--red)';
+    feedback.textContent = 'בתקופת ההטבה אי אפשר לעבור מסלול. המעבר ייפתח ב-' +
+      Tiers.formatDate(promo.endsAt) + ', בתום ההטבה.';
+    return;
+  }
+
   // הירידה ל-Pay&GO היא הבחירה היחידה שנכנסת לתוקף בלחיצה, והיא סגורה
   // כרגע בשרת. מסלול בתשלום ממשיך לעבור: הוא רושם בקשה ואינו משנה מסלול.
   if (isChange && tierId === 'free' && window.Tiers && !Tiers.switchOpen()){
