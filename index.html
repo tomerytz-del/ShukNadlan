@@ -535,7 +535,18 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   }
   button.ss-slot:hover{background:var(--ss-hover)}
   .ss-slot:focus-visible{outline:2px solid var(--ss-gold);outline-offset:3px}
-  .ss-slot.is-active,.ss-slot.is-active:hover{background:var(--ss-navy);color:#fff;border-bottom-style:solid;padding:0 10px}
+  /* המילה הפעילה: רקע נייבי. ההרחבה לצדדים היא box-shadow ולא padding -
+     ‏padding הרחיב את הכפתור ב-16px, והמשפט כולו זז (ולפעמים נשבר מחדש) בכל
+     מעבר שלב. במילה צמודה ("בכל תקציב") ההרחבה לצד אחד בלבד, כדי לא לכסות
+     את ה"ב" שמימין. */
+  .ss-slot.is-active,.ss-slot.is-active:hover{
+    background:var(--ss-navy);color:#fff;border-bottom-style:solid;
+    box-shadow:-6px 0 0 var(--ss-navy),6px 0 0 var(--ss-navy);
+  }
+  .ss-seg.is-tight .ss-slot.is-active{box-shadow:-6px 0 0 var(--ss-navy)}
+  /* כשהבורר פתוח שאר המילים נרגעות - טקסט רך וקו מקווקו דהוי - כדי שהעין
+     תדע על איזו מילה עובדים. רוחב הקו נשאר 3px: שינוי שלו היה מזיז שורה. */
+  .ss-card.has-picker .ss-slot:not(.is-active){color:var(--ss-soft);border-bottom-color:rgba(201,162,39,.5)}
 
   /* ====== המילה הבאה ======
      ה-slot הראשון שעוד לא נבחר מתחלף בין כמה מהאפשרויות שלו (‏rollLabels
@@ -606,14 +617,32 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   .ss-picker{padding:0 22px 18px;display:flex;flex-direction:column;gap:10px}
   .ss-picker[hidden]{display:none}
+  /* ראש הבורר: השלב והשאלה מימין, ✕ משמאל (סדר ה-DOM ב-RTL) */
   .ss-picker-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
-  .ss-picker-title{font-size:13px;color:var(--ss-muted);letter-spacing:.06em}
-  /* ‏"סגור" - בפאנל התחתון בטלפון בלבד. בדסקטופ הבורר נסגר מבחירה, מ-Esc
-     או מלחיצה מחוץ לכרטיס. */
+  .ss-picker-title{margin:0;display:flex;flex-direction:column;gap:1px;text-align:start}
+  .ss-picker-step{font-size:12px;font-weight:600;color:var(--ss-muted);letter-spacing:.04em}
+  .ss-picker-q{font-size:17px;font-weight:800;line-height:1.3;color:var(--ss-ink)}
+  /* ‏✕ בכל רוחב מסך: בזרימה האוטומטית הבורר נשאר פתוח אחרי בחירה, ולכן
+     צריך דרך גלויה לצאת ממנו באמצע (גם Esc ולחיצה מחוץ לכרטיס עובדים) */
   .ss-picker-close{
-    display:none;font:inherit;font-size:13px;font-weight:600;color:var(--ss-navy);
-    background:none;border:0;padding:8px 0;cursor:pointer;
+    flex:none;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;
+    margin-inline-end:-8px;padding:0;background:none;border:0;border-radius:0;cursor:pointer;
+    font:inherit;font-size:18px;line-height:1;color:var(--ss-navy);
   }
+  .ss-picker-close:hover{background:var(--ss-hover)}
+  .ss-picker-close:focus-visible{outline:2px solid var(--ss-gold);outline-offset:-2px}
+  .ss-picker-progress{height:3px;background:var(--ss-line-2)}
+  .ss-picker-progress span{display:block;height:100%;width:0;background:var(--ss-gold);transition:width .25s ease}
+  /* המעבר בין שלבים (‏animateStep): קדימה נכנס משמאל - כיוון הקריאה ב-RTL */
+  @keyframes ssStepFwd{from{opacity:0;transform:translateX(-18px)}to{opacity:1;transform:none}}
+  @keyframes ssStepBack{from{opacity:0;transform:translateX(18px)}to{opacity:1;transform:none}}
+  @keyframes ssStepOpen{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+  .ss-picker.is-step-fwd .ss-picker-title,.ss-picker.is-step-fwd .ss-options{animation:ssStepFwd .26s ease-out both}
+  .ss-picker.is-step-back .ss-picker-title,.ss-picker.is-step-back .ss-options{animation:ssStepBack .26s ease-out both}
+  .ss-picker.is-step-open{animation:ssStepOpen .18s ease-out both}
+  /* סוף הזרימה: פעימה של הזהב סביב "הצג N נכסים" (‏finishFlow) */
+  @keyframes ssGoReady{0%{box-shadow:0 0 0 0 rgba(201,162,39,.75)}70%{box-shadow:0 0 0 12px rgba(201,162,39,0)}100%{box-shadow:0 0 0 0 rgba(201,162,39,0)}}
+  .ss-go.is-ready{animation:ssGoReady 1.1s ease-out 2}
   .ss-options{display:flex;flex-wrap:wrap;gap:8px}
   .ss-opt{
     display:inline-flex;align-items:center;justify-content:center;gap:6px;white-space:nowrap;
@@ -694,6 +723,23 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 
   @media(min-width:760px){
     .ss-sentence{font-size:1.75rem;padding:22px 24px 16px}
+    /* ‏popover מעל שאר הכרטיס, עם חץ שמצביע על המילה הפעילה. ‏left, top,
+       width ו-‎--ss-arrow-x‎ נקבעים ב-JS (‏placePicker). ‏position:absolute -
+       פתיחה ומעבר שלב אינם מזיזים דבר בדף. */
+    .ss-card .ss-picker{
+      position:absolute;z-index:30;top:0;left:0;width:440px;margin:0;
+      padding:14px 18px 16px;background:#fff;border:1px solid var(--ss-line);
+      box-shadow:0 28px 56px -18px rgba(22,41,107,.5),0 6px 16px rgba(14,42,107,.12);
+      transition:left .22s ease,top .22s ease;
+    }
+    .ss-card .ss-picker::before{
+      content:"";position:absolute;top:-8px;left:calc(var(--ss-arrow-x,50%) - 7px);width:14px;height:14px;
+      background:#fff;border-top:1px solid var(--ss-line);border-left:1px solid var(--ss-line);
+      transform:rotate(45deg);transition:left .22s ease;
+    }
+    .ss-card .ss-picker.is-placing,.ss-card .ss-picker.is-placing::before{transition:none}
+    /* ‏padding פנימי כדי שמסגרת הפוקוס (‏outline-offset:2px) לא תיחתך בגלילה */
+    .ss-card .ss-options{max-height:320px;overflow-y:auto;overscroll-behavior:contain;padding:4px;margin:-4px}
   }
   /* מתחת ל-1024px ה-hero ממורכז, והמשפט איתו: משפט מיושר לימין מתחת
      לכותרת ממורכזת נקרא כהמשך שלה, ולא כשורת חיפוש. */
@@ -763,10 +809,13 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     }
     /* הבורר צמוד למשפט (לא בפאנל התחתון), במשטח לבן משלו - הכרטיס עצמו
        שקוף בטלפון. */
+    /* צל עמוק, מסגרת ופס נייבי עליון: על הכרטיס השקוף והמפה שמתחתיו
+       הבורר נבלע בעמוד, ונקרא כעוד שורה של המשפט ולא כתפריט. */
     .ss-card .ss-picker{
-      background:#fff;border:1px solid var(--ss-line);padding:12px;margin:0 0 12px;gap:10px;
+      position:relative;z-index:4;background:#fff;border:1px solid var(--ss-line);border-top:3px solid var(--ss-navy);
+      padding:10px 14px 14px;margin:0 0 12px;gap:10px;
+      box-shadow:0 20px 40px -14px rgba(22,41,107,.5),0 4px 12px rgba(14,42,107,.12);
     }
-    .ss-card .ss-picker-close{display:inline-block}
     .ss-card .ss-options{grid-template-columns:repeat(2,minmax(0,1fr))}
     /* ‏"סינון מתקדם" נצמד לימין (תחילת השורה ב-RTL), בחלק הדועך של הכרטיס */
     /* ‏"ניקוי החיפוש" בקצה הימני, "סינון מתקדם" בקצה השמאלי */
@@ -791,7 +840,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
     body.ss-dock-on .a11y-panel{bottom:calc(var(--ss-dock-h,100px) + var(--a11y-fab-size) + 20px)}
   }
   @media(prefers-reduced-motion:reduce){
-    .ss-slot,.ss-opt,.ss-go{transition:none}
+    .ss-slot,.ss-opt,.ss-go,.ss-card .ss-picker,.ss-card .ss-picker::before,.ss-picker-progress span{transition:none}
   }
   .is-busy{opacity:.75;cursor:progress}
   .filter-modal-footer .btn.is-busy::after{
@@ -3097,6 +3146,12 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
   html.a11y-contrast .hood-filter-btn,
   html.a11y-contrast .split-close,
   html.a11y-contrast .map-recenter-btn{background:#000 !important;color:#FFD84D !important;border:1.5px solid #FFD84D !important}
+  /* הבורר הוא משטח לבן משלו, וכלל ה-span/div הלבן למעלה היה מעלים עליו את
+     השלב והשאלה. והמילה הפעילה במשפט מתהפכת לצהוב, כמו אפשרות נבחרת. */
+  html.a11y-contrast .ss-picker,
+  html.a11y-contrast .ss-card .ss-picker::before{background:#000 !important;border-color:#fff !important;box-shadow:none !important}
+  html.a11y-contrast .ss-picker-close{color:#FFD84D !important}
+  html.a11y-contrast .ss-slot.is-active{background:#FFD84D !important;color:#000 !important;box-shadow:none !important}
   /* כפתור עם בחירה פעילה חייב להיבדל גם כשהכול שחור-על-צהוב */
   /* צ׳יפי החיפושים ואייקוני הרשתות בפוטר בנויים על רקע לבן שקוף (‏rgba)
      שנעלם על שחור מלא, ואיתו נעלמת גם הצורה של הכפתור */
@@ -3502,12 +3557,15 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             <p class="ss-sentence" id="ssSentence"><span class="ss-lead">אני רוצה</span> <span class="ss-seg"><span class="ss-slot">לקנות</span></span> <span class="ss-seg"><span class="ss-slot">נכס</span></span> <span class="ss-seg is-tight"><span class="ss-pre">ב</span><span class="ss-slot">כל עפולה והעמק</span></span> <span class="ss-break"></span> <span class="ss-seg"><span class="ss-pre">עם</span><span class="ss-slot">כל גודל</span></span> <span class="ss-seg is-tight"><span class="ss-pre">ב</span><span class="ss-slot">כל תקציב</span></span></p>
 
             <!-- הבורר - צמוד למשפט בכל רוחב מסך, כדי שהאפשרויות יופיעו ליד
-                 המילה שנלחצה. -->
+                 המילה שנלחצה: בטלפון בזרימה מתחת למשפט, ומ-760px כ-popover
+                 עם חץ שמצביע על המילה הפעילה. הוא וויזארד - בחירה מעבירה
+                 אותו לשלב הבא (‏advance ב-sentence-search.js). -->
             <div class="ss-picker" id="ssPicker" hidden>
               <div class="ss-picker-head">
-                <span class="ss-picker-title" id="ssPickerTitle"></span>
-                <button type="button" class="ss-picker-close" id="ssPickerClose">סגור</button>
+                <p class="ss-picker-title" id="ssPickerTitle"><span class="ss-picker-step" id="ssPickerStep"></span> <span class="ss-picker-q" id="ssPickerQ"></span></p>
+                <button type="button" class="ss-picker-close" id="ssPickerClose" aria-label="סגירת הבחירה"><span aria-hidden="true">✕</span></button>
               </div>
+              <div class="ss-picker-progress" aria-hidden="true"><span id="ssPickerBar"></span></div>
               <div class="ss-options" id="ssOptions" role="listbox"></div>
             </div>
 

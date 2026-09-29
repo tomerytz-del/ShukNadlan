@@ -192,6 +192,32 @@ test('סינון מתקדם חל על המונים, וההרחבה מציעה ל
   assert.strictEqual(hint.count, PROPS.length);
 });
 
+test('וויזארד: השלבים נספרים לפי המשפט, וחנות מורידה את שלב החדרים', () => {
+  const st = C.defaultState();
+  assert.deepStrictEqual(C.stepOf('type', st), { index: 2, total: 5 });
+  const shop = C.applyPatch(st, { type: 'shop' });
+  assert.deepStrictEqual(C.slotOrder(shop), ['deal', 'type', 'area', 'price']);
+  assert.deepStrictEqual(C.stepOf('price', shop), { index: 4, total: 4 });
+});
+
+test('וויזארד: בחירה עוברת לשלב הבא שעוד לא נבחר, ובסוף - null', () => {
+  const st = C.defaultState();
+  assert.strictEqual(C.nextOpenSlot('deal', st, { deal: true }), 'type');
+  // מי שחוזר/ת לתקן מילה אחת לא נגרר/ת שוב דרך מה שכבר נבחר
+  const all = { deal: true, type: true, area: true, rooms: true, price: true };
+  assert.strictEqual(C.nextOpenSlot('deal', st, all), null);
+  assert.strictEqual(C.nextOpenSlot('deal', st, { deal: true, type: true }), 'area');
+  // אחרי חנות אין חדרים - מהאזור ישר לתקציב
+  const shop = C.applyPatch(st, { type: 'shop' });
+  assert.strictEqual(C.nextOpenSlot('area', shop, { deal: true, type: true, area: true }), 'price');
+  assert.strictEqual(C.nextOpenSlot('price', st, {}), null);
+  assert.strictEqual(C.nextOpenSlot('nope', st, {}), null);
+});
+
+test('כותרות השלבים בלי מקף ארוך', () => {
+  Object.values(C.SLOT_TITLES).forEach(t => assert.ok(!/[–—]/.test(t), t));
+});
+
 test('תוויות המשפט בלי מקף ארוך', () => {
   const st = C.applyPatch(C.defaultState(), { rooms: [3, 4.5] });
   C.slotsFor(st, AREAS, CTX).forEach(s => assert.ok(!/[–—]/.test(s.value), s.value));
