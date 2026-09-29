@@ -285,7 +285,7 @@
 
   /* ---------- ה-slots והאפשרויות ---------- */
   var SLOT_ORDER = ['deal', 'type', 'area', 'rooms', 'price'];
-  var SLOT_TITLES = { deal: 'מה בא לכם?', type: 'איזה נכס?', area: 'איפה?', rooms: 'כמה חדרים?', price: 'תקציב' };
+  var SLOT_TITLES = { deal: 'מה בא לכם?', type: 'איזה נכס?', area: 'איפה?', rooms: 'כמה חדרים?', price: 'מה התקציב?' };
   var SLOT_NAMES = { deal: 'סוג עסקה', type: 'סוג נכס', area: 'אזור', rooms: 'חדרים', price: 'תקציב' };
 
   function dealLabel(d) { return d === 'rent' ? 'לשכור' : d === 'sale' ? 'לקנות' : 'למצוא'; }
@@ -346,10 +346,33 @@
     return list;
   }
 
+  /* סדר השלבים של המשפט כפי שהוא עכשיו: סוג בלי חדרים (חנות, מגרש) מוריד
+     את שלב החדרים, ולכן "שלב X מתוך Y" נגזר מכאן ולא ממספר קבוע. */
+  function slotOrder(st) {
+    return SLOT_ORDER.filter(function (s) { return !(s === 'rooms' && typeDef(st.type).noRooms); });
+  }
+
   function nextSlot(slot, st) {
-    var order = SLOT_ORDER.filter(function (s) { return !(s === 'rooms' && typeDef(st.type).noRooms); });
+    var order = slotOrder(st);
     var i = order.indexOf(slot);
     return i >= 0 && i < order.length - 1 ? order[i + 1] : null;
+  }
+
+  /* ‏{ index, total } - ‏index מ-1, לכותרת "שלב 2 מתוך 5" */
+  function stepOf(slot, st) {
+    var order = slotOrder(st);
+    return { index: order.indexOf(slot) + 1, total: order.length };
+  }
+
+  /* הזרימה האוטומטית: אחרי בחירה ב-slot, הבורר עובר ל-slot הבא *שעוד לא
+     נבחר*. בכניסה ראשונה זה פשוט הבא בתור; מי שחוזר/ת לתקן מילה אחת לא
+     נגרר/ת שוב דרך כל מה שכבר בחר/ה. ‏null = סוף הזרימה. */
+  function nextOpenSlot(slot, st, touched) {
+    var order = slotOrder(st);
+    for (var i = order.indexOf(slot) + 1; i > 0 && i < order.length; i++) {
+      if (!(touched && touched[order[i]])) return order[i];
+    }
+    return null;
   }
 
   /* ---------- כשאין תוצאה ----------
@@ -590,7 +613,8 @@
     typeDef: typeDef, roomsLabel: roomsLabel, priceLabel: priceLabel, priceScale: priceScale,
     defaultState: defaultState, norm: norm, deriveAreas: deriveAreas, findArea: findArea,
     areaLabel: areaLabel, matches: matches, filter: filter, applyPatch: applyPatch,
-    slotsFor: slotsFor, options: options, nextSlot: nextSlot, widenHint: widenHint, rollLabels: rollLabels,
+    slotsFor: slotsFor, options: options, nextSlot: nextSlot, slotOrder: slotOrder, stepOf: stepOf,
+    nextOpenSlot: nextOpenSlot, SLOT_TITLES: SLOT_TITLES, widenHint: widenHint, rollLabels: rollLabels,
     parse: parse, parsedNote: parsedNote, sentenceText: sentenceText,
     fromParams: fromParams, resolveArea: resolveArea, toParams: toParams, parseRooms: parseRooms,
   };
@@ -621,7 +645,9 @@
     if (!card) return null;
     var sentenceEl = ids('ssSentence');
     var picker = ids('ssPicker');
-    var pickerTitle = ids('ssPickerTitle');
+    var pickerStep = ids('ssPickerStep');
+    var pickerQ = ids('ssPickerQ');
+    var pickerBar = ids('ssPickerBar');
     var optionsEl = ids('ssOptions');
     var form = ids('ssSmart');
     var input = ids('ssQuery');
@@ -655,6 +681,8 @@
        - היחיד שמתחלף. אף פעם לא שתי מילים מתחלפות בו זמנית. */
     var touched = {};
     var rollIndex = 0, rollSlot = null;
+    var shownSlot = null;         // ה-slot שהבורר הציג בציור הקודם - לכיוון האנימציה
+    var readyTimer = 0;
     var reduceMq = root.matchMedia ? root.matchMedia('(prefers-reduced-motion: reduce)') : { matches: false };
     var mq = root.matchMedia ? root.matchMedia(MOBILE_MQ) : { matches: false, addEventListener: function () {} };
 
@@ -748,14 +776,64 @@
       return wrap;
     }
 
+    /* המעבר בין שלבים: קדימה התוכן נכנס משמאל (כיוון הקריאה ב-RTL), אחורה
+       מימין, ובפתיחה ראשונה - דהייה קצרה. המחלקה מוסרת ומוחזרת כדי
+       שהאנימציה תרוץ מחדש בכל שלב. */
+    function animateStep(kind) {
+      picker.classList.remove('is-step-fwd', 'is-step-back', 'is-step-open');
+      if (noMotion()) return;
+      void picker.offsetWidth;
+      picker.classList.add('is-step-' + kind);
+    }
+
+    /* ---------- מיקום הבורר ----------
+       בטלפון הבורר בזרימה, צמוד מתחת למשפט (ה-CSS עושה הכול). מ-760px הוא
+       popover מוחלט בתוך הכרטיס: ממורכז מתחת למילה הפעילה ככל שהכרטיס
+       מאפשר, והחץ שבראשו (‏--ss-arrow-x) מצביע על מרכז המילה. במעבר שלב
+       ה-left/top מקבלים transition, ולכן ה-popover "מחליק" אל המילה הבאה;
+       בפתיחה הוא מונח במקום בלי מעבר (‏is-placing).
+       ‏.hero הוא overflow:hidden בגובה קבוע, ולכן גובה הרשימה נחתך לפי מה
+       שנשאר עד תחתיתו - אחרת אפשרויות של רשימת שכונות ארוכה נעלמות. */
+    var POP_W = 440, POP_GUTTER = 12;
+    function placePicker(fresh) {
+      if (mq.matches) {
+        ['left', 'top', 'width', '--ss-arrow-x'].forEach(function (p) { picker.style.removeProperty(p); });
+        optionsEl.style.removeProperty('max-height');
+        return;
+      }
+      var slotBtn = sentenceEl.querySelector('[data-slot="' + active + '"]');
+      if (!slotBtn) return;
+      var cr = card.getBoundingClientRect();
+      var sr = slotBtn.getBoundingClientRect();
+      var w = Math.min(POP_W, cr.width - POP_GUTTER * 2);
+      var center = sr.left + sr.width / 2 - cr.left;
+      var left = Math.max(POP_GUTTER, Math.min(center - w / 2, cr.width - w - POP_GUTTER));
+      if (fresh) picker.classList.add('is-placing');
+      picker.style.width = w + 'px';
+      picker.style.left = left + 'px';
+      picker.style.top = (sr.bottom - cr.top + 14) + 'px';
+      picker.style.setProperty('--ss-arrow-x', Math.max(18, Math.min(center - left, w - 18)) + 'px');
+      var clip = card.closest('.hero');
+      var floor = clip ? clip.getBoundingClientRect().bottom : root.innerHeight;
+      var chrome = picker.offsetHeight - optionsEl.offsetHeight;
+      optionsEl.style.maxHeight = Math.max(140, Math.min(320, floor - sr.bottom - 14 - chrome - 12)) + 'px';
+      if (fresh) { void picker.offsetWidth; picker.classList.remove('is-placing'); }
+    }
+
     function renderPicker() {
       if (!active) {
         picker.hidden = true;
         card.classList.remove('has-picker');
+        picker.classList.remove('is-step-fwd', 'is-step-back', 'is-step-open');
+        shownSlot = null;
         return;
       }
-      pickerTitle.textContent = SLOT_TITLES[active];
-      optionsEl.setAttribute('aria-label', SLOT_TITLES[active]);
+      var step = stepOf(active, st);
+      var stepText = 'שלב ' + step.index + ' מתוך ' + step.total;
+      pickerStep.textContent = stepText;
+      pickerQ.textContent = SLOT_TITLES[active];
+      if (pickerBar) pickerBar.style.width = Math.round(step.index / step.total * 100) + '%';
+      optionsEl.setAttribute('aria-label', stepText + ': ' + SLOT_TITLES[active]);
       optionsEl.textContent = '';
       var opts2 = options(active, st, props, ctx, areas);
       var selIndex = 0;
@@ -777,9 +855,18 @@
       });
       var all = optionsEl.children;
       if (all[selIndex]) all[selIndex].tabIndex = 0;
+      var fresh = picker.hidden;
       picker.hidden = false;
       card.classList.add('has-picker');
-      if (keyboardOpen && all[selIndex]) all[selIndex].focus();
+      if (active !== shownSlot) {
+        var order = slotOrder(st);
+        animateStep(fresh || !shownSlot ? 'open' : order.indexOf(active) > order.indexOf(shownSlot) ? 'fwd' : 'back');
+        shownSlot = active;
+      }
+      placePicker(fresh);
+      /* ‏preventScroll: ‏.hero הוא overflow:hidden, ו-focus() רגיל גולל גם
+         מכל כזה כדי להביא את האפשרות לתצוגה - כל התוכן של ה-hero היה קופץ. */
+      if (keyboardOpen && all[selIndex]) all[selIndex].focus({ preventScroll: true });
     }
 
     function renderCount() {
@@ -844,7 +931,7 @@
       render();
       if (returnFocus && was) {
         var b = sentenceEl.querySelector('[data-slot="' + was + '"]');
-        if (b) b.focus();
+        if (b) b.focus({ preventScroll: true });
       }
     }
 
@@ -859,21 +946,55 @@
         if (value === 'near') { locateNear(); return; }
         patch.area = value;
       }
-      /* הבורר נסגר אחרי כל בחירה, והמילה הבאה במשפט מתחילה להתחלף - היא
-         ההזמנה לבחירה הבאה. מהמקלדת הפוקוס עובר אליה, כך ש-Enter אחד פותח
-         אותה; אחרי ה-slot האחרון הוא חוזר ל-slot שנבחר. */
-      var wasKeyboard = keyboardOpen;
       touched[slot] = true;
-      active = null;
-      keyboardOpen = false;
-      change(patch, 'slot');
+      advance(slot, patch, keyboardOpen);
       /* ‏option ולא value: ‏value שמור ב-GA4 לערך כספי (המרות). מפתח של
          אפשרות ולא טקסט - שם שכונה נשלח כ-'area' בלבד. */
       track('search_slot_select', { slot: slot, option: slot === 'area' ? (value === 'all' ? 'all' : 'area') : String(value) });
-      if (wasKeyboard) {
-        var b = sentenceEl.querySelector('[data-slot="' + (hintSlot() || slot) + '"]');
-        if (b) b.focus();
+    }
+
+    /* ---------- הזרימה האוטומטית ----------
+       בחירה אינה סוגרת את הבורר: הוא עובר מיד לשלב הבא שעוד לא נבחר
+       (‏nextOpenSlot), בציור אחד - המשפט מתעדכן והבורר של השלב הבא נפתח
+       באותה מסגרת. בגרסה הקודמת הבורר נסגר אחרי כל בחירה, והגולש/ת נדרש/ה
+       למצוא ולהקיש בעצמו/ה את המילה הבאה; בטלפון רבים עצרו שם.
+       מהמקלדת הפוקוס עובר לאפשרות הנבחרת בשלב הבא, ו-Enter ממשיך.
+       ‏search_slot_open אינו נדחף במעבר אוטומטי: הוא מודד פתיחה *יזומה*
+       של מילה (ראו סמן הלחיצה). ‏search_slot_select נדחף בכל בחירה. */
+    function advance(slot, patch, viaKeyboard) {
+      var next = nextOpenSlot(slot, applyPatch(st, patch), touched);
+      active = next;
+      keyboardOpen = !!(next && viaKeyboard);
+      change(patch, 'slot');
+      if (next) {
+        var step = stepOf(next, st);
+        if (liveEl) liveEl.textContent = 'שלב ' + step.index + ' מתוך ' + step.total + ': ' + SLOT_TITLES[next] + '. ' + liveEl.textContent;
+      } else {
+        finishFlow(slot);
       }
+    }
+
+    /* סוף הזרימה: הבורר סגור, והפוקוס עובר לכפתור "הצג N נכסים" הגלוי -
+       בכרטיס בדסקטופ, בפאנל התחתון בטלפון - עם פעימה קצרה של הזהב. לא
+       שולחים לתוצאות אוטומטית: בטלפון "הצג" פותח את המפה המלאה, וזו החלטה
+       של הגולש/ת. ‏getClientRects ולא offsetParent - הפאנל הוא position:fixed. */
+    function finishFlow(slot) {
+      var btn = goBtns.filter(function (b) { return b.getClientRects().length > 0; })[0];
+      if (!btn) {
+        /* אין כפתור גלוי (בטלפון כשהמפה נכשלה הפאנל מוסתר) - הפוקוס חוזר
+           למילה, ולא נופל ל-body */
+        var s = sentenceEl.querySelector('[data-slot="' + slot + '"]');
+        if (s) s.focus({ preventScroll: true });
+        return;
+      }
+      btn.focus({ preventScroll: true });
+      if (liveEl) liveEl.textContent = liveEl.textContent + '. אפשר להציג את התוצאות';
+      if (noMotion()) return;
+      goBtns.forEach(function (b) { b.classList.remove('is-ready'); });
+      void btn.offsetWidth;
+      btn.classList.add('is-ready');
+      root.clearTimeout(readyTimer);
+      readyTimer = root.setTimeout(function () { btn.classList.remove('is-ready'); }, 2400);
     }
 
     /* ‏"📍 לידי": מיקום מהדפדפן, רק בלחיצה (ראו assets/near-me.js - אותם
@@ -897,8 +1018,8 @@
         var n = filter(props, applyPatch(st, { area: 'near' }), ctx).length;
         say(n ? 'הבנתי: נכסים ברדיוס ' + NEAR_KM + ' ק״מ ממך' : 'אין כרגע נכסים ברדיוס ' + NEAR_KM + ' ק״מ ממך - אפשר להרחיב את האזור.');
         touched.area = true;
-        active = null;
-        change({ area: 'near' }, 'slot');
+        if (active === 'area') advance('area', { area: 'near' }, keyboardOpen);
+        else change({ area: 'near' }, 'slot');
       }, function (err) {
         say(err && err.code === 1
           ? 'לא התקבלה הרשאה למיקום. אפשר לאשר אותה בהגדרות הדפדפן ולנסות שוב.'
@@ -1085,6 +1206,10 @@
     }
     placeholder();
     if (mq.addEventListener) mq.addEventListener('change', placeholder);
+    /* הבורר עובר בין popover (דסקטופ) לזרימה (טלפון) ומתמקם מחדש כשהרוחב
+       משתנה - בלי מעבר, כדי שלא "ירדוף" אחרי המילה בזמן גרירת החלון. */
+    if (mq.addEventListener) mq.addEventListener('change', function () { if (active) render(); });
+    root.addEventListener('resize', function () { if (active) placePicker(true); });
 
     /* טיימר אחד למילה המתחלפת. הוא מחפש אותה בכל פעימה (המשפט מצויר מחדש
        עם כל שינוי) ועוצר כשהבורר פתוח, כשאין מילה הבאה, או כשהגולש/ת ביקש/ה
