@@ -62,6 +62,9 @@ GATES = {
     'פניות ממחשבון התשואה בדף הסוכן/ת ובדף המשרד': 'claim_lead',
     'פניות מהערכת השווי בדף הסוכן/ת ובדף המשרד':   'claim_lead',
     'הפניה אוטומטית של לידי בעל-נכס אליך':         'lead_audience_size',
+    # אותו שם גייט של העוזר: קבוע נפרד בשם זהה ב-whatsapp-webhook/email-intake.ts,
+    # עם בדיקת billing_status לפני הקריאה למודל (docs/email-intake.md).
+    'העברת מייל לעוזר - הוא מטפל בו ועונה לך בוואטסאפ': 'TIER_ALLOWED',
     'התראות הפעמון גם בוואטסאפ':                   'notification_push_due_agents',
     # הגייט נאכף בטריגר ‏agent_agenda_items_before על כל הוספה (גם מהבוט,
     # שעוקף RLS), ושוב ב-agent_agenda_dispatch לפני כל התראה.
