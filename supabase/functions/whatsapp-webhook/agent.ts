@@ -4640,9 +4640,16 @@ export async function runAgentTurn(opts: {
   userContent: Anthropic.ContentBlockParam[];
   /** תיאור טקסטואלי של התור לשמירה בהיסטוריה (בלי בלוקי תמונה, שלא לנפח אותה) */
   userSummary: string;
+  /**
+   * צמצום הכלים לתור הזה. תור שמקורו במייל מועבר (`email-intake.ts`) נושא
+   * טקסט שכתב מישהו אחר — הלקוח/ה, אתר, בעלים — ולכן הוא מקבל רק כלי קריאה
+   * ואת הוספת הלקוח/ה. כל השאר עובר דרך אישור בוואטסאפ, בתור רגיל.
+   */
+  allowedTools?: ReadonlySet<string>;
 }): Promise<string> {
-  const { supabase, agent, conv, userContent, userSummary } = opts;
+  const { supabase, agent, conv, userContent, userSummary, allowedTools } = opts;
   const ctx: ToolContext = { supabase, agent, conv };
+  const tools = allowedTools ? TOOLS.filter((t) => allowedTools.has(t.name)) : TOOLS;
   const gaps = profileGaps(await loadProfile(supabase, agent.id));
 
   const messages: Anthropic.MessageParam[] = [
@@ -4675,7 +4682,7 @@ export async function runAgentTurn(opts: {
         { type: "text", text: SYSTEM_STATIC, cache_control: { type: "ephemeral" } },
         { type: "text", text: sessionContext(agent, conv, gaps) },
       ],
-      tools: TOOLS,
+      tools,
       messages,
     } as Anthropic.MessageCreateParamsNonStreaming);
 
@@ -4710,11 +4717,15 @@ export async function runAgentTurn(opts: {
 
     const results: Anthropic.ToolResultBlockParam[] = [];
     for (const use of toolUses) {
-      const result = await runTool(
-        ctx,
-        use.name,
-        (use.input || {}) as Record<string, unknown>,
-      );
+      // המודל רואה רק את `tools`, אבל שם של כלי הוא טקסט שהוא כותב — הגבול
+      // נאכף כאן ולא רק ברשימה שנשלחה אליו.
+      const result = allowedTools && !allowedTools.has(use.name)
+        ? { error: "הכלי אינו זמין בטיפול במייל. יש לבקש מהסוכן/ת אישור בוואטסאפ." }
+        : await runTool(
+          ctx,
+          use.name,
+          (use.input || {}) as Record<string, unknown>,
+        );
       results.push({
         type: "tool_result",
         tool_use_id: use.id,

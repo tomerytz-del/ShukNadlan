@@ -5,7 +5,9 @@
 מפיק דוח שוק ומידע תכנוני, קובע פגישות ותזכורות ביומן
 (ראו [`agent-agenda.md`](agent-agenda.md)), וקורא עבורו/ה את ההסכמים, הלידים וההתראות. הוא מזהה מי שלח לפי מספר הטלפון, מבצע את הפעולה במסד ומשיב
 בוואטסאפ. ומהכיוון ההפוך: **התראות הפעמון יכולות לצאת אליו/ה בוואטסאפ**,
-לפי סוגים שהוא/היא מסמן/ת.
+לפי סוגים שהוא/היא מסמן/ת. **ומייל שהסוכן/ת מעביר/ה לכתובת האישית שלו/ה
+נכנס לאותה שיחה** — לקוח/ה שפנה/תה במייל נכנס/ת לקובץ, והתשובה מגיעה
+בוואטסאפ ([`email-intake.md`](email-intake.md)).
 
 ---
 
@@ -43,6 +45,7 @@ notifications (טריגר במסד)  ──►  pg_cron כל 5 דק׳  ──►
 | `supabase/functions/whatsapp-webhook/agent.ts` | הכלים שה-LLM יכול להפעיל + לולאת השיחה |
 | `supabase/functions/whatsapp-webhook/whatsapp.ts` | עטיפה מעל Graph API (שליחה, הורדת מדיה, אימות חתימה) |
 | `supabase/functions/whatsapp-webhook/geocode.ts` | גיאוקוד כתובות בעפולה (העתק של `geocode-address`, בלי דרישת JWT) |
+| `supabase/functions/whatsapp-webhook/email-intake.ts` | קליטה מהמייל: מייל שהסוכן/ת העביר/ה לכתובת האישית נכנס לאותה שיחה ([`email-intake.md`](email-intake.md)) |
 | `supabase/functions/_shared/agreement-build.ts` | הרכבת ההסכם בשרת: אימות מה שחסר, ה-payload, ובניית המסמך |
 | `supabase/functions/_shared/agreement-templates.js` · `agreement-doc.js` | עותק זהה של מודולי `assets/` — ‏Edge Function אינה יכולה לייבא משם |
 | `scripts/check_agreement_assets.py` · `.github/workflows/agreement_assets.yml` | חוסמים ב-CI פער בין המקור לעותק |
