@@ -1550,6 +1550,8 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   const managerDisplay = agent.role === 'manager' ? 'block' : 'none';
   document.getElementById('managerSection').style.display = managerDisplay;
   document.getElementById('managerBrandingSection').style.display = managerDisplay;
+  // ייצוא הנכסים וקובץ הלקוחות - למנהל/ת משרד בלבד (assets/crm-office.js)
+  syncOfficeExportButtons();
   if (agent.role === 'manager'){
     await loadBranding(agent.agency_id);
     await loadTeam(agent.agency_id, agent.id);
@@ -11695,15 +11697,26 @@ document.getElementById('propClearFilters').addEventListener('click', clearPrope
    הנכסים לאקסל שולף את אותן עמודות — עמודה שנוספת כאן חייבת להגיע גם לקובץ
    שיורד, ושתי רשימות היו נפרדות תוך שבוע. */
 const PROPERTY_SELECT_COLUMNS = 'id, listing_number, title, price, price_per_sqm, deal_type, rooms, property_type, status, created_at, updated_at, is_promoted, promoted_until, last_free_bump_at, images, marketing_image, city, neighborhood_id, sales_area, street, house_number, lat, lng, category, features, condition, project_status, floor, total_floors, size_sqm, built_size_sqm, garden_sqm, description, marketing_description, marketing_description_source, marketing_description_at, marketing_description_stale, post_text, furniture_details, tour_3d_url, has_virtual_tour, video_url, listing_expires_at, agent2_name, agent2_phone, move_in_date, move_in_soon, open_house, open_house_start, open_house_end, restrooms_location, storage_location, mamad_location, land_zoning, land_building_rights_pct, land_max_units, land_max_floors, land_planning_notes, maintenance_fee, arnona, price_includes_vat, shared_with_partners, shared_at, property_owners(owner_name, owner_phone)';
+/* עמודות ההפנייה (מיגרציה 20270128090000) בנפרד: מסד שהמיגרציה עוד לא רצה
+   בו נופל חזרה לרשימה בלעדיהן במקום להציג "שגיאה בטעינת נכסים". */
+const PROPERTY_REFERRAL_COLUMNS = ', agent_id, agency_id, referred_by, referred_at';
+function referralSchemaMissing(error){ return !!error && /referred_(by|at)/.test(error.message || ''); }
 
 async function loadProperties(agentId){
   const listEl = document.getElementById('propertiesList');
   listEl.innerHTML = '<div class="empty-state">טוען…</div>';
-  const { data: props, error } = await sb
+  /* הנכסים שלי, ואצל מנהל/ת משרד גם מה שמסר/ה בהפנייה - שורה משותפת
+     שנשארת ברשימה של שניהם. docs/office-referrals.md */
+  let { data: props, error } = await sb
     .from('properties')
-    .select(PROPERTY_SELECT_COLUMNS)
-    .eq('agent_id', agentId)
+    .select(PROPERTY_SELECT_COLUMNS + PROPERTY_REFERRAL_COLUMNS)
+    .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
     .order('created_at', { ascending:false });
+  if (referralSchemaMissing(error)){
+    ({ data: props, error } = await sb.from('properties')
+      .select(PROPERTY_SELECT_COLUMNS).eq('agent_id', agentId).order('created_at', { ascending:false }));
+  }
+  await officePreloadNames(props);
 
   if (error){
     listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת נכסים: ' + error.message + '</div>';
@@ -11919,6 +11932,7 @@ function buildPropertyTab(p, agentId){
     esc(PROPERTY_STATUS_LABELS[p.status] || p.status || ''),
     propertyIsPromoted(p) ? '🌟 מקודם' : '',
     OpenHouse.live(p) ? '🏷 ביריד' : '',
+    p.referred_by ? '🤝 הפנייה' : '',
   ].filter(Boolean).join(' · ');
 
   el.innerHTML = `
@@ -12070,6 +12084,7 @@ function buildPropertyCard(p, agentId){
         </div>
       </div>
       <div class="pc-note-slot"></div>
+      ${referralNoteHtml(p)}
       ${isCurrentlyPromoted && p.promoted_until ? `<div class="lead-meta">הקידום בתוקף עד ${hebDateTime(p.promoted_until)} · אחר כך ניתן לקדם שוב</div>` : ''}
     </div>
     <div class="pc-facts">
@@ -12124,6 +12139,17 @@ function buildPropertyCard(p, agentId){
       label:'דף נכס', icon:'link', tone:'teal',
       title:'פתיחת עמוד הנכס באתר בלשונית חדשה',
       href:'/property?id=' + encodeURIComponent(p.id), blank:true,
+    });
+  }
+
+  // מסירה בהפנייה - מנהל/ת משרד בלבד (assets/crm-office.js)
+  if (canReferRow('property', p)){
+    addQuickAction(actions, {
+      label: p.referred_by ? 'העברה' : 'מסירה', icon:'partners', tone:'sand',
+      title: p.referred_by
+        ? 'העברת הנכס לסוכן/ת אחר/ת, או החזרה אליך'
+        : 'מסירת הנכס לסוכן/ת מהצוות בהפנייה - הנכס יישאר משותף לך ולסוכן/ת',
+      onClick:()=> openReferModal('property', p, p.title, ()=> loadProperties(agentId)),
     });
   }
 
@@ -16126,11 +16152,14 @@ function expSyncFilteredOption(){
 
 async function expOpen(){
   if (!currentAgent) return;
-  const isManager = currentAgent.role === 'manager';
-  if (!isManager && !myPropertyRows.length){
-    showToast('אין עדיין נכסים לייצוא');
+  /* הייצוא למנהל/ת משרד בלבד: קובץ שיורד הוא תיק המשרד מחוץ למערכת,
+     והחלטה להוציא אותו שייכת לבעלים. הכפתור מוסתר לסוכן/ת
+     (syncOfficeExportButtons), וזו השמירה למי שמגיע/ה לכאן בכל זאת. */
+  if (currentAgent.role !== 'manager'){
+    showToast('ייצוא הנכסים זמין למנהל/ת המשרד בלבד');
     return;
   }
+  const isManager = true;
 
   const scopeField = document.getElementById('expScopeField');
   scopeField.hidden = !isManager;
@@ -16185,7 +16214,8 @@ async function expDownload(){
       const useFilter = !expFilteredWrap.hidden && expFilteredCheck.checked;
       const f = propertyFilterState();
       rows = useFilter ? sortProperties(filterProperties(myPropertyRows, f), f.sort) : myPropertyRows;
-      agentName = ()=> currentAgent.display_name || '';
+      // נכס שנמסר בהפנייה יושב גם ברשימה של המנהל/ת, והסוכן/ת שלו אחר/ת
+      agentName = p => officeMemberName(p.agent_id) || currentAgent.display_name || '';
       // הצפיות כבר בזיכרון מ-loadProperties, והן קריאות רק על נכסים של הסוכן/ת
       withViews = true;
       fileLabel = 'הנכסים שלי';
@@ -16312,13 +16342,20 @@ async function loadLeads(agentId){
 
   // שתי השאילתות אינן תלויות זו בזו, ובטעינת דשבורד שממילא מריצה עשר
   // טעינות בזו אחר זו אין סיבה לשלם על השנייה בהמתנה נפרדת.
-  const [{ data: leads, error }, archived] = await Promise.all([
+  // הלידים שלי, ואצל מנהל/ת משרד גם מה שמסר/ה בהפנייה (docs/office-referrals.md).
+  // מסד שמיגרציית ההפניות עוד לא רצה בו נופל חזרה לשאילתה הקודמת.
+  let [{ data: leads, error }, archived] = await Promise.all([
     sb.from('leads_masked')
       .select('*')
-      .eq('agent_id', agentId)
+      .or(`agent_id.eq.${agentId},referred_by.eq.${agentId}`)
       .order('created_at', { ascending:false }),
     loadArchivedLeadIds(agentId),
   ]);
+  if (referralSchemaMissing(error)){
+    ({ data: leads, error } = await sb.from('leads_masked')
+      .select('*').eq('agent_id', agentId).order('created_at', { ascending:false }));
+  }
+  await officePreloadNames(leads);
 
   if (error){
     listEl.innerHTML = '<div class="empty-state">שגיאה בטעינת לידים: ' + error.message + '</div>';
@@ -16406,6 +16443,7 @@ function leadTabSub(lead){
     lead.deal_type === 'rent' ? 'השכרה' : (lead.deal_type === 'sale' ? 'מכירה' : ''),
     lead.city,
     lead.property_type,
+    lead.referred_by ? '🤝 הפנייה' : '',
     tabShortDate(lead.created_at),
   ].filter(Boolean).join(' · ');
 }
@@ -16463,6 +16501,7 @@ function buildLeadCard(lead, agentId, isArchived){
     ])}
     ${lead.property_details ? `<div class="lead-meta">🏠 ${esc(lead.property_details)}</div>` : ''}
     ${lead.display_message ? `<div class="lead-meta">📍 ${esc(lead.display_message)}</div>` : ''}
+    ${referralNoteHtml(lead)}
     <div class="lead-actions"></div>
   `;
   const actions = el.querySelector('.lead-actions');
@@ -16488,6 +16527,14 @@ function buildLeadCard(lead, agentId, isArchived){
     addCardAction(actions, {
       label:'📋 העתקת קישור', title:'העתקת קישור לבקשת חוות דעת מהלקוח/ה',
       onClick: btn => copyReviewLink(lead.id, btn),
+    });
+  }
+  // מסירה בהפנייה - מנהל/ת משרד, על ליד שכבר נפתח (assets/crm-office.js)
+  if (canReferRow('lead', lead)){
+    addCardAction(actions, {
+      label: lead.referred_by ? '🤝 העברה לסוכן/ת אחר/ת' : '🤝 מסירה לסוכן/ת בהפנייה',
+      title:'הליד יעבור לטיפול הסוכן/ת ויישאר גלוי גם לך',
+      onClick:()=> openReferModal('lead', lead, lead.display_name, ()=> loadLeads(agentId)),
     });
   }
   /* הארכוב אחרון בשורת הפעולות ועל רוחב מלא: הוא לא מתחרה על העין עם
@@ -18197,6 +18244,8 @@ async function loadClients(){
   }
 
   clientRows = data || [];
+  // לקוחות שנמסרו בהפנייה - שמות המוסר/ת והמטפל/ת לשורת ההפנייה בכרטיס
+  await officePreloadNames(clientRows);
 
   // ספירה אחת לכל הלקוחות במקום שאילתת התאמות לכל שורה.
   // ‏client_match_top מחזירה את אותה ספירה ובנוסף את ההתאמה החזקה ביותר,
@@ -18368,6 +18417,8 @@ function buildClientTab(c){
   const matches = clientMatchCounts[c.id];
   return buildTabRow({
     key: c.id, list:'client', expanded: expandedClientIds, cls:'client-tab',
+    // לקוח/ה בהפנייה מסומן/ת כבר בשורה הסגורה - זו שאלה של "של מי זה"
+    icon: c.referred_by ? '🤝' : '',
     title: c.full_name,
     sub: clientTabSub(c),
     pill: matches ? { text: plural(matches, 'התאמה אחת', 'התאמות'), cls:'tab-flag' } : null,
@@ -18400,9 +18451,11 @@ function buildClientCard(c){
           c.lead_source && 'מקור: ' + (CLIENT_SOURCE_LABELS[c.lead_source] || c.lead_source),
         ].filter(Boolean).join(' · '))}</div>` : ''}
         ${c.notes ? `<div class="lead-meta">${esc(c.notes)}</div>` : ''}
+        ${referralNoteHtml(c)}
       </div>
       <div class="pill-row">
         <span class="status-pill status-unlocked">${CLIENT_STATUS_LABELS[c.status] || c.status}</span>
+        ${c.referred_by ? '<span class="status-pill status-shared">הפנייה</span>' : ''}
         ${matches ? `<span class="status-pill status-shared">${plural(matches, 'התאמה אחת', 'התאמות')}</span>` : ''}
       </div>
       <div class="card-menu">
@@ -18445,9 +18498,21 @@ function buildClientCard(c){
   // מחיקה היא הפעולה היחידה כאן שאי אפשר לבטל, ולכן היא לא יושבת ברשת
   // הפעולות לצד "עריכה" ו"החתמה" - שלושה כפתורים באותו גודל ובאותו צבע,
   // שאחד מהם בלתי הפיך, זו לחיצה שגויה שממתינה לקרות בשטח.
-  buildCardMenu(el.querySelector('.card-menu'), [
-    { label:'🗑 מחיקת הלקוח/ה', danger:true, onClick:()=> deleteClient(c) },
-  ]);
+  /* מסירה בהפנייה - מנהל/ת משרד בלבד. ומחיקה רק למי שמטפל/ת: המנהל/ת
+     שמסר/ה רואה ומעדכנ/ת לקוח/ה בהפנייה, אבל אינו/ה מוחק/ת אותו/ה
+     מהקובץ של הסוכן/ת (ה-RLS ממילא אינו מאפשר). */
+  const menu = [];
+  if (canReferRow('client', c)){
+    menu.push({
+      label: c.referred_by ? '🤝 העברה לסוכן/ת אחר/ת' : '🤝 מסירה לסוכן/ת בהפנייה',
+      onClick:()=> openReferModal('client', c, c.full_name, loadClients),
+    });
+  }
+  if (c.agent_id === currentAgent.id){
+    menu.push({ label:'🗑 מחיקת הלקוח/ה', danger:true, onClick:()=> deleteClient(c) });
+  }
+  if (menu.length) buildCardMenu(el.querySelector('.card-menu'), menu);
+  else el.querySelector('.card-menu').remove();
 
   return el;
 }

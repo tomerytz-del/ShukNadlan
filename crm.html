@@ -5246,7 +5246,9 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <button class="btn btn-ghost" id="toggleAddProperty">+ הוספת נכס חדש</button>
       <div style="display:flex;flex-wrap:wrap;gap:8px">
         <button class="btn btn-ghost" id="openImportProperties" style="flex:1">⭳ ייבוא מקובץ</button>
-        <button class="btn btn-ghost" id="openExportProperties" style="flex:1">⭱ ייצוא לאקסל</button>
+        <!-- הייצוא למנהל/ת משרד בלבד - syncOfficeExportButtons() ב-assets/crm-office.js
+             מציג אותו. מוסתר כברירת מחדל, כדי שסוכן/ת לא יראה אותו מהבהב בטעינה. -->
+        <button class="btn btn-ghost" id="openExportProperties" style="flex:1;display:none">⭱ ייצוא לאקסל</button>
       </div>
     </div>
     <!-- ====== טופס הנכס: שישה מקטעים ======
@@ -5701,6 +5703,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           <!-- ייבוא מאנשי הקשר: חלון הבחירה של הטלפון, Google, או קובץ vcf/csv.
                רק מי שנבחר נכנס - ספר הטלפונים אינו עולה. docs/crm-contacts-import.md -->
           <button class="btn btn-ghost" id="openContactImport" type="button">📇 ייבוא מאנשי הקשר</button>
+        </div>
+        <!-- קובץ הלקוחות באקסל: ייבוא לכולם, ייצוא למנהל/ת משרד בלבד (מוצג ב-
+             syncOfficeExportButtons). ‏docs/office-referrals.md -->
+        <div class="ci-bar" style="flex-wrap:wrap">
+          <button class="btn btn-ghost" id="openClientImport" type="button">📊 ייבוא לקוחות מאקסל</button>
+          <button class="btn btn-ghost" id="openClientExport" type="button" style="display:none">⭱ ייצוא לקוחות לאקסל</button>
         </div>
 
         <!-- ====== טופס הלקוח/ה: שני כרטיסים ======
@@ -7937,6 +7945,25 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </div>
 </div>
 <input type="file" id="ciFile" accept=".vcf,.vcard,.csv,text/vcard,text/x-vcard,text/csv" hidden>
+<input type="file" id="cxFile" accept=".xlsx,.xls,.csv,text/csv" hidden>
+
+<!-- מסירה בהפנייה: מנהל/ת משרד מוסר/ת לקוח/ה, נכס או ליד פתוח לסוכן/ת.
+     ההעברה ב-refer_to_agent() במסד; הממשק ב-assets/crm-office.js. -->
+<div class="pm-overlay" id="referModal" role="dialog" aria-modal="true" aria-labelledby="referTitle" style="display:none">
+  <div class="pm-card">
+    <div class="pm-title" id="referTitle">מסירה לסוכן/ת</div>
+    <p class="exp-note" id="referWhat" style="font-weight:600"></p>
+    <div class="field">
+      <label for="referAgent">הסוכן/ת המטפל/ת</label>
+      <select id="referAgent"></select>
+    </div>
+    <p class="exp-note" id="referNote"></p>
+    <div class="pm-actions">
+      <button type="button" class="btn btn-ghost" id="referCancel">ביטול</button>
+      <button type="button" class="btn btn-gold" id="referRun" disabled>מסירה בהפנייה</button>
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -7945,6 +7972,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <script src="assets/markets.js"></script>
 <script src="assets/agency-city.js"></script>
 <script src="assets/contact-import.js"></script>
+<script src="assets/crm-office.js"></script>
 <script src="assets/crm.js"></script>
 </body>
 </html>
