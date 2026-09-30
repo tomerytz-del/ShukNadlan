@@ -1595,6 +1595,7 @@ async function loadDashboard(user, { alreadyResolved = false } = {}){
   // אחרון, ובכוונה: הניווט לפי ?goto= נשען על navAccVisible ועל המונים, ולכן
   // הוא חייב לרוץ אחרי שהניווט וההרשאות כבר במקומם.
   handleGotoParam();
+  handleShareParam();
 }
 
 /* ---------- ‏?goto=accXxx — נחיתה ישירה בקטגוריה ----------
@@ -18969,6 +18970,302 @@ document.getElementById('addClientForm').addEventListener('submit', async (e)=>{
   if (savedId) crossMatchClient(savedId);
 });
 
+/* ============================================================================
+   אנשי קשר → קובץ הלקוחות
+   ----------------------------------------------------------------------------
+   ארבעה פתחים, ואחד מהם בכל טלפון: חלון הבחירה של המערכת (כרום באנדרואיד),
+   קובץ vCard/CSV, Google Contacts, ושיתוף אל האפליקציה המותקנת. האיסוף
+   והפענוח ב-assets/contact-import.js; כאן ההחלטה מה נכנס ואיך.
+
+   שני כללים:
+   * **כפילות נבדקת לפי תשע הספרות האחרונות**, כמו ב-create_client של העוזר
+     בוואטסאפ. מי שכבר בקובץ מוצג/ת, מסומן/ת, ואינו/ה נבחר/ת.
+   * **ייבוא של כמה אנשי קשר נכנס כ"בהמתנה" (paused).** לקוח/ה בלי דרישות
+     מתאים/ה לכל נכס ("שדה ריק = לא משנה"), ומאה כאלה היו מציפים את
+     ההתאמות וההתראות. איש קשר אחד נפתח במקום זה בטופס, כדי להשלים מה
+     הוא/היא מחפש/ת לפני השמירה.
+   docs/crm-contacts-import.md
+   ============================================================================ */
+const CI_LIST_MAX = 300;       // שורות שמצוירות בבת אחת; החיפוש מצמצם
+let ciContacts = [];
+let ciSource = '';
+let ciQuery = '';
+
+function ciNormName(v){ return String(v || '').replace(/\s+/g, ' ').trim().toLowerCase(); }
+
+function ciFindClient(c){
+  const CI = window.ContactImport;
+  const keys = (c.phones && c.phones.length ? c.phones : [c.phone]).map(p => CI.phoneKey(p))
+    .filter(k => k.length === 9);
+  if (keys.length){
+    const hit = clientRows.find(r => keys.includes(CI.phoneKey(r.phone)));
+    if (hit) return hit;
+    return null;
+  }
+  // בלי טלפון - לפי שם מדויק בלבד. "דני" מול "דני כהן" אינו אותו אדם.
+  const n = ciNormName(c.name);
+  return n ? (clientRows.find(r => ciNormName(r.full_name) === n) || null) : null;
+}
+
+function fillClientFormFromContact(c){
+  const existing = ciFindClient(c);
+  if (existing){
+    if (confirm(`"${existing.full_name}" כבר בקובץ הלקוחות שלך. לפתוח את הכרטיס לעריכה?`)){
+      openEditClient(existing);
+    }
+    return;
+  }
+  document.getElementById('clName').value  = c.name || '';
+  document.getElementById('clPhone').value = c.phone || '';
+  if (c.email) document.getElementById('clEmail').value = c.email;
+  // השם והטלפון מולאו - מה שנשאר הוא מה הוא/היא מחפש/ת
+  document.getElementById('clIdNumber').focus();
+}
+
+/* טופס לקוח/ה חדש/ה, ממולא מאיש קשר אחד. משמש גם את השיתוף אל האפליקציה. */
+function openClientFormWithContact(c){
+  if (typeof gotoSection === 'function') gotoSection('accClients');
+  resetClientForm();
+  const form = openClientForm();
+  fillClientFormFromContact(c);
+  form.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+(function initContactPick(){
+  const btn = document.getElementById('clPickContact');
+  if (!btn || !window.ContactImport || !window.ContactImport.pickerSupported()) return;
+  btn.style.display = '';
+  btn.addEventListener('click', async ()=>{
+    const picked = await window.ContactImport.pick(false);
+    if (picked[0]) fillClientFormFromContact(picked[0]);
+  });
+})();
+
+function ciEl(id){ return document.getElementById(id); }
+
+function ciClose(){
+  ciEl('ciModal').style.display = 'none';
+  ciContacts = [];
+  ciQuery = '';
+}
+
+/* המסך הראשון: מאיפה לייבא. רק מה שעובד בדפדפן הזה מוצג. */
+function openContactImport(){
+  const CI = window.ContactImport;
+  if (!CI){ showToast('ייבוא אנשי קשר אינו זמין כרגע'); return; }
+  ciEl('ciModal').style.display = 'flex';
+  ciEl('ciTitle').textContent = 'ייבוא מאנשי הקשר';
+  const btns = [];
+  if (CI.pickerSupported()){
+    btns.push('<button type="button" class="btn btn-ghost" data-ci="picker">📱 בחירה מאנשי הקשר בטלפון</button>');
+  }
+  if (CI.googleConfigured()){
+    btns.push('<button type="button" class="btn btn-ghost" data-ci="google">🔗 ייבוא מ-Google Contacts</button>');
+  }
+  btns.push('<button type="button" class="btn btn-ghost" data-ci="file">📄 מקובץ אנשי קשר (vCard או CSV)</button>');
+  ciEl('ciBody').innerHTML =
+    '<p class="imp-note" style="margin:0 0 12px">רק מי שבוחרים נכנס לקובץ הלקוחות. מי שכבר בקובץ מסומן ולא ייכנס פעמיים.</p>' +
+    '<div class="ci-src">' + btns.join('') + '</div>' +
+    '<p class="imp-note" style="margin:12px 0 0">קובץ: באייפון - אפליקציית אנשי הקשר, בחירת אנשי קשר, שיתוף ← "ייצוא vCard". ' +
+      'ב-Google - contacts.google.com ← ייצוא ← Google CSV.</p>' +
+    '<div class="ci-tip"><b>הדרך הכי מהירה מהטלפון, גם באייפון:</b> בשיחות האחרונות פותחים את איש הקשר ← ' +
+      'שיתוף ← וואטסאפ ← העוזר של שוק נדל״ן. הוא בודק אם הלקוח כבר בקובץ, ומציע להוסיף אותו עם מה שהוא מחפש.</div>';
+  ciEl('ciFoot').innerHTML = '<button type="button" class="btn btn-ghost" data-ci="close">סגירה</button>';
+}
+
+function ciShowList(list, source){
+  const CI = window.ContactImport;
+  // כפילויות בתוך הרשימה עצמה (אותו אדם בשני כרטיסים בטלפון)
+  const seen = new Set();
+  ciContacts = [];
+  list.forEach(c => {
+    const k = c.phone ? CI.phoneKey(c.phone) : 'n:' + ciNormName(c.name);
+    if (seen.has(k)) return;
+    seen.add(k);
+    const existing = ciFindClient(c);
+    ciContacts.push({ ...c, existing, checked: false });
+  });
+  ciSource = source;
+  ciQuery = '';
+  // רשימה קצרה שנבחרה במכוון (חלון הבחירה, שיתוף, קובץ קטן) - מסומנת מראש.
+  // ספר טלפונים שלם מגוגל - לא: שם בוחרים אחד-אחד.
+  const preselect = source !== 'google' && ciContacts.length <= 20;
+  ciContacts.forEach(c => { c.checked = preselect && !c.existing; });
+
+  ciEl('ciModal').style.display = 'flex';
+  ciEl('ciTitle').textContent = 'בחירת לקוחות להוספה';
+  if (!ciContacts.length){
+    ciEl('ciBody').innerHTML = '<div class="empty-state">לא נמצאו אנשי קשר עם שם או טלפון.</div>';
+    ciEl('ciFoot').innerHTML = '<button type="button" class="btn btn-ghost" data-ci="back">חזרה</button>';
+    return;
+  }
+  ciEl('ciBody').innerHTML =
+    '<div class="ci-tools">' +
+      '<input type="search" id="ciSearch" class="filter-input" placeholder="חיפוש לפי שם או טלפון" autocomplete="off">' +
+      '<button type="button" class="btn btn-ghost" data-ci="all" style="padding:6px 12px">סימון המוצגים</button>' +
+    '</div>' +
+    '<div class="ci-list" id="ciList"></div>';
+  ciRenderList();
+  ciEl('ciSearch').addEventListener('input', e => { ciQuery = e.target.value; ciRenderList(); });
+}
+
+function ciVisible(){
+  const q = ciNormName(ciQuery);
+  const qd = q.replace(/\D/g, '');
+  return ciContacts.filter(c => !q ||
+    ciNormName(c.name).includes(q) || (qd && String(c.phone).replace(/\D/g, '').includes(qd)));
+}
+
+function ciRenderList(){
+  const shown = ciVisible();
+  const rows = shown.slice(0, CI_LIST_MAX).map(c => {
+    const i = ciContacts.indexOf(c);
+    const meta = [c.phone, c.email].filter(Boolean).join(' · ');
+    return `<label class="ci-row${c.existing ? ' is-dup' : ''}">` +
+      `<input type="checkbox" data-ci-i="${i}"${c.checked ? ' checked' : ''}${c.existing ? ' disabled' : ''}>` +
+      '<span style="flex:1;min-width:0">' +
+        `<span class="ci-name">${esc(c.name || c.phone)}</span>` +
+        (c.existing ? ` <span class="imp-note">- כבר בקובץ${
+          ciNormName(c.existing.full_name) !== ciNormName(c.name) ? ' בשם ' + esc(c.existing.full_name) : ''}</span>` : '') +
+        (meta ? `<div class="ci-meta">${esc(meta)}</div>` : '') +
+      '</span></label>';
+  }).join('');
+  ciEl('ciList').innerHTML = rows +
+    (shown.length > CI_LIST_MAX
+      ? `<div class="empty-state">מוצגים ${CI_LIST_MAX} מתוך ${shown.length} - חפשו כדי לצמצם</div>` : '');
+  ciRenderFoot();
+}
+
+function ciRenderFoot(){
+  const n = ciContacts.filter(c => c.checked).length;
+  ciEl('ciFoot').innerHTML =
+    '<button type="button" class="btn btn-ghost" data-ci="back">חזרה</button>' +
+    `<button type="button" class="btn btn-gold" data-ci="save"${n ? '' : ' disabled'}>` +
+      (n === 1 ? 'המשך להוספת הלקוח/ה' : `הוספת ${n} לקוחות`) + '</button>';
+  const note = n > 1
+    ? 'ייכנסו בסטטוס "בהמתנה" עד שיתווסף מה הם מחפשים - אחרת כל נכס היה מותאם להם.'
+    : '';
+  let p = ciEl('ciSaveNote');
+  if (!p){
+    p = document.createElement('p');
+    p.id = 'ciSaveNote';
+    p.className = 'imp-note';
+    p.style.margin = '10px 0 0';
+    ciEl('ciBody').appendChild(p);
+  }
+  p.textContent = note;
+}
+
+async function ciSave(){
+  const chosen = ciContacts.filter(c => c.checked && !c.existing);
+  if (!chosen.length || !currentAgent) return;
+  // אחד - לטופס, כדי להשלים דרישות לפני השמירה
+  if (chosen.length === 1){
+    const c = chosen[0];
+    ciClose();
+    openClientFormWithContact(c);
+    return;
+  }
+  const btn = ciEl('ciFoot').querySelector('[data-ci="save"]');
+  if (btn){ btn.disabled = true; btn.textContent = 'מוסיף…'; }
+  const source = { picker:'חלון אנשי הקשר', google:'Google Contacts', file:'קובץ אנשי קשר', share:'שיתוף מהטלפון' }[ciSource] || 'אנשי הקשר';
+  const payload = chosen.map(c => ({
+    full_name: c.name || c.phone,
+    phone: c.phone || null,
+    email: c.email || null,
+    status: 'paused',
+    notes: `יובא מ${source}. להשלים מה מחפש/ת ולהעביר ל"פעיל".`,
+    agent_id: currentAgent.id,
+    agency_id: currentAgent.agency_id,
+  }));
+  let added = 0;
+  for (let i = 0; i < payload.length; i += 200){
+    const { error } = await sb.from('agent_clients').insert(payload.slice(i, i + 200));
+    if (error){
+      showToast(`נוספו ${added}. שגיאה בהמשך: ` + error.message, 6000);
+      break;
+    }
+    added += Math.min(200, payload.length - i);
+  }
+  ciClose();
+  if (added) showToast(`נוספו ${added} לקוחות בסטטוס "בהמתנה"`);
+  await loadClients();
+}
+
+async function ciFromGoogle(){
+  const body = ciEl('ciBody');
+  body.innerHTML = '<div class="empty-state">מתחבר ל-Google…</div>';
+  try {
+    const list = await window.ContactImport.fetchGoogle();
+    ciShowList(list, 'google');
+  } catch (err){
+    console.warn('google contacts failed', err);
+    const msg = String(err && err.message || '');
+    openContactImport();
+    showToast(/popup_closed|access_denied|denied/.test(msg)
+      ? 'הייבוא מ-Google בוטל'
+      : 'לא הצלחנו לקרוא את אנשי הקשר מ-Google. אפשר לייצא קובץ CSV ולהעלות אותו.', 6000);
+  }
+}
+
+document.getElementById('openContactImport').addEventListener('click', openContactImport);
+document.getElementById('ciClose').addEventListener('click', ciClose);
+document.getElementById('ciFile').addEventListener('change', async e => {
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024){ showToast('הקובץ גדול מדי (עד 10MB)'); return; }
+  ciShowList(await window.ContactImport.parseFile(file), 'file');
+});
+document.getElementById('ciModal').addEventListener('change', e => {
+  const i = e.target.dataset && e.target.dataset.ciI;
+  if (i == null) return;
+  ciContacts[Number(i)].checked = e.target.checked;
+  ciRenderFoot();
+});
+document.getElementById('ciModal').addEventListener('click', async e => {
+  const btn = e.target.closest('[data-ci]');
+  if (!btn) return;
+  const act = btn.dataset.ci;
+  if (act === 'close') return ciClose();
+  if (act === 'back') return openContactImport();
+  if (act === 'file') return ciEl('ciFile').click();
+  if (act === 'google') return ciFromGoogle();
+  if (act === 'save') return ciSave();
+  if (act === 'all'){
+    ciVisible().slice(0, CI_LIST_MAX).forEach(c => { if (!c.existing) c.checked = true; });
+    return ciRenderList();
+  }
+  if (act === 'picker'){
+    const list = await window.ContactImport.pick(true);
+    if (list.length) ciShowList(list, 'picker');
+  }
+});
+
+/* ‏?share=contacts — הגענו מתפריט "שתף" של הטלפון (‏share_target ב-
+   app-crm.webmanifest, ו-sw.js ששם את הכרטיס בצד). נקרא אחרי שהקובץ נטען,
+   כי בדיקת הכפילות נשענת על clientRows. הפרמטר מנוקה כמו ב-handleGotoParam. */
+async function handleShareParam(){
+  const params = new URLSearchParams(location.search);
+  const kind = params.get('share');
+  if (!kind) return;
+  if (window.history && window.history.replaceState){
+    params.delete('share');
+    const search = params.toString();
+    history.replaceState(history.state, '',
+      location.pathname + (search ? '?' + search : '') + location.hash);
+  }
+  if (kind !== 'contacts' || !window.ContactImport){
+    showToast('השיתוף לא הגיע. אפשר לנסות שוב, או לשתף לעוזר בוואטסאפ.', 6000);
+    return;
+  }
+  const list = await window.ContactImport.takeShared();
+  if (!list.length){ showToast('לא נמצא איש קשר בשיתוף'); return; }
+  if (list.length === 1) return openClientFormWithContact(list[0]);
+  if (typeof gotoSection === 'function') gotoSection('accClients');
+  ciShowList(list, 'share');
+}
+
 document.getElementById('clientSearch').addEventListener('input', renderClients);
 ['clientStatusFilter','clientDealFilter','clientCategoryFilter','clientTypeFilter','clientCityFilter','clientSort']
   .forEach(id => document.getElementById(id).addEventListener('change', renderClients));
@@ -23344,6 +23641,10 @@ function agrRenderStepDetails(){
       'חותם/ת שאינו/ה בקובץ נכנס/ת בהזנה ידנית.</p>' +
     '<button type="button" class="btn btn-ghost btn-block" data-agr="add-blank-signer"' +
       ' style="margin-top:10px">✏️ הזנת חותם/ת ידנית</button>' +
+    (window.ContactImport && window.ContactImport.pickerSupported()
+      ? '<button type="button" class="btn btn-ghost btn-block" data-agr="pick-contact-signer"' +
+        ' style="margin-top:8px">📇 חותם/ת מאנשי הקשר בטלפון</button>'
+      : '') +
     '<div id="agrSignerForms" style="margin-top:12px"></div>' +
     '<p class="imp-note">החותם/ת הראשון/ה מופיע/ה במסמך כ"בין", והשני/ה כ"ובין" - בן/בת זוג או שותף/ה. ' +
     'מספר תעודת זהות נדרש בהזמנת שירותי תיווך בכתב.</p>' +
@@ -24236,6 +24537,24 @@ function agrAddClientSigner(clientId, opts){
   }
 }
 
+/* חותם/ת מאנשי הקשר של הטלפון. מי שכבר בקובץ הלקוחות נכנס/ת כלקוח/ה מהקובץ
+   (עם ת.ז. והכתובת שכבר שמורות), וכל השאר כחותם/ת ידני/ת עם שם, טלפון
+   ומייל - ות.ז. משלימים בטופס שנפתח. */
+async function agrPickContactSigner(){
+  const picked = await window.ContactImport.pick(false);
+  const c = picked[0];
+  if (!c || !agrWizard) return;
+  const existing = ciFindClient(c);
+  if (existing) return agrAddClientSigner(existing.id);
+  agrWizard.signers.push({
+    uid: agrNextUid(), party: agrWizard.signers.length ? 'partner' : 'client',
+    full_name: c.name || '', id_number:'', phone: c.phone || '', email: c.email || '',
+    address:'', client_id:null,
+  });
+  agrRenderSignerForms();
+  agrRenderClientResults();
+}
+
 function agrAddBlankSigner(){
   agrWizard.signers.push({
     uid: agrNextUid(), party: agrWizard.signers.length ? 'partner' : 'client',
@@ -24953,6 +25272,7 @@ agrEl('agrModal').addEventListener('click', async (e)=>{
   }
   if (act === 'pick-client') return agrAddClientSigner(btn.dataset.id);
   if (act === 'add-blank-signer') return agrAddBlankSigner();
+  if (act === 'pick-contact-signer') return agrPickContactSigner();
   if (act === 'rm-signer'){
     agrWizard.signers = agrWizard.signers.filter(s => s.uid !== btn.dataset.uid);
     agrWizard.signers.forEach((s, i) => { s.party = i === 0 ? 'client' : 'partner'; });
