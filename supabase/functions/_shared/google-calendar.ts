@@ -44,13 +44,13 @@ export const GCAL_REDIRECT_URI = Deno.env.get("GOOGLE_CALENDAR_REDIRECT_URI") ||
   `${SITE_BASE}/auth/google-calendar`;
 
 /**
- * **false כל עוד מסך ההסכמה ב-Google במצב Testing.** במצב הזה Google חוסמת
- * כל מי שאינו/ה ב-Test users ("Access blocked"), ולכן החיבור פתוח רק
- * למנהל/ת הפלטפורמה. אחרי האימות ו-Publish app - true כאן **וגם**
- * ‏`GCAL_PUBLISHED` ב-`assets/crm.js`. אותה תבנית של `GOOGLE_PUBLISHED`
+ * ‏**true מ-30.9.2026:** האפליקציה ב-*In production*, המיתוג אומת ב-Google,
+ * ואימות גישה לנתונים אינו נדרש (ההרשאות אינן רגישות). ‏false סוגר את החיבור
+ * חזרה למנהל/ת הפלטפורמה בלבד - למשל אם האפליקציה תחזור ל-Testing - ואז
+ * גם ‏`GCAL_PUBLISHED` ב-`assets/crm.js`. אותה תבנית של `GOOGLE_PUBLISHED`
  * בייבוא אנשי הקשר (docs/crm-contacts-import.md).
  */
-export const GCAL_PUBLISHED = false;
+export const GCAL_PUBLISHED = true;
 
 export function googleCalendarConfigured(): boolean {
   return !!(CLIENT_ID && CLIENT_SECRET && TOKEN_KEY_B64);

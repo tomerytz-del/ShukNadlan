@@ -20935,11 +20935,11 @@ document.getElementById('agAutoSave').addEventListener('click', async ()=>{
    מה שנקרא מ-Google: פנוי/תפוס בלבד, לעוזר בוואטסאפ. ראו docs/google-calendar.md. */
 let agendaGcal = null;
 
-/* ‏**false כל עוד מסך ההסכמה ב-Google במצב Testing** - Google חוסמת שם כל
-   מי שאינו/ה ב-Test users, ולכן הכרטיס מוצג רק למנהל/ת הפלטפורמה, ולמי
-   שכבר מחובר/ת (כדי שיוכל/תוכל לנתק). אחרי האימות ו-Publish app - true כאן
-   **וגם** ב-GCAL_PUBLISHED שב-_shared/google-calendar.ts, שם זו האכיפה. */
-const GCAL_PUBLISHED = false;
+/* ‏**true מ-30.9.2026** - האפליקציה ב-Google אומתה ופורסמה. ‏false מסתיר את
+   הכרטיס לכולם חוץ ממנהל/ת הפלטפורמה ומי שכבר מחובר/ת (כדי שיוכל/תוכל
+   לנתק), ותמיד יחד עם GCAL_PUBLISHED שב-_shared/google-calendar.ts, שם זו
+   האכיפה. */
+const GCAL_PUBLISHED = true;
 
 function gcalAvailable(){
   return GCAL_PUBLISHED
