@@ -5070,6 +5070,54 @@ function loadWhatsappSettings(agent){
   }
 }
 
+/* ==========================================================================
+   קליטה מהמייל (docs/email-intake.md)
+   --------------------------------------------------------------------------
+   הכתובת היא shuknadlan+<token>@gmail.com, והטוקן הוא הסוד שמזהה את
+   הסוכן/ת — היא נוצרת במסד (email_intake_address) בלחיצה הראשונה ולא
+   בטעינת הדף, כדי שמי שלא השתמש/ה בזה לא יחזיק/ה כתובת פעילה.
+   ========================================================================== */
+function showIntakeAddress(addr){
+  const row = document.getElementById('waIntakeAddrRow');
+  document.getElementById('waIntakeAddr').textContent = addr;
+  row.hidden = false; row.style.display = 'flex';
+  document.getElementById('waIntakeBtn').hidden = true;
+  document.getElementById('waIntakeRotate').hidden = false;
+  document.getElementById('waIntakeHint').textContent =
+    'כדאי לשמור אותה באנשי הקשר. אפשר גם להגדיר במייל העברה אוטומטית ' +
+    '(למשל של לידים מאתר) - אם Gmail ישלח קוד אישור, העוזר יעביר לך אותו בוואטסאפ. ' +
+    (currentAgent && currentAgent.phone ? '' : 'שימו לב: בלי מספר וואטסאפ שמור למעלה, המיילים לא ייענו.');
+}
+
+async function requestIntakeAddress(rotate){
+  const hint = document.getElementById('waIntakeHint');
+  if (rotate && !confirm('הכתובת הנוכחית תפסיק לעבוד מיד. להחליף?')) return;
+  hint.textContent = 'רגע…';
+  const { data, error } = await sb.rpc(rotate ? 'email_intake_rotate' : 'email_intake_address');
+  if (error || !data){
+    hint.textContent = 'לא הצלחנו להביא את הכתובת. אפשר לנסות שוב.';
+    return;
+  }
+  showIntakeAddress(String(data));
+}
+
+document.getElementById('waIntakeBtn').addEventListener('click', ()=>{
+  if (!assistantTierOk()){
+    document.getElementById('waIntakeHint').textContent =
+      'העברת מיילים היא חלק מהעוזר האישי, שזמין במסלולים PROFESSIONAL ו-Elite.';
+    return;
+  }
+  requestIntakeAddress(false);
+});
+document.getElementById('waIntakeRotate').addEventListener('click', ()=> requestIntakeAddress(true));
+document.getElementById('waIntakeCopy').addEventListener('click', async ()=>{
+  const addr = document.getElementById('waIntakeAddr').textContent;
+  const btn = document.getElementById('waIntakeCopy');
+  try { await navigator.clipboard.writeText(addr); btn.textContent = 'הועתק ✓'; }
+  catch { btn.textContent = 'לא הועתק'; }
+  setTimeout(()=>{ btn.textContent = 'העתקה'; }, 2000);
+});
+
 document.getElementById('whatsappForm').addEventListener('submit', async (e)=>{
   e.preventDefault();
   if (!currentAgent) return;
