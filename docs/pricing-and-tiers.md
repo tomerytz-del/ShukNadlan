@@ -77,6 +77,7 @@
 | מדריך ההתחלה | `agent_onboarding_active` — `mid`/`premium`, והמצב שהדשבורד קורא הוא `agent_onboarding_state`. הצעד הראשון בו הוא העוזר בוואטסאפ, ומדריך שפותח בהוראה שהמסלול אינו כולל הוא פרסומת (ראו `docs/agent-onboarding.md`) |
 | מספר טלפון בתיאור המודעה ובביו | `paygo_text_rules_apply` — **ההגבלה ההפוכה מכל השאר**: ב-Pay&GO המספר מוסר בשמירה, בטריגר על `properties` ועל `agency_members`. ההסרה חד-כיוונית (ראו `docs/public-text-policy.md`) |
 | פרסום אוטומטי ברשתות | **פתוח לכל המסלולים בכוונה** — ראו למטה |
+| קריאה לפעולה בפוסט ברשתות ("לצפייה בתמונות... כנסו לקישור") | `ctaTier` ב-`property-marketing-publish` — `mid`/`premium` + `billing_status` + `active`. "הדמיות" נכתב רק ב-`premium`, כמו `property_visualizations_enabled`. הפרסום עצמו נשאר פתוח לכולם |
 
 ### מכסת הפניות של Pay&GO — מונה אחד, לא מונה לכל באנר
 

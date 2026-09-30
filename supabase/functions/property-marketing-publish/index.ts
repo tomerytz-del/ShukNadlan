@@ -259,7 +259,32 @@ const generateMarketing = (row: any) =>
 // גולש/ת בפייסבוק סורק/ת את השורות האלה לפני שהוא/היא קורא/ת מילה מהפתיח,
 // ולכן הן לא נכנסות לתוך הטקסט החופשי אלא יושבות מתחתיו תמיד באותו סדר.
 // ---------------------------------------------------------------------------
-const POST_CTA = "👇 לצפייה בתמונות והדמיות של הנכס כנסו לקישור";
+// ‏**הקריאה לפעולה - ל-PROFESSIONAL ומעלה בלבד**, לבקשת בעל האתר
+// (‏30.9.2026). ‏"הדמיות" רק ב-Elite: ההדמיות עצמן הן יכולת premium
+// (‏property_visualizations_enabled), ומשפט שמבטיח הדמיות בנכס שאין לו
+// אותן הוא הבטחה שהקונה מגלה שאינה נכונה בלחיצה הראשונה.
+// ‏מסלול שפג (‏billing_status / active) נספר כ-free, כמו בכל גייט אחר.
+type CtaTier = "mid" | "premium" | null;
+
+// deno-lint-ignore no-explicit-any
+async function ctaTier(sb: any, agentId: string | null | undefined): Promise<CtaTier> {
+  if (!agentId) return null;
+  const { data: m } = await sb.from("agency_members").select("tier, billing_status, active")
+    .eq("id", agentId).maybeSingle();
+  if (!m?.active || m.billing_status !== "active") return null;
+  return m.tier === "premium" || m.tier === "mid" ? m.tier : null;
+}
+
+// deno-lint-ignore no-explicit-any
+function postCta(row: any, channel: "facebook" | "instagram"): string | null {
+  const what = row.cta_tier === "premium" ? "בתמונות ובהדמיות של הנכס"
+    : row.cta_tier === "mid" ? "בכל התמונות והפרטים של הנכס"
+    : null;
+  if (!what) return null;
+  return channel === "instagram"
+    ? `🔗 לצפייה ${what} כנסו לקישור שבביו`
+    : `👇 לצפייה ${what} כנסו לקישור`;
+}
 
 function buildMessage(row: any, marketing: { description: string; post: string }): string {
   const link = propertyUrl(row.property_id);
@@ -279,8 +304,9 @@ function buildMessage(row: any, marketing: { description: string; post: string }
     lines.push(`לפרטים: ${[row.agent_name, row.agency_name].filter(Boolean).join(" · ")}`);
   }
   // ‏קריאה לפעולה מעל הקישור: הפוסט מציג שתיים-שלוש תמונות, ובדף הנכס יש
-  // את כולן ואת ההדמיות. בלי המשפט הקישור נראה כמו חתימה ולא כמו הזמנה.
-  lines.push(POST_CTA);
+  // את כולן. בלי המשפט הקישור נראה כמו חתימה ולא כמו הזמנה.
+  const cta = postCta(row, "facebook");
+  if (cta) lines.push(cta);
   if (!lead.includes(link)) lines.push(`🔗 ${link}`);
 
   // ‏**הניקוי כאן ולא רק במחולל, כי כאן זה גבול הפרסום.** ‏`lead` יכול
@@ -328,7 +354,7 @@ function buildInstagramCaption(row: any, marketing: { description: string; post:
   // ‏אינסטגרם אינה הופכת קישור בכיתוב ללחיץ — גם לא את הקצר (‏/p/1162) —
   // ולכן אין כאן כתובת בכלל. הדרך היחידה ללחוץ היא הקישור בביו, שמוביל
   // ל-/instagram: כל הנכסים מהפוסטים, עם חיפוש לפי מספר המודעה.
-  facts.push("🔗 לצפייה בתמונות והדמיות של הנכס כנסו לקישור שבביו");
+  facts.push(postCta(row, "instagram") ?? "🔗 כל הנכסים, עם כל הפרטים והתמונות - בקישור שבביו");
   if (row.listing_number) facts.push(`🔎 מחפשים שם את מודעה מס׳ ${row.listing_number}`);
 
   const deal = row.deal_type === "rent" ? "להשכרה" : row.deal_type === "sale" ? "למכירה" : null;
@@ -587,10 +613,12 @@ async function handle(
   // ‏"+ מע״מ" ליד מחיר של נכס מסחרי (‏priceLine) דורש את price_includes_vat,
   // ו-pending_property_publications אינה מחזירה אותו. קריאה אחת לנכס
   // זולה בהרבה משינוי סוג ההחזרה של הפונקציה במסד.
-  if (!("price_includes_vat" in row)) {
-    const { data: vat } = await sb.from("properties").select("price_includes_vat")
+  // ‏באותה קריאה: הסוכן/ת, לשורת הקריאה לפעולה (‏ctaTier).
+  if (!("price_includes_vat" in row) || !("cta_tier" in row)) {
+    const { data: prop } = await sb.from("properties").select("price_includes_vat, agent_id")
       .eq("id", row.property_id).maybeSingle();
-    row.price_includes_vat = vat?.price_includes_vat ?? null;
+    if (!("price_includes_vat" in row)) row.price_includes_vat = prop?.price_includes_vat ?? null;
+    row.cta_tier = await ctaTier(sb, prop?.agent_id);
   }
 
   // 1. תיאור שיווקי — רק אם אין, אלא אם ביקשו במפורש לכתוב מחדש
