@@ -30,6 +30,11 @@
      אינו מוצג. ההקמה: docs/crm-contacts-import.md. */
   var GOOGLE_CLIENT_ID = '562003868349-ja2c4n7gbet2u971rsfj2bup78mb1a3p.apps.googleusercontent.com';
   var GOOGLE_SCOPE = 'https://www.googleapis.com/auth/contacts.readonly';
+  /* ‏**false כל עוד מסך ההסכמה בפרויקט ב-Testing.** במצב הזה Google חוסמת
+     כל מי שאינו/ה ב-Test users ("האפליקציה לא סיימה את תהליך האימות"),
+     ולכן הכפתור מוצג רק למנהל/ת הפלטפורמה. אחרי Publish app ואימות של
+     Google - true, והכפתור נפתח לכל הסוכנים. docs/crm-contacts-import.md */
+  var GOOGLE_PUBLISHED = false;
   /* חמישה עמודים של 1,000 — יותר מזה הוא ספר טלפונים של מוקד ולא של
      מתווך/ת, והרשימה במסך הבחירה כבר אינה שמישה. */
   var GOOGLE_MAX_PAGES = 5;
@@ -289,6 +294,11 @@
 
   function googleConfigured() { return !!GOOGLE_CLIENT_ID; }
 
+  /* מי רואה את הכפתור: כולם אחרי הפרסום, ועד אז רק מנהל/ת הפלטפורמה. */
+  function googleAvailable(isPlatformAdmin) {
+    return googleConfigured() && (GOOGLE_PUBLISHED || !!isPlatformAdmin);
+  }
+
   var gisPromise = null;
   function loadGis() {
     if (window.google && window.google.accounts && window.google.accounts.oauth2) {
@@ -375,6 +385,7 @@
     parseFile: parseFile,
     takeShared: takeShared,
     googleConfigured: googleConfigured,
+    googleAvailable: googleAvailable,
     fetchGoogle: fetchGoogle,
   };
 })();
