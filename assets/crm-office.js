@@ -535,12 +535,156 @@ document.getElementById('cxFile').addEventListener('change', async e => {
 document.getElementById('openClientImport').addEventListener('click', openClientImport);
 document.getElementById('openClientExport').addEventListener('click', openClientExport);
 
+/* ==========================================================================
+   מסירת כמה לקוחות בבת אחת - מנהל/ת משרד בלבד
+
+   רשימה עם תיבות סימון של מי שאפשר למסור: הלקוחות של המנהל/ת, ומי שכבר
+   מסר/ה (להעברה לסוכן/ת אחר/ת או להחזרה). ההעברה בקריאה אחת ל-
+   ‏refer_clients_to_agent() (‏20270130090000), שבודקת כל שורה בעצמה ושולחת
+   לסוכן/ת התראה אחת ולא אחת לכל לקוח/ה.
+   ========================================================================== */
+
+const BULK_REFER_LIST_MAX = 300;
+let bulkRefer = null;   // { rows, checked:Set, query, scope }
+
+function bulkReferCandidates(){
+  return clientRows.filter(c => c.agent_id === currentAgent.id || c.referred_by === currentAgent.id);
+}
+
+function bulkReferVisible(){
+  const q = String(bulkRefer.query || '').trim().toLowerCase();
+  const qd = q.replace(/\D/g, '');
+  return bulkRefer.rows.filter(c => {
+    if (bulkRefer.scope === 'own' && c.referred_by) return false;
+    if (bulkRefer.scope === 'referred' && !c.referred_by) return false;
+    if (!q) return true;
+    return clientSearchBlob(c).includes(q) || (qd && String(c.phone || '').replace(/\D/g, '').includes(qd));
+  });
+}
+
+async function openBulkRefer(){
+  if (!officeIsManager()){ showToast('מסירת לקוחות זמינה למנהל/ת המשרד בלבד'); return; }
+  const rows = bulkReferCandidates();
+  if (!rows.length){ showToast('אין בקובץ שלך לקוחות למסירה'); return; }
+  bulkRefer = { rows, checked: new Set(), query: '', scope: 'own' };
+  await officePreloadNames(rows);
+
+  const modal = document.getElementById('ciModal');
+  modal.style.display = 'flex';
+  document.getElementById('ciTitle').textContent = 'מסירת לקוחות לסוכן/ת';
+  document.getElementById('ciBody').innerHTML =
+    '<div class="field"><label for="brAgent">למי למסור</label><select id="brAgent" disabled>' +
+      '<option value="">טוען את הצוות…</option></select></div>' +
+    '<div class="ci-tools">' +
+      '<input type="search" id="brSearch" class="filter-input" placeholder="חיפוש לפי שם, טלפון, עיר או סוג נכס" autocomplete="off">' +
+      '<select id="brScope" class="filter-input" style="flex:0 0 auto;width:auto">' +
+        '<option value="own">שלי, שעוד לא נמסרו</option>' +
+        '<option value="referred">שכבר מסרתי</option>' +
+        '<option value="all">הכול</option>' +
+      '</select>' +
+    '</div>' +
+    '<div class="ci-tools" style="margin-top:6px">' +
+      '<button type="button" class="btn btn-ghost" data-br="all" style="padding:6px 12px">סימון המוצגים</button>' +
+      '<button type="button" class="btn btn-ghost" data-br="none" style="padding:6px 12px">ניקוי הסימון</button>' +
+    '</div>' +
+    '<div class="ci-list" id="brList"></div>' +
+    '<p class="imp-note" style="margin:10px 0 0">כל לקוח/ה שנמסר/ה מסומן/ת "הפנייה" ומשותף/ת לך ולסוכן/ת. ' +
+      'הסוכן/ת מקבל/ת התראה אחת על כולם.</p>';
+  bulkReferRender();
+
+  document.getElementById('brSearch').addEventListener('input', e => { bulkRefer.query = e.target.value; bulkReferRender(); });
+  document.getElementById('brScope').addEventListener('change', e => { bulkRefer.scope = e.target.value; bulkReferRender(); });
+  document.getElementById('brAgent').addEventListener('change', bulkReferFoot);
+
+  const team = (await expLoadTeam()).filter(m => m.active && m.id !== currentAgent.id);
+  const sel = document.getElementById('brAgent');
+  if (!sel) return;   // החלון נסגר בזמן הטעינה
+  sel.innerHTML = '<option value="">בחירת סוכן/ת</option>' +
+    team.map(m => `<option value="${escapeHtml(m.id)}">${escapeHtml(m.display_name || 'ללא שם')}</option>`).join('') +
+    `<option value="${escapeHtml(currentAgent.id)}">החזרה אליי (ביטול ההפנייה)</option>`;
+  sel.disabled = false;
+  bulkReferFoot();
+}
+
+function bulkReferRender(){
+  const list = document.getElementById('brList');
+  if (!list || !bulkRefer) return;
+  const shown = bulkReferVisible();
+  list.innerHTML = shown.slice(0, BULK_REFER_LIST_MAX).map(c => {
+    const i = bulkRefer.rows.indexOf(c);
+    const handler = c.referred_by ? officeMemberName(c.agent_id) : '';
+    const meta = [c.phone, clientTabSub(c), handler && '🤝 בטיפול ' + handler].filter(Boolean).join(' · ');
+    return '<label class="ci-row">' +
+      `<input type="checkbox" data-bulk-i="${i}"${bulkRefer.checked.has(c.id) ? ' checked' : ''}>` +
+      '<span style="flex:1;min-width:0">' +
+        `<span class="ci-name">${escapeHtml(c.full_name || c.phone || '-')}</span>` +
+        (meta ? `<div class="ci-meta">${escapeHtml(meta)}</div>` : '') +
+      '</span></label>';
+  }).join('') || '<div class="empty-state">אין לקוחות שמתאימים לחיפוש.</div>';
+  if (shown.length > BULK_REFER_LIST_MAX){
+    list.insertAdjacentHTML('beforeend',
+      `<div class="empty-state">מוצגים ${BULK_REFER_LIST_MAX} מתוך ${shown.length} - חפשו כדי לצמצם</div>`);
+  }
+  bulkReferFoot();
+}
+
+function bulkReferFoot(){
+  if (!bulkRefer) return;
+  const n = bulkRefer.checked.size;
+  const agent = document.getElementById('brAgent');
+  const ready = n && agent && agent.value;
+  document.getElementById('ciFoot').innerHTML =
+    '<button type="button" class="btn btn-ghost" data-br="close">ביטול</button>' +
+    `<button type="button" class="btn btn-gold" data-br="run"${ready ? '' : ' disabled'}>` +
+      (n ? (n === 1 ? 'מסירת לקוח/ה אחד/ת' : `מסירת ${n} לקוחות`) : 'סמנו לקוחות למסירה') + '</button>';
+}
+
+async function runBulkRefer(btn){
+  const agentId = document.getElementById('brAgent').value;
+  const ids = [...bulkRefer.checked];
+  if (!agentId || !ids.length) return;
+  btn.disabled = true;
+  btn.textContent = 'מוסר…';
+  const { data, error } = await sb.rpc('refer_clients_to_agent', { p_ids: ids, p_agent_id: agentId });
+  if (error || !data || data.ok === false){
+    btn.disabled = false;
+    bulkReferFoot();
+    showToast('המסירה נכשלה: ' + ((data && data.error) || (error && error.message) || 'שגיאה לא ידועה'), 6000);
+    return;
+  }
+  document.getElementById('ciModal').style.display = 'none';
+  bulkRefer = null;
+  const skipped = data.skipped ? ` (${data.skipped} כבר היו אצלו/ה או אינם שלך)` : '';
+  showToast(data.returned
+    ? `${plural(data.moved, 'לקוח/ה אחד/ת חזר/ה', 'לקוחות חזרו')} אליך${skipped}`
+    : `${plural(data.moved, 'לקוח/ה אחד/ת נמסר/ה', 'לקוחות נמסרו')} ל${data.agent_name || 'סוכן/ת'}${skipped}`, 5000);
+  await loadClients();
+}
+
+document.getElementById('ciModal').addEventListener('change', e => {
+  const i = e.target.dataset && e.target.dataset.bulkI;
+  if (i == null || !bulkRefer) return;
+  const c = bulkRefer.rows[Number(i)];
+  if (e.target.checked) bulkRefer.checked.add(c.id); else bulkRefer.checked.delete(c.id);
+  bulkReferFoot();
+});
+document.getElementById('ciModal').addEventListener('click', e => {
+  const btn = e.target.closest('[data-br]');
+  if (!btn || !bulkRefer) return;
+  const act = btn.dataset.br;
+  if (act === 'close'){ document.getElementById('ciModal').style.display = 'none'; bulkRefer = null; return; }
+  if (act === 'all'){ bulkReferVisible().slice(0, BULK_REFER_LIST_MAX).forEach(c => bulkRefer.checked.add(c.id)); return bulkReferRender(); }
+  if (act === 'none'){ bulkRefer.checked.clear(); return bulkReferRender(); }
+  if (act === 'run') return runBulkRefer(btn);
+});
+document.getElementById('openBulkRefer').addEventListener('click', openBulkRefer);
+
 /* כפתורי הייצוא מוצגים למנהל/ת משרד בלבד. ‏style.display ולא hidden: אין
    בדף כלל ‎[hidden]{display:none !important}‎, ו-.btn מגדיר display משלו.
    נקרא מ-loadDashboard בכל טעינה, כדי שהחלפת תפקיד תסתיר גם אותם. */
 function syncOfficeExportButtons(){
   const show = officeIsManager();
-  ['openExportProperties', 'openClientExport'].forEach(id => {
+  ['openExportProperties', 'openClientExport', 'openBulkRefer'].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.style.display = show ? '' : 'none';
   });
