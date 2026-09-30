@@ -47,7 +47,7 @@ pg_cron כל 2 דק׳  ──►  whatsapp-webhook?task=email-intake   (x-alert-
 | `supabase/functions/whatsapp-webhook/agent.ts` | ‏`runAgentTurn({ allowedTools })` — צמצום הכלים לתור |
 | `supabase/functions/whatsapp-webhook/whatsapp.ts` | ‏`sendNotifyTemplate` — הודעה מחוץ לחלון |
 | `supabase/migrations/20270124090000_email_intake.sql` | הטבלאות, `email_intake_address` / `email_intake_rotate`, וה-cron |
-| `supabase/migrations/20270125090000_email_intake_by_sender.sql` | הכתובת הרגילה: `email_intake_agents_by_email`, העמודה `via`, וה-cron בלי תנאי |
+| `supabase/migrations/20270127090000_email_intake_by_sender.sql` | הכתובת הרגילה: `email_intake_agents_by_email`, העמודה `via`, וה-cron בלי תנאי |
 | `crm.html` · `assets/crm.js` | הכרטיס "העברת מיילים לעוזר" בקטגוריה "העוזר האישי בוואטסאפ" |
 
 **למה בתוך `whatsapp-webhook` ולא פונקציה נפרדת:** המייל נכנס *לאותה שיחה*.
@@ -69,7 +69,7 @@ pg_cron כל 2 דק׳  ──►  whatsapp-webhook?task=email-intake   (x-alert-
 `agency_members`, כי השורה ההיא נקראת ממקומות רבים.
 
 הכתובת האישית נוצרת **רק בלחיצה** בדשבורד. ה-cron רץ תמיד (מיגרציה
-`20270125090000`), כי גם בלי כתובת אישית אפשר לשלוח לכתובת הרגילה.
+`20270127090000`), כי גם בלי כתובת אישית אפשר לשלוח לכתובת הרגילה.
 
 ---
 
