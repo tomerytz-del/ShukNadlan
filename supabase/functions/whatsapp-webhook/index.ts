@@ -102,7 +102,7 @@ async function logInbound(msg: Record<string, any>): Promise<boolean> {
     direction: "in",
     wa_phone: msg.from,
     msg_type: msg.type || "unknown",
-    body: msg.text?.body || msg.image?.caption || null,
+    body: msg.text?.body || msg.image?.caption || contactsLogLine(msg.contacts) || null,
   });
   if (error) {
     if (error.code === "23505") return false; // כבר טופלה
@@ -210,6 +210,103 @@ async function transcribeAudio(mediaId: string): Promise<string | null> {
     console.error("transcription failed", err);
     return null;
   }
+}
+
+// ---------------------------------------------------------------------------
+// כרטיסי איש קשר והודעות מועברות
+//
+// מה שהטלפון לא מוסר לאתר, וואטסאפ כן מוסר: סוכן/ת פותח/ת את השיחות
+// האחרונות, "שתף איש קשר" ← העוזר, והכרטיס מגיע כאן כהודעה מסוג `contacts`.
+// זו הדרך היחידה שעובדת גם באייפון — דפדפן אינו רואה את יומן השיחות ואת
+// אנשי הקשר בשום מכשיר (‏docs/crm-contacts-import.md).
+//
+// הבדיקה אם המספר כבר בקובץ נעשית כאן בקוד ולא מבוקשת מהמודל: היא זולה,
+// דטרמיניסטית, ו"הוא כבר לקוח שלך" היא בדיוק השורה שחוסכת כרטיס כפול.
+// ---------------------------------------------------------------------------
+
+/** כמה כרטיסים לכל היותר מעובדים מהודעה אחת. שיתוף של מאה אנשי קשר הוא
+ *  כמעט תמיד טעות, והוא היה ממלא את ההקשר של המודל. */
+const MAX_SHARED_CONTACTS = 20;
+
+type SharedContact = { name: string; phones: string[]; emails: string[]; company: string };
+
+function parseSharedContacts(raw: unknown): SharedContact[] {
+  if (!Array.isArray(raw)) return [];
+  return raw.slice(0, MAX_SHARED_CONTACTS).map((c: Record<string, any>) => {
+    const n = c?.name || {};
+    const name = String(
+      n.formatted_name || [n.first_name, n.middle_name, n.last_name].filter(Boolean).join(" ") || "",
+    ).trim();
+    const phones = (Array.isArray(c?.phones) ? c.phones : [])
+      .map((p: Record<string, any>) => localPhone(String(p?.wa_id || p?.phone || "")))
+      .filter(Boolean);
+    const emails = (Array.isArray(c?.emails) ? c.emails : [])
+      .map((e: Record<string, any>) => String(e?.email || "").trim())
+      .filter(Boolean);
+    return {
+      name,
+      phones: [...new Set(phones)] as string[],
+      emails: [...new Set(emails)] as string[],
+      company: String(c?.org?.company || "").trim(),
+    };
+  }).filter((c) => c.name || c.phones.length);
+}
+
+/** ‏972521234567 / +972-52-123-4567 → 0521234567. מספר זר נשאר כמו שהוא. */
+function localPhone(raw: string): string {
+  const digits = raw.replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.startsWith("972") && digits.length >= 11) return "0" + digits.slice(3);
+  return raw.trim().startsWith("+") ? "+" + digits : digits;
+}
+
+function phoneKey(raw: unknown): string {
+  return String(raw ?? "").replace(/\D/g, "").slice(-9);
+}
+
+function contactsLogLine(raw: unknown): string | null {
+  const list = parseSharedContacts(raw);
+  return list.length ? `[איש קשר] ${list.map((c) => c.name || c.phones[0]).join(", ")}` : null;
+}
+
+/**
+ * הופכת כרטיסי איש קשר לטקסט שהמודל מבין, ומסמנת מי כבר בקובץ הלקוחות.
+ * ההשוואה לפי תשע הספרות האחרונות, בדיוק כמו בדיקת הכפילות ב-`create_client`.
+ */
+async function contactsToText(raw: unknown, agentId: string): Promise<string> {
+  const list = parseSharedContacts(raw);
+  if (!list.length) return "";
+
+  const { data: clients } = await supabase
+    .from("agent_clients")
+    .select("full_name, phone, status")
+    .eq("agent_id", agentId)
+    .not("phone", "is", null)
+    .limit(2000);
+  const byPhone = new Map<string, { full_name: string; status: string }>();
+  for (const c of clients || []) {
+    const k = phoneKey(c.phone);
+    if (k.length === 9) byPhone.set(k, c);
+  }
+
+  const lines = list.map((c, i) => {
+    const parts = [c.name || "(ללא שם)", ...c.phones, ...c.emails];
+    if (c.company) parts.push(`חברה: ${c.company}`);
+    const hit = c.phones.map((p) => byPhone.get(phoneKey(p))).find(Boolean);
+    const mark = hit
+      ? ` - כבר בקובץ הלקוחות בשם "${hit.full_name}" (סטטוס ${hit.status})`
+      : " - לא בקובץ הלקוחות";
+    return `${i + 1}. ${parts.join(" | ")}${mark}`;
+  });
+  return `[איש קשר ששותף]\n${lines.join("\n")}`;
+}
+
+/** ‏Meta מסמנת הודעה מועברת ב-`context.forwarded`. בלי הסימון הזה המודל היה
+ *  קורא "תוריד לי את המחיר" של לקוח/ה כהוראה של הסוכן/ת. */
+function forwardedPrefix(msg: Record<string, any>): string {
+  return msg.context?.forwarded || msg.context?.frequently_forwarded
+    ? "[הודעה מועברת - נכתבה במקור על ידי מישהו אחר]\n"
+    : "";
 }
 
 // ---------------------------------------------------------------------------
@@ -562,7 +659,15 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
 
   switch (msg.type) {
     case "text":
-      userText = msg.text?.body || "";
+      userText = forwardedPrefix(msg) + (msg.text?.body || "");
+      break;
+
+    case "contacts":
+      userText = await contactsToText(msg.contacts, agent.id);
+      if (!userText) {
+        await reply(from, "קיבלתי כרטיס איש קשר, אבל לא היו בו שם או טלפון.", agent.id);
+        return;
+      }
       break;
 
     case "image": {
@@ -575,7 +680,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
         await reply(from, "לא הצלחתי לשמור את התמונה. אפשר לנסות לשלוח אותה שוב?", agent.id);
         return;
       }
-      userText = msg.image?.caption || "";
+      userText = msg.image?.caption ? forwardedPrefix(msg) + msg.image.caption : "";
       break;
     }
 
@@ -596,7 +701,9 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
         );
         return;
       }
-      userText = transcript;
+      // הקלטה מועברת היא לרוב לקוח/ה שמתאר/ת מה מחפש/ת — הסימון הוא מה
+      // שמבדיל אותה מהוראה קולית של הסוכן/ת עצמו/ה.
+      userText = forwardedPrefix(msg) + transcript;
       await supabase.from("whatsapp_messages")
         .update({ body: transcript })
         .eq("wa_message_id", msg.id);
@@ -622,7 +729,7 @@ async function handleMessage(msg: Record<string, any>): Promise<void> {
     default:
       await reply(
         from,
-        "אני יודע לקבל טקסט, תמונות והקלטות קוליות. מסמכים וסרטונים אפשר להעלות מהדשבורד.",
+        "אני יודע לקבל טקסט, תמונות, הקלטות קוליות ואנשי קשר. מסמכים וסרטונים אפשר להעלות מהדשבורד.",
         agent.id,
       );
       return;

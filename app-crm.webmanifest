@@ -11,6 +11,21 @@
   "background_color": "#DEDCD6",
   "theme_color": "#0e2a6b",
   "categories": ["business", "productivity"],
+  "share_target": {
+    "action": "/crm-share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "title": "title",
+      "text": "text",
+      "files": [
+        {
+          "name": "contacts",
+          "accept": ["text/vcard", "text/x-vcard", "text/directory", ".vcf", ".vcard"]
+        }
+      ]
+    }
+  },
   "icons": [
     {
       "src": "/assets/icon-192.png",
