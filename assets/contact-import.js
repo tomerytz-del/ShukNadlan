@@ -28,7 +28,7 @@
      ‎https://shuknadlan.co.il‎). ציבורי מטבעו — הוא יושב בכל דף שמשתמש
      בכניסה של גוגל — ולכן הוא בקוד ולא בסוד. ריק = כפתור הייבוא מגוגל
      אינו מוצג. ההקמה: docs/crm-contacts-import.md. */
-  var GOOGLE_CLIENT_ID = '562003868349-ja2c4n7gbet2u971rsfj2bup78mb1a3p.apps.googleusercontent.com';
+  var GOOGLE_CLIENT_ID = '272022717933-gtrusafek7ugfce97rp28k26pj48hs4v.apps.googleusercontent.com';
   var GOOGLE_SCOPE = 'https://www.googleapis.com/auth/contacts.readonly';
   /* ‏**false כל עוד מסך ההסכמה בפרויקט ב-Testing.** במצב הזה Google חוסמת
      כל מי שאינו/ה ב-Test users ("האפליקציה לא סיימה את תהליך האימות"),
