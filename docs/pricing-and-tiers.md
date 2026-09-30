@@ -9,8 +9,13 @@
 | בממשק | במסד | מחיר |
 |---|---|---|
 | **Pay&GO** | `free` | ללא דמי מנוי · ₪25 לפנייה מעבר למכסה |
-| **PROFESSIONAL** | `mid` | ₪750 לחודש + מע״מ |
-| **Elite** | `premium` | ₪950 לחודש + מע״מ |
+| **PROFESSIONAL** | `mid` | ₪399 לחודש + מע״מ |
+| **Elite** | `premium` | ₪599 לחודש + מע״מ |
+
+המחיר נגבה מ-`pricing_config` (‏`tier_mid_monthly_price`, ‏`tier_premium_monthly_price`),
+ומוצג מ-`assets/tiers.js`, מ-`pricing.html` ומ-`TIER_PRICES` ב-`_shared/launch-promo.ts`.
+שינוי מחיר נוגע בכולם באותו PR - האחרון היה ₪750/₪950 → ₪399/₪599
+(‏`20270123090000_tier_prices_399_599.sql`).
 
 **המזהים במסד לא השתנו ולא ישתנו בקלות.** ‏`free`/`mid`/`premium` מופיעים
 בעשרות מקומות שאינם קוד HTML: ‏`cma_report`, ‏`property_video_tier`, ה-view של
