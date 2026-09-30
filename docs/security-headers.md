@@ -250,7 +250,23 @@ curl -s https://shuknadlan.co.il/property | grep google-site-verification
 | שם/מארח | `@` (השורש, כלומר `shuknadlan.co.il` עצמו) |
 | ערך | `google-site-verification=_ALC1h51UGYFz3-d53Q9wYeB88QS5ow5DbJ-ZgV1PDA` |
 
-זו הנקודה שקל לפספס: **שום קובץ בריפו לא מחזיק אותה, ולכן שום בדיקת CI
+**ורשומת TXT שנייה, לחשבון Google נוסף** (נוספה 30.9.2026):
+
+| שדה | ערך |
+| --- | --- |
+| סוג | `TXT` |
+| שם/מארח | `@` |
+| ערך | `google-site-verification=NddMv6NkNzsKqwaxvIEUrUcEe7_GxxCAp7tlewyluJg` |
+
+היא מאמתת את `tomerytz@gmail.com` כבעלים של נכס הדומיין. זה החשבון
+שמנהל את פרויקט Google Cloud ‏`shuknadlan`, ו-Google דורשת שהבעלים של
+הפרויקט יהיו בעלים מאומתים של הדומיין בדף הבית של מסך ההסכמה -
+בלעדיה המיתוג נדחה ב-"The website of your home page URL is not registered
+to you", ולא ניתן להגיש לאימות את ייבוא אנשי הקשר מ-Google
+(`docs/crm-contacts-import.md`). הרשומה הראשונה שייכת לחשבון אחר. **שתי
+הרשומות נשארות**, ומחיקה של כל אחת מהן מבטלת את האימות של החשבון שלה.
+
+זו הנקודה שקל לפספס: **שום קובץ בריפו לא מחזיק אותן, ולכן שום בדיקת CI
 לא תתפוס את היעלמותה.** מעבר בין ספקי DNS, או העברת הדומיין ל-Netlify
 DNS, מוחק את הרשומה יחד עם כל השאר — והאימות נופל בשקט, בלי שדבר באתר
 משתנה. מי שנוגע ב-DNS מעתיק את הרשומה הזו לצד החדש.
@@ -259,5 +275,5 @@ DNS, מוחק את הרשומה יחד עם כל השאר — והאימות נ�
 דקות עד שעות):
 
 ```sh
-dig +short TXT shuknadlan.co.il | grep google-site-verification
+dig +short TXT shuknadlan.co.il | grep google-site-verification   # שתי שורות
 ```

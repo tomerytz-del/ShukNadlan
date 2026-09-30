@@ -140,6 +140,12 @@ users - וב-*Testing* גם אי אפשר להגיש לאימות. הסדר לפ
 **Publish app** ← *Verification Center* ← הגשה ← אחרי האישור,
 `GOOGLE_PUBLISHED = true` ב-`assets/contact-import.js`.
 
+**ובעלות על הדומיין:** המיתוג נדחה בפעם הראשונה כי `tomerytz@gmail.com`
+(בעל הפרויקט) לא היה בעלים של `shuknadlan.co.il` ב-Search Console. נוספה
+לו רשומת TXT שנייה ב-DNS (`docs/security-headers.md`), ואחרי 24 שעות
+מבקשים אימות מחדש של המיתוג: *Branding* ← *View issues* ← *I have fixed
+the issues*.
+
 **מלכודת:** `contacts.readonly` הוא scope **רגיש**. כל עוד האפליקציה לא
 עברה אימות של Google, רק חשבונות שמופיעים ב-*Test users* יכולים לאשר, וכל
 השאר מקבלים "האפליקציה לא אומתה". האימות דורש את `privacy.html` עם סעיף
