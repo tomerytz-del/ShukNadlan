@@ -42,27 +42,23 @@ CRM  ──POST {action:'start'}──►  google-calendar-connect   (verify_jwt
                           302 → /crm?goto=accAgenda&gcal=<תוצאה>
 ```
 
-## מי רואה את הכפתור: מנהל/ת הפלטפורמה בלבד, עד האימות
+## מי רואה את הכפתור: כל הסוכנים במסלול, מ-30.9.2026
 
-כל עוד מסך ההסכמה ב-Google במצב *Testing*, Google חוסמת כל מי שאינו/ה
-ב-*Test users* ("Access blocked"). לכן `GCAL_PUBLISHED = false` בשני
-מקומות, באותה תבנית של `GOOGLE_PUBLISHED` בייבוא אנשי הקשר:
+**פתוח לכולם.** ב-30.9.2026 האפליקציה עברה ל-*In production*, ו-Verification
+Center הראה: המיתוג אומת ("Your branding has been verified"), ואימות גישה
+לנתונים אינו נדרש, כי אף הרשאה אינה רגישה או מוגבלת. לכן `GCAL_PUBLISHED =
+true` בשני המקומות:
 
 | איפה | מה הוא עושה |
 | --- | --- |
-| `supabase/functions/_shared/google-calendar.ts` | **האכיפה**: `google-calendar-connect` מחזירה `not_available_yet` לכל מי שאינו/ה מנהל/ת הפלטפורמה |
-| `assets/crm.js` | התצוגה: כרטיס "יומן Google" מוסתר, חוץ ממנהל/ת הפלטפורמה ומי שכבר מחובר/ת (כדי שיוכל/תוכל לנתק) |
+| `supabase/functions/_shared/google-calendar.ts` | **האכיפה**: כש-false, ‏`google-calendar-connect` מחזירה `not_available_yet` לכל מי שאינו/ה מנהל/ת הפלטפורמה |
+| `assets/crm.js` | התצוגה: כש-false, כרטיס "יומן Google" מוסתר, חוץ ממנהל/ת הפלטפורמה ומי שכבר מחובר/ת |
 
-ובנוסף, בזמן הזה:
-
-- שורת היומן ב-`pricing.html` **אינה** מזכירה את Google. הבטחה בלי יכולת
-  היא בדיוק הכשל שהסקיל `new-tier-capability` נועד למנוע.
-- הבוט אינו מציע לחבר יומן (`agenda_free_slots` והסעיף בפרומפט).
-
-**הפתיחה לכולם, אחרי שהאימות עבר ו-*Publish app*:** ‏`GCAL_PUBLISHED = true`
-בשני הקבצים, `", וחיבור ליומן Google"` חוזר לשורה ב-`pricing.html` וב-`GATES`
-שב-`scripts/check_tier_gates.py`, והמשפט על החיבור חוזר ל-`googleNote`
-ולפרומפט ב-`whatsapp-webhook/agent.ts`.
+**סגירה חזרה** (למשל אם האפליקציה תחזור ל-*Testing*, או אם תתווסף הרשאה רגישה
+שתדרוש אימות מלא): ‏`GCAL_PUBLISHED = false` בשני הקבצים, ובאותו PR להוציא את
+`", וחיבור ליומן Google"` מהשורה ב-`pricing.html` ומ-`GATES` שב-
+`scripts/check_tier_gates.py`, ואת ההפניה לחיבור מ-`googleNote` ומהפרומפט
+ב-`whatsapp-webhook/agent.ts`. כך היה בין #511 לפתיחה (30.9.2026).
 
 ## ההרשאות - הצרות ביותר שעובדות
 
@@ -203,8 +199,8 @@ Authorization - ולכן ה-state הוא האימות היחיד שלו.
    30.9.2026), ולכן הצפוי הוא אימות מיתוג בלבד - שם, דומיין, מדיניות פרטיות
    - ולא אימות רגיש עם סרטון. עד שהוא עובר האפליקציה ב-*Testing*: רק
    Test users יכולים לחבר, וההרשאה שלהם פגה אחרי שבעה ימים. הסדר: *Audience*
-   ← **Publish app** ← *Verification Center* ← הגשה ← אחרי האישור, הפתיחה
-   לכולם (סעיף "מי רואה את הכפתור" למעלה).
+   ← **Publish app** ← *Verification Center*. בפועל (30.9.2026) לא נדרשה הגשה:
+   המיתוג אומת מיד, ואימות הגישה לנתונים "not required".
 
 ## מלכודות
 
