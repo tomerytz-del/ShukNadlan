@@ -119,9 +119,12 @@
 
 1. **Google Cloud Console** ← APIs & Services ← Library ← להפעיל
    **People API**.
-2. Credentials ← OAuth client מסוג **Web application**. אפשר להשתמש
-   בלקוח שכבר קיים לכניסה עם Google (`google-login.md`) - מוסיפים לו
-   ב-*Authorized JavaScript origins* את `https://shuknadlan.co.il`.
+2. Credentials ← OAuth client מסוג **Web application**. הכי פשוט: אותו
+   לקוח של חיבור יומן Google (`GOOGLE_CALENDAR_CLIENT_ID`,
+   `google-calendar.md`) - אותו פרויקט ואותו מסך הסכמה, כך שהאימות של
+   Google נעשה פעם אחת לשני ה-scopes. מוסיפים לו ב-*Authorized JavaScript
+   origins* את `https://shuknadlan.co.il` (היומן משתמש ב-redirect בשרת,
+   ואנשי הקשר בחלון קופץ בדפדפן - שני שדות שונים באותו לקוח).
 3. OAuth consent screen ← Data access ← להוסיף את
    `https://www.googleapis.com/auth/contacts.readonly`.
 4. להדביק את ה-Client ID (לא ה-Secret) ב-`GOOGLE_CLIENT_ID`. הוא ציבורי
