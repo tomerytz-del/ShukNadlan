@@ -115,7 +115,10 @@
 #### הפעלת Google Contacts
 
 הכפתור מוצג רק כש-`GOOGLE_CLIENT_ID` ב-`assets/contact-import.js` אינו
-ריק. להפעלה:
+ריק. **מוגדר מ-30.9.2026:** הלקוח של הכניסה עם Google בפרויקט `shuknadlan`
+(‏`562003868349-ja2c…`, זה שה-redirect שלו הוא ה-callback של Supabase),
+עם `https://shuknadlan.co.il` ב-*Authorized JavaScript origins*. ‏Client
+ID ציבורי מטבעו - הוא מופיע בכל כניסה עם Google. השלבים, למי שמקים מחדש:
 
 1. **Google Cloud Console** ← APIs & Services ← Library ← להפעיל
    **People API**.

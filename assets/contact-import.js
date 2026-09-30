@@ -28,7 +28,7 @@
      ‎https://shuknadlan.co.il‎). ציבורי מטבעו — הוא יושב בכל דף שמשתמש
      בכניסה של גוגל — ולכן הוא בקוד ולא בסוד. ריק = כפתור הייבוא מגוגל
      אינו מוצג. ההקמה: docs/crm-contacts-import.md. */
-  var GOOGLE_CLIENT_ID = '';
+  var GOOGLE_CLIENT_ID = '562003868349-ja2c4n7gbet2u971rsfj2bup78mb1a3p.apps.googleusercontent.com';
   var GOOGLE_SCOPE = 'https://www.googleapis.com/auth/contacts.readonly';
   /* חמישה עמודים של 1,000 — יותר מזה הוא ספר טלפונים של מוקד ולא של
      מתווך/ת, והרשימה במסך הבחירה כבר אינה שמישה. */
