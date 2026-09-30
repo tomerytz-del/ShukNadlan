@@ -72,6 +72,27 @@ const text = marketing || p.description || '';
   `new-tier-capability`.
 * **מקף ארוך**: הנחיה ב-`SYSTEM_PROMPT` + `noLongDash()` על הפלט. שתי השכבות.
 
+## רענון המוני - ולמה "רענון" לבד אינו מחליף את הפוסט
+
+* **`apply_property_marketing_description` לא דורסת `post_text` קיים.**
+  רענון רגיל (וגם כפתור ה-CRM) מחליף את התיאור ומשאיר את הפוסט הישן. מי
+  שרוצה גם פוסט חדש צריך `replace_post: true` ב-`property-description` -
+  מכובד לקורא פנימי בלבד.
+* **קוראים לפונקציה מהמסד, לא מ-GitHub Actions.** ‏`net.http_post` עם
+  `x-alert-cron-secret` מ-Vault, חמישה נכסים בסבב, רק `source = 'ai'`.
+  ‏`SUPABASE_SERVICE_ROLE_KEY` שב-Actions נדחה בפונקציה ב-401. השאילתה:
+  `docs/marketing-description.md`, "רענון המוני".
+* **בלי שורת תור אין התראה לסוכן/ת** - `mark_property_description` היא
+  ששולחת אותה. מודדים `notifications` ו-`property_publications` לפני ואחרי.
+
+## ‏`max_tokens` והפרומפט זזים יחד
+
+החשיבה של המודל (adaptive, מוסתרת, פעילה גם בלי פרמטר) **נספרת בתקרה**.
+פרומפט שמבקש פלט ארוך יותר בלי להגדיל את `max_tokens` נכשל רק על הנכסים
+העשירים בנתונים - "תשובת Claude אינה JSON (stop_reason=max_tokens)",
+לפעמים עם טקסט ריק. זה קרה ב-30.9.2026 פעמיים (1000, ואז 2000). לא מכבים
+חשיבה בפרמטר: המודל נקבע ב-`CLAUDE_MODEL`, ובחלק מהמודלים זה 400.
+
 ## בדיקה אחרי שינוי
 
 ```sql

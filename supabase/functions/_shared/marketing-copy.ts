@@ -214,10 +214,13 @@ export async function generateMarketingCopy(
     },
     body: JSON.stringify({
       model: opts.model,
-      // ‏2000 ולא 1000: אחרי שהפוסט הוארך (30.9.2026) תיאור ופוסט בעברית,
-      // ב-JSON, עברו לפעמים את 1000 טוקנים - התשובה נחתכה באמצע והפכה ל-JSON
-      // שבור ("תשובת Claude אינה JSON"). עברית צורכת טוקנים רבים למילה.
-      max_tokens: 2000,
+      // ‏8000. ‏max_tokens כולל גם את החשיבה: Claude Sonnet 5 (ברירת המחדל כאן)
+      // מריץ adaptive thinking גם בלי פרמטר `thinking`, והחשיבה מוסתרת
+      // ("omitted"). עם 1000 ואחר כך 2000 נכסים עשירים בנתונים נכשלו ב-
+      // stop_reason=max_tokens - לפעמים עם טקסט ריק לגמרי, כי כל התקציב הלך
+      // לחשיבה (30.9.2026). לא מכבים חשיבה בפרמטר: בחלק מהמודלים זה 400, והמודל
+      // נקבע ב-CLAUDE_MODEL מחוץ לקוד.
+      max_tokens: 8000,
       system: SYSTEM_PROMPT,
       messages: [{ role: "user", content: `נתוני הנכס:\n${factsText(row)}` }],
     }),

@@ -285,15 +285,42 @@ select queue_property_description('<uuid>', 'manual', true, 0);
 | שורה ב-`failed` | ארבעה ניסיונות נכשלו. ‏`last_error` אומר למה; `queue_property_description(..., true)` מחזיר לתור |
 | הכפתור ב-CRM נכשל בלי הודעה מהשרת | תשובת ה-preflight. ‏`property-description` נקראת גם מהדפדפן, ולכן היא **חייבת** לענות ל-`OPTIONS` ולהחזיר כותרות CORS בכל תשובה — בלי זה הדפדפן חוסם את הבקשה לפני שהיא מגיעה לשרת, וביומן רואים `OPTIONS \| 405` בלי POST אחריו |
 
-## הרענון החד-פעמי של 30.9.2026
+## רענון המוני (הורץ ב-30.9.2026)
 
-אחרי שינוי הפרומפט (הפוסט אינו חוזר על שורות העובדות) הורץ רענון לכל
-הנכסים הפעילים שהתיאור שלהם נכתב בידי Claude: ‏workflow
-`marketing_refresh_once.yml` (ידני, ברירת מחדל `dry_run`) שקורא ל-
-`property-description` עם `mode: "apply"` ו-`replace_post: true`.
+אחרי שינוי הפרומפט (הפוסט אינו חוזר על שורות העובדות) רועננו כל הנכסים
+הפעילים שהתיאור שלהם נכתב בידי Claude. שלושה דברים שלמדנו, וכל אחד מהם
+נכשל בשקט או כמעט בשקט:
 
-* **טקסט שנכתב ביד לא נדרס** - רק `marketing_description_source = 'ai'`.
-* **אין התראה לסוכנים** - קורא פנימי בלי שורת תור, ולכן
-  `mark_property_description` אינה נקראת.
-* ‏`replace_post` מכובד לקורא פנימי בלבד. ‏`apply_property_marketing_description`
-  עצמה עדיין אינה דורסת `post_text` קיים.
+1. **רענון רגיל אינו מחליף את הפוסט.** ‏`apply_property_marketing_description`
+   לעולם אינה דורסת `post_text` קיים (כדי לא למחוק נוסח שנכתב ביד), ולכן
+   "רענון תיאור" משאיר את הפוסט הישן. לרענון המוני יש ב-`property-description`
+   את הדגל `replace_post: true`, **מכובד לקורא פנימי בלבד**.
+2. **הדרך שעובדת: ‏`pg_net` מהמסד עם סוד ה-cron מ-Vault** - בדיוק כמו ה-cron
+   של הפונקציה. ניסיון ראשון דרך GitHub Actions עם `SUPABASE_SERVICE_ROLE_KEY`
+   נדחה ב-401: המפתח ב-Actions אינו זהה לזה שהפונקציה משווה אליו (PostgREST
+   קיבל אותו, הפונקציה לא). ה-workflow נמחק כדי שלא יטעה.
+
+   ```sql
+   select net.http_post(
+     url := 'https://obookujgolazrwycsiyn.supabase.co/functions/v1/property-description',
+     body := jsonb_build_object('property_id', p.id, 'mode', 'apply', 'replace_post', true),
+     headers := jsonb_build_object('Content-Type','application/json','x-alert-cron-secret',
+       (select decrypted_secret from vault.decrypted_secrets where name='alert_cron_secret' limit 1)),
+     timeout_milliseconds := 120000)
+   from properties p
+   where p.status = 'active' and p.marketing_description_source = 'ai'
+     and p.marketing_description_at < '<זמן תחילת הריצה>'
+   order by p.listing_number limit 5;   -- חמישה בכל סבב, ואז net._http_response
+   ```
+
+   * **טקסט שנכתב ביד לא נדרס** - רק `source = 'ai'`.
+   * **אין התראה לסוכנים** - קורא פנימי בלי שורת תור, ולכן
+     `mark_property_description` אינה נקראת. מודדים את `notifications`
+     ואת `property_publications` לפני ואחרי.
+   * **אין פוסט חדש ואין התראת חיפוש שמור** - הטריגרים האלה מאזינים ל-status,
+     מחיר ומפרט, לא לטקסט.
+3. **‏`max_tokens` כולל את החשיבה.** ‏Claude Sonnet 5 מריץ adaptive thinking
+   גם בלי פרמטר `thinking`, והחשיבה מוסתרת. אחרי שהפוסט הוארך, 1000 ואחר כך
+   2000 לא הספיקו: "תשובת Claude אינה JSON (stop_reason=max_tokens)", לפעמים
+   עם טקסט ריק לגמרי. עכשיו 8000. **כשמאריכים את הפלט בפרומפט - בודקים את
+   התקרה באותו PR.**
