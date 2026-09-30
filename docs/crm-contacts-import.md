@@ -119,10 +119,19 @@
 #### הפעלת Google Contacts
 
 הכפתור מוצג רק כש-`GOOGLE_CLIENT_ID` ב-`assets/contact-import.js` אינו
-ריק. **מוגדר מ-30.9.2026:** הלקוח של הכניסה עם Google בפרויקט `shuknadlan`
-(‏`562003868349-ja2c…`, זה שה-redirect שלו הוא ה-callback של Supabase),
-עם `https://shuknadlan.co.il` ב-*Authorized JavaScript origins*. ‏Client
-ID ציבורי מטבעו - הוא מופיע בכל כניסה עם Google. השלבים, למי שמקים מחדש:
+ריק. **מוגדר מ-1.10.2026:** לקוח היומן בפרויקט **`shuknadlan-calendar`**
+(‏`272022717933-gtru…`, אותו לקוח של `GOOGLE_CALENDAR_CLIENT_ID`), עם
+`https://shuknadlan.co.il` ב-*Authorized JavaScript origins* לצד ה-redirect
+של היומן. ‏Client ID ציבורי מטבעו.
+
+**למה הפרויקט של היומן ולא `shuknadlan`:** המיתוג שם כבר מאומת, ולכן אפשר
+להגיש את `contacts.readonly` מיד. ב-`shuknadlan` המיתוג נדחה ("The website
+of your home page URL is not registered to you") וחיכה ל-24 שעות אחרי אימות
+הדומיין. בונוס: מסך הסכמה אחד, של אותה אפליקציה, ליומן ולאנשי הקשר.
+הלקוח הקודם (`562003868349-…` בפרויקט `shuknadlan`) נשאר לכניסה עם Google
+ואינו משמש כאן.
+
+השלבים, למי שמקים מחדש:
 
 1. **Google Cloud Console** ← APIs & Services ← Library ← להפעיל
    **People API**.
